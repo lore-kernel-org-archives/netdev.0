@@ -1,135 +1,82 @@
 From: Willem de Bruijn <willemb@google.com>
-Subject: [PATCH net-next RFC 2/5] net-timestamp: no-payload only sysctl
-Date: Fri,  9 Jan 2015 12:31:56 -0500
-Message-ID: <1420824719-28848-3-git-send-email-willemb@google.com>
-References: <1420824719-28848-1-git-send-email-willemb@google.com>
+Subject: [PATCH net-next RFC 0/5] net-timestamp: address blinding and batching
+Date: Fri,  9 Jan 2015 12:31:54 -0500
+Message-ID: <1420824719-28848-1-git-send-email-willemb@google.com>
 Cc: davem@davemloft.net, richardcochran@gmail.com,
 	eric.dumazet@gmail.com, luto@amacapital.net,
 	Willem de Bruijn <willemb@google.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f44.google.com ([209.85.213.44]:61122 "EHLO
-	mail-yh0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752308AbbAIRcH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2015 12:32:07 -0500
-Received: by mail-yh0-f44.google.com with SMTP id c41so4711108yho.3
-        for <netdev@vger.kernel.org>; Fri, 09 Jan 2015 09:32:06 -0800 (PST)
-In-Reply-To: <1420824719-28848-1-git-send-email-willemb@google.com>
+Received: from mail-yh0-f43.google.com ([209.85.213.43]:61288 "EHLO
+	mail-yh0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752308AbbAIRcD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2015 12:32:03 -0500
+Received: by mail-yh0-f43.google.com with SMTP id z6so4714281yhz.2
+        for <netdev@vger.kernel.org>; Fri, 09 Jan 2015 09:32:02 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Willem de Bruijn <willemb@google.com>
 
-Tx timestamps are looped onto the error queue on top of an skb. This
-mechanism leaks packet headers to processes unless the no-payload
-options SOF_TIMESTAMPING_OPT_TSONLY is set.
+Two issues were raised during recent timestamping discussions:
+1. looping full packets on the error queue exposes packet headers
+2. TCP timestamping with retransmissions generates many timestamps
 
-Add a sysctl that optionally drops looped timestamps with data for
-unprivileged users.
+This RFC patchset is an attempt at addressing both without breaking
+legacy behavior.
 
-The policy is checked when timestamps are generated in the stack.
-It is possible for timestamps with data to be reported after the
-sysctl is set, if these were queued internally earlier.
+Patch 1 reintroduces the "no payload" timestamp option, which loops
+timestamps onto an empty skb. Patch 2 then gives administrators the
+power to block all timestamp requests by unprivileged users that
+contain data. I proposed this earlier as a backward compatible
+workaround in the discussion of
 
-No vulnerability is immediately known that exploits knowledge
-gleaned from packet headers, but it may still be preferable to allow
-administrators to lock down this path at the cost of possible
-breakage of legacy applications.
+  net-timestamp: pull headers for SOCK_STREAM
+  http://patchwork.ozlabs.org/patch/414810/
 
-Signed-off-by: Willem de Bruijn <willemb@google.com>
----
- include/net/sock.h         |  1 +
- net/core/skbuff.c          | 11 ++++++++++-
- net/core/sock.c            |  3 +++
- net/core/sysctl_net_core.c |  9 +++++++++
- 4 files changed, 23 insertions(+), 1 deletion(-)
+Patch 3 only updates the txtimestamp example to test this option.
 
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 2210fec..9729171 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -2262,6 +2262,7 @@ bool sk_net_capable(const struct sock *sk, int cap);
- extern __u32 sysctl_wmem_max;
- extern __u32 sysctl_rmem_max;
- 
-+extern int sysctl_tstamp_allow_data;
- extern int sysctl_optmem_max;
- 
- extern __u32 sysctl_wmem_default;
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index ece2bb8..e5f4c06 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -3690,11 +3690,20 @@ static void __skb_complete_tx_timestamp(struct sk_buff *skb,
- 		kfree_skb(skb);
- }
- 
-+static bool skb_may_tx_timestamp(struct sock *sk)
-+{
-+	return sysctl_tstamp_allow_data || capable(CAP_NET_RAW) ||
-+	       sk->sk_tsflags & SOF_TIMESTAMPING_OPT_TSONLY;
-+}
-+
- void skb_complete_tx_timestamp(struct sk_buff *skb,
- 			       struct skb_shared_hwtstamps *hwtstamps)
- {
- 	struct sock *sk = skb->sk;
- 
-+	if (!skb_may_tx_timestamp(sk))
-+		return;
-+
- 	/* take a reference to prevent skb_orphan() from freeing the socket */
- 	sock_hold(sk);
- 
-@@ -3712,7 +3721,7 @@ void __skb_tstamp_tx(struct sk_buff *orig_skb,
- 	struct sk_buff *skb;
- 	bool tsonly = sk->sk_tsflags & SOF_TIMESTAMPING_OPT_TSONLY;
- 
--	if (!sk)
-+	if (!sk || !skb_may_tx_timestamp(sk))
- 		return;
- 
- 	if (tsonly)
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 1c7a33d..93c8b20 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -325,6 +325,8 @@ __u32 sysctl_rmem_default __read_mostly = SK_RMEM_MAX;
- int sysctl_optmem_max __read_mostly = sizeof(unsigned long)*(2*UIO_MAXIOV+512);
- EXPORT_SYMBOL(sysctl_optmem_max);
- 
-+int sysctl_tstamp_allow_data __read_mostly = 1;
-+
- struct static_key memalloc_socks = STATIC_KEY_INIT_FALSE;
- EXPORT_SYMBOL_GPL(memalloc_socks);
- 
-@@ -840,6 +842,7 @@ set_rcvbuf:
- 			ret = -EINVAL;
- 			break;
- 		}
-+
- 		if (val & SOF_TIMESTAMPING_OPT_ID &&
- 		    !(sk->sk_tsflags & SOF_TIMESTAMPING_OPT_ID)) {
- 			if (sk->sk_protocol == IPPROTO_TCP) {
-diff --git a/net/core/sysctl_net_core.c b/net/core/sysctl_net_core.c
-index 31baba2..fde21d1 100644
---- a/net/core/sysctl_net_core.c
-+++ b/net/core/sysctl_net_core.c
-@@ -321,6 +321,15 @@ static struct ctl_table net_core_table[] = {
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec
- 	},
-+	{
-+		.procname	= "tstamp_allow_data",
-+		.data		= &sysctl_tstamp_allow_data,
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= proc_dointvec_minmax,
-+		.extra1		= &zero,
-+		.extra2		= &one
-+	},
- #ifdef CONFIG_RPS
- 	{
- 		.procname	= "rps_sock_flow_entries",
+When looping timestamps without data, there is no need to associate
+a timestamp with a specific packet. Patch 4 loops multiple timestamps
+onto a single outstanding packet if this has no payload. It is a
+variant of the cookies approach that David proposed in
+
+  net-timestamp: TCP timestamping
+  http://patchwork.ozlabs.org/patch/376513/
+
+That patch turns out to introduce a quite a bit of code to save
+relatively few bytes because
+1. no-payload already limits the per-skb size that is queued and
+2. batching is limited by send() failing as soon as there is an
+   outstanding packet on the error queue. Therefore, I'm fine
+with dropping this. By now, it is at least recorded in patchwork.
+
+Patch 5, finally, creates a new short SO_TIMESTAMPING option,
+SOF_TIMESTAMPING_TX, that combines all recent options, as a push
+to get future applications to use the new ID and no-payload based
+API by default.
+
+
+Willem de Bruijn (5):
+  net-timestamp: no-payload option
+  net-timestamp: no-payload only sysctl
+  net-timestamp: no-payload option in txtimestamp test
+  net-timestamp: tx timestamp cookies
+  net-timestamp: tx timestamping default mode flag
+
+ .../networking/timestamping/txtimestamp.c          |  28 ++++-
+ include/linux/skbuff.h                             |  12 ++
+ include/net/sock.h                                 |   4 +-
+ include/uapi/linux/errqueue.h                      |   1 +
+ include/uapi/linux/net_tstamp.h                    |  11 +-
+ net/core/skbuff.c                                  | 134 ++++++++++++++++++---
+ net/core/sock.c                                    |   3 +
+ net/core/sysctl_net_core.c                         |   9 ++
+ net/ipv4/ip_sockglue.c                             |   9 +-
+ net/ipv6/datagram.c                                |   4 +-
+ net/rxrpc/ar-error.c                               |   5 +
+ net/socket.c                                       |  64 +++++++++-
+ 12 files changed, 250 insertions(+), 34 deletions(-)
+
 -- 
 2.2.0.rc0.207.ga3a616c
