@@ -1,76 +1,33 @@
-From: Vadim Kochan <vadim4j@gmail.com>
-Subject: [PATCH iproute2] ip link: Fix crash on older kernels when show VF dev
-Date: Fri,  9 Jan 2015 19:25:51 +0200
-Message-ID: <1420824351-23450-1-git-send-email-vadim4j@gmail.com>
-Cc: william@gandi.net, Vadim Kochan <vadim4j@gmail.com>
-To: netdev@vger.kernel.org
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH 2/6] vxlan: Group Policy extension
+Date: Fri, 9 Jan 2015 09:37:21 -0800
+Message-ID: <CAADnVQKUNc4pu7W6Riies3tVeh848ihHidb3iM2UnbEmea-Y-Q@mail.gmail.com>
+References: <cover.1420756324.git.tgraf@suug.ch> <7339e3bff124cecaf65cd04ea9bdc973c730ba34.1420756324.git.tgraf@suug.ch>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Jesse Gross <jesse@nicira.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Pravin Shelar <pshelar@nicira.com>,
+	Tom Herbert <therbert@google.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"dev@openvswitch.org" <dev@openvswitch.org>
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f177.google.com ([209.85.217.177]:43338 "EHLO
-	mail-lb0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750995AbbAIRgQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2015 12:36:16 -0500
-Received: by mail-lb0-f177.google.com with SMTP id b6so9191394lbj.8
-        for <netdev@vger.kernel.org>; Fri, 09 Jan 2015 09:36:15 -0800 (PST)
+Received: from mail-qg0-f43.google.com ([209.85.192.43]:49312 "EHLO
+	mail-qg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755589AbbAIRhm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2015 12:37:42 -0500
+Received: by mail-qg0-f43.google.com with SMTP id z107so10026863qgd.2
+        for <netdev@vger.kernel.org>; Fri, 09 Jan 2015 09:37:41 -0800 (PST)
+In-Reply-To: <7339e3bff124cecaf65cd04ea9bdc973c730ba34.1420756324.git.tgraf@suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vadim Kochan <vadim4j@gmail.com>
+On Thu, Jan 8, 2015 at 2:47 PM, Thomas Graf <tgraf@suug.ch> wrote:
+> +
+> +struct vxlan_gbp {
+> +} __packed;
 
-The issue was caused that ifla_vf_rate does not exist on
-older kernels and should be checked if it exists as nested attr.
-
-Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
-Reported-by: William Dauchy <william@gandi.net>
-Tested-by: William Dauchy <william@gandi.com>
----
- ip/ipaddress.c | 18 +++++++++++-------
- 1 file changed, 11 insertions(+), 7 deletions(-)
-
-diff --git a/ip/ipaddress.c b/ip/ipaddress.c
-index 28dfe8c..830b166 100644
---- a/ip/ipaddress.c
-+++ b/ip/ipaddress.c
-@@ -259,11 +259,10 @@ static void print_vfinfo(FILE *fp, struct rtattr *vfinfo)
- {
- 	struct ifla_vf_mac *vf_mac;
- 	struct ifla_vf_vlan *vf_vlan;
--	struct ifla_vf_rate *vf_rate;
- 	struct ifla_vf_tx_rate *vf_tx_rate;
- 	struct ifla_vf_spoofchk *vf_spoofchk;
- 	struct ifla_vf_link_state *vf_linkstate;
--	struct rtattr *vf[IFLA_VF_MAX+1];
-+	struct rtattr *vf[IFLA_VF_MAX + 1] = {};
- 	struct rtattr *tmp;
- 	SPRINT_BUF(b1);
- 
-@@ -277,7 +276,6 @@ static void print_vfinfo(FILE *fp, struct rtattr *vfinfo)
- 	vf_mac = RTA_DATA(vf[IFLA_VF_MAC]);
- 	vf_vlan = RTA_DATA(vf[IFLA_VF_VLAN]);
- 	vf_tx_rate = RTA_DATA(vf[IFLA_VF_TX_RATE]);
--	vf_rate = RTA_DATA(vf[IFLA_VF_RATE]);
- 
- 	/* Check if the spoof checking vf info type is supported by
- 	 * this kernel.
-@@ -313,10 +311,16 @@ static void print_vfinfo(FILE *fp, struct rtattr *vfinfo)
- 		fprintf(fp, ", qos %d", vf_vlan->qos);
- 	if (vf_tx_rate->rate)
- 		fprintf(fp, ", tx rate %d (Mbps)", vf_tx_rate->rate);
--	if (vf_rate->max_tx_rate)
--		fprintf(fp, ", max_tx_rate %dMbps", vf_rate->max_tx_rate);
--	if (vf_rate->min_tx_rate)
--		fprintf(fp, ", min_tx_rate %dMbps", vf_rate->min_tx_rate);
-+
-+	if (vf[IFLA_VF_RATE]) {
-+		struct ifla_vf_rate *vf_rate = RTA_DATA(vf[IFLA_VF_RATE]);
-+
-+		if (vf_rate->max_tx_rate)
-+			fprintf(fp, ", max_tx_rate %dMbps", vf_rate->max_tx_rate);
-+		if (vf_rate->min_tx_rate)
-+			fprintf(fp, ", min_tx_rate %dMbps", vf_rate->min_tx_rate);
-+	}
-+
- 	if (vf_spoofchk && vf_spoofchk->setting != -1) {
- 		if (vf_spoofchk->setting)
- 			fprintf(fp, ", spoof checking on");
--- 
-2.1.3
+empty struct ? seems unused.
+looks good to me otherwise.
