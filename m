@@ -1,55 +1,52 @@
-From: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
-Subject: [PATCH] MAINTAINERS: add me as ibmveth maintainer
-Date: Fri,  9 Jan 2015 14:29:40 -0600
-Message-ID: <1420835380-2824-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
-Cc: Santiago Leon <santi_leon@yahoo.com>,
-	Brian King <brking@linux.vnet.ibm.com>,
-	Nathan Fontenot <nfont@linux.vnet.ibm.com>
-To: netdev@vger.kernel.org
+From: Willem de Bruijn <willemb@google.com>
+Subject: Re: [PATCH net-next RFC 1/5] net-timestamp: no-payload option
+Date: Fri, 9 Jan 2015 15:33:50 -0500
+Message-ID: <CA+FuTSdWWv65CNQYv1d9+WG1X54eGyP_+mbh3dMHw_HmH8wzYA@mail.gmail.com>
+References: <1420824719-28848-1-git-send-email-willemb@google.com>
+ <1420824719-28848-2-git-send-email-willemb@google.com> <CALCETrU2kFYsYnhPnBWd3059k5Z6=8B==kwXU0xidAsR6EqgCg@mail.gmail.com>
+ <CA+FuTSf4SqTuLmrJ971Wu3eaqc94qd93M_OCa9QCCDHOYwxF8A@mail.gmail.com> <CALCETrWZy0=OnYhyCB8U7Km7vMcjB+Vc8ahm+ea4=0YiiPBCAQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Network Development <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Richard Cochran <richardcochran@gmail.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Andy Lutomirski <luto@amacapital.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e8.ny.us.ibm.com ([32.97.182.138]:48380 "EHLO e8.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752223AbbAIU3v (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 9 Jan 2015 15:29:51 -0500
-Received: from /spool/local
-	by e8.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <tlfalcon@linux.vnet.ibm.com>;
-	Fri, 9 Jan 2015 15:29:50 -0500
-Received: from b01cxnp22035.gho.pok.ibm.com (b01cxnp22035.gho.pok.ibm.com [9.57.198.25])
-	by d01dlp01.pok.ibm.com (Postfix) with ESMTP id 53CD538C8052
-	for <netdev@vger.kernel.org>; Fri,  9 Jan 2015 15:29:44 -0500 (EST)
-Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
-	by b01cxnp22035.gho.pok.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id t09KThgO28770342
-	for <netdev@vger.kernel.org>; Fri, 9 Jan 2015 20:29:43 GMT
-Received: from d01av04.pok.ibm.com (localhost [127.0.0.1])
-	by d01av04.pok.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id t09KTggO031692
-	for <netdev@vger.kernel.org>; Fri, 9 Jan 2015 15:29:42 -0500
+Received: from mail-qg0-f42.google.com ([209.85.192.42]:35601 "EHLO
+	mail-qg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751560AbbAIUeV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2015 15:34:21 -0500
+Received: by mail-qg0-f42.google.com with SMTP id q108so10725198qgd.1
+        for <netdev@vger.kernel.org>; Fri, 09 Jan 2015 12:34:21 -0800 (PST)
+In-Reply-To: <CALCETrWZy0=OnYhyCB8U7Km7vMcjB+Vc8ahm+ea4=0YiiPBCAQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Adding myself as the ibmveth maintainer and replacing
-Santiago Leon.
+On Fri, Jan 9, 2015 at 3:02 PM, Andy Lutomirski <luto@amacapital.net> wrote:
+> On Fri, Jan 9, 2015 at 11:47 AM, Willem de Bruijn <willemb@google.com> wrote:
+>> On Fri, Jan 9, 2015 at 2:43 PM, Andy Lutomirski <luto@amacapital.net> wrote:
+>>> On Fri, Jan 9, 2015 at 9:31 AM, Willem de Bruijn <willemb@google.com> wrote:
+>>>> From: Willem de Bruijn <willemb@google.com>
+>>>>
+>>>> Add timestamping option SOF_TIMESTAMPING_OPT_TSONLY. For transmit
+>>>> timestamps, this loops timestamps on top of empty packets.
+>>>>
+>>>> Doing so reduces the pressure on SO_RCVBUF. Payload inspection and
+>>>> cmsg reception (aside from timestamps) are no longer possible. This
+>>>> works together with a follow on patch that allows administrators to
+>>>> only allow tx timestamping if it does not loop payload or metadata.
+>>>
+>>> If this loses IP_PKTINFO, that will be a bit unfortunate.
+>>>
+>>
+>> If it doesn't, then we might as well loop the entire payload. For applications
+>> that need pktinfo or other cmsg, do not select the option.
+>
+> Right, but it loses the ability to get the ifindex if the sysctl is
+> set to the conservative option, which I don't think is desirable.
 
-Signed-off-by: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
-Cc: Santiago Leon <santi_leon@yahoo.com>
-Cc: Brian King <brking@linux.vnet.ibm.com>
-Cc: Nathan Fontenot <nfont@linux.vnet.ibm.com>
----
- MAINTAINERS | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/MAINTAINERS b/MAINTAINERS
-index ddb9ac8..5cb9f6f 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -4748,7 +4748,7 @@ S:	Supported
- F:	drivers/scsi/ipr.*
- 
- IBM Power Virtual Ethernet Device Driver
--M:	Santiago Leon <santil@linux.vnet.ibm.com>
-+M:	Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
- L:	netdev@vger.kernel.org
- S:	Supported
- F:	drivers/net/ethernet/ibm/ibmveth.*
--- 
-1.9.3
+Understood. I just find the alternative, where the no-data policy is
+weakened by exceptions, even less desirable. That makes it
+harder to explain what the sysctl/option do and what the security
+implications are.
