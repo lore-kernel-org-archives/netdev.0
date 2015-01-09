@@ -1,39 +1,91 @@
-From: Kumar Sanghvi <kumaras@chelsio.com>
-Subject: Query regarding sk_filter
-Date: Fri, 9 Jan 2015 17:23:04 +0600
-Message-ID: <20150109112302.GA9428@kumar-pc.asicdesigners.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:18709 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754538AbbAILxY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2015 06:53:24 -0500
-Received: from nice.asicdesigners.com (nice.asicdesigners.com [10.192.160.7])
-	by stargate.chelsio.com (8.13.8/8.13.8) with ESMTP id t09BrOCu002831
-	for <netdev@vger.kernel.org>; Fri, 9 Jan 2015 03:53:24 -0800
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Robert Dolca <robert.dolca@intel.com>
+Subject: [PATCH 1/2] NFC: pn544: GPIO access that may sleep
+Date: Fri,  9 Jan 2015 14:02:16 +0200
+Message-ID: <1420804937-10787-1-git-send-email-robert.dolca@intel.com>
+Cc: linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org,
+	Lauro Ramos Venancio <lauro.venancio@openbossa.org>,
+	Aloisio Almeida Jr <aloisio.almeida@openbossa.org>,
+	Samuel Ortiz <sameo@linux.intel.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Johannes Berg <johannes.berg@intel.com>,
+	Clement Perrochaud <clement.perrochaud@nxp.com>,
+	Robert Dolca <robert.dolca@intel.com>
+To: linux-nfc@lists.01.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi netdev team,
+gpio_set_value was replaced with gpio_set_value_cansleep in order
+to allow GPIO access that may sleep. This is particularelly useful
+when GPIO is accessed using busses like I2C, SPI, USB
 
-I have a query regarding sk_filter call in tcp receive path:
+Signed-off-by: Robert Dolca <robert.dolca@intel.com>
+---
+ drivers/nfc/pn544/i2c.c | 20 ++++++++++----------
+ 1 file changed, 10 insertions(+), 10 deletions(-)
 
-In 'tcp_v4_rcv' function, if sk is found by __inet_lookup_skb then,
-down the line, there is a call to sk_filter to ensure if the incoming packet 
-is allowed to be processed for that sk.
-
-However, in 'tcp_v4_hnd_req' function, if nsk is found by inet_lookup_established 
-then, later, there does not seem to be a sk_filter call for that nsk in the receive 
-path processing.
-
-I am wondering shouldn't there be a sk_filter call on nsk found in 'tcp_v4_hnd_req' 
-function ? Or, probably I am missing something.
-I am running some high rate syn-flood tests and trying to understand the sk_filter 
-behaviour in this case.
-
-
-Thanks,
-Kumar.
+diff --git a/drivers/nfc/pn544/i2c.c b/drivers/nfc/pn544/i2c.c
+index fc02e8d..5f4b9c1 100644
+--- a/drivers/nfc/pn544/i2c.c
++++ b/drivers/nfc/pn544/i2c.c
+@@ -195,18 +195,18 @@ static void pn544_hci_i2c_platform_init(struct pn544_i2c_phy *phy)
+ 	nfc_info(&phy->i2c_dev->dev, "Detecting nfc_en polarity\n");
+ 
+ 	/* Disable fw download */
+-	gpio_set_value(phy->gpio_fw, 0);
++	gpio_set_value_cansleep(phy->gpio_fw, 0);
+ 
+ 	for (polarity = 0; polarity < 2; polarity++) {
+ 		phy->en_polarity = polarity;
+ 		retry = 3;
+ 		while (retry--) {
+ 			/* power off */
+-			gpio_set_value(phy->gpio_en, !phy->en_polarity);
++			gpio_set_value_cansleep(phy->gpio_en, !phy->en_polarity);
+ 			usleep_range(10000, 15000);
+ 
+ 			/* power on */
+-			gpio_set_value(phy->gpio_en, phy->en_polarity);
++			gpio_set_value_cansleep(phy->gpio_en, phy->en_polarity);
+ 			usleep_range(10000, 15000);
+ 
+ 			/* send reset */
+@@ -225,13 +225,13 @@ static void pn544_hci_i2c_platform_init(struct pn544_i2c_phy *phy)
+ 		"Could not detect nfc_en polarity, fallback to active high\n");
+ 
+ out:
+-	gpio_set_value(phy->gpio_en, !phy->en_polarity);
++	gpio_set_value_cansleep(phy->gpio_en, !phy->en_polarity);
+ }
+ 
+ static void pn544_hci_i2c_enable_mode(struct pn544_i2c_phy *phy, int run_mode)
+ {
+-	gpio_set_value(phy->gpio_fw, run_mode == PN544_FW_MODE ? 1 : 0);
+-	gpio_set_value(phy->gpio_en, phy->en_polarity);
++	gpio_set_value_cansleep(phy->gpio_fw, run_mode == PN544_FW_MODE ? 1 : 0);
++	gpio_set_value_cansleep(phy->gpio_en, phy->en_polarity);
+ 	usleep_range(10000, 15000);
+ 
+ 	phy->run_mode = run_mode;
+@@ -254,14 +254,14 @@ static void pn544_hci_i2c_disable(void *phy_id)
+ {
+ 	struct pn544_i2c_phy *phy = phy_id;
+ 
+-	gpio_set_value(phy->gpio_fw, 0);
+-	gpio_set_value(phy->gpio_en, !phy->en_polarity);
++	gpio_set_value_cansleep(phy->gpio_fw, 0);
++	gpio_set_value_cansleep(phy->gpio_en, !phy->en_polarity);
+ 	usleep_range(10000, 15000);
+ 
+-	gpio_set_value(phy->gpio_en, phy->en_polarity);
++	gpio_set_value_cansleep(phy->gpio_en, phy->en_polarity);
+ 	usleep_range(10000, 15000);
+ 
+-	gpio_set_value(phy->gpio_en, !phy->en_polarity);
++	gpio_set_value_cansleep(phy->gpio_en, !phy->en_polarity);
+ 	usleep_range(10000, 15000);
+ 
+ 	phy->powered = 0;
+-- 
+1.9.1
