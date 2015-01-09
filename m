@@ -1,123 +1,158 @@
-From: Fan Du <fengyuleidian0615-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH net] gso: do GSO for local skb with size
-	bigger than MTU
-Date: Fri, 09 Jan 2015 13:42:56 +0800
-Message-ID: <54AF6A60.5090804@gmail.com>
-References: <1417156385-18276-1-git-send-email-fan.du@intel.com>
- <1417158128.3268.2@smtp.corp.redhat.com>
- <5A90DA2E42F8AE43BC4A093BF0678848DED92B@SHSMSX104.ccr.corp.intel.com>
- <20141201135225.GA16814@casper.infradead.org>
- <20141202154839.GB5344@t520.home>
- <20141202170927.GA9457@casper.infradead.org>
- <20141202173401.GB4126@redhat.com>
- <20141202174158.GB9457@casper.infradead.org>
- <5A90DA2E42F8AE43BC4A093BF0678848DEDFDB@SHSMSX104.ccr.corp.intel.com>
- <54AA2912.6090903@gmail.com>
- <CAEP_g=-R1FrcA0sTJJjQhypRtVCwoRZ+LieKaSJxqA-HACZqEw@mail.gmail.com>
- <54ABAC13.9070402@gmail.com>
- <CAEP_g=8bCR=PeSoi09jLWLtNUrxhzx45h1Wm=9D=R57AqUac2w@mail.gmail.com>
- <54ACCAFD.4070203@gmail.com>
- <CAEP_g=8EBeQUFkRRsG3sznYryd+LE9qJKWQXfS==HG2HDO=UKA@mail.gmail.com>
- <54AE506A.5020207@gmail.com>
- <CAEP_g=9hh+MG7AWEnct7CwRqp=ZghpbkDeQ5BhGQktDgMST1jA@mail.gmail.com>
+From: Fan Du <fengyuleidian0615@gmail.com>
+Subject: Re: [PATCH net] gso: do GSO for local skb with size bigger than MTU
+Date: Fri, 09 Jan 2015 13:48:15 +0800
+Message-ID: <54AF6B9F.6080104@gmail.com>
+References: <1417156385-18276-1-git-send-email-fan.du@intel.com> <1417158128.3268.2@smtp.corp.redhat.com> <5A90DA2E42F8AE43BC4A093BF0678848DED92B@SHSMSX104.ccr.corp.intel.com> <20141201135225.GA16814@casper.infradead.org> <20141202154839.GB5344@t520.home> <20141202170927.GA9457@casper.infradead.org> <20141202173401.GB4126@redhat.com> <20141202174158.GB9457@casper.infradead.org> <5A90DA2E42F8AE43BC4A093BF0678848DEDFDB@SHSMSX104.ccr.corp.intel.com> <54AA2912.6090903@gmail.com> <CAEP_g=-R1FrcA0sTJJjQhypRtVCwoRZ+LieKaSJxqA-HACZqEw@mail.gmail.com> <54ABAC13.9070402@gmail.com> <CAEP_g=8bCR=PeSoi09jLWLtNUrxhzx45h1Wm=9D=R57AqUac2w@mail.gmail.com> <54ACCAFD.4070203@gmail.com> <CAEP_g=8EBeQUFkRRsG3sznYryd+LE9qJKWQXfS==HG2HDO=UKA@mail.gmail.com> <54AE506A.5020207@gmail.com> <CAEP_g=9hh+MG7AWEnct7CwRq
+ p=ZghpbkDeQ5BhGQktDgMST1jA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; Format="flowed"
-Content-Transfer-Encoding: base64
-Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
- "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
- "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
- Jason Wang <jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, "Du, Fan" <fan.du-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
- "fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org" <fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org>, "davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <CAEP_g=9hh+MG7AWEnct7CwRqp=ZghpbkDeQ5BhGQktDgMST1jA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Du, Fan" <fan.du@intel.com>, Thomas Graf <tgraf@suug.ch>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	Jason Wang <jasowang@redhat.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"fw@strlen.de" <fw@strlen.de>,
+	"dev@openvswitch.org" <dev@openvswitch.org>,
+	"pshelar@nicira.com" <pshelar@nicira.com>
+To: Jesse Gross <jesse@nicira.com>,
+	"Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:58627 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750928AbbAIFvz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2015 00:51:55 -0500
+Received: by mail-pa0-f48.google.com with SMTP id rd3so16422132pab.7
+        for <netdev@vger.kernel.org>; Thu, 08 Jan 2015 21:51:54 -0800 (PST)
+In-Reply-To: <CAEP_g=9hh+MG7AWEnct7CwRqp=ZghpbkDeQ5BhGQktDgMST1jA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-5LqOIDIwMTXlubQwMeaciDA55pelIDAzOjU1LCBKZXNzZSBHcm9zcyDlhpnpgZM6Cj4gT24gVGh1
-LCBKYW4gOCwgMjAxNSBhdCAxOjM5IEFNLCBGYW4gRHUgPGZlbmd5dWxlaWRpYW4wNjE1QGdtYWls
-LmNvbT4gd3JvdGU6Cj4+IOS6jiAyMDE15bm0MDHmnIgwOOaXpSAwNDo1MiwgSmVzc2UgR3Jvc3Mg
-5YaZ6YGTOgo+Pj4+Cj4+Pj4gTXkgdW5kZXJzdGFuZGluZyBpczoKPj4+Pj4gY29udHJvbGxlciBz
-ZXRzIHRoZSBmb3J3YXJkaW5nIHJ1bGVzIGludG8ga2VybmVsIGRhdGFwYXRoLCBhbnkgZmxvdyBu
-b3QKPj4+Pj4gbWF0Y2hpbmcKPj4+Pj4gd2l0aCB0aGUgcnVsZXMgYXJlIHRocmV3IHRvIGNvbnRy
-b2xsZXIgYnkgdXBjYWxsLiBPbmNlIHRoZSBydWxlIGRlY2lzaW9uCj4+Pj4+IGlzCj4+Pj4+IG1h
-ZGUKPj4+Pj4gYnkgY29udHJvbGxlciwgdGhlbiwgdGhpcyBmbG93IHBhY2tldCBpcyBwdXNoZWQg
-ZG93biB0byBkYXRhcGF0aCB0byBiZQo+Pj4+PiBmb3J3YXJkZWQKPj4+Pj4gYWdhaW4gYWNjb3Jk
-aW5nIHRvIHRoZSBuZXcgcnVsZS4KPj4+Pj4KPj4+Pj4gU28gSSdtIG5vdCBzdXJlIHdoZXRoZXIg
-cHVzaGluZyB0aGUgb3Zlci1NVFUtc2l6ZWQgcGFja2V0IG9yIHB1c2hpbmcgdGhlCj4+Pj4+IGZv
-cmdlZCBJQ01QCj4+Pj4+IHdpdGhvdXQgZW5jYXBzdWxhdGlvbiB0byBjb250cm9sbGVyIGlzIHJl
-cXVpcmVkIGJ5IGN1cnJlbnQgb3ZzCj4+Pj4+IGltcGxlbWVudGF0aW9uLiBCeSBkb2luZwo+Pj4+
-PiBzbywgc3VjaCBvdmVyLU1UVS1zaXplZCBwYWNrZXQgaXMgdHJlYXRlZCBhcyBhIGV2ZW50IGZv
-ciB0aGUgY29udHJvbGxlcgo+Pj4+PiB0bwo+Pj4+PiBiZSB0YWtlCj4+Pj4+IGNhcmUgb2YuCj4+
-Pgo+Pj4gSWYgZmxvd3MgYXJlIGltcGxlbWVudGluZyByb3V0aW5nIChhZ2FpbiwgdGhleSBhcmUg
-ZG9pbmcgdGhpbmdzIGxpa2UKPj4+IGRlY3JlbWVudGluZyB0aGUgVFRMKSB0aGVuIGl0IGlzIG5l
-Y2Vzc2FyeSBmb3IgdGhlbSB0byBhbHNvIGhhbmRsZQo+Pj4gdGhpcyBzaXR1YXRpb24gdXNpbmcg
-c29tZSBwb3RlbnRpYWxseSBuZXcgcHJpbWl0aXZlcyAobGlrZSBhIHNpemUKPj4+IGNoZWNrKS4g
-T3RoZXJ3aXNlIHlvdSBlbmQgdXAgd2l0aCBpc3N1ZXMgbGlrZSB0aGUgb25lcyB0aGF0IEkKPj4+
-IG1lbnRpb25lZCBhYm92ZSBsaWtlIG5lZWRpbmcgdG8gZm9yZ2UgYWRkcmVzc2VzIGJlY2F1c2Ug
-eW91IGRvbid0IGtub3cKPj4+IHdoYXQgdGhlIGNvcnJlY3Qgb25lcyBhcmUuCj4+Cj4+Cj4+IFRo
-YW5rcyBmb3IgZXhwbGFpbmluZywgSmVzc2UhCj4+Cj4+IGJ0dywgSSBkb24ndCBnZXQgaXQgYWJv
-dXQgInRvIGZvcmdlIGFkZHJlc3NlcyIsIGJ1aWxkaW5nIElDTVAgbWVzc2FnZQo+PiB3aXRoIEd1
-ZXN0IHBhY2tldCBkb2Vzbid0IHJlcXVpcmUgdG8gZm9yZ2UgYWRkcmVzcyB3aGVuIG5vdCBlbmNh
-cHN1bGF0aW5nCj4+IElDTVAgbWVzc2FnZSB3aXRoIG91dGVyIGhlYWRlcnMuCj4KPiBZb3VyIHBh
-dGNoIGhhcyB0aGluZ3MgbGlrZSB0aGlzIChmb3IgdGhlIGlubmVyIElQIGhlYWRlcik6Cj4KPiAr
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIG5ld19pcC0+c2FkZHIgPSBvcmlnX2lwLT5k
-YWRkcjsKPiArICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIG5ld19pcC0+ZGFkZHIgPSBv
-cmlnX2lwLT5zYWRkcjsKPgo+IFRoZXNlIGFkZHJlc3NlcyBhcmUgb3duZWQgYnkgdGhlIGVuZHBv
-aW50cywgbm90IHRoZSBob3N0IGdlbmVyYXRpbmcKPiBnZW5lcmF0aW5nIHRoZSBJQ01QIG1lc3Nh
-Z2UsIHNvIEkgd291bGQgY29uc2lkZXIgdGhhdCB0byBiZSBmb3JnaW5nCj4gYWRkcmVzc2VzLgo+
-Cj4+IElmIHRoZSBmbG93cyBhcmVuJ3QgZG9pbmcgdGhpbmdzIHRvCj4+Pgo+Pj4gaW1wbGVtZW50
-IHJvdXRpbmcsIHRoZW4geW91IHJlYWxseSBoYXZlIGEgZmxhdCBMMiBuZXR3b3JrIGFuZCB5b3UK
-Pj4+IHNob3VsZG4ndCBiZSBkb2luZyB0aGlzIHR5cGUgb2YgYmVoYXZpb3IgYXQgYWxsIGFzIEkg
-ZGVzY3JpYmVkIGluIHRoZQo+Pj4gb3JpZ2luYWwgcGxhbi4KPj4KPj4KPj4gRm9yIGZsb3dzIGlt
-cGxlbWVudGluZyByb3V0aW5nIHNjZW5hcmlvOgo+PiBGaXJzdCBvZiBhbGwsIG92ZXItTVRVLXNp
-emVkIHBhY2tldCBjb3VsZCBvbmx5IGJlIGRldGVjdGVkIG9uY2UgdGhlIGZsb3cKPj4gYXMgYmVl
-biBjb25zdWx0ZWQoZWFjaCBwb3J0IGNvdWxkIGltcGxlbWVudCBhICdjaGVjaycgaG9vayB0byBk
-byB0aGlzKSwKPj4gYW5kIGp1c3QgYmVmb3JlIHNlbmQgdG8gdGhlIGFjdHVhbCBwb3J0Lgo+Pgo+
-PiBUaGVuIHB1c2hpbmcgdGhlIG92ZXItTVRVLXNpemVkIHBhY2tldCBiYWNrIHRvIGNvbnRyb2xs
-ZXIsIGl0J3MgdGhlCj4+IGNvbnRyb2xsZXIKPj4gd2hvIHdpbGwgd2lsbCBkZWNpZGUgd2hldGhl
-ciB0byBidWlsZCBJQ01QIG1lc3NhZ2UsIG9yIHdoYXRldmVyIHJvdXRpbmcKPj4gYmVoYXZpb3Vy
-Cj4+IGl0IG1heSB0YWtlLiBBbmQgc2VudCBpdCBiYWNrIHdpdGggdGhlIHBvcnQgaW5mb3JtYXRp
-b24uIFRoaXMgSUNNUCBtZXNzYWdlCj4+IHdpbGwKPj4gdHJhdmVsIGJhY2sgdG8gR3Vlc3QuCj4+
-Cj4+IFdoeSBkb2VzIHRoZSBmbG93IGhhcyB0byB1c2UgcHJpbWl0aXZlIGxpa2UgYSAiY2hlY2sg
-c2l6ZSI/ICJjaGVjayBzaXplIgo+PiB3aWxsIG9ubHkgdGFrZSBlZmZlY3QgYWZ0ZXIgZG9fb3V0
-cHV0LiBJJ20gbm90IHZlcnkgY2xlYXIgd2l0aCB0aGlzCj4+IGFwcHJvYWNoLgo+Cj4gQ2hlY2tp
-bmcgdGhlIHNpemUgb2J2aW91c2x5IG5lZWRzIHRvIGJlIGFuIGFjdGlvbiB0aGF0IHdvdWxkIHRh
-a2UKPiBwbGFjZSBiZWZvcmUgb3V0cHV0dGluZyBpbiBvcmRlciBmb3IgaXQgdG8gaGF2ZSBhbnkg
-ZWZmZWN0LiBBdHRhY2hpbmcKPiBhIGNoZWNrIHRvIGEgcG9ydCBkb2VzIG5vdCBmaXQgaW4gdmVy
-eSB3ZWxsIHdpdGggdGhlIG90aGVyIHByaW1pdGl2ZXMKPiBvZiBPVlMsIHNvIEkgdGhpbmsgYW4g
-YWN0aW9uIGlzIHRoZSBvYnZpb3VzIHBsYWNlIHRvIHB1dCBpdC4KCklmIGZsb3cgaXMgZGVmaW5l
-ZCBhczoKCglDSEVDS19TSVpFIC0+IE9VVFBVVAoKVGhlbiB0cmF2ZXJzaW5nIGFjdGlvbnMgYXQg
-Q0hFQ0tfU0laRSBuZWVkcyB0byBmaW5kIHRoZSBleGFjdGx5IE9VVFBVVCBwb3J0LAp0aHVzIGdl
-dCBpdHMgdW5kZXJsYXkgZW5jYXBzdWxhdGlvbiBtZXRob2QgYXMgd2VsbCBhcyB2YWxpZCByb3V0
-ZSBmb3IgcGh5c2ljYWwKTklDIE1UVSwgd2l0aCB0aG9zZSBpbmZvcm1hdGlvbiBjYW4gY2FsY3Vs
-YXRpb24gd2hldGhlciBHU09lZCBwYWNrZXRzCmV4Y2VlZHMgcGh5c2ljYWwgTVRVLiBUaGlzIGlz
-IGZlYXNpYmxlIGFueXdheSBhdCB0aGUgZmlyc3QgbG9vay4gQWZ0ZXIgdGhpcywKaXQncyB0aGUg
-Y29udHJvbGxlciByZXNwb25zaWJpbGl0eSB0byBoYW5kbGUgc3VjaCBldmVudC4KCklmIHRoZSBD
-SEVDS19TSVpFIHJldHVybnMgcG9zaXRpdmUob3Zlci1NVFUtc2l6ZWQgcGFja2V0cyBzaG93IHVw
-KSwgdGhlbiBjYWxsCm91dHB1dF91c2Vyc3BhY2UgdG8gcHVzaCB0aGlzIHBhY2tldCB1cHBlciB3
-YXJkcy4KCkknbSBub3Qgc3VyZSB0aGlzIHZhZ3VlIGlkZWEgaXMgdGhlIGV4cGVjdGVkIGJlaGF2
-aW91ciBhcyByZXF1aXJlZCBieSAiTDMgcHJvY2Vzc2luZyIuCgo+PiBBbmQgbm90IGFsbCBzY2Vu
-YXJpbyBpbnZvbHZpbmcgZmxvdyB3aXRoIHJvdXRpbmcgYmVoYXZpb3VyLCBqdXN0IHNldCB1cCBh
-Cj4+IHZ4bGFuIHR1bm5lbCwgYW5kIGF0dGFjaCBLVk0gZ3Vlc3Qgb3IgRG9ja2VyIG9udG8gaXQg
-Zm9yIHBsYXlpbmcgb3IKPj4gZGV2ZWxvcGluZy4KPj4gVGhpcyB3b3VsZG4ndCBuZWNlc3Nhcmls
-eSByZXF1aXJlIHVzZXIgdG8gc2V0IGFkZGl0aW9uYWwgc3BlY2lmaWMgZmxvd3MgdG8KPj4gbWFr
-ZQo+PiBvdmVyLU1UVS1zaXplZCBwYWNrZXQgcGFzcyB0aHJvdWdoIHRoZSB0dW5uZWwgY29ycmVj
-dGx5LiBJbiBzdWNoIHNjZW5hcmlvLCBJCj4+IHRoaW5rIHRoZSBvcmlnaW5hbCBwYXRjaCBpbiB0
-aGlzIHRocmVhZCB0byBmcmFnbWVudCB0dW5uZWwgcGFja2V0IGlzIHN0aWxsCj4+IG5lZWRlZAo+
-PiBPUiB3b3Jrb3V0IGEgZ2VuZXJpYyBjb21wb25lbnQgdG8gYnVpbGQgSUNNUCBmb3IgYWxsIHR5
-cGUgdHVubmVsIGluIEwyCj4+IGxldmVsLgo+PiBCb3RoIG9mIHRob3NlIHdpbGwgYWN0IGFzIGEg
-YmFja3VwIHBsYW4gYXMgdGhlcmUgaXMgbm8gc3VjaCBzcGVjaWZpYyBmbG93IGFzCj4+IGRlZmF1
-bHQuCj4KPiBJbiB0aGVzZSBjYXNlcywgd2Ugc2hvdWxkIGZpbmQgYSB3YXkgdG8gYWRqdXN0IHRo
-ZSBNVFUsIHByZWZlcmFibHkKPiBhdXRvbWF0aWNhbGx5IHVzaW5nIHZpcnRpby4KPgoKCi0tIApO
-byB6dW8gbm8gZGllIGJ1dCBJIGhhdmUgdG8gdHJ5LgpfX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fXwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3aXRjaC5v
-cmcKaHR0cDovL29wZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
+=E4=BA=8E 2015=E5=B9=B401=E6=9C=8809=E6=97=A5 03:55, Jesse Gross =E5=86=
+=99=E9=81=93:
+> On Thu, Jan 8, 2015 at 1:39 AM, Fan Du<fengyuleidian0615@gmail.com>  =
+wrote:
+>> >=E4=BA=8E 2015=E5=B9=B401=E6=9C=8808=E6=97=A5 04:52, Jesse Gross =E5=
+=86=99=E9=81=93:
+>>>> >>>
+>>>> >>>My understanding is:
+>>>>> >>> >controller sets the forwarding rules into kernel datapath, a=
+ny flow not
+>>>>> >>> >matching
+>>>>> >>> >with the rules are threw to controller by upcall. Once the r=
+ule decision
+>>>>> >>> >is
+>>>>> >>> >made
+>>>>> >>> >by controller, then, this flow packet is pushed down to data=
+path to be
+>>>>> >>> >forwarded
+>>>>> >>> >again according to the new rule.
+>>>>> >>> >
+>>>>> >>> >So I'm not sure whether pushing the over-MTU-sized packet or=
+ pushing the
+>>>>> >>> >forged ICMP
+>>>>> >>> >without encapsulation to controller is required by current o=
+vs
+>>>>> >>> >implementation. By doing
+>>>>> >>> >so, such over-MTU-sized packet is treated as a event for the=
+ controller
+>>>>> >>> >to
+>>>>> >>> >be take
+>>>>> >>> >care of.
+>>> >>
+>>> >>If flows are implementing routing (again, they are doing things l=
+ike
+>>> >>decrementing the TTL) then it is necessary for them to also handl=
+e
+>>> >>this situation using some potentially new primitives (like a size
+>>> >>check). Otherwise you end up with issues like the ones that I
+>>> >>mentioned above like needing to forge addresses because you don't=
+ know
+>>> >>what the correct ones are.
+>> >
+>> >
+>> >Thanks for explaining, Jesse!
+>> >
+>> >btw, I don't get it about "to forge addresses", building ICMP messa=
+ge
+>> >with Guest packet doesn't require to forge address when not encapsu=
+lating
+>> >ICMP message with outer headers.
+> Your patch has things like this (for the inner IP header):
+>
+> +                               new_ip->saddr =3D orig_ip->daddr;
+> +                               new_ip->daddr =3D orig_ip->saddr;
+>
+> These addresses are owned by the endpoints, not the host generating
+> generating the ICMP message, so I would consider that to be forging
+> addresses.
+>
+>> >If the flows aren't doing things to
+>>> >>
+>>> >>implement routing, then you really have a flat L2 network and you
+>>> >>shouldn't be doing this type of behavior at all as I described in=
+ the
+>>> >>original plan.
+>> >
+>> >
+>> >For flows implementing routing scenario:
+>> >First of all, over-MTU-sized packet could only be detected once the=
+ flow
+>> >as been consulted(each port could implement a 'check' hook to do th=
+is),
+>> >and just before send to the actual port.
+>> >
+>> >Then pushing the over-MTU-sized packet back to controller, it's the
+>> >controller
+>> >who will will decide whether to build ICMP message, or whatever rou=
+ting
+>> >behaviour
+>> >it may take. And sent it back with the port information. This ICMP =
+message
+>> >will
+>> >travel back to Guest.
+>> >
+>> >Why does the flow has to use primitive like a "check size"? "check =
+size"
+>> >will only take effect after do_output. I'm not very clear with this
+>> >approach.
+> Checking the size obviously needs to be an action that would take
+> place before outputting in order for it to have any effect. Attaching
+> a check to a port does not fit in very well with the other primitives
+> of OVS, so I think an action is the obvious place to put it.
+>
+>> >And not all scenario involving flow with routing behaviour, just se=
+t up a
+>> >vxlan tunnel, and attach KVM guest or Docker onto it for playing or
+>> >developing.
+>> >This wouldn't necessarily require user to set additional specific f=
+lows to
+>> >make
+>> >over-MTU-sized packet pass through the tunnel correctly. In such sc=
+enario, I
+>> >think the original patch in this thread to fragment tunnel packet i=
+s still
+>> >needed
+>> >OR workout a generic component to build ICMP for all type tunnel in=
+ L2
+>> >level.
+>> >Both of those will act as a backup plan as there is no such specifi=
+c flow as
+>> >default.
+> In these cases, we should find a way to adjust the MTU, preferably
+> automatically using virtio.
+
+I'm gonna to argue this a bit more here.
+
+virtio_net pose no limit at its simulated net device, actually it can f=
+all into
+anywhere between 68 and 65535. Most importantly, virtio_net just simula=
+tes NIC,
+it just can=E2=80=99t assume/presume there is an encapsulating port at =
+its downstream.
+How should virtio automatically adjust its upper guest MTU?
+
+
+
+--=20
+No zuo no die but I have to try.
