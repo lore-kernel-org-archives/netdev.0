@@ -1,72 +1,135 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [net-next PATCH v1 00/11] A flow API
-Date: Fri, 09 Jan 2015 09:26:07 -0800
-Message-ID: <54B00F2F.2090602@gmail.com>
-References: <20141231194057.31070.5244.stgit@nitbit.x32> <CAJ3xEMjb+pG3TR+r0huNVSGkuPE9i7EZeHO4SQkcfm=WA6zMeA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Thomas Graf <tgraf@suug.ch>, Scott Feldman <sfeldma@gmail.com>,
-	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	simon.horman@netronome.com,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Andy Gospodarek <andy@greyhouse.net>
-To: Or Gerlitz <gerlitz.or@gmail.com>
+From: Willem de Bruijn <willemb@google.com>
+Subject: [PATCH net-next RFC 2/5] net-timestamp: no-payload only sysctl
+Date: Fri,  9 Jan 2015 12:31:56 -0500
+Message-ID: <1420824719-28848-3-git-send-email-willemb@google.com>
+References: <1420824719-28848-1-git-send-email-willemb@google.com>
+Cc: davem@davemloft.net, richardcochran@gmail.com,
+	eric.dumazet@gmail.com, luto@amacapital.net,
+	Willem de Bruijn <willemb@google.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f179.google.com ([209.85.214.179]:61426 "EHLO
-	mail-ob0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756665AbbAIR0b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2015 12:26:31 -0500
-Received: by mail-ob0-f179.google.com with SMTP id va2so14107327obc.10
-        for <netdev@vger.kernel.org>; Fri, 09 Jan 2015 09:26:30 -0800 (PST)
-In-Reply-To: <CAJ3xEMjb+pG3TR+r0huNVSGkuPE9i7EZeHO4SQkcfm=WA6zMeA@mail.gmail.com>
+Received: from mail-yh0-f44.google.com ([209.85.213.44]:61122 "EHLO
+	mail-yh0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752308AbbAIRcH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2015 12:32:07 -0500
+Received: by mail-yh0-f44.google.com with SMTP id c41so4711108yho.3
+        for <netdev@vger.kernel.org>; Fri, 09 Jan 2015 09:32:06 -0800 (PST)
+In-Reply-To: <1420824719-28848-1-git-send-email-willemb@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/08/2015 07:14 AM, Or Gerlitz wrote:
-> On Wed, Dec 31, 2014 at 9:45 PM, John Fastabend
-> <john.fastabend@gmail.com> wrote:
->> For some examples and maybe a bit more illustrative description I
->> posted a quickly typed up set of notes on github io pages. Here we
->> can show the description along with images produced by the flow tool
->> showing the pipeline. Once we settle a bit more on the API we should
->> probably do a clean up of this and other threads happening and commi=
-t
->> something to the Documentation directory.
->>
->>   http://jrfastab.github.io/jekyll/update/2014/12/21/flow-api.html
->
-> John, Going over your excellent tutorial, the distinction between
-> action and operation isn=E2=80=99t clear... specifically, the paragra=
-ph
-> =E2=80=9CAlthough this gives us a list of actions we can perform on a=
- packet
-> and a set of argument to give the action so we can use them it does
-> not supply the operations performed on the packet=E2=80=9D is a bit v=
-ague.
->
-> Or.
->
+From: Willem de Bruijn <willemb@google.com>
 
-Agreed that is a bit confusing. What I was trying to show is if two
-hardware devices give you the same action but with different names
-showing they are equivalent is not possible with the current API.
-So either (a) you need to enforce every device names their actions
-correctly or (b) provide a mechanism to describe the actions so we
-can evaluate their equivalence.
+Tx timestamps are looped onto the error queue on top of an skb. This
+mechanism leaks packet headers to processes unless the no-payload
+options SOF_TIMESTAMPING_OPT_TSONLY is set.
 
-Its actually worse then this what I want to eventually show is if
-device A has support for a set of actions and device B has support
-for another set. I want to be able to say things about the devices
-like device A can support any action B can do but it may require
-applying a 2 actions from A's collection of actions. (clear as mud?)
-I'll try to clear it up in the documentation.
+Add a sysctl that optionally drops looped timestamps with data for
+unprivileged users.
 
-Thanks for looking it over.
-=2EJohn
+The policy is checked when timestamps are generated in the stack.
+It is possible for timestamps with data to be reported after the
+sysctl is set, if these were queued internally earlier.
 
---=20
-John Fastabend         Intel Corporation
+No vulnerability is immediately known that exploits knowledge
+gleaned from packet headers, but it may still be preferable to allow
+administrators to lock down this path at the cost of possible
+breakage of legacy applications.
+
+Signed-off-by: Willem de Bruijn <willemb@google.com>
+---
+ include/net/sock.h         |  1 +
+ net/core/skbuff.c          | 11 ++++++++++-
+ net/core/sock.c            |  3 +++
+ net/core/sysctl_net_core.c |  9 +++++++++
+ 4 files changed, 23 insertions(+), 1 deletion(-)
+
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 2210fec..9729171 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -2262,6 +2262,7 @@ bool sk_net_capable(const struct sock *sk, int cap);
+ extern __u32 sysctl_wmem_max;
+ extern __u32 sysctl_rmem_max;
+ 
++extern int sysctl_tstamp_allow_data;
+ extern int sysctl_optmem_max;
+ 
+ extern __u32 sysctl_wmem_default;
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index ece2bb8..e5f4c06 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -3690,11 +3690,20 @@ static void __skb_complete_tx_timestamp(struct sk_buff *skb,
+ 		kfree_skb(skb);
+ }
+ 
++static bool skb_may_tx_timestamp(struct sock *sk)
++{
++	return sysctl_tstamp_allow_data || capable(CAP_NET_RAW) ||
++	       sk->sk_tsflags & SOF_TIMESTAMPING_OPT_TSONLY;
++}
++
+ void skb_complete_tx_timestamp(struct sk_buff *skb,
+ 			       struct skb_shared_hwtstamps *hwtstamps)
+ {
+ 	struct sock *sk = skb->sk;
+ 
++	if (!skb_may_tx_timestamp(sk))
++		return;
++
+ 	/* take a reference to prevent skb_orphan() from freeing the socket */
+ 	sock_hold(sk);
+ 
+@@ -3712,7 +3721,7 @@ void __skb_tstamp_tx(struct sk_buff *orig_skb,
+ 	struct sk_buff *skb;
+ 	bool tsonly = sk->sk_tsflags & SOF_TIMESTAMPING_OPT_TSONLY;
+ 
+-	if (!sk)
++	if (!sk || !skb_may_tx_timestamp(sk))
+ 		return;
+ 
+ 	if (tsonly)
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 1c7a33d..93c8b20 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -325,6 +325,8 @@ __u32 sysctl_rmem_default __read_mostly = SK_RMEM_MAX;
+ int sysctl_optmem_max __read_mostly = sizeof(unsigned long)*(2*UIO_MAXIOV+512);
+ EXPORT_SYMBOL(sysctl_optmem_max);
+ 
++int sysctl_tstamp_allow_data __read_mostly = 1;
++
+ struct static_key memalloc_socks = STATIC_KEY_INIT_FALSE;
+ EXPORT_SYMBOL_GPL(memalloc_socks);
+ 
+@@ -840,6 +842,7 @@ set_rcvbuf:
+ 			ret = -EINVAL;
+ 			break;
+ 		}
++
+ 		if (val & SOF_TIMESTAMPING_OPT_ID &&
+ 		    !(sk->sk_tsflags & SOF_TIMESTAMPING_OPT_ID)) {
+ 			if (sk->sk_protocol == IPPROTO_TCP) {
+diff --git a/net/core/sysctl_net_core.c b/net/core/sysctl_net_core.c
+index 31baba2..fde21d1 100644
+--- a/net/core/sysctl_net_core.c
++++ b/net/core/sysctl_net_core.c
+@@ -321,6 +321,15 @@ static struct ctl_table net_core_table[] = {
+ 		.mode		= 0644,
+ 		.proc_handler	= proc_dointvec
+ 	},
++	{
++		.procname	= "tstamp_allow_data",
++		.data		= &sysctl_tstamp_allow_data,
++		.maxlen		= sizeof(int),
++		.mode		= 0644,
++		.proc_handler	= proc_dointvec_minmax,
++		.extra1		= &zero,
++		.extra2		= &one
++	},
+ #ifdef CONFIG_RPS
+ 	{
+ 		.procname	= "rps_sock_flow_entries",
+-- 
+2.2.0.rc0.207.ga3a616c
