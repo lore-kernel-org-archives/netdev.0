@@ -1,45 +1,32 @@
-From: Dennis Chen <kernel.org.gnu@gmail.com>
-Subject: Re: [PATCH] net: Prevent multiple NAPI instances co-existing in the list
-Date: Fri, 9 Jan 2015 11:07:27 +0800
-Message-ID: <CA+U0gVg=K+au1Cyw=rcjqybMXwT8qSoDie71czEt1aTBwKj=0A@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: Prevent multiple NAPI instances co-existing in
+ the list
+Date: Thu, 08 Jan 2015 19:12:20 -0800 (PST)
+Message-ID: <20150108.191220.2026555103366558353.davem@davemloft.net>
 References: <CA+U0gVh+TyEUJ+qmg+FE=UhvvQywfNxcouCyv1sutZ3fav5FAw@mail.gmail.com>
- <20150108111554.GA8720@gondor.apana.org.au> <CA+U0gVgZr-Mhzest1O_vtCWMwuaQmP30DYb8CLXDG8iTobObYQ@mail.gmail.com>
- <20150109022752.GA15785@gondor.apana.org.au> <CA+U0gVgS7z601DZvL82EJfYGYb5XQExw9CbnPRpUeN32TWLF7w@mail.gmail.com>
- <20150109023421.GA16089@gondor.apana.org.au>
+	<1420728671.5947.47.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CA+U0gVi1cVB4qbXAkPp1LMmNOaDOD2UaAL4riA6O_Q_SnvMQTA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>, Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	herbert@gondor.apana.org.au
+To: kernel.org.gnu@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:34856 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754991AbbAIDHs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2015 22:07:48 -0500
-Received: by mail-pa0-f46.google.com with SMTP id lf10so15697576pab.5
-        for <netdev@vger.kernel.org>; Thu, 08 Jan 2015 19:07:47 -0800 (PST)
-In-Reply-To: <20150109023421.GA16089@gondor.apana.org.au>
+Received: from shards.monkeyblade.net ([149.20.54.216]:50067 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755510AbbAIDJ2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2015 22:09:28 -0500
+In-Reply-To: <CA+U0gVi1cVB4qbXAkPp1LMmNOaDOD2UaAL4riA6O_Q_SnvMQTA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 9, 2015 at 10:34 AM, Herbert Xu <herbert@gondor.apana.org.au> wrote:
-> On Fri, Jan 09, 2015 at 10:32:13AM +0800, Dennis Chen wrote:
->>
->> Thanks, would you pls give me an example of those drivers? I'll study
->> it further...
->
-> There are no known drivers doing this currently since that would
-> be a bug and they would be fixed quickly.  But if you look back
-> in history virtio_net was doing this.
->
-> Cheers,
-> --
-> Email: Herbert Xu <herbert@gondor.apana.org.au>
-> Home Page: http://gondor.apana.org.au/~herbert/
-> PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+From: Dennis Chen <kernel.org.gnu@gmail.com>
+Date: Fri, 9 Jan 2015 10:26:48 +0800
 
-Is this the below patch you mentioned?
-https://lkml.org/lkml/2014/7/23/134
+> I am very curious about the reason that you're removing the atomic ops
+> in the stack, what's the benifit?
 
--- 
-Den
+1) Do not top post.
+
+2) The reason is, obviously, performance.
