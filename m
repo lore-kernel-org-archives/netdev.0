@@ -1,90 +1,56 @@
-From: Francois Romieu <romieu-W8zweXLXuWQS+FvcfC7Uqw@public.gmane.org>
-Subject: Re: [PATCH] ethernet: atheros: Add nss-gmac driver
-Date: Fri, 9 Jan 2015 01:00:57 +0100
-Message-ID: <20150109000057.GB11396@electric-eye.fr.zoreil.com>
-References: <y>
- <1420754626-30121-1-git-send-email-wstephen@codeaurora.org>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH net] ipv6: Prevent ipv6_find_hdr() from returning ENOENT
+ for valid non-first fragments
+Date: Fri, 9 Jan 2015 01:05:46 +0100
+Message-ID: <20150109000546.GA3488@salvia>
+References: <CAFB3abzYNYqtzd_n+Ym0Lo=DYbV0HPU=Tqw=stALNnu188hMKQ@mail.gmail.com>
+ <20150106224706.GA7416@salvia>
+ <CAFB3abwKpR1VqZXUrsexqveAZrA2LTSmTe8a=-H7z2HjAptjwA@mail.gmail.com>
+ <1420627396.26870.36.camel@stressinduktion.org>
+ <20150108205328.GA3361@salvia>
+ <1420756756.1755002.211556745.0418D128@webmail.messagingengine.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: jcliburn-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Stephen Wang <wstephen-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: Rahul Sharma <rsharma@arista.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:41751 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755543AbbAIADI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Jan 2015 19:03:08 -0500
 Content-Disposition: inline
-In-Reply-To: <1420754626-30121-1-git-send-email-wstephen-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1420756756.1755002.211556745.0418D128@webmail.messagingengine.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Stephen Wang <wstephen-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org> :
-> This driver adds support for the internal GMACs on IPQ806x SoCs.
-> It supports the device-tree and will register up to 4 ethernet
-> interfaces.
+On Thu, Jan 08, 2015 at 11:39:16PM +0100, Hannes Frederic Sowa wrote:
+> Hi Pablo,
 > 
-> Signed-off-by: Stephen Wang <wstephen-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-> ---
-[...]
-> +/*
-> + * NSS GMAC data plane ops, default would be slowpath and can be override by
-> + * nss-drv
-> + */
-> +struct nss_gmac_data_plane_ops {
-> +	int (*open)(void *ctx, uint32_t tx_desc_ring, uint32_t rx_desc_ring,
-> +							uint32_t mode);
-> +	int (*close)(void *ctx);
-> +	int (*link_state)(void *ctx, uint32_t link_state);
-> +	int (*mac_addr)(void *ctx, uint8_t *addr);
-> +	int (*change_mtu)(void *ctx, uint32_t mtu);
-> +	int (*xmit)(void *ctx, struct sk_buff *os_buf);
-> +};
+> On Thu, Jan 8, 2015, at 21:53, Pablo Neira Ayuso wrote:
+> > I'm afraid we cannot just get rid of that !ipv6_ext_hdr() check. The
+> > ipv6_find_hdr() function is designed to return the transport protocol.
+> > After the proposed change, it will return extension header numbers.
+> > This will break existing ip6tables rulesets since the `-p' option
+> > relies on this function to match the transport protocol.
+> >
+> > Note that the AH header is skipped (see code a bit below this
+> > problematic fragmentation handling) so the follow up header after the
+> > AH header is returned as the transport header.
+> > 
+> > We can probably return the AH protocol number for non-1st fragments.
+> > However, that would be something new to ip6tables since nobody has
+> > ever seen packet matching `-p ah' rules. Thus, we restore control to
+> > the user to allow this, but we would accept all kind of fragmented AH
+> > traffic through the firewall since we cannot know what transport
+> > protocol contains from non-1st fragments (unless I'm missing anything,
+> > I need to have a closer look at this again tomorrow with fresher
+> > mind).
+> 
+> The code in question is guarded by (_frag_off != 0), so we are
+> definitely processing a non-1st fragment currently. The -p match would
+> happen at the time when the packet is reassembled and thus ipv6_find_hdr
+> will find the real transport (final) header at this point (I hope I
+> followed the code correctly here).
 
-Weak types.
-
-[...]
-> +/*
-> + * nss_gmac_register_offload()
-> + *
-> + * @param[netdev] netdev instance that is going to register
-> + * @param[dp_ops] dataplan ops for chaning mac addr/mtu/link status
-> + * @param[ctx] passing the ctx of this nss_phy_if to gmac
-> + *
-> + * @return Return SUCCESS or FAILURE
-> + */
-> +int nss_gmac_override_data_plane(struct net_device *netdev,
-> +				struct nss_gmac_data_plane_ops *dp_ops,
-> +				void *ctx)
-> +{
-> +	struct nss_gmac_dev *gmacdev = (struct nss_gmac_dev *)netdev_priv(netdev);
-> +
-> +	BUG_ON(!gmacdev);
-> +
-> +	if (!dp_ops->open || !dp_ops->close || !dp_ops->link_state
-> +		|| !dp_ops->mac_addr || !dp_ops->change_mtu || !dp_ops->xmit) {
-> +		netdev_dbg(netdev, "%s: All the op functions must be present, reject this registeration",
-> +								__func__);
-> +		return NSS_GMAC_FAILURE;
-> +	}
-> +
-> +	/*
-> +	 * If this gmac is up, close the netdev to force TX/RX stop
-> +	 */
-> +	if (test_bit(__NSS_GMAC_UP, &gmacdev->flags))
-> +		nss_gmac_linux_close(netdev);
-> +
-> +	/* Recored the data_plane_ctx, data_plane_ops */
-> +	gmacdev->data_plane_ctx = ctx;
-> +	gmacdev->data_plane_ops = dp_ops;
-> +	gmacdev->first_linkup_done = 0;
-> +
-> +	return NSS_GMAC_SUCCESS;
-> +}
-> +EXPORT_SYMBOL(nss_gmac_override_data_plane);
-
-Why is this hook needed ?
-
--- 
-Ueimor
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Then, Rahul should get things working by modprobing nf_defrag_ipv6.
