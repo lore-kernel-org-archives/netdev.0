@@ -1,71 +1,89 @@
-From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Subject: Re: [PATCH RESEND 2/2] wlcore: align member-assigns in a structure-copy block
-Date: Fri, 09 Jan 2015 19:03:45 +0200
-Message-ID: <87vbkfga32.fsf@kamboji.qca.qualcomm.com>
-References: <1420394427-19509-1-git-send-email-me@mortis.eu>
-	<1420659525-22975-1-git-send-email-me@mortis.eu>
-	<1420659525-22975-2-git-send-email-me@mortis.eu>
+From: Vadim Kochan <vadim4j@gmail.com>
+Subject: Re: Fw: iproute2: segfault with ip link show dev
+Date: Fri, 9 Jan 2015 18:59:34 +0200
+Message-ID: <20150109165934.GA18229@angus-think.wlc.globallogic.com>
+References: <20150107114217.42bf2392@urahara>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Eliad Peller <eliad-Ix1uc/W3ht7QT0dZR+AlfA@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	Arik Nemtsov <arik-Ix1uc/W3ht7QT0dZR+AlfA@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org (open list:TI WILINK WIRELES...),
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org (open list:NETWORKING DRIVERS)
-To: Giel van Schijndel <me-sZ9Uef1cvPWHXe+LvDLADg@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1420659525-22975-2-git-send-email-me-sZ9Uef1cvPWHXe+LvDLADg@public.gmane.org> (Giel van
-	Schijndel's message of "Wed, 7 Jan 2015 20:38:38 +0100")
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, vadim4j@gmail.com
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f43.google.com ([209.85.215.43]:32797 "EHLO
+	mail-la0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752681AbbAIRKB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2015 12:10:01 -0500
+Received: by mail-la0-f43.google.com with SMTP id s18so15536623lam.2
+        for <netdev@vger.kernel.org>; Fri, 09 Jan 2015 09:09:59 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20150107114217.42bf2392@urahara>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Giel van Schijndel <me-sZ9Uef1cvPWHXe+LvDLADg@public.gmane.org> writes:
+On Wed, Jan 07, 2015 at 11:42:17AM -0800, Stephen Hemminger wrote:
+> Looks like one VF info changes broke old code
+> 
+> Begin forwarded message:
+> 
+> Date: Wed, 7 Jan 2015 04:06:53 -0800
+> From: William Dauchy <william@gandi.net>
+> To: "stephen@networkplumber.org" <stephen@networkplumber.org>
+> Subject: iproute2: segfault with ip link show dev
+> 
+> 
+> Hi,
+> 
+> I was using iproute2 3.15.
+> My network card in using igb driver with VF enable, e.g igb.max_vfs=2
+> After upgrading to 3.16, I have now a segfault while doing a
+> usual `ip link show dev eth1`.
+> Disabling VFS make the segafult disappear.
+> 
+> Here is the gdb trace even if it does not contain much info.
+> The segfault occurs when at the VF step.
+> 
+> (gdb) break print_linkinfo
+> Breakpoint 1 at 0x40782d
+> (gdb) set args link show dev eth1
+> (gdb) r
+> Starting program: /sbin/ip link show dev eth1
+> 
+> Breakpoint 1, 0x000000000040782d in print_linkinfo ()
+> (gdb) n
+> Single stepping until exit from function print_linkinfo,
+> which has no line number information.
+> 3: eth1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 9000 qdisc mq state UP
+> mode DEFAULT group default qlen 10000
+>     link/ether 00:26:6c:ff:b5:c1 brd ff:ff:ff:ff:ff:ff
+> 
+> Program received signal SIGSEGV, Segmentation fault.
+> 0x00000000004070eb in print_vfinfo ()
+> (gdb) bt
+> #0  0x00000000004070eb in print_vfinfo ()
+> #1  0x0000000000407f9f in print_linkinfo ()
+> #2  0x000000000041f266 in iplink_get ()
+> #3  0x0000000000409c69 in ipaddr_list_flush_or_save ()
+> #4  0x000000000040a113 in ipaddr_list_link ()
+> #5  0x00000000004203f6 in do_iplink ()
+> #6  0x0000000000405a07 in do_cmd ()
+> #7  0x000000000040621e in main ()
+> 
+> The expected output is for example:
+> 
+> # ip link show dev eth1
+> 3: eth1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 9000 qdisc mq state UP mode DEFAULT group default qlen 10000
+>     link/ether 00:26:6c:ff:b3:8d brd ff:ff:ff:ff:ff:ff
+>     vf 0 MAC 00:00:00:00:00:00, spoof checking on, link-state auto
+>     vf 1 MAC 00:00:00:00:00:00, spoof checking on, link-state auto
+> 
+> 
+> I'm using my own kernel build, a stable v3.14.x
+> 
+> Regards,
+> -- 
+> William
 
-> This highlights the differences (e.g. the bug fixed in the previous
-> commit).
->
-> Signed-off-by: Giel van Schijndel <me-sZ9Uef1cvPWHXe+LvDLADg@public.gmane.org>
-> ---
->  drivers/net/wireless/ti/wlcore/acx.c | 22 +++++++++++-----------
->  1 file changed, 11 insertions(+), 11 deletions(-)
->
-> diff --git a/drivers/net/wireless/ti/wlcore/acx.c b/drivers/net/wireless/ti/wlcore/acx.c
-> index f28fa3b..93a2fa8 100644
-> --- a/drivers/net/wireless/ti/wlcore/acx.c
-> +++ b/drivers/net/wireless/ti/wlcore/acx.c
-> @@ -1715,17 +1715,17 @@ int wl12xx_acx_config_hangover(struct wl1271 *wl)
->  		goto out;
->  	}
->  
-> -	acx->recover_time = cpu_to_le32(conf->recover_time);
-> -	acx->hangover_period = conf->hangover_period;
-> -	acx->dynamic_mode = conf->dynamic_mode;
-> -	acx->early_termination_mode = conf->early_termination_mode;
-> -	acx->max_period = conf->max_period;
-> -	acx->min_period = conf->min_period;
-> -	acx->increase_delta = conf->increase_delta;
-> -	acx->decrease_delta = conf->decrease_delta;
-> -	acx->quiet_time = conf->quiet_time;
-> -	acx->increase_time = conf->increase_time;
-> -	acx->window_size = conf->window_size;
-> +	acx->recover_time               = cpu_to_le32(conf->recover_time);
-> +	acx->hangover_period            = conf->hangover_period;
-> +	acx->dynamic_mode               = conf->dynamic_mode;
-> +	acx->early_termination_mode     = conf->early_termination_mode;
-> +	acx->max_period                 = conf->max_period;
-> +	acx->min_period                 = conf->min_period;
-> +	acx->increase_delta             = conf->increase_delta;
-> +	acx->decrease_delta             = conf->decrease_delta;
-> +	acx->quiet_time                 = conf->quiet_time;
-> +	acx->increase_time              = conf->increase_time;
-> +	acx->window_size                = conf->window_size;
+I have a working patch which was tested by William and will send it
+soon.
 
-I would like to get an ACK from one of the wlcore developers if I should
-apply this (or not).
-
--- 
-Kalle Valo
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Regards,
+Vadim Kochan
