@@ -1,59 +1,84 @@
-From: Hau <hau@realtek.com>
-Subject: RE: [PATCH net-next 07/11] r8169:update rtl8168f pcie ephy parameter
-Date: Fri, 9 Jan 2015 05:18:19 +0000
-Message-ID: <80377ECBC5453840BA8C7155328B5377010B9F65@RTITMBSV03.realtek.com.tw>
-References: <1420648826-12972-1-git-send-email-hau@realtek.com>
-	<1420648826-12972-8-git-send-email-hau@realtek.com>
-	<063D6719AE5E284EB5DD2968C1650D6D1CAC2C99@AcuExch.aculab.com>
- <20150108.200858.548066819871890131.davem@davemloft.net>
+From: Fan Du <fengyuleidian0615@gmail.com>
+Subject: Re: IPsec workshop at netdev01?
+Date: Fri, 09 Jan 2015 13:30:38 +0800
+Message-ID: <54AF677E.9080108@gmail.com>
+References: <20150106101936.GC31458@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	nic_swsd <nic_swsd@realtek.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>,
-	"David.Laight@ACULAB.COM" <David.Laight@ACULAB.COM>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Jamal Hadi Salim <jhs@mojatatu.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	David Miller <davem@davemloft.net>,
+	"Du, Fan" <fan.du@intel.com>
+To: Steffen Klassert <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rtits2.realtek.com ([60.250.210.242]:43471 "EHLO
-	rtits2.realtek.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753061AbbAIFSj convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2015 00:18:39 -0500
-In-Reply-To: <20150108.200858.548066819871890131.davem@davemloft.net>
-Content-Language: zh-TW
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:48331 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750928AbbAIFeQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2015 00:34:16 -0500
+Received: by mail-pa0-f42.google.com with SMTP id et14so16397175pad.1
+        for <netdev@vger.kernel.org>; Thu, 08 Jan 2015 21:34:16 -0800 (PST)
+In-Reply-To: <20150106101936.GC31458@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Friday, January 09, 2015 12:09 PM
-> To: David.Laight@ACULAB.COM
-> Cc: Hau; netdev@vger.kernel.org; nic_swsd; linux-kernel@vger.kernel.org
-> Subject: Re: [PATCH net-next 07/11] r8169:update rtl8168f pcie ephy
-> parameter
-> 
-> From: David Laight <David.Laight@ACULAB.COM>
-> Date: Wed, 7 Jan 2015 16:45:58 +0000
-> 
-> > From: Chunhao Lin
-> >> @@ -5852,7 +5852,9 @@ static void rtl_hw_start_8168f_1(struct
-> rtl8169_private *tp)
-> >>  		{ 0x06, 0x00c0,	0x0020 },
-> >>  		{ 0x08, 0x0001,	0x0002 },
-> >>  		{ 0x09, 0x0000,	0x0080 },
-> >> -		{ 0x19, 0x0000,	0x0224 }
-> >> +		{ 0x19, 0x0000,	0x0224 },
-> >> +		{ 0x00, 0x0000,	0x0008 },
-> >> +		{ 0x0c, 0x3df0,	0x0200 }
-> >
-> > I can't help feeling these lines all require short comments.
-> 
-> Agreed.
-> 
-> And this goes for some of the other patches that look like this too.
+=E4=BA=8E 2015=E5=B9=B401=E6=9C=8806=E6=97=A5 18:19, Steffen Klassert =E5=
+=86=99=E9=81=93:
+> Is there any interest in doing an IPsec workshop at netdev01?
 >
-I will merge the patches and update again.
+> This mail is to probe if we can gather enough discussion topics to ru=
+n
+> such a workshop. So if someone is interested to attend and/or has a
+> related discussion topic, please let me know.
+>
+> The idea to do this workshop came yesterday, so I'm still collecting
+> topics I'm interested in. Some things that came immediately to my min=
+d
+> are:
+>
+> - Our IPsec policy/state lookups are still hashlist based on slowpath=
+ with
+>    a flowcache to do fast lookups for traffic flows we have already s=
+een.
+>    This flowcache has similar issues like the ipv4 routing chache had=
+=2E
+>    Is the flowcache an appropriate lookup method on the long run or s=
+hould
+>    we at least think about an additional alternative lookup method?
+>
+> - We still lack a 32/64 bit compatibiltiy layer for IPsec, this issue
+>    comes up from time to time. Some solutions were proposed in the pa=
+st
+>    but all had problems. The current behaviour is broken if someone t=
+ries
+>    to configure IPsec with 32 bit tools on a 64 bit machine. Can we g=
+et
+>    this right somehow or is it better to just return an error in this=
+ case?
 
-Thanks.
- 
-------Please consider the environment before printing this e-mail.
+Before a clean solution show up, I think it's better to warn user in so=
+me way
+like http://patchwork.ozlabs.org/patch/323842/ did. Otherwise, many peo=
+ple
+who stuck there will always spend time and try to fix this issue in wha=
+tever way.
+
+> - Changing the system time can lead to unexpected SA lifetime changes=
+=2E The
+>    discussion on the list did not lead to a conclusion on how to fix =
+this.
+>    What is the best way to get this fixed?
+
+I rise this issue long ago before, the culprit is SA lifetime is marked=
+ by wall clock.
+In a reasonable way it should be marked as monotonic boot time(counting=
+ suspend time
+as well). Then every thing will be work correctly. I have such a patch =
+works correctly.
+EXCEPT: SA migration, where SA lifetime comes from outside.
+I didn't look at SA migration part though, so any comments? Steffen
+
+
+--=20
+No zuo no die but I have to try.
