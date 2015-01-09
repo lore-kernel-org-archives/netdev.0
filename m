@@ -1,374 +1,324 @@
-From: Bjorn Helgaas <bhelgaas@google.com>
-Subject: Re: [PATCH RFC] pci: Control whether VFs are probed on
- pci_enable_sriov
-Date: Fri, 9 Jan 2015 11:25:46 -0700
-Message-ID: <20150109182546.GG6575@google.com>
-References: <1417957693-24979-1-git-send-email-eli@mellanox.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [net-next PATCH v1 00/11] A flow API
+Date: Fri, 09 Jan 2015 10:27:46 -0800
+Message-ID: <54B01DA2.9090104@gmail.com>
+References: <20141231194057.31070.5244.stgit@nitbit.x32> <54ABD3D1.6020608@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, linux-pci@vger.kernel.org,
-	netdev@vger.kernel.org, ogerlitz@mellanox.com,
-	yevgenyp@mellanox.com, Eli Cohen <eli@mellanox.com>,
-	Donald Dutile <ddutile@redhat.com>
-To: Eli Cohen <eli@dev.mellanox.co.il>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: tgraf@suug.ch, sfeldma@gmail.com, jiri@resnulli.us,
+	simon.horman@netronome.com, netdev@vger.kernel.org,
+	davem@davemloft.net, andy@greyhouse.net,
+	Shrijeet Mukherjee <shm@cumulusnetworks.com>
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f41.google.com ([209.85.218.41]:51661 "EHLO
-	mail-oi0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750857AbbAISZu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2015 13:25:50 -0500
-Received: by mail-oi0-f41.google.com with SMTP id i138so13094005oig.0
-        for <netdev@vger.kernel.org>; Fri, 09 Jan 2015 10:25:49 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1417957693-24979-1-git-send-email-eli@mellanox.com>
+Received: from mail-ob0-f178.google.com ([209.85.214.178]:57680 "EHLO
+	mail-ob0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751139AbbAIS2G (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2015 13:28:06 -0500
+Received: by mail-ob0-f178.google.com with SMTP id gq1so14380249obb.9
+        for <netdev@vger.kernel.org>; Fri, 09 Jan 2015 10:28:04 -0800 (PST)
+In-Reply-To: <54ABD3D1.6020608@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Dec 07, 2014 at 03:08:13PM +0200, Eli Cohen wrote:
-> Sometimes it is not desirable to probe the virtual fuctions right away,
-> but rather leave the decision to the host's administrator.
-> 
-> This can save host side resource usage by VF instances which would be
-> eventually probed to VMs.
-> 
-> Use a parameter to pci_enable_sriov to control that policy, and modify
-> all current callers such that they retain the same functionality.
-> 
-> Use a one shot flag on struct pci_device which is cleared after the
-> first probe is ignored so subsequent attempts go through.
-> 
-> Cc: Donald Dutile <ddutile@redhat.com>
-> Signed-off-by: Eli Cohen <eli@mellanox.com>
+On 01/06/2015 04:23 AM, Jamal Hadi Salim wrote:
+> John,
+>
+> There are a lot of things to digest in your posting - I am interested
+> in commenting on many things but feel need to pay attention to details
+> in general given the importance of this interface (and conference is
+> chewing my netdev time at the moment). I need to actually sit down
+> and stare at code and documentation.
 
-Seems like we never really reached a consensus here.  Please repost if you
-want to continue down this path.
+any additional feedback would be great. sorry I tried to be concise
+but this email got fairly long regardless. Also a delayed the response
+a few days as I mulled over some of it.
 
-Bjorn
+>
+> I do think we need to have this discussion as part of the BOF
+> Shrijeet is running at netdev01.
 
-> ---
-> This approach is used by the mlx5 driver SRIOV implementation, so
-> sending this to get feedback from the PCI and networking folks.
-> 
->  drivers/misc/genwqe/card_base.c                      |  2 +-
->  drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c    |  2 +-
->  drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c      |  2 +-
->  drivers/net/ethernet/cisco/enic/enic_main.c          |  2 +-
->  drivers/net/ethernet/emulex/benet/be_main.c          |  2 +-
->  drivers/net/ethernet/intel/fm10k/fm10k_iov.c         |  2 +-
->  drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c   |  2 +-
->  drivers/net/ethernet/intel/igb/igb_main.c            |  2 +-
->  drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c       |  4 ++--
->  drivers/net/ethernet/mellanox/mlx4/main.c            |  2 +-
->  drivers/net/ethernet/neterion/vxge/vxge-main.c       |  2 +-
->  drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c |  2 +-
->  drivers/net/ethernet/sfc/siena_sriov.c               |  2 +-
->  drivers/pci/iov.c                                    | 12 +++++++-----
->  drivers/pci/pci-driver.c                             | 11 ++++++++---
->  drivers/scsi/lpfc/lpfc_init.c                        |  2 +-
->  include/linux/pci.h                                  |  5 +++--
->  17 files changed, 33 insertions(+), 25 deletions(-)
-> 
-> diff --git a/drivers/misc/genwqe/card_base.c b/drivers/misc/genwqe/card_base.c
-> index 4cf8f82cfca2..69253ca17506 100644
-> --- a/drivers/misc/genwqe/card_base.c
-> +++ b/drivers/misc/genwqe/card_base.c
-> @@ -1325,7 +1325,7 @@ static int genwqe_sriov_configure(struct pci_dev *dev, int numvfs)
->  
->  	if (numvfs > 0) {
->  		genwqe_setup_vf_jtimer(cd);
-> -		rc = pci_enable_sriov(dev, numvfs);
-> +		rc = pci_enable_sriov(dev, numvfs, 1);
->  		if (rc < 0)
->  			return rc;
->  		return numvfs;
-> diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
-> index c88b20af87df..773b20224a47 100644
-> --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
-> +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
-> @@ -2570,7 +2570,7 @@ int bnx2x_enable_sriov(struct bnx2x *bp)
->  	if (rc)
->  		return rc;
->  
-> -	rc = pci_enable_sriov(bp->pdev, req_vfs);
-> +	rc = pci_enable_sriov(bp->pdev, req_vfs, 1);
->  	if (rc) {
->  		BNX2X_ERR("pci_enable_sriov failed with %d\n", rc);
->  		return rc;
-> diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-> index 3aea82bb9039..6e8afbfd3eba 100644
-> --- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-> +++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-> @@ -6597,7 +6597,7 @@ static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
->  sriov:
->  #ifdef CONFIG_PCI_IOV
->  	if (func < ARRAY_SIZE(num_vf) && num_vf[func] > 0)
-> -		if (pci_enable_sriov(pdev, num_vf[func]) == 0)
-> +		if (pci_enable_sriov(pdev, num_vf[func], 1) == 0)
->  			dev_info(&pdev->dev,
->  				 "instantiated %u virtual functions\n",
->  				 num_vf[func]);
-> diff --git a/drivers/net/ethernet/cisco/enic/enic_main.c b/drivers/net/ethernet/cisco/enic/enic_main.c
-> index 86ee350e57f0..8a8b1d86f18a 100644
-> --- a/drivers/net/ethernet/cisco/enic/enic_main.c
-> +++ b/drivers/net/ethernet/cisco/enic/enic_main.c
-> @@ -2421,7 +2421,7 @@ static int enic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
->  		pci_read_config_word(pdev, pos + PCI_SRIOV_TOTAL_VF,
->  			&enic->num_vfs);
->  		if (enic->num_vfs) {
-> -			err = pci_enable_sriov(pdev, enic->num_vfs);
-> +			err = pci_enable_sriov(pdev, enic->num_vfs, 1);
->  			if (err) {
->  				dev_err(dev, "SRIOV enable failed, aborting."
->  					" pci_enable_sriov() returned %d\n",
-> diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-> index dc77ec2bdafd..a96491777ac4 100644
-> --- a/drivers/net/ethernet/emulex/benet/be_main.c
-> +++ b/drivers/net/ethernet/emulex/benet/be_main.c
-> @@ -3274,7 +3274,7 @@ static int be_vf_setup(struct be_adapter *adapter)
->  	}
->  
->  	if (!old_vfs) {
-> -		status = pci_enable_sriov(adapter->pdev, adapter->num_vfs);
-> +		status = pci_enable_sriov(adapter->pdev, adapter->num_vfs, 1);
->  		if (status) {
->  			dev_err(dev, "SRIOV enable failed\n");
->  			adapter->num_vfs = 0;
-> diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_iov.c b/drivers/net/ethernet/intel/fm10k/fm10k_iov.c
-> index 060190864238..04a3dc5acc28 100644
-> --- a/drivers/net/ethernet/intel/fm10k/fm10k_iov.c
-> +++ b/drivers/net/ethernet/intel/fm10k/fm10k_iov.c
-> @@ -408,7 +408,7 @@ int fm10k_iov_configure(struct pci_dev *pdev, int num_vfs)
->  		 */
->  		fm10k_disable_aer_comp_abort(pdev);
->  
-> -		err = pci_enable_sriov(pdev, num_vfs);
-> +		err = pci_enable_sriov(pdev, num_vfs, 1);
->  		if (err) {
->  			dev_err(&pdev->dev,
->  				"Enable PCI SR-IOV failed: %d\n", err);
-> diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-> index 668d860275d6..fe56e09725f2 100644
-> --- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-> +++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-> @@ -852,7 +852,7 @@ int i40e_alloc_vfs(struct i40e_pf *pf, u16 num_alloc_vfs)
->  
->  	/* Check to see if we're just allocating resources for extant VFs */
->  	if (pci_num_vf(pf->pdev) != num_alloc_vfs) {
-> -		ret = pci_enable_sriov(pf->pdev, num_alloc_vfs);
-> +		ret = pci_enable_sriov(pf->pdev, num_alloc_vfs, 1);
->  		if (ret) {
->  			dev_err(&pf->pdev->dev,
->  				"Failed to enable SR-IOV, error %d.\n", ret);
-> diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-> index 3c0221620c9d..da01326ef550 100644
-> --- a/drivers/net/ethernet/intel/igb/igb_main.c
-> +++ b/drivers/net/ethernet/intel/igb/igb_main.c
-> @@ -2742,7 +2742,7 @@ static int igb_enable_sriov(struct pci_dev *pdev, int num_vfs)
->  
->  	/* only call pci_enable_sriov() if no VFs are allocated already */
->  	if (!old_vfs) {
-> -		err = pci_enable_sriov(pdev, adapter->vfs_allocated_count);
-> +		err = pci_enable_sriov(pdev, adapter->vfs_allocated_count, 1);
->  		if (err)
->  			goto err_out;
->  	}
-> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-> index 04eee7c7b653..74b33483a0d1 100644
-> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-> @@ -149,7 +149,7 @@ void ixgbe_enable_sriov(struct ixgbe_adapter *adapter)
->  		 */
->  		adapter->num_vfs = min_t(unsigned int, adapter->num_vfs, IXGBE_MAX_VFS_DRV_LIMIT);
->  
-> -		err = pci_enable_sriov(adapter->pdev, adapter->num_vfs);
-> +		err = pci_enable_sriov(adapter->pdev, adapter->num_vfs, 1);
->  		if (err) {
->  			e_err(probe, "Failed to enable PCI sriov: %d\n", err);
->  			adapter->num_vfs = 0;
-> @@ -270,7 +270,7 @@ static int ixgbe_pci_sriov_enable(struct pci_dev *dev, int num_vfs)
->  	for (i = 0; i < adapter->num_vfs; i++)
->  		ixgbe_vf_configuration(dev, (i | 0x10000000));
->  
-> -	err = pci_enable_sriov(dev, num_vfs);
-> +	err = pci_enable_sriov(dev, num_vfs, 1);
->  	if (err) {
->  		e_dev_warn("Failed to enable PCI sriov: %d\n", err);
->  		return err;
-> diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
-> index 3044f9e623cb..ae38b556ec13 100644
-> --- a/drivers/net/ethernet/mellanox/mlx4/main.c
-> +++ b/drivers/net/ethernet/mellanox/mlx4/main.c
-> @@ -2350,7 +2350,7 @@ static u64 mlx4_enable_sriov(struct mlx4_dev *dev, struct pci_dev *pdev,
->  					 existing_vfs, total_vfs);
->  		} else {
->  			mlx4_warn(dev, "Enabling SR-IOV with %d VFs\n", total_vfs);
-> -			err = pci_enable_sriov(pdev, total_vfs);
-> +			err = pci_enable_sriov(pdev, total_vfs, 1);
->  		}
->  		if (err) {
->  			mlx4_err(dev, "Failed to enable SR-IOV, continuing without SR-IOV (err = %d)\n",
-> diff --git a/drivers/net/ethernet/neterion/vxge/vxge-main.c b/drivers/net/ethernet/neterion/vxge/vxge-main.c
-> index cc0485e3c621..c341e73fc68c 100644
-> --- a/drivers/net/ethernet/neterion/vxge/vxge-main.c
-> +++ b/drivers/net/ethernet/neterion/vxge/vxge-main.c
-> @@ -4495,7 +4495,7 @@ vxge_probe(struct pci_dev *pdev, const struct pci_device_id *pre)
->  	/* Enable SRIOV mode, if firmware has SRIOV support and if it is a PF */
->  	if (is_sriov(function_mode) && !is_sriov_initialized(pdev) &&
->  	   (ll_config->intr_type != INTA)) {
-> -		ret = pci_enable_sriov(pdev, num_vfs);
-> +		ret = pci_enable_sriov(pdev, num_vfs, 1);
->  		if (ret)
->  			vxge_debug_ll_config(VXGE_ERR,
->  				"Failed in enabling SRIOV mode: %d\n", ret);
-> diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c
-> index a29538b86edf..b483705a1ef1 100644
-> --- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c
-> +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c
-> @@ -570,7 +570,7 @@ static int qlcnic_sriov_pf_enable(struct qlcnic_adapter *adapter, int num_vfs)
->  	if (!qlcnic_sriov_enable_check(adapter))
->  		return 0;
->  
-> -	err = pci_enable_sriov(adapter->pdev, num_vfs);
-> +	err = pci_enable_sriov(adapter->pdev, num_vfs, 1);
->  	if (err)
->  		qlcnic_sriov_pf_cleanup(adapter);
->  
-> diff --git a/drivers/net/ethernet/sfc/siena_sriov.c b/drivers/net/ethernet/sfc/siena_sriov.c
-> index a8bbbad68a88..6804ed04cfcd 100644
-> --- a/drivers/net/ethernet/sfc/siena_sriov.c
-> +++ b/drivers/net/ethernet/sfc/siena_sriov.c
-> @@ -1332,7 +1332,7 @@ int efx_siena_sriov_init(struct efx_nic *efx)
->  
->  	/* At this point we must be ready to accept VFDI requests */
->  
-> -	rc = pci_enable_sriov(efx->pci_dev, efx->vf_count);
-> +	rc = pci_enable_sriov(efx->pci_dev, efx->vf_count, 1);
->  	if (rc)
->  		goto fail_pci;
->  
-> diff --git a/drivers/pci/iov.c b/drivers/pci/iov.c
-> index 4d109c07294a..f6aba5beea78 100644
-> --- a/drivers/pci/iov.c
-> +++ b/drivers/pci/iov.c
-> @@ -57,7 +57,7 @@ static void virtfn_remove_bus(struct pci_bus *physbus, struct pci_bus *virtbus)
->  		pci_remove_bus(virtbus);
->  }
->  
-> -static int virtfn_add(struct pci_dev *dev, int id, int reset)
-> +static int virtfn_add(struct pci_dev *dev, int id, int reset, int probe)
->  {
->  	int i;
->  	int rc = -ENOMEM;
-> @@ -85,6 +85,7 @@ static int virtfn_add(struct pci_dev *dev, int id, int reset)
->  	virtfn->physfn = pci_dev_get(dev);
->  	virtfn->is_virtfn = 1;
->  	virtfn->multifunction = 0;
-> +	virtfn->probe_vf = probe;
->  
->  	for (i = 0; i < PCI_SRIOV_NUM_BARS; i++) {
->  		res = dev->resource + PCI_IOV_RESOURCES + i;
-> @@ -170,7 +171,7 @@ static void virtfn_remove(struct pci_dev *dev, int id, int reset)
->  	pci_dev_put(dev);
->  }
->  
-> -static int sriov_enable(struct pci_dev *dev, int nr_virtfn)
-> +static int sriov_enable(struct pci_dev *dev, int nr_virtfn, int probe_vfs)
->  {
->  	int rc;
->  	int i, j;
-> @@ -255,7 +256,7 @@ static int sriov_enable(struct pci_dev *dev, int nr_virtfn)
->  		initial = nr_virtfn;
->  
->  	for (i = 0; i < initial; i++) {
-> -		rc = virtfn_add(dev, i, 0);
-> +		rc = virtfn_add(dev, i, 0, probe_vfs);
->  		if (rc)
->  			goto failed;
->  	}
-> @@ -558,17 +559,18 @@ int pci_iov_bus_range(struct pci_bus *bus)
->   * pci_enable_sriov - enable the SR-IOV capability
->   * @dev: the PCI device
->   * @nr_virtfn: number of virtual functions to enable
-> + * @probe_vfs: in zero, don't probe new VFs, otherwise probe if suitable driver available
->   *
->   * Returns 0 on success, or negative on failure.
->   */
-> -int pci_enable_sriov(struct pci_dev *dev, int nr_virtfn)
-> +int pci_enable_sriov(struct pci_dev *dev, int nr_virtfn, int probe_vfs)
->  {
->  	might_sleep();
->  
->  	if (!dev->is_physfn)
->  		return -ENOSYS;
->  
-> -	return sriov_enable(dev, nr_virtfn);
-> +	return sriov_enable(dev, nr_virtfn, probe_vfs);
->  }
->  EXPORT_SYMBOL_GPL(pci_enable_sriov);
->  
-> diff --git a/drivers/pci/pci-driver.c b/drivers/pci/pci-driver.c
-> index 2b3c89425bb5..d5b93339b8a4 100644
-> --- a/drivers/pci/pci-driver.c
-> +++ b/drivers/pci/pci-driver.c
-> @@ -397,9 +397,14 @@ static int pci_device_probe(struct device *dev)
->  	drv = to_pci_driver(dev->driver);
->  	pci_dev = to_pci_dev(dev);
->  	pci_dev_get(pci_dev);
-> -	error = __pci_device_probe(drv, pci_dev);
-> -	if (error)
-> -		pci_dev_put(pci_dev);
-> +	if (!pci_dev->is_virtfn || pci_dev->probe_vf) {
-> +		error = __pci_device_probe(drv, pci_dev);
-> +		if (error)
-> +			pci_dev_put(pci_dev);
-> +	}
-> +	/* one shot blocking of probe */
-> +	if (pci_dev->is_virtfn && !pci_dev->probe_vf)
-> +		pci_dev->probe_vf = 1;
->  
->  	return error;
->  }
-> diff --git a/drivers/scsi/lpfc/lpfc_init.c b/drivers/scsi/lpfc/lpfc_init.c
-> index 0b2c53af85c7..2f81f471b8f3 100644
-> --- a/drivers/scsi/lpfc/lpfc_init.c
-> +++ b/drivers/scsi/lpfc/lpfc_init.c
-> @@ -4797,7 +4797,7 @@ lpfc_sli_probe_sriov_nr_virtfn(struct lpfc_hba *phba, int nr_vfn)
->  		return -EINVAL;
->  	}
->  
-> -	rc = pci_enable_sriov(pdev, nr_vfn);
-> +	rc = pci_enable_sriov(pdev, nr_vfn, 1);
->  	if (rc) {
->  		lpfc_printf_log(phba, KERN_WARNING, LOG_INIT,
->  				"2806 Failed to enable sriov on this device "
-> diff --git a/include/linux/pci.h b/include/linux/pci.h
-> index 4c8ac5fcc224..beb2640ba18d 100644
-> --- a/include/linux/pci.h
-> +++ b/include/linux/pci.h
-> @@ -373,6 +373,7 @@ struct pci_dev {
->  	phys_addr_t rom; /* Physical address of ROM if it's not from the BAR */
->  	size_t romlen; /* Length of ROM if it's not from the BAR */
->  	char *driver_override; /* Driver name to force a match */
-> +	int probe_vf; /* probe this device */
->  };
->  
->  static inline struct pci_dev *pci_physfn(struct pci_dev *dev)
-> @@ -1655,14 +1656,14 @@ int pci_ext_cfg_avail(void);
->  void __iomem *pci_ioremap_bar(struct pci_dev *pdev, int bar);
->  
->  #ifdef CONFIG_PCI_IOV
-> -int pci_enable_sriov(struct pci_dev *dev, int nr_virtfn);
-> +int pci_enable_sriov(struct pci_dev *dev, int nr_virtfn, int probe_vfs);
->  void pci_disable_sriov(struct pci_dev *dev);
->  int pci_num_vf(struct pci_dev *dev);
->  int pci_vfs_assigned(struct pci_dev *dev);
->  int pci_sriov_set_totalvfs(struct pci_dev *dev, u16 numvfs);
->  int pci_sriov_get_totalvfs(struct pci_dev *dev);
->  #else
-> -static inline int pci_enable_sriov(struct pci_dev *dev, int nr_virtfn)
-> +static inline int pci_enable_sriov(struct pci_dev *dev, int nr_virtfn, int nr_virt_probe)
->  { return -ENODEV; }
->  static inline void pci_disable_sriov(struct pci_dev *dev) { }
->  static inline int pci_num_vf(struct pci_dev *dev) { return 0; }
-> -- 
-> 2.1.3
-> 
+Maybe I was a bit ambitious thinking we could get this merged
+by then? Maybe I can resolve concerns via email ;) What I wanted
+to discuss at netdev01 was specifically the mapping between
+software models and hardware model as exposed by this series.
+I see value in doing this in user space for some consumers OVS
+which is why the UAPI is there to support this.
+
+Also I think in-kernel users are interesting as well and 'tc'
+is a reasonable candidate to try and offload from in the kernel IMO.
+
+>
+> General comments:
+> 1) one of the things that i have learnt over time is that not
+> everything that sits or is abstracted from hardware is a table.
+> You could have structs or simple scalars for config or runtime
+> control. How does what you are proposing here allow to express that?
+> I dont think you'd need it for simple things but if you dont allow
+> for it you run into the square-hole-round-peg syndrome of "yeah
+> i can express that u32 variable as a single table with a single row
+> and a single column" ;-> or "you need another infrastructure for
+> that single scalr u32"
+
+The interface (both UAPI and kernel API) deals exclusively with the
+flow table pipeline at the moment. I've allowed for table attributes
+which allows you to give tables characteristics. Right now it only
+supports basic attribs like ingress_root and egress_root but I have
+some work not in this series to allow tables to be dynamic
+(allocated/freed) at runtime. More attributes could be added as needed
+here. But this still only covers tables.
+
+I agree there other things besides tables, of course. First thing
+that comes to mind for me is queues and QOS. How do we model these?
+My take is you add another object type call it QUEUE and use a
+'struct net_flow_queue' to model queues. Queues then have attributes
+as well like length, QOS policies, etc. I would call this extending the
+infrastructure not creating another one :). Maybe my naming it
+'net_flow' is not ideal. With a queue structure I can connect queues
+and tables together with an enqueue action. That would be one example I
+can generate more, encrypt operations, etc.
+
+FWIW queues and QOS to me fit nicely into the existing infrastructure
+and it may be easier to utilize the existing 'tc' UAPI for this.
+
+In this series I just want to get the flow table piece down though.
+
+>
+> 2) So i understood the sense of replacing ethtool for classifier
+> access with a direct interface mostly because thats what it was
+> already doing - but i am not sure why you need
+> it for a generic interface. Am i mistaken you are providing direct
+> access to hardware from user space? Would this make essentially
+> the Linux infrastructure a bypass (which vendors and their SDKs
+> love)? IMHO, a good example is to pick something like netfilter
+> or tc-filters and show how that is offloaded. This keeps it in
+> the same spirit as what we are shooting for in L2/3 at the moment.
+>
+
+I'll try to knock these off one by one:
+
+Yes we are providing an interface for userspace to interrogate the
+hardware and program it. My take on this is even if you embed this
+into another netlink family OVS, NFT, TCA you end up with the same
+operations w.r.t. table support (a) query hardware for
+resources/constraints/etc and (b) an API to add/del rules in those
+tables. It seems the intersection of these features with existing
+netlink families is fairly small so I opted to create a new family.
+The underlying hardware offload mechanisms in flow_table.c here could
+be used by in-kernel consumers as well as user space. For some
+consumers 'tc' perhaps this makes good sense for others 'OVS'
+it does not IMO.
+
+Direct access to the hardware? hmm not so sure about that its an
+abstraction layer so I can talk to _any_ hardware device using the
+same semantics. But yes at the bottom of the interface there is
+hardware. Although this provide a "raw" interface for userspace to
+inspect and program the hardware it equally provides an API for
+in-kernel consumers from using the hardware offload APIs. For
+example if you want 'tc' to offload a queueing discipline with some
+filters. For what its worth I did some experimental work here and for
+some basic cases its possible to do this offload. I'll explore
+this more as Jiri/you suggest.
+
+Would this make essentially the Linux infrastructure a bypass? hmm
+I'm not sure here exactly what you mean? If switching is done in
+the ASIC then the dataplane is being bypassed. And I don't want
+to couple management of software dataplane with management with
+hardware dataplane. It would be valid to have these dataplanes
+running two completely different pipelines/network functions. So I
+assume you mean does this API bypass the existing Linux control plane
+infrastructure for software dataplanes. I'll say tentatively
+yes it does. But in many cases my goal is to unify them in userspace
+where it is easier to make policy decisions. For OVS, NFT it
+seems to me that user space libraries can handle the unification
+of hardware/software dataplanes. Further I think it is the correct
+place to unify the dataplanes. I don't want to encode complex
+policies into the kernel. Even if you embed the netlink UAPI into
+another netlink family the semantics look the same.
+
+To address how to offload existing infrastructures, I'll try to
+explain my ideas for each subsystem.
+
+I looked into using netfilter but really didn't make much traction
+in the existing infrastructure. The trouble being nft wants to use
+expressions like payload that have registers, base, offset, len in
+the kernel but the hardware (again at least all the hardware I'm
+working with) doesn't work with these semantics it needs a field-id,
+possibly the logical operation to use and the value to match. Yes I can
+map base/offset/len to a field_id but what do I do with register? And
+this sort of complication continues with most the other expressions.
+I could write a new expression that was primarily used by hardware
+but could have a software user as well but I'm not convinced we would
+ever use it in software when we already have the functionally more
+generic expressions. To me this looks like a somewhat arbitrary
+embedding into netfilter uapi where the gain of doing this is not
+entirely clear to me.
+
+OVS would seem to have similar trouble all the policy is in user
+space. And the netlink UAPI is tuned for OVS we don't want to start
+adding/removing bits to support a hardware API where very little of it
+would be used in the software only case and vice versa very little of
+the OVS uapi messages as they exist today would be sufficient for the
+hardware API. My point of view is the intersection is small enough here
+that its easier to write a clean API that stands on its own then try
+to sync these hardware offload operations into the OVS UAPI. Further
+OVS is very specific about what fields/tables it supports in its current
+version and I don't want to force hardware into this model.
+
+And finally 'tc'. Filters today can only be attached to qdisc's which
+are bound to net_devices. So the model is netdev's have queues, queues
+have a qdisc association and qdiscs have filters. Here we are are
+modelling a pipeline associated with a set of ports and in hardware.
+The model is slightly different we have queues that dequeue into
+an ingress table and an egress table that enqueues packets into queues.
+Queues may or may not be bound to the same port. Yes I know 'tc' can
+forward to ports but it has no notion of a global table space.
+
+We could build a new 'tc' filter that loaded the hardware tables and
+then added rules or deleted rules via hardware api but we would need
+some new mechanics to get out the capabilities/resources. Basically
+the same set of operations supported in the UAPI of this series. This
+would end up IMO to be basically this series only embedded in the TCA_
+family with a new filter kind. But then what do we attach it to? Not
+a specific qdisc because it is associated with a set of qdiscs. And
+additionally why would we use this qdisc*/hw-filter in software when
+we already have u32 and bpf? IMO 'tc' is about per port(queues) QOS
+and filters/actions to support this. That said I actually see offloading
+'tc' qdisc/filters on the ports into the hardware as being useful
+and using the operations added in this series to flow_table.c. See
+my response to Jiri noting I'll go ahead and try to get this working.
+OTOH I still think you need the UAPI proposed in this series for other
+consumers.
+
+Maybe I need to be enlightened but I thought for a bit about some grand
+unification of ovs, bridge, tc, netlink, et. al. but that seems like
+an entirely different scope of project. (side note: filters/actions
+are no longer locked by qdisc and could stand on their own) My thoughts
+on this are not yet organized.
+
+> Anyways I apologize i havent spent as much time (holiday period
+> wasnt good for me and netdev01 is picking up and consuming my time
+> but i will try my best to respond and comment with some latency)
+>
+
+great thanks. Maybe this will give you more to mull over. If its
+clear as mud let me know and I'll draw up some pictures. Likely
+need to do that regardless. Bottom line I think the proposed API
+here solves a real need.
+
+Thanks!
+John
+
+> cheers,
+> jamal
+>
+> On 12/31/14 14:45, John Fastabend wrote:
+>> So... I could continue to mull over this and tweak bits and pieces
+>> here and there but I decided its best to get a wider group of folks
+>> looking at it and hopefulyl with any luck using it so here it is.
+>>
+>> This set creates a new netlink family and set of messages to configure
+>> flow tables in hardware. I tried to make the commit messages
+>> reasonably verbose at least in the flow_table patches.
+>>
+>> What we get at the end of this series is a working API to ge
+
+t device
+>> capabilities and program flows using the rocker switch.
+>>
+>> I created a user space tool 'flow' that I use to configure and query
+>> the devices it is posted here,
+>>
+>>     https://github.com/jrfastab/iprotue2-flow-tool
+>>
+>> For now it is a stand-alone tool but once the kernel bits get sorted
+>> out (I'm guessing there will need to be a few versions of this series
+>> to get it right) I would like to port it into the iproute2 package.
+>> This way we can keep all of our tooling in one package see 'bridge'
+>> for example.
+>>
+>> As far as testing, I've tested various combinations of tables and
+>> rules on the rocker switch and it seems to work. I have not tested
+>> 100% of the rocker code paths though. It would be great to get some
+>> sort of automated framework around the API to do this. I don't
+>> think should gate the inclusion of the API though.
+>>
+>> I could use some help reviewing,
+>>
+>>    (a) error paths and netlink validation code paths
+>>
+>>    (b) Break down of structures vs netlink attributes. I
+>>        am trying to balance flexibility given by having
+>>        netlinnk TLV attributes vs conciseness. So some
+>>        things are passed as structures.
+>>
+>>    (c) are there any devices that have pipelines that we
+>>        can't represent with this API? It would be good to
+>>        know about these so we can design it in probably
+>>        in a future series.
+>>
+>> For some examples and maybe a bit more illustrative description I
+>> posted a quickly typed up set of notes on github io pages. Here we
+>> can show the description along with images produced by the flow tool
+>> showing the pipeline. Once we settle a bit more on the API we should
+>> probably do a clean up of this and other threads happening and commit
+>> something to the Documentation directory.
+>>
+>>   http://jrfastab.github.io/jekyll/update/2014/12/21/flow-api.html
+>>
+>> Finally I have more patches to add support for creating and destroying
+>> tables. This allows users to define the pipeline at runtime rather
+>> than statically as rocker does now. After this set gets some traction
+>> I'll look at pushing them in a next round. However it likely requires
+>> adding another "world" to rocker. Another piece that I want to add is
+>> a description of the actions and metadata. This way user space can
+>> "learn" what an action is and how metadata interacts with the system.
+>> This work is under development.
+>>
+>> Thanks! Any comments/feedback always welcome.
+>>
+>> And also thanks to everyone who helped with this flow API so far. All
+>> the folks at Dusseldorf LPC, OVS summit Santa Clara, P4 authors for
+>> some inspiration, the collection of IETF FoRCES documents I mulled
+>> over, Netfilter workshop where I started to realize fixing ethtool
+>> was most likely not going to work, etc.
+>>
+>> ---
+>>
+>> John Fastabend (11):
+>>        net: flow_table: create interface for hw match/action tables
+>>        net: flow_table: add flow, delete flow
+>>        net: flow_table: add apply action argument to tables
+>>        rocker: add pipeline model for rocker switch
+>>        net: rocker: add set flow rules
+>>        net: rocker: add group_id slices and drop explicit goto
+>>        net: rocker: add multicast path to bridging
+>>        net: rocker: add get flow API operation
+>>        net: rocker: add cookie to group acls and use flow_id to set
+>> cookie
+>>        net: rocker: have flow api calls set cookie value
+>>        net: rocker: implement delete flow routine
+>>
+>>
+>>   drivers/net/ethernet/rocker/rocker.c          | 1641
+>> +++++++++++++++++++++++++
+>>   drivers/net/ethernet/rocker/rocker_pipeline.h |  793 ++++++++++++
+>>   include/linux/if_flow.h                       |  115 ++
+>>   include/linux/netdevice.h                     |   20
+>>   include/uapi/linux/if_flow.h                  |  413 ++++++
+>>   net/Kconfig                                   |    7
+>>   net/core/Makefile                             |    1
+>>   net/core/flow_table.c                         | 1339
+>> ++++++++++++++++++++
+>>   8 files changed, 4312 insertions(+), 17 deletions(-)
+>>   create mode 100644 drivers/net/ethernet/rocker/rocker_pipeline.h
+>>   create mode 100644 include/linux/if_flow.h
+>>   create mode 100644 include/uapi/linux/if_flow.h
+>>   create mode 100644 net/core/flow_table.c
+>>
+>
+
+
+-- 
+John Fastabend         Intel Corporation
