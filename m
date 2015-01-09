@@ -1,43 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] netlink: fix wrong subscription bitmask to group
- mapping in binding callbacks
-Date: Thu, 08 Jan 2015 20:04:29 -0800 (PST)
-Message-ID: <20150108.200429.1274496391828010187.davem@davemloft.net>
-References: <1420633915-25475-1-git-send-email-pablo@netfilter.org>
+Subject: Re: [PATCH net-next 1/2] Revert "ARM: imx: add FEC sleep mode
+ callback function"
+Date: Thu, 08 Jan 2015 20:05:41 -0800 (PST)
+Message-ID: <20150108.200541.293054368842403637.davem@davemloft.net>
+References: <1420634393-30027-1-git-send-email-festevam@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: pablo@netfilter.org
+Cc: shawn.guo@linaro.org, fugang.duan@freescale.com,
+	netdev@vger.kernel.org, fabio.estevam@freescale.com
+To: festevam@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50665 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:50678 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752782AbbAID6q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2015 22:58:46 -0500
-In-Reply-To: <1420633915-25475-1-git-send-email-pablo@netfilter.org>
+	with ESMTP id S1752964AbbAID74 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2015 22:59:56 -0500
+In-Reply-To: <1420634393-30027-1-git-send-email-festevam@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Wed,  7 Jan 2015 13:31:55 +0100
+From: Fabio Estevam <festevam@gmail.com>
+Date: Wed,  7 Jan 2015 10:39:52 -0200
 
-> The subscription bitmask passed via struct sockaddr_nl is converted to
-> the group number when calling the netlink_bind() and netlink_unbind()
-> callbacks.
+> From: Fabio Estevam <fabio.estevam@freescale.com>
 > 
-> The conversion is however incorrect since bitmask (1 << 0) needs to be
-> mapped to group number 1. Note that you cannot specify the group number 0
-> (usually known as _NONE) from setsockopt() using NETLINK_ADD_MEMBERSHIP
-> since this is rejected through -EINVAL.
+> i.MX platform maintainer Shawn Guo is not happy with the such commit as
+> explained below [1]:
 > 
-> This problem became noticeable since 97840cb ("netfilter: nfnetlink:
-> fix insufficient validation in nfnetlink_bind") when binding to bitmask
-> (1 << 0) in ctnetlink.
+> "The GPR difference between SoCs can be encoded in device tree as well.
+> It's pointless to repeat the same code pattern for every single
+> platform, that need to set up GPR bits for enabling magic packet wake
+> up, while the only difference is the register and bit offset.
 > 
-> Reported-by: Andre Tomt <andre@tomt.net>
-> Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+> The platform code will become quite messy and unmaintainable if every
+> device driver dump their GPR register setup code into platform.
+> 
+> Sorry, but it's NACK from me."
+> 
+> This reverts commit 456062b3ec6f5b9 ("ARM: imx: add FEC sleep mode callback 
+> function").
+> 
+> [1] http://www.spinics.net/lists/netdev/msg310922.html
+> 
+> Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
 
-This gets rejects when I try to apply it to 'net', please
-respin.
-
-Thanks.
+Applied.
