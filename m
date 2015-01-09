@@ -1,41 +1,51 @@
-From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH net-next v2 2/2 RESEND] r8152: check the status before submitting rx
-Date: Fri, 9 Jan 2015 10:26:36 +0800
-Message-ID: <1394712342-15778-116-Taiwan-albertk@realtek.com>
-References: <1394712342-15778-114-Taiwan-albertk@realtek.com>
+From: Dennis Chen <kernel.org.gnu@gmail.com>
+Subject: Re: [PATCH] net: Prevent multiple NAPI instances co-existing in the list
+Date: Fri, 9 Jan 2015 10:26:48 +0800
+Message-ID: <CA+U0gVi1cVB4qbXAkPp1LMmNOaDOD2UaAL4riA6O_Q_SnvMQTA@mail.gmail.com>
+References: <CA+U0gVh+TyEUJ+qmg+FE=UhvvQywfNxcouCyv1sutZ3fav5FAw@mail.gmail.com>
+ <1420728671.5947.47.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
-	<linux-usb@vger.kernel.org>, Hayes Wang <hayeswang@realtek.com>
-To: <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1394712342-15778-114-Taiwan-albertk@realtek.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Miller <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:52469 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753036AbbAIC1K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2015 21:27:10 -0500
+Received: by mail-pa0-f42.google.com with SMTP id et14so15538930pad.1
+        for <netdev@vger.kernel.org>; Thu, 08 Jan 2015 18:27:09 -0800 (PST)
+In-Reply-To: <1420728671.5947.47.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Don't submit the rx if the device is unplugged, stopped, or
-linking down.
+I am very curious about the reason that you're removing the atomic ops
+in the stack, what's the benifit?
 
-Signed-off-by: Hayes Wang <hayeswang@realtek.com>
----
- drivers/net/usb/r8152.c | 5 +++++
- 1 file changed, 5 insertions(+)
+On Thu, Jan 8, 2015 at 10:51 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Thu, 2015-01-08 at 16:22 +0800, Dennis Chen wrote:
+>> Some drivers may clear the NAPI_STATE_SCHED bit upon the state of the
+>> NAPI instance after exhaust the budget in the poll function, which
+>> will open a window for next device interrupt handler to insert a same
+>> instance to the list after calling list_add_tail(&n->poll_list,
+>> repoll) if we don't set this bit.
+>>
+>> Signed-off-by: Dennis Chen <kernel.org.gnu@gmail.com>
+>> ---
+>
+>
+> Well no.
+>
+> I am removing some atomic ops in the stack, please do not add new ones,
+> especially if no driver is that buggy.
+>
+> The unlikely() wont help the expensive stuff being done here.
+>
+>
 
-diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index cd93388..b23426e 100644
---- a/drivers/net/usb/r8152.c
-+++ b/drivers/net/usb/r8152.c
-@@ -1789,6 +1789,11 @@ int r8152_submit_rx(struct r8152 *tp, struct rx_agg *agg, gfp_t mem_flags)
- {
- 	int ret;
- 
-+	/* The rx would be stopped, so skip submitting */
-+	if (test_bit(RTL8152_UNPLUG, &tp->flags) ||
-+	    !test_bit(WORK_ENABLE, &tp->flags) || !netif_carrier_ok(tp->netdev))
-+		return 0;
-+
- 	usb_fill_bulk_urb(agg->urb, tp->udev, usb_rcvbulkpipe(tp->udev, 1),
- 			  agg->head, agg_buf_sz,
- 			  (usb_complete_t)read_bulk_callback, agg);
+
+
 -- 
-2.1.0
+Den
