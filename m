@@ -1,52 +1,77 @@
 From: Vadim Kochan <vadim4j@gmail.com>
-Subject: Re: [PATCH iproute2 0/3] ip netns: Run over all netns
-Date: Fri, 9 Jan 2015 21:17:34 +0200
-Message-ID: <20150109191734.GA25479@angus-think.lan>
-References: <1420628662-9930-1-git-send-email-vadim4j@gmail.com>
- <CAHA+R7OpGoYx51DQfLhFiZmU_jMfd28G6kssgft6NQoFXj_X+A@mail.gmail.com>
- <20150108005212.GA10487@angus-think.lan>
- <CAHA+R7NPrBw_tN20adU6m0A0Toggo9SO9LpVV7WSaVa51Fyfsg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Vadim Kochan <vadim4j@gmail.com>, netdev <netdev@vger.kernel.org>
-To: Cong Wang <cwang@twopensource.com>
+Subject: [PATCH iproute2 v2] ip link: Fix crash on older kernels when show VF dev
+Date: Fri,  9 Jan 2015 21:22:31 +0200
+Message-ID: <1420831351-27311-1-git-send-email-vadim4j@gmail.com>
+Cc: william@gandi.net, Vadim Kochan <vadim4j@gmail.com>,
+	Vadim Kochan <vadim4j@gmail.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f174.google.com ([209.85.217.174]:49557 "EHLO
-	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751172AbbAIT2B (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2015 14:28:01 -0500
-Received: by mail-lb0-f174.google.com with SMTP id 10so10314763lbg.5
-        for <netdev@vger.kernel.org>; Fri, 09 Jan 2015 11:27:59 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <CAHA+R7NPrBw_tN20adU6m0A0Toggo9SO9LpVV7WSaVa51Fyfsg@mail.gmail.com>
+Received: from mail-lb0-f172.google.com ([209.85.217.172]:48207 "EHLO
+	mail-lb0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751472AbbAITc7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2015 14:32:59 -0500
+Received: by mail-lb0-f172.google.com with SMTP id z12so9746420lbi.3
+        for <netdev@vger.kernel.org>; Fri, 09 Jan 2015 11:32:57 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 09, 2015 at 10:49:50AM -0800, Cong Wang wrote:
-> On Wed, Jan 7, 2015 at 4:52 PM, Vadim Kochan <vadim4j@gmail.com> wrote:
-> > On Wed, Jan 07, 2015 at 04:04:14PM -0800, Cong Wang wrote:
-> >> On Wed, Jan 7, 2015 at 3:04 AM, Vadim Kochan <vadim4j@gmail.com> wrote:
-> >> > From: Vadim Kochan <vadim4j@gmail.com>
-> >> >
-> >> > Allow 'ip netns del' and 'ip netns exec' run over each network namespace names.
-> >> >
-> >> > 'ip netns exec' executes command forcely on eacn nsname.
-> >> >
-> >>
-> >> Why this has to be done in iproute command?
-> >> That is, why not just offloading this to a shell script like below?
-> >>
-> >> for ns in `ip netns show`;
-> >> do
-> >>      ip netns exec $ns ip link show.....
-> >> done
-> >
-> > Hm, but would not it better to have it in iproute instead of collect
-> > scripts ? Scripts allows to do a lot of things, but in this case it seems like a
-> > feature which related to iproute.
-> 
-> iproute2 should keep a minimum set of features especially when
-> a one-liner shell script can do that.
+From: Vadim Kochan <vadim4j@gmail.com>
 
-BTW, this script should have additional output of netns name
-before the 'ip netns exec $ns ...' invocation.
+The issue was caused that ifla_vf_rate does not exist on
+older kernels and should be checked if it exists as nested attr.
+
+Signed-off-by: Vadim Kochan <vadim4j@gmail.net>
+Reported-by: William Dauchy <william@gandi.net>
+Tested-by: William Dauchy <william@gandi.net>
+---
+ ip/ipaddress.c | 18 +++++++++++-------
+ 1 file changed, 11 insertions(+), 7 deletions(-)
+
+diff --git a/ip/ipaddress.c b/ip/ipaddress.c
+index 28dfe8c..830b166 100644
+--- a/ip/ipaddress.c
++++ b/ip/ipaddress.c
+@@ -259,11 +259,10 @@ static void print_vfinfo(FILE *fp, struct rtattr *vfinfo)
+ {
+ 	struct ifla_vf_mac *vf_mac;
+ 	struct ifla_vf_vlan *vf_vlan;
+-	struct ifla_vf_rate *vf_rate;
+ 	struct ifla_vf_tx_rate *vf_tx_rate;
+ 	struct ifla_vf_spoofchk *vf_spoofchk;
+ 	struct ifla_vf_link_state *vf_linkstate;
+-	struct rtattr *vf[IFLA_VF_MAX+1];
++	struct rtattr *vf[IFLA_VF_MAX + 1] = {};
+ 	struct rtattr *tmp;
+ 	SPRINT_BUF(b1);
+ 
+@@ -277,7 +276,6 @@ static void print_vfinfo(FILE *fp, struct rtattr *vfinfo)
+ 	vf_mac = RTA_DATA(vf[IFLA_VF_MAC]);
+ 	vf_vlan = RTA_DATA(vf[IFLA_VF_VLAN]);
+ 	vf_tx_rate = RTA_DATA(vf[IFLA_VF_TX_RATE]);
+-	vf_rate = RTA_DATA(vf[IFLA_VF_RATE]);
+ 
+ 	/* Check if the spoof checking vf info type is supported by
+ 	 * this kernel.
+@@ -313,10 +311,16 @@ static void print_vfinfo(FILE *fp, struct rtattr *vfinfo)
+ 		fprintf(fp, ", qos %d", vf_vlan->qos);
+ 	if (vf_tx_rate->rate)
+ 		fprintf(fp, ", tx rate %d (Mbps)", vf_tx_rate->rate);
+-	if (vf_rate->max_tx_rate)
+-		fprintf(fp, ", max_tx_rate %dMbps", vf_rate->max_tx_rate);
+-	if (vf_rate->min_tx_rate)
+-		fprintf(fp, ", min_tx_rate %dMbps", vf_rate->min_tx_rate);
++
++	if (vf[IFLA_VF_RATE]) {
++		struct ifla_vf_rate *vf_rate = RTA_DATA(vf[IFLA_VF_RATE]);
++
++		if (vf_rate->max_tx_rate)
++			fprintf(fp, ", max_tx_rate %dMbps", vf_rate->max_tx_rate);
++		if (vf_rate->min_tx_rate)
++			fprintf(fp, ", min_tx_rate %dMbps", vf_rate->min_tx_rate);
++	}
++
+ 	if (vf_spoofchk && vf_spoofchk->setting != -1) {
+ 		if (vf_spoofchk->setting)
+ 			fprintf(fp, ", spoof checking on");
+-- 
+2.1.3
