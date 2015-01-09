@@ -1,17 +1,16 @@
 From: Vadim Kochan <vadim4j@gmail.com>
-Subject: [PATCH iproute2 v2] ip link: Fix crash on older kernels when show VF dev
-Date: Fri,  9 Jan 2015 21:22:31 +0200
-Message-ID: <1420831351-27311-1-git-send-email-vadim4j@gmail.com>
-Cc: william@gandi.net, Vadim Kochan <vadim4j@gmail.com>,
-	Vadim Kochan <vadim4j@gmail.net>
+Subject: [PATCH iproute2 v3] ip link: Fix crash on older kernels when show VF dev
+Date: Fri,  9 Jan 2015 21:24:31 +0200
+Message-ID: <1420831471-27614-1-git-send-email-vadim4j@gmail.com>
+Cc: william@gandi.net, Vadim Kochan <vadim4j@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f172.google.com ([209.85.217.172]:48207 "EHLO
-	mail-lb0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751472AbbAITc7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2015 14:32:59 -0500
-Received: by mail-lb0-f172.google.com with SMTP id z12so9746420lbi.3
-        for <netdev@vger.kernel.org>; Fri, 09 Jan 2015 11:32:57 -0800 (PST)
+Received: from mail-lb0-f179.google.com ([209.85.217.179]:61146 "EHLO
+	mail-lb0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751064AbbAITe5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2015 14:34:57 -0500
+Received: by mail-lb0-f179.google.com with SMTP id z11so9747917lbi.10
+        for <netdev@vger.kernel.org>; Fri, 09 Jan 2015 11:34:55 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -20,7 +19,7 @@ From: Vadim Kochan <vadim4j@gmail.com>
 The issue was caused that ifla_vf_rate does not exist on
 older kernels and should be checked if it exists as nested attr.
 
-Signed-off-by: Vadim Kochan <vadim4j@gmail.net>
+Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
 Reported-by: William Dauchy <william@gandi.net>
 Tested-by: William Dauchy <william@gandi.net>
 ---
