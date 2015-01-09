@@ -1,33 +1,38 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH 2/6] vxlan: Group Policy extension
-Date: Fri, 9 Jan 2015 09:37:21 -0800
-Message-ID: <CAADnVQKUNc4pu7W6Riies3tVeh848ihHidb3iM2UnbEmea-Y-Q@mail.gmail.com>
-References: <cover.1420756324.git.tgraf@suug.ch> <7339e3bff124cecaf65cd04ea9bdc973c730ba34.1420756324.git.tgraf@suug.ch>
+From: Ian Campbell <ijc@hellion.org.uk>
+Subject: Re: [PATCH v2 1/3] dtb: xgene: fix: Backward compatibility with
+ older firmware
+Date: Fri, 09 Jan 2015 17:36:48 +0000
+Message-ID: <1420825008.21186.50.camel@hellion.org.uk>
+References: <1415044796-5081-1-git-send-email-isubramanian@apm.com>
+ <1415044796-5081-2-git-send-email-isubramanian@apm.com>
+ <1420819166.21186.38.camel@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Jesse Gross <jesse@nicira.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Pravin Shelar <pshelar@nicira.com>,
-	Tom Herbert <therbert@google.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"dev@openvswitch.org" <dev@openvswitch.org>
-To: Thomas Graf <tgraf@suug.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f43.google.com ([209.85.192.43]:49312 "EHLO
-	mail-qg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755589AbbAIRhm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2015 12:37:42 -0500
-Received: by mail-qg0-f43.google.com with SMTP id z107so10026863qgd.2
-        for <netdev@vger.kernel.org>; Fri, 09 Jan 2015 09:37:41 -0800 (PST)
-In-Reply-To: <7339e3bff124cecaf65cd04ea9bdc973c730ba34.1420756324.git.tgraf@suug.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: devicetree@vger.kernel.org, netdev@vger.kernel.org, patches@apm.com,
+ kchudgar@apm.com, davem@davemloft.net, linux-arm-kernel@lists.infradead.org
+To: Iyappan Subramanian <isubramanian@apm.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <1420819166.21186.38.camel@citrix.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 8, 2015 at 2:47 PM, Thomas Graf <tgraf@suug.ch> wrote:
-> +
-> +struct vxlan_gbp {
-> +} __packed;
+On Fri, 2015-01-09 at 15:59 +0000, Ian Campbell wrote:
+> I'm running mustang_sw_1.13.29-beta, using the mustang_tianocore_ubt.fd
+> method to launch from u-boot.
 
-empty struct ? seems unused.
-looks good to me otherwise.
+I realised shortly after that I had downloaded 1.14.14 too, but it
+behaves the same.
+
+I rebuilt mustang_tianocore_ubt.fd with the first hunk of this patch and
+things now work.
+
+Ian.
