@@ -1,44 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net v2 0/3][pull request] Intel Wired LAN Driver Updates
- 2015-01-06
-Date: Thu, 08 Jan 2015 19:43:17 -0800 (PST)
-Message-ID: <20150108.194317.770869563666169408.davem@davemloft.net>
-References: <1420594317-6191-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH net-next v2 0/7] Involve
+ rhashtable_lookup_insert routine
+Date: Thu, 08 Jan 2015 19:48:16 -0800 (PST)
+Message-ID: <20150108.194816.427378965781678590.davem@davemloft.net>
+References: <1420609318-3261-1-git-send-email-ying.xue@windriver.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com
-To: jeffrey.t.kirsher@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50413 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752964AbbAIDhd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2015 22:37:33 -0500
-In-Reply-To: <1420594317-6191-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: jon.maloy@ericsson.com, netdev@vger.kernel.org,
+	Paul.Gortmaker@windriver.com,
+	tipc-discussion@lists.sourceforge.net, tgraf@suug.ch
+To: ying.xue@windriver.com
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+In-Reply-To: <1420609318-3261-1-git-send-email-ying.xue@windriver.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Tue,  6 Jan 2015 17:31:54 -0800
+From: Ying Xue <ying.xue@windriver.com>
+Date: Wed, 7 Jan 2015 13:41:51 +0800
 
-> This series contains fixes to i40e only.
-> 
-> Jesse provides a fix for when the driver was polling with interrupts
-> disabled the hardware would occasionally not write back descriptors.
-> His fix causes the driver to detect this situation and force an interrupt
-> to fire which will flush the stuck descriptor.
-> 
-> Anjali provides a couple of fixes, the first corrects an issue where
-> the receive port checksum error counter was incrementing incorrectly with
-> UDP encapsulated tunneled traffic.  The second fix resolves an issue where
-> the driver was examining the outer protocol layer to set the inner protocol
-> layer checksum offload.  In the case of TCP over IPv6 over an IPv4 based
-> VXLAN, the inner checksum offloads would be set to look for IPv4/UDP
-> instead of IPv6/TCP, so fixed the issue so that the driver will look at
-> the proper layer for encapsulation offload settings.
-> 
-> v2: fixed a bug in patch 01 of the series, where the interrupt rate impacted
->     4 port workloads by reducing throughput.
+> The series aims to involve rhashtable_lookup_insert() to guarantee
+> that the process of lookup and insertion of an object from/into hash
+> table is finished atomically, allowing rhashtable's users not to
+> introduce an extra lock during search and insertion. For example,
+> tipc socket is the first user benefiting from this enhancement. 
 
-Pulled, thanks Jeff.
+Looks good, series applied.
+
+------------------------------------------------------------------------------
+Dive into the World of Parallel Programming! The Go Parallel Website,
+sponsored by Intel and developed in partnership with Slashdot Media, is your
+hub for all things parallel software development, from weekly thought
+leadership blogs to news, videos, case studies, tutorials and more. Take a
+look and join the conversation now. http://goparallel.sourceforge.net
