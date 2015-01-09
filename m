@@ -1,38 +1,78 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH 2/6] vxlan: Group Policy extension
-Date: Fri, 9 Jan 2015 22:10:42 +0000
-Message-ID: <20150109221042.GB20711@casper.infradead.org>
-References: <cover.1420756324.git.tgraf@suug.ch>
- <7339e3bff124cecaf65cd04ea9bdc973c730ba34.1420756324.git.tgraf@suug.ch>
- <CAADnVQKUNc4pu7W6Riies3tVeh848ihHidb3iM2UnbEmea-Y-Q@mail.gmail.com>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: [PATCH net v3] gen_stats.c: Duplicate xstats buffer for later use
+Date: Fri, 9 Jan 2015 14:35:41 -0800
+Message-ID: <CAHA+R7OpbP_+iwh6X=sh4SsXJ4VreBjze7dPrV6Xh8RHEe+cGw@mail.gmail.com>
+References: <20150108123343.GA8541@zenon.in.qult.net>
+	<20150108133037.GA10389@zenon.in.qult.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Jesse Gross <jesse@nicira.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Pravin Shelar <pshelar@nicira.com>,
-	Tom Herbert <therbert@google.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"dev@openvswitch.org" <dev@openvswitch.org>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: =?UTF-8?Q?Ignacy_Gaw=C4=99dzki?=
+	<ignacy.gawedzki@green-communications.fr>,
+	netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:56454 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751713AbbAIWKo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2015 17:10:44 -0500
-Content-Disposition: inline
-In-Reply-To: <CAADnVQKUNc4pu7W6Riies3tVeh848ihHidb3iM2UnbEmea-Y-Q@mail.gmail.com>
+Received: from mail-qg0-f44.google.com ([209.85.192.44]:59019 "EHLO
+	mail-qg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752265AbbAIWfm convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2015 17:35:42 -0500
+Received: by mail-qg0-f44.google.com with SMTP id q107so11163214qgd.3
+        for <netdev@vger.kernel.org>; Fri, 09 Jan 2015 14:35:42 -0800 (PST)
+In-Reply-To: <20150108133037.GA10389@zenon.in.qult.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/09/15 at 09:37am, Alexei Starovoitov wrote:
-> On Thu, Jan 8, 2015 at 2:47 PM, Thomas Graf <tgraf@suug.ch> wrote:
-> > +
-> > +struct vxlan_gbp {
-> > +} __packed;
-> 
-> empty struct ? seems unused.
-> looks good to me otherwise.
+On Thu, Jan 8, 2015 at 5:30 AM, Ignacy Gaw=C4=99dzki
+<ignacy.gawedzki@green-communications.fr> wrote:
+> The gnet_stats_copy_app() function gets called, more often than not, =
+with its
+> second argument a pointer to an automatic variable in the caller's st=
+ack.
+> Therefore, to avoid copying garbage afterwards when calling
+> gnet_stats_finish_copy(), this data is better copied to a dynamically=
+ allocated
+> memory that gets freed after use.
 
-Poor leftover, must feel all lonely there. Thanks for the reviews.
-Will wait a little bit longer for more feedback and send out v3.
+Good catch!
+
+>
+> Signed-off-by: Ignacy Gaw=C4=99dzki <ignacy.gawedzki@green-communicat=
+ions.fr>
+> ---
+>  net/core/gen_stats.c | 15 ++++++++++++++-
+>  1 file changed, 14 insertions(+), 1 deletion(-)
+>
+> diff --git a/net/core/gen_stats.c b/net/core/gen_stats.c
+> index 0c08062..c9f1fa8 100644
+> --- a/net/core/gen_stats.c
+> +++ b/net/core/gen_stats.c
+> @@ -32,6 +32,9 @@ gnet_stats_copy(struct gnet_dump *d, int type, void=
+ *buf, int size)
+>         return 0;
+>
+>  nla_put_failure:
+> +       kfree(d->xstats);
+> +       d->xstats =3D NULL;
+> +       d->xstats_len =3D 0;
+>         spin_unlock_bh(d->lock);
+>         return -1;
+>  }
+
+Although it is not your fault, the API sucks, gnet_stats_copy()
+should not need to care about the error path of its caller.
+I will cook a patch for it.
+
+> @@ -305,7 +308,10 @@ int
+>  gnet_stats_copy_app(struct gnet_dump *d, void *st, int len)
+>  {
+>         if (d->compat_xstats) {
+> -               d->xstats =3D st;
+> +               kfree(d->xstats);
+> +               d->xstats =3D kmemdup(st, len, GFP_ATOMIC);
+> +               if (!d->xstats)
+> +                       goto kmalloc_failure;
+
+Do we really need to call kfree() before kmemdup()?
+I don't think gnet_stats_copy_app() is supposed to be called
+twice before gnet_stats_copy_finish()?
+
+Thanks.
