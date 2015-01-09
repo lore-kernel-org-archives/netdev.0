@@ -1,43 +1,35 @@
-From: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
-Subject: Re: [PATCH net v2] ipv6: Prevent ipv6_find_hdr() from returning ENOENT
- for valid non-first fragments
-Date: Fri, 09 Jan 2015 18:53:06 +0900
-Message-ID: <54AFA502.8090701@miraclelinux.com>
-References: <CAFB3abzM2ApxMH6C7vSDJ8JikKEkE46bOH3jbsis2NiF-ieUxA@mail.gmail.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH net-next 3/3] rhashtable: add a note for grow and shrink
+ decision functions
+Date: Fri, 9 Jan 2015 10:31:58 +0000
+Message-ID: <20150109103158.GA1523@casper.infradead.org>
+References: <1420791818-22150-1-git-send-email-ying.xue@windriver.com>
+ <1420791818-22150-4-git-send-email-ying.xue@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: hideaki.yoshifuji@miraclelinux.com, linux-kernel@vger.kernel.org,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	netfilter-devel@vger.kernel.org,
-	Pablo Neira Ayuso <pablo@netfilter.org>
-To: Rahul Sharma <rsharma@arista.com>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAFB3abzM2ApxMH6C7vSDJ8JikKEkE46bOH3jbsis2NiF-ieUxA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Ying Xue <ying.xue@windriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from casper.infradead.org ([85.118.1.10]:51704 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752904AbbAIKb7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2015 05:31:59 -0500
+Content-Disposition: inline
+In-Reply-To: <1420791818-22150-4-git-send-email-ying.xue@windriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On 01/09/15 at 04:23pm, Ying Xue wrote:
+> As commit c0c09bfdc415 ("rhashtable: avoid unnecessary wakeup for
+> worker queue") moves condition statements of verifying whether hash
+> table size exceeds its maximum threshold or reaches its minimum
+> threshold from resizing functions to resizing decision functions,
+> we should add a note in rhashtable.h to indicate the implementation
+> of what the grow and shrink decision function must enforce min/max
+> shift, otherwise, it's failed to take min/max shift's set watermarks
+> into effect.
+> 
+> Signed-off-by: Ying Xue <ying.xue@windriver.com>
+> Cc: Thomas Graf <tgraf@suug.ch>
 
-Rahul Sharma wrote:
-> ipv6_find_hdr() currently assumes that the next-header field in the
-> fragment header of the non-first fragment is the "protocol number of
-> the last header" (here last header excludes any extension header
-> protocol numbers ) which is incorrect as per RFC2460. The next-header
-> value is the first header of the fragmentable part of the original
-> packet (which can be extension header as well).
-> This can create reassembly problems. For example: Fragmented
-> authenticated OSPFv3 packets (where AH header is inserted before the
-> protocol header). For the second fragment, the next header value in
-> the fragment header will be NEXTHDR_AUTH which is correct but
-> ipv6_find_hdr will return ENOENT since AH is an extension header
-> resulting in second fragment getting dropped. This check for the
-> presence of non-extension header needs to be removed.
->
-> Signed-off-by: Rahul Sharma <rsharma@arista.com>
-
-Acked-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-
--- 
-Hideaki Yoshifuji <hideaki.yoshifuji@miraclelinux.com>
-Technical Division, MIRACLE LINUX CORPORATION
+Acked-by: Thomas Graf <tgraf@suug.ch>
