@@ -1,31 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] csiostor:firmware upgrade fix
-Date: Thu, 08 Jan 2015 20:12:50 -0800 (PST)
-Message-ID: <20150108.201250.705102211192388649.davem@davemloft.net>
-References: <1420638388-9074-1-git-send-email-praveenm@chelsio.com>
+Subject: Re: [PATCH] net: fec: fix NULL pointer dereference in
+ fec_enet_timeout_work
+Date: Thu, 08 Jan 2015 20:12:56 -0800 (PST)
+Message-ID: <20150108.201256.84753051983146804.davem@davemloft.net>
+References: <1420638497-6871-1-git-send-email-hubert.feurstein@deto.at>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-scsi@vger.kernel.org,
-	JBottomley@parallels.com, hch@infradead.org, hariprasad@chelsio.com
-To: praveenm@chelsio.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50802 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755993AbbAIEHI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2015 23:07:08 -0500
-In-Reply-To: <1420638388-9074-1-git-send-email-praveenm@chelsio.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, fabio.estevam@freescale.com,
+	frank.li@freescale.com, linux-kernel@vger.kernel.org
+To: h.feurstein@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1420638497-6871-1-git-send-email-hubert.feurstein@deto.at>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Praveen Madhavan <praveenm@chelsio.com>
-Date: Wed,  7 Jan 2015 19:16:28 +0530
+From: Hubert Feurstein <h.feurstein@gmail.com>
+Date: Wed,  7 Jan 2015 14:48:17 +0100
 
-> This patch fixes removes older means of upgrading Firmware using MAJOR version
-> and adds newer interface version checking mechanism.
+> From: Hubert Feurstein <h.feurstein@gmail.com>
 > 
-> Please apply this patch on net-next since it depends on previous commits.
+> This patch initialises the fep->netdev pointer. This pointer was not
+> initialised at all, but is used in fec_enet_timeout_work and in some
+> error paths.
 > 
-> Signed-off-by: Praveen Madhavan <praveenm@chelsio.com>
+> Signed-off-by: Hubert Feurstein <h.feurstein@gmail.com>
 
 Applied.
