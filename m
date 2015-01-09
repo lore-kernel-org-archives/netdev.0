@@ -1,41 +1,43 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH iproute2 3/3] ip netns: Delete all netns
-Date: Fri, 09 Jan 2015 15:24:02 +0100
-Message-ID: <54AFE482.7020108@6wind.com>
-References: <1420628662-9930-1-git-send-email-vadim4j@gmail.com>	<1420628662-9930-4-git-send-email-vadim4j@gmail.com>	<54AD5458.6000400@hp.com>	<20150107173640.GA19586@angus-think.lan>	<20150107181112.GA24241@angus-think.lan>	<54AD8BC3.2070609@hp.com>	<20150107195517.GA4645@angus-think.lan>	<20150109094315.0c370971@griffin> <CAMw6YJLx0O6dVnD2XcmF+qz+=m51TyZOqJWSYGKQ-XrMHP8z3w@mail.gmail.com>
-Reply-To: nicolas.dichtel@6wind.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Brian Haley <brian.haley@hp.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Vadim Kochan <vadim4j@gmail.com>, Jiri Benc <jbenc@redhat.com>
+From: Syam Sidhardhan <s.syam@samsung.com>
+Subject: [PATCH 1/1] openvswitch: Remove unnecessary version.h inclusion
+Date: Fri, 09 Jan 2015 20:26:21 +0530
+Message-ID: <1420815381-29973-1-git-send-email-s.syam@samsung.com>
+Cc: Syam Sidhardhan <s.syam@samsung.com>
+To: netdev@vger.kernel.org, syamsidhardh@gmail.com, pshelar@nicira.com,
+	davem@davemloft.net, dev@openvswitch.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f53.google.com ([74.125.82.53]:34925 "EHLO
-	mail-wg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757188AbbAIOYG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2015 09:24:06 -0500
-Received: by mail-wg0-f53.google.com with SMTP id x13so8379444wgg.12
-        for <netdev@vger.kernel.org>; Fri, 09 Jan 2015 06:24:04 -0800 (PST)
-In-Reply-To: <CAMw6YJLx0O6dVnD2XcmF+qz+=m51TyZOqJWSYGKQ-XrMHP8z3w@mail.gmail.com>
+Received: from mailout2.samsung.com ([203.254.224.25]:20970 "EHLO
+	mailout2.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751702AbbAIOzC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2015 09:55:02 -0500
+Received: from epcpsbgr3.samsung.com
+ (u143.gpu120.samsung.co.kr [203.254.230.143])
+ by mailout2.samsung.com (Oracle Communications Messaging Server 7u4-24.01
+ (7.0.4.24.0) 64bit (built Nov 17 2011))
+ with ESMTP id <0NHX00EP603OVUC0@mailout2.samsung.com> for
+ netdev@vger.kernel.org; Fri, 09 Jan 2015 23:55:00 +0900 (KST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 09/01/2015 10:54, Vadim Kochan a =C3=A9crit :
-> Ok,
->
-> If I will re-work to use new option, would it be useful ? So it will =
-look:
->
->      $ ip -all netns del
->      $ ip -all netns exec ip link
->      $ ip -all netns exec ip route add ...
->
-> Seems not so weird to me ?
-What about making this new option only for the 'netns' subsystem?
-Something like: 'ip netns -all exec'?
+version.h inclusion is not necessary as detected by versioncheck.
 
+Signed-off-by: Syam Sidhardhan <s.syam@samsung.com>
+---
+ net/openvswitch/vport-geneve.c |    2 --
+ 1 file changed, 2 deletions(-)
 
-Regards,
-Nicolas
+diff --git a/net/openvswitch/vport-geneve.c b/net/openvswitch/vport-geneve.c
+index 347fa23..70e2aae 100644
+--- a/net/openvswitch/vport-geneve.c
++++ b/net/openvswitch/vport-geneve.c
+@@ -9,8 +9,6 @@
+ 
+ #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+ 
+-#include <linux/version.h>
+-
+ #include <linux/in.h>
+ #include <linux/ip.h>
+ #include <linux/net.h>
+-- 
+1.7.9.5
