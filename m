@@ -1,88 +1,49 @@
-From: Rojhalat Ibrahim <imr@rtschenk.de>
-Subject: [PATCH 2/2] mdio-mux-gpio: use new gpiod_get_array and gpiod_put_array functions
-Date: Fri, 09 Jan 2015 16:19:52 +0100
-Message-ID: <13407316.QPemVgjPDO@pcimr>
+From: Chunhao Lin <hau@realtek.com>
+Subject: [PATCH net-next v2 0/8]r8169:update hardware parameter
+Date: Fri, 9 Jan 2015 23:25:58 +0800
+Message-ID: <1420817166-9868-1-git-send-email-hau@realtek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Alexandre Courbot <acourbot@nvidia.com>,
-	Linus Walleij <linus.walleij@linaro.org>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: "linux-gpio@vger.kernel.org" <linux-gpio@vger.kernel.org>
-Return-path: <linux-gpio-owner@vger.kernel.org>
-Sender: linux-gpio-owner@vger.kernel.org
+Content-Type: text/plain
+Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
+	Chunhao Lin <hau@realtek.com>
+To: <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Use the new gpiod_get_array and gpiod_put_array functions for obtaining and
-disposing of GPIO descriptors.
+These series of patch include the pcie ephy parameter update of
+following adapters.
+rtl8411
+rtl8168f
+rtl8168evl
+rtl8168dp
+rtl8105
+rtl8402
 
-Signed-off-by: Rojhalat Ibrahim <imr@rtschenk.de>
----
-This patch depends on my previous patch "gpiolib: add gpiod_get_array and
-gpiod_put_array functions".
+And include jumbo frame patch update of following adapters.
+rtl8168dp
+rtl8168e
+rtl8168evl
 
- drivers/net/phy/mdio-mux-gpio.c |   28 ++++++++--------------------
- 1 file changed, 8 insertions(+), 20 deletions(-)
+Also remove unnecessary function rtl_hw_start_8168dp and add function
+rtl_hw_start_8168f_2 to set rtl8168f rev.b pcie ephy parameters.
 
-diff --git a/drivers/net/phy/mdio-mux-gpio.c b/drivers/net/phy/mdio-mux-gpio.c
-index 1eaf81e..35c37da 100644
---- a/drivers/net/phy/mdio-mux-gpio.c
-+++ b/drivers/net/phy/mdio-mux-gpio.c
-@@ -47,7 +47,6 @@ static int mdio_mux_gpio_probe(struct platform_device *pdev)
- {
- 	struct mdio_mux_gpio_state *s;
- 	int num_gpios;
--	unsigned int n;
- 	int r;
- 
- 	if (!pdev->dev.of_node)
-@@ -63,16 +62,10 @@ static int mdio_mux_gpio_probe(struct platform_device *pdev)
- 
- 	s->num_gpios = num_gpios;
- 
--	for (n = 0; n < num_gpios; ) {
--		struct gpio_desc *gpio = gpiod_get_index(&pdev->dev, NULL, n,
--							 GPIOD_OUT_LOW);
--		if (IS_ERR(gpio)) {
--			r = PTR_ERR(gpio);
--			goto err;
--		}
--		s->gpio[n] = gpio;
--		n++;
--	}
-+	r = gpiod_get_array(&pdev->dev, NULL, s->gpio, num_gpios,
-+			    GPIOD_OUT_LOW);
-+	if (r != num_gpios)
-+		return r;
- 
- 	r = mdio_mux_init(&pdev->dev,
- 			  mdio_mux_gpio_switch_fn, &s->mux_handle, s);
-@@ -80,22 +73,17 @@ static int mdio_mux_gpio_probe(struct platform_device *pdev)
- 	if (r == 0) {
- 		pdev->dev.platform_data = s;
- 		return 0;
-+	} else {
-+		gpiod_put_array(s->gpio, num_gpios);
-+		return r;
- 	}
--err:
--	while (n) {
--		n--;
--		gpiod_put(s->gpio[n]);
--	}
--	return r;
- }
- 
- static int mdio_mux_gpio_remove(struct platform_device *pdev)
- {
--	unsigned int n;
- 	struct mdio_mux_gpio_state *s = dev_get_platdata(&pdev->dev);
- 	mdio_mux_uninit(s->mux_handle);
--	for (n = 0; n < s->num_gpios; n++)
--		gpiod_put(s->gpio[n]);
-+	gpiod_put_array(s->gpio, s->num_gpios);
- 	return 0;
- }
- 
+In v2 patch, give more explanation about pcie ephy parameter update.
+
+Chunhao Lin (8):
+  r8169:change rtl8168dp jumbo frame patch
+  r8169:update rtl8168e and rtl8168evl jumbo frame patch
+  r8169:correct the way of setting rtl8168dp pcie ephy parameters
+  r8169:rtl8168dp rev.c pcie ephy setting is the same as rtl8168dp rev.b
+  r8169:update rtl8168dp pcie ephy parameters to improve power
+    consumption
+  r8169:update pcie ephy parameters to decrease the resume time from L0s
+    to L0
+  r8169:update rtl8402 pcie ephy parameter
+  r8169:update rtl8168f rev.b pcie ephy parameter
+
+ drivers/net/ethernet/realtek/r8169.c | 112 +++++++++++++++--------------------
+ 1 file changed, 49 insertions(+), 63 deletions(-)
+
 --
-2.0.5
+1.9.1
