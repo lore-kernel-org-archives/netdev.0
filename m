@@ -1,66 +1,38 @@
-From: Andy Lutomirski <luto@amacapital.net>
-Subject: Re: [PATCH net-next RFC 1/5] net-timestamp: no-payload option
-Date: Fri, 9 Jan 2015 12:55:56 -0800
-Message-ID: <CALCETrW55OFy5RGKdEMyzMCTyGG-da6qtOUF4Bq1FZUAzpVS0g@mail.gmail.com>
-References: <1420824719-28848-1-git-send-email-willemb@google.com>
- <1420824719-28848-2-git-send-email-willemb@google.com> <CALCETrU2kFYsYnhPnBWd3059k5Z6=8B==kwXU0xidAsR6EqgCg@mail.gmail.com>
- <CA+FuTSf4SqTuLmrJ971Wu3eaqc94qd93M_OCa9QCCDHOYwxF8A@mail.gmail.com>
- <CALCETrWZy0=OnYhyCB8U7Km7vMcjB+Vc8ahm+ea4=0YiiPBCAQ@mail.gmail.com> <CA+FuTSdWWv65CNQYv1d9+WG1X54eGyP_+mbh3dMHw_HmH8wzYA@mail.gmail.com>
+From: BARR ALHARIRI <barr24@gmail.com>
+Subject: =?UTF-8?Q?=D9=84=D8=B3=D9=84=D8=A7=D9=85=20=D8=B9=D9=84=D9=8A?=
+ =?UTF-8?Q?=D9=83=20=D9=88=D8=B1=D8=AD=D9=85=D8=A9=20=D8=A7=D9=84=D9=84?=
+ =?UTF-8?Q?=D9=87?=
+Date: Fri, 09 Jan 2015 22:36:32 +0200
+Message-ID: <6c6dc36d308d4e198f55bccf25c5ffad__38874.3854746737$1420837464$gmane$org@ulib.sk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Network Development <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Richard Cochran <richardcochran@gmail.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: Willem de Bruijn <willemb@google.com>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f41.google.com ([209.85.215.41]:59252 "EHLO
-	mail-la0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757485AbbAIU4S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2015 15:56:18 -0500
-Received: by mail-la0-f41.google.com with SMTP id hv19so16466386lab.0
-        for <netdev@vger.kernel.org>; Fri, 09 Jan 2015 12:56:16 -0800 (PST)
-In-Reply-To: <CA+FuTSdWWv65CNQYv1d9+WG1X54eGyP_+mbh3dMHw_HmH8wzYA@mail.gmail.com>
+Received: from kappa.ulib.sk ([193.87.32.4]:38982 "EHLO kappa.ulib.sk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751807AbbAIVEK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 Jan 2015 16:04:10 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 9, 2015 at 12:33 PM, Willem de Bruijn <willemb@google.com> wrote:
-> On Fri, Jan 9, 2015 at 3:02 PM, Andy Lutomirski <luto@amacapital.net> wrote:
->> On Fri, Jan 9, 2015 at 11:47 AM, Willem de Bruijn <willemb@google.com> wrote:
->>> On Fri, Jan 9, 2015 at 2:43 PM, Andy Lutomirski <luto@amacapital.net> wrote:
->>>> On Fri, Jan 9, 2015 at 9:31 AM, Willem de Bruijn <willemb@google.com> wrote:
->>>>> From: Willem de Bruijn <willemb@google.com>
->>>>>
->>>>> Add timestamping option SOF_TIMESTAMPING_OPT_TSONLY. For transmit
->>>>> timestamps, this loops timestamps on top of empty packets.
->>>>>
->>>>> Doing so reduces the pressure on SO_RCVBUF. Payload inspection and
->>>>> cmsg reception (aside from timestamps) are no longer possible. This
->>>>> works together with a follow on patch that allows administrators to
->>>>> only allow tx timestamping if it does not loop payload or metadata.
->>>>
->>>> If this loses IP_PKTINFO, that will be a bit unfortunate.
->>>>
->>>
->>> If it doesn't, then we might as well loop the entire payload. For applications
->>> that need pktinfo or other cmsg, do not select the option.
->>
->> Right, but it loses the ability to get the ifindex if the sysctl is
->> set to the conservative option, which I don't think is desirable.
->
-> Understood. I just find the alternative, where the no-data policy is
-> weakened by exceptions, even less desirable. That makes it
-> harder to explain what the sysctl/option do and what the security
-> implications are.
 
-Agreed.
-
-If there was no-payload but not no-cmsg, then it would be a nice
-middle ground, but I guess that's bad for some reason involving
-accounting?
-
---Andy
-
--- 
-Andy Lutomirski
-AMA Capital Management, LLC
+=D9=84=D8=B3=D9=84=D8=A7=D9=85 =D8=B9=D9=84=D9=8A=D9=83=D9=85
+=D9=85=D8=B1=D8=AD=D8=A8=D8=A7 =D8=A7=D8=AE=D9=8A  =D8=A7=D9=86=D8=A7 =D8=
+=A7=D9=84=D9=85=D8=AF=D8=A7=D9=85 =D8=A8=D8=B1=D8=A7=D8=A1=D9=87 =D8=A7=
+=D9=84=D8=AD=D8=B1=D9=8A=D8=B1=D9=8A =D9=85=D9=86 =D8=B3=D9=88=D8=B1=D9=
+=8A=D8=A7 =D9=88=D8=A7=D9=84=D8=AD=D9=8A=D9=86 =D8=B9=D9=86=D8=AF=D9=8A=
+ =D9=85=D8=B4=D8=B1=D9=88=D8=B9 =D8=A8=D8=AF=D9=8A =D8=A7=D8=B9=D8=B1=D8=
+=B6=D9=87=20
+=D8=B9=D9=84=D9=8A=D9=83 =D9=81=D8=A7=D8=B1=D8=AC=D9=88=D8=A7 =D9=85=D9=
+=86=D9=83 =D8=AA=D8=B1=D8=B3=D9=84 =D9=84=D9=8A =D8=B1=D8=B3=D8=A7=D9=84=
+=D9=87 =D8=A8=D8=A7=D9=84=D8=A7=D9=8A=D9=85=D9=8A=D9=84 =D9=85=D8=B4=D8=
+=A7=D9=86 =D8=A7=D9=82=D8=AF=D8=B1=D8=A7=D8=AD=D9=83=D9=8A =D9=85=D8=B9=
+=D9=83 =D9=88=D8=AE=D8=A8=D8=B1=D9=83 =D8=A8=D8=A7=D9=84=D8=AA=D9=81=D8=
+=A7=D8=B5=D9=8A=D9=84=20
+=D9=88=D8=A8=D8=A7=D9=86=D8=AA=D8=B8=D8=A7=D8=B1 =D8=B1=D8=AF=D9=83
+=D9=88=D9=81=D9=8A=D9=83 =D8=AA=D8=AA=D9=88=D8=A7=D8=B5=D9=84 =D9=85=D8=
+=B9=D9=8A =D8=B9=D9=84=D9=8A =D9=87=D8=A7=D9=84=D8=A7=D9=8A=D9=85=D9=8A=
+=D9=84 : barralhariri24@gmail.com
+=D8=A8=D8=B1=D8=A7=D8=A1=D9=87 =D8=A7=D9=84=D8=AD=D8=B1=D9=8A=D8=B1=D9=8A
