@@ -1,68 +1,118 @@
-From: Rahul Sharma <rsharma@arista.com>
-Subject: Re: [PATCH net] ipv6: Prevent ipv6_find_hdr() from returning ENOENT
- for valid non-first fragments
-Date: Fri, 9 Jan 2015 12:48:24 +0530
-Message-ID: <CAFB3abwrjp61LLOk3RWwXYEq1g4QZUC8OTKuO2cAr+GbV3n4rw@mail.gmail.com>
-References: <CAFB3abzYNYqtzd_n+Ym0Lo=DYbV0HPU=Tqw=stALNnu188hMKQ@mail.gmail.com>
-	<20150106224706.GA7416@salvia>
-	<CAFB3abwKpR1VqZXUrsexqveAZrA2LTSmTe8a=-H7z2HjAptjwA@mail.gmail.com>
-	<1420627396.26870.36.camel@stressinduktion.org>
-	<20150108205328.GA3361@salvia>
-	<1420756756.1755002.211556745.0418D128@webmail.messagingengine.com>
-	<20150109000546.GA3488@salvia>
+From: Ying Xue <ying.xue@windriver.com>
+Subject: [PATCH net-next 00/16] tipc: make tipc support
+	namespace
+Date: Fri, 9 Jan 2015 15:26:57 +0800
+Message-ID: <1420788433-17960-1-git-send-email-ying.xue@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f173.google.com ([74.125.82.173]:59006 "EHLO
-	mail-we0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754031AbbAIHSZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jan 2015 02:18:25 -0500
-Received: by mail-we0-f173.google.com with SMTP id q58so6375201wes.4
-        for <netdev@vger.kernel.org>; Thu, 08 Jan 2015 23:18:24 -0800 (PST)
-In-Reply-To: <20150109000546.GA3488@salvia>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: jon.maloy@ericsson.com, Tero.Aho@coriant.com, netdev@vger.kernel.org,
+	Paul.Gortmaker@windriver.com, tipc-discussion@lists.sourceforge.net
+To: <davem@davemloft.net>
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-Hi Pablo,
+This patchset aims to add net namespace support for TIPC stack.
 
-On Fri, Jan 9, 2015 at 5:35 AM, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
-> On Thu, Jan 08, 2015 at 11:39:16PM +0100, Hannes Frederic Sowa wrote:
->> Hi Pablo,
->>
->> On Thu, Jan 8, 2015, at 21:53, Pablo Neira Ayuso wrote:
->> > I'm afraid we cannot just get rid of that !ipv6_ext_hdr() check. The
->> > ipv6_find_hdr() function is designed to return the transport protocol.
->> > After the proposed change, it will return extension header numbers.
->> > This will break existing ip6tables rulesets since the `-p' option
->> > relies on this function to match the transport protocol.
->> >
->> > Note that the AH header is skipped (see code a bit below this
->> > problematic fragmentation handling) so the follow up header after the
->> > AH header is returned as the transport header.
->> >
->> > We can probably return the AH protocol number for non-1st fragments.
->> > However, that would be something new to ip6tables since nobody has
->> > ever seen packet matching `-p ah' rules. Thus, we restore control to
->> > the user to allow this, but we would accept all kind of fragmented AH
->> > traffic through the firewall since we cannot know what transport
->> > protocol contains from non-1st fragments (unless I'm missing anything,
->> > I need to have a closer look at this again tomorrow with fresher
->> > mind).
->>
->> The code in question is guarded by (_frag_off != 0), so we are
->> definitely processing a non-1st fragment currently. The -p match would
->> happen at the time when the packet is reassembled and thus ipv6_find_hdr
->> will find the real transport (final) header at this point (I hope I
->> followed the code correctly here).
->
-> Then, Rahul should get things working by modprobing nf_defrag_ipv6.
+Currently TIPC module declares the following global resources:
+- TIPC network idenfication number
+- TIPC node table
+- TIPC bearer list table
+- TIPC broadcast link
+- TIPC socket reference table
+- TIPC name service table
+- TIPC node address
+- TIPC service subscriber server
+- TIPC random value
+- TIPC netlink
 
-I already had nf_defrag_ipv6 installed when the issue occured. But I
-see ip6table_raw_hook returning NF_DROP for the second fragment.
+In order that TIPC is aware of namespace, above each resource must be
+allocated, initialized and destroyed inside per namespace. Therefore,
+the major works of this patchset are to isolate these global resources
+and make them private for each namespace. However, before these changes
+come true, some necessary preparation works must be first done: convert
+socket reference table with generic rhashtable, cleanup core.c and
+core.h files, remove unnecessary wrapper functions for kernel timer
+interfaces and so on.
 
-Thanks,
-Rahul
+It should be noted that commit ##1 ("tipc: fix bug in broadcast
+retransmit code") was already submitted to 'net' tree, so please see
+below link:
+
+http://patchwork.ozlabs.org/patch/426717/
+
+Since it is prerequisite for the rest of the series to apply, I
+prepend them to the series.
+
+Jon Maloy (1):
+  tipc: fix bug in broadcast retransmit code
+
+Ying Xue (15):
+  tipc: remove tipc_core_start/stop routines
+  tipc: remove unnecessary wrapper functions of kernel timer APIs
+  tipc: cleanup core.c and core.h files
+  tipc: feed tipc sock pointer to tipc_sk_timeout routine
+  tipc: remove unused tipc_link_get_max_pkt routine
+  tipc: involve namespace infrastructure
+  tipc: make tipc node table aware of net namespace
+  tipc: make bearer list support net namespace
+  tipc: make tipc broadcast link support net namespace
+  tipc: make tipc socket support net namespace
+  tipc: name tipc name table support net namespace
+  tipc: make tipc node address support net namespace
+  tipc: make subscriber server support net namespace
+  tipc: make tipc random value aware of net namespace
+  tipc: make netlink support net namespace
+
+ net/tipc/addr.c       |   45 +++++-
+ net/tipc/addr.h       |   45 ++----
+ net/tipc/bcast.c      |  372 ++++++++++++++++++++++++-------------------------
+ net/tipc/bcast.h      |  113 ++++++++++-----
+ net/tipc/bearer.c     |  141 ++++++++++---------
+ net/tipc/bearer.h     |   46 +++---
+ net/tipc/config.c     |   66 +++++----
+ net/tipc/config.h     |    6 +-
+ net/tipc/core.c       |  140 ++++++++-----------
+ net/tipc/core.h       |  167 ++++++----------------
+ net/tipc/discover.c   |   84 ++++++-----
+ net/tipc/discover.h   |    8 +-
+ net/tipc/link.c       |  322 +++++++++++++++++++++++-------------------
+ net/tipc/link.h       |   36 +++--
+ net/tipc/msg.c        |   71 +++++++---
+ net/tipc/msg.h        |   60 +++++---
+ net/tipc/name_distr.c |  115 ++++++++-------
+ net/tipc/name_distr.h |   16 +--
+ net/tipc/name_table.c |  180 +++++++++++++-----------
+ net/tipc/name_table.h |   33 ++---
+ net/tipc/net.c        |   54 ++++---
+ net/tipc/net.h        |    4 +-
+ net/tipc/netlink.c    |   17 ++-
+ net/tipc/netlink.h    |    3 +
+ net/tipc/node.c       |  159 +++++++++++----------
+ net/tipc/node.h       |   35 ++---
+ net/tipc/server.c     |    6 +-
+ net/tipc/server.h     |   17 ++-
+ net/tipc/socket.c     |  255 ++++++++++++++++++---------------
+ net/tipc/socket.h     |   19 ++-
+ net/tipc/subscr.c     |  131 +++++++++--------
+ net/tipc/subscr.h     |   14 +-
+ 32 files changed, 1503 insertions(+), 1277 deletions(-)
+
+-- 
+1.7.9.5
+
+
+------------------------------------------------------------------------------
+Dive into the World of Parallel Programming! The Go Parallel Website,
+sponsored by Intel and developed in partnership with Slashdot Media, is your
+hub for all things parallel software development, from weekly thought
+leadership blogs to news, videos, case studies, tutorials and more. Take a
+look and join the conversation now. http://goparallel.sourceforge.net
