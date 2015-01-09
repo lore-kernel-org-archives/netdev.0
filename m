@@ -1,37 +1,89 @@
-From: Dominique Martinet <dominique.martinet@cea.fr>
-Subject: [PATCH] net/9p: Initialize opts->privport as it should be.
-Date: Fri,  9 Jan 2015 13:05:56 +0100
-Message-ID: <1420805156-16555-1-git-send-email-dominique.martinet@cea.fr>
-Cc: v9fs-developer@lists.sourceforge.net,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Dominique Martinet <dominique.martinet@cea.fr>
-To: Eric Van Hensbergen <ericvh@gmail.com>,
-	Ron Minnich <rminnich@sandia.gov>,
-	Latchesar Ionkov <lucho@ionkov.net>
+From: Maxime Coquelin <maxime.coquelin@st.com>
+Subject: Re: [PATCH v2 0/7] Fix sti drivers whcih mix reg address spaces
+Date: Fri, 9 Jan 2015 13:45:06 +0100
+Message-ID: <54AFCD52.4050302@st.com>
+References: <1420643052-4506-1-git-send-email-peter.griffin@linaro.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <lee.jones@linaro.org>, <devicetree@vger.kernel.org>,
+	<netdev@vger.kernel.org>
+To: Peter Griffin <peter.griffin@linaro.org>,
+	<linux-arm-kernel@lists.infradead.org>,
+	<linux-kernel@vger.kernel.org>, <srinivas.kandagatla@gmail.com>,
+	<patrice.chotard@st.com>, <peppe.cavallaro@st.com>,
+	<kishon@ti.com>, <arnd@arndb.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1420643052-4506-1-git-send-email-peter.griffin@linaro.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-We're currently using an uninitialized value if option privport is not set,
-thus (almost) always using a privileged port.
+Hi Peter,
 
-Signed-off-by: Dominique Martinet <dominique.martinet@cea.fr>
----
- net/9p/trans_fd.c | 1 +
- 1 file changed, 1 insertion(+)
+On 01/07/2015 04:04 PM, Peter Griffin wrote:
+> Hi folks,
+>
+> A V2 of this old series incorporating Arnd and Lees Feedback form v1.
+>
+> Following on from Arnds comments about the picophy driver here
+> https://lkml.org/lkml/2014/11/13/161, this series fixes the
+> remaining upstreamed drivers for STI, which are mixing address spaces
+> in the reg property. We do this in a way similar to the keystone
+> and bcm7445 platforms, by having sysconfig phandle/ offset pair
+> (where only one register is required). Or phandle / integer array
+> where multiple offsets in the same bank are needed).
+>
+> This series breaks DT compatability! But the platform support
+> is WIP and only being used by the few developers who are upstreaming
+> support for it. I've made each change to the driver / dt doc / dt
+> file as a single atomic commit so the kernel will remain bisectable.
+>
+> This series then also enables the picophy driver, and adds back in
+> the ehci/ohci dt nodes for stih410 which make use of the picophy.
+>
+> regards,
+>
+> Peter.
+>
+> Changes since v1:
+> - Add missing space after */ (Lee)
+> - Change comment to "indexed from" rather than "not indexed from" (Lee)
+> - Change naming to phy1, phy2 rather than phy@1 phy@2 if there is no reg property (Arnd / Grant)
+> - Rebased on v3.19-rc3 (me)
+> - Checkpatch "no space before tabs" warning in stih41*.dtsi (me)
+>
+> Peter Griffin (7):
+>    phy: phy-stih407-usb: Pass sysconfig register offsets via syscfg
+>      property.
+>    phy: miphy365x: Pass sysconfig register offsets via syscfg dt
+>      property.
+>    ARM: STi: DT: STiH407: Add usb2 picophy dt nodes
+>    ARM: STi: DT: STiH410: Add usb2 picophy dt nodes
+>    ARM: STi: DT: STiH410: Add DT nodes for the ehci and ohci usb
+>      controllers.
+>    ARM: multi_v7_defconfig: Enable stih407 usb picophy
+>    stmmac: dwmac-sti: Pass sysconfig register offset via syscon dt
+>      property.
+>
+>   .../devicetree/bindings/net/sti-dwmac.txt          | 14 ++---
+>   .../devicetree/bindings/phy/phy-miphy365x.txt      | 15 ++---
+>   .../devicetree/bindings/phy/phy-stih407-usb.txt    | 10 +---
+>   arch/arm/boot/dts/stih407-family.dtsi              |  9 +++
+>   arch/arm/boot/dts/stih410.dtsi                     | 70 ++++++++++++++++++++++
+>   arch/arm/boot/dts/stih415.dtsi                     | 12 ++--
+>   arch/arm/boot/dts/stih416.dtsi                     | 22 +++----
+>   arch/arm/configs/multi_v7_defconfig                |  1 +
+>   drivers/net/ethernet/stmicro/stmmac/dwmac-sti.c    | 13 ++--
+>   drivers/phy/phy-miphy365x.c                        | 29 ++++-----
+>   drivers/phy/phy-stih407-usb.c                      | 25 ++++----
+>   11 files changed, 143 insertions(+), 77 deletions(-)
+>
 
-diff --git a/net/9p/trans_fd.c b/net/9p/trans_fd.c
-index 80d08f6..748703e 100644
---- a/net/9p/trans_fd.c
-+++ b/net/9p/trans_fd.c
-@@ -734,6 +734,7 @@ static int parse_opts(char *params, struct p9_fd_opts *opts)
- 	opts->port = P9_PORT;
- 	opts->rfd = ~0;
- 	opts->wfd = ~0;
-+	opts->privport = 0;
- 
- 	if (!params)
- 		return 0;
--- 
-1.9.3
+Thanks! The series looks good to me.
+
+DT patches applied to sti-dt-for-v3.20 branch,
+and defconfig patch applied to sti-defconfig-for-v3.20.
+
+
+Regards,
+Maxime
