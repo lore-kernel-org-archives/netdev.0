@@ -1,42 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 0/7] Involve
- rhashtable_lookup_insert routine
-Date: Thu, 08 Jan 2015 19:48:16 -0800 (PST)
-Message-ID: <20150108.194816.427378965781678590.davem@davemloft.net>
-References: <1420609318-3261-1-git-send-email-ying.xue@windriver.com>
+Subject: Re: [PATCH -next] r8169: add support for xmit_more
+Date: Thu, 08 Jan 2015 19:51:14 -0800 (PST)
+Message-ID: <20150108.195114.432473484324095623.davem@davemloft.net>
+References: <1420624189-24325-1-git-send-email-fw@strlen.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jon.maloy@ericsson.com, netdev@vger.kernel.org,
-	Paul.Gortmaker@windriver.com,
-	tipc-discussion@lists.sourceforge.net, tgraf@suug.ch
-To: ying.xue@windriver.com
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-In-Reply-To: <1420609318-3261-1-git-send-email-ying.xue@windriver.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: fw@strlen.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:50503 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754614AbbAIDpa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2015 22:45:30 -0500
+In-Reply-To: <1420624189-24325-1-git-send-email-fw@strlen.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Ying Xue <ying.xue@windriver.com>
-Date: Wed, 7 Jan 2015 13:41:51 +0800
+From: Florian Westphal <fw@strlen.de>
+Date: Wed,  7 Jan 2015 10:49:49 +0100
 
-> The series aims to involve rhashtable_lookup_insert() to guarantee
-> that the process of lookup and insertion of an object from/into hash
-> table is finished atomically, allowing rhashtable's users not to
-> introduce an extra lock during search and insertion. For example,
-> tipc socket is the first user benefiting from this enhancement. 
+> Delay update of hw tail descriptor if we know that another skb is going
+> to be sent.
+> 
+> Signed-off-by: Florian Westphal <fw@strlen.de>
 
-Looks good, series applied.
-
-------------------------------------------------------------------------------
-Dive into the World of Parallel Programming! The Go Parallel Website,
-sponsored by Intel and developed in partnership with Slashdot Media, is your
-hub for all things parallel software development, from weekly thought
-leadership blogs to news, videos, case studies, tutorials and more. Take a
-look and join the conversation now. http://goparallel.sourceforge.net
+Applied, thanks.
