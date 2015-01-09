@@ -1,33 +1,29 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: batman-adv 20150108
-Date: Thu, 08 Jan 2015 20:14:55 -0800 (PST)
-Message-ID: <20150108.201455.1089469097589757110.davem@davemloft.net>
-References: <1420730120-9844-1-git-send-email-antonio@meshcoding.com>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [PATCH net-next] openvswitch: Add ovs_vport_get_index() to hide
+ vport implementation
+Date: Thu, 8 Jan 2015 20:10:31 -0800
+Message-ID: <CALnjE+rCX-2z=jzJ5pnH6kzGdkM+MYAr=f8uz0etvOYFufxC9A@mail.gmail.com>
+References: <1420674525-18253-1-git-send-email-daniele.di.proietto@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
-To: antonio@meshcoding.com
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>
+To: Daniele Di Proietto <daniele.di.proietto@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50824 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753352AbbAIEJL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2015 23:09:11 -0500
-In-Reply-To: <1420730120-9844-1-git-send-email-antonio@meshcoding.com>
+Received: from na3sys009aog126.obsmtp.com ([74.125.149.155]:58947 "HELO
+	na3sys009aog126.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1754079AbbAIEKc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jan 2015 23:10:32 -0500
+Received: by mail-ig0-f175.google.com with SMTP id h15so6274413igd.2
+        for <netdev@vger.kernel.org>; Thu, 08 Jan 2015 20:10:31 -0800 (PST)
+In-Reply-To: <1420674525-18253-1-git-send-email-daniele.di.proietto@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Antonio Quartulli <antonio@meshcoding.com>
-Date: Thu,  8 Jan 2015 16:15:05 +0100
-
-> this is a batch of patches intended for net-next.
-> 
-> In this patchset you have mostly cleanups and small corrections to issues
-> reported by checkpatch.
-> 
-> One notable change is the addition of the DEBUG_FS dependency to the
-> BATMAN_ADV_DEBUG symbol by Markus Pargmann. We add this dependency because all
-> the information provided by the DEBUG feature is accessible only through
-> debugfs.
-
-Pulled, thanks Antonio.
+On Wed, Jan 7, 2015 at 3:48 PM, Daniele Di Proietto
+<daniele.di.proietto@gmail.com> wrote:
+> datapath.c should not access private vport data. This commit adds
+> 'ovs_vport_get_index()' to vport.c and '.get_index()' to vport_ops
+> to hide vport implementation details.
+>
+Earlier patch was better. There is no need to introduce new
+ovs_vport_get_index() since no other vport type can have ifindex.
