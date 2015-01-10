@@ -1,81 +1,85 @@
-From: Ying Xue <ying.xue@windriver.com>
-Subject: Re: [PATCH net-next 16/16] tipc: make netlink
-	support net namespace
-Date: Sat, 10 Jan 2015 14:04:54 +0800
-Message-ID: <54B0C106.6000103@windriver.com>
-References: <1420788433-17960-1-git-send-email-ying.xue@windriver.com>
-	<1420788433-17960-17-git-send-email-ying.xue@windriver.com>
-	<54AFDABB.3080103@cogentembedded.com>
+From: "Arad, Ronen" <ronen.arad@intel.com>
+Subject: RE: Clarification regarding IFLA_BRPORT_LEARNING_SYNC and aging of
+ fdb entries learnt via br_fdb_external_learn_add()
+Date: Sat, 10 Jan 2015 06:51:54 +0000
+Message-ID: <E4CD12F19ABA0C4D8729E087A761DC3505DDA81C@ORSMSX101.amr.corp.intel.com>
+References: <CA+CtxLSv6Hg9kOmavqQKs+7y8b8+TBdW1dYwb3ZsTMOh=Ow8Ew@mail.gmail.com>
+	<20150107125301.GE1888@nanopsycho.orion>
+	<CAE4R7bBRboCfhRKFKgVVAGt1f-m6wkXNfaej4RjuaCKPypABeA@mail.gmail.com>
+	<E4CD12F19ABA0C4D8729E087A761DC3505DDA643@ORSMSX101.amr.corp.intel.com>
+ <CAE4R7bCVCwPNq44_Ax2RQvtdZg_LCHGTQW0RrRAs-jCiDUduzQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: jon.maloy@ericsson.com, Tero.Aho@coriant.com, netdev@vger.kernel.org,
-	Paul.Gortmaker@windriver.com, tipc-discussion@lists.sourceforge.net
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>, <davem@davemloft.net>
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-In-Reply-To: <54AFDABB.3080103@cogentembedded.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Jiri Pirko <jiri@resnulli.us>,
+	Siva Mannem <siva.mannem.lnx@gmail.com>
+To: Scott Feldman <sfeldma@gmail.com>, Netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:57388 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751251AbbAJGv4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 10 Jan 2015 01:51:56 -0500
+In-Reply-To: <CAE4R7bCVCwPNq44_Ax2RQvtdZg_LCHGTQW0RrRAs-jCiDUduzQ@mail.gmail.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/09/2015 09:42 PM, Sergei Shtylyov wrote:
-> Hello.
-> 
-> On 1/9/2015 10:27 AM, Ying Xue wrote:
-> 
->> Currently tipc module only allows users sitting on "init_net" namespace
->> to configure it through netlink interface. But now almost each tipc
->> component is able to be aware of net namespace, so it's time to open
->> the permission for users residing in other namespaces, allowing them
->> to configure their own tipc stack instance through netlink interface.
-> 
->> Signed-off-by: Ying Xue <ying.xue@windriver.com>
->> Tested-by: Tero Aho <Tero.Aho@coriant.com>
->> Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
->> ---
->>   net/tipc/netlink.c |    7 +++++--
->>   1 file changed, 5 insertions(+), 2 deletions(-)
-> 
->> diff --git a/net/tipc/netlink.c b/net/tipc/netlink.c
->> index 282b596..fe0f513 100644
->> --- a/net/tipc/netlink.c
->> +++ b/net/tipc/netlink.c
->> @@ -54,7 +54,8 @@ static int handle_cmd(struct sk_buff *skb, struct
->> genl_info *info)
->>       int hdr_space = nlmsg_total_size(GENL_HDRLEN + TIPC_GENL_HDRLEN);
->>       u16 cmd;
->>
->> -    if ((req_userhdr->cmd & 0xC000) && (!netlink_capable(skb,
->> CAP_NET_ADMIN)))
->> +    if ((req_userhdr->cmd & 0xC000) &&
->> +        (!netlink_net_capable(skb, CAP_NET_ADMIN)))
-> 
->    Why? Also, it seems like unrelated change...
-> 
-
-Without above change, the line length is over 80 characters. Of course,
-this change is not much related to what the patch is really doing.
-
-Regards,
-Ying
-
-> [...]
-> 
-> WBR, Sergei
-> 
-> 
-> 
-
-
-------------------------------------------------------------------------------
-Dive into the World of Parallel Programming! The Go Parallel Website,
-sponsored by Intel and developed in partnership with Slashdot Media, is your
-hub for all things parallel software development, from weekly thought
-leadership blogs to news, videos, case studies, tutorials and more. Take a
-look and join the conversation now. http://goparallel.sourceforge.net
+Wy4uLl0NCj4+IEl0IGlzIGluZGVlZCBzaW1wbGVyLiBIb3dldmVyLCBpZiB0aGUgb3ZlcmhlYWQg
+b2YgcmVhZGluZyBoaXQgYml0cyBmcm9tIHRoZQ0KPkhXDQo+PiBhbmQgdXBkYXRpbmcgZnJlc2hu
+ZXNzIG9mIGVudHJpZXMgdXNpbmcgYnJfZmRiX2V4dGVybmFsX2xlYXJuX2FkZCgpIGlzIHRvbw0K
+Pj4gZXhwZW5zaXZlLCBpdCB3b3VsZCBmb3JjZSBzdWNoIHBsYXRmb3JtcyB0byBkaXNhYmxlIGxl
+YXJuaW5nIHN5bmMNCj5hbHRvZ2V0aGVyLg0KPj4gVGhlcmVmb3JlLCBJIGJlbGlldmUgYWdpbmcg
+b2ZmbG9hZCBmbGFnIChjb3VsZCBiZSBzdWZmaWNpZW50IGF0IGJyaWRnZQ0KPmxldmVsKQ0KPj4g
+YW5kIGV4dGVybmFsIGFnaW5nIGludGVydmFsIChwb3NzaWJseSBsb25nZXIgdGhhbiB0aGUgc29m
+dHdhcmUgYWdpbmcNCj5pbnRlcnZhbCkNCj4+IHdpbGwgZW5jb3VyYWdlIGRyaXZlcnMgdG8gdXNl
+IGxlYW5pbmcgc3luYy4NCj4+Pi1zY290dA0KPg0KPkknbSBub3Qgc3VyZSBJIGZvbGxvdyB0aGF0
+IGxhc3QgcGFydC4NCj4NCj5DYW4gd2UgbGlzdCBvdXQgdGhlIHVzZS1jYXNlcyB0byBzZWUgd2hh
+dCdzIG1pc3Npbmc/DQo+DQo+Q2FzZSAxOiBicmlkZ2UgYWdlcyBvdXQgbGVhcm5lZF9zeW5jJ2Vk
+IGVudHJpZXMNCj4NCj5icmlkZ2UgcG9ydCBsZWFybmluZzogb2ZmDQo+b2ZmbG9hZCBwb3J0IGxl
+YXJuaW5nOiBvbg0KPm9mZmxvYWQgcG9ydCBsZWFybmluZ19zeW5jOiBvbg0KPg0KPkRyaXZlciBj
+YWxscyBicl9mZGJfZXh0ZXJuYWxfbGVhcm5fYWRkKCkgcGVyaW9kaWNhbGx5IHRvIHJlZnJlc2gN
+Cj5icmlkZ2UgZmRiIGVudHJ5DQo+dG8ga2VlcCBpdCBmcm9tIGdvaW5nIHN0YWxlLg0KPkJyaWRn
+ZSByZW1vdmVzIGFnZWQgb3V0IGZkYiBlbnRyaWVzIChhbmQgaW5kaXJlY3RseSB0ZWxscyBvZmZs
+b2FkDQo+ZGV2aWNlIHRvIGRvIHRoZSBzYW1lKS4NCj4NCj5DYXNlIDI6IG9mZmxvYWQgZGV2aWNl
+L2JyaWRnZSBhZ2Ugb3V0IGVudHJpZXMgaW5kZXBlbmRlbnRseQ0KPg0KPmJyaWRnZSBwb3J0IGxl
+YXJuaW5nOiBvbg0KPm9mZmxvYWQgcG9ydCBsZWFybmluZzogb24NCj5vZmZsb2FkIHBvcnQgbGVh
+cm5pbmdfc3luYzogb2ZmDQo+DQo+QnJpZGdlIGFnZXMgb3V0IGl0cyBzdGFsZSBsZWFybmVkIGVu
+dHJpZXMsIGluZGVwZW5kZW50IG9mIG9mZmxvYWQgZGV2aWNlLg0KPk9mZmxvYWQgZGV2aWNlIGFn
+ZXMgb3V0IGl0cyBzdGFsZSBsZWFybmVkIGVudHJpZXMsIGluZGVwZW5kZW50IG9mIGJyaWRnZS4N
+Cj4NCj5DYXNlIDM6ID8NCj4NCj5QbGVhc2UgaGVscCBtZSBmaW5pc2ggdGhlIHVzZS1jYXNlIGxp
+c3Qgc28gd2UgY2FuIHNlZSB3aGF0J3MgbWlzc2luZy4NCg0KDQpDYXNlIDM6IG9mZmxvYWQgZGV2
+aWNlIGFnZXMgb3V0IGV4dGVybmFsIGVudHJpZXMgYW5kIG5vdGlmaWVzIGJyaWRnZQ0KDQpicmlk
+Z2UgcG9ydCBsZWFybmluZzogb24gb3Igb2ZmIChCcmlkZ2Ugb25seSBsZWFybnMgZnJvbSBwYWNr
+ZXRzIHNlZW4gKFJ4L1R4KSkNCm9mZmxvYWQgcG9ydCBsZWFybmluZzogb24NCm9mZmxvYWQgcG9y
+dCBsZWFybmluZ19zeW5jOiBvbg0KYnJpZGdlIGFnaW5nIG9mIGV4dGVybmFsIGxlYXJuOiBvZmYN
+Cm9mZmxvYWQgZGV2aWNlIGFnaW5nOiBvbg0KDQpTd2l0Y2ggcG9ydC9kZXZpY2UgZHJpdmVyIGFn
+ZXMgZW50cmllcyAoY291bGQgYmUgYnkgSFcgYWdpbmcgb3Igc29mdCBhZ2luZyBpbg0KZHJpdmVy
+L2Zpcm13YXJlKSwNCm5vdGlmaWVzIGJyaWRnZSBhYm91dCBhZ2VkIGVudHJpZXMgdXNpbmcgYnJf
+ZmRiX2V4dGVybmFsbGVhcm5fZGVsKCkuDQpUaGlzIGFsbG93cyBlZmZpY2llbnQgSFcgYWdpbmcg
+YW5kIGJhdGNoZWQgbm90aWZpY2F0aW9uIGF0IGEgcGFjZSBpbmRlcGVuZGVudCANCm9mIGJyaWRn
+ZSBhZ2luZyBpbnRlcnZhbC4NClVzZXIgc3RpbGwgZW5qb3lzIGEgc2luZ2xlIFZMQU4tYXdhcmUg
+RkRCIHdpdGhpbiB0aGUgYnJpZGdlIG1vZHVsZSBhbmQgaGF2aW5nIA0KYWxsIGVudHJpZXMgaW4g
+b25lIHBsYWNlLiBFeHRlcm5hbGx5IGxlYXJuZWQgZW50cmllcyBhcmUgaWRlbnRpZmllZCBhcyBz
+dWNoIGJ5IA0KaXByb3V0ZTIgImJyaWRnZSBmZGIgc2hvdyIgY29tbWFuZC4gRGV2aWNlIGRvZXMg
+bm90IGhhdmUgdG8gaW1wbGVtZW50DQpuZG9fYnJpZGdlX2ZkYl9kdW1wKCkgZm9yIGVhY2ggb2Zm
+bG9hZCBwb3J0IGFzIHRoZSBicmlkZ2UgbW9kdWxlIHByb3ZpZGVzIGl0DQpmb3IgdGhlIGNvbW1v
+biBGREIuDQoNCkNhc2UgNDogYnJpZGdlIGFnZXMgb3duZWQgYW5kIGV4dGVybmFsIGVudHJpZXMg
+YXQgZGlmZmVyZW50IGludGVydmFscw0KDQpicmlkZ2UgcG9ydCBsZWFybmluZzogb24gKEVmZmVj
+dGl2ZWx5IG9ubHkgZm9yIFJ4L1R4IHRyYWZmaWMgc2VlbiBieSAgICAgICAgICAgICAgIA0KICAg
+ICAgICAgICAgICAgICAgICAgICAgICBzb2Z0d2FyZSBicmlkZ2UpDQpvZmZsb2FkIHBvcnQgbGVh
+cm5pbmc6IG9uICh0cmFuc2llbnQgdHJhZmZpYyBhbmQgUnhUeCwgb3ZlcmxhcCB3aXRoIGJyaWRn
+ZQ0KICAgICAgICAgICAgICAgICAgICAgICAgICAgbGVhcm5lZCBlbnRyaWVzIHBvc3NpYmxlKQ0K
+b2ZmbG9hZCBwb3J0IGxlYXJuaW5nX3N5bmM6IG9uDQpicmlkZ2UgYWdpbmcgb2YgZXh0ZXJuYWwg
+bGVhcm46IG9uDQpvZmZsb2FkIGRldmljZSBhZ2luZzogb2ZmDQpicmlkZ2UgYWdpbmcgaW50ZXJ2
+YWwgZm9yIG93bmVkIGVudHJpZXM6IFQxDQpicmlkZ2UgYWdpbmcgaW50ZXJ2YWwgZm9yIGV4dGVy
+bmFsIGVudHJpZXM6IFQyIChUeXBpY2FsbHkgVDIgPiBUMSkNCg0KVGhpcyBhbGxvd3MgZm9yIGZp
+bmUtdHVuaW5nIHRoZSBvdmVyaGVhZCBvZiBwZXJpb2RpYyB1cGRhdGVzIG9mIGVudHJpZXMNCmZy
+ZXNobmVzcyBmcm9tIG9mZmxvYWQgcG9ydCBkZXZpY2UuDQoNClRoZSBib3R0b20gbGluZSBvZiBj
+YXNlcyAzLTQgaXMgdGhhdCBpdCBpcyBkZXNpcmFibGUgdG8gdXNlIHRoZSBjb21tb24gYnJpZGdl
+DQpGREIgYXMgbG9uZyBhcyBicmlkZ2UgYWdpbmcgb2YgZXh0ZXJuYWxseSBsZWFybmVkIGVudHJp
+ZXMgY291bGQgYmUgY29udHJvbGxlZA0KYnkgdGhlIG9mZmxvYWQgZGV2aWNlOiBFaXRoZXIgYmUg
+YXQgYSBsb25nZXIgaW50ZXJ2YWwgb3IgZGlzYWJsZWQuDQoNCj4NCj4tc2NvdHQNCj4tLQ0KPlRv
+IHVuc3Vic2NyaWJlIGZyb20gdGhpcyBsaXN0OiBzZW5kIHRoZSBsaW5lICJ1bnN1YnNjcmliZSBu
+ZXRkZXYiIGluDQo+dGhlIGJvZHkgb2YgYSBtZXNzYWdlIHRvIG1ham9yZG9tb0B2Z2VyLmtlcm5l
+bC5vcmcNCj5Nb3JlIG1ham9yZG9tbyBpbmZvIGF0ICBodHRwOi8vdmdlci5rZXJuZWwub3JnL21h
+am9yZG9tby1pbmZvLmh0bWwNCg==
