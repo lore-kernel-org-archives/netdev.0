@@ -1,85 +1,45 @@
-From: "Arad, Ronen" <ronen.arad@intel.com>
-Subject: RE: Clarification regarding IFLA_BRPORT_LEARNING_SYNC and aging of
- fdb entries learnt via br_fdb_external_learn_add()
-Date: Sat, 10 Jan 2015 06:51:54 +0000
-Message-ID: <E4CD12F19ABA0C4D8729E087A761DC3505DDA81C@ORSMSX101.amr.corp.intel.com>
-References: <CA+CtxLSv6Hg9kOmavqQKs+7y8b8+TBdW1dYwb3ZsTMOh=Ow8Ew@mail.gmail.com>
-	<20150107125301.GE1888@nanopsycho.orion>
-	<CAE4R7bBRboCfhRKFKgVVAGt1f-m6wkXNfaej4RjuaCKPypABeA@mail.gmail.com>
-	<E4CD12F19ABA0C4D8729E087A761DC3505DDA643@ORSMSX101.amr.corp.intel.com>
- <CAE4R7bCVCwPNq44_Ax2RQvtdZg_LCHGTQW0RrRAs-jCiDUduzQ@mail.gmail.com>
+From: Sriharsha Basavapatna <Sriharsha.Basavapatna@Emulex.Com>
+Subject: [Question] vxlan_features_check()
+Date: Sat, 10 Jan 2015 06:52:22 +0000
+Message-ID: <31318D46B5DF3F4AB71CC057601E9FEB12BFBC57@CMEXMB1.ad.emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Jiri Pirko <jiri@resnulli.us>,
-	Siva Mannem <siva.mannem.lnx@gmail.com>
-To: Scott Feldman <sfeldma@gmail.com>, Netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Jesse Gross <jesse@nicira.com>, Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:57388 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751251AbbAJGv4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 10 Jan 2015 01:51:56 -0500
-In-Reply-To: <CAE4R7bCVCwPNq44_Ax2RQvtdZg_LCHGTQW0RrRAs-jCiDUduzQ@mail.gmail.com>
+Received: from cmexedge2.emulex.com ([138.239.224.100]:17604 "EHLO
+	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751297AbbAJGwy convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 10 Jan 2015 01:52:54 -0500
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wy4uLl0NCj4+IEl0IGlzIGluZGVlZCBzaW1wbGVyLiBIb3dldmVyLCBpZiB0aGUgb3ZlcmhlYWQg
-b2YgcmVhZGluZyBoaXQgYml0cyBmcm9tIHRoZQ0KPkhXDQo+PiBhbmQgdXBkYXRpbmcgZnJlc2hu
-ZXNzIG9mIGVudHJpZXMgdXNpbmcgYnJfZmRiX2V4dGVybmFsX2xlYXJuX2FkZCgpIGlzIHRvbw0K
-Pj4gZXhwZW5zaXZlLCBpdCB3b3VsZCBmb3JjZSBzdWNoIHBsYXRmb3JtcyB0byBkaXNhYmxlIGxl
-YXJuaW5nIHN5bmMNCj5hbHRvZ2V0aGVyLg0KPj4gVGhlcmVmb3JlLCBJIGJlbGlldmUgYWdpbmcg
-b2ZmbG9hZCBmbGFnIChjb3VsZCBiZSBzdWZmaWNpZW50IGF0IGJyaWRnZQ0KPmxldmVsKQ0KPj4g
-YW5kIGV4dGVybmFsIGFnaW5nIGludGVydmFsIChwb3NzaWJseSBsb25nZXIgdGhhbiB0aGUgc29m
-dHdhcmUgYWdpbmcNCj5pbnRlcnZhbCkNCj4+IHdpbGwgZW5jb3VyYWdlIGRyaXZlcnMgdG8gdXNl
-IGxlYW5pbmcgc3luYy4NCj4+Pi1zY290dA0KPg0KPkknbSBub3Qgc3VyZSBJIGZvbGxvdyB0aGF0
-IGxhc3QgcGFydC4NCj4NCj5DYW4gd2UgbGlzdCBvdXQgdGhlIHVzZS1jYXNlcyB0byBzZWUgd2hh
-dCdzIG1pc3Npbmc/DQo+DQo+Q2FzZSAxOiBicmlkZ2UgYWdlcyBvdXQgbGVhcm5lZF9zeW5jJ2Vk
-IGVudHJpZXMNCj4NCj5icmlkZ2UgcG9ydCBsZWFybmluZzogb2ZmDQo+b2ZmbG9hZCBwb3J0IGxl
-YXJuaW5nOiBvbg0KPm9mZmxvYWQgcG9ydCBsZWFybmluZ19zeW5jOiBvbg0KPg0KPkRyaXZlciBj
-YWxscyBicl9mZGJfZXh0ZXJuYWxfbGVhcm5fYWRkKCkgcGVyaW9kaWNhbGx5IHRvIHJlZnJlc2gN
-Cj5icmlkZ2UgZmRiIGVudHJ5DQo+dG8ga2VlcCBpdCBmcm9tIGdvaW5nIHN0YWxlLg0KPkJyaWRn
-ZSByZW1vdmVzIGFnZWQgb3V0IGZkYiBlbnRyaWVzIChhbmQgaW5kaXJlY3RseSB0ZWxscyBvZmZs
-b2FkDQo+ZGV2aWNlIHRvIGRvIHRoZSBzYW1lKS4NCj4NCj5DYXNlIDI6IG9mZmxvYWQgZGV2aWNl
-L2JyaWRnZSBhZ2Ugb3V0IGVudHJpZXMgaW5kZXBlbmRlbnRseQ0KPg0KPmJyaWRnZSBwb3J0IGxl
-YXJuaW5nOiBvbg0KPm9mZmxvYWQgcG9ydCBsZWFybmluZzogb24NCj5vZmZsb2FkIHBvcnQgbGVh
-cm5pbmdfc3luYzogb2ZmDQo+DQo+QnJpZGdlIGFnZXMgb3V0IGl0cyBzdGFsZSBsZWFybmVkIGVu
-dHJpZXMsIGluZGVwZW5kZW50IG9mIG9mZmxvYWQgZGV2aWNlLg0KPk9mZmxvYWQgZGV2aWNlIGFn
-ZXMgb3V0IGl0cyBzdGFsZSBsZWFybmVkIGVudHJpZXMsIGluZGVwZW5kZW50IG9mIGJyaWRnZS4N
-Cj4NCj5DYXNlIDM6ID8NCj4NCj5QbGVhc2UgaGVscCBtZSBmaW5pc2ggdGhlIHVzZS1jYXNlIGxp
-c3Qgc28gd2UgY2FuIHNlZSB3aGF0J3MgbWlzc2luZy4NCg0KDQpDYXNlIDM6IG9mZmxvYWQgZGV2
-aWNlIGFnZXMgb3V0IGV4dGVybmFsIGVudHJpZXMgYW5kIG5vdGlmaWVzIGJyaWRnZQ0KDQpicmlk
-Z2UgcG9ydCBsZWFybmluZzogb24gb3Igb2ZmIChCcmlkZ2Ugb25seSBsZWFybnMgZnJvbSBwYWNr
-ZXRzIHNlZW4gKFJ4L1R4KSkNCm9mZmxvYWQgcG9ydCBsZWFybmluZzogb24NCm9mZmxvYWQgcG9y
-dCBsZWFybmluZ19zeW5jOiBvbg0KYnJpZGdlIGFnaW5nIG9mIGV4dGVybmFsIGxlYXJuOiBvZmYN
-Cm9mZmxvYWQgZGV2aWNlIGFnaW5nOiBvbg0KDQpTd2l0Y2ggcG9ydC9kZXZpY2UgZHJpdmVyIGFn
-ZXMgZW50cmllcyAoY291bGQgYmUgYnkgSFcgYWdpbmcgb3Igc29mdCBhZ2luZyBpbg0KZHJpdmVy
-L2Zpcm13YXJlKSwNCm5vdGlmaWVzIGJyaWRnZSBhYm91dCBhZ2VkIGVudHJpZXMgdXNpbmcgYnJf
-ZmRiX2V4dGVybmFsbGVhcm5fZGVsKCkuDQpUaGlzIGFsbG93cyBlZmZpY2llbnQgSFcgYWdpbmcg
-YW5kIGJhdGNoZWQgbm90aWZpY2F0aW9uIGF0IGEgcGFjZSBpbmRlcGVuZGVudCANCm9mIGJyaWRn
-ZSBhZ2luZyBpbnRlcnZhbC4NClVzZXIgc3RpbGwgZW5qb3lzIGEgc2luZ2xlIFZMQU4tYXdhcmUg
-RkRCIHdpdGhpbiB0aGUgYnJpZGdlIG1vZHVsZSBhbmQgaGF2aW5nIA0KYWxsIGVudHJpZXMgaW4g
-b25lIHBsYWNlLiBFeHRlcm5hbGx5IGxlYXJuZWQgZW50cmllcyBhcmUgaWRlbnRpZmllZCBhcyBz
-dWNoIGJ5IA0KaXByb3V0ZTIgImJyaWRnZSBmZGIgc2hvdyIgY29tbWFuZC4gRGV2aWNlIGRvZXMg
-bm90IGhhdmUgdG8gaW1wbGVtZW50DQpuZG9fYnJpZGdlX2ZkYl9kdW1wKCkgZm9yIGVhY2ggb2Zm
-bG9hZCBwb3J0IGFzIHRoZSBicmlkZ2UgbW9kdWxlIHByb3ZpZGVzIGl0DQpmb3IgdGhlIGNvbW1v
-biBGREIuDQoNCkNhc2UgNDogYnJpZGdlIGFnZXMgb3duZWQgYW5kIGV4dGVybmFsIGVudHJpZXMg
-YXQgZGlmZmVyZW50IGludGVydmFscw0KDQpicmlkZ2UgcG9ydCBsZWFybmluZzogb24gKEVmZmVj
-dGl2ZWx5IG9ubHkgZm9yIFJ4L1R4IHRyYWZmaWMgc2VlbiBieSAgICAgICAgICAgICAgIA0KICAg
-ICAgICAgICAgICAgICAgICAgICAgICBzb2Z0d2FyZSBicmlkZ2UpDQpvZmZsb2FkIHBvcnQgbGVh
-cm5pbmc6IG9uICh0cmFuc2llbnQgdHJhZmZpYyBhbmQgUnhUeCwgb3ZlcmxhcCB3aXRoIGJyaWRn
-ZQ0KICAgICAgICAgICAgICAgICAgICAgICAgICAgbGVhcm5lZCBlbnRyaWVzIHBvc3NpYmxlKQ0K
-b2ZmbG9hZCBwb3J0IGxlYXJuaW5nX3N5bmM6IG9uDQpicmlkZ2UgYWdpbmcgb2YgZXh0ZXJuYWwg
-bGVhcm46IG9uDQpvZmZsb2FkIGRldmljZSBhZ2luZzogb2ZmDQpicmlkZ2UgYWdpbmcgaW50ZXJ2
-YWwgZm9yIG93bmVkIGVudHJpZXM6IFQxDQpicmlkZ2UgYWdpbmcgaW50ZXJ2YWwgZm9yIGV4dGVy
-bmFsIGVudHJpZXM6IFQyIChUeXBpY2FsbHkgVDIgPiBUMSkNCg0KVGhpcyBhbGxvd3MgZm9yIGZp
-bmUtdHVuaW5nIHRoZSBvdmVyaGVhZCBvZiBwZXJpb2RpYyB1cGRhdGVzIG9mIGVudHJpZXMNCmZy
-ZXNobmVzcyBmcm9tIG9mZmxvYWQgcG9ydCBkZXZpY2UuDQoNClRoZSBib3R0b20gbGluZSBvZiBj
-YXNlcyAzLTQgaXMgdGhhdCBpdCBpcyBkZXNpcmFibGUgdG8gdXNlIHRoZSBjb21tb24gYnJpZGdl
-DQpGREIgYXMgbG9uZyBhcyBicmlkZ2UgYWdpbmcgb2YgZXh0ZXJuYWxseSBsZWFybmVkIGVudHJp
-ZXMgY291bGQgYmUgY29udHJvbGxlZA0KYnkgdGhlIG9mZmxvYWQgZGV2aWNlOiBFaXRoZXIgYmUg
-YXQgYSBsb25nZXIgaW50ZXJ2YWwgb3IgZGlzYWJsZWQuDQoNCj4NCj4tc2NvdHQNCj4tLQ0KPlRv
-IHVuc3Vic2NyaWJlIGZyb20gdGhpcyBsaXN0OiBzZW5kIHRoZSBsaW5lICJ1bnN1YnNjcmliZSBu
-ZXRkZXYiIGluDQo+dGhlIGJvZHkgb2YgYSBtZXNzYWdlIHRvIG1ham9yZG9tb0B2Z2VyLmtlcm5l
-bC5vcmcNCj5Nb3JlIG1ham9yZG9tbyBpbmZvIGF0ICBodHRwOi8vdmdlci5rZXJuZWwub3JnL21h
-am9yZG9tby1pbmZvLmh0bWwNCg==
+Hi Jesse, Tom,
+
+The current implementation of vxlan_features_check() disables csum/gso flags
+for only a subset of Non-VxLAN tunnels - those with tunnel outer transport type
+of UDP. Is there any reason why this was not done for non-UDP tunnels like
+GRE too ? This can avoid additional code in the driver ndo_features_check()
+to disable those flags for non-UDP tunnels.  Please let me know if I'm
+missing something here.
+
+The current code in vxlan_features_check() is this:
+        if ((l4_hdr == IPPROTO_UDP) &&
+            (skb->inner_protocol_type != ENCAP_TYPE_ETHER ||
+             skb->inner_protocol != htons(ETH_P_TEB) ||
+             (skb_inner_mac_header(skb) - skb_transport_header(skb) !=
+              sizeof(struct udphdr) + sizeof(struct vxlanhdr))))
+                return features & ~(NETIF_F_ALL_CSUM | NETIF_F_GSO_MASK);
+
+That should change to:
+        if (l4_hdr != IPPROTO_UDP ||
+            skb->inner_protocol_type != ENCAP_TYPE_ETHER ||
+            skb->inner_protocol != htons(ETH_P_TEB) ||
+            (skb_inner_mac_header(skb) - skb_transport_header(skb) !=
+            sizeof(struct udphdr) + sizeof(struct vxlanhdr)))
+                return features & ~(NETIF_F_ALL_CSUM | NETIF_F_GSO_MASK);
+
+Thanks,
+-Harsha
