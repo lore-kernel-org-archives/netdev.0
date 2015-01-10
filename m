@@ -1,94 +1,93 @@
-From: =?UTF-8?B?U8OpYmFzdGllbiBCYXJyw6k=?= <sebastien.barre@uclouvain.be>
-Subject: Re: [PATCH net-next v2] tcp: avoid reducing cwnd when ACK+DSACK is
- received
-Date: Sat, 10 Jan 2015 12:51:49 +0100
-Message-ID: <54B11255.7000500@uclouvain.be>
-References: <1420719609-18638-1-git-send-email-sebastien.barre@uclouvain.be> <1420730396.5947.55.camel@edumazet-glaptop2.roam.corp.google.com> <54AEA498.5030202@uclouvain.be> <CADVnQy=A57TUYD=kGtZXvq7-FGSN=vN3D2heaNCnBB=zjujwUg@mail.gmail.com> <1420734325.5947.61.camel@edumazet-glaptop2.roam.corp.google.com> <CAK6E8=dhW=0hRYHjjgBh0KwKOQfzHhwY2egusQ8S4tsoJb0Nsg@mail.gmail.com>
+From: Kumar Sanghvi <kumaras@chelsio.com>
+Subject: Re: Query regarding sk_filter
+Date: Sat, 10 Jan 2015 18:40:21 +0600
+Message-ID: <20150110124020.GB9428@kumar-pc.asicdesigners.com>
+References: <20150109112302.GA9428@kumar-pc.asicdesigners.com>
+ <CAADnVQKNF43g4RdMTRbPJ2m_XYwyekpmHb93UyarWJB-z8iGAQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Neal Cardwell <ncardwell@google.com>,
-	David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>,
-	Gregory Detal <gregory.detal@uclouvain.be>,
-	Nandita Dukkipati <nanditad@google.com>
-To: Yuchung Cheng <ycheng@google.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:49061 "EHLO
-	smtp6.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751223AbbAJLwB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 10 Jan 2015 06:52:01 -0500
-In-Reply-To: <CAK6E8=dhW=0hRYHjjgBh0KwKOQfzHhwY2egusQ8S4tsoJb0Nsg@mail.gmail.com>
+Received: from stargate.chelsio.com ([67.207.112.58]:23277 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752047AbbAJNKm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 10 Jan 2015 08:10:42 -0500
+Content-Disposition: inline
+In-Reply-To: <CAADnVQKNF43g4RdMTRbPJ2m_XYwyekpmHb93UyarWJB-z8iGAQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-All,
+On Friday, January 01/09/15, 2015 at 16:51:46 -0800, Alexei Starovoitov wrote:
+> On Fri, Jan 9, 2015 at 3:23 AM, Kumar Sanghvi <kumaras@chelsio.com> wrote:
+> > Hi netdev team,
+> >
+> > I have a query regarding sk_filter call in tcp receive path:
+> >
+> > In 'tcp_v4_rcv' function, if sk is found by __inet_lookup_skb then,
+> > down the line, there is a call to sk_filter to ensure if the incoming packet
+> > is allowed to be processed for that sk.
+> >
+> > However, in 'tcp_v4_hnd_req' function, if nsk is found by inet_lookup_established
+> > then, later, there does not seem to be a sk_filter call for that nsk in the receive
+> > path processing.
+> >
+> > I am wondering shouldn't there be a sk_filter call on nsk found in 'tcp_v4_hnd_req'
+> > function ? Or, probably I am missing something.
+> 
+> hmm. I'm not sure what you're seeing.
 
-Le 09/01/2015 20:43, Yuchung Cheng a =C3=A9crit :
->
-> Sebastien: I suggest breaking down by ACK types for readability. e.g.=
-,
->
-> /* This routine deals with acks during a TLP episode.
->   * We mark the end of a TLP episode on receiving TLP dupack or when
->   * ack is after tlp_high_seq.
->   * Ref: loss detection algorithm in draft-dukkipati-tcpm-tcp-loss-pr=
-obe.
->   */
-> static void tcp_process_tlp_ack(struct sock *sk, u32 ack, int flag)
-> {
->          struct tcp_sock *tp =3D tcp_sk(sk);
->
->          if (before(ack, tp->tlp_high_seq))
->                  return;
->
->          if (flag & FLAG_DSACKING_ACK) {
->                  /* This DSACK means original and TLP probe arrived; =
-no loss */
->                  tp->tlp_high_seq =3D 0;
->          } else if (after(ack, tp->tlp_high_seq)) {
->                  /* ACK advances: there was a loss, so reduce cwnd. R=
-eset
->                   * tlp_high_seq in tcp_init_cwnd_reduction()
-Indeed, hadn't seen that.
->                   */
->                  tcp_init_cwnd_reduction(sk);
->                  tcp_set_ca_state(sk, TCP_CA_CWR);
->                  tcp_end_cwnd_reduction(sk);
->                  tcp_try_keep_open(sk);
->                  NET_INC_STATS_BH(sock_net(sk),
->                                   LINUX_MIB_TCPLOSSPROBERECOVERY);
->          } else if (!(flag & (FLAG_SND_UNA_ADVANCED |
->                               FLAG_NOT_DUP | FLAG_DATA_SACKED))) {
->                  /* Pure dupack: original and TLP probe arrived; no l=
-oss */
->                  tp->tlp_high_seq =3D 0;
->          }
-> }
-That looks much more readable compared to my v2.
-It is currently passing our tests (These are in fact MPTCP tests appart=
-=20
-from Neal's packetdrill that I will add, but actually the MPTCP stack=20
-happens to reveal this situation quite easily, I think because in MPTCP=
-,=20
-we store the send queue in the "meta-flow", which currently cannot be=20
-used for tail loss probes).
+This is more of a question out of curiosity :)
 
-As probably everyone will be happy with this (Eric as well ?), I sugges=
-t=20
-I prepare a v3 once all our tests are passed as well, with Yuchung's=20
-structure and Neal's packetdrill test in the commit text. Will also add=
-=20
-proper credit as there is now stuff from several people in those few=20
-lines now :-).
+> tcp_v4_hnd_req() is called from tcp_v4_do_rcv() which is called
+> after sk_filter() check is done in tcp_v4_rcv() (either directly
+> or via prequeue/backlog)
 
-Looks good ?
+Ok.
+> 
+> > I am running some high rate syn-flood tests and trying to understand
+> > the sk_filter behaviour in this case.
+> 
+> are you saying not all of syn packets are reaching filter?
 
-Thanks again for your fast and helpful interactions !
+No, not saying that.
 
-S=C3=A9bastien.
+I was thinking more in terms of below:-
+(BTW, I am unsure if case B described below is actually possible.
+I am describing it hypothetically.
+So, please correct me if I am smoking cracks and my understanding is wrong)
 
->
->>
+One more thing I forgot to clarify is: the syn-flood test that I am running uses the 
+same 4-tuple of actual clients establishing connections with server.
+
+Lets say there is iperf TCP server running on DUT.
+There are some short-lived iperf clients establishing connections.
+The syn-flood uses the same 4-tuple which the iperf clients use.
+
+The two cases that I was thinking of are:
+
+A) Connection is established on DUT.
+-------------------------------------
+Now, if a SYN comes with same 4-tuple then, in tcp_v4_rcv, a child socket would be
+found from __inet_lookup_skb and the subsequent sk_filter would run for that child socket.
+
+
+B) Connection is in process of establishing.
+-------------------------------------------
+Here, lets say a SYN comes (using the same 4-tuple as iperf client whose connection is in process 
+of establishing)  and in tcp_v4_rcv, there is no existing established connection
+found yet. So, listen socket would be returned via __inet_lookup_skb and subsequent sk_filter
+would run on listen socket.
+
+Further, as this SYN packet is processed, a child socket is found in tcp_v4_hnd_req.
+And then, tcp_child_process would then get called from tcp_v4_do_rcv.
+
+So, unlike case A), here the sk_filter ran on listen socket rather than the child socket.
+Or does the sk_filter would run on child socket from some other part ?
+
+May be, the question that I should have asked is : do child socket and parent listening socket have the 
+same sk_filter applied i.e. do child socket inherit sk_filter from parent listening socket ?
+
+
+Thank you for your response.
+-Kumar.
