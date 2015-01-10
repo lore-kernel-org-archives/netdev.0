@@ -1,45 +1,43 @@
-From: Sriharsha Basavapatna <Sriharsha.Basavapatna@Emulex.Com>
-Subject: [Question] vxlan_features_check()
-Date: Sat, 10 Jan 2015 06:52:22 +0000
-Message-ID: <31318D46B5DF3F4AB71CC057601E9FEB12BFBC57@CMEXMB1.ad.emulex.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Jesse Gross <jesse@nicira.com>, Tom Herbert <therbert@google.com>
+From: Vincenzo Maffione <v.maffione@gmail.com>
+Subject: [PATCH net] drivers: net: xen-netfront: remove residual dead code
+Date: Sat, 10 Jan 2015 10:20:25 +0100
+Message-ID: <1420881625-4935-1-git-send-email-v.maffione@gmail.com>
+Cc: xen-devel@lists.xenproject.org, david.vrabel@citrix.com,
+	boris.ostrovsky@oracle.com, konrad.wilk@oracle.com,
+	Vincenzo Maffione <v.maffione@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge2.emulex.com ([138.239.224.100]:17604 "EHLO
-	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751297AbbAJGwy convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 10 Jan 2015 01:52:54 -0500
-Content-Language: en-US
+Received: from mail-wg0-f49.google.com ([74.125.82.49]:35673 "EHLO
+	mail-wg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751089AbbAJIWS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 10 Jan 2015 03:22:18 -0500
+Received: by mail-wg0-f49.google.com with SMTP id n12so11712459wgh.8
+        for <netdev@vger.kernel.org>; Sat, 10 Jan 2015 00:22:17 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Jesse, Tom,
+This patch removes some unused arrays from the netfront private
+data structures. These arrays were used in "flip" receive mode.
 
-The current implementation of vxlan_features_check() disables csum/gso flags
-for only a subset of Non-VxLAN tunnels - those with tunnel outer transport type
-of UDP. Is there any reason why this was not done for non-UDP tunnels like
-GRE too ? This can avoid additional code in the driver ndo_features_check()
-to disable those flags for non-UDP tunnels.  Please let me know if I'm
-missing something here.
+Signed-off-by: Vincenzo Maffione <v.maffione@gmail.com>
+---
+ drivers/net/xen-netfront.c | 4 ----
+ 1 file changed, 4 deletions(-)
 
-The current code in vxlan_features_check() is this:
-        if ((l4_hdr == IPPROTO_UDP) &&
-            (skb->inner_protocol_type != ENCAP_TYPE_ETHER ||
-             skb->inner_protocol != htons(ETH_P_TEB) ||
-             (skb_inner_mac_header(skb) - skb_transport_header(skb) !=
-              sizeof(struct udphdr) + sizeof(struct vxlanhdr))))
-                return features & ~(NETIF_F_ALL_CSUM | NETIF_F_GSO_MASK);
-
-That should change to:
-        if (l4_hdr != IPPROTO_UDP ||
-            skb->inner_protocol_type != ENCAP_TYPE_ETHER ||
-            skb->inner_protocol != htons(ETH_P_TEB) ||
-            (skb_inner_mac_header(skb) - skb_transport_header(skb) !=
-            sizeof(struct udphdr) + sizeof(struct vxlanhdr)))
-                return features & ~(NETIF_F_ALL_CSUM | NETIF_F_GSO_MASK);
-
-Thanks,
--Harsha
+diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+index 22bcb4e..a4e5048 100644
+--- a/drivers/net/xen-netfront.c
++++ b/drivers/net/xen-netfront.c
+@@ -144,10 +144,6 @@ struct netfront_queue {
+ 	struct sk_buff *rx_skbs[NET_RX_RING_SIZE];
+ 	grant_ref_t gref_rx_head;
+ 	grant_ref_t grant_rx_ref[NET_RX_RING_SIZE];
+-
+-	unsigned long rx_pfn_array[NET_RX_RING_SIZE];
+-	struct multicall_entry rx_mcl[NET_RX_RING_SIZE+1];
+-	struct mmu_update rx_mmu[NET_RX_RING_SIZE];
+ };
+ 
+ struct netfront_info {
+-- 
+2.2.1
