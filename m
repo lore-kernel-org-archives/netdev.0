@@ -1,125 +1,110 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: Clarification regarding IFLA_BRPORT_LEARNING_SYNC and aging of
- fdb entries learnt via br_fdb_external_learn_add()
-Date: Sat, 10 Jan 2015 12:28:36 -0800
-Message-ID: <CAE4R7bCLiD7qQX-YFp6be72_jWJM_T6Yf=-MQL_2udph46QD5w@mail.gmail.com>
-References: <CA+CtxLSv6Hg9kOmavqQKs+7y8b8+TBdW1dYwb3ZsTMOh=Ow8Ew@mail.gmail.com>
-	<20150107125301.GE1888@nanopsycho.orion>
-	<CAE4R7bBRboCfhRKFKgVVAGt1f-m6wkXNfaej4RjuaCKPypABeA@mail.gmail.com>
-	<E4CD12F19ABA0C4D8729E087A761DC3505DDA643@ORSMSX101.amr.corp.intel.com>
-	<CAE4R7bCVCwPNq44_Ax2RQvtdZg_LCHGTQW0RrRAs-jCiDUduzQ@mail.gmail.com>
-	<E4CD12F19ABA0C4D8729E087A761DC3505DDA81C@ORSMSX101.amr.corp.intel.com>
+From: Oded Gabbay <oded.gabbay@amd.com>
+Subject: [BUG] 3.19-rc1 net: less interrupt masking in NAPI
+Date: Sat, 10 Jan 2015 22:39:27 +0200
+Message-ID: <54B18DFF.80400@amd.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>, Jiri Pirko <jiri@resnulli.us>,
-	Siva Mannem <siva.mannem.lnx@gmail.com>, marichika4@gmail.com
-To: "Arad, Ronen" <ronen.arad@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f181.google.com ([209.85.212.181]:57789 "EHLO
-	mail-wi0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751606AbbAJU2i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 10 Jan 2015 15:28:38 -0500
-Received: by mail-wi0-f181.google.com with SMTP id r20so8190422wiv.2
-        for <netdev@vger.kernel.org>; Sat, 10 Jan 2015 12:28:36 -0800 (PST)
-In-Reply-To: <E4CD12F19ABA0C4D8729E087A761DC3505DDA81C@ORSMSX101.amr.corp.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Willem de Bruijn <willemb@google.com>,
+	"Bridgman, John" <John.Bridgman@amd.com>,
+	"Elifaz, Dana" <Dana.Elifaz@amd.com>
+To: "David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Perfect, I think we have a good working set of use-cases.  Thanks for
-adding those.  Your case 3 seems do-able without too much work since
-we already know which ones where externally added, just need another
-per-bridge-port flag to turn off bridging aging of externally learned
-entries.  This will address the performance issue you (and B
-Viswanath) raised.  What about the entry stats, from the user's
-'bridge -s fdb show" perspective for the bridge fdb entries?  Will
-these numbers match expectations?  I think case 1 and case 4 provide a
-coherent stats view.  Case 3 seems to be lacking in this regard.
+Hi,
 
-On Fri, Jan 9, 2015 at 10:51 PM, Arad, Ronen <ronen.arad@intel.com> wrote:
-> [...]
->>> It is indeed simpler. However, if the overhead of reading hit bits from the
->>HW
->>> and updating freshness of entries using br_fdb_external_learn_add() is too
->>> expensive, it would force such platforms to disable learning sync
->>altogether.
->>> Therefore, I believe aging offload flag (could be sufficient at bridge
->>level)
->>> and external aging interval (possibly longer than the software aging
->>interval)
->>> will encourage drivers to use leaning sync.
->>>>-scott
->>
->>I'm not sure I follow that last part.
->>
->>Can we list out the use-cases to see what's missing?
->>
->>Case 1: bridge ages out learned_sync'ed entries
->>
->>bridge port learning: off
->>offload port learning: on
->>offload port learning_sync: on
->>
->>Driver calls br_fdb_external_learn_add() periodically to refresh
->>bridge fdb entry
->>to keep it from going stale.
->>Bridge removes aged out fdb entries (and indirectly tells offload
->>device to do the same).
->>
->>Case 2: offload device/bridge age out entries independently
->>
->>bridge port learning: on
->>offload port learning: on
->>offload port learning_sync: off
->>
->>Bridge ages out its stale learned entries, independent of offload device.
->>Offload device ages out its stale learned entries, independent of bridge.
->>
->>Case 3: ?
->>
->>Please help me finish the use-case list so we can see what's missing.
->
->
-> Case 3: offload device ages out external entries and notifies bridge
->
-> bridge port learning: on or off (Bridge only learns from packets seen (Rx/Tx))
-> offload port learning: on
-> offload port learning_sync: on
-> bridge aging of external learn: off
-> offload device aging: on
->
-> Switch port/device driver ages entries (could be by HW aging or soft aging in
-> driver/firmware),
-> notifies bridge about aged entries using br_fdb_externallearn_del().
-> This allows efficient HW aging and batched notification at a pace independent
-> of bridge aging interval.
-> User still enjoys a single VLAN-aware FDB within the bridge module and having
-> all entries in one place. Externally learned entries are identified as such by
-> iproute2 "bridge fdb show" command. Device does not have to implement
-> ndo_bridge_fdb_dump() for each offload port as the bridge module provides it
-> for the common FDB.
->
-> Case 4: bridge ages owned and external entries at different intervals
->
-> bridge port learning: on (Effectively only for Rx/Tx traffic seen by
->                           software bridge)
-> offload port learning: on (transient traffic and RxTx, overlap with bridge
->                            learned entries possible)
-> offload port learning_sync: on
-> bridge aging of external learn: on
-> offload device aging: off
-> bridge aging interval for owned entries: T1
-> bridge aging interval for external entries: T2 (Typically T2 > T1)
->
-> This allows for fine-tuning the overhead of periodic updates of entries
-> freshness from offload port device.
->
-> The bottom line of cases 3-4 is that it is desirable to use the common bridge
-> FDB as long as bridge aging of externally learned entries could be controlled
-> by the offload device: Either be at a longer interval or disabled.
->
->>
->>-scott
->>--
->>To unsubscribe from this list: send the line "unsubscribe netdev" in
->>the body of a message to majordomo@vger.kernel.org
->>More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Commit d75b1ade567ffab085e8adbbdacf0092d10cd09c breaks my "Qualcomm Atheros
+AR8161 Gigabit Ethernet (rev 10)" Ethernet controller, which is handled by
+the alx network driver.
+
+ogabbay@odedg-ubuntu:~$ lspci -s 01:00.0 -k
+01:00.0 Ethernet controller:
+	Qualcomm Atheros AR8161 Gigabit Ethernet (rev 10)
+	Subsystem: Qualcomm Atheros Device 1071
+	Kernel driver in use: alx
+
+I have this controller on a mobile platform of AMD APU Kaveri, which I use
+to test amdkfd, and from 3.19-rc1 the network stopped working when trying to
+transfer files through scp or nfs.
+
+I bisected the kernel (from 3.18.0 to 3.19-rc1) and reached this commit.
+
+Here is the log of the bisect:
+
+git bisect start
+# bad: [97bf6af1f928216fd6c5a66e8a57bfa95a659672] Linux 3.19-rc1
+git bisect bad 97bf6af1f928216fd6c5a66e8a57bfa95a659672
+
+# good: [b2776bf7149bddd1f4161f14f79520f17fc1d71d] Linux 3.18
+git bisect good b2776bf7149bddd1f4161f14f79520f17fc1d71d
+
+# bad: [70e71ca0af244f48a5dcf56dc435243792e3a495] Merge
+git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next
+git bisect bad 70e71ca0af244f48a5dcf56dc435243792e3a495
+
+# good: [e28870f9b3e92cd3570925089c6bb789c2603bc4] Merge tag
+'backlight-for-linus-3.19' of
+git://git.kernel.org/pub/scm/linux/kernel/git/lee/backlight
+git bisect good e28870f9b3e92cd3570925089c6bb789c2603bc4
+
+# bad: [450fa21942fe2c37f0c9f52d1a33bbc081eee288] sh_eth: Remove redundant
+alignment adjustment
+git bisect bad 450fa21942fe2c37f0c9f52d1a33bbc081eee288
+
+# bad: [5c8d19da950861d0482abc0ac3481acca34b008f] e100e: use
+netdev_rss_key_fill() helper
+git bisect bad 5c8d19da950861d0482abc0ac3481acca34b008f
+
+# good: [bf515fb11ab539c76d04f0e3c5216ed41f41d81f] Merge tag
+'mac80211-next-for-john-2014-11-04' of
+git://git.kernel.org/pub/scm/linux/kernel/git/jberg/mac80211-next
+git bisect good bf515fb11ab539c76d04f0e3c5216ed41f41d81f
+
+# bad: [2c99cd914d4fed9160d98849c9dd38034616768e] Merge branch 'amd-xgbe-next'
+git bisect bad 2c99cd914d4fed9160d98849c9dd38034616768e
+
+# good: [3d762a0f0ab9cb4a6b5993db3ce56c92f9f90ab2] net: dsa: Add support for
+reading switch registers with ethtool
+git bisect good 3d762a0f0ab9cb4a6b5993db3ce56c92f9f90ab2
+
+# bad: [8ce0c8254f15229aa99fc6c04141f28c446e5f8c] Merge branch 'master' of
+git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next
+git bisect bad 8ce0c8254f15229aa99fc6c04141f28c446e5f8c
+
+# good: [f0c65567b3c1b23f79e8a49139580a3872a68d1f] Merge branch
+'sunvnet-multi-tx-queue'
+git bisect good f0c65567b3c1b23f79e8a49139580a3872a68d1f
+
+# bad: [547f2735c20023d7b50a791b1b17cacb652e9237] Merge branch 'mlx4-next'
+git bisect bad 547f2735c20023d7b50a791b1b17cacb652e9237
+
+# good: [4cdb1e2e3d3495423db558d3bb7ed11d66aabce7] net: shrink struct
+softnet_data
+git bisect good 4cdb1e2e3d3495423db558d3bb7ed11d66aabce7
+
+# bad: [0a98455666ec87378148a1dde97f1ce5baf75a64] net/mlx4_core: Protect
+port type setting by mutex
+git bisect bad 0a98455666ec87378148a1dde97f1ce5baf75a64
+
+# bad: [6e8066999800d90d52af5c84ac49ebf683d14cdc] net/mlx4_core: Prevent VF
+from changing port configuration
+git bisect bad 6e8066999800d90d52af5c84ac49ebf683d14cdc
+
+# bad: [d75b1ade567ffab085e8adbbdacf0092d10cd09c] net: less interrupt
+masking in NAPI
+git bisect bad d75b1ade567ffab085e8adbbdacf0092d10cd09c
+
+# first bad commit: [d75b1ade567ffab085e8adbbdacf0092d10cd09c]
+net: less interrupt masking in NAPI
+
+Could you please solve this issue as it renders my board quite useless.
+
+If you need more info, please ask.
+
+Thanks,
+	Oded
