@@ -1,88 +1,72 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 2/6] netfilter: nf_tables: fix port natting in little endian archs
-Date: Sat, 10 Jan 2015 19:50:04 +0100
-Message-ID: <1420915808-7160-3-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 1/6] ipvs: uninitialized data with IP_VS_IPV6
+Date: Sat, 10 Jan 2015 19:50:03 +0100
+Message-ID: <1420915808-7160-2-git-send-email-pablo@netfilter.org>
 References: <1420915808-7160-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:46761 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753337AbbAJSrX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 10 Jan 2015 13:47:23 -0500
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1420915808-7160-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: leroy christophe <christophe.leroy@c-s.fr>
+From: Dan Carpenter <dan.carpenter@oracle.com>
 
-Make sure this fetches 16-bits port data from the register.
-Remove casting to make sparse happy, not needed anymore.
+The app_tcp_pkt_out() function expects "*diff" to be set and ends up
+using uninitialized data if CONFIG_IP_VS_IPV6 is turned on.
 
-Signed-off-by: leroy christophe <christophe.leroy@c-s.fr>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+The same issue is there in app_tcp_pkt_in().  Thanks to Julian Anastasov
+for noticing that.
+
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+Acked-by: Julian Anastasov <ja@ssi.bg>
+Signed-off-by: Simon Horman <horms@verge.net.au>
 ---
- net/ipv4/netfilter/nft_redir_ipv4.c |    8 ++++----
- net/ipv6/netfilter/nft_redir_ipv6.c |    8 ++++----
- net/netfilter/nft_nat.c             |    8 ++++----
- 3 files changed, 12 insertions(+), 12 deletions(-)
+ net/netfilter/ipvs/ip_vs_ftp.c |   10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/net/ipv4/netfilter/nft_redir_ipv4.c b/net/ipv4/netfilter/nft_redir_ipv4.c
-index ff2d23d..6ecfce6 100644
---- a/net/ipv4/netfilter/nft_redir_ipv4.c
-+++ b/net/ipv4/netfilter/nft_redir_ipv4.c
-@@ -27,10 +27,10 @@ static void nft_redir_ipv4_eval(const struct nft_expr *expr,
+diff --git a/net/netfilter/ipvs/ip_vs_ftp.c b/net/netfilter/ipvs/ip_vs_ftp.c
+index 1d5341f..5d3daae 100644
+--- a/net/netfilter/ipvs/ip_vs_ftp.c
++++ b/net/netfilter/ipvs/ip_vs_ftp.c
+@@ -183,6 +183,8 @@ static int ip_vs_ftp_out(struct ip_vs_app *app, struct ip_vs_conn *cp,
+ 	struct nf_conn *ct;
+ 	struct net *net;
  
- 	memset(&mr, 0, sizeof(mr));
- 	if (priv->sreg_proto_min) {
--		mr.range[0].min.all = (__force __be16)
--					data[priv->sreg_proto_min].data[0];
--		mr.range[0].max.all = (__force __be16)
--					data[priv->sreg_proto_max].data[0];
-+		mr.range[0].min.all =
-+			*(__be16 *)&data[priv->sreg_proto_min].data[0];
-+		mr.range[0].max.all =
-+			*(__be16 *)&data[priv->sreg_proto_max].data[0];
- 		mr.range[0].flags |= NF_NAT_RANGE_PROTO_SPECIFIED;
- 	}
++	*diff = 0;
++
+ #ifdef CONFIG_IP_VS_IPV6
+ 	/* This application helper doesn't work with IPv6 yet,
+ 	 * so turn this into a no-op for IPv6 packets
+@@ -191,8 +193,6 @@ static int ip_vs_ftp_out(struct ip_vs_app *app, struct ip_vs_conn *cp,
+ 		return 1;
+ #endif
  
-diff --git a/net/ipv6/netfilter/nft_redir_ipv6.c b/net/ipv6/netfilter/nft_redir_ipv6.c
-index 2433a6b..11820b6 100644
---- a/net/ipv6/netfilter/nft_redir_ipv6.c
-+++ b/net/ipv6/netfilter/nft_redir_ipv6.c
-@@ -27,10 +27,10 @@ static void nft_redir_ipv6_eval(const struct nft_expr *expr,
+-	*diff = 0;
+-
+ 	/* Only useful for established sessions */
+ 	if (cp->state != IP_VS_TCP_S_ESTABLISHED)
+ 		return 1;
+@@ -322,6 +322,9 @@ static int ip_vs_ftp_in(struct ip_vs_app *app, struct ip_vs_conn *cp,
+ 	struct ip_vs_conn *n_cp;
+ 	struct net *net;
  
- 	memset(&range, 0, sizeof(range));
- 	if (priv->sreg_proto_min) {
--		range.min_proto.all = (__force __be16)
--					data[priv->sreg_proto_min].data[0];
--		range.max_proto.all = (__force __be16)
--					data[priv->sreg_proto_max].data[0];
-+		range.min_proto.all =
-+			*(__be16 *)&data[priv->sreg_proto_min].data[0];
-+		range.max_proto.all =
-+			*(__be16 *)&data[priv->sreg_proto_max].data[0];
- 		range.flags |= NF_NAT_RANGE_PROTO_SPECIFIED;
- 	}
++	/* no diff required for incoming packets */
++	*diff = 0;
++
+ #ifdef CONFIG_IP_VS_IPV6
+ 	/* This application helper doesn't work with IPv6 yet,
+ 	 * so turn this into a no-op for IPv6 packets
+@@ -330,9 +333,6 @@ static int ip_vs_ftp_in(struct ip_vs_app *app, struct ip_vs_conn *cp,
+ 		return 1;
+ #endif
  
-diff --git a/net/netfilter/nft_nat.c b/net/netfilter/nft_nat.c
-index afe2b0b..aff54fb1 100644
---- a/net/netfilter/nft_nat.c
-+++ b/net/netfilter/nft_nat.c
-@@ -65,10 +65,10 @@ static void nft_nat_eval(const struct nft_expr *expr,
- 	}
- 
- 	if (priv->sreg_proto_min) {
--		range.min_proto.all = (__force __be16)
--					data[priv->sreg_proto_min].data[0];
--		range.max_proto.all = (__force __be16)
--					data[priv->sreg_proto_max].data[0];
-+		range.min_proto.all =
-+			*(__be16 *)&data[priv->sreg_proto_min].data[0];
-+		range.max_proto.all =
-+			*(__be16 *)&data[priv->sreg_proto_max].data[0];
- 		range.flags |= NF_NAT_RANGE_PROTO_SPECIFIED;
- 	}
- 
+-	/* no diff required for incoming packets */
+-	*diff = 0;
+-
+ 	/* Only useful for established sessions */
+ 	if (cp->state != IP_VS_TCP_S_ESTABLISHED)
+ 		return 1;
 -- 
 1.7.10.4
+
