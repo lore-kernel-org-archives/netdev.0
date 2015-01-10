@@ -1,90 +1,43 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 3/6] netfilter: conntrack: fix race between confirmation and flush
-Date: Sat, 10 Jan 2015 19:50:05 +0100
-Message-ID: <1420915808-7160-4-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 5/6] netfilter: nfnetlink: relax strict multicast group check from netlink_bind
+Date: Sat, 10 Jan 2015 19:50:07 +0100
+Message-ID: <1420915808-7160-6-git-send-email-pablo@netfilter.org>
 References: <1420915808-7160-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:46783 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754474AbbAJSr2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 10 Jan 2015 13:47:28 -0500
 In-Reply-To: <1420915808-7160-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Commit 5195c14c8b27c ("netfilter: conntrack: fix race in
-__nf_conntrack_confirm against get_next_corpse") aimed to resolve the
-race condition between the confirmation (packet path) and the flush
-command (from control plane). However, it introduced a crash when
-several packets race to add a new conntrack, which seems easier to
-reproduce when nf_queue is in place.
-
-Fix this race, in __nf_conntrack_confirm(), by removing the CT
-from unconfirmed list before checking the DYING bit. In case
-race occured, re-add the CT to the dying list
-
-This patch also changes the verdict from NF_ACCEPT to NF_DROP when
-we lose race. Basically, the confirmation happens for the first packet
-that we see in a flow. If you just invoked conntrack -F once (which
-should be the common case), then this is likely to be the first packet
-of the flow (unless you already called flush anytime soon in the past).
-This should be hard to trigger, but better drop this packet, otherwise
-we leave things in inconsistent state since the destination will likely
-reply to this packet, but it will find no conntrack, unless the origin
-retransmits.
-
-The change of the verdict has been discussed in:
-https://www.marc.info/?l=linux-netdev&m=141588039530056&w=2
+Relax the checking that was introduced in 97840cb ("netfilter:
+nfnetlink: fix insufficient validation in nfnetlink_bind") when the
+subscription bitmask is used. Existing userspace code code may request
+to listen to all of the existing netlink groups by setting an all to one
+subscription group bitmask. Netlink already validates subscription via
+setsockopt() for us.
 
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nf_conntrack_core.c |   20 +++++++++-----------
- 1 file changed, 9 insertions(+), 11 deletions(-)
+ net/netfilter/nfnetlink.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-index a116748..46d1b26 100644
---- a/net/netfilter/nf_conntrack_core.c
-+++ b/net/netfilter/nf_conntrack_core.c
-@@ -611,16 +611,15 @@ __nf_conntrack_confirm(struct sk_buff *skb)
- 	 */
- 	NF_CT_ASSERT(!nf_ct_is_confirmed(ct));
- 	pr_debug("Confirming conntrack %p\n", ct);
--	/* We have to check the DYING flag inside the lock to prevent
--	   a race against nf_ct_get_next_corpse() possibly called from
--	   user context, else we insert an already 'dead' hash, blocking
--	   further use of that particular connection -JM */
-+	/* We have to check the DYING flag after unlink to prevent
-+	 * a race against nf_ct_get_next_corpse() possibly called from
-+	 * user context, else we insert an already 'dead' hash, blocking
-+	 * further use of that particular connection -JM.
-+	 */
-+	nf_ct_del_from_dying_or_unconfirmed_list(ct);
+diff --git a/net/netfilter/nfnetlink.c b/net/netfilter/nfnetlink.c
+index c6619d4..1aa7049 100644
+--- a/net/netfilter/nfnetlink.c
++++ b/net/netfilter/nfnetlink.c
+@@ -470,7 +470,7 @@ static int nfnetlink_bind(int group)
+ 	int type;
  
--	if (unlikely(nf_ct_is_dying(ct))) {
--		nf_conntrack_double_unlock(hash, reply_hash);
--		local_bh_enable();
--		return NF_ACCEPT;
--	}
-+	if (unlikely(nf_ct_is_dying(ct)))
-+		goto out;
+ 	if (group <= NFNLGRP_NONE || group > NFNLGRP_MAX)
+-		return -EINVAL;
++		return 0;
  
- 	/* See if there's one in the list already, including reverse:
- 	   NAT could have grabbed it without realizing, since we're
-@@ -636,8 +635,6 @@ __nf_conntrack_confirm(struct sk_buff *skb)
- 		    zone == nf_ct_zone(nf_ct_tuplehash_to_ctrack(h)))
- 			goto out;
+ 	type = nfnl_group2type[group];
  
--	nf_ct_del_from_dying_or_unconfirmed_list(ct);
--
- 	/* Timer relative to confirmation time, not original
- 	   setting time, otherwise we'd get timer wrap in
- 	   weird delay cases. */
-@@ -673,6 +670,7 @@ __nf_conntrack_confirm(struct sk_buff *skb)
- 	return NF_ACCEPT;
- 
- out:
-+	nf_ct_add_to_dying_list(ct);
- 	nf_conntrack_double_unlock(hash, reply_hash);
- 	NF_CT_STAT_INC(net, insert_failed);
- 	local_bh_enable();
 -- 
 1.7.10.4
-
