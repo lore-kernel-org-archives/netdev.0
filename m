@@ -1,132 +1,78 @@
-From: Oded Gabbay <oded.gabbay@amd.com>
-Subject: Re: [BUG] 3.19-rc1 net: less interrupt masking in NAPI
-Date: Sun, 11 Jan 2015 00:08:52 +0200
-Message-ID: <54B1A2F4.3060707@amd.com>
-References: <54B18DFF.80400@amd.com>
-	 <1420923485.5947.85.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <54B199EB.1080004@amd.com>
- <1420926614.5947.89.camel@edumazet-glaptop2.roam.corp.google.com>
- <54B1A22C.2020301@amd.com>
+From: "Carlos R. Mafra" <crmafra@gmail.com>
+Subject: /proc/net/dev regression
+Date: Sat, 10 Jan 2015 23:25:18 +0000
+Message-ID: <20150110232518.GA3212@linux-g29b.site>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Willem de Bruijn <willemb@google.com>,
-	"Bridgman, John" <John.Bridgman@amd.com>,
-	"Elifaz, Dana" <Dana.Elifaz@amd.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	Johannes Berg <johannes.berg@intel.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Hauke Mehrtens <hauke@hauke-m.de>,
+	"John W. Linville" <linville@tuxdriver.com>, netdev@vger.kernel.org
+To: LKML <linux-kernel@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <54B1A22C.2020301@amd.com>
+Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+I use a dockapp called 'wmnet' [1] to monitor the speed of
+my internet connection and after the kernel v3.18 it does no
+longer work properly (it still doesn't work in v3.19-rc3)
 
+I bisected the problem and the culprit is this commit:
 
-On 01/11/2015 12:05 AM, Oded Gabbay wrote:
-> 
-> 
-> On 01/10/2015 11:50 PM, Eric Dumazet wrote:
->> On Sat, 2015-01-10 at 23:30 +0200, Oded Gabbay wrote:
->>
->>> Yes, no problem.
->>> I will update on the result.
->>
->> Please try this more complete patch, solving the TX pressure problem as
->> well, and not lying about NAPI budget. thanks !
->>
->>
->> diff --git a/drivers/net/ethernet/atheros/alx/main.c b/drivers/net/ethernet/atheros/alx/main.c
->> index e398eda07298..5f05b387c0a7 100644
->> --- a/drivers/net/ethernet/atheros/alx/main.c
->> +++ b/drivers/net/ethernet/atheros/alx/main.c
->> @@ -184,15 +184,16 @@ static void alx_schedule_reset(struct alx_priv *alx)
->>  	schedule_work(&alx->reset_wk);
->>  }
->>  
->> -static bool alx_clean_rx_irq(struct alx_priv *alx, int budget)
->> +static int alx_clean_rx_irq(struct alx_priv *alx, int budget)
->>  {
->>  	struct alx_rx_queue *rxq = &alx->rxq;
->>  	struct alx_rrd *rrd;
->>  	struct alx_buffer *rxb;
->>  	struct sk_buff *skb;
->>  	u16 length, rfd_cleaned = 0;
->> +	int work = 0;
->>  
->> -	while (budget > 0) {
->> +	while (work < budget) {
->>  		rrd = &rxq->rrd[rxq->rrd_read_idx];
->>  		if (!(rrd->word3 & cpu_to_le32(1 << RRD_UPDATED_SHIFT)))
->>  			break;
->> @@ -243,7 +244,7 @@ static bool alx_clean_rx_irq(struct alx_priv *alx, int budget)
->>  		}
->>  
->>  		napi_gro_receive(&alx->napi, skb);
->> -		budget--;
->> +		work++;
->>  
->>  next_pkt:
->>  		if (++rxq->read_idx == alx->rx_ringsz)
->> @@ -258,21 +259,22 @@ next_pkt:
->>  	if (rfd_cleaned)
->>  		alx_refill_rx_ring(alx, GFP_ATOMIC);
->>  
->> -	return budget > 0;
->> +	return work;
->>  }
->>  
->>  static int alx_poll(struct napi_struct *napi, int budget)
->>  {
->>  	struct alx_priv *alx = container_of(napi, struct alx_priv, napi);
->>  	struct alx_hw *hw = &alx->hw;
->> -	bool complete = true;
->>  	unsigned long flags;
->> +	bool tx_complete;
->> +	int work;
->>  
->> -	complete = alx_clean_tx_irq(alx) &&
->> -		   alx_clean_rx_irq(alx, budget);
->> +	tx_complete = alx_clean_tx_irq(alx);
->> +	work = alx_clean_rx_irq(alx, budget);
->>  
->> -	if (!complete)
->> -		return 1;
->> +	if (!tx_complete || work == budget)
->> +		return budget;
->>  
->>  	napi_complete(&alx->napi);
->>  
->> @@ -284,7 +286,7 @@ static int alx_poll(struct napi_struct *napi, int budget)
->>  
->>  	alx_post_write(hw);
->>  
->> -	return 0;
->> +	return work;
->>  }
->>  
->>  static irqreturn_t alx_intr_handle(struct alx_priv *alx, u32 intr)
->>
->>
-> Hi,
-> Checked it and its working.
-> Thanks again.
-> Please note that I only use this Ethernet controller for NFS and SCP, it is
-> not used for development of networking software of any kind, so maybe a more
-> extensive testing is needed.
-> 
-> 	Oded
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
-> 
+commit 6e094bd805a9b6ad2f5421125db8f604a166616c
+Author: Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>
+Date:   Fri Sep 5 00:18:48 2014 +0200
 
-But in any case, you can add:
-Tested-by: Oded Gabbay <oded.gabbay@amd.com>
+    bcma: move code for core registration into separate function
+   =20
+    This cleans code a bit and will us to register cores in other place=
+s as
+    well. The only difference with this patch is using "core_index" for
+    setting device name.
+   =20
+   =20
+The problem is caused by the different name that my wireless connection
+receives after this patch:
 
-	Oded
+wlp3s0b1 (after the patch)
+wlp3s0   (before the patch)
+
+because it affects the display of information in the file /proc/net/dev=
+=2E
+
+Before the patch the fields are all aligned:
+
+[mafra@linux-g29b:wmnet]$ cat net_dev_good.txt
+Inter-|   Receive                                                |  Tra=
+nsmit
+ face |bytes    packets errs drop fifo frame compressed multicast|bytes=
+    packets errs drop fifo colls carrier compressed
+    lo:   35916     332    0    0    0     0          0         0    35=
+916     332    0    0    0     0       0          0
+wlp3s0: 6406428    5794    0    0    0     0          0         0   426=
+813    3778    0    0    0     0       0          0
+
+but after the patch the fields are misaligned:
+
+[mafra@linux-g29b:wmnet]$ cat net_dev_bad.txt
+Inter-|   Receive                                                |  Tra=
+nsmit
+ face |bytes    packets errs drop fifo frame compressed multicast|bytes=
+    packets errs drop fifo colls carrier compressed
+    lo:     600       8    0    0    0     0          0         0      =
+600       8    0    0    0     0       0          0
+wlp3s0b1: 9266848    7298    0    0    0     0          0         0   3=
+72229    4030    0    0    0     0       0          0
+
+And for some reason this change confuses 'wmnet'. Reading the source co=
+de
+of 'wmnet' I found that it reads the packets as follows,
+
+	totalpackets_in =3D strtoul(&buffer[15], NULL, 10);
+
+I am not sure if 'wmnet' could do this better (any suggestions?),
+but the fact is that it was working before and now it is not.
+
+Any help is greatly appreciated.
+
+[1] wmnet can be found in http://repo.or.cz/w/dockapps.git
