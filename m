@@ -1,59 +1,78 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next v2] tcp: avoid reducing cwnd when ACK+DSACK is
- received
-Date: Sat, 10 Jan 2015 09:37:13 -0800
-Message-ID: <1420911433.5947.84.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1420719609-18638-1-git-send-email-sebastien.barre@uclouvain.be>
-	 <1420730396.5947.55.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <54AEA498.5030202@uclouvain.be>
-	 <CADVnQy=A57TUYD=kGtZXvq7-FGSN=vN3D2heaNCnBB=zjujwUg@mail.gmail.com>
-	 <1420734325.5947.61.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CAK6E8=dhW=0hRYHjjgBh0KwKOQfzHhwY2egusQ8S4tsoJb0Nsg@mail.gmail.com>
-	 <54B11255.7000500@uclouvain.be>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Yuchung Cheng <ycheng@google.com>,
-	Neal Cardwell <ncardwell@google.com>,
-	David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>,
-	Gregory Detal <gregory.detal@uclouvain.be>,
-	Nandita Dukkipati <nanditad@google.com>
-To: =?ISO-8859-1?Q?S=E9bastien_Barr=E9?= <sebastien.barre@uclouvain.be>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f170.google.com ([209.85.216.170]:58054 "EHLO
-	mail-qc0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751987AbbAJRhR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 10 Jan 2015 12:37:17 -0500
-Received: by mail-qc0-f170.google.com with SMTP id x3so13334075qcv.1
-        for <netdev@vger.kernel.org>; Sat, 10 Jan 2015 09:37:16 -0800 (PST)
-In-Reply-To: <54B11255.7000500@uclouvain.be>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [PATCH 0/6] netfilter/ipvs fixes for net
+Date: Sat, 10 Jan 2015 19:50:02 +0100
+Message-ID: <1420915808-7160-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, 2015-01-10 at 12:51 +0100, S=C3=A9bastien Barr=C3=A9 wrote:
+Hi David,
 
-> That looks much more readable compared to my v2.
-> It is currently passing our tests (These are in fact MPTCP tests appa=
-rt=20
-> from Neal's packetdrill that I will add, but actually the MPTCP stack=
-=20
-> happens to reveal this situation quite easily, I think because in MPT=
-CP,=20
-> we store the send queue in the "meta-flow", which currently cannot be=
-=20
-> used for tail loss probes).
->=20
-> As probably everyone will be happy with this (Eric as well ?), I sugg=
-est=20
-> I prepare a v3 once all our tests are passed as well, with Yuchung's=20
-> structure and Neal's packetdrill test in the commit text. Will also a=
-dd=20
-> proper credit as there is now stuff from several people in those few=20
-> lines now :-).
->=20
-> Looks good ?
+The following patchset contains netfilter/ipvs fixes, they are:
 
-Definitely !
+1) Small fix for the FTP helper in IPVS, a diff variable may be left
+   unset when CONFIG_IP_VS_IPV6 is set. Patch from Dan Carpenter.
 
-Thanks !
+2) Fix nf_tables port NAT in little endian archs, patch from leroy
+   christophe.
+
+3) Fix race condition between conntrack confirmation and flush from
+   userspace. This is the second reincarnation to resolve this problem.
+
+4) Make sure inner messages in the batch come with the nfnetlink header.
+
+5) Relax strict check from nfnetlink_bind() that may break old userspace
+   applications using all 1s group mask.
+
+6) Schedule removal of chains once no sets and rules refer to them in
+   the new nf_tables ruleset flush command. Reported by Asbjoern Sloth
+   Toennesen.
+
+Note that this batch comes later than usual because of the short
+winter holidays.
+
+You can pull these changes from:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git
+
+Have a happy new year, thanks!
+
+----------------------------------------------------------------
+
+The following changes since commit ac9a3d84e121196263636f2d38d439a45888005a:
+
+  be2net: Fix incorrect setting of tunnel offload flag in netdev features (2014-12-18 12:51:29 -0500)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git master
+
+for you to fetch changes up to a2f18db0c68fec96631c10cad9384c196e9008ac:
+
+  netfilter: nf_tables: fix flush ruleset chain dependencies (2015-01-06 22:27:48 +0100)
+
+----------------------------------------------------------------
+Dan Carpenter (1):
+      ipvs: uninitialized data with IP_VS_IPV6
+
+Pablo Neira Ayuso (5):
+      Merge tag 'ipvs2-for-v3.19' of https://git.kernel.org/.../horms/ipvs-next into ipvs-next
+      netfilter: conntrack: fix race between confirmation and flush
+      netfilter: nfnetlink: validate nfnetlink header from batch
+      netfilter: nfnetlink: relax strict multicast group check from netlink_bind
+      netfilter: nf_tables: fix flush ruleset chain dependencies
+
+leroy christophe (1):
+      netfilter: nf_tables: fix port natting in little endian archs
+
+ net/ipv4/netfilter/nft_redir_ipv4.c |    8 ++++----
+ net/ipv6/netfilter/nft_redir_ipv6.c |    8 ++++----
+ net/netfilter/ipvs/ip_vs_ftp.c      |   10 +++++-----
+ net/netfilter/nf_conntrack_core.c   |   20 +++++++++-----------
+ net/netfilter/nf_tables_api.c       |   14 +++++++++-----
+ net/netfilter/nfnetlink.c           |    5 +++--
+ net/netfilter/nft_nat.c             |    8 ++++----
+ 7 files changed, 38 insertions(+), 35 deletions(-)
+
