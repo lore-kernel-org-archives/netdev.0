@@ -1,7 +1,7 @@
-From: "Carlos R. Mafra" <crmafra@gmail.com>
+From: Al Viro <viro@ZenIV.linux.org.uk>
 Subject: Re: /proc/net/dev regression
-Date: Sun, 11 Jan 2015 00:58:31 +0000
-Message-ID: <20150111005831.GA3739@linux-g29b.site>
+Date: Sun, 11 Jan 2015 01:00:36 +0000
+Message-ID: <20150111010036.GD22149@ZenIV.linux.org.uk>
 References: <20150110232518.GA3212@linux-g29b.site>
  <20150111002706.GC22149@ZenIV.linux.org.uk>
 Mime-Version: 1.0
@@ -9,14 +9,18 @@ Content-Type: text/plain; charset=us-ascii
 Cc: LKML <linux-kernel@vger.kernel.org>,
 	Hauke Mehrtens <hauke@hauke-m.de>,
 	"John W. Linville" <linville@tuxdriver.com>, netdev@vger.kernel.org
-To: Al Viro <viro@ZenIV.linux.org.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+To: "Carlos R. Mafra" <crmafra@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from zeniv.linux.org.uk ([195.92.253.2]:38179 "EHLO
+	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752296AbbAKBAj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 10 Jan 2015 20:00:39 -0500
 Content-Disposition: inline
 In-Reply-To: <20150111002706.GC22149@ZenIV.linux.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, 11 Jan 2015 at  0:27:06 +0000, Al Viro wrote:
+On Sun, Jan 11, 2015 at 12:27:06AM +0000, Al Viro wrote:
 > On Sat, Jan 10, 2015 at 11:25:18PM +0000, Carlos R. Mafra wrote:
 > > [mafra@linux-g29b:wmnet]$ cat net_dev_bad.txt
 > > Inter-|   Receive                                                |  Transmit
@@ -40,9 +44,7 @@ On Sun, 11 Jan 2015 at  0:27:06 +0000, Al Viro wrote:
 > &buffer[<something>] in there.  That thing has just found where the
 > colon was (and replaced it with NUL), so dealing with "the first field
 > turned out to be too long and shifted everything past it" isn't hard.
-
-Alright! Thank you.
-
+> 
 > > but the fact is that it was working before and now it is not.
 > 
 > True.  Mind you, the real issue is that this code expects the interface
@@ -54,8 +56,30 @@ Alright! Thank you.
 > Lovely combination of crappy ABI (procfs file layout), crappy userland
 > code relying on details of said ABI out of sheer laziness and triggering
 > kernel change producing bloody long interface names...
+> 
+> Incidentally, sufficiently long interface name will produce other fun issues
+> for a docked app - it simply won't fit into 64x64 square on screen ;-)
 
-I won't mind just changing the crappy and fragile wmnet code and moving on.
-I have already lost the 2 hours bisecting this anyway.
-
-Thank you very much for your advice.
+Mind you, assuming that columns will align is obviously broken - the producing
+side of that thing is
+        seq_printf(seq, "%6s: %7llu %7llu %4llu %4llu %4llu %5llu %10llu %9llu "
+                   "%8llu %7llu %4llu %4llu %4llu %5llu %7llu %10llu\n",
+                   dev->name, stats->rx_bytes, stats->rx_packets,
+                   stats->rx_errors,
+                   stats->rx_dropped + stats->rx_missed_errors,
+                   stats->rx_fifo_errors,
+                   stats->rx_length_errors + stats->rx_over_errors +
+                    stats->rx_crc_errors + stats->rx_frame_errors,
+                   stats->rx_compressed, stats->multicast,
+                   stats->tx_bytes, stats->tx_packets,
+                   stats->tx_errors, stats->tx_dropped,
+                   stats->tx_fifo_errors, stats->collisions,
+                   stats->tx_carrier_errors +
+                    stats->tx_aborted_errors +
+                    stats->tx_window_errors +
+                    stats->tx_heartbeat_errors,
+                   stats->tx_compressed);
+To start with, expecting the ->rx_bytes to remain a 7-digit number is somewhat,
+er, odd.  Long interace names be damned, the columns will not stay aligned,
+no matter what.  Unless your interface vanishes as soon as it has sent
+or received 10 megabytes, that is...
