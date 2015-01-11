@@ -1,63 +1,67 @@
-From: "Ahmed S. Darwish" <darwish.07@gmail.com>
-Subject: [PATCH v4 2/4] can: kvaser_usb: Update error counters before exiting
- on OOM
-Date: Sun, 11 Jan 2015 15:15:19 -0500
-Message-ID: <20150111201519.GC8855@linux>
-References: <20141223154654.GB6460@vivalin-002>
- <20150111200544.GA8855@linux>
- <20150111201116.GB8855@linux>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH net-next RFC 1/5] net-timestamp: no-payload option
+Date: Sun, 11 Jan 2015 21:26:50 +0100
+Message-ID: <20150111202650.GB4214@localhost.localdomain>
+References: <1420824719-28848-1-git-send-email-willemb@google.com>
+ <1420824719-28848-2-git-send-email-willemb@google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	Linux-CAN <linux-can@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Olivier Sobrie <olivier@sobrie.be>,
-	Oliver Hartkopp <socketcan@hartkopp.net>,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	Marc Kleine-Budde <mkl@pengutronix.de>
-Return-path: <linux-can-owner@vger.kernel.org>
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	eric.dumazet@gmail.com, luto@amacapital.net
+To: Willem de Bruijn <willemb@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f179.google.com ([209.85.212.179]:62770 "EHLO
+	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751826AbbAKU0z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 11 Jan 2015 15:26:55 -0500
+Received: by mail-wi0-f179.google.com with SMTP id ex7so11116052wid.0
+        for <netdev@vger.kernel.org>; Sun, 11 Jan 2015 12:26:54 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <20150111201116.GB8855@linux>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1420824719-28848-2-git-send-email-willemb@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Ahmed S. Darwish <ahmed.darwish@valeo.com>
+On Fri, Jan 09, 2015 at 12:31:55PM -0500, Willem de Bruijn wrote:
+> diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
+> index a317797..d81ef70 100644
+> --- a/net/ipv4/ip_sockglue.c
+> +++ b/net/ipv4/ip_sockglue.c
+> @@ -440,7 +440,7 @@ static bool ipv4_pktinfo_prepare_errqueue(const struct sock *sk,
+>  
+>  	if ((ee_origin != SO_EE_ORIGIN_TIMESTAMPING) ||
+>  	    (!(sk->sk_tsflags & SOF_TIMESTAMPING_OPT_CMSG)) ||
+> -	    (!skb->dev))
+> +	    (!skb->dev) || (!skb->len))
+>  		return false;
 
-Let the error counters be more accurate in case of Out of
-Memory conditions.
+Nit: You have already tested for the condition (!skb->len) ...
 
-Suggested-by: Marc Kleine-Budde <mkl@pengutronix.de>
-Signed-off-by: Ahmed S. Darwish <ahmed.darwish@valeo.com>
----
- drivers/net/can/usb/kvaser_usb.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+>  
+>  	info->ipi_spec_dst.s_addr = ip_hdr(skb)->saddr;
+> @@ -483,7 +483,7 @@ int ip_recv_error(struct sock *sk, struct msghdr *msg, int len, int *addr_len)
+>  
+>  	serr = SKB_EXT_ERR(skb);
+>  
+> -	if (sin) {
+> +	if (sin && skb->len) {
+>  		sin->sin_family = AF_INET;
+>  		sin->sin_addr.s_addr = *(__be32 *)(skb_network_header(skb) +
+>  						   serr->addr_offset);
+> @@ -496,8 +496,9 @@ int ip_recv_error(struct sock *sk, struct msghdr *msg, int len, int *addr_len)
+>  	sin = &errhdr.offender;
+>  	sin->sin_family = AF_UNSPEC;
+>  
+> -	if (serr->ee.ee_origin == SO_EE_ORIGIN_ICMP ||
+> -	    ipv4_pktinfo_prepare_errqueue(sk, skb, serr->ee.ee_origin)) {
+> +	if (skb->len &&
+> +	    (serr->ee.ee_origin == SO_EE_ORIGIN_ICMP ||
+> +	     ipv4_pktinfo_prepare_errqueue(sk, skb, serr->ee.ee_origin))) {
 
-diff --git a/drivers/net/can/usb/kvaser_usb.c b/drivers/net/can/usb/kvaser_usb.c
-index c32cd61..0eb870b 100644
---- a/drivers/net/can/usb/kvaser_usb.c
-+++ b/drivers/net/can/usb/kvaser_usb.c
-@@ -792,6 +792,9 @@ static void kvaser_usb_rx_can_err(const struct kvaser_usb_net_priv *priv,
- 	}
- 
- 	if (msg->u.rx_can.flag & MSG_FLAG_OVERRUN) {
-+		stats->rx_over_errors++;
-+		stats->rx_errors++;
-+
- 		skb = alloc_can_err_skb(priv->netdev, &cf);
- 		if (!skb) {
- 			stats->rx_dropped++;
-@@ -801,9 +804,6 @@ static void kvaser_usb_rx_can_err(const struct kvaser_usb_net_priv *priv,
- 		cf->can_id |= CAN_ERR_CRTL;
- 		cf->data[1] = CAN_ERR_CRTL_RX_OVERFLOW;
- 
--		stats->rx_over_errors++;
--		stats->rx_errors++;
--
- 		stats->rx_packets++;
- 		stats->rx_bytes += cf->can_dlc;
- 		netif_rx(skb);
--- 
-1.9.1
+... here.
 
+>  		struct inet_sock *inet = inet_sk(sk);
+>  
+>  		sin->sin_family = AF_INET;
+
+Thanks,
+Richard
