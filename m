@@ -1,17 +1,15 @@
 From: "Ahmed S. Darwish" <darwish.07@gmail.com>
-Subject: [PATCH v4 4/4] can: kvaser_usb: Retry first bulk transfer on
- -ETIMEDOUT
-Date: Sun, 11 Jan 2015 15:45:08 -0500
-Message-ID: <20150111204508.GB8999@linux>
+Subject: [PATCH v4 01/04] can: kvaser_usb: Don't dereference skb after a
+ netif_rx()
+Date: Sun, 11 Jan 2015 15:49:52 -0500
+Message-ID: <20150111204952.GC8999@linux>
 References: <20141223154654.GB6460@vivalin-002>
  <20150111200544.GA8855@linux>
  <20150111201116.GB8855@linux>
- <20150111201519.GC8855@linux>
- <20150111203612.GA8999@linux>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Linux-USB <linux-usb@vger.kernel.org>,
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
 	Linux-CAN <linux-can@vger.kernel.org>,
 	netdev <netdev@vger.kernel.org>,
 	LKML <linux-kernel@vger.kernel.org>
@@ -21,73 +19,75 @@ To: Olivier Sobrie <olivier@sobrie.be>,
 	Marc Kleine-Budde <mkl@pengutronix.de>
 Return-path: <linux-can-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20150111203612.GA8999@linux>
+In-Reply-To: <20150111201116.GB8855@linux>
 Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Ahmed S. Darwish <ahmed.darwish@valeo.com>
 
-(This is a draft patch, I'm not sure if this fixes the USB
-bug or only its psymptom. Feedback from the linux-usb folks
-is really appreciated.)
+We should not touch the packet after a netif_rx: it might
+get freed behind our back.
 
-When plugging the Kvaser USB/CAN dongle the first time, everything
-works as expected and all of the transfers from and to the USB
-device succeeds.
-
-Meanwhile, after unplugging the device and plugging it again, the
-first bulk transfer _always_ returns an -ETIMEDOUT. The following
-behaviour was observied:
-
-- Setting higher timeout values for the first bulk transfer never
-  solved the issue.
-
-- Unloading, then loading, our kvaser_usb module in question
-  __always__ solved the issue.
-
-- Checking first bulk transfer status, and retry the transfer
-  again in case of an -ETIMEDOUT also __always__ solved the issue.
-  This is what the patch below does.
-
-- In the testing done so far, this issue appears only on laptops
-  but never on PCs (possibly power related?)
-
+Suggested-by: Marc Kleine-Budde <mkl@pengutronix.de>
 Signed-off-by: Ahmed S. Darwish <ahmed.darwish@valeo.com>
 ---
- drivers/net/can/usb/kvaser_usb.c | 13 +++++++++++--
- 1 file changed, 11 insertions(+), 2 deletions(-)
+ drivers/net/can/usb/kvaser_usb.c | 11 ++++-------
+ 1 file changed, 4 insertions(+), 7 deletions(-)
+
+ (Resend, fix the garbled subject line. Sorry)
 
 diff --git a/drivers/net/can/usb/kvaser_usb.c b/drivers/net/can/usb/kvaser_usb.c
-index da47d17..5925637 100644
+index cc7bfc0..c32cd61 100644
 --- a/drivers/net/can/usb/kvaser_usb.c
 +++ b/drivers/net/can/usb/kvaser_usb.c
-@@ -1927,7 +1927,7 @@ static int kvaser_usb_probe(struct usb_interface *intf,
- {
- 	struct kvaser_usb *dev;
- 	int err = -ENOMEM;
--	int i;
-+	int i, retry = 3;
+@@ -520,10 +520,10 @@ static void kvaser_usb_tx_acknowledge(const struct kvaser_usb *dev,
+ 		skb = alloc_can_err_skb(priv->netdev, &cf);
+ 		if (skb) {
+ 			cf->can_id |= CAN_ERR_RESTARTED;
+-			netif_rx(skb);
  
- 	dev = devm_kzalloc(&intf->dev, sizeof(*dev), GFP_KERNEL);
- 	if (!dev)
-@@ -1956,7 +1956,16 @@ static int kvaser_usb_probe(struct usb_interface *intf,
+ 			stats->rx_packets++;
+ 			stats->rx_bytes += cf->can_dlc;
++			netif_rx(skb);
+ 		} else {
+ 			netdev_err(priv->netdev,
+ 				   "No memory left for err_skb\n");
+@@ -770,10 +770,9 @@ static void kvaser_usb_rx_error(const struct kvaser_usb *dev,
  
- 	usb_set_intfdata(intf, dev);
+ 	priv->can.state = new_state;
  
--	err = kvaser_usb_get_software_info(dev);
-+	/* On some x86 laptops, plugging a USBCAN device again after
-+	 * an unplug makes the firmware always ignore the very first
-+	 * command. For such a case, provide some room for retries
-+	 * instead of completly exiting the driver.
-+	 */
-+	while (retry--) {
-+		err = kvaser_usb_get_software_info(dev);
-+		if (err != -ETIMEDOUT)
-+			break;
-+	}
- 	if (err) {
- 		dev_err(&intf->dev,
- 			"Cannot get software infos, error %d\n", err);
+-	netif_rx(skb);
+-
+ 	stats->rx_packets++;
+ 	stats->rx_bytes += cf->can_dlc;
++	netif_rx(skb);
+ }
+ 
+ static void kvaser_usb_rx_can_err(const struct kvaser_usb_net_priv *priv,
+@@ -805,10 +804,9 @@ static void kvaser_usb_rx_can_err(const struct kvaser_usb_net_priv *priv,
+ 		stats->rx_over_errors++;
+ 		stats->rx_errors++;
+ 
+-		netif_rx(skb);
+-
+ 		stats->rx_packets++;
+ 		stats->rx_bytes += cf->can_dlc;
++		netif_rx(skb);
+ 	}
+ }
+ 
+@@ -887,10 +885,9 @@ static void kvaser_usb_rx_can_msg(const struct kvaser_usb *dev,
+ 			       cf->can_dlc);
+ 	}
+ 
+-	netif_rx(skb);
+-
+ 	stats->rx_packets++;
+ 	stats->rx_bytes += cf->can_dlc;
++	netif_rx(skb);
+ }
+ 
+ static void kvaser_usb_start_chip_reply(const struct kvaser_usb *dev,
 -- 
 1.9.1
 
