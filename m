@@ -1,9 +1,9 @@
 From: Richard Weinberger <richard@nod.at>
-Subject: Re: [PATCH 1/3] net: Make interface aliases available for general
- usage
-Date: Sun, 11 Jan 2015 23:43:48 +0100
-Message-ID: <54B2FCA4.50501@nod.at>
-References: <1421009571-5279-1-git-send-email-richard@nod.at>	<1421009571-5279-2-git-send-email-richard@nod.at> <20150111144039.426f0c48@urahara>
+Subject: Re: [RFC] Make predictable/persistent network interface names more
+ handy
+Date: Sun, 11 Jan 2015 23:47:15 +0100
+Message-ID: <54B2FD73.7070208@nod.at>
+References: <1421009571-5279-1-git-send-email-richard@nod.at> <20150111144236.1b693c93@urahara>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
@@ -17,33 +17,33 @@ Cc: davem@davemloft.net, coreteam@netfilter.org,
 	kaber@trash.net, pablo@netfilter.org, kay@vrfy.org
 To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150111144039.426f0c48@urahara>
+In-Reply-To: <20150111144236.1b693c93@urahara>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen,
-
-Am 11.01.2015 um 23:40 schrieb Stephen Hemminger:
-> On Sun, 11 Jan 2015 21:52:49 +0100
+Am 11.01.2015 um 23:42 schrieb Stephen Hemminger:
+> On Sun, 11 Jan 2015 21:52:48 +0100
 > Richard Weinberger <richard@nod.at> wrote:
 > 
->> Allow interface aliases to be used as regular interfaces.
->> Such that a command sequence like this one works:
->> $ ip l set eth0 alias internet
->> $ ip a s internet
->> $ tcpdump -n -i internet
->>
->> Signed-off-by: Richard Weinberger <richard@nod.at>
+>> Since the Linux distribution of my choice makes use of
+>> predictable network interface names[0] my USB gadgets
+>> are no longer usb0 but enp0s29u1u2. Same for all other network devices.
+>> While I can fully understand that this new naming scheme makes sense
+>> for a lot of people and makes their work easier it does not really work for me.
+>> My brain is not able to remember that my Beaglebone's USB-Ethernet
+>> is now enp0s29u1u2. Even after looking at the output of ifconfig
+>> I have to copy&paste the interface name.
+>> Instead of just disabling the feature I thought about
+>> a generic solution which satisfies both needs.
 > 
-> There is already a ifalias and it is used by SNMP.
-> But the common practice is to put longer descriptive names which aren't going
-> to be usable and there is no requirement that they be unique.
+> Fix your distro. Easier said than done.
 
-Actually I'm using ifalias. This patch just exposes it.
+Sorry for using a mainstream distro. :-)
 
-> I think you can't do this without breaking some of our users.
+> Current systemd names are much shorter
 
-My idea was that udev will not set the alias if already one is used.
+Hmm, are you sure? When was this changed?
+Maybe I misread http://cgit.freedesktop.org/systemd/systemd/tree/src/udev/udev-builtin-net_id.c
 
 Thanks,
 //richard
