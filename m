@@ -1,41 +1,40 @@
-From: Jan Engelhardt <jengelh@inai.de>
-Subject: Re: [PATCH 3/3] x_tables: Factor out 16bit aligment
- ifname_compare()
-Date: Sun, 11 Jan 2015 23:23:01 +0100 (CET)
-Message-ID: <alpine.LSU.2.11.1501112257580.10101@nerf60.vanv.qr>
-References: <1421009571-5279-1-git-send-email-richard@nod.at>  <1421009571-5279-4-git-send-email-richard@nod.at>  <1421009969.9233.5.camel@perches.com> <54B2E4DD.90200@nod.at> <1421010853.9233.7.camel@perches.com> <54B2EB81.5050604@nod.at>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH 1/3] net: Make interface aliases available for general
+ usage
+Date: Sun, 11 Jan 2015 14:40:39 -0800
+Message-ID: <20150111144039.426f0c48@urahara>
+References: <1421009571-5279-1-git-send-email-richard@nod.at>
+	<1421009571-5279-2-git-send-email-richard@nod.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Joe Perches <joe@perches.com>,
-	Netfilter Developer Mailing List
-	<netfilter-devel@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Linux Networking Developer Mailing List
-	<netdev@vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, coreteam@netfilter.org,
+	netfilter-devel@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, bhutchings@solarflare.com,
+	john.fastabend@gmail.com, herbert@gondor.apana.org.au,
+	vyasevic@redhat.com, jiri@resnulli.us, vfalico@gmail.com,
+	therbert@google.com, edumazet@google.com, yoshfuji@linux-ipv6.org,
+	jmorris@namei.org, kuznet@ms2.inr.ac.ru, kadlec@blackhole.kfki.hu,
+	kaber@trash.net, pablo@netfilter.org, kay@vrfy.org
 To: Richard Weinberger <richard@nod.at>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <54B2EB81.5050604@nod.at>
+In-Reply-To: <1421009571-5279-2-git-send-email-richard@nod.at>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Sun, 11 Jan 2015 21:52:49 +0100
+Richard Weinberger <richard@nod.at> wrote:
 
-On Sunday 2015-01-11 22:30, Richard Weinberger wrote:
->>>> Perhaps this would be better as bool ifname_compare
->
->Anyway, I agree with Linus wrt. bool.
->https://lkml.org/lkml/2013/8/31/138
+> Allow interface aliases to be used as regular interfaces.
+> Such that a command sequence like this one works:
+> $ ip l set eth0 alias internet
+> $ ip a s internet
+> $ tcpdump -n -i internet
+> 
+> Signed-off-by: Richard Weinberger <richard@nod.at>
 
-Had the function return "bool", it would have been obvious enough
-what to do with its return type. A return type of "int" might have
-hinted towards negative-is-error (in general) or strcmpish values
-(functions doing string compare work).
+There is already a ifalias and it is used by SNMP.
+But the common practice is to put longer descriptive names which aren't going
+to be usable and there is no requirement that they be unique.
 
-Now that it returns "unsigned long", one is pressed to look at the=20
-function body (not bad per se, but it is a hump) for the return=20
-value's semantics.
-
-Linus says bool is dangerous to the unsuspecting user=C2=A0=E2=80=94 bu=
-t so is
-"volatile", microwave ovens, etc. If the kernel really cared for
-entry-level coders, it would be written in something like MISRA C.
+I think you can't do this without breaking some of our users.
