@@ -1,95 +1,71 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH v4 4/4] can: kvaser_usb: Retry first bulk transfer on
- -ETIMEDOUT
-Date: Sun, 11 Jan 2015 21:51:10 +0100
-Message-ID: <54B2E23E.1090108@pengutronix.de>
-References: <20141223154654.GB6460@vivalin-002> <20150111200544.GA8855@linux> <20150111201116.GB8855@linux> <20150111201519.GC8855@linux> <20150111203612.GA8999@linux> <20150111204508.GB8999@linux>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="6ujMwJMccFsjISkuuGfnV4WpGXtCSjAFa"
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Linux-USB <linux-usb@vger.kernel.org>,
-	Linux-CAN <linux-can@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: "Ahmed S. Darwish" <darwish.07@gmail.com>,
-	Olivier Sobrie <olivier@sobrie.be>,
-	Oliver Hartkopp <socketcan@hartkopp.net>,
-	Wolfgang Grandegger <wg@grandegger.com>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <20150111204508.GB8999@linux>
-Sender: linux-can-owner@vger.kernel.org
+From: Richard Weinberger <richard@nod.at>
+Subject: [RFC] Make predictable/persistent network interface names more handy
+Date: Sun, 11 Jan 2015 21:52:48 +0100
+Message-ID: <1421009571-5279-1-git-send-email-richard@nod.at>
+Cc: coreteam@netfilter.org, netfilter-devel@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	bhutchings@solarflare.com, john.fastabend@gmail.com,
+	herbert@gondor.apana.org.au, vyasevic@redhat.com, jiri@resnulli.us,
+	vfalico@gmail.com, therbert@google.com, edumazet@google.com,
+	yoshfuji@linux-ipv6.org, jmorris@namei.org, kuznet@ms2.inr.ac.ru,
+	kadlec@blackhole.kfki.hu, kaber@trash.net, pablo@netfilter.org,
+	kay@vrfy.org, stephen@networkplumber.org
+To: davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---6ujMwJMccFsjISkuuGfnV4WpGXtCSjAFa
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+Since the Linux distribution of my choice makes use of
+predictable network interface names[0] my USB gadgets
+are no longer usb0 but enp0s29u1u2. Same for all other network devices.
+While I can fully understand that this new naming scheme makes sense
+for a lot of people and makes their work easier it does not really work for me.
+My brain is not able to remember that my Beaglebone's USB-Ethernet
+is now enp0s29u1u2. Even after looking at the output of ifconfig
+I have to copy&paste the interface name.
+Instead of just disabling the feature I thought about
+a generic solution which satisfies both needs.
 
-On 01/11/2015 09:45 PM, Ahmed S. Darwish wrote:
-> From: Ahmed S. Darwish <ahmed.darwish@valeo.com>
->=20
-> (This is a draft patch, I'm not sure if this fixes the USB
-> bug or only its psymptom. Feedback from the linux-usb folks
-> is really appreciated.)
->=20
-> When plugging the Kvaser USB/CAN dongle the first time, everything
-> works as expected and all of the transfers from and to the USB
-> device succeeds.
->=20
-> Meanwhile, after unplugging the device and plugging it again, the
-> first bulk transfer _always_ returns an -ETIMEDOUT. The following
-> behaviour was observied:
->=20
-> - Setting higher timeout values for the first bulk transfer never
->   solved the issue.
->=20
-> - Unloading, then loading, our kvaser_usb module in question
->   __always__ solved the issue.
->=20
-> - Checking first bulk transfer status, and retry the transfer
->   again in case of an -ETIMEDOUT also __always__ solved the issue.
->   This is what the patch below does.
->=20
-> - In the testing done so far, this issue appears only on laptops
->   but never on PCs (possibly power related?)
->=20
-> Signed-off-by: Ahmed S. Darwish <ahmed.darwish@valeo.com>
+For block devices we also have predictable device names,
+udev creates a symlink to the kernel device.
+This works very good and reliable.
+My idea is to use the network device alias as symlink.
+Such that we can have both the easy to use kernel name and
+the predictable/persistent name from udev.
+systemd/udev could store the original kernel interface name
+as alias after renaming the interface.
+Existing users would not notice but one can still use the kernel name.
+So I can use tcpdump -i usb0 _and_ tcpdump -i enp0s29u1u2.
 
-Does this patch apply apply between 3 and 4? If not, please re-arrange
-the series. As this is a bug fix, patches 1, 2 and 4 will go via
-net/master, 3 will go via net-next/master.
+This patch series implements my idea.
+I'd love to get some feedback!
 
-Marc
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+Patch 1/3 exposes the interfaces alias for general userspace usage, i.e. that ifconfig <alias> works.
+Of course you can only use the first 15 chars of an alias.
 
+In-kernel users of interface names need also an update, patch 2/3 updates x_tables.
+I'm sure there is more todo, i.e. nftables.
+We could also define that netfilter will never use the alias but this needs documented cleary.
 
---6ujMwJMccFsjISkuuGfnV4WpGXtCSjAFa
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
+Patch 3/3 is a cleanup in continuation of 2/3.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
+[0] http://www.freedesktop.org/wiki/Software/systemd/PredictableNetworkInterfaceNames/
 
-iQIcBAEBAgAGBQJUsuI+AAoJECte4hHFiupUe2kP/0urhQtVHePk4wY2VMnTiej5
-osqNACCZqB1kGjj1NeMBrnDaTN5Gz9+7KFQPRVrCqMK3pfS4/DB33yK82Z+aSnSi
-QKXbXx/qj1BgHxWVlzQCqIW2w8bTU9v7pJenWIo/JKSEqwNMXhiisd6lqfwUl2xt
-Kh3iXHVgmoX3/iZAjT+hev3qYKzvlWfr07qVkReP+7YBz70LDE+EHKJsXpRrfGTb
-Q+GEqvHJ9oLg/EgaY5KcrpQazpTG3qyOg+0BufWGRbXoAKa3y4rgEsZuCdEStriV
-fJSu26nEfju0ctODB4VSnVfySBiSN+SK34M1cfoQQp9o0NZHz9Eo6an+O7O8tvON
-F84oUw8VuwXoV8BoSLGH1bt0yCBZMaTH/J7n3HPbJoeQ7BmZA+3m176I3IRjJtOX
-QJSuyCtsXBwZAesVNpygiIMrUol9+C2mV8n7I+Xwvg/wzxnsz6t9oh7L+WcflNaV
-PnUEdpI4PELk4U/xxE5YYdZmI63PY7r8APCb6O9V4vhu6wIkAJFKZlvFLRFH8XbG
-BTc9FKw60zviTbgdXA/5Tb2avyUHF4sbobNnpK+cMUEaRcX754G6xY2uG/G8z6YO
-1jXkXUOEFafPlSLZ0f6qNFGyaHWGobdqTAoW2ZQoOHhqbSLcYXJb5WIsordOKu9b
-J6p8iR/eqCUNKFH6IenJ
-=lRBY
------END PGP SIGNATURE-----
+Thanks,
+//richard
 
---6ujMwJMccFsjISkuuGfnV4WpGXtCSjAFa--
+git://git.kernel.org/pub/scm/linux/kernel/git/rw/misc.git netalias
+
+[PATCH 1/3] net: Make interface aliases available for general usage
+[PATCH 2/3] x_tables: Use also dev->ifalias for interface matching
+[PATCH 3/3] x_tables: Factor out 16bit aligment ifname_compare()
+
+ include/linux/netdevice.h          |  1 +
+ include/linux/netfilter/x_tables.h | 41 +++++++++++++++++++++++++++---
+ include/net/net_namespace.h        |  1 +
+ net/core/dev.c                     | 52 ++++++++++++++++++++++++++++++++++++++
+ net/ipv4/netfilter/arp_tables.c    | 37 ++++-----------------------
+ net/ipv4/netfilter/ip_tables.c     | 15 ++++-------
+ net/ipv6/netfilter/ip6_tables.c    | 18 +++++--------
+ net/netfilter/xt_physdev.c         |  9 ++-----
+ 8 files changed, 110 insertions(+), 64 deletions(-)
