@@ -1,30 +1,45 @@
-From: Richard Weinberger <richard@nod.at>
-Subject: Re: [RFC] Make predictable/persistent network interface names more
- handy
-Date: Sun, 11 Jan 2015 23:51:28 +0100
-Message-ID: <54B2FE70.4090707@nod.at>
-References: <1421009571-5279-1-git-send-email-richard@nod.at> <20150111144236.1b693c93@urahara>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH v2 0/7] Fix sti drivers whcih mix reg address spaces
+Date: Sun, 11 Jan 2015 18:54:45 -0500 (EST)
+Message-ID: <20150111.185445.1288456704842706068.davem@davemloft.net>
+References: <1420643052-4506-1-git-send-email-peter.griffin@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, coreteam@netfilter.org,
-	netfilter-devel@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, bhutchings@solarflare.com,
-	john.fastabend@gmail.com, herbert@gondor.apana.org.au,
-	vyasevic@redhat.com, jiri@resnulli.us, vfalico@gmail.com,
-	therbert@google.com, edumazet@google.com, yoshfuji@linux-ipv6.org,
-	jmorris@namei.org, kuznet@ms2.inr.ac.ru, kadlec@blackhole.kfki.hu,
-	kaber@trash.net, pablo@netfilter.org, kay@vrfy.org
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150111144236.1b693c93@urahara>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	srinivas.kandagatla-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, maxime.coquelin-qxv4g6HH51o@public.gmane.org,
+	patrice.chotard-qxv4g6HH51o@public.gmane.org, peppe.cavallaro-qxv4g6HH51o@public.gmane.org, kishon-l0cyMroinI0@public.gmane.org,
+	arnd-r2nGTMty4D4@public.gmane.org, lee.jones-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: peter.griffin-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1420643052-4506-1-git-send-email-peter.griffin-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Am 11.01.2015 um 23:42 schrieb Stephen Hemminger:
-> P.s:  ifconfig is deprecated.
+From: Peter Griffin <peter.griffin-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Date: Wed,  7 Jan 2015 15:04:05 +0000
 
-ifconfig was just an example. It will work if iproute2 too.
+> A V2 of this old series incorporating Arnd and Lees Feedback form v1.
+> 
+> Following on from Arnds comments about the picophy driver here
+> https://lkml.org/lkml/2014/11/13/161, this series fixes the
+> remaining upstreamed drivers for STI, which are mixing address spaces
+> in the reg property. We do this in a way similar to the keystone
+> and bcm7445 platforms, by having sysconfig phandle/ offset pair 
+> (where only one register is required). Or phandle / integer array
+> where multiple offsets in the same bank are needed).
+> 
+> This series breaks DT compatability! But the platform support
+> is WIP and only being used by the few developers who are upstreaming
+> support for it. I've made each change to the driver / dt doc / dt
+> file as a single atomic commit so the kernel will remain bisectable. 
+> 
+> This series then also enables the picophy driver, and adds back in
+> the ehci/ohci dt nodes for stih410 which make use of the picophy.
 
-Thanks,
-//richard
+Series applied to net-next, thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
