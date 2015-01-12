@@ -1,80 +1,46 @@
-From: "Ahmed S. Darwish" <darwish.07@gmail.com>
-Subject: Re: [PATCH v4 3/4] can: kvaser_usb: Add support for the Usbcan-II
- family
-Date: Mon, 12 Jan 2015 07:36:36 -0500
-Message-ID: <20150112123636.GE9213@linux>
-References: <20141223154654.GB6460@vivalin-002>
- <20150111200544.GA8855@linux>
- <20150111201116.GB8855@linux>
- <20150111201519.GC8855@linux>
- <20150111203612.GA8999@linux>
- <54B3B37C.7090002@pengutronix.de>
- <20150112120741.GC9213@linux>
+From: Kalle Valo <kvalo@qca.qualcomm.com>
+Subject: Re: [PATCH v3] ath10k: fixup wait_for_completion_timeout return handling
+Date: Mon, 12 Jan 2015 14:39:22 +0200
+Message-ID: <878uh8dvgl.fsf@kamboji.qca.qualcomm.com>
+References: <1420720054-27870-1-git-send-email-der.herr@hofr.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Olivier Sobrie <olivier@sobrie.be>,
-	Oliver Hartkopp <socketcan@hartkopp.net>,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	Linux-CAN <linux-can@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Marc Kleine-Budde <mkl@pengutronix.de>
+Content-Type: text/plain; charset="us-ascii"
+Cc: Chun-Yeow Yeoh <yeohchunyeow@gmail.com>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	<netdev@vger.kernel.org>, <linux-wireless@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <ath10k@lists.infradead.org>,
+	Michal Kazior <michal.kazior@tieto.com>,
+	Yanbo Li <yanbol@qca.qualcomm.com>,
+	Ben Greear <greearb@candelatech.com>
+To: Nicholas Mc Guire <der.herr@hofr.at>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150112120741.GC9213@linux>
+In-Reply-To: <1420720054-27870-1-git-send-email-der.herr@hofr.at> (Nicholas Mc
+	Guire's message of "Thu, 8 Jan 2015 13:27:34 +0100")
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jan 12, 2015 at 07:07:41AM -0500, Ahmed S. Darwish wrote:
-> Hi Marc,
-> 
-> On Mon, Jan 12, 2015 at 12:43:56PM +0100, Marc Kleine-Budde wrote:
-> > On 01/11/2015 09:36 PM, Ahmed S. Darwish wrote:
-> > > +
-> > > +	switch (dev->family) {
-> > > +	case KVASER_LEAF:
-> > > +		rx_msg = msg->u.leaf.rx_can.msg;
-> > > +		break;
-> > > +	case KVASER_USBCAN:
-> > > +		rx_msg = msg->u.usbcan.rx_can.msg;
-> > > +		break;
-> > > +	default:
-> > > +		dev_err(dev->udev->dev.parent,
-> > > +			"Invalid device family (%d)\n", dev->family);
-> > >  		return;
-> > 
-> > should not happen.
-> > 
-> 
-> Yes, but otherwise I get GCC warnings of 'rx_msg' possibly
-> being unused. I can add __maybe_unused to rx_msg of course,
-> but such annotation may hide possible errors in the future.
-> 
+Nicholas Mc Guire <der.herr@hofr.at> writes:
 
-Ah, what I meant is using uninitialized_var() to suppress the
-GCC warning. But, really, using that macro has a bad history
-of hiding errors in the future.
+> wait_for_completion_timeout does not return negative values so the tests
+> for <= 0 are not needed and the case differentiation in the error handling
+> path unnecessary.
+>
+> v2: all wait_for_completion_timeout changes in a single patch
+> v3: patch formatting cleanups - no change of actual patch
+>
+> Signed-off-by: Nicholas Mc Guire <der.herr@hofr.at>
+> ---
+> patch was only compile tested x86_64_defconfig + CONFIG_ATH_CARDS=m
+> CONFIG_ATH10K=m
+>
+> patch is against linux-next 3.19.0-rc1 -next-20141226
+>
+> None of the proposed cleanups are critical.
+> All changes should only be removing unreachable cases.
 
-Kindly check http://lwn.net/Articles/529954/ for context.
+Sorry, I wasn't clear enough in my last email but everything related to
+v2, v3 etc should be after "---" line. I fixed this in ath-next-test
+branch and will apply your patch once kbuild has run it's tests.
 
-Another solution might be initializing rx_msg to NULL.
-
-> > > +	switch (dev->family) {
-> > > +	case KVASER_LEAF:
-> > > +		msg_tx_can_flags = &msg->u.tx_can.leaf.flags;
-> > > +		break;
-> > > +	case KVASER_USBCAN:
-> > > +		msg_tx_can_flags = &msg->u.tx_can.usbcan.flags;
-> > > +		break;
-> > > +	default:
-> > > +		dev_err(dev->udev->dev.parent,
-> > > +			"Invalid device family (%d)\n", dev->family);
-> > > +		goto releasebuf;
-> > should not happen, please remove
-> 
-> Like the 'rx_msg' case above.
-> 
-> Thanks,
-> Darwish
+-- 
+Kalle Valo
