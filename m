@@ -1,179 +1,165 @@
-From: Ying Xue <ying.xue@windriver.com>
-Subject: [PATCH net-next v2 2/3] netlink: eliminate nl_sk_hash_lock
-Date: Mon, 12 Jan 2015 14:52:23 +0800
-Message-ID: <1421045544-13670-3-git-send-email-ying.xue@windriver.com>
-References: <1421045544-13670-1-git-send-email-ying.xue@windriver.com>
+From: Appana Durga Kedareswara Rao <appana.durga.rao@xilinx.com>
+Subject: RE: [PATCH v4] can: Convert to runtime_pm
+Date: Mon, 12 Jan 2015 06:59:54 +0000
+Message-ID: <bb20847c9546459592241f801be2b536@BY2FFO11FD027.protection.gbl>
+References: <58f37b6fd9104ce185c413c473fe047b@BY2FFO11FD050.protection.gbl>
+ <54AD267C.4060004@pengutronix.de>
+ <12e7202e137e4d5680185748ebf0cf2d@BY2FFO11FD060.protection.gbl>
+ <54B299A0.1000504@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: <tgraf@suug.ch>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"Soren Brinkmann" <sorenb@xilinx.com>,
+	"grant.likely@linaro.org" <grant.likely@linaro.org>,
+	"wg@grandegger.com" <wg@grandegger.com>,
+	"Michal Simek" <michals@xilinx.com>
+To: Marc Kleine-Budde <mkl@pengutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:64310 "EHLO
-	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751270AbbALGxB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jan 2015 01:53:01 -0500
-In-Reply-To: <1421045544-13670-1-git-send-email-ying.xue@windriver.com>
+Received: from mail-by2on0092.outbound.protection.outlook.com ([207.46.100.92]:52688
+	"EHLO na01-by2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750910AbbALHAA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 12 Jan 2015 02:00:00 -0500
+In-Reply-To: <54B299A0.1000504@pengutronix.de>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As rhashtable_lookup_compare_insert() can guarantee the process
-of search and insertion is atomic, it's safe to eliminate the
-nl_sk_hash_lock. After this, object insertion or removal will
-be protected with per bucket lock on write side while object
-lookup is guarded with rcu read lock on read side.
-
-Signed-off-by: Ying Xue <ying.xue@windriver.com>
-Cc: Thomas Graf <tgraf@suug.ch>
----
- net/netlink/af_netlink.c |   33 ++++++++++++++++++++-------------
- net/netlink/af_netlink.h |    1 -
- net/netlink/diag.c       |   10 +++++-----
- 3 files changed, 25 insertions(+), 19 deletions(-)
-
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index 298e1df..01b702d 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -98,7 +98,7 @@ static void netlink_skb_destructor(struct sk_buff *skb);
- 
- /* nl_table locking explained:
-  * Lookup and traversal are protected with an RCU read-side lock. Insertion
-- * and removal are protected with nl_sk_hash_lock while using RCU list
-+ * and removal are protected with per bucket lock while using RCU list
-  * modification primitives and may run in parallel to RCU protected lookups.
-  * Destruction of the Netlink socket may only occur *after* nl_table_lock has
-  * been acquired * either during or after the socket has been removed from
-@@ -110,10 +110,6 @@ static atomic_t nl_table_users = ATOMIC_INIT(0);
- 
- #define nl_deref_protected(X) rcu_dereference_protected(X, lockdep_is_held(&nl_table_lock));
- 
--/* Protects netlink socket hash table mutations */
--DEFINE_MUTEX(nl_sk_hash_lock);
--EXPORT_SYMBOL_GPL(nl_sk_hash_lock);
--
- static ATOMIC_NOTIFIER_HEAD(netlink_chain);
- 
- static DEFINE_SPINLOCK(netlink_tap_lock);
-@@ -998,6 +994,19 @@ static struct sock *__netlink_lookup(struct netlink_table *table, u32 portid,
- 					 &netlink_compare, &arg);
- }
- 
-+static bool __netlink_insert(struct netlink_table *table, struct sock *sk,
-+			     struct net *net)
-+{
-+	struct netlink_compare_arg arg = {
-+		.net = net,
-+		.portid = nlk_sk(sk)->portid,
-+	};
-+
-+	return rhashtable_lookup_compare_insert(&table->hash,
-+						&nlk_sk(sk)->node,
-+						&netlink_compare, &arg);
-+}
-+
- static struct sock *netlink_lookup(struct net *net, int protocol, u32 portid)
- {
- 	struct netlink_table *table = &nl_table[protocol];
-@@ -1043,9 +1052,7 @@ static int netlink_insert(struct sock *sk, struct net *net, u32 portid)
- 	struct netlink_table *table = &nl_table[sk->sk_protocol];
- 	int err = -EADDRINUSE;
- 
--	mutex_lock(&nl_sk_hash_lock);
--	if (__netlink_lookup(table, portid, net))
--		goto err;
-+	lock_sock(sk);
- 
- 	err = -EBUSY;
- 	if (nlk_sk(sk)->portid)
-@@ -1058,10 +1065,12 @@ static int netlink_insert(struct sock *sk, struct net *net, u32 portid)
- 
- 	nlk_sk(sk)->portid = portid;
- 	sock_hold(sk);
--	rhashtable_insert(&table->hash, &nlk_sk(sk)->node);
--	err = 0;
-+	if (__netlink_insert(table, sk, net))
-+		err = 0;
-+	else
-+		sock_put(sk);
- err:
--	mutex_unlock(&nl_sk_hash_lock);
-+	release_sock(sk);
- 	return err;
- }
- 
-@@ -1069,13 +1078,11 @@ static void netlink_remove(struct sock *sk)
- {
- 	struct netlink_table *table;
- 
--	mutex_lock(&nl_sk_hash_lock);
- 	table = &nl_table[sk->sk_protocol];
- 	if (rhashtable_remove(&table->hash, &nlk_sk(sk)->node)) {
- 		WARN_ON(atomic_read(&sk->sk_refcnt) == 1);
- 		__sock_put(sk);
- 	}
--	mutex_unlock(&nl_sk_hash_lock);
- 
- 	netlink_table_grab();
- 	if (nlk_sk(sk)->subscriptions) {
-diff --git a/net/netlink/af_netlink.h b/net/netlink/af_netlink.h
-index fd96fa7..7518375 100644
---- a/net/netlink/af_netlink.h
-+++ b/net/netlink/af_netlink.h
-@@ -74,6 +74,5 @@ struct netlink_table {
- 
- extern struct netlink_table *nl_table;
- extern rwlock_t nl_table_lock;
--extern struct mutex nl_sk_hash_lock;
- 
- #endif
-diff --git a/net/netlink/diag.c b/net/netlink/diag.c
-index fcca36d..bb59a7e 100644
---- a/net/netlink/diag.c
-+++ b/net/netlink/diag.c
-@@ -103,7 +103,7 @@ static int __netlink_diag_dump(struct sk_buff *skb, struct netlink_callback *cb,
- {
- 	struct netlink_table *tbl = &nl_table[protocol];
- 	struct rhashtable *ht = &tbl->hash;
--	const struct bucket_table *htbl = rht_dereference(ht->tbl, ht);
-+	const struct bucket_table *htbl = rht_dereference_rcu(ht->tbl, ht);
- 	struct net *net = sock_net(skb->sk);
- 	struct netlink_diag_req *req;
- 	struct netlink_sock *nlsk;
-@@ -115,7 +115,7 @@ static int __netlink_diag_dump(struct sk_buff *skb, struct netlink_callback *cb,
- 	for (i = 0; i < htbl->size; i++) {
- 		struct rhash_head *pos;
- 
--		rht_for_each_entry(nlsk, pos, htbl, i, node) {
-+		rht_for_each_entry_rcu(nlsk, pos, htbl, i, node) {
- 			sk = (struct sock *)nlsk;
- 
- 			if (!net_eq(sock_net(sk), net))
-@@ -172,7 +172,7 @@ static int netlink_diag_dump(struct sk_buff *skb, struct netlink_callback *cb)
- 
- 	req = nlmsg_data(cb->nlh);
- 
--	mutex_lock(&nl_sk_hash_lock);
-+	rcu_read_lock();
- 	read_lock(&nl_table_lock);
- 
- 	if (req->sdiag_protocol == NDIAG_PROTO_ALL) {
-@@ -186,7 +186,7 @@ static int netlink_diag_dump(struct sk_buff *skb, struct netlink_callback *cb)
- 	} else {
- 		if (req->sdiag_protocol >= MAX_LINKS) {
- 			read_unlock(&nl_table_lock);
--			mutex_unlock(&nl_sk_hash_lock);
-+			rcu_read_unlock();
- 			return -ENOENT;
- 		}
- 
-@@ -194,7 +194,7 @@ static int netlink_diag_dump(struct sk_buff *skb, struct netlink_callback *cb)
- 	}
- 
- 	read_unlock(&nl_table_lock);
--	mutex_unlock(&nl_sk_hash_lock);
-+	rcu_read_unlock();
- 
- 	return skb->len;
- }
--- 
-1.7.9.5
+SGkgTWFyYywNCg0KPiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBNYXJjIEts
+ZWluZS1CdWRkZSBbbWFpbHRvOm1rbEBwZW5ndXRyb25peC5kZV0NCj4gU2VudDogU3VuZGF5LCBK
+YW51YXJ5IDExLCAyMDE1IDk6MTEgUE0NCj4gVG86IEFwcGFuYSBEdXJnYSBLZWRhcmVzd2FyYSBS
+YW8NCj4gQ2M6IGxpbnV4LWNhbkB2Z2VyLmtlcm5lbC5vcmc7IG5ldGRldkB2Z2VyLmtlcm5lbC5v
+cmc7IGxpbnV4LQ0KPiBrZXJuZWxAdmdlci5rZXJuZWwub3JnOyBTb3JlbiBCcmlua21hbm47IGdy
+YW50Lmxpa2VseUBsaW5hcm8ub3JnOw0KPiB3Z0BncmFuZGVnZ2VyLmNvbQ0KPiBTdWJqZWN0OiBS
+ZTogW1BBVENIIHY0XSBjYW46IENvbnZlcnQgdG8gcnVudGltZV9wbQ0KPg0KPiBPbiAwMS8xMS8y
+MDE1IDA2OjM0IEFNLCBBcHBhbmEgRHVyZ2EgS2VkYXJlc3dhcmEgUmFvIHdyb3RlOg0KPiBbLi4u
+XQ0KPiA+Pj4gICAgICAgICAgICAgcmV0dXJuIHJldDsNCj4gPj4+ICAgICB9DQo+ID4+Pg0KPiA+
+Pj4gICAgIHByaXYtPndyaXRlX3JlZyhwcml2LCBYQ0FOX01TUl9PRkZTRVQsIDApOw0KPiA+Pj4g
+ICAgIHByaXYtPndyaXRlX3JlZyhwcml2LCBYQ0FOX1NSUl9PRkZTRVQsIFhDQU5fU1JSX0NFTl9N
+QVNLKTsNCj4gPj4+DQo+ID4+PiAgICAgaWYgKG5ldGlmX3J1bm5pbmcobmRldikpIHsNCj4gPj4+
+ICAgICAgICAgICAgIHByaXYtPmNhbi5zdGF0ZSA9IENBTl9TVEFURV9FUlJPUl9BQ1RJVkU7DQo+
+ID4+DQo+ID4+IFdoYXQgaGFwcGVucyBpZiB0aGUgZGV2aWNlIHdhcyBub3QgaW4gQUNUSVZFIHN0
+YXRlIHByaW9yIHRvIHRoZQ0KPiA+PiBydW50aW1lX3N1c3BlbmQ/DQo+ID4+DQo+ID4NCj4gPiBJ
+IGFtIG5vdCBzdXJlIGFib3V0IHRoZSBzdGF0ZSBvZiBDQU4gYXQgdGhpcyBwb2ludCBvZiB0aW1l
+Lg0KPiA+IEkganVzdCBmb2xsb3dlZCB3aGF0IG90aGVyIGRyaXZlcnMgYXJlIGZvbGxvd2luZyBm
+b3IgcnVuIHRpbWUgIHN1c3BlbmQgOikuDQo+DQo+IFBsZWFzZSBjaGVjayB0aGUgc3RhdGUgb2Yg
+dGhlIGhhcmR3YXJlIGlmIHlvdSBnbyB3aXRoIGJ1cyBvZmYgaW50byBzdXNwZW5kDQo+IGFuZCB0
+aGVuIHJlc3VtZS4NCj4NCg0KICAgICAgICBpZiAobmV0aWZfcnVubmluZyhuZGV2KSkgew0KICAg
+ICAgICAgICAgICAgICAgICAgICAgaWYgKGlzciAmIFhDQU5fSVhSX0JTT0ZGX01BU0spIHsNCiAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgcHJpdi0+Y2FuLnN0YXRlID0gQ0FOX1NUQVRF
+X0JVU19PRkY7DQogICAgICAgICAgICAgICAgICAgICAgICAgICBwcml2LT53cml0ZV9yZWcocHJp
+diwgWENBTl9TUlJfT0ZGU0VULA0KICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgIFhDQU5fU1JSX1JFU0VUX01BU0spOw0KICAgICAgICAgICAgICAgIH0gZWxzZSBpZiAoKHN0
+YXR1cyAmIFhDQU5fU1JfRVNUQVRfTUFTSykgPT0NCiAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICBYQ0FOX1NSX0VTVEFUX01BU0spIHsNCiAgICAgICAgICAgICAgICAgICAg
+ICAgIHByaXYtPmNhbi5zdGF0ZSA9IENBTl9TVEFURV9FUlJPUl9QQVNTSVZFOw0KICAgICAgICAg
+ICAgICAgIH0gZWxzZSBpZiAoc3RhdHVzICYgWENBTl9TUl9FUlJXUk5fTUFTSykgew0KICAgICAg
+ICAgICAgICAgICAgICAgICAgcHJpdi0+Y2FuLnN0YXRlID0gQ0FOX1NUQVRFX0VSUk9SX1dBUk5J
+Tkc7DQogICAgICAgICAgICAgICAgfSBlbHNlIHsNCiAgICAgICAgICAgICAgICAgICAgICAgIHBy
+aXYtPmNhbi5zdGF0ZSA9IENBTl9TVEFURV9FUlJPUl9BQ1RJVkU7DQogICAgICAgICAgICAgICAg
+fQ0KICAgICAgICB9DQoNCklzIHRoZSBhYm92ZSBjb2RlIHNuaXBwZXQgb2sgZm9yIHlvdT8NCg0K
+PiA+Pj4gICAgICAgICAgICAgbmV0aWZfZGV2aWNlX2F0dGFjaChuZGV2KTsNCj4gPj4+ICAgICAg
+ICAgICAgIG5ldGlmX3N0YXJ0X3F1ZXVlKG5kZXYpOw0KPiA+Pj4gICAgIH0NCj4gPj4+DQo+ID4+
+PiAgICAgcmV0dXJuIDA7DQo+ID4+PiB9DQo+ID4+DQo+ID4+DQo+ID4+Pg0KPiA+Pj4gQEAgLTEw
+MjAsOSArMTAzNSw5IEBAIHN0YXRpYyBpbnQgX19tYXliZV91bnVzZWQgeGNhbl9yZXN1bWUoc3Ry
+dWN0DQo+ID4+PiBkZXZpY2UgKmRldikNCj4gPj4+DQo+ID4+PiAgICAgcHJpdi0+d3JpdGVfcmVn
+KHByaXYsIFhDQU5fTVNSX09GRlNFVCwgMCk7DQo+ID4+PiAgICAgcHJpdi0+d3JpdGVfcmVnKHBy
+aXYsIFhDQU5fU1JSX09GRlNFVCwgWENBTl9TUlJfQ0VOX01BU0spOw0KPiA+Pj4gLSAgIHByaXYt
+PmNhbi5zdGF0ZSA9IENBTl9TVEFURV9FUlJPUl9BQ1RJVkU7DQo+ID4+Pg0KPiA+Pj4gICAgIGlm
+IChuZXRpZl9ydW5uaW5nKG5kZXYpKSB7DQo+ID4+PiArICAgICAgICAgICBwcml2LT5jYW4uc3Rh
+dGUgPSBDQU5fU1RBVEVfRVJST1JfQUNUSVZFOw0KPiA+Pj4gICAgICAgICAgICAgbmV0aWZfZGV2
+aWNlX2F0dGFjaChuZGV2KTsNCj4gPj4+ICAgICAgICAgICAgIG5ldGlmX3N0YXJ0X3F1ZXVlKG5k
+ZXYpOw0KPiA+Pj4gICAgIH0NCj4gPj4+IEBAIC0xMDMwLDcgKzEwNDUsMTAgQEAgc3RhdGljIGlu
+dCBfX21heWJlX3VudXNlZA0KPiB4Y2FuX3Jlc3VtZShzdHJ1Y3QNCj4gPj4gZGV2aWNlICpkZXYp
+DQo+ID4+PiAgICAgcmV0dXJuIDA7DQo+ID4+PiAgfQ0KPiA+Pj4NCj4gPj4+IC1zdGF0aWMgU0lN
+UExFX0RFVl9QTV9PUFMoeGNhbl9kZXZfcG1fb3BzLCB4Y2FuX3N1c3BlbmQsDQo+ID4+IHhjYW5f
+cmVzdW1lKTsNCj4gPj4+ICtzdGF0aWMgY29uc3Qgc3RydWN0IGRldl9wbV9vcHMgeGNhbl9kZXZf
+cG1fb3BzID0gew0KPiA+Pj4gKyAgIFNFVF9TWVNURU1fU0xFRVBfUE1fT1BTKHhjYW5fc3VzcGVu
+ZCwgeGNhbl9yZXN1bWUpDQo+ID4+PiArICAgU0VUX1BNX1JVTlRJTUVfUE1fT1BTKHhjYW5fcnVu
+dGltZV9zdXNwZW5kLA0KPiA+PiB4Y2FuX3J1bnRpbWVfcmVzdW1lLA0KPiA+Pj4gK05VTEwpIH07
+DQo+ID4+Pg0KPiA+Pj4gIC8qKg0KPiA+Pj4gICAqIHhjYW5fcHJvYmUgLSBQbGF0Zm9ybSByZWdp
+c3RyYXRpb24gY2FsbCBAQCAtMTA3MSw3ICsxMDg5LDcgQEANCj4gPj4+IHN0YXRpYyBpbnQgeGNh
+bl9wcm9iZShzdHJ1Y3QgcGxhdGZvcm1fZGV2aWNlICpwZGV2KQ0KPiA+Pj4gICAgICAgICAgICAg
+cmV0dXJuIC1FTk9NRU07DQo+ID4+Pg0KPiA+Pj4gICAgIHByaXYgPSBuZXRkZXZfcHJpdihuZGV2
+KTsNCj4gPj4+IC0gICBwcml2LT5kZXYgPSBuZGV2Ow0KPiA+Pj4gKyAgIHByaXYtPmRldiA9ICZw
+ZGV2LT5kZXY7DQo+ID4+PiAgICAgcHJpdi0+Y2FuLmJpdHRpbWluZ19jb25zdCA9ICZ4Y2FuX2Jp
+dHRpbWluZ19jb25zdDsNCj4gPj4+ICAgICBwcml2LT5jYW4uZG9fc2V0X21vZGUgPSB4Y2FuX2Rv
+X3NldF9tb2RlOw0KPiA+Pj4gICAgIHByaXYtPmNhbi5kb19nZXRfYmVycl9jb3VudGVyID0geGNh
+bl9nZXRfYmVycl9jb3VudGVyOyBAQCAtDQo+ID4+IDExMzcsMTUNCj4gPj4+ICsxMTU1LDIyIEBA
+IHN0YXRpYyBpbnQgeGNhbl9wcm9iZShzdHJ1Y3QgcGxhdGZvcm1fZGV2aWNlICpwZGV2KQ0KPiA+
+Pj4NCj4gPj4+ICAgICBuZXRpZl9uYXBpX2FkZChuZGV2LCAmcHJpdi0+bmFwaSwgeGNhbl9yeF9w
+b2xsLCByeF9tYXgpOw0KPiA+Pj4NCj4gPj4+ICsgICBwbV9ydW50aW1lX3NldF9hY3RpdmUoJnBk
+ZXYtPmRldik7DQo+ID4+PiArICAgcG1fcnVudGltZV9pcnFfc2FmZSgmcGRldi0+ZGV2KTsNCj4g
+Pj4+ICsgICBwbV9ydW50aW1lX2VuYWJsZSgmcGRldi0+ZGV2KTsNCj4gPj4+ICsgICBwbV9ydW50
+aW1lX2dldF9zeW5jKCZwZGV2LT5kZXYpOw0KPiA+PiBDaGVjayBlcnJvciB2YWx1ZXM/DQo+ID4N
+Cj4gPiBPaw0KPiA+Pj4gKw0KPiA+Pj4gICAgIHJldCA9IHJlZ2lzdGVyX2NhbmRldihuZGV2KTsN
+Cj4gPj4+ICAgICBpZiAocmV0KSB7DQo+ID4+PiAgICAgICAgICAgICBkZXZfZXJyKCZwZGV2LT5k
+ZXYsICJmYWlsIHRvIHJlZ2lzdGVyIGZhaWxlZA0KPiA+Pj4gKGVycj0lZClcbiIsDQo+ID4+IHJl
+dCk7DQo+ID4+PiArICAgICAgICAgICBwbV9ydW50aW1lX3B1dChwcml2LT5kZXYpOw0KPiA+Pg0K
+PiA+PiBQbGVhc2UgbW92ZSB0aGUgcG1fcnVudGltZV9wdXQgaW50byB0aGUgY29tbW9uIGVycm9y
+IGV4aXQgcGF0aC4NCj4gPj4NCj4gPg0KPiA+IE9rDQo+ID4NCj4gPj4+ICAgICAgICAgICAgIGdv
+dG8gZXJyX3VucHJlcGFyZV9kaXNhYmxlX2J1c2NsazsNCj4gPj4+ICAgICB9DQo+ID4+Pg0KPiA+
+Pj4gICAgIGRldm1fY2FuX2xlZF9pbml0KG5kZXYpOw0KPiA+Pj4gLSAgIGNsa19kaXNhYmxlX3Vu
+cHJlcGFyZShwcml2LT5idXNfY2xrKTsNCj4gPj4+IC0gICBjbGtfZGlzYWJsZV91bnByZXBhcmUo
+cHJpdi0+Y2FuX2Nsayk7DQo+ID4+PiArDQo+ID4+PiArICAgcG1fcnVudGltZV9wdXQoJnBkZXYt
+PmRldik7DQo+ID4+PiArDQo+ID4+PiAgICAgbmV0ZGV2X2RiZyhuZGV2LCAicmVnX2Jhc2U9MHgl
+cCBpcnE9JWQgY2xvY2s9JWQsIHR4IGZpZm8NCj4gPj4gZGVwdGg6JWRcbiIsDQo+ID4+PiAgICAg
+ICAgICAgICAgICAgICAgIHByaXYtPnJlZ19iYXNlLCBuZGV2LT5pcnEsIHByaXYtPmNhbi5jbG9j
+ay5mcmVxLA0KPiA+Pj4gICAgICAgICAgICAgICAgICAgICBwcml2LT50eF9tYXgpOw0KPiA+Pj4N
+Cj4gPj4NCj4gPj4gSSB0aGluayB5b3UgaGF2ZSB0byBjb252ZXJ0IHRoZSBfcmVtb3ZlKCkgZnVu
+Y3Rpb24sIHRvby4gSGF2ZSBhIGxvb2sNCj4gPj4gYXQgdGhlIGdwaW8tenlucS5jIGRyaXZlcjoN
+Cj4gPj4NCj4gPj4+IHN0YXRpYyBpbnQgenlucV9ncGlvX3JlbW92ZShzdHJ1Y3QgcGxhdGZvcm1f
+ZGV2aWNlICpwZGV2KSB7DQo+ID4+PiAgICAgc3RydWN0IHp5bnFfZ3BpbyAqZ3BpbyA9IHBsYXRm
+b3JtX2dldF9kcnZkYXRhKHBkZXYpOw0KPiA+Pj4NCj4gPj4+ICAgICBwbV9ydW50aW1lX2dldF9z
+eW5jKCZwZGV2LT5kZXYpOw0KPiA+Pg0KPiA+PiBIb3dldmVyIEkgZG9uJ3QgdW5kZXJzdGFuZCB3
+aHkgdGhlIGdldF9zeW5jKCkgaXMgaGVyZS4gTWF5YmUgU8O2cmVuDQo+ID4+IGNhbiBoZWxwPw0K
+PiA+DQo+ID4gSSBjb252ZXJ0ZWQgdGhlIHJlbW92ZSBmdW5jdGlvbiB0byB1c2UgdGhlIHJ1bi10
+aW1lIFBNIGFuZCAuDQo+ID4gQmVsb3cgaXMgdGhlIHJlbW92ZSBjb2RlIHNuaXBwZXQuDQo+ID4N
+Cj4gPiAgICAgICAgcmV0ID0gcG1fcnVudGltZV9nZXRfc3luYygmcGRldi0+ZGV2KTsNCj4gPiAg
+ICAgICAgIGlmIChyZXQgPCAwKSB7DQo+ID4gICAgICAgICAgICAgICAgIG5ldGRldl9lcnIobmRl
+diwgIiVzOiBwbV9ydW50aW1lX2dldCBmYWlsZWQoJWQpXG4iLA0KPiA+ICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgX19mdW5jX18sIHJldCk7DQo+ID4gICAgICAgICAgICAgICAgIHJl
+dHVybiByZXQ7DQo+ID4gICAgICAgICB9DQo+ID4NCj4gPiAgICAgICAgIGlmIChzZXRfcmVzZXRf
+bW9kZShuZGV2KSA8IDApDQo+ID4gICAgICAgICAgICAgICAgIG5ldGRldl9lcnIobmRldiwgIm1v
+ZGUgcmVzZXR0aW5nIGZhaWxlZCFcbiIpOw0KPiA+DQo+ID4gICAgICAgICB1bnJlZ2lzdGVyX2Nh
+bmRldihuZGV2KTsNCj4gPiAgICAgICAgIG5ldGlmX25hcGlfZGVsKCZwcml2LT5uYXBpKTsNCj4g
+PiAgICAgICAgIGZyZWVfY2FuZGV2KG5kZXYpOw0KPg0KPiA+ICAgICAgICAgcG1fcnVudGltZV9k
+aXNhYmxlKCZwZGV2LT5kZXYpOw0KPg0KPiBDYW4gdGhpcyBtYWtlIGEgY2FsbCB0byB4Y2FuX3J1
+bnRpbWVfKigpPyBJJ20gYXNraW5nIHNpbmNlIHRoZSBuZGV2IGhhcw0KPiBiZWVuIHVucmVnaXN0
+ZXJlZCBhbmQgYWxyZWFkeSBmcmVlKCllZC4gQmV0dGVyIG1vdmUgdGhpcyBkaXJlY3RseSBhZnRl
+ciB0aGUNCj4gc2V0X3Jlc2V0X21vZGUoKS4gVGhpcyB3YXkgeW91IGFyZSBzeW1tZXRyaWMgdG8g
+dGhlIHByb2JlKCkgZnVuY3Rpb24uDQoNCklmIEkgbW92ZSB0aGUgIHBtX3J1bnRpbWVfZGlzYWJs
+ZSBhZnRlciB0aGUgc2V0X3Jlc2V0X21vZGUNCkkgYW0gZ2V0dGluZyB0aGUgYmVsb3cgZXJyb3Iu
+DQpFUlJPUjoNCnhpbGlueF9jYW4gZTAwMDgwMDAuY2FuIGNhbjAgKHVucmVnaXN0ZXJpbmcpOiB4
+Y2FuX2dldF9iZXJyX2NvdW50ZXI6IHBtX3J1bnRpbWVfZ2V0IGZhaWwNCg0KSWYgSSBtb3ZlIHRo
+ZSBwbV9ydW50aW1lX2Rpc2FibGUgYWZ0ZXIgdW5yZWdpc3Rlcl9jYW5kZXYgZXZlcnl0aGluZyBp
+cyB3b3JraW5nIGZpbmUuDQoNClJlZ2FyZHMsDQpLZWRhci4NCg0KPg0KPiA+IE9ic2VydmVkIHRo
+ZSBiZWxvdyB0aGluZ3MgaW4gdGhlIC9zeXMva2VybmVsL2RlYnVnL2Nsay9jbGtfc3VtbWFyeS4N
+Cj4gPg0KPiA+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgTW9kcHJvYmUgICAgICAg
+IGlmY29uZmlnIHVwICAgIGlmY29uZmlnIGRvd24gICBybW1vZA0KPiBNb2Rwcm9iZSAgaWZjb25m
+aWcgdXAgICBpZmNvbmZpZyBkb3duICBybW1vZCAgTW9kcHJvYmUgIGlmY29uZmlnIHVwDQo+IGlm
+Y29uZmlnIGRvd24gIHJtbW9kDQo+ID4gQ2xrX3ByZXBhcmUgY291bnQ6ICAgICAgICAgICAgICAg
+IDEgICAgICAgICAgICAgMSAgICAgICAgICAgICAgIDEgICAgICAgICAgICAgICAxICAgICAgIDIg
+ICAgICAgMiAgICAgICAgICAgICAgIDINCj4gMiAgICAgICAzICAgICAgIDMgICAgICAgICAgICAg
+ICAzICAgICAgICAgICAgICAgMw0KPiA+IENsa19lbmFibGUgY291bnQ6ICAgICAgICAgICAgICAg
+ICAwICAgICAgICAgICAgIDEgICAgICAgICAgICAgICAwICAgICAgICAgICAgICAgMSAgICAgICAy
+ICAgICAgIDIgICAgICAgICAgICAgICAyDQo+IDIgICAgICAgMyAgICAgICAzICAgICAgICAgICAg
+ICAgMyAgICAgICAgICAgICAgIDMNCj4NCj4gQXMgdGhlIG51bWJlcnMgYXJlIGluY3JlYXNpbmcg
+eW91IGhhdmUgYSBjbGtfcHJlcGFyZV9lbmFibGUoKSBsZWFrLiBZb3VyDQo+IHJlbW92ZSgpIGZ1
+bmN0aW9uIGlzIG1pc3NpbmcgdGhlIGNsa19kaXNhYmxlX3VucHJlcGFyZSgpIGZvciB0aGUgY2Fu
+IGFuZA0KPiBidXMgY2xvY2sgKGFzIHlvdSBoYXZlIGNsa19wcmVwYXJlX2VuYWJsZSBpbiBwcm9i
+ZSgpKS4NCj4NCj4gTWFyYw0KPg0KPiAtLQ0KPiBQZW5ndXRyb25peCBlLksuICAgICAgICAgICAg
+ICAgICAgfCBNYXJjIEtsZWluZS1CdWRkZSAgICAgICAgICAgfA0KPiBJbmR1c3RyaWFsIExpbnV4
+IFNvbHV0aW9ucyAgICAgICAgfCBQaG9uZTogKzQ5LTIzMS0yODI2LTkyNCAgICAgfA0KPiBWZXJ0
+cmV0dW5nIFdlc3QvRG9ydG11bmQgICAgICAgICAgfCBGYXg6ICAgKzQ5LTUxMjEtMjA2OTE3LTU1
+NTUgfA0KPiBBbXRzZ2VyaWNodCBIaWxkZXNoZWltLCBIUkEgMjY4NiAgfCBodHRwOi8vd3d3LnBl
+bmd1dHJvbml4LmRlICAgfA0KDQoNCg0KVGhpcyBlbWFpbCBhbmQgYW55IGF0dGFjaG1lbnRzIGFy
+ZSBpbnRlbmRlZCBmb3IgdGhlIHNvbGUgdXNlIG9mIHRoZSBuYW1lZCByZWNpcGllbnQocykgYW5k
+IGNvbnRhaW4ocykgY29uZmlkZW50aWFsIGluZm9ybWF0aW9uIHRoYXQgbWF5IGJlIHByb3ByaWV0
+YXJ5LCBwcml2aWxlZ2VkIG9yIGNvcHlyaWdodGVkIHVuZGVyIGFwcGxpY2FibGUgbGF3LiBJZiB5
+b3UgYXJlIG5vdCB0aGUgaW50ZW5kZWQgcmVjaXBpZW50LCBkbyBub3QgcmVhZCwgY29weSwgb3Ig
+Zm9yd2FyZCB0aGlzIGVtYWlsIG1lc3NhZ2Ugb3IgYW55IGF0dGFjaG1lbnRzLiBEZWxldGUgdGhp
+cyBlbWFpbCBtZXNzYWdlIGFuZCBhbnkgYXR0YWNobWVudHMgaW1tZWRpYXRlbHkuDQoNCg==
