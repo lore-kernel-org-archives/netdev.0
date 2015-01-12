@@ -1,63 +1,71 @@
-From: Richard Weinberger <richard@nod.at>
-Subject: Re: [PATCH 2/3] x_tables: Use also dev->ifalias for interface matching
-Date: Mon, 12 Jan 2015 17:12:21 +0100
-Message-ID: <54B3F265.9030301@nod.at>
-References: <1421009571-5279-1-git-send-email-richard@nod.at>	 <1421009571-5279-3-git-send-email-richard@nod.at> <1421078666.4099.6.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Arend van Spriel <arend@broadcom.com>
+Subject: Re: [PATCH] brcmfmac: avoid duplicated suspend/resume operation
+Date: Mon, 12 Jan 2015 17:24:40 +0100
+Message-ID: <54B3F548.6080408@broadcom.com>
+References: <54B36C88.3030609@linux.intel.com> <54B3D4FC.1090806@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="UTF-8"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, coreteam@netfilter.org,
-	netfilter-devel@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, bhutchings@solarflare.com,
-	john.fastabend@gmail.com, herbert@gondor.apana.org.au,
-	vyasevic@redhat.com, jiri@resnulli.us, vfalico@gmail.com,
-	therbert@google.com, edumazet@google.com, yoshfuji@linux-ipv6.org,
-	jmorris@namei.org, kuznet@ms2.inr.ac.ru, kadlec@blackhole.kfki.hu,
-	kaber@trash.net, pablo@netfilter.org, kay@vrfy.org,
-	stephen@networkplumber.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: "Fu, Zhonghui" <zhonghui.fu@linux.intel.com>,
+	<brudley@broadcom.com>, Franky Lin <frankyl@broadcom.com>,
+	<meuleman@broadcom.com>, <kvalo@codeaurora.org>,
+	<linville@tuxdriver.com>, <pieterpg@broadcom.com>,
+	<hdegoede@redhat.com>, <wens@csie.org>,
+	<linux-wireless@vger.kernel.org>,
+	<brcm80211-dev-list@broadcom.com>, <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1421078666.4099.6.camel@edumazet-glaptop2.roam.corp.google.com>
+In-Reply-To: <54B3D4FC.1090806@cogentembedded.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Am 12.01.2015 um 17:04 schrieb Eric Dumazet:
-> On Sun, 2015-01-11 at 21:52 +0100, Richard Weinberger wrote:
->> Signed-off-by: Richard Weinberger <richard@nod.at>
+On 01/12/15 15:06, Sergei Shtylyov wrote:
+> Hello.
+>
+> On 1/12/2015 9:41 AM, Fu, Zhonghui wrote:
+>
+>> From 8685c3c2746b4275fc808d9db23c364b2f54b52a Mon Sep 17 00:00:00 2001
+>> From: Zhonghui Fu <zhonghui.fu@linux.intel.com>
+>> Date: Mon, 12 Jan 2015 14:25:46 +0800
+>> Subject: [PATCH] brcmfmac: avoid duplicated suspend/resume operation
+>
+> The lines above are not needed.
+>
+>> WiFi chip has 2 SDIO functions, and PM core will trigger
+>> twice suspend/resume operations for one WiFi chip to do
+>> the same things. This patch avoid this case.
+>
+>> Acked-by: Arend van Spriel<arend@broadcom.com>
+>> Acked-by: Sergei Shtylyov<sergei.shtylyov@cogentembedded.com>
+>> Signed-off-by: Zhonghui Fu <zhonghui.fu@linux.intel.com>
 >> ---
->>  include/linux/netfilter/x_tables.h | 22 ++++++++++++++++++++++
->>  net/ipv4/netfilter/arp_tables.c    | 28 +++++++++++++++++-----------
->>  net/ipv4/netfilter/ip_tables.c     | 15 +++++----------
->>  net/ipv6/netfilter/ip6_tables.c    | 18 +++++++-----------
->>  net/netfilter/xt_physdev.c         |  9 ++-------
->>  5 files changed, 53 insertions(+), 39 deletions(-)
-> 
-> Richard, I dislike this, sorry.
+>> drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c | 21
+>> +++++++++++++++++----
+>> 1 files changed, 17 insertions(+), 4 deletions(-)
+>
+>> diff --git a/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c
+>> b/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c
+>> index 9880dae..8f71485 100644
+>> --- a/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c
+>> +++ b/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c
+>> @@ -1070,7 +1070,7 @@ static int brcmf_ops_sdio_probe(struct sdio_func
+>> *func,
+>> */
+>> if ((sdio_get_host_pm_caps(sdiodev->func[1]) & MMC_PM_KEEP_POWER) &&
+>> ((sdio_get_host_pm_caps(sdiodev->func[1]) & MMC_PM_WAKE_SDIO_IRQ) ||
+>> - (sdiodev->pdata && sdiodev->pdata->oob_irq_supported)))
+>> + (sdiodev->pdata->oob_irq_supported)))
+>
+> Inner parens not needed on this line.
 
-That's fine, the series carries the "RFC" burning mark for a reason.
+Well, actually this patch should not affect those line as it would 
+reintroduce a recently fixed issue.
 
-> iptables is already horribly expensive, you add another expensive step
-> for every rule.
+Regards,
+Arend
 
-Yeah, you mean the extra unlikey() check?
-
-> device aliasing can be done from user space.
-
-How?
-
-I did this series because I'm not so happy with the device renaming what udev
-does.
-The idea was to offer udev a better kernel interface to deal with aliases.
-Such that one can use the regular names form the kernel and the predictable
-names generated from udev.
-
-For block devices it was easy, we have the good old symlink.
-For network interface the kernel does not offer an API.
-
-> iptables should have used ifindex, its sad we allowed the substring
-> match in first place.
-
-Maybe nftables can do better. :-)
-
-Thanks,
-//richard
+> [...]
+>
+> WBR, Sergei
+>
