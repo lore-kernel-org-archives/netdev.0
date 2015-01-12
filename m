@@ -1,59 +1,64 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: [PATCH 1/5] net: atarilance: Remove obsolete IRQ_TYPE_PRIO
-Date: Mon, 12 Jan 2015 09:40:17 +0100
-Message-ID: <1421052021-12560-2-git-send-email-geert@linux-m68k.org>
-References: <1421052021-12560-1-git-send-email-geert@linux-m68k.org>
-Cc: linux-m68k@lists.linux-m68k.org, linux-kernel@vger.kernel.org,
-	Geert Uytterhoeven <geert@linux-m68k.org>,
-	netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>,
-	Jean-Christophe Plagniol-Villard <plagnioj@jcrosoft.com>,
-	Tomi Valkeinen <tomi.valkeinen@ti.com>,
-	Jaroslav Kysela <perex@perex.cz>, Takashi Iwai <tiwai@suse.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1421052021-12560-1-git-send-email-geert@linux-m68k.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH 3/3] x_tables: Factor out 16bit aligment ifname_compare()
+Date: Mon, 12 Jan 2015 00:40:51 -0800
+Message-ID: <1421052051.9233.11.camel@perches.com>
+References: <54B2EB81.5050604@nod.at>	<1421012376.9233.9.camel@perches.com>
+	 <54B2EE4D.2080802@nod.at>
+	 <20150111.215050.458358747958425038.davem@davemloft.net>
+	 <54B3834D.6090602@nod.at>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, coreteam@netfilter.org,
+	netfilter-devel@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, bhutchings@solarflare.com,
+	john.fastabend@gmail.com, herbert@gondor.apana.org.au,
+	vyasevic@redhat.com, jiri@resnulli.us, vfalico@gmail.com,
+	therbert@google.com, edumazet@google.com, yoshfuji@linux-ipv6.org,
+	jmorris@namei.org, kuznet@ms2.inr.ac.ru, kadlec@blackhole.kfki.hu,
+	kaber@trash.net, pablo@netfilter.org, kay@vrfy.org,
+	stephen@networkplumber.org
+To: Richard Weinberger <richard@nod.at>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <54B3834D.6090602@nod.at>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-IRQ_TYPE_PRIO is no longer used by the Atari platform interrupt code
-since commit 734085651c9b80aa ("[PATCH] m68k: convert atari irq code")
-in v2.6.18-rc1, so drop it.
+On Mon, 2015-01-12 at 09:18 +0100, Richard Weinberger wrote:
+> Am 12.01.2015 um 03:50 schrieb David Miller:
+> > From: Richard Weinberger <richard@nod.at>
+> > Date: Sun, 11 Jan 2015 22:42:37 +0100
+> > 
+> >> Joe, I really don't care. This is the least significant
+> >> patch of the series.
+> >> I'll no longer waste my time with that.
+> > 
+> > If you're not willing to fix stylistic issues now, then nobody should
+> > bother wasting their time on the high level issues of your patch.
+> > 
+> > Just fix these things now rather than being difficult, this is a part
+> > of patch review that everyone has to do, not just you.
+> 
+> I apologize, it was not my intention to be difficult.
 
-Note that its value has been reused for a different purpose
-(IRQ_TYPE_EDGE_FALLING) since commit 6a6de9ef5850d063 ("[PATCH] genirq:
-core") in v2.6.18-rc1.
+No worries.
 
-Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
-Cc: netdev@vger.kernel.org
----
- drivers/net/ethernet/amd/atarilance.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+The unsigned long return is kind of odd with a
+compare_<foo> name as those are generally, as Jan
+mentioned, signed comparison style return values.
 
-diff --git a/drivers/net/ethernet/amd/atarilance.c b/drivers/net/ethernet/amd/atarilance.c
-index e07ce5ff2d48bf93..b10964e8cb5469ce 100644
---- a/drivers/net/ethernet/amd/atarilance.c
-+++ b/drivers/net/ethernet/amd/atarilance.c
-@@ -553,8 +553,8 @@ static unsigned long __init lance_probe1( struct net_device *dev,
- 	if (lp->cardtype == PAM_CARD ||
- 		memaddr == (unsigned short *)0xffe00000) {
- 		/* PAMs card and Riebl on ST use level 5 autovector */
--		if (request_irq(IRQ_AUTO_5, lance_interrupt, IRQ_TYPE_PRIO,
--		            "PAM,Riebl-ST Ethernet", dev)) {
-+		if (request_irq(IRQ_AUTO_5, lance_interrupt, 0,
-+				"PAM,Riebl-ST Ethernet", dev)) {
- 			printk( "Lance: request for irq %d failed\n", IRQ_AUTO_5 );
- 			return 0;
- 		}
-@@ -567,8 +567,8 @@ static unsigned long __init lance_probe1( struct net_device *dev,
- 			printk( "Lance: request for VME interrupt failed\n" );
- 			return 0;
- 		}
--		if (request_irq(irq, lance_interrupt, IRQ_TYPE_PRIO,
--		            "Riebl-VME Ethernet", dev)) {
-+		if (request_irq(irq, lance_interrupt, 0, "Riebl-VME Ethernet",
-+				dev)) {
- 			printk( "Lance: request for irq %u failed\n", irq );
- 			return 0;
- 		}
--- 
-1.9.1
+I'd probably use a different function name too
+
+bool ifname_equal(const char *a, const char *b, const char *mask)
+{
+}
+
+to try to make the return value more obvious too.
+
+> If you and netfilter folks now prefer bool
+> for such string compare functions I'll happily address this in
+> v2 of my series.
+
+Thanks
+
+
