@@ -1,491 +1,114 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH 6/6] openvswitch: Support VXLAN Group Policy extension
-Date: Mon, 12 Jan 2015 13:26:22 +0100
-Message-ID: <60651d9355f4e34ed6686d95ad837467a1d2c888.1421064100.git.tgraf@suug.ch>
-References: <cover.1421064100.git.tgraf@suug.ch>
-Cc: dev@openvswitch.org, netdev@vger.kernel.org
-To: davem@davemloft.net, jesse@nicira.com, stephen@networkplumber.org,
-	pshelar@nicira.com, therbert@google.com,
-	alexei.starovoitov@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:44587 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752528AbbALM02 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jan 2015 07:26:28 -0500
-In-Reply-To: <cover.1421064100.git.tgraf@suug.ch>
-In-Reply-To: <cover.1421064100.git.tgraf@suug.ch>
-References: <cover.1421064100.git.tgraf@suug.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH v3 4/4] can: kvaser_usb: Add support for the Usbcan-II
+ family
+Date: Mon, 12 Jan 2015 13:34:52 +0100
+Message-ID: <54B3BF6C.4000004@pengutronix.de>
+References: <20141223154654.GB6460@vivalin-002> <20150105174910.GA6304@linux> <20150105175206.GB6304@linux> <20150105175713.GC6304@linux> <20150105183131.GD6304@linux> <54AE6FC1.6050007@pengutronix.de> <20150108151901.GA11398@vivalin-002> <54B3B555.5010804@pengutronix.de> <20150112122619.GD9213@linux>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="T0LURvIkHTpnhlvomdKmUGfCCmAGA2loP"
+Cc: Olivier Sobrie <olivier@sobrie.be>,
+	Oliver Hartkopp <socketcan@hartkopp.net>,
+	Wolfgang Grandegger <wg@grandegger.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	Linux-CAN <linux-can@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: "Ahmed S. Darwish" <darwish.07@gmail.com>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <20150112122619.GD9213@linux>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Introduces support for the group policy extension to the VXLAN virtual
-port. The extension is disabled by default and only enabled if the user
-has provided the respective configuration.
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--T0LURvIkHTpnhlvomdKmUGfCCmAGA2loP
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
 
-  ovs-vsctl add-port br0 vxlan0 -- \
-     set Interface vxlan0 type=vxlan options:exts=gbp
+On 01/12/2015 01:26 PM, Ahmed S. Darwish wrote:
+> On Mon, Jan 12, 2015 at 12:51:49PM +0100, Marc Kleine-Budde wrote:
+>> On 01/08/2015 04:19 PM, Ahmed S. Darwish wrote:
+>>
+>> [...]
+>>
+>>>>>  MODULE_DEVICE_TABLE(usb, kvaser_usb_table);
+>>>>> @@ -463,7 +631,18 @@ static int kvaser_usb_get_software_info(struct=
+ kvaser_usb *dev)
+>>>>>  	if (err)
+>>>>>  		return err;
+>>>>> =20
+>>>>> -	dev->fw_version =3D le32_to_cpu(msg.u.softinfo.fw_version);
+>>>>> +	switch (dev->family) {
+>>>>> +	case KVASER_LEAF:
+>>>>> +		dev->fw_version =3D le32_to_cpu(msg.u.leaf.softinfo.fw_version);=
 
-The configuration interface to enable the extension is based on a new
-attribute OVS_VXLAN_EXT_GBP nested inside OVS_TUNNEL_ATTR_EXTENSION
-which can carry additional extensions as needed in the future.
+>>>>> +		break;
+>>>>> +	case KVASER_USBCAN:
+>>>>> +		dev->fw_version =3D le32_to_cpu(msg.u.usbcan.softinfo.fw_version=
+);
+>>>>> +		break;
+>>>>> +	default:
+>>>>> +		dev_err(dev->udev->dev.parent,
+>>>>> +			"Invalid device family (%d)\n", dev->family);
+>>>>> +		return -EINVAL;
+>>>>
+>>>> The default case should not happen. I think you can remove it.
+>>
+>>> It's true, it _should_ never happen. But I only add such checks if
+>>> the follow-up code critically depends on a certain `dev->family`
+>>> behavior. So it's kind of a defensive check against any possible
+>>> bug in driver or memory.
+>>>
+>>> What do you think?
+>>
+>> The kernel is full of callback functions, if you have a bit flip there=
 
-The group policy metadata is stored as binary blob (struct ovs_vxlan_opts)
-internally just like Geneve options but transported as nested Netlink
-attributes to user space.
+>> you're in trouble anyways. A bug in the driver (or other parts of the
+>> kernel) might overwrite the memory of dev->family, but if this happens=
+,
+>> more things will break.
+>>
+>=20
+> I see. Thanks for the explanation.
+>=20
+> Most of them are now removed in latest submission, except two to
+> avoid GCC warnings of variables that "may be used uninitialized".
 
-Renames the existing TUNNEL_OPTIONS_PRESENT to TUNNEL_GENEVE_OPT with the
-binary value kept intact, a new flag TUNNEL_VXLAN_OPT is introduced.
+Thanks, I'll look at the code later and try to figure out what gcc's
+problem might be.
 
-The attributes OVS_TUNNEL_KEY_ATTR_VXLAN_OPTS and existing
-OVS_TUNNEL_KEY_ATTR_GENEVE_OPTS are implemented mutually exclusive.
+Marc
 
-Signed-off-by: Thomas Graf <tgraf@suug.ch>
----
-v2->v3:
- - No change
-v1->v2:
- - Addressed Jesse's request to transport VXLAN options as Netlink
-   attributes instead of a binary blob. Allows a partial transport of
-   VXLAN extensions. Internally, the datapath continues to use a binary
-   blob (defined in vport-vxlan.h) for performance reasons.
- - Added new TUNNEL_GENEVE_OPT and TUNNEL_VXLAN_OPT flags to mark
-   tunnel option flavour
- - Correctly report VXLAN options to user space
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
 
- include/net/ip_tunnels.h         |   5 +-
- include/uapi/linux/openvswitch.h |  11 ++++
- net/openvswitch/flow_netlink.c   | 114 ++++++++++++++++++++++++++++++++++-----
- net/openvswitch/vport-geneve.c   |   2 +-
- net/openvswitch/vport-vxlan.c    |  81 +++++++++++++++++++++++++++-
- net/openvswitch/vport-vxlan.h    |  11 ++++
- 6 files changed, 207 insertions(+), 17 deletions(-)
- create mode 100644 net/openvswitch/vport-vxlan.h
 
-diff --git a/include/net/ip_tunnels.h b/include/net/ip_tunnels.h
-index 25a59eb..ce4db3c 100644
---- a/include/net/ip_tunnels.h
-+++ b/include/net/ip_tunnels.h
-@@ -97,7 +97,10 @@ struct ip_tunnel {
- #define TUNNEL_DONT_FRAGMENT    __cpu_to_be16(0x0100)
- #define TUNNEL_OAM		__cpu_to_be16(0x0200)
- #define TUNNEL_CRIT_OPT		__cpu_to_be16(0x0400)
--#define TUNNEL_OPTIONS_PRESENT	__cpu_to_be16(0x0800)
-+#define TUNNEL_GENEVE_OPT	__cpu_to_be16(0x0800)
-+#define TUNNEL_VXLAN_OPT	__cpu_to_be16(0x1000)
-+
-+#define TUNNEL_OPTIONS_PRESENT	(TUNNEL_GENEVE_OPT | TUNNEL_VXLAN_OPT)
- 
- struct tnl_ptk_info {
- 	__be16 flags;
-diff --git a/include/uapi/linux/openvswitch.h b/include/uapi/linux/openvswitch.h
-index 3a6dcaa..e474c95 100644
---- a/include/uapi/linux/openvswitch.h
-+++ b/include/uapi/linux/openvswitch.h
-@@ -248,11 +248,21 @@ enum ovs_vport_attr {
- 
- #define OVS_VPORT_ATTR_MAX (__OVS_VPORT_ATTR_MAX - 1)
- 
-+enum {
-+	OVS_VXLAN_EXT_UNSPEC,
-+	OVS_VXLAN_EXT_GBP,	/* Flag or __u32 */
-+	__OVS_VXLAN_EXT_MAX,
-+};
-+
-+#define OVS_VXLAN_EXT_MAX (__OVS_VXLAN_EXT_MAX - 1)
-+
-+
- /* OVS_VPORT_ATTR_OPTIONS attributes for tunnels.
-  */
- enum {
- 	OVS_TUNNEL_ATTR_UNSPEC,
- 	OVS_TUNNEL_ATTR_DST_PORT, /* 16-bit UDP port, used by L4 tunnels. */
-+	OVS_TUNNEL_ATTR_EXTENSION,
- 	__OVS_TUNNEL_ATTR_MAX
- };
- 
-@@ -324,6 +334,7 @@ enum ovs_tunnel_key_attr {
- 	OVS_TUNNEL_KEY_ATTR_GENEVE_OPTS,        /* Array of Geneve options. */
- 	OVS_TUNNEL_KEY_ATTR_TP_SRC,		/* be16 src Transport Port. */
- 	OVS_TUNNEL_KEY_ATTR_TP_DST,		/* be16 dst Transport Port. */
-+	OVS_TUNNEL_KEY_ATTR_VXLAN_OPTS,		/* Nested OVS_VXLAN_EXT_* */
- 	__OVS_TUNNEL_KEY_ATTR_MAX
- };
- 
-diff --git a/net/openvswitch/flow_netlink.c b/net/openvswitch/flow_netlink.c
-index 457ccf3..cea492b 100644
---- a/net/openvswitch/flow_netlink.c
-+++ b/net/openvswitch/flow_netlink.c
-@@ -49,6 +49,7 @@
- #include <net/mpls.h>
- 
- #include "flow_netlink.h"
-+#include "vport-vxlan.h"
- 
- struct ovs_len_tbl {
- 	int len;
-@@ -268,6 +269,9 @@ size_t ovs_tun_key_attr_size(void)
- 		+ nla_total_size(0)    /* OVS_TUNNEL_KEY_ATTR_CSUM */
- 		+ nla_total_size(0)    /* OVS_TUNNEL_KEY_ATTR_OAM */
- 		+ nla_total_size(256)  /* OVS_TUNNEL_KEY_ATTR_GENEVE_OPTS */
-+		/* OVS_TUNNEL_KEY_ATTR_VXLAN_OPTS is mutually exclusive with
-+		 * OVS_TUNNEL_KEY_ATTR_GENEVE_OPTS and covered by it.
-+		 */
- 		+ nla_total_size(2)    /* OVS_TUNNEL_KEY_ATTR_TP_SRC */
- 		+ nla_total_size(2);   /* OVS_TUNNEL_KEY_ATTR_TP_DST */
- }
-@@ -308,6 +312,7 @@ static const struct ovs_len_tbl ovs_tunnel_key_lens[OVS_TUNNEL_KEY_ATTR_MAX + 1]
- 	[OVS_TUNNEL_KEY_ATTR_TP_DST]	    = { .len = sizeof(u16) },
- 	[OVS_TUNNEL_KEY_ATTR_OAM]	    = { .len = 0 },
- 	[OVS_TUNNEL_KEY_ATTR_GENEVE_OPTS]   = { .len = OVS_ATTR_NESTED },
-+	[OVS_TUNNEL_KEY_ATTR_VXLAN_OPTS]    = { .len = OVS_ATTR_NESTED },
- };
- 
- /* The size of the argument for each %OVS_KEY_ATTR_* Netlink attribute.  */
-@@ -460,6 +465,41 @@ static int genev_tun_opt_from_nlattr(const struct nlattr *a,
- 	return 0;
- }
- 
-+static const struct nla_policy vxlan_opt_policy[OVS_VXLAN_EXT_MAX + 1] = {
-+	[OVS_VXLAN_EXT_GBP]	= { .type = NLA_U32 },
-+};
-+
-+static int vxlan_tun_opt_from_nlattr(const struct nlattr *a,
-+				     struct sw_flow_match *match, bool is_mask,
-+				     bool log)
-+{
-+	struct nlattr *tb[OVS_VXLAN_EXT_MAX+1];
-+	unsigned long opt_key_offset;
-+	struct ovs_vxlan_opts opts;
-+	int err;
-+
-+	BUILD_BUG_ON(sizeof(opts) > sizeof(match->key->tun_opts));
-+
-+	err = nla_parse_nested(tb, OVS_VXLAN_EXT_MAX, a, vxlan_opt_policy);
-+	if (err < 0)
-+		return err;
-+
-+	memset(&opts, 0, sizeof(opts));
-+
-+	if (tb[OVS_VXLAN_EXT_MAX])
-+		opts.gbp = nla_get_u32(tb[OVS_VXLAN_EXT_MAX]);
-+
-+	if (!is_mask)
-+		SW_FLOW_KEY_PUT(match, tun_opts_len, sizeof(opts), false);
-+	else
-+		SW_FLOW_KEY_PUT(match, tun_opts_len, 0xff, true);
-+
-+	opt_key_offset = TUN_METADATA_OFFSET(sizeof(opts));
-+	SW_FLOW_KEY_MEMCPY_OFFSET(match, opt_key_offset, &opts, sizeof(opts),
-+				  is_mask);
-+	return 0;
-+}
-+
- static int ipv4_tun_from_nlattr(const struct nlattr *attr,
- 				struct sw_flow_match *match, bool is_mask,
- 				bool log)
-@@ -468,6 +508,7 @@ static int ipv4_tun_from_nlattr(const struct nlattr *attr,
- 	int rem;
- 	bool ttl = false;
- 	__be16 tun_flags = 0;
-+	int opts_type = 0;
- 
- 	nla_for_each_nested(a, attr, rem) {
- 		int type = nla_type(a);
-@@ -527,11 +568,30 @@ static int ipv4_tun_from_nlattr(const struct nlattr *attr,
- 			tun_flags |= TUNNEL_OAM;
- 			break;
- 		case OVS_TUNNEL_KEY_ATTR_GENEVE_OPTS:
-+			if (opts_type) {
-+				OVS_NLERR(log, "Multiple metadata blocks provided");
-+				return -EINVAL;
-+			}
-+
- 			err = genev_tun_opt_from_nlattr(a, match, is_mask, log);
- 			if (err)
- 				return err;
- 
--			tun_flags |= TUNNEL_OPTIONS_PRESENT;
-+			tun_flags |= TUNNEL_GENEVE_OPT;
-+			opts_type = type;
-+			break;
-+		case OVS_TUNNEL_KEY_ATTR_VXLAN_OPTS:
-+			if (opts_type) {
-+				OVS_NLERR(log, "Multiple metadata blocks provided");
-+				return -EINVAL;
-+			}
-+
-+			err = vxlan_tun_opt_from_nlattr(a, match, is_mask, log);
-+			if (err)
-+				return err;
-+
-+			tun_flags |= TUNNEL_VXLAN_OPT;
-+			opts_type = type;
- 			break;
- 		default:
- 			OVS_NLERR(log, "Unknown IPv4 tunnel attribute %d",
-@@ -560,6 +620,23 @@ static int ipv4_tun_from_nlattr(const struct nlattr *attr,
- 		}
- 	}
- 
-+	return opts_type;
-+}
-+
-+static int vxlan_opt_to_nlattr(struct sk_buff *skb,
-+			       const void *tun_opts, int swkey_tun_opts_len)
-+{
-+	const struct ovs_vxlan_opts *opts = tun_opts;
-+	struct nlattr *nla;
-+
-+	nla = nla_nest_start(skb, OVS_TUNNEL_KEY_ATTR_VXLAN_OPTS);
-+	if (!nla)
-+		return -EMSGSIZE;
-+
-+	if (nla_put_u32(skb, OVS_VXLAN_EXT_GBP, opts->gbp) < 0)
-+		return -EMSGSIZE;
-+
-+	nla_nest_end(skb, nla);
- 	return 0;
- }
- 
-@@ -596,10 +673,15 @@ static int __ipv4_tun_to_nlattr(struct sk_buff *skb,
- 	if ((output->tun_flags & TUNNEL_OAM) &&
- 	    nla_put_flag(skb, OVS_TUNNEL_KEY_ATTR_OAM))
- 		return -EMSGSIZE;
--	if (tun_opts &&
--	    nla_put(skb, OVS_TUNNEL_KEY_ATTR_GENEVE_OPTS,
--		    swkey_tun_opts_len, tun_opts))
--		return -EMSGSIZE;
-+	if (tun_opts) {
-+		if (output->tun_flags & TUNNEL_GENEVE_OPT &&
-+		    nla_put(skb, OVS_TUNNEL_KEY_ATTR_GENEVE_OPTS,
-+			    swkey_tun_opts_len, tun_opts))
-+			return -EMSGSIZE;
-+		else if (output->tun_flags & TUNNEL_VXLAN_OPT &&
-+			 vxlan_opt_to_nlattr(skb, tun_opts, swkey_tun_opts_len))
-+			return -EMSGSIZE;
-+	}
- 
- 	return 0;
- }
-@@ -680,7 +762,7 @@ static int metadata_from_nlattrs(struct sw_flow_match *match,  u64 *attrs,
- 	}
- 	if (*attrs & (1 << OVS_KEY_ATTR_TUNNEL)) {
- 		if (ipv4_tun_from_nlattr(a[OVS_KEY_ATTR_TUNNEL], match,
--					 is_mask, log))
-+					 is_mask, log) < 0)
- 			return -EINVAL;
- 		*attrs &= ~(1 << OVS_KEY_ATTR_TUNNEL);
- 	}
-@@ -1578,17 +1660,23 @@ static int validate_and_copy_set_tun(const struct nlattr *attr,
- 	struct sw_flow_key key;
- 	struct ovs_tunnel_info *tun_info;
- 	struct nlattr *a;
--	int err, start;
-+	int err, start, opts_type;
- 
- 	ovs_match_init(&match, &key, NULL);
--	err = ipv4_tun_from_nlattr(nla_data(attr), &match, false, log);
--	if (err)
--		return err;
-+	opts_type = ipv4_tun_from_nlattr(nla_data(attr), &match, false, log);
-+	if (opts_type < 0)
-+		return opts_type;
- 
- 	if (key.tun_opts_len) {
--		err = validate_and_copy_geneve_opts(&key);
--		if (err < 0)
--			return err;
-+		switch (opts_type) {
-+		case OVS_TUNNEL_KEY_ATTR_GENEVE_OPTS:
-+			err = validate_and_copy_geneve_opts(&key);
-+			if (err < 0)
-+				return err;
-+			break;
-+		case OVS_TUNNEL_KEY_ATTR_VXLAN_OPTS:
-+			break;
-+		}
- 	};
- 
- 	start = add_nested_action_start(sfa, OVS_ACTION_ATTR_SET, log);
-diff --git a/net/openvswitch/vport-geneve.c b/net/openvswitch/vport-geneve.c
-index 484864d..902ee4f 100644
---- a/net/openvswitch/vport-geneve.c
-+++ b/net/openvswitch/vport-geneve.c
-@@ -90,7 +90,7 @@ static void geneve_rcv(struct geneve_sock *gs, struct sk_buff *skb)
- 
- 	opts_len = geneveh->opt_len * 4;
- 
--	flags = TUNNEL_KEY | TUNNEL_OPTIONS_PRESENT |
-+	flags = TUNNEL_KEY | TUNNEL_GENEVE_OPT |
- 		(udp_hdr(skb)->check != 0 ? TUNNEL_CSUM : 0) |
- 		(geneveh->oam ? TUNNEL_OAM : 0) |
- 		(geneveh->critical ? TUNNEL_CRIT_OPT : 0);
-diff --git a/net/openvswitch/vport-vxlan.c b/net/openvswitch/vport-vxlan.c
-index 266c595..dbd6c75 100644
---- a/net/openvswitch/vport-vxlan.c
-+++ b/net/openvswitch/vport-vxlan.c
-@@ -40,6 +40,7 @@
- 
- #include "datapath.h"
- #include "vport.h"
-+#include "vport-vxlan.h"
- 
- /**
-  * struct vxlan_port - Keeps track of open UDP ports
-@@ -49,6 +50,7 @@
- struct vxlan_port {
- 	struct vxlan_sock *vs;
- 	char name[IFNAMSIZ];
-+	u32 exts; /* VXLAN_EXT_* in <net/vxlan.h> */
- };
- 
- static struct vport_ops ovs_vxlan_vport_ops;
-@@ -63,16 +65,26 @@ static void vxlan_rcv(struct vxlan_sock *vs, struct sk_buff *skb,
- 		      struct vxlan_metadata *md)
- {
- 	struct ovs_tunnel_info tun_info;
-+	struct vxlan_port *vxlan_port;
- 	struct vport *vport = vs->data;
- 	struct iphdr *iph;
-+	struct ovs_vxlan_opts opts = {
-+		.gbp = md->gbp,
-+	};
- 	__be64 key;
-+	__be16 flags;
-+
-+	flags = TUNNEL_KEY;
-+	vxlan_port = vxlan_vport(vport);
-+	if (vxlan_port->exts & VXLAN_EXT_GBP)
-+		flags |= TUNNEL_VXLAN_OPT;
- 
- 	/* Save outer tunnel values */
- 	iph = ip_hdr(skb);
- 	key = cpu_to_be64(ntohl(md->vni) >> 8);
- 	ovs_flow_tun_info_init(&tun_info, iph,
- 			       udp_hdr(skb)->source, udp_hdr(skb)->dest,
--			       key, TUNNEL_KEY, NULL, 0);
-+			       key, flags, &opts, sizeof(opts));
- 
- 	ovs_vport_receive(vport, skb, &tun_info);
- }
-@@ -84,6 +96,21 @@ static int vxlan_get_options(const struct vport *vport, struct sk_buff *skb)
- 
- 	if (nla_put_u16(skb, OVS_TUNNEL_ATTR_DST_PORT, ntohs(dst_port)))
- 		return -EMSGSIZE;
-+
-+	if (vxlan_port->exts) {
-+		struct nlattr *exts;
-+
-+		exts = nla_nest_start(skb, OVS_TUNNEL_ATTR_EXTENSION);
-+		if (!exts)
-+			return -EMSGSIZE;
-+
-+		if (vxlan_port->exts & VXLAN_EXT_GBP &&
-+		    nla_put_flag(skb, OVS_VXLAN_EXT_GBP))
-+			return -EMSGSIZE;
-+
-+		nla_nest_end(skb, exts);
-+	}
-+
- 	return 0;
- }
- 
-@@ -96,6 +123,31 @@ static void vxlan_tnl_destroy(struct vport *vport)
- 	ovs_vport_deferred_free(vport);
- }
- 
-+static const struct nla_policy exts_policy[OVS_VXLAN_EXT_MAX+1] = {
-+	[OVS_VXLAN_EXT_GBP]	= { .type = NLA_FLAG, },
-+};
-+
-+static int vxlan_configure_exts(struct vport *vport, struct nlattr *attr)
-+{
-+	struct nlattr *exts[OVS_VXLAN_EXT_MAX+1];
-+	struct vxlan_port *vxlan_port;
-+	int err;
-+
-+	if (nla_len(attr) < sizeof(struct nlattr))
-+		return -EINVAL;
-+
-+	err = nla_parse_nested(exts, OVS_VXLAN_EXT_MAX, attr, exts_policy);
-+	if (err < 0)
-+		return err;
-+
-+	vxlan_port = vxlan_vport(vport);
-+
-+	if (exts[OVS_VXLAN_EXT_GBP])
-+		vxlan_port->exts |= VXLAN_EXT_GBP;
-+
-+	return 0;
-+}
-+
- static struct vport *vxlan_tnl_create(const struct vport_parms *parms)
- {
- 	struct net *net = ovs_dp_get_net(parms->dp);
-@@ -128,7 +180,17 @@ static struct vport *vxlan_tnl_create(const struct vport_parms *parms)
- 	vxlan_port = vxlan_vport(vport);
- 	strncpy(vxlan_port->name, parms->name, IFNAMSIZ);
- 
--	vs = vxlan_sock_add(net, htons(dst_port), vxlan_rcv, vport, true, 0, 0);
-+	a = nla_find_nested(options, OVS_TUNNEL_ATTR_EXTENSION);
-+	if (a) {
-+		err = vxlan_configure_exts(vport, a);
-+		if (err) {
-+			ovs_vport_free(vport);
-+			goto error;
-+		}
-+	}
-+
-+	vs = vxlan_sock_add(net, htons(dst_port), vxlan_rcv, vport, true, 0,
-+			    vxlan_port->exts);
- 	if (IS_ERR(vs)) {
- 		ovs_vport_free(vport);
- 		return (void *)vs;
-@@ -141,6 +203,20 @@ error:
- 	return ERR_PTR(err);
- }
- 
-+static int vxlan_ext_gbp(struct sk_buff *skb)
-+{
-+	const struct ovs_tunnel_info *tun_info;
-+	const struct ovs_vxlan_opts *opts;
-+
-+	tun_info = OVS_CB(skb)->egress_tun_info;
-+	opts = tun_info->options;
-+
-+	if (tun_info->options_len >= sizeof(*opts))
-+		return opts->gbp;
-+	else
-+		return 0;
-+}
-+
- static int vxlan_tnl_send(struct vport *vport, struct sk_buff *skb)
- {
- 	struct net *net = ovs_dp_get_net(vport->dp);
-@@ -181,6 +257,7 @@ static int vxlan_tnl_send(struct vport *vport, struct sk_buff *skb)
- 
- 	src_port = udp_flow_src_port(net, skb, 0, 0, true);
- 	md.vni = htonl(be64_to_cpu(tun_key->tun_id) << 8);
-+	md.gbp = vxlan_ext_gbp(skb);
- 
- 	err = vxlan_xmit_skb(vxlan_port->vs, rt, skb,
- 			     fl.saddr, tun_key->ipv4_dst,
-diff --git a/net/openvswitch/vport-vxlan.h b/net/openvswitch/vport-vxlan.h
-new file mode 100644
-index 0000000..4b08233e
---- /dev/null
-+++ b/net/openvswitch/vport-vxlan.h
-@@ -0,0 +1,11 @@
-+#ifndef VPORT_VXLAN_H
-+#define VPORT_VXLAN_H 1
-+
-+#include <linux/kernel.h>
-+#include <linux/types.h>
-+
-+struct ovs_vxlan_opts {
-+	__u32 gbp;
-+};
-+
-+#endif
--- 
-1.9.3
+--T0LURvIkHTpnhlvomdKmUGfCCmAGA2loP
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIcBAEBAgAGBQJUs79sAAoJECte4hHFiupUfqIQAJxCHPt1UzhgEQVZNt0ONQY/
+0PKUDb3ekgok4PyTJk5YZvwbAksKUqXithIcjognePZeKyPcPJkslEjoDp0lmtt4
+OBumJIHzlm38Udop7d8wSZBatVr0CkkkBvI/xWEy0kKOj6aQ9sQqTbDkQ86ZjRFs
+qi6X8qpfUzOH5ZSqR80VBw41bBDiqdzuQ+tKAxUK5+5ZtubkBKrXSic6COavYP30
+AV8xXWWt9u3+1OM/Exdjd6tUs1W/7zUJxjK8idYkcsn7TKD+RBJVL7e2XSWmolAq
+k1bW+aIo2oMRDxiVFwCkBR49s0LgN9QGQ6BIEAwLid3WWGYKcluFMaRD4WfvaCwI
+vfuFL7mXjz16e8Wi4ntzjYp9hjJR1aBKznU28QkXXjJeG4LMVL2I+MRQiawInjKT
+KPXR9M1lh+nL33OV14wIe62/bC8tzOpqzVdmasUyQ1STsDNIOR9xaAsj66t0NH1l
+io+CwdnCpxVaL6c4uvwfa0WV4Yd1dwR08TYS8e8JSikKX+vHYNstTruG9JNAq0Pl
+X8xBdnu2HsYuBtrM0azHp4KsKmLYSAj/2to3nbdmrk400JuVd0YqAx1IjFrbOz9u
+aPuu58UBKxm6YrH+tk48M6xqD4S7YmqbLKyyk2zbxeSlkNXL6fRmjo2mFEuXyhSV
+itmnu+CZF1XI1858+j4F
+=M+PH
+-----END PGP SIGNATURE-----
+
+--T0LURvIkHTpnhlvomdKmUGfCCmAGA2loP--
