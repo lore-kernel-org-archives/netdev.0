@@ -1,32 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 0/2 RESEND] r8152: adjust r8152_submit_rx
-Date: Mon, 12 Jan 2015 16:11:01 -0500 (EST)
-Message-ID: <20150112.161101.337036741119753652.davem@davemloft.net>
-References: <1394712342-15778-114-Taiwan-albertk@realtek.com>
+Subject: Re: [PATCH v2 net-next] bridge: Add ability to enable TSO
+Date: Mon, 12 Jan 2015 16:18:33 -0500 (EST)
+Message-ID: <20150112.161833.1081573233180480559.davem@davemloft.net>
+References: <1420780600-11313-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
-	linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org
-To: hayeswang@realtek.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1394712342-15778-114-Taiwan-albertk@realtek.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org
+To: makita.toshiaki@lab.ntt.co.jp
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1420780600-11313-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-From: Hayes Wang <hayeswang@realtek.com>
-Date: Fri, 9 Jan 2015 10:26:34 +0800
+From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Date: Fri,  9 Jan 2015 14:16:40 +0900
 
-> v2:
-> Replace the patch #1 with "call rtl_start_rx after netif_carrier_on".
+> Currently a bridge device turns off TSO feature if no bridge ports
+> support it. We can always enable it, since packets can be segmented on
+> ports by software as well as on the bridge device.
+> This will reduce the number of packets processed in the bridge.
 > 
-> For patch #2, replace checking tp->speed with netif_carrier_ok.
-> 
-> v1:
-> Avoid r8152_submit_rx() from submitting rx during unexpected
-> moment. This could reduce the time of stopping rx.
-> 
-> For patch #1, the tp->speed should be updated early. Then,
-> the patch #2 could use it to check the current linking status.
+> Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+> ---
+> v2: Use an existing helper function.
 
-Series applied, thanks.
+Applied, thank you.
