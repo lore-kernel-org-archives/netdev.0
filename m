@@ -1,48 +1,39 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 2/3] x_tables: Use also dev->ifalias for interface
- matching
-Date: Mon, 12 Jan 2015 08:46:08 -0800
-Message-ID: <1421081168.4099.10.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1421009571-5279-1-git-send-email-richard@nod.at>
-	 <1421009571-5279-3-git-send-email-richard@nod.at>
-	 <1421078666.4099.6.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <alpine.LSU.2.11.1501121731510.25482@nerf60.vanv.qr>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: [PATCH net-next v3] tcp: avoid reducing cwnd when ACK+DSACK is received
+Date: Mon, 12 Jan 2015 11:48:20 -0500
+Message-ID: <CADVnQy=JDAoLtBnFXsQDTU1_OYFGpDCF1Un28iM1gz0KZDGoug@mail.gmail.com>
+References: <1421055040-8732-1-git-send-email-sebastien.barre@uclouvain.be>
+	<1421075729.4099.0.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Richard Weinberger <richard@nod.at>, davem@davemloft.net,
-	coreteam@netfilter.org, netfilter-devel@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	bhutchings@solarflare.com, john.fastabend@gmail.com,
-	herbert@gondor.apana.org.au, vyasevic@redhat.com, jiri@resnulli.us,
-	vfalico@gmail.com, therbert@google.com, edumazet@google.com,
-	yoshfuji@linux-ipv6.org, jmorris@namei.org, kuznet@ms2.inr.ac.ru,
-	kadlec@blackhole.kfki.hu, kaber@trash.net, pablo@netfilter.org,
-	kay@vrfy.org, stephen@networkplumber.org
-To: Jan Engelhardt <jengelh@inai.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LSU.2.11.1501121731510.25482@nerf60.vanv.qr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?UTF-8?B?U8OpYmFzdGllbiBCYXJyw6k=?= <sebastien.barre@uclouvain.be>,
+	David Miller <davem@davemloft.net>,
+	Yuchung Cheng <ycheng@google.com>,
+	Netdev <netdev@vger.kernel.org>,
+	Gregory Detal <gregory.detal@uclouvain.be>,
+	Nandita Dukkipati <nanditad@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qa0-f43.google.com ([209.85.216.43]:64553 "EHLO
+	mail-qa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751074AbbALQs3 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jan 2015 11:48:29 -0500
+Received: by mail-qa0-f43.google.com with SMTP id v10so11121678qac.2
+        for <netdev@vger.kernel.org>; Mon, 12 Jan 2015 08:48:28 -0800 (PST)
+In-Reply-To: <1421075729.4099.0.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2015-01-12 at 17:32 +0100, Jan Engelhardt wrote:
-> On Monday 2015-01-12 17:04, Eric Dumazet wrote:
-> >
-> >iptables should have used ifindex [for interface matching],
-> >it[']s sad we allowed the substring match in first place.
-> 
-> How would you solve interface name wildcards with ifindices?
-> (They come in handy if you have something like lots of tun+/veth+
-> interfaces from openvpn/lxc.)
+On Mon, 2015-01-12 at 10:30 +0100, S=C3=A9bastien Barr=C3=A9 wrote:
+> With TLP, the peer may reply to a probe with an
+> ACK+D-SACK, with ack value set to tlp_high_seq. In the current code,
+> such ACK+DSACK will be missed and only at next, higher ack will the T=
+LP
+> episode be considered done. Since the DSACK is not present anymore,
+> this will cost a cwnd reduction.
 
+Acked-by: Neal Cardwell <ncardwell@google.com>
 
-This is what I said : "it[']s sad we allowed the substring match in
-first place."
-
-This obviously referred to wildcards, in the in/out interface match for
-every _single_ rule, consuming 64 bytes of memory per rule and per cpu !
-Which is absolutely crazy in term of memory usage.
-
-Matching tun+ or whatever could easily be done by a match (-m ...),
-because you can factorize this quite easily (called once for a group of
-rules)
+Thanks!
+neal
