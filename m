@@ -1,196 +1,160 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH 3/6] vxlan: Only bind to sockets with correct extensions enabled
-Date: Mon, 12 Jan 2015 13:26:19 +0100
-Message-ID: <e9af73d8610048331d0de7d9678a1c55268903d8.1421064100.git.tgraf@suug.ch>
+From: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
+Subject: [PATCH 5/6] openvswitch: Allow for any level of nesting
+	in flow attributes
+Date: Mon, 12 Jan 2015 13:26:21 +0100
+Message-ID: <793586e5305017d914913df4d3502cada6f1f55f.1421064100.git.tgraf@suug.ch>
 References: <cover.1421064100.git.tgraf@suug.ch>
-Cc: dev@openvswitch.org, netdev@vger.kernel.org
-To: davem@davemloft.net, jesse@nicira.com, stephen@networkplumber.org,
-	pshelar@nicira.com, therbert@google.com,
-	alexei.starovoitov@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:44565 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752516AbbALM02 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jan 2015 07:26:28 -0500
-In-Reply-To: <cover.1421064100.git.tgraf@suug.ch>
-In-Reply-To: <cover.1421064100.git.tgraf@suug.ch>
-References: <cover.1421064100.git.tgraf@suug.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org, stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org,
+ pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org, therbert-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <cover.1421064100.git.tgraf-G/eBtMaohhA@public.gmane.org>
+In-Reply-To: <cover.1421064100.git.tgraf-G/eBtMaohhA@public.gmane.org>
+References: <cover.1421064100.git.tgraf-G/eBtMaohhA@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-A VXLAN net_device looking for an appropriate socket may only consider
-a socket which has a matching set of extensions enabled. If the
-extensions don't match, return a conflict to have the caller create a
-distinct socket with distinct port.
-
-The OVS VXLAN port is kept unaware of extensions at this point.
-
-Signed-off-by: Thomas Graf <tgraf@suug.ch>
----
-v2->v3:
- - No change
-v1->v2:
- - Improved commit message, reported by Jesse
-
- drivers/net/vxlan.c           | 35 +++++++++++++++++++++--------------
- include/net/vxlan.h           |  2 +-
- net/openvswitch/vport-vxlan.c |  2 +-
- 3 files changed, 23 insertions(+), 16 deletions(-)
-
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index b148739..61e1112 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -271,14 +271,15 @@ static inline struct vxlan_rdst *first_remote_rtnl(struct vxlan_fdb *fdb)
- }
- 
- /* Find VXLAN socket based on network namespace, address family and UDP port */
--static struct vxlan_sock *vxlan_find_sock(struct net *net,
--					  sa_family_t family, __be16 port)
-+static struct vxlan_sock *vxlan_find_sock(struct net *net, sa_family_t family,
-+					  __be16 port, u32 exts)
- {
- 	struct vxlan_sock *vs;
- 
- 	hlist_for_each_entry_rcu(vs, vs_head(net, port), hlist) {
- 		if (inet_sk(vs->sock->sk)->inet_sport == port &&
--		    inet_sk(vs->sock->sk)->sk.sk_family == family)
-+		    inet_sk(vs->sock->sk)->sk.sk_family == family &&
-+		    vs->exts == exts)
- 			return vs;
- 	}
- 	return NULL;
-@@ -298,11 +299,12 @@ static struct vxlan_dev *vxlan_vs_find_vni(struct vxlan_sock *vs, u32 id)
- 
- /* Look up VNI in a per net namespace table */
- static struct vxlan_dev *vxlan_find_vni(struct net *net, u32 id,
--					sa_family_t family, __be16 port)
-+					sa_family_t family, __be16 port,
-+					u32 exts)
- {
- 	struct vxlan_sock *vs;
- 
--	vs = vxlan_find_sock(net, family, port);
-+	vs = vxlan_find_sock(net, family, port, exts);
- 	if (!vs)
- 		return NULL;
- 
-@@ -1776,7 +1778,8 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
- 
- 			ip_rt_put(rt);
- 			dst_vxlan = vxlan_find_vni(vxlan->net, vni,
--						   dst->sa.sa_family, dst_port);
-+						   dst->sa.sa_family, dst_port,
-+						   vxlan->exts);
- 			if (!dst_vxlan)
- 				goto tx_error;
- 			vxlan_encap_bypass(skb, vxlan, dst_vxlan);
-@@ -1835,7 +1838,8 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
- 
- 			dst_release(ndst);
- 			dst_vxlan = vxlan_find_vni(vxlan->net, vni,
--						   dst->sa.sa_family, dst_port);
-+						   dst->sa.sa_family, dst_port,
-+						   vxlan->exts);
- 			if (!dst_vxlan)
- 				goto tx_error;
- 			vxlan_encap_bypass(skb, vxlan, dst_vxlan);
-@@ -2005,7 +2009,7 @@ static int vxlan_init(struct net_device *dev)
- 
- 	spin_lock(&vn->sock_lock);
- 	vs = vxlan_find_sock(vxlan->net, ipv6 ? AF_INET6 : AF_INET,
--			     vxlan->dst_port);
-+			     vxlan->dst_port, vxlan->exts);
- 	if (vs && atomic_add_unless(&vs->refcnt, 1, 0)) {
- 		/* If we have a socket with same port already, reuse it */
- 		vxlan_vs_add_dev(vs, vxlan);
-@@ -2359,7 +2363,7 @@ static struct socket *vxlan_create_sock(struct net *net, bool ipv6,
- /* Create new listen socket if needed */
- static struct vxlan_sock *vxlan_socket_create(struct net *net, __be16 port,
- 					      vxlan_rcv_t *rcv, void *data,
--					      u32 flags)
-+					      u32 flags, u32 exts)
- {
- 	struct vxlan_net *vn = net_generic(net, vxlan_net_id);
- 	struct vxlan_sock *vs;
-@@ -2387,6 +2391,7 @@ static struct vxlan_sock *vxlan_socket_create(struct net *net, __be16 port,
- 	atomic_set(&vs->refcnt, 1);
- 	vs->rcv = rcv;
- 	vs->data = data;
-+	vs->exts = exts;
- 
- 	/* Initialize the vxlan udp offloads structure */
- 	vs->udp_offloads.port = port;
-@@ -2411,13 +2416,14 @@ static struct vxlan_sock *vxlan_socket_create(struct net *net, __be16 port,
- 
- struct vxlan_sock *vxlan_sock_add(struct net *net, __be16 port,
- 				  vxlan_rcv_t *rcv, void *data,
--				  bool no_share, u32 flags)
-+				  bool no_share, u32 flags,
-+				  u32 exts)
- {
- 	struct vxlan_net *vn = net_generic(net, vxlan_net_id);
- 	struct vxlan_sock *vs;
- 	bool ipv6 = flags & VXLAN_F_IPV6;
- 
--	vs = vxlan_socket_create(net, port, rcv, data, flags);
-+	vs = vxlan_socket_create(net, port, rcv, data, flags, exts);
- 	if (!IS_ERR(vs))
- 		return vs;
- 
-@@ -2425,7 +2431,7 @@ struct vxlan_sock *vxlan_sock_add(struct net *net, __be16 port,
- 		return vs;
- 
- 	spin_lock(&vn->sock_lock);
--	vs = vxlan_find_sock(net, ipv6 ? AF_INET6 : AF_INET, port);
-+	vs = vxlan_find_sock(net, ipv6 ? AF_INET6 : AF_INET, port, exts);
- 	if (vs && ((vs->rcv != rcv) ||
- 		   !atomic_add_unless(&vs->refcnt, 1, 0)))
- 			vs = ERR_PTR(-EBUSY);
-@@ -2447,7 +2453,8 @@ static void vxlan_sock_work(struct work_struct *work)
- 	__be16 port = vxlan->dst_port;
- 	struct vxlan_sock *nvs;
- 
--	nvs = vxlan_sock_add(net, port, vxlan_rcv, NULL, false, vxlan->flags);
-+	nvs = vxlan_sock_add(net, port, vxlan_rcv, NULL, false, vxlan->flags,
-+			     vxlan->exts);
- 	spin_lock(&vn->sock_lock);
- 	if (!IS_ERR(nvs))
- 		vxlan_vs_add_dev(nvs, vxlan);
-@@ -2597,7 +2604,7 @@ static int vxlan_newlink(struct net *net, struct net_device *dev,
- 		configure_vxlan_exts(vxlan, data[IFLA_VXLAN_EXTENSION]);
- 
- 	if (vxlan_find_vni(net, vni, use_ipv6 ? AF_INET6 : AF_INET,
--			   vxlan->dst_port)) {
-+			   vxlan->dst_port, vxlan->exts)) {
- 		pr_info("duplicate VNI %u\n", vni);
- 		return -EEXIST;
- 	}
-diff --git a/include/net/vxlan.h b/include/net/vxlan.h
-index 66ec53c..5ba49d5 100644
---- a/include/net/vxlan.h
-+++ b/include/net/vxlan.h
-@@ -130,7 +130,7 @@ struct vxlan_sock {
- 
- struct vxlan_sock *vxlan_sock_add(struct net *net, __be16 port,
- 				  vxlan_rcv_t *rcv, void *data,
--				  bool no_share, u32 flags);
-+				  bool no_share, u32 flags, u32 exts);
- 
- void vxlan_sock_release(struct vxlan_sock *vs);
- 
-diff --git a/net/openvswitch/vport-vxlan.c b/net/openvswitch/vport-vxlan.c
-index dd68c97..266c595 100644
---- a/net/openvswitch/vport-vxlan.c
-+++ b/net/openvswitch/vport-vxlan.c
-@@ -128,7 +128,7 @@ static struct vport *vxlan_tnl_create(const struct vport_parms *parms)
- 	vxlan_port = vxlan_vport(vport);
- 	strncpy(vxlan_port->name, parms->name, IFNAMSIZ);
- 
--	vs = vxlan_sock_add(net, htons(dst_port), vxlan_rcv, vport, true, 0);
-+	vs = vxlan_sock_add(net, htons(dst_port), vxlan_rcv, vport, true, 0, 0);
- 	if (IS_ERR(vs)) {
- 		ovs_vport_free(vport);
- 		return (void *)vs;
--- 
-1.9.3
+bmxhdHRyX3NldCgpIGlzIGN1cnJlbnRseSBoYXJkY29kZWQgdG8gdHdvIGxldmVscyBvZiBuZXN0
+aW5nLiBUaGlzIGNoYW5nZQppbnRyb2R1Y2VzIHN0cnVjdCBvdnNfbGVuX3RibCB0byBkZWZpbmUg
+bWluaW1hbCBsZW5ndGggcmVxdWlyZW1lbnRzIHBsdXMKbmV4dCBsZXZlbCBuZXN0aW5nIHRhYmxl
+cyB0byB0cmF2ZXJzZSB0aGUga2V5IGF0dHJpYnV0ZXMgdG8gYXJiaXRhcnkgZGVwdGguCgpTaWdu
+ZWQtb2ZmLWJ5OiBUaG9tYXMgR3JhZiA8dGdyYWZAc3V1Zy5jaD4KLS0tCnYyLT52MzoKIC0gTm8g
+Y2hhbmdlCnYxLT52MjoKIC0gTmV3IHBhdGNoIHRvIGFsbG93IG5lc3RlZCBOZXRsaW5rIGF0dHJp
+YnV0ZXMgaW5zaWRlCiAgIE9WU19UVU5ORUxfS0VZX0FUVFJfVlhMQU5fT1BUUwoKIG5ldC9vcGVu
+dnN3aXRjaC9mbG93X25ldGxpbmsuYyB8IDEwNiArKysrKysrKysrKysrKysrKysrKysrLS0tLS0t
+LS0tLS0tLS0tLS0tLQogMSBmaWxlIGNoYW5nZWQsIDU2IGluc2VydGlvbnMoKyksIDUwIGRlbGV0
+aW9ucygtKQoKZGlmZiAtLWdpdCBhL25ldC9vcGVudnN3aXRjaC9mbG93X25ldGxpbmsuYyBiL25l
+dC9vcGVudnN3aXRjaC9mbG93X25ldGxpbmsuYwppbmRleCA4OTgwZDMyLi40NTdjY2YzIDEwMDY0
+NAotLS0gYS9uZXQvb3BlbnZzd2l0Y2gvZmxvd19uZXRsaW5rLmMKKysrIGIvbmV0L29wZW52c3dp
+dGNoL2Zsb3dfbmV0bGluay5jCkBAIC01MCw2ICs1MCwxMyBAQAogCiAjaW5jbHVkZSAiZmxvd19u
+ZXRsaW5rLmgiCiAKK3N0cnVjdCBvdnNfbGVuX3RibCB7CisJaW50IGxlbjsKKwljb25zdCBzdHJ1
+Y3Qgb3ZzX2xlbl90YmwgKm5leHQ7Cit9OworCisjZGVmaW5lIE9WU19BVFRSX05FU1RFRCAtMQor
+CiBzdGF0aWMgdm9pZCB1cGRhdGVfcmFuZ2Uoc3RydWN0IHN3X2Zsb3dfbWF0Y2ggKm1hdGNoLAog
+CQkJIHNpemVfdCBvZmZzZXQsIHNpemVfdCBzaXplLCBib29sIGlzX21hc2spCiB7CkBAIC0yODks
+MjkgKzI5Niw0NCBAQCBzaXplX3Qgb3ZzX2tleV9hdHRyX3NpemUodm9pZCkKIAkJKyBubGFfdG90
+YWxfc2l6ZSgyOCk7IC8qIE9WU19LRVlfQVRUUl9ORCAqLwogfQogCitzdGF0aWMgY29uc3Qgc3Ry
+dWN0IG92c19sZW5fdGJsIG92c190dW5uZWxfa2V5X2xlbnNbT1ZTX1RVTk5FTF9LRVlfQVRUUl9N
+QVggKyAxXSA9IHsKKwlbT1ZTX1RVTk5FTF9LRVlfQVRUUl9JRF0JICAgID0geyAubGVuID0gc2l6
+ZW9mKHU2NCkgfSwKKwlbT1ZTX1RVTk5FTF9LRVlfQVRUUl9JUFY0X1NSQ10JICAgID0geyAubGVu
+ID0gc2l6ZW9mKHUzMikgfSwKKwlbT1ZTX1RVTk5FTF9LRVlfQVRUUl9JUFY0X0RTVF0JICAgID0g
+eyAubGVuID0gc2l6ZW9mKHUzMikgfSwKKwlbT1ZTX1RVTk5FTF9LRVlfQVRUUl9UT1NdCSAgICA9
+IHsgLmxlbiA9IDEgfSwKKwlbT1ZTX1RVTk5FTF9LRVlfQVRUUl9UVExdCSAgICA9IHsgLmxlbiA9
+IDEgfSwKKwlbT1ZTX1RVTk5FTF9LRVlfQVRUUl9ET05UX0ZSQUdNRU5UXSA9IHsgLmxlbiA9IDAg
+fSwKKwlbT1ZTX1RVTk5FTF9LRVlfQVRUUl9DU1VNXQkgICAgPSB7IC5sZW4gPSAwIH0sCisJW09W
+U19UVU5ORUxfS0VZX0FUVFJfVFBfU1JDXQkgICAgPSB7IC5sZW4gPSBzaXplb2YodTE2KSB9LAor
+CVtPVlNfVFVOTkVMX0tFWV9BVFRSX1RQX0RTVF0JICAgID0geyAubGVuID0gc2l6ZW9mKHUxNikg
+fSwKKwlbT1ZTX1RVTk5FTF9LRVlfQVRUUl9PQU1dCSAgICA9IHsgLmxlbiA9IDAgfSwKKwlbT1ZT
+X1RVTk5FTF9LRVlfQVRUUl9HRU5FVkVfT1BUU10gICA9IHsgLmxlbiA9IE9WU19BVFRSX05FU1RF
+RCB9LAorfTsKKwogLyogVGhlIHNpemUgb2YgdGhlIGFyZ3VtZW50IGZvciBlYWNoICVPVlNfS0VZ
+X0FUVFJfKiBOZXRsaW5rIGF0dHJpYnV0ZS4gICovCi1zdGF0aWMgY29uc3QgaW50IG92c19rZXlf
+bGVuc1tPVlNfS0VZX0FUVFJfTUFYICsgMV0gPSB7Ci0JW09WU19LRVlfQVRUUl9FTkNBUF0gPSAt
+MSwKLQlbT1ZTX0tFWV9BVFRSX1BSSU9SSVRZXSA9IHNpemVvZih1MzIpLAotCVtPVlNfS0VZX0FU
+VFJfSU5fUE9SVF0gPSBzaXplb2YodTMyKSwKLQlbT1ZTX0tFWV9BVFRSX1NLQl9NQVJLXSA9IHNp
+emVvZih1MzIpLAotCVtPVlNfS0VZX0FUVFJfRVRIRVJORVRdID0gc2l6ZW9mKHN0cnVjdCBvdnNf
+a2V5X2V0aGVybmV0KSwKLQlbT1ZTX0tFWV9BVFRSX1ZMQU5dID0gc2l6ZW9mKF9fYmUxNiksCi0J
+W09WU19LRVlfQVRUUl9FVEhFUlRZUEVdID0gc2l6ZW9mKF9fYmUxNiksCi0JW09WU19LRVlfQVRU
+Ul9JUFY0XSA9IHNpemVvZihzdHJ1Y3Qgb3ZzX2tleV9pcHY0KSwKLQlbT1ZTX0tFWV9BVFRSX0lQ
+VjZdID0gc2l6ZW9mKHN0cnVjdCBvdnNfa2V5X2lwdjYpLAotCVtPVlNfS0VZX0FUVFJfVENQXSA9
+IHNpemVvZihzdHJ1Y3Qgb3ZzX2tleV90Y3ApLAotCVtPVlNfS0VZX0FUVFJfVENQX0ZMQUdTXSA9
+IHNpemVvZihfX2JlMTYpLAotCVtPVlNfS0VZX0FUVFJfVURQXSA9IHNpemVvZihzdHJ1Y3Qgb3Zz
+X2tleV91ZHApLAotCVtPVlNfS0VZX0FUVFJfU0NUUF0gPSBzaXplb2Yoc3RydWN0IG92c19rZXlf
+c2N0cCksCi0JW09WU19LRVlfQVRUUl9JQ01QXSA9IHNpemVvZihzdHJ1Y3Qgb3ZzX2tleV9pY21w
+KSwKLQlbT1ZTX0tFWV9BVFRSX0lDTVBWNl0gPSBzaXplb2Yoc3RydWN0IG92c19rZXlfaWNtcHY2
+KSwKLQlbT1ZTX0tFWV9BVFRSX0FSUF0gPSBzaXplb2Yoc3RydWN0IG92c19rZXlfYXJwKSwKLQlb
+T1ZTX0tFWV9BVFRSX05EXSA9IHNpemVvZihzdHJ1Y3Qgb3ZzX2tleV9uZCksCi0JW09WU19LRVlf
+QVRUUl9SRUNJUkNfSURdID0gc2l6ZW9mKHUzMiksCi0JW09WU19LRVlfQVRUUl9EUF9IQVNIXSA9
+IHNpemVvZih1MzIpLAotCVtPVlNfS0VZX0FUVFJfVFVOTkVMXSA9IC0xLAotCVtPVlNfS0VZX0FU
+VFJfTVBMU10gPSBzaXplb2Yoc3RydWN0IG92c19rZXlfbXBscyksCitzdGF0aWMgY29uc3Qgc3Ry
+dWN0IG92c19sZW5fdGJsIG92c19rZXlfbGVuc1tPVlNfS0VZX0FUVFJfTUFYICsgMV0gPSB7CisJ
+W09WU19LRVlfQVRUUl9FTkNBUF0JID0geyAubGVuID0gT1ZTX0FUVFJfTkVTVEVEIH0sCisJW09W
+U19LRVlfQVRUUl9QUklPUklUWV0JID0geyAubGVuID0gc2l6ZW9mKHUzMikgfSwKKwlbT1ZTX0tF
+WV9BVFRSX0lOX1BPUlRdCSA9IHsgLmxlbiA9IHNpemVvZih1MzIpIH0sCisJW09WU19LRVlfQVRU
+Ul9TS0JfTUFSS10JID0geyAubGVuID0gc2l6ZW9mKHUzMikgfSwKKwlbT1ZTX0tFWV9BVFRSX0VU
+SEVSTkVUXQkgPSB7IC5sZW4gPSBzaXplb2Yoc3RydWN0IG92c19rZXlfZXRoZXJuZXQpIH0sCisJ
+W09WU19LRVlfQVRUUl9WTEFOXQkgPSB7IC5sZW4gPSBzaXplb2YoX19iZTE2KSB9LAorCVtPVlNf
+S0VZX0FUVFJfRVRIRVJUWVBFXSA9IHsgLmxlbiA9IHNpemVvZihfX2JlMTYpIH0sCisJW09WU19L
+RVlfQVRUUl9JUFY0XQkgPSB7IC5sZW4gPSBzaXplb2Yoc3RydWN0IG92c19rZXlfaXB2NCkgfSwK
+KwlbT1ZTX0tFWV9BVFRSX0lQVjZdCSA9IHsgLmxlbiA9IHNpemVvZihzdHJ1Y3Qgb3ZzX2tleV9p
+cHY2KSB9LAorCVtPVlNfS0VZX0FUVFJfVENQXQkgPSB7IC5sZW4gPSBzaXplb2Yoc3RydWN0IG92
+c19rZXlfdGNwKSB9LAorCVtPVlNfS0VZX0FUVFJfVENQX0ZMQUdTXSA9IHsgLmxlbiA9IHNpemVv
+ZihfX2JlMTYpIH0sCisJW09WU19LRVlfQVRUUl9VRFBdCSA9IHsgLmxlbiA9IHNpemVvZihzdHJ1
+Y3Qgb3ZzX2tleV91ZHApIH0sCisJW09WU19LRVlfQVRUUl9TQ1RQXQkgPSB7IC5sZW4gPSBzaXpl
+b2Yoc3RydWN0IG92c19rZXlfc2N0cCkgfSwKKwlbT1ZTX0tFWV9BVFRSX0lDTVBdCSA9IHsgLmxl
+biA9IHNpemVvZihzdHJ1Y3Qgb3ZzX2tleV9pY21wKSB9LAorCVtPVlNfS0VZX0FUVFJfSUNNUFY2
+XQkgPSB7IC5sZW4gPSBzaXplb2Yoc3RydWN0IG92c19rZXlfaWNtcHY2KSB9LAorCVtPVlNfS0VZ
+X0FUVFJfQVJQXQkgPSB7IC5sZW4gPSBzaXplb2Yoc3RydWN0IG92c19rZXlfYXJwKSB9LAorCVtP
+VlNfS0VZX0FUVFJfTkRdCSA9IHsgLmxlbiA9IHNpemVvZihzdHJ1Y3Qgb3ZzX2tleV9uZCkgfSwK
+KwlbT1ZTX0tFWV9BVFRSX1JFQ0lSQ19JRF0gPSB7IC5sZW4gPSBzaXplb2YodTMyKSB9LAorCVtP
+VlNfS0VZX0FUVFJfRFBfSEFTSF0JID0geyAubGVuID0gc2l6ZW9mKHUzMikgfSwKKwlbT1ZTX0tF
+WV9BVFRSX1RVTk5FTF0JID0geyAubGVuID0gT1ZTX0FUVFJfTkVTVEVELAorCQkJCSAgICAgLm5l
+eHQgPSBvdnNfdHVubmVsX2tleV9sZW5zLCB9LAorCVtPVlNfS0VZX0FUVFJfTVBMU10JID0geyAu
+bGVuID0gc2l6ZW9mKHN0cnVjdCBvdnNfa2V5X21wbHMpIH0sCiB9OwogCiBzdGF0aWMgYm9vbCBp
+c19hbGxfemVybyhjb25zdCB1OCAqZnAsIHNpemVfdCBzaXplKQpAQCAtMzUyLDggKzM3NCw4IEBA
+IHN0YXRpYyBpbnQgX19wYXJzZV9mbG93X25sYXR0cnMoY29uc3Qgc3RydWN0IG5sYXR0ciAqYXR0
+ciwKIAkJCXJldHVybiAtRUlOVkFMOwogCQl9CiAKLQkJZXhwZWN0ZWRfbGVuID0gb3ZzX2tleV9s
+ZW5zW3R5cGVdOwotCQlpZiAobmxhX2xlbihubGEpICE9IGV4cGVjdGVkX2xlbiAmJiBleHBlY3Rl
+ZF9sZW4gIT0gLTEpIHsKKwkJZXhwZWN0ZWRfbGVuID0gb3ZzX2tleV9sZW5zW3R5cGVdLmxlbjsK
+KwkJaWYgKG5sYV9sZW4obmxhKSAhPSBleHBlY3RlZF9sZW4gJiYgZXhwZWN0ZWRfbGVuICE9IE9W
+U19BVFRSX05FU1RFRCkgewogCQkJT1ZTX05MRVJSKGxvZywgIktleSAlZCBoYXMgdW5leHBlY3Rl
+ZCBsZW4gJWQgZXhwZWN0ZWQgJWQiLAogCQkJCSAgdHlwZSwgbmxhX2xlbihubGEpLCBleHBlY3Rl
+ZF9sZW4pOwogCQkJcmV0dXJuIC1FSU5WQUw7CkBAIC00NTEsMzAgKzQ3MywxNiBAQCBzdGF0aWMg
+aW50IGlwdjRfdHVuX2Zyb21fbmxhdHRyKGNvbnN0IHN0cnVjdCBubGF0dHIgKmF0dHIsCiAJCWlu
+dCB0eXBlID0gbmxhX3R5cGUoYSk7CiAJCWludCBlcnI7CiAKLQkJc3RhdGljIGNvbnN0IHUzMiBv
+dnNfdHVubmVsX2tleV9sZW5zW09WU19UVU5ORUxfS0VZX0FUVFJfTUFYICsgMV0gPSB7Ci0JCQlb
+T1ZTX1RVTk5FTF9LRVlfQVRUUl9JRF0gPSBzaXplb2YodTY0KSwKLQkJCVtPVlNfVFVOTkVMX0tF
+WV9BVFRSX0lQVjRfU1JDXSA9IHNpemVvZih1MzIpLAotCQkJW09WU19UVU5ORUxfS0VZX0FUVFJf
+SVBWNF9EU1RdID0gc2l6ZW9mKHUzMiksCi0JCQlbT1ZTX1RVTk5FTF9LRVlfQVRUUl9UT1NdID0g
+MSwKLQkJCVtPVlNfVFVOTkVMX0tFWV9BVFRSX1RUTF0gPSAxLAotCQkJW09WU19UVU5ORUxfS0VZ
+X0FUVFJfRE9OVF9GUkFHTUVOVF0gPSAwLAotCQkJW09WU19UVU5ORUxfS0VZX0FUVFJfQ1NVTV0g
+PSAwLAotCQkJW09WU19UVU5ORUxfS0VZX0FUVFJfVFBfU1JDXSA9IHNpemVvZih1MTYpLAotCQkJ
+W09WU19UVU5ORUxfS0VZX0FUVFJfVFBfRFNUXSA9IHNpemVvZih1MTYpLAotCQkJW09WU19UVU5O
+RUxfS0VZX0FUVFJfT0FNXSA9IDAsCi0JCQlbT1ZTX1RVTk5FTF9LRVlfQVRUUl9HRU5FVkVfT1BU
+U10gPSAtMSwKLQkJfTsKLQogCQlpZiAodHlwZSA+IE9WU19UVU5ORUxfS0VZX0FUVFJfTUFYKSB7
+CiAJCQlPVlNfTkxFUlIobG9nLCAiVHVubmVsIGF0dHIgJWQgb3V0IG9mIHJhbmdlIG1heCAlZCIs
+CiAJCQkJICB0eXBlLCBPVlNfVFVOTkVMX0tFWV9BVFRSX01BWCk7CiAJCQlyZXR1cm4gLUVJTlZB
+TDsKIAkJfQogCi0JCWlmIChvdnNfdHVubmVsX2tleV9sZW5zW3R5cGVdICE9IG5sYV9sZW4oYSkg
+JiYKLQkJICAgIG92c190dW5uZWxfa2V5X2xlbnNbdHlwZV0gIT0gLTEpIHsKKwkJaWYgKG92c190
+dW5uZWxfa2V5X2xlbnNbdHlwZV0ubGVuICE9IG5sYV9sZW4oYSkgJiYKKwkJICAgIG92c190dW5u
+ZWxfa2V5X2xlbnNbdHlwZV0ubGVuICE9IE9WU19BVFRSX05FU1RFRCkgewogCQkJT1ZTX05MRVJS
+KGxvZywgIlR1bm5lbCBhdHRyICVkIGhhcyB1bmV4cGVjdGVkIGxlbiAlZCBleHBlY3RlZCAlZCIs
+Ci0JCQkJICB0eXBlLCBubGFfbGVuKGEpLCBvdnNfdHVubmVsX2tleV9sZW5zW3R5cGVdKTsKKwkJ
+CQkgIHR5cGUsIG5sYV9sZW4oYSksIG92c190dW5uZWxfa2V5X2xlbnNbdHlwZV0ubGVuKTsKIAkJ
+CXJldHVybiAtRUlOVkFMOwogCQl9CiAKQEAgLTkxMiwxOCArOTIwLDE2IEBAIHN0YXRpYyBpbnQg
+b3ZzX2tleV9mcm9tX25sYXR0cnMoc3RydWN0IHN3X2Zsb3dfbWF0Y2ggKm1hdGNoLCB1NjQgYXR0
+cnMsCiAJcmV0dXJuIDA7CiB9CiAKLXN0YXRpYyB2b2lkIG5sYXR0cl9zZXQoc3RydWN0IG5sYXR0
+ciAqYXR0ciwgdTggdmFsLCBib29sIGlzX2F0dHJfbWFza19rZXkpCitzdGF0aWMgdm9pZCBubGF0
+dHJfc2V0KHN0cnVjdCBubGF0dHIgKmF0dHIsIHU4IHZhbCwKKwkJICAgICAgIGNvbnN0IHN0cnVj
+dCBvdnNfbGVuX3RibCAqdGJsKQogewogCXN0cnVjdCBubGF0dHIgKm5sYTsKIAlpbnQgcmVtOwog
+CiAJLyogVGhlIG5sYXR0ciBzdHJlYW0gc2hvdWxkIGFscmVhZHkgaGF2ZSBiZWVuIHZhbGlkYXRl
+ZCAqLwogCW5sYV9mb3JfZWFjaF9uZXN0ZWQobmxhLCBhdHRyLCByZW0pIHsKLQkJLyogV2UgYXNz
+dW1lIHRoYXQgb3ZzX2tleV9sZW5zW3R5cGVdID09IC0xIG1lYW5zIHRoYXQgdHlwZSBpcyBhCi0J
+CSAqIG5lc3RlZCBhdHRyaWJ1dGUKLQkJICovCi0JCWlmIChpc19hdHRyX21hc2tfa2V5ICYmIG92
+c19rZXlfbGVuc1tubGFfdHlwZShubGEpXSA9PSAtMSkKLQkJCW5sYXR0cl9zZXQobmxhLCB2YWws
+IGZhbHNlKTsKKwkJaWYgKHRibCAmJiB0YmxbbmxhX3R5cGUobmxhKV0ubGVuID09IE9WU19BVFRS
+X05FU1RFRCkKKwkJCW5sYXR0cl9zZXQobmxhLCB2YWwsIHRibFtubGFfdHlwZShubGEpXS5uZXh0
+KTsKIAkJZWxzZQogCQkJbWVtc2V0KG5sYV9kYXRhKG5sYSksIHZhbCwgbmxhX2xlbihubGEpKTsK
+IAl9CkBAIC05MzEsNyArOTM3LDcgQEAgc3RhdGljIHZvaWQgbmxhdHRyX3NldChzdHJ1Y3Qgbmxh
+dHRyICphdHRyLCB1OCB2YWwsIGJvb2wgaXNfYXR0cl9tYXNrX2tleSkKIAogc3RhdGljIHZvaWQg
+bWFza19zZXRfbmxhdHRyKHN0cnVjdCBubGF0dHIgKmF0dHIsIHU4IHZhbCkKIHsKLQlubGF0dHJf
+c2V0KGF0dHIsIHZhbCwgdHJ1ZSk7CisJbmxhdHRyX3NldChhdHRyLCB2YWwsIG92c19rZXlfbGVu
+cyk7CiB9CiAKIC8qKgpAQCAtMTYyOCw4ICsxNjM0LDggQEAgc3RhdGljIGludCB2YWxpZGF0ZV9z
+ZXQoY29uc3Qgc3RydWN0IG5sYXR0ciAqYSwKIAkJcmV0dXJuIC1FSU5WQUw7CiAKIAlpZiAoa2V5
+X3R5cGUgPiBPVlNfS0VZX0FUVFJfTUFYIHx8Ci0JICAgIChvdnNfa2V5X2xlbnNba2V5X3R5cGVd
+ICE9IG5sYV9sZW4ob3ZzX2tleSkgJiYKLQkgICAgIG92c19rZXlfbGVuc1trZXlfdHlwZV0gIT0g
+LTEpKQorCSAgICAob3ZzX2tleV9sZW5zW2tleV90eXBlXS5sZW4gIT0gbmxhX2xlbihvdnNfa2V5
+KSAmJgorCSAgICAgb3ZzX2tleV9sZW5zW2tleV90eXBlXS5sZW4gIT0gT1ZTX0FUVFJfTkVTVEVE
+KSkKIAkJcmV0dXJuIC1FSU5WQUw7CiAKIAlzd2l0Y2ggKGtleV90eXBlKSB7Ci0tIAoxLjkuMwoK
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KZGV2IG1haWxp
+bmcgbGlzdApkZXZAb3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVudnN3aXRjaC5vcmcvbWFpbG1h
+bi9saXN0aW5mby9kZXYK
