@@ -1,32 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2] tg3: move init/deinit from open/close to
- probe/remove
-Date: Mon, 12 Jan 2015 15:59:25 -0500 (EST)
-Message-ID: <20150112.155925.821008820320410790.davem@davemloft.net>
-References: <1420729987-18476-1-git-send-email-ivecera@redhat.com>
+Subject: Re: [PATCH net-next] packet: make packet too small warning match
+ condition
+Date: Mon, 12 Jan 2015 16:01:42 -0500 (EST)
+Message-ID: <20150112.160142.1336336585363442369.davem@davemloft.net>
+References: <1420734558-30979-1-git-send-email-willemb@google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, prashant@broadcom.com, mchan@broadcom.com
-To: ivecera@redhat.com
+Cc: netdev@vger.kernel.org, jkmalinen@gmail.com, dborkman@redhat.com
+To: willemb@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53736 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:53762 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751632AbbALU72 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jan 2015 15:59:28 -0500
-In-Reply-To: <1420729987-18476-1-git-send-email-ivecera@redhat.com>
+	with ESMTP id S1751011AbbALVBq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jan 2015 16:01:46 -0500
+In-Reply-To: <1420734558-30979-1-git-send-email-willemb@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ivan Vecera <ivecera@redhat.com>
-Date: Thu,  8 Jan 2015 16:13:07 +0100
+From: Willem de Bruijn <willemb@google.com>
+Date: Thu,  8 Jan 2015 11:29:18 -0500
 
-> Move init and deinit of PTP support from open/close functions
-> to probe/remove funcs to avoid removing/re-adding of associated PTP
-> device(s) during ifup/ifdown.
+> From: Willem de Bruijn <willemb@google.com>
 > 
-> v2: tg3_ptp_init call moved to correct place (thx. Prashant)
+> The expression in ll_header_truncated() tests less than or equal, but
+> the warning prints less than. Update the warning.
 > 
-> Signed-off-by: Ivan Vecera <ivecera@redhat.com>
+> Reported-by: Jouni Malinen <jkmalinen@gmail.com>
+> Signed-off-by: Willem de Bruijn <willemb@google.com>
 
-Applied, thank you.
+Yeah that could be really confusing.  Applied, thanks.
