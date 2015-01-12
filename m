@@ -1,74 +1,60 @@
-From: tgraf <tgraf@suug.ch>
-Subject: Re: nft_hash rhashtable question
-Date: Mon, 12 Jan 2015 22:42:49 +0000
-Message-ID: <20150112224249.GA11857@casper.infradead.org>
-References: <54B44B10.7000009@gmail.com>
+From: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
+Subject: Re: [PATCH 2/6] vxlan: Group Policy extension
+Date: Mon, 12 Jan 2015 22:47:49 +0000
+Message-ID: <20150112224749.GB11857@casper.infradead.org>
+References: <cover.1421064100.git.tgraf@suug.ch>
+ <014606bb741d017675f7728a0bccc4cbed42af4b.1421064100.git.tgraf@suug.ch>
+ <CAEP_g=8TqGnftZa_scKODa2ra7gsV6ov_5J+Lbfq+4bFDZjiBw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>
-To: John Fastabend <john.fastabend@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:48022 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751000AbbALWmv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jan 2015 17:42:51 -0500
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+ netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+ Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>,
+ Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+ Tom Herbert <therbert-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+To: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <54B44B10.7000009@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <CAEP_g=8TqGnftZa_scKODa2ra7gsV6ov_5J+Lbfq+4bFDZjiBw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-On 01/12/15 at 02:30pm, John Fastabend wrote:
-> >        /* Stop an eventual async resizing */
-> >        priv->being_destroyed = true;
-
-This aborts and eventual resize in the background.
-
-> >        mutex_lock(&priv->mutex); <-- get the lock so we have single updater
-
-this ensures that the resize finished.
-
-> >        tbl = rht_dereference(priv->tbl, priv);
-> >        for (i = 0; i < tbl->size; i++) {
-> >                rht_for_each_entry_safe(he, pos, next, tbl, i, node)
-> >                        nft_hash_elem_destroy(set, he);              <-- does a kfree on he?
-> >        }
-> >        mutex_unlock(&priv->mutex); <-- release the lock
-> >
-> >        rhashtable_destroy(priv);
-
-Since no insert or removal can occur we can be assured that no new
-entry was added in the meantime so we can destroy the rhashtable
-without any further protection.
-
-> >}
-> 
-> 
-> Is it really safe to kfree 'he' without waiting a grace
-> period for any rcu readers to drop the reference?
-> 
-> I'm considering what happens if nft_hash_destroy runs in
-> parallel with nft_hash_lookup?
-
-The nft_set API ensures that a destroy can't occur in parallel to
-an insertion or removal. All we have to ensure is that any resizing
-in the background is aborted and completed.
-
-If you look at the code before the rhashtable there was no locking
-at all:
-
-static void nft_hash_destroy(const struct nft_set *set)
-{
-        const struct nft_hash *priv = nft_set_priv(set);
-        const struct nft_hash_table *tbl = nft_dereference(priv->tbl);
-        struct nft_hash_elem *he, *next;
-        unsigned int i;
-
-        for (i = 0; i < tbl->size; i++) {
-                for (he = nft_dereference(tbl->buckets[i]); he != NULL;
-                     he = next) {
-                        next = nft_dereference(he->next);
-                        nft_hash_elem_destroy(set, he);
-                }
-        }
-        kfree(tbl);
-}
+T24gMDEvMTIvMTUgYXQgMTE6MjNhbSwgSmVzc2UgR3Jvc3Mgd3JvdGU6Cj4gT24gTW9uLCBKYW4g
+MTIsIDIwMTUgYXQgNDoyNiBBTSwgVGhvbWFzIEdyYWYgPHRncmFmQHN1dWcuY2g+IHdyb3RlOgo+
+ID4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L3Z4bGFuLmMgYi9kcml2ZXJzL25ldC92eGxhbi5j
+Cj4gPiBpbmRleCA0ZDUyYWE5Li5iMTQ4NzM5IDEwMDY0NAo+ID4gLS0tIGEvZHJpdmVycy9uZXQv
+dnhsYW4uYwo+ID4gKysrIGIvZHJpdmVycy9uZXQvdnhsYW4uYwo+ID4gQEAgLTU2OCw3ICs1Njks
+OCBAQCBzdGF0aWMgc3RydWN0IHNrX2J1ZmYgKip2eGxhbl9ncm9fcmVjZWl2ZShzdHJ1Y3Qgc2tf
+YnVmZiAqKmhlYWQsIHN0cnVjdCBza19idWZmCj4gPiAgICAgICAgICAgICAgICAgICAgICAgICBj
+b250aW51ZTsKPiA+Cj4gPiAgICAgICAgICAgICAgICAgdmgyID0gKHN0cnVjdCB2eGxhbmhkciAq
+KShwLT5kYXRhICsgb2ZmX3Z4KTsKPiA+IC0gICAgICAgICAgICAgICBpZiAodmgtPnZ4X3ZuaSAh
+PSB2aDItPnZ4X3ZuaSkgewo+ID4gKyAgICAgICAgICAgICAgIGlmICh2aC0+dnhfZmxhZ3MgIT0g
+dmgyLT52eF9mbGFncyB8fAo+ID4gKyAgICAgICAgICAgICAgICAgICB2aC0+dnhfdm5pICE9IHZo
+Mi0+dnhfdm5pKSB7Cj4gCj4gSXQncyBwcm9iYWJseSBiZXR0ZXIgdG8gZG8gYSBtZW1jbXAgb3Zl
+ciB0aGUgZW50aXJlIGhlYWRlci4gVGhlcmUncyBubwo+IGd1YXJhbnRlZSB0aGF0IG5ldyBmaWVs
+ZHMgd2lsbCBiZSBlbnRpcmVseSByZXByZXNlbnRlZCBieSBmbGFncy4KCnZ4X2ZsYWdzIGNvdmVy
+cyB0aGUgZW50aXJlIGZpcnN0IDMyIGJpdCBvZiB2eGxhbmhkciBzbyBpdCdzCmVxdWl2YWxlbnQg
+dG8gYSBtZW1jbXAoKSBhbHJlYWR5LiBJIGNhbiBjaGFuZ2UgaXQgdG8gbWVtY21wKCkgaWYKeW91
+IHRoaW5rIHRoYXQncyBtb3JlIHJlYWRhYmxlLgoKPiAKPiA+IGRpZmYgLS1naXQgYS9uZXQvb3Bl
+bnZzd2l0Y2gvdnBvcnQtdnhsYW4uYyBiL25ldC9vcGVudnN3aXRjaC92cG9ydC12eGxhbi5jCj4g
+PiBpbmRleCBkN2M0NmIzLi5kZDY4Yzk3IDEwMDY0NAo+ID4gLS0tIGEvbmV0L29wZW52c3dpdGNo
+L3Zwb3J0LXZ4bGFuLmMKPiA+ICsrKyBiL25ldC9vcGVudnN3aXRjaC92cG9ydC12eGxhbi5jCj4g
+PiBAQCAtMTQ2LDYgKzE0Nyw3IEBAIHN0YXRpYyBpbnQgdnhsYW5fdG5sX3NlbmQoc3RydWN0IHZw
+b3J0ICp2cG9ydCwgc3RydWN0IHNrX2J1ZmYgKnNrYikKPiA+ICAgICAgICAgc3RydWN0IHZ4bGFu
+X3BvcnQgKnZ4bGFuX3BvcnQgPSB2eGxhbl92cG9ydCh2cG9ydCk7Cj4gPiAgICAgICAgIF9fYmUx
+NiBkc3RfcG9ydCA9IGluZXRfc2sodnhsYW5fcG9ydC0+dnMtPnNvY2stPnNrKS0+aW5ldF9zcG9y
+dDsKPiA+ICAgICAgICAgc3RydWN0IG92c19rZXlfaXB2NF90dW5uZWwgKnR1bl9rZXk7Cj4gPiAr
+ICAgICAgIHN0cnVjdCB2eGxhbl9tZXRhZGF0YSBtZDsKPiAKPiBJdCBtaWdodCBiZSBhIGdvb2Qg
+aWRlYSB0byB6ZXJvIG91dCAnbWQnLCBldmVuIGlmIG5vdCBzdHJpY3RseSByZXF1aXJlZC4KClN1
+cmUKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KZGV2IG1h
+aWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVudnN3aXRjaC5vcmcvbWFp
+bG1hbi9saXN0aW5mby9kZXYK
