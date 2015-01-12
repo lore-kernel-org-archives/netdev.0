@@ -1,100 +1,61 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH v3 4/4] can: kvaser_usb: Add support for the Usbcan-II
- family
-Date: Mon, 12 Jan 2015 12:51:49 +0100
-Message-ID: <54B3B555.5010804@pengutronix.de>
-References: <20141223154654.GB6460@vivalin-002> <20150105174910.GA6304@linux> <20150105175206.GB6304@linux> <20150105175713.GC6304@linux> <20150105183131.GD6304@linux> <54AE6FC1.6050007@pengutronix.de> <20150108151901.GA11398@vivalin-002>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next v2] tcp: avoid reducing cwnd when ACK+DSACK is
+ received
+Date: Mon, 12 Jan 2015 11:52:45 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CAC5844@AcuExch.aculab.com>
+References: <1420719609-18638-1-git-send-email-sebastien.barre@uclouvain.be>
+ <1420730396.5947.55.camel@edumazet-glaptop2.roam.corp.google.com>
+ <54AEA498.5030202@uclouvain.be>
+ <CADVnQy=A57TUYD=kGtZXvq7-FGSN=vN3D2heaNCnBB=zjujwUg@mail.gmail.com>
+ <1420734325.5947.61.camel@edumazet-glaptop2.roam.corp.google.com>
+ <CAK6E8=dhW=0hRYHjjgBh0KwKOQfzHhwY2egusQ8S4tsoJb0Nsg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="tg8oUDEVCPOEpFf6VU1aof2MrQIwatXwt"
-Cc: Olivier Sobrie <olivier@sobrie.be>,
-	Oliver Hartkopp <socketcan@hartkopp.net>,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	Linux-CAN <linux-can@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: "Ahmed S. Darwish" <darwish.07@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150108151901.GA11398@vivalin-002>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Neal Cardwell <ncardwell@google.com>,
+	=?utf-8?B?U8OpYmFzdGllbiBCYXJyw6k=?= <sebastien.barre@uclouvain.be>,
+	David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>,
+	Gregory Detal <gregory.detal@uclouvain.be>,
+	"Nandita Dukkipati" <nanditad@google.com>
+To: 'Yuchung Cheng' <ycheng@google.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out6.electric.net ([192.162.217.185]:60591 "EHLO
+	smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753351AbbALLyI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jan 2015 06:54:08 -0500
+In-Reply-To: <CAK6E8=dhW=0hRYHjjgBh0KwKOQfzHhwY2egusQ8S4tsoJb0Nsg@mail.gmail.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---tg8oUDEVCPOEpFf6VU1aof2MrQIwatXwt
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-
-On 01/08/2015 04:19 PM, Ahmed S. Darwish wrote:
-
-[...]
-
->>>  MODULE_DEVICE_TABLE(usb, kvaser_usb_table);
->>> @@ -463,7 +631,18 @@ static int kvaser_usb_get_software_info(struct k=
-vaser_usb *dev)
->>>  	if (err)
->>>  		return err;
->>> =20
->>> -	dev->fw_version =3D le32_to_cpu(msg.u.softinfo.fw_version);
->>> +	switch (dev->family) {
->>> +	case KVASER_LEAF:
->>> +		dev->fw_version =3D le32_to_cpu(msg.u.leaf.softinfo.fw_version);
->>> +		break;
->>> +	case KVASER_USBCAN:
->>> +		dev->fw_version =3D le32_to_cpu(msg.u.usbcan.softinfo.fw_version);=
-
->>> +		break;
->>> +	default:
->>> +		dev_err(dev->udev->dev.parent,
->>> +			"Invalid device family (%d)\n", dev->family);
->>> +		return -EINVAL;
->>
->> The default case should not happen. I think you can remove it.
-
-> It's true, it _should_ never happen. But I only add such checks if
-> the follow-up code critically depends on a certain `dev->family`
-> behavior. So it's kind of a defensive check against any possible
-> bug in driver or memory.
->=20
-> What do you think?
-
-The kernel is full of callback functions, if you have a bit flip there
-you're in trouble anyways. A bug in the driver (or other parts of the
-kernel) might overwrite the memory of dev->family, but if this happens,
-more things will break.
-
-Marc
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---tg8oUDEVCPOEpFf6VU1aof2MrQIwatXwt
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIcBAEBAgAGBQJUs7VWAAoJECte4hHFiupUeWcP/1BpoQ4OpdhCt9ofjwBeRcfh
-stpoxMN7y4iIoiCLRnZYrzDD1V/az96ToZNenOk7TlfMp0+Ulh+lH0FJ/8nEYflU
-fj+Zkx7EFAFdjQgmL6aPQ34PyVmUBiTGdigWIC6jRuttIxa6IegODwyxNeHxKz2W
-WWyU4fX0Slm18Upgytd/8m6h3fOBo66GPBCxPJBbXN/EqCHepsXitMuM3TvLt2+9
-MKZ84h4z4ngLAQQisMAAEYJGYXEgAP8Kw6EPunPFHvJLn1iZsfE+qSOmPTo8jKhu
-wjD2dIP30w3sp70Q0ZznKCJvYdwbTJgSTqUONN2lW4CMSHMhLQneh8fPV1+JyQlD
-zmC49fo36X+pxHCrIFQ9uZljkvRpMI9F3mfqQQfU5lUzOUO/WBpK55BvB8gowhrY
-dE3TsGS8Z8L7IaICCMXeuyJmONpKZK5kFLWd84kO/C9cJVI8hgs/BFihPX/YGm64
-UIiTjKcy8fNIAyiAzN9YNmSoAC3vm54cH3jQd2ytxOmCcaYmaD4/VeurNFL2EDRk
-xUHh/BQkFvePL6quYgmTe4v/3Ob926fgLJK+VuQZ/PbAG7x9o9th75163Yi6UzZf
-02yGKkHseTQIDnYOXFhBUdVDyRqUH4VIrlXoVsaN2ZTisgnbILjDGS/957fQI9mw
-H/IeWv/QyHef2Oyxy04N
-=YvLD
------END PGP SIGNATURE-----
-
---tg8oUDEVCPOEpFf6VU1aof2MrQIwatXwt--
+RnJvbTogWXVjaHVuZyBDaGVuZw0KPiBTZW50OiAwOSBKYW51YXJ5IDIwMTUgMTk6NDQNCi4uLg0K
+PiBTZWJhc3RpZW46IEkgc3VnZ2VzdCBicmVha2luZyBkb3duIGJ5IEFDSyB0eXBlcyBmb3IgcmVh
+ZGFiaWxpdHkuIGUuZy4sDQo+IA0KPiAvKiBUaGlzIHJvdXRpbmUgZGVhbHMgd2l0aCBhY2tzIGR1
+cmluZyBhIFRMUCBlcGlzb2RlLg0KPiAgKiBXZSBtYXJrIHRoZSBlbmQgb2YgYSBUTFAgZXBpc29k
+ZSBvbiByZWNlaXZpbmcgVExQIGR1cGFjayBvciB3aGVuDQo+ICAqIGFjayBpcyBhZnRlciB0bHBf
+aGlnaF9zZXEuDQo+ICAqIFJlZjogbG9zcyBkZXRlY3Rpb24gYWxnb3JpdGhtIGluIGRyYWZ0LWR1
+a2tpcGF0aS10Y3BtLXRjcC1sb3NzLXByb2JlLg0KPiAgKi8NCj4gc3RhdGljIHZvaWQgdGNwX3By
+b2Nlc3NfdGxwX2FjayhzdHJ1Y3Qgc29jayAqc2ssIHUzMiBhY2ssIGludCBmbGFnKQ0KPiB7DQo+
+ICAgICAgICAgc3RydWN0IHRjcF9zb2NrICp0cCA9IHRjcF9zayhzayk7DQo+IA0KPiAgICAgICAg
+IGlmIChiZWZvcmUoYWNrLCB0cC0+dGxwX2hpZ2hfc2VxKSkNCj4gICAgICAgICAgICAgICAgIHJl
+dHVybjsNCj4gDQo+ICAgICAgICAgaWYgKGZsYWcgJiBGTEFHX0RTQUNLSU5HX0FDSykgew0KPiAg
+ICAgICAgICAgICAgICAgLyogVGhpcyBEU0FDSyBtZWFucyBvcmlnaW5hbCBhbmQgVExQIHByb2Jl
+IGFycml2ZWQ7IG5vIGxvc3MgKi8NCj4gICAgICAgICAgICAgICAgIHRwLT50bHBfaGlnaF9zZXEg
+PSAwOw0KDQpJIHRoaW5rIEknZCBhZGQgYSAncmV0dXJuJyBoZXJlLg0KDQo+ICAgICAgICAgfSBl
+bHNlIGlmIChhZnRlcihhY2ssIHRwLT50bHBfaGlnaF9zZXEpKSB7DQo+ICAgICAgICAgICAgICAg
+ICAvKiBBQ0sgYWR2YW5jZXM6IHRoZXJlIHdhcyBhIGxvc3MsIHNvIHJlZHVjZSBjd25kLiBSZXNl
+dA0KPiAgICAgICAgICAgICAgICAgICogdGxwX2hpZ2hfc2VxIGluIHRjcF9pbml0X2N3bmRfcmVk
+dWN0aW9uKCkNCj4gICAgICAgICAgICAgICAgICAqLw0KPiAgICAgICAgICAgICAgICAgdGNwX2lu
+aXRfY3duZF9yZWR1Y3Rpb24oc2spOw0KPiAgICAgICAgICAgICAgICAgdGNwX3NldF9jYV9zdGF0
+ZShzaywgVENQX0NBX0NXUik7DQo+ICAgICAgICAgICAgICAgICB0Y3BfZW5kX2N3bmRfcmVkdWN0
+aW9uKHNrKTsNCj4gICAgICAgICAgICAgICAgIHRjcF90cnlfa2VlcF9vcGVuKHNrKTsNCj4gICAg
+ICAgICAgICAgICAgIE5FVF9JTkNfU1RBVFNfQkgoc29ja19uZXQoc2spLA0KPiAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICBMSU5VWF9NSUJfVENQTE9TU1BST0JFUkVDT1ZFUlkpOw0K
+DQphbmQgaGVyZQ0KDQo+ICAgICAgICAgfSBlbHNlIGlmICghKGZsYWcgJiAoRkxBR19TTkRfVU5B
+X0FEVkFOQ0VEIHwNCj4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICBGTEFHX05PVF9EVVAg
+fCBGTEFHX0RBVEFfU0FDS0VEKSkpIHsNCj4gICAgICAgICAgICAgICAgIC8qIFB1cmUgZHVwYWNr
+OiBvcmlnaW5hbCBhbmQgVExQIHByb2JlIGFycml2ZWQ7IG5vIGxvc3MgKi8NCj4gICAgICAgICAg
+ICAgICAgIHRwLT50bHBfaGlnaF9zZXEgPSAwOw0KPiAgICAgICAgIH0NCj4gfQ0KDQoJRGF2aWQN
+Cg==
