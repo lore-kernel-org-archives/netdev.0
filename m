@@ -1,58 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 00/16] tipc: make tipc support namespace
-Date: Mon, 12 Jan 2015 16:24:59 -0500 (EST)
-Message-ID: <20150112.162459.1011996139564111715.davem@davemloft.net>
-References: <1420788433-17960-1-git-send-email-ying.xue@windriver.com>
+Subject: Re: [PATCH net-next 2/3] netlink: eliminate nl_sk_hash_lock
+Date: Mon, 12 Jan 2015 16:27:03 -0500 (EST)
+Message-ID: <20150112.162703.804704527828090208.davem@davemloft.net>
+References: <1420791818-22150-1-git-send-email-ying.xue@windriver.com>
+	<1420791818-22150-3-git-send-email-ying.xue@windriver.com>
+	<20150109105516.GA1600@casper.infradead.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jon.maloy@ericsson.com, Tero.Aho@coriant.com,
-	Paul.Gortmaker@windriver.com, erik.hugne@ericsson.com,
-	richard.alpe@ericsson.com, netdev@vger.kernel.org,
-	tipc-discussion@lists.sourceforge.net
-To: ying.xue@windriver.com
+Cc: ying.xue@windriver.com, netdev@vger.kernel.org
+To: tgraf@suug.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54063 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:54098 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752577AbbALVZE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jan 2015 16:25:04 -0500
-In-Reply-To: <1420788433-17960-1-git-send-email-ying.xue@windriver.com>
+	with ESMTP id S1750973AbbALV1G (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jan 2015 16:27:06 -0500
+In-Reply-To: <20150109105516.GA1600@casper.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ying Xue <ying.xue@windriver.com>
-Date: Fri, 9 Jan 2015 15:26:57 +0800
+From: Thomas Graf <tgraf@suug.ch>
+Date: Fri, 9 Jan 2015 10:55:16 +0000
 
-> This patchset aims to add net namespace support for TIPC stack.
-> 
-> Currently TIPC module declares the following global resources:
-> - TIPC network idenfication number
-> - TIPC node table
-> - TIPC bearer list table
-> - TIPC broadcast link
-> - TIPC socket reference table
-> - TIPC name service table
-> - TIPC node address
-> - TIPC service subscriber server
-> - TIPC random value
-> - TIPC netlink
-> 
-> In order that TIPC is aware of namespace, above each resource must be
-> allocated, initialized and destroyed inside per namespace. Therefore,
-> the major works of this patchset are to isolate these global resources
-> and make them private for each namespace. However, before these changes
-> come true, some necessary preparation works must be first done: convert
-> socket reference table with generic rhashtable, cleanup core.c and
-> core.h files, remove unnecessary wrapper functions for kernel timer
-> interfaces and so on.
-> 
-> It should be noted that commit ##1 ("tipc: fix bug in broadcast
-> retransmit code") was already submitted to 'net' tree, so please see
-> below link:
-> 
-> http://patchwork.ozlabs.org/patch/426717/
-> 
-> Since it is prerequisite for the rest of the series to apply, I
-> prepend them to the series.
+> Since this code can now run in parallel, there is a race between
+> checking portid and then setting it. CPU#1 could overwrite portid after
+> CPU#0 has already checked portid, this would then insert the socket on
+> CPU#0 with the portid created on CPU#1. So this would need some kind
+> of atomic operation.
 
-Series applied, thank you.
+Thomas, please review Ying's new version of this patch.
+
+Thanks.
