@@ -1,58 +1,95 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: linux-next: build failure after merge of the net-next tree
-Date: Mon, 12 Jan 2015 14:12:46 +1100
-Message-ID: <20150112141246.0cbb7279@canb.auug.org.au>
-References: <20150112140515.369eb687@canb.auug.org.au>
-	<20150111.220829.865175509346236586.davem@davemloft.net>
+From: Shaohui Xie <Shaohui.Xie@freescale.com>
+Subject: RE: [PATCH] net/fsl: Add mEMAC MDIO support to XGMAC MDIO
+Date: Mon, 12 Jan 2015 03:13:48 +0000
+Message-ID: <DM2PR0301MB08645F00A0FAE0899DD6BD8DE2430@DM2PR0301MB0864.namprd03.prod.outlook.com>
+References: <1420364162-13109-1-git-send-email-shh.xie@gmail.com>
+ <54B035F4.4020804@Freescale.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
- boundary="Sig_/v.rkh9cfzUk6C7StA.WAI_o"; protocol="application/pgp-signature"
-Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, xiyou.wangcong@gmail.com,
-	vlee@twopensource.com
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20150111.220829.865175509346236586.davem@davemloft.net>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Andy Fleming <afleming@gmail.com>
+To: Emilian Medve <Emilian.Medve@freescale.com>,
+	"shh.xie@gmail.com" <shh.xie@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bn1on0143.outbound.protection.outlook.com ([157.56.110.143]:44000
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751015AbbALDNv convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 11 Jan 2015 22:13:51 -0500
+In-Reply-To: <54B035F4.4020804@Freescale.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Sig_/v.rkh9cfzUk6C7StA.WAI_o
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: quoted-printable
+Hello Emil,
 
-Hi David,
+> -----Original Message-----
+> From: Emil Medve [mailto:Emilian.Medve@Freescale.com]
+> Sent: Saturday, January 10, 2015 4:12 AM
+> To: shh.xie@gmail.com; netdev@vger.kernel.org; davem@davemloft.net
+> Cc: Andy Fleming; Xie Shaohui-B21989
+> Subject: Re: [PATCH] net/fsl: Add mEMAC MDIO support to XGMAC MDIO
+> 
+> Hello Shao-Hui,
+> 
+> 
+> On 01/04/2015 03:36 AM, shh.xie@gmail.com wrote:
+> > From: Andy Fleming <afleming@gmail.com>
+> >
+> > The Freescale mEMAC supports operating at 10/100/1000/10G, and its
+> > associated MDIO controller is likewise capable of operating both
+> > Clause 22 and Clause 45 MDIO buses. It is nearly identical to the MDIO
+> > controller on the XGMAC, so we just modify that driver.
+> >
+> > Portions of this driver developed by:
+> >
+> > Sandeep Singh <sandeep@freescale.com>
+> > Roy Zang <tie-fei.zang@freescale.com>
+> >
+> > Signed-off-by: Andy Fleming <afleming@gmail.com>
+> > Signed-off-by: Shaohui Xie <Shaohui.Xie@freescale.com>
+> > ---
+> >  drivers/net/ethernet/freescale/Kconfig      |  3 +-
+> >  drivers/net/ethernet/freescale/xgmac_mdio.c | 64
+> > ++++++++++++++++++++++++-----
+> >  2 files changed, 55 insertions(+), 12 deletions(-)
+> >
+> > 	...
+> >
+> > diff --git a/drivers/net/ethernet/freescale/xgmac_mdio.c
+> > b/drivers/net/ethernet/freescale/xgmac_mdio.c
+> > index a352445..e0fc3d1 100644
+> > --- a/drivers/net/ethernet/freescale/xgmac_mdio.c
+> > +++ b/drivers/net/ethernet/freescale/xgmac_mdio.c
+> >
+> > 	...
+> >
+> > @@ -123,21 +144,39 @@ static int xgmac_mdio_write(struct mii_bus *bus,
+> > int phy_id, int regnum, u16 val  static int xgmac_mdio_read(struct
+> > mii_bus *bus, int phy_id, int regnum)  {
+> >  	struct tgec_mdio_controller __iomem *regs = bus->priv;
+> > -	uint16_t dev_addr = regnum >> 16;
+> > +	uint16_t dev_addr;
+> > +	uint32_t mdio_stat;
+> >  	uint32_t mdio_ctl;
+> >  	uint16_t value;
+> >  	int ret;
+> >
+> > +	mdio_stat = in_be32(&regs->mdio_stat);
+> > +	if (regnum & MII_ADDR_C45) {
+> > +		dev_addr = (regnum >> 16) & 0x1f;
+> > +		mdio_stat |= MDIO_STAT_ENC;
+> > +	} else {
+> > +		dev_addr = regnum & 0x1f;
+> > +		mdio_stat = ~MDIO_STAT_ENC;
+> 
+> Shouldn't this be 'mdio_stat &= ~MDIO_STAT_ENC'?
+[S.H] You are right! should be "mdio_stat &= ~MDIO_STAT_ENC".
+We have this bug for a long time!
 
-On Sun, 11 Jan 2015 22:08:29 -0500 (EST) David Miller <davem@davemloft.net>=
- wrote:
->
-> It's fixed as of 5 minutes ago in the net-next tree, sorry for this.
+I'll post a patch to fix it.
 
-OK, thanks.
-
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-
---Sig_/v.rkh9cfzUk6C7StA.WAI_o
-Content-Type: application/pgp-signature
-Content-Description: OpenPGP digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAEBCAAGBQJUszuzAAoJEMDTa8Ir7ZwV+YAQAIH5G6+AZ57bA9RuoKlzN4X9
-31MesmNcfjB/e7pwjW7nRB2MWqgQWq8kEoDwnMfuuESLmCPoIX+vallkLMvs1PQE
-4Zd2DfpSpKSIjUGygiFTFrQIMQnn6ESdigXbKERysNJdOJBd+XXQKg8tVElbkWgo
-fV6VtZ1z3IJRfrDQRK6bIpbuBo4ndska3fMaY3G1ho/hpITVVl/m7abcUk59X3tE
-wPASU8/SOR6Nbu5RWp1V+4FZLKWsO3tdLwqT8fOXmP5GijNlC802R7HzlOwTwZcb
-aanWun5qDcmVdSmtR6lHcwfNRs6twLeVvGNLd/xeGIIW8AtbOSaLVOoRd52tQoZY
-RpmkqQRCcykUlZ6zILEDCd6m8AN7PteY3nhGK5Jm0GjmpXaiWqO4SSW6Zowk9AXo
-BHz2/DhrndqZEpheTf+Z+x1YNQHdmyd7hcq4yftBaL/rWtlH2ZgBrEua7lRyx37i
-wirpdTXj+AGtd9BOJ8eClrtzzW1KzpAk/2z8X+NkO3BwMFhCiBQAGRslOfkZOCqZ
-OhtaLDz+oMAuD4e9WqTeaH02jK1CaoFF+m2jKgSTd/okSE0aTSmt0Y2cgcAM3rhn
-KBGtCWP9ZyHxcux5d1tifw4DkLeTyHAT/3gXWHSzv4OGJE2EUj/K8IGkZPkStTkX
-9HPNGKn5ouvdtlJgyi9v
-=AXn5
------END PGP SIGNATURE-----
-
---Sig_/v.rkh9cfzUk6C7StA.WAI_o--
+Thanks!
+Shaohui
