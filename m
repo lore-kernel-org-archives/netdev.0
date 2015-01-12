@@ -1,71 +1,38 @@
-From: Arend van Spriel <arend@broadcom.com>
-Subject: Re: [PATCH] brcmfmac: avoid duplicated suspend/resume operation
-Date: Mon, 12 Jan 2015 17:24:40 +0100
-Message-ID: <54B3F548.6080408@broadcom.com>
-References: <54B36C88.3030609@linux.intel.com> <54B3D4FC.1090806@cogentembedded.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Fu, Zhonghui" <zhonghui.fu@linux.intel.com>,
-	<brudley@broadcom.com>, Franky Lin <frankyl@broadcom.com>,
-	<meuleman@broadcom.com>, <kvalo@codeaurora.org>,
-	<linville@tuxdriver.com>, <pieterpg@broadcom.com>,
-	<hdegoede@redhat.com>, <wens@csie.org>,
-	<linux-wireless@vger.kernel.org>,
-	<brcm80211-dev-list@broadcom.com>, <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <54B3D4FC.1090806@cogentembedded.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Subject: [PATCH net] cxgb4vf: Initialize mdio_addr before using it
+Date: Mon, 12 Jan 2015 22:06:16 +0530
+Message-ID: <1421080576-30885-1-git-send-email-hariprasad@chelsio.com>
+Cc: davem@davemloft.net, leedom@chelsio.com, nirranjan@chelsio.com,
+	kumaras@chelsio.com, Hariprasad Shenai <hariprasad@chelsio.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stargate.chelsio.com ([67.207.112.58]:5406 "EHLO
+	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752108AbbALQah (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jan 2015 11:30:37 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/12/15 15:06, Sergei Shtylyov wrote:
-> Hello.
->
-> On 1/12/2015 9:41 AM, Fu, Zhonghui wrote:
->
->> From 8685c3c2746b4275fc808d9db23c364b2f54b52a Mon Sep 17 00:00:00 2001
->> From: Zhonghui Fu <zhonghui.fu@linux.intel.com>
->> Date: Mon, 12 Jan 2015 14:25:46 +0800
->> Subject: [PATCH] brcmfmac: avoid duplicated suspend/resume operation
->
-> The lines above are not needed.
->
->> WiFi chip has 2 SDIO functions, and PM core will trigger
->> twice suspend/resume operations for one WiFi chip to do
->> the same things. This patch avoid this case.
->
->> Acked-by: Arend van Spriel<arend@broadcom.com>
->> Acked-by: Sergei Shtylyov<sergei.shtylyov@cogentembedded.com>
->> Signed-off-by: Zhonghui Fu <zhonghui.fu@linux.intel.com>
->> ---
->> drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c | 21
->> +++++++++++++++++----
->> 1 files changed, 17 insertions(+), 4 deletions(-)
->
->> diff --git a/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c
->> b/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c
->> index 9880dae..8f71485 100644
->> --- a/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c
->> +++ b/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c
->> @@ -1070,7 +1070,7 @@ static int brcmf_ops_sdio_probe(struct sdio_func
->> *func,
->> */
->> if ((sdio_get_host_pm_caps(sdiodev->func[1]) & MMC_PM_KEEP_POWER) &&
->> ((sdio_get_host_pm_caps(sdiodev->func[1]) & MMC_PM_WAKE_SDIO_IRQ) ||
->> - (sdiodev->pdata && sdiodev->pdata->oob_irq_supported)))
->> + (sdiodev->pdata->oob_irq_supported)))
->
-> Inner parens not needed on this line.
+In commit 5ad24def21b205a8 ("cxgb4vf: Fix ethtool get_settings for VF driver")
+mdio_addr of port_info structure was used unininitialzed. Fixing it.
 
-Well, actually this patch should not affect those line as it would 
-reintroduce a recently fixed issue.
+Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
+---
+ drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
-Regards,
-Arend
-
-> [...]
->
-> WBR, Sergei
->
+diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c b/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c
+index 21dc9a2..60426cf 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c
++++ b/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c
+@@ -323,6 +323,8 @@ int t4vf_port_init(struct adapter *adapter, int pidx)
+ 		return v;
+ 
+ 	v = be32_to_cpu(port_rpl.u.info.lstatus_to_modtype);
++	pi->mdio_addr = (v & FW_PORT_CMD_MDIOCAP_F) ?
++			FW_PORT_CMD_MDIOADDR_G(v) : -1;
+ 	pi->port_type = FW_PORT_CMD_PTYPE_G(v);
+ 	pi->mod_type = FW_PORT_MOD_TYPE_NA;
+ 
+-- 
+1.7.1
