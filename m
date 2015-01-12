@@ -1,38 +1,49 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] packet: bail out of packet_snd() if L2 header
- creation fails
-Date: Sun, 11 Jan 2015 21:54:27 -0500 (EST)
-Message-ID: <20150111.215427.2061918421162909520.davem@davemloft.net>
-References: <1420999276-28225-1-git-send-email-cj@linux.com>
+Subject: Re: [PATCH net-next] doc: fix the compile fix of txtimestamp.c
+Date: Sun, 11 Jan 2015 21:56:14 -0500 (EST)
+Message-ID: <20150111.215614.2186929329384615040.davem@davemloft.net>
+References: <1420909698-25025-1-git-send-email-willemb@google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: willemb@google.com, edumazet@google.com, dborkman@redhat.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: cj@linux.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1420999276-28225-1-git-send-email-cj@linux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, xiyou.wangcong@gmail.com,
+	vlee@twopensource.com, carlos@redhat.com
+To: willemb@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:43209 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751190AbbALC4Q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 11 Jan 2015 21:56:16 -0500
+In-Reply-To: <1420909698-25025-1-git-send-email-willemb@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Christoph Jaeger <cj@linux.com>
-Date: Sun, 11 Jan 2015 13:01:16 -0500
+From: Willem de Bruijn <willemb@google.com>
+Date: Sat, 10 Jan 2015 12:08:18 -0500
 
-> Due to a misplaced parenthesis, the expression
+> From: Willem de Bruijn <willemb@google.com>
 > 
->   (unlikely(offset) < 0),
+> A fix to ipv6 structure definitions removed the now superfluous
+> definition of in6_pktinfo in this file.
 > 
-> which expands to
+> But, use of the glibc definition requires defining _GNU_SOURCE
+> (see also https://sourceware.org/bugzilla/show_bug.cgi?id=6775).
 > 
->   (__builtin_expect(!!(offset), 0) < 0),
+> Before this change, the following would fail for me:
 > 
-> never evaluates to true. Therefore, when sending packets with
-> PF_PACKET/SOCK_DGRAM, packet_snd() does not abort as intended
-> if the creation of the layer 2 header fails.
+>   make
+>   make headers_install
+>   make M=Documentation/networking/timestamping
 > 
-> Spotted by Coverity - CID 1259975 ("Operands don't affect result").
+> with
 > 
-> Fixes: 9c7077622dd9 ("packet: make packet_snd fail on len smaller than l2 header")
-> Signed-off-by: Christoph Jaeger <cj@linux.com>
+>   Documentation/networking/timestamping/txtimestamp.c: In function '__recv_errmsg_cmsg':
+>   Documentation/networking/timestamping/txtimestamp.c:205:33: error: dereferencing pointer to incomplete type
+>   Documentation/networking/timestamping/txtimestamp.c:206:23: error: dereferencing pointer to incomplete type
+> 
+> After this patch compilation succeeded.
+> 
+> Fixes: cd91cc5bdddf ("doc: fix the compile error of txtimestamp.c")
+> Signed-off-by: Willem de Bruijn <willemb@google.com>
 
-Applied, thank you.
+Applied, thanks.
