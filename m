@@ -1,45 +1,44 @@
-From: Richard Weinberger <richard@nod.at>
-Subject: Re: [PATCH 3/3] x_tables: Factor out 16bit aligment ifname_compare()
-Date: Mon, 12 Jan 2015 09:18:21 +0100
-Message-ID: <54B3834D.6090602@nod.at>
-References: <54B2EB81.5050604@nod.at>	<1421012376.9233.9.camel@perches.com>	<54B2EE4D.2080802@nod.at> <20150111.215050.458358747958425038.davem@davemloft.net>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH net-next RFC 5/5] net-timestamp: tx timestamping default
+ mode flag
+Date: Mon, 12 Jan 2015 09:26:14 +0100
+Message-ID: <20150112082612.GA5348@netboy>
+References: <1420824719-28848-1-git-send-email-willemb@google.com>
+ <1420824719-28848-6-git-send-email-willemb@google.com>
+ <20150111203256.GC4214@localhost.localdomain>
+ <CA+FuTSfDVbSCGfJDjY3kv=SuGT221OuYAFVxDvRqouNcrJbvYw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: joe@perches.com, coreteam@netfilter.org,
-	netfilter-devel@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, bhutchings@solarflare.com,
-	john.fastabend@gmail.com, herbert@gondor.apana.org.au,
-	vyasevic@redhat.com, jiri@resnulli.us, vfalico@gmail.com,
-	therbert@google.com, edumazet@google.com, yoshfuji@linux-ipv6.org,
-	jmorris@namei.org, kuznet@ms2.inr.ac.ru, kadlec@blackhole.kfki.hu,
-	kaber@trash.net, pablo@netfilter.org, kay@vrfy.org,
-	stephen@networkplumber.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150111.215050.458358747958425038.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Network Development <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Andy Lutomirski <luto@amacapital.net>
+To: Willem de Bruijn <willemb@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f179.google.com ([74.125.82.179]:51038 "EHLO
+	mail-we0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751281AbbALI0U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jan 2015 03:26:20 -0500
+Received: by mail-we0-f179.google.com with SMTP id q59so17631015wes.10
+        for <netdev@vger.kernel.org>; Mon, 12 Jan 2015 00:26:18 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <CA+FuTSfDVbSCGfJDjY3kv=SuGT221OuYAFVxDvRqouNcrJbvYw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Am 12.01.2015 um 03:50 schrieb David Miller:
-> From: Richard Weinberger <richard@nod.at>
-> Date: Sun, 11 Jan 2015 22:42:37 +0100
-> 
->> Joe, I really don't care. This is the least significant
->> patch of the series.
->> I'll no longer waste my time with that.
-> 
-> If you're not willing to fix stylistic issues now, then nobody should
-> bother wasting their time on the high level issues of your patch.
-> 
-> Just fix these things now rather than being difficult, this is a part
-> of patch review that everyone has to do, not just you.
+On Sun, Jan 11, 2015 at 08:49:00PM -0500, Willem de Bruijn wrote:
+> Just so I understand: ptp has no use for the sw tstamps
+> that would be generated with this flag, but is otherwise
+> okay with enabling counters to order tx timestamps
+> (OPT_ID) and disabling payload (OPT_TSONLY)?
 
-I apologize, it was not my intention to be difficult.
-Please note that the stylistic issue is not a warning produced
-by checkpatch.pl. If you and netfilter folks now prefer bool
-for such string compare functions I'll happily address this in
-v2 of my series.
+Yes.
+
+> In the documentation, I would like to strongly suggest all
+> processes to enable these, even in absence of this default.
+> because that is more robust wrt the sysctl (if merged).
+
+Sounds good.
 
 Thanks,
-//richard
+Richard
