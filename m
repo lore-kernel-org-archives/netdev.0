@@ -1,122 +1,47 @@
-From: "Fu, Zhonghui" <zhonghui.fu@linux.intel.com>
-Subject: Re: [PATCH] brcmfmac: avoid duplicated suspend/resume operation
-Date: Mon, 12 Jan 2015 14:43:38 +0800
-Message-ID: <54B36D1A.40608@linux.intel.com>
-References: <54A3B1B4.7090705@linux.intel.com> <54A3C837.6040400@broadcom.com> <54A9F82D.9030003@linux.intel.com> <54AA6BEB.9060207@broadcom.com>
+From: Ying Xue <ying.xue@windriver.com>
+Subject: [PATCH net-next v2 0/3] remove nl_sk_hash_lock from netlink socket
+Date: Mon, 12 Jan 2015 14:52:21 +0800
+Message-ID: <1421045544-13670-1-git-send-email-ying.xue@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: brudley@broadcom.com, Franky Lin <frankyl@broadcom.com>,
-	meuleman@broadcom.com, kvalo@codeaurora.org,
-	linville@tuxdriver.com, pieterpg@broadcom.com, hdegoede@redhat.com,
-	wens@csie.org, linux-wireless@vger.kernel.org,
-	brcm80211-dev-list@broadcom.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Arend van Spriel <arend@broadcom.com>
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:61029 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750753AbbALGnn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 Jan 2015 01:43:43 -0500
-In-Reply-To: <54AA6BEB.9060207@broadcom.com>
+Received: from mail1.windriver.com ([147.11.146.13]:64309 "EHLO
+	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751222AbbALGw5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jan 2015 01:52:57 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+After tipc socket successfully avoids the involvement of an extra lock
+with rhashtable_lookup_insert(), it's possible for netlink socket to
+remove its hash socket lock now. But as netlink socket needs a compare
+function to look for an object, we first introduce a new function
+called rhashtable_lookup_compare_insert() in commit #1 which is
+implemented based on original rhashtable_lookup_insert(). We
+subsequently remove nl_sk_hash_lock from netlink socket with the new
+introduced function in commit #2. Lastly, as Thomas requested, we add
+commit #3 to indicate the implementation of what the grow and shrink
+decision function must enforce min/max shift.
 
-I sent a new version of this patch in another mail.
+v2:
+ As Thomas pointed out, there was a race between checking portid and
+ then setting it in commit #2. Now use socket lock to make the process
+ of both checking and setting portid atomic, and then eliminate the
+ race.
 
+Ying Xue (3):
+  rhashtable: involve rhashtable_lookup_compare_insert routine
+  netlink: eliminate nl_sk_hash_lock
+  rhashtable: add a note for grow and shrink decision functions
 
-Thanks,
-Zhonghui
+ include/linux/rhashtable.h |    9 +++++++++
+ lib/rhashtable.c           |   42 ++++++++++++++++++++++++++++++++++++++++--
+ net/netlink/af_netlink.c   |   33 ++++++++++++++++++++-------------
+ net/netlink/af_netlink.h   |    1 -
+ net/netlink/diag.c         |   10 +++++-----
+ 5 files changed, 74 insertions(+), 21 deletions(-)
 
-
-On 2015/1/5 18:48, Arend van Spriel wrote:
-> On 01/05/15 03:34, Fu, Zhonghui wrote:
->> Hi Arend,
->>
->> Where to find your patch for this?
->
-> Well, we did not submit it. Hence my "Acked-by:" to your patch below.
->
-> Regards,
-> Arend
->
->>
->> Thanks,
->> Zhonghui
->>
->> On 2014/12/31 17:56, Arend van Spriel wrote:
->>> On 12/31/14 09:20, Fu, Zhonghui wrote:
->>>>    From e34419970a07bfcd365f9c66bdfa552188a0cd26 Mon Sep 17 00:00:00 2001
->>>> From: Zhonghui Fu<zhonghui.fu@linux.intel.com>
->>>> Date: Mon, 29 Dec 2014 21:25:31 +0800
->>>> Subject: [PATCH] brcmfmac: avoid duplicated suspend/resume operation
->>>>
->>>> WiFi chip has 2 SDIO functions, and PM core will trigger
->>>> twice suspend/resume operations for one WiFi chip to do
->>>> the same things. This patch avoid this case.
->>>
->>> We have a patch queued up for this as well, but this one looks good enough although I personally prefer container_of() instead of dev_to_sdio_func().
->>>
->>> Acked-by: Arend van Spriel<arend@broadcom.com>
->>>> Signed-off-by: Zhonghui Fu<zhonghui.fu@linux.intel.com>
->>>> ---
->>>>    drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c |   19 +++++++++++++++++--
->>>>    1 files changed, 17 insertions(+), 2 deletions(-)
->>>>
->>>> diff --git a/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c b/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c
->>>> index 3c06e93..eee7818 100644
->>>> --- a/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c
->>>> +++ b/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c
->>>> @@ -1139,11 +1139,18 @@ void brcmf_sdio_wowl_config(struct device *dev, bool enabled)
->>>>    static int brcmf_ops_sdio_suspend(struct device *dev)
->>>>    {
->>>>        struct brcmf_bus *bus_if = dev_get_drvdata(dev);
->>>> -    struct brcmf_sdio_dev *sdiodev = bus_if->bus_priv.sdio;
->>>> +    struct brcmf_sdio_dev *sdiodev;
->>>>        mmc_pm_flag_t sdio_flags;
->>>> +    struct sdio_func *func = dev_to_sdio_func(dev);
->>>>
->>>>        brcmf_dbg(SDIO, "Enter\n");
->>>>
->>>> +    if (func->num == 2) {
->>>> +        return 0;
->>>> +    }
->>>> +
->>>> +    sdiodev = bus_if->bus_priv.sdio;
->>>> +
->>>>        atomic_set(&sdiodev->suspend, true);
->>>>
->>>>        if (sdiodev->wowl_enabled) {
->>>> @@ -1164,9 +1171,17 @@ static int brcmf_ops_sdio_suspend(struct device *dev)
->>>>    static int brcmf_ops_sdio_resume(struct device *dev)
->>>>    {
->>>>        struct brcmf_bus *bus_if = dev_get_drvdata(dev);
->>>> -    struct brcmf_sdio_dev *sdiodev = bus_if->bus_priv.sdio;
->>>> +    struct brcmf_sdio_dev *sdiodev;
->>>> +    struct sdio_func *func = dev_to_sdio_func(dev);
->>>>
->>>>        brcmf_dbg(SDIO, "Enter\n");
->>>> +
->>>> +    if (func->num == 2) {
->>>> +        return 0;
->>>> +    }
->>>> +
->>>> +    sdiodev = bus_if->bus_priv.sdio;
->>>> +
->>>>        if (sdiodev->pdata->oob_irq_supported)
->>>>            disable_irq_wake(sdiodev->pdata->oob_irq_nr);
->>>>        brcmf_sdio_wd_timer(sdiodev->bus, BRCMF_WD_POLL_MS);
->>>> -- 1.7.1
->>>>
->>>
->>> -- 
->>> To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
->>> the body of a message to majordomo@vger.kernel.org
->>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->>
->
-> -- 
-> To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-- 
+1.7.9.5
