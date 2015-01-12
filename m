@@ -1,68 +1,154 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH 0/6 net-next v3] VXLAN Group Policy Extension
-Date: Mon, 12 Jan 2015 13:26:16 +0100
-Message-ID: <cover.1421064100.git.tgraf@suug.ch>
+Subject: [PATCH 1/6] vxlan: Allow for VXLAN extensions to be implemented
+Date: Mon, 12 Jan 2015 13:26:17 +0100
+Message-ID: <8ee6ef9e9281ca0358a4283598fa7e4a6388451d.1421064100.git.tgraf@suug.ch>
+References: <cover.1421064100.git.tgraf@suug.ch>
 Cc: dev@openvswitch.org, netdev@vger.kernel.org
 To: davem@davemloft.net, jesse@nicira.com, stephen@networkplumber.org,
 	pshelar@nicira.com, therbert@google.com,
 	alexei.starovoitov@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:44559 "EHLO
+Received: from casper.infradead.org ([85.118.1.10]:44561 "EHLO
 	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751204AbbALM02 (ORCPT
+	with ESMTP id S1752506AbbALM02 (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jan 2015 07:26:28 -0500
+In-Reply-To: <cover.1421064100.git.tgraf@suug.ch>
+In-Reply-To: <cover.1421064100.git.tgraf@suug.ch>
+References: <cover.1421064100.git.tgraf@suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Implements supports for the Group Policy VXLAN extension [0] to provide
-a lightweight and simple security label mechanism across network peers
-based on VXLAN. The security context and associated metadata is mapped
-to/from skb->mark. This allows further mapping to a SELinux context
-using SECMARK, to implement ACLs directly with nftables, iptables, OVS,
-tc, etc.
+The VXLAN receive code is currently conservative in what it accepts and
+will reject any frame that uses any of the reserved VXLAN protocol fields.
+The VXLAN draft specifies that "reserved fields MUST be set to zero on
+transmit and ignored on receive.".
 
-The extension is disabled by default and should be run on a distinct
-port in mixed Linux VXLAN VTEP environments. Liberal VXLAN VTEPs
-which ignore unknown reserved bits will be able to receive VXLAN-GBP
-frames.
+Retain the current conservative parsing behaviour by default but allows
+these fields to be used by VXLAN extensions which are explicitly enabled
+on the VXLAN socket respectively VXLAN net_device.
 
-Simple usage example:
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
+---
+v2->v3:
+ - No change
+v1->v2:
+ - No change
 
-10.1.1.1:
-   # ip link add vxlan0 type vxlan id 10 remote 10.1.1.2 gbp
-   # iptables -I OUTPUT -m owner --uid-owner 101 -j MARK --set-mark 0x200
+ drivers/net/vxlan.c | 29 +++++++++++++++++++----------
+ include/net/vxlan.h | 32 +++++++++++++++++++++++++++++---
+ 2 files changed, 48 insertions(+), 13 deletions(-)
 
-10.1.1.2:
-   # ip link add vxlan0 type vxlan id 10 remote 10.1.1.1 gbp
-   # iptables -I INPUT -m mark --mark 0x200 -j DROP
-
-iproute2 [1] and OVS [2] support will be provided in separate patches.
-
-[0] https://tools.ietf.org/html/draft-smith-vxlan-group-policy
-[1] https://github.com/tgraf/iproute2/tree/vxlan-gbp
-[2] https://github.com/tgraf/ovs/tree/vxlan-gbp
-
-Thomas Graf (6):
-  vxlan: Allow for VXLAN extensions to be implemented
-  vxlan: Group Policy extension
-  vxlan: Only bind to sockets with correct extensions enabled
-  openvswitch: Rename GENEVE_TUN_OPTS() to TUN_METADATA_OPTS()
-  openvswitch: Allow for any level of nesting in flow attributes
-  openvswitch: Support VXLAN Group Policy extension
-
- drivers/net/vxlan.c              | 225 ++++++++++++++++++++----------
- include/net/ip_tunnels.h         |   5 +-
- include/net/vxlan.h              |  98 +++++++++++++-
- include/uapi/linux/if_link.h     |   8 ++
- include/uapi/linux/openvswitch.h |  11 ++
- net/openvswitch/flow.c           |   2 +-
- net/openvswitch/flow.h           |  14 +-
- net/openvswitch/flow_netlink.c   | 286 ++++++++++++++++++++++++++-------------
- net/openvswitch/vport-geneve.c   |   2 +-
- net/openvswitch/vport-vxlan.c    |  90 +++++++++++-
- net/openvswitch/vport-vxlan.h    |  11 ++
- 11 files changed, 569 insertions(+), 183 deletions(-)
- create mode 100644 net/openvswitch/vport-vxlan.h
-
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index 2ab0922..4d52aa9 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -65,7 +65,7 @@
+ #define VXLAN_VID_MASK	(VXLAN_N_VID - 1)
+ #define VXLAN_HLEN (sizeof(struct udphdr) + sizeof(struct vxlanhdr))
+ 
+-#define VXLAN_FLAGS 0x08000000	/* struct vxlanhdr.vx_flags required value. */
++#define VXLAN_FLAGS 0x08000000 /* struct vxlanhdr.vx_flags default value. */
+ 
+ /* UDP port for VXLAN traffic.
+  * The IANA assigned port is 4789, but the Linux default is 8472
+@@ -1100,22 +1100,28 @@ static int vxlan_udp_encap_recv(struct sock *sk, struct sk_buff *skb)
+ 	if (!pskb_may_pull(skb, VXLAN_HLEN))
+ 		goto error;
+ 
++	vs = rcu_dereference_sk_user_data(sk);
++	if (!vs)
++		goto drop;
++
+ 	/* Return packets with reserved bits set */
+ 	vxh = (struct vxlanhdr *)(udp_hdr(skb) + 1);
+-	if (vxh->vx_flags != htonl(VXLAN_FLAGS) ||
+-	    (vxh->vx_vni & htonl(0xff))) {
+-		netdev_dbg(skb->dev, "invalid vxlan flags=%#x vni=%#x\n",
+-			   ntohl(vxh->vx_flags), ntohl(vxh->vx_vni));
+-		goto error;
++
++	/* For backwards compatibility, only allow reserved fields to be
++	 * used by VXLAN extensions if explicitly requested.
++	 */
++	if (vs->exts) {
++		if (!vxh->vni_present)
++			goto error_invalid_header;
++	} else {
++		if (vxh->vx_flags != htonl(VXLAN_FLAGS) ||
++		    (vxh->vx_vni & htonl(0xff)))
++			goto error_invalid_header;
+ 	}
+ 
+ 	if (iptunnel_pull_header(skb, VXLAN_HLEN, htons(ETH_P_TEB)))
+ 		goto drop;
+ 
+-	vs = rcu_dereference_sk_user_data(sk);
+-	if (!vs)
+-		goto drop;
+-
+ 	vs->rcv(vs, skb, vxh->vx_vni);
+ 	return 0;
+ 
+@@ -1124,6 +1130,9 @@ drop:
+ 	kfree_skb(skb);
+ 	return 0;
+ 
++error_invalid_header:
++	netdev_dbg(skb->dev, "invalid vxlan flags=%#x vni=%#x\n",
++		   ntohl(vxh->vx_flags), ntohl(vxh->vx_vni));
+ error:
+ 	/* Return non vxlan pkt */
+ 	return 1;
+diff --git a/include/net/vxlan.h b/include/net/vxlan.h
+index 903461a..3e98d31 100644
+--- a/include/net/vxlan.h
++++ b/include/net/vxlan.h
+@@ -11,10 +11,35 @@
+ #define VNI_HASH_BITS	10
+ #define VNI_HASH_SIZE	(1<<VNI_HASH_BITS)
+ 
+-/* VXLAN protocol header */
++/* VXLAN protocol header:
++ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
++ * |R|R|R|R|I|R|R|R|               Reserved                        |
++ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
++ * |                VXLAN Network Identifier (VNI) |   Reserved    |
++ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
++ *
++ * I = 1	VXLAN Network Identifier (VNI) present
++ */
+ struct vxlanhdr {
+-	__be32 vx_flags;
+-	__be32 vx_vni;
++	union {
++		struct {
++#ifdef __LITTLE_ENDIAN_BITFIELD
++			__u8	reserved_flags1:3,
++				vni_present:1,
++				reserved_flags2:4;
++#elif defined(__BIG_ENDIAN_BITFIELD)
++			__u8	reserved_flags2:4,
++				vni_present:1,
++				reserved_flags1:3;
++#else
++#error	"Please fix <asm/byteorder.h>"
++#endif
++			__u8	vx_reserved1;
++			__be16	vx_reserved2;
++		};
++		__be32 vx_flags;
++	};
++	__be32	vx_vni;
+ };
+ 
+ struct vxlan_sock;
+@@ -25,6 +50,7 @@ struct vxlan_sock {
+ 	struct hlist_node hlist;
+ 	vxlan_rcv_t	 *rcv;
+ 	void		 *data;
++	u32		  exts;
+ 	struct work_struct del_work;
+ 	struct socket	 *sock;
+ 	struct rcu_head	  rcu;
 -- 
 1.9.3
