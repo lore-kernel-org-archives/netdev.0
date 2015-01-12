@@ -1,27 +1,35 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull-request: wireless-drivers 2015-01-09
-Date: Mon, 12 Jan 2015 00:24:05 -0500 (EST)
-Message-ID: <20150112.002405.468448503179324247.davem@davemloft.net>
-References: <87lhlbj4pp.fsf@kamboji.qca.qualcomm.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/1] csiostor:fix sparse warnings
+Date: Mon, 12 Jan 2015 00:40:46 -0500 (EST)
+Message-ID: <20150112.004046.286889948997466119.davem@davemloft.net>
+References: <1420818916-12185-1-git-send-email-praveenm@chelsio.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <87lhlbj4pp.fsf-HodKDYzPHsUD5k0oWYwrnHL1okKdlPRT@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: netdev@vger.kernel.org, linux-scsi@vger.kernel.org,
+	JBottomley@parallels.com, hch@infradead.org, hariprasad@chelsio.com
+To: praveenm@chelsio.com
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <1420818916-12185-1-git-send-email-praveenm@chelsio.com>
+Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Date: Fri, 09 Jan 2015 18:31:30 +0200
+From: Praveen Madhavan <praveenm@chelsio.com>
+Date: Fri,  9 Jan 2015 21:25:16 +0530
 
-> here are few more fixes to 3.19. Please let me know if there are any
-> problems.
+> This patch fixes sparse warning reported by kbuild.
+> Apply this on net-next since it depends on previous commit.
+> 
+> drivers/scsi/csiostor/csio_hw.c:259:17: sparse: cast to restricted __le32
+> drivers/scsi/csiostor/csio_hw.c:536:31: sparse: incorrect type in assignment
+> (different base types)
+> drivers/scsi/csiostor/csio_hw.c:536:31:    expected unsigned int [unsigned]
+> [usertype] <noident>
+> drivers/scsi/csiostor/csio_hw.c:536:31:    got restricted __be32 [usertype]
+> <noident>
+>>> drivers/scsi/csiostor/csio_hw.c:2012:5: sparse: symbol 'csio_hw_prep_fw' was
+> not declared. Should it be static?
+> 
+> Signed-off-by: Praveen Madhavan <praveenm@chelsio.com>
 
-Pulled, thanks Kalle.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied, thanks.
