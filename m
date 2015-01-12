@@ -1,91 +1,179 @@
-From: Olivier Sobrie <olivier@sobrie.be>
-Subject: Re: [PATCH v4 4/4] can: kvaser_usb: Retry first bulk transfer on
- -ETIMEDOUT
-Date: Mon, 12 Jan 2015 14:33:30 +0100
-Message-ID: <20150112133330.GA18351@hposo>
-References: <20141223154654.GB6460@vivalin-002>
- <20150111200544.GA8855@linux>
- <20150111201116.GB8855@linux>
- <20150111201519.GC8855@linux>
- <20150111203612.GA8999@linux>
- <20150111204508.GB8999@linux>
- <54B2E23E.1090108@pengutronix.de>
- <20150112101407.GA9213@linux>
-Reply-To: Olivier Sobrie <olivier@sobrie.be>
+From: Appana Durga Kedareswara Rao <appana.durga.rao@xilinx.com>
+Subject: RE: [PATCH v4] can: Convert to runtime_pm
+Date: Mon, 12 Jan 2015 13:49:48 +0000
+Message-ID: <4a61c12b2e1d4103a41a3faf1d58837a@BN1BFFO11FD030.protection.gbl>
+References: <58f37b6fd9104ce185c413c473fe047b@BY2FFO11FD050.protection.gbl>
+ <54AD267C.4060004@pengutronix.de>
+ <12e7202e137e4d5680185748ebf0cf2d@BY2FFO11FD060.protection.gbl>
+ <54B299A0.1000504@pengutronix.de>
+ <bb20847c9546459592241f801be2b536@BY2FFO11FD027.protection.gbl>
+ <54B3CB51.3060207@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Marc Kleine-Budde <mkl@pengutronix.de>,
-	Oliver Hartkopp <socketcan@hartkopp.net>,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Linux-USB <linux-usb@vger.kernel.org>,
-	Linux-CAN <linux-can@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: "Ahmed S. Darwish" <darwish.07@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150112101407.GA9213@linux>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"Soren Brinkmann" <sorenb@xilinx.com>,
+	"grant.likely@linaro.org" <grant.likely@linaro.org>,
+	"wg@grandegger.com" <wg@grandegger.com>,
+	"Michal Simek" <michals@xilinx.com>
+To: Marc Kleine-Budde <mkl@pengutronix.de>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <54B3CB51.3060207@pengutronix.de>
+Content-Language: en-US
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
-
-On Mon, Jan 12, 2015 at 05:14:07AM -0500, Ahmed S. Darwish wrote:
-> On Sun, Jan 11, 2015 at 09:51:10PM +0100, Marc Kleine-Budde wrote:
-> > On 01/11/2015 09:45 PM, Ahmed S. Darwish wrote:
-> > > From: Ahmed S. Darwish <ahmed.darwish@valeo.com>
-> > > 
-> > > (This is a draft patch, I'm not sure if this fixes the USB
-> > > bug or only its psymptom. Feedback from the linux-usb folks
-> > > is really appreciated.)
-> > > 
-> > > When plugging the Kvaser USB/CAN dongle the first time, everything
-> > > works as expected and all of the transfers from and to the USB
-> > > device succeeds.
-> > > 
-> > > Meanwhile, after unplugging the device and plugging it again, the
-> > > first bulk transfer _always_ returns an -ETIMEDOUT. The following
-> > > behaviour was observied:
-> > > 
-> > > - Setting higher timeout values for the first bulk transfer never
-> > >   solved the issue.
-> > > 
-> > > - Unloading, then loading, our kvaser_usb module in question
-> > >   __always__ solved the issue.
-> > > 
-> > > - Checking first bulk transfer status, and retry the transfer
-> > >   again in case of an -ETIMEDOUT also __always__ solved the issue.
-> > >   This is what the patch below does.
-> > > 
-> > > - In the testing done so far, this issue appears only on laptops
-> > >   but never on PCs (possibly power related?)
-> > > 
-> > > Signed-off-by: Ahmed S. Darwish <ahmed.darwish@valeo.com>
-> > 
-> > Does this patch apply apply between 3 and 4? If not, please re-arrange
-> > the series. As this is a bug fix, patches 1, 2 and 4 will go via
-> > net/master, 3 will go via net-next/master.
-> > 
-> 
-> Since no one complained earlier, I guess this issue only affects
-> USBCAN devices. That's why I've based it above patch #3: adding
-> USBCAN hardware support.
-> 
-> Nonetheless, it won't do any harm for the current Leaf-only
-> driver. So _if_ this is the correct fix, I will update the commit
-> log, refactor the check into a 'do { } while()' loop, and then
-> base it above the Leaf-only net/master fixes on patch #1, and #2.
-> 
-> Any feedback on the USB side of things?
-
-Can you take a wireshark capture showing the problem?
-It can maybe help people to figure out what happens.
-
-What kind of usbcan device do you use?
-Which firmware revision is loaded on the device?
-
-Kr,
-
--- 
-Olivier
+SGkgTWFyYywNCg0KPiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBNYXJjIEts
+ZWluZS1CdWRkZSBbbWFpbHRvOm1rbEBwZW5ndXRyb25peC5kZV0NCj4gU2VudDogTW9uZGF5LCBK
+YW51YXJ5IDEyLCAyMDE1IDY6NTYgUE0NCj4gVG86IEFwcGFuYSBEdXJnYSBLZWRhcmVzd2FyYSBS
+YW8NCj4gQ2M6IGxpbnV4LWNhbkB2Z2VyLmtlcm5lbC5vcmc7IG5ldGRldkB2Z2VyLmtlcm5lbC5v
+cmc7IGxpbnV4LQ0KPiBrZXJuZWxAdmdlci5rZXJuZWwub3JnOyBTb3JlbiBCcmlua21hbm47IGdy
+YW50Lmxpa2VseUBsaW5hcm8ub3JnOw0KPiB3Z0BncmFuZGVnZ2VyLmNvbTsgTWljaGFsIFNpbWVr
+DQo+IFN1YmplY3Q6IFJlOiBbUEFUQ0ggdjRdIGNhbjogQ29udmVydCB0byBydW50aW1lX3BtDQo+
+DQo+IE9uIDAxLzEyLzIwMTUgMDc6NTkgQU0sIEFwcGFuYSBEdXJnYSBLZWRhcmVzd2FyYSBSYW8g
+d3JvdGU6DQo+ID4gSGkgTWFyYywNCj4gPg0KPiA+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0t
+LQ0KPiA+PiBGcm9tOiBNYXJjIEtsZWluZS1CdWRkZSBbbWFpbHRvOm1rbEBwZW5ndXRyb25peC5k
+ZV0NCj4gPj4gU2VudDogU3VuZGF5LCBKYW51YXJ5IDExLCAyMDE1IDk6MTEgUE0NCj4gPj4gVG86
+IEFwcGFuYSBEdXJnYSBLZWRhcmVzd2FyYSBSYW8NCj4gPj4gQ2M6IGxpbnV4LWNhbkB2Z2VyLmtl
+cm5lbC5vcmc7IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IGxpbnV4LQ0KPiA+PiBrZXJuZWxAdmdl
+ci5rZXJuZWwub3JnOyBTb3JlbiBCcmlua21hbm47IGdyYW50Lmxpa2VseUBsaW5hcm8ub3JnOw0K
+PiA+PiB3Z0BncmFuZGVnZ2VyLmNvbQ0KPiA+PiBTdWJqZWN0OiBSZTogW1BBVENIIHY0XSBjYW46
+IENvbnZlcnQgdG8gcnVudGltZV9wbQ0KPiA+Pg0KPiA+PiBPbiAwMS8xMS8yMDE1IDA2OjM0IEFN
+LCBBcHBhbmEgRHVyZ2EgS2VkYXJlc3dhcmEgUmFvIHdyb3RlOg0KPiA+PiBbLi4uXQ0KPiA+Pj4+
+PiAgICAgICAgICAgICByZXR1cm4gcmV0Ow0KPiA+Pj4+PiAgICAgfQ0KPiA+Pj4+Pg0KPiA+Pj4+
+PiAgICAgcHJpdi0+d3JpdGVfcmVnKHByaXYsIFhDQU5fTVNSX09GRlNFVCwgMCk7DQo+ID4+Pj4+
+ICAgICBwcml2LT53cml0ZV9yZWcocHJpdiwgWENBTl9TUlJfT0ZGU0VULCBYQ0FOX1NSUl9DRU5f
+TUFTSyk7DQo+ID4+Pj4+DQo+ID4+Pj4+ICAgICBpZiAobmV0aWZfcnVubmluZyhuZGV2KSkgew0K
+PiA+Pj4+PiAgICAgICAgICAgICBwcml2LT5jYW4uc3RhdGUgPSBDQU5fU1RBVEVfRVJST1JfQUNU
+SVZFOw0KPiA+Pj4+DQo+ID4+Pj4gV2hhdCBoYXBwZW5zIGlmIHRoZSBkZXZpY2Ugd2FzIG5vdCBp
+biBBQ1RJVkUgc3RhdGUgcHJpb3IgdG8gdGhlDQo+ID4+Pj4gcnVudGltZV9zdXNwZW5kPw0KPiA+
+Pj4+DQo+ID4+Pg0KPiA+Pj4gSSBhbSBub3Qgc3VyZSBhYm91dCB0aGUgc3RhdGUgb2YgQ0FOIGF0
+IHRoaXMgcG9pbnQgb2YgdGltZS4NCj4gPj4+IEkganVzdCBmb2xsb3dlZCB3aGF0IG90aGVyIGRy
+aXZlcnMgYXJlIGZvbGxvd2luZyBmb3IgcnVuIHRpbWUgIHN1c3BlbmQgOikuDQo+ID4+DQo+ID4+
+IFBsZWFzZSBjaGVjayB0aGUgc3RhdGUgb2YgdGhlIGhhcmR3YXJlIGlmIHlvdSBnbyB3aXRoIGJ1
+cyBvZmYgaW50bw0KPiA+PiBzdXNwZW5kIGFuZCB0aGVuIHJlc3VtZS4NCj4gPj4NCj4gPg0KPiA+
+ICAgICAgICAgaWYgKG5ldGlmX3J1bm5pbmcobmRldikpIHsNCj4gPiAgICAgICAgICAgICAgICAg
+ICAgICAgICBpZiAoaXNyICYgWENBTl9JWFJfQlNPRkZfTUFTSykgew0KPiA+ICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgcHJpdi0+Y2FuLnN0YXRlID0gQ0FOX1NUQVRFX0JVU19PRkY7
+DQo+ID4gICAgICAgICAgICAgICAgICAgICAgICAgICAgcHJpdi0+d3JpdGVfcmVnKHByaXYsIFhD
+QU5fU1JSX09GRlNFVCwNCj4gPiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgWENBTl9TUlJfUkVTRVRfTUFTSyk7DQo+ID4gICAgICAgICAgICAgICAgIH0gZWxzZSBpZiAo
+KHN0YXR1cyAmIFhDQU5fU1JfRVNUQVRfTUFTSykgPT0NCj4gPiAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgWENBTl9TUl9FU1RBVF9NQVNLKSB7DQo+ID4gICAgICAgICAg
+ICAgICAgICAgICAgICAgcHJpdi0+Y2FuLnN0YXRlID0gQ0FOX1NUQVRFX0VSUk9SX1BBU1NJVkU7
+DQo+ID4gICAgICAgICAgICAgICAgIH0gZWxzZSBpZiAoc3RhdHVzICYgWENBTl9TUl9FUlJXUk5f
+TUFTSykgew0KPiA+ICAgICAgICAgICAgICAgICAgICAgICAgIHByaXYtPmNhbi5zdGF0ZSA9IENB
+Tl9TVEFURV9FUlJPUl9XQVJOSU5HOw0KPiA+ICAgICAgICAgICAgICAgICB9IGVsc2Ugew0KPiA+
+ICAgICAgICAgICAgICAgICAgICAgICAgIHByaXYtPmNhbi5zdGF0ZSA9IENBTl9TVEFURV9FUlJP
+Ul9BQ1RJVkU7DQo+ID4gICAgICAgICAgICAgICAgIH0NCj4gPiAgICAgICAgIH0NCj4gPg0KPiA+
+IElzIHRoZSBhYm92ZSBjb2RlIHNuaXBwZXQgb2sgZm9yIHlvdT8NCj4NCj4gWWVzLCBidXQgd2hh
+dCdzIHRoZSBzdGF0ZSBvZiB0aGUgaGFyZHdhcmUgd2hlbiBpdCB3YWtlcyB1cCBhZ2Fpbj8NCg0K
+SXQgZGVwZW5kcyBvbiB0aGUgcHJldmlvdXMgc3RhdGUgb2YgdGhlIENBTi4NCkkgbWVhbiBJbiBT
+dXNwZW5kIHdlIGFyZSBwdXR0aW5nIHRoZSBkZXZpY2UgaW4gc2xlZXAgbW9kZSBhbmQgaW4gcmVz
+dW1lIHdlIGFyZSB3YWtpbmcgdXAgYnkgcHV0dGluZyB0aGUgZGV2aWNlIGludG8gdGhlDQpDb25m
+aWd1cmF0aW9uIG1vZGUuIFdlIGFyZSBub3QgZG9pbmcgYW55IHJlc2V0IG9mIHRoZSBjb3JlIGlu
+IHRoZSBzdXNwZW5kL3Jlc3VtZSBzbyBpdCBkZXBlbmRzIG9uIHRoZSBwcmV2aW91cyBzdGF0ZSBv
+ZiB0aGUgQ0FODQp3aGVuIGl0IHdha2VzIHVwIHRoYXQncyB3aHkgIGNoZWNraW5nIGZvciB0aGUg
+c3RhdHVzIG9mIHRoZSBDQU4gaW4gdGhlIHN0YXR1cyByZWdpc3RlciBoZXJlIHRvIHB1dCB0aGUg
+ZGV2aWNlIGluIGFwcHJvcHJpYXRlIG1vZGUuDQoNCj4NCj4gPg0KPiA+Pj4+PiAgICAgICAgICAg
+ICBuZXRpZl9kZXZpY2VfYXR0YWNoKG5kZXYpOw0KPiA+Pj4+PiAgICAgICAgICAgICBuZXRpZl9z
+dGFydF9xdWV1ZShuZGV2KTsNCj4gPj4+Pj4gICAgIH0NCj4gPj4+Pj4NCj4gPj4+Pj4gICAgIHJl
+dHVybiAwOw0KPiA+Pj4+PiB9DQo+ID4+Pj4NCj4gPj4+Pg0KPiA+Pj4+Pg0KPiA+Pj4+PiBAQCAt
+MTAyMCw5ICsxMDM1LDkgQEAgc3RhdGljIGludCBfX21heWJlX3VudXNlZA0KPiB4Y2FuX3Jlc3Vt
+ZShzdHJ1Y3QNCj4gPj4+Pj4gZGV2aWNlICpkZXYpDQo+ID4+Pj4+DQo+ID4+Pj4+ICAgICBwcml2
+LT53cml0ZV9yZWcocHJpdiwgWENBTl9NU1JfT0ZGU0VULCAwKTsNCj4gPj4+Pj4gICAgIHByaXYt
+PndyaXRlX3JlZyhwcml2LCBYQ0FOX1NSUl9PRkZTRVQsIFhDQU5fU1JSX0NFTl9NQVNLKTsNCj4g
+Pj4+Pj4gLSAgIHByaXYtPmNhbi5zdGF0ZSA9IENBTl9TVEFURV9FUlJPUl9BQ1RJVkU7DQo+ID4+
+Pj4+DQo+ID4+Pj4+ICAgICBpZiAobmV0aWZfcnVubmluZyhuZGV2KSkgew0KPiA+Pj4+PiArICAg
+ICAgICAgICBwcml2LT5jYW4uc3RhdGUgPSBDQU5fU1RBVEVfRVJST1JfQUNUSVZFOw0KPiA+Pj4+
+PiAgICAgICAgICAgICBuZXRpZl9kZXZpY2VfYXR0YWNoKG5kZXYpOw0KPiA+Pj4+PiAgICAgICAg
+ICAgICBuZXRpZl9zdGFydF9xdWV1ZShuZGV2KTsNCj4gPj4+Pj4gICAgIH0NCj4gPj4+Pj4gQEAg
+LTEwMzAsNyArMTA0NSwxMCBAQCBzdGF0aWMgaW50IF9fbWF5YmVfdW51c2VkDQo+ID4+IHhjYW5f
+cmVzdW1lKHN0cnVjdA0KPiA+Pj4+IGRldmljZSAqZGV2KQ0KPiA+Pj4+PiAgICAgcmV0dXJuIDA7
+DQo+ID4+Pj4+ICB9DQo+ID4+Pj4+DQo+ID4+Pj4+IC1zdGF0aWMgU0lNUExFX0RFVl9QTV9PUFMo
+eGNhbl9kZXZfcG1fb3BzLCB4Y2FuX3N1c3BlbmQsDQo+ID4+Pj4geGNhbl9yZXN1bWUpOw0KPiA+
+Pj4+PiArc3RhdGljIGNvbnN0IHN0cnVjdCBkZXZfcG1fb3BzIHhjYW5fZGV2X3BtX29wcyA9IHsN
+Cj4gPj4+Pj4gKyAgIFNFVF9TWVNURU1fU0xFRVBfUE1fT1BTKHhjYW5fc3VzcGVuZCwgeGNhbl9y
+ZXN1bWUpDQo+ID4+Pj4+ICsgICBTRVRfUE1fUlVOVElNRV9QTV9PUFMoeGNhbl9ydW50aW1lX3N1
+c3BlbmQsDQo+ID4+Pj4geGNhbl9ydW50aW1lX3Jlc3VtZSwNCj4gPj4+Pj4gK05VTEwpIH07DQo+
+ID4+Pj4+DQo+ID4+Pj4+ICAvKioNCj4gPj4+Pj4gICAqIHhjYW5fcHJvYmUgLSBQbGF0Zm9ybSBy
+ZWdpc3RyYXRpb24gY2FsbCBAQCAtMTA3MSw3ICsxMDg5LDcgQEANCj4gPj4+Pj4gc3RhdGljIGlu
+dCB4Y2FuX3Byb2JlKHN0cnVjdCBwbGF0Zm9ybV9kZXZpY2UgKnBkZXYpDQo+ID4+Pj4+ICAgICAg
+ICAgICAgIHJldHVybiAtRU5PTUVNOw0KPiA+Pj4+Pg0KPiA+Pj4+PiAgICAgcHJpdiA9IG5ldGRl
+dl9wcml2KG5kZXYpOw0KPiA+Pj4+PiAtICAgcHJpdi0+ZGV2ID0gbmRldjsNCj4gPj4+Pj4gKyAg
+IHByaXYtPmRldiA9ICZwZGV2LT5kZXY7DQo+ID4+Pj4+ICAgICBwcml2LT5jYW4uYml0dGltaW5n
+X2NvbnN0ID0gJnhjYW5fYml0dGltaW5nX2NvbnN0Ow0KPiA+Pj4+PiAgICAgcHJpdi0+Y2FuLmRv
+X3NldF9tb2RlID0geGNhbl9kb19zZXRfbW9kZTsNCj4gPj4+Pj4gICAgIHByaXYtPmNhbi5kb19n
+ZXRfYmVycl9jb3VudGVyID0geGNhbl9nZXRfYmVycl9jb3VudGVyOyBAQCAtDQo+ID4+Pj4gMTEz
+NywxNQ0KPiA+Pj4+PiArMTE1NSwyMiBAQCBzdGF0aWMgaW50IHhjYW5fcHJvYmUoc3RydWN0IHBs
+YXRmb3JtX2RldmljZSAqcGRldikNCj4gPj4+Pj4NCj4gPj4+Pj4gICAgIG5ldGlmX25hcGlfYWRk
+KG5kZXYsICZwcml2LT5uYXBpLCB4Y2FuX3J4X3BvbGwsIHJ4X21heCk7DQo+ID4+Pj4+DQo+ID4+
+Pj4+ICsgICBwbV9ydW50aW1lX3NldF9hY3RpdmUoJnBkZXYtPmRldik7DQo+ID4+Pj4+ICsgICBw
+bV9ydW50aW1lX2lycV9zYWZlKCZwZGV2LT5kZXYpOw0KPiA+Pj4+PiArICAgcG1fcnVudGltZV9l
+bmFibGUoJnBkZXYtPmRldik7DQo+ID4+Pj4+ICsgICBwbV9ydW50aW1lX2dldF9zeW5jKCZwZGV2
+LT5kZXYpOw0KPiA+Pj4+IENoZWNrIGVycm9yIHZhbHVlcz8NCj4gPj4+DQo+ID4+PiBPaw0KPiA+
+Pj4+PiArDQo+ID4+Pj4+ICAgICByZXQgPSByZWdpc3Rlcl9jYW5kZXYobmRldik7DQo+ID4+Pj4+
+ICAgICBpZiAocmV0KSB7DQo+ID4+Pj4+ICAgICAgICAgICAgIGRldl9lcnIoJnBkZXYtPmRldiwg
+ImZhaWwgdG8gcmVnaXN0ZXIgZmFpbGVkDQo+ID4+Pj4+IChlcnI9JWQpXG4iLA0KPiA+Pj4+IHJl
+dCk7DQo+ID4+Pj4+ICsgICAgICAgICAgIHBtX3J1bnRpbWVfcHV0KHByaXYtPmRldik7DQo+ID4+
+Pj4NCj4gPj4+PiBQbGVhc2UgbW92ZSB0aGUgcG1fcnVudGltZV9wdXQgaW50byB0aGUgY29tbW9u
+IGVycm9yIGV4aXQgcGF0aC4NCj4gPj4+Pg0KPiA+Pj4NCj4gPj4+IE9rDQo+ID4+Pg0KPiA+Pj4+
+PiAgICAgICAgICAgICBnb3RvIGVycl91bnByZXBhcmVfZGlzYWJsZV9idXNjbGs7DQo+ID4+Pj4+
+ICAgICB9DQo+ID4+Pj4+DQo+ID4+Pj4+ICAgICBkZXZtX2Nhbl9sZWRfaW5pdChuZGV2KTsNCj4g
+Pj4+Pj4gLSAgIGNsa19kaXNhYmxlX3VucHJlcGFyZShwcml2LT5idXNfY2xrKTsNCj4gPj4+Pj4g
+LSAgIGNsa19kaXNhYmxlX3VucHJlcGFyZShwcml2LT5jYW5fY2xrKTsNCj4gPj4+Pj4gKw0KPiA+
+Pj4+PiArICAgcG1fcnVudGltZV9wdXQoJnBkZXYtPmRldik7DQo+ID4+Pj4+ICsNCj4gPj4+Pj4g
+ICAgIG5ldGRldl9kYmcobmRldiwgInJlZ19iYXNlPTB4JXAgaXJxPSVkIGNsb2NrPSVkLCB0eCBm
+aWZvDQo+ID4+Pj4gZGVwdGg6JWRcbiIsDQo+ID4+Pj4+ICAgICAgICAgICAgICAgICAgICAgcHJp
+di0+cmVnX2Jhc2UsIG5kZXYtPmlycSwgcHJpdi0+Y2FuLmNsb2NrLmZyZXEsDQo+ID4+Pj4+ICAg
+ICAgICAgICAgICAgICAgICAgcHJpdi0+dHhfbWF4KTsNCj4gPj4+Pj4NCj4gPj4+Pg0KPiA+Pj4+
+IEkgdGhpbmsgeW91IGhhdmUgdG8gY29udmVydCB0aGUgX3JlbW92ZSgpIGZ1bmN0aW9uLCB0b28u
+IEhhdmUgYQ0KPiA+Pj4+IGxvb2sgYXQgdGhlIGdwaW8tenlucS5jIGRyaXZlcjoNCj4gPj4+Pg0K
+PiA+Pj4+PiBzdGF0aWMgaW50IHp5bnFfZ3Bpb19yZW1vdmUoc3RydWN0IHBsYXRmb3JtX2Rldmlj
+ZSAqcGRldikgew0KPiA+Pj4+PiAgICAgc3RydWN0IHp5bnFfZ3BpbyAqZ3BpbyA9IHBsYXRmb3Jt
+X2dldF9kcnZkYXRhKHBkZXYpOw0KPiA+Pj4+Pg0KPiA+Pj4+PiAgICAgcG1fcnVudGltZV9nZXRf
+c3luYygmcGRldi0+ZGV2KTsNCj4gPj4+Pg0KPiA+Pj4+IEhvd2V2ZXIgSSBkb24ndCB1bmRlcnN0
+YW5kIHdoeSB0aGUgZ2V0X3N5bmMoKSBpcyBoZXJlLiBNYXliZSBTw7ZyZW4NCj4gPj4+PiBjYW4g
+aGVscD8NCj4gPj4+DQo+ID4+PiBJIGNvbnZlcnRlZCB0aGUgcmVtb3ZlIGZ1bmN0aW9uIHRvIHVz
+ZSB0aGUgcnVuLXRpbWUgUE0gYW5kIC4NCj4gPj4+IEJlbG93IGlzIHRoZSByZW1vdmUgY29kZSBz
+bmlwcGV0Lg0KPiA+Pj4NCj4gPj4+ICAgICAgICByZXQgPSBwbV9ydW50aW1lX2dldF9zeW5jKCZw
+ZGV2LT5kZXYpOw0KPiA+Pj4gICAgICAgICBpZiAocmV0IDwgMCkgew0KPiA+Pj4gICAgICAgICAg
+ICAgICAgIG5ldGRldl9lcnIobmRldiwgIiVzOiBwbV9ydW50aW1lX2dldCBmYWlsZWQoJWQpXG4i
+LA0KPiA+Pj4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBfX2Z1bmNfXywgcmV0KTsN
+Cj4gPj4+ICAgICAgICAgICAgICAgICByZXR1cm4gcmV0Ow0KPiA+Pj4gICAgICAgICB9DQo+ID4+
+Pg0KPiA+Pj4gICAgICAgICBpZiAoc2V0X3Jlc2V0X21vZGUobmRldikgPCAwKQ0KPiA+Pj4gICAg
+ICAgICAgICAgICAgIG5ldGRldl9lcnIobmRldiwgIm1vZGUgcmVzZXR0aW5nIGZhaWxlZCFcbiIp
+Ow0KPiA+Pj4NCj4gPj4+ICAgICAgICAgdW5yZWdpc3Rlcl9jYW5kZXYobmRldik7DQo+ID4+PiAg
+ICAgICAgIG5ldGlmX25hcGlfZGVsKCZwcml2LT5uYXBpKTsNCj4gPj4+ICAgICAgICAgZnJlZV9j
+YW5kZXYobmRldik7DQo+ID4+DQo+ID4+PiAgICAgICAgIHBtX3J1bnRpbWVfZGlzYWJsZSgmcGRl
+di0+ZGV2KTsNCj4gPj4NCj4gPj4gQ2FuIHRoaXMgbWFrZSBhIGNhbGwgdG8geGNhbl9ydW50aW1l
+XyooKT8gSSdtIGFza2luZyBzaW5jZSB0aGUgbmRldg0KPiA+PiBoYXMgYmVlbiB1bnJlZ2lzdGVy
+ZWQgYW5kIGFscmVhZHkgZnJlZSgpZWQuIEJldHRlciBtb3ZlIHRoaXMgZGlyZWN0bHkNCj4gPj4g
+YWZ0ZXIgdGhlIHNldF9yZXNldF9tb2RlKCkuIFRoaXMgd2F5IHlvdSBhcmUgc3ltbWV0cmljIHRv
+IHRoZSBwcm9iZSgpDQo+IGZ1bmN0aW9uLg0KPiA+DQo+ID4gSWYgSSBtb3ZlIHRoZSAgcG1fcnVu
+dGltZV9kaXNhYmxlIGFmdGVyIHRoZSBzZXRfcmVzZXRfbW9kZSBJIGFtDQo+ID4gZ2V0dGluZyB0
+aGUgYmVsb3cgZXJyb3IuDQo+ID4gRVJST1I6DQo+ID4geGlsaW54X2NhbiBlMDAwODAwMC5jYW4g
+Y2FuMCAodW5yZWdpc3RlcmluZyk6IHhjYW5fZ2V0X2JlcnJfY291bnRlcjoNCj4gPiBwbV9ydW50
+aW1lX2dldCBmYWlsDQo+ID4NCj4gPiBJZiBJIG1vdmUgdGhlIHBtX3J1bnRpbWVfZGlzYWJsZSBh
+ZnRlciB1bnJlZ2lzdGVyX2NhbmRldiBldmVyeXRoaW5nIGlzDQo+IHdvcmtpbmcgZmluZS4NCj4N
+Cj4gRmluZSAtIGJ1dCB3aG8gY2FsbHMgeGNhbl9nZXRfYmVycl9jb3VudGVyIGhlcmU/IENhbiB5
+b3UgYWRkIGENCj4gZHVtcF9zdGFjaygpIGhlcmU/DQo+DQoNCkkgdGhpbmsgaXQgaXMgZ2V0dGlu
+ZyBjYWxsZWQgZnJvbSB0aGUgYXRvbWljIGNvbnRleHQuDQpXaGVuIEkgIGFtIHRyeWluZyB0byBk
+byBhIHJtbW9kIEkgYW0gZ2V0dGluZyB0aGUgYWJvdmUgZXJyb3IuDQpFUlJPUjoNCnhpbGlueF9j
+YW4gZTAwMDgwMDAuY2FuIGNhbjAgKHVucmVnaXN0ZXJpbmcpOiB4Y2FuX2dldF9iZXJyX2NvdW50
+ZXI6DQogcG1fcnVudGltZV9nZXQgZmFpbC4NCg0KSSBhbSBnZXR0aW5nIG9ubHkgdGhlIGFib3Zl
+IGVycm9yIGluIHRoZSBjb25zb2xlIHdoZW4gSSBkbyBybW1vZC4NCg0KUmVnYXJkcywNCktlZGFy
+Lg0KDQo+IE1hcmMNCj4gLS0NCj4gUGVuZ3V0cm9uaXggZS5LLiAgICAgICAgICAgICAgICAgIHwg
+TWFyYyBLbGVpbmUtQnVkZGUgICAgICAgICAgIHwNCj4gSW5kdXN0cmlhbCBMaW51eCBTb2x1dGlv
+bnMgICAgICAgIHwgUGhvbmU6ICs0OS0yMzEtMjgyNi05MjQgICAgIHwNCj4gVmVydHJldHVuZyBX
+ZXN0L0RvcnRtdW5kICAgICAgICAgIHwgRmF4OiAgICs0OS01MTIxLTIwNjkxNy01NTU1IHwNCj4g
+QW10c2dlcmljaHQgSGlsZGVzaGVpbSwgSFJBIDI2ODYgIHwgaHR0cDovL3d3dy5wZW5ndXRyb25p
+eC5kZSAgIHwNCg0KDQoNClRoaXMgZW1haWwgYW5kIGFueSBhdHRhY2htZW50cyBhcmUgaW50ZW5k
+ZWQgZm9yIHRoZSBzb2xlIHVzZSBvZiB0aGUgbmFtZWQgcmVjaXBpZW50KHMpIGFuZCBjb250YWlu
+KHMpIGNvbmZpZGVudGlhbCBpbmZvcm1hdGlvbiB0aGF0IG1heSBiZSBwcm9wcmlldGFyeSwgcHJp
+dmlsZWdlZCBvciBjb3B5cmlnaHRlZCB1bmRlciBhcHBsaWNhYmxlIGxhdy4gSWYgeW91IGFyZSBu
+b3QgdGhlIGludGVuZGVkIHJlY2lwaWVudCwgZG8gbm90IHJlYWQsIGNvcHksIG9yIGZvcndhcmQg
+dGhpcyBlbWFpbCBtZXNzYWdlIG9yIGFueSBhdHRhY2htZW50cy4gRGVsZXRlIHRoaXMgZW1haWwg
+bWVzc2FnZSBhbmQgYW55IGF0dGFjaG1lbnRzIGltbWVkaWF0ZWx5Lg0KDQo=
