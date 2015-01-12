@@ -1,43 +1,44 @@
-From: Claudiu Manoil <claudiu.manoil@freescale.com>
-Subject: Re: [PATCH] gianfar: correct the bad expression while writing bit-pattern
-Date: Mon, 12 Jan 2015 16:22:17 +0200
-Message-ID: <54B3D899.5060204@freescale.com>
-References: <1421048596-22639-1-git-send-email-sanjeev_sharma@mentor.com>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: [PATCH net-next v2] tcp: avoid reducing cwnd when ACK+DSACK is received
+Date: Mon, 12 Jan 2015 10:02:45 -0500
+Message-ID: <CADVnQy=ceATQE=9UCCJmHWaXP9FjMQoCVt_WNxpT9R0C__5BwA@mail.gmail.com>
+References: <1420719609-18638-1-git-send-email-sebastien.barre@uclouvain.be>
+	<1420730396.5947.55.camel@edumazet-glaptop2.roam.corp.google.com>
+	<54AEA498.5030202@uclouvain.be>
+	<CADVnQy=A57TUYD=kGtZXvq7-FGSN=vN3D2heaNCnBB=zjujwUg@mail.gmail.com>
+	<1420734325.5947.61.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CAK6E8=dhW=0hRYHjjgBh0KwKOQfzHhwY2egusQ8S4tsoJb0Nsg@mail.gmail.com>
+	<063D6719AE5E284EB5DD2968C1650D6D1CAC5844@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <peter.senna@gmail.com>,
-	<shemminger@linux-foundation.org>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>
-To: Sanjeev Sharma <sanjeev_sharma@mentor.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1421048596-22639-1-git-send-email-sanjeev_sharma@mentor.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Yuchung Cheng <ycheng@google.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	=?UTF-8?B?U8OpYmFzdGllbiBCYXJyw6k=?= <sebastien.barre@uclouvain.be>,
+	David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>,
+	Gregory Detal <gregory.detal@uclouvain.be>,
+	Nandita Dukkipati <nanditad@google.com>
+To: David Laight <David.Laight@aculab.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qc0-f170.google.com ([209.85.216.170]:51540 "EHLO
+	mail-qc0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751204AbbALPCr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jan 2015 10:02:47 -0500
+Received: by mail-qc0-f170.google.com with SMTP id x3so18273142qcv.1
+        for <netdev@vger.kernel.org>; Mon, 12 Jan 2015 07:02:46 -0800 (PST)
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CAC5844@AcuExch.aculab.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 1/12/2015 9:43 AM, Sanjeev Sharma wrote:
-> This patch correct the bad expression while writing the
-> bit-pattern from software's buffer to hardware registers.
+On Mon, Jan 12, 2015 at 6:52 AM, David Laight <David.Laight@aculab.com> wrote:
+>>         if (flag & FLAG_DSACKING_ACK) {
+>>                 /* This DSACK means original and TLP probe arrived; no loss */
+>>                 tp->tlp_high_seq = 0;
 >
-> Signed-off-by: Sanjeev Sharma <Sanjeev_Sharma@mentor.com>
-> ---
->   drivers/net/ethernet/freescale/gianfar_ethtool.c | 2 +-
->   1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/drivers/net/ethernet/freescale/gianfar_ethtool.c b/drivers/net/ethernet/freescale/gianfar_ethtool.c
-> index 3e1a9c1..1ccca72 100644
-> --- a/drivers/net/ethernet/freescale/gianfar_ethtool.c
-> +++ b/drivers/net/ethernet/freescale/gianfar_ethtool.c
-> @@ -1586,7 +1586,7 @@ static int gfar_write_filer_table(struct gfar_private *priv,
->   		return -EBUSY;
->
->   	/* Fill regular entries */
-> -	for (; i < MAX_FILER_IDX - 1 && (tab->fe[i].ctrl | tab->fe[i].ctrl);
-> +	for (; i < MAX_FILER_IDX - 1 && ( i < tab->fe[i].ctrl);
->   	     i++)
+> I think I'd add a 'return' here.
 
-Why do you think 'i' can be compared with the 'ctrl' field?
-Is the control field an index (provide proof if yes)?  I doubt it...
+What's the benefit of adding 'return' in those two spots? That adds
+extra code to read, with no change in behavior, and no increase in
+maintainability.
 
-Thanks,
-Claudiu
+neal
