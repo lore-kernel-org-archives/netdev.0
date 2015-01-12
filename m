@@ -1,48 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 1/1] tipc: fix bug in broadcast retransmit code
-Date: Mon, 12 Jan 2015 16:02:26 -0500 (EST)
-Message-ID: <20150112.160226.1565196942326918189.davem@davemloft.net>
-References: <1420738047-16466-1-git-send-email-jon.maloy@ericsson.com>
+Subject: Re: [PATCHn net-next] vxlan: Improve support for header flags
+Date: Mon, 12 Jan 2015 16:06:13 -0500 (EST)
+Message-ID: <20150112.160613.1458330680465252967.davem@davemloft.net>
+References: <1420749078-18913-1-git-send-email-therbert@google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, paul.gortmaker@windriver.com,
-	erik.hugne@ericsson.com, ying.xue@windriver.com, maloy@donjonn.com,
-	tipc-discussion@lists.sourceforge.net
-To: jon.maloy@ericsson.com
+Cc: tgraf@suug.ch, netdev@vger.kernel.org
+To: therbert@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53770 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:53794 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751412AbbALVC2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jan 2015 16:02:28 -0500
-In-Reply-To: <1420738047-16466-1-git-send-email-jon.maloy@ericsson.com>
+	with ESMTP id S1751220AbbALVGQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jan 2015 16:06:16 -0500
+In-Reply-To: <1420749078-18913-1-git-send-email-therbert@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jon Maloy <jon.maloy@ericsson.com>
-Date: Thu,  8 Jan 2015 12:27:27 -0500
+From: Tom Herbert <therbert@google.com>
+Date: Thu,  8 Jan 2015 12:31:18 -0800
 
-> In commit 58dc55f25631178ee74cd27185956a8f7dcb3e32 ("tipc: use generic
-> SKB list APIs to manage link transmission queue") we replace all list
-> traversal loops with the macros skb_queue_walk() or
-> skb_queue_walk_safe(). While the previous loops were based on the
-> assumption that the list was NULL-terminated, the standard macros
-> stop when the iterator reaches the list head, which is non-NULL.
+> This patch cleans up the header flags of VXLAN in anticipation of
+> defining some new ones:
 > 
-> In the function bclink_retransmit_pkt() this macro replacement has
-> lead to a bug. When we receive a BCAST STATE_MSG we unconditionally
-> call the function bclink_retransmit_pkt(), whether there really is
-> anything to retransmit or not, assuming that the sequence number
-> comparisons will lead to the correct behavior. However, if the
-> transmission queue is empty, or if there are no eligible buffers in
-> the transmission queue, we will by mistake pass the list head pointer
-> to the function tipc_link_retransmit(). Since the list head is not a
-> valid sk_buff, this leads to a crash.
+> - Move header related definitions from vxlan.c to vxlan.h
+> - Change VXLAN_FLAGS to be VXLAN_HF_VNI (only currently defined flag)
+> - Move check for unknown flags to after we find vxlan_sock, this
+>   assumes that some flags may be processed based on tunnel
+>   configuration
+> - Add a comment about why the stack treating unknown set flags as an
+>   error instead of ignoring them
 > 
-> In this commit we fix this by only calling tipc_link_retransmit()
-> if we actually found eligible buffers in the transmission queue.
-> 
-> Reviewed-by: Ying Xue <ying.xue@windriver.com>
-> Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+> Signed-off-by: Tom Herbert <therbert@google.com>
 
-Applied, thanks Jon.
+Applied, thanks Tom.
