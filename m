@@ -1,70 +1,125 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next] tc: add BPF based action
-Date: Mon, 12 Jan 2015 11:52:46 +0100
-Message-ID: <20150112105246.GC1873@nanopsycho.orion>
-References: <CAMEtUuzjdd55JrK2oJFRHFVAmogwM-tK8dKxidoRpG=SrFs4bA@mail.gmail.com>
+From: "Arad, Ronen" <ronen.arad@intel.com>
+Subject: RE: Clarification regarding IFLA_BRPORT_LEARNING_SYNC and aging of
+ fdb entries learnt via br_fdb_external_learn_add()
+Date: Mon, 12 Jan 2015 11:00:13 +0000
+Message-ID: <E4CD12F19ABA0C4D8729E087A761DC3505DDAD7E@ORSMSX101.amr.corp.intel.com>
+References: <CA+CtxLSv6Hg9kOmavqQKs+7y8b8+TBdW1dYwb3ZsTMOh=Ow8Ew@mail.gmail.com>
+	<20150107125301.GE1888@nanopsycho.orion>
+	<CAE4R7bBRboCfhRKFKgVVAGt1f-m6wkXNfaej4RjuaCKPypABeA@mail.gmail.com>
+	<E4CD12F19ABA0C4D8729E087A761DC3505DDA643@ORSMSX101.amr.corp.intel.com>
+	<CAE4R7bCVCwPNq44_Ax2RQvtdZg_LCHGTQW0RrRAs-jCiDUduzQ@mail.gmail.com>
+	<E4CD12F19ABA0C4D8729E087A761DC3505DDA81C@ORSMSX101.amr.corp.intel.com>
+ <CAE4R7bCLiD7qQX-YFp6be72_jWJM_T6Yf=-MQL_2udph46QD5w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Daniel Borkmann <dborkman@redhat.com>,
-	Network Development <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>, jhs@mojatatu.com,
-	Stephen Hemminger <stephen@networkplumber.org>
-To: Alexei Starovoitov <ast@plumgrid.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Jiri Pirko <jiri@resnulli.us>,
+	Siva Mannem <siva.mannem.lnx@gmail.com>,
+	"marichika4@gmail.com" <marichika4@gmail.com>
+To: Scott Feldman <sfeldma@gmail.com>, Netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f45.google.com ([74.125.82.45]:48570 "EHLO
-	mail-wg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751969AbbALKws (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jan 2015 05:52:48 -0500
-Received: by mail-wg0-f45.google.com with SMTP id y19so2390496wgg.4
-        for <netdev@vger.kernel.org>; Mon, 12 Jan 2015 02:52:47 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <CAMEtUuzjdd55JrK2oJFRHFVAmogwM-tK8dKxidoRpG=SrFs4bA@mail.gmail.com>
+Received: from mga11.intel.com ([192.55.52.93]:50421 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752780AbbALLAP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 12 Jan 2015 06:00:15 -0500
+In-Reply-To: <CAE4R7bCLiD7qQX-YFp6be72_jWJM_T6Yf=-MQL_2udph46QD5w@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thu, Jan 08, 2015 at 08:04:31PM CET, ast@plumgrid.com wrote:
->On Wed, Jan 7, 2015 at 11:26 PM, Jiri Pirko <jiri@resnulli.us> wrote:
->>>
->>>On the other hand, I would understand if it's at some point in
->>>time eBPF which would f.e. mangle the packet, but the API you
->>>propose is clearly classic BPF. ;)
->>
->> Exactly. I would like to extend cls_bpf and act_bpf to handle eBPF right
->> after. That is the point.
->
->I say that connecting it with classic BPF is not a prerequisite
->to use eBPF in there. Invocation place may be the same,
->but the way to pass the program will be different.
->For classic with just pass the whole program, whereas
->for eBPF we'll be likely passing fd.
->Theoretically we can pass eBPF as vanilla program
->as well that doesn't have map access, but verifier check
->will only be binary (accept or reject). Which is not user
->friendly. Even rejection of classic BPF is hard to decipher.
->Especially when only language for classic is assembler
->and poor users have no easy way to know what was
->wrong with the program. Therefore I like bpf syscall
->as a main and only interface to load the programs
->and pass prog_fd to places where they suppose to run.
->Having syscall as center place to load programs
->also helps with accounting, since root will be able
->to do something like 'lsmod' to see all loaded programs.
->Anyway, that's a conversion for later...
->
->As Daniel pointed out I think some better articulation
->on what classic bpf programs will do here is needed.
->It seems they will work as pre-filter on an action?
->Few examples would help to understand use cases...
-
-Well, one can define bpf action to do final policy in tc pipeline if
-skb should be dropped or not. I'm aware that this is in theory doable by
-cls_bpf, but oftentimes one likes to use different cls.
-
-And also, the plan is to extend this for ebpf in near future, as well
-as cls_bpf. That will provide many more possibilities for user.
-
-The intention here is to keep cls_bpf and act_bpf feature-consistent.
-
-Thanks.
-
-Jiri
+DQoNCj4tLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPkZyb206IFNjb3R0IEZlbGRtYW4gW21h
+aWx0bzpzZmVsZG1hQGdtYWlsLmNvbV0NCj5TZW50OiBTYXR1cmRheSwgSmFudWFyeSAxMCwgMjAx
+NSAxMDoyOSBQTQ0KPlRvOiBBcmFkLCBSb25lbg0KPkNjOiBOZXRkZXY7IEppcmkgUGlya287IFNp
+dmEgTWFubmVtOyBtYXJpY2hpa2E0QGdtYWlsLmNvbQ0KPlN1YmplY3Q6IFJlOiBDbGFyaWZpY2F0
+aW9uIHJlZ2FyZGluZyBJRkxBX0JSUE9SVF9MRUFSTklOR19TWU5DIGFuZCBhZ2luZyBvZg0KPmZk
+YiBlbnRyaWVzIGxlYXJudCB2aWEgYnJfZmRiX2V4dGVybmFsX2xlYXJuX2FkZCgpDQo+DQo+UGVy
+ZmVjdCwgSSB0aGluayB3ZSBoYXZlIGEgZ29vZCB3b3JraW5nIHNldCBvZiB1c2UtY2FzZXMuICBU
+aGFua3MgZm9yDQo+YWRkaW5nIHRob3NlLiAgWW91ciBjYXNlIDMgc2VlbXMgZG8tYWJsZSB3aXRo
+b3V0IHRvbyBtdWNoIHdvcmsgc2luY2UNCj53ZSBhbHJlYWR5IGtub3cgd2hpY2ggb25lcyB3aGVy
+ZSBleHRlcm5hbGx5IGFkZGVkLCBqdXN0IG5lZWQgYW5vdGhlcg0KPnBlci1icmlkZ2UtcG9ydCBm
+bGFnIHRvIHR1cm4gb2ZmIGJyaWRnaW5nIGFnaW5nIG9mIGV4dGVybmFsbHkgbGVhcm5lZA0KPmVu
+dHJpZXMuICBUaGlzIHdpbGwgYWRkcmVzcyB0aGUgcGVyZm9ybWFuY2UgaXNzdWUgeW91IChhbmQg
+Qg0KPlZpc3dhbmF0aCkgcmFpc2VkLg0KPiBXaGF0IGFib3V0IHRoZSBlbnRyeSBzdGF0cywgZnJv
+bSB0aGUgdXNlcidzDQo+J2JyaWRnZSAtcyBmZGIgc2hvdyIgcGVyc3BlY3RpdmUgZm9yIHRoZSBi
+cmlkZ2UgZmRiIGVudHJpZXM/ICBXaWxsDQo+dGhlc2UgbnVtYmVycyBtYXRjaCBleHBlY3RhdGlv
+bnM/ICBJIHRoaW5rIGNhc2UgMSBhbmQgY2FzZSA0IHByb3ZpZGUgYQ0KPmNvaGVyZW50IHN0YXRz
+IHZpZXcuICBDYXNlIDMgc2VlbXMgdG8gYmUgbGFja2luZyBpbiB0aGlzIHJlZ2FyZC4NCj4NCkkg
+dGhpbmsgdGhhdCBzdGF0aXN0aWNzIGFjY3VyYWN5IGlzIG9ydGhvZ29uYWwgdG8gdGhlIG1lY2hh
+bmlzbSB1c2VkIGZvciBhZ2luZw0KaW4gYWxsIHRoZSBjYXNlcyB3aGVyZSBsZWFybmluZyBzeW5j
+IGlzIGVuYWJsZWQgKGkuZS4gY2FzZXMgMSwgMywgNCkuICANCkFjY3VyYWN5IG9ubHkgZGVwZW5k
+cyBvbiBob3cgZnJlcXVlbnQgdGhlIHN3aXRjaCBwb3J0IGRyaXZlciBub3RpZmllcyB0aGUNCmJy
+aWRnZSBGREIuIFRoZSBiZXN0IGFjY3VyYWN5IGFjaGlldmFibGUgaXMgd2l0aCB1cGRhdGVzIG9u
+Y2UgcGVyLXNlY29uZC4gQXQgDQp0aGUgb3RoZXIgZXh0cmVtZSB0aGUgc3dpdGNoIHBvcnQgZHJp
+dmVyIGRvZXMgbm90IHJlZnJlc2ggZW50cmllcy4gSXQgb25seQ0Kbm90aWZpZXMgdGhlIGJyaWRn
+ZSBhZnRlciBlbnRyaWVzIGFyZSByZW1vdmVkIGZyb20gdGhlIEhXLiBJbiB0aGlzIGV4dHJlbWUg
+Y2FzZQ0KdGhlIHN0YXRpc3RpY3Mgd2lsbCByZWFsbHkgc2hvdyB0aGUgdGltZSBzaW5jZSBhbiBl
+bnRyeSB3YXMgZmlyc3QgbGVhcm5lZCBhbmQNCm5vdCB0aGUgdGltZSBzaW5jZSBpdCB3YXMgbGFz
+dCByZS1sZWFybmVkIGluIEhXLiANClN3aXRjaCBwb3J0IGRyaXZlciBjb3VsZCBwaWNrIHNvbWUN
+CmFjY2VwdGFibGUgcmF0ZSB0byB1cGRhdGUgdGhlIGJyaWRnZSBtb2R1bGUuIFdpdGhpbiBhIHR5
+cGljYWwgNSBtaW51dGVzIGFnaW5nDQppbnRlcnZhbCwgdXBkYXRlcyBldmVyeSAxMCBzZWNvbmRz
+IG9yIGV2ZXJ5IDMwIHNlY29uZHMgY291bGQgYmUgYSByZWFzb25hYmxlDQp0cmFkZW9mZiBiZXR3
+ZWVuIHN0YXRpc3RpY3MgYWNjdXJhY3kgYW5kIHN5c3RlbSBvdmVyaGVhZC4NCiAgDQo+T24gRnJp
+LCBKYW4gOSwgMjAxNSBhdCAxMDo1MSBQTSwgQXJhZCwgUm9uZW4gPHJvbmVuLmFyYWRAaW50ZWwu
+Y29tPiB3cm90ZToNCj4+IFsuLi5dDQo+Pj4+IEl0IGlzIGluZGVlZCBzaW1wbGVyLiBIb3dldmVy
+LCBpZiB0aGUgb3ZlcmhlYWQgb2YgcmVhZGluZyBoaXQgYml0cyBmcm9tDQo+dGhlDQo+Pj5IVw0K
+Pj4+PiBhbmQgdXBkYXRpbmcgZnJlc2huZXNzIG9mIGVudHJpZXMgdXNpbmcgYnJfZmRiX2V4dGVy
+bmFsX2xlYXJuX2FkZCgpIGlzIHRvbw0KPj4+PiBleHBlbnNpdmUsIGl0IHdvdWxkIGZvcmNlIHN1
+Y2ggcGxhdGZvcm1zIHRvIGRpc2FibGUgbGVhcm5pbmcgc3luYw0KPj4+YWx0b2dldGhlci4NCj4+
+Pj4gVGhlcmVmb3JlLCBJIGJlbGlldmUgYWdpbmcgb2ZmbG9hZCBmbGFnIChjb3VsZCBiZSBzdWZm
+aWNpZW50IGF0IGJyaWRnZQ0KPj4+bGV2ZWwpDQo+Pj4+IGFuZCBleHRlcm5hbCBhZ2luZyBpbnRl
+cnZhbCAocG9zc2libHkgbG9uZ2VyIHRoYW4gdGhlIHNvZnR3YXJlIGFnaW5nDQo+Pj5pbnRlcnZh
+bCkNCj4+Pj4gd2lsbCBlbmNvdXJhZ2UgZHJpdmVycyB0byB1c2UgbGVhbmluZyBzeW5jLg0KPj4+
+Pj4tc2NvdHQNCj4+Pg0KPj4+SSdtIG5vdCBzdXJlIEkgZm9sbG93IHRoYXQgbGFzdCBwYXJ0Lg0K
+Pj4+DQo+Pj5DYW4gd2UgbGlzdCBvdXQgdGhlIHVzZS1jYXNlcyB0byBzZWUgd2hhdCdzIG1pc3Np
+bmc/DQo+Pj4NCj4+PkNhc2UgMTogYnJpZGdlIGFnZXMgb3V0IGxlYXJuZWRfc3luYydlZCBlbnRy
+aWVzDQo+Pj4NCj4+PmJyaWRnZSBwb3J0IGxlYXJuaW5nOiBvZmYNCj4+Pm9mZmxvYWQgcG9ydCBs
+ZWFybmluZzogb24NCj4+Pm9mZmxvYWQgcG9ydCBsZWFybmluZ19zeW5jOiBvbg0KPj4+DQo+Pj5E
+cml2ZXIgY2FsbHMgYnJfZmRiX2V4dGVybmFsX2xlYXJuX2FkZCgpIHBlcmlvZGljYWxseSB0byBy
+ZWZyZXNoDQo+Pj5icmlkZ2UgZmRiIGVudHJ5DQo+Pj50byBrZWVwIGl0IGZyb20gZ29pbmcgc3Rh
+bGUuDQo+Pj5CcmlkZ2UgcmVtb3ZlcyBhZ2VkIG91dCBmZGIgZW50cmllcyAoYW5kIGluZGlyZWN0
+bHkgdGVsbHMgb2ZmbG9hZA0KPj4+ZGV2aWNlIHRvIGRvIHRoZSBzYW1lKS4NCj4+Pg0KPj4+Q2Fz
+ZSAyOiBvZmZsb2FkIGRldmljZS9icmlkZ2UgYWdlIG91dCBlbnRyaWVzIGluZGVwZW5kZW50bHkN
+Cj4+Pg0KPj4+YnJpZGdlIHBvcnQgbGVhcm5pbmc6IG9uDQo+Pj5vZmZsb2FkIHBvcnQgbGVhcm5p
+bmc6IG9uDQo+Pj5vZmZsb2FkIHBvcnQgbGVhcm5pbmdfc3luYzogb2ZmDQo+Pj4NCj4+PkJyaWRn
+ZSBhZ2VzIG91dCBpdHMgc3RhbGUgbGVhcm5lZCBlbnRyaWVzLCBpbmRlcGVuZGVudCBvZiBvZmZs
+b2FkIGRldmljZS4NCj4+Pk9mZmxvYWQgZGV2aWNlIGFnZXMgb3V0IGl0cyBzdGFsZSBsZWFybmVk
+IGVudHJpZXMsIGluZGVwZW5kZW50IG9mIGJyaWRnZS4NCj4+Pg0KPj4+Q2FzZSAzOiA/DQo+Pj4N
+Cj4+PlBsZWFzZSBoZWxwIG1lIGZpbmlzaCB0aGUgdXNlLWNhc2UgbGlzdCBzbyB3ZSBjYW4gc2Vl
+IHdoYXQncyBtaXNzaW5nLg0KPj4NCj4+DQo+PiBDYXNlIDM6IG9mZmxvYWQgZGV2aWNlIGFnZXMg
+b3V0IGV4dGVybmFsIGVudHJpZXMgYW5kIG5vdGlmaWVzIGJyaWRnZQ0KPj4NCj4+IGJyaWRnZSBw
+b3J0IGxlYXJuaW5nOiBvbiBvciBvZmYgKEJyaWRnZSBvbmx5IGxlYXJucyBmcm9tIHBhY2tldHMg
+c2Vlbg0KPihSeC9UeCkpDQo+PiBvZmZsb2FkIHBvcnQgbGVhcm5pbmc6IG9uDQo+PiBvZmZsb2Fk
+IHBvcnQgbGVhcm5pbmdfc3luYzogb24NCj4+IGJyaWRnZSBhZ2luZyBvZiBleHRlcm5hbCBsZWFy
+bjogb2ZmDQo+PiBvZmZsb2FkIGRldmljZSBhZ2luZzogb24NCj4+DQo+PiBTd2l0Y2ggcG9ydC9k
+ZXZpY2UgZHJpdmVyIGFnZXMgZW50cmllcyAoY291bGQgYmUgYnkgSFcgYWdpbmcgb3Igc29mdCBh
+Z2luZw0KPmluDQo+PiBkcml2ZXIvZmlybXdhcmUpLA0KPj4gbm90aWZpZXMgYnJpZGdlIGFib3V0
+IGFnZWQgZW50cmllcyB1c2luZyBicl9mZGJfZXh0ZXJuYWxsZWFybl9kZWwoKS4NCj4+IFRoaXMg
+YWxsb3dzIGVmZmljaWVudCBIVyBhZ2luZyBhbmQgYmF0Y2hlZCBub3RpZmljYXRpb24gYXQgYSBw
+YWNlDQo+aW5kZXBlbmRlbnQNCj4+IG9mIGJyaWRnZSBhZ2luZyBpbnRlcnZhbC4NCj4+IFVzZXIg
+c3RpbGwgZW5qb3lzIGEgc2luZ2xlIFZMQU4tYXdhcmUgRkRCIHdpdGhpbiB0aGUgYnJpZGdlIG1v
+ZHVsZSBhbmQNCj5oYXZpbmcNCj4+IGFsbCBlbnRyaWVzIGluIG9uZSBwbGFjZS4gRXh0ZXJuYWxs
+eSBsZWFybmVkIGVudHJpZXMgYXJlIGlkZW50aWZpZWQgYXMgc3VjaA0KPmJ5DQo+PiBpcHJvdXRl
+MiAiYnJpZGdlIGZkYiBzaG93IiBjb21tYW5kLiBEZXZpY2UgZG9lcyBub3QgaGF2ZSB0byBpbXBs
+ZW1lbnQNCj4+IG5kb19icmlkZ2VfZmRiX2R1bXAoKSBmb3IgZWFjaCBvZmZsb2FkIHBvcnQgYXMg
+dGhlIGJyaWRnZSBtb2R1bGUgcHJvdmlkZXMgaXQNCj4+IGZvciB0aGUgY29tbW9uIEZEQi4NCj4+
+DQo+PiBDYXNlIDQ6IGJyaWRnZSBhZ2VzIG93bmVkIGFuZCBleHRlcm5hbCBlbnRyaWVzIGF0IGRp
+ZmZlcmVudCBpbnRlcnZhbHMNCj4+DQo+PiBicmlkZ2UgcG9ydCBsZWFybmluZzogb24gKEVmZmVj
+dGl2ZWx5IG9ubHkgZm9yIFJ4L1R4IHRyYWZmaWMgc2VlbiBieQ0KPj4gICAgICAgICAgICAgICAg
+ICAgICAgICAgICBzb2Z0d2FyZSBicmlkZ2UpDQo+PiBvZmZsb2FkIHBvcnQgbGVhcm5pbmc6IG9u
+ICh0cmFuc2llbnQgdHJhZmZpYyBhbmQgUnhUeCwgb3ZlcmxhcCB3aXRoIGJyaWRnZQ0KPj4gICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgbGVhcm5lZCBlbnRyaWVzIHBvc3NpYmxlKQ0KPj4gb2Zm
+bG9hZCBwb3J0IGxlYXJuaW5nX3N5bmM6IG9uDQo+PiBicmlkZ2UgYWdpbmcgb2YgZXh0ZXJuYWwg
+bGVhcm46IG9uDQo+PiBvZmZsb2FkIGRldmljZSBhZ2luZzogb2ZmDQo+PiBicmlkZ2UgYWdpbmcg
+aW50ZXJ2YWwgZm9yIG93bmVkIGVudHJpZXM6IFQxDQo+PiBicmlkZ2UgYWdpbmcgaW50ZXJ2YWwg
+Zm9yIGV4dGVybmFsIGVudHJpZXM6IFQyIChUeXBpY2FsbHkgVDIgPiBUMSkNCj4+DQo+PiBUaGlz
+IGFsbG93cyBmb3IgZmluZS10dW5pbmcgdGhlIG92ZXJoZWFkIG9mIHBlcmlvZGljIHVwZGF0ZXMg
+b2YgZW50cmllcw0KPj4gZnJlc2huZXNzIGZyb20gb2ZmbG9hZCBwb3J0IGRldmljZS4NCj4+DQo+
+PiBUaGUgYm90dG9tIGxpbmUgb2YgY2FzZXMgMy00IGlzIHRoYXQgaXQgaXMgZGVzaXJhYmxlIHRv
+IHVzZSB0aGUgY29tbW9uDQo+YnJpZGdlDQo+PiBGREIgYXMgbG9uZyBhcyBicmlkZ2UgYWdpbmcg
+b2YgZXh0ZXJuYWxseSBsZWFybmVkIGVudHJpZXMgY291bGQgYmUNCj5jb250cm9sbGVkDQo+PiBi
+eSB0aGUgb2ZmbG9hZCBkZXZpY2U6IEVpdGhlciBiZSBhdCBhIGxvbmdlciBpbnRlcnZhbCBvciBk
+aXNhYmxlZC4NCj4+DQo+Pj4NCj4+Pi1zY290dA0KPj4+LS0NCj4+PlRvIHVuc3Vic2NyaWJlIGZy
+b20gdGhpcyBsaXN0OiBzZW5kIHRoZSBsaW5lICJ1bnN1YnNjcmliZSBuZXRkZXYiIGluDQo+Pj50
+aGUgYm9keSBvZiBhIG1lc3NhZ2UgdG8gbWFqb3Jkb21vQHZnZXIua2VybmVsLm9yZw0KPj4+TW9y
+ZSBtYWpvcmRvbW8gaW5mbyBhdCAgaHR0cDovL3ZnZXIua2VybmVsLm9yZy9tYWpvcmRvbW8taW5m
+by5odG1sDQo=
