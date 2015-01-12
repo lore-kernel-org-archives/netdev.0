@@ -1,29 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] Driver: Vmxnet3: Reinitialize vmxnet3 backend
- on wakeup from hibernate
-Date: Mon, 12 Jan 2015 16:44:43 -0500 (EST)
-Message-ID: <20150112.164443.1375211702342773207.davem@davemloft.net>
-References: <1420845554-491-1-git-send-email-skhare@vmware.com>
+Subject: Re: [PATCH net] drivers: net: xen-netfront: remove residual dead
+ code
+Date: Mon, 12 Jan 2015 16:44:52 -0500 (EST)
+Message-ID: <20150112.164452.45501307901130900.davem@davemloft.net>
+References: <1420881625-4935-1-git-send-email-v.maffione@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sbhatewara@vmware.com, pv-drivers@vmware.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	smurali@vmware.com
-To: skhare@vmware.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1420845554-491-1-git-send-email-skhare@vmware.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, xen-devel@lists.xenproject.org,
+	david.vrabel@citrix.com, boris.ostrovsky@oracle.com,
+	konrad.wilk@oracle.com
+To: v.maffione@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:54324 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752519AbbALVoy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jan 2015 16:44:54 -0500
+In-Reply-To: <1420881625-4935-1-git-send-email-v.maffione@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Shrikrishna Khare <skhare@vmware.com>
-Date: Fri,  9 Jan 2015 15:19:14 -0800
+From: Vincenzo Maffione <v.maffione@gmail.com>
+Date: Sat, 10 Jan 2015 10:20:25 +0100
 
-> Failing to reinitialize on wakeup results in loss of network connectivity for
-> vmxnet3 interface.
+> This patch removes some unused arrays from the netfront private
+> data structures. These arrays were used in "flip" receive mode.
 > 
-> Signed-off-by: Srividya Murali <smurali@vmware.com>
-> Signed-off-by: Shrikrishna Khare <skhare@vmware.com>
-> Reviewed-by: Shreyas N Bhatewara <sbhatewara@vmware.com>
+> Signed-off-by: Vincenzo Maffione <v.maffione@gmail.com>
 
-Applied, thanks.
+Applied to net-next.
