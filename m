@@ -1,50 +1,67 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next 0/8] net: dsa: modular build fixes and improvements
-Date: Mon, 12 Jan 2015 13:57:38 -0800
-Message-ID: <1421099866-3184-1-git-send-email-f.fainelli@gmail.com>
+Subject: [PATCH net-next 7/8] net: dsa: bcm_sf2: cleanup resources in remove callback
+Date: Mon, 12 Jan 2015 13:57:45 -0800
+Message-ID: <1421099866-3184-8-git-send-email-f.fainelli@gmail.com>
+References: <1421099866-3184-1-git-send-email-f.fainelli@gmail.com>
 Cc: davem@davemloft.net, buytenh@wantstofly.org,
 	Florian Fainelli <f.fainelli@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:61964 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751304AbbALV5w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jan 2015 16:57:52 -0500
-Received: by mail-pa0-f46.google.com with SMTP id lf10so34422143pab.5
-        for <netdev@vger.kernel.org>; Mon, 12 Jan 2015 13:57:52 -0800 (PST)
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:54831 "EHLO
+	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751304AbbALV6C (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jan 2015 16:58:02 -0500
+Received: by mail-pa0-f47.google.com with SMTP id kq14so34400585pab.6
+        for <netdev@vger.kernel.org>; Mon, 12 Jan 2015 13:58:01 -0800 (PST)
+In-Reply-To: <1421099866-3184-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+Implement a remove callback allowing the switch driver to cleanup
+resources it used: interrupts and remapped register ranges.
 
-This patch series fixes some problems seen when using DSA as a module. There was
-a circular functional dependency which made it impossible to successfully load a
-DSA switch driver module, and impossible re-insert it afterwards. Some other
-problems appearing where the lack of resource cleanup, leading to various leaks
-and -EEXIST errors upon module re-insertion.
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ drivers/net/dsa/bcm_sf2.c | 20 ++++++++++++++++++++
+ 1 file changed, 20 insertions(+)
 
-Thanks!
-
-Florian Fainelli (8):
-  net: dsa: add missing netdevice.h include
-  net: dsa: make module builds work
-  net: phy: fixed: allow setting no update_link callback
-  net: dsa: cleanup resources upon module removal
-  net: dsa: allow switch drivers to cleanup their resources
-  net: dsa: bcm_sf2: factor interrupt disabling in a function
-  net: dsa: bcm_sf2: cleanup resources in remove callback
-  net: dsa: free distributed switch tree pointer in dsa_remove
-
- drivers/net/dsa/bcm_sf2.c   | 44 ++++++++++++++++++++--------
- drivers/net/phy/fixed_phy.c |  2 +-
- include/net/dsa.h           |  1 +
- net/dsa/Makefile            |  2 ++
- net/dsa/dsa.c               | 71 ++++++++++++++-------------------------------
- net/dsa/dsa_lib.c           | 68 +++++++++++++++++++++++++++++++++++++++++++
- net/dsa/dsa_priv.h          |  6 ++++
- net/dsa/slave.c             | 14 +++++++++
- 8 files changed, 146 insertions(+), 62 deletions(-)
- create mode 100644 net/dsa/dsa_lib.c
-
+diff --git a/drivers/net/dsa/bcm_sf2.c b/drivers/net/dsa/bcm_sf2.c
+index 09f6b3cc1f66..a41b20c7d602 100644
+--- a/drivers/net/dsa/bcm_sf2.c
++++ b/drivers/net/dsa/bcm_sf2.c
+@@ -526,6 +526,25 @@ out_unmap:
+ 	return ret;
+ }
+ 
++static void bcm_sf2_sw_remove(struct dsa_switch *ds)
++{
++	struct bcm_sf2_priv *priv = ds_to_priv(ds);
++	void __iomem **base;
++	unsigned int i;
++
++	/* Disable all interrupts and free them */
++	bcm_sf2_intr_disable(priv);
++
++	free_irq(priv->irq0, priv);
++	free_irq(priv->irq1, priv);
++
++	base = &priv->core;
++	for (i = 0; i < BCM_SF2_REGS_NUM; i++) {
++		iounmap(*base);
++		base++;
++	}
++}
++
+ static int bcm_sf2_sw_set_addr(struct dsa_switch *ds, u8 *addr)
+ {
+ 	return 0;
+@@ -858,6 +877,7 @@ static struct dsa_switch_driver bcm_sf2_switch_driver = {
+ 	.tag_protocol		= DSA_TAG_PROTO_BRCM,
+ 	.priv_size		= sizeof(struct bcm_sf2_priv),
+ 	.probe			= bcm_sf2_sw_probe,
++	.remove			= bcm_sf2_sw_remove,
+ 	.setup			= bcm_sf2_sw_setup,
+ 	.set_addr		= bcm_sf2_sw_set_addr,
+ 	.get_phy_flags		= bcm_sf2_sw_get_phy_flags,
 -- 
 2.1.0
