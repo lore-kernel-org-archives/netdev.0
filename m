@@ -1,39 +1,44 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: Build regressions/improvements in v3.19-rc4
-Date: Mon, 12 Jan 2015 10:09:32 +0100
-Message-ID: <CAMuHMdVZYjkP+R+zY4Q+r-a=4XFnqJTqjHC00LEhZiG34YYZOg@mail.gmail.com>
-References: <1421052212-13287-1-git-send-email-geert@linux-m68k.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1421052212-13287-1-git-send-email-geert@linux-m68k.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: B Viswanath <marichika4@gmail.com>
+Subject: [PATCH] Corrected the comment describing the ndo operations to reflect the actual prototype for couple of operations
+Date: Mon, 12 Jan 2015 14:46:25 +0530
+Message-ID: <1421054185-10249-1-git-send-email-marichika4@gmail.com>
+Cc: B Viswanath <marichika4@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:43837 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752114AbbALJQ7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jan 2015 04:16:59 -0500
+Received: by mail-pa0-f41.google.com with SMTP id rd3so31030280pab.0
+        for <netdev@vger.kernel.org>; Mon, 12 Jan 2015 01:16:58 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 12, 2015 at 9:43 AM, Geert Uytterhoeven
-<geert@linux-m68k.org> wrote:
-> JFYI, when comparing v3.19-rc4[1] to v3.19-rc3[3], the summaries are:
->   - build errors: +6/-67
+Corrected the comment describing the ndo operations to
+reflect the actual prototype for couple of operations
 
-Nothing serious, but
+Signed-off-by: B Viswanath <marichika4@gmail.com>
+---
+ include/linux/netdevice.h | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-  + error: br_input.c: undefined reference to `arp_send':  => .text+0x82e77)
-  + error: br_input.c: undefined reference to `arp_tbl':  => .text+0x82d8b)
-
-i386-randconfig
-
-> [1] http://kisskb.ellerman.id.au/kisskb/head/8294/ (255 out of 262 configs)
-> [3] http://kisskb.ellerman.id.au/kisskb/head/8277/ (255 out of 262 configs)
-
-Gr{oetje,eeting}s,
-
-                        Geert
-
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
-
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 679e6e9..7f794db 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -852,11 +852,11 @@ typedef u16 (*select_queue_fallback_t)(struct net_device *dev,
+  *	3. Update dev->stats asynchronously and atomically, and define
+  *	   neither operation.
+  *
+- * int (*ndo_vlan_rx_add_vid)(struct net_device *dev, __be16 proto, u16t vid);
++ * int (*ndo_vlan_rx_add_vid)(struct net_device *dev, __be16 proto, u16 vid);
+  *	If device support VLAN filtering this function is called when a
+  *	VLAN id is registered.
+  *
+- * int (*ndo_vlan_rx_kill_vid)(struct net_device *dev, unsigned short vid);
++ * int (*ndo_vlan_rx_kill_vid)(struct net_device *dev, __be16 proto, u16 vid);
+  *	If device support VLAN filtering this function is called when a
+  *	VLAN id is unregistered.
+  *
+-- 
+2.1.0
