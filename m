@@ -1,141 +1,178 @@
-From: "Ahmed S. Darwish" <darwish.07@gmail.com>
-Subject: Re: [PATCH v4 3/4] can: kvaser_usb: Add support for the Usbcan-II
- family
-Date: Mon, 12 Jan 2015 07:07:41 -0500
-Message-ID: <20150112120741.GC9213@linux>
-References: <20141223154654.GB6460@vivalin-002>
- <20150111200544.GA8855@linux>
- <20150111201116.GB8855@linux>
- <20150111201519.GC8855@linux>
- <20150111203612.GA8999@linux>
- <54B3B37C.7090002@pengutronix.de>
+From: B Viswanath <marichika4@gmail.com>
+Subject: Re: Clarification regarding IFLA_BRPORT_LEARNING_SYNC and aging of
+ fdb entries learnt via br_fdb_external_learn_add()
+Date: Mon, 12 Jan 2015 17:54:06 +0530
+Message-ID: <CAN+pFw+14Rso3O+oN5ZwPJNVJEanbHZVQXWzRXcq0K0MrN4i3w@mail.gmail.com>
+References: <CA+CtxLSv6Hg9kOmavqQKs+7y8b8+TBdW1dYwb3ZsTMOh=Ow8Ew@mail.gmail.com>
+	<20150107125301.GE1888@nanopsycho.orion>
+	<CAE4R7bBRboCfhRKFKgVVAGt1f-m6wkXNfaej4RjuaCKPypABeA@mail.gmail.com>
+	<E4CD12F19ABA0C4D8729E087A761DC3505DDA643@ORSMSX101.amr.corp.intel.com>
+	<CAE4R7bCVCwPNq44_Ax2RQvtdZg_LCHGTQW0RrRAs-jCiDUduzQ@mail.gmail.com>
+	<E4CD12F19ABA0C4D8729E087A761DC3505DDA81C@ORSMSX101.amr.corp.intel.com>
+	<CAE4R7bCLiD7qQX-YFp6be72_jWJM_T6Yf=-MQL_2udph46QD5w@mail.gmail.com>
+	<E4CD12F19ABA0C4D8729E087A761DC3505DDAD7E@ORSMSX101.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Olivier Sobrie <olivier@sobrie.be>,
-	Oliver Hartkopp <socketcan@hartkopp.net>,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	Linux-CAN <linux-can@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Marc Kleine-Budde <mkl@pengutronix.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <54B3B37C.7090002@pengutronix.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Scott Feldman <sfeldma@gmail.com>, Netdev <netdev@vger.kernel.org>,
+	Jiri Pirko <jiri@resnulli.us>,
+	Siva Mannem <siva.mannem.lnx@gmail.com>
+To: "Arad, Ronen" <ronen.arad@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qc0-f172.google.com ([209.85.216.172]:46476 "EHLO
+	mail-qc0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750882AbbALMYH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jan 2015 07:24:07 -0500
+Received: by mail-qc0-f172.google.com with SMTP id m20so17631275qcx.3
+        for <netdev@vger.kernel.org>; Mon, 12 Jan 2015 04:24:06 -0800 (PST)
+In-Reply-To: <E4CD12F19ABA0C4D8729E087A761DC3505DDAD7E@ORSMSX101.amr.corp.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Marc,
-
-On Mon, Jan 12, 2015 at 12:43:56PM +0100, Marc Kleine-Budde wrote:
-> On 01/11/2015 09:36 PM, Ahmed S. Darwish wrote:
-[...]
-> > diff --git a/drivers/net/can/usb/kvaser_usb.c b/drivers/net/can/usb/kvaser_usb.c
-> > index 0eb870b..da47d17 100644
-> > --- a/drivers/net/can/usb/kvaser_usb.c
-> > +++ b/drivers/net/can/usb/kvaser_usb.c
-> > @@ -6,10 +6,12 @@
-> >   * Parts of this driver are based on the following:
-> >   *  - Kvaser linux leaf driver (version 4.78)
-> >   *  - CAN driver for esd CAN-USB/2
-> > + *  - Kvaser linux usbcanII driver (version 5.3)
-> >   *
-> >   * Copyright (C) 2002-2006 KVASER AB, Sweden. All rights reserved.
-> >   * Copyright (C) 2010 Matthias Fuchs <matthias.fuchs@esd.eu>, esd gmbh
-> >   * Copyright (C) 2012 Olivier Sobrie <olivier@sobrie.be>
-> > + * Copyright (C) 2015 Valeo Corporation
-> >   */
-> >  
-> >  #include <linux/completion.h>
-> > @@ -21,6 +23,15 @@
-> >  #include <linux/can/dev.h>
-> >  #include <linux/can/error.h>
-> >  
-> > +/* Kvaser USB CAN dongles are divided into two major families:
-> > + * - Leaf: Based on Renesas M32C, running firmware labeled as 'filo'
-> > + * - UsbcanII: Based on Renesas M16C, running firmware labeled as 'helios'
-> > + */
-> > +enum kvaser_usb_family {
-> > +	KVASER_LEAF,
-> > +	KVASER_USBCAN,
-> > +};
-> 
-> Nitpick: please move after the #defines
-> 
-
-Will do.
-
-[...]
-> > @@ -616,53 +810,24 @@ static void kvaser_usb_unlink_tx_urbs(struct kvaser_usb_net_priv *priv)
-> >  }
-> >  
-> >  static void kvaser_usb_rx_error(const struct kvaser_usb *dev,
-> > -				const struct kvaser_msg *msg)
-> > +				struct kvaser_error_summary *es)
-> 
-> Can you make "struct kvaser_error_summary *es" const?
-> 
-
-Sure.
-
-[...]
-> > +/* For USBCAN, report error to userspace iff the channels's errors counter
-> > + * has increased, or we're the only channel seeing a bus error state.
-> > + */
-> > +static void kvaser_usbcan_conditionally_rx_error(const struct kvaser_usb *dev,
-> > +						 struct kvaser_error_summary *es)
-> 
-> const struct kvaser_error_summary *es?
+On 12 January 2015 at 16:30, Arad, Ronen <ronen.arad@intel.com> wrote:
+>
+>
+>>-----Original Message-----
+>>From: Scott Feldman [mailto:sfeldma@gmail.com]
+>>Sent: Saturday, January 10, 2015 10:29 PM
+>>To: Arad, Ronen
+>>Cc: Netdev; Jiri Pirko; Siva Mannem; marichika4@gmail.com
+>>Subject: Re: Clarification regarding IFLA_BRPORT_LEARNING_SYNC and aging of
+>>fdb entries learnt via br_fdb_external_learn_add()
+>>
+>>Perfect, I think we have a good working set of use-cases.  Thanks for
+>>adding those.  Your case 3 seems do-able without too much work since
+>>we already know which ones where externally added, just need another
+>>per-bridge-port flag to turn off bridging aging of externally learned
+>>entries.  This will address the performance issue you (and B
+>>Viswanath) raised.
+>> What about the entry stats, from the user's
+>>'bridge -s fdb show" perspective for the bridge fdb entries?  Will
+>>these numbers match expectations?  I think case 1 and case 4 provide a
+>>coherent stats view.  Case 3 seems to be lacking in this regard.
+>>
+> I think that statistics accuracy is orthogonal to the mechanism used for aging
+> in all the cases where learning sync is enabled (i.e. cases 1, 3, 4).
+> Accuracy only depends on how frequent the switch port driver notifies the
+> bridge FDB. The best accuracy achievable is with updates once per-second. At
+> the other extreme the switch port driver does not refresh entries. It only
+> notifies the bridge after entries are removed from the HW. In this extreme case
+> the statistics will really show the time since an entry was first learned and
+> not the time since it was last re-learned in HW.
+> Switch port driver could pick some
+> acceptable rate to update the bridge module. Within a typical 5 minutes aging
+> interval, updates every 10 seconds or every 30 seconds could be a reasonable
+> tradeoff between statistics accuracy and system overhead.
 >
 
-Ditto.
+I would also like to add that 'whether the end user will really be
+interested in the FDB, (and the hit notifications from silicon)'
+depends on the actual deployment. In a L3 dominant deployment, people
+may not care much about FDB at all. So any time spent inside the
+driver trying to update the FDB for statistical reasons will be a
+waste of CPU time. On  the other hand for an Access switch (or a
+Controller) deployment, FDB may really be useful. Unfortunately, the
+driver will not be able to guess the deployment.
 
-[...]
-> > +
-> > +		/* The USBCAN firmware does not support more than 2 channels.
-> 
-> Does USBCAN support always 2 channels or are there models with 1
-> channels, too. I'd rephrase ..."does support up to 2 channels."
-> 
+I am thinking aloud here, but may be we can let this update-timer to
+be a configurable item with default being current behaviour
+(determined by driver). It serves both purposes.
 
-Yup, that will be more accurate.
+Thanks
+Vissu
 
-[...]
-> > +
-> > +	switch (dev->family) {
-> > +	case KVASER_LEAF:
-> > +		rx_msg = msg->u.leaf.rx_can.msg;
-> > +		break;
-> > +	case KVASER_USBCAN:
-> > +		rx_msg = msg->u.usbcan.rx_can.msg;
-> > +		break;
-> > +	default:
-> > +		dev_err(dev->udev->dev.parent,
-> > +			"Invalid device family (%d)\n", dev->family);
-> >  		return;
-> 
-> should not happen.
-> 
-
-Yes, but otherwise I get GCC warnings of 'rx_msg' possibly
-being unused. I can add __maybe_unused to rx_msg of course,
-but such annotation may hide possible errors in the future.
-
-> > +	switch (dev->family) {
-> > +	case KVASER_LEAF:
-> > +		msg_tx_can_flags = &msg->u.tx_can.leaf.flags;
-> > +		break;
-> > +	case KVASER_USBCAN:
-> > +		msg_tx_can_flags = &msg->u.tx_can.usbcan.flags;
-> > +		break;
-> > +	default:
-> > +		dev_err(dev->udev->dev.parent,
-> > +			"Invalid device family (%d)\n", dev->family);
-> > +		goto releasebuf;
-> should not happen, please remove
-
-Like the 'rx_msg' case above.
-
-Thanks,
-Darwish
+>>On Fri, Jan 9, 2015 at 10:51 PM, Arad, Ronen <ronen.arad@intel.com> wrote:
+>>> [...]
+>>>>> It is indeed simpler. However, if the overhead of reading hit bits from
+>>the
+>>>>HW
+>>>>> and updating freshness of entries using br_fdb_external_learn_add() is too
+>>>>> expensive, it would force such platforms to disable learning sync
+>>>>altogether.
+>>>>> Therefore, I believe aging offload flag (could be sufficient at bridge
+>>>>level)
+>>>>> and external aging interval (possibly longer than the software aging
+>>>>interval)
+>>>>> will encourage drivers to use leaning sync.
+>>>>>>-scott
+>>>>
+>>>>I'm not sure I follow that last part.
+>>>>
+>>>>Can we list out the use-cases to see what's missing?
+>>>>
+>>>>Case 1: bridge ages out learned_sync'ed entries
+>>>>
+>>>>bridge port learning: off
+>>>>offload port learning: on
+>>>>offload port learning_sync: on
+>>>>
+>>>>Driver calls br_fdb_external_learn_add() periodically to refresh
+>>>>bridge fdb entry
+>>>>to keep it from going stale.
+>>>>Bridge removes aged out fdb entries (and indirectly tells offload
+>>>>device to do the same).
+>>>>
+>>>>Case 2: offload device/bridge age out entries independently
+>>>>
+>>>>bridge port learning: on
+>>>>offload port learning: on
+>>>>offload port learning_sync: off
+>>>>
+>>>>Bridge ages out its stale learned entries, independent of offload device.
+>>>>Offload device ages out its stale learned entries, independent of bridge.
+>>>>
+>>>>Case 3: ?
+>>>>
+>>>>Please help me finish the use-case list so we can see what's missing.
+>>>
+>>>
+>>> Case 3: offload device ages out external entries and notifies bridge
+>>>
+>>> bridge port learning: on or off (Bridge only learns from packets seen
+>>(Rx/Tx))
+>>> offload port learning: on
+>>> offload port learning_sync: on
+>>> bridge aging of external learn: off
+>>> offload device aging: on
+>>>
+>>> Switch port/device driver ages entries (could be by HW aging or soft aging
+>>in
+>>> driver/firmware),
+>>> notifies bridge about aged entries using br_fdb_externallearn_del().
+>>> This allows efficient HW aging and batched notification at a pace
+>>independent
+>>> of bridge aging interval.
+>>> User still enjoys a single VLAN-aware FDB within the bridge module and
+>>having
+>>> all entries in one place. Externally learned entries are identified as such
+>>by
+>>> iproute2 "bridge fdb show" command. Device does not have to implement
+>>> ndo_bridge_fdb_dump() for each offload port as the bridge module provides it
+>>> for the common FDB.
+>>>
+>>> Case 4: bridge ages owned and external entries at different intervals
+>>>
+>>> bridge port learning: on (Effectively only for Rx/Tx traffic seen by
+>>>                           software bridge)
+>>> offload port learning: on (transient traffic and RxTx, overlap with bridge
+>>>                            learned entries possible)
+>>> offload port learning_sync: on
+>>> bridge aging of external learn: on
+>>> offload device aging: off
+>>> bridge aging interval for owned entries: T1
+>>> bridge aging interval for external entries: T2 (Typically T2 > T1)
+>>>
+>>> This allows for fine-tuning the overhead of periodic updates of entries
+>>> freshness from offload port device.
+>>>
+>>> The bottom line of cases 3-4 is that it is desirable to use the common
+>>bridge
+>>> FDB as long as bridge aging of externally learned entries could be
+>>controlled
+>>> by the offload device: Either be at a longer interval or disabled.
+>>>
+>>>>
+>>>>-scott
+>>>>--
+>>>>To unsubscribe from this list: send the line "unsubscribe netdev" in
+>>>>the body of a message to majordomo@vger.kernel.org
+>>>>More majordomo info at  http://vger.kernel.org/majordomo-info.html
