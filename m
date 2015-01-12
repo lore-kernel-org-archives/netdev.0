@@ -1,60 +1,51 @@
-From: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
+From: Jesse Gross <jesse@nicira.com>
 Subject: Re: [PATCH 2/6] vxlan: Group Policy extension
-Date: Mon, 12 Jan 2015 22:47:49 +0000
-Message-ID: <20150112224749.GB11857@casper.infradead.org>
-References: <cover.1421064100.git.tgraf@suug.ch>
- <014606bb741d017675f7728a0bccc4cbed42af4b.1421064100.git.tgraf@suug.ch>
- <CAEP_g=8TqGnftZa_scKODa2ra7gsV6ov_5J+Lbfq+4bFDZjiBw@mail.gmail.com>
+Date: Mon, 12 Jan 2015 14:50:27 -0800
+Message-ID: <CAEP_g=-85jmr3b6J0xfy661G_Ffh2LkOH=FazhfhVBwSjwHQNA@mail.gmail.com>
+References: <cover.1421064100.git.tgraf@suug.ch> <014606bb741d017675f7728a0bccc4cbed42af4b.1421064100.git.tgraf@suug.ch>
+ <CAEP_g=8TqGnftZa_scKODa2ra7gsV6ov_5J+Lbfq+4bFDZjiBw@mail.gmail.com> <20150112224749.GB11857@casper.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
- netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
- Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>,
- Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
- Tom Herbert <therbert-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-To: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <CAEP_g=8TqGnftZa_scKODa2ra7gsV6ov_5J+Lbfq+4bFDZjiBw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Pravin Shelar <pshelar@nicira.com>,
+	Tom Herbert <therbert@google.com>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	"dev@openvswitch.org" <dev@openvswitch.org>,
+	netdev <netdev@vger.kernel.org>
+To: Thomas Graf <tgraf@suug.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from na3sys009aog110.obsmtp.com ([74.125.149.203]:58047 "HELO
+	na3sys009aog110.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751322AbbALWut (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jan 2015 17:50:49 -0500
+Received: by mail-qg0-f52.google.com with SMTP id i50so19983778qgf.11
+        for <netdev@vger.kernel.org>; Mon, 12 Jan 2015 14:50:48 -0800 (PST)
+In-Reply-To: <20150112224749.GB11857@casper.infradead.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gMDEvMTIvMTUgYXQgMTE6MjNhbSwgSmVzc2UgR3Jvc3Mgd3JvdGU6Cj4gT24gTW9uLCBKYW4g
-MTIsIDIwMTUgYXQgNDoyNiBBTSwgVGhvbWFzIEdyYWYgPHRncmFmQHN1dWcuY2g+IHdyb3RlOgo+
-ID4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L3Z4bGFuLmMgYi9kcml2ZXJzL25ldC92eGxhbi5j
-Cj4gPiBpbmRleCA0ZDUyYWE5Li5iMTQ4NzM5IDEwMDY0NAo+ID4gLS0tIGEvZHJpdmVycy9uZXQv
-dnhsYW4uYwo+ID4gKysrIGIvZHJpdmVycy9uZXQvdnhsYW4uYwo+ID4gQEAgLTU2OCw3ICs1Njks
-OCBAQCBzdGF0aWMgc3RydWN0IHNrX2J1ZmYgKip2eGxhbl9ncm9fcmVjZWl2ZShzdHJ1Y3Qgc2tf
-YnVmZiAqKmhlYWQsIHN0cnVjdCBza19idWZmCj4gPiAgICAgICAgICAgICAgICAgICAgICAgICBj
-b250aW51ZTsKPiA+Cj4gPiAgICAgICAgICAgICAgICAgdmgyID0gKHN0cnVjdCB2eGxhbmhkciAq
-KShwLT5kYXRhICsgb2ZmX3Z4KTsKPiA+IC0gICAgICAgICAgICAgICBpZiAodmgtPnZ4X3ZuaSAh
-PSB2aDItPnZ4X3ZuaSkgewo+ID4gKyAgICAgICAgICAgICAgIGlmICh2aC0+dnhfZmxhZ3MgIT0g
-dmgyLT52eF9mbGFncyB8fAo+ID4gKyAgICAgICAgICAgICAgICAgICB2aC0+dnhfdm5pICE9IHZo
-Mi0+dnhfdm5pKSB7Cj4gCj4gSXQncyBwcm9iYWJseSBiZXR0ZXIgdG8gZG8gYSBtZW1jbXAgb3Zl
-ciB0aGUgZW50aXJlIGhlYWRlci4gVGhlcmUncyBubwo+IGd1YXJhbnRlZSB0aGF0IG5ldyBmaWVs
-ZHMgd2lsbCBiZSBlbnRpcmVseSByZXByZXNlbnRlZCBieSBmbGFncy4KCnZ4X2ZsYWdzIGNvdmVy
-cyB0aGUgZW50aXJlIGZpcnN0IDMyIGJpdCBvZiB2eGxhbmhkciBzbyBpdCdzCmVxdWl2YWxlbnQg
-dG8gYSBtZW1jbXAoKSBhbHJlYWR5LiBJIGNhbiBjaGFuZ2UgaXQgdG8gbWVtY21wKCkgaWYKeW91
-IHRoaW5rIHRoYXQncyBtb3JlIHJlYWRhYmxlLgoKPiAKPiA+IGRpZmYgLS1naXQgYS9uZXQvb3Bl
-bnZzd2l0Y2gvdnBvcnQtdnhsYW4uYyBiL25ldC9vcGVudnN3aXRjaC92cG9ydC12eGxhbi5jCj4g
-PiBpbmRleCBkN2M0NmIzLi5kZDY4Yzk3IDEwMDY0NAo+ID4gLS0tIGEvbmV0L29wZW52c3dpdGNo
-L3Zwb3J0LXZ4bGFuLmMKPiA+ICsrKyBiL25ldC9vcGVudnN3aXRjaC92cG9ydC12eGxhbi5jCj4g
-PiBAQCAtMTQ2LDYgKzE0Nyw3IEBAIHN0YXRpYyBpbnQgdnhsYW5fdG5sX3NlbmQoc3RydWN0IHZw
-b3J0ICp2cG9ydCwgc3RydWN0IHNrX2J1ZmYgKnNrYikKPiA+ICAgICAgICAgc3RydWN0IHZ4bGFu
-X3BvcnQgKnZ4bGFuX3BvcnQgPSB2eGxhbl92cG9ydCh2cG9ydCk7Cj4gPiAgICAgICAgIF9fYmUx
-NiBkc3RfcG9ydCA9IGluZXRfc2sodnhsYW5fcG9ydC0+dnMtPnNvY2stPnNrKS0+aW5ldF9zcG9y
-dDsKPiA+ICAgICAgICAgc3RydWN0IG92c19rZXlfaXB2NF90dW5uZWwgKnR1bl9rZXk7Cj4gPiAr
-ICAgICAgIHN0cnVjdCB2eGxhbl9tZXRhZGF0YSBtZDsKPiAKPiBJdCBtaWdodCBiZSBhIGdvb2Qg
-aWRlYSB0byB6ZXJvIG91dCAnbWQnLCBldmVuIGlmIG5vdCBzdHJpY3RseSByZXF1aXJlZC4KClN1
-cmUKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KZGV2IG1h
-aWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVudnN3aXRjaC5vcmcvbWFp
-bG1hbi9saXN0aW5mby9kZXYK
+On Mon, Jan 12, 2015 at 2:47 PM, Thomas Graf <tgraf@suug.ch> wrote:
+> On 01/12/15 at 11:23am, Jesse Gross wrote:
+>> On Mon, Jan 12, 2015 at 4:26 AM, Thomas Graf <tgraf@suug.ch> wrote:
+>> > diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+>> > index 4d52aa9..b148739 100644
+>> > --- a/drivers/net/vxlan.c
+>> > +++ b/drivers/net/vxlan.c
+>> > @@ -568,7 +569,8 @@ static struct sk_buff **vxlan_gro_receive(struct sk_buff **head, struct sk_buff
+>> >                         continue;
+>> >
+>> >                 vh2 = (struct vxlanhdr *)(p->data + off_vx);
+>> > -               if (vh->vx_vni != vh2->vx_vni) {
+>> > +               if (vh->vx_flags != vh2->vx_flags ||
+>> > +                   vh->vx_vni != vh2->vx_vni) {
+>>
+>> It's probably better to do a memcmp over the entire header. There's no
+>> guarantee that new fields will be entirely represented by flags.
+>
+> vx_flags covers the entire first 32 bit of vxlanhdr so it's
+> equivalent to a memcmp() already. I can change it to memcmp() if
+> you think that's more readable.
+
+I was actually referring to the reserved 8 bit chunk after the VNI.
+This could potentially be used for something in the future.
