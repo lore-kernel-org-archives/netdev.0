@@ -1,44 +1,59 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH net-next RFC 5/5] net-timestamp: tx timestamping default
- mode flag
-Date: Mon, 12 Jan 2015 09:26:14 +0100
-Message-ID: <20150112082612.GA5348@netboy>
-References: <1420824719-28848-1-git-send-email-willemb@google.com>
- <1420824719-28848-6-git-send-email-willemb@google.com>
- <20150111203256.GC4214@localhost.localdomain>
- <CA+FuTSfDVbSCGfJDjY3kv=SuGT221OuYAFVxDvRqouNcrJbvYw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Network Development <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Andy Lutomirski <luto@amacapital.net>
-To: Willem de Bruijn <willemb@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f179.google.com ([74.125.82.179]:51038 "EHLO
-	mail-we0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751281AbbALI0U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jan 2015 03:26:20 -0500
-Received: by mail-we0-f179.google.com with SMTP id q59so17631015wes.10
-        for <netdev@vger.kernel.org>; Mon, 12 Jan 2015 00:26:18 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <CA+FuTSfDVbSCGfJDjY3kv=SuGT221OuYAFVxDvRqouNcrJbvYw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: [PATCH 1/5] net: atarilance: Remove obsolete IRQ_TYPE_PRIO
+Date: Mon, 12 Jan 2015 09:40:17 +0100
+Message-ID: <1421052021-12560-2-git-send-email-geert@linux-m68k.org>
+References: <1421052021-12560-1-git-send-email-geert@linux-m68k.org>
+Cc: linux-m68k@lists.linux-m68k.org, linux-kernel@vger.kernel.org,
+	Geert Uytterhoeven <geert@linux-m68k.org>,
+	netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>,
+	Jean-Christophe Plagniol-Villard <plagnioj@jcrosoft.com>,
+	Tomi Valkeinen <tomi.valkeinen@ti.com>,
+	Jaroslav Kysela <perex@perex.cz>, Takashi Iwai <tiwai@suse.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1421052021-12560-1-git-send-email-geert@linux-m68k.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Jan 11, 2015 at 08:49:00PM -0500, Willem de Bruijn wrote:
-> Just so I understand: ptp has no use for the sw tstamps
-> that would be generated with this flag, but is otherwise
-> okay with enabling counters to order tx timestamps
-> (OPT_ID) and disabling payload (OPT_TSONLY)?
+IRQ_TYPE_PRIO is no longer used by the Atari platform interrupt code
+since commit 734085651c9b80aa ("[PATCH] m68k: convert atari irq code")
+in v2.6.18-rc1, so drop it.
 
-Yes.
+Note that its value has been reused for a different purpose
+(IRQ_TYPE_EDGE_FALLING) since commit 6a6de9ef5850d063 ("[PATCH] genirq:
+core") in v2.6.18-rc1.
 
-> In the documentation, I would like to strongly suggest all
-> processes to enable these, even in absence of this default.
-> because that is more robust wrt the sysctl (if merged).
+Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
+Cc: netdev@vger.kernel.org
+---
+ drivers/net/ethernet/amd/atarilance.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-Sounds good.
-
-Thanks,
-Richard
+diff --git a/drivers/net/ethernet/amd/atarilance.c b/drivers/net/ethernet/amd/atarilance.c
+index e07ce5ff2d48bf93..b10964e8cb5469ce 100644
+--- a/drivers/net/ethernet/amd/atarilance.c
++++ b/drivers/net/ethernet/amd/atarilance.c
+@@ -553,8 +553,8 @@ static unsigned long __init lance_probe1( struct net_device *dev,
+ 	if (lp->cardtype == PAM_CARD ||
+ 		memaddr == (unsigned short *)0xffe00000) {
+ 		/* PAMs card and Riebl on ST use level 5 autovector */
+-		if (request_irq(IRQ_AUTO_5, lance_interrupt, IRQ_TYPE_PRIO,
+-		            "PAM,Riebl-ST Ethernet", dev)) {
++		if (request_irq(IRQ_AUTO_5, lance_interrupt, 0,
++				"PAM,Riebl-ST Ethernet", dev)) {
+ 			printk( "Lance: request for irq %d failed\n", IRQ_AUTO_5 );
+ 			return 0;
+ 		}
+@@ -567,8 +567,8 @@ static unsigned long __init lance_probe1( struct net_device *dev,
+ 			printk( "Lance: request for VME interrupt failed\n" );
+ 			return 0;
+ 		}
+-		if (request_irq(irq, lance_interrupt, IRQ_TYPE_PRIO,
+-		            "Riebl-VME Ethernet", dev)) {
++		if (request_irq(irq, lance_interrupt, 0, "Riebl-VME Ethernet",
++				dev)) {
+ 			printk( "Lance: request for irq %u failed\n", irq );
+ 			return 0;
+ 		}
+-- 
+1.9.1
