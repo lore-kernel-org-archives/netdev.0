@@ -1,133 +1,258 @@
-From: Ding Tianhong <dingtianhong-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH net-next v11 1/3] Documentation: add Device tree bindings for Hisilicon hip04 ethernet
-Date: Mon, 12 Jan 2015 16:03:50 +0800
-Message-ID: <1421049832-6224-2-git-send-email-dingtianhong@huawei.com>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: [PATCH net-next v11 2/3] net: hisilicon: new hip04 MDIO driver
+Date: Mon, 12 Jan 2015 16:03:51 +0800
+Message-ID: <1421049832-6224-3-git-send-email-dingtianhong@huawei.com>
 References: <1421049832-6224-1-git-send-email-dingtianhong@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>,
-	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>, <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	<xuwei5-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>, <zhangfei.gao-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>
-To: <arnd-r2nGTMty4D4@public.gmane.org>, <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	<grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1421049832-6224-1-git-send-email-dingtianhong-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: <sergei.shtylyov@cogentembedded.com>,
+	<linux-arm-kernel@lists.infradead.org>, <eric.dumazet@gmail.com>,
+	<xuwei5@hisilicon.com>, <zhangfei.gao@linaro.org>,
+	<netdev@vger.kernel.org>, <devicetree@vger.kernel.org>,
+	<linux@arm.linux.org.uk>
+To: <arnd@arndb.de>, <robh+dt@kernel.org>, <davem@davemloft.net>,
+	<grant.likely@linaro.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga01-in.huawei.com ([119.145.14.64]:57370 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750964AbbALIGp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jan 2015 03:06:45 -0500
+In-Reply-To: <1421049832-6224-1-git-send-email-dingtianhong@huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Zhangfei Gao <zhangfei.gao-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+From: Zhangfei Gao <zhangfei.gao@linaro.org>
 
-This patch adds the Device Tree bindings for the Hisilicon hip04
-Ethernet controller, including 100M / 1000M controller.
+Hisilicon hip04 platform mdio driver
+Reuse Marvell phy drivers/net/phy/marvell.c
 
-Signed-off-by: Zhangfei Gao <zhangfei.gao-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Signed-off-by: Ding Tianhong <dingtianhong-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Signed-off-by: Zhangfei Gao <zhangfei.gao@linaro.org>
+Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 ---
- .../bindings/net/hisilicon-hip04-net.txt           | 88 ++++++++++++++++++++++
- 1 file changed, 88 insertions(+)
- create mode 100644 Documentation/devicetree/bindings/net/hisilicon-hip04-net.txt
+ drivers/net/ethernet/hisilicon/Kconfig      |   9 ++
+ drivers/net/ethernet/hisilicon/Makefile     |   1 +
+ drivers/net/ethernet/hisilicon/hip04_mdio.c | 186 ++++++++++++++++++++++++++++
+ 3 files changed, 196 insertions(+)
+ create mode 100644 drivers/net/ethernet/hisilicon/hip04_mdio.c
 
-diff --git a/Documentation/devicetree/bindings/net/hisilicon-hip04-net.txt b/Documentation/devicetree/bindings/net/hisilicon-hip04-net.txt
+diff --git a/drivers/net/ethernet/hisilicon/Kconfig b/drivers/net/ethernet/hisilicon/Kconfig
+index e942173..a54d897 100644
+--- a/drivers/net/ethernet/hisilicon/Kconfig
++++ b/drivers/net/ethernet/hisilicon/Kconfig
+@@ -24,4 +24,13 @@ config HIX5HD2_GMAC
+ 	help
+ 	  This selects the hix5hd2 mac family network device.
+ 
++config HIP04_ETH
++	tristate "HISILICON P04 Ethernet support"
++	select PHYLIB
++	select MARVELL_PHY
++	select MFD_SYSCON
++	---help---
++	  If you wish to compile a kernel for a hardware with hisilicon p04 SoC and
++	  want to use the internal ethernet then you should answer Y to this.
++
+ endif # NET_VENDOR_HISILICON
+diff --git a/drivers/net/ethernet/hisilicon/Makefile b/drivers/net/ethernet/hisilicon/Makefile
+index 9175e846..40115a7 100644
+--- a/drivers/net/ethernet/hisilicon/Makefile
++++ b/drivers/net/ethernet/hisilicon/Makefile
+@@ -3,3 +3,4 @@
+ #
+ 
+ obj-$(CONFIG_HIX5HD2_GMAC) += hix5hd2_gmac.o
++obj-$(CONFIG_HIP04_ETH) += hip04_mdio.o
+diff --git a/drivers/net/ethernet/hisilicon/hip04_mdio.c b/drivers/net/ethernet/hisilicon/hip04_mdio.c
 new file mode 100644
-index 0000000..988fc69
+index 0000000..b3bac25
 --- /dev/null
-+++ b/Documentation/devicetree/bindings/net/hisilicon-hip04-net.txt
-@@ -0,0 +1,88 @@
-+Hisilicon hip04 Ethernet Controller
++++ b/drivers/net/ethernet/hisilicon/hip04_mdio.c
+@@ -0,0 +1,186 @@
++/* Copyright (c) 2014 Linaro Ltd.
++ * Copyright (c) 2014 Hisilicon Limited.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ */
 +
-+* Ethernet controller node
++#include <linux/module.h>
++#include <linux/platform_device.h>
++#include <linux/io.h>
++#include <linux/of_mdio.h>
++#include <linux/delay.h>
 +
-+Required properties:
-+- compatible: should be "hisilicon,hip04-mac".
-+- reg: address and length of the register set for the device.
-+- interrupts: interrupt for the device.
-+- port-handle: <phandle port channel>
-+	phandle, specifies a reference to the syscon ppe node
-+	port, port number connected to the controller
-+	channel, recv channel start from channel * number (RX_DESC_NUM)
-+- phy-mode: see ethernet.txt [1].
++#define MDIO_CMD_REG		0x0
++#define MDIO_ADDR_REG		0x4
++#define MDIO_WDATA_REG		0x8
++#define MDIO_RDATA_REG		0xc
++#define MDIO_STA_REG		0x10
 +
-+Optional properties:
-+- phy-handle: see ethernet.txt [1].
++#define MDIO_START		BIT(14)
++#define MDIO_R_VALID		BIT(1)
++#define MDIO_READ	        (BIT(12) | BIT(11) | MDIO_START)
++#define MDIO_WRITE	        (BIT(12) | BIT(10) | MDIO_START)
 +
-+[1] Documentation/devicetree/bindings/net/ethernet.txt
++struct hip04_mdio_priv {
++	void __iomem *base;
++};
 +
++#define WAIT_TIMEOUT 10
++static int hip04_mdio_wait_ready(struct mii_bus *bus)
++{
++	struct hip04_mdio_priv *priv = bus->priv;
++	int i;
 +
-+* Ethernet ppe node:
-+Control rx & tx fifos of all ethernet controllers.
-+Have 2048 recv channels shared by all ethernet controllers, only if no overlap.
-+Each controller's recv channel start from channel * number (RX_DESC_NUM).
++	for (i = 0; readl_relaxed(priv->base + MDIO_CMD_REG) & MDIO_START; i++) {
++		if (i == WAIT_TIMEOUT)
++			return -ETIMEDOUT;
++		msleep(20);
++	}
 +
-+Required properties:
-+- compatible: "hisilicon,hip04-ppe", "syscon".
-+- reg: address and length of the register set for the device.
++	return 0;
++}
 +
++static int hip04_mdio_read(struct mii_bus *bus, int mii_id, int regnum)
++{
++	struct hip04_mdio_priv *priv = bus->priv;
++	u32 val;
++	int ret;
 +
-+* MDIO bus node:
++	ret = hip04_mdio_wait_ready(bus);
++	if (ret < 0)
++		goto out;
 +
-+Required properties:
++	val = regnum | (mii_id << 5) | MDIO_READ;
++	writel_relaxed(val, priv->base + MDIO_CMD_REG);
 +
-+- compatible: should be "hisilicon,hip04-mdio".
-+- Inherits from MDIO bus node binding [2]
-+[2] Documentation/devicetree/bindings/net/phy.txt
++	ret = hip04_mdio_wait_ready(bus);
++	if (ret < 0)
++		goto out;
 +
-+Example:
-+	mdio {
-+		compatible = "hisilicon,hip04-mdio";
-+		reg = <0x28f1000 0x1000>;
-+		#address-cells = <1>;
-+		#size-cells = <0>;
++	val = readl_relaxed(priv->base + MDIO_STA_REG);
++	if (val & MDIO_R_VALID) {
++		dev_err(bus->parent, "SMI bus read not valid\n");
++		ret = -ENODEV;
++		goto out;
++	}
 +
-+		phy0: ethernet-phy@0 {
-+			compatible = "ethernet-phy-ieee802.3-c22";
-+			reg = <0>;
-+			marvell,reg-init = <18 0x14 0 0x8001>;
-+		};
++	val = readl_relaxed(priv->base + MDIO_RDATA_REG);
++	ret = val & 0xFFFF;
++out:
++	return ret;
++}
 +
-+		phy1: ethernet-phy@1 {
-+			compatible = "ethernet-phy-ieee802.3-c22";
-+			reg = <1>;
-+			marvell,reg-init = <18 0x14 0 0x8001>;
-+		};
-+	};
++static int hip04_mdio_write(struct mii_bus *bus, int mii_id,
++			    int regnum, u16 value)
++{
++	struct hip04_mdio_priv *priv = bus->priv;
++	u32 val;
++	int ret;
 +
-+	ppe: ppe@28c0000 {
-+		compatible = "hisilicon,hip04-ppe", "syscon";
-+		reg = <0x28c0000 0x10000>;
-+	};
++	ret = hip04_mdio_wait_ready(bus);
++	if (ret < 0)
++		goto out;
 +
-+	fe: ethernet@28b0000 {
-+		compatible = "hisilicon,hip04-mac";
-+		reg = <0x28b0000 0x10000>;
-+		interrupts = <0 413 4>;
-+		phy-mode = "mii";
-+		port-handle = <&ppe 31 0>;
-+	};
++	writel_relaxed(value, priv->base + MDIO_WDATA_REG);
++	val = regnum | (mii_id << 5) | MDIO_WRITE;
++	writel_relaxed(val, priv->base + MDIO_CMD_REG);
++out:
++	return ret;
++}
 +
-+	ge0: ethernet@2800000 {
-+		compatible = "hisilicon,hip04-mac";
-+		reg = <0x2800000 0x10000>;
-+		interrupts = <0 402 4>;
-+		phy-mode = "sgmii";
-+		port-handle = <&ppe 0 1>;
-+		phy-handle = <&phy0>;
-+	};
++static int hip04_mdio_reset(struct mii_bus *bus)
++{
++	int temp, i;
 +
-+	ge8: ethernet@2880000 {
-+		compatible = "hisilicon,hip04-mac";
-+		reg = <0x2880000 0x10000>;
-+		interrupts = <0 410 4>;
-+		phy-mode = "sgmii";
-+		port-handle = <&ppe 8 2>;
-+		phy-handle = <&phy1>;
-+	};
++	for (i = 0; i < PHY_MAX_ADDR; i++) {
++		hip04_mdio_write(bus, i, 22, 0);
++		temp = hip04_mdio_read(bus, i, MII_BMCR);
++		if (temp < 0)
++			continue;
++
++		temp |= BMCR_RESET;
++		if (hip04_mdio_write(bus, i, MII_BMCR, temp) < 0)
++			continue;
++	}
++
++	mdelay(500);
++	return 0;
++}
++
++static int hip04_mdio_probe(struct platform_device *pdev)
++{
++	struct resource *r;
++	struct mii_bus *bus;
++	struct hip04_mdio_priv *priv;
++	int ret;
++
++	bus = mdiobus_alloc_size(sizeof(struct hip04_mdio_priv));
++	if (!bus) {
++		dev_err(&pdev->dev, "Cannot allocate MDIO bus\n");
++		return -ENOMEM;
++	}
++
++	bus->name = "hip04_mdio_bus";
++	bus->read = hip04_mdio_read;
++	bus->write = hip04_mdio_write;
++	bus->reset = hip04_mdio_reset;
++	snprintf(bus->id, MII_BUS_ID_SIZE, "%s-mii", dev_name(&pdev->dev));
++	bus->parent = &pdev->dev;
++	priv = bus->priv;
++
++	r = platform_get_resource(pdev, IORESOURCE_MEM, 0);
++	priv->base = devm_ioremap_resource(&pdev->dev, r);
++	if (IS_ERR(priv->base)) {
++		ret = PTR_ERR(priv->base);
++		goto out_mdio;
++	}
++
++	ret = of_mdiobus_register(bus, pdev->dev.of_node);
++	if (ret < 0) {
++		dev_err(&pdev->dev, "Cannot register MDIO bus (%d)\n", ret);
++		goto out_mdio;
++	}
++
++	platform_set_drvdata(pdev, bus);
++
++	return 0;
++
++out_mdio:
++	mdiobus_free(bus);
++	return ret;
++}
++
++static int hip04_mdio_remove(struct platform_device *pdev)
++{
++	struct mii_bus *bus = platform_get_drvdata(pdev);
++
++	mdiobus_unregister(bus);
++	mdiobus_free(bus);
++
++	return 0;
++}
++
++static const struct of_device_id hip04_mdio_match[] = {
++	{ .compatible = "hisilicon,hip04-mdio" },
++	{ }
++};
++MODULE_DEVICE_TABLE(of, hip04_mdio_match);
++
++static struct platform_driver hip04_mdio_driver = {
++	.probe = hip04_mdio_probe,
++	.remove = hip04_mdio_remove,
++	.driver = {
++		.name = "hip04-mdio",
++		.owner = THIS_MODULE,
++		.of_match_table = hip04_mdio_match,
++	},
++};
++
++module_platform_driver(hip04_mdio_driver);
++
++MODULE_DESCRIPTION("HISILICON P04 MDIO interface driver");
++MODULE_LICENSE("GPL v2");
++MODULE_ALIAS("platform:hip04-mdio");
 -- 
 1.8.0
-
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
