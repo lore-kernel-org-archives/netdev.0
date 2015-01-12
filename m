@@ -1,92 +1,50 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [PATCH 6/6] openvswitch: Support VXLAN Group Policy extension
-Date: Mon, 12 Jan 2015 13:54:55 -0800
-Message-ID: <CAEP_g=8TnrwdGiTOB_mKeQSsEakV8y2OU7_ARwi+j9WDYh=Wag@mail.gmail.com>
-References: <cover.1421064100.git.tgraf@suug.ch> <60651d9355f4e34ed6686d95ad837467a1d2c888.1421064100.git.tgraf@suug.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Pravin Shelar <pshelar@nicira.com>,
-	Tom Herbert <therbert@google.com>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	"dev@openvswitch.org" <dev@openvswitch.org>,
-	netdev <netdev@vger.kernel.org>
-To: Thomas Graf <tgraf@suug.ch>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net-next 0/8] net: dsa: modular build fixes and improvements
+Date: Mon, 12 Jan 2015 13:57:38 -0800
+Message-ID: <1421099866-3184-1-git-send-email-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, buytenh@wantstofly.org,
+	Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog101.obsmtp.com ([74.125.149.67]:36949 "HELO
-	na3sys009aog101.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751033AbbALVzQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jan 2015 16:55:16 -0500
-Received: by mail-qa0-f50.google.com with SMTP id k15so7271864qaq.9
-        for <netdev@vger.kernel.org>; Mon, 12 Jan 2015 13:55:15 -0800 (PST)
-In-Reply-To: <60651d9355f4e34ed6686d95ad837467a1d2c888.1421064100.git.tgraf@suug.ch>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:61964 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751304AbbALV5w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jan 2015 16:57:52 -0500
+Received: by mail-pa0-f46.google.com with SMTP id lf10so34422143pab.5
+        for <netdev@vger.kernel.org>; Mon, 12 Jan 2015 13:57:52 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 12, 2015 at 4:26 AM, Thomas Graf <tgraf@suug.ch> wrote:
-> diff --git a/net/openvswitch/flow_netlink.c b/net/openvswitch/flow_netlink.c
-> index 457ccf3..cea492b 100644
-> --- a/net/openvswitch/flow_netlink.c
-> +++ b/net/openvswitch/flow_netlink.c
-> +static int vxlan_tun_opt_from_nlattr(const struct nlattr *a,
-> +                                    struct sw_flow_match *match, bool is_mask,
-> +                                    bool log)
-> +{
-> +       struct nlattr *tb[OVS_VXLAN_EXT_MAX+1];
-> +       unsigned long opt_key_offset;
-> +       struct ovs_vxlan_opts opts;
-> +       int err;
-> +
-> +       BUILD_BUG_ON(sizeof(opts) > sizeof(match->key->tun_opts));
-> +
-> +       err = nla_parse_nested(tb, OVS_VXLAN_EXT_MAX, a, vxlan_opt_policy);
-> +       if (err < 0)
-> +               return err;
-> +
-> +       memset(&opts, 0, sizeof(opts));
-> +
-> +       if (tb[OVS_VXLAN_EXT_MAX])
-> +               opts.gbp = nla_get_u32(tb[OVS_VXLAN_EXT_MAX]);
+Hi David,
 
-Shouldn't this be OVS_VXLAN_EXT_GBP instead of OVS_VXLAN_EXT_MAX?
-(They have the same value.)
+This patch series fixes some problems seen when using DSA as a module. There was
+a circular functional dependency which made it impossible to successfully load a
+DSA switch driver module, and impossible re-insert it afterwards. Some other
+problems appearing where the lack of resource cleanup, leading to various leaks
+and -EEXIST errors upon module re-insertion.
 
-> +       if (!is_mask)
-> +               SW_FLOW_KEY_PUT(match, tun_opts_len, sizeof(opts), false);
-> +       else
-> +               SW_FLOW_KEY_PUT(match, tun_opts_len, 0xff, true);
+Thanks!
 
-Have you thought carefully about how the masking model work as other
-extensions are potentially added? This was a little tricky with Geneve
-because I wanted to be able to match on both "no options present" as
-well as wildcard all options. The other interesting thing is how you
-serialize them back correctly to userspace, which was the genesis of
-the TUNNEL_OPTIONS_PRESENT flag.
+Florian Fainelli (8):
+  net: dsa: add missing netdevice.h include
+  net: dsa: make module builds work
+  net: phy: fixed: allow setting no update_link callback
+  net: dsa: cleanup resources upon module removal
+  net: dsa: allow switch drivers to cleanup their resources
+  net: dsa: bcm_sf2: factor interrupt disabling in a function
+  net: dsa: bcm_sf2: cleanup resources in remove callback
+  net: dsa: free distributed switch tree pointer in dsa_remove
 
-My guess is that this may basically work fine now that there is only
-one extension present but it is important to think about how it might
-work with multiple independent extensions in the future. (I haven't
-thought about it, I'm just asking.)
+ drivers/net/dsa/bcm_sf2.c   | 44 ++++++++++++++++++++--------
+ drivers/net/phy/fixed_phy.c |  2 +-
+ include/net/dsa.h           |  1 +
+ net/dsa/Makefile            |  2 ++
+ net/dsa/dsa.c               | 71 ++++++++++++++-------------------------------
+ net/dsa/dsa_lib.c           | 68 +++++++++++++++++++++++++++++++++++++++++++
+ net/dsa/dsa_priv.h          |  6 ++++
+ net/dsa/slave.c             | 14 +++++++++
+ 8 files changed, 146 insertions(+), 62 deletions(-)
+ create mode 100644 net/dsa/dsa_lib.c
 
-> diff --git a/net/openvswitch/vport-vxlan.c b/net/openvswitch/vport-vxlan.c
-> index 266c595..dbd6c75 100644
-> --- a/net/openvswitch/vport-vxlan.c
-> +++ b/net/openvswitch/vport-vxlan.c
-> +static int vxlan_ext_gbp(struct sk_buff *skb)
-> +{
-> +       const struct ovs_tunnel_info *tun_info;
-> +       const struct ovs_vxlan_opts *opts;
-> +
-> +       tun_info = OVS_CB(skb)->egress_tun_info;
-> +       opts = tun_info->options;
-> +
-> +       if (tun_info->options_len >= sizeof(*opts))
-> +               return opts->gbp;
-> +       else
-> +               return 0;
-> +}
-
-If you set Geneve options and output to a VXLAN port (or vice versa),
-you will get garbage, right? Is there any way that we can sanity check
-that?
+-- 
+2.1.0
