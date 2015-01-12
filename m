@@ -1,7 +1,7 @@
 From: Pankaj Gupta <pagupta@redhat.com>
-Subject: [PATCH v5 net-next 1/2] net: allow large number of rx queues
-Date: Mon, 12 Jan 2015 11:41:28 +0530
-Message-ID: <1421043089-30103-2-git-send-email-pagupta@redhat.com>
+Subject: [PATCH v5 net-next 2/2] tuntap: Increase the number of queues in tun.
+Date: Mon, 12 Jan 2015 11:41:29 +0530
+Message-ID: <1421043089-30103-3-git-send-email-pagupta@redhat.com>
 References: <1421043089-30103-1-git-send-email-pagupta@redhat.com>
 Cc: davem@davemloft.net, jasowang@redhat.com, mst@redhat.com,
 	dgibson@redhat.com, vfalico@gmail.com, edumazet@google.com,
@@ -17,62 +17,41 @@ In-Reply-To: <1421043089-30103-1-git-send-email-pagupta@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-netif_alloc_rx_queues() uses kcalloc() to allocate memory
-for "struct netdev_queue *_rx" array.
-If we are doing large rx queue allocation kcalloc() might
-fail, so this patch does a fallback to vzalloc().
-Similar implementation is done for tx queue allocation in
-netif_alloc_netdev_queues().
+Networking under kvm works best if we allocate a per-vCPU RX and TX
+queue in a virtual NIC. This requires a per-vCPU queue on the host side.
 
-We avoid failure of high order memory allocation
-with the help of vzalloc(), this allows us to do large
-rx and tx queue allocation which in turn helps us to
-increase the number of queues in tun.
+It is now safe to increase the maximum number of queues.
+Preceding patch: 'net: allow large number of rx queues'
+made sure this won't cause failures due to high order memory
+allocations. Increase it to 256: this is the max number of vCPUs
+KVM supports.
 
-As vmalloc() adds overhead on a critical network path,
-__GFP_REPEAT flag is used with kzalloc() to do this fallback
-only when really needed.
+Size of tun_struct changes from 8512 to 10496 after this patch. This keeps
+pages allocated for tun_struct before and after the patch to 3.
 
 Signed-off-by: Pankaj Gupta <pagupta@redhat.com>
-Reviewed-by: Michael S. Tsirkin <mst@redhat.com>
 Reviewed-by: David Gibson <dgibson@redhat.com>
 ---
- net/core/dev.c | 13 ++++++++-----
- 1 file changed, 8 insertions(+), 5 deletions(-)
+ drivers/net/tun.c | 7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 1ab168e..954591a 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -6145,13 +6145,16 @@ static int netif_alloc_rx_queues(struct net_device *dev)
- {
- 	unsigned int i, count = dev->num_rx_queues;
- 	struct netdev_rx_queue *rx;
-+	size_t sz = count * sizeof(*rx);
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index e3fa65a..a3f13f7 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -113,10 +113,9 @@ struct tap_filter {
+ 	unsigned char	addr[FLT_EXACT_COUNT][ETH_ALEN];
+ };
  
- 	BUG_ON(count < 1);
+-/* DEFAULT_MAX_NUM_RSS_QUEUES were chosen to let the rx/tx queues allocated for
+- * the netdevice to be fit in one page. So we can make sure the success of
+- * memory allocation. TODO: increase the limit. */
+-#define MAX_TAP_QUEUES DEFAULT_MAX_NUM_RSS_QUEUES
++/* MAX_TAP_QUEUES 256 is chosen to allow rx/tx queues to be equal
++ * to max number of VCPUs in guest. */
++#define MAX_TAP_QUEUES 256
+ #define MAX_TAP_FLOWS  4096
  
--	rx = kcalloc(count, sizeof(struct netdev_rx_queue), GFP_KERNEL);
--	if (!rx)
--		return -ENOMEM;
--
-+	rx = kzalloc(sz, GFP_KERNEL | __GFP_NOWARN | __GFP_REPEAT);
-+	if (!rx) {
-+		rx = vzalloc(sz);
-+		if (!rx)
-+			return -ENOMEM;
-+	}
- 	dev->_rx = rx;
- 
- 	for (i = 0; i < count; i++)
-@@ -6781,7 +6784,7 @@ void free_netdev(struct net_device *dev)
- 
- 	netif_free_tx_queues(dev);
- #ifdef CONFIG_SYSFS
--	kfree(dev->_rx);
-+	kvfree(dev->_rx);
- #endif
- 
- 	kfree(rcu_dereference_protected(dev->ingress_queue, 1));
+ #define TUN_FLOW_EXPIRE (3 * HZ)
 -- 
 1.8.3.1
