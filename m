@@ -1,117 +1,70 @@
-From: Alexandre Belloni <alexandre.belloni@free-electrons.com>
-Subject: Re: [PATCH] net/at91_ether: prepare and unprepare clock
-Date: Mon, 12 Jan 2015 12:08:18 +0100
-Message-ID: <20150112110818.GJ2447@piout.net>
-References: <1420671566-30784-1-git-send-email-alexandre.belloni@free-electrons.com>
- <54AE623E.5020507@atmel.com>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH v4 2/4] can: kvaser_usb: Update error counters before
+ exiting on OOM
+Date: Mon, 12 Jan 2015 12:09:32 +0100
+Message-ID: <54B3AB6C.8020900@pengutronix.de>
+References: <20141223154654.GB6460@vivalin-002> <20150111200544.GA8855@linux> <20150111201116.GB8855@linux> <20150111201519.GC8855@linux>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Nicolas Ferre <nicolas.ferre@atmel.com>,
-	Cyrille Pitchen <cyrille.pitchen@atmel.com>,
-	Boris Brezillon <boris.brezillon@free-electrons.com>,
-	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from down.free-electrons.com ([37.187.137.238]:52710 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751639AbbALLIU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jan 2015 06:08:20 -0500
-Content-Disposition: inline
-In-Reply-To: <54AE623E.5020507@atmel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="Nkn8OlFqRbTlCVRgHfekOXijXlK99XM4C"
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	Linux-CAN <linux-can@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: "Ahmed S. Darwish" <darwish.07@gmail.com>,
+	Olivier Sobrie <olivier@sobrie.be>,
+	Oliver Hartkopp <socketcan@hartkopp.net>,
+	Wolfgang Grandegger <wg@grandegger.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150111201519.GC8855@linux>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Dave,
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--Nkn8OlFqRbTlCVRgHfekOXijXlK99XM4C
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
 
-This is actually a fix for 3.19, can you take it for the next rc ?
-
-Thanks!
-
-On 08/01/2015 at 11:55:58 +0100, Nicolas Ferre wrote :
-> Le 07/01/2015 23:59, Alexandre Belloni a =E9crit :
-> > The clock is enabled without being prepared, this leads to:
-> >=20
-> > WARNING: CPU: 0 PID: 1 at drivers/clk/clk.c:889 __clk_enable+0x24/0=
-xa8()
-> >=20
-> > and a non working ethernet interface.
-> >=20
-> > Use clk_prepare_enable() and clk_disable_unprepare() to handle the =
-clock.
-> >=20
-> > Signed-off-by: Alexandre Belloni <alexandre.belloni@free-electrons.=
-com>
+On 01/11/2015 09:15 PM, Ahmed S. Darwish wrote:
+> From: Ahmed S. Darwish <ahmed.darwish@valeo.com>
 >=20
-> Acked-by: Nicolas Ferre <nicolas.ferre@atmel.com>
->=20
-> > ---
-> >  drivers/net/ethernet/cadence/at91_ether.c | 10 +++++-----
-> >  1 file changed, 5 insertions(+), 5 deletions(-)
-> >=20
-> > diff --git a/drivers/net/ethernet/cadence/at91_ether.c b/drivers/ne=
-t/ethernet/cadence/at91_ether.c
-> > index 55eb7f2af2b4..7ef55f5fa664 100644
-> > --- a/drivers/net/ethernet/cadence/at91_ether.c
-> > +++ b/drivers/net/ethernet/cadence/at91_ether.c
-> > @@ -340,7 +340,7 @@ static int __init at91ether_probe(struct platfo=
-rm_device *pdev)
-> >  		res =3D PTR_ERR(lp->pclk);
-> >  		goto err_free_dev;
-> >  	}
-> > -	clk_enable(lp->pclk);
-> > +	clk_prepare_enable(lp->pclk);
-> > =20
-> >  	lp->hclk =3D ERR_PTR(-ENOENT);
-> >  	lp->tx_clk =3D ERR_PTR(-ENOENT);
-> > @@ -406,7 +406,7 @@ static int __init at91ether_probe(struct platfo=
-rm_device *pdev)
-> >  err_out_unregister_netdev:
-> >  	unregister_netdev(dev);
-> >  err_disable_clock:
-> > -	clk_disable(lp->pclk);
-> > +	clk_disable_unprepare(lp->pclk);
-> >  err_free_dev:
-> >  	free_netdev(dev);
-> >  	return res;
-> > @@ -424,7 +424,7 @@ static int at91ether_remove(struct platform_dev=
-ice *pdev)
-> >  	kfree(lp->mii_bus->irq);
-> >  	mdiobus_free(lp->mii_bus);
-> >  	unregister_netdev(dev);
-> > -	clk_disable(lp->pclk);
-> > +	clk_disable_unprepare(lp->pclk);
-> >  	free_netdev(dev);
-> > =20
-> >  	return 0;
-> > @@ -440,7 +440,7 @@ static int at91ether_suspend(struct platform_de=
-vice *pdev, pm_message_t mesg)
-> >  		netif_stop_queue(net_dev);
-> >  		netif_device_detach(net_dev);
-> > =20
-> > -		clk_disable(lp->pclk);
-> > +		clk_disable_unprepare(lp->pclk);
-> >  	}
-> >  	return 0;
-> >  }
-> > @@ -451,7 +451,7 @@ static int at91ether_resume(struct platform_dev=
-ice *pdev)
-> >  	struct macb *lp =3D netdev_priv(net_dev);
-> > =20
-> >  	if (netif_running(net_dev)) {
-> > -		clk_enable(lp->pclk);
-> > +		clk_prepare_enable(lp->pclk);
-> > =20
-> >  		netif_device_attach(net_dev);
-> >  		netif_start_queue(net_dev);
-> >=20
->=20
->=20
-> --=20
-> Nicolas Ferre
+> Let the error counters be more accurate in case of Out of
+> Memory conditions.
 
+Please have a look at kvaser_usb_rx_error(), the whole state handling is
+omitted in case of OOM.
+
+Marc
 --=20
-Alexandre Belloni, Free Electrons
-Embedded Linux, Kernel and Android engineering
-http://free-electrons.com
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--Nkn8OlFqRbTlCVRgHfekOXijXlK99XM4C
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIcBAEBAgAGBQJUs6tsAAoJECte4hHFiupUPkMP/24Tulw6tXRPXAY3dfT1XDZ2
+H9SwhCYdho08W7t8H31/VMoKEBJvYZ61cQyGkRSziISII1Ln9v3wIksnb53gMX7F
+XZXlxrWqKx/WHP9Am1lQ0ArSXC5z2bqyQDl7DtVKMAiYoAqajKnVmJgErNPeo/Zc
+GlyKiAIrD+qLpOQZmPtcCIPuMrFldx1IXxzGnsas2Nr82CCXIPQqWJlwaayXh9SM
+Sl3C6NdboucJVAe+g14ObTg24n5tKXErRaiWSIrWfZqNIhMujl4vU9qOETdU5mol
+gGiQF1w8DBrUac3X+Oxd3+wwTii5MTP0XErS3MnAG6nmCI3Y/UJviabuhUAVgMP7
+I9RVZcPQyyeRi/k6n4s91oa9VJiDiGNVUhXrcmog6sMY3AUFy9bTOi5A0qHQ7Olh
+7j5D+FXwXEKUleinkJsOe0lhQGtCqeizqFmhXQk2rYYrw4dB0JeM8gB3PYh7J4D6
+2/pOus/8w1+alOLujiakdI3TwgmCyDeg64YHVjuRUwTfckNVg7Gb4KB3AYTDrXRx
+MEy09WCZV6tkQBqGTamd+cji46zIPoeBDpRwmO2bMO39wFP59hAh8q24MvgxApPa
+G7JQNGHVkmt2Z+VJJHM12sa8WxSIYrzJEDeKkNPIA6O5WMp4rv0Kawfmt4h60nU6
+aX1ELCrihyPqu8Syj5Xy
+=JvbW
+-----END PGP SIGNATURE-----
+
+--Nkn8OlFqRbTlCVRgHfekOXijXlK99XM4C--
