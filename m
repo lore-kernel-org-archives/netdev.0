@@ -1,61 +1,141 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net-next v2] tcp: avoid reducing cwnd when ACK+DSACK is
- received
-Date: Mon, 12 Jan 2015 11:52:45 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CAC5844@AcuExch.aculab.com>
-References: <1420719609-18638-1-git-send-email-sebastien.barre@uclouvain.be>
- <1420730396.5947.55.camel@edumazet-glaptop2.roam.corp.google.com>
- <54AEA498.5030202@uclouvain.be>
- <CADVnQy=A57TUYD=kGtZXvq7-FGSN=vN3D2heaNCnBB=zjujwUg@mail.gmail.com>
- <1420734325.5947.61.camel@edumazet-glaptop2.roam.corp.google.com>
- <CAK6E8=dhW=0hRYHjjgBh0KwKOQfzHhwY2egusQ8S4tsoJb0Nsg@mail.gmail.com>
+From: "Ahmed S. Darwish" <darwish.07@gmail.com>
+Subject: Re: [PATCH v4 3/4] can: kvaser_usb: Add support for the Usbcan-II
+ family
+Date: Mon, 12 Jan 2015 07:07:41 -0500
+Message-ID: <20150112120741.GC9213@linux>
+References: <20141223154654.GB6460@vivalin-002>
+ <20150111200544.GA8855@linux>
+ <20150111201116.GB8855@linux>
+ <20150111201519.GC8855@linux>
+ <20150111203612.GA8999@linux>
+ <54B3B37C.7090002@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Neal Cardwell <ncardwell@google.com>,
-	=?utf-8?B?U8OpYmFzdGllbiBCYXJyw6k=?= <sebastien.barre@uclouvain.be>,
-	David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>,
-	Gregory Detal <gregory.detal@uclouvain.be>,
-	"Nandita Dukkipati" <nanditad@google.com>
-To: 'Yuchung Cheng' <ycheng@google.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out6.electric.net ([192.162.217.185]:60591 "EHLO
-	smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753351AbbALLyI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jan 2015 06:54:08 -0500
-In-Reply-To: <CAK6E8=dhW=0hRYHjjgBh0KwKOQfzHhwY2egusQ8S4tsoJb0Nsg@mail.gmail.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Olivier Sobrie <olivier@sobrie.be>,
+	Oliver Hartkopp <socketcan@hartkopp.net>,
+	Wolfgang Grandegger <wg@grandegger.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	Linux-CAN <linux-can@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Marc Kleine-Budde <mkl@pengutronix.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <54B3B37C.7090002@pengutronix.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-RnJvbTogWXVjaHVuZyBDaGVuZw0KPiBTZW50OiAwOSBKYW51YXJ5IDIwMTUgMTk6NDQNCi4uLg0K
-PiBTZWJhc3RpZW46IEkgc3VnZ2VzdCBicmVha2luZyBkb3duIGJ5IEFDSyB0eXBlcyBmb3IgcmVh
-ZGFiaWxpdHkuIGUuZy4sDQo+IA0KPiAvKiBUaGlzIHJvdXRpbmUgZGVhbHMgd2l0aCBhY2tzIGR1
-cmluZyBhIFRMUCBlcGlzb2RlLg0KPiAgKiBXZSBtYXJrIHRoZSBlbmQgb2YgYSBUTFAgZXBpc29k
-ZSBvbiByZWNlaXZpbmcgVExQIGR1cGFjayBvciB3aGVuDQo+ICAqIGFjayBpcyBhZnRlciB0bHBf
-aGlnaF9zZXEuDQo+ICAqIFJlZjogbG9zcyBkZXRlY3Rpb24gYWxnb3JpdGhtIGluIGRyYWZ0LWR1
-a2tpcGF0aS10Y3BtLXRjcC1sb3NzLXByb2JlLg0KPiAgKi8NCj4gc3RhdGljIHZvaWQgdGNwX3By
-b2Nlc3NfdGxwX2FjayhzdHJ1Y3Qgc29jayAqc2ssIHUzMiBhY2ssIGludCBmbGFnKQ0KPiB7DQo+
-ICAgICAgICAgc3RydWN0IHRjcF9zb2NrICp0cCA9IHRjcF9zayhzayk7DQo+IA0KPiAgICAgICAg
-IGlmIChiZWZvcmUoYWNrLCB0cC0+dGxwX2hpZ2hfc2VxKSkNCj4gICAgICAgICAgICAgICAgIHJl
-dHVybjsNCj4gDQo+ICAgICAgICAgaWYgKGZsYWcgJiBGTEFHX0RTQUNLSU5HX0FDSykgew0KPiAg
-ICAgICAgICAgICAgICAgLyogVGhpcyBEU0FDSyBtZWFucyBvcmlnaW5hbCBhbmQgVExQIHByb2Jl
-IGFycml2ZWQ7IG5vIGxvc3MgKi8NCj4gICAgICAgICAgICAgICAgIHRwLT50bHBfaGlnaF9zZXEg
-PSAwOw0KDQpJIHRoaW5rIEknZCBhZGQgYSAncmV0dXJuJyBoZXJlLg0KDQo+ICAgICAgICAgfSBl
-bHNlIGlmIChhZnRlcihhY2ssIHRwLT50bHBfaGlnaF9zZXEpKSB7DQo+ICAgICAgICAgICAgICAg
-ICAvKiBBQ0sgYWR2YW5jZXM6IHRoZXJlIHdhcyBhIGxvc3MsIHNvIHJlZHVjZSBjd25kLiBSZXNl
-dA0KPiAgICAgICAgICAgICAgICAgICogdGxwX2hpZ2hfc2VxIGluIHRjcF9pbml0X2N3bmRfcmVk
-dWN0aW9uKCkNCj4gICAgICAgICAgICAgICAgICAqLw0KPiAgICAgICAgICAgICAgICAgdGNwX2lu
-aXRfY3duZF9yZWR1Y3Rpb24oc2spOw0KPiAgICAgICAgICAgICAgICAgdGNwX3NldF9jYV9zdGF0
-ZShzaywgVENQX0NBX0NXUik7DQo+ICAgICAgICAgICAgICAgICB0Y3BfZW5kX2N3bmRfcmVkdWN0
-aW9uKHNrKTsNCj4gICAgICAgICAgICAgICAgIHRjcF90cnlfa2VlcF9vcGVuKHNrKTsNCj4gICAg
-ICAgICAgICAgICAgIE5FVF9JTkNfU1RBVFNfQkgoc29ja19uZXQoc2spLA0KPiAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICBMSU5VWF9NSUJfVENQTE9TU1BST0JFUkVDT1ZFUlkpOw0K
-DQphbmQgaGVyZQ0KDQo+ICAgICAgICAgfSBlbHNlIGlmICghKGZsYWcgJiAoRkxBR19TTkRfVU5B
-X0FEVkFOQ0VEIHwNCj4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICBGTEFHX05PVF9EVVAg
-fCBGTEFHX0RBVEFfU0FDS0VEKSkpIHsNCj4gICAgICAgICAgICAgICAgIC8qIFB1cmUgZHVwYWNr
-OiBvcmlnaW5hbCBhbmQgVExQIHByb2JlIGFycml2ZWQ7IG5vIGxvc3MgKi8NCj4gICAgICAgICAg
-ICAgICAgIHRwLT50bHBfaGlnaF9zZXEgPSAwOw0KPiAgICAgICAgIH0NCj4gfQ0KDQoJRGF2aWQN
-Cg==
+Hi Marc,
+
+On Mon, Jan 12, 2015 at 12:43:56PM +0100, Marc Kleine-Budde wrote:
+> On 01/11/2015 09:36 PM, Ahmed S. Darwish wrote:
+[...]
+> > diff --git a/drivers/net/can/usb/kvaser_usb.c b/drivers/net/can/usb/kvaser_usb.c
+> > index 0eb870b..da47d17 100644
+> > --- a/drivers/net/can/usb/kvaser_usb.c
+> > +++ b/drivers/net/can/usb/kvaser_usb.c
+> > @@ -6,10 +6,12 @@
+> >   * Parts of this driver are based on the following:
+> >   *  - Kvaser linux leaf driver (version 4.78)
+> >   *  - CAN driver for esd CAN-USB/2
+> > + *  - Kvaser linux usbcanII driver (version 5.3)
+> >   *
+> >   * Copyright (C) 2002-2006 KVASER AB, Sweden. All rights reserved.
+> >   * Copyright (C) 2010 Matthias Fuchs <matthias.fuchs@esd.eu>, esd gmbh
+> >   * Copyright (C) 2012 Olivier Sobrie <olivier@sobrie.be>
+> > + * Copyright (C) 2015 Valeo Corporation
+> >   */
+> >  
+> >  #include <linux/completion.h>
+> > @@ -21,6 +23,15 @@
+> >  #include <linux/can/dev.h>
+> >  #include <linux/can/error.h>
+> >  
+> > +/* Kvaser USB CAN dongles are divided into two major families:
+> > + * - Leaf: Based on Renesas M32C, running firmware labeled as 'filo'
+> > + * - UsbcanII: Based on Renesas M16C, running firmware labeled as 'helios'
+> > + */
+> > +enum kvaser_usb_family {
+> > +	KVASER_LEAF,
+> > +	KVASER_USBCAN,
+> > +};
+> 
+> Nitpick: please move after the #defines
+> 
+
+Will do.
+
+[...]
+> > @@ -616,53 +810,24 @@ static void kvaser_usb_unlink_tx_urbs(struct kvaser_usb_net_priv *priv)
+> >  }
+> >  
+> >  static void kvaser_usb_rx_error(const struct kvaser_usb *dev,
+> > -				const struct kvaser_msg *msg)
+> > +				struct kvaser_error_summary *es)
+> 
+> Can you make "struct kvaser_error_summary *es" const?
+> 
+
+Sure.
+
+[...]
+> > +/* For USBCAN, report error to userspace iff the channels's errors counter
+> > + * has increased, or we're the only channel seeing a bus error state.
+> > + */
+> > +static void kvaser_usbcan_conditionally_rx_error(const struct kvaser_usb *dev,
+> > +						 struct kvaser_error_summary *es)
+> 
+> const struct kvaser_error_summary *es?
+>
+
+Ditto.
+
+[...]
+> > +
+> > +		/* The USBCAN firmware does not support more than 2 channels.
+> 
+> Does USBCAN support always 2 channels or are there models with 1
+> channels, too. I'd rephrase ..."does support up to 2 channels."
+> 
+
+Yup, that will be more accurate.
+
+[...]
+> > +
+> > +	switch (dev->family) {
+> > +	case KVASER_LEAF:
+> > +		rx_msg = msg->u.leaf.rx_can.msg;
+> > +		break;
+> > +	case KVASER_USBCAN:
+> > +		rx_msg = msg->u.usbcan.rx_can.msg;
+> > +		break;
+> > +	default:
+> > +		dev_err(dev->udev->dev.parent,
+> > +			"Invalid device family (%d)\n", dev->family);
+> >  		return;
+> 
+> should not happen.
+> 
+
+Yes, but otherwise I get GCC warnings of 'rx_msg' possibly
+being unused. I can add __maybe_unused to rx_msg of course,
+but such annotation may hide possible errors in the future.
+
+> > +	switch (dev->family) {
+> > +	case KVASER_LEAF:
+> > +		msg_tx_can_flags = &msg->u.tx_can.leaf.flags;
+> > +		break;
+> > +	case KVASER_USBCAN:
+> > +		msg_tx_can_flags = &msg->u.tx_can.usbcan.flags;
+> > +		break;
+> > +	default:
+> > +		dev_err(dev->udev->dev.parent,
+> > +			"Invalid device family (%d)\n", dev->family);
+> > +		goto releasebuf;
+> should not happen, please remove
+
+Like the 'rx_msg' case above.
+
+Thanks,
+Darwish
