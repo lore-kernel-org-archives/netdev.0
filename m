@@ -1,59 +1,43 @@
 From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] brcmfmac: avoid duplicated suspend/resume operation
-Date: Mon, 12 Jan 2015 17:06:52 +0300
-Message-ID: <54B3D4FC.1090806@cogentembedded.com>
-References: <54B36C88.3030609@linux.intel.com>
+Subject: Re: [PATCH] gianfar: correct the bad expression while writing bit-pattern
+Date: Mon, 12 Jan 2015 17:12:11 +0300
+Message-ID: <54B3D63B.1010608@cogentembedded.com>
+References: <1421048596-22639-1-git-send-email-sanjeev_sharma@mentor.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-To: "Fu, Zhonghui" <zhonghui.fu@linux.intel.com>, brudley@broadcom.com,
-	"arend@broadcom.com >> Arend van Spriel" <arend@broadcom.com>,
-	Franky Lin <frankyl@broadcom.com>, meuleman@broadcom.com,
-	kvalo@codeaurora.org, linville@tuxdriver.com,
-	pieterpg@broadcom.com, hdegoede@redhat.com, wens@csie.org,
-	linux-wireless@vger.kernel.org, brcm80211-dev-list@broadcom.com,
-	netdev@vger.kernel.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+Cc: claudiu.manoil@freescale.com, peter.senna@gmail.com,
+	shemminger@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Sanjeev Sharma <sanjeev_sharma@mentor.com>, davem@davemloft.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <54B36C88.3030609@linux.intel.com>
+In-Reply-To: <1421048596-22639-1-git-send-email-sanjeev_sharma@mentor.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Hello.
 
-On 1/12/2015 9:41 AM, Fu, Zhonghui wrote:
+On 1/12/2015 10:43 AM, Sanjeev Sharma wrote:
 
->  From 8685c3c2746b4275fc808d9db23c364b2f54b52a Mon Sep 17 00:00:00 2001
-> From: Zhonghui Fu <zhonghui.fu@linux.intel.com>
-> Date: Mon, 12 Jan 2015 14:25:46 +0800
-> Subject: [PATCH] brcmfmac: avoid duplicated suspend/resume operation
+> This patch correct the bad expression while writing the
+> bit-pattern from software's buffer to hardware registers.
 
-    The lines above are not needed.
-
-> WiFi chip has 2 SDIO functions, and PM core will trigger
-> twice suspend/resume operations for one WiFi chip to do
-> the same things. This patch avoid this case.
-
-> Acked-by: Arend van Spriel<arend@broadcom.com>
-> Acked-by: Sergei Shtylyov<sergei.shtylyov@cogentembedded.com>
-> Signed-off-by: Zhonghui Fu <zhonghui.fu@linux.intel.com>
+> Signed-off-by: Sanjeev Sharma <Sanjeev_Sharma@mentor.com>
 > ---
->   drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c |   21 +++++++++++++++++----
->   1 files changed, 17 insertions(+), 4 deletions(-)
+>   drivers/net/ethernet/freescale/gianfar_ethtool.c | 2 +-
+>   1 file changed, 1 insertion(+), 1 deletion(-)
 
-> diff --git a/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c b/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c
-> index 9880dae..8f71485 100644
-> --- a/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c
-> +++ b/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c
-> @@ -1070,7 +1070,7 @@ static int brcmf_ops_sdio_probe(struct sdio_func *func,
->   	 */
->   	if ((sdio_get_host_pm_caps(sdiodev->func[1]) & MMC_PM_KEEP_POWER) &&
->   	    ((sdio_get_host_pm_caps(sdiodev->func[1]) & MMC_PM_WAKE_SDIO_IRQ) ||
-> -	     (sdiodev->pdata && sdiodev->pdata->oob_irq_supported)))
-> +	     (sdiodev->pdata->oob_irq_supported)))
+> diff --git a/drivers/net/ethernet/freescale/gianfar_ethtool.c b/drivers/net/ethernet/freescale/gianfar_ethtool.c
+> index 3e1a9c1..1ccca72 100644
+> --- a/drivers/net/ethernet/freescale/gianfar_ethtool.c
+> +++ b/drivers/net/ethernet/freescale/gianfar_ethtool.c
+> @@ -1586,7 +1586,7 @@ static int gfar_write_filer_table(struct gfar_private *priv,
+>   		return -EBUSY;
+>
+>   	/* Fill regular entries */
+> -	for (; i < MAX_FILER_IDX - 1 && (tab->fe[i].ctrl | tab->fe[i].ctrl);
+> +	for (; i < MAX_FILER_IDX - 1 && ( i < tab->fe[i].ctrl);
 
-    Inner parens not needed on this line.
-
-[...]
+    Inner parens not needed. And there shouldn't be space after (.
 
 WBR, Sergei
