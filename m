@@ -1,74 +1,108 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH v4 01/04] can: kvaser_usb: Don't dereference skb after
- a netif_rx()
-Date: Mon, 12 Jan 2015 12:05:42 +0100
-Message-ID: <54B3AA86.80601@pengutronix.de>
-References: <20141223154654.GB6460@vivalin-002> <20150111200544.GA8855@linux> <20150111201116.GB8855@linux> <20150111204952.GC8999@linux>
+From: Rahul Sharma <rsharma@arista.com>
+Subject: Re: [PATCH net] ipv6: Prevent ipv6_find_hdr() from returning ENOENT
+ for valid non-first fragments
+Date: Mon, 12 Jan 2015 16:38:16 +0530
+Message-ID: <CAFB3abwetkNa4753g9d-z8xU0fMThyApuESQNkbxGa8Yz2YRfQ@mail.gmail.com>
+References: <CAFB3abzYNYqtzd_n+Ym0Lo=DYbV0HPU=Tqw=stALNnu188hMKQ@mail.gmail.com>
+	<20150106224706.GA7416@salvia>
+	<CAFB3abwKpR1VqZXUrsexqveAZrA2LTSmTe8a=-H7z2HjAptjwA@mail.gmail.com>
+	<1420627396.26870.36.camel@stressinduktion.org>
+	<20150108205328.GA3361@salvia>
+	<1420756756.1755002.211556745.0418D128@webmail.messagingengine.com>
+	<20150109000546.GA3488@salvia>
+	<CAFB3abwrjp61LLOk3RWwXYEq1g4QZUC8OTKuO2cAr+GbV3n4rw@mail.gmail.com>
+	<1420803255.1978819.211762005.707EFFB9@webmail.messagingengine.com>
+	<20150109114506.GA4857@salvia>
+	<1420818636.31075.15.camel@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="4PlGDeJOEFVMrRB3MARqu2Kfs0klrlCr2"
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	Linux-CAN <linux-can@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: "Ahmed S. Darwish" <darwish.07@gmail.com>,
-	Olivier Sobrie <olivier@sobrie.be>,
-	Oliver Hartkopp <socketcan@hartkopp.net>,
-	Wolfgang Grandegger <wg@grandegger.com>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <20150111204952.GC8999@linux>
-Sender: linux-can-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1420818636.31075.15.camel@stressinduktion.org>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---4PlGDeJOEFVMrRB3MARqu2Kfs0klrlCr2
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+Hi Pablo, Hannes
 
-On 01/11/2015 09:49 PM, Ahmed S. Darwish wrote:
-> From: Ahmed S. Darwish <ahmed.darwish@valeo.com>
->=20
-> We should not touch the packet after a netif_rx: it might
-> get freed behind our back.
->=20
-> Suggested-by: Marc Kleine-Budde <mkl@pengutronix.de>
-> Signed-off-by: Ahmed S. Darwish <ahmed.darwish@valeo.com>
+On Fri, Jan 9, 2015 at 9:20 PM, Hannes Frederic Sowa
+<hannes@stressinduktion.org> wrote:
+> On Fr, 2015-01-09 at 12:45 +0100, Pablo Neira Ayuso wrote:
+>> Hi Hannes,
+>>
+>> On Fri, Jan 09, 2015 at 12:34:15PM +0100, Hannes Frederic Sowa wrote:
+>> > On Fri, Jan 9, 2015, at 08:18, Rahul Sharma wrote:
+>> > > Hi Pablo,
+>> > >
+>> > > On Fri, Jan 9, 2015 at 5:35 AM, Pablo Neira Ayuso <pablo@netfilter.org>
+>> > > wrote:
+>> > > > On Thu, Jan 08, 2015 at 11:39:16PM +0100, Hannes Frederic Sowa wrote:
+>> > > >> Hi Pablo,
+>> > > >>
+>> > > >> On Thu, Jan 8, 2015, at 21:53, Pablo Neira Ayuso wrote:
+>> > > >> > I'm afraid we cannot just get rid of that !ipv6_ext_hdr() check. The
+>> > > >> > ipv6_find_hdr() function is designed to return the transport protocol.
+>> > > >> > After the proposed change, it will return extension header numbers.
+>> > > >> > This will break existing ip6tables rulesets since the `-p' option
+>> > > >> > relies on this function to match the transport protocol.
+>> > > >> >
+>> > > >> > Note that the AH header is skipped (see code a bit below this
+>> > > >> > problematic fragmentation handling) so the follow up header after the
+>> > > >> > AH header is returned as the transport header.
+>> > > >> >
+>> > > >> > We can probably return the AH protocol number for non-1st fragments.
+>> > > >> > However, that would be something new to ip6tables since nobody has
+>> > > >> > ever seen packet matching `-p ah' rules. Thus, we restore control to
+>> > > >> > the user to allow this, but we would accept all kind of fragmented AH
+>> > > >> > traffic through the firewall since we cannot know what transport
+>> > > >> > protocol contains from non-1st fragments (unless I'm missing anything,
+>> > > >> > I need to have a closer look at this again tomorrow with fresher
+>> > > >> > mind).
+>> > > >>
+>> > > >> The code in question is guarded by (_frag_off != 0), so we are
+>> > > >> definitely processing a non-1st fragment currently. The -p match would
+>> > > >> happen at the time when the packet is reassembled and thus ipv6_find_hdr
+>> > > >> will find the real transport (final) header at this point (I hope I
+>> > > >> followed the code correctly here).
+>> > > >
+>> > > > Then, Rahul should get things working by modprobing nf_defrag_ipv6.
+>> > >
+>> > > I already had nf_defrag_ipv6 installed when the issue occured. But I
+>> > > see ip6table_raw_hook returning NF_DROP for the second fragment.
+>> >
+>> > That's what I expected. I think the change only affects hooks before
+>> > reassembly.
+>>
+>> reassembly happens at NF_IP6_PRI_CONNTRACK_DEFRAG (-400), so that
+>> happens before NF_IP6_PRI_RAW (-300) in IPv6 which is where the raw
+>> table is placed.
+>
+> I tried to reproduce it, but couldn't get non-1st fragments getting
+> dropped during traversal of the raw table. They get dropped earlier at
+> during reassembly or pass.
+>
+> I agree with Pablo, I also would like to see more data.
+>
+> Thanks,
+> Hannes
+>
+>
 
-Applied to can/master.
+I enabled pr_debug() and there was no error in nf_ct_frag6_gather().
+It seems to have defragmented the packet correctly. As expected,
+ipv6_defrag() returns NF_STOLEN for the first packet after queuing it.
+For the next fragment, ipv6_defrag() calls nf_ct_frag6_output() after
+after reassembling it. I checked skb->len inside nf_ct_frag6_output()
+and it implies that they were indeed reassembled. Now from what I
+follow from the code, this function seems to iterate over both the
+fragments with corresponding skb's and incrementing
+thresh(NF_IP6_PRI_CONNTRACK_DEFRAG) by 1 so the subsequent hooks
+(ip6table_raw_hook, ipv6_conntrack_in, ip6table_mangle_hook) should
+get called in order for both the fragments. This works fine for the
+first fragment as I had mentioned, but the ip6table_raw_hook returns
+NF_DROP for the second fragment. Please let me know if you need more
+inputs.
 
-tnx,
-Marc
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---4PlGDeJOEFVMrRB3MARqu2Kfs0klrlCr2
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIcBAEBAgAGBQJUs6qJAAoJECte4hHFiupUIo8P/As2NRoUap9CJAq1ryczTUof
-TwOkhzFgCdXQO+h9jwP5QCeKWxHjNZyLsT8cJ7M+5S1fWzG4XMPHJ9PRnyNi8+l7
-7pDcMy7t0Ag53r0lumErv+Du9h/SoPZUOWknzUlPnIxNSevjZiVjiGLLZY6ultEq
-KwGK1e4xOYCvmD1EWSFMb4Z6zo+YrSVPGKf1Goan6pnMRCU9gtXYfAYAixpTOiiq
-p5PHgRP8qNJZ2q4u7F/M4a06v7SN9zckSYJgFAmN90AFU4DrllduRZwDt9BChWdF
-C6vHG5Ziyf2fJovq3QHnuuRrMc93fGxJpkNVOJLXWo5bGpuu+WPYbiJ14hkHFw+J
-CEbw5+HlxkyyZVUbjVsDYZcWcIit0o1ugbWnARmxa9yLqT//3staTzZ2IL5RnbON
-lu84vWMoTCaw3z8QrbGPNUsdVTJO4oibbB6n2YCD9snHIws069HI+7tyztYl6wOn
-dvgjzw3hDEuq6MmAEJqcmLqqq2jyAJ47B6xsi8ZASSBMq4wENH0OsV3AcEcBEQ0N
-OsJ4U0mJyg0o8Vht+AapsNowEbXAM21BoTjBGIbv22xa9AAryg+YIf0uEU36UiET
-5Mfrgz9wDyCfdp9mgewx2OfPoL8npVJDAld4ltWwIJANfguYM4I0/42Am85zrRB6
-5qEGMDPUTcaMlM8vwv3P
-=jS76
------END PGP SIGNATURE-----
-
---4PlGDeJOEFVMrRB3MARqu2Kfs0klrlCr2--
+Thanks,
+Rahul
