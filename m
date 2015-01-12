@@ -1,67 +1,74 @@
-From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: Re: [PATCH] bonding: cleanup bond_opts array
-Date: Mon, 12 Jan 2015 12:05:30 +0100
-Message-ID: <54B3AA7A.2010606@redhat.com>
-References: <1420828268-10360-1-git-send-email-jtoppins@cumulusnetworks.com> <20150109184821.GC56806@gospo.home.greyhouse.net>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH v4 01/04] can: kvaser_usb: Don't dereference skb after
+ a netif_rx()
+Date: Mon, 12 Jan 2015 12:05:42 +0100
+Message-ID: <54B3AA86.80601@pengutronix.de>
+References: <20141223154654.GB6460@vivalin-002> <20150111200544.GA8855@linux> <20150111201116.GB8855@linux> <20150111204952.GC8999@linux>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, shm@cumulusnetworks.com
-To: Andy Gospodarek <gospo@cumulusnetworks.com>,
-	Jonathan Toppins <jtoppins@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:55848 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753138AbbALLFe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 Jan 2015 06:05:34 -0500
-In-Reply-To: <20150109184821.GC56806@gospo.home.greyhouse.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="4PlGDeJOEFVMrRB3MARqu2Kfs0klrlCr2"
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	Linux-CAN <linux-can@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: "Ahmed S. Darwish" <darwish.07@gmail.com>,
+	Olivier Sobrie <olivier@sobrie.be>,
+	Oliver Hartkopp <socketcan@hartkopp.net>,
+	Wolfgang Grandegger <wg@grandegger.com>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <20150111204952.GC8999@linux>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 09/01/15 19:48, Andy Gospodarek wrote:
-> On Fri, Jan 09, 2015 at 01:31:08PM -0500, Jonathan Toppins wrote:
->> Remove the empty array element initializer and size the array with
->> BOND_OPT_LAST so the compiler will complain if more elements are in
->> there than should be.
->>
->> An interesting unwanted side effect of this initializer is that if one
->> inserts new options into the middle of the array then this initializer
->> will zero out the option that equals BOND_OPT_TLB_DYNAMIC_LB+1.
->>
->> Example:
->> Extend the OPTS enum:
->> enum {
->>    ...
->>    BOND_OPT_TLB_DYNAMIC_LB,
->>    BOND_OPT_LACP_NEW1,
->>    BOND_OPT_LAST
->> };
->>
->> Now insert into bond_opts array:
->> static const struct bond_option bond_opts[] = {
->>       ...
->>       [BOND_OPT_LACP_RATE] = { .... unchanged stuff .... },
->>       [BOND_OPT_LACP_NEW1] = { ... new stuff ... },
->>       ...
->>       [BOND_OPT_TLB_DYNAMIC_LB] = { .... unchanged stuff ....},
->>       { } // MARK A
->> };
->>
->> Since BOND_OPT_LACP_NEW1 = BOND_OPT_TLB_DYNAMIC_LB+1, the last
->> initializer (MARK A) will overwrite the contents of BOND_OPT_LACP_NEW1
->> and can be easily viewed with the crash utility.
->>
->> Signed-off-by: Jonathan Toppins <jtoppins@cumulusnetworks.com>
->> Cc: Andy Gospodarek <gospo@cumulusnetworks.com>
->> Cc: Nikolay Aleksandrov <nikolay@redhat.com>
-> 
-> I do not recall if there was a specific reason that Nik added this, so
-> presuming there was not....
-> 
-> Signed-off-by: Andy Gospodarek <gospo@cumulusnetworks.com>
-> 
-Indeed, it's an oversight on my part from a previous version of the opts
-patch-set which used a different end-of-array indicator :-)
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--4PlGDeJOEFVMrRB3MARqu2Kfs0klrlCr2
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+
+On 01/11/2015 09:49 PM, Ahmed S. Darwish wrote:
+> From: Ahmed S. Darwish <ahmed.darwish@valeo.com>
+>=20
+> We should not touch the packet after a netif_rx: it might
+> get freed behind our back.
+>=20
+> Suggested-by: Marc Kleine-Budde <mkl@pengutronix.de>
+> Signed-off-by: Ahmed S. Darwish <ahmed.darwish@valeo.com>
+
+Applied to can/master.
+
+tnx,
+Marc
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
 
 
-Acked-by: Nikolay Aleksandrov <nikolay@redhat.com>
+--4PlGDeJOEFVMrRB3MARqu2Kfs0klrlCr2
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIcBAEBAgAGBQJUs6qJAAoJECte4hHFiupUIo8P/As2NRoUap9CJAq1ryczTUof
+TwOkhzFgCdXQO+h9jwP5QCeKWxHjNZyLsT8cJ7M+5S1fWzG4XMPHJ9PRnyNi8+l7
+7pDcMy7t0Ag53r0lumErv+Du9h/SoPZUOWknzUlPnIxNSevjZiVjiGLLZY6ultEq
+KwGK1e4xOYCvmD1EWSFMb4Z6zo+YrSVPGKf1Goan6pnMRCU9gtXYfAYAixpTOiiq
+p5PHgRP8qNJZ2q4u7F/M4a06v7SN9zckSYJgFAmN90AFU4DrllduRZwDt9BChWdF
+C6vHG5Ziyf2fJovq3QHnuuRrMc93fGxJpkNVOJLXWo5bGpuu+WPYbiJ14hkHFw+J
+CEbw5+HlxkyyZVUbjVsDYZcWcIit0o1ugbWnARmxa9yLqT//3staTzZ2IL5RnbON
+lu84vWMoTCaw3z8QrbGPNUsdVTJO4oibbB6n2YCD9snHIws069HI+7tyztYl6wOn
+dvgjzw3hDEuq6MmAEJqcmLqqq2jyAJ47B6xsi8ZASSBMq4wENH0OsV3AcEcBEQ0N
+OsJ4U0mJyg0o8Vht+AapsNowEbXAM21BoTjBGIbv22xa9AAryg+YIf0uEU36UiET
+5Mfrgz9wDyCfdp9mgewx2OfPoL8npVJDAld4ltWwIJANfguYM4I0/42Am85zrRB6
+5qEGMDPUTcaMlM8vwv3P
+=jS76
+-----END PGP SIGNATURE-----
+
+--4PlGDeJOEFVMrRB3MARqu2Kfs0klrlCr2--
