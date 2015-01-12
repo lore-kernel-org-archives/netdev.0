@@ -1,32 +1,27 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/6] netfilter/ipvs fixes for net
-Date: Mon, 12 Jan 2015 00:15:19 -0500 (EST)
-Message-ID: <20150112.001519.1809978495536284490.davem@davemloft.net>
-References: <1420915808-7160-1-git-send-email-pablo@netfilter.org>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull-request: wireless-drivers 2015-01-09
+Date: Mon, 12 Jan 2015 00:24:05 -0500 (EST)
+Message-ID: <20150112.002405.468448503179324247.davem@davemloft.net>
+References: <87lhlbj4pp.fsf@kamboji.qca.qualcomm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: pablo@netfilter.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1420915808-7160-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <87lhlbj4pp.fsf-HodKDYzPHsUD5k0oWYwrnHL1okKdlPRT@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Sat, 10 Jan 2015 19:50:02 +0100
+From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Date: Fri, 09 Jan 2015 18:31:30 +0200
 
-> The following patchset contains netfilter/ipvs fixes, they are:
- ...
-> Note that this batch comes later than usual because of the short
-> winter holidays.
-> 
-> You can pull these changes from:
-> 
->   git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git
-> 
-> Have a happy new year, thanks!
+> here are few more fixes to 3.19. Please let me know if there are any
+> problems.
 
-Happy new year to you too Pablo!
-
-Pulled, thanks a lot.
+Pulled, thanks Kalle.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
