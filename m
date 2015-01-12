@@ -1,64 +1,77 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: nft_hash rhashtable question
-Date: Mon, 12 Jan 2015 14:30:40 -0800
-Message-ID: <54B44B10.7000009@gmail.com>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [PATCH net-next] openvswitch: Introduce vport_route_lookup
+Date: Mon, 12 Jan 2015 14:31:00 -0800
+Message-ID: <CALnjE+pXY_pPKiHgiO9hVCo_2rNbZ_pPgx-i1KesjEt8E6Nhug@mail.gmail.com>
+References: <1421054087-25632-1-git-send-email-fan.du@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: tgraf <tgraf@suug.ch>
+Content-Type: text/plain; charset=UTF-8
+Cc: "dev@openvswitch.org" <dev@openvswitch.org>,
+	netdev <netdev@vger.kernel.org>, fengyuleidian0615@gmail.com
+To: Fan Du <fan.du@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f44.google.com ([209.85.218.44]:64691 "EHLO
-	mail-oi0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751379AbbALWaz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jan 2015 17:30:55 -0500
-Received: by mail-oi0-f44.google.com with SMTP id a141so22758498oig.3
-        for <netdev@vger.kernel.org>; Mon, 12 Jan 2015 14:30:54 -0800 (PST)
+Received: from na3sys009aog126.obsmtp.com ([74.125.149.155]:45473 "HELO
+	na3sys009aog126.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751318AbbALWbB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jan 2015 17:31:01 -0500
+Received: by mail-ig0-f174.google.com with SMTP id hn15so14005044igb.1
+        for <netdev@vger.kernel.org>; Mon, 12 Jan 2015 14:31:00 -0800 (PST)
+In-Reply-To: <1421054087-25632-1-git-send-email-fan.du@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Thomas,
-
-I'm looking at the rhashtable usage.
-
-But as I read the nft_hash_destroy() its not clear to me how
-rht_for_each_entry_safe() and  nft_hash_elem_destroy() keep everything
-in sync.
-
-Here is the code in question,
-
-> static void nft_hash_destroy(const struct nft_set *set)
-> {
->         struct rhashtable *priv = nft_set_priv(set);
->         const struct bucket_table *tbl;
->         struct nft_hash_elem *he;
->         struct rhash_head *pos, *next;
->         unsigned int i;
+On Mon, Jan 12, 2015 at 1:14 AM, Fan Du <fan.du@intel.com> wrote:
+> Introduce vport_route_lookup to consolidate route lookup
+> shared by vxlan, gre, and geneve ports.
 >
->         /* Stop an eventual async resizing */
->         priv->being_destroyed = true;
->         mutex_lock(&priv->mutex); <-- get the lock so we have single updater
+> Signed-off-by: Fan Du <fan.du@intel.com>
+> ---
+...
+
+>  }
+> +
+> +struct rtable *vport_route_lookup(struct ovs_key_ipv4_tunnel *tun_key,
+> +                                 struct sk_buff *skb,
+> +                                 struct flowi4 *fl,
+> +                                 struct net *net,
+> +                                 u8 protocol)
+> +{
+> +       struct rtable *rt;
+> +
+> +       memset(fl, 0, sizeof(*fl));
+> +       fl->daddr = tun_key->ipv4_dst;
+> +       fl->saddr = tun_key->ipv4_src;
+> +       fl->flowi4_tos = RT_TOS(tun_key->ipv4_tos);
+> +       fl->flowi4_mark = skb->mark;
+> +       fl->flowi4_proto = protocol;
+> +
+> +       rt = ip_route_output_key(net, fl);
+> +       return rt;
+> +}
+> +EXPORT_SYMBOL_GPL(vport_route_lookup);
+This is small function and it is in fast path, So can you inline it?
+
+
+> diff --git a/net/openvswitch/vport.h b/net/openvswitch/vport.h
+> index 99c8e71..4487a97 100644
+> --- a/net/openvswitch/vport.h
+> +++ b/net/openvswitch/vport.h
+> @@ -68,6 +68,12 @@ int ovs_tunnel_get_egress_info(struct ovs_tunnel_info *egress_tun_info,
+>  int ovs_vport_get_egress_tun_info(struct vport *vport, struct sk_buff *skb,
+>                                   struct ovs_tunnel_info *info);
 >
->         tbl = rht_dereference(priv->tbl, priv);
->         for (i = 0; i < tbl->size; i++) {
->                 rht_for_each_entry_safe(he, pos, next, tbl, i, node)
->                         nft_hash_elem_destroy(set, he);              <-- does a kfree on he?
->         }
->         mutex_unlock(&priv->mutex); <-- release the lock
+> +struct rtable *vport_route_lookup(struct ovs_key_ipv4_tunnel *tun_key,
+> +                                 struct sk_buff *skb,
+> +                                 struct flowi4 *fl,
+> +                                 struct net *net,
+> +                                 u8 protocol);
+> +
+>  /* The following definitions are for implementers of vport devices: */
 >
->         rhashtable_destroy(priv);
-> }
+Generally net is first parameter for networking functions.
+Tunnel is better prefix rather than vport for the function name.
+You can use new function in ovs_tunnel_get_egress_info().
 
-
-Is it really safe to kfree 'he' without waiting a grace
-period for any rcu readers to drop the reference?
-
-I'm considering what happens if nft_hash_destroy runs in
-parallel with nft_hash_lookup?
-
-Thanks,
-John
-
-
--- 
-John Fastabend         Intel Corporation
+>  struct vport_err_stats {
+> --
+> 1.7.1
+>
