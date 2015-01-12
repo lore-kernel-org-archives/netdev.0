@@ -1,61 +1,39 @@
-From: Ding Tianhong <dingtianhong-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH net-next v11 3/3] net: hisilicon: new hip04 ethernet driver
-Date: Mon, 12 Jan 2015 17:04:43 +0800
-Message-ID: <54B38E2B.4060105@huawei.com>
-References: <1421049832-6224-1-git-send-email-dingtianhong@huawei.com> <1421049832-6224-4-git-send-email-dingtianhong@huawei.com> <19225293.OPozO1Cbk5@wuerfel>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: Re: Build regressions/improvements in v3.19-rc4
+Date: Mon, 12 Jan 2015 10:09:32 +0100
+Message-ID: <CAMuHMdVZYjkP+R+zY4Q+r-a=4XFnqJTqjHC00LEhZiG34YYZOg@mail.gmail.com>
+References: <1421052212-13287-1-git-send-email-geert@linux-m68k.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	<grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>, <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>,
-	<eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<xuwei5-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>, <zhangfei.gao-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
-	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <19225293.OPozO1Cbk5@wuerfel>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1421052212-13287-1-git-send-email-geert@linux-m68k.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 2015/1/12 16:52, Arnd Bergmann wrote:
-> On Monday 12 January 2015 16:03:52 Ding Tianhong wrote:
->> Support Hisilicon hip04 ethernet driver, including 100M / 1000M controller.
->> The controller has no tx done interrupt, reclaim xmitted buffer in the poll.
-> 
-> Looks great to me in the latest version. Dave, unless you have further
-> concerns, please apply.
-> 
->> v11: Add ethtool support for tx coalecse getting and setting, the xmit_more
->> is not supported for this patch, but I think it could work for hip04,
->> will support it later after some tests for performance better.
->>
->> Here are some performance test results by ping and iperf(add tx_coalesce_frames/users),
->> it looks that the performance and latency is more better by tx_coalesce_frames/usecs.
->>
->> - Before:
->> $ ping 192.168.1.1 ...
->> --- 192.168.1.1 ping statistics ---
->> 24 packets transmitted, 24 received, 0% packet loss, time 22999ms
->> rtt min/avg/max/mdev = 0.180/0.202/0.403/0.043 ms
->>
->> $ iperf -c 192.168.1.1 ...
->> [ ID] Interval       Transfer     Bandwidth
->> [  3]  0.0- 1.0 sec   115 MBytes   945 Mbits/sec
-> 
-> Just to be sure: you were running the two tests simultaneously, right?
-> 
-> 	Arnd
-> 
-Yes, sure, and try several times, record the more appropriate test results. :)
+On Mon, Jan 12, 2015 at 9:43 AM, Geert Uytterhoeven
+<geert@linux-m68k.org> wrote:
+> JFYI, when comparing v3.19-rc4[1] to v3.19-rc3[3], the summaries are:
+>   - build errors: +6/-67
 
-Ding
+Nothing serious, but
 
-> .
-> 
+  + error: br_input.c: undefined reference to `arp_send':  => .text+0x82e77)
+  + error: br_input.c: undefined reference to `arp_tbl':  => .text+0x82d8b)
 
+i386-randconfig
+
+> [1] http://kisskb.ellerman.id.au/kisskb/head/8294/ (255 out of 262 configs)
+> [3] http://kisskb.ellerman.id.au/kisskb/head/8277/ (255 out of 262 configs)
+
+Gr{oetje,eeting}s,
+
+                        Geert
 
 --
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+                                -- Linus Torvalds
