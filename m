@@ -1,65 +1,48 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2] gianfar: correct the bad expression while writing
- bit-pattern
-Date: Mon, 12 Jan 2015 22:15:15 -0800
-Message-ID: <1421129715.4099.18.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <54B3D63B.1010608@cogentembedded.com>
-	 <1421126938-16268-1-git-send-email-sanjeev_sharma@mentor.com>
-	 <1421128891.4099.15.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Michael Chan <mchan@broadcom.com>
+Subject: Re: [3.19-rc3] tg3: BUG: sleeping function called from invalid
+ context
+Date: Mon, 12 Jan 2015 22:49:22 -0800
+Message-ID: <1421131762.7208.31.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+References: <54B46DD5.9050802@hurleysoftware.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="cp1252"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, claudiu.manoil@freescale.com,
-	peter.senna@gmail.com, shemminger@linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Sanjeev Sharma <sanjeev_sharma@mentor.com>
+Cc: Prashant Sreedharan <prashant@broadcom.com>,
+	<netdev@vger.kernel.org>,
+	Linux kernel <linux-kernel@vger.kernel.org>
+To: Peter Hurley <peter@hurleysoftware.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1421128891.4099.15.camel@edumazet-glaptop2.roam.corp.google.com>
+In-Reply-To: <54B46DD5.9050802@hurleysoftware.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2015-01-12 at 22:01 -0800, Eric Dumazet wrote:
-> On Tue, 2015-01-13 at 10:58 +0530, Sanjeev Sharma wrote:
-> > This patch correct the bad expression while writing the
-> > bit-pattern from software's buffer to hardware registers.
-> > 
-> > Signed-off-by: Sanjeev Sharma <Sanjeev_Sharma@mentor.com>
-> > ---
-> > Changes in v2:
-> >   - incorporated review comment as per Sergei. 
-> > 
-> >  drivers/net/ethernet/freescale/gianfar_ethtool.c | 2 +-
-> >  1 file changed, 1 insertion(+), 1 deletion(-)
-> > 
-> > diff --git a/drivers/net/ethernet/freescale/gianfar_ethtool.c b/drivers/net/ethernet/freescale/gianfar_ethtool.c
-> > index 3e1a9c1..347d5ee 100644
-> > --- a/drivers/net/ethernet/freescale/gianfar_ethtool.c
-> > +++ b/drivers/net/ethernet/freescale/gianfar_ethtool.c
-> > @@ -1586,7 +1586,7 @@ static int gfar_write_filer_table(struct gfar_private *priv,
-> >  		return -EBUSY;
-> >  
-> >  	/* Fill regular entries */
-> > -	for (; i < MAX_FILER_IDX - 1 && (tab->fe[i].ctrl | tab->fe[i].ctrl);
-> > +	for (; i < MAX_FILER_IDX - 1 && i < tab->fe[i].ctrl);
-> >  	     i++)
-> >  		gfar_write_filer(priv, i, tab->fe[i].ctrl, tab->fe[i].prop);
-> >  	/* Fill the rest with fall-troughs */
-> 
-> This makes no sense. Have you tried to compile this ?
+On Mon, 2015-01-12 at 19:59 -0500, Peter Hurley wrote: 
+> [   17.203009] BUG: sleeping function called from invalid context at /home/peter/src/kernels/mainline/kernel/irq/manage.c:104
+> [   17.203067] in_atomic(): 1, irqs_disabled(): 0, pid: 1106, name: ip
+> [   17.203092] 2 locks held by ip/1106:
+> [   17.205255]  #0:  (rtnl_mutex){+.+.+.}, at: [<ffffffff816adf1f>] rtnetlink_rcv+0x1f/0x40
+> [   17.207445]  #1:  (&(&tp->lock)->rlock){+.....}, at: [<ffffffffa01073e6>] tg3_start+0xc06/0x11f0 [tg3]
+> [   17.209725] CPU: 2 PID: 1106 Comm: ip Not tainted 3.19.0-rc3+wip-xeon+lockdep #rc3+wip
+> [   17.211900] Hardware name: Dell Inc. Precision WorkStation T5400  /0RW203, BIOS A11 04/30/2012
+> [   17.214086]  0000000000000068 ffff8802ac823498 ffffffff817af7e8 0000000000000005
+> [   17.216265]  ffffffff81a9be78 ffff8802ac8234a8 ffffffff810998a5 ffff8802ac8234d8
+> [   17.218446]  ffffffff8109991a ffff8802ac8234c8 ffff8802af0aae00 ffffffffa00ed000
+> [   17.220636] Call Trace:
+> [   17.222743]  [<ffffffff817af7e8>] dump_stack+0x4f/0x7b
+> [   17.224808]  [<ffffffff810998a5>] ___might_sleep+0x105/0x140
+> [   17.226842]  [<ffffffff8109991a>] __might_sleep+0x3a/0xa0
+> [   17.228869]  [<ffffffffa00ed000>] ? 0xffffffffa00ed000
+> [   17.230939]  [<ffffffff810d7d78>] synchronize_irq+0x38/0xa0
+> [   17.232967]  [<ffffffffa00ed000>] ? 0xffffffffa00ed000
+> [   17.234991]  [<ffffffffa010105f>] tg3_chip_reset+0x13f/0x9c0 [tg3]
+> [   17.236988]  [<ffffffffa01020ae>] tg3_reset_hw+0x7e/0x2d20 [tg3] 
 
-I have no idea of what this code is trying to do, but most likely
-author intent was to break loop when both ctrl and prop are 0 :
+tp->lock is held in this code path.  If synchronize_irq() sleeps in
+wait_event(desc->wait_for_threads, ...), we'll get the warning.
 
-diff --git a/drivers/net/ethernet/freescale/gianfar_ethtool.c b/drivers/net/ethernet/freescale/gianfar_ethtool.c
-index 3e1a9c1a67a9..fda12fb32ec7 100644
---- a/drivers/net/ethernet/freescale/gianfar_ethtool.c
-+++ b/drivers/net/ethernet/freescale/gianfar_ethtool.c
-@@ -1586,7 +1586,7 @@ static int gfar_write_filer_table(struct gfar_private *priv,
- 		return -EBUSY;
- 
- 	/* Fill regular entries */
--	for (; i < MAX_FILER_IDX - 1 && (tab->fe[i].ctrl | tab->fe[i].ctrl);
-+	for (; i < MAX_FILER_IDX - 1 && (tab->fe[i].ctrl | tab->fe[i].prop);
- 	     i++)
- 		gfar_write_filer(priv, i, tab->fe[i].ctrl, tab->fe[i].prop);
- 	/* Fill the rest with fall-troughs */
+The synchronize_irq() call is to wait for any tg3 irq handler to finish
+so that it is guaranteed that next time it will see the CHIP_RESETTING
+flag and do nothing.
+
+Not sure if we can drop the tp->lock before we call synchronize_irq()
+and then take it again after synchronize_irq().
