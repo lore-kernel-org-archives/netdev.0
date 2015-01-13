@@ -1,75 +1,92 @@
-From: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
-Subject: [PATCH] tipc: link: Remove unused function
-Date: Tue, 13 Jan 2015 19:24:58 +0100
-Message-ID: <1421173498-4012-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
-Cc: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	tipc-discussion@lists.sourceforge.net, linux-kernel@vger.kernel.org
-To: Jon Maloy <jon.maloy@ericsson.com>,
-	Allan Stephens <allan.stephens@windriver.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Vadim Kochan <vadim4j@gmail.com>
+Subject: [PATCH iproute2 1/2] Add define for nlmsg_types with timestamp
+Date: Tue, 13 Jan 2015 20:14:23 +0200
+Message-ID: <1421172864-20853-2-git-send-email-vadim4j@gmail.com>
+References: <1421172864-20853-1-git-send-email-vadim4j@gmail.com>
+Cc: Vadim Kochan <vadim4j@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f182.google.com ([209.85.217.182]:42126 "EHLO
+	mail-lb0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751352AbbAMSY5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2015 13:24:57 -0500
+Received: by mail-lb0-f182.google.com with SMTP id u10so4000521lbd.13
+        for <netdev@vger.kernel.org>; Tue, 13 Jan 2015 10:24:56 -0800 (PST)
+In-Reply-To: <1421172864-20853-1-git-send-email-vadim4j@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Remove the function tipc_link_get_max_pkt() that is not used anywhere.
+From: Vadim Kochan <vadim4j@gmail.com>
 
-This was partially found by using a static code analysis program called cppcheck.
+Add #define for nlmsg_type = 15
 
-Signed-off-by: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
+Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
 ---
- net/tipc/link.c |   27 ---------------------------
- net/tipc/link.h |    1 -
- 2 files changed, 28 deletions(-)
+ bridge/monitor.c     | 4 +---
+ include/libnetlink.h | 4 ++++
+ ip/ipmonitor.c       | 2 +-
+ ip/rtmon.c           | 2 +-
+ 4 files changed, 7 insertions(+), 5 deletions(-)
 
-diff --git a/net/tipc/link.c b/net/tipc/link.c
-index 1db162a..a18f5ce 100644
---- a/net/tipc/link.c
-+++ b/net/tipc/link.c
-@@ -2327,33 +2327,6 @@ struct sk_buff *tipc_link_cmd_show_stats(const void *req_tlv_area, int req_tlv_s
- 	return buf;
+diff --git a/bridge/monitor.c b/bridge/monitor.c
+index 76e7d47..f00e0a6 100644
+--- a/bridge/monitor.c
++++ b/bridge/monitor.c
+@@ -74,14 +74,12 @@ static int accept_msg(const struct sockaddr_nl *who,
+ 			fprintf(fp, "[MDB]");
+ 		return print_mdb(who, n, arg);
+ 
+-	case 15:
++	case NLMSG_TSTAMP:
+ 		return show_mark(fp, n);
+ 
+ 	default:
+ 		return 0;
+ 	}
+-
+-
  }
  
--/**
-- * tipc_link_get_max_pkt - get maximum packet size to use when sending to destination
-- * @dest: network address of destination node
-- * @selector: used to select from set of active links
-- *
-- * If no active link can be found, uses default maximum packet size.
-- */
--u32 tipc_link_get_max_pkt(u32 dest, u32 selector)
--{
--	struct tipc_node *n_ptr;
--	struct tipc_link *l_ptr;
--	u32 res = MAX_PKT_DEFAULT;
--
--	if (dest == tipc_own_addr)
--		return MAX_MSG_SIZE;
--
--	n_ptr = tipc_node_find(dest);
--	if (n_ptr) {
--		tipc_node_lock(n_ptr);
--		l_ptr = n_ptr->active_links[selector & 1];
--		if (l_ptr)
--			res = l_ptr->max_pkt;
--		tipc_node_unlock(n_ptr);
--	}
--	return res;
--}
--
- static void link_print(struct tipc_link *l_ptr, const char *str)
- {
- 	struct tipc_bearer *b_ptr;
-diff --git a/net/tipc/link.h b/net/tipc/link.h
-index b567a34..9b91eb6 100644
---- a/net/tipc/link.h
-+++ b/net/tipc/link.h
-@@ -228,7 +228,6 @@ void tipc_link_reset(struct tipc_link *l_ptr);
- void tipc_link_reset_list(unsigned int bearer_id);
- int tipc_link_xmit(struct sk_buff *buf, u32 dest, u32 selector);
- int __tipc_link_xmit(struct tipc_link *link, struct sk_buff *buf);
--u32 tipc_link_get_max_pkt(u32 dest, u32 selector);
- void tipc_link_bundle_rcv(struct sk_buff *buf);
- void tipc_link_proto_xmit(struct tipc_link *l_ptr, u32 msg_typ, int prob,
- 			  u32 gap, u32 tolerance, u32 priority, u32 acked_mtu);
+ int do_monitor(int argc, char **argv)
+diff --git a/include/libnetlink.h b/include/libnetlink.h
+index de7c85f..d081e54 100644
+--- a/include/libnetlink.h
++++ b/include/libnetlink.h
+@@ -158,5 +158,9 @@ extern int rtnl_from_file(FILE *, rtnl_filter_t handler,
+ #define NDTA_PAYLOAD(n) NLMSG_PAYLOAD(n,sizeof(struct ndtmsg))
+ #endif
+ 
++/* User defined nlmsg_type which is used mostly for logging netlink
++ * messages from dump file */
++#define NLMSG_TSTAMP	15
++
+ #endif /* __LIBNETLINK_H__ */
+ 
+diff --git a/ip/ipmonitor.c b/ip/ipmonitor.c
+index 4708e54..f40daac 100644
+--- a/ip/ipmonitor.c
++++ b/ip/ipmonitor.c
+@@ -125,7 +125,7 @@ static int accept_msg(const struct sockaddr_nl *who,
+ 		print_netconf(who, n, arg);
+ 		return 0;
+ 	}
+-	if (n->nlmsg_type == 15) {
++	if (n->nlmsg_type == NLMSG_TSTAMP) {
+ 		char *tstr;
+ 		time_t secs = ((__u32*)NLMSG_DATA(n))[0];
+ 		long usecs = ((__u32*)NLMSG_DATA(n))[1];
+diff --git a/ip/rtmon.c b/ip/rtmon.c
+index 9227eac..ff685e5 100644
+--- a/ip/rtmon.c
++++ b/ip/rtmon.c
+@@ -34,7 +34,7 @@ static void write_stamp(FILE *fp)
+ 	struct nlmsghdr *n1 = (void*)buf;
+ 	struct timeval tv;
+ 
+-	n1->nlmsg_type = 15;
++	n1->nlmsg_type = NLMSG_TSTAMP;
+ 	n1->nlmsg_flags = 0;
+ 	n1->nlmsg_seq = 0;
+ 	n1->nlmsg_pid = 0;
 -- 
-1.7.10.4
+2.1.3
