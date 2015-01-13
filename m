@@ -1,78 +1,70 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 07/15] i40evf: enable interrupt 0 appropriately
-Date: Tue, 13 Jan 2015 11:58:05 -0800
-Message-ID: <1421179093-10932-8-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1421179093-10932-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Mitch A Williams <mitch.a.williams@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:41216 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753568AbbAMT6R (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Jan 2015 14:58:17 -0500
-In-Reply-To: <1421179093-10932-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Tony Lindgren <tony@atomide.com>
+Subject: Re: [PATCH 5/6] net: davinci_emac: Fix ioremap for devices with MDIO
+ within the EMAC address space
+Date: Tue, 13 Jan 2015 11:59:58 -0800
+Message-ID: <20150113195957.GH2419@atomide.com>
+References: <1421177368-19756-1-git-send-email-tony@atomide.com>
+ <1421177368-19756-6-git-send-email-tony@atomide.com>
+ <20150113195405.GU16533@saruman>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-omap@vger.kernel.org, Brian Hutchinson <b.hutchman@gmail.com>
+To: Felipe Balbi <balbi@ti.com>
+Return-path: <linux-omap-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20150113195405.GU16533@saruman>
+Sender: linux-omap-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Mitch A Williams <mitch.a.williams@intel.com>
+* Felipe Balbi <balbi@ti.com> [150113 11:57]:
+> On Tue, Jan 13, 2015 at 11:29:27AM -0800, Tony Lindgren wrote:
+> > Some devices like dm816x have the MDIO registers within the first EMAC
+> > instance address space. Let's fix the issue by allowing to pass an
+> > optional second IO range for the EMAC control register area.
+> > 
+> > Cc: Brian Hutchinson <b.hutchman@gmail.com>
+> > Cc: Felipe Balbi <balbi@ti.com>
+> > Signed-off-by: Tony Lindgren <tony@atomide.com>
+> > ---
+> >  drivers/net/ethernet/ti/davinci_emac.c | 15 ++++++++++++---
+> >  1 file changed, 12 insertions(+), 3 deletions(-)
+> > 
+> > diff --git a/drivers/net/ethernet/ti/davinci_emac.c b/drivers/net/ethernet/ti/davinci_emac.c
+> > index 4c8d82c..0342273 100644
+> > --- a/drivers/net/ethernet/ti/davinci_emac.c
+> > +++ b/drivers/net/ethernet/ti/davinci_emac.c
+> > @@ -1877,7 +1877,7 @@ davinci_emac_of_get_pdata(struct platform_device *pdev, struct emac_priv *priv)
+> >  static int davinci_emac_probe(struct platform_device *pdev)
+> >  {
+> >  	int rc = 0;
+> > -	struct resource *res;
+> > +	struct resource *res, *res_ctrl;
+> >  	struct net_device *ndev;
+> >  	struct emac_priv *priv;
+> >  	unsigned long hw_ram_addr;
+> > @@ -1936,11 +1936,20 @@ static int davinci_emac_probe(struct platform_device *pdev)
+> >  		rc = PTR_ERR(priv->remap_addr);
+> >  		goto no_pdata;
+> >  	}
+> > +
+> > +	res_ctrl = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+> > +	if (res_ctrl) {
+> 
+> devm_ioremap_resource() will check for res_ctrl being a valid pointer,
+> perhaps below would be slightly better ?
+> 
+> 
+> 	res_ctrl = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+> 	priv->ctrl_base = devm_ioremap_resource(&pdev->dev, res_ctrl);
+> 	if (IS_ERR(priv->ctrl_base))
+> 		priv->ctrl_base = priv->remap_addr + pdata->ctrl_mod_reg_offset;
+> 
 
-Don't enable vector 0 in the ISR, just schedule the adminq task and let
-it enable the vector. This prevents the task from being called
-reentrantly. Make sure that the vector is enabled on all exit paths of
-the adminq task, including error exits.
+We have a pile of devices using just one ioremap area so the second
+ioremap area needs to be optional. That's why we only do it based on
+if (res_ctrl).
 
-Change-ID: I53f3d14f91ed7a9e90291ea41c681122a5eca5b5
-Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
-Acked-by: Shannon Nelson <shannon.nelson@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/i40evf/i40evf_main.c | 12 ++++--------
- 1 file changed, 4 insertions(+), 8 deletions(-)
+Regards,
 
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-index c960ef5..e2311af 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-@@ -313,10 +313,6 @@ static irqreturn_t i40evf_msix_aq(int irq, void *data)
- 	val = val | I40E_PFINT_DYN_CTL0_CLEARPBA_MASK;
- 	wr32(hw, I40E_VFINT_DYN_CTL01, val);
- 
--	/* re-enable interrupt causes */
--	wr32(hw, I40E_VFINT_ICR0_ENA1, ena_mask);
--	wr32(hw, I40E_VFINT_DYN_CTL01, I40E_VFINT_DYN_CTL01_INTENA_MASK);
--
- 	/* schedule work on the private workqueue */
- 	schedule_work(&adapter->adminq_task);
- 
-@@ -1620,12 +1616,12 @@ static void i40evf_adminq_task(struct work_struct *work)
- 	u16 pending;
- 
- 	if (adapter->flags & I40EVF_FLAG_PF_COMMS_FAILED)
--		return;
-+		goto out;
- 
- 	event.buf_len = I40EVF_MAX_AQ_BUF_SIZE;
- 	event.msg_buf = kzalloc(event.buf_len, GFP_KERNEL);
- 	if (!event.msg_buf)
--		return;
-+		goto out;
- 
- 	v_msg = (struct i40e_virtchnl_msg *)&event.desc;
- 	do {
-@@ -1675,10 +1671,10 @@ static void i40evf_adminq_task(struct work_struct *work)
- 	if (oldval != val)
- 		wr32(hw, hw->aq.asq.len, val);
- 
-+	kfree(event.msg_buf);
-+out:
- 	/* re-enable Admin queue interrupt cause */
- 	i40evf_misc_irq_enable(adapter);
--
--	kfree(event.msg_buf);
- }
- 
- /**
--- 
-1.9.3
+Tony
