@@ -1,31 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net PATCH 1/1] drivers: net: cpsw: fix multicast flush in
- dual emac mode
-Date: Tue, 13 Jan 2015 16:54:37 -0500 (EST)
-Message-ID: <20150113.165437.419101854292412908.davem@davemloft.net>
-References: <1421150749-4329-1-git-send-email-mugunthanvnm@ti.com>
+Subject: Re: [PATCH] rocker: fix harmless warning on 32-bit machines
+Date: Tue, 13 Jan 2015 16:56:57 -0500 (EST)
+Message-ID: <20150113.165657.1171408376100942920.davem@davemloft.net>
+References: <4047824.AYNhYQQ6UI@wuerfel>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, stable@vger.kernel.org
-To: mugunthanvnm@ti.com
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <1421150749-4329-1-git-send-email-mugunthanvnm@ti.com>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, jiri@resnulli.us, sfeldma@gmail.com,
+	linux-arm-kernel@lists.infradead.org
+To: arnd@arndb.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:36567 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751570AbbAMV5A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2015 16:57:00 -0500
+In-Reply-To: <4047824.AYNhYQQ6UI@wuerfel>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Date: Tue, 13 Jan 2015 17:35:49 +0530
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Tue, 13 Jan 2015 15:23:52 +0100
 
-> Since ALE table is a common resource for both the interfaces in Dual EMAC
-> mode and while bringing up the second interface in cpsw_ndo_set_rx_mode()
-> all the multicast entries added by the first interface is flushed out and
-> only second interface multicast addresses are added. Fixing this by
-> flushing multicast addresses based on dual EMAC port vlans which will not
-> affect the other emac port multicast addresses.
+> The rocker driver tries to assign a pointer to a 64-bit integer
+> and then back to a pointer. This is safe on all architectures,
+> but causes a compiler warning when pointers are shorter than
+> 64-bit:
 > 
-> Fixes: d9ba8f9 (driver: net: ethernet: cpsw: dual emac interface implementation)
-> Cc: <stable@vger.kernel.org> # v3.9+
-> Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
+> rocker/rocker.c: In function 'rocker_desc_cookie_ptr_get':
+> rocker/rocker.c:809:9: warning: cast to pointer from integer of different size [-Wint-to-pointer-cast]
+>   return (void *) desc_info->desc->cookie;
+>          ^
+> 
+> This adds another cast to uintptr_t to tell the compiler
+> that it's safe.
+> 
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 
-Applied, thanks.
+Applied to net-next, thanks.
