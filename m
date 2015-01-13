@@ -1,189 +1,33 @@
-From: =?utf-8?B?U8O2cmVu?= Brinkmann <soren.brinkmann-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH v5] can: Convert to runtime_pm
-Date: Tue, 13 Jan 2015 09:49:49 -0800
-Message-ID: <922ff1827dfb484bbc42dbb56649d4b4@BN1BFFO11FD013.protection.gbl>
-References: <baf987c11c0242c2bf87b81f9396b09d@BN1BFFO11FD018.protection.gbl>
- <3a3437c5c8ff48d9a45fee7e81fa8dca@BY2FFO11FD058.protection.gbl>
- <54B4FCB5.6040904@pengutronix.de>
- <6ea3c0ea0f5c4deb9a6e4738a8d94a36@BN1AFFO11FD047.protection.gbl>
- <54B55326.1060606@pengutronix.de>
- <1ef3e0f060f54c888061514bd2926762@BY2FFO11FD033.protection.gbl>
- <54B55993.4020806@pengutronix.de>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: Re: [PATCH net-next] sunvnet: fix rx packet length check to allow
+ for TSO
+Date: Tue, 13 Jan 2015 13:01:04 -0500
+Message-ID: <20150113180104.GL28371@oracle.com>
+References: <54B559A1.9010303@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Kedareswara rao Appana <appana.durga.rao-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>,
-	<wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>, <michal.simek-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>,
-	<grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	<linux-can-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Kedareswara rao Appana <appanad-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>
-To: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: David L Stevens <david.stevens@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from userp1040.oracle.com ([156.151.31.81]:51231 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751400AbbAMSBI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2015 13:01:08 -0500
 Content-Disposition: inline
-In-Reply-To: <54B55993.4020806-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <54B559A1.9010303@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2015-01-13 at 06:44PM +0100, Marc Kleine-Budde wrote:
-> On 01/13/2015 06:24 PM, S=C3=B6ren Brinkmann wrote:
-> > On Tue, 2015-01-13 at 06:17PM +0100, Marc Kleine-Budde wrote:
-> >> On 01/13/2015 06:08 PM, S=C3=B6ren Brinkmann wrote:
-> >>> On Tue, 2015-01-13 at 12:08PM +0100, Marc Kleine-Budde wrote:
-> >>>> On 01/12/2015 07:45 PM, S=C3=B6ren Brinkmann wrote:
-> >>>>> On Mon, 2015-01-12 at 08:34PM +0530, Kedareswara rao Appana wro=
-te:
-> >>>>>> Instead of enabling/disabling clocks at several locations in t=
-he driver,
-> >>>>>> Use the runtime_pm framework. This consolidates the actions fo=
-r runtime PM
-> >>>>>> In the appropriate callbacks and makes the driver more readabl=
-e and mantainable.
-> >>>>>>
-> >>>>>> Signed-off-by: Soren Brinkmann <soren.brinkmann-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>
-> >>>>>> Signed-off-by: Kedareswara rao Appana <appanad-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>
-> >>>>>> ---
-> >>>>>> Changes for v5:
-> >>>>>>  - Updated with the review comments.
-> >>>>>>    Updated the remove fuction to use runtime_pm.
-> >>>>>> Chnages for v4:
-> >>>>>>  - Updated with the review comments.
-> >>>>>> Changes for v3:
-> >>>>>>   - Converted the driver to use runtime_pm.
-> >>>>>> Changes for v2:
-> >>>>>>   - Removed the struct platform_device* from suspend/resume
-> >>>>>>     as suggest by Lothar.
-> >>>>>>
-> >>>>>>  drivers/net/can/xilinx_can.c |  157 +++++++++++++++++++++++++=
-+++-------------
-> >>>>>>  1 files changed, 107 insertions(+), 50 deletions(-)
-> >>>>> [..]
-> >>>>>> +static int __maybe_unused xcan_runtime_resume(struct device *=
-dev)
-> >>>>>>  {
-> >>>>>> -	struct platform_device *pdev =3D dev_get_drvdata(dev);
-> >>>>>> -	struct net_device *ndev =3D platform_get_drvdata(pdev);
-> >>>>>> +	struct net_device *ndev =3D dev_get_drvdata(dev);
-> >>>>>>  	struct xcan_priv *priv =3D netdev_priv(ndev);
-> >>>>>>  	int ret;
-> >>>>>> +	u32 isr, status;
-> >>>>>> =20
-> >>>>>>  	ret =3D clk_enable(priv->bus_clk);
-> >>>>>>  	if (ret) {
-> >>>>>> @@ -1014,15 +1030,28 @@ static int __maybe_unused xcan_resume(=
-struct device *dev)
-> >>>>>>  	ret =3D clk_enable(priv->can_clk);
-> >>>>>>  	if (ret) {
-> >>>>>>  		dev_err(dev, "Cannot enable clock.\n");
-> >>>>>> -		clk_disable_unprepare(priv->bus_clk);
-> >>>>>> +		clk_disable(priv->bus_clk);
-> >>>>> [...]
-> >>>>>> @@ -1173,12 +1219,23 @@ static int xcan_remove(struct platform=
-_device *pdev)
-> >>>>>>  {
-> >>>>>>  	struct net_device *ndev =3D platform_get_drvdata(pdev);
-> >>>>>>  	struct xcan_priv *priv =3D netdev_priv(ndev);
-> >>>>>> +	int ret;
-> >>>>>> +
-> >>>>>> +	ret =3D pm_runtime_get_sync(&pdev->dev);
-> >>>>>> +	if (ret < 0) {
-> >>>>>> +		netdev_err(ndev, "%s: pm_runtime_get failed(%d)\n",
-> >>>>>> +				__func__, ret);
-> >>>>>> +		return ret;
-> >>>>>> +	}
-> >>>>>> =20
-> >>>>>>  	if (set_reset_mode(ndev) < 0)
-> >>>>>>  		netdev_err(ndev, "mode resetting failed!\n");
-> >>>>>> =20
-> >>>>>>  	unregister_candev(ndev);
-> >>>>>> +	pm_runtime_disable(&pdev->dev);
-> >>>>>>  	netif_napi_del(&priv->napi);
-> >>>>>> +	clk_disable_unprepare(priv->bus_clk);
-> >>>>>> +	clk_disable_unprepare(priv->can_clk);
-> >>>>>
-> >>>>> Shouldn't pretty much all these occurrences of clk_disable/enab=
-le
-> >>>>> disappear? This should all be handled by the runtime_pm framewo=
-rk now.
-> >>>>
-> >>>> We have:
-> >>>> - clk_prepare_enable() in probe
-> >>>
-> >>> This should become something like pm_runtime_get_sync(), shouldn'=
-t it?
-> >>>
-> >>>> - clk_disable_unprepare() in remove
-> >>>
-> >>> pm_runtime_put()
-> >>>
-> >>>> - clk_enable() in runtime_resume
-> >>>> - clk_disable() in runtime_suspend
-> >>>
-> >>> These are the ones needed.
-> >>>
-> >>> The above makes me suspect that the clocks are always on, regardl=
-ess of
-> >>
-> >> Define "on" :)
-> >> The clocks are prepared after probe() exists, but not enabled. The=
- first
-> >> pm_runtime_get_sync() will enable the clocks.
-> >>
-> >>> the runtime suspend state since they are enabled in probe and dis=
-abled
-> >>> in remove, is that right? Ideally, the usage in probe and remove =
-should
-> >>> be migrated to runtime_pm and clocks should really only be runnin=
-g when
-> >>> needed and not throughout the whole lifetime of the driver.
-> >>
-> >> The clocks are not en/disabled via pm_runtime, because
-> >> pm_runtime_get_sync() is called from atomic contect. We can have a=
-nother
-> >> look into the driver and try to change this.
->=20
-> > Wasn't that why the call to pm_runtime_irq_safe() was added?
->=20
-> Good question. That should be investigated.
->=20
-> > Also, clk_enable/disable should be okay to be run from atomic conte=
-xt.
-> > And if the clock are already prepared after the exit of probe that
-> > should be enough. Then remove() should just have to do the unprepar=
-e.
-> > But I don't see why runtime_pm shouldn't be able to do the
-> > enable/disable.
->=20
-> runtime_pm does call the clk_{enable,disable} function. But you mean
-> clk_prepare() + pm_runtime_get_sync() should be used in probe() inste=
-ad
-> of calling clk_prepare_enable(). Good idea! I think the
-> "pm_runtime_set_active(&pdev->dev);" has to be removed from the patch=
-=2E
+On (01/13/15 12:45), David L Stevens wrote:
+> 
+> This patch fixes the rx packet length check in the sunvnet driver to allow
+> for a TSO max packet length greater than the LDC channel negotiated MTU.
+> These are negotiated separately and there is no requirement that
+> port->tsolen be less than port->rmtu, but if it isn't, it'll drop packets
+> with rx length errors.
+> 
+> Signed-off-by: David L Stevens <david.stevens@oracle.com>
 
-Right, that's what I was thinking. The proposed changes make sense, IMH=
-O.
+Acked-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
 
->=20
-> Coming back whether blocking calls are allowed or not.
-> If you make a call to pm_runtime_irq_safe(), you state that it's okay=
- to
-> call pm_runtime_get_sync() from atomic context. But it's only called =
-in
-> open, probe, remove and in xcan_get_berr_counter, which is not called
-> from atomic either. So let's try to remove the pm_runtime_irq_safe() =
-and
-> use clk_prepare_enable() clk_disable_unprepare() in the runtime_resum=
-e()
-> runtime_suspend() functions.
-
-IIRC, xcan_get_berr_counter() is called from atomic context. I think
-that was how this got started.
-
-	S=C3=B6ren
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" i=
-n
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--Sowmini
