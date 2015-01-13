@@ -1,55 +1,47 @@
 From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Subject: [PATCH] mlx5: avoid build warnings on 32-bit
-Date: Tue, 13 Jan 2015 17:08:06 +0100
-Message-ID: <4105686.Jz5UR0277i@wuerfel>
+Subject: [PATCH] infiniband: mlx5: avoid a compile-time warning
+Date: Tue, 13 Jan 2015 17:09:43 +0100
+Message-ID: <2267004.49D0qFBpL1@wuerfel>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7Bit
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org
 Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-The mlx5 driver passes a string pointer in through a 'u64' variable,
-which on 32-bit machines causes a build warning:
+The return type of find_first_bit() is architecture specific,
+on ARM it is 'unsigned int', while the asm-generic code used
+on x86 and a lot of other architectures returns 'unsigned long'.
 
-drivers/net/ethernet/mellanox/mlx5/core/debugfs.c: In function 'qp_read_field':
-drivers/net/ethernet/mellanox/mlx5/core/debugfs.c:303:11: warning: cast from pointer to integer of different size [-Wpointer-to-int-cast]
+When building the mlx5 driver on ARM, we get a warning about
+this:
 
-The code is in fact safe, so we can shut up the warning by adding
-extra type casts.
+infiniband/hw/mlx5/mem.c: In function 'mlx5_ib_cont_pages':
+infiniband/hw/mlx5/mem.c:84:143: warning: comparison of distinct pointer types lacks a cast
+     m = min(m, find_first_bit(&tmp, sizeof(tmp)));
+
+This patch changes the driver to use min_t to make it behave
+the same way on all architectures.
 
 Signed-off-by: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/debugfs.c b/drivers/net/ethernet/mellanox/mlx5/core/debugfs.c
-index 10e1f1a18255..4878025e231c 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/debugfs.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/debugfs.c
-@@ -300,11 +300,11 @@ static u64 qp_read_field(struct mlx5_core_dev *dev, struct mlx5_core_qp *qp,
- 		param = qp->pid;
- 		break;
- 	case QP_STATE:
--		param = (u64)mlx5_qp_state_str(be32_to_cpu(ctx->flags) >> 28);
-+		param = (unsigned long)mlx5_qp_state_str(be32_to_cpu(ctx->flags) >> 28);
- 		*is_str = 1;
- 		break;
- 	case QP_XPORT:
--		param = (u64)mlx5_qp_type_str((be32_to_cpu(ctx->flags) >> 16) & 0xff);
-+		param = (unsigned long)mlx5_qp_type_str((be32_to_cpu(ctx->flags) >> 16) & 0xff);
- 		*is_str = 1;
- 		break;
- 	case QP_MTU:
-@@ -464,7 +464,7 @@ static ssize_t dbg_read(struct file *filp, char __user *buf, size_t count,
- 
- 
- 	if (is_str)
--		ret = snprintf(tbuf, sizeof(tbuf), "%s\n", (const char *)field);
-+		ret = snprintf(tbuf, sizeof(tbuf), "%s\n", (const char *)(unsigned long)field);
- 	else
- 		ret = snprintf(tbuf, sizeof(tbuf), "0x%llx\n", field);
- 
+diff --git a/drivers/infiniband/hw/mlx5/mem.c b/drivers/infiniband/hw/mlx5/mem.c
+index b56e4c5593ee..611a9fdf2f38 100644
+--- a/drivers/infiniband/hw/mlx5/mem.c
++++ b/drivers/infiniband/hw/mlx5/mem.c
+@@ -81,7 +81,7 @@ void mlx5_ib_cont_pages(struct ib_umem *umem, u64 addr, int *count, int *shift,
+ 		for (k = 0; k < len; k++) {
+ 			if (!(i & mask)) {
+ 				tmp = (unsigned long)pfn;
+-				m = min(m, find_first_bit(&tmp, sizeof(tmp)));
++				m = min_t(unsigned long, m, find_first_bit(&tmp, sizeof(tmp)));
+ 				skip = 1 << m;
+ 				mask = skip - 1;
+ 				base = pfn;
 
 --
 To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
