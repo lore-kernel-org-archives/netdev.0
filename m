@@ -1,120 +1,76 @@
-From: Martin KaFai Lau <kafai@fb.com>
-Subject: [PATCH RFC v2 net-next 1/2] ip_tunnel: Create percpu gro_cell
-Date: Tue, 13 Jan 2015 15:42:43 -0800
-Message-ID: <1421192564-437455-2-git-send-email-kafai@fb.com>
-References: <1421192564-437455-1-git-send-email-kafai@fb.com>
+From: "Mark A. Greer" <mgreer@animalcreek.com>
+Subject: Re: [PATCH 2/6] net: davinci_emac: Fix runtime pm calls for
+ davinci_emac
+Date: Tue, 13 Jan 2015 16:42:36 -0700
+Message-ID: <20150113234236.GA3921@animalcreek.com>
+References: <1421177368-19756-1-git-send-email-tony@atomide.com>
+ <1421177368-19756-3-git-send-email-tony@atomide.com>
+ <20150113195141.GT16533@saruman>
+ <20150113205439.GK2419@atomide.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, <kernel-team@fb.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:34638 "EHLO
-	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753872AbbAMXn3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2015 18:43:29 -0500
-Received: from pps.filterd (m0004003 [127.0.0.1])
-	by mx0b-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id t0DNdEIv023623
-	for <netdev@vger.kernel.org>; Tue, 13 Jan 2015 15:43:28 -0800
-Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0b-00082601.pphosted.com with ESMTP id 1rw9qm0rvg-2
-	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=OK)
-	for <netdev@vger.kernel.org>; Tue, 13 Jan 2015 15:43:28 -0800
-Received: from facebook.com (2401:db00:20:7029:face:0:33:0)	by
- mx-out.facebook.com (10.212.232.59) with ESMTP	id
- f7d7b4a49b7d11e482810002c991e86a-103d7390 for <netdev@vger.kernel.org>;	Tue,
- 13 Jan 2015 15:43:26 -0800
-In-Reply-To: <1421192564-437455-1-git-send-email-kafai@fb.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Felipe Balbi <balbi@ti.com>, David Miller <davem@davemloft.net>,
+	netdev@vger.kernel.org, linux-omap@vger.kernel.org,
+	Brian Hutchinson <b.hutchman@gmail.com>
+To: Tony Lindgren <tony@atomide.com>
+Return-path: <linux-omap-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20150113205439.GK2419@atomide.com>
+Sender: linux-omap-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-In the ipip tunnel, the skb->queue_mapping is lost in ipip_rcv().
-All skb will be queued to the same cell->napi_skbs.  The
-gro_cell_poll is pinned to one core under load.  In production traffic,
-we also see severe rx_dropped in the tunl iface and it is probably due to
-this limit: skb_queue_len(&cell->napi_skbs) > netdev_max_backlog.
+On Tue, Jan 13, 2015 at 12:54:40PM -0800, Tony Lindgren wrote:
+> * Felipe Balbi <balbi@ti.com> [150113 11:55]:
+> > On Tue, Jan 13, 2015 at 11:29:24AM -0800, Tony Lindgren wrote:
+> > > --- a/drivers/net/ethernet/ti/davinci_emac.c
+> > > +++ b/drivers/net/ethernet/ti/davinci_emac.c
+> > > @@ -1538,7 +1538,7 @@ static int emac_dev_open(struct net_device *ndev)
+> > >  	int i = 0;
+> > >  	struct emac_priv *priv = netdev_priv(ndev);
+> > >  
+> > > -	pm_runtime_get(&priv->pdev->dev);
+> > > +	pm_runtime_get_sync(&priv->pdev->dev);
+> > 
+> > gotta check return value on all pm_runtime_get_sync() calls. IIRC,
+> > there's a coccinelle script for checking and patching this.
+> 
+> Sure, here's an updated patch with error checking added.
+> 
+> Regards,
+> 
+> Tony
+> 
+> 8< ---------------------
+> From: Tony Lindgren <tony@atomide.com>
+> Date: Mon, 22 Dec 2014 08:19:06 -0800
+> Subject: [PATCH] net: davinci_emac: Fix runtime pm calls for davinci_emac
+> 
+> Commit 3ba97381343b ("net: ethernet: davinci_emac: add pm_runtime support")
+> added support for runtime PM, but it causes issues on omap3 related devices
+> that actually gate the clocks:
+> 
+> Unhandled fault: external abort on non-linefetch (0x1008)
+> ...
+> [<c04160f0>] (emac_dev_getnetstats) from [<c04d6a3c>] (dev_get_stats+0x78/0xc8)
+> [<c04d6a3c>] (dev_get_stats) from [<c04e9ccc>] (rtnl_fill_ifinfo+0x3b8/0x938)
+> [<c04e9ccc>] (rtnl_fill_ifinfo) from [<c04eade4>] (rtmsg_ifinfo+0x68/0xd8)
+> [<c04eade4>] (rtmsg_ifinfo) from [<c04dd35c>] (register_netdevice+0x3a0/0x4ec)
+> [<c04dd35c>] (register_netdevice) from [<c04dd4bc>] (register_netdev+0x14/0x24)
+> [<c04dd4bc>] (register_netdev) from [<c041755c>] (davinci_emac_probe+0x408/0x5c8)
+> [<c041755c>] (davinci_emac_probe) from [<c0396d78>] (platform_drv_probe+0x48/0xa4)
+> 
+> Let's fix it by moving the pm_runtime_get() call earlier, and also add it to
+> the emac_dev_getnetstats(). Also note that we want to use pm_runtime_get_sync()
+> as we don't want to have deferred_resume happen. And let's also check the
+> return value for pm_runtime_get_sync() as noted by Felipe Balbi <balbi@ti.com>.
+> 
+> Cc: Brian Hutchinson <b.hutchman@gmail.com>
+> Cc: Felipe Balbi <balbi@ti.com>
+> Cc: Mark A. Greer <mgreer@animalcreek.com>
+> Signed-off-by: Tony Lindgren <tony@atomide.com>
 
-This patch is trying to alloc_percpu(struct gro_cell) and schedule
-gro_cell_poll to process the skb in the same core.
+Tony,
 
-Signed-off-by: Martin KaFai Lau <kafai@fb.com>
----
- include/net/gro_cells.h | 29 ++++++++++++-----------------
- 1 file changed, 12 insertions(+), 17 deletions(-)
+Sorry for the sloppy pm_runtime patch and thanks for fixing it.
 
-diff --git a/include/net/gro_cells.h b/include/net/gro_cells.h
-index 734d9b5..0f712c0 100644
---- a/include/net/gro_cells.h
-+++ b/include/net/gro_cells.h
-@@ -8,25 +8,23 @@
- struct gro_cell {
- 	struct sk_buff_head	napi_skbs;
- 	struct napi_struct	napi;
--} ____cacheline_aligned_in_smp;
-+};
- 
- struct gro_cells {
--	unsigned int		gro_cells_mask;
--	struct gro_cell		*cells;
-+	struct gro_cell __percpu	*cells;
- };
- 
- static inline void gro_cells_receive(struct gro_cells *gcells, struct sk_buff *skb)
- {
--	struct gro_cell *cell = gcells->cells;
-+	struct gro_cell *cell;
- 	struct net_device *dev = skb->dev;
- 
--	if (!cell || skb_cloned(skb) || !(dev->features & NETIF_F_GRO)) {
-+	if (!gcells->cells || skb_cloned(skb) || !(dev->features & NETIF_F_GRO)) {
- 		netif_rx(skb);
- 		return;
- 	}
- 
--	if (skb_rx_queue_recorded(skb))
--		cell += skb_get_rx_queue(skb) & gcells->gro_cells_mask;
-+	cell = this_cpu_ptr(gcells->cells);
- 
- 	if (skb_queue_len(&cell->napi_skbs) > netdev_max_backlog) {
- 		atomic_long_inc(&dev->rx_dropped);
-@@ -72,15 +70,12 @@ static inline int gro_cells_init(struct gro_cells *gcells, struct net_device *de
- {
- 	int i;
- 
--	gcells->gro_cells_mask = roundup_pow_of_two(netif_get_num_default_rss_queues()) - 1;
--	gcells->cells = kcalloc(gcells->gro_cells_mask + 1,
--				sizeof(struct gro_cell),
--				GFP_KERNEL);
-+	gcells->cells = alloc_percpu(struct gro_cell);
- 	if (!gcells->cells)
- 		return -ENOMEM;
- 
--	for (i = 0; i <= gcells->gro_cells_mask; i++) {
--		struct gro_cell *cell = gcells->cells + i;
-+	for_each_possible_cpu(i) {
-+		struct gro_cell *cell = per_cpu_ptr(gcells->cells, i);
- 
- 		skb_queue_head_init(&cell->napi_skbs);
- 		netif_napi_add(dev, &cell->napi, gro_cell_poll, 64);
-@@ -91,16 +86,16 @@ static inline int gro_cells_init(struct gro_cells *gcells, struct net_device *de
- 
- static inline void gro_cells_destroy(struct gro_cells *gcells)
- {
--	struct gro_cell *cell = gcells->cells;
- 	int i;
- 
--	if (!cell)
-+	if (!gcells->cells)
- 		return;
--	for (i = 0; i <= gcells->gro_cells_mask; i++,cell++) {
-+	for_each_possible_cpu(i) {
-+		struct gro_cell *cell = per_cpu_ptr(gcells->cells, i);
- 		netif_napi_del(&cell->napi);
- 		skb_queue_purge(&cell->napi_skbs);
- 	}
--	kfree(gcells->cells);
-+	free_percpu(gcells->cells);
- 	gcells->cells = NULL;
- }
- 
--- 
-1.8.1
+Acked-by: Mark A. Greer <mgreer@animalcreek.com>
