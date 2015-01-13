@@ -1,38 +1,45 @@
-From: Kamal Mostafa <kamal@canonical.com>
-Subject: Re: [PATCH][v3.13.y] e1000e: Fix no connectivity when driver loaded
- with cable out
-Date: Tue, 13 Jan 2015 10:29:09 -0800
-Message-ID: <1421173749.6540.1.camel@fourier>
-References: <5491B88E.3070906@canonical.com>
+From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Subject: Re: [RFC 1/2] misc: uidstat: Add uid stat driver to collect network
+ statistics.
+Date: Tue, 13 Jan 2015 10:34:41 -0800
+Message-ID: <20150113183441.GA24908@kroah.com>
+References: <1421147642-28360-1-git-send-email-kiran.kumar@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Kamal Mostafa <kamal.mostafa@canonical.com>,
-	"stable@vger.kernel.org" <stable@vger.kernel.org>,
-	davidx.m.ertman@intel.com, jeffrey.e.pieper@intel.com,
-	jeffrey.t.kirsher@intel.com, LKML <linux-kernel@vger.kernel.org>,
-	linux.nics@intel.com, e1000-devel@lists.sourceforge.net,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Joseph Salisbury <joseph.salisbury@canonical.com>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <5491B88E.3070906@canonical.com>
-Sender: stable-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, Mike Chan <mike@android.com>,
+	Arnd Bergmann <arnd@arndb.de>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	Android Kernel Team <kernel-team@android.com>,
+	John Stultz <john.stultz@linaro.org>,
+	Sumit Semwal <sumit.semwal@linaro.org>,
+	JP Abgrall <jpa@google.com>,
+	Arve =?utf-8?B?SGrvv71ubmV277+9Zw==?= <arve@android.com>
+To: Kiran Raparthy <kiran.kumar@linaro.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1421147642-28360-1-git-send-email-kiran.kumar@linaro.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2014-12-17 at 12:08 -0500, Joseph Salisbury wrote:
-> Hello,
+On Tue, Jan 13, 2015 at 04:44:01PM +0530, Kiran Raparthy wrote:
+> From: Mike Chan <mike@android.com>
 > 
-> Please consider including mainline commit b20a774 in the next v3.13.y
-> stable release.  It was included in the mainline tree as of v3.15-rc1. 
-> It has been tested and confirmed to resolve
-> http://bugs.launchpad.net/bugs/1400365 .
+> misc: uidstat: Add uid stat driver to collect network statistics.
 > 
-> commit b20a774495671f037e7160ea2ce8789af6b61533
-> Author: David Ertman <davidx.m.ertman@intel.com>
-> Date:   Tue Mar 25 04:27:55 2014 +0000
+> To analyze application's network statistics, we need a mechanism to export
+> the UID based statistics to userspace so that userspace tools can use the
+> exported numbers and generate the report against the UID.
 > 
->     e1000e: Fix no connectivity when driver loaded with cable out
+> This patch allows the user to explore the UID based network statistics
+> exported to /proc/uid_stat.
 
-Yes, I'll queue this up for the next 3.13-stable.  Thanks, Joseph!
+This is a joke, right?  It's not April 1 yet people, why send this in
+January?
 
- -Kamal
+confused,
+
+greg k-h
