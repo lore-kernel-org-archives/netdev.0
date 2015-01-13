@@ -1,22 +1,42 @@
-From: "Suklee Peck" <chaibi.medthameur@iresa.agrinet.tn>
-Subject: Re:Investment
-Date: Mon, 12 Jan 2015 10:32:56 -0800
-Message-ID: <20150112222839.628B9249A6@mta.agrinet.tn>
-Reply-To: saitt1@qq.com
+From: David Ahern <dsahern@gmail.com>
+Subject: why are IPv6 addresses removed on link down
+Date: Mon, 12 Jan 2015 22:06:44 -0700
+Message-ID: <54B4A7E4.7030301@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: Recipients <chaibi.medthameur@iresa.agrinet.tn>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from agrinetmail20.outgw.tn ([196.203.249.26]:36458 "EHLO
-	agrinetmail20.outgw.tn" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751083AbbAMEnk convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jan 2015 23:43:40 -0500
-Content-Description: Mail message body
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:63620 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751182AbbAMFGq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2015 00:06:46 -0500
+Received: by mail-pa0-f49.google.com with SMTP id eu11so1357287pac.8
+        for <netdev@vger.kernel.org>; Mon, 12 Jan 2015 21:06:45 -0800 (PST)
+Received: from [10.20.182.148] (128-107-239-233.cisco.com. [128.107.239.233])
+        by mx.google.com with ESMTPSA id u7sm7801197pdp.45.2015.01.12.21.06.44
+        for <netdev@vger.kernel.org>
+        (version=TLSv1.2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
+        Mon, 12 Jan 2015 21:06:44 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I'm contacting you on behalf of an investment placed under management 5 years ago by Shui bian. He needs assistance in investing these funds. If you are interested, you can write to his private email ( saitt1@qq.com ) for further details.
+We noticed that IPv6 addresses are removed on a link down. e.g.,
+   ip link set dev eth1
 
-Best Regards,
-Suklee Peck
+
+Looking at the code it appears to be this code path in addrconf.c:
+
+         case NETDEV_DOWN:
+         case NETDEV_UNREGISTER:
+                 /*
+                  *      Remove all addresses from this interface.
+                  */
+                 addrconf_ifdown(dev, event != NETDEV_DOWN);
+                 break;
+
+IPv4 addresses are NOT removed on a link down. Is there a particular 
+reason IPv6 addresses are?
+
+Thanks,
+David
