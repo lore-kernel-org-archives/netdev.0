@@ -1,8 +1,8 @@
 From: John Fastabend <john.fastabend@gmail.com>
-Subject: [net-next PATCH v2 03/12] net: flow: implement flow cache for get
- routines
-Date: Tue, 13 Jan 2015 13:36:22 -0800
-Message-ID: <20150113213621.13874.40461.stgit@nitbit.x32>
+Subject: [net-next PATCH v2 04/12] net: flow_table: create a set of common
+ headers and actions
+Date: Tue, 13 Jan 2015 13:36:48 -0800
+Message-ID: <20150113213645.13874.24934.stgit@nitbit.x32>
 References: <20150113212941.13874.48692.stgit@nitbit.x32>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,318 +11,296 @@ Cc: netdev@vger.kernel.org, gerlitz.or@gmail.com, jhs@mojatatu.com,
 	andy@greyhouse.net, davem@davemloft.net
 To: tgraf@suug.ch, simon.horman@netronome.com, sfeldma@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f42.google.com ([209.85.218.42]:63776 "EHLO
-	mail-oi0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751453AbbAMVgk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2015 16:36:40 -0500
-Received: by mail-oi0-f42.google.com with SMTP id g201so4460327oib.1
-        for <netdev@vger.kernel.org>; Tue, 13 Jan 2015 13:36:39 -0800 (PST)
+Received: from mail-oi0-f49.google.com ([209.85.218.49]:49157 "EHLO
+	mail-oi0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751260AbbAMVhH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2015 16:37:07 -0500
+Received: by mail-oi0-f49.google.com with SMTP id a141so4446148oig.8
+        for <netdev@vger.kernel.org>; Tue, 13 Jan 2015 13:37:07 -0800 (PST)
 In-Reply-To: <20150113212941.13874.48692.stgit@nitbit.x32>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I used rhashtable to implement a flow cache so software can track the
-currently programmed rules without requiring every driver to
-implement its own cache logic or fetch information from hardware.
+This adds common headers and actions that drivers can use.
 
-I chose rhashtable to get the dynamic resizing. I could use arrays
-but I don't want to pre-allocate large cache tables when we may
-never use them.
+I have not yet moved the header graphs into the common header
+because I'm not entirely convinced its re-usable. The devices
+I have been looking at have different enough header graphs that
+they wouldn't be re-usable. However possibly many 40Gbp NICs
+for example could share a common header graph. When we get
+multiple implementations we can move this into the common file
+if it makes sense.
 
-One oddity in the rhashtable implementation is there is no way
-AFAICS to do delayed free's so we use rcu_sync heavily. This should be
-fine, get operations shouldn't be a used heavily.
+And table structures seem to be unique enough that there is
+little value in putting each devices table layout into the
+common file so its left for device specific implementation.
 
 Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
 ---
- include/linux/if_flow.h |   21 +++++++
- net/core/flow_table.c   |  146 +++++++++++++++++++++++++++++++++++++++++++++--
- 2 files changed, 160 insertions(+), 7 deletions(-)
+ include/linux/if_flow_common.h |  257 ++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 257 insertions(+)
+ create mode 100644 include/linux/if_flow_common.h
 
-diff --git a/include/linux/if_flow.h b/include/linux/if_flow.h
-index 23dec9b..dc70e3e 100644
---- a/include/linux/if_flow.h
-+++ b/include/linux/if_flow.h
-@@ -21,6 +21,7 @@
- #define _IF_FLOW_H
- 
- #include <uapi/linux/if_flow.h>
-+#include <linux/rhashtable.h>
- 
- /**
-  * @struct net_flow_fields
-@@ -134,6 +135,7 @@ struct net_flow_field_ref {
-  * @size max number of entries for table or -1 for unbounded
-  * @matches null terminated set of supported match types given by match uid
-  * @actions null terminated set of supported action types given by action uid
-+ * @cache software cache of hardware flows
-  */
- struct net_flow_tbl {
- 	char *name;
-@@ -143,6 +145,7 @@ struct net_flow_tbl {
- 	int size;
- 	struct net_flow_field_ref *matches;
- 	int *actions;
-+	struct rhashtable cache;
- };
- 
- /**
-@@ -198,10 +201,28 @@ struct net_flow_tbl_node {
-  * Flows must match all entries in match set.
-  */
- struct net_flow_rule {
-+	struct rhash_head node;
- 	int table_id;
- 	int uid;
- 	int priority;
- 	struct net_flow_field_ref *matches;
- 	struct net_flow_action *actions;
- };
+diff --git a/include/linux/if_flow_common.h b/include/linux/if_flow_common.h
+new file mode 100644
+index 0000000..d4dd749
+--- /dev/null
++++ b/include/linux/if_flow_common.h
+@@ -0,0 +1,257 @@
++#ifndef _IF_FLOW_COMMON_H_
++#define _IF_FLOW_COMMON_H_
 +
-+#ifdef CONFIG_NET_FLOW_TABLES
-+int net_flow_init_cache(struct net_flow_tbl *table);
-+void net_flow_destroy_cache(struct net_flow_tbl *table);
-+#else
-+static inline int
-+net_flow_init_cache(struct net_flow_tbl *table)
-+{
-+	return 0;
-+}
++#include <linux/if_flow.h>
 +
-+static inline void
-+net_flow_destroy_cache(struct net_flow_tbl *table)
-+{
-+	return;
-+}
-+#endif /* CONFIG_NET_FLOW_TABLES */
- #endif /* _IF_FLOW_H_ */
-diff --git a/net/core/flow_table.c b/net/core/flow_table.c
-index b6b1729..baeae64 100644
---- a/net/core/flow_table.c
-+++ b/net/core/flow_table.c
-@@ -26,6 +26,8 @@
- #include <net/genetlink.h>
- #include <net/rtnetlink.h>
- #include <linux/module.h>
-+#include <linux/rhashtable.h>
-+#include <linux/jhash.h>
- 
- static DEFINE_MUTEX(net_flow_mutex);
- 
-@@ -919,6 +921,27 @@ static int net_flow_cmd_get_table_graph(struct sk_buff *skb,
- 	return genlmsg_reply(msg, info);
- }
- 
-+static struct net_flow_tbl *net_flow_get_table(struct net_device *dev,
-+					       int table_id)
-+{
-+	struct net_flow_tbl **tables;
-+	int i;
++/* Common header definition this section provides a set of common or
++ * standard headers that device driver writers may use to simplify the
++ * driver creation. We do not want vendor or driver specific headers
++ * here though. Driver authors can keep these contained to their driver
++ *
++ * Driver authors may use unique IDs greater than HEADER_MAX_UID it is
++ * guaranteed to be larger than any unique IDs used here.
++ */
++#define HEADER_MAX_UID 100
 +
-+	if (!dev->netdev_ops->ndo_flow_get_tbls)
-+		return NULL;
++enum net_flow_headers {
++	HEADER_UNSPEC,
++	HEADER_ETHERNET,
++	HEADER_VLAN,
++	HEADER_IPV4,
++};
 +
-+	tables = dev->netdev_ops->ndo_flow_get_tbls(dev);
-+	if (!tables)
-+		return NULL;
++enum net_flow_ethernet_fields_ids {
++	HEADER_ETHERNET_UNSPEC,
++	HEADER_ETHERNET_SRC_MAC,
++	HEADER_ETHERNET_DST_MAC,
++	HEADER_ETHERNET_ETHERTYPE,
++};
 +
-+	for (i = 0; tables[i]; i++) {
-+		if (tables[i]->uid == table_id)
-+			return tables[i];
-+	}
++struct net_flow_field net_flow_ethernet_fields[] = {
++	{ .name = "src_mac", .uid = HEADER_ETHERNET_SRC_MAC, .bitwidth = 48},
++	{ .name = "dst_mac", .uid = HEADER_ETHERNET_DST_MAC, .bitwidth = 48},
++	{ .name = "ethertype",
++	  .uid = HEADER_ETHERNET_ETHERTYPE,
++	  .bitwidth = 16},
++};
 +
-+	return NULL;
-+}
++struct net_flow_hdr net_flow_ethernet = {
++	.name = "ethernet",
++	.uid = HEADER_ETHERNET,
++	.field_sz = ARRAY_SIZE(net_flow_ethernet_fields),
++	.fields = net_flow_ethernet_fields,
++};
 +
- static int net_flow_put_flow_action(struct sk_buff *skb,
- 				    struct net_flow_action *a)
- {
-@@ -1017,11 +1040,39 @@ put_failure:
- 	return err;
- }
- 
-+static int net_flow_get_rule_cache(struct sk_buff *skb,
-+				   struct net_flow_tbl *table,
-+				   int min, int max)
-+{
-+	const struct bucket_table *tbl;
-+	struct net_flow_rule *he;
-+	int i, err = 0;
++enum net_flow_vlan_fields_ids {
++	HEADER_VLAN_UNSPEC,
++	HEADER_VLAN_PCP,
++	HEADER_VLAN_CFI,
++	HEADER_VLAN_VID,
++	HEADER_VLAN_ETHERTYPE,
++};
 +
-+	rcu_read_lock();
-+	tbl = rht_dereference_rcu(table->cache.tbl, &table->cache);
++struct net_flow_field net_flow_vlan_fields[] = {
++	{ .name = "pcp", .uid = HEADER_VLAN_PCP, .bitwidth = 3,},
++	{ .name = "cfi", .uid = HEADER_VLAN_CFI, .bitwidth = 1,},
++	{ .name = "vid", .uid = HEADER_VLAN_VID, .bitwidth = 12,},
++	{ .name = "ethertype", .uid = HEADER_VLAN_ETHERTYPE, .bitwidth = 16,},
++};
 +
-+	for (i = 0; i < tbl->size; i++) {
-+		struct rhash_head *pos;
++struct net_flow_hdr net_flow_vlan = {
++	.name = "vlan",
++	.uid = HEADER_VLAN,
++	.field_sz = ARRAY_SIZE(net_flow_vlan_fields),
++	.fields = net_flow_vlan_fields,
++};
 +
-+		rht_for_each_entry_rcu(he, pos, tbl, i, node) {
-+			if (he->uid < min || (max > 0 && he->uid > max))
-+				continue;
-+			err = net_flow_put_rule(skb, he);
-+			if (err)
-+				goto out;
-+		}
-+	}
-+out:
-+	rcu_read_unlock();
-+	return err;
-+}
++enum net_flow_ipv4_fields_ids {
++	HEADER_IPV4_UNSPEC,
++	HEADER_IPV4_VERSION,
++	HEADER_IPV4_IHL,
++	HEADER_IPV4_DSCP,
++	HEADER_IPV4_ECN,
++	HEADER_IPV4_LENGTH,
++	HEADER_IPV4_IDENTIFICATION,
++	HEADER_IPV4_FLAGS,
++	HEADER_IPV4_FRAGMENT_OFFSET,
++	HEADER_IPV4_TTL,
++	HEADER_IPV4_PROTOCOL,
++	HEADER_IPV4_CSUM,
++	HEADER_IPV4_SRC_IP,
++	HEADER_IPV4_DST_IP,
++	HEADER_IPV4_OPTIONS,
++};
 +
- static struct sk_buff *net_flow_build_flows_msg(struct net_device *dev,
- 						u32 portid, int seq, u8 cmd,
- 						int min, int max, int table)
- {
- 	struct genlmsghdr *hdr;
-+	struct net_flow_tbl *t;
- 	struct nlattr *flows;
- 	struct sk_buff *skb;
- 	int err = -ENOBUFS;
-@@ -1042,15 +1093,23 @@ static struct sk_buff *net_flow_build_flows_msg(struct net_device *dev,
- 		goto out;
- 	}
- 
-+	t = net_flow_get_table(dev, table);
-+	if (!t) {
-+		err = -EINVAL;
-+		goto out;
-+	}
++struct net_flow_field net_flow_ipv4_fields[14] = {
++	{ .name = "version",
++	  .uid = HEADER_IPV4_VERSION,
++	  .bitwidth = 4,},
++	{ .name = "ihl",
++	  .uid = HEADER_IPV4_IHL,
++	  .bitwidth = 4,},
++	{ .name = "dscp",
++	  .uid = HEADER_IPV4_DSCP,
++	  .bitwidth = 6,},
++	{ .name = "ecn",
++	  .uid = HEADER_IPV4_ECN,
++	  .bitwidth = 2,},
++	{ .name = "length",
++	  .uid = HEADER_IPV4_LENGTH,
++	  .bitwidth = 8,},
++	{ .name = "identification",
++	  .uid = HEADER_IPV4_IDENTIFICATION,
++	  .bitwidth = 8,},
++	{ .name = "flags",
++	  .uid = HEADER_IPV4_FLAGS,
++	  .bitwidth = 3,},
++	{ .name = "fragment_offset",
++	  .uid = HEADER_IPV4_FRAGMENT_OFFSET,
++	  .bitwidth = 13,},
++	{ .name = "ttl",
++	  .uid = HEADER_IPV4_TTL,
++	  .bitwidth = 1,},
++	{ .name = "protocol",
++	  .uid = HEADER_IPV4_PROTOCOL,
++	  .bitwidth = 8,},
++	{ .name = "csum",
++	  .uid = HEADER_IPV4_CSUM,
++	  .bitwidth = 8,},
++	{ .name = "src_ip",
++	  .uid = HEADER_IPV4_SRC_IP,
++	  .bitwidth = 32,},
++	{ .name = "dst_ip",
++	  .uid = HEADER_IPV4_DST_IP,
++	  .bitwidth = 32,},
++	{ .name = "options",
++	  .uid = HEADER_IPV4_OPTIONS,
++	  .bitwidth = -1,},
++};
 +
- 	flows = nla_nest_start(skb, NFL_FLOWS);
- 	if (!flows) {
- 		err = -EMSGSIZE;
- 		goto out;
- 	}
- 
--	err = -EOPNOTSUPP;
--	if (err < 0)
--		goto out_cancel;
-+	err = net_flow_get_rule_cache(skb, t, min, max);
-+	if (err < 0) {
-+		nla_nest_cancel(skb, flows);
-+		goto out;
-+	}
- 
- 	nla_nest_end(skb, flows);
- 
-@@ -1059,8 +1118,6 @@ static struct sk_buff *net_flow_build_flows_msg(struct net_device *dev,
- 		goto out;
- 
- 	return skb;
--out_cancel:
--	nla_nest_cancel(skb, flows);
- out:
- 	nlmsg_free(skb);
- 	return ERR_PTR(err);
-@@ -1505,6 +1562,71 @@ static int net_flow_get_rule(struct net_flow_rule *rule, struct nlattr *attr)
- 	return 0;
- }
- 
-+#define NFL_TABLE_ELEM_HINT 10
-+int net_flow_init_cache(struct net_flow_tbl *table)
-+{
-+	struct rhashtable_params params = {
-+		.nelem_hint = NFL_TABLE_ELEM_HINT,
-+		.head_offset = offsetof(struct net_flow_rule, node),
-+		.key_offset = offsetof(struct net_flow_rule, uid),
-+		.key_len = sizeof(__u32),
-+		.hashfn = jhash,
-+		.grow_decision = rht_grow_above_75,
-+		.shrink_decision = rht_shrink_below_30
-+	};
++struct net_flow_hdr net_flow_ipv4 = {
++	.name = "ipv4",
++	.uid = HEADER_IPV4,
++	.field_sz = ARRAY_SIZE(net_flow_ipv4_fields),
++	.fields = net_flow_ipv4_fields,
++};
 +
-+	return rhashtable_init(&table->cache, &params);
-+}
-+EXPORT_SYMBOL(net_flow_init_cache);
++/* Common set of actions. Below are the list of actions that are or we expect
++ * are common enough to be supported by multiple devices.
++ *
++ * Driver authors may use unique IDs greater than ACTION_MAX_UID it is
++ * guaranteed to be larger than any unique IDs used here.
++ */
++#define ACTION_MAX_UID 100
 +
-+void net_flow_destroy_cache(struct net_flow_tbl *table)
-+{
-+	struct rhashtable *cache = &table->cache;
-+	const struct bucket_table *tbl;
-+	struct net_flow_rule *he;
-+	struct rhash_head *pos, *next;
-+	unsigned int i;
++enum net_flow_action_ids {
++	ACTION_SET_UNSPEC,
++	ACTION_SET_VLAN_ID,
++	ACTION_COPY_TO_CPU,
++	ACTION_POP_VLAN,
++	ACTION_SET_ETH_SRC,
++	ACTION_SET_ETH_DST,
++	ACTION_SET_OUT_PORT,
++	ACTION_CHECK_TTL_DROP,
++};
 +
-+	/* Stop an eventual async resizing */
-+	cache->being_destroyed = true;
-+	mutex_lock(&cache->mutex);
++struct net_flow_action_arg net_flow_null_args[1] = {
++	{
++		.name = "",
++		.type = NFL_ACTION_ARG_TYPE_NULL,
++	},
++};
 +
-+	tbl = rht_dereference(cache->tbl, cache);
-+	for (i = 0; i < tbl->size; i++) {
-+		rht_for_each_entry_safe(he, pos, next, tbl, i, node) {
-+			rhashtable_remove(&table->cache, &he->node);
-+			synchronize_rcu();
-+			net_flow_rule_free(he);
-+		}
-+	}
++struct net_flow_action net_flow_null_action = {
++	.name = "", .uid = 0, .args = NULL,
++};
 +
-+	mutex_unlock(&cache->mutex);
-+	rhashtable_destroy(cache);
-+}
-+EXPORT_SYMBOL(net_flow_destroy_cache);
++struct net_flow_action_arg net_flow_set_vlan_id_args[2] = {
++	{
++		.name = "vlan_id",
++		.type = NFL_ACTION_ARG_TYPE_U16,
++		.value_u16 = 0,
++	},
++	{
++		.name = "",
++		.type = NFL_ACTION_ARG_TYPE_NULL,
++	},
++};
 +
-+static void net_flow_add_rule_cache(struct net_flow_tbl *table,
-+				    struct net_flow_rule *this)
-+{
-+	rhashtable_insert(&table->cache, &this->node);
-+}
++struct net_flow_action net_flow_set_vlan_id = {
++	.name = "set_vlan_id",
++	.uid = ACTION_SET_VLAN_ID,
++	.args = net_flow_set_vlan_id_args,
++};
 +
-+static int net_flow_del_rule_cache(struct net_flow_tbl *table,
-+				   struct net_flow_rule *this)
-+{
-+	struct net_flow_rule *he;
++struct net_flow_action net_flow_copy_to_cpu = {
++	.name = "copy_to_cpu",
++	.uid = ACTION_COPY_TO_CPU,
++	.args = net_flow_null_args,
++};
 +
-+	he = rhashtable_lookup(&table->cache, &this->uid);
-+	if (he) {
-+		rhashtable_remove(&table->cache, &he->node);
-+		synchronize_rcu();
-+		net_flow_rule_free(he);
-+		return 0;
-+	}
++struct net_flow_action net_flow_pop_vlan = {
++	.name = "pop_vlan",
++	.uid = ACTION_POP_VLAN,
++	.args = net_flow_null_args,
++};
 +
-+	return -EEXIST;
-+}
++struct net_flow_action_arg net_flow_set_eth_src_args[2] = {
++	{
++		.name = "eth_src",
++		.type = NFL_ACTION_ARG_TYPE_U64,
++		.value_u64 = 0,
++	},
++	{
++		.name = "",
++		.type = NFL_ACTION_ARG_TYPE_NULL,
++	},
++};
 +
- static int net_flow_table_cmd_flows(struct sk_buff *recv_skb,
- 				    struct genl_info *info)
- {
-@@ -1546,6 +1668,8 @@ static int net_flow_table_cmd_flows(struct sk_buff *recv_skb,
- 
- 	net_flow_lock();
- 	nla_for_each_nested(flow, info->attrs[NFL_FLOWS], rem) {
-+		struct net_flow_tbl *table;
++struct net_flow_action net_flow_set_eth_src = {
++	.name = "set_eth_src",
++	.uid = ACTION_SET_ETH_SRC,
++	.args = net_flow_set_eth_src_args,
++};
 +
- 		if (nla_type(flow) != NFL_FLOW)
- 			continue;
- 
-@@ -1563,12 +1687,22 @@ static int net_flow_table_cmd_flows(struct sk_buff *recv_skb,
- 		if (err)
- 			goto out_locked;
- 
-+		table = net_flow_get_table(dev, this->table_id);
-+		if (!table) {
-+			err = -EINVAL;
-+			goto skip;
-+		}
++struct net_flow_action_arg net_flow_set_eth_dst_args[2] = {
++	{
++		.name = "eth_dst",
++		.type = NFL_ACTION_ARG_TYPE_U64,
++		.value_u64 = 0,
++	},
++	{
++		.name = "",
++		.type = NFL_ACTION_ARG_TYPE_NULL,
++	},
++};
 +
- 		switch (cmd) {
- 		case NFL_TABLE_CMD_SET_FLOWS:
- 			err = dev->netdev_ops->ndo_flow_set_rule(dev, this);
-+			if (!err)
-+				net_flow_add_rule_cache(table, this);
- 			break;
- 		case NFL_TABLE_CMD_DEL_FLOWS:
- 			err = dev->netdev_ops->ndo_flow_del_rule(dev, this);
-+			if (!err)
-+				err = net_flow_del_rule_cache(table, this);
- 			break;
- 		default:
- 			err = -EOPNOTSUPP;
-@@ -1597,8 +1731,6 @@ skip:
- 			net_flow_put_rule(skb, this);
- 		}
- 
--		net_flow_rule_free(this);
--
- 		if (err && err_handle == NFL_FLOWS_ERROR_ABORT)
- 			goto out_locked;
- 	}
++struct net_flow_action net_flow_set_eth_dst = {
++	.name = "set_eth_dst",
++	.uid = ACTION_SET_ETH_DST,
++	.args = net_flow_set_eth_dst_args,
++};
++
++struct net_flow_action_arg net_flow_set_out_port_args[2] = {
++	{
++		.name = "set_out_port",
++		.type = NFL_ACTION_ARG_TYPE_U32,
++		.value_u32 = 0,
++	},
++	{
++		.name = "",
++		.type = NFL_ACTION_ARG_TYPE_NULL,
++	},
++};
++
++struct net_flow_action net_flow_set_out_port = {
++	.name = "set_out_port",
++	.uid = ACTION_SET_OUT_PORT,
++	.args = net_flow_set_out_port_args,
++};
++
++struct net_flow_action net_flow_check_ttl_drop = {
++	.name = "check_ttl_drop",
++	.uid = ACTION_CHECK_TTL_DROP,
++	.args = net_flow_null_args,
++};
++
++#endif
