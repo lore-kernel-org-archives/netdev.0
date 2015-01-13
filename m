@@ -1,81 +1,108 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [RFC PATCH v2 2/2] net: ixgbe: implement af_packet direct queue
- mappings
-Date: Tue, 13 Jan 2015 13:05:30 +0100
-Message-ID: <1421150730.13626.14.camel@stressinduktion.org>
-References: <20150113043509.29985.33515.stgit@nitbit.x32>
-	 <20150113043542.29985.15658.stgit@nitbit.x32>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: [net PATCH 1/1] drivers: net: cpsw: fix multicast flush in dual emac mode
+Date: Tue, 13 Jan 2015 17:35:49 +0530
+Message-ID: <1421150749-4329-1-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, danny.zhou@intel.com,
-	nhorman@tuxdriver.com, dborkman@redhat.com, john.ronciak@intel.com,
-	brouer@redhat.com
-To: John Fastabend <john.fastabend@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out3-smtp.messagingengine.com ([66.111.4.27]:49744 "EHLO
-	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751347AbbAMMFe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2015 07:05:34 -0500
-Received: from compute2.internal (compute2.nyi.internal [10.202.2.42])
-	by mailout.nyi.internal (Postfix) with ESMTP id D0FB020A06
-	for <netdev@vger.kernel.org>; Tue, 13 Jan 2015 07:05:33 -0500 (EST)
-In-Reply-To: <20150113043542.29985.15658.stgit@nitbit.x32>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, Mugunthan V N <mugunthanvnm@ti.com>,
+	<stable@vger.kernel.org>
+To: <netdev@vger.kernel.org>
+Return-path: <stable-owner@vger.kernel.org>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mo, 2015-01-12 at 20:35 -0800, John Fastabend wrote:
-> +static int
-> +ixgbe_ndo_qpair_page_map(struct vm_area_struct *vma, struct net_device *dev)
-> +{
-> +	struct ixgbe_adapter *adapter = netdev_priv(dev);
-> +	phys_addr_t phy_addr = pci_resource_start(adapter->pdev, 0);
-> +	unsigned long pfn_rx = (phy_addr + RX_DESC_ADDR_OFFSET) >> PAGE_SHIFT;
-> +	unsigned long pfn_tx = (phy_addr + TX_DESC_ADDR_OFFSET) >> PAGE_SHIFT;
-> +	unsigned long dummy_page_phy;
-> +	pgprot_t pre_vm_page_prot;
-> +	unsigned long start;
-> +	unsigned int i;
-> +	int err;
-> +
-> +	if (!dummy_page_buf) {
-> +		dummy_page_buf = kzalloc(PAGE_SIZE_4K, GFP_KERNEL);
-> +		if (!dummy_page_buf)
-> +			return -ENOMEM;
-> +
-> +		for (i = 0; i < PAGE_SIZE_4K / sizeof(unsigned int); i++)
-> +			dummy_page_buf[i] = 0xdeadbeef;
-> +	}
-> +
-> +	dummy_page_phy = virt_to_phys(dummy_page_buf);
-> +	pre_vm_page_prot = vma->vm_page_prot;
-> +	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
-> +
-> +	/* assume the vm_start is 4K aligned address */
-> +	for (start = vma->vm_start;
-> +	     start < vma->vm_end;
-> +	     start += PAGE_SIZE_4K) {
-> +		if (start == vma->vm_start + RX_DESC_ADDR_OFFSET) {
-> +			err = remap_pfn_range(vma, start, pfn_rx, PAGE_SIZE_4K,
-> +					      vma->vm_page_prot);
-> +			if (err)
-> +				return -EAGAIN;
-> +		} else if (start == vma->vm_start + TX_DESC_ADDR_OFFSET) {
-> +			err = remap_pfn_range(vma, start, pfn_tx, PAGE_SIZE_4K,
-> +					      vma->vm_page_prot);
-> +			if (err)
-> +				return -EAGAIN;
-> +		} else {
-> +			unsigned long addr = dummy_page_phy > PAGE_SHIFT;
+Since ALE table is a common resource for both the interfaces in Dual EMAC
+mode and while bringing up the second interface in cpsw_ndo_set_rx_mode()
+all the multicast entries added by the first interface is flushed out and
+only second interface multicast addresses are added. Fixing this by
+flushing multicast addresses based on dual EMAC port vlans which will not
+affect the other emac port multicast addresses.
 
-I guess you have forgotten to delete this line?
+Fixes: d9ba8f9 (driver: net: ethernet: cpsw: dual emac interface implementation)
+Cc: <stable@vger.kernel.org> # v3.9+
+Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
+---
+ drivers/net/ethernet/ti/cpsw.c     | 11 +++++++++--
+ drivers/net/ethernet/ti/cpsw_ale.c | 10 +++++++++-
+ drivers/net/ethernet/ti/cpsw_ale.h |  2 +-
+ 3 files changed, 19 insertions(+), 4 deletions(-)
 
-> +
-> +			err = remap_pfn_range(vma, start, addr, PAGE_SIZE_4K,
-> +					      pre_vm_page_prot);
-> +			if (err)
-> +				return -EAGAIN;
-> +		}
-> +	}
-> +	return 0;
-> +}
+diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+index e61ee83..64d1cef 100644
+--- a/drivers/net/ethernet/ti/cpsw.c
++++ b/drivers/net/ethernet/ti/cpsw.c
+@@ -610,7 +610,7 @@ static void cpsw_set_promiscious(struct net_device *ndev, bool enable)
+ 
+ 			/* Clear all mcast from ALE */
+ 			cpsw_ale_flush_multicast(ale, ALE_ALL_PORTS <<
+-						 priv->host_port);
++						 priv->host_port, -1);
+ 
+ 			/* Flood All Unicast Packets to Host port */
+ 			cpsw_ale_control_set(ale, 0, ALE_P0_UNI_FLOOD, 1);
+@@ -634,6 +634,12 @@ static void cpsw_set_promiscious(struct net_device *ndev, bool enable)
+ static void cpsw_ndo_set_rx_mode(struct net_device *ndev)
+ {
+ 	struct cpsw_priv *priv = netdev_priv(ndev);
++	int vid;
++
++	if (priv->data.dual_emac)
++		vid = priv->slaves[priv->emac_port].port_vlan;
++	else
++		vid = priv->data.default_vlan;
+ 
+ 	if (ndev->flags & IFF_PROMISC) {
+ 		/* Enable promiscuous mode */
+@@ -649,7 +655,8 @@ static void cpsw_ndo_set_rx_mode(struct net_device *ndev)
+ 	cpsw_ale_set_allmulti(priv->ale, priv->ndev->flags & IFF_ALLMULTI);
+ 
+ 	/* Clear all mcast from ALE */
+-	cpsw_ale_flush_multicast(priv->ale, ALE_ALL_PORTS << priv->host_port);
++	cpsw_ale_flush_multicast(priv->ale, ALE_ALL_PORTS << priv->host_port,
++				 vid);
+ 
+ 	if (!netdev_mc_empty(ndev)) {
+ 		struct netdev_hw_addr *ha;
+diff --git a/drivers/net/ethernet/ti/cpsw_ale.c b/drivers/net/ethernet/ti/cpsw_ale.c
+index 097ebe7..5246b3a 100644
+--- a/drivers/net/ethernet/ti/cpsw_ale.c
++++ b/drivers/net/ethernet/ti/cpsw_ale.c
+@@ -234,7 +234,7 @@ static void cpsw_ale_flush_mcast(struct cpsw_ale *ale, u32 *ale_entry,
+ 		cpsw_ale_set_entry_type(ale_entry, ALE_TYPE_FREE);
+ }
+ 
+-int cpsw_ale_flush_multicast(struct cpsw_ale *ale, int port_mask)
++int cpsw_ale_flush_multicast(struct cpsw_ale *ale, int port_mask, int vid)
+ {
+ 	u32 ale_entry[ALE_ENTRY_WORDS];
+ 	int ret, idx;
+@@ -245,6 +245,14 @@ int cpsw_ale_flush_multicast(struct cpsw_ale *ale, int port_mask)
+ 		if (ret != ALE_TYPE_ADDR && ret != ALE_TYPE_VLAN_ADDR)
+ 			continue;
+ 
++		/* if vid passed is -1 then remove all multicast entry from
++		 * the table irrespective of vlan id, if a valid vlan id is
++		 * passed then remove only multicast added to that vlan id.
++		 * if vlan id doesn't match then move on to next entry.
++		 */
++		if (vid != -1 && cpsw_ale_get_vlan_id(ale_entry) != vid)
++			continue;
++
+ 		if (cpsw_ale_get_mcast(ale_entry)) {
+ 			u8 addr[6];
+ 
+diff --git a/drivers/net/ethernet/ti/cpsw_ale.h b/drivers/net/ethernet/ti/cpsw_ale.h
+index c0d4127..af1e7ec 100644
+--- a/drivers/net/ethernet/ti/cpsw_ale.h
++++ b/drivers/net/ethernet/ti/cpsw_ale.h
+@@ -92,7 +92,7 @@ void cpsw_ale_stop(struct cpsw_ale *ale);
+ 
+ int cpsw_ale_set_ageout(struct cpsw_ale *ale, int ageout);
+ int cpsw_ale_flush(struct cpsw_ale *ale, int port_mask);
+-int cpsw_ale_flush_multicast(struct cpsw_ale *ale, int port_mask);
++int cpsw_ale_flush_multicast(struct cpsw_ale *ale, int port_mask, int vid);
+ int cpsw_ale_add_ucast(struct cpsw_ale *ale, u8 *addr, int port,
+ 		       int flags, u16 vid);
+ int cpsw_ale_del_ucast(struct cpsw_ale *ale, u8 *addr, int port,
+-- 
+2.2.1.62.g3f15098
