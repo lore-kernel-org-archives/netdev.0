@@ -1,60 +1,57 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [RFC PATCH v2 1/2] net: af_packet support for direct ring access
- in user space
-Date: Tue, 13 Jan 2015 17:05:58 +0100
-Message-ID: <54B54266.4040205@redhat.com>
-References: <20150113043509.29985.33515.stgit@nitbit.x32> <54B535E2.7040600@redhat.com> <54B540BB.2090507@gmail.com>
+From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Subject: [PATCH] mlx5: avoid build warnings on 32-bit
+Date: Tue, 13 Jan 2015 17:08:06 +0100
+Message-ID: <4105686.Jz5UR0277i@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, danny.zhou@intel.com,
-	nhorman@tuxdriver.com, john.ronciak@intel.com,
-	hannes@stressinduktion.org, brouer@redhat.com
-To: John Fastabend <john.fastabend@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:41377 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752998AbbAMQGa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Jan 2015 11:06:30 -0500
-In-Reply-To: <54B540BB.2090507@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 01/13/2015 04:58 PM, John Fastabend wrote:
-> On 01/13/2015 07:12 AM, Daniel Borkmann wrote:
-...
->> Any slight chance these 8 ndo ops could be further reduced? ;)
->
-> Its possible we could collapse a few of these calls. I'll see if
-> we can get it a bit smaller. Another option would be to put a
-> a pointer to the set of ops in the net_device struct. Something
-> like,
->
->      struct net_device {
->          ...
->          const struct af_packet_hw *afp_ops;
->          ...
->      }
->
->      struct af_packet_hw {
->          int (*ndo_split_queue_pairs)(struct net_device *dev,
->                           unsigned int qpairs_start_from,
->                           unsigned int qpairs_num,
->                           struct sock *sk);
->          ...
->      }
+The mlx5 driver passes a string pointer in through a 'u64' variable,
+which on 32-bit machines causes a build warning:
 
-I think trying to collapse might be better than two indirections.
+drivers/net/ethernet/mellanox/mlx5/core/debugfs.c: In function 'qp_read_field':
+drivers/net/ethernet/mellanox/mlx5/core/debugfs.c:303:11: warning: cast from pointer to integer of different size [-Wpointer-to-int-cast]
 
-...
->> When this is being set here, above test in packet_release() and the chunk
->> quoted below in packet_mmap() are not guaranteed to work since we don't
->> test if some ndos are actually implemented by the driver. Seems a bit
->> fragile, I'm wondering if we should test this capability as a _whole_,
->> iow if all necessary functions to make this work are being provided by the
->> driver, e.g. flag the netdev as such and test for that instead.
->
-> Sounds good to me, better than scattering ndo checks throughout. Also
-> with a feature flag administrators could disable it easily.
+The code is in fact safe, so we can shut up the warning by adding
+extra type casts.
 
-Sounds good to me, thanks John!
+Signed-off-by: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/debugfs.c b/drivers/net/ethernet/mellanox/mlx5/core/debugfs.c
+index 10e1f1a18255..4878025e231c 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/debugfs.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/debugfs.c
+@@ -300,11 +300,11 @@ static u64 qp_read_field(struct mlx5_core_dev *dev, struct mlx5_core_qp *qp,
+ 		param = qp->pid;
+ 		break;
+ 	case QP_STATE:
+-		param = (u64)mlx5_qp_state_str(be32_to_cpu(ctx->flags) >> 28);
++		param = (unsigned long)mlx5_qp_state_str(be32_to_cpu(ctx->flags) >> 28);
+ 		*is_str = 1;
+ 		break;
+ 	case QP_XPORT:
+-		param = (u64)mlx5_qp_type_str((be32_to_cpu(ctx->flags) >> 16) & 0xff);
++		param = (unsigned long)mlx5_qp_type_str((be32_to_cpu(ctx->flags) >> 16) & 0xff);
+ 		*is_str = 1;
+ 		break;
+ 	case QP_MTU:
+@@ -464,7 +464,7 @@ static ssize_t dbg_read(struct file *filp, char __user *buf, size_t count,
+ 
+ 
+ 	if (is_str)
+-		ret = snprintf(tbuf, sizeof(tbuf), "%s\n", (const char *)field);
++		ret = snprintf(tbuf, sizeof(tbuf), "%s\n", (const char *)(unsigned long)field);
+ 	else
+ 		ret = snprintf(tbuf, sizeof(tbuf), "0x%llx\n", field);
+ 
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
