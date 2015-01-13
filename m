@@ -1,33 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tipc: remove redundant timer defined in
- tipc_sock struct
-Date: Tue, 13 Jan 2015 16:46:41 -0500 (EST)
-Message-ID: <20150113.164641.1812429919881850062.davem@davemloft.net>
-References: <1421140068-3614-1-git-send-email-ying.xue@windriver.com>
+Subject: Re: [PATCH net-next] cxgb4: Ripping out old hard-wired
+ initialization code in driver
+Date: Tue, 13 Jan 2015 16:53:11 -0500 (EST)
+Message-ID: <20150113.165311.1281801164481476926.davem@davemloft.net>
+References: <1421142565-10232-1-git-send-email-hariprasad@chelsio.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jon.maloy@ericsson.com, Paul.Gortmaker@windriver.com,
-	erik.hugne@ericsson.com, ericalp@ericsson.com,
-	netdev@vger.kernel.org, tipc-discussion@lists.sourceforge.net
-To: ying.xue@windriver.com
+Cc: netdev@vger.kernel.org, leedom@chelsio.com, nirranjan@chelsio.com
+To: hariprasad@chelsio.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36477 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:36529 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751245AbbAMVqp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2015 16:46:45 -0500
-In-Reply-To: <1421140068-3614-1-git-send-email-ying.xue@windriver.com>
+	with ESMTP id S1751245AbbAMVxO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2015 16:53:14 -0500
+In-Reply-To: <1421142565-10232-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ying Xue <ying.xue@windriver.com>
-Date: Tue, 13 Jan 2015 17:07:48 +0800
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Date: Tue, 13 Jan 2015 15:19:25 +0530
 
-> Remove the redundant timer defined in tipc_sock structure, instead we
-> can directly reuse the sk_timer defined in sock structure.
+> Removing old hard-wired initialization code in the driver, which is no longer
+> used. Also deprecating few module parameters.
 > 
-> Signed-off-by: Ying Xue <ying.xue@windriver.com>
-> Acked-by: Erik Hugne <erik.hugne@ericsson.com>
-> Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
+> Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
 
-Applied, thank you.
+Applied.
