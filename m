@@ -1,193 +1,48 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 11/15] i40e/i40evf: find partition_id in npar mode
-Date: Tue, 13 Jan 2015 03:33:27 -0800
-Message-ID: <1421148811-9763-12-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 15/15] i40e: limit sriov to partition 1 of NPAR configurations
+Date: Tue, 13 Jan 2015 03:33:31 -0800
+Message-ID: <1421148811-9763-16-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1421148811-9763-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:65096 "EHLO mga01.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:54666 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752349AbbAMLdi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Jan 2015 06:33:38 -0500
+	id S1752357AbbAMLdk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Jan 2015 06:33:40 -0500
 In-Reply-To: <1421148811-9763-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Shannon Nelson <shannon.nelson@intel.com>
 
-When in NPAR mode the driver instance might be controlling the base
-partition or one of the other "fake" PFs.  There are some things that
-can only be done by the base partition, aka partition_id 1.  This code
-does a bit of work to find how many partitions are there per port and
-what is the current partition_id.
+Make sure we only allow SR/IOV on the master PF of a port in multifunction
+mode.  This should be the case anyway based on the num_vfs configured in
+the NVM, but this will help make sure there's no question.  If we're not
+in multifunction mode the partition_id will always be 1.
 
-Change-ID: Iba427f020a1983d02147d86f121b3627e20ee21d
+Change-ID: I8b2592366fe6782f15301bde2ebd1d4da240109d
 Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
+Tested-by: Jim Young <james.m.young@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_common.c    | 66 ++++++++++++++++++++++++
- drivers/net/ethernet/intel/i40e/i40e_prototype.h |  3 ++
- drivers/net/ethernet/intel/i40e/i40e_type.h      |  7 ++-
- drivers/net/ethernet/intel/i40evf/i40e_type.h    |  7 ++-
- 4 files changed, 81 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
-index 3d741ee..b16fc03 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_common.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
-@@ -2035,6 +2035,43 @@ i40e_status i40e_aq_send_msg_to_vf(struct i40e_hw *hw, u16 vfid,
- }
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 80430b0..f3b036d 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -7319,7 +7319,7 @@ static int i40e_sw_init(struct i40e_pf *pf)
  
- /**
-+ * i40e_aq_debug_read_register
-+ * @hw: pointer to the hw struct
-+ * @reg_addr: register address
-+ * @reg_val: register value
-+ * @cmd_details: pointer to command details structure or NULL
-+ *
-+ * Read the register using the admin queue commands
-+ **/
-+i40e_status i40e_aq_debug_read_register(struct i40e_hw *hw,
-+				u32  reg_addr, u64 *reg_val,
-+				struct i40e_asq_cmd_details *cmd_details)
-+{
-+	struct i40e_aq_desc desc;
-+	struct i40e_aqc_debug_reg_read_write *cmd_resp =
-+		(struct i40e_aqc_debug_reg_read_write *)&desc.params.raw;
-+	i40e_status status;
-+
-+	if (reg_val == NULL)
-+		return I40E_ERR_PARAM;
-+
-+	i40e_fill_default_direct_cmd_desc(&desc,
-+					  i40e_aqc_opc_debug_read_reg);
-+
-+	cmd_resp->address = cpu_to_le32(reg_addr);
-+
-+	status = i40e_asq_send_command(hw, &desc, NULL, 0, cmd_details);
-+
-+	if (!status) {
-+		*reg_val = ((u64)cmd_resp->value_high << 32) |
-+			    (u64)cmd_resp->value_low;
-+		*reg_val = le64_to_cpu(*reg_val);
-+	}
-+
-+	return status;
-+}
-+
-+/**
-  * i40e_aq_debug_write_register
-  * @hw: pointer to the hw struct
-  * @reg_addr: register address
-@@ -2292,6 +2329,7 @@ static void i40e_parse_discover_capabilities(struct i40e_hw *hw, void *buff,
- 				     enum i40e_admin_queue_opc list_type_opc)
- {
- 	struct i40e_aqc_list_capabilities_element_resp *cap;
-+	u32 valid_functions, num_functions;
- 	u32 number, logical_id, phys_id;
- 	struct i40e_hw_capabilities *p;
- 	u32 i = 0;
-@@ -2427,6 +2465,34 @@ static void i40e_parse_discover_capabilities(struct i40e_hw *hw, void *buff,
- 	if (p->npar_enable || p->mfp_mode_1)
- 		p->fcoe = false;
- 
-+	/* count the enabled ports (aka the "not disabled" ports) */
-+	hw->num_ports = 0;
-+	for (i = 0; i < 4; i++) {
-+		u32 port_cfg_reg = I40E_PRTGEN_CNF + (4 * i);
-+		u64 port_cfg = 0;
-+
-+		/* use AQ read to get the physical register offset instead
-+		 * of the port relative offset
-+		 */
-+		i40e_aq_debug_read_register(hw, port_cfg_reg, &port_cfg, NULL);
-+		if (!(port_cfg & I40E_PRTGEN_CNF_PORT_DIS_MASK))
-+			hw->num_ports++;
-+	}
-+
-+	valid_functions = p->valid_functions;
-+	num_functions = 0;
-+	while (valid_functions) {
-+		if (valid_functions & 1)
-+			num_functions++;
-+		valid_functions >>= 1;
-+	}
-+
-+	/* partition id is 1-based, and functions are evenly spread
-+	 * across the ports as partitions
-+	 */
-+	hw->partition_id = (hw->pf_id / hw->num_ports) + 1;
-+	hw->num_partitions = num_functions / hw->num_ports;
-+
- 	/* additional HW specific goodies that might
- 	 * someday be HW version specific
- 	 */
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_prototype.h b/drivers/net/ethernet/intel/i40e/i40e_prototype.h
-index 2fb4306..d1c7d63 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_prototype.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_prototype.h
-@@ -71,6 +71,9 @@ i40e_status i40e_aq_get_firmware_version(struct i40e_hw *hw,
- i40e_status i40e_aq_debug_write_register(struct i40e_hw *hw,
- 					u32 reg_addr, u64 reg_val,
- 					struct i40e_asq_cmd_details *cmd_details);
-+i40e_status i40e_aq_debug_read_register(struct i40e_hw *hw,
-+				u32  reg_addr, u64 *reg_val,
-+				struct i40e_asq_cmd_details *cmd_details);
- i40e_status i40e_aq_set_phy_debug(struct i40e_hw *hw, u8 cmd_flags,
- 				struct i40e_asq_cmd_details *cmd_details);
- i40e_status i40e_aq_set_default_vsi(struct i40e_hw *hw, u16 vsi_id,
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_type.h b/drivers/net/ethernet/intel/i40e/i40e_type.h
-index c1f2eb9..611de3e 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_type.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_type.h
-@@ -431,7 +431,7 @@ struct i40e_hw {
- 	u8 __iomem *hw_addr;
- 	void *back;
- 
--	/* function pointer structs */
-+	/* subsystem structs */
- 	struct i40e_phy_info phy;
- 	struct i40e_mac_info mac;
- 	struct i40e_bus_info bus;
-@@ -458,6 +458,11 @@ struct i40e_hw {
- 	u8  pf_id;
- 	u16 main_vsi_seid;
- 
-+	/* for multi-function MACs */
-+	u16 partition_id;
-+	u16 num_partitions;
-+	u16 num_ports;
-+
- 	/* Closest numa node to the device */
- 	u16 numa_node;
- 
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_type.h b/drivers/net/ethernet/intel/i40evf/i40e_type.h
-index 68aec11..d1c2b5a 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_type.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_type.h
-@@ -425,7 +425,7 @@ struct i40e_hw {
- 	u8 __iomem *hw_addr;
- 	void *back;
- 
--	/* function pointer structs */
-+	/* subsystem structs */
- 	struct i40e_phy_info phy;
- 	struct i40e_mac_info mac;
- 	struct i40e_bus_info bus;
-@@ -452,6 +452,11 @@ struct i40e_hw {
- 	u8  pf_id;
- 	u16 main_vsi_seid;
- 
-+	/* for multi-function MACs */
-+	u16 partition_id;
-+	u16 num_partitions;
-+	u16 num_ports;
-+
- 	/* Closest numa node to the device */
- 	u16 numa_node;
- 
+ #endif /* I40E_FCOE */
+ #ifdef CONFIG_PCI_IOV
+-	if (pf->hw.func_caps.num_vfs) {
++	if (pf->hw.func_caps.num_vfs && pf->hw.partition_id == 1) {
+ 		pf->num_vf_qps = I40E_DEFAULT_QUEUES_PER_VF;
+ 		pf->flags |= I40E_FLAG_SRIOV_ENABLED;
+ 		pf->num_req_vfs = min_t(int,
 -- 
 1.9.3
