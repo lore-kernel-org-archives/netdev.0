@@ -1,111 +1,258 @@
-From: Ying Xue <ying.xue@windriver.com>
-Subject: [PATCH net-next] tipc: remove redundant timer
-	defined in tipc_sock struct
-Date: Tue, 13 Jan 2015 17:07:48 +0800
-Message-ID: <1421140068-3614-1-git-send-email-ying.xue@windriver.com>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: [PATCH net-next v12 2/3] net: hisilicon: new hip04 MDIO driver
+Date: Tue, 13 Jan 2015 17:11:29 +0800
+Message-ID: <1421140290-5492-3-git-send-email-dingtianhong@huawei.com>
+References: <1421140290-5492-1-git-send-email-dingtianhong@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: jon.maloy@ericsson.com, netdev@vger.kernel.org, ericalp@ericsson.com,
-	Paul.Gortmaker@windriver.com, tipc-discussion@lists.sourceforge.net
-To: <davem@davemloft.net>
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <sergei.shtylyov@cogentembedded.com>,
+	<linux-arm-kernel@lists.infradead.org>, <eric.dumazet@gmail.com>,
+	<xuwei5@hisilicon.com>, <zhangfei.gao@linaro.org>,
+	<netdev@vger.kernel.org>, <devicetree@vger.kernel.org>,
+	<linux@arm.linux.org.uk>
+To: <arnd@arndb.de>, <robh+dt@kernel.org>, <davem@davemloft.net>,
+	<grant.likely@linaro.org>, <agraf@suse.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga03-in.huawei.com ([119.145.14.66]:52017 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751257AbbAMJL6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2015 04:11:58 -0500
+In-Reply-To: <1421140290-5492-1-git-send-email-dingtianhong@huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Remove the redundant timer defined in tipc_sock structure, instead we
-can directly reuse the sk_timer defined in sock structure.
+From: Zhangfei Gao <zhangfei.gao@linaro.org>
 
-Signed-off-by: Ying Xue <ying.xue@windriver.com>
-Acked-by: Erik Hugne <erik.hugne@ericsson.com>
-Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
+Hisilicon hip04 platform mdio driver
+Reuse Marvell phy drivers/net/phy/marvell.c
+
+Signed-off-by: Zhangfei Gao <zhangfei.gao@linaro.org>
+Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 ---
- net/tipc/socket.c |   16 +++++++---------
- 1 file changed, 7 insertions(+), 9 deletions(-)
+ drivers/net/ethernet/hisilicon/Kconfig      |   9 ++
+ drivers/net/ethernet/hisilicon/Makefile     |   1 +
+ drivers/net/ethernet/hisilicon/hip04_mdio.c | 186 ++++++++++++++++++++++++++++
+ 3 files changed, 196 insertions(+)
+ create mode 100644 drivers/net/ethernet/hisilicon/hip04_mdio.c
 
-diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index 2cec496..c9c34a6 100644
---- a/net/tipc/socket.c
-+++ b/net/tipc/socket.c
-@@ -69,7 +69,6 @@
-  * @pub_count: total # of publications port has made during its lifetime
-  * @probing_state:
-  * @probing_intv:
-- * @timer:
-  * @port: port - interacts with 'sk' and with the rest of the TIPC stack
-  * @peer_name: the peer of the connection, if any
-  * @conn_timeout: the time we can wait for an unresponded setup request
-@@ -94,7 +93,6 @@ struct tipc_sock {
- 	u32 pub_count;
- 	u32 probing_state;
- 	unsigned long probing_intv;
--	struct timer_list timer;
- 	uint conn_timeout;
- 	atomic_t dupl_rcvcnt;
- 	bool link_cong;
-@@ -360,7 +358,7 @@ static int tipc_sk_create(struct net *net, struct socket *sock,
- 		return -EINVAL;
- 	}
- 	msg_set_origport(msg, tsk->portid);
--	setup_timer(&tsk->timer, tipc_sk_timeout, (unsigned long)tsk);
-+	setup_timer(&sk->sk_timer, tipc_sk_timeout, (unsigned long)tsk);
- 	sk->sk_backlog_rcv = tipc_backlog_rcv;
- 	sk->sk_rcvbuf = sysctl_tipc_rmem[1];
- 	sk->sk_data_ready = tipc_data_ready;
-@@ -514,7 +512,8 @@ static int tipc_release(struct socket *sock)
+diff --git a/drivers/net/ethernet/hisilicon/Kconfig b/drivers/net/ethernet/hisilicon/Kconfig
+index e942173..a54d897 100644
+--- a/drivers/net/ethernet/hisilicon/Kconfig
++++ b/drivers/net/ethernet/hisilicon/Kconfig
+@@ -24,4 +24,13 @@ config HIX5HD2_GMAC
+ 	help
+ 	  This selects the hix5hd2 mac family network device.
  
- 	tipc_sk_withdraw(tsk, 0, NULL);
- 	probing_state = tsk->probing_state;
--	if (del_timer_sync(&tsk->timer) && probing_state != TIPC_CONN_PROBING)
-+	if (del_timer_sync(&sk->sk_timer) &&
-+	    probing_state != TIPC_CONN_PROBING)
- 		sock_put(sk);
- 	tipc_sk_remove(tsk);
- 	if (tsk->connected) {
-@@ -1136,7 +1135,8 @@ static int tipc_send_packet(struct kiocb *iocb, struct socket *sock,
- static void tipc_sk_finish_conn(struct tipc_sock *tsk, u32 peer_port,
- 				u32 peer_node)
- {
--	struct net *net = sock_net(&tsk->sk);
-+	struct sock *sk = &tsk->sk;
-+	struct net *net = sock_net(sk);
- 	struct tipc_msg *msg = &tsk->phdr;
++config HIP04_ETH
++	tristate "HISILICON P04 Ethernet support"
++	select PHYLIB
++	select MARVELL_PHY
++	select MFD_SYSCON
++	---help---
++	  If you wish to compile a kernel for a hardware with hisilicon p04 SoC and
++	  want to use the internal ethernet then you should answer Y to this.
++
+ endif # NET_VENDOR_HISILICON
+diff --git a/drivers/net/ethernet/hisilicon/Makefile b/drivers/net/ethernet/hisilicon/Makefile
+index 9175e846..40115a7 100644
+--- a/drivers/net/ethernet/hisilicon/Makefile
++++ b/drivers/net/ethernet/hisilicon/Makefile
+@@ -3,3 +3,4 @@
+ #
  
- 	msg_set_destnode(msg, peer_node);
-@@ -1148,8 +1148,7 @@ static void tipc_sk_finish_conn(struct tipc_sock *tsk, u32 peer_port,
- 	tsk->probing_intv = CONN_PROBING_INTERVAL;
- 	tsk->probing_state = TIPC_CONN_OK;
- 	tsk->connected = 1;
--	if (!mod_timer(&tsk->timer, jiffies + tsk->probing_intv))
--		sock_hold(&tsk->sk);
-+	sk_reset_timer(sk, &sk->sk_timer, jiffies + tsk->probing_intv);
- 	tipc_node_add_conn(net, peer_node, tsk->portid, peer_port);
- 	tsk->max_pkt = tipc_node_get_mtu(net, peer_node, tsk->portid);
- }
-@@ -2141,8 +2140,7 @@ static void tipc_sk_timeout(unsigned long data)
- 				      0, peer_node, tn->own_addr,
- 				      peer_port, tsk->portid, TIPC_OK);
- 		tsk->probing_state = TIPC_CONN_PROBING;
--		if (!mod_timer(&tsk->timer, jiffies + tsk->probing_intv))
--			sock_hold(sk);
-+		sk_reset_timer(sk, &sk->sk_timer, jiffies + tsk->probing_intv);
- 	}
- 	bh_unlock_sock(sk);
- 	if (skb)
+ obj-$(CONFIG_HIX5HD2_GMAC) += hix5hd2_gmac.o
++obj-$(CONFIG_HIP04_ETH) += hip04_mdio.o
+diff --git a/drivers/net/ethernet/hisilicon/hip04_mdio.c b/drivers/net/ethernet/hisilicon/hip04_mdio.c
+new file mode 100644
+index 0000000..b3bac25
+--- /dev/null
++++ b/drivers/net/ethernet/hisilicon/hip04_mdio.c
+@@ -0,0 +1,186 @@
++/* Copyright (c) 2014 Linaro Ltd.
++ * Copyright (c) 2014 Hisilicon Limited.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ */
++
++#include <linux/module.h>
++#include <linux/platform_device.h>
++#include <linux/io.h>
++#include <linux/of_mdio.h>
++#include <linux/delay.h>
++
++#define MDIO_CMD_REG		0x0
++#define MDIO_ADDR_REG		0x4
++#define MDIO_WDATA_REG		0x8
++#define MDIO_RDATA_REG		0xc
++#define MDIO_STA_REG		0x10
++
++#define MDIO_START		BIT(14)
++#define MDIO_R_VALID		BIT(1)
++#define MDIO_READ	        (BIT(12) | BIT(11) | MDIO_START)
++#define MDIO_WRITE	        (BIT(12) | BIT(10) | MDIO_START)
++
++struct hip04_mdio_priv {
++	void __iomem *base;
++};
++
++#define WAIT_TIMEOUT 10
++static int hip04_mdio_wait_ready(struct mii_bus *bus)
++{
++	struct hip04_mdio_priv *priv = bus->priv;
++	int i;
++
++	for (i = 0; readl_relaxed(priv->base + MDIO_CMD_REG) & MDIO_START; i++) {
++		if (i == WAIT_TIMEOUT)
++			return -ETIMEDOUT;
++		msleep(20);
++	}
++
++	return 0;
++}
++
++static int hip04_mdio_read(struct mii_bus *bus, int mii_id, int regnum)
++{
++	struct hip04_mdio_priv *priv = bus->priv;
++	u32 val;
++	int ret;
++
++	ret = hip04_mdio_wait_ready(bus);
++	if (ret < 0)
++		goto out;
++
++	val = regnum | (mii_id << 5) | MDIO_READ;
++	writel_relaxed(val, priv->base + MDIO_CMD_REG);
++
++	ret = hip04_mdio_wait_ready(bus);
++	if (ret < 0)
++		goto out;
++
++	val = readl_relaxed(priv->base + MDIO_STA_REG);
++	if (val & MDIO_R_VALID) {
++		dev_err(bus->parent, "SMI bus read not valid\n");
++		ret = -ENODEV;
++		goto out;
++	}
++
++	val = readl_relaxed(priv->base + MDIO_RDATA_REG);
++	ret = val & 0xFFFF;
++out:
++	return ret;
++}
++
++static int hip04_mdio_write(struct mii_bus *bus, int mii_id,
++			    int regnum, u16 value)
++{
++	struct hip04_mdio_priv *priv = bus->priv;
++	u32 val;
++	int ret;
++
++	ret = hip04_mdio_wait_ready(bus);
++	if (ret < 0)
++		goto out;
++
++	writel_relaxed(value, priv->base + MDIO_WDATA_REG);
++	val = regnum | (mii_id << 5) | MDIO_WRITE;
++	writel_relaxed(val, priv->base + MDIO_CMD_REG);
++out:
++	return ret;
++}
++
++static int hip04_mdio_reset(struct mii_bus *bus)
++{
++	int temp, i;
++
++	for (i = 0; i < PHY_MAX_ADDR; i++) {
++		hip04_mdio_write(bus, i, 22, 0);
++		temp = hip04_mdio_read(bus, i, MII_BMCR);
++		if (temp < 0)
++			continue;
++
++		temp |= BMCR_RESET;
++		if (hip04_mdio_write(bus, i, MII_BMCR, temp) < 0)
++			continue;
++	}
++
++	mdelay(500);
++	return 0;
++}
++
++static int hip04_mdio_probe(struct platform_device *pdev)
++{
++	struct resource *r;
++	struct mii_bus *bus;
++	struct hip04_mdio_priv *priv;
++	int ret;
++
++	bus = mdiobus_alloc_size(sizeof(struct hip04_mdio_priv));
++	if (!bus) {
++		dev_err(&pdev->dev, "Cannot allocate MDIO bus\n");
++		return -ENOMEM;
++	}
++
++	bus->name = "hip04_mdio_bus";
++	bus->read = hip04_mdio_read;
++	bus->write = hip04_mdio_write;
++	bus->reset = hip04_mdio_reset;
++	snprintf(bus->id, MII_BUS_ID_SIZE, "%s-mii", dev_name(&pdev->dev));
++	bus->parent = &pdev->dev;
++	priv = bus->priv;
++
++	r = platform_get_resource(pdev, IORESOURCE_MEM, 0);
++	priv->base = devm_ioremap_resource(&pdev->dev, r);
++	if (IS_ERR(priv->base)) {
++		ret = PTR_ERR(priv->base);
++		goto out_mdio;
++	}
++
++	ret = of_mdiobus_register(bus, pdev->dev.of_node);
++	if (ret < 0) {
++		dev_err(&pdev->dev, "Cannot register MDIO bus (%d)\n", ret);
++		goto out_mdio;
++	}
++
++	platform_set_drvdata(pdev, bus);
++
++	return 0;
++
++out_mdio:
++	mdiobus_free(bus);
++	return ret;
++}
++
++static int hip04_mdio_remove(struct platform_device *pdev)
++{
++	struct mii_bus *bus = platform_get_drvdata(pdev);
++
++	mdiobus_unregister(bus);
++	mdiobus_free(bus);
++
++	return 0;
++}
++
++static const struct of_device_id hip04_mdio_match[] = {
++	{ .compatible = "hisilicon,hip04-mdio" },
++	{ }
++};
++MODULE_DEVICE_TABLE(of, hip04_mdio_match);
++
++static struct platform_driver hip04_mdio_driver = {
++	.probe = hip04_mdio_probe,
++	.remove = hip04_mdio_remove,
++	.driver = {
++		.name = "hip04-mdio",
++		.owner = THIS_MODULE,
++		.of_match_table = hip04_mdio_match,
++	},
++};
++
++module_platform_driver(hip04_mdio_driver);
++
++MODULE_DESCRIPTION("HISILICON P04 MDIO interface driver");
++MODULE_LICENSE("GPL v2");
++MODULE_ALIAS("platform:hip04-mdio");
 -- 
-1.7.9.5
-
-
-------------------------------------------------------------------------------
-New Year. New Location. New Benefits. New Data Center in Ashburn, VA.
-GigeNET is offering a free month of service with a new server in Ashburn.
-Choose from 2 high performing configs, both with 100TB of bandwidth.
-Higher redundancy.Lower latency.Increased capacity.Completely compliant.
-http://p.sf.net/sfu/gigenet
+1.8.0
