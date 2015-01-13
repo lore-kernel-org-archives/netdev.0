@@ -1,128 +1,52 @@
-From: Felipe Balbi <balbi@ti.com>
-Subject: [patch-net-next 2/3] net: ethernet: cpsw: split out IRQ handler
-Date: Tue, 13 Jan 2015 13:44:47 -0600
-Message-ID: <1421178288-7393-2-git-send-email-balbi@ti.com>
-References: <1421178288-7393-1-git-send-email-balbi@ti.com>
+From: Tom Lendacky <thomas.lendacky@amd.com>
+Subject: Re: [PATCH 3/6] net: davinci_emac: Free clock after checking the
+ frequency
+Date: Tue, 13 Jan 2015 13:48:24 -0600
+Message-ID: <54B57688.6000908@amd.com>
+References: <1421177368-19756-1-git-send-email-tony@atomide.com>
+ <1421177368-19756-4-git-send-email-tony@atomide.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Tony Lindgren <tony@atomide.com>,
-	Linux OMAP Mailing List <linux-omap@vger.kernel.org>,
-	<mugunthanvnm@ti.com>, <netdev@vger.kernel.org>,
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <linux-omap@vger.kernel.org>,
+	Brian Hutchinson <b.hutchman@gmail.com>,
 	Felipe Balbi <balbi@ti.com>
-To: <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from arroyo.ext.ti.com ([192.94.94.40]:50666 "EHLO arroyo.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752646AbbAMTpg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Jan 2015 14:45:36 -0500
-In-Reply-To: <1421178288-7393-1-git-send-email-balbi@ti.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Tony Lindgren <tony@atomide.com>,
+	David Miller <davem@davemloft.net>
+Return-path: <linux-omap-owner@vger.kernel.org>
+In-Reply-To: <1421177368-19756-4-git-send-email-tony@atomide.com>
+Sender: linux-omap-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Now we can introduce dedicated IRQ handlers
-for each of the IRQ events. This helps with
-cleaning up a little bit of the clutter in
-cpsw_interrupt() while also making sure that
-TX IRQs will try to handle TX buffers while
-RX IRQs will try to handle RX buffers.
+On 01/13/2015 01:29 PM, Tony Lindgren wrote:
+> We only use clk_get() to get the frequency, the rest is done by
+> the runtime PM calls. Let's free the clock too.
+>
+> Cc: Brian Hutchinson <b.hutchman@gmail.com>
+> Cc: Felipe Balbi <balbi@ti.com>
+> Signed-off-by: Tony Lindgren <tony@atomide.com>
+> ---
+>   drivers/net/ethernet/ti/davinci_emac.c | 1 +
+>   1 file changed, 1 insertion(+)
+>
+> diff --git a/drivers/net/ethernet/ti/davinci_emac.c b/drivers/net/ethernet/ti/davinci_emac.c
+> index deb43b3..e9efc74 100644
+> --- a/drivers/net/ethernet/ti/davinci_emac.c
+> +++ b/drivers/net/ethernet/ti/davinci_emac.c
+> @@ -1881,6 +1881,7 @@ static int davinci_emac_probe(struct platform_device *pdev)
+>   		return -EBUSY;
+>   	}
+>   	emac_bus_frequency = clk_get_rate(emac_clk);
+> +	clk_put(emac_clk);
 
-Signed-off-by: Felipe Balbi <balbi@ti.com>
----
- drivers/net/ethernet/ti/cpsw.c | 41 ++++++++++++++++++++++++++++++-----------
- 1 file changed, 30 insertions(+), 11 deletions(-)
+The devm_clk_get call is used to get the clock so either a devm_clk_put
+needs to be used here or just let the devm_ call do its thing and
+automatically do the put when the module is unloaded.
 
-diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index 6e04128b9543..c9081bdbbcbc 100644
---- a/drivers/net/ethernet/ti/cpsw.c
-+++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -754,18 +754,36 @@ requeue:
- 		dev_kfree_skb_any(new_skb);
- }
- 
--static irqreturn_t cpsw_interrupt(int irq, void *dev_id)
-+static irqreturn_t cpsw_dummy_interrupt(int irq, void *dev_id)
- {
- 	struct cpsw_priv *priv = dev_id;
- 	int value = irq - priv->irqs_table[0];
- 
--	/* NOTICE: Ending IRQ here. The trick with the 'value' variable above
--	 * is to make sure we will always write the correct value to the EOI
--	 * register. Namely 0 for RX_THRESH Interrupt, 1 for RX Interrupt, 2
--	 * for TX Interrupt and 3 for MISC Interrupt.
--	 */
- 	cpdma_ctlr_eoi(priv->dma, value);
- 
-+	return IRQ_HANDLED;
-+}
-+
-+static irqreturn_t cpsw_tx_interrupt(int irq, void *dev_id)
-+{
-+	struct cpsw_priv *priv = dev_id;
-+
-+	cpdma_ctlr_eoi(priv->dma, CPDMA_EOI_TX);
-+	cpdma_chan_process(priv->txch, 128);
-+
-+	priv = cpsw_get_slave_priv(priv, 1);
-+	if (priv)
-+		cpdma_chan_process(priv->txch, 128);
-+
-+	return IRQ_HANDLED;
-+}
-+
-+static irqreturn_t cpsw_rx_interrupt(int irq, void *dev_id)
-+{
-+	struct cpsw_priv *priv = dev_id;
-+
-+	cpdma_ctlr_eoi(priv->dma, CPDMA_EOI_RX);
-+
- 	cpsw_intr_disable(priv);
- 	if (priv->irq_enabled == true) {
- 		cpsw_disable_irq(priv);
-@@ -1617,7 +1635,8 @@ static void cpsw_ndo_poll_controller(struct net_device *ndev)
- 
- 	cpsw_intr_disable(priv);
- 	cpdma_ctlr_int_ctrl(priv->dma, false);
--	cpsw_interrupt(ndev->irq, priv);
-+	cpsw_rx_interrupt(priv->irq[1], priv);
-+	cpsw_tx_interrupt(priv->irq[2], priv);
- 	cpdma_ctlr_int_ctrl(priv->dma, true);
- 	cpsw_intr_enable(priv);
- }
-@@ -2351,7 +2370,7 @@ static int cpsw_probe(struct platform_device *pdev)
- 		goto clean_ale_ret;
- 
- 	priv->irqs_table[0] = irq;
--	ret = devm_request_irq(&pdev->dev, irq, cpsw_interrupt,
-+	ret = devm_request_irq(&pdev->dev, irq, cpsw_dummy_interrupt,
- 			0, dev_name(&pdev->dev), priv);
- 	if (ret < 0) {
- 		dev_err(priv->dev, "error attaching irq (%d)\n", ret);
-@@ -2363,7 +2382,7 @@ static int cpsw_probe(struct platform_device *pdev)
- 		goto clean_ale_ret;
- 
- 	priv->irqs_table[1] = irq;
--	ret = devm_request_irq(&pdev->dev, irq, cpsw_interrupt,
-+	ret = devm_request_irq(&pdev->dev, irq, cpsw_rx_interrupt,
- 			0, dev_name(&pdev->dev), priv);
- 	if (ret < 0) {
- 		dev_err(priv->dev, "error attaching irq (%d)\n", ret);
-@@ -2375,7 +2394,7 @@ static int cpsw_probe(struct platform_device *pdev)
- 		goto clean_ale_ret;
- 
- 	priv->irqs_table[2] = irq;
--	ret = devm_request_irq(&pdev->dev, irq, cpsw_interrupt,
-+	ret = devm_request_irq(&pdev->dev, irq, cpsw_tx_interrupt,
- 			0, dev_name(&pdev->dev), priv);
- 	if (ret < 0) {
- 		dev_err(priv->dev, "error attaching irq (%d)\n", ret);
-@@ -2387,7 +2406,7 @@ static int cpsw_probe(struct platform_device *pdev)
- 		goto clean_ale_ret;
- 
- 	priv->irqs_table[3] = irq;
--	ret = devm_request_irq(&pdev->dev, irq, cpsw_interrupt,
-+	ret = devm_request_irq(&pdev->dev, irq, cpsw_dummy_interrupt,
- 			0, dev_name(&pdev->dev), priv);
- 	if (ret < 0) {
- 		dev_err(priv->dev, "error attaching irq (%d)\n", ret);
--- 
-2.2.0
+Thanks,
+Tom
+
+>
+>   	/* TODO: Probe PHY here if possible */
+>
+>
