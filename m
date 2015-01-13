@@ -1,84 +1,53 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: [net-next PATCH v2 12/12] net: rocker: implement delete flow routine
-Date: Tue, 13 Jan 2015 13:40:15 -0800
-Message-ID: <20150113214014.13874.27794.stgit@nitbit.x32>
-References: <20150113212941.13874.48692.stgit@nitbit.x32>
+From: Eyal Perry <eyalpe@dev.mellanox.co.il>
+Subject: Re: BW regression after "tcp: refine TSO autosizing"
+Date: Tue, 13 Jan 2015 23:41:15 +0200
+Message-ID: <54B590FB.5040805@dev.mellanox.co.il>
+References: <54B54C72.8060705@dev.mellanox.co.il>	<1421175434.4099.21.camel@edumazet-glaptop2.roam.corp.google.com> <CAJ3xEMibMzJH-AB7pBnO9qBL4McTdsajqHzxXkadnTf1khNdxA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gerlitz.or@gmail.com, jhs@mojatatu.com,
-	andy@greyhouse.net, davem@davemloft.net
-To: tgraf@suug.ch, simon.horman@netronome.com, sfeldma@gmail.com
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Amir Vadai <amirv@mellanox.com>,
+	Yevgeny Petrilin <yevgenyp@mellanox.com>,
+	Saeed Mahameed <saeedm@mellanox.com>,
+	Ido Shamay <idos@mellanox.com>,
+	Amir Ancel <amira@mellanox.com>,
+	Eyal Perry <eyalpe@mellanox.com>
+To: Or Gerlitz <gerlitz.or@gmail.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f47.google.com ([209.85.218.47]:56189 "EHLO
-	mail-oi0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751593AbbAMVkd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2015 16:40:33 -0500
-Received: by mail-oi0-f47.google.com with SMTP id z81so4485292oif.6
-        for <netdev@vger.kernel.org>; Tue, 13 Jan 2015 13:40:33 -0800 (PST)
-In-Reply-To: <20150113212941.13874.48692.stgit@nitbit.x32>
+Received: from mail-wg0-f45.google.com ([74.125.82.45]:58640 "EHLO
+	mail-wg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751176AbbAMVlU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2015 16:41:20 -0500
+Received: by mail-wg0-f45.google.com with SMTP id y19so5504185wgg.4
+        for <netdev@vger.kernel.org>; Tue, 13 Jan 2015 13:41:19 -0800 (PST)
+In-Reply-To: <CAJ3xEMibMzJH-AB7pBnO9qBL4McTdsajqHzxXkadnTf1khNdxA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
----
- drivers/net/ethernet/rocker/rocker.c |   46 +++++++++++++++++++++++++++++++++-
- 1 file changed, 45 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
-index 8acd730..0b400c4 100644
---- a/drivers/net/ethernet/rocker/rocker.c
-+++ b/drivers/net/ethernet/rocker/rocker.c
-@@ -4439,7 +4439,51 @@ static int rocker_set_flows(struct net_device *dev,
- static int rocker_del_flows(struct net_device *dev,
- 			    struct net_flow_rule *flow)
- {
--	return -EOPNOTSUPP;
-+	struct rocker_port *rocker_port = netdev_priv(dev);
-+	struct rocker_flow_tbl_entry *entry;
-+	struct rocker_group_tbl_entry *group;
-+	struct hlist_node *tmp;
-+	int bkt, err = -EEXIST;
-+	unsigned long flags;
-+
-+	spin_lock_irqsave(&rocker_port->rocker->flow_tbl_lock, flags);
-+	hash_for_each_safe(rocker_port->rocker->flow_tbl,
-+			   bkt, tmp, entry, entry) {
-+		if (rocker_goto_value(flow->table_id) != entry->key.tbl_id ||
-+		    flow->uid != entry->cookie)
-+			continue;
-+
-+		hash_del(&entry->entry);
-+		err = 0;
-+		break;
-+	}
-+	spin_unlock_irqrestore(&rocker_port->rocker->flow_tbl_lock, flags);
-+
-+	if (!err)
-+		goto done;
-+
-+	spin_lock_irqsave(&rocker_port->rocker->group_tbl_lock, flags);
-+	hash_for_each_safe(rocker_port->rocker->group_tbl,
-+			   bkt, tmp, group, entry) {
-+		if (rocker_goto_value(flow->table_id) !=
-+			ROCKER_GROUP_TYPE_GET(group->group_id) ||
-+		    flow->uid != group->cookie)
-+			continue;
-+
-+		hash_del(&group->entry);
-+		err = 0;
-+		break;
-+	}
-+	spin_unlock_irqrestore(&rocker_port->rocker->group_tbl_lock, flags);
-+
-+done:
-+	if (!err) {
-+		err = rocker_cmd_exec(rocker_port->rocker, rocker_port,
-+				      rocker_cmd_flow_tbl_del,
-+				      entry, NULL, NULL, true);
-+		kfree(entry);
-+	}
-+	return err;
- }
- #endif
- 
+On 1/13/2015 22:21 PM, Or Gerlitz wrote:
+> On Tue, Jan 13, 2015 at 8:57 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>> On Tue, 2015-01-13 at 18:48 +0200, Eyal Perry wrote:
+>>> Hello Eric,
+>>> Lately we've observed performance degradation in BW of about 30-40% (depends on
+>>> the setup we use).
+>>> I've bisected the issue down to the this commit: 605ad7f1 ("tcp: refine TSO
+>>> autosizing")
+>>>
+>>> For instance, I was running the following test:
+>>> 1. Bounding net device' irqs to core 0 for both client and server side
+>>> 2. Running netperf with 64K massage size (used the following command)
+>>> $ netperf -H remote -T 1,1 -l 100 -t TCP_STREAM -- -k THROUGHPUT -M 65536 -m 65536
+>>>
+>>> I ran the test on upstream net-next including your patch and than reverted it
+>>> and these are the results I got was improvement from 14.6Gbps to 22.1Gbps.
+>>>
+>>> an additional difference I've noticed when inspecting the ethtool statics,
+>>> number of xmit_more packets increased from 4 to 160 with the reverted kernel.
+>>>
+>>> We are investigating this issue, do you have a hint?
+>> Which driver are you using for this test ?
+> AFAIK, mlx4
+Oops, forgot to mention.
+mlx4 indeed.
