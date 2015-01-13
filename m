@@ -1,44 +1,58 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [RFC PATCH v2 1/2] net: af_packet support for direct ring access
- in user space
-Date: Tue, 13 Jan 2015 14:21:48 +0100
-Message-ID: <54B51BEC.2040809@redhat.com>
-References: <20150113043509.29985.33515.stgit@nitbit.x32> <1421152510.13626.22.camel@stressinduktion.org>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next 4/8] net: dsa: cleanup resources upon module
+ removal
+Date: Tue, 13 Jan 2015 16:31:22 +0300
+Message-ID: <54B51E2A.1040006@cogentembedded.com>
+References: <1421099866-3184-1-git-send-email-f.fainelli@gmail.com> <1421099866-3184-5-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: John Fastabend <john.fastabend@gmail.com>, netdev@vger.kernel.org,
-	danny.zhou@intel.com, nhorman@tuxdriver.com,
-	john.ronciak@intel.com, brouer@redhat.com
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Cc: davem@davemloft.net, buytenh@wantstofly.org
+To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:37335 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751004AbbAMNWl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Jan 2015 08:22:41 -0500
-In-Reply-To: <1421152510.13626.22.camel@stressinduktion.org>
+Received: from mail-lb0-f181.google.com ([209.85.217.181]:59296 "EHLO
+	mail-lb0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751133AbbAMNb0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2015 08:31:26 -0500
+Received: by mail-lb0-f181.google.com with SMTP id l4so2526423lbv.12
+        for <netdev@vger.kernel.org>; Tue, 13 Jan 2015 05:31:24 -0800 (PST)
+In-Reply-To: <1421099866-3184-5-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/13/2015 01:35 PM, Hannes Frederic Sowa wrote:
-> On Mo, 2015-01-12 at 20:35 -0800, John Fastabend wrote:
-...
->> +/* setsockopt takes addr, size ,direction parametner, getsockopt takes
->> + * iova, size, direction.
->> + * */
->> +struct tpacket_dma_mem_region {
->> +	void *addr;		/* userspace virtual address */
->> +	__u64 phys_addr;	/* physical address */
->> +	__u64 iova;		/* IO virtual address used for DMA */
->> +	unsigned long size;	/* size of region */
->> +	int direction;		/* dma data direction */
->> +};
->
-> Have you tested this with with 32 bit user space and 32 bit kernel, too?
-> I don't have any problem with only supporting 64 bit kernels for this
-> feature, but looking through the code I wonder if we handle the __u64
-> addresses correctly in all situations.
+Hello.
 
-Given this is placed into uapi and transferred via setsockopt(2), this
-would also need some form of compat handling, also for the case of mixed
-environments (e.g. 64 bit kernel, 32 bit user space).
+On 1/13/2015 12:57 AM, Florian Fainelli wrote:
+
+> We were not doing anything while removing the dsa module, which means
+> that we were leaving dangling network devices without any sort of driver
+> backing them, leading to all sorts of crashes. Make sure that we do
+> cleanup the slave network devices, slave MII bus we created, and
+> unassign the master_netdev dsa_ptr to make the packet processing go
+> through the regulard Ethernet receive path.
+
+    Regular. :-)
+
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+[...]
+
+> diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
+> index de77c83cfd9a..df7ec066ac64 100644
+> --- a/net/dsa/dsa.c
+> +++ b/net/dsa/dsa.c
+> @@ -316,10 +316,22 @@ out:
+>
+>   static void dsa_switch_destroy(struct dsa_switch *ds)
+>   {
+> +	int i;
+
+    Need empty line here.
+
+>   #ifdef CONFIG_NET_DSA_HWMON
+>   	if (ds->hwmon_dev)
+>   		hwmon_device_unregister(ds->hwmon_dev);
+>   #endif
+
+[...]
+
+WBR, Sergei
