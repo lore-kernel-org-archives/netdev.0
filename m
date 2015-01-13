@@ -1,73 +1,38 @@
-From: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
-Subject: [PATCH] atm: horizon: Remove some unused functions
-Date: Tue, 13 Jan 2015 19:50:21 +0100
-Message-ID: <1421175021-6022-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
-Cc: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Chas Williams <chas@cmf.nrl.navy.mil>,
-	linux-atm-general@lists.sourceforge.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net-next] ipv6: directly include libc-compat.h in ipv6.h
+Date: Tue, 13 Jan 2015 10:50:25 -0800
+Message-ID: <CAM_iQpX2QO5ttWK3yb6Dyw=DJSf4o4Fz9koPDi6iq0SHTHvD2g@mail.gmail.com>
+References: <1421090974-30018-1-git-send-email-willemb@google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Willem de Bruijn <willemb@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f52.google.com ([209.85.220.52]:50876 "EHLO
+	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751085AbbAMSuZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2015 13:50:25 -0500
+Received: by mail-pa0-f52.google.com with SMTP id eu11so5202026pac.11
+        for <netdev@vger.kernel.org>; Tue, 13 Jan 2015 10:50:25 -0800 (PST)
+In-Reply-To: <1421090974-30018-1-git-send-email-willemb@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Removes some functions that are not used anywhere:
-channel_to_vpivci() query_tx_channel_config() rx_disabled_handler()
+On Mon, Jan 12, 2015 at 11:29 AM, Willem de Bruijn <willemb@google.com> wrote:
+> From: Willem de Bruijn <willemb@google.com>
+>
+> Patch 3b50d9029809 ("ipv6: fix redefinition of in6_pktinfo ...")
+> fixed a libc compatibility issue in ipv6 structure definitions
+> as described in include/uapi/linux/libc-compat.h.
+>
+> It relies on including linux/in6.h to include libc-compat.h itself.
+> Include that file directly to clearly communicate the dependency
+> (libc-compat.h: "This include must be as early as possible").
+>
+> Signed-off-by: Willem de Bruijn <willemb@google.com>
+>
 
-This was partially found by using a static code analysis program called cppcheck.
+Acked-by: Cong Wang <xiyou.wangcong@gmail.com>
 
-Signed-off-by: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
----
- drivers/atm/horizon.c |   24 ------------------------
- 1 file changed, 24 deletions(-)
-
-diff --git a/drivers/atm/horizon.c b/drivers/atm/horizon.c
-index 1dc0519..527bbd5 100644
---- a/drivers/atm/horizon.c
-+++ b/drivers/atm/horizon.c
-@@ -458,12 +458,6 @@ static inline void update_tx_channel_config (hrz_dev * dev, short chan, u8 mode,
-     return;
- }
- 
--static inline u16 query_tx_channel_config (hrz_dev * dev, short chan, u8 mode) {
--  wr_regw (dev, TX_CHANNEL_CONFIG_COMMAND_OFF,
--	   chan * TX_CHANNEL_CONFIG_MULT | mode);
--    return rd_regw (dev, TX_CHANNEL_CONFIG_DATA_OFF);
--}
--
- /********** dump functions **********/
- 
- static inline void dump_skb (char * prefix, unsigned int vc, struct sk_buff * skb) {
-@@ -513,16 +507,6 @@ static inline void dump_framer (hrz_dev * dev) {
- 
- /* RX channels are 10 bit integers, these fns are quite paranoid */
- 
--static inline int channel_to_vpivci (const u16 channel, short * vpi, int * vci) {
--  unsigned short vci_bits = 10 - vpi_bits;
--  if ((channel & RX_CHANNEL_MASK) == channel) {
--    *vci = channel & ((~0)<<vci_bits);
--    *vpi = channel >> vci_bits;
--    return channel ? 0 : -EINVAL;
--  }
--  return -EINVAL;
--}
--
- static inline int vpivci_to_channel (u16 * channel, const short vpi, const int vci) {
-   unsigned short vci_bits = 10 - vpi_bits;
-   if (0 <= vpi && vpi < 1<<vpi_bits && 0 <= vci && vci < 1<<vci_bits) {
-@@ -1260,14 +1244,6 @@ static u32 rx_queue_entry_next (hrz_dev * dev) {
-   return rx_queue_entry;
- }
- 
--/********** handle RX disabled by device **********/
--
--static inline void rx_disabled_handler (hrz_dev * dev) {
--  wr_regw (dev, RX_CONFIG_OFF, rd_regw (dev, RX_CONFIG_OFF) | RX_ENABLE);
--  // count me please
--  PRINTK (KERN_WARNING, "RX was disabled!");
--}
--
- /********** handle RX data received by device **********/
- 
- // called from IRQ handler
--- 
-1.7.10.4
+Thanks for the patch!
