@@ -1,63 +1,126 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [PATCH 2/6] vxlan: Group Policy extension
-Date: Mon, 12 Jan 2015 18:28:50 -0800
-Message-ID: <CA+mtBx8-rMYSkj2KKXBq60KeF=V=iCG2K0HgVxO5JMVK1yhwCg@mail.gmail.com>
-References: <cover.1420756324.git.tgraf@suug.ch>
-	<7339e3bff124cecaf65cd04ea9bdc973c730ba34.1420756324.git.tgraf@suug.ch>
-	<CA+mtBx8SWiwjBfxx05omur1gDeF9QcKtjDKJQ+XdUgi_U8LWig@mail.gmail.com>
-	<20150113010357.GB20387@casper.infradead.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>, Jesse Gross <jesse@nicira.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Pravin B Shelar <pshelar@nicira.com>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	"dev@openvswitch.org" <dev@openvswitch.org>
-To: Thomas Graf <tgraf@suug.ch>
+From: Fan Du <fan.du@intel.com>
+Subject: [PATCHv2 net-next] openvswitch: Introduce ovs_tunnel_route_lookup
+Date: Tue, 13 Jan 2015 10:41:23 +0800
+Message-ID: <1421116883-26839-1-git-send-email-fan.du@intel.com>
+References: <1421054087-25632-1-git-send-email-fan.du@intel.com>
+Cc: dev@openvswitch.org, netdev@vger.kernel.org,
+	fengyuleidian0615@gmail.com
+To: pshelar@nicira.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f169.google.com ([209.85.213.169]:43023 "EHLO
-	mail-ig0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752546AbbAMC2v (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jan 2015 21:28:51 -0500
-Received: by mail-ig0-f169.google.com with SMTP id z20so14388322igj.0
-        for <netdev@vger.kernel.org>; Mon, 12 Jan 2015 18:28:50 -0800 (PST)
-In-Reply-To: <20150113010357.GB20387@casper.infradead.org>
+Received: from mga01.intel.com ([192.55.52.88]:58140 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753405AbbAMCpB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 12 Jan 2015 21:45:01 -0500
+In-Reply-To: <1421054087-25632-1-git-send-email-fan.du@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 12, 2015 at 5:03 PM, Thomas Graf <tgraf@suug.ch> wrote:
-> On 01/12/15 at 10:14am, Tom Herbert wrote:
->> > diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
->> > index f7d0d2d..9f07bf5 100644
->> > --- a/include/uapi/linux/if_link.h
->> > +++ b/include/uapi/linux/if_link.h
->> > @@ -370,10 +370,18 @@ enum {
->> >         IFLA_VXLAN_UDP_CSUM,
->> >         IFLA_VXLAN_UDP_ZERO_CSUM6_TX,
->> >         IFLA_VXLAN_UDP_ZERO_CSUM6_RX,
->> > +       IFLA_VXLAN_EXTENSION,
->> >         __IFLA_VXLAN_MAX
->> >  };
->> >  #define IFLA_VXLAN_MAX (__IFLA_VXLAN_MAX - 1)
->> >
->> > +enum {
->> > +       IFLA_VXLAN_EXT_UNSPEC,
->> > +       IFLA_VXLAN_EXT_GBP,
->> > +       __IFLA_VXLAN_EXT_MAX,
->> > +};
->> > +#define IFLA_VXLAN_EXT_MAX (__IFLA_VXLAN_EXT_MAX - 1)
->> > +
->>
->> Creating a level of indirection for extensions seems overly
->> complicated to me. Why not just define IFLA_VXLAN_GBP as just another
->> enum above?
->
-> I think it's cleaner to group them in a nested attribute.
-> It clearly separates the optional extensions from the base
-> attributes. RCO, GPE, GBP can all live in there.
+Introduce ovs_tunnel_route_lookup to consolidate route lookup
+shared by vxlan, gre, and geneve ports.
 
-This is inconsistent with similar things in GRE and GUE. For instance,
-GRE keyid is set as its own attribute. It just seems like this adding
-more code to the driver than is necessary for the functionality
-needed.
+Signed-off-by: Fan Du <fan.du@intel.com>
+---
+Chnage log:
+v2:
+  - Use inline instead of function call
+  - Rename vport_route_lookup to ovs_tunnel_route_lookup
+---
+ net/openvswitch/vport-geneve.c |   11 +----------
+ net/openvswitch/vport-gre.c    |   10 +---------
+ net/openvswitch/vport-vxlan.c  |   10 +---------
+ net/openvswitch/vport.h        |   18 ++++++++++++++++++
+ 4 files changed, 21 insertions(+), 28 deletions(-)
+
+diff --git a/net/openvswitch/vport-geneve.c b/net/openvswitch/vport-geneve.c
+index 484864d..0953c9f 100644
+--- a/net/openvswitch/vport-geneve.c
++++ b/net/openvswitch/vport-geneve.c
+@@ -191,16 +191,7 @@ static int geneve_tnl_send(struct vport *vport, struct sk_buff *skb)
+ 	}
+ 
+ 	tun_key = &tun_info->tunnel;
+-
+-	/* Route lookup */
+-	memset(&fl, 0, sizeof(fl));
+-	fl.daddr = tun_key->ipv4_dst;
+-	fl.saddr = tun_key->ipv4_src;
+-	fl.flowi4_tos = RT_TOS(tun_key->ipv4_tos);
+-	fl.flowi4_mark = skb->mark;
+-	fl.flowi4_proto = IPPROTO_UDP;
+-
+-	rt = ip_route_output_key(net, &fl);
++	rt = ovs_tunnel_route_lookup(net, tun_key, skb, &fl, IPPROTO_UDP);
+ 	if (IS_ERR(rt)) {
+ 		err = PTR_ERR(rt);
+ 		goto error;
+diff --git a/net/openvswitch/vport-gre.c b/net/openvswitch/vport-gre.c
+index d4168c4..3171e03 100644
+--- a/net/openvswitch/vport-gre.c
++++ b/net/openvswitch/vport-gre.c
+@@ -148,15 +148,7 @@ static int gre_tnl_send(struct vport *vport, struct sk_buff *skb)
+ 	}
+ 
+ 	tun_key = &OVS_CB(skb)->egress_tun_info->tunnel;
+-	/* Route lookup */
+-	memset(&fl, 0, sizeof(fl));
+-	fl.daddr = tun_key->ipv4_dst;
+-	fl.saddr = tun_key->ipv4_src;
+-	fl.flowi4_tos = RT_TOS(tun_key->ipv4_tos);
+-	fl.flowi4_mark = skb->mark;
+-	fl.flowi4_proto = IPPROTO_GRE;
+-
+-	rt = ip_route_output_key(net, &fl);
++	rt = ovs_tunnel_route_lookup(net, tun_key, skb, &fl, IPPROTO_GRE);
+ 	if (IS_ERR(rt)) {
+ 		err = PTR_ERR(rt);
+ 		goto err_free_skb;
+diff --git a/net/openvswitch/vport-vxlan.c b/net/openvswitch/vport-vxlan.c
+index d7c46b3..1528090 100644
+--- a/net/openvswitch/vport-vxlan.c
++++ b/net/openvswitch/vport-vxlan.c
+@@ -158,15 +158,7 @@ static int vxlan_tnl_send(struct vport *vport, struct sk_buff *skb)
+ 	}
+ 
+ 	tun_key = &OVS_CB(skb)->egress_tun_info->tunnel;
+-	/* Route lookup */
+-	memset(&fl, 0, sizeof(fl));
+-	fl.daddr = tun_key->ipv4_dst;
+-	fl.saddr = tun_key->ipv4_src;
+-	fl.flowi4_tos = RT_TOS(tun_key->ipv4_tos);
+-	fl.flowi4_mark = skb->mark;
+-	fl.flowi4_proto = IPPROTO_UDP;
+-
+-	rt = ip_route_output_key(net, &fl);
++	rt = ovs_tunnel_route_lookup(net, tun_key, skb, &fl, IPPROTO_UDP);
+ 	if (IS_ERR(rt)) {
+ 		err = PTR_ERR(rt);
+ 		goto error;
+diff --git a/net/openvswitch/vport.h b/net/openvswitch/vport.h
+index 99c8e71..7b97661 100644
+--- a/net/openvswitch/vport.h
++++ b/net/openvswitch/vport.h
+@@ -236,4 +236,22 @@ static inline void ovs_skb_postpush_rcsum(struct sk_buff *skb,
+ int ovs_vport_ops_register(struct vport_ops *ops);
+ void ovs_vport_ops_unregister(struct vport_ops *ops);
+ 
++static inline struct rtable *ovs_tunnel_route_lookup(struct net *net,
++						     struct ovs_key_ipv4_tunnel *key,
++						     struct sk_buff *skb,
++						     struct flowi4 *fl,
++						     u8 protocol)
++{
++	struct rtable *rt;
++
++	memset(fl, 0, sizeof(*fl));
++	fl->daddr = key->ipv4_dst;
++	fl->saddr = key->ipv4_src;
++	fl->flowi4_tos = RT_TOS(key->ipv4_tos);
++	fl->flowi4_mark = skb->mark;
++	fl->flowi4_proto = protocol;
++
++	rt = ip_route_output_key(net, fl);
++	return rt;
++}
+ #endif /* vport.h */
+-- 
+1.7.1
