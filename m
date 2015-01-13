@@ -1,53 +1,35 @@
-From: John Heffner <johnwheffner@gmail.com>
-Subject: Re: [PATCH] tcp: Fix RFC reference in comment
-Date: Tue, 13 Jan 2015 17:01:28 -0500
-Message-ID: <CABrhC0m=aPO=OcfK_gTusHz7CU9OUeXAHoqUDaVTGLDiQnL56Q@mail.gmail.com>
-References: <1421183431-29915-1-git-send-email-dbanerje@akamai.com>
-	<CAK6E8=d6NMZjyH1JFoJX_ioAdQNYCAvH-G3ja9fScwW9u2=NFQ@mail.gmail.com>
-	<D0DAFA79.4435F%dbanerje@akamai.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] mlx5: avoid build warnings on 32-bit
+Date: Tue, 13 Jan 2015 17:08:35 -0500 (EST)
+Message-ID: <20150113.170835.117518742562457914.davem@davemloft.net>
+References: <4105686.Jz5UR0277i@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Yuchung Cheng <ycheng@google.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: "Banerjee, Debabrata" <dbanerje@akamai.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <D0DAFA79.4435F%dbanerje@akamai.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, eli@mellanox.com,
+	linux-rdma@vger.kernel.org
+To: arnd@arndb.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:36654 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751245AbbAMWIi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2015 17:08:38 -0500
+In-Reply-To: <4105686.Jz5UR0277i@wuerfel>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 13, 2015 at 4:42 PM, Banerjee, Debabrata
-<dbanerje@akamai.com> wrote:
-> On 1/13/15, 4:36 PM, "Yuchung Cheng" <ycheng@google.com> wrote:
->
->>On Tue, Jan 13, 2015 at 1:10 PM, Debabrata Banerjee <dbanerje@akamai.com>
->>wrote:
->>>
->>> -/* RFC2861. Reset CWND after idle period longer RTO to "restart
->>>window".
->>> +/* RFC2581 4.1. Reset CWND after idle period longer RTO to "restart
->>>window".
->>>   * This is the first part of cwnd validation mechanism. */
->>>  static void tcp_cwnd_restart(struct sock *sk, const struct dst_entry
->>>*dst)
->>>  {
->>
->>RFC2861 resets the cwnd like in RFC2581, but the rest of the code
->>implements RFC2861. So I think the current comment is fine.
->
->
-> No RFC2861 is an experimental RFC that's implemented in
-> tcp_cwnd_application_limited(). RFC2861 Recommends reducing the cwnd by
-> averaging the current cwnd and the used cwnd as the new cwnd.
->
->
-> RFC2581 4.1 Says to set cwnd to initial cwnd if more than one rto has
-> passed since the last send. This is what is implemented in the function
-> above.
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Tue, 13 Jan 2015 17:08:06 +0100
 
-Look at the code a little closer -- it's decaying cwnd based on number
-of timeouts as described in 2861, not resetting to IW as recommended
-in 2581.
+> The mlx5 driver passes a string pointer in through a 'u64' variable,
+> which on 32-bit machines causes a build warning:
+> 
+> drivers/net/ethernet/mellanox/mlx5/core/debugfs.c: In function 'qp_read_field':
+> drivers/net/ethernet/mellanox/mlx5/core/debugfs.c:303:11: warning: cast from pointer to integer of different size [-Wpointer-to-int-cast]
+> 
+> The code is in fact safe, so we can shut up the warning by adding
+> extra type casts.
+> 
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 
-  -John
+Applied.
