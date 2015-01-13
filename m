@@ -1,48 +1,51 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] bridge: only provide proxy ARP when CONFIG_INET is enabled
-Date: Tue, 13 Jan 2015 15:10:27 +0100
-Message-ID: <56868207.rHBDZL3pbk@wuerfel>
+From: Kalle Valo <kvalo@qca.qualcomm.com>
+Subject: Re: [PATCH 8/8] ath10k: fix error return code
+Date: Tue, 13 Jan 2015 16:16:40 +0200
+Message-ID: <87ppai6a0n.fsf@kamboji.qca.qualcomm.com>
+References: <1419872683-32709-1-git-send-email-Julia.Lawall@lip6.fr>
+	<1419872683-32709-9-git-send-email-Julia.Lawall@lip6.fr>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: davem@davemloft.net, Kyeyoon Park <kyeyoonp@codeaurora.org>,
-	bridge@lists.linux-foundation.org,
-	Stephen Hemminger <stephen@networkplumber.org>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.126.130]:56334 "EHLO
-	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751271AbbAMOKe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2015 09:10:34 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <linux-wireless@vger.kernel.org>,
+	<kernel-janitors@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<ath10k@lists.infradead.org>, <netdev@vger.kernel.org>
+To: Julia Lawall <Julia.Lawall@lip6.fr>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1419872683-32709-9-git-send-email-Julia.Lawall@lip6.fr> (Julia
+	Lawall's message of "Mon, 29 Dec 2014 18:04:43 +0100")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-When IPV4 support is disabled, we cannot call arp_send from
-the bridge code, which would result in a kernel link error:
+Julia Lawall <Julia.Lawall@lip6.fr> writes:
 
-net/built-in.o: In function `br_handle_frame_finish':
-:(.text+0x59914): undefined reference to `arp_send'
-:(.text+0x59a50): undefined reference to `arp_tbl'
+> Return a negative error code on failure.
+>
+> A simplified version of the semantic match that finds this problem is as
+> follows: (http://coccinelle.lip6.fr/)
+>
+> // <smpl>
+> @@
+> identifier ret; expression e1,e2;
+> @@
+> (
+> if (\(ret < 0\|ret != 0\))
+>  { ... return ret; }
+> |
+> ret = 0
+> )
+> ... when != ret = e1
+>     when != &ret
+> *if(...)
+> {
+>   ... when != ret = e2
+>       when forall
+>  return ret;
+> }
+> // </smpl>
+>
+> Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
 
-This makes the newly added proxy ARP support in the bridge
-code depend on the CONFIG_INET symbol and lets the compiler
-optimize the code out to avoid the link error.
+Thanks, applied to ath.git.
 
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-Fixes: 958501163ddd ("bridge: Add support for IEEE 802.11 Proxy ARP")
-Cc: Kyeyoon Park <kyeyoonp@codeaurora.org>
-
-diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
-index 1f1de715197c..e2aa7be3a847 100644
---- a/net/bridge/br_input.c
-+++ b/net/bridge/br_input.c
-@@ -154,7 +154,8 @@ int br_handle_frame_finish(struct sk_buff *skb)
- 	dst = NULL;
- 
- 	if (is_broadcast_ether_addr(dest)) {
--		if (p->flags & BR_PROXYARP &&
-+		if (IS_ENABLED(CONFIG_INET) &&
-+		    p->flags & BR_PROXYARP &&
- 		    skb->protocol == htons(ETH_P_ARP))
- 			br_do_proxy_arp(skb, br, vid);
- 
+-- 
+Kalle Valo
