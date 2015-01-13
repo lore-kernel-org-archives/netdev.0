@@ -1,55 +1,115 @@
-From: <shh.xie@gmail.com>
-Subject: [PATCH] net/fsl: replace (1 << x) with BIT(x) for bit definitions in xgmac_mdio
-Date: Tue, 13 Jan 2015 10:30:59 +0800
-Message-ID: <1421116259-16152-1-git-send-email-shh.xie@gmail.com>
+From: Rahul Sharma <rsharma@arista.com>
+Subject: Re: [PATCH net] ipv6: Prevent ipv6_find_hdr() from returning ENOENT
+ for valid non-first fragments
+Date: Tue, 13 Jan 2015 09:53:31 +0530
+Message-ID: <CAFB3abxcg4gdEh4CJHd_Vx8mZKFmO3kMG=pDjkQYS5awTzFbSQ@mail.gmail.com>
+References: <CAFB3abwKpR1VqZXUrsexqveAZrA2LTSmTe8a=-H7z2HjAptjwA@mail.gmail.com>
+	<1420627396.26870.36.camel@stressinduktion.org>
+	<20150108205328.GA3361@salvia>
+	<1420756756.1755002.211556745.0418D128@webmail.messagingengine.com>
+	<20150109000546.GA3488@salvia>
+	<CAFB3abwrjp61LLOk3RWwXYEq1g4QZUC8OTKuO2cAr+GbV3n4rw@mail.gmail.com>
+	<1420803255.1978819.211762005.707EFFB9@webmail.messagingengine.com>
+	<20150109114506.GA4857@salvia>
+	<1420818636.31075.15.camel@stressinduktion.org>
+	<CAFB3abwetkNa4753g9d-z8xU0fMThyApuESQNkbxGa8Yz2YRfQ@mail.gmail.com>
+	<20150112115111.GA3506@salvia>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Shaohui Xie <Shaohui.Xie@freescale.com>
-To: <netdev@vger.kernel.org>, <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1on0063.outbound.protection.outlook.com ([157.56.110.63]:13568
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751511AbbAMDhC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 Jan 2015 22:37:02 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150112115111.GA3506@salvia>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Shaohui Xie <Shaohui.Xie@freescale.com>
+Hi
 
-Signed-off-by: Shaohui Xie <Shaohui.Xie@freescale.com>
----
- drivers/net/ethernet/freescale/xgmac_mdio.c | 14 +++++++-------
- 1 file changed, 7 insertions(+), 7 deletions(-)
+On Mon, Jan 12, 2015 at 5:21 PM, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
+> On Mon, Jan 12, 2015 at 04:38:16PM +0530, Rahul Sharma wrote:
+>> Hi Pablo, Hannes
+>>
+>> On Fri, Jan 9, 2015 at 9:20 PM, Hannes Frederic Sowa
+>> <hannes@stressinduktion.org> wrote:
+>> > On Fr, 2015-01-09 at 12:45 +0100, Pablo Neira Ayuso wrote:
+>> >> Hi Hannes,
+>> >>
+>> >> On Fri, Jan 09, 2015 at 12:34:15PM +0100, Hannes Frederic Sowa wrote:
+>> >> > On Fri, Jan 9, 2015, at 08:18, Rahul Sharma wrote:
+>> >> > > Hi Pablo,
+>> >> > >
+>> >> > > On Fri, Jan 9, 2015 at 5:35 AM, Pablo Neira Ayuso <pablo@netfilter.org>
+>> >> > > wrote:
+>> >> > > > On Thu, Jan 08, 2015 at 11:39:16PM +0100, Hannes Frederic Sowa wrote:
+>> >> > > >> Hi Pablo,
+>> >> > > >>
+>> >> > > >> On Thu, Jan 8, 2015, at 21:53, Pablo Neira Ayuso wrote:
+>> >> > > >> > I'm afraid we cannot just get rid of that !ipv6_ext_hdr() check. The
+>> >> > > >> > ipv6_find_hdr() function is designed to return the transport protocol.
+>> >> > > >> > After the proposed change, it will return extension header numbers.
+>> >> > > >> > This will break existing ip6tables rulesets since the `-p' option
+>> >> > > >> > relies on this function to match the transport protocol.
+>> >> > > >> >
+>> >> > > >> > Note that the AH header is skipped (see code a bit below this
+>> >> > > >> > problematic fragmentation handling) so the follow up header after the
+>> >> > > >> > AH header is returned as the transport header.
+>> >> > > >> >
+>> >> > > >> > We can probably return the AH protocol number for non-1st fragments.
+>> >> > > >> > However, that would be something new to ip6tables since nobody has
+>> >> > > >> > ever seen packet matching `-p ah' rules. Thus, we restore control to
+>> >> > > >> > the user to allow this, but we would accept all kind of fragmented AH
+>> >> > > >> > traffic through the firewall since we cannot know what transport
+>> >> > > >> > protocol contains from non-1st fragments (unless I'm missing anything,
+>> >> > > >> > I need to have a closer look at this again tomorrow with fresher
+>> >> > > >> > mind).
+>> >> > > >>
+>> >> > > >> The code in question is guarded by (_frag_off != 0), so we are
+>> >> > > >> definitely processing a non-1st fragment currently. The -p match would
+>> >> > > >> happen at the time when the packet is reassembled and thus ipv6_find_hdr
+>> >> > > >> will find the real transport (final) header at this point (I hope I
+>> >> > > >> followed the code correctly here).
+>> >> > > >
+>> >> > > > Then, Rahul should get things working by modprobing nf_defrag_ipv6.
+>> >> > >
+>> >> > > I already had nf_defrag_ipv6 installed when the issue occured. But I
+>> >> > > see ip6table_raw_hook returning NF_DROP for the second fragment.
+>> >> >
+>> >> > That's what I expected. I think the change only affects hooks before
+>> >> > reassembly.
+>> >>
+>> >> reassembly happens at NF_IP6_PRI_CONNTRACK_DEFRAG (-400), so that
+>> >> happens before NF_IP6_PRI_RAW (-300) in IPv6 which is where the raw
+>> >> table is placed.
+>> >
+>> > I tried to reproduce it, but couldn't get non-1st fragments getting
+>> > dropped during traversal of the raw table. They get dropped earlier at
+>> > during reassembly or pass.
+>> >
+>> > I agree with Pablo, I also would like to see more data.
+>> >
+>> > Thanks,
+>> > Hannes
+>> >
+>> >
+>>
+>> I enabled pr_debug() and there was no error in nf_ct_frag6_gather().
+>> It seems to have defragmented the packet correctly. As expected,
+>> ipv6_defrag() returns NF_STOLEN for the first packet after queuing it.
+>> For the next fragment, ipv6_defrag() calls nf_ct_frag6_output() after
+>> after reassembling it.
+>
+> nf_ct_frag6_output() doesn't exist anymore. You're using an old
+> kernel, you should have started by telling so in your report.
+>
+> See 6aafeef ("netfilter: push reasm skb through instead of original
+> frag skbs").
 
-diff --git a/drivers/net/ethernet/freescale/xgmac_mdio.c b/drivers/net/ethernet/freescale/xgmac_mdio.c
-index a492e50..3a76e23 100644
---- a/drivers/net/ethernet/freescale/xgmac_mdio.c
-+++ b/drivers/net/ethernet/freescale/xgmac_mdio.c
-@@ -34,17 +34,17 @@ struct tgec_mdio_controller {
- 
- #define MDIO_STAT_ENC		BIT(6)
- #define MDIO_STAT_CLKDIV(x)	(((x>>1) & 0xff) << 8)
--#define MDIO_STAT_BSY		(1 << 0)
--#define MDIO_STAT_RD_ER		(1 << 1)
-+#define MDIO_STAT_BSY		BIT(0)
-+#define MDIO_STAT_RD_ER		BIT(1)
- #define MDIO_CTL_DEV_ADDR(x) 	(x & 0x1f)
- #define MDIO_CTL_PORT_ADDR(x)	((x & 0x1f) << 5)
--#define MDIO_CTL_PRE_DIS	(1 << 10)
--#define MDIO_CTL_SCAN_EN	(1 << 11)
--#define MDIO_CTL_POST_INC	(1 << 14)
--#define MDIO_CTL_READ		(1 << 15)
-+#define MDIO_CTL_PRE_DIS	BIT(10)
-+#define MDIO_CTL_SCAN_EN	BIT(11)
-+#define MDIO_CTL_POST_INC	BIT(14)
-+#define MDIO_CTL_READ		BIT(15)
- 
- #define MDIO_DATA(x)		(x & 0xffff)
--#define MDIO_DATA_BSY		(1 << 31)
-+#define MDIO_DATA_BSY		BIT(31)
- 
- /*
-  * Wait until the MDIO bus is free
--- 
-1.8.4.1
+ I apologize for not mentioning the kernel version in my first mail. I
+had suspected problem in ipv6_find_hdr, the code for which was same.
+Anyway, thanks for the help. I ll try to figure out how to make this
+work in my kernel.
+
+Thanks,
+Rahul
