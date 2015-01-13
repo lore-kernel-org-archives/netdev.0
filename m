@@ -1,8 +1,8 @@
 From: David Laight <David.Laight@ACULAB.COM>
 Subject: RE: [PATCH net-next] rhashtable: Lower/upper bucket may map to same
  lock while shrinking
-Date: Tue, 13 Jan 2015 15:00:54 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CAC6946@AcuExch.aculab.com>
+Date: Tue, 13 Jan 2015 15:06:14 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CAC6969@AcuExch.aculab.com>
 References: <20150112232217.GA5277@wfg-t540p.sh.intel.com>
  <20150112235821.GB16617@casper.infradead.org>
  <063D6719AE5E284EB5DD2968C1650D6D1CAC6593@AcuExch.aculab.com>
@@ -25,20 +25,36 @@ List-Id: netdev.vger.kernel.org
 
 From: Thomas Graf
 ...
-> > Thought, could the shrunk table use the same locks as the lower half
-> > of the old table?
+> > >  		spin_lock_bh(old_bucket_lock1);
+> > > -		spin_lock_bh_nested(old_bucket_lock2, RHT_LOCK_NESTED);
+> > > -		spin_lock_bh_nested(new_bucket_lock, RHT_LOCK_NESTED2);
+> > > +
+> > > +		/* Depending on the lock per buckets mapping, the bucket in
+> > > +		 * the lower and upper region may map to the same lock.
+> > > +		 */
+> > > +		if (old_bucket_lock1 != old_bucket_lock2) {
+> > > +			spin_lock_bh_nested(old_bucket_lock2, RHT_LOCK_NESTED);
+> > > +			spin_lock_bh_nested(new_bucket_lock, RHT_LOCK_NESTED2);
+> > > +		} else {
+> > > +			spin_lock_bh_nested(new_bucket_lock, RHT_LOCK_NESTED);
+> > > +		}
+> >
+> > Acquiring 3 locks of much the same type looks like a locking hierarchy
+> > violation just waiting to happen.
 > 
-> No. A new bucket table and thus a new set of locks is allocated when the
-> table is shrunk or grown. We only have check for overlapping locks
-> when holding multiple locks for the same table at the same time.
+> I'm not claiming it's extremely pretty, lockless lookup with deferred
+> resizing doesn't come for free ;-) If you have a suggestion on how to
+> implement this differently I'm all ears.
 
-I was guessing that when locks are shared buckets k and 2^n+k use the
-same lock.
-Under those conditions if the 'grow' decided not to allocate extra
-locks then it could save work by using exactly the same locks as the
-old table.
-Similarly 'shrink' could do the reverse.
+runs away....
 
-It was only a thought.
+> That said, it's well isolated
+> and the user of rhashtable does not have to deal with it. All code paths
+> which take multiple locks are mutually exclusive to each other (ht->mutex).
+
+OK, ht->mutes saves the day.
+Might be worth a comment to save people looking at the code in isolation
+from worrying and doing a bit search.
+OTOH it might be obvious from a slightly larger fragment than the diff.
 
 	David
