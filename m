@@ -1,39 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] rocker: fix harmless warning on 32-bit machines
-Date: Tue, 13 Jan 2015 16:56:57 -0500 (EST)
-Message-ID: <20150113.165657.1171408376100942920.davem@davemloft.net>
-References: <4047824.AYNhYQQ6UI@wuerfel>
+Subject: Re: [Xen-devel] [PATCH 08/14] xen-netback: use foreign page
+ information from the pages themselves
+Date: Tue, 13 Jan 2015 16:57:16 -0500 (EST)
+Message-ID: <20150113.165716.1890765871642205972.davem@davemloft.net>
+References: <1421077417-7162-1-git-send-email-david.vrabel@citrix.com>
+	<1421077417-7162-9-git-send-email-david.vrabel@citrix.com>
+	<54B52F1B.8040408@citrix.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jiri@resnulli.us, sfeldma@gmail.com,
-	linux-arm-kernel@lists.infradead.org
-To: arnd@arndb.de
+Cc: xen-devel@lists.xenproject.org, boris.ostrovsky@oracle.com,
+	jennifer.herbert@citrix.com, netdev@vger.kernel.org
+To: david.vrabel@citrix.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36567 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:36574 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751570AbbAMV5A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2015 16:57:00 -0500
-In-Reply-To: <4047824.AYNhYQQ6UI@wuerfel>
+	with ESMTP id S1751630AbbAMV5S (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2015 16:57:18 -0500
+In-Reply-To: <54B52F1B.8040408@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Tue, 13 Jan 2015 15:23:52 +0100
+From: David Vrabel <david.vrabel@citrix.com>
+Date: Tue, 13 Jan 2015 14:43:39 +0000
 
-> The rocker driver tries to assign a pointer to a 64-bit integer
-> and then back to a pointer. This is safe on all architectures,
-> but causes a compiler warning when pointers are shorter than
-> 64-bit:
+> On 12/01/15 15:43, David Vrabel wrote:
+>> From: Jenny Herbert <jenny.herbert@citrix.com>
+>> 
+>> Use the foreign page flag in netback to get the domid and grant ref
+>> needed for the grant copy.  This signficiantly simplifies the netback
+>> code and makes netback work with foreign pages from other backends
+>> (e.g., blkback).
+>> 
+>> This allows blkback to use iSCSI disks provided by domUs running on
+>> the same host.
 > 
-> rocker/rocker.c: In function 'rocker_desc_cookie_ptr_get':
-> rocker/rocker.c:809:9: warning: cast to pointer from integer of different size [-Wint-to-pointer-cast]
->   return (void *) desc_info->desc->cookie;
->          ^
+> Dave,
 > 
-> This adds another cast to uintptr_t to tell the compiler
-> that it's safe.
+> This depends on several xen changes.  It's been Acked-by: Ian Campbell
+> <ian.campbell@citrix.com>
 > 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> Are you happy for me to merge this via the xen tree in 3.20?
 
-Applied to net-next, thanks.
+No objections from me:
+
+Acked-by: David S. Miller <davem@davemloft.net>
