@@ -1,153 +1,144 @@
-From: "Dev, Vasu" <vasu.dev@intel.com>
-Subject: RE: [PATCH] i40e: don't enable and init FCOE by default when do PF
- reset
-Date: Tue, 13 Jan 2015 19:38:26 +0000
-Message-ID: <933BEC2E04D6A5458F4B0239FB547F9A34CC4055@fmsmsx118.amr.corp.intel.com>
-References: <1420821466-5747-1-git-send-email-ethan.zhao@oracle.com>
-	<D38E8E86660E514AB505863C19C9287C741097AF@ORSMSX102.amr.corp.intel.com>
-	<933BEC2E04D6A5458F4B0239FB547F9A34CC3608@fmsmsx118.amr.corp.intel.com>
- <CABawtvN_afL4B=fwtRJF_YJpe7tv6yf-OHJipWkGd-AiAjtckg@mail.gmail.com>
+From: Felipe Balbi <balbi@ti.com>
+Subject: [patch-net-next 3/3] net: ethernet: cpsw: don't requests IRQs we don't use
+Date: Tue, 13 Jan 2015 13:44:48 -0600
+Message-ID: <1421178288-7393-3-git-send-email-balbi@ti.com>
+References: <1421178288-7393-1-git-send-email-balbi@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "Ronciak, John" <john.ronciak@intel.com>,
-	Ethan Zhao <ethan.zhao@oracle.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Allan, Bruce W" <bruce.w.allan@intel.com>,
-	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
-	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
-	"Rose, Gregory V" <gregory.v.rose@intel.com>,
-	"Vick, Matthew" <matthew.vick@intel.com>,
-	"Williams, Mitch A" <mitch.a.williams@intel.com>,
-	"Parikh, Neerav" <neerav.parikh@intel.com>,
-	Linux NICS <Linux-nics@isotope.jf.intel.com>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"brian.maly@oracle.com" <brian.maly@oracle.com>
-To: Ethan Zhao <ethan.kernel@gmail.com>
+Content-Type: text/plain
+Cc: Tony Lindgren <tony@atomide.com>,
+	Linux OMAP Mailing List <linux-omap@vger.kernel.org>,
+	<mugunthanvnm@ti.com>, <netdev@vger.kernel.org>,
+	Felipe Balbi <balbi@ti.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:24785 "EHLO mga01.intel.com"
+Received: from bear.ext.ti.com ([192.94.94.41]:42715 "EHLO bear.ext.ti.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751049AbbAMTic (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Jan 2015 14:38:32 -0500
-In-Reply-To: <CABawtvN_afL4B=fwtRJF_YJpe7tv6yf-OHJipWkGd-AiAjtckg@mail.gmail.com>
-Content-Language: en-US
+	id S1751161AbbAMTpg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Jan 2015 14:45:36 -0500
+In-Reply-To: <1421178288-7393-1-git-send-email-balbi@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiA+PiA+IGRpZmYgLS1naXQgYS9kcml2ZXJz
-L25ldC9ldGhlcm5ldC9pbnRlbC9pNDBlL2k0MGVfbWFpbi5jDQo+ID4+ID4gYi9kcml2ZXJzL25l
-dC9ldGhlcm5ldC9pbnRlbC9pNDBlL2k0MGVfbWFpbi5jDQo+ID4+ID4gaW5kZXggYTVmMjY2MC4u
-YTI1NzJjYyAxMDA2NDQNCj4gPj4gPiAtLS0gYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9p
-NDBlL2k0MGVfbWFpbi5jDQo+ID4+ID4gKysrIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwv
-aTQwZS9pNDBlX21haW4uYw0KPiA+PiA+IEBAIC02MTgwLDkgKzYxODAsMTIgQEAgc3RhdGljIHZv
-aWQgaTQwZV9yZXNldF9hbmRfcmVidWlsZChzdHJ1Y3QNCj4gPj4gPiBpNDBlX3BmICpwZiwgYm9v
-bCByZWluaXQpDQo+ID4+ID4gICAgIH0NCj4gPj4gPiAgI2VuZGlmIC8qIENPTkZJR19JNDBFX0RD
-QiAqLw0KPiA+PiA+ICAjaWZkZWYgSTQwRV9GQ09FDQo+ID4+ID4gLSAgIHJldCA9IGk0MGVfaW5p
-dF9wZl9mY29lKHBmKTsNCj4gPj4gPiAtICAgaWYgKHJldCkNCj4gPj4gPiAtICAgICAgICAgICBk
-ZXZfaW5mbygmcGYtPnBkZXYtPmRldiwgImluaXRfcGZfZmNvZSBmYWlsZWQ6ICVkXG4iLCByZXQp
-Ow0KPiA+PiA+ICsgICBpZiAocGYtPmZsYWdzICYgSTQwRV9GTEFHX0ZDT0VfRU5BQkxFRCkgew0K
-PiA+PiA+ICsgICAgICAgICAgIHJldCA9IGk0MGVfaW5pdF9wZl9mY29lKHBmKTsNCj4gPg0KPiA+
-IENhbGxpbmcgaTQwZV9pbml0X3BmX2Zjb2UoKSBoZXJlIGNvbmZsaWN0cyB3aXRoIGl0cw0KPiBJ
-NDBFX0ZMQUdfRkNPRV9FTkFCTEVEIHByZS1jb25kaXRpb24gc2luY2UgSTQwRV9GTEFHX0ZDT0Vf
-RU5BQkxFRCBpcw0KPiBzZXQgYnkgdmVyeSBzYW1lIGk0MGVfaW5pdF9wZl9mY29lKCksIGluIHR1
-cm4gaTQwZV9pbml0X3BmX2Zjb2UoKSB3aWxsIG5ldmVyIGdldA0KPiBjYWxsZWQuDQo+IA0KPiBJ
-IGRvbid0IHRoaW5rIHNvLCAgaGVyZSAsaTQwZV9yZXNldF9hbmRfcmVidWlsZCgpICBpcyBub3Qg
-dGhlIG9ubHkgYW5kIHRoZSBmaXJzdA0KPiBwbGFjZSB0aGF0ICBpNDBlX2luaXRfcGZfZmNvZSgp
-IGlzIGNhbGxlZCwgc2VlIGk0MGVfcHJvYmUoKSwgdGhhdCBpcyB0aGUgZmlyc3QNCj4gY2hhbmNl
-Lg0KPiANCj4gaTQwZV9wcm9iZSgpDQo+IC0tPmk0MGVfc3dfaW5pdCgpDQo+ICAgICAgLS0+aTQw
-ZV9pbml0X3BmX2Zjb2UoKQ0KPiANCj4gQW5kIHRoZSBJNDBFX0ZMQUdfRkNPRV9FTkFCTEVEIGlz
-IHBvc3NpYmxlIGJlIHNldCBieQ0KPiBpNDBlX2Zjb2VfZW5hYmxlKCkgb3IgaTQwZV9mY29lX2Rp
-c2FibGUoKSBpbnRlcmZhY2UgYmVmb3JlIHRoZSByZXNldCBhY3Rpb24gaXMNCj4gdG8gYmUgZG9u
-ZS4NCj4gDQoNCkl0IGlzIHNldCBieSBpNDBlX2luaXRfcGZfZmNvZSgpIGFuZCB5b3UgYXJlIHJp
-Z2h0IHRoYXQgdGhlIG1vZGlmaWVkIGNhbGwgZmxvdyBieSB5b3VyIHBhdGNoIHdvbid0IGltcGFj
-dCBzZXR0aW5nIG9mIEk0MEVfRkxBR19GQ09FX0VOQUJMRUQgYW55d2F5IHdoaWNoIGNvdWxkIGhh
-dmUgcHJldmVudGVkIGNhbGxpbmcgaTQwZV9pbml0X3BmX2Zjb2UoKSBhcyBJIGRlc2NyaWJlZCBh
-Ym92ZSwgc28gdGhpcyBpcyBub3QgYW4gaXNzdWUgd2l0aCB0aGUgcGF0Y2guDQoNCj4gQlRXLCB0
-aGUgcmVhc29uIEkgcG9zdCB0aGlzIHBhdGNoIGlzIHRoYXQgd2UgaGl0IGEgYnVnLCBhZnRlciBz
-ZXR1cCB2bGFuLCB0aGUgUEYNCj4gaXMgZW5hYmxlZCB0byBGQ09FLg0KPiANCg0KVGhlbiB0aGF0
-IEJVRyB3b3VsZCBzdGlsbCByZW1haW4gdW4tZml4ZWQgYW5kIGNhbGxpbmcgaTQwZV9pbml0X3Bm
-X2Zjb2UoKSB1bmRlciBJNDBFX0ZMQUdfRkNPRV9FTkFCTEVEICBmbGFnIHJlYWxseSB3b24ndCBh
-ZmZlY3QgY2FsbCBmbG93IHRvIGZpeCBhbnl0aGluZy4gSSBtZWFuIEk0MEVfRkxBR19GQ09FX0VO
-QUJMRUQgIGNvbmRpdGlvbiB3aWxsIGJlIHRydWUgd2l0aCAicGYtPmh3LmZ1bmNfY2Fwcy5mY29l
-ID09IHRydWUiIGFuZCBvdGhlcndpc2UgY2FsbGluZyBpNDBlX2luaXRfcGZfZmNvZSgpIHNpbXBs
-eSByZXR1cm5zIGJhY2sgZWFybHkgb24gYWZ0ZXIgY2hlY2tpbmcgInBmLT5ody5mdW5jX2NhcHMu
-ZmNvZSA9PSBmYWxzZSIsIHNvIGhvdyB0aGF0IGJ1ZyBpcyBmaXhlZCBoZXJlIGJ5IGFkZGVkIEk0
-MEVfRkxBR19GQ09FX0VOQUJMRUQgIGNvbmRpdGlvbiA/IFdoYXQgaXMgdGhlIGJ1ZyA/DQoNCj4g
-Pg0KPiA+IEplZmYgS2lyc2hlciBzaG91bGQgYmUgZ2V0dGluZyBvdXQgYSBwYXRjaCBxdWV1ZWQg
-YnkgbWUgd2hpY2ggYWRkcw0KPiBJNDBFX0ZDb0UgS2J1aWxkIG9wdGlvbiwgaW4gdGhhdCBGQ29F
-IGlzIGRpc2FibGVkIGJ5IGRlZmF1bHQgYW5kICB1c2VyIGNvdWxkDQo+IGVuYWJsZSBGQ29FIG9u
-bHkgaWYgbmVlZGVkLCB0aGF0IHBhdGNoIHdvdWxkIGRvIHNhbWUgb2Ygc2tpcHBpbmcNCj4gaTQw
-ZV9pbml0X3BmX2Zjb2UoKSB3aGV0aGVyIEZDb0UgY2FwYWJpbGl0eSBpbiBkZXZpY2UgZW5hYmxl
-ZCBvciBub3QgaW4NCj4gZGVmYXVsdCBjb25maWcuDQo+ID4NCj4gDQo+IFRoZSBmb2xsb3dpbmcg
-cGF0Y2ggd2lsbCBub3QgZml4IHRoZSBhYm92ZSBpc3N1ZSAtLSBjb25maWd1cmF0aW9uIG9mIFBG
-IHdpbGwgYmUNCj4gY2hhbmdlZCB2aWEgcmVzZXQuDQo+IEhvdyBhYm91dCB0aGUgRkNPRSBpcyBj
-b25maWd1cmVkIGFuZCBkaXNhYmxlZCBieSAgaTQwZV9mY29lX2Rpc2FibGUoKSAsDQo+IHRoZW4g
-cmVzZXQgaGFwcGVucyA/DQo+IA0KDQpNYXkgYmUgYnV0IGlmIHRoZSBCVUcgaXMgZHVlIHRvIEZD
-b0UgYmVpbmcgZW5hYmxlZCB0aGVuIGhhdmluZyBpdCBkaXNhYmxlZCBpbiBjb25maWcgd2lsbCBh
-dm9pZCB0aGUgYnVnIGZvciBub24gRkNvRSBjb25maWcgb3B0aW9uIGFuZCBvbmNlIGJ1ZyBpcyB1
-bmRlcnN0b29kIHRoZW4gdGhhdCBoYXMgdG8gYmUgZml4ZWQgZm9yIEZDb0UgZW5hYmxlZCBjb25m
-aWcgYWxzbyBhcyBJIGFza2VkIGFib3ZlLg0KDQpUaGFua3MgRXRoYW4gZm9yIGRldGFpbGVkIHJl
-c3BvbnNlLg0KVmFzdQ0KDQo+ID4gRnJvbSBwYXRjaHdvcmsgV2VkIE9jdCAgMiAyMzoyNjowOCAy
-MDEzDQo+ID4gQ29udGVudC1UeXBlOiB0ZXh0L3BsYWluOyBjaGFyc2V0PSJ1dGYtOCINCj4gPiBN
-SU1FLVZlcnNpb246IDEuMA0KPiA+IENvbnRlbnQtVHJhbnNmZXItRW5jb2Rpbmc6IDdiaXQNCj4g
-PiBTdWJqZWN0OiBbbmV0XSBpNDBlOiBhZGRzIEZDb0UgY29uZmlndXJlIG9wdGlvbg0KPiA+IERh
-dGU6IFRodSwgMDMgT2N0IDIwMTMgMDc6MjY6MDggLTAwMDANCj4gPiBGcm9tOiBWYXN1IERldiA8
-dmFzdS5kZXZAaW50ZWwuY29tPg0KPiA+IFgtUGF0Y2h3b3JrLUlkOiAxMTc5Nw0KPiA+DQo+ID4g
-QWRkcyBGQ29FIGNvbmZpZyBvcHRpb24gSTQwRV9GQ09FLCBzbyB0aGF0IEZDb0UgY2FuIGJlIGVu
-YWJsZWQgYXMNCj4gPiBuZWVkZWQgYnV0IG90aGVyd2lzZSBoYXZlIGl0IGRpc2FibGVkIGJ5IGRl
-ZmF1bHQuDQo+ID4NCj4gPiBUaGlzIGFsc28gZWxpbWluYXRlIG11bHRpcGxlIEZDb0UgY29uZmln
-IGNoZWNrcywgaW5zdGVhZCBub3cganVzdCBvbmUNCj4gPiBjb25maWcgY2hlY2sgZm9yIENPTkZJ
-R19JNDBFX0ZDT0UuDQo+ID4NCj4gPiBUaGUgSTQwRSBGQ29FIHdhcyBhZGRlZCB3aXRoIDMuMTcg
-a2VybmVsIGFuZCB0aGVyZWZvcmUgdGhpcyBwYXRjaA0KPiA+IHNoYWxsIGJlIGFwcGxpZWQgdG8g
-c3RhYmxlIDMuMTcga2VybmVsIGFsc28uDQo+ID4NCj4gPiBDQzogPHN0YWJsZUB2Z2VyLmtlcm5l
-bC5vcmc+DQo+ID4gU2lnbmVkLW9mZi1ieTogVmFzdSBEZXYgPHZhc3UuZGV2QGludGVsLmNvbT4N
-Cj4gPiBUZXN0ZWQtYnk6IEppbSBZb3VuZyA8amFtZXN4Lm0ueW91bmdAaW50ZWwuY29tPg0KPiA+
-DQo+ID4gLS0tDQo+ID4gZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvS2NvbmZpZyAgICAgICAg
-ICAgfCAgIDExICsrKysrKysrKysrDQo+ID4gIGRyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2k0
-MGUvTWFrZWZpbGUgICAgIHwgICAgMiArLQ0KPiA+ICBkcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRl
-bC9pNDBlL2k0MGVfb3NkZXAuaCB8ICAgIDQgKystLQ0KPiA+ICAzIGZpbGVzIGNoYW5nZWQsIDE0
-IGluc2VydGlvbnMoKyksIDMgZGVsZXRpb25zKC0pDQo+ID4NCj4gPiBkaWZmIC0tZ2l0IGEvZHJp
-dmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvS2NvbmZpZw0KPiA+IGIvZHJpdmVycy9uZXQvZXRoZXJu
-ZXQvaW50ZWwvS2NvbmZpZw0KPiA+IGluZGV4IDViODMwMGEuLjRkNjFlZjUgMTAwNjQ0DQo+ID4g
-LS0tIGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvS2NvbmZpZw0KPiA+ICsrKyBiL2RyaXZl
-cnMvbmV0L2V0aGVybmV0L2ludGVsL0tjb25maWcNCj4gPiBAQCAtMjgxLDYgKzI4MSwxNyBAQCBj
-b25maWcgSTQwRV9EQ0INCj4gPg0KPiA+ICAgICAgICAgICBJZiB1bnN1cmUsIHNheSBOLg0KPiA+
-DQo+ID4gK2NvbmZpZyBJNDBFX0ZDT0UNCj4gPiArICAgICAgIGJvb2wgIkZpYnJlIENoYW5uZWwg
-b3ZlciBFdGhlcm5ldCAoRkNvRSkiDQo+ID4gKyAgICAgICBkZWZhdWx0IG4NCj4gPiArICAgICAg
-IGRlcGVuZHMgb24gSTQwRSAmJiBEQ0IgJiYgRkNPRQ0KPiA+ICsgICAgICAgLS0taGVscC0tLQ0K
-PiA+ICsgICAgICAgICBTYXkgWSBoZXJlIGlmIHlvdSB3YW50IHRvIHVzZSBGaWJyZSBDaGFubmVs
-IG92ZXIgRXRoZXJuZXQgKEZDb0UpDQo+ID4gKyAgICAgICAgIGluIHRoZSBkcml2ZXIuIFRoaXMg
-d2lsbCBjcmVhdGUgbmV3IG5ldGRldiBmb3IgZXhjbHVzaXZlIEZDb0UNCj4gPiArICAgICAgICAg
-dXNlIHdpdGggWEw3MTAgRkNvRSBvZmZsb2FkcyBlbmFibGVkLg0KPiA+ICsNCj4gPiArICAgICAg
-ICAgSWYgdW5zdXJlLCBzYXkgTi4NCj4gPiArDQo+ID4gIGNvbmZpZyBJNDBFVkYNCj4gPiAgICAg
-ICAgIHRyaXN0YXRlICJJbnRlbChSKSBYTDcxMCBYNzEwIFZpcnR1YWwgRnVuY3Rpb24gRXRoZXJu
-ZXQgc3VwcG9ydCINCj4gPiAgICAgICAgIGRlcGVuZHMgb24gUENJX01TSQ0KPiA+IGRpZmYgLS1n
-aXQgYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9pNDBlL01ha2VmaWxlDQo+ID4gYi9kcml2
-ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9pNDBlL01ha2VmaWxlDQo+ID4gaW5kZXggNGI5NGRkYi4u
-YzQwNTgxOSAxMDA2NDQNCj4gPiAtLS0gYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9pNDBl
-L01ha2VmaWxlDQo+ID4gKysrIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaTQwZS9NYWtl
-ZmlsZQ0KPiA+IEBAIC00NCw0ICs0NCw0IEBAIGk0MGUtb2JqcyA6PSBpNDBlX21haW4ubyBcDQo+
-ID4gICAgICAgICBpNDBlX3ZpcnRjaG5sX3BmLm8NCj4gPg0KPiA+ICBpNDBlLSQoQ09ORklHX0k0
-MEVfRENCKSArPSBpNDBlX2RjYi5vIGk0MGVfZGNiX25sLm8NCj4gPiAtaTQwZS0kKENPTkZJR19G
-Q09FOm09eSkgKz0gaTQwZV9mY29lLm8NCj4gPiAraTQwZS0kKENPTkZJR19JNDBFX0ZDT0UpICs9
-IGk0MGVfZmNvZS5vDQo+ID4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVs
-L2k0MGUvaTQwZV9vc2RlcC5oDQo+ID4gYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9pNDBl
-L2k0MGVfb3NkZXAuaA0KPiA+IGluZGV4IDA0NWI1YzQuLmFkODAyZGQgMTAwNjQ0DQo+ID4gLS0t
-IGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaTQwZS9pNDBlX29zZGVwLmgNCj4gPiArKysg
-Yi9kcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9pNDBlL2k0MGVfb3NkZXAuaA0KPiA+IEBAIC03
-OCw3ICs3OCw3IEBAIGRvIHsgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICBcDQo+ID4gIH0gd2hpbGUgKDApDQo+ID4NCj4gPiAgdHlwZWRl
-ZiBlbnVtIGk0MGVfc3RhdHVzX2NvZGUgaTQwZV9zdGF0dXM7IC0jaWYgZGVmaW5lZChDT05GSUdf
-RkNPRSkNCj4gPiB8fCBkZWZpbmVkKENPTkZJR19GQ09FX01PRFVMRSkNCj4gPiArI2lmZGVmIENP
-TkZJR19JNDBFX0ZDT0UNCj4gPiAgI2RlZmluZSBJNDBFX0ZDT0UNCj4gPiAtI2VuZGlmIC8qIENP
-TkZJR19GQ09FIG9yIENPTkZJR19GQ09FX01PRFVMRSAqLw0KPiA+ICsjZW5kaWYNCj4gPiAgI2Vu
-ZGlmIC8qIF9JNDBFX09TREVQX0hfICovDQo+ID4NCj4gPj4gPiArICAgICAgICAgICBpZiAocmV0
-KQ0KPiA+PiA+ICsgICAgICAgICAgICAgICAgICAgZGV2X2luZm8oJnBmLT5wZGV2LT5kZXYsDQo+
-ID4+ID4gKyAgICAgICAgICAgICAgICAgICAgICAgICAgICAiaW5pdF9wZl9mY29lIGZhaWxlZDog
-JWRcbiIsIHJldCk7DQo+ID4+ID4gKyAgIH0NCj4gPj4gPg0KPiA+PiA+ICAjZW5kaWYNCj4gPj4g
-PiAgICAgLyogZG8gYmFzaWMgc3dpdGNoIHNldHVwICovDQo+ID4+ID4gLS0NCj4gPj4gPiAxLjgu
-My4xDQo+ID4NCj4gDQo+IFRoYW5rcywNCj4gRXRoYW4NCg==
+CPSW never uses RX_THRESHOLD or MISC interrupts. In
+fact, they are always kept masked in their appropriate
+IRQ Enable register.
+
+Instead of allocating an IRQ that never fires, it's best
+to remove that code altogether and let future patches
+implement it if anybody needs those.
+
+Signed-off-by: Felipe Balbi <balbi@ti.com>
+---
+ drivers/net/ethernet/ti/cpsw.c | 55 ++++++++++++------------------------------
+ 1 file changed, 15 insertions(+), 40 deletions(-)
+
+diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+index c9081bdbbcbc..fd0acd9b41ae 100644
+--- a/drivers/net/ethernet/ti/cpsw.c
++++ b/drivers/net/ethernet/ti/cpsw.c
+@@ -754,16 +754,6 @@ requeue:
+ 		dev_kfree_skb_any(new_skb);
+ }
+ 
+-static irqreturn_t cpsw_dummy_interrupt(int irq, void *dev_id)
+-{
+-	struct cpsw_priv *priv = dev_id;
+-	int value = irq - priv->irqs_table[0];
+-
+-	cpdma_ctlr_eoi(priv->dma, value);
+-
+-	return IRQ_HANDLED;
+-}
+-
+ static irqreturn_t cpsw_tx_interrupt(int irq, void *dev_id)
+ {
+ 	struct cpsw_priv *priv = dev_id;
+@@ -1635,8 +1625,8 @@ static void cpsw_ndo_poll_controller(struct net_device *ndev)
+ 
+ 	cpsw_intr_disable(priv);
+ 	cpdma_ctlr_int_ctrl(priv->dma, false);
+-	cpsw_rx_interrupt(priv->irq[1], priv);
+-	cpsw_tx_interrupt(priv->irq[2], priv);
++	cpsw_rx_interrupt(priv->irq[0], priv);
++	cpsw_tx_interrupt(priv->irq[1], priv);
+ 	cpdma_ctlr_int_ctrl(priv->dma, true);
+ 	cpsw_intr_enable(priv);
+ }
+@@ -2358,30 +2348,27 @@ static int cpsw_probe(struct platform_device *pdev)
+ 		goto clean_dma_ret;
+ 	}
+ 
+-	ndev->irq = platform_get_irq(pdev, 0);
++	ndev->irq = platform_get_irq(pdev, 1);
+ 	if (ndev->irq < 0) {
+ 		dev_err(priv->dev, "error getting irq resource\n");
+ 		ret = -ENOENT;
+ 		goto clean_ale_ret;
+ 	}
+ 
+-	irq = platform_get_irq(pdev, 0);
+-	if (irq < 0)
+-		goto clean_ale_ret;
+-
+-	priv->irqs_table[0] = irq;
+-	ret = devm_request_irq(&pdev->dev, irq, cpsw_dummy_interrupt,
+-			0, dev_name(&pdev->dev), priv);
+-	if (ret < 0) {
+-		dev_err(priv->dev, "error attaching irq (%d)\n", ret);
+-		goto clean_ale_ret;
+-	}
++	/* Grab RX and TX IRQs. Note that we also have RX_THRESHOLD and
++	 * MISC IRQs which are always kept disabled with this driver so
++	 * we will not request them.
++	 *
++	 * If anyone wants to implement support for those, make sure to
++	 * first request and append them to irqs_table array.
++	 */
+ 
++	/* RX IRQ */
+ 	irq = platform_get_irq(pdev, 1);
+ 	if (irq < 0)
+ 		goto clean_ale_ret;
+ 
+-	priv->irqs_table[1] = irq;
++	priv->irqs_table[0] = irq;
+ 	ret = devm_request_irq(&pdev->dev, irq, cpsw_rx_interrupt,
+ 			0, dev_name(&pdev->dev), priv);
+ 	if (ret < 0) {
+@@ -2389,31 +2376,19 @@ static int cpsw_probe(struct platform_device *pdev)
+ 		goto clean_ale_ret;
+ 	}
+ 
++	/* TX IRQ */
+ 	irq = platform_get_irq(pdev, 2);
+ 	if (irq < 0)
+ 		goto clean_ale_ret;
+ 
+-	priv->irqs_table[2] = irq;
++	priv->irqs_table[1] = irq;
+ 	ret = devm_request_irq(&pdev->dev, irq, cpsw_tx_interrupt,
+ 			0, dev_name(&pdev->dev), priv);
+ 	if (ret < 0) {
+ 		dev_err(priv->dev, "error attaching irq (%d)\n", ret);
+ 		goto clean_ale_ret;
+ 	}
+-
+-	irq = platform_get_irq(pdev, 3);
+-	if (irq < 0)
+-		goto clean_ale_ret;
+-
+-	priv->irqs_table[3] = irq;
+-	ret = devm_request_irq(&pdev->dev, irq, cpsw_dummy_interrupt,
+-			0, dev_name(&pdev->dev), priv);
+-	if (ret < 0) {
+-		dev_err(priv->dev, "error attaching irq (%d)\n", ret);
+-		goto clean_ale_ret;
+-	}
+-
+-	priv->num_irqs = 4;
++	priv->num_irqs = 2;
+ 
+ 	ndev->features |= NETIF_F_HW_VLAN_CTAG_FILTER;
+ 
+-- 
+2.2.0
