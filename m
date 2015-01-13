@@ -1,74 +1,81 @@
-From: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
-Subject: Re: why are IPv6 addresses removed on link down
-Date: Tue, 13 Jan 2015 20:58:43 +0900
-Message-ID: <54B50873.4090907@miraclelinux.com>
-References: <54B4A7E4.7030301@gmail.com> <20150112231021.316648e3@urahara> <1421145346.13626.12.camel@redhat.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [RFC PATCH v2 2/2] net: ixgbe: implement af_packet direct queue
+ mappings
+Date: Tue, 13 Jan 2015 13:05:30 +0100
+Message-ID: <1421150730.13626.14.camel@stressinduktion.org>
+References: <20150113043509.29985.33515.stgit@nitbit.x32>
+	 <20150113043542.29985.15658.stgit@nitbit.x32>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: hideaki.yoshifuji@miraclelinux.com,
-	David Ahern <dsahern@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Hannes Frederic Sowa <hannes@redhat.com>,
-	Stephen Hemminger <stephen@networkplumber.org>
+Cc: netdev@vger.kernel.org, danny.zhou@intel.com,
+	nhorman@tuxdriver.com, dborkman@redhat.com, john.ronciak@intel.com,
+	brouer@redhat.com
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod7og128.obsmtp.com ([64.18.2.121]:47923 "HELO
-	exprod7og128.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1752448AbbAMMFB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2015 07:05:01 -0500
-Received: by mail-pd0-f169.google.com with SMTP id z10so3168697pdj.0
-        for <netdev@vger.kernel.org>; Tue, 13 Jan 2015 04:05:01 -0800 (PST)
-In-Reply-To: <1421145346.13626.12.camel@redhat.com>
+Received: from out3-smtp.messagingengine.com ([66.111.4.27]:49744 "EHLO
+	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751347AbbAMMFe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2015 07:05:34 -0500
+Received: from compute2.internal (compute2.nyi.internal [10.202.2.42])
+	by mailout.nyi.internal (Postfix) with ESMTP id D0FB020A06
+	for <netdev@vger.kernel.org>; Tue, 13 Jan 2015 07:05:33 -0500 (EST)
+In-Reply-To: <20150113043542.29985.15658.stgit@nitbit.x32>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Mo, 2015-01-12 at 20:35 -0800, John Fastabend wrote:
+> +static int
+> +ixgbe_ndo_qpair_page_map(struct vm_area_struct *vma, struct net_device *dev)
+> +{
+> +	struct ixgbe_adapter *adapter = netdev_priv(dev);
+> +	phys_addr_t phy_addr = pci_resource_start(adapter->pdev, 0);
+> +	unsigned long pfn_rx = (phy_addr + RX_DESC_ADDR_OFFSET) >> PAGE_SHIFT;
+> +	unsigned long pfn_tx = (phy_addr + TX_DESC_ADDR_OFFSET) >> PAGE_SHIFT;
+> +	unsigned long dummy_page_phy;
+> +	pgprot_t pre_vm_page_prot;
+> +	unsigned long start;
+> +	unsigned int i;
+> +	int err;
+> +
+> +	if (!dummy_page_buf) {
+> +		dummy_page_buf = kzalloc(PAGE_SIZE_4K, GFP_KERNEL);
+> +		if (!dummy_page_buf)
+> +			return -ENOMEM;
+> +
+> +		for (i = 0; i < PAGE_SIZE_4K / sizeof(unsigned int); i++)
+> +			dummy_page_buf[i] = 0xdeadbeef;
+> +	}
+> +
+> +	dummy_page_phy = virt_to_phys(dummy_page_buf);
+> +	pre_vm_page_prot = vma->vm_page_prot;
+> +	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
+> +
+> +	/* assume the vm_start is 4K aligned address */
+> +	for (start = vma->vm_start;
+> +	     start < vma->vm_end;
+> +	     start += PAGE_SIZE_4K) {
+> +		if (start == vma->vm_start + RX_DESC_ADDR_OFFSET) {
+> +			err = remap_pfn_range(vma, start, pfn_rx, PAGE_SIZE_4K,
+> +					      vma->vm_page_prot);
+> +			if (err)
+> +				return -EAGAIN;
+> +		} else if (start == vma->vm_start + TX_DESC_ADDR_OFFSET) {
+> +			err = remap_pfn_range(vma, start, pfn_tx, PAGE_SIZE_4K,
+> +					      vma->vm_page_prot);
+> +			if (err)
+> +				return -EAGAIN;
+> +		} else {
+> +			unsigned long addr = dummy_page_phy > PAGE_SHIFT;
 
-Hannes Frederic Sowa wrote:
-> On Mo, 2015-01-12 at 23:10 -0800, Stephen Hemminger wrote:
->> On Mon, 12 Jan 2015 22:06:44 -0700
->> David Ahern <dsahern@gmail.com> wrote:
->>
->>> We noticed that IPv6 addresses are removed on a link down. e.g.,
->>>     ip link set dev eth1
->>>
->>>
->>> Looking at the code it appears to be this code path in addrconf.c:
->>>
->>>           case NETDEV_DOWN:
->>>           case NETDEV_UNREGISTER:
->>>                   /*
->>>                    *      Remove all addresses from this interface.
->>>                    */
->>>                   addrconf_ifdown(dev, event != NETDEV_DOWN);
->>>                   break;
->>>
->>> IPv4 addresses are NOT removed on a link down. Is there a particular
->>> reason IPv6 addresses are?
->>>
->>> Thanks,
->>> David
->>
->> See RFC's which describes how IPv6 does Duplicate Address Detection.
->> Address is not valid when link is down, since DAD is not possible.
->
-> It should be no problem if the kernel would reacquire them on ifup and
-> do proper DAD. We simply must not use them while the interface is dead
-> (also making sure they don't get used for loopback routing).
->
-> The problem the IPv6 addresses get removed is much more a historical
-> artifact nowadays, I think. It is part of user space API and scripts
-> deal with that already.
+I guess you have forgotten to delete this line?
 
-We might have another "detached" state which essintially drops
-outgoing packets while link is down.  Just after recovering link,
-we could start receiving packet from the link and perform optimistic
-DAD. And then, after it succeeds, we may start sending packets.
-
-Since "detached" state is like the state just before completing
-Optimistic DAD, it is not so difficult to implement this extended
-behavior, I guess.
-
--- 
-Hideaki Yoshifuji <hideaki.yoshifuji@miraclelinux.com>
-Technical Division, MIRACLE LINUX CORPORATION
+> +
+> +			err = remap_pfn_range(vma, start, addr, PAGE_SIZE_4K,
+> +					      pre_vm_page_prot);
+> +			if (err)
+> +				return -EAGAIN;
+> +		}
+> +	}
+> +	return 0;
+> +}
