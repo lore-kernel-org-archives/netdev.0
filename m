@@ -1,34 +1,22 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [patch net-next 1/2 v3] tc: add BPF based action
-Date: Wed, 14 Jan 2015 07:39:34 -0800
-Message-ID: <CAMEtUux+HOOegzyi82fYT_JMDX_+d0dZCQ=Zc5GWC-awQmJu1A@mail.gmail.com>
-References: <1421229297-14473-1-git-send-email-jiri@resnulli.us> <54B66F08.2010305@redhat.com>
+From: "Suklee Peck" <chaibi.medthameur@iresa.agrinet.tn>
+Subject: Re: Investment
+Date: Tue, 13 Jan 2015 11:57:34 -0800
+Message-ID: <20150113235305.024EB28C6E@mta.agrinet.tn>
+Reply-To: saitt01@qq.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jiri Pirko <jiri@resnulli.us>,
-	Network Development <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Hannes Frederic Sowa <hannes@redhat.com>
-To: Daniel Borkmann <dborkman@redhat.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: Recipients <chaibi.medthameur@iresa.agrinet.tn>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f44.google.com ([209.85.192.44]:58559 "EHLO
-	mail-qg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753342AbbANPj4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2015 10:39:56 -0500
-Received: by mail-qg0-f44.google.com with SMTP id q107so7476088qgd.3
-        for <netdev@vger.kernel.org>; Wed, 14 Jan 2015 07:39:55 -0800 (PST)
-In-Reply-To: <54B66F08.2010305@redhat.com>
+Received: from agrinetmail20.outgw.tn ([196.203.249.26]:57918 "EHLO
+	agrinetmail20.outgw.tn" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751434AbbANPr4 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2015 10:47:56 -0500
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 14, 2015 at 5:28 AM, Daniel Borkmann <dborkman@redhat.com> wrote:
->
-> I'm still wondering about the drop semantics ... wouldn't it be more
-> intuitive to use 0 for drops in this context?
-
-good point.
-I think it must be 0 to match behavior of socket filters, etc.
-If program tries to access beyond packet size or does divide
-by zero if will be terminated and will return 0.
-So zero should be the safest action from caller point of view.
+I'm contacting you on behalf of an investment placed under management 5 years ago by Shui bian. He needs assistance in investing these funds. If you are interested, you can write to his private email ( saitt01@qq.com ) for further details.
+gesalpe
+Best Regards,
+Suklee Peck
