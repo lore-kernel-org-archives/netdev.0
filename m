@@ -1,36 +1,85 @@
 From: Tony Lindgren <tony@atomide.com>
-Subject: [PATCH 0/6] Fixes for davinci_emac
-Date: Tue, 13 Jan 2015 11:29:22 -0800
-Message-ID: <1421177368-19756-1-git-send-email-tony@atomide.com>
-Cc: netdev@vger.kernel.org, linux-omap@vger.kernel.org
+Subject: [PATCH 1/6] net: davinci_emac: Fix hangs with interrupts
+Date: Tue, 13 Jan 2015 11:29:23 -0800
+Message-ID: <1421177368-19756-2-git-send-email-tony@atomide.com>
+References: <1421177368-19756-1-git-send-email-tony@atomide.com>
+Cc: netdev@vger.kernel.org, linux-omap@vger.kernel.org,
+	Brian Hutchinson <b.hutchman@gmail.com>,
+	Felipe Balbi <balbi@ti.com>
 To: David Miller <davem@davemloft.net>
-Return-path: <linux-omap-owner@vger.kernel.org>
-Sender: linux-omap-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mho-02-ewr.mailhop.org ([204.13.248.72]:63314 "EHLO
+	mho-02-ewr.mailhop.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752197AbbAMTdc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2015 14:33:32 -0500
+In-Reply-To: <1421177368-19756-1-git-send-email-tony@atomide.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On davinci_emac, we have pulse interrupts. This means that we need to
+clear the EOI bits when disabling interrupts as otherwise the interrupts
+keep happening. And we also need to not clear the EOI bits again when
+enabling the interrupts as otherwise we will get tons of:
 
-Here are some fixes for davinci_emac for the issues I've noticed
-recently.
+unexpected IRQ trap at vector 00
 
-Regards,
+These errors almost certainly mean that the omap-intc.c is signaling
+a spurious interrupt with the reserved irq 127 as we've seen earlier
+on omap3.
 
-Tony
+Let's fix the issue by clearing the EOI bits when disabling the
+interrupts. Let's also keep the comment for "Rx Threshold and Misc
+interrupts are not enabled" for both enable and disable so people
+are aware of this when potentially adding more support.
 
-Tony Lindgren (6):
-  net: davinci_emac: Fix hangs with interrupts
-  net: davinci_emac: Fix runtime pm calls for davinci_emac
-  net: davinci_emac: Free clock after checking the frequency
-  net: davinci_emac: Fix incomplete code for getting the phy from device
-    tree
-  net: davinci_emac: Fix ioremap for devices with MDIO within the EMAC
-    address space
-  net: davinci_emac: Add support for emac on dm816x
+Note that eventually we should handle the RX and TX interrupts
+separately like cpsw is now doing. However, so far I have not seen
+any issues with this based on my testing, so it seems to behave a
+little different compared to the cpsw that had a similar issue.
 
- .../devicetree/bindings/net/davinci_emac.txt       |  3 +-
- drivers/net/ethernet/ti/davinci_emac.c             | 77 ++++++++++++++++------
- 2 files changed, 58 insertions(+), 22 deletions(-)
+Cc: Brian Hutchinson <b.hutchman@gmail.com>
+Cc: Felipe Balbi <balbi@ti.com>
+Signed-off-by: Tony Lindgren <tony@atomide.com>
+---
+ drivers/net/ethernet/ti/davinci_emac.c | 19 ++++++++++---------
+ 1 file changed, 10 insertions(+), 9 deletions(-)
 
+diff --git a/drivers/net/ethernet/ti/davinci_emac.c b/drivers/net/ethernet/ti/davinci_emac.c
+index ea71251..383ed52 100644
+--- a/drivers/net/ethernet/ti/davinci_emac.c
++++ b/drivers/net/ethernet/ti/davinci_emac.c
+@@ -922,6 +922,16 @@ static void emac_int_disable(struct emac_priv *priv)
+ 		if (priv->int_disable)
+ 			priv->int_disable();
+ 
++		/* NOTE: Rx Threshold and Misc interrupts are not enabled */
++
++		/* ack rxen only then a new pulse will be generated */
++		emac_write(EMAC_DM646X_MACEOIVECTOR,
++			EMAC_DM646X_MAC_EOI_C0_RXEN);
++
++		/* ack txen- only then a new pulse will be generated */
++		emac_write(EMAC_DM646X_MACEOIVECTOR,
++			EMAC_DM646X_MAC_EOI_C0_TXEN);
++
+ 		local_irq_restore(flags);
+ 
+ 	} else {
+@@ -951,15 +961,6 @@ static void emac_int_enable(struct emac_priv *priv)
+ 		 * register */
+ 
+ 		/* NOTE: Rx Threshold and Misc interrupts are not enabled */
+-
+-		/* ack rxen only then a new pulse will be generated */
+-		emac_write(EMAC_DM646X_MACEOIVECTOR,
+-			EMAC_DM646X_MAC_EOI_C0_RXEN);
+-
+-		/* ack txen- only then a new pulse will be generated */
+-		emac_write(EMAC_DM646X_MACEOIVECTOR,
+-			EMAC_DM646X_MAC_EOI_C0_TXEN);
+-
+ 	} else {
+ 		/* Set DM644x control registers for interrupt control */
+ 		emac_ctrl_write(EMAC_CTRL_EWCTL, 0x1);
 -- 
 2.1.4
-
