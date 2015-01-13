@@ -1,54 +1,78 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [net-next PATCH v2 02/12] net: flow_table: add flow, delete flow
-Date: Tue, 13 Jan 2015 15:00:15 -0800
-Message-ID: <CAADnVQK0FqxD9iu5UzFu0Pizi9tQPgjmAs3WBbV7y8jk0Sdi5w@mail.gmail.com>
-References: <20150113212941.13874.48692.stgit@nitbit.x32> <20150113213556.13874.41211.stgit@nitbit.x32>
+From: "Banerjee, Debabrata" <dbanerje@akamai.com>
+Subject: Re: [PATCH] tcp: Fix RFC reference in comment
+Date: Tue, 13 Jan 2015 18:17:50 -0500
+Message-ID: <D0DB041A.44371%dbanerje@akamai.com>
+References: <1421183431-29915-1-git-send-email-dbanerje@akamai.com>
+ <CAK6E8=d6NMZjyH1JFoJX_ioAdQNYCAvH-G3ja9fScwW9u2=NFQ@mail.gmail.com>
+ <D0DAFA79.4435F%dbanerje@akamai.com>
+ <CABrhC0m=aPO=OcfK_gTusHz7CU9OUeXAHoqUDaVTGLDiQnL56Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Thomas Graf <tgraf@suug.ch>, simon.horman@netronome.com,
-	Scott Feldman <sfeldma@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gerlitz.or@gmail.com" <gerlitz.or@gmail.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	"David S. Miller" <davem@davemloft.net>
-To: John Fastabend <john.fastabend@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f173.google.com ([209.85.216.173]:47186 "EHLO
-	mail-qc0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751052AbbAMXAg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2015 18:00:36 -0500
-Received: by mail-qc0-f173.google.com with SMTP id i17so4843935qcy.4
-        for <netdev@vger.kernel.org>; Tue, 13 Jan 2015 15:00:35 -0800 (PST)
-In-Reply-To: <20150113213556.13874.41211.stgit@nitbit.x32>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Yuchung Cheng <ycheng@google.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: John Heffner <johnwheffner@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CABrhC0m=aPO=OcfK_gTusHz7CU9OUeXAHoqUDaVTGLDiQnL56Q@mail.gmail.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 13, 2015 at 1:35 PM, John Fastabend
-<john.fastabend@gmail.com> wrote:
-> Now that the device capabilities are exposed we can add support to
-> add and delete flows from the tables.
+On 1/13/15, 5:01 PM, "John Heffner" <johnwheffner@gmail.com> wrote:
+
+>On Tue, Jan 13, 2015 at 4:42 PM, Banerjee, Debabrata
+><dbanerje@akamai.com> wrote:
+>> On 1/13/15, 4:36 PM, "Yuchung Cheng" <ycheng@google.com> wrote:
+>>
+>>>RFC2861 resets the cwnd like in RFC2581, but the rest of the code
+>>>implements RFC2861. So I think the current comment is fine.
+>>
+>>
+>> No RFC2861 is an experimental RFC that's implemented in
+>> tcp_cwnd_application_limited(). RFC2861 Recommends reducing the cwnd by
+>> averaging the current cwnd and the used cwnd as the new cwnd.
+>>
+>>
+>> RFC2581 4.1 Says to set cwnd to initial cwnd if more than one rto has
+>> passed since the last send. This is what is implemented in the function
+>> above.
 >
-> The two operations are
+>Look at the code a little closer -- it's decaying cwnd based on number
+>of timeouts as described in 2861, not resetting to IW as recommended
+>in 2581.
 >
-> table_set_flows :
->
->   The set flow operations is used to program a set of flows into a
->   hardware device table. The message is consumed via netlink encoded
+>  -John
 
-should now netlink cmd be called table_set_rules ?
-and s/flow/rule/ everywhere in commit log?
 
->   message which is then decoded into a null terminated  array of
->   flow entry structures. A flow entry structure is defined as
->
->      struct net_flow_flow {
+You're right it's not RFC2581 I was partially misled by the comment
+(reset/restart window), but it doesn't appear to be doing what rfc2861 3.2
+says either:
 
-commit log no longer matches implementation ;)
-should be net_flow_rule ?
+           For i=1  To (tcpnow - T_last)/RTO
+	win =  min(cwnd, receiver's declared max window)
+	cwnd =  max(win/2, MSS)
 
-can you update your .html writeup?
-I hope to see more real examples in there.
 
-btw how the whole thing will work with queue splitting from
-your other patch?
+Versus:
+
+u32 restart_cwnd = tcp_init_cwnd(tp, dst);
+
+restart_cwnd = min(restart_cwnd, cwnd);
+
+	while ((delta -= inet_csk(sk)->icsk_rto) > 0 && cwnd > restart_cwnd)
+	cwnd >>= 1;
+	tp->snd_cwnd = max(cwnd, restart_cwnd);
+
+
+It's not using receiver window, it's using cwnd/init_cwnd, it should at
+least be using tp->snd_wnd, no?.
+
+
+I stumbled onto this because it looks like tcp_cwnd_application_limited()
+doesn't execute when it should, because tp->snd_cwnd_stamp is being
+touched much more often than in rfc2861 3.2. Something seems not right
+here...
+
+-Debabrata
