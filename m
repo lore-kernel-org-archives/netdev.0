@@ -1,52 +1,193 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 09/15] i40e: Add warning for NPAR partitions with link speed less than 10Gbps
-Date: Tue, 13 Jan 2015 11:58:07 -0800
-Message-ID: <1421179093-10932-10-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 11/15] i40e/i40evf: find partition_id in npar mode
+Date: Tue, 13 Jan 2015 11:58:09 -0800
+Message-ID: <1421179093-10932-12-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1421179093-10932-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
+Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga01.intel.com ([192.55.52.88]:41216 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753858AbbAMT6S (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1753660AbbAMT6S (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 13 Jan 2015 14:58:18 -0500
 In-Reply-To: <1421179093-10932-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Greg Rose <gregory.v.rose@intel.com>
+From: Shannon Nelson <shannon.nelson@intel.com>
 
-NPAR enabled partitions should warn the user when detected link speed is
-less than 10Gpbs.
+When in NPAR mode the driver instance might be controlling the base
+partition or one of the other "fake" PFs.  There are some things that
+can only be done by the base partition, aka partition_id 1.  This code
+does a bit of work to find how many partitions are there per port and
+what is the current partition_id.
 
-Change-ID: I7728bb8ce279bf0f4f755d78d7071074a4eb5f69
-Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
+Change-ID: Iba427f020a1983d02147d86f121b3627e20ee21d
+Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 9 +++++++++
- 1 file changed, 9 insertions(+)
+ drivers/net/ethernet/intel/i40e/i40e_common.c    | 66 ++++++++++++++++++++++++
+ drivers/net/ethernet/intel/i40e/i40e_prototype.h |  3 ++
+ drivers/net/ethernet/intel/i40e/i40e_type.h      |  7 ++-
+ drivers/net/ethernet/intel/i40evf/i40e_type.h    |  7 ++-
+ 4 files changed, 81 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index a5f2660..7c14973 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -4557,6 +4557,15 @@ static void i40e_print_link_message(struct i40e_vsi *vsi, bool isup)
- 		return;
- 	}
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
+index 3d741ee..b16fc03 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_common.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
+@@ -2035,6 +2035,43 @@ i40e_status i40e_aq_send_msg_to_vf(struct i40e_hw *hw, u16 vfid,
+ }
  
-+	/* Warn user if link speed on NPAR enabled partition is not at
-+	 * least 10GB
-+	 */
-+	if (vsi->back->hw.func_caps.npar_enable &&
-+	    (vsi->back->hw.phy.link_info.link_speed == I40E_LINK_SPEED_1GB ||
-+	     vsi->back->hw.phy.link_info.link_speed == I40E_LINK_SPEED_100MB))
-+		netdev_warn(vsi->netdev,
-+			    "The partition detected link speed that is less than 10Gbps\n");
+ /**
++ * i40e_aq_debug_read_register
++ * @hw: pointer to the hw struct
++ * @reg_addr: register address
++ * @reg_val: register value
++ * @cmd_details: pointer to command details structure or NULL
++ *
++ * Read the register using the admin queue commands
++ **/
++i40e_status i40e_aq_debug_read_register(struct i40e_hw *hw,
++				u32  reg_addr, u64 *reg_val,
++				struct i40e_asq_cmd_details *cmd_details)
++{
++	struct i40e_aq_desc desc;
++	struct i40e_aqc_debug_reg_read_write *cmd_resp =
++		(struct i40e_aqc_debug_reg_read_write *)&desc.params.raw;
++	i40e_status status;
 +
- 	switch (vsi->back->hw.phy.link_info.link_speed) {
- 	case I40E_LINK_SPEED_40GB:
- 		strlcpy(speed, "40 Gbps", SPEED_SIZE);
++	if (reg_val == NULL)
++		return I40E_ERR_PARAM;
++
++	i40e_fill_default_direct_cmd_desc(&desc,
++					  i40e_aqc_opc_debug_read_reg);
++
++	cmd_resp->address = cpu_to_le32(reg_addr);
++
++	status = i40e_asq_send_command(hw, &desc, NULL, 0, cmd_details);
++
++	if (!status) {
++		*reg_val = ((u64)cmd_resp->value_high << 32) |
++			    (u64)cmd_resp->value_low;
++		*reg_val = le64_to_cpu(*reg_val);
++	}
++
++	return status;
++}
++
++/**
+  * i40e_aq_debug_write_register
+  * @hw: pointer to the hw struct
+  * @reg_addr: register address
+@@ -2292,6 +2329,7 @@ static void i40e_parse_discover_capabilities(struct i40e_hw *hw, void *buff,
+ 				     enum i40e_admin_queue_opc list_type_opc)
+ {
+ 	struct i40e_aqc_list_capabilities_element_resp *cap;
++	u32 valid_functions, num_functions;
+ 	u32 number, logical_id, phys_id;
+ 	struct i40e_hw_capabilities *p;
+ 	u32 i = 0;
+@@ -2427,6 +2465,34 @@ static void i40e_parse_discover_capabilities(struct i40e_hw *hw, void *buff,
+ 	if (p->npar_enable || p->mfp_mode_1)
+ 		p->fcoe = false;
+ 
++	/* count the enabled ports (aka the "not disabled" ports) */
++	hw->num_ports = 0;
++	for (i = 0; i < 4; i++) {
++		u32 port_cfg_reg = I40E_PRTGEN_CNF + (4 * i);
++		u64 port_cfg = 0;
++
++		/* use AQ read to get the physical register offset instead
++		 * of the port relative offset
++		 */
++		i40e_aq_debug_read_register(hw, port_cfg_reg, &port_cfg, NULL);
++		if (!(port_cfg & I40E_PRTGEN_CNF_PORT_DIS_MASK))
++			hw->num_ports++;
++	}
++
++	valid_functions = p->valid_functions;
++	num_functions = 0;
++	while (valid_functions) {
++		if (valid_functions & 1)
++			num_functions++;
++		valid_functions >>= 1;
++	}
++
++	/* partition id is 1-based, and functions are evenly spread
++	 * across the ports as partitions
++	 */
++	hw->partition_id = (hw->pf_id / hw->num_ports) + 1;
++	hw->num_partitions = num_functions / hw->num_ports;
++
+ 	/* additional HW specific goodies that might
+ 	 * someday be HW version specific
+ 	 */
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_prototype.h b/drivers/net/ethernet/intel/i40e/i40e_prototype.h
+index 2fb4306..d1c7d63 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_prototype.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_prototype.h
+@@ -71,6 +71,9 @@ i40e_status i40e_aq_get_firmware_version(struct i40e_hw *hw,
+ i40e_status i40e_aq_debug_write_register(struct i40e_hw *hw,
+ 					u32 reg_addr, u64 reg_val,
+ 					struct i40e_asq_cmd_details *cmd_details);
++i40e_status i40e_aq_debug_read_register(struct i40e_hw *hw,
++				u32  reg_addr, u64 *reg_val,
++				struct i40e_asq_cmd_details *cmd_details);
+ i40e_status i40e_aq_set_phy_debug(struct i40e_hw *hw, u8 cmd_flags,
+ 				struct i40e_asq_cmd_details *cmd_details);
+ i40e_status i40e_aq_set_default_vsi(struct i40e_hw *hw, u16 vsi_id,
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_type.h b/drivers/net/ethernet/intel/i40e/i40e_type.h
+index c1f2eb9..611de3e 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_type.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_type.h
+@@ -431,7 +431,7 @@ struct i40e_hw {
+ 	u8 __iomem *hw_addr;
+ 	void *back;
+ 
+-	/* function pointer structs */
++	/* subsystem structs */
+ 	struct i40e_phy_info phy;
+ 	struct i40e_mac_info mac;
+ 	struct i40e_bus_info bus;
+@@ -458,6 +458,11 @@ struct i40e_hw {
+ 	u8  pf_id;
+ 	u16 main_vsi_seid;
+ 
++	/* for multi-function MACs */
++	u16 partition_id;
++	u16 num_partitions;
++	u16 num_ports;
++
+ 	/* Closest numa node to the device */
+ 	u16 numa_node;
+ 
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_type.h b/drivers/net/ethernet/intel/i40evf/i40e_type.h
+index 68aec11..d1c2b5a 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_type.h
++++ b/drivers/net/ethernet/intel/i40evf/i40e_type.h
+@@ -425,7 +425,7 @@ struct i40e_hw {
+ 	u8 __iomem *hw_addr;
+ 	void *back;
+ 
+-	/* function pointer structs */
++	/* subsystem structs */
+ 	struct i40e_phy_info phy;
+ 	struct i40e_mac_info mac;
+ 	struct i40e_bus_info bus;
+@@ -452,6 +452,11 @@ struct i40e_hw {
+ 	u8  pf_id;
+ 	u16 main_vsi_seid;
+ 
++	/* for multi-function MACs */
++	u16 partition_id;
++	u16 num_partitions;
++	u16 num_ports;
++
+ 	/* Closest numa node to the device */
+ 	u16 numa_node;
+ 
 -- 
 1.9.3
