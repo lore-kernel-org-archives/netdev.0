@@ -1,129 +1,121 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 12/15] i40e: Adding function for reading PBA String
-Date: Tue, 13 Jan 2015 03:33:28 -0800
-Message-ID: <1421148811-9763-13-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 13/15] i40e: limit WoL and link settings to partition 1
+Date: Tue, 13 Jan 2015 03:33:29 -0800
+Message-ID: <1421148811-9763-14-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1421148811-9763-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Kamil Krawczyk <kamil.krawczyk@intel.com>, netdev@vger.kernel.org,
+Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:43855 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:65096 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751414AbbAMLdi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Jan 2015 06:33:38 -0500
+	id S1752359AbbAMLdj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Jan 2015 06:33:39 -0500
 In-Reply-To: <1421148811-9763-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kamil Krawczyk <kamil.krawczyk@intel.com>
+From: Shannon Nelson <shannon.nelson@intel.com>
 
-Function will read PBA Block from Shadow RAM and return it in a string format.
+When in multi-function mode, e.g. Dell's NPAR, only partition 1
+of each MAC is allowed to set WoL, speed, and flow control.
 
-Change-ID: I4ee7059f6e21bd0eba38687da15e772e0b4ab36e
-Signed-off-by: Kamil Krawczyk <kamil.krawczyk@intel.com>
+Change-ID: I87a9debc7479361c55a71f0120294ea319f23588
+Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_common.c    | 59 ++++++++++++++++++++++++
- drivers/net/ethernet/intel/i40e/i40e_prototype.h |  2 +
- drivers/net/ethernet/intel/i40e/i40e_type.h      |  2 +
- 3 files changed, 63 insertions(+)
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 43 +++++++++++++++++++++++++-
+ 1 file changed, 42 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
-index b16fc03..4f4d9d1 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_common.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
-@@ -742,6 +742,65 @@ i40e_status i40e_get_san_mac_addr(struct i40e_hw *hw, u8 *mac_addr)
- #endif
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+index 951e876..b8230dc 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+@@ -219,6 +219,16 @@ static const char i40e_gstrings_test[][ETH_GSTRING_LEN] = {
+ #define I40E_TEST_LEN (sizeof(i40e_gstrings_test) / ETH_GSTRING_LEN)
  
  /**
-+ *  i40e_read_pba_string - Reads part number string from EEPROM
-+ *  @hw: pointer to hardware structure
-+ *  @pba_num: stores the part number string from the EEPROM
-+ *  @pba_num_size: part number string buffer length
-+ *
-+ *  Reads the part number string from the EEPROM.
++ * i40e_partition_setting_complaint - generic complaint for MFP restriction
++ * @pf: the PF struct
 + **/
-+i40e_status i40e_read_pba_string(struct i40e_hw *hw, u8 *pba_num,
-+				 u32 pba_num_size)
++static void i40e_partition_setting_complaint(struct i40e_pf *pf)
 +{
-+	i40e_status status = 0;
-+	u16 pba_word = 0;
-+	u16 pba_size = 0;
-+	u16 pba_ptr = 0;
-+	u16 i = 0;
-+
-+	status = i40e_read_nvm_word(hw, I40E_SR_PBA_FLAGS, &pba_word);
-+	if (status || (pba_word != 0xFAFA)) {
-+		hw_dbg(hw, "Failed to read PBA flags or flag is invalid.\n");
-+		return status;
-+	}
-+
-+	status = i40e_read_nvm_word(hw, I40E_SR_PBA_BLOCK_PTR, &pba_ptr);
-+	if (status) {
-+		hw_dbg(hw, "Failed to read PBA Block pointer.\n");
-+		return status;
-+	}
-+
-+	status = i40e_read_nvm_word(hw, pba_ptr, &pba_size);
-+	if (status) {
-+		hw_dbg(hw, "Failed to read PBA Block size.\n");
-+		return status;
-+	}
-+
-+	/* Subtract one to get PBA word count (PBA Size word is included in
-+	 * total size)
-+	 */
-+	pba_size--;
-+	if (pba_num_size < (((u32)pba_size * 2) + 1)) {
-+		hw_dbg(hw, "Buffer to small for PBA data.\n");
-+		return I40E_ERR_PARAM;
-+	}
-+
-+	for (i = 0; i < pba_size; i++) {
-+		status = i40e_read_nvm_word(hw, (pba_ptr + 1) + i, &pba_word);
-+		if (status) {
-+			hw_dbg(hw, "Failed to read PBA Block word %d.\n", i);
-+			return status;
-+		}
-+
-+		pba_num[(i * 2)] = (pba_word >> 8) & 0xFF;
-+		pba_num[(i * 2) + 1] = pba_word & 0xFF;
-+	}
-+	pba_num[(pba_size * 2)] = '\0';
-+
-+	return status;
++	dev_info(&pf->pdev->dev,
++		 "The link settings are allowed to be changed only from the first partition of a given port. Please switch to the first partition in order to change the setting.\n");
 +}
 +
 +/**
-  * i40e_get_media_type - Gets media type
-  * @hw: pointer to the hardware structure
-  **/
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_prototype.h b/drivers/net/ethernet/intel/i40e/i40e_prototype.h
-index d1c7d63..68e852a 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_prototype.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_prototype.h
-@@ -248,6 +248,8 @@ void i40e_clear_pxe_mode(struct i40e_hw *hw);
- bool i40e_get_link_status(struct i40e_hw *hw);
- i40e_status i40e_get_mac_addr(struct i40e_hw *hw, u8 *mac_addr);
- i40e_status i40e_get_port_mac_addr(struct i40e_hw *hw, u8 *mac_addr);
-+i40e_status i40e_read_pba_string(struct i40e_hw *hw, u8 *pba_num,
-+				 u32 pba_num_size);
- i40e_status i40e_validate_mac_addr(u8 *mac_addr);
- void i40e_pre_tx_queue_cfg(struct i40e_hw *hw, u32 queue, bool enable);
- #ifdef I40E_FCOE
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_type.h b/drivers/net/ethernet/intel/i40e/i40e_type.h
-index 611de3e..ff121fe 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_type.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_type.h
-@@ -1140,6 +1140,8 @@ struct i40e_hw_port_stats {
- /* Checksum and Shadow RAM pointers */
- #define I40E_SR_NVM_CONTROL_WORD		0x00
- #define I40E_SR_EMP_MODULE_PTR			0x0F
-+#define I40E_SR_PBA_FLAGS			0x15
-+#define I40E_SR_PBA_BLOCK_PTR			0x16
- #define I40E_SR_NVM_IMAGE_VERSION		0x18
- #define I40E_SR_NVM_WAKE_ON_LAN			0x19
- #define I40E_SR_ALTERNATE_SAN_MAC_ADDRESS_PTR	0x27
+  * i40e_get_settings - Get Link Speed and Duplex settings
+  * @netdev: network interface device structure
+  * @ecmd: ethtool command
+@@ -485,6 +495,14 @@ static int i40e_set_settings(struct net_device *netdev,
+ 	u8 autoneg;
+ 	u32 advertise;
+ 
++	/* Changing port settings is not supported if this isn't the
++	 * port's controlling PF
++	 */
++	if (hw->partition_id != 1) {
++		i40e_partition_setting_complaint(pf);
++		return -EOPNOTSUPP;
++	}
++
+ 	if (vsi != pf->vsi[pf->lan_vsi])
+ 		return -EOPNOTSUPP;
+ 
+@@ -687,6 +705,14 @@ static int i40e_set_pauseparam(struct net_device *netdev,
+ 	u8 aq_failures;
+ 	int err = 0;
+ 
++	/* Changing the port's flow control is not supported if this isn't the
++	 * port's controlling PF
++	 */
++	if (hw->partition_id != 1) {
++		i40e_partition_setting_complaint(pf);
++		return -EOPNOTSUPP;
++	}
++
+ 	if (vsi != pf->vsi[pf->lan_vsi])
+ 		return -EOPNOTSUPP;
+ 
+@@ -1503,7 +1529,7 @@ static void i40e_get_wol(struct net_device *netdev,
+ 
+ 	/* NVM bit on means WoL disabled for the port */
+ 	i40e_read_nvm_word(hw, I40E_SR_NVM_WAKE_ON_LAN, &wol_nvm_bits);
+-	if ((1 << hw->port) & wol_nvm_bits) {
++	if ((1 << hw->port) & wol_nvm_bits || hw->partition_id != 1) {
+ 		wol->supported = 0;
+ 		wol->wolopts = 0;
+ 	} else {
+@@ -1512,13 +1538,28 @@ static void i40e_get_wol(struct net_device *netdev,
+ 	}
+ }
+ 
++/**
++ * i40e_set_wol - set the WakeOnLAN configuration
++ * @netdev: the netdev in question
++ * @wol: the ethtool WoL setting data
++ **/
+ static int i40e_set_wol(struct net_device *netdev, struct ethtool_wolinfo *wol)
+ {
+ 	struct i40e_netdev_priv *np = netdev_priv(netdev);
+ 	struct i40e_pf *pf = np->vsi->back;
++	struct i40e_vsi *vsi = np->vsi;
+ 	struct i40e_hw *hw = &pf->hw;
+ 	u16 wol_nvm_bits;
+ 
++	/* WoL not supported if this isn't the controlling PF on the port */
++	if (hw->partition_id != 1) {
++		i40e_partition_setting_complaint(pf);
++		return -EOPNOTSUPP;
++	}
++
++	if (vsi != pf->vsi[pf->lan_vsi])
++		return -EOPNOTSUPP;
++
+ 	/* NVM bit on means WoL disabled for the port */
+ 	i40e_read_nvm_word(hw, I40E_SR_NVM_WAKE_ON_LAN, &wol_nvm_bits);
+ 	if (((1 << hw->port) & wol_nvm_bits))
 -- 
 1.9.3
