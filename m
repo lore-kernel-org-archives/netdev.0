@@ -1,7 +1,7 @@
 From: Tony Lindgren <tony@atomide.com>
-Subject: [PATCH 5/6] net: davinci_emac: Fix ioremap for devices with MDIO within the EMAC address space
-Date: Tue, 13 Jan 2015 11:29:27 -0800
-Message-ID: <1421177368-19756-6-git-send-email-tony@atomide.com>
+Subject: [PATCH 6/6] net: davinci_emac: Add support for emac on dm816x
+Date: Tue, 13 Jan 2015 11:29:28 -0800
+Message-ID: <1421177368-19756-7-git-send-email-tony@atomide.com>
 References: <1421177368-19756-1-git-send-email-tony@atomide.com>
 Cc: netdev@vger.kernel.org, linux-omap@vger.kernel.org,
 	Brian Hutchinson <b.hutchman@gmail.com>,
@@ -12,53 +12,50 @@ In-Reply-To: <1421177368-19756-1-git-send-email-tony@atomide.com>
 Sender: linux-omap-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Some devices like dm816x have the MDIO registers within the first EMAC
-instance address space. Let's fix the issue by allowing to pass an
-optional second IO range for the EMAC control register area.
+On dm816x we have two emac controllers with separate memory
+areas.
 
 Cc: Brian Hutchinson <b.hutchman@gmail.com>
 Cc: Felipe Balbi <balbi@ti.com>
 Signed-off-by: Tony Lindgren <tony@atomide.com>
 ---
- drivers/net/ethernet/ti/davinci_emac.c | 15 ++++++++++++---
- 1 file changed, 12 insertions(+), 3 deletions(-)
+ Documentation/devicetree/bindings/net/davinci_emac.txt | 3 ++-
+ drivers/net/ethernet/ti/davinci_emac.c                 | 5 +++++
+ 2 files changed, 7 insertions(+), 1 deletion(-)
 
+diff --git a/Documentation/devicetree/bindings/net/davinci_emac.txt b/Documentation/devicetree/bindings/net/davinci_emac.txt
+index 0328088..24c5cda 100644
+--- a/Documentation/devicetree/bindings/net/davinci_emac.txt
++++ b/Documentation/devicetree/bindings/net/davinci_emac.txt
+@@ -4,7 +4,8 @@ This file provides information, what the device node
+ for the davinci_emac interface contains.
+ 
+ Required properties:
+-- compatible: "ti,davinci-dm6467-emac" or "ti,am3517-emac"
++- compatible: "ti,davinci-dm6467-emac", "ti,am3517-emac" or
++  "ti,dm816-emac"
+ - reg: Offset and length of the register set for the device
+ - ti,davinci-ctrl-reg-offset: offset to control register
+ - ti,davinci-ctrl-mod-reg-offset: offset to control module register
 diff --git a/drivers/net/ethernet/ti/davinci_emac.c b/drivers/net/ethernet/ti/davinci_emac.c
-index 4c8d82c..0342273 100644
+index 0342273..5caee66 100644
 --- a/drivers/net/ethernet/ti/davinci_emac.c
 +++ b/drivers/net/ethernet/ti/davinci_emac.c
-@@ -1877,7 +1877,7 @@ davinci_emac_of_get_pdata(struct platform_device *pdev, struct emac_priv *priv)
- static int davinci_emac_probe(struct platform_device *pdev)
- {
- 	int rc = 0;
--	struct resource *res;
-+	struct resource *res, *res_ctrl;
- 	struct net_device *ndev;
- 	struct emac_priv *priv;
- 	unsigned long hw_ram_addr;
-@@ -1936,11 +1936,20 @@ static int davinci_emac_probe(struct platform_device *pdev)
- 		rc = PTR_ERR(priv->remap_addr);
- 		goto no_pdata;
- 	}
-+
-+	res_ctrl = platform_get_resource(pdev, IORESOURCE_MEM, 1);
-+	if (res_ctrl) {
-+		priv->ctrl_base =
-+			devm_ioremap_resource(&pdev->dev, res_ctrl);
-+		if (IS_ERR(priv->ctrl_base))
-+			goto no_pdata;
-+	} else {
-+		priv->ctrl_base = priv->remap_addr + pdata->ctrl_mod_reg_offset;
-+	}
-+
- 	priv->emac_base = priv->remap_addr + pdata->ctrl_reg_offset;
- 	ndev->base_addr = (unsigned long)priv->remap_addr;
+@@ -2101,9 +2101,14 @@ static const struct emac_platform_data am3517_emac_data = {
+ 	.hw_ram_addr		= 0x01e20000,
+ };
  
--	priv->ctrl_base = priv->remap_addr + pdata->ctrl_mod_reg_offset;
--
- 	hw_ram_addr = pdata->hw_ram_addr;
- 	if (!hw_ram_addr)
- 		hw_ram_addr = (u32 __force)res->start + pdata->ctrl_ram_offset;
++static const struct emac_platform_data dm816_emac_data = {
++	.version		= EMAC_VERSION_2,
++};
++
+ static const struct of_device_id davinci_emac_of_match[] = {
+ 	{.compatible = "ti,davinci-dm6467-emac", },
+ 	{.compatible = "ti,am3517-emac", .data = &am3517_emac_data, },
++	{.compatible = "ti,dm816-emac", .data = &dm816_emac_data, },
+ 	{},
+ };
+ MODULE_DEVICE_TABLE(of, davinci_emac_of_match);
 -- 
 2.1.4
 
