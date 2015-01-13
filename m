@@ -1,145 +1,222 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [RFC PATCH v2 2/2] net: ixgbe: implement af_packet direct queue
- mappings
-Date: Tue, 13 Jan 2015 07:46:53 -0800
-Message-ID: <54B53DED.4040502@gmail.com>
-References: <20150113043509.29985.33515.stgit@nitbit.x32> <20150113043542.29985.15658.stgit@nitbit.x32> <54B52B25.1070809@redhat.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next] net: sched: fix skb->protocol use in case of
+ accelerated vlan path
+Date: Tue, 13 Jan 2015 16:48:25 +0100
+Message-ID: <20150113154825.GD1839@nanopsycho.lan>
+References: <1421057975-1754-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, danny.zhou@intel.com,
-	nhorman@tuxdriver.com, john.ronciak@intel.com,
-	hannes@stressinduktion.org, brouer@redhat.com
-To: Daniel Borkmann <dborkman@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, jhs@mojatatu.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f178.google.com ([209.85.214.178]:39583 "EHLO
-	mail-ob0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752992AbbAMPrL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2015 10:47:11 -0500
-Received: by mail-ob0-f178.google.com with SMTP id gq1so3111942obb.9
-        for <netdev@vger.kernel.org>; Tue, 13 Jan 2015 07:47:10 -0800 (PST)
-In-Reply-To: <54B52B25.1070809@redhat.com>
+Received: from mail-we0-f180.google.com ([74.125.82.180]:47459 "EHLO
+	mail-we0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753177AbbAMPs3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2015 10:48:29 -0500
+Received: by mail-we0-f180.google.com with SMTP id w62so3659384wes.11
+        for <netdev@vger.kernel.org>; Tue, 13 Jan 2015 07:48:27 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1421057975-1754-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/13/2015 06:26 AM, Daniel Borkmann wrote:
-> On 01/13/2015 05:35 AM, John Fastabend wrote:
-> ...
->> +static int ixgbe_ndo_split_queue_pairs(struct net_device *dev,
->> +                       unsigned int start_from,
->> +                       unsigned int qpairs_num,
->> +                       struct sock *sk)
->> +{
->> +    struct ixgbe_adapter *adapter = netdev_priv(dev);
->> +    unsigned int qpair_index;
+Dave, I will send v2 with minor correction. Please drop this one for
+now.
+
+Mon, Jan 12, 2015 at 11:19:35AM CET, jiri@resnulli.us wrote:
+>tc code implicitly considers skb->protocol even in case of accelerated
+>vlan paths and expects vlan protocol type here. However, on rx path,
+>if the vlan header was already stripped, skb->protocol contains value
+>of next header. Similar situation is on tx path.
 >
-> We should probably return -EINVAL, still from within the setsockopt
-> call when qpairs_num is 0?
-
-yep,
-
+>So for skbs that use skb->vlan_tci for tagging, use skb->vlan_proto instead.
 >
->> +    /* allocate whatever available qpairs */
->> +    if (start_from == -1) {
+>Reported-by: Jamal Hadi Salim <jhs@mojatatu.com>
+>Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+>Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
+>---
 >
-> I guess we should define the notion of auto-select into a uapi
-> define instead of -1, which might not be overly obvious.
-
-Certainly not obvious should be defined in the UAPI.
-
+>Note that this is present since vlan accel was introduced, pre-git times.
+>Please consider this for stable.
 >
-> Anyway, extending Documentation/networking/packet_mmap.txt with
-> API details/examples at least for a non-RFC version is encouraged. ;)
-
-Yep for the non-RFC version I'll add an example to packet_mmap.txt
-
+> include/net/pkt_sched.h | 12 ++++++++++++
+> net/sched/act_csum.c    |  2 +-
+> net/sched/cls_flow.c    |  8 ++++----
+> net/sched/em_ipset.c    |  2 +-
+> net/sched/em_meta.c     |  2 +-
+> net/sched/sch_api.c     |  2 +-
+> net/sched/sch_dsmark.c  |  6 +++---
+> net/sched/sch_teql.c    |  4 ++--
+> 8 files changed, 25 insertions(+), 13 deletions(-)
 >
->> +        unsigned int count = 0;
->> +
->> +        for (qpair_index = adapter->num_rx_queues;
->> +             qpair_index < MAX_RX_QUEUES;
->> +             qpair_index++) {
->> +            if (!adapter->user_queue_info[qpair_index].sk_handle) {
->> +                count++;
->> +                if (count == qpairs_num) {
->> +                    start_from = qpair_index - count + 1;
->> +                    break;
->> +                }
->> +            } else {
->> +                count = 0;
->> +            }
->> +        }
->> +    }
->> +
->> +    /* otherwise the caller specified exact queues */
->> +    if ((start_from > MAX_TX_QUEUES) ||
->> +        (start_from > MAX_RX_QUEUES) ||
->> +        (start_from + qpairs_num > MAX_TX_QUEUES) ||
->> +        (start_from + qpairs_num > MAX_RX_QUEUES))
->> +        return -EINVAL;
+>diff --git a/include/net/pkt_sched.h b/include/net/pkt_sched.h
+>index 27a3383..cd590f7 100644
+>--- a/include/net/pkt_sched.h
+>+++ b/include/net/pkt_sched.h
+>@@ -3,6 +3,7 @@
+> 
+> #include <linux/jiffies.h>
+> #include <linux/ktime.h>
+>+#include <linux/if_vlan.h>
+> #include <net/sch_generic.h>
+> 
+> struct qdisc_walker {
+>@@ -114,6 +115,17 @@ int tc_classify_compat(struct sk_buff *skb, const struct tcf_proto *tp,
+> int tc_classify(struct sk_buff *skb, const struct tcf_proto *tp,
+> 		struct tcf_result *res);
+> 
+>+static inline __be16 tc_skb_protocol(struct sk_buff *skb)
+>+{
+>+	/* We need to take extra care in case the skb came via
+>+	 * vlan accelerated path. In that case, use skb->vlan_proto
+>+	 * as the original vlan header was already stripped.
+>+	 */
+>+	if (vlan_tx_tag_present(skb))
+>+		return skb->vlan_proto;
+>+	return skb->protocol;
+>+}
+>+
+> /* Calculate maximal size of packet seen by hard_start_xmit
+>    routine of this device.
+>  */
+>diff --git a/net/sched/act_csum.c b/net/sched/act_csum.c
+>index edbf40d..4cd5cf1 100644
+>--- a/net/sched/act_csum.c
+>+++ b/net/sched/act_csum.c
+>@@ -509,7 +509,7 @@ static int tcf_csum(struct sk_buff *skb,
+> 	if (unlikely(action == TC_ACT_SHOT))
+> 		goto drop;
+> 
+>-	switch (skb->protocol) {
+>+	switch (tc_skb_protocol(skb)) {
+> 	case cpu_to_be16(ETH_P_IP):
+> 		if (!tcf_csum_ipv4(skb, update_flags))
+> 			goto drop;
+>diff --git a/net/sched/cls_flow.c b/net/sched/cls_flow.c
+>index 15d68f2..4614103 100644
+>--- a/net/sched/cls_flow.c
+>+++ b/net/sched/cls_flow.c
+>@@ -77,7 +77,7 @@ static u32 flow_get_dst(const struct sk_buff *skb, const struct flow_keys *flow)
+> {
+> 	if (flow->dst)
+> 		return ntohl(flow->dst);
+>-	return addr_fold(skb_dst(skb)) ^ (__force u16)skb->protocol;
+>+	return addr_fold(skb_dst(skb)) ^ (__force u16) tc_skb_protocol(skb);
+> }
+> 
+> static u32 flow_get_proto(const struct sk_buff *skb, const struct flow_keys *flow)
+>@@ -98,7 +98,7 @@ static u32 flow_get_proto_dst(const struct sk_buff *skb, const struct flow_keys
+> 	if (flow->ports)
+> 		return ntohs(flow->port16[1]);
+> 
+>-	return addr_fold(skb_dst(skb)) ^ (__force u16)skb->protocol;
+>+	return addr_fold(skb_dst(skb)) ^ (__force u16) tc_skb_protocol(skb);
+> }
+> 
+> static u32 flow_get_iif(const struct sk_buff *skb)
+>@@ -144,7 +144,7 @@ static u32 flow_get_nfct(const struct sk_buff *skb)
+> 
+> static u32 flow_get_nfct_src(const struct sk_buff *skb, const struct flow_keys *flow)
+> {
+>-	switch (skb->protocol) {
+>+	switch (tc_skb_protocol(skb)) {
+> 	case htons(ETH_P_IP):
+> 		return ntohl(CTTUPLE(skb, src.u3.ip));
+> 	case htons(ETH_P_IPV6):
+>@@ -156,7 +156,7 @@ fallback:
+> 
+> static u32 flow_get_nfct_dst(const struct sk_buff *skb, const struct flow_keys *flow)
+> {
+>-	switch (skb->protocol) {
+>+	switch (tc_skb_protocol(skb)) {
+> 	case htons(ETH_P_IP):
+> 		return ntohl(CTTUPLE(skb, dst.u3.ip));
+> 	case htons(ETH_P_IPV6):
+>diff --git a/net/sched/em_ipset.c b/net/sched/em_ipset.c
+>index 5b4a4ef..a3d79c8 100644
+>--- a/net/sched/em_ipset.c
+>+++ b/net/sched/em_ipset.c
+>@@ -59,7 +59,7 @@ static int em_ipset_match(struct sk_buff *skb, struct tcf_ematch *em,
+> 	struct net_device *dev, *indev = NULL;
+> 	int ret, network_offset;
+> 
+>-	switch (skb->protocol) {
+>+	switch (tc_skb_protocol(skb)) {
+> 	case htons(ETH_P_IP):
+> 		acpar.family = NFPROTO_IPV4;
+> 		if (!pskb_network_may_pull(skb, sizeof(struct iphdr)))
+>diff --git a/net/sched/em_meta.c b/net/sched/em_meta.c
+>index c8f8c39..2159981 100644
+>--- a/net/sched/em_meta.c
+>+++ b/net/sched/em_meta.c
+>@@ -197,7 +197,7 @@ META_COLLECTOR(int_priority)
+> META_COLLECTOR(int_protocol)
+> {
+> 	/* Let userspace take care of the byte ordering */
+>-	dst->value = skb->protocol;
+>+	dst->value = tc_skb_protocol(skb);
+> }
+> 
+> META_COLLECTOR(int_pkttype)
+>diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
+>index 76f402e..243b7d1 100644
+>--- a/net/sched/sch_api.c
+>+++ b/net/sched/sch_api.c
+>@@ -1807,7 +1807,7 @@ done:
+> int tc_classify_compat(struct sk_buff *skb, const struct tcf_proto *tp,
+> 		       struct tcf_result *res)
+> {
+>-	__be16 protocol = skb->protocol;
+>+	__be16 protocol = tc_skb_protocol(skb);
+> 	int err;
+> 
+> 	for (; tp; tp = rcu_dereference_bh(tp->next)) {
+>diff --git a/net/sched/sch_dsmark.c b/net/sched/sch_dsmark.c
+>index 227114f..66700a6 100644
+>--- a/net/sched/sch_dsmark.c
+>+++ b/net/sched/sch_dsmark.c
+>@@ -203,7 +203,7 @@ static int dsmark_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+> 	pr_debug("%s(skb %p,sch %p,[qdisc %p])\n", __func__, skb, sch, p);
+> 
+> 	if (p->set_tc_index) {
+>-		switch (skb->protocol) {
+>+		switch (tc_skb_protocol(skb)) {
+> 		case htons(ETH_P_IP):
+> 			if (skb_cow_head(skb, sizeof(struct iphdr)))
+> 				goto drop;
+>@@ -289,7 +289,7 @@ static struct sk_buff *dsmark_dequeue(struct Qdisc *sch)
+> 	index = skb->tc_index & (p->indices - 1);
+> 	pr_debug("index %d->%d\n", skb->tc_index, index);
+> 
+>-	switch (skb->protocol) {
+>+	switch (tc_skb_protocol(skb)) {
+> 	case htons(ETH_P_IP):
+> 		ipv4_change_dsfield(ip_hdr(skb), p->mask[index],
+> 				    p->value[index]);
+>@@ -306,7 +306,7 @@ static struct sk_buff *dsmark_dequeue(struct Qdisc *sch)
+> 		 */
+> 		if (p->mask[index] != 0xff || p->value[index])
+> 			pr_warn("%s: unsupported protocol %d\n",
+>-				__func__, ntohs(skb->protocol));
+>+				__func__, ntohs(tc_skb_protocol(skb)));
+> 		break;
+> 	}
+> 
+>diff --git a/net/sched/sch_teql.c b/net/sched/sch_teql.c
+>index 6ada423..2ad0c40 100644
+>--- a/net/sched/sch_teql.c
+>+++ b/net/sched/sch_teql.c
+>@@ -249,8 +249,8 @@ __teql_resolve(struct sk_buff *skb, struct sk_buff *skb_res,
+> 		char haddr[MAX_ADDR_LEN];
+> 
+> 		neigh_ha_snapshot(haddr, n, dev);
+>-		err = dev_hard_header(skb, dev, ntohs(skb->protocol), haddr,
+>-				      NULL, skb->len);
+>+		err = dev_hard_header(skb, dev, ntohs(tc_skb_protocol(skb)),
+>+				      haddr, NULL, skb->len);
+> 
+> 		if (err < 0)
+> 			err = -EINVAL;
+>-- 
+>1.9.3
 >
-> Shouldn't this be '>=' if I see this correctly?
-
-hmm I think this is correct the device allocates MAX_TX_QUEUES so the
-queue space index is (0, MAX_TX_QUEUES - 1). So MAX_TX_QUEUES and
-MAX_RX_QUEUES would be an invalid access below,
-
->
->> +    /* If the qpairs are being used by the driver do not let user space
->> +     * consume the queues. Also if the queue has already been allocated
->> +     * to a socket do fail the request.
->> +     */
->> +    for (qpair_index = start_from;
->> +         qpair_index < start_from + qpairs_num;
->> +         qpair_index++) {
->> +        if ((qpair_index < adapter->num_tx_queues) ||
->> +            (qpair_index < adapter->num_rx_queues))
->> +            return -EINVAL;
->> +
->> +        if (adapter->user_queue_info[qpair_index].sk_handle)
->> +            return -EBUSY;
->> +    }
->> +
->> +    /* remember the sk handle for each queue pair */
->> +    for (qpair_index = start_from;
->> +         qpair_index < start_from + qpairs_num;
->> +         qpair_index++) {
->> +        adapter->user_queue_info[qpair_index].sk_handle = sk;
->> +        adapter->user_queue_info[qpair_index].num_of_regions = 0;
-                                     ^^^^^^^^^^^^^^
-                                     (0, MAX_TX_QUEUES - 1)
-
-@@ -673,6 +687,9 @@ Hunk #2, a/drivers/net/ethernet/intel/ixgbe/ixgbe.h 
-struct ixgbe_adapter {
-
-         struct ixgbe_q_vector *q_vector[MAX_Q_VECTORS];
-
-+       /* Direct User Space Queues */
-+       struct ixgbe_user_queue_info user_queue_info[MAX_RX_QUEUES];
-+
-
-
-
->> +    }
->> +
->> +    return 0;
->> +}
->
-> I guess many drivers would need to implement similar code, do you see
-> a chance to move generic parts to the core, at least for some helper
-> functions?
-
-I'm not entirely sure about this. It depends on how the driver manages
-its queue space. Many of the 10Gpbs devices it seems could use similar
-logic so it might make sense. Other drivers might conjure the queues
-out of some other bank of queues. If I'm looking @ the devices I have
-here, i40e at least would manage the queues slightly different then this
-I think.
-
->
-> Thanks,
-> Daniel
-
-
--- 
-John Fastabend         Intel Corporation
