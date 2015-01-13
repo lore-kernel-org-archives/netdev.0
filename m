@@ -1,83 +1,111 @@
 From: Ying Xue <ying.xue@windriver.com>
-Subject: [PATCH net-next] rhashtable: unnecessary to use delayed work
-Date: Tue, 13 Jan 2015 17:00:45 +0800
-Message-ID: <1421139645-1588-1-git-send-email-ying.xue@windriver.com>
+Subject: [PATCH net-next] tipc: remove redundant timer
+	defined in tipc_sock struct
+Date: Tue, 13 Jan 2015 17:07:48 +0800
+Message-ID: <1421140068-3614-1-git-send-email-ying.xue@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: <tgraf@suug.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:34392 "EHLO
-	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751132AbbAMJBR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2015 04:01:17 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: jon.maloy@ericsson.com, netdev@vger.kernel.org, ericalp@ericsson.com,
+	Paul.Gortmaker@windriver.com, tipc-discussion@lists.sourceforge.net
+To: <davem@davemloft.net>
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-When we put our declared work task in the global workqueue with
-schedule_delayed_work(), its delay parameter is always zero.
-Therefore, we should define a normal work in rhashtable structure
-instead of a delayed work.
+Remove the redundant timer defined in tipc_sock structure, instead we
+can directly reuse the sk_timer defined in sock structure.
 
 Signed-off-by: Ying Xue <ying.xue@windriver.com>
-Cc: Thomas Graf <tgraf@suug.ch>
+Acked-by: Erik Hugne <erik.hugne@ericsson.com>
+Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
 ---
- include/linux/rhashtable.h |    2 +-
- lib/rhashtable.c           |    8 ++++----
- 2 files changed, 5 insertions(+), 5 deletions(-)
+ net/tipc/socket.c |   16 +++++++---------
+ 1 file changed, 7 insertions(+), 9 deletions(-)
 
-diff --git a/include/linux/rhashtable.h b/include/linux/rhashtable.h
-index 9570832..a2562ed 100644
---- a/include/linux/rhashtable.h
-+++ b/include/linux/rhashtable.h
-@@ -119,7 +119,7 @@ struct rhashtable {
- 	atomic_t			nelems;
- 	atomic_t			shift;
- 	struct rhashtable_params	p;
--	struct delayed_work             run_work;
-+	struct work_struct		run_work;
- 	struct mutex                    mutex;
- 	bool                            being_destroyed;
- };
-diff --git a/lib/rhashtable.c b/lib/rhashtable.c
-index ed6ae1a..a7959ed 100644
---- a/lib/rhashtable.c
-+++ b/lib/rhashtable.c
-@@ -476,7 +476,7 @@ static void rht_deferred_worker(struct work_struct *work)
- 	struct rhashtable *ht;
- 	struct bucket_table *tbl;
+diff --git a/net/tipc/socket.c b/net/tipc/socket.c
+index 2cec496..c9c34a6 100644
+--- a/net/tipc/socket.c
++++ b/net/tipc/socket.c
+@@ -69,7 +69,6 @@
+  * @pub_count: total # of publications port has made during its lifetime
+  * @probing_state:
+  * @probing_intv:
+- * @timer:
+  * @port: port - interacts with 'sk' and with the rest of the TIPC stack
+  * @peer_name: the peer of the connection, if any
+  * @conn_timeout: the time we can wait for an unresponded setup request
+@@ -94,7 +93,6 @@ struct tipc_sock {
+ 	u32 pub_count;
+ 	u32 probing_state;
+ 	unsigned long probing_intv;
+-	struct timer_list timer;
+ 	uint conn_timeout;
+ 	atomic_t dupl_rcvcnt;
+ 	bool link_cong;
+@@ -360,7 +358,7 @@ static int tipc_sk_create(struct net *net, struct socket *sock,
+ 		return -EINVAL;
+ 	}
+ 	msg_set_origport(msg, tsk->portid);
+-	setup_timer(&tsk->timer, tipc_sk_timeout, (unsigned long)tsk);
++	setup_timer(&sk->sk_timer, tipc_sk_timeout, (unsigned long)tsk);
+ 	sk->sk_backlog_rcv = tipc_backlog_rcv;
+ 	sk->sk_rcvbuf = sysctl_tipc_rmem[1];
+ 	sk->sk_data_ready = tipc_data_ready;
+@@ -514,7 +512,8 @@ static int tipc_release(struct socket *sock)
  
--	ht = container_of(work, struct rhashtable, run_work.work);
-+	ht = container_of(work, struct rhashtable, run_work);
- 	mutex_lock(&ht->mutex);
- 	tbl = rht_dereference(ht->tbl, ht);
+ 	tipc_sk_withdraw(tsk, 0, NULL);
+ 	probing_state = tsk->probing_state;
+-	if (del_timer_sync(&tsk->timer) && probing_state != TIPC_CONN_PROBING)
++	if (del_timer_sync(&sk->sk_timer) &&
++	    probing_state != TIPC_CONN_PROBING)
+ 		sock_put(sk);
+ 	tipc_sk_remove(tsk);
+ 	if (tsk->connected) {
+@@ -1136,7 +1135,8 @@ static int tipc_send_packet(struct kiocb *iocb, struct socket *sock,
+ static void tipc_sk_finish_conn(struct tipc_sock *tsk, u32 peer_port,
+ 				u32 peer_node)
+ {
+-	struct net *net = sock_net(&tsk->sk);
++	struct sock *sk = &tsk->sk;
++	struct net *net = sock_net(sk);
+ 	struct tipc_msg *msg = &tsk->phdr;
  
-@@ -498,7 +498,7 @@ static void rhashtable_wakeup_worker(struct rhashtable *ht)
- 	if (tbl == new_tbl &&
- 	    ((ht->p.grow_decision && ht->p.grow_decision(ht, size)) ||
- 	     (ht->p.shrink_decision && ht->p.shrink_decision(ht, size))))
--		schedule_delayed_work(&ht->run_work, 0);
-+		schedule_work(&ht->run_work);
+ 	msg_set_destnode(msg, peer_node);
+@@ -1148,8 +1148,7 @@ static void tipc_sk_finish_conn(struct tipc_sock *tsk, u32 peer_port,
+ 	tsk->probing_intv = CONN_PROBING_INTERVAL;
+ 	tsk->probing_state = TIPC_CONN_OK;
+ 	tsk->connected = 1;
+-	if (!mod_timer(&tsk->timer, jiffies + tsk->probing_intv))
+-		sock_hold(&tsk->sk);
++	sk_reset_timer(sk, &sk->sk_timer, jiffies + tsk->probing_intv);
+ 	tipc_node_add_conn(net, peer_node, tsk->portid, peer_port);
+ 	tsk->max_pkt = tipc_node_get_mtu(net, peer_node, tsk->portid);
  }
- 
- static void __rhashtable_insert(struct rhashtable *ht, struct rhash_head *obj,
-@@ -894,7 +894,7 @@ int rhashtable_init(struct rhashtable *ht, struct rhashtable_params *params)
- 		get_random_bytes(&ht->p.hash_rnd, sizeof(ht->p.hash_rnd));
- 
- 	if (ht->p.grow_decision || ht->p.shrink_decision)
--		INIT_DEFERRABLE_WORK(&ht->run_work, rht_deferred_worker);
-+		INIT_WORK(&ht->run_work, rht_deferred_worker);
- 
- 	return 0;
- }
-@@ -914,7 +914,7 @@ void rhashtable_destroy(struct rhashtable *ht)
- 
- 	mutex_lock(&ht->mutex);
- 
--	cancel_delayed_work(&ht->run_work);
-+	cancel_work_sync(&ht->run_work);
- 	bucket_table_free(rht_dereference(ht->tbl, ht));
- 
- 	mutex_unlock(&ht->mutex);
+@@ -2141,8 +2140,7 @@ static void tipc_sk_timeout(unsigned long data)
+ 				      0, peer_node, tn->own_addr,
+ 				      peer_port, tsk->portid, TIPC_OK);
+ 		tsk->probing_state = TIPC_CONN_PROBING;
+-		if (!mod_timer(&tsk->timer, jiffies + tsk->probing_intv))
+-			sock_hold(sk);
++		sk_reset_timer(sk, &sk->sk_timer, jiffies + tsk->probing_intv);
+ 	}
+ 	bh_unlock_sock(sk);
+ 	if (skb)
 -- 
 1.7.9.5
+
+
+------------------------------------------------------------------------------
+New Year. New Location. New Benefits. New Data Center in Ashburn, VA.
+GigeNET is offering a free month of service with a new server in Ashburn.
+Choose from 2 high performing configs, both with 100TB of bandwidth.
+Higher redundancy.Lower latency.Increased capacity.Completely compliant.
+http://p.sf.net/sfu/gigenet
