@@ -1,41 +1,44 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH] infiniband: mlx5: avoid a compile-time warning
-Date: Tue, 13 Jan 2015 17:08:41 -0500 (EST)
-Message-ID: <20150113.170841.1549791027972784427.davem@davemloft.net>
-References: <2267004.49D0qFBpL1@wuerfel>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] mISDN: avoid arch specific __builtin_return_address
+ call
+Date: Tue, 13 Jan 2015 17:08:47 -0500 (EST)
+Message-ID: <20150113.170847.166125234153799669.davem@davemloft.net>
+References: <1816278.9Bv8N8K5IB@wuerfel>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: arnd-r2nGTMty4D4@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <2267004.49D0qFBpL1@wuerfel>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: isdn4linux@listserv.isdn4linux.de, netdev@vger.kernel.org,
+	isdn@linux-pingi.de, linux-arm-kernel@lists.infradead.org,
+	linux-kernel@vger.kernel.org
+To: arnd@arndb.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1816278.9Bv8N8K5IB@wuerfel>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Date: Tue, 13 Jan 2015 17:09:43 +0100
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Tue, 13 Jan 2015 17:10:58 +0100
 
-> The return type of find_first_bit() is architecture specific,
-> on ARM it is 'unsigned int', while the asm-generic code used
-> on x86 and a lot of other architectures returns 'unsigned long'.
+> Not all architectures are able to call __builtin_return_address().
+> On ARM, the mISDN code produces this warning:
 > 
-> When building the mlx5 driver on ARM, we get a warning about
-> this:
+> hardware/mISDN/w6692.c: In function 'w6692_dctrl':
+> hardware/mISDN/w6692.c:1181:75: warning: unsupported argument to '__builtin_return_address'
+>   pr_debug("%s: %s dev(%d) open from %p\n", card->name, __func__,
+>                                                                            ^
+> hardware/mISDN/mISDNipac.c: In function 'open_dchannel':
+> hardware/mISDN/mISDNipac.c:759:75: warning: unsupported argument to '__builtin_return_address'
+>   pr_debug("%s: %s dev(%d) open from %p\n", isac->name, __func__,
+>                                                                            ^
 > 
-> infiniband/hw/mlx5/mem.c: In function 'mlx5_ib_cont_pages':
-> infiniband/hw/mlx5/mem.c:84:143: warning: comparison of distinct pointer types lacks a cast
->      m = min(m, find_first_bit(&tmp, sizeof(tmp)));
+> In a lot of cases, this is relatively easy to work around by
+> passing the value of __builtin_return_address(0) from the
+> callers into the functions that want it. One exception is
+> the indirect 'open' function call in struct isac_hw. While it
+> would be possible to fix this as well, this patch only addresses
+> the other callers properly and lets this one return the direct
+> parent function, which should be good enough.
 > 
-> This patch changes the driver to use min_t to make it behave
-> the same way on all architectures.
-> 
-> Signed-off-by: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 
 Applied.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
