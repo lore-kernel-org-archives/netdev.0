@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 08/15] i40evf: kick a stalled admin queue
-Date: Tue, 13 Jan 2015 03:33:24 -0800
-Message-ID: <1421148811-9763-9-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 07/15] i40evf: enable interrupt 0 appropriately
+Date: Tue, 13 Jan 2015 03:33:23 -0800
+Message-ID: <1421148811-9763-8-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1421148811-9763-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Mitch A Williams <mitch.a.williams@intel.com>,
 	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
@@ -10,64 +10,69 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga01.intel.com ([192.55.52.88]:65096 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752239AbbAMLdh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Jan 2015 06:33:37 -0500
+	id S1752227AbbAMLdg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Jan 2015 06:33:36 -0500
 In-Reply-To: <1421148811-9763-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Mitch A Williams <mitch.a.williams@intel.com>
 
-On some versions of the firmware, the VF admin send queue may become
-stalled. In this case, the easiest solution is to just place another
-descriptor on the queue; the firmware will then process both requests.
+Don't enable vector 0 in the ISR, just schedule the adminq task and let
+it enable the vector. This prevents the task from being called
+reentrantly. Make sure that the vector is enabled on all exit paths of
+the adminq task, including error exits.
 
-The early init code already accounts for this, but the runtime code does
-not. In the watchdog task, check for the stall condition, and if it's
-found, send our API version to the PF. When the PF replies, just ignore
-the reply.
-
-Change-ID: I380d78185a4f284d649c44d263e648afc9b4d50c
+Change-ID: I53f3d14f91ed7a9e90291ea41c681122a5eca5b5
 Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
 Acked-by: Shannon Nelson <shannon.nelson@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40evf/i40evf_main.c     | 7 ++++++-
- drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c | 3 +++
- 2 files changed, 9 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c | 12 ++++--------
+ 1 file changed, 4 insertions(+), 8 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-index 6d5a0e6..c663182 100644
+index d55c4a9..6d5a0e6 100644
 --- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
 +++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-@@ -1336,8 +1336,13 @@ static void i40evf_watchdog_task(struct work_struct *work)
- 	/* Process admin queue tasks. After init, everything gets done
- 	 * here so we don't race on the admin queue.
- 	 */
--	if (adapter->aq_pending)
-+	if (adapter->aq_pending) {
-+		if (!i40evf_asq_done(hw)) {
-+			dev_dbg(&adapter->pdev->dev, "Admin queue timeout\n");
-+			i40evf_send_api_ver(adapter);
-+		}
- 		goto watchdog_done;
-+	}
+@@ -313,10 +313,6 @@ static irqreturn_t i40evf_msix_aq(int irq, void *data)
+ 	val = val | I40E_PFINT_DYN_CTL0_CLEARPBA_MASK;
+ 	wr32(hw, I40E_VFINT_DYN_CTL01, val);
  
- 	if (adapter->aq_required & I40EVF_FLAG_AQ_MAP_VECTORS) {
- 		i40evf_map_queues(adapter);
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c b/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
-index 3aeb633..3f0c85e 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
-@@ -720,6 +720,9 @@ void i40evf_virtchnl_completion(struct i40evf_adapter *adapter,
- 			__func__, v_retval, v_opcode);
- 	}
- 	switch (v_opcode) {
-+	case I40E_VIRTCHNL_OP_VERSION:
-+		/* no action, but also not an error */
-+		break;
- 	case I40E_VIRTCHNL_OP_GET_STATS: {
- 		struct i40e_eth_stats *stats =
- 			(struct i40e_eth_stats *)msg;
+-	/* re-enable interrupt causes */
+-	wr32(hw, I40E_VFINT_ICR0_ENA1, ena_mask);
+-	wr32(hw, I40E_VFINT_DYN_CTL01, I40E_VFINT_DYN_CTL01_INTENA_MASK);
+-
+ 	/* schedule work on the private workqueue */
+ 	schedule_work(&adapter->adminq_task);
+ 
+@@ -1620,12 +1616,12 @@ static void i40evf_adminq_task(struct work_struct *work)
+ 	u16 pending;
+ 
+ 	if (adapter->flags & I40EVF_FLAG_PF_COMMS_FAILED)
+-		return;
++		goto out;
+ 
+ 	event.buf_len = I40EVF_MAX_AQ_BUF_SIZE;
+ 	event.msg_buf = kzalloc(event.buf_len, GFP_KERNEL);
+ 	if (!event.msg_buf)
+-		return;
++		goto out;
+ 
+ 	v_msg = (struct i40e_virtchnl_msg *)&event.desc;
+ 	do {
+@@ -1675,10 +1671,10 @@ static void i40evf_adminq_task(struct work_struct *work)
+ 	if (oldval != val)
+ 		wr32(hw, hw->aq.asq.len, val);
+ 
++	kfree(event.msg_buf);
++out:
+ 	/* re-enable Admin queue interrupt cause */
+ 	i40evf_misc_irq_enable(adapter);
+-
+-	kfree(event.msg_buf);
+ }
+ 
+ /**
 -- 
 1.9.3
