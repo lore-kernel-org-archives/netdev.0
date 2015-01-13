@@ -1,82 +1,57 @@
-From: Tony Lindgren <tony@atomide.com>
-Subject: Re: [PATCH 3/6] net: davinci_emac: Free clock after checking the
- frequency
-Date: Tue, 13 Jan 2015 11:54:16 -0800
-Message-ID: <20150113195415.GG2419@atomide.com>
-References: <1421177368-19756-1-git-send-email-tony@atomide.com>
- <1421177368-19756-4-git-send-email-tony@atomide.com>
- <54B57688.6000908@amd.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-omap@vger.kernel.org,
-	Brian Hutchinson <b.hutchman@gmail.com>,
-	Felipe Balbi <balbi@ti.com>
-To: Tom Lendacky <thomas.lendacky@amd.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 14/15] i40e: Don't exit link event early if link speed has changed
+Date: Tue, 13 Jan 2015 11:58:12 -0800
+Message-ID: <1421179093-10932-15-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1421179093-10932-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Catherine Sullivan <catherine.sullivan@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mho-02-ewr.mailhop.org ([204.13.248.72]:49153 "EHLO
-	mho-02-ewr.mailhop.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751193AbbAMT6D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2015 14:58:03 -0500
-Content-Disposition: inline
-In-Reply-To: <54B57688.6000908@amd.com>
+Received: from mga01.intel.com ([192.55.52.88]:14300 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753870AbbAMT6T (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Jan 2015 14:58:19 -0500
+In-Reply-To: <1421179093-10932-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-* Tom Lendacky <thomas.lendacky@amd.com> [150113 11:51]:
-> On 01/13/2015 01:29 PM, Tony Lindgren wrote:
-> >We only use clk_get() to get the frequency, the rest is done by
-> >the runtime PM calls. Let's free the clock too.
-> >
-> >Cc: Brian Hutchinson <b.hutchman@gmail.com>
-> >Cc: Felipe Balbi <balbi@ti.com>
-> >Signed-off-by: Tony Lindgren <tony@atomide.com>
-> >---
-> >  drivers/net/ethernet/ti/davinci_emac.c | 1 +
-> >  1 file changed, 1 insertion(+)
-> >
-> >diff --git a/drivers/net/ethernet/ti/davinci_emac.c b/drivers/net/ethernet/ti/davinci_emac.c
-> >index deb43b3..e9efc74 100644
-> >--- a/drivers/net/ethernet/ti/davinci_emac.c
-> >+++ b/drivers/net/ethernet/ti/davinci_emac.c
-> >@@ -1881,6 +1881,7 @@ static int davinci_emac_probe(struct platform_device *pdev)
-> >  		return -EBUSY;
-> >  	}
-> >  	emac_bus_frequency = clk_get_rate(emac_clk);
-> >+	clk_put(emac_clk);
-> 
-> The devm_clk_get call is used to get the clock so either a devm_clk_put
-> needs to be used here or just let the devm_ call do its thing and
-> automatically do the put when the module is unloaded.
+From: Catherine Sullivan <catherine.sullivan@intel.com>
 
-Thanks good catch, updated patch below.
+Previously we were only checking if the link up state had changed,
+and if it hadn't exiting the link event routine early. We should
+also check if speed has changed, and if it has, stay and finish
+processing the link event.
 
-Runtime PM is really managing the clocks here and the driver
-just checks the rate so let's devm_clk_put() it here.
+Change-ID: I9c8e0991b3f0279108a7858898c3c5ce0a9856b8
+Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 4 ++++
+ 1 file changed, 4 insertions(+)
 
-Regards,
-
-Tony.
-
-8< ---------------------
-From: Tony Lindgren <tony@atomide.com>
-Date: Mon, 22 Dec 2014 08:19:06 -0800
-Subject: [PATCH] net: davinci_emac: Free clock after checking the frequency
-
-We only use clk_get() to get the frequency, the rest is done by
-the runtime PM calls. Let's free the clock too.
-
-Cc: Brian Hutchinson <b.hutchman@gmail.com>
-Cc: Felipe Balbi <balbi@ti.com>
-Signed-off-by: Tony Lindgren <tony@atomide.com>
-
---- a/drivers/net/ethernet/ti/davinci_emac.c
-+++ b/drivers/net/ethernet/ti/davinci_emac.c
-@@ -1881,6 +1881,7 @@ static int davinci_emac_probe(struct platform_device *pdev)
- 		return -EBUSY;
- 	}
- 	emac_bus_frequency = clk_get_rate(emac_clk);
-+	devm_clk_put(&pdev->dev, emac_clk);
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 7c14973..80430b0 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -5503,14 +5503,18 @@ static void i40e_link_event(struct i40e_pf *pf)
+ {
+ 	bool new_link, old_link;
+ 	struct i40e_vsi *vsi = pf->vsi[pf->lan_vsi];
++	u8 new_link_speed, old_link_speed;
  
- 	/* TODO: Probe PHY here if possible */
+ 	/* set this to force the get_link_status call to refresh state */
+ 	pf->hw.phy.get_link_info = true;
  
+ 	old_link = (pf->hw.phy.link_info_old.link_info & I40E_AQ_LINK_UP);
+ 	new_link = i40e_get_link_status(&pf->hw);
++	old_link_speed = pf->hw.phy.link_info_old.link_speed;
++	new_link_speed = pf->hw.phy.link_info.link_speed;
+ 
+ 	if (new_link == old_link &&
++	    new_link_speed == old_link_speed &&
+ 	    (test_bit(__I40E_DOWN, &vsi->state) ||
+ 	     new_link == netif_carrier_ok(vsi->netdev)))
+ 		return;
+-- 
+1.9.3
