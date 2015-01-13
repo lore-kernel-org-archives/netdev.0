@@ -1,94 +1,83 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 00/15][pull request] Intel Wired LAN Driver Updates 2015-01-13
-Date: Tue, 13 Jan 2015 11:57:58 -0800
-Message-ID: <1421179093-10932-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
+Subject: [net-next v2 03/15] i40evf: Remove some scary log messages
+Date: Tue, 13 Jan 2015 11:58:01 -0800
+Message-ID: <1421179093-10932-4-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1421179093-10932-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Mitch A Williams <mitch.a.williams@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga11.intel.com ([192.55.52.93]:52238 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753568AbbAMT6Q (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Jan 2015 14:58:16 -0500
+	id S1753828AbbAMT6R (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Jan 2015 14:58:17 -0500
+In-Reply-To: <1421179093-10932-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to i40e and i40evf.
+From: Mitch A Williams <mitch.a.williams@intel.com>
 
-Mitch provides a fix for i40e to move the call to pci_disable_sriov() so
-that it is called earlier to ensure that the PF driver won't free VF
-resources before the VF remove routine can complete.  Also cleans up
-redundant and duplicate code in the i40evf.  Refactors the i40evf
-shutdown code and let the watchdog take care of shutting things down.
-Fix a possible memory leak, if we are using VLANs and the communication
-with the PF fail during shutdown.  On some versions of the firmware, the
-VF admin send queue may become stalled.  In this case, the easiest
-solution is to place another descriptor on the queue and the firmware
-will then process both requests.
+These messages may be triggered during normal init of the driver if the
+PF or FW take a long time to respond. There's nothing really wrong, so
+don't freak people out logging messages.
 
-Greg adds a warning when the NPAR enabled partitions detected a link speed
-less than 10 Gpbs.
+If the communication channel really is dead, then we'll retry a few
+times and give up. This will log a different more scary message that
+should cause consternation. This allows the user to more easily detect a
+genuine failure.
 
-Vasu removes redundant VN2VN MAC address which were already added by
-the FCoE stack.
+v2: remove un-needed {} based on feedback from Sergei Shtylyov
 
-Shannon adds code to find how many partitions there are per port and
-what is the current partition_id when in NPAR mode.  In multifunction
-mode, make sure we only allow SR/IOV on the master PF of a port and
-only allow partition 1 to set WoL, speed and flow control.
+Change-ID: I6e2b758d4234a3a09c1015c82c8f2442a697cbdb
+Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+Acked-by: Shannon Nelson <shannon.nelson@intel.com>
+Tested-by: Jim Young <james.m.young@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c     | 7 +------
+ drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c | 3 ---
+ 2 files changed, 1 insertion(+), 9 deletions(-)
 
-Kamil adds code to read the PBA block from shadow RAM and returns
-the part number in a string format.
-
-Catherine provides a fix to check if link state and link speed has
-changed before exiting link event
-
-v2: remove un-needed {} in patch #3 of the series based on feedback from
-    Sergei Shtylyov
-
-The following are changes since commit 52e3ad9f011fe72620b2f7050227cd48fd295ad5:
-  Merge branch 'rhashtable-next'
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
-
-Catherine Sullivan (1):
-  i40e: Don't exit link event early if link speed has changed
-
-Greg Rose (1):
-  i40e: Add warning for NPAR partitions with link speed less than 10Gbps
-
-Kamil Krawczyk (1):
-  i40e: Adding function for reading PBA String
-
-Mitch A Williams (8):
-  i40e: disable IOV before freeing resources
-  i40evf: remove redundant code
-  i40evf: Remove some scary log messages
-  i40evf: refactor shutdown code
-  i40evf: remove leftover VLAN filters
-  i40evf: don't fire traffic IRQs when the interface is down
-  i40evf: enable interrupt 0 appropriately
-  i40evf: kick a stalled admin queue
-
-Shannon Nelson (3):
-  i40e/i40evf: find partition_id in npar mode
-  i40e: limit WoL and link settings to partition 1
-  i40e: limit sriov to partition 1 of NPAR configurations
-
-Vasu Dev (1):
-  i40e: remove VN2VN related mac filters
-
- drivers/net/ethernet/intel/i40e/i40e_common.c      | 125 +++++++++++++++++++++
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c     |  43 ++++++-
- drivers/net/ethernet/intel/i40e/i40e_fcoe.c        |   2 -
- drivers/net/ethernet/intel/i40e/i40e_main.c        |  15 ++-
- drivers/net/ethernet/intel/i40e/i40e_prototype.h   |   5 +
- drivers/net/ethernet/intel/i40e/i40e_type.h        |   9 +-
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |  11 +-
- drivers/net/ethernet/intel/i40evf/i40e_type.h      |   7 +-
- drivers/net/ethernet/intel/i40evf/i40evf_main.c    |  97 ++++++++--------
- .../net/ethernet/intel/i40evf/i40evf_virtchnl.c    |   6 +-
- 10 files changed, 257 insertions(+), 63 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+index ee0db59..6c73acf 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+@@ -2026,12 +2026,8 @@ static void i40evf_init_task(struct work_struct *work)
+ 		/* aq msg sent, awaiting reply */
+ 		err = i40evf_verify_api_ver(adapter);
+ 		if (err) {
+-			dev_info(&pdev->dev, "Unable to verify API version (%d), retrying\n",
+-				 err);
+-			if (err == I40E_ERR_ADMIN_QUEUE_NO_WORK) {
+-				dev_info(&pdev->dev, "Resending request\n");
++			if (err == I40E_ERR_ADMIN_QUEUE_NO_WORK)
+ 				err = i40evf_send_api_ver(adapter);
+-			}
+ 			goto err;
+ 		}
+ 		err = i40evf_send_vf_config_msg(adapter);
+@@ -2054,7 +2050,6 @@ static void i40evf_init_task(struct work_struct *work)
+ 		}
+ 		err = i40evf_get_vf_config(adapter);
+ 		if (err == I40E_ERR_ADMIN_QUEUE_NO_WORK) {
+-			dev_info(&pdev->dev, "Resending VF config request\n");
+ 			err = i40evf_send_vf_config_msg(adapter);
+ 			goto err;
+ 		}
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c b/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
+index 5fde5a7..3aeb633 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
+@@ -715,9 +715,6 @@ void i40evf_virtchnl_completion(struct i40evf_adapter *adapter,
+ 		}
+ 		return;
+ 	}
+-	if (v_opcode != adapter->current_op)
+-		dev_info(&adapter->pdev->dev, "Pending op is %d, received %d\n",
+-			 adapter->current_op, v_opcode);
+ 	if (v_retval) {
+ 		dev_err(&adapter->pdev->dev, "%s: PF returned error %d to our request %d\n",
+ 			__func__, v_retval, v_opcode);
 -- 
 1.9.3
