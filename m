@@ -1,45 +1,129 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 10/15] i40e: remove VN2VN related mac filters
-Date: Tue, 13 Jan 2015 11:58:08 -0800
-Message-ID: <1421179093-10932-11-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 12/15] i40e: Adding function for reading PBA String
+Date: Tue, 13 Jan 2015 11:58:10 -0800
+Message-ID: <1421179093-10932-13-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1421179093-10932-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Vasu Dev <vasu.dev@intel.com>, netdev@vger.kernel.org,
+Cc: Kamil Krawczyk <kamil.krawczyk@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga01.intel.com ([192.55.52.88]:14300 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753658AbbAMT6S (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Jan 2015 14:58:18 -0500
+	id S1753859AbbAMT6T (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Jan 2015 14:58:19 -0500
 In-Reply-To: <1421179093-10932-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vasu Dev <vasu.dev@intel.com>
+From: Kamil Krawczyk <kamil.krawczyk@intel.com>
 
-These mac address already added by FCoE stack above netdev,
-therefore adding them here is redundant.
+Function will read PBA Block from Shadow RAM and return it in a string format.
 
-Change-ID: Ia5b59f426f57efd20f8945f7c6cc5d741fbe06e5
-Signed-off-by: Vasu Dev <vasu.dev@intel.com>
+Change-ID: I4ee7059f6e21bd0eba38687da15e772e0b4ab36e
+Signed-off-by: Kamil Krawczyk <kamil.krawczyk@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_fcoe.c | 2 --
- 1 file changed, 2 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_common.c    | 59 ++++++++++++++++++++++++
+ drivers/net/ethernet/intel/i40e/i40e_prototype.h |  2 +
+ drivers/net/ethernet/intel/i40e/i40e_type.h      |  2 +
+ 3 files changed, 63 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_fcoe.c b/drivers/net/ethernet/intel/i40e/i40e_fcoe.c
-index a8b8bd9..2cd841b 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_fcoe.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_fcoe.c
-@@ -1515,8 +1515,6 @@ void i40e_fcoe_config_netdev(struct net_device *netdev, struct i40e_vsi *vsi)
- 	i40e_add_filter(vsi, (u8[6]) FC_FCOE_FLOGI_MAC, 0, false, false);
- 	i40e_add_filter(vsi, FIP_ALL_FCOE_MACS, 0, false, false);
- 	i40e_add_filter(vsi, FIP_ALL_ENODE_MACS, 0, false, false);
--	i40e_add_filter(vsi, FIP_ALL_VN2VN_MACS, 0, false, false);
--	i40e_add_filter(vsi, FIP_ALL_P2P_MACS, 0, false, false);
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
+index b16fc03..4f4d9d1 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_common.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
+@@ -742,6 +742,65 @@ i40e_status i40e_get_san_mac_addr(struct i40e_hw *hw, u8 *mac_addr)
+ #endif
  
- 	/* use san mac */
- 	ether_addr_copy(netdev->dev_addr, hw->mac.san_addr);
+ /**
++ *  i40e_read_pba_string - Reads part number string from EEPROM
++ *  @hw: pointer to hardware structure
++ *  @pba_num: stores the part number string from the EEPROM
++ *  @pba_num_size: part number string buffer length
++ *
++ *  Reads the part number string from the EEPROM.
++ **/
++i40e_status i40e_read_pba_string(struct i40e_hw *hw, u8 *pba_num,
++				 u32 pba_num_size)
++{
++	i40e_status status = 0;
++	u16 pba_word = 0;
++	u16 pba_size = 0;
++	u16 pba_ptr = 0;
++	u16 i = 0;
++
++	status = i40e_read_nvm_word(hw, I40E_SR_PBA_FLAGS, &pba_word);
++	if (status || (pba_word != 0xFAFA)) {
++		hw_dbg(hw, "Failed to read PBA flags or flag is invalid.\n");
++		return status;
++	}
++
++	status = i40e_read_nvm_word(hw, I40E_SR_PBA_BLOCK_PTR, &pba_ptr);
++	if (status) {
++		hw_dbg(hw, "Failed to read PBA Block pointer.\n");
++		return status;
++	}
++
++	status = i40e_read_nvm_word(hw, pba_ptr, &pba_size);
++	if (status) {
++		hw_dbg(hw, "Failed to read PBA Block size.\n");
++		return status;
++	}
++
++	/* Subtract one to get PBA word count (PBA Size word is included in
++	 * total size)
++	 */
++	pba_size--;
++	if (pba_num_size < (((u32)pba_size * 2) + 1)) {
++		hw_dbg(hw, "Buffer to small for PBA data.\n");
++		return I40E_ERR_PARAM;
++	}
++
++	for (i = 0; i < pba_size; i++) {
++		status = i40e_read_nvm_word(hw, (pba_ptr + 1) + i, &pba_word);
++		if (status) {
++			hw_dbg(hw, "Failed to read PBA Block word %d.\n", i);
++			return status;
++		}
++
++		pba_num[(i * 2)] = (pba_word >> 8) & 0xFF;
++		pba_num[(i * 2) + 1] = pba_word & 0xFF;
++	}
++	pba_num[(pba_size * 2)] = '\0';
++
++	return status;
++}
++
++/**
+  * i40e_get_media_type - Gets media type
+  * @hw: pointer to the hardware structure
+  **/
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_prototype.h b/drivers/net/ethernet/intel/i40e/i40e_prototype.h
+index d1c7d63..68e852a 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_prototype.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_prototype.h
+@@ -248,6 +248,8 @@ void i40e_clear_pxe_mode(struct i40e_hw *hw);
+ bool i40e_get_link_status(struct i40e_hw *hw);
+ i40e_status i40e_get_mac_addr(struct i40e_hw *hw, u8 *mac_addr);
+ i40e_status i40e_get_port_mac_addr(struct i40e_hw *hw, u8 *mac_addr);
++i40e_status i40e_read_pba_string(struct i40e_hw *hw, u8 *pba_num,
++				 u32 pba_num_size);
+ i40e_status i40e_validate_mac_addr(u8 *mac_addr);
+ void i40e_pre_tx_queue_cfg(struct i40e_hw *hw, u32 queue, bool enable);
+ #ifdef I40E_FCOE
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_type.h b/drivers/net/ethernet/intel/i40e/i40e_type.h
+index 611de3e..ff121fe 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_type.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_type.h
+@@ -1140,6 +1140,8 @@ struct i40e_hw_port_stats {
+ /* Checksum and Shadow RAM pointers */
+ #define I40E_SR_NVM_CONTROL_WORD		0x00
+ #define I40E_SR_EMP_MODULE_PTR			0x0F
++#define I40E_SR_PBA_FLAGS			0x15
++#define I40E_SR_PBA_BLOCK_PTR			0x16
+ #define I40E_SR_NVM_IMAGE_VERSION		0x18
+ #define I40E_SR_NVM_WAKE_ON_LAN			0x19
+ #define I40E_SR_ALTERNATE_SAN_MAC_ADDRESS_PTR	0x27
 -- 
 1.9.3
