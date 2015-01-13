@@ -1,65 +1,54 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [net-next 03/15] i40evf: Remove some scary log messages
-Date: Tue, 13 Jan 2015 17:22:29 +0300
-Message-ID: <54B52A25.1040402@cogentembedded.com>
-References: <1421148811-9763-1-git-send-email-jeffrey.t.kirsher@intel.com> <1421148811-9763-4-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH] rocker: fix harmless warning on 32-bit machines
+Date: Tue, 13 Jan 2015 15:23:52 +0100
+Message-ID: <4047824.AYNhYQQ6UI@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Mitch A Williams <mitch.a.williams@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: David Miller <davem@davemloft.net>, Jiri Pirko <jiri@resnulli.us>,
+	Scott Feldman <sfeldma@gmail.com>,
+	linux-arm-kernel@lists.infradead.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f49.google.com ([209.85.215.49]:49375 "EHLO
-	mail-la0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751788AbbAMOWd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2015 09:22:33 -0500
-Received: by mail-la0-f49.google.com with SMTP id hs14so2833408lab.8
-        for <netdev@vger.kernel.org>; Tue, 13 Jan 2015 06:22:32 -0800 (PST)
-In-Reply-To: <1421148811-9763-4-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mout.kundenserver.de ([212.227.17.24]:55950 "EHLO
+	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751360AbbAMOYY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2015 09:24:24 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+The rocker driver tries to assign a pointer to a 64-bit integer
+and then back to a pointer. This is safe on all architectures,
+but causes a compiler warning when pointers are shorter than
+64-bit:
 
-On 1/13/2015 2:33 PM, Jeff Kirsher wrote:
+rocker/rocker.c: In function 'rocker_desc_cookie_ptr_get':
+rocker/rocker.c:809:9: warning: cast to pointer from integer of different size [-Wint-to-pointer-cast]
+  return (void *) desc_info->desc->cookie;
+         ^
 
-> From: Mitch A Williams <mitch.a.williams@intel.com>
+This adds another cast to uintptr_t to tell the compiler
+that it's safe.
 
-> These messages may be triggered during normal init of the driver if the
-> PF or FW take a long time to respond. There's nothing really wrong, so
-> don't freak people out logging messages.
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 
-> If the communication channel really is dead, then we'll retry a few
-> times and give up. This will log a different more scary message that
-> should cause consternation. This allows the user to more easily detect a
-> genuine failure.
-
-> Change-ID: I6e2b758d4234a3a09c1015c82c8f2442a697cbdb
-> Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
-> Acked-by: Shannon Nelson <shannon.nelson@intel.com>
-> Tested-by: Jim Young <james.m.young@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-[...]
-
-> diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-> index ee0db59..f8f1d26 100644
-> --- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-> +++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-> @@ -2026,10 +2026,7 @@ static void i40evf_init_task(struct work_struct *work)
->   		/* aq msg sent, awaiting reply */
->   		err = i40evf_verify_api_ver(adapter);
->   		if (err) {
-> -			dev_info(&pdev->dev, "Unable to verify API version (%d), retrying\n",
-> -				 err);
->   			if (err == I40E_ERR_ADMIN_QUEUE_NO_WORK) {
-> -				dev_info(&pdev->dev, "Resending request\n");
->   				err = i40evf_send_api_ver(adapter);
->   			}
-
-    {} not needed anymore, should have removed them.
-
-[...]
-
-WBR, Sergei
+diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
+index 2f398fa4b9e6..cad8cf962cdf 100644
+--- a/drivers/net/ethernet/rocker/rocker.c
++++ b/drivers/net/ethernet/rocker/rocker.c
+@@ -806,13 +806,13 @@ static bool rocker_desc_gen(struct rocker_desc_info *desc_info)
+ 
+ static void *rocker_desc_cookie_ptr_get(struct rocker_desc_info *desc_info)
+ {
+-	return (void *) desc_info->desc->cookie;
++	return (void *)(uintptr_t)desc_info->desc->cookie;
+ }
+ 
+ static void rocker_desc_cookie_ptr_set(struct rocker_desc_info *desc_info,
+ 				       void *ptr)
+ {
+-	desc_info->desc->cookie = (long) ptr;
++	desc_info->desc->cookie = (uintptr_t) ptr;
+ }
+ 
+ static struct rocker_desc_info *
