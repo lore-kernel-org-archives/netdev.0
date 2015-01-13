@@ -1,44 +1,66 @@
-From: Sanjeev Sharma <sanjeev_sharma@mentor.com>
-Subject: [PATCH v2] gianfar: correct the bad expression while writing bit-pattern
-Date: Tue, 13 Jan 2015 10:58:58 +0530
-Message-ID: <1421126938-16268-1-git-send-email-sanjeev_sharma@mentor.com>
-References: <54B3D63B.1010608@cogentembedded.com>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [PATCHv2 net-next] openvswitch: Introduce ovs_tunnel_route_lookup
+Date: Mon, 12 Jan 2015 21:52:38 -0800
+Message-ID: <CALnjE+rELPHEMmjwnwk6w0CDx5L9s9oCx1v8y1rZrHRvyVcC3A@mail.gmail.com>
+References: <1421054087-25632-1-git-send-email-fan.du@intel.com>
+	<1421116883-26839-1-git-send-email-fan.du@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <claudiu.manoil@freescale.com>, <peter.senna@gmail.com>,
-	<shemminger@linux-foundation.org>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>,
-	Sanjeev Sharma <sanjeev_sharma@mentor.com>,
-	Sanjeev Sharma <Sanjeev_Sharma@mentor.com>
-To: <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <54B3D63B.1010608@cogentembedded.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "dev@openvswitch.org" <dev@openvswitch.org>,
+	netdev <netdev@vger.kernel.org>, fengyuleidian0615@gmail.com
+To: Fan Du <fan.du@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from na3sys009aog123.obsmtp.com ([74.125.149.149]:35365 "HELO
+	na3sys009aog123.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751041AbbAMFwj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2015 00:52:39 -0500
+Received: by mail-ie0-f169.google.com with SMTP id y20so1089978ier.0
+        for <netdev@vger.kernel.org>; Mon, 12 Jan 2015 21:52:38 -0800 (PST)
+In-Reply-To: <1421116883-26839-1-git-send-email-fan.du@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch correct the bad expression while writing the
-bit-pattern from software's buffer to hardware registers.
+On Mon, Jan 12, 2015 at 6:41 PM, Fan Du <fan.du@intel.com> wrote:
+> Introduce ovs_tunnel_route_lookup to consolidate route lookup
+> shared by vxlan, gre, and geneve ports.
+>
+> Signed-off-by: Fan Du <fan.du@intel.com>
+> ---
+> Chnage log:
+> v2:
+>   - Use inline instead of function call
+>   - Rename vport_route_lookup to ovs_tunnel_route_lookup
+> ---
+>  net/openvswitch/vport-geneve.c |   11 +----------
+>  net/openvswitch/vport-gre.c    |   10 +---------
+>  net/openvswitch/vport-vxlan.c  |   10 +---------
+>  net/openvswitch/vport.h        |   18 ++++++++++++++++++
+>  4 files changed, 21 insertions(+), 28 deletions(-)
+>
+....
 
-Signed-off-by: Sanjeev Sharma <Sanjeev_Sharma@mentor.com>
----
-Changes in v2:
-  - incorporated review comment as per Sergei. 
+> +static inline struct rtable *ovs_tunnel_route_lookup(struct net *net,
+> +                                                    struct ovs_key_ipv4_tunnel *key,
+> +                                                    struct sk_buff *skb,
+> +                                                    struct flowi4 *fl,
+> +                                                    u8 protocol)
+> +{
+> +       struct rtable *rt;
+> +
+> +       memset(fl, 0, sizeof(*fl));
+> +       fl->daddr = key->ipv4_dst;
+> +       fl->saddr = key->ipv4_src;
+> +       fl->flowi4_tos = RT_TOS(key->ipv4_tos);
+> +       fl->flowi4_mark = skb->mark;
+> +       fl->flowi4_proto = protocol;
+> +
+> +       rt = ip_route_output_key(net, fl);
+> +       return rt;
+> +}
 
- drivers/net/ethernet/freescale/gianfar_ethtool.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ovs_tunnel_get_egress_info() is also directly calling ip_route_output_key()
 
-diff --git a/drivers/net/ethernet/freescale/gianfar_ethtool.c b/drivers/net/ethernet/freescale/gianfar_ethtool.c
-index 3e1a9c1..347d5ee 100644
---- a/drivers/net/ethernet/freescale/gianfar_ethtool.c
-+++ b/drivers/net/ethernet/freescale/gianfar_ethtool.c
-@@ -1586,7 +1586,7 @@ static int gfar_write_filer_table(struct gfar_private *priv,
- 		return -EBUSY;
- 
- 	/* Fill regular entries */
--	for (; i < MAX_FILER_IDX - 1 && (tab->fe[i].ctrl | tab->fe[i].ctrl);
-+	for (; i < MAX_FILER_IDX - 1 && i < tab->fe[i].ctrl);
- 	     i++)
- 		gfar_write_filer(priv, i, tab->fe[i].ctrl, tab->fe[i].prop);
- 	/* Fill the rest with fall-troughs */
--- 
-1.7.11.7
+>  #endif /* vport.h */
+> --
+> 1.7.1
+>
