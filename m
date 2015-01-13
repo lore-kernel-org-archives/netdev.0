@@ -1,50 +1,124 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: why are IPv6 addresses removed on link down
-Date: Tue, 13 Jan 2015 18:05:19 +0100
-Message-ID: <54B5504F.2020200@6wind.com>
-References: <54B4A7E4.7030301@gmail.com> <20150112231021.316648e3@urahara>		 <1421145346.13626.12.camel@redhat.com> <54B50873.4090907@miraclelinux.com>		 <54B50C71.7090007@miraclelinux.com> <1421152613.13626.24.camel@redhat.com>	 <54B53187.7080306@gmail.com> <1421161230.13626.30.camel@stressinduktion.org>
-Reply-To: nicolas.dichtel@6wind.com
+From: =?utf-8?B?U8O2cmVu?= Brinkmann <soren.brinkmann-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH v5] can: Convert to runtime_pm
+Date: Tue, 13 Jan 2015 09:08:38 -0800
+Message-ID: <6ea3c0ea0f5c4deb9a6e4738a8d94a36@BN1AFFO11FD047.protection.gbl>
+References: <baf987c11c0242c2bf87b81f9396b09d@BN1BFFO11FD018.protection.gbl>
+ <3a3437c5c8ff48d9a45fee7e81fa8dca@BY2FFO11FD058.protection.gbl>
+ <54B4FCB5.6040904@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	David Ahern <dsahern@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f172.google.com ([209.85.217.172]:51883 "EHLO
-	mail-lb0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751253AbbAMRFX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2015 12:05:23 -0500
-Received: by mail-lb0-f172.google.com with SMTP id z12so3678459lbi.3
-        for <netdev@vger.kernel.org>; Tue, 13 Jan 2015 09:05:21 -0800 (PST)
-In-Reply-To: <1421161230.13626.30.camel@stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Kedareswara rao Appana <appana.durga.rao-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>,
+	<wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>, <michal.simek-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>,
+	<grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	<linux-can-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Kedareswara rao Appana <appanad-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>
+To: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <54B4FCB5.6040904-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Le 13/01/2015 16:00, Hannes Frederic Sowa a =C3=A9crit :
-[snip]
->
-> This was already discussed several times here, e.g. one patch I just
-> found:
->
-> http://lists.openwall.net/netdev/2011/01/24/8
-> and
-> http://patchwork.ozlabs.org/patch/17558/
->
-> Albeit I hate sysctls for things like this, it might I tend to find i=
-t
-> acceptable because it solves a problem which happened to lots of peop=
-le.
-> And I don't like the current behavior neither.
->
-> I think this can work, but we should follow up all the old discussion=
-s
-> to not introduce any kind of new undesired behavior this time.
-If I remember well, one of the problem was that it was not possible any=
-more to
-unload the IPv6 module after the patches. But since commit 8ce440610357=
- ("ipv6:
-do not allow ipv6 module to be removed"), it's not possible anymore.
+On Tue, 2015-01-13 at 12:08PM +0100, Marc Kleine-Budde wrote:
+> On 01/12/2015 07:45 PM, S=C3=B6ren Brinkmann wrote:
+> > On Mon, 2015-01-12 at 08:34PM +0530, Kedareswara rao Appana wrote:
+> >> Instead of enabling/disabling clocks at several locations in the d=
+river,
+> >> Use the runtime_pm framework. This consolidates the actions for ru=
+ntime PM
+> >> In the appropriate callbacks and makes the driver more readable an=
+d mantainable.
+> >>
+> >> Signed-off-by: Soren Brinkmann <soren.brinkmann-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>
+> >> Signed-off-by: Kedareswara rao Appana <appanad-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>
+> >> ---
+> >> Changes for v5:
+> >>  - Updated with the review comments.
+> >>    Updated the remove fuction to use runtime_pm.
+> >> Chnages for v4:
+> >>  - Updated with the review comments.
+> >> Changes for v3:
+> >>   - Converted the driver to use runtime_pm.
+> >> Changes for v2:
+> >>   - Removed the struct platform_device* from suspend/resume
+> >>     as suggest by Lothar.
+> >>
+> >>  drivers/net/can/xilinx_can.c |  157 ++++++++++++++++++++++++++++-=
+------------
+> >>  1 files changed, 107 insertions(+), 50 deletions(-)
+> > [..]
+> >> +static int __maybe_unused xcan_runtime_resume(struct device *dev)
+> >>  {
+> >> -	struct platform_device *pdev =3D dev_get_drvdata(dev);
+> >> -	struct net_device *ndev =3D platform_get_drvdata(pdev);
+> >> +	struct net_device *ndev =3D dev_get_drvdata(dev);
+> >>  	struct xcan_priv *priv =3D netdev_priv(ndev);
+> >>  	int ret;
+> >> +	u32 isr, status;
+> >> =20
+> >>  	ret =3D clk_enable(priv->bus_clk);
+> >>  	if (ret) {
+> >> @@ -1014,15 +1030,28 @@ static int __maybe_unused xcan_resume(stru=
+ct device *dev)
+> >>  	ret =3D clk_enable(priv->can_clk);
+> >>  	if (ret) {
+> >>  		dev_err(dev, "Cannot enable clock.\n");
+> >> -		clk_disable_unprepare(priv->bus_clk);
+> >> +		clk_disable(priv->bus_clk);
+> > [...]
+> >> @@ -1173,12 +1219,23 @@ static int xcan_remove(struct platform_dev=
+ice *pdev)
+> >>  {
+> >>  	struct net_device *ndev =3D platform_get_drvdata(pdev);
+> >>  	struct xcan_priv *priv =3D netdev_priv(ndev);
+> >> +	int ret;
+> >> +
+> >> +	ret =3D pm_runtime_get_sync(&pdev->dev);
+> >> +	if (ret < 0) {
+> >> +		netdev_err(ndev, "%s: pm_runtime_get failed(%d)\n",
+> >> +				__func__, ret);
+> >> +		return ret;
+> >> +	}
+> >> =20
+> >>  	if (set_reset_mode(ndev) < 0)
+> >>  		netdev_err(ndev, "mode resetting failed!\n");
+> >> =20
+> >>  	unregister_candev(ndev);
+> >> +	pm_runtime_disable(&pdev->dev);
+> >>  	netif_napi_del(&priv->napi);
+> >> +	clk_disable_unprepare(priv->bus_clk);
+> >> +	clk_disable_unprepare(priv->can_clk);
+> >=20
+> > Shouldn't pretty much all these occurrences of clk_disable/enable
+> > disappear? This should all be handled by the runtime_pm framework n=
+ow.
+>=20
+> We have:
+> - clk_prepare_enable() in probe
+
+This should become something like pm_runtime_get_sync(), shouldn't it?
+
+> - clk_disable_unprepare() in remove
+
+pm_runtime_put()
+
+> - clk_enable() in runtime_resume
+> - clk_disable() in runtime_suspend
+
+These are the ones needed.
+
+The above makes me suspect that the clocks are always on, regardless of
+the runtime suspend state since they are enabled in probe and disabled
+in remove, is that right? Ideally, the usage in probe and remove should
+be migrated to runtime_pm and clocks should really only be running when
+needed and not throughout the whole lifetime of the driver.
+
+	S=C3=B6ren
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" i=
+n
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
