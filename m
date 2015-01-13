@@ -1,59 +1,48 @@
-From: Colin King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Subject: [PATCH] rtlwifi/rtl8192de: remove redundant else if check
-Date: Tue, 13 Jan 2015 14:07:34 +0000
-Message-ID: <1421158054-22566-1-git-send-email-colin.king@canonical.com>
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>,
-	Chaoming Li <chaoming_li-kXabqFNEczNtrwSWzY7KCg@public.gmane.org>,
-	Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH] bridge: only provide proxy ARP when CONFIG_INET is enabled
+Date: Tue, 13 Jan 2015 15:10:27 +0100
+Message-ID: <56868207.rHBDZL3pbk@wuerfel>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: davem@davemloft.net, Kyeyoon Park <kyeyoonp@codeaurora.org>,
+	bridge@lists.linux-foundation.org,
+	Stephen Hemminger <stephen@networkplumber.org>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.kundenserver.de ([212.227.126.130]:56334 "EHLO
+	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751271AbbAMOKe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2015 09:10:34 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+When IPV4 support is disabled, we cannot call arp_send from
+the bridge code, which would result in a kernel link error:
 
-The else if check condition checks for the opposite of the
-if check, hence the else if check is redundant and can be
-replaced with a simple else:
+net/built-in.o: In function `br_handle_frame_finish':
+:(.text+0x59914): undefined reference to `arp_send'
+:(.text+0x59a50): undefined reference to `arp_tbl'
 
-if (rtlpriv->rtlhal.macphymode == SINGLEMAC_SINGLEPHY) {
-	..
-} else if (rtlpriv->rtlhal.macphymode != SINGLEMAC_SINGLEPHY) {
-	..
-}
+This makes the newly added proxy ARP support in the bridge
+code depend on the CONFIG_INET symbol and lets the compiler
+optimize the code out to avoid the link error.
 
-replaced with:
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Fixes: 958501163ddd ("bridge: Add support for IEEE 802.11 Proxy ARP")
+Cc: Kyeyoon Park <kyeyoonp@codeaurora.org>
 
-if (rtlpriv->rtlhal.macphymode == SINGLEMAC_SINGLEPHY) {
-	..
-} else {
-	..
-}
-
-Signed-off-by: Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
----
- drivers/net/wireless/rtlwifi/rtl8192de/hw.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/wireless/rtlwifi/rtl8192de/hw.c b/drivers/net/wireless/rtlwifi/rtl8192de/hw.c
-index 280c3da..01bcc2d 100644
---- a/drivers/net/wireless/rtlwifi/rtl8192de/hw.c
-+++ b/drivers/net/wireless/rtlwifi/rtl8192de/hw.c
-@@ -546,7 +546,7 @@ static bool _rtl92de_llt_table_init(struct ieee80211_hw *hw)
- 		txpktbuf_bndy = 246;
- 		value8 = 0;
- 		value32 = 0x80bf0d29;
--	} else if (rtlpriv->rtlhal.macphymode != SINGLEMAC_SINGLEPHY) {
-+	} else {
- 		maxPage = 127;
- 		txpktbuf_bndy = 123;
- 		value8 = 0;
--- 
-2.1.4
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
+index 1f1de715197c..e2aa7be3a847 100644
+--- a/net/bridge/br_input.c
++++ b/net/bridge/br_input.c
+@@ -154,7 +154,8 @@ int br_handle_frame_finish(struct sk_buff *skb)
+ 	dst = NULL;
+ 
+ 	if (is_broadcast_ether_addr(dest)) {
+-		if (p->flags & BR_PROXYARP &&
++		if (IS_ENABLED(CONFIG_INET) &&
++		    p->flags & BR_PROXYARP &&
+ 		    skb->protocol == htons(ETH_P_ARP))
+ 			br_do_proxy_arp(skb, br, vid);
+ 
