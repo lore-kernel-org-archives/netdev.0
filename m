@@ -1,103 +1,95 @@
 From: Tony Lindgren <tony@atomide.com>
-Subject: [PATCH 2/6] net: davinci_emac: Fix runtime pm calls for davinci_emac
-Date: Tue, 13 Jan 2015 11:29:24 -0800
-Message-ID: <1421177368-19756-3-git-send-email-tony@atomide.com>
+Subject: [PATCH 4/6] net: davinci_emac: Fix incomplete code for getting the phy from device tree
+Date: Tue, 13 Jan 2015 11:29:26 -0800
+Message-ID: <1421177368-19756-5-git-send-email-tony@atomide.com>
 References: <1421177368-19756-1-git-send-email-tony@atomide.com>
 Cc: netdev@vger.kernel.org, linux-omap@vger.kernel.org,
 	Brian Hutchinson <b.hutchman@gmail.com>,
-	Felipe Balbi <balbi@ti.com>,
-	"Mark A. Greer" <mgreer@animalcreek.com>
+	Felipe Balbi <balbi@ti.com>
 To: David Miller <davem@davemloft.net>
-Return-path: <linux-omap-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mho-02-ewr.mailhop.org ([204.13.248.72]:63639 "EHLO
+	mho-02-ewr.mailhop.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753663AbbAMTdq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2015 14:33:46 -0500
 In-Reply-To: <1421177368-19756-1-git-send-email-tony@atomide.com>
-Sender: linux-omap-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Commit 3ba97381343b ("net: ethernet: davinci_emac: add pm_runtime support")
-added support for runtime PM, but it causes issues on omap3 related devices
-that actually gate the clocks:
-
-Unhandled fault: external abort on non-linefetch (0x1008)
-...
-[<c04160f0>] (emac_dev_getnetstats) from [<c04d6a3c>] (dev_get_stats+0x78/0xc8)
-[<c04d6a3c>] (dev_get_stats) from [<c04e9ccc>] (rtnl_fill_ifinfo+0x3b8/0x938)
-[<c04e9ccc>] (rtnl_fill_ifinfo) from [<c04eade4>] (rtmsg_ifinfo+0x68/0xd8)
-[<c04eade4>] (rtmsg_ifinfo) from [<c04dd35c>] (register_netdevice+0x3a0/0x4ec)
-[<c04dd35c>] (register_netdevice) from [<c04dd4bc>] (register_netdev+0x14/0x24)
-[<c04dd4bc>] (register_netdev) from [<c041755c>] (davinci_emac_probe+0x408/0x5c8)
-[<c041755c>] (davinci_emac_probe) from [<c0396d78>] (platform_drv_probe+0x48/0xa4)
-
-Let's fix it by moving the pm_runtime_get() call earlier, and also
-add it to the emac_dev_getnetstats(). Also note that we want to use
-pm_rutime_get_sync() as we don't want to have deferred_resume happen.
+Looks like the phy_id is never set up beyond getting the phandle.
+Note that we can remove the ifdef for phy_node as there is a stub
+for of_phy_connec() if CONFIG_OF is not set.
 
 Cc: Brian Hutchinson <b.hutchman@gmail.com>
 Cc: Felipe Balbi <balbi@ti.com>
-Cc: Mark A. Greer <mgreer@animalcreek.com>
 Signed-off-by: Tony Lindgren <tony@atomide.com>
 ---
- drivers/net/ethernet/ti/davinci_emac.c | 14 ++++++++++----
- 1 file changed, 10 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/ti/davinci_emac.c | 23 ++++++++++++++++++-----
+ 1 file changed, 18 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/ethernet/ti/davinci_emac.c b/drivers/net/ethernet/ti/davinci_emac.c
-index 383ed52..deb43b3 100644
+index e9efc74..4c8d82c 100644
 --- a/drivers/net/ethernet/ti/davinci_emac.c
 +++ b/drivers/net/ethernet/ti/davinci_emac.c
-@@ -1538,7 +1538,7 @@ static int emac_dev_open(struct net_device *ndev)
- 	int i = 0;
- 	struct emac_priv *priv = netdev_priv(ndev);
+@@ -62,6 +62,7 @@
+ #include <linux/of.h>
+ #include <linux/of_address.h>
+ #include <linux/of_device.h>
++#include <linux/of_mdio.h>
+ #include <linux/of_irq.h>
+ #include <linux/of_net.h>
  
--	pm_runtime_get(&priv->pdev->dev);
-+	pm_runtime_get_sync(&priv->pdev->dev);
+@@ -343,9 +344,7 @@ struct emac_priv {
+ 	u32 multicast_hash_cnt[EMAC_NUM_MULTICAST_BITS];
+ 	u32 rx_addr_type;
+ 	const char *phy_id;
+-#ifdef CONFIG_OF
+ 	struct device_node *phy_node;
+-#endif
+ 	struct phy_device *phydev;
+ 	spinlock_t lock;
+ 	/*platform specific members*/
+@@ -1597,8 +1596,20 @@ static int emac_dev_open(struct net_device *ndev)
+ 	cpdma_ctlr_start(priv->dma);
  
- 	netif_carrier_off(ndev);
- 	for (cnt = 0; cnt < ETH_ALEN; cnt++)
-@@ -1726,6 +1726,8 @@ static struct net_device_stats *emac_dev_getnetstats(struct net_device *ndev)
- 	u32 mac_control;
- 	u32 stats_clear_mask;
- 
-+	pm_runtime_get_sync(&priv->pdev->dev);
+ 	priv->phydev = NULL;
 +
- 	/* update emac hardware stats and reset the registers*/
- 
- 	mac_control = emac_read(EMAC_MACCONTROL);
-@@ -1767,6 +1769,8 @@ static struct net_device_stats *emac_dev_getnetstats(struct net_device *ndev)
- 	ndev->stats.tx_fifo_errors += emac_read(EMAC_TXUNDERRUN);
- 	emac_write(EMAC_TXUNDERRUN, stats_clear_mask);
- 
-+	pm_runtime_put(&priv->pdev->dev);
++	if (priv->phy_node) {
++		priv->phydev = of_phy_connect(ndev, priv->phy_node,
++					      &emac_adjust_link, 0, 0);
++		if (!priv->phydev) {
++			dev_err(emac_dev, "could not connect to phy %s\n",
++				priv->phy_node->full_name);
++			ret = -ENODEV;
++			goto err;
++		}
++	}
 +
- 	return &ndev->stats;
- }
+ 	/* use the first phy on the bus if pdata did not give us a phy id */
+-	if (!priv->phy_id) {
++	if (!priv->phydev && !priv->phy_id) {
+ 		struct device *phy;
  
-@@ -1981,12 +1985,16 @@ static int davinci_emac_probe(struct platform_device *pdev)
- 	ndev->ethtool_ops = &ethtool_ops;
- 	netif_napi_add(ndev, &priv->napi, emac_poll, EMAC_POLL_WEIGHT);
- 
-+	pm_runtime_enable(&pdev->dev);
-+	pm_runtime_get_sync(&pdev->dev);
-+
- 	/* register the network device */
- 	SET_NETDEV_DEV(ndev, &pdev->dev);
- 	rc = register_netdev(ndev);
- 	if (rc) {
- 		dev_err(&pdev->dev, "error in register_netdev\n");
- 		rc = -ENODEV;
-+		pm_runtime_put(&pdev->dev);
- 		goto no_cpdma_chan;
+ 		phy = bus_find_device(&mdio_bus_type, NULL, NULL,
+@@ -1607,7 +1618,7 @@ static int emac_dev_open(struct net_device *ndev)
+ 			priv->phy_id = dev_name(phy);
  	}
  
-@@ -1996,9 +2004,7 @@ static int davinci_emac_probe(struct platform_device *pdev)
- 			   "(regs: %p, irq: %d)\n",
- 			   (void *)priv->emac_base_phys, ndev->irq);
- 	}
--
--	pm_runtime_enable(&pdev->dev);
--	pm_runtime_resume(&pdev->dev);
-+	pm_runtime_put(&pdev->dev);
- 
- 	return 0;
- 
+-	if (priv->phy_id && *priv->phy_id) {
++	if (!priv->phydev && priv->phy_id && *priv->phy_id) {
+ 		priv->phydev = phy_connect(ndev, priv->phy_id,
+ 					   &emac_adjust_link,
+ 					   PHY_INTERFACE_MODE_MII);
+@@ -1628,7 +1639,9 @@ static int emac_dev_open(struct net_device *ndev)
+ 			"(mii_bus:phy_addr=%s, id=%x)\n",
+ 			priv->phydev->drv->name, dev_name(&priv->phydev->dev),
+ 			priv->phydev->phy_id);
+-	} else {
++	}
++
++	if (!priv->phydev) {
+ 		/* No PHY , fix the link, speed and duplex settings */
+ 		dev_notice(emac_dev, "no phy, defaulting to 100/full\n");
+ 		priv->link = 1;
 -- 
 2.1.4
-
