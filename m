@@ -1,198 +1,233 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH 2/5] vxlan: Only bind to sockets with correct extensions enabled
-Date: Tue, 13 Jan 2015 17:20:43 +0100
-Message-ID: <9d9d405f60ce51d184a51ea46b3656fb91cae5c5.1421165078.git.tgraf@suug.ch>
+Subject: [PATCH 3/5] openvswitch: Rename GENEVE_TUN_OPTS() to TUN_METADATA_OPTS()
+Date: Tue, 13 Jan 2015 17:20:44 +0100
+Message-ID: <c764165fd2736453167e696a335d12322c000e65.1421165078.git.tgraf@suug.ch>
 References: <cover.1421165078.git.tgraf@suug.ch>
 Cc: netdev@vger.kernel.org, dev@openvswitch.org
 To: davem@davemloft.net, jesse@nicira.com, stephen@networkplumber.org,
 	pshelar@nicira.com, therbert@google.com,
 	alexei.starovoitov@gmail.com, nicolas.dichtel@6wind.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([198.137.202.9]:36116 "EHLO
+Received: from bombadil.infradead.org ([198.137.202.9]:36191 "EHLO
 	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752676AbbAMQVB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2015 11:21:01 -0500
+	with ESMTP id S1752676AbbAMQVF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2015 11:21:05 -0500
 In-Reply-To: <cover.1421165078.git.tgraf@suug.ch>
 In-Reply-To: <cover.1421165078.git.tgraf@suug.ch>
 References: <cover.1421165078.git.tgraf@suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-A VXLAN net_device looking for an appropriate socket may only consider
-a socket which has a matching set of extensions enabled. If the
-extensions don't match, return a conflict to have the caller create a
-distinct socket with distinct port.
+Also factors out Geneve validation code into a new separate function
+validate_geneve_opts().
 
-The OVS VXLAN port is kept unaware of extensions at this point.
+A subsequent patch will introduce VXLAN options. Rename the existing
+GENEVE_TUN_OPTS() to reflect its extended purpose of carrying generic
+tunnel metadata options.
 
 Signed-off-by: Thomas Graf <tgraf@suug.ch>
 ---
 v3->v4:
- - No change
+ - Renamed validate_and_copy_geneve_opts() to validate_geneve_opts() as
+   suggested by Jesse
 v2->v3:
  - No change
 v1->v2:
- - Improved commit message, reported by Jesse
+ - Don't rename genev_tun_opt_from_nlattr() and keep it Geneve specific,
+   pointed out by Jesse.
+ - Factor out Geneve specific validation code into separate function as
+   requested by Jesse.
 
- drivers/net/vxlan.c           | 35 +++++++++++++++++++++--------------
- include/net/vxlan.h           |  2 +-
- net/openvswitch/vport-vxlan.c |  2 +-
- 3 files changed, 23 insertions(+), 16 deletions(-)
+ net/openvswitch/flow.c         |  2 +-
+ net/openvswitch/flow.h         | 14 ++++----
+ net/openvswitch/flow_netlink.c | 72 +++++++++++++++++++++++-------------------
+ 3 files changed, 47 insertions(+), 41 deletions(-)
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 72c4e30..f41eb91 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -265,14 +265,15 @@ static inline struct vxlan_rdst *first_remote_rtnl(struct vxlan_fdb *fdb)
+diff --git a/net/openvswitch/flow.c b/net/openvswitch/flow.c
+index da2fae0..41f2dfd 100644
+--- a/net/openvswitch/flow.c
++++ b/net/openvswitch/flow.c
+@@ -691,7 +691,7 @@ int ovs_flow_key_extract(const struct ovs_tunnel_info *tun_info,
+ 			BUILD_BUG_ON((1 << (sizeof(tun_info->options_len) *
+ 						   8)) - 1
+ 					> sizeof(key->tun_opts));
+-			memcpy(GENEVE_OPTS(key, tun_info->options_len),
++			memcpy(TUN_METADATA_OPTS(key, tun_info->options_len),
+ 			       tun_info->options, tun_info->options_len);
+ 			key->tun_opts_len = tun_info->options_len;
+ 		} else {
+diff --git a/net/openvswitch/flow.h b/net/openvswitch/flow.h
+index a8b30f3..d3d0a40 100644
+--- a/net/openvswitch/flow.h
++++ b/net/openvswitch/flow.h
+@@ -53,7 +53,7 @@ struct ovs_key_ipv4_tunnel {
+ 
+ struct ovs_tunnel_info {
+ 	struct ovs_key_ipv4_tunnel tunnel;
+-	const struct geneve_opt *options;
++	const void *options;
+ 	u8 options_len;
+ };
+ 
+@@ -61,10 +61,10 @@ struct ovs_tunnel_info {
+  * maximum size. This allows us to get the benefits of variable length
+  * matching for small options.
+  */
+-#define GENEVE_OPTS(flow_key, opt_len)	\
+-	((struct geneve_opt *)((flow_key)->tun_opts + \
+-			       FIELD_SIZEOF(struct sw_flow_key, tun_opts) - \
+-			       opt_len))
++#define TUN_METADATA_OFFSET(opt_len) \
++	(FIELD_SIZEOF(struct sw_flow_key, tun_opts) - opt_len)
++#define TUN_METADATA_OPTS(flow_key, opt_len) \
++	((void *)((flow_key)->tun_opts + TUN_METADATA_OFFSET(opt_len)))
+ 
+ static inline void __ovs_flow_tun_info_init(struct ovs_tunnel_info *tun_info,
+ 					    __be32 saddr, __be32 daddr,
+@@ -73,7 +73,7 @@ static inline void __ovs_flow_tun_info_init(struct ovs_tunnel_info *tun_info,
+ 					    __be16 tp_dst,
+ 					    __be64 tun_id,
+ 					    __be16 tun_flags,
+-					    const struct geneve_opt *opts,
++					    const void *opts,
+ 					    u8 opts_len)
+ {
+ 	tun_info->tunnel.tun_id = tun_id;
+@@ -105,7 +105,7 @@ static inline void ovs_flow_tun_info_init(struct ovs_tunnel_info *tun_info,
+ 					  __be16 tp_dst,
+ 					  __be64 tun_id,
+ 					  __be16 tun_flags,
+-					  const struct geneve_opt *opts,
++					  const void *opts,
+ 					  u8 opts_len)
+ {
+ 	__ovs_flow_tun_info_init(tun_info, iph->saddr, iph->daddr,
+diff --git a/net/openvswitch/flow_netlink.c b/net/openvswitch/flow_netlink.c
+index d1eecf7..2e8a9cd 100644
+--- a/net/openvswitch/flow_netlink.c
++++ b/net/openvswitch/flow_netlink.c
+@@ -432,8 +432,7 @@ static int genev_tun_opt_from_nlattr(const struct nlattr *a,
+ 		SW_FLOW_KEY_PUT(match, tun_opts_len, 0xff, true);
+ 	}
+ 
+-	opt_key_offset = (unsigned long)GENEVE_OPTS((struct sw_flow_key *)0,
+-						    nla_len(a));
++	opt_key_offset = TUN_METADATA_OFFSET(nla_len(a));
+ 	SW_FLOW_KEY_MEMCPY_OFFSET(match, opt_key_offset, nla_data(a),
+ 				  nla_len(a), is_mask);
+ 	return 0;
+@@ -558,8 +557,7 @@ static int ipv4_tun_from_nlattr(const struct nlattr *attr,
+ 
+ static int __ipv4_tun_to_nlattr(struct sk_buff *skb,
+ 				const struct ovs_key_ipv4_tunnel *output,
+-				const struct geneve_opt *tun_opts,
+-				int swkey_tun_opts_len)
++				const void *tun_opts, int swkey_tun_opts_len)
+ {
+ 	if (output->tun_flags & TUNNEL_KEY &&
+ 	    nla_put_be64(skb, OVS_TUNNEL_KEY_ATTR_ID, output->tun_id))
+@@ -600,8 +598,7 @@ static int __ipv4_tun_to_nlattr(struct sk_buff *skb,
+ 
+ static int ipv4_tun_to_nlattr(struct sk_buff *skb,
+ 			      const struct ovs_key_ipv4_tunnel *output,
+-			      const struct geneve_opt *tun_opts,
+-			      int swkey_tun_opts_len)
++			      const void *tun_opts, int swkey_tun_opts_len)
+ {
+ 	struct nlattr *nla;
+ 	int err;
+@@ -1148,10 +1145,10 @@ int ovs_nla_put_flow(const struct sw_flow_key *swkey,
+ 		goto nla_put_failure;
+ 
+ 	if ((swkey->tun_key.ipv4_dst || is_mask)) {
+-		const struct geneve_opt *opts = NULL;
++		const void *opts = NULL;
+ 
+ 		if (output->tun_key.tun_flags & TUNNEL_OPTIONS_PRESENT)
+-			opts = GENEVE_OPTS(output, swkey->tun_opts_len);
++			opts = TUN_METADATA_OPTS(output, swkey->tun_opts_len);
+ 
+ 		if (ipv4_tun_to_nlattr(skb, &output->tun_key, opts,
+ 				       swkey->tun_opts_len))
+@@ -1540,6 +1537,34 @@ void ovs_match_init(struct sw_flow_match *match,
+ 	}
  }
  
- /* Find VXLAN socket based on network namespace, address family and UDP port */
--static struct vxlan_sock *vxlan_find_sock(struct net *net,
--					  sa_family_t family, __be16 port)
-+static struct vxlan_sock *vxlan_find_sock(struct net *net, sa_family_t family,
-+					  __be16 port, u32 exts)
++static int validate_geneve_opts(struct sw_flow_key *key)
++{
++	struct geneve_opt *option;
++	int opts_len = key->tun_opts_len;
++	bool crit_opt = false;
++
++	option = (struct geneve_opt *)TUN_METADATA_OPTS(key, key->tun_opts_len);
++	while (opts_len > 0) {
++		int len;
++
++		if (opts_len < sizeof(*option))
++			return -EINVAL;
++
++		len = sizeof(*option) + option->length * 4;
++		if (len > opts_len)
++			return -EINVAL;
++
++		crit_opt |= !!(option->type & GENEVE_CRIT_OPT_TYPE);
++
++		option = (struct geneve_opt *)((u8 *)option + len);
++		opts_len -= len;
++	};
++
++	key->tun_key.tun_flags |= crit_opt ? TUNNEL_CRIT_OPT : 0;
++
++	return 0;
++}
++
+ static int validate_and_copy_set_tun(const struct nlattr *attr,
+ 				     struct sw_flow_actions **sfa, bool log)
  {
- 	struct vxlan_sock *vs;
+@@ -1555,28 +1580,9 @@ static int validate_and_copy_set_tun(const struct nlattr *attr,
+ 		return err;
  
- 	hlist_for_each_entry_rcu(vs, vs_head(net, port), hlist) {
- 		if (inet_sk(vs->sock->sk)->inet_sport == port &&
--		    inet_sk(vs->sock->sk)->sk.sk_family == family)
-+		    inet_sk(vs->sock->sk)->sk.sk_family == family &&
-+		    vs->exts == exts)
- 			return vs;
+ 	if (key.tun_opts_len) {
+-		struct geneve_opt *option = GENEVE_OPTS(&key,
+-							key.tun_opts_len);
+-		int opts_len = key.tun_opts_len;
+-		bool crit_opt = false;
+-
+-		while (opts_len > 0) {
+-			int len;
+-
+-			if (opts_len < sizeof(*option))
+-				return -EINVAL;
+-
+-			len = sizeof(*option) + option->length * 4;
+-			if (len > opts_len)
+-				return -EINVAL;
+-
+-			crit_opt |= !!(option->type & GENEVE_CRIT_OPT_TYPE);
+-
+-			option = (struct geneve_opt *)((u8 *)option + len);
+-			opts_len -= len;
+-		};
+-
+-		key.tun_key.tun_flags |= crit_opt ? TUNNEL_CRIT_OPT : 0;
++		err = validate_geneve_opts(&key);
++		if (err < 0)
++			return err;
+ 	};
+ 
+ 	start = add_nested_action_start(sfa, OVS_ACTION_ATTR_SET, log);
+@@ -1597,9 +1603,9 @@ static int validate_and_copy_set_tun(const struct nlattr *attr,
+ 		 * everything else will go away after flow setup. We can append
+ 		 * it to tun_info and then point there.
+ 		 */
+-		memcpy((tun_info + 1), GENEVE_OPTS(&key, key.tun_opts_len),
+-		       key.tun_opts_len);
+-		tun_info->options = (struct geneve_opt *)(tun_info + 1);
++		memcpy((tun_info + 1),
++		       TUN_METADATA_OPTS(&key, key.tun_opts_len), key.tun_opts_len);
++		tun_info->options = (tun_info + 1);
+ 	} else {
+ 		tun_info->options = NULL;
  	}
- 	return NULL;
-@@ -292,11 +293,12 @@ static struct vxlan_dev *vxlan_vs_find_vni(struct vxlan_sock *vs, u32 id)
- 
- /* Look up VNI in a per net namespace table */
- static struct vxlan_dev *vxlan_find_vni(struct net *net, u32 id,
--					sa_family_t family, __be16 port)
-+					sa_family_t family, __be16 port,
-+					u32 exts)
- {
- 	struct vxlan_sock *vs;
- 
--	vs = vxlan_find_sock(net, family, port);
-+	vs = vxlan_find_sock(net, family, port, exts);
- 	if (!vs)
- 		return NULL;
- 
-@@ -1790,7 +1792,8 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
- 
- 			ip_rt_put(rt);
- 			dst_vxlan = vxlan_find_vni(vxlan->net, vni,
--						   dst->sa.sa_family, dst_port);
-+						   dst->sa.sa_family, dst_port,
-+						   vxlan->exts);
- 			if (!dst_vxlan)
- 				goto tx_error;
- 			vxlan_encap_bypass(skb, vxlan, dst_vxlan);
-@@ -1849,7 +1852,8 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
- 
- 			dst_release(ndst);
- 			dst_vxlan = vxlan_find_vni(vxlan->net, vni,
--						   dst->sa.sa_family, dst_port);
-+						   dst->sa.sa_family, dst_port,
-+						   vxlan->exts);
- 			if (!dst_vxlan)
- 				goto tx_error;
- 			vxlan_encap_bypass(skb, vxlan, dst_vxlan);
-@@ -2019,7 +2023,7 @@ static int vxlan_init(struct net_device *dev)
- 
- 	spin_lock(&vn->sock_lock);
- 	vs = vxlan_find_sock(vxlan->net, ipv6 ? AF_INET6 : AF_INET,
--			     vxlan->dst_port);
-+			     vxlan->dst_port, vxlan->exts);
- 	if (vs && atomic_add_unless(&vs->refcnt, 1, 0)) {
- 		/* If we have a socket with same port already, reuse it */
- 		vxlan_vs_add_dev(vs, vxlan);
-@@ -2373,7 +2377,7 @@ static struct socket *vxlan_create_sock(struct net *net, bool ipv6,
- /* Create new listen socket if needed */
- static struct vxlan_sock *vxlan_socket_create(struct net *net, __be16 port,
- 					      vxlan_rcv_t *rcv, void *data,
--					      u32 flags)
-+					      u32 flags, u32 exts)
- {
- 	struct vxlan_net *vn = net_generic(net, vxlan_net_id);
- 	struct vxlan_sock *vs;
-@@ -2401,6 +2405,7 @@ static struct vxlan_sock *vxlan_socket_create(struct net *net, __be16 port,
- 	atomic_set(&vs->refcnt, 1);
- 	vs->rcv = rcv;
- 	vs->data = data;
-+	vs->exts = exts;
- 
- 	/* Initialize the vxlan udp offloads structure */
- 	vs->udp_offloads.port = port;
-@@ -2425,13 +2430,14 @@ static struct vxlan_sock *vxlan_socket_create(struct net *net, __be16 port,
- 
- struct vxlan_sock *vxlan_sock_add(struct net *net, __be16 port,
- 				  vxlan_rcv_t *rcv, void *data,
--				  bool no_share, u32 flags)
-+				  bool no_share, u32 flags,
-+				  u32 exts)
- {
- 	struct vxlan_net *vn = net_generic(net, vxlan_net_id);
- 	struct vxlan_sock *vs;
- 	bool ipv6 = flags & VXLAN_F_IPV6;
- 
--	vs = vxlan_socket_create(net, port, rcv, data, flags);
-+	vs = vxlan_socket_create(net, port, rcv, data, flags, exts);
- 	if (!IS_ERR(vs))
- 		return vs;
- 
-@@ -2439,7 +2445,7 @@ struct vxlan_sock *vxlan_sock_add(struct net *net, __be16 port,
- 		return vs;
- 
- 	spin_lock(&vn->sock_lock);
--	vs = vxlan_find_sock(net, ipv6 ? AF_INET6 : AF_INET, port);
-+	vs = vxlan_find_sock(net, ipv6 ? AF_INET6 : AF_INET, port, exts);
- 	if (vs && ((vs->rcv != rcv) ||
- 		   !atomic_add_unless(&vs->refcnt, 1, 0)))
- 			vs = ERR_PTR(-EBUSY);
-@@ -2461,7 +2467,8 @@ static void vxlan_sock_work(struct work_struct *work)
- 	__be16 port = vxlan->dst_port;
- 	struct vxlan_sock *nvs;
- 
--	nvs = vxlan_sock_add(net, port, vxlan_rcv, NULL, false, vxlan->flags);
-+	nvs = vxlan_sock_add(net, port, vxlan_rcv, NULL, false, vxlan->flags,
-+			     vxlan->exts);
- 	spin_lock(&vn->sock_lock);
- 	if (!IS_ERR(nvs))
- 		vxlan_vs_add_dev(nvs, vxlan);
-@@ -2611,7 +2618,7 @@ static int vxlan_newlink(struct net *net, struct net_device *dev,
- 		configure_vxlan_exts(vxlan, data[IFLA_VXLAN_EXTENSION]);
- 
- 	if (vxlan_find_vni(net, vni, use_ipv6 ? AF_INET6 : AF_INET,
--			   vxlan->dst_port)) {
-+			   vxlan->dst_port, vxlan->exts)) {
- 		pr_info("duplicate VNI %u\n", vni);
- 		return -EEXIST;
- 	}
-diff --git a/include/net/vxlan.h b/include/net/vxlan.h
-index 76a3aa2..4b6e794 100644
---- a/include/net/vxlan.h
-+++ b/include/net/vxlan.h
-@@ -121,7 +121,7 @@ struct vxlan_sock {
- 
- struct vxlan_sock *vxlan_sock_add(struct net *net, __be16 port,
- 				  vxlan_rcv_t *rcv, void *data,
--				  bool no_share, u32 flags);
-+				  bool no_share, u32 flags, u32 exts);
- 
- void vxlan_sock_release(struct vxlan_sock *vs);
- 
-diff --git a/net/openvswitch/vport-vxlan.c b/net/openvswitch/vport-vxlan.c
-index deed9e3..40a16fb 100644
---- a/net/openvswitch/vport-vxlan.c
-+++ b/net/openvswitch/vport-vxlan.c
-@@ -128,7 +128,7 @@ static struct vport *vxlan_tnl_create(const struct vport_parms *parms)
- 	vxlan_port = vxlan_vport(vport);
- 	strncpy(vxlan_port->name, parms->name, IFNAMSIZ);
- 
--	vs = vxlan_sock_add(net, htons(dst_port), vxlan_rcv, vport, true, 0);
-+	vs = vxlan_sock_add(net, htons(dst_port), vxlan_rcv, vport, true, 0, 0);
- 	if (IS_ERR(vs)) {
- 		ovs_vport_free(vport);
- 		return (void *)vs;
 -- 
 1.9.3
