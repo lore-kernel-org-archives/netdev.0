@@ -1,55 +1,117 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net-next] rhashtable: Lower/upper bucket may map to same
- lock while shrinking
-Date: Tue, 13 Jan 2015 09:49:19 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CAC6593@AcuExch.aculab.com>
-References: <20150112232217.GA5277@wfg-t540p.sh.intel.com>
- <20150112235821.GB16617@casper.infradead.org>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net] ipv6: Prevent ipv6_find_hdr() from returning ENOENT
+ for valid non-first fragments
+Date: Tue, 13 Jan 2015 11:11:24 +0100
+Message-ID: <1421143884.13626.1.camel@stressinduktion.org>
+References: <CAFB3abwKpR1VqZXUrsexqveAZrA2LTSmTe8a=-H7z2HjAptjwA@mail.gmail.com>
+	 <1420627396.26870.36.camel@stressinduktion.org>
+	 <20150108205328.GA3361@salvia>
+	 <1420756756.1755002.211556745.0418D128@webmail.messagingengine.com>
+	 <20150109000546.GA3488@salvia>
+	 <CAFB3abwrjp61LLOk3RWwXYEq1g4QZUC8OTKuO2cAr+GbV3n4rw@mail.gmail.com>
+	 <1420803255.1978819.211762005.707EFFB9@webmail.messagingengine.com>
+	 <20150109114506.GA4857@salvia>
+	 <1420818636.31075.15.camel@stressinduktion.org>
+	 <CAFB3abwetkNa4753g9d-z8xU0fMThyApuESQNkbxGa8Yz2YRfQ@mail.gmail.com>
+	 <20150112115111.GA3506@salvia>
+	 <CAFB3abxcg4gdEh4CJHd_Vx8mZKFmO3kMG=pDjkQYS5awTzFbSQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: LKP <lkp@01.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-	"coreteam@netfilter.org" <coreteam@netfilter.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: 'Thomas Graf' <tgraf@suug.ch>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	Fengguang Wu <fengguang.wu@intel.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: Rahul Sharma <rsharma@arista.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150112235821.GB16617@casper.infradead.org>
-Content-Language: en-US
+In-Reply-To: <CAFB3abxcg4gdEh4CJHd_Vx8mZKFmO3kMG=pDjkQYS5awTzFbSQ@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Thomas Graf
-> Each per bucket lock covers a configurable number of buckets. While
-> shrinking, two buckets in the old table contain entries for a single
-> bucket in the new table. We need to lock down both while linking.
-> Check if they are protected by different locks to avoid a recursive
-> lock.
+On Di, 2015-01-13 at 09:53 +0530, Rahul Sharma wrote:
+> On Mon, Jan 12, 2015 at 5:21 PM, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
+> > On Mon, Jan 12, 2015 at 04:38:16PM +0530, Rahul Sharma wrote:
+> >> Hi Pablo, Hannes
+> >>
+> >> On Fri, Jan 9, 2015 at 9:20 PM, Hannes Frederic Sowa
+> >> <hannes@stressinduktion.org> wrote:
+> >> > On Fr, 2015-01-09 at 12:45 +0100, Pablo Neira Ayuso wrote:
+> >> >> Hi Hannes,
+> >> >>
+> >> >> On Fri, Jan 09, 2015 at 12:34:15PM +0100, Hannes Frederic Sowa wrote:
+> >> >> > On Fri, Jan 9, 2015, at 08:18, Rahul Sharma wrote:
+> >> >> > > Hi Pablo,
+> >> >> > >
+> >> >> > > On Fri, Jan 9, 2015 at 5:35 AM, Pablo Neira Ayuso <pablo@netfilter.org>
+> >> >> > > wrote:
+> >> >> > > > On Thu, Jan 08, 2015 at 11:39:16PM +0100, Hannes Frederic Sowa wrote:
+> >> >> > > >> Hi Pablo,
+> >> >> > > >>
+> >> >> > > >> On Thu, Jan 8, 2015, at 21:53, Pablo Neira Ayuso wrote:
+> >> >> > > >> > I'm afraid we cannot just get rid of that !ipv6_ext_hdr() check. The
+> >> >> > > >> > ipv6_find_hdr() function is designed to return the transport protocol.
+> >> >> > > >> > After the proposed change, it will return extension header numbers.
+> >> >> > > >> > This will break existing ip6tables rulesets since the `-p' option
+> >> >> > > >> > relies on this function to match the transport protocol.
+> >> >> > > >> >
+> >> >> > > >> > Note that the AH header is skipped (see code a bit below this
+> >> >> > > >> > problematic fragmentation handling) so the follow up header after the
+> >> >> > > >> > AH header is returned as the transport header.
+> >> >> > > >> >
+> >> >> > > >> > We can probably return the AH protocol number for non-1st fragments.
+> >> >> > > >> > However, that would be something new to ip6tables since nobody has
+> >> >> > > >> > ever seen packet matching `-p ah' rules. Thus, we restore control to
+> >> >> > > >> > the user to allow this, but we would accept all kind of fragmented AH
+> >> >> > > >> > traffic through the firewall since we cannot know what transport
+> >> >> > > >> > protocol contains from non-1st fragments (unless I'm missing anything,
+> >> >> > > >> > I need to have a closer look at this again tomorrow with fresher
+> >> >> > > >> > mind).
+> >> >> > > >>
+> >> >> > > >> The code in question is guarded by (_frag_off != 0), so we are
+> >> >> > > >> definitely processing a non-1st fragment currently. The -p match would
+> >> >> > > >> happen at the time when the packet is reassembled and thus ipv6_find_hdr
+> >> >> > > >> will find the real transport (final) header at this point (I hope I
+> >> >> > > >> followed the code correctly here).
+> >> >> > > >
+> >> >> > > > Then, Rahul should get things working by modprobing nf_defrag_ipv6.
+> >> >> > >
+> >> >> > > I already had nf_defrag_ipv6 installed when the issue occured. But I
+> >> >> > > see ip6table_raw_hook returning NF_DROP for the second fragment.
+> >> >> >
+> >> >> > That's what I expected. I think the change only affects hooks before
+> >> >> > reassembly.
+> >> >>
+> >> >> reassembly happens at NF_IP6_PRI_CONNTRACK_DEFRAG (-400), so that
+> >> >> happens before NF_IP6_PRI_RAW (-300) in IPv6 which is where the raw
+> >> >> table is placed.
+> >> >
+> >> > I tried to reproduce it, but couldn't get non-1st fragments getting
+> >> > dropped during traversal of the raw table. They get dropped earlier at
+> >> > during reassembly or pass.
+> >> >
+> >> > I agree with Pablo, I also would like to see more data.
+> >> >
+> >> > Thanks,
+> >> > Hannes
+> >> >
+> >> >
+> >>
+> >> I enabled pr_debug() and there was no error in nf_ct_frag6_gather().
+> >> It seems to have defragmented the packet correctly. As expected,
+> >> ipv6_defrag() returns NF_STOLEN for the first packet after queuing it.
+> >> For the next fragment, ipv6_defrag() calls nf_ct_frag6_output() after
+> >> after reassembling it.
+> >
+> > nf_ct_frag6_output() doesn't exist anymore. You're using an old
+> > kernel, you should have started by telling so in your report.
+> >
+> > See 6aafeef ("netfilter: push reasm skb through instead of original
+> > frag skbs").
+> 
+>  I apologize for not mentioning the kernel version in my first mail. I
+> had suspected problem in ipv6_find_hdr, the code for which was same.
+> Anyway, thanks for the help. I ll try to figure out how to make this
+> work in my kernel.
 
-Thought, could the shrunk table use the same locks as the lower half
-of the old table?
+If you have time could you quickly test a recent net-next kernel?
 
-I also wonder whether shrinking hash tables is ever actually worth
-the effort. Most likely they'll need to grow again very quickly.
-
->  		spin_lock_bh(old_bucket_lock1);
-> -		spin_lock_bh_nested(old_bucket_lock2, RHT_LOCK_NESTED);
-> -		spin_lock_bh_nested(new_bucket_lock, RHT_LOCK_NESTED2);
-> +
-> +		/* Depending on the lock per buckets mapping, the bucket in
-> +		 * the lower and upper region may map to the same lock.
-> +		 */
-> +		if (old_bucket_lock1 != old_bucket_lock2) {
-> +			spin_lock_bh_nested(old_bucket_lock2, RHT_LOCK_NESTED);
-> +			spin_lock_bh_nested(new_bucket_lock, RHT_LOCK_NESTED2);
-> +		} else {
-> +			spin_lock_bh_nested(new_bucket_lock, RHT_LOCK_NESTED);
-> +		}
-
-Acquiring 3 locks of much the same type looks like a locking hierarchy
-violation just waiting to happen.
-
-	David
+Thanks,
+Hannes
