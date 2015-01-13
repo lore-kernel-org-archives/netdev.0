@@ -1,85 +1,103 @@
 From: Tony Lindgren <tony@atomide.com>
-Subject: [PATCH 1/6] net: davinci_emac: Fix hangs with interrupts
-Date: Tue, 13 Jan 2015 11:29:23 -0800
-Message-ID: <1421177368-19756-2-git-send-email-tony@atomide.com>
+Subject: [PATCH 2/6] net: davinci_emac: Fix runtime pm calls for davinci_emac
+Date: Tue, 13 Jan 2015 11:29:24 -0800
+Message-ID: <1421177368-19756-3-git-send-email-tony@atomide.com>
 References: <1421177368-19756-1-git-send-email-tony@atomide.com>
 Cc: netdev@vger.kernel.org, linux-omap@vger.kernel.org,
 	Brian Hutchinson <b.hutchman@gmail.com>,
-	Felipe Balbi <balbi@ti.com>
+	Felipe Balbi <balbi@ti.com>,
+	"Mark A. Greer" <mgreer@animalcreek.com>
 To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mho-02-ewr.mailhop.org ([204.13.248.72]:63314 "EHLO
-	mho-02-ewr.mailhop.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752197AbbAMTdc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2015 14:33:32 -0500
+Return-path: <linux-omap-owner@vger.kernel.org>
 In-Reply-To: <1421177368-19756-1-git-send-email-tony@atomide.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-omap-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On davinci_emac, we have pulse interrupts. This means that we need to
-clear the EOI bits when disabling interrupts as otherwise the interrupts
-keep happening. And we also need to not clear the EOI bits again when
-enabling the interrupts as otherwise we will get tons of:
+Commit 3ba97381343b ("net: ethernet: davinci_emac: add pm_runtime support")
+added support for runtime PM, but it causes issues on omap3 related devices
+that actually gate the clocks:
 
-unexpected IRQ trap at vector 00
+Unhandled fault: external abort on non-linefetch (0x1008)
+...
+[<c04160f0>] (emac_dev_getnetstats) from [<c04d6a3c>] (dev_get_stats+0x78/0xc8)
+[<c04d6a3c>] (dev_get_stats) from [<c04e9ccc>] (rtnl_fill_ifinfo+0x3b8/0x938)
+[<c04e9ccc>] (rtnl_fill_ifinfo) from [<c04eade4>] (rtmsg_ifinfo+0x68/0xd8)
+[<c04eade4>] (rtmsg_ifinfo) from [<c04dd35c>] (register_netdevice+0x3a0/0x4ec)
+[<c04dd35c>] (register_netdevice) from [<c04dd4bc>] (register_netdev+0x14/0x24)
+[<c04dd4bc>] (register_netdev) from [<c041755c>] (davinci_emac_probe+0x408/0x5c8)
+[<c041755c>] (davinci_emac_probe) from [<c0396d78>] (platform_drv_probe+0x48/0xa4)
 
-These errors almost certainly mean that the omap-intc.c is signaling
-a spurious interrupt with the reserved irq 127 as we've seen earlier
-on omap3.
-
-Let's fix the issue by clearing the EOI bits when disabling the
-interrupts. Let's also keep the comment for "Rx Threshold and Misc
-interrupts are not enabled" for both enable and disable so people
-are aware of this when potentially adding more support.
-
-Note that eventually we should handle the RX and TX interrupts
-separately like cpsw is now doing. However, so far I have not seen
-any issues with this based on my testing, so it seems to behave a
-little different compared to the cpsw that had a similar issue.
+Let's fix it by moving the pm_runtime_get() call earlier, and also
+add it to the emac_dev_getnetstats(). Also note that we want to use
+pm_rutime_get_sync() as we don't want to have deferred_resume happen.
 
 Cc: Brian Hutchinson <b.hutchman@gmail.com>
 Cc: Felipe Balbi <balbi@ti.com>
+Cc: Mark A. Greer <mgreer@animalcreek.com>
 Signed-off-by: Tony Lindgren <tony@atomide.com>
 ---
- drivers/net/ethernet/ti/davinci_emac.c | 19 ++++++++++---------
- 1 file changed, 10 insertions(+), 9 deletions(-)
+ drivers/net/ethernet/ti/davinci_emac.c | 14 ++++++++++----
+ 1 file changed, 10 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/ethernet/ti/davinci_emac.c b/drivers/net/ethernet/ti/davinci_emac.c
-index ea71251..383ed52 100644
+index 383ed52..deb43b3 100644
 --- a/drivers/net/ethernet/ti/davinci_emac.c
 +++ b/drivers/net/ethernet/ti/davinci_emac.c
-@@ -922,6 +922,16 @@ static void emac_int_disable(struct emac_priv *priv)
- 		if (priv->int_disable)
- 			priv->int_disable();
+@@ -1538,7 +1538,7 @@ static int emac_dev_open(struct net_device *ndev)
+ 	int i = 0;
+ 	struct emac_priv *priv = netdev_priv(ndev);
  
-+		/* NOTE: Rx Threshold and Misc interrupts are not enabled */
-+
-+		/* ack rxen only then a new pulse will be generated */
-+		emac_write(EMAC_DM646X_MACEOIVECTOR,
-+			EMAC_DM646X_MAC_EOI_C0_RXEN);
-+
-+		/* ack txen- only then a new pulse will be generated */
-+		emac_write(EMAC_DM646X_MACEOIVECTOR,
-+			EMAC_DM646X_MAC_EOI_C0_TXEN);
-+
- 		local_irq_restore(flags);
+-	pm_runtime_get(&priv->pdev->dev);
++	pm_runtime_get_sync(&priv->pdev->dev);
  
- 	} else {
-@@ -951,15 +961,6 @@ static void emac_int_enable(struct emac_priv *priv)
- 		 * register */
+ 	netif_carrier_off(ndev);
+ 	for (cnt = 0; cnt < ETH_ALEN; cnt++)
+@@ -1726,6 +1726,8 @@ static struct net_device_stats *emac_dev_getnetstats(struct net_device *ndev)
+ 	u32 mac_control;
+ 	u32 stats_clear_mask;
  
- 		/* NOTE: Rx Threshold and Misc interrupts are not enabled */
++	pm_runtime_get_sync(&priv->pdev->dev);
++
+ 	/* update emac hardware stats and reset the registers*/
+ 
+ 	mac_control = emac_read(EMAC_MACCONTROL);
+@@ -1767,6 +1769,8 @@ static struct net_device_stats *emac_dev_getnetstats(struct net_device *ndev)
+ 	ndev->stats.tx_fifo_errors += emac_read(EMAC_TXUNDERRUN);
+ 	emac_write(EMAC_TXUNDERRUN, stats_clear_mask);
+ 
++	pm_runtime_put(&priv->pdev->dev);
++
+ 	return &ndev->stats;
+ }
+ 
+@@ -1981,12 +1985,16 @@ static int davinci_emac_probe(struct platform_device *pdev)
+ 	ndev->ethtool_ops = &ethtool_ops;
+ 	netif_napi_add(ndev, &priv->napi, emac_poll, EMAC_POLL_WEIGHT);
+ 
++	pm_runtime_enable(&pdev->dev);
++	pm_runtime_get_sync(&pdev->dev);
++
+ 	/* register the network device */
+ 	SET_NETDEV_DEV(ndev, &pdev->dev);
+ 	rc = register_netdev(ndev);
+ 	if (rc) {
+ 		dev_err(&pdev->dev, "error in register_netdev\n");
+ 		rc = -ENODEV;
++		pm_runtime_put(&pdev->dev);
+ 		goto no_cpdma_chan;
+ 	}
+ 
+@@ -1996,9 +2004,7 @@ static int davinci_emac_probe(struct platform_device *pdev)
+ 			   "(regs: %p, irq: %d)\n",
+ 			   (void *)priv->emac_base_phys, ndev->irq);
+ 	}
 -
--		/* ack rxen only then a new pulse will be generated */
--		emac_write(EMAC_DM646X_MACEOIVECTOR,
--			EMAC_DM646X_MAC_EOI_C0_RXEN);
--
--		/* ack txen- only then a new pulse will be generated */
--		emac_write(EMAC_DM646X_MACEOIVECTOR,
--			EMAC_DM646X_MAC_EOI_C0_TXEN);
--
- 	} else {
- 		/* Set DM644x control registers for interrupt control */
- 		emac_ctrl_write(EMAC_CTRL_EWCTL, 0x1);
+-	pm_runtime_enable(&pdev->dev);
+-	pm_runtime_resume(&pdev->dev);
++	pm_runtime_put(&pdev->dev);
+ 
+ 	return 0;
+ 
 -- 
 2.1.4
+
