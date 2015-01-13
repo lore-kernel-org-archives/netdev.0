@@ -1,108 +1,98 @@
 From: Felipe Balbi <balbi@ti.com>
-Subject: Re: [PATCH 2/6] net: davinci_emac: Fix runtime pm calls for
- davinci_emac
-Date: Tue, 13 Jan 2015 13:51:41 -0600
-Message-ID: <20150113195141.GT16533@saruman>
+Subject: Re: [PATCH 5/6] net: davinci_emac: Fix ioremap for devices with MDIO
+ within the EMAC address space
+Date: Tue, 13 Jan 2015 13:54:05 -0600
+Message-ID: <20150113195405.GU16533@saruman>
 References: <1421177368-19756-1-git-send-email-tony@atomide.com>
- <1421177368-19756-3-git-send-email-tony@atomide.com>
+ <1421177368-19756-6-git-send-email-tony@atomide.com>
 Reply-To: <balbi@ti.com>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="FfX2iGK5t5ehHnsE"
+	protocol="application/pgp-signature"; boundary="SidV/bKy1CyabPX8"
 Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
 	<linux-omap@vger.kernel.org>,
 	Brian Hutchinson <b.hutchman@gmail.com>,
-	Felipe Balbi <balbi@ti.com>,
-	"Mark A. Greer" <mgreer@animalcreek.com>
+	Felipe Balbi <balbi@ti.com>
 To: Tony Lindgren <tony@atomide.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from devils.ext.ti.com ([198.47.26.153]:46253 "EHLO
-	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751314AbbAMTw0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2015 14:52:26 -0500
+Return-path: <linux-omap-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1421177368-19756-3-git-send-email-tony@atomide.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1421177368-19756-6-git-send-email-tony@atomide.com>
+Sender: linux-omap-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
---FfX2iGK5t5ehHnsE
+--SidV/bKy1CyabPX8
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 Content-Transfer-Encoding: quoted-printable
 
-On Tue, Jan 13, 2015 at 11:29:24AM -0800, Tony Lindgren wrote:
-> Commit 3ba97381343b ("net: ethernet: davinci_emac: add pm_runtime support=
-")
-> added support for runtime PM, but it causes issues on omap3 related devic=
-es
-> that actually gate the clocks:
->=20
-> Unhandled fault: external abort on non-linefetch (0x1008)
-> ...
-> [<c04160f0>] (emac_dev_getnetstats) from [<c04d6a3c>] (dev_get_stats+0x78=
-/0xc8)
-> [<c04d6a3c>] (dev_get_stats) from [<c04e9ccc>] (rtnl_fill_ifinfo+0x3b8/0x=
-938)
-> [<c04e9ccc>] (rtnl_fill_ifinfo) from [<c04eade4>] (rtmsg_ifinfo+0x68/0xd8)
-> [<c04eade4>] (rtmsg_ifinfo) from [<c04dd35c>] (register_netdevice+0x3a0/0=
-x4ec)
-> [<c04dd35c>] (register_netdevice) from [<c04dd4bc>] (register_netdev+0x14=
-/0x24)
-> [<c04dd4bc>] (register_netdev) from [<c041755c>] (davinci_emac_probe+0x40=
-8/0x5c8)
-> [<c041755c>] (davinci_emac_probe) from [<c0396d78>] (platform_drv_probe+0=
-x48/0xa4)
->=20
-> Let's fix it by moving the pm_runtime_get() call earlier, and also
-> add it to the emac_dev_getnetstats(). Also note that we want to use
-> pm_rutime_get_sync() as we don't want to have deferred_resume happen.
+On Tue, Jan 13, 2015 at 11:29:27AM -0800, Tony Lindgren wrote:
+> Some devices like dm816x have the MDIO registers within the first EMAC
+> instance address space. Let's fix the issue by allowing to pass an
+> optional second IO range for the EMAC control register area.
 >=20
 > Cc: Brian Hutchinson <b.hutchman@gmail.com>
 > Cc: Felipe Balbi <balbi@ti.com>
-> Cc: Mark A. Greer <mgreer@animalcreek.com>
 > Signed-off-by: Tony Lindgren <tony@atomide.com>
 > ---
->  drivers/net/ethernet/ti/davinci_emac.c | 14 ++++++++++----
->  1 file changed, 10 insertions(+), 4 deletions(-)
+>  drivers/net/ethernet/ti/davinci_emac.c | 15 ++++++++++++---
+>  1 file changed, 12 insertions(+), 3 deletions(-)
 >=20
 > diff --git a/drivers/net/ethernet/ti/davinci_emac.c b/drivers/net/etherne=
 t/ti/davinci_emac.c
-> index 383ed52..deb43b3 100644
+> index 4c8d82c..0342273 100644
 > --- a/drivers/net/ethernet/ti/davinci_emac.c
 > +++ b/drivers/net/ethernet/ti/davinci_emac.c
-> @@ -1538,7 +1538,7 @@ static int emac_dev_open(struct net_device *ndev)
->  	int i =3D 0;
->  	struct emac_priv *priv =3D netdev_priv(ndev);
-> =20
-> -	pm_runtime_get(&priv->pdev->dev);
-> +	pm_runtime_get_sync(&priv->pdev->dev);
+> @@ -1877,7 +1877,7 @@ davinci_emac_of_get_pdata(struct platform_device *p=
+dev, struct emac_priv *priv)
+>  static int davinci_emac_probe(struct platform_device *pdev)
+>  {
+>  	int rc =3D 0;
+> -	struct resource *res;
+> +	struct resource *res, *res_ctrl;
+>  	struct net_device *ndev;
+>  	struct emac_priv *priv;
+>  	unsigned long hw_ram_addr;
+> @@ -1936,11 +1936,20 @@ static int davinci_emac_probe(struct platform_dev=
+ice *pdev)
+>  		rc =3D PTR_ERR(priv->remap_addr);
+>  		goto no_pdata;
+>  	}
+> +
+> +	res_ctrl =3D platform_get_resource(pdev, IORESOURCE_MEM, 1);
+> +	if (res_ctrl) {
 
-gotta check return value on all pm_runtime_get_sync() calls. IIRC,
-there's a coccinelle script for checking and patching this.
+devm_ioremap_resource() will check for res_ctrl being a valid pointer,
+perhaps below would be slightly better ?
+
+
+	res_ctrl =3D platform_get_resource(pdev, IORESOURCE_MEM, 1);
+	priv->ctrl_base =3D devm_ioremap_resource(&pdev->dev, res_ctrl);
+	if (IS_ERR(priv->ctrl_base))
+		priv->ctrl_base =3D priv->remap_addr + pdata->ctrl_mod_reg_offset;
 
 --=20
 balbi
 
---FfX2iGK5t5ehHnsE
+--SidV/bKy1CyabPX8
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: Digital signature
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1
 
-iQIcBAEBAgAGBQJUtXdNAAoJEIaOsuA1yqREbbIP/2pa66HHVsgsHF2VaMVhNZqU
-Zd07YlO+ttBA4dFl/lbhoQYxY+m+6sP3IlB4jiLRnRD/lWXyZMSoPx8bjL91h9mJ
-bSST/IQUV2nUonMM7zrbeAa0f1AJkdgEMNBGD5pypHZqKjQ+uI1L8Q7+JIvL4mA7
-XM/r5HqUkIRCuqemkUyjUwgiSZ1tKuloynMteELshbyzuxRM5VJSA6ugeUSjPLRl
-H7tATCrP3IBmkUNRYnCT4bdlXRMbRVt1jimTTqRbLHSwlOaMZmcstoNXD7HE9Cgy
-f3f7UwBHhHlogcTF2iY0IRZfM5li3TdSfQZTq1tkJvQcTzv9yNJkGXvD+ufnKuwN
-G5uFrJc0WsQY2ug0VgK6LnYVd3lw1KZyh3ppBhQJgVjk7gLNI3nDv9bU12PE2duf
-CBsK7n94fHmqzhvJSRPuRQX/TL8mbDisD5/RPeQCK3VyDLaAqTayBM1hx6sT3cbD
-0ik1RyodXSgCqzFrkaaORZh9ZNyjYErLZ2MkdUgMpn0tagheTDxxmPXrSLgVoIUT
-Rjmr3XDli9nXgt6adxhYmm4ko4h0r815sITCQRBQTT3oiaql8BDZUASIM4enGJdl
-m/cGUlIDVSijJjH7ia5u1sN1AnNgTHbYwSUgU+AefsM5tMmvW0fZixKbi4fniN1S
-62nwfQMBx60JB8HSAT+A
-=ksur
+iQIcBAEBAgAGBQJUtXfdAAoJEIaOsuA1yqRERkwP/RAd4sCwDXFgNd7XJle4M4p7
+pbTL+F+vOj5L6l4zHZfH/cadQy9crC/EfLCE6j99pBLK18rJ1JURFZy1CfVwpu7P
+BMVkIZBygYhvK2Vd5FSGSFXWaGQo1BUBCILRT6ve2kS8oF1EfEmEinMPDvhMsNEA
+MdztFFbo6bkOWCfeDHoqq6gi5pgsHU+xPJdl1+dik/GAUEEBVusqPh+Yc+cF0h/b
+Km/lKp9FUA+PUYHhyxAa0NW673JSJ0E5fYXsAaaWSiLcVGwJ4TykVe1qsczHL7dh
+K9uTcGxVgtprsaKaOfreLEkLmiLiAYLBijKHaF+CeLpioR5NQr8PzXsgo63tmfGs
+lDVx91/ucGMkh+z+nbYt3EYpVbmazb0OPvd0fLixQ7k2w8si06fDIejhBCaglD5z
+b4B4VVMkQop4FOa0w2JncdH3rt+zjttbX54klRuGhyDvyPhNq21lEuhbKltaqVjs
+1IupO8+uI5gqjI9AxwRMvDkQ8E4RWDoBFIgnjg7ZEPUgqt4ILR38kiI3uAi49ZaY
+XmR8Ss1pZUbTPY+c+lTPfatkFaWvH8reoJaF3B81rmHBFtsu89wSbgInIntHW31A
+4iIrfaeqz4fiHFuzAVKwpH5QUMjUHaEvHdDAm1TGOJfUHzMLoYSXAsRaarvDpU9g
+6C8E4VdCRBksDeVFb/Rh
+=zqUI
 -----END PGP SIGNATURE-----
 
---FfX2iGK5t5ehHnsE--
+--SidV/bKy1CyabPX8--
