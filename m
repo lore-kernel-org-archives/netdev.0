@@ -1,126 +1,36 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH net-next v11 3/3] net: hisilicon: new hip04 ethernet driver
-Date: Tue, 13 Jan 2015 15:55:03 +0800
-Message-ID: <54B4CF57.4020505@huawei.com>
-References: <1421049832-6224-1-git-send-email-dingtianhong@huawei.com> <1421049832-6224-4-git-send-email-dingtianhong@huawei.com> <54B41192.3030400@suse.de>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH 2/6] vxlan: Group Policy extension
+Date: Tue, 13 Jan 2015 09:29:40 +0100
+Message-ID: <54B4D774.8090004@6wind.com>
+References: <cover.1420756324.git.tgraf@suug.ch>	<7339e3bff124cecaf65cd04ea9bdc973c730ba34.1420756324.git.tgraf@suug.ch>	<54B40661.9020408@6wind.com> <20150112.125929.266649587719513897.davem@davemloft.net>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <sergei.shtylyov@cogentembedded.com>,
-	<linux-arm-kernel@lists.infradead.org>, <eric.dumazet@gmail.com>,
-	<xuwei5@hisilicon.com>, <zhangfei.gao@linaro.org>,
-	<netdev@vger.kernel.org>, <devicetree@vger.kernel.org>,
-	<linux@arm.linux.org.uk>
-To: Alexander Graf <agraf@suse.de>, <arnd@arndb.de>,
-	<robh+dt@kernel.org>, <davem@davemloft.net>,
-	<grant.likely@linaro.org>
+Content-Type: text/plain; charset=windows-1252;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: tgraf@suug.ch, jesse@nicira.com, stephen@networkplumber.org,
+	pshelar@nicira.com, therbert@google.com,
+	alexei.starovoitov@gmail.com, netdev@vger.kernel.org,
+	dev@openvswitch.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [119.145.14.66] ([119.145.14.66]:64007 "EHLO
-	szxga03-in.huawei.com" rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org
-	with ESMTP id S1750995AbbAMH4D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2015 02:56:03 -0500
-In-Reply-To: <54B41192.3030400@suse.de>
+Received: from mail-lb0-f175.google.com ([209.85.217.175]:34366 "EHLO
+	mail-lb0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751054AbbAMI3o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2015 03:29:44 -0500
+Received: by mail-lb0-f175.google.com with SMTP id z11so1340538lbi.6
+        for <netdev@vger.kernel.org>; Tue, 13 Jan 2015 00:29:42 -0800 (PST)
+In-Reply-To: <20150112.125929.266649587719513897.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2015/1/13 2:25, Alexander Graf wrote:
-> On 12.01.15 09:03, Ding Tianhong wrote:
->> Support Hisilicon hip04 ethernet driver, including 100M / 1000M controller.
->> The controller has no tx done interrupt, reclaim xmitted buffer in the poll.
->>
->> v11: Add ethtool support for tx coalecse getting and setting, the xmit_more
->> is not supported for this patch, but I think it could work for hip04,
->> will support it later after some tests for performance better.
->>
->> Here are some performance test results by ping and iperf(add tx_coalesce_frames/users),
->> it looks that the performance and latency is more better by tx_coalesce_frames/usecs.
->>
->> - Before:
->> $ ping 192.168.1.1 ...
->> --- 192.168.1.1 ping statistics ---
-> 
-> Writing --- directly into your patch description is usually a pretty bad
-> idea. Git am cuts off everything that comes after --- so your patch
-> description ends here without manual intervention ;).
-> 
->> 24 packets transmitted, 24 received, 0% packet loss, time 22999ms
->> rtt min/avg/max/mdev = 0.180/0.202/0.403/0.043 ms
->>
->> $ iperf -c 192.168.1.1 ...
->> [ ID] Interval       Transfer     Bandwidth
->> [  3]  0.0- 1.0 sec   115 MBytes   945 Mbits/sec
->>
->> - After:
->> $ ping 192.168.1.1 ...
->> --- 192.168.1.1 ping statistics ---
->> 24 packets transmitted, 24 received, 0% packet loss, time 22999ms
->> rtt min/avg/max/mdev = 0.178/0.190/0.380/0.041 ms
->>
->> $ iperf -c 192.168.1.1 ...
->> [ ID] Interval       Transfer     Bandwidth
->> [  3]  0.0- 1.0 sec   115 MBytes   965 Mbits/sec
->>
->> v10: According David Miller and Arnd Bergmann's suggestion, add some modification
-> 
-> Version history however should go after a --- line, so that it doesn't
-> show up in the patch description in the tree.
-> 
-
-ok
-
->> for v9 version
->> - drop the workqueue
->> - batch cleanup based on tx_coalesce_frames/usecs for better throughput
->> - use a reasonable default tx timeout (200us, could be shorted
->>   based on measurements) with a range timer
->> - fix napi poll function return value
->> - use a lockless queue for cleanup
->>
->> Signed-off-by: Zhangfei Gao <zhangfei.gao@linaro.org>
->> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
->> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
->> ---
-> 
-> 
-> [...]
-> 
->> +static int hip04_remove(struct platform_device *pdev)
->> +{
->> +	struct net_device *ndev = platform_get_drvdata(pdev);
->> +	struct hip04_priv *priv = netdev_priv(ndev);
->> +	struct device *d = &pdev->dev;
->> +
->> +	if (priv->phy)
->> +		phy_disconnect(priv->phy);
->> +
->> +	hip04_free_ring(ndev, d);
->> +	unregister_netdev(ndev);
->> +	free_irq(ndev->irq, ndev);
->> +	of_node_put(priv->phy_node);
->> +	cancel_work_sync(&priv->tx_timeout_task);
->> +	free_netdev(ndev);
->> +
->> +	return 0;
->> +}
->> +
->> +static const struct of_device_id hip04_mac_match[] = {
->> +	{ .compatible = "hisilicon,hip04-mac" },
->> +	{ }
->> +};
-> 
-> This is missing
-> 
-> MODULE_DEVICE_TABLE(of, hip04_mac_match);
-> 
-> to enable automatic module loading, no?
-> 
-looks good to me, thanks.
-
-Ding
-
-> 
-> Alex
-> 
-> 
-> .
-> 
+Le 12/01/2015 18:59, David Miller a =E9crit :
+>
+> Can you PLEASE, PLEASE, not quote and entire full patch just to add t=
+wo
+> lines of commentary.
+>
+> Quote _only_ the _RELEVANT_ portions of the email you are replying to=
+=2E
+>
+Will do, sorry for that.
