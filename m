@@ -1,130 +1,153 @@
-From: Felipe Balbi <balbi@ti.com>
-Subject: Re: [PATCH 1/6] net: davinci_emac: Fix hangs with interrupts
-Date: Tue, 13 Jan 2015 13:36:34 -0600
-Message-ID: <20150113193634.GQ16533@saruman>
-References: <1421177368-19756-1-git-send-email-tony@atomide.com>
- <1421177368-19756-2-git-send-email-tony@atomide.com>
-Reply-To: <balbi@ti.com>
+From: "Dev, Vasu" <vasu.dev@intel.com>
+Subject: RE: [PATCH] i40e: don't enable and init FCOE by default when do PF
+ reset
+Date: Tue, 13 Jan 2015 19:38:26 +0000
+Message-ID: <933BEC2E04D6A5458F4B0239FB547F9A34CC4055@fmsmsx118.amr.corp.intel.com>
+References: <1420821466-5747-1-git-send-email-ethan.zhao@oracle.com>
+	<D38E8E86660E514AB505863C19C9287C741097AF@ORSMSX102.amr.corp.intel.com>
+	<933BEC2E04D6A5458F4B0239FB547F9A34CC3608@fmsmsx118.amr.corp.intel.com>
+ <CABawtvN_afL4B=fwtRJF_YJpe7tv6yf-OHJipWkGd-AiAjtckg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="VdnGiXwuH6t1Tqzo"
-Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<linux-omap@vger.kernel.org>,
-	Brian Hutchinson <b.hutchman@gmail.com>,
-	Felipe Balbi <balbi@ti.com>
-To: Tony Lindgren <tony@atomide.com>
-Return-path: <linux-omap-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1421177368-19756-2-git-send-email-tony@atomide.com>
-Sender: linux-omap-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "Ronciak, John" <john.ronciak@intel.com>,
+	Ethan Zhao <ethan.zhao@oracle.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
+	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+	"Rose, Gregory V" <gregory.v.rose@intel.com>,
+	"Vick, Matthew" <matthew.vick@intel.com>,
+	"Williams, Mitch A" <mitch.a.williams@intel.com>,
+	"Parikh, Neerav" <neerav.parikh@intel.com>,
+	Linux NICS <Linux-nics@isotope.jf.intel.com>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"brian.maly@oracle.com" <brian.maly@oracle.com>
+To: Ethan Zhao <ethan.kernel@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:24785 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751049AbbAMTic (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Jan 2015 14:38:32 -0500
+In-Reply-To: <CABawtvN_afL4B=fwtRJF_YJpe7tv6yf-OHJipWkGd-AiAjtckg@mail.gmail.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---VdnGiXwuH6t1Tqzo
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
-
-On Tue, Jan 13, 2015 at 11:29:23AM -0800, Tony Lindgren wrote:
-> On davinci_emac, we have pulse interrupts. This means that we need to
-> clear the EOI bits when disabling interrupts as otherwise the interrupts
-> keep happening. And we also need to not clear the EOI bits again when
-> enabling the interrupts as otherwise we will get tons of:
->=20
-> unexpected IRQ trap at vector 00
->=20
-> These errors almost certainly mean that the omap-intc.c is signaling
-> a spurious interrupt with the reserved irq 127 as we've seen earlier
-> on omap3.
->=20
-> Let's fix the issue by clearing the EOI bits when disabling the
-> interrupts. Let's also keep the comment for "Rx Threshold and Misc
-> interrupts are not enabled" for both enable and disable so people
-> are aware of this when potentially adding more support.
->=20
-> Note that eventually we should handle the RX and TX interrupts
-> separately like cpsw is now doing. However, so far I have not seen
-> any issues with this based on my testing, so it seems to behave a
-> little different compared to the cpsw that had a similar issue.
->=20
-> Cc: Brian Hutchinson <b.hutchman@gmail.com>
-> Cc: Felipe Balbi <balbi@ti.com>
-
-pretty much the same thing that happens with CPSW, I think that a future
-patch might want to change things so that we only write EOI to the IRQ
-that actually fires, though.
-
-Reviewed-by: Felipe Balbi <balbi@ti.com>
-
-> Signed-off-by: Tony Lindgren <tony@atomide.com>
-> ---
->  drivers/net/ethernet/ti/davinci_emac.c | 19 ++++++++++---------
->  1 file changed, 10 insertions(+), 9 deletions(-)
->=20
-> diff --git a/drivers/net/ethernet/ti/davinci_emac.c b/drivers/net/etherne=
-t/ti/davinci_emac.c
-> index ea71251..383ed52 100644
-> --- a/drivers/net/ethernet/ti/davinci_emac.c
-> +++ b/drivers/net/ethernet/ti/davinci_emac.c
-> @@ -922,6 +922,16 @@ static void emac_int_disable(struct emac_priv *priv)
->  		if (priv->int_disable)
->  			priv->int_disable();
-> =20
-> +		/* NOTE: Rx Threshold and Misc interrupts are not enabled */
-> +
-> +		/* ack rxen only then a new pulse will be generated */
-> +		emac_write(EMAC_DM646X_MACEOIVECTOR,
-> +			EMAC_DM646X_MAC_EOI_C0_RXEN);
-> +
-> +		/* ack txen- only then a new pulse will be generated */
-> +		emac_write(EMAC_DM646X_MACEOIVECTOR,
-> +			EMAC_DM646X_MAC_EOI_C0_TXEN);
-> +
->  		local_irq_restore(flags);
-> =20
->  	} else {
-> @@ -951,15 +961,6 @@ static void emac_int_enable(struct emac_priv *priv)
->  		 * register */
-> =20
->  		/* NOTE: Rx Threshold and Misc interrupts are not enabled */
-> -
-> -		/* ack rxen only then a new pulse will be generated */
-> -		emac_write(EMAC_DM646X_MACEOIVECTOR,
-> -			EMAC_DM646X_MAC_EOI_C0_RXEN);
-> -
-> -		/* ack txen- only then a new pulse will be generated */
-> -		emac_write(EMAC_DM646X_MACEOIVECTOR,
-> -			EMAC_DM646X_MAC_EOI_C0_TXEN);
-> -
->  	} else {
->  		/* Set DM644x control registers for interrupt control */
->  		emac_ctrl_write(EMAC_CTRL_EWCTL, 0x1);
-> --=20
-> 2.1.4
->=20
-
---=20
-balbi
-
---VdnGiXwuH6t1Tqzo
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIcBAEBAgAGBQJUtXPCAAoJEIaOsuA1yqRE7OAP/2nmZZZCJCdg+t0qwVL7rYJ9
-mkLjxHsxdt47FvJz2Oxs6DZICXt5Gk7w8QlgcZC86jQGMzZCqkLE5XF9qdZKwciR
-YL2J4Nh04eIl/mRwMvt6HnhuGFewyPEeUx5Sa03Hwj/aQIyKRtqar0MF4W8bxJZK
-5PhPHAS+Ql5I6d2Ejf/MH6ZsYYTueHmWAby9+tmE9gQWmI//OEvU9ZUzHrwanlEi
-kPFPogRJDcvXiB6A+j/4XP3kzyjU2bKu5NeL3/yM3gCIwEGf7azz8vMrQ5T6vaTu
-1PGAQ8HDhnzD48apGz8OnF6IpEJAJf/aUX9lD/ASj15XHrvl76tKzjPdFzcpQmIp
-S2561wMu344K18x3TmE44UAuaa4ck125G+O2wS8UVQxaeE3d7vncaftd3iAmyqJC
-Tf8/LUBZpk2CIHJ1iZKQU2NKxK8RzxTcwbGaYYY1OJPkBsWbRh0Wa+hK8xo9v9Yn
-pLBRG3IXaXpuPbCqktxQ3MULb8SGrX/e78rA6/x588AE/RTBaOUAIdMDQ6eEq7K0
-Mu8WmYOxziWm2y50Rq8Imre3nYxPOpwcLg/9AC/dlG8IvRYERQJ+cFenHFFA1kRe
-x5Gbx6Weo+cSLBAD7cEnvSVrCdKdB4HLJEteoagzrDFw8jcTdFYN4+jWv3ldfgTH
-SNgsMGKavWT6b9Yglima
-=SRFa
------END PGP SIGNATURE-----
-
---VdnGiXwuH6t1Tqzo--
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiA+PiA+IGRpZmYgLS1naXQgYS9kcml2ZXJz
+L25ldC9ldGhlcm5ldC9pbnRlbC9pNDBlL2k0MGVfbWFpbi5jDQo+ID4+ID4gYi9kcml2ZXJzL25l
+dC9ldGhlcm5ldC9pbnRlbC9pNDBlL2k0MGVfbWFpbi5jDQo+ID4+ID4gaW5kZXggYTVmMjY2MC4u
+YTI1NzJjYyAxMDA2NDQNCj4gPj4gPiAtLS0gYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9p
+NDBlL2k0MGVfbWFpbi5jDQo+ID4+ID4gKysrIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwv
+aTQwZS9pNDBlX21haW4uYw0KPiA+PiA+IEBAIC02MTgwLDkgKzYxODAsMTIgQEAgc3RhdGljIHZv
+aWQgaTQwZV9yZXNldF9hbmRfcmVidWlsZChzdHJ1Y3QNCj4gPj4gPiBpNDBlX3BmICpwZiwgYm9v
+bCByZWluaXQpDQo+ID4+ID4gICAgIH0NCj4gPj4gPiAgI2VuZGlmIC8qIENPTkZJR19JNDBFX0RD
+QiAqLw0KPiA+PiA+ICAjaWZkZWYgSTQwRV9GQ09FDQo+ID4+ID4gLSAgIHJldCA9IGk0MGVfaW5p
+dF9wZl9mY29lKHBmKTsNCj4gPj4gPiAtICAgaWYgKHJldCkNCj4gPj4gPiAtICAgICAgICAgICBk
+ZXZfaW5mbygmcGYtPnBkZXYtPmRldiwgImluaXRfcGZfZmNvZSBmYWlsZWQ6ICVkXG4iLCByZXQp
+Ow0KPiA+PiA+ICsgICBpZiAocGYtPmZsYWdzICYgSTQwRV9GTEFHX0ZDT0VfRU5BQkxFRCkgew0K
+PiA+PiA+ICsgICAgICAgICAgIHJldCA9IGk0MGVfaW5pdF9wZl9mY29lKHBmKTsNCj4gPg0KPiA+
+IENhbGxpbmcgaTQwZV9pbml0X3BmX2Zjb2UoKSBoZXJlIGNvbmZsaWN0cyB3aXRoIGl0cw0KPiBJ
+NDBFX0ZMQUdfRkNPRV9FTkFCTEVEIHByZS1jb25kaXRpb24gc2luY2UgSTQwRV9GTEFHX0ZDT0Vf
+RU5BQkxFRCBpcw0KPiBzZXQgYnkgdmVyeSBzYW1lIGk0MGVfaW5pdF9wZl9mY29lKCksIGluIHR1
+cm4gaTQwZV9pbml0X3BmX2Zjb2UoKSB3aWxsIG5ldmVyIGdldA0KPiBjYWxsZWQuDQo+IA0KPiBJ
+IGRvbid0IHRoaW5rIHNvLCAgaGVyZSAsaTQwZV9yZXNldF9hbmRfcmVidWlsZCgpICBpcyBub3Qg
+dGhlIG9ubHkgYW5kIHRoZSBmaXJzdA0KPiBwbGFjZSB0aGF0ICBpNDBlX2luaXRfcGZfZmNvZSgp
+IGlzIGNhbGxlZCwgc2VlIGk0MGVfcHJvYmUoKSwgdGhhdCBpcyB0aGUgZmlyc3QNCj4gY2hhbmNl
+Lg0KPiANCj4gaTQwZV9wcm9iZSgpDQo+IC0tPmk0MGVfc3dfaW5pdCgpDQo+ICAgICAgLS0+aTQw
+ZV9pbml0X3BmX2Zjb2UoKQ0KPiANCj4gQW5kIHRoZSBJNDBFX0ZMQUdfRkNPRV9FTkFCTEVEIGlz
+IHBvc3NpYmxlIGJlIHNldCBieQ0KPiBpNDBlX2Zjb2VfZW5hYmxlKCkgb3IgaTQwZV9mY29lX2Rp
+c2FibGUoKSBpbnRlcmZhY2UgYmVmb3JlIHRoZSByZXNldCBhY3Rpb24gaXMNCj4gdG8gYmUgZG9u
+ZS4NCj4gDQoNCkl0IGlzIHNldCBieSBpNDBlX2luaXRfcGZfZmNvZSgpIGFuZCB5b3UgYXJlIHJp
+Z2h0IHRoYXQgdGhlIG1vZGlmaWVkIGNhbGwgZmxvdyBieSB5b3VyIHBhdGNoIHdvbid0IGltcGFj
+dCBzZXR0aW5nIG9mIEk0MEVfRkxBR19GQ09FX0VOQUJMRUQgYW55d2F5IHdoaWNoIGNvdWxkIGhh
+dmUgcHJldmVudGVkIGNhbGxpbmcgaTQwZV9pbml0X3BmX2Zjb2UoKSBhcyBJIGRlc2NyaWJlZCBh
+Ym92ZSwgc28gdGhpcyBpcyBub3QgYW4gaXNzdWUgd2l0aCB0aGUgcGF0Y2guDQoNCj4gQlRXLCB0
+aGUgcmVhc29uIEkgcG9zdCB0aGlzIHBhdGNoIGlzIHRoYXQgd2UgaGl0IGEgYnVnLCBhZnRlciBz
+ZXR1cCB2bGFuLCB0aGUgUEYNCj4gaXMgZW5hYmxlZCB0byBGQ09FLg0KPiANCg0KVGhlbiB0aGF0
+IEJVRyB3b3VsZCBzdGlsbCByZW1haW4gdW4tZml4ZWQgYW5kIGNhbGxpbmcgaTQwZV9pbml0X3Bm
+X2Zjb2UoKSB1bmRlciBJNDBFX0ZMQUdfRkNPRV9FTkFCTEVEICBmbGFnIHJlYWxseSB3b24ndCBh
+ZmZlY3QgY2FsbCBmbG93IHRvIGZpeCBhbnl0aGluZy4gSSBtZWFuIEk0MEVfRkxBR19GQ09FX0VO
+QUJMRUQgIGNvbmRpdGlvbiB3aWxsIGJlIHRydWUgd2l0aCAicGYtPmh3LmZ1bmNfY2Fwcy5mY29l
+ID09IHRydWUiIGFuZCBvdGhlcndpc2UgY2FsbGluZyBpNDBlX2luaXRfcGZfZmNvZSgpIHNpbXBs
+eSByZXR1cm5zIGJhY2sgZWFybHkgb24gYWZ0ZXIgY2hlY2tpbmcgInBmLT5ody5mdW5jX2NhcHMu
+ZmNvZSA9PSBmYWxzZSIsIHNvIGhvdyB0aGF0IGJ1ZyBpcyBmaXhlZCBoZXJlIGJ5IGFkZGVkIEk0
+MEVfRkxBR19GQ09FX0VOQUJMRUQgIGNvbmRpdGlvbiA/IFdoYXQgaXMgdGhlIGJ1ZyA/DQoNCj4g
+Pg0KPiA+IEplZmYgS2lyc2hlciBzaG91bGQgYmUgZ2V0dGluZyBvdXQgYSBwYXRjaCBxdWV1ZWQg
+YnkgbWUgd2hpY2ggYWRkcw0KPiBJNDBFX0ZDb0UgS2J1aWxkIG9wdGlvbiwgaW4gdGhhdCBGQ29F
+IGlzIGRpc2FibGVkIGJ5IGRlZmF1bHQgYW5kICB1c2VyIGNvdWxkDQo+IGVuYWJsZSBGQ29FIG9u
+bHkgaWYgbmVlZGVkLCB0aGF0IHBhdGNoIHdvdWxkIGRvIHNhbWUgb2Ygc2tpcHBpbmcNCj4gaTQw
+ZV9pbml0X3BmX2Zjb2UoKSB3aGV0aGVyIEZDb0UgY2FwYWJpbGl0eSBpbiBkZXZpY2UgZW5hYmxl
+ZCBvciBub3QgaW4NCj4gZGVmYXVsdCBjb25maWcuDQo+ID4NCj4gDQo+IFRoZSBmb2xsb3dpbmcg
+cGF0Y2ggd2lsbCBub3QgZml4IHRoZSBhYm92ZSBpc3N1ZSAtLSBjb25maWd1cmF0aW9uIG9mIFBG
+IHdpbGwgYmUNCj4gY2hhbmdlZCB2aWEgcmVzZXQuDQo+IEhvdyBhYm91dCB0aGUgRkNPRSBpcyBj
+b25maWd1cmVkIGFuZCBkaXNhYmxlZCBieSAgaTQwZV9mY29lX2Rpc2FibGUoKSAsDQo+IHRoZW4g
+cmVzZXQgaGFwcGVucyA/DQo+IA0KDQpNYXkgYmUgYnV0IGlmIHRoZSBCVUcgaXMgZHVlIHRvIEZD
+b0UgYmVpbmcgZW5hYmxlZCB0aGVuIGhhdmluZyBpdCBkaXNhYmxlZCBpbiBjb25maWcgd2lsbCBh
+dm9pZCB0aGUgYnVnIGZvciBub24gRkNvRSBjb25maWcgb3B0aW9uIGFuZCBvbmNlIGJ1ZyBpcyB1
+bmRlcnN0b29kIHRoZW4gdGhhdCBoYXMgdG8gYmUgZml4ZWQgZm9yIEZDb0UgZW5hYmxlZCBjb25m
+aWcgYWxzbyBhcyBJIGFza2VkIGFib3ZlLg0KDQpUaGFua3MgRXRoYW4gZm9yIGRldGFpbGVkIHJl
+c3BvbnNlLg0KVmFzdQ0KDQo+ID4gRnJvbSBwYXRjaHdvcmsgV2VkIE9jdCAgMiAyMzoyNjowOCAy
+MDEzDQo+ID4gQ29udGVudC1UeXBlOiB0ZXh0L3BsYWluOyBjaGFyc2V0PSJ1dGYtOCINCj4gPiBN
+SU1FLVZlcnNpb246IDEuMA0KPiA+IENvbnRlbnQtVHJhbnNmZXItRW5jb2Rpbmc6IDdiaXQNCj4g
+PiBTdWJqZWN0OiBbbmV0XSBpNDBlOiBhZGRzIEZDb0UgY29uZmlndXJlIG9wdGlvbg0KPiA+IERh
+dGU6IFRodSwgMDMgT2N0IDIwMTMgMDc6MjY6MDggLTAwMDANCj4gPiBGcm9tOiBWYXN1IERldiA8
+dmFzdS5kZXZAaW50ZWwuY29tPg0KPiA+IFgtUGF0Y2h3b3JrLUlkOiAxMTc5Nw0KPiA+DQo+ID4g
+QWRkcyBGQ29FIGNvbmZpZyBvcHRpb24gSTQwRV9GQ09FLCBzbyB0aGF0IEZDb0UgY2FuIGJlIGVu
+YWJsZWQgYXMNCj4gPiBuZWVkZWQgYnV0IG90aGVyd2lzZSBoYXZlIGl0IGRpc2FibGVkIGJ5IGRl
+ZmF1bHQuDQo+ID4NCj4gPiBUaGlzIGFsc28gZWxpbWluYXRlIG11bHRpcGxlIEZDb0UgY29uZmln
+IGNoZWNrcywgaW5zdGVhZCBub3cganVzdCBvbmUNCj4gPiBjb25maWcgY2hlY2sgZm9yIENPTkZJ
+R19JNDBFX0ZDT0UuDQo+ID4NCj4gPiBUaGUgSTQwRSBGQ29FIHdhcyBhZGRlZCB3aXRoIDMuMTcg
+a2VybmVsIGFuZCB0aGVyZWZvcmUgdGhpcyBwYXRjaA0KPiA+IHNoYWxsIGJlIGFwcGxpZWQgdG8g
+c3RhYmxlIDMuMTcga2VybmVsIGFsc28uDQo+ID4NCj4gPiBDQzogPHN0YWJsZUB2Z2VyLmtlcm5l
+bC5vcmc+DQo+ID4gU2lnbmVkLW9mZi1ieTogVmFzdSBEZXYgPHZhc3UuZGV2QGludGVsLmNvbT4N
+Cj4gPiBUZXN0ZWQtYnk6IEppbSBZb3VuZyA8amFtZXN4Lm0ueW91bmdAaW50ZWwuY29tPg0KPiA+
+DQo+ID4gLS0tDQo+ID4gZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvS2NvbmZpZyAgICAgICAg
+ICAgfCAgIDExICsrKysrKysrKysrDQo+ID4gIGRyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2k0
+MGUvTWFrZWZpbGUgICAgIHwgICAgMiArLQ0KPiA+ICBkcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRl
+bC9pNDBlL2k0MGVfb3NkZXAuaCB8ICAgIDQgKystLQ0KPiA+ICAzIGZpbGVzIGNoYW5nZWQsIDE0
+IGluc2VydGlvbnMoKyksIDMgZGVsZXRpb25zKC0pDQo+ID4NCj4gPiBkaWZmIC0tZ2l0IGEvZHJp
+dmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvS2NvbmZpZw0KPiA+IGIvZHJpdmVycy9uZXQvZXRoZXJu
+ZXQvaW50ZWwvS2NvbmZpZw0KPiA+IGluZGV4IDViODMwMGEuLjRkNjFlZjUgMTAwNjQ0DQo+ID4g
+LS0tIGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvS2NvbmZpZw0KPiA+ICsrKyBiL2RyaXZl
+cnMvbmV0L2V0aGVybmV0L2ludGVsL0tjb25maWcNCj4gPiBAQCAtMjgxLDYgKzI4MSwxNyBAQCBj
+b25maWcgSTQwRV9EQ0INCj4gPg0KPiA+ICAgICAgICAgICBJZiB1bnN1cmUsIHNheSBOLg0KPiA+
+DQo+ID4gK2NvbmZpZyBJNDBFX0ZDT0UNCj4gPiArICAgICAgIGJvb2wgIkZpYnJlIENoYW5uZWwg
+b3ZlciBFdGhlcm5ldCAoRkNvRSkiDQo+ID4gKyAgICAgICBkZWZhdWx0IG4NCj4gPiArICAgICAg
+IGRlcGVuZHMgb24gSTQwRSAmJiBEQ0IgJiYgRkNPRQ0KPiA+ICsgICAgICAgLS0taGVscC0tLQ0K
+PiA+ICsgICAgICAgICBTYXkgWSBoZXJlIGlmIHlvdSB3YW50IHRvIHVzZSBGaWJyZSBDaGFubmVs
+IG92ZXIgRXRoZXJuZXQgKEZDb0UpDQo+ID4gKyAgICAgICAgIGluIHRoZSBkcml2ZXIuIFRoaXMg
+d2lsbCBjcmVhdGUgbmV3IG5ldGRldiBmb3IgZXhjbHVzaXZlIEZDb0UNCj4gPiArICAgICAgICAg
+dXNlIHdpdGggWEw3MTAgRkNvRSBvZmZsb2FkcyBlbmFibGVkLg0KPiA+ICsNCj4gPiArICAgICAg
+ICAgSWYgdW5zdXJlLCBzYXkgTi4NCj4gPiArDQo+ID4gIGNvbmZpZyBJNDBFVkYNCj4gPiAgICAg
+ICAgIHRyaXN0YXRlICJJbnRlbChSKSBYTDcxMCBYNzEwIFZpcnR1YWwgRnVuY3Rpb24gRXRoZXJu
+ZXQgc3VwcG9ydCINCj4gPiAgICAgICAgIGRlcGVuZHMgb24gUENJX01TSQ0KPiA+IGRpZmYgLS1n
+aXQgYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9pNDBlL01ha2VmaWxlDQo+ID4gYi9kcml2
+ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9pNDBlL01ha2VmaWxlDQo+ID4gaW5kZXggNGI5NGRkYi4u
+YzQwNTgxOSAxMDA2NDQNCj4gPiAtLS0gYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9pNDBl
+L01ha2VmaWxlDQo+ID4gKysrIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaTQwZS9NYWtl
+ZmlsZQ0KPiA+IEBAIC00NCw0ICs0NCw0IEBAIGk0MGUtb2JqcyA6PSBpNDBlX21haW4ubyBcDQo+
+ID4gICAgICAgICBpNDBlX3ZpcnRjaG5sX3BmLm8NCj4gPg0KPiA+ICBpNDBlLSQoQ09ORklHX0k0
+MEVfRENCKSArPSBpNDBlX2RjYi5vIGk0MGVfZGNiX25sLm8NCj4gPiAtaTQwZS0kKENPTkZJR19G
+Q09FOm09eSkgKz0gaTQwZV9mY29lLm8NCj4gPiAraTQwZS0kKENPTkZJR19JNDBFX0ZDT0UpICs9
+IGk0MGVfZmNvZS5vDQo+ID4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVs
+L2k0MGUvaTQwZV9vc2RlcC5oDQo+ID4gYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9pNDBl
+L2k0MGVfb3NkZXAuaA0KPiA+IGluZGV4IDA0NWI1YzQuLmFkODAyZGQgMTAwNjQ0DQo+ID4gLS0t
+IGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaTQwZS9pNDBlX29zZGVwLmgNCj4gPiArKysg
+Yi9kcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9pNDBlL2k0MGVfb3NkZXAuaA0KPiA+IEBAIC03
+OCw3ICs3OCw3IEBAIGRvIHsgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICBcDQo+ID4gIH0gd2hpbGUgKDApDQo+ID4NCj4gPiAgdHlwZWRl
+ZiBlbnVtIGk0MGVfc3RhdHVzX2NvZGUgaTQwZV9zdGF0dXM7IC0jaWYgZGVmaW5lZChDT05GSUdf
+RkNPRSkNCj4gPiB8fCBkZWZpbmVkKENPTkZJR19GQ09FX01PRFVMRSkNCj4gPiArI2lmZGVmIENP
+TkZJR19JNDBFX0ZDT0UNCj4gPiAgI2RlZmluZSBJNDBFX0ZDT0UNCj4gPiAtI2VuZGlmIC8qIENP
+TkZJR19GQ09FIG9yIENPTkZJR19GQ09FX01PRFVMRSAqLw0KPiA+ICsjZW5kaWYNCj4gPiAgI2Vu
+ZGlmIC8qIF9JNDBFX09TREVQX0hfICovDQo+ID4NCj4gPj4gPiArICAgICAgICAgICBpZiAocmV0
+KQ0KPiA+PiA+ICsgICAgICAgICAgICAgICAgICAgZGV2X2luZm8oJnBmLT5wZGV2LT5kZXYsDQo+
+ID4+ID4gKyAgICAgICAgICAgICAgICAgICAgICAgICAgICAiaW5pdF9wZl9mY29lIGZhaWxlZDog
+JWRcbiIsIHJldCk7DQo+ID4+ID4gKyAgIH0NCj4gPj4gPg0KPiA+PiA+ICAjZW5kaWYNCj4gPj4g
+PiAgICAgLyogZG8gYmFzaWMgc3dpdGNoIHNldHVwICovDQo+ID4+ID4gLS0NCj4gPj4gPiAxLjgu
+My4xDQo+ID4NCj4gDQo+IFRoYW5rcywNCj4gRXRoYW4NCg==
