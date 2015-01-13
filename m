@@ -1,131 +1,68 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net-next v12 1/3] Documentation: add Device tree bindings for Hisilicon hip04 ethernet
-Date: Tue, 13 Jan 2015 17:11:28 +0800
-Message-ID: <1421140290-5492-2-git-send-email-dingtianhong@huawei.com>
-References: <1421140290-5492-1-git-send-email-dingtianhong@huawei.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH net-next] rhashtable: unnecessary to use delayed work
+Date: Tue, 13 Jan 2015 09:35:50 +0000
+Message-ID: <20150113093550.GG20387@casper.infradead.org>
+References: <1421139645-1588-1-git-send-email-ying.xue@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <sergei.shtylyov@cogentembedded.com>,
-	<linux-arm-kernel@lists.infradead.org>, <eric.dumazet@gmail.com>,
-	<xuwei5@hisilicon.com>, <zhangfei.gao@linaro.org>,
-	<netdev@vger.kernel.org>, <devicetree@vger.kernel.org>,
-	<linux@arm.linux.org.uk>
-To: <arnd@arndb.de>, <robh+dt@kernel.org>, <davem@davemloft.net>,
-	<grant.likely@linaro.org>, <agraf@suse.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Ying Xue <ying.xue@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [119.145.14.64] ([119.145.14.64]:25704 "EHLO
-	szxga01-in.huawei.com" rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org
-	with ESMTP id S1751257AbbAMJMs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2015 04:12:48 -0500
-In-Reply-To: <1421140290-5492-1-git-send-email-dingtianhong@huawei.com>
+Received: from casper.infradead.org ([85.118.1.10]:50673 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751075AbbAMJfw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2015 04:35:52 -0500
+Content-Disposition: inline
+In-Reply-To: <1421139645-1588-1-git-send-email-ying.xue@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Zhangfei Gao <zhangfei.gao@linaro.org>
+On 01/13/15 at 05:00pm, Ying Xue wrote:
+> When we put our declared work task in the global workqueue with
+> schedule_delayed_work(), its delay parameter is always zero.
+> Therefore, we should define a normal work in rhashtable structure
+> instead of a delayed work.
+> 
+> Signed-off-by: Ying Xue <ying.xue@windriver.com>
+> Cc: Thomas Graf <tgraf@suug.ch>
 
-This patch adds the Device Tree bindings for the Hisilicon hip04
-Ethernet controller, including 100M / 1000M controller.
+> @@ -914,7 +914,7 @@ void rhashtable_destroy(struct rhashtable *ht)
+>  
+>  	mutex_lock(&ht->mutex);
+>  
+> -	cancel_delayed_work(&ht->run_work);
+> +	cancel_work_sync(&ht->run_work);
+>  	bucket_table_free(rht_dereference(ht->tbl, ht));
+>  
+>  	mutex_unlock(&ht->mutex);
 
-Signed-off-by: Zhangfei Gao <zhangfei.gao@linaro.org>
-Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
----
- .../bindings/net/hisilicon-hip04-net.txt           | 88 ++++++++++++++++++++++
- 1 file changed, 88 insertions(+)
- create mode 100644 Documentation/devicetree/bindings/net/hisilicon-hip04-net.txt
+I like the patch!
 
-diff --git a/Documentation/devicetree/bindings/net/hisilicon-hip04-net.txt b/Documentation/devicetree/bindings/net/hisilicon-hip04-net.txt
-new file mode 100644
-index 0000000..988fc69
---- /dev/null
-+++ b/Documentation/devicetree/bindings/net/hisilicon-hip04-net.txt
-@@ -0,0 +1,88 @@
-+Hisilicon hip04 Ethernet Controller
-+
-+* Ethernet controller node
-+
-+Required properties:
-+- compatible: should be "hisilicon,hip04-mac".
-+- reg: address and length of the register set for the device.
-+- interrupts: interrupt for the device.
-+- port-handle: <phandle port channel>
-+	phandle, specifies a reference to the syscon ppe node
-+	port, port number connected to the controller
-+	channel, recv channel start from channel * number (RX_DESC_NUM)
-+- phy-mode: see ethernet.txt [1].
-+
-+Optional properties:
-+- phy-handle: see ethernet.txt [1].
-+
-+[1] Documentation/devicetree/bindings/net/ethernet.txt
-+
-+
-+* Ethernet ppe node:
-+Control rx & tx fifos of all ethernet controllers.
-+Have 2048 recv channels shared by all ethernet controllers, only if no overlap.
-+Each controller's recv channel start from channel * number (RX_DESC_NUM).
-+
-+Required properties:
-+- compatible: "hisilicon,hip04-ppe", "syscon".
-+- reg: address and length of the register set for the device.
-+
-+
-+* MDIO bus node:
-+
-+Required properties:
-+
-+- compatible: should be "hisilicon,hip04-mdio".
-+- Inherits from MDIO bus node binding [2]
-+[2] Documentation/devicetree/bindings/net/phy.txt
-+
-+Example:
-+	mdio {
-+		compatible = "hisilicon,hip04-mdio";
-+		reg = <0x28f1000 0x1000>;
-+		#address-cells = <1>;
-+		#size-cells = <0>;
-+
-+		phy0: ethernet-phy@0 {
-+			compatible = "ethernet-phy-ieee802.3-c22";
-+			reg = <0>;
-+			marvell,reg-init = <18 0x14 0 0x8001>;
-+		};
-+
-+		phy1: ethernet-phy@1 {
-+			compatible = "ethernet-phy-ieee802.3-c22";
-+			reg = <1>;
-+			marvell,reg-init = <18 0x14 0 0x8001>;
-+		};
-+	};
-+
-+	ppe: ppe@28c0000 {
-+		compatible = "hisilicon,hip04-ppe", "syscon";
-+		reg = <0x28c0000 0x10000>;
-+	};
-+
-+	fe: ethernet@28b0000 {
-+		compatible = "hisilicon,hip04-mac";
-+		reg = <0x28b0000 0x10000>;
-+		interrupts = <0 413 4>;
-+		phy-mode = "mii";
-+		port-handle = <&ppe 31 0>;
-+	};
-+
-+	ge0: ethernet@2800000 {
-+		compatible = "hisilicon,hip04-mac";
-+		reg = <0x2800000 0x10000>;
-+		interrupts = <0 402 4>;
-+		phy-mode = "sgmii";
-+		port-handle = <&ppe 0 1>;
-+		phy-handle = <&phy0>;
-+	};
-+
-+	ge8: ethernet@2880000 {
-+		compatible = "hisilicon,hip04-mac";
-+		reg = <0x2880000 0x10000>;
-+		interrupts = <0 410 4>;
-+		phy-mode = "sgmii";
-+		port-handle = <&ppe 8 2>;
-+		phy-handle = <&phy1>;
-+	};
--- 
-1.8.0
+I think it introduces a possible dead lock though (see below). OTOH, it
+could actually explain the reason for the 0day lock debug splash that
+was reported.
+
+Dead lock: The worker could already have been kicked off but was
+interrupted before it acquired ht->mutex. rhashtable_destroy() is
+called and acquired ht->mutex. cancel_work_sync() waits for worker to
+finish while holding ht->mutex. Worker can't finish because it needs to
+acquire ht->mutex to do so.
+
+For the very same reason the reported warning could have been triggered.
+Instead of the dead lock, it would have called bucket_table_free()
+with a deferred resizer still underway.
+
+What about we do something like this?
+
+void rhashtable_destroy(struct rhashtable *ht)
+{
+        ht->being_destroyed = true;
+	cancel_work_sync(&ht->run_work);
+
+	mutex_lock(&ht->mutex);
+	bucket_table_free(rht_dereference(ht->tbl, ht));
+	mutex_unlock(&ht->mutex);
+}
+
+If you agree we can explain this shortly in the commit message and add:
+Fixes: 97defe1 ("rhashtable: Per bucket locks & deferred expansion/shrinking")
