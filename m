@@ -1,63 +1,38 @@
-From: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
-Subject: [PATCH] NFC: hci: llc: Remove unused function
-Date: Tue, 13 Jan 2015 19:28:31 +0100
-Message-ID: <1421173711-4320-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
-Cc: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>,
-	Samuel Ortiz <sameo@linux.intel.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Axel Lin <axel.lin@ingics.com>, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Lauro Ramos Venancio <lauro.venancio@openbossa.org>,
-	Aloisio Almeida Jr <aloisio.almeida@openbossa.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Kamal Mostafa <kamal@canonical.com>
+Subject: Re: [PATCH][v3.13.y] e1000e: Fix no connectivity when driver loaded
+ with cable out
+Date: Tue, 13 Jan 2015 10:29:09 -0800
+Message-ID: <1421173749.6540.1.camel@fourier>
+References: <5491B88E.3070906@canonical.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Kamal Mostafa <kamal.mostafa@canonical.com>,
+	"stable@vger.kernel.org" <stable@vger.kernel.org>,
+	davidx.m.ertman@intel.com, jeffrey.e.pieper@intel.com,
+	jeffrey.t.kirsher@intel.com, LKML <linux-kernel@vger.kernel.org>,
+	linux.nics@intel.com, e1000-devel@lists.sourceforge.net,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Joseph Salisbury <joseph.salisbury@canonical.com>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <5491B88E.3070906@canonical.com>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Remove the function nfc_llc_unregister() that is not used anywhere.
+On Wed, 2014-12-17 at 12:08 -0500, Joseph Salisbury wrote:
+> Hello,
+> 
+> Please consider including mainline commit b20a774 in the next v3.13.y
+> stable release.  It was included in the mainline tree as of v3.15-rc1. 
+> It has been tested and confirmed to resolve
+> http://bugs.launchpad.net/bugs/1400365 .
+> 
+> commit b20a774495671f037e7160ea2ce8789af6b61533
+> Author: David Ertman <davidx.m.ertman@intel.com>
+> Date:   Tue Mar 25 04:27:55 2014 +0000
+> 
+>     e1000e: Fix no connectivity when driver loaded with cable out
 
-This was partially found by using a static code analysis program called cppcheck.
+Yes, I'll queue this up for the next 3.13-stable.  Thanks, Joseph!
 
-Signed-off-by: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
----
- net/nfc/hci/llc.c |   13 -------------
- net/nfc/hci/llc.h |    1 -
- 2 files changed, 14 deletions(-)
-
-diff --git a/net/nfc/hci/llc.c b/net/nfc/hci/llc.c
-index 1b90c05..91b71e8 100644
---- a/net/nfc/hci/llc.c
-+++ b/net/nfc/hci/llc.c
-@@ -85,19 +85,6 @@ static struct nfc_llc_engine *nfc_llc_name_to_engine(const char *name)
- 	return NULL;
- }
- 
--void nfc_llc_unregister(const char *name)
--{
--	struct nfc_llc_engine *llc_engine;
--
--	llc_engine = nfc_llc_name_to_engine(name);
--	if (llc_engine == NULL)
--		return;
--
--	list_del(&llc_engine->entry);
--	kfree(llc_engine->name);
--	kfree(llc_engine);
--}
--
- struct nfc_llc *nfc_llc_allocate(const char *name, struct nfc_hci_dev *hdev,
- 				 xmit_to_drv_t xmit_to_drv,
- 				 rcv_to_hci_t rcv_to_hci, int tx_headroom,
-diff --git a/net/nfc/hci/llc.h b/net/nfc/hci/llc.h
-index 5dad4c5..f8ac1dc 100644
---- a/net/nfc/hci/llc.h
-+++ b/net/nfc/hci/llc.h
-@@ -51,7 +51,6 @@ struct nfc_llc {
- void *nfc_llc_get_data(struct nfc_llc *llc);
- 
- int nfc_llc_register(const char *name, struct nfc_llc_ops *ops);
--void nfc_llc_unregister(const char *name);
- 
- int nfc_llc_nop_register(void);
- 
--- 
-1.7.10.4
+ -Kamal
