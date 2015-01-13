@@ -1,64 +1,53 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH] rocker: fix harmless warning on 32-bit machines
-Date: Tue, 13 Jan 2015 15:36:35 +0100
-Message-ID: <20150113143635.GB1839@nanopsycho.lan>
-References: <4047824.AYNhYQQ6UI@wuerfel>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PATCH 4/6] virtio/net: verify device has config space
+Date: Tue, 13 Jan 2015 16:43:21 +0200
+Message-ID: <1421160167-18498-5-git-send-email-mst@redhat.com>
+References: <1421160167-18498-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Scott Feldman <sfeldma@gmail.com>,
-	linux-arm-kernel@lists.infradead.org
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f181.google.com ([74.125.82.181]:40257 "EHLO
-	mail-we0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751211AbbAMOgi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2015 09:36:38 -0500
-Received: by mail-we0-f181.google.com with SMTP id q58so3252058wes.12
-        for <netdev@vger.kernel.org>; Tue, 13 Jan 2015 06:36:37 -0800 (PST)
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org
+To: linux-kernel@vger.kernel.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
 Content-Disposition: inline
-In-Reply-To: <4047824.AYNhYQQ6UI@wuerfel>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1421160167-18498-1-git-send-email-mst@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Tue, Jan 13, 2015 at 03:23:52PM CET, arnd@arndb.de wrote:
->The rocker driver tries to assign a pointer to a 64-bit integer
->and then back to a pointer. This is safe on all architectures,
->but causes a compiler warning when pointers are shorter than
->64-bit:
->
->rocker/rocker.c: In function 'rocker_desc_cookie_ptr_get':
->rocker/rocker.c:809:9: warning: cast to pointer from integer of different size [-Wint-to-pointer-cast]
->  return (void *) desc_info->desc->cookie;
->         ^
->
->This adds another cast to uintptr_t to tell the compiler
->that it's safe.
->
->Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Some devices might not implement config space access
+(e.g. remoteproc used not to - before 3.9).
+virtio/net needs config space access so make it
+fail gracefully if not there.
 
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+---
+ drivers/net/virtio_net.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
-Acked-by: Jiri Pirko <jiri@resnulli.us>
-
->
->diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
->index 2f398fa4b9e6..cad8cf962cdf 100644
->--- a/drivers/net/ethernet/rocker/rocker.c
->+++ b/drivers/net/ethernet/rocker/rocker.c
->@@ -806,13 +806,13 @@ static bool rocker_desc_gen(struct rocker_desc_info *desc_info)
-> 
-> static void *rocker_desc_cookie_ptr_get(struct rocker_desc_info *desc_info)
-> {
->-	return (void *) desc_info->desc->cookie;
->+	return (void *)(uintptr_t)desc_info->desc->cookie;
-> }
-> 
-> static void rocker_desc_cookie_ptr_set(struct rocker_desc_info *desc_info,
-> 				       void *ptr)
-> {
->-	desc_info->desc->cookie = (long) ptr;
->+	desc_info->desc->cookie = (uintptr_t) ptr;
-> }
-> 
-> static struct rocker_desc_info *
->
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index 5ca9771..9bc1072 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -1713,6 +1713,12 @@ static int virtnet_probe(struct virtio_device *vdev)
+ 	struct virtnet_info *vi;
+ 	u16 max_queue_pairs;
+ 
++	if (!vdev->config->get) {
++		dev_err(&vdev->dev, "%s failure: config access disabled\n",
++			__func__);
++		return -EINVAL;
++	}
++
+ 	if (!virtnet_validate_features(vdev))
+ 		return -EINVAL;
+ 
+-- 
+MST
