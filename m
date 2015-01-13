@@ -1,7 +1,8 @@
 From: Felipe Balbi <balbi@ti.com>
-Subject: [patch-net-next 1/3] net: ethernet: cpsw: unroll IRQ request loop
-Date: Tue, 13 Jan 2015 13:44:46 -0600
-Message-ID: <1421178288-7393-1-git-send-email-balbi@ti.com>
+Subject: [patch-net-next 2/3] net: ethernet: cpsw: split out IRQ handler
+Date: Tue, 13 Jan 2015 13:44:47 -0600
+Message-ID: <1421178288-7393-2-git-send-email-balbi@ti.com>
+References: <1421178288-7393-1-git-send-email-balbi@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Tony Lindgren <tony@atomide.com>,
@@ -10,108 +11,118 @@ Cc: Tony Lindgren <tony@atomide.com>,
 	Felipe Balbi <balbi@ti.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from comal.ext.ti.com ([198.47.26.152]:32883 "EHLO comal.ext.ti.com"
+Received: from arroyo.ext.ti.com ([192.94.94.40]:50666 "EHLO arroyo.ext.ti.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751161AbbAMTpe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Jan 2015 14:45:34 -0500
+	id S1752646AbbAMTpg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Jan 2015 14:45:36 -0500
+In-Reply-To: <1421178288-7393-1-git-send-email-balbi@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch is in preparation for a nicer IRQ
-handling scheme where we use different IRQ
-handlers for each IRQ line (as it should be).
-
-Later, we will also drop IRQs offset 0 and 3
-because they are always disabled in this driver.
+Now we can introduce dedicated IRQ handlers
+for each of the IRQ events. This helps with
+cleaning up a little bit of the clutter in
+cpsw_interrupt() while also making sure that
+TX IRQs will try to handle TX buffers while
+RX IRQs will try to handle RX buffers.
 
 Signed-off-by: Felipe Balbi <balbi@ti.com>
 ---
- drivers/net/ethernet/ti/cpsw.c | 62 ++++++++++++++++++++++++++++++++----------
- 1 file changed, 47 insertions(+), 15 deletions(-)
+ drivers/net/ethernet/ti/cpsw.c | 41 ++++++++++++++++++++++++++++++-----------
+ 1 file changed, 30 insertions(+), 11 deletions(-)
 
 diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index e61ee8351272..6e04128b9543 100644
+index 6e04128b9543..c9081bdbbcbc 100644
 --- a/drivers/net/ethernet/ti/cpsw.c
 +++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -2156,7 +2156,8 @@ static int cpsw_probe(struct platform_device *pdev)
- 	void __iomem			*ss_regs;
- 	struct resource			*res, *ss_res;
- 	u32 slave_offset, sliver_offset, slave_size;
--	int ret = 0, i, k = 0;
-+	int ret = 0, i;
-+	int irq;
+@@ -754,18 +754,36 @@ requeue:
+ 		dev_kfree_skb_any(new_skb);
+ }
  
- 	ndev = alloc_etherdev(sizeof(struct cpsw_priv));
- 	if (!ndev) {
-@@ -2345,24 +2346,55 @@ static int cpsw_probe(struct platform_device *pdev)
+-static irqreturn_t cpsw_interrupt(int irq, void *dev_id)
++static irqreturn_t cpsw_dummy_interrupt(int irq, void *dev_id)
+ {
+ 	struct cpsw_priv *priv = dev_id;
+ 	int value = irq - priv->irqs_table[0];
+ 
+-	/* NOTICE: Ending IRQ here. The trick with the 'value' variable above
+-	 * is to make sure we will always write the correct value to the EOI
+-	 * register. Namely 0 for RX_THRESH Interrupt, 1 for RX Interrupt, 2
+-	 * for TX Interrupt and 3 for MISC Interrupt.
+-	 */
+ 	cpdma_ctlr_eoi(priv->dma, value);
+ 
++	return IRQ_HANDLED;
++}
++
++static irqreturn_t cpsw_tx_interrupt(int irq, void *dev_id)
++{
++	struct cpsw_priv *priv = dev_id;
++
++	cpdma_ctlr_eoi(priv->dma, CPDMA_EOI_TX);
++	cpdma_chan_process(priv->txch, 128);
++
++	priv = cpsw_get_slave_priv(priv, 1);
++	if (priv)
++		cpdma_chan_process(priv->txch, 128);
++
++	return IRQ_HANDLED;
++}
++
++static irqreturn_t cpsw_rx_interrupt(int irq, void *dev_id)
++{
++	struct cpsw_priv *priv = dev_id;
++
++	cpdma_ctlr_eoi(priv->dma, CPDMA_EOI_RX);
++
+ 	cpsw_intr_disable(priv);
+ 	if (priv->irq_enabled == true) {
+ 		cpsw_disable_irq(priv);
+@@ -1617,7 +1635,8 @@ static void cpsw_ndo_poll_controller(struct net_device *ndev)
+ 
+ 	cpsw_intr_disable(priv);
+ 	cpdma_ctlr_int_ctrl(priv->dma, false);
+-	cpsw_interrupt(ndev->irq, priv);
++	cpsw_rx_interrupt(priv->irq[1], priv);
++	cpsw_tx_interrupt(priv->irq[2], priv);
+ 	cpdma_ctlr_int_ctrl(priv->dma, true);
+ 	cpsw_intr_enable(priv);
+ }
+@@ -2351,7 +2370,7 @@ static int cpsw_probe(struct platform_device *pdev)
  		goto clean_ale_ret;
- 	}
  
--	while ((res = platform_get_resource(priv->pdev, IORESOURCE_IRQ, k))) {
--		if (k >= ARRAY_SIZE(priv->irqs_table)) {
--			ret = -EINVAL;
--			goto clean_ale_ret;
--		}
-+	irq = platform_get_irq(pdev, 0);
-+	if (irq < 0)
-+		goto clean_ale_ret;
+ 	priv->irqs_table[0] = irq;
+-	ret = devm_request_irq(&pdev->dev, irq, cpsw_interrupt,
++	ret = devm_request_irq(&pdev->dev, irq, cpsw_dummy_interrupt,
+ 			0, dev_name(&pdev->dev), priv);
+ 	if (ret < 0) {
+ 		dev_err(priv->dev, "error attaching irq (%d)\n", ret);
+@@ -2363,7 +2382,7 @@ static int cpsw_probe(struct platform_device *pdev)
+ 		goto clean_ale_ret;
  
--		ret = devm_request_irq(&pdev->dev, res->start, cpsw_interrupt,
--				       0, dev_name(&pdev->dev), priv);
--		if (ret < 0) {
--			dev_err(priv->dev, "error attaching irq (%d)\n", ret);
--			goto clean_ale_ret;
--		}
-+	priv->irqs_table[0] = irq;
-+	ret = devm_request_irq(&pdev->dev, irq, cpsw_interrupt,
-+			0, dev_name(&pdev->dev), priv);
-+	if (ret < 0) {
-+		dev_err(priv->dev, "error attaching irq (%d)\n", ret);
-+		goto clean_ale_ret;
-+	}
+ 	priv->irqs_table[1] = irq;
+-	ret = devm_request_irq(&pdev->dev, irq, cpsw_interrupt,
++	ret = devm_request_irq(&pdev->dev, irq, cpsw_rx_interrupt,
+ 			0, dev_name(&pdev->dev), priv);
+ 	if (ret < 0) {
+ 		dev_err(priv->dev, "error attaching irq (%d)\n", ret);
+@@ -2375,7 +2394,7 @@ static int cpsw_probe(struct platform_device *pdev)
+ 		goto clean_ale_ret;
  
--		priv->irqs_table[k] = res->start;
--		k++;
-+	irq = platform_get_irq(pdev, 1);
-+	if (irq < 0)
-+		goto clean_ale_ret;
-+
-+	priv->irqs_table[1] = irq;
-+	ret = devm_request_irq(&pdev->dev, irq, cpsw_interrupt,
-+			0, dev_name(&pdev->dev), priv);
-+	if (ret < 0) {
-+		dev_err(priv->dev, "error attaching irq (%d)\n", ret);
-+		goto clean_ale_ret;
-+	}
-+
-+	irq = platform_get_irq(pdev, 2);
-+	if (irq < 0)
-+		goto clean_ale_ret;
-+
-+	priv->irqs_table[2] = irq;
-+	ret = devm_request_irq(&pdev->dev, irq, cpsw_interrupt,
-+			0, dev_name(&pdev->dev), priv);
-+	if (ret < 0) {
-+		dev_err(priv->dev, "error attaching irq (%d)\n", ret);
-+		goto clean_ale_ret;
-+	}
-+
-+	irq = platform_get_irq(pdev, 3);
-+	if (irq < 0)
-+		goto clean_ale_ret;
-+
-+	priv->irqs_table[3] = irq;
-+	ret = devm_request_irq(&pdev->dev, irq, cpsw_interrupt,
-+			0, dev_name(&pdev->dev), priv);
-+	if (ret < 0) {
-+		dev_err(priv->dev, "error attaching irq (%d)\n", ret);
-+		goto clean_ale_ret;
- 	}
+ 	priv->irqs_table[2] = irq;
+-	ret = devm_request_irq(&pdev->dev, irq, cpsw_interrupt,
++	ret = devm_request_irq(&pdev->dev, irq, cpsw_tx_interrupt,
+ 			0, dev_name(&pdev->dev), priv);
+ 	if (ret < 0) {
+ 		dev_err(priv->dev, "error attaching irq (%d)\n", ret);
+@@ -2387,7 +2406,7 @@ static int cpsw_probe(struct platform_device *pdev)
+ 		goto clean_ale_ret;
  
--	priv->num_irqs = k;
-+	priv->num_irqs = 4;
- 
- 	ndev->features |= NETIF_F_HW_VLAN_CTAG_FILTER;
- 
+ 	priv->irqs_table[3] = irq;
+-	ret = devm_request_irq(&pdev->dev, irq, cpsw_interrupt,
++	ret = devm_request_irq(&pdev->dev, irq, cpsw_dummy_interrupt,
+ 			0, dev_name(&pdev->dev), priv);
+ 	if (ret < 0) {
+ 		dev_err(priv->dev, "error attaching irq (%d)\n", ret);
 -- 
 2.2.0
