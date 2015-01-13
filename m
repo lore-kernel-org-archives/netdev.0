@@ -1,53 +1,52 @@
-From: David L Stevens <david.stevens@oracle.com>
-Subject: [PATCH net-next] sunvnet: fix rx packet length check to allow for
- TSO
-Date: Tue, 13 Jan 2015 12:45:05 -0500
-Message-ID: <54B559A1.9010303@oracle.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Sowmini Varadhan <sowmini.varadhan@oracle.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:40337 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753068AbbAMRpM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2015 12:45:12 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sasha Levin <sasha.levin@oracle.com>
+Subject: [PATCH] tipc: correctly handle releasing a not fully initialized sock
+Date: Tue, 13 Jan 2015 12:46:41 -0500
+Message-ID: <1421171201-25224-1-git-send-email-sasha.levin@oracle.com>
+Cc: ying.xue@windriver.com, Tero.Aho@coriant.com,
+	jon.maloy@ericsson.com, Sasha Levin <sasha.levin@oracle.com>,
+	Allan Stephens <allan.stephens@windriver.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	netdev@vger.kernel.org (open list:TIPC NETWORK LAYER),
+	tipc-discussion@lists.sourceforge.net (open list:TIPC NETWORK LAYER)
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch fixes the rx packet length check in the sunvnet driver to allow
-for a TSO max packet length greater than the LDC channel negotiated MTU.
-These are negotiated separately and there is no requirement that
-port->tsolen be less than port->rmtu, but if it isn't, it'll drop packets
-with rx length errors.
+Commit "tipc: make tipc node table aware of net namespace" has added a
+dereference of sock->sk before making sure it's not NULL, which makes
+releasing a tipc socket NULL pointer dereference for sockets that are
+not fully initialized.
 
-Signed-off-by: David L Stevens <david.stevens@oracle.com>
+Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
 ---
- drivers/net/ethernet/sun/sunvnet.c |    7 ++++++-
- 1 files changed, 6 insertions(+), 1 deletions(-)
+ net/tipc/socket.c |    7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/sun/sunvnet.c b/drivers/net/ethernet/sun/sunvnet.c
-index d2835bf..b5a1d3d 100644
---- a/drivers/net/ethernet/sun/sunvnet.c
-+++ b/drivers/net/ethernet/sun/sunvnet.c
-@@ -351,10 +351,15 @@ static int vnet_rx_one(struct vnet_port *port, struct vio_net_desc *desc)
- 	unsigned int len = desc->size;
- 	unsigned int copy_len;
+diff --git a/net/tipc/socket.c b/net/tipc/socket.c
+index 2cec496..694d436 100644
+--- a/net/tipc/socket.c
++++ b/net/tipc/socket.c
+@@ -472,8 +472,8 @@ static void tipc_sk_callback(struct rcu_head *head)
+ static int tipc_release(struct socket *sock)
+ {
+ 	struct sock *sk = sock->sk;
+-	struct net *net = sock_net(sk);
+-	struct tipc_net *tn = net_generic(net, tipc_net_id);
++	struct net *net;
++	struct tipc_net *tn;
+ 	struct tipc_sock *tsk;
  	struct sk_buff *skb;
-+	int maxlen;
- 	int err;
+ 	u32 dnode, probing_state;
+@@ -485,6 +485,9 @@ static int tipc_release(struct socket *sock)
+ 	if (sk == NULL)
+ 		return 0;
  
- 	err = -EMSGSIZE;
--	if (unlikely(len < ETH_ZLEN || len > port->rmtu)) {
-+	if (port->tso && port->tsolen > port->rmtu)
-+		maxlen = port->tsolen;
-+	else
-+		maxlen = port->rmtu;
-+	if (unlikely(len < ETH_ZLEN || len > maxlen)) {
- 		dev->stats.rx_length_errors++;
- 		goto out_dropped;
- 	}
++	net = sock_net(sk);
++	tn = net_generic(net, tipc_net_id);
++
+ 	tsk = tipc_sk(sk);
+ 	lock_sock(sk);
+ 
 -- 
-1.7.1
+1.7.10.4
