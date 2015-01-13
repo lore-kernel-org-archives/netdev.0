@@ -1,187 +1,178 @@
-From: Stefan Agner <stefan-XLVq0VzYD2Y@public.gmane.org>
-Subject: [PATCH RESEND v2] net: fec: fix MDIO bus assignement for dual fec SoC's
-Date: Wed, 14 Jan 2015 00:20:21 +0100
-Message-ID: <1421191221-23095-1-git-send-email-stefan@agner.ch>
-Cc: shawn.guo-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org, u.kleine-koenig-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org,
-	fugang.duan-KZfg59tc24xl57MIdRCFDg@public.gmane.org, fabio.estevam-KZfg59tc24xl57MIdRCFDg@public.gmane.org,
-	mark.rutland-5wv7dgnIgG8@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, pawel.moll-5wv7dgnIgG8@public.gmane.org,
-	ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org, galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
-	B38611-KZfg59tc24xl57MIdRCFDg@public.gmane.org, LW-bxm8fMRDkQLDiMYJYoSAnRvVK+yQ3ZXh@public.gmane.org,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, stefan-XLVq0VzYD2Y@public.gmane.org
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Martin KaFai Lau <kafai@fb.com>
+Subject: [PATCH RFC v2 net-next 2/2] ip_tunnel: Remove struct gro_cells
+Date: Tue, 13 Jan 2015 15:42:44 -0800
+Message-ID: <1421192564-437455-3-git-send-email-kafai@fb.com>
+References: <1421192564-437455-1-git-send-email-kafai@fb.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, <kernel-team@fb.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:34415 "EHLO
+	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753871AbbAMXn2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2015 18:43:28 -0500
+Received: from pps.filterd (m0044012 [127.0.0.1])
+	by mx0a-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id t0DNgFhV031161
+	for <netdev@vger.kernel.org>; Tue, 13 Jan 2015 15:43:28 -0800
+Received: from mail.thefacebook.com ([199.201.64.23])
+	by mx0a-00082601.pphosted.com with ESMTP id 1rwbqrg6bx-1
+	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=OK)
+	for <netdev@vger.kernel.org>; Tue, 13 Jan 2015 15:43:27 -0800
+Received: from facebook.com (2401:db00:20:7029:face:0:33:0)	by
+ mx-out.facebook.com (10.212.236.89) with ESMTP	id
+ f7dc63aa9b7d11e4be810002c95209d8-5add9390 for <netdev@vger.kernel.org>;	Tue,
+ 13 Jan 2015 15:43:26 -0800
+In-Reply-To: <1421192564-437455-1-git-send-email-kafai@fb.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On i.MX28, the MDIO bus is shared between the two FEC instances.
-The driver makes sure that the second FEC uses the MDIO bus of the
-first FEC. This is done conditionally if FEC_QUIRK_ENET_MAC is set.
-However, in newer designs, such as Vybrid or i.MX6SX, each FEC MAC
-has its own MDIO bus. Simply removing the quirk FEC_QUIRK_ENET_MAC
-is not an option since other logic, triggered by this quirk, is
-still needed.
+After adding percpu gro_cells, struct gro_cells can be removed.
 
-Furthermore, there are board designs which use the same MDIO bus
-for both PHY's even though the second bus would be available on the
-SoC side. Such layout are popular since it saves pins on SoC side.
-Due to the above quirk, those boards currently do work fine. The
-boards in the mainline tree with such a layout are:
-- Freescale Vybrid Tower with TWR-SER2 (vf610-twr.dts)
-- Freescale i.MX6 SoloX SDB Board (imx6sx-sdb.dts)
-
-This patch adds a new quirk FEC_QUIRK_SINGLE_MDIO for i.MX28, which
-makes sure that the MDIO bus of the first FEC is used in any case.
-
-However, the boards above do have a SoC with a MDIO bus for each FEC
-instance. But the PHY's are not connected in a 1:1 configuration. A
-proper device tree description is needed to allow the driver to
-figure out where to find its PHY. This patch fixes that shortcoming
-by adding a MDIO bus child node to the first FEC instance, along
-with the two PHY's on that bus, and making use of the phy-handle
-property to add a reference to the PHY's.
-
-Acked-by: Sascha Hauer <s.hauer-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Signed-off-by: Stefan Agner <stefan-XLVq0VzYD2Y@public.gmane.org>
+Signed-off-by: Martin KaFai Lau <kafai@fb.com>
 ---
-Sorry for this resend, I forgot the netdev mailing list...
+ include/net/gro_cells.h  | 34 ++++++++++++++++------------------
+ include/net/ip_tunnels.h |  2 +-
+ net/ipv4/ip_tunnel.c     | 11 +++++------
+ 3 files changed, 22 insertions(+), 25 deletions(-)
 
-There are some discussion around this, see:
-https://lkml.org/lkml/2015/1/9/338
-
-I prefer to have the changes in one patch since they are inherently
-connected to each other. Shawn seems to be ok with that...
-
- arch/arm/boot/dts/imx6sx-sdb.dts          | 15 +++++++++++++++
- arch/arm/boot/dts/vf610-twr.dts           | 15 +++++++++++++++
- drivers/net/ethernet/freescale/fec.h      |  2 ++
- drivers/net/ethernet/freescale/fec_main.c |  9 +++++----
- 4 files changed, 37 insertions(+), 4 deletions(-)
-
-diff --git a/arch/arm/boot/dts/imx6sx-sdb.dts b/arch/arm/boot/dts/imx6sx-sdb.dts
-index 1e6e5cc..8c1febd 100644
---- a/arch/arm/boot/dts/imx6sx-sdb.dts
-+++ b/arch/arm/boot/dts/imx6sx-sdb.dts
-@@ -159,13 +159,28 @@
- 	pinctrl-0 = <&pinctrl_enet1>;
- 	phy-supply = <&reg_enet_3v3>;
- 	phy-mode = "rgmii";
-+	phy-handle = <&ethphy1>;
- 	status = "okay";
-+
-+	mdio {
-+		#address-cells = <1>;
-+		#size-cells = <0>;
-+
-+		ethphy1: ethernet-phy@0 {
-+			reg = <0>;
-+		};
-+
-+		ethphy2: ethernet-phy@1 {
-+			reg = <1>;
-+		};
-+	};
+diff --git a/include/net/gro_cells.h b/include/net/gro_cells.h
+index 0f712c0..b1aeea1 100644
+--- a/include/net/gro_cells.h
++++ b/include/net/gro_cells.h
+@@ -10,21 +10,18 @@ struct gro_cell {
+ 	struct napi_struct	napi;
  };
  
- &fec2 {
- 	pinctrl-names = "default";
- 	pinctrl-0 = <&pinctrl_enet2>;
- 	phy-mode = "rgmii";
-+	phy-handle = <&ethphy2>;
- 	status = "okay";
+-struct gro_cells {
+-	struct gro_cell __percpu	*cells;
+-};
+-
+-static inline void gro_cells_receive(struct gro_cells *gcells, struct sk_buff *skb)
++static inline void gro_cells_receive(struct gro_cell __percpu *gcells,
++				     struct sk_buff *skb)
+ {
+ 	struct gro_cell *cell;
+ 	struct net_device *dev = skb->dev;
+ 
+-	if (!gcells->cells || skb_cloned(skb) || !(dev->features & NETIF_F_GRO)) {
++	if (!gcells || skb_cloned(skb) || !(dev->features & NETIF_F_GRO)) {
+ 		netif_rx(skb);
+ 		return;
+ 	}
+ 
+-	cell = this_cpu_ptr(gcells->cells);
++	cell = this_cpu_ptr(gcells);
+ 
+ 	if (skb_queue_len(&cell->napi_skbs) > netdev_max_backlog) {
+ 		atomic_long_inc(&dev->rx_dropped);
+@@ -66,37 +63,38 @@ static inline int gro_cell_poll(struct napi_struct *napi, int budget)
+ 	return work_done;
+ }
+ 
+-static inline int gro_cells_init(struct gro_cells *gcells, struct net_device *dev)
++static inline struct gro_cell __percpu *
++gro_cell_alloc_percpu(struct net_device *dev)
+ {
++	struct gro_cell __percpu *gcells;
+ 	int i;
+ 
+-	gcells->cells = alloc_percpu(struct gro_cell);
+-	if (!gcells->cells)
+-		return -ENOMEM;
++	gcells = alloc_percpu(struct gro_cell);
++	if (!gcells)
++		return ERR_PTR(-ENOMEM);
+ 
+ 	for_each_possible_cpu(i) {
+-		struct gro_cell *cell = per_cpu_ptr(gcells->cells, i);
++		struct gro_cell *cell = per_cpu_ptr(gcells, i);
+ 
+ 		skb_queue_head_init(&cell->napi_skbs);
+ 		netif_napi_add(dev, &cell->napi, gro_cell_poll, 64);
+ 		napi_enable(&cell->napi);
+ 	}
+-	return 0;
++	return gcells;
+ }
+ 
+-static inline void gro_cells_destroy(struct gro_cells *gcells)
++static inline void gro_cell_free_percpu(struct gro_cell __percpu *gcells)
+ {
+ 	int i;
+ 
+-	if (!gcells->cells)
++	if (IS_ERR_OR_NULL(gcells))
+ 		return;
+ 	for_each_possible_cpu(i) {
+-		struct gro_cell *cell = per_cpu_ptr(gcells->cells, i);
++		struct gro_cell *cell = per_cpu_ptr(gcells, i);
+ 		netif_napi_del(&cell->napi);
+ 		skb_queue_purge(&cell->napi_skbs);
+ 	}
+-	free_percpu(gcells->cells);
+-	gcells->cells = NULL;
++	free_percpu(gcells);
+ }
+ 
+ #endif
+diff --git a/include/net/ip_tunnels.h b/include/net/ip_tunnels.h
+index 25a59eb..e406bc3 100644
+--- a/include/net/ip_tunnels.h
++++ b/include/net/ip_tunnels.h
+@@ -83,7 +83,7 @@ struct ip_tunnel {
+ 	struct ip_tunnel_prl_entry __rcu *prl;	/* potential router list */
+ 	unsigned int		prl_count;	/* # of entries in PRL */
+ 	int			ip_tnl_net_id;
+-	struct gro_cells	gro_cells;
++	struct gro_cell __percpu *gro_cells;
  };
  
-diff --git a/arch/arm/boot/dts/vf610-twr.dts b/arch/arm/boot/dts/vf610-twr.dts
-index a0f7621..f2b64b1 100644
---- a/arch/arm/boot/dts/vf610-twr.dts
-+++ b/arch/arm/boot/dts/vf610-twr.dts
-@@ -129,13 +129,28 @@
+ #define TUNNEL_CSUM		__cpu_to_be16(0x01)
+diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
+index d3e4479..fcc92c0 100644
+--- a/net/ipv4/ip_tunnel.c
++++ b/net/ipv4/ip_tunnel.c
+@@ -479,7 +479,7 @@ int ip_tunnel_rcv(struct ip_tunnel *tunnel, struct sk_buff *skb,
+ 		skb->dev = tunnel->dev;
+ 	}
  
- &fec0 {
- 	phy-mode = "rmii";
-+	phy-handle = <&ethphy0>;
- 	pinctrl-names = "default";
- 	pinctrl-0 = <&pinctrl_fec0>;
- 	status = "okay";
-+
-+	mdio {
-+		#address-cells = <1>;
-+		#size-cells = <0>;
-+
-+		ethphy0: ethernet-phy@0 {
-+			reg = <0>;
-+		};
-+
-+		ethphy1: ethernet-phy@1 {
-+			reg = <1>;
-+		};
-+	};
- };
- 
- &fec1 {
- 	phy-mode = "rmii";
-+	phy-handle = <&ethphy1>;
- 	pinctrl-names = "default";
- 	pinctrl-0 = <&pinctrl_fec1>;
- 	status = "okay";
-diff --git a/drivers/net/ethernet/freescale/fec.h b/drivers/net/ethernet/freescale/fec.h
-index 469691a..4013292 100644
---- a/drivers/net/ethernet/freescale/fec.h
-+++ b/drivers/net/ethernet/freescale/fec.h
-@@ -424,6 +424,8 @@ struct bufdesc_ex {
-  * (40ns * 6).
-  */
- #define FEC_QUIRK_BUG_CAPTURE		(1 << 10)
-+/* Controller has only one MDIO bus */
-+#define FEC_QUIRK_SINGLE_MDIO		(1 << 11)
- 
- struct fec_enet_priv_tx_q {
- 	int index;
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index 5ebdf8d..8dc0391 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -91,7 +91,8 @@ static struct platform_device_id fec_devtype[] = {
- 		.driver_data = 0,
- 	}, {
- 		.name = "imx28-fec",
--		.driver_data = FEC_QUIRK_ENET_MAC | FEC_QUIRK_SWAP_FRAME,
-+		.driver_data = FEC_QUIRK_ENET_MAC | FEC_QUIRK_SWAP_FRAME |
-+				FEC_QUIRK_SINGLE_MDIO,
- 	}, {
- 		.name = "imx6q-fec",
- 		.driver_data = FEC_QUIRK_ENET_MAC | FEC_QUIRK_HAS_GBIT |
-@@ -1937,7 +1938,7 @@ static int fec_enet_mii_init(struct platform_device *pdev)
- 	int err = -ENXIO, i;
- 
- 	/*
--	 * The dual fec interfaces are not equivalent with enet-mac.
-+	 * The i.MX28 dual fec interfaces are not equal.
- 	 * Here are the differences:
- 	 *
- 	 *  - fec0 supports MII & RMII modes while fec1 only supports RMII
-@@ -1952,7 +1953,7 @@ static int fec_enet_mii_init(struct platform_device *pdev)
- 	 * mdio interface in board design, and need to be configured by
- 	 * fec0 mii_bus.
- 	 */
--	if ((fep->quirks & FEC_QUIRK_ENET_MAC) && fep->dev_id > 0) {
-+	if ((fep->quirks & FEC_QUIRK_SINGLE_MDIO) && fep->dev_id > 0) {
- 		/* fec1 uses fec0 mii_bus */
- 		if (mii_cnt && fec0_mii_bus) {
- 			fep->mii_bus = fec0_mii_bus;
-@@ -2015,7 +2016,7 @@ static int fec_enet_mii_init(struct platform_device *pdev)
- 	mii_cnt++;
- 
- 	/* save fec0 mii_bus */
--	if (fep->quirks & FEC_QUIRK_ENET_MAC)
-+	if (fep->quirks & FEC_QUIRK_SINGLE_MDIO)
- 		fec0_mii_bus = fep->mii_bus;
- 
+-	gro_cells_receive(&tunnel->gro_cells, skb);
++	gro_cells_receive(tunnel->gro_cells, skb);
  	return 0;
+ 
+ drop:
+@@ -952,7 +952,7 @@ static void ip_tunnel_dev_free(struct net_device *dev)
+ {
+ 	struct ip_tunnel *tunnel = netdev_priv(dev);
+ 
+-	gro_cells_destroy(&tunnel->gro_cells);
++	gro_cell_free_percpu(tunnel->gro_cells);
+ 	free_percpu(tunnel->dst_cache);
+ 	free_percpu(dev->tstats);
+ 	free_netdev(dev);
+@@ -1120,7 +1120,6 @@ int ip_tunnel_init(struct net_device *dev)
+ {
+ 	struct ip_tunnel *tunnel = netdev_priv(dev);
+ 	struct iphdr *iph = &tunnel->parms.iph;
+-	int err;
+ 
+ 	dev->destructor	= ip_tunnel_dev_free;
+ 	dev->tstats = netdev_alloc_pcpu_stats(struct pcpu_sw_netstats);
+@@ -1133,11 +1132,11 @@ int ip_tunnel_init(struct net_device *dev)
+ 		return -ENOMEM;
+ 	}
+ 
+-	err = gro_cells_init(&tunnel->gro_cells, dev);
+-	if (err) {
++	tunnel->gro_cells = gro_cell_alloc_percpu(dev);
++	if (IS_ERR(tunnel->gro_cells)) {
+ 		free_percpu(tunnel->dst_cache);
+ 		free_percpu(dev->tstats);
+-		return err;
++		return PTR_ERR(tunnel->gro_cells);
+ 	}
+ 
+ 	tunnel->dev = dev;
 -- 
-2.2.1
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+1.8.1
