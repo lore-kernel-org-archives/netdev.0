@@ -1,77 +1,107 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [PATCH 2/6] vxlan: Group Policy extension
-Date: Tue, 13 Jan 2015 08:16:02 -0800
-Message-ID: <CA+mtBx8tONagUYZ3Q9k-meaeZs-KTX6ZmbfR93Cn7OCMegUFvA@mail.gmail.com>
-References: <cover.1420756324.git.tgraf@suug.ch>
-	<7339e3bff124cecaf65cd04ea9bdc973c730ba34.1420756324.git.tgraf@suug.ch>
-	<CA+mtBx8SWiwjBfxx05omur1gDeF9QcKtjDKJQ+XdUgi_U8LWig@mail.gmail.com>
-	<20150113010357.GB20387@casper.infradead.org>
-	<CA+mtBx8-rMYSkj2KKXBq60KeF=V=iCG2K0HgVxO5JMVK1yhwCg@mail.gmail.com>
-	<20150113113228.GJ20387@casper.infradead.org>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [RFC PATCH v2 1/2] net: af_packet support for direct ring access
+ in user space
+Date: Tue, 13 Jan 2015 11:19:58 -0500
+Message-ID: <20150113161958.GD1547@hmsreliant.think-freely.org>
+References: <20150113043509.29985.33515.stgit@nitbit.x32>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>, Jesse Gross <jesse@nicira.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Pravin B Shelar <pshelar@nicira.com>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	"dev@openvswitch.org" <dev@openvswitch.org>
-To: Thomas Graf <tgraf@suug.ch>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, danny.zhou@intel.com, dborkman@redhat.com,
+	john.ronciak@intel.com, hannes@stressinduktion.org,
+	brouer@redhat.com
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f176.google.com ([209.85.223.176]:46420 "EHLO
-	mail-ie0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752131AbbAMQQD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2015 11:16:03 -0500
-Received: by mail-ie0-f176.google.com with SMTP id tr6so3613814ieb.7
-        for <netdev@vger.kernel.org>; Tue, 13 Jan 2015 08:16:02 -0800 (PST)
-In-Reply-To: <20150113113228.GJ20387@casper.infradead.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:44927 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752269AbbAMQUM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2015 11:20:12 -0500
+Content-Disposition: inline
+In-Reply-To: <20150113043509.29985.33515.stgit@nitbit.x32>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 13, 2015 at 3:32 AM, Thomas Graf <tgraf@suug.ch> wrote:
-> On 01/12/15 at 06:28pm, Tom Herbert wrote:
->> On Mon, Jan 12, 2015 at 5:03 PM, Thomas Graf <tgraf@suug.ch> wrote:
->> >>
->> >> Creating a level of indirection for extensions seems overly
->> >> complicated to me. Why not just define IFLA_VXLAN_GBP as just another
->> >> enum above?
->> >
->> > I think it's cleaner to group them in a nested attribute.
->> > It clearly separates the optional extensions from the base
->> > attributes. RCO, GPE, GBP can all live in there.
->>
->> This is inconsistent with similar things in GRE and GUE. For instance,
->> GRE keyid is set as its own attribute. It just seems like this adding
->> more code to the driver than is necessary for the functionality
->> needed.
->
-> The major difference here is that we have to consider backwards
-> compatibility specifically for VXLAN. Your initial feedback on GPE
-> actually led me to how I implemented GBP.
->
-> I think the axioms we want to establish are as follows:
->  1. Extensions need to be explicitly enabled by the user. A previously
->     dropped frame should only be processed if the user explitly asks
->     for it.
->  2. As a consequence: only share a VLXAN UDP port if the enabled
->     extensions match (vxlan_sock_add), e.g. user A might want RCO
->     but user B might be unaware. They cannot share the same UDP port.
->
-> The 2nd lead me to introduce the 'exts' member to vxlan_sock so we can
-> compare it in vxlan_find_sock() and only share a UDP port if the
-> enabled extensions match.
->
-RCO is represented in the socket in VXLAN flags (VLXAN_F_*). My patch
-also adds a flags to vxlan_sock which contains the VLXAN flags. For
-shared port, I suspect all the receive features must match, including
-receive checksum settings for instance, but we don't care about
-transmit side. To facilitate this, I would suggest splitting flags
-into o_flags and i_flags like ip_tunnel does, and then compare i_flags
-in vxlan_find_sock.
+On Mon, Jan 12, 2015 at 08:35:11PM -0800, John Fastabend wrote:
+> This patch adds net_device ops to split off a set of driver queues
+> from the driver and map the queues into user space via mmap. This
+> allows the queues to be directly manipulated from user space. For
+> raw packet interface this removes any overhead from the kernel network
+> stack.
+> 
+> With these operations we bypass the network stack and packet_type
+> handlers that would typically send traffic to an af_packet socket.
+> This means hardware must do the forwarding. To do this ew can use
+> the ETHTOOL_SRXCLSRLINS ops in the ethtool command set. It is
+> currently supported by multiple drivers including sfc, mlx4, niu,
+> ixgbe, and i40e. Supporting some way to steer traffic to a queue
+> is the _only_ hardware requirement to support this interface.
+> 
+> A follow on patch adds support for ixgbe but we expect at least
+> the subset of drivers implementing ETHTOOL_SRXCLSRLINS can be
+> implemented later.
+> 
+> The high level flow, leveraging the af_packet control path, looks
+> like:
+> 
+> 	bind(fd, &sockaddr, sizeof(sockaddr));
+> 
+> 	/* Get the device type and info */
+> 	getsockopt(fd, SOL_PACKET, PACKET_DEV_DESC_INFO, &def_info,
+> 		   &optlen);
+> 
+> 	/* With device info we can look up descriptor format */
+> 
+> 	/* Get the layout of ring space offset, page_sz, cnt */
+> 	getsockopt(fd, SOL_PACKET, PACKET_DEV_QPAIR_MAP_REGION_INFO,
+> 		   &info, &optlen);
+> 
+> 	/* request some queues from the driver */
+> 	setsockopt(fd, SOL_PACKET, PACKET_RXTX_QPAIRS_SPLIT,
+> 		   &qpairs_info, sizeof(qpairs_info));
+> 
+> 	/* if we let the driver pick us queues learn which queues
+>          * we were given
+>          */
+> 	getsockopt(fd, SOL_PACKET, PACKET_RXTX_QPAIRS_SPLIT,
+> 		   &qpairs_info, sizeof(qpairs_info));
+> 
+> 	/* And mmap queue pairs to user space */
+> 	mmap(NULL, info.tp_dev_bar_sz, PROT_READ | PROT_WRITE,
+> 	     MAP_SHARED, fd, 0);
+> 
+> 	/* Now we have some user space queues to read/write to*/
+> 
+> There is one critical difference when running with these interfaces
+> vs running without them. In the normal case the af_packet module
+> uses a standard descriptor format exported by the af_packet user
+> space headers. In this model because we are working directly with
+> driver queues the descriptor format maps to the descriptor format
+> used by the device. User space applications can learn device
+> information from the socket option PACKET_DEV_DESC_INFO. These
+> are described by giving the vendor/deviceid and a descriptor layout
+> in offset/length/width/alignment/byte_ordering.
+> 
+> To protect against arbitrary DMA writes IOMMU devices put memory
+> in a single domain to stop arbitrary DMA to memory. Note it would
+> be possible to dma into another sockets pages because most NIC
+> devices only support a single domain. This would require being
+> able to guess another sockets page layout. However the socket
+> operation does require CAP_NET_ADMIN privileges.
+> 
+> Additionally we have a set of DPDK patches to enable DPDK with this
+> interface. DPDK can be downloaded @ dpdk.org although as I hope is
+> clear from above DPDK is just our paticular test environment we
+> expect other libraries could be built on this interface.
+> 
+> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
 
-Regardless of the internal implementation, I still don't see much
-value in exposing these distinctions in netlink.
+Just thinking about this a bit, have you considered collapsing this work in with
+the macvtap work you and I did when we enabled some nics to allocate queue pairs
+to those tap devices?  I ask, because it seems like that infrastructure already
+embodies the notion of reserving queues from underlying hardware, and so if you
+were to only allow queue mapping from macvlan/tap devices, you could reduce both
+the api surface that you need to add in your ndo_ops (no more need for a ndo op
+to reserve/free queues, and you could eliminate the need to explicitly reserve
+queues from user space (i.e. reserving queues on a macvtap device automatically
+reserves all its queues).
 
-Tom
-
-> Your patch currently implements (1) but not (2).
+Neil
