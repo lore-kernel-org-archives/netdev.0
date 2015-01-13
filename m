@@ -1,44 +1,75 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] mISDN: avoid arch specific __builtin_return_address
- call
-Date: Tue, 13 Jan 2015 17:08:47 -0500 (EST)
-Message-ID: <20150113.170847.166125234153799669.davem@davemloft.net>
-References: <1816278.9Bv8N8K5IB@wuerfel>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [PATCH 6/6] openvswitch: Support VXLAN Group Policy extension
+Date: Tue, 13 Jan 2015 14:15:25 -0800
+Message-ID: <CAEP_g=9=am_n_aSjA8mxOaViUMEaJgfr8DpMG9GsbitJm8006w@mail.gmail.com>
+References: <cover.1421064100.git.tgraf@suug.ch> <60651d9355f4e34ed6686d95ad837467a1d2c888.1421064100.git.tgraf@suug.ch>
+ <CAEP_g=8TnrwdGiTOB_mKeQSsEakV8y2OU7_ARwi+j9WDYh=Wag@mail.gmail.com> <20150113010213.GA20387@casper.infradead.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: isdn4linux@listserv.isdn4linux.de, netdev@vger.kernel.org,
-	isdn@linux-pingi.de, linux-arm-kernel@lists.infradead.org,
-	linux-kernel@vger.kernel.org
-To: arnd@arndb.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1816278.9Bv8N8K5IB@wuerfel>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Pravin Shelar <pshelar@nicira.com>,
+	Tom Herbert <therbert@google.com>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	"dev@openvswitch.org" <dev@openvswitch.org>,
+	netdev <netdev@vger.kernel.org>
+To: Thomas Graf <tgraf@suug.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from na3sys009aog126.obsmtp.com ([74.125.149.155]:37632 "HELO
+	na3sys009aog126.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751946AbbAMWPq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2015 17:15:46 -0500
+Received: by mail-qc0-f177.google.com with SMTP id x3so4651721qcv.8
+        for <netdev@vger.kernel.org>; Tue, 13 Jan 2015 14:15:45 -0800 (PST)
+In-Reply-To: <20150113010213.GA20387@casper.infradead.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Tue, 13 Jan 2015 17:10:58 +0100
+On Mon, Jan 12, 2015 at 5:02 PM, Thomas Graf <tgraf@suug.ch> wrote:
+> On 01/12/15 at 01:54pm, Jesse Gross wrote:
+>> On Mon, Jan 12, 2015 at 4:26 AM, Thomas Graf <tgraf@suug.ch> wrote:
+>> > +       if (!is_mask)
+>> > +               SW_FLOW_KEY_PUT(match, tun_opts_len, sizeof(opts), false);
+>> > +       else
+>> > +               SW_FLOW_KEY_PUT(match, tun_opts_len, 0xff, true);
+>>
+>> Have you thought carefully about how the masking model work as other
+>> extensions are potentially added? This was a little tricky with Geneve
+>> because I wanted to be able to match on both "no options present" as
+>> well as wildcard all options. The other interesting thing is how you
+>> serialize them back correctly to userspace, which was the genesis of
+>> the TUNNEL_OPTIONS_PRESENT flag.
+>>
+>> My guess is that this may basically work fine now that there is only
+>> one extension present but it is important to think about how it might
+>> work with multiple independent extensions in the future. (I haven't
+>> thought about it, I'm just asking.)
+>
+> I currently don't see a reason why adding another extension would be
+> a problem. It should work like Geneve options except that the order
+> of the options in the flow is given (struct vxlan_opts).
+>
+> Matching on "no options present" is supported in the datapath by
+> via the TUNNEL_VXLAN_OPT flag although there is no way in user space
+> to express this intent yet. I haven't come across a need to support it
+> yet.
+>
+> Since the Netlink API is decoupled from the datapath flow
+> representation, all of this can be changed if needed without breaking
+> the Netlink ABI.
 
-> Not all architectures are able to call __builtin_return_address().
-> On ARM, the mISDN code produces this warning:
-> 
-> hardware/mISDN/w6692.c: In function 'w6692_dctrl':
-> hardware/mISDN/w6692.c:1181:75: warning: unsupported argument to '__builtin_return_address'
->   pr_debug("%s: %s dev(%d) open from %p\n", card->name, __func__,
->                                                                            ^
-> hardware/mISDN/mISDNipac.c: In function 'open_dchannel':
-> hardware/mISDN/mISDNipac.c:759:75: warning: unsupported argument to '__builtin_return_address'
->   pr_debug("%s: %s dev(%d) open from %p\n", isac->name, __func__,
->                                                                            ^
-> 
-> In a lot of cases, this is relatively easy to work around by
-> passing the value of __builtin_return_address(0) from the
-> callers into the functions that want it. One exception is
-> the indirect 'open' function call in struct isac_hw. While it
-> would be possible to fix this as well, this patch only addresses
-> the other callers properly and lets this one return the direct
-> parent function, which should be good enough.
-> 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+OK, it seems fine for now.
 
-Applied.
+I agree that "not present" is probably less interesting for VXLAN than
+Geneve given the fixed sized header. It would seem to only have
+benefit in the event that the port configuration is decoupled from
+flow processing in userspace.
+
+>> If you set Geneve options and output to a VXLAN port (or vice versa),
+>> you will get garbage, right? Is there any way that we can sanity check
+>> that?
+>
+> What about if we only apply tun_info->options on Geneve if
+> TUNNEL_GENEVE_OPT is set and vice versa?
+
+That seems nice and simple to me.
