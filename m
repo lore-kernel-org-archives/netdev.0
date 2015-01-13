@@ -1,32 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1 net-next] openvswitch: Remove unnecessary version.h
- inclusion
-Date: Tue, 13 Jan 2015 14:31:58 -0500 (EST)
-Message-ID: <20150113.143158.712050155323369980.davem@davemloft.net>
-References: <1421075975-27483-1-git-send-email-s.syam@samsung.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dev@openvswitch.org, pshelar@nicira.com,
-	syamsidhardh@gmail.com
-To: s.syam@samsung.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35271 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751085AbbAMTcB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2015 14:32:01 -0500
-In-Reply-To: <1421075975-27483-1-git-send-email-s.syam@samsung.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Tony Lindgren <tony@atomide.com>
+Subject: [PATCH 0/6] Fixes for davinci_emac
+Date: Tue, 13 Jan 2015 11:29:22 -0800
+Message-ID: <1421177368-19756-1-git-send-email-tony@atomide.com>
+Cc: netdev@vger.kernel.org, linux-omap@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-omap-owner@vger.kernel.org>
+Sender: linux-omap-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Syam Sidhardhan <s.syam@samsung.com>
-Date: Mon, 12 Jan 2015 20:49:35 +0530
+Hi,
 
-> version.h inclusion is not necessary as detected by versioncheck.
-> 
-> Signed-off-by: Syam Sidhardhan <s.syam@samsung.com>
-> Acked-by: Pravin B Shelar <pshelar@nicira.com>
-> ---
-> No code changes. Add net-next prefix flag for net-next tree.
+Here are some fixes for davinci_emac for the issues I've noticed
+recently.
 
-Applied, thanks.
+Regards,
+
+Tony
+
+Tony Lindgren (6):
+  net: davinci_emac: Fix hangs with interrupts
+  net: davinci_emac: Fix runtime pm calls for davinci_emac
+  net: davinci_emac: Free clock after checking the frequency
+  net: davinci_emac: Fix incomplete code for getting the phy from device
+    tree
+  net: davinci_emac: Fix ioremap for devices with MDIO within the EMAC
+    address space
+  net: davinci_emac: Add support for emac on dm816x
+
+ .../devicetree/bindings/net/davinci_emac.txt       |  3 +-
+ drivers/net/ethernet/ti/davinci_emac.c             | 77 ++++++++++++++++------
+ 2 files changed, 58 insertions(+), 22 deletions(-)
+
+-- 
+2.1.4
+
