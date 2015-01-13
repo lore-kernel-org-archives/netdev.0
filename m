@@ -1,7 +1,7 @@
 From: Tony Lindgren <tony@atomide.com>
-Subject: [PATCH 6/6] net: davinci_emac: Add support for emac on dm816x
-Date: Tue, 13 Jan 2015 11:29:28 -0800
-Message-ID: <1421177368-19756-7-git-send-email-tony@atomide.com>
+Subject: [PATCH 3/6] net: davinci_emac: Free clock after checking the frequency
+Date: Tue, 13 Jan 2015 11:29:25 -0800
+Message-ID: <1421177368-19756-4-git-send-email-tony@atomide.com>
 References: <1421177368-19756-1-git-send-email-tony@atomide.com>
 Cc: netdev@vger.kernel.org, linux-omap@vger.kernel.org,
 	Brian Hutchinson <b.hutchman@gmail.com>,
@@ -12,50 +12,28 @@ In-Reply-To: <1421177368-19756-1-git-send-email-tony@atomide.com>
 Sender: linux-omap-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On dm816x we have two emac controllers with separate memory
-areas.
+We only use clk_get() to get the frequency, the rest is done by
+the runtime PM calls. Let's free the clock too.
 
 Cc: Brian Hutchinson <b.hutchman@gmail.com>
 Cc: Felipe Balbi <balbi@ti.com>
 Signed-off-by: Tony Lindgren <tony@atomide.com>
 ---
- Documentation/devicetree/bindings/net/davinci_emac.txt | 3 ++-
- drivers/net/ethernet/ti/davinci_emac.c                 | 5 +++++
- 2 files changed, 7 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/ti/davinci_emac.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/Documentation/devicetree/bindings/net/davinci_emac.txt b/Documentation/devicetree/bindings/net/davinci_emac.txt
-index 0328088..24c5cda 100644
---- a/Documentation/devicetree/bindings/net/davinci_emac.txt
-+++ b/Documentation/devicetree/bindings/net/davinci_emac.txt
-@@ -4,7 +4,8 @@ This file provides information, what the device node
- for the davinci_emac interface contains.
- 
- Required properties:
--- compatible: "ti,davinci-dm6467-emac" or "ti,am3517-emac"
-+- compatible: "ti,davinci-dm6467-emac", "ti,am3517-emac" or
-+  "ti,dm816-emac"
- - reg: Offset and length of the register set for the device
- - ti,davinci-ctrl-reg-offset: offset to control register
- - ti,davinci-ctrl-mod-reg-offset: offset to control module register
 diff --git a/drivers/net/ethernet/ti/davinci_emac.c b/drivers/net/ethernet/ti/davinci_emac.c
-index 0342273..5caee66 100644
+index deb43b3..e9efc74 100644
 --- a/drivers/net/ethernet/ti/davinci_emac.c
 +++ b/drivers/net/ethernet/ti/davinci_emac.c
-@@ -2101,9 +2101,14 @@ static const struct emac_platform_data am3517_emac_data = {
- 	.hw_ram_addr		= 0x01e20000,
- };
+@@ -1881,6 +1881,7 @@ static int davinci_emac_probe(struct platform_device *pdev)
+ 		return -EBUSY;
+ 	}
+ 	emac_bus_frequency = clk_get_rate(emac_clk);
++	clk_put(emac_clk);
  
-+static const struct emac_platform_data dm816_emac_data = {
-+	.version		= EMAC_VERSION_2,
-+};
-+
- static const struct of_device_id davinci_emac_of_match[] = {
- 	{.compatible = "ti,davinci-dm6467-emac", },
- 	{.compatible = "ti,am3517-emac", .data = &am3517_emac_data, },
-+	{.compatible = "ti,dm816-emac", .data = &dm816_emac_data, },
- 	{},
- };
- MODULE_DEVICE_TABLE(of, davinci_emac_of_match);
+ 	/* TODO: Probe PHY here if possible */
+ 
 -- 
 2.1.4
 
