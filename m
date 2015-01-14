@@ -1,48 +1,36 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2 -next v3] ip: route: add congestion control
- metric
-Date: Tue, 13 Jan 2015 17:41:51 -0800
-Message-ID: <20150113174151.72baf7fe@urahara>
-References: <1420758786-32666-1-git-send-email-dborkman@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: fw@strlen.de, netdev@vger.kernel.org
-To: Daniel Borkmann <dborkman@redhat.com>
+From: Anish Bhatt <anish@chelsio.com>
+Subject: [PATCH net-next 0/2] cxgb4/cxgb4i : Update & use ipv6 handling api
+Date: Tue, 13 Jan 2015 18:28:34 -0800
+Message-ID: <1421202516-13862-1-git-send-email-anish@chelsio.com>
+Cc: davem@davemloft.net, hariprasad@chelsio.com, kxie@chelsio.com,
+	deepak.s@chelsio.com, Anish Bhatt <anish@chelsio.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f173.google.com ([209.85.192.173]:61455 "EHLO
-	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751058AbbANBmB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2015 20:42:01 -0500
-Received: by mail-pd0-f173.google.com with SMTP id ft15so6683072pdb.4
-        for <netdev@vger.kernel.org>; Tue, 13 Jan 2015 17:42:01 -0800 (PST)
-In-Reply-To: <1420758786-32666-1-git-send-email-dborkman@redhat.com>
+Received: from stargate.chelsio.com ([67.207.112.58]:20670 "EHLO
+	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752116AbbANC2r (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2015 21:28:47 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri,  9 Jan 2015 00:13:06 +0100
-Daniel Borkmann <dborkman@redhat.com> wrote:
+This patch series consolidates and updates the ipv6 api, as well as exports
+it for use by upper level drivers dependent on cxgb4
 
-> This patch adds configuration and dumping of congestion control metric
-> for ip route, for example:
-> 
->   ip route add <dst> dev foo congctl [lock] dctcp
-> 
-> Reference: http://thread.gmane.org/gmane.linux.network/344733
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-> ---
->  v2->v3:
->   - use rta_getattr_u32 et al helpers
->   - regarding discussed mx(un)lock, I'll do a follow-up for
->     all users inside iproute_modify() if that is wished
->  v1->v2:
->   - adapted mxlock setting to kernel style
->   - use arg directly in rta_addattr_l
-> 
->  include/linux/rtnetlink.h |  2 ++
->  ip/iproute.c              | 22 ++++++++++++++++++----
->  man/man8/ip-route.8.in    | 19 ++++++++++++++++++-
->  3 files changed, 38 insertions(+), 5 deletions(-)
-> 
+Anish Bhatt (2):
+  cxgb4: Update ipv6 address handling api
+  cxgb4i : Call into recently added cxgb4 ipv6 api
 
-Applied to net-next branch.
+ drivers/net/ethernet/chelsio/cxgb4/Makefile        |   2 +-
+ drivers/net/ethernet/chelsio/cxgb4/clip_tbl.c      | 314 +++++++++++++++++++++
+ drivers/net/ethernet/chelsio/cxgb4/clip_tbl.h      |  41 +++
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h         |   3 +
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c |  19 ++
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c    | 228 +++++----------
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h     |   3 -
+ drivers/scsi/cxgbi/cxgb4i/cxgb4i.c                 |  23 +-
+ 8 files changed, 469 insertions(+), 164 deletions(-)
+ create mode 100644 drivers/net/ethernet/chelsio/cxgb4/clip_tbl.c
+ create mode 100644 drivers/net/ethernet/chelsio/cxgb4/clip_tbl.h
+
+-- 
+2.2.1
