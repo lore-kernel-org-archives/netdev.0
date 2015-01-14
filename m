@@ -1,46 +1,82 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: 3.19-rc4:  BUG: unable to handle kernel paging request at
- ffff880055f15000 ovs_packet_cmd_execute+0x1f/0x229
-Date: Wed, 14 Jan 2015 13:13:14 +0000
-Message-ID: <20150114131314.GB564@casper.infradead.org>
-References: <1645184106.20150114131420@eikelenboom.it>
- <20150114130005.GA564@casper.infradead.org>
- <20150114130351.GB13716@breakpoint.cc>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Sander Eikelenboom <linux@eikelenboom.it>,
-	Pravin B Shelar <pshelar@nicira.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	dev@openvswitch.org
-To: Florian Westphal <fw@strlen.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:58936 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751404AbbANNNP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2015 08:13:15 -0500
-Content-Disposition: inline
-In-Reply-To: <20150114130351.GB13716@breakpoint.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net] i40e: adds FCoE configure option
+Date: Wed, 14 Jan 2015 05:14:07 -0800
+Message-ID: <1421241247-22594-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Vasu Dev <vasu.dev@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	<stable@vger.kernel.org>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
+Return-path: <stable-owner@vger.kernel.org>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 01/14/15 at 02:03pm, Florian Westphal wrote:
-> Thomas Graf <tgraf@suug.ch> wrote:
-> > Copying ovs-dev mailing list and thus qutoing full message.
-> > 
-> > On 01/14/15 at 01:14pm, Sander Eikelenboom wrote:
-> > > Hi,
-> > > 
-> > > I was testing 3.19-rc4 with openvswitch and encountered the splat below.
-> > 
-> > What version of OVS are you using? Did this work properly with rc3 or
-> > an older kernel?
-> 
-> seems like it was introduced via 05da5898a96c
-> (openvswitch: Add support for OVS_FLOW_ATTR_PROBE).
-> 
-> It adds test for OVS_FLOW_ATTR_PROBE to ovs_packet_cmd_execute() but
-> this function seems to only expect OVS_PACKET_ATTR_* (so we get
-> out-of-bounds access)?
+From: Vasu Dev <vasu.dev@intel.com>
 
-Absolutely, just came to the same conclusion independently. I'll send
-a fix.
+Adds FCoE config option I40E_FCOE, so that FCoE can be enabled
+as needed but otherwise have it disabled by default.
+
+This also eliminate multiple FCoE config checks, instead now just
+one config check for CONFIG_I40E_FCOE.
+
+The I40E FCoE was added with 3.17 kernel and therefore this patch
+shall be applied to stable 3.17 kernel also.
+
+CC: <stable@vger.kernel.org>
+Signed-off-by: Vasu Dev <vasu.dev@intel.com>
+Tested-by: Jim Young <jamesx.m.young@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/Kconfig           | 11 +++++++++++
+ drivers/net/ethernet/intel/i40e/Makefile     |  2 +-
+ drivers/net/ethernet/intel/i40e/i40e_osdep.h |  4 ++--
+ 3 files changed, 14 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/Kconfig b/drivers/net/ethernet/intel/Kconfig
+index 5b8300a..4d61ef5 100644
+--- a/drivers/net/ethernet/intel/Kconfig
++++ b/drivers/net/ethernet/intel/Kconfig
+@@ -281,6 +281,17 @@ config I40E_DCB
+ 
+ 	  If unsure, say N.
+ 
++config I40E_FCOE
++	bool "Fibre Channel over Ethernet (FCoE)"
++	default n
++	depends on I40E && DCB && FCOE
++	---help---
++	  Say Y here if you want to use Fibre Channel over Ethernet (FCoE)
++	  in the driver. This will create new netdev for exclusive FCoE
++	  use with XL710 FCoE offloads enabled.
++
++	  If unsure, say N.
++
+ config I40EVF
+ 	tristate "Intel(R) XL710 X710 Virtual Function Ethernet support"
+ 	depends on PCI_MSI
+diff --git a/drivers/net/ethernet/intel/i40e/Makefile b/drivers/net/ethernet/intel/i40e/Makefile
+index 4b94ddb..c405819 100644
+--- a/drivers/net/ethernet/intel/i40e/Makefile
++++ b/drivers/net/ethernet/intel/i40e/Makefile
+@@ -44,4 +44,4 @@ i40e-objs := i40e_main.o \
+ 	i40e_virtchnl_pf.o
+ 
+ i40e-$(CONFIG_I40E_DCB) += i40e_dcb.o i40e_dcb_nl.o
+-i40e-$(CONFIG_FCOE:m=y) += i40e_fcoe.o
++i40e-$(CONFIG_I40E_FCOE) += i40e_fcoe.o
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_osdep.h b/drivers/net/ethernet/intel/i40e/i40e_osdep.h
+index 045b5c4..ad802dd 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_osdep.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_osdep.h
+@@ -78,7 +78,7 @@ do {                                                            \
+ } while (0)
+ 
+ typedef enum i40e_status_code i40e_status;
+-#if defined(CONFIG_FCOE) || defined(CONFIG_FCOE_MODULE)
++#ifdef CONFIG_I40E_FCOE
+ #define I40E_FCOE
+-#endif /* CONFIG_FCOE or CONFIG_FCOE_MODULE */
++#endif
+ #endif /* _I40E_OSDEP_H_ */
+-- 
+1.9.3
