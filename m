@@ -1,38 +1,62 @@
-From: Zhu Yanjun <zyjzyj2000@gmail.com>
-Subject: [PATCH 1/1] ipv6:icmp:remove unnecessary brackets
-Date: Wed, 14 Jan 2015 17:23:59 +0800
-Message-ID: <1421227439-13996-1-git-send-email-Yanjun.Zhu@windriver.com>
-Cc: Zhu Yanjun <Yanjun.Zhu@windriver.com>
-To: netdev@vger.kernel.org, davem@davemloft.net
+From: Ying Xue <ying.xue@windriver.com>
+Subject: Re: [PATCH net-next v2] rhashtable: unnecessary to use delayed work
+Date: Wed, 14 Jan 2015 17:29:56 +0800
+Message-ID: <54B63714.3070102@windriver.com>
+References: <1421206370-27977-1-git-send-email-ying.xue@windriver.com> <20150114092403.GS20387@casper.infradead.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f176.google.com ([209.85.192.176]:41638 "EHLO
-	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750997AbbANJYH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2015 04:24:07 -0500
-Received: by mail-pd0-f176.google.com with SMTP id r10so8771307pdi.7
-        for <netdev@vger.kernel.org>; Wed, 14 Jan 2015 01:24:07 -0800 (PST)
+Received: from mail1.windriver.com ([147.11.146.13]:35771 "EHLO
+	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751991AbbANJaa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2015 04:30:30 -0500
+In-Reply-To: <20150114092403.GS20387@casper.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There are too many brackets. Maybe only one bracket is enough.
+On 01/14/2015 05:24 PM, Thomas Graf wrote:
+> On 01/14/15 at 11:32am, Ying Xue wrote:
+>> When we put our declared work task in the global workqueue with
+>> schedule_delayed_work(), its delay parameter is always zero.
+>> Therefore, we should define a normal work in rhashtable structure
+>> instead of a delayed work.
+>>
+>> By the way, we add a condition to check whether resizing functions
+>> are NULL before cancel the work, avoiding to cancel an uninitialized
+>> work.
+>>
+>> Lastly, while we wait for all work items we submitted before to run
+>> to completion with cancel_delayed_work(), ht->mutex has been taken in
+>> rhashtable_destroy(). Moreover, cancel_delayed_work() doesn't return
+>> until all work items are accomplished, and when work items are
+>> scheduled, the work's function - rht_deferred_worker() will be called.
+>> However, as rht_deferred_worker() also needs to acquire the lock,
+>> deadlock might happen at the moment as the lock is already held before.
+>> So if the cancel work function is moved out of the lock covered scope,
+>> this can help to avoid the deadlock.
+>   ^^^^^^^^^^^^^^^
+>   will avoid :-)
+> 
+>>
+>> Fixes: 97defe1 ("rhashtable: Per bucket locks & deferred expansion/shrinking")
+>> Signed-off-by: Ying Xue <ying.xue@windriver.com>
+>> Cc: Thomas Graf <tgraf@suug.ch>
+> 
+> I don't want to be too picky about the commit title but since this is
+> fixing a previously reported race condition I would like for that to
+> be reflected in the title. Something like:
+> 
+> rhashtable: Fix race in rhashtable_destroy() and use regular work_struct
+> 
+> With that fixed:
+> Acked-by: Thomas Graf <tgraf@suug.ch>
+> 
+> 
 
-Signed-off-by: Zhu Yanjun <Yanjun.Zhu@windriver.com>
----
- net/ipv6/icmp.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Thanks for the review, and I will deliver the v3 soon.
 
-diff --git a/net/ipv6/icmp.c b/net/ipv6/icmp.c
-index d674152..a5e9519 100644
---- a/net/ipv6/icmp.c
-+++ b/net/ipv6/icmp.c
-@@ -427,7 +427,7 @@ static void icmp6_send(struct sk_buff *skb, u8 type, u8 code, __u32 info)
- 	 *	Dest addr check
- 	 */
- 
--	if ((addr_type & IPV6_ADDR_MULTICAST || skb->pkt_type != PACKET_HOST)) {
-+	if (addr_type & IPV6_ADDR_MULTICAST || skb->pkt_type != PACKET_HOST) {
- 		if (type != ICMPV6_PKT_TOOBIG &&
- 		    !(type == ICMPV6_PARAMPROB &&
- 		      code == ICMPV6_UNK_OPTION &&
--- 
-1.9.1
+Regards,
+Ying
