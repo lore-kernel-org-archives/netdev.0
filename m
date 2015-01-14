@@ -1,80 +1,27 @@
-From: Prashant Sreedharan <prashant@broadcom.com>
-Subject: [PATCH net 3/3 v2]tg3: Release tp->lock before invoking synchronize_irq()
-Date: Wed, 14 Jan 2015 11:34:44 -0800
-Message-ID: <1421264084-24015-1-git-send-email-prashant@broadcom.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] r8152: replace tasklet with NAPI
+Date: Wed, 14 Jan 2015 15:06:49 -0500 (EST)
+Message-ID: <20150114.150649.475667638817956451.davem@davemloft.net>
+References: <1394712342-15778-117-Taiwan-albertk@realtek.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <peter@hurleysoftware.com>,
-	Prashant Sreedharan <prashant@broadcom.com>,
-	Michael Chan <mchan@broadcom.com>
-To: <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw3-out.broadcom.com ([216.31.210.64]:56653 "EHLO
-	mail-gw3-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752229AbbANTwm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2015 14:52:42 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
+	linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org
+To: hayeswang@realtek.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1394712342-15778-117-Taiwan-albertk@realtek.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-synchronize_irq() can sleep waiting, for pending IRQ handlers so driver
-should release the tp->lock spin lock before invoking synchronize_irq()
+From: Hayes Wang <hayeswang@realtek.com>
+Date: Mon, 12 Jan 2015 12:06:23 +0800
 
-Reported-by: Peter Hurley <peter@hurleysoftware.com>
-Tested-by: Peter Hurley <peter@hurleysoftware.com>
-Signed-off-by: Prashant Sreedharan <prashant@broadcom.com>
-Signed-off-by: Michael Chan <mchan@broadcom.com>
----
- drivers/net/ethernet/broadcom/tg3.c |   12 ++++++++++++
- 1 files changed, 12 insertions(+), 0 deletions(-)
+> Replace tasklet with NAPI.
+> 
+> Add rx_queue to queue the remaining rx packets if the number of the
+> rx packets is more than the request from poll().
+> 
+> Signed-off-by: Hayes Wang <hayeswang@realtek.com>
 
-diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-index 9247ae1..96bf01b 100644
---- a/drivers/net/ethernet/broadcom/tg3.c
-+++ b/drivers/net/ethernet/broadcom/tg3.c
-@@ -7413,6 +7413,8 @@ static inline void tg3_netif_start(struct tg3 *tp)
- }
- 
- static void tg3_irq_quiesce(struct tg3 *tp)
-+	__releases(tp->lock)
-+	__acquires(tp->lock)
- {
- 	int i;
- 
-@@ -7421,8 +7423,12 @@ static void tg3_irq_quiesce(struct tg3 *tp)
- 	tp->irq_sync = 1;
- 	smp_mb();
- 
-+	spin_unlock_bh(&tp->lock);
-+
- 	for (i = 0; i < tp->irq_cnt; i++)
- 		synchronize_irq(tp->napi[i].irq_vec);
-+
-+	spin_lock_bh(&tp->lock);
- }
- 
- /* Fully shutdown all tg3 driver activity elsewhere in the system.
-@@ -9018,6 +9024,8 @@ static void tg3_restore_clk(struct tg3 *tp)
- 
- /* tp->lock is held. */
- static int tg3_chip_reset(struct tg3 *tp)
-+	__releases(tp->lock)
-+	__acquires(tp->lock)
- {
- 	u32 val;
- 	void (*write_op)(struct tg3 *, u32, u32);
-@@ -9073,9 +9081,13 @@ static int tg3_chip_reset(struct tg3 *tp)
- 	}
- 	smp_mb();
- 
-+	tg3_full_unlock(tp);
-+
- 	for (i = 0; i < tp->irq_cnt; i++)
- 		synchronize_irq(tp->napi[i].irq_vec);
- 
-+	tg3_full_lock(tp, 0);
-+
- 	if (tg3_asic_rev(tp) == ASIC_REV_57780) {
- 		val = tr32(TG3_PCIE_LNKCTL) & ~TG3_PCIE_LNKCTL_L1_PLL_PD_EN;
- 		tw32(TG3_PCIE_LNKCTL, val | TG3_PCIE_LNKCTL_L1_PLL_PD_DIS);
--- 
-1.7.1
+Applied, thanks.
