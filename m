@@ -1,58 +1,44 @@
-From: roopa <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next] bridge: fix setlink/dellink notifications
-Date: Wed, 14 Jan 2015 12:57:12 -0800
-Message-ID: <54B6D828.3030204@cumulusnetworks.com>
-References: <1421218123-18346-1-git-send-email-roopa@cumulusnetworks.com> <20150114194137.GC2105@casper.infradead.org>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH 0/5 net-next v4] VXLAN Group Policy Extension
+Date: Wed, 14 Jan 2015 20:57:46 +0000
+Message-ID: <20150114205746.GE2105@casper.infradead.org>
+References: <cover.1421165078.git.tgraf@suug.ch>
+ <20150114.153744.360580056667123059.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, shemminger@vyatta.com, vyasevic@redhat.com,
-	john.fastabend@gmail.com, jhs@mojatatu.com, sfeldma@gmail.com,
-	jiri@resnulli.us, wkok@cumulusnetworks.com
-To: Thomas Graf <tgraf@suug.ch>
+Content-Type: text/plain; charset=us-ascii
+Cc: jesse@nicira.com, stephen@networkplumber.org, pshelar@nicira.com,
+	therbert@google.com, alexei.starovoitov@gmail.com,
+	nicolas.dichtel@6wind.com, netdev@vger.kernel.org,
+	dev@openvswitch.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:52037 "EHLO
-	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750719AbbANU5O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2015 15:57:14 -0500
-Received: by mail-pa0-f54.google.com with SMTP id fb1so12790291pad.13
-        for <netdev@vger.kernel.org>; Wed, 14 Jan 2015 12:57:14 -0800 (PST)
-In-Reply-To: <20150114194137.GC2105@casper.infradead.org>
+Received: from casper.infradead.org ([85.118.1.10]:33293 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751792AbbANU5s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2015 15:57:48 -0500
+Content-Disposition: inline
+In-Reply-To: <20150114.153744.360580056667123059.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 1/14/15, 11:41 AM, Thomas Graf wrote:
-> On 01/13/15 at 10:48pm, roopa@cumulusnetworks.com wrote:
->> 2) Generate one notification from master and the other notification from
->>     self (This seems to be ideal):
->>       For master: the master driver will send notification (bridge in this
->> 	example)
->>       For self: the self driver will send notification (rocker in the above
->> 	example. It can use helpers from rtnetlink.c to do so. Like the
->> 	ndo_dflt_bridge_getlink api).
->>
->> This patch implements 2) (leaving the 'rtnl_bridge_notify' around to be used
->> with 'self').
->>
->> CC'ing others who might be affected by this change for review.
->>
->> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
-> I haven't digested this line by line yet but I agree that what you
-> describe above would be a good end state.
->
-> If I read the patch correctly then we would omit one notification
-> for the master case.
-yes, correct.
-> Were both notifications exactly identical
-> previously?
-> This has the chance of breaking existing users terribly.
+On 01/14/15 at 03:37pm, David Miller wrote:
+> From: Thomas Graf <tgraf@suug.ch>
+> Date: Tue, 13 Jan 2015 17:20:41 +0100
+> 
+> > Implements supports for the Group Policy VXLAN extension [0] to provide
+> > a lightweight and simple security label mechanism across network peers
+> > based on VXLAN. The security context and associated metadata is mapped
+> > to/from skb->mark. This allows further mapping to a SELinux context
+> > using SECMARK, to implement ACLs directly with nftables, iptables, OVS,
+> > tc, etc.
+> > 
+> > The extension is disabled by default and should be run on a distinct
+> > port in mixed Linux VXLAN VTEP environments. Liberal VXLAN VTEPs
+> > which ignore unknown reserved bits will be able to receive VXLAN-GBP
+> > frames.
+> 
+> Thomas, unfortunately Tom's vxlan RCO patches were ready before your's
+> in my queue so I applied his work first.  You'll have to therefore
+> respin this series on top of it.
 
-yes AFAICT, because
-
-rtnl_bridge_notify() from rtnetlink.c for bridge  results in calling 
-br_fill_ifinfo() via ndo_bridge_getlink()
-and the notification from bridge driver br_ifinfo_notify() also ends up 
-calling br_fill_ifinfo().
-
-Thanks,
-Roopa
+Sure, no problem.
