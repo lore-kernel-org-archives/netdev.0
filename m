@@ -1,44 +1,58 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: non-OVS based vxlan config broken on 3.19-rc ?!
-Date: Wed, 14 Jan 2015 22:55:33 +0200
-Message-ID: <CAJ3xEMj+rjTmk2tbVCTMCp+7N0qwXBNf3JsbJEgh2qvq0jHmEg@mail.gmail.com>
-References: <54B688D9.8030101@mellanox.com>
-	<20150114155208.GA24550@casper.infradead.org>
+From: roopa <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next] bridge: fix setlink/dellink notifications
+Date: Wed, 14 Jan 2015 12:57:12 -0800
+Message-ID: <54B6D828.3030204@cumulusnetworks.com>
+References: <1421218123-18346-1-git-send-email-roopa@cumulusnetworks.com> <20150114194137.GC2105@casper.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Or Gerlitz <ogerlitz@mellanox.com>,
-	tom Herbert <therbert@google.com>,
-	Marcelo Leitner <mleitner@redhat.com>,
-	Jesse Gross <jesse@nicira.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: thomas Graf <tgraf@suug.ch>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, shemminger@vyatta.com, vyasevic@redhat.com,
+	john.fastabend@gmail.com, jhs@mojatatu.com, sfeldma@gmail.com,
+	jiri@resnulli.us, wkok@cumulusnetworks.com
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f54.google.com ([209.85.218.54]:44643 "EHLO
-	mail-oi0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751286AbbANUze (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2015 15:55:34 -0500
-Received: by mail-oi0-f54.google.com with SMTP id u20so9243259oif.13
-        for <netdev@vger.kernel.org>; Wed, 14 Jan 2015 12:55:33 -0800 (PST)
-In-Reply-To: <20150114155208.GA24550@casper.infradead.org>
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:52037 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750719AbbANU5O (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2015 15:57:14 -0500
+Received: by mail-pa0-f54.google.com with SMTP id fb1so12790291pad.13
+        for <netdev@vger.kernel.org>; Wed, 14 Jan 2015 12:57:14 -0800 (PST)
+In-Reply-To: <20150114194137.GC2105@casper.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 14, 2015 at 5:52 PM, thomas Graf <tgraf@suug.ch> wrote:
-> On 01/14/15 at 05:18pm, Or Gerlitz wrote:
->> Guys, just realized that non-OVS based vxlan config is broken with
->> 3.19-rc... I see that it works for me on 3.18.2 and breaks on 3.19-rc3
->> (Linus tree). Tested over mlx4 (both offloaded and non offloaded modes) and
->> igb, see below the simplest form I can see it breaks on 3.19-rcand works on
->> 3.18
+On 1/14/15, 11:41 AM, Thomas Graf wrote:
+> On 01/13/15 at 10:48pm, roopa@cumulusnetworks.com wrote:
+>> 2) Generate one notification from master and the other notification from
+>>     self (This seems to be ideal):
+>>       For master: the master driver will send notification (bridge in this
+>> 	example)
+>>       For self: the self driver will send notification (rocker in the above
+>> 	example. It can use helpers from rtnetlink.c to do so. Like the
+>> 	ndo_dflt_bridge_getlink api).
 >>
->> Looking on tcpdump and stats, the arp reply arrives to the 3.19-rc host NIC
->> driver but is dropped along the stack beforehanded to the vxlan driver, not
->> sure where and why...
+>> This patch implements 2) (leaving the 'rtnl_bridge_notify' around to be used
+>> with 'self').
+>>
+>> CC'ing others who might be affected by this change for review.
+>>
+>> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+> I haven't digested this line by line yet but I agree that what you
+> describe above would be a good end state.
 >
-> As additional data point: I tested the VXLAN-GBP with iproute2 based tunnels
-> on net-next and that works fine. Driver used was a e1000 in KVM.
+> If I read the patch correctly then we would omit one notification
+> for the master case.
+yes, correct.
+> Were both notifications exactly identical
+> previously?
+> This has the chance of breaking existing users terribly.
 
+yes AFAICT, because
 
-mm, so net-next.git (3.20 candidate code) and 3.18 works, but @ least
-for me 3.19-rc doesn't - could you check if net.git works for you on
-iproute2 based tunnels in that env? just vxlan is enough.
+rtnl_bridge_notify() from rtnetlink.c for bridge  results in calling 
+br_fill_ifinfo() via ndo_bridge_getlink()
+and the notification from bridge driver br_ifinfo_notify() also ends up 
+calling br_fill_ifinfo().
+
+Thanks,
+Roopa
