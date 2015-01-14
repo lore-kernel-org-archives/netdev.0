@@ -1,39 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/2] cxgb4: Update ipv6 address handling api
-Date: Wed, 14 Jan 2015 16:29:22 -0500 (EST)
-Message-ID: <20150114.162922.1789342830064884975.davem@davemloft.net>
-References: <1421202516-13862-1-git-send-email-anish@chelsio.com>
-	<1421202516-13862-2-git-send-email-anish@chelsio.com>
+Subject: Re: [PATCHv3 net-next] openvswitch: Introduce
+ ovs_tunnel_route_lookup
+Date: Wed, 14 Jan 2015 16:34:24 -0500 (EST)
+Message-ID: <20150114.163424.598335066567453354.davem@davemloft.net>
+References: <1421212235-29447-1-git-send-email-fan.du@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hariprasad@chelsio.com, kxie@chelsio.com,
-	deepak.s@chelsio.com
-To: anish@chelsio.com
+Cc: pshelar@nicira.com, netdev@vger.kernel.org, dev@openvswitch.org,
+	fengyuleidian0615@gmail.com
+To: fan.du@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45519 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:45565 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751286AbbANV3Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2015 16:29:25 -0500
-In-Reply-To: <1421202516-13862-2-git-send-email-anish@chelsio.com>
+	with ESMTP id S1751400AbbANVe1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2015 16:34:27 -0500
+In-Reply-To: <1421212235-29447-1-git-send-email-fan.du@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Anish Bhatt <anish@chelsio.com>
-Date: Tue, 13 Jan 2015 18:28:35 -0800
+aFrom: Fan Du <fan.du@intel.com>
+Date: Wed, 14 Jan 2015 13:10:35 +0800
 
-> +	c.op_to_write = htonl(FW_CMD_OP_V(FW_CLIP_CMD) |
-> +			FW_CMD_REQUEST_F | FW_CMD_WRITE_F);
+> Introduce ovs_tunnel_route_lookup to consolidate route lookup
+> shared by vxlan, gre, and geneve ports.
+> 
+> Signed-off-by: Fan Du <fan.du@intel.com>
 
-Please indent this properly, the second line should start at the first
-column after the openning parenthesis of htonl().
-
-> +	c.op_to_write = htonl(FW_CMD_OP_V(FW_CLIP_CMD) |
-> +			FW_CMD_REQUEST_F | FW_CMD_READ_F);
-
-Likewise.
-
-> +	ctbl = t4_alloc_mem(sizeof(*ctbl) +
-> +				clipt_size*sizeof(struct list_head));
-
-Likewise.
+Applied.
