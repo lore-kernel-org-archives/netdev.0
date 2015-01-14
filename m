@@ -1,44 +1,47 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [patch iproute2 2/2] tc: add support for BPF based actions
-Date: Tue, 13 Jan 2015 17:19:17 -0800
-Message-ID: <20150113171917.4d4cdafb@urahara>
-References: <1420649035-9522-1-git-send-email-jiri@resnulli.us>
-	<1420649244-9574-1-git-send-email-jiri@resnulli.us>
-	<1420649244-9574-2-git-send-email-jiri@resnulli.us>
+Subject: Re: [PATCH iproute2 0/3] ip netns: Run over all netns
+Date: Tue, 13 Jan 2015 17:28:37 -0800
+Message-ID: <20150113172837.793f0969@urahara>
+References: <1420628662-9930-1-git-send-email-vadim4j@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, jhs@mojatatu.com
-To: Jiri Pirko <jiri@resnulli.us>
+Cc: netdev@vger.kernel.org
+To: Vadim Kochan <vadim4j@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:41138 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752094AbbANBT1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2015 20:19:27 -0500
-Received: by mail-pa0-f50.google.com with SMTP id bj1so7028669pad.9
-        for <netdev@vger.kernel.org>; Tue, 13 Jan 2015 17:19:27 -0800 (PST)
-In-Reply-To: <1420649244-9574-2-git-send-email-jiri@resnulli.us>
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:55164 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751335AbbANB2q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2015 20:28:46 -0500
+Received: by mail-pa0-f48.google.com with SMTP id rd3so7078837pab.7
+        for <netdev@vger.kernel.org>; Tue, 13 Jan 2015 17:28:46 -0800 (PST)
+In-Reply-To: <1420628662-9930-1-git-send-email-vadim4j@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed,  7 Jan 2015 17:47:24 +0100
-Jiri Pirko <jiri@resnulli.us> wrote:
+On Wed,  7 Jan 2015 13:04:19 +0200
+Vadim Kochan <vadim4j@gmail.com> wrote:
 
-> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
-> ---
->  include/linux/tc_act/tc_bpf.h |  31 +++++++
+> From: Vadim Kochan <vadim4j@gmail.com>
+> 
+> Allow 'ip netns del' and 'ip netns exec' run over each network namespace names.
+> 
+> 'ip netns exec' executes command forcely on eacn nsname.
+> 
+> Vadim Kochan (3):
+>   lib: Exec func on each netns
+>   ip netns: Allow exec on each netns
+>   ip netns: Delete all netns
+> 
+>  include/namespace.h |  6 ++++
+>  include/utils.h     |  5 +++
+>  ip/ipnetns.c        | 96 ++++++++++++++++++++++++++++++++---------------------
+>  lib/namespace.c     | 22 ++++++++++++
+>  lib/utils.c         | 28 ++++++++++++++++
+>  man/man8/ip-netns.8 | 26 ++++++++++++---
+>  6 files changed, 141 insertions(+), 42 deletions(-)
+> 
 
-The overall concept is fine, but the mechanics of file management
-gets in the way.
-
-All header files in the linux directory of iproute2 must come from sanitized
-version of kernel headers that are in uapi/linux in the kernel source.
-
-I take headers from 'make install_headers' and copy them over to keep
-in sync. The headers for master branch are kept in sync with upstream
-kernel (from Linus tree), and for net-next branch I derive them from Davem's
-net-next tree.
-
-If you want to use tc_bpf.h it has to be in upstream kernel first.
-
-Sorry
+It is a useful concept but as others have pointed out the idea of reserving
+a keyword 'all' at this point is likely to cause somebody to break.
+So sorry.
