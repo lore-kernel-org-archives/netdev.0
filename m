@@ -1,7 +1,7 @@
 From: Felipe Balbi <balbi@ti.com>
-Subject: [patch-net-next v2 3/3] net: ethernet: cpsw: don't requests IRQs we don't use
-Date: Wed, 14 Jan 2015 10:58:49 -0600
-Message-ID: <1421254729-10602-3-git-send-email-balbi@ti.com>
+Subject: [patch-net-next v2 2/3] net: ethernet: cpsw: split out IRQ handler
+Date: Wed, 14 Jan 2015 10:58:48 -0600
+Message-ID: <1421254729-10602-2-git-send-email-balbi@ti.com>
 References: <1421254729-10602-1-git-send-email-balbi@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,135 +10,116 @@ Cc: Tony Lindgren <tony@atomide.com>,
 	<mugunthanvnm@ti.com>, <netdev@vger.kernel.org>,
 	Felipe Balbi <balbi@ti.com>
 To: <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from devils.ext.ti.com ([198.47.26.153]:36813 "EHLO
-	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751706AbbANQ7g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2015 11:59:36 -0500
+Return-path: <linux-omap-owner@vger.kernel.org>
 In-Reply-To: <1421254729-10602-1-git-send-email-balbi@ti.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-omap-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-CPSW never uses RX_THRESHOLD or MISC interrupts. In
-fact, they are always kept masked in their appropriate
-IRQ Enable register.
-
-Instead of allocating an IRQ that never fires, it's best
-to remove that code altogether and let future patches
-implement it if anybody needs those.
+Now we can introduce dedicated IRQ handlers
+for each of the IRQ events. This helps with
+cleaning up a little bit of the clutter in
+cpsw_interrupt() while also making sure that
+TX IRQs will try to handle TX buffers while
+RX IRQs will try to handle RX buffers.
 
 Signed-off-by: Felipe Balbi <balbi@ti.com>
 ---
- drivers/net/ethernet/ti/cpsw.c | 55 ++++++++++++------------------------------
- 1 file changed, 15 insertions(+), 40 deletions(-)
+ drivers/net/ethernet/ti/cpsw.c | 41 ++++++++++++++++++++++++++++++-----------
+ 1 file changed, 30 insertions(+), 11 deletions(-)
 
 diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index c6c483f3e49f..ba09ff3c1695 100644
+index 8e1af51e4b76..c6c483f3e49f 100644
 --- a/drivers/net/ethernet/ti/cpsw.c
 +++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -754,16 +754,6 @@ requeue:
+@@ -754,18 +754,36 @@ requeue:
  		dev_kfree_skb_any(new_skb);
  }
  
--static irqreturn_t cpsw_dummy_interrupt(int irq, void *dev_id)
--{
--	struct cpsw_priv *priv = dev_id;
--	int value = irq - priv->irqs_table[0];
--
--	cpdma_ctlr_eoi(priv->dma, value);
--
--	return IRQ_HANDLED;
--}
--
- static irqreturn_t cpsw_tx_interrupt(int irq, void *dev_id)
+-static irqreturn_t cpsw_interrupt(int irq, void *dev_id)
++static irqreturn_t cpsw_dummy_interrupt(int irq, void *dev_id)
  {
  	struct cpsw_priv *priv = dev_id;
-@@ -1635,8 +1625,8 @@ static void cpsw_ndo_poll_controller(struct net_device *ndev)
+ 	int value = irq - priv->irqs_table[0];
+ 
+-	/* NOTICE: Ending IRQ here. The trick with the 'value' variable above
+-	 * is to make sure we will always write the correct value to the EOI
+-	 * register. Namely 0 for RX_THRESH Interrupt, 1 for RX Interrupt, 2
+-	 * for TX Interrupt and 3 for MISC Interrupt.
+-	 */
+ 	cpdma_ctlr_eoi(priv->dma, value);
+ 
++	return IRQ_HANDLED;
++}
++
++static irqreturn_t cpsw_tx_interrupt(int irq, void *dev_id)
++{
++	struct cpsw_priv *priv = dev_id;
++
++	cpdma_ctlr_eoi(priv->dma, CPDMA_EOI_TX);
++	cpdma_chan_process(priv->txch, 128);
++
++	priv = cpsw_get_slave_priv(priv, 1);
++	if (priv)
++		cpdma_chan_process(priv->txch, 128);
++
++	return IRQ_HANDLED;
++}
++
++static irqreturn_t cpsw_rx_interrupt(int irq, void *dev_id)
++{
++	struct cpsw_priv *priv = dev_id;
++
++	cpdma_ctlr_eoi(priv->dma, CPDMA_EOI_RX);
++
+ 	cpsw_intr_disable(priv);
+ 	if (priv->irq_enabled == true) {
+ 		cpsw_disable_irq(priv);
+@@ -1617,7 +1635,8 @@ static void cpsw_ndo_poll_controller(struct net_device *ndev)
  
  	cpsw_intr_disable(priv);
  	cpdma_ctlr_int_ctrl(priv->dma, false);
--	cpsw_rx_interrupt(priv->irq[1], priv);
--	cpsw_tx_interrupt(priv->irq[2], priv);
-+	cpsw_rx_interrupt(priv->irq[0], priv);
-+	cpsw_tx_interrupt(priv->irq[1], priv);
+-	cpsw_interrupt(ndev->irq, priv);
++	cpsw_rx_interrupt(priv->irq[1], priv);
++	cpsw_tx_interrupt(priv->irq[2], priv);
  	cpdma_ctlr_int_ctrl(priv->dma, true);
  	cpsw_intr_enable(priv);
  }
-@@ -2358,30 +2348,27 @@ static int cpsw_probe(struct platform_device *pdev)
- 		goto clean_dma_ret;
- 	}
- 
--	ndev->irq = platform_get_irq(pdev, 0);
-+	ndev->irq = platform_get_irq(pdev, 1);
- 	if (ndev->irq < 0) {
- 		dev_err(priv->dev, "error getting irq resource\n");
- 		ret = -ENOENT;
- 		goto clean_ale_ret;
- 	}
- 
--	irq = platform_get_irq(pdev, 0);
--	if (irq < 0)
--		goto clean_ale_ret;
--
--	priv->irqs_table[0] = irq;
--	ret = devm_request_irq(&pdev->dev, irq, cpsw_dummy_interrupt,
--			       0, dev_name(&pdev->dev), priv);
--	if (ret < 0) {
--		dev_err(priv->dev, "error attaching irq (%d)\n", ret);
--		goto clean_ale_ret;
--	}
-+	/* Grab RX and TX IRQs. Note that we also have RX_THRESHOLD and
-+	 * MISC IRQs which are always kept disabled with this driver so
-+	 * we will not request them.
-+	 *
-+	 * If anyone wants to implement support for those, make sure to
-+	 * first request and append them to irqs_table array.
-+	 */
- 
-+	/* RX IRQ */
- 	irq = platform_get_irq(pdev, 1);
- 	if (irq < 0)
+@@ -2351,7 +2370,7 @@ static int cpsw_probe(struct platform_device *pdev)
  		goto clean_ale_ret;
  
--	priv->irqs_table[1] = irq;
-+	priv->irqs_table[0] = irq;
- 	ret = devm_request_irq(&pdev->dev, irq, cpsw_rx_interrupt,
- 			       0, dev_name(&pdev->dev), priv);
- 	if (ret < 0) {
-@@ -2389,31 +2376,19 @@ static int cpsw_probe(struct platform_device *pdev)
- 		goto clean_ale_ret;
- 	}
- 
-+	/* TX IRQ */
- 	irq = platform_get_irq(pdev, 2);
- 	if (irq < 0)
- 		goto clean_ale_ret;
- 
--	priv->irqs_table[2] = irq;
-+	priv->irqs_table[1] = irq;
- 	ret = devm_request_irq(&pdev->dev, irq, cpsw_tx_interrupt,
+ 	priv->irqs_table[0] = irq;
+-	ret = devm_request_irq(&pdev->dev, irq, cpsw_interrupt,
++	ret = devm_request_irq(&pdev->dev, irq, cpsw_dummy_interrupt,
  			       0, dev_name(&pdev->dev), priv);
  	if (ret < 0) {
  		dev_err(priv->dev, "error attaching irq (%d)\n", ret);
+@@ -2363,7 +2382,7 @@ static int cpsw_probe(struct platform_device *pdev)
  		goto clean_ale_ret;
- 	}
--
--	irq = platform_get_irq(pdev, 3);
--	if (irq < 0)
--		goto clean_ale_ret;
--
--	priv->irqs_table[3] = irq;
--	ret = devm_request_irq(&pdev->dev, irq, cpsw_dummy_interrupt,
--			       0, dev_name(&pdev->dev), priv);
--	if (ret < 0) {
--		dev_err(priv->dev, "error attaching irq (%d)\n", ret);
--		goto clean_ale_ret;
--	}
--
--	priv->num_irqs = 4;
-+	priv->num_irqs = 2;
  
- 	ndev->features |= NETIF_F_HW_VLAN_CTAG_FILTER;
+ 	priv->irqs_table[1] = irq;
+-	ret = devm_request_irq(&pdev->dev, irq, cpsw_interrupt,
++	ret = devm_request_irq(&pdev->dev, irq, cpsw_rx_interrupt,
+ 			       0, dev_name(&pdev->dev), priv);
+ 	if (ret < 0) {
+ 		dev_err(priv->dev, "error attaching irq (%d)\n", ret);
+@@ -2375,7 +2394,7 @@ static int cpsw_probe(struct platform_device *pdev)
+ 		goto clean_ale_ret;
  
+ 	priv->irqs_table[2] = irq;
+-	ret = devm_request_irq(&pdev->dev, irq, cpsw_interrupt,
++	ret = devm_request_irq(&pdev->dev, irq, cpsw_tx_interrupt,
+ 			       0, dev_name(&pdev->dev), priv);
+ 	if (ret < 0) {
+ 		dev_err(priv->dev, "error attaching irq (%d)\n", ret);
+@@ -2387,7 +2406,7 @@ static int cpsw_probe(struct platform_device *pdev)
+ 		goto clean_ale_ret;
+ 
+ 	priv->irqs_table[3] = irq;
+-	ret = devm_request_irq(&pdev->dev, irq, cpsw_interrupt,
++	ret = devm_request_irq(&pdev->dev, irq, cpsw_dummy_interrupt,
+ 			       0, dev_name(&pdev->dev), priv);
+ 	if (ret < 0) {
+ 		dev_err(priv->dev, "error attaching irq (%d)\n", ret);
 -- 
 2.2.0
+
