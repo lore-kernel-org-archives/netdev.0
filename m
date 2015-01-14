@@ -1,47 +1,65 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2 0/3] ip netns: Run over all netns
-Date: Tue, 13 Jan 2015 17:28:37 -0800
-Message-ID: <20150113172837.793f0969@urahara>
-References: <1420628662-9930-1-git-send-email-vadim4j@gmail.com>
+Subject: Re: [PATCH iproute2] ss: Filter inet dgram sockets with established
+ state by default
+Date: Tue, 13 Jan 2015 17:31:50 -0800
+Message-ID: <20150113173150.0a50f74e@urahara>
+References: <1420738342-3750-1-git-send-email-vadim4j@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: Vadim Kochan <vadim4j@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:55164 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751335AbbANB2q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2015 20:28:46 -0500
-Received: by mail-pa0-f48.google.com with SMTP id rd3so7078837pab.7
-        for <netdev@vger.kernel.org>; Tue, 13 Jan 2015 17:28:46 -0800 (PST)
-In-Reply-To: <1420628662-9930-1-git-send-email-vadim4j@gmail.com>
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:52916 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751389AbbANBb7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2015 20:31:59 -0500
+Received: by mail-pa0-f54.google.com with SMTP id fb1so7063835pad.13
+        for <netdev@vger.kernel.org>; Tue, 13 Jan 2015 17:31:58 -0800 (PST)
+In-Reply-To: <1420738342-3750-1-git-send-email-vadim4j@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed,  7 Jan 2015 13:04:19 +0200
+On Thu,  8 Jan 2015 19:32:22 +0200
 Vadim Kochan <vadim4j@gmail.com> wrote:
 
 > From: Vadim Kochan <vadim4j@gmail.com>
 > 
-> Allow 'ip netns del' and 'ip netns exec' run over each network namespace names.
+> As inet dgram sockets (udp, raw) can call connect(...)  - they
+> might be set in ESTABLISHED state. So keep the original behaviour of
+> 'ss' which filtered them by ESTABLISHED state by default. So:
 > 
-> 'ip netns exec' executes command forcely on eacn nsname.
+>     $ ss -u
 > 
-> Vadim Kochan (3):
->   lib: Exec func on each netns
->   ip netns: Allow exec on each netns
->   ip netns: Delete all netns
+>     or
 > 
->  include/namespace.h |  6 ++++
->  include/utils.h     |  5 +++
->  ip/ipnetns.c        | 96 ++++++++++++++++++++++++++++++++---------------------
->  lib/namespace.c     | 22 ++++++++++++
->  lib/utils.c         | 28 ++++++++++++++++
->  man/man8/ip-netns.8 | 26 ++++++++++++---
->  6 files changed, 141 insertions(+), 42 deletions(-)
+>     $ ss -w
 > 
+> Will show only ESTABLISHED UDP sockets by default.
+> 
+> Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
+> ---
+>  misc/ss.c | 4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
+> 
+> diff --git a/misc/ss.c b/misc/ss.c
+> index 08d210a..015d829 100644
+> --- a/misc/ss.c
+> +++ b/misc/ss.c
+> @@ -170,11 +170,11 @@ static const struct filter default_dbs[MAX_DB] = {
+>  		.families = (1 << AF_INET) | (1 << AF_INET6),
+>  	},
+>  	[UDP_DB] = {
+> -		.states   = (1 << SS_CLOSE),
+> +		.states   = (1 << SS_ESTABLISHED),
+>  		.families = (1 << AF_INET) | (1 << AF_INET6),
+>  	},
+>  	[RAW_DB] = {
+> -		.states   = (1 << SS_CLOSE),
+> +		.states   = (1 << SS_ESTABLISHED),
+>  		.families = (1 << AF_INET) | (1 << AF_INET6),
+>  	},
+>  	[UNIX_DG_DB] = {
 
-It is a useful concept but as others have pointed out the idea of reserving
-a keyword 'all' at this point is likely to cause somebody to break.
-So sorry.
+This is a change likely to break somebody using 'ss -u' now and the bound
+sockets will disappear from the output.
