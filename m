@@ -1,39 +1,52 @@
-From: Benjamin Poirier <bpoirier@suse.de>
-Subject: [PATCH] netdevice: Add missing parentheses in macro
-Date: Wed, 14 Jan 2015 16:52:35 +0900
-Message-ID: <1421221955-9505-1-git-send-email-bpoirier@suse.de>
-Cc: Nikolay Aleksandrov <nikolay@redhat.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next v13 3/3] net: hisilicon: new hip04 ethernet
+ driver
+Date: Wed, 14 Jan 2015 00:06:22 -0800
+Message-ID: <1421222782.2847.1.camel@perches.com>
+References: <1421217254-12008-1-git-send-email-dingtianhong@huawei.com>
+	 <1421217254-12008-4-git-send-email-dingtianhong@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: arnd@arndb.de, robh+dt@kernel.org, davem@davemloft.net,
+	grant.likely@linaro.org, agraf@suse.de,
+	sergei.shtylyov@cogentembedded.com,
+	linux-arm-kernel@lists.infradead.org, eric.dumazet@gmail.com,
+	xuwei5@hisilicon.com, zhangfei.gao@linaro.org,
+	netdev@vger.kernel.org, devicetree@vger.kernel.org,
+	linux@arm.linux.org.uk
+To: Ding Tianhong <dingtianhong@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f170.google.com ([209.85.192.170]:59577 "EHLO
-	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932741AbbANHx6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2015 02:53:58 -0500
+Received: from smtprelay0155.hostedemail.com ([216.40.44.155]:48234 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S932477AbbANIG2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2015 03:06:28 -0500
+In-Reply-To: <1421217254-12008-4-git-send-email-dingtianhong@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-For example, one could conceivably call
-	for_each_netdev_in_bond_rcu(condition ? bond1 : bond2, slave)
-and get an unexpected result.
+On Wed, 2015-01-14 at 14:34 +0800, Ding Tianhong wrote:
+> Support Hisilicon hip04 ethernet driver, including 100M / 1000M controller.
+> The controller has no tx done interrupt, reclaim xmitted buffer in the poll.
 
-Signed-off-by: Benjamin Poirier <bpoirier@suse.de>
----
- include/linux/netdevice.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Single comment:
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 7f794db..52fd8e8 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -2085,7 +2085,7 @@ extern rwlock_t				dev_base_lock;		/* Device list lock */
- 	list_for_each_entry_continue_rcu(d, &(net)->dev_base_head, dev_list)
- #define for_each_netdev_in_bond_rcu(bond, slave)	\
- 		for_each_netdev_rcu(&init_net, slave)	\
--			if (netdev_master_upper_dev_get_rcu(slave) == bond)
-+			if (netdev_master_upper_dev_get_rcu(slave) == (bond))
- #define net_device_entry(lh)	list_entry(lh, struct net_device, dev_list)
- 
- static inline struct net_device *next_net_device(struct net_device *dev)
--- 
-2.2.0
+> diff --git a/drivers/net/ethernet/hisilicon/hip04_eth.c b/drivers/net/ethernet/hisilicon/hip04_eth.c
+[]
+> +static int hip04_rx_poll(struct napi_struct *napi, int budget)
+> +{
+[]
+> +	while (cnt && !last) {
+> +		buf = priv->rx_buf[priv->rx_head];
+> +		skb = build_skb(buf, priv->rx_buf_size);
+> +		if (unlikely(!skb))
+> +			net_dbg_ratelimited("build_skb failed\n");
+> +
+> +		dma_unmap_single(&ndev->dev, priv->rx_phys[priv->rx_head],
+> +				 RX_BUF_SIZE, DMA_FROM_DEVICE);
+> +		priv->rx_phys[priv->rx_head] = 0;
+> +
+> +		desc = (struct rx_desc *)skb->data;
+
+Perhaps if (!skb) is possible, there shouldn't be
+a dereference of that known null here.
