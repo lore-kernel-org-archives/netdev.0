@@ -1,65 +1,30 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2] ss: Filter inet dgram sockets with established
- state by default
-Date: Tue, 13 Jan 2015 17:31:50 -0800
-Message-ID: <20150113173150.0a50f74e@urahara>
-References: <1420738342-3750-1-git-send-email-vadim4j@gmail.com>
+Subject: Re: [PATCH iproute2] ss: Usage filter state names, options
+ alignment
+Date: Tue, 13 Jan 2015 17:33:02 -0800
+Message-ID: <20150113173302.1fa3317e@urahara>
+References: <1420684243-23921-1-git-send-email-vadim4j@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: Vadim Kochan <vadim4j@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:52916 "EHLO
-	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751389AbbANBb7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2015 20:31:59 -0500
-Received: by mail-pa0-f54.google.com with SMTP id fb1so7063835pad.13
-        for <netdev@vger.kernel.org>; Tue, 13 Jan 2015 17:31:58 -0800 (PST)
-In-Reply-To: <1420738342-3750-1-git-send-email-vadim4j@gmail.com>
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:45596 "EHLO
+	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751122AbbANBdN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2015 20:33:13 -0500
+Received: by mail-pa0-f47.google.com with SMTP id kq14so7117311pab.6
+        for <netdev@vger.kernel.org>; Tue, 13 Jan 2015 17:33:13 -0800 (PST)
+In-Reply-To: <1420684243-23921-1-git-send-email-vadim4j@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu,  8 Jan 2015 19:32:22 +0200
+On Thu,  8 Jan 2015 04:30:43 +0200
 Vadim Kochan <vadim4j@gmail.com> wrote:
 
 > From: Vadim Kochan <vadim4j@gmail.com>
 > 
-> As inet dgram sockets (udp, raw) can call connect(...)  - they
-> might be set in ESTABLISHED state. So keep the original behaviour of
-> 'ss' which filtered them by ESTABLISHED state by default. So:
-> 
->     $ ss -u
-> 
->     or
-> 
->     $ ss -w
-> 
-> Will show only ESTABLISHED UDP sockets by default.
-> 
 > Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
-> ---
->  misc/ss.c | 4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/misc/ss.c b/misc/ss.c
-> index 08d210a..015d829 100644
-> --- a/misc/ss.c
-> +++ b/misc/ss.c
-> @@ -170,11 +170,11 @@ static const struct filter default_dbs[MAX_DB] = {
->  		.families = (1 << AF_INET) | (1 << AF_INET6),
->  	},
->  	[UDP_DB] = {
-> -		.states   = (1 << SS_CLOSE),
-> +		.states   = (1 << SS_ESTABLISHED),
->  		.families = (1 << AF_INET) | (1 << AF_INET6),
->  	},
->  	[RAW_DB] = {
-> -		.states   = (1 << SS_CLOSE),
-> +		.states   = (1 << SS_ESTABLISHED),
->  		.families = (1 << AF_INET) | (1 << AF_INET6),
->  	},
->  	[UNIX_DG_DB] = {
 
-This is a change likely to break somebody using 'ss -u' now and the bound
-sockets will disappear from the output.
+Accepted
