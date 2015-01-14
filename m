@@ -1,47 +1,38 @@
-From: Sathya Perla <Sathya.Perla@Emulex.Com>
-Subject: RE: be2net: SR-IOV, vlan isolation issue
-Date: Wed, 14 Jan 2015 06:26:00 +0000
-Message-ID: <CF9D1877D81D214CB0CA0669EFAE020C68D6D642@CMEXMB1.ad.emulex.com>
-References: <54AF9FF1.3040906@univ-nantes.fr>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [net-next PATCH v2 00/12] Flow API
+Date: Wed, 14 Jan 2015 08:29:24 +0200
+Message-ID: <CAJ3xEMhSkHMTqvvaP2jS5Q8dh3FgqSt2JnQc+WuPeYwh0P5dkw@mail.gmail.com>
+References: <20150113212941.13874.48692.stgit@nitbit.x32>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Yoann Juet <yoann.juet@univ-nantes.fr>
-To: Yoann Juet <veilletechno-irts@univ-nantes.fr>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Thomas Graf <tgraf@suug.ch>, simon.horman@netronome.com,
+	Scott Feldman <sfeldma@gmail.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	David Miller <davem@davemloft.net>
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge1.emulex.com ([138.239.224.99]:22295 "EHLO
-	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751850AbbANG00 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2015 01:26:26 -0500
-In-Reply-To: <54AF9FF1.3040906@univ-nantes.fr>
-Content-Language: en-US
+Received: from mail-ob0-f176.google.com ([209.85.214.176]:41318 "EHLO
+	mail-ob0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750776AbbANG3Z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2015 01:29:25 -0500
+Received: by mail-ob0-f176.google.com with SMTP id vb8so6554574obc.7
+        for <netdev@vger.kernel.org>; Tue, 13 Jan 2015 22:29:24 -0800 (PST)
+In-Reply-To: <20150113212941.13874.48692.stgit@nitbit.x32>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBuZXRkZXYtb3duZXJAdmdlci5r
-ZXJuZWwub3JnIFttYWlsdG86bmV0ZGV2LQ0KPiANCj4gSGkgYWxsLA0KPiANCj4gSSByZWNlbnRs
-eSBkaXNjb3ZlcmVkIHVuYXR0ZW5kZWQgYmVoYXZpb3IgZnJvbSBFbXVsZXggY2FyZHMgd2l0aCBL
-Vk0NCj4gaHlwZXJ2aXNvciBhbmQgU1ItSU9WLiBPbiBzdWNoIDEwR2JwcyBjYXJkcyAoYmUybmV0
-IG1vZHVsZSwgRW11bGV4DQo+IE9uZUNvbm5lY3QgT0NtMTQxMDItVTMtRCBkZXZpY2VzKSwgZ3Vl
-c3QgbWFjaGluZXMgYXR0YWNoZWQgdG8gVkZzIG9uDQo+IHRoZQ0KPiBFbXVsZXggUGh5c2ljYWwg
-RnVuY3Rpb25zIChQRikgc2VlIGFsbCBtdWx0aWNhc3QgYW5kIGJyb2FkY2FzdCAobm90DQo+IHVu
-aWNhc3QpIHRyYWZmaWMgZnJvbS90byBvdGhlciBWTSBsb2NhdGVkIG9uIHRoZSBzYW1lIFBGICoq
-QlVUKiogb24NCj4gb3RoZXIgdmxhbnMuIEp1c3QgcHV0IGludG8gcHJvbWlzY3VvdXMgbW9kZSB0
-aGUgZ3Vlc3QgbWFjaGluZSdzDQo+IGludGVyZmFjZSBhbmQgeW91IHdpbGwgb2JzZXJ2ZSBpbmJv
-dW5kLCBvdXRib3VuZCAobXVsdGljYXN0ICsgYnJvYWRjYXN0DQo+IG9ubHkpIGlycmVsZXZhbnQg
-dHJhZmZpYy4NCj4gDQo+IFBsZWFzZSBub3RlIHRoYXQgaXJyZWxldmFudCB0cmFmZmljIGlzIG5v
-dCBzZW50IHRvIHRoZSBndWVzdCBtYWNoaW5lDQo+IFRDUC9JUCBzdGFjay4gTm8gZmlyZXdhbGwg
-aGl0dGluZyBmb3IgaW5zdGFuY2UuIFRoZSBpc3N1ZSBpcyBhYm91dA0KPiB0cmFmZmljIG1vbml0
-b3Jpbmcgd2l0aCBhIFZGIHB1dCBpbnRvIHByb21pc2N1b3VzIG1vZGUgdXNpbmcgYSBzbmlmZmVy
-DQo+IGxpa2UgdHNoYXJrLCB0Y3BkdW1wLi4uIFZsYW4gaXNvbGF0aW9uIHNlZW1zIG5vdCAxMDAl
-IGVmZmVjdGl2ZSBmcm9tIHRoZQ0KPiBndWVzdCBwZXJzcGVjdGl2ZSBzaW5jZSBtY2FzdCtiY2Fz
-dCBpbmZvcm1hdGlvbiBsZWFrcy4NCj4gDQo+IEEgc2ltaWxhciBpc3N1ZSBoYXMgYWxyZWFkeSBi
-ZWVuIG9ic2VydmVkIHdpdGggQnJvYWRjb20gY2FyZHMgYW5kIHRoZW4NCj4gcGF0Y2hlZCBieSB0
-aGUgZGV2ZWxvcGVyIHRlYW0uIFJlZmVyIHRvIHRoZSBwb3N0IGluIGFyY2hpdmUgImJueDJ4ICsN
-Cj4gU1ItSU9WLCBubyBpbnRlcm5hbCBMMiBzd2l0Y2hpbmciLCAxMiBGZWIgMjAxNC4gRW11bGV4
-IGRyaXZlciBzZWVtcyB0bw0KPiBzdWZmZXIgdGhlIHNhbWUgcHJvYmxlbSwgaXNuJ3QgaXQgPw0K
-PiANCg0KWW9hbm4sIHRoYW5rcyBmb3IgcmVwb3J0aW5nIHRoaXMgaXNzdWUuIFRoaXMgaXNzdWUg
-aXMgY2F1c2VkIGJlY2F1c2UNCnRoZSBWRiB3YXMgYWxsb3dlZCB0byBnbyBpbnRvIHZsYW4tcHJv
-bWlzY3VvdXMgbW9kZSBieSB0aGUgUEYuDQpXZSdsbCB0cnkgdG8gcHJvdmlkZSBhIGZpeCBmb3Ig
-dGhpcyBzb29uLi4uDQoNCnRoYW5rcywNCi1TYXRoeWENCg==
+On Tue, Jan 13, 2015 at 11:35 PM, John Fastabend
+<john.fastabend@gmail.com> wrote:
+> I tried to roll in all the feedback from v1 into this series annotated
+> here,
+
+Hi John,
+
+Can you please drop V2 to your
+https://github.com/jrfastab/rocker-net-next.git tree?
+
+thanks,
+
+Or.
