@@ -1,40 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] fixup! net/macb: Adding comments to various #defs
- to make interpretation easier
-Date: Wed, 14 Jan 2015 16:52:20 -0500 (EST)
-Message-ID: <20150114.165220.2282566005036464131.davem@davemloft.net>
-References: <1421266881-17314-1-git-send-email-xander.huff@ni.com>
-	<20150114.160929.619787519481343067.davem@davemloft.net>
-	<54B6DD2A.1050502@ni.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [net-next PATCH v2 03/12] net: flow: implement flow cache for
+ get routines
+Date: Wed, 14 Jan 2015 21:52:32 +0000
+Message-ID: <20150114215232.GF2105@casper.infradead.org>
+References: <20150113212941.13874.48692.stgit@nitbit.x32>
+ <20150113213621.13874.40461.stgit@nitbit.x32>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: nicolas.ferre@atmel.com, netdev@vger.kernel.org,
-	jaeden.amero@ni.com, rich.tollerton@ni.com, ben.shelton@ni.com,
-	brad.mouring@ni.com, linux-kernel@vger.kernel.org,
-	cyrille.pitchen@atmel.com
-To: xander.huff@ni.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <54B6DD2A.1050502@ni.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: simon.horman@netronome.com, sfeldma@gmail.com,
+	netdev@vger.kernel.org, gerlitz.or@gmail.com, jhs@mojatatu.com,
+	andy@greyhouse.net, davem@davemloft.net
+To: John Fastabend <john.fastabend@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from casper.infradead.org ([85.118.1.10]:33647 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754123AbbANVwd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2015 16:52:33 -0500
+Content-Disposition: inline
+In-Reply-To: <20150113213621.13874.40461.stgit@nitbit.x32>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Xander Huff <xander.huff@ni.com>
-Date: Wed, 14 Jan 2015 15:18:34 -0600
-
-> On 1/14/2015 3:09 PM, David Miller wrote:
->>
->> As I mentioned, this won't do.
->>
->> I've already applied your original patches to net-next, therefore you
->> will
->> have to submit fixups relative to that.
->>
-> These fixup commits are relative to an updated net-next, specifically
-> "237de6e Merge branch 'hip04'".
+On 01/13/15 at 01:36pm, John Fastabend wrote:
+> I chose rhashtable to get the dynamic resizing. I could use arrays
+> but I don't want to pre-allocate large cache tables when we may
+> never use them.
 > 
-> Do you need them relative to (what I'm seeing is the latest) "2733135
-> Merge branch 'vxlan_rco'"?
+> One oddity in the rhashtable implementation is there is no way
+> AFAICS to do delayed free's so we use rcu_sync heavily. This should be
+> fine, get operations shouldn't be a used heavily.
 
-Why don't you make your subject lines and commit messages just say what
-they are doing, rather than just saying "fix this other change"?
+John, can you please clarify a bit, I'm not sure I understand. Are you
+talking about delayed freeing of the table itself or elements?
+
+The Netlink usage would be an example of a user with delayed element
+freeing.
+
+I'm glad to add whatever is required.
