@@ -1,60 +1,89 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH RFC v2 net-next 2/2] ip_tunnel: Remove struct gro_cells
-Date: Wed, 14 Jan 2015 14:53:59 -0800
-Message-ID: <1421276039.11734.25.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1421192564-437455-1-git-send-email-kafai@fb.com>
-	 <1421192564-437455-3-git-send-email-kafai@fb.com>
+From: Vadim Kochan <vadim4j@gmail.com>
+Subject: Re: [PATCH iproute2] ss: Filter inet dgram sockets with established
+ state by default
+Date: Thu, 15 Jan 2015 00:43:47 +0200
+Message-ID: <20150114224347.GA14983@angus-think.lan>
+References: <1420738342-3750-1-git-send-email-vadim4j@gmail.com>
+ <20150113173150.0a50f74e@urahara>
+ <20150114064944.GA28611@angus-think.lan>
+ <20150114144120.0e15ac1f@urahara>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kernel-team@fb.com
-To: Martin KaFai Lau <kafai@fb.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Vadim Kochan <vadim4j@gmail.com>, netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f169.google.com ([209.85.223.169]:55923 "EHLO
-	mail-ie0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751085AbbANWyB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2015 17:54:01 -0500
-Received: by mail-ie0-f169.google.com with SMTP id y20so11808838ier.0
-        for <netdev@vger.kernel.org>; Wed, 14 Jan 2015 14:54:00 -0800 (PST)
-In-Reply-To: <1421192564-437455-3-git-send-email-kafai@fb.com>
+Received: from mail-la0-f47.google.com ([209.85.215.47]:56581 "EHLO
+	mail-la0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751590AbbANWyT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2015 17:54:19 -0500
+Received: by mail-la0-f47.google.com with SMTP id hz20so10781731lab.6
+        for <netdev@vger.kernel.org>; Wed, 14 Jan 2015 14:54:17 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20150114144120.0e15ac1f@urahara>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2015-01-13 at 15:42 -0800, Martin KaFai Lau wrote:
-> After adding percpu gro_cells, struct gro_cells can be removed.
+On Wed, Jan 14, 2015 at 02:41:20PM -0800, Stephen Hemminger wrote:
+> On Wed, 14 Jan 2015 08:49:44 +0200
+> Vadim Kochan <vadim4j@gmail.com> wrote:
 > 
-> Signed-off-by: Martin KaFai Lau <kafai@fb.com>
-> ---
->  include/net/gro_cells.h  | 34 ++++++++++++++++------------------
->  include/net/ip_tunnels.h |  2 +-
->  net/ipv4/ip_tunnel.c     | 11 +++++------
->  3 files changed, 22 insertions(+), 25 deletions(-)
+> > On Tue, Jan 13, 2015 at 05:31:50PM -0800, Stephen Hemminger wrote:
+> > > On Thu,  8 Jan 2015 19:32:22 +0200
+> > > Vadim Kochan <vadim4j@gmail.com> wrote:
+> > > 
+> > > > From: Vadim Kochan <vadim4j@gmail.com>
+> > > > 
+> > > > As inet dgram sockets (udp, raw) can call connect(...)  - they
+> > > > might be set in ESTABLISHED state. So keep the original behaviour of
+> > > > 'ss' which filtered them by ESTABLISHED state by default. So:
+> > > > 
+> > > >     $ ss -u
+> > > > 
+> > > >     or
+> > > > 
+> > > >     $ ss -w
+> > > > 
+> > > > Will show only ESTABLISHED UDP sockets by default.
+> > > > 
+> > > > Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
+> > > > ---
+> > > >  misc/ss.c | 4 ++--
+> > > >  1 file changed, 2 insertions(+), 2 deletions(-)
+> > > > 
+> > > > diff --git a/misc/ss.c b/misc/ss.c
+> > > > index 08d210a..015d829 100644
+> > > > --- a/misc/ss.c
+> > > > +++ b/misc/ss.c
+> > > > @@ -170,11 +170,11 @@ static const struct filter default_dbs[MAX_DB] = {
+> > > >  		.families = (1 << AF_INET) | (1 << AF_INET6),
+> > > >  	},
+> > > >  	[UDP_DB] = {
+> > > > -		.states   = (1 << SS_CLOSE),
+> > > > +		.states   = (1 << SS_ESTABLISHED),
+> > > >  		.families = (1 << AF_INET) | (1 << AF_INET6),
+> > > >  	},
+> > > >  	[RAW_DB] = {
+> > > > -		.states   = (1 << SS_CLOSE),
+> > > > +		.states   = (1 << SS_ESTABLISHED),
+> > > >  		.families = (1 << AF_INET) | (1 << AF_INET6),
+> > > >  	},
+> > > >  	[UNIX_DG_DB] = {
+> > > 
+> > > This is a change likely to break somebody using 'ss -u' now and the bound
+> > > sockets will disappear from the output.
+> > > 
+> > 
+> > But thats was as original behaviour before I added table-driven code
+> > (about few commits ago), so thats a rather fix (sorry I did not noticed
+> > about it) to keep the previous behaviour for dgram sockets - show
+> > established states by default.
+> > 
+> > Regards,
 > 
-> diff --git a/include/net/gro_cells.h b/include/net/gro_cells.h
-> index 0f712c0..b1aeea1 100644
-> --- a/include/net/gro_cells.h
-> +++ b/include/net/gro_cells.h
-> @@ -10,21 +10,18 @@ struct gro_cell {
->  	struct napi_struct	napi;
->  };
->  
-> -struct gro_cells {
-> -	struct gro_cell __percpu	*cells;
-> -};
-> -
+> Ok, I will merge it and update the comments.
+Even with this PATCH I am still confused what is preferred behaviour -
+show established dgram sockets (as it was all the way) or closed + established by default.
 
-This seems a lot of code churn for no runtime difference ?
+What do you think ?
 
-If we ever want to add an additional 'field', we likely have to revert
-this patch.
-
--static inline void gro_cells_destroy(struct gro_cells *gcells)
-+static inline void gro_cell_free_percpu(struct gro_cell __percpu *gcells)
- {
-        int i;
- 
--       if (!gcells->cells)
-+       if (IS_ERR_OR_NULL(gcells))
-                return;
-
-For example, I have no idea why this part is needed.
+Thanks,
