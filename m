@@ -1,50 +1,51 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [ 2375.793397] WARNING: CPU: 0 PID: 1149 at
- net/netlink/genetlink.c:1037 genl_unbind+0xc0/0xd0()
-Date: Thu, 15 Jan 2015 00:25:46 +0100
-Message-ID: <1421277946.1950.38.camel@sipsolutions.net>
-References: <20150114161334.28acf5fc@tlielax.poochiereds.net>
-	 <1421275700.1950.34.camel@sipsolutions.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Jeff Layton <jeff.layton@primarydata.com>
+From: Bhavesh Davda <bhavesh@vmware.com>
+Subject: [PATCH] e1000e: Fix 82574/82583 TimeSync errata handling for SYSTIM read
+Date: Wed, 14 Jan 2015 15:30:52 -0800
+Message-ID: <1421278252-13622-1-git-send-email-bhavesh@vmware.com>
+Cc: nithin@vmware.com, ninad@vmware.com, gyang@vmware.com,
+	smurali@vmware.com, pv-drivers@vmware.com,
+	Bhavesh Davda <bhavesh@vmware.com>
+To: linux.nics@intel.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:33282 "EHLO sipsolutions.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751008AbbANXZu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Jan 2015 18:25:50 -0500
-In-Reply-To: <1421275700.1950.34.camel@sipsolutions.net>
+Received: from smtp-outbound-2.vmware.com ([208.91.2.13]:34919 "EHLO
+	smtp-outbound-2.vmware.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752950AbbANXbD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2015 18:31:03 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2015-01-14 at 23:48 +0100, Johannes Berg wrote:
+In emulated 82574 vNICs, TIMINCA might read as '0', so this change prevents a
+divide-by-zero error.
 
-> > [ 2375.793396] ------------[ cut here ]------------
-> > [ 2375.793397] WARNING: CPU: 0 PID: 1149 at net/netlink/genetlink.c:1037 genl_unbind+0xc0/0xd0()
-> 
-> This warning is supposed to happen only when you somehow manage to
-> unsubscribe from a generic netlink group that doesn't actually exist, or
-> so.
+Signed-off-by: Bhavesh Davda <bhavesh@vmware.com>
+Acked-by: Nithin Raju <nithin@vmware.com>
+Acked-by: Ninad Ghodke <ninad@vmware.com>
+Reviewed-by: Guolin Yang <gyang@vmware.com>
+Reviewed-by: Srividya Murali <smurali@vmware.com>
+---
+ drivers/net/ethernet/intel/e1000e/netdev.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
-Ok - after long deliberation I found a way to trigger it. It requires
-that you leave a multicast group (likely by destroying a socket) at the
-same time as the kernel unregisters the generic netlink group. I have no
-idea what generic netlink group you might be using here, but I could
-reproduce it with a strategically placed delay in the netlink code and
-the nl80211 genl group by opening a socket, closing the socket, and
-removing the cfg80211 module (to unregister the nl80211 genl group)
-while the socket was still being closed.
-
-I'll think about a fix tomorrow - it doesn't seem trivial due to
-possible locking concerns.
-
-On the bright side, I cannot see a way to reproduce this without
-removing the genl family at the same time - which is good because it
-means that I've just again audited the case I was worried about (the
-bind/unbind not being symmetric) - it is asymmetric but only in the case
-of genl family removal which seems reasonable (but I should document
-it.)
-
-johannes
+diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+index e14fd85..a4727e3 100644
+--- a/drivers/net/ethernet/intel/e1000e/netdev.c
++++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+@@ -4141,6 +4141,8 @@ static cycle_t e1000e_cyclecounter_read(const struct cyclecounter *cc)
+ 		 * rate and is a multiple of incvalue
+ 		 */
+ 		incvalue = er32(TIMINCA) & E1000_TIMINCA_INCVALUE_MASK;
++		if (incvalue == 0)
++			goto out;
+ 		for (i = 0; i < E1000_MAX_82574_SYSTIM_REREADS; i++) {
+ 			/* latch SYSTIMH on read of SYSTIML */
+ 			systim_next = (cycle_t)er32(SYSTIML);
+@@ -4157,6 +4159,7 @@ static cycle_t e1000e_cyclecounter_read(const struct cyclecounter *cc)
+ 				break;
+ 		}
+ 	}
++out:
+ 	return systim;
+ }
+ 
+-- 
+2.3.0.rc0
