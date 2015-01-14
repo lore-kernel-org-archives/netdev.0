@@ -1,85 +1,188 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 5/8] netfilter: nfnetlink_cthelper: Remove 'const' and '&' to avoid warnings
-Date: Wed, 14 Jan 2015 21:34:46 +0100
-Message-ID: <1421267689-24894-6-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 7/8] netfilter: conntrack: Flush connections with a given mark
+Date: Wed, 14 Jan 2015 21:34:48 +0100
+Message-ID: <1421267689-24894-8-git-send-email-pablo@netfilter.org>
 References: <1421267689-24894-1-git-send-email-pablo@netfilter.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:49655 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751225AbbANUcE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Jan 2015 15:32:04 -0500
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1421267689-24894-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Chen Gang <gang.chen.5i5j@gmail.com>
+From: Kristian Evensen <kristian.evensen@gmail.com>
 
-The related code can be simplified, and also can avoid related warnings
-(with allmodconfig under parisc):
+This patch adds support for selective flushing of conntrack mappings.
+By adding CTA_MARK and CTA_MARK_MASK to a delete-message, the mark (and
+mask) is checked before a connection is deleted while flushing.
 
-    CC [M]  net/netfilter/nfnetlink_cthelper.o
-  net/netfilter/nfnetlink_cthelper.c: In function =E2=80=98nfnl_cthelpe=
-r_from_nlattr=E2=80=99:
-  net/netfilter/nfnetlink_cthelper.c:97:9: warning: passing argument 1 =
-o =E2=80=98memcpy=E2=80=99 discards =E2=80=98const=E2=80=99 qualifier f=
-rom pointer target type [-Wdiscarded-array-qualifiers]
-    memcpy(&help->data, nla_data(attr), help->helper->data_len);
-           ^
-  In file included from include/linux/string.h:17:0,
-                   from include/uapi/linux/uuid.h:25,
-                   from include/linux/uuid.h:23,
-                   from include/linux/mod_devicetable.h:12,
-                   from ./arch/parisc/include/asm/hardware.h:4,
-                   from ./arch/parisc/include/asm/processor.h:15,
-                   from ./arch/parisc/include/asm/spinlock.h:6,
-                   from ./arch/parisc/include/asm/atomic.h:21,
-                   from include/linux/atomic.h:4,
-                   from ./arch/parisc/include/asm/bitops.h:12,
-                   from include/linux/bitops.h:36,
-                   from include/linux/kernel.h:10,
-                   from include/linux/list.h:8,
-                   from include/linux/module.h:9,
-                   from net/netfilter/nfnetlink_cthelper.c:11:
-  ./arch/parisc/include/asm/string.h:8:8: note: expected =E2=80=98void =
-*=E2=80=99 but argument is of type =E2=80=98const char (*)[]=E2=80=99
-   void * memcpy(void * dest,const void *src,size_t count);
-          ^
+Configuring the flush is moved out of ctnetlink_del_conntrack(), and
+instead of calling nf_conntrack_flush_report(), we always call
+nf_ct_iterate_cleanup().  This enables us to only make one call from the
+new ctnetlink_flush_conntrack() and makes it easy to add more filter
+parameters.
 
-Signed-off-by: Chen Gang <gang.chen.5i5j@gmail.com>
-Signed-off-by: Pablo Neira Ayuso <pablo@soleta.eu>
+Filtering is done in the ctnetlink_filter_match()-function, which is
+also called from ctnetlink_dump_table(). ctnetlink_dump_filter has been
+renamed ctnetlink_filter, to indicated that it is no longer only used
+when dumping conntrack entries.
+
+Moreover, reject mark filters with -EOPNOTSUPP if no ct mark support is
+available.
+
+Signed-off-by: Kristian Evensen <kristian.evensen@gmail.com>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nfnetlink_cthelper.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ net/netfilter/nf_conntrack_netlink.c |   89 ++++++++++++++++++++++++----------
+ 1 file changed, 64 insertions(+), 25 deletions(-)
 
-diff --git a/net/netfilter/nfnetlink_cthelper.c b/net/netfilter/nfnetli=
-nk_cthelper.c
-index 9e287cb..a5599fc 100644
---- a/net/netfilter/nfnetlink_cthelper.c
-+++ b/net/netfilter/nfnetlink_cthelper.c
-@@ -86,7 +86,7 @@ nfnl_cthelper_parse_tuple(struct nf_conntrack_tuple *=
-tuple,
- static int
- nfnl_cthelper_from_nlattr(struct nlattr *attr, struct nf_conn *ct)
- {
--	const struct nf_conn_help *help =3D nfct_help(ct);
-+	struct nf_conn_help *help =3D nfct_help(ct);
-=20
- 	if (attr =3D=3D NULL)
- 		return -EINVAL;
-@@ -94,7 +94,7 @@ nfnl_cthelper_from_nlattr(struct nlattr *attr, struct=
- nf_conn *ct)
- 	if (help->helper->data_len =3D=3D 0)
- 		return -EINVAL;
-=20
--	memcpy(&help->data, nla_data(attr), help->helper->data_len);
-+	memcpy(help->data, nla_data(attr), help->helper->data_len);
+diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
+index 1bd9ed9..d1c2394 100644
+--- a/net/netfilter/nf_conntrack_netlink.c
++++ b/net/netfilter/nf_conntrack_netlink.c
+@@ -749,13 +749,47 @@ static int ctnetlink_done(struct netlink_callback *cb)
  	return 0;
  }
-=20
---=20
+ 
+-struct ctnetlink_dump_filter {
++struct ctnetlink_filter {
+ 	struct {
+ 		u_int32_t val;
+ 		u_int32_t mask;
+ 	} mark;
+ };
+ 
++static struct ctnetlink_filter *
++ctnetlink_alloc_filter(const struct nlattr * const cda[])
++{
++#ifdef CONFIG_NF_CONNTRACK_MARK
++	struct ctnetlink_filter *filter;
++
++	filter = kzalloc(sizeof(*filter), GFP_KERNEL);
++	if (filter == NULL)
++		return ERR_PTR(-ENOMEM);
++
++	filter->mark.val = ntohl(nla_get_be32(cda[CTA_MARK]));
++	filter->mark.mask = ntohl(nla_get_be32(cda[CTA_MARK_MASK]));
++
++	return filter;
++#else
++	return ERR_PTR(-EOPNOTSUPP);
++#endif
++}
++
++static int ctnetlink_filter_match(struct nf_conn *ct, void *data)
++{
++	struct ctnetlink_filter *filter = data;
++
++	if (filter == NULL)
++		return 1;
++
++#ifdef CONFIG_NF_CONNTRACK_MARK
++	if ((ct->mark & filter->mark.mask) == filter->mark.val)
++		return 1;
++#endif
++
++	return 0;
++}
++
+ static int
+ ctnetlink_dump_table(struct sk_buff *skb, struct netlink_callback *cb)
+ {
+@@ -768,10 +802,6 @@ ctnetlink_dump_table(struct sk_buff *skb, struct netlink_callback *cb)
+ 	int res;
+ 	spinlock_t *lockp;
+ 
+-#ifdef CONFIG_NF_CONNTRACK_MARK
+-	const struct ctnetlink_dump_filter *filter = cb->data;
+-#endif
+-
+ 	last = (struct nf_conn *)cb->args[1];
+ 
+ 	local_bh_disable();
+@@ -798,12 +828,9 @@ restart:
+ 					continue;
+ 				cb->args[1] = 0;
+ 			}
+-#ifdef CONFIG_NF_CONNTRACK_MARK
+-			if (filter && !((ct->mark & filter->mark.mask) ==
+-					filter->mark.val)) {
++			if (!ctnetlink_filter_match(ct, cb->data))
+ 				continue;
+-			}
+-#endif
++
+ 			rcu_read_lock();
+ 			res =
+ 			ctnetlink_fill_info(skb, NETLINK_CB(cb->skb).portid,
+@@ -1001,6 +1028,25 @@ static const struct nla_policy ct_nla_policy[CTA_MAX+1] = {
+ 				    .len = NF_CT_LABELS_MAX_SIZE },
+ };
+ 
++static int ctnetlink_flush_conntrack(struct net *net,
++				     const struct nlattr * const cda[],
++				     u32 portid, int report)
++{
++	struct ctnetlink_filter *filter = NULL;
++
++	if (cda[CTA_MARK] && cda[CTA_MARK_MASK]) {
++		filter = ctnetlink_alloc_filter(cda);
++		if (IS_ERR(filter))
++			return PTR_ERR(filter);
++	}
++
++	nf_ct_iterate_cleanup(net, ctnetlink_filter_match, filter,
++			      portid, report);
++	kfree(filter);
++
++	return 0;
++}
++
+ static int
+ ctnetlink_del_conntrack(struct sock *ctnl, struct sk_buff *skb,
+ 			const struct nlmsghdr *nlh,
+@@ -1024,11 +1070,9 @@ ctnetlink_del_conntrack(struct sock *ctnl, struct sk_buff *skb,
+ 	else if (cda[CTA_TUPLE_REPLY])
+ 		err = ctnetlink_parse_tuple(cda, &tuple, CTA_TUPLE_REPLY, u3);
+ 	else {
+-		/* Flush the whole table */
+-		nf_conntrack_flush_report(net,
+-					 NETLINK_CB(skb).portid,
+-					 nlmsg_report(nlh));
+-		return 0;
++		return ctnetlink_flush_conntrack(net, cda,
++						 NETLINK_CB(skb).portid,
++						 nlmsg_report(nlh));
+ 	}
+ 
+ 	if (err < 0)
+@@ -1076,21 +1120,16 @@ ctnetlink_get_conntrack(struct sock *ctnl, struct sk_buff *skb,
+ 			.dump = ctnetlink_dump_table,
+ 			.done = ctnetlink_done,
+ 		};
+-#ifdef CONFIG_NF_CONNTRACK_MARK
++
+ 		if (cda[CTA_MARK] && cda[CTA_MARK_MASK]) {
+-			struct ctnetlink_dump_filter *filter;
++			struct ctnetlink_filter *filter;
+ 
+-			filter = kzalloc(sizeof(struct ctnetlink_dump_filter),
+-					 GFP_ATOMIC);
+-			if (filter == NULL)
+-				return -ENOMEM;
++			filter = ctnetlink_alloc_filter(cda);
++			if (IS_ERR(filter))
++				return PTR_ERR(filter);
+ 
+-			filter->mark.val = ntohl(nla_get_be32(cda[CTA_MARK]));
+-			filter->mark.mask =
+-				ntohl(nla_get_be32(cda[CTA_MARK_MASK]));
+ 			c.data = filter;
+ 		}
+-#endif
+ 		return netlink_dump_start(ctnl, skb, nlh, &c);
+ 	}
+ 
+-- 
 1.7.10.4
+
