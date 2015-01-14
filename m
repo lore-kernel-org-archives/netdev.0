@@ -1,36 +1,33 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [net-next PATCH v2 02/12] net: flow_table: add flow, delete flow
-Date: Wed, 14 Jan 2015 19:50:56 +0000
-Message-ID: <20150114195056.GD2105@casper.infradead.org>
-References: <20150113212941.13874.48692.stgit@nitbit.x32>
- <20150113213556.13874.41211.stgit@nitbit.x32>
- <CAADnVQK0FqxD9iu5UzFu0Pizi9tQPgjmAs3WBbV7y8jk0Sdi5w@mail.gmail.com>
- <54B68349.3080603@gmail.com>
+From: Prashant Sreedharan <prashant@broadcom.com>
+Subject: [PATCH net 0/3 v2]tg3: synchronize_irq() should be called without taking locks
+Date: Wed, 14 Jan 2015 11:33:12 -0800
+Message-ID: <1421263992-23907-1-git-send-email-prashant@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	simon.horman@netronome.com, Scott Feldman <sfeldma@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gerlitz.or@gmail.com" <gerlitz.or@gmail.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	"David S. Miller" <davem@davemloft.net>
-To: John Fastabend <john.fastabend@gmail.com>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <mchan@broadcom.com>,
+	<peter@hurleysoftware.com>,
+	Prashant Sreedharan <prashant@broadcom.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:32891 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753615AbbANTu6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2015 14:50:58 -0500
-Content-Disposition: inline
-In-Reply-To: <54B68349.3080603@gmail.com>
+Received: from mail-gw3-out.broadcom.com ([216.31.210.64]:2170 "EHLO
+	mail-gw3-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751854AbbANTvO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2015 14:51:14 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/14/15 at 06:55am, John Fastabend wrote:
-> If one of the actions supported by the device is forward_to_queue() or
-> forward_to_socket() we can use the API to steer potentially interesting
-> packets to a user space application for processing.
+v2: Added Reported-by, Tested-by fields and reference to the thread that
+    reported the problem
 
-+1
+This series addresses the problem reported by Peter Hurley in mail thread
+https://lkml.org/lkml/2015/1/12/1082
 
-Ideally using NFQUEUE so we can leverage existing infrastructure.
+Prashant Sreedharan (3):
+  tg3_timer() should grab tp->lock before checking for tp->irq_sync
+  tg3_reset_task() needs to use rtnl_lock to synchronize
+  Release tp->lock before invoking synchronize_irq()
+
+Our QA team also has validated this patch series. Thanks.
+
+ drivers/net/ethernet/broadcom/tg3.c |   23 ++++++++++++++++++++---
+ 1 files changed, 20 insertions(+), 3 deletions(-)
