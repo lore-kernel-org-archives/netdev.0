@@ -1,91 +1,152 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] net: rocker: Add basic netdev counters
-Date: Wed, 14 Jan 2015 14:57:00 -0800
-Message-ID: <54B6F43C.4030207@gmail.com>
-References: <1421275161-99434-1-git-send-email-dsahern@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] ipv4: per cpu uncached list
+Date: Wed, 14 Jan 2015 15:17:06 -0800
+Message-ID: <1421277426.11734.36.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Scott Feldman <sfeldma@gmail.com>, Jiri Pirko <jiri@resnulli.us>
-To: David Ahern <dsahern@gmail.com>, netdev@vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>,
+	Willem de Bruijn <willemb@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:33435 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750826AbbANW5H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2015 17:57:07 -0500
-Received: by mail-pa0-f43.google.com with SMTP id kx10so13444696pab.2
-        for <netdev@vger.kernel.org>; Wed, 14 Jan 2015 14:57:07 -0800 (PST)
-In-Reply-To: <1421275161-99434-1-git-send-email-dsahern@gmail.com>
+Received: from mail-ie0-f182.google.com ([209.85.223.182]:43529 "EHLO
+	mail-ie0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751260AbbANXRI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2015 18:17:08 -0500
+Received: by mail-ie0-f182.google.com with SMTP id x19so11828032ier.13
+        for <netdev@vger.kernel.org>; Wed, 14 Jan 2015 15:17:07 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 14/01/15 14:39, David Ahern wrote:
-> Add packet and byte counters for RX and TX paths.
-> 
-> $ ifconfig eth1
-> eth1: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
->         inet6 fe80::5054:ff:fe12:3501  prefixlen 64  scopeid 0x20<link>
->         ether 52:54:00:12:35:01  txqueuelen 1000  (Ethernet)
->         RX packets 63  bytes 15813 (15.4 KiB)
->         RX errors 0  dropped 0  overruns 0  frame 0
->         TX packets 79  bytes 17991 (17.5 KiB)
->         TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
-> 
-> Signed-off-by: David Ahern <dsahern@gmail.com>
-> Cc: Scott Feldman <sfeldma@gmail.com>
-> Cc: Jiri Pirko <jiri@resnulli.us>
-> ---
->  drivers/net/ethernet/rocker/rocker.c | 8 ++++++++
->  1 file changed, 8 insertions(+)
-> 
-> diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
-> index 2f398fa4b9e6..9743279d9121 100644
-> --- a/drivers/net/ethernet/rocker/rocker.c
-> +++ b/drivers/net/ethernet/rocker/rocker.c
-> @@ -3557,6 +3557,9 @@ static netdev_tx_t rocker_port_xmit(struct sk_buff *skb, struct net_device *dev)
->  	if (!desc_info)
->  		netif_stop_queue(dev);
->  
-> +	dev->stats.tx_packets++;
-> +	dev->stats.tx_bytes += skb->len;
+From: Eric Dumazet <edumazet@google.com>
 
-Potential use after free, the skb pointer is certainly not valid anymore
-here.
+RAW sockets with hdrinc suffer from contention on rt_uncached_lock
+spinlock.
 
-BTW, increasing statistics here is valid because this is a driver for a
-virtual piece of HW, which does not have TX reclaim/completion logic,
-but if it did, statistics update should occur there, not in the
-ndo_start_xmit() function.
+One solution is to use percpu lists, since most routes are destroyed
+by the cpu that created them.
 
-> +
->  	return NETDEV_TX_OK;
->  
->  unmap_frags:
-> @@ -3565,6 +3568,8 @@ static netdev_tx_t rocker_port_xmit(struct sk_buff *skb, struct net_device *dev)
->  	rocker_tlv_nest_cancel(desc_info, frags);
->  out:
->  	dev_kfree_skb(skb);
-> +	dev->stats.tx_dropped++;
-> +
->  	return NETDEV_TX_OK;
->  }
->  
-> @@ -3890,6 +3895,9 @@ static int rocker_port_rx_proc(struct rocker *rocker,
->  	skb->protocol = eth_type_trans(skb, rocker_port->dev);
->  	netif_receive_skb(skb);
->  
-> +	rocker_port->dev->stats.rx_packets++;
-> +	rocker_port->dev->stats.rx_bytes += skb->len;
+It is unclear why we even have to put these routes in uncached_list,
+as all outgoing packets should be freed when a device is dismantled.
 
-Same here, past netif_receive_skb() you should not assume that this skb
-reference is valid.
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Fixes: caacf05e5ad1 ("ipv4: Properly purge netdev references on uncached routes.")
+---
+ include/net/route.h |    2 +
+ net/ipv4/route.c    |   46 ++++++++++++++++++++++++++++++------------
+ 2 files changed, 35 insertions(+), 13 deletions(-)
 
-> +
->  	return rocker_dma_rx_ring_skb_alloc(rocker, rocker_port, desc_info);
->  }
->  
-> 
-
-
--- 
-Florian
+diff --git a/include/net/route.h b/include/net/route.h
+index b17cf28f996e..fe22d03afb6a 100644
+--- a/include/net/route.h
++++ b/include/net/route.h
+@@ -46,6 +46,7 @@
+ 
+ struct fib_nh;
+ struct fib_info;
++struct uncached_list;
+ struct rtable {
+ 	struct dst_entry	dst;
+ 
+@@ -64,6 +65,7 @@ struct rtable {
+ 	u32			rt_pmtu;
+ 
+ 	struct list_head	rt_uncached;
++	struct uncached_list	*rt_uncached_list;
+ };
+ 
+ static inline bool rt_is_input_route(const struct rtable *rt)
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 6a2155b02602..ce112d0f2698 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -1325,14 +1325,22 @@ static bool rt_cache_route(struct fib_nh *nh, struct rtable *rt)
+ 	return ret;
+ }
+ 
+-static DEFINE_SPINLOCK(rt_uncached_lock);
+-static LIST_HEAD(rt_uncached_list);
++struct uncached_list {
++	spinlock_t		lock;
++	struct list_head	head;
++};
++
++static DEFINE_PER_CPU_ALIGNED(struct uncached_list, rt_uncached_list);
+ 
+ static void rt_add_uncached_list(struct rtable *rt)
+ {
+-	spin_lock_bh(&rt_uncached_lock);
+-	list_add_tail(&rt->rt_uncached, &rt_uncached_list);
+-	spin_unlock_bh(&rt_uncached_lock);
++	struct uncached_list *ul = raw_cpu_ptr(&rt_uncached_list);
++
++	rt->rt_uncached_list = ul;
++
++	spin_lock_bh(&ul->lock);
++	list_add_tail(&rt->rt_uncached, &ul->head);
++	spin_unlock_bh(&ul->lock);
+ }
+ 
+ static void ipv4_dst_destroy(struct dst_entry *dst)
+@@ -1340,27 +1348,32 @@ static void ipv4_dst_destroy(struct dst_entry *dst)
+ 	struct rtable *rt = (struct rtable *) dst;
+ 
+ 	if (!list_empty(&rt->rt_uncached)) {
+-		spin_lock_bh(&rt_uncached_lock);
++		struct uncached_list *ul = rt->rt_uncached_list;
++
++		spin_lock_bh(&ul->lock);
+ 		list_del(&rt->rt_uncached);
+-		spin_unlock_bh(&rt_uncached_lock);
++		spin_unlock_bh(&ul->lock);
+ 	}
+ }
+ 
+ void rt_flush_dev(struct net_device *dev)
+ {
+-	if (!list_empty(&rt_uncached_list)) {
+-		struct net *net = dev_net(dev);
+-		struct rtable *rt;
++	struct net *net = dev_net(dev);
++	struct rtable *rt;
++	int cpu;
++
++	for_each_possible_cpu(cpu) {
++		struct uncached_list *ul = &per_cpu(rt_uncached_list, cpu);
+ 
+-		spin_lock_bh(&rt_uncached_lock);
+-		list_for_each_entry(rt, &rt_uncached_list, rt_uncached) {
++		spin_lock_bh(&ul->lock);
++		list_for_each_entry(rt, &ul->head, rt_uncached) {
+ 			if (rt->dst.dev != dev)
+ 				continue;
+ 			rt->dst.dev = net->loopback_dev;
+ 			dev_hold(rt->dst.dev);
+ 			dev_put(dev);
+ 		}
+-		spin_unlock_bh(&rt_uncached_lock);
++		spin_unlock_bh(&ul->lock);
+ 	}
+ }
+ 
+@@ -2717,6 +2730,7 @@ struct ip_rt_acct __percpu *ip_rt_acct __read_mostly;
+ int __init ip_rt_init(void)
+ {
+ 	int rc = 0;
++	int cpu;
+ 
+ 	ip_idents = kmalloc(IP_IDENTS_SZ * sizeof(*ip_idents), GFP_KERNEL);
+ 	if (!ip_idents)
+@@ -2724,6 +2738,12 @@ int __init ip_rt_init(void)
+ 
+ 	prandom_bytes(ip_idents, IP_IDENTS_SZ * sizeof(*ip_idents));
+ 
++	for_each_possible_cpu(cpu) {
++		struct uncached_list *ul = &per_cpu(rt_uncached_list, cpu);
++
++		INIT_LIST_HEAD(&ul->head);
++		spin_lock_init(&ul->lock);
++	}
+ #ifdef CONFIG_IP_ROUTE_CLASSID
+ 	ip_rt_acct = __alloc_percpu(256 * sizeof(struct ip_rt_acct), __alignof__(struct ip_rt_acct));
+ 	if (!ip_rt_acct)
