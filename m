@@ -1,92 +1,133 @@
-From: Anish Bhatt <anish@chelsio.com>
-Subject: [PATCH net-next v2 2/2] cxgb4i : Call into recently added cxgb4 ipv6 api
-Date: Wed, 14 Jan 2015 15:17:35 -0800
-Message-ID: <1421277455-20158-3-git-send-email-anish@chelsio.com>
-References: <1421277455-20158-1-git-send-email-anish@chelsio.com>
-Cc: davem@davemloft.net, hariprasad@chelsio.com, kxie@chelsio.com,
-	deepak.s@chelsio.com, Anish Bhatt <anish@chelsio.com>
-To: netdev@vger.kernel.org
+From: "Arad, Ronen" <ronen.arad@intel.com>
+Subject: RE: [PATCH net-next] bridge: fix setlink/dellink notifications
+Date: Wed, 14 Jan 2015 23:22:00 +0000
+Message-ID: <E4CD12F19ABA0C4D8729E087A761DC3505DEE86A@ORSMSX101.amr.corp.intel.com>
+References: <1421218123-18346-1-git-send-email-roopa@cumulusnetworks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "wkok@cumulusnetworks.com" <wkok@cumulusnetworks.com>
+To: "roopa@cumulusnetworks.com" <roopa@cumulusnetworks.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"shemminger@vyatta.com" <shemminger@vyatta.com>,
+	"vyasevic@redhat.com" <vyasevic@redhat.com>,
+	"john.fastabend@gmail.com" <john.fastabend@gmail.com>,
+	"tgraf@suug.ch" <tgraf@suug.ch>,
+	"jhs@mojatatu.com" <jhs@mojatatu.com>,
+	"sfeldma@gmail.com" <sfeldma@gmail.com>,
+	"jiri@resnulli.us" <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:13009 "EHLO
-	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751221AbbANXRl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2015 18:17:41 -0500
-In-Reply-To: <1421277455-20158-1-git-send-email-anish@chelsio.com>
+Received: from mga02.intel.com ([134.134.136.20]:33372 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752004AbbANXWC convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2015 18:22:02 -0500
+In-Reply-To: <1421218123-18346-1-git-send-email-roopa@cumulusnetworks.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Get a reference on every ipv6 address we offload to hardware so that it cannot
-be prematurely cleared out before cleanup.
 
-Signed-off-by: Anish Bhatt <anish@chelsio.com>
----
- drivers/scsi/cxgbi/cxgb4i/cxgb4i.c | 23 ++++++++++++++++++++++-
- 1 file changed, 22 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c b/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
-index 37d7191a3c38..dd00e5fe4a5e 100644
---- a/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
-+++ b/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
-@@ -28,6 +28,7 @@
- #include "t4fw_api.h"
- #include "l2t.h"
- #include "cxgb4i.h"
-+#include "clip_tbl.h"
- 
- static unsigned int dbg_level;
- 
-@@ -1322,6 +1323,9 @@ static inline void l2t_put(struct cxgbi_sock *csk)
- static void release_offload_resources(struct cxgbi_sock *csk)
- {
- 	struct cxgb4_lld_info *lldi;
-+#if IS_ENABLED(CONFIG_IPV6)
-+	struct net_device *ndev = csk->cdev->ports[csk->port_id];
-+#endif
- 
- 	log_debug(1 << CXGBI_DBG_TOE | 1 << CXGBI_DBG_SOCK,
- 		"csk 0x%p,%u,0x%lx,%u.\n",
-@@ -1334,6 +1338,12 @@ static void release_offload_resources(struct cxgbi_sock *csk)
- 	}
- 
- 	l2t_put(csk);
-+#if IS_ENABLED(CONFIG_IPV6)
-+	if (csk->csk_family == AF_INET6)
-+		cxgb4_clip_release(ndev,
-+				   (const u32 *)&csk->saddr6.sin6_addr, 1);
-+#endif
-+
- 	if (cxgbi_sock_flag(csk, CTPF_HAS_ATID))
- 		free_atid(csk);
- 	else if (cxgbi_sock_flag(csk, CTPF_HAS_TID)) {
-@@ -1391,10 +1401,15 @@ static int init_act_open(struct cxgbi_sock *csk)
- 	csk->l2t = cxgb4_l2t_get(lldi->l2t, n, ndev, 0);
- 	if (!csk->l2t) {
- 		pr_err("%s, cannot alloc l2t.\n", ndev->name);
--		goto rel_resource;
-+		goto rel_resource_without_clip;
- 	}
- 	cxgbi_sock_get(csk);
- 
-+#if IS_ENABLED(CONFIG_IPV6)
-+	if (csk->csk_family == AF_INET6)
-+		cxgb4_clip_get(ndev, (const u32 *)&csk->saddr6.sin6_addr, 1);
-+#endif
-+
- 	if (t4) {
- 		size = sizeof(struct cpl_act_open_req);
- 		size6 = sizeof(struct cpl_act_open_req6);
-@@ -1451,6 +1466,12 @@ static int init_act_open(struct cxgbi_sock *csk)
- 	return 0;
- 
- rel_resource:
-+#if IS_ENABLED(CONFIG_IPV6)
-+	if (csk->csk_family == AF_INET6)
-+		cxgb4_clip_release(ndev,
-+				   (const u32 *)&csk->saddr6.sin6_addr, 1);
-+#endif
-+rel_resource_without_clip:
- 	if (n)
- 		neigh_release(n);
- 	if (skb)
--- 
-2.2.1
+>-----Original Message-----
+>From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On
+>Behalf Of roopa@cumulusnetworks.com
+>Sent: Tuesday, January 13, 2015 10:49 PM
+>To: netdev@vger.kernel.org; shemminger@vyatta.com; vyasevic@redhat.com;
+>john.fastabend@gmail.com; tgraf@suug.ch; jhs@mojatatu.com; sfeldma@gmail.com;
+>jiri@resnulli.us
+>Cc: wkok@cumulusnetworks.com
+>Subject: [PATCH net-next] bridge: fix setlink/dellink notifications
+>
+>From: Roopa Prabhu <roopa@cumulusnetworks.com>
+>
+[..]
+>diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+>index d06107d..4ac79ff 100644
+>--- a/net/core/rtnetlink.c
+>+++ b/net/core/rtnetlink.c
+>@@ -2876,13 +2876,6 @@ static int rtnl_bridge_notify(struct net_device *dev,
+>u16 flags)
+
+The 'flags' argument was only used for applying the same handling of
+MASTER/SELF flags to notification as used for setlink/delink.
+This patch eliminates the MASTER case and leaves only SELF notification.
+It seems clearer to eliminate flags argument and rename the function to
+something like rtnl_bridge_self_notify().
+   
+> 		goto errout;
+> 	}
+>
+>-	if ((!flags || (flags & BRIDGE_FLAGS_MASTER)) &&
+>-	    br_dev && br_dev->netdev_ops->ndo_bridge_getlink) {
+>-		err = br_dev->netdev_ops->ndo_bridge_getlink(skb, 0, 0, dev, 0);
+>-		if (err < 0)
+>-			goto errout;
+>-	}
+>-
+> 	if ((flags & BRIDGE_FLAGS_SELF) &&
+> 	    dev->netdev_ops->ndo_bridge_getlink) {
+> 		err = dev->netdev_ops->ndo_bridge_getlink(skb, 0, 0, dev, 0);
+>@@ -2958,16 +2951,19 @@ static int rtnl_bridge_setlink(struct sk_buff *skb,
+>struct nlmsghdr *nlh)
+> 			err = -EOPNOTSUPP;
+> 		else
+> 			err = dev->netdev_ops->ndo_bridge_setlink(dev, nlh);
+>-
+>-		if (!err)
+>+		if (!err) {
+> 			flags &= ~BRIDGE_FLAGS_SELF;
+>+
+>+			/* Generate event to notify upper layer of bridge
+>+			 * change
+>+			 */
+>+			if (!err)
+>+				err = rtnl_bridge_notify(dev, oflags);
+>+		}
+> 	}
+>
+> 	if (have_flags)
+> 		memcpy(nla_data(attr), &flags, sizeof(flags));
+
+What is the purpose of the above two lines (not changed by the patch)?
+They seem to copy over the flags with the successfully applied cases
+(MASTER and/or SELF) flags cleared back into the incoming netlink message.
+I could not figure any place where the modified flags attribute is used
+
+>-	/* Generate event to notify upper layer of bridge change */
+>-	if (!err)
+>-		err = rtnl_bridge_notify(dev, oflags);
+> out:
+> 	return err;
+> }
+>@@ -3032,15 +3028,19 @@ static int rtnl_bridge_dellink(struct sk_buff *skb,
+>struct nlmsghdr *nlh)
+> 		else
+> 			err = dev->netdev_ops->ndo_bridge_dellink(dev, nlh);
+>
+>-		if (!err)
+>+		if (!err) {
+> 			flags &= ~BRIDGE_FLAGS_SELF;
+>+
+>+			/* Generate event to notify upper layer of bridge
+>+			 * change
+>+			 */
+>+			err = rtnl_bridge_notify(dev, oflags);
+>+		}
+>+
+> 	}
+>
+> 	if (have_flags)
+> 		memcpy(nla_data(attr), &flags, sizeof(flags));
+>-	/* Generate event to notify upper layer of bridge change */
+>-	if (!err)
+>-		err = rtnl_bridge_notify(dev, oflags);
+> out:
+> 	return err;
+> }
+>--
+>1.7.10.4
+>
+>--
+>To unsubscribe from this list: send the line "unsubscribe netdev" in
+>the body of a message to majordomo@vger.kernel.org
+>More majordomo info at  http://vger.kernel.org/majordomo-info.html
