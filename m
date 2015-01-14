@@ -1,39 +1,41 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [net-next PATCH v2 03/12] net: flow: implement flow cache for
- get routines
-Date: Wed, 14 Jan 2015 21:52:32 +0000
-Message-ID: <20150114215232.GF2105@casper.infradead.org>
-References: <20150113212941.13874.48692.stgit@nitbit.x32>
- <20150113213621.13874.40461.stgit@nitbit.x32>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch net] team: avoid possible underflow of count_pending
+ value for notify_peers and mcast_rejoin
+Date: Wed, 14 Jan 2015 16:55:09 -0500 (EST)
+Message-ID: <20150114.165509.1466571325244320266.davem@davemloft.net>
+References: <1421255730-10681-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: simon.horman@netronome.com, sfeldma@gmail.com,
-	netdev@vger.kernel.org, gerlitz.or@gmail.com, jhs@mojatatu.com,
-	andy@greyhouse.net, davem@davemloft.net
-To: John Fastabend <john.fastabend@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jbenc@redhat.com
+To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:33647 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754123AbbANVwd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2015 16:52:33 -0500
-Content-Disposition: inline
-In-Reply-To: <20150113213621.13874.40461.stgit@nitbit.x32>
+Received: from shards.monkeyblade.net ([149.20.54.216]:45720 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752382AbbANVzM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2015 16:55:12 -0500
+In-Reply-To: <1421255730-10681-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/13/15 at 01:36pm, John Fastabend wrote:
-> I chose rhashtable to get the dynamic resizing. I could use arrays
-> but I don't want to pre-allocate large cache tables when we may
-> never use them.
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Wed, 14 Jan 2015 18:15:30 +0100
+
+> This patch is fixing a race condition that may cause setting
+> count_pending to -1, which results in unwanted big bulk of arp messages
+> (in case of "notify peers").
 > 
-> One oddity in the rhashtable implementation is there is no way
-> AFAICS to do delayed free's so we use rcu_sync heavily. This should be
-> fine, get operations shouldn't be a used heavily.
+> Consider following scenario:
+ ...
+> Fix this race by using atomic_dec_if_positive - that will prevent
+> count_pending running under 0.
+> 
+> Fixes: fc423ff00df3a1955441 ("team: add peer notification")
+> Fixes: 492b200efdd20b8fcfd  ("team: add support for sending multicast rejoins")
+> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+> Signed-off-by: Jiri Benc <jbenc@redhat.com>
 
-John, can you please clarify a bit, I'm not sure I understand. Are you
-talking about delayed freeing of the table itself or elements?
+Applied, thanks.
 
-The Netlink usage would be an example of a user with delayed element
-freeing.
-
-I'm glad to add whatever is required.
+I am assuming that v3.12 and later need this fix, therefore I'm queueing it up for
+-stable.
