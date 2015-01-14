@@ -1,43 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bridge: only provide proxy ARP when
- CONFIG_INET is enabled
-Date: Wed, 14 Jan 2015 15:08:22 -0500 (EST)
-Message-ID: <20150114.150822.992076699268375825.davem@davemloft.net>
-References: <56868207.rHBDZL3pbk@wuerfel>
+Subject: Re: [PATCH net-next v2 0/2] net: Remote checksum offload for VXLAN
+Date: Wed, 14 Jan 2015 15:21:29 -0500 (EST)
+Message-ID: <20150114.152129.1086585159807498251.davem@davemloft.net>
+References: <1421110838-5146-1-git-send-email-therbert@google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kyeyoonp@codeaurora.org,
-	bridge@lists.linux-foundation.org
-To: arnd@arndb.de
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <56868207.rHBDZL3pbk@wuerfel>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: therbert@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:45002 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751276AbbANUVc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2015 15:21:32 -0500
+In-Reply-To: <1421110838-5146-1-git-send-email-therbert@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Tue, 13 Jan 2015 15:10:27 +0100
+From: Tom Herbert <therbert@google.com>
+Date: Mon, 12 Jan 2015 17:00:36 -0800
 
-> When IPV4 support is disabled, we cannot call arp_send from
-> the bridge code, which would result in a kernel link error:
+> This patch set adds support for remote checksum offload in VXLAN.
 > 
-> net/built-in.o: In function `br_handle_frame_finish':
-> :(.text+0x59914): undefined reference to `arp_send'
-> :(.text+0x59a50): undefined reference to `arp_tbl'
+> The remote checksum offload is generalized by creating a common
+> function (remcsum_adjust) that does the work of modifying the
+> checksum in remote checksum offload. This function can be called
+> from normal or GRO path. GUE was modified to use this function.
 > 
-> This makes the newly added proxy ARP support in the bridge
-> code depend on the CONFIG_INET symbol and lets the compiler
-> optimize the code out to avoid the link error.
+> To support RCO is VXLAN we use the 9th bit in the reserved
+> flags to indicated remote checksum offload. The start and offset
+> values are encoded n a compressed form in the low order (reserved)
+> byte of the vni field.
 > 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> Fixes: 958501163ddd ("bridge: Add support for IEEE 802.11 Proxy ARP")
+> Remote checksum offload is described in
+> https://tools.ietf.org/html/draft-herbert-remotecsumoffload-01
 
-Applied, thanks Arnd.
+Tom's arguments for why he separates RX and TX paths seem completely
+reasonable, and match my own understanding of the various tunneling
+technologies we support.
+
+Therefore, series applied, thanks!
