@@ -1,83 +1,88 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH net-next v12 3/3] net: hisilicon: new hip04 ethernet driver
-Date: Wed, 14 Jan 2015 12:22:20 +0800
-Message-ID: <54B5EEFC.5020902@huawei.com>
-References: <1421140290-5492-1-git-send-email-dingtianhong@huawei.com>	<1421140290-5492-4-git-send-email-dingtianhong@huawei.com> <20150113.230611.375062426344934847.davem@davemloft.net>
+From: Alexandre Courbot <gnurou@gmail.com>
+Subject: Re: [PATCH 2/2] mdio-mux-gpio: use new gpiod_get_array and
+ gpiod_put_array functions
+Date: Wed, 14 Jan 2015 14:11:27 +0900
+Message-ID: <CAAVeFuLqV7CvR2-SNWsrQuBzctQx1wiMtWwjw=cPbp5GRnMdcw@mail.gmail.com>
+References: <13407316.QPemVgjPDO@pcimr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <arnd@arndb.de>, <robh+dt@kernel.org>, <grant.likely@linaro.org>,
-	<agraf@suse.de>, <sergei.shtylyov@cogentembedded.com>,
-	<linux-arm-kernel@lists.infradead.org>, <eric.dumazet@gmail.com>,
-	<xuwei5@hisilicon.com>, <zhangfei.gao@linaro.org>,
-	<netdev@vger.kernel.org>, <devicetree@vger.kernel.org>,
-	<linux@arm.linux.org.uk>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:17883 "EHLO
-	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750899AbbANEWo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2015 23:22:44 -0500
-In-Reply-To: <20150113.230611.375062426344934847.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: "linux-gpio@vger.kernel.org" <linux-gpio@vger.kernel.org>,
+	Alexandre Courbot <acourbot@nvidia.com>,
+	Linus Walleij <linus.walleij@linaro.org>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+To: Rojhalat Ibrahim <imr@rtschenk.de>
+Return-path: <linux-gpio-owner@vger.kernel.org>
+In-Reply-To: <13407316.QPemVgjPDO@pcimr>
+Sender: linux-gpio-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 2015/1/14 12:06, David Miller wrote:
-> From: Ding Tianhong <dingtianhong@huawei.com>
-> Date: Tue, 13 Jan 2015 17:11:30 +0800
-> 
->> +static int hip04_alloc_ring(struct net_device *ndev, struct device *d)
->> +{
->> +	struct hip04_priv *priv = netdev_priv(ndev);
->> +	int i;
->> +
->> +	priv->tx_desc = dma_alloc_coherent(d,
->> +			TX_DESC_NUM * sizeof(struct tx_desc),
->> +			&priv->tx_desc_dma, GFP_KERNEL);
-> 
-> When a function call spans multiple lines, the arguments on the
-> second and subsequent lines should start at the first column
-> after the openning parenthesis of the function call.
-> 
-> If you are only using TAB characters, your indentation is likely
-> to be incorrect.
-> 
+On Sat, Jan 10, 2015 at 12:19 AM, Rojhalat Ibrahim <imr@rtschenk.de> wrote:
+> Use the new gpiod_get_array and gpiod_put_array functions for obtaining and
+> disposing of GPIO descriptors.
+>
+> Signed-off-by: Rojhalat Ibrahim <imr@rtschenk.de>
+> ---
+> This patch depends on my previous patch "gpiolib: add gpiod_get_array and
+> gpiod_put_array functions".
+>
+>  drivers/net/phy/mdio-mux-gpio.c |   28 ++++++++--------------------
+>  1 file changed, 8 insertions(+), 20 deletions(-)
+>
+> diff --git a/drivers/net/phy/mdio-mux-gpio.c b/drivers/net/phy/mdio-mux-gpio.c
+> index 1eaf81e..35c37da 100644
+> --- a/drivers/net/phy/mdio-mux-gpio.c
+> +++ b/drivers/net/phy/mdio-mux-gpio.c
+> @@ -47,7 +47,6 @@ static int mdio_mux_gpio_probe(struct platform_device *pdev)
+>  {
+>         struct mdio_mux_gpio_state *s;
+>         int num_gpios;
+> -       unsigned int n;
+>         int r;
+>
+>         if (!pdev->dev.of_node)
+> @@ -63,16 +62,10 @@ static int mdio_mux_gpio_probe(struct platform_device *pdev)
+>
+>         s->num_gpios = num_gpios;
+>
+> -       for (n = 0; n < num_gpios; ) {
+> -               struct gpio_desc *gpio = gpiod_get_index(&pdev->dev, NULL, n,
+> -                                                        GPIOD_OUT_LOW);
+> -               if (IS_ERR(gpio)) {
+> -                       r = PTR_ERR(gpio);
+> -                       goto err;
+> -               }
+> -               s->gpio[n] = gpio;
+> -               n++;
+> -       }
+> +       r = gpiod_get_array(&pdev->dev, NULL, s->gpio, num_gpios,
+> +                           GPIOD_OUT_LOW);
+> +       if (r != num_gpios)
+> +               return r;
+>
+>         r = mdio_mux_init(&pdev->dev,
+>                           mdio_mux_gpio_switch_fn, &s->mux_handle, s);
+> @@ -80,22 +73,17 @@ static int mdio_mux_gpio_probe(struct platform_device *pdev)
+>         if (r == 0) {
+>                 pdev->dev.platform_data = s;
+>                 return 0;
+> +       } else {
+> +               gpiod_put_array(s->gpio, num_gpios);
+> +               return r;
+>         }
 
-Sorry for the mistake.
+Suggestion: handle the errors in the if condition, and let normal
+execution be visible at the first level of indentation of the
+function. I.e:
 
->> +	/*
->> +	 * BQL will try to keep the TX queue as short as possible, but it can't
->> +	 * be faster than tx_coalesce_usecs, so we need a fast timeout here,
->> +	 * but also long enough to gather up enough frames to ensure we don't
->> +	 * get more interrupts than necessary.
->> +	 * 200us is enough for 16 frames of 1500 bytes at gigabit ethernet rate
->> +	 */
-> 
-> Comments in the networking should be:
-> 
-> 	/* Formatted
-> 	 * like this.
-> 	 */
-> 
+    if (r != 0) {
+        gpiod_put_array(s->gpio, num_gpios);
+        return r;
+    }
 
-yes.
->> +	priv->phy_node = of_parse_phandle(node, "phy-handle", 0);
->> +	if (priv->phy_node) {
->> +		priv->phy = of_phy_connect(ndev, priv->phy_node,
->> +			&hip04_adjust_link, 0, priv->phy_mode);
-> 
-> Please align the arguments to this function call correctly, as
-> per above.
-> 
-Ok, I will check them again.
+    pdev->dev.platform_data = s;
+    return 0;
 
-Ding
-
-> Thanks.
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-> .
-> 
+This is how previous errors are handled in this function and is
+generally a good thing to do as it makes the function's logic easier
+to follow.
