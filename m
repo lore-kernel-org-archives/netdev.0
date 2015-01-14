@@ -1,7 +1,7 @@
 From: Prashant Sreedharan <prashant@broadcom.com>
-Subject: [PATCH net 2/3]tg3: tg3_reset_task() needs to use rtnl_lock to synchronize
-Date: Tue, 13 Jan 2015 22:31:59 -0800
-Message-ID: <1421217119-11763-1-git-send-email-prashant@broadcom.com>
+Subject: [PATCH net 3/3]tg3: Release tp->lock before invoking synchronize_irq()
+Date: Tue, 13 Jan 2015 22:32:24 -0800
+Message-ID: <1421217145-11795-1-git-send-email-prashant@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>, <peter@hurleysoftware.com>,
@@ -9,49 +9,70 @@ Cc: <netdev@vger.kernel.org>, <peter@hurleysoftware.com>,
 	Michael Chan <mchan@broadcom.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw1-out.broadcom.com ([216.31.210.62]:29822 "EHLO
-	mail-gw1-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751631AbbANGtz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2015 01:49:55 -0500
+Received: from mail-gw3-out.broadcom.com ([216.31.210.64]:14164 "EHLO
+	mail-gw3-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751159AbbANGu3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2015 01:50:29 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently tg3_reset_task() uses only tp->lock for synchronizing with code
-paths like tg3_open() etc. But since tp->lock is released before doing
-synchronize_irq(), rtnl_lock should be taken in tg3_reset_task() to
-synchronize it with other code paths.
+synchronize_irq() can sleep waiting, for pending IRQ handlers so driver
+should release the tp->lock spin lock before invoking synchronize_irq()
 
 Signed-off-by: Prashant Sreedharan <prashant@broadcom.com>
 Signed-off-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/tg3.c |    3 +++
- 1 files changed, 3 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/broadcom/tg3.c |   12 ++++++++++++
+ 1 files changed, 12 insertions(+), 0 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-index 2dbd4ae..9247ae1 100644
+index 9247ae1..96bf01b 100644
 --- a/drivers/net/ethernet/broadcom/tg3.c
 +++ b/drivers/net/ethernet/broadcom/tg3.c
-@@ -11103,11 +11103,13 @@ static void tg3_reset_task(struct work_struct *work)
- 	struct tg3 *tp = container_of(work, struct tg3, reset_task);
- 	int err;
- 
-+	rtnl_lock();
- 	tg3_full_lock(tp, 0);
- 
- 	if (!netif_running(tp->dev)) {
- 		tg3_flag_clear(tp, RESET_TASK_PENDING);
- 		tg3_full_unlock(tp);
-+		rtnl_unlock();
- 		return;
- 	}
- 
-@@ -11140,6 +11142,7 @@ out:
- 		tg3_phy_start(tp);
- 
- 	tg3_flag_clear(tp, RESET_TASK_PENDING);
-+	rtnl_unlock();
+@@ -7413,6 +7413,8 @@ static inline void tg3_netif_start(struct tg3 *tp)
  }
  
- static int tg3_request_irq(struct tg3 *tp, int irq_num)
+ static void tg3_irq_quiesce(struct tg3 *tp)
++	__releases(tp->lock)
++	__acquires(tp->lock)
+ {
+ 	int i;
+ 
+@@ -7421,8 +7423,12 @@ static void tg3_irq_quiesce(struct tg3 *tp)
+ 	tp->irq_sync = 1;
+ 	smp_mb();
+ 
++	spin_unlock_bh(&tp->lock);
++
+ 	for (i = 0; i < tp->irq_cnt; i++)
+ 		synchronize_irq(tp->napi[i].irq_vec);
++
++	spin_lock_bh(&tp->lock);
+ }
+ 
+ /* Fully shutdown all tg3 driver activity elsewhere in the system.
+@@ -9018,6 +9024,8 @@ static void tg3_restore_clk(struct tg3 *tp)
+ 
+ /* tp->lock is held. */
+ static int tg3_chip_reset(struct tg3 *tp)
++	__releases(tp->lock)
++	__acquires(tp->lock)
+ {
+ 	u32 val;
+ 	void (*write_op)(struct tg3 *, u32, u32);
+@@ -9073,9 +9081,13 @@ static int tg3_chip_reset(struct tg3 *tp)
+ 	}
+ 	smp_mb();
+ 
++	tg3_full_unlock(tp);
++
+ 	for (i = 0; i < tp->irq_cnt; i++)
+ 		synchronize_irq(tp->napi[i].irq_vec);
+ 
++	tg3_full_lock(tp, 0);
++
+ 	if (tg3_asic_rev(tp) == ASIC_REV_57780) {
+ 		val = tr32(TG3_PCIE_LNKCTL) & ~TG3_PCIE_LNKCTL_L1_PLL_PD_EN;
+ 		tw32(TG3_PCIE_LNKCTL, val | TG3_PCIE_LNKCTL_L1_PLL_PD_DIS);
 -- 
 1.7.1
