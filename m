@@ -1,101 +1,82 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: Re: [PATCH] net: rocker: Add basic netdev counters
-Date: Wed, 14 Jan 2015 16:54:49 -0700
-Message-ID: <54B701C9.50500@gmail.com>
-References: <1421275161-99434-1-git-send-email-dsahern@gmail.com> <54B6F43C.4030207@gmail.com>
+From: roopa <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next] bridge: fix setlink/dellink notifications
+Date: Wed, 14 Jan 2015 15:56:02 -0800
+Message-ID: <54B70212.5050705@cumulusnetworks.com>
+References: <1421218123-18346-1-git-send-email-roopa@cumulusnetworks.com> <E4CD12F19ABA0C4D8729E087A761DC3505DEE86A@ORSMSX101.amr.corp.intel.com> <54B6FD60.8020106@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Scott Feldman <sfeldma@gmail.com>, Jiri Pirko <jiri@resnulli.us>
-To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
+Cc: "Arad, Ronen" <ronen.arad@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"shemminger@vyatta.com" <shemminger@vyatta.com>,
+	"vyasevic@redhat.com" <vyasevic@redhat.com>,
+	"tgraf@suug.ch" <tgraf@suug.ch>,
+	"jhs@mojatatu.com" <jhs@mojatatu.com>,
+	"sfeldma@gmail.com" <sfeldma@gmail.com>,
+	"jiri@resnulli.us" <jiri@resnulli.us>,
+	"wkok@cumulusnetworks.com" <wkok@cumulusnetworks.com>
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f178.google.com ([209.85.192.178]:40003 "EHLO
-	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751695AbbANXyx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2015 18:54:53 -0500
-Received: by mail-pd0-f178.google.com with SMTP id r10so12670806pdi.9
-        for <netdev@vger.kernel.org>; Wed, 14 Jan 2015 15:54:52 -0800 (PST)
-In-Reply-To: <54B6F43C.4030207@gmail.com>
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:60672 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751225AbbANX4D (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2015 18:56:03 -0500
+Received: by mail-pa0-f54.google.com with SMTP id fb1so13637283pad.13
+        for <netdev@vger.kernel.org>; Wed, 14 Jan 2015 15:56:03 -0800 (PST)
+In-Reply-To: <54B6FD60.8020106@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 1/14/15 3:57 PM, Florian Fainelli wrote:
-> On 14/01/15 14:39, David Ahern wrote:
->> Add packet and byte counters for RX and TX paths.
+On 1/14/15, 3:36 PM, John Fastabend wrote:
+> On 01/14/2015 03:22 PM, Arad, Ronen wrote:
 >>
->> $ ifconfig eth1
->> eth1: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
->>          inet6 fe80::5054:ff:fe12:3501  prefixlen 64  scopeid 0x20<link>
->>          ether 52:54:00:12:35:01  txqueuelen 1000  (Ethernet)
->>          RX packets 63  bytes 15813 (15.4 KiB)
->>          RX errors 0  dropped 0  overruns 0  frame 0
->>          TX packets 79  bytes 17991 (17.5 KiB)
->>          TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
 >>
->> Signed-off-by: David Ahern <dsahern@gmail.com>
->> Cc: Scott Feldman <sfeldma@gmail.com>
->> Cc: Jiri Pirko <jiri@resnulli.us>
->> ---
->>   drivers/net/ethernet/rocker/rocker.c | 8 ++++++++
->>   1 file changed, 8 insertions(+)
->>
->> diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
->> index 2f398fa4b9e6..9743279d9121 100644
->> --- a/drivers/net/ethernet/rocker/rocker.c
->> +++ b/drivers/net/ethernet/rocker/rocker.c
->> @@ -3557,6 +3557,9 @@ static netdev_tx_t rocker_port_xmit(struct sk_buff *skb, struct net_device *dev)
->>   	if (!desc_info)
->>   		netif_stop_queue(dev);
->>
->> +	dev->stats.tx_packets++;
->> +	dev->stats.tx_bytes += skb->len;
+>>> -----Original Message-----
+>>> From: netdev-owner@vger.kernel.org 
+>>> [mailto:netdev-owner@vger.kernel.org] On
+>>> Behalf Of roopa@cumulusnetworks.com
+>>> Sent: Tuesday, January 13, 2015 10:49 PM
+>>> To: netdev@vger.kernel.org; shemminger@vyatta.com; vyasevic@redhat.com;
+>>> john.fastabend@gmail.com; tgraf@suug.ch; jhs@mojatatu.com; 
+>>> sfeldma@gmail.com;
+>>> jiri@resnulli.us
+>>> Cc: wkok@cumulusnetworks.com
+>>> Subject: [PATCH net-next] bridge: fix setlink/dellink notifications
+>>>
+>>> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+>>>
+>> [..]
 >
-> Potential use after free, the skb pointer is certainly not valid anymore
-> here.
+> [...]
 >
-> BTW, increasing statistics here is valid because this is a driver for a
-> virtual piece of HW, which does not have TX reclaim/completion logic,
-> but if it did, statistics update should occur there, not in the
-> ndo_start_xmit() function.
-
-sure. I had considered putting in the rocker_port_poll_tx function like 
-this:
-
--       dev_kfree_skb_any(rocker_desc_cookie_ptr_get(desc_info));
-+
-+       skb = rocker_desc_cookie_ptr_get(desc_info);
-+       rocker_port->dev->stats.tx_packets++;
-+       rocker_port->dev->stats.tx_bytes += skb->len;
-+
-+       dev_kfree_skb_any(skb);
-
-I think this the reclaim point.
-
+>>>             err = dev->netdev_ops->ndo_bridge_setlink(dev, nlh);
+>>> -
+>>> -        if (!err)
+>>> +        if (!err) {
+>>>             flags &= ~BRIDGE_FLAGS_SELF;
+>>> +
+>>> +            /* Generate event to notify upper layer of bridge
+>>> +             * change
+>>> +             */
+>>> +            if (!err)
+>>> +                err = rtnl_bridge_notify(dev, oflags);
+>>> +        }
+>>>     }
+>>>
+>>>     if (have_flags)
+>>>         memcpy(nla_data(attr), &flags, sizeof(flags));
+>>
+>> What is the purpose of the above two lines (not changed by the patch)?
+>> They seem to copy over the flags with the successfully applied cases
+>> (MASTER and/or SELF) flags cleared back into the incoming netlink 
+>> message.
+>> I could not figure any place where the modified flags attribute is used
 >
->> +
->>   	return NETDEV_TX_OK;
->>
->>   unmap_frags:
->> @@ -3565,6 +3568,8 @@ static netdev_tx_t rocker_port_xmit(struct sk_buff *skb, struct net_device *dev)
->>   	rocker_tlv_nest_cancel(desc_info, frags);
->>   out:
->>   	dev_kfree_skb(skb);
->> +	dev->stats.tx_dropped++;
->> +
->>   	return NETDEV_TX_OK;
->>   }
->>
->> @@ -3890,6 +3895,9 @@ static int rocker_port_rx_proc(struct rocker *rocker,
->>   	skb->protocol = eth_type_trans(skb, rocker_port->dev);
->>   	netif_receive_skb(skb);
->>
->> +	rocker_port->dev->stats.rx_packets++;
->> +	rocker_port->dev->stats.rx_bytes += skb->len;
->
-> Same here, past netif_receive_skb() you should not assume that this skb
-> reference is valid.
+> This allows userspace to learn which operation failed when it is an
+> operation to set both the software bridge via BRIDGE_FLAGS_MASTER and
+> the the hardware via BRIDGE_FLAGS_SELF. When we get the error back
+> software looks at the flags to figure out how to recover/retry/etc.
+Ah ok, I was also wondering why that was there,
 
-right. I'll move the stats above the netif_receive_skb.
-
-Thanks,
-David
+thanks,
+Roopa
