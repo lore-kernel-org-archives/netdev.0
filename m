@@ -1,22 +1,35 @@
-From: "Suklee Peck" <chaibi.medthameur@iresa.agrinet.tn>
-Subject: Re: Investment
-Date: Tue, 13 Jan 2015 11:57:34 -0800
-Message-ID: <20150113235305.024EB28C6E@mta.agrinet.tn>
-Reply-To: saitt01@qq.com
+From: thomas Graf <tgraf@suug.ch>
+Subject: Re: non-OVS based vxlan config broken on 3.19-rc ?!
+Date: Wed, 14 Jan 2015 15:52:08 +0000
+Message-ID: <20150114155208.GA24550@casper.infradead.org>
+References: <54B688D9.8030101@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: Recipients <chaibi.medthameur@iresa.agrinet.tn>
+Content-Type: text/plain; charset=us-ascii
+Cc: tom Herbert <therbert@google.com>,
+	Marcelo Leitner <mleitner@redhat.com>,
+	Jesse Gross <jesse@nicira.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Or Gerlitz <ogerlitz@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from agrinetmail20.outgw.tn ([196.203.249.26]:57918 "EHLO
-	agrinetmail20.outgw.tn" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751434AbbANPr4 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2015 10:47:56 -0500
-Content-Description: Mail message body
+Received: from casper.infradead.org ([85.118.1.10]:59806 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752959AbbANPwJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2015 10:52:09 -0500
+Content-Disposition: inline
+In-Reply-To: <54B688D9.8030101@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I'm contacting you on behalf of an investment placed under management 5 years ago by Shui bian. He needs assistance in investing these funds. If you are interested, you can write to his private email ( saitt01@qq.com ) for further details.
-gesalpe
-Best Regards,
-Suklee Peck
+On 01/14/15 at 05:18pm, Or Gerlitz wrote:
+> Guys, just realized that non-OVS based vxlan config is broken with
+> 3.19-rc... I see that it works for me on 3.18.2 and breaks on 3.19-rc3
+> (Linus tree). Tested over mlx4 (both offloaded and non offloaded modes) and
+> igb, see below the simplest form I can see it breaks on 3.19-rcand works on
+> 3.18
+> 
+> Looking on tcpdump and stats, the arp reply arrives to the 3.19-rc host NIC
+> driver but is dropped along the stack beforehanded to the vxlan driver, not
+> sure where and why...
+
+As additional data point: I tested the VXLAN-GBP with iproute2 based tunnels
+on net-next and that works fine. Driver used was a e1000 in KVM.
