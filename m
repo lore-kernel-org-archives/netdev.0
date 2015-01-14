@@ -1,125 +1,103 @@
-From: Felipe Balbi <balbi@ti.com>
-Subject: [patch-net-next v2 2/3] net: ethernet: cpsw: split out IRQ handler
-Date: Wed, 14 Jan 2015 10:58:48 -0600
-Message-ID: <1421254729-10602-2-git-send-email-balbi@ti.com>
-References: <1421254729-10602-1-git-send-email-balbi@ti.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Tony Lindgren <tony@atomide.com>,
-	Linux OMAP Mailing List <linux-omap@vger.kernel.org>,
-	<mugunthanvnm@ti.com>, <netdev@vger.kernel.org>,
-	Felipe Balbi <balbi@ti.com>
-To: <davem@davemloft.net>
-Return-path: <linux-omap-owner@vger.kernel.org>
-In-Reply-To: <1421254729-10602-1-git-send-email-balbi@ti.com>
-Sender: linux-omap-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net] team: avoid possible underflow of count_pending value for notify_peers and mcast_rejoin
+Date: Wed, 14 Jan 2015 18:15:30 +0100
+Message-ID: <1421255730-10681-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, jbenc@redhat.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f171.google.com ([74.125.82.171]:65429 "EHLO
+	mail-we0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751749AbbANRPd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2015 12:15:33 -0500
+Received: by mail-we0-f171.google.com with SMTP id u56so10050353wes.2
+        for <netdev@vger.kernel.org>; Wed, 14 Jan 2015 09:15:32 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Now we can introduce dedicated IRQ handlers
-for each of the IRQ events. This helps with
-cleaning up a little bit of the clutter in
-cpsw_interrupt() while also making sure that
-TX IRQs will try to handle TX buffers while
-RX IRQs will try to handle RX buffers.
+This patch is fixing a race condition that may cause setting
+count_pending to -1, which results in unwanted big bulk of arp messages
+(in case of "notify peers").
 
-Signed-off-by: Felipe Balbi <balbi@ti.com>
+Consider following scenario:
+
+count_pending == 2
+   CPU0                                           CPU1
+					team_notify_peers_work
+					  atomic_dec_and_test (dec count_pending to 1)
+					  schedule_delayed_work
+ team_notify_peers
+   atomic_add (adding 1 to count_pending)
+					team_notify_peers_work
+					  atomic_dec_and_test (dec count_pending to 1)
+					  schedule_delayed_work
+					team_notify_peers_work
+					  atomic_dec_and_test (dec count_pending to 0)
+   schedule_delayed_work
+					team_notify_peers_work
+					  atomic_dec_and_test (dec count_pending to -1)
+
+Fix this race by using atomic_dec_if_positive - that will prevent
+count_pending running under 0.
+
+Fixes: fc423ff00df3a1955441 ("team: add peer notification")
+Fixes: 492b200efdd20b8fcfd  ("team: add support for sending multicast rejoins")
+Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+Signed-off-by: Jiri Benc <jbenc@redhat.com>
 ---
- drivers/net/ethernet/ti/cpsw.c | 41 ++++++++++++++++++++++++++++++-----------
- 1 file changed, 30 insertions(+), 11 deletions(-)
+ drivers/net/team/team.c | 16 ++++++++++++++--
+ 1 file changed, 14 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index 8e1af51e4b76..c6c483f3e49f 100644
---- a/drivers/net/ethernet/ti/cpsw.c
-+++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -754,18 +754,36 @@ requeue:
- 		dev_kfree_skb_any(new_skb);
- }
- 
--static irqreturn_t cpsw_interrupt(int irq, void *dev_id)
-+static irqreturn_t cpsw_dummy_interrupt(int irq, void *dev_id)
+diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
+index 43bcfff..4b2bfc5 100644
+--- a/drivers/net/team/team.c
++++ b/drivers/net/team/team.c
+@@ -622,6 +622,7 @@ static int team_change_mode(struct team *team, const char *kind)
+ static void team_notify_peers_work(struct work_struct *work)
  {
- 	struct cpsw_priv *priv = dev_id;
- 	int value = irq - priv->irqs_table[0];
+ 	struct team *team;
++	int val;
  
--	/* NOTICE: Ending IRQ here. The trick with the 'value' variable above
--	 * is to make sure we will always write the correct value to the EOI
--	 * register. Namely 0 for RX_THRESH Interrupt, 1 for RX Interrupt, 2
--	 * for TX Interrupt and 3 for MISC Interrupt.
--	 */
- 	cpdma_ctlr_eoi(priv->dma, value);
+ 	team = container_of(work, struct team, notify_peers.dw.work);
  
-+	return IRQ_HANDLED;
-+}
-+
-+static irqreturn_t cpsw_tx_interrupt(int irq, void *dev_id)
-+{
-+	struct cpsw_priv *priv = dev_id;
-+
-+	cpdma_ctlr_eoi(priv->dma, CPDMA_EOI_TX);
-+	cpdma_chan_process(priv->txch, 128);
-+
-+	priv = cpsw_get_slave_priv(priv, 1);
-+	if (priv)
-+		cpdma_chan_process(priv->txch, 128);
-+
-+	return IRQ_HANDLED;
-+}
-+
-+static irqreturn_t cpsw_rx_interrupt(int irq, void *dev_id)
-+{
-+	struct cpsw_priv *priv = dev_id;
-+
-+	cpdma_ctlr_eoi(priv->dma, CPDMA_EOI_RX);
-+
- 	cpsw_intr_disable(priv);
- 	if (priv->irq_enabled == true) {
- 		cpsw_disable_irq(priv);
-@@ -1617,7 +1635,8 @@ static void cpsw_ndo_poll_controller(struct net_device *ndev)
- 
- 	cpsw_intr_disable(priv);
- 	cpdma_ctlr_int_ctrl(priv->dma, false);
--	cpsw_interrupt(ndev->irq, priv);
-+	cpsw_rx_interrupt(priv->irq[1], priv);
-+	cpsw_tx_interrupt(priv->irq[2], priv);
- 	cpdma_ctlr_int_ctrl(priv->dma, true);
- 	cpsw_intr_enable(priv);
+@@ -629,9 +630,14 @@ static void team_notify_peers_work(struct work_struct *work)
+ 		schedule_delayed_work(&team->notify_peers.dw, 0);
+ 		return;
+ 	}
++	val = atomic_dec_if_positive(&team->notify_peers.count_pending);
++	if (val < 0) {
++		rtnl_unlock();
++		return;
++	}
+ 	call_netdevice_notifiers(NETDEV_NOTIFY_PEERS, team->dev);
+ 	rtnl_unlock();
+-	if (!atomic_dec_and_test(&team->notify_peers.count_pending))
++	if (val)
+ 		schedule_delayed_work(&team->notify_peers.dw,
+ 				      msecs_to_jiffies(team->notify_peers.interval));
  }
-@@ -2351,7 +2370,7 @@ static int cpsw_probe(struct platform_device *pdev)
- 		goto clean_ale_ret;
+@@ -662,6 +668,7 @@ static void team_notify_peers_fini(struct team *team)
+ static void team_mcast_rejoin_work(struct work_struct *work)
+ {
+ 	struct team *team;
++	int val;
  
- 	priv->irqs_table[0] = irq;
--	ret = devm_request_irq(&pdev->dev, irq, cpsw_interrupt,
-+	ret = devm_request_irq(&pdev->dev, irq, cpsw_dummy_interrupt,
- 			       0, dev_name(&pdev->dev), priv);
- 	if (ret < 0) {
- 		dev_err(priv->dev, "error attaching irq (%d)\n", ret);
-@@ -2363,7 +2382,7 @@ static int cpsw_probe(struct platform_device *pdev)
- 		goto clean_ale_ret;
+ 	team = container_of(work, struct team, mcast_rejoin.dw.work);
  
- 	priv->irqs_table[1] = irq;
--	ret = devm_request_irq(&pdev->dev, irq, cpsw_interrupt,
-+	ret = devm_request_irq(&pdev->dev, irq, cpsw_rx_interrupt,
- 			       0, dev_name(&pdev->dev), priv);
- 	if (ret < 0) {
- 		dev_err(priv->dev, "error attaching irq (%d)\n", ret);
-@@ -2375,7 +2394,7 @@ static int cpsw_probe(struct platform_device *pdev)
- 		goto clean_ale_ret;
- 
- 	priv->irqs_table[2] = irq;
--	ret = devm_request_irq(&pdev->dev, irq, cpsw_interrupt,
-+	ret = devm_request_irq(&pdev->dev, irq, cpsw_tx_interrupt,
- 			       0, dev_name(&pdev->dev), priv);
- 	if (ret < 0) {
- 		dev_err(priv->dev, "error attaching irq (%d)\n", ret);
-@@ -2387,7 +2406,7 @@ static int cpsw_probe(struct platform_device *pdev)
- 		goto clean_ale_ret;
- 
- 	priv->irqs_table[3] = irq;
--	ret = devm_request_irq(&pdev->dev, irq, cpsw_interrupt,
-+	ret = devm_request_irq(&pdev->dev, irq, cpsw_dummy_interrupt,
- 			       0, dev_name(&pdev->dev), priv);
- 	if (ret < 0) {
- 		dev_err(priv->dev, "error attaching irq (%d)\n", ret);
+@@ -669,9 +676,14 @@ static void team_mcast_rejoin_work(struct work_struct *work)
+ 		schedule_delayed_work(&team->mcast_rejoin.dw, 0);
+ 		return;
+ 	}
++	val = atomic_dec_if_positive(&team->mcast_rejoin.count_pending);
++	if (val < 0) {
++		rtnl_unlock();
++		return;
++	}
+ 	call_netdevice_notifiers(NETDEV_RESEND_IGMP, team->dev);
+ 	rtnl_unlock();
+-	if (!atomic_dec_and_test(&team->mcast_rejoin.count_pending))
++	if (val)
+ 		schedule_delayed_work(&team->mcast_rejoin.dw,
+ 				      msecs_to_jiffies(team->mcast_rejoin.interval));
+ }
 -- 
-2.2.0
-
+1.9.3
