@@ -1,47 +1,54 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch iproute2 2/2] tc: add support for BPF based actions
-Date: Wed, 14 Jan 2015 10:19:19 +0100
-Message-ID: <20150114091919.GB1869@nanopsycho.orion>
-References: <1420649035-9522-1-git-send-email-jiri@resnulli.us>
- <1420649244-9574-1-git-send-email-jiri@resnulli.us>
- <1420649244-9574-2-git-send-email-jiri@resnulli.us>
- <20150113171917.4d4cdafb@urahara>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH net-next v2] rhashtable: unnecessary to use delayed work
+Date: Wed, 14 Jan 2015 09:24:03 +0000
+Message-ID: <20150114092403.GS20387@casper.infradead.org>
+References: <1421206370-27977-1-git-send-email-ying.xue@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, jhs@mojatatu.com
-To: Stephen Hemminger <stephen@networkplumber.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Ying Xue <ying.xue@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f176.google.com ([74.125.82.176]:57809 "EHLO
-	mail-we0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751981AbbANJTW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2015 04:19:22 -0500
-Received: by mail-we0-f176.google.com with SMTP id w61so7548306wes.7
-        for <netdev@vger.kernel.org>; Wed, 14 Jan 2015 01:19:20 -0800 (PST)
+Received: from casper.infradead.org ([85.118.1.10]:57734 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750782AbbANJYF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2015 04:24:05 -0500
 Content-Disposition: inline
-In-Reply-To: <20150113171917.4d4cdafb@urahara>
+In-Reply-To: <1421206370-27977-1-git-send-email-ying.xue@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wed, Jan 14, 2015 at 02:19:17AM CET, stephen@networkplumber.org wrote:
->On Wed,  7 Jan 2015 17:47:24 +0100
->Jiri Pirko <jiri@resnulli.us> wrote:
->
->> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
->> ---
->>  include/linux/tc_act/tc_bpf.h |  31 +++++++
->
->The overall concept is fine, but the mechanics of file management
->gets in the way.
->
->All header files in the linux directory of iproute2 must come from sanitized
->version of kernel headers that are in uapi/linux in the kernel source.
->
->I take headers from 'make install_headers' and copy them over to keep
->in sync. The headers for master branch are kept in sync with upstream
->kernel (from Linus tree), and for net-next branch I derive them from Davem's
->net-next tree.
->
->If you want to use tc_bpf.h it has to be in upstream kernel first.
+On 01/14/15 at 11:32am, Ying Xue wrote:
+> When we put our declared work task in the global workqueue with
+> schedule_delayed_work(), its delay parameter is always zero.
+> Therefore, we should define a normal work in rhashtable structure
+> instead of a delayed work.
+> 
+> By the way, we add a condition to check whether resizing functions
+> are NULL before cancel the work, avoiding to cancel an uninitialized
+> work.
+> 
+> Lastly, while we wait for all work items we submitted before to run
+> to completion with cancel_delayed_work(), ht->mutex has been taken in
+> rhashtable_destroy(). Moreover, cancel_delayed_work() doesn't return
+> until all work items are accomplished, and when work items are
+> scheduled, the work's function - rht_deferred_worker() will be called.
+> However, as rht_deferred_worker() also needs to acquire the lock,
+> deadlock might happen at the moment as the lock is already held before.
+> So if the cancel work function is moved out of the lock covered scope,
+> this can help to avoid the deadlock.
+  ^^^^^^^^^^^^^^^
+  will avoid :-)
 
-Sure. I will reposet these patches once act_bpf code is applied to
-net-next kernel tree. Thanks!
+> 
+> Fixes: 97defe1 ("rhashtable: Per bucket locks & deferred expansion/shrinking")
+> Signed-off-by: Ying Xue <ying.xue@windriver.com>
+> Cc: Thomas Graf <tgraf@suug.ch>
+
+I don't want to be too picky about the commit title but since this is
+fixing a previously reported race condition I would like for that to
+be reflected in the title. Something like:
+
+rhashtable: Fix race in rhashtable_destroy() and use regular work_struct
+
+With that fixed:
+Acked-by: Thomas Graf <tgraf@suug.ch>
