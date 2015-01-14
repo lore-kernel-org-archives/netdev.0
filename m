@@ -1,35 +1,56 @@
-From: =?utf-8?b?Ik1JU0Ugw4AgTklWRUFVIEFETUlOIiA8aW5mb0BldHUuZWR1LnRyPg==?=@vger.kernel.org
-Subject: RAPPEL
-Date: Wed, 14 Jan 2015 09:59:25 -0800
-Message-ID: <20150114085012.5B3FE2FB60@mail.etu.edu.tr>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next v2] tc: add BPF based action
+Date: Wed, 14 Jan 2015 10:09:10 +0100
+Message-ID: <20150114090910.GA1869@nanopsycho.orion>
+References: <1421078978-10904-1-git-send-email-jiri@resnulli.us>
+ <20150113.143633.1852338751965729543.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Recipients <info@etu.edu.tr>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, jhs@mojatatu.com, dborkman@redhat.com,
+	ast@plumgrid.com, hannes@redhat.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.etu.edu.tr ([193.140.109.41]:48763 "EHLO mail.etu.edu.tr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751176AbbANJEO convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2015 04:04:14 -0500
-Content-Description: Mail message body
+Received: from mail-wg0-f53.google.com ([74.125.82.53]:59470 "EHLO
+	mail-wg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752142AbbANJJN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2015 04:09:13 -0500
+Received: by mail-wg0-f53.google.com with SMTP id x13so7595547wgg.12
+        for <netdev@vger.kernel.org>; Wed, 14 Jan 2015 01:09:12 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20150113.143633.1852338751965729543.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dernier avertissement webmail utilisateur
+Tue, Jan 13, 2015 at 08:36:33PM CET, davem@davemloft.net wrote:
+>From: Jiri Pirko <jiri@resnulli.us>
+>Date: Mon, 12 Jan 2015 17:09:38 +0100
+>
+>> +	bpf_len = nla_get_u16(tb[TCA_ACT_BPF_OPS_LEN]);
+>> +	if (bpf_len > BPF_MAXINSNS || bpf_len == 0)
+>> +		return -EINVAL;
+>> +
+>> +	bpf_size = bpf_len * sizeof(*bpf_ops);
+>
+>When I see variables named 'len' and 'size', I expect them to be
+>in unit bytes.
 
-Ce est un message de votre email =E9quipe service informatique de mettr=
-e =E0 jour votre compte Nous mettons =E0 jour tous les comptes e-mail, =
-tous les utilisateurs sont en train de v=E9rifier leur compte e-mail mi=
-se =E0 niveau et de mise =E0 jour. Se il vous pla=EEt v=E9rifier et met=
-tre =E0 jour votre compte pour =E9viter de perdre vos messages entrants=
- vers votre bo=EEte de r=E9ception et autres dossiers ou peut =E9galeme=
-nt =EAtre supprim=E9 si pas mis =E0 niveau / mise =E0 jour dans les 24 =
-heures.
+Size is bytes, len is number of instructions. This is the same as in
+net/sched/cls_bpf.c line 182. I follow the same naming for consistency
 
-CLIQUEZ ICI: http://tinyurl.com/ne48894
-mettre =E0 jour votre email
+>
+>I think it's clearer to call bpf_len something like "bpf_num_insns",
+>or "bpf_num_ops", or something like that.
 
-Service Webmail
-=C9quipe du service informatique.
-=20
-Copiez et coller le lien dans votre navigateur
+I understand. I will change it in net/sched/cls_bpf.c as well.
+
+>
+>Also, is the OPS_LEN attribute really necessary?  Can't you just
+>figure this out using nla_len() on the OPS attribute?  Or is that not
+>always accurate due to alignment?
+
+I guess that you could just use nla_len. Again, I followed cls_bpf for
+consistency purposes. It has TCA_BPF_OPS_LEN as well.
+
+Thanks for review!
+
+Jiri
