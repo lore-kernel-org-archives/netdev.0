@@ -1,87 +1,72 @@
-From: Sriharsha Basavapatna <sriharsha.basavapatna@emulex.com>
-Subject: [PATCH v2 net] be2net: Allow GRE to work concurrently while a VxLAN tunnel is configured
-Date: Thu, 15 Jan 2015 16:08:43 +0530
-Message-ID: <1421318323-2547-1-git-send-email-sriharsha.basavapatna@emulex.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [net-next PATCH v1 00/11] A flow API
+Date: Wed, 14 Jan 2015 19:02:38 +0000
+Message-ID: <20150114190238.GB2105@casper.infradead.org>
+References: <20141231194057.31070.5244.stgit@nitbit.x32>
+ <54ABD3D1.6020608@mojatatu.com>
+ <54B01DA2.9090104@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>, sfeldma@gmail.com,
+	jiri@resnulli.us, simon.horman@netronome.com,
+	netdev@vger.kernel.org, davem@davemloft.net, andy@greyhouse.net,
+	Shrijeet Mukherjee <shm@cumulusnetworks.com>
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge1.emulex.com ([138.239.224.99]:26948 "EHLO
-	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752558AbbANSMf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2015 13:12:35 -0500
+Received: from casper.infradead.org ([85.118.1.10]:60893 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752343AbbANTCm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2015 14:02:42 -0500
+Content-Disposition: inline
+In-Reply-To: <54B01DA2.9090104@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Other tunnels like GRE break while VxLAN offloads are enabled in Skyhawk-R. To
-avoid this, we should restrict offload features on a per-packet basis in such
-conditions.
+On 01/09/15 at 10:27am, John Fastabend wrote:
+> Yes we are providing an interface for userspace to interrogate the
+> hardware and program it. My take on this is even if you embed this
+> into another netlink family OVS, NFT, TCA you end up with the same
+> operations w.r.t. table support (a) query hardware for
+> resources/constraints/etc and (b) an API to add/del rules in those
+> tables. It seems the intersection of these features with existing
+> netlink families is fairly small so I opted to create a new family.
+> The underlying hardware offload mechanisms in flow_table.c here could
+> be used by in-kernel consumers as well as user space. For some
+> consumers 'tc' perhaps this makes good sense for others 'OVS'
+> it does not IMO.
 
-Signed-off-by: Sriharsha Basavapatna <sriharsha.basavapatna@emulex.com>
----
-v2 changes: fixed minor nits pointed out by Sergei Shtylyov
----
- drivers/net/ethernet/emulex/benet/be_main.c |   41 +++++++++++++++++++++++++--
- 1 file changed, 38 insertions(+), 3 deletions(-)
++1
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 41a0a54..d48806b 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -4383,8 +4383,9 @@ static int be_ndo_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
-  * distinguish various types of transports (VxLAN, GRE, NVGRE ..). So, offload
-  * is expected to work across all types of IP tunnels once exported. Skyhawk
-  * supports offloads for either VxLAN or NVGRE, exclusively. So we export VxLAN
-- * offloads in hw_enc_features only when a VxLAN port is added. Note this only
-- * ensures that other tunnels work fine while VxLAN offloads are not enabled.
-+ * offloads in hw_enc_features only when a VxLAN port is added. If other (non
-+ * VxLAN) tunnels are configured while VxLAN offloads are enabled, offloads for
-+ * those other tunnels are unexported on the fly through ndo_features_check().
-  *
-  * Skyhawk supports VxLAN offloads only for one UDP dport. So, if the stack
-  * adds more than one port, disable offloads and don't re-enable them again
-@@ -4463,7 +4464,41 @@ static netdev_features_t be_features_check(struct sk_buff *skb,
- 					   struct net_device *dev,
- 					   netdev_features_t features)
- {
--	return vxlan_features_check(skb, features);
-+	struct be_adapter *adapter = netdev_priv(dev);
-+	u8 l4_hdr = 0;
-+
-+	/* The code below restricts offload features for some tunneled packets.
-+	 * Offload features for normal (non tunnel) packets are unchanged.
-+	 */
-+	if (!skb->encapsulation ||
-+	    !(adapter->flags & BE_FLAGS_VXLAN_OFFLOADS))
-+		return features;
-+
-+	/* It's an encapsulated packet and VxLAN offloads are enabled. We
-+	 * should disable tunnel offload features if it's not a VxLAN packet,
-+	 * as tunnel offloads have been enabled only for VxLAN. This is done to
-+	 * allow other tunneled traffic like GRE work fine while VxLAN
-+	 * offloads are configured in Skyhawk-R.
-+	 */
-+	switch (vlan_get_protocol(skb)) {
-+	case htons(ETH_P_IP):
-+		l4_hdr = ip_hdr(skb)->protocol;
-+		break;
-+	case htons(ETH_P_IPV6):
-+		l4_hdr = ipv6_hdr(skb)->nexthdr;
-+		break;
-+	default:
-+		return features;
-+	}
-+
-+	if (l4_hdr != IPPROTO_UDP ||
-+	    skb->inner_protocol_type != ENCAP_TYPE_ETHER ||
-+	    skb->inner_protocol != htons(ETH_P_TEB) ||
-+	    skb_inner_mac_header(skb) - skb_transport_header(skb) !=
-+	    sizeof(struct udphdr) + sizeof(struct vxlanhdr))
-+		return features & ~(NETIF_F_ALL_CSUM | NETIF_F_GSO_MASK);
-+
-+	return features;
- }
- #endif
- 
--- 
-1.7.9.5
+> [...]
+>
+> But in many cases my goal is to unify them in userspace
+> where it is easier to make policy decisions. For OVS, NFT it
+> seems to me that user space libraries can handle the unification
+> of hardware/software dataplanes. Further I think it is the correct
+> place to unify the dataplanes. I don't want to encode complex
+> policies into the kernel. Even if you embed the netlink UAPI into
+> another netlink family the semantics look the same.
+
+I think we want the kernel to remain in control but it does not
+necessarily have to hold the offload decision logic for all users.
+I think this is compareable to routing daemons. We do not want to
+talk BPF or OSPF in the kernel and we don't need to know about all
+of the selection logic behind it but we want to be in charge of
+keeping track of the actual datapath routes.
+
+Also, I think this is still an option to emebed the proposed
+attribtues in existing Netlink families even if we shoot for a new
+family for now. So far the attributes seem to be defined in a way
+that would allow them to be embedded into other existing Netlink
+families.
+
+> Maybe I need to be enlightened but I thought for a bit about some grand
+> unification of ovs, bridge, tc, netlink, et. al. but that seems like
+> an entirely different scope of project. (side note: filters/actions
+> are no longer locked by qdisc and could stand on their own) My thoughts
+> on this are not yet organized.
+
+I think everybody had this in the back of their mind at some point.
+Be it based on BPF, NFT or TC. I don't think it's undoable but it
+takes a lot of effort as each is based on a slightly different set
+of assumptions with corresponding focus derived from that.
