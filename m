@@ -1,82 +1,72 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net] i40e: adds FCoE configure option
-Date: Wed, 14 Jan 2015 05:14:07 -0800
-Message-ID: <1421241247-22594-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Vasu Dev <vasu.dev@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	<stable@vger.kernel.org>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <stable-owner@vger.kernel.org>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next v3] rhashtable: Fix race in rhashtable_destroy()
+ and use regular work_struct
+Date: Wed, 14 Jan 2015 16:25:50 +0300
+Message-ID: <54B66E5E.6010507@cogentembedded.com>
+References: <1421228256-740-1-git-send-email-ying.xue@windriver.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Ying Xue <ying.xue@windriver.com>, tgraf@suug.ch
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f169.google.com ([209.85.217.169]:38245 "EHLO
+	mail-lb0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751583AbbANNZx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2015 08:25:53 -0500
+Received: by mail-lb0-f169.google.com with SMTP id p9so7906314lbv.0
+        for <netdev@vger.kernel.org>; Wed, 14 Jan 2015 05:25:51 -0800 (PST)
+In-Reply-To: <1421228256-740-1-git-send-email-ying.xue@windriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Vasu Dev <vasu.dev@intel.com>
+Hello.
 
-Adds FCoE config option I40E_FCOE, so that FCoE can be enabled
-as needed but otherwise have it disabled by default.
+On 1/14/2015 12:37 PM, Ying Xue wrote:
 
-This also eliminate multiple FCoE config checks, instead now just
-one config check for CONFIG_I40E_FCOE.
+> When we put our declared work task in the global workqueue with
+> schedule_delayed_work(), its delay parameter is always zero.
+> Therefore, we should define a regular work in rhashtable structure
+> instead of a delayed work.
 
-The I40E FCoE was added with 3.17 kernel and therefore this patch
-shall be applied to stable 3.17 kernel also.
+> By the way, we add a condition to check whether resizing functions
+> are NULL before cancel the work, avoiding to cancel an uninitialized
 
-CC: <stable@vger.kernel.org>
-Signed-off-by: Vasu Dev <vasu.dev@intel.com>
-Tested-by: Jim Young <jamesx.m.young@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/Kconfig           | 11 +++++++++++
- drivers/net/ethernet/intel/i40e/Makefile     |  2 +-
- drivers/net/ethernet/intel/i40e/i40e_osdep.h |  4 ++--
- 3 files changed, 14 insertions(+), 3 deletions(-)
+    s/before cancel/before cancelling/.
 
-diff --git a/drivers/net/ethernet/intel/Kconfig b/drivers/net/ethernet/intel/Kconfig
-index 5b8300a..4d61ef5 100644
---- a/drivers/net/ethernet/intel/Kconfig
-+++ b/drivers/net/ethernet/intel/Kconfig
-@@ -281,6 +281,17 @@ config I40E_DCB
- 
- 	  If unsure, say N.
- 
-+config I40E_FCOE
-+	bool "Fibre Channel over Ethernet (FCoE)"
-+	default n
-+	depends on I40E && DCB && FCOE
-+	---help---
-+	  Say Y here if you want to use Fibre Channel over Ethernet (FCoE)
-+	  in the driver. This will create new netdev for exclusive FCoE
-+	  use with XL710 FCoE offloads enabled.
-+
-+	  If unsure, say N.
-+
- config I40EVF
- 	tristate "Intel(R) XL710 X710 Virtual Function Ethernet support"
- 	depends on PCI_MSI
-diff --git a/drivers/net/ethernet/intel/i40e/Makefile b/drivers/net/ethernet/intel/i40e/Makefile
-index 4b94ddb..c405819 100644
---- a/drivers/net/ethernet/intel/i40e/Makefile
-+++ b/drivers/net/ethernet/intel/i40e/Makefile
-@@ -44,4 +44,4 @@ i40e-objs := i40e_main.o \
- 	i40e_virtchnl_pf.o
- 
- i40e-$(CONFIG_I40E_DCB) += i40e_dcb.o i40e_dcb_nl.o
--i40e-$(CONFIG_FCOE:m=y) += i40e_fcoe.o
-+i40e-$(CONFIG_I40E_FCOE) += i40e_fcoe.o
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_osdep.h b/drivers/net/ethernet/intel/i40e/i40e_osdep.h
-index 045b5c4..ad802dd 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_osdep.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_osdep.h
-@@ -78,7 +78,7 @@ do {                                                            \
- } while (0)
- 
- typedef enum i40e_status_code i40e_status;
--#if defined(CONFIG_FCOE) || defined(CONFIG_FCOE_MODULE)
-+#ifdef CONFIG_I40E_FCOE
- #define I40E_FCOE
--#endif /* CONFIG_FCOE or CONFIG_FCOE_MODULE */
-+#endif
- #endif /* _I40E_OSDEP_H_ */
--- 
-1.9.3
+> work.
+
+[...]
+
+> Fixes: 97defe1 ("rhashtable: Per bucket locks & deferred expansion/shrinking")
+> Signed-off-by: Ying Xue <ying.xue@windriver.com>
+> Cc: Thomas Graf <tgraf@suug.ch>
+> Acked-by: Thomas Graf <tgraf@suug.ch>
+
+[...]
+
+> diff --git a/lib/rhashtable.c b/lib/rhashtable.c
+> index ed6ae1a..1f56189 100644
+> --- a/lib/rhashtable.c
+> +++ b/lib/rhashtable.c
+[...]
+> @@ -911,12 +911,11 @@ EXPORT_SYMBOL_GPL(rhashtable_init);
+>   void rhashtable_destroy(struct rhashtable *ht)
+>   {
+>   	ht->being_destroyed = true;
+
+    Empty line needed here.
+
+> +	if (ht->p.grow_decision || ht->p.shrink_decision)
+> +		cancel_work_sync(&ht->run_work);
+>
+>   	mutex_lock(&ht->mutex);
+> -
+> -	cancel_delayed_work(&ht->run_work);
+>   	bucket_table_free(rht_dereference(ht->tbl, ht));
+> -
+>   	mutex_unlock(&ht->mutex);
+>   }
+>   EXPORT_SYMBOL_GPL(rhashtable_destroy);
+
+WBR, Sergei
