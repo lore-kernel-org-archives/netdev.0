@@ -1,56 +1,61 @@
-From: Vadim Kochan <vadim4j@gmail.com>
-Subject: Re: [PATCH iproute2 0/3] ip netns: Run over all netns
-Date: Wed, 14 Jan 2015 18:13:27 +0200
-Message-ID: <20150114161327.GA7965@angus-think.wlc.globallogic.com>
-References: <1420628662-9930-1-git-send-email-vadim4j@gmail.com>
- <20150113172837.793f0969@urahara>
+From: Shuah Khan <shuahkh@osg.samsung.com>
+Subject: Re: [PATCH v4 20/20] kbuild: add a new kselftest_install make target
+ to install selftests
+Date: Wed, 14 Jan 2015 09:32:27 -0700
+Message-ID: <54B69A1B.80006@osg.samsung.com>
+References: <cover.1420571615.git.shuahkh@osg.samsung.com> <2c5a28faaa79d9c2415854a08817ada509fcb943.1420571615.git.shuahkh@osg.samsung.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Vadim Kochan <vadim4j@gmail.com>, netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 8bit
+Cc: gregkh@linuxfoundation.org, akpm@linux-foundation.org,
+	rostedt@goodmis.org, mingo@redhat.com, davem@davemloft.net,
+	keescook@chromium.org, tranmanphong@gmail.com, mpe@ellerman.id.au,
+	cov@codeaurora.org, dh.herrmann@gmail.com, hughd@google.com,
+	bobby.prani@gmail.com, serge.hallyn@ubuntu.com,
+	ebiederm@xmission.com, tim.bird@sonymobile.com,
+	josh@joshtriplett.org, koct9i@gmail.com,
+	linux-kbuild@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-api@vger.kernel.org, netdev@vger.kernel.org
+To: mmarek@suse.cz, masami.hiramatsu.pt@hitachi.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f176.google.com ([209.85.217.176]:60657 "EHLO
-	mail-lb0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752448AbbANQX7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2015 11:23:59 -0500
-Received: by mail-lb0-f176.google.com with SMTP id p9so8819979lbv.7
-        for <netdev@vger.kernel.org>; Wed, 14 Jan 2015 08:23:57 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20150113172837.793f0969@urahara>
+Received: from lists.s-osg.org ([54.187.51.154]:57447 "EHLO lists.s-osg.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752779AbbANQck (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Jan 2015 11:32:40 -0500
+In-Reply-To: <2c5a28faaa79d9c2415854a08817ada509fcb943.1420571615.git.shuahkh@osg.samsung.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 13, 2015 at 05:28:37PM -0800, Stephen Hemminger wrote:
-> On Wed,  7 Jan 2015 13:04:19 +0200
-> Vadim Kochan <vadim4j@gmail.com> wrote:
+On 01/06/2015 12:43 PM, Shuah Khan wrote:
+> Add a new make target to install to install kernel selftests.
+> This new target will build and install selftests. kselftest
+> target now depends on kselftest_install and runs the generated
+> kselftest script to reduce duplicate work and for common look
+> and feel when running tests.
 > 
-> > From: Vadim Kochan <vadim4j@gmail.com>
-> > 
-> > Allow 'ip netns del' and 'ip netns exec' run over each network namespace names.
-> > 
-> > 'ip netns exec' executes command forcely on eacn nsname.
-> > 
-> > Vadim Kochan (3):
-> >   lib: Exec func on each netns
-> >   ip netns: Allow exec on each netns
-> >   ip netns: Delete all netns
-> > 
-> >  include/namespace.h |  6 ++++
-> >  include/utils.h     |  5 +++
-> >  ip/ipnetns.c        | 96 ++++++++++++++++++++++++++++++++---------------------
-> >  lib/namespace.c     | 22 ++++++++++++
-> >  lib/utils.c         | 28 ++++++++++++++++
-> >  man/man8/ip-netns.8 | 26 ++++++++++++---
-> >  6 files changed, 141 insertions(+), 42 deletions(-)
-> > 
+> make kselftest_target:
+> -- exports kselftest INSTALL_KSFT_PATH
+>    default $(INSTALL_MOD_PATH)/lib/kselftest/$(KERNELRELEASE)
+> -- exports INSTALL_KSFT_PATH
+> -- runs selftests make install target
 > 
-> It is a useful concept but as others have pointed out the idea of reserving
-> a keyword 'all' at this point is likely to cause somebody to break.
-> So sorry.
-OK, then what about additional option like:
+> Signed-off-by: Shuah Khan <shuahkh@osg.samsung.com>
+> ---
+>  Makefile | 14 +++++++++++++-
+>  1 file changed, 13 insertions(+), 1 deletion(-)
 
-    $ ip -all netns exec ...
+Hi Marek,
 
-?
+Could you please Ack this patch, if this version looks good,
+so I can take this through ksefltest tree.
 
-Thanks,
+thanks,
+-- Shuah
+
+
+-- 
+Shuah Khan
+Sr. Linux Kernel Developer
+Open Source Innovation Group
+Samsung Research America (Silicon Valley)
+shuahkh@osg.samsung.com | (970) 217-8978
