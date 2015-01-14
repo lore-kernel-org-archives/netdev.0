@@ -1,42 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/5 net-next v4] VXLAN Group Policy Extension
-Date: Wed, 14 Jan 2015 15:37:44 -0500 (EST)
-Message-ID: <20150114.153744.360580056667123059.davem@davemloft.net>
-References: <cover.1421165078.git.tgraf@suug.ch>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [PATCH net] openvswitch: packet messages need their own probe attribtue
+Date: Wed, 14 Jan 2015 12:40:44 -0800
+Message-ID: <CAEP_g=_Z_OUyNU=_ctFDAgLR=yDjsO_L4tNLSzGS=7oir39uVw@mail.gmail.com>
+References: <1645184106.20150114131420@eikelenboom.it> <20150114130005.GA564@casper.infradead.org>
+ <20150114130351.GB13716@breakpoint.cc> <20150114135619.GC564@casper.infradead.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jesse@nicira.com, stephen@networkplumber.org, pshelar@nicira.com,
-	therbert@google.com, alexei.starovoitov@gmail.com,
-	nicolas.dichtel@6wind.com, netdev@vger.kernel.org,
-	dev@openvswitch.org
-To: tgraf@suug.ch
+Content-Type: text/plain; charset=UTF-8
+Cc: Florian Westphal <fw@strlen.de>,
+	David Miller <davem@davemloft.net>,
+	Sander Eikelenboom <linux@eikelenboom.it>,
+	Pravin B Shelar <pshelar@nicira.com>,
+	netdev <netdev@vger.kernel.org>,
+	"dev@openvswitch.org" <dev@openvswitch.org>,
+	Jarno Rajahalme <jrajahalme@nicira.com>
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45157 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751225AbbANUhs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2015 15:37:48 -0500
-In-Reply-To: <cover.1421165078.git.tgraf@suug.ch>
+Received: from na3sys009aog112.obsmtp.com ([74.125.149.207]:60797 "HELO
+	na3sys009aog112.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751225AbbANUlG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2015 15:41:06 -0500
+Received: by mail-qg0-f49.google.com with SMTP id f51so8805129qge.8
+        for <netdev@vger.kernel.org>; Wed, 14 Jan 2015 12:41:04 -0800 (PST)
+In-Reply-To: <20150114135619.GC564@casper.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Thomas Graf <tgraf@suug.ch>
-Date: Tue, 13 Jan 2015 17:20:41 +0100
+On Wed, Jan 14, 2015 at 5:56 AM, Thomas Graf <tgraf@suug.ch> wrote:
+> User space is currently sending a OVS_FLOW_ATTR_PROBE for both flow
+> and packet messages. This leads to an out-of-bounds access in
+> ovs_packet_cmd_execute() because OVS_FLOW_ATTR_PROBE >
+> OVS_PACKET_ATTR_MAX.
+>
+> Introduce a new OVS_PACKET_ATTR_PROBE with the same numeric value
+> as OVS_FLOW_ATTR_PROBE to grow the range of accepted packet attributes
+> while maintaining to be binary compatible with existing OVS binaries.
+>
+> Fixes: 05da589 ("openvswitch: Add support for OVS_FLOW_ATTR_PROBE.")
+> Reported-by: Sander Eikelenboom <linux@eikelenboom.it>
+> Tracked-down-by: Florian Westphal <fw@strlen.de>
+> Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
-> Implements supports for the Group Policy VXLAN extension [0] to provide
-> a lightweight and simple security label mechanism across network peers
-> based on VXLAN. The security context and associated metadata is mapped
-> to/from skb->mark. This allows further mapping to a SELinux context
-> using SECMARK, to implement ACLs directly with nftables, iptables, OVS,
-> tc, etc.
-> 
-> The extension is disabled by default and should be run on a distinct
-> port in mixed Linux VXLAN VTEP environments. Liberal VXLAN VTEPs
-> which ignore unknown reserved bits will be able to receive VXLAN-GBP
-> frames.
+This is kind of a nasty bug, thanks for fixing it.
 
-Thomas, unfortunately Tom's vxlan RCO patches were ready before your's
-in my queue so I applied his work first.  You'll have to therefore
-respin this series on top of it.
-
-Thanks.
+Reviewed-by: Jesse Gross <jesse@nicira.com>
