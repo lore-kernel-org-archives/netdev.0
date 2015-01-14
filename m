@@ -1,119 +1,155 @@
-From: Thomas Jarosch <thomas.jarosch@intra2net.com>
-Subject: [bisected regression] e1000e: "Detected Hardware Unit Hang"
-Date: Wed, 14 Jan 2015 16:32:10 +0100
-Message-ID: <1719052.SGOfRAJhfQ@storm>
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: non-OVS based vxlan config broken on 3.19-rc ?!
+Date: Wed, 14 Jan 2015 17:18:49 +0200
+Message-ID: <54B688D9.8030101@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Eric Dumazet <edumazet@google.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	e1000-devel <e1000-devel@lists.sourceforge.net>
-To: 'Linux Netdev List' <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: tom Herbert <therbert@google.com>, thomas Graf <tgraf@suug.ch>,
+	"Marcelo Leitner" <mleitner@redhat.com>,
+	Jesse Gross <jesse@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rs04.intra2net.com ([85.214.66.2]:55313 "EHLO
-	rs04.intra2net.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753275AbbANPcP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2015 10:32:15 -0500
+Received: from mail-db3on0058.outbound.protection.outlook.com ([157.55.234.58]:62719
+	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753156AbbANPf3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Jan 2015 10:35:29 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+Guys, just realized that non-OVS based vxlan config is broken with 
+3.19-rc... I see that it works for me on 3.18.2 and breaks on 3.19-rc3 
+(Linus tree). Tested over mlx4 (both offloaded and non offloaded modes) 
+and igb, see below the simplest form I can see it breaks on 3.19-rcand 
+works on 3.18
 
-after updating a good bunch of production level machines
-from kernel 3.4.101 to kernel 3.14.25, a few of them started
-to show serious trouble when there was a lot of network traffic.
+Looking on tcpdump and stats, the arp reply arrives to the 3.19-rc host 
+NIC driver but is dropped along the stack beforehanded to the vxlan 
+driver, not sure where and why...
 
----------------------------------------------------------------
-Jan 14 11:14:57 intrartc kernel: e1000e 0000:00:19.0 eth0: Detected Hardware Unit Hang:
-Jan 14 11:14:57 intrartc kernel:  TDH                  <3b>
-Jan 14 11:14:57 intrartc kernel:  TDT                  <76>
-Jan 14 11:14:57 intrartc kernel:  next_to_use          <76>
-Jan 14 11:14:57 intrartc kernel:  next_to_clean        <31>
-Jan 14 11:14:57 intrartc kernel: buffer_info[next_to_clean]:
-Jan 14 11:14:57 intrartc kernel:  time_stamp           <ffff328c>
-Jan 14 11:14:57 intrartc kernel:  next_to_watch        <3b>
-Jan 14 11:14:57 intrartc kernel:  jiffies              <ffff33b9>
-Jan 14 11:14:57 intrartc kernel:  next_to_watch.status <0>
-Jan 14 11:14:57 intrartc kernel: MAC Status             <40080083>
-Jan 14 11:14:57 intrartc kernel: PHY Status             <796d>
-Jan 14 11:14:57 intrartc kernel: PHY 1000BASE-T Status  <3800>
-Jan 14 11:14:57 intrartc kernel: PHY Extended Status    <3000>
-Jan 14 11:14:57 intrartc kernel: PCI Status             <10>
-Jan 14 11:14:59 intrartc kernel: e1000e 0000:00:19.0 eth0: Detected Hardware Unit Hang:
-..
----------------------------------------------------------------
+Or.
 
-All of those troubled machines use an Intel DH61CR board and
-are driven by the e1000e driver. Kernels 3.7.0 to 3.19-rc4 are affected.
+> $ tcpdump -nni vxlan42 -e
+> 16:48:40.961852 8e:c2:13:4f:97:6e > ff:ff:ff:ff:ff:ff, ethertype ARP 
+> (0x0806), length 42: Request who-has 192.168.92.18 tell 192.168.92.17, 
+> length 28
+> 16:48:41.961864 8e:c2:13:4f:97:6e > ff:ff:ff:ff:ff:ff, ethertype ARP 
+> (0x0806), length 42: Request who-has 192.168.92.18 tell 192.168.92.17, 
+> length 28
+> 16:48:42.979948 8e:c2:13:4f:97:6e > ff:ff:ff:ff:ff:ff, ethertype ARP 
+> (0x0806), length 42: Request who-has 192.168.92.18 tell 192.168.92.17, 
+> length 28
+>
+> $ tcpdump -nni eth3 -e
+> 16:48:46.993870 00:02:c9:e9:bf:32 > 01:00:5e:00:00:2a, ethertype IPv4 
+> (0x0800), length 92: 192.168.31.17.33434 > 239.0.0.42.4789: UDP, length 50
+> 16:48:46.993905 f4:52:14:01:da:82 > 00:02:c9:e9:bf:32, ethertype IPv4 
+> (0x0800), length 92: 192.168.31.18.39155 > 192.168.31.17.4789: UDP, 
+> length 50
+> 16:48:47.993855 00:02:c9:e9:bf:32 > 01:00:5e:00:00:2a, ethertype IPv4 
+> (0x0800), length 92: 192.168.31.17.33434 > 239.0.0.42.4789: UDP, length 50
+> 16:48:47.993881 f4:52:14:01:da:82 > 00:02:c9:e9:bf:32, ethertype IPv4 
+> (0x0800), length 92: 192.168.31.18.39155 > 192.168.31.17.4789: UDP, 
+> length 50
+>
+> $ nstat
+> Wed Jan 14 16:54:04 2015
+>
+> #kernel
+> IpInReceives                    2                  0.0
+> IpInDelivers                    2                  0.0
+> IpOutRequests                   4                  0.0
+> IcmpOutErrors                   2                  0.0
+> IcmpOutEchoReps                 2                  0.0
+> IcmpMsgOutType8                 2                  0.0
+> TcpInSegs                       1                  0.0
+> TcpOutSegs                      1                  0.0
+> UdpInDatagrams                  1                  0.0
+> TcpExtTCPPureAcks               1                  0.0
+> TcpExtTCPOrigDataSent           1                  0.0
+> IpExtOutMcastPkts               1                  0.0
+> IpExtInOctets                   124                0.0
+> IpExtOutOctets                  670                0.0
+> IpExtOutMcastOctets             78                 0.0
+> IpExtInNoECTPkts                2                  0.0
+>
+> Every 1.0s: netstat -s -w
+> Wed Jan 14 16:54:56 2015
+>
+> Ip:
+>     1077125083 total packets received
+>     182 with invalid addresses
+>     0 forwarded
+>     0 incoming packets discarded
+>     1077124621 incoming packets delivered
+>     545614475 requests sent out
+> Icmp:
+>     67936 ICMP messages received
+>     60 input ICMP message failed.
+>     ICMP input histogram:
+>         destination unreachable: 3319
+>         echo requests: 528
+>         echo replies: 64089
+>     71890 ICMP messages sent
+>     0 ICMP messages failed
+>     ICMP output histogram:
+>         destination unreachable: 3542
+>         echo request: 67821
+>         echo replies: 527
+> IcmpMsg:
+>         InType0: 64089
+>         InType3: 3319
+>         InType8: 528
+>         OutType0: 527
+>         OutType3: 3542
+>         OutType8: 67821
+> UdpLite:
+> IpExt:
+>     InMcastPkts: 827
+>     OutMcastPkts: 2993
+>     InBcastPkts: 1424
+>     InOctets: 2102729994314
+>     OutOctets: 35397269627
+>     InMcastOctets: 31854
+>     OutMcastOctets: 237154
+>     InBcastOctets: 453473
+>     InNoECTPkts: 1440876685
 
-The problem vanishes when you disable TSO. This is the
-recommended "solution" on serverfault and others.
-http://ehc.ac/p/e1000/bugs/378/
-http://serverfault.com/questions/616485/e1000e-reset-adapter-unexpectedly-detected-hardware-unit-hang
-
-I have a test setup that can trigger the problem within seconds
-and bisected it down to this commit (hi Eric!):
----------------------------------------------------------------
-commit 69b08f62e17439ee3d436faf0b9a7ca6fffb78db
-Author: Eric Dumazet <edumazet@google.com>
-Date:   Wed Sep 26 06:46:57 2012 +0000
-
-    net: use bigger pages in __netdev_alloc_frag
-
-    We currently use percpu order-0 pages in __netdev_alloc_frag
-    to deliver fragments used by __netdev_alloc_skb()
-
-    Depending on NIC driver and arch being 32 or 64 bit, it allows a page to
-    be split in several fragments (between 1 and 8), assuming PAGE_SIZE=4096
-
-    Switching to bigger pages (32768 bytes for PAGE_SIZE=4096 case) allows :
-
-    - Better filling of space (the ending hole overhead is less an issue)
-
-    - Less calls to page allocator or accesses to page->_count
-
-    - Could allow struct skb_shared_info futures changes without major
-    performance impact.
-
-    This patch implements a transparent fallback to smaller
-    pages in case of memory pressure.
-
-    It also uses a standard "struct page_frag" instead of a custom one.
-
-    Signed-off-by: Eric Dumazet <edumazet@google.com>
-    Cc: Alexander Duyck <alexander.h.duyck@intel.com>
-    Cc: Benjamin LaHaise <bcrl@kvack.org>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
----------------------------------------------------------------
-
-Reverting the commit f.e. in kernel 3.7.0  solves the issue.
-I've done some more tests:
-
-    3.18.0 32bit + PAE: broken
-    3.6.0 32bit + PAE: works
-    3.7.0 32bit + PAE: broken
-    3.7.0 32bit + PAE + revert 69b08f62e17439ee3d436faf0b9a7ca6fffb78db -> works
-
-    3.7.0 32bit (without PAE) -> broken
-    3.7.0 32bit + "GFP_COMP" flag removed in __netdev_alloc_frag(): broken
-    3.7.0 32bit + "GFP_COMP" flag replaced with
-                              "GFP_DMA" in __netdev_alloc_frag(): works!
-    3.7.0 32bit + "GFP_COMP" flag + "GFP_DMA" flag: broken
-    3.19-rc4 32bit: broken
 
 
-The problem is triggered only when the traffic is forwarded to another client.
-(this client is behind NAT). Generating traffic directly
-on the system did not trigger the issue.
+# host A with IP address 192.168.31.17
 
-To me it looks like Eric's change uncovered a memory allocation
-issue in the e1000e driver: It probably uses a memory address
-unsuitable for DMA or so. This is just a guess though.
+IP=ip
 
-Funny fact: I have another Intel DH61CR board that does not show the problem.
-I've borrowed (...) the mainboard from one affected box for my bisect test setup.
+# mlx4
+ETH=eth0
 
-Please CC: comments. Thanks.
+$IP link del vxlan42
+$IP link add vxlan42 type vxlan id 42 group 239.0.0.42 ttl 10 dstport 
+4789 dev $ETH
+$IP link set vxlan42 up
+ifconfig vxlan42 192.168.92.17/24
+ifconfig vxlan42 mtu 1450
 
-Best regards,
-Thomas
+# plain ping
+ping 192.168.31.18 -c 2
+# encaped  ping <-- BREAKS
+ping 192.168.92.18 -c 2
+
+# host B with IP address 192.168.31.18
+
+IP=ip
+
+# mlx4
+ETH=eth0
+
+$IP link del vxlan42
+$IP link add vxlan42 type vxlan id 42 group 239.0.0.42 ttl 10 dstport 
+4789 dev $ETH
+$IP link set vxlan42 up
+ifconfig vxlan42 192.168.92.18/24
+ifconfig vxlan42 mtu 1450
+
+ping 192.168.31.17 -c 2
+ping 192.168.92.17 -c 2
