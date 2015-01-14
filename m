@@ -1,107 +1,68 @@
-From: Ying Xue <ying.xue@windriver.com>
-Subject: [PATCH net-next v2] rhashtable: unnecessary to use delayed work
-Date: Wed, 14 Jan 2015 11:32:50 +0800
-Message-ID: <1421206370-27977-1-git-send-email-ying.xue@windriver.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net-next v12 3/3] net: hisilicon: new hip04 ethernet
+ driver
+Date: Tue, 13 Jan 2015 23:06:11 -0500 (EST)
+Message-ID: <20150113.230611.375062426344934847.davem@davemloft.net>
+References: <1421140290-5492-1-git-send-email-dingtianhong@huawei.com>
+	<1421140290-5492-4-git-send-email-dingtianhong@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: <tgraf@suug.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:61350 "EHLO
-	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751086AbbANDdT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2015 22:33:19 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: arnd-r2nGTMty4D4@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org,
+	agraf-l3A5Bk7waGM@public.gmane.org, sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	xuwei5-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org, zhangfei.gao-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org
+To: dingtianhong-hv44wF8Li93QT0dZR+AlfA@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1421140290-5492-4-git-send-email-dingtianhong-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-When we put our declared work task in the global workqueue with
-schedule_delayed_work(), its delay parameter is always zero.
-Therefore, we should define a normal work in rhashtable structure
-instead of a delayed work.
+From: Ding Tianhong <dingtianhong-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Date: Tue, 13 Jan 2015 17:11:30 +0800
 
-By the way, we add a condition to check whether resizing functions
-are NULL before cancel the work, avoiding to cancel an uninitialized
-work.
+> +static int hip04_alloc_ring(struct net_device *ndev, struct device *d)
+> +{
+> +	struct hip04_priv *priv = netdev_priv(ndev);
+> +	int i;
+> +
+> +	priv->tx_desc = dma_alloc_coherent(d,
+> +			TX_DESC_NUM * sizeof(struct tx_desc),
+> +			&priv->tx_desc_dma, GFP_KERNEL);
 
-Lastly, while we wait for all work items we submitted before to run
-to completion with cancel_delayed_work(), ht->mutex has been taken in
-rhashtable_destroy(). Moreover, cancel_delayed_work() doesn't return
-until all work items are accomplished, and when work items are
-scheduled, the work's function - rht_deferred_worker() will be called.
-However, as rht_deferred_worker() also needs to acquire the lock,
-deadlock might happen at the moment as the lock is already held before.
-So if the cancel work function is moved out of the lock covered scope,
-this can help to avoid the deadlock.
+When a function call spans multiple lines, the arguments on the
+second and subsequent lines should start at the first column
+after the openning parenthesis of the function call.
 
-Fixes: 97defe1 ("rhashtable: Per bucket locks & deferred expansion/shrinking")
-Signed-off-by: Ying Xue <ying.xue@windriver.com>
-Cc: Thomas Graf <tgraf@suug.ch>
----
-v2 changes:
-  Move cancel_work_sync() out of ht->mutex lock scope
+If you are only using TAB characters, your indentation is likely
+to be incorrect.
 
- include/linux/rhashtable.h |    2 +-
- lib/rhashtable.c           |   11 +++++------
- 2 files changed, 6 insertions(+), 7 deletions(-)
+> +	/*
+> +	 * BQL will try to keep the TX queue as short as possible, but it can't
+> +	 * be faster than tx_coalesce_usecs, so we need a fast timeout here,
+> +	 * but also long enough to gather up enough frames to ensure we don't
+> +	 * get more interrupts than necessary.
+> +	 * 200us is enough for 16 frames of 1500 bytes at gigabit ethernet rate
+> +	 */
 
-diff --git a/include/linux/rhashtable.h b/include/linux/rhashtable.h
-index 9570832..a2562ed 100644
---- a/include/linux/rhashtable.h
-+++ b/include/linux/rhashtable.h
-@@ -119,7 +119,7 @@ struct rhashtable {
- 	atomic_t			nelems;
- 	atomic_t			shift;
- 	struct rhashtable_params	p;
--	struct delayed_work             run_work;
-+	struct work_struct		run_work;
- 	struct mutex                    mutex;
- 	bool                            being_destroyed;
- };
-diff --git a/lib/rhashtable.c b/lib/rhashtable.c
-index ed6ae1a..1f56189 100644
---- a/lib/rhashtable.c
-+++ b/lib/rhashtable.c
-@@ -476,7 +476,7 @@ static void rht_deferred_worker(struct work_struct *work)
- 	struct rhashtable *ht;
- 	struct bucket_table *tbl;
- 
--	ht = container_of(work, struct rhashtable, run_work.work);
-+	ht = container_of(work, struct rhashtable, run_work);
- 	mutex_lock(&ht->mutex);
- 	tbl = rht_dereference(ht->tbl, ht);
- 
-@@ -498,7 +498,7 @@ static void rhashtable_wakeup_worker(struct rhashtable *ht)
- 	if (tbl == new_tbl &&
- 	    ((ht->p.grow_decision && ht->p.grow_decision(ht, size)) ||
- 	     (ht->p.shrink_decision && ht->p.shrink_decision(ht, size))))
--		schedule_delayed_work(&ht->run_work, 0);
-+		schedule_work(&ht->run_work);
- }
- 
- static void __rhashtable_insert(struct rhashtable *ht, struct rhash_head *obj,
-@@ -894,7 +894,7 @@ int rhashtable_init(struct rhashtable *ht, struct rhashtable_params *params)
- 		get_random_bytes(&ht->p.hash_rnd, sizeof(ht->p.hash_rnd));
- 
- 	if (ht->p.grow_decision || ht->p.shrink_decision)
--		INIT_DEFERRABLE_WORK(&ht->run_work, rht_deferred_worker);
-+		INIT_WORK(&ht->run_work, rht_deferred_worker);
- 
- 	return 0;
- }
-@@ -911,12 +911,11 @@ EXPORT_SYMBOL_GPL(rhashtable_init);
- void rhashtable_destroy(struct rhashtable *ht)
- {
- 	ht->being_destroyed = true;
-+	if (ht->p.grow_decision || ht->p.shrink_decision)
-+		cancel_work_sync(&ht->run_work);
- 
- 	mutex_lock(&ht->mutex);
--
--	cancel_delayed_work(&ht->run_work);
- 	bucket_table_free(rht_dereference(ht->tbl, ht));
--
- 	mutex_unlock(&ht->mutex);
- }
- EXPORT_SYMBOL_GPL(rhashtable_destroy);
--- 
-1.7.9.5
+Comments in the networking should be:
+
+	/* Formatted
+	 * like this.
+	 */
+
+> +	priv->phy_node = of_parse_phandle(node, "phy-handle", 0);
+> +	if (priv->phy_node) {
+> +		priv->phy = of_phy_connect(ndev, priv->phy_node,
+> +			&hip04_adjust_link, 0, priv->phy_mode);
+
+Please align the arguments to this function call correctly, as
+per above.
+
+Thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
