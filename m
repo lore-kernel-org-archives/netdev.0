@@ -1,72 +1,60 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [net-next PATCH v1 00/11] A flow API
-Date: Wed, 14 Jan 2015 19:02:38 +0000
-Message-ID: <20150114190238.GB2105@casper.infradead.org>
-References: <20141231194057.31070.5244.stgit@nitbit.x32>
- <54ABD3D1.6020608@mojatatu.com>
- <54B01DA2.9090104@gmail.com>
+From: Tony Lindgren <tony@atomide.com>
+Subject: Re: [PATCH 3/6] net: davinci_emac: Free clock after checking the
+ frequency
+Date: Wed, 14 Jan 2015 11:10:57 -0800
+Message-ID: <20150114191056.GQ2419@atomide.com>
+References: <1421177368-19756-4-git-send-email-tony@atomide.com>
+ <54B57688.6000908@amd.com>
+ <20150113195415.GG2419@atomide.com>
+ <20150113.160522.558845761776458001.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>, sfeldma@gmail.com,
-	jiri@resnulli.us, simon.horman@netronome.com,
-	netdev@vger.kernel.org, davem@davemloft.net, andy@greyhouse.net,
-	Shrijeet Mukherjee <shm@cumulusnetworks.com>
-To: John Fastabend <john.fastabend@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:60893 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752343AbbANTCm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2015 14:02:42 -0500
+Cc: thomas.lendacky@amd.com, netdev@vger.kernel.org,
+	linux-omap@vger.kernel.org, b.hutchman@gmail.com, balbi@ti.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-omap-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <54B01DA2.9090104@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20150113.160522.558845761776458001.davem@davemloft.net>
+Sender: linux-omap-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 01/09/15 at 10:27am, John Fastabend wrote:
-> Yes we are providing an interface for userspace to interrogate the
-> hardware and program it. My take on this is even if you embed this
-> into another netlink family OVS, NFT, TCA you end up with the same
-> operations w.r.t. table support (a) query hardware for
-> resources/constraints/etc and (b) an API to add/del rules in those
-> tables. It seems the intersection of these features with existing
-> netlink families is fairly small so I opted to create a new family.
-> The underlying hardware offload mechanisms in flow_table.c here could
-> be used by in-kernel consumers as well as user space. For some
-> consumers 'tc' perhaps this makes good sense for others 'OVS'
-> it does not IMO.
+* David Miller <davem@davemloft.net> [150113 13:08]:
+> From: Tony Lindgren <tony@atomide.com>
+> Date: Tue, 13 Jan 2015 11:54:16 -0800
+> 
+> > * Tom Lendacky <thomas.lendacky@amd.com> [150113 11:51]:
+> >> On 01/13/2015 01:29 PM, Tony Lindgren wrote:
+> >> >We only use clk_get() to get the frequency, the rest is done by
+> >> >the runtime PM calls. Let's free the clock too.
+> >> >
+> >> >Cc: Brian Hutchinson <b.hutchman@gmail.com>
+> >> >Cc: Felipe Balbi <balbi@ti.com>
+> >> >Signed-off-by: Tony Lindgren <tony@atomide.com>
+> >> >---
+> >> >  drivers/net/ethernet/ti/davinci_emac.c | 1 +
+> >> >  1 file changed, 1 insertion(+)
+> >> >
+> >> >diff --git a/drivers/net/ethernet/ti/davinci_emac.c b/drivers/net/ethernet/ti/davinci_emac.c
+> >> >index deb43b3..e9efc74 100644
+> >> >--- a/drivers/net/ethernet/ti/davinci_emac.c
+> >> >+++ b/drivers/net/ethernet/ti/davinci_emac.c
+> >> >@@ -1881,6 +1881,7 @@ static int davinci_emac_probe(struct platform_device *pdev)
+> >> >  		return -EBUSY;
+> >> >  	}
+> >> >  	emac_bus_frequency = clk_get_rate(emac_clk);
+> >> >+	clk_put(emac_clk);
+> >> 
+> >> The devm_clk_get call is used to get the clock so either a devm_clk_put
+> >> needs to be used here or just let the devm_ call do its thing and
+> >> automatically do the put when the module is unloaded.
+> > 
+> > Thanks good catch, updated patch below.
+> 
+> Please, once all the feedback has been addressed, repost the entire
+> series.
 
-+1
+Sure, will repost on Thursday in case there will be more comments.
 
-> [...]
->
-> But in many cases my goal is to unify them in userspace
-> where it is easier to make policy decisions. For OVS, NFT it
-> seems to me that user space libraries can handle the unification
-> of hardware/software dataplanes. Further I think it is the correct
-> place to unify the dataplanes. I don't want to encode complex
-> policies into the kernel. Even if you embed the netlink UAPI into
-> another netlink family the semantics look the same.
+Regards,
 
-I think we want the kernel to remain in control but it does not
-necessarily have to hold the offload decision logic for all users.
-I think this is compareable to routing daemons. We do not want to
-talk BPF or OSPF in the kernel and we don't need to know about all
-of the selection logic behind it but we want to be in charge of
-keeping track of the actual datapath routes.
-
-Also, I think this is still an option to emebed the proposed
-attribtues in existing Netlink families even if we shoot for a new
-family for now. So far the attributes seem to be defined in a way
-that would allow them to be embedded into other existing Netlink
-families.
-
-> Maybe I need to be enlightened but I thought for a bit about some grand
-> unification of ovs, bridge, tc, netlink, et. al. but that seems like
-> an entirely different scope of project. (side note: filters/actions
-> are no longer locked by qdisc and could stand on their own) My thoughts
-> on this are not yet organized.
-
-I think everybody had this in the back of their mind at some point.
-Be it based on BPF, NFT or TC. I don't think it's undoable but it
-takes a lot of effort as each is based on a slightly different set
-of assumptions with corresponding focus derived from that.
+Tony
