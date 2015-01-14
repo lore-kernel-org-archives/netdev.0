@@ -1,60 +1,49 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH RESEND v2] net: fec: fix MDIO bus assignement for dual
- fec SoC's
-Date: Wed, 14 Jan 2015 00:27:30 -0500 (EST)
-Message-ID: <20150114.002730.1449798194556067465.davem@davemloft.net>
-References: <1421191221-23095-1-git-send-email-stefan@agner.ch>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] neighbour: fix base_reachable_time(_ms) not effective
+ immediatly when changed
+Date: Wed, 14 Jan 2015 00:28:41 -0500 (EST)
+Message-ID: <20150114.002841.535982441503310505.davem@davemloft.net>
+References: <20150113.220438.1470978767602235254.davem@davemloft.net>
+	<1421205759-19766-1-git-send-email-jeff@melix.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shawn.guo-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org, u.kleine-koenig-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org,
-	fugang.duan-KZfg59tc24xl57MIdRCFDg@public.gmane.org, fabio.estevam-KZfg59tc24xl57MIdRCFDg@public.gmane.org,
-	mark.rutland-5wv7dgnIgG8@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, pawel.moll-5wv7dgnIgG8@public.gmane.org,
-	ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org, galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
-	B38611-KZfg59tc24xl57MIdRCFDg@public.gmane.org, LW-bxm8fMRDkQLDiMYJYoSAnRvVK+yQ3ZXh@public.gmane.org,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: stefan-XLVq0VzYD2Y@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1421191221-23095-1-git-send-email-stefan-XLVq0VzYD2Y@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: jeff@melix.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:39234 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751145AbbANF2m (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2015 00:28:42 -0500
+In-Reply-To: <1421205759-19766-1-git-send-email-jeff@melix.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Stefan Agner <stefan-XLVq0VzYD2Y@public.gmane.org>
-Date: Wed, 14 Jan 2015 00:20:21 +0100
+From: Jean-Francois Remy <jeff@melix.org>
+Date: Wed, 14 Jan 2015 04:22:39 +0100
 
-> On i.MX28, the MDIO bus is shared between the two FEC instances.
-> The driver makes sure that the second FEC uses the MDIO bus of the
-> first FEC. This is done conditionally if FEC_QUIRK_ENET_MAC is set.
-> However, in newer designs, such as Vybrid or i.MX6SX, each FEC MAC
-> has its own MDIO bus. Simply removing the quirk FEC_QUIRK_ENET_MAC
-> is not an option since other logic, triggered by this quirk, is
-> still needed.
+> When setting base_reachable_time or base_reachable_time_ms on a
+> specific interface through sysctl or netlink, the reachable_time
+> value is not updated.
 > 
-> Furthermore, there are board designs which use the same MDIO bus
-> for both PHY's even though the second bus would be available on the
-> SoC side. Such layout are popular since it saves pins on SoC side.
-> Due to the above quirk, those boards currently do work fine. The
-> boards in the mainline tree with such a layout are:
-> - Freescale Vybrid Tower with TWR-SER2 (vf610-twr.dts)
-> - Freescale i.MX6 SoloX SDB Board (imx6sx-sdb.dts)
+> This means that neighbour entries will continue to be updated using the
+> old value until it is recomputed in neigh_period_work (which
+>     recomputes the value every 300*HZ).
+> On systems with HZ equal to 1000 for instance, it means 5mins before
+> the change is effective.
 > 
-> This patch adds a new quirk FEC_QUIRK_SINGLE_MDIO for i.MX28, which
-> makes sure that the MDIO bus of the first FEC is used in any case.
+> This patch changes this behavior by recomputing reachable_time after
+> each set on base_reachable_time or base_reachable_time_ms.
+> The new value will become effective the next time the neighbour's timer
+> is triggered.
 > 
-> However, the boards above do have a SoC with a MDIO bus for each FEC
-> instance. But the PHY's are not connected in a 1:1 configuration. A
-> proper device tree description is needed to allow the driver to
-> figure out where to find its PHY. This patch fixes that shortcoming
-> by adding a MDIO bus child node to the first FEC instance, along
-> with the two PHY's on that bus, and making use of the phy-handle
-> property to add a reference to the PHY's.
+> Changes are made in two places: the netlink code for set and the sysctl
+> handling code. For sysctl, I use a proc_handler. The ipv6 network
+> code does provide its own handler but it already refreshes
+> reachable_time correctly so it's not an issue.
+> Any other user of neighbour which provide its own handlers must
+> refresh reachable_time.
 > 
-> Acked-by: Sascha Hauer <s.hauer-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-> Signed-off-by: Stefan Agner <stefan-XLVq0VzYD2Y@public.gmane.org>
+> Signed-off-by: Jean-Francois Remy <jeff@melix.org>
 
 Applied, thanks.
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
