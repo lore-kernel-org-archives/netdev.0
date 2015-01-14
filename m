@@ -1,133 +1,50 @@
-From: "Arad, Ronen" <ronen.arad@intel.com>
-Subject: RE: [PATCH net-next] bridge: fix setlink/dellink notifications
-Date: Wed, 14 Jan 2015 23:22:00 +0000
-Message-ID: <E4CD12F19ABA0C4D8729E087A761DC3505DEE86A@ORSMSX101.amr.corp.intel.com>
-References: <1421218123-18346-1-git-send-email-roopa@cumulusnetworks.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [ 2375.793397] WARNING: CPU: 0 PID: 1149 at
+ net/netlink/genetlink.c:1037 genl_unbind+0xc0/0xd0()
+Date: Thu, 15 Jan 2015 00:25:46 +0100
+Message-ID: <1421277946.1950.38.camel@sipsolutions.net>
+References: <20150114161334.28acf5fc@tlielax.poochiereds.net>
+	 <1421275700.1950.34.camel@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "wkok@cumulusnetworks.com" <wkok@cumulusnetworks.com>
-To: "roopa@cumulusnetworks.com" <roopa@cumulusnetworks.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"shemminger@vyatta.com" <shemminger@vyatta.com>,
-	"vyasevic@redhat.com" <vyasevic@redhat.com>,
-	"john.fastabend@gmail.com" <john.fastabend@gmail.com>,
-	"tgraf@suug.ch" <tgraf@suug.ch>,
-	"jhs@mojatatu.com" <jhs@mojatatu.com>,
-	"sfeldma@gmail.com" <sfeldma@gmail.com>,
-	"jiri@resnulli.us" <jiri@resnulli.us>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Jeff Layton <jeff.layton@primarydata.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:33372 "EHLO mga02.intel.com"
+Received: from s3.sipsolutions.net ([5.9.151.49]:33282 "EHLO sipsolutions.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752004AbbANXWC convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2015 18:22:02 -0500
-In-Reply-To: <1421218123-18346-1-git-send-email-roopa@cumulusnetworks.com>
-Content-Language: en-US
+	id S1751008AbbANXZu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Jan 2015 18:25:50 -0500
+In-Reply-To: <1421275700.1950.34.camel@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, 2015-01-14 at 23:48 +0100, Johannes Berg wrote:
 
+> > [ 2375.793396] ------------[ cut here ]------------
+> > [ 2375.793397] WARNING: CPU: 0 PID: 1149 at net/netlink/genetlink.c:1037 genl_unbind+0xc0/0xd0()
+> 
+> This warning is supposed to happen only when you somehow manage to
+> unsubscribe from a generic netlink group that doesn't actually exist, or
+> so.
 
->-----Original Message-----
->From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On
->Behalf Of roopa@cumulusnetworks.com
->Sent: Tuesday, January 13, 2015 10:49 PM
->To: netdev@vger.kernel.org; shemminger@vyatta.com; vyasevic@redhat.com;
->john.fastabend@gmail.com; tgraf@suug.ch; jhs@mojatatu.com; sfeldma@gmail.com;
->jiri@resnulli.us
->Cc: wkok@cumulusnetworks.com
->Subject: [PATCH net-next] bridge: fix setlink/dellink notifications
->
->From: Roopa Prabhu <roopa@cumulusnetworks.com>
->
-[..]
->diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
->index d06107d..4ac79ff 100644
->--- a/net/core/rtnetlink.c
->+++ b/net/core/rtnetlink.c
->@@ -2876,13 +2876,6 @@ static int rtnl_bridge_notify(struct net_device *dev,
->u16 flags)
+Ok - after long deliberation I found a way to trigger it. It requires
+that you leave a multicast group (likely by destroying a socket) at the
+same time as the kernel unregisters the generic netlink group. I have no
+idea what generic netlink group you might be using here, but I could
+reproduce it with a strategically placed delay in the netlink code and
+the nl80211 genl group by opening a socket, closing the socket, and
+removing the cfg80211 module (to unregister the nl80211 genl group)
+while the socket was still being closed.
 
-The 'flags' argument was only used for applying the same handling of
-MASTER/SELF flags to notification as used for setlink/delink.
-This patch eliminates the MASTER case and leaves only SELF notification.
-It seems clearer to eliminate flags argument and rename the function to
-something like rtnl_bridge_self_notify().
-   
-> 		goto errout;
-> 	}
->
->-	if ((!flags || (flags & BRIDGE_FLAGS_MASTER)) &&
->-	    br_dev && br_dev->netdev_ops->ndo_bridge_getlink) {
->-		err = br_dev->netdev_ops->ndo_bridge_getlink(skb, 0, 0, dev, 0);
->-		if (err < 0)
->-			goto errout;
->-	}
->-
-> 	if ((flags & BRIDGE_FLAGS_SELF) &&
-> 	    dev->netdev_ops->ndo_bridge_getlink) {
-> 		err = dev->netdev_ops->ndo_bridge_getlink(skb, 0, 0, dev, 0);
->@@ -2958,16 +2951,19 @@ static int rtnl_bridge_setlink(struct sk_buff *skb,
->struct nlmsghdr *nlh)
-> 			err = -EOPNOTSUPP;
-> 		else
-> 			err = dev->netdev_ops->ndo_bridge_setlink(dev, nlh);
->-
->-		if (!err)
->+		if (!err) {
-> 			flags &= ~BRIDGE_FLAGS_SELF;
->+
->+			/* Generate event to notify upper layer of bridge
->+			 * change
->+			 */
->+			if (!err)
->+				err = rtnl_bridge_notify(dev, oflags);
->+		}
-> 	}
->
-> 	if (have_flags)
-> 		memcpy(nla_data(attr), &flags, sizeof(flags));
+I'll think about a fix tomorrow - it doesn't seem trivial due to
+possible locking concerns.
 
-What is the purpose of the above two lines (not changed by the patch)?
-They seem to copy over the flags with the successfully applied cases
-(MASTER and/or SELF) flags cleared back into the incoming netlink message.
-I could not figure any place where the modified flags attribute is used
+On the bright side, I cannot see a way to reproduce this without
+removing the genl family at the same time - which is good because it
+means that I've just again audited the case I was worried about (the
+bind/unbind not being symmetric) - it is asymmetric but only in the case
+of genl family removal which seems reasonable (but I should document
+it.)
 
->-	/* Generate event to notify upper layer of bridge change */
->-	if (!err)
->-		err = rtnl_bridge_notify(dev, oflags);
-> out:
-> 	return err;
-> }
->@@ -3032,15 +3028,19 @@ static int rtnl_bridge_dellink(struct sk_buff *skb,
->struct nlmsghdr *nlh)
-> 		else
-> 			err = dev->netdev_ops->ndo_bridge_dellink(dev, nlh);
->
->-		if (!err)
->+		if (!err) {
-> 			flags &= ~BRIDGE_FLAGS_SELF;
->+
->+			/* Generate event to notify upper layer of bridge
->+			 * change
->+			 */
->+			err = rtnl_bridge_notify(dev, oflags);
->+		}
->+
-> 	}
->
-> 	if (have_flags)
-> 		memcpy(nla_data(attr), &flags, sizeof(flags));
->-	/* Generate event to notify upper layer of bridge change */
->-	if (!err)
->-		err = rtnl_bridge_notify(dev, oflags);
-> out:
-> 	return err;
-> }
->--
->1.7.10.4
->
->--
->To unsubscribe from this list: send the line "unsubscribe netdev" in
->the body of a message to majordomo@vger.kernel.org
->More majordomo info at  http://vger.kernel.org/majordomo-info.html
+johannes
