@@ -1,30 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv3 net-next] openvswitch: Introduce
- ovs_tunnel_route_lookup
-Date: Wed, 14 Jan 2015 16:34:24 -0500 (EST)
-Message-ID: <20150114.163424.598335066567453354.davem@davemloft.net>
-References: <1421212235-29447-1-git-send-email-fan.du@intel.com>
+Subject: Re: [PATCH] netdevice: Add missing parentheses in macro
+Date: Wed, 14 Jan 2015 16:34:49 -0500 (EST)
+Message-ID: <20150114.163449.1861047394880254499.davem@davemloft.net>
+References: <1421221955-9505-1-git-send-email-bpoirier@suse.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: pshelar@nicira.com, netdev@vger.kernel.org, dev@openvswitch.org,
-	fengyuleidian0615@gmail.com
-To: fan.du@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45565 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751400AbbANVe1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2015 16:34:27 -0500
-In-Reply-To: <1421212235-29447-1-git-send-email-fan.du@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: nikolay@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: bpoirier@suse.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1421221955-9505-1-git-send-email-bpoirier@suse.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-aFrom: Fan Du <fan.du@intel.com>
-Date: Wed, 14 Jan 2015 13:10:35 +0800
+From: Benjamin Poirier <bpoirier@suse.de>
+Date: Wed, 14 Jan 2015 16:52:35 +0900
 
-> Introduce ovs_tunnel_route_lookup to consolidate route lookup
-> shared by vxlan, gre, and geneve ports.
+> For example, one could conceivably call
+> 	for_each_netdev_in_bond_rcu(condition ? bond1 : bond2, slave)
+> and get an unexpected result.
 > 
-> Signed-off-by: Fan Du <fan.du@intel.com>
+> Signed-off-by: Benjamin Poirier <bpoirier@suse.de>
 
 Applied.
