@@ -1,26 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Why is bridge's sysfs values in 1/100 of second?
-Date: Tue, 13 Jan 2015 21:53:15 -0500 (EST)
-Message-ID: <20150113.215315.1497532830850392530.davem@davemloft.net>
-References: <54B5D5DA.5080008@candelatech.com>
+Subject: Re: [PATCH v2 1/1] atm: remove deprecated use of pci api
+Date: Tue, 13 Jan 2015 21:59:44 -0500 (EST)
+Message-ID: <20150113.215944.1703977685948196746.davem@davemloft.net>
+References: <20150112161042.GA11374@sloth>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: greearb@candelatech.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38423 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751086AbbANC64 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jan 2015 21:58:56 -0500
-In-Reply-To: <54B5D5DA.5080008@candelatech.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: chas@cmf.nrl.navy.mil, linux-atm-general@lists.sourceforge.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: lambert.quentin@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150112161042.GA11374@sloth>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ben Greear <greearb@candelatech.com>
-Date: Tue, 13 Jan 2015 18:35:06 -0800
+From: Quentin Lambert <lambert.quentin@gmail.com>
+Date: Mon, 12 Jan 2015 17:10:42 +0100
 
-> Are the units supposed to be 1/100 of a second, or is that just some
-> luck depending on HZ?
+> @@ -2246,7 +2246,8 @@ static int eni_init_one(struct pci_dev *pci_dev,
+>  		goto err_disable;
+>  
+>  	zero = &eni_dev->zero;
+> -	zero->addr = pci_alloc_consistent(pci_dev, ENI_ZEROES_SIZE, &zero->dma);
+> +	zero->addr = dma_alloc_coherent(&pci_dev->dev, ENI_ZEROES_SIZE,
+> +					&zero->dma, GFP_ATOMIC);
+>  	if (!zero->addr)
+>  		goto err_kfree;
+>  
 
-More specifically, it's "USER_HZ" which unlike HZ is unchanging.
+I really would like you to look at these locations and see if
+GFP_KERNEL can be used instead of GFP_ATOMIC.  I bet that nearly
+all of these can, and it is preferred.
+
+Thanks.
