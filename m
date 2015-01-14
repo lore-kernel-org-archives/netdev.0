@@ -1,89 +1,91 @@
-From: Vadim Kochan <vadim4j@gmail.com>
-Subject: Re: [PATCH iproute2] ss: Filter inet dgram sockets with established
- state by default
-Date: Thu, 15 Jan 2015 00:43:47 +0200
-Message-ID: <20150114224347.GA14983@angus-think.lan>
-References: <1420738342-3750-1-git-send-email-vadim4j@gmail.com>
- <20150113173150.0a50f74e@urahara>
- <20150114064944.GA28611@angus-think.lan>
- <20150114144120.0e15ac1f@urahara>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH] net: rocker: Add basic netdev counters
+Date: Wed, 14 Jan 2015 14:57:00 -0800
+Message-ID: <54B6F43C.4030207@gmail.com>
+References: <1421275161-99434-1-git-send-email-dsahern@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Vadim Kochan <vadim4j@gmail.com>, netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Scott Feldman <sfeldma@gmail.com>, Jiri Pirko <jiri@resnulli.us>
+To: David Ahern <dsahern@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f47.google.com ([209.85.215.47]:56581 "EHLO
-	mail-la0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751590AbbANWyT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2015 17:54:19 -0500
-Received: by mail-la0-f47.google.com with SMTP id hz20so10781731lab.6
-        for <netdev@vger.kernel.org>; Wed, 14 Jan 2015 14:54:17 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20150114144120.0e15ac1f@urahara>
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:33435 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750826AbbANW5H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2015 17:57:07 -0500
+Received: by mail-pa0-f43.google.com with SMTP id kx10so13444696pab.2
+        for <netdev@vger.kernel.org>; Wed, 14 Jan 2015 14:57:07 -0800 (PST)
+In-Reply-To: <1421275161-99434-1-git-send-email-dsahern@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 14, 2015 at 02:41:20PM -0800, Stephen Hemminger wrote:
-> On Wed, 14 Jan 2015 08:49:44 +0200
-> Vadim Kochan <vadim4j@gmail.com> wrote:
+On 14/01/15 14:39, David Ahern wrote:
+> Add packet and byte counters for RX and TX paths.
 > 
-> > On Tue, Jan 13, 2015 at 05:31:50PM -0800, Stephen Hemminger wrote:
-> > > On Thu,  8 Jan 2015 19:32:22 +0200
-> > > Vadim Kochan <vadim4j@gmail.com> wrote:
-> > > 
-> > > > From: Vadim Kochan <vadim4j@gmail.com>
-> > > > 
-> > > > As inet dgram sockets (udp, raw) can call connect(...)  - they
-> > > > might be set in ESTABLISHED state. So keep the original behaviour of
-> > > > 'ss' which filtered them by ESTABLISHED state by default. So:
-> > > > 
-> > > >     $ ss -u
-> > > > 
-> > > >     or
-> > > > 
-> > > >     $ ss -w
-> > > > 
-> > > > Will show only ESTABLISHED UDP sockets by default.
-> > > > 
-> > > > Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
-> > > > ---
-> > > >  misc/ss.c | 4 ++--
-> > > >  1 file changed, 2 insertions(+), 2 deletions(-)
-> > > > 
-> > > > diff --git a/misc/ss.c b/misc/ss.c
-> > > > index 08d210a..015d829 100644
-> > > > --- a/misc/ss.c
-> > > > +++ b/misc/ss.c
-> > > > @@ -170,11 +170,11 @@ static const struct filter default_dbs[MAX_DB] = {
-> > > >  		.families = (1 << AF_INET) | (1 << AF_INET6),
-> > > >  	},
-> > > >  	[UDP_DB] = {
-> > > > -		.states   = (1 << SS_CLOSE),
-> > > > +		.states   = (1 << SS_ESTABLISHED),
-> > > >  		.families = (1 << AF_INET) | (1 << AF_INET6),
-> > > >  	},
-> > > >  	[RAW_DB] = {
-> > > > -		.states   = (1 << SS_CLOSE),
-> > > > +		.states   = (1 << SS_ESTABLISHED),
-> > > >  		.families = (1 << AF_INET) | (1 << AF_INET6),
-> > > >  	},
-> > > >  	[UNIX_DG_DB] = {
-> > > 
-> > > This is a change likely to break somebody using 'ss -u' now and the bound
-> > > sockets will disappear from the output.
-> > > 
-> > 
-> > But thats was as original behaviour before I added table-driven code
-> > (about few commits ago), so thats a rather fix (sorry I did not noticed
-> > about it) to keep the previous behaviour for dgram sockets - show
-> > established states by default.
-> > 
-> > Regards,
+> $ ifconfig eth1
+> eth1: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+>         inet6 fe80::5054:ff:fe12:3501  prefixlen 64  scopeid 0x20<link>
+>         ether 52:54:00:12:35:01  txqueuelen 1000  (Ethernet)
+>         RX packets 63  bytes 15813 (15.4 KiB)
+>         RX errors 0  dropped 0  overruns 0  frame 0
+>         TX packets 79  bytes 17991 (17.5 KiB)
+>         TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
 > 
-> Ok, I will merge it and update the comments.
-Even with this PATCH I am still confused what is preferred behaviour -
-show established dgram sockets (as it was all the way) or closed + established by default.
+> Signed-off-by: David Ahern <dsahern@gmail.com>
+> Cc: Scott Feldman <sfeldma@gmail.com>
+> Cc: Jiri Pirko <jiri@resnulli.us>
+> ---
+>  drivers/net/ethernet/rocker/rocker.c | 8 ++++++++
+>  1 file changed, 8 insertions(+)
+> 
+> diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
+> index 2f398fa4b9e6..9743279d9121 100644
+> --- a/drivers/net/ethernet/rocker/rocker.c
+> +++ b/drivers/net/ethernet/rocker/rocker.c
+> @@ -3557,6 +3557,9 @@ static netdev_tx_t rocker_port_xmit(struct sk_buff *skb, struct net_device *dev)
+>  	if (!desc_info)
+>  		netif_stop_queue(dev);
+>  
+> +	dev->stats.tx_packets++;
+> +	dev->stats.tx_bytes += skb->len;
 
-What do you think ?
+Potential use after free, the skb pointer is certainly not valid anymore
+here.
 
-Thanks,
+BTW, increasing statistics here is valid because this is a driver for a
+virtual piece of HW, which does not have TX reclaim/completion logic,
+but if it did, statistics update should occur there, not in the
+ndo_start_xmit() function.
+
+> +
+>  	return NETDEV_TX_OK;
+>  
+>  unmap_frags:
+> @@ -3565,6 +3568,8 @@ static netdev_tx_t rocker_port_xmit(struct sk_buff *skb, struct net_device *dev)
+>  	rocker_tlv_nest_cancel(desc_info, frags);
+>  out:
+>  	dev_kfree_skb(skb);
+> +	dev->stats.tx_dropped++;
+> +
+>  	return NETDEV_TX_OK;
+>  }
+>  
+> @@ -3890,6 +3895,9 @@ static int rocker_port_rx_proc(struct rocker *rocker,
+>  	skb->protocol = eth_type_trans(skb, rocker_port->dev);
+>  	netif_receive_skb(skb);
+>  
+> +	rocker_port->dev->stats.rx_packets++;
+> +	rocker_port->dev->stats.rx_bytes += skb->len;
+
+Same here, past netif_receive_skb() you should not assume that this skb
+reference is valid.
+
+> +
+>  	return rocker_dma_rx_ring_skb_alloc(rocker, rocker_port, desc_info);
+>  }
+>  
+> 
+
+
+-- 
+Florian
