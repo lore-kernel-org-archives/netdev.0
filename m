@@ -1,74 +1,100 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 1/8] netfilter: conntrack: adjust nf_conntrack_buckets default value
-Date: Wed, 14 Jan 2015 21:34:42 +0100
-Message-ID: <1421267689-24894-2-git-send-email-pablo@netfilter.org>
-References: <1421267689-24894-1-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 0/8] netfilter updates for net-next
+Date: Wed, 14 Jan 2015 21:34:41 +0100
+Message-ID: <1421267689-24894-1-git-send-email-pablo@netfilter.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1421267689-24894-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:49637 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751214AbbANUcA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Jan 2015 15:32:00 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Marcelo Leitner <mleitner@redhat.com>
+Hi David,
 
-Manually bumping either nf_conntrack_buckets or nf_conntrack_max has
-become a common task as our Linux servers tend to serve more and more
-clients/applications, so let's adjust nf_conntrack_buckets this to a
-more updated value.
+The following patchset contains netfilter updates for net-next, just a
+bunch of cleanups and small enhancement to selectively flush conntracks
+in ctnetlink, more specifically the patches are:
 
-Now for systems with more than 4GB of memory, nf_conntrack_buckets
-becomes 65536 instead of 16384, resulting in nf_conntrack_max=256k
-entries.
+1) Rise default number of buckets in conntrack from 16384 to 65536 in
+   systems with >= 4GBytes, patch from Marcelo Leitner.
 
-Signed-off-by: Marcelo Ricardo Leitner <mleitner@redhat.com>
-Acked-by: Jesper Dangaard Brouer <brouer@redhat.com>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- Documentation/networking/nf_conntrack-sysctl.txt |    3 ++-
- net/netfilter/nf_conntrack_core.c                |   11 ++++++++---
- 2 files changed, 10 insertions(+), 4 deletions(-)
+2) Small refactor to save one level on indentation in xt_osf, from
+   Joe Perches.
 
-diff --git a/Documentation/networking/nf_conntrack-sysctl.txt b/Documentation/networking/nf_conntrack-sysctl.txt
-index 70da508..f55599c 100644
---- a/Documentation/networking/nf_conntrack-sysctl.txt
-+++ b/Documentation/networking/nf_conntrack-sysctl.txt
-@@ -11,7 +11,8 @@ nf_conntrack_buckets - INTEGER (read-only)
- 	Size of hash table. If not specified as parameter during module
- 	loading, the default size is calculated by dividing total memory
- 	by 16384 to determine the number of buckets but the hash table will
--	never have fewer than 32 or more than 16384 buckets.
-+	never have fewer than 32 and limited to 16384 buckets. For systems
-+	with more than 4GB of memory it will be 65536 buckets.
- 
- nf_conntrack_checksum - BOOLEAN
- 	0 - disabled
-diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-index a116748..da58cd4 100644
---- a/net/netfilter/nf_conntrack_core.c
-+++ b/net/netfilter/nf_conntrack_core.c
-@@ -1624,13 +1624,18 @@ int nf_conntrack_init_start(void)
- 	for (i = 0; i < CONNTRACK_LOCKS; i++)
- 		spin_lock_init(&nf_conntrack_locks[i]);
- 
--	/* Idea from tcp.c: use 1/16384 of memory.  On i386: 32MB
--	 * machine has 512 buckets. >= 1GB machines have 16384 buckets. */
- 	if (!nf_conntrack_htable_size) {
-+		/* Idea from tcp.c: use 1/16384 of memory.
-+		 * On i386: 32MB machine has 512 buckets.
-+		 * >= 1GB machines have 16384 buckets.
-+		 * >= 4GB machines have 65536 buckets.
-+		 */
- 		nf_conntrack_htable_size
- 			= (((totalram_pages << PAGE_SHIFT) / 16384)
- 			   / sizeof(struct hlist_head));
--		if (totalram_pages > (1024 * 1024 * 1024 / PAGE_SIZE))
-+		if (totalram_pages > (4 * (1024 * 1024 * 1024 / PAGE_SIZE)))
-+			nf_conntrack_htable_size = 65536;
-+		else if (totalram_pages > (1024 * 1024 * 1024 / PAGE_SIZE))
- 			nf_conntrack_htable_size = 16384;
- 		if (nf_conntrack_htable_size < 32)
- 			nf_conntrack_htable_size = 32;
--- 
-1.7.10.4
+3) Remove unnecessary sizeof(char) in nf_log, from Fabian Frederick.
 
+4) Another small cleanup to remove redundant variable in nfnetlink,
+   from Duan Jiong.
+
+5) Fix compilation warning in nfnetlink_cthelper on parisc, from
+   Chen Gang.
+
+6) Fix wrong format in debugging for ctseqadj, from Gao feng.
+
+7) Selective conntrack flushing through the mark for ctnetlink, patch
+   from Kristian Evensen.
+
+8) Remove nf_ct_conntrack_flush_report() exported symbol now that is
+   not required anymore after the selective flushing patch, again from
+   Kristian.
+
+You can pull these changes from:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next.git
+
+Thanks!
+
+----------------------------------------------------------------
+
+The following changes since commit f96fe225677b3efb74346ebd56fafe3997b02afa:
+
+  Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net (2014-12-12 16:11:12 -0800)
+
+are available in the git repository at:
+
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next.git master
+
+for you to fetch changes up to ae406bd0572be97a46d72e8a5e97c33c3168388c:
+
+  netfilter: conntrack: Remove nf_ct_conntrack_flush_report (2015-01-08 12:16:58 +0100)
+
+----------------------------------------------------------------
+Chen Gang (1):
+      netfilter: nfnetlink_cthelper: Remove 'const' and '&' to avoid warnings
+
+Duan Jiong (1):
+      netfilter: nfnetlink: remove redundant variable nskb
+
+Fabian Frederick (1):
+      netfilter: log: remove unnecessary sizeof(char)
+
+Gao feng (1):
+      netfilter: nf_ct_seqadj: print ack seq in the right host byte order
+
+Joe Perches (1):
+      netfilter: xt_osf: Use continue to reduce indentation
+
+Kristian Evensen (2):
+      netfilter: conntrack: Flush connections with a given mark
+      netfilter: conntrack: Remove nf_ct_conntrack_flush_report
+
+Marcelo Leitner (1):
+      netfilter: conntrack: adjust nf_conntrack_buckets default value
+
+ Documentation/networking/nf_conntrack-sysctl.txt |    3 +-
+ include/net/netfilter/nf_conntrack.h             |    2 -
+ net/netfilter/nf_conntrack_core.c                |   17 +--
+ net/netfilter/nf_conntrack_netlink.c             |   89 ++++++++----
+ net/netfilter/nf_conntrack_seqadj.c              |    6 +-
+ net/netfilter/nf_log.c                           |    3 +-
+ net/netfilter/nfnetlink.c                        |   15 +-
+ net/netfilter/nfnetlink_cthelper.c               |    4 +-
+ net/netfilter/xt_osf.c                           |  169 +++++++++++-----------
+ 9 files changed, 172 insertions(+), 136 deletions(-)
