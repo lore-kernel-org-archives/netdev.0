@@ -1,55 +1,41 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH v3 02/16] virtio/9p: verify device has config space
-Date: Wed, 14 Jan 2015 19:27:28 +0200
-Message-ID: <1421256142-11512-3-git-send-email-mst@redhat.com>
-References: <1421256142-11512-1-git-send-email-mst@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Eric Van Hensbergen <ericvh@gmail.com>, netdev@vger.kernel.org,
-	v9fs-developer@lists.sourceforge.net, Ron Minnich <rminnich@sandia.gov>,
-	"David S. Miller" <davem@davemloft.net>
-To: linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <1421256142-11512-1-git-send-email-mst@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: [PATCH for 3.19 0/3] rtlwifi: Various updates/fixes
+Date: Wed, 14 Jan 2015 11:37:13 -0600
+Message-ID: <1421257036-5382-1-git-send-email-Larry.Finger@lwfinger.net>
+Cc: linux-wireless@vger.kernel.org,
+	Larry Finger <Larry.Finger@lwfinger.net>,
+	netdev@vger.kernel.org
+To: kvalo@codeaurora.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f177.google.com ([209.85.214.177]:50741 "EHLO
+	mail-ob0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752361AbbANRh2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2015 12:37:28 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Some devices might not implement config space access
-(e.g. remoteproc used not to - before 3.9).
-virtio/9p needs config space access so make it
-fail gracefully if not there.
+The first of these patches removes a logging statement that is no longer
+needed. The other two fix a number of bugs in rtl8192ee that have been
+found since the original inclusion of this driver.
 
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
----
- net/9p/trans_virtio.c | 6 ++++++
- 1 file changed, 6 insertions(+)
+Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
 
-diff --git a/net/9p/trans_virtio.c b/net/9p/trans_virtio.c
-index daa749c..d8e376a 100644
---- a/net/9p/trans_virtio.c
-+++ b/net/9p/trans_virtio.c
-@@ -524,6 +524,12 @@ static int p9_virtio_probe(struct virtio_device *vdev)
- 	int err;
- 	struct virtio_chan *chan;
- 
-+	if (!vdev->config->get) {
-+		dev_err(&vdev->dev, "%s failure: config access disabled\n",
-+			__func__);
-+		return -EINVAL;
-+	}
-+
- 	chan = kmalloc(sizeof(struct virtio_chan), GFP_KERNEL);
- 	if (!chan) {
- 		pr_err("Failed to allocate virtio 9P channel\n");
+
+Larry Finger (1):
+  rtlwifi: Remove logging statement that is no longer needed
+
+Troy Tan (2):
+  rtlwifi: Fix handling of new style descriptors
+  rtlwifi: rtl8192ee: Implement new handling of FIFO descriptor buffer
+
+ drivers/net/wireless/rtlwifi/pci.c           |  36 ++++--
+ drivers/net/wireless/rtlwifi/rtl8192ee/hw.c  | 167 +++++++++++++++++++++----
+ drivers/net/wireless/rtlwifi/rtl8192ee/reg.h |   2 +
+ drivers/net/wireless/rtlwifi/rtl8192ee/sw.c  |   3 +-
+ drivers/net/wireless/rtlwifi/rtl8192ee/trx.c | 175 +++++++++++----------------
+ drivers/net/wireless/rtlwifi/rtl8192ee/trx.h |   4 +-
+ drivers/net/wireless/rtlwifi/wifi.h          |   1 +
+ 7 files changed, 242 insertions(+), 146 deletions(-)
+
 -- 
-MST
+2.1.2
