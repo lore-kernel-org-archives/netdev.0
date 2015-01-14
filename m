@@ -1,88 +1,177 @@
-From: Alexandre Courbot <gnurou@gmail.com>
-Subject: Re: [PATCH 2/2] mdio-mux-gpio: use new gpiod_get_array and
- gpiod_put_array functions
-Date: Wed, 14 Jan 2015 14:11:27 +0900
-Message-ID: <CAAVeFuLqV7CvR2-SNWsrQuBzctQx1wiMtWwjw=cPbp5GRnMdcw@mail.gmail.com>
-References: <13407316.QPemVgjPDO@pcimr>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "linux-gpio@vger.kernel.org" <linux-gpio@vger.kernel.org>,
-	Alexandre Courbot <acourbot@nvidia.com>,
-	Linus Walleij <linus.walleij@linaro.org>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Rojhalat Ibrahim <imr@rtschenk.de>
-Return-path: <linux-gpio-owner@vger.kernel.org>
-In-Reply-To: <13407316.QPemVgjPDO@pcimr>
-Sender: linux-gpio-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Fan Du <fan.du@intel.com>
+Subject: [PATCHv3 net-next] openvswitch: Introduce ovs_tunnel_route_lookup
+Date: Wed, 14 Jan 2015 13:10:35 +0800
+Message-ID: <1421212235-29447-1-git-send-email-fan.du@intel.com>
+Cc: netdev@vger.kernel.org, dev@openvswitch.org,
+	fengyuleidian0615@gmail.com
+To: pshelar@nicira.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga03.intel.com ([134.134.136.65]:49353 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750748AbbANFOO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Jan 2015 00:14:14 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jan 10, 2015 at 12:19 AM, Rojhalat Ibrahim <imr@rtschenk.de> wrote:
-> Use the new gpiod_get_array and gpiod_put_array functions for obtaining and
-> disposing of GPIO descriptors.
->
-> Signed-off-by: Rojhalat Ibrahim <imr@rtschenk.de>
-> ---
-> This patch depends on my previous patch "gpiolib: add gpiod_get_array and
-> gpiod_put_array functions".
->
->  drivers/net/phy/mdio-mux-gpio.c |   28 ++++++++--------------------
->  1 file changed, 8 insertions(+), 20 deletions(-)
->
-> diff --git a/drivers/net/phy/mdio-mux-gpio.c b/drivers/net/phy/mdio-mux-gpio.c
-> index 1eaf81e..35c37da 100644
-> --- a/drivers/net/phy/mdio-mux-gpio.c
-> +++ b/drivers/net/phy/mdio-mux-gpio.c
-> @@ -47,7 +47,6 @@ static int mdio_mux_gpio_probe(struct platform_device *pdev)
->  {
->         struct mdio_mux_gpio_state *s;
->         int num_gpios;
-> -       unsigned int n;
->         int r;
->
->         if (!pdev->dev.of_node)
-> @@ -63,16 +62,10 @@ static int mdio_mux_gpio_probe(struct platform_device *pdev)
->
->         s->num_gpios = num_gpios;
->
-> -       for (n = 0; n < num_gpios; ) {
-> -               struct gpio_desc *gpio = gpiod_get_index(&pdev->dev, NULL, n,
-> -                                                        GPIOD_OUT_LOW);
-> -               if (IS_ERR(gpio)) {
-> -                       r = PTR_ERR(gpio);
-> -                       goto err;
-> -               }
-> -               s->gpio[n] = gpio;
-> -               n++;
-> -       }
-> +       r = gpiod_get_array(&pdev->dev, NULL, s->gpio, num_gpios,
-> +                           GPIOD_OUT_LOW);
-> +       if (r != num_gpios)
-> +               return r;
->
->         r = mdio_mux_init(&pdev->dev,
->                           mdio_mux_gpio_switch_fn, &s->mux_handle, s);
-> @@ -80,22 +73,17 @@ static int mdio_mux_gpio_probe(struct platform_device *pdev)
->         if (r == 0) {
->                 pdev->dev.platform_data = s;
->                 return 0;
-> +       } else {
-> +               gpiod_put_array(s->gpio, num_gpios);
-> +               return r;
->         }
+Introduce ovs_tunnel_route_lookup to consolidate route lookup
+shared by vxlan, gre, and geneve ports.
 
-Suggestion: handle the errors in the if condition, and let normal
-execution be visible at the first level of indentation of the
-function. I.e:
+Signed-off-by: Fan Du <fan.du@intel.com>
+---
+Change log:
+v3:
+  - Use ovs_tunnel_route_lookup for ovs_tunnel_get_egress_info
+  - Constantify tun_key structure for gre, vxlan, geneve ports
+    to surpress warnings.
+v2:
+  - Use inline instead of function call
+  - Rename vport_route_lookup to ovs_tunnel_route_lookup
 
-    if (r != 0) {
-        gpiod_put_array(s->gpio, num_gpios);
-        return r;
-    }
+---
+ net/openvswitch/vport-geneve.c |   13 ++-----------
+ net/openvswitch/vport-gre.c    |   12 ++----------
+ net/openvswitch/vport-vxlan.c  |   12 ++----------
+ net/openvswitch/vport.c        |    9 +--------
+ net/openvswitch/vport.h        |   18 ++++++++++++++++++
+ 5 files changed, 25 insertions(+), 39 deletions(-)
 
-    pdev->dev.platform_data = s;
-    return 0;
-
-This is how previous errors are handled in this function and is
-generally a good thing to do as it makes the function's logic easier
-to follow.
+diff --git a/net/openvswitch/vport-geneve.c b/net/openvswitch/vport-geneve.c
+index 484864d..eabe564 100644
+--- a/net/openvswitch/vport-geneve.c
++++ b/net/openvswitch/vport-geneve.c
+@@ -172,7 +172,7 @@ error:
+ 
+ static int geneve_tnl_send(struct vport *vport, struct sk_buff *skb)
+ {
+-	struct ovs_key_ipv4_tunnel *tun_key;
++	const struct ovs_key_ipv4_tunnel *tun_key;
+ 	struct ovs_tunnel_info *tun_info;
+ 	struct net *net = ovs_dp_get_net(vport->dp);
+ 	struct geneve_port *geneve_port = geneve_vport(vport);
+@@ -191,16 +191,7 @@ static int geneve_tnl_send(struct vport *vport, struct sk_buff *skb)
+ 	}
+ 
+ 	tun_key = &tun_info->tunnel;
+-
+-	/* Route lookup */
+-	memset(&fl, 0, sizeof(fl));
+-	fl.daddr = tun_key->ipv4_dst;
+-	fl.saddr = tun_key->ipv4_src;
+-	fl.flowi4_tos = RT_TOS(tun_key->ipv4_tos);
+-	fl.flowi4_mark = skb->mark;
+-	fl.flowi4_proto = IPPROTO_UDP;
+-
+-	rt = ip_route_output_key(net, &fl);
++	rt = ovs_tunnel_route_lookup(net, tun_key, skb->mark, &fl, IPPROTO_UDP);
+ 	if (IS_ERR(rt)) {
+ 		err = PTR_ERR(rt);
+ 		goto error;
+diff --git a/net/openvswitch/vport-gre.c b/net/openvswitch/vport-gre.c
+index d4168c4..1aa4921 100644
+--- a/net/openvswitch/vport-gre.c
++++ b/net/openvswitch/vport-gre.c
+@@ -134,7 +134,7 @@ static int gre_err(struct sk_buff *skb, u32 info,
+ static int gre_tnl_send(struct vport *vport, struct sk_buff *skb)
+ {
+ 	struct net *net = ovs_dp_get_net(vport->dp);
+-	struct ovs_key_ipv4_tunnel *tun_key;
++	const struct ovs_key_ipv4_tunnel *tun_key;
+ 	struct flowi4 fl;
+ 	struct rtable *rt;
+ 	int min_headroom;
+@@ -148,15 +148,7 @@ static int gre_tnl_send(struct vport *vport, struct sk_buff *skb)
+ 	}
+ 
+ 	tun_key = &OVS_CB(skb)->egress_tun_info->tunnel;
+-	/* Route lookup */
+-	memset(&fl, 0, sizeof(fl));
+-	fl.daddr = tun_key->ipv4_dst;
+-	fl.saddr = tun_key->ipv4_src;
+-	fl.flowi4_tos = RT_TOS(tun_key->ipv4_tos);
+-	fl.flowi4_mark = skb->mark;
+-	fl.flowi4_proto = IPPROTO_GRE;
+-
+-	rt = ip_route_output_key(net, &fl);
++	rt = ovs_tunnel_route_lookup(net, tun_key, skb->mark, &fl, IPPROTO_GRE);
+ 	if (IS_ERR(rt)) {
+ 		err = PTR_ERR(rt);
+ 		goto err_free_skb;
+diff --git a/net/openvswitch/vport-vxlan.c b/net/openvswitch/vport-vxlan.c
+index d7c46b3..1435a05 100644
+--- a/net/openvswitch/vport-vxlan.c
++++ b/net/openvswitch/vport-vxlan.c
+@@ -145,7 +145,7 @@ static int vxlan_tnl_send(struct vport *vport, struct sk_buff *skb)
+ 	struct net *net = ovs_dp_get_net(vport->dp);
+ 	struct vxlan_port *vxlan_port = vxlan_vport(vport);
+ 	__be16 dst_port = inet_sk(vxlan_port->vs->sock->sk)->inet_sport;
+-	struct ovs_key_ipv4_tunnel *tun_key;
++	const struct ovs_key_ipv4_tunnel *tun_key;
+ 	struct rtable *rt;
+ 	struct flowi4 fl;
+ 	__be16 src_port;
+@@ -158,15 +158,7 @@ static int vxlan_tnl_send(struct vport *vport, struct sk_buff *skb)
+ 	}
+ 
+ 	tun_key = &OVS_CB(skb)->egress_tun_info->tunnel;
+-	/* Route lookup */
+-	memset(&fl, 0, sizeof(fl));
+-	fl.daddr = tun_key->ipv4_dst;
+-	fl.saddr = tun_key->ipv4_src;
+-	fl.flowi4_tos = RT_TOS(tun_key->ipv4_tos);
+-	fl.flowi4_mark = skb->mark;
+-	fl.flowi4_proto = IPPROTO_UDP;
+-
+-	rt = ip_route_output_key(net, &fl);
++	rt = ovs_tunnel_route_lookup(net, tun_key, skb->mark, &fl, IPPROTO_UDP);
+ 	if (IS_ERR(rt)) {
+ 		err = PTR_ERR(rt);
+ 		goto error;
+diff --git a/net/openvswitch/vport.c b/net/openvswitch/vport.c
+index 2034c6d..fb9d5fb 100644
+--- a/net/openvswitch/vport.c
++++ b/net/openvswitch/vport.c
+@@ -594,14 +594,7 @@ int ovs_tunnel_get_egress_info(struct ovs_tunnel_info *egress_tun_info,
+ 	 * The process may need to be changed if the corresponding process
+ 	 * in vports ops changed.
+ 	 */
+-	memset(&fl, 0, sizeof(fl));
+-	fl.daddr = tun_key->ipv4_dst;
+-	fl.saddr = tun_key->ipv4_src;
+-	fl.flowi4_tos = RT_TOS(tun_key->ipv4_tos);
+-	fl.flowi4_mark = skb_mark;
+-	fl.flowi4_proto = ipproto;
+-
+-	rt = ip_route_output_key(net, &fl);
++	rt = ovs_tunnel_route_lookup(net, tun_key, skb_mark, &fl, ipproto);
+ 	if (IS_ERR(rt))
+ 		return PTR_ERR(rt);
+ 
+diff --git a/net/openvswitch/vport.h b/net/openvswitch/vport.h
+index 99c8e71..f8ae295 100644
+--- a/net/openvswitch/vport.h
++++ b/net/openvswitch/vport.h
+@@ -236,4 +236,22 @@ static inline void ovs_skb_postpush_rcsum(struct sk_buff *skb,
+ int ovs_vport_ops_register(struct vport_ops *ops);
+ void ovs_vport_ops_unregister(struct vport_ops *ops);
+ 
++static inline struct rtable *ovs_tunnel_route_lookup(struct net *net,
++						     const struct ovs_key_ipv4_tunnel *key,
++						     u32 mark,
++						     struct flowi4 *fl,
++						     u8 protocol)
++{
++	struct rtable *rt;
++
++	memset(fl, 0, sizeof(*fl));
++	fl->daddr = key->ipv4_dst;
++	fl->saddr = key->ipv4_src;
++	fl->flowi4_tos = RT_TOS(key->ipv4_tos);
++	fl->flowi4_mark = mark;
++	fl->flowi4_proto = protocol;
++
++	rt = ip_route_output_key(net, fl);
++	return rt;
++}
+ #endif /* vport.h */
+-- 
+1.7.1
