@@ -1,68 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH v2 1/2] net: af_packet support for direct ring
- access in user space
-Date: Wed, 14 Jan 2015 15:35:09 -0500 (EST)
-Message-ID: <20150114.153509.1264618607573705890.davem@davemloft.net>
-References: <20150113043509.29985.33515.stgit@nitbit.x32>
+Subject: Re: [PATCH 0/5 net-next v4] VXLAN Group Policy Extension
+Date: Wed, 14 Jan 2015 15:37:44 -0500 (EST)
+Message-ID: <20150114.153744.360580056667123059.davem@davemloft.net>
+References: <cover.1421165078.git.tgraf@suug.ch>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, danny.zhou@intel.com,
-	nhorman@tuxdriver.com, dborkman@redhat.com, john.ronciak@intel.com,
-	hannes@stressinduktion.org, brouer@redhat.com
-To: john.fastabend@gmail.com
+Cc: jesse@nicira.com, stephen@networkplumber.org, pshelar@nicira.com,
+	therbert@google.com, alexei.starovoitov@gmail.com,
+	nicolas.dichtel@6wind.com, netdev@vger.kernel.org,
+	dev@openvswitch.org
+To: tgraf@suug.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45129 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:45157 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751044AbbANUfM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2015 15:35:12 -0500
-In-Reply-To: <20150113043509.29985.33515.stgit@nitbit.x32>
+	with ESMTP id S1751225AbbANUhs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2015 15:37:48 -0500
+In-Reply-To: <cover.1421165078.git.tgraf@suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: John Fastabend <john.fastabend@gmail.com>
-Date: Mon, 12 Jan 2015 20:35:11 -0800
+From: Thomas Graf <tgraf@suug.ch>
+Date: Tue, 13 Jan 2015 17:20:41 +0100
 
-> +		if ((region.direction != DMA_BIDIRECTIONAL) &&
-> +		    (region.direction != DMA_TO_DEVICE) &&
-> +		    (region.direction != DMA_FROM_DEVICE))
-> +			return -EFAULT;
- ...
-> +		if ((umem->nmap == npages) &&
-> +		    (0 != dma_map_sg(dev->dev.parent, umem->sglist,
-> +				     umem->nmap, region.direction))) {
-> +			region.iova = sg_dma_address(umem->sglist) + offset;
+> Implements supports for the Group Policy VXLAN extension [0] to provide
+> a lightweight and simple security label mechanism across network peers
+> based on VXLAN. The security context and associated metadata is mapped
+> to/from skb->mark. This allows further mapping to a SELinux context
+> using SECMARK, to implement ACLs directly with nftables, iptables, OVS,
+> tc, etc.
+> 
+> The extension is disabled by default and should be run on a distinct
+> port in mixed Linux VXLAN VTEP environments. Liberal VXLAN VTEPs
+> which ignore unknown reserved bits will be able to receive VXLAN-GBP
+> frames.
 
-I am having trouble seeing how this can work.
+Thomas, unfortunately Tom's vxlan RCO patches were ready before your's
+in my queue so I applied his work first.  You'll have to therefore
+respin this series on top of it.
 
-dma_map_{single,sg}() mappings need synchronization after a DMA
-transfer takes place.
-
-For example if the DMA occurs to the device, then that region can
-be cached in the PCI controller's internal caches and thus future
-cpu writes into that memory region will not be seen, until a
-dma_sync_*() is invoked.
-
-That isn't going to happen when the device transmit queue is
-being completely managed in userspace.
-
-And this takes us back to the issue of protection, I don't think
-it is addressed properly yet.
-
-CAP_NET_ADMIN privileges do not mean "can crap all over memory"
-yet with this feature that can still happen.
-
-If we are dealing with a device which cannot provide strict protection
-to only the process's locked local pages, you have to do something
-to implement that protection.
-
-And you have _exactly_ one option to do that, abstracting the page
-addresses and eating a system call to trigger the sends, so that you
-can read from the user's (fake) descriptors and write into the real
-descriptors (translating the DMA addresses along the way) and
-triggering the TX doorbell.
-
-I am not going to consider seriously an implementation that says "yeah
-sometimes the user can crap onto other people's memory", this isn't
-MS-DOS, it's a system where proper memory protections are mandatory
-rather than optional.
+Thanks.
