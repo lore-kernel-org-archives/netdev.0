@@ -1,100 +1,85 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 0/8] netfilter updates for net-next
-Date: Wed, 14 Jan 2015 21:34:41 +0100
-Message-ID: <1421267689-24894-1-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 5/8] netfilter: nfnetlink_cthelper: Remove 'const' and '&' to avoid warnings
+Date: Wed, 14 Jan 2015 21:34:46 +0100
+Message-ID: <1421267689-24894-6-git-send-email-pablo@netfilter.org>
+References: <1421267689-24894-1-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:49637 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:49655 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751214AbbANUcA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Jan 2015 15:32:00 -0500
+	id S1751225AbbANUcE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Jan 2015 15:32:04 -0500
+In-Reply-To: <1421267689-24894-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+=46rom: Chen Gang <gang.chen.5i5j@gmail.com>
 
-The following patchset contains netfilter updates for net-next, just a
-bunch of cleanups and small enhancement to selectively flush conntracks
-in ctnetlink, more specifically the patches are:
+The related code can be simplified, and also can avoid related warnings
+(with allmodconfig under parisc):
 
-1) Rise default number of buckets in conntrack from 16384 to 65536 in
-   systems with >= 4GBytes, patch from Marcelo Leitner.
+    CC [M]  net/netfilter/nfnetlink_cthelper.o
+  net/netfilter/nfnetlink_cthelper.c: In function =E2=80=98nfnl_cthelpe=
+r_from_nlattr=E2=80=99:
+  net/netfilter/nfnetlink_cthelper.c:97:9: warning: passing argument 1 =
+o =E2=80=98memcpy=E2=80=99 discards =E2=80=98const=E2=80=99 qualifier f=
+rom pointer target type [-Wdiscarded-array-qualifiers]
+    memcpy(&help->data, nla_data(attr), help->helper->data_len);
+           ^
+  In file included from include/linux/string.h:17:0,
+                   from include/uapi/linux/uuid.h:25,
+                   from include/linux/uuid.h:23,
+                   from include/linux/mod_devicetable.h:12,
+                   from ./arch/parisc/include/asm/hardware.h:4,
+                   from ./arch/parisc/include/asm/processor.h:15,
+                   from ./arch/parisc/include/asm/spinlock.h:6,
+                   from ./arch/parisc/include/asm/atomic.h:21,
+                   from include/linux/atomic.h:4,
+                   from ./arch/parisc/include/asm/bitops.h:12,
+                   from include/linux/bitops.h:36,
+                   from include/linux/kernel.h:10,
+                   from include/linux/list.h:8,
+                   from include/linux/module.h:9,
+                   from net/netfilter/nfnetlink_cthelper.c:11:
+  ./arch/parisc/include/asm/string.h:8:8: note: expected =E2=80=98void =
+*=E2=80=99 but argument is of type =E2=80=98const char (*)[]=E2=80=99
+   void * memcpy(void * dest,const void *src,size_t count);
+          ^
 
-2) Small refactor to save one level on indentation in xt_osf, from
-   Joe Perches.
+Signed-off-by: Chen Gang <gang.chen.5i5j@gmail.com>
+Signed-off-by: Pablo Neira Ayuso <pablo@soleta.eu>
+---
+ net/netfilter/nfnetlink_cthelper.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-3) Remove unnecessary sizeof(char) in nf_log, from Fabian Frederick.
-
-4) Another small cleanup to remove redundant variable in nfnetlink,
-   from Duan Jiong.
-
-5) Fix compilation warning in nfnetlink_cthelper on parisc, from
-   Chen Gang.
-
-6) Fix wrong format in debugging for ctseqadj, from Gao feng.
-
-7) Selective conntrack flushing through the mark for ctnetlink, patch
-   from Kristian Evensen.
-
-8) Remove nf_ct_conntrack_flush_report() exported symbol now that is
-   not required anymore after the selective flushing patch, again from
-   Kristian.
-
-You can pull these changes from:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next.git
-
-Thanks!
-
-----------------------------------------------------------------
-
-The following changes since commit f96fe225677b3efb74346ebd56fafe3997b02afa:
-
-  Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net (2014-12-12 16:11:12 -0800)
-
-are available in the git repository at:
-
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next.git master
-
-for you to fetch changes up to ae406bd0572be97a46d72e8a5e97c33c3168388c:
-
-  netfilter: conntrack: Remove nf_ct_conntrack_flush_report (2015-01-08 12:16:58 +0100)
-
-----------------------------------------------------------------
-Chen Gang (1):
-      netfilter: nfnetlink_cthelper: Remove 'const' and '&' to avoid warnings
-
-Duan Jiong (1):
-      netfilter: nfnetlink: remove redundant variable nskb
-
-Fabian Frederick (1):
-      netfilter: log: remove unnecessary sizeof(char)
-
-Gao feng (1):
-      netfilter: nf_ct_seqadj: print ack seq in the right host byte order
-
-Joe Perches (1):
-      netfilter: xt_osf: Use continue to reduce indentation
-
-Kristian Evensen (2):
-      netfilter: conntrack: Flush connections with a given mark
-      netfilter: conntrack: Remove nf_ct_conntrack_flush_report
-
-Marcelo Leitner (1):
-      netfilter: conntrack: adjust nf_conntrack_buckets default value
-
- Documentation/networking/nf_conntrack-sysctl.txt |    3 +-
- include/net/netfilter/nf_conntrack.h             |    2 -
- net/netfilter/nf_conntrack_core.c                |   17 +--
- net/netfilter/nf_conntrack_netlink.c             |   89 ++++++++----
- net/netfilter/nf_conntrack_seqadj.c              |    6 +-
- net/netfilter/nf_log.c                           |    3 +-
- net/netfilter/nfnetlink.c                        |   15 +-
- net/netfilter/nfnetlink_cthelper.c               |    4 +-
- net/netfilter/xt_osf.c                           |  169 +++++++++++-----------
- 9 files changed, 172 insertions(+), 136 deletions(-)
+diff --git a/net/netfilter/nfnetlink_cthelper.c b/net/netfilter/nfnetli=
+nk_cthelper.c
+index 9e287cb..a5599fc 100644
+--- a/net/netfilter/nfnetlink_cthelper.c
++++ b/net/netfilter/nfnetlink_cthelper.c
+@@ -86,7 +86,7 @@ nfnl_cthelper_parse_tuple(struct nf_conntrack_tuple *=
+tuple,
+ static int
+ nfnl_cthelper_from_nlattr(struct nlattr *attr, struct nf_conn *ct)
+ {
+-	const struct nf_conn_help *help =3D nfct_help(ct);
++	struct nf_conn_help *help =3D nfct_help(ct);
+=20
+ 	if (attr =3D=3D NULL)
+ 		return -EINVAL;
+@@ -94,7 +94,7 @@ nfnl_cthelper_from_nlattr(struct nlattr *attr, struct=
+ nf_conn *ct)
+ 	if (help->helper->data_len =3D=3D 0)
+ 		return -EINVAL;
+=20
+-	memcpy(&help->data, nla_data(attr), help->helper->data_len);
++	memcpy(help->data, nla_data(attr), help->helper->data_len);
+ 	return 0;
+ }
+=20
+--=20
+1.7.10.4
