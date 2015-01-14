@@ -1,45 +1,36 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH net-next] bridge: fix setlink/dellink notifications
-Date: Wed, 14 Jan 2015 19:41:37 +0000
-Message-ID: <20150114194137.GC2105@casper.infradead.org>
-References: <1421218123-18346-1-git-send-email-roopa@cumulusnetworks.com>
+Subject: Re: [net-next PATCH v2 02/12] net: flow_table: add flow, delete flow
+Date: Wed, 14 Jan 2015 19:50:56 +0000
+Message-ID: <20150114195056.GD2105@casper.infradead.org>
+References: <20150113212941.13874.48692.stgit@nitbit.x32>
+ <20150113213556.13874.41211.stgit@nitbit.x32>
+ <CAADnVQK0FqxD9iu5UzFu0Pizi9tQPgjmAs3WBbV7y8jk0Sdi5w@mail.gmail.com>
+ <54B68349.3080603@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, shemminger@vyatta.com, vyasevic@redhat.com,
-	john.fastabend@gmail.com, jhs@mojatatu.com, sfeldma@gmail.com,
-	jiri@resnulli.us, wkok@cumulusnetworks.com
-To: roopa@cumulusnetworks.com
+Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	simon.horman@netronome.com, Scott Feldman <sfeldma@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gerlitz.or@gmail.com" <gerlitz.or@gmail.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	"David S. Miller" <davem@davemloft.net>
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:32855 "EHLO
+Received: from casper.infradead.org ([85.118.1.10]:32891 "EHLO
 	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752163AbbANTll (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2015 14:41:41 -0500
+	with ESMTP id S1753615AbbANTu6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2015 14:50:58 -0500
 Content-Disposition: inline
-In-Reply-To: <1421218123-18346-1-git-send-email-roopa@cumulusnetworks.com>
+In-Reply-To: <54B68349.3080603@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/13/15 at 10:48pm, roopa@cumulusnetworks.com wrote:
-> 2) Generate one notification from master and the other notification from
->    self (This seems to be ideal):
->      For master: the master driver will send notification (bridge in this
-> 	example)
->      For self: the self driver will send notification (rocker in the above
-> 	example. It can use helpers from rtnetlink.c to do so. Like the
-> 	ndo_dflt_bridge_getlink api).
-> 
-> This patch implements 2) (leaving the 'rtnl_bridge_notify' around to be used
-> with 'self').
-> 
-> CC'ing others who might be affected by this change for review.
-> 
-> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+On 01/14/15 at 06:55am, John Fastabend wrote:
+> If one of the actions supported by the device is forward_to_queue() or
+> forward_to_socket() we can use the API to steer potentially interesting
+> packets to a user space application for processing.
 
-I haven't digested this line by line yet but I agree that what you
-describe above would be a good end state.
++1
 
-If I read the patch correctly then we would omit one notification
-for the master case. Were both notifications exactly identical
-previously?
-
-This has the chance of breaking existing users terribly.
+Ideally using NFQUEUE so we can leverage existing infrastructure.
