@@ -1,150 +1,48 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: [PATCH] ixgbe: Re-enable relaxed ordering as part of init/restart
- sequence for non-DCA config
-Date: Wed, 14 Jan 2015 09:40:09 -0500
-Message-ID: <20150114144009.GG19534@oracle.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [net-next PATCH v2 00/12] Flow API
+Date: Wed, 14 Jan 2015 06:44:59 -0800
+Message-ID: <54B680EB.8040404@gmail.com>
+References: <20150113212941.13874.48692.stgit@nitbit.x32> <CAJ3xEMhSkHMTqvvaP2jS5Q8dh3FgqSt2JnQc+WuPeYwh0P5dkw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux.nics@intel.com, e1000-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	sparclinux@vger.kernel.org, emil.s.tantilov@intel.com
-To: sowmini.varadhan@oracle.com, jeffrey.t.kirsher@intel.com,
-	jesse.brandeburg@intel.com, bruce.w.allan@intel.com,
-	carolyn.wyborny@intel.com, donald.c.skidmore@intel.com,
-	gregory.v.rose@intel.com, matthew.vick@intel.com,
-	john.ronciak@intel.com, mitch.a.williams@intel.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Thomas Graf <tgraf@suug.ch>, simon.horman@netronome.com,
+	Scott Feldman <sfeldma@gmail.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	David Miller <davem@davemloft.net>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>
+To: Or Gerlitz <gerlitz.or@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f46.google.com ([209.85.218.46]:42320 "EHLO
+	mail-oi0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751713AbbANOpT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2015 09:45:19 -0500
+Received: by mail-oi0-f46.google.com with SMTP id a3so7578129oib.5
+        for <netdev@vger.kernel.org>; Wed, 14 Jan 2015 06:45:18 -0800 (PST)
+In-Reply-To: <CAJ3xEMhSkHMTqvvaP2jS5Q8dh3FgqSt2JnQc+WuPeYwh0P5dkw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On 01/13/2015 10:29 PM, Or Gerlitz wrote:
+> On Tue, Jan 13, 2015 at 11:35 PM, John Fastabend
+> <john.fastabend@gmail.com> wrote:
+>> I tried to roll in all the feedback from v1 into this series annotated
+>> here,
+>
+> Hi John,
+>
+> Can you please drop V2 to your
+> https://github.com/jrfastab/rocker-net-next.git tree?
+>
+> thanks,
+>
+> Or.
+>
 
-Relaxed ordering is disabled by default at driver initialization
-and re-enabled when DCA is used. The reason it is disabled  was
-due to an issue on some chipsets (see comments in ixgbe_update_tx_dca()).
-But when DCA is not used, RO needs to be re-enabled, else we have
-a serialization bottleneck on platforms like SPARC.
+Should be there now, but as Alexei noted I seem to have missed updating
+the patch commit messages so they still reference the old names.
 
-This patch eliminates the bottleneck for ixgbe when DCA is not configured.
-
-Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Cc: Emil Tantilov <emil.s.tantilov@intel.com>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c  |    1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.c |   20 ++++++++++++++++++++
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.h |    1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c   |   11 +++++++++++
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h   |    1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c   |    1 +
- 6 files changed, 35 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
-index c5c97b4..85c7a28 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
-@@ -1161,6 +1161,7 @@ static struct ixgbe_mac_operations mac_ops_82598 = {
- 	.clear_hw_cntrs		= &ixgbe_clear_hw_cntrs_generic,
- 	.get_media_type		= &ixgbe_get_media_type_82598,
- 	.enable_rx_dma          = &ixgbe_enable_rx_dma_generic,
-+	.enable_relaxed_ordering = &ixgbe_enable_relaxed_ordering,
- 	.get_mac_addr		= &ixgbe_get_mac_addr_generic,
- 	.stop_adapter		= &ixgbe_stop_adapter_generic,
- 	.get_bus_info           = &ixgbe_get_bus_info_generic,
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-index 9c66bab..4453d92 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-@@ -338,6 +338,26 @@ s32 ixgbe_start_hw_gen2(struct ixgbe_hw *hw)
- 	return 0;
- }
- 
-+void ixgbe_enable_relaxed_ordering(struct ixgbe_hw *hw)
-+{
-+	u32 i;
-+	u32 regval;
-+
-+	/* Enable relaxed ordering */
-+	for (i = 0; i < hw->mac.max_tx_queues; i++) {
-+		regval = IXGBE_READ_REG(hw, IXGBE_DCA_TXCTRL_82599(i));
-+		regval |= IXGBE_DCA_TXCTRL_DESC_WRO_EN;
-+		IXGBE_WRITE_REG(hw, IXGBE_DCA_TXCTRL_82599(i), regval);
-+	}
-+
-+	for (i = 0; i < hw->mac.max_rx_queues; i++) {
-+		regval = IXGBE_READ_REG(hw, IXGBE_DCA_RXCTRL(i));
-+		regval |= (IXGBE_DCA_RXCTRL_DATA_WRO_EN |
-+			    IXGBE_DCA_RXCTRL_HEAD_WRO_EN);
-+		IXGBE_WRITE_REG(hw, IXGBE_DCA_RXCTRL(i), regval);
-+	}
-+}
-+
- /**
-  *  ixgbe_init_hw_generic - Generic hardware initialization
-  *  @hw: pointer to hardware structure
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
-index 8cfadcb..c399c18 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
-@@ -37,6 +37,7 @@ s32 ixgbe_init_ops_generic(struct ixgbe_hw *hw);
- s32 ixgbe_init_hw_generic(struct ixgbe_hw *hw);
- s32 ixgbe_start_hw_generic(struct ixgbe_hw *hw);
- s32 ixgbe_start_hw_gen2(struct ixgbe_hw *hw);
-+void ixgbe_enable_relaxed_ordering(struct ixgbe_hw *hw);
- s32 ixgbe_clear_hw_cntrs_generic(struct ixgbe_hw *hw);
- s32 ixgbe_read_pba_string_generic(struct ixgbe_hw *hw, u8 *pba_num,
- 				  u32 pba_num_size);
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 2ed2c7d..dec815b 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -4898,6 +4898,12 @@ void ixgbe_reset(struct ixgbe_adapter *adapter)
- 
- 	if (test_bit(__IXGBE_PTP_RUNNING, &adapter->state))
- 		ixgbe_ptp_reset(adapter);
-+
-+#ifndef CONFIG_IXGBE_DCA
-+	/* ixgbe_update_tx_dca() will re-enable RO when DCA is enabled */
-+	if (hw->mac.ops.enable_relaxed_ordering)
-+		hw->mac.ops.enable_relaxed_ordering(hw);
-+#endif
- }
- 
- /**
-@@ -8470,6 +8476,11 @@ skip_sriov:
- 			   "representative who provided you with this "
- 			   "hardware.\n");
- 	}
-+#ifndef CONFIG_IXGBE_DCA
-+	/* ixgbe_update_tx_dca() will re-enable RO when DCA is enabled */
-+	if (hw->mac.ops.enable_relaxed_ordering)
-+		hw->mac.ops.enable_relaxed_ordering(hw);
-+#endif
- 	strcpy(netdev->name, "eth%d");
- 	err = register_netdev(netdev);
- 	if (err)
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-index d101b25..b967241 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-@@ -3013,6 +3013,7 @@ struct ixgbe_mac_operations {
- 	void (*release_swfw_sync)(struct ixgbe_hw *, u32);
- 	s32 (*prot_autoc_read)(struct ixgbe_hw *, bool *, u32 *);
- 	s32 (*prot_autoc_write)(struct ixgbe_hw *, u32, bool);
-+	void (*enable_relaxed_ordering)(struct ixgbe_hw *);
- 
- 	/* Link */
- 	void (*disable_tx_laser)(struct ixgbe_hw *);
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
-index ba54ff0..88adad2 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
-@@ -781,6 +781,7 @@ static struct ixgbe_mac_operations mac_ops_X540 = {
- 	.clear_hw_cntrs         = &ixgbe_clear_hw_cntrs_generic,
- 	.get_media_type         = &ixgbe_get_media_type_X540,
- 	.enable_rx_dma          = &ixgbe_enable_rx_dma_generic,
-+	.enable_relaxed_ordering = &ixgbe_enable_relaxed_ordering,
- 	.get_mac_addr           = &ixgbe_get_mac_addr_generic,
- 	.get_san_mac_addr       = &ixgbe_get_san_mac_addr_generic,
- 	.get_device_caps        = &ixgbe_get_device_caps_generic,
 -- 
-1.7.1
+John Fastabend         Intel Corporation
