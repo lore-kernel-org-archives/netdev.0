@@ -1,25 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: [MERGE] net --> net-next
-Date: Thu, 15 Jan 2015 01:06:19 -0500 (EST)
-Message-ID: <20150115.010619.430138510796706708.davem@davemloft.net>
+Subject: Re: linux-next: manual merge of the net-next tree with the net tree
+Date: Thu, 15 Jan 2015 01:06:38 -0500 (EST)
+Message-ID: <20150115.010638.1588013062855266803.davem@davemloft.net>
+References: <20150115134735.1e4612c6@canb.auug.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48234 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750703AbbAOGGZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jan 2015 01:06:25 -0500
-Received: from localhost (cpe-67-247-12-89.nyc.res.rr.com [67.247.12.89])
-	(Authenticated sender: davem-davemloft)
-	by shards.monkeyblade.net (Postfix) with ESMTPSA id B903A586DEB
-	for <netdev@vger.kernel.org>; Wed, 14 Jan 2015 22:06:24 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org, david.vrabel@citrix.com
+To: sfr@canb.auug.org.au
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150115134735.1e4612c6@canb.auug.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Thu, 15 Jan 2015 13:47:35 +1100
 
-With Linus taking in my bug fixes from 'net' I subsequently merged
-his tree into 'net' and the merged 'net' into 'net-next'.
+> Today's linux-next merge of the net-next tree got a conflict in
+> drivers/net/xen-netfront.c between commit 900e183301b5 ("xen-netfront:
+> use different locks for Rx and Tx stats") from the net tree and commit
+> a55e8bb8fb89 ("xen-netfront: refactor making Tx requests") from the
+> net-next tree.
+> 
+> I fixed it up (see below) and can carry the fix as necessary (no action
+> is required).
 
-Just FYI...
+Thanks a lot Stephen, I just resolved this.
