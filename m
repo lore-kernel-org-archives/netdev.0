@@ -1,41 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 10/17] i40e: clean up PTP log messages
-Date: Thu, 15 Jan 2015 15:38:46 -0500 (EST)
-Message-ID: <20150115.153846.1450539700341201746.davem@davemloft.net>
-References: <1421324368-6860-11-git-send-email-jeffrey.t.kirsher@intel.com>
-	<063D6719AE5E284EB5DD2968C1650D6D1CAC9AB0@AcuExch.aculab.com>
-	<FC41C24E35F18A40888AACA1A36F3E418ADD011A@fmsmsx115.amr.corp.intel.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH 3/3] genetlink: synchronize socket closing and family
+ removal
+Date: Thu, 15 Jan 2015 21:55:06 +0100
+Message-ID: <1421355306.1962.14.camel@sipsolutions.net>
+References: <1421319885-31779-1-git-send-email-johannes@sipsolutions.net>
+	 <1421319885-31779-3-git-send-email-johannes@sipsolutions.net>
+	 <20150115.145007.184934220260873768.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David.Laight@ACULAB.COM, jeffrey.t.kirsher@intel.com,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, jacob.e.keller@intel.com
-To: shannon.nelson@intel.com
+Cc: netdev@vger.kernel.org, jeff.layton@primarydata.com,
+	sedat.dilek@gmail.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54834 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752201AbbAOUiu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jan 2015 15:38:50 -0500
-In-Reply-To: <FC41C24E35F18A40888AACA1A36F3E418ADD011A@fmsmsx115.amr.corp.intel.com>
+Received: from s3.sipsolutions.net ([5.9.151.49]:38721 "EHLO sipsolutions.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753670AbbAOUzL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Jan 2015 15:55:11 -0500
+In-Reply-To: <20150115.145007.184934220260873768.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Nelson, Shannon" <shannon.nelson@intel.com>
-Date: Thu, 15 Jan 2015 15:01:42 +0000
-
-> The dev_info() messages have the PCI device and function number in the string, so it's really not too hard to track down the resulting netdev port:
-> Jan 13 15:46:55 snelson3-cup kernel: [621235.401627] i40e 0000:84:00.1: PHC enabled
+On Thu, 2015-01-15 at 14:50 -0500, David Miller wrote:
+> From: Johannes Berg <johannes@sipsolutions.net>
+> Date: Thu, 15 Jan 2015 12:04:45 +0100
 > 
-> Later messages use netdev_info() and have both the device number and the netdev name:
-> Jan 13 15:46:56 snelson3-cup kernel: [621236.508868] i40e 0000:04:00.1 p261p2: NIC Link is Up 10 Gbps Full Duplex, Flow Control: None
+> > +		atomic_dec(&genl_sk_destructing_cnt);
+> > +		printk(KERN_DEBUG "dec destructing\n");
+> > +		wake_up(&genl_sk_destructing_waitq);
 > 
-> Note that the driver name appears in both as well.
+> Hmmm, maybe only wakeup if "!atomic_dec_and_test()"?
 
-I think we should consistently provide the netdev name as soon as
-register_netdevice() returns.
+Yes, good point.
 
-It is unwise for every driver to have their own private policy on
-this.
+And, umm, how the hell did I manage to leave the printk() in there?
 
-Please change this back.
+johannes
