@@ -1,151 +1,53 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH 2/5] vxlan: Only bind to sockets with compatible flags enabled
-Date: Thu, 15 Jan 2015 03:53:56 +0100
-Message-ID: <f02c2207d280de6e3bb1d7ce97e734a695259750.1421290198.git.tgraf@suug.ch>
-References: <cover.1421290198.git.tgraf@suug.ch>
-Cc: netdev@vger.kernel.org, dev@openvswitch.org
-To: davem@davemloft.net, jesse@nicira.com, stephen@networkplumber.org,
-	pshelar@nicira.com, therbert@google.com,
-	alexei.starovoitov@gmail.com, nicolas.dichtel@6wind.com
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: [PATCH net-next v13 3/3] net: hisilicon: new hip04 ethernet driver
+Date: Thu, 15 Jan 2015 10:54:24 +0800
+Message-ID: <54B72BE0.7040403@huawei.com>
+References: <1421217254-12008-1-git-send-email-dingtianhong@huawei.com> <1421217254-12008-4-git-send-email-dingtianhong@huawei.com> <3131780.HetDHI4Cfl@wuerfel>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <robh+dt@kernel.org>, <davem@davemloft.net>,
+	<grant.likely@linaro.org>, <agraf@suse.de>,
+	<sergei.shtylyov@cogentembedded.com>,
+	<linux-arm-kernel@lists.infradead.org>, <eric.dumazet@gmail.com>,
+	<xuwei5@hisilicon.com>, <zhangfei.gao@linaro.org>,
+	<netdev@vger.kernel.org>, <devicetree@vger.kernel.org>,
+	<linux@arm.linux.org.uk>
+To: Arnd Bergmann <arnd@arndb.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:35206 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751183AbbAOCyE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2015 21:54:04 -0500
-In-Reply-To: <cover.1421290198.git.tgraf@suug.ch>
-In-Reply-To: <cover.1421290198.git.tgraf@suug.ch>
-References: <cover.1421290198.git.tgraf@suug.ch>
+Received: from szxga01-in.huawei.com ([119.145.14.64]:32066 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751183AbbAOCyt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2015 21:54:49 -0500
+In-Reply-To: <3131780.HetDHI4Cfl@wuerfel>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-A VXLAN net_device looking for an appropriate socket may only consider
-a socket which has a matching set of flags/extensions enabled. If
-incompatible flags are enabled, return a conflict to have the caller
-create a distinct socket with distinct port.
+On 2015/1/14 16:53, Arnd Bergmann wrote:
+> On Wednesday 14 January 2015 14:34:14 Ding Tianhong wrote:
+>> +#define HIP04_MAX_TX_COALESCE_USECS    200
+>> +#define HIP04_MIN_TX_COALESCE_USECS    100
+>> +#define HIP04_MAX_TX_COALESCE_FRAMES   200
+>> +#define HIP04_MIN_TX_COALESCE_FRAMES   100
+> 
+> It's not important, but in case you are creating another version of the
+> patch, maybe the allowed range can be extended somewhat. The example values
+> I picked when I sent my suggestion were really made up. It's great if
+> they work fine, but users might want to  tune this far more depending on
+> their workloads,  How about these
+> 
+> #define HIP04_MAX_TX_COALESCE_USECS    100000
+> #define HIP04_MIN_TX_COALESCE_USECS    1
+> #define HIP04_MAX_TX_COALESCE_FRAMES   (TX_DESC_NUM - 1)
+> #define HIP04_MIN_TX_COALESCE_FRAMES   1
+> 
 
-The OVS VXLAN port is kept unaware of extensions at this point.
+Is it really ok that the so big range may break the driver and hip04 could not work fine?
+I am not sure it is ok, I will fix it in next version.
+ 
+Ding
 
-Signed-off-by: Thomas Graf <tgraf@suug.ch>
----
-v5->v6:
- - Keep sharing logic but base it off unsharable flags instead of exts
-   member as suggested by Tom
-v4->v5:
- - No change
-v3->v4:
- - No change
-v2->v3:
- - No change
-v1->v2:
- - Improved commit message, reported by Jesse
-
- drivers/net/vxlan.c | 29 ++++++++++++++++++-----------
- include/net/vxlan.h |  3 +++
- 2 files changed, 21 insertions(+), 11 deletions(-)
-
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 6dbf8e0..6b6b456 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -263,15 +263,19 @@ static inline struct vxlan_rdst *first_remote_rtnl(struct vxlan_fdb *fdb)
- 	return list_first_entry(&fdb->remotes, struct vxlan_rdst, list);
- }
- 
--/* Find VXLAN socket based on network namespace, address family and UDP port */
--static struct vxlan_sock *vxlan_find_sock(struct net *net,
--					  sa_family_t family, __be16 port)
-+/* Find VXLAN socket based on network namespace, address family and UDP port
-+ * and enabled unshareable flags.
-+ */
-+static struct vxlan_sock *vxlan_find_sock(struct net *net, sa_family_t family,
-+					  __be16 port, u32 flags)
- {
- 	struct vxlan_sock *vs;
-+	u32 match_flags = flags & VXLAN_F_UNSHAREABLE;
- 
- 	hlist_for_each_entry_rcu(vs, vs_head(net, port), hlist) {
- 		if (inet_sk(vs->sock->sk)->inet_sport == port &&
--		    inet_sk(vs->sock->sk)->sk.sk_family == family)
-+		    inet_sk(vs->sock->sk)->sk.sk_family == family &&
-+		    (vs->flags & VXLAN_F_UNSHAREABLE) == match_flags)
- 			return vs;
- 	}
- 	return NULL;
-@@ -291,11 +295,12 @@ static struct vxlan_dev *vxlan_vs_find_vni(struct vxlan_sock *vs, u32 id)
- 
- /* Look up VNI in a per net namespace table */
- static struct vxlan_dev *vxlan_find_vni(struct net *net, u32 id,
--					sa_family_t family, __be16 port)
-+					sa_family_t family, __be16 port,
-+					u32 flags)
- {
- 	struct vxlan_sock *vs;
- 
--	vs = vxlan_find_sock(net, family, port);
-+	vs = vxlan_find_sock(net, family, port, flags);
- 	if (!vs)
- 		return NULL;
- 
-@@ -1957,7 +1962,8 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
- 
- 			ip_rt_put(rt);
- 			dst_vxlan = vxlan_find_vni(vxlan->net, vni,
--						   dst->sa.sa_family, dst_port);
-+						   dst->sa.sa_family, dst_port,
-+						   vxlan->flags);
- 			if (!dst_vxlan)
- 				goto tx_error;
- 			vxlan_encap_bypass(skb, vxlan, dst_vxlan);
-@@ -2016,7 +2022,8 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
- 
- 			dst_release(ndst);
- 			dst_vxlan = vxlan_find_vni(vxlan->net, vni,
--						   dst->sa.sa_family, dst_port);
-+						   dst->sa.sa_family, dst_port,
-+						   vxlan->flags);
- 			if (!dst_vxlan)
- 				goto tx_error;
- 			vxlan_encap_bypass(skb, vxlan, dst_vxlan);
-@@ -2186,7 +2193,7 @@ static int vxlan_init(struct net_device *dev)
- 
- 	spin_lock(&vn->sock_lock);
- 	vs = vxlan_find_sock(vxlan->net, ipv6 ? AF_INET6 : AF_INET,
--			     vxlan->dst_port);
-+			     vxlan->dst_port, vxlan->flags);
- 	if (vs && atomic_add_unless(&vs->refcnt, 1, 0)) {
- 		/* If we have a socket with same port already, reuse it */
- 		vxlan_vs_add_dev(vs, vxlan);
-@@ -2593,7 +2600,7 @@ struct vxlan_sock *vxlan_sock_add(struct net *net, __be16 port,
- 		return vs;
- 
- 	spin_lock(&vn->sock_lock);
--	vs = vxlan_find_sock(net, ipv6 ? AF_INET6 : AF_INET, port);
-+	vs = vxlan_find_sock(net, ipv6 ? AF_INET6 : AF_INET, port, flags);
- 	if (vs && ((vs->rcv != rcv) ||
- 		   !atomic_add_unless(&vs->refcnt, 1, 0)))
- 			vs = ERR_PTR(-EBUSY);
-@@ -2761,7 +2768,7 @@ static int vxlan_newlink(struct net *net, struct net_device *dev,
- 		vxlan->flags |= VXLAN_F_GBP;
- 
- 	if (vxlan_find_vni(net, vni, use_ipv6 ? AF_INET6 : AF_INET,
--			   vxlan->dst_port)) {
-+			   vxlan->dst_port, vxlan->flags)) {
- 		pr_info("duplicate VNI %u\n", vni);
- 		return -EEXIST;
- 	}
-diff --git a/include/net/vxlan.h b/include/net/vxlan.h
-index f4a3583..7be8c34 100644
---- a/include/net/vxlan.h
-+++ b/include/net/vxlan.h
-@@ -129,6 +129,9 @@ struct vxlan_sock {
- #define VXLAN_F_REMCSUM_RX		0x400
- #define VXLAN_F_GBP			0x800
- 
-+/* These flags must match in order for a socket to be shareable */
-+#define VXLAN_F_UNSHAREABLE		VXLAN_F_GBP
-+
- struct vxlan_sock *vxlan_sock_add(struct net *net, __be16 port,
- 				  vxlan_rcv_t *rcv, void *data,
- 				  bool no_share, u32 flags);
--- 
-1.9.3
+> 	Arnd
+> 
+> .
+> 
