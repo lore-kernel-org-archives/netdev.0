@@ -1,54 +1,42 @@
-From: Michal Marek <mmarek-AlSwsSmVLrQ@public.gmane.org>
-Subject: Re: [PATCH v4 20/20] kbuild: add a new kselftest_install make target
- to install selftests
-Date: Thu, 15 Jan 2015 12:39:02 +0100
-Message-ID: <54B7A6D6.6090006@suse.cz>
-References: <cover.1420571615.git.shuahkh@osg.samsung.com> <2c5a28faaa79d9c2415854a08817ada509fcb943.1420571615.git.shuahkh@osg.samsung.com> <54B69A1B.80006@osg.samsung.com>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: [PATCH for 3.19 3/3] rtlwifi: rtl8192ee: Fix several bugs
+Date: Thu, 15 Jan 2015 13:42:52 +0200
+Message-ID: <87bnm0xoar.fsf@kamboji.qca.qualcomm.com>
+References: <1421257036-5382-1-git-send-email-Larry.Finger@lwfinger.net>
+	<1421257036-5382-4-git-send-email-Larry.Finger@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
-	rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org, mingo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-	keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org, tranmanphong-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, mpe-Gsx/Oe8HsFggBc27wqDAHg@public.gmane.org,
-	cov-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org, dh.herrmann-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, hughd-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
-	bobby.prani-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, serge.hallyn-GeWIH/nMZzLQT0dZR+AlfA@public.gmane.org,
-	ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, tim.bird-/MT0OVThwyLZJqsBc5GL+g@public.gmane.org,
-	josh-iaAMLnmF4UmaiuxdJuQwMA@public.gmane.org, koct9i-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	linux-kbuild-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Shuah Khan <shuahkh-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>,
-	masami.hiramatsu.pt-FCd8Q96Dh0JBDgjK7y7TUQ@public.gmane.org
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <54B69A1B.80006-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless@vger.kernel.org, Troy Tan <troy_tan@realsil.com.cn>,
+	netdev@vger.kernel.org
+To: Larry Finger <Larry.Finger@lwfinger.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.codeaurora.org ([198.145.11.231]:54208 "EHLO
+	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751433AbbAOLnA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jan 2015 06:43:00 -0500
+In-Reply-To: <1421257036-5382-4-git-send-email-Larry.Finger@lwfinger.net>
+	(Larry Finger's message of "Wed, 14 Jan 2015 11:37:16 -0600")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2015-01-14 17:32, Shuah Khan wrote:
-> On 01/06/2015 12:43 PM, Shuah Khan wrote:
->> Add a new make target to install to install kernel selftests.
->> This new target will build and install selftests. kselftest
->> target now depends on kselftest_install and runs the generated
->> kselftest script to reduce duplicate work and for common look
->> and feel when running tests.
->>
->> make kselftest_target:
->> -- exports kselftest INSTALL_KSFT_PATH
->>    default $(INSTALL_MOD_PATH)/lib/kselftest/$(KERNELRELEASE)
->> -- exports INSTALL_KSFT_PATH
->> -- runs selftests make install target
->>
->> Signed-off-by: Shuah Khan <shuahkh-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>
->> ---
->>  Makefile | 14 +++++++++++++-
->>  1 file changed, 13 insertions(+), 1 deletion(-)
-> 
-> Hi Marek,
-> 
-> Could you please Ack this patch, if this version looks good,
-> so I can take this through ksefltest tree.
+Larry Finger <Larry.Finger@lwfinger.net> writes:
 
-Sorry, I thought I had acked v3.
+> From: Troy Tan <troy_tan@realsil.com.cn>
+>
+> The following bugs are fixed in this driver:
+> 1. Problems parsing C2H CMD
+> 2. An ad-hoc connection can cause a TX freeze.
+> 3. There are additional conditions that cause a TX freeze.
+> 4. The previous code failed to handle situations where an RX
+>    descriptor was unavailable.
+>
+> Signed-off-by: Troy Tan <troy_tan@realsil.com.cn>
+> Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
 
-Acked-by: Michal Marek <mmarek-AlSwsSmVLrQ@public.gmane.org>
+Is this really so important that it should go to 3.19? A patch titled
+"Fix several bugs" immediately makes me cautious and then I look at the
+patch itself I see rewriting functions instead of simple bug fixes. From
+a quick look this looks more -next material than 3.19.
 
-Michal
+-- 
+Kalle Valo
