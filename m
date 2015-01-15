@@ -1,61 +1,77 @@
 From: Kukjin Kim <kgene@kernel.org>
-Subject: [PATCH] net: sxgbe: Fix NULL dereferece when using DT
-Date: Thu, 15 Jan 2015 10:41:47 +0900
-Message-ID: <1421286107-9514-1-git-send-email-kgene@kernel.org>
+Subject: [PATCH] [PATCH] net: sxgbe: Fix waring for double kfree()
+Date: Thu, 15 Jan 2015 10:43:11 +0900
+Message-ID: <1421286191-9550-1-git-send-email-kgene@kernel.org>
 Cc: Dave Miller <davem@davemloft.ne>,
-	"Girish K.S" <ks.giri@samsung.com>,
+	Dan Carpenter <dan.carpenter@oracle.com>,
 	Byungho An <bh74.an@samsung.com>, Kukjin Kim <kgene@kernel.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout4.samsung.com ([203.254.224.34]:26702 "EHLO
+Received: from mailout4.samsung.com ([203.254.224.34]:27175 "EHLO
 	mailout4.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750826AbbAOBlp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2015 20:41:45 -0500
-Received: from epcpsbgm1.samsung.com (epcpsbgm1 [203.254.230.26])
+	with ESMTP id S1750841AbbAOBnI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2015 20:43:08 -0500
+Received: from epcpsbgm2.samsung.com (epcpsbgm2 [203.254.230.27])
  by mailout4.samsung.com
  (Oracle Communications Messaging Server 7u4-24.01(7.0.4.24.0) 64bit (built Nov
- 17 2011)) with ESMTP id <0NI700DQV3DJAQ80@mailout4.samsung.com> for
- netdev@vger.kernel.org; Thu, 15 Jan 2015 10:41:43 +0900 (KST)
+ 17 2011)) with ESMTP id <0NI700FYE3FVVB60@mailout4.samsung.com> for
+ netdev@vger.kernel.org; Thu, 15 Jan 2015 10:43:07 +0900 (KST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Girish K.S <ks.giri@samsung.com>
+From: Byungho An <bh74.an@samsung.com>
 
-When the MAC address is provided in the device tree file, the
-condition is true and kernel crashes due to NULL dereference.
+This patch fixes double kfree() calls at init_rx_ring() because
+it causes static checker warning.
 
-Signed-off-by: Girish K.S <ks.giri@samsung.com>
+Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
 Signed-off-by: Byungho An <bh74.an@samsung.com>
 Signed-off-by: Kukjin Kim <kgene@kernel.org>
 ---
- drivers/net/ethernet/samsung/sxgbe/sxgbe_platform.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c | 21 ++++++++++-----------
+ 1 file changed, 10 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/net/ethernet/samsung/sxgbe/sxgbe_platform.c b/drivers/net/ethernet/samsung/sxgbe/sxgbe_platform.c
-index 866560e..b02eed1 100644
---- a/drivers/net/ethernet/samsung/sxgbe/sxgbe_platform.c
-+++ b/drivers/net/ethernet/samsung/sxgbe/sxgbe_platform.c
-@@ -108,10 +108,6 @@ static int sxgbe_platform_probe(struct platform_device *pdev)
- 		}
- 	}
+diff --git a/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c b/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c
+index 6984944..fe7538d 100644
+--- a/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c
++++ b/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c
+@@ -474,13 +474,19 @@ static int init_rx_ring(struct net_device *dev, u8 queue_no,
+ 	/* allocate memory for RX skbuff array */
+ 	rx_ring->rx_skbuff_dma = kmalloc_array(rx_rsize,
+ 					       sizeof(dma_addr_t), GFP_KERNEL);
+-	if (rx_ring->rx_skbuff_dma == NULL)
+-		goto dmamem_err;
++	if (!rx_ring->rx_skbuff_dma) {
++		dma_free_coherent(priv->device,
++				  rx_rsize * sizeof(struct sxgbe_rx_norm_desc),
++				  rx_ring->dma_rx, rx_ring->dma_rx_phy);
++		goto error;
++	}
  
--	/* Get MAC address if available (DT) */
--	if (mac)
--		ether_addr_copy(priv->dev->dev_addr, mac);
--
- 	priv = sxgbe_drv_probe(&(pdev->dev), plat_dat, addr);
- 	if (!priv) {
- 		pr_err("%s: main driver probe failed\n", __func__);
-@@ -125,6 +121,10 @@ static int sxgbe_platform_probe(struct platform_device *pdev)
- 		goto err_drv_remove;
- 	}
+ 	rx_ring->rx_skbuff = kmalloc_array(rx_rsize,
+ 					   sizeof(struct sk_buff *), GFP_KERNEL);
+-	if (rx_ring->rx_skbuff == NULL)
+-		goto rxbuff_err;
++	if (!rx_ring->rx_skbuff) {
++		kfree(rx_ring->rx_skbuff_dma);
++		goto error;
++	}
  
-+	/* Get MAC address if available (DT) */
-+	if (mac)
-+		ether_addr_copy(priv->dev->dev_addr, mac);
-+
- 	/* Get the TX/RX IRQ numbers */
- 	for (i = 0, chan = 1; i < SXGBE_TX_QUEUES; i++) {
- 		priv->txq[i]->irq_no = irq_of_parse_and_map(node, chan++);
+ 	/* initialise the buffers */
+ 	for (desc_index = 0; desc_index < rx_rsize; desc_index++) {
+@@ -502,13 +508,6 @@ static int init_rx_ring(struct net_device *dev, u8 queue_no,
+ err_init_rx_buffers:
+ 	while (--desc_index >= 0)
+ 		free_rx_ring(priv->device, rx_ring, desc_index);
+-	kfree(rx_ring->rx_skbuff);
+-rxbuff_err:
+-	kfree(rx_ring->rx_skbuff_dma);
+-dmamem_err:
+-	dma_free_coherent(priv->device,
+-			  rx_rsize * sizeof(struct sxgbe_rx_norm_desc),
+-			  rx_ring->dma_rx, rx_ring->dma_rx_phy);
+ error:
+ 	return -ENOMEM;
+ }
 -- 
 2.0.0
