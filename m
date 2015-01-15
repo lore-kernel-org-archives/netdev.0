@@ -1,84 +1,87 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next 2/2] net: bridge: reject DSA-enabled master netdevices as bridge members
-Date: Wed, 14 Jan 2015 09:52:12 -0800
-Message-ID: <1421257932-11073-3-git-send-email-f.fainelli@gmail.com>
-References: <1421257932-11073-1-git-send-email-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, stephen@networkplumber.org, kaber@trash.net,
-	bridge@lists.linux-foundation.org, buytenh@wantstofly.org,
-	Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
+From: Sriharsha Basavapatna <sriharsha.basavapatna@emulex.com>
+Subject: [PATCH v2 net] be2net: Allow GRE to work concurrently while a VxLAN tunnel is configured
+Date: Thu, 15 Jan 2015 16:08:43 +0530
+Message-ID: <1421318323-2547-1-git-send-email-sriharsha.basavapatna@emulex.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f170.google.com ([209.85.192.170]:62535 "EHLO
-	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751031AbbANRwX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2015 12:52:23 -0500
-Received: by mail-pd0-f170.google.com with SMTP id v10so11056123pde.1
-        for <netdev@vger.kernel.org>; Wed, 14 Jan 2015 09:52:22 -0800 (PST)
-In-Reply-To: <1421257932-11073-1-git-send-email-f.fainelli@gmail.com>
+Received: from cmexedge1.emulex.com ([138.239.224.99]:26948 "EHLO
+	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752558AbbANSMf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2015 13:12:35 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DSA-enabled master network devices with a switch tagging protocol should
-strip the protocol specific format before handing the frame over to
-higher layer.
+Other tunnels like GRE break while VxLAN offloads are enabled in Skyhawk-R. To
+avoid this, we should restrict offload features on a per-packet basis in such
+conditions.
 
-When adding such a DSA master network device as a bridge member, we go
-through the following code path when receiving a frame:
-
-__netif_receive_skb_core
-	-> first ptype check against ptype_all is not returning any
-	   handler for this skb
-
-	-> check and invoke rx_handler:
-		-> deliver frame to the bridge layer: br_handle_frame
-
-DSA registers a ptype handler with the fake ETH_XDSA ethertype, which is
-called *after* the bridge-layer rx_handler has run. br_handle_frame()
-tries to parse the frame it received from the DSA master network device,
-and will not be able to match any of its conditions and jumps straight
-at the end of the end of br_handle_frame() and returns
-RX_HANDLER_CONSUMED there.
-
-Since we returned RX_HANDLER_CONSUMED, __netif_receive_skb_core() stops
-RX processing for this frame and returns NET_RX_SUCCESS, so we never get
-a chance to call our switch tag packet processing logic and deliver
-frames to the DSA slave network devices, and so we do not get any
-functional bridge members at all.
-
-Instead of cluttering the bridge receive path with DSA-specific checks,
-and rely on assumptions about how __netif_receive_skb_core() is
-processing frames, we simply deny adding the DSA master network device
-(conduit interface) as a bridge member, leaving only the slave DSA
-network devices to be bridge members, since those will work correctly in
-all circumstances.
-
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+Signed-off-by: Sriharsha Basavapatna <sriharsha.basavapatna@emulex.com>
 ---
- net/bridge/br_if.c | 10 ++++++++--
- 1 file changed, 8 insertions(+), 2 deletions(-)
+v2 changes: fixed minor nits pointed out by Sergei Shtylyov
+---
+ drivers/net/ethernet/emulex/benet/be_main.c |   41 +++++++++++++++++++++++++--
+ 1 file changed, 38 insertions(+), 3 deletions(-)
 
-diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
-index 81e49fb73169..b087d278c679 100644
---- a/net/bridge/br_if.c
-+++ b/net/bridge/br_if.c
-@@ -436,10 +436,16 @@ int br_add_if(struct net_bridge *br, struct net_device *dev)
- 	int err = 0;
- 	bool changed_addr;
- 
--	/* Don't allow bridging non-ethernet like devices */
-+	/* Don't allow bridging non-ethernet like devices, or DSA-enabled
-+	 * master network devices since the bridge layer rx_handler prevents
-+	 * the DSA fake ethertype handler to be invoked, so we do not strip off
-+	 * the DSA switch tag protocol header and the bridge layer just return
-+	 * RX_HANDLER_CONSUMED, stopping RX processing for these frames.
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index 41a0a54..d48806b 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -4383,8 +4383,9 @@ static int be_ndo_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
+  * distinguish various types of transports (VxLAN, GRE, NVGRE ..). So, offload
+  * is expected to work across all types of IP tunnels once exported. Skyhawk
+  * supports offloads for either VxLAN or NVGRE, exclusively. So we export VxLAN
+- * offloads in hw_enc_features only when a VxLAN port is added. Note this only
+- * ensures that other tunnels work fine while VxLAN offloads are not enabled.
++ * offloads in hw_enc_features only when a VxLAN port is added. If other (non
++ * VxLAN) tunnels are configured while VxLAN offloads are enabled, offloads for
++ * those other tunnels are unexported on the fly through ndo_features_check().
+  *
+  * Skyhawk supports VxLAN offloads only for one UDP dport. So, if the stack
+  * adds more than one port, disable offloads and don't re-enable them again
+@@ -4463,7 +4464,41 @@ static netdev_features_t be_features_check(struct sk_buff *skb,
+ 					   struct net_device *dev,
+ 					   netdev_features_t features)
+ {
+-	return vxlan_features_check(skb, features);
++	struct be_adapter *adapter = netdev_priv(dev);
++	u8 l4_hdr = 0;
++
++	/* The code below restricts offload features for some tunneled packets.
++	 * Offload features for normal (non tunnel) packets are unchanged.
 +	 */
- 	if ((dev->flags & IFF_LOOPBACK) ||
- 	    dev->type != ARPHRD_ETHER || dev->addr_len != ETH_ALEN ||
--	    !is_valid_ether_addr(dev->dev_addr))
-+	    !is_valid_ether_addr(dev->dev_addr) ||
-+	    netdev_uses_dsa(dev))
- 		return -EINVAL;
++	if (!skb->encapsulation ||
++	    !(adapter->flags & BE_FLAGS_VXLAN_OFFLOADS))
++		return features;
++
++	/* It's an encapsulated packet and VxLAN offloads are enabled. We
++	 * should disable tunnel offload features if it's not a VxLAN packet,
++	 * as tunnel offloads have been enabled only for VxLAN. This is done to
++	 * allow other tunneled traffic like GRE work fine while VxLAN
++	 * offloads are configured in Skyhawk-R.
++	 */
++	switch (vlan_get_protocol(skb)) {
++	case htons(ETH_P_IP):
++		l4_hdr = ip_hdr(skb)->protocol;
++		break;
++	case htons(ETH_P_IPV6):
++		l4_hdr = ipv6_hdr(skb)->nexthdr;
++		break;
++	default:
++		return features;
++	}
++
++	if (l4_hdr != IPPROTO_UDP ||
++	    skb->inner_protocol_type != ENCAP_TYPE_ETHER ||
++	    skb->inner_protocol != htons(ETH_P_TEB) ||
++	    skb_inner_mac_header(skb) - skb_transport_header(skb) !=
++	    sizeof(struct udphdr) + sizeof(struct vxlanhdr))
++		return features & ~(NETIF_F_ALL_CSUM | NETIF_F_GSO_MASK);
++
++	return features;
+ }
+ #endif
  
- 	/* No bridging of bridges */
 -- 
-2.1.0
+1.7.9.5
