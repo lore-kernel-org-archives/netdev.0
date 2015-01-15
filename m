@@ -1,81 +1,72 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [PATCH RESEND 2/2] wlcore: align member-assigns in a structure-copy block
-Date: Thu, 15 Jan 2015 15:23:41 +0200
-Message-ID: <87twzsqisi.fsf@kamboji.qca.qualcomm.com>
-References: <1420394427-19509-1-git-send-email-me@mortis.eu>
-	<1420659525-22975-1-git-send-email-me@mortis.eu>
-	<1420659525-22975-2-git-send-email-me@mortis.eu>
-	<87vbkfga32.fsf@kamboji.qca.qualcomm.com>
-	<CAB3XZEcm4+=dYC-8_m_7YRdET_wPkWUYHcDuy9mCKdxkCFEnQA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Giel van Schijndel <me@mortis.eu>,
-	LKML <linux-kernel@vger.kernel.org>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Arik Nemtsov <arik@wizery.com>,
-	"open list\:TI WILINK WIRELES..." <linux-wireless@vger.kernel.org>,
-	"open list\:NETWORKING DRIVERS" <netdev@vger.kernel.org>
-To: Eliad Peller <eliad@wizery.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAB3XZEcm4+=dYC-8_m_7YRdET_wPkWUYHcDuy9mCKdxkCFEnQA@mail.gmail.com>
-	(Eliad Peller's message of "Sun, 11 Jan 2015 12:22:49 +0200")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH net] net/mlx4: Don't disable vxlan offloads under DMFS-A0 optimized steering
+Date: Thu, 15 Jan 2015 15:28:54 +0200
+Message-ID: <1421328534-14216-1-git-send-email-ogerlitz@mellanox.com>
+Cc: netdev@vger.kernel.org, Matan Barak <matanb@mellanox.com>,
+	Amir Vadai <amirv@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailp.voltaire.com ([193.47.165.129]:48589 "EHLO mellanox.co.il"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751470AbbAON26 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Jan 2015 08:28:58 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Eliad Peller <eliad@wizery.com> writes:
+Except for VXLAN steering rules, all offloads should work as they were
+under plain DMFS mode. Fix that by enabling all the offloads under
+DMFS-A0 mode, except for VXLAN steering rules.
 
-> On Fri, Jan 9, 2015 at 7:03 PM, Kalle Valo <kvalo@codeaurora.org> wrote:
->> Giel van Schijndel <me@mortis.eu> writes:
->>
->>> This highlights the differences (e.g. the bug fixed in the previous
->>> commit).
->>>
->>> Signed-off-by: Giel van Schijndel <me@mortis.eu>
->>> ---
->>>  drivers/net/wireless/ti/wlcore/acx.c | 22 +++++++++++-----------
->>>  1 file changed, 11 insertions(+), 11 deletions(-)
->>>
->>> diff --git a/drivers/net/wireless/ti/wlcore/acx.c b/drivers/net/wireless/ti/wlcore/acx.c
->>> index f28fa3b..93a2fa8 100644
->>> --- a/drivers/net/wireless/ti/wlcore/acx.c
->>> +++ b/drivers/net/wireless/ti/wlcore/acx.c
->>> @@ -1715,17 +1715,17 @@ int wl12xx_acx_config_hangover(struct wl1271 *wl)
->>>               goto out;
->>>       }
->>>
->>> -     acx->recover_time = cpu_to_le32(conf->recover_time);
->>> -     acx->hangover_period = conf->hangover_period;
->>> -     acx->dynamic_mode = conf->dynamic_mode;
->>> -     acx->early_termination_mode = conf->early_termination_mode;
->>> -     acx->max_period = conf->max_period;
->>> -     acx->min_period = conf->min_period;
->>> -     acx->increase_delta = conf->increase_delta;
->>> -     acx->decrease_delta = conf->decrease_delta;
->>> -     acx->quiet_time = conf->quiet_time;
->>> -     acx->increase_time = conf->increase_time;
->>> -     acx->window_size = conf->window_size;
->>> +     acx->recover_time               = cpu_to_le32(conf->recover_time);
->>> +     acx->hangover_period            = conf->hangover_period;
->>> +     acx->dynamic_mode               = conf->dynamic_mode;
->>> +     acx->early_termination_mode     = conf->early_termination_mode;
->>> +     acx->max_period                 = conf->max_period;
->>> +     acx->min_period                 = conf->min_period;
->>> +     acx->increase_delta             = conf->increase_delta;
->>> +     acx->decrease_delta             = conf->decrease_delta;
->>> +     acx->quiet_time                 = conf->quiet_time;
->>> +     acx->increase_time              = conf->increase_time;
->>> +     acx->window_size                = conf->window_size;
->>
->> I would like to get an ACK from one of the wlcore developers if I should
->> apply this (or not).
->
-> I don't have a strong opinion here. However, it looks pretty much
-> redundant to take a random blob (which was just fixed by a correct
-> patch) and re-indent it. The rest of the file doesn't follow this
-> style, so i don't see a good reason to apply it here.
+Fixes: d57febe1a478 "net/mlx4: Add A0 hybrid steering"
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+---
+ drivers/infiniband/hw/mlx4/main.c              |    3 ++-
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c |    3 ++-
+ drivers/net/ethernet/mellanox/mlx4/main.c      |    3 +--
+ 3 files changed, 5 insertions(+), 4 deletions(-)
 
-Yeah, this should be a driver decision and not just a single change in
-one function. Hence I'm dropping patch 2.
-
+diff --git a/drivers/infiniband/hw/mlx4/main.c b/drivers/infiniband/hw/mlx4/main.c
+index 57ecc5b..9117b7a 100644
+--- a/drivers/infiniband/hw/mlx4/main.c
++++ b/drivers/infiniband/hw/mlx4/main.c
+@@ -1114,7 +1114,8 @@ static int mlx4_ib_tunnel_steer_add(struct ib_qp *qp, struct ib_flow_attr *flow_
+ 	struct mlx4_dev	*dev = to_mdev(qp->device)->dev;
+ 	int err = 0;
+ 
+-	if (dev->caps.tunnel_offload_mode != MLX4_TUNNEL_OFFLOAD_MODE_VXLAN)
++	if (dev->caps.tunnel_offload_mode != MLX4_TUNNEL_OFFLOAD_MODE_VXLAN ||
++	    dev->caps.dmfs_high_steer_mode == MLX4_STEERING_DMFS_A0_STATIC)
+ 		return 0; /* do nothing */
+ 
+ 	ib_flow = flow_attr + 1;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index d0d6dc1..ac6a8f1 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -475,7 +475,8 @@ static int mlx4_en_tunnel_steer_add(struct mlx4_en_priv *priv, unsigned char *ad
+ {
+ 	int err;
+ 
+-	if (priv->mdev->dev->caps.tunnel_offload_mode != MLX4_TUNNEL_OFFLOAD_MODE_VXLAN)
++	if (priv->mdev->dev->caps.tunnel_offload_mode != MLX4_TUNNEL_OFFLOAD_MODE_VXLAN ||
++	    priv->mdev->dev->caps.dmfs_high_steer_mode == MLX4_STEERING_DMFS_A0_STATIC)
+ 		return 0; /* do nothing */
+ 
+ 	err = mlx4_tunnel_steer_add(priv->mdev->dev, addr, priv->port, qpn,
+diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
+index 5798355..37a1235 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/main.c
++++ b/drivers/net/ethernet/mellanox/mlx4/main.c
+@@ -1745,8 +1745,7 @@ static void choose_tunnel_offload_mode(struct mlx4_dev *dev,
+ 				       struct mlx4_dev_cap *dev_cap)
+ {
+ 	if (dev->caps.steering_mode == MLX4_STEERING_MODE_DEVICE_MANAGED &&
+-	    dev_cap->flags2 & MLX4_DEV_CAP_FLAG2_VXLAN_OFFLOADS &&
+-	    dev->caps.dmfs_high_steer_mode != MLX4_STEERING_DMFS_A0_STATIC)
++	    dev_cap->flags2 & MLX4_DEV_CAP_FLAG2_VXLAN_OFFLOADS)
+ 		dev->caps.tunnel_offload_mode = MLX4_TUNNEL_OFFLOAD_MODE_VXLAN;
+ 	else
+ 		dev->caps.tunnel_offload_mode = MLX4_TUNNEL_OFFLOAD_MODE_NONE;
 -- 
-Kalle Valo
+1.7.1
