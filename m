@@ -1,37 +1,45 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH net-next v13 3/3] net: hisilicon: new hip04 ethernet driver
-Date: Thu, 15 Jan 2015 13:30:13 +0100
-Message-ID: <1848773.hOchPbb3Eb@wuerfel>
-References: <1421217254-12008-1-git-send-email-dingtianhong@huawei.com> <1421253246.11734.17.camel@edumazet-glaptop2.roam.corp.google.com> <54B796A3.7040200@huawei.com>
+Subject: Re: [PATCH] ethernet: atheros: Add nss-gmac driver
+Date: Thu, 15 Jan 2015 13:34:48 +0100
+Message-ID: <2318041.V2OJAPu7gC@wuerfel>
+References: <1420754626-30121-1-git-send-email-wstephen@codeaurora.org> <5550127.3sXOcCISZN@wuerfel> <bca0eaf2183036ff6a913daea6e09ad9.squirrel@www.codeaurora.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7Bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, robh+dt@kernel.org,
-	davem@davemloft.net, grant.likely@linaro.org, agraf@suse.de,
-	sergei.shtylyov@cogentembedded.com,
-	linux-arm-kernel@lists.infradead.org, xuwei5@hisilicon.com,
-	zhangfei.gao@linaro.org, netdev@vger.kernel.org,
-	devicetree@vger.kernel.org, linux@arm.linux.org.uk
-To: Ding Tianhong <dingtianhong@huawei.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.126.131]:62236 "EHLO
-	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752583AbbAOMa6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jan 2015 07:30:58 -0500
-In-Reply-To: <54B796A3.7040200@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: jcliburn@gmail.com, grant.likely@linaro.org, robh+dt@kernel.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	devicetree@vger.kernel.org
+To: wstephen@codeaurora.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <bca0eaf2183036ff6a913daea6e09ad9.squirrel@www.codeaurora.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thursday 15 January 2015 18:29:55 Ding Tianhong wrote:
+On Thursday 15 January 2015 08:12:51 wstephen@codeaurora.org wrote:
 > 
-> Yes, thanks, fix them later.
+> The nss-gmac driver is for the internal GMAC IP in the Qualcomm IPQ806x
+> SoC. There are 2 ARM cores and 2 NSS cores inside the IPQ806x SoC. The
+> main purpose of these NSS cores is to offload the networking stack from
+> the ARM cores to achieve high performance at routing/ipsec..etc without
+> exhausting the ARM core CPU cycles. There is another nss-drv driver for
+> the NSS cores.
 
-Please note that now that as v13 has now shown up in net-next, I guess
-all other patches need to be based on top of what is already merged,
-and address one issue at a time.
+I see.
 
-There is one more issue I saw during build testing, which is the
-lack of a MODULE_LICENSE  statement for the main driver, although
-there is one in the mdio driver.
+> The nss-gmac driver is designed to work standalone or with the nss-drv
+> driver so the switchable data plane overlay was implemented. When it
+> worked standalone, the data plane is running on the ARM core as a standard
+> networking driver.
+
+How do you decide which way it gets used on a particular system?
+
+> The nss-drv driver can take over the data plane and
+> offload it to the NSS cores. The STMicro stmmac driver does not have this
+> kind of overlay design so is not suitable for IPQ806x. This is why we
+> don't based on the stmmac driver
+
+Which kind of offload is implemented specifically? 'data plane' sounds
+fairly generic and could mean anything, and the code isn't readable enough
+in its current form for me to find out.
 
 	Arnd
