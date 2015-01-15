@@ -1,36 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 10/17] i40e: clean up PTP log messages
-Date: Thu, 15 Jan 2015 18:12:34 -0500 (EST)
-Message-ID: <20150115.181234.1832448766968509279.davem@davemloft.net>
-References: <FC41C24E35F18A40888AACA1A36F3E418ADD011A@fmsmsx115.amr.corp.intel.com>
-	<20150115.153846.1450539700341201746.davem@davemloft.net>
-	<FC41C24E35F18A40888AACA1A36F3E418ADD4215@fmsmsx115.amr.corp.intel.com>
+Subject: Re: [patch-net-next v2 3/3] net: ethernet: cpsw: don't requests
+ IRQs we don't use
+Date: Thu, 15 Jan 2015 18:16:15 -0500 (EST)
+Message-ID: <20150115.181615.498992970722065060.davem@davemloft.net>
+References: <1421254729-10602-3-git-send-email-balbi@ti.com>
+	<54B770FC.6060003@ti.com>
+	<20150115152053.GA16409@saruman>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David.Laight@ACULAB.COM, jeffrey.t.kirsher@intel.com,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, jacob.e.keller@intel.com
-To: shannon.nelson@intel.com
+Cc: mugunthanvnm@ti.com, tony@atomide.com, linux-omap@vger.kernel.org,
+	netdev@vger.kernel.org
+To: balbi@ti.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55662 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:55672 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753035AbbAOXMh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jan 2015 18:12:37 -0500
-In-Reply-To: <FC41C24E35F18A40888AACA1A36F3E418ADD4215@fmsmsx115.amr.corp.intel.com>
+	with ESMTP id S1753057AbbAOXQR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jan 2015 18:16:17 -0500
+In-Reply-To: <20150115152053.GA16409@saruman>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Nelson, Shannon" <shannon.nelson@intel.com>
-Date: Thu, 15 Jan 2015 22:44:48 +0000
+From: Felipe Balbi <balbi@ti.com>
+Date: Thu, 15 Jan 2015 09:20:53 -0600
 
-> Yes, the driver should print the unvarnished truth.  What's
-> frustrating about UDEV is that it ends up making the driver look
-> like it is confused and/or lying in the log messages.  We'd prefer
-> to minimize this unnecessary user-confusion where possible.
+> On Thu, Jan 15, 2015 at 01:19:16PM +0530, Mugunthan V N wrote:
+>> On Wednesday 14 January 2015 10:28 PM, Felipe Balbi wrote:
+>> > CPSW never uses RX_THRESHOLD or MISC interrupts. In
+>> > fact, they are always kept masked in their appropriate
+>> > IRQ Enable register.
+>> > 
+>> > Instead of allocating an IRQ that never fires, it's best
+>> > to remove that code altogether and let future patches
+>> > implement it if anybody needs those.
+>> > 
+>> > Signed-off-by: Felipe Balbi <balbi@ti.com>
+>> 
+>> Instead of introducing dummy ISR in previous patch and then removing in
+>> this patch, both can be squashed into a single patch.
+> 
+> sure they can. I decided to split to ease review and to make sure only
+> one thing happens in a single patch.
 
-The only way to resolve this is to have some kind of synchronized
-event wherein when a device is instantiated we get userland to
-assign the final name before the device has any visibility anywhere
-(basically before register_netdevice() puts the device into the
-hashes where it can be found).
+Indeed, I agree that adding something as a placeholder that just gets
+immediately removed should be avoided unless it is extremely difficult
+to do so.
