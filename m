@@ -1,63 +1,58 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: ANNOUNCEMENT: linux-can repos are now at kernel.org
-Date: Thu, 15 Jan 2015 23:52:36 +0100
-Message-ID: <54B844B4.8030306@pengutronix.de>
-References: <54B7E77C.5040509@pengutronix.de> <54B7F2FB.6070301@hartkopp.net>
+From: Michael Ellerman <mpe-Gsx/Oe8HsFggBc27wqDAHg@public.gmane.org>
+Subject: Re: [PATCH v4 20/20] kbuild: add a new kselftest_install make
+ target to install selftests
+Date: Fri, 16 Jan 2015 09:58:18 +1100
+Message-ID: <1421362698.23332.6.camel@ellerman.id.au>
+References: <cover.1420571615.git.shuahkh@osg.samsung.com>
+	 <2c5a28faaa79d9c2415854a08817ada509fcb943.1420571615.git.shuahkh@osg.samsung.com>
+	 <54B69A1B.80006@osg.samsung.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="pRbWO09WbH7BUxkI6LlLb9991ITiLKISF"
-Cc: netdev@vger.kernel.org
-To: Oliver Hartkopp <socketcan@hartkopp.net>,
-	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <54B7F2FB.6070301@hartkopp.net>
-Sender: linux-can-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: mmarek-AlSwsSmVLrQ@public.gmane.org, masami.hiramatsu.pt-FCd8Q96Dh0JBDgjK7y7TUQ@public.gmane.org,
+	gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
+	rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org, mingo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org, tranmanphong-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, cov-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
+	dh.herrmann-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, hughd-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, bobby.prani-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	serge.hallyn-GeWIH/nMZzLQT0dZR+AlfA@public.gmane.org, ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org,
+	tim.bird-/MT0OVThwyLZJqsBc5GL+g@public.gmane.org, josh-iaAMLnmF4UmaiuxdJuQwMA@public.gmane.org, koct9i-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	linux-kbuild-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Shuah Khan <shuahkh-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <54B69A1B.80006-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---pRbWO09WbH7BUxkI6LlLb9991ITiLKISF
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
+On Wed, 2015-01-14 at 09:32 -0700, Shuah Khan wrote:
+> On 01/06/2015 12:43 PM, Shuah Khan wrote:
+> > Add a new make target to install to install kernel selftests.
+> > This new target will build and install selftests. kselftest
+> > target now depends on kselftest_install and runs the generated
+> > kselftest script to reduce duplicate work and for common look
+> > and feel when running tests.
+> > 
+> > make kselftest_target:
+> > -- exports kselftest INSTALL_KSFT_PATH
+> >    default $(INSTALL_MOD_PATH)/lib/kselftest/$(KERNELRELEASE)
+> > -- exports INSTALL_KSFT_PATH
+> > -- runs selftests make install target
+> > 
+> > Signed-off-by: Shuah Khan <shuahkh-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>
+> 
+> Hi Marek,
+> 
+> Could you please Ack this patch, if this version looks good,
+> so I can take this through ksefltest tree.
 
-On 01/15/2015 06:03 PM, Oliver Hartkopp wrote:
-> Very cool!
->=20
-> That was really fast.
+Hi Shuah,
 
-Yes Konstantin at the helpdesk is really fast (and I had collected some
-GPG signatures at ELCE).
+I posted what I think is a better approach last week. It's less code and less
+repetition, and installs the majority of tests this series missed - ie. the
+powerpc ones.
 
-Marc
+Please at least respond to it before you put this series into next.
 
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+https://lkml.org/lkml/2015/1/9/45
 
-
---pRbWO09WbH7BUxkI6LlLb9991ITiLKISF
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAEBCgAGBQJUuES0AAoJECte4hHFiupU3LYQAJ3z8feank7wVlFGRKPd/LSS
-lSYtdzp6WVK4NwKP1jC/ZW0lM1l4bU0nZzcn4q5vuJKxM5r2GH9IkhEPmleaICBF
-WYaqwjEPbilhRWxoUFZQEoO9d03q+DfvDb7qPMmOzUggYxGxCasba3IVEccHTu0A
-6ze2tbpMv3sSmJgdaxGeU5xqnI7145dcwSPqygi7fhB0YSSHrBxjVOYc4QCs3bjR
-Wpubpz3lGKKDl9+u/0t2G4up5FamjlaZPWj6QA95Zh/JKAZZtDuFrit6sk4Wwtpk
-tSLpGhyUbULTQuMBUvOjCfV+EvmnrZvMpKt9o0qUPzGHHE2ymPdJAtzpMeCP7f5g
-QCJ0hP5GzkmnlLa0bH506IK43iAPZsDfEbvj/XvZI5QYvPoXeaOScPiB0A3jyOhI
-xxMMuJJUz+VKPlBcBO7eza68WGzKlpebD9fdjtknfJVXjPDMrT0qVXZEA8V5FS9l
-X+fCloQn3TdHC2mQIk7hRzEPs78+JYiPfoeCfV6QJpQXZPL1khMhT/JhdFw86ffG
-0Bs5Zc3XxRXwfuA9uhKJJWVbKPqTy/acQq97CLPer/8+I39f09J5RVkkfMAUFx7i
-MlN6hFru/tfubuStpdGm/1JWmu3lLUiCZxau7PYa6BUDhY80SID9B3HAvshk2UnO
-1qHd33o0KuXkH4osqPPm
-=Ng7l
------END PGP SIGNATURE-----
-
---pRbWO09WbH7BUxkI6LlLb9991ITiLKISF--
+cheers
