@@ -1,51 +1,70 @@
-From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Subject: Re: [PATCH] brcmfmac: avoid duplicated suspend/resume operation
-Date: Thu, 15 Jan 2015 14:52:09 +0200
-Message-ID: <877fwotddy.fsf@kamboji.qca.qualcomm.com>
-References: <54B36C88.3030609@linux.intel.com> <54B39B59.8000907@broadcom.com>
+From: Ding Tianhong <dingtianhong-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH net-next v13 0/3] add hisilicon hip04 ethernet driver
+Date: Thu, 15 Jan 2015 20:56:21 +0800
+Message-ID: <54B7B8F5.6060808@huawei.com>
+References: <1421217254-12008-1-git-send-email-dingtianhong@huawei.com> <54B642B4.8010807@suse.de> <54B77C43.6010200@huawei.com> <14674609.dERhba4yMV@wuerfel> <54B7B4E7.8030108@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Fu\, Zhonghui" <zhonghui.fu-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-	<brudley-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>, Franky Lin <frankyl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	<meuleman-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>, <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	<pieterpg-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>, <hdegoede-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, <wens-jdAy2FN1RRM@public.gmane.org>,
-	<linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<brcm80211-dev-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel\@vger.kernel.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <54B39B59.8000907-dY08KVG/lbpWk0Htik3J/w@public.gmane.org> (Arend van Spriel's message of
-	"Mon, 12 Jan 2015 11:00:57 +0100")
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	<grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>,
+	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>, <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	<xuwei5-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>, <zhangfei.gao-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>
+To: Alexander Graf <agraf-l3A5Bk7waGM@public.gmane.org>, Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <54B7B4E7.8030108-l3A5Bk7waGM@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org> writes:
-
-> On 01/12/15 07:41, Fu, Zhonghui wrote:
->>  From 8685c3c2746b4275fc808d9db23c364b2f54b52a Mon Sep 17 00:00:00 2001
->> From: Zhonghui Fu<zhonghui.fu-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
->> Date: Mon, 12 Jan 2015 14:25:46 +0800
->> Subject: [PATCH] brcmfmac: avoid duplicated suspend/resume operation
+On 2015/1/15 20:39, Alexander Graf wrote:
+> 
+> 
+> On 15.01.15 10:42, Arnd Bergmann wrote:
+>> On Thursday 15 January 2015 16:37:23 Ding Tianhong wrote:
+>>> On 2015/1/14 18:19, Alexander Graf wrote:
+>>>>
+>>>> >From a 10000 feet perspective it looks like two problems to me
+>>>>
+>>>>   1) Allocation failure doesn't get handled properly somewhere
 >>
->> WiFi chip has 2 SDIO functions, and PM core will trigger
->> twice suspend/resume operations for one WiFi chip to do
->> the same things. This patch avoid this case.
+>> This is the bug that Eric pointed out as well.
 >>
->> Acked-by: Arend van Spriel<arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
->> Acked-by: Sergei Shtylyov<sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
->> Signed-off-by: Zhonghui Fu<zhonghui.fu-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
->
-> This patch needs to be rebased.
->
-> Kalle,
->
-> Please drop this one.
+>>>>   2) We fail to allocate with order=0 - I don't see why
+>>
+>> GFP_ATOMIC. When allocating from a the napi poll function in softirq
+>> context, you have to use nonblocking allocations, which occasionally
+>> fail. This should not cause any harm other than dropped packets.
+>>
+>>> is it easy to repetition this bug? how big is your memory on your board,
+>>> is it happened in your previous hip04 driver?
+>>
+>> It should be independent of memory size, but may be more likely if you
+>> don't have swap space configured.
+> 
+> With the previous driver I was unable to get this far - I ended up in
+> random memory corruption and had a ~90% packet loss after about an hour
+> of uptime.
+> 
+> I'm not sure whether it's easy to reproduce, I merely started up a few
+> VMs, did some disk I/O and started to compile QEMU in the background ;).
+> 
+> I'll happily give your follow up patch that's going to fix the memory
+> allocation problems a try though.
+> 
+Thanks for your work, I am sure we could make it much more better:)
 
-Ok, dropped. I'll wait for the rebase.
+Ding
 
--- 
-Kalle Valo
+> 
+> Alex
+> 
+> .
+> 
+
+
 --
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 More majordomo info at  http://vger.kernel.org/majordomo-info.html
