@@ -1,67 +1,151 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH 0/5 net-next v6] VXLAN Group Policy Extension
-Date: Thu, 15 Jan 2015 03:53:54 +0100
-Message-ID: <cover.1421290198.git.tgraf@suug.ch>
+Subject: [PATCH 2/5] vxlan: Only bind to sockets with compatible flags enabled
+Date: Thu, 15 Jan 2015 03:53:56 +0100
+Message-ID: <f02c2207d280de6e3bb1d7ce97e734a695259750.1421290198.git.tgraf@suug.ch>
+References: <cover.1421290198.git.tgraf@suug.ch>
 Cc: netdev@vger.kernel.org, dev@openvswitch.org
 To: davem@davemloft.net, jesse@nicira.com, stephen@networkplumber.org,
 	pshelar@nicira.com, therbert@google.com,
 	alexei.starovoitov@gmail.com, nicolas.dichtel@6wind.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:35194 "EHLO
+Received: from casper.infradead.org ([85.118.1.10]:35206 "EHLO
 	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750893AbbAOCyE (ORCPT
+	with ESMTP id S1751183AbbAOCyE (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2015 21:54:04 -0500
+In-Reply-To: <cover.1421290198.git.tgraf@suug.ch>
+In-Reply-To: <cover.1421290198.git.tgraf@suug.ch>
+References: <cover.1421290198.git.tgraf@suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Implements supports for the Group Policy VXLAN extension [0] to provide
-a lightweight and simple security label mechanism across network peers
-based on VXLAN. The security context and associated metadata is mapped
-to/from skb->mark. This allows further mapping to a SELinux context
-using SECMARK, to implement ACLs directly with nftables, iptables, OVS,
-tc, etc.
+A VXLAN net_device looking for an appropriate socket may only consider
+a socket which has a matching set of flags/extensions enabled. If
+incompatible flags are enabled, return a conflict to have the caller
+create a distinct socket with distinct port.
 
-The extension is disabled by default and should be run on a distinct
-port in mixed Linux VXLAN VTEP environments. Liberal VXLAN VTEPs
-which ignore unknown reserved bits will be able to receive VXLAN-GBP
-frames.
+The OVS VXLAN port is kept unaware of extensions at this point.
 
-Simple usage example:
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
+---
+v5->v6:
+ - Keep sharing logic but base it off unsharable flags instead of exts
+   member as suggested by Tom
+v4->v5:
+ - No change
+v3->v4:
+ - No change
+v2->v3:
+ - No change
+v1->v2:
+ - Improved commit message, reported by Jesse
 
-10.1.1.1:
-   # ip link add vxlan0 type vxlan id 10 remote 10.1.1.2 gbp
-   # iptables -I OUTPUT -m owner --uid-owner 101 -j MARK --set-mark 0x200
+ drivers/net/vxlan.c | 29 ++++++++++++++++++-----------
+ include/net/vxlan.h |  3 +++
+ 2 files changed, 21 insertions(+), 11 deletions(-)
 
-10.1.1.2:
-   # ip link add vxlan0 type vxlan id 10 remote 10.1.1.1 gbp
-   # iptables -I INPUT -m mark --mark 0x200 -j DROP
-
-iproute2 [1] and OVS [2] support will be provided in separate patches.
-
-[0] https://tools.ietf.org/html/draft-smith-vxlan-group-policy
-[1] https://github.com/tgraf/iproute2/tree/vxlan-gbp
-[2] https://github.com/tgraf/ovs/tree/vxlan-gbp
-
-Thomas Graf (5):
-  vxlan: Group Policy extension
-  vxlan: Only bind to sockets with compatible flags enabled
-  openvswitch: Rename GENEVE_TUN_OPTS() to TUN_METADATA_OPTS()
-  openvswitch: Allow for any level of nesting in flow attributes
-  openvswitch: Support VXLAN Group Policy extension
-
- drivers/net/vxlan.c              | 113 ++++++++++++----
- include/net/ip_tunnels.h         |   5 +-
- include/net/vxlan.h              |  82 ++++++++++-
- include/uapi/linux/if_link.h     |   1 +
- include/uapi/linux/openvswitch.h |  11 ++
- net/openvswitch/flow.c           |   2 +-
- net/openvswitch/flow.h           |  14 +-
- net/openvswitch/flow_netlink.c   | 286 ++++++++++++++++++++++++++-------------
- net/openvswitch/vport-geneve.c   |  15 +-
- net/openvswitch/vport-vxlan.c    |  91 ++++++++++++-
- net/openvswitch/vport-vxlan.h    |  11 ++
- 11 files changed, 491 insertions(+), 140 deletions(-)
- create mode 100644 net/openvswitch/vport-vxlan.h
-
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index 6dbf8e0..6b6b456 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -263,15 +263,19 @@ static inline struct vxlan_rdst *first_remote_rtnl(struct vxlan_fdb *fdb)
+ 	return list_first_entry(&fdb->remotes, struct vxlan_rdst, list);
+ }
+ 
+-/* Find VXLAN socket based on network namespace, address family and UDP port */
+-static struct vxlan_sock *vxlan_find_sock(struct net *net,
+-					  sa_family_t family, __be16 port)
++/* Find VXLAN socket based on network namespace, address family and UDP port
++ * and enabled unshareable flags.
++ */
++static struct vxlan_sock *vxlan_find_sock(struct net *net, sa_family_t family,
++					  __be16 port, u32 flags)
+ {
+ 	struct vxlan_sock *vs;
++	u32 match_flags = flags & VXLAN_F_UNSHAREABLE;
+ 
+ 	hlist_for_each_entry_rcu(vs, vs_head(net, port), hlist) {
+ 		if (inet_sk(vs->sock->sk)->inet_sport == port &&
+-		    inet_sk(vs->sock->sk)->sk.sk_family == family)
++		    inet_sk(vs->sock->sk)->sk.sk_family == family &&
++		    (vs->flags & VXLAN_F_UNSHAREABLE) == match_flags)
+ 			return vs;
+ 	}
+ 	return NULL;
+@@ -291,11 +295,12 @@ static struct vxlan_dev *vxlan_vs_find_vni(struct vxlan_sock *vs, u32 id)
+ 
+ /* Look up VNI in a per net namespace table */
+ static struct vxlan_dev *vxlan_find_vni(struct net *net, u32 id,
+-					sa_family_t family, __be16 port)
++					sa_family_t family, __be16 port,
++					u32 flags)
+ {
+ 	struct vxlan_sock *vs;
+ 
+-	vs = vxlan_find_sock(net, family, port);
++	vs = vxlan_find_sock(net, family, port, flags);
+ 	if (!vs)
+ 		return NULL;
+ 
+@@ -1957,7 +1962,8 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
+ 
+ 			ip_rt_put(rt);
+ 			dst_vxlan = vxlan_find_vni(vxlan->net, vni,
+-						   dst->sa.sa_family, dst_port);
++						   dst->sa.sa_family, dst_port,
++						   vxlan->flags);
+ 			if (!dst_vxlan)
+ 				goto tx_error;
+ 			vxlan_encap_bypass(skb, vxlan, dst_vxlan);
+@@ -2016,7 +2022,8 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
+ 
+ 			dst_release(ndst);
+ 			dst_vxlan = vxlan_find_vni(vxlan->net, vni,
+-						   dst->sa.sa_family, dst_port);
++						   dst->sa.sa_family, dst_port,
++						   vxlan->flags);
+ 			if (!dst_vxlan)
+ 				goto tx_error;
+ 			vxlan_encap_bypass(skb, vxlan, dst_vxlan);
+@@ -2186,7 +2193,7 @@ static int vxlan_init(struct net_device *dev)
+ 
+ 	spin_lock(&vn->sock_lock);
+ 	vs = vxlan_find_sock(vxlan->net, ipv6 ? AF_INET6 : AF_INET,
+-			     vxlan->dst_port);
++			     vxlan->dst_port, vxlan->flags);
+ 	if (vs && atomic_add_unless(&vs->refcnt, 1, 0)) {
+ 		/* If we have a socket with same port already, reuse it */
+ 		vxlan_vs_add_dev(vs, vxlan);
+@@ -2593,7 +2600,7 @@ struct vxlan_sock *vxlan_sock_add(struct net *net, __be16 port,
+ 		return vs;
+ 
+ 	spin_lock(&vn->sock_lock);
+-	vs = vxlan_find_sock(net, ipv6 ? AF_INET6 : AF_INET, port);
++	vs = vxlan_find_sock(net, ipv6 ? AF_INET6 : AF_INET, port, flags);
+ 	if (vs && ((vs->rcv != rcv) ||
+ 		   !atomic_add_unless(&vs->refcnt, 1, 0)))
+ 			vs = ERR_PTR(-EBUSY);
+@@ -2761,7 +2768,7 @@ static int vxlan_newlink(struct net *net, struct net_device *dev,
+ 		vxlan->flags |= VXLAN_F_GBP;
+ 
+ 	if (vxlan_find_vni(net, vni, use_ipv6 ? AF_INET6 : AF_INET,
+-			   vxlan->dst_port)) {
++			   vxlan->dst_port, vxlan->flags)) {
+ 		pr_info("duplicate VNI %u\n", vni);
+ 		return -EEXIST;
+ 	}
+diff --git a/include/net/vxlan.h b/include/net/vxlan.h
+index f4a3583..7be8c34 100644
+--- a/include/net/vxlan.h
++++ b/include/net/vxlan.h
+@@ -129,6 +129,9 @@ struct vxlan_sock {
+ #define VXLAN_F_REMCSUM_RX		0x400
+ #define VXLAN_F_GBP			0x800
+ 
++/* These flags must match in order for a socket to be shareable */
++#define VXLAN_F_UNSHAREABLE		VXLAN_F_GBP
++
+ struct vxlan_sock *vxlan_sock_add(struct net *net, __be16 port,
+ 				  vxlan_rcv_t *rcv, void *data,
+ 				  bool no_share, u32 flags);
 -- 
 1.9.3
