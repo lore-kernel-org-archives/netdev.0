@@ -1,218 +1,96 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 16/17] i40e: Support for NPAR iSCSI partition with DCB
-Date: Thu, 15 Jan 2015 04:19:27 -0800
-Message-ID: <1421324368-6860-17-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 10/17] i40e: clean up PTP log messages
+Date: Thu, 15 Jan 2015 04:19:21 -0800
+Message-ID: <1421324368-6860-11-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1421324368-6860-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Neerav Parikh <neerav.parikh@intel.com>, netdev@vger.kernel.org,
+Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Jacob Keller <jacob.e.keller@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:9898 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([192.55.52.115]:64854 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753762AbbAOMTj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Jan 2015 07:19:39 -0500
+	id S1751581AbbAOMTf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Jan 2015 07:19:35 -0500
 In-Reply-To: <1421324368-6860-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Neerav Parikh <neerav.parikh@intel.com>
+From: Shannon Nelson <shannon.nelson@intel.com>
 
-Add parsing and reporting of iSCSI capability for a given device or
-function.
+The netdev name at init time often defaults to eth0 but later gets changed
+by UDEV, so printing it here is misleading.  This patch removes the name
+from the log messages, and removes the use of __func__ as we're not using
+that any more in the driver.
 
-Also add support for iSCSI partition type with DCB in NPAR mode.
-In this mode it is expected that software would configure both the LAN
-and iSCSI traffic classes for the iSCSI partition; whereas all the NIC
-type partitions will use LAN TC (TC0) only.
-Hence, the patch enables querying of DCB configuration in MFP mode and
-configures TCs for iSCSI partition type.
-
-Though NIC type partitions may not have more than 1 TC enabled for them
-the port may have multiple TCs enabled and hence I40E_FLAG_DCB_ENABLED
-will be set/reset on all the partitions based on number of TCs on the
-port. This is required as in DCB environment it is expected that all
-traffic will be priority tagged.
-
-Change-ID: I8c6e1cfd46c46d8a39c57d9020d9ff8d42ed8a7d
-Signed-off-by: Neerav Parikh <neerav.parikh@intel.com>
+Change-ID: Iff95fb72e953f8440bf504af331c6a4b8f5e2d18
+Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
+Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_common.c |  5 ++
- drivers/net/ethernet/intel/i40e/i40e_main.c   | 73 ++++++++++++++++++++-------
- drivers/net/ethernet/intel/i40e/i40e_type.h   |  1 +
- drivers/net/ethernet/intel/i40evf/i40e_type.h |  1 +
- 4 files changed, 62 insertions(+), 18 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_ptp.c | 17 ++++++-----------
+ 1 file changed, 6 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
-index 4f4d9d1..5669bfa 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_common.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
-@@ -2360,6 +2360,7 @@ i40e_aq_erase_nvm_exit:
- #define I40E_DEV_FUNC_CAP_VSI		0x17
- #define I40E_DEV_FUNC_CAP_DCB		0x18
- #define I40E_DEV_FUNC_CAP_FCOE		0x21
-+#define I40E_DEV_FUNC_CAP_ISCSI		0x22
- #define I40E_DEV_FUNC_CAP_RSS		0x40
- #define I40E_DEV_FUNC_CAP_RX_QUEUES	0x41
- #define I40E_DEV_FUNC_CAP_TX_QUEUES	0x42
-@@ -2459,6 +2460,10 @@ static void i40e_parse_discover_capabilities(struct i40e_hw *hw, void *buff,
- 			if (number == 1)
- 				p->fcoe = true;
- 			break;
-+		case I40E_DEV_FUNC_CAP_ISCSI:
-+			if (number == 1)
-+				p->iscsi = true;
-+			break;
- 		case I40E_DEV_FUNC_CAP_RSS:
- 			p->rss = true;
- 			p->rss_table_size = number;
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index d7efc1c..f1256f9 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -4002,6 +4002,35 @@ static int i40e_pf_wait_txq_disabled(struct i40e_pf *pf)
- 
- #endif
- /**
-+ * i40e_get_iscsi_tc_map - Return TC map for iSCSI APP
-+ * @pf: pointer to pf
-+ *
-+ * Get TC map for ISCSI PF type that will include iSCSI TC
-+ * and LAN TC.
-+ **/
-+static u8 i40e_get_iscsi_tc_map(struct i40e_pf *pf)
-+{
-+	struct i40e_dcb_app_priority_table app;
-+	struct i40e_hw *hw = &pf->hw;
-+	u8 enabled_tc = 1; /* TC0 is always enabled */
-+	u8 tc, i;
-+	/* Get the iSCSI APP TLV */
-+	struct i40e_dcbx_config *dcbcfg = &hw->local_dcbx_config;
-+
-+	for (i = 0; i < dcbcfg->numapps; i++) {
-+		app = dcbcfg->app[i];
-+		if (app.selector == I40E_APP_SEL_TCPIP &&
-+		    app.protocolid == I40E_APP_PROTOID_ISCSI) {
-+			tc = dcbcfg->etscfg.prioritytable[app.priority];
-+			enabled_tc |= (1 << tc);
-+			break;
-+		}
-+	}
-+
-+	return enabled_tc;
-+}
-+
-+/**
-  * i40e_dcb_get_num_tc -  Get the number of TCs from DCBx config
-  * @dcbcfg: the corresponding DCBx configuration structure
-  *
-@@ -4064,18 +4093,23 @@ static u8 i40e_pf_get_num_tc(struct i40e_pf *pf)
- 	if (!(pf->flags & I40E_FLAG_DCB_ENABLED))
- 		return 1;
- 
-+	/* SFP mode will be enabled for all TCs on port */
-+	if (!(pf->flags & I40E_FLAG_MFP_ENABLED))
-+		return i40e_dcb_get_num_tc(dcbcfg);
-+
- 	/* MFP mode return count of enabled TCs for this PF */
--	if (pf->flags & I40E_FLAG_MFP_ENABLED) {
-+	if (pf->hw.func_caps.iscsi)
-+		enabled_tc =  i40e_get_iscsi_tc_map(pf);
-+	else
- 		enabled_tc = pf->hw.func_caps.enabled_tcmap;
--		for (i = 0; i < I40E_MAX_TRAFFIC_CLASS; i++) {
--			if (enabled_tc & (1 << i))
--				num_tc++;
--		}
--		return num_tc;
--	}
- 
--	/* SFP mode will be enabled for all TCs on port */
--	return i40e_dcb_get_num_tc(dcbcfg);
-+	/* At least have TC0 */
-+	enabled_tc = (enabled_tc ? enabled_tc : 0x1);
-+	for (i = 0; i < I40E_MAX_TRAFFIC_CLASS; i++) {
-+		if (enabled_tc & (1 << i))
-+			num_tc++;
-+	}
-+	return num_tc;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_ptp.c b/drivers/net/ethernet/intel/i40e/i40e_ptp.c
+index a152878..4f69a84 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_ptp.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_ptp.c
+@@ -285,8 +285,7 @@ void i40e_ptp_rx_hang(struct i40e_vsi *vsi)
+ 		pf->last_rx_ptp_check = jiffies;
+ 		pf->rx_hwtstamp_cleared++;
+ 		dev_warn(&vsi->back->pdev->dev,
+-			 "%s: clearing Rx timestamp hang\n",
+-			 __func__);
++			 "clearing PTP Rx timestamp hang\n");
+ 	}
  }
  
- /**
-@@ -4113,12 +4147,15 @@ static u8 i40e_pf_get_tc_map(struct i40e_pf *pf)
- 	if (!(pf->flags & I40E_FLAG_DCB_ENABLED))
- 		return i40e_pf_get_default_tc(pf);
- 
--	/* MFP mode will have enabled TCs set by FW */
--	if (pf->flags & I40E_FLAG_MFP_ENABLED)
--		return pf->hw.func_caps.enabled_tcmap;
--
- 	/* SFP mode we want PF to be enabled for all TCs */
--	return i40e_dcb_get_enabled_tc(&pf->hw.local_dcbx_config);
-+	if (!(pf->flags & I40E_FLAG_MFP_ENABLED))
-+		return i40e_dcb_get_enabled_tc(&pf->hw.local_dcbx_config);
-+
-+	/* MPF enabled and iSCSI PF type */
-+	if (pf->hw.func_caps.iscsi)
-+		return i40e_get_iscsi_tc_map(pf);
-+	else
-+		return pf->hw.func_caps.enabled_tcmap;
- }
- 
- /**
-@@ -4508,9 +4545,6 @@ static int i40e_init_pf_dcb(struct i40e_pf *pf)
+@@ -632,7 +631,6 @@ static long i40e_ptp_create_clock(struct i40e_pf *pf)
+  **/
+ void i40e_ptp_init(struct i40e_pf *pf)
+ {
+-	struct net_device *netdev = pf->vsi[pf->lan_vsi]->netdev;
  	struct i40e_hw *hw = &pf->hw;
- 	int err = 0;
+ 	u32 pf_id;
+ 	long err;
+@@ -644,9 +642,7 @@ void i40e_ptp_init(struct i40e_pf *pf)
+ 		I40E_PRTTSYN_CTL0_PF_ID_SHIFT;
+ 	if (hw->pf_id != pf_id) {
+ 		pf->flags &= ~I40E_FLAG_PTP;
+-		dev_info(&pf->pdev->dev, "%s: PTP not supported on %s\n",
+-			 __func__,
+-			 netdev->name);
++		dev_info(&pf->pdev->dev, "PTP not supported on this device\n");
+ 		return;
+ 	}
  
--	if (pf->hw.func_caps.npar_enable)
--		goto out;
--
- 	/* Get the initial DCB configuration */
- 	err = i40e_init_dcb(hw);
- 	if (!err) {
-@@ -7784,7 +7818,8 @@ static int i40e_add_vsi(struct i40e_vsi *vsi)
- 		enabled_tc = i40e_pf_get_tc_map(pf);
+@@ -659,14 +655,13 @@ void i40e_ptp_init(struct i40e_pf *pf)
+ 	err = i40e_ptp_create_clock(pf);
+ 	if (err) {
+ 		pf->ptp_clock = NULL;
+-		dev_err(&pf->pdev->dev, "%s: ptp_clock_register failed\n",
+-			__func__);
++		dev_err(&pf->pdev->dev,
++			"PTP clock register failed: %ld\n", err);
+ 	} else {
+ 		struct timespec ts;
+ 		u32 regval;
  
- 		/* MFP mode setup queue map and update VSI */
--		if (pf->flags & I40E_FLAG_MFP_ENABLED) {
-+		if ((pf->flags & I40E_FLAG_MFP_ENABLED) &&
-+		    !(pf->hw.func_caps.iscsi)) { /* NIC type PF */
- 			memset(&ctxt, 0, sizeof(ctxt));
- 			ctxt.seid = pf->main_vsi_seid;
- 			ctxt.pf_num = pf->hw.pf_id;
-@@ -7805,6 +7840,8 @@ static int i40e_add_vsi(struct i40e_vsi *vsi)
- 			/* Default/Main VSI is only enabled for TC0
- 			 * reconfigure it to enable all TCs that are
- 			 * available on the port in SFP mode.
-+			 * For MFP case the iSCSI PF would use this
-+			 * flow to enable LAN+iSCSI TC.
- 			 */
- 			ret = i40e_vsi_config_tc(vsi, enabled_tc);
- 			if (ret) {
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_type.h b/drivers/net/ethernet/intel/i40e/i40e_type.h
-index ff121fe..e9901ef 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_type.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_type.h
-@@ -211,6 +211,7 @@ struct i40e_hw_capabilities {
- 	bool evb_802_1_qbh; /* Bridge Port Extension */
- 	bool dcb;
- 	bool fcoe;
-+	bool iscsi; /* Indicates iSCSI enabled */
- 	bool mfp_mode_1;
- 	bool mgmt_cem;
- 	bool ieee_1588;
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_type.h b/drivers/net/ethernet/intel/i40evf/i40e_type.h
-index d1c2b5a..3d0fdaa 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_type.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_type.h
-@@ -211,6 +211,7 @@ struct i40e_hw_capabilities {
- 	bool evb_802_1_qbh; /* Bridge Port Extension */
- 	bool dcb;
- 	bool fcoe;
-+	bool iscsi; /* Indicates iSCSI enabled */
- 	bool mfp_mode_1;
- 	bool mgmt_cem;
- 	bool ieee_1588;
+-		dev_info(&pf->pdev->dev, "%s: added PHC on %s\n", __func__,
+-			 netdev->name);
++		dev_info(&pf->pdev->dev, "PHC enabled\n");
+ 		pf->flags |= I40E_FLAG_PTP;
+ 
+ 		/* Ensure the clocks are running. */
+@@ -711,7 +706,7 @@ void i40e_ptp_stop(struct i40e_pf *pf)
+ 	if (pf->ptp_clock) {
+ 		ptp_clock_unregister(pf->ptp_clock);
+ 		pf->ptp_clock = NULL;
+-		dev_info(&pf->pdev->dev, "%s: removed PHC on %s\n", __func__,
++		dev_info(&pf->pdev->dev, "removed PHC from %s\n",
+ 			 pf->vsi[pf->lan_vsi]->netdev->name);
+ 	}
+ }
 -- 
 1.9.3
