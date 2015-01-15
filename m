@@ -1,63 +1,101 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [PATCH] net: Add ndo_gso_check
-Date: Thu, 15 Jan 2015 20:18:12 +0200
-Message-ID: <CAJ3xEMh6r-cQhvSB0s-c8BYHER8GUiCE=7cc28AALf4c1EJ6VQ@mail.gmail.com>
-References: <1411962607-27878-1-git-send-email-therbert@google.com>
-	<CAJ3xEMi-TRXevenx87UM7JnKqRQQATW4MBjbz8JdnQE9gk3KZw@mail.gmail.com>
-	<CA+mtBx8r05=qs2J58LFq56762tFB7wF4Dsr3C5TC9w5qQP5jGw@mail.gmail.com>
-	<CAJ3xEMhf6b75TQDFqEPMSXCpL9ToWG1q0OMPtrEuHNSm=-PSwQ@mail.gmail.com>
-	<CA+mtBx_6HcZh5Ys1FJFBXkZ2bWX1gP6bTcjY7gbR6RG_TOy50Q@mail.gmail.com>
-	<CAJ3xEMi0biCWTNtLOJ=0HWZYjOWi6pN2bw2=EWajp6XnpoyVRw@mail.gmail.com>
-	<CA+mtBx-sP6g9hXAYGfHKCPYkCtjgCFM0srueh1uhoNnC2ACr1g@mail.gmail.com>
-	<CAJ3xEMhc-97+3ZDwqXzX2N+=voO4QvJ5_YXn3sp8r8E9YyqotQ@mail.gmail.com>
-	<CA+mtBx9=+fGjwJCKpTW5EifmavC6VGnbuJdkc5tqzeEHz+5twA@mail.gmail.com>
-	<CAJ3xEMhzxfP3Sqp=_QSQehd2j2s=Gr3B1iO2S--OcoT7VC94nQ@mail.gmail.com>
-	<CA+mtBx8-w74f_f9JEfpwH9=Mjr_zaJJAYCMMdYAWdCy-51pzqg@mail.gmail.com>
-	<CAJ3xEMgPb9BhvtifmTzy6bS9WDf3jUx6dnx4418KNTjGNPreHQ@mail.gmail.com>
-	<CA+mtBx-AW65w7grfb7zTaDKzKQ2n_7JQuLquj1Ayopa4gdiF6Q@mail.gmail.com>
-	<CAJ3xEMiLsQ=Wd=461L1Wx0jQ+zivY-Z573+90dD8d7pdUD4Skw@mail.gmail.com>
-	<CA+mtBx9HMuMnsmN0rjqV9-5iK9H6b+J8OZQsmmbFHwjm+qW7bQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Thomas Graf <tgraf@suug.ch>,
-	Pravin Shelar <pshelar@nicira.com>,
-	Andy Zhou <azhou@nicira.com>
-To: Tom Herbert <therbert@google.com>
+From: Willem de Bruijn <willemb@google.com>
+Subject: [PATCH net] ip: zero sockaddr returned on error queue
+Date: Thu, 15 Jan 2015 13:18:40 -0500
+Message-ID: <1421345920-13994-1-git-send-email-willemb@google.com>
+Cc: davem@davemloft.net, Willem de Bruijn <willemb@google.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f170.google.com ([209.85.214.170]:57524 "EHLO
-	mail-ob0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752810AbbAOSSM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jan 2015 13:18:12 -0500
-Received: by mail-ob0-f170.google.com with SMTP id wp18so14939836obc.1
-        for <netdev@vger.kernel.org>; Thu, 15 Jan 2015 10:18:12 -0800 (PST)
-In-Reply-To: <CA+mtBx9HMuMnsmN0rjqV9-5iK9H6b+J8OZQsmmbFHwjm+qW7bQ@mail.gmail.com>
+Received: from mail-yh0-f50.google.com ([209.85.213.50]:62099 "EHLO
+	mail-yh0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752247AbbAOSSy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jan 2015 13:18:54 -0500
+Received: by mail-yh0-f50.google.com with SMTP id b6so8004835yha.9
+        for <netdev@vger.kernel.org>; Thu, 15 Jan 2015 10:18:53 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 6, 2014 at 11:28 PM, Tom Herbert <therbert@google.com> wrote:
-> On Mon, Oct 6, 2014 at 1:22 PM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
+From: Willem de Bruijn <willemb@google.com>
 
->> Are we going to have a session on the encapsulation/offloads design @ LPC?
+The sockaddr is returned in IP(V6)_RECVERR as part of errhdr. That
+structure is defined and allocated on the stack as
 
-> yes, I will talk about FOU and GUE implementation. You should
-> abstracts in the schedule now.
+    struct {
+            struct sock_extended_err ee;
+            struct sockaddr_in(6)    offender;
+    } errhdr;
 
-Hi Tom, so that LPC discussion eventually didn't made it to happen...
-I saw [1] you're planning (hopefully exiting) three parts discussion @
-netdev01
+The second part is only initialized for certain SO_EE_ORIGIN values.
+Always initialize it completely.
 
-I would strongly vote for his to be on the workshops/tutorials days,
-i.e not limited to 45m or alike... and the 1st part you plan for an
-updated reply of your LSK preso [2] which missed LPC?
+An MTU exceeded error on a SOCK_RAW/IPPROTO_RAW is one example that
+would return uninitialized bytes.
 
-[1] https://netdev01.org/news/22
-[2] http://vger.kernel.org/encapsulation_offloads.pdf
+Signed-off-by: Willem de Bruijn <willemb@google.com>
 
->> I think a replay of your LKS presentation along with open discussion
->> on how to get there with the legacy requirements could be very
->> helpful.
+----
+
+Also verified that there is no padding between errhdr.ee and
+errhdr.offender that could leak additional kernel data.
+---
+ net/ipv4/ip_sockglue.c |  8 ++------
+ net/ipv6/datagram.c    | 10 +++-------
+ 2 files changed, 5 insertions(+), 13 deletions(-)
+
+diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
+index 8a89c73..6b85adb 100644
+--- a/net/ipv4/ip_sockglue.c
++++ b/net/ipv4/ip_sockglue.c
+@@ -461,17 +461,13 @@ int ip_recv_error(struct sock *sk, struct msghdr *msg, int len, int *addr_len)
+ 
+ 	memcpy(&errhdr.ee, &serr->ee, sizeof(struct sock_extended_err));
+ 	sin = &errhdr.offender;
+-	sin->sin_family = AF_UNSPEC;
++	memset(sin, 0, sizeof(*sin));
+ 
+ 	if (serr->ee.ee_origin == SO_EE_ORIGIN_ICMP ||
+ 	    ipv4_pktinfo_prepare_errqueue(sk, skb, serr->ee.ee_origin)) {
+-		struct inet_sock *inet = inet_sk(sk);
+-
+ 		sin->sin_family = AF_INET;
+ 		sin->sin_addr.s_addr = ip_hdr(skb)->saddr;
+-		sin->sin_port = 0;
+-		memset(&sin->sin_zero, 0, sizeof(sin->sin_zero));
+-		if (inet->cmsg_flags)
++		if (inet_sk(sk)->cmsg_flags)
+ 			ip_cmsg_recv(msg, skb);
+ 	}
+ 
+diff --git a/net/ipv6/datagram.c b/net/ipv6/datagram.c
+index 100c589..49f5e73 100644
+--- a/net/ipv6/datagram.c
++++ b/net/ipv6/datagram.c
+@@ -393,11 +393,10 @@ int ipv6_recv_error(struct sock *sk, struct msghdr *msg, int len, int *addr_len)
+ 
+ 	memcpy(&errhdr.ee, &serr->ee, sizeof(struct sock_extended_err));
+ 	sin = &errhdr.offender;
+-	sin->sin6_family = AF_UNSPEC;
++	memset(sin, 0, sizeof(*sin));
++
+ 	if (serr->ee.ee_origin != SO_EE_ORIGIN_LOCAL) {
+ 		sin->sin6_family = AF_INET6;
+-		sin->sin6_flowinfo = 0;
+-		sin->sin6_port = 0;
+ 		if (np->rxopt.all) {
+ 			if (serr->ee.ee_origin != SO_EE_ORIGIN_ICMP &&
+ 			    serr->ee.ee_origin != SO_EE_ORIGIN_ICMP6)
+@@ -412,12 +411,9 @@ int ipv6_recv_error(struct sock *sk, struct msghdr *msg, int len, int *addr_len)
+ 				ipv6_iface_scope_id(&sin->sin6_addr,
+ 						    IP6CB(skb)->iif);
+ 		} else {
+-			struct inet_sock *inet = inet_sk(sk);
+-
+ 			ipv6_addr_set_v4mapped(ip_hdr(skb)->saddr,
+ 					       &sin->sin6_addr);
+-			sin->sin6_scope_id = 0;
+-			if (inet->cmsg_flags)
++			if (inet_sk(sk)->cmsg_flags)
+ 				ip_cmsg_recv(msg, skb);
+ 		}
+ 	}
+-- 
+2.2.0.rc0.207.ga3a616c
