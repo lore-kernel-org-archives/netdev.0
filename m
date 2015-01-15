@@ -1,72 +1,40 @@
-From: Felipe Balbi <balbi@ti.com>
-Subject: Re: [patch-net-next v2 3/3] net: ethernet: cpsw: don't requests IRQs
- we don't use
-Date: Thu, 15 Jan 2015 09:20:53 -0600
-Message-ID: <20150115152053.GA16409@saruman>
-References: <1421254729-10602-1-git-send-email-balbi@ti.com>
- <1421254729-10602-3-git-send-email-balbi@ti.com>
- <54B770FC.6060003@ti.com>
-Reply-To: <balbi@ti.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Re: [bisected regression] e1000e: "Detected Hardware Unit Hang"
+Date: Thu, 15 Jan 2015 07:25:32 -0800
+Message-ID: <1421335532.11734.73.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1719052.SGOfRAJhfQ@storm> <5229621.KczjbIR22Q@storm>
+	 <1421333009.11734.53.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <8088599.PZmG8U31O2@storm>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="IS0zKkzwUGydFO0o"
-Cc: Felipe Balbi <balbi@ti.com>, <davem@davemloft.net>,
-	Tony Lindgren <tony@atomide.com>,
-	Linux OMAP Mailing List <linux-omap@vger.kernel.org>,
-	<netdev@vger.kernel.org>
-To: Mugunthan V N <mugunthanvnm@ti.com>
-Return-path: <linux-omap-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <54B770FC.6060003@ti.com>
-Sender: linux-omap-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: 'Linux Netdev List' <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	e1000-devel <e1000-devel@lists.sourceforge.net>
+To: Thomas Jarosch <thomas.jarosch@intra2net.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f172.google.com ([209.85.213.172]:63593 "EHLO
+	mail-ig0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751676AbbAOPZe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jan 2015 10:25:34 -0500
+Received: by mail-ig0-f172.google.com with SMTP id l13so15512454iga.5
+        for <netdev@vger.kernel.org>; Thu, 15 Jan 2015 07:25:33 -0800 (PST)
+In-Reply-To: <8088599.PZmG8U31O2@storm>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---IS0zKkzwUGydFO0o
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+On Thu, 2015-01-15 at 15:58 +0100, Thomas Jarosch wrote:
 
-On Thu, Jan 15, 2015 at 01:19:16PM +0530, Mugunthan V N wrote:
-> On Wednesday 14 January 2015 10:28 PM, Felipe Balbi wrote:
-> > CPSW never uses RX_THRESHOLD or MISC interrupts. In
-> > fact, they are always kept masked in their appropriate
-> > IRQ Enable register.
-> >=20
-> > Instead of allocating an IRQ that never fires, it's best
-> > to remove that code altogether and let future patches
-> > implement it if anybody needs those.
-> >=20
-> > Signed-off-by: Felipe Balbi <balbi@ti.com>
->=20
-> Instead of introducing dummy ISR in previous patch and then removing in
-> this patch, both can be squashed into a single patch.
+> A colleague mentioned to me he saw the "Hardware Unit Hang" message every 
+> few days even running on kernel 3.4 (without your patch). Basically I'm 
+> testing now if that's still the case with 3.19-rc4+ or not.
+> 
+> I'm all for fixing the root cause. I'm just interested if the e1000e
+> hang can even be triggered when using a max frag page size of 4096.
+> So far it transferred 751.6 GiB without a hiccup.
 
-sure they can. I decided to split to ease review and to make sure only
-one thing happens in a single patch.
+You told it was forwarding setup.
 
---=20
-balbi
-
---IS0zKkzwUGydFO0o
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIcBAEBAgAGBQJUt9rVAAoJEIaOsuA1yqREQbsP/1BoEoxrA57EyUnHpc4/HUa+
-u2ZzihTbmvA9mnZ3iL3+8TRrFyxcqzK0zyPQCvvTpob2C2ysrQbkFsb0U5+FZ+kO
-vP3xq+sUeTGo9Pdsdq/ZPI0s3aD2D3RMaAG0DqArLd2x13a29Ap9/xbkwQKNiXIH
-9oxuuhhLgaQmqm62WZtAegNByDBQeoDECjBrBKIx/DG43QQJ3sHlbuUFttbarl03
-+lCc9FMg/scDET6ymPuJbTgiK5y95MqnZNF5ZHBCKnB0NBHcgMpHYzw7d4dqD3ab
-+b+lBrRq4MyvjNFsFf2CO/kbNawWvNO6QT1osashNcomgtd39KEBQSv1WmryqeAV
-XPmw/ViOWQZQWPBelcuuga76NvxC961tWpywblXb2npHOigmnXqC5WNanQYLhN+I
-86JUjZN/fP65RxZSy6v4Nd/p941kMeB0bSlLJtyzmas8tPCkyRh8hQS4R3nxzfWA
-5fPVOGlIuwpy9+7XW+W4E9nmx4s7cP6Cnzid6kjK+7/0J7XigzM8hFeKzzQiGXDK
-N6aUwVRtuPduZ5Z58penY89ATgTnh8R2PbDW3C8VpAqtCgxBWVFjHvoYMpZzSnyu
-u9SVQ7pjRviE5ebjvnQZ2qnJo5HGrNOMwB9GLSVzu9yGSNf1IR6KrzMvl1Yj1c+j
-SlmsnP/9mczExAtDaBrq
-=ugt3
------END PGP SIGNATURE-----
-
---IS0zKkzwUGydFO0o--
+1) What is the NIC receiving traffic.
+2) What happens if you disable GRO on it ?
