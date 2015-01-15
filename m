@@ -1,44 +1,72 @@
-From: Masanari Iida <standby24x7@gmail.com>
-Subject: [PATCH] mac80211: Fix typo in mac80211.h
-Date: Thu, 15 Jan 2015 19:05:22 +0900
-Message-ID: <1421316322-16879-1-git-send-email-standby24x7@gmail.com>
-Cc: Masanari Iida <standby24x7@gmail.com>
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Thomas Jarosch <thomas.jarosch@intra2net.com>
+Subject: Re: [bisected regression] e1000e: "Detected Hardware Unit Hang"
+Date: Thu, 15 Jan 2015 11:11:09 +0100
+Message-ID: <5229621.KczjbIR22Q@storm>
+References: <1719052.SGOfRAJhfQ@storm> <1421256052.11734.22.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: 'Linux Netdev List' <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	e1000-devel <e1000-devel@lists.sourceforge.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rs04.intra2net.com ([85.214.66.2]:59901 "EHLO
+	rs04.intra2net.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751392AbbAOKLO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jan 2015 05:11:14 -0500
+In-Reply-To: <1421256052.11734.22.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch fix spelling typo found in Documentation/DocBook/80211.xml.
-It is because this file was generated from comments in source,
-I had to fix in include/net/mac80211.h
+On Wednesday, 14. January 2015 09:20:52 Eric Dumazet wrote:
+> I would try to use lower data per txd. I am not sure 24KB is really
+> supported.
+> 
+> ( check commit d821a4c4d11ad160925dab2bb009b8444beff484 for details)
+> 
+> diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c
+> b/drivers/net/ethernet/intel/e1000e/netdev.c index
+> e14fd85f64eb..8d973f7edfbd 100644
+> --- a/drivers/net/ethernet/intel/e1000e/netdev.c
+> +++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+> @@ -3897,7 +3897,7 @@ void e1000e_reset(struct e1000_adapter *adapter)
+>  	 * limit of 24KB due to receive synchronization limitations.
+>  	 */
+>  	adapter->tx_fifo_limit = min_t(u32, ((er32(PBA) >> 16) << 10) - 96,
+> -				       24 << 10);
+> +				       8 << 10);
+> 
+>  	/* Disable Adaptive Interrupt Moderation if 2 full packets cannot
+>  	 * fit in receive buffer.
 
-Signed-off-by: Masanari Iida <standby24x7@gmail.com>
----
- include/net/mac80211.h | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+Thanks for checking!
 
-diff --git a/include/net/mac80211.h b/include/net/mac80211.h
-index 29c7be8..a9a6213 100644
---- a/include/net/mac80211.h
-+++ b/include/net/mac80211.h
-@@ -1292,7 +1292,7 @@ struct ieee80211_vif *wdev_to_ieee80211_vif(struct wireless_dev *wdev);
-  *	%IEEE80211_KEY_FLAG_SW_MGMT_TX flag to encrypt such frames in SW.
-  * @IEEE80211_KEY_FLAG_GENERATE_IV_MGMT: This flag should be set by the
-  *	driver for a CCMP key to indicate that is requires IV generation
-- *	only for managment frames (MFP).
-+ *	only for management frames (MFP).
-  */
- enum ieee80211_key_flags {
- 	IEEE80211_KEY_FLAG_GENERATE_IV_MGMT	= BIT(0),
-@@ -4894,7 +4894,7 @@ static inline int rate_supported(struct ieee80211_sta *sta,
-  * @sta: &struct ieee80211_sta pointer to the target destination. Note
-  * 	that this may be null.
-  * @priv_sta: private rate control structure. This may be null.
-- * @txrc: rate control information we sholud populate for mac80211.
-+ * @txrc: rate control information we should populate for mac80211.
-  */
- bool rate_control_send_low(struct ieee80211_sta *sta,
- 			   void *priv_sta,
--- 
-2.3.0.rc0
+I just tried that change on top of git f800c25 (git HEAD), same problem. 
+Let's see what the Intel wizards come up with.
+
+What "works" is to decrease the page size in git HEAD, too:
+
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 85ab7d7..9f0ef97 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -2108,7 +2108,7 @@ static inline void __skb_queue_purge(struct 
+sk_buff_head *list)
+                kfree_skb(skb);
+ }
+ 
+-#define NETDEV_FRAG_PAGE_MAX_ORDER get_order(32768)
++#define NETDEV_FRAG_PAGE_MAX_ORDER get_order(4096)
+ #define NETDEV_FRAG_PAGE_MAX_SIZE  (PAGE_SIZE << NETDEV_FRAG_PAGE_MAX_ORDER)
+ #define NETDEV_PAGECNT_MAX_BIAS           NETDEV_FRAG_PAGE_MAX_SIZE
+
+
+
+When I try a page size of 8192, it starts failing again. I'll now run
+a stress test with 4096 to see if the problem is really gone
+or just happens more rarely.
+
+Cheers,
+Thomas
