@@ -1,28 +1,123 @@
-From: Xander Huff <xander.huff@ni.com>
-Subject: Re: [PATCH v2 2/2] fixup! net/macb: improved ethtool statistics support
-Date: Thu, 15 Jan 2015 09:32:35 -0600
-Message-ID: <54B7DD93.8000104@ni.com>
-References: <20150114.165220.2282566005036464131.davem@davemloft.net> <1421274051-21588-1-git-send-email-xander.huff@ni.com> <1421274051-21588-2-git-send-email-xander.huff@ni.com> <54B797E5.6070503@atmel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jaeden.amero@ni.com, rich.tollerton@ni.com,
-	ben.shelton@ni.com, brad.mouring@ni.com,
-	linux-kernel@vger.kernel.org, cyrille.pitchen@atmel.com
-To: Nicolas Ferre <nicolas.ferre@atmel.com>, davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <54B797E5.6070503@atmel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH net] net: sctp: fix race for one-to-many sockets in sendmsg's auto associate
+Date: Thu, 15 Jan 2015 16:34:35 +0100
+Message-ID: <1421336075-25061-1-git-send-email-dborkman@redhat.com>
+Cc: vyasevich@gmail.com, netdev@vger.kernel.org,
+	linux-sctp@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:53496 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752843AbbAOPel (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Jan 2015 10:34:41 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 1/15/2015 4:35 AM, Nicolas Ferre wrote:
->>   #define GEM_OTX					0x0100 /* Octets transmitted */
-> I see, it's modified hereafter! Why not integrate this part in previous
-> patch?
->
->
+I.e. one-to-many sockets in SCTP are not required to explicitly
+call into connect(2) or sctp_connectx(2) prior to data exchange.
+Instead, they can directly invoke sendmsg(2) and the SCTP stack
+will automatically trigger connection establishment through 4WHS
+via sctp_primitive_ASSOCIATE(). However, this in its current
+implementation is racy: INIT is being sent out immediately (as
+it cannot be bundled anyway) and the rest of the DATA chunks are
+queued up for later xmit when connection is established, meaning
+sendmsg(2) will return successfully. This behaviour can result
+in an undesired side-effect that the kernel made the application
+think the data has already been transmitted, although none of it
+has actually left the machine, worst case even after close(2)'ing
+the socket.
 
-I split these up the way I did by using the --fixup argument to allow the rebase 
---autosquash to work. I could instead have a series of fixup commits to fix each 
-type of style issue and then also the functional issue if you'd prefer, but 
---autosquash will no longer work.
+Instead, when the association from client side has been shut down
+e.g. first gracefully through SCTP_EOF and then close(2), the
+client could afterwards still receive the server's INIT_ACK due
+to a connection with higher latency. This INIT_ACK is then considered
+out of the blue and hence responded with ABORT as there was no
+alive assoc found anymore. This can be easily reproduced f.e.
+with sctp_test application from lksctp. One way to fix this race
+is to wait for the handshake to actually complete.
+
+The fix defers waiting after sctp_primitive_ASSOCIATE() and
+sctp_primitive_SEND() succeeded, so that DATA chunks cooked up
+from sctp_sendmsg() have already been placed into the output
+queue through the side-effect interpreter, and therefore can then
+be bundeled together with COOKIE_ECHO control chunks.
+
+strace from example application (shortened):
+
+socket(PF_INET, SOCK_SEQPACKET, IPPROTO_SCTP) = 3
+sendmsg(3, {msg_name(28)={sa_family=AF_INET, sin_port=htons(8888), sin_addr=inet_addr("192.168.1.115")},
+           msg_iov(1)=[{"hello", 5}], msg_controllen=0, msg_flags=0}, 0) = 5
+sendmsg(3, {msg_name(28)={sa_family=AF_INET, sin_port=htons(8888), sin_addr=inet_addr("192.168.1.115")},
+           msg_iov(1)=[{"hello", 5}], msg_controllen=0, msg_flags=0}, 0) = 5
+sendmsg(3, {msg_name(28)={sa_family=AF_INET, sin_port=htons(8888), sin_addr=inet_addr("192.168.1.115")},
+           msg_iov(1)=[{"hello", 5}], msg_controllen=0, msg_flags=0}, 0) = 5
+sendmsg(3, {msg_name(28)={sa_family=AF_INET, sin_port=htons(8888), sin_addr=inet_addr("192.168.1.115")},
+           msg_iov(1)=[{"hello", 5}], msg_controllen=0, msg_flags=0}, 0) = 5
+sendmsg(3, {msg_name(28)={sa_family=AF_INET, sin_port=htons(8888), sin_addr=inet_addr("192.168.1.115")},
+           msg_iov(0)=[], msg_controllen=48, {cmsg_len=48, cmsg_level=0x84 /* SOL_??? */, cmsg_type=, ...},
+           msg_flags=0}, 0) = 0 // graceful shutdown for SOCK_SEQPACKET via SCTP_EOF
+close(3) = 0
+
+tcpdump before patch (fooling the application):
+
+22:33:36.306142 IP 192.168.1.114.41462 > 192.168.1.115.8888: sctp (1) [INIT] [init tag: 3879023686] [rwnd: 106496] [OS: 10] [MIS: 65535] [init TSN: 3139201684]
+22:33:36.316619 IP 192.168.1.115.8888 > 192.168.1.114.41462: sctp (1) [INIT ACK] [init tag: 3345394793] [rwnd: 106496] [OS: 10] [MIS: 10] [init TSN: 3380109591]
+22:33:36.317600 IP 192.168.1.114.41462 > 192.168.1.115.8888: sctp (1) [ABORT]
+
+tcpdump after patch:
+
+14:28:58.884116 IP 192.168.1.114.35846 > 192.168.1.115.8888: sctp (1) [INIT] [init tag: 438593213] [rwnd: 106496] [OS: 10] [MIS: 65535] [init TSN: 3092969729]
+14:28:58.888414 IP 192.168.1.115.8888 > 192.168.1.114.35846: sctp (1) [INIT ACK] [init tag: 381429855] [rwnd: 106496] [OS: 10] [MIS: 10] [init TSN: 2141904492]
+14:28:58.888638 IP 192.168.1.114.35846 > 192.168.1.115.8888: sctp (1) [COOKIE ECHO] , (2) [DATA] (B)(E) [TSN: 3092969729] [...]
+14:28:58.893278 IP 192.168.1.115.8888 > 192.168.1.114.35846: sctp (1) [COOKIE ACK] , (2) [SACK] [cum ack 3092969729] [a_rwnd 106491] [#gap acks 0] [#dup tsns 0]
+14:28:58.893591 IP 192.168.1.114.35846 > 192.168.1.115.8888: sctp (1) [DATA] (B)(E) [TSN: 3092969730] [...]
+14:28:59.096963 IP 192.168.1.115.8888 > 192.168.1.114.35846: sctp (1) [SACK] [cum ack 3092969730] [a_rwnd 106496] [#gap acks 0] [#dup tsns 0]
+14:28:59.097086 IP 192.168.1.114.35846 > 192.168.1.115.8888: sctp (1) [DATA] (B)(E) [TSN: 3092969731] [...] , (2) [DATA] (B)(E) [TSN: 3092969732] [...]
+14:28:59.103218 IP 192.168.1.115.8888 > 192.168.1.114.35846: sctp (1) [SACK] [cum ack 3092969732] [a_rwnd 106486] [#gap acks 0] [#dup tsns 0]
+14:28:59.103330 IP 192.168.1.114.35846 > 192.168.1.115.8888: sctp (1) [SHUTDOWN]
+14:28:59.107793 IP 192.168.1.115.8888 > 192.168.1.114.35846: sctp (1) [SHUTDOWN ACK]
+14:28:59.107890 IP 192.168.1.114.35846 > 192.168.1.115.8888: sctp (1) [SHUTDOWN COMPLETE]
+
+Looks like this bug is from the pre-git history museum. ;)
+
+Fixes: 08707d5482df ("lksctp-2_5_31-0_5_1.patch")
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+---
+ net/sctp/socket.c | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+index 2625ecc..aafe94b 100644
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -1603,7 +1603,7 @@ static int sctp_sendmsg(struct kiocb *iocb, struct sock *sk,
+ 	sctp_assoc_t associd = 0;
+ 	sctp_cmsgs_t cmsgs = { NULL };
+ 	sctp_scope_t scope;
+-	bool fill_sinfo_ttl = false;
++	bool fill_sinfo_ttl = false, wait_connect = false;
+ 	struct sctp_datamsg *datamsg;
+ 	int msg_flags = msg->msg_flags;
+ 	__u16 sinfo_flags = 0;
+@@ -1943,6 +1943,7 @@ static int sctp_sendmsg(struct kiocb *iocb, struct sock *sk,
+ 		if (err < 0)
+ 			goto out_free;
+ 
++		wait_connect = true;
+ 		pr_debug("%s: we associated primitively\n", __func__);
+ 	}
+ 
+@@ -1980,6 +1981,11 @@ static int sctp_sendmsg(struct kiocb *iocb, struct sock *sk,
+ 	sctp_datamsg_put(datamsg);
+ 	err = msg_len;
+ 
++	if (unlikely(wait_connect)) {
++		timeo = sock_sndtimeo(sk, msg_flags & MSG_DONTWAIT);
++		sctp_wait_for_connect(asoc, &timeo);
++	}
++
+ 	/* If we are already past ASSOCIATE, the lower
+ 	 * layers are responsible for association cleanup.
+ 	 */
+-- 
+1.7.11.7
