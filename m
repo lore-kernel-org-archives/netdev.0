@@ -1,178 +1,131 @@
-From: roopa@cumulusnetworks.com
-Subject: [PATCH net-next v2] bridge: fix setlink/dellink notifications
-Date: Wed, 14 Jan 2015 20:02:25 -0800
-Message-ID: <1421294545-52467-1-git-send-email-roopa@cumulusnetworks.com>
-Cc: shemminger@vyatta.com, vyasevic@redhat.com,
-	john.fastabend@gmail.com, tgraf@suug.ch, jhs@mojatatu.com,
-	sfeldma@gmail.com, jiri@resnulli.us, wkok@cumulusnetworks.com,
-	ronen.arad@intel.com
-To: netdev@vger.kernel.org
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next v13 3/3] net: hisilicon: new hip04 ethernet
+ driver
+Date: Wed, 14 Jan 2015 20:39:02 -0800
+Message-ID: <1421296742.25598.3.camel@perches.com>
+References: <1421217254-12008-1-git-send-email-dingtianhong@huawei.com>
+	 <1421217254-12008-4-git-send-email-dingtianhong@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: arnd@arndb.de, robh+dt@kernel.org, davem@davemloft.net,
+	grant.likely@linaro.org, agraf@suse.de,
+	sergei.shtylyov@cogentembedded.com,
+	linux-arm-kernel@lists.infradead.org, eric.dumazet@gmail.com,
+	xuwei5@hisilicon.com, zhangfei.gao@linaro.org,
+	netdev@vger.kernel.org, devicetree@vger.kernel.org,
+	linux@arm.linux.org.uk
+To: Ding Tianhong <dingtianhong@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f173.google.com ([209.85.192.173]:38193 "EHLO
-	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750924AbbAOECl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2015 23:02:41 -0500
-Received: by mail-pd0-f173.google.com with SMTP id ft15so13826553pdb.4
-        for <netdev@vger.kernel.org>; Wed, 14 Jan 2015 20:02:41 -0800 (PST)
+Received: from smtprelay0008.hostedemail.com ([216.40.44.8]:43578 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751159AbbAOEjH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2015 23:39:07 -0500
+In-Reply-To: <1421217254-12008-4-git-send-email-dingtianhong@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
+On Wed, 2015-01-14 at 14:34 +0800, Ding Tianhong wrote:
+> Support Hisilicon hip04 ethernet driver, including 100M / 1000M controller.
+> The controller has no tx done interrupt, reclaim xmitted buffer in the poll.
 
-problems with bridge getlink/setlink notifications today:
-        - bridge setlink generates two notifications to userspace
-                - one from the bridge driver
-                - one from rtnetlink.c (rtnl_bridge_notify)
-        - dellink generates one notification from rtnetlink.c. Which
-	means bridge setlink and dellink notifications are not
-	consistent
+Mostly trivial comments:
 
-        - Looking at the code it appears,
-	If both BRIDGE_FLAGS_MASTER and BRIDGE_FLAGS_SELF were set,
-        the size calculation in rtnl_bridge_notify can be wrong.
-        Example: if you set both BRIDGE_FLAGS_MASTER and BRIDGE_FLAGS_SELF
-        in a setlink request to rocker dev, rtnl_bridge_notify will
-	allocate skb for one set of bridge attributes, but,
-	both the bridge driver and rocker dev will try to add
-	attributes resulting in twice the number of attributes
-	being added to the skb.  (rocker dev calls ndo_dflt_bridge_getlink)
+> +++ b/drivers/net/ethernet/hisilicon/hip04_eth.c
 
-There are multiple options:
-1) Generate one notification including all attributes from master and self:
-   But, I don't think it will work, because both master and self may use
-   the same attributes/policy. Cannot pack the same set of attributes in a
-   single notification from both master and slave (duplicate attributes).
+[]
 
-2) Generate one notification from master and the other notification from
-   self (This seems to be ideal):
-     For master: the master driver will send notification (bridge in this
-	example)
-     For self: the self driver will send notification (rocker in the above
-	example. It can use helpers from rtnetlink.c to do so. Like the
-	ndo_dflt_bridge_getlink api).
+> +#define GMAC_MAX_PKT_LEN		1516
 
-This patch implements 2) (leaving the 'rtnl_bridge_notify' around to be used
-with 'self').
+[]
 
-v1->v2 :
-	- rtnl_bridge_notify is now called only for self,
-	so, remove 'BRIDGE_FLAGS_SELF' check and cleanup a few things
-	- rtnl_bridge_dellink used to always send a RTM_NEWLINK msg
-	earlier. So, I have changed the notification from br_dellink to
-	go as RTM_NEWLINK
+> +static int hip04_rx_poll(struct napi_struct *napi, int budget)
+> +{
+[]
+> +	while (cnt && !last) {
+[]
+> +		desc = (struct rx_desc *)skb->data;
+> +		len = be16_to_cpu(desc->pkt_len);
+> +		err = be32_to_cpu(desc->pkt_err);
+> +
+> +		if (0 == len) {
+> +			dev_kfree_skb_any(skb);
+> +			last = true;
+> +		} else if ((err & RX_PKT_ERR) || (len >= GMAC_MAX_PKT_LEN)) {
 
-Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
----
- net/bridge/br_netlink.c |    5 +++++
- net/core/rtnetlink.c    |   45 +++++++++++++++++++++------------------------
- 2 files changed, 26 insertions(+), 24 deletions(-)
+Is this ">=" correct?  Maybe it should be ">" ?
 
-diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
-index 9f5eb55..f996324 100644
---- a/net/bridge/br_netlink.c
-+++ b/net/bridge/br_netlink.c
-@@ -432,6 +432,11 @@ int br_dellink(struct net_device *dev, struct nlmsghdr *nlh)
- 
- 	err = br_afspec((struct net_bridge *)netdev_priv(dev), p,
- 			afspec, RTM_DELLINK);
-+	if (err == 0)
-+		/* Send RTM_NEWLINK because userspace
-+		 * expects RTM_NEWLINK for vlan dels
-+		 */
-+		br_ifinfo_notify(RTM_NEWLINK, p);
- 
- 	return err;
- }
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index d06107d..acefd60 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -2863,32 +2863,24 @@ static inline size_t bridge_nlmsg_size(void)
- 		+ nla_total_size(sizeof(u16));	/* IFLA_BRIDGE_MODE */
- }
- 
--static int rtnl_bridge_notify(struct net_device *dev, u16 flags)
-+static int rtnl_bridge_notify(struct net_device *dev)
- {
- 	struct net *net = dev_net(dev);
--	struct net_device *br_dev = netdev_master_upper_dev_get(dev);
- 	struct sk_buff *skb;
- 	int err = -EOPNOTSUPP;
- 
-+	if (!dev->netdev_ops->ndo_bridge_getlink)
-+		return 0;
-+
- 	skb = nlmsg_new(bridge_nlmsg_size(), GFP_ATOMIC);
- 	if (!skb) {
- 		err = -ENOMEM;
- 		goto errout;
- 	}
- 
--	if ((!flags || (flags & BRIDGE_FLAGS_MASTER)) &&
--	    br_dev && br_dev->netdev_ops->ndo_bridge_getlink) {
--		err = br_dev->netdev_ops->ndo_bridge_getlink(skb, 0, 0, dev, 0);
--		if (err < 0)
--			goto errout;
--	}
--
--	if ((flags & BRIDGE_FLAGS_SELF) &&
--	    dev->netdev_ops->ndo_bridge_getlink) {
--		err = dev->netdev_ops->ndo_bridge_getlink(skb, 0, 0, dev, 0);
--		if (err < 0)
--			goto errout;
--	}
-+	err = dev->netdev_ops->ndo_bridge_getlink(skb, 0, 0, dev, 0);
-+	if (err < 0)
-+		goto errout;
- 
- 	rtnl_notify(skb, net, 0, RTNLGRP_LINK, NULL, GFP_ATOMIC);
- 	return 0;
-@@ -2958,16 +2950,18 @@ static int rtnl_bridge_setlink(struct sk_buff *skb, struct nlmsghdr *nlh)
- 			err = -EOPNOTSUPP;
- 		else
- 			err = dev->netdev_ops->ndo_bridge_setlink(dev, nlh);
--
--		if (!err)
-+		if (!err) {
- 			flags &= ~BRIDGE_FLAGS_SELF;
-+
-+			/* Generate event to notify upper layer of bridge
-+			 * change
-+			 */
-+			err = rtnl_bridge_notify(dev);
-+		}
- 	}
- 
- 	if (have_flags)
- 		memcpy(nla_data(attr), &flags, sizeof(flags));
--	/* Generate event to notify upper layer of bridge change */
--	if (!err)
--		err = rtnl_bridge_notify(dev, oflags);
- out:
- 	return err;
- }
-@@ -3032,15 +3026,18 @@ static int rtnl_bridge_dellink(struct sk_buff *skb, struct nlmsghdr *nlh)
- 		else
- 			err = dev->netdev_ops->ndo_bridge_dellink(dev, nlh);
- 
--		if (!err)
-+		if (!err) {
- 			flags &= ~BRIDGE_FLAGS_SELF;
-+
-+			/* Generate event to notify upper layer of bridge
-+			 * change
-+			 */
-+			err = rtnl_bridge_notify(dev);
-+		}
- 	}
- 
- 	if (have_flags)
- 		memcpy(nla_data(attr), &flags, sizeof(flags));
--	/* Generate event to notify upper layer of bridge change */
--	if (!err)
--		err = rtnl_bridge_notify(dev, oflags);
- out:
- 	return err;
- }
--- 
-1.7.10.4
+[]
+
+> +static irqreturn_t hip04_mac_interrupt(int irq, void *dev_id)
+> +{
+> +	struct net_device *ndev = (struct net_device *)dev_id;
+
+Unnecessary cast of void *
+
+[]
+
+> +static int hip04_set_coalesce(struct net_device *netdev,
+> +			      struct ethtool_coalesce *ec)
+> +{
+> +	struct hip04_priv *priv = netdev_priv(netdev);
+> +
+> +	/* Check not supported parameters  */
+> +	if ((ec->rx_max_coalesced_frames) || (ec->rx_coalesce_usecs_irq) ||
+> +	    (ec->rx_max_coalesced_frames_irq) || (ec->tx_coalesce_usecs_irq) ||
+> +	    (ec->use_adaptive_rx_coalesce) || (ec->use_adaptive_tx_coalesce) ||
+> +	    (ec->pkt_rate_low) || (ec->rx_coalesce_usecs_low) ||
+> +	    (ec->rx_max_coalesced_frames_low) || (ec->tx_coalesce_usecs_high) ||
+> +	    (ec->tx_max_coalesced_frames_low) || (ec->pkt_rate_high) ||
+> +	    (ec->tx_coalesce_usecs_low) || (ec->rx_coalesce_usecs_high) ||
+> +	    (ec->rx_max_coalesced_frames_high) || (ec->rx_coalesce_usecs) ||
+> +	    (ec->tx_max_coalesced_frames_irq) ||
+> +	    (ec->stats_block_coalesce_usecs) ||
+> +	    (ec->tx_max_coalesced_frames_high) || (ec->rate_sample_interval))
+> +		return -EOPNOTSUPP;
+
+Rather than a somewhat haphazard mix of these values, 
+this might be simpler to read as something like:
+
+	/* Check not supported parameters  */
+	if (ec->pkt_rate_low ||
+	    ec->pkt_rate_high ||
+
+	    ec->use_adaptive_rx_coalesce ||
+	    ec->rx_coalesce_usecs ||
+	    ec->rx_coalesce_usecs_low ||
+	    ec->rx_coalesce_usecs_high ||
+	    ec->rx_coalesce_usecs_irq ||
+	    ec->rx_max_coalesced_frames ||
+	    ec->rx_max_coalesced_frames_low ||
+	    ec->rx_max_coalesced_frames_high ||
+	    ec->rx_max_coalesced_frames_irq ||
+	    
+	    ec->use_adaptive_tx_coalesce ||
+	    ec->tx_coalesce_usecs_low ||
+	    ec->tx_coalesce_usecs_high ||
+	    ec->tx_max_coalesced_frames_low ||
+	    ec->tx_max_coalesced_frames_high ||
+	    ec->tx_max_coalesced_frames_irq ||
+
+	    ec->stats_block_coalesce_usecs ||
+	    ec->rate_sample_interval)
+		return -EOPNOTSUPP;
+
+
+> +static void hip04_free_ring(struct net_device *ndev, struct device *d)
+> +{
+> +	struct hip04_priv *priv = netdev_priv(ndev);
+> +	int i;
+> +
+> +	for (i = 0; i < RX_DESC_NUM; i++)
+> +		if (priv->rx_buf[i])
+> +			put_page(virt_to_head_page(priv->rx_buf[i]));
+
+It's generally nicer to use braces around
+for loops with single ifs.
+
+> +
+> +	for (i = 0; i < TX_DESC_NUM; i++)
+> +		if (priv->tx_skb[i])
+> +			dev_kfree_skb_any(priv->tx_skb[i]);
