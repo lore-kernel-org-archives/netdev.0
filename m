@@ -1,57 +1,55 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [ 2375.793397] WARNING: CPU: 0 PID: 1149 at
- net/netlink/genetlink.c:1037 genl_unbind+0xc0/0xd0()
-Date: Thu, 15 Jan 2015 14:01:08 +0100
-Message-ID: <1421326868.1962.13.camel@sipsolutions.net>
-References: <20150114161334.28acf5fc@tlielax.poochiereds.net>
-	 <1421275700.1950.34.camel@sipsolutions.net>
-	 <1421277946.1950.38.camel@sipsolutions.net>
-	 <20150114212039.68c9a5a6@synchrony.poochiereds.net>
-	 <1421311071.1962.2.camel@sipsolutions.net>
-	 <20150115071426.563573e7@tlielax.poochiereds.net>
-	 <1421324985.1962.5.camel@sipsolutions.net>
-	 <20150115074956.4e5617cd@tlielax.poochiereds.net>
-	 (sfid-20150115_134959_506751_D19674F4)
+From: Marcelo Ricardo Leitner <mleitner@redhat.com>
+Subject: Compile-time warnings on mlx4/net-next
+Date: Thu, 15 Jan 2015 11:05:27 -0200
+Message-ID: <54B7BB17.8090308@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Jeff Layton <jeff.layton@primarydata.com>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>
+To: Or Gerlitz <ogerlitz@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:36218 "EHLO sipsolutions.net"
+Received: from mx1.redhat.com ([209.132.183.28]:37140 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754143AbbAONBM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Jan 2015 08:01:12 -0500
-In-Reply-To: <20150115074956.4e5617cd@tlielax.poochiereds.net> (sfid-20150115_134959_506751_D19674F4)
+	id S1752419AbbAONFd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Jan 2015 08:05:33 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2015-01-15 at 07:49 -0500, Jeff Layton wrote:
+Hi Or,
 
-> It may have. I just recently started playing with trinity, so I don't
-> know much about what it does. I do see these sorts of messages in the
-> logs that imply that it's opening netlink sockets:
-> 
-> [main] fd[661] = domain:16 (PF_NETLINK) type:0x2 protocol:10
-> [main] fd[675] = domain:16 (PF_NETLINK) type:0x2 protocol:0
-> 
-> ...and then it does random I/Os on those fds.
+Building net-next.git from today, 4e7a84b1a5bc8094522fd11f628b00c4b4e78=
+b4d,
+I'm seeing these warnings on mlx4:
 
-Yes. We're looking for generic netlink, so one of these (protocol 16):
+drivers/net/ethernet/mellanox/mlx4/fw.c: In function =91mlx4_config_dev=
+_retrieval=92:
+drivers/net/ethernet/mellanox/mlx4/fw.c:2136:12: warning: =91config_dev=
+=2Erx_checksum_val=92 may be used uninitialized in this function [-Wmay=
+be-uninitialized]
+  csum_mask =3D (config_dev.rx_checksum_val >> CONFIG_DEV_RX_CSUM_MODE_=
+PORT2_BIT_OFFSET) &
+            ^
+In file included from include/linux/swab.h:4:0,
+                 from include/uapi/linux/byteorder/little_endian.h:12,
+                 from include/linux/byteorder/little_endian.h:4,
+                 from ./arch/x86/include/uapi/asm/byteorder.h:4,
+                 from include/asm-generic/bitops/le.h:5,
+                 from ./arch/x86/include/asm/bitops.h:504,
+                 from include/linux/bitops.h:36,
+                 from include/linux/kernel.h:10,
+                 from include/linux/skbuff.h:17,
+                 from include/linux/if_ether.h:23,
+                 from include/linux/etherdevice.h:25,
+                 from drivers/net/ethernet/mellanox/mlx4/fw.c:35:
+include/uapi/linux/swab.h:106:23: warning: =91config_dev.vxlan_udp_dpor=
+t=92 may be used uninitialized in this function [-Wmaybe-uninitialized]
+  (__builtin_constant_p((__u16)(x)) ? \
+                       ^
+drivers/net/ethernet/mellanox/mlx4/fw.c:2114:25: note: =91config_dev.vx=
+lan_udp_dport=92 was declared here
+  struct mlx4_config_dev config_dev;
+                         ^
 
-[main] fd[427] = domain:16 (PF_NETLINK) type:0x3 protocol:16
-[main] fd[442] = domain:16 (PF_NETLINK) type:0x2 protocol:16
-[main] fd[774] = domain:16 (PF_NETLINK) type:0x2 protocol:16
+Do you see them too?=20
 
-However, I didn't see much happening on these fds, and even if it
-wouldn't have recorded the kind of messages.
-
-OTOH, multicast group stuff is done with setsockopt() and/or bind, which
-I didn't really find here?
-
-> FWIW, it tries to call delete_module, but I was running this as an
-> unprivileged user so I don't think that can succeed.
-
-Ok.
-
-johannes
+  Marcelo
