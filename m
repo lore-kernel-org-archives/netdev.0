@@ -1,57 +1,45 @@
-From: Marcelo Ricardo Leitner <mleitner@redhat.com>
-Subject: Re: non-OVS based vxlan config broken on 3.19-rc ?!
-Date: Thu, 15 Jan 2015 10:20:22 -0200
-Message-ID: <54B7B086.7080208@redhat.com>
-References: <54B688D9.8030101@mellanox.com>	<20150114155208.GA24550@casper.infradead.org> <CAJ3xEMj+rjTmk2tbVCTMCp+7N0qwXBNf3JsbJEgh2qvq0jHmEg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Or Gerlitz <ogerlitz@mellanox.com>,
-	tom Herbert <therbert@google.com>,
-	Jesse Gross <jesse@nicira.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Or Gerlitz <gerlitz.or@gmail.com>, thomas Graf <tgraf@suug.ch>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 06/17] i40e: Dump Stats string removed from debugfs help command
+Date: Thu, 15 Jan 2015 04:19:17 -0800
+Message-ID: <1421324368-6860-7-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1421324368-6860-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Sravanthi Tangeda <sravanthi.tangeda@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:58780 "EHLO mx1.redhat.com"
+Received: from mga14.intel.com ([192.55.52.115]:64854 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753895AbbAOMUz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Jan 2015 07:20:55 -0500
-In-Reply-To: <CAJ3xEMj+rjTmk2tbVCTMCp+7N0qwXBNf3JsbJEgh2qvq0jHmEg@mail.gmail.com>
+	id S1751994AbbAOMTd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Jan 2015 07:19:33 -0500
+In-Reply-To: <1421324368-6860-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 14-01-2015 18:55, Or Gerlitz wrote:
-> On Wed, Jan 14, 2015 at 5:52 PM, thomas Graf <tgraf@suug.ch> wrote:
->> On 01/14/15 at 05:18pm, Or Gerlitz wrote:
->>> Guys, just realized that non-OVS based vxlan config is broken with
->>> 3.19-rc... I see that it works for me on 3.18.2 and breaks on 3.19-rc3
->>> (Linus tree). Tested over mlx4 (both offloaded and non offloaded modes) and
->>> igb, see below the simplest form I can see it breaks on 3.19-rcand works on
->>> 3.18
->>>
->>> Looking on tcpdump and stats, the arp reply arrives to the 3.19-rc host NIC
->>> driver but is dropped along the stack beforehanded to the vxlan driver, not
->>> sure where and why...
->>
->> As additional data point: I tested the VXLAN-GBP with iproute2 based tunnels
->> on net-next and that works fine. Driver used was a e1000 in KVM.
->
->
-> mm, so net-next.git (3.20 candidate code) and 3.18 works, but @ least
-> for me 3.19-rc doesn't - could you check if net.git works for you on
-> iproute2 based tunnels in that env? just vxlan is enough.
->
+From: Sravanthi Tangeda <sravanthi.tangeda@intel.com>
 
-Hi,
+Dump Stats string has been removed from functional debugfs
+help message. Now it does not show up when we echo command to
+debugfs/Fortville queue.
 
-Just tested your commands on two virtual machines running virtio (same host), 
-Linus' commit fb005c47f7b72edac50342b6af490af09854381b (which is 3.19.0-rc4+) 
-and it worked just fine for me. That is, ping went through both ways without 
-issues.
+Change-ID: I9333473826b574f1afa6ddb785fd7adfbdcb2884
+Signed-off-by: Sravanthi Tangeda <sravanthi.tangeda@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_debugfs.c | 1 -
+ 1 file changed, 1 deletion(-)
 
-I'll still try with net.git..
-
-Did you try dropwatch? If you add a neigh entry for the remote peer and ping 
-flood it, you may spot it on dropwatch.
-
-   Marcelo
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
+index cb0de45..61236f9 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
+@@ -1890,7 +1890,6 @@ static ssize_t i40e_dbg_command_write(struct file *filp,
+ 		dev_info(&pf->pdev->dev, "  dump desc tx <vsi_seid> <ring_id> [<desc_n>]\n");
+ 		dev_info(&pf->pdev->dev, "  dump desc rx <vsi_seid> <ring_id> [<desc_n>]\n");
+ 		dev_info(&pf->pdev->dev, "  dump desc aq\n");
+-		dev_info(&pf->pdev->dev, "  dump stats\n");
+ 		dev_info(&pf->pdev->dev, "  dump reset stats\n");
+ 		dev_info(&pf->pdev->dev, "  msg_enable [level]\n");
+ 		dev_info(&pf->pdev->dev, "  read <reg>\n");
+-- 
+1.9.3
