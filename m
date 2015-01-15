@@ -1,72 +1,42 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net] net/mlx4: Don't disable vxlan offloads under DMFS-A0 optimized steering
-Date: Thu, 15 Jan 2015 15:28:54 +0200
-Message-ID: <1421328534-14216-1-git-send-email-ogerlitz@mellanox.com>
-Cc: netdev@vger.kernel.org, Matan Barak <matanb@mellanox.com>,
-	Amir Vadai <amirv@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Marcelo Ricardo Leitner <mleitner@redhat.com>
+Subject: Re: non-OVS based vxlan config broken on 3.19-rc ?!
+Date: Thu, 15 Jan 2015 11:31:31 -0200
+Message-ID: <54B7C133.2070700@redhat.com>
+References: <54B688D9.8030101@mellanox.com>	<20150114155208.GA24550@casper.infradead.org> <CAJ3xEMj+rjTmk2tbVCTMCp+7N0qwXBNf3JsbJEgh2qvq0jHmEg@mail.gmail.com> <54B7B086.7080208@redhat.com> <54B7BFC9.8070306@mellanox.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: thomas Graf <tgraf@suug.ch>, tom Herbert <therbert@google.com>,
+	Jesse Gross <jesse@nicira.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Or Gerlitz <ogerlitz@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:48589 "EHLO mellanox.co.il"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751470AbbAON26 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Jan 2015 08:28:58 -0500
+Received: from mx1.redhat.com ([209.132.183.28]:46493 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753442AbbAONcD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Jan 2015 08:32:03 -0500
+In-Reply-To: <54B7BFC9.8070306@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Except for VXLAN steering rules, all offloads should work as they were
-under plain DMFS mode. Fix that by enabling all the offloads under
-DMFS-A0 mode, except for VXLAN steering rules.
+On 15-01-2015 11:25, Or Gerlitz wrote:
+> On 1/15/2015 2:20 PM, Marcelo Ricardo Leitner wrote:
+>> Just tested your commands on two virtual machines running virtio (same
+>> host), Linus' commit fb005c47f7b72edac50342b6af490af09854381b (which is
+>> 3.19.0-rc4+) and it worked just fine for me. That is, ping went through both
+>> ways without issues. I'll still try with net.git..
+>
+> thanks for looking on that.
 
-Fixes: d57febe1a478 "net/mlx4: Add A0 hybrid steering"
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
----
- drivers/infiniband/hw/mlx4/main.c              |    3 ++-
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c |    3 ++-
- drivers/net/ethernet/mellanox/mlx4/main.c      |    3 +--
- 3 files changed, 5 insertions(+), 4 deletions(-)
+np. Test based on 4ccce02eb31b847dd6bf8486f037ba1db39403c5 (net.git from a few 
+hours..) also worked.
 
-diff --git a/drivers/infiniband/hw/mlx4/main.c b/drivers/infiniband/hw/mlx4/main.c
-index 57ecc5b..9117b7a 100644
---- a/drivers/infiniband/hw/mlx4/main.c
-+++ b/drivers/infiniband/hw/mlx4/main.c
-@@ -1114,7 +1114,8 @@ static int mlx4_ib_tunnel_steer_add(struct ib_qp *qp, struct ib_flow_attr *flow_
- 	struct mlx4_dev	*dev = to_mdev(qp->device)->dev;
- 	int err = 0;
- 
--	if (dev->caps.tunnel_offload_mode != MLX4_TUNNEL_OFFLOAD_MODE_VXLAN)
-+	if (dev->caps.tunnel_offload_mode != MLX4_TUNNEL_OFFLOAD_MODE_VXLAN ||
-+	    dev->caps.dmfs_high_steer_mode == MLX4_STEERING_DMFS_A0_STATIC)
- 		return 0; /* do nothing */
- 
- 	ib_flow = flow_attr + 1;
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index d0d6dc1..ac6a8f1 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -475,7 +475,8 @@ static int mlx4_en_tunnel_steer_add(struct mlx4_en_priv *priv, unsigned char *ad
- {
- 	int err;
- 
--	if (priv->mdev->dev->caps.tunnel_offload_mode != MLX4_TUNNEL_OFFLOAD_MODE_VXLAN)
-+	if (priv->mdev->dev->caps.tunnel_offload_mode != MLX4_TUNNEL_OFFLOAD_MODE_VXLAN ||
-+	    priv->mdev->dev->caps.dmfs_high_steer_mode == MLX4_STEERING_DMFS_A0_STATIC)
- 		return 0; /* do nothing */
- 
- 	err = mlx4_tunnel_steer_add(priv->mdev->dev, addr, priv->port, qpn,
-diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
-index 5798355..37a1235 100644
---- a/drivers/net/ethernet/mellanox/mlx4/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/main.c
-@@ -1745,8 +1745,7 @@ static void choose_tunnel_offload_mode(struct mlx4_dev *dev,
- 				       struct mlx4_dev_cap *dev_cap)
- {
- 	if (dev->caps.steering_mode == MLX4_STEERING_MODE_DEVICE_MANAGED &&
--	    dev_cap->flags2 & MLX4_DEV_CAP_FLAG2_VXLAN_OFFLOADS &&
--	    dev->caps.dmfs_high_steer_mode != MLX4_STEERING_DMFS_A0_STATIC)
-+	    dev_cap->flags2 & MLX4_DEV_CAP_FLAG2_VXLAN_OFFLOADS)
- 		dev->caps.tunnel_offload_mode = MLX4_TUNNEL_OFFLOAD_MODE_VXLAN;
- 	else
- 		dev->caps.tunnel_offload_mode = MLX4_TUNNEL_OFFLOAD_MODE_NONE;
--- 
-1.7.1
+>> Did you try dropwatch? If you add a neigh entry for the remote peer and ping
+>> flood it, you may spot it on dropwatch.
+>
+> Will try it out, for the time being I managed to have an environment to test
+> that fix I was working on recently...
+
+Cool
+
+   Marcelo
