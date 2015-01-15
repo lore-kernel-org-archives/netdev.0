@@ -1,49 +1,42 @@
-From: Hagen Paul Pfeifer <hagen@jauu.net>
-Subject: [PATCH net] ipv6: stop sending PTB packets for MTU < 1280
-Date: Thu, 15 Jan 2015 22:34:25 +0100
-Message-ID: <1421357665-2804-1-git-send-email-hagen@jauu.net>
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Hagen Paul Pfeifer <hagen@jauu.net>, stable@vger.kernel.org,
-	Fernando Gont <fgont@si6networks.com>
-To: netdev@vger.kernel.org
-Return-path: <stable-owner@vger.kernel.org>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Subject: Re: [PATCH net-next] socket: use iov_length()
+Date: Thu, 15 Jan 2015 21:45:20 +0000
+Message-ID: <20150115214519.GB29656@ZenIV.linux.org.uk>
+References: <1421230070-4104-1-git-send-email-nicolas.dichtel@6wind.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from zeniv.linux.org.uk ([195.92.253.2]:53187 "EHLO
+	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751510AbbAOVpX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jan 2015 16:45:23 -0500
+Content-Disposition: inline
+In-Reply-To: <1421230070-4104-1-git-send-email-nicolas.dichtel@6wind.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Reduce the attack vector and stop generating IPv6 Fragment Header for
-paths with an MTU smaller than the minimum required IPv6 MTU
-size (1280 byte) - called atomic fragments.
+On Wed, Jan 14, 2015 at 11:07:50AM +0100, Nicolas Dichtel wrote:
+> Better to use available helpers.
+> 
+> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> ---
+>  net/socket.c | 8 ++------
+>  1 file changed, 2 insertions(+), 6 deletions(-)
+> 
+> diff --git a/net/socket.c b/net/socket.c
+> index a2c33a4dc7ba..b1f3fa4da020 100644
+> --- a/net/socket.c
+> +++ b/net/socket.c
+> @@ -883,10 +883,8 @@ static ssize_t do_sock_read(struct msghdr *msg, struct kiocb *iocb,
+>  {
+>  	struct socket *sock = file->private_data;
+>  	size_t size = 0;
+> -	int i;
+>  
+> -	for (i = 0; i < nr_segs; i++)
+> -		size += iov[i].iov_len;
+> +	size = iov_length(iov, nr_segs);
 
-See IETF I-D "Deprecating the Generation of IPv6 Atomic Fragments" [1]
-for more information and how this "feature" can be misused.
-
-[1] https://tools.ietf.org/html/draft-ietf-6man-deprecate-atomfrag-generation-00
-
-Cc: stable@vger.kernel.org
-Signed-off-by: Fernando Gont <fgont@si6networks.com>
-Signed-off-by: Hagen Paul Pfeifer <hagen@jauu.net>
----
- net/ipv6/route.c | 7 ++-----
- 1 file changed, 2 insertions(+), 5 deletions(-)
-
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 34dcbb5..d4603fb 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -1160,12 +1160,9 @@ static void ip6_rt_update_pmtu(struct dst_entry *dst, struct sock *sk,
- 		struct net *net = dev_net(dst->dev);
- 
- 		rt6->rt6i_flags |= RTF_MODIFIED;
--		if (mtu < IPV6_MIN_MTU) {
--			u32 features = dst_metric(dst, RTAX_FEATURES);
-+		if (mtu < IPV6_MIN_MTU)
- 			mtu = IPV6_MIN_MTU;
--			features |= RTAX_FEATURE_ALLFRAG;
--			dst_metric_set(dst, RTAX_FEATURES, features);
--		}
-+
- 		dst_metric_set(dst, RTAX_MTU, mtu);
- 		rt6_update_expires(rt6, net->ipv6.sysctl.ip6_rt_mtu_expires);
- 	}
--- 
-2.1.4
+What's wrong with size = iocb->ki_nbytes instead of calling anything?
