@@ -1,242 +1,44 @@
-From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Subject: Re: [PATCH v2 1/2] fixup! net/macb: Adding comments to various #defs
- to make interpretation easier
-Date: Thu, 15 Jan 2015 11:05:09 +0100
-Message-ID: <54B790D5.5040205@atmel.com>
-References: <20150114.165220.2282566005036464131.davem@davemloft.net> <1421274051-21588-1-git-send-email-xander.huff@ni.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <netdev@vger.kernel.org>, <jaeden.amero@ni.com>,
-	<rich.tollerton@ni.com>, <ben.shelton@ni.com>,
-	<brad.mouring@ni.com>, <linux-kernel@vger.kernel.org>,
-	<cyrille.pitchen@atmel.com>
-To: Xander Huff <xander.huff@ni.com>, <davem@davemloft.net>
+From: Masanari Iida <standby24x7@gmail.com>
+Subject: [PATCH] mac80211: Fix typo in mac80211.h
+Date: Thu, 15 Jan 2015 19:05:22 +0900
+Message-ID: <1421316322-16879-1-git-send-email-standby24x7@gmail.com>
+Cc: Masanari Iida <standby24x7@gmail.com>
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	davem@davemloft.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1421274051-21588-1-git-send-email-xander.huff@ni.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Le 14/01/2015 23:20, Xander Huff a =E9crit :
-> Put #define comments into a single line.
+This patch fix spelling typo found in Documentation/DocBook/80211.xml.
+It is because this file was generated from comments in source,
+I had to fix in include/net/mac80211.h
 
-It seems that correction is not done for all the entries modified:
-@ 0x0100 to 0x01b0
+Signed-off-by: Masanari Iida <standby24x7@gmail.com>
+---
+ include/net/mac80211.h | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-Can you please consider correcting this?
-
-Thanks, bye.
-
-> Signed-off-by: Xander Huff <xander.huff@ni.com>
-> ---
->  drivers/net/ethernet/cadence/macb.h | 107 +++++++++-----------------=
-----------
->  1 file changed, 26 insertions(+), 81 deletions(-)
->=20
-> diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethern=
-et/cadence/macb.h
-> index 378b218..d7b93d0 100644
-> --- a/drivers/net/ethernet/cadence/macb.h
-> +++ b/drivers/net/ethernet/cadence/macb.h
-> @@ -275,9 +275,7 @@
->  #define MACB_THALT_SIZE				1
->  #define MACB_NCR_TPF_OFFSET			11 /* Transmit pause frame */
->  #define MACB_NCR_TPF_SIZE			1
-> -#define MACB_TZQ_OFFSET				12 /* Transmit zero quantum
-> -						    * pause frame
-> -						    */
-> +#define MACB_TZQ_OFFSET				12 /* Transmit zero quantum pause frame *=
-/
->  #define MACB_TZQ_SIZE				1
-> =20
->  /* Bitfields in NCFGR */
-> @@ -299,9 +297,7 @@
->  #define MACB_UNI_SIZE				1
->  #define MACB_BIG_OFFSET				8 /* Receive 1536 byte frames */
->  #define MACB_BIG_SIZE				1
-> -#define MACB_EAE_OFFSET				9 /* External address match
-> -						   * enable
-> -						   */
-> +#define MACB_EAE_OFFSET				9 /* External address match enable */
->  #define MACB_EAE_SIZE				1
->  #define MACB_CLK_OFFSET				10
->  #define MACB_CLK_SIZE				2
-> @@ -313,9 +309,7 @@
->  #define MACB_RM9200_RMII_SIZE			1  /* AT91RM9200 only */
->  #define MACB_RBOF_OFFSET			14 /* Receive buffer offset */
->  #define MACB_RBOF_SIZE				2
-> -#define MACB_RLCE_OFFSET			16 /* Length field error frame
-> -						    * discard
-> -						    */
-> +#define MACB_RLCE_OFFSET			16 /* Length field error frame discard */
->  #define MACB_RLCE_SIZE				1
->  #define MACB_DRFCS_OFFSET			17 /* FCS remove */
->  #define MACB_DRFCS_SIZE				1
-> @@ -335,41 +329,22 @@
->  #define GEM_RXCOEN_SIZE				1
-> =20
->  /* Constants for data bus width. */
-> -#define GEM_DBW32				0 /* 32 bit AMBA AHB data bus
-> -						   * width
-> -						   */
-> -#define GEM_DBW64				1 /* 64 bit AMBA AHB data bus
-> -						   * width
-> -						   */
-> -#define GEM_DBW128				2 /* 128 bit AMBA AHB data bus
-> -						   * width
-> -						   */
-> +#define GEM_DBW32				0 /* 32 bit AMBA AHB data bus width */
-> +#define GEM_DBW64				1 /* 64 bit AMBA AHB data bus width */
-> +#define GEM_DBW128				2 /* 128 bit AMBA AHB data bus width */
-> =20
->  /* Bitfields in DMACFG. */
-> -#define GEM_FBLDO_OFFSET			0 /* AHB fixed burst length for
-> -						   * DMA data operations
-> -						   */
-> +#define GEM_FBLDO_OFFSET			0 /* AHB fixed burst length for DMA data =
-operations */
->  #define GEM_FBLDO_SIZE				5
-> -#define GEM_ENDIA_OFFSET			7 /* AHB endian swap mode enable
-> -						   * for packet data accesses
-> -						   */
-> +#define GEM_ENDIA_OFFSET			7 /* AHB endian swap mode enable for pack=
-et data accesses */
->  #define GEM_ENDIA_SIZE				1
-> -#define GEM_RXBMS_OFFSET			8 /* Receiver packet buffer
-> -						   * memory size select
-> -						   */
-> +#define GEM_RXBMS_OFFSET			8 /* Receiver packet buffer memory size s=
-elect */
->  #define GEM_RXBMS_SIZE				2
-> -#define GEM_TXPBMS_OFFSET			10 /* Transmitter packet buffer
-> -						    * memory size select
-> -						    */
-> +#define GEM_TXPBMS_OFFSET			10 /* Transmitter packet buffer memory s=
-ize select */
->  #define GEM_TXPBMS_SIZE				1
-> -#define GEM_TXCOEN_OFFSET			11 /* Transmitter IP, TCP and
-> -						    * UDP checksum generation
-> -						    * offload enable
-> -						    */
-> +#define GEM_TXCOEN_OFFSET			11 /* Transmitter IP, TCP and UDP checks=
-um generation offload enable */
->  #define GEM_TXCOEN_SIZE				1
-> -#define GEM_RXBS_OFFSET				16 /* DMA receive buffer size in
-> -						    * AHB system memory
-> -						    */
-> +#define GEM_RXBS_OFFSET				16 /* DMA receive buffer size in AHB syst=
-em memory */
->  #define GEM_RXBS_SIZE				8
->  #define GEM_DDRP_OFFSET				24 /* disc_when_no_ahb */
->  #define GEM_DDRP_SIZE				1
-> @@ -378,13 +353,9 @@
->  /* Bitfields in NSR */
->  #define MACB_NSR_LINK_OFFSET			0 /* pcs_link_state */
->  #define MACB_NSR_LINK_SIZE			1
-> -#define MACB_MDIO_OFFSET			1 /* status of the mdio_in
-> -						   * pin
-> -						   */
-> +#define MACB_MDIO_OFFSET			1 /* status of the mdio_in pin */
->  #define MACB_MDIO_SIZE				1
-> -#define MACB_IDLE_OFFSET			2 /* The PHY management logic is
-> -						   * idle (i.e. has completed)
-> -						   */
-> +#define MACB_IDLE_OFFSET			2 /* The PHY management logic is idle (i.=
-e. has completed) */
->  #define MACB_IDLE_SIZE				1
-> =20
->  /* Bitfields in TSR */
-> @@ -396,9 +367,7 @@
->  #define MACB_TSR_RLE_SIZE			1
->  #define MACB_TGO_OFFSET				3 /* Transmit go */
->  #define MACB_TGO_SIZE				1
-> -#define MACB_BEX_OFFSET				4 /* Transmit frame corruption
-> -						   * due to AHB error
-> -						   */
-> +#define MACB_BEX_OFFSET				4 /* Transmit frame corruption due to AHB=
- error */
->  #define MACB_BEX_SIZE				1
->  #define MACB_RM9200_BNQ_OFFSET			4 /* AT91RM9200 only */
->  #define MACB_RM9200_BNQ_SIZE			1 /* AT91RM9200 only */
-> @@ -424,43 +393,23 @@
->  #define MACB_RXUBR_SIZE				1
->  #define MACB_TXUBR_OFFSET			3 /* TX used bit read */
->  #define MACB_TXUBR_SIZE				1
-> -#define MACB_ISR_TUND_OFFSET			4 /* Enable trnasmit buffer
-> -						   * under run interrupt
-> -						   */
-> +#define MACB_ISR_TUND_OFFSET			4 /* Enable trnasmit buffer under run=
- interrupt */
->  #define MACB_ISR_TUND_SIZE			1
-> -#define MACB_ISR_RLE_OFFSET			5 /* Enable retry limit exceeded
-> -						   * or late collision interrupt
-> -						   */
-> +#define MACB_ISR_RLE_OFFSET			5 /* Enable retry limit exceeded or la=
-te collision interrupt */
->  #define MACB_ISR_RLE_SIZE			1
-> -#define MACB_TXERR_OFFSET			6 /* Enable transmit frame
-> -						   * corruption due to AHB error
-> -						   * interrupt
-> -						   */
-> +#define MACB_TXERR_OFFSET			6 /* Enable transmit frame corruption du=
-e to AHB error interrupt */
->  #define MACB_TXERR_SIZE				1
-> -#define MACB_TCOMP_OFFSET			7 /* Enable transmit complete
-> -						   * interrupt
-> -						   */
-> +#define MACB_TCOMP_OFFSET			7 /* Enable transmit complete interrupt =
-*/
->  #define MACB_TCOMP_SIZE				1
-> -#define MACB_ISR_LINK_OFFSET			9 /* Enable link change
-> -						   * interrupt
-> -						   */
-> +#define MACB_ISR_LINK_OFFSET			9 /* Enable link change interrupt */
->  #define MACB_ISR_LINK_SIZE			1
-> -#define MACB_ISR_ROVR_OFFSET			10 /* Enable receive overrun
-> -						    * interrupt
-> -						    */
-> +#define MACB_ISR_ROVR_OFFSET			10 /* Enable receive overrun interrup=
-t */
->  #define MACB_ISR_ROVR_SIZE			1
-> -#define MACB_HRESP_OFFSET			11 /* Enable hrsep not OK
-> -						    * interrupt
-> -						    */
-> +#define MACB_HRESP_OFFSET			11 /* Enable hrsep not OK interrupt */
->  #define MACB_HRESP_SIZE				1
-> -#define MACB_PFR_OFFSET				12 /* Enable pause frame with
-> -						    * non-zero pause quantum
-> -						    * interrupt
-> -						    */
-> +#define MACB_PFR_OFFSET				12 /* Enable pause frame with non-zero pa=
-use quantum interrupt */
->  #define MACB_PFR_SIZE				1
-> -#define MACB_PTZ_OFFSET				13 /* Enable pause time zero
-> -						    * interrupt
-> -						    */
-> +#define MACB_PTZ_OFFSET				13 /* Enable pause time zero interrupt */
->  #define MACB_PTZ_SIZE				1
-> =20
->  /* Bitfields in MAN */
-> @@ -472,13 +421,9 @@
->  #define MACB_REGA_SIZE				5
->  #define MACB_PHYA_OFFSET			23 /* PHY address */
->  #define MACB_PHYA_SIZE				5
-> -#define MACB_RW_OFFSET				28 /* Operation. 10 is read. 01
-> -						    * is write.
-> -						    */
-> +#define MACB_RW_OFFSET				28 /* Operation. 10 is read. 01 is write. =
-*/
->  #define MACB_RW_SIZE				2
-> -#define MACB_SOF_OFFSET				30 /* Must be written to 1 for
-> -						    * Clause 22 operation
-> -						    */
-> +#define MACB_SOF_OFFSET				30 /* Must be written to 1 for Clause 22 =
-operation */
->  #define MACB_SOF_SIZE				2
-> =20
->  /* Bitfields in USRIO (AVR32) */
->=20
-
-
---=20
-Nicolas Ferre
+diff --git a/include/net/mac80211.h b/include/net/mac80211.h
+index 29c7be8..a9a6213 100644
+--- a/include/net/mac80211.h
++++ b/include/net/mac80211.h
+@@ -1292,7 +1292,7 @@ struct ieee80211_vif *wdev_to_ieee80211_vif(struct wireless_dev *wdev);
+  *	%IEEE80211_KEY_FLAG_SW_MGMT_TX flag to encrypt such frames in SW.
+  * @IEEE80211_KEY_FLAG_GENERATE_IV_MGMT: This flag should be set by the
+  *	driver for a CCMP key to indicate that is requires IV generation
+- *	only for managment frames (MFP).
++ *	only for management frames (MFP).
+  */
+ enum ieee80211_key_flags {
+ 	IEEE80211_KEY_FLAG_GENERATE_IV_MGMT	= BIT(0),
+@@ -4894,7 +4894,7 @@ static inline int rate_supported(struct ieee80211_sta *sta,
+  * @sta: &struct ieee80211_sta pointer to the target destination. Note
+  * 	that this may be null.
+  * @priv_sta: private rate control structure. This may be null.
+- * @txrc: rate control information we sholud populate for mac80211.
++ * @txrc: rate control information we should populate for mac80211.
+  */
+ bool rate_control_send_low(struct ieee80211_sta *sta,
+ 			   void *priv_sta,
+-- 
+2.3.0.rc0
