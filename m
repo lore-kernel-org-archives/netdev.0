@@ -1,75 +1,58 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 09/17] i40e: check I40E_FLAG_PTP before handling Tx or Rx timestamps
-Date: Thu, 15 Jan 2015 04:19:20 -0800
-Message-ID: <1421324368-6860-10-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 02/17] i40e/i40evf: Increase ASQ timeout
+Date: Thu, 15 Jan 2015 04:19:13 -0800
+Message-ID: <1421324368-6860-3-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1421324368-6860-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
+Cc: Kevin Scott <kevin.c.scott@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:64854 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([192.55.52.115]:9320 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753710AbbAOMTf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Jan 2015 07:19:35 -0500
+	id S1752247AbbAOMTc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Jan 2015 07:19:32 -0500
 In-Reply-To: <1421324368-6860-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jacob Keller <jacob.e.keller@intel.com>
+From: Kevin Scott <kevin.c.scott@intel.com>
 
-We should not be doing Tx or Rx timestamps if we do not have PTP
-enabled. Add checks to ensure that we don't attempt to handle any PTP
-related timestamping code if we have not enabled PTP on that PF.
+Increase ASQ timeout for some scenarios with multi-function devices
 
-Change-ID: I4335942ae2d5c5f91abfdbeeea02bcace49e7677
-Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+Change-ID: I2d7655b19e6c6f9a7ad04deacb106ca8d53886db
+Signed-off-by: Kevin Scott <kevin.c.scott@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_ptp.c  | 9 ++++++++-
- drivers/net/ethernet/intel/i40e/i40e_txrx.c | 3 +++
- 2 files changed, 11 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/intel/i40e/i40e_adminq.h   | 2 +-
+ drivers/net/ethernet/intel/i40evf/i40e_adminq.h | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_ptp.c b/drivers/net/ethernet/intel/i40e/i40e_ptp.c
-index 6d1ec92..a152878 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_ptp.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_ptp.c
-@@ -305,6 +305,13 @@ void i40e_ptp_tx_hwtstamp(struct i40e_pf *pf)
- 	u32 hi, lo;
- 	u64 ns;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq.h b/drivers/net/ethernet/intel/i40e/i40e_adminq.h
+index 564d0b0..de17b6f 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_adminq.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_adminq.h
+@@ -148,7 +148,7 @@ static inline int i40e_aq_rc_to_posix(u32 aq_ret, u16 aq_rc)
  
-+	if (!(pf->flags & I40E_FLAG_PTP) || !pf->ptp_tx)
-+		return;
-+
-+	/* don't attempt to timestamp if we don't have an skb */
-+	if (!pf->ptp_tx_skb)
-+		return;
-+
- 	lo = rd32(hw, I40E_PRTTSYN_TXTIME_L);
- 	hi = rd32(hw, I40E_PRTTSYN_TXTIME_H);
+ /* general information */
+ #define I40E_AQ_LARGE_BUF	512
+-#define I40E_ASQ_CMD_TIMEOUT	100  /* msecs */
++#define I40E_ASQ_CMD_TIMEOUT	250  /* msecs */
  
-@@ -338,7 +345,7 @@ void i40e_ptp_rx_hwtstamp(struct i40e_pf *pf, struct sk_buff *skb, u8 index)
- 	/* Since we cannot turn off the Rx timestamp logic if the device is
- 	 * doing Tx timestamping, check if Rx timestamping is configured.
- 	 */
--	if (!pf->ptp_rx)
-+	if (!(pf->flags & I40E_FLAG_PTP) || !pf->ptp_rx)
- 		return;
+ void i40e_fill_default_direct_cmd_desc(struct i40e_aq_desc *desc,
+ 				       u16 opcode);
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_adminq.h b/drivers/net/ethernet/intel/i40evf/i40e_adminq.h
+index 6c31bf2..60f04e9 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_adminq.h
++++ b/drivers/net/ethernet/intel/i40evf/i40e_adminq.h
+@@ -148,7 +148,7 @@ static inline int i40e_aq_rc_to_posix(u32 aq_ret, u16 aq_rc)
  
- 	hw = &pf->hw;
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-index bb86390..420d662 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-@@ -1939,6 +1939,9 @@ static int i40e_tsyn(struct i40e_ring *tx_ring, struct sk_buff *skb,
- 	 * we are not already transmitting a packet to be timestamped
- 	 */
- 	pf = i40e_netdev_to_pf(tx_ring->netdev);
-+	if (!(pf->flags & I40E_FLAG_PTP))
-+		return 0;
-+
- 	if (pf->ptp_tx &&
- 	    !test_and_set_bit_lock(__I40E_PTP_TX_IN_PROGRESS, &pf->state)) {
- 		skb_shinfo(skb)->tx_flags |= SKBTX_IN_PROGRESS;
+ /* general information */
+ #define I40E_AQ_LARGE_BUF	512
+-#define I40E_ASQ_CMD_TIMEOUT	100  /* msecs */
++#define I40E_ASQ_CMD_TIMEOUT	250  /* msecs */
+ 
+ void i40evf_fill_default_direct_cmd_desc(struct i40e_aq_desc *desc,
+ 				       u16 opcode);
 -- 
 1.9.3
