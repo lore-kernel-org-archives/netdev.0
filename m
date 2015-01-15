@@ -1,131 +1,99 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH net-next v13 3/3] net: hisilicon: new hip04 ethernet
- driver
-Date: Wed, 14 Jan 2015 20:39:02 -0800
-Message-ID: <1421296742.25598.3.camel@perches.com>
-References: <1421217254-12008-1-git-send-email-dingtianhong@huawei.com>
-	 <1421217254-12008-4-git-send-email-dingtianhong@huawei.com>
+From: Vadim Kochan <vadim4j@gmail.com>
+Subject: Re: [PATCH iproute2] ss: Filter inet dgram sockets with established
+ state by default
+Date: Thu, 15 Jan 2015 06:49:30 +0200
+Message-ID: <CAMw6YJLhLiB_0G_Gkcj-E2-ec=d+J-esTLGKccKyWQ3WXcA8-w@mail.gmail.com>
+References: <1420738342-3750-1-git-send-email-vadim4j@gmail.com>
+	<20150113173150.0a50f74e@urahara>
+	<20150114064944.GA28611@angus-think.lan>
+	<20150114144120.0e15ac1f@urahara>
+	<20150114224347.GA14983@angus-think.lan>
+	<20150114184806.56a7b7e2@urahara>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: arnd@arndb.de, robh+dt@kernel.org, davem@davemloft.net,
-	grant.likely@linaro.org, agraf@suse.de,
-	sergei.shtylyov@cogentembedded.com,
-	linux-arm-kernel@lists.infradead.org, eric.dumazet@gmail.com,
-	xuwei5@hisilicon.com, zhangfei.gao@linaro.org,
-	netdev@vger.kernel.org, devicetree@vger.kernel.org,
-	linux@arm.linux.org.uk
-To: Ding Tianhong <dingtianhong@huawei.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0008.hostedemail.com ([216.40.44.8]:43578 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751159AbbAOEjH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2015 23:39:07 -0500
-In-Reply-To: <1421217254-12008-4-git-send-email-dingtianhong@huawei.com>
+Received: from mail-wi0-f171.google.com ([209.85.212.171]:42619 "EHLO
+	mail-wi0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752063AbbAOEtb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2015 23:49:31 -0500
+Received: by mail-wi0-f171.google.com with SMTP id bs8so32493943wib.4
+        for <netdev@vger.kernel.org>; Wed, 14 Jan 2015 20:49:30 -0800 (PST)
+In-Reply-To: <20150114184806.56a7b7e2@urahara>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2015-01-14 at 14:34 +0800, Ding Tianhong wrote:
-> Support Hisilicon hip04 ethernet driver, including 100M / 1000M controller.
-> The controller has no tx done interrupt, reclaim xmitted buffer in the poll.
+So it means showing by established state by default.
 
-Mostly trivial comments:
-
-> +++ b/drivers/net/ethernet/hisilicon/hip04_eth.c
-
-[]
-
-> +#define GMAC_MAX_PKT_LEN		1516
-
-[]
-
-> +static int hip04_rx_poll(struct napi_struct *napi, int budget)
-> +{
-[]
-> +	while (cnt && !last) {
-[]
-> +		desc = (struct rx_desc *)skb->data;
-> +		len = be16_to_cpu(desc->pkt_len);
-> +		err = be32_to_cpu(desc->pkt_err);
-> +
-> +		if (0 == len) {
-> +			dev_kfree_skb_any(skb);
-> +			last = true;
-> +		} else if ((err & RX_PKT_ERR) || (len >= GMAC_MAX_PKT_LEN)) {
-
-Is this ">=" correct?  Maybe it should be ">" ?
-
-[]
-
-> +static irqreturn_t hip04_mac_interrupt(int irq, void *dev_id)
-> +{
-> +	struct net_device *ndev = (struct net_device *)dev_id;
-
-Unnecessary cast of void *
-
-[]
-
-> +static int hip04_set_coalesce(struct net_device *netdev,
-> +			      struct ethtool_coalesce *ec)
-> +{
-> +	struct hip04_priv *priv = netdev_priv(netdev);
-> +
-> +	/* Check not supported parameters  */
-> +	if ((ec->rx_max_coalesced_frames) || (ec->rx_coalesce_usecs_irq) ||
-> +	    (ec->rx_max_coalesced_frames_irq) || (ec->tx_coalesce_usecs_irq) ||
-> +	    (ec->use_adaptive_rx_coalesce) || (ec->use_adaptive_tx_coalesce) ||
-> +	    (ec->pkt_rate_low) || (ec->rx_coalesce_usecs_low) ||
-> +	    (ec->rx_max_coalesced_frames_low) || (ec->tx_coalesce_usecs_high) ||
-> +	    (ec->tx_max_coalesced_frames_low) || (ec->pkt_rate_high) ||
-> +	    (ec->tx_coalesce_usecs_low) || (ec->rx_coalesce_usecs_high) ||
-> +	    (ec->rx_max_coalesced_frames_high) || (ec->rx_coalesce_usecs) ||
-> +	    (ec->tx_max_coalesced_frames_irq) ||
-> +	    (ec->stats_block_coalesce_usecs) ||
-> +	    (ec->tx_max_coalesced_frames_high) || (ec->rate_sample_interval))
-> +		return -EOPNOTSUPP;
-
-Rather than a somewhat haphazard mix of these values, 
-this might be simpler to read as something like:
-
-	/* Check not supported parameters  */
-	if (ec->pkt_rate_low ||
-	    ec->pkt_rate_high ||
-
-	    ec->use_adaptive_rx_coalesce ||
-	    ec->rx_coalesce_usecs ||
-	    ec->rx_coalesce_usecs_low ||
-	    ec->rx_coalesce_usecs_high ||
-	    ec->rx_coalesce_usecs_irq ||
-	    ec->rx_max_coalesced_frames ||
-	    ec->rx_max_coalesced_frames_low ||
-	    ec->rx_max_coalesced_frames_high ||
-	    ec->rx_max_coalesced_frames_irq ||
-	    
-	    ec->use_adaptive_tx_coalesce ||
-	    ec->tx_coalesce_usecs_low ||
-	    ec->tx_coalesce_usecs_high ||
-	    ec->tx_max_coalesced_frames_low ||
-	    ec->tx_max_coalesced_frames_high ||
-	    ec->tx_max_coalesced_frames_irq ||
-
-	    ec->stats_block_coalesce_usecs ||
-	    ec->rate_sample_interval)
-		return -EOPNOTSUPP;
-
-
-> +static void hip04_free_ring(struct net_device *ndev, struct device *d)
-> +{
-> +	struct hip04_priv *priv = netdev_priv(ndev);
-> +	int i;
-> +
-> +	for (i = 0; i < RX_DESC_NUM; i++)
-> +		if (priv->rx_buf[i])
-> +			put_page(virt_to_head_page(priv->rx_buf[i]));
-
-It's generally nicer to use braces around
-for loops with single ifs.
-
-> +
-> +	for (i = 0; i < TX_DESC_NUM; i++)
-> +		if (priv->tx_skb[i])
-> +			dev_kfree_skb_any(priv->tx_skb[i]);
+On Thu, Jan 15, 2015 at 4:48 AM, Stephen Hemminger
+<stephen@networkplumber.org> wrote:
+> On Thu, 15 Jan 2015 00:43:47 +0200
+> Vadim Kochan <vadim4j@gmail.com> wrote:
+>
+>> On Wed, Jan 14, 2015 at 02:41:20PM -0800, Stephen Hemminger wrote:
+>> > On Wed, 14 Jan 2015 08:49:44 +0200
+>> > Vadim Kochan <vadim4j@gmail.com> wrote:
+>> >
+>> > > On Tue, Jan 13, 2015 at 05:31:50PM -0800, Stephen Hemminger wrote:
+>> > > > On Thu,  8 Jan 2015 19:32:22 +0200
+>> > > > Vadim Kochan <vadim4j@gmail.com> wrote:
+>> > > >
+>> > > > > From: Vadim Kochan <vadim4j@gmail.com>
+>> > > > >
+>> > > > > As inet dgram sockets (udp, raw) can call connect(...)  - they
+>> > > > > might be set in ESTABLISHED state. So keep the original behaviour of
+>> > > > > 'ss' which filtered them by ESTABLISHED state by default. So:
+>> > > > >
+>> > > > >     $ ss -u
+>> > > > >
+>> > > > >     or
+>> > > > >
+>> > > > >     $ ss -w
+>> > > > >
+>> > > > > Will show only ESTABLISHED UDP sockets by default.
+>> > > > >
+>> > > > > Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
+>> > > > > ---
+>> > > > >  misc/ss.c | 4 ++--
+>> > > > >  1 file changed, 2 insertions(+), 2 deletions(-)
+>> > > > >
+>> > > > > diff --git a/misc/ss.c b/misc/ss.c
+>> > > > > index 08d210a..015d829 100644
+>> > > > > --- a/misc/ss.c
+>> > > > > +++ b/misc/ss.c
+>> > > > > @@ -170,11 +170,11 @@ static const struct filter default_dbs[MAX_DB] = {
+>> > > > >               .families = (1 << AF_INET) | (1 << AF_INET6),
+>> > > > >       },
+>> > > > >       [UDP_DB] = {
+>> > > > > -             .states   = (1 << SS_CLOSE),
+>> > > > > +             .states   = (1 << SS_ESTABLISHED),
+>> > > > >               .families = (1 << AF_INET) | (1 << AF_INET6),
+>> > > > >       },
+>> > > > >       [RAW_DB] = {
+>> > > > > -             .states   = (1 << SS_CLOSE),
+>> > > > > +             .states   = (1 << SS_ESTABLISHED),
+>> > > > >               .families = (1 << AF_INET) | (1 << AF_INET6),
+>> > > > >       },
+>> > > > >       [UNIX_DG_DB] = {
+>> > > >
+>> > > > This is a change likely to break somebody using 'ss -u' now and the bound
+>> > > > sockets will disappear from the output.
+>> > > >
+>> > >
+>> > > But thats was as original behaviour before I added table-driven code
+>> > > (about few commits ago), so thats a rather fix (sorry I did not noticed
+>> > > about it) to keep the previous behaviour for dgram sockets - show
+>> > > established states by default.
+>> > >
+>> > > Regards,
+>> >
+>> > Ok, I will merge it and update the comments.
+>> Even with this PATCH I am still confused what is preferred behaviour -
+>> show established dgram sockets (as it was all the way) or closed + established by default.
+>>
+>> What do you think ?
+>>
+>> Thanks,
+>
+> Make it work like earliest releases (like 3 months ago).
