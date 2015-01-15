@@ -1,39 +1,20 @@
-From: Shaohua Li <shli@fb.com>
-Subject: Re: net_test_tools: add ipv6 support for kbench_mod
-Date: Thu, 15 Jan 2015 13:17:37 -0800
-Message-ID: <20150115211737.GA2587066@devbig257.prn2.facebook.com>
-References: <20150114054548.GA2683397@devbig257.prn2.facebook.com>
- <20150114.013540.1963709251689177055.davem@davemloft.net>
+From: David Edward Cleasby <aspear@wqsb.qc.ca>
+Subject: Greetings
+Date: Fri, 16 Jan 2015 07:09:34 +1000
+Message-ID: <a0455a24-ab7a-46e6-9c99-392e78ce38c4@HEXHUB11.hostedmsx.local>
+Reply-To: david.ecleashy@outlook.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>, <kafai@fb.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:16538 "EHLO
-	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751566AbbAOVRo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jan 2015 16:17:44 -0500
-Content-Disposition: inline
-In-Reply-To: <20150114.013540.1963709251689177055.davem@davemloft.net>
+Received: from MX21.exchange.telus.com ([205.206.208.34]:37744 "EHLO
+	mx21.exchange.telus.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752506AbbAOVTW convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jan 2015 16:19:22 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 14, 2015 at 01:35:40AM -0500, David Miller wrote:
-> From: Shaohua Li <shli@fb.com>
-> Date: Tue, 13 Jan 2015 21:45:48 -0800
-> 
-> > This patch adds ipv6 support for kbench_mod test module
-> 
-> This doesn't even link because ip6_route_input is not an
-> exported symbol.
-> 
-> So you either didn't test this, or it depends upon custom
-> kernel changes which you didn't mention.
-> 
-> Either way I can't apply this, sorry
+Hello,
 
-Yes, we need export the sysmbol for the test. Can we export the symbol?
-or I can delete the route input test, which one do you prefer?
-
-Thanks,
-Shaohua
+I am David Edward Cleasby, Group financial director of Bidvest Bank. I will like to discuss an Inheritance deal with you, which will be of help to both of us, if interested kindly reply to: david.ecleashy@outlook.com for more details.
