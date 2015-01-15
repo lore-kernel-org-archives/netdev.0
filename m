@@ -1,99 +1,102 @@
-From: Vadim Kochan <vadim4j@gmail.com>
-Subject: Re: [PATCH iproute2] ss: Filter inet dgram sockets with established
- state by default
-Date: Thu, 15 Jan 2015 06:49:30 +0200
-Message-ID: <CAMw6YJLhLiB_0G_Gkcj-E2-ec=d+J-esTLGKccKyWQ3WXcA8-w@mail.gmail.com>
-References: <1420738342-3750-1-git-send-email-vadim4j@gmail.com>
-	<20150113173150.0a50f74e@urahara>
-	<20150114064944.GA28611@angus-think.lan>
-	<20150114144120.0e15ac1f@urahara>
-	<20150114224347.GA14983@angus-think.lan>
-	<20150114184806.56a7b7e2@urahara>
+From: Sriharsha Basavapatna <Sriharsha.Basavapatna@Emulex.Com>
+Subject: RE: [PATCH v2 net] be2net: Allow GRE to work concurrently while a
+ VxLAN tunnel is configured
+Date: Thu, 15 Jan 2015 04:59:30 +0000
+Message-ID: <31318D46B5DF3F4AB71CC057601E9FEB3A7F5178@CMEXMB1.ad.emulex.com>
+References: <1421318323-2547-1-git-send-email-sriharsha.basavapatna@emulex.com>
+ <CA+mtBx9Kd8JM53RJFJ_R-ZW_FN=UhDQgBNgLNPqadGA9o3ZNiA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f171.google.com ([209.85.212.171]:42619 "EHLO
-	mail-wi0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752063AbbAOEtb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2015 23:49:31 -0500
-Received: by mail-wi0-f171.google.com with SMTP id bs8so32493943wib.4
-        for <netdev@vger.kernel.org>; Wed, 14 Jan 2015 20:49:30 -0800 (PST)
-In-Reply-To: <20150114184806.56a7b7e2@urahara>
+Received: from cmexedge1.emulex.com ([138.239.224.99]:32026 "EHLO
+	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751031AbbAOE75 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2015 23:59:57 -0500
+In-Reply-To: <CA+mtBx9Kd8JM53RJFJ_R-ZW_FN=UhDQgBNgLNPqadGA9o3ZNiA@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-So it means showing by established state by default.
-
-On Thu, Jan 15, 2015 at 4:48 AM, Stephen Hemminger
-<stephen@networkplumber.org> wrote:
-> On Thu, 15 Jan 2015 00:43:47 +0200
-> Vadim Kochan <vadim4j@gmail.com> wrote:
->
->> On Wed, Jan 14, 2015 at 02:41:20PM -0800, Stephen Hemminger wrote:
->> > On Wed, 14 Jan 2015 08:49:44 +0200
->> > Vadim Kochan <vadim4j@gmail.com> wrote:
->> >
->> > > On Tue, Jan 13, 2015 at 05:31:50PM -0800, Stephen Hemminger wrote:
->> > > > On Thu,  8 Jan 2015 19:32:22 +0200
->> > > > Vadim Kochan <vadim4j@gmail.com> wrote:
->> > > >
->> > > > > From: Vadim Kochan <vadim4j@gmail.com>
->> > > > >
->> > > > > As inet dgram sockets (udp, raw) can call connect(...)  - they
->> > > > > might be set in ESTABLISHED state. So keep the original behaviour of
->> > > > > 'ss' which filtered them by ESTABLISHED state by default. So:
->> > > > >
->> > > > >     $ ss -u
->> > > > >
->> > > > >     or
->> > > > >
->> > > > >     $ ss -w
->> > > > >
->> > > > > Will show only ESTABLISHED UDP sockets by default.
->> > > > >
->> > > > > Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
->> > > > > ---
->> > > > >  misc/ss.c | 4 ++--
->> > > > >  1 file changed, 2 insertions(+), 2 deletions(-)
->> > > > >
->> > > > > diff --git a/misc/ss.c b/misc/ss.c
->> > > > > index 08d210a..015d829 100644
->> > > > > --- a/misc/ss.c
->> > > > > +++ b/misc/ss.c
->> > > > > @@ -170,11 +170,11 @@ static const struct filter default_dbs[MAX_DB] = {
->> > > > >               .families = (1 << AF_INET) | (1 << AF_INET6),
->> > > > >       },
->> > > > >       [UDP_DB] = {
->> > > > > -             .states   = (1 << SS_CLOSE),
->> > > > > +             .states   = (1 << SS_ESTABLISHED),
->> > > > >               .families = (1 << AF_INET) | (1 << AF_INET6),
->> > > > >       },
->> > > > >       [RAW_DB] = {
->> > > > > -             .states   = (1 << SS_CLOSE),
->> > > > > +             .states   = (1 << SS_ESTABLISHED),
->> > > > >               .families = (1 << AF_INET) | (1 << AF_INET6),
->> > > > >       },
->> > > > >       [UNIX_DG_DB] = {
->> > > >
->> > > > This is a change likely to break somebody using 'ss -u' now and the bound
->> > > > sockets will disappear from the output.
->> > > >
->> > >
->> > > But thats was as original behaviour before I added table-driven code
->> > > (about few commits ago), so thats a rather fix (sorry I did not noticed
->> > > about it) to keep the previous behaviour for dgram sockets - show
->> > > established states by default.
->> > >
->> > > Regards,
->> >
->> > Ok, I will merge it and update the comments.
->> Even with this PATCH I am still confused what is preferred behaviour -
->> show established dgram sockets (as it was all the way) or closed + established by default.
->>
->> What do you think ?
->>
->> Thanks,
->
-> Make it work like earliest releases (like 3 months ago).
+DQoNCi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQpGcm9tOiBUb20gSGVyYmVydCBbbWFpbHRv
+OnRoZXJiZXJ0QGdvb2dsZS5jb21dIA0KU2VudDogVGh1cnNkYXksIEphbnVhcnkgMTUsIDIwMTUg
+ODowMCBBTQ0KVG86IFNyaWhhcnNoYSBCYXNhdmFwYXRuYQ0KQ2M6IExpbnV4IE5ldGRldiBMaXN0
+DQpTdWJqZWN0OiBSZTogW1BBVENIIHYyIG5ldF0gYmUybmV0OiBBbGxvdyBHUkUgdG8gd29yayBj
+b25jdXJyZW50bHkgd2hpbGUgYSBWeExBTiB0dW5uZWwgaXMgY29uZmlndXJlZA0KDQpPbiBUaHUs
+IEphbiAxNSwgMjAxNSBhdCAyOjM4IEFNLCBTcmloYXJzaGEgQmFzYXZhcGF0bmEgPHNyaWhhcnNo
+YS5iYXNhdmFwYXRuYUBlbXVsZXguY29tPiB3cm90ZToNCj4gT3RoZXIgdHVubmVscyBsaWtlIEdS
+RSBicmVhayB3aGlsZSBWeExBTiBvZmZsb2FkcyBhcmUgZW5hYmxlZCBpbiANCj4gU2t5aGF3ay1S
+LiBUbyBhdm9pZCB0aGlzLCB3ZSBzaG91bGQgcmVzdHJpY3Qgb2ZmbG9hZCBmZWF0dXJlcyBvbiBh
+IA0KPiBwZXItcGFja2V0IGJhc2lzIGluIHN1Y2ggY29uZGl0aW9ucy4NCj4NCj4gU2lnbmVkLW9m
+Zi1ieTogU3JpaGFyc2hhIEJhc2F2YXBhdG5hIA0KPiA8c3JpaGFyc2hhLmJhc2F2YXBhdG5hQGVt
+dWxleC5jb20+DQo+IC0tLQ0KPiB2MiBjaGFuZ2VzOiBmaXhlZCBtaW5vciBuaXRzIHBvaW50ZWQg
+b3V0IGJ5IFNlcmdlaSBTaHR5bHlvdg0KPiAtLS0NCj4gIGRyaXZlcnMvbmV0L2V0aGVybmV0L2Vt
+dWxleC9iZW5ldC9iZV9tYWluLmMgfCAgIDQxICsrKysrKysrKysrKysrKysrKysrKysrKystLQ0K
+PiAgMSBmaWxlIGNoYW5nZWQsIDM4IGluc2VydGlvbnMoKyksIDMgZGVsZXRpb25zKC0pDQo+DQo+
+IGRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9lbXVsZXgvYmVuZXQvYmVfbWFpbi5j
+IA0KPiBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2VtdWxleC9iZW5ldC9iZV9tYWluLmMNCj4gaW5k
+ZXggNDFhMGE1NC4uZDQ4ODA2YiAxMDA2NDQNCj4gLS0tIGEvZHJpdmVycy9uZXQvZXRoZXJuZXQv
+ZW11bGV4L2JlbmV0L2JlX21haW4uYw0KPiArKysgYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9lbXVs
+ZXgvYmVuZXQvYmVfbWFpbi5jDQo+IEBAIC00MzgzLDggKzQzODMsOSBAQCBzdGF0aWMgaW50IGJl
+X25kb19icmlkZ2VfZ2V0bGluayhzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCB1MzIgcGlkLCB1MzIgc2Vx
+LA0KPiAgICogZGlzdGluZ3Vpc2ggdmFyaW91cyB0eXBlcyBvZiB0cmFuc3BvcnRzIChWeExBTiwg
+R1JFLCBOVkdSRSAuLikuIFNvLCBvZmZsb2FkDQo+ICAgKiBpcyBleHBlY3RlZCB0byB3b3JrIGFj
+cm9zcyBhbGwgdHlwZXMgb2YgSVAgdHVubmVscyBvbmNlIGV4cG9ydGVkLiBTa3loYXdrDQo+ICAg
+KiBzdXBwb3J0cyBvZmZsb2FkcyBmb3IgZWl0aGVyIFZ4TEFOIG9yIE5WR1JFLCBleGNsdXNpdmVs
+eS4gU28gd2UgDQo+IGV4cG9ydCBWeExBTg0KPiAtICogb2ZmbG9hZHMgaW4gaHdfZW5jX2ZlYXR1
+cmVzIG9ubHkgd2hlbiBhIFZ4TEFOIHBvcnQgaXMgYWRkZWQuIE5vdGUgDQo+IHRoaXMgb25seQ0K
+PiAtICogZW5zdXJlcyB0aGF0IG90aGVyIHR1bm5lbHMgd29yayBmaW5lIHdoaWxlIFZ4TEFOIG9m
+ZmxvYWRzIGFyZSBub3QgZW5hYmxlZC4NCj4gKyAqIG9mZmxvYWRzIGluIGh3X2VuY19mZWF0dXJl
+cyBvbmx5IHdoZW4gYSBWeExBTiBwb3J0IGlzIGFkZGVkLiBJZiANCj4gKyBvdGhlciAobm9uDQo+
+ICsgKiBWeExBTikgdHVubmVscyBhcmUgY29uZmlndXJlZCB3aGlsZSBWeExBTiBvZmZsb2FkcyBh
+cmUgZW5hYmxlZCwgDQo+ICsgb2ZmbG9hZHMgZm9yDQo+ICsgKiB0aG9zZSBvdGhlciB0dW5uZWxz
+IGFyZSB1bmV4cG9ydGVkIG9uIHRoZSBmbHkgdGhyb3VnaCBuZG9fZmVhdHVyZXNfY2hlY2soKS4N
+Cj4gICAqDQo+ICAgKiBTa3loYXdrIHN1cHBvcnRzIFZ4TEFOIG9mZmxvYWRzIG9ubHkgZm9yIG9u
+ZSBVRFAgZHBvcnQuIFNvLCBpZiB0aGUgc3RhY2sNCj4gICAqIGFkZHMgbW9yZSB0aGFuIG9uZSBw
+b3J0LCBkaXNhYmxlIG9mZmxvYWRzIGFuZCBkb24ndCByZS1lbmFibGUgdGhlbSANCj4gYWdhaW4g
+QEAgLTQ0NjMsNyArNDQ2NCw0MSBAQCBzdGF0aWMgbmV0ZGV2X2ZlYXR1cmVzX3QgYmVfZmVhdHVy
+ZXNfY2hlY2soc3RydWN0IHNrX2J1ZmYgKnNrYiwNCj4gICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgIHN0cnVjdCBuZXRfZGV2aWNlICpkZXYsDQo+ICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBuZXRkZXZfZmVhdHVyZXNfdCBmZWF0dXJl
+cykgIA0KPiB7DQo+IC0gICAgICAgcmV0dXJuIHZ4bGFuX2ZlYXR1cmVzX2NoZWNrKHNrYiwgZmVh
+dHVyZXMpOw0KPiArICAgICAgIHN0cnVjdCBiZV9hZGFwdGVyICphZGFwdGVyID0gbmV0ZGV2X3By
+aXYoZGV2KTsNCj4gKyAgICAgICB1OCBsNF9oZHIgPSAwOw0KPiArDQo+ICsgICAgICAgLyogVGhl
+IGNvZGUgYmVsb3cgcmVzdHJpY3RzIG9mZmxvYWQgZmVhdHVyZXMgZm9yIHNvbWUgdHVubmVsZWQg
+cGFja2V0cy4NCj4gKyAgICAgICAgKiBPZmZsb2FkIGZlYXR1cmVzIGZvciBub3JtYWwgKG5vbiB0
+dW5uZWwpIHBhY2tldHMgYXJlIHVuY2hhbmdlZC4NCj4gKyAgICAgICAgKi8NCj4gKyAgICAgICBp
+ZiAoIXNrYi0+ZW5jYXBzdWxhdGlvbiB8fA0KPiArICAgICAgICAgICAhKGFkYXB0ZXItPmZsYWdz
+ICYgQkVfRkxBR1NfVlhMQU5fT0ZGTE9BRFMpKQ0KPiArICAgICAgICAgICAgICAgcmV0dXJuIGZl
+YXR1cmVzOw0KPiArDQo+ICsgICAgICAgLyogSXQncyBhbiBlbmNhcHN1bGF0ZWQgcGFja2V0IGFu
+ZCBWeExBTiBvZmZsb2FkcyBhcmUgZW5hYmxlZC4gV2UNCj4gKyAgICAgICAgKiBzaG91bGQgZGlz
+YWJsZSB0dW5uZWwgb2ZmbG9hZCBmZWF0dXJlcyBpZiBpdCdzIG5vdCBhIFZ4TEFOIHBhY2tldCwN
+Cj4gKyAgICAgICAgKiBhcyB0dW5uZWwgb2ZmbG9hZHMgaGF2ZSBiZWVuIGVuYWJsZWQgb25seSBm
+b3IgVnhMQU4uIFRoaXMgaXMgZG9uZSB0bw0KPiArICAgICAgICAqIGFsbG93IG90aGVyIHR1bm5l
+bGVkIHRyYWZmaWMgbGlrZSBHUkUgd29yayBmaW5lIHdoaWxlIFZ4TEFODQo+ICsgICAgICAgICog
+b2ZmbG9hZHMgYXJlIGNvbmZpZ3VyZWQgaW4gU2t5aGF3ay1SLg0KPiArICAgICAgICAqLw0KPiAr
+ICAgICAgIHN3aXRjaCAodmxhbl9nZXRfcHJvdG9jb2woc2tiKSkgew0KPiArICAgICAgIGNhc2Ug
+aHRvbnMoRVRIX1BfSVApOg0KPiArICAgICAgICAgICAgICAgbDRfaGRyID0gaXBfaGRyKHNrYikt
+PnByb3RvY29sOw0KPiArICAgICAgICAgICAgICAgYnJlYWs7DQo+ICsgICAgICAgY2FzZSBodG9u
+cyhFVEhfUF9JUFY2KToNCj4gKyAgICAgICAgICAgICAgIGw0X2hkciA9IGlwdjZfaGRyKHNrYikt
+Pm5leHRoZHI7DQo+ICsgICAgICAgICAgICAgICBicmVhazsNCj4gKyAgICAgICBkZWZhdWx0Og0K
+PiArICAgICAgICAgICAgICAgcmV0dXJuIGZlYXR1cmVzOw0KPiArICAgICAgIH0NCj4gKw0KPiAr
+ICAgICAgIGlmIChsNF9oZHIgIT0gSVBQUk9UT19VRFAgfHwNCg0KSSBkb24ndCB1bmRlcnN0YW5k
+IHdoeSB0aGlzIGlzIG5lZWRlZC4gVGhlIG9ubHkgR1NPIHR5cGUgd2l0aCB3aXRoIGVuY2Fwc3Vs
+YXRpb24gYWxsb3dlZCBieSBkZXZpY2UgZmVhdHVyZXMgU0tCX0dTT19VRFBfVFVOTkVMLiBUaGlz
+IHNob3VsZCBub3QgYmUgR1JFIGZvciBpbnN0YW5jZS4gRG8geW91IHNlZSBjYXNlcyB3aGVyZSBw
+cm90b2NvbCBpcyBub3QgVURQIGF0IHRoaXMgcG9pbnQ/DQpbSGFyc2hhXSBJdCdzIG5lZWRlZCBm
+b3IgR1JFIGNoZWNrc3VtIGNhc2U7IHdpdGhvdXQgdGhpcywgIEdSRSBwa3RzIGFyZSBzZW50IGRv
+d24gd2l0aG91dCBjaGVja3N1bSBieSB0aGUgc3RhY2ssIGJ1dCBIVw0KY2FuIG9ubHkgb2ZmbG9h
+ZCBjaGVja3N1bSBmb3IgVnhMQU4gcGt0cy4NCg0KPiArICAgICAgICAgICBza2ItPmlubmVyX3By
+b3RvY29sX3R5cGUgIT0gRU5DQVBfVFlQRV9FVEhFUiB8fA0KPiArICAgICAgICAgICBza2ItPmlu
+bmVyX3Byb3RvY29sICE9IGh0b25zKEVUSF9QX1RFQikgfHwNCj4gKyAgICAgICAgICAgc2tiX2lu
+bmVyX21hY19oZWFkZXIoc2tiKSAtIHNrYl90cmFuc3BvcnRfaGVhZGVyKHNrYikgIT0NCj4gKyAg
+ICAgICAgICAgc2l6ZW9mKHN0cnVjdCB1ZHBoZHIpICsgc2l6ZW9mKHN0cnVjdCB2eGxhbmhkcikp
+DQo+ICsgICAgICAgICAgICAgICByZXR1cm4gZmVhdHVyZXMgJiB+KE5FVElGX0ZfQUxMX0NTVU0g
+fCANCj4gKyBORVRJRl9GX0dTT19NQVNLKTsNCj4gKw0KPiArICAgICAgIHJldHVybiBmZWF0dXJl
+czsNCj4gIH0NCj4gICNlbmRpZg0KPg0KPiAtLQ0KPiAxLjcuOS41DQo+DQo+IC0tDQo+IFRvIHVu
+c3Vic2NyaWJlIGZyb20gdGhpcyBsaXN0OiBzZW5kIHRoZSBsaW5lICJ1bnN1YnNjcmliZSBuZXRk
+ZXYiIGluIA0KPiB0aGUgYm9keSBvZiBhIG1lc3NhZ2UgdG8gbWFqb3Jkb21vQHZnZXIua2VybmVs
+Lm9yZyBNb3JlIG1ham9yZG9tbyBpbmZvIA0KPiBhdCAgaHR0cDovL3ZnZXIua2VybmVsLm9yZy9t
+YWpvcmRvbW8taW5mby5odG1sDQo=
