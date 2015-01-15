@@ -1,43 +1,67 @@
-From: "tgraf@suug.ch" <tgraf@suug.ch>
-Subject: Re: [PATCH net-next] bridge: fix setlink/dellink notifications
-Date: Thu, 15 Jan 2015 00:01:25 +0000
-Message-ID: <20150115000125.GG2105@casper.infradead.org>
-References: <1421218123-18346-1-git-send-email-roopa@cumulusnetworks.com>
- <E4CD12F19ABA0C4D8729E087A761DC3505DEE86A@ORSMSX101.amr.corp.intel.com>
- <54B6FD60.8020106@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Arad, Ronen" <ronen.arad@intel.com>,
-	"roopa@cumulusnetworks.com" <roopa@cumulusnetworks.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"shemminger@vyatta.com" <shemminger@vyatta.com>,
-	"vyasevic@redhat.com" <vyasevic@redhat.com>,
-	"jhs@mojatatu.com" <jhs@mojatatu.com>,
-	"sfeldma@gmail.com" <sfeldma@gmail.com>,
-	"jiri@resnulli.us" <jiri@resnulli.us>,
-	"wkok@cumulusnetworks.com" <wkok@cumulusnetworks.com>
-To: John Fastabend <john.fastabend@gmail.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [PATCH 0/5 net-next v5] VXLAN Group Policy Extension
+Date: Thu, 15 Jan 2015 01:10:36 +0100
+Message-ID: <cover.1421280226.git.tgraf@suug.ch>
+Cc: netdev@vger.kernel.org, dev@openvswitch.org
+To: davem@davemloft.ne, jesse@nicira.com, stephen@networkplumber.org,
+	pshelar@nicira.com, therbert@google.com,
+	alexei.starovoitov@gmail.com, nicolas.dichtel@6wind.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:34324 "EHLO
+Received: from casper.infradead.org ([85.118.1.10]:34392 "EHLO
 	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752306AbbAOABd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2015 19:01:33 -0500
-Content-Disposition: inline
-In-Reply-To: <54B6FD60.8020106@gmail.com>
+	with ESMTP id S1751871AbbAOAKp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2015 19:10:45 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/14/15 at 03:36pm, John Fastabend wrote:
-> On 01/14/2015 03:22 PM, Arad, Ronen wrote:
-> >What is the purpose of the above two lines (not changed by the patch)?
-> >They seem to copy over the flags with the successfully applied cases
-> >(MASTER and/or SELF) flags cleared back into the incoming netlink message.
-> >I could not figure any place where the modified flags attribute is used
-> 
-> This allows userspace to learn which operation failed when it is an
-> operation to set both the software bridge via BRIDGE_FLAGS_MASTER and
-> the the hardware via BRIDGE_FLAGS_SELF. When we get the error back
-> software looks at the flags to figure out how to recover/retry/etc.
+Implements supports for the Group Policy VXLAN extension [0] to provide
+a lightweight and simple security label mechanism across network peers
+based on VXLAN. The security context and associated metadata is mapped
+to/from skb->mark. This allows further mapping to a SELinux context
+using SECMARK, to implement ACLs directly with nftables, iptables, OVS,
+tc, etc.
 
-The intent of including the original message in the error Netlink
-message was originally to track the request that lead to the error ;-)
+The extension is disabled by default and should be run on a distinct
+port in mixed Linux VXLAN VTEP environments. Liberal VXLAN VTEPs
+which ignore unknown reserved bits will be able to receive VXLAN-GBP
+frames.
+
+Simple usage example:
+
+10.1.1.1:
+   # ip link add vxlan0 type vxlan id 10 remote 10.1.1.2 gbp
+   # iptables -I OUTPUT -m owner --uid-owner 101 -j MARK --set-mark 0x200
+
+10.1.1.2:
+   # ip link add vxlan0 type vxlan id 10 remote 10.1.1.1 gbp
+   # iptables -I INPUT -m mark --mark 0x200 -j DROP
+
+iproute2 [1] and OVS [2] support will be provided in separate patches.
+
+[0] https://tools.ietf.org/html/draft-smith-vxlan-group-policy
+[1] https://github.com/tgraf/iproute2/tree/vxlan-gbp
+[2] https://github.com/tgraf/ovs/tree/vxlan-gbp
+
+Thomas Graf (5):
+  vxlan: Group Policy extension
+  vxlan: Only bind to sockets with correct extensions enabled
+  openvswitch: Rename GENEVE_TUN_OPTS() to TUN_METADATA_OPTS()
+  openvswitch: Allow for any level of nesting in flow attributes
+  openvswitch: Support VXLAN Group Policy extension
+
+ drivers/net/vxlan.c              | 125 +++++++++++++----
+ include/net/ip_tunnels.h         |   5 +-
+ include/net/vxlan.h              |  83 +++++++++++-
+ include/uapi/linux/if_link.h     |   1 +
+ include/uapi/linux/openvswitch.h |  11 ++
+ net/openvswitch/flow.c           |   2 +-
+ net/openvswitch/flow.h           |  14 +-
+ net/openvswitch/flow_netlink.c   | 286 ++++++++++++++++++++++++++-------------
+ net/openvswitch/vport-geneve.c   |  15 +-
+ net/openvswitch/vport-vxlan.c    |  91 ++++++++++++-
+ net/openvswitch/vport-vxlan.h    |  11 ++
+ 11 files changed, 500 insertions(+), 144 deletions(-)
+ create mode 100644 net/openvswitch/vport-vxlan.h
+
+-- 
+1.9.3
