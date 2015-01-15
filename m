@@ -1,35 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sh_eth: Fix addition of .trscer_err_mask to wrong SoC
- data
-Date: Thu, 15 Jan 2015 14:09:53 -0500 (EST)
-Message-ID: <20150115.140953.2021061170661876815.davem@davemloft.net>
-References: <1421319139-22655-1-git-send-email-geert+renesas@glider.be>
+From: Kyle McMartin <kyle@infradead.org>
+Subject: Re: [PATCH] rtlwifi: rtl8192ee: New firmware from Realtek
+Date: Thu, 15 Jan 2015 14:21:27 -0500
+Message-ID: <20150115192127.GA30928@merlin.infradead.org>
+References: <1421270679-3029-1-git-send-email-Larry.Finger@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: nobuhiro.iwamatsu.yj@renesas.com, yoshihiro.shimoda.uh@renesas.com,
-	netdev@vger.kernel.org, linux-sh@vger.kernel.org
-To: geert+renesas@glider.be
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <1421319139-22655-1-git-send-email-geert+renesas@glider.be>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-firmware@kernel.org, linux-wireless@vger.kernel.org,
+	Troy Tan <troy_tan@realsil.com.cn>, netdev@vger.kernel.org
+To: Larry Finger <Larry.Finger@lwfinger.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from merlin.infradead.org ([205.233.59.134]:34222 "EHLO
+	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755146AbbAOTVb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jan 2015 14:21:31 -0500
+Content-Disposition: inline
+In-Reply-To: <1421270679-3029-1-git-send-email-Larry.Finger@lwfinger.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Geert Uytterhoeven <geert+renesas@glider.be>
-Date: Thu, 15 Jan 2015 11:52:19 +0100
+On Wed, Jan 14, 2015 at 03:24:39PM -0600, Larry Finger wrote:
+> From: Troy Tan <troy_tan@realsil.com.cn>
+> 
+> Recent testing by Realtek found bugs in both the driver and firmware for
+> the RTL8192EE chips.
+> 
+> Signed-off-by: Troy Tan <troy_tan@realsil.com.cn>
+> Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+> ---
+>  WHENCE                  |   5 ++++-
+>  rtlwifi/rtl8192eefw.bin | Bin 32754 -> 31818 bytes
+>  2 files changed, 4 insertions(+), 1 deletion(-)
+> 
+> diff --git a/WHENCE b/WHENCE
+> index df2dffa..c6f650e 100644
+> --- a/WHENCE
+> +++ b/WHENCE
+> @@ -2115,7 +2115,10 @@ Licence: Redistributable. See LICENCE.rtlwifi_firmware.txt for details.
+>  
+>  Driver: rtl8192ee - Realtek 802.11n WLAN driver for RTL8192EE
+>  
+> -Info: Taken from Realtek version rtl_92ce_92se_92de_8723ae_88ee_8723be_92ee_linux_mac80211_0017.1224.2013
+> +Info: Initial version taken from Realtek version
+> +      rtl_92ce_92se_92de_8723ae_88ee_8723be_92ee_linux_mac80211_0017.1224.2013
+> +      Updated Jan. 14, 2015 with file added by Realtek to
+> +      http://github.com/lwfinger/rtlwifi_new.git.
+>  File: rtlwifi/rtl8192eefw.bin
+>  
 
-> commit b284fbe3b3ef9cf8 ("sh_eth: Fix access to TRSCER register") wanted
-> to add a .trscer_err_mask value to the R-Car Gen2 family-specific data
-> structure (r8a779x_data), but it was accidentally added to the
-> SH7724-specific data structure (sh7724_data).
-> 
-> Presumably this happened due to a patch conflict with commit
-> d407bc0203539031 ("sh-eth: Set fdr_value of R-Car SoCs"), which added
-> another field at the same position.
-> 
-> Move the field setting to fix this.
-> 
-> Signed-off-by: Geert Uytterhoeven <geert+renesas@glider.be>
-> Fixes: b284fbe3b3ef9cf8 ("sh_eth: Fix access to TRSCER register")
+Looks good, applied. Thanks Larry.
 
-Oops, applied, thanks Geert.
+regards, Kyle
