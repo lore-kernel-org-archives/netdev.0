@@ -1,30 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net] be2net: Allow GRE to work concurrently while a
- VxLAN tunnel is configured
-Date: Thu, 15 Jan 2015 01:55:35 -0500 (EST)
-Message-ID: <20150115.015535.1738053583499872779.davem@davemloft.net>
-References: <1421318323-2547-1-git-send-email-sriharsha.basavapatna@emulex.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: core: Fix race by  protecting process_queues at
+ CPU hotplug
+Date: Wed, 14 Jan 2015 23:01:22 -0800
+Message-ID: <1421305282.11734.38.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <75547b88b7e2d15b35339a6321c3a929.squirrel@www.codeaurora.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: sriharsha.basavapatna@emulex.com
+To: subashab@codeaurora.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48452 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751094AbbAOGzg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jan 2015 01:55:36 -0500
-In-Reply-To: <1421318323-2547-1-git-send-email-sriharsha.basavapatna@emulex.com>
+Received: from mail-ig0-f179.google.com ([209.85.213.179]:55315 "EHLO
+	mail-ig0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751047AbbAOHBY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jan 2015 02:01:24 -0500
+Received: by mail-ig0-f179.google.com with SMTP id l13so13129722iga.0
+        for <netdev@vger.kernel.org>; Wed, 14 Jan 2015 23:01:23 -0800 (PST)
+In-Reply-To: <75547b88b7e2d15b35339a6321c3a929.squirrel@www.codeaurora.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sriharsha Basavapatna <sriharsha.basavapatna@emulex.com>
-Date: Thu, 15 Jan 2015 16:08:43 +0530
+On Thu, 2015-01-15 at 03:13 +0000, subashab@codeaurora.org wrote:
+> I am seeing frequent crashes in high throughput conditions in a
+> multiprocessor system with kernel version 3.10 where cores are getting hot
+> plugged. I have pinned the network stack to a particular core using
+> receive packet steering (RPS). At the time of crash, it looks like a
+> contention of the process_queue between dev_cpu_callback and
+> process_backlog.
 
-> Other tunnels like GRE break while VxLAN offloads are enabled in Skyhawk-R. To
-> avoid this, we should restrict offload features on a per-packet basis in such
-> conditions.
-> 
-> Signed-off-by: Sriharsha Basavapatna <sriharsha.basavapatna@emulex.com>
-
-Applied, thanks.
+Your patch is mangled, hard to tell what is going on.
