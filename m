@@ -1,42 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/2] net: ipv4: handle DSA enabled
- master network devices
-Date: Thu, 15 Jan 2015 18:19:08 -0500 (EST)
-Message-ID: <20150115.181908.1075649419660019957.davem@davemloft.net>
-References: <1421257932-11073-1-git-send-email-f.fainelli@gmail.com>
-	<1421257932-11073-2-git-send-email-f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next] ipv4: per cpu uncached list
+Date: Thu, 15 Jan 2015 18:26:39 -0500 (EST)
+Message-ID: <20150115.182639.1035013313619765901.davem@davemloft.net>
+References: <1421277426.11734.36.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org, kaber@trash.net,
-	buytenh@wantstofly.org
-To: f.fainelli@gmail.com
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1421257932-11073-2-git-send-email-f.fainelli@gmail.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, willemb@google.com
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:55768 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752743AbbAOX0l (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jan 2015 18:26:41 -0500
+In-Reply-To: <1421277426.11734.36.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Wed, 14 Jan 2015 09:52:11 -0800
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 14 Jan 2015 15:17:06 -0800
 
-> -	/* bring loopback device up first */
-> +	/* bring loopback an DSA master network devices up first */
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> RAW sockets with hdrinc suffer from contention on rt_uncached_lock
+> spinlock.
+> 
+> One solution is to use percpu lists, since most routes are destroyed
+> by the cpu that created them.
+> 
+> It is unclear why we even have to put these routes in uncached_list,
+> as all outgoing packets should be freed when a device is dismantled.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Fixes: caacf05e5ad1 ("ipv4: Properly purge netdev references on uncached routes.")
 
-Typo: "an" should be "and"
-
-> -		if (dev != ic_dev) {
-> +		/* Only bring down unused devices and not DSA enabled master
-> +		 * devices
-> +		 */
-> +		if (dev != ic_dev && !netdev_uses_dsa(dev)) {
-
-You don't have to add a comment which just reads the code, I'm
-a programmer so I am able to do that all on my own :-)
+This looks fine, applied, thanks Eric.
