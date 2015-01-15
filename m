@@ -1,37 +1,73 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ipv4: per cpu uncached list
-Date: Thu, 15 Jan 2015 18:26:39 -0500 (EST)
-Message-ID: <20150115.182639.1035013313619765901.davem@davemloft.net>
-References: <1421277426.11734.36.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Shuah Khan <shuahkh-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>
+Subject: Re: [PATCH v4 20/20] kbuild: add a new kselftest_install make target
+ to install selftests
+Date: Thu, 15 Jan 2015 16:41:32 -0700
+Message-ID: <54B8502C.2040708@osg.samsung.com>
+References: <cover.1420571615.git.shuahkh@osg.samsung.com> <2c5a28faaa79d9c2415854a08817ada509fcb943.1420571615.git.shuahkh@osg.samsung.com> <54B69A1B.80006@osg.samsung.com> <1421362698.23332.6.camel@ellerman.id.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, willemb@google.com
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55768 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752743AbbAOX0l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jan 2015 18:26:41 -0500
-In-Reply-To: <1421277426.11734.36.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: mmarek-AlSwsSmVLrQ@public.gmane.org, masami.hiramatsu.pt-FCd8Q96Dh0JBDgjK7y7TUQ@public.gmane.org,
+	gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
+	rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org, mingo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org, tranmanphong-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, cov-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
+	dh.herrmann-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, hughd-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, bobby.prani-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	serge.hallyn-GeWIH/nMZzLQT0dZR+AlfA@public.gmane.org, ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org,
+	tim.bird-/MT0OVThwyLZJqsBc5GL+g@public.gmane.org, josh-iaAMLnmF4UmaiuxdJuQwMA@public.gmane.org, koct9i-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	linux-kbuild-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Michael Ellerman <mpe-Gsx/Oe8HsFggBc27wqDAHg@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1421362698.23332.6.camel-Gsx/Oe8HsFggBc27wqDAHg@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 14 Jan 2015 15:17:06 -0800
+On 01/15/2015 03:58 PM, Michael Ellerman wrote:
+> On Wed, 2015-01-14 at 09:32 -0700, Shuah Khan wrote:
+>> On 01/06/2015 12:43 PM, Shuah Khan wrote:
+>>> Add a new make target to install to install kernel selftests.
+>>> This new target will build and install selftests. kselftest
+>>> target now depends on kselftest_install and runs the generated
+>>> kselftest script to reduce duplicate work and for common look
+>>> and feel when running tests.
+>>>
+>>> make kselftest_target:
+>>> -- exports kselftest INSTALL_KSFT_PATH
+>>>    default $(INSTALL_MOD_PATH)/lib/kselftest/$(KERNELRELEASE)
+>>> -- exports INSTALL_KSFT_PATH
+>>> -- runs selftests make install target
+>>>
+>>> Signed-off-by: Shuah Khan <shuahkh-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>
+>>
+>> Hi Marek,
+>>
+>> Could you please Ack this patch, if this version looks good,
+>> so I can take this through ksefltest tree.
+> 
+> Hi Shuah,
+> 
+> I posted what I think is a better approach last week. It's less code and less
+> repetition, and installs the majority of tests this series missed - ie. the
+> powerpc ones.
+> 
+> Please at least respond to it before you put this series into next.
+> 
+> https://lkml.org/lkml/2015/1/9/45
+> 
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> RAW sockets with hdrinc suffer from contention on rt_uncached_lock
-> spinlock.
-> 
-> One solution is to use percpu lists, since most routes are destroyed
-> by the cpu that created them.
-> 
-> It is unclear why we even have to put these routes in uncached_list,
-> as all outgoing packets should be freed when a device is dismantled.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Fixes: caacf05e5ad1 ("ipv4: Properly purge netdev references on uncached routes.")
+Michael,
 
-This looks fine, applied, thanks Eric.
+I didn't get a chance to review your patches yet. I plan to
+review and give you feedback by end of this week. This patch
+is needed in any case for either approach.
+
+thanks,
+-- Shuah
+
+
+-- 
+Shuah Khan
+Sr. Linux Kernel Developer
+Open Source Innovation Group
+Samsung Research America (Silicon Valley)
+shuahkh-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org | (970) 217-8978
