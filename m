@@ -1,215 +1,235 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH 4/5] openvswitch: Allow for any level of nesting in flow attributes
-Date: Thu, 15 Jan 2015 01:10:40 +0100
-Message-ID: <b0a89cdde69dedebf343cc21e7e3531416b6345b.1421280226.git.tgraf@suug.ch>
+Subject: [PATCH 3/5] openvswitch: Rename GENEVE_TUN_OPTS() to TUN_METADATA_OPTS()
+Date: Thu, 15 Jan 2015 01:10:39 +0100
+Message-ID: <3fd7c81b92ac9daf5c4fa89b7bc13a87fa8663d1.1421280226.git.tgraf@suug.ch>
 References: <cover.1421280226.git.tgraf@suug.ch>
 Cc: netdev@vger.kernel.org, dev@openvswitch.org
 To: davem@davemloft.ne, jesse@nicira.com, stephen@networkplumber.org,
 	pshelar@nicira.com, therbert@google.com,
 	alexei.starovoitov@gmail.com, nicolas.dichtel@6wind.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:34410 "EHLO
+Received: from casper.infradead.org ([85.118.1.10]:34406 "EHLO
 	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751951AbbAOAKq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2015 19:10:46 -0500
+	with ESMTP id S1751919AbbAOAKp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2015 19:10:45 -0500
 In-Reply-To: <cover.1421280226.git.tgraf@suug.ch>
 In-Reply-To: <cover.1421280226.git.tgraf@suug.ch>
 References: <cover.1421280226.git.tgraf@suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-nlattr_set() is currently hardcoded to two levels of nesting. This change
-introduces struct ovs_len_tbl to define minimal length requirements plus
-next level nesting tables to traverse the key attributes to arbitrary depth.
+Also factors out Geneve validation code into a new separate function
+validate_and_copy_geneve_opts().
+
+A subsequent patch will introduce VXLAN options. Rename the existing
+GENEVE_TUN_OPTS() to reflect its extended purpose of carrying generic
+tunnel metadata options.
 
 Signed-off-by: Thomas Graf <tgraf@suug.ch>
 ---
 v4->v5:
  - No change
 v3->v4:
- - No change. The spotted bug is unrelatd to this series and will be fixed
-   in a separate patch
+ - Renamed validate_and_copy_geneve_opts() to validate_geneve_opts() as
+   suggested by Jesse
 v2->v3:
  - No change
 v1->v2:
- - New patch to allow nested Netlink attributes inside
-   OVS_TUNNEL_KEY_ATTR_VXLAN_OPTS
+ - Don't rename genev_tun_opt_from_nlattr() and keep it Geneve specific,
+   pointed out by Jesse.
+ - Factor out Geneve specific validation code into separate function as
+   requested by Jesse.
 
- net/openvswitch/flow_netlink.c | 106 ++++++++++++++++++++++-------------------
- 1 file changed, 56 insertions(+), 50 deletions(-)
+ net/openvswitch/flow.c         |  2 +-
+ net/openvswitch/flow.h         | 14 ++++----
+ net/openvswitch/flow_netlink.c | 72 +++++++++++++++++++++++-------------------
+ 3 files changed, 47 insertions(+), 41 deletions(-)
 
-diff --git a/net/openvswitch/flow_netlink.c b/net/openvswitch/flow_netlink.c
-index 2e8a9cd..518941c 100644
---- a/net/openvswitch/flow_netlink.c
-+++ b/net/openvswitch/flow_netlink.c
-@@ -50,6 +50,13 @@
+diff --git a/net/openvswitch/flow.c b/net/openvswitch/flow.c
+index df334fe..e2c348b 100644
+--- a/net/openvswitch/flow.c
++++ b/net/openvswitch/flow.c
+@@ -691,7 +691,7 @@ int ovs_flow_key_extract(const struct ovs_tunnel_info *tun_info,
+ 			BUILD_BUG_ON((1 << (sizeof(tun_info->options_len) *
+ 						   8)) - 1
+ 					> sizeof(key->tun_opts));
+-			memcpy(GENEVE_OPTS(key, tun_info->options_len),
++			memcpy(TUN_METADATA_OPTS(key, tun_info->options_len),
+ 			       tun_info->options, tun_info->options_len);
+ 			key->tun_opts_len = tun_info->options_len;
+ 		} else {
+diff --git a/net/openvswitch/flow.h b/net/openvswitch/flow.h
+index a8b30f3..d3d0a40 100644
+--- a/net/openvswitch/flow.h
++++ b/net/openvswitch/flow.h
+@@ -53,7 +53,7 @@ struct ovs_key_ipv4_tunnel {
  
- #include "flow_netlink.h"
- 
-+struct ovs_len_tbl {
-+	int len;
-+	const struct ovs_len_tbl *next;
-+};
-+
-+#define OVS_ATTR_NESTED -1
-+
- static void update_range(struct sw_flow_match *match,
- 			 size_t offset, size_t size, bool is_mask)
- {
-@@ -289,29 +296,44 @@ size_t ovs_key_attr_size(void)
- 		+ nla_total_size(28); /* OVS_KEY_ATTR_ND */
- }
- 
-+static const struct ovs_len_tbl ovs_tunnel_key_lens[OVS_TUNNEL_KEY_ATTR_MAX + 1] = {
-+	[OVS_TUNNEL_KEY_ATTR_ID]	    = { .len = sizeof(u64) },
-+	[OVS_TUNNEL_KEY_ATTR_IPV4_SRC]	    = { .len = sizeof(u32) },
-+	[OVS_TUNNEL_KEY_ATTR_IPV4_DST]	    = { .len = sizeof(u32) },
-+	[OVS_TUNNEL_KEY_ATTR_TOS]	    = { .len = 1 },
-+	[OVS_TUNNEL_KEY_ATTR_TTL]	    = { .len = 1 },
-+	[OVS_TUNNEL_KEY_ATTR_DONT_FRAGMENT] = { .len = 0 },
-+	[OVS_TUNNEL_KEY_ATTR_CSUM]	    = { .len = 0 },
-+	[OVS_TUNNEL_KEY_ATTR_TP_SRC]	    = { .len = sizeof(u16) },
-+	[OVS_TUNNEL_KEY_ATTR_TP_DST]	    = { .len = sizeof(u16) },
-+	[OVS_TUNNEL_KEY_ATTR_OAM]	    = { .len = 0 },
-+	[OVS_TUNNEL_KEY_ATTR_GENEVE_OPTS]   = { .len = OVS_ATTR_NESTED },
-+};
-+
- /* The size of the argument for each %OVS_KEY_ATTR_* Netlink attribute.  */
--static const int ovs_key_lens[OVS_KEY_ATTR_MAX + 1] = {
--	[OVS_KEY_ATTR_ENCAP] = -1,
--	[OVS_KEY_ATTR_PRIORITY] = sizeof(u32),
--	[OVS_KEY_ATTR_IN_PORT] = sizeof(u32),
--	[OVS_KEY_ATTR_SKB_MARK] = sizeof(u32),
--	[OVS_KEY_ATTR_ETHERNET] = sizeof(struct ovs_key_ethernet),
--	[OVS_KEY_ATTR_VLAN] = sizeof(__be16),
--	[OVS_KEY_ATTR_ETHERTYPE] = sizeof(__be16),
--	[OVS_KEY_ATTR_IPV4] = sizeof(struct ovs_key_ipv4),
--	[OVS_KEY_ATTR_IPV6] = sizeof(struct ovs_key_ipv6),
--	[OVS_KEY_ATTR_TCP] = sizeof(struct ovs_key_tcp),
--	[OVS_KEY_ATTR_TCP_FLAGS] = sizeof(__be16),
--	[OVS_KEY_ATTR_UDP] = sizeof(struct ovs_key_udp),
--	[OVS_KEY_ATTR_SCTP] = sizeof(struct ovs_key_sctp),
--	[OVS_KEY_ATTR_ICMP] = sizeof(struct ovs_key_icmp),
--	[OVS_KEY_ATTR_ICMPV6] = sizeof(struct ovs_key_icmpv6),
--	[OVS_KEY_ATTR_ARP] = sizeof(struct ovs_key_arp),
--	[OVS_KEY_ATTR_ND] = sizeof(struct ovs_key_nd),
--	[OVS_KEY_ATTR_RECIRC_ID] = sizeof(u32),
--	[OVS_KEY_ATTR_DP_HASH] = sizeof(u32),
--	[OVS_KEY_ATTR_TUNNEL] = -1,
--	[OVS_KEY_ATTR_MPLS] = sizeof(struct ovs_key_mpls),
-+static const struct ovs_len_tbl ovs_key_lens[OVS_KEY_ATTR_MAX + 1] = {
-+	[OVS_KEY_ATTR_ENCAP]	 = { .len = OVS_ATTR_NESTED },
-+	[OVS_KEY_ATTR_PRIORITY]	 = { .len = sizeof(u32) },
-+	[OVS_KEY_ATTR_IN_PORT]	 = { .len = sizeof(u32) },
-+	[OVS_KEY_ATTR_SKB_MARK]	 = { .len = sizeof(u32) },
-+	[OVS_KEY_ATTR_ETHERNET]	 = { .len = sizeof(struct ovs_key_ethernet) },
-+	[OVS_KEY_ATTR_VLAN]	 = { .len = sizeof(__be16) },
-+	[OVS_KEY_ATTR_ETHERTYPE] = { .len = sizeof(__be16) },
-+	[OVS_KEY_ATTR_IPV4]	 = { .len = sizeof(struct ovs_key_ipv4) },
-+	[OVS_KEY_ATTR_IPV6]	 = { .len = sizeof(struct ovs_key_ipv6) },
-+	[OVS_KEY_ATTR_TCP]	 = { .len = sizeof(struct ovs_key_tcp) },
-+	[OVS_KEY_ATTR_TCP_FLAGS] = { .len = sizeof(__be16) },
-+	[OVS_KEY_ATTR_UDP]	 = { .len = sizeof(struct ovs_key_udp) },
-+	[OVS_KEY_ATTR_SCTP]	 = { .len = sizeof(struct ovs_key_sctp) },
-+	[OVS_KEY_ATTR_ICMP]	 = { .len = sizeof(struct ovs_key_icmp) },
-+	[OVS_KEY_ATTR_ICMPV6]	 = { .len = sizeof(struct ovs_key_icmpv6) },
-+	[OVS_KEY_ATTR_ARP]	 = { .len = sizeof(struct ovs_key_arp) },
-+	[OVS_KEY_ATTR_ND]	 = { .len = sizeof(struct ovs_key_nd) },
-+	[OVS_KEY_ATTR_RECIRC_ID] = { .len = sizeof(u32) },
-+	[OVS_KEY_ATTR_DP_HASH]	 = { .len = sizeof(u32) },
-+	[OVS_KEY_ATTR_TUNNEL]	 = { .len = OVS_ATTR_NESTED,
-+				     .next = ovs_tunnel_key_lens, },
-+	[OVS_KEY_ATTR_MPLS]	 = { .len = sizeof(struct ovs_key_mpls) },
+ struct ovs_tunnel_info {
+ 	struct ovs_key_ipv4_tunnel tunnel;
+-	const struct geneve_opt *options;
++	const void *options;
+ 	u8 options_len;
  };
  
- static bool is_all_zero(const u8 *fp, size_t size)
-@@ -352,8 +374,8 @@ static int __parse_flow_nlattrs(const struct nlattr *attr,
- 			return -EINVAL;
- 		}
+@@ -61,10 +61,10 @@ struct ovs_tunnel_info {
+  * maximum size. This allows us to get the benefits of variable length
+  * matching for small options.
+  */
+-#define GENEVE_OPTS(flow_key, opt_len)	\
+-	((struct geneve_opt *)((flow_key)->tun_opts + \
+-			       FIELD_SIZEOF(struct sw_flow_key, tun_opts) - \
+-			       opt_len))
++#define TUN_METADATA_OFFSET(opt_len) \
++	(FIELD_SIZEOF(struct sw_flow_key, tun_opts) - opt_len)
++#define TUN_METADATA_OPTS(flow_key, opt_len) \
++	((void *)((flow_key)->tun_opts + TUN_METADATA_OFFSET(opt_len)))
  
--		expected_len = ovs_key_lens[type];
--		if (nla_len(nla) != expected_len && expected_len != -1) {
-+		expected_len = ovs_key_lens[type].len;
-+		if (nla_len(nla) != expected_len && expected_len != OVS_ATTR_NESTED) {
- 			OVS_NLERR(log, "Key %d has unexpected len %d expected %d",
- 				  type, nla_len(nla), expected_len);
- 			return -EINVAL;
-@@ -451,30 +473,16 @@ static int ipv4_tun_from_nlattr(const struct nlattr *attr,
- 		int type = nla_type(a);
- 		int err;
+ static inline void __ovs_flow_tun_info_init(struct ovs_tunnel_info *tun_info,
+ 					    __be32 saddr, __be32 daddr,
+@@ -73,7 +73,7 @@ static inline void __ovs_flow_tun_info_init(struct ovs_tunnel_info *tun_info,
+ 					    __be16 tp_dst,
+ 					    __be64 tun_id,
+ 					    __be16 tun_flags,
+-					    const struct geneve_opt *opts,
++					    const void *opts,
+ 					    u8 opts_len)
+ {
+ 	tun_info->tunnel.tun_id = tun_id;
+@@ -105,7 +105,7 @@ static inline void ovs_flow_tun_info_init(struct ovs_tunnel_info *tun_info,
+ 					  __be16 tp_dst,
+ 					  __be64 tun_id,
+ 					  __be16 tun_flags,
+-					  const struct geneve_opt *opts,
++					  const void *opts,
+ 					  u8 opts_len)
+ {
+ 	__ovs_flow_tun_info_init(tun_info, iph->saddr, iph->daddr,
+diff --git a/net/openvswitch/flow_netlink.c b/net/openvswitch/flow_netlink.c
+index d1eecf7..2e8a9cd 100644
+--- a/net/openvswitch/flow_netlink.c
++++ b/net/openvswitch/flow_netlink.c
+@@ -432,8 +432,7 @@ static int genev_tun_opt_from_nlattr(const struct nlattr *a,
+ 		SW_FLOW_KEY_PUT(match, tun_opts_len, 0xff, true);
+ 	}
  
--		static const u32 ovs_tunnel_key_lens[OVS_TUNNEL_KEY_ATTR_MAX + 1] = {
--			[OVS_TUNNEL_KEY_ATTR_ID] = sizeof(u64),
--			[OVS_TUNNEL_KEY_ATTR_IPV4_SRC] = sizeof(u32),
--			[OVS_TUNNEL_KEY_ATTR_IPV4_DST] = sizeof(u32),
--			[OVS_TUNNEL_KEY_ATTR_TOS] = 1,
--			[OVS_TUNNEL_KEY_ATTR_TTL] = 1,
--			[OVS_TUNNEL_KEY_ATTR_DONT_FRAGMENT] = 0,
--			[OVS_TUNNEL_KEY_ATTR_CSUM] = 0,
--			[OVS_TUNNEL_KEY_ATTR_TP_SRC] = sizeof(u16),
--			[OVS_TUNNEL_KEY_ATTR_TP_DST] = sizeof(u16),
--			[OVS_TUNNEL_KEY_ATTR_OAM] = 0,
--			[OVS_TUNNEL_KEY_ATTR_GENEVE_OPTS] = -1,
--		};
--
- 		if (type > OVS_TUNNEL_KEY_ATTR_MAX) {
- 			OVS_NLERR(log, "Tunnel attr %d out of range max %d",
- 				  type, OVS_TUNNEL_KEY_ATTR_MAX);
- 			return -EINVAL;
- 		}
- 
--		if (ovs_tunnel_key_lens[type] != nla_len(a) &&
--		    ovs_tunnel_key_lens[type] != -1) {
-+		if (ovs_tunnel_key_lens[type].len != nla_len(a) &&
-+		    ovs_tunnel_key_lens[type].len != OVS_ATTR_NESTED) {
- 			OVS_NLERR(log, "Tunnel attr %d has unexpected len %d expected %d",
--				  type, nla_len(a), ovs_tunnel_key_lens[type]);
-+				  type, nla_len(a), ovs_tunnel_key_lens[type].len);
- 			return -EINVAL;
- 		}
- 
-@@ -912,18 +920,16 @@ static int ovs_key_from_nlattrs(struct sw_flow_match *match, u64 attrs,
+-	opt_key_offset = (unsigned long)GENEVE_OPTS((struct sw_flow_key *)0,
+-						    nla_len(a));
++	opt_key_offset = TUN_METADATA_OFFSET(nla_len(a));
+ 	SW_FLOW_KEY_MEMCPY_OFFSET(match, opt_key_offset, nla_data(a),
+ 				  nla_len(a), is_mask);
  	return 0;
- }
+@@ -558,8 +557,7 @@ static int ipv4_tun_from_nlattr(const struct nlattr *attr,
  
--static void nlattr_set(struct nlattr *attr, u8 val, bool is_attr_mask_key)
-+static void nlattr_set(struct nlattr *attr, u8 val,
-+		       const struct ovs_len_tbl *tbl)
+ static int __ipv4_tun_to_nlattr(struct sk_buff *skb,
+ 				const struct ovs_key_ipv4_tunnel *output,
+-				const struct geneve_opt *tun_opts,
+-				int swkey_tun_opts_len)
++				const void *tun_opts, int swkey_tun_opts_len)
+ {
+ 	if (output->tun_flags & TUNNEL_KEY &&
+ 	    nla_put_be64(skb, OVS_TUNNEL_KEY_ATTR_ID, output->tun_id))
+@@ -600,8 +598,7 @@ static int __ipv4_tun_to_nlattr(struct sk_buff *skb,
+ 
+ static int ipv4_tun_to_nlattr(struct sk_buff *skb,
+ 			      const struct ovs_key_ipv4_tunnel *output,
+-			      const struct geneve_opt *tun_opts,
+-			      int swkey_tun_opts_len)
++			      const void *tun_opts, int swkey_tun_opts_len)
  {
  	struct nlattr *nla;
- 	int rem;
+ 	int err;
+@@ -1148,10 +1145,10 @@ int ovs_nla_put_flow(const struct sw_flow_key *swkey,
+ 		goto nla_put_failure;
  
- 	/* The nlattr stream should already have been validated */
- 	nla_for_each_nested(nla, attr, rem) {
--		/* We assume that ovs_key_lens[type] == -1 means that type is a
--		 * nested attribute
--		 */
--		if (is_attr_mask_key && ovs_key_lens[nla_type(nla)] == -1)
--			nlattr_set(nla, val, false);
-+		if (tbl && tbl[nla_type(nla)].len == OVS_ATTR_NESTED)
-+			nlattr_set(nla, val, tbl[nla_type(nla)].next);
- 		else
- 			memset(nla_data(nla), val, nla_len(nla));
+ 	if ((swkey->tun_key.ipv4_dst || is_mask)) {
+-		const struct geneve_opt *opts = NULL;
++		const void *opts = NULL;
+ 
+ 		if (output->tun_key.tun_flags & TUNNEL_OPTIONS_PRESENT)
+-			opts = GENEVE_OPTS(output, swkey->tun_opts_len);
++			opts = TUN_METADATA_OPTS(output, swkey->tun_opts_len);
+ 
+ 		if (ipv4_tun_to_nlattr(skb, &output->tun_key, opts,
+ 				       swkey->tun_opts_len))
+@@ -1540,6 +1537,34 @@ void ovs_match_init(struct sw_flow_match *match,
  	}
-@@ -931,7 +937,7 @@ static void nlattr_set(struct nlattr *attr, u8 val, bool is_attr_mask_key)
- 
- static void mask_set_nlattr(struct nlattr *attr, u8 val)
- {
--	nlattr_set(attr, val, true);
-+	nlattr_set(attr, val, ovs_key_lens);
  }
  
- /**
-@@ -1628,8 +1634,8 @@ static int validate_set(const struct nlattr *a,
- 		return -EINVAL;
++static int validate_geneve_opts(struct sw_flow_key *key)
++{
++	struct geneve_opt *option;
++	int opts_len = key->tun_opts_len;
++	bool crit_opt = false;
++
++	option = (struct geneve_opt *)TUN_METADATA_OPTS(key, key->tun_opts_len);
++	while (opts_len > 0) {
++		int len;
++
++		if (opts_len < sizeof(*option))
++			return -EINVAL;
++
++		len = sizeof(*option) + option->length * 4;
++		if (len > opts_len)
++			return -EINVAL;
++
++		crit_opt |= !!(option->type & GENEVE_CRIT_OPT_TYPE);
++
++		option = (struct geneve_opt *)((u8 *)option + len);
++		opts_len -= len;
++	};
++
++	key->tun_key.tun_flags |= crit_opt ? TUNNEL_CRIT_OPT : 0;
++
++	return 0;
++}
++
+ static int validate_and_copy_set_tun(const struct nlattr *attr,
+ 				     struct sw_flow_actions **sfa, bool log)
+ {
+@@ -1555,28 +1580,9 @@ static int validate_and_copy_set_tun(const struct nlattr *attr,
+ 		return err;
  
- 	if (key_type > OVS_KEY_ATTR_MAX ||
--	    (ovs_key_lens[key_type] != nla_len(ovs_key) &&
--	     ovs_key_lens[key_type] != -1))
-+	    (ovs_key_lens[key_type].len != nla_len(ovs_key) &&
-+	     ovs_key_lens[key_type].len != OVS_ATTR_NESTED))
- 		return -EINVAL;
+ 	if (key.tun_opts_len) {
+-		struct geneve_opt *option = GENEVE_OPTS(&key,
+-							key.tun_opts_len);
+-		int opts_len = key.tun_opts_len;
+-		bool crit_opt = false;
+-
+-		while (opts_len > 0) {
+-			int len;
+-
+-			if (opts_len < sizeof(*option))
+-				return -EINVAL;
+-
+-			len = sizeof(*option) + option->length * 4;
+-			if (len > opts_len)
+-				return -EINVAL;
+-
+-			crit_opt |= !!(option->type & GENEVE_CRIT_OPT_TYPE);
+-
+-			option = (struct geneve_opt *)((u8 *)option + len);
+-			opts_len -= len;
+-		};
+-
+-		key.tun_key.tun_flags |= crit_opt ? TUNNEL_CRIT_OPT : 0;
++		err = validate_geneve_opts(&key);
++		if (err < 0)
++			return err;
+ 	};
  
- 	switch (key_type) {
+ 	start = add_nested_action_start(sfa, OVS_ACTION_ATTR_SET, log);
+@@ -1597,9 +1603,9 @@ static int validate_and_copy_set_tun(const struct nlattr *attr,
+ 		 * everything else will go away after flow setup. We can append
+ 		 * it to tun_info and then point there.
+ 		 */
+-		memcpy((tun_info + 1), GENEVE_OPTS(&key, key.tun_opts_len),
+-		       key.tun_opts_len);
+-		tun_info->options = (struct geneve_opt *)(tun_info + 1);
++		memcpy((tun_info + 1),
++		       TUN_METADATA_OPTS(&key, key.tun_opts_len), key.tun_opts_len);
++		tun_info->options = (tun_info + 1);
+ 	} else {
+ 		tun_info->options = NULL;
+ 	}
 -- 
 1.9.3
