@@ -1,51 +1,25 @@
-From: Sriharsha Basavapatna <Sriharsha.Basavapatna@Emulex.Com>
-Subject: RE: [PATCH v2 net] be2net: Allow GRE to work concurrently while a
- VxLAN tunnel is configured
-Date: Thu, 15 Jan 2015 05:45:19 +0000
-Message-ID: <31318D46B5DF3F4AB71CC057601E9FEB3A7F61F2@CMEXMB1.ad.emulex.com>
-References: <1421318323-2547-1-git-send-email-sriharsha.basavapatna@emulex.com>
-	<CA+mtBx9Kd8JM53RJFJ_R-ZW_FN=UhDQgBNgLNPqadGA9o3ZNiA@mail.gmail.com>
-	<31318D46B5DF3F4AB71CC057601E9FEB3A7F5178@CMEXMB1.ad.emulex.com>
- <CA+mtBx-tLRi21Sveh-TOmMC0T2cRNqcaEOx2thnqhU-ZLyaN2A@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: [MERGE] net --> net-next
+Date: Thu, 15 Jan 2015 01:06:19 -0500 (EST)
+Message-ID: <20150115.010619.430138510796706708.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: Tom Herbert <therbert@google.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge1.emulex.com ([138.239.224.99]:32170 "EHLO
-	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750703AbbAOFpq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jan 2015 00:45:46 -0500
-In-Reply-To: <CA+mtBx-tLRi21Sveh-TOmMC0T2cRNqcaEOx2thnqhU-ZLyaN2A@mail.gmail.com>
-Content-Language: en-US
+Received: from shards.monkeyblade.net ([149.20.54.216]:48234 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750703AbbAOGGZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jan 2015 01:06:25 -0500
+Received: from localhost (cpe-67-247-12-89.nyc.res.rr.com [67.247.12.89])
+	(Authenticated sender: davem-davemloft)
+	by shards.monkeyblade.net (Postfix) with ESMTPSA id B903A586DEB
+	for <netdev@vger.kernel.org>; Wed, 14 Jan 2015 22:06:24 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQoNCi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQpGcm9tOiBUb20gSGVyYmVydCBbbWFpbHRv
-OnRoZXJiZXJ0QGdvb2dsZS5jb21dIA0KU2VudDogVGh1cnNkYXksIEphbnVhcnkgMTUsIDIwMTUg
-MTE6MDQgQU0NClRvOiBTcmloYXJzaGEgQmFzYXZhcGF0bmENCkNjOiBMaW51eCBOZXRkZXYgTGlz
-dA0KU3ViamVjdDogUmU6IFtQQVRDSCB2MiBuZXRdIGJlMm5ldDogQWxsb3cgR1JFIHRvIHdvcmsg
-Y29uY3VycmVudGx5IHdoaWxlIGEgVnhMQU4gdHVubmVsIGlzIGNvbmZpZ3VyZWQNCg0KPiBJIGRv
-bid0IHVuZGVyc3RhbmQgd2h5IHRoaXMgaXMgbmVlZGVkLiBUaGUgb25seSBHU08gdHlwZSB3aXRo
-IHdpdGggZW5jYXBzdWxhdGlvbiBhbGxvd2VkIGJ5IGRldmljZSBmZWF0dXJlcyBTS0JfR1NPX1VE
-UF9UVU5ORUwuIFRoaXMgc2hvdWxkIG5vdCBiZSBHUkUgZm9yIGluc3RhbmNlLiBEbyB5b3Ugc2Vl
-IGNhc2VzIHdoZXJlIHByb3RvY29sIGlzIG5vdCBVRFAgYXQgdGhpcyBwb2ludD8NCj4gW0hhcnNo
-YV0gSXQncyBuZWVkZWQgZm9yIEdSRSBjaGVja3N1bSBjYXNlOyB3aXRob3V0IHRoaXMsICBHUkUg
-cGt0cyANCj4gYXJlIHNlbnQgZG93biB3aXRob3V0IGNoZWNrc3VtIGJ5IHRoZSBzdGFjaywgYnV0
-IEhXIGNhbiBvbmx5IG9mZmxvYWQgY2hlY2tzdW0gZm9yIFZ4TEFOIHBrdHMuDQo+DQpPa2F5LCBJ
-IHNlZSB0aGF0IHRoaXMgaXMgYSBwcm9ibGVtIHdpdGggY2hlY2tzdW0gbm90IEdTTy4gUGxlYXNl
-IGFzayB5b3VyIGhhcmR3YXJlIGd1eXMgdG8gcHJvdmlkZSBORVRJRl9GX0hXX0NTVU0gdG8gYXZv
-aWQgYW55IG1vcmUgb2YgdGhpcyB1bnBsZWFzYW50bmVzcyBpbiB0aGUgZnV0dXJlIDotKQ0KW0hh
-cnNoYV0gT2ssIHdpbGwgZG8gOi0pDQoNCj4+ICsgICAgICAgICAgIHNrYi0+aW5uZXJfcHJvdG9j
-b2xfdHlwZSAhPSBFTkNBUF9UWVBFX0VUSEVSIHx8DQo+PiArICAgICAgICAgICBza2ItPmlubmVy
-X3Byb3RvY29sICE9IGh0b25zKEVUSF9QX1RFQikgfHwNCj4+ICsgICAgICAgICAgIHNrYl9pbm5l
-cl9tYWNfaGVhZGVyKHNrYikgLSBza2JfdHJhbnNwb3J0X2hlYWRlcihza2IpICE9DQo+PiArICAg
-ICAgICAgICBzaXplb2Yoc3RydWN0IHVkcGhkcikgKyBzaXplb2Yoc3RydWN0IHZ4bGFuaGRyKSkN
-Cj4+ICsgICAgICAgICAgICAgICByZXR1cm4gZmVhdHVyZXMgJiB+KE5FVElGX0ZfQUxMX0NTVU0g
-fCANCj4+ICsgTkVUSUZfRl9HU09fTUFTSyk7DQo+PiArDQo+PiArICAgICAgIHJldHVybiBmZWF0
-dXJlczsNCj4+ICB9DQo+PiAgI2VuZGlmDQo+Pg0KPj4gLS0NCj4+IDEuNy45LjUNCj4+DQo+PiAt
-LQ0KPj4gVG8gdW5zdWJzY3JpYmUgZnJvbSB0aGlzIGxpc3Q6IHNlbmQgdGhlIGxpbmUgInVuc3Vi
-c2NyaWJlIG5ldGRldiIgaW4gDQo+PiB0aGUgYm9keSBvZiBhIG1lc3NhZ2UgdG8gbWFqb3Jkb21v
-QHZnZXIua2VybmVsLm9yZyBNb3JlIG1ham9yZG9tbyANCj4+IGluZm8gYXQgIGh0dHA6Ly92Z2Vy
-Lmtlcm5lbC5vcmcvbWFqb3Jkb21vLWluZm8uaHRtbA0K
+
+With Linus taking in my bug fixes from 'net' I subsequently merged
+his tree into 'net' and the merged 'net' into 'net-next'.
+
+Just FYI...
