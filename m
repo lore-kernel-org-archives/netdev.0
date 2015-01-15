@@ -1,311 +1,55 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 13/17] i40e: AQ API updates for new commands
-Date: Thu, 15 Jan 2015 04:19:24 -0800
-Message-ID: <1421324368-6860-14-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 14/17] i40e: use same check for Rx hang as for Rx timestamps
+Date: Thu, 15 Jan 2015 04:19:25 -0800
+Message-ID: <1421324368-6860-15-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1421324368-6860-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
+Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Kamil Krawczyk <kamil.krawczyk@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:9898 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([192.55.52.115]:64854 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753723AbbAOMTh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Jan 2015 07:19:37 -0500
+	id S1751581AbbAOMTi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Jan 2015 07:19:38 -0500
 In-Reply-To: <1421324368-6860-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shannon Nelson <shannon.nelson@intel.com>
+From: Jacob Keller <jacob.e.keller@intel.com>
 
-Add lldp control commands, add oem ocsd and ocbb commands, and fix up
-NVM config read and write data structs.
+It's possible that the user configured only Tx hardware timestamping,
+and thus we might be receiving PTP traffic which we timestamp but which
+software never reads. In this case we don't want to check for Rx
+timestamp hang, because we already know that software won't be handling
+them. Thus, we add the same check against pf->ptp_rx as we have in the
+Rx timestamp code path.
 
-Change-ID: I89eba2bd02013d0a44e1ce900559c54bb15f4a66
-Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
-Signed-off-by: Kamil Krawczyk <kamil.krawczyk@intel.com>
+Change-ID: I66486c8dba307facbff8eace4e52e2f083789d1b
+Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+Acked-by: Shannon Nelson <shannon.nelson@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h  | 100 ++++++++++++++++++---
- .../net/ethernet/intel/i40evf/i40e_adminq_cmd.h    |  56 +++++++++---
- 2 files changed, 136 insertions(+), 20 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_ptp.c | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h b/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
-index 20cada5..a0d2403 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
-@@ -256,6 +256,8 @@ enum i40e_admin_queue_opc {
- 	i40e_aqc_opc_lldp_stop		= 0x0A05,
- 	i40e_aqc_opc_lldp_start		= 0x0A06,
- 	i40e_aqc_opc_get_cee_dcb_cfg	= 0x0A07,
-+	i40e_aqc_opc_lldp_set_local_mib	= 0x0A08,
-+	i40e_aqc_opc_lldp_stop_start_spec_agent	= 0x0A09,
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_ptp.c b/drivers/net/ethernet/intel/i40e/i40e_ptp.c
+index 4f69a84..a55d47e 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_ptp.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_ptp.c
+@@ -247,7 +247,12 @@ void i40e_ptp_rx_hang(struct i40e_vsi *vsi)
+ 	u32 prttsyn_stat;
+ 	int n;
  
- 	/* Tunnel commands */
- 	i40e_aqc_opc_add_udp_tunnel	= 0x0B00,
-@@ -268,6 +270,8 @@ enum i40e_admin_queue_opc {
- 	/* OEM commands */
- 	i40e_aqc_opc_oem_parameter_change	= 0xFE00,
- 	i40e_aqc_opc_oem_device_status_change	= 0xFE01,
-+	i40e_aqc_opc_oem_ocsd_initialize	= 0xFE02,
-+	i40e_aqc_opc_oem_ocbb_initialize	= 0xFE03,
+-	if (!(pf->flags & I40E_FLAG_PTP))
++	/* Since we cannot turn off the Rx timestamp logic if the device is
++	 * configured for Tx timestamping, we check if Rx timestamping is
++	 * configured. We don't want to spuriously warn about Rx timestamp
++	 * hangs if we don't care about the timestamps.
++	 */
++	if (!(pf->flags & I40E_FLAG_PTP) || !pf->ptp_rx)
+ 		return;
  
- 	/* debug commands */
- 	i40e_aqc_opc_debug_get_deviceid		= 0xFF00,
-@@ -454,6 +458,7 @@ struct i40e_aqc_arp_proxy_data {
- 	__le32	pfpm_proxyfc;
- 	__le32	ip_addr;
- 	u8	mac_addr[6];
-+	u8	reserved[2];
- };
- 
- I40E_CHECK_STRUCT_LEN(0x14, i40e_aqc_arp_proxy_data);
-@@ -1831,12 +1836,12 @@ I40E_CHECK_CMD_LENGTH(i40e_aqc_nvm_update);
- /* NVM Config Read (indirect 0x0704) */
- struct i40e_aqc_nvm_config_read {
- 	__le16	cmd_flags;
--#define ANVM_SINGLE_OR_MULTIPLE_FEATURES_MASK	1
--#define ANVM_READ_SINGLE_FEATURE		0
--#define ANVM_READ_MULTIPLE_FEATURES		1
-+#define I40E_AQ_ANVM_SINGLE_OR_MULTIPLE_FEATURES_MASK	1
-+#define I40E_AQ_ANVM_READ_SINGLE_FEATURE		0
-+#define I40E_AQ_ANVM_READ_MULTIPLE_FEATURES		1
- 	__le16	element_count;
--	__le16	element_id; /* Feature/field ID */
--	u8	reserved[2];
-+	__le16	element_id;	/* Feature/field ID */
-+	__le16	element_id_msw;	/* MSWord of field ID */
- 	__le32	address_high;
- 	__le32	address_low;
- };
-@@ -1854,21 +1859,32 @@ struct i40e_aqc_nvm_config_write {
- 
- I40E_CHECK_CMD_LENGTH(i40e_aqc_nvm_config_write);
- 
-+/* Used for 0x0704 as well as for 0x0705 commands */
-+#define I40E_AQ_ANVM_FEATURE_OR_IMMEDIATE_SHIFT		1
-+#define I40E_AQ_ANVM_FEATURE_OR_IMMEDIATE_MASK \
-+				(1 << I40E_AQ_ANVM_FEATURE_OR_IMMEDIATE_SHIFT)
-+#define I40E_AQ_ANVM_FEATURE		0
-+#define I40E_AQ_ANVM_IMMEDIATE_FIELD	(1 << FEATURE_OR_IMMEDIATE_SHIFT)
- struct i40e_aqc_nvm_config_data_feature {
- 	__le16 feature_id;
--	__le16 instance_id;
-+#define I40E_AQ_ANVM_FEATURE_OPTION_OEM_ONLY		0x01
-+#define I40E_AQ_ANVM_FEATURE_OPTION_DWORD_MAP		0x08
-+#define I40E_AQ_ANVM_FEATURE_OPTION_POR_CSR		0x10
- 	__le16 feature_options;
- 	__le16 feature_selection;
- };
- 
-+I40E_CHECK_STRUCT_LEN(0x6, i40e_aqc_nvm_config_data_feature);
-+
- struct i40e_aqc_nvm_config_data_immediate_field {
--#define ANVM_FEATURE_OR_IMMEDIATE_MASK	0x2
--	__le16 field_id;
--	__le16 instance_id;
-+	__le32 field_id;
-+	__le32 field_value;
- 	__le16 field_options;
--	__le16 field_value;
-+	__le16 reserved;
- };
- 
-+I40E_CHECK_STRUCT_LEN(0xc, i40e_aqc_nvm_config_data_immediate_field);
-+
- /* Send to PF command (indirect 0x0801) id is only used by PF
-  * Send to VF command (indirect 0x0802) id is only used by PF
-  * Send to Peer PF command (indirect 0x0803)
-@@ -2069,12 +2085,54 @@ struct i40e_aqc_get_cee_dcb_cfg_resp {
- 	u8	oper_tc_bw[8];
- 	u8	oper_pfc_en;
- 	__le16	oper_app_prio;
-+#define I40E_AQC_CEE_APP_FCOE_SHIFT	0x0
-+#define I40E_AQC_CEE_APP_FCOE_MASK	(0x7 << I40E_AQC_CEE_APP_FCOE_SHIFT)
-+#define I40E_AQC_CEE_APP_ISCSI_SHIFT	0x3
-+#define I40E_AQC_CEE_APP_ISCSI_MASK	(0x7 << I40E_AQC_CEE_APP_ISCSI_SHIFT)
-+#define I40E_AQC_CEE_APP_FIP_SHIFT	0x8
-+#define I40E_AQC_CEE_APP_FIP_MASK	(0x7 << I40E_AQC_CEE_APP_FIP_SHIFT)
-+#define I40E_AQC_CEE_APP_FIP_MASK	(0x7 << I40E_AQC_CEE_APP_FIP_SHIFT)
- 	__le32	tlv_status;
-+#define I40E_AQC_CEE_PG_STATUS_SHIFT	0x0
-+#define I40E_AQC_CEE_PG_STATUS_MASK	(0x7 << I40E_AQC_CEE_PG_STATUS_SHIFT)
-+#define I40E_AQC_CEE_PFC_STATUS_SHIFT	0x3
-+#define I40E_AQC_CEE_PFC_STATUS_MASK	(0x7 << I40E_AQC_CEE_PFC_STATUS_SHIFT)
-+#define I40E_AQC_CEE_APP_STATUS_SHIFT	0x8
-+#define I40E_AQC_CEE_APP_STATUS_MASK	(0x7 << I40E_AQC_CEE_APP_STATUS_SHIFT)
- 	u8	reserved[12];
- };
- 
- I40E_CHECK_STRUCT_LEN(0x20, i40e_aqc_get_cee_dcb_cfg_resp);
- 
-+/*	Set Local LLDP MIB (indirect 0x0A08)
-+ *	Used to replace the local MIB of a given LLDP agent. e.g. DCBx
-+ */
-+struct i40e_aqc_lldp_set_local_mib {
-+#define SET_LOCAL_MIB_AC_TYPE_DCBX_SHIFT	0
-+#define SET_LOCAL_MIB_AC_TYPE_DCBX_MASK	(1 << SET_LOCAL_MIB_AC_TYPE_DCBX_SHIFT)
-+	u8	type;
-+	u8	reserved0;
-+	__le16	length;
-+	u8	reserved1[4];
-+	__le32	address_high;
-+	__le32	address_low;
-+};
-+
-+I40E_CHECK_CMD_LENGTH(i40e_aqc_lldp_set_local_mib);
-+
-+/*	Stop/Start LLDP Agent (direct 0x0A09)
-+ *	Used for stopping/starting specific LLDP agent. e.g. DCBx
-+ */
-+struct i40e_aqc_lldp_stop_start_specific_agent {
-+#define I40E_AQC_START_SPECIFIC_AGENT_SHIFT	0
-+#define I40E_AQC_START_SPECIFIC_AGENT_MASK \
-+				(1 << I40E_AQC_START_SPECIFIC_AGENT_SHIFT)
-+	u8	command;
-+	u8	reserved[15];
-+};
-+
-+I40E_CHECK_CMD_LENGTH(i40e_aqc_lldp_stop_start_specific_agent);
-+
- /* Add Udp Tunnel command and completion (direct 0x0B00) */
- struct i40e_aqc_add_udp_tunnel {
- 	__le16	udp_port;
-@@ -2164,6 +2222,28 @@ struct i40e_aqc_oem_state_change {
- 
- I40E_CHECK_CMD_LENGTH(i40e_aqc_oem_state_change);
- 
-+/* Initialize OCSD (0xFE02, direct) */
-+struct i40e_aqc_opc_oem_ocsd_initialize {
-+	u8 type_status;
-+	u8 reserved1[3];
-+	__le32 ocsd_memory_block_addr_high;
-+	__le32 ocsd_memory_block_addr_low;
-+	__le32 requested_update_interval;
-+};
-+
-+I40E_CHECK_CMD_LENGTH(i40e_aqc_opc_oem_ocsd_initialize);
-+
-+/* Initialize OCBB  (0xFE03, direct) */
-+struct i40e_aqc_opc_oem_ocbb_initialize {
-+	u8 type_status;
-+	u8 reserved1[3];
-+	__le32 ocbb_memory_block_addr_high;
-+	__le32 ocbb_memory_block_addr_low;
-+	u8 reserved2[4];
-+};
-+
-+I40E_CHECK_CMD_LENGTH(i40e_aqc_opc_oem_ocbb_initialize);
-+
- /* debug commands */
- 
- /* get device id (0xFF00) uses the generic structure */
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h b/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
-index 1b80846..e715bcc 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
-@@ -268,6 +268,8 @@ enum i40e_admin_queue_opc {
- 	/* OEM commands */
- 	i40e_aqc_opc_oem_parameter_change	= 0xFE00,
- 	i40e_aqc_opc_oem_device_status_change	= 0xFE01,
-+	i40e_aqc_opc_oem_ocsd_initialize	= 0xFE02,
-+	i40e_aqc_opc_oem_ocbb_initialize	= 0xFE03,
- 
- 	/* debug commands */
- 	i40e_aqc_opc_debug_get_deviceid		= 0xFF00,
-@@ -454,6 +456,7 @@ struct i40e_aqc_arp_proxy_data {
- 	__le32	pfpm_proxyfc;
- 	__le32	ip_addr;
- 	u8	mac_addr[6];
-+	u8	reserved[2];
- };
- 
- I40E_CHECK_STRUCT_LEN(0x14, i40e_aqc_arp_proxy_data);
-@@ -1831,12 +1834,12 @@ I40E_CHECK_CMD_LENGTH(i40e_aqc_nvm_update);
- /* NVM Config Read (indirect 0x0704) */
- struct i40e_aqc_nvm_config_read {
- 	__le16	cmd_flags;
--#define ANVM_SINGLE_OR_MULTIPLE_FEATURES_MASK	1
--#define ANVM_READ_SINGLE_FEATURE		0
--#define ANVM_READ_MULTIPLE_FEATURES		1
-+#define I40E_AQ_ANVM_SINGLE_OR_MULTIPLE_FEATURES_MASK	1
-+#define I40E_AQ_ANVM_READ_SINGLE_FEATURE		0
-+#define I40E_AQ_ANVM_READ_MULTIPLE_FEATURES		1
- 	__le16	element_count;
--	__le16	element_id; /* Feature/field ID */
--	u8	reserved[2];
-+	__le16	element_id;	/* Feature/field ID */
-+	__le16	element_id_msw;	/* MSWord of field ID */
- 	__le32	address_high;
- 	__le32	address_low;
- };
-@@ -1854,21 +1857,32 @@ struct i40e_aqc_nvm_config_write {
- 
- I40E_CHECK_CMD_LENGTH(i40e_aqc_nvm_config_write);
- 
-+/* Used for 0x0704 as well as for 0x0705 commands */
-+#define I40E_AQ_ANVM_FEATURE_OR_IMMEDIATE_SHIFT		1
-+#define I40E_AQ_ANVM_FEATURE_OR_IMMEDIATE_MASK \
-+				(1 << I40E_AQ_ANVM_FEATURE_OR_IMMEDIATE_SHIFT)
-+#define I40E_AQ_ANVM_FEATURE		0
-+#define I40E_AQ_ANVM_IMMEDIATE_FIELD	(1 << FEATURE_OR_IMMEDIATE_SHIFT)
- struct i40e_aqc_nvm_config_data_feature {
- 	__le16 feature_id;
--	__le16 instance_id;
-+#define I40E_AQ_ANVM_FEATURE_OPTION_OEM_ONLY		0x01
-+#define I40E_AQ_ANVM_FEATURE_OPTION_DWORD_MAP		0x08
-+#define I40E_AQ_ANVM_FEATURE_OPTION_POR_CSR		0x10
- 	__le16 feature_options;
- 	__le16 feature_selection;
- };
- 
-+I40E_CHECK_STRUCT_LEN(0x6, i40e_aqc_nvm_config_data_feature);
-+
- struct i40e_aqc_nvm_config_data_immediate_field {
--#define ANVM_FEATURE_OR_IMMEDIATE_MASK	0x2
--	__le16 field_id;
--	__le16 instance_id;
-+	__le32 field_id;
-+	__le32 field_value;
- 	__le16 field_options;
--	__le16 field_value;
-+	__le16 reserved;
- };
- 
-+I40E_CHECK_STRUCT_LEN(0xc, i40e_aqc_nvm_config_data_immediate_field);
-+
- /* Send to PF command (indirect 0x0801) id is only used by PF
-  * Send to VF command (indirect 0x0802) id is only used by PF
-  * Send to Peer PF command (indirect 0x0803)
-@@ -2140,6 +2154,28 @@ struct i40e_aqc_oem_state_change {
- 
- I40E_CHECK_CMD_LENGTH(i40e_aqc_oem_state_change);
- 
-+/* Initialize OCSD (0xFE02, direct) */
-+struct i40e_aqc_opc_oem_ocsd_initialize {
-+	u8 type_status;
-+	u8 reserved1[3];
-+	__le32 ocsd_memory_block_addr_high;
-+	__le32 ocsd_memory_block_addr_low;
-+	__le32 requested_update_interval;
-+};
-+
-+I40E_CHECK_CMD_LENGTH(i40e_aqc_opc_oem_ocsd_initialize);
-+
-+/* Initialize OCBB  (0xFE03, direct) */
-+struct i40e_aqc_opc_oem_ocbb_initialize {
-+	u8 type_status;
-+	u8 reserved1[3];
-+	__le32 ocbb_memory_block_addr_high;
-+	__le32 ocbb_memory_block_addr_low;
-+	u8 reserved2[4];
-+};
-+
-+I40E_CHECK_CMD_LENGTH(i40e_aqc_opc_oem_ocbb_initialize);
-+
- /* debug commands */
- 
- /* get device id (0xFF00) uses the generic structure */
+ 	prttsyn_stat = rd32(hw, I40E_PRTTSYN_STAT_1);
 -- 
 1.9.3
