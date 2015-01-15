@@ -1,31 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/8] netfilter updates for net-next
-Date: Thu, 15 Jan 2015 01:54:27 -0500 (EST)
-Message-ID: <20150115.015427.1217684585698382529.davem@davemloft.net>
-References: <1421267689-24894-1-git-send-email-pablo@netfilter.org>
+Subject: Re: [PATCH v2 net] be2net: Allow GRE to work concurrently while a
+ VxLAN tunnel is configured
+Date: Thu, 15 Jan 2015 01:55:35 -0500 (EST)
+Message-ID: <20150115.015535.1738053583499872779.davem@davemloft.net>
+References: <1421318323-2547-1-git-send-email-sriharsha.basavapatna@emulex.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: pablo@netfilter.org
+Cc: netdev@vger.kernel.org
+To: sriharsha.basavapatna@emulex.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48447 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:48452 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751229AbbAOGyd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jan 2015 01:54:33 -0500
-In-Reply-To: <1421267689-24894-1-git-send-email-pablo@netfilter.org>
+	with ESMTP id S1751094AbbAOGzg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jan 2015 01:55:36 -0500
+In-Reply-To: <1421318323-2547-1-git-send-email-sriharsha.basavapatna@emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Wed, 14 Jan 2015 21:34:41 +0100
+From: Sriharsha Basavapatna <sriharsha.basavapatna@emulex.com>
+Date: Thu, 15 Jan 2015 16:08:43 +0530
 
-> The following patchset contains netfilter updates for net-next, just a
-> bunch of cleanups and small enhancement to selectively flush conntracks
-> in ctnetlink, more specifically the patches are:
- ...
-> You can pull these changes from:
+> Other tunnels like GRE break while VxLAN offloads are enabled in Skyhawk-R. To
+> avoid this, we should restrict offload features on a per-packet basis in such
+> conditions.
 > 
->   git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next.git
+> Signed-off-by: Sriharsha Basavapatna <sriharsha.basavapatna@emulex.com>
 
-Pulled, thanks a lot Pablo.
+Applied, thanks.
