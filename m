@@ -1,121 +1,63 @@
-From: Tony Lindgren <tony@atomide.com>
-Subject: [PATCH 2/6] net: davinci_emac: Fix runtime pm calls for davinci_emac
-Date: Thu, 15 Jan 2015 14:45:10 -0800
-Message-ID: <1421361914-4612-3-git-send-email-tony@atomide.com>
-References: <1421361914-4612-1-git-send-email-tony@atomide.com>
-Cc: netdev@vger.kernel.org, linux-omap@vger.kernel.org,
-	Brian Hutchinson <b.hutchman@gmail.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-omap-owner@vger.kernel.org>
-In-Reply-To: <1421361914-4612-1-git-send-email-tony@atomide.com>
-Sender: linux-omap-owner@vger.kernel.org
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: ANNOUNCEMENT: linux-can repos are now at kernel.org
+Date: Thu, 15 Jan 2015 23:52:36 +0100
+Message-ID: <54B844B4.8030306@pengutronix.de>
+References: <54B7E77C.5040509@pengutronix.de> <54B7F2FB.6070301@hartkopp.net>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha512;
+ protocol="application/pgp-signature";
+ boundary="pRbWO09WbH7BUxkI6LlLb9991ITiLKISF"
+Cc: netdev@vger.kernel.org
+To: Oliver Hartkopp <socketcan@hartkopp.net>,
+	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <54B7F2FB.6070301@hartkopp.net>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Commit 3ba97381343b ("net: ethernet: davinci_emac: add pm_runtime support")
-added support for runtime PM, but it causes issues on omap3 related devices
-that actually gate the clocks:
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--pRbWO09WbH7BUxkI6LlLb9991ITiLKISF
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
 
-Unhandled fault: external abort on non-linefetch (0x1008)
-...
-[<c04160f0>] (emac_dev_getnetstats) from [<c04d6a3c>] (dev_get_stats+0x78/0xc8)
-[<c04d6a3c>] (dev_get_stats) from [<c04e9ccc>] (rtnl_fill_ifinfo+0x3b8/0x938)
-[<c04e9ccc>] (rtnl_fill_ifinfo) from [<c04eade4>] (rtmsg_ifinfo+0x68/0xd8)
-[<c04eade4>] (rtmsg_ifinfo) from [<c04dd35c>] (register_netdevice+0x3a0/0x4ec)
-[<c04dd35c>] (register_netdevice) from [<c04dd4bc>] (register_netdev+0x14/0x24)
-[<c04dd4bc>] (register_netdev) from [<c041755c>] (davinci_emac_probe+0x408/0x5c8)
-[<c041755c>] (davinci_emac_probe) from [<c0396d78>] (platform_drv_probe+0x48/0xa4)
+On 01/15/2015 06:03 PM, Oliver Hartkopp wrote:
+> Very cool!
+>=20
+> That was really fast.
 
-Let's fix it by moving the pm_runtime_get() call earlier, and also add it to
-the emac_dev_getnetstats(). Also note that we want to use pm_runtime_get_sync()
-as we don't want to have deferred_resume happen. And let's also check the
-return value for pm_runtime_get_sync() as noted by Felipe Balbi <balbi@ti.com>.
+Yes Konstantin at the helpdesk is really fast (and I had collected some
+GPG signatures at ELCE).
 
-Cc: Brian Hutchinson <b.hutchman@gmail.com>
-Acked-by: Mark A. Greer <mgreer@animalcreek.com>
-Reviewed-by: Felipe Balbi <balbi@ti.com>
-Signed-off-by: Tony Lindgren <tony@atomide.com>
----
- drivers/net/ethernet/ti/davinci_emac.c | 33 +++++++++++++++++++++++++++++----
- 1 file changed, 29 insertions(+), 4 deletions(-)
+Marc
 
-diff --git a/drivers/net/ethernet/ti/davinci_emac.c b/drivers/net/ethernet/ti/davinci_emac.c
-index 383ed52..5df339e 100644
---- a/drivers/net/ethernet/ti/davinci_emac.c
-+++ b/drivers/net/ethernet/ti/davinci_emac.c
-@@ -1538,7 +1538,13 @@ static int emac_dev_open(struct net_device *ndev)
- 	int i = 0;
- 	struct emac_priv *priv = netdev_priv(ndev);
- 
--	pm_runtime_get(&priv->pdev->dev);
-+	ret = pm_runtime_get_sync(&priv->pdev->dev);
-+	if (ret < 0) {
-+		pm_runtime_put_noidle(&priv->pdev->dev);
-+		dev_err(&priv->pdev->dev, "%s: failed to get_sync(%d)\n",
-+			__func__, ret);
-+		return ret;
-+	}
- 
- 	netif_carrier_off(ndev);
- 	for (cnt = 0; cnt < ETH_ALEN; cnt++)
-@@ -1725,6 +1731,15 @@ static struct net_device_stats *emac_dev_getnetstats(struct net_device *ndev)
- 	struct emac_priv *priv = netdev_priv(ndev);
- 	u32 mac_control;
- 	u32 stats_clear_mask;
-+	int err;
-+
-+	err = pm_runtime_get_sync(&priv->pdev->dev);
-+	if (err < 0) {
-+		pm_runtime_put_noidle(&priv->pdev->dev);
-+		dev_err(&priv->pdev->dev, "%s: failed to get_sync(%d)\n",
-+			__func__, err);
-+		return &ndev->stats;
-+	}
- 
- 	/* update emac hardware stats and reset the registers*/
- 
-@@ -1767,6 +1782,8 @@ static struct net_device_stats *emac_dev_getnetstats(struct net_device *ndev)
- 	ndev->stats.tx_fifo_errors += emac_read(EMAC_TXUNDERRUN);
- 	emac_write(EMAC_TXUNDERRUN, stats_clear_mask);
- 
-+	pm_runtime_put(&priv->pdev->dev);
-+
- 	return &ndev->stats;
- }
- 
-@@ -1981,12 +1998,22 @@ static int davinci_emac_probe(struct platform_device *pdev)
- 	ndev->ethtool_ops = &ethtool_ops;
- 	netif_napi_add(ndev, &priv->napi, emac_poll, EMAC_POLL_WEIGHT);
- 
-+	pm_runtime_enable(&pdev->dev);
-+	rc = pm_runtime_get_sync(&pdev->dev);
-+	if (rc < 0) {
-+		pm_runtime_put_noidle(&pdev->dev);
-+		dev_err(&pdev->dev, "%s: failed to get_sync(%d)\n",
-+			__func__, rc);
-+		goto no_cpdma_chan;
-+	}
-+
- 	/* register the network device */
- 	SET_NETDEV_DEV(ndev, &pdev->dev);
- 	rc = register_netdev(ndev);
- 	if (rc) {
- 		dev_err(&pdev->dev, "error in register_netdev\n");
- 		rc = -ENODEV;
-+		pm_runtime_put(&pdev->dev);
- 		goto no_cpdma_chan;
- 	}
- 
-@@ -1996,9 +2023,7 @@ static int davinci_emac_probe(struct platform_device *pdev)
- 			   "(regs: %p, irq: %d)\n",
- 			   (void *)priv->emac_base_phys, ndev->irq);
- 	}
--
--	pm_runtime_enable(&pdev->dev);
--	pm_runtime_resume(&pdev->dev);
-+	pm_runtime_put(&pdev->dev);
- 
- 	return 0;
- 
--- 
-2.1.4
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
 
+
+--pRbWO09WbH7BUxkI6LlLb9991ITiLKISF
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAEBCgAGBQJUuES0AAoJECte4hHFiupU3LYQAJ3z8feank7wVlFGRKPd/LSS
+lSYtdzp6WVK4NwKP1jC/ZW0lM1l4bU0nZzcn4q5vuJKxM5r2GH9IkhEPmleaICBF
+WYaqwjEPbilhRWxoUFZQEoO9d03q+DfvDb7qPMmOzUggYxGxCasba3IVEccHTu0A
+6ze2tbpMv3sSmJgdaxGeU5xqnI7145dcwSPqygi7fhB0YSSHrBxjVOYc4QCs3bjR
+Wpubpz3lGKKDl9+u/0t2G4up5FamjlaZPWj6QA95Zh/JKAZZtDuFrit6sk4Wwtpk
+tSLpGhyUbULTQuMBUvOjCfV+EvmnrZvMpKt9o0qUPzGHHE2ymPdJAtzpMeCP7f5g
+QCJ0hP5GzkmnlLa0bH506IK43iAPZsDfEbvj/XvZI5QYvPoXeaOScPiB0A3jyOhI
+xxMMuJJUz+VKPlBcBO7eza68WGzKlpebD9fdjtknfJVXjPDMrT0qVXZEA8V5FS9l
+X+fCloQn3TdHC2mQIk7hRzEPs78+JYiPfoeCfV6QJpQXZPL1khMhT/JhdFw86ffG
+0Bs5Zc3XxRXwfuA9uhKJJWVbKPqTy/acQq97CLPer/8+I39f09J5RVkkfMAUFx7i
+MlN6hFru/tfubuStpdGm/1JWmu3lLUiCZxau7PYa6BUDhY80SID9B3HAvshk2UnO
+1qHd33o0KuXkH4osqPPm
+=Ng7l
+-----END PGP SIGNATURE-----
+
+--pRbWO09WbH7BUxkI6LlLb9991ITiLKISF--
