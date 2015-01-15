@@ -1,63 +1,82 @@
 From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: [PATCH 7/8] can: kvaser_usb: Don't send a RESET_CHIP for non-existing channels
-Date: Thu, 15 Jan 2015 17:11:22 +0100
-Message-ID: <1421338283-12417-8-git-send-email-mkl@pengutronix.de>
+Subject: [PATCH 8/8] can: kvaser_usb: Don't dereference skb after a netif_rx()
+Date: Thu, 15 Jan 2015 17:11:23 +0100
+Message-ID: <1421338283-12417-9-git-send-email-mkl@pengutronix.de>
 References: <1421338283-12417-1-git-send-email-mkl@pengutronix.de>
 Cc: davem@davemloft.net, linux-can@vger.kernel.org,
 	kernel@pengutronix.de,
 	"Ahmed S. Darwish" <ahmed.darwish@valeo.com>,
-	Olivier Sobrie <olivier@sobrie.be>,
-	linux-stable <stable@vger.kernel.org>,
 	Marc Kleine-Budde <mkl@pengutronix.de>
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:56632 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753718AbbAOQLg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jan 2015 11:11:36 -0500
+Return-path: <linux-can-owner@vger.kernel.org>
 In-Reply-To: <1421338283-12417-1-git-send-email-mkl@pengutronix.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: "Ahmed S. Darwish" <ahmed.darwish@valeo.com>
 
-Recent Leaf firmware versions (>= 3.1.557) do not allow to send
-commands for non-existing channels.  If a command is sent for a
-non-existing channel, the firmware crashes.
+We should not touch the packet after a netif_rx: it might
+get freed behind our back.
 
-Reported-by: Christopher Storah <Christopher.Storah@invetech.com.au>
-Signed-off-by: Olivier Sobrie <olivier@sobrie.be>
+Suggested-by: Marc Kleine-Budde <mkl@pengutronix.de>
 Signed-off-by: Ahmed S. Darwish <ahmed.darwish@valeo.com>
-Cc: linux-stable <stable@vger.kernel.org>
 Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
 ---
- drivers/net/can/usb/kvaser_usb.c | 7 ++++---
- 1 file changed, 4 insertions(+), 3 deletions(-)
+ drivers/net/can/usb/kvaser_usb.c | 11 ++++-------
+ 1 file changed, 4 insertions(+), 7 deletions(-)
 
 diff --git a/drivers/net/can/usb/kvaser_usb.c b/drivers/net/can/usb/kvaser_usb.c
-index 9accc8272c27..cc7bfc0c0a71 100644
+index cc7bfc0c0a71..c32cd61073bc 100644
 --- a/drivers/net/can/usb/kvaser_usb.c
 +++ b/drivers/net/can/usb/kvaser_usb.c
-@@ -1503,6 +1503,10 @@ static int kvaser_usb_init_one(struct usb_interface *intf,
- 	struct kvaser_usb_net_priv *priv;
- 	int i, err;
+@@ -520,10 +520,10 @@ static void kvaser_usb_tx_acknowledge(const struct kvaser_usb *dev,
+ 		skb = alloc_can_err_skb(priv->netdev, &cf);
+ 		if (skb) {
+ 			cf->can_id |= CAN_ERR_RESTARTED;
+-			netif_rx(skb);
  
-+	err = kvaser_usb_send_simple_msg(dev, CMD_RESET_CHIP, channel);
-+	if (err)
-+		return err;
-+
- 	netdev = alloc_candev(sizeof(*priv), MAX_TX_URBS);
- 	if (!netdev) {
- 		dev_err(&intf->dev, "Cannot alloc candev\n");
-@@ -1607,9 +1611,6 @@ static int kvaser_usb_probe(struct usb_interface *intf,
+ 			stats->rx_packets++;
+ 			stats->rx_bytes += cf->can_dlc;
++			netif_rx(skb);
+ 		} else {
+ 			netdev_err(priv->netdev,
+ 				   "No memory left for err_skb\n");
+@@ -770,10 +770,9 @@ static void kvaser_usb_rx_error(const struct kvaser_usb *dev,
  
- 	usb_set_intfdata(intf, dev);
+ 	priv->can.state = new_state;
  
--	for (i = 0; i < MAX_NET_DEVICES; i++)
--		kvaser_usb_send_simple_msg(dev, CMD_RESET_CHIP, i);
+-	netif_rx(skb);
 -
- 	err = kvaser_usb_get_software_info(dev);
- 	if (err) {
- 		dev_err(&intf->dev,
+ 	stats->rx_packets++;
+ 	stats->rx_bytes += cf->can_dlc;
++	netif_rx(skb);
+ }
+ 
+ static void kvaser_usb_rx_can_err(const struct kvaser_usb_net_priv *priv,
+@@ -805,10 +804,9 @@ static void kvaser_usb_rx_can_err(const struct kvaser_usb_net_priv *priv,
+ 		stats->rx_over_errors++;
+ 		stats->rx_errors++;
+ 
+-		netif_rx(skb);
+-
+ 		stats->rx_packets++;
+ 		stats->rx_bytes += cf->can_dlc;
++		netif_rx(skb);
+ 	}
+ }
+ 
+@@ -887,10 +885,9 @@ static void kvaser_usb_rx_can_msg(const struct kvaser_usb *dev,
+ 			       cf->can_dlc);
+ 	}
+ 
+-	netif_rx(skb);
+-
+ 	stats->rx_packets++;
+ 	stats->rx_bytes += cf->can_dlc;
++	netif_rx(skb);
+ }
+ 
+ static void kvaser_usb_start_chip_reply(const struct kvaser_usb *dev,
 -- 
 2.1.4
+
