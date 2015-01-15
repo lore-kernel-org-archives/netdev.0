@@ -1,42 +1,57 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [PATCH for 3.19 3/3] rtlwifi: rtl8192ee: Fix several bugs
-Date: Thu, 15 Jan 2015 13:42:52 +0200
-Message-ID: <87bnm0xoar.fsf@kamboji.qca.qualcomm.com>
-References: <1421257036-5382-1-git-send-email-Larry.Finger@lwfinger.net>
-	<1421257036-5382-4-git-send-email-Larry.Finger@lwfinger.net>
+From: Vadim Kochan <vadim4j@gmail.com>
+Subject: Re: [PATCH iproute2 1/2] lib: fix warning in namespace.h
+Date: Thu, 15 Jan 2015 13:33:47 +0200
+Message-ID: <20150115113347.GA17587@angus-think.wlc.globallogic.com>
+References: <1421318185-10858-1-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless@vger.kernel.org, Troy Tan <troy_tan@realsil.com.cn>,
-	netdev@vger.kernel.org
-To: Larry Finger <Larry.Finger@lwfinger.net>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: shemminger@vyatta.com, netdev@vger.kernel.org,
+	Vadim Kochan <vadim4j@gmail.com>
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.11.231]:54208 "EHLO
-	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751433AbbAOLnA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jan 2015 06:43:00 -0500
-In-Reply-To: <1421257036-5382-4-git-send-email-Larry.Finger@lwfinger.net>
-	(Larry Finger's message of "Wed, 14 Jan 2015 11:37:16 -0600")
+Received: from mail-la0-f43.google.com ([209.85.215.43]:46718 "EHLO
+	mail-la0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751470AbbAOLoV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jan 2015 06:44:21 -0500
+Received: by mail-la0-f43.google.com with SMTP id s18so13108782lam.2
+        for <netdev@vger.kernel.org>; Thu, 15 Jan 2015 03:44:19 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1421318185-10858-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Larry Finger <Larry.Finger@lwfinger.net> writes:
+On Thu, Jan 15, 2015 at 11:36:24AM +0100, Nicolas Dichtel wrote:
+> Warning was:
+> In file included from bridge.c:16:0:
+> ../include/namespace.h:33:12: warning: =E2=80=98setns=E2=80=99 define=
+d but not used [-Wunused-function]
+>=20
+> CC: Vadim Kochan <vadim4j@gmail.com>
+> Fixes: eb67e4498aec ("lib: Add netns_switch func for change network n=
+amespace")
+> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> ---
+>  include/namespace.h | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+>=20
+> diff --git a/include/namespace.h b/include/namespace.h
+> index b8c5cad6aaa2..28a4223b3eb2 100644
+> --- a/include/namespace.h
+> +++ b/include/namespace.h
+> @@ -30,7 +30,7 @@
+>  #endif
+> =20
+>  #ifndef HAVE_SETNS
+> -static int setns(int fd, int nstype)
+> +static inline int setns(int fd, int nstype)
+>  {
+>  #ifdef __NR_setns
+>  	return syscall(__NR_setns, fd, nstype);
+> --=20
+> 2.1.0
+>=20
+Thank You Nicolas!
+I have to do more testing before send a patches.
 
-> From: Troy Tan <troy_tan@realsil.com.cn>
->
-> The following bugs are fixed in this driver:
-> 1. Problems parsing C2H CMD
-> 2. An ad-hoc connection can cause a TX freeze.
-> 3. There are additional conditions that cause a TX freeze.
-> 4. The previous code failed to handle situations where an RX
->    descriptor was unavailable.
->
-> Signed-off-by: Troy Tan <troy_tan@realsil.com.cn>
-> Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
-
-Is this really so important that it should go to 3.19? A patch titled
-"Fix several bugs" immediately makes me cautious and then I look at the
-patch itself I see rewriting functions instead of simple bug fixes. From
-a quick look this looks more -next material than 3.19.
-
--- 
-Kalle Valo
+Thanks,
