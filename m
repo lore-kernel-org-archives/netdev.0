@@ -1,44 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/3] genetlink: synchronize socket closing and family
- removal
-Date: Thu, 15 Jan 2015 18:06:48 -0500 (EST)
-Message-ID: <20150115.180648.1866614155229401390.davem@davemloft.net>
-References: <1421319885-31779-3-git-send-email-johannes@sipsolutions.net>
-	<20150115.145007.184934220260873768.davem@davemloft.net>
-	<1421355306.1962.14.camel@sipsolutions.net>
+Subject: Re: net_test_tools: add ipv6 support for kbench_mod
+Date: Thu, 15 Jan 2015 18:08:39 -0500 (EST)
+Message-ID: <20150115.180839.2081269036058084221.davem@davemloft.net>
+References: <20150114054548.GA2683397@devbig257.prn2.facebook.com>
+	<20150114.013540.1963709251689177055.davem@davemloft.net>
+	<20150115211737.GA2587066@devbig257.prn2.facebook.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jeff.layton@primarydata.com,
-	sedat.dilek@gmail.com
-To: johannes@sipsolutions.net
+Cc: netdev@vger.kernel.org, kafai@fb.com
+To: shli@fb.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55621 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:55631 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752147AbbAOXGw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jan 2015 18:06:52 -0500
-In-Reply-To: <1421355306.1962.14.camel@sipsolutions.net>
+	with ESMTP id S1753427AbbAOXIk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jan 2015 18:08:40 -0500
+In-Reply-To: <20150115211737.GA2587066@devbig257.prn2.facebook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Johannes Berg <johannes@sipsolutions.net>
-Date: Thu, 15 Jan 2015 21:55:06 +0100
+From: Shaohua Li <shli@fb.com>
+Date: Thu, 15 Jan 2015 13:17:37 -0800
 
-> On Thu, 2015-01-15 at 14:50 -0500, David Miller wrote:
->> From: Johannes Berg <johannes@sipsolutions.net>
->> Date: Thu, 15 Jan 2015 12:04:45 +0100
+> On Wed, Jan 14, 2015 at 01:35:40AM -0500, David Miller wrote:
+>> From: Shaohua Li <shli@fb.com>
+>> Date: Tue, 13 Jan 2015 21:45:48 -0800
 >> 
->> > +		atomic_dec(&genl_sk_destructing_cnt);
->> > +		printk(KERN_DEBUG "dec destructing\n");
->> > +		wake_up(&genl_sk_destructing_waitq);
+>> > This patch adds ipv6 support for kbench_mod test module
 >> 
->> Hmmm, maybe only wakeup if "!atomic_dec_and_test()"?
+>> This doesn't even link because ip6_route_input is not an
+>> exported symbol.
+>> 
+>> So you either didn't test this, or it depends upon custom
+>> kernel changes which you didn't mention.
+>> 
+>> Either way I can't apply this, sorry
 > 
-> Yes, good point.
-> 
-> And, umm, how the hell did I manage to leave the printk() in there?
+> Yes, we need export the sysmbol for the test. Can we export the symbol?
+> or I can delete the route input test, which one do you prefer?
 
-Johannes, please repost the whole series when you have to make
-changes to one or more of the patches within.
-
-Thanks.
+There is no justification upstream to export that symbol since
+there are no modular users in-tree.
