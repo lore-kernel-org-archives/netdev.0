@@ -1,7 +1,7 @@
 From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: [PATCH 5/8] can: kvaser_usb: Don't free packets when tight on URBs
-Date: Thu, 15 Jan 2015 17:11:20 +0100
-Message-ID: <1421338283-12417-6-git-send-email-mkl@pengutronix.de>
+Subject: [PATCH 6/8] can: kvaser_usb: Reset all URB tx contexts upon channel close
+Date: Thu, 15 Jan 2015 17:11:21 +0100
+Message-ID: <1421338283-12417-7-git-send-email-mkl@pengutronix.de>
 References: <1421338283-12417-1-git-send-email-mkl@pengutronix.de>
 Cc: davem@davemloft.net, linux-can@vger.kernel.org,
 	kernel@pengutronix.de,
@@ -9,85 +9,83 @@ Cc: davem@davemloft.net, linux-can@vger.kernel.org,
 	linux-stable <stable@vger.kernel.org>,
 	Marc Kleine-Budde <mkl@pengutronix.de>
 To: netdev@vger.kernel.org
-Return-path: <stable-owner@vger.kernel.org>
+Return-path: <linux-can-owner@vger.kernel.org>
 In-Reply-To: <1421338283-12417-1-git-send-email-mkl@pengutronix.de>
-Sender: stable-owner@vger.kernel.org
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: "Ahmed S. Darwish" <ahmed.darwish@valeo.com>
 
 Flooding the Kvaser CAN to USB dongle with multiple reads and
-writes in high frequency caused seemingly-random panics in the
-kernel.
+writes in very high frequency (*), closing the CAN channel while
+all the transmissions are on (#), opening the device again (@),
+then sending a small number of packets would make the driver
+enter an almost infinite loop of:
 
-On further inspection, it seems the driver erroneously freed the
-to-be-transmitted packet upon getting tight on URBs and returning
-NETDEV_TX_BUSY, leading to invalid memory writes and double frees
-at a later point in time.
+[....]
+[15959.853988] kvaser_usb 4-3:1.0 can0: cannot find free context
+[15959.853990] kvaser_usb 4-3:1.0 can0: cannot find free context
+[15959.853991] kvaser_usb 4-3:1.0 can0: cannot find free context
+[15959.853993] kvaser_usb 4-3:1.0 can0: cannot find free context
+[15959.853994] kvaser_usb 4-3:1.0 can0: cannot find free context
+[15959.853995] kvaser_usb 4-3:1.0 can0: cannot find free context
+[....]
 
-Note:
+_dragging the whole system down_ in the process due to the
+excessive logging output.
 
-Finding no more URBs/transmit-contexts and returning NETDEV_TX_BUSY
-is a driver bug in and out of itself: it means that our start/stop
-queue flow control is broken.
+Initially, this has caused random panics in the kernel due to a
+buggy error recovery path.  That got fixed in an earlier commit.(%)
+This patch aims at solving the root cause. -->
 
-This patch only fixes the (buggy) error handling code; the root
-cause shall be fixed in a later commit.
+16 tx URBs and contexts are allocated per CAN channel per USB
+device. Such URBs are protected by:
 
-Acked-by: Olivier Sobrie <olivier@sobrie.be>
+a) A simple atomic counter, up to a value of MAX_TX_URBS (16)
+b) A flag in each URB context, stating if it's free
+c) The fact that ndo_start_xmit calls are themselves protected
+   by the networking layers higher above
+
+After grabbing one of the tx URBs, if the driver noticed that all
+of them are now taken, it stops the netif transmission queue.
+Such queue is worken up again only if an acknowedgment was received
+from the firmware on one of our earlier-sent frames.
+
+Meanwhile, upon channel close (#), the driver sends a CMD_STOP_CHIP
+to the firmware, effectively closing all further communication.  In
+the high traffic case, the atomic counter remains at MAX_TX_URBS,
+and all the URB contexts remain marked as active.  While opening
+the channel again (@), it cannot send any further frames since no
+more free tx URB contexts are available.
+
+Reset all tx URB contexts upon CAN channel close.
+
+(*) 50 parallel instances of `cangen0 -g 0 -ix`
+(#) `ifconfig can0 down`
+(@) `ifconfig can0 up`
+(%) "can: kvaser_usb: Don't free packets when tight on URBs"
+
 Signed-off-by: Ahmed S. Darwish <ahmed.darwish@valeo.com>
 Cc: linux-stable <stable@vger.kernel.org>
 Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
 ---
- drivers/net/can/usb/kvaser_usb.c | 10 ++++------
- 1 file changed, 4 insertions(+), 6 deletions(-)
+ drivers/net/can/usb/kvaser_usb.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
 diff --git a/drivers/net/can/usb/kvaser_usb.c b/drivers/net/can/usb/kvaser_usb.c
-index 541fb7a05625..2e7d513a7c11 100644
+index 2e7d513a7c11..9accc8272c27 100644
 --- a/drivers/net/can/usb/kvaser_usb.c
 +++ b/drivers/net/can/usb/kvaser_usb.c
-@@ -1294,12 +1294,14 @@ static netdev_tx_t kvaser_usb_start_xmit(struct sk_buff *skb,
- 	if (!urb) {
- 		netdev_err(netdev, "No memory left for URBs\n");
- 		stats->tx_dropped++;
--		goto nourbmem;
-+		dev_kfree_skb(skb);
-+		return NETDEV_TX_OK;
- 	}
+@@ -1246,6 +1246,9 @@ static int kvaser_usb_close(struct net_device *netdev)
+ 	if (err)
+ 		netdev_warn(netdev, "Cannot stop device, error %d\n", err);
  
- 	buf = kmalloc(sizeof(struct kvaser_msg), GFP_ATOMIC);
- 	if (!buf) {
- 		stats->tx_dropped++;
-+		dev_kfree_skb(skb);
- 		goto nobufmem;
- 	}
- 
-@@ -1334,6 +1336,7 @@ static netdev_tx_t kvaser_usb_start_xmit(struct sk_buff *skb,
- 		}
- 	}
- 
-+	/* This should never happen; it implies a flow control bug */
- 	if (!context) {
- 		netdev_warn(netdev, "cannot find free context\n");
- 		ret =  NETDEV_TX_BUSY;
-@@ -1364,9 +1367,6 @@ static netdev_tx_t kvaser_usb_start_xmit(struct sk_buff *skb,
- 	if (unlikely(err)) {
- 		can_free_echo_skb(netdev, context->echo_index);
- 
--		skb = NULL; /* set to NULL to avoid double free in
--			     * dev_kfree_skb(skb) */
--
- 		atomic_dec(&priv->active_tx_urbs);
- 		usb_unanchor_urb(urb);
- 
-@@ -1388,8 +1388,6 @@ releasebuf:
- 	kfree(buf);
- nobufmem:
- 	usb_free_urb(urb);
--nourbmem:
--	dev_kfree_skb(skb);
- 	return ret;
- }
++	/* reset tx contexts */
++	kvaser_usb_unlink_tx_urbs(priv);
++
+ 	priv->can.state = CAN_STATE_STOPPED;
+ 	close_candev(priv->netdev);
  
 -- 
 2.1.4
+
