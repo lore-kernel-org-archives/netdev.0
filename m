@@ -1,84 +1,91 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [bisected regression] e1000e: "Detected Hardware Unit Hang"
-Date: Thu, 15 Jan 2015 06:43:29 -0800
-Message-ID: <1421333009.11734.53.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1719052.SGOfRAJhfQ@storm>
-	 <1421256052.11734.22.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <5229621.KczjbIR22Q@storm>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH] e100: Don't enable WoL by default on Toshiba devices
+Date: Thu, 15 Jan 2015 06:53:41 -0800
+Message-ID: <1421333621.2632.19.camel@jtkirshe-mobl>
+References: <1415832445-9524-1-git-send-email-linux@rainbow-software.org>
+	 <20141112.181813.1072534293888457853.davem@davemloft.net>
+	 <1415849927.2454.14.camel@jtkirshe-mobl>
+	 <201501151440.32159.linux@rainbow-software.org>
 Mime-Version: 1.0
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-AdWP2HVJX4glXsf1aK1d"
+Cc: David Miller <davem@davemloft.net>,
+	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Ondrej Zary <linux@rainbow-software.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <201501151440.32159.linux@rainbow-software.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+
+--=-AdWP2HVJX4glXsf1aK1d
 Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+On Thu, 2015-01-15 at 14:40 +0100, Ondrej Zary wrote:
+> On Thursday 13 November 2014, Jeff Kirsher wrote:
+> > On Wed, 2014-11-12 at 18:18 -0500, David Miller wrote:
+> > > From: Ondrej Zary <linux@rainbow-software.org>
+> > > Date: Wed, 12 Nov 2014 23:47:25 +0100
+> > >
+> > > > Enabling WoL on some Toshiba laptops (such as Portege R100)
+> causes
+> > > > battery drain after shutdown (WoL is active even on battery).
+> These
+> > > > laptops have the WoL bit set in EEPROM ID, causing e100 driver
+> to
+> > > > enable WoL by default.
+> > > >
+> > > > Check subsystem vendor ID and if it's Toshiba, don't enable WoL
+> by
+> > > > default from EEPROM settings.
+> > > >
+> > > > Fixes
+> https://bugs.launchpad.net/ubuntu/+source/linux/+bug/110784
+> > > >
+> > > > Signed-off-by: Ondrej Zary <linux@rainbow-software.org>
+> > >
+> > > Jeff, are you gonna pick this up?
+> >
+> > Yes, sorry I did not catch it earlier.
+>=20
+> What happened to this patch? I don't see it in net.git or
+> net-next.git=20
+> (checked both davem's and jkirsher's)
+
+Sorry, I thought I had replied with a NAK on this patch after further
+review of the changes.
+
+We don't fix BIOS issues in the driver especially regarding feature
+enablement like WoL.  We would end up with dozens of these kinds of fixes
+if we to allow this.
+
+You should go back to the OEM and ask for a BIOS update to resolve this or
+configure udev so that ethtool disables WoL. =20
+
+
+--=-AdWP2HVJX4glXsf1aK1d
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
 Content-Transfer-Encoding: 7bit
-Cc: 'Linux Netdev List' <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	e1000-devel <e1000-devel@lists.sourceforge.net>
-To: Thomas Jarosch <thomas.jarosch@intra2net.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f172.google.com ([209.85.223.172]:50116 "EHLO
-	mail-ie0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753885AbbAOOnb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jan 2015 09:43:31 -0500
-Received: by mail-ie0-f172.google.com with SMTP id tr6so15114805ieb.3
-        for <netdev@vger.kernel.org>; Thu, 15 Jan 2015 06:43:30 -0800 (PST)
-In-Reply-To: <5229621.KczjbIR22Q@storm>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2015-01-15 at 11:11 +0100, Thomas Jarosch wrote:
-> On Wednesday, 14. January 2015 09:20:52 Eric Dumazet wrote:
-> > I would try to use lower data per txd. I am not sure 24KB is really
-> > supported.
-> > 
-> > ( check commit d821a4c4d11ad160925dab2bb009b8444beff484 for details)
-> > 
-> > diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c
-> > b/drivers/net/ethernet/intel/e1000e/netdev.c index
-> > e14fd85f64eb..8d973f7edfbd 100644
-> > --- a/drivers/net/ethernet/intel/e1000e/netdev.c
-> > +++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-> > @@ -3897,7 +3897,7 @@ void e1000e_reset(struct e1000_adapter *adapter)
-> >  	 * limit of 24KB due to receive synchronization limitations.
-> >  	 */
-> >  	adapter->tx_fifo_limit = min_t(u32, ((er32(PBA) >> 16) << 10) - 96,
-> > -				       24 << 10);
-> > +				       8 << 10);
-> > 
-> >  	/* Disable Adaptive Interrupt Moderation if 2 full packets cannot
-> >  	 * fit in receive buffer.
-> 
-> Thanks for checking!
-> 
-> I just tried that change on top of git f800c25 (git HEAD), same problem. 
-> Let's see what the Intel wizards come up with.
-> 
-> What "works" is to decrease the page size in git HEAD, too:
-> 
-> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-> index 85ab7d7..9f0ef97 100644
-> --- a/include/linux/skbuff.h
-> +++ b/include/linux/skbuff.h
-> @@ -2108,7 +2108,7 @@ static inline void __skb_queue_purge(struct 
-> sk_buff_head *list)
->                 kfree_skb(skb);
->  }
->  
-> -#define NETDEV_FRAG_PAGE_MAX_ORDER get_order(32768)
-> +#define NETDEV_FRAG_PAGE_MAX_ORDER get_order(4096)
->  #define NETDEV_FRAG_PAGE_MAX_SIZE  (PAGE_SIZE << NETDEV_FRAG_PAGE_MAX_ORDER)
->  #define NETDEV_PAGECNT_MAX_BIAS           NETDEV_FRAG_PAGE_MAX_SIZE
-> 
-> 
-> 
-> When I try a page size of 8192, it starts failing again. I'll now run
-> a stress test with 4096 to see if the problem is really gone
-> or just happens more rarely.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
 
-Sure, you basically reverted my patch.
+iQIcBAABCgAGBQJUt9R1AAoJEOVv75VaS+3OBbgP/RIs7gMxLItovRW/9TeMjfpw
+tGTYTm43QaEKdorRktnF1CVbhmMog9wm0CTu8SDU1zmMF2wMw04ycZv6y4Hc4L3+
+i+NuX88mtemEnASK1hyvSk/zF+ciHOLta84gRFFJnq0kdkWGB8QI60NYNyC8hPoa
+8HFteSNb4Hubt0GOJBGmmllEQdVRQ/uYNjZ0wq4AEcRo/wljb7h81fA4R4mC13kV
+9wjjIuIkQrtgY4HxwsoMkd/VgAAcM7CF8I5lh48AdTO7xz7IXhKmPwhMSLspBHG1
+iY6ZahW1HTafo2/LZSmPVl/MV6ClCdZ4qvhl15PspYTzfRbpm0JIGdp8gId3si+Q
+8TXlyGbsUnSPFZYzehQrxUBv21oELRqIYHzJQg3Sx4JrQ7ome5vcnfnrIxv9YYmI
+g4GUJcapRlnCp1oUAJGgw/Kok0GXGSMcSO+9lfM6KI0GRhSEAyE5mnaDPHw/NGQ8
+GiWnXgz9V8tOKW8dR3v+iPVcl1wOjbhl8buzwqrrmeL6tVdi41TywH5Xv9ze1Mxc
+a5jWXS63/m7ayjdPhxkGXFLgmvsg8GqJHtt77wkzWVaCUjxGPRtoUkKxYP0DSiw3
+RDk9FlEE3oiVgb9ogeNieA+FlMiNVcCTKujYp50H7bOCnn8wb2dNVisACFSVgfsw
+o/z7oZiHf3AkDD7kHYKC
+=y5Z8
+-----END PGP SIGNATURE-----
 
-You are not the first to report a problem caused by this patch.
-
-This patch is known to have uncovered some driver bugs.
-
-We are not going to revert it. We are going to fix the real bugs.
-
-Thanks
+--=-AdWP2HVJX4glXsf1aK1d--
