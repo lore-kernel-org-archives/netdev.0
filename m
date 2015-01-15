@@ -1,40 +1,45 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: Re: non-OVS based vxlan config broken on 3.19-rc ?!
-Date: Thu, 15 Jan 2015 15:25:29 +0200
-Message-ID: <54B7BFC9.8070306@mellanox.com>
-References: <54B688D9.8030101@mellanox.com>
-	<20150114155208.GA24550@casper.infradead.org>
- <CAJ3xEMj+rjTmk2tbVCTMCp+7N0qwXBNf3JsbJEgh2qvq0jHmEg@mail.gmail.com>
- <54B7B086.7080208@redhat.com>
+From: Ondrej Zary <linux@rainbow-software.org>
+Subject: Re: [PATCH] e100: Don't enable WoL by default on Toshiba devices
+Date: Thu, 15 Jan 2015 14:40:32 +0100
+Message-ID: <201501151440.32159.linux@rainbow-software.org>
+References: <1415832445-9524-1-git-send-email-linux@rainbow-software.org> <20141112.181813.1072534293888457853.davem@davemloft.net> <1415849927.2454.14.camel@jtkirshe-mobl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Type: Text/Plain;
+  charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: thomas Graf <tgraf@suug.ch>, tom Herbert <therbert@google.com>,
-	"Jesse Gross" <jesse@nicira.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Marcelo Ricardo Leitner <mleitner@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-am1on0061.outbound.protection.outlook.com ([157.56.112.61]:31911
-	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752582AbbAONkk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Jan 2015 08:40:40 -0500
-In-Reply-To: <54B7B086.7080208@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>,
+	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1415849927.2454.14.camel@jtkirshe-mobl>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 1/15/2015 2:20 PM, Marcelo Ricardo Leitner wrote:
-> Just tested your commands on two virtual machines running virtio (same 
-> host), Linus' commit fb005c47f7b72edac50342b6af490af09854381b (which 
-> is 3.19.0-rc4+) and it worked just fine for me. That is, ping went 
-> through both ways without issues. I'll still try with net.git.. 
+On Thursday 13 November 2014, Jeff Kirsher wrote:
+> On Wed, 2014-11-12 at 18:18 -0500, David Miller wrote:
+> > From: Ondrej Zary <linux@rainbow-software.org>
+> > Date: Wed, 12 Nov 2014 23:47:25 +0100
+> >
+> > > Enabling WoL on some Toshiba laptops (such as Portege R100) causes
+> > > battery drain after shutdown (WoL is active even on battery). These
+> > > laptops have the WoL bit set in EEPROM ID, causing e100 driver to
+> > > enable WoL by default.
+> > >
+> > > Check subsystem vendor ID and if it's Toshiba, don't enable WoL by
+> > > default from EEPROM settings.
+> > >
+> > > Fixes https://bugs.launchpad.net/ubuntu/+source/linux/+bug/110784
+> > >
+> > > Signed-off-by: Ondrej Zary <linux@rainbow-software.org>
+> >
+> > Jeff, are you gonna pick this up?
+>
+> Yes, sorry I did not catch it earlier.
 
-thanks for looking on that.
+What happened to this patch? I don't see it in net.git or net-next.git 
+(checked both davem's and jkirsher's)
 
-> Did you try dropwatch? If you add a neigh entry for the remote peer 
-> and ping flood it, you may spot it on dropwatch. 
-
-Will try it out, for the time being I managed to have an environment to 
-test that fix I was working on recently...
-
-Or.
+-- 
+Ondrej Zary
