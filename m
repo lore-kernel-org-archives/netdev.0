@@ -1,49 +1,51 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [PATCH v2 net] be2net: Allow GRE to work concurrently while a
+From: Sriharsha Basavapatna <Sriharsha.Basavapatna@Emulex.Com>
+Subject: RE: [PATCH v2 net] be2net: Allow GRE to work concurrently while a
  VxLAN tunnel is configured
-Date: Wed, 14 Jan 2015 21:33:57 -0800
-Message-ID: <CA+mtBx-tLRi21Sveh-TOmMC0T2cRNqcaEOx2thnqhU-ZLyaN2A@mail.gmail.com>
+Date: Thu, 15 Jan 2015 05:45:19 +0000
+Message-ID: <31318D46B5DF3F4AB71CC057601E9FEB3A7F61F2@CMEXMB1.ad.emulex.com>
 References: <1421318323-2547-1-git-send-email-sriharsha.basavapatna@emulex.com>
 	<CA+mtBx9Kd8JM53RJFJ_R-ZW_FN=UhDQgBNgLNPqadGA9o3ZNiA@mail.gmail.com>
 	<31318D46B5DF3F4AB71CC057601E9FEB3A7F5178@CMEXMB1.ad.emulex.com>
+ <CA+mtBx-tLRi21Sveh-TOmMC0T2cRNqcaEOx2thnqhU-ZLyaN2A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
 Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: Sriharsha Basavapatna <Sriharsha.Basavapatna@emulex.com>
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f171.google.com ([209.85.213.171]:41617 "EHLO
-	mail-ig0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750699AbbAOFd5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jan 2015 00:33:57 -0500
-Received: by mail-ig0-f171.google.com with SMTP id z20so26376665igj.4
-        for <netdev@vger.kernel.org>; Wed, 14 Jan 2015 21:33:57 -0800 (PST)
-In-Reply-To: <31318D46B5DF3F4AB71CC057601E9FEB3A7F5178@CMEXMB1.ad.emulex.com>
+Received: from cmexedge1.emulex.com ([138.239.224.99]:32170 "EHLO
+	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750703AbbAOFpq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jan 2015 00:45:46 -0500
+In-Reply-To: <CA+mtBx-tLRi21Sveh-TOmMC0T2cRNqcaEOx2thnqhU-ZLyaN2A@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> I don't understand why this is needed. The only GSO type with with encapsulation allowed by device features SKB_GSO_UDP_TUNNEL. This should not be GRE for instance. Do you see cases where protocol is not UDP at this point?
-> [Harsha] It's needed for GRE checksum case; without this,  GRE pkts are sent down without checksum by the stack, but HW
-> can only offload checksum for VxLAN pkts.
->
-Okay, I see that this is a problem with checksum not GSO. Please ask
-your hardware guys to provide NETIF_F_HW_CSUM to avoid any more of
-this unpleasantness in the future :-)
-
->> +           skb->inner_protocol_type != ENCAP_TYPE_ETHER ||
->> +           skb->inner_protocol != htons(ETH_P_TEB) ||
->> +           skb_inner_mac_header(skb) - skb_transport_header(skb) !=
->> +           sizeof(struct udphdr) + sizeof(struct vxlanhdr))
->> +               return features & ~(NETIF_F_ALL_CSUM |
->> + NETIF_F_GSO_MASK);
->> +
->> +       return features;
->>  }
->>  #endif
->>
->> --
->> 1.7.9.5
->>
->> --
->> To unsubscribe from this list: send the line "unsubscribe netdev" in
->> the body of a message to majordomo@vger.kernel.org More majordomo info
->> at  http://vger.kernel.org/majordomo-info.html
+DQoNCi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQpGcm9tOiBUb20gSGVyYmVydCBbbWFpbHRv
+OnRoZXJiZXJ0QGdvb2dsZS5jb21dIA0KU2VudDogVGh1cnNkYXksIEphbnVhcnkgMTUsIDIwMTUg
+MTE6MDQgQU0NClRvOiBTcmloYXJzaGEgQmFzYXZhcGF0bmENCkNjOiBMaW51eCBOZXRkZXYgTGlz
+dA0KU3ViamVjdDogUmU6IFtQQVRDSCB2MiBuZXRdIGJlMm5ldDogQWxsb3cgR1JFIHRvIHdvcmsg
+Y29uY3VycmVudGx5IHdoaWxlIGEgVnhMQU4gdHVubmVsIGlzIGNvbmZpZ3VyZWQNCg0KPiBJIGRv
+bid0IHVuZGVyc3RhbmQgd2h5IHRoaXMgaXMgbmVlZGVkLiBUaGUgb25seSBHU08gdHlwZSB3aXRo
+IHdpdGggZW5jYXBzdWxhdGlvbiBhbGxvd2VkIGJ5IGRldmljZSBmZWF0dXJlcyBTS0JfR1NPX1VE
+UF9UVU5ORUwuIFRoaXMgc2hvdWxkIG5vdCBiZSBHUkUgZm9yIGluc3RhbmNlLiBEbyB5b3Ugc2Vl
+IGNhc2VzIHdoZXJlIHByb3RvY29sIGlzIG5vdCBVRFAgYXQgdGhpcyBwb2ludD8NCj4gW0hhcnNo
+YV0gSXQncyBuZWVkZWQgZm9yIEdSRSBjaGVja3N1bSBjYXNlOyB3aXRob3V0IHRoaXMsICBHUkUg
+cGt0cyANCj4gYXJlIHNlbnQgZG93biB3aXRob3V0IGNoZWNrc3VtIGJ5IHRoZSBzdGFjaywgYnV0
+IEhXIGNhbiBvbmx5IG9mZmxvYWQgY2hlY2tzdW0gZm9yIFZ4TEFOIHBrdHMuDQo+DQpPa2F5LCBJ
+IHNlZSB0aGF0IHRoaXMgaXMgYSBwcm9ibGVtIHdpdGggY2hlY2tzdW0gbm90IEdTTy4gUGxlYXNl
+IGFzayB5b3VyIGhhcmR3YXJlIGd1eXMgdG8gcHJvdmlkZSBORVRJRl9GX0hXX0NTVU0gdG8gYXZv
+aWQgYW55IG1vcmUgb2YgdGhpcyB1bnBsZWFzYW50bmVzcyBpbiB0aGUgZnV0dXJlIDotKQ0KW0hh
+cnNoYV0gT2ssIHdpbGwgZG8gOi0pDQoNCj4+ICsgICAgICAgICAgIHNrYi0+aW5uZXJfcHJvdG9j
+b2xfdHlwZSAhPSBFTkNBUF9UWVBFX0VUSEVSIHx8DQo+PiArICAgICAgICAgICBza2ItPmlubmVy
+X3Byb3RvY29sICE9IGh0b25zKEVUSF9QX1RFQikgfHwNCj4+ICsgICAgICAgICAgIHNrYl9pbm5l
+cl9tYWNfaGVhZGVyKHNrYikgLSBza2JfdHJhbnNwb3J0X2hlYWRlcihza2IpICE9DQo+PiArICAg
+ICAgICAgICBzaXplb2Yoc3RydWN0IHVkcGhkcikgKyBzaXplb2Yoc3RydWN0IHZ4bGFuaGRyKSkN
+Cj4+ICsgICAgICAgICAgICAgICByZXR1cm4gZmVhdHVyZXMgJiB+KE5FVElGX0ZfQUxMX0NTVU0g
+fCANCj4+ICsgTkVUSUZfRl9HU09fTUFTSyk7DQo+PiArDQo+PiArICAgICAgIHJldHVybiBmZWF0
+dXJlczsNCj4+ICB9DQo+PiAgI2VuZGlmDQo+Pg0KPj4gLS0NCj4+IDEuNy45LjUNCj4+DQo+PiAt
+LQ0KPj4gVG8gdW5zdWJzY3JpYmUgZnJvbSB0aGlzIGxpc3Q6IHNlbmQgdGhlIGxpbmUgInVuc3Vi
+c2NyaWJlIG5ldGRldiIgaW4gDQo+PiB0aGUgYm9keSBvZiBhIG1lc3NhZ2UgdG8gbWFqb3Jkb21v
+QHZnZXIua2VybmVsLm9yZyBNb3JlIG1ham9yZG9tbyANCj4+IGluZm8gYXQgIGh0dHA6Ly92Z2Vy
+Lmtlcm5lbC5vcmcvbWFqb3Jkb21vLWluZm8uaHRtbA0K
