@@ -1,55 +1,94 @@
-From: Marcelo Ricardo Leitner <mleitner@redhat.com>
-Subject: Compile-time warnings on mlx4/net-next
-Date: Thu, 15 Jan 2015 11:05:27 -0200
-Message-ID: <54B7BB17.8090308@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>
-To: Or Gerlitz <ogerlitz@mellanox.com>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: [PATCH] net: smc91x: Add Atari EtherNAT support
+Date: Thu, 15 Jan 2015 14:06:15 +0100
+Message-ID: <1421327175-7613-1-git-send-email-geert@linux-m68k.org>
+Cc: netdev@vger.kernel.org, linux-m68k@vger.kernel.org,
+	Michael Schmitz <schmitzmic@gmail.com>,
+	Michael Schmitz <schmitz@debian.org>,
+	Geert Uytterhoeven <geert@linux-m68k.org>
+To: Nicolas Pitre <nico@fluxnic.net>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:37140 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752419AbbAONFd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Jan 2015 08:05:33 -0500
+Received: from xavier.telenet-ops.be ([195.130.132.52]:38346 "EHLO
+	xavier.telenet-ops.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753588AbbAONGf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jan 2015 08:06:35 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Or,
+From: Michael Schmitz <schmitzmic@gmail.com>
 
-Building net-next.git from today, 4e7a84b1a5bc8094522fd11f628b00c4b4e78=
-b4d,
-I'm seeing these warnings on mlx4:
+Add Atari specific code to the smc91x Ethernet driver. This code is used
+on the EtherNAT adapter card for the Atari Falcon extension port.
 
-drivers/net/ethernet/mellanox/mlx4/fw.c: In function =91mlx4_config_dev=
-_retrieval=92:
-drivers/net/ethernet/mellanox/mlx4/fw.c:2136:12: warning: =91config_dev=
-=2Erx_checksum_val=92 may be used uninitialized in this function [-Wmay=
-be-uninitialized]
-  csum_mask =3D (config_dev.rx_checksum_val >> CONFIG_DEV_RX_CSUM_MODE_=
-PORT2_BIT_OFFSET) &
-            ^
-In file included from include/linux/swab.h:4:0,
-                 from include/uapi/linux/byteorder/little_endian.h:12,
-                 from include/linux/byteorder/little_endian.h:4,
-                 from ./arch/x86/include/uapi/asm/byteorder.h:4,
-                 from include/asm-generic/bitops/le.h:5,
-                 from ./arch/x86/include/asm/bitops.h:504,
-                 from include/linux/bitops.h:36,
-                 from include/linux/kernel.h:10,
-                 from include/linux/skbuff.h:17,
-                 from include/linux/if_ether.h:23,
-                 from include/linux/etherdevice.h:25,
-                 from drivers/net/ethernet/mellanox/mlx4/fw.c:35:
-include/uapi/linux/swab.h:106:23: warning: =91config_dev.vxlan_udp_dpor=
-t=92 may be used uninitialized in this function [-Wmaybe-uninitialized]
-  (__builtin_constant_p((__u16)(x)) ? \
-                       ^
-drivers/net/ethernet/mellanox/mlx4/fw.c:2114:25: note: =91config_dev.vx=
-lan_udp_dport=92 was declared here
-  struct mlx4_config_dev config_dev;
-                         ^
+Signed-off-by: Michael Schmitz <schmitz@debian.org>
+Tested-by: Christian Steigies <cts@debian.org>
+[geert: Sort Kconfig entries, split in hard and soft dependencies]
+Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
+---
+ drivers/net/ethernet/smsc/Kconfig  | 10 ++++++----
+ drivers/net/ethernet/smsc/smc91x.h | 21 +++++++++++++++++++++
+ 2 files changed, 27 insertions(+), 4 deletions(-)
 
-Do you see them too?=20
-
-  Marcelo
+diff --git a/drivers/net/ethernet/smsc/Kconfig b/drivers/net/ethernet/smsc/Kconfig
+index 9468e64e6007bd2e..3e97a8b43147cc7c 100644
+--- a/drivers/net/ethernet/smsc/Kconfig
++++ b/drivers/net/ethernet/smsc/Kconfig
+@@ -5,8 +5,9 @@
+ config NET_VENDOR_SMSC
+ 	bool "SMC (SMSC)/Western Digital devices"
+ 	default y
+-	depends on ARM || ISA || MAC || ARM64 || MIPS || M32R || SUPERH || \
+-		BLACKFIN || MN10300 || COLDFIRE || XTENSA || NIOS2 || PCI || PCMCIA
++	depends on ARM || ARM64 || ATARI_ETHERNAT || BLACKFIN || COLDFIRE || \
++		   ISA || M32R || MAC || MIPS || MN10300 || NIOS2 || PCI || \
++		   PCMCIA || SUPERH || XTENSA
+ 	---help---
+ 	  If you have a network (Ethernet) card belonging to this class, say Y
+ 	  and read the Ethernet-HOWTO, available from
+@@ -38,8 +39,9 @@ config SMC91X
+ 	tristate "SMC 91C9x/91C1xxx support"
+ 	select CRC32
+ 	select MII
+-	depends on (ARM || M32R || SUPERH || MIPS || BLACKFIN || \
+-		    MN10300 || COLDFIRE || ARM64 || XTENSA || NIOS2) && (!OF || GPIOLIB)
++	depends on !OF || GPIOLIB
++	depends on ARM || ARM64 || ATARI_ETHERNAT || BLACKFIN || COLDFIRE || \
++		   M32R || MIPS || MN10300 || NIOS2 || SUPERH || XTENSA
+ 	---help---
+ 	  This is a driver for SMC's 91x series of Ethernet chipsets,
+ 	  including the SMC91C94 and the SMC91C111. Say Y if you want it
+diff --git a/drivers/net/ethernet/smsc/smc91x.h b/drivers/net/ethernet/smsc/smc91x.h
+index 2a38dacbbd27fba4..be67baf5f6778d08 100644
+--- a/drivers/net/ethernet/smsc/smc91x.h
++++ b/drivers/net/ethernet/smsc/smc91x.h
+@@ -216,6 +216,27 @@ SMC_outw(u16 val, void __iomem *ioaddr, int reg)
+ 
+ #include <unit/smc91111.h>
+ 
++#elif defined(CONFIG_ATARI)
++
++#define SMC_CAN_USE_8BIT        1
++#define SMC_CAN_USE_16BIT       1
++#define SMC_CAN_USE_32BIT       1
++#define SMC_NOWAIT              1
++
++#define SMC_inb(a, r)           readb((a) + (r))
++#define SMC_inw(a, r)           readw((a) + (r))
++#define SMC_inl(a, r)           readl((a) + (r))
++#define SMC_outb(v, a, r)       writeb(v, (a) + (r))
++#define SMC_outw(v, a, r)       writew(v, (a) + (r))
++#define SMC_outl(v, a, r)       writel(v, (a) + (r))
++#define SMC_insw(a, r, p, l)    readsw((a) + (r), p, l)
++#define SMC_outsw(a, r, p, l)   writesw((a) + (r), p, l)
++#define SMC_insl(a, r, p, l)    readsl((a) + (r), p, l)
++#define SMC_outsl(a, r, p, l)   writesl((a) + (r), p, l)
++
++#define RPC_LSA_DEFAULT         RPC_LED_100_10
++#define RPC_LSB_DEFAULT         RPC_LED_TX_RX
++
+ #elif defined(CONFIG_ARCH_MSM)
+ 
+ #define SMC_CAN_USE_8BIT	0
+-- 
+1.9.1
