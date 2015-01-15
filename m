@@ -1,69 +1,93 @@
 From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: pull-request: can 2015-01-15
-Date: Thu, 15 Jan 2015 17:11:15 +0100
-Message-ID: <1421338283-12417-1-git-send-email-mkl@pengutronix.de>
+Subject: [PATCH 4/8] can: c_can: use regmap_update_bits() to modify RAMINIT register
+Date: Thu, 15 Jan 2015 17:11:19 +0100
+Message-ID: <1421338283-12417-5-git-send-email-mkl@pengutronix.de>
+References: <1421338283-12417-1-git-send-email-mkl@pengutronix.de>
 Cc: davem@davemloft.net, linux-can@vger.kernel.org,
-	kernel@pengutronix.de
+	kernel@pengutronix.de, Roger Quadros <rogerq@ti.com>,
+	Marc Kleine-Budde <mkl@pengutronix.de>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:56590 "EHLO
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:56606 "EHLO
 	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752057AbbAOQLa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jan 2015 11:11:30 -0500
+	with ESMTP id S1752135AbbAOQLd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jan 2015 11:11:33 -0500
+In-Reply-To: <1421338283-12417-1-git-send-email-mkl@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello David,
+From: Roger Quadros <rogerq@ti.com>
 
-this is a pull request of 8 patches.
+use of regmap_read() and regmap_write() in c_can_hw_raminit_syscon()
+is not safe as the RAMINIT register can be shared between different drivers
+at least for TI SoCs.
 
-Ahmed S. Darwish contributes 4 fixes for the kvaser_usb driver. The two patches
-by Oliver Hartkopp mark the m_can driver as non-ISO, as the CANFD standard was
-updated. Roger Quadros's patch for the c_can driver fixes the register access
-during RAMINIT. And one patch by my, which updates the MAINTAINERS file, as we
-moved the git repos to the kernel.org infrastructure.
+To make the modification atomic we switch to using regmap_update_bits().
 
-regards,
-Marc
+regmap_update_bits() skips writing to the register if it's read content is the
+same as what is going to be written. This causes an issue for us when we
+need to clear the DONE bit with the initial condition START:0, DONE:1 as
+DONE bit must be written with 1 to clear it.
 
+So we defer the clearing of DONE bit to later when we set the START bit.
+There we are sure that START bit is changed from 0 to 1 so the write of
+1 to already set DONE bit will happen.
+
+Signed-off-by: Roger Quadros <rogerq@ti.com>
+Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
 ---
-
-The following changes since commit 16dde0d6ac159531a5e03cd3f8bc8a401d9f3fb6:
-
-  be2net: Allow GRE to work concurrently while a VxLAN tunnel is configured (2015-01-15 01:55:05 -0500)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/mkl/linux-can.git tags/linux-can-fixes-for-3.19-20150115
-
-for you to fetch changes up to a58518ccf39f86f898a65201518dd8e799b3abeb:
-
-  can: kvaser_usb: Don't dereference skb after a netif_rx() (2015-01-15 16:58:02 +0100)
-
-----------------------------------------------------------------
-linux-can-fixes-for-3.19-20150115
-
-----------------------------------------------------------------
-Ahmed S. Darwish (4):
-      can: kvaser_usb: Don't free packets when tight on URBs
-      can: kvaser_usb: Reset all URB tx contexts upon channel close
-      can: kvaser_usb: Don't send a RESET_CHIP for non-existing channels
-      can: kvaser_usb: Don't dereference skb after a netif_rx()
-
-Marc Kleine-Budde (1):
-      MAINTAINERS: update linux-can git repositories
-
-Oliver Hartkopp (2):
-      can: dev: fix crtlmode_supported check
-      can: m_can: tag current CAN FD controllers as non-ISO
-
-Roger Quadros (1):
-      can: c_can: use regmap_update_bits() to modify RAMINIT register
-
- MAINTAINERS                            |  6 ++++--
  drivers/net/can/c_can/c_can_platform.c | 29 ++++++++++++++++++-----------
- drivers/net/can/dev.c                  |  8 ++++++--
- drivers/net/can/m_can/m_can.c          |  5 +++++
- drivers/net/can/usb/kvaser_usb.c       | 31 +++++++++++++++----------------
- include/uapi/linux/can/netlink.h       |  1 +
- 6 files changed, 49 insertions(+), 31 deletions(-)
+ 1 file changed, 18 insertions(+), 11 deletions(-)
+
+diff --git a/drivers/net/can/c_can/c_can_platform.c b/drivers/net/can/c_can/c_can_platform.c
+index f363972cd77d..e36d10520e24 100644
+--- a/drivers/net/can/c_can/c_can_platform.c
++++ b/drivers/net/can/c_can/c_can_platform.c
+@@ -103,27 +103,34 @@ static void c_can_hw_raminit_syscon(const struct c_can_priv *priv, bool enable)
+ 	mask = 1 << raminit->bits.start | 1 << raminit->bits.done;
+ 	regmap_read(raminit->syscon, raminit->reg, &ctrl);
+ 
+-	/* We clear the done and start bit first. The start bit is
++	/* We clear the start bit first. The start bit is
+ 	 * looking at the 0 -> transition, but is not self clearing;
+-	 * And we clear the init done bit as well.
+ 	 * NOTE: DONE must be written with 1 to clear it.
++	 * We can't clear the DONE bit here using regmap_update_bits()
++	 * as it will bypass the write if initial condition is START:0 DONE:1
++	 * e.g. on DRA7 which needs START pulse.
+ 	 */
+-	ctrl &= ~(1 << raminit->bits.start);
+-	ctrl |= 1 << raminit->bits.done;
+-	regmap_write(raminit->syscon, raminit->reg, ctrl);
++	ctrl &= ~mask;	/* START = 0, DONE = 0 */
++	regmap_update_bits(raminit->syscon, raminit->reg, mask, ctrl);
+ 
+-	ctrl &= ~(1 << raminit->bits.done);
+-	c_can_hw_raminit_wait_syscon(priv, mask, ctrl);
++	/* check if START bit is 0. Ignore DONE bit for now
++	 * as it can be either 0 or 1.
++	 */
++	c_can_hw_raminit_wait_syscon(priv, 1 << raminit->bits.start, ctrl);
+ 
+ 	if (enable) {
+-		/* Set start bit and wait for the done bit. */
++		/* Clear DONE bit & set START bit. */
+ 		ctrl |= 1 << raminit->bits.start;
+-		regmap_write(raminit->syscon, raminit->reg, ctrl);
+-
++		/* DONE must be written with 1 to clear it */
++		ctrl |= 1 << raminit->bits.done;
++		regmap_update_bits(raminit->syscon, raminit->reg, mask, ctrl);
++		/* prevent further clearing of DONE bit */
++		ctrl &= ~(1 << raminit->bits.done);
+ 		/* clear START bit if start pulse is needed */
+ 		if (raminit->needs_pulse) {
+ 			ctrl &= ~(1 << raminit->bits.start);
+-			regmap_write(raminit->syscon, raminit->reg, ctrl);
++			regmap_update_bits(raminit->syscon, raminit->reg,
++					   mask, ctrl);
+ 		}
+ 
+ 		ctrl |= 1 << raminit->bits.done;
+-- 
+2.1.4
