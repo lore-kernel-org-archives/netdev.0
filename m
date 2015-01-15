@@ -1,58 +1,47 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH net-next v2] socket: use iov_length()
-Date: Thu, 15 Jan 2015 10:35:58 +0100
-Message-ID: <1421314558-4252-1-git-send-email-nicolas.dichtel@6wind.com>
-References: <20150114.164528.230093054757243054.davem@davemloft.net>
-Cc: davem@davemloft.net, Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: netdev@vger.kernel.org
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH net-next v13 0/3] add hisilicon hip04 ethernet driver
+Date: Thu, 15 Jan 2015 10:42:17 +0100
+Message-ID: <14674609.dERhba4yMV@wuerfel>
+References: <1421217254-12008-1-git-send-email-dingtianhong@huawei.com> <54B642B4.8010807@suse.de> <54B77C43.6010200@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Alexander Graf <agraf@suse.de>, robh+dt@kernel.org,
+	davem@davemloft.net, grant.likely@linaro.org,
+	sergei.shtylyov@cogentembedded.com,
+	linux-arm-kernel@lists.infradead.org, eric.dumazet@gmail.com,
+	xuwei5@hisilicon.com, zhangfei.gao@linaro.org,
+	netdev@vger.kernel.org, devicetree@vger.kernel.org,
+	linux@arm.linux.org.uk
+To: Ding Tianhong <dingtianhong@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:48831 "EHLO
-	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751403AbbAOJgE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jan 2015 04:36:04 -0500
-In-Reply-To: <20150114.164528.230093054757243054.davem@davemloft.net>
+Received: from mout.kundenserver.de ([212.227.126.187]:63153 "EHLO
+	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751403AbbAOJnf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jan 2015 04:43:35 -0500
+In-Reply-To: <54B77C43.6010200@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Better to use available helpers.
+On Thursday 15 January 2015 16:37:23 Ding Tianhong wrote:
+> On 2015/1/14 18:19, Alexander Graf wrote:
+> > 
+> >>From a 10000 feet perspective it looks like two problems to me
+> > 
+> >   1) Allocation failure doesn't get handled properly somewhere
 
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
+This is the bug that Eric pointed out as well.
 
-v2: initialize size variable with iov_length() result
+> >   2) We fail to allocate with order=0 - I don't see why
 
- net/socket.c | 12 ++----------
- 1 file changed, 2 insertions(+), 10 deletions(-)
+GFP_ATOMIC. When allocating from a the napi poll function in softirq
+context, you have to use nonblocking allocations, which occasionally
+fail. This should not cause any harm other than dropped packets.
 
-diff --git a/net/socket.c b/net/socket.c
-index a2c33a4dc7ba..e1278d7e1d5d 100644
---- a/net/socket.c
-+++ b/net/socket.c
-@@ -882,11 +882,7 @@ static ssize_t do_sock_read(struct msghdr *msg, struct kiocb *iocb,
- 		unsigned long nr_segs)
- {
- 	struct socket *sock = file->private_data;
--	size_t size = 0;
--	int i;
--
--	for (i = 0; i < nr_segs; i++)
--		size += iov[i].iov_len;
-+	size_t size = iov_length(iov, nr_segs);
- 
- 	msg->msg_name = NULL;
- 	msg->msg_namelen = 0;
-@@ -921,11 +917,7 @@ static ssize_t do_sock_write(struct msghdr *msg, struct kiocb *iocb,
- 			unsigned long nr_segs)
- {
- 	struct socket *sock = file->private_data;
--	size_t size = 0;
--	int i;
--
--	for (i = 0; i < nr_segs; i++)
--		size += iov[i].iov_len;
-+	size_t size = iov_length(iov, nr_segs);
- 
- 	msg->msg_name = NULL;
- 	msg->msg_namelen = 0;
--- 
-2.1.0
+> is it easy to repetition this bug? how big is your memory on your board,
+> is it happened in your previous hip04 driver?
+
+It should be independent of memory size, but may be more likely if you
+don't have swap space configured.
+
+	Arnd
