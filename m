@@ -1,59 +1,83 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 17/17] i40e/i40evf: Bump i40e and i40evf versions
-Date: Thu, 15 Jan 2015 04:19:28 -0800
-Message-ID: <1421324368-6860-18-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 15/17] i40e: when Rx timestamps disabled set specific mode
+Date: Thu, 15 Jan 2015 04:19:26 -0800
+Message-ID: <1421324368-6860-16-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1421324368-6860-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Sravanthi Tangeda <sravanthi.tangeda@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:64854 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([192.55.52.115]:37935 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753451AbbAOMTj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1753757AbbAOMTj (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 15 Jan 2015 07:19:39 -0500
 In-Reply-To: <1421324368-6860-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sravanthi Tangeda <sravanthi.tangeda@intel.com>
+From: Jacob Keller <jacob.e.keller@intel.com>
 
-Bump i40e to 1.2.6 and i40evf to 1.2.0 version.
+Instead of leaving the Rx timestamps in the same mode as before if we
+disable the Rx logic, we can set it into a mode that has the fewest
+possible timestamps generated. To do this, select only V1 mode, but do
+not enable UDP packet recognition. This should eliminate all (or at
+least almost all) Rx timestamps, since V1 packets are always over UDP.
 
-Change-ID: Ice127eee3a5a5d1b8765d83cff8c30f9f3b1bc32
-Signed-off-by: Sravanthi Tangeda <sravanthi.tangeda@intel.com>
-Tested-by: Jim Young <james.m.young@intel.com>
+Change-ID: If847288e0030a716e059c4c33ab114f2cf038f05
+Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+Acked-by: Shannon Nelson <shannon.nelson@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c     | 2 +-
- drivers/net/ethernet/intel/i40evf/i40evf_main.c | 2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_ptp.c | 28 +++++++++++++++++-----------
+ 1 file changed, 17 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index f1256f9..e774a23 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -39,7 +39,7 @@ static const char i40e_driver_string[] =
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_ptp.c b/drivers/net/ethernet/intel/i40e/i40e_ptp.c
+index a55d47e..0fd5af8 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_ptp.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_ptp.c
+@@ -478,7 +478,12 @@ static int i40e_ptp_set_timestamp_mode(struct i40e_pf *pf,
+ 	switch (config->rx_filter) {
+ 	case HWTSTAMP_FILTER_NONE:
+ 		pf->ptp_rx = false;
+-		tsyntype = 0;
++		/* We set the type to V1, but do not enable UDP packet
++		 * recognition. In this way, we should be as close to
++		 * disabling PTP Rx timestamps as possible since V1 packets
++		 * are always UDP, since L2 packets are a V2 feature.
++		 */
++		tsyntype = I40E_PRTTSYN_CTL1_TSYNTYPE_V1;
+ 		break;
+ 	case HWTSTAMP_FILTER_PTP_V1_L4_SYNC:
+ 	case HWTSTAMP_FILTER_PTP_V1_L4_DELAY_REQ:
+@@ -532,17 +537,18 @@ static int i40e_ptp_set_timestamp_mode(struct i40e_pf *pf,
+ 		regval &= ~I40E_PFINT_ICR0_ENA_TIMESYNC_MASK;
+ 	wr32(hw, I40E_PFINT_ICR0_ENA, regval);
  
- #define DRV_VERSION_MAJOR 1
- #define DRV_VERSION_MINOR 2
--#define DRV_VERSION_BUILD 5
-+#define DRV_VERSION_BUILD 6
- #define DRV_VERSION __stringify(DRV_VERSION_MAJOR) "." \
- 	     __stringify(DRV_VERSION_MINOR) "." \
- 	     __stringify(DRV_VERSION_BUILD)    DRV_KERN
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-index a492032..f946aac 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-@@ -36,7 +36,7 @@ char i40evf_driver_name[] = "i40evf";
- static const char i40evf_driver_string[] =
- 	"Intel(R) XL710/X710 Virtual Function Network Driver";
+-	/* There is no simple on/off switch for Rx. To "disable" Rx support,
+-	 * ignore any received timestamps, rather than turn off the clock.
++	/* Although there is no simple on/off switch for Rx, we "disable" Rx
++	 * timestamps by setting to V1 only mode and clear the UDP
++	 * recognition. This ought to disable all PTP Rx timestamps as V1
++	 * packets are always over UDP. Note that software is configured to
++	 * ignore Rx timestamps via the pf->ptp_rx flag.
+ 	 */
+-	if (pf->ptp_rx) {
+-		regval = rd32(hw, I40E_PRTTSYN_CTL1);
+-		/* clear everything but the enable bit */
+-		regval &= I40E_PRTTSYN_CTL1_TSYNENA_MASK;
+-		/* now enable bits for desired Rx timestamps */
+-		regval |= tsyntype;
+-		wr32(hw, I40E_PRTTSYN_CTL1, regval);
+-	}
++	regval = rd32(hw, I40E_PRTTSYN_CTL1);
++	/* clear everything but the enable bit */
++	regval &= I40E_PRTTSYN_CTL1_TSYNENA_MASK;
++	/* now enable bits for desired Rx timestamps */
++	regval |= tsyntype;
++	wr32(hw, I40E_PRTTSYN_CTL1, regval);
  
--#define DRV_VERSION "1.0.7"
-+#define DRV_VERSION "1.2.0"
- const char i40evf_driver_version[] = DRV_VERSION;
- static const char i40evf_copyright[] =
- 	"Copyright (c) 2013 - 2014 Intel Corporation.";
+ 	return 0;
+ }
 -- 
 1.9.3
