@@ -1,44 +1,47 @@
 From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH iproute2 2/2] lib: fix setns() function when !HAVE_SETNS
-Date: Thu, 15 Jan 2015 11:36:25 +0100
-Message-ID: <1421318185-10858-2-git-send-email-nicolas.dichtel@6wind.com>
-References: <1421318185-10858-1-git-send-email-nicolas.dichtel@6wind.com>
+Subject: [PATCH iproute2 1/2] lib: fix warning in namespace.h
+Date: Thu, 15 Jan 2015 11:36:24 +0100
+Message-ID: <1421318185-10858-1-git-send-email-nicolas.dichtel@6wind.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org,
 	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
 	Vadim Kochan <vadim4j@gmail.com>
 To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:48905 "EHLO
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:48904 "EHLO
 	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751946AbbAOKgq (ORCPT
+	with ESMTP id S1751901AbbAOKgq (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jan 2015 05:36:46 -0500
-In-Reply-To: <1421318185-10858-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When HAVE_SETNS is not set, iproute2 provides a local implementation of this
-function based on __NR_setns.
-This macro is defined in sys/syscall.h, which was not included, thus the local
-implementation always returned -1.
+Warning was:
+In file included from bridge.c:16:0:
+=2E./include/namespace.h:33:12: warning: =E2=80=98setns=E2=80=99 define=
+d but not used [-Wunused-function]
 
 CC: Vadim Kochan <vadim4j@gmail.com>
-Fixes: eb67e4498aec ("lib: Add netns_switch func for change network namespace")
+=46ixes: eb67e4498aec ("lib: Add netns_switch func for change network n=
+amespace")
 Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 ---
- include/namespace.h | 1 +
- 1 file changed, 1 insertion(+)
+ include/namespace.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/include/namespace.h b/include/namespace.h
-index 28a4223b3eb2..52f7fbd7bb8c 100644
+index b8c5cad6aaa2..28a4223b3eb2 100644
 --- a/include/namespace.h
 +++ b/include/namespace.h
-@@ -3,6 +3,7 @@
- 
- #include <sched.h>
- #include <sys/mount.h>
-+#include <sys/syscall.h>
- #include <errno.h>
- 
- #define NETNS_RUN_DIR "/var/run/netns"
--- 
+@@ -30,7 +30,7 @@
+ #endif
+=20
+ #ifndef HAVE_SETNS
+-static int setns(int fd, int nstype)
++static inline int setns(int fd, int nstype)
+ {
+ #ifdef __NR_setns
+ 	return syscall(__NR_setns, fd, nstype);
+--=20
 2.1.0
