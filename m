@@ -1,72 +1,121 @@
-From: Thomas Jarosch <thomas.jarosch@intra2net.com>
-Subject: Re: [bisected regression] e1000e: "Detected Hardware Unit Hang"
-Date: Thu, 15 Jan 2015 11:11:09 +0100
-Message-ID: <5229621.KczjbIR22Q@storm>
-References: <1719052.SGOfRAJhfQ@storm> <1421256052.11734.22.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Zubair Lutfullah Kakakhel <Zubair.Kakakhel@imgtec.com>
+Subject: [PATCH_V5] dm9000: Add regulator and reset support to dm9000
+Date: Thu, 15 Jan 2015 10:12:26 +0000
+Message-ID: <1421316746-38128-1-git-send-email-Zubair.Kakakhel@imgtec.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: 'Linux Netdev List' <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	e1000-devel <e1000-devel@lists.sourceforge.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rs04.intra2net.com ([85.214.66.2]:59901 "EHLO
-	rs04.intra2net.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751392AbbAOKLO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jan 2015 05:11:14 -0500
-In-Reply-To: <1421256052.11734.22.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <Zubair.Kakakhel@imgtec.com>, <devicetree@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<s.hauer@pengutronix.de>, <sergei.shtylyov@cogentembedded.com>
+To: <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wednesday, 14. January 2015 09:20:52 Eric Dumazet wrote:
-> I would try to use lower data per txd. I am not sure 24KB is really
-> supported.
-> 
-> ( check commit d821a4c4d11ad160925dab2bb009b8444beff484 for details)
-> 
-> diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c
-> b/drivers/net/ethernet/intel/e1000e/netdev.c index
-> e14fd85f64eb..8d973f7edfbd 100644
-> --- a/drivers/net/ethernet/intel/e1000e/netdev.c
-> +++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-> @@ -3897,7 +3897,7 @@ void e1000e_reset(struct e1000_adapter *adapter)
->  	 * limit of 24KB due to receive synchronization limitations.
->  	 */
->  	adapter->tx_fifo_limit = min_t(u32, ((er32(PBA) >> 16) << 10) - 96,
-> -				       24 << 10);
-> +				       8 << 10);
-> 
->  	/* Disable Adaptive Interrupt Moderation if 2 full packets cannot
->  	 * fit in receive buffer.
+In boards, the dm9000 chip's power and reset can be controlled by gpio.
 
-Thanks for checking!
+It makes sense to add them to the dm9000 driver and let dt be used to
+enable power and reset the phy.
 
-I just tried that change on top of git f800c25 (git HEAD), same problem. 
-Let's see what the Intel wizards come up with.
+Signed-off-by: Zubair Lutfullah Kakakhel <Zubair.Kakakhel@imgtec.com>
+Signed-off-by: Paul Burton <paul.burton@imgtec.com>
 
-What "works" is to decrease the page size in git HEAD, too:
+---
+V4 Reordered an error check. PTR_ERR inside IS_ERR.
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 85ab7d7..9f0ef97 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -2108,7 +2108,7 @@ static inline void __skb_queue_purge(struct 
-sk_buff_head *list)
-                kfree_skb(skb);
- }
+V3 Fixed an indentation and removed a call to gpio_direction_output as
+devm_gpio_request_one can handle it.
+
+V2 A few fixes and more error checks. Nothing major
+
+V1 Minor blooper
+---
+ .../devicetree/bindings/net/davicom-dm9000.txt     |  4 +++
+ drivers/net/ethernet/davicom/dm9000.c              | 40 ++++++++++++++++++++++
+ 2 files changed, 44 insertions(+)
+
+diff --git a/Documentation/devicetree/bindings/net/davicom-dm9000.txt b/Documentation/devicetree/bindings/net/davicom-dm9000.txt
+index 28767ed..5224bf0 100644
+--- a/Documentation/devicetree/bindings/net/davicom-dm9000.txt
++++ b/Documentation/devicetree/bindings/net/davicom-dm9000.txt
+@@ -11,6 +11,8 @@ Required properties:
+ Optional properties:
+ - davicom,no-eeprom : Configuration EEPROM is not available
+ - davicom,ext-phy : Use external PHY
++- reset-gpios : phandle of gpio that will be used to reset chip during probe
++- vcc-supply : phandle of regulator that will be used to enable power to chip
  
--#define NETDEV_FRAG_PAGE_MAX_ORDER get_order(32768)
-+#define NETDEV_FRAG_PAGE_MAX_ORDER get_order(4096)
- #define NETDEV_FRAG_PAGE_MAX_SIZE  (PAGE_SIZE << NETDEV_FRAG_PAGE_MAX_ORDER)
- #define NETDEV_PAGECNT_MAX_BIAS           NETDEV_FRAG_PAGE_MAX_SIZE
-
-
-
-When I try a page size of 8192, it starts failing again. I'll now run
-a stress test with 4096 to see if the problem is really gone
-or just happens more rarely.
-
-Cheers,
-Thomas
+ Example:
+ 
+@@ -21,4 +23,6 @@ Example:
+ 		interrupts = <7 4>;
+ 		local-mac-address = [00 00 de ad be ef];
+ 		davicom,no-eeprom;
++		reset-gpios = <&gpf 12 GPIO_ACTIVE_LOW>;
++		vcc-supply = <&eth0_power>;
+ 	};
+diff --git a/drivers/net/ethernet/davicom/dm9000.c b/drivers/net/ethernet/davicom/dm9000.c
+index ef0bb58..c0a7813 100644
+--- a/drivers/net/ethernet/davicom/dm9000.c
++++ b/drivers/net/ethernet/davicom/dm9000.c
+@@ -36,6 +36,9 @@
+ #include <linux/platform_device.h>
+ #include <linux/irq.h>
+ #include <linux/slab.h>
++#include <linux/regulator/consumer.h>
++#include <linux/gpio.h>
++#include <linux/of_gpio.h>
+ 
+ #include <asm/delay.h>
+ #include <asm/irq.h>
+@@ -1426,11 +1429,48 @@ dm9000_probe(struct platform_device *pdev)
+ 	struct dm9000_plat_data *pdata = dev_get_platdata(&pdev->dev);
+ 	struct board_info *db;	/* Point a board information structure */
+ 	struct net_device *ndev;
++	struct device *dev = &pdev->dev;
+ 	const unsigned char *mac_src;
+ 	int ret = 0;
+ 	int iosize;
+ 	int i;
+ 	u32 id_val;
++	int reset_gpios;
++	enum of_gpio_flags flags;
++	struct regulator *power;
++
++	power = devm_regulator_get(dev, "vcc");
++	if (IS_ERR(power)) {
++		if (PTR_ERR(power) == -EPROBE_DEFER)
++			return -EPROBE_DEFER;
++		dev_dbg(dev, "no regulator provided\n");
++	} else {
++		ret = regulator_enable(power);
++		if (ret != 0) {
++			dev_err(dev,
++				"Failed to enable power regulator: %d\n", ret);
++			return ret;
++		}
++		dev_dbg(dev, "regulator enabled\n");
++	}
++
++	reset_gpios = of_get_named_gpio_flags(dev->of_node, "reset-gpios", 0,
++					      &flags);
++	if (gpio_is_valid(reset_gpios)) {
++		ret = devm_gpio_request_one(dev, reset_gpios, flags,
++					    "dm9000_reset");
++		if (ret) {
++			dev_err(dev, "failed to request reset gpio %d: %d\n",
++				reset_gpios, ret);
++			return -ENODEV;
++		}
++
++		/* According to manual PWRST# Low Period Min 1ms */
++		msleep(2);
++		gpio_set_value(reset_gpios, 1);
++		/* Needs 3ms to read eeprom when PWRST is deasserted */
++		msleep(4);
++	}
+ 
+ 	if (!pdata) {
+ 		pdata = dm9000_parse_dt(&pdev->dev);
+-- 
+1.9.1
