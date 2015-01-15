@@ -1,46 +1,60 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH 1/5] vxlan: Group Policy extension
-Date: Thu, 15 Jan 2015 02:55:39 +0000
-Message-ID: <20150115025539.GA20315@casper.infradead.org>
-References: <cover.1421280226.git.tgraf@suug.ch>
- <c73939bbb55a8e450de7931d830e0467a8340665.1421280226.git.tgraf@suug.ch>
- <CA+mtBx-CH2=D-wKmkjVTvhQOWhbf73NxcGrXrXOPE-E2PzJajQ@mail.gmail.com>
- <20150115002323.GH2105@casper.infradead.org>
- <CA+mtBx9=coY1YwPn2ds66PD-J7FDaN_3Yf-_nB_vUEeZEDyJdg@mail.gmail.com>
- <20150115012804.GI2105@casper.infradead.org>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: [PATCH net-next v13 3/3] net: hisilicon: new hip04 ethernet driver
+Date: Thu, 15 Jan 2015 10:56:06 +0800
+Message-ID: <54B72C46.5070601@huawei.com>
+References: <1421217254-12008-1-git-send-email-dingtianhong@huawei.com>	 <1421217254-12008-4-git-send-email-dingtianhong@huawei.com> <1421222782.2847.1.camel@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.ne>, Jesse Gross <jesse@nicira.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Pravin B Shelar <pshelar@nicira.com>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	"dev@openvswitch.org" <dev@openvswitch.org>
-To: Tom Herbert <therbert@google.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <arnd@arndb.de>, <robh+dt@kernel.org>, <davem@davemloft.net>,
+	<grant.likely@linaro.org>, <agraf@suse.de>,
+	<sergei.shtylyov@cogentembedded.com>,
+	<linux-arm-kernel@lists.infradead.org>, <eric.dumazet@gmail.com>,
+	<xuwei5@hisilicon.com>, <zhangfei.gao@linaro.org>,
+	<netdev@vger.kernel.org>, <devicetree@vger.kernel.org>,
+	<linux@arm.linux.org.uk>
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:35222 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751175AbbAOCzk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2015 21:55:40 -0500
-Content-Disposition: inline
-In-Reply-To: <20150115012804.GI2105@casper.infradead.org>
+Received: from szxga03-in.huawei.com ([119.145.14.66]:5521 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751151AbbAOC4Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2015 21:56:24 -0500
+In-Reply-To: <1421222782.2847.1.camel@perches.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/15/15 at 01:28am, Thomas Graf wrote:
-> What exactly is the problem of having a distinct bitmap used by
-> extensions? It is the least error prone method because it's clear that
-> all extensions must match and we don't have to maintain an additional
-> bitmask which can be forgotten to be updated.
+On 2015/1/14 16:06, Joe Perches wrote:
+> On Wed, 2015-01-14 at 14:34 +0800, Ding Tianhong wrote:
+>> Support Hisilicon hip04 ethernet driver, including 100M / 1000M controller.
+>> The controller has no tx done interrupt, reclaim xmitted buffer in the poll.
 > 
-> If you need to compare additional receive checksum settings for RCO
-> then that should be separate because as you say it's not an extension.
+> Single comment:
+> 
+>> diff --git a/drivers/net/ethernet/hisilicon/hip04_eth.c b/drivers/net/ethernet/hisilicon/hip04_eth.c
+> []
+>> +static int hip04_rx_poll(struct napi_struct *napi, int budget)
+>> +{
+> []
+>> +	while (cnt && !last) {
+>> +		buf = priv->rx_buf[priv->rx_head];
+>> +		skb = build_skb(buf, priv->rx_buf_size);
+>> +		if (unlikely(!skb))
+>> +			net_dbg_ratelimited("build_skb failed\n");
+>> +
+>> +		dma_unmap_single(&ndev->dev, priv->rx_phys[priv->rx_head],
+>> +				 RX_BUF_SIZE, DMA_FROM_DEVICE);
+>> +		priv->rx_phys[priv->rx_head] = 0;
+>> +
+>> +		desc = (struct rx_desc *)skb->data;
+> 
+> Perhaps if (!skb) is possible, there shouldn't be
+> a dereference of that known null here.
+> 
+Yes, we should return and do something to avoid oops, thanks.
 
-Tom,
+Ding
 
-OK. I have changed it to use flags instead of exts in v6. You should
-be able to add whatever RCO flags need to be matched in
-vxlan_find_sock() to the VXLAN_F_UNSHAREABLE bitmask.
-
-Hope this makes everybody happy ;-)
+> 
+> 
+> .
+> 
