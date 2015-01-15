@@ -1,88 +1,242 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH net-next v13 3/3] net: hisilicon: new hip04 ethernet driver
-Date: Thu, 15 Jan 2015 10:53:46 +0100
-Message-ID: <1456101.oYxGUWa027@wuerfel>
-References: <1421217254-12008-1-git-send-email-dingtianhong@huawei.com> <1421217254-12008-4-git-send-email-dingtianhong@huawei.com>
+From: Nicolas Ferre <nicolas.ferre@atmel.com>
+Subject: Re: [PATCH v2 1/2] fixup! net/macb: Adding comments to various #defs
+ to make interpretation easier
+Date: Thu, 15 Jan 2015 11:05:09 +0100
+Message-ID: <54B790D5.5040205@atmel.com>
+References: <20150114.165220.2282566005036464131.davem@davemloft.net> <1421274051-21588-1-git-send-email-xander.huff@ni.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Ding Tianhong <dingtianhong@huawei.com>, robh+dt@kernel.org,
-	davem@davemloft.net, grant.likely@linaro.org, agraf@suse.de,
-	devicetree@vger.kernel.org, linux@arm.linux.org.uk,
-	sergei.shtylyov@cogentembedded.com, eric.dumazet@gmail.com,
-	netdev@vger.kernel.org, xuwei5@hisilicon.com,
-	zhangfei.gao@linaro.org
-To: linux-arm-kernel@lists.infradead.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.126.131]:63198 "EHLO
-	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751151AbbAOJyr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jan 2015 04:54:47 -0500
-In-Reply-To: <1421217254-12008-4-git-send-email-dingtianhong@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <netdev@vger.kernel.org>, <jaeden.amero@ni.com>,
+	<rich.tollerton@ni.com>, <ben.shelton@ni.com>,
+	<brad.mouring@ni.com>, <linux-kernel@vger.kernel.org>,
+	<cyrille.pitchen@atmel.com>
+To: Xander Huff <xander.huff@ni.com>, <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1421274051-21588-1-git-send-email-xander.huff@ni.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wednesday 14 January 2015 14:34:14 Ding Tianhong wrote:
-> +static int hip04_set_coalesce(struct net_device *netdev,
-> +                             struct ethtool_coalesce *ec)
-> +{
-> +       struct hip04_priv *priv = netdev_priv(netdev);
-> +
-> +       /* Check not supported parameters  */
-> +       if ((ec->rx_max_coalesced_frames) || (ec->rx_coalesce_usecs_irq) ||
-> +           (ec->rx_max_coalesced_frames_irq) || (ec->tx_coalesce_usecs_irq) ||
-> +           (ec->use_adaptive_rx_coalesce) || (ec->use_adaptive_tx_coalesce) ||
-> +           (ec->pkt_rate_low) || (ec->rx_coalesce_usecs_low) ||
-> +           (ec->rx_max_coalesced_frames_low) || (ec->tx_coalesce_usecs_high) ||
-> +           (ec->tx_max_coalesced_frames_low) || (ec->pkt_rate_high) ||
-> +           (ec->tx_coalesce_usecs_low) || (ec->rx_coalesce_usecs_high) ||
-> +           (ec->rx_max_coalesced_frames_high) || (ec->rx_coalesce_usecs) ||
-> +           (ec->tx_max_coalesced_frames_irq) ||
-> +           (ec->stats_block_coalesce_usecs) ||
-> +           (ec->tx_max_coalesced_frames_high) || (ec->rate_sample_interval))
-> +               return -EOPNOTSUPP;
-> +
-> +       if ((ec->tx_coalesce_usecs > HIP04_MAX_TX_COALESCE_USECS ||
-> +            ec->tx_coalesce_usecs < HIP04_MIN_TX_COALESCE_USECS) ||
-> +           (ec->tx_max_coalesced_frames > HIP04_MAX_TX_COALESCE_FRAMES ||
-> +            ec->tx_max_coalesced_frames < HIP04_MIN_TX_COALESCE_FRAMES))
-> +               return -EINVAL;
-> +
-> +       priv->tx_coalesce_usecs = ec->tx_coalesce_usecs;
-> +       priv->tx_coalesce_frames = ec->tx_max_coalesced_frames;
-> +
-> +       return 0;
-> +}
+Le 14/01/2015 23:20, Xander Huff a =E9crit :
+> Put #define comments into a single line.
 
-I just looked at this again and noticed that you fail to actually use the
-tx_coalesce_usecs value anywhere, since you don't call hrtimer_set_expires_range()
-any more.
+It seems that correction is not done for all the entries modified:
+@ 0x0100 to 0x01b0
 
-Also, I guess it would be nice use the rx_coalesce_usecs_low and
-tx_coalesce_usecs_high numbers instead of just a single number, as
-hrtimer_set_expires_range takes two values already. Just do something
-like 
+Can you please consider correcting this?
 
-	hrtimer_set_expires_range(&priv->tx_coalesce_timer,
-				   priv->rx_coalesce_usecs_low,
-				   priv->rx_coalesce_usecs_high -
-				   priv->rx_coalesce_usecs_low);
+Thanks, bye.
 
-and make sure the 'low' value is smaller than the 'high' one.
+> Signed-off-by: Xander Huff <xander.huff@ni.com>
+> ---
+>  drivers/net/ethernet/cadence/macb.h | 107 +++++++++-----------------=
+----------
+>  1 file changed, 26 insertions(+), 81 deletions(-)
+>=20
+> diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethern=
+et/cadence/macb.h
+> index 378b218..d7b93d0 100644
+> --- a/drivers/net/ethernet/cadence/macb.h
+> +++ b/drivers/net/ethernet/cadence/macb.h
+> @@ -275,9 +275,7 @@
+>  #define MACB_THALT_SIZE				1
+>  #define MACB_NCR_TPF_OFFSET			11 /* Transmit pause frame */
+>  #define MACB_NCR_TPF_SIZE			1
+> -#define MACB_TZQ_OFFSET				12 /* Transmit zero quantum
+> -						    * pause frame
+> -						    */
+> +#define MACB_TZQ_OFFSET				12 /* Transmit zero quantum pause frame *=
+/
+>  #define MACB_TZQ_SIZE				1
+> =20
+>  /* Bitfields in NCFGR */
+> @@ -299,9 +297,7 @@
+>  #define MACB_UNI_SIZE				1
+>  #define MACB_BIG_OFFSET				8 /* Receive 1536 byte frames */
+>  #define MACB_BIG_SIZE				1
+> -#define MACB_EAE_OFFSET				9 /* External address match
+> -						   * enable
+> -						   */
+> +#define MACB_EAE_OFFSET				9 /* External address match enable */
+>  #define MACB_EAE_SIZE				1
+>  #define MACB_CLK_OFFSET				10
+>  #define MACB_CLK_SIZE				2
+> @@ -313,9 +309,7 @@
+>  #define MACB_RM9200_RMII_SIZE			1  /* AT91RM9200 only */
+>  #define MACB_RBOF_OFFSET			14 /* Receive buffer offset */
+>  #define MACB_RBOF_SIZE				2
+> -#define MACB_RLCE_OFFSET			16 /* Length field error frame
+> -						    * discard
+> -						    */
+> +#define MACB_RLCE_OFFSET			16 /* Length field error frame discard */
+>  #define MACB_RLCE_SIZE				1
+>  #define MACB_DRFCS_OFFSET			17 /* FCS remove */
+>  #define MACB_DRFCS_SIZE				1
+> @@ -335,41 +329,22 @@
+>  #define GEM_RXCOEN_SIZE				1
+> =20
+>  /* Constants for data bus width. */
+> -#define GEM_DBW32				0 /* 32 bit AMBA AHB data bus
+> -						   * width
+> -						   */
+> -#define GEM_DBW64				1 /* 64 bit AMBA AHB data bus
+> -						   * width
+> -						   */
+> -#define GEM_DBW128				2 /* 128 bit AMBA AHB data bus
+> -						   * width
+> -						   */
+> +#define GEM_DBW32				0 /* 32 bit AMBA AHB data bus width */
+> +#define GEM_DBW64				1 /* 64 bit AMBA AHB data bus width */
+> +#define GEM_DBW128				2 /* 128 bit AMBA AHB data bus width */
+> =20
+>  /* Bitfields in DMACFG. */
+> -#define GEM_FBLDO_OFFSET			0 /* AHB fixed burst length for
+> -						   * DMA data operations
+> -						   */
+> +#define GEM_FBLDO_OFFSET			0 /* AHB fixed burst length for DMA data =
+operations */
+>  #define GEM_FBLDO_SIZE				5
+> -#define GEM_ENDIA_OFFSET			7 /* AHB endian swap mode enable
+> -						   * for packet data accesses
+> -						   */
+> +#define GEM_ENDIA_OFFSET			7 /* AHB endian swap mode enable for pack=
+et data accesses */
+>  #define GEM_ENDIA_SIZE				1
+> -#define GEM_RXBMS_OFFSET			8 /* Receiver packet buffer
+> -						   * memory size select
+> -						   */
+> +#define GEM_RXBMS_OFFSET			8 /* Receiver packet buffer memory size s=
+elect */
+>  #define GEM_RXBMS_SIZE				2
+> -#define GEM_TXPBMS_OFFSET			10 /* Transmitter packet buffer
+> -						    * memory size select
+> -						    */
+> +#define GEM_TXPBMS_OFFSET			10 /* Transmitter packet buffer memory s=
+ize select */
+>  #define GEM_TXPBMS_SIZE				1
+> -#define GEM_TXCOEN_OFFSET			11 /* Transmitter IP, TCP and
+> -						    * UDP checksum generation
+> -						    * offload enable
+> -						    */
+> +#define GEM_TXCOEN_OFFSET			11 /* Transmitter IP, TCP and UDP checks=
+um generation offload enable */
+>  #define GEM_TXCOEN_SIZE				1
+> -#define GEM_RXBS_OFFSET				16 /* DMA receive buffer size in
+> -						    * AHB system memory
+> -						    */
+> +#define GEM_RXBS_OFFSET				16 /* DMA receive buffer size in AHB syst=
+em memory */
+>  #define GEM_RXBS_SIZE				8
+>  #define GEM_DDRP_OFFSET				24 /* disc_when_no_ahb */
+>  #define GEM_DDRP_SIZE				1
+> @@ -378,13 +353,9 @@
+>  /* Bitfields in NSR */
+>  #define MACB_NSR_LINK_OFFSET			0 /* pcs_link_state */
+>  #define MACB_NSR_LINK_SIZE			1
+> -#define MACB_MDIO_OFFSET			1 /* status of the mdio_in
+> -						   * pin
+> -						   */
+> +#define MACB_MDIO_OFFSET			1 /* status of the mdio_in pin */
+>  #define MACB_MDIO_SIZE				1
+> -#define MACB_IDLE_OFFSET			2 /* The PHY management logic is
+> -						   * idle (i.e. has completed)
+> -						   */
+> +#define MACB_IDLE_OFFSET			2 /* The PHY management logic is idle (i.=
+e. has completed) */
+>  #define MACB_IDLE_SIZE				1
+> =20
+>  /* Bitfields in TSR */
+> @@ -396,9 +367,7 @@
+>  #define MACB_TSR_RLE_SIZE			1
+>  #define MACB_TGO_OFFSET				3 /* Transmit go */
+>  #define MACB_TGO_SIZE				1
+> -#define MACB_BEX_OFFSET				4 /* Transmit frame corruption
+> -						   * due to AHB error
+> -						   */
+> +#define MACB_BEX_OFFSET				4 /* Transmit frame corruption due to AHB=
+ error */
+>  #define MACB_BEX_SIZE				1
+>  #define MACB_RM9200_BNQ_OFFSET			4 /* AT91RM9200 only */
+>  #define MACB_RM9200_BNQ_SIZE			1 /* AT91RM9200 only */
+> @@ -424,43 +393,23 @@
+>  #define MACB_RXUBR_SIZE				1
+>  #define MACB_TXUBR_OFFSET			3 /* TX used bit read */
+>  #define MACB_TXUBR_SIZE				1
+> -#define MACB_ISR_TUND_OFFSET			4 /* Enable trnasmit buffer
+> -						   * under run interrupt
+> -						   */
+> +#define MACB_ISR_TUND_OFFSET			4 /* Enable trnasmit buffer under run=
+ interrupt */
+>  #define MACB_ISR_TUND_SIZE			1
+> -#define MACB_ISR_RLE_OFFSET			5 /* Enable retry limit exceeded
+> -						   * or late collision interrupt
+> -						   */
+> +#define MACB_ISR_RLE_OFFSET			5 /* Enable retry limit exceeded or la=
+te collision interrupt */
+>  #define MACB_ISR_RLE_SIZE			1
+> -#define MACB_TXERR_OFFSET			6 /* Enable transmit frame
+> -						   * corruption due to AHB error
+> -						   * interrupt
+> -						   */
+> +#define MACB_TXERR_OFFSET			6 /* Enable transmit frame corruption du=
+e to AHB error interrupt */
+>  #define MACB_TXERR_SIZE				1
+> -#define MACB_TCOMP_OFFSET			7 /* Enable transmit complete
+> -						   * interrupt
+> -						   */
+> +#define MACB_TCOMP_OFFSET			7 /* Enable transmit complete interrupt =
+*/
+>  #define MACB_TCOMP_SIZE				1
+> -#define MACB_ISR_LINK_OFFSET			9 /* Enable link change
+> -						   * interrupt
+> -						   */
+> +#define MACB_ISR_LINK_OFFSET			9 /* Enable link change interrupt */
+>  #define MACB_ISR_LINK_SIZE			1
+> -#define MACB_ISR_ROVR_OFFSET			10 /* Enable receive overrun
+> -						    * interrupt
+> -						    */
+> +#define MACB_ISR_ROVR_OFFSET			10 /* Enable receive overrun interrup=
+t */
+>  #define MACB_ISR_ROVR_SIZE			1
+> -#define MACB_HRESP_OFFSET			11 /* Enable hrsep not OK
+> -						    * interrupt
+> -						    */
+> +#define MACB_HRESP_OFFSET			11 /* Enable hrsep not OK interrupt */
+>  #define MACB_HRESP_SIZE				1
+> -#define MACB_PFR_OFFSET				12 /* Enable pause frame with
+> -						    * non-zero pause quantum
+> -						    * interrupt
+> -						    */
+> +#define MACB_PFR_OFFSET				12 /* Enable pause frame with non-zero pa=
+use quantum interrupt */
+>  #define MACB_PFR_SIZE				1
+> -#define MACB_PTZ_OFFSET				13 /* Enable pause time zero
+> -						    * interrupt
+> -						    */
+> +#define MACB_PTZ_OFFSET				13 /* Enable pause time zero interrupt */
+>  #define MACB_PTZ_SIZE				1
+> =20
+>  /* Bitfields in MAN */
+> @@ -472,13 +421,9 @@
+>  #define MACB_REGA_SIZE				5
+>  #define MACB_PHYA_OFFSET			23 /* PHY address */
+>  #define MACB_PHYA_SIZE				5
+> -#define MACB_RW_OFFSET				28 /* Operation. 10 is read. 01
+> -						    * is write.
+> -						    */
+> +#define MACB_RW_OFFSET				28 /* Operation. 10 is read. 01 is write. =
+*/
+>  #define MACB_RW_SIZE				2
+> -#define MACB_SOF_OFFSET				30 /* Must be written to 1 for
+> -						    * Clause 22 operation
+> -						    */
+> +#define MACB_SOF_OFFSET				30 /* Must be written to 1 for Clause 22 =
+operation */
+>  #define MACB_SOF_SIZE				2
+> =20
+>  /* Bitfields in USRIO (AVR32) */
+>=20
 
-> +       priv->tx_coalesce_frames = TX_DESC_NUM * 3 / 4;
-> +       priv->tx_coalesce_usecs = 200;
 
-Related, instead of putting the raw numbers here, how about
-adding the defaults along with the other macros we talked about:
-
-#define HIP04_MAX_TX_COALESCE_USECS		10000
-#define HIP04_MIN_TX_COALESCE_USECS		1
-#define HIP04_MAX_TX_COALESCE_FRAMES		(TX_DESC_NUM - 1)
-#define HIP04_MIN_TX_COALESCE_FRAMES		1
-
-#define HIP04_DEFAULT_TX_COALESCE_USECS_LOW	80
-#define HIP04_DEFAULT_TX_COALESCE_USECS_HIGH	200
-#define HIP04_DEFAULT_TX_COALESCE_FRAMES	(TX_DESC_NUM / 2)
-
-	Arnd
+--=20
+Nicolas Ferre
