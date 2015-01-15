@@ -1,61 +1,73 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] net: rps: fix cpu unplug
-Date: Thu, 15 Jan 2015 13:46:23 -0800
-Message-ID: <1421358383.11734.97.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <75547b88b7e2d15b35339a6321c3a929.squirrel@www.codeaurora.org>
-	 <1421305282.11734.38.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <4504851fe2f44615e67cde94286a2fdd.squirrel@www.codeaurora.org>
-	 <1421350095.11734.88.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Joe Stringer <joestringer-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH net-next v12 0/5] openvswitch: Introduce 128-bit
+	unique flow identifiers.
+Date: Thu, 15 Jan 2015 13:48:22 -0800
+Message-ID: <1421358507-5992-1-git-send-email-joestringer@nicira.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Tom Herbert <therbert@google.com>
-To: subashab@codeaurora.org, Prasad Sodagudi <psodagud@codeaurora.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f182.google.com ([209.85.223.182]:52443 "EHLO
-	mail-ie0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753573AbbAOVqZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jan 2015 16:46:25 -0500
-Received: by mail-ie0-f182.google.com with SMTP id x19so17437461ier.13
-        for <netdev@vger.kernel.org>; Thu, 15 Jan 2015 13:46:25 -0800 (PST)
-In-Reply-To: <1421350095.11734.88.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
-
-softnet_data.input_pkt_queue is protected by a spinlock that
-we must hold when transferring packets from victim queue to an active
-one. This is because other cpus could still be trying to enqueue packets
-into victim queue.
-
-Based on initial patch from Prasad Sodagudi & Subash Abhinov
-Kasiviswanathan.
-
-This version is better because we do not slow down packet processing,
-only make migration safer.
-
-Reported-by: Prasad Sodagudi <psodagud@codeaurora.org>
-Reported-by: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Tom Herbert <therbert@google.com>
----
-
-Could you test this fix instead of yours ? Thanks !
-
- net/core/dev.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 1e325adc43678084418ef9e1abb1fca8059ff599..76f72762b325cfa927a793af180189c51e9eaffd 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -7089,7 +7089,7 @@ static int dev_cpu_callback(struct notifier_block *nfb,
- 		netif_rx_internal(skb);
- 		input_queue_head_incr(oldsd);
- 	}
--	while ((skb = __skb_dequeue(&oldsd->input_pkt_queue))) {
-+	while ((skb = skb_dequeue(&oldsd->input_pkt_queue))) {
- 		netif_rx_internal(skb);
- 		input_queue_head_incr(oldsd);
- 	}
+VGhpcyBzZXJpZXMgZXh0ZW5kcyB0aGUgb3BlbnZzd2l0Y2ggZGF0YXBhdGggaW50ZXJmYWNlIGZv
+ciBmbG93IGNvbW1hbmRzIHRvIHVzZQoxMjgtYml0IHVuaXF1ZSBpZGVudGlmaWVycyBhcyBhbiBh
+bHRlcm5hdGl2ZSB0byB0aGUgbmV0bGluay1mb3JtYXR0ZWQgZmxvdyBrZXkuClRoaXMgc2lnbmlm
+aWNhbnRseSByZWR1Y2VzIHRoZSBjb3N0IG9mIGFzc2VtYmxpbmcgbWVzc2FnZXMgYmV0d2VlbiB0
+aGUga2VybmVsCmFuZCB1c2Vyc3BhY2UsIGluIHBhcnRpY3VsYXIgaW1wcm92aW5nIE9wZW4gdlN3
+aXRjaCByZXZhbGlkYXRpb24gcGVyZm9ybWFuY2UgYnkKNDAlIG9yIG1vcmUuCgp2MTI6Ci0gVXNl
+cnNwYWNlIHBhdGNoZXMgZnVsbHkgbWVyZ2VkIGludG8gT3BlbiB2U3dpdGNoIG1hc3RlcgotIE5l
+dyBtaW5vciByZWZhY3RvciBwYXRjaGVzICgyLDMsNCkKLSBNZXJnZSB1bm1hc2tlZF9rZXksIHVm
+aWQgcmVwcmVzZW50YXRpb24gb2YgZmxvdyBpZGVudGlmaWVyIGluIHN3X2Zsb3cKLSBJbXByb3Zl
+IG1lbW9yeSBhbGxvY2F0aW9uIHNpemVzIHdoZW4gc2VyaWFsaXppbmcgdWZpZAotIEhhbmRsZSBj
+b3JuZXIgY2FzZSB3aGVyZSBhIGZsb3dfbmV3IGlzIHJlcXVlc3RlZCB3aXRoIGEgZmxvdyB0aGF0
+IGhhcyBhbgogIGlkZW50aWNhbCB1ZmlkIGFzIGFuIGV4aXN0aW5nIGZsb3csIGJ1dCBhIGRpZmZl
+cmVudCBmbG93IGtleQotIExpbWl0IFVGSUQgdG8gYmV0d2VlbiAxLTE2IG9jdGV0cyBpbmNsdXNp
+dmUuCi0gQWRkIHZhcmlvdXMgaGVscGVyIGZ1bmN0aW9ucyB0byBpbXByb3ZlIHJlYWRpYmlsaXR5
+Cgp2MTE6Ci0gUHVzaGVkIG1vc3Qgb2YgdGhlIHByZXJlcXVpc2l0ZSBwYXRjaGVzIGZvciB0aGlz
+IHNlcmllcyB0byBPVlMgbWFzdGVyLgotIFNwbGl0IG91dCBvcGVudnN3aXRjaC5oIGludGVyZmFj
+ZSBjaGFuZ2VzIGZyb20gZGF0YXBhdGggaW1wbGVtZW50YXRpb24KLSBEYXRhcGF0aCBpbXBsZW1l
+bnRhdGlvbiB0byBiZSByZXZpZXdlZCBvbiBuZXQtbmV4dCwgc2VwYXJhdGVseQoKdjEwOgotIE5l
+dyBwYXRjaCBhbGxvd2luZyBkYXRhcGF0aCB0byBzZXJpYWxpemUgbWFza2VkIGtleXMKLSBTaW1w
+bGlmeSBkYXRhcGF0aCBpbnRlcmZhY2UgYnkgYWNjZXB0aW5nIFVGSUQgb3IgZmxvd19rZXksIGJ1
+dCBub3QgYm90aAotIEZsb3dzIHNldCB1cCB3aXRoIFVGSUQgbXVzdCBiZSBxdWVyaWVkL2RlbGV0
+ZWQgdXNpbmcgVUZJRAotIFJlZHVjZSBzd19mbG93IG1lbW9yeSB1c2FnZSBmb3IgVUZJRAotIERv
+bid0IHBlcmlvZGljYWxseSByZWhhc2ggVUZJRCB0YWJsZSBpbiBsaW51eCBkYXRhcGF0aAotIFJl
+bW92ZSBrZXJuZWxfb25seSBVRklEIGluIGxpbnV4IGRhdGFwYXRoCgp2OToKLSBObyBrZXJuZWwg
+Y2hhbmdlcwoKdjg6Ci0gUmVuYW1lIFVJRCAtPiBVRklECi0gRml4IG51bGwgZGVyZWZlcmVuY2Ug
+aW4gZGF0YXBhdGggd2hlbiBwYWlyZWQgd2l0aCBvbGRlciB1c2Vyc3BhY2UKLSBBbGwgcGF0Y2hl
+cyBhcmUgcmV2aWV3ZWQvYWNrZWQgZXhjZXB0IGRhdGFwYXRoIGNoYW5nZXMuCgp2NzoKLSBSZW1v
+dmUgT1ZTX0RQX0ZfSU5ERVhfQllfVUlECi0gUmV3b3JrIGRhdGFwYXRoIFVJRCBzZXJpYWxpemF0
+aW9uIGZvciB2YXJpYWJsZSBsZW5ndGggVUlEcwoKdjY6Ci0gUmVkdWNlIG5ldGxpbmsgY29udmVy
+c2lvbnMgZm9yIGFsbCBkYXRhcGF0aHMKLSBWYXJpb3VzIGJ1Z2ZpeGVzCgp2NToKLSBWYXJpb3Vz
+IGJ1Z2ZpeGVzCi0gSW1wcm92ZSBsb2dnaW5nCgp2NDoKLSBEYXRhcGF0aCBtZW1vcnkgbGVhayBm
+aXhlcwotIEVuYWJsZSBVSUQtYmFzZWQgdGVyc2UgZHVtcGluZyBhbmQgZGVsZXRpbmcgYnkgZGVm
+YXVsdAotIFZhcmlvdXMgZml4ZXMKClJGQ3YzOgotIEFkZCBkYXRhcGF0aCBpbXBsZW1lbnRhdGlv
+bgoKSm9lIFN0cmluZ2VyICg1KToKICBvcGVudnN3aXRjaDogUmVmYWN0b3Igb3ZzX25sYV9maWxs
+X21hdGNoKCkuCiAgb3BlbnZzd2l0Y2g6IFJlZmFjdG9yIG92c19mbG93X3RibF9pbnNlcnQoKS4K
+ICBvcGVudnN3aXRjaDogVXNlIHN3X2Zsb3dfa2V5X3JhbmdlIGZvciBrZXkgcmFuZ2VzLgogIGdl
+bmV0bGluazogQWRkIGdlbmxtc2dfcGFyc2UoKSBoZWxwZXIgZnVuY3Rpb24uCiAgb3BlbnZzd2l0
+Y2g6IEFkZCBzdXBwb3J0IGZvciB1bmlxdWUgZmxvdyBJRHMuCgogRG9jdW1lbnRhdGlvbi9uZXR3
+b3JraW5nL29wZW52c3dpdGNoLnR4dCB8ICAgMTMgKysKIGluY2x1ZGUvbmV0L2dlbmV0bGluay5o
+ICAgICAgICAgICAgICAgICAgfCAgIDE3ICsrKwogaW5jbHVkZS91YXBpL2xpbnV4L29wZW52c3dp
+dGNoLmggICAgICAgICB8ICAgMjAgKysrCiBuZXQvb3BlbnZzd2l0Y2gvZGF0YXBhdGguYyAgICAg
+ICAgICAgICAgIHwgIDI0MCArKysrKysrKysrKysrKysrKysrKy0tLS0tLS0tLS0KIG5ldC9vcGVu
+dnN3aXRjaC9mbG93LmggICAgICAgICAgICAgICAgICAgfCAgIDI4ICsrKy0KIG5ldC9vcGVudnN3
+aXRjaC9mbG93X25ldGxpbmsuYyAgICAgICAgICAgfCAgMTAxICsrKysrKysrKysrKy0KIG5ldC9v
+cGVudnN3aXRjaC9mbG93X25ldGxpbmsuaCAgICAgICAgICAgfCAgIDE0ICstCiBuZXQvb3BlbnZz
+d2l0Y2gvZmxvd190YWJsZS5jICAgICAgICAgICAgIHwgIDIyNiArKysrKysrKysrKysrKysrKysr
+KystLS0tLS0tCiBuZXQvb3BlbnZzd2l0Y2gvZmxvd190YWJsZS5oICAgICAgICAgICAgIHwgICAg
+OCArLQogOSBmaWxlcyBjaGFuZ2VkLCA1MzIgaW5zZXJ0aW9ucygrKSwgMTM1IGRlbGV0aW9ucygt
+KQoKLS0gCjEuNy4xMC40CgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fXwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0cDovL29wZW52
+c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
