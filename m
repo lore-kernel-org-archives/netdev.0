@@ -1,84 +1,51 @@
-From: Thomas Jarosch <thomas.jarosch@intra2net.com>
-Subject: Re: [bisected regression] e1000e: "Detected Hardware
-	Unit Hang"
-Date: Thu, 15 Jan 2015 18:37:10 +0100
-Message-ID: <1951915.1kCMSXLj6g@storm>
-References: <1719052.SGOfRAJhfQ@storm> <1837410.pEGIH05mML@storm>
-	<1421342437.11734.79.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [net-next 13/17] i40e: AQ API updates for new commands
+Date: Thu, 15 Jan 2015 20:04:52 +0200
+Message-ID: <CAJ3xEMgim-97TRkGKfVRdyE49-PRR-mt11Ckq1uOuJuZbvXZcQ@mail.gmail.com>
+References: <1421324368-6860-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1421324368-6860-14-git-send-email-jeffrey.t.kirsher@intel.com>
+	<CAJ3xEMiCLBjuUSh1HGhfJU0gqA7J1MHsp0riLU5kk_uwkAdFqg@mail.gmail.com>
+	<FC41C24E35F18A40888AACA1A36F3E418ADD335B@fmsmsx115.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: e1000-devel <e1000-devel@lists.sourceforge.net>,
-	'Linux Netdev List' <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <1421342437.11734.79.camel@edumazet-glaptop2.roam.corp.google.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	"nhorman@redhat.com" <nhorman@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>,
+	"jogreene@redhat.com" <jogreene@redhat.com>,
+	"Krawczyk, Kamil" <kamil.krawczyk@intel.com>
+To: "Nelson, Shannon" <shannon.nelson@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f170.google.com ([209.85.214.170]:36755 "EHLO
+	mail-ob0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751147AbbAOSEx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jan 2015 13:04:53 -0500
+Received: by mail-ob0-f170.google.com with SMTP id wp18so14872052obc.1
+        for <netdev@vger.kernel.org>; Thu, 15 Jan 2015 10:04:52 -0800 (PST)
+In-Reply-To: <FC41C24E35F18A40888AACA1A36F3E418ADD335B@fmsmsx115.amr.corp.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thursday, 15. January 2015 09:20:37 Eric Dumazet wrote:
-> > for the sake of completeness:
-> > 1: hang
-> 
-> This is weird : This should have same effect then GRO off (at most one
-> segment per packet)
-
-I thought so, too. OTOH the code path was changed from
-"goto merge" to "return -E2BIG". I didn't look at the code
-what happens at the "merge" label.
-
-> Could you try the following ?
-> 
-> diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c
-> b/drivers/net/ethernet/intel/e1000e/netdev.c index
-> 38cb586b1bf42fa7a50e19f3e650e8c139788820..6d93facddab78f8db7000fddaa24322
-> 651a0eae9 100644 --- a/drivers/net/ethernet/intel/e1000e/netdev.c
-> +++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-> @@ -1264,7 +1264,7 @@ static bool e1000_clean_tx_irq(struct e1000_ring
-> *tx_ring)
-> 
->  	netdev_completed_queue(netdev, pkts_compl, bytes_compl);
-> 
-> -#define TX_WAKE_THRESHOLD 32
-> +#define TX_WAKE_THRESHOLD (MAX_SKB_FRAGS * 3 + 2)
->  	if (count && netif_carrier_ok(netdev) &&
->  	    e1000_desc_unused(tx_ring) >= TX_WAKE_THRESHOLD) {
->  		/* Make sure that anybody stopping the queue after this
-> @@ -5650,10 +5650,7 @@ static netdev_tx_t e1000_xmit_frame(struct sk_buff
-> *skb, netdev_sent_queue(netdev, skb->len);
->  		e1000_tx_queue(tx_ring, tx_flags, count);
->  		/* Make sure there is space in the ring for the next send. */
-> -		e1000_maybe_stop_tx(tx_ring,
-> -				    (MAX_SKB_FRAGS *
-> -				     DIV_ROUND_UP(PAGE_SIZE,
-> -						  adapter->tx_fifo_limit) + 2));
-> +		e1000_maybe_stop_tx(tx_ring, 3 * MAX_SKB_FRAGS + 2);
->  	} else {
->  		dev_kfree_skb_any(skb);
->  		tx_ring->buffer_info[first].time_stamp = 0;
-
-I was just about to leave the office... and switched the test box back on.
-
-Also reverted to vanilla 3.19-rc4+ and applied the above patch instead.
-Still hangs. Grrr. More testing tomorrow.
+On Thu, Jan 15, 2015 at 7:19 PM, Nelson, Shannon
+<shannon.nelson@intel.com> wrote:
+>> From: Or Gerlitz [mailto:gerlitz.or@gmail.com]
+>> Sent: Thursday, January 15, 2015 9:14 AM
+>>
+>> On Thu, Jan 15, 2015 at 2:19 PM, Jeff Kirsher
+>> <jeffrey.t.kirsher@intel.com> wrote:
+>> > From: Shannon Nelson <shannon.nelson@intel.com>
+>> >
+>> > Add lldp control commands, add oem ocsd and ocbb commands, and fix up
+>> > NVM config read and write data structs.
+>>
+>> Sounds to me like a proofed nightmare for someone doing future
+>> bisection and landing here... we want kernel patches to be made of
+>> basically one logical change, right?
+>
+> Yes, but note that these are mostly API additions for transactions that aren't used in the code quite yet.  There are a couple of defines that get changed as well, but they aren't used yet either else they'd be accompanied by related code changes.
 
 
-------------------------------------------------------------------------------
-New Year. New Location. New Benefits. New Data Center in Ashburn, VA.
-GigeNET is offering a free month of service with a new server in Ashburn.
-Choose from 2 high performing configs, both with 100TB of bandwidth.
-Higher redundancy.Lower latency.Increased capacity.Completely compliant.
-http://p.sf.net/sfu/gigenet
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+So NVM config read and write data structs aren't in use? anyway, this
+way or another, I think we should stick to the practice of avoiding to
+load few different changes on one patch
