@@ -1,112 +1,136 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 05/17] i40e: Add define for interrupt name string len
-Date: Thu, 15 Jan 2015 04:19:16 -0800
-Message-ID: <1421324368-6860-6-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 01/17] i40e/i40evf: AdminQ updates ww36
+Date: Thu, 15 Jan 2015 04:19:12 -0800
+Message-ID: <1421324368-6860-2-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1421324368-6860-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Kamil Kacperski <kamil.kacperski@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:64854 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([192.55.52.115]:47496 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753066AbbAOMTd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Jan 2015 07:19:33 -0500
+	id S1751994AbbAOMTb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Jan 2015 07:19:31 -0500
 In-Reply-To: <1421324368-6860-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Carolyn Wyborny <carolyn.wyborny@intel.com>
+From: Shannon Nelson <shannon.nelson@intel.com>
 
-This patch creates a define for interrupt name string configuration that
-is large enough to contain full bus/slot info, rather than just netdev->name.
+Several little tweaks to keep FW, SV, and SW in line together
+ - Remove the unused and deprecated
+   i40e_aqc_opc_debug_modify_internals
+ - Add define for iSCSI capability
+ - Fix queue mask size
+ - Adjust i40e_aqc_oem_param_change for ease-of-use
 
-Change-ID: Iaac0d23dfb8526defeed69d91cea85ed4a50ddb2
-Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
+Change-ID: I51f250b367912968a7cec61b3a68110d9796e914
+Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
+Signed-off-by: Kamil Kacperski <kamil.kacperski@intel.com>
+Acked-by: Greg Rose <gregory.v.rose@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e.h      |  5 +++--
- drivers/net/ethernet/intel/i40e/i40e_main.c | 12 ++++++------
- 2 files changed, 9 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h   | 9 +++++----
+ drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h | 9 +++++----
+ 2 files changed, 10 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-index fc50f64..fadf8fa 100644
---- a/drivers/net/ethernet/intel/i40e/i40e.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e.h
-@@ -92,6 +92,7 @@
- #define I40E_MAX_USER_PRIORITY        8
- #define I40E_DEFAULT_MSG_ENABLE       4
- #define I40E_QUEUE_WAIT_RETRY_LIMIT   10
-+#define I40E_INT_NAME_STR_LEN        (IFNAMSIZ + 9)
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h b/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
+index 8835aee..490dfcf 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
+@@ -276,7 +276,6 @@ enum i40e_admin_queue_opc {
+ 	i40e_aqc_opc_debug_write_reg		= 0xFF04,
+ 	i40e_aqc_opc_debug_modify_reg		= 0xFF07,
+ 	i40e_aqc_opc_debug_dump_internals	= 0xFF08,
+-	i40e_aqc_opc_debug_modify_internals	= 0xFF09,
+ };
  
- #define I40E_NVM_VERSION_LO_SHIFT  0
- #define I40E_NVM_VERSION_LO_MASK   (0xff << I40E_NVM_VERSION_LO_SHIFT)
-@@ -268,7 +269,7 @@ struct i40e_pf {
- 	u16 rx_itr_default;
- 	u16 tx_itr_default;
- 	u16 msg_enable;
--	char misc_int_name[IFNAMSIZ + 9];
-+	char int_name[I40E_INT_NAME_STR_LEN];
- 	u16 adminq_work_limit; /* num of admin receive queue desc to process */
- 	unsigned long service_timer_period;
- 	unsigned long service_timer_previous;
-@@ -524,7 +525,7 @@ struct i40e_q_vector {
+ /* command structures and indirect data structures */
+@@ -410,6 +409,7 @@ struct i40e_aqc_list_capabilities_element_resp {
+ #define I40E_AQ_CAP_ID_VSI		0x0017
+ #define I40E_AQ_CAP_ID_DCB		0x0018
+ #define I40E_AQ_CAP_ID_FCOE		0x0021
++#define I40E_AQ_CAP_ID_ISCSI		0x0022
+ #define I40E_AQ_CAP_ID_RSS		0x0040
+ #define I40E_AQ_CAP_ID_RXQ		0x0041
+ #define I40E_AQ_CAP_ID_TXQ		0x0042
+@@ -1207,7 +1207,7 @@ struct i40e_aqc_add_remove_cloud_filters_element_data {
+ 	} ipaddr;
+ 	__le16	flags;
+ #define I40E_AQC_ADD_CLOUD_FILTER_SHIFT			0
+-#define I40E_AQC_ADD_CLOUD_FILTER_MASK			(0x3F << \
++#define I40E_AQC_ADD_CLOUD_FILTER_MASK	(0x3F << \
+ 					I40E_AQC_ADD_CLOUD_FILTER_SHIFT)
+ /* 0x0000 reserved */
+ #define I40E_AQC_ADD_CLOUD_FILTER_OIP			0x0001
+@@ -1240,7 +1240,7 @@ struct i40e_aqc_add_remove_cloud_filters_element_data {
+ 	u8	reserved[4];
+ 	__le16	queue_number;
+ #define I40E_AQC_ADD_CLOUD_QUEUE_SHIFT		0
+-#define I40E_AQC_ADD_CLOUD_QUEUE_MASK		(0x3F << \
++#define I40E_AQC_ADD_CLOUD_QUEUE_MASK		(0x7FF << \
+ 						 I40E_AQC_ADD_CLOUD_QUEUE_SHIFT)
+ 	u8	reserved2[14];
+ 	/* response section */
+@@ -2106,7 +2106,8 @@ struct i40e_aqc_oem_param_change {
+ #define I40E_AQ_OEM_PARAM_TYPE_BW_CTL	1
+ #define I40E_AQ_OEM_PARAM_MAC		2
+ 	__le32	param_value1;
+-	u8	param_value2[8];
++	__le16	param_value2;
++	u8	reserved[6];
+ };
  
- 	cpumask_t affinity_mask;
- 	struct rcu_head rcu;	/* to avoid race with update stats on free */
--	char name[IFNAMSIZ + 9];
-+	char name[I40E_INT_NAME_STR_LEN];
- } ____cacheline_internodealigned_in_smp;
+ I40E_CHECK_CMD_LENGTH(i40e_aqc_oem_param_change);
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h b/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
+index ff1b163..a20b2b0 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
++++ b/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
+@@ -276,7 +276,6 @@ enum i40e_admin_queue_opc {
+ 	i40e_aqc_opc_debug_write_reg		= 0xFF04,
+ 	i40e_aqc_opc_debug_modify_reg		= 0xFF07,
+ 	i40e_aqc_opc_debug_dump_internals	= 0xFF08,
+-	i40e_aqc_opc_debug_modify_internals	= 0xFF09,
+ };
  
- /* lan device */
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index fd6411e..4d1fe56 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -3402,10 +3402,10 @@ static int i40e_vsi_request_irq(struct i40e_vsi *vsi, char *basename)
- 		err = i40e_vsi_request_irq_msix(vsi, basename);
- 	else if (pf->flags & I40E_FLAG_MSI_ENABLED)
- 		err = request_irq(pf->pdev->irq, i40e_intr, 0,
--				  pf->misc_int_name, pf);
-+				  pf->int_name, pf);
- 	else
- 		err = request_irq(pf->pdev->irq, i40e_intr, IRQF_SHARED,
--				  pf->misc_int_name, pf);
-+				  pf->int_name, pf);
+ /* command structures and indirect data structures */
+@@ -410,6 +409,7 @@ struct i40e_aqc_list_capabilities_element_resp {
+ #define I40E_AQ_CAP_ID_VSI		0x0017
+ #define I40E_AQ_CAP_ID_DCB		0x0018
+ #define I40E_AQ_CAP_ID_FCOE		0x0021
++#define I40E_AQ_CAP_ID_ISCSI		0x0022
+ #define I40E_AQ_CAP_ID_RSS		0x0040
+ #define I40E_AQ_CAP_ID_RXQ		0x0041
+ #define I40E_AQ_CAP_ID_TXQ		0x0042
+@@ -1207,7 +1207,7 @@ struct i40e_aqc_add_remove_cloud_filters_element_data {
+ 	} ipaddr;
+ 	__le16	flags;
+ #define I40E_AQC_ADD_CLOUD_FILTER_SHIFT			0
+-#define I40E_AQC_ADD_CLOUD_FILTER_MASK			(0x3F << \
++#define I40E_AQC_ADD_CLOUD_FILTER_MASK	(0x3F << \
+ 					I40E_AQC_ADD_CLOUD_FILTER_SHIFT)
+ /* 0x0000 reserved */
+ #define I40E_AQC_ADD_CLOUD_FILTER_OIP			0x0001
+@@ -1240,7 +1240,7 @@ struct i40e_aqc_add_remove_cloud_filters_element_data {
+ 	u8	reserved[4];
+ 	__le16	queue_number;
+ #define I40E_AQC_ADD_CLOUD_QUEUE_SHIFT		0
+-#define I40E_AQC_ADD_CLOUD_QUEUE_MASK		(0x3F << \
++#define I40E_AQC_ADD_CLOUD_QUEUE_MASK		(0x7FF << \
+ 						 I40E_AQC_ADD_CLOUD_QUEUE_SHIFT)
+ 	u8	reserved2[14];
+ 	/* response section */
+@@ -2082,7 +2082,8 @@ struct i40e_aqc_oem_param_change {
+ #define I40E_AQ_OEM_PARAM_TYPE_BW_CTL	1
+ #define I40E_AQ_OEM_PARAM_MAC		2
+ 	__le32	param_value1;
+-	u8	param_value2[8];
++	__le16	param_value2;
++	u8	reserved[6];
+ };
  
- 	if (err)
- 		dev_info(&pf->pdev->dev, "request_irq failed, Error %d\n", err);
-@@ -4846,7 +4846,7 @@ static int i40e_open(struct net_device *netdev)
- int i40e_vsi_open(struct i40e_vsi *vsi)
- {
- 	struct i40e_pf *pf = vsi->back;
--	char int_name[IFNAMSIZ + 9];
-+	char int_name[I40E_INT_NAME_STR_LEN];
- 	int err;
- 
- 	/* allocate descriptors */
-@@ -7128,11 +7128,11 @@ static int i40e_setup_misc_vector(struct i40e_pf *pf)
- 	 */
- 	if (!test_bit(__I40E_RESET_RECOVERY_PENDING, &pf->state)) {
- 		err = request_irq(pf->msix_entries[0].vector,
--				  i40e_intr, 0, pf->misc_int_name, pf);
-+				  i40e_intr, 0, pf->int_name, pf);
- 		if (err) {
- 			dev_info(&pf->pdev->dev,
- 				 "request_irq for %s failed: %d\n",
--				 pf->misc_int_name, err);
-+				 pf->int_name, err);
- 			return -EFAULT;
- 		}
- 	}
-@@ -9179,7 +9179,7 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	hw->aq.asq_buf_size = I40E_MAX_AQ_BUF_SIZE;
- 	pf->adminq_work_limit = I40E_AQ_WORK_LIMIT;
- 
--	snprintf(pf->misc_int_name, sizeof(pf->misc_int_name) - 1,
-+	snprintf(pf->int_name, sizeof(pf->int_name) - 1,
- 		 "%s-%s:misc",
- 		 dev_driver_string(&pf->pdev->dev), dev_name(&pdev->dev));
- 
+ I40E_CHECK_CMD_LENGTH(i40e_aqc_oem_param_change);
 -- 
 1.9.3
