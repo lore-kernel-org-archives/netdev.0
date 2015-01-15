@@ -1,51 +1,106 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [linux-nics] [PATCHv4 net] i40e: Implement ndo_gso_check()
-Date: Wed, 14 Jan 2015 18:24:34 -0800
-Message-ID: <CAEP_g=8iRKx9HPf0KRt6m=6pqAuMeT8_9GM8L+uFe+bMoxk33Q@mail.gmail.com>
-References: <1417804872-58635-1-git-send-email-joestringer@nicira.com>
- <1417806738.2404.42.camel@jtkirshe-mobl> <CAEP_g=8mS=P2U_vU2ZMEBUkU8jWo5t2P0h9kxF_jbzJhExAZ9g@mail.gmail.com>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCH v2 net] be2net: Allow GRE to work concurrently while a
+ VxLAN tunnel is configured
+Date: Wed, 14 Jan 2015 18:29:30 -0800
+Message-ID: <CA+mtBx9Kd8JM53RJFJ_R-ZW_FN=UhDQgBNgLNPqadGA9o3ZNiA@mail.gmail.com>
+References: <1421318323-2547-1-git-send-email-sriharsha.basavapatna@emulex.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Joe Stringer <joestringer@nicira.com>,
-	netdev <netdev@vger.kernel.org>,
-	"linux.nics" <linux.nics@intel.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Tom Herbert <therbert@google.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAEP_g=8mS=P2U_vU2ZMEBUkU8jWo5t2P0h9kxF_jbzJhExAZ9g@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: Sriharsha Basavapatna <sriharsha.basavapatna@emulex.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f170.google.com ([209.85.223.170]:52948 "EHLO
+	mail-ie0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752109AbbAOC3a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2015 21:29:30 -0500
+Received: by mail-ie0-f170.google.com with SMTP id rd18so12561174iec.1
+        for <netdev@vger.kernel.org>; Wed, 14 Jan 2015 18:29:30 -0800 (PST)
+In-Reply-To: <1421318323-2547-1-git-send-email-sriharsha.basavapatna@emulex.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 26, 2014 at 3:58 PM, Jesse Gross <jesse@nicira.com> wrote:
-> On Fri, Dec 5, 2014 at 2:12 PM, Jeff Kirsher
-> <jeffrey.t.kirsher@intel.com> wrote:
->> On Fri, 2014-12-05 at 10:41 -0800, Joe Stringer wrote:
->>> ndo_gso_check() was recently introduced to allow NICs to report the
->>> offloading support that they have on a per-skb basis. Add an
->>> implementation for this driver which checks for IPIP, GRE, UDP
->>> tunnels.
->>>
->>> Signed-off-by: Joe Stringer <joestringer@nicira.com>
->>> ---
->>> v4: Simplify the check to just do tunnel header length.
->>>     Fix #define style issue.
->>> v3: Drop IPIP and GRE (no driver support even though hw supports it).
->>>     Check for UDP outer protocol for UDP tunnels.
->>> v2: Expand to include IP in IP and IPv4/IPv6 inside GRE/UDP tunnels.
->>>     Add MAX_INNER_LENGTH (as 80).
->>> ---
->>>  drivers/net/ethernet/intel/i40e/i40e_main.c |   12 ++++++++++++
->>>  1 file changed, 12 insertions(+)
->>
->> Thanks Joe, I will update the patch in my queue with your latest
->> version.
+On Thu, Jan 15, 2015 at 2:38 AM, Sriharsha Basavapatna
+<sriharsha.basavapatna@emulex.com> wrote:
+> Other tunnels like GRE break while VxLAN offloads are enabled in Skyhawk-R. To
+> avoid this, we should restrict offload features on a per-packet basis in such
+> conditions.
 >
-> Jeff, as a heads-up, this patch and the corresponding one for fm10k
-> will no longer apply now that the ndo has changed. This was changed by
-> 5f35227e ("net: Generalize ndo_gso_check to ndo_features_check"). The
-> update needed is trivial and is just due to the change in the function
-> signature but I'm not sure where you are in the testing process with
-> this.
+> Signed-off-by: Sriharsha Basavapatna <sriharsha.basavapatna@emulex.com>
+> ---
+> v2 changes: fixed minor nits pointed out by Sergei Shtylyov
+> ---
+>  drivers/net/ethernet/emulex/benet/be_main.c |   41 +++++++++++++++++++++++++--
+>  1 file changed, 38 insertions(+), 3 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+> index 41a0a54..d48806b 100644
+> --- a/drivers/net/ethernet/emulex/benet/be_main.c
+> +++ b/drivers/net/ethernet/emulex/benet/be_main.c
+> @@ -4383,8 +4383,9 @@ static int be_ndo_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
+>   * distinguish various types of transports (VxLAN, GRE, NVGRE ..). So, offload
+>   * is expected to work across all types of IP tunnels once exported. Skyhawk
+>   * supports offloads for either VxLAN or NVGRE, exclusively. So we export VxLAN
+> - * offloads in hw_enc_features only when a VxLAN port is added. Note this only
+> - * ensures that other tunnels work fine while VxLAN offloads are not enabled.
+> + * offloads in hw_enc_features only when a VxLAN port is added. If other (non
+> + * VxLAN) tunnels are configured while VxLAN offloads are enabled, offloads for
+> + * those other tunnels are unexported on the fly through ndo_features_check().
+>   *
+>   * Skyhawk supports VxLAN offloads only for one UDP dport. So, if the stack
+>   * adds more than one port, disable offloads and don't re-enable them again
+> @@ -4463,7 +4464,41 @@ static netdev_features_t be_features_check(struct sk_buff *skb,
+>                                            struct net_device *dev,
+>                                            netdev_features_t features)
+>  {
+> -       return vxlan_features_check(skb, features);
+> +       struct be_adapter *adapter = netdev_priv(dev);
+> +       u8 l4_hdr = 0;
+> +
+> +       /* The code below restricts offload features for some tunneled packets.
+> +        * Offload features for normal (non tunnel) packets are unchanged.
+> +        */
+> +       if (!skb->encapsulation ||
+> +           !(adapter->flags & BE_FLAGS_VXLAN_OFFLOADS))
+> +               return features;
+> +
+> +       /* It's an encapsulated packet and VxLAN offloads are enabled. We
+> +        * should disable tunnel offload features if it's not a VxLAN packet,
+> +        * as tunnel offloads have been enabled only for VxLAN. This is done to
+> +        * allow other tunneled traffic like GRE work fine while VxLAN
+> +        * offloads are configured in Skyhawk-R.
+> +        */
+> +       switch (vlan_get_protocol(skb)) {
+> +       case htons(ETH_P_IP):
+> +               l4_hdr = ip_hdr(skb)->protocol;
+> +               break;
+> +       case htons(ETH_P_IPV6):
+> +               l4_hdr = ipv6_hdr(skb)->nexthdr;
+> +               break;
+> +       default:
+> +               return features;
+> +       }
+> +
+> +       if (l4_hdr != IPPROTO_UDP ||
 
-Jeff - just wanted to check if you had seen this.
+I don't understand why this is needed. The only GSO type with with
+encapsulation allowed by device features SKB_GSO_UDP_TUNNEL. This
+should not be GRE for instance. Do you see cases where protocol is not
+UDP at this point?
+
+> +           skb->inner_protocol_type != ENCAP_TYPE_ETHER ||
+> +           skb->inner_protocol != htons(ETH_P_TEB) ||
+> +           skb_inner_mac_header(skb) - skb_transport_header(skb) !=
+> +           sizeof(struct udphdr) + sizeof(struct vxlanhdr))
+> +               return features & ~(NETIF_F_ALL_CSUM | NETIF_F_GSO_MASK);
+> +
+> +       return features;
+>  }
+>  #endif
+>
+> --
+> 1.7.9.5
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
