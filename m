@@ -1,70 +1,57 @@
-From: Ding Tianhong <dingtianhong-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH net-next v13 0/3] add hisilicon hip04 ethernet driver
-Date: Thu, 15 Jan 2015 20:56:21 +0800
-Message-ID: <54B7B8F5.6060808@huawei.com>
-References: <1421217254-12008-1-git-send-email-dingtianhong@huawei.com> <54B642B4.8010807@suse.de> <54B77C43.6010200@huawei.com> <14674609.dERhba4yMV@wuerfel> <54B7B4E7.8030108@suse.de>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [ 2375.793397] WARNING: CPU: 0 PID: 1149 at
+ net/netlink/genetlink.c:1037 genl_unbind+0xc0/0xd0()
+Date: Thu, 15 Jan 2015 14:01:08 +0100
+Message-ID: <1421326868.1962.13.camel@sipsolutions.net>
+References: <20150114161334.28acf5fc@tlielax.poochiereds.net>
+	 <1421275700.1950.34.camel@sipsolutions.net>
+	 <1421277946.1950.38.camel@sipsolutions.net>
+	 <20150114212039.68c9a5a6@synchrony.poochiereds.net>
+	 <1421311071.1962.2.camel@sipsolutions.net>
+	 <20150115071426.563573e7@tlielax.poochiereds.net>
+	 <1421324985.1962.5.camel@sipsolutions.net>
+	 <20150115074956.4e5617cd@tlielax.poochiereds.net>
+	 (sfid-20150115_134959_506751_D19674F4)
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	<grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>,
-	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>, <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	<xuwei5-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>, <zhangfei.gao-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>
-To: Alexander Graf <agraf-l3A5Bk7waGM@public.gmane.org>, Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <54B7B4E7.8030108-l3A5Bk7waGM@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Jeff Layton <jeff.layton@primarydata.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from s3.sipsolutions.net ([5.9.151.49]:36218 "EHLO sipsolutions.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754143AbbAONBM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Jan 2015 08:01:12 -0500
+In-Reply-To: <20150115074956.4e5617cd@tlielax.poochiereds.net> (sfid-20150115_134959_506751_D19674F4)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2015/1/15 20:39, Alexander Graf wrote:
-> 
-> 
-> On 15.01.15 10:42, Arnd Bergmann wrote:
->> On Thursday 15 January 2015 16:37:23 Ding Tianhong wrote:
->>> On 2015/1/14 18:19, Alexander Graf wrote:
->>>>
->>>> >From a 10000 feet perspective it looks like two problems to me
->>>>
->>>>   1) Allocation failure doesn't get handled properly somewhere
->>
->> This is the bug that Eric pointed out as well.
->>
->>>>   2) We fail to allocate with order=0 - I don't see why
->>
->> GFP_ATOMIC. When allocating from a the napi poll function in softirq
->> context, you have to use nonblocking allocations, which occasionally
->> fail. This should not cause any harm other than dropped packets.
->>
->>> is it easy to repetition this bug? how big is your memory on your board,
->>> is it happened in your previous hip04 driver?
->>
->> It should be independent of memory size, but may be more likely if you
->> don't have swap space configured.
-> 
-> With the previous driver I was unable to get this far - I ended up in
-> random memory corruption and had a ~90% packet loss after about an hour
-> of uptime.
-> 
-> I'm not sure whether it's easy to reproduce, I merely started up a few
-> VMs, did some disk I/O and started to compile QEMU in the background ;).
-> 
-> I'll happily give your follow up patch that's going to fix the memory
-> allocation problems a try though.
-> 
-Thanks for your work, I am sure we could make it much more better:)
+On Thu, 2015-01-15 at 07:49 -0500, Jeff Layton wrote:
 
-Ding
-
+> It may have. I just recently started playing with trinity, so I don't
+> know much about what it does. I do see these sorts of messages in the
+> logs that imply that it's opening netlink sockets:
 > 
-> Alex
+> [main] fd[661] = domain:16 (PF_NETLINK) type:0x2 protocol:10
+> [main] fd[675] = domain:16 (PF_NETLINK) type:0x2 protocol:0
 > 
-> .
-> 
+> ...and then it does random I/Os on those fds.
 
+Yes. We're looking for generic netlink, so one of these (protocol 16):
 
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+[main] fd[427] = domain:16 (PF_NETLINK) type:0x3 protocol:16
+[main] fd[442] = domain:16 (PF_NETLINK) type:0x2 protocol:16
+[main] fd[774] = domain:16 (PF_NETLINK) type:0x2 protocol:16
+
+However, I didn't see much happening on these fds, and even if it
+wouldn't have recorded the kind of messages.
+
+OTOH, multicast group stuff is done with setsockopt() and/or bind, which
+I didn't really find here?
+
+> FWIW, it tries to call delete_module, but I was running this as an
+> unprivileged user so I don't think that can succeed.
+
+Ok.
+
+johannes
