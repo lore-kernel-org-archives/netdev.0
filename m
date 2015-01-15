@@ -1,47 +1,88 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH net-next v13 0/3] add hisilicon hip04 ethernet driver
-Date: Thu, 15 Jan 2015 10:42:17 +0100
-Message-ID: <14674609.dERhba4yMV@wuerfel>
-References: <1421217254-12008-1-git-send-email-dingtianhong@huawei.com> <54B642B4.8010807@suse.de> <54B77C43.6010200@huawei.com>
+Subject: Re: [PATCH net-next v13 3/3] net: hisilicon: new hip04 ethernet driver
+Date: Thu, 15 Jan 2015 10:53:46 +0100
+Message-ID: <1456101.oYxGUWa027@wuerfel>
+References: <1421217254-12008-1-git-send-email-dingtianhong@huawei.com> <1421217254-12008-4-git-send-email-dingtianhong@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7Bit
-Cc: Alexander Graf <agraf@suse.de>, robh+dt@kernel.org,
-	davem@davemloft.net, grant.likely@linaro.org,
-	sergei.shtylyov@cogentembedded.com,
-	linux-arm-kernel@lists.infradead.org, eric.dumazet@gmail.com,
-	xuwei5@hisilicon.com, zhangfei.gao@linaro.org,
-	netdev@vger.kernel.org, devicetree@vger.kernel.org,
-	linux@arm.linux.org.uk
-To: Ding Tianhong <dingtianhong@huawei.com>
+Cc: Ding Tianhong <dingtianhong@huawei.com>, robh+dt@kernel.org,
+	davem@davemloft.net, grant.likely@linaro.org, agraf@suse.de,
+	devicetree@vger.kernel.org, linux@arm.linux.org.uk,
+	sergei.shtylyov@cogentembedded.com, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org, xuwei5@hisilicon.com,
+	zhangfei.gao@linaro.org
+To: linux-arm-kernel@lists.infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.126.187]:63153 "EHLO
+Received: from mout.kundenserver.de ([212.227.126.131]:63198 "EHLO
 	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751403AbbAOJnf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jan 2015 04:43:35 -0500
-In-Reply-To: <54B77C43.6010200@huawei.com>
+	with ESMTP id S1751151AbbAOJyr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jan 2015 04:54:47 -0500
+In-Reply-To: <1421217254-12008-4-git-send-email-dingtianhong@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thursday 15 January 2015 16:37:23 Ding Tianhong wrote:
-> On 2015/1/14 18:19, Alexander Graf wrote:
-> > 
-> >>From a 10000 feet perspective it looks like two problems to me
-> > 
-> >   1) Allocation failure doesn't get handled properly somewhere
+On Wednesday 14 January 2015 14:34:14 Ding Tianhong wrote:
+> +static int hip04_set_coalesce(struct net_device *netdev,
+> +                             struct ethtool_coalesce *ec)
+> +{
+> +       struct hip04_priv *priv = netdev_priv(netdev);
+> +
+> +       /* Check not supported parameters  */
+> +       if ((ec->rx_max_coalesced_frames) || (ec->rx_coalesce_usecs_irq) ||
+> +           (ec->rx_max_coalesced_frames_irq) || (ec->tx_coalesce_usecs_irq) ||
+> +           (ec->use_adaptive_rx_coalesce) || (ec->use_adaptive_tx_coalesce) ||
+> +           (ec->pkt_rate_low) || (ec->rx_coalesce_usecs_low) ||
+> +           (ec->rx_max_coalesced_frames_low) || (ec->tx_coalesce_usecs_high) ||
+> +           (ec->tx_max_coalesced_frames_low) || (ec->pkt_rate_high) ||
+> +           (ec->tx_coalesce_usecs_low) || (ec->rx_coalesce_usecs_high) ||
+> +           (ec->rx_max_coalesced_frames_high) || (ec->rx_coalesce_usecs) ||
+> +           (ec->tx_max_coalesced_frames_irq) ||
+> +           (ec->stats_block_coalesce_usecs) ||
+> +           (ec->tx_max_coalesced_frames_high) || (ec->rate_sample_interval))
+> +               return -EOPNOTSUPP;
+> +
+> +       if ((ec->tx_coalesce_usecs > HIP04_MAX_TX_COALESCE_USECS ||
+> +            ec->tx_coalesce_usecs < HIP04_MIN_TX_COALESCE_USECS) ||
+> +           (ec->tx_max_coalesced_frames > HIP04_MAX_TX_COALESCE_FRAMES ||
+> +            ec->tx_max_coalesced_frames < HIP04_MIN_TX_COALESCE_FRAMES))
+> +               return -EINVAL;
+> +
+> +       priv->tx_coalesce_usecs = ec->tx_coalesce_usecs;
+> +       priv->tx_coalesce_frames = ec->tx_max_coalesced_frames;
+> +
+> +       return 0;
+> +}
 
-This is the bug that Eric pointed out as well.
+I just looked at this again and noticed that you fail to actually use the
+tx_coalesce_usecs value anywhere, since you don't call hrtimer_set_expires_range()
+any more.
 
-> >   2) We fail to allocate with order=0 - I don't see why
+Also, I guess it would be nice use the rx_coalesce_usecs_low and
+tx_coalesce_usecs_high numbers instead of just a single number, as
+hrtimer_set_expires_range takes two values already. Just do something
+like 
 
-GFP_ATOMIC. When allocating from a the napi poll function in softirq
-context, you have to use nonblocking allocations, which occasionally
-fail. This should not cause any harm other than dropped packets.
+	hrtimer_set_expires_range(&priv->tx_coalesce_timer,
+				   priv->rx_coalesce_usecs_low,
+				   priv->rx_coalesce_usecs_high -
+				   priv->rx_coalesce_usecs_low);
 
-> is it easy to repetition this bug? how big is your memory on your board,
-> is it happened in your previous hip04 driver?
+and make sure the 'low' value is smaller than the 'high' one.
 
-It should be independent of memory size, but may be more likely if you
-don't have swap space configured.
+> +       priv->tx_coalesce_frames = TX_DESC_NUM * 3 / 4;
+> +       priv->tx_coalesce_usecs = 200;
+
+Related, instead of putting the raw numbers here, how about
+adding the defaults along with the other macros we talked about:
+
+#define HIP04_MAX_TX_COALESCE_USECS		10000
+#define HIP04_MIN_TX_COALESCE_USECS		1
+#define HIP04_MAX_TX_COALESCE_FRAMES		(TX_DESC_NUM - 1)
+#define HIP04_MIN_TX_COALESCE_FRAMES		1
+
+#define HIP04_DEFAULT_TX_COALESCE_USECS_LOW	80
+#define HIP04_DEFAULT_TX_COALESCE_USECS_HIGH	200
+#define HIP04_DEFAULT_TX_COALESCE_FRAMES	(TX_DESC_NUM / 2)
 
 	Arnd
