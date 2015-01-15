@@ -1,55 +1,61 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [net-next 10/17] i40e: clean up PTP log messages
-Date: Thu, 15 Jan 2015 12:34:59 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CAC9AB0@AcuExch.aculab.com>
-References: <1421324368-6860-1-git-send-email-jeffrey.t.kirsher@intel.com>
- <1421324368-6860-11-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Alexander Graf <agraf@suse.de>
+Subject: Re: [PATCH net-next v13 0/3] add hisilicon hip04 ethernet driver
+Date: Thu, 15 Jan 2015 13:39:03 +0100
+Message-ID: <54B7B4E7.8030108@suse.de>
+References: <1421217254-12008-1-git-send-email-dingtianhong@huawei.com> <54B642B4.8010807@suse.de> <54B77C43.6010200@huawei.com> <14674609.dERhba4yMV@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: Shannon Nelson <shannon.nelson@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"nhorman@redhat.com" <nhorman@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>,
-	"jogreene@redhat.com" <jogreene@redhat.com>,
-	Jacob Keller <jacob.e.keller@intel.com>
-To: 'Jeff Kirsher' <jeffrey.t.kirsher@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: robh+dt@kernel.org, davem@davemloft.net, grant.likely@linaro.org,
+	sergei.shtylyov@cogentembedded.com,
+	linux-arm-kernel@lists.infradead.org, eric.dumazet@gmail.com,
+	xuwei5@hisilicon.com, zhangfei.gao@linaro.org,
+	netdev@vger.kernel.org, devicetree@vger.kernel.org,
+	linux@arm.linux.org.uk
+To: Arnd Bergmann <arnd@arndb.de>,
+	Ding Tianhong <dingtianhong@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out6.electric.net ([192.162.217.186]:65116 "EHLO
-	smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752995AbbAOMgd convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jan 2015 07:36:33 -0500
-In-Reply-To: <1421324368-6860-11-git-send-email-jeffrey.t.kirsher@intel.com>
-Content-Language: en-US
+Received: from cantor2.suse.de ([195.135.220.15]:49180 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752320AbbAOMjI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Jan 2015 07:39:08 -0500
+In-Reply-To: <14674609.dERhba4yMV@wuerfel>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher
-> From: Shannon Nelson <shannon.nelson@intel.com>
+
+
+On 15.01.15 10:42, Arnd Bergmann wrote:
+> On Thursday 15 January 2015 16:37:23 Ding Tianhong wrote:
+>> On 2015/1/14 18:19, Alexander Graf wrote:
+>>>
+>>> >From a 10000 feet perspective it looks like two problems to me
+>>>
+>>>   1) Allocation failure doesn't get handled properly somewhere
 > 
-> The netdev name at init time often defaults to eth0 but later gets changed
-> by UDEV, so printing it here is misleading.
+> This is the bug that Eric pointed out as well.
+> 
+>>>   2) We fail to allocate with order=0 - I don't see why
+> 
+> GFP_ATOMIC. When allocating from a the napi poll function in softirq
+> context, you have to use nonblocking allocations, which occasionally
+> fail. This should not cause any harm other than dropped packets.
+> 
+>> is it easy to repetition this bug? how big is your memory on your board,
+>> is it happened in your previous hip04 driver?
+> 
+> It should be independent of memory size, but may be more likely if you
+> don't have swap space configured.
 
-Without the interface name you stand zero chance of working out which one it is.
-With it, and provided all the interface renames get into dmesg, you stand
-at least some chance.
+With the previous driver I was unable to get this far - I ended up in
+random memory corruption and had a ~90% packet loss after about an hour
+of uptime.
 
-If you have several interfaces that use the same driver, but are subtly
-different you can have a hard enough time as it is working out what is
-going on.
+I'm not sure whether it's easy to reproduce, I merely started up a few
+VMs, did some disk I/O and started to compile QEMU in the background ;).
 
-I know it is too late now, but UDEV should never have been allowed to
-rename devices, instead it should have added 'alias' names.
-Then you would stand some chance of working out which was which.
+I'll happily give your follow up patch that's going to fix the memory
+allocation problems a try though.
 
-> This patch removes the name
-> from the log messages, and removes the use of __func__ as we're not using
-> that any more in the driver.
 
-I can't remember, do these messages contain the name of the driver (as
-well as the device id string).
-You might need some help when grepping the kernel source to find where
-the messages are coming from.
-
-	David
+Alex
