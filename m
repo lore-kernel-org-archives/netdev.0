@@ -1,236 +1,60 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH v2 1/2] fixup! net/macb: Adding comments to various
- #defs to make interpretation easier
-Date: Thu, 15 Jan 2015 11:46:04 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CAC999F@AcuExch.aculab.com>
-References: <20150114.165220.2282566005036464131.davem@davemloft.net>
- <1421274051-21588-1-git-send-email-xander.huff@ni.com>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: [PATCH for 3.19 2/3] rtlwifi: Fix handling of new style descriptors
+Date: Thu, 15 Jan 2015 14:00:52 +0200
+Message-ID: <87y4p4w8wb.fsf@kamboji.qca.qualcomm.com>
+References: <1421257036-5382-1-git-send-email-Larry.Finger@lwfinger.net>
+	<1421257036-5382-3-git-send-email-Larry.Finger@lwfinger.net>
+	<877fwoxo7g.fsf@kamboji.qca.qualcomm.com>
+	<C11178B3EB8EC446A461ADCC3E27182146C9A9F8@rsex2.realsil.com.cn>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"jaeden.amero@ni.com" <jaeden.amero@ni.com>,
-	"rich.tollerton@ni.com" <rich.tollerton@ni.com>,
-	"ben.shelton@ni.com" <ben.shelton@ni.com>,
-	"brad.mouring@ni.com" <brad.mouring@ni.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"cyrille.pitchen@atmel.com" <cyrille.pitchen@atmel.com>
-To: 'Xander Huff' <xander.huff@ni.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"nicolas.ferre@atmel.com" <nicolas.ferre@atmel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1421274051-21588-1-git-send-email-xander.huff@ni.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "larry.finger" <Larry.Finger@lwfinger.net>,
+	"linux-wireless\@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>
+To: =?utf-8?B?6LCt5p2t5rOi?= <troy_tan@realsil.com.cn>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.codeaurora.org ([198.145.11.231]:55091 "EHLO
+	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753253AbbAOMA7 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jan 2015 07:00:59 -0500
+In-Reply-To: <C11178B3EB8EC446A461ADCC3E27182146C9A9F8@rsex2.realsil.com.cn>
+	(=?utf-8?B?IuiwreadreazoiIncw==?= message of "Thu, 15 Jan 2015 11:46:55
+ +0000")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Xander Huff
-> Put #define comments into a single line.
+Hi Troy,
 
-Breaks the 80 char limit.
-I suspect the definitions could be made to fit by judicial editing.
-But that probably requires knowing exactly what the comments mean.
+please avoid top-posting.
 
-	David
+=E8=B0=AD=E6=9D=AD=E6=B3=A2 <troy_tan@realsil.com.cn> writes:
 
-> Signed-off-by: Xander Huff <xander.huff@ni.com>
-> ---
->  drivers/net/ethernet/cadence/macb.h | 107 +++++++++---------------------------
->  1 file changed, 26 insertions(+), 81 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethernet/cadence/macb.h
-> index 378b218..d7b93d0 100644
-> --- a/drivers/net/ethernet/cadence/macb.h
-> +++ b/drivers/net/ethernet/cadence/macb.h
-> @@ -275,9 +275,7 @@
->  #define MACB_THALT_SIZE				1
->  #define MACB_NCR_TPF_OFFSET			11 /* Transmit pause frame */
->  #define MACB_NCR_TPF_SIZE			1
-> -#define MACB_TZQ_OFFSET				12 /* Transmit zero quantum
-> -						    * pause frame
-> -						    */
-> +#define MACB_TZQ_OFFSET				12 /* Transmit zero quantum pause frame */
->  #define MACB_TZQ_SIZE				1
-> 
->  /* Bitfields in NCFGR */
-> @@ -299,9 +297,7 @@
->  #define MACB_UNI_SIZE				1
->  #define MACB_BIG_OFFSET				8 /* Receive 1536 byte frames */
->  #define MACB_BIG_SIZE				1
-> -#define MACB_EAE_OFFSET				9 /* External address match
-> -						   * enable
-> -						   */
-> +#define MACB_EAE_OFFSET				9 /* External address match enable */
->  #define MACB_EAE_SIZE				1
->  #define MACB_CLK_OFFSET				10
->  #define MACB_CLK_SIZE				2
-> @@ -313,9 +309,7 @@
->  #define MACB_RM9200_RMII_SIZE			1  /* AT91RM9200 only */
->  #define MACB_RBOF_OFFSET			14 /* Receive buffer offset */
->  #define MACB_RBOF_SIZE				2
-> -#define MACB_RLCE_OFFSET			16 /* Length field error frame
-> -						    * discard
-> -						    */
-> +#define MACB_RLCE_OFFSET			16 /* Length field error frame discard */
->  #define MACB_RLCE_SIZE				1
->  #define MACB_DRFCS_OFFSET			17 /* FCS remove */
->  #define MACB_DRFCS_SIZE				1
-> @@ -335,41 +329,22 @@
->  #define GEM_RXCOEN_SIZE				1
-> 
->  /* Constants for data bus width. */
-> -#define GEM_DBW32				0 /* 32 bit AMBA AHB data bus
-> -						   * width
-> -						   */
-> -#define GEM_DBW64				1 /* 64 bit AMBA AHB data bus
-> -						   * width
-> -						   */
-> -#define GEM_DBW128				2 /* 128 bit AMBA AHB data bus
-> -						   * width
-> -						   */
-> +#define GEM_DBW32				0 /* 32 bit AMBA AHB data bus width */
-> +#define GEM_DBW64				1 /* 64 bit AMBA AHB data bus width */
-> +#define GEM_DBW128				2 /* 128 bit AMBA AHB data bus width */
-> 
->  /* Bitfields in DMACFG. */
-> -#define GEM_FBLDO_OFFSET			0 /* AHB fixed burst length for
-> -						   * DMA data operations
-> -						   */
-> +#define GEM_FBLDO_OFFSET			0 /* AHB fixed burst length for DMA data operations */
->  #define GEM_FBLDO_SIZE				5
-> -#define GEM_ENDIA_OFFSET			7 /* AHB endian swap mode enable
-> -						   * for packet data accesses
-> -						   */
-> +#define GEM_ENDIA_OFFSET			7 /* AHB endian swap mode enable for packet data accesses */
->  #define GEM_ENDIA_SIZE				1
-> -#define GEM_RXBMS_OFFSET			8 /* Receiver packet buffer
-> -						   * memory size select
-> -						   */
-> +#define GEM_RXBMS_OFFSET			8 /* Receiver packet buffer memory size select */
->  #define GEM_RXBMS_SIZE				2
-> -#define GEM_TXPBMS_OFFSET			10 /* Transmitter packet buffer
-> -						    * memory size select
-> -						    */
-> +#define GEM_TXPBMS_OFFSET			10 /* Transmitter packet buffer memory size select */
->  #define GEM_TXPBMS_SIZE				1
-> -#define GEM_TXCOEN_OFFSET			11 /* Transmitter IP, TCP and
-> -						    * UDP checksum generation
-> -						    * offload enable
-> -						    */
-> +#define GEM_TXCOEN_OFFSET			11 /* Transmitter IP, TCP and UDP checksum generation
-> offload enable */
->  #define GEM_TXCOEN_SIZE				1
-> -#define GEM_RXBS_OFFSET				16 /* DMA receive buffer size in
-> -						    * AHB system memory
-> -						    */
-> +#define GEM_RXBS_OFFSET				16 /* DMA receive buffer size in AHB system memory */
->  #define GEM_RXBS_SIZE				8
->  #define GEM_DDRP_OFFSET				24 /* disc_when_no_ahb */
->  #define GEM_DDRP_SIZE				1
-> @@ -378,13 +353,9 @@
->  /* Bitfields in NSR */
->  #define MACB_NSR_LINK_OFFSET			0 /* pcs_link_state */
->  #define MACB_NSR_LINK_SIZE			1
-> -#define MACB_MDIO_OFFSET			1 /* status of the mdio_in
-> -						   * pin
-> -						   */
-> +#define MACB_MDIO_OFFSET			1 /* status of the mdio_in pin */
->  #define MACB_MDIO_SIZE				1
-> -#define MACB_IDLE_OFFSET			2 /* The PHY management logic is
-> -						   * idle (i.e. has completed)
-> -						   */
-> +#define MACB_IDLE_OFFSET			2 /* The PHY management logic is idle (i.e. has completed)
-> */
->  #define MACB_IDLE_SIZE				1
-> 
->  /* Bitfields in TSR */
-> @@ -396,9 +367,7 @@
->  #define MACB_TSR_RLE_SIZE			1
->  #define MACB_TGO_OFFSET				3 /* Transmit go */
->  #define MACB_TGO_SIZE				1
-> -#define MACB_BEX_OFFSET				4 /* Transmit frame corruption
-> -						   * due to AHB error
-> -						   */
-> +#define MACB_BEX_OFFSET				4 /* Transmit frame corruption due to AHB error */
->  #define MACB_BEX_SIZE				1
->  #define MACB_RM9200_BNQ_OFFSET			4 /* AT91RM9200 only */
->  #define MACB_RM9200_BNQ_SIZE			1 /* AT91RM9200 only */
-> @@ -424,43 +393,23 @@
->  #define MACB_RXUBR_SIZE				1
->  #define MACB_TXUBR_OFFSET			3 /* TX used bit read */
->  #define MACB_TXUBR_SIZE				1
-> -#define MACB_ISR_TUND_OFFSET			4 /* Enable trnasmit buffer
-> -						   * under run interrupt
-> -						   */
-> +#define MACB_ISR_TUND_OFFSET			4 /* Enable trnasmit buffer under run interrupt */
->  #define MACB_ISR_TUND_SIZE			1
-> -#define MACB_ISR_RLE_OFFSET			5 /* Enable retry limit exceeded
-> -						   * or late collision interrupt
-> -						   */
-> +#define MACB_ISR_RLE_OFFSET			5 /* Enable retry limit exceeded or late collision interrupt
-> */
->  #define MACB_ISR_RLE_SIZE			1
-> -#define MACB_TXERR_OFFSET			6 /* Enable transmit frame
-> -						   * corruption due to AHB error
-> -						   * interrupt
-> -						   */
-> +#define MACB_TXERR_OFFSET			6 /* Enable transmit frame corruption due to AHB error
-> interrupt */
->  #define MACB_TXERR_SIZE				1
-> -#define MACB_TCOMP_OFFSET			7 /* Enable transmit complete
-> -						   * interrupt
-> -						   */
-> +#define MACB_TCOMP_OFFSET			7 /* Enable transmit complete interrupt */
->  #define MACB_TCOMP_SIZE				1
-> -#define MACB_ISR_LINK_OFFSET			9 /* Enable link change
-> -						   * interrupt
-> -						   */
-> +#define MACB_ISR_LINK_OFFSET			9 /* Enable link change interrupt */
->  #define MACB_ISR_LINK_SIZE			1
-> -#define MACB_ISR_ROVR_OFFSET			10 /* Enable receive overrun
-> -						    * interrupt
-> -						    */
-> +#define MACB_ISR_ROVR_OFFSET			10 /* Enable receive overrun interrupt */
->  #define MACB_ISR_ROVR_SIZE			1
-> -#define MACB_HRESP_OFFSET			11 /* Enable hrsep not OK
-> -						    * interrupt
-> -						    */
-> +#define MACB_HRESP_OFFSET			11 /* Enable hrsep not OK interrupt */
->  #define MACB_HRESP_SIZE				1
-> -#define MACB_PFR_OFFSET				12 /* Enable pause frame with
-> -						    * non-zero pause quantum
-> -						    * interrupt
-> -						    */
-> +#define MACB_PFR_OFFSET				12 /* Enable pause frame with non-zero pause quantum
-> interrupt */
->  #define MACB_PFR_SIZE				1
-> -#define MACB_PTZ_OFFSET				13 /* Enable pause time zero
-> -						    * interrupt
-> -						    */
-> +#define MACB_PTZ_OFFSET				13 /* Enable pause time zero interrupt */
->  #define MACB_PTZ_SIZE				1
-> 
->  /* Bitfields in MAN */
-> @@ -472,13 +421,9 @@
->  #define MACB_REGA_SIZE				5
->  #define MACB_PHYA_OFFSET			23 /* PHY address */
->  #define MACB_PHYA_SIZE				5
-> -#define MACB_RW_OFFSET				28 /* Operation. 10 is read. 01
-> -						    * is write.
-> -						    */
-> +#define MACB_RW_OFFSET				28 /* Operation. 10 is read. 01 is write. */
->  #define MACB_RW_SIZE				2
-> -#define MACB_SOF_OFFSET				30 /* Must be written to 1 for
-> -						    * Clause 22 operation
-> -						    */
-> +#define MACB_SOF_OFFSET				30 /* Must be written to 1 for Clause 22 operation */
->  #define MACB_SOF_SIZE				2
-> 
->  /* Bitfields in USRIO (AVR32) */
-> --
-> 1.9.1
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> You can find get_available_desc here:
+>
+> diff --git a/drivers/net/wireless/rtlwifi/pci.c b/drivers/net/wireles=
+s/rtlwifi/
+> pci.c
+> index e25faac..a62170e 100644
+> --- a/drivers/net/wireless/rtlwifi/pci.c
+> +++ b/drivers/net/wireless/rtlwifi/pci.c
+> @@ -578,6 +578,13 @@ static void _rtl_pci_tx_isr(struct ieee80211_hw =
+*hw, int
+> prio)
+>                 else
+>                         entry =3D (u8 *)(&ring->desc[ring->idx]);
+>
+> +               if (rtlpriv->cfg->ops->get_available_desc &&
+> +                   rtlpriv->cfg->ops->get_available_desc(hw, prio) <=
+=3D 1) {
+> +                       RT_TRACE(rtlpriv, (COMP_INTR | COMP_SEND), DB=
+G_DMESG,
+> +                                "no available desc!\n");
+> +                       return;
+> +               }
+
+I don't see rtlpriv->cfg->ops->get_available_desc set here, only being
+called?
+
+--=20
+Kalle Valo
