@@ -1,163 +1,237 @@
-From: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
-Subject: [PATCH 4/5] openvswitch: Allow for any level of nesting
-	in flow attributes
-Date: Thu, 15 Jan 2015 03:53:58 +0100
-Message-ID: <21d65bdbc132cf0655777cfa8c789cbef28e60d6.1421290198.git.tgraf@suug.ch>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [PATCH 3/5] openvswitch: Rename GENEVE_TUN_OPTS() to TUN_METADATA_OPTS()
+Date: Thu, 15 Jan 2015 03:53:57 +0100
+Message-ID: <db013497ab59a9634ed53ae08d6c534c80b283c1.1421290198.git.tgraf@suug.ch>
 References: <cover.1421290198.git.tgraf@suug.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org, stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org,
- pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org, therbert-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
- nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <cover.1421290198.git.tgraf-G/eBtMaohhA@public.gmane.org>
-In-Reply-To: <cover.1421290198.git.tgraf-G/eBtMaohhA@public.gmane.org>
-References: <cover.1421290198.git.tgraf-G/eBtMaohhA@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, dev@openvswitch.org
+To: davem@davemloft.net, jesse@nicira.com, stephen@networkplumber.org,
+	pshelar@nicira.com, therbert@google.com,
+	alexei.starovoitov@gmail.com, nicolas.dichtel@6wind.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from casper.infradead.org ([85.118.1.10]:35191 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751119AbbAOCyE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2015 21:54:04 -0500
+In-Reply-To: <cover.1421290198.git.tgraf@suug.ch>
+In-Reply-To: <cover.1421290198.git.tgraf@suug.ch>
+References: <cover.1421290198.git.tgraf@suug.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-bmxhdHRyX3NldCgpIGlzIGN1cnJlbnRseSBoYXJkY29kZWQgdG8gdHdvIGxldmVscyBvZiBuZXN0
-aW5nLiBUaGlzIGNoYW5nZQppbnRyb2R1Y2VzIHN0cnVjdCBvdnNfbGVuX3RibCB0byBkZWZpbmUg
-bWluaW1hbCBsZW5ndGggcmVxdWlyZW1lbnRzIHBsdXMKbmV4dCBsZXZlbCBuZXN0aW5nIHRhYmxl
-cyB0byB0cmF2ZXJzZSB0aGUga2V5IGF0dHJpYnV0ZXMgdG8gYXJiaXRyYXJ5IGRlcHRoLgoKU2ln
-bmVkLW9mZi1ieTogVGhvbWFzIEdyYWYgPHRncmFmQHN1dWcuY2g+Ci0tLQp2NS0+djY6CiAtIE5v
-IGNoYW5nZQp2NC0+djU6CiAtIE5vIGNoYW5nZQp2My0+djQ6CiAtIE5vIGNoYW5nZS4gVGhlIHNw
-b3R0ZWQgYnVnIGlzIHVucmVsYXRkIHRvIHRoaXMgc2VyaWVzIGFuZCB3aWxsIGJlIGZpeGVkCiAg
-IGluIGEgc2VwYXJhdGUgcGF0Y2gKdjItPnYzOgogLSBObyBjaGFuZ2UKdjEtPnYyOgogLSBOZXcg
-cGF0Y2ggdG8gYWxsb3cgbmVzdGVkIE5ldGxpbmsgYXR0cmlidXRlcyBpbnNpZGUKICAgT1ZTX1RV
-Tk5FTF9LRVlfQVRUUl9WWExBTl9PUFRTCgogbmV0L29wZW52c3dpdGNoL2Zsb3dfbmV0bGluay5j
-IHwgMTA2ICsrKysrKysrKysrKysrKysrKysrKystLS0tLS0tLS0tLS0tLS0tLS0tCiAxIGZpbGUg
-Y2hhbmdlZCwgNTYgaW5zZXJ0aW9ucygrKSwgNTAgZGVsZXRpb25zKC0pCgpkaWZmIC0tZ2l0IGEv
-bmV0L29wZW52c3dpdGNoL2Zsb3dfbmV0bGluay5jIGIvbmV0L29wZW52c3dpdGNoL2Zsb3dfbmV0
-bGluay5jCmluZGV4IDJlOGE5Y2QuLjUxODk0MWMgMTAwNjQ0Ci0tLSBhL25ldC9vcGVudnN3aXRj
-aC9mbG93X25ldGxpbmsuYworKysgYi9uZXQvb3BlbnZzd2l0Y2gvZmxvd19uZXRsaW5rLmMKQEAg
-LTUwLDYgKzUwLDEzIEBACiAKICNpbmNsdWRlICJmbG93X25ldGxpbmsuaCIKIAorc3RydWN0IG92
-c19sZW5fdGJsIHsKKwlpbnQgbGVuOworCWNvbnN0IHN0cnVjdCBvdnNfbGVuX3RibCAqbmV4dDsK
-K307CisKKyNkZWZpbmUgT1ZTX0FUVFJfTkVTVEVEIC0xCisKIHN0YXRpYyB2b2lkIHVwZGF0ZV9y
-YW5nZShzdHJ1Y3Qgc3dfZmxvd19tYXRjaCAqbWF0Y2gsCiAJCQkgc2l6ZV90IG9mZnNldCwgc2l6
-ZV90IHNpemUsIGJvb2wgaXNfbWFzaykKIHsKQEAgLTI4OSwyOSArMjk2LDQ0IEBAIHNpemVfdCBv
-dnNfa2V5X2F0dHJfc2l6ZSh2b2lkKQogCQkrIG5sYV90b3RhbF9zaXplKDI4KTsgLyogT1ZTX0tF
-WV9BVFRSX05EICovCiB9CiAKK3N0YXRpYyBjb25zdCBzdHJ1Y3Qgb3ZzX2xlbl90Ymwgb3ZzX3R1
-bm5lbF9rZXlfbGVuc1tPVlNfVFVOTkVMX0tFWV9BVFRSX01BWCArIDFdID0geworCVtPVlNfVFVO
-TkVMX0tFWV9BVFRSX0lEXQkgICAgPSB7IC5sZW4gPSBzaXplb2YodTY0KSB9LAorCVtPVlNfVFVO
-TkVMX0tFWV9BVFRSX0lQVjRfU1JDXQkgICAgPSB7IC5sZW4gPSBzaXplb2YodTMyKSB9LAorCVtP
-VlNfVFVOTkVMX0tFWV9BVFRSX0lQVjRfRFNUXQkgICAgPSB7IC5sZW4gPSBzaXplb2YodTMyKSB9
-LAorCVtPVlNfVFVOTkVMX0tFWV9BVFRSX1RPU10JICAgID0geyAubGVuID0gMSB9LAorCVtPVlNf
-VFVOTkVMX0tFWV9BVFRSX1RUTF0JICAgID0geyAubGVuID0gMSB9LAorCVtPVlNfVFVOTkVMX0tF
-WV9BVFRSX0RPTlRfRlJBR01FTlRdID0geyAubGVuID0gMCB9LAorCVtPVlNfVFVOTkVMX0tFWV9B
-VFRSX0NTVU1dCSAgICA9IHsgLmxlbiA9IDAgfSwKKwlbT1ZTX1RVTk5FTF9LRVlfQVRUUl9UUF9T
-UkNdCSAgICA9IHsgLmxlbiA9IHNpemVvZih1MTYpIH0sCisJW09WU19UVU5ORUxfS0VZX0FUVFJf
-VFBfRFNUXQkgICAgPSB7IC5sZW4gPSBzaXplb2YodTE2KSB9LAorCVtPVlNfVFVOTkVMX0tFWV9B
-VFRSX09BTV0JICAgID0geyAubGVuID0gMCB9LAorCVtPVlNfVFVOTkVMX0tFWV9BVFRSX0dFTkVW
-RV9PUFRTXSAgID0geyAubGVuID0gT1ZTX0FUVFJfTkVTVEVEIH0sCit9OworCiAvKiBUaGUgc2l6
-ZSBvZiB0aGUgYXJndW1lbnQgZm9yIGVhY2ggJU9WU19LRVlfQVRUUl8qIE5ldGxpbmsgYXR0cmli
-dXRlLiAgKi8KLXN0YXRpYyBjb25zdCBpbnQgb3ZzX2tleV9sZW5zW09WU19LRVlfQVRUUl9NQVgg
-KyAxXSA9IHsKLQlbT1ZTX0tFWV9BVFRSX0VOQ0FQXSA9IC0xLAotCVtPVlNfS0VZX0FUVFJfUFJJ
-T1JJVFldID0gc2l6ZW9mKHUzMiksCi0JW09WU19LRVlfQVRUUl9JTl9QT1JUXSA9IHNpemVvZih1
-MzIpLAotCVtPVlNfS0VZX0FUVFJfU0tCX01BUktdID0gc2l6ZW9mKHUzMiksCi0JW09WU19LRVlf
-QVRUUl9FVEhFUk5FVF0gPSBzaXplb2Yoc3RydWN0IG92c19rZXlfZXRoZXJuZXQpLAotCVtPVlNf
-S0VZX0FUVFJfVkxBTl0gPSBzaXplb2YoX19iZTE2KSwKLQlbT1ZTX0tFWV9BVFRSX0VUSEVSVFlQ
-RV0gPSBzaXplb2YoX19iZTE2KSwKLQlbT1ZTX0tFWV9BVFRSX0lQVjRdID0gc2l6ZW9mKHN0cnVj
-dCBvdnNfa2V5X2lwdjQpLAotCVtPVlNfS0VZX0FUVFJfSVBWNl0gPSBzaXplb2Yoc3RydWN0IG92
-c19rZXlfaXB2NiksCi0JW09WU19LRVlfQVRUUl9UQ1BdID0gc2l6ZW9mKHN0cnVjdCBvdnNfa2V5
-X3RjcCksCi0JW09WU19LRVlfQVRUUl9UQ1BfRkxBR1NdID0gc2l6ZW9mKF9fYmUxNiksCi0JW09W
-U19LRVlfQVRUUl9VRFBdID0gc2l6ZW9mKHN0cnVjdCBvdnNfa2V5X3VkcCksCi0JW09WU19LRVlf
-QVRUUl9TQ1RQXSA9IHNpemVvZihzdHJ1Y3Qgb3ZzX2tleV9zY3RwKSwKLQlbT1ZTX0tFWV9BVFRS
-X0lDTVBdID0gc2l6ZW9mKHN0cnVjdCBvdnNfa2V5X2ljbXApLAotCVtPVlNfS0VZX0FUVFJfSUNN
-UFY2XSA9IHNpemVvZihzdHJ1Y3Qgb3ZzX2tleV9pY21wdjYpLAotCVtPVlNfS0VZX0FUVFJfQVJQ
-XSA9IHNpemVvZihzdHJ1Y3Qgb3ZzX2tleV9hcnApLAotCVtPVlNfS0VZX0FUVFJfTkRdID0gc2l6
-ZW9mKHN0cnVjdCBvdnNfa2V5X25kKSwKLQlbT1ZTX0tFWV9BVFRSX1JFQ0lSQ19JRF0gPSBzaXpl
-b2YodTMyKSwKLQlbT1ZTX0tFWV9BVFRSX0RQX0hBU0hdID0gc2l6ZW9mKHUzMiksCi0JW09WU19L
-RVlfQVRUUl9UVU5ORUxdID0gLTEsCi0JW09WU19LRVlfQVRUUl9NUExTXSA9IHNpemVvZihzdHJ1
-Y3Qgb3ZzX2tleV9tcGxzKSwKK3N0YXRpYyBjb25zdCBzdHJ1Y3Qgb3ZzX2xlbl90Ymwgb3ZzX2tl
-eV9sZW5zW09WU19LRVlfQVRUUl9NQVggKyAxXSA9IHsKKwlbT1ZTX0tFWV9BVFRSX0VOQ0FQXQkg
-PSB7IC5sZW4gPSBPVlNfQVRUUl9ORVNURUQgfSwKKwlbT1ZTX0tFWV9BVFRSX1BSSU9SSVRZXQkg
-PSB7IC5sZW4gPSBzaXplb2YodTMyKSB9LAorCVtPVlNfS0VZX0FUVFJfSU5fUE9SVF0JID0geyAu
-bGVuID0gc2l6ZW9mKHUzMikgfSwKKwlbT1ZTX0tFWV9BVFRSX1NLQl9NQVJLXQkgPSB7IC5sZW4g
-PSBzaXplb2YodTMyKSB9LAorCVtPVlNfS0VZX0FUVFJfRVRIRVJORVRdCSA9IHsgLmxlbiA9IHNp
-emVvZihzdHJ1Y3Qgb3ZzX2tleV9ldGhlcm5ldCkgfSwKKwlbT1ZTX0tFWV9BVFRSX1ZMQU5dCSA9
-IHsgLmxlbiA9IHNpemVvZihfX2JlMTYpIH0sCisJW09WU19LRVlfQVRUUl9FVEhFUlRZUEVdID0g
-eyAubGVuID0gc2l6ZW9mKF9fYmUxNikgfSwKKwlbT1ZTX0tFWV9BVFRSX0lQVjRdCSA9IHsgLmxl
-biA9IHNpemVvZihzdHJ1Y3Qgb3ZzX2tleV9pcHY0KSB9LAorCVtPVlNfS0VZX0FUVFJfSVBWNl0J
-ID0geyAubGVuID0gc2l6ZW9mKHN0cnVjdCBvdnNfa2V5X2lwdjYpIH0sCisJW09WU19LRVlfQVRU
-Ul9UQ1BdCSA9IHsgLmxlbiA9IHNpemVvZihzdHJ1Y3Qgb3ZzX2tleV90Y3ApIH0sCisJW09WU19L
-RVlfQVRUUl9UQ1BfRkxBR1NdID0geyAubGVuID0gc2l6ZW9mKF9fYmUxNikgfSwKKwlbT1ZTX0tF
-WV9BVFRSX1VEUF0JID0geyAubGVuID0gc2l6ZW9mKHN0cnVjdCBvdnNfa2V5X3VkcCkgfSwKKwlb
-T1ZTX0tFWV9BVFRSX1NDVFBdCSA9IHsgLmxlbiA9IHNpemVvZihzdHJ1Y3Qgb3ZzX2tleV9zY3Rw
-KSB9LAorCVtPVlNfS0VZX0FUVFJfSUNNUF0JID0geyAubGVuID0gc2l6ZW9mKHN0cnVjdCBvdnNf
-a2V5X2ljbXApIH0sCisJW09WU19LRVlfQVRUUl9JQ01QVjZdCSA9IHsgLmxlbiA9IHNpemVvZihz
-dHJ1Y3Qgb3ZzX2tleV9pY21wdjYpIH0sCisJW09WU19LRVlfQVRUUl9BUlBdCSA9IHsgLmxlbiA9
-IHNpemVvZihzdHJ1Y3Qgb3ZzX2tleV9hcnApIH0sCisJW09WU19LRVlfQVRUUl9ORF0JID0geyAu
-bGVuID0gc2l6ZW9mKHN0cnVjdCBvdnNfa2V5X25kKSB9LAorCVtPVlNfS0VZX0FUVFJfUkVDSVJD
-X0lEXSA9IHsgLmxlbiA9IHNpemVvZih1MzIpIH0sCisJW09WU19LRVlfQVRUUl9EUF9IQVNIXQkg
-PSB7IC5sZW4gPSBzaXplb2YodTMyKSB9LAorCVtPVlNfS0VZX0FUVFJfVFVOTkVMXQkgPSB7IC5s
-ZW4gPSBPVlNfQVRUUl9ORVNURUQsCisJCQkJICAgICAubmV4dCA9IG92c190dW5uZWxfa2V5X2xl
-bnMsIH0sCisJW09WU19LRVlfQVRUUl9NUExTXQkgPSB7IC5sZW4gPSBzaXplb2Yoc3RydWN0IG92
-c19rZXlfbXBscykgfSwKIH07CiAKIHN0YXRpYyBib29sIGlzX2FsbF96ZXJvKGNvbnN0IHU4ICpm
-cCwgc2l6ZV90IHNpemUpCkBAIC0zNTIsOCArMzc0LDggQEAgc3RhdGljIGludCBfX3BhcnNlX2Zs
-b3dfbmxhdHRycyhjb25zdCBzdHJ1Y3QgbmxhdHRyICphdHRyLAogCQkJcmV0dXJuIC1FSU5WQUw7
-CiAJCX0KIAotCQlleHBlY3RlZF9sZW4gPSBvdnNfa2V5X2xlbnNbdHlwZV07Ci0JCWlmIChubGFf
-bGVuKG5sYSkgIT0gZXhwZWN0ZWRfbGVuICYmIGV4cGVjdGVkX2xlbiAhPSAtMSkgeworCQlleHBl
-Y3RlZF9sZW4gPSBvdnNfa2V5X2xlbnNbdHlwZV0ubGVuOworCQlpZiAobmxhX2xlbihubGEpICE9
-IGV4cGVjdGVkX2xlbiAmJiBleHBlY3RlZF9sZW4gIT0gT1ZTX0FUVFJfTkVTVEVEKSB7CiAJCQlP
-VlNfTkxFUlIobG9nLCAiS2V5ICVkIGhhcyB1bmV4cGVjdGVkIGxlbiAlZCBleHBlY3RlZCAlZCIs
-CiAJCQkJICB0eXBlLCBubGFfbGVuKG5sYSksIGV4cGVjdGVkX2xlbik7CiAJCQlyZXR1cm4gLUVJ
-TlZBTDsKQEAgLTQ1MSwzMCArNDczLDE2IEBAIHN0YXRpYyBpbnQgaXB2NF90dW5fZnJvbV9ubGF0
-dHIoY29uc3Qgc3RydWN0IG5sYXR0ciAqYXR0ciwKIAkJaW50IHR5cGUgPSBubGFfdHlwZShhKTsK
-IAkJaW50IGVycjsKIAotCQlzdGF0aWMgY29uc3QgdTMyIG92c190dW5uZWxfa2V5X2xlbnNbT1ZT
-X1RVTk5FTF9LRVlfQVRUUl9NQVggKyAxXSA9IHsKLQkJCVtPVlNfVFVOTkVMX0tFWV9BVFRSX0lE
-XSA9IHNpemVvZih1NjQpLAotCQkJW09WU19UVU5ORUxfS0VZX0FUVFJfSVBWNF9TUkNdID0gc2l6
-ZW9mKHUzMiksCi0JCQlbT1ZTX1RVTk5FTF9LRVlfQVRUUl9JUFY0X0RTVF0gPSBzaXplb2YodTMy
-KSwKLQkJCVtPVlNfVFVOTkVMX0tFWV9BVFRSX1RPU10gPSAxLAotCQkJW09WU19UVU5ORUxfS0VZ
-X0FUVFJfVFRMXSA9IDEsCi0JCQlbT1ZTX1RVTk5FTF9LRVlfQVRUUl9ET05UX0ZSQUdNRU5UXSA9
-IDAsCi0JCQlbT1ZTX1RVTk5FTF9LRVlfQVRUUl9DU1VNXSA9IDAsCi0JCQlbT1ZTX1RVTk5FTF9L
-RVlfQVRUUl9UUF9TUkNdID0gc2l6ZW9mKHUxNiksCi0JCQlbT1ZTX1RVTk5FTF9LRVlfQVRUUl9U
-UF9EU1RdID0gc2l6ZW9mKHUxNiksCi0JCQlbT1ZTX1RVTk5FTF9LRVlfQVRUUl9PQU1dID0gMCwK
-LQkJCVtPVlNfVFVOTkVMX0tFWV9BVFRSX0dFTkVWRV9PUFRTXSA9IC0xLAotCQl9OwotCiAJCWlm
-ICh0eXBlID4gT1ZTX1RVTk5FTF9LRVlfQVRUUl9NQVgpIHsKIAkJCU9WU19OTEVSUihsb2csICJU
-dW5uZWwgYXR0ciAlZCBvdXQgb2YgcmFuZ2UgbWF4ICVkIiwKIAkJCQkgIHR5cGUsIE9WU19UVU5O
-RUxfS0VZX0FUVFJfTUFYKTsKIAkJCXJldHVybiAtRUlOVkFMOwogCQl9CiAKLQkJaWYgKG92c190
-dW5uZWxfa2V5X2xlbnNbdHlwZV0gIT0gbmxhX2xlbihhKSAmJgotCQkgICAgb3ZzX3R1bm5lbF9r
-ZXlfbGVuc1t0eXBlXSAhPSAtMSkgeworCQlpZiAob3ZzX3R1bm5lbF9rZXlfbGVuc1t0eXBlXS5s
-ZW4gIT0gbmxhX2xlbihhKSAmJgorCQkgICAgb3ZzX3R1bm5lbF9rZXlfbGVuc1t0eXBlXS5sZW4g
-IT0gT1ZTX0FUVFJfTkVTVEVEKSB7CiAJCQlPVlNfTkxFUlIobG9nLCAiVHVubmVsIGF0dHIgJWQg
-aGFzIHVuZXhwZWN0ZWQgbGVuICVkIGV4cGVjdGVkICVkIiwKLQkJCQkgIHR5cGUsIG5sYV9sZW4o
-YSksIG92c190dW5uZWxfa2V5X2xlbnNbdHlwZV0pOworCQkJCSAgdHlwZSwgbmxhX2xlbihhKSwg
-b3ZzX3R1bm5lbF9rZXlfbGVuc1t0eXBlXS5sZW4pOwogCQkJcmV0dXJuIC1FSU5WQUw7CiAJCX0K
-IApAQCAtOTEyLDE4ICs5MjAsMTYgQEAgc3RhdGljIGludCBvdnNfa2V5X2Zyb21fbmxhdHRycyhz
-dHJ1Y3Qgc3dfZmxvd19tYXRjaCAqbWF0Y2gsIHU2NCBhdHRycywKIAlyZXR1cm4gMDsKIH0KIAot
-c3RhdGljIHZvaWQgbmxhdHRyX3NldChzdHJ1Y3QgbmxhdHRyICphdHRyLCB1OCB2YWwsIGJvb2wg
-aXNfYXR0cl9tYXNrX2tleSkKK3N0YXRpYyB2b2lkIG5sYXR0cl9zZXQoc3RydWN0IG5sYXR0ciAq
-YXR0ciwgdTggdmFsLAorCQkgICAgICAgY29uc3Qgc3RydWN0IG92c19sZW5fdGJsICp0YmwpCiB7
-CiAJc3RydWN0IG5sYXR0ciAqbmxhOwogCWludCByZW07CiAKIAkvKiBUaGUgbmxhdHRyIHN0cmVh
-bSBzaG91bGQgYWxyZWFkeSBoYXZlIGJlZW4gdmFsaWRhdGVkICovCiAJbmxhX2Zvcl9lYWNoX25l
-c3RlZChubGEsIGF0dHIsIHJlbSkgewotCQkvKiBXZSBhc3N1bWUgdGhhdCBvdnNfa2V5X2xlbnNb
-dHlwZV0gPT0gLTEgbWVhbnMgdGhhdCB0eXBlIGlzIGEKLQkJICogbmVzdGVkIGF0dHJpYnV0ZQot
-CQkgKi8KLQkJaWYgKGlzX2F0dHJfbWFza19rZXkgJiYgb3ZzX2tleV9sZW5zW25sYV90eXBlKG5s
-YSldID09IC0xKQotCQkJbmxhdHRyX3NldChubGEsIHZhbCwgZmFsc2UpOworCQlpZiAodGJsICYm
-IHRibFtubGFfdHlwZShubGEpXS5sZW4gPT0gT1ZTX0FUVFJfTkVTVEVEKQorCQkJbmxhdHRyX3Nl
-dChubGEsIHZhbCwgdGJsW25sYV90eXBlKG5sYSldLm5leHQpOwogCQllbHNlCiAJCQltZW1zZXQo
-bmxhX2RhdGEobmxhKSwgdmFsLCBubGFfbGVuKG5sYSkpOwogCX0KQEAgLTkzMSw3ICs5MzcsNyBA
-QCBzdGF0aWMgdm9pZCBubGF0dHJfc2V0KHN0cnVjdCBubGF0dHIgKmF0dHIsIHU4IHZhbCwgYm9v
-bCBpc19hdHRyX21hc2tfa2V5KQogCiBzdGF0aWMgdm9pZCBtYXNrX3NldF9ubGF0dHIoc3RydWN0
-IG5sYXR0ciAqYXR0ciwgdTggdmFsKQogewotCW5sYXR0cl9zZXQoYXR0ciwgdmFsLCB0cnVlKTsK
-KwlubGF0dHJfc2V0KGF0dHIsIHZhbCwgb3ZzX2tleV9sZW5zKTsKIH0KIAogLyoqCkBAIC0xNjI4
-LDggKzE2MzQsOCBAQCBzdGF0aWMgaW50IHZhbGlkYXRlX3NldChjb25zdCBzdHJ1Y3QgbmxhdHRy
-ICphLAogCQlyZXR1cm4gLUVJTlZBTDsKIAogCWlmIChrZXlfdHlwZSA+IE9WU19LRVlfQVRUUl9N
-QVggfHwKLQkgICAgKG92c19rZXlfbGVuc1trZXlfdHlwZV0gIT0gbmxhX2xlbihvdnNfa2V5KSAm
-JgotCSAgICAgb3ZzX2tleV9sZW5zW2tleV90eXBlXSAhPSAtMSkpCisJICAgIChvdnNfa2V5X2xl
-bnNba2V5X3R5cGVdLmxlbiAhPSBubGFfbGVuKG92c19rZXkpICYmCisJICAgICBvdnNfa2V5X2xl
-bnNba2V5X3R5cGVdLmxlbiAhPSBPVlNfQVRUUl9ORVNURUQpKQogCQlyZXR1cm4gLUVJTlZBTDsK
-IAogCXN3aXRjaCAoa2V5X3R5cGUpIHsKLS0gCjEuOS4zCgpfX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fXwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3aXRj
-aC5vcmcKaHR0cDovL29wZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
+Also factors out Geneve validation code into a new separate function
+validate_and_copy_geneve_opts().
+
+A subsequent patch will introduce VXLAN options. Rename the existing
+GENEVE_TUN_OPTS() to reflect its extended purpose of carrying generic
+tunnel metadata options.
+
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
+---
+v5->v6:
+ - No change
+v4->v5:
+ - No change
+v3->v4:
+ - Renamed validate_and_copy_geneve_opts() to validate_geneve_opts() as
+   suggested by Jesse
+v2->v3:
+ - No change
+v1->v2:
+ - Don't rename genev_tun_opt_from_nlattr() and keep it Geneve specific,
+   pointed out by Jesse.
+ - Factor out Geneve specific validation code into separate function as
+   requested by Jesse.
+
+ net/openvswitch/flow.c         |  2 +-
+ net/openvswitch/flow.h         | 14 ++++----
+ net/openvswitch/flow_netlink.c | 72 +++++++++++++++++++++++-------------------
+ 3 files changed, 47 insertions(+), 41 deletions(-)
+
+diff --git a/net/openvswitch/flow.c b/net/openvswitch/flow.c
+index df334fe..e2c348b 100644
+--- a/net/openvswitch/flow.c
++++ b/net/openvswitch/flow.c
+@@ -691,7 +691,7 @@ int ovs_flow_key_extract(const struct ovs_tunnel_info *tun_info,
+ 			BUILD_BUG_ON((1 << (sizeof(tun_info->options_len) *
+ 						   8)) - 1
+ 					> sizeof(key->tun_opts));
+-			memcpy(GENEVE_OPTS(key, tun_info->options_len),
++			memcpy(TUN_METADATA_OPTS(key, tun_info->options_len),
+ 			       tun_info->options, tun_info->options_len);
+ 			key->tun_opts_len = tun_info->options_len;
+ 		} else {
+diff --git a/net/openvswitch/flow.h b/net/openvswitch/flow.h
+index a8b30f3..d3d0a40 100644
+--- a/net/openvswitch/flow.h
++++ b/net/openvswitch/flow.h
+@@ -53,7 +53,7 @@ struct ovs_key_ipv4_tunnel {
+ 
+ struct ovs_tunnel_info {
+ 	struct ovs_key_ipv4_tunnel tunnel;
+-	const struct geneve_opt *options;
++	const void *options;
+ 	u8 options_len;
+ };
+ 
+@@ -61,10 +61,10 @@ struct ovs_tunnel_info {
+  * maximum size. This allows us to get the benefits of variable length
+  * matching for small options.
+  */
+-#define GENEVE_OPTS(flow_key, opt_len)	\
+-	((struct geneve_opt *)((flow_key)->tun_opts + \
+-			       FIELD_SIZEOF(struct sw_flow_key, tun_opts) - \
+-			       opt_len))
++#define TUN_METADATA_OFFSET(opt_len) \
++	(FIELD_SIZEOF(struct sw_flow_key, tun_opts) - opt_len)
++#define TUN_METADATA_OPTS(flow_key, opt_len) \
++	((void *)((flow_key)->tun_opts + TUN_METADATA_OFFSET(opt_len)))
+ 
+ static inline void __ovs_flow_tun_info_init(struct ovs_tunnel_info *tun_info,
+ 					    __be32 saddr, __be32 daddr,
+@@ -73,7 +73,7 @@ static inline void __ovs_flow_tun_info_init(struct ovs_tunnel_info *tun_info,
+ 					    __be16 tp_dst,
+ 					    __be64 tun_id,
+ 					    __be16 tun_flags,
+-					    const struct geneve_opt *opts,
++					    const void *opts,
+ 					    u8 opts_len)
+ {
+ 	tun_info->tunnel.tun_id = tun_id;
+@@ -105,7 +105,7 @@ static inline void ovs_flow_tun_info_init(struct ovs_tunnel_info *tun_info,
+ 					  __be16 tp_dst,
+ 					  __be64 tun_id,
+ 					  __be16 tun_flags,
+-					  const struct geneve_opt *opts,
++					  const void *opts,
+ 					  u8 opts_len)
+ {
+ 	__ovs_flow_tun_info_init(tun_info, iph->saddr, iph->daddr,
+diff --git a/net/openvswitch/flow_netlink.c b/net/openvswitch/flow_netlink.c
+index d1eecf7..2e8a9cd 100644
+--- a/net/openvswitch/flow_netlink.c
++++ b/net/openvswitch/flow_netlink.c
+@@ -432,8 +432,7 @@ static int genev_tun_opt_from_nlattr(const struct nlattr *a,
+ 		SW_FLOW_KEY_PUT(match, tun_opts_len, 0xff, true);
+ 	}
+ 
+-	opt_key_offset = (unsigned long)GENEVE_OPTS((struct sw_flow_key *)0,
+-						    nla_len(a));
++	opt_key_offset = TUN_METADATA_OFFSET(nla_len(a));
+ 	SW_FLOW_KEY_MEMCPY_OFFSET(match, opt_key_offset, nla_data(a),
+ 				  nla_len(a), is_mask);
+ 	return 0;
+@@ -558,8 +557,7 @@ static int ipv4_tun_from_nlattr(const struct nlattr *attr,
+ 
+ static int __ipv4_tun_to_nlattr(struct sk_buff *skb,
+ 				const struct ovs_key_ipv4_tunnel *output,
+-				const struct geneve_opt *tun_opts,
+-				int swkey_tun_opts_len)
++				const void *tun_opts, int swkey_tun_opts_len)
+ {
+ 	if (output->tun_flags & TUNNEL_KEY &&
+ 	    nla_put_be64(skb, OVS_TUNNEL_KEY_ATTR_ID, output->tun_id))
+@@ -600,8 +598,7 @@ static int __ipv4_tun_to_nlattr(struct sk_buff *skb,
+ 
+ static int ipv4_tun_to_nlattr(struct sk_buff *skb,
+ 			      const struct ovs_key_ipv4_tunnel *output,
+-			      const struct geneve_opt *tun_opts,
+-			      int swkey_tun_opts_len)
++			      const void *tun_opts, int swkey_tun_opts_len)
+ {
+ 	struct nlattr *nla;
+ 	int err;
+@@ -1148,10 +1145,10 @@ int ovs_nla_put_flow(const struct sw_flow_key *swkey,
+ 		goto nla_put_failure;
+ 
+ 	if ((swkey->tun_key.ipv4_dst || is_mask)) {
+-		const struct geneve_opt *opts = NULL;
++		const void *opts = NULL;
+ 
+ 		if (output->tun_key.tun_flags & TUNNEL_OPTIONS_PRESENT)
+-			opts = GENEVE_OPTS(output, swkey->tun_opts_len);
++			opts = TUN_METADATA_OPTS(output, swkey->tun_opts_len);
+ 
+ 		if (ipv4_tun_to_nlattr(skb, &output->tun_key, opts,
+ 				       swkey->tun_opts_len))
+@@ -1540,6 +1537,34 @@ void ovs_match_init(struct sw_flow_match *match,
+ 	}
+ }
+ 
++static int validate_geneve_opts(struct sw_flow_key *key)
++{
++	struct geneve_opt *option;
++	int opts_len = key->tun_opts_len;
++	bool crit_opt = false;
++
++	option = (struct geneve_opt *)TUN_METADATA_OPTS(key, key->tun_opts_len);
++	while (opts_len > 0) {
++		int len;
++
++		if (opts_len < sizeof(*option))
++			return -EINVAL;
++
++		len = sizeof(*option) + option->length * 4;
++		if (len > opts_len)
++			return -EINVAL;
++
++		crit_opt |= !!(option->type & GENEVE_CRIT_OPT_TYPE);
++
++		option = (struct geneve_opt *)((u8 *)option + len);
++		opts_len -= len;
++	};
++
++	key->tun_key.tun_flags |= crit_opt ? TUNNEL_CRIT_OPT : 0;
++
++	return 0;
++}
++
+ static int validate_and_copy_set_tun(const struct nlattr *attr,
+ 				     struct sw_flow_actions **sfa, bool log)
+ {
+@@ -1555,28 +1580,9 @@ static int validate_and_copy_set_tun(const struct nlattr *attr,
+ 		return err;
+ 
+ 	if (key.tun_opts_len) {
+-		struct geneve_opt *option = GENEVE_OPTS(&key,
+-							key.tun_opts_len);
+-		int opts_len = key.tun_opts_len;
+-		bool crit_opt = false;
+-
+-		while (opts_len > 0) {
+-			int len;
+-
+-			if (opts_len < sizeof(*option))
+-				return -EINVAL;
+-
+-			len = sizeof(*option) + option->length * 4;
+-			if (len > opts_len)
+-				return -EINVAL;
+-
+-			crit_opt |= !!(option->type & GENEVE_CRIT_OPT_TYPE);
+-
+-			option = (struct geneve_opt *)((u8 *)option + len);
+-			opts_len -= len;
+-		};
+-
+-		key.tun_key.tun_flags |= crit_opt ? TUNNEL_CRIT_OPT : 0;
++		err = validate_geneve_opts(&key);
++		if (err < 0)
++			return err;
+ 	};
+ 
+ 	start = add_nested_action_start(sfa, OVS_ACTION_ATTR_SET, log);
+@@ -1597,9 +1603,9 @@ static int validate_and_copy_set_tun(const struct nlattr *attr,
+ 		 * everything else will go away after flow setup. We can append
+ 		 * it to tun_info and then point there.
+ 		 */
+-		memcpy((tun_info + 1), GENEVE_OPTS(&key, key.tun_opts_len),
+-		       key.tun_opts_len);
+-		tun_info->options = (struct geneve_opt *)(tun_info + 1);
++		memcpy((tun_info + 1),
++		       TUN_METADATA_OPTS(&key, key.tun_opts_len), key.tun_opts_len);
++		tun_info->options = (tun_info + 1);
+ 	} else {
+ 		tun_info->options = NULL;
+ 	}
+-- 
+1.9.3
