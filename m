@@ -1,101 +1,77 @@
 From: Willem de Bruijn <willemb@google.com>
-Subject: [PATCH net] ip: zero sockaddr returned on error queue
-Date: Thu, 15 Jan 2015 13:18:40 -0500
-Message-ID: <1421345920-13994-1-git-send-email-willemb@google.com>
-Cc: davem@davemloft.net, Willem de Bruijn <willemb@google.com>
-To: netdev@vger.kernel.org
+Subject: Re: [PATCH net-next RFC 1/5] net-timestamp: no-payload option
+Date: Thu, 15 Jan 2015 13:22:22 -0500
+Message-ID: <CA+FuTSc+8NVkN=KdOzs7cFh=QNtX6-naGrj=xFODm54sX3JkzA@mail.gmail.com>
+References: <1420824719-28848-1-git-send-email-willemb@google.com>
+ <1420824719-28848-2-git-send-email-willemb@google.com> <20150111202650.GB4214@localhost.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Network Development <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Andy Lutomirski <luto@amacapital.net>
+To: Richard Cochran <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f50.google.com ([209.85.213.50]:62099 "EHLO
-	mail-yh0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752247AbbAOSSy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jan 2015 13:18:54 -0500
-Received: by mail-yh0-f50.google.com with SMTP id b6so8004835yha.9
-        for <netdev@vger.kernel.org>; Thu, 15 Jan 2015 10:18:53 -0800 (PST)
+Received: from mail-qc0-f174.google.com ([209.85.216.174]:34643 "EHLO
+	mail-qc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755348AbbAOSWy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jan 2015 13:22:54 -0500
+Received: by mail-qc0-f174.google.com with SMTP id c9so13491538qcz.5
+        for <netdev@vger.kernel.org>; Thu, 15 Jan 2015 10:22:53 -0800 (PST)
+In-Reply-To: <20150111202650.GB4214@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Willem de Bruijn <willemb@google.com>
+On Sun, Jan 11, 2015 at 3:26 PM, Richard Cochran
+<richardcochran@gmail.com> wrote:
+> On Fri, Jan 09, 2015 at 12:31:55PM -0500, Willem de Bruijn wrote:
+>> diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
+>> index a317797..d81ef70 100644
+>> --- a/net/ipv4/ip_sockglue.c
+>> +++ b/net/ipv4/ip_sockglue.c
+>> @@ -440,7 +440,7 @@ static bool ipv4_pktinfo_prepare_errqueue(const struct sock *sk,
+>>
+>>       if ((ee_origin != SO_EE_ORIGIN_TIMESTAMPING) ||
+>>           (!(sk->sk_tsflags & SOF_TIMESTAMPING_OPT_CMSG)) ||
+>> -         (!skb->dev))
+>> +         (!skb->dev) || (!skb->len))
+>>               return false;
+>
+> Nit: You have already tested for the condition (!skb->len) ...
 
-The sockaddr is returned in IP(V6)_RECVERR as part of errhdr. That
-structure is defined and allocated on the stack as
+Thanks! I'll fix that when I send v1.
 
-    struct {
-            struct sock_extended_err ee;
-            struct sockaddr_in(6)    offender;
-    } errhdr;
+I had planned to do that today, but will hold off a bit to avoid merge
+conflicts with a fix queued for net (http://patchwork.ozlabs.org/patch/429553/)
 
-The second part is only initialized for certain SO_EE_ORIGIN values.
-Always initialize it completely.
-
-An MTU exceeded error on a SOCK_RAW/IPPROTO_RAW is one example that
-would return uninitialized bytes.
-
-Signed-off-by: Willem de Bruijn <willemb@google.com>
-
-----
-
-Also verified that there is no padding between errhdr.ee and
-errhdr.offender that could leak additional kernel data.
----
- net/ipv4/ip_sockglue.c |  8 ++------
- net/ipv6/datagram.c    | 10 +++-------
- 2 files changed, 5 insertions(+), 13 deletions(-)
-
-diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
-index 8a89c73..6b85adb 100644
---- a/net/ipv4/ip_sockglue.c
-+++ b/net/ipv4/ip_sockglue.c
-@@ -461,17 +461,13 @@ int ip_recv_error(struct sock *sk, struct msghdr *msg, int len, int *addr_len)
- 
- 	memcpy(&errhdr.ee, &serr->ee, sizeof(struct sock_extended_err));
- 	sin = &errhdr.offender;
--	sin->sin_family = AF_UNSPEC;
-+	memset(sin, 0, sizeof(*sin));
- 
- 	if (serr->ee.ee_origin == SO_EE_ORIGIN_ICMP ||
- 	    ipv4_pktinfo_prepare_errqueue(sk, skb, serr->ee.ee_origin)) {
--		struct inet_sock *inet = inet_sk(sk);
--
- 		sin->sin_family = AF_INET;
- 		sin->sin_addr.s_addr = ip_hdr(skb)->saddr;
--		sin->sin_port = 0;
--		memset(&sin->sin_zero, 0, sizeof(sin->sin_zero));
--		if (inet->cmsg_flags)
-+		if (inet_sk(sk)->cmsg_flags)
- 			ip_cmsg_recv(msg, skb);
- 	}
- 
-diff --git a/net/ipv6/datagram.c b/net/ipv6/datagram.c
-index 100c589..49f5e73 100644
---- a/net/ipv6/datagram.c
-+++ b/net/ipv6/datagram.c
-@@ -393,11 +393,10 @@ int ipv6_recv_error(struct sock *sk, struct msghdr *msg, int len, int *addr_len)
- 
- 	memcpy(&errhdr.ee, &serr->ee, sizeof(struct sock_extended_err));
- 	sin = &errhdr.offender;
--	sin->sin6_family = AF_UNSPEC;
-+	memset(sin, 0, sizeof(*sin));
-+
- 	if (serr->ee.ee_origin != SO_EE_ORIGIN_LOCAL) {
- 		sin->sin6_family = AF_INET6;
--		sin->sin6_flowinfo = 0;
--		sin->sin6_port = 0;
- 		if (np->rxopt.all) {
- 			if (serr->ee.ee_origin != SO_EE_ORIGIN_ICMP &&
- 			    serr->ee.ee_origin != SO_EE_ORIGIN_ICMP6)
-@@ -412,12 +411,9 @@ int ipv6_recv_error(struct sock *sk, struct msghdr *msg, int len, int *addr_len)
- 				ipv6_iface_scope_id(&sin->sin6_addr,
- 						    IP6CB(skb)->iif);
- 		} else {
--			struct inet_sock *inet = inet_sk(sk);
--
- 			ipv6_addr_set_v4mapped(ip_hdr(skb)->saddr,
- 					       &sin->sin6_addr);
--			sin->sin6_scope_id = 0;
--			if (inet->cmsg_flags)
-+			if (inet_sk(sk)->cmsg_flags)
- 				ip_cmsg_recv(msg, skb);
- 		}
- 	}
--- 
-2.2.0.rc0.207.ga3a616c
+I will drop patches 4 and 5 when sending out v1, btw.
+>
+>>
+>>       info->ipi_spec_dst.s_addr = ip_hdr(skb)->saddr;
+>> @@ -483,7 +483,7 @@ int ip_recv_error(struct sock *sk, struct msghdr *msg, int len, int *addr_len)
+>>
+>>       serr = SKB_EXT_ERR(skb);
+>>
+>> -     if (sin) {
+>> +     if (sin && skb->len) {
+>>               sin->sin_family = AF_INET;
+>>               sin->sin_addr.s_addr = *(__be32 *)(skb_network_header(skb) +
+>>                                                  serr->addr_offset);
+>> @@ -496,8 +496,9 @@ int ip_recv_error(struct sock *sk, struct msghdr *msg, int len, int *addr_len)
+>>       sin = &errhdr.offender;
+>>       sin->sin_family = AF_UNSPEC;
+>>
+>> -     if (serr->ee.ee_origin == SO_EE_ORIGIN_ICMP ||
+>> -         ipv4_pktinfo_prepare_errqueue(sk, skb, serr->ee.ee_origin)) {
+>> +     if (skb->len &&
+>> +         (serr->ee.ee_origin == SO_EE_ORIGIN_ICMP ||
+>> +          ipv4_pktinfo_prepare_errqueue(sk, skb, serr->ee.ee_origin))) {
+>
+> ... here.
+>
+>>               struct inet_sock *inet = inet_sk(sk);
+>>
+>>               sin->sin_family = AF_INET;
+>
+> Thanks,
+> Richard
