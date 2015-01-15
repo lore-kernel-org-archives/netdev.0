@@ -1,124 +1,85 @@
-From: Zubair Lutfullah Kakakhel <Zubair.Kakakhel-1AXoQHu6uovQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH_V4] dm9000: Add regulator and reset support to dm9000
-Date: Wed, 14 Jan 2015 10:36:17 +0000
-Message-ID: <1421231777-12589-1-git-send-email-Zubair.Kakakhel@imgtec.com>
+From: Sriharsha Basavapatna <sriharsha.basavapatna@emulex.com>
+Subject: [PATCH net] be2net: Allow GRE to work concurrently while a VxLAN tunnel is configured
+Date: Thu, 15 Jan 2015 09:07:49 +0530
+Message-ID: <1421293069-30518-1-git-send-email-sriharsha.basavapatna@emulex.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <Zubair.Kakakhel-1AXoQHu6uovQT0dZR+AlfA@public.gmane.org>, <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<s.hauer-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>, <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
-To: <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cmexedge1.emulex.com ([138.239.224.99]:23778 "EHLO
+	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751241AbbANLLl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jan 2015 06:11:41 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In boards, the dm9000 chip's power and reset can be controlled by gpio.
+Other tunnels like GRE break while VxLAN offloads are enabled in Skyhawk-R. To
+avoid this, we should restrict offload features on a per-packet basis in such
+conditions.
 
-It makes sense to add them to the dm9000 driver and let dt be used to
-enable power and reset the phy.
-
-Signed-off-by: Zubair Lutfullah Kakakhel <Zubair.Kakakhel-1AXoQHu6uovQT0dZR+AlfA@public.gmane.org>
-Signed-off-by: Paul Burton <paul.burton-1AXoQHu6uovQT0dZR+AlfA@public.gmane.org>
-
+Signed-off-by: Sriharsha Basavapatna <sriharsha.basavapatna@emulex.com>
 ---
-V3 Fixed an indentation and removed a call to gpio_direction_output as
-devm_gpio_request_one can handle it.
+ drivers/net/ethernet/emulex/benet/be_main.c |   41 +++++++++++++++++++++++++--
+ 1 file changed, 38 insertions(+), 3 deletions(-)
 
-V2 A few fixes and more error checks. Nothing major
-
-V1 Minor blooper
----
- .../devicetree/bindings/net/davicom-dm9000.txt     |  4 +++
- drivers/net/ethernet/davicom/dm9000.c              | 40 ++++++++++++++++++++++
- 2 files changed, 44 insertions(+)
-
-diff --git a/Documentation/devicetree/bindings/net/davicom-dm9000.txt b/Documentation/devicetree/bindings/net/davicom-dm9000.txt
-index 28767ed..5224bf0 100644
---- a/Documentation/devicetree/bindings/net/davicom-dm9000.txt
-+++ b/Documentation/devicetree/bindings/net/davicom-dm9000.txt
-@@ -11,6 +11,8 @@ Required properties:
- Optional properties:
- - davicom,no-eeprom : Configuration EEPROM is not available
- - davicom,ext-phy : Use external PHY
-+- reset-gpios : phandle of gpio that will be used to reset chip during probe
-+- vcc-supply : phandle of regulator that will be used to enable power to chip
- 
- Example:
- 
-@@ -21,4 +23,6 @@ Example:
- 		interrupts = <7 4>;
- 		local-mac-address = [00 00 de ad be ef];
- 		davicom,no-eeprom;
-+		reset-gpios = <&gpf 12 GPIO_ACTIVE_LOW>;
-+		vcc-supply = <&eth0_power>;
- 	};
-diff --git a/drivers/net/ethernet/davicom/dm9000.c b/drivers/net/ethernet/davicom/dm9000.c
-index ef0bb58..375a16d 100644
---- a/drivers/net/ethernet/davicom/dm9000.c
-+++ b/drivers/net/ethernet/davicom/dm9000.c
-@@ -36,6 +36,9 @@
- #include <linux/platform_device.h>
- #include <linux/irq.h>
- #include <linux/slab.h>
-+#include <linux/regulator/consumer.h>
-+#include <linux/gpio.h>
-+#include <linux/of_gpio.h>
- 
- #include <asm/delay.h>
- #include <asm/irq.h>
-@@ -1426,11 +1429,48 @@ dm9000_probe(struct platform_device *pdev)
- 	struct dm9000_plat_data *pdata = dev_get_platdata(&pdev->dev);
- 	struct board_info *db;	/* Point a board information structure */
- 	struct net_device *ndev;
-+	struct device *dev = &pdev->dev;
- 	const unsigned char *mac_src;
- 	int ret = 0;
- 	int iosize;
- 	int i;
- 	u32 id_val;
-+	int reset_gpios;
-+	enum of_gpio_flags flags;
-+	struct regulator *power;
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index 41a0a54..726a4a4 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -4383,8 +4383,9 @@ static int be_ndo_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
+  * distinguish various types of transports (VxLAN, GRE, NVGRE ..). So, offload
+  * is expected to work across all types of IP tunnels once exported. Skyhawk
+  * supports offloads for either VxLAN or NVGRE, exclusively. So we export VxLAN
+- * offloads in hw_enc_features only when a VxLAN port is added. Note this only
+- * ensures that other tunnels work fine while VxLAN offloads are not enabled.
++ * offloads in hw_enc_features only when a VxLAN port is added. If other (non
++ * VxLAN) tunnels are configured while VxLAN offloads are enabled, offloads for
++ * those other tunnels are unexported on the fly through ndo_features_check().
+  *
+  * Skyhawk supports VxLAN offloads only for one UDP dport. So, if the stack
+  * adds more than one port, disable offloads and don't re-enable them again
+@@ -4463,7 +4464,41 @@ static netdev_features_t be_features_check(struct sk_buff *skb,
+ 					   struct net_device *dev,
+ 					   netdev_features_t features)
+ {
+-	return vxlan_features_check(skb, features);
++	struct be_adapter *adapter = netdev_priv(dev);
++	u8 l4_hdr = 0;
 +
-+	power = devm_regulator_get(dev, "vcc");
-+	if (PTR_ERR(power) == -EPROBE_DEFER)
-+		return -EPROBE_DEFER;
-+	if (IS_ERR(power)) {
-+		dev_dbg(dev, "no regulator provided\n");
-+	} else {
-+		ret = regulator_enable(power);
-+		if (ret != 0) {
-+			dev_err(dev,
-+				"Failed to enable power regulator: %d\n", ret);
-+			return ret;
-+		}
-+		dev_dbg(dev, "regulator enabled\n");
++	/* The code below restricts offload features for some tunneled packets.
++	 * Offload features for normal(non tunnel) packets are unchanged.
++	 */
++	if (!skb->encapsulation ||
++	    !(adapter->flags & BE_FLAGS_VXLAN_OFFLOADS))
++		return features;
++
++	/* It's an encapsulated packet and VxLAN offloads are enabled. We
++	 * should disable tunnel offload features if it's not a VxLAN packet,
++	 * as tunnel offloads have been enabled only for VxLAN. This is done to
++	 * allow other tunneled trafffic like GRE work fine while VxLAN
++	 * offloads are configured in Skyhawk-R.
++	 */
++	switch (vlan_get_protocol(skb)) {
++	case htons(ETH_P_IP):
++		l4_hdr = ip_hdr(skb)->protocol;
++		break;
++	case htons(ETH_P_IPV6):
++		l4_hdr = ipv6_hdr(skb)->nexthdr;
++		break;
++	default:
++		return features;
 +	}
 +
-+	reset_gpios = of_get_named_gpio_flags(dev->of_node, "reset-gpios", 0,
-+					      &flags);
-+	if (gpio_is_valid(reset_gpios)) {
-+		ret = devm_gpio_request_one(dev, reset_gpios, flags,
-+					    "dm9000_reset");
-+		if (ret) {
-+			dev_err(dev, "failed to request reset gpio %d: %d\n",
-+				reset_gpios, ret);
-+			return -ENODEV;
-+		}
++	if (l4_hdr != IPPROTO_UDP ||
++	    skb->inner_protocol_type != ENCAP_TYPE_ETHER ||
++	    skb->inner_protocol != htons(ETH_P_TEB) ||
++	    (skb_inner_mac_header(skb) - skb_transport_header(skb) !=
++	    sizeof(struct udphdr) + sizeof(struct vxlanhdr)))
++		return features & ~(NETIF_F_ALL_CSUM | NETIF_F_GSO_MASK);
 +
-+		/* According to manual PWRST# Low Period Min 1ms */
-+		msleep(2);
-+		gpio_set_value(reset_gpios, 1);
-+		/* Needs 3ms to read eeprom when PWRST is deasserted */
-+		msleep(4);
-+	}
++	return features;
+ }
+ #endif
  
- 	if (!pdata) {
- 		pdata = dm9000_parse_dt(&pdev->dev);
 -- 
-1.9.1
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+1.7.9.5
