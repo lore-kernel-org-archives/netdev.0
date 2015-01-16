@@ -1,112 +1,55 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 05/17] i40e: Add define for interrupt name string len
-Date: Fri, 16 Jan 2015 05:28:54 -0800
-Message-ID: <1421414946-22179-6-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 14/17] i40e: use same check for Rx hang as for Rx timestamps
+Date: Fri, 16 Jan 2015 05:29:03 -0800
+Message-ID: <1421414946-22179-15-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1421414946-22179-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:5721 "EHLO mga11.intel.com"
+Received: from mga14.intel.com ([192.55.52.115]:63724 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755457AbbAPN3R (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1755441AbbAPN3R (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 16 Jan 2015 08:29:17 -0500
 In-Reply-To: <1421414946-22179-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Carolyn Wyborny <carolyn.wyborny@intel.com>
+From: Jacob Keller <jacob.e.keller@intel.com>
 
-This patch creates a define for interrupt name string configuration that
-is large enough to contain full bus/slot info, rather than just netdev->name.
+It's possible that the user configured only Tx hardware timestamping,
+and thus we might be receiving PTP traffic which we timestamp but which
+software never reads. In this case we don't want to check for Rx
+timestamp hang, because we already know that software won't be handling
+them. Thus, we add the same check against pf->ptp_rx as we have in the
+Rx timestamp code path.
 
-Change-ID: Iaac0d23dfb8526defeed69d91cea85ed4a50ddb2
-Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
+Change-ID: I66486c8dba307facbff8eace4e52e2f083789d1b
+Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+Acked-by: Shannon Nelson <shannon.nelson@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e.h      |  5 +++--
- drivers/net/ethernet/intel/i40e/i40e_main.c | 12 ++++++------
- 2 files changed, 9 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_ptp.c | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-index fc50f64..fadf8fa 100644
---- a/drivers/net/ethernet/intel/i40e/i40e.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e.h
-@@ -92,6 +92,7 @@
- #define I40E_MAX_USER_PRIORITY        8
- #define I40E_DEFAULT_MSG_ENABLE       4
- #define I40E_QUEUE_WAIT_RETRY_LIMIT   10
-+#define I40E_INT_NAME_STR_LEN        (IFNAMSIZ + 9)
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_ptp.c b/drivers/net/ethernet/intel/i40e/i40e_ptp.c
+index a152878..9f756b4 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_ptp.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_ptp.c
+@@ -247,7 +247,12 @@ void i40e_ptp_rx_hang(struct i40e_vsi *vsi)
+ 	u32 prttsyn_stat;
+ 	int n;
  
- #define I40E_NVM_VERSION_LO_SHIFT  0
- #define I40E_NVM_VERSION_LO_MASK   (0xff << I40E_NVM_VERSION_LO_SHIFT)
-@@ -268,7 +269,7 @@ struct i40e_pf {
- 	u16 rx_itr_default;
- 	u16 tx_itr_default;
- 	u16 msg_enable;
--	char misc_int_name[IFNAMSIZ + 9];
-+	char int_name[I40E_INT_NAME_STR_LEN];
- 	u16 adminq_work_limit; /* num of admin receive queue desc to process */
- 	unsigned long service_timer_period;
- 	unsigned long service_timer_previous;
-@@ -524,7 +525,7 @@ struct i40e_q_vector {
+-	if (!(pf->flags & I40E_FLAG_PTP))
++	/* Since we cannot turn off the Rx timestamp logic if the device is
++	 * configured for Tx timestamping, we check if Rx timestamping is
++	 * configured. We don't want to spuriously warn about Rx timestamp
++	 * hangs if we don't care about the timestamps.
++	 */
++	if (!(pf->flags & I40E_FLAG_PTP) || !pf->ptp_rx)
+ 		return;
  
- 	cpumask_t affinity_mask;
- 	struct rcu_head rcu;	/* to avoid race with update stats on free */
--	char name[IFNAMSIZ + 9];
-+	char name[I40E_INT_NAME_STR_LEN];
- } ____cacheline_internodealigned_in_smp;
- 
- /* lan device */
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index fd6411e..4d1fe56 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -3402,10 +3402,10 @@ static int i40e_vsi_request_irq(struct i40e_vsi *vsi, char *basename)
- 		err = i40e_vsi_request_irq_msix(vsi, basename);
- 	else if (pf->flags & I40E_FLAG_MSI_ENABLED)
- 		err = request_irq(pf->pdev->irq, i40e_intr, 0,
--				  pf->misc_int_name, pf);
-+				  pf->int_name, pf);
- 	else
- 		err = request_irq(pf->pdev->irq, i40e_intr, IRQF_SHARED,
--				  pf->misc_int_name, pf);
-+				  pf->int_name, pf);
- 
- 	if (err)
- 		dev_info(&pf->pdev->dev, "request_irq failed, Error %d\n", err);
-@@ -4846,7 +4846,7 @@ static int i40e_open(struct net_device *netdev)
- int i40e_vsi_open(struct i40e_vsi *vsi)
- {
- 	struct i40e_pf *pf = vsi->back;
--	char int_name[IFNAMSIZ + 9];
-+	char int_name[I40E_INT_NAME_STR_LEN];
- 	int err;
- 
- 	/* allocate descriptors */
-@@ -7128,11 +7128,11 @@ static int i40e_setup_misc_vector(struct i40e_pf *pf)
- 	 */
- 	if (!test_bit(__I40E_RESET_RECOVERY_PENDING, &pf->state)) {
- 		err = request_irq(pf->msix_entries[0].vector,
--				  i40e_intr, 0, pf->misc_int_name, pf);
-+				  i40e_intr, 0, pf->int_name, pf);
- 		if (err) {
- 			dev_info(&pf->pdev->dev,
- 				 "request_irq for %s failed: %d\n",
--				 pf->misc_int_name, err);
-+				 pf->int_name, err);
- 			return -EFAULT;
- 		}
- 	}
-@@ -9179,7 +9179,7 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	hw->aq.asq_buf_size = I40E_MAX_AQ_BUF_SIZE;
- 	pf->adminq_work_limit = I40E_AQ_WORK_LIMIT;
- 
--	snprintf(pf->misc_int_name, sizeof(pf->misc_int_name) - 1,
-+	snprintf(pf->int_name, sizeof(pf->int_name) - 1,
- 		 "%s-%s:misc",
- 		 dev_driver_string(&pf->pdev->dev), dev_name(&pdev->dev));
- 
+ 	prttsyn_stat = rd32(hw, I40E_PRTTSYN_STAT_1);
 -- 
 1.9.3
