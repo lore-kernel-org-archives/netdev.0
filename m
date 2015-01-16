@@ -1,57 +1,97 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH 7/9] rhashtable: Per bucket locks & deferred
- expansion/shrinking
-Date: Fri, 16 Jan 2015 19:18:31 +0000
-Message-ID: <20150116191831.GA26730@casper.infradead.org>
-References: <cover.1418647641.git.tgraf@suug.ch>
- <75db38bc9313a55cf02a8c36a3376c32b691e5d9.1418647641.git.tgraf@suug.ch>
- <20150116153415.GF30132@acer.localdomain>
- <20150116155835.GA15052@casper.infradead.org>
- <20150116160354.GI30132@acer.localdomain>
- <20150116161530.GC15052@casper.infradead.org>
- <20150116163202.GJ30132@acer.localdomain>
- <063D6719AE5E284EB5DD2968C1650D6D1CACADAF@AcuExch.aculab.com>
- <20150116165302.GE15052@casper.infradead.org>
- <20150116183626.GS30132@acer.localdomain>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net 1/2] sh_eth: Fix promiscuous mode on chips without
+ TSU
+Date: Fri, 16 Jan 2015 22:27:57 +0300
+Message-ID: <54B9663D.2040008@cogentembedded.com>
+References: <1421430592.1222.190.camel@xylophone.i.decadent.org.uk> <1421430672.1222.191.camel@xylophone.i.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Laight <David.Laight@ACULAB.COM>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"herbert@gondor.apana.org.au" <herbert@gondor.apana.org.au>,
-	"paulmck@linux.vnet.ibm.com" <paulmck@linux.vnet.ibm.com>,
-	"edumazet@google.com" <edumazet@google.com>,
-	"john.r.fastabend@intel.com" <john.r.fastabend@intel.com>,
-	"josh@joshtriplett.org" <josh@joshtriplett.org>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@lists.codethink.co.uk,
+	Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>,
+	Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>,
+	Hisashi Nakamura <hisashi.nakamura.ak@renesas.com>,
+	Yoshihiro Kaneko <ykaneko0929@gmail.com>
+To: Ben Hutchings <ben.hutchings@codethink.co.uk>,
+	ct178-internal@lists.codethink.co.uk,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:46006 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757068AbbAPTSg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Jan 2015 14:18:36 -0500
-Content-Disposition: inline
-In-Reply-To: <20150116183626.GS30132@acer.localdomain>
+Received: from mail-la0-f46.google.com ([209.85.215.46]:64658 "EHLO
+	mail-la0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756128AbbAPT2C (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Jan 2015 14:28:02 -0500
+Received: by mail-la0-f46.google.com with SMTP id ge10so10828044lab.5
+        for <netdev@vger.kernel.org>; Fri, 16 Jan 2015 11:28:00 -0800 (PST)
+In-Reply-To: <1421430672.1222.191.camel@xylophone.i.decadent.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/16/15 at 06:36pm, Patrick McHardy wrote:
-> On 16.01, Thomas Graf wrote:
-> > On 01/16/15 at 04:43pm, David Laight wrote:
-> > > The walker is unlikely to see items that get inserted early in the hash
-> > > table even without a resize.
-> > 
-> > I don't follow, you have to explain this statement.
-> > 
-> > Walkers which don't want to see duplicates or miss entries should
-> > just take the mutex.
-> 
-> Well, we do have a problem with interrupted dumps. As you know once
-> the netlink message buffer is full, we return to userspace and
-> continue dumping during the next read. Expanding obviously changes
-> the order since we rehash from bucket N to N and 2N, so this will
-> indeed cause duplicate (doesn't matter) and missed entries.
+Hello.
 
-Right,but that's a Netlink dump issue and not specific to rhashtable.
-Putting the sequence number check in place should be sufficient
-for sets, right?
+On 01/16/2015 08:51 PM, Ben Hutchings wrote:
+
+> Currently net_device_ops::set_rx_mode is only implemented for
+> chips with a TSU (multiple address table).  However we do need
+> to turn the PRM (promiscuous) flag on and off for other chips.
+
+> - Remove the unlikely() from the TSU functions that we may safely
+>    call for chips without a TSU
+
+    This is just optimization, worth pushing thru net-next instead.
+
+> - Make setting of the MCT flag conditional on the tsu capability flag
+> - Rename sh_eth_set_multicast_list() to sh_eth_set_rx_mode() and plumb
+>    it into both net_device_ops structures
+> - Remove the previously-unreachable branch in sh_eth_rx_mode() that
+>    would otherwise reset the flags to defaults for non-TSU chips
+
+    It couldn't be default for non-TSU chips, they don't seem to have 
+ECMR.MCT. So it was just wrong.
+
+    It would have been better if you did one thing per patch or at least 
+didn't mix fixes with clean-ups...
+
+> Signed-off-by: Ben Hutchings <ben.hutchings@codethink.co.uk>
+> ---
+>   drivers/net/ethernet/renesas/sh_eth.c |   18 +++++++++---------
+>   1 file changed, 9 insertions(+), 9 deletions(-)
+
+> diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
+> index 167737f..0c4d5b5 100644
+> --- a/drivers/net/ethernet/renesas/sh_eth.c
+> +++ b/drivers/net/ethernet/renesas/sh_eth.c
+> @@ -2417,7 +2417,7 @@ static int sh_eth_tsu_purge_all(struct net_device *ndev)
+>   	struct sh_eth_private *mdp = netdev_priv(ndev);
+>   	int i, ret;
+>
+> -	if (unlikely(!mdp->cd->tsu))
+> +	if (!mdp->cd->tsu)
+>   		return 0;
+>
+>   	for (i = 0; i < SH_ETH_TSU_CAM_ENTRIES; i++) {
+> @@ -2440,7 +2440,7 @@ static void sh_eth_tsu_purge_mcast(struct net_device *ndev)
+>   	void *reg_offset = sh_eth_tsu_get_offset(mdp, TSU_ADRH0);
+>   	int i;
+>
+> -	if (unlikely(!mdp->cd->tsu))
+> +	if (!mdp->cd->tsu)
+
+    But we don't call this function on non-TSU SoCs, do we?
+
+[...]
+
+> @@ -2462,7 +2462,9 @@ static void sh_eth_set_multicast_list(struct net_device *ndev)
+>   	/* Initial condition is MCT = 1, PRM = 0.
+>   	 * Depending on ndev->flags, set PRM or clear MCT
+>   	 */
+> -	ecmr_bits = (sh_eth_read(ndev, ECMR) & ~ECMR_PRM) | ECMR_MCT;
+> +	ecmr_bits = sh_eth_read(ndev, ECMR) & ~ECMR_PRM;
+> +	if (mdp->cd->tsu)
+> +		ecmr_bits |= ECMR_MCT;
+
+    Seems OK, looking at the RZ/A1H manuals (this SoC does have TSU and this 
+bit too).
+
+[...]
+
+WBR, Sergei
