@@ -1,52 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: ipv4: Fix incorrect free in ICMP receive
-Date: Fri, 16 Jan 2015 16:48:30 -0500 (EST)
-Message-ID: <20150116.164830.172588830692811414.davem@davemloft.net>
-References: <05e337f44c7a71ac317194cfa3dcdf62.squirrel@www.codeaurora.org>
-	<1421412775.11734.117.camel@edumazet-glaptop2.roam.corp.google.com>
-	<ff3aa93b48dfedd7721d7fcc8ee7624b.squirrel@www.codeaurora.org>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: [PATCH 0/8] netfilter updates for net-next
+Date: Fri, 16 Jan 2015 22:48:42 +0100
+Message-ID: <54B9873A.4030201@hartkopp.net>
+References: <1421267689-24894-1-git-send-email-pablo@netfilter.org> <20150115.015427.1217684585698382529.davem@davemloft.net> <54B97942.7090902@hartkopp.net> <20150116205434.GA2346@salvia>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: subashab@codeaurora.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34180 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751465AbbAPVse (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Jan 2015 16:48:34 -0500
-In-Reply-To: <ff3aa93b48dfedd7721d7fcc8ee7624b.squirrel@www.codeaurora.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20150116205434.GA2346@salvia>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: subashab@codeaurora.org
-Date: Fri, 16 Jan 2015 20:59:14 -0000
+Sorry Pablo!
 
->>skb_queue_purge() is also calling skb_orphan() on all skb
-> From my reading, it looked like skb_queue_purge() is dequeuing and calling
-> kfree_skb() which will release a reference. I did not see skb_orphan()
-> being called directly. Am I missing something?
-> I think that if it had really orphaned the skb, then this crash would not
-> be seen in the first place.
+I assumed this build error would finally have killed my WLAN.
 
-The calls to skb->destructor(), done by skb_queue_purge() (via
-kfree_skb()) do this.
+But indeed it was the mac80211-next merge from Dave here:
 
-But even if it didn't, the fact remains that we are operating on the
-socket right here in the destructor.  It still exists and has not been
-freed yet.
+http://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/commit/?id=27f097177defdd5858f03500e4b5aa8a97b1627b
 
-And furthermore, exactly what skb_orphan() does is call skb->destructor(),
-_JUST_LIKE_ skb_queue_purge() will via kfree_skb().
+I've already seen a fix from Johannes here (100 min ago):
+http://git.kernel.org/cgit/linux/kernel/git/jberg/mac80211-next.git/commit/?id=57007121228347515187049a9c65f7cbeb923dd1
 
-So either sock_rfree() is safe to call here, or it isn't.  You are not
-eliminating the calls to sock_rfree() which operate on this socket at
-all.  If you did, then the socket memory counters would end up being
-corrupts and the warnings would trigger:
+So I'll check that first.
 
-	WARN_ON(atomic_read(&sk->sk_rmem_alloc));
-	WARN_ON(atomic_read(&sk->sk_wmem_alloc));
+Thanks,
+Oliver
 
-You're just moving the skb->destructor() call up a few lines in the
-same function, it makes therefore no sense why this would fix a bug
-or not.
+On 16.01.2015 21:54, Pablo Neira Ayuso wrote:
+> On Fri, Jan 16, 2015 at 09:49:06PM +0100, Oliver Hartkopp wrote:
+>> I get this problem at 'make module_install' time now:
+>>
+>> DEPMOD  3.19.0-rc4-nn-00578-g919d9db
+>> depmod: WARNING: /lib/modules/3.19.0-rc4-nn-00578-g919d9db/updates/dkms/xt_DNETMAP.ko needs unknown symbol nf_nat_setup_info
+>>
+>> While 3.19.0-rc4-nn-00504-g4e7a84b was ok.
+>>
+>> Any idea?
+> 
+> I don't see any xt_DNETMAP target in my tree.
+> 
