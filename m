@@ -1,64 +1,31 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 7/9] rhashtable: Per bucket locks & deferred
- expansion/shrinking
-Date: Fri, 16 Jan 2015 22:07:36 +0000
-Message-ID: <20150116220735.GA12614@acer.localdomain>
-References: <20150116155835.GA15052@casper.infradead.org>
- <20150116160354.GI30132@acer.localdomain>
- <20150116161530.GC15052@casper.infradead.org>
- <20150116163202.GJ30132@acer.localdomain>
- <063D6719AE5E284EB5DD2968C1650D6D1CACADAF@AcuExch.aculab.com>
- <20150116165302.GE15052@casper.infradead.org>
- <20150116183626.GS30132@acer.localdomain>
- <20150116191831.GA26730@casper.infradead.org>
- <20150116193557.GU30132@acer.localdomain>
- <20150116213605.GE20315@casper.infradead.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3 1/3] genetlink: document parallel_ops
+Date: Fri, 16 Jan 2015 17:19:13 -0500 (EST)
+Message-ID: <20150116.171913.843019708913442691.davem@davemloft.net>
+References: <1421404634-8973-1-git-send-email-johannes@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Laight <David.Laight@ACULAB.COM>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"herbert@gondor.apana.org.au" <herbert@gondor.apana.org.au>,
-	"paulmck@linux.vnet.ibm.com" <paulmck@linux.vnet.ibm.com>,
-	"edumazet@google.com" <edumazet@google.com>,
-	"john.r.fastabend@intel.com" <john.r.fastabend@intel.com>,
-	"josh@joshtriplett.org" <josh@joshtriplett.org>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>
-To: Thomas Graf <tgraf@suug.ch>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150116213605.GE20315@casper.infradead.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jeff.layton@primarydata.com,
+	sedat.dilek@gmail.com, johannes.berg@intel.com
+To: johannes@sipsolutions.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:34291 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750983AbbAPWU2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Jan 2015 17:20:28 -0500
+In-Reply-To: <1421404634-8973-1-git-send-email-johannes@sipsolutions.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 16.01, Thomas Graf wrote:
-> On 01/16/15 at 07:35pm, Patrick McHardy wrote:
-> > On 16.01, Thomas Graf wrote:
-> > > Right,but that's a Netlink dump issue and not specific to rhashtable.
-> > 
-> > Well, rhashtable (or generally resizing) will make it a lot worse.
-> > Usually we at worst miss entries which were added during the dump,
-> > which is made up by the notifications.
-> > 
-> > With resizing we might miss anything, its completely undeterministic.
-> > 
-> > > Putting the sequence number check in place should be sufficient
-> > > for sets, right?
-> > 
-> > I don't see how. The problem is that the ordering of the hash changes
-> > and it will skip different entries than those that have already been
-> > dumped.
+From: Johannes Berg <johannes@sipsolutions.net>
+Date: Fri, 16 Jan 2015 11:37:12 +0100
+
+> From: Johannes Berg <johannes.berg@intel.com>
 > 
-> Since an resize can only be triggered through insert/remove you
-> simply bump a sequence number when you insert/remove and have
-> userspace restart the dump when NLM_F_DUMP_INTR is set.
+> The kernel-doc for the parallel_ops family struct member is
+> missing, add it.
+> 
+> Signed-off-by: Johannes Berg <johannes.berg@intel.com>
 
-I'm afraid that's not good enough. The resize operation is deferred,
-so even if userspace does not perform an operation after starting
-the dump, the hash might change.
-
-We can obviously work around that by incrementing a generation
-counter in rhashtable. The main problem I see is that with something
-very actively changing the ruleset, we might never complete a dump.
-
-Dumps are usually rare, I think its preferrable to defer rehashing.
+Applied.
