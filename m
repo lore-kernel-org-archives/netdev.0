@@ -1,48 +1,56 @@
-From: Ursula Braun <ubraun@linux.vnet.ibm.com>
-Subject: [PATCH net-next 5/5] qeth: Remove unneeded structure member
-Date: Fri, 16 Jan 2015 14:05:49 +0100
-Message-ID: <1421413549-56937-6-git-send-email-ubraun@linux.vnet.ibm.com>
-References: <1421413549-56937-1-git-send-email-ubraun@linux.vnet.ibm.com>
-Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
-	ursula.braun@de.ibm.com, ubraun@linux.vnet.ibm.com,
-	Thomas Richter <tmricht@linux.vnet.ibm.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e06smtp15.uk.ibm.com ([195.75.94.111]:33540 "EHLO
-	e06smtp15.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755574AbbAPNGr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Jan 2015 08:06:47 -0500
-Received: from /spool/local
-	by e06smtp15.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <ubraun@linux.vnet.ibm.com>;
-	Fri, 16 Jan 2015 13:06:45 -0000
-In-Reply-To: <1421413549-56937-1-git-send-email-ubraun@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Rasmus Villemoes <linux@rasmusvillemoes.dk>
+Subject: [PATCH] net: wireless: atmel: Remove open-coded and wrong strcasecmp
+Date: Fri, 16 Jan 2015 14:28:27 +0100
+Message-ID: <1421414907-26764-1-git-send-email-linux@rasmusvillemoes.dk>
+Cc: Rasmus Villemoes <linux@rasmusvillemoes.dk>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Simon Kelley <simon@thekelleys.org.uk>,
+	Kalle Valo <kvalo@codeaurora.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Thomas Richter <tmricht@linux.vnet.ibm.com>
+The kernel's string library does in fact have strcasecmp, at least
+since ded220bd8f08. Moreover, this open-coded version is in fact
+wrong: If the strings only differ in their last character, a and b
+have already been incremented to point to the terminating nul bytes,
+so they would be treated as equal.
 
-The member irq_tasklet in the qeth_channel structure
-is not referenced anymore and is removed from the
-structure.
-
-Signed-off-by: Thomas Richter <tmricht@linux.vnet.ibm.com>
-Signed-off-by: Ursula Braun <ursula.braun@de.ibm.com>
+Signed-off-by: Rasmus Villemoes <linux@rasmusvillemoes.dk>
 ---
- drivers/s390/net/qeth_core.h | 1 -
- 1 file changed, 1 deletion(-)
+ drivers/net/wireless/atmel.c | 12 +-----------
+ 1 file changed, 1 insertion(+), 11 deletions(-)
 
-diff --git a/drivers/s390/net/qeth_core.h b/drivers/s390/net/qeth_core.h
-index 7a8bb9f..3abac02 100644
---- a/drivers/s390/net/qeth_core.h
-+++ b/drivers/s390/net/qeth_core.h
-@@ -596,7 +596,6 @@ struct qeth_channel {
- 	struct ccw1 ccw;
- 	spinlock_t iob_lock;
- 	wait_queue_head_t wait_q;
--	struct tasklet_struct irq_tasklet;
- 	struct ccw_device *ccwdev;
- /*command buffer for control data*/
- 	struct qeth_cmd_buffer iob[QETH_CMD_BUFFER_NO];
+diff --git a/drivers/net/wireless/atmel.c b/drivers/net/wireless/atmel.c
+index 9183f1cf89a7..55db9f03eb2a 100644
+--- a/drivers/net/wireless/atmel.c
++++ b/drivers/net/wireless/atmel.c
+@@ -45,7 +45,6 @@
+ #include <linux/ptrace.h>
+ #include <linux/slab.h>
+ #include <linux/string.h>
+-#include <linux/ctype.h>
+ #include <linux/timer.h>
+ #include <asm/byteorder.h>
+ #include <asm/io.h>
+@@ -2699,16 +2698,7 @@ static int atmel_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+ 		domain[REGDOMAINSZ] = 0;
+ 		rc = -EINVAL;
+ 		for (i = 0; i < ARRAY_SIZE(channel_table); i++) {
+-			/* strcasecmp doesn't exist in the library */
+-			char *a = channel_table[i].name;
+-			char *b = domain;
+-			while (*a) {
+-				char c1 = *a++;
+-				char c2 = *b++;
+-				if (tolower(c1) != tolower(c2))
+-					break;
+-			}
+-			if (!*a && !*b) {
++			if (!strcasecmp(channel_table[i].name, domain)) {
+ 				priv->config_reg_domain = channel_table[i].reg_domain;
+ 				rc = 0;
+ 			}
 -- 
-2.1.4
+2.1.3
