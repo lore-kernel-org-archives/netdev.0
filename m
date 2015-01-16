@@ -1,56 +1,136 @@
-From: Rasmus Villemoes <linux@rasmusvillemoes.dk>
-Subject: [PATCH] net: wireless: atmel: Remove open-coded and wrong strcasecmp
-Date: Fri, 16 Jan 2015 14:28:27 +0100
-Message-ID: <1421414907-26764-1-git-send-email-linux@rasmusvillemoes.dk>
-Cc: Rasmus Villemoes <linux@rasmusvillemoes.dk>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Simon Kelley <simon@thekelleys.org.uk>,
-	Kalle Valo <kvalo@codeaurora.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 01/17] i40e/i40evf: AdminQ updates ww36
+Date: Fri, 16 Jan 2015 05:28:50 -0800
+Message-ID: <1421414946-22179-2-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1421414946-22179-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Kamil Kacperski <kamil.kacperski@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga11.intel.com ([192.55.52.93]:5721 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755226AbbAPN3Q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 Jan 2015 08:29:16 -0500
+In-Reply-To: <1421414946-22179-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The kernel's string library does in fact have strcasecmp, at least
-since ded220bd8f08. Moreover, this open-coded version is in fact
-wrong: If the strings only differ in their last character, a and b
-have already been incremented to point to the terminating nul bytes,
-so they would be treated as equal.
+From: Shannon Nelson <shannon.nelson@intel.com>
 
-Signed-off-by: Rasmus Villemoes <linux@rasmusvillemoes.dk>
+Several little tweaks to keep FW, SV, and SW in line together
+ - Remove the unused and deprecated
+   i40e_aqc_opc_debug_modify_internals
+ - Add define for iSCSI capability
+ - Fix queue mask size
+ - Adjust i40e_aqc_oem_param_change for ease-of-use
+
+Change-ID: I51f250b367912968a7cec61b3a68110d9796e914
+Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
+Signed-off-by: Kamil Kacperski <kamil.kacperski@intel.com>
+Acked-by: Greg Rose <gregory.v.rose@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/wireless/atmel.c | 12 +-----------
- 1 file changed, 1 insertion(+), 11 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h   | 9 +++++----
+ drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h | 9 +++++----
+ 2 files changed, 10 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/wireless/atmel.c b/drivers/net/wireless/atmel.c
-index 9183f1cf89a7..55db9f03eb2a 100644
---- a/drivers/net/wireless/atmel.c
-+++ b/drivers/net/wireless/atmel.c
-@@ -45,7 +45,6 @@
- #include <linux/ptrace.h>
- #include <linux/slab.h>
- #include <linux/string.h>
--#include <linux/ctype.h>
- #include <linux/timer.h>
- #include <asm/byteorder.h>
- #include <asm/io.h>
-@@ -2699,16 +2698,7 @@ static int atmel_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
- 		domain[REGDOMAINSZ] = 0;
- 		rc = -EINVAL;
- 		for (i = 0; i < ARRAY_SIZE(channel_table); i++) {
--			/* strcasecmp doesn't exist in the library */
--			char *a = channel_table[i].name;
--			char *b = domain;
--			while (*a) {
--				char c1 = *a++;
--				char c2 = *b++;
--				if (tolower(c1) != tolower(c2))
--					break;
--			}
--			if (!*a && !*b) {
-+			if (!strcasecmp(channel_table[i].name, domain)) {
- 				priv->config_reg_domain = channel_table[i].reg_domain;
- 				rc = 0;
- 			}
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h b/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
+index 8835aee..490dfcf 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
+@@ -276,7 +276,6 @@ enum i40e_admin_queue_opc {
+ 	i40e_aqc_opc_debug_write_reg		= 0xFF04,
+ 	i40e_aqc_opc_debug_modify_reg		= 0xFF07,
+ 	i40e_aqc_opc_debug_dump_internals	= 0xFF08,
+-	i40e_aqc_opc_debug_modify_internals	= 0xFF09,
+ };
+ 
+ /* command structures and indirect data structures */
+@@ -410,6 +409,7 @@ struct i40e_aqc_list_capabilities_element_resp {
+ #define I40E_AQ_CAP_ID_VSI		0x0017
+ #define I40E_AQ_CAP_ID_DCB		0x0018
+ #define I40E_AQ_CAP_ID_FCOE		0x0021
++#define I40E_AQ_CAP_ID_ISCSI		0x0022
+ #define I40E_AQ_CAP_ID_RSS		0x0040
+ #define I40E_AQ_CAP_ID_RXQ		0x0041
+ #define I40E_AQ_CAP_ID_TXQ		0x0042
+@@ -1207,7 +1207,7 @@ struct i40e_aqc_add_remove_cloud_filters_element_data {
+ 	} ipaddr;
+ 	__le16	flags;
+ #define I40E_AQC_ADD_CLOUD_FILTER_SHIFT			0
+-#define I40E_AQC_ADD_CLOUD_FILTER_MASK			(0x3F << \
++#define I40E_AQC_ADD_CLOUD_FILTER_MASK	(0x3F << \
+ 					I40E_AQC_ADD_CLOUD_FILTER_SHIFT)
+ /* 0x0000 reserved */
+ #define I40E_AQC_ADD_CLOUD_FILTER_OIP			0x0001
+@@ -1240,7 +1240,7 @@ struct i40e_aqc_add_remove_cloud_filters_element_data {
+ 	u8	reserved[4];
+ 	__le16	queue_number;
+ #define I40E_AQC_ADD_CLOUD_QUEUE_SHIFT		0
+-#define I40E_AQC_ADD_CLOUD_QUEUE_MASK		(0x3F << \
++#define I40E_AQC_ADD_CLOUD_QUEUE_MASK		(0x7FF << \
+ 						 I40E_AQC_ADD_CLOUD_QUEUE_SHIFT)
+ 	u8	reserved2[14];
+ 	/* response section */
+@@ -2106,7 +2106,8 @@ struct i40e_aqc_oem_param_change {
+ #define I40E_AQ_OEM_PARAM_TYPE_BW_CTL	1
+ #define I40E_AQ_OEM_PARAM_MAC		2
+ 	__le32	param_value1;
+-	u8	param_value2[8];
++	__le16	param_value2;
++	u8	reserved[6];
+ };
+ 
+ I40E_CHECK_CMD_LENGTH(i40e_aqc_oem_param_change);
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h b/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
+index ff1b163..a20b2b0 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
++++ b/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
+@@ -276,7 +276,6 @@ enum i40e_admin_queue_opc {
+ 	i40e_aqc_opc_debug_write_reg		= 0xFF04,
+ 	i40e_aqc_opc_debug_modify_reg		= 0xFF07,
+ 	i40e_aqc_opc_debug_dump_internals	= 0xFF08,
+-	i40e_aqc_opc_debug_modify_internals	= 0xFF09,
+ };
+ 
+ /* command structures and indirect data structures */
+@@ -410,6 +409,7 @@ struct i40e_aqc_list_capabilities_element_resp {
+ #define I40E_AQ_CAP_ID_VSI		0x0017
+ #define I40E_AQ_CAP_ID_DCB		0x0018
+ #define I40E_AQ_CAP_ID_FCOE		0x0021
++#define I40E_AQ_CAP_ID_ISCSI		0x0022
+ #define I40E_AQ_CAP_ID_RSS		0x0040
+ #define I40E_AQ_CAP_ID_RXQ		0x0041
+ #define I40E_AQ_CAP_ID_TXQ		0x0042
+@@ -1207,7 +1207,7 @@ struct i40e_aqc_add_remove_cloud_filters_element_data {
+ 	} ipaddr;
+ 	__le16	flags;
+ #define I40E_AQC_ADD_CLOUD_FILTER_SHIFT			0
+-#define I40E_AQC_ADD_CLOUD_FILTER_MASK			(0x3F << \
++#define I40E_AQC_ADD_CLOUD_FILTER_MASK	(0x3F << \
+ 					I40E_AQC_ADD_CLOUD_FILTER_SHIFT)
+ /* 0x0000 reserved */
+ #define I40E_AQC_ADD_CLOUD_FILTER_OIP			0x0001
+@@ -1240,7 +1240,7 @@ struct i40e_aqc_add_remove_cloud_filters_element_data {
+ 	u8	reserved[4];
+ 	__le16	queue_number;
+ #define I40E_AQC_ADD_CLOUD_QUEUE_SHIFT		0
+-#define I40E_AQC_ADD_CLOUD_QUEUE_MASK		(0x3F << \
++#define I40E_AQC_ADD_CLOUD_QUEUE_MASK		(0x7FF << \
+ 						 I40E_AQC_ADD_CLOUD_QUEUE_SHIFT)
+ 	u8	reserved2[14];
+ 	/* response section */
+@@ -2082,7 +2082,8 @@ struct i40e_aqc_oem_param_change {
+ #define I40E_AQ_OEM_PARAM_TYPE_BW_CTL	1
+ #define I40E_AQ_OEM_PARAM_MAC		2
+ 	__le32	param_value1;
+-	u8	param_value2[8];
++	__le16	param_value2;
++	u8	reserved[6];
+ };
+ 
+ I40E_CHECK_CMD_LENGTH(i40e_aqc_oem_param_change);
 -- 
-2.1.3
+1.9.3
