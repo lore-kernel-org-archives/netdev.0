@@ -1,62 +1,35 @@
-From: Ying Xue <ying.xue@windriver.com>
-Subject: Re: netlink: Fix netlink_insert EADDRINUSE error
-Date: Fri, 16 Jan 2015 14:30:33 +0800
-Message-ID: <54B8B009.6020207@windriver.com>
-References: <20150116062348.GA8588@gondor.apana.org.au>
+From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Subject: Re: [PATCH for 3.19 2/3] rtlwifi: Fix handling of new style descriptors
+Date: Fri, 16 Jan 2015 08:40:03 +0200
+Message-ID: <87egqvns8s.fsf@kamboji.qca.qualcomm.com>
+References: <1421257036-5382-1-git-send-email-Larry.Finger@lwfinger.net>
+	<1421257036-5382-3-git-send-email-Larry.Finger@lwfinger.net>
+	<877fwoxo7g.fsf@kamboji.qca.qualcomm.com>
+	<C11178B3EB8EC446A461ADCC3E27182146C9A9F8@rsex2.realsil.com.cn>
+	<87y4p4w8wb.fsf@kamboji.qca.qualcomm.com>
+	<54B81EAA.9040706@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-To: Herbert Xu <herbert@gondor.apana.org.au>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:63924 "EHLO
-	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751671AbbAPGcD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Jan 2015 01:32:03 -0500
-In-Reply-To: <20150116062348.GA8588@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: =?utf-8?B?6LCt5p2t5rOi?= <troy_tan-kXabqFNEczNtrwSWzY7KCg@public.gmane.org>,
+	"linux-wireless\@vger.kernel.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev\@vger.kernel.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <54B81EAA.9040706-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org> (Larry Finger's message of "Thu,
+	15 Jan 2015 14:10:18 -0600")
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 01/16/2015 02:23 PM, Herbert Xu wrote:
-> The patch c5adde9468b0714a051eac7f9666f23eb10b61f7 ("netlink:
-> eliminate nl_sk_hash_lock") introduced a bug where the EADDRINUSE
-> error has been replaced by ENOMEM.  This patch rectifies that
-> problem.
->
+Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org> writes:
 
-Nice catch!
+> Troy and I will try to prepare a patch that only fixes the bugs, and
+> we will submit the cleanup for -next.
 
-Acked-by: Ying Xue <ying.xue@windriver.com>
+That's great, thank you.
 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-> 
-> diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-> index 01b702d..7a94185 100644
-> --- a/net/netlink/af_netlink.c
-> +++ b/net/netlink/af_netlink.c
-> @@ -1050,7 +1050,7 @@ netlink_update_listeners(struct sock *sk)
->  static int netlink_insert(struct sock *sk, struct net *net, u32 portid)
->  {
->  	struct netlink_table *table = &nl_table[sk->sk_protocol];
-> -	int err = -EADDRINUSE;
-> +	int err;
->  
->  	lock_sock(sk);
->  
-> @@ -1065,10 +1065,13 @@ static int netlink_insert(struct sock *sk, struct net *net, u32 portid)
->  
->  	nlk_sk(sk)->portid = portid;
->  	sock_hold(sk);
-> -	if (__netlink_insert(table, sk, net))
-> -		err = 0;
-> -	else
-> +
-> +	err = 0;
-> +	if (!__netlink_insert(table, sk, net)) {
-> +		err = -EADDRINUSE;
->  		sock_put(sk);
-> +	}
-> +
->  err:
->  	release_sock(sk);
->  	return err;
-> 
+-- 
+Kalle Valo
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
