@@ -1,168 +1,56 @@
 From: Jonathan Toppins <jtoppins@cumulusnetworks.com>
-Subject: [PATCH net-next 3/5] bonding: fix incorrect lacp mux state when agg not active
-Date: Fri, 16 Jan 2015 10:57:26 -0500
-Message-ID: <1421423848-414-4-git-send-email-jtoppins@cumulusnetworks.com>
+Subject: [PATCH net-next 5/5] bonding: cleanup and remove dead code
+Date: Fri, 16 Jan 2015 10:57:28 -0500
+Message-ID: <1421423848-414-6-git-send-email-jtoppins@cumulusnetworks.com>
 References: <1421423848-414-1-git-send-email-jtoppins@cumulusnetworks.com>
-Cc: Andy Gospodarek <gospo@cumulusnetworks.com>,
-	Wilson Kok <wkok@cumulusnetworks.com>,
-	Jonathan Toppins <jtoppins@cumulusnetworks.com>
+Cc: Jonathan Toppins <jtoppins@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f48.google.com ([209.85.192.48]:57968 "EHLO
-	mail-qg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751604AbbAPP5o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Jan 2015 10:57:44 -0500
-Received: by mail-qg0-f48.google.com with SMTP id j5so16877300qga.7
-        for <netdev@vger.kernel.org>; Fri, 16 Jan 2015 07:57:43 -0800 (PST)
+Received: from mail-qg0-f51.google.com ([209.85.192.51]:45562 "EHLO
+	mail-qg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756546AbbAPP5q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Jan 2015 10:57:46 -0500
+Received: by mail-qg0-f51.google.com with SMTP id i50so16842438qgf.10
+        for <netdev@vger.kernel.org>; Fri, 16 Jan 2015 07:57:45 -0800 (PST)
 In-Reply-To: <1421423848-414-1-git-send-email-jtoppins@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wilson Kok <wkok@cumulusnetworks.com>
+fix sparse warning about non-static function
 
-This patch attempts to fix the following problems when an actor or
-partner's aggregator is not active:
-    1. a slave's lacp port state is marked as AD_STATE_SYNCHRONIZATION
-       even if it is attached to an inactive aggregator. LACP advertises
-       this state to the partner, making the partner think he can move
-       into COLLECTING_DISTRIBUTING state even though this link will not
-       pass traffic on the local side
+drivers/net/bonding/bond_main.c:3737:5: warning: symbol
+'bond_3ad_xor_xmit' was not declared. Should it be static?
 
-    2. a slave goes into COLLECTING_DISTRIBUTING state without checking
-       if the aggregator is actually active
-
-    3. when in COLLECTING_DISTRIBUTING state, the partner parameters may
-       change, e.g. the partner_oper_port_state.SYNCHRONIZATION. The
-       local mux machine is not reacting to the change and continue to
-       keep the slave and bond up
-
-    4. When bond slave leaves an inactive aggregator and joins an active
-       aggregator, the actor oper port state need to update to SYNC state.
-
-Cc: Andy Gospodarek <gospo@cumulusnetworks.com>
-Signed-off-by: Wilson Kok <wkok@cumulusnetworks.com>
 Signed-off-by: Jonathan Toppins <jtoppins@cumulusnetworks.com>
 ---
- drivers/net/bonding/bond_3ad.c |   44 ++++++++++++++++++++++++++++++++--------
- 1 file changed, 35 insertions(+), 9 deletions(-)
+ drivers/net/bonding/bond_main.c |    2 +-
+ include/net/bond_3ad.h          |    1 -
+ 2 files changed, 1 insertion(+), 2 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
-index e9b706f..52a8772 100644
---- a/drivers/net/bonding/bond_3ad.c
-+++ b/drivers/net/bonding/bond_3ad.c
-@@ -471,10 +471,13 @@ static void __record_pdu(struct lacpdu *lacpdu, struct port *port)
- 		 * and the port is matched
- 		 */
- 		if ((port->sm_vars & AD_PORT_MATCHED)
--		    && (lacpdu->actor_state & AD_STATE_SYNCHRONIZATION))
-+			&& (lacpdu->actor_state & AD_STATE_SYNCHRONIZATION)) {
- 			partner->port_state |= AD_STATE_SYNCHRONIZATION;
--		else
-+			pr_debug("%s partner sync=1\n", port->slave->dev->name);
-+		} else {
- 			partner->port_state &= ~AD_STATE_SYNCHRONIZATION;
-+			pr_debug("%s partner sync=0\n", port->slave->dev->name);
-+		}
- 	}
- }
- 
-@@ -729,6 +732,8 @@ static inline void __update_lacpdu_from_port(struct port *port)
- 	lacpdu->actor_port_priority = htons(port->actor_port_priority);
- 	lacpdu->actor_port = htons(port->actor_port_number);
- 	lacpdu->actor_state = port->actor_oper_port_state;
-+	pr_debug("update lacpdu: %s, actor port state %x\n",
-+		 port->slave->dev->name, port->actor_oper_port_state);
- 
- 	/* lacpdu->reserved_3_1              initialized
- 	 * lacpdu->tlv_type_partner_info     initialized
-@@ -901,7 +906,9 @@ static void ad_mux_machine(struct port *port, bool *update_slave_arr)
- 			if ((port->sm_vars & AD_PORT_SELECTED) &&
- 			    (port->partner_oper.port_state & AD_STATE_SYNCHRONIZATION) &&
- 			    !__check_agg_selection_timer(port)) {
--				port->sm_mux_state = AD_MUX_COLLECTING_DISTRIBUTING;
-+				if (port->aggregator->is_active)
-+					port->sm_mux_state =
-+					    AD_MUX_COLLECTING_DISTRIBUTING;
- 			} else if (!(port->sm_vars & AD_PORT_SELECTED) ||
- 				   (port->sm_vars & AD_PORT_STANDBY)) {
- 				/* if UNSELECTED or STANDBY */
-@@ -913,12 +920,18 @@ static void ad_mux_machine(struct port *port, bool *update_slave_arr)
- 				 */
- 				__set_agg_ports_ready(port->aggregator, __agg_ports_are_ready(port->aggregator));
- 				port->sm_mux_state = AD_MUX_DETACHED;
-+			} else if (port->aggregator->is_active) {
-+				port->actor_oper_port_state |=
-+				    AD_STATE_SYNCHRONIZATION;
- 			}
- 			break;
- 		case AD_MUX_COLLECTING_DISTRIBUTING:
- 			if (!(port->sm_vars & AD_PORT_SELECTED) ||
- 			    (port->sm_vars & AD_PORT_STANDBY) ||
--			    !(port->partner_oper.port_state & AD_STATE_SYNCHRONIZATION)) {
-+			    !(port->partner_oper.port_state &
-+				AD_STATE_SYNCHRONIZATION) ||
-+			    !(port->actor_oper_port_state &
-+				AD_STATE_SYNCHRONIZATION)) {
- 				port->sm_mux_state = AD_MUX_ATTACHED;
- 			} else {
- 				/* if port state hasn't changed make
-@@ -940,8 +953,10 @@ static void ad_mux_machine(struct port *port, bool *update_slave_arr)
- 
- 	/* check if the state machine was changed */
- 	if (port->sm_mux_state != last_state) {
--		pr_debug("Mux Machine: Port=%d, Last State=%d, Curr State=%d\n",
--			 port->actor_port_number, last_state,
-+		pr_debug("Mux Machine: Port=%d (%s), Last State=%d, Curr State=%d\n",
-+			 port->actor_port_number,
-+			 port->slave->dev->name,
-+			 last_state,
- 			 port->sm_mux_state);
- 		switch (port->sm_mux_state) {
- 		case AD_MUX_DETACHED:
-@@ -956,7 +971,12 @@ static void ad_mux_machine(struct port *port, bool *update_slave_arr)
- 			port->sm_mux_timer_counter = __ad_timer_to_ticks(AD_WAIT_WHILE_TIMER, 0);
- 			break;
- 		case AD_MUX_ATTACHED:
--			port->actor_oper_port_state |= AD_STATE_SYNCHRONIZATION;
-+			if (port->aggregator->is_active)
-+				port->actor_oper_port_state |=
-+				    AD_STATE_SYNCHRONIZATION;
-+			else
-+				port->actor_oper_port_state &=
-+				    ~AD_STATE_SYNCHRONIZATION;
- 			port->actor_oper_port_state &= ~AD_STATE_COLLECTING;
- 			port->actor_oper_port_state &= ~AD_STATE_DISTRIBUTING;
- 			ad_disable_collecting_distributing(port,
-@@ -966,6 +986,7 @@ static void ad_mux_machine(struct port *port, bool *update_slave_arr)
- 		case AD_MUX_COLLECTING_DISTRIBUTING:
- 			port->actor_oper_port_state |= AD_STATE_COLLECTING;
- 			port->actor_oper_port_state |= AD_STATE_DISTRIBUTING;
-+			port->actor_oper_port_state |= AD_STATE_SYNCHRONIZATION;
- 			ad_enable_collecting_distributing(port,
- 							  update_slave_arr);
- 			port->ntt = true;
-@@ -1047,8 +1068,10 @@ static void ad_rx_machine(struct lacpdu *lacpdu, struct port *port)
- 
- 	/* check if the State machine was changed or new lacpdu arrived */
- 	if ((port->sm_rx_state != last_state) || (lacpdu)) {
--		pr_debug("Rx Machine: Port=%d, Last State=%d, Curr State=%d\n",
--			 port->actor_port_number, last_state,
-+		pr_debug("Rx Machine: Port=%d (%s), Last State=%d, Curr State=%d\n",
-+			 port->actor_port_number,
-+			 port->slave->dev->name,
-+			 last_state,
- 			 port->sm_rx_state);
- 		switch (port->sm_rx_state) {
- 		case AD_RX_INITIALIZE:
-@@ -1397,6 +1420,9 @@ static void ad_port_selection_logic(struct port *port, bool *update_slave_arr)
- 
- 	aggregator = __get_first_agg(port);
- 	ad_agg_selection_logic(aggregator, update_slave_arr);
-+
-+	if (!port->aggregator->is_active)
-+		port->actor_oper_port_state &= ~AD_STATE_SYNCHRONIZATION;
- }
- 
- /* Decide if "agg" is a better choice for the new active aggregator that
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index c475d90..67437f3 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -3734,7 +3734,7 @@ out:
+  * usable slave array is formed in the control path. The xmit function
+  * just calculates hash and sends the packet out.
+  */
+-int bond_3ad_xor_xmit(struct sk_buff *skb, struct net_device *dev)
++static int bond_3ad_xor_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	struct bonding *bond = netdev_priv(dev);
+ 	struct slave *slave;
+diff --git a/include/net/bond_3ad.h b/include/net/bond_3ad.h
+index e01d903..f04cdbb 100644
+--- a/include/net/bond_3ad.h
++++ b/include/net/bond_3ad.h
+@@ -274,7 +274,6 @@ void bond_3ad_handle_link_change(struct slave *slave, char link);
+ int  bond_3ad_get_active_agg_info(struct bonding *bond, struct ad_info *ad_info);
+ int  __bond_3ad_get_active_agg_info(struct bonding *bond,
+ 				    struct ad_info *ad_info);
+-int bond_3ad_xmit_xor(struct sk_buff *skb, struct net_device *dev);
+ int bond_3ad_lacpdu_recv(const struct sk_buff *skb, struct bonding *bond,
+ 			 struct slave *slave);
+ int bond_3ad_set_carrier(struct bonding *bond);
 -- 
 1.7.10.4
