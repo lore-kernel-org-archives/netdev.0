@@ -1,88 +1,74 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [PATCH] net: rocker: Add basic netdev counters
-Date: Fri, 16 Jan 2015 11:53:07 -0800
-Message-ID: <CAE4R7bB+tsGjvfGMtZDVf7ipvCXNdPSaFQ9mwB4nSpSTvsRE8w@mail.gmail.com>
-References: <1421275161-99434-1-git-send-email-dsahern@gmail.com>
-	<54B6F43C.4030207@gmail.com>
-	<54B701C9.50500@gmail.com>
+From: Xander Huff <xander.huff@ni.com>
+Subject: Re: [PATCH RESEND] igb: Reset TXPBSIZE to default
+	value
+Date: Fri, 16 Jan 2015 14:09:54 -0600
+Message-ID: <54B97012.4050402@ni.com>
+References: <1421434779-20586-1-git-send-email-xander.huff@ni.com>
+	<D0DEA929.671EB%matthew.vick@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-	Netdev <netdev@vger.kernel.org>, Jiri Pirko <jiri@resnulli.us>
-To: David Ahern <dsahern@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f182.google.com ([209.85.212.182]:38184 "EHLO
-	mail-wi0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752524AbbAPTxI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Jan 2015 14:53:08 -0500
-Received: by mail-wi0-f182.google.com with SMTP id n3so4339849wiv.3
-        for <netdev@vger.kernel.org>; Fri, 16 Jan 2015 11:53:07 -0800 (PST)
-In-Reply-To: <54B701C9.50500@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "jeff.westfahl@ni.com" <jeff.westfahl@ni.com>,
+	"e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Linux NICS <Linux-nics@isotope.jf.intel.com>
+To: "Vick, Matthew" <matthew.vick@intel.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
+	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+	"Rose, Gregory V" <gregory.v.rose@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	"Williams, Mitch A" <mitch.a.williams@intel.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <D0DEA929.671EB%matthew.vick@intel.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jan 14, 2015 at 3:54 PM, David Ahern <dsahern@gmail.com> wrote:
-> On 1/14/15 3:57 PM, Florian Fainelli wrote:
->>
->> On 14/01/15 14:39, David Ahern wrote:
->>>
->>> Add packet and byte counters for RX and TX paths.
->>>
->>> $ ifconfig eth1
->>> eth1: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
->>>          inet6 fe80::5054:ff:fe12:3501  prefixlen 64  scopeid 0x20<link>
->>>          ether 52:54:00:12:35:01  txqueuelen 1000  (Ethernet)
->>>          RX packets 63  bytes 15813 (15.4 KiB)
->>>          RX errors 0  dropped 0  overruns 0  frame 0
->>>          TX packets 79  bytes 17991 (17.5 KiB)
->>>          TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
->>>
->>> Signed-off-by: David Ahern <dsahern@gmail.com>
->>> Cc: Scott Feldman <sfeldma@gmail.com>
->>> Cc: Jiri Pirko <jiri@resnulli.us>
->>> ---
->>>   drivers/net/ethernet/rocker/rocker.c | 8 ++++++++
->>>   1 file changed, 8 insertions(+)
->>>
->>> diff --git a/drivers/net/ethernet/rocker/rocker.c
->>> b/drivers/net/ethernet/rocker/rocker.c
->>> index 2f398fa4b9e6..9743279d9121 100644
->>> --- a/drivers/net/ethernet/rocker/rocker.c
->>> +++ b/drivers/net/ethernet/rocker/rocker.c
->>> @@ -3557,6 +3557,9 @@ static netdev_tx_t rocker_port_xmit(struct sk_buff
->>> *skb, struct net_device *dev)
->>>         if (!desc_info)
->>>                 netif_stop_queue(dev);
->>>
->>> +       dev->stats.tx_packets++;
->>> +       dev->stats.tx_bytes += skb->len;
->>
->>
->> Potential use after free, the skb pointer is certainly not valid anymore
->> here.
->>
->> BTW, increasing statistics here is valid because this is a driver for a
->> virtual piece of HW, which does not have TX reclaim/completion logic,
->> but if it did, statistics update should occur there, not in the
->> ndo_start_xmit() function.
+On 1/16/2015 1:41 PM, Vick, Matthew wrote:
+> On 1/16/15, 10:59 AM, "Xander Huff" <xander.huff@ni.com> wrote:
 >
+>> From: Jeff Westfahl <jeff.westfahl@ni.com>
+>>
+>> The TXPBSIZE register of the i210 resets to its default value only
+>> at power-on. It doesn't reset if you reboot the system, only if you
+>> pull power. If something (another driver, another OS, etc.) modifies
+>> this register from its default value, the igb driver doesn't function
+>> correctly. It detects a hang of the transmitter and continuously resets
+>> the adapter. Here we set this value to its default when resetting the
+>> i210 to resolve this issue.
 >
-> sure. I had considered putting in the rocker_port_poll_tx function like
-> this:
+> This should have already been resolved last May in commit
+> 27dff8b2f680ce966b5d959be9d69dd0edd92e3b ("igb: add defaults for i210
+> TX/RX PBSIZE"). Are you running the latest upstream kernel?
 >
-> -       dev_kfree_skb_any(rocker_desc_cookie_ptr_get(desc_info));
-> +
-> +       skb = rocker_desc_cookie_ptr_get(desc_info);
-> +       rocker_port->dev->stats.tx_packets++;
-> +       rocker_port->dev->stats.tx_bytes += skb->len;
-> +
-> +       dev_kfree_skb_any(skb);
+> Cheers,
+> Matthew
 >
-> I think this the reclaim point.
+Looks like you're correct. Please disregard this patch.
 
-This is better.  But also need to consider err code returned from
-device in same routine.  If the desc was marked with err, then I think
-we can assume pkt wasn't sent so tx_packets/bytes stats should not be
-incremented, but some tx err stat should, based on desc err code.
+-- 
+Xander Huff
+Staff Software Engineer
+National Instruments
 
--scott
+------------------------------------------------------------------------------
+New Year. New Location. New Benefits. New Data Center in Ashburn, VA.
+GigeNET is offering a free month of service with a new server in Ashburn.
+Choose from 2 high performing configs, both with 100TB of bandwidth.
+Higher redundancy.Lower latency.Increased capacity.Completely compliant.
+http://p.sf.net/sfu/gigenet
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
