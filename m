@@ -1,59 +1,75 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 17/17] i40e/i40evf: Bump i40e and i40evf versions
-Date: Fri, 16 Jan 2015 05:29:06 -0800
-Message-ID: <1421414946-22179-18-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 09/17] i40e: check I40E_FLAG_PTP before handling Tx or Rx timestamps
+Date: Fri, 16 Jan 2015 05:28:58 -0800
+Message-ID: <1421414946-22179-10-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1421414946-22179-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Sravanthi Tangeda <sravanthi.tangeda@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:32023 "EHLO mga01.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:5724 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753743AbbAPN32 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 Jan 2015 08:29:28 -0500
+	id S1755937AbbAPN3a (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 Jan 2015 08:29:30 -0500
 In-Reply-To: <1421414946-22179-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sravanthi Tangeda <sravanthi.tangeda@intel.com>
+From: Jacob Keller <jacob.e.keller@intel.com>
 
-Bump i40e to 1.2.6 and i40evf to 1.2.0 version.
+We should not be doing Tx or Rx timestamps if we do not have PTP
+enabled. Add checks to ensure that we don't attempt to handle any PTP
+related timestamping code if we have not enabled PTP on that PF.
 
-Change-ID: Ice127eee3a5a5d1b8765d83cff8c30f9f3b1bc32
-Signed-off-by: Sravanthi Tangeda <sravanthi.tangeda@intel.com>
-Tested-by: Jim Young <james.m.young@intel.com>
+Change-ID: I4335942ae2d5c5f91abfdbeeea02bcace49e7677
+Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c     | 2 +-
- drivers/net/ethernet/intel/i40evf/i40evf_main.c | 2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_ptp.c  | 9 ++++++++-
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c | 3 +++
+ 2 files changed, 11 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index f1256f9..e774a23 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -39,7 +39,7 @@ static const char i40e_driver_string[] =
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_ptp.c b/drivers/net/ethernet/intel/i40e/i40e_ptp.c
+index 6d1ec92..a152878 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_ptp.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_ptp.c
+@@ -305,6 +305,13 @@ void i40e_ptp_tx_hwtstamp(struct i40e_pf *pf)
+ 	u32 hi, lo;
+ 	u64 ns;
  
- #define DRV_VERSION_MAJOR 1
- #define DRV_VERSION_MINOR 2
--#define DRV_VERSION_BUILD 5
-+#define DRV_VERSION_BUILD 6
- #define DRV_VERSION __stringify(DRV_VERSION_MAJOR) "." \
- 	     __stringify(DRV_VERSION_MINOR) "." \
- 	     __stringify(DRV_VERSION_BUILD)    DRV_KERN
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-index a492032..f946aac 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-@@ -36,7 +36,7 @@ char i40evf_driver_name[] = "i40evf";
- static const char i40evf_driver_string[] =
- 	"Intel(R) XL710/X710 Virtual Function Network Driver";
++	if (!(pf->flags & I40E_FLAG_PTP) || !pf->ptp_tx)
++		return;
++
++	/* don't attempt to timestamp if we don't have an skb */
++	if (!pf->ptp_tx_skb)
++		return;
++
+ 	lo = rd32(hw, I40E_PRTTSYN_TXTIME_L);
+ 	hi = rd32(hw, I40E_PRTTSYN_TXTIME_H);
  
--#define DRV_VERSION "1.0.7"
-+#define DRV_VERSION "1.2.0"
- const char i40evf_driver_version[] = DRV_VERSION;
- static const char i40evf_copyright[] =
- 	"Copyright (c) 2013 - 2014 Intel Corporation.";
+@@ -338,7 +345,7 @@ void i40e_ptp_rx_hwtstamp(struct i40e_pf *pf, struct sk_buff *skb, u8 index)
+ 	/* Since we cannot turn off the Rx timestamp logic if the device is
+ 	 * doing Tx timestamping, check if Rx timestamping is configured.
+ 	 */
+-	if (!pf->ptp_rx)
++	if (!(pf->flags & I40E_FLAG_PTP) || !pf->ptp_rx)
+ 		return;
+ 
+ 	hw = &pf->hw;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+index bb86390..420d662 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+@@ -1939,6 +1939,9 @@ static int i40e_tsyn(struct i40e_ring *tx_ring, struct sk_buff *skb,
+ 	 * we are not already transmitting a packet to be timestamped
+ 	 */
+ 	pf = i40e_netdev_to_pf(tx_ring->netdev);
++	if (!(pf->flags & I40E_FLAG_PTP))
++		return 0;
++
+ 	if (pf->ptp_tx &&
+ 	    !test_and_set_bit_lock(__I40E_PTP_TX_IN_PROGRESS, &pf->state)) {
+ 		skb_shinfo(skb)->tx_flags |= SKBTX_IN_PROGRESS;
 -- 
 1.9.3
