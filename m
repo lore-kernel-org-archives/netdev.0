@@ -1,34 +1,81 @@
-From: Thomas Jarosch <thomas.jarosch@intra2net.com>
-Subject: Re: tcp: Do not apply TSO segment limit to non-TSO packets
-Date: Fri, 16 Jan 2015 12:03:24 +0100
-Message-ID: <1796122.bgT3lt9UAo@storm>
-References: <1709726.jUgUSQI9sl@pikkukde.a.i2n> <74814478.Xs0dcijNdd@storm> <20150116105012.GA10655@gondor.apana.org.au>
+From: Christian Gmeiner <christian.gmeiner@gmail.com>
+Subject: fec: warning found by dma debug
+Date: Fri, 16 Jan 2015 12:05:55 +0100
+Message-ID: <CAH9NwWdR4mPz6c1Ce8tntWFMZXgO20Sgys8pvZwoGhjn6b7fnw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: netdev@vger.kernel.org, edumazet@google.com,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=UTF-8
+To: LKML <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rs04.intra2net.com ([85.214.66.2]:33758 "EHLO
-	rs04.intra2net.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751750AbbAPLD2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Jan 2015 06:03:28 -0500
-In-Reply-To: <20150116105012.GA10655@gondor.apana.org.au>
+Received: from mail-qg0-f46.google.com ([209.85.192.46]:46617 "EHLO
+	mail-qg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751689AbbAPLGQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Jan 2015 06:06:16 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Friday, 16. January 2015 21:50:13 Herbert Xu wrote:
-> On Fri, Jan 16, 2015 at 11:45:44AM +0100, Thomas Jarosch wrote:
-> > For backporting to -stable: Kernel 3.14 lacks tcp_tso_autosize().
-> > So I've borrowed that from 3.19-rc4+ and also added the max_segs
-> > variable.
-> > The final and tested code looks like this:
-> You don't need tcp_tso_autosize.  Instead of testing max_segs just
-> test sk->sk_gso_max_segs.
+[   17.946189] ------------[ cut here ]------------
+[   17.950848] WARNING: CPU: 0 PID: 3 at lib/dma-debug.c:1093
+check_unmap+0x858/0xa10()
+[   17.958674] fec 2188000.ethernet: DMA-API: device driver tries to
+free DMA memory it has not allocated [device
+address=0x0000000000000000] [size=34 bytes]
+[   17.972564] Modules linked in: etnaviv(C) imx_ipuv3_crtc imx_hdmi
+imxdrm drm_kms_helper drm
+[   17.981086] CPU: 0 PID: 3 Comm: ksoftirqd/0 Tainted: G        WC
+ 3.19.0-rc4+ #31
+[   17.988893] Hardware name: Freescale i.MX6 Quad/DualLite (Device Tree)
+[   17.995488] Backtrace:
+[   17.997982] [<c00135f0>] (dump_backtrace) from [<c0013948>]
+(show_stack+0x20/0x24)
+[   18.005609]  r6:c0883d40 r5:ffffffff r4:00000000 r3:dc8cb100
+[   18.011369] [<c0013928>] (show_stack) from [<c06a2ac0>]
+(dump_stack+0x78/0xc4)
+[   18.018683] [<c06a2a48>] (dump_stack) from [<c002c0a4>]
+(warn_slowpath_common+0x88/0xc4)
+[   18.026845]  r5:00000445 r4:e5205c80
+[   18.030479] [<c002c01c>] (warn_slowpath_common) from [<c002c19c>]
+(warn_slowpath_fmt+0x40/0x48)
+[   18.039231]  r8:00000000 r7:00000000 r6:00000022 r5:c0af9e18 r4:00000000
+[   18.046066] [<c002c160>] (warn_slowpath_fmt) from [<c038dc30>]
+(check_unmap+0x858/0xa10)
+[   18.054216]  r3:c089bb90 r2:c0884270
+[   18.057846] [<c038d3d8>] (check_unmap) from [<c038e0c4>]
+(debug_dma_unmap_page+0x80/0x88)
+[   18.066087]  r10:e38890c0 r9:00000000 r8:00000001 r7:00000001
+r6:e53f8850 r5:00000000
+[   18.074069]  r4:00000022
+[   18.076647] [<c038e044>] (debug_dma_unmap_page) from [<c045e368>]
+(fec_enet_rx_napi+0x7c0/0xb94)
+[   18.085494]  r8:00001400 r7:e795c780 r6:e389a0c0 r5:00000000 r4:00000000
+[   18.092349] [<c045dba8>] (fec_enet_rx_napi) from [<c053f14c>]
+(net_rx_action+0x130/0x568)
+[   18.100537]  r10:c0aefa80 r9:ffff91be r8:e5205e48 r7:00000040
+r6:0000012c r5:00000001
+[   18.108537]  r4:e38897b0
+[   18.111113] [<c053f01c>] (net_rx_action) from [<c0030768>]
+(__do_softirq+0x11c/0x794)
+[   18.118999]  r10:00000100 r9:c0053c58 r8:00000004 r7:c0b5ddac
+r6:00000008 r5:c0af208c
+[   18.127008]  r4:00000003
+[   18.129573] [<c003064c>] (__do_softirq) from [<c0030e20>]
+(run_ksoftirqd+0x40/0x6c)
+[   18.137291]  r10:00000000 r9:c0053c58 r8:c0b017cc r7:00000000
+r6:0000103c r5:e5157a00
+[   18.145298]  r4:00000001
+[   18.147878] [<c0030de0>] (run_ksoftirqd) from [<c0053de4>]
+(smpboot_thread_fn+0x1b0/0x354)
+[   18.156208] [<c0053c34>] (smpboot_thread_fn) from [<c004f114>]
+(kthread+0x104/0x128)
+[   18.164011]  r10:00000000 r9:00000000 r8:00000000 r7:c0053c34
+r6:e5157a00 r5:00000000
+[   18.172006]  r4:e5157800 r3:00000005
+[   18.175651] [<c004f010>] (kthread) from [<c000fc08>]
+(ret_from_fork+0x14/0x2c)
+[   18.182937]  r7:00000000 r6:00000000 r5:c004f010 r4:e5157800
+[   18.188680] ---[ end trace dcf0152c9771f20a ]---
 
-splendid, even better. tcpdump looks good, too. Thanks!
+--
+Christian Gmeiner, MSc
 
-Thomas
+https://soundcloud.com/christian-gmeiner
