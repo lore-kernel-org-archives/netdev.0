@@ -1,81 +1,75 @@
-From: Bryton Lee <brytonlee01@gmail.com>
-Subject: Re: [PATCH iproute2] update obsolete fields in slabstat_ids[]
-Date: Fri, 16 Jan 2015 10:27:11 +0800
-Message-ID: <CAC2pzGe3Yd6sjeQG4UYcf9jyK4txjVR-CADzHEtkevMhWDTCOA@mail.gmail.com>
-References: <CAC2pzGdtPNiEK2g5-87kmzoU6s3umLujuv0fGoEyRfJYst91XA@mail.gmail.com>
+From: Michael Ellerman <mpe@ellerman.id.au>
+Subject: Re: [PATCH v4 20/20] kbuild: add a new kselftest_install make
+ target to install selftests
+Date: Fri, 16 Jan 2015 13:59:31 +1100
+Message-ID: <1421377171.18166.1.camel@ellerman.id.au>
+References: <cover.1420571615.git.shuahkh@osg.samsung.com>
+	 <2c5a28faaa79d9c2415854a08817ada509fcb943.1420571615.git.shuahkh@osg.samsung.com>
+	 <54B69A1B.80006@osg.samsung.com> <1421362698.23332.6.camel@ellerman.id.au>
+	 <54B8502C.2040708@osg.samsung.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Bryton Lee <brytonlee01@gmail.com>
-To: netdev@vger.kernel.org, stephen@networkplumber.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f173.google.com ([209.85.192.173]:45932 "EHLO
-	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753396AbbAPC1L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jan 2015 21:27:11 -0500
-Received: by mail-pd0-f173.google.com with SMTP id ft15so19846248pdb.4
-        for <netdev@vger.kernel.org>; Thu, 15 Jan 2015 18:27:11 -0800 (PST)
-In-Reply-To: <CAC2pzGdtPNiEK2g5-87kmzoU6s3umLujuv0fGoEyRfJYst91XA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: mmarek@suse.cz, masami.hiramatsu.pt@hitachi.com,
+	gregkh@linuxfoundation.org, akpm@linux-foundation.org,
+	rostedt@goodmis.org, mingo@redhat.com, davem@davemloft.net,
+	keescook@chromium.org, tranmanphong@gmail.com, cov@codeaurora.org,
+	dh.herrmann@gmail.com, hughd@google.com, bobby.prani@gmail.com,
+	serge.hallyn@ubuntu.com, ebiederm@xmission.com,
+	tim.bird@sonymobile.com, josh@joshtriplett.org, koct9i@gmail.com,
+	linux-kbuild@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-api@vger.kernel.org, netdev@vger.kernel.org
+To: Shuah Khan <shuahkh@osg.samsung.com>
+Return-path: <linux-kbuild-owner@vger.kernel.org>
+In-Reply-To: <54B8502C.2040708@osg.samsung.com>
+Sender: linux-kbuild-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Stephen:
+On Thu, 2015-01-15 at 16:41 -0700, Shuah Khan wrote:
+> On 01/15/2015 03:58 PM, Michael Ellerman wrote:
+> > On Wed, 2015-01-14 at 09:32 -0700, Shuah Khan wrote:
+> >> On 01/06/2015 12:43 PM, Shuah Khan wrote:
+> >>> Add a new make target to install to install kernel selftests.
+> >>> This new target will build and install selftests. kselftest
+> >>> target now depends on kselftest_install and runs the generated
+> >>> kselftest script to reduce duplicate work and for common look
+> >>> and feel when running tests.
+> >>>
+> >>> make kselftest_target:
+> >>> -- exports kselftest INSTALL_KSFT_PATH
+> >>>    default $(INSTALL_MOD_PATH)/lib/kselftest/$(KERNELRELEASE)
+> >>> -- exports INSTALL_KSFT_PATH
+> >>> -- runs selftests make install target
+> >>>
+> >>> Signed-off-by: Shuah Khan <shuahkh@osg.samsung.com>
+> >>
+> >> Hi Marek,
+> >>
+> >> Could you please Ack this patch, if this version looks good,
+> >> so I can take this through ksefltest tree.
+> > 
+> > Hi Shuah,
+> > 
+> > I posted what I think is a better approach last week. It's less code and less
+> > repetition, and installs the majority of tests this series missed - ie. the
+> > powerpc ones.
+> > 
+> > Please at least respond to it before you put this series into next.
+> > 
+> > https://lkml.org/lkml/2015/1/9/45
+> 
+> Michael,
+> 
+> I didn't get a chance to review your patches yet. I plan to
+> review and give you feedback by end of this week. 
 
-This is the first time I submit a patch to iproute2, I forgot CC to a
-iproute2's maintainer. It's my fault. Could you please review my
-patch? :)
+Thanks. My week ends quite soon (.au time zone), so early next week is fine.
 
-this patch can help some old system get TCP info correctly.  such as
-Red Hat 5u7,  although  is not perfect.  ss searching  tcp_bind_bucket
-and request_sock_TCP in /proc/slabinfo will fail on current upstream
-kernel,
-because on current upstream kernel slab tcp_bind_bucket and
-request_sock_TCP have merged into kmalloc-xx when they are creating.
-so  in /proc/slabinfo  we cannot see them any more.
+> This patch is needed in any case for either approach.
 
-I have submitted other patch to mm subsystem to prevent such merging,
-but it still not accepted. (Yep, finally, I know my patch has problem,
-it doesn't make any sense, but may be we should still think about how
-to prevent slab merging in slab layer. )
+The version in my series is slightly different, but probably similar enough. I
+CC'ed Michal on my series also.
 
-
-On Mon, Dec 29, 2014 at 8:16 PM, Bryton Lee <brytonlee01@gmail.com> wrote:
-> From: Bryton Lee <brytonlee01@gmail.com>
-> Date: Mon, 29 Dec 2014 19:56:23 +0800
-> Subject: [PATCH] tcp_open_request and tcp_tw_bucket are obsolete in current
->  stable kernel version, replace by request_sock_TCP and tw_sock_TCP
->
-> Signed-off-by: Bryton Lee <brytonlee01@gmail.com>
-> ---
->  misc/ss.c | 4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
->
-> diff --git a/misc/ss.c b/misc/ss.c
-> index f0c7b34..24d58c7 100644
-> --- a/misc/ss.c
-> +++ b/misc/ss.c
-> @@ -506,8 +506,8 @@ static const char *slabstat_ids[] =
->  {
->      "sock",
->      "tcp_bind_bucket",
-> -    "tcp_tw_bucket",
-> -    "tcp_open_request",
-> +    "tw_sock_TCP",
-> +    "request_sock_TCP",
->      "skbuff_head_cache",
->  };
->
-> --
-> 2.0.5
->
-> --
-> Best Regards
->
-> Bryton.Lee
->
+cheers
 
 
-
--- 
-Best Regards
-
-Bryton.Lee
