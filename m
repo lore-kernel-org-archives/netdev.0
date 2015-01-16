@@ -1,71 +1,64 @@
-From: Alexander Aring <alex.aring@gmail.com>
-Subject: fq_codel with 802.15.4 6LoWPAN fragmentation issue
-Date: Fri, 16 Jan 2015 13:02:35 +0100
-Message-ID: <20150116120232.GD10068@omega>
+From: poma <pomidorabelisima@gmail.com>
+Subject: Re: NETDEV WATCHDOG:  internal(r8152): transmit queue 0 timed out
+Date: Fri, 16 Jan 2015 13:09:34 +0100
+Message-ID: <54B8FF7E.2010901@gmail.com>
+References: <m99j1v$n60$1@ger.gmane.org> <54B8CAC2.6020406@gmail.com>
+	<0835B3720019904CB8F7AA43166CEEB2EE6935@RTITMBSV03.realtek.com.tw>
+Reply-To: Community support for Fedora users <users@lists.fedoraproject.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: linux-wpan@vger.kernel.org, stephen@networkplumber.org,
-	jukka.rissanen@linux.intel.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f169.google.com ([74.125.82.169]:55222 "EHLO
-	mail-we0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754156AbbAPMCk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Jan 2015 07:02:40 -0500
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
+	Community support for Fedora users <users@lists.fedoraproject.org>
+To: Hayes Wang <hayeswang@realtek.com>, nic_swsd <nic_swsd@realtek.com>,
+	sean darcy <seandarcy2@gmail.com>
+Return-path: <users-bounces@lists.fedoraproject.org>
+In-Reply-To: <0835B3720019904CB8F7AA43166CEEB2EE6935@RTITMBSV03.realtek.com.tw>
+List-Unsubscribe: <https://admin.fedoraproject.org/mailman/options/users>,
+	<mailto:users-request@lists.fedoraproject.org?subject=unsubscribe>
+List-Archive: <http://lists.fedoraproject.org/pipermail/users/>
+List-Post: <mailto:users@lists.fedoraproject.org>
+List-Help: <mailto:users-request@lists.fedoraproject.org?subject=help>
+List-Subscribe: <https://admin.fedoraproject.org/mailman/listinfo/users>,
+	<mailto:users-request@lists.fedoraproject.org?subject=subscribe>
+Sender: users-bounces@lists.fedoraproject.org
+Errors-To: users-bounces@lists.fedoraproject.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
-
-when using "fq_codel" as network scheduler, I noticed an issue with IEEE
-802.15.4 6LoWPAN fragmentation. The issue is that high payloads IPv6
-packets are dropped.
-
-I detected the issue on the sending side which segments the 6LoWPAN
-packet into several fragments.
-
-In the IEEE 802.15.4 6LoWPAN fragmentation we have a 6LoWPAN interface
-(MTU 1280) on top of an IEEE 802.15.4 interface (MTU 127). The 6LoWPAN
-fragmentation algorithm creates in the "ndo_start_xmit" netdev_ops
-callback function of the 6LoWPAN interface new sk_buffs for the
-underlaying IEEE 802.15.4 interface (as skb->dev) and sends them via a
-dev_queue_xmit.
-
-IEEE 802.15.4 is a very slow connection and after each transmit there is
-an "interframe spacing time" which depends on frequency setting. In my
-testcase, that's about ~500 us for a payload above 18 bytes. This is
-done by calling netif_stop_queue for the interface and start a timer
-after each transmitted frame according to the interframe spacing time.
-When the timer fires, it wakes the queue again by calling
-netif_wake_queue.
-
-Now: What I am noticed with fq_codel is that the code at [0] will drop
-high payloaded IPv6 packets. Of course, if we have an IPv6 packet of
-more than 1280 bytes payload we have a fragmentation (IPv6
-fragmentation) over a fragmentation (802.15.4 6LoWPAN fragmentation).
-
-When I increase the "params->interval" parameter I can send a "longer"
-IPv6 packet depending how much I increase the "params->interval"
-parameter.
-
-I assume that the "params->interval" which defaults to MS2TIME(100) is
-too small. I further assume that at the beginning of fragmentation the
-interval measurement starts "vars->first_above_time = now +
-params->interval;" (line 247 at [0]) and while sending several fragments
-with the above mentioned interframe spacing time, the sending takes too
-long and the skb will be dropped.
-
-My questions are:
-
-- What's the best way to deal with something like that?
-
-- Is there a way to set the "params->interval" _per interface_? So I can
-  change the default parameter to a suitable value in the "ndo_init"
-  callback of the 6LoWPAN interface.
-
-Thanks in advance.
-
-- Alex
-
-[0] http://lxr.free-electrons.com/source/include/net/codel.h#L248
+T24gMTYuMDEuMjAxNSAxMDozNywgSGF5ZXMgV2FuZyB3cm90ZToKPiAgcG9tYSBbbWFpbHRvOnBv
+bWlkb3JhYmVsaXNpbWFAZ21haWwuY29tXSAKPj4gU2VudDogRnJpZGF5LCBKYW51YXJ5IDE2LCAy
+MDE1IDQ6MjUgUE0KPiBbLi4uXQo+Pj4gVGhpcyBsb29rcyBsaWtlIGEgVVNCIHByb2JsZW0uIElz
+IHRoZXJlIGEgd2F5IHRvIGdldCB1c2IgKG9yIAo+Pj4gTmV0d29ya01hbmFnZXIpIHRvIHJlaW5p
+dGlhbGl6ZSB0aGUgZHJpdmVyIHdoZW4gdGhpcyBoYXBwZW5zPwo+Pgo+PiBJIHdvdWxkIGFzayB0
+aGVzZSBwZW9wbGUgZm9yIGFkdmljZSwgdGhlcmVmb3JlLgo+IAo+IE91ciBodyBlbmdpbmVlcnMg
+bmVlZCB0byBhbmFseXNlIHRoZSBiZWhhdmlvciBvZiB0aGUgZGV2aWNlLgo+IEhvd2V2ZXIsIEkg
+ZG9uJ3QgdGhpbmsgeW91IGhhdmUgc3VjaCBpbnN0cnVtZW50IHRvIHByb3ZpZGUKPiB0aGUgcmVx
+dWlyZWQgaW5mb3JtYXRpb24uIElmIHdlIGRvbid0IGtub3cgdGhlIHJlYXNvbiwgd2UKPiBjb3Vs
+ZG4ndCBnaXZlIHlvdSB0aGUgcHJvcGVyIHNvbHV0aW9uLiBCZXNpZGVzLCB5b3VyIHNvbHV0aW9u
+Cj4gd291bGQgd29yayBpZiBhbmQgb25seSBpZiByZWxvYWRpbmcgdGhlIGRyaXZlciBpcyBoZWxw
+ZnVsLgo+IAo+IFRoZSBpc3N1ZSBoYXZlIHRvIGRlYnVnIGZyb20gdGhlIGhhcmR3YXJlLCBhbmQg
+SSBoYXZlIG5vIGlkZWEKPiBhYm91dCB3aGF0IHRoZSBzb2Z0d2FyZSBjb3VsZCBkbyBiZWZvcmUg
+YW5hbHlzaW5nIHRoZSBody4gTWF5YmUKPiB5b3UgY291bGQgdHJ5IHRoZSBmb2xsb3dpbmcgZHJp
+dmVyIGZpcnN0IHRvIGNoZWNrIGlmIGl0IGlzIHVzZWZ1bC4KPiAKPiBodHRwOi8vd3d3LnJlYWx0
+ZWsuY29tLnR3L2Rvd25sb2Fkcy9kb3dubG9hZHNWaWV3LmFzcHg/TGFuZ2lkPTImUE5pZD0xMyZQ
+RmlkPTU2JkxldmVsPTUmQ29ubj00JkRvd25UeXBlSUQ9MyZHZXREb3duPWZhbHNlCj4gIAo+IEJl
+c3QgUmVnYXJkcywKPiBIYXllcwo+IAoKVGhhbmtzIGZvciB5b3VyIHJlc3BvbnNlLCBNci4gSGF5
+ZXMuCgpNci4gU2VhbiwgcGxlYXNlIGRvd25sb2FkIGFuZCBjaGVjayBpZiAidGltZW91dCIgaXMg
+c3RpbGwgcHJlc2VudCB3aXRoIGJ1aWx0IFJUTDgxNTMgbW9kdWxlIGZyb20gUkVBTFRFSyBzaXRl
+LCBhcyBNci4gSGF5ZXMgcHJvcG9zZWQuCmh0dHA6Ly93d3cucmVhbHRlay5jb20udHcvZG93bmxv
+YWRzL2Rvd25sb2Fkc1ZpZXcuYXNweD9MYW5naWQ9MiZQTmlkPTEzJlBGaWQ9NTYmTGV2ZWw9NSZD
+b25uPTQmRG93blR5cGVJRD0zJkdldERvd249ZmFsc2UjMgpyODE1Mi41My0yLjAzLjAudGFyLmJ6
+MgoKUHJvY2VkdXJlIC0gc2hvdWxkIGJlIGVxdWFsIGZvciBib3RoLCBGZWRvcmEgMjEgJiAyMDoK
+CiQgdW5hbWUgLXIKMy4xNy44LTMwMC5mYzIxLng4Nl82NAoKJCBzdSAtYyAneXVtIGluc3RhbGwg
+a2VybmVsLWRldmVsJwoKJCB0YXIgeGYgcjgxNTIuNTMtMi4wMy4wLnRhci5iejIKJCBjZCByODE1
+Mi0yLjAzLjAvCiQgbWFrZQokIHN1CgojIGNwIDUwLXVzYi1yZWFsdGVrLW5ldC5ydWxlcyAvZXRj
+L3VkZXYvcnVsZXMuZC8KIyB1ZGV2YWRtIHRyaWdnZXIgLS1hY3Rpb249YWRkCgojIG1vZHByb2Jl
+IC1ydiByODE1MgojIGNwIHI4MTUyLmtvIC9saWIvbW9kdWxlcy8kKHVuYW1lIC1yKS91cGRhdGVz
+LwojIGRlcG1vZAojIG1vZHByb2JlIC12IHI4MTUyCgoKcG9tYQoKLS0gCnVzZXJzIG1haWxpbmcg
+bGlzdAp1c2Vyc0BsaXN0cy5mZWRvcmFwcm9qZWN0Lm9yZwpUbyB1bnN1YnNjcmliZSBvciBjaGFu
+Z2Ugc3Vic2NyaXB0aW9uIG9wdGlvbnM6Cmh0dHBzOi8vYWRtaW4uZmVkb3JhcHJvamVjdC5vcmcv
+bWFpbG1hbi9saXN0aW5mby91c2VycwpGZWRvcmEgQ29kZSBvZiBDb25kdWN0OiBodHRwOi8vZmVk
+b3JhcHJvamVjdC5vcmcvY29kZS1vZi1jb25kdWN0Ckd1aWRlbGluZXM6IGh0dHA6Ly9mZWRvcmFw
+cm9qZWN0Lm9yZy93aWtpL01haWxpbmdfbGlzdF9ndWlkZWxpbmVzCkhhdmUgYSBxdWVzdGlvbj8g
+QXNrIGF3YXk6IGh0dHA6Ly9hc2suZmVkb3JhcHJvamVjdC5vcmcK
