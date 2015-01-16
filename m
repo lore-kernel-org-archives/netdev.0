@@ -1,40 +1,49 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v3 net-next 1/1] ip_tunnel: Create percpu gro_cell
-Date: Fri, 16 Jan 2015 11:38:33 -0800
-Message-ID: <1421437113.11734.144.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1421431860-1960597-1-git-send-email-kafai@fb.com>
-	 <1421431860-1960597-2-git-send-email-kafai@fb.com>
+From: "Vick, Matthew" <matthew.vick@intel.com>
+Subject: Re: [PATCH RESEND] igb: Reset TXPBSIZE to default value
+Date: Fri, 16 Jan 2015 19:41:59 +0000
+Message-ID: <D0DEA929.671EB%matthew.vick@intel.com>
+References: <1421434779-20586-1-git-send-email-xander.huff@ni.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kernel-team@fb.com
-To: Martin KaFai Lau <kafai@fb.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f178.google.com ([209.85.223.178]:48639 "EHLO
-	mail-ie0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752608AbbAPTif (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Jan 2015 14:38:35 -0500
-Received: by mail-ie0-f178.google.com with SMTP id vy18so22475181iec.9
-        for <netdev@vger.kernel.org>; Fri, 16 Jan 2015 11:38:34 -0800 (PST)
-In-Reply-To: <1421431860-1960597-2-git-send-email-kafai@fb.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Linux NICS <Linux-nics@isotope.jf.intel.com>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"jeff.westfahl@ni.com" <jeff.westfahl@ni.com>,
+	"Fujinaka, Todd" <todd.fujinaka@intel.com>
+To: Xander Huff <xander.huff@ni.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
+	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+	"Rose, Gregory V" <gregory.v.rose@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	"Williams, Mitch A" <mitch.a.williams@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1421434779-20586-1-git-send-email-xander.huff@ni.com>
+Content-Language: en-US
+Content-ID: <2815939F00305243919A51C2BD802613@intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2015-01-16 at 10:11 -0800, Martin KaFai Lau wrote:
-> In the ipip tunnel, the skb->queue_mapping is lost in ipip_rcv().
-> All skb will be queued to the same cell->napi_skbs.  The
-> gro_cell_poll is pinned to one core under load.  In production traffic,
-> we also see severe rx_dropped in the tunl iface and it is probably due to
-> this limit: skb_queue_len(&cell->napi_skbs) > netdev_max_backlog.
-> 
-> This patch is trying to alloc_percpu(struct gro_cell) and schedule
-> gro_cell_poll to process the skb in the same core.
-> 
-> Signed-off-by: Martin KaFai Lau <kafai@fb.com>
-> ---
->  include/net/gro_cells.h | 29 ++++++++++++-----------------
->  1 file changed, 12 insertions(+), 17 deletions(-)
+On 1/16/15, 10:59 AM, "Xander Huff" <xander.huff@ni.com> wrote:
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+>From: Jeff Westfahl <jeff.westfahl@ni.com>
+>
+>The TXPBSIZE register of the i210 resets to its default value only
+>at power-on. It doesn't reset if you reboot the system, only if you
+>pull power. If something (another driver, another OS, etc.) modifies
+>this register from its default value, the igb driver doesn't function
+>correctly. It detects a hang of the transmitter and continuously resets
+>the adapter. Here we set this value to its default when resetting the
+>i210 to resolve this issue.
 
-Thanks
+This should have already been resolved last May in commit
+27dff8b2f680ce966b5d959be9d69dd0edd92e3b ("igb: add defaults for i210
+TX/RX PBSIZE"). Are you running the latest upstream kernel?
+
+Cheers,
+Matthew
