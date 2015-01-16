@@ -1,75 +1,56 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH 7/9] rhashtable: Per bucket locks & deferred
- expansion/shrinking
-Date: Fri, 16 Jan 2015 21:46:44 +0100
-Message-ID: <20150116204644.GA2232@salvia>
-References: <20150116153415.GF30132@acer.localdomain>
- <20150116155835.GA15052@casper.infradead.org>
- <20150116160354.GI30132@acer.localdomain>
- <20150116161530.GC15052@casper.infradead.org>
- <20150116163202.GJ30132@acer.localdomain>
- <063D6719AE5E284EB5DD2968C1650D6D1CACADAF@AcuExch.aculab.com>
- <20150116165302.GE15052@casper.infradead.org>
- <20150116183626.GS30132@acer.localdomain>
- <20150116191831.GA26730@casper.infradead.org>
- <20150116193557.GU30132@acer.localdomain>
+From: Joe Stringer <joestringer-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH net-next v12 5/5] openvswitch: Add support for
+	unique flow IDs.
+Date: Fri, 16 Jan 2015 12:46:48 -0800
+Message-ID: <CANr6G5wYcm_2wrhE--6=fW9mTy2hjw5VJ4SyJa+JZQPZoHN8Hg@mail.gmail.com>
+References: <1421358507-5992-1-git-send-email-joestringer@nicira.com>
+ <1421358507-5992-6-git-send-email-joestringer@nicira.com>
+ <CALnjE+o5kXhDK+uaE4ajF2MAWwgG21rhYNgpD70rWLQc9AQqHg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Thomas Graf <tgraf@suug.ch>,
-	David Laight <David.Laight@ACULAB.COM>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"herbert@gondor.apana.org.au" <herbert@gondor.apana.org.au>,
-	"paulmck@linux.vnet.ibm.com" <paulmck@linux.vnet.ibm.com>,
-	"edumazet@google.com" <edumazet@google.com>,
-	"john.r.fastabend@intel.com" <john.r.fastabend@intel.com>,
-	"josh@joshtriplett.org" <josh@joshtriplett.org>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:33437 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752484AbbAPUny (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 Jan 2015 15:43:54 -0500
-Content-Disposition: inline
-In-Reply-To: <20150116193557.GU30132@acer.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+ netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Pravin Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <CALnjE+o5kXhDK+uaE4ajF2MAWwgG21rhYNgpD70rWLQc9AQqHg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jan 16, 2015 at 07:35:57PM +0000, Patrick McHardy wrote:
-> On 16.01, Thomas Graf wrote:
-> > On 01/16/15 at 06:36pm, Patrick McHardy wrote:
-> > > On 16.01, Thomas Graf wrote:
-> > > > On 01/16/15 at 04:43pm, David Laight wrote:
-> > > > > The walker is unlikely to see items that get inserted early in the hash
-> > > > > table even without a resize.
-> > > > 
-> > > > I don't follow, you have to explain this statement.
-> > > > 
-> > > > Walkers which don't want to see duplicates or miss entries should
-> > > > just take the mutex.
-> > > 
-> > > Well, we do have a problem with interrupted dumps. As you know once
-> > > the netlink message buffer is full, we return to userspace and
-> > > continue dumping during the next read. Expanding obviously changes
-> > > the order since we rehash from bucket N to N and 2N, so this will
-> > > indeed cause duplicate (doesn't matter) and missed entries.
-> > 
-> > Right,but that's a Netlink dump issue and not specific to rhashtable.
-> 
-> Well, rhashtable (or generally resizing) will make it a lot worse.
-> Usually we at worst miss entries which were added during the dump,
-> which is made up by the notifications.
-> 
-> With resizing we might miss anything, its completely undeterministic.
-> 
-> > Putting the sequence number check in place should be sufficient
-> > for sets, right?
-> 
-> I don't see how. The problem is that the ordering of the hash changes
-> and it will skip different entries than those that have already been
-> dumped.
-
-I think the generation counter should catch up this sort of problems.
-The resizing is triggered by a new/deletion element, which bumps it
-once the transaction is handled.
+T24gMTYgSmFudWFyeSAyMDE1IGF0IDAwOjA3LCBQcmF2aW4gU2hlbGFyIDxwc2hlbGFyQG5pY2ly
+YS5jb20+IHdyb3RlOgo+PiBAQCAtMjEzLDEzICsyMjMsMTUgQEAgc3RydWN0IGZsb3dfc3RhdHMg
+ewo+Pgo+PiAgc3RydWN0IHN3X2Zsb3cgewo+PiAgICAgICAgIHN0cnVjdCByY3VfaGVhZCByY3U7
+Cj4+IC0gICAgICAgc3RydWN0IGhsaXN0X25vZGUgaGFzaF9ub2RlWzJdOwo+PiAtICAgICAgIHUz
+MiBoYXNoOwo+PiArICAgICAgIHN0cnVjdCB7Cj4+ICsgICAgICAgICAgICAgICBzdHJ1Y3QgaGxp
+c3Rfbm9kZSBub2RlWzJdOwo+PiArICAgICAgICAgICAgICAgdTMyIGhhc2g7Cj4+ICsgICAgICAg
+fSBmbG93X3RhYmxlLCB1ZmlkX3RhYmxlOwo+PiAgICAgICAgIGludCBzdGF0c19sYXN0X3dyaXRl
+cjsgICAgICAgICAgLyogTlVNQS1ub2RlIGlkIG9mIHRoZSBsYXN0IHdyaXRlciBvbgo+PiAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICogJ3N0YXRzWzBdJy4KPj4gICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAqLwo+PiAgICAgICAgIHN0cnVj
+dCBzd19mbG93X2tleSBrZXk7Cj4+IC0gICAgICAgc3RydWN0IHN3X2Zsb3dfa2V5IHVubWFza2Vk
+X2tleTsKPj4gKyAgICAgICBzdHJ1Y3Qgc3dfZmxvd19pZCAqaWQ7Cj4+ICAgICAgICAgc3RydWN0
+IHN3X2Zsb3dfbWFzayAqbWFzazsKPj4gICAgICAgICBzdHJ1Y3Qgc3dfZmxvd19hY3Rpb25zIF9f
+cmN1ICpzZl9hY3RzOwo+PiAgICAgICAgIHN0cnVjdCBmbG93X3N0YXRzIF9fcmN1ICpzdGF0c1td
+OyAvKiBPbmUgZm9yIGVhY2ggTlVNQSBub2RlLiAgRmlyc3Qgb25lCj4+IEBAIC0yNDMsNiArMjU1
+LDE2IEBAIHN0cnVjdCBhcnBfZXRoX2hlYWRlciB7Cj4+ICAgICAgICAgdW5zaWduZWQgY2hhciAg
+ICAgICBhcl90aXBbNF07ICAgICAgICAgIC8qIHRhcmdldCBJUCBhZGRyZXNzICAgICAgICAqLwo+
+PiAgfSBfX3BhY2tlZDsKPj4KPiBJbiBsYXN0IHJvdW5kIHdlIGFncmVlZCBvbiBmb2xsb3dpbmcg
+c3RydWN0IGZsb3ctaWQgd2hpY2ggc2F2ZXMgYXJvdW5kCj4gZm91ciBodW5kcmVkIGJ5dGVzIHBl
+ciBmbG93IGFuZCBrbWFsbG9jIHBlciBmbG93IGFkZCBvcGVyYXRpb24gZm9yCj4gY29tbW9uIGNh
+c2UuIElzIHRoZXJlIGFueSByZWFzb24gZm9yIG5vdCBkb2luZyBpdD8KPgo+IHN0cnVjdCB7Cj4g
+ICAgICB1MzIgdWZpZF9sZW47Cj4gICAgICB1bmlvbiB7Cj4gICAgICAgICAgdTMyIHVmaWRbTUFY
+X1VGSURfTEVOR1RIIC8gNF07Cj4gICAgICAgICAgc3RydWN0IHN3X2Zsb3dfa2V5ICp1bm1hc2tl
+ZF9rZXk7Cj4gICAgICB9Cj4gfSBpZDsKCkFoLCBJIHRob3VnaHQgSSBoYWQgYWRkcmVzc2VkIHRo
+aXMgYmVmb3JlIHRoZSBob2xpZGF5cyBidXQgaXQncwpjbGVhcmx5IG5vdCB3ZSBoYWQgZGlzY3Vz
+c2VkLiBUaGFua3MgZm9yIGJyaW5naW5nIHRoaXMgdXAsIEknbGwgbWFrZQp0aGlzIGNoYW5nZSBh
+bmQgcmVwb3N0LgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+XwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0cDovL29wZW52c3dpdGNo
+Lm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
