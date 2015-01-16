@@ -1,53 +1,66 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 7/9] rhashtable: Per bucket locks & deferred
- expansion/shrinking
-Date: Fri, 16 Jan 2015 16:32:03 +0000
-Message-ID: <20150116163202.GJ30132@acer.localdomain>
-References: <cover.1418647641.git.tgraf@suug.ch>
- <75db38bc9313a55cf02a8c36a3376c32b691e5d9.1418647641.git.tgraf@suug.ch>
- <20150116153415.GF30132@acer.localdomain>
- <20150116155835.GA15052@casper.infradead.org>
- <20150116160354.GI30132@acer.localdomain>
- <20150116161530.GC15052@casper.infradead.org>
+From: Shuah Khan <shuahkh@osg.samsung.com>
+Subject: Re: [PATCH 4/6] kbuild: add a new kselftest_install make target to
+ install selftests
+Date: Fri, 16 Jan 2015 09:34:41 -0700
+Message-ID: <54B93DA1.2010601@osg.samsung.com>
+References: <1420794375-31881-1-git-send-email-mpe@ellerman.id.au> <1420794375-31881-4-git-send-email-mpe@ellerman.id.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	kernel@vger.kernel.org, herbert@gondor.apana.org.au,
-	paulmck@linux.vnet.ibm.com, edumazet@google.com,
-	john.r.fastabend@intel.com, josh@joshtriplett.org,
-	netfilter-devel@vger.kernel.org
-To: Thomas Graf <tgraf@suug.ch>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150116161530.GC15052@casper.infradead.org>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 8bit
+Cc: mmarek@suse.cz, gregkh@linuxfoundation.org,
+	akpm@linux-foundation.org, rostedt@goodmis.org, mingo@redhat.com,
+	davem@davemloft.net, keescook@chromium.org, tranmanphong@gmail.com,
+	cov@codeaurora.org, dh.herrmann@gmail.com, hughd@google.com,
+	bobby.prani@gmail.com, serge.hallyn@ubuntu.com,
+	ebiederm@xmission.com, tim.bird@sonymobile.com,
+	josh@joshtriplett.org, koct9i@gmail.com,
+	linux-kbuild@vger.kernel.org, linux-api@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Michael Ellerman <mpe@ellerman.id.au>, linux-kernel@vger.kernel.org
+Return-path: <linux-kbuild-owner@vger.kernel.org>
+In-Reply-To: <1420794375-31881-4-git-send-email-mpe@ellerman.id.au>
+Sender: linux-kbuild-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 16.01, Thomas Graf wrote:
-> On 01/16/15 at 04:03pm, Patrick McHardy wrote:
-> > On 16.01, Thomas Graf wrote:
-> > > A walker may not see insertions that occur after the walker was started
-> > > if resizing is enabled. Is that a problem for nftables?
-> > 
-> > No, that would be Ok. The case I'm wondering about is:
-> > 
-> > - insertion
-> > - resize starts
-> > - another insertion
-> > - walker, resize not finished yet
+On 01/09/2015 02:06 AM, Michael Ellerman wrote:
+> Add a new make target to install kernel selftests. This new target will
+> build and install selftests.
 > 
-> Correct, walker may not see "another insertion". The window for this
-> behavior to occur is not the full resize operation, just the linking
-> period, but it may occur. The length of the window is typically
-> equal to a grace period.
-> 
-> We can provide a synchronization function to block the dumper or the
-> insertion/removal until the linking is complete. The latter would
-> give the old runtime behaviour back (variable runtime of insert),
-> the blocked dumper might be preferred. What do you think?
+> The default is just $(objtree)/selftests. This is preferable to
+> something based on $(INSTALL_MOD_PATH) (which defaults to /), as it
+> allows a normal user to install the tests. This is similar to the
+> default behaviour of make headers_install.
 
-If we have to block, the dumper if of course preferred. Taking the
-mutex should do fine I guess?
+A normal user can install tests at any location they choose by
+overriding the default path. For example:
 
-I suppose walking both tables without any races would be rather
-complicated.
+INSTALL_MOD_PATH=/tmp make kselftest_install
+
+will install under tmp.
+
+The approach I used also ties test installs to kernel release.
+This addresses an important use-case for kernel developers
+that want to compare results from release to release.
+
+The use-case for any user to be able to install tests at
+any location is addressed by the above example.
+
+I would like these two above use-cases continued to be supported,
+especially the one that tries the test installs to kernel release.
+Another goal is to keep changes to the main Makefile minimal and
+the rest of the install support belongs under selftests/Makefile
+and any other include file (like the one you proposed).
+
+The patch I have in patch v4 addresses the use-cases mentioned above.
+I do like the lib.mk approach in general and I am going to review that
+patch and give you feedback.
+
+thanks,
+-- Shuah
+
+-- 
+Shuah Khan
+Sr. Linux Kernel Developer
+Open Source Innovation Group
+Samsung Research America (Silicon Valley)
+shuahkh@osg.samsung.com | (970) 217-8978
