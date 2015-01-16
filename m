@@ -1,40 +1,42 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: fq_codel with 802.15.4 6LoWPAN fragmentation issue
-Date: Fri, 16 Jan 2015 05:04:16 -0800
-Message-ID: <1421413456.11734.125.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20150116120232.GD10068@omega>
-	 <1421413071.11734.120.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1421413211.11734.121.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-wpan@vger.kernel.org,
-	stephen@networkplumber.org, jukka.rissanen@linux.intel.com
-To: Alexander Aring <alex.aring@gmail.com>
+From: Ursula Braun <ubraun@linux.vnet.ibm.com>
+Subject: [PATCH net-next 0/5] s390: network patches for net-next
+Date: Fri, 16 Jan 2015 14:05:44 +0100
+Message-ID: <1421413549-56937-1-git-send-email-ubraun@linux.vnet.ibm.com>
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
+	ursula.braun@de.ibm.com, ubraun@linux.vnet.ibm.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f175.google.com ([209.85.213.175]:41179 "EHLO
-	mail-ig0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753349AbbAPNES (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Jan 2015 08:04:18 -0500
-In-Reply-To: <1421413211.11734.121.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from e06smtp15.uk.ibm.com ([195.75.94.111]:33018 "EHLO
+	e06smtp15.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751619AbbAPNFz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Jan 2015 08:05:55 -0500
+Received: from /spool/local
+	by e06smtp15.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <ubraun@linux.vnet.ibm.com>;
+	Fri, 16 Jan 2015 13:05:54 -0000
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2015-01-16 at 05:00 -0800, Eric Dumazet wrote:
-> On Fri, 2015-01-16 at 04:57 -0800, Eric Dumazet wrote:
-> >  example :
-> > 
-> 
-> Sorry, one keyword was missing :
-> 
-> tc qdisc replace dev lowpan0 root fq_codel interval XXX
-> 
+From: Ursula Braun <ursula.braun@de.ibm.com>
 
-But the parameter that you probably want to change is not the interval.
-It is probably the target :
+Hi Dave,
 
-tc qdisc replace dev lowpan0 root fq_codel interval 200ms target 25ms
+here are some s390 related patches for net-next
 
-Now, if the fragmentation was done after qdisc dequeue, as in GSO layer,
-you would not have this issue : all segments of one ipv6 message would
-be transmitted, no matter what.
+shortlog:
+
+Aya Mahfouz (1)
+ctcm,netiucv: migrate variables to handle y2038 problem
+
+Markus Elfring (1)
+s390/net: Delete useless checks before function calls
+
+Eugene Crosser (2)
+qeth: use qeth_card_hw_is_reachable() everywhere
+qeth: sysfs: replace strcmp() with sysfs_streq()
+
+Thomas-Mich Richter (1)
+qeth: Remove unneeded structure member
+
+Thanks,
+        Ursula
