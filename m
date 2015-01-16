@@ -1,274 +1,81 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 13/17] i40e: AQ API updates for new commands
-Date: Fri, 16 Jan 2015 05:29:02 -0800
-Message-ID: <1421414946-22179-14-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 08/17] i40e: only enable PTP interrupt cause if PTP is enabled
+Date: Fri, 16 Jan 2015 05:28:57 -0800
+Message-ID: <1421414946-22179-9-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1421414946-22179-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
+Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	gerlitz.or@gmail.com, Kamil Krawczyk <kamil.krawczyk@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga11.intel.com ([192.55.52.93]:5726 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756043AbbAPN3a (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1753743AbbAPN3a (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 16 Jan 2015 08:29:30 -0500
 In-Reply-To: <1421414946-22179-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shannon Nelson <shannon.nelson@intel.com>
+From: Jacob Keller <jacob.e.keller@intel.com>
 
-Add lldp control commands, add oem ocsd and ocbb commands.
+We should not blindly enable the PTP interrupt flags for all PFs. We
+should only enable the PTP interrupt in PFs which have enabled
+PTP.
 
-Change-ID: I89eba2bd02013d0a44e1ce900559c54bb15f4a66
-Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
-Signed-off-by: Kamil Krawczyk <kamil.krawczyk@intel.com>
+Change-ID: I051a17cae4c199a2f3cf7852266e27eda6630525
+Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h  | 90 ++++++++++++++++++++--
- .../net/ethernet/intel/i40evf/i40e_adminq_cmd.h    | 46 +++++++++--
- 2 files changed, 126 insertions(+), 10 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 11 +++++++----
+ 1 file changed, 7 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h b/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
-index 70b8e55..929e3d7 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
-@@ -256,6 +256,8 @@ enum i40e_admin_queue_opc {
- 	i40e_aqc_opc_lldp_stop		= 0x0A05,
- 	i40e_aqc_opc_lldp_start		= 0x0A06,
- 	i40e_aqc_opc_get_cee_dcb_cfg	= 0x0A07,
-+	i40e_aqc_opc_lldp_set_local_mib	= 0x0A08,
-+	i40e_aqc_opc_lldp_stop_start_spec_agent	= 0x0A09,
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index c3a353d..0cc0266 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -2819,8 +2819,9 @@ static void i40e_vsi_configure_msix(struct i40e_vsi *vsi)
+  * i40e_enable_misc_int_causes - enable the non-queue interrupts
+  * @hw: ptr to the hardware info
+  **/
+-static void i40e_enable_misc_int_causes(struct i40e_hw *hw)
++static void i40e_enable_misc_int_causes(struct i40e_pf *pf)
+ {
++	struct i40e_hw *hw = &pf->hw;
+ 	u32 val;
  
- 	/* Tunnel commands */
- 	i40e_aqc_opc_add_udp_tunnel	= 0x0B00,
-@@ -268,6 +270,8 @@ enum i40e_admin_queue_opc {
- 	/* OEM commands */
- 	i40e_aqc_opc_oem_parameter_change	= 0xFE00,
- 	i40e_aqc_opc_oem_device_status_change	= 0xFE01,
-+	i40e_aqc_opc_oem_ocsd_initialize	= 0xFE02,
-+	i40e_aqc_opc_oem_ocbb_initialize	= 0xFE03,
+ 	/* clear things first */
+@@ -2832,11 +2833,13 @@ static void i40e_enable_misc_int_causes(struct i40e_hw *hw)
+ 	      I40E_PFINT_ICR0_ENA_GRST_MASK          |
+ 	      I40E_PFINT_ICR0_ENA_PCI_EXCEPTION_MASK |
+ 	      I40E_PFINT_ICR0_ENA_GPIO_MASK          |
+-	      I40E_PFINT_ICR0_ENA_TIMESYNC_MASK      |
+ 	      I40E_PFINT_ICR0_ENA_HMC_ERR_MASK       |
+ 	      I40E_PFINT_ICR0_ENA_VFLR_MASK          |
+ 	      I40E_PFINT_ICR0_ENA_ADMINQ_MASK;
  
- 	/* debug commands */
- 	i40e_aqc_opc_debug_get_deviceid		= 0xFF00,
-@@ -454,6 +458,7 @@ struct i40e_aqc_arp_proxy_data {
- 	__le32	pfpm_proxyfc;
- 	__le32	ip_addr;
- 	u8	mac_addr[6];
-+	u8	reserved[2];
- };
- 
- I40E_CHECK_STRUCT_LEN(0x14, i40e_aqc_arp_proxy_data);
-@@ -1854,21 +1859,32 @@ struct i40e_aqc_nvm_config_write {
- 
- I40E_CHECK_CMD_LENGTH(i40e_aqc_nvm_config_write);
- 
-+/* Used for 0x0704 as well as for 0x0705 commands */
-+#define I40E_AQ_ANVM_FEATURE_OR_IMMEDIATE_SHIFT		1
-+#define I40E_AQ_ANVM_FEATURE_OR_IMMEDIATE_MASK \
-+				(1 << I40E_AQ_ANVM_FEATURE_OR_IMMEDIATE_SHIFT)
-+#define I40E_AQ_ANVM_FEATURE		0
-+#define I40E_AQ_ANVM_IMMEDIATE_FIELD	(1 << FEATURE_OR_IMMEDIATE_SHIFT)
- struct i40e_aqc_nvm_config_data_feature {
- 	__le16 feature_id;
--	__le16 instance_id;
-+#define I40E_AQ_ANVM_FEATURE_OPTION_OEM_ONLY		0x01
-+#define I40E_AQ_ANVM_FEATURE_OPTION_DWORD_MAP		0x08
-+#define I40E_AQ_ANVM_FEATURE_OPTION_POR_CSR		0x10
- 	__le16 feature_options;
- 	__le16 feature_selection;
- };
- 
-+I40E_CHECK_STRUCT_LEN(0x6, i40e_aqc_nvm_config_data_feature);
++	if (pf->flags & I40E_FLAG_PTP)
++		val |= I40E_PFINT_ICR0_ENA_TIMESYNC_MASK;
 +
- struct i40e_aqc_nvm_config_data_immediate_field {
--#define ANVM_FEATURE_OR_IMMEDIATE_MASK	0x2
--	__le16 field_id;
--	__le16 instance_id;
-+	__le32 field_id;
-+	__le32 field_value;
- 	__le16 field_options;
--	__le16 field_value;
-+	__le16 reserved;
- };
+ 	wr32(hw, I40E_PFINT_ICR0_ENA, val);
  
-+I40E_CHECK_STRUCT_LEN(0xc, i40e_aqc_nvm_config_data_immediate_field);
-+
- /* Send to PF command (indirect 0x0801) id is only used by PF
-  * Send to VF command (indirect 0x0802) id is only used by PF
-  * Send to Peer PF command (indirect 0x0803)
-@@ -2069,12 +2085,54 @@ struct i40e_aqc_get_cee_dcb_cfg_resp {
- 	u8	oper_tc_bw[8];
- 	u8	oper_pfc_en;
- 	__le16	oper_app_prio;
-+#define I40E_AQC_CEE_APP_FCOE_SHIFT	0x0
-+#define I40E_AQC_CEE_APP_FCOE_MASK	(0x7 << I40E_AQC_CEE_APP_FCOE_SHIFT)
-+#define I40E_AQC_CEE_APP_ISCSI_SHIFT	0x3
-+#define I40E_AQC_CEE_APP_ISCSI_MASK	(0x7 << I40E_AQC_CEE_APP_ISCSI_SHIFT)
-+#define I40E_AQC_CEE_APP_FIP_SHIFT	0x8
-+#define I40E_AQC_CEE_APP_FIP_MASK	(0x7 << I40E_AQC_CEE_APP_FIP_SHIFT)
-+#define I40E_AQC_CEE_APP_FIP_MASK	(0x7 << I40E_AQC_CEE_APP_FIP_SHIFT)
- 	__le32	tlv_status;
-+#define I40E_AQC_CEE_PG_STATUS_SHIFT	0x0
-+#define I40E_AQC_CEE_PG_STATUS_MASK	(0x7 << I40E_AQC_CEE_PG_STATUS_SHIFT)
-+#define I40E_AQC_CEE_PFC_STATUS_SHIFT	0x3
-+#define I40E_AQC_CEE_PFC_STATUS_MASK	(0x7 << I40E_AQC_CEE_PFC_STATUS_SHIFT)
-+#define I40E_AQC_CEE_APP_STATUS_SHIFT	0x8
-+#define I40E_AQC_CEE_APP_STATUS_MASK	(0x7 << I40E_AQC_CEE_APP_STATUS_SHIFT)
- 	u8	reserved[12];
- };
+ 	/* SW_ITR_IDX = 0, but don't change INTENA */
+@@ -2866,7 +2869,7 @@ static void i40e_configure_msi_and_legacy(struct i40e_vsi *vsi)
+ 	q_vector->tx.latency_range = I40E_LOW_LATENCY;
+ 	wr32(hw, I40E_PFINT_ITR0(I40E_TX_ITR), q_vector->tx.itr);
  
- I40E_CHECK_STRUCT_LEN(0x20, i40e_aqc_get_cee_dcb_cfg_resp);
+-	i40e_enable_misc_int_causes(hw);
++	i40e_enable_misc_int_causes(pf);
  
-+/*	Set Local LLDP MIB (indirect 0x0A08)
-+ *	Used to replace the local MIB of a given LLDP agent. e.g. DCBx
-+ */
-+struct i40e_aqc_lldp_set_local_mib {
-+#define SET_LOCAL_MIB_AC_TYPE_DCBX_SHIFT	0
-+#define SET_LOCAL_MIB_AC_TYPE_DCBX_MASK	(1 << SET_LOCAL_MIB_AC_TYPE_DCBX_SHIFT)
-+	u8	type;
-+	u8	reserved0;
-+	__le16	length;
-+	u8	reserved1[4];
-+	__le32	address_high;
-+	__le32	address_low;
-+};
-+
-+I40E_CHECK_CMD_LENGTH(i40e_aqc_lldp_set_local_mib);
-+
-+/*	Stop/Start LLDP Agent (direct 0x0A09)
-+ *	Used for stopping/starting specific LLDP agent. e.g. DCBx
-+ */
-+struct i40e_aqc_lldp_stop_start_specific_agent {
-+#define I40E_AQC_START_SPECIFIC_AGENT_SHIFT	0
-+#define I40E_AQC_START_SPECIFIC_AGENT_MASK \
-+				(1 << I40E_AQC_START_SPECIFIC_AGENT_SHIFT)
-+	u8	command;
-+	u8	reserved[15];
-+};
-+
-+I40E_CHECK_CMD_LENGTH(i40e_aqc_lldp_stop_start_specific_agent);
-+
- /* Add Udp Tunnel command and completion (direct 0x0B00) */
- struct i40e_aqc_add_udp_tunnel {
- 	__le16	udp_port;
-@@ -2164,6 +2222,28 @@ struct i40e_aqc_oem_state_change {
+ 	/* FIRSTQ_INDX = 0, FIRSTQ_TYPE = 0 (rx) */
+ 	wr32(hw, I40E_PFINT_LNKLST0, 0);
+@@ -7137,7 +7140,7 @@ static int i40e_setup_misc_vector(struct i40e_pf *pf)
+ 		}
+ 	}
  
- I40E_CHECK_CMD_LENGTH(i40e_aqc_oem_state_change);
+-	i40e_enable_misc_int_causes(hw);
++	i40e_enable_misc_int_causes(pf);
  
-+/* Initialize OCSD (0xFE02, direct) */
-+struct i40e_aqc_opc_oem_ocsd_initialize {
-+	u8 type_status;
-+	u8 reserved1[3];
-+	__le32 ocsd_memory_block_addr_high;
-+	__le32 ocsd_memory_block_addr_low;
-+	__le32 requested_update_interval;
-+};
-+
-+I40E_CHECK_CMD_LENGTH(i40e_aqc_opc_oem_ocsd_initialize);
-+
-+/* Initialize OCBB  (0xFE03, direct) */
-+struct i40e_aqc_opc_oem_ocbb_initialize {
-+	u8 type_status;
-+	u8 reserved1[3];
-+	__le32 ocbb_memory_block_addr_high;
-+	__le32 ocbb_memory_block_addr_low;
-+	u8 reserved2[4];
-+};
-+
-+I40E_CHECK_CMD_LENGTH(i40e_aqc_opc_oem_ocbb_initialize);
-+
- /* debug commands */
- 
- /* get device id (0xFF00) uses the generic structure */
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h b/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
-index 5363cbf..e715bcc 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
-@@ -268,6 +268,8 @@ enum i40e_admin_queue_opc {
- 	/* OEM commands */
- 	i40e_aqc_opc_oem_parameter_change	= 0xFE00,
- 	i40e_aqc_opc_oem_device_status_change	= 0xFE01,
-+	i40e_aqc_opc_oem_ocsd_initialize	= 0xFE02,
-+	i40e_aqc_opc_oem_ocbb_initialize	= 0xFE03,
- 
- 	/* debug commands */
- 	i40e_aqc_opc_debug_get_deviceid		= 0xFF00,
-@@ -454,6 +456,7 @@ struct i40e_aqc_arp_proxy_data {
- 	__le32	pfpm_proxyfc;
- 	__le32	ip_addr;
- 	u8	mac_addr[6];
-+	u8	reserved[2];
- };
- 
- I40E_CHECK_STRUCT_LEN(0x14, i40e_aqc_arp_proxy_data);
-@@ -1854,21 +1857,32 @@ struct i40e_aqc_nvm_config_write {
- 
- I40E_CHECK_CMD_LENGTH(i40e_aqc_nvm_config_write);
- 
-+/* Used for 0x0704 as well as for 0x0705 commands */
-+#define I40E_AQ_ANVM_FEATURE_OR_IMMEDIATE_SHIFT		1
-+#define I40E_AQ_ANVM_FEATURE_OR_IMMEDIATE_MASK \
-+				(1 << I40E_AQ_ANVM_FEATURE_OR_IMMEDIATE_SHIFT)
-+#define I40E_AQ_ANVM_FEATURE		0
-+#define I40E_AQ_ANVM_IMMEDIATE_FIELD	(1 << FEATURE_OR_IMMEDIATE_SHIFT)
- struct i40e_aqc_nvm_config_data_feature {
- 	__le16 feature_id;
--	__le16 instance_id;
-+#define I40E_AQ_ANVM_FEATURE_OPTION_OEM_ONLY		0x01
-+#define I40E_AQ_ANVM_FEATURE_OPTION_DWORD_MAP		0x08
-+#define I40E_AQ_ANVM_FEATURE_OPTION_POR_CSR		0x10
- 	__le16 feature_options;
- 	__le16 feature_selection;
- };
- 
-+I40E_CHECK_STRUCT_LEN(0x6, i40e_aqc_nvm_config_data_feature);
-+
- struct i40e_aqc_nvm_config_data_immediate_field {
--#define ANVM_FEATURE_OR_IMMEDIATE_MASK	0x2
--	__le16 field_id;
--	__le16 instance_id;
-+	__le32 field_id;
-+	__le32 field_value;
- 	__le16 field_options;
--	__le16 field_value;
-+	__le16 reserved;
- };
- 
-+I40E_CHECK_STRUCT_LEN(0xc, i40e_aqc_nvm_config_data_immediate_field);
-+
- /* Send to PF command (indirect 0x0801) id is only used by PF
-  * Send to VF command (indirect 0x0802) id is only used by PF
-  * Send to Peer PF command (indirect 0x0803)
-@@ -2140,6 +2154,28 @@ struct i40e_aqc_oem_state_change {
- 
- I40E_CHECK_CMD_LENGTH(i40e_aqc_oem_state_change);
- 
-+/* Initialize OCSD (0xFE02, direct) */
-+struct i40e_aqc_opc_oem_ocsd_initialize {
-+	u8 type_status;
-+	u8 reserved1[3];
-+	__le32 ocsd_memory_block_addr_high;
-+	__le32 ocsd_memory_block_addr_low;
-+	__le32 requested_update_interval;
-+};
-+
-+I40E_CHECK_CMD_LENGTH(i40e_aqc_opc_oem_ocsd_initialize);
-+
-+/* Initialize OCBB  (0xFE03, direct) */
-+struct i40e_aqc_opc_oem_ocbb_initialize {
-+	u8 type_status;
-+	u8 reserved1[3];
-+	__le32 ocbb_memory_block_addr_high;
-+	__le32 ocbb_memory_block_addr_low;
-+	u8 reserved2[4];
-+};
-+
-+I40E_CHECK_CMD_LENGTH(i40e_aqc_opc_oem_ocbb_initialize);
-+
- /* debug commands */
- 
- /* get device id (0xFF00) uses the generic structure */
+ 	/* associate no queues to the misc vector */
+ 	wr32(hw, I40E_PFINT_LNKLST0, I40E_QUEUE_END_OF_LIST);
 -- 
 1.9.3
