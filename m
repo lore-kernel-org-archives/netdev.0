@@ -1,64 +1,38 @@
-From: Shuah Khan <shuahkh@osg.samsung.com>
-Subject: Re: [PATCH 2/6] selftests: Add install target
-Date: Fri, 16 Jan 2015 10:46:29 -0700
-Message-ID: <54B94E75.8030504@osg.samsung.com>
-References: <1420794375-31881-1-git-send-email-mpe@ellerman.id.au> <1420794375-31881-2-git-send-email-mpe@ellerman.id.au>
+From: Ben Hutchings <ben.hutchings@codethink.co.uk>
+Subject: [PATCH net 0/2] sh_eth fixes
+Date: Fri, 16 Jan 2015 17:49:52 +0000
+Message-ID: <1421430592.1222.190.camel@xylophone.i.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 8bit
-Cc: mmarek@suse.cz, gregkh@linuxfoundation.org,
-	akpm@linux-foundation.org, rostedt@goodmis.org, mingo@redhat.com,
-	davem@davemloft.net, keescook@chromium.org, tranmanphong@gmail.com,
-	cov@codeaurora.org, dh.herrmann@gmail.com, hughd@google.com,
-	bobby.prani@gmail.com, serge.hallyn@ubuntu.com,
-	ebiederm@xmission.com, tim.bird@sonymobile.com,
-	josh@joshtriplett.org, koct9i@gmail.com,
-	linux-kbuild@vger.kernel.org, linux-api@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Michael Ellerman <mpe@ellerman.id.au>, linux-kernel@vger.kernel.org
-Return-path: <linux-kbuild-owner@vger.kernel.org>
-In-Reply-To: <1420794375-31881-2-git-send-email-mpe@ellerman.id.au>
-Sender: linux-kbuild-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@lists.codethink.co.uk,
+	Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>,
+	Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>,
+	Hisashi Nakamura <hisashi.nakamura.ak@renesas.com>,
+	Yoshihiro Kaneko <ykaneko0929@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ducie-dc1.codethink.co.uk ([185.25.241.215]:47060 "EHLO
+	ducie-dc1.codethink.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751415AbbAPRt5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Jan 2015 12:49:57 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/09/2015 02:06 AM, Michael Ellerman wrote:
-> This adds make install support to selftests. The basic usage is:
-> 
-> $ cd tools/testing/selftests
-> $ make install
-> 
-> That installs into tools/testing/selftests/install, which can then be
-> copied where ever necessary.
-> 
-> The install destination is also configurable using eg:
-> 
-> $ INSTALL_PATH=/mnt/selftests make install
+I'm currently looking at Ethernet support on the R-Car H2 chip,
+reviewing and testing the sh_eth driver.  Here are fixes for two fairly
+obvious bugs in the driver; I will probably have some more later.
 
-Please see my response to [PATCH 4/6] kbuild: add a new
-kselftest_install make target to install selftests
+These are not tested on any of the other supported chips.
 
-These are addressed by the current approach to use existing
-INSTALL_MOD_PATH.
+Ben.
 
-> 
-> The implementation uses two targets in the child makefiles. The first
-> "install" is expected to install all files into $(INSTALL_PATH).
-> 
-> The second, "emit_tests", is expected to emit the test instructions (ie.
-> bash script) on stdout. Separating this from install means the child
-> makefiles need no knowledge of the location of the test script.
+Ben Hutchings (2):
+  sh_eth: Fix promiscuous mode on chips without TSU
+  sh_eth: Fix ethtool operation crash when net device is down
 
-Yes. Removing the need for individual makefiles to know the install
-path details would be a good improvement to make on top of my patch v4
-series.
-
-thanks,
--- Shuah
-
+ drivers/net/ethernet/renesas/sh_eth.c |   28 +++++++++++++++++++---------
+ 1 file changed, 19 insertions(+), 9 deletions(-)
 
 -- 
-Shuah Khan
-Sr. Linux Kernel Developer
-Open Source Innovation Group
-Samsung Research America (Silicon Valley)
-shuahkh@osg.samsung.com | (970) 217-8978
+1.7.10.4
