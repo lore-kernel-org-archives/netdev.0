@@ -1,115 +1,112 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 00/17][pull request] Intel Wired LAN Driver Updates 2015-01-16
-Date: Fri, 16 Jan 2015 05:28:49 -0800
-Message-ID: <1421414946-22179-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
+Subject: [net-next v2 05/17] i40e: Add define for interrupt name string len
+Date: Fri, 16 Jan 2015 05:28:54 -0800
+Message-ID: <1421414946-22179-6-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1421414946-22179-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga11.intel.com ([192.55.52.93]:5721 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755256AbbAPN3P (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 Jan 2015 08:29:15 -0500
+	id S1755457AbbAPN3R (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 Jan 2015 08:29:17 -0500
+In-Reply-To: <1421414946-22179-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to i40e and i40evf.
+From: Carolyn Wyborny <carolyn.wyborny@intel.com>
 
-This series is a little bit larger than normal because two of the patches are
-version bumps.
+This patch creates a define for interrupt name string configuration that
+is large enough to contain full bus/slot info, rather than just netdev->name.
 
-Shannon provides tweaks to i40e and i40evf to keep the firmware, software
-and silicon validation in line together by removing unused and
-deprecated code, adding define for iSCSI and fix queue mask size.  Fix
-i40e so we do not give up in the reset/rebuild process if DCB setup
-fails, just handle it the same as in the probe setup.  Cleans up PTP
-log messages by removing the use of __func__ as we are not using that
-any longer and removes the netdev name, since that can change and can
-be misleading.  Adds struct size checks to indirect and command
-structs that were left out previously.  Added admin queue API updates
-(LLDP control, OEM OCSD and OCBB commands).
+Change-ID: Iaac0d23dfb8526defeed69d91cea85ed4a50ddb2
+Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e.h      |  5 +++--
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 12 ++++++------
+ 2 files changed, 9 insertions(+), 8 deletions(-)
 
-Kevin increases ASQ timeout for scenarios with multi-function devices.
-
-Carolyn fixes a problem where the interrupts descriptions from the MSIx
-configuration were truncating the needed bus info, which makes it hard
-to distinguish configurations from port to port.  Increased the string
-buffer size in order to allow the full data to be displayed.
-
-Sravanthi cleans up the dump stats string from debugfs.
-
-Jacob updates i40e to only enable the PTP interrupt in PFs which have PTP
-enabled, instead of blindly enabling the PTP interrupt flags for all PFs.
-Also updated i40e so that we do not do Tx or Rx timestamps if we do not
-have PTP enabled.  Added the same check against pf->ptp_rx as we have
-in Rx timestamp code path because it is possible that the user can
-configure only Tx hardware timestamping so we do not want to check for
-Rx timestamp hang since the software won't be handling them.
-
-Neerav updates the driver to disable firmware LLDP agent for NICs with
-a firmware version lower than v4.3 and added a message when this happens.
-Adds parsing and reporting of iSCSI capability for a given device or
-function, as well as adding support for iSCSI partition type with DCB
-in NPAR mode.
-
-v2:
- - Dropped patch 10 "i40e: clean up PTP log messages" based on feedback
-   from David Laight and David Miller
- - Split up the original patch 13 "i40e: AQ API updates for new commands"
-   into 2 patches (now #12 & #13) based on feedback from Or Gerlitz
-
-The following are changes since commit 919d9db9521862d01712d9be25cd6ebfcc353eed:
-  netlink: Fix netlink_insert EADDRINUSE error
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
-
-Carolyn Wyborny (2):
-  i40e: fix proc/int descriptions
-  i40e: Add define for interrupt name string len
-
-Catherine Sullivan (1):
-  i40e/i40evf: Bump i40e/i40evf versions
-
-Jacob Keller (4):
-  i40e: only enable PTP interrupt cause if PTP is enabled
-  i40e: check I40E_FLAG_PTP before handling Tx or Rx timestamps
-  i40e: use same check for Rx hang as for Rx timestamps
-  i40e: when Rx timestamps disabled set specific mode
-
-Jeff Kirsher (1):
-  i40e: AQ API updates
-
-Kevin Scott (1):
-  i40e/i40evf: Increase ASQ timeout
-
-Neerav Parikh (2):
-  i40e: Issue "Stop LLDP" command for firmware older than v4.3
-  i40e: Support for NPAR iSCSI partition with DCB
-
-Shannon Nelson (4):
-  i40e/i40evf: AdminQ updates ww36
-  i40e: don't give up on DCB error after reset
-  i40e: add more struct size checks
-  i40e: AQ API updates for new commands
-
-Sravanthi Tangeda (2):
-  i40e: Dump Stats string removed from debugfs help command
-  i40e/i40evf: Bump i40e and i40evf versions
-
- drivers/net/ethernet/intel/i40e/i40e.h             |   5 +-
- drivers/net/ethernet/intel/i40e/i40e_adminq.h      |   2 +-
- drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h  | 152 +++++++++++++++++++--
- drivers/net/ethernet/intel/i40e/i40e_common.c      |   5 +
- drivers/net/ethernet/intel/i40e/i40e_debugfs.c     |   1 -
- drivers/net/ethernet/intel/i40e/i40e_main.c        | 120 +++++++++++-----
- drivers/net/ethernet/intel/i40e/i40e_ptp.c         |  44 ++++--
- drivers/net/ethernet/intel/i40e/i40e_txrx.c        |   3 +
- drivers/net/ethernet/intel/i40e/i40e_type.h        |   1 +
- drivers/net/ethernet/intel/i40evf/i40e_adminq.h    |   2 +-
- .../net/ethernet/intel/i40evf/i40e_adminq_cmd.h    | 108 +++++++++++++--
- drivers/net/ethernet/intel/i40evf/i40e_type.h      |   1 +
- drivers/net/ethernet/intel/i40evf/i40evf_main.c    |   2 +-
- 13 files changed, 365 insertions(+), 81 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
+index fc50f64..fadf8fa 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e.h
++++ b/drivers/net/ethernet/intel/i40e/i40e.h
+@@ -92,6 +92,7 @@
+ #define I40E_MAX_USER_PRIORITY        8
+ #define I40E_DEFAULT_MSG_ENABLE       4
+ #define I40E_QUEUE_WAIT_RETRY_LIMIT   10
++#define I40E_INT_NAME_STR_LEN        (IFNAMSIZ + 9)
+ 
+ #define I40E_NVM_VERSION_LO_SHIFT  0
+ #define I40E_NVM_VERSION_LO_MASK   (0xff << I40E_NVM_VERSION_LO_SHIFT)
+@@ -268,7 +269,7 @@ struct i40e_pf {
+ 	u16 rx_itr_default;
+ 	u16 tx_itr_default;
+ 	u16 msg_enable;
+-	char misc_int_name[IFNAMSIZ + 9];
++	char int_name[I40E_INT_NAME_STR_LEN];
+ 	u16 adminq_work_limit; /* num of admin receive queue desc to process */
+ 	unsigned long service_timer_period;
+ 	unsigned long service_timer_previous;
+@@ -524,7 +525,7 @@ struct i40e_q_vector {
+ 
+ 	cpumask_t affinity_mask;
+ 	struct rcu_head rcu;	/* to avoid race with update stats on free */
+-	char name[IFNAMSIZ + 9];
++	char name[I40E_INT_NAME_STR_LEN];
+ } ____cacheline_internodealigned_in_smp;
+ 
+ /* lan device */
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index fd6411e..4d1fe56 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -3402,10 +3402,10 @@ static int i40e_vsi_request_irq(struct i40e_vsi *vsi, char *basename)
+ 		err = i40e_vsi_request_irq_msix(vsi, basename);
+ 	else if (pf->flags & I40E_FLAG_MSI_ENABLED)
+ 		err = request_irq(pf->pdev->irq, i40e_intr, 0,
+-				  pf->misc_int_name, pf);
++				  pf->int_name, pf);
+ 	else
+ 		err = request_irq(pf->pdev->irq, i40e_intr, IRQF_SHARED,
+-				  pf->misc_int_name, pf);
++				  pf->int_name, pf);
+ 
+ 	if (err)
+ 		dev_info(&pf->pdev->dev, "request_irq failed, Error %d\n", err);
+@@ -4846,7 +4846,7 @@ static int i40e_open(struct net_device *netdev)
+ int i40e_vsi_open(struct i40e_vsi *vsi)
+ {
+ 	struct i40e_pf *pf = vsi->back;
+-	char int_name[IFNAMSIZ + 9];
++	char int_name[I40E_INT_NAME_STR_LEN];
+ 	int err;
+ 
+ 	/* allocate descriptors */
+@@ -7128,11 +7128,11 @@ static int i40e_setup_misc_vector(struct i40e_pf *pf)
+ 	 */
+ 	if (!test_bit(__I40E_RESET_RECOVERY_PENDING, &pf->state)) {
+ 		err = request_irq(pf->msix_entries[0].vector,
+-				  i40e_intr, 0, pf->misc_int_name, pf);
++				  i40e_intr, 0, pf->int_name, pf);
+ 		if (err) {
+ 			dev_info(&pf->pdev->dev,
+ 				 "request_irq for %s failed: %d\n",
+-				 pf->misc_int_name, err);
++				 pf->int_name, err);
+ 			return -EFAULT;
+ 		}
+ 	}
+@@ -9179,7 +9179,7 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	hw->aq.asq_buf_size = I40E_MAX_AQ_BUF_SIZE;
+ 	pf->adminq_work_limit = I40E_AQ_WORK_LIMIT;
+ 
+-	snprintf(pf->misc_int_name, sizeof(pf->misc_int_name) - 1,
++	snprintf(pf->int_name, sizeof(pf->int_name) - 1,
+ 		 "%s-%s:misc",
+ 		 dev_driver_string(&pf->pdev->dev), dev_name(&pdev->dev));
+ 
 -- 
 1.9.3
