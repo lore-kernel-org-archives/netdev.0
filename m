@@ -1,81 +1,88 @@
-From: subashab@codeaurora.org
-Subject: [PATCH] net: ipv4: Fix incorrect free in ICMP receive
-Date: Fri, 16 Jan 2015 07:48:36 -0000
-Message-ID: <05e337f44c7a71ac317194cfa3dcdf62.squirrel@www.codeaurora.org>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [PATCH net-next v12 5/5] openvswitch: Add support for unique flow IDs.
+Date: Fri, 16 Jan 2015 00:07:01 -0800
+Message-ID: <CALnjE+o5kXhDK+uaE4ajF2MAWwgG21rhYNgpD70rWLQc9AQqHg@mail.gmail.com>
+References: <1421358507-5992-1-git-send-email-joestringer@nicira.com>
+	<1421358507-5992-6-git-send-email-joestringer@nicira.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.11.231]:46998 "EHLO
-	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752511AbbAPHsg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Jan 2015 02:48:36 -0500
-Received: from www.codeaurora.org (pdx-caf-fw-vip.codeaurora.org [198.145.11.226])
-	by smtp.codeaurora.org (Postfix) with ESMTP id 7257C140D2D
-	for <netdev@vger.kernel.org>; Fri, 16 Jan 2015 07:48:36 +0000 (UTC)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	"dev@openvswitch.org" <dev@openvswitch.org>
+To: Joe Stringer <joestringer@nicira.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1421358507-5992-6-git-send-email-joestringer@nicira.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-An exception is seen in ICMP ping receive path where the skb
-destructor sock_rfree() tries to access a freed socket. This happens
-because ping_rcv() releases socket reference with sock_put() and this
-internally frees up the socket. Later icmp_rcv() will try to free the
-skb and as part of this, skb destructor is called and panics as the
-socket is freed already in ping_rcv().
+On Thu, Jan 15, 2015 at 1:48 PM, Joe Stringer <joestringer@nicira.com> wrote:
+> Previously, flows were manipulated by userspace specifying a full,
+> unmasked flow key. This adds significant burden onto flow
+> serialization/deserialization, particularly when dumping flows.
+>
+> This patch adds an alternative way to refer to flows using a
+> variable-length "unique flow identifier" (UFID). At flow setup time,
+> userspace may specify a UFID for a flow, which is stored with the flow
+> and inserted into a separate table for lookup, in addition to the
+> standard flow table. Flows created using a UFID must be fetched or
+> deleted using the UFID.
+>
+> All flow dump operations may now be made more terse with OVS_UFID_F_*
+> flags. For example, the OVS_UFID_F_OMIT_KEY flag allows responses to
+> omit the flow key from a datapath operation if the flow has a
+> corresponding UFID. This significantly reduces the time spent assembling
+> and transacting netlink messages. With all OVS_UFID_F_OMIT_* flags
+> enabled, the datapath only returns the UFID and statistics for each flow
+> during flow dump, increasing ovs-vswitchd revalidator performance by 40%
+> or more.
+>
+> Signed-off-by: Joe Stringer <joestringer@nicira.com>
+Patch looks pretty good now. I have one comment below.
 
-WARN stack trace @       WARN_ON(atomic_read(&sk->sk_rmem_alloc));
-dump_backtrace+0x0/0x248
-show_stack+0x10/0x1c
-dump_stack+0x1c/0x28
-warn_slowpath_common+0x74/0x9c
-warn_slowpath_null+0x14/0x20
-inet_sock_destruct+0x130/0x1a0
-__sk_free+0x1c/0x168
-sk_free+0x24/0x30
-ping_rcv+0xf4/0x124
-icmp_rcv+0x224/0x2c4
-ip_local_deliver_finish+0x108/0x214
-ip_local_deliver+0x88/0xa0
-ip_rcv_finish+0x234/0x284
-ip_rcv+0x258/0x2e8
-__netif_receive_skb_core+0x640/0x6b4
-<snip>
+> +#define MAX_UFID_LENGTH 16 /* 128 bits */
+> +
+> +struct sw_flow_id {
+> +       u32 ufid_len;
+> +       union {
+> +               u32 ufid[MAX_UFID_LENGTH / 4];
+> +               struct sw_flow_key flow_key;
+> +       };
+> +};
+> +
+>  struct sw_flow_actions {
+>         struct rcu_head rcu;
+>         u32 actions_len;
+> @@ -213,13 +223,15 @@ struct flow_stats {
+>
+>  struct sw_flow {
+>         struct rcu_head rcu;
+> -       struct hlist_node hash_node[2];
+> -       u32 hash;
+> +       struct {
+> +               struct hlist_node node[2];
+> +               u32 hash;
+> +       } flow_table, ufid_table;
+>         int stats_last_writer;          /* NUMA-node id of the last writer on
+>                                          * 'stats[0]'.
+>                                          */
+>         struct sw_flow_key key;
+> -       struct sw_flow_key unmasked_key;
+> +       struct sw_flow_id *id;
+>         struct sw_flow_mask *mask;
+>         struct sw_flow_actions __rcu *sf_acts;
+>         struct flow_stats __rcu *stats[]; /* One for each NUMA node.  First one
+> @@ -243,6 +255,16 @@ struct arp_eth_header {
+>         unsigned char       ar_tip[4];          /* target IP address        */
+>  } __packed;
+>
+In last round we agreed on following struct flow-id which saves around
+four hundred bytes per flow and kmalloc per flow add operation for
+common case. Is there any reason for not doing it?
 
--->|exception
--007|sk_mem_uncharge
--007|sock_rfree
--008|skb_release_head_state
--009|skb_release_all
--009|__kfree_skb
--010|kfree_skb
--011|icmp_rcv
--012|ip_local_deliver_finish
-
-Fix this by orphaning the skb's before freeing the socket
-
-Signed-off-by: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
----
- net/ipv4/af_inet.c | 6 ++++++
- 1 file changed, 6 insertions(+)
-
-diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index b507a47..0c58f0e5 100644
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -147,6 +147,12 @@ EXPORT_SYMBOL(ipv4_config);
- void inet_sock_destruct(struct sock *sk)
- {
- 	struct inet_sock *inet = inet_sk(sk);
-+	struct sk_buff *skb;
-+
-+	skb_queue_walk(&sk->sk_receive_queue, skb)
-+		skb_orphan(skb);
-+	skb_queue_walk(&sk->sk_error_queue, skb)
-+		skb_orphan(skb);
-
- 	__skb_queue_purge(&sk->sk_receive_queue);
- 	__skb_queue_purge(&sk->sk_error_queue);
--- 
-The Qualcomm Innovation Center, Inc. is a member of Code Aurora Forum,
- a Linux Foundation Collaborative Project
+struct {
+     u32 ufid_len;
+     union {
+         u32 ufid[MAX_UFID_LENGTH / 4];
+         struct sw_flow_key *unmasked_key;
+     }
+} id;
