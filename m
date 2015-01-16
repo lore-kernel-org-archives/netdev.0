@@ -1,36 +1,85 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2 net] net: rps: fix cpu unplug
-Date: Thu, 15 Jan 2015 17:21:21 -0800
-Message-ID: <1421371281.11734.112.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <75547b88b7e2d15b35339a6321c3a929.squirrel@www.codeaurora.org>
-	 <1421305282.11734.38.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <4504851fe2f44615e67cde94286a2fdd.squirrel@www.codeaurora.org>
-	 <1421350095.11734.88.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1421358383.11734.97.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1421370262.11734.111.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Felipe Balbi <balbi@ti.com>
+Subject: Re: [patch-net-next v2 3/3] net: ethernet: cpsw: don't requests IRQs
+ we don't use
+Date: Thu, 15 Jan 2015 19:28:52 -0600
+Message-ID: <20150116012852.GA3115@saruman>
+References: <1421254729-10602-3-git-send-email-balbi@ti.com>
+ <54B770FC.6060003@ti.com>
+ <20150115152053.GA16409@saruman>
+ <20150115.181615.498992970722065060.davem@davemloft.net>
+Reply-To: <balbi@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Prasad Sodagudi <psodagud@codeaurora.org>, netdev@vger.kernel.org,
-	Tom Herbert <therbert@google.com>
-To: subashab@codeaurora.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="OXfL5xGRrasGEqWY"
+Cc: <balbi@ti.com>, <mugunthanvnm@ti.com>, <tony@atomide.com>,
+	<linux-omap@vger.kernel.org>, <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f170.google.com ([209.85.223.170]:53126 "EHLO
-	mail-ie0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932139AbbAPBVX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jan 2015 20:21:23 -0500
-Received: by mail-ie0-f170.google.com with SMTP id rd18so18333978iec.1
-        for <netdev@vger.kernel.org>; Thu, 15 Jan 2015 17:21:22 -0800 (PST)
-In-Reply-To: <1421370262.11734.111.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from arroyo.ext.ti.com ([192.94.94.40]:60164 "EHLO arroyo.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752871AbbAPB3i (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Jan 2015 20:29:38 -0500
+Content-Disposition: inline
+In-Reply-To: <20150115.181615.498992970722065060.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2015-01-15 at 17:04 -0800, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
-> 
+--OXfL5xGRrasGEqWY
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Small note : this patch was based on net-next but applies correctly to
-net tree
+On Thu, Jan 15, 2015 at 06:16:15PM -0500, David Miller wrote:
+> From: Felipe Balbi <balbi@ti.com>
+> Date: Thu, 15 Jan 2015 09:20:53 -0600
+>=20
+> > On Thu, Jan 15, 2015 at 01:19:16PM +0530, Mugunthan V N wrote:
+> >> On Wednesday 14 January 2015 10:28 PM, Felipe Balbi wrote:
+> >> > CPSW never uses RX_THRESHOLD or MISC interrupts. In
+> >> > fact, they are always kept masked in their appropriate
+> >> > IRQ Enable register.
+> >> >=20
+> >> > Instead of allocating an IRQ that never fires, it's best
+> >> > to remove that code altogether and let future patches
+> >> > implement it if anybody needs those.
+> >> >=20
+> >> > Signed-off-by: Felipe Balbi <balbi@ti.com>
+> >>=20
+> >> Instead of introducing dummy ISR in previous patch and then removing in
+> >> this patch, both can be squashed into a single patch.
+> >=20
+> > sure they can. I decided to split to ease review and to make sure only
+> > one thing happens in a single patch.
+>=20
+> Indeed, I agree that adding something as a placeholder that just gets
+> immediately removed should be avoided unless it is extremely difficult
+> to do so.
 
-Hunk #1 succeeded at 7072 (offset -3 lines).
-Hunk #2 succeeded at 7096 (offset -3 lines).
+what does this mean ? you prefer both patches to be combined ?
+
+--=20
+balbi
+
+--OXfL5xGRrasGEqWY
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIcBAEBAgAGBQJUuGlUAAoJEIaOsuA1yqREEB0P/RezNPTcHxm/FU+CnzlAII9Y
+ZJTZ8Uck+6ardLCdd/O0PwlzFjYOTzNNnF1UfsnE1ngsaeYMu06kCyFJKrqwPbGK
+eAzIpXhsqr1YKrO7Y3sGEIxdnsvL0E/OwuUJnBCSa6IligaaFkgCgjj2xFETcbal
+QwGHUoUYtG4nDcXSttaEJH/Qw8w8ftUZeXYG8DZrQZ5t/WNjiZmfzZtHGY9f/BwI
+Ue1DmssivLOIPiZ1BaJQglCJ0khlwnDuLEcVms51048ONPEU2QjGOs+0VYtYFNuX
+YeIMwTrOMSEaMwCrT4N+AYsDdI3DNeE517ftMQtw+Qh40CWywNy55pnNNUID4x5y
+I0iRSRpExOcTJq2i/8GvvpSFV3sXof8Gg3L1hGFfkdGKb3dXcKS/Bjg+KfDMyP9M
+AKxTaB8lKEVf5G7wUzm+SYytnrfaTHbGMEBu9GGIy/s7O5IOXA3cAyZjmDWCDOEP
+6y9aHQndwdiC0W9K7a0xTYSO6mdyn3zC/isoJ5nyp6FRCEWd61kPRfSyiMjs+R5M
+f5zUIjkEbCKoivbIqzdXdI2wXkrKSPY8t1ytnV363lVRfm3QNWp2fS0qfzNX/XpL
+EipxC7HpZy1LhjyAspUDnZB5hPsxJGOOalK2UeiJPdrSOx6b69gbMbw8A8y10HFT
+WRbVvhpVGDj78D8WMZXP
+=So4x
+-----END PGP SIGNATURE-----
+
+--OXfL5xGRrasGEqWY--
