@@ -1,58 +1,59 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 03/17] i40e: fix proc/int descriptions
-Date: Fri, 16 Jan 2015 05:28:52 -0800
-Message-ID: <1421414946-22179-4-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 17/17] i40e/i40evf: Bump i40e and i40evf versions
+Date: Fri, 16 Jan 2015 05:29:06 -0800
+Message-ID: <1421414946-22179-18-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1421414946-22179-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>,
+Cc: Sravanthi Tangeda <sravanthi.tangeda@intel.com>,
 	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
 	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:5721 "EHLO mga11.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:32023 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755386AbbAPN3Q (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 Jan 2015 08:29:16 -0500
+	id S1753743AbbAPN32 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 Jan 2015 08:29:28 -0500
 In-Reply-To: <1421414946-22179-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Carolyn Wyborny <carolyn.wyborny@intel.com>
+From: Sravanthi Tangeda <sravanthi.tangeda@intel.com>
 
-This patch fixes a problem where the /proc/interrupts descriptions
-from the msix configuration were truncating the needed bus info,
-making it hard to distinguish configuration from port to port.
-This patch increases the string buffer size in order to allow the
-full data to be displayed and sync's the text formatting of the misc
-and fdir interrupt names
+Bump i40e to 1.2.6 and i40evf to 1.2.0 version.
 
-Change-ID: Ib01d6c61fb3f4ac70fbdf5bcc520b22638ea54b7
-Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
+Change-ID: Ice127eee3a5a5d1b8765d83cff8c30f9f3b1bc32
+Signed-off-by: Sravanthi Tangeda <sravanthi.tangeda@intel.com>
+Tested-by: Jim Young <james.m.young@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c     | 2 +-
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index f3b036d..cd34d9b 100644
+index f1256f9..e774a23 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -4845,7 +4845,7 @@ static int i40e_open(struct net_device *netdev)
- int i40e_vsi_open(struct i40e_vsi *vsi)
- {
- 	struct i40e_pf *pf = vsi->back;
--	char int_name[IFNAMSIZ];
-+	char int_name[IFNAMSIZ + 9];
- 	int err;
+@@ -39,7 +39,7 @@ static const char i40e_driver_string[] =
  
- 	/* allocate descriptors */
-@@ -4879,7 +4879,7 @@ int i40e_vsi_open(struct i40e_vsi *vsi)
- 			goto err_set_queues;
+ #define DRV_VERSION_MAJOR 1
+ #define DRV_VERSION_MINOR 2
+-#define DRV_VERSION_BUILD 5
++#define DRV_VERSION_BUILD 6
+ #define DRV_VERSION __stringify(DRV_VERSION_MAJOR) "." \
+ 	     __stringify(DRV_VERSION_MINOR) "." \
+ 	     __stringify(DRV_VERSION_BUILD)    DRV_KERN
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+index a492032..f946aac 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+@@ -36,7 +36,7 @@ char i40evf_driver_name[] = "i40evf";
+ static const char i40evf_driver_string[] =
+ 	"Intel(R) XL710/X710 Virtual Function Network Driver";
  
- 	} else if (vsi->type == I40E_VSI_FDIR) {
--		snprintf(int_name, sizeof(int_name) - 1, "%s-%s-fdir",
-+		snprintf(int_name, sizeof(int_name) - 1, "%s-%s:fdir",
- 			 dev_driver_string(&pf->pdev->dev),
- 			 dev_name(&pf->pdev->dev));
- 		err = i40e_vsi_request_irq(vsi, int_name);
+-#define DRV_VERSION "1.0.7"
++#define DRV_VERSION "1.2.0"
+ const char i40evf_driver_version[] = DRV_VERSION;
+ static const char i40evf_copyright[] =
+ 	"Copyright (c) 2013 - 2014 Intel Corporation.";
 -- 
 1.9.3
