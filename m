@@ -1,44 +1,42 @@
-From: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
-Subject: Re: [PATCH] net: wireless: atmel: Remove open-coded and wrong strcasecmp
-Date: Fri, 16 Jan 2015 21:17:09 +0300
-Message-ID: <54B955A5.3090901@cogentembedded.com>
-References: <1421414907-26764-1-git-send-email-linux@rasmusvillemoes.dk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Rasmus Villemoes <linux-qQsb+v5E8BnlAoU/VqSP6n9LOBIZ5rWg@public.gmane.org>,
-	Simon Kelley <simon-xn1N/tgparsycpQjotevgVpr/1R2p/CL@public.gmane.org>,
-	Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1421414907-26764-1-git-send-email-linux-qQsb+v5E8BnlAoU/VqSP6n9LOBIZ5rWg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Jay Vosburgh <jay.vosburgh@canonical.com>
+Subject: Stable request for "hw csum failure" fixes
+Date: Fri, 16 Jan 2015 10:30:57 -0800
+Message-ID: <7016.1421433057@famine>
+Cc: "David S. Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from youngberry.canonical.com ([91.189.89.112]:55853 "EHLO
+	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751506AbbAPSbB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Jan 2015 13:31:01 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
 
-On 01/16/2015 04:28 PM, Rasmus Villemoes wrote:
+	Please consider commits
 
-> The kernel's string library does in fact have strcasecmp, at least
-> since ded220bd8f08. Moreover, this open-coded version is in fact
+commit 17e96834fd35997ca7cdfbf15413bcd5a36ad448
+Author: Govindarajulu Varadarajan <_govind@gmx.com>
+Date:   Thu Dec 18 15:58:42 2014 +0530
 
-    Please also specify that commit's summary line in parens.
+    enic: fix rx skb checksum
 
-> wrong: If the strings only differ in their last character, a and b
-> have already been incremented to point to the terminating nul bytes,
+commit 2c26d34bbcc0b3f30385d5587aa232289e2eed8e
+Author: Jay Vosburgh <jay.vosburgh@canonical.com>
+Date:   Fri Dec 19 15:32:00 2014 -0800
 
-    NUL.
+    net/core: Handle csum for CHECKSUM_COMPLETE VXLAN forwarding
+    
 
-> so they would be treated as equal.
+	for -stable kernels back to 3.10.
 
-> Signed-off-by: Rasmus Villemoes <linux-qQsb+v5E8BnlAoU/VqSP6n9LOBIZ5rWg@public.gmane.org>
+	These patches have been confirmed to fix the "hw csum failure"
+issue in the Ubuntu 3.13 kernel, and code inspection suggests that the
+3.12 and 3.10 kernels would also exhibit the problem.
 
-[...]
+	Thanks,
 
-WBR, Sergei
+	-J
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+---
+	-Jay Vosburgh, jay.vosburgh@canonical.com
