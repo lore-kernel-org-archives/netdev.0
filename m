@@ -1,42 +1,89 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH 7/9] rhashtable: Per bucket locks & deferred
- expansion/shrinking
-Date: Fri, 16 Jan 2015 16:38:26 +0000
-Message-ID: <20150116163826.GD15052@casper.infradead.org>
-References: <cover.1418647641.git.tgraf@suug.ch>
- <75db38bc9313a55cf02a8c36a3376c32b691e5d9.1418647641.git.tgraf@suug.ch>
- <20150116153415.GF30132@acer.localdomain>
- <20150116155835.GA15052@casper.infradead.org>
- <20150116160354.GI30132@acer.localdomain>
- <20150116161530.GC15052@casper.infradead.org>
- <20150116163202.GJ30132@acer.localdomain>
+From: sean darcy <seandarcy2@gmail.com>
+Subject: Re: NETDEV WATCHDOG:  internal(r8152): transmit queue 0 timed out
+Date: Fri, 16 Jan 2015 11:40:33 -0500
+Message-ID: <m9beu2$u07$1@ger.gmane.org>
+References: <m99j1v$n60$1@ger.gmane.org>
+	<54B8CAC2.6020406@gmail.com>	<0835B3720019904CB8F7AA43166CEEB2EE6935@RTITMBSV03.realtek.com.tw>
+	<54B8FF7E.2010901@gmail.com>
+Reply-To: Community support for Fedora users <users@lists.fedoraproject.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	kernel@vger.kernel.org, herbert@gondor.apana.org.au,
-	paulmck@linux.vnet.ibm.com, edumazet@google.com,
-	john.r.fastabend@intel.com, josh@joshtriplett.org,
-	netfilter-devel@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:45385 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751655AbbAPQi3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Jan 2015 11:38:29 -0500
-Content-Disposition: inline
-In-Reply-To: <20150116163202.GJ30132@acer.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"; Format="flowed"
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org
+To: users@lists.fedoraproject.org
+Return-path: <users-bounces@lists.fedoraproject.org>
+In-Reply-To: <54B8FF7E.2010901@gmail.com>
+List-Unsubscribe: <https://admin.fedoraproject.org/mailman/options/users>,
+	<mailto:users-request@lists.fedoraproject.org?subject=unsubscribe>
+List-Archive: <http://lists.fedoraproject.org/pipermail/users/>
+List-Post: <mailto:users@lists.fedoraproject.org>
+List-Help: <mailto:users-request@lists.fedoraproject.org?subject=help>
+List-Subscribe: <https://admin.fedoraproject.org/mailman/listinfo/users>,
+	<mailto:users-request@lists.fedoraproject.org?subject=subscribe>
+Sender: users-bounces@lists.fedoraproject.org
+Errors-To: users-bounces@lists.fedoraproject.org
+List-Id: netdev.vger.kernel.org
 
-On 01/16/15 at 04:32pm, Patrick McHardy wrote:
-> If we have to block, the dumper if of course preferred. Taking the
-> mutex should do fine I guess?
-
-That will work, it will also ensure that the walker doesn't see the
-pre unzip state which would cause entries to be duplicated in the
-walker.
-
-> I suppose walking both tables without any races would be rather
-> complicated.
-
-Very interested if you can come up with something ;-)
+T24gMDEvMTYvMjAxNSAwNzowOSBBTSwgcG9tYSB3cm90ZToKPiBPbiAxNi4wMS4yMDE1IDEwOjM3
+LCBIYXllcyBXYW5nIHdyb3RlOgo+PiAgIHBvbWEgW21haWx0bzpwb21pZG9yYWJlbGlzaW1hQGdt
+YWlsLmNvbV0KPj4+IFNlbnQ6IEZyaWRheSwgSmFudWFyeSAxNiwgMjAxNSA0OjI1IFBNCj4+IFsu
+Li5dCj4+Pj4gVGhpcyBsb29rcyBsaWtlIGEgVVNCIHByb2JsZW0uIElzIHRoZXJlIGEgd2F5IHRv
+IGdldCB1c2IgKG9yCj4+Pj4gTmV0d29ya01hbmFnZXIpIHRvIHJlaW5pdGlhbGl6ZSB0aGUgZHJp
+dmVyIHdoZW4gdGhpcyBoYXBwZW5zPwo+Pj4KPj4+IEkgd291bGQgYXNrIHRoZXNlIHBlb3BsZSBm
+b3IgYWR2aWNlLCB0aGVyZWZvcmUuCj4+Cj4+IE91ciBodyBlbmdpbmVlcnMgbmVlZCB0byBhbmFs
+eXNlIHRoZSBiZWhhdmlvciBvZiB0aGUgZGV2aWNlLgo+PiBIb3dldmVyLCBJIGRvbid0IHRoaW5r
+IHlvdSBoYXZlIHN1Y2ggaW5zdHJ1bWVudCB0byBwcm92aWRlCj4+IHRoZSByZXF1aXJlZCBpbmZv
+cm1hdGlvbi4gSWYgd2UgZG9uJ3Qga25vdyB0aGUgcmVhc29uLCB3ZQo+PiBjb3VsZG4ndCBnaXZl
+IHlvdSB0aGUgcHJvcGVyIHNvbHV0aW9uLiBCZXNpZGVzLCB5b3VyIHNvbHV0aW9uCj4+IHdvdWxk
+IHdvcmsgaWYgYW5kIG9ubHkgaWYgcmVsb2FkaW5nIHRoZSBkcml2ZXIgaXMgaGVscGZ1bC4KPj4K
+Pj4gVGhlIGlzc3VlIGhhdmUgdG8gZGVidWcgZnJvbSB0aGUgaGFyZHdhcmUsIGFuZCBJIGhhdmUg
+bm8gaWRlYQo+PiBhYm91dCB3aGF0IHRoZSBzb2Z0d2FyZSBjb3VsZCBkbyBiZWZvcmUgYW5hbHlz
+aW5nIHRoZSBody4gTWF5YmUKPj4geW91IGNvdWxkIHRyeSB0aGUgZm9sbG93aW5nIGRyaXZlciBm
+aXJzdCB0byBjaGVjayBpZiBpdCBpcyB1c2VmdWwuCj4+Cj4+IGh0dHA6Ly93d3cucmVhbHRlay5j
+b20udHcvZG93bmxvYWRzL2Rvd25sb2Fkc1ZpZXcuYXNweD9MYW5naWQ9MiZQTmlkPTEzJlBGaWQ9
+NTYmTGV2ZWw9NSZDb25uPTQmRG93blR5cGVJRD0zJkdldERvd249ZmFsc2UKPj4KPj4gQmVzdCBS
+ZWdhcmRzLAo+PiBIYXllcwo+Pgo+Cj4gVGhhbmtzIGZvciB5b3VyIHJlc3BvbnNlLCBNci4gSGF5
+ZXMuCj4KPiBNci4gU2VhbiwgcGxlYXNlIGRvd25sb2FkIGFuZCBjaGVjayBpZiAidGltZW91dCIg
+aXMgc3RpbGwgcHJlc2VudCB3aXRoIGJ1aWx0IFJUTDgxNTMgbW9kdWxlIGZyb20gUkVBTFRFSyBz
+aXRlLCBhcyBNci4gSGF5ZXMgcHJvcG9zZWQuCj4gaHR0cDovL3d3dy5yZWFsdGVrLmNvbS50dy9k
+b3dubG9hZHMvZG93bmxvYWRzVmlldy5hc3B4P0xhbmdpZD0yJlBOaWQ9MTMmUEZpZD01NiZMZXZl
+bD01JkNvbm49NCZEb3duVHlwZUlEPTMmR2V0RG93bj1mYWxzZSMyCj4gcjgxNTIuNTMtMi4wMy4w
+LnRhci5iejIKPgo+IFByb2NlZHVyZSAtIHNob3VsZCBiZSBlcXVhbCBmb3IgYm90aCwgRmVkb3Jh
+IDIxICYgMjA6Cj4KPiAkIHVuYW1lIC1yCj4gMy4xNy44LTMwMC5mYzIxLng4Nl82NAo+Cj4gJCBz
+dSAtYyAneXVtIGluc3RhbGwga2VybmVsLWRldmVsJwo+Cj4gJCB0YXIgeGYgcjgxNTIuNTMtMi4w
+My4wLnRhci5iejIKPiAkIGNkIHI4MTUyLTIuMDMuMC8KPiAkIG1ha2UKPiAkIHN1Cj4KPiAjIGNw
+IDUwLXVzYi1yZWFsdGVrLW5ldC5ydWxlcyAvZXRjL3VkZXYvcnVsZXMuZC8KPiAjIHVkZXZhZG0g
+dHJpZ2dlciAtLWFjdGlvbj1hZGQKPgo+ICMgbW9kcHJvYmUgLXJ2IHI4MTUyCj4gIyBjcCByODE1
+Mi5rbyAvbGliL21vZHVsZXMvJCh1bmFtZSAtcikvdXBkYXRlcy8KPiAjIGRlcG1vZAo+ICMgbW9k
+cHJvYmUgLXYgcjgxNTIKPgo+Cj4gcG9tYQo+Ck9LLCB3aWxsIGRvLgoKSW4gdGhlIG1lYW50aW1l
+LCBoZXJlJ3MgdGhlIGtlcm5lbCBsb2cgc2hvd2luZyB0aGUgdGltZW91dCwgdGhlIHJlbW92YWwg
+Cm9mIHRoZSB1c2IgZXRoZXJuZXQgYWRhcHRlciwgYW5kIGl0J3MgcmVpbnNlcnRpb246CgoKSmFu
+IDE1IDAwOjE1OjE4IGtlcm5lbDogcjgxNTIgMi0xOjEuMCBpbnRlcm5hbDogVHggdGltZW91dApK
+YW4gMTUgMDA6MTU6MjMga2VybmVsOiByODE1MiAyLTE6MS4wIGludGVybmFsOiBUeCB0aW1lb3V0
+CkphbiAxNSAwMDoxNToyOSBrZXJuZWw6IHVzYiAyLTE6IFVTQiBkaXNjb25uZWN0LCBkZXZpY2Ug
+bnVtYmVyIDQKSmFuIDE1IDAwOjE1OjI5IGtlcm5lbDogcjgxNTIgMi0xOjEuMCBpbnRlcm5hbDog
+VHggc3RhdHVzIC0xMDgKLi4uLi4uLi4uLi4uLi4uLi4uLi4uCkphbiAxNSAwMDoxNToyOSBrZXJu
+ZWw6IHI4MTUyIDItMToxLjAgaW50ZXJuYWw6IFR4IHN0YXR1cyAtMTA4CkphbiAxNSAwMDoxNToy
+OSBrZXJuZWw6IHI4MTUyIDItMToxLjAgaW50ZXJuYWw6IFR4IHN0YXR1cyAtMTA4CkphbiAxNSAw
+MDoxNTozMSBrZXJuZWw6IHVzYiAyLTE6IG5ldyBoaWdoLXNwZWVkIFVTQiBkZXZpY2UgbnVtYmVy
+IDUgCnVzaW5nIGVoY2ktcGNpCkphbiAxNSAwMDoxNTozMSBrZXJuZWw6IHVzYiAyLTE6IE5ldyBV
+U0IgZGV2aWNlIGZvdW5kLCBpZFZlbmRvcj0wYmRhLCAKaWRQcm9kdWN0PTgxNTIKSmFuIDE1IDAw
+OjE1OjMxIGtlcm5lbDogdXNiIDItMTogTmV3IFVTQiBkZXZpY2Ugc3RyaW5nczogTWZyPTEsIApQ
+cm9kdWN0PTIsIFNlcmlhbE51bWJlcj0zCkphbiAxNSAwMDoxNTozMSBrZXJuZWw6IHVzYiAyLTE6
+IFByb2R1Y3Q6IFVTQiAxMC8xMDAgTEFOCkphbiAxNSAwMDoxNTozMSBrZXJuZWw6IHVzYiAyLTE6
+IE1hbnVmYWN0dXJlcjogQ0UtTElOSwpKYW4gMTUgMDA6MTU6MzEga2VybmVsOiB1c2IgMi0xOiBT
+ZXJpYWxOdW1iZXI6IC4uLi4uLi4uLi4uCkphbiAxNSAwMDoxNTozMSBrZXJuZWw6IHVzYiAyLTE6
+IHJlc2V0IGhpZ2gtc3BlZWQgVVNCIGRldmljZSBudW1iZXIgNSAKdXNpbmcgZWhjaS1wY2kKSmFu
+IDE1IDAwOjE1OjMxIGtlcm5lbDogcjgxNTIgMi0xOjEuMCBldGgwOiB2MS4wNi4xICgyMDE0LzEw
+LzAxKQpKYW4gMTUgMDA6MTU6MzIga2VybmVsOiByODE1MiAyLTE6MS4wIGludGVybmFsOiByZW5h
+bWVkIGZyb20gZXRoMApKYW4gMTUgMDA6MTU6MzIgc3lzdGVtZC11ZGV2ZFsxMjg2OV06IHJlbmFt
+ZWQgbmV0d29yayBpbnRlcmZhY2UgZXRoMCB0byAKaW50ZXJuYWwKSmFuIDE1IDAwOjE1OjMyIGtl
+cm5lbDogSVB2NjogQUREUkNPTkYoTkVUREVWX1VQKTogaW50ZXJuYWw6IGxpbmsgaXMgbm90IApy
+ZWFkeQpKYW4gMTUgMDA6MTU6MzQga2VybmVsOiBJUHY2OiBBRERSQ09ORihORVRERVZfQ0hBTkdF
+KTogaW50ZXJuYWw6IGxpbmsgCmJlY29tZXMgcmVhZHkKCgotLSAKdXNlcnMgbWFpbGluZyBsaXN0
+CnVzZXJzQGxpc3RzLmZlZG9yYXByb2plY3Qub3JnClRvIHVuc3Vic2NyaWJlIG9yIGNoYW5nZSBz
+dWJzY3JpcHRpb24gb3B0aW9uczoKaHR0cHM6Ly9hZG1pbi5mZWRvcmFwcm9qZWN0Lm9yZy9tYWls
+bWFuL2xpc3RpbmZvL3VzZXJzCkZlZG9yYSBDb2RlIG9mIENvbmR1Y3Q6IGh0dHA6Ly9mZWRvcmFw
+cm9qZWN0Lm9yZy9jb2RlLW9mLWNvbmR1Y3QKR3VpZGVsaW5lczogaHR0cDovL2ZlZG9yYXByb2pl
+Y3Qub3JnL3dpa2kvTWFpbGluZ19saXN0X2d1aWRlbGluZXMKSGF2ZSBhIHF1ZXN0aW9uPyBBc2sg
+YXdheTogaHR0cDovL2Fzay5mZWRvcmFwcm9qZWN0Lm9yZwo=
