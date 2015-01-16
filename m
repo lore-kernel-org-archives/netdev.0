@@ -1,42 +1,51 @@
-From: Jay Vosburgh <jay.vosburgh@canonical.com>
-Subject: Stable request for "hw csum failure" fixes
-Date: Fri, 16 Jan 2015 10:30:57 -0800
-Message-ID: <7016.1421433057@famine>
-Cc: "David S. Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 7/9] rhashtable: Per bucket locks & deferred
+ expansion/shrinking
+Date: Fri, 16 Jan 2015 18:36:26 +0000
+Message-ID: <20150116183626.GS30132@acer.localdomain>
+References: <cover.1418647641.git.tgraf@suug.ch>
+ <75db38bc9313a55cf02a8c36a3376c32b691e5d9.1418647641.git.tgraf@suug.ch>
+ <20150116153415.GF30132@acer.localdomain>
+ <20150116155835.GA15052@casper.infradead.org>
+ <20150116160354.GI30132@acer.localdomain>
+ <20150116161530.GC15052@casper.infradead.org>
+ <20150116163202.GJ30132@acer.localdomain>
+ <063D6719AE5E284EB5DD2968C1650D6D1CACADAF@AcuExch.aculab.com>
+ <20150116165302.GE15052@casper.infradead.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Laight <David.Laight@ACULAB.COM>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"herbert@gondor.apana.org.au" <herbert@gondor.apana.org.au>,
+	"paulmck@linux.vnet.ibm.com" <paulmck@linux.vnet.ibm.com>,
+	"edumazet@google.com" <edumazet@google.com>,
+	"john.r.fastabend@intel.com" <john.r.fastabend@intel.com>,
+	"josh@joshtriplett.org" <josh@joshtriplett.org>,
+	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:55853 "EHLO
-	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751506AbbAPSbB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Jan 2015 13:31:01 -0500
+Received: from stinky.trash.net ([213.144.137.162]:44300 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751720AbbAPSgd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Jan 2015 13:36:33 -0500
+Content-Disposition: inline
+In-Reply-To: <20150116165302.GE15052@casper.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 16.01, Thomas Graf wrote:
+> On 01/16/15 at 04:43pm, David Laight wrote:
+> > The walker is unlikely to see items that get inserted early in the hash
+> > table even without a resize.
+> 
+> I don't follow, you have to explain this statement.
+> 
+> Walkers which don't want to see duplicates or miss entries should
+> just take the mutex.
 
-	Please consider commits
-
-commit 17e96834fd35997ca7cdfbf15413bcd5a36ad448
-Author: Govindarajulu Varadarajan <_govind@gmx.com>
-Date:   Thu Dec 18 15:58:42 2014 +0530
-
-    enic: fix rx skb checksum
-
-commit 2c26d34bbcc0b3f30385d5587aa232289e2eed8e
-Author: Jay Vosburgh <jay.vosburgh@canonical.com>
-Date:   Fri Dec 19 15:32:00 2014 -0800
-
-    net/core: Handle csum for CHECKSUM_COMPLETE VXLAN forwarding
-    
-
-	for -stable kernels back to 3.10.
-
-	These patches have been confirmed to fix the "hw csum failure"
-issue in the Ubuntu 3.13 kernel, and code inspection suggests that the
-3.12 and 3.10 kernels would also exhibit the problem.
-
-	Thanks,
-
-	-J
-
----
-	-Jay Vosburgh, jay.vosburgh@canonical.com
+Well, we do have a problem with interrupted dumps. As you know once
+the netlink message buffer is full, we return to userspace and
+continue dumping during the next read. Expanding obviously changes
+the order since we rehash from bucket N to N and 2N, so this will
+indeed cause duplicate (doesn't matter) and missed entries.
