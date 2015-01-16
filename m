@@ -1,33 +1,66 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH 0/8] netfilter updates for net-next
-Date: Fri, 16 Jan 2015 21:54:34 +0100
-Message-ID: <20150116205434.GA2346@salvia>
-References: <1421267689-24894-1-git-send-email-pablo@netfilter.org>
- <20150115.015427.1217684585698382529.davem@davemloft.net>
- <54B97942.7090902@hartkopp.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 7/9] rhashtable: Per bucket locks & deferred
+ expansion/shrinking
+Date: Fri, 16 Jan 2015 20:53:12 +0000
+Message-ID: <20150116205311.GA26996@acer.localdomain>
+References: <20150116155835.GA15052@casper.infradead.org>
+ <20150116160354.GI30132@acer.localdomain>
+ <20150116161530.GC15052@casper.infradead.org>
+ <20150116163202.GJ30132@acer.localdomain>
+ <063D6719AE5E284EB5DD2968C1650D6D1CACADAF@AcuExch.aculab.com>
+ <20150116165302.GE15052@casper.infradead.org>
+ <20150116183626.GS30132@acer.localdomain>
+ <20150116191831.GA26730@casper.infradead.org>
+ <20150116193557.GU30132@acer.localdomain>
+ <20150116204644.GA2232@salvia>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: Oliver Hartkopp <socketcan@hartkopp.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:34153 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754129AbbAPUvj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 Jan 2015 15:51:39 -0500
+Cc: Thomas Graf <tgraf@suug.ch>,
+	David Laight <David.Laight@ACULAB.COM>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"herbert@gondor.apana.org.au" <herbert@gondor.apana.org.au>,
+	"paulmck@linux.vnet.ibm.com" <paulmck@linux.vnet.ibm.com>,
+	"edumazet@google.com" <edumazet@google.com>,
+	"john.r.fastabend@intel.com" <john.r.fastabend@intel.com>,
+	"josh@joshtriplett.org" <josh@joshtriplett.org>,
+	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <54B97942.7090902@hartkopp.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20150116204644.GA2232@salvia>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jan 16, 2015 at 09:49:06PM +0100, Oliver Hartkopp wrote:
-> I get this problem at 'make module_install' time now:
+On 16.01, Pablo Neira Ayuso wrote:
+> On Fri, Jan 16, 2015 at 07:35:57PM +0000, Patrick McHardy wrote:
+> > On 16.01, Thomas Graf wrote:
+> > > On 01/16/15 at 06:36pm, Patrick McHardy wrote:
+> > > > 
+> > > > Well, we do have a problem with interrupted dumps. As you know once
+> > > > the netlink message buffer is full, we return to userspace and
+> > > > continue dumping during the next read. Expanding obviously changes
+> > > > the order since we rehash from bucket N to N and 2N, so this will
+> > > > indeed cause duplicate (doesn't matter) and missed entries.
+> > > 
+> > > Right,but that's a Netlink dump issue and not specific to rhashtable.
+> > 
+> > Well, rhashtable (or generally resizing) will make it a lot worse.
+> > Usually we at worst miss entries which were added during the dump,
+> > which is made up by the notifications.
+> > 
+> > With resizing we might miss anything, its completely undeterministic.
+> > 
+> > > Putting the sequence number check in place should be sufficient
+> > > for sets, right?
+> > 
+> > I don't see how. The problem is that the ordering of the hash changes
+> > and it will skip different entries than those that have already been
+> > dumped.
 > 
-> DEPMOD  3.19.0-rc4-nn-00578-g919d9db
-> depmod: WARNING: /lib/modules/3.19.0-rc4-nn-00578-g919d9db/updates/dkms/xt_DNETMAP.ko needs unknown symbol nf_nat_setup_info
-> 
-> While 3.19.0-rc4-nn-00504-g4e7a84b was ok.
-> 
-> Any idea?
+> I think the generation counter should catch up this sort of problems.
+> The resizing is triggered by a new/deletion element, which bumps it
+> once the transaction is handled.
 
-I don't see any xt_DNETMAP target in my tree.
+I don't think so, it tracks only two generations, we can have an
+arbitrary amount of changes while performing a dump.
