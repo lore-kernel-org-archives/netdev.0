@@ -1,50 +1,37 @@
-From: Jonathan Toppins <jtoppins@cumulusnetworks.com>
-Subject: [PATCH net-next 2/5] bonding: fix bond_open() don't always set slave active flag
-Date: Fri, 16 Jan 2015 10:57:25 -0500
-Message-ID: <1421423848-414-3-git-send-email-jtoppins@cumulusnetworks.com>
-References: <1421423848-414-1-git-send-email-jtoppins@cumulusnetworks.com>
-Cc: Andy Gospodarek <gospo@cumulusnetworks.com>,
-	Wilson Kok <wkok@cumulusnetworks.com>,
-	Jonathan Toppins <jtoppins@cumulusnetworks.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f49.google.com ([209.85.192.49]:58752 "EHLO
-	mail-qg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753143AbbAPP5n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Jan 2015 10:57:43 -0500
-Received: by mail-qg0-f49.google.com with SMTP id f51so16821135qge.8
-        for <netdev@vger.kernel.org>; Fri, 16 Jan 2015 07:57:42 -0800 (PST)
-In-Reply-To: <1421423848-414-1-git-send-email-jtoppins@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH 7/9] rhashtable: Per bucket locks & deferred
+ expansion/shrinking
+Date: Fri, 16 Jan 2015 15:58:35 +0000
+Message-ID: <20150116155835.GA15052@casper.infradead.org>
+References: <cover.1418647641.git.tgraf@suug.ch>
+ <75db38bc9313a55cf02a8c36a3376c32b691e5d9.1418647641.git.tgraf@suug.ch>
+ <20150116153415.GF30132@acer.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	kernel@vger.kernel.org, herbert@gondor.apana.org.au,
+	paulmck@linux.vnet.ibm.com, edumazet@google.com,
+	john.r.fastabend@intel.com, josh@joshtriplett.org,
+	netfilter-devel@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20150116153415.GF30132@acer.localdomain>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Wilson Kok <wkok@cumulusnetworks.com>
+On 01/16/15 at 03:34pm, Patrick McHardy wrote:
+> On 15.12, Thomas Graf wrote:
+> > In the event of an expansion or shrinking, the new bucket table allocated
+> > is exposed as a so called future table as soon as the resize process
+> > starts.  Lookups, deletions, and insertions will briefly use both tables.
+> > The future table becomes the main table after an RCU grace period and
+> > initial linking of the old to the new table was performed. Optimization
+> > of the chains to make use of the new number of buckets follows only the
+> > new table is in use.
+> 
+> AFAICT nft_hash_walk() will miss new entries during this period.
+> Am I missing anything here?
 
-Mode 802.3ad, fix incorrect bond slave active state when slave is not in
-active aggregator. During bond_open(), the bonding driver always sets
-the slave active flag to true if the bond is not in active-backup, alb,
-or tlb modes. Bonding should let the aggregator selection logic set the
-active flag when in 802.3ad mode.
-
-Cc: Andy Gospodarek <gospo@cumulusnetworks.com>
-Signed-off-by: Wilson Kok <wkok@cumulusnetworks.com>
-Signed-off-by: Jonathan Toppins <jtoppins@cumulusnetworks.com>
----
- drivers/net/bonding/bond_main.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 02ffedb..c475d90 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -3066,7 +3066,7 @@ static int bond_open(struct net_device *bond_dev)
- 			    slave != rcu_access_pointer(bond->curr_active_slave)) {
- 				bond_set_slave_inactive_flags(slave,
- 							      BOND_SLAVE_NOTIFY_NOW);
--			} else {
-+			} else if (BOND_MODE(bond) != BOND_MODE_8023AD) {
- 				bond_set_slave_active_flags(slave,
- 							    BOND_SLAVE_NOTIFY_NOW);
- 			}
--- 
-1.7.10.4
+A walker may not see insertions that occur after the walker was started
+if resizing is enabled. Is that a problem for nftables?
