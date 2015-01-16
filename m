@@ -1,39 +1,34 @@
-From: Praveen Madhavan <praveenm@chelsio.com>
-Subject: Re: [PATCH 0/2] Remove T4 FCoE support
-Date: Fri, 16 Jan 2015 10:02:59 +0530
-Message-ID: <20150116042616.GA1264@fcoe-test11>
-References: <cover.1421328605.git.praveenm@chelsio.com>
- <20150115.140453.871607276763972458.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch-net-next v2 3/3] net: ethernet: cpsw: don't requests
+ IRQs we don't use
+Date: Thu, 15 Jan 2015 23:36:42 -0500 (EST)
+Message-ID: <20150115.233642.1752634915667200562.davem@davemloft.net>
+References: <20150115152053.GA16409@saruman>
+	<20150115.181615.498992970722065060.davem@davemloft.net>
+	<20150116012852.GA3115@saruman>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>, <linux-scsi@vger.kernel.org>,
-	<JBottomley@parallels.com>, <hch@infradead.org>,
-	<hariprasad@chelsio.com>, <varun@chelsio.com>, <hare@suse.de>
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: mugunthanvnm@ti.com, tony@atomide.com, linux-omap@vger.kernel.org,
+	netdev@vger.kernel.org
+To: balbi@ti.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:20848 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752330AbbAPEdn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jan 2015 23:33:43 -0500
-Content-Disposition: inline
-In-Reply-To: <20150115.140453.871607276763972458.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:57141 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751253AbbAPEgr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jan 2015 23:36:47 -0500
+In-Reply-To: <20150116012852.GA3115@saruman>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 15, 2015 at 02:04:53PM -0500, David Miller wrote:
-> From: Praveen Madhavan <praveenm@chelsio.com>
-> Date: Thu, 15 Jan 2015 19:15:50 +0530
+From: Felipe Balbi <balbi@ti.com>
+Date: Thu, 15 Jan 2015 19:28:52 -0600
+
+> On Thu, Jan 15, 2015 at 06:16:15PM -0500, David Miller wrote:
+>> Indeed, I agree that adding something as a placeholder that just gets
+>> immediately removed should be avoided unless it is extremely difficult
+>> to do so.
 > 
-> > These patches removes FCoE support for chelsio T4 adapter.
-> > Please apply on net-next since depends on previous commits.
-> 
-> Why is it being removed?  You have to state this in the
-> commit log messages at a minimum.
->
-We found a subtle issue with FCoE on T4 very late in the game 
-and decided not to productize FCoE on T4 and therefore there 
-are no customers that will be impacted by this change. FCoE is
-supported on T5 cards.
-Sorry about that, not mentioning in commit log. Can i resend this 
-patch with updated commit log?
- 
+> what does this mean ? you prefer both patches to be combined ?
+
+Yes, something like that.
