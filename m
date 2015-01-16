@@ -1,136 +1,68 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 01/17] i40e/i40evf: AdminQ updates ww36
-Date: Fri, 16 Jan 2015 05:28:50 -0800
-Message-ID: <1421414946-22179-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 04/17] i40e: don't give up on DCB error after reset
+Date: Fri, 16 Jan 2015 05:28:53 -0800
+Message-ID: <1421414946-22179-5-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1421414946-22179-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Kamil Kacperski <kamil.kacperski@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:5721 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:5724 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755226AbbAPN3Q (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 Jan 2015 08:29:16 -0500
+	id S1755392AbbAPN3R (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 Jan 2015 08:29:17 -0500
 In-Reply-To: <1421414946-22179-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Shannon Nelson <shannon.nelson@intel.com>
 
-Several little tweaks to keep FW, SV, and SW in line together
- - Remove the unused and deprecated
-   i40e_aqc_opc_debug_modify_internals
- - Add define for iSCSI capability
- - Fix queue mask size
- - Adjust i40e_aqc_oem_param_change for ease-of-use
+We don't need to give up in the reset/rebuild process if the DCB setup failed,
+so handle it here the same as in the probe setup.  Also adjust the log strings
+a little to look less scary.
 
-Change-ID: I51f250b367912968a7cec61b3a68110d9796e914
+Change-ID: I57308d703047e61d3f1a5e471ea77be232444ca0
 Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
-Signed-off-by: Kamil Kacperski <kamil.kacperski@intel.com>
-Acked-by: Greg Rose <gregory.v.rose@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h   | 9 +++++----
- drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h | 9 +++++----
- 2 files changed, 10 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h b/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
-index 8835aee..490dfcf 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
-@@ -276,7 +276,6 @@ enum i40e_admin_queue_opc {
- 	i40e_aqc_opc_debug_write_reg		= 0xFF04,
- 	i40e_aqc_opc_debug_modify_reg		= 0xFF07,
- 	i40e_aqc_opc_debug_dump_internals	= 0xFF08,
--	i40e_aqc_opc_debug_modify_internals	= 0xFF09,
- };
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index cd34d9b..fd6411e 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -4533,7 +4533,8 @@ static int i40e_init_pf_dcb(struct i40e_pf *pf)
+ 				"DCBX offload is supported for this PF.\n");
+ 		}
+ 	} else {
+-		dev_info(&pf->pdev->dev, "AQ Querying DCB configuration failed: %d\n",
++		dev_info(&pf->pdev->dev,
++			 "AQ Querying DCB configuration failed: aq_err %d\n",
+ 			 pf->hw.aq.asq_last_status);
+ 	}
  
- /* command structures and indirect data structures */
-@@ -410,6 +409,7 @@ struct i40e_aqc_list_capabilities_element_resp {
- #define I40E_AQ_CAP_ID_VSI		0x0017
- #define I40E_AQ_CAP_ID_DCB		0x0018
- #define I40E_AQ_CAP_ID_FCOE		0x0021
-+#define I40E_AQ_CAP_ID_ISCSI		0x0022
- #define I40E_AQ_CAP_ID_RSS		0x0040
- #define I40E_AQ_CAP_ID_RXQ		0x0041
- #define I40E_AQ_CAP_ID_TXQ		0x0042
-@@ -1207,7 +1207,7 @@ struct i40e_aqc_add_remove_cloud_filters_element_data {
- 	} ipaddr;
- 	__le16	flags;
- #define I40E_AQC_ADD_CLOUD_FILTER_SHIFT			0
--#define I40E_AQC_ADD_CLOUD_FILTER_MASK			(0x3F << \
-+#define I40E_AQC_ADD_CLOUD_FILTER_MASK	(0x3F << \
- 					I40E_AQC_ADD_CLOUD_FILTER_SHIFT)
- /* 0x0000 reserved */
- #define I40E_AQC_ADD_CLOUD_FILTER_OIP			0x0001
-@@ -1240,7 +1240,7 @@ struct i40e_aqc_add_remove_cloud_filters_element_data {
- 	u8	reserved[4];
- 	__le16	queue_number;
- #define I40E_AQC_ADD_CLOUD_QUEUE_SHIFT		0
--#define I40E_AQC_ADD_CLOUD_QUEUE_MASK		(0x3F << \
-+#define I40E_AQC_ADD_CLOUD_QUEUE_MASK		(0x7FF << \
- 						 I40E_AQC_ADD_CLOUD_QUEUE_SHIFT)
- 	u8	reserved2[14];
- 	/* response section */
-@@ -2106,7 +2106,8 @@ struct i40e_aqc_oem_param_change {
- #define I40E_AQ_OEM_PARAM_TYPE_BW_CTL	1
- #define I40E_AQ_OEM_PARAM_MAC		2
- 	__le32	param_value1;
--	u8	param_value2[8];
-+	__le16	param_value2;
-+	u8	reserved[6];
- };
- 
- I40E_CHECK_CMD_LENGTH(i40e_aqc_oem_param_change);
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h b/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
-index ff1b163..a20b2b0 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
-@@ -276,7 +276,6 @@ enum i40e_admin_queue_opc {
- 	i40e_aqc_opc_debug_write_reg		= 0xFF04,
- 	i40e_aqc_opc_debug_modify_reg		= 0xFF07,
- 	i40e_aqc_opc_debug_dump_internals	= 0xFF08,
--	i40e_aqc_opc_debug_modify_internals	= 0xFF09,
- };
- 
- /* command structures and indirect data structures */
-@@ -410,6 +409,7 @@ struct i40e_aqc_list_capabilities_element_resp {
- #define I40E_AQ_CAP_ID_VSI		0x0017
- #define I40E_AQ_CAP_ID_DCB		0x0018
- #define I40E_AQ_CAP_ID_FCOE		0x0021
-+#define I40E_AQ_CAP_ID_ISCSI		0x0022
- #define I40E_AQ_CAP_ID_RSS		0x0040
- #define I40E_AQ_CAP_ID_RXQ		0x0041
- #define I40E_AQ_CAP_ID_TXQ		0x0042
-@@ -1207,7 +1207,7 @@ struct i40e_aqc_add_remove_cloud_filters_element_data {
- 	} ipaddr;
- 	__le16	flags;
- #define I40E_AQC_ADD_CLOUD_FILTER_SHIFT			0
--#define I40E_AQC_ADD_CLOUD_FILTER_MASK			(0x3F << \
-+#define I40E_AQC_ADD_CLOUD_FILTER_MASK	(0x3F << \
- 					I40E_AQC_ADD_CLOUD_FILTER_SHIFT)
- /* 0x0000 reserved */
- #define I40E_AQC_ADD_CLOUD_FILTER_OIP			0x0001
-@@ -1240,7 +1240,7 @@ struct i40e_aqc_add_remove_cloud_filters_element_data {
- 	u8	reserved[4];
- 	__le16	queue_number;
- #define I40E_AQC_ADD_CLOUD_QUEUE_SHIFT		0
--#define I40E_AQC_ADD_CLOUD_QUEUE_MASK		(0x3F << \
-+#define I40E_AQC_ADD_CLOUD_QUEUE_MASK		(0x7FF << \
- 						 I40E_AQC_ADD_CLOUD_QUEUE_SHIFT)
- 	u8	reserved2[14];
- 	/* response section */
-@@ -2082,7 +2082,8 @@ struct i40e_aqc_oem_param_change {
- #define I40E_AQ_OEM_PARAM_TYPE_BW_CTL	1
- #define I40E_AQ_OEM_PARAM_MAC		2
- 	__le32	param_value1;
--	u8	param_value2[8];
-+	__le16	param_value2;
-+	u8	reserved[6];
- };
- 
- I40E_CHECK_CMD_LENGTH(i40e_aqc_oem_param_change);
+@@ -6188,8 +6189,9 @@ static void i40e_reset_and_rebuild(struct i40e_pf *pf, bool reinit)
+ #ifdef CONFIG_I40E_DCB
+ 	ret = i40e_init_pf_dcb(pf);
+ 	if (ret) {
+-		dev_info(&pf->pdev->dev, "init_pf_dcb failed: %d\n", ret);
+-		goto end_core_reset;
++		dev_info(&pf->pdev->dev, "DCB init failed %d, disabled\n", ret);
++		pf->flags &= ~I40E_FLAG_DCB_CAPABLE;
++		/* Continue without DCB enabled */
+ 	}
+ #endif /* CONFIG_I40E_DCB */
+ #ifdef I40E_FCOE
+@@ -9269,7 +9271,7 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ #ifdef CONFIG_I40E_DCB
+ 	err = i40e_init_pf_dcb(pf);
+ 	if (err) {
+-		dev_info(&pdev->dev, "init_pf_dcb failed: %d\n", err);
++		dev_info(&pdev->dev, "DCB init failed %d, disabled\n", err);
+ 		pf->flags &= ~I40E_FLAG_DCB_CAPABLE;
+ 		/* Continue without DCB enabled */
+ 	}
 -- 
 1.9.3
