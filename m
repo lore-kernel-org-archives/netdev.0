@@ -1,10 +1,10 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 2/3] genetlink: disallow subscribing to unknown
- mcast groups
-Date: Fri, 16 Jan 2015 17:20:38 -0500 (EST)
-Message-ID: <20150116.172038.1258592815037521446.davem@davemloft.net>
+Subject: Re: [PATCH v3 3/3] genetlink: synchronize socket closing and
+ family removal
+Date: Fri, 16 Jan 2015 17:20:46 -0500 (EST)
+Message-ID: <20150116.172046.1636627616122565664.davem@davemloft.net>
 References: <1421404634-8973-1-git-send-email-johannes@sipsolutions.net>
-	<1421404634-8973-2-git-send-email-johannes@sipsolutions.net>
+	<1421404634-8973-3-git-send-email-johannes@sipsolutions.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -12,46 +12,51 @@ Cc: netdev@vger.kernel.org, jeff.layton@primarydata.com,
 	sedat.dilek@gmail.com, johannes.berg@intel.com
 To: johannes@sipsolutions.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34298 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:34304 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751645AbbAPWUl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Jan 2015 17:20:41 -0500
-In-Reply-To: <1421404634-8973-2-git-send-email-johannes@sipsolutions.net>
+	with ESMTP id S1751676AbbAPWUs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Jan 2015 17:20:48 -0500
+In-Reply-To: <1421404634-8973-3-git-send-email-johannes@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Johannes Berg <johannes@sipsolutions.net>
-Date: Fri, 16 Jan 2015 11:37:13 +0100
+Date: Fri, 16 Jan 2015 11:37:14 +0100
 
 > From: Johannes Berg <johannes.berg@intel.com>
 > 
-> Jeff Layton reported that he could trigger the multicast unbind warning
-> in generic netlink using trinity. I originally thought it was a race
-> condition between unregistering the generic netlink family and closing
-> the socket, but there's a far simpler explanation: genetlink currently
-> allows subscribing to groups that don't (yet) exist, and the warning is
-> triggered when unsubscribing again while the group still doesn't exist.
+> In addition to the problem Jeff Layton reported, I looked at the code
+> and reproduced the same warning by subscribing and removing the genl
+> family with a socket still open. This is a fairly tricky race which
+> originates in the fact that generic netlink allows the family to go
+> away while sockets are still open - unlike regular netlink which has
+> a module refcount for every open socket so in general this cannot be
+> triggered.
 > 
-> Originally, I had a warning in the subscribe case and accepted it out of
-> userspace API concerns, but the warning was of course wrong and removed
-> later.
+> Trying to resolve this issue by the obvious locking isn't possible as
+> it will result in deadlocks between unregistration and group unbind
+> notification (which incidentally lockdep doesn't find due to the home
+> grown locking in the netlink table.)
 > 
-> However, I now think that allowing userspace to subscribe to groups that
-> don't exist is wrong and could possibly become a security problem:
-> Consider a (new) genetlink family implementing a permission check in
-> the mcast_bind() function similar to the like the audit code does today;
-> it would be possible to bypass the permission check by guessing the ID
-> and subscribing to the group it exists. This is only possible in case a
-> family like that would be dynamically loaded, but it doesn't seem like a
-> huge stretch, for example wireless may be loaded when you plug in a USB
-> device.
+> To really resolve this, introduce a "closing socket" reference counter
+> (for generic netlink only, as it's the only affected family) in the
+> core netlink code and use that in generic netlink to wait for all the
+> sockets that are being closed at the same time as a generic netlink
+> family is removed.
 > 
-> To avoid this reject such subscription attempts.
+> This fixes the race that when a socket is closed, it will should call
+> the unbind, but if the family is removed at the same time the unbind
+> will not find it, leading to the warning. The real problem though is
+> that in this case the unbind could actually find a new family that is
+> registered to have a multicast group with the same ID, and call its
+> mcast_unbind() leading to confusing.
 > 
-> If this ends up causing userspace issues we may need to add a workaround
-> in af_netlink to deny such requests but not return an error.
+> Also remove the warning since it would still trigger, but is now no
+> longer a problem.
 > 
-> Reported-by: Jeff Layton <jeff.layton@primarydata.com>
+> This also moves the code in af_netlink.c to before unreferencing the
+> module to avoid having the same problem in the normal non-genl case.
+> 
 > Signed-off-by: Johannes Berg <johannes.berg@intel.com>
 
 Applied.
