@@ -1,98 +1,84 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH v4 2/4] can: kvaser_usb: Update error counters before
- exiting on OOM
-Date: Fri, 16 Jan 2015 15:39:47 +0100
-Message-ID: <54B922B3.1020608@pengutronix.de>
-References: <20141223154654.GB6460@vivalin-002> <20150111200544.GA8855@linux> <20150111201116.GB8855@linux> <20150111201519.GC8855@linux> <54B3AB6C.8020900@pengutronix.de> <20150112203650.GA11355@linux>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCHv2] ixgbe: Re-enable relaxed ordering as part of
+ init/restart sequence for non-DCA config
+Date: Fri, 16 Jan 2015 06:45:58 -0800
+Message-ID: <1421419558.2632.111.camel@jtkirshe-mobl>
+References: <20150115010352.GK24238@oracle.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="AtBsdgaKw3vtg7qVq5JfCQrtTMfNTEMTq"
-Cc: Olivier Sobrie <olivier@sobrie.be>,
-	Oliver Hartkopp <socketcan@hartkopp.net>,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	Linux-CAN <linux-can@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>, andri.yngvason@marel.com
-To: "Ahmed S. Darwish" <darwish.07@gmail.com>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-3MiGRmuaAV6qzmqb4nyP"
+Cc: jesse.brandeburg@intel.com, bruce.w.allan@intel.com,
+	carolyn.wyborny@intel.com, donald.c.skidmore@intel.com,
+	gregory.v.rose@intel.com, matthew.vick@intel.com,
+	john.ronciak@intel.com, mitch.a.williams@intel.com,
+	linux.nics@intel.com, e1000-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	sparclinux@vger.kernel.org, emil.s.tantilov@intel.com
+To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150112203650.GA11355@linux>
+In-Reply-To: <20150115010352.GK24238@oracle.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---AtBsdgaKw3vtg7qVq5JfCQrtTMfNTEMTq
-Content-Type: text/plain; charset=utf-8
+
+--=-3MiGRmuaAV6qzmqb4nyP
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-On 01/12/2015 09:36 PM, Ahmed S. Darwish wrote:
-> On Mon, Jan 12, 2015 at 12:09:32PM +0100, Marc Kleine-Budde wrote:
->> On 01/11/2015 09:15 PM, Ahmed S. Darwish wrote:
->>> From: Ahmed S. Darwish <ahmed.darwish@valeo.com>
->>>
->>> Let the error counters be more accurate in case of Out of
->>> Memory conditions.
->>
->> Please have a look at kvaser_usb_rx_error(), the whole state handling =
-is
->> omitted in case of OOM.
->>
+On Wed, 2015-01-14 at 20:03 -0500, Sowmini Varadhan wrote:
+> Relaxed ordering is disabled by default at driver initialization
+> and re-enabled when DCA is used. The reason it is disabled  was
+> due to an issue on some chipsets (see comments in
+> ixgbe_update_tx_dca()).
+> But when DCA is not used, RO needs to be re-enabled, else we have
+> a serialization bottleneck on platforms like SPARC.
 >=20
-> I see. Regarding kvaser_usb_rx_error(), would something like
-> below patch be acceptable?=20
+> This patch eliminates the bottleneck for ixgbe when DCA is not
+> configured.
 >=20
-> Kindly note that separating recording interface state from
-> error frame packet building leads to duplication of a good
-> number of if-conditions. Meanwhile, it truly saves _all_
-> of the possible state before any ENOMEM -- the correct thing
-> to do.
+> Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+> Cc: Emil Tantilov <emil.s.tantilov@intel.com>
 >=20
-> Another solution was to allocate the can frame on the stack,
-> and thus avoiding any code duplication. But this only leads
-> to calls of "kvaser_usb_simple_msg_async", which can fail
-> with -ENOMEM by itself, returning to the very same problem
-> again.=20
+> ---
+> v2: incoroporate comments from Emil Tantilov
 >=20
-> If the patch is acceptable, I'll rebase my USBCAN-II driver
-> above it and re-submit the series (minus the merged patch).
+>  drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c  |   23
+> +++++++++++++++++++++++
+>  drivers/net/ethernet/intel/ixgbe/ixgbe_common.c |   20
+> ++++++++++++++++++++
+>  drivers/net/ethernet/intel/ixgbe/ixgbe_common.h |    1 +
+>  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c   |   11 +++++++++++
+>  drivers/net/ethernet/intel/ixgbe/ixgbe_type.h   |    1 +
+>  drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c   |    1 +
+>  6 files changed, 57 insertions(+), 0 deletions(-)
 
-Looks good from my point of view, stats and state are handled
-independent of the error skb.
+Thanks Sowmini, I have added your patch to my queue.
 
-Andri can you have a look at the state handling itself?
+I know that Emil and others are looking into whether we can do this for
+all ixgbe silicon, so we may have a follow-on patch to the work you have
+done already to enable this for all devices.
 
-Marc
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---AtBsdgaKw3vtg7qVq5JfCQrtTMfNTEMTq
+--=-3MiGRmuaAV6qzmqb4nyP
 Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v2
 
-iQIcBAEBCgAGBQJUuSK7AAoJECte4hHFiupUfZYP/jM0kuSDBei+yQ+A0iYf8hem
-2B/djBXZwzUlKLSLzrkMgMrMKYXT3PShMFCCSFDLENl9kartGkMPwUES2mEEPvlM
-P1/3I8ZBKxFuuy6Gbxpt7su821C5IunkBgRiYHbrdRp4icn8x2h81OwewbZvvykj
-PXyytegJcGEAqgtuDdjzqWWtWXx4D58IlgnoViFiTy2bueY9valO4Cr1ooYtSH7U
-ldTplZ62kWfToA3b1k6ub/NjfVmZCTu7ENfGx4spWi1BS4R1j3F2vu+VpAasvF2+
-9V9ZAtq0rCkAuKl90MdoA0o1qa7c7w92DXhYLdDaXej6+XUQBALBiWLNNAvIbKpL
-SVQN0qLkC+Y6O0C1YOja8ZmQkQe1Pb4A6wIvITXm96b9M9dayUEts/dRmh+Z1kco
-nuTUsOwFV6DvGzKO831pNCQYpngP26czHyzT3rt7qiEe+CTGgkH50aTQPbcJFWrn
-B6oIovcBrFWGz9DZoSqEf9KYacjLkkRsgn+7pQA6wZmayK2fhMQvnjNCvTnhQkqd
-dVXWShFLqXHMUO6hn4t6L6j278K73l+/9XyB+nMALCA8HyQQf0bUFU1d4uzs608B
-YqtF61P3lAIIcxA51MckfOdfE3vuGmTv9UnsLLEcS3OZ/XjyFKSV1uyMpZbgGV67
-IWmhPnKnuWoIscrc2G91
-=Dtwe
+iQIcBAABCgAGBQJUuSQmAAoJEOVv75VaS+3OhYMP/1suBFxAMFKUxRMOkNAciBTn
+hiPFFmyrsvJUnG4FEaNBNcjdZr41RKFMKEjasEyVyzcihEamxTZzK7YDRx5Z2qrc
+eezMzXP/73Oi4R7NiCU4ESmfX8pO8BAGg/r2SaCnLKuETcHzHFa5hPDK5mqphMAE
+rI0fPCIWGkVUaoFc3r6Gb7F/EW0rRlxwCP7Yj0u7gG8nNvl9RmuHDDQR+G+WK4Je
+iB4jriDmtNv4jQ2cOdBFyBWA9L8yVrNnBgKemtH8tOWcOXw5ZmxXFP5p8EaMm9yc
+v5/dGGx3mdwZwfHG8FqvDwCKZqtMknozNBe0GQqUF4TIQmhuHCPf0pefh9dyhiQH
+v/BLfRriik2bNO+L+gdLj8W7qRf/pX3+tDe3S44ohAonQTX1psmbK/UgczPLA5Dl
+yJgLTXrLlxv26ZBhuG6iHP+za6w77lwU1UHk+NfW12Lmbc+iVaQ/RSfLXrquKbTj
+i/i4o5EmPeENXG3cCGry6kLNRkuWRVslPGvi8Y9liZ4M0BKy3vsGl9l3cBpkgwJj
+EGbD9uB0v57Fp5PpbyavBikT9XypzZjThH+bJJmxDeL1cm3zO9jbbJ7Bd0Lz04Kj
+vCZgJl/DsS7+FwXjwFAz96u0/yB0X0xrvvgCOgssSq5KxyujzzVLVEbYteJwlyr/
+QNeqnXEmvRazVDaKtUn3
+=kP7P
 -----END PGP SIGNATURE-----
 
---AtBsdgaKw3vtg7qVq5JfCQrtTMfNTEMTq--
+--=-3MiGRmuaAV6qzmqb4nyP--
