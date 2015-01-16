@@ -1,45 +1,77 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] niu: remove one compound_head() call
-Date: Fri, 16 Jan 2015 05:39:30 -0800
-Message-ID: <1421415570.11734.130.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f174.google.com ([209.85.213.174]:56551 "EHLO
-	mail-ig0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751314AbbAPNjc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Jan 2015 08:39:32 -0500
-Received: by mail-ig0-f174.google.com with SMTP id hn15so3372546igb.1
-        for <netdev@vger.kernel.org>; Fri, 16 Jan 2015 05:39:32 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Akash Shende <akash0x53s@gmail.com>
+Subject: [PATCH 2/2] Drivers: Isdn: sc: Fixed coding style & spelling mistakes.
+Date: Fri, 16 Jan 2015 19:12:42 +0530
+Message-ID: <1421415762-21596-1-git-send-email-akash0x53s@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: isdn@linux-pingi.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+Fix some spelling mistakes, coding style and don't assign value to static var.
 
-After a "page = alloc_page(mask);", we do not need to use
-compound_head() : page already points to the right place.
-
-This would be true even if using alloc_pages().
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
+Signed-off-by: Akash Shende <akash0x53s@gmail.com>
 ---
- drivers/net/ethernet/sun/niu.c |    3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+ drivers/isdn/sc/init.c | 15 ++++++---------
+ 1 file changed, 6 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/ethernet/sun/niu.c b/drivers/net/ethernet/sun/niu.c
-index 0c6416213837..4b51f903fb73 100644
---- a/drivers/net/ethernet/sun/niu.c
-+++ b/drivers/net/ethernet/sun/niu.c
-@@ -3341,8 +3341,7 @@ static int niu_rbr_add_page(struct niu *np, struct rx_ring_info *rp,
+diff --git a/drivers/isdn/sc/init.c b/drivers/isdn/sc/init.c
+index d6f19b1..3597ef4 100644
+--- a/drivers/isdn/sc/init.c
++++ b/drivers/isdn/sc/init.c
+@@ -30,7 +30,7 @@ static const char *boardname[] = { "DataCommute/BRI", "DataCommute/PRI", "TeleCo
+ static unsigned int io[] = {0, 0, 0, 0};
+ static unsigned char irq[] = {0, 0, 0, 0};
+ static unsigned long ram[] = {0, 0, 0, 0};
+-static bool do_reset = 0;
++static bool do_reset;
  
- 	niu_hash_page(rp, page, addr);
- 	if (rp->rbr_blocks_per_page > 1)
--		atomic_add(rp->rbr_blocks_per_page - 1,
--			   &compound_head(page)->_count);
-+		atomic_add(rp->rbr_blocks_per_page - 1, &page->_count);
- 
- 	for (i = 0; i < rp->rbr_blocks_per_page; i++) {
- 		__le32 *rbr = &rp->rbr[start_index + i];
+ module_param_array(io, int, NULL, 0);
+ module_param_array(irq, byte, NULL, 0);
+@@ -104,13 +104,12 @@ static int __init sc_init(void)
+ 					 io[b] + 0x400 * EXP_PAGE0);
+ 				continue;
+ 			}
+-		}
+-		else {
++		} else {
+ 			/*
+ 			 * Yes, probe for I/O Base
+ 			 */
+ 			if (probe_exhasted) {
+-				pr_debug("All probe addresses exhasted, skipping\n");
++				pr_debug("All probe addresses exhausted, skipping\n");
+ 				continue;
+ 			}
+ 			pr_debug("Probing for I/O...\n");
+@@ -169,8 +168,7 @@ static int __init sc_init(void)
+ 				model = identify_board(ram[b], io[b]);
+ 				release_region(ram[b], SRAM_PAGESIZE);
+ 			}
+-		}
+-		else {
++		} else {
+ 			/*
+ 			 * Yes, probe for free RAM and look for
+ 			 * a signature and id the board model
+@@ -187,7 +185,7 @@ static int __init sc_init(void)
+ 						ram[b] = i;
+ 						break;
+ 					}
+-					pr_debug("  Unidentifed or inaccessible\n");
++					pr_debug("  Unidentified or inaccessible\n");
+ 					continue;
+ 				}
+ 				pr_debug("  request failed\n");
+@@ -337,8 +335,7 @@ static int __init sc_init(void)
+ 		sc_adapter[cinst]->interrupt = irq[b];
+ 		if (request_irq(sc_adapter[cinst]->interrupt, interrupt_handler,
+ 				0, interface->id,
+-				(void *)(unsigned long) cinst))
+-		{
++				(void *)(unsigned long) cinst)) {
+ 			kfree(sc_adapter[cinst]->channel);
+ 			indicate_status(cinst, ISDN_STAT_UNLOAD, 0, NULL);	/* Fix me */
+ 			kfree(interface);
+-- 
+2.2.2
