@@ -1,61 +1,40 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net 1/2] sh_eth: Fix promiscuous mode on chips without
- TSU
-Date: Fri, 16 Jan 2015 22:36:42 +0300
-Message-ID: <54B9684A.8060302@cogentembedded.com>
-References: <1421430592.1222.190.camel@xylophone.i.decadent.org.uk> <1421430672.1222.191.camel@xylophone.i.decadent.org.uk> <54B9663D.2040008@cogentembedded.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v3 net-next 1/1] ip_tunnel: Create percpu gro_cell
+Date: Fri, 16 Jan 2015 11:38:33 -0800
+Message-ID: <1421437113.11734.144.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1421431860-1960597-1-git-send-email-kafai@fb.com>
+	 <1421431860-1960597-2-git-send-email-kafai@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@lists.codethink.co.uk,
-	Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>,
-	Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>,
-	Hisashi Nakamura <hisashi.nakamura.ak@renesas.com>,
-	Yoshihiro Kaneko <ykaneko0929@gmail.com>
-To: Ben Hutchings <ben.hutchings@codethink.co.uk>,
-	ct178-internal@lists.codethink.co.uk,
-	"David S. Miller" <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, kernel-team@fb.com
+To: Martin KaFai Lau <kafai@fb.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f178.google.com ([209.85.217.178]:42732 "EHLO
-	mail-lb0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755131AbbAPTgr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Jan 2015 14:36:47 -0500
-Received: by mail-lb0-f178.google.com with SMTP id u14so20097345lbd.9
-        for <netdev@vger.kernel.org>; Fri, 16 Jan 2015 11:36:45 -0800 (PST)
-In-Reply-To: <54B9663D.2040008@cogentembedded.com>
+Received: from mail-ie0-f178.google.com ([209.85.223.178]:48639 "EHLO
+	mail-ie0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752608AbbAPTif (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Jan 2015 14:38:35 -0500
+Received: by mail-ie0-f178.google.com with SMTP id vy18so22475181iec.9
+        for <netdev@vger.kernel.org>; Fri, 16 Jan 2015 11:38:34 -0800 (PST)
+In-Reply-To: <1421431860-1960597-2-git-send-email-kafai@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/16/2015 10:27 PM, Sergei Shtylyov wrote:
+On Fri, 2015-01-16 at 10:11 -0800, Martin KaFai Lau wrote:
+> In the ipip tunnel, the skb->queue_mapping is lost in ipip_rcv().
+> All skb will be queued to the same cell->napi_skbs.  The
+> gro_cell_poll is pinned to one core under load.  In production traffic,
+> we also see severe rx_dropped in the tunl iface and it is probably due to
+> this limit: skb_queue_len(&cell->napi_skbs) > netdev_max_backlog.
+> 
+> This patch is trying to alloc_percpu(struct gro_cell) and schedule
+> gro_cell_poll to process the skb in the same core.
+> 
+> Signed-off-by: Martin KaFai Lau <kafai@fb.com>
+> ---
+>  include/net/gro_cells.h | 29 ++++++++++++-----------------
+>  1 file changed, 12 insertions(+), 17 deletions(-)
 
->> Currently net_device_ops::set_rx_mode is only implemented for
->> chips with a TSU (multiple address table).  However we do need
->> to turn the PRM (promiscuous) flag on and off for other chips.
+Acked-by: Eric Dumazet <edumazet@google.com>
 
-[...]
-
->> Signed-off-by: Ben Hutchings <ben.hutchings@codethink.co.uk>
-
-[...]
-
->> diff --git a/drivers/net/ethernet/renesas/sh_eth.c
->> b/drivers/net/ethernet/renesas/sh_eth.c
->> index 167737f..0c4d5b5 100644
->> --- a/drivers/net/ethernet/renesas/sh_eth.c
->> +++ b/drivers/net/ethernet/renesas/sh_eth.c
-[...]
->> @@ -2440,7 +2440,7 @@ static void sh_eth_tsu_purge_mcast(struct net_device
->> *ndev)
->>       void *reg_offset = sh_eth_tsu_get_offset(mdp, TSU_ADRH0);
->>       int i;
->>
->> -    if (unlikely(!mdp->cd->tsu))
->> +    if (!mdp->cd->tsu)
-
->     But we don't call this function on non-TSU SoCs, do we?
-
-    Sorry, we do.
-
-> [...]
-
-WBR, Sergei
+Thanks
