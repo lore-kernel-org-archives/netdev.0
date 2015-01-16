@@ -1,31 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: smc91x: Add Atari EtherNAT support
-Date: Thu, 15 Jan 2015 19:33:14 -0500 (EST)
-Message-ID: <20150115.193314.72275448543984078.davem@davemloft.net>
-References: <1421327175-7613-1-git-send-email-geert@linux-m68k.org>
+Subject: Re: [PATCH net] net/mlx4: Don't disable vxlan offloads under
+ DMFS-A0 optimized steering
+Date: Thu, 15 Jan 2015 19:35:57 -0500 (EST)
+Message-ID: <20150115.193557.348020366326523895.davem@davemloft.net>
+References: <1421328534-14216-1-git-send-email-ogerlitz@mellanox.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: nico@fluxnic.net, netdev@vger.kernel.org,
-	linux-m68k@vger.kernel.org, schmitzmic@gmail.com,
-	schmitz@debian.org
-To: geert@linux-m68k.org
-Return-path: <linux-m68k-owner@vger.kernel.org>
-In-Reply-To: <1421327175-7613-1-git-send-email-geert@linux-m68k.org>
-Sender: linux-m68k-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, matanb@mellanox.com, amirv@mellanox.com
+To: ogerlitz@mellanox.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:56080 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752368AbbAPAf7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jan 2015 19:35:59 -0500
+In-Reply-To: <1421328534-14216-1-git-send-email-ogerlitz@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Date: Thu, 15 Jan 2015 14:06:15 +0100
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Date: Thu, 15 Jan 2015 15:28:54 +0200
 
-> From: Michael Schmitz <schmitzmic@gmail.com>
+> Except for VXLAN steering rules, all offloads should work as they were
+> under plain DMFS mode. Fix that by enabling all the offloads under
+> DMFS-A0 mode, except for VXLAN steering rules.
 > 
-> Add Atari specific code to the smc91x Ethernet driver. This code is used
-> on the EtherNAT adapter card for the Atari Falcon extension port.
-> 
-> Signed-off-by: Michael Schmitz <schmitz@debian.org>
-> Tested-by: Christian Steigies <cts@debian.org>
-> [geert: Sort Kconfig entries, split in hard and soft dependencies]
-> Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
+> Fixes: d57febe1a478 "net/mlx4: Add A0 hybrid steering"
+> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 
-Applied to net-next, thanks.
+Applied, thanks.
