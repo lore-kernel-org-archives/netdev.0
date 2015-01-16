@@ -1,65 +1,61 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 7/9] rhashtable: Per bucket locks & deferred
- expansion/shrinking
-Date: Fri, 16 Jan 2015 19:35:57 +0000
-Message-ID: <20150116193557.GU30132@acer.localdomain>
-References: <75db38bc9313a55cf02a8c36a3376c32b691e5d9.1418647641.git.tgraf@suug.ch>
- <20150116153415.GF30132@acer.localdomain>
- <20150116155835.GA15052@casper.infradead.org>
- <20150116160354.GI30132@acer.localdomain>
- <20150116161530.GC15052@casper.infradead.org>
- <20150116163202.GJ30132@acer.localdomain>
- <063D6719AE5E284EB5DD2968C1650D6D1CACADAF@AcuExch.aculab.com>
- <20150116165302.GE15052@casper.infradead.org>
- <20150116183626.GS30132@acer.localdomain>
- <20150116191831.GA26730@casper.infradead.org>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net 1/2] sh_eth: Fix promiscuous mode on chips without
+ TSU
+Date: Fri, 16 Jan 2015 22:36:42 +0300
+Message-ID: <54B9684A.8060302@cogentembedded.com>
+References: <1421430592.1222.190.camel@xylophone.i.decadent.org.uk> <1421430672.1222.191.camel@xylophone.i.decadent.org.uk> <54B9663D.2040008@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Laight <David.Laight@ACULAB.COM>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"herbert@gondor.apana.org.au" <herbert@gondor.apana.org.au>,
-	"paulmck@linux.vnet.ibm.com" <paulmck@linux.vnet.ibm.com>,
-	"edumazet@google.com" <edumazet@google.com>,
-	"john.r.fastabend@intel.com" <john.r.fastabend@intel.com>,
-	"josh@joshtriplett.org" <josh@joshtriplett.org>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>
-To: Thomas Graf <tgraf@suug.ch>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150116191831.GA26730@casper.infradead.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@lists.codethink.co.uk,
+	Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>,
+	Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>,
+	Hisashi Nakamura <hisashi.nakamura.ak@renesas.com>,
+	Yoshihiro Kaneko <ykaneko0929@gmail.com>
+To: Ben Hutchings <ben.hutchings@codethink.co.uk>,
+	ct178-internal@lists.codethink.co.uk,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f178.google.com ([209.85.217.178]:42732 "EHLO
+	mail-lb0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755131AbbAPTgr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Jan 2015 14:36:47 -0500
+Received: by mail-lb0-f178.google.com with SMTP id u14so20097345lbd.9
+        for <netdev@vger.kernel.org>; Fri, 16 Jan 2015 11:36:45 -0800 (PST)
+In-Reply-To: <54B9663D.2040008@cogentembedded.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 16.01, Thomas Graf wrote:
-> On 01/16/15 at 06:36pm, Patrick McHardy wrote:
-> > On 16.01, Thomas Graf wrote:
-> > > On 01/16/15 at 04:43pm, David Laight wrote:
-> > > > The walker is unlikely to see items that get inserted early in the hash
-> > > > table even without a resize.
-> > > 
-> > > I don't follow, you have to explain this statement.
-> > > 
-> > > Walkers which don't want to see duplicates or miss entries should
-> > > just take the mutex.
-> > 
-> > Well, we do have a problem with interrupted dumps. As you know once
-> > the netlink message buffer is full, we return to userspace and
-> > continue dumping during the next read. Expanding obviously changes
-> > the order since we rehash from bucket N to N and 2N, so this will
-> > indeed cause duplicate (doesn't matter) and missed entries.
-> 
-> Right,but that's a Netlink dump issue and not specific to rhashtable.
+On 01/16/2015 10:27 PM, Sergei Shtylyov wrote:
 
-Well, rhashtable (or generally resizing) will make it a lot worse.
-Usually we at worst miss entries which were added during the dump,
-which is made up by the notifications.
+>> Currently net_device_ops::set_rx_mode is only implemented for
+>> chips with a TSU (multiple address table).  However we do need
+>> to turn the PRM (promiscuous) flag on and off for other chips.
 
-With resizing we might miss anything, its completely undeterministic.
+[...]
 
-> Putting the sequence number check in place should be sufficient
-> for sets, right?
+>> Signed-off-by: Ben Hutchings <ben.hutchings@codethink.co.uk>
 
-I don't see how. The problem is that the ordering of the hash changes
-and it will skip different entries than those that have already been
-dumped.
+[...]
+
+>> diff --git a/drivers/net/ethernet/renesas/sh_eth.c
+>> b/drivers/net/ethernet/renesas/sh_eth.c
+>> index 167737f..0c4d5b5 100644
+>> --- a/drivers/net/ethernet/renesas/sh_eth.c
+>> +++ b/drivers/net/ethernet/renesas/sh_eth.c
+[...]
+>> @@ -2440,7 +2440,7 @@ static void sh_eth_tsu_purge_mcast(struct net_device
+>> *ndev)
+>>       void *reg_offset = sh_eth_tsu_get_offset(mdp, TSU_ADRH0);
+>>       int i;
+>>
+>> -    if (unlikely(!mdp->cd->tsu))
+>> +    if (!mdp->cd->tsu)
+
+>     But we don't call this function on non-TSU SoCs, do we?
+
+    Sorry, we do.
+
+> [...]
+
+WBR, Sergei
