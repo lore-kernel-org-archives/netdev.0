@@ -1,96 +1,55 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 1/9] rhashtable: Do hashing inside of
- rhashtable_lookup_compare()
-Date: Fri, 16 Jan 2015 15:37:40 +0000
-Message-ID: <20150116153740.GG30132@acer.localdomain>
-References: <cover.1420230585.git.tgraf@suug.ch>
- <d579f486c3d4a88744dffc23a794601b025b41f4.1420230585.git.tgraf@suug.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, herbert@gondor.apana.org.au,
-	paulmck@linux.vnet.ibm.com, edumazet@google.com,
-	john.r.fastabend@intel.com, josh@joshtriplett.org,
-	netfilter-devel@vger.kernel.org
-To: Thomas Graf <tgraf@suug.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <d579f486c3d4a88744dffc23a794601b025b41f4.1420230585.git.tgraf@suug.ch>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jonathan Toppins <jtoppins@cumulusnetworks.com>
+Subject: [PATCH net-next 0/5] bonding: various 802.3ad fixes
+Date: Fri, 16 Jan 2015 10:57:23 -0500
+Message-ID: <1421423848-414-1-git-send-email-jtoppins@cumulusnetworks.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qg0-f52.google.com ([209.85.192.52]:42797 "EHLO
+	mail-qg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753143AbbAPP5l (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Jan 2015 10:57:41 -0500
+Received: by mail-qg0-f52.google.com with SMTP id i50so16825937qgf.11
+        for <netdev@vger.kernel.org>; Fri, 16 Jan 2015 07:57:40 -0800 (PST)
+Received: from debian-devel.rtplab.test (rrcs-24-171-185-114.midsouth.biz.rr.com. [24.171.185.114])
+        by mx.google.com with ESMTPSA id y95sm4475377qgy.14.2015.01.16.07.57.40
+        for <netdev@vger.kernel.org>
+        (version=TLSv1.2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
+        Fri, 16 Jan 2015 07:57:40 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 02.01, Thomas Graf wrote:
-> Hash the key inside of rhashtable_lookup_compare() like
-> rhashtable_lookup() does. This allows to simplify the hashing
-> functions and keep them private.
+This patch series is a forward porting of patches we (Cumulus) are shipping
+in our 3.2 series kernels. These fixes attempt to make 802.3ad bonding mode
+more predictable in certian state machine transtions in addition to enhancing
+802.3ad bond carrier determination based on acutal number of peered ports plus
+if the bond has an active aggregrator. Specific notes are contained within each
+patch.
 
-One more question:
+For this patch series there are no userspace facing changes, a diff between
+the modinfo output showed no difference. However, there are behavioral
+facing changes, primarily in the bond carrier state. Please make sure to
+review carefully.
 
-> diff --git a/net/netfilter/nft_hash.c b/net/netfilter/nft_hash.c
-> index 1e316ce..614ee09 100644
-> --- a/net/netfilter/nft_hash.c
-> +++ b/net/netfilter/nft_hash.c
-> @@ -94,28 +94,40 @@ static void nft_hash_remove(const struct nft_set *set,
->  	kfree(he);
->  }
->  
-> +struct nft_compare_arg {
-> +	const struct nft_set *set;
-> +	struct nft_set_elem *elem;
-> +};
-> +
-> +static bool nft_hash_compare(void *ptr, void *arg)
-> +{
-> +	struct nft_hash_elem *he = ptr;
-> +	struct nft_compare_arg *x = arg;
-> +
-> +	if (!nft_data_cmp(&he->key, &x->elem->key, x->set->klen)) {
-> +		x->elem->cookie = &he->node;
-> +		x->elem->flags = 0;
-> +		if (x->set->flags & NFT_SET_MAP)
-> +			nft_data_copy(&x->elem->data, he->data);
+Jonathan Toppins (1):
+  bonding: cleanup and remove dead code
 
-Is there any reason why we need to perform the assignments in the
-compare function? The reason why I'm asking is because to add
-timeout support, I need another compare function for nft_hash_lookup()
-and I'd prefer to use a single one for both cases.
+Satish Ashok (1):
+  bonding: fix LACP PDU not sent on slave port sometimes
 
-> +
-> +		return true;
-> +	}
-> +
-> +	return false;
-> +}
-> +
->  static int nft_hash_get(const struct nft_set *set, struct nft_set_elem *elem)
->  {
->  	const struct rhashtable *priv = nft_set_priv(set);
-> -	const struct bucket_table *tbl = rht_dereference_rcu(priv->tbl, priv);
-> -	struct rhash_head __rcu * const *pprev;
-> -	struct nft_hash_elem *he;
-> -	u32 h;
-> -
-> -	h = rhashtable_hashfn(priv, &elem->key, set->klen);
-> -	pprev = &tbl->buckets[h];
-> -	rht_for_each_entry_rcu(he, tbl->buckets[h], node) {
-> -		if (nft_data_cmp(&he->key, &elem->key, set->klen)) {
-> -			pprev = &he->node.next;
-> -			continue;
-> -		}
-> +	struct nft_compare_arg arg = {
-> +		.set = set,
-> +		.elem = elem,
-> +	};
->  
-> -		elem->cookie = (void *)pprev;
-> -		elem->flags = 0;
-> -		if (set->flags & NFT_SET_MAP)
-> -			nft_data_copy(&elem->data, he->data);
-> +	if (rhashtable_lookup_compare(priv, &elem->key,
-> +				      &nft_hash_compare, &arg))
->  		return 0;
-> -	}
-> +
->  	return -ENOENT;
->  }
->  
+Scott Feldman (1):
+  bonding: keep bond interface carrier off until at least one active
+    member
+
+Wilson Kok (2):
+  bonding: fix bond_open() don't always set slave active flag
+  bonding: fix incorrect lacp mux state when agg not active
+
+ drivers/net/bonding/bond_3ad.c     |   73 ++++++++++++++++++++++++++++--------
+ drivers/net/bonding/bond_main.c    |    6 +--
+ drivers/net/bonding/bond_options.c |    1 +
+ include/net/bond_3ad.h             |    1 -
+ include/net/bonding.h              |    1 +
+ 5 files changed, 62 insertions(+), 20 deletions(-)
+
+-- 
+1.7.10.4
