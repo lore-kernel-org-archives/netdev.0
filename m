@@ -1,43 +1,52 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: Re: [PATCH] [PATCH] net: sxgbe: Fix waring for double kfree()
-Date: Fri, 16 Jan 2015 10:12:30 +0300
-Message-ID: <20150116071229.GH5520@mwanda>
-References: <1421286191-9550-1-git-send-email-kgene@kernel.org>
- <20150115.191416.1303150560556013280.davem@davemloft.net>
+From: Hannes Reinecke <hare@suse.de>
+Subject: Re: [PATCH 0/2] Remove T4 FCoE support
+Date: Fri, 16 Jan 2015 08:19:41 +0100
+Message-ID: <54B8BB8D.8050602@suse.de>
+References: <cover.1421328605.git.praveenm@chelsio.com> <20150115.140453.871607276763972458.davem@davemloft.net> <20150116042616.GA1264@fcoe-test11>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kgene@kernel.org, netdev@vger.kernel.org, davem@davemloft.net,
-	bh74.an@samsung.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:36547 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751370AbbAPHMl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Jan 2015 02:12:41 -0500
-Content-Disposition: inline
-In-Reply-To: <20150115.191416.1303150560556013280.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-scsi@vger.kernel.org,
+	JBottomley@parallels.com, hch@infradead.org,
+	hariprasad@chelsio.com, varun@chelsio.com
+To: Praveen Madhavan <praveenm@chelsio.com>,
+	David Miller <davem@davemloft.net>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <20150116042616.GA1264@fcoe-test11>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 15, 2015 at 07:14:16PM -0500, David Miller wrote:
-> From: Kukjin Kim <kgene@kernel.org>
-> Date: Thu, 15 Jan 2015 10:43:11 +0900
-> 
-> > From: Byungho An <bh74.an@samsung.com>
-> > 
-> > This patch fixes double kfree() calls at init_rx_ring() because
-> > it causes static checker warning.
-> > 
-> > Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
-> > Signed-off-by: Byungho An <bh74.an@samsung.com>
-> > Signed-off-by: Kukjin Kim <kgene@kernel.org>
-> 
-> Applied.
+On 01/16/2015 05:32 AM, Praveen Madhavan wrote:
+> On Thu, Jan 15, 2015 at 02:04:53PM -0500, David Miller wrote:
+>> From: Praveen Madhavan <praveenm@chelsio.com>
+>> Date: Thu, 15 Jan 2015 19:15:50 +0530
+>>
+>>> These patches removes FCoE support for chelsio T4 adapter.
+>>> Please apply on net-next since depends on previous commits.
+>>
+>> Why is it being removed?  You have to state this in the
+>> commit log messages at a minimum.
+>>
+> We found a subtle issue with FCoE on T4 very late in the game=20
+> and decided not to productize FCoE on T4 and therefore there=20
+> are no customers that will be impacted by this change. FCoE is
+> supported on T5 cards.
+> Sorry about that, not mentioning in commit log. Can i resend this=20
+> patch with updated commit log?
+> =20
+Yes, please do.
 
-It does silence the warning but it doesn't fix the bug.
+Cheers,
 
-Kukjin, let me know if you have any questions.  I can write the fix if
-you need me to.
-
-regards,
-dan carpenter
+Hannes
+--=20
+Dr. Hannes Reinecke		               zSeries & Storage
+hare@suse.de			               +49 911 74053 688
+SUSE LINUX GmbH, Maxfeldstr. 5, 90409 N=FCrnberg
+GF: F. Imend=F6rffer, J. Smithard, J. Guild, D. Upmanyu, G. Norton
+HRB 21284 (AG N=FCrnberg)
+--
+To unsubscribe from this list: send the line "unsubscribe linux-scsi" i=
+n
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
