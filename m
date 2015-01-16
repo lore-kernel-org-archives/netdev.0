@@ -1,58 +1,51 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 07/17] i40e/i40evf: Bump i40e/i40evf versions
-Date: Fri, 16 Jan 2015 05:28:56 -0800
-Message-ID: <1421414946-22179-8-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1421414946-22179-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Catherine Sullivan <catherine.sullivan@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH net-next] socket: use iov_length()
+Date: Fri, 16 Jan 2015 14:31:54 +0100
+Message-ID: <54B912CA.40305@6wind.com>
+References: <1421230070-4104-1-git-send-email-nicolas.dichtel@6wind.com> <20150115214519.GB29656@ZenIV.linux.org.uk>
+Reply-To: nicolas.dichtel@6wind.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Al Viro <viro@ZenIV.linux.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:5724 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755517AbbAPN3R (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 Jan 2015 08:29:17 -0500
-In-Reply-To: <1421414946-22179-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail-wg0-f46.google.com ([74.125.82.46]:36895 "EHLO
+	mail-wg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751353AbbAPNb5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Jan 2015 08:31:57 -0500
+Received: by mail-wg0-f46.google.com with SMTP id x13so20531574wgg.5
+        for <netdev@vger.kernel.org>; Fri, 16 Jan 2015 05:31:56 -0800 (PST)
+In-Reply-To: <20150115214519.GB29656@ZenIV.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Catherine Sullivan <catherine.sullivan@intel.com>
-
-Bump i40e to 1.2.5 and i40evf to 1.0.7.
-
-Change-ID: I622556829056e3ed42d3b9d285fc5ffb693b21cc
-Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/i40e/i40e_main.c     | 2 +-
- drivers/net/ethernet/intel/i40evf/i40evf_main.c | 2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 4d1fe56..c3a353d 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -39,7 +39,7 @@ static const char i40e_driver_string[] =
- 
- #define DRV_VERSION_MAJOR 1
- #define DRV_VERSION_MINOR 2
--#define DRV_VERSION_BUILD 2
-+#define DRV_VERSION_BUILD 5
- #define DRV_VERSION __stringify(DRV_VERSION_MAJOR) "." \
- 	     __stringify(DRV_VERSION_MINOR) "." \
- 	     __stringify(DRV_VERSION_BUILD)    DRV_KERN
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-index 21ccbe8..a492032 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-@@ -36,7 +36,7 @@ char i40evf_driver_name[] = "i40evf";
- static const char i40evf_driver_string[] =
- 	"Intel(R) XL710/X710 Virtual Function Network Driver";
- 
--#define DRV_VERSION "1.0.6"
-+#define DRV_VERSION "1.0.7"
- const char i40evf_driver_version[] = DRV_VERSION;
- static const char i40evf_copyright[] =
- 	"Copyright (c) 2013 - 2014 Intel Corporation.";
--- 
-1.9.3
+Le 15/01/2015 22:45, Al Viro a =E9crit :
+> On Wed, Jan 14, 2015 at 11:07:50AM +0100, Nicolas Dichtel wrote:
+>> Better to use available helpers.
+>>
+>> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+>> ---
+>>   net/socket.c | 8 ++------
+>>   1 file changed, 2 insertions(+), 6 deletions(-)
+>>
+>> diff --git a/net/socket.c b/net/socket.c
+>> index a2c33a4dc7ba..b1f3fa4da020 100644
+>> --- a/net/socket.c
+>> +++ b/net/socket.c
+>> @@ -883,10 +883,8 @@ static ssize_t do_sock_read(struct msghdr *msg,=
+ struct kiocb *iocb,
+>>   {
+>>   	struct socket *sock =3D file->private_data;
+>>   	size_t size =3D 0;
+>> -	int i;
+>>
+>> -	for (i =3D 0; i < nr_segs; i++)
+>> -		size +=3D iov[i].iov_len;
+>> +	size =3D iov_length(iov, nr_segs);
+>
+> What's wrong with size =3D iocb->ki_nbytes instead of calling anythin=
+g?
+>
+I'm not an expert, but it seems you're right. I will send a patch.
