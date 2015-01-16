@@ -1,81 +1,75 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 08/17] i40e: only enable PTP interrupt cause if PTP is enabled
-Date: Fri, 16 Jan 2015 05:28:57 -0800
-Message-ID: <1421414946-22179-9-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 12/17] i40e: AQ API updates
+Date: Fri, 16 Jan 2015 05:29:01 -0800
+Message-ID: <1421414946-22179-13-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1421414946-22179-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+	gerlitz.or@gmail.com, Shannon Nelson <shannon.nelson@intel.com>,
+	Kamil Krawczyk <kamil.krawczyk@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:5726 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:5724 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753743AbbAPN3a (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1756040AbbAPN3a (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 16 Jan 2015 08:29:30 -0500
 In-Reply-To: <1421414946-22179-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jacob Keller <jacob.e.keller@intel.com>
+Fix up NVM config read and write data structs.
 
-We should not blindly enable the PTP interrupt flags for all PFs. We
-should only enable the PTP interrupt in PFs which have enabled
-PTP.
-
-Change-ID: I051a17cae4c199a2f3cf7852266e27eda6630525
-Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
+Signed-off-by: Kamil Krawczyk <kamil.krawczyk@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 11 +++++++----
- 1 file changed, 7 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h   | 10 +++++-----
+ drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h | 10 +++++-----
+ 2 files changed, 10 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index c3a353d..0cc0266 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -2819,8 +2819,9 @@ static void i40e_vsi_configure_msix(struct i40e_vsi *vsi)
-  * i40e_enable_misc_int_causes - enable the non-queue interrupts
-  * @hw: ptr to the hardware info
-  **/
--static void i40e_enable_misc_int_causes(struct i40e_hw *hw)
-+static void i40e_enable_misc_int_causes(struct i40e_pf *pf)
- {
-+	struct i40e_hw *hw = &pf->hw;
- 	u32 val;
- 
- 	/* clear things first */
-@@ -2832,11 +2833,13 @@ static void i40e_enable_misc_int_causes(struct i40e_hw *hw)
- 	      I40E_PFINT_ICR0_ENA_GRST_MASK          |
- 	      I40E_PFINT_ICR0_ENA_PCI_EXCEPTION_MASK |
- 	      I40E_PFINT_ICR0_ENA_GPIO_MASK          |
--	      I40E_PFINT_ICR0_ENA_TIMESYNC_MASK      |
- 	      I40E_PFINT_ICR0_ENA_HMC_ERR_MASK       |
- 	      I40E_PFINT_ICR0_ENA_VFLR_MASK          |
- 	      I40E_PFINT_ICR0_ENA_ADMINQ_MASK;
- 
-+	if (pf->flags & I40E_FLAG_PTP)
-+		val |= I40E_PFINT_ICR0_ENA_TIMESYNC_MASK;
-+
- 	wr32(hw, I40E_PFINT_ICR0_ENA, val);
- 
- 	/* SW_ITR_IDX = 0, but don't change INTENA */
-@@ -2866,7 +2869,7 @@ static void i40e_configure_msi_and_legacy(struct i40e_vsi *vsi)
- 	q_vector->tx.latency_range = I40E_LOW_LATENCY;
- 	wr32(hw, I40E_PFINT_ITR0(I40E_TX_ITR), q_vector->tx.itr);
- 
--	i40e_enable_misc_int_causes(hw);
-+	i40e_enable_misc_int_causes(pf);
- 
- 	/* FIRSTQ_INDX = 0, FIRSTQ_TYPE = 0 (rx) */
- 	wr32(hw, I40E_PFINT_LNKLST0, 0);
-@@ -7137,7 +7140,7 @@ static int i40e_setup_misc_vector(struct i40e_pf *pf)
- 		}
- 	}
- 
--	i40e_enable_misc_int_causes(hw);
-+	i40e_enable_misc_int_causes(pf);
- 
- 	/* associate no queues to the misc vector */
- 	wr32(hw, I40E_PFINT_LNKLST0, I40E_QUEUE_END_OF_LIST);
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h b/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
+index 20cada5..70b8e55 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
+@@ -1831,12 +1831,12 @@ I40E_CHECK_CMD_LENGTH(i40e_aqc_nvm_update);
+ /* NVM Config Read (indirect 0x0704) */
+ struct i40e_aqc_nvm_config_read {
+ 	__le16	cmd_flags;
+-#define ANVM_SINGLE_OR_MULTIPLE_FEATURES_MASK	1
+-#define ANVM_READ_SINGLE_FEATURE		0
+-#define ANVM_READ_MULTIPLE_FEATURES		1
++#define I40E_AQ_ANVM_SINGLE_OR_MULTIPLE_FEATURES_MASK	1 
++#define I40E_AQ_ANVM_READ_SINGLE_FEATURE		0 
++#define I40E_AQ_ANVM_READ_MULTIPLE_FEATURES		1
+ 	__le16	element_count;
+-	__le16	element_id; /* Feature/field ID */
+-	u8	reserved[2];
++	__le16	element_id;	/* Feature/field ID */
++	__le16	element_id_msw;	/* MSWord of field ID */
+ 	__le32	address_high;
+ 	__le32	address_low;
+ };
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h b/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
+index 1b80846..5363cbf 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
++++ b/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
+@@ -1831,12 +1831,12 @@ I40E_CHECK_CMD_LENGTH(i40e_aqc_nvm_update);
+ /* NVM Config Read (indirect 0x0704) */
+ struct i40e_aqc_nvm_config_read {
+ 	__le16	cmd_flags;
+-#define ANVM_SINGLE_OR_MULTIPLE_FEATURES_MASK	1
+-#define ANVM_READ_SINGLE_FEATURE		0
+-#define ANVM_READ_MULTIPLE_FEATURES		1
++#define I40E_AQ_ANVM_SINGLE_OR_MULTIPLE_FEATURES_MASK	1
++#define I40E_AQ_ANVM_READ_SINGLE_FEATURE		0
++#define I40E_AQ_ANVM_READ_MULTIPLE_FEATURES		1
+ 	__le16	element_count;
+-	__le16	element_id; /* Feature/field ID */
+-	u8	reserved[2];
++	__le16	element_id;	/* Feature/field ID */
++	__le16	element_id_msw;	/* MSWord of field ID */
+ 	__le32	address_high;
+ 	__le32	address_low;
+ };
 -- 
 1.9.3
