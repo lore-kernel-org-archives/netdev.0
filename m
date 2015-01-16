@@ -1,77 +1,120 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next v2 1/2] net: ipv4: handle DSA enabled master network devices
-Date: Fri, 16 Jan 2015 09:56:01 -0800
-Message-ID: <1421430962-18119-2-git-send-email-f.fainelli@gmail.com>
-References: <1421430962-18119-1-git-send-email-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, stephen@networkplumber.org, kaber@trash.net,
-	bridge@lists.linux-foundation.org, buytenh@wantstofly.org,
-	Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
+From: Martin KaFai Lau <kafai@fb.com>
+Subject: [PATCH v3 net-next 1/1] ip_tunnel: Create percpu gro_cell
+Date: Fri, 16 Jan 2015 10:11:00 -0800
+Message-ID: <1421431860-1960597-2-git-send-email-kafai@fb.com>
+References: <1421431860-1960597-1-git-send-email-kafai@fb.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, <kernel-team@fb.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f180.google.com ([209.85.192.180]:40919 "EHLO
-	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752865AbbAPR4R (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Jan 2015 12:56:17 -0500
-Received: by mail-pd0-f180.google.com with SMTP id fl12so23954815pdb.11
-        for <netdev@vger.kernel.org>; Fri, 16 Jan 2015 09:56:17 -0800 (PST)
-In-Reply-To: <1421430962-18119-1-git-send-email-f.fainelli@gmail.com>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:22966 "EHLO
+	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755543AbbAPSLO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Jan 2015 13:11:14 -0500
+Received: from pps.filterd (m0004347 [127.0.0.1])
+	by m0004347.ppops.net (8.14.5/8.14.5) with SMTP id t0GI7f9Q010128
+	for <netdev@vger.kernel.org>; Fri, 16 Jan 2015 10:11:14 -0800
+Received: from mail.thefacebook.com ([199.201.64.23])
+	by m0004347.ppops.net with ESMTP id 1ry75702c3-1
+	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=OK)
+	for <netdev@vger.kernel.org>; Fri, 16 Jan 2015 10:11:14 -0800
+Received: from facebook.com (2401:db00:20:7029:face:0:33:0)	by
+ mx-out.facebook.com (10.212.232.63) with ESMTP	id
+ 0d19f60e9dab11e48cd90002c992ebde-d0ed6390 for <netdev@vger.kernel.org>;	Fri,
+ 16 Jan 2015 10:11:11 -0800
+In-Reply-To: <1421431860-1960597-1-git-send-email-kafai@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The logic to configure a network interface for kernel IP
-auto-configuration is very simplistic, and does not handle the case
-where a device is stacked onto another such as with DSA. This causes the
-kernel not to open and configure the master network device in a DSA
-switch tree, and therefore slave network devices using this master
-network devices as conduit device cannot be open.
+In the ipip tunnel, the skb->queue_mapping is lost in ipip_rcv().
+All skb will be queued to the same cell->napi_skbs.  The
+gro_cell_poll is pinned to one core under load.  In production traffic,
+we also see severe rx_dropped in the tunl iface and it is probably due to
+this limit: skb_queue_len(&cell->napi_skbs) > netdev_max_backlog.
 
-This restriction comes from a check in net/dsa/slave.c, which is
-basically checking the master netdev flags for IFF_UP and returns
--ENETDOWN if it is not the case.
+This patch is trying to alloc_percpu(struct gro_cell) and schedule
+gro_cell_poll to process the skb in the same core.
 
-Automatically bringing-up DSA master network devices allows DSA slave
-network devices to be used as valid interfaces for e.g: NFS root booting
-by allowing kernel IP autoconfiguration to succeed on these interfaces.
-
-On the reverse path, make sure we do not attempt to close a DSA-enabled
-device as this would implicitely prevent the slave DSA network device
-from operating.
-
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+Signed-off-by: Martin KaFai Lau <kafai@fb.com>
 ---
-Changes in v2:
+ include/net/gro_cells.h | 29 ++++++++++++-----------------
+ 1 file changed, 12 insertions(+), 17 deletions(-)
 
-- fixed typo in first comment hunk
-- remove spurious newline change
-- removed second comment, the code is obvious enough
-
- net/ipv4/ipconfig.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
-
-diff --git a/net/ipv4/ipconfig.c b/net/ipv4/ipconfig.c
-index 7fa18bc7e47f..b26376ef87f6 100644
---- a/net/ipv4/ipconfig.c
-+++ b/net/ipv4/ipconfig.c
-@@ -209,9 +209,9 @@ static int __init ic_open_devs(void)
- 	last = &ic_first_dev;
- 	rtnl_lock();
+diff --git a/include/net/gro_cells.h b/include/net/gro_cells.h
+index 734d9b5..0f712c0 100644
+--- a/include/net/gro_cells.h
++++ b/include/net/gro_cells.h
+@@ -8,25 +8,23 @@
+ struct gro_cell {
+ 	struct sk_buff_head	napi_skbs;
+ 	struct napi_struct	napi;
+-} ____cacheline_aligned_in_smp;
++};
  
--	/* bring loopback device up first */
-+	/* bring loopback and DSA master network devices up first */
- 	for_each_netdev(&init_net, dev) {
--		if (!(dev->flags & IFF_LOOPBACK))
-+		if (!(dev->flags & IFF_LOOPBACK) && !netdev_uses_dsa(dev))
- 			continue;
- 		if (dev_change_flags(dev, dev->flags | IFF_UP) < 0)
- 			pr_err("IP-Config: Failed to open %s\n", dev->name);
-@@ -306,7 +306,7 @@ static void __init ic_close_devs(void)
- 	while ((d = next)) {
- 		next = d->next;
- 		dev = d->dev;
--		if (dev != ic_dev) {
-+		if (dev != ic_dev && !netdev_uses_dsa(dev)) {
- 			DBG(("IP-Config: Downing %s\n", dev->name));
- 			dev_change_flags(dev, d->flags);
- 		}
+ struct gro_cells {
+-	unsigned int		gro_cells_mask;
+-	struct gro_cell		*cells;
++	struct gro_cell __percpu	*cells;
+ };
+ 
+ static inline void gro_cells_receive(struct gro_cells *gcells, struct sk_buff *skb)
+ {
+-	struct gro_cell *cell = gcells->cells;
++	struct gro_cell *cell;
+ 	struct net_device *dev = skb->dev;
+ 
+-	if (!cell || skb_cloned(skb) || !(dev->features & NETIF_F_GRO)) {
++	if (!gcells->cells || skb_cloned(skb) || !(dev->features & NETIF_F_GRO)) {
+ 		netif_rx(skb);
+ 		return;
+ 	}
+ 
+-	if (skb_rx_queue_recorded(skb))
+-		cell += skb_get_rx_queue(skb) & gcells->gro_cells_mask;
++	cell = this_cpu_ptr(gcells->cells);
+ 
+ 	if (skb_queue_len(&cell->napi_skbs) > netdev_max_backlog) {
+ 		atomic_long_inc(&dev->rx_dropped);
+@@ -72,15 +70,12 @@ static inline int gro_cells_init(struct gro_cells *gcells, struct net_device *de
+ {
+ 	int i;
+ 
+-	gcells->gro_cells_mask = roundup_pow_of_two(netif_get_num_default_rss_queues()) - 1;
+-	gcells->cells = kcalloc(gcells->gro_cells_mask + 1,
+-				sizeof(struct gro_cell),
+-				GFP_KERNEL);
++	gcells->cells = alloc_percpu(struct gro_cell);
+ 	if (!gcells->cells)
+ 		return -ENOMEM;
+ 
+-	for (i = 0; i <= gcells->gro_cells_mask; i++) {
+-		struct gro_cell *cell = gcells->cells + i;
++	for_each_possible_cpu(i) {
++		struct gro_cell *cell = per_cpu_ptr(gcells->cells, i);
+ 
+ 		skb_queue_head_init(&cell->napi_skbs);
+ 		netif_napi_add(dev, &cell->napi, gro_cell_poll, 64);
+@@ -91,16 +86,16 @@ static inline int gro_cells_init(struct gro_cells *gcells, struct net_device *de
+ 
+ static inline void gro_cells_destroy(struct gro_cells *gcells)
+ {
+-	struct gro_cell *cell = gcells->cells;
+ 	int i;
+ 
+-	if (!cell)
++	if (!gcells->cells)
+ 		return;
+-	for (i = 0; i <= gcells->gro_cells_mask; i++,cell++) {
++	for_each_possible_cpu(i) {
++		struct gro_cell *cell = per_cpu_ptr(gcells->cells, i);
+ 		netif_napi_del(&cell->napi);
+ 		skb_queue_purge(&cell->napi_skbs);
+ 	}
+-	kfree(gcells->cells);
++	free_percpu(gcells->cells);
+ 	gcells->cells = NULL;
+ }
+ 
 -- 
-2.1.0
+1.8.1
