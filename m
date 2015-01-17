@@ -1,67 +1,75 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 7/9] rhashtable: Per bucket locks & deferred
- expansion/shrinking
-Date: Sat, 17 Jan 2015 11:56:23 +0000
-Message-ID: <20150117115622.GA8502@acer.localdomain>
-References: <20150116183626.GS30132@acer.localdomain>
- <20150116191831.GA26730@casper.infradead.org>
- <20150116193557.GU30132@acer.localdomain>
- <20150116204921.GA14833@gondor.apana.org.au>
- <20150116213156.GA7109@acer.localdomain>
- <20150117003340.GA16374@gondor.apana.org.au>
- <20150117080621.GB3968@acer.localdomain>
- <20150117093228.GA19137@gondor.apana.org.au>
- <7AE5EEE0-60C7-43B4-848A-2D952D3A6DEF@trash.net>
- <20150117101309.GA19585@gondor.apana.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Thomas Graf <tgraf@suug.ch>,
-	David Laight <David.Laight@ACULAB.COM>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"paulmck@linux.vnet.ibm.com" <paulmck@linux.vnet.ibm.com>,
-	"edumazet@google.com" <edumazet@google.com>,
-	"john.r.fastabend@intel.com" <john.r.fastabend@intel.com>,
-	"josh@joshtriplett.org" <josh@joshtriplett.org>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150117101309.GA19585@gondor.apana.org.au>
-Sender: netfilter-devel-owner@vger.kernel.org
+From: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
+Subject: [PATCH] tipc: link: Remove unused function
+Date: Sat, 17 Jan 2015 17:13:51 +0100
+Message-ID: <1421511231-14482-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
+Cc: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	tipc-discussion@lists.sourceforge.net, linux-kernel@vger.kernel.org
+To: Jon Maloy <jon.maloy@ericsson.com>,
+	Allan Stephens <allan.stephens@windriver.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 17.01, Herbert Xu wrote:
-> On Sat, Jan 17, 2015 at 09:51:46AM +0000, Patrick McHardy wrote:
-> > 
-> > I agree, however at least in the case of nftables you can easily do the same thing by adding millions of rules.
-> 
-> I think that's a problem in itself.  If a single packet can kill
-> the CPU through millions of rules, then namespaces would be a joke.
-> There has to be a limit to the number of rules or the processing
-> has to be deferred into thread context (thus subject to scheduler
-> control) at some point.
+Remove the function tipc_link_get_max_pkt() that is not used anywhere.
 
-I think that's a problem that's unrelated to netfilter. Its quite easy
-to configure something that will make the network stack eat up all
-the CPU, consider f.i.:
+This was partially found by using a static code analysis program called cppcheck.
 
-bridge name	bridge id		STP enabled	interfaces
-br0		8000.625dda62a3d4	no		veth0
-							veth1
+Signed-off-by: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
+---
+ net/tipc/link.c |   27 ---------------------------
+ net/tipc/link.h |    1 -
+ 2 files changed, 28 deletions(-)
 
-Now thing of bridging, veth, TC actions, iptables, routing, all in
-combination. Sure, single cases can be caught it might be possible
-to restrict them, but I don't believe that in the near term we will
-be able to handle this properly.
-
-And even if all loops etc are handled, what keeps the user from
-creating a million veth devices and putting them into a long
-chain?
-
-This needs to be fixed on a different level in my opinion.
-
-> > It doesn't make things worse.
-> 
-> So I don't think that's a valid justification for ignoring this
-> hash table problem.
+diff --git a/net/tipc/link.c b/net/tipc/link.c
+index 23bcc11..e92fcfb 100644
+--- a/net/tipc/link.c
++++ b/net/tipc/link.c
+@@ -2266,33 +2266,6 @@ struct sk_buff *tipc_link_cmd_show_stats(const void *req_tlv_area, int req_tlv_s
+ 	return buf;
+ }
+ 
+-/**
+- * tipc_link_get_max_pkt - get maximum packet size to use when sending to destination
+- * @dest: network address of destination node
+- * @selector: used to select from set of active links
+- *
+- * If no active link can be found, uses default maximum packet size.
+- */
+-u32 tipc_link_get_max_pkt(u32 dest, u32 selector)
+-{
+-	struct tipc_node *n_ptr;
+-	struct tipc_link *l_ptr;
+-	u32 res = MAX_PKT_DEFAULT;
+-
+-	if (dest == tipc_own_addr)
+-		return MAX_MSG_SIZE;
+-
+-	n_ptr = tipc_node_find(dest);
+-	if (n_ptr) {
+-		tipc_node_lock(n_ptr);
+-		l_ptr = n_ptr->active_links[selector & 1];
+-		if (l_ptr)
+-			res = l_ptr->max_pkt;
+-		tipc_node_unlock(n_ptr);
+-	}
+-	return res;
+-}
+-
+ static void link_print(struct tipc_link *l_ptr, const char *str)
+ {
+ 	struct tipc_bearer *b_ptr;
+diff --git a/net/tipc/link.h b/net/tipc/link.h
+index 55812e8..084bd4e 100644
+--- a/net/tipc/link.h
++++ b/net/tipc/link.h
+@@ -216,7 +216,6 @@ void tipc_link_reset_list(unsigned int bearer_id);
+ int tipc_link_xmit_skb(struct sk_buff *skb, u32 dest, u32 selector);
+ int tipc_link_xmit(struct sk_buff_head *list, u32 dest, u32 selector);
+ int __tipc_link_xmit(struct tipc_link *link, struct sk_buff_head *list);
+-u32 tipc_link_get_max_pkt(u32 dest, u32 selector);
+ void tipc_link_bundle_rcv(struct sk_buff *buf);
+ void tipc_link_proto_xmit(struct tipc_link *l_ptr, u32 msg_typ, int prob,
+ 			  u32 gap, u32 tolerance, u32 priority, u32 acked_mtu);
+-- 
+1.7.10.4
