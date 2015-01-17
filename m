@@ -1,46 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v1 00/12] amd-xgbe: AMD XGBE driver updates
- 2015-01-16
-Date: Fri, 16 Jan 2015 22:27:49 -0500 (EST)
-Message-ID: <20150116.222749.373115489946039715.davem@davemloft.net>
-References: <20150116184618.18809.319.stgit@tlendack-t1.amdoffice.net>
+From: =?iso-8859-9?B?3v1ybmFr?= <iktm73@kulturturizm.gov.tr>
+Subject: RAPPEL
+Date: Sat, 17 Jan 2015 06:55:44 +0000
+Message-ID: <C09BECAB1B81D241B9805EAE54E9A1926134546F@KTBEXCDAG2.kultur.gov.tr>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: thomas.lendacky@amd.com
+Content-Type: text/plain; charset=iso-8859-9
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35738 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751235AbbAQD1y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Jan 2015 22:27:54 -0500
-In-Reply-To: <20150116184618.18809.319.stgit@tlendack-t1.amdoffice.net>
+Received: from scmgateway.kultur.gov.tr ([212.174.179.204]:14428 "EHLO
+	scmgateway.kultur.gov.tr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751135AbbAQHJv convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 17 Jan 2015 02:09:51 -0500
+Content-Language: tr-TR
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tom Lendacky <thomas.lendacky@amd.com>
-Date: Fri, 16 Jan 2015 12:46:18 -0600
 
-> The following series of patches includes functional updates to the
-> driver as well as some trivial changes.
-> 
-> - Fix checks/warnings from checkpatch in the amd-xgbe driver
-> - Fix checks/warnings from checkpatch in the amd-xgbe-phy driver
-> - Add a check to be sure that the amd-xgbe driver is using the
->   amd-xgbe-phy driver
-> - Use a saved control register value when bringing the PCS out of
->   suspend
-> - Clear all device state during a device restart
-> - Simplify the Rx descriptor ring tracking
-> - Remove the need for Tx path spinlocks
-> - Update the auto-negotiation logic to make use of the auto-negotiation
->   interrupt
-> - Properly support/advertise the FEC capability of the device
-> - Use the proper page registers during auto-negotiation extended next
->   page exchange
-> - Add ACPI support to the amd-xgbe and amd-xgbe-phy drivers
-> - Allow platform specific phy settings to be supplied by UEFI
->   
-> This patch series is based on net-next.
 
-Series applied, thanks Tom.
+
+
+Dernier avertissement webmail utilisateur
+
+Ce est un message de votre email =E9quipe service informatique de mettr=
+e =E0 jour votre compte Nous mettons =E0 jour tous les comptes e-mail, =
+tous les utilisateurs sont en train de v=E9rifier leur compte e-mail mi=
+se =E0 niveau et de mise =E0 jour. Se il vous pla=EEt v=E9rifier et met=
+tre =E0 jour votre compte pour =E9viter de perdre vos messages entrants=
+ vers votre bo=EEte de r=E9ception et autres dossiers ou peut =E9galeme=
+nt =EAtre supprim=E9 si pas mis =E0 niveau / mise =E0 jour dans les 24 =
+heures.
+
+CLIQUEZ ICI:http://tinyurl.com/kcs6ygj
+mettre =E0 jour votre email
+
+Service Webmail
+=C9quipe du service informatique.
+
+Copiez et coller le lien dans votre navigateur
