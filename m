@@ -1,8 +1,8 @@
 From: Patrick McHardy <kaber@trash.net>
 Subject: Re: [PATCH 7/9] rhashtable: Per bucket locks & deferred
  expansion/shrinking
-Date: Sat, 17 Jan 2015 08:02:56 +0000
-Message-ID: <20150117080255.GA3968@acer.localdomain>
+Date: Sat, 17 Jan 2015 08:06:21 +0000
+Message-ID: <20150117080621.GB3968@acer.localdomain>
 References: <20150116161530.GC15052@casper.infradead.org>
  <20150116163202.GJ30132@acer.localdomain>
  <063D6719AE5E284EB5DD2968C1650D6D1CACADAF@AcuExch.aculab.com>
@@ -10,55 +10,52 @@ References: <20150116161530.GC15052@casper.infradead.org>
  <20150116183626.GS30132@acer.localdomain>
  <20150116191831.GA26730@casper.infradead.org>
  <20150116193557.GU30132@acer.localdomain>
- <20150116213605.GE20315@casper.infradead.org>
- <20150116220735.GA12614@acer.localdomain>
- <20150116233414.GF20315@casper.infradead.org>
+ <20150116204921.GA14833@gondor.apana.org.au>
+ <20150116213156.GA7109@acer.localdomain>
+ <20150117003340.GA16374@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Laight <David.Laight@ACULAB.COM>,
+Cc: Thomas Graf <tgraf@suug.ch>,
+	David Laight <David.Laight@ACULAB.COM>,
 	"davem@davemloft.net" <davem@davemloft.net>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"herbert@gondor.apana.org.au" <herbert@gondor.apana.org.au>,
 	"paulmck@linux.vnet.ibm.com" <paulmck@linux.vnet.ibm.com>,
 	"edumazet@google.com" <edumazet@google.com>,
 	"john.r.fastabend@intel.com" <john.r.fastabend@intel.com>,
 	"josh@joshtriplett.org" <josh@joshtriplett.org>,
 	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>
-To: Thomas Graf <tgraf@suug.ch>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:50296 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751981AbbAQIG1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 17 Jan 2015 03:06:27 -0500
 Content-Disposition: inline
-In-Reply-To: <20150116233414.GF20315@casper.infradead.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20150117003340.GA16374@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 16.01, Thomas Graf wrote:
-> On 01/16/15 at 10:07pm, Patrick McHardy wrote:
-> > I'm afraid that's not good enough. The resize operation is deferred,
-> > so even if userspace does not perform an operation after starting
-> > the dump, the hash might change.
+On 17.01, Herbert Xu wrote:
+> On Fri, Jan 16, 2015 at 09:31:56PM +0000, Patrick McHardy wrote:
 > > 
-> > We can obviously work around that by incrementing a generation
-> > counter in rhashtable. The main problem I see is that with something
-> > very actively changing the ruleset, we might never complete a dump.
+> > I'm tending towards deferring resize operations while dumps are in
+> > progress. Since we only allow dumps by root, it seems the worst
+> > thing that can happen is that we run using a non optimal hash,
+> > which is comparable to having a badly structured ruleset.
 > 
-> Right, I suggest adding a function pointer to rhashtable_params,
-> which when set, is called on resize so users can bump their own
-> sequence counter on resize.
+> BTW, the current rhashtable has a deficiency in that the insert
+> operation never fails.  However, with delayed resizing, we must
+> allow insertion to fail or there can be too many insertions that
+> may overwhelm the hash table or even worse overflow the hash table
+> size counter.
 > 
-> > Dumps are usually rare, I think its preferrable to defer rehashing.
-> 
-> Resize operations should be *really* rare as well unless you start
-> with really small hash table sizes and constantly add/remove at the
-> watermark.
+> So in this scenario, a dump may cause insertion failures by delaying
+> the completion of the expansion.
 
-Which are far enough from each other that this should only happen
-in really unlucky cases.
+Resizing might also fail because of memory allocation problems, but
+I'd argue that its better to continue with a non-optimal sized table
+and retry later than to completely fail, at least unless the API
+user has explicitly requested this behaviour.
 
-> Re-dumping on insert/remove is a different story of course. Do you
-> care about missed insert/removals for dumps? If not we can do the
-> sequence number consistency checking for resizing only.
-
-No, that has always been undeterministic with netlink. We want to
-dump everything that was present when the dump was started and is
-still present when it finishes. Anything else can be handled using
-notifications.
+As for the element counter, yeah, it should prevent overflow. In that
+case I agree that failing insertion is the easiest solution.
