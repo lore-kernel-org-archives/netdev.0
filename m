@@ -1,43 +1,65 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH] net: rocker: Add basic netdev counters - v2
-Date: Sat, 17 Jan 2015 09:29:03 +0100
-Message-ID: <20150117082903.GA1891@nanopsycho.orion>
-References: <1421443349-77718-1-git-send-email-dsahern@gmail.com>
+Subject: Re: [patch net-next 2/2] net: replace br_fdb_external_learn_* calls
+ with switchdev notifier events
+Date: Sat, 17 Jan 2015 09:31:12 +0100
+Message-ID: <20150117083112.GB1891@nanopsycho.orion>
+References: <1421362177-10719-1-git-send-email-jiri@resnulli.us>
+ <1421362177-10719-2-git-send-email-jiri@resnulli.us>
+ <CAE4R7bAXvxFzuvuz5YPviTDsMLCYWnQxbkHkVJbjYq6+K574rw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Scott Feldman <sfeldma@gmail.com>
-To: David Ahern <dsahern@gmail.com>
+Cc: Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Scott Feldman <sfeldma@gmail.co>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>,
+	linus.luessing@web.de, Thomas Graf <tgraf@suug.ch>
+To: Scott Feldman <sfeldma@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:32926 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751268AbbAQI3G (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 17 Jan 2015 03:29:06 -0500
-Received: by mail-we0-f174.google.com with SMTP id k48so23773175wev.5
-        for <netdev@vger.kernel.org>; Sat, 17 Jan 2015 00:29:04 -0800 (PST)
+Received: from mail-we0-f178.google.com ([74.125.82.178]:55980 "EHLO
+	mail-we0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750826AbbAQIbO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 17 Jan 2015 03:31:14 -0500
+Received: by mail-we0-f178.google.com with SMTP id p10so23744413wes.9
+        for <netdev@vger.kernel.org>; Sat, 17 Jan 2015 00:31:13 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <1421443349-77718-1-git-send-email-dsahern@gmail.com>
+In-Reply-To: <CAE4R7bAXvxFzuvuz5YPviTDsMLCYWnQxbkHkVJbjYq6+K574rw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fri, Jan 16, 2015 at 10:22:29PM CET, dsahern@gmail.com wrote:
->Add packet and byte counters for RX and TX paths.
+Fri, Jan 16, 2015 at 08:32:34PM CET, sfeldma@gmail.com wrote:
+>On Thu, Jan 15, 2015 at 2:49 PM, Jiri Pirko <jiri@resnulli.us> wrote:
+>> This patch benefits from newly introduced switchdev notifier and uses it
+>> to propagate fdb learn events from rocker driver to bridge. That avoids
+>> direct function calls and possible use by other listeners (ovs).
+>>
+>> Suggested-by: Thomas Graf <tgraf@suug.ch>
+>> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 >
->$ ifconfig eth1
->eth1: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
->        inet6 fe80::5054:ff:fe12:3501  prefixlen 64  scopeid 0x20<link>
->        ether 52:54:00:12:35:01  txqueuelen 1000  (Ethernet)
->        RX packets 63  bytes 15813 (15.4 KiB)
->        RX errors 1  dropped 0  overruns 0  frame 0
->        TX packets 79  bytes 17991 (17.5 KiB)
->        TX errors 7  dropped 0 overruns 0  carrier 0  collisions 0
+>Signed-off-by: Scott Feldman <sfeldma@gmail.com>
 >
->Rx / Tx errors tested by injecting faults in qemu's hardware model for Rocker.
+>>  drivers/net/ethernet/rocker/rocker.c | 10 +++++--
+>>  include/linux/if_bridge.h            | 18 -------------
+>>  include/net/switchdev.h              | 11 ++++++++
+>>  net/bridge/br.c                      | 52 +++++++++++++++++++++++++++++++++++-
+>>  net/bridge/br_fdb.c                  | 38 +++-----------------------
+>>  net/bridge/br_private.h              |  4 +++
+>>  6 files changed, 78 insertions(+), 55 deletions(-)
+>>
+>> diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
+>> index cad8cf9..964d719 100644
+>> --- a/drivers/net/ethernet/rocker/rocker.c
+>> +++ b/drivers/net/ethernet/rocker/rocker.c
+>> @@ -3026,11 +3026,17 @@ static void rocker_port_fdb_learn_work(struct work_struct *work)
+>>                 container_of(work, struct rocker_fdb_learn_work, work);
+>>         bool removing = (lw->flags & ROCKER_OP_FLAG_REMOVE);
+>>         bool learned = (lw->flags & ROCKER_OP_FLAG_LEARNED);
+>> +       struct netdev_switch_notifier_fdb_info info;
+>> +
+>> +       info.addr = lw->addr;
+>> +       info.vid = lw->vid;
 >
->v2:
->- moved counter locations to avoid potential use after free per Florian's comment
->
->Signed-off-by: David Ahern <dsahern@gmail.com>
+>If you respin patch, use initializer to zero out other members, just
+>to future proof it.
 
-Acked-by: Jiri Pirko <jiri@resnulli.us>
-
-Thanks David.
+There are no other members :)
