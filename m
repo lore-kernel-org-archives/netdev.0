@@ -1,45 +1,86 @@
-From: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
-Subject: Re: [PATCH] tipc: link: Remove unused function
-Date: Sat, 17 Jan 2015 18:18:49 +0100
-Message-ID: <CAKXHbyOkeijHz_czx=7uczbeCUKk=At8-Wp0gov71bsVuPKfYg@mail.gmail.com>
-References: <1421511231-14482-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
-	<CAEUsAPaJcx-3uzH5e-wfYgicejdPt8R88hZ5X8K2gH4eXHVaVw@mail.gmail.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [RFC PATCH v2 1/2] net: af_packet support for direct ring access
+ in user space
+Date: Sat, 17 Jan 2015 09:35:44 -0800
+Message-ID: <54BA9D70.50403@gmail.com>
+References: <20150113043509.29985.33515.stgit@nitbit.x32> <20150114.153509.1264618607573705890.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jon Maloy <jon.maloy@ericsson.com>,
-	Allan Stephens <allan.stephens@windriver.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Network Development <netdev@vger.kernel.org>,
-	tipc-discussion@lists.sourceforge.net,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Chris Rorvick <chris@rorvick.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAEUsAPaJcx-3uzH5e-wfYgicejdPt8R88hZ5X8K2gH4eXHVaVw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, danny.zhou@intel.com,
+	nhorman@tuxdriver.com, dborkman@redhat.com, john.ronciak@intel.com,
+	hannes@stressinduktion.org, brouer@redhat.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f46.google.com ([209.85.218.46]:43749 "EHLO
+	mail-oi0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751399AbbAQRgA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 17 Jan 2015 12:36:00 -0500
+Received: by mail-oi0-f46.google.com with SMTP id z81so207780oif.5
+        for <netdev@vger.kernel.org>; Sat, 17 Jan 2015 09:36:00 -0800 (PST)
+In-Reply-To: <20150114.153509.1264618607573705890.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-2015-01-17 17:55 GMT+01:00 Chris Rorvick <chris@rorvick.com>:
-> On Sat, Jan 17, 2015 at 10:13 AM, Rickard Strandqvist
-> <rickard_strandqvist@spectrumdigital.se> wrote:
->> Remove the function tipc_link_get_max_pkt() that is not used anywhere.
+On 01/14/2015 12:35 PM, David Miller wrote:
+> From: John Fastabend <john.fastabend@gmail.com>
+> Date: Mon, 12 Jan 2015 20:35:11 -0800
 >
-> This is already in the next tree:
+>> +		if ((region.direction != DMA_BIDIRECTIONAL) &&
+>> +		    (region.direction != DMA_TO_DEVICE) &&
+>> +		    (region.direction != DMA_FROM_DEVICE))
+>> +			return -EFAULT;
+>   ...
+>> +		if ((umem->nmap == npages) &&
+>> +		    (0 != dma_map_sg(dev->dev.parent, umem->sglist,
+>> +				     umem->nmap, region.direction))) {
+>> +			region.iova = sg_dma_address(umem->sglist) + offset;
 >
-> commit 54fef04ad05f15984082c225fe47ce6af8ea1c5c
-> Author: Ying Xue <ying.xue@windriver.com>
-> Date:   Fri Jan 9 15:27:03 2015 +0800
+> I am having trouble seeing how this can work.
 >
->     tipc: remove unused tipc_link_get_max_pkt routine
+> dma_map_{single,sg}() mappings need synchronization after a DMA
+> transfer takes place.
 >
->     Signed-off-by: Ying Xue <ying.xue@windriver.com>
->     Tested-by: Tero Aho <Tero.Aho@coriant.com>
->     Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
->     Signed-off-by: David S. Miller <davem@davemloft.net>
+> For example if the DMA occurs to the device, then that region can
+> be cached in the PCI controller's internal caches and thus future
+> cpu writes into that memory region will not be seen, until a
+> dma_sync_*() is invoked.
+>
+> That isn't going to happen when the device transmit queue is
+> being completely managed in userspace.
+>
+> And this takes us back to the issue of protection, I don't think
+> it is addressed properly yet.
+>
+> CAP_NET_ADMIN privileges do not mean "can crap all over memory"
+> yet with this feature that can still happen.
+>
+> If we are dealing with a device which cannot provide strict protection
+> to only the process's locked local pages, you have to do something
+> to implement that protection.
+>
+> And you have _exactly_ one option to do that, abstracting the page
+> addresses and eating a system call to trigger the sends, so that you
+> can read from the user's (fake) descriptors and write into the real
+> descriptors (translating the DMA addresses along the way) and
+> triggering the TX doorbell.
 
+OK, I think this brings us back to some of the original designs/ideas
+we were thinking about with Daniel/Neil. We are going to take a look
+at this. At least on the RX side we can have the af_packet logic give
+us a set of DMA addresses'. I wonder if we can also make the busy
+poll logic per queue and use it.
 
-Hi
+>
+> I am not going to consider seriously an implementation that says "yeah
+> sometimes the user can crap onto other people's memory", this isn't
+> MS-DOS, it's a system where proper memory protections are mandatory
+> rather than optional.
+>
 
-Ok sorry, I update my linux-next clon
+More to sort out on our side. Thanks for looking at the patches.
 
-Kind regards
-Rickard Strandqvist
+.John
+
+-- 
+John Fastabend         Intel Corporation
