@@ -1,76 +1,47 @@
-From: sean darcy <seandarcy2@gmail.com>
-Subject: Re: NETDEV WATCHDOG:  internal(r8152): transmit queue 0 timed out
-Date: Fri, 16 Jan 2015 18:57:40 -0500
-Message-ID: <m9c8hl$2sd$1@ger.gmane.org>
-References: <m99j1v$n60$1@ger.gmane.org>
-	<54B8CAC2.6020406@gmail.com>	<0835B3720019904CB8F7AA43166CEEB2EE6935@RTITMBSV03.realtek.com.tw>
-	<54B8FF7E.2010901@gmail.com>
-Reply-To: Community support for Fedora users <users@lists.fedoraproject.org>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [PATCH] net: rocker: Add basic netdev counters - v2
+Date: Fri, 16 Jan 2015 16:08:03 -0800
+Message-ID: <CAE4R7bDrsA9xD=Bin8TTWzvH2XouaJ_crGvaHs2RuFEEgjAGJA@mail.gmail.com>
+References: <1421443349-77718-1-git-send-email-dsahern@gmail.com>
+	<CAE4R7bA3QG4LDvVQywDsRuJzJYv4mBq3=OXi2L=qGDfa4a8ykw@mail.gmail.com>
+	<54B9A36B.1050204@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; Format="flowed"
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org
-To: users@lists.fedoraproject.org
-Return-path: <users-bounces@lists.fedoraproject.org>
-In-Reply-To: <54B8FF7E.2010901@gmail.com>
-List-Unsubscribe: <https://admin.fedoraproject.org/mailman/options/users>,
-	<mailto:users-request@lists.fedoraproject.org?subject=unsubscribe>
-List-Archive: <http://lists.fedoraproject.org/pipermail/users/>
-List-Post: <mailto:users@lists.fedoraproject.org>
-List-Help: <mailto:users-request@lists.fedoraproject.org?subject=help>
-List-Subscribe: <https://admin.fedoraproject.org/mailman/listinfo/users>,
-	<mailto:users-request@lists.fedoraproject.org?subject=subscribe>
-Sender: users-bounces@lists.fedoraproject.org
-Errors-To: users-bounces@lists.fedoraproject.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Netdev <netdev@vger.kernel.org>, Jiri Pirko <jiri@resnulli.us>
+To: David Ahern <dsahern@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f179.google.com ([74.125.82.179]:36807 "EHLO
+	mail-we0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751909AbbAQAIF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Jan 2015 19:08:05 -0500
+Received: by mail-we0-f179.google.com with SMTP id m14so1104657wev.10
+        for <netdev@vger.kernel.org>; Fri, 16 Jan 2015 16:08:04 -0800 (PST)
+In-Reply-To: <54B9A36B.1050204@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gMDEvMTYvMjAxNSAwNzowOSBBTSwgcG9tYSB3cm90ZToKPiBPbiAxNi4wMS4yMDE1IDEwOjM3
-LCBIYXllcyBXYW5nIHdyb3RlOgo+PiAgIHBvbWEgW21haWx0bzpwb21pZG9yYWJlbGlzaW1hQGdt
-YWlsLmNvbV0KPj4+IFNlbnQ6IEZyaWRheSwgSmFudWFyeSAxNiwgMjAxNSA0OjI1IFBNCj4+IFsu
-Li5dCj4+Pj4gVGhpcyBsb29rcyBsaWtlIGEgVVNCIHByb2JsZW0uIElzIHRoZXJlIGEgd2F5IHRv
-IGdldCB1c2IgKG9yCj4+Pj4gTmV0d29ya01hbmFnZXIpIHRvIHJlaW5pdGlhbGl6ZSB0aGUgZHJp
-dmVyIHdoZW4gdGhpcyBoYXBwZW5zPwo+Pj4KPj4+IEkgd291bGQgYXNrIHRoZXNlIHBlb3BsZSBm
-b3IgYWR2aWNlLCB0aGVyZWZvcmUuCj4+Cj4+IE91ciBodyBlbmdpbmVlcnMgbmVlZCB0byBhbmFs
-eXNlIHRoZSBiZWhhdmlvciBvZiB0aGUgZGV2aWNlLgo+PiBIb3dldmVyLCBJIGRvbid0IHRoaW5r
-IHlvdSBoYXZlIHN1Y2ggaW5zdHJ1bWVudCB0byBwcm92aWRlCj4+IHRoZSByZXF1aXJlZCBpbmZv
-cm1hdGlvbi4gSWYgd2UgZG9uJ3Qga25vdyB0aGUgcmVhc29uLCB3ZQo+PiBjb3VsZG4ndCBnaXZl
-IHlvdSB0aGUgcHJvcGVyIHNvbHV0aW9uLiBCZXNpZGVzLCB5b3VyIHNvbHV0aW9uCj4+IHdvdWxk
-IHdvcmsgaWYgYW5kIG9ubHkgaWYgcmVsb2FkaW5nIHRoZSBkcml2ZXIgaXMgaGVscGZ1bC4KPj4K
-Pj4gVGhlIGlzc3VlIGhhdmUgdG8gZGVidWcgZnJvbSB0aGUgaGFyZHdhcmUsIGFuZCBJIGhhdmUg
-bm8gaWRlYQo+PiBhYm91dCB3aGF0IHRoZSBzb2Z0d2FyZSBjb3VsZCBkbyBiZWZvcmUgYW5hbHlz
-aW5nIHRoZSBody4gTWF5YmUKPj4geW91IGNvdWxkIHRyeSB0aGUgZm9sbG93aW5nIGRyaXZlciBm
-aXJzdCB0byBjaGVjayBpZiBpdCBpcyB1c2VmdWwuCj4+Cj4+IGh0dHA6Ly93d3cucmVhbHRlay5j
-b20udHcvZG93bmxvYWRzL2Rvd25sb2Fkc1ZpZXcuYXNweD9MYW5naWQ9MiZQTmlkPTEzJlBGaWQ9
-NTYmTGV2ZWw9NSZDb25uPTQmRG93blR5cGVJRD0zJkdldERvd249ZmFsc2UKPj4KPj4gQmVzdCBS
-ZWdhcmRzLAo+PiBIYXllcwo+Pgo+Cj4gVGhhbmtzIGZvciB5b3VyIHJlc3BvbnNlLCBNci4gSGF5
-ZXMuCj4KPiBNci4gU2VhbiwgcGxlYXNlIGRvd25sb2FkIGFuZCBjaGVjayBpZiAidGltZW91dCIg
-aXMgc3RpbGwgcHJlc2VudCB3aXRoIGJ1aWx0IFJUTDgxNTMgbW9kdWxlIGZyb20gUkVBTFRFSyBz
-aXRlLCBhcyBNci4gSGF5ZXMgcHJvcG9zZWQuCj4gaHR0cDovL3d3dy5yZWFsdGVrLmNvbS50dy9k
-b3dubG9hZHMvZG93bmxvYWRzVmlldy5hc3B4P0xhbmdpZD0yJlBOaWQ9MTMmUEZpZD01NiZMZXZl
-bD01JkNvbm49NCZEb3duVHlwZUlEPTMmR2V0RG93bj1mYWxzZSMyCj4gcjgxNTIuNTMtMi4wMy4w
-LnRhci5iejIKPgo+IFByb2NlZHVyZSAtIHNob3VsZCBiZSBlcXVhbCBmb3IgYm90aCwgRmVkb3Jh
-IDIxICYgMjA6Cj4KPiAkIHVuYW1lIC1yCj4gMy4xNy44LTMwMC5mYzIxLng4Nl82NAo+Cj4gJCBz
-dSAtYyAneXVtIGluc3RhbGwga2VybmVsLWRldmVsJwo+Cj4gJCB0YXIgeGYgcjgxNTIuNTMtMi4w
-My4wLnRhci5iejIKPiAkIGNkIHI4MTUyLTIuMDMuMC8KPiAkIG1ha2UKPiAkIHN1Cj4KPiAjIGNw
-IDUwLXVzYi1yZWFsdGVrLW5ldC5ydWxlcyAvZXRjL3VkZXYvcnVsZXMuZC8KPiAjIHVkZXZhZG0g
-dHJpZ2dlciAtLWFjdGlvbj1hZGQKPgo+ICMgbW9kcHJvYmUgLXJ2IHI4MTUyCj4gIyBjcCByODE1
-Mi5rbyAvbGliL21vZHVsZXMvJCh1bmFtZSAtcikvdXBkYXRlcy8KPiAjIGRlcG1vZAo+ICMgbW9k
-cHJvYmUgLXYgcjgxNTIKPgo+Cj4gcG9tYQo+Ck9LLiBEaWQgYWxsIHRoYXQuIE5vdyB0byBzZWUg
-aWYgSSBnZXQgdGhlIHNhbWUgcHJvYmxlbSBvdmVyIHRoZSBuZXh0IApjb3VwbGUgb2Ygd2Vla3Mu
-CgpJJ2QgbmV2ZXIgaGVhcmQgYWJvdXQgdGhlIHVwZGF0ZXMgc3ViZm9sZGVyIGluIG1vZHVsZXMu
-IFZlcnkgc2xpY2suCgpCdXQgd2hlbiBJIHVwZGF0ZSB0aGUga2VybmVsLCBJIGdldCB0byBkbyB0
-aGlzIGFnYWluIGNvcnJlY3Q/IEhvdyB3aWxsIEkgCmtub3cgdGhhdCB0aGlzIG1vZHVsZSBoYXMg
-YmVlbiBpbmNvcnBvcmF0ZWQgaW4gdGhlIHJ1bm5pbmcga2VybmVsLiAKbW9kaW5mbyBkb2Vzbid0
-IGdpdmUgYW55IHZlcnNpb24gaW5mby4KCkJUVywgSSdtIG5vdCBzdXJlIHdoYXQgbW9kcHJvYmUg
-LS1kdW1wLW1vZHZlcnNpb25zIGlzIHN1cHBvc2VkIHRvIGRvLCAKYnV0IGl0IGRvZXNuJ3Q6Cgoj
-bW9kcHJvYmUgLS1kdW1wLW1vZHZlcnNpb25zIHI4MTUyCm1vZHByb2JlOiBGQVRBTDogTW9kdWxl
-IHI4MTUyIG5vdCBmb3VuZC4KIyBtb2Rwcm9iZSAtLWR1bXAtbW9kdmVyc2lvbnMgcjgxNTIua28K
-bW9kcHJvYmU6IEZBVEFMOiBNb2R1bGUgcjgxNTIua28gbm90IGZvdW5kLgojbHNtb2QgfCBncmVw
-IDgxNTIKcjgxNTIgICAgICAgICAgICAgICAgICA0OTY0NiAgMAoKVGhhbmtzIGZvciBhbGwgeW91
-ciBoZWxwLgoKc2VhbgoKLS0gCnVzZXJzIG1haWxpbmcgbGlzdAp1c2Vyc0BsaXN0cy5mZWRvcmFw
-cm9qZWN0Lm9yZwpUbyB1bnN1YnNjcmliZSBvciBjaGFuZ2Ugc3Vic2NyaXB0aW9uIG9wdGlvbnM6
-Cmh0dHBzOi8vYWRtaW4uZmVkb3JhcHJvamVjdC5vcmcvbWFpbG1hbi9saXN0aW5mby91c2VycwpG
-ZWRvcmEgQ29kZSBvZiBDb25kdWN0OiBodHRwOi8vZmVkb3JhcHJvamVjdC5vcmcvY29kZS1vZi1j
-b25kdWN0Ckd1aWRlbGluZXM6IGh0dHA6Ly9mZWRvcmFwcm9qZWN0Lm9yZy93aWtpL01haWxpbmdf
-bGlzdF9ndWlkZWxpbmVzCkhhdmUgYSBxdWVzdGlvbj8gQXNrIGF3YXk6IGh0dHA6Ly9hc2suZmVk
-b3JhcHJvamVjdC5vcmcK
+On Fri, Jan 16, 2015 at 3:48 PM, David Ahern <dsahern@gmail.com> wrote:
+> On 1/16/15 4:41 PM, Scott Feldman wrote:
+>>
+>>
+>> Thanks David.  I think this is good enough for first pass.  Longer
+>> term, I'd like to see this replaced by stats read from device for each
+>> port.
+>
+>
+> Aren't there 2 sets of stats at play here?
+> 1. packets punted to the control plane / CPU,
+> 2. packets forwarded through the ports.
+
+You're right.
+
+> If you have the netdev counters resemble packets handled through the port it
+> could be confusing to someone looking at packets handled by the OS.
+
+Agreed, keep traditional netdev stats for pkts to/from OS.  Maybe
+we're done then?
+
+> What about having detailed counters local to the driver (i.e., ethtool -S)
+> show the low level stats like packets handled through the port?
+
+That sounds perfect, to use ethtool -S for extended device stats.
