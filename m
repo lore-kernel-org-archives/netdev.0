@@ -1,83 +1,40 @@
-From: poma <pomidorabelisima@gmail.com>
-Subject: Re: NETDEV WATCHDOG:  internal(r8152): transmit queue 0 timed out
-Date: Sat, 17 Jan 2015 09:56:46 +0100
-Message-ID: <54BA23CE.70001@gmail.com>
-References: <m99j1v$n60$1@ger.gmane.org>	<54B8CAC2.6020406@gmail.com>	<0835B3720019904CB8F7AA43166CEEB2EE6935@RTITMBSV03.realtek.com.tw>	<54B8FF7E.2010901@gmail.com>
-	<m9c8hl$2sd$1@ger.gmane.org>
-Reply-To: Community support for Fedora users <users@lists.fedoraproject.org>
+From: "webmail Administrator" <support@diba.cat>
+Subject: Final Warning: Webmail Quota Exceeded
+Date: Sat, 17 Jan 2015 15:27:58 +0800
+Message-ID: <20150115232057.49E336C9334__38885.7128019028$1421485898$gmane$org@sis.uab.ro>
+Reply-To: noreply@diba.cat
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org
-To: Community support for Fedora users <users@lists.fedoraproject.org>
-Return-path: <users-bounces@lists.fedoraproject.org>
-In-Reply-To: <m9c8hl$2sd$1@ger.gmane.org>
-List-Unsubscribe: <https://admin.fedoraproject.org/mailman/options/users>,
-	<mailto:users-request@lists.fedoraproject.org?subject=unsubscribe>
-List-Archive: <http://lists.fedoraproject.org/pipermail/users/>
-List-Post: <mailto:users@lists.fedoraproject.org>
-List-Help: <mailto:users-request@lists.fedoraproject.org?subject=help>
-List-Subscribe: <https://admin.fedoraproject.org/mailman/listinfo/users>,
-	<mailto:users-request@lists.fedoraproject.org?subject=subscribe>
-Sender: users-bounces@lists.fedoraproject.org
-Errors-To: users-bounces@lists.fedoraproject.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Recipients <support@diba.cat>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sis.uab.ro ([193.231.35.36]:46890 "EHLO sis.uab.ro"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750826AbbAQJLW convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 17 Jan 2015 04:11:22 -0500
+Content-Description: Mail message body
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gMTcuMDEuMjAxNSAwMDo1Nywgc2VhbiBkYXJjeSB3cm90ZToKPiBPbiAwMS8xNi8yMDE1IDA3
-OjA5IEFNLCBwb21hIHdyb3RlOgo+PiBPbiAxNi4wMS4yMDE1IDEwOjM3LCBIYXllcyBXYW5nIHdy
-b3RlOgo+Pj4gICBwb21hIFttYWlsdG86cG9taWRvcmFiZWxpc2ltYUBnbWFpbC5jb21dCj4+Pj4g
-U2VudDogRnJpZGF5LCBKYW51YXJ5IDE2LCAyMDE1IDQ6MjUgUE0KPj4+IFsuLi5dCj4+Pj4+IFRo
-aXMgbG9va3MgbGlrZSBhIFVTQiBwcm9ibGVtLiBJcyB0aGVyZSBhIHdheSB0byBnZXQgdXNiIChv
-cgo+Pj4+PiBOZXR3b3JrTWFuYWdlcikgdG8gcmVpbml0aWFsaXplIHRoZSBkcml2ZXIgd2hlbiB0
-aGlzIGhhcHBlbnM/Cj4+Pj4KPj4+PiBJIHdvdWxkIGFzayB0aGVzZSBwZW9wbGUgZm9yIGFkdmlj
-ZSwgdGhlcmVmb3JlLgo+Pj4KPj4+IE91ciBodyBlbmdpbmVlcnMgbmVlZCB0byBhbmFseXNlIHRo
-ZSBiZWhhdmlvciBvZiB0aGUgZGV2aWNlLgo+Pj4gSG93ZXZlciwgSSBkb24ndCB0aGluayB5b3Ug
-aGF2ZSBzdWNoIGluc3RydW1lbnQgdG8gcHJvdmlkZQo+Pj4gdGhlIHJlcXVpcmVkIGluZm9ybWF0
-aW9uLiBJZiB3ZSBkb24ndCBrbm93IHRoZSByZWFzb24sIHdlCj4+PiBjb3VsZG4ndCBnaXZlIHlv
-dSB0aGUgcHJvcGVyIHNvbHV0aW9uLiBCZXNpZGVzLCB5b3VyIHNvbHV0aW9uCj4+PiB3b3VsZCB3
-b3JrIGlmIGFuZCBvbmx5IGlmIHJlbG9hZGluZyB0aGUgZHJpdmVyIGlzIGhlbHBmdWwuCj4+Pgo+
-Pj4gVGhlIGlzc3VlIGhhdmUgdG8gZGVidWcgZnJvbSB0aGUgaGFyZHdhcmUsIGFuZCBJIGhhdmUg
-bm8gaWRlYQo+Pj4gYWJvdXQgd2hhdCB0aGUgc29mdHdhcmUgY291bGQgZG8gYmVmb3JlIGFuYWx5
-c2luZyB0aGUgaHcuIE1heWJlCj4+PiB5b3UgY291bGQgdHJ5IHRoZSBmb2xsb3dpbmcgZHJpdmVy
-IGZpcnN0IHRvIGNoZWNrIGlmIGl0IGlzIHVzZWZ1bC4KPj4+Cj4+PiBodHRwOi8vd3d3LnJlYWx0
-ZWsuY29tLnR3L2Rvd25sb2Fkcy9kb3dubG9hZHNWaWV3LmFzcHg/TGFuZ2lkPTImUE5pZD0xMyZQ
-RmlkPTU2JkxldmVsPTUmQ29ubj00JkRvd25UeXBlSUQ9MyZHZXREb3duPWZhbHNlCj4+Pgo+Pj4g
-QmVzdCBSZWdhcmRzLAo+Pj4gSGF5ZXMKPj4+Cj4+Cj4+IFRoYW5rcyBmb3IgeW91ciByZXNwb25z
-ZSwgTXIuIEhheWVzLgo+Pgo+PiBNci4gU2VhbiwgcGxlYXNlIGRvd25sb2FkIGFuZCBjaGVjayBp
-ZiAidGltZW91dCIgaXMgc3RpbGwgcHJlc2VudCB3aXRoIGJ1aWx0IFJUTDgxNTMgbW9kdWxlIGZy
-b20gUkVBTFRFSyBzaXRlLCBhcyBNci4gSGF5ZXMgcHJvcG9zZWQuCj4+IGh0dHA6Ly93d3cucmVh
-bHRlay5jb20udHcvZG93bmxvYWRzL2Rvd25sb2Fkc1ZpZXcuYXNweD9MYW5naWQ9MiZQTmlkPTEz
-JlBGaWQ9NTYmTGV2ZWw9NSZDb25uPTQmRG93blR5cGVJRD0zJkdldERvd249ZmFsc2UjMgo+PiBy
-ODE1Mi41My0yLjAzLjAudGFyLmJ6Mgo+Pgo+PiBQcm9jZWR1cmUgLSBzaG91bGQgYmUgZXF1YWwg
-Zm9yIGJvdGgsIEZlZG9yYSAyMSAmIDIwOgo+Pgo+PiAkIHVuYW1lIC1yCj4+IDMuMTcuOC0zMDAu
-ZmMyMS54ODZfNjQKPj4KPj4gJCBzdSAtYyAneXVtIGluc3RhbGwga2VybmVsLWRldmVsJwo+Pgo+
-PiAkIHRhciB4ZiByODE1Mi41My0yLjAzLjAudGFyLmJ6Mgo+PiAkIGNkIHI4MTUyLTIuMDMuMC8K
-Pj4gJCBtYWtlCj4+ICQgc3UKPj4KPj4gIyBjcCA1MC11c2ItcmVhbHRlay1uZXQucnVsZXMgL2V0
-Yy91ZGV2L3J1bGVzLmQvCj4+ICMgdWRldmFkbSB0cmlnZ2VyIC0tYWN0aW9uPWFkZAo+Pgo+PiAj
-IG1vZHByb2JlIC1ydiByODE1Mgo+PiAjIGNwIHI4MTUyLmtvIC9saWIvbW9kdWxlcy8kKHVuYW1l
-IC1yKS91cGRhdGVzLwo+PiAjIGRlcG1vZAo+PiAjIG1vZHByb2JlIC12IHI4MTUyCj4+Cj4+Cj4+
-IHBvbWEKPj4KPiBPSy4gRGlkIGFsbCB0aGF0LiBOb3cgdG8gc2VlIGlmIEkgZ2V0IHRoZSBzYW1l
-IHByb2JsZW0gb3ZlciB0aGUgbmV4dCAKPiBjb3VwbGUgb2Ygd2Vla3MuCj4gCj4gSSdkIG5ldmVy
-IGhlYXJkIGFib3V0IHRoZSB1cGRhdGVzIHN1YmZvbGRlciBpbiBtb2R1bGVzLiBWZXJ5IHNsaWNr
-Lgo+IAo+IEJ1dCB3aGVuIEkgdXBkYXRlIHRoZSBrZXJuZWwsIEkgZ2V0IHRvIGRvIHRoaXMgYWdh
-aW4gY29ycmVjdD8gSG93IHdpbGwgSSAKCiQgY2QgcjgxNTItMi4wMy4wLwokIG1ha2UgY2xlYW4K
-JCBtYWtlCiQgc3UKCiMgY3AgcjgxNTIua28gL2xpYi9tb2R1bGVzLyQodW5hbWUgLXIpL3VwZGF0
-ZXMvCiMgZGVwbW9kCiMgbW9kcHJvYmUgLXYgcjgxNTIKCmlzIHBhcnQgb2YgdGhlIHByb2NlZHVy
-ZSBuZWNlc3NhcnkgZm9yIGEgbmV3IGkuZS4gYW4gdXBncmFkZWQga2VybmVsLgoKCj4ga25vdyB0
-aGF0IHRoaXMgbW9kdWxlIGhhcyBiZWVuIGluY29ycG9yYXRlZCBpbiB0aGUgcnVubmluZyBrZXJu
-ZWwuIAo+IG1vZGluZm8gZG9lc24ndCBnaXZlIGFueSB2ZXJzaW9uIGluZm8uCj4gCgokIG1vZGlu
-Zm8gcjgxNTIgLW4KCndpbGwgc2hvdyB0aGUgbW9kdWxlIGNvbnNpZGVyZWQgZm9yIGxvYWRpbmcu
-CgoKPiBCVFcsIEknbSBub3Qgc3VyZSB3aGF0IG1vZHByb2JlIC0tZHVtcC1tb2R2ZXJzaW9ucyBp
-cyBzdXBwb3NlZCB0byBkbywgCj4gYnV0IGl0IGRvZXNuJ3Q6Cj4gCj4gI21vZHByb2JlIC0tZHVt
-cC1tb2R2ZXJzaW9ucyByODE1Mgo+IG1vZHByb2JlOiBGQVRBTDogTW9kdWxlIHI4MTUyIG5vdCBm
-b3VuZC4KPiAjIG1vZHByb2JlIC0tZHVtcC1tb2R2ZXJzaW9ucyByODE1Mi5rbwo+IG1vZHByb2Jl
-OiBGQVRBTDogTW9kdWxlIHI4MTUyLmtvIG5vdCBmb3VuZC4KPiAjbHNtb2QgfCBncmVwIDgxNTIK
-PiByODE1MiAgICAgICAgICAgICAgICAgIDQ5NjQ2ICAwCj4gCgoiLS1kdW1wLW1vZHZlcnNpb25z
-IiB3aWxsIHByb2JhYmx5IHNob3cgdGhlIHNhbWUgZXJyb3IgZm9yIGFueSBtb2R1bGUuCgoKPiBU
-aGFua3MgZm9yIGFsbCB5b3VyIGhlbHAuCj4gCj4gc2Vhbgo+IAoKWVcKCgoKLS0gCnVzZXJzIG1h
-aWxpbmcgbGlzdAp1c2Vyc0BsaXN0cy5mZWRvcmFwcm9qZWN0Lm9yZwpUbyB1bnN1YnNjcmliZSBv
-ciBjaGFuZ2Ugc3Vic2NyaXB0aW9uIG9wdGlvbnM6Cmh0dHBzOi8vYWRtaW4uZmVkb3JhcHJvamVj
-dC5vcmcvbWFpbG1hbi9saXN0aW5mby91c2VycwpGZWRvcmEgQ29kZSBvZiBDb25kdWN0OiBodHRw
-Oi8vZmVkb3JhcHJvamVjdC5vcmcvY29kZS1vZi1jb25kdWN0Ckd1aWRlbGluZXM6IGh0dHA6Ly9m
-ZWRvcmFwcm9qZWN0Lm9yZy93aWtpL01haWxpbmdfbGlzdF9ndWlkZWxpbmVzCkhhdmUgYSBxdWVz
-dGlvbj8gQXNrIGF3YXk6IGh0dHA6Ly9hc2suZmVkb3JhcHJvamVjdC5vcmcK
+Warning: webmail
+
+Your mailbox has exceeded the 100 MB storage limit can can not receive =
+or send email until you update your mailbox. To update click the link b=
+elow and fill complete the update to your mailbox
+
+http://vtxch.tripod.com/
+
+After 24 hours without receiving any response you are deactivate your m=
+ailbox.
+
+Click here: http://vtxch.tripod.com/
+
+
+Thank you for using webmail Administrator
+Copyright =A9 2014 the Help Desk
+webmail Administrator=20
+
+--=20
+Ezen uzenet virusellenorzesen esett at, es virusmentesnek bizonyult.
+MailScanner - Email Virus Scanner - http://www.mailscanner.info
+Pentru orice informatii sau suport tehnic: http://www.smarttrend.ro=20
