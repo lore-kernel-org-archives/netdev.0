@@ -1,73 +1,35 @@
-From: Tilman Schmidt <tilman@imap.cc>
-Subject: Re: [PATCH] isdn:gigaset:Remove unneeded TODO comment for the function,gigaset_procinfo
- in capi.c
-Date: Sun, 18 Jan 2015 14:09:48 +0100
-Message-ID: <54BBB09C.6010206@imap.cc>
-References: <1421519027-22410-1-git-send-email-xerofoify@gmail.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH] netlink: make nlmsg_end() and genlmsg_end() void
+Date: Sun, 18 Jan 2015 14:27:53 +0100
+Message-ID: <1421587673.1965.0.camel@sipsolutions.net>
+References: <1421442540-10244-1-git-send-email-johannes@sipsolutions.net>
+	 <20150118.010446.405197490184285420.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: isdn@linux-pingi.de, gigaset307x-common@lists.sourceforge.ne,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Nicholas Krause <xerofoify@gmail.com>, hjlipp@web.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1421519027-22410-1-git-send-email-xerofoify@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from s3.sipsolutions.net ([5.9.151.49]:55522 "EHLO sipsolutions.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751589AbbARN16 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 18 Jan 2015 08:27:58 -0500
+In-Reply-To: <20150118.010446.405197490184285420.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Am 17.01.2015 um 19:23 schrieb Nicholas Krause:
-> This removes the no longer needed TODO comment for questioning if
-> the function,gigaset_procinfo needs to do more work internally. This
-> comment is no longer needed due to the function's intended use to be
-> returning the name of the structure pointer passed to this function
-> of type,capi_ctr. In addition due to this the function's comments
-> related to it's intended job are changed to state it returns rather
-> then builds the description for the structure and also that the
-> function doesn't build the name string but returns the already
-> generated one passed to gigaset_procinfo by the structure passed
-> to this function.
->=20
-> Signed-off-by: Nicholas Krause <xerofoify@gmail.com>
+On Sun, 2015-01-18 at 01:04 -0500, David Miller wrote:
 
-Acked-by: Tilman Schmidt <tilman@imap.cc>
+> I like this, applied, thanks Johannes.
+> 
+> You know, I would even be willing to apply a patch adjusting that phonet
+> case.  So feel free to submit that.
 
-Thanks,
-Tilman
+I can do that - I agree that it's probably fine (you'd have to be not
+using libnl and writing bad code to get it wrong) but didn't really want
+to do it in that patch.
 
-> ---
->  drivers/isdn/gigaset/capi.c | 6 +++---
->  1 file changed, 3 insertions(+), 3 deletions(-)
->=20
-> diff --git a/drivers/isdn/gigaset/capi.c b/drivers/isdn/gigaset/capi.=
-c
-> index ccec777..c4d666e 100644
-> --- a/drivers/isdn/gigaset/capi.c
-> +++ b/drivers/isdn/gigaset/capi.c
-> @@ -2336,14 +2336,14 @@ static u16 gigaset_send_message(struct capi_c=
-tr *ctr, struct sk_buff *skb)
->  }
-> =20
->  /**
-> - * gigaset_procinfo() - build single line description for controller
-> + * gigaset_procinfo() - return single line description for controlle=
-r
->   * @ctr:	controller descriptor structure.
->   *
-> - * Return value: pointer to generated string (null terminated)
-> + * Return value: pointer to already generated string (null terminate=
-d)
->   */
->  static char *gigaset_procinfo(struct capi_ctr *ctr)
->  {
-> -	return ctr->name;	/* ToDo: more? */
-> +	return ctr->name;
->  }
-> =20
->  static int gigaset_proc_show(struct seq_file *m, void *v)
->=20
+Anyway it looks like I broke some dump (as reported by Marcel) so I'll
+have to dig into that first.
 
---=20
-Tilman Schmidt                              E-Mail: tilman@imap.cc
-Bonn, Germany
-Diese Nachricht besteht zu 100% aus wiederverwerteten Bits.
-Unge=F6ffnet mindestens haltbar bis: (siehe R=FCckseite)
+johannes
