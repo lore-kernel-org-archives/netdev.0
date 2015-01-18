@@ -1,10 +1,10 @@
 From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [net-next PATCH v2 04/12] net: flow_table: create a set of common
- headers and actions
-Date: Sat, 17 Jan 2015 22:34:35 -0800
-Message-ID: <CAE4R7bAG8-WE0dw0S27_kMUXpvvNjNqii4bT+JvEpg7h3+SRHQ@mail.gmail.com>
+Subject: Re: [net-next PATCH v2 06/12] net: rocker: add pipeline model for
+ rocker switch
+Date: Sat, 17 Jan 2015 22:39:53 -0800
+Message-ID: <CAE4R7bCPrjQCNFkF=d8hjQaNGdziwGv+LuQDJOLazWUnCP+GTg@mail.gmail.com>
 References: <20150113212941.13874.48692.stgit@nitbit.x32>
-	<20150113213645.13874.24934.stgit@nitbit.x32>
+	<20150113213739.13874.37091.stgit@nitbit.x32>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Cc: Thomas Graf <tgraf@suug.ch>,
@@ -15,88 +15,145 @@ Cc: Thomas Graf <tgraf@suug.ch>,
 	"David S. Miller" <davem@davemloft.net>
 To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f180.google.com ([74.125.82.180]:65406 "EHLO
-	mail-we0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750760AbbARGeh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 Jan 2015 01:34:37 -0500
-Received: by mail-we0-f180.google.com with SMTP id m14so1099986wev.11
-        for <netdev@vger.kernel.org>; Sat, 17 Jan 2015 22:34:36 -0800 (PST)
-In-Reply-To: <20150113213645.13874.24934.stgit@nitbit.x32>
+Received: from mail-we0-f181.google.com ([74.125.82.181]:48189 "EHLO
+	mail-we0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750760AbbARGjy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 Jan 2015 01:39:54 -0500
+Received: by mail-we0-f181.google.com with SMTP id q58so26416351wes.12
+        for <netdev@vger.kernel.org>; Sat, 17 Jan 2015 22:39:53 -0800 (PST)
+In-Reply-To: <20150113213739.13874.37091.stgit@nitbit.x32>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 13, 2015 at 1:36 PM, John Fastabend
+On Tue, Jan 13, 2015 at 1:37 PM, John Fastabend
 <john.fastabend@gmail.com> wrote:
-> This adds common headers and actions that drivers can use.
+> This adds rocker support for the net_flow_get_* operations. With this
+> we can interrogate rocker.
 >
-> I have not yet moved the header graphs into the common header
-> because I'm not entirely convinced its re-usable. The devices
-> I have been looking at have different enough header graphs that
-> they wouldn't be re-usable. However possibly many 40Gbp NICs
-> for example could share a common header graph. When we get
-> multiple implementations we can move this into the common file
-> if it makes sense.
->
-> And table structures seem to be unique enough that there is
-> little value in putting each devices table layout into the
-> common file so its left for device specific implementation.
+> Here we see that for static configurations enabling the get operations
+> is simply a matter of defining a pipeline model and returning the
+> structures for the core infrastructure to encapsulate into netlink
+> messages.
 >
 > Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
 > ---
->  include/linux/if_flow_common.h |  257 ++++++++++++++++++++++++++++++++++++++++
->  1 file changed, 257 insertions(+)
->  create mode 100644 include/linux/if_flow_common.h
+>  drivers/net/ethernet/rocker/rocker.c          |   65 ++++
+>  drivers/net/ethernet/rocker/rocker_pipeline.h |  451 +++++++++++++++++++++++++
+>  2 files changed, 516 insertions(+)
+>  create mode 100644 drivers/net/ethernet/rocker/rocker_pipeline.h
 >
-> diff --git a/include/linux/if_flow_common.h b/include/linux/if_flow_common.h
-> new file mode 100644
-> index 0000000..d4dd749
-> --- /dev/null
-> +++ b/include/linux/if_flow_common.h
-> @@ -0,0 +1,257 @@
-> +#ifndef _IF_FLOW_COMMON_H_
-> +#define _IF_FLOW_COMMON_H_
+> diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
+> index 2f398fa..d2ea451 100644
+> --- a/drivers/net/ethernet/rocker/rocker.c
+> +++ b/drivers/net/ethernet/rocker/rocker.c
+> @@ -36,6 +36,7 @@
+>  #include <generated/utsrelease.h>
+>
+>  #include "rocker.h"
+> +#include "rocker_pipeline.h"
+>
+>  static const char rocker_driver_name[] = "rocker";
+>
+> @@ -3781,6 +3782,56 @@ static int rocker_port_switch_port_stp_update(struct net_device *dev, u8 state)
+>         return rocker_port_stp_update(rocker_port, state);
+>  }
+>
+> +static void rocker_destroy_flow_tables(struct rocker_port *rocker_port)
+> +{
+> +       int i;
 > +
-> +#include <linux/if_flow.h>
+> +       for (i = 0; rocker_table_list[i]; i++)
+> +               net_flow_destroy_cache(rocker_table_list[i]);
+> +}
 > +
-> +/* Common header definition this section provides a set of common or
-> + * standard headers that device driver writers may use to simplify the
-> + * driver creation. We do not want vendor or driver specific headers
-> + * here though. Driver authors can keep these contained to their driver
-> + *
-> + * Driver authors may use unique IDs greater than HEADER_MAX_UID it is
-> + * guaranteed to be larger than any unique IDs used here.
-> + */
-> +#define HEADER_MAX_UID 100
+> +static int rocker_init_flow_tables(struct rocker_port *rocker_port)
+> +{
+> +       int i, err;
 > +
-> +enum net_flow_headers {
-> +       HEADER_UNSPEC,
-> +       HEADER_ETHERNET,
-> +       HEADER_VLAN,
-> +       HEADER_IPV4,
-> +};
+> +       for (i = 0; rocker_table_list[i]; i++) {
+> +               err = net_flow_init_cache(rocker_table_list[i]);
+> +               if (err) {
+> +                       rocker_destroy_flow_tables(rocker_port);
+> +                       return err;
+> +               }
+> +       }
 > +
-> +enum net_flow_ethernet_fields_ids {
-> +       HEADER_ETHERNET_UNSPEC,
-> +       HEADER_ETHERNET_SRC_MAC,
-> +       HEADER_ETHERNET_DST_MAC,
-> +       HEADER_ETHERNET_ETHERTYPE,
-> +};
-> +
-> +struct net_flow_field net_flow_ethernet_fields[] = {
-> +       { .name = "src_mac", .uid = HEADER_ETHERNET_SRC_MAC, .bitwidth = 48},
-> +       { .name = "dst_mac", .uid = HEADER_ETHERNET_DST_MAC, .bitwidth = 48},
-> +       { .name = "ethertype",
-> +         .uid = HEADER_ETHERNET_ETHERTYPE,
-> +         .bitwidth = 16},
-> +};
+> +       return 0;
+> +}
 
-All of these code chunks get repeated in each module that includes
-if_flow_common.h, regardless if the module needs all of them.
+Can these be moved up above drivers?  They don't seem driver or device
+specific.  Call .ndo_flow_get_tbls to get table list.
 
-Maybe #define would be better?
+> +
+> +#ifdef CONFIG_NET_FLOW_TABLES
+> +static struct net_flow_tbl **rocker_get_tables(struct net_device *d)
+> +{
+> +       return rocker_table_list;
+> +}
+> +
+> +static struct net_flow_hdr **rocker_get_headers(struct net_device *d)
+> +{
+> +       return rocker_header_list;
+> +}
+> +
+> +static struct net_flow_action **rocker_get_actions(struct net_device *d)
+> +{
+> +       return rocker_action_list;
+> +}
+> +
+> +static struct net_flow_tbl_node **rocker_get_tgraph(struct net_device *d)
+> +{
+> +       return rocker_table_nodes;
+> +}
+> +
+> +static struct net_flow_hdr_node **rocker_get_hgraph(struct net_device *d)
+> +{
+> +       return rocker_header_nodes;
+> +}
+> +#endif
 
-> +struct net_flow_field net_flow_ipv4_fields[14] = {
+Do these need to be functions since they all just return static pointer lists?
 
-net_flow_ipv4_fields[].  more like this...
+>  static const struct net_device_ops rocker_port_netdev_ops = {
+>         .ndo_open                       = rocker_port_open,
+>         .ndo_stop                       = rocker_port_stop,
+> @@ -3795,6 +3846,13 @@ static const struct net_device_ops rocker_port_netdev_ops = {
+>         .ndo_bridge_getlink             = rocker_port_bridge_getlink,
+>         .ndo_switch_parent_id_get       = rocker_port_switch_parent_id_get,
+>         .ndo_switch_port_stp_update     = rocker_port_switch_port_stp_update,
+> +#ifdef CONFIG_NET_FLOW_TABLES
+> +       .ndo_flow_get_tbls              = rocker_get_tables,
+> +       .ndo_flow_get_hdrs              = rocker_get_headers,
+> +       .ndo_flow_get_actions           = rocker_get_actions,
+> +       .ndo_flow_get_tbl_graph         = rocker_get_tgraph,
+> +       .ndo_flow_get_hdr_graph         = rocker_get_hgraph,
+
+Please keep the rocker_port_xxx for .ndo_xxx naming convention.
+
+> +#endif
+>  };
+>
+>  /********************
+> @@ -3960,6 +4018,7 @@ static void rocker_remove_ports(struct rocker *rocker)
+>                 rocker_port = rocker->ports[i];
+>                 rocker_port_ig_tbl(rocker_port, ROCKER_OP_FLAG_REMOVE);
+>                 unregister_netdev(rocker_port->dev);
+> +               rocker_destroy_flow_tables(rocker_port);
+>         }
+>         kfree(rocker->ports);
+>  }
+> @@ -4023,6 +4082,12 @@ static int rocker_probe_port(struct rocker *rocker, unsigned int port_number)
+>                 goto err_port_ig_tbl;
+>         }
+>
+> +       err = rocker_init_flow_tables(rocker_port);
+> +       if (err) {
+> +               dev_err(&pdev->dev, "install flow table failed\n");
+
+s/table/tables/
+
+> +               goto err_port_ig_tbl;
+
+Need to rocker_port_ig_tbl(rocker_port, ROCKER_OP_FLAG_REMOVE) to clean up.
 
 -scott
