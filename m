@@ -1,51 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: rocker: Add basic netdev counters - v2
-Date: Sun, 18 Jan 2015 01:56:04 -0500 (EST)
-Message-ID: <20150118.015604.372132289619316404.davem@davemloft.net>
-References: <1421443349-77718-1-git-send-email-dsahern@gmail.com>
-	<CAE4R7bA3QG4LDvVQywDsRuJzJYv4mBq3=OXi2L=qGDfa4a8ykw@mail.gmail.com>
+Subject: Re: [PATCH v3 net-next 1/1] ip_tunnel: Create percpu gro_cell
+Date: Sun, 18 Jan 2015 01:57:22 -0500 (EST)
+Message-ID: <20150118.015722.951803764873668933.davem@davemloft.net>
+References: <1421431860-1960597-1-git-send-email-kafai@fb.com>
+	<1421431860-1960597-2-git-send-email-kafai@fb.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dsahern@gmail.com, netdev@vger.kernel.org, jiri@resnulli.us
-To: sfeldma@gmail.com
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com, kernel-team@fb.com
+To: kafai@fb.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42687 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:42693 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751073AbbARG4J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 Jan 2015 01:56:09 -0500
-In-Reply-To: <CAE4R7bA3QG4LDvVQywDsRuJzJYv4mBq3=OXi2L=qGDfa4a8ykw@mail.gmail.com>
+	with ESMTP id S1750710AbbARG5Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 Jan 2015 01:57:24 -0500
+In-Reply-To: <1421431860-1960597-2-git-send-email-kafai@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Scott Feldman <sfeldma@gmail.com>
-Date: Fri, 16 Jan 2015 15:41:41 -0800
+From: Martin KaFai Lau <kafai@fb.com>
+Date: Fri, 16 Jan 2015 10:11:00 -0800
 
-> On Fri, Jan 16, 2015 at 1:22 PM, David Ahern <dsahern@gmail.com> wrote:
->> Add packet and byte counters for RX and TX paths.
->>
->> $ ifconfig eth1
->> eth1: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
->>         inet6 fe80::5054:ff:fe12:3501  prefixlen 64  scopeid 0x20<link>
->>         ether 52:54:00:12:35:01  txqueuelen 1000  (Ethernet)
->>         RX packets 63  bytes 15813 (15.4 KiB)
->>         RX errors 1  dropped 0  overruns 0  frame 0
->>         TX packets 79  bytes 17991 (17.5 KiB)
->>         TX errors 7  dropped 0 overruns 0  carrier 0  collisions 0
->>
->> Rx / Tx errors tested by injecting faults in qemu's hardware model for Rocker.
->>
->> v2:
->> - moved counter locations to avoid potential use after free per Florian's comment
->>
->> Signed-off-by: David Ahern <dsahern@gmail.com>
->> Cc: Scott Feldman <sfeldma@gmail.com>
->> Cc: Jiri Pirko <jiri@resnulli.us>
+> In the ipip tunnel, the skb->queue_mapping is lost in ipip_rcv().
+> All skb will be queued to the same cell->napi_skbs.  The
+> gro_cell_poll is pinned to one core under load.  In production traffic,
+> we also see severe rx_dropped in the tunl iface and it is probably due to
+> this limit: skb_queue_len(&cell->napi_skbs) > netdev_max_backlog.
 > 
-> Signed-off-by: Scott Feldman <sfeldma@gmail.com>
+> This patch is trying to alloc_percpu(struct gro_cell) and schedule
+> gro_cell_poll to process the skb in the same core.
 > 
-> Thanks David.  I think this is good enough for first pass.  Longer
-> term, I'd like to see this replaced by stats read from device for each
-> port.
+> Signed-off-by: Martin KaFai Lau <kafai@fb.com>
 
-Ok, applied, thanks everyone.
+Applied, thanks.
