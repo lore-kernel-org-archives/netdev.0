@@ -1,44 +1,52 @@
-From: Hauke Mehrtens <hauke@hauke-m.de>
-Subject: [PATCH 2/2] bgmac: activate irqs only if there is nothing to poll
-Date: Sun, 18 Jan 2015 19:49:59 +0100
-Message-ID: <1421606999-23692-3-git-send-email-hauke@hauke-m.de>
-References: <1421606999-23692-1-git-send-email-hauke@hauke-m.de>
-Cc: netdev@vger.kernel.org, Hauke Mehrtens <hauke@hauke-m.de>
-To: zajec5@gmail.com, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from hauke-m.de ([5.39.93.123]:33046 "EHLO hauke-m.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750968AbbARSun (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 18 Jan 2015 13:50:43 -0500
-In-Reply-To: <1421606999-23692-1-git-send-email-hauke@hauke-m.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Emmanuel Grumbach <egrumbach-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: Wireless scanning while turning off the radio problem..
+Date: Sun, 18 Jan 2015 20:52:44 +0200
+Message-ID: <CANUX_P1pmB2PD00N2r2LgjNL4fG6RuTPxsO8G2weU+8EeENPTg@mail.gmail.com>
+References: <CA+55aFyr9LC7oLoJeyFwK4KRURbbUyO63jznTTAkQF+9LBAsfg@mail.gmail.com>
+	<CANUX_P0LCr3fzqLyjKQbZ-P2hAV-Nk6=AMm=oFOWCLW34cRg2w@mail.gmail.com>
+	<CA+55aFzEr-R1anNm91pnM=ujfhBstJikZBVtduphff1PtccHDw@mail.gmail.com>
+	<54BBF207.2030708@broadcom.com>
+	<CA+55aFws=-MY+rUsEny=DsBx9gct93BnfeGXSnOCLxEFtvDj8A@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Linux Wireless List <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CA+55aFws=-MY+rUsEny=DsBx9gct93BnfeGXSnOCLxEFtvDj8A-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-IRQs should only get activated when there is nothing to poll in the
-queue any more and to after every poll.
+On Sun, Jan 18, 2015 at 8:40 PM, Linus Torvalds
+<torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org> wrote:
+> On Mon, Jan 19, 2015 at 5:48 AM, Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org> wrote:
+>>
+>> So as you indicated you were in location where none of your configured
+>> networks were available. Flipping the rfkill switch in that situation is the
+>> way to trigger the issue.
+>
+> So you certainly seem to be able to explain the behavior I saw under
+> the circumstances they happened.
+>
+> I suspect the best thing to do is to just apply your patch. I may not
+> be able to really test it much for the next few days anyway. Emmanuel?
+>
 
-Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de>
----
- drivers/net/ethernet/broadcom/bgmac.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+Sorry - I was a bit busy.
+The patch seems wrong, we can't really call that function from the
+rfkill interrupt - it will blow up.
+The good news is that I could reproduce the bug based on what Arend
+pointed. I totally missed the fact
+that it was scheduled scan - thanks Arend for that.
 
-diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethernet/broadcom/bgmac.c
-index aa9f950..3007d95 100644
---- a/drivers/net/ethernet/broadcom/bgmac.c
-+++ b/drivers/net/ethernet/broadcom/bgmac.c
-@@ -1167,10 +1167,10 @@ static int bgmac_poll(struct napi_struct *napi, int weight)
- 		bgmac->int_status = 0;
- 	}
- 
--	if (handled < weight)
-+	if (handled < weight) {
- 		napi_complete(napi);
--
--	bgmac_chip_intrs_on(bgmac);
-+		bgmac_chip_intrs_on(bgmac);
-+	}
- 
- 	return handled;
- }
--- 
-1.9.1
+So the system I have here doesn't have HW rfkill so I had to implement
+a hook that fakes it,
+but I can't reproduce the problem.
+I'll come up with a patch.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
