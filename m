@@ -1,92 +1,57 @@
-From: roopa <roopa@cumulusnetworks.com>
-Subject: Re: [RFC PATCH net-next] bridge: ability to disable forwarding on
- a port
-Date: Sun, 18 Jan 2015 12:55:33 -0800
-Message-ID: <54BC1DC5.1000401@cumulusnetworks.com>
-References: <1421479975-62049-1-git-send-email-roopa@cumulusnetworks.com> <CAE4R7bBeNojtj3Zyd6+zSJFGRjG4vejBObnS1XUFAfJDZJZYow@mail.gmail.com> <54BB7874.90201@cumulusnetworks.com>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: [net-next PATCH v2 1/1] net: sched: Introduce connmark action
+Date: Sun, 18 Jan 2015 13:00:11 -0800
+Message-ID: <CAHA+R7Muz_d47NX01tKO7v7V7m=5mKf+BPP1jo9dEH==8R6bgw@mail.gmail.com>
+References: <1421611245-18492-1-git-send-email-jhs@emojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "stephen@networkplumber.org" <stephen@networkplumber.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
-	"Arad, Ronen" <ronen.arad@intel.com>, Thomas Graf <tgraf@suug.ch>,
-	john fastabend <john.fastabend@gmail.com>,
-	"vyasevic@redhat.com" <vyasevic@redhat.com>,
-	Netdev <netdev@vger.kernel.org>,
-	Wilson Kok <wkok@cumulusnetworks.com>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>
-To: Scott Feldman <sfeldma@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>, nbd@openwrt.org,
+	pablo@netfilter.org, Florian Westphal <fw@strlen.de>,
+	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f179.google.com ([209.85.192.179]:37816 "EHLO
-	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751442AbbARUzf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 Jan 2015 15:55:35 -0500
-Received: by mail-pd0-f179.google.com with SMTP id v10so14359060pde.10
-        for <netdev@vger.kernel.org>; Sun, 18 Jan 2015 12:55:35 -0800 (PST)
-In-Reply-To: <54BB7874.90201@cumulusnetworks.com>
+Received: from mail-wg0-f51.google.com ([74.125.82.51]:33309 "EHLO
+	mail-wg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751442AbbARVAN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 Jan 2015 16:00:13 -0500
+Received: by mail-wg0-f51.google.com with SMTP id l18so6572333wgh.10
+        for <netdev@vger.kernel.org>; Sun, 18 Jan 2015 13:00:12 -0800 (PST)
+In-Reply-To: <1421611245-18492-1-git-send-email-jhs@emojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 1/18/15, 1:10 AM, roopa wrote:
-> On 1/17/15, 5:05 PM, Scott Feldman wrote:
->> On Fri, Jan 16, 2015 at 11:32 PM, <roopa@cumulusnetworks.com> wrote:
->>> From: Roopa Prabhu <roopa@cumulusnetworks.com>
->>>
->>> On a Linux bridge with bridge forwarding offloaded to a switch ASIC,
->>> there is a need to not re-forward the frames that come up to the
->>> kernel in software.
->>>
->>> Typically these are broadcast or multicast packets forwarded by the
->>> hardware to multiple destination ports including sending a copy of
->>> the packet to the kernel (e.g. an arp broadcast).
->>> The bridge driver will try to forward the packet again, resulting in
->>> two copies of the same packet.
->>>
->>> These packets can also come up to the kernel for logging when they hit
->>> a LOG acl in hardware.
->>>
->>> This patch makes forwarding a flag on the port similar to
->>> learn and flood and drops the packet just before forwarding.
->>> (The forwarding disable on a bridge is tested to work on our boxes.
->>> The bridge port flag addition is only compile tested.
->>> This will need to be further refined to cover cases where a 
->>> non-switch port
->>> is bridged to a switch port etc. We will submit more patches to cover
->>> all cases if we agree on this approach).
->> Good topic to bring up, thanks for proposing a patch.  There is indeed
->> duplicate pkts sent out in the case where both the bridge and the
->> offloaded device are flooding these non-unicast pkts, such as ARP
->> requests.  We do have per-port control today over unicast flooding
->> using BR_FLOOD (IFLA_BRPORT_UNICAST_FLOOD).
->>
->> As you point out, this doesn't solve the case for non-offloaded ports
->> bridged with switch ports.  If this port setting is enabled on an
->> offloaded switch port, for example, the non-offloaded port can't get
->> an ARP request resolved, if the MAC is behind the offloaded switch
->> port.  But do we care?  Is there a use-case for this one, mixing
->> offloaded and non-offloaded ports in a bridge?
->
-> Not sure. I don't know the use case, but I think I might have heard 
-> that there could be a case
->  where a switch port could be bridged with a vm's port running on the 
-> switch. (?)
+On Sun, Jan 18, 2015 at 12:00 PM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
+> +
+> +MODULE_AUTHOR("Felix Fietkau <nbd@openwrt.org>");
+> +MODULE_DESCRIPTION("Connection tracking mark restoring");
+> +MODULE_LICENSE("GPL");
 
-Ignoring the above usecase for a bit. And thinking through this again, 
-It appears that this check should
-be only on the ingress port, no ?
 
-If the ingress bridge port is an offloaded port, don't flood or forward 
-because hardware has already done it.
-And this is best done with the offload feature flag on the bridge port.
+Please move these to the bottom.
 
-But, If we bring in the usecase, where a bridge has offloaded and 
-non-offloaded ports mixed,
-there should be an option to disable this check and to achieve that its 
-better for this to be a
-flag on the port maintained by the bridge driver like the one proposed 
-by this patch (BR_FORWARD).
+> +
+> +static int __init connmark_init_module(void)
+> +{
+> +       int ret;
+> +
+> +       ret = tcf_hashinfo_init(&connmark_hash_info, CONNMARK_TAB_MASK);
+> +       if (ret)
+> +               return ret;
+> +
 
-Thanks,
-Roopa
+Is this against latest net-next? We don't need to init the hashinfo anymore,
+tcf_register_action() already does that.
+
+> +       return tcf_register_action(&act_connmark_ops, CONNMARK_TAB_MASK);
+> +}
+> +
+> +static void __exit connmark_cleanup_module(void)
+> +{
+> +       tcf_unregister_action(&act_connmark_ops);
+> +}
+> +
+
+Even if we really needed, you forgot to call tcf_hashinfo_destroy()?
+
+Thanks.
