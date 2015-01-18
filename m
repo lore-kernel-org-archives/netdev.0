@@ -1,38 +1,58 @@
-From: Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Subject: Re: Wireless scanning while turning off the radio problem..
-Date: Mon, 19 Jan 2015 06:40:18 +1200
-Message-ID: <CA+55aFws=-MY+rUsEny=DsBx9gct93BnfeGXSnOCLxEFtvDj8A@mail.gmail.com>
-References: <CA+55aFyr9LC7oLoJeyFwK4KRURbbUyO63jznTTAkQF+9LBAsfg@mail.gmail.com>
-	<CANUX_P0LCr3fzqLyjKQbZ-P2hAV-Nk6=AMm=oFOWCLW34cRg2w@mail.gmail.com>
-	<CA+55aFzEr-R1anNm91pnM=ujfhBstJikZBVtduphff1PtccHDw@mail.gmail.com>
-	<54BBF207.2030708@broadcom.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Emmanuel Grumbach <egrumbach-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Linux Wireless List <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <54BBF207.2030708-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Hauke Mehrtens <hauke@hauke-m.de>
+Subject: [PATCH 1/2] bgmac: register napi before the device
+Date: Sun, 18 Jan 2015 19:49:58 +0100
+Message-ID: <1421606999-23692-2-git-send-email-hauke@hauke-m.de>
+References: <1421606999-23692-1-git-send-email-hauke@hauke-m.de>
+Cc: netdev@vger.kernel.org, Hauke Mehrtens <hauke@hauke-m.de>
+To: zajec5@gmail.com, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from hauke-m.de ([5.39.93.123]:33042 "EHLO hauke-m.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751011AbbARSum (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 18 Jan 2015 13:50:42 -0500
+In-Reply-To: <1421606999-23692-1-git-send-email-hauke@hauke-m.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 19, 2015 at 5:48 AM, Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org> wrote:
->
-> So as you indicated you were in location where none of your configured
-> networks were available. Flipping the rfkill switch in that situation is the
-> way to trigger the issue.
+napi should get registered before the netdev and not after.
 
-So you certainly seem to be able to explain the behavior I saw under
-the circumstances they happened.
+Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de>
+---
+ drivers/net/ethernet/broadcom/bgmac.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-I suspect the best thing to do is to just apply your patch. I may not
-be able to really test it much for the next few days anyway. Emmanuel?
-
-             Linus
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethernet/broadcom/bgmac.c
+index 05c6af6..aa9f950 100644
+--- a/drivers/net/ethernet/broadcom/bgmac.c
++++ b/drivers/net/ethernet/broadcom/bgmac.c
+@@ -1515,6 +1515,8 @@ static int bgmac_probe(struct bcma_device *core)
+ 	if (core->bus->sprom.boardflags_lo & BGMAC_BFL_ENETADM)
+ 		bgmac_warn(bgmac, "Support for ADMtek ethernet switch not implemented\n");
+ 
++	netif_napi_add(net_dev, &bgmac->napi, bgmac_poll, BGMAC_WEIGHT);
++
+ 	err = bgmac_mii_register(bgmac);
+ 	if (err) {
+ 		bgmac_err(bgmac, "Cannot register MDIO\n");
+@@ -1529,8 +1531,6 @@ static int bgmac_probe(struct bcma_device *core)
+ 
+ 	netif_carrier_off(net_dev);
+ 
+-	netif_napi_add(net_dev, &bgmac->napi, bgmac_poll, BGMAC_WEIGHT);
+-
+ 	return 0;
+ 
+ err_mii_unregister:
+@@ -1549,9 +1549,9 @@ static void bgmac_remove(struct bcma_device *core)
+ {
+ 	struct bgmac *bgmac = bcma_get_drvdata(core);
+ 
+-	netif_napi_del(&bgmac->napi);
+ 	unregister_netdev(bgmac->net_dev);
+ 	bgmac_mii_unregister(bgmac);
++	netif_napi_del(&bgmac->napi);
+ 	bgmac_dma_free(bgmac);
+ 	bcma_set_drvdata(core, NULL);
+ 	free_netdev(bgmac->net_dev);
+-- 
+1.9.1
