@@ -1,36 +1,57 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next] switchdev: fix typo in inline function definition
-Date: Sun, 18 Jan 2015 10:25:56 +0100
-Message-ID: <1421573156-6101-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, sfeldma@gmail.co
-To: netdev@vger.kernel.org
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Bridge code in net-next does not compile
+Date: Sun, 18 Jan 2015 02:33:24 -0800
+Message-ID: <D49DF51C-D713-4D2C-9CB0-F7C21403F68A@holtmann.org>
+Mime-Version: 1.0 (Mac OS X Mail 8.1 \(1993\))
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Network Development <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f182.google.com ([209.85.212.182]:65357 "EHLO
-	mail-wi0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750728AbbARJ0A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 Jan 2015 04:26:00 -0500
-Received: by mail-wi0-f182.google.com with SMTP id n3so9270533wiv.3
-        for <netdev@vger.kernel.org>; Sun, 18 Jan 2015 01:25:59 -0800 (PST)
+Received: from senator.holtmann.net ([87.106.208.187]:43758 "EHLO
+	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751341AbbARKd3 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 Jan 2015 05:33:29 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Jiri Pirko <jiri@resnulli.us>
----
- include/net/switchdev.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Hi,
 
-diff --git a/include/net/switchdev.h b/include/net/switchdev.h
-index 201120e..205e636 100644
---- a/include/net/switchdev.h
-+++ b/include/net/switchdev.h
-@@ -69,7 +69,7 @@ static inline int unregister_netdev_switch_notifier(struct notifier_block *nb)
- }
- 
- static inline int call_netdev_switch_notifiers(unsigned long val, struct net_device *dev,
--					       struct netdev_switch_notifier_info *info);
-+					       struct netdev_switch_notifier_info *info)
+when compiling net-next, the bridge code fails to compile:
+
+  CC      net/bridge/br.o
+In file included from net/bridge/br.c:22:0:
+include/net/switchdev.h:73:1: error: expected identifier or =E2=80=98(=E2=
+=80=99 before =E2=80=98{=E2=80=99 token
  {
- 	return NOTIFY_DONE;
- }
--- 
-1.9.3
+ ^
+include/net/switchdev.h:71:90: warning: =E2=80=98call_netdev_switch_not=
+ifiers=E2=80=99 declared =E2=80=98static=E2=80=99 but never defined [-W=
+unused-function]
+ static inline int call_netdev_switch_notifiers(unsigned long val, stru=
+ct net_device *dev,
+                                                                       =
+                   ^
+
+I bisecting this to this commit:
+
+commit 03bf0c281234028388108d0aee720954f5fe6924
+Author: Jiri Pirko <jiri@resnulli.us>
+Date:   Thu Jan 15 23:49:36 2015 +0100
+
+    switchdev: introduce switchdev notifier
+   =20
+    This patch introduces new notifier for purposes of exposing events =
+which happen
+    on switch driver side. The consumers of the event messages are main=
+ly involved
+    masters, namely bridge and ovs.
+   =20
+    Suggested-by: Thomas Graf <tgraf@suug.ch>
+    Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+    Signed-off-by: Scott Feldman <sfeldma@gmail.com>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+
+Regards
+
+Marcel
