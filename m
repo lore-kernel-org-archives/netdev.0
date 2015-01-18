@@ -1,61 +1,69 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [PATCH net-next] iproute2: bridge: support vlan range
-Date: Sun, 18 Jan 2015 09:44:18 -0800
-Message-ID: <CAE4R7bA6f-f9zTL4iKn11xAWD7evbEGMb+b8zgrm780Hx0yg4w@mail.gmail.com>
-References: <1421391147-35021-1-git-send-email-roopa@cumulusnetworks.com>
-	<CAE4R7bA2VHepe8CCYuubH8teXMvRry10jnpsisYq+7Qv+gXzHQ@mail.gmail.com>
-	<54BB78DA.6060208@cumulusnetworks.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: BW regression after "tcp: refine TSO autosizing"
+Date: Sun, 18 Jan 2015 09:48:37 -0800
+Message-ID: <1421603317.11734.154.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <54B54C72.8060705@dev.mellanox.co.il>
+	 <1421175434.4099.21.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAJ3xEMibMzJH-AB7pBnO9qBL4McTdsajqHzxXkadnTf1khNdxA@mail.gmail.com>
+	 <54B590FB.5040805@dev.mellanox.co.il>
+	 <1421186430.11734.6.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAM_57Zgx3DoQbQMffAJNMeZHa8Yb8M+JuwEH=1Fo_Xou+DkgcQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>, shemminger@vyatta.com,
-	"vyasevic@redhat.com" <vyasevic@redhat.com>,
-	Wilson Kok <wkok@cumulusnetworks.com>
-To: roopa <roopa@cumulusnetworks.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Or Gerlitz <gerlitz.or@gmail.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Amir Vadai <amirv@mellanox.com>,
+	Yevgeny Petrilin <yevgenyp@mellanox.com>,
+	Saeed Mahameed <saeedm@mellanox.com>,
+	Ido Shamay <idos@mellanox.com>,
+	Amir Ancel <amira@mellanox.com>,
+	Eyal Perry <eyalpe@mellanox.com>
+To: Eyal Perry <eyalpe@dev.mellanox.co.il>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f175.google.com ([74.125.82.175]:50105 "EHLO
-	mail-we0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751479AbbARRoU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 Jan 2015 12:44:20 -0500
-Received: by mail-we0-f175.google.com with SMTP id k11so27815872wes.6
-        for <netdev@vger.kernel.org>; Sun, 18 Jan 2015 09:44:19 -0800 (PST)
-In-Reply-To: <54BB78DA.6060208@cumulusnetworks.com>
+Received: from mail-ig0-f179.google.com ([209.85.213.179]:57110 "EHLO
+	mail-ig0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751223AbbARRsk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 Jan 2015 12:48:40 -0500
+Received: by mail-ig0-f179.google.com with SMTP id l13so9979160iga.0
+        for <netdev@vger.kernel.org>; Sun, 18 Jan 2015 09:48:39 -0800 (PST)
+In-Reply-To: <CAM_57Zgx3DoQbQMffAJNMeZHa8Yb8M+JuwEH=1Fo_Xou+DkgcQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jan 18, 2015 at 1:11 AM, roopa <roopa@cumulusnetworks.com> wrote:
-> On 1/17/15, 5:35 PM, Scott Feldman wrote:
->>
->> On Thu, Jan 15, 2015 at 10:52 PM,  <roopa@cumulusnetworks.com> wrote:
->>>
->>> From: Roopa Prabhu <roopa@cumulusnetworks.com>
->>>
->>> This patch adds vlan range support to bridge command
->>> using the newly added vinfo flags BRIDGE_VLAN_INFO_RANGE_BEGIN and
->>> BRIDGE_VLAN_INFO_RANGE_END.
->>>
->
->>
->>> +                               vinfo.flags |=
->>> BRIDGE_VLAN_INFO_RANGE_BEGIN;
->>> +                       } else {
->>> +                               vinfo.vid = atoi(*argv);
->>> +                       }
->>>                  } else if (strcmp(*argv, "self") == 0) {
->>>                          flags |= BRIDGE_FLAGS_SELF;
->>>                  } else if (strcmp(*argv, "master") == 0) {
->>> @@ -67,7 +78,7 @@ static int vlan_modify(int cmd, int argc, char **argv)
->>>                  argc--; argv++;
->>>          }
->>>
->>> -       if (d == NULL || vid == -1) {
->>> +       if (d == NULL || vinfo.vid == -1) {
->>
->> Where was vinfo.vid initialized to -1?  Maybe use vid rather than
->> vinfo.vid in the code above where parsing the arg, and continue using
->> vid and vid_end until final put of vinfo.
->>
-> There is already a "memset(&vinfo, 0, sizeof(vinfo));"  in the code in the
-> beginning of the function.
+On Sun, 2015-01-18 at 18:22 +0200, Eyal Perry wrote:
 
-That's the problem...vinfo.vid is initialized to 0, not -1, so
-checking if vinfo.vid == -1 is always false.
+> 
+> Please let me know if you see something in the results.
+
+Getting high throughput on a single flow means lot of tweaking.
+
+For a start, mlx4 is known to have interrupt mitigation that can hurt,
+as the TX interrupt timer is restarted for every packet that is
+delivered to the NIC.
+
+ethtool -c ethX
+..
+tx-usecs: 16
+tx-frames: 16
+tx-usecs-irq: 0
+tx-frames-irq: 256
+...
+
+-> TX IRQ can be delayed by 16*16 = 256 usec.
+
+Can you try :
+
+ethtool -C ethX tx-usecs 2 tx-frames 2
+
+Or even
+
+ethtool -C ethX tx-usecs 1 tx-frames 1
+
+Interrupt mitigation is a trade-off.
+
+If one customer wants high throughput on a single flow, then you might
+remove interrupt mitigation.
+
+If another customer wants cpu efficiency with thousand of flows, I guess
+current mlx4 defaults are pretty good.
