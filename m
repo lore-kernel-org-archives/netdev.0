@@ -1,181 +1,167 @@
 From: roopa <roopa@cumulusnetworks.com>
-Subject: Re: [RFC PATCH net-next] bridge: ability to disable forwarding on
- a port
-Date: Sun, 18 Jan 2015 01:10:12 -0800
-Message-ID: <54BB7874.90201@cumulusnetworks.com>
-References: <1421479975-62049-1-git-send-email-roopa@cumulusnetworks.com> <CAE4R7bBeNojtj3Zyd6+zSJFGRjG4vejBObnS1XUFAfJDZJZYow@mail.gmail.com>
+Subject: Re: [PATCH net-next] iproute2: bridge: support vlan range
+Date: Sun, 18 Jan 2015 01:11:54 -0800
+Message-ID: <54BB78DA.6060208@cumulusnetworks.com>
+References: <1421391147-35021-1-git-send-email-roopa@cumulusnetworks.com> <CAE4R7bA2VHepe8CCYuubH8teXMvRry10jnpsisYq+7Qv+gXzHQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "stephen@networkplumber.org" <stephen@networkplumber.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
-	"Arad, Ronen" <ronen.arad@intel.com>, Thomas Graf <tgraf@suug.ch>,
-	john fastabend <john.fastabend@gmail.com>,
+Cc: Netdev <netdev@vger.kernel.org>, shemminger@vyatta.com,
 	"vyasevic@redhat.com" <vyasevic@redhat.com>,
-	Netdev <netdev@vger.kernel.org>,
-	Wilson Kok <wkok@cumulusnetworks.com>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>
+	Wilson Kok <wkok@cumulusnetworks.com>
 To: Scott Feldman <sfeldma@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:56230 "EHLO
-	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751319AbbARJKO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 Jan 2015 04:10:14 -0500
-Received: by mail-pa0-f42.google.com with SMTP id et14so32727738pad.1
-        for <netdev@vger.kernel.org>; Sun, 18 Jan 2015 01:10:13 -0800 (PST)
-In-Reply-To: <CAE4R7bBeNojtj3Zyd6+zSJFGRjG4vejBObnS1XUFAfJDZJZYow@mail.gmail.com>
+Received: from mail-pd0-f169.google.com ([209.85.192.169]:52698 "EHLO
+	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751319AbbARJL4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 Jan 2015 04:11:56 -0500
+Received: by mail-pd0-f169.google.com with SMTP id z10so30779742pdj.0
+        for <netdev@vger.kernel.org>; Sun, 18 Jan 2015 01:11:55 -0800 (PST)
+In-Reply-To: <CAE4R7bA2VHepe8CCYuubH8teXMvRry10jnpsisYq+7Qv+gXzHQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 1/17/15, 5:05 PM, Scott Feldman wrote:
-> On Fri, Jan 16, 2015 at 11:32 PM,  <roopa@cumulusnetworks.com> wrote:
+On 1/17/15, 5:35 PM, Scott Feldman wrote:
+> On Thu, Jan 15, 2015 at 10:52 PM,  <roopa@cumulusnetworks.com> wrote:
 >> From: Roopa Prabhu <roopa@cumulusnetworks.com>
 >>
->> On a Linux bridge with bridge forwarding offloaded to a switch ASIC,
->> there is a need to not re-forward the frames that come up to the
->> kernel in software.
+>> This patch adds vlan range support to bridge command
+>> using the newly added vinfo flags BRIDGE_VLAN_INFO_RANGE_BEGIN and
+>> BRIDGE_VLAN_INFO_RANGE_END.
 >>
->> Typically these are broadcast or multicast packets forwarded by the
->> hardware to multiple destination ports including sending a copy of
->> the packet to the kernel (e.g. an arp broadcast).
->> The bridge driver will try to forward the packet again, resulting in
->> two copies of the same packet.
+>> $bridge vlan show
+>> port    vlan ids
+>> br0      1 PVID Egress Untagged
 >>
->> These packets can also come up to the kernel for logging when they hit
->> a LOG acl in hardware.
+>> dummy0   1 PVID Egress Untagged
 >>
->> This patch makes forwarding a flag on the port similar to
->> learn and flood and drops the packet just before forwarding.
->> (The forwarding disable on a bridge is tested to work on our boxes.
->> The bridge port flag addition is only compile tested.
->> This will need to be further refined to cover cases where a non-switch port
->> is bridged to a switch port etc. We will submit more patches to cover
->> all cases if we agree on this approach).
-> Good topic to bring up, thanks for proposing a patch.  There is indeed
-> duplicate pkts sent out in the case where both the bridge and the
-> offloaded device are flooding these non-unicast pkts, such as ARP
-> requests.  We do have per-port control today over unicast flooding
-> using BR_FLOOD (IFLA_BRPORT_UNICAST_FLOOD).
->
-> As you point out, this doesn't solve the case for non-offloaded ports
-> bridged with switch ports.  If this port setting is enabled on an
-> offloaded switch port, for example, the non-offloaded port can't get
-> an ARP request resolved, if the MAC is behind the offloaded switch
-> port.  But do we care?  Is there a use-case for this one, mixing
-> offloaded and non-offloaded ports in a bridge?
-
-Not sure. I don't know the use case, but I think I might have heard that 
-there could be a case
-  where a switch port could be bridged with a vm's port running on the 
-switch. (?)
->
->> Other ways to solve the same problem could be to:
->> - use the offload feature flag on these switch ports to avoid the
->> re-forward:
->> https://www.marc.info/?l=linux-netdev&m=141820235010603&w=2
+>> $bridge vlan add vid 10-15 dev dummy0
+>> port    vlan ids
+>> br0      1 PVID Egress Untagged
 >>
->> - Or the switch driver can mark or set a flag in the skb, which the bridge
->> driver can use to avoid a re-forward.
+>> dummy0   1 PVID Egress Untagged
+>>           10
+>>           11
+>>           12
+>>           13
+>>           14
+>>           15
 >>
->> Signed-off-by: Wilson Kok <wkok@cumulusnetworks.com>
+>> $bridge vlan del vid 14 dev dummy0
+>>
+>> $bridge vlan show
+>> port    vlan ids
+>> br0      1 PVID Egress Untagged
+>>
+>> dummy0   1 PVID Egress Untagged
+>>           10
+>>           11
+>>           12
+>>           13
+>>           15
+>>
+>> $bridge vlan del vid 10-15 dev dummy0
+>>
+>> $bridge vlan show
+>> port    vlan ids
+>> br0      1 PVID Egress Untagged
+>>
+>> dummy0   1 PVID Egress Untagged
+>>
 >> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+>> Signed-off-by: Wilson Kok <wkok@cumulusnetworks.com>
 >> ---
->>   include/linux/if_bridge.h    |    3 ++-
->>   include/uapi/linux/if_link.h |    1 +
->>   net/bridge/br_forward.c      |   13 +++++++++++++
->>   net/bridge/br_if.c           |    2 +-
->>   net/bridge/br_netlink.c      |    4 +++-
->>   net/bridge/br_sysfs_if.c     |    1 +
->>   net/core/rtnetlink.c         |    4 +++-
->>   7 files changed, 24 insertions(+), 4 deletions(-)
+>>   bridge/vlan.c             |   46 ++++++++++++++++++++++++++++++++++++++-------
+>>   include/linux/if_bridge.h |    2 ++
+>>   2 files changed, 41 insertions(+), 7 deletions(-)
 >>
->> diff --git a/include/linux/if_bridge.h b/include/linux/if_bridge.h
->> index 0a8ce76..c79f4eb 100644
->> --- a/include/linux/if_bridge.h
->> +++ b/include/linux/if_bridge.h
->> @@ -40,10 +40,11 @@ struct br_ip_list {
->>   #define BR_ADMIN_COST          BIT(4)
->>   #define BR_LEARNING            BIT(5)
->>   #define BR_FLOOD               BIT(6)
->> -#define BR_AUTO_MASK           (BR_FLOOD | BR_LEARNING)
->>   #define BR_PROMISC             BIT(7)
->>   #define BR_PROXYARP            BIT(8)
->>   #define BR_LEARNING_SYNC       BIT(9)
->> +#define BR_FORWARD             BIT(10)
-> The name BR_FORWARD might confuse people thinking this is related to
-> STP FORWARDING state.
-yes, that thought crossed my mind too. I had BR_FORWARDING initially and 
-to make it sound less like
-STP changed it to BR_FORWARD. :)
+>> diff --git a/bridge/vlan.c b/bridge/vlan.c
+>> index 3bd7b0d..90b3b6b 100644
+>> --- a/bridge/vlan.c
+>> +++ b/bridge/vlan.c
+>> @@ -32,6 +32,7 @@ static int vlan_modify(int cmd, int argc, char **argv)
+>>          } req;
+>>          char *d = NULL;
+>>          short vid = -1;
+>> +       short vid_end = -1;
+>>          struct rtattr *afspec;
+>>          struct bridge_vlan_info vinfo;
+>>          unsigned short flags = 0;
+>> @@ -49,8 +50,18 @@ static int vlan_modify(int cmd, int argc, char **argv)
+>>                          NEXT_ARG();
+>>                          d = *argv;
+>>                  } else if (strcmp(*argv, "vid") == 0) {
+>> +                       char *p;
+>>                          NEXT_ARG();
+>> -                       vid = atoi(*argv);
+>> +                       p = strchr(*argv, '-');
+>> +                       if (p) {
+>> +                               *p = '\0';
+>> +                               p++;
+>> +                               vinfo.vid = atoi(*argv);
+>> +                               vid_end = atoi(p);
+> Is "vid 10-" same as "vid 10-0"?
+correct ..
 
-> We have BR_FLOOD for unknown unicast flooding.
-> How about renaming BR_FLOOD to BR_FLOOD_UNICAST and add
-> BR_FLOOD_BROADCAST?  So you would have:
->
->    IFLA_BRPORT_UNICAST_FLOOD           BR_FLOOD_UNICAST        /* flood
-> unknown unicast traffic to port */
->    IFLA_BRPORT_BROADCAST_FLOOD    BR_FLOOD_BROADCAST  /* flood
-> bcast/mcast traffic to port */
+# bridge vlan add vid 10- dev dummy0
+Invalid VLAN range "10-0"
 
-That's a good idea. So, unknown unicast and broadcast will be covered 
-with that.
-Am afraid there might be other packets, like the acl LOG packet hitting 
-the CPU/kernel (?)
-I will check if there are others.
 >
->> +#define BR_AUTO_MASK           (BR_FLOOD | BR_LEARNING | BR_FORWARD)
->>
->>   extern void brioctl_set(int (*ioctl_hook)(struct net *, unsigned int, void __user *));
->>
->> diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
->> index f7d0d2d..d394625 100644
->> --- a/include/uapi/linux/if_link.h
->> +++ b/include/uapi/linux/if_link.h
->> @@ -246,6 +246,7 @@ enum {
->>          IFLA_BRPORT_UNICAST_FLOOD, /* flood unicast traffic */
->>          IFLA_BRPORT_PROXYARP,   /* proxy ARP */
->>          IFLA_BRPORT_LEARNING_SYNC, /* mac learning sync from device */
->> +       IFLA_BRPORT_FORWARD,    /* enable forwarding on a device */
->>          __IFLA_BRPORT_MAX
->>   };
->>   #define IFLA_BRPORT_MAX (__IFLA_BRPORT_MAX - 1)
->> diff --git a/net/bridge/br_forward.c b/net/bridge/br_forward.c
->> index f96933a..98c41c8 100644
->> --- a/net/bridge/br_forward.c
->> +++ b/net/bridge/br_forward.c
->> @@ -81,10 +81,23 @@ static void __br_deliver(const struct net_bridge_port *to, struct sk_buff *skb)
->>                  br_forward_finish);
->>   }
->>
->> +int br_hw_forward_finish(struct sk_buff *skb)
->> +{
->> +       kfree_skb(skb);
->> +
->> +       return 0;
->> +}
->> +
->>   static void __br_forward(const struct net_bridge_port *to, struct sk_buff *skb)
->>   {
->>          struct net_device *indev;
->>
->> +       if (!(to->flags & BR_FORWARD)) {
->> +               NF_HOOK(NFPROTO_BRIDGE, NF_BR_FORWARD, skb, skb->dev, to->dev,
->> +                       br_hw_forward_finish);
->> +               return;
->> +       }
->> +
-> Seems you should make the (flags & BR_FORWARD) check earlier, before
-> skb cloning, in br_flood(), alongside the (flags & BR_FLOOD) check.
-This patch strategically places it in __br_forward to catch all forwards 
-(due to floods or no floods ..with direct call to br_foward)
-with minimal code changes in mind. Will see if the clone can be avoided.
+> Is "vid -15" same as "vid 0-15"?
+correct
+
+# bridge vlan add vid -10 dev dummy0
+root@net-next:~/iproute2# bridge vlan show
+port    vlan ids
+br0     1 PVID Egress Untagged
+
+dummy0     0 PVID
+      1
+      2
+      3
+      4
+      5
+      6
+      7
+      8
+      9
+      10
+
+dummy1     1 PVID Egress Untagged
+
+maybe vlan 0 should not be allowed. Will check
+
 >
-> Also, the above code is skipping some vlan checks (br_handle_vlan).
-The br_handle_vlan checks seemed not necessary for a packet getting dropped.
-But, will check and fix if its needed while the packet traverses the 
-netfilter hook and before it gets dropped.
+> What is "vid -"?
+>
+> Does the "-" char mess up shells?  I don't know the answer; just asking.
+No it does not :)
+
+# bridge vlan add vid -
+Device and VLAN ID are required arguments.
+
+>
+>> +                               vinfo.flags |= BRIDGE_VLAN_INFO_RANGE_BEGIN;
+>> +                       } else {
+>> +                               vinfo.vid = atoi(*argv);
+>> +                       }
+>>                  } else if (strcmp(*argv, "self") == 0) {
+>>                          flags |= BRIDGE_FLAGS_SELF;
+>>                  } else if (strcmp(*argv, "master") == 0) {
+>> @@ -67,7 +78,7 @@ static int vlan_modify(int cmd, int argc, char **argv)
+>>                  argc--; argv++;
+>>          }
+>>
+>> -       if (d == NULL || vid == -1) {
+>> +       if (d == NULL || vinfo.vid == -1) {
+> Where was vinfo.vid initialized to -1?  Maybe use vid rather than
+> vinfo.vid in the code above where parsing the arg, and continue using
+> vid and vid_end until final put of vinfo.
+>
+There is already a "memset(&vinfo, 0, sizeof(vinfo));"  in the code in 
+the beginning of the function.
+And the code is already using vinfo for flags. That's the reason i 
+decided to use vinfo here.
 
 Thanks,
 Roopa
