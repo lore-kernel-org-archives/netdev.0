@@ -1,39 +1,58 @@
-From: Miquel van Smoorenburg <mikevs@xs4all.net>
-Subject: Re: net: prevent of emerging cross-namespace symlinks patches for
- 3.14?
-Date: Mon, 19 Jan 2015 00:17:06 +0100
-Message-ID: <54BC3EF2.5080403@xs4all.net>
-References: <54B6E36F.9060703@xs4all.net> <CAChDUfTktt7DAg+Mi0+PWcykhHWvE9wg5FNieWUuoBjZGsU8jQ@mail.gmail.com>
+From: "Nelson, Shannon" <shannon.nelson@intel.com>
+Subject: RE: [net-next v2 13/15] i40e: limit WoL and link settings to
+ partition 1
+Date: Sun, 18 Jan 2015 23:26:03 +0000
+Message-ID: <FC41C24E35F18A40888AACA1A36F3E418ADD6433@fmsmsx115.amr.corp.intel.com>
+References: <1421179093-10932-1-git-send-email-jeffrey.t.kirsher@intel.com>,<1421179093-10932-14-git-send-email-jeffrey.t.kirsher@intel.com>
+ <B5657A6538887040AD3A81F1008BEC63BC8933@avmb3.qlogic.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, stable@vger.kernel.org,
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: netdev <netdev@vger.kernel.org>,
+	"nhorman@redhat.com" <nhorman@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>,
+	"jogreene@redhat.com" <jogreene@redhat.com>
+To: Yuval Mintz <Yuval.Mintz@qlogic.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
 	David Miller <davem@davemloft.net>
-To: "Alexander Y. Fomichev" <git.user@gmail.com>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <CAChDUfTktt7DAg+Mi0+PWcykhHWvE9wg5FNieWUuoBjZGsU8jQ@mail.gmail.com>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga03.intel.com ([134.134.136.65]:6186 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751175AbbARX0G convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 Jan 2015 18:26:06 -0500
+In-Reply-To: <B5657A6538887040AD3A81F1008BEC63BC8933@avmb3.qlogic.org>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 15/01/15 19:39, Alexander Y. Fomichev wrote:
-> On Thu, Jan 15, 2015 at 12:45 AM, Miquel van Smoorenburg mikevs@xs4all.net> wrote:
->> [first sent to lkml, now to netdev and the original patch author]
->>
->> When running 'lxc' on the latest -stable kernel, 3.14.28, I'm seeing these
->> errors:
->>
->> Jan 14 17:47:16 lxc2 kernel: [   10.704892] sysfs: cannot create duplicate
->> filename '/devices/virtual/net/eth0.104/upper_eth0'
->> I did not see these errors in 3.12. This was fixed in 3.17
->
-> Hi,
->
-> no objections of course,
-> actually it was written and tested with 3.14 in mind.
+> From: Yuval Mintz [mailto:Yuval.Mintz@qlogic.com]
+> Sent: Saturday, January 17, 2015 10:10 PM
+> 
+> >From: Shannon Nelson <shannon.nelson@intel.com>
+> 
+> >When in multi-function mode, e.g. Dell's NPAR, only partition 1
+> >of each MAC is allowed to set WoL, speed, and flow control.
+> 
+> Isn't it problematic? I mean, in bnx2x we address ~same issue -
+> but due to symmetry we prevent ALL interfaces from changing
+> the link configuration.
 
-David, could you have a quick look and ack this if you agree this should 
-go in 3.14-stable ?
+Yes, this multi-function hardware port makes for "interesting opportunities" in hardware configuration.  In our case, our requirements are to still allow for configuration of the hardware port.  This is not unlike how a PF controls the physical port for its VF devices.
 
-Thanks
+> 
+> How can user be aware of this 'private' behavior? via system logs?
+> documentation?
 
-Mike.
+In this case, note that we have added a log message that says these are dependent on the initial partition of the port for setting control.  Also, the particular vendor using the device in this configuration will supply and support the user documentation.
+
+> 
+> How does it interact with Physical Device Assignment of the first
+> partition?
+
+I'm not sure I understand this question, but I'll answer a different question: these multifunction ports show up as additional PCI functions, again, not unlike VF devices.
+
+> 
+> Cheers,
+> Yuval
+
+sln
