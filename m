@@ -1,47 +1,36 @@
 From: roopa <roopa@cumulusnetworks.com>
 Subject: Re: [RFC PATCH net-next] bridge: ability to disable forwarding on
  a port
-Date: Sun, 18 Jan 2015 00:48:53 -0800
-Message-ID: <54BB7375.2070803@cumulusnetworks.com>
-References: <1421479975-62049-1-git-send-email-roopa@cumulusnetworks.com> <E4CD12F19ABA0C4D8729E087A761DC3505DF57DB@ORSMSX101.amr.corp.intel.com>
+Date: Sun, 18 Jan 2015 01:10:12 -0800
+Message-ID: <54BB7874.90201@cumulusnetworks.com>
+References: <1421479975-62049-1-git-send-email-roopa@cumulusnetworks.com> <CAE4R7bBeNojtj3Zyd6+zSJFGRjG4vejBObnS1XUFAfJDZJZYow@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: "stephen@networkplumber.org" <stephen@networkplumber.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"jhs@mojatatu.com" <jhs@mojatatu.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"sfeldma@gmail.com" <sfeldma@gmail.com>,
-	"jiri@resnulli.us" <jiri@resnulli.us>,
-	"tgraf@suug.ch" <tgraf@suug.ch>,
-	"john.fastabend@gmail.com" <john.fastabend@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
+	"Arad, Ronen" <ronen.arad@intel.com>, Thomas Graf <tgraf@suug.ch>,
+	john fastabend <john.fastabend@gmail.com>,
 	"vyasevic@redhat.com" <vyasevic@redhat.com>,
-	"wkok@cumulusnetworks.com" <wkok@cumulusnetworks.com>,
-	"gospo@cumulusnetworks.com" <gospo@cumulusnetworks.com>
-To: "Arad, Ronen" <ronen.arad@intel.com>
+	Netdev <netdev@vger.kernel.org>,
+	Wilson Kok <wkok@cumulusnetworks.com>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>
+To: Scott Feldman <sfeldma@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:40872 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751602AbbARIs4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 Jan 2015 03:48:56 -0500
-Received: by mail-pa0-f47.google.com with SMTP id kq14so32613293pab.6
-        for <netdev@vger.kernel.org>; Sun, 18 Jan 2015 00:48:55 -0800 (PST)
-In-Reply-To: <E4CD12F19ABA0C4D8729E087A761DC3505DF57DB@ORSMSX101.amr.corp.intel.com>
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:56230 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751319AbbARJKO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 Jan 2015 04:10:14 -0500
+Received: by mail-pa0-f42.google.com with SMTP id et14so32727738pad.1
+        for <netdev@vger.kernel.org>; Sun, 18 Jan 2015 01:10:13 -0800 (PST)
+In-Reply-To: <CAE4R7bBeNojtj3Zyd6+zSJFGRjG4vejBObnS1XUFAfJDZJZYow@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 1/17/15, 1:14 PM, Arad, Ronen wrote:
->
->> -----Original Message-----
->> From: roopa@cumulusnetworks.com [mailto:roopa@cumulusnetworks.com]
->> Sent: Friday, January 16, 2015 11:33 PM
->> To: stephen@networkplumber.org; davem@davemloft.net; jhs@mojatatu.com;
->> sfeldma@gmail.com; jiri@resnulli.us; Arad, Ronen; tgraf@suug.ch;
->> john.fastabend@gmail.com; vyasevic@redhat.com
->> Cc: netdev@vger.kernel.org; wkok@cumulusnetworks.com;
->> gospo@cumulusnetworks.com
->> Subject: [RFC PATCH net-next] bridge: ability to disable forwarding on a port
->>
+On 1/17/15, 5:05 PM, Scott Feldman wrote:
+> On Fri, Jan 16, 2015 at 11:32 PM,  <roopa@cumulusnetworks.com> wrote:
 >> From: Roopa Prabhu <roopa@cumulusnetworks.com>
 >>
 >> On a Linux bridge with bridge forwarding offloaded to a switch ASIC,
@@ -64,7 +53,24 @@ On 1/17/15, 1:14 PM, Arad, Ronen wrote:
 >> This will need to be further refined to cover cases where a non-switch port
 >> is bridged to a switch port etc. We will submit more patches to cover
 >> all cases if we agree on this approach).
->>
+> Good topic to bring up, thanks for proposing a patch.  There is indeed
+> duplicate pkts sent out in the case where both the bridge and the
+> offloaded device are flooding these non-unicast pkts, such as ARP
+> requests.  We do have per-port control today over unicast flooding
+> using BR_FLOOD (IFLA_BRPORT_UNICAST_FLOOD).
+>
+> As you point out, this doesn't solve the case for non-offloaded ports
+> bridged with switch ports.  If this port setting is enabled on an
+> offloaded switch port, for example, the non-offloaded port can't get
+> an ARP request resolved, if the MAC is behind the offloaded switch
+> port.  But do we care?  Is there a use-case for this one, mixing
+> offloaded and non-offloaded ports in a bridge?
+
+Not sure. I don't know the use case, but I think I might have heard that 
+there could be a case
+  where a switch port could be bridged with a vm's port running on the 
+switch. (?)
+>
 >> Other ways to solve the same problem could be to:
 >> - use the offload feature flag on these switch ports to avoid the
 >> re-forward:
@@ -73,31 +79,103 @@ On 1/17/15, 1:14 PM, Arad, Ronen wrote:
 >> - Or the switch driver can mark or set a flag in the skb, which the bridge
 >> driver can use to avoid a re-forward.
 >>
-> The proposed patch does not go along with the offload feature flag.
-> The premise of the offload feature flag is that offloading is driven by the
-> switch port driver without user intervention. This patch requires different
-> setting for BR_FLOOD in the software bridge port and the switch port driver.
-Even with the offload feature flag, there are a few bridge port 
-attributes that can be set
-from userspace which can be different for sw and hw. So, with this patch 
-I was
-trying to see if making it similar to the other existing flags would be 
-better.
-> The alternatives suggested (offload flag or skb flag) are better.
+>> Signed-off-by: Wilson Kok <wkok@cumulusnetworks.com>
+>> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+>> ---
+>>   include/linux/if_bridge.h    |    3 ++-
+>>   include/uapi/linux/if_link.h |    1 +
+>>   net/bridge/br_forward.c      |   13 +++++++++++++
+>>   net/bridge/br_if.c           |    2 +-
+>>   net/bridge/br_netlink.c      |    4 +++-
+>>   net/bridge/br_sysfs_if.c     |    1 +
+>>   net/core/rtnetlink.c         |    4 +++-
+>>   7 files changed, 24 insertions(+), 4 deletions(-)
+>>
+>> diff --git a/include/linux/if_bridge.h b/include/linux/if_bridge.h
+>> index 0a8ce76..c79f4eb 100644
+>> --- a/include/linux/if_bridge.h
+>> +++ b/include/linux/if_bridge.h
+>> @@ -40,10 +40,11 @@ struct br_ip_list {
+>>   #define BR_ADMIN_COST          BIT(4)
+>>   #define BR_LEARNING            BIT(5)
+>>   #define BR_FLOOD               BIT(6)
+>> -#define BR_AUTO_MASK           (BR_FLOOD | BR_LEARNING)
+>>   #define BR_PROMISC             BIT(7)
+>>   #define BR_PROXYARP            BIT(8)
+>>   #define BR_LEARNING_SYNC       BIT(9)
+>> +#define BR_FORWARD             BIT(10)
+> The name BR_FORWARD might confuse people thinking this is related to
+> STP FORWARDING state.
+yes, that thought crossed my mind too. I had BR_FORWARDING initially and 
+to make it sound less like
+STP changed it to BR_FORWARD. :)
 
-Glad to know your opinion.
+> We have BR_FLOOD for unknown unicast flooding.
+> How about renaming BR_FLOOD to BR_FLOOD_UNICAST and add
+> BR_FLOOD_BROADCAST?  So you would have:
 >
-> The proposed patch avoids re-forward but not without cost. For example in the
-> case of unicast flood with local destination, the skb is cloned for each port
-> before the forward avoidance in __br_forward. Is it acceptable overhead?
+>    IFLA_BRPORT_UNICAST_FLOOD           BR_FLOOD_UNICAST        /* flood
+> unknown unicast traffic to port */
+>    IFLA_BRPORT_BROADCAST_FLOOD    BR_FLOOD_BROADCAST  /* flood
+> bcast/mcast traffic to port */
 
-This patch places it in __br_forward to just make sure all the paths 
-including the netfilter
-hook is traversed for these packets. And plus it was written with 
-minimal changes in mind.
-We have not measured it but the extra overhead for these pkts that hit
-the kernel has been negligible. But, I will look at the code to see if 
-it can be avoided.
+That's a good idea. So, unknown unicast and broadcast will be covered 
+with that.
+Am afraid there might be other packets, like the acl LOG packet hitting 
+the CPU/kernel (?)
+I will check if there are others.
+>
+>> +#define BR_AUTO_MASK           (BR_FLOOD | BR_LEARNING | BR_FORWARD)
+>>
+>>   extern void brioctl_set(int (*ioctl_hook)(struct net *, unsigned int, void __user *));
+>>
+>> diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
+>> index f7d0d2d..d394625 100644
+>> --- a/include/uapi/linux/if_link.h
+>> +++ b/include/uapi/linux/if_link.h
+>> @@ -246,6 +246,7 @@ enum {
+>>          IFLA_BRPORT_UNICAST_FLOOD, /* flood unicast traffic */
+>>          IFLA_BRPORT_PROXYARP,   /* proxy ARP */
+>>          IFLA_BRPORT_LEARNING_SYNC, /* mac learning sync from device */
+>> +       IFLA_BRPORT_FORWARD,    /* enable forwarding on a device */
+>>          __IFLA_BRPORT_MAX
+>>   };
+>>   #define IFLA_BRPORT_MAX (__IFLA_BRPORT_MAX - 1)
+>> diff --git a/net/bridge/br_forward.c b/net/bridge/br_forward.c
+>> index f96933a..98c41c8 100644
+>> --- a/net/bridge/br_forward.c
+>> +++ b/net/bridge/br_forward.c
+>> @@ -81,10 +81,23 @@ static void __br_deliver(const struct net_bridge_port *to, struct sk_buff *skb)
+>>                  br_forward_finish);
+>>   }
+>>
+>> +int br_hw_forward_finish(struct sk_buff *skb)
+>> +{
+>> +       kfree_skb(skb);
+>> +
+>> +       return 0;
+>> +}
+>> +
+>>   static void __br_forward(const struct net_bridge_port *to, struct sk_buff *skb)
+>>   {
+>>          struct net_device *indev;
+>>
+>> +       if (!(to->flags & BR_FORWARD)) {
+>> +               NF_HOOK(NFPROTO_BRIDGE, NF_BR_FORWARD, skb, skb->dev, to->dev,
+>> +                       br_hw_forward_finish);
+>> +               return;
+>> +       }
+>> +
+> Seems you should make the (flags & BR_FORWARD) check earlier, before
+> skb cloning, in br_flood(), alongside the (flags & BR_FLOOD) check.
+This patch strategically places it in __br_forward to catch all forwards 
+(due to floods or no floods ..with direct call to br_foward)
+with minimal code changes in mind. Will see if the clone can be avoided.
+>
+> Also, the above code is skipping some vlan checks (br_handle_vlan).
+The br_handle_vlan checks seemed not necessary for a packet getting dropped.
+But, will check and fix if its needed while the packet traverses the 
+netfilter hook and before it gets dropped.
 
 Thanks,
 Roopa
