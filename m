@@ -1,70 +1,73 @@
-From: Andy Green <andy.green@linaro.org>
-Subject: Re: [PATCH 5/7] net: wireless: wcn36xx: swallow two wcn3620 IND messages
-Date: Sun, 18 Jan 2015 20:59:55 +0800
-Message-ID: <CAAfg0W7nD9Jb7M3vhnkM6KaOrVOo+A_zvuQy1XUYM36KBzUH_Q@mail.gmail.com>
-References: <20150118050741.31866.36490.stgit@114-36-241-182.dynamic.hinet.net>
-	<20150118051105.31866.43889.stgit@114-36-241-182.dynamic.hinet.net>
-	<54BB9D3C.90306@cogentembedded.com>
+From: Tilman Schmidt <tilman@imap.cc>
+Subject: Re: [PATCH] isdn:gigaset:Remove unneeded TODO comment for the function,gigaset_procinfo
+ in capi.c
+Date: Sun, 18 Jan 2015 14:09:48 +0100
+Message-ID: <54BBB09C.6010206@imap.cc>
+References: <1421519027-22410-1-git-send-email-xerofoify@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Kalle Valo <kvalo@codeaurora.org>,
-	Eugene Krasnikov <k.eugene.e@gmail.com>,
-	wcn36xx <wcn36xx@lists.infradead.org>,
-	linux-wireless@vger.kernel.org, netdev <netdev@vger.kernel.org>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f42.google.com ([209.85.216.42]:51985 "EHLO
-	mail-qa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751589AbbARM74 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 Jan 2015 07:59:56 -0500
-Received: by mail-qa0-f42.google.com with SMTP id dc16so20824640qab.1
-        for <netdev@vger.kernel.org>; Sun, 18 Jan 2015 04:59:55 -0800 (PST)
-In-Reply-To: <54BB9D3C.90306@cogentembedded.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-15
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: isdn@linux-pingi.de, gigaset307x-common@lists.sourceforge.ne,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Nicholas Krause <xerofoify@gmail.com>, hjlipp@web.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1421519027-22410-1-git-send-email-xerofoify@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 18 January 2015 at 19:47, Sergei Shtylyov
-<sergei.shtylyov@cogentembedded.com> wrote:
-> Hello.
->
-> On 1/18/2015 8:11 AM, Andy Green wrote:
->
->> WCN3620 can asynchronously send two new kinds of indication message,
->> since we can't handle them just accept them quietly.
->
->
->> Signed-off-by: Andy Green <andy.green@linaro.org>
->> ---
->>   drivers/net/wireless/ath/wcn36xx/smd.c |    6 ++++++
->>   1 file changed, 6 insertions(+)
->
->
->> diff --git a/drivers/net/wireless/ath/wcn36xx/smd.c
->> b/drivers/net/wireless/ath/wcn36xx/smd.c
->> index 6398693..819741c 100644
->> --- a/drivers/net/wireless/ath/wcn36xx/smd.c
->> +++ b/drivers/net/wireless/ath/wcn36xx/smd.c
->
-> [...]
->>
->> @@ -2107,6 +2109,10 @@ static void wcn36xx_ind_smd_work(struct work_struct
->> *work)
->>         msg_header = (struct wcn36xx_hal_msg_header *)hal_ind_msg->msg;
->>
->>         switch (msg_header->msg_type) {
->> +       case WCN36XX_HAL_COEX_IND:
->> +               break;
->> +       case WCN36XX_HAL_AVOID_FREQ_RANGE_IND:
->> +               break;
->
->
->    Can't you merge these 2 cases, so that there's only one *break*?
+Am 17.01.2015 um 19:23 schrieb Nicholas Krause:
+> This removes the no longer needed TODO comment for questioning if
+> the function,gigaset_procinfo needs to do more work internally. This
+> comment is no longer needed due to the function's intended use to be
+> returning the name of the structure pointer passed to this function
+> of type,capi_ctr. In addition due to this the function's comments
+> related to it's intended job are changed to state it returns rather
+> then builds the description for the structure and also that the
+> function doesn't build the name string but returns the already
+> generated one passed to gigaset_procinfo by the structure passed
+> to this function.
+>=20
+> Signed-off-by: Nicholas Krause <xerofoify@gmail.com>
 
-Yes will do.
+Acked-by: Tilman Schmidt <tilman@imap.cc>
 
--Andy
+Thanks,
+Tilman
 
-> [...]
->
-> WBR, Sergei
->
+> ---
+>  drivers/isdn/gigaset/capi.c | 6 +++---
+>  1 file changed, 3 insertions(+), 3 deletions(-)
+>=20
+> diff --git a/drivers/isdn/gigaset/capi.c b/drivers/isdn/gigaset/capi.=
+c
+> index ccec777..c4d666e 100644
+> --- a/drivers/isdn/gigaset/capi.c
+> +++ b/drivers/isdn/gigaset/capi.c
+> @@ -2336,14 +2336,14 @@ static u16 gigaset_send_message(struct capi_c=
+tr *ctr, struct sk_buff *skb)
+>  }
+> =20
+>  /**
+> - * gigaset_procinfo() - build single line description for controller
+> + * gigaset_procinfo() - return single line description for controlle=
+r
+>   * @ctr:	controller descriptor structure.
+>   *
+> - * Return value: pointer to generated string (null terminated)
+> + * Return value: pointer to already generated string (null terminate=
+d)
+>   */
+>  static char *gigaset_procinfo(struct capi_ctr *ctr)
+>  {
+> -	return ctr->name;	/* ToDo: more? */
+> +	return ctr->name;
+>  }
+> =20
+>  static int gigaset_proc_show(struct seq_file *m, void *v)
+>=20
+
+--=20
+Tilman Schmidt                              E-Mail: tilman@imap.cc
+Bonn, Germany
+Diese Nachricht besteht zu 100% aus wiederverwerteten Bits.
+Unge=F6ffnet mindestens haltbar bis: (siehe R=FCckseite)
