@@ -1,53 +1,71 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: Bridge code in net-next does not compile
-Date: Sun, 18 Jan 2015 02:45:26 -0800
-Message-ID: <DF3B96A8-5E4E-4EF4-8C42-8981B76F967B@holtmann.org>
-References: <D49DF51C-D713-4D2C-9CB0-F7C21403F68A@holtmann.org> <20150118103938.GA1944@nanopsycho.orion>
-Mime-Version: 1.0 (Mac OS X Mail 8.1 \(1993\))
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Network Development <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Jiri Pirko <jiri@resnulli.us>
+From: Arend van Spriel <arend@broadcom.com>
+Subject: Re: Wireless scanning while turning off the radio problem..
+Date: Sun, 18 Jan 2015 11:55:37 +0100
+Message-ID: <54BB9129.5010103@broadcom.com>
+References: <CA+55aFyr9LC7oLoJeyFwK4KRURbbUyO63jznTTAkQF+9LBAsfg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Johannes Berg <johannes@sipsolutions.net>,
+	David Miller <davem@davemloft.net>,
+	Linux Wireless List <linux-wireless@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>
+To: Linus Torvalds <torvalds@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:46528 "EHLO
-	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751142AbbARKpd convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 Jan 2015 05:45:33 -0500
-In-Reply-To: <20150118103938.GA1944@nanopsycho.orion>
+Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:64482 "EHLO
+	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752642AbbARKzk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 Jan 2015 05:55:40 -0500
+In-Reply-To: <CA+55aFyr9LC7oLoJeyFwK4KRURbbUyO63jznTTAkQF+9LBAsfg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Jiri,
+On 01/18/15 04:25, Linus Torvalds wrote:
+> So there seems to be some issue with unlucky timing when turning off
+> wireless while the driver is busy scanning. I can't reproduce this, so
+> it's a one-off, but it's not just ugly warnings, the kernel woudln't
+> scan any wireless on that device afterwards and I had to reboot to get
+> networking back, so there is some long-term damage.
+>
+> This is with Intel wireless (iwlwifi, it's a iwl N7260 thing, rev
+> 0x144 if anybody cares) , but the warning callbacks don't seem to be
+> iwl-specific.
+>
+> This was a recent top-of-git kernel (3.19.0-rc4-00241-gfc7f0dd38172 to
+> be exact).
+>
+> Anybody have any ideas? Anything in particular I should try out to
+> help possibly get more information?
 
->> when compiling net-next, the bridge code fails to compile:
->>=20
->> CC      net/bridge/br.o
->> In file included from net/bridge/br.c:22:0:
->> include/net/switchdev.h:73:1: error: expected identifier or =E2=80=98=
-(=E2=80=99 before =E2=80=98{=E2=80=99 token
->> {
->> ^
->> include/net/switchdev.h:71:90: warning: =E2=80=98call_netdev_switch_=
-notifiers=E2=80=99 declared =E2=80=98static=E2=80=99 but never defined =
-[-Wunused-function]
->> static inline int call_netdev_switch_notifiers(unsigned long val, st=
-ruct net_device *dev,
->=20
-> Hi, I already sent fix:
->=20
-> http://patchwork.ozlabs.org/patch/430160/
+If I am not mistaken the "iwl N7260 thing" is a PCIe device.
 
-good. I was just building the same fix for it. Except with an actual co=
-mmit message showing the error.
+iwl_pcie_irq_handler
+	iwl_trans_pcie_rf_kill
+		if (iwl_op_mode_hw_rf_kill)
+			iwl_trans_pcie_stop_device
 
-Next time please compile test your patches with CONFIG_NET_SWITCHDEV=3D=
-n. You were adding code that depends on a kernel config option. So that=
- should have been something obvious to actually compile test.
+The function iwl_trans_pcie_stop_device() put device in low-power and 
+resets the cpu on the device. So iwl_op_mode_hw_rf_kill ends up in
+iwl_mvm_set_hw_rfkill_state which schedules cfg80211_rfkill_sync_work 
+and returns true if firmware is running. The patch below might work.
 
-Dave, if you prefer a commit message with the error, then I can send my=
- patch.
+Regards,
+Arend
 
-Regards
+diff --git a/drivers/net/wireless/iwlwifi/mvm/ops.c 
+b/drivers/net/wireless/iwlwi
+index 97dfba5..685217a 100644
+--- a/drivers/net/wireless/iwlwifi/mvm/ops.c
++++ b/drivers/net/wireless/iwlwifi/mvm/ops.c
+@@ -779,6 +779,9 @@ static bool iwl_mvm_set_hw_rfkill_state(struct 
+iwl_op_mode *
+         if (calibrating)
+                 iwl_abort_notification_waits(&mvm->notif_wait);
 
-Marcel
++       /* stop scheduled scan */
++       iwl_mvm_scan_offload_stop(mvm, true);
++
+         /*
+          * Stop the device if we run OPERATIONAL firmware or if we are 
+in the
+          * middle of the calibrations.
