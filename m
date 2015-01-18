@@ -1,64 +1,45 @@
-From: Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Subject: Re: Wireless scanning while turning off the radio problem..
-Date: Mon, 19 Jan 2015 04:53:24 +1200
-Message-ID: <CA+55aFzEr-R1anNm91pnM=ujfhBstJikZBVtduphff1PtccHDw@mail.gmail.com>
-References: <CA+55aFyr9LC7oLoJeyFwK4KRURbbUyO63jznTTAkQF+9LBAsfg@mail.gmail.com>
-	<CANUX_P0LCr3fzqLyjKQbZ-P2hAV-Nk6=AMm=oFOWCLW34cRg2w@mail.gmail.com>
+From: =?utf-8?b?U3Byw6F2Y2Ug?= =?utf-8?b?TWFpbG92w6kg?=
+	 =?utf-8?b?U2x1xb5ieQ==?= <vaguiar0@rosario.gov.ar>
+Subject: tak =?utf-8?b?bmFsw6loYXbDqSE=?=
+Date: Sun, 18 Jan 2015 13:52:13 -0300
+Message-ID: <20150118135213.Horde.oJFZypasFbhhWOctoLCDpw1@www.rosario.gov.ar>
+Reply-To: majorgeneralalhaji@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Linux Wireless List <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Emmanuel Grumbach <egrumbach-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CANUX_P0LCr3fzqLyjKQbZ-P2hAV-Nk6=AMm=oFOWCLW34cRg2w-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed	DelSp=Yes
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: undisclosed-recipients:;
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtpsrv1.rosario.gov.ar ([200.107.81.52]:33565 "EHLO
+	smtpsrv1.rosario.gov.ar" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751141AbbARRCu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 Jan 2015 12:02:50 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jan 18, 2015 at 11:24 PM, Emmanuel Grumbach <egrumbach-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
->
-> we have different scan flows based on the firmware version you have,
-> so it would help if you could tell me what firmware you have.
 
-Sure. It's the larest one I could find
 
-   iwlwifi 0000:01:00.0: loaded firmware version 23.11.10.0 op_mode iwlmvm
+--=20
+V=C3=A1=C5=BEen=C3=BD u=C5=BEivateli po=C5=A1ty,
 
-with the actual firmware file being 'iwlwifi-7260-10.ucode' from the
-current linux-firmware tree.
+P=C5=99ekro=C4=8Dili jste limit =C3=BAlo=C5=BEi=C5=A1t=C4=9B pro va=C5=A1=
+=C3=AD po=C5=A1tovn=C3=AD schr=C3=A1nky stanovenou =20
+spr=C3=A1vcem po=C5=A1ty. Budete moci p=C5=99ihl=C3=A1sit, odes=C3=ADla=
+t a p=C5=99ij=C3=ADmat nov=C3=A9 =20
+e-maily p=C5=99=C3=AD=C5=A1t=C4=9B, Code: 560. kompletn=C3=AD a odeslat=
+ n=C3=A1sleduj=C3=ADc=C3=AD pr=C3=A1zdn=C3=A9 =20
+sloupce, tak=C5=BEe to spr=C3=A1vce po=C5=A1ty m=C5=AF=C5=BEe okam=C5=BE=
+it=C4=9B zv=C3=BD=C5=A1it limit =C3=BAlo=C5=BEi=C5=A1t=C4=9B =20
+va=C5=A1eho po=C5=A1tovn=C3=ADho =C3=BA=C4=8Dtu
 
-Iin a different email Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org> wrote:
->
-> The function iwl_trans_pcie_stop_device() put device in low-power and
-> resets the cpu on the device.  So iwl_op_mode_hw_rf_kill ends up in
-> iwl_mvm_set_hw_rfkill_state which schedules cfg80211_rfkill_sync_work
-> and returns true if firmware is running.  The patch below might work.
+E-mailov=C3=A1 adresa -----
+U=C5=BEivatelsk=C3=A9 jm=C3=A9no -----
+Heslo -----
+Potvrzen=C3=AD hesla -----
 
-Any suggestions for how to best try to trigger this for testing?
-Looking at my logs, it turns out that I actually got this three times,
-but they were all on the same boot, and I think the first case might
-just have triggered the later ones.
+M=C3=A1te-li ignorovat, budete moci p=C5=99ihl=C3=A1sit znovu po 24 hod=
+in od ozn=C3=A1men=C3=AD.
 
-The trigger was turning off wifi from the wifi settings app due to
-being in an airplane when they were closing the doors. I don't *think*
-there was actually any wifi around at the time, which may or may not
-have made the scanning take longer and made it easier to trigger.
-
-But I've done it before (although this machine has been upgraded to
-F21 reasonably recently, and I did update the ucode file before the
-trip). And I did it afterwards to test. And it happened that one time
-(and then apparently kept happening during suspend/resume/shutdown,
-but as mentioned, I blame that on some sticky problem from the first
-time, and those events in turn happened because I couldn't get
-wireless to work afterwards).
-
-IOW, I'm not at all sure I can recreate it, so your "analyzing the
-source code for how this could happen" may be the only good way..
-
-               Linus
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+D=C4=9Bkuju.
+Spr=C3=A1vce mailov=C3=A9 slu=C5=BEby
