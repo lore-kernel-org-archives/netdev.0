@@ -1,33 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next 2/2] net: replace br_fdb_external_learn_*
- calls with switchdev notifier events
-Date: Sun, 18 Jan 2015 00:24:16 -0500 (EST)
-Message-ID: <20150118.002416.779228776497961683.davem@davemloft.net>
-References: <1421362177-10719-1-git-send-email-jiri@resnulli.us>
-	<1421362177-10719-2-git-send-email-jiri@resnulli.us>
+Subject: Re: pull request: bluetooth-next 2015-01-16
+Date: Sun, 18 Jan 2015 00:25:55 -0500 (EST)
+Message-ID: <20150118.002555.2085219089059787523.davem@davemloft.net>
+References: <20150116113301.GA3818@t440s.lan>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jhs@mojatatu.com, sfeldma@gmail.co,
-	stephen@networkplumber.org, linus.luessing@web.de, tgraf@suug.ch
-To: jiri@resnulli.us
+Cc: netdev@vger.kernel.org, linux-bluetooth@vger.kernel.org
+To: johan.hedberg@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42346 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:42361 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750710AbbARFYS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 Jan 2015 00:24:18 -0500
-In-Reply-To: <1421362177-10719-2-git-send-email-jiri@resnulli.us>
+	with ESMTP id S1751362AbbARFZ4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 Jan 2015 00:25:56 -0500
+In-Reply-To: <20150116113301.GA3818@t440s.lan>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Thu, 15 Jan 2015 23:49:37 +0100
+From: Johan Hedberg <johan.hedberg@gmail.com>
+Date: Fri, 16 Jan 2015 13:33:01 +0200
 
-> This patch benefits from newly introduced switchdev notifier and uses it
-> to propagate fdb learn events from rocker driver to bridge. That avoids
-> direct function calls and possible use by other listeners (ovs).
+> Here are some more bluetooth & ieee802154 patches intended for 3.20:
 > 
-> Suggested-by: Thomas Graf <tgraf@suug.ch>
-> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+>  - Refactoring & cleanups of ieee802154 & 6lowpan code
+>  - Various fixes to the btmrvl driver
+>  - Fixes for Bluetooth Low Energy Privacy feature handling
+>  - Added build-time sanity checks for sockaddr sizes
+>  - Fixes for Security Manager registration on LE-only controllers
+>  - Refactoring of broken inquiry mode handling to a generic quirk
+> 
+> Please let me know if there are any issues pulling. Thanks.
 
-Applied.
+Pulled, thanks Johan.
