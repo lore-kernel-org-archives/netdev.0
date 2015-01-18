@@ -1,58 +1,85 @@
-From: "Nelson, Shannon" <shannon.nelson@intel.com>
-Subject: RE: [net-next v2 13/15] i40e: limit WoL and link settings to
- partition 1
-Date: Sun, 18 Jan 2015 23:26:03 +0000
-Message-ID: <FC41C24E35F18A40888AACA1A36F3E418ADD6433@fmsmsx115.amr.corp.intel.com>
-References: <1421179093-10932-1-git-send-email-jeffrey.t.kirsher@intel.com>,<1421179093-10932-14-git-send-email-jeffrey.t.kirsher@intel.com>
- <B5657A6538887040AD3A81F1008BEC63BC8933@avmb3.qlogic.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: Problem with  patch "make nlmsg_end() and genlmsg_end() void"
+Date: Sun, 18 Jan 2015 15:44:26 -0800
+Message-ID: <E586D25A-9DAF-4535-A282-120F0C6EAE19@holtmann.org>
+References: <0397034D-1DF4-409F-B335-FCD0D7EAB940@holtmann.org>
+Mime-Version: 1.0 (Mac OS X Mail 8.1 \(1993\))
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 8BIT
-Cc: netdev <netdev@vger.kernel.org>,
-	"nhorman@redhat.com" <nhorman@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>,
-	"jogreene@redhat.com" <jogreene@redhat.com>
-To: Yuval Mintz <Yuval.Mintz@qlogic.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	David Miller <davem@davemloft.net>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Tom Gundersen <teg@jklm.no>
+To: Network Development <netdev@vger.kernel.org>,
+	Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:6186 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751175AbbARX0G convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 Jan 2015 18:26:06 -0500
-In-Reply-To: <B5657A6538887040AD3A81F1008BEC63BC8933@avmb3.qlogic.org>
-Content-Language: en-US
+Received: from senator.holtmann.net ([87.106.208.187]:35915 "EHLO
+	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751179AbbARXod convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 Jan 2015 18:44:33 -0500
+In-Reply-To: <0397034D-1DF4-409F-B335-FCD0D7EAB940@holtmann.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> From: Yuval Mintz [mailto:Yuval.Mintz@qlogic.com]
-> Sent: Saturday, January 17, 2015 10:10 PM
+Hi Johannes,
+
+> your commit 053c095a82cf773075e83d7233b5cc19a1f73ece is causing problems with systemd-networkd.
 > 
-> >From: Shannon Nelson <shannon.nelson@intel.com>
+> I have an up-to-date Arch Linux installation in a KVM and your change causes massive problems. It makes systemd-networkd to run out of memory.
 > 
-> >When in multi-function mode, e.g. Dell's NPAR, only partition 1
-> >of each MAC is allowed to set WoL, speed, and flow control.
+> systemd-fsck[84]: /dev/vda1: clean, 53283/131072 files, 409813/524032 blocks
+> Out of memory: Kill process 142 (systemd-network) score 923 or sacrifice child
+> Killed process 142 (systemd-network) total-vm:478416kB, anon-rss:463472kB, file-rss:460kB
+> [FAILED] Failed to start Network Service.
+> See "systemctl status systemd-networkd.service" for details.
+>         Stopping Network Service...
+> [  OK  ] Stopped Network Service.
+>         Starting Network Service...
 > 
-> Isn't it problematic? I mean, in bnx2x we address ~same issue -
-> but due to symmetry we prevent ALL interfaces from changing
-> the link configuration.
-
-Yes, this multi-function hardware port makes for "interesting opportunities" in hardware configuration.  In our case, our requirements are to still allow for configuration of the hardware port.  This is not unlike how a PF controls the physical port for its VF devices.
-
+> Arch Linux 3.19.0-rc4-devel+ (ttyS0)
 > 
-> How can user be aware of this 'private' behavior? via system logs?
-> documentation?
+> marcel login: Out of memory: Kill process 154 (systemd-network) score 932 or sacrifice child
+> Killed process 154 (systemd-network) total-vm:540784kB, anon-rss:468380kB, file-rss:132kB
+> Out of memory: Kill process 158 (systemd-network) score 932 or sacrifice child
+> Killed process 158 (systemd-network) total-vm:540388kB, anon-rss:468528kB, file-rss:48kB
+> Out of memory: Kill process 160 (systemd-network) score 932 or sacrifice child
+> Killed process 160 (systemd-network) total-vm:540916kB, anon-rss:468528kB, file-rss:4kB
+> Out of memory: Kill process 162 (systemd-network) score 931 or sacrifice child
+> Killed process 162 (systemd-network) total-vm:540916kB, anon-rss:468104kB, file-rss:76kB
 
-In this case, note that we have added a log message that says these are dependent on the initial partition of the port for setting control.  Also, the particular vendor using the device in this configuration will supply and support the user documentation.
+so this was freaking nasty to find since I had to dig into every single RTNL location that might have an affect on this. I think that I tracked this down to these two locations:
 
-> 
-> How does it interact with Physical Device Assignment of the first
-> partition?
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index e13b9dbdf154..0e26b9f66cad 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -1327,7 +1327,7 @@ static int rtnl_dump_ifinfo(struct sk_buff *skb, struct netlink_callback *cb)
+                         */
+                        WARN_ON((err == -EMSGSIZE) && (skb->len == 0));
+ 
+-                       if (err <= 0)
++                       if (err < 0)
+                                goto out;
+ 
+                        nl_dump_check_consistent(cb, nlmsg_hdr(skb));
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 8975d9501d50..d6b4f5d08014 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -4213,7 +4213,7 @@ static int inet6_dump_addr(struct sk_buff *skb, struct netlink_callback *cb,
+                                goto cont;
+ 
+                        if (in6_dump_addrs(idev, skb, cb, type,
+-                                          s_ip_idx, &ip_idx) <= 0)
++                                          s_ip_idx, &ip_idx) < 0)
+                                goto done;
+ cont:
+                        idx++;
 
-I'm not sure I understand this question, but I'll answer a different question: these multifunction ports show up as additional PCI functions, again, not unlike VF devices.
+However I am not sure that these are the only ones. We might have additional issues in functionality that systemd-networkd actually does not use at the moment. These two changes make my KVM image boot properly again.
 
-> 
-> Cheers,
-> Yuval
+And actually I am not even sure that these two changes are correct. My KVM image is a dead simple image with no IPv6 support. This change might actually just broke IPv6 and I would not notice.
 
-sln
+Tom, do you know if we can do anything in systemd-networkd in regards to RTNL and netlink handling to throw a big warning when something comes back from the kernel that would cause massive memory allocation.
+
+Regards
+
+Marcel
