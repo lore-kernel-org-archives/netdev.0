@@ -1,33 +1,45 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [PATCH 1/7] net: wireless: wcn36xx: add wcn3620 chip type definition
-Date: Sun, 18 Jan 2015 16:17:54 +0200
-Message-ID: <878uh06ulp.fsf@kamboji.qca.qualcomm.com>
-References: <20150118050741.31866.36490.stgit@114-36-241-182.dynamic.hinet.net>
-	<20150118051043.31866.53087.stgit@114-36-241-182.dynamic.hinet.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eugene Krasnikov <k.eugene.e@gmail.com>,
-	wcn36xx@lists.infradead.org, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Andy Green <andy.green@linaro.org>
+From: Vadim Kochan <vadim4j@gmail.com>
+Subject: [PATCH iproute2 v2 0/3] ip netns: Run over all netns
+Date: Sun, 18 Jan 2015 16:10:16 +0200
+Message-ID: <1421590219-19365-1-git-send-email-vadim4j@gmail.com>
+Cc: Vadim Kochan <vadim4j@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.11.231]:47984 "EHLO
-	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752121AbbAROSB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 Jan 2015 09:18:01 -0500
-In-Reply-To: <20150118051043.31866.53087.stgit@114-36-241-182.dynamic.hinet.net>
-	(Andy Green's message of "Sun, 18 Jan 2015 13:10:43 +0800")
+Received: from mail-we0-f175.google.com ([74.125.82.175]:45009 "EHLO
+	mail-we0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751374AbbAROUz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 Jan 2015 09:20:55 -0500
+Received: by mail-we0-f175.google.com with SMTP id k11so27332700wes.6
+        for <netdev@vger.kernel.org>; Sun, 18 Jan 2015 06:20:53 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andy Green <andy.green@linaro.org> writes:
+From: Vadim Kochan <vadim4j@gmail.com>
 
-> Convert the list of chip types to an enum, add the default
-> UNKNOWN type and a type for WCN3620 chip
->
-> Signed-off-by: Andy Green <andy.green@linaro.org>
+Allow 'ip netns del' and 'ip netns exec' run over each network namespace names.
 
-Please just use "wcn36xx: ", you should drop "net: wireless: " entirely.
+'ip netns exec' executes command forcely on eacn nsname.
+
+Added new '-all' 'ip' option to run over each netns,
+it can be used for other utils as generic option.
+
+v2:
+   Use '-all' option instead of netns name 'all'.
+
+Vadim Kochan (3):
+  lib: Exec func on each netns
+  ip netns: Allow exec on each netns
+  ip netns: Delete all netns
+
+ include/namespace.h |  6 ++++
+ include/utils.h     |  5 +++
+ ip/ip.c             |  5 ++-
+ ip/ipnetns.c        | 98 ++++++++++++++++++++++++++++++++---------------------
+ lib/namespace.c     | 22 ++++++++++++
+ lib/utils.c         | 28 +++++++++++++++
+ man/man8/ip-netns.8 | 28 ++++++++++++---
+ man/man8/ip.8       |  7 +++-
+ 8 files changed, 153 insertions(+), 46 deletions(-)
 
 -- 
-Kalle Valo
+2.1.3
