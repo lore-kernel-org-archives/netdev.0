@@ -1,48 +1,54 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Problem with  patch "make nlmsg_end() and genlmsg_end() void"
-Date: Sun, 18 Jan 2015 03:44:58 -0800
-Message-ID: <0397034D-1DF4-409F-B335-FCD0D7EAB940@holtmann.org>
-Mime-Version: 1.0 (Mac OS X Mail 8.1 \(1993\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Tom Gundersen <teg@jklm.no>
-To: Network Development <netdev@vger.kernel.org>,
-	Johannes Berg <johannes@sipsolutions.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:51876 "EHLO
-	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751425AbbARLpF convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 Jan 2015 06:45:05 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
+Subject: Re: [PATCH 5/7] net: wireless: wcn36xx: swallow two wcn3620 IND messages
+Date: Sun, 18 Jan 2015 14:47:08 +0300
+Message-ID: <54BB9D3C.90306@cogentembedded.com>
+References: <20150118050741.31866.36490.stgit@114-36-241-182.dynamic.hinet.net> <20150118051105.31866.43889.stgit@114-36-241-182.dynamic.hinet.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: wcn36xx-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Andy Green <andy.green-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+	Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	Eugene Krasnikov <k.eugene.e-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20150118051105.31866.43889.stgit-FDDIDLfWL9/T9rR/E2HzMujRB4CPm7EUkgzjau31qRg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi Johannes,
+Hello.
 
-your commit 053c095a82cf773075e83d7233b5cc19a1f73ece is causing problems with systemd-networkd.
+On 1/18/2015 8:11 AM, Andy Green wrote:
 
-I have an up-to-date Arch Linux installation in a KVM and your change causes massive problems. It makes systemd-networkd to run out of memory.
+> WCN3620 can asynchronously send two new kinds of indication message,
+> since we can't handle them just accept them quietly.
 
-systemd-fsck[84]: /dev/vda1: clean, 53283/131072 files, 409813/524032 blocks
-Out of memory: Kill process 142 (systemd-network) score 923 or sacrifice child
-Killed process 142 (systemd-network) total-vm:478416kB, anon-rss:463472kB, file-rss:460kB
-[FAILED] Failed to start Network Service.
-See "systemctl status systemd-networkd.service" for details.
-         Stopping Network Service...
-[  OK  ] Stopped Network Service.
-         Starting Network Service...
+> Signed-off-by: Andy Green <andy.green-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+> ---
+>   drivers/net/wireless/ath/wcn36xx/smd.c |    6 ++++++
+>   1 file changed, 6 insertions(+)
 
-Arch Linux 3.19.0-rc4-devel+ (ttyS0)
+> diff --git a/drivers/net/wireless/ath/wcn36xx/smd.c b/drivers/net/wireless/ath/wcn36xx/smd.c
+> index 6398693..819741c 100644
+> --- a/drivers/net/wireless/ath/wcn36xx/smd.c
+> +++ b/drivers/net/wireless/ath/wcn36xx/smd.c
+[...]
+> @@ -2107,6 +2109,10 @@ static void wcn36xx_ind_smd_work(struct work_struct *work)
+>   	msg_header = (struct wcn36xx_hal_msg_header *)hal_ind_msg->msg;
+>
+>   	switch (msg_header->msg_type) {
+> +	case WCN36XX_HAL_COEX_IND:
+> +		break;
+> +	case WCN36XX_HAL_AVOID_FREQ_RANGE_IND:
+> +		break;
 
-marcel login: Out of memory: Kill process 154 (systemd-network) score 932 or sacrifice child
-Killed process 154 (systemd-network) total-vm:540784kB, anon-rss:468380kB, file-rss:132kB
-Out of memory: Kill process 158 (systemd-network) score 932 or sacrifice child
-Killed process 158 (systemd-network) total-vm:540388kB, anon-rss:468528kB, file-rss:48kB
-Out of memory: Kill process 160 (systemd-network) score 932 or sacrifice child
-Killed process 160 (systemd-network) total-vm:540916kB, anon-rss:468528kB, file-rss:4kB
-Out of memory: Kill process 162 (systemd-network) score 931 or sacrifice child
-Killed process 162 (systemd-network) total-vm:540916kB, anon-rss:468104kB, file-rss:76kB
+    Can't you merge these 2 cases, so that there's only one *break*?
 
-Regards
+[...]
 
-Marcel
+WBR, Sergei
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
