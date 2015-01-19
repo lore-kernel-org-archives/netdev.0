@@ -1,51 +1,46 @@
-From: Thomas Jarosch <thomas.jarosch@intra2net.com>
-Subject: Re: Re: Re: [bisected regression] e1000e: "Detected Hardware Unit Hang"
-Date: Mon, 19 Jan 2015 17:49:58 +0100
-Message-ID: <6534595.xliyeOG6D7@storm>
-References: <1719052.SGOfRAJhfQ@storm> <8088599.PZmG8U31O2@storm> <1421335532.11734.73.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Enrico Mioso <mrkiko.rs@gmail.com>
+Subject: [discuss] [cdc_ncm] Refactoring cdc_ncm
+Date: Mon, 19 Jan 2015 17:51:57 +0100 (CET)
+Message-ID: <alpine.LNX.2.03.1501191743360.2081@gmail.com>
+References: <AMSPR06MB6011E001029C251790CB923EE780@AMSPR06MB601.eurprd06.prod.outlook.com> <877fy7myfb.fsf@nemi.mork.no> <alpine.LNX.2.03.1412041326160.9926@gmail.com> <54811670.5030703@audiocodes.com> <8761dqjuuh.fsf@nemi.mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7Bit
-Cc: 'Linux Netdev List' <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	e1000-devel <e1000-devel@lists.sourceforge.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Kevin Zhu <Mingying.Zhu@audiocodes.com>,
+	Midge Shaojun Tan <ShaojunMidge.Tan@audiocodes.com>,
+	Eli Britstein <Eli.Britstein@audiocodes.com>,
+	Alex Strizhevsky <alexxst@gmail.com>,
+	"youtux@gmail.com" <youtux@gmail.com>,
+	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: =?ISO-8859-15?Q?Bj=F8rn_Mork?= <bjorn@mork.no>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rs04.intra2net.com ([85.214.66.2]:40592 "EHLO
-	rs04.intra2net.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751596AbbASQuC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jan 2015 11:50:02 -0500
-In-Reply-To: <1421335532.11734.73.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-wi0-f182.google.com ([209.85.212.182]:49773 "EHLO
+	mail-wi0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751401AbbASQvh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jan 2015 11:51:37 -0500
+In-Reply-To: <8761dqjuuh.fsf@nemi.mork.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thursday, 15. January 2015 07:25:32 Eric Dumazet wrote:
-> On Thu, 2015-01-15 at 15:58 +0100, Thomas Jarosch wrote:
-> > A colleague mentioned to me he saw the "Hardware Unit Hang" message
-> > every
-> > few days even running on kernel 3.4 (without your patch). Basically I'm
-> > testing now if that's still the case with 3.19-rc4+ or not.
-> > 
-> > I'm all for fixing the root cause. I'm just interested if the e1000e
-> > hang can even be triggered when using a max frag page size of 4096.
-> > So far it transferred 751.6 GiB without a hiccup.
-> 
-> You told it was forwarding setup.
-> 
-> 1) What is the NIC receiving traffic.
-> 2) What happens if you disable GRO on it ?
+Hi guys.
+I am noticing that in kernel 3.19rc4, the driver from huawei,
+hw_cdc_driver
+is not able to perform the call to
+netif_msg_ifup anymore (receives error -13).
+This to say that it would be very important to continue the work on refactoring 
+cdc_ncm.c driver to let it work with newer huawei devices such as the E3372 
+even at full rates.
+I received some acks regarding the patches I sent last time - and I am grateful 
+to you all maintainers / reviewers. I have actually not received acks for all 
+the patches so I preferred waiting and not continously re-sending again.
+This also happened due to me getting very busy lately with studying.
+So the situation is getting complicated.
+I sent this mail to everyone just to keep you up-to-date. Don't worry.
+Any help from any developer interested would be very apreciated.
+I would need some mentoring or help in general with coding.
 
-one more interesting thing happened: On one production machine,
-again an Intel DH61CR board, the issue was triggered even with TSO disabled.
-My colleague tried to disable GRO + GSO on the e1000e adapter, too,
-though not on the other interfaces.
+Thank you all very much.
 
-It's strange the issue appears with TSO disabled,
-that worked for three other production level machines.
+Sincerely.
 
-We've emergency-installed the "4096" max frag page size workaround
-for now as fifty people were a bit unhappy without network access... :D
-
-Cheers,
-Thomas
+Enrico
