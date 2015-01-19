@@ -1,41 +1,36 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH net] ipv6: stop sending PTB packets for MTU < 1280
-Date: Mon, 19 Jan 2015 14:50:58 -0500 (EST)
-Message-ID: <20150119.145058.954790496532942109.davem@davemloft.net>
+Date: Mon, 19 Jan 2015 14:51:42 -0500 (EST)
+Message-ID: <20150119.145142.2097530322452295351.davem@davemloft.net>
 References: <1421357665-2804-1-git-send-email-hagen@jauu.net>
-	<1421675722.32277.3.camel@stressinduktion.org>
-	<CAPh34mc3T7W81J_NjMkHvQpjad1gTM3j99gnX8x8jnKvh2TBDg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: hannes@stressinduktion.org, netdev@vger.kernel.org,
+Cc: netdev@vger.kernel.org, hannes@stressinduktion.org,
 	stable@vger.kernel.org, fgont@si6networks.com
 To: hagen@jauu.net
 Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <CAPh34mc3T7W81J_NjMkHvQpjad1gTM3j99gnX8x8jnKvh2TBDg@mail.gmail.com>
+In-Reply-To: <1421357665-2804-1-git-send-email-hagen@jauu.net>
 Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Hagen Paul Pfeifer <hagen@jauu.net>
-Date: Mon, 19 Jan 2015 15:00:21 +0100
+Date: Thu, 15 Jan 2015 22:34:25 +0100
 
-> On 19 January 2015 at 14:55, Hannes Frederic Sowa
-> <hannes@stressinduktion.org> wrote:
->> Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
->>
->> I think this is the correct way forward on how to deal with atomic
->> fragments.
->>
->> Hagen, do you submit patches to remove dst_allfrag/RTAX_FEATURE_ALLFRAG,
->> IPCORK_ALLFRAG, etc. for net-next, too?
+> Reduce the attack vector and stop generating IPv6 Fragment Header for
+> paths with an MTU smaller than the minimum required IPv6 MTU
+> size (1280 byte) - called atomic fragments.
 > 
-> Yes, patch sits already in the pipe. I wanted to wait for davem's pull.
+> See IETF I-D "Deprecating the Generation of IPv6 Atomic Fragments" [1]
+> for more information and how this "feature" can be misused.
+> 
+> [1] https://tools.ietf.org/html/draft-ietf-6man-deprecate-atomfrag-generation-00
+> 
+> Cc: stable@vger.kernel.org
+> Signed-off-by: Fernando Gont <fgont@si6networks.com>
+> Signed-off-by: Hagen Paul Pfeifer <hagen@jauu.net>
 
-It's one thing to change policy about how we might or might not
-automatically set this bit in the kernel, but at a minimum you cannot
-just remove RTAX_FEATURE_ALLFRAG, it's in a userspace header and
-you'll break application builds.
+Applied, thanks.
 
-Second of all, there is absolutely no reason to prevent the user from
-setting this bit.  If someone wants to set RTAX_FEATURE_ALLFRAG on a
-route on their own system, that is their business.
+But any follow-ups to get rid of RTAX_FEATURE_ALLFRAG altogether are
+not to be seriously considered in my opinion.
