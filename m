@@ -1,10 +1,11 @@
 From: Michael Ellerman <mpe@ellerman.id.au>
-Subject: Re: [PATCH 1/6] selftests: Introduce minimal shared logic for
- running tests
-Date: Mon, 19 Jan 2015 11:35:42 +1100
-Message-ID: <1421627742.3787.6.camel@ellerman.id.au>
+Subject: Re: [PATCH 4/6] kbuild: add a new kselftest_install make target to
+ install selftests
+Date: Mon, 19 Jan 2015 11:35:47 +1100
+Message-ID: <1421627747.3787.7.camel@ellerman.id.au>
 References: <1420794375-31881-1-git-send-email-mpe@ellerman.id.au>
-	 <54B95006.3080502@osg.samsung.com>
+	 <1420794375-31881-4-git-send-email-mpe@ellerman.id.au>
+	 <54B93DA1.2010601@osg.samsung.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -19,49 +20,56 @@ Cc: linux-kernel@vger.kernel.org, mmarek@suse.cz,
 	netdev@vger.kernel.org
 To: Shuah Khan <shuahkh@osg.samsung.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <54B95006.3080502@osg.samsung.com>
+In-Reply-To: <54B93DA1.2010601@osg.samsung.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2015-01-16 at 10:53 -0700, Shuah Khan wrote:
+On Fri, 2015-01-16 at 09:34 -0700, Shuah Khan wrote:
 > On 01/09/2015 02:06 AM, Michael Ellerman wrote:
-> > This adds a Make include file which most selftests can then include to
-> > get the run_tests logic.
+> > Add a new make target to install kernel selftests. This new target will
+> > build and install selftests.
 > > 
-> > On its own this has the advantage of some reduction in repetition, and
-> > also means the pass/fail message is defined in fewer places.
-> > 
-> > However the key advantage is it will allow us to implement install very
-> > simply in a subsequent patch.
-> > 
-> > The default implementation just executes each program in $(TEST_PROGS).
-> > 
-> > We use a variable to hold the default implementation of $(RUN_TESTS)
-> > because that gives us a clean way to override it if necessary, ie. using
-> > override. The mount, memory-hotplug and mqueue tests use that to provide
-> > a different implementation.
-> > 
-> > Tests are not run via /bin/bash, so if they are scripts they must be
-> > executable, we add u+x to several.
-> > 
-> > Signed-off-by: Michael Ellerman <mpe@ellerman.id.au>
+> > The default is just $(objtree)/selftests. This is preferable to
+> > something based on $(INSTALL_MOD_PATH) (which defaults to /), as it
+> > allows a normal user to install the tests. This is similar to the
+> > default behaviour of make headers_install.
 > 
-> I like the shared logic approach in general provided it leaves the
-> flexibility to not use the shared logic if a test have the need to
-> do so.
+> A normal user can install tests at any location they choose by
+> overriding the default path. For example:
+> 
+> INSTALL_MOD_PATH=/tmp make kselftest_install
+> 
+> will install under tmp.
 
-Yes of course it does, it's entirely optional to include lib.mk.
+Why default to a directory that most users can't write to? That's not helpful.
 
-> This series requires some patch planning. shared logic patch
-> followed by individual test patches as opposed a single patch.
+Users who are root can override the path, for example:
 
-It could be a single patch too, but there's no reason to do it that way. The
-series works fine as I sent it.
+INSTALL_MOD_PATH=/ make kselftest_install
 
-> I would like to see the shared logic work done on top of my patch v4
-> series.
+> The approach I used also ties test installs to kernel release.
+> This addresses an important use-case for kernel developers
+> that want to compare results from release to release.
 
-That's a waste of time. This series replaces your v4. Doing this "on top" of
-your v4 would just mean reverting your v4 series and then applying this.
+Sure, I'm happy to add the kernel release, so the default would be
+$(objtree)/selftests/$(kernel-release)/.
+
+> The use-case for any user to be able to install tests at
+> any location is addressed by the above example.
+
+The default should work for most users most of the time, / does not achieve
+that.
+
+> I would like these two above use-cases continued to be supported,
+> especially the one that tries the test installs to kernel release.
+
+That's fine, I'm happy to update this to use kernel release. But defaulting to
+/ doesn't make sense.
+
+> Another goal is to keep changes to the main Makefile minimal and
+> the rest of the install support belongs under selftests/Makefile
+> and any other include file (like the one you proposed).
+
+Yes, this patch does just that.
 
 cheers
