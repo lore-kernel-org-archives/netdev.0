@@ -1,35 +1,50 @@
-From: Hagen Paul Pfeifer <hagen@jauu.net>
-Subject: Re: [PATCH net] ipv6: stop sending PTB packets for MTU < 1280
-Date: Mon, 19 Jan 2015 23:05:58 +0100
-Message-ID: <CAPh34mc_5XPqC5_Xdx3gZScfnqtZC7b9JPGp4FfWVh+PvSfb3w@mail.gmail.com>
-References: <1421357665-2804-1-git-send-email-hagen@jauu.net>
-	<1421675722.32277.3.camel@stressinduktion.org>
-	<CAPh34mc3T7W81J_NjMkHvQpjad1gTM3j99gnX8x8jnKvh2TBDg@mail.gmail.com>
-	<20150119.145058.954790496532942109.davem@davemloft.net>
-	<1421697951.13047.9.camel@stressinduktion.org>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH v2 net-next] net: ipv6: Add sysctl entry to disable MTU
+ updates from RA
+Date: Mon, 19 Jan 2015 23:10:30 +0100
+Message-ID: <54BD80D6.40402@redhat.com>
+References: <1421703363-3376-1-git-send-email-harouth@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, stable@vger.kernel.org,
-	Fernando Gont <fgont@si6networks.com>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <1421697951.13047.9.camel@stressinduktion.org>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Harout Hedeshian <harouth@codeaurora.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:58858 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751921AbbASWKe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 19 Jan 2015 17:10:34 -0500
+In-Reply-To: <1421703363-3376-1-git-send-email-harouth@codeaurora.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 19 January 2015 at 21:05, Hannes Frederic Sowa
-<hannes@stressinduktion.org> wrote:
+On 01/19/2015 10:36 PM, Harout Hedeshian wrote:
+...
+> diff --git a/include/uapi/linux/sysctl.h b/include/uapi/linux/sysctl.h
+> index 0956373..45e4fcf 100644
+> --- a/include/uapi/linux/sysctl.h
+> +++ b/include/uapi/linux/sysctl.h
+> @@ -570,6 +570,7 @@ enum {
+>   	NET_IPV6_PROXY_NDP=23,
+>   	NET_IPV6_ACCEPT_SOURCE_ROUTE=25,
+>   	NET_IPV6_ACCEPT_RA_FROM_LOCAL=26,
+> +	NET_IPV6_ACCEPT_RA_MTU=27,
+>   	__NET_IPV6_MAX
+>   };
+>
+> diff --git a/kernel/sysctl_binary.c b/kernel/sysctl_binary.c
+> index 7e7746a..16091e5 100644
+> --- a/kernel/sysctl_binary.c
+> +++ b/kernel/sysctl_binary.c
+> @@ -523,6 +523,7 @@ static const struct bin_table bin_net_ipv6_conf_var_table[] = {
+>   	{ CTL_INT,	NET_IPV6_PROXY_NDP,			"proxy_ndp" },
+>   	{ CTL_INT,	NET_IPV6_ACCEPT_SOURCE_ROUTE,		"accept_source_route" },
+>   	{ CTL_INT,	NET_IPV6_ACCEPT_RA_FROM_LOCAL,		"accept_ra_from_local" },
+> +	{ CTL_INT,	NET_IPV6_ACCEPT_RA_MTU,			"accept_ra_mtu" },
+>   	{}
+>   };
 
-> Oh yes, although we never exposed an ip route knob for that, it is still
-> possible users did set manually, so we cannot get rid of that, agreed.
-
-I thought about that, sure but come to the conclusion that the code
-cleanup outweigh an potential user somewhere in space (well, the use
-case is broken and should be fixed). Additionally, I left the
-RTAX_FEATURE_ALLFRAG (as mentioned) and removed all related
-functionality - no visible API change (except no-op behavior).
-
-Davem, I will sent the patch anyway. Feel free to accept/ignore.
-
-Hagen
+Hm, afaik, the binary sysctl interface is deprecated and nothing
+should be adding entries there anymore. I believe you copied this
+over from commit d9333196572 ("ipv6: Allow accepting RA from local
+IP addresses.")? :/
