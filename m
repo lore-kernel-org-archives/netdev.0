@@ -1,149 +1,92 @@
-From: Harout Hedeshian <harouth@codeaurora.org>
-Subject: [PATCH v2 net-next] net: ipv6: Add sysctl entry to disable MTU updates from RA
-Date: Mon, 19 Jan 2015 14:36:03 -0700
-Message-ID: <1421703363-3376-1-git-send-email-harouth@codeaurora.org>
-Cc: Harout Hedeshian <harouth@codeaurora.org>
-To: netdev@vger.kernel.org
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [RFC PATCH v2 1/2] net: af_packet support for direct ring access
+ in user space
+Date: Mon, 19 Jan 2015 16:45:16 -0500
+Message-ID: <20150119214516.GG21790@hmsreliant.think-freely.org>
+References: <20150113043509.29985.33515.stgit@nitbit.x32>
+ <20150114.153509.1264618607573705890.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: john.fastabend@gmail.com, netdev@vger.kernel.org,
+	danny.zhou@intel.com, dborkman@redhat.com, john.ronciak@intel.com,
+	hannes@stressinduktion.org, brouer@redhat.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.11.231]:54280 "EHLO
-	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751293AbbASVgL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jan 2015 16:36:11 -0500
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:43217 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751916AbbASVp3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jan 2015 16:45:29 -0500
+Content-Disposition: inline
+In-Reply-To: <20150114.153509.1264618607573705890.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The kernel forcefully applies MTU values received in router
-advertisements provided the new MTU is less than the current. This
-behavior is undesirable when the user space is managing the MTU. Instead
-a sysctl flag 'accept_ra_mtu' is introduced such that the user space
-can control whether or not RA provided MTU updates should be applied. The
-default behavior is unchanged; user space must explicitly set this flag
-to 0 for RA MTUs to be ignored.
+On Wed, Jan 14, 2015 at 03:35:09PM -0500, David Miller wrote:
+> From: John Fastabend <john.fastabend@gmail.com>
+> Date: Mon, 12 Jan 2015 20:35:11 -0800
+> 
+> > +		if ((region.direction != DMA_BIDIRECTIONAL) &&
+> > +		    (region.direction != DMA_TO_DEVICE) &&
+> > +		    (region.direction != DMA_FROM_DEVICE))
+> > +			return -EFAULT;
+>  ...
+> > +		if ((umem->nmap == npages) &&
+> > +		    (0 != dma_map_sg(dev->dev.parent, umem->sglist,
+> > +				     umem->nmap, region.direction))) {
+> > +			region.iova = sg_dma_address(umem->sglist) + offset;
+> 
+> I am having trouble seeing how this can work.
+> 
+> dma_map_{single,sg}() mappings need synchronization after a DMA
+> transfer takes place.
+> 
+> For example if the DMA occurs to the device, then that region can
+> be cached in the PCI controller's internal caches and thus future
+> cpu writes into that memory region will not be seen, until a
+> dma_sync_*() is invoked.
+> 
+> That isn't going to happen when the device transmit queue is
+> being completely managed in userspace.
+> 
+> And this takes us back to the issue of protection, I don't think
+> it is addressed properly yet.
+> 
+> CAP_NET_ADMIN privileges do not mean "can crap all over memory"
+> yet with this feature that can still happen.
+> 
+> If we are dealing with a device which cannot provide strict protection
+> to only the process's locked local pages, you have to do something
+> to implement that protection.
+> 
+> And you have _exactly_ one option to do that, abstracting the page
+> addresses and eating a system call to trigger the sends, so that you
+> can read from the user's (fake) descriptors and write into the real
+> descriptors (translating the DMA addresses along the way) and
+> triggering the TX doorbell.
+> 
+> I am not going to consider seriously an implementation that says "yeah
+> sometimes the user can crap onto other people's memory", this isn't
+> MS-DOS, it's a system where proper memory protections are mandatory
+> rather than optional.
+> 
 
-Signed-off-by: Harout Hedeshian <harouth@codeaurora.org>
----
- Documentation/networking/ip-sysctl.txt | 7 +++++++
- include/linux/ipv6.h                   | 1 +
- include/uapi/linux/ipv6.h              | 1 +
- include/uapi/linux/sysctl.h            | 1 +
- kernel/sysctl_binary.c                 | 1 +
- net/ipv6/addrconf.c                    | 9 +++++++++
- net/ipv6/ndisc.c                       | 2 +-
- 7 files changed, 21 insertions(+), 1 deletion(-)
+Another stupid question - If we can't provide protection from the device to
+ensure memory coherency, can we mitigate the problem by creating an iommu group
+for the device?
 
-diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-index 85b0221..da50faa 100644
---- a/Documentation/networking/ip-sysctl.txt
-+++ b/Documentation/networking/ip-sysctl.txt
-@@ -1287,6 +1287,13 @@ accept_ra_rtr_pref - BOOLEAN
- 	Functional default: enabled if accept_ra is enabled.
- 			    disabled if accept_ra is disabled.
- 
-+accept_ra_mtu - BOOLEAN
-+	Apply the MTU value specified in RA option 5 (RFC4861). If
-+	disabled, the MTU specified in the RA will be ignored.
-+
-+	Functional default: enabled if accept_ra is enabled.
-+                            disabled if accept_ra is disabled.
-+
- accept_redirects - BOOLEAN
- 	Accept Redirects.
- 
-diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
-index c694e7b..2805062 100644
---- a/include/linux/ipv6.h
-+++ b/include/linux/ipv6.h
-@@ -52,6 +52,7 @@ struct ipv6_devconf {
- 	__s32		force_tllao;
- 	__s32           ndisc_notify;
- 	__s32		suppress_frag_ndisc;
-+	__s32		accept_ra_mtu;
- 	void		*sysctl;
- };
- 
-diff --git a/include/uapi/linux/ipv6.h b/include/uapi/linux/ipv6.h
-index 73cb02d..437a6a4 100644
---- a/include/uapi/linux/ipv6.h
-+++ b/include/uapi/linux/ipv6.h
-@@ -169,6 +169,7 @@ enum {
- 	DEVCONF_SUPPRESS_FRAG_NDISC,
- 	DEVCONF_ACCEPT_RA_FROM_LOCAL,
- 	DEVCONF_USE_OPTIMISTIC,
-+	DEVCONF_ACCEPT_RA_MTU,
- 	DEVCONF_MAX
- };
- 
-diff --git a/include/uapi/linux/sysctl.h b/include/uapi/linux/sysctl.h
-index 0956373..45e4fcf 100644
---- a/include/uapi/linux/sysctl.h
-+++ b/include/uapi/linux/sysctl.h
-@@ -570,6 +570,7 @@ enum {
- 	NET_IPV6_PROXY_NDP=23,
- 	NET_IPV6_ACCEPT_SOURCE_ROUTE=25,
- 	NET_IPV6_ACCEPT_RA_FROM_LOCAL=26,
-+	NET_IPV6_ACCEPT_RA_MTU=27,
- 	__NET_IPV6_MAX
- };
- 
-diff --git a/kernel/sysctl_binary.c b/kernel/sysctl_binary.c
-index 7e7746a..16091e5 100644
---- a/kernel/sysctl_binary.c
-+++ b/kernel/sysctl_binary.c
-@@ -523,6 +523,7 @@ static const struct bin_table bin_net_ipv6_conf_var_table[] = {
- 	{ CTL_INT,	NET_IPV6_PROXY_NDP,			"proxy_ndp" },
- 	{ CTL_INT,	NET_IPV6_ACCEPT_SOURCE_ROUTE,		"accept_source_route" },
- 	{ CTL_INT,	NET_IPV6_ACCEPT_RA_FROM_LOCAL,		"accept_ra_from_local" },
-+	{ CTL_INT,	NET_IPV6_ACCEPT_RA_MTU,			"accept_ra_mtu" },
- 	{}
- };
- 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index f7c8bbe..cdd70ed 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -201,6 +201,7 @@ static struct ipv6_devconf ipv6_devconf __read_mostly = {
- 	.disable_ipv6		= 0,
- 	.accept_dad		= 1,
- 	.suppress_frag_ndisc	= 1,
-+	.accept_ra_mtu		= 1,
- };
- 
- static struct ipv6_devconf ipv6_devconf_dflt __read_mostly = {
-@@ -238,6 +239,7 @@ static struct ipv6_devconf ipv6_devconf_dflt __read_mostly = {
- 	.disable_ipv6		= 0,
- 	.accept_dad		= 1,
- 	.suppress_frag_ndisc	= 1,
-+	.accept_ra_mtu		= 1,
- };
- 
- /* Check if a valid qdisc is available */
-@@ -5253,6 +5255,13 @@ static struct addrconf_sysctl_table
- 			.proc_handler	= proc_dointvec,
- 		},
- 		{
-+			.procname	= "accept_ra_mtu",
-+			.data		= &ipv6_devconf.accept_ra_mtu,
-+			.maxlen		= sizeof(int),
-+			.mode		= 0644,
-+			.proc_handler	= proc_dointvec,
-+		},
-+		{
- 			/* sentinel */
- 		}
- 	},
-diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
-index 6828667..8a9d7c1 100644
---- a/net/ipv6/ndisc.c
-+++ b/net/ipv6/ndisc.c
-@@ -1348,7 +1348,7 @@ skip_routeinfo:
- 		}
- 	}
- 
--	if (ndopts.nd_opts_mtu) {
-+	if (ndopts.nd_opts_mtu && in6_dev->cnf.accept_ra_mtu) {
- 		__be32 n;
- 		u32 mtu;
- 
--- 
-Employee of Qualcomm Innovation Center, Inc.
-Qualcomm Innovation Center, Inc. is a member of Code Aurora Forum, a Linux Foundation Collaborative Project
+I'd mentioned to john the possibility of using the existing dfwd offload
+operations to do the allocation of queues so that we could reuse that code instead
+of having to create a set of new queue allocation routines.  What if, instead of
+the dfwd queue allocation methods, we used sriov functionality here?  I.e.,
+plumb a virtual function, and set it in its own iommu group, but instead of
+passing it off to a guest, we just let the host use it?  That gives us the
+opportunity to tear down the iommu mappings should the process exit, so if the
+physical pages get re-allocated while DMA is in flight, we can just take the
+iommu exception and avoid the memory corruption.
+
+Its not perfect, in that we're still not syncing when we should be, but I think
+it would be safe at least.
+
+Thoughts?
+
+Neil
