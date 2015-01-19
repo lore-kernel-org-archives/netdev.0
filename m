@@ -1,128 +1,267 @@
-From: Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>
-Subject: NetDev 0.1 conference new proposals accepted + misc updates
-Date: Mon, 19 Jan 2015 10:28:20 -0500
-Message-ID: <54BD2294.2000207@mojatatu.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Richard Guy Briggs <rgb-3laFzeAjKYZe04CwrWwdBg@public.gmane.org>, info-4R/QDJtgm2dg9hUCZPvPmw@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	lwn-T1hC0tSOHrs@public.gmane.org, netdev01-wool9L35kiczKOhml7GhPkB+6BGkLq7r@public.gmane.org, lartc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netfilter-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch iproute2 repost 2/2] tc: add support for BPF based actions
+Date: Mon, 19 Jan 2015 16:56:30 +0100
+Message-ID: <1421682990-11072-2-git-send-email-jiri@resnulli.us>
+References: <1421682990-11072-1-git-send-email-jiri@resnulli.us>
+Cc: jhs@mojatatu.com, stephen@networkplumber.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f47.google.com ([74.125.82.47]:43337 "EHLO
+	mail-wg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751180AbbASP4e (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jan 2015 10:56:34 -0500
+Received: by mail-wg0-f47.google.com with SMTP id n12so2435473wgh.6
+        for <netdev@vger.kernel.org>; Mon, 19 Jan 2015 07:56:33 -0800 (PST)
+In-Reply-To: <1421682990-11072-1-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Fellow netheads:
+Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+---
+ include/linux/tc_act/tc_bpf.h |  31 +++++++
+ tc/Makefile                   |   1 +
+ tc/m_bpf.c                    | 183 ++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 215 insertions(+)
+ create mode 100644 include/linux/tc_act/tc_bpf.h
+ create mode 100644 tc/m_bpf.c
 
-On behalf of rgb, yours truly is sending out the weekly announcement.
-
-This conference is turning out to be _the best ever_ Linux networking
-content put together under one roof. You will be committing a netdev
-crime if you dont show up!
-Please spread the news. Forward this email appropriately.
-
-First things first.
-
-A reminder that the Westin Hotel is still holding a block of rooms for
-Netdev01 at a guaranteed rate of $159.00 or $179.00 (depending on the 
-type of room required) and there are still rooms available.
-That guarantee expires on January 23, so please dont procastinate
-and book now. The rates *WILL* go up.
-Reservations: 
-https://www.starwoodmeeting.com/StarGroupsWeb/res?id=1412035802&key=1AC9C1F8
-
-Please register soon to help us plan this event better.
-Registration https://onlineregistrations.ca/netdev01/
-$100/day, or $350 for 4 days (Cdn dollars, reel cheep).
-(online reg closes Feb 12th). Again:
-Registering helps us plan properly for numbers of attendees,
-ensuring venue sizes and supplies are appropriate without
-wasting resources.
-
-NetDev 0.1 would like to gratefully acknowledge our sponsors: 
-https://netdev01.org/sponsors
-Google https://www.google.ca
-Qualcomm  https://www.qualcomm.com/
-Verizon http://www.verizon.com/
-Cumulus Networks http://cumulusnetworks.com/
-Mojatatu Networks http://mojatatu.com/
-
-There are a few more talks and tutorials and BOFs/workshops
-in the pipeline (we will close acceptance at the end of the week,
-so if you want to submit, please do it NOW).
-
-Here is an update on new proposals accepted this past week for NetDev
-0.1 that you may have missed if you aren't following the RSS feed or
-twitter:
-
-New Sponsors (All listed at: https://www.netdev01.org/sponsors)
-=============
-Qualcomm - Without sponsors like Qualcomm netdev 0.1 couldnt have
-have happened. Thanks Qualcomm for your support of the open source
-community.
-Google - Google is a giant in the open source world. We thank them
-for their sponsorship.
-
-
-Accepted talks: (All listed: https://www.netdev01.org/sessions )
-===============
-1) Breaking Open Linux Switching Drivers by Andy Gospodarek
-Andy will talk about taking an evolutionary path of a compromise
-to integrate between vendor SDKs and the Linux kernel for hardware
-offload. Graphics cards all over again? Come and find out.
-https://www.netdev01.org/sessions/19
-
-2) Weighing Three Methods of Scaling UDP Applications by Alan Dekok
-Alan, the maintainer of FreeRadius, has had to battle UDP for years.
-In this talk he will describe his experiences on 3 different approaches
-he has recently taken to try and scale UDP applications on Linux
-https://www.netdev01.org/sessions/20
-
-3) TC Classifier Action Subsystem by Jamal Hadi Salim
-Jamal will describe the tc classifier-action subsystem in details (A 
-decade too late?). He claims to be inspired by two talks at netdev01
-which refer to this subsystem. He also claims it is a better
-architecture than OF and P4. Come beat up on him.
-https://www.netdev01.org/sessions/21
-
-4)  MLAG (or Multi-Chassis Link aggregation Group) integration with 
-Linux by Matty Kadosh
-Mellanox MLAG implementation at  https://github.com/open-ethernet/MLAG
-will be discussed in this talk. Matty will talk about experiences and
-will try to convince us that it is time to mainstream MLAG.
-https://www.netdev01.org/sessions/22
-
-5) MLAG on Linux - Lessons Learned by Scott Emery
-Cumulus Networks has extensive MLAG deployment on Linux using hardware 
-offloads on high speed hardware.
-They have had to battle dragons in many dungeons and slay
-many monsters along the way. Come hear all that experience in one talk.
-https://www.netdev01.org/sessions/23
-
-Accepted Tutorials (All listed: https://www.netdev01.org/sessions )
-===================
-1)Hardware Accelerating Linux Network Functions by
-  Roopa Prabhu and Toshiaki Makita
-
-Everything you ever wanted to know about using Linux bridging
-variations for virtualization, data centre & enterprise, L3, ACLs and 
-more. How well do you know how to use bridge/brctl/ip/ethtool and
-their friends to setup a desired network(bridge, SRIOV, Macvlan etc)?
-Roopa and Toshiaki will try to guide you through this vast ocean of 
-knowledge. You will get to learn about how to learn the theory
-and practise and beauty of using these toolsets consistently
-whether on a NIC, offloaded-NIC or multi-terabit capacity switch
-hardware.
-https://www.netdev01.org/sessions/24
-
-
-More coming in future updates.
-If youve got this far reading - please go and register.
-
-cheers,
-jamal (on behalf of Richard Guy Briggs)
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/include/linux/tc_act/tc_bpf.h b/include/linux/tc_act/tc_bpf.h
+new file mode 100644
+index 0000000..5288bd7
+--- /dev/null
++++ b/include/linux/tc_act/tc_bpf.h
+@@ -0,0 +1,31 @@
++/*
++ * Copyright (c) 2015 Jiri Pirko <jiri@resnulli.us>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ */
++
++#ifndef __LINUX_TC_BPF_H
++#define __LINUX_TC_BPF_H
++
++#include <linux/pkt_cls.h>
++
++#define TCA_ACT_BPF 13
++
++struct tc_act_bpf {
++	tc_gen;
++};
++
++enum {
++	TCA_ACT_BPF_UNSPEC,
++	TCA_ACT_BPF_TM,
++	TCA_ACT_BPF_PARMS,
++	TCA_ACT_BPF_OPS_LEN,
++	TCA_ACT_BPF_OPS,
++	__TCA_ACT_BPF_MAX,
++};
++#define TCA_ACT_BPF_MAX (__TCA_ACT_BPF_MAX - 1)
++
++#endif
+diff --git a/tc/Makefile b/tc/Makefile
+index 15f68ce..d831a15 100644
+--- a/tc/Makefile
++++ b/tc/Makefile
+@@ -46,6 +46,7 @@ TCMODULES += m_skbedit.o
+ TCMODULES += m_csum.o
+ TCMODULES += m_simple.o
+ TCMODULES += m_vlan.o
++TCMODULES += m_bpf.o
+ TCMODULES += p_ip.o
+ TCMODULES += p_icmp.o
+ TCMODULES += p_tcp.o
+diff --git a/tc/m_bpf.c b/tc/m_bpf.c
+new file mode 100644
+index 0000000..611135e
+--- /dev/null
++++ b/tc/m_bpf.c
+@@ -0,0 +1,183 @@
++/*
++ * m_bpf.c	BFP based action module
++ *
++ *              This program is free software; you can redistribute it and/or
++ *              modify it under the terms of the GNU General Public License
++ *              as published by the Free Software Foundation; either version
++ *              2 of the License, or (at your option) any later version.
++ *
++ * Authors:     Jiri Pirko <jiri@resnulli.us>
++ */
++
++#include <stdio.h>
++#include <stdlib.h>
++#include <unistd.h>
++#include <string.h>
++#include <stdbool.h>
++#include <linux/tc_act/tc_bpf.h>
++
++#include "utils.h"
++#include "rt_names.h"
++#include "tc_util.h"
++#include "tc_bpf.h"
++
++static void explain(void)
++{
++	fprintf(stderr, "Usage: ... bpf ...\n");
++	fprintf(stderr, "\n");
++	fprintf(stderr, " [inline]:     run bytecode BPF_BYTECODE\n");
++	fprintf(stderr, " [from file]:  run bytecode-file FILE\n");
++	fprintf(stderr, "\n");
++	fprintf(stderr, "Where BPF_BYTECODE := \'s,c t f k,c t f k,c t f k,...\'\n");
++	fprintf(stderr, "      c,t,f,k and s are decimals; s denotes number of 4-tuples\n");
++	fprintf(stderr, "Where FILE points to a file containing the BPF_BYTECODE string\n");
++	fprintf(stderr, "\nACTION_SPEC := ... look at individual actions\n");
++	fprintf(stderr, "NOTE: CLASSID is parsed as hexadecimal input.\n");
++}
++
++static void usage(void)
++{
++	explain();
++	exit(-1);
++}
++
++static int parse_bpf(struct action_util *a, int *argc_p, char ***argv_p,
++		     int tca_id, struct nlmsghdr *n)
++{
++	int argc = *argc_p;
++	char **argv = *argv_p;
++	struct rtattr *tail;
++	struct tc_act_bpf parm = { 0 };
++	struct sock_filter bpf_ops[BPF_MAXINSNS];
++	__u16 bpf_len = 0;
++
++	if (matches(*argv, "bpf") != 0)
++		return -1;
++
++	NEXT_ARG();
++
++	while (argc > 0) {
++		if (matches(*argv, "run") == 0) {
++			bool from_file;
++			int ret;
++
++			NEXT_ARG();
++			if (strcmp(*argv, "bytecode-file") == 0) {
++				from_file = true;
++			} else if (strcmp(*argv, "bytecode") == 0) {
++				from_file = false;
++			} else {
++				fprintf(stderr, "unexpected \"%s\"\n", *argv);
++				explain();
++				return -1;
++			}
++			NEXT_ARG();
++			ret = bpf_parse_ops(argc, argv, bpf_ops, from_file);
++			if (ret < 0) {
++				fprintf(stderr, "Illegal \"bytecode\"\n");
++				return -1;
++			}
++			bpf_len = ret;
++		} else if (matches(*argv, "help") == 0) {
++			usage();
++		} else {
++			break;
++		}
++		argc--;
++		argv++;
++	}
++
++	parm.action = TC_ACT_PIPE;
++	if (argc) {
++		if (matches(*argv, "reclassify") == 0) {
++			parm.action = TC_ACT_RECLASSIFY;
++			NEXT_ARG();
++		} else if (matches(*argv, "pipe") == 0) {
++			parm.action = TC_ACT_PIPE;
++			NEXT_ARG();
++		} else if (matches(*argv, "drop") == 0 ||
++			   matches(*argv, "shot") == 0) {
++			parm.action = TC_ACT_SHOT;
++			NEXT_ARG();
++		} else if (matches(*argv, "continue") == 0) {
++			parm.action = TC_ACT_UNSPEC;
++			NEXT_ARG();
++		} else if (matches(*argv, "pass") == 0) {
++			parm.action = TC_ACT_OK;
++			NEXT_ARG();
++		}
++	}
++
++	if (argc) {
++		if (matches(*argv, "index") == 0) {
++			NEXT_ARG();
++			if (get_u32(&parm.index, *argv, 10)) {
++				fprintf(stderr, "bpf: Illegal \"index\"\n");
++				return -1;
++			}
++			argc--;
++			argv++;
++		}
++	}
++
++	if (!bpf_len) {
++		fprintf(stderr, "bpf: Bytecode needs to be passed\n");
++		explain();
++		return -1;
++	}
++
++	tail = NLMSG_TAIL(n);
++	addattr_l(n, MAX_MSG, tca_id, NULL, 0);
++	addattr_l(n, MAX_MSG, TCA_ACT_BPF_PARMS, &parm, sizeof(parm));
++	addattr16(n, MAX_MSG, TCA_ACT_BPF_OPS_LEN, bpf_len);
++	addattr_l(n, MAX_MSG, TCA_ACT_BPF_OPS, &bpf_ops,
++		  bpf_len * sizeof(struct sock_filter));
++	tail->rta_len = (char *)NLMSG_TAIL(n) - (char *)tail;
++
++	*argc_p = argc;
++	*argv_p = argv;
++	return 0;
++}
++
++static int print_bpf(struct action_util *au, FILE *f, struct rtattr *arg)
++{
++	struct rtattr *tb[TCA_ACT_BPF_MAX + 1];
++	struct tc_act_bpf *parm;
++
++	if (arg == NULL)
++		return -1;
++
++	parse_rtattr_nested(tb, TCA_ACT_BPF_MAX, arg);
++
++	if (!tb[TCA_ACT_BPF_PARMS]) {
++		fprintf(f, "[NULL bpf parameters]");
++		return -1;
++	}
++	parm = RTA_DATA(tb[TCA_ACT_BPF_PARMS]);
++
++	fprintf(f, " bpf ");
++
++	if (tb[TCA_ACT_BPF_OPS] && tb[TCA_ACT_BPF_OPS_LEN])
++		bpf_print_ops(f, tb[TCA_ACT_BPF_OPS],
++			      rta_getattr_u16(tb[TCA_ACT_BPF_OPS_LEN]));
++
++	fprintf(f, "\n\tindex %d ref %d bind %d", parm->index, parm->refcnt,
++		parm->bindcnt);
++
++	if (show_stats) {
++		if (tb[TCA_ACT_BPF_TM]) {
++			struct tcf_t *tm = RTA_DATA(tb[TCA_ACT_BPF_TM]);
++			print_tm(f, tm);
++		}
++	}
++
++	fprintf(f, "\n ");
++
++	return 0;
++}
++
++struct action_util bpf_action_util = {
++	.id = "bpf",
++	.parse_aopt = parse_bpf,
++	.print_aopt = print_bpf,
++};
+-- 
+1.9.3
