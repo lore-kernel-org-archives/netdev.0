@@ -1,62 +1,78 @@
-From: Ben Hutchings <ben.hutchings@codethink.co.uk>
-Subject: Re: [PATCH net 1/2] sh_eth: Fix promiscuous mode on chips without
- TSU
-Date: Mon, 19 Jan 2015 10:45:32 +0000
-Message-ID: <1421664332.1222.204.camel@xylophone.i.decadent.org.uk>
-References: <1421430592.1222.190.camel@xylophone.i.decadent.org.uk>
-	 <1421430672.1222.191.camel@xylophone.i.decadent.org.uk>
-	 <54B9663D.2040008@cogentembedded.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: ct178-internal@lists.codethink.co.uk,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@lists.codethink.co.uk,
-	Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>,
-	Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>,
-	Hisashi Nakamura <hisashi.nakamura.ak@renesas.com>,
-	Yoshihiro Kaneko <ykaneko0929@gmail.com>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: [PATCH] phonet netlink: allow multiple messages per skb in route dump
+Date: Mon, 19 Jan 2015 12:15:24 +0100
+Message-ID: <1421666124-16055-1-git-send-email-johannes@sipsolutions.net>
+Cc: Sakari Ailus <sakari.ailus@nokia.com>,
+	Remi Denis-Courmont <courmisch@gmail.com>,
+	Johannes Berg <johannes.berg@intel.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ducie-dc1.codethink.co.uk ([185.25.241.215]:44593 "EHLO
-	ducie-dc1.codethink.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751479AbbASKpf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jan 2015 05:45:35 -0500
-In-Reply-To: <54B9663D.2040008@cogentembedded.com>
+Received: from s3.sipsolutions.net ([5.9.151.49]:33150 "EHLO sipsolutions.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751143AbbASLPd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 19 Jan 2015 06:15:33 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2015-01-16 at 22:27 +0300, Sergei Shtylyov wrote:
-> Hello.
-> 
-> On 01/16/2015 08:51 PM, Ben Hutchings wrote:
-> 
-> > Currently net_device_ops::set_rx_mode is only implemented for
-> > chips with a TSU (multiple address table).  However we do need
-> > to turn the PRM (promiscuous) flag on and off for other chips.
-> 
-> > - Remove the unlikely() from the TSU functions that we may safely
-> >    call for chips without a TSU
-> 
->     This is just optimization, worth pushing thru net-next instead.
+From: Johannes Berg <johannes.berg@intel.com>
 
-This patch introduces calls to those functions for chips without a TSU,
-and that makes the branch hint no longer correct.  (Not that these
-functions are speed-critical, so it doesn't matter that much.)
+My previous patch to this file changed the code to be bug-compatible
+towards userspace. Unless userspace (which I wasn't able to find)
+implements the dump reader by hand in a wrong way, this isn't needed.
+If it uses libnl or similar code putting multiple messages into a
+single SKB is far more efficient.
 
-> > - Make setting of the MCT flag conditional on the tsu capability flag
-> > - Rename sh_eth_set_multicast_list() to sh_eth_set_rx_mode() and plumb
-> >    it into both net_device_ops structures
-> > - Remove the previously-unreachable branch in sh_eth_rx_mode() that
-> >    would otherwise reset the flags to defaults for non-TSU chips
-> 
->     It couldn't be default for non-TSU chips, they don't seem to have 
-> ECMR.MCT. So it was just wrong.
-> 
->     It would have been better if you did one thing per patch or at least 
-> didn't mix fixes with clean-ups...
-[...]
+Change the code to do this. While at it, also clean it up and don't
+use so many variables - just store the address in the callback args
+directly.
 
-I think this is one logical change.
+Signed-off-by: Johannes Berg <johannes.berg@intel.com>
+---
+ net/phonet/pn_netlink.c | 22 +++++++---------------
+ 1 file changed, 7 insertions(+), 15 deletions(-)
 
-Ben.
+diff --git a/net/phonet/pn_netlink.c b/net/phonet/pn_netlink.c
+index 54d766842c2b..bc5ee5fbe6ae 100644
+--- a/net/phonet/pn_netlink.c
++++ b/net/phonet/pn_netlink.c
+@@ -272,31 +272,23 @@ static int route_doit(struct sk_buff *skb, struct nlmsghdr *nlh)
+ static int route_dumpit(struct sk_buff *skb, struct netlink_callback *cb)
+ {
+ 	struct net *net = sock_net(skb->sk);
+-	u8 addr, addr_idx = 0, addr_start_idx = cb->args[0];
++	u8 addr;
+ 
+ 	rcu_read_lock();
+-	for (addr = 0; addr < 64; addr++) {
+-		struct net_device *dev;
++	for (addr = cb->args[0]; addr < 64; addr++) {
++		struct net_device *dev = phonet_route_get_rcu(net, addr << 2);
+ 
+-		dev = phonet_route_get_rcu(net, addr << 2);
+ 		if (!dev)
+ 			continue;
+ 
+-		if (addr_idx++ < addr_start_idx)
+-			continue;
+-		fill_route(skb, dev, addr << 2, NETLINK_CB(cb->skb).portid,
+-			   cb->nlh->nlmsg_seq, RTM_NEWROUTE);
+-		/* fill_route() used to return > 0 (or negative errors) but
+-		 * never 0 - ignore the return value and just go out to
+-		 * call dumpit again from outside to preserve the behavior
+-		 */
+-		goto out;
++		if (fill_route(skb, dev, addr << 2, NETLINK_CB(cb->skb).portid,
++			       cb->nlh->nlmsg_seq, RTM_NEWROUTE) < 0)
++			goto out;
+ 	}
+ 
+ out:
+ 	rcu_read_unlock();
+-	cb->args[0] = addr_idx;
+-	cb->args[1] = 0;
++	cb->args[0] = addr;
+ 
+ 	return skb->len;
+ }
+-- 
+2.1.4
