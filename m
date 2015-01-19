@@ -1,85 +1,54 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: Problem with  patch "make nlmsg_end() and genlmsg_end() void"
-Date: Sun, 18 Jan 2015 15:44:26 -0800
-Message-ID: <E586D25A-9DAF-4535-A282-120F0C6EAE19@holtmann.org>
-References: <0397034D-1DF4-409F-B335-FCD0D7EAB940@holtmann.org>
-Mime-Version: 1.0 (Mac OS X Mail 8.1 \(1993\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Tom Gundersen <teg@jklm.no>
-To: Network Development <netdev@vger.kernel.org>,
-	Johannes Berg <johannes@sipsolutions.net>
+From: Andy Green <andy.green@linaro.org>
+Subject: Re: [PATCH 1/7] net: wireless: wcn36xx: add wcn3620 chip type definition
+Date: Mon, 19 Jan 2015 08:24:41 +0800
+Message-ID: <CAAfg0W4cns51+B_imf1jGWOmA0S8jqNFR+6epRxv8qqTgvBAgg@mail.gmail.com>
+References: <20150118050741.31866.36490.stgit@114-36-241-182.dynamic.hinet.net>
+	<20150118051043.31866.53087.stgit@114-36-241-182.dynamic.hinet.net>
+	<878uh06ulp.fsf@kamboji.qca.qualcomm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Eugene Krasnikov <k.eugene.e@gmail.com>,
+	wcn36xx <wcn36xx@lists.infradead.org>,
+	linux-wireless@vger.kernel.org, netdev <netdev@vger.kernel.org>
+To: Kalle Valo <kvalo@codeaurora.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:35915 "EHLO
-	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751179AbbARXod convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 Jan 2015 18:44:33 -0500
-In-Reply-To: <0397034D-1DF4-409F-B335-FCD0D7EAB940@holtmann.org>
+Received: from mail-qa0-f50.google.com ([209.85.216.50]:49960 "EHLO
+	mail-qa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751179AbbASAYm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 Jan 2015 19:24:42 -0500
+Received: by mail-qa0-f50.google.com with SMTP id k15so22102811qaq.9
+        for <netdev@vger.kernel.org>; Sun, 18 Jan 2015 16:24:41 -0800 (PST)
+In-Reply-To: <878uh06ulp.fsf@kamboji.qca.qualcomm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Johannes,
+On 18 January 2015 at 22:17, Kalle Valo <kvalo@codeaurora.org> wrote:
+> Andy Green <andy.green@linaro.org> writes:
+>
+>> Convert the list of chip types to an enum, add the default
+>> UNKNOWN type and a type for WCN3620 chip
+>>
+>> Signed-off-by: Andy Green <andy.green@linaro.org>
+>
+> Please just use "wcn36xx: ", you should drop "net: wireless: " entirely.
 
-> your commit 053c095a82cf773075e83d7233b5cc19a1f73ece is causing problems with systemd-networkd.
-> 
-> I have an up-to-date Arch Linux installation in a KVM and your change causes massive problems. It makes systemd-networkd to run out of memory.
-> 
-> systemd-fsck[84]: /dev/vda1: clean, 53283/131072 files, 409813/524032 blocks
-> Out of memory: Kill process 142 (systemd-network) score 923 or sacrifice child
-> Killed process 142 (systemd-network) total-vm:478416kB, anon-rss:463472kB, file-rss:460kB
-> [FAILED] Failed to start Network Service.
-> See "systemctl status systemd-networkd.service" for details.
->         Stopping Network Service...
-> [  OK  ] Stopped Network Service.
->         Starting Network Service...
-> 
-> Arch Linux 3.19.0-rc4-devel+ (ttyS0)
-> 
-> marcel login: Out of memory: Kill process 154 (systemd-network) score 932 or sacrifice child
-> Killed process 154 (systemd-network) total-vm:540784kB, anon-rss:468380kB, file-rss:132kB
-> Out of memory: Kill process 158 (systemd-network) score 932 or sacrifice child
-> Killed process 158 (systemd-network) total-vm:540388kB, anon-rss:468528kB, file-rss:48kB
-> Out of memory: Kill process 160 (systemd-network) score 932 or sacrifice child
-> Killed process 160 (systemd-network) total-vm:540916kB, anon-rss:468528kB, file-rss:4kB
-> Out of memory: Kill process 162 (systemd-network) score 931 or sacrifice child
-> Killed process 162 (systemd-network) total-vm:540916kB, anon-rss:468104kB, file-rss:76kB
+OK.
 
-so this was freaking nasty to find since I had to dig into every single RTNL location that might have an affect on this. I think that I tracked this down to these two locations:
+Can you help me understand what you'd like to see happen with the chip
+variant detection stuff?
 
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index e13b9dbdf154..0e26b9f66cad 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -1327,7 +1327,7 @@ static int rtnl_dump_ifinfo(struct sk_buff *skb, struct netlink_callback *cb)
-                         */
-                        WARN_ON((err == -EMSGSIZE) && (skb->len == 0));
- 
--                       if (err <= 0)
-+                       if (err < 0)
-                                goto out;
- 
-                        nl_dump_check_consistent(cb, nlmsg_hdr(skb));
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 8975d9501d50..d6b4f5d08014 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -4213,7 +4213,7 @@ static int inet6_dump_addr(struct sk_buff *skb, struct netlink_callback *cb,
-                                goto cont;
- 
-                        if (in6_dump_addrs(idev, skb, cb, type,
--                                          s_ip_idx, &ip_idx) <= 0)
-+                                          s_ip_idx, &ip_idx) < 0)
-                                goto done;
- cont:
-                        idx++;
+There's a comment sent to one list only saying it might be preferable
+to keep the old detection code as the default.  But there are no
+in-tree users of wcn36xx (mainly due to PIL not being in mainline, I
+guess).
 
-However I am not sure that these are the only ones. We might have additional issues in functionality that systemd-networkd actually does not use at the moment. These two changes make my KVM image boot properly again.
+The old test's equivalence that AC == 3680 seems kind of weak to me
+and establishing the type must be passed in from platform code
+reflects the situation that there's no public way to detect the chip
+type from Qualcomm.  In the second not-for-upstream series I use that
+to pass it in from DT, which is how it'd be normally used.
 
-And actually I am not even sure that these two changes are correct. My KVM image is a dead simple image with no IPv6 support. This change might actually just broke IPv6 and I would not notice.
+-Andy
 
-Tom, do you know if we can do anything in systemd-networkd in regards to RTNL and netlink handling to throw a big warning when something comes back from the kernel that would cause massive memory allocation.
-
-Regards
-
-Marcel
+> --
+> Kalle Valo
