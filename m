@@ -1,83 +1,202 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: linux-next: build failure after merge of the net-next tree
-Date: Mon, 19 Jan 2015 14:30:24 +1100
-Message-ID: <20150119143024.5b8a20bc@canb.auug.org.au>
-References: <20150119140610.6b41b5ef@canb.auug.org.au>
-	<289C7DCC-D2B3-43B6-B661-EE19371D8B17@holtmann.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Problem with patch "make nlmsg_end() and genlmsg_end() void"
+Date: Sun, 18 Jan 2015 23:37:22 -0500 (EST)
+Message-ID: <20150118.233722.226468667930444145.davem@davemloft.net>
+References: <E586D25A-9DAF-4535-A282-120F0C6EAE19@holtmann.org>
+	<CAE4R7bCWSM+SyDR830N1GmukyaMYE_DT0fd4L_x6Py5PEqMe_A@mail.gmail.com>
+	<01A82AB9-6ABD-4AD0-9CBC-628091569DB0@holtmann.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
- boundary="Sig_/UVDpwO0fqhEO6FPcLuZx=gA"; protocol="application/pgp-signature"
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Jiri Pirko <jiri@resnulli.us>,
-	Scott Feldman <sfeldma@gmail.com>,
-	"Gustavo F. Padovan" <gustavo@padovan.org>
-To: Marcel Holtmann <marcel@holtmann.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <289C7DCC-D2B3-43B6-B661-EE19371D8B17@holtmann.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: sfeldma@gmail.com, netdev@vger.kernel.org,
+	johannes@sipsolutions.net, teg@jklm.no
+To: marcel@holtmann.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:52236 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751090AbbASEh0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 Jan 2015 23:37:26 -0500
+In-Reply-To: <01A82AB9-6ABD-4AD0-9CBC-628091569DB0@holtmann.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Sig_/UVDpwO0fqhEO6FPcLuZx=gA
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: quoted-printable
+From: Marcel Holtmann <marcel@holtmann.org>
+Date: Sun, 18 Jan 2015 18:10:46 -0800
 
-Hi Marcel,
+> Hi Scott,
+> 
+>> This patch needs to be reverted ASAP.  git bisect landed me here also;
+>> my processes are getting the OOM msgs.  What testing was done?
+>> 
+>> Seems someone does care that nlmsg_end() returns skb->len.
+> 
+> I still wonder how this affects userspace. I have not figured that
+> out. Something goes wrong pretty badly somewhere.
+> 
+> Have you tried the small diff with the two locations that were
+> problematic for me?
 
-On Sun, 18 Jan 2015 19:13:17 -0800 Marcel Holtmann <marcel@holtmann.org> wr=
-ote:
->
-> > After merging the net-next tree, today's linux-next build (powerpc
-> > ppc64_defconfig) failed like this:
-> >=20
-> > In file included from net/bridge/br.c:22:0:
-> > include/net/switchdev.h:73:1: error: expected identifier or '(' before =
-'{' token
-> > {
-> > ^
-> > include/net/switchdev.h:71:19: warning: 'call_netdev_switch_notifiers' =
-declared 'static' but never defined [-Wunused-function]
-> > static inline int call_netdev_switch_notifiers(unsigned long val, struc=
-t net_device *dev,
-> >                   ^
-> >=20
-> > Caused by commit 03bf0c281234 ("switchdev: introduce switchdev notifier=
-").
-> >=20
-> > I have used the net-next tree from next-20150116 for today.  I also had
-> > to use the bluetooth tree from next-20150116 as it was fast forwarded
-> > to be the same as the net-next tree today.
->=20
-> it seems Dave forgot to push out his net-next tree, but in theory it shou=
-ld contain a fix for it.
+There were a lot more cases not converted properly, I hope the
+patch below gets them all.
 
-Or he did so after I fetched his tree this morning.  Either way, I
-assume it will be fixed tomorrow.
+Johannes, this was either not tested or tested very poorly, please
+don't submit changes like this.  Even neighbour entry and route
+dumping were hosed.
 
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
+====================
+[PATCH] netlink: Fix bugs in nlmsg_end() conversions.
 
---Sig_/UVDpwO0fqhEO6FPcLuZx=gA
-Content-Type: application/pgp-signature
-Content-Description: OpenPGP digital signature
+Commit 053c095a82cf ("netlink: make nlmsg_end() and genlmsg_end()
+void") didn't catch all of the cases where callers were breaking out
+on the return value being equal to zero, which they no longer should
+when zero means success.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
+Fix all such cases.
 
-iQIcBAEBCAAGBQJUvHpVAAoJEMDTa8Ir7ZwVoOEQAIDH+0r/KVjGe99kX5a8XPOh
-dKp0XMD2F3bTa4OUfDHfdDyDekL/hlClT71CveBq5rzN1/PcrtdK4rmf0P8KnrMm
-LXXKdkcgVU8MvZSWhc9sEWt1yKXD8dfoJsAx0BIRXRpvbz8R67FFOuemnbLaHHSU
-C+fbm5ZJgu5GGBbfyrcT1ADGUP8ht3G6vE5xxOi7hbyPO0cZwiVnXahS9/QkN7mP
-c4Lm0krztc4apFMsAXZmYlR4nQLUNE81UbfyUwhIfeN4dVy3rHFET46djFUF9JoO
-S0QOthPmq3gVPQd7SwLjBzT1Wbuz9iArzZvqfd8NHlMjipcAGgN4SGNmm71jntqi
-QsWIlrXCrHgLjZkns5p0jM9dSOJ7mo2HtHrmzzdFu86bYzb1IC3tY5+0ANyoGj3t
-GzGIAfPIcAyMF9MSmnjIYkQZA46c+WQvcpaAy4RSffQRbjKDKomk7RGynq9qTBJk
-GFGc/2LrV5IYcu068IQYDg1eVtXh/aXAXyu/YE0uH1BU2sCjOVCzLvTxUlddCgg0
-TonwPKIi5VJtcZDWdkaP1L2zWgP4GwjHe41YLDhFm+iUVYS8oJTB15ANbLi5H12D
-8gSTtP40rOkSX0XzrzJWFAulMyyRZwMKjeNQwlIIj7QenglrfDLh01MjtED89kMy
-96MFzFcBPCL2Yd9AUwW4
-=YVFl
------END PGP SIGNATURE-----
+Reported-by: Marcel Holtmann <marcel@holtmann.org>
+Reported-by: Scott Feldman <sfeldma@gmail.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/core/neighbour.c  | 8 ++++----
+ net/core/rtnetlink.c  | 2 +-
+ net/decnet/dn_route.c | 5 +----
+ net/ipv4/devinet.c    | 6 +++---
+ net/ipv4/route.c      | 2 +-
+ net/ipv6/addrconf.c   | 2 +-
+ 6 files changed, 11 insertions(+), 14 deletions(-)
 
---Sig_/UVDpwO0fqhEO6FPcLuZx=gA--
+diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+index d36d564..70fe9e1 100644
+--- a/net/core/neighbour.c
++++ b/net/core/neighbour.c
+@@ -2128,7 +2128,7 @@ static int neightbl_dump_info(struct sk_buff *skb, struct netlink_callback *cb)
+ 
+ 		if (neightbl_fill_info(skb, tbl, NETLINK_CB(cb->skb).portid,
+ 				       cb->nlh->nlmsg_seq, RTM_NEWNEIGHTBL,
+-				       NLM_F_MULTI) <= 0)
++				       NLM_F_MULTI) < 0)
+ 			break;
+ 
+ 		nidx = 0;
+@@ -2144,7 +2144,7 @@ static int neightbl_dump_info(struct sk_buff *skb, struct netlink_callback *cb)
+ 						     NETLINK_CB(cb->skb).portid,
+ 						     cb->nlh->nlmsg_seq,
+ 						     RTM_NEWNEIGHTBL,
+-						     NLM_F_MULTI) <= 0)
++						     NLM_F_MULTI) < 0)
+ 				goto out;
+ 		next:
+ 			nidx++;
+@@ -2274,7 +2274,7 @@ static int neigh_dump_table(struct neigh_table *tbl, struct sk_buff *skb,
+ 			if (neigh_fill_info(skb, n, NETLINK_CB(cb->skb).portid,
+ 					    cb->nlh->nlmsg_seq,
+ 					    RTM_NEWNEIGH,
+-					    NLM_F_MULTI) <= 0) {
++					    NLM_F_MULTI) < 0) {
+ 				rc = -1;
+ 				goto out;
+ 			}
+@@ -2311,7 +2311,7 @@ static int pneigh_dump_table(struct neigh_table *tbl, struct sk_buff *skb,
+ 			if (pneigh_fill_info(skb, n, NETLINK_CB(cb->skb).portid,
+ 					    cb->nlh->nlmsg_seq,
+ 					    RTM_NEWNEIGH,
+-					    NLM_F_MULTI, tbl) <= 0) {
++					    NLM_F_MULTI, tbl) < 0) {
+ 				read_unlock_bh(&tbl->lock);
+ 				rc = -1;
+ 				goto out;
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index e13b9db..0e26b9f 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -1327,7 +1327,7 @@ static int rtnl_dump_ifinfo(struct sk_buff *skb, struct netlink_callback *cb)
+ 			 */
+ 			WARN_ON((err == -EMSGSIZE) && (skb->len == 0));
+ 
+-			if (err <= 0)
++			if (err < 0)
+ 				goto out;
+ 
+ 			nl_dump_check_consistent(cb, nlmsg_hdr(skb));
+diff --git a/net/decnet/dn_route.c b/net/decnet/dn_route.c
+index 812e5e6..1d7c125 100644
+--- a/net/decnet/dn_route.c
++++ b/net/decnet/dn_route.c
+@@ -1710,9 +1710,6 @@ static int dn_cache_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh)
+ 		rt->rt_flags |= RTCF_NOTIFY;
+ 
+ 	err = dn_rt_fill_info(skb, NETLINK_CB(in_skb).portid, nlh->nlmsg_seq, RTM_NEWROUTE, 0, 0);
+-
+-	if (err == 0)
+-		goto out_free;
+ 	if (err < 0) {
+ 		err = -EMSGSIZE;
+ 		goto out_free;
+@@ -1763,7 +1760,7 @@ int dn_cache_dump(struct sk_buff *skb, struct netlink_callback *cb)
+ 			skb_dst_set(skb, dst_clone(&rt->dst));
+ 			if (dn_rt_fill_info(skb, NETLINK_CB(cb->skb).portid,
+ 					cb->nlh->nlmsg_seq, RTM_NEWROUTE,
+-					1, NLM_F_MULTI) <= 0) {
++					1, NLM_F_MULTI) < 0) {
+ 				skb_dst_drop(skb);
+ 				rcu_read_unlock_bh();
+ 				goto done;
+diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+index 5f344eb..59ebe16 100644
+--- a/net/ipv4/devinet.c
++++ b/net/ipv4/devinet.c
+@@ -1883,7 +1883,7 @@ static int inet_netconf_dump_devconf(struct sk_buff *skb,
+ 						      cb->nlh->nlmsg_seq,
+ 						      RTM_NEWNETCONF,
+ 						      NLM_F_MULTI,
+-						      -1) <= 0) {
++						      -1) < 0) {
+ 				rcu_read_unlock();
+ 				goto done;
+ 			}
+@@ -1899,7 +1899,7 @@ cont:
+ 					      NETLINK_CB(cb->skb).portid,
+ 					      cb->nlh->nlmsg_seq,
+ 					      RTM_NEWNETCONF, NLM_F_MULTI,
+-					      -1) <= 0)
++					      -1) < 0)
+ 			goto done;
+ 		else
+ 			h++;
+@@ -1910,7 +1910,7 @@ cont:
+ 					      NETLINK_CB(cb->skb).portid,
+ 					      cb->nlh->nlmsg_seq,
+ 					      RTM_NEWNETCONF, NLM_F_MULTI,
+-					      -1) <= 0)
++					      -1) < 0)
+ 			goto done;
+ 		else
+ 			h++;
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index f6e43ca..2000110 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -2483,7 +2483,7 @@ static int inet_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh)
+ 	err = rt_fill_info(net, dst, src, &fl4, skb,
+ 			   NETLINK_CB(in_skb).portid, nlh->nlmsg_seq,
+ 			   RTM_NEWROUTE, 0, 0);
+-	if (err <= 0)
++	if (err < 0)
+ 		goto errout_free;
+ 
+ 	err = rtnl_unicast(skb, net, NETLINK_CB(in_skb).portid);
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 8975d95..d6b4f5d 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -4213,7 +4213,7 @@ static int inet6_dump_addr(struct sk_buff *skb, struct netlink_callback *cb,
+ 				goto cont;
+ 
+ 			if (in6_dump_addrs(idev, skb, cb, type,
+-					   s_ip_idx, &ip_idx) <= 0)
++					   s_ip_idx, &ip_idx) < 0)
+ 				goto done;
+ cont:
+ 			idx++;
+-- 
+2.1.0
