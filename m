@@ -1,7 +1,7 @@
 From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH net-next 1/7] r8152: adjust rx_bottom
-Date: Mon, 19 Jan 2015 15:13:31 +0800
-Message-ID: <1394712342-15778-119-Taiwan-albertk@realtek.com>
+Subject: [PATCH net-next 7/7] r8152: use BIT macro
+Date: Mon, 19 Jan 2015 15:13:37 +0800
+Message-ID: <1394712342-15778-125-Taiwan-albertk@realtek.com>
 References: <1394712342-15778-118-Taiwan-albertk@realtek.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -13,46 +13,75 @@ In-Reply-To: <1394712342-15778-118-Taiwan-albertk@realtek.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-If a error occurs when submitting rx, skip the remaining submissions
-and try to submit them again next time.
+Use BIT macro to replace (1 << bits).
 
 Signed-off-by: Hayes Wang <hayeswang@realtek.com>
 ---
- drivers/net/usb/r8152.c | 15 +++++++++++++--
- 1 file changed, 13 insertions(+), 2 deletions(-)
+ drivers/net/usb/r8152.c | 34 +++++++++++++++++-----------------
+ 1 file changed, 17 insertions(+), 17 deletions(-)
 
 diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index 2e22442..78a8917 100644
+index 46440ed..c3a0224 100644
 --- a/drivers/net/usb/r8152.c
 +++ b/drivers/net/usb/r8152.c
-@@ -1655,7 +1655,7 @@ static int rx_bottom(struct r8152 *tp, int budget)
- {
- 	unsigned long flags;
- 	struct list_head *cursor, *next, rx_queue;
--	int work_done = 0;
-+	int ret = 0, work_done = 0;
+@@ -489,16 +489,16 @@ struct rx_desc {
+ #define RX_LEN_MASK			0x7fff
  
- 	if (!skb_queue_empty(&tp->rx_queue)) {
- 		while (work_done < budget) {
-@@ -1746,7 +1746,18 @@ find_next_rx:
- 		}
+ 	__le32 opts2;
+-#define RD_UDP_CS			(1 << 23)
+-#define RD_TCP_CS			(1 << 22)
+-#define RD_IPV6_CS			(1 << 20)
+-#define RD_IPV4_CS			(1 << 19)
++#define RD_UDP_CS			BIT(23)
++#define RD_TCP_CS			BIT(22)
++#define RD_IPV6_CS			BIT(20)
++#define RD_IPV4_CS			BIT(19)
  
- submit:
--		r8152_submit_rx(tp, agg, GFP_ATOMIC);
-+		if (!ret) {
-+			ret = r8152_submit_rx(tp, agg, GFP_ATOMIC);
-+		} else {
-+			urb->actual_length = 0;
-+			list_add_tail(&agg->list, next);
-+		}
-+	}
-+
-+	if (!list_empty(&rx_queue)) {
-+		spin_lock_irqsave(&tp->rx_lock, flags);
-+		list_splice_tail(&rx_queue, &tp->rx_done);
-+		spin_unlock_irqrestore(&tp->rx_lock, flags);
- 	}
+ 	__le32 opts3;
+-#define IPF				(1 << 23) /* IP checksum fail */
+-#define UDPF				(1 << 22) /* UDP checksum fail */
+-#define TCPF				(1 << 21) /* TCP checksum fail */
+-#define RX_VLAN_TAG			(1 << 16)
++#define IPF				BIT(23) /* IP checksum fail */
++#define UDPF				BIT(22) /* UDP checksum fail */
++#define TCPF				BIT(21) /* TCP checksum fail */
++#define RX_VLAN_TAG			BIT(16)
  
- out1:
+ 	__le32 opts4;
+ 	__le32 opts5;
+@@ -507,24 +507,24 @@ struct rx_desc {
+ 
+ struct tx_desc {
+ 	__le32 opts1;
+-#define TX_FS			(1 << 31) /* First segment of a packet */
+-#define TX_LS			(1 << 30) /* Final segment of a packet */
+-#define GTSENDV4		(1 << 28)
+-#define GTSENDV6		(1 << 27)
++#define TX_FS			BIT(31) /* First segment of a packet */
++#define TX_LS			BIT(30) /* Final segment of a packet */
++#define GTSENDV4		BIT(28)
++#define GTSENDV6		BIT(27)
+ #define GTTCPHO_SHIFT		18
+ #define GTTCPHO_MAX		0x7fU
+ #define TX_LEN_MAX		0x3ffffU
+ 
+ 	__le32 opts2;
+-#define UDP_CS			(1 << 31) /* Calculate UDP/IP checksum */
+-#define TCP_CS			(1 << 30) /* Calculate TCP/IP checksum */
+-#define IPV4_CS			(1 << 29) /* Calculate IPv4 checksum */
+-#define IPV6_CS			(1 << 28) /* Calculate IPv6 checksum */
++#define UDP_CS			BIT(31) /* Calculate UDP/IP checksum */
++#define TCP_CS			BIT(30) /* Calculate TCP/IP checksum */
++#define IPV4_CS			BIT(29) /* Calculate IPv4 checksum */
++#define IPV6_CS			BIT(28) /* Calculate IPv6 checksum */
+ #define MSS_SHIFT		17
+ #define MSS_MAX			0x7ffU
+ #define TCPHO_SHIFT		17
+ #define TCPHO_MAX		0x7ffU
+-#define TX_VLAN_TAG			(1 << 16)
++#define TX_VLAN_TAG		BIT(16)
+ };
+ 
+ struct r8152;
 -- 
 2.1.0
