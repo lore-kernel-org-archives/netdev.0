@@ -1,54 +1,67 @@
-From: Andy Green <andy.green@linaro.org>
-Subject: Re: [PATCH 1/7] net: wireless: wcn36xx: add wcn3620 chip type definition
-Date: Mon, 19 Jan 2015 08:24:41 +0800
-Message-ID: <CAAfg0W4cns51+B_imf1jGWOmA0S8jqNFR+6epRxv8qqTgvBAgg@mail.gmail.com>
-References: <20150118050741.31866.36490.stgit@114-36-241-182.dynamic.hinet.net>
-	<20150118051043.31866.53087.stgit@114-36-241-182.dynamic.hinet.net>
-	<878uh06ulp.fsf@kamboji.qca.qualcomm.com>
+From: Michael Ellerman <mpe@ellerman.id.au>
+Subject: Re: [PATCH 1/6] selftests: Introduce minimal shared logic for
+ running tests
+Date: Mon, 19 Jan 2015 11:35:42 +1100
+Message-ID: <1421627742.3787.6.camel@ellerman.id.au>
+References: <1420794375-31881-1-git-send-email-mpe@ellerman.id.au>
+	 <54B95006.3080502@osg.samsung.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eugene Krasnikov <k.eugene.e@gmail.com>,
-	wcn36xx <wcn36xx@lists.infradead.org>,
-	linux-wireless@vger.kernel.org, netdev <netdev@vger.kernel.org>
-To: Kalle Valo <kvalo@codeaurora.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f50.google.com ([209.85.216.50]:49960 "EHLO
-	mail-qa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751179AbbASAYm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 Jan 2015 19:24:42 -0500
-Received: by mail-qa0-f50.google.com with SMTP id k15so22102811qaq.9
-        for <netdev@vger.kernel.org>; Sun, 18 Jan 2015 16:24:41 -0800 (PST)
-In-Reply-To: <878uh06ulp.fsf@kamboji.qca.qualcomm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, mmarek@suse.cz,
+	gregkh@linuxfoundation.org, akpm@linux-foundation.org,
+	rostedt@goodmis.org, mingo@redhat.com, davem@davemloft.net,
+	keescook@chromium.org, tranmanphong@gmail.com, cov@codeaurora.org,
+	dh.herrmann@gmail.com, hughd@google.com, bobby.prani@gmail.com,
+	serge.hallyn@ubuntu.com, ebiederm@xmission.com,
+	tim.bird@sonymobile.com, josh@joshtriplett.org, koct9i@gmail.com,
+	linux-kbuild@vger.kernel.org, linux-api@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Shuah Khan <shuahkh@osg.samsung.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <54B95006.3080502@osg.samsung.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 18 January 2015 at 22:17, Kalle Valo <kvalo@codeaurora.org> wrote:
-> Andy Green <andy.green@linaro.org> writes:
->
->> Convert the list of chip types to an enum, add the default
->> UNKNOWN type and a type for WCN3620 chip
->>
->> Signed-off-by: Andy Green <andy.green@linaro.org>
->
-> Please just use "wcn36xx: ", you should drop "net: wireless: " entirely.
+On Fri, 2015-01-16 at 10:53 -0700, Shuah Khan wrote:
+> On 01/09/2015 02:06 AM, Michael Ellerman wrote:
+> > This adds a Make include file which most selftests can then include to
+> > get the run_tests logic.
+> > 
+> > On its own this has the advantage of some reduction in repetition, and
+> > also means the pass/fail message is defined in fewer places.
+> > 
+> > However the key advantage is it will allow us to implement install very
+> > simply in a subsequent patch.
+> > 
+> > The default implementation just executes each program in $(TEST_PROGS).
+> > 
+> > We use a variable to hold the default implementation of $(RUN_TESTS)
+> > because that gives us a clean way to override it if necessary, ie. using
+> > override. The mount, memory-hotplug and mqueue tests use that to provide
+> > a different implementation.
+> > 
+> > Tests are not run via /bin/bash, so if they are scripts they must be
+> > executable, we add u+x to several.
+> > 
+> > Signed-off-by: Michael Ellerman <mpe@ellerman.id.au>
+> 
+> I like the shared logic approach in general provided it leaves the
+> flexibility to not use the shared logic if a test have the need to
+> do so.
 
-OK.
+Yes of course it does, it's entirely optional to include lib.mk.
 
-Can you help me understand what you'd like to see happen with the chip
-variant detection stuff?
+> This series requires some patch planning. shared logic patch
+> followed by individual test patches as opposed a single patch.
 
-There's a comment sent to one list only saying it might be preferable
-to keep the old detection code as the default.  But there are no
-in-tree users of wcn36xx (mainly due to PIL not being in mainline, I
-guess).
+It could be a single patch too, but there's no reason to do it that way. The
+series works fine as I sent it.
 
-The old test's equivalence that AC == 3680 seems kind of weak to me
-and establishing the type must be passed in from platform code
-reflects the situation that there's no public way to detect the chip
-type from Qualcomm.  In the second not-for-upstream series I use that
-to pass it in from DT, which is how it'd be normally used.
+> I would like to see the shared logic work done on top of my patch v4
+> series.
 
--Andy
+That's a waste of time. This series replaces your v4. Doing this "on top" of
+your v4 would just mean reverting your v4 series and then applying this.
 
-> --
-> Kalle Valo
+cheers
