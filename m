@@ -1,71 +1,41 @@
-From: Felipe Balbi <balbi@ti.com>
-Subject: Re: [patch-net-next v3 2/2] net: ethernet: cpsw: don't requests IRQs
- we don't use
-Date: Mon, 19 Jan 2015 08:40:17 -0600
-Message-ID: <20150119144017.GB20386@saruman>
-References: <1421424672-19323-1-git-send-email-balbi@ti.com>
- <1421424672-19323-2-git-send-email-balbi@ti.com>
- <20150118.010750.480741880077015933.davem@davemloft.net>
-Reply-To: <balbi@ti.com>
+From: Vadim Kochan <vadim4j@gmail.com>
+Subject: Re: [PATCH mac80211-next] nl80211: Allow set network namespace by fd
+Date: Mon, 19 Jan 2015 16:34:57 +0200
+Message-ID: <20150119143457.GA6988@angus-think.wlc.globallogic.com>
+References: <1421073245-20312-1-git-send-email-vadim4j@gmail.com>
+ <1421225246.1950.22.camel@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="6sX45UoQRIJXqkqR"
-Cc: <balbi@ti.com>, <tony@atomide.com>, <linux-omap@vger.kernel.org>,
-	<mugunthanvnm@ti.com>, <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-omap-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150118.010750.480741880077015933.davem@davemloft.net>
-Sender: linux-omap-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
---6sX45UoQRIJXqkqR
 Content-Type: text/plain; charset=us-ascii
+Cc: Vadim Kochan <vadim4j@gmail.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	linux-wireless@vger.kernel.org, netdev <netdev@vger.kernel.org>
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f169.google.com ([74.125.82.169]:54334 "EHLO
+	mail-we0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751166AbbASOpf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jan 2015 09:45:35 -0500
 Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+In-Reply-To: <1421225246.1950.22.camel@sipsolutions.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jan 18, 2015 at 01:07:50AM -0500, David Miller wrote:
-> From: Felipe Balbi <balbi@ti.com>
-> Date: Fri, 16 Jan 2015 10:11:12 -0600
->=20
-> > CPSW never uses RX_THRESHOLD or MISC interrupts. In
-> > fact, they are always kept masked in their appropriate
-> > IRQ Enable register.
-> >=20
-> > Instead of allocating an IRQ that never fires, it's best
-> > to remove that code altogether and let future patches
-> > implement it if anybody needs those.
-> >=20
-> > Signed-off-by: Felipe Balbi <balbi@ti.com>
->=20
-> Applied.
+On Wed, Jan 14, 2015 at 09:47:26AM +0100, Johannes Berg wrote:
+> On Mon, 2015-01-12 at 16:34 +0200, Vadim Kochan wrote:
+> 
+> > --- a/net/core/net_namespace.c
+> > +++ b/net/core/net_namespace.c
+> > @@ -361,6 +361,7 @@ struct net *get_net_ns_by_fd(int fd)
+> >  	return ERR_PTR(-EINVAL);
+> >  }
+> >  #endif
+> > +EXPORT_SYMBOL_GPL(get_net_ns_by_fd);
+> 
+> Does this seem OK? Vadim is adding support for using the ns-by-fd in
+> nl80211, which can be a module as part of cfg80211.
+> 
+> johannes
+> 
+PING ... in case if this email was missed ...
 
-looks like randconfig caught a build break. Do you want an incremental
-patch or this patch again with the fix in it ?
-
---=20
-balbi
-
---6sX45UoQRIJXqkqR
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIcBAEBAgAGBQJUvRdQAAoJEIaOsuA1yqRExS8QAKrdEGMntztP//KqtJXE/EpE
-clE1VYCoJr4koFJvcKMPzmawfEQYzg1kDbMbdRm4zP2xLIcTNejqvRK4urvXuwsW
-fdztzsAFPD4Kn0rcOHuGIR7tid6joKmyAtbuY65zkRg8Jq96hfflMhdBJzWmsuWo
-yxeQ6XWNkm0O9aH95Q8wFDjFGuLNVJbwy+VBGHV8IyDB9FyHmfmyQGigSZGnvymT
-Y/2HEI2GSQwtvLpBP0HFS2/BDzFPUFeEgFU3TdLfzayugYh8LXV+lg804uYTfZJD
-6xlKPZwcXeU0Wnk5wEBCt6NmmoOs/7G46MekQv8fhXY4Gn0M2fFyi174jA7Bb+kd
-ojNqUa/DWvDnF4HZMGiQ8Mwn1PT0H566sJsNu70KikatOgXl2j/w+mKN0IMZMW4m
-5CYajdpdNZC+S/hAeWseEaafJfaccjcE3SBZ2lIC/tN4A8xmGCQckTtLHbWGjWwz
-1VHfYNZ99a0cREkOfDFPY8dcHqrg4TG63hKhp5e4b5Z2HBheYwSAI+ql9NeKT/Or
-Xp1D0hoSWdSRmmt3etzJxFtTxma4U21UICBJyMHR+4bW1RXExiQPAHGrfZjG5s/R
-TcK3jU4mAQUUpDeQ2dZqVT6TWxHtlZGb92yPH8HPYAgVL3RjUhqQTw1EtyP75hDj
-aTEo5gjSG1LogVOrKKWt
-=4tjn
------END PGP SIGNATURE-----
-
---6sX45UoQRIJXqkqR--
+Thanks,
