@@ -1,39 +1,66 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: Re: [net-next PATCH v2 01/12] net: flow_table: create interface for
- hw match/action tables
-Date: Mon, 19 Jan 2015 14:09:39 +0900
-Message-ID: <20150119050937.GD5612@vergenet.net>
-References: <20150113212941.13874.48692.stgit@nitbit.x32>
- <20150113213529.13874.16858.stgit@nitbit.x32>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: tgraf@suug.ch, sfeldma@gmail.com, netdev@vger.kernel.org,
-	gerlitz.or@gmail.com, jhs@mojatatu.com, andy@greyhouse.net,
-	davem@davemloft.net
-To: John Fastabend <john.fastabend@gmail.com>
+From: Rami Rosen <rami.rosen@intel.com>
+Subject: [PATCH net-next] bridge: remove oflags from setlink/dellink.
+Date: Mon, 19 Jan 2015 11:45:04 +0200
+Message-ID: <1421660704-5122-1-git-send-email-rami.rosen@intel.com>
+Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
+	hemminger@vyatta.com, Rami Rosen <rami.rosen@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:53299 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750733AbbASFJv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jan 2015 00:09:51 -0500
-Received: by mail-pa0-f41.google.com with SMTP id rd3so36427566pab.0
-        for <netdev@vger.kernel.org>; Sun, 18 Jan 2015 21:09:51 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20150113213529.13874.16858.stgit@nitbit.x32>
+Received: from mga02.intel.com ([134.134.136.20]:9708 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750713AbbASFxs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 19 Jan 2015 00:53:48 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[snip]
+Commit 02dba4388d16 ("bridge: fix setlink/dellink notifications") removed usage of oflags in 
+both rtnl_bridge_setlink() and rtnl_bridge_dellink() methods. This patch removes this variable as it is no 
+longer needed.
 
-> --- /dev/null
-> +++ b/net/core/flow_table.c
-> @@ -0,0 +1,942 @@
-> +/*
-> + * include/uapi/linux/if_flow.h - Flow table interface for Switch devices
+Signed-off-by: Rami Rosen <rami.rosen@intel.com>
+---
+ net/core/rtnetlink.c | 8 ++------
+ 1 file changed, 2 insertions(+), 6 deletions(-)
 
-Hi John,
-
-its seems that the path in the above comment should be
-net/core/flow_table.c.
-
-[snip]
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index 0e26b9f..47b39f3 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -2918,7 +2918,7 @@ static int rtnl_bridge_setlink(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 	struct net_device *dev;
+ 	struct nlattr *br_spec, *attr = NULL;
+ 	int rem, err = -EOPNOTSUPP;
+-	u16 oflags, flags = 0;
++	u16 flags = 0;
+ 	bool have_flags = false;
+ 
+ 	if (nlmsg_len(nlh) < sizeof(*ifm))
+@@ -2948,8 +2948,6 @@ static int rtnl_bridge_setlink(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 		}
+ 	}
+ 
+-	oflags = flags;
+-
+ 	if (!flags || (flags & BRIDGE_FLAGS_MASTER)) {
+ 		struct net_device *br_dev = netdev_master_upper_dev_get(dev);
+ 
+@@ -2993,7 +2991,7 @@ static int rtnl_bridge_dellink(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 	struct net_device *dev;
+ 	struct nlattr *br_spec, *attr = NULL;
+ 	int rem, err = -EOPNOTSUPP;
+-	u16 oflags, flags = 0;
++	u16 flags = 0;
+ 	bool have_flags = false;
+ 
+ 	if (nlmsg_len(nlh) < sizeof(*ifm))
+@@ -3023,8 +3021,6 @@ static int rtnl_bridge_dellink(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 		}
+ 	}
+ 
+-	oflags = flags;
+-
+ 	if (!flags || (flags & BRIDGE_FLAGS_MASTER)) {
+ 		struct net_device *br_dev = netdev_master_upper_dev_get(dev);
+ 
+-- 
+1.9.3
