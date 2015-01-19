@@ -1,55 +1,38 @@
-From: Heiko =?ISO-8859-1?Q?St=FCbner?= <heiko@sntech.de>
-Subject: Re: [PATCH v1 0/4] net: stmmac: dwmac-rk: Fix phy regulator issues
-Date: Mon, 19 Jan 2015 21:19:29 +0100
-Message-ID: <1446006.BXnWRvK5p3@phil>
-References: <1421690889-11901-1-git-send-email-romain.perier@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/5] bonding: various 802.3ad fixes
+Date: Mon, 19 Jan 2015 15:19:51 -0500 (EST)
+Message-ID: <20150119.151951.942179510763360937.davem@davemloft.net>
+References: <1421423848-414-1-git-send-email-jtoppins@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: peppe.cavallaro@st.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-rockchip@lists.infradead.org,
-	linux-arm-kernel@lists.infradead.org, devicetree@vger.kernel.org,
-	roger.chen@rock-chips.com
-To: Romain Perier <romain.perier@gmail.com>,
-	David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1421690889-11901-1-git-send-email-romain.perier@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: jtoppins@cumulusnetworks.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:34086 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752177AbbASUTy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jan 2015 15:19:54 -0500
+In-Reply-To: <1421423848-414-1-git-send-email-jtoppins@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Romain
+From: Jonathan Toppins <jtoppins@cumulusnetworks.com>
+Date: Fri, 16 Jan 2015 10:57:23 -0500
 
-Am Montag, 19. Januar 2015, 18:08:05 schrieb Romain Perier:
-> This series fixes few issues in dwmac-rk:
+> This patch series is a forward porting of patches we (Cumulus) are shipping
+> in our 3.2 series kernels. These fixes attempt to make 802.3ad bonding mode
+> more predictable in certian state machine transtions in addition to enhancing
+> 802.3ad bond carrier determination based on acutal number of peered ports plus
+> if the bond has an active aggregrator. Specific notes are contained within each
+> patch.
 > 
-> 1. Voltage settings was hardcoded into the driver for the phy regulator.
->    The driver now uses the default voltage settings found in the devicetree,
-> which are applied throught the regulator framework.
-> 2. The regulator name used to power on or power off the phy was put in the
-> devicetree variable "phy_regulator", which is not standard and added a lot
-> of code for nothing. The driver now uses the devicetree property
-> "phy-supply" and the corresponding functions to manipulate this regulator.
-> 
-> The corresponding devicetree files are also updated. As, dwmac-rk was
-> recently pushed in the development tree, I don't care about devicetree
-> backward compatibility issues.
+> For this patch series there are no userspace facing changes, a diff between
+> the modinfo output showed no difference. However, there are behavioral
+> facing changes, primarily in the bond carrier state. Please make sure to
+> review carefully.
 
-This last sentence is slightly misleading :-) .
+There was some minor feedback given to you for this series, please address
+it and repost the set.
 
-The actual fact is, that these new bindings for the rk3288 gmac have not been 
-released with any official kernel release yet ... i.e. the will be released with 
-3.20 in whatever form, so we don't _need_ to care about keeping compatibility 
-still for the next 2.5 weeks or so.
-
-@Dave: it would be good if this series (when fixed) could still go into the 
-3.20 material so we don't get stuck with the non-standard regulator property.
-
-
-As we'll probably need a v2 due to at the issue in patch3, could you also 
-switch places of patch1 and 2, which would keep bisecatbility (i.e. regulator 
-property before removing the voltage setting from the driver).
-
-
-Otherwise this series:
-Reviewed-by: Heiko Stuebner <heiko@sntech.de>
-Tested-by: Heiko Stuebner <heiko@sntech.de>
+Thanks.
