@@ -1,73 +1,48 @@
-From: David Vrabel <david.vrabel@citrix.com>
-Subject: Re: [Xen-devel] [RFC PATCHv1 net-next] xen-netback: always fully
- coalesce guest Rx packets
-Date: Mon, 19 Jan 2015 17:36:10 +0000
-Message-ID: <54BD408A.6080405@citrix.com>
-References: <1421157917-31333-1-git-send-email-david.vrabel@citrix.com> <20150113143033.GN4226@zion.uk.xensource.com>
+From: Felipe Balbi <balbi@ti.com>
+Subject: [patch-net-next v3] net: ethernet: ti: cpsw: fix buld break when NET_POLL_CONTROLLER
+Date: Mon, 19 Jan 2015 11:52:36 -0600
+Message-ID: <1421689956-14369-1-git-send-email-balbi@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 8bit
-Cc: <netdev@vger.kernel.org>, Ian Campbell <ian.campbell@citrix.com>,
-	<xen-devel@lists.xenproject.org>,
-	Jonathan Davies <jonathan.davies@citrix.com>
-To: Wei Liu <wei.liu2@citrix.com>,
-	David Vrabel <david.vrabel@citrix.com>
+Content-Type: text/plain
+Cc: Tony Lindgren <tony@atomide.com>,
+	Linux OMAP Mailing List <linux-omap@vger.kernel.org>,
+	<mugunthanvnm@ti.com>, <netdev@vger.kernel.org>,
+	Felipe Balbi <balbi@ti.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:14713 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751772AbbASRvb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jan 2015 12:51:31 -0500
-In-Reply-To: <20150113143033.GN4226@zion.uk.xensource.com>
+Received: from bear.ext.ti.com ([192.94.94.41]:45076 "EHLO bear.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751641AbbASRxa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 19 Jan 2015 12:53:30 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 13/01/15 14:30, Wei Liu wrote:
-> On Tue, Jan 13, 2015 at 02:05:17PM +0000, David Vrabel wrote:
->> Always fully coalesce guest Rx packets into the minimum number of ring
->> slots.  Reducing the number of slots per packet has significant
->> performance benefits (e.g., 7.2 Gbit/s to 11 Gbit/s in an off-host
->> receive test).
->>
-> 
-> Good number.
-> 
->> However, this does increase the number of grant ops per packet which
->> decreases performance with some workloads (intrahost VM to VM)
-> 
-> Do you have figures before and after this change?
+Commit c03abd84634d (net: ethernet: cpsw: don't requests IRQs we don't
+use) left one build breakage when NET_POLL_CONTROLLER is enabled.
 
-Some better (more rigorous) results done by Jonathan Davies shows no
-regressions with full coalescing even without the grant copy
-optimization, and a big improvement to single stream receive.
+Fix this build break by referring to the correct irqs_table array.
 
-                         baseline    Full coalesce
-Interhost aggregate      24 Gb/s     24 Gb/s
-Interhost VM receive      7.2 Gb/s   11 Gb/s
-Intrahost single stream  14 Gb/s     14 Gb/s
-Intrahost aggregate      34 Gb/s     34 Gb/s
+Fixes: c03abd84634d (net: ethernet: cpsw: don't requests IRQs we don't use)
+Reported-by: kbuild test robot <fengguang.wu@intel.com>
+Signed-off-by: Felipe Balbi <balbi@ti.com>
+---
+ drivers/net/ethernet/ti/cpsw.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-We do not measure the performance of dom0 to guest traffic but my ad-hoc
-measurements suggest this may be 5-10% slower.  I don't think this is a
-very important use case though.
-
-So...
-
->> /unless/ grant copy has been optimized for adjacent ops with the same
->> source or destination (see "grant-table: defer releasing pages
->> acquired in a grant copy"[1]).
->>
->> Do we need to retain the existing path and make the always coalesce
->> path conditional on a suitable version of Xen?
-
-...I think the answer to this is no.
-
->> ---
->>  drivers/net/xen-netback/common.h  |    1 -
->>  drivers/net/xen-netback/netback.c |  106 ++-----------------------------------
->>  2 files changed, 3 insertions(+), 104 deletions(-)
-> 
-> Love the diffstat!
-
-Yes, it's always nice when you delete code and it goes faster... :)
-
-David
+diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+index ba09ff3c1695..a0e9a2b384f8 100644
+--- a/drivers/net/ethernet/ti/cpsw.c
++++ b/drivers/net/ethernet/ti/cpsw.c
+@@ -1625,8 +1625,8 @@ static void cpsw_ndo_poll_controller(struct net_device *ndev)
+ 
+ 	cpsw_intr_disable(priv);
+ 	cpdma_ctlr_int_ctrl(priv->dma, false);
+-	cpsw_rx_interrupt(priv->irq[0], priv);
+-	cpsw_tx_interrupt(priv->irq[1], priv);
++	cpsw_rx_interrupt(priv->irqs_table[0], priv);
++	cpsw_tx_interrupt(priv->irqs_table[1], priv);
+ 	cpdma_ctlr_int_ctrl(priv->dma, true);
+ 	cpsw_intr_enable(priv);
+ }
+-- 
+2.2.0
