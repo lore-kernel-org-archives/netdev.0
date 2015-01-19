@@ -1,37 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] mii: Handle link state changes for forced
- modes in mii_check_media()
-Date: Mon, 19 Jan 2015 15:40:09 -0500 (EST)
-Message-ID: <20150119.154009.1883297001784841706.davem@davemloft.net>
-References: <1421430935.1222.196.camel@xylophone.i.decadent.org.uk>
+Subject: Re: [PATCH net-next v2 0/2] net: DSA fixes for bridge and
+ ip-autoconf
+Date: Mon, 19 Jan 2015 15:45:36 -0500 (EST)
+Message-ID: <20150119.154536.999083093407802603.davem@davemloft.net>
+References: <1421430962-18119-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ct178-internal@lists.codethink.co.uk, netdev@vger.kernel.org,
-	linux-kernel@lists.codethink.co.uk
-To: ben.hutchings@codethink.co.uk
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34399 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751317AbbASUkL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jan 2015 15:40:11 -0500
-In-Reply-To: <1421430935.1222.196.camel@xylophone.i.decadent.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org, kaber@trash.net,
+	buytenh@wantstofly.org
+To: f.fainelli@gmail.com
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1421430962-18119-1-git-send-email-f.fainelli@gmail.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Ben Hutchings <ben.hutchings@codethink.co.uk>
-Date: Fri, 16 Jan 2015 17:55:35 +0000
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Fri, 16 Jan 2015 09:56:00 -0800
 
-> mii_check_media() does not update the link (carrier) state or log link
-> changes when the link mode is forced.  Drivers using the mii library
-> must do this themselves, but most of them do not.
+> These two patches address some real world use cases of the DSA master and slave
+> network devices.
 > 
-> Instead of changing them all, provide a sensible default behaviour
-> similar to mii_check_link() when the mode is forced.
+> You have already seen patch 1 previously and you rejected it since my
+> explanations were not good enough to provide a justification as to why it is
+> useful, hopefully this time my explanation is better.
 > 
-> via-rhine depends on it being a no-op in this case, so make its call
-> to mii_check_media() conditional.
-> 
-> Signed-off-by: Ben Hutchings <ben.hutchings@codethink.co.uk>
+> Patch 2 solves a different, yet very real problem as well at the bridge layer
+> when using DSA network devices.
 
-Seems reasonable, applied, thanks Ben.
+Series applied, thanks.
