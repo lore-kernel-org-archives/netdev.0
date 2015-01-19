@@ -1,83 +1,51 @@
-From: Shuah Khan <shuahkh@osg.samsung.com>
-Subject: Re: [PATCH 1/6] selftests: Introduce minimal shared logic for running
- tests
-Date: Mon, 19 Jan 2015 09:39:09 -0700
-Message-ID: <54BD332D.6010907@osg.samsung.com>
-References: <1420794375-31881-1-git-send-email-mpe@ellerman.id.au> <54B95006.3080502@osg.samsung.com> <1421627742.3787.6.camel@ellerman.id.au>
+From: Thomas Jarosch <thomas.jarosch@intra2net.com>
+Subject: Re: Re: Re: [bisected regression] e1000e: "Detected Hardware Unit Hang"
+Date: Mon, 19 Jan 2015 17:49:58 +0100
+Message-ID: <6534595.xliyeOG6D7@storm>
+References: <1719052.SGOfRAJhfQ@storm> <8088599.PZmG8U31O2@storm> <1421335532.11734.73.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, mmarek@suse.cz,
-	gregkh@linuxfoundation.org, akpm@linux-foundation.org,
-	rostedt@goodmis.org, mingo@redhat.com, davem@davemloft.net,
-	keescook@chromium.org, tranmanphong@gmail.com, cov@codeaurora.org,
-	dh.herrmann@gmail.com, hughd@google.com, bobby.prani@gmail.com,
-	serge.hallyn@ubuntu.com, ebiederm@xmission.com,
-	tim.bird@sonymobile.com, josh@joshtriplett.org, koct9i@gmail.com,
-	linux-kbuild@vger.kernel.org, linux-api@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Michael Ellerman <mpe@ellerman.id.au>
-Return-path: <linux-kbuild-owner@vger.kernel.org>
-In-Reply-To: <1421627742.3787.6.camel@ellerman.id.au>
-Sender: linux-kbuild-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7Bit
+Cc: 'Linux Netdev List' <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	e1000-devel <e1000-devel@lists.sourceforge.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rs04.intra2net.com ([85.214.66.2]:40592 "EHLO
+	rs04.intra2net.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751596AbbASQuC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jan 2015 11:50:02 -0500
+In-Reply-To: <1421335532.11734.73.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/18/2015 05:35 PM, Michael Ellerman wrote:
-> On Fri, 2015-01-16 at 10:53 -0700, Shuah Khan wrote:
->> On 01/09/2015 02:06 AM, Michael Ellerman wrote:
->>> This adds a Make include file which most selftests can then include to
->>> get the run_tests logic.
->>>
->>> On its own this has the advantage of some reduction in repetition, and
->>> also means the pass/fail message is defined in fewer places.
->>>
->>> However the key advantage is it will allow us to implement install very
->>> simply in a subsequent patch.
->>>
->>> The default implementation just executes each program in $(TEST_PROGS).
->>>
->>> We use a variable to hold the default implementation of $(RUN_TESTS)
->>> because that gives us a clean way to override it if necessary, ie. using
->>> override. The mount, memory-hotplug and mqueue tests use that to provide
->>> a different implementation.
->>>
->>> Tests are not run via /bin/bash, so if they are scripts they must be
->>> executable, we add u+x to several.
->>>
->>> Signed-off-by: Michael Ellerman <mpe@ellerman.id.au>
->>
->> I like the shared logic approach in general provided it leaves the
->> flexibility to not use the shared logic if a test have the need to
->> do so.
+On Thursday, 15. January 2015 07:25:32 Eric Dumazet wrote:
+> On Thu, 2015-01-15 at 15:58 +0100, Thomas Jarosch wrote:
+> > A colleague mentioned to me he saw the "Hardware Unit Hang" message
+> > every
+> > few days even running on kernel 3.4 (without your patch). Basically I'm
+> > testing now if that's still the case with 3.19-rc4+ or not.
+> > 
+> > I'm all for fixing the root cause. I'm just interested if the e1000e
+> > hang can even be triggered when using a max frag page size of 4096.
+> > So far it transferred 751.6 GiB without a hiccup.
 > 
-> Yes of course it does, it's entirely optional to include lib.mk.
+> You told it was forwarding setup.
 > 
->> This series requires some patch planning. shared logic patch
->> followed by individual test patches as opposed a single patch.
-> 
-> It could be a single patch too, but there's no reason to do it that way. The
-> series works fine as I sent it.
-> 
->> I would like to see the shared logic work done on top of my patch v4
->> series.
-> 
-> That's a waste of time. This series replaces your v4. Doing this "on top" of
-> your v4 would just mean reverting your v4 series and then applying this.
-> 
+> 1) What is the NIC receiving traffic.
+> 2) What happens if you disable GRO on it ?
 
-No necessarily if the work is done as evolutionary step. In any case,
-I want the first step install target support going into the upcoming
-release and then make improvements to it. Please send separate patch
-for the shared logic and individual test patches that use the shared
-logic if you would like to make the improvements.
+one more interesting thing happened: On one production machine,
+again an Intel DH61CR board, the issue was triggered even with TSO disabled.
+My colleague tried to disable GRO + GSO on the e1000e adapter, too,
+though not on the other interfaces.
 
-thanks,
--- Shuah
+It's strange the issue appears with TSO disabled,
+that worked for three other production level machines.
 
+We've emergency-installed the "4096" max frag page size workaround
+for now as fifty people were a bit unhappy without network access... :D
 
--- 
-Shuah Khan
-Sr. Linux Kernel Developer
-Open Source Innovation Group
-Samsung Research America (Silicon Valley)
-shuahkh@osg.samsung.com | (970) 217-8978
+Cheers,
+Thomas
