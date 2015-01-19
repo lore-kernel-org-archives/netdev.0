@@ -1,57 +1,41 @@
-From: Vadim Kochan <vadim4j@gmail.com>
+From: Hagen Paul Pfeifer <hagen@jauu.net>
 Subject: Re: [PATCH iproute2 3/3] ss: Unify tcp stats output
-Date: Mon, 19 Jan 2015 16:04:21 +0200
-Message-ID: <20150119140421.GA1786@angus-think.wlc.globallogic.com>
+Date: Mon, 19 Jan 2015 15:28:21 +0100
+Message-ID: <CAPh34me7KFWnwgOaJmWZg3NxtzOZVce3VYShSy5PfeUkYkJcag@mail.gmail.com>
 References: <1421613815-6635-1-git-send-email-vadim4j@gmail.com>
- <1421613815-6635-4-git-send-email-vadim4j@gmail.com>
- <CAPh34mdJ7mjzueaX2qakoT=ODbHDLm4k-K_3Eg__6+s7ydf4Gg@mail.gmail.com>
+	<1421613815-6635-4-git-send-email-vadim4j@gmail.com>
+	<CAPh34mdJ7mjzueaX2qakoT=ODbHDLm4k-K_3Eg__6+s7ydf4Gg@mail.gmail.com>
+	<20150119140421.GA1786@angus-think.wlc.globallogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Vadim Kochan <vadim4j@gmail.com>, netdev <netdev@vger.kernel.org>
-To: Hagen Paul Pfeifer <hagen@jauu.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>
+To: Vadim Kochan <vadim4j@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f54.google.com ([74.125.82.54]:54217 "EHLO
-	mail-wg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751066AbbASOPJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jan 2015 09:15:09 -0500
-Received: by mail-wg0-f54.google.com with SMTP id b13so1901862wgh.13
-        for <netdev@vger.kernel.org>; Mon, 19 Jan 2015 06:15:08 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <CAPh34mdJ7mjzueaX2qakoT=ODbHDLm4k-K_3Eg__6+s7ydf4Gg@mail.gmail.com>
+Received: from mail-la0-f43.google.com ([209.85.215.43]:44212 "EHLO
+	mail-la0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751479AbbASO2X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jan 2015 09:28:23 -0500
+Received: by mail-la0-f43.google.com with SMTP id q1so13826416lam.2
+        for <netdev@vger.kernel.org>; Mon, 19 Jan 2015 06:28:21 -0800 (PST)
+In-Reply-To: <20150119140421.GA1786@angus-think.wlc.globallogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 19, 2015 at 02:57:50PM +0100, Hagen Paul Pfeifer wrote:
-> On 18 January 2015 at 21:43, Vadim Kochan <vadim4j@gmail.com> wrote:
-> 
-> > Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
-> > ---
-> >  misc/ss.c | 362 +++++++++++++++++++++++++++++++++++++++-----------------------
-> >  1 file changed, 231 insertions(+), 131 deletions(-)
-> 
-> Hey Vadin,
-> 
-> your patch do *not* change the output format, right? ss output is
-> parsed by scripts and tools.
-> 
-> hgn
+Hey Vadin,
 
-Hi,
+to make this short. We already discussed about changing the layout and
+Stephen nacked this. My proposal was to key:value the output. Because
+nearly all outputed data is already in this format - except the
+congestion control algo, ts, sack and tx'ed data. Where I proposed
+cc:<algo>. The key:value format has the advantages that the ordering
+do not mather anymore, An python parser would be something like split
+for whitespaces and later split for colon. Currently parsing this is a
+mess, see [1].
 
-It should not for tcp but does for memory info in the 1st patch where
-the memeinfo param names were changed.
+Anyway, the more clever idea is to add an json outputer like already
+supported by some ss modules and get rid of this mess.
 
-Regarding parsing of ss by scripts and tools, thats really painful
-for me to see how ss outputs additional info, it is not human readable,
-actually I'd like to change the output layout in the future, and add
-something like online output option '-O'.
+Hagen
 
-May be you can test these patches if they breaks output parsing ?
 
-Anyway I will give up with ss output changes if we really carrying about
-to keep the same output for scripts/tools.
-
-Here are some comments from Stephen:
-    http://marc.info/?l=linux-netdev&m=142129033800881&w=2
-
-Regards,
+[1] https://github.com/hgn/captcp/blob/master/captcp.py#L4861
