@@ -1,46 +1,58 @@
-From: Enrico Mioso <mrkiko.rs@gmail.com>
-Subject: [discuss] [cdc_ncm] Refactoring cdc_ncm
-Date: Mon, 19 Jan 2015 17:51:57 +0100 (CET)
-Message-ID: <alpine.LNX.2.03.1501191743360.2081@gmail.com>
-References: <AMSPR06MB6011E001029C251790CB923EE780@AMSPR06MB601.eurprd06.prod.outlook.com> <877fy7myfb.fsf@nemi.mork.no> <alpine.LNX.2.03.1412041326160.9926@gmail.com> <54811670.5030703@audiocodes.com> <8761dqjuuh.fsf@nemi.mork.no>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net 2/2] sh_eth: Fix ethtool operation crash when net
+ device is down
+Date: Mon, 19 Jan 2015 09:28:06 -0800
+Message-ID: <54BD3EA6.9000900@gmail.com>
+References: <1421430592.1222.190.camel@xylophone.i.decadent.org.uk>	 <1421430685.1222.192.camel@xylophone.i.decadent.org.uk>	 <CAGVrzcbj2JANTECtxgDUrb7c_20nyoW4n5ARndHGKYuQu-0kQg@mail.gmail.com> <1421664085.1222.200.camel@xylophone.i.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: Kevin Zhu <Mingying.Zhu@audiocodes.com>,
-	Midge Shaojun Tan <ShaojunMidge.Tan@audiocodes.com>,
-	Eli Britstein <Eli.Britstein@audiocodes.com>,
-	Alex Strizhevsky <alexxst@gmail.com>,
-	"youtux@gmail.com" <youtux@gmail.com>,
-	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: =?ISO-8859-15?Q?Bj=F8rn_Mork?= <bjorn@mork.no>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@lists.codethink.co.uk>,
+	Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>,
+	Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>,
+	Hisashi Nakamura <hisashi.nakamura.ak@renesas.com>,
+	Yoshihiro Kaneko <ykaneko0929@gmail.com>
+To: Ben Hutchings <ben.hutchings@codethink.co.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f182.google.com ([209.85.212.182]:49773 "EHLO
-	mail-wi0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751401AbbASQvh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jan 2015 11:51:37 -0500
-In-Reply-To: <8761dqjuuh.fsf@nemi.mork.no>
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:40987 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751702AbbASR2T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jan 2015 12:28:19 -0500
+Received: by mail-pa0-f42.google.com with SMTP id et14so40046830pad.1
+        for <netdev@vger.kernel.org>; Mon, 19 Jan 2015 09:28:19 -0800 (PST)
+In-Reply-To: <1421664085.1222.200.camel@xylophone.i.decadent.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi guys.
-I am noticing that in kernel 3.19rc4, the driver from huawei,
-hw_cdc_driver
-is not able to perform the call to
-netif_msg_ifup anymore (receives error -13).
-This to say that it would be very important to continue the work on refactoring 
-cdc_ncm.c driver to let it work with newer huawei devices such as the E3372 
-even at full rates.
-I received some acks regarding the patches I sent last time - and I am grateful 
-to you all maintainers / reviewers. I have actually not received acks for all 
-the patches so I preferred waiting and not continously re-sending again.
-This also happened due to me getting very busy lately with studying.
-So the situation is getting complicated.
-I sent this mail to everyone just to keep you up-to-date. Don't worry.
-Any help from any developer interested would be very apreciated.
-I would need some mentoring or help in general with coding.
+On 19/01/15 02:41, Ben Hutchings wrote:
+> On Fri, 2015-01-16 at 10:45 -0800, Florian Fainelli wrote:
+>> 2015-01-16 9:51 GMT-08:00 Ben Hutchings <ben.hutchings@codethink.co.uk>:
+> [...]
+>>> --- a/drivers/net/ethernet/renesas/sh_eth.c
+>>> +++ b/drivers/net/ethernet/renesas/sh_eth.c
+>>> @@ -1827,6 +1827,9 @@ static int sh_eth_get_settings(struct net_device *ndev,
+>>>         unsigned long flags;
+>>>         int ret;
+>>>
+>>> +       if (!mdp->phydev)
+>>> +               return -ENODEV;
+>>
+>> Since the PHY is disconnected, would not checking for netif_running()
+>> make sense here, unless there is a good reason to still allow
+>> phy_ethtool_gset() to be called?
+> [...]
+> 
+> I think those two conditions will be equivalent, won't they?
 
-Thank you all very much.
+They are indeed.
 
-Sincerely.
+>  Writing the condition like this will also work if the driver later supports
+> PHY-less configurations.
 
-Enrico
+You could also represent a PHY-less configuration by using the emulated
+fixed-PHY, such that the driver is effectively "driving" a PHY device,
+even though this is not a real one, up to you.
+-- 
+Florian
