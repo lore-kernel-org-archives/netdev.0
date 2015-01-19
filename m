@@ -1,49 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 3/5] bonding: fix incorrect lacp mux state
- when agg not active
-Date: Mon, 19 Jan 2015 15:56:42 -0500 (EST)
-Message-ID: <20150119.155642.161549131768663205.davem@davemloft.net>
-References: <1421423848-414-4-git-send-email-jtoppins@cumulusnetworks.com>
-	<54BD5A53.8050609@redhat.com>
-	<54BD6E28.8020705@cumulusnetworks.com>
+Subject: Re: [PATCH net-next] net: ipv6: Add sysctl entry to disable MTU
+ updates from RA
+Date: Mon, 19 Jan 2015 15:58:07 -0500 (EST)
+Message-ID: <20150119.155807.377681769985591321.davem@davemloft.net>
+References: <1421456558-27144-1-git-send-email-harouth@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: nikolay@redhat.com, netdev@vger.kernel.org,
-	gospo@cumulusnetworks.com, wkok@cumulusnetworks.com
-To: jtoppins@cumulusnetworks.com
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org
+To: harouth@codeaurora.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34636 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:34657 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752459AbbASU4p (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jan 2015 15:56:45 -0500
-In-Reply-To: <54BD6E28.8020705@cumulusnetworks.com>
+	with ESMTP id S1750953AbbASU6J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jan 2015 15:58:09 -0500
+In-Reply-To: <1421456558-27144-1-git-send-email-harouth@codeaurora.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jonathan Toppins <jtoppins@cumulusnetworks.com>
-Date: Mon, 19 Jan 2015 15:50:48 -0500
-
-> On 1/19/15 2:26 PM, Nikolay Aleksandrov wrote:
->>> diff --git a/drivers/net/bonding/bond_3ad.c
->>> b/drivers/net/bonding/bond_3ad.c
->>> index e9b706f..52a8772 100644
->>> --- a/drivers/net/bonding/bond_3ad.c
->>> +++ b/drivers/net/bonding/bond_3ad.c
->>> @@ -471,10 +471,13 @@ static void __record_pdu(struct lacpdu *lacpdu,
->>> struct port *port)
->>>   		 * and the port is matched
->>>   		 */
->>>   		if ((port->sm_vars & AD_PORT_MATCHED)
->>> -		    && (lacpdu->actor_state & AD_STATE_SYNCHRONIZATION))
->>> + && (lacpdu->actor_state & AD_STATE_SYNCHRONIZATION)) {
->> In net/ it's preferred to have the logical operators at the end of the
->> previous line. It'd be nice if we start fixing these in bond_3ad.c
->> since
->> they're being touched by the patch anyhow.
-> 
-> Ack, I prefer at the end too. Question, would it be acceptable to do
-> the cleanup of the entire bond_3ad.c code in a separate patch? That
-> way the fix vs. cleanup is clear.
-
-If you're touching this line, fix it's style in-situ.
+RnJvbTogSGFyb3V0IEhlZGVzaGlhbiA8aGFyb3V0aEBjb2RlYXVyb3JhLm9yZz4NCkRhdGU6IEZy
+aSwgMTYgSmFuIDIwMTUgMTg6MDI6MzggLTA3MDANCg0KPiBUaGUga2VybmVsIGZvcmNlZnVsbHkg
+YXBwbGllcyBNVFUgdmFsdWVzIHJlY2VpdmVkIGluIHJvdXRlcg0KPiBhZHZlcnRpc2VtZW50cyBw
+cm92aWRlZCB0aGUgbmV3IE1UVSBpcyBsZXNzIHRoYW4gdGhlIGN1cnJlbnQuIFRoaXMNCj4gYmVo
+YXZpb3IgaXMgdW5kZXNpcmFibGUgd2hlbiB0aGUgdXNlciBzcGFjZSBpcyBtYW5hZ2luZyB0aGUg
+TVRVLiBJbnN0ZWFkDQo+IGEgc3lzY3RsIGZsYWcgJ2FjY2VwdF9yYV9tdHUnIGlzIGludHJvZHVj
+ZWQgc3VjaCB0aGF0IHRoZSB1c2VyIHNwYWNlDQo+IGNhbiBjb250cm9sIHdoZXRoZXIgb3Igbm90
+IFJBIHByb3ZpZGVkIE1UVSB1cGRhdGVzIHNob3VsZCBiZSBhcHBsaWVkLiBUaGUNCj4gZGVmYXVs
+dCBiZWhhdmlvciBpcyB1bmNoYW5nZWQ7IHVzZXIgc3BhY2UgbXVzdCBleHBsaWNpdGx5IHNldCB0
+aGlzIGZsYWcNCj4gdG8gMCBmb3IgUkEgTVRVcyB0byBiZSBpZ25vcmVkLg0KPiANCj4gU2lnbmVk
+LW9mZi1ieTogSGFyb3V0IEhlZGVzaGlhbiA8aGFyb3V0aEBjb2RlYXVyb3JhLm9yZz4NCg0KQSBy
+ZWFsbHkgc2xvcHB5IHN1Ym1pc3Npb24sIHNvcnJ5IEkgY2FuJ3QgYXBwbHkgdGhpcy4NCg0KPiAr
+CXsgQ1RMX0lOVCwJTkVUX0lQVjZfQUNDRVBUX1JBX01UVSwJCQkiYWNjZXB0X3JhX210dSIgfSwN
+Cg0KVGhpcyBpc24ndCBkZWZpbmVkIGFueXdoZXJlLCB5b3UgbGVmdCBvdXQgc29tZSBmaWxlIHdo
+aWxlIGNyZWF0aW5nDQp5b3VyIHBhdGNoLg0KDQprZXJuZWwvc3lzY3RsX2JpbmFyeS5jOjUyNjox
+MzogZXJyb3I6IKFORVRfSVBWNl9BQ0NFUFRfUkFfTVRVoiB1bmRlY2xhcmVkIGhlcmUgKG5vdCBp
+biBhIGZ1bmN0aW9uKQ0KDQoNCj4gLQlpZiAobmRvcHRzLm5kX29wdHNfbXR1KSB7DQo+ICsJaWYg
+KG5kb3B0cy5uZF9vcHRzX210dSAgJiYgaW42X2Rldi0+Y25mLmFjY2VwdF9yYV9tdHUpIHsNCg0K
+VG9vIG1hbnkgc3BhY2VkIGJlZm9yZSB0aGUgJiYNCg==
