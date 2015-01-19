@@ -1,63 +1,34 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch] s2io: use snprintf() as a safety feature
-Date: Mon, 19 Jan 2015 22:34:51 +0300
-Message-ID: <20150119193451.GB32634@mwanda>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch-net-next v3] net: ethernet: ti: cpsw: fix buld break
+ when NET_POLL_CONTROLLER
+Date: Mon, 19 Jan 2015 14:45:18 -0500 (EST)
+Message-ID: <20150119.144518.396869631568771714.davem@davemloft.net>
+References: <1421689956-14369-1-git-send-email-balbi@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Jon Mason <jdmason@kudzu.us>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: tony@atomide.com, linux-omap@vger.kernel.org, mugunthanvnm@ti.com,
+	netdev@vger.kernel.org
+To: balbi@ti.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:35361 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751166AbbASTeK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jan 2015 14:34:10 -0500
-Content-Disposition: inline
+Received: from shards.monkeyblade.net ([149.20.54.216]:33463 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751916AbbASTpY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jan 2015 14:45:24 -0500
+In-Reply-To: <1421689956-14369-1-git-send-email-balbi@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-"sp->desc[i]" has 25 characters.  "dev->name" has 15 characters.  If we
-used all 15 characters then the sprintf() would overflow.
+From: Felipe Balbi <balbi@ti.com>
+Date: Mon, 19 Jan 2015 11:52:36 -0600
 
-I changed the "sprintf(sp->name, "%s Neterion %s"" to snprintf(), as
-well, even though it can't overflow just to be consistent.
+> Commit c03abd84634d (net: ethernet: cpsw: don't requests IRQs we don't
+> use) left one build breakage when NET_POLL_CONTROLLER is enabled.
+> 
+> Fix this build break by referring to the correct irqs_table array.
+> 
+> Fixes: c03abd84634d (net: ethernet: cpsw: don't requests IRQs we don't use)
+> Reported-by: kbuild test robot <fengguang.wu@intel.com>
+> Signed-off-by: Felipe Balbi <balbi@ti.com>
 
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
----
-This driver is quite old.
-
-diff --git a/drivers/net/ethernet/neterion/s2io.c b/drivers/net/ethernet/neterion/s2io.c
- 0529cad..a4cdf2f 100644
---- a/drivers/net/ethernet/neterion/s2io.c
-+++ b/drivers/net/ethernet/neterion/s2io.c
-@@ -6987,7 +6987,9 @@ static int s2io_add_isr(struct s2io_nic *sp)
- 			if (sp->s2io_entries[i].in_use == MSIX_FLG) {
- 				if (sp->s2io_entries[i].type ==
- 				    MSIX_RING_TYPE) {
--					sprintf(sp->desc[i], "%s:MSI-X-%d-RX",
-+					snprintf(sp->desc[i],
-+						sizeof(sp->desc[i]),
-+						"%s:MSI-X-%d-RX",
- 						dev->name, i);
- 					err = request_irq(sp->entries[i].vector,
- 							  s2io_msix_ring_handle,
-@@ -6996,7 +6998,9 @@ static int s2io_add_isr(struct s2io_nic *sp)
- 							  sp->s2io_entries[i].arg);
- 				} else if (sp->s2io_entries[i].type ==
- 					   MSIX_ALARM_TYPE) {
--					sprintf(sp->desc[i], "%s:MSI-X-%d-TX",
-+					snprintf(sp->desc[i],
-+						sizeof(sp->desc[i]),
-+						"%s:MSI-X-%d-TX",
- 						dev->name, i);
- 					err = request_irq(sp->entries[i].vector,
- 							  s2io_msix_fifo_handle,
-@@ -8154,7 +8158,8 @@ s2io_init_nic(struct pci_dev *pdev, const struct pci_device_id *pre)
- 			  "%s: UDP Fragmentation Offload(UFO) enabled\n",
- 			  dev->name);
- 	/* Initialize device name */
--	sprintf(sp->name, "%s Neterion %s", dev->name, sp->product_name);
-+	snprintf(sp->name, sizeof(sp->name), "%s Neterion %s", dev->name,
-+		 sp->product_name);
- 
- 	if (vlan_tag_strip)
- 		sp->vlan_strip_flag = 1;
+Applied, thanks.
