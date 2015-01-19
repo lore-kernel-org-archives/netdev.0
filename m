@@ -1,7 +1,7 @@
 From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH net-next 6/7] r8152: replace get_protocol with vlan_get_protocol
-Date: Mon, 19 Jan 2015 15:13:36 +0800
-Message-ID: <1394712342-15778-124-Taiwan-albertk@realtek.com>
+Subject: [PATCH net-next 5/7] r8152: adjust the link feed for hw_features
+Date: Mon, 19 Jan 2015 15:13:35 +0800
+Message-ID: <1394712342-15778-123-Taiwan-albertk@realtek.com>
 References: <1394712342-15778-118-Taiwan-albertk@realtek.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -13,54 +13,27 @@ In-Reply-To: <1394712342-15778-118-Taiwan-albertk@realtek.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-vlan_get_protocol() has been defined and use it to replace
-get_protocol().
+Keep NETIF_F_HW_VLAN_CTAG_RX and NETIF_F_HW_VLAN_CTAG_TX at the
+same line.
 
 Signed-off-by: Hayes Wang <hayeswang@realtek.com>
 ---
- drivers/net/usb/r8152.c | 16 ++--------------
- 1 file changed, 2 insertions(+), 14 deletions(-)
+ drivers/net/usb/r8152.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
 diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index f66ffbd..46440ed 100644
+index 9be642e..f66ffbd 100644
 --- a/drivers/net/usb/r8152.c
 +++ b/drivers/net/usb/r8152.c
-@@ -1342,18 +1342,6 @@ static struct tx_agg *r8152_get_tx_agg(struct r8152 *tp)
- 	return agg;
- }
- 
--static inline __be16 get_protocol(struct sk_buff *skb)
--{
--	__be16 protocol;
--
--	if (skb->protocol == htons(ETH_P_8021Q))
--		protocol = vlan_eth_hdr(skb)->h_vlan_encapsulated_proto;
--	else
--		protocol = skb->protocol;
--
--	return protocol;
--}
--
- /* r8152_csum_workaround()
-  * The hw limites the value the transport offset. When the offset is out of the
-  * range, calculate the checksum by sw.
-@@ -1459,7 +1447,7 @@ static int r8152_tx_csum(struct r8152 *tp, struct tx_desc *desc,
- 			goto unavailable;
- 		}
- 
--		switch (get_protocol(skb)) {
-+		switch (vlan_get_protocol(skb)) {
- 		case htons(ETH_P_IP):
- 			opts1 |= GTSENDV4;
- 			break;
-@@ -1490,7 +1478,7 @@ static int r8152_tx_csum(struct r8152 *tp, struct tx_desc *desc,
- 			goto unavailable;
- 		}
- 
--		switch (get_protocol(skb)) {
-+		switch (vlan_get_protocol(skb)) {
- 		case htons(ETH_P_IP):
- 			opts2 |= IPV4_CS;
- 			ip_protocol = ip_hdr(skb)->protocol;
+@@ -3926,8 +3926,7 @@ static int rtl8152_probe(struct usb_interface *intf,
+ 	netdev->hw_features = NETIF_F_RXCSUM | NETIF_F_IP_CSUM | NETIF_F_SG |
+ 			      NETIF_F_TSO | NETIF_F_FRAGLIST |
+ 			      NETIF_F_IPV6_CSUM | NETIF_F_TSO6 |
+-			      NETIF_F_HW_VLAN_CTAG_RX |
+-			      NETIF_F_HW_VLAN_CTAG_TX;
++			      NETIF_F_HW_VLAN_CTAG_RX | NETIF_F_HW_VLAN_CTAG_TX;
+ 	netdev->vlan_features = NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_TSO |
+ 				NETIF_F_HIGHDMA | NETIF_F_FRAGLIST |
+ 				NETIF_F_IPV6_CSUM | NETIF_F_TSO6;
 -- 
 2.1.0
