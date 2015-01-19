@@ -1,41 +1,48 @@
-From: Vadim Kochan <vadim4j@gmail.com>
-Subject: Re: [PATCH mac80211-next] nl80211: Allow set network namespace by fd
-Date: Mon, 19 Jan 2015 16:34:57 +0200
-Message-ID: <20150119143457.GA6988@angus-think.wlc.globallogic.com>
-References: <1421073245-20312-1-git-send-email-vadim4j@gmail.com>
- <1421225246.1950.22.camel@sipsolutions.net>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH iproute2 3/3] ss: Unify tcp stats output
+Date: Mon, 19 Jan 2015 15:48:56 +0100
+Message-ID: <54BD1958.6030403@redhat.com>
+References: <1421613815-6635-1-git-send-email-vadim4j@gmail.com> <1421613815-6635-4-git-send-email-vadim4j@gmail.com> <CAPh34mdJ7mjzueaX2qakoT=ODbHDLm4k-K_3Eg__6+s7ydf4Gg@mail.gmail.com> <20150119140421.GA1786@angus-think.wlc.globallogic.com> <CAPh34me7KFWnwgOaJmWZg3NxtzOZVce3VYShSy5PfeUkYkJcag@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Vadim Kochan <vadim4j@gmail.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	linux-wireless@vger.kernel.org, netdev <netdev@vger.kernel.org>
-To: Johannes Berg <johannes@sipsolutions.net>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Vadim Kochan <vadim4j@gmail.com>, netdev <netdev@vger.kernel.org>,
+	stephen@networkplumber.org
+To: Hagen Paul Pfeifer <hagen@jauu.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f169.google.com ([74.125.82.169]:54334 "EHLO
-	mail-we0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751166AbbASOpf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jan 2015 09:45:35 -0500
-Content-Disposition: inline
-In-Reply-To: <1421225246.1950.22.camel@sipsolutions.net>
+Received: from mx1.redhat.com ([209.132.183.28]:53013 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751225AbbASOtI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 19 Jan 2015 09:49:08 -0500
+In-Reply-To: <CAPh34me7KFWnwgOaJmWZg3NxtzOZVce3VYShSy5PfeUkYkJcag@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 14, 2015 at 09:47:26AM +0100, Johannes Berg wrote:
-> On Mon, 2015-01-12 at 16:34 +0200, Vadim Kochan wrote:
-> 
-> > --- a/net/core/net_namespace.c
-> > +++ b/net/core/net_namespace.c
-> > @@ -361,6 +361,7 @@ struct net *get_net_ns_by_fd(int fd)
-> >  	return ERR_PTR(-EINVAL);
-> >  }
-> >  #endif
-> > +EXPORT_SYMBOL_GPL(get_net_ns_by_fd);
-> 
-> Does this seem OK? Vadim is adding support for using the ns-by-fd in
-> nl80211, which can be a module as part of cfg80211.
-> 
-> johannes
-> 
-PING ... in case if this email was missed ...
+On 01/19/2015 03:28 PM, Hagen Paul Pfeifer wrote:
+> Hey Vadin,
+>
+> to make this short. We already discussed about changing the layout and
+> Stephen nacked this. My proposal was to key:value the output. Because
+> nearly all outputed data is already in this format - except the
+> congestion control algo, ts, sack and tx'ed data. Where I proposed
+> cc:<algo>. The key:value format has the advantages that the ordering
+> do not mather anymore, An python parser would be something like split
+> for whitespaces and later split for colon. Currently parsing this is a
+> mess, see [1].
+>
+> Anyway, the more clever idea is to add an json outputer like already
+> supported by some ss modules and get rid of this mess.
 
-Thanks,
++1
+
+I was also thinking in addition to json, that it might be useful to have
+an optional ncurses top-like mode in ss. The level of detail could be
+unfolded for a specific entry on demand, etc. I would not add it as a
+hard library requirement, but in case ncurses headers are detected by
+the configure script, it could be compiled in then. It's also easily
+changeable since there's no such requirement that the way data is being
+displayed needs to be stable for scripts.
+
+> Hagen
+>
+> [1] https://github.com/hgn/captcp/blob/master/captcp.py#L4861
