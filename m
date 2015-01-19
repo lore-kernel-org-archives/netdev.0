@@ -1,76 +1,48 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: pull-request: mac80211-next 2015-01-19
-Date: Mon, 19 Jan 2015 19:06:22 +0100
-Message-ID: <1421690782.1965.43.camel@sipsolutions.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	linux-wireless <linux-wireless@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:35717 "EHLO sipsolutions.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751853AbbASSGZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 19 Jan 2015 13:06:25 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Romain Perier <romain.perier-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH v1 0/4] net: stmmac: dwmac-rk: Fix phy regulator issues
+Date: Mon, 19 Jan 2015 18:08:05 +0000
+Message-ID: <1421690889-11901-1-git-send-email-romain.perier@gmail.com>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	heiko-4mtYJXux2i+zQB+pC5nmwQ@public.gmane.org, linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	roger.chen-TNX95d0MmH7DzftRWevZcw@public.gmane.org
+To: peppe.cavallaro-qxv4g6HH51o@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+This series fixes few issues in dwmac-rk:
 
-Please excuse the quick succession of pull requests - two issues were
-found in the code from the previous one that we'd like to fix quickly,
-along with less than a handful of other changes described below.
+1. Voltage settings was hardcoded into the driver for the phy regulator.
+   The driver now uses the default voltage settings found in the devicetree, which are
+   applied throught the regulator framework.
+2. The regulator name used to power on or power off the phy was put in the devicetree
+   variable "phy_regulator", which is not standard and added a lot of code for nothing.
+   The driver now uses the devicetree property "phy-supply" and the corresponding functions
+   to manipulate this regulator.
 
-Thanks,
-johannes
+The corresponding devicetree files are also updated. As, dwmac-rk was recently
+pushed in the development tree, I don't care about devicetree backward compatibility
+issues.
 
-The following changes since commit baf1b99ba169bdd3324ac9d99bc2a00c25534429:
+Romain Perier (4):
+  net: stmmac: dwmac-rk: Don't set the regulator voltage for phy from
+    the driver
+  ARM: dts: Add regulator voltage settings for vcc_phy in
+    rk3288-evb.dtsi
+  net: stmmac: dwmac-rk: Use standard devicetree property for phy
+    regulator
+  ARM: dts: Convert gmac to phy-supply in rk3288-evb-rk808.dts
 
-  cfg80211: docs: remove station_info_flags (2015-01-14 13:57:36 +0100)
+ arch/arm/boot/dts/rk3288-evb-rk808.dts         |  2 +-
+ arch/arm/boot/dts/rk3288-evb.dtsi              |  2 +
+ drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c | 62 ++++++++------------------
+ 3 files changed, 22 insertions(+), 44 deletions(-)
 
-are available in the git repository at:
+-- 
+1.9.1
 
-  git://git.kernel.org/pub/scm/linux/kernel/git/jberg/mac80211-next.git tags/mac80211-next-for-davem-2015-01-19
-
-for you to fetch changes up to c1e140bf79d817d4a7aa9932eb98b0359c87af33:
-
-  mac80211: delete the assoc/auth timer upon suspend (2015-01-19 18:59:20 +0100)
-
-----------------------------------------------------------------
-Some further updates for net-next:
- * fix network-manager which was broken by the previous changes
- * fix delete-station events, which were broken by me making the
-   genlmsg_end() mistake
- * fix a timer left running during suspend in some race conditions
-   that would cause an annoying (but harmless) warning
- * (less important, but in the tree already) remove 80+80 MHz rate
-   reporting since the spec doesn't distinguish it from 160 MHz;
-   as the bitrate they're both 160 MHz bandwidth
-
-----------------------------------------------------------------
-Emmanuel Grumbach (1):
-      mac80211: delete the assoc/auth timer upon suspend
-
-Johannes Berg (6):
-      mac80211: remove 80+80 MHz rate reporting
-      cfg80211: remove 80+80 MHz rate reporting
-      cfg80211: change bandwidth reporting to explicit field
-      mac80211: remove doubled semicolon
-      cfg80211: fix checking nl80211_send_station() return value
-      Revert "wireless: Support of IFLA_INFO_KIND rtnl attribute"
-
- drivers/net/wireless/ath/ath6kl/cfg80211.c |  3 +-
- drivers/net/wireless/mwifiex/cfg80211.c    | 11 ++++----
- include/net/cfg80211.h                     | 35 ++++++++++++++++-------
- include/net/mac80211.h                     |  6 ++--
- include/uapi/linux/nl80211.h               | 11 +++++++-
- net/mac80211/cfg.c                         | 33 +++++++++++++---------
- net/mac80211/mlme.c                        | 12 ++++++++
- net/mac80211/rx.c                          |  5 ----
- net/mac80211/status.c                      |  2 +-
- net/mac80211/util.c                        | 27 +++++++++++-------
- net/wireless/core.c                        |  6 ----
- net/wireless/nl80211.c                     | 45 +++++++++++++++++++-----------
- net/wireless/util.c                        | 25 +++++++++++++----
- 13 files changed, 143 insertions(+), 78 deletions(-)
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
