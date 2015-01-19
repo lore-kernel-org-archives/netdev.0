@@ -1,69 +1,57 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: build failure after merge of the net-next tree
-Date: Mon, 19 Jan 2015 14:06:10 +1100
-Message-ID: <20150119140610.6b41b5ef@canb.auug.org.au>
+From: roopa <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next] iproute2: bridge: support vlan range
+Date: Sun, 18 Jan 2015 19:06:46 -0800
+Message-ID: <54BC74C6.6070702@cumulusnetworks.com>
+References: <1421391147-35021-1-git-send-email-roopa@cumulusnetworks.com> <CAE4R7bA2VHepe8CCYuubH8teXMvRry10jnpsisYq+7Qv+gXzHQ@mail.gmail.com> <54BB78DA.6060208@cumulusnetworks.com> <CAE4R7bA6f-f9zTL4iKn11xAWD7evbEGMb+b8zgrm780Hx0yg4w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
- boundary="Sig_/f+KABpqlzq61FD8th6Oe4hx"; protocol="application/pgp-signature"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Jiri Pirko <jiri@resnulli.us>,
-	Scott Feldman <sfeldma@gmail.com>,
-	Gustavo Padovan <gustavo@padovan.org>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Netdev <netdev@vger.kernel.org>, shemminger@vyatta.com,
+	"vyasevic@redhat.com" <vyasevic@redhat.com>,
+	Wilson Kok <wkok@cumulusnetworks.com>
+To: Scott Feldman <sfeldma@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:43768 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750953AbbASDGs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 Jan 2015 22:06:48 -0500
+Received: by mail-pa0-f43.google.com with SMTP id lj1so10188998pab.2
+        for <netdev@vger.kernel.org>; Sun, 18 Jan 2015 19:06:47 -0800 (PST)
+In-Reply-To: <CAE4R7bA6f-f9zTL4iKn11xAWD7evbEGMb+b8zgrm780Hx0yg4w@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Sig_/f+KABpqlzq61FD8th6Oe4hx
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: quoted-printable
+On 1/18/15, 9:44 AM, Scott Feldman wrote:
+> On Sun, Jan 18, 2015 at 1:11 AM, roopa <roopa@cumulusnetworks.com> wrote:
+>> On 1/17/15, 5:35 PM, Scott Feldman wrote:
+>>> On Thu, Jan 15, 2015 at 10:52 PM,  <roopa@cumulusnetworks.com> wrote:
+>>>> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+>>>>
+>>>> This patch adds vlan range support to bridge command
+>>>> using the newly added vinfo flags BRIDGE_VLAN_INFO_RANGE_BEGIN and
+>>>> BRIDGE_VLAN_INFO_RANGE_END.
+>>>>
+>>>> +                               vinfo.flags |=
+>>>> BRIDGE_VLAN_INFO_RANGE_BEGIN;
+>>>> +                       } else {
+>>>> +                               vinfo.vid = atoi(*argv);
+>>>> +                       }
+>>>>                   } else if (strcmp(*argv, "self") == 0) {
+>>>>                           flags |= BRIDGE_FLAGS_SELF;
+>>>>                   } else if (strcmp(*argv, "master") == 0) {
+>>>> @@ -67,7 +78,7 @@ static int vlan_modify(int cmd, int argc, char **argv)
+>>>>                   argc--; argv++;
+>>>>           }
+>>>>
+>>>> -       if (d == NULL || vid == -1) {
+>>>> +       if (d == NULL || vinfo.vid == -1) {
+>>> Where was vinfo.vid initialized to -1?  Maybe use vid rather than
+>>> vinfo.vid in the code above where parsing the arg, and continue using
+>>> vid and vid_end until final put of vinfo.
+>>>
+>> There is already a "memset(&vinfo, 0, sizeof(vinfo));"  in the code in the
+>> beginning of the function.
+> That's the problem...vinfo.vid is initialized to 0, not -1, so
+> checking if vinfo.vid == -1 is always false.
 
-Hi all,
-
-After merging the net-next tree, today's linux-next build (powerpc
-ppc64_defconfig) failed like this:
-
-In file included from net/bridge/br.c:22:0:
-include/net/switchdev.h:73:1: error: expected identifier or '(' before '{' =
-token
- {
- ^
-include/net/switchdev.h:71:19: warning: 'call_netdev_switch_notifiers' decl=
-ared 'static' but never defined [-Wunused-function]
- static inline int call_netdev_switch_notifiers(unsigned long val, struct n=
-et_device *dev,
-                   ^
-
-Caused by commit 03bf0c281234 ("switchdev: introduce switchdev notifier").
-
-I have used the net-next tree from next-20150116 for today.  I also had
-to use the bluetooth tree from next-20150116 as it was fast forwarded
-to be the same as the net-next tree today.
-
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-
---Sig_/f+KABpqlzq61FD8th6Oe4hx
-Content-Type: application/pgp-signature
-Content-Description: OpenPGP digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAEBCAAGBQJUvHSnAAoJEMDTa8Ir7ZwVC9EP/16734XQidexho/rbTWlTbrB
-VrRJx9cNyGPCvVSi6Gev1jf3ctfis6vPskyOTnfy6F4cWDCsrbuBck1qxH7DhtHX
-Jvl4/Uko9R/A7XSCdGLw6Bv7pDUuvyG7Twz8seuoogLJON/K4k3Plpi79rgsIgNn
-o3Q5qwY/fZJwH3FJBElytoszKJK3/zdKrdGnlmotT5lNag0VMdb+hwiY57T245Pk
-ido3H+J1xyNM/YphrLCy+iqreDHbJOIxBROnvSBip1As93oZWHmJEayOy6OQLPUn
-jQRjBSSylgOuEAO/mv4w6kN9eEURR11nnWo5HGySyoV7vMiTZ7tPxPhoAWf4fpZP
-p3IPw0Rh2dTiRIzam+FKxatT1xNPsWtxbk8SefwTxOcwNtafaOeWwcVmFvhdkHM4
-wPGYeZsW0/F5yNX1jPMWseD3VuN2b/6yfWmLhEUgjv2ONyhAO+omBoK3HIyigkuv
-81C176fwVHIJg5qN/M1d18TwUCvQWIHFVeSyVaHsHveGVWxe2oSec4JMyHQjxWvG
-AanCSoSvyU1WYAMm8CebWKZUcrDkSg8rRzinSz+9oCjDg140qXKxevGh+/Mm9W7u
-qjH1x/dhhKmbcae18/KY+NXgZOSJJw4wafiMyMOrxkT4agNIYdubreUWo7+lbgeT
-bVM07I4CBfWStlitRrvX
-=jr+B
------END PGP SIGNATURE-----
-
---Sig_/f+KABpqlzq61FD8th6Oe4hx--
+ack, v2 coming ... thanks
