@@ -1,62 +1,41 @@
-From: Vadim Kochan <vadim4j@gmail.com>
+From: Hagen Paul Pfeifer <hagen@jauu.net>
 Subject: Re: [PATCH iproute2 3/3] ss: Unify tcp stats output
-Date: Mon, 19 Jan 2015 16:50:09 +0200
-Message-ID: <20150119145009.GA7743@angus-think.wlc.globallogic.com>
+Date: Mon, 19 Jan 2015 16:01:22 +0100
+Message-ID: <CAPh34mcbE9uT3DBPe9jDCT7JuXBbnO55dKuxkodszrYTGKpovw@mail.gmail.com>
 References: <1421613815-6635-1-git-send-email-vadim4j@gmail.com>
- <1421613815-6635-4-git-send-email-vadim4j@gmail.com>
- <CAPh34mdJ7mjzueaX2qakoT=ODbHDLm4k-K_3Eg__6+s7ydf4Gg@mail.gmail.com>
- <20150119140421.GA1786@angus-think.wlc.globallogic.com>
- <CAPh34me7KFWnwgOaJmWZg3NxtzOZVce3VYShSy5PfeUkYkJcag@mail.gmail.com>
- <54BD1958.6030403@redhat.com>
+	<1421613815-6635-4-git-send-email-vadim4j@gmail.com>
+	<CAPh34mdJ7mjzueaX2qakoT=ODbHDLm4k-K_3Eg__6+s7ydf4Gg@mail.gmail.com>
+	<20150119140421.GA1786@angus-think.wlc.globallogic.com>
+	<CAPh34me7KFWnwgOaJmWZg3NxtzOZVce3VYShSy5PfeUkYkJcag@mail.gmail.com>
+	<20150119142803.GA5549@angus-think.wlc.globallogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Hagen Paul Pfeifer <hagen@jauu.net>,
-	Vadim Kochan <vadim4j@gmail.com>,
-	netdev <netdev@vger.kernel.org>, stephen@networkplumber.org
-To: Daniel Borkmann <dborkman@redhat.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>
+To: Vadim Kochan <vadim4j@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f180.google.com ([74.125.82.180]:62231 "EHLO
-	mail-we0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751671AbbASPAt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jan 2015 10:00:49 -0500
-Received: by mail-we0-f180.google.com with SMTP id m14so6670942wev.11
-        for <netdev@vger.kernel.org>; Mon, 19 Jan 2015 07:00:48 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <54BD1958.6030403@redhat.com>
+Received: from mail-la0-f42.google.com ([209.85.215.42]:56604 "EHLO
+	mail-la0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751166AbbASPBX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jan 2015 10:01:23 -0500
+Received: by mail-la0-f42.google.com with SMTP id ms9so7046407lab.1
+        for <netdev@vger.kernel.org>; Mon, 19 Jan 2015 07:01:22 -0800 (PST)
+In-Reply-To: <20150119142803.GA5549@angus-think.wlc.globallogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 19, 2015 at 03:48:56PM +0100, Daniel Borkmann wrote:
-> On 01/19/2015 03:28 PM, Hagen Paul Pfeifer wrote:
-> >Hey Vadin,
-> >
-> >to make this short. We already discussed about changing the layout and
-> >Stephen nacked this. My proposal was to key:value the output. Because
-> >nearly all outputed data is already in this format - except the
-> >congestion control algo, ts, sack and tx'ed data. Where I proposed
-> >cc:<algo>. The key:value format has the advantages that the ordering
-> >do not mather anymore, An python parser would be something like split
-> >for whitespaces and later split for colon. Currently parsing this is a
-> >mess, see [1].
-> >
-> >Anyway, the more clever idea is to add an json outputer like already
-> >supported by some ss modules and get rid of this mess.
-> 
-> +1
-> 
-> I was also thinking in addition to json, that it might be useful to have
-> an optional ncurses top-like mode in ss. The level of detail could be
-> unfolded for a specific entry on demand, etc. I would not add it as a
-> hard library requirement, but in case ncurses headers are detected by
-> the configure script, it could be compiled in then. It's also easily
-> changeable since there's no such requirement that the way data is being
-> displayed needs to be stable for scripts.
-> 
-> >Hagen
-> >
-> >[1] https://github.com/hgn/captcp/blob/master/captcp.py#L4861
+On 19 January 2015 at 15:28, Vadim Kochan <vadim4j@gmail.com> wrote:
 
-OK I will re-work series to do only refactoring/cleanups. And in future
-I will keep in mind about any surprises for ss parsers.
+> I am thinking may be 1st of all it is better to make output in json
+> format and after this trying to make changes with human readability.
+>
+> What do you think ?
 
-Regards,
+Mhh, if an JSON outputer is also provided a prioi *I* had no problems
+with an incompatible change. It is awful to parse the current output.
+*But* I am not sure if this opinion is shared by Stephen too. We
+probably break several scripts/applications with this change. Breaking
+the output *and* do not provide an stable alternative (JSON) is bad.
+
++1 for JSON (which is not that hard to implement)
+
+hgn
