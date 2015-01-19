@@ -1,93 +1,55 @@
-From: =?ISO-8859-1?Q?R=E9mi?= Denis-Courmont <remi@remlab.net>
-Subject: Re: [PATCH] phonet netlink: allow multiple messages per skb in route dump
-Date: Mon, 19 Jan 2015 22:11:50 +0200
-Message-ID: <45863435.BJJN05sX3K@philogene>
-References: <1421666124-16055-1-git-send-email-johannes@sipsolutions.net>
+From: Heiko =?ISO-8859-1?Q?St=FCbner?= <heiko@sntech.de>
+Subject: Re: [PATCH v1 0/4] net: stmmac: dwmac-rk: Fix phy regulator issues
+Date: Mon, 19 Jan 2015 21:19:29 +0100
+Message-ID: <1446006.BXnWRvK5p3@phil>
+References: <1421690889-11901-1-git-send-email-romain.perier@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Sakari Ailus <sakari.ailus@nokia.com>,
-	Remi Denis-Courmont <courmisch@gmail.com>,
-	Johannes Berg <johannes.berg@intel.com>
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns207790.ip-94-23-215.eu ([94.23.215.26]:57759 "EHLO
-	ns207790.ip-94-23-215.eu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751502AbbASUTI convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jan 2015 15:19:08 -0500
-In-Reply-To: <1421666124-16055-1-git-send-email-johannes@sipsolutions.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: peppe.cavallaro@st.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-rockchip@lists.infradead.org,
+	linux-arm-kernel@lists.infradead.org, devicetree@vger.kernel.org,
+	roger.chen@rock-chips.com
+To: Romain Perier <romain.perier@gmail.com>,
+	David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1421690889-11901-1-git-send-email-romain.perier@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le lundi 19 janvier 2015, 12:15:24 Johannes Berg a =E9crit :
-> From: Johannes Berg <johannes.berg@intel.com>
->=20
-> My previous patch to this file changed the code to be bug-compatible
-> towards userspace. Unless userspace (which I wasn't able to find)
-> implements the dump reader by hand in a wrong way, this isn't needed.
+Hi Romain
 
-The canonical userspace is there (specifically src/pnroute.c):
-https://gitorious.org/meego-cellular/phonet-utils/
+Am Montag, 19. Januar 2015, 18:08:05 schrieb Romain Perier:
+> This series fixes few issues in dwmac-rk:
+> 
+> 1. Voltage settings was hardcoded into the driver for the phy regulator.
+>    The driver now uses the default voltage settings found in the devicetree,
+> which are applied throught the regulator framework.
+> 2. The regulator name used to power on or power off the phy was put in the
+> devicetree variable "phy_regulator", which is not standard and added a lot
+> of code for nothing. The driver now uses the devicetree property
+> "phy-supply" and the corresponding functions to manipulate this regulator.
+> 
+> The corresponding devicetree files are also updated. As, dwmac-rk was
+> recently pushed in the development tree, I don't care about devicetree
+> backward compatibility issues.
 
-AFAICT, it should work either way. By now, I expect what's left of the=20
-Maemo/Meego/Mer/whatever community has forked or rewritten it though.
+This last sentence is slightly misleading :-) .
 
-> If it uses libnl or similar code putting multiple messages into a
-> single SKB is far more efficient.
->=20
-> Change the code to do this. While at it, also clean it up and don't
-> use so many variables - just store the address in the callback args
-> directly.
->=20
-> Signed-off-by: Johannes Berg <johannes.berg@intel.com>
-> ---
->  net/phonet/pn_netlink.c | 22 +++++++---------------
->  1 file changed, 7 insertions(+), 15 deletions(-)
->=20
-> diff --git a/net/phonet/pn_netlink.c b/net/phonet/pn_netlink.c
-> index 54d766842c2b..bc5ee5fbe6ae 100644
-> --- a/net/phonet/pn_netlink.c
-> +++ b/net/phonet/pn_netlink.c
-> @@ -272,31 +272,23 @@ static int route_doit(struct sk_buff *skb, stru=
-ct
-> nlmsghdr *nlh) static int route_dumpit(struct sk_buff *skb, struct
-> netlink_callback *cb) {
->  	struct net *net =3D sock_net(skb->sk);
-> -	u8 addr, addr_idx =3D 0, addr_start_idx =3D cb->args[0];
-> +	u8 addr;
->=20
->  	rcu_read_lock();
-> -	for (addr =3D 0; addr < 64; addr++) {
-> -		struct net_device *dev;
-> +	for (addr =3D cb->args[0]; addr < 64; addr++) {
-> +		struct net_device *dev =3D phonet_route_get_rcu(net, addr << 2);
->=20
-> -		dev =3D phonet_route_get_rcu(net, addr << 2);
->  		if (!dev)
->  			continue;
->=20
-> -		if (addr_idx++ < addr_start_idx)
-> -			continue;
-> -		fill_route(skb, dev, addr << 2, NETLINK_CB(cb->skb).portid,
-> -			   cb->nlh->nlmsg_seq, RTM_NEWROUTE);
-> -		/* fill_route() used to return > 0 (or negative errors) but
-> -		 * never 0 - ignore the return value and just go out to
-> -		 * call dumpit again from outside to preserve the behavior
-> -		 */
-> -		goto out;
-> +		if (fill_route(skb, dev, addr << 2, NETLINK_CB(cb->skb).portid,
-> +			       cb->nlh->nlmsg_seq, RTM_NEWROUTE) < 0)
-> +			goto out;
->  	}
->=20
->  out:
->  	rcu_read_unlock();
-> -	cb->args[0] =3D addr_idx;
-> -	cb->args[1] =3D 0;
-> +	cb->args[0] =3D addr;
->=20
->  	return skb->len;
->  }
+The actual fact is, that these new bindings for the rk3288 gmac have not been 
+released with any official kernel release yet ... i.e. the will be released with 
+3.20 in whatever form, so we don't _need_ to care about keeping compatibility 
+still for the next 2.5 weeks or so.
 
---=20
-R=E9mi
+@Dave: it would be good if this series (when fixed) could still go into the 
+3.20 material so we don't get stuck with the non-standard regulator property.
+
+
+As we'll probably need a v2 due to at the issue in patch3, could you also 
+switch places of patch1 and 2, which would keep bisecatbility (i.e. regulator 
+property before removing the voltage setting from the driver).
+
+
+Otherwise this series:
+Reviewed-by: Heiko Stuebner <heiko@sntech.de>
+Tested-by: Heiko Stuebner <heiko@sntech.de>
