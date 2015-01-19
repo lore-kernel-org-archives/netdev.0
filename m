@@ -1,42 +1,73 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch-net-next v3 2/2] net: ethernet: cpsw: don't requests
- IRQs we don't use
-Date: Mon, 19 Jan 2015 12:38:31 -0500 (EST)
-Message-ID: <20150119.123831.1656325571902467083.davem@davemloft.net>
-References: <1421424672-19323-2-git-send-email-balbi@ti.com>
-	<20150118.010750.480741880077015933.davem@davemloft.net>
-	<20150119144017.GB20386@saruman>
+From: David Vrabel <david.vrabel@citrix.com>
+Subject: Re: [Xen-devel] [RFC PATCHv1 net-next] xen-netback: always fully
+ coalesce guest Rx packets
+Date: Mon, 19 Jan 2015 17:36:10 +0000
+Message-ID: <54BD408A.6080405@citrix.com>
+References: <1421157917-31333-1-git-send-email-david.vrabel@citrix.com> <20150113143033.GN4226@zion.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: tony@atomide.com, linux-omap@vger.kernel.org, mugunthanvnm@ti.com,
-	netdev@vger.kernel.org
-To: balbi@ti.com
-Return-path: <linux-omap-owner@vger.kernel.org>
-In-Reply-To: <20150119144017.GB20386@saruman>
-Sender: linux-omap-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 8bit
+Cc: <netdev@vger.kernel.org>, Ian Campbell <ian.campbell@citrix.com>,
+	<xen-devel@lists.xenproject.org>,
+	Jonathan Davies <jonathan.davies@citrix.com>
+To: Wei Liu <wei.liu2@citrix.com>,
+	David Vrabel <david.vrabel@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp02.citrix.com ([66.165.176.63]:14713 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751772AbbASRvb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jan 2015 12:51:31 -0500
+In-Reply-To: <20150113143033.GN4226@zion.uk.xensource.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Felipe Balbi <balbi@ti.com>
-Date: Mon, 19 Jan 2015 08:40:17 -0600
-
-> On Sun, Jan 18, 2015 at 01:07:50AM -0500, David Miller wrote:
->> From: Felipe Balbi <balbi@ti.com>
->> Date: Fri, 16 Jan 2015 10:11:12 -0600
->> 
->> > CPSW never uses RX_THRESHOLD or MISC interrupts. In
->> > fact, they are always kept masked in their appropriate
->> > IRQ Enable register.
->> > 
->> > Instead of allocating an IRQ that never fires, it's best
->> > to remove that code altogether and let future patches
->> > implement it if anybody needs those.
->> > 
->> > Signed-off-by: Felipe Balbi <balbi@ti.com>
->> 
->> Applied.
+On 13/01/15 14:30, Wei Liu wrote:
+> On Tue, Jan 13, 2015 at 02:05:17PM +0000, David Vrabel wrote:
+>> Always fully coalesce guest Rx packets into the minimum number of ring
+>> slots.  Reducing the number of slots per packet has significant
+>> performance benefits (e.g., 7.2 Gbit/s to 11 Gbit/s in an off-host
+>> receive test).
+>>
 > 
-> looks like randconfig caught a build break. Do you want an incremental
-> patch or this patch again with the fix in it ?
+> Good number.
+> 
+>> However, this does increase the number of grant ops per packet which
+>> decreases performance with some workloads (intrahost VM to VM)
+> 
+> Do you have figures before and after this change?
 
-Always incremental patches.
+Some better (more rigorous) results done by Jonathan Davies shows no
+regressions with full coalescing even without the grant copy
+optimization, and a big improvement to single stream receive.
+
+                         baseline    Full coalesce
+Interhost aggregate      24 Gb/s     24 Gb/s
+Interhost VM receive      7.2 Gb/s   11 Gb/s
+Intrahost single stream  14 Gb/s     14 Gb/s
+Intrahost aggregate      34 Gb/s     34 Gb/s
+
+We do not measure the performance of dom0 to guest traffic but my ad-hoc
+measurements suggest this may be 5-10% slower.  I don't think this is a
+very important use case though.
+
+So...
+
+>> /unless/ grant copy has been optimized for adjacent ops with the same
+>> source or destination (see "grant-table: defer releasing pages
+>> acquired in a grant copy"[1]).
+>>
+>> Do we need to retain the existing path and make the always coalesce
+>> path conditional on a suitable version of Xen?
+
+...I think the answer to this is no.
+
+>> ---
+>>  drivers/net/xen-netback/common.h  |    1 -
+>>  drivers/net/xen-netback/netback.c |  106 ++-----------------------------------
+>>  2 files changed, 3 insertions(+), 104 deletions(-)
+> 
+> Love the diffstat!
+
+Yes, it's always nice when you delete code and it goes faster... :)
+
+David
