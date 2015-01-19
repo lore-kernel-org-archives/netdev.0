@@ -1,38 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/5] bonding: various 802.3ad fixes
-Date: Mon, 19 Jan 2015 15:19:51 -0500 (EST)
-Message-ID: <20150119.151951.942179510763360937.davem@davemloft.net>
-References: <1421423848-414-1-git-send-email-jtoppins@cumulusnetworks.com>
+Subject: Re: [PATCH v2 0/2] csiostor:Remove T4 FCoE support
+Date: Mon, 19 Jan 2015 15:30:37 -0500 (EST)
+Message-ID: <20150119.153037.240478310106457112.davem@davemloft.net>
+References: <cover.1421423434.git.praveenm@chelsio.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: jtoppins@cumulusnetworks.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34086 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752177AbbASUTy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jan 2015 15:19:54 -0500
-In-Reply-To: <1421423848-414-1-git-send-email-jtoppins@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-scsi@vger.kernel.org,
+	JBottomley@parallels.com, hch@infradead.org,
+	hariprasad@chelsio.com, varun@chelsio.com
+To: praveenm@chelsio.com
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <cover.1421423434.git.praveenm@chelsio.com>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jonathan Toppins <jtoppins@cumulusnetworks.com>
-Date: Fri, 16 Jan 2015 10:57:23 -0500
+From: Praveen Madhavan <praveenm@chelsio.com>
+Date: Fri, 16 Jan 2015 21:30:18 +0530
 
-> This patch series is a forward porting of patches we (Cumulus) are shipping
-> in our 3.2 series kernels. These fixes attempt to make 802.3ad bonding mode
-> more predictable in certian state machine transtions in addition to enhancing
-> 802.3ad bond carrier determination based on acutal number of peered ports plus
-> if the bond has an active aggregrator. Specific notes are contained within each
-> patch.
+> We found a subtle issue with FCoE on T4 very late in the game
+> and decided not to productize FCoE on T4 and therefore there
+> are no customers that will be impacted by this change. FCoE is
+> supported on T5 cards.
 > 
-> For this patch series there are no userspace facing changes, a diff between
-> the modinfo output showed no difference. However, there are behavioral
-> facing changes, primarily in the bond carrier state. Please make sure to
-> review carefully.
+> Please apply on net-next since depends on previous commits.
+> 
+> Changes in v2:
+>   - Make the commit message more clearer.
 
-There was some minor feedback given to you for this series, please address
-it and repost the set.
-
-Thanks.
+Series applied, thanks.
