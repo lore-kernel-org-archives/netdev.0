@@ -1,39 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: ipv6: Add sysctl entry to disable MTU
- updates from RA
-Date: Mon, 19 Jan 2015 15:58:07 -0500 (EST)
-Message-ID: <20150119.155807.377681769985591321.davem@davemloft.net>
-References: <1421456558-27144-1-git-send-email-harouth@codeaurora.org>
+Subject: Re: [PATCH 0/2] bgmac: some fixes to napi usage
+Date: Mon, 19 Jan 2015 16:00:20 -0500 (EST)
+Message-ID: <20150119.160020.564252568651703024.davem@davemloft.net>
+References: <1421606999-23692-1-git-send-email-hauke@hauke-m.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org
-To: harouth@codeaurora.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: zajec5@gmail.com, netdev@vger.kernel.org
+To: hauke@hauke-m.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34657 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:34675 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750953AbbASU6J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jan 2015 15:58:09 -0500
-In-Reply-To: <1421456558-27144-1-git-send-email-harouth@codeaurora.org>
+	with ESMTP id S1751345AbbASVAX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jan 2015 16:00:23 -0500
+In-Reply-To: <1421606999-23692-1-git-send-email-hauke@hauke-m.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogSGFyb3V0IEhlZGVzaGlhbiA8aGFyb3V0aEBjb2RlYXVyb3JhLm9yZz4NCkRhdGU6IEZy
-aSwgMTYgSmFuIDIwMTUgMTg6MDI6MzggLTA3MDANCg0KPiBUaGUga2VybmVsIGZvcmNlZnVsbHkg
-YXBwbGllcyBNVFUgdmFsdWVzIHJlY2VpdmVkIGluIHJvdXRlcg0KPiBhZHZlcnRpc2VtZW50cyBw
-cm92aWRlZCB0aGUgbmV3IE1UVSBpcyBsZXNzIHRoYW4gdGhlIGN1cnJlbnQuIFRoaXMNCj4gYmVo
-YXZpb3IgaXMgdW5kZXNpcmFibGUgd2hlbiB0aGUgdXNlciBzcGFjZSBpcyBtYW5hZ2luZyB0aGUg
-TVRVLiBJbnN0ZWFkDQo+IGEgc3lzY3RsIGZsYWcgJ2FjY2VwdF9yYV9tdHUnIGlzIGludHJvZHVj
-ZWQgc3VjaCB0aGF0IHRoZSB1c2VyIHNwYWNlDQo+IGNhbiBjb250cm9sIHdoZXRoZXIgb3Igbm90
-IFJBIHByb3ZpZGVkIE1UVSB1cGRhdGVzIHNob3VsZCBiZSBhcHBsaWVkLiBUaGUNCj4gZGVmYXVs
-dCBiZWhhdmlvciBpcyB1bmNoYW5nZWQ7IHVzZXIgc3BhY2UgbXVzdCBleHBsaWNpdGx5IHNldCB0
-aGlzIGZsYWcNCj4gdG8gMCBmb3IgUkEgTVRVcyB0byBiZSBpZ25vcmVkLg0KPiANCj4gU2lnbmVk
-LW9mZi1ieTogSGFyb3V0IEhlZGVzaGlhbiA8aGFyb3V0aEBjb2RlYXVyb3JhLm9yZz4NCg0KQSBy
-ZWFsbHkgc2xvcHB5IHN1Ym1pc3Npb24sIHNvcnJ5IEkgY2FuJ3QgYXBwbHkgdGhpcy4NCg0KPiAr
-CXsgQ1RMX0lOVCwJTkVUX0lQVjZfQUNDRVBUX1JBX01UVSwJCQkiYWNjZXB0X3JhX210dSIgfSwN
-Cg0KVGhpcyBpc24ndCBkZWZpbmVkIGFueXdoZXJlLCB5b3UgbGVmdCBvdXQgc29tZSBmaWxlIHdo
-aWxlIGNyZWF0aW5nDQp5b3VyIHBhdGNoLg0KDQprZXJuZWwvc3lzY3RsX2JpbmFyeS5jOjUyNjox
-MzogZXJyb3I6IKFORVRfSVBWNl9BQ0NFUFRfUkFfTVRVoiB1bmRlY2xhcmVkIGhlcmUgKG5vdCBp
-biBhIGZ1bmN0aW9uKQ0KDQoNCj4gLQlpZiAobmRvcHRzLm5kX29wdHNfbXR1KSB7DQo+ICsJaWYg
-KG5kb3B0cy5uZF9vcHRzX210dSAgJiYgaW42X2Rldi0+Y25mLmFjY2VwdF9yYV9tdHUpIHsNCg0K
-VG9vIG1hbnkgc3BhY2VkIGJlZm9yZSB0aGUgJiYNCg==
+From: Hauke Mehrtens <hauke@hauke-m.de>
+Date: Sun, 18 Jan 2015 19:49:57 +0100
+
+> I compared the napi documentation with the bgmac driver and found some 
+> problems in that driver. These two patches should fix the problems.
+
+Series applied, thanks.
