@@ -1,53 +1,68 @@
-From: Fugang Duan <b38611@freescale.com>
-Subject: [PATCH net-next 1/1] ARM: dts: imx6sx: correct i.MX6sx sdb board enet
- phy address
-Date: Mon, 19 Jan 2015 17:38:02 +0800
-Message-ID: <1421660282-29494-1-git-send-email-b38611@freescale.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH 7/9] rhashtable: Per bucket locks & deferred
+ expansion/shrinking
+Date: Mon, 19 Jan 2015 09:45:58 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CACBF27@AcuExch.aculab.com>
+References: <20150116153415.GF30132@acer.localdomain>
+ <20150116155835.GA15052@casper.infradead.org>
+ <20150116160354.GI30132@acer.localdomain>
+ <20150116161530.GC15052@casper.infradead.org>
+ <20150116163202.GJ30132@acer.localdomain>
+ <063D6719AE5E284EB5DD2968C1650D6D1CACADAF@AcuExch.aculab.com>
+ <20150116165302.GE15052@casper.infradead.org>
+ <20150116183626.GS30132@acer.localdomain>
+ <20150116191831.GA26730@casper.infradead.org>
+ <20150116193557.GU30132@acer.localdomain>
+ <20150116213605.GE20315@casper.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, s.hauer@pengutronix.de, b38611@freescale.com,
- stefan@agner.ch, linux-arm-kernel@lists.infradead.org
-To: <shawn.guo@linaro.org>, <davem@davemloft.net>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"herbert@gondor.apana.org.au" <herbert@gondor.apana.org.au>,
+	"paulmck@linux.vnet.ibm.com" <paulmck@linux.vnet.ibm.com>,
+	"edumazet@google.com" <edumazet@google.com>,
+	"john.r.fastabend@intel.com" <john.r.fastabend@intel.com>,
+	"josh@joshtriplett.org" <josh@joshtriplett.org>,
+	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>
+To: 'Thomas Graf' <tgraf@suug.ch>, Patrick McHardy <kaber@trash.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out6.electric.net ([192.162.217.184]:50481 "EHLO
+	smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751194AbbASJrt convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jan 2015 04:47:49 -0500
+In-Reply-To: <20150116213605.GE20315@casper.infradead.org>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The commit (3d125f9c91c5) cause i.MX6SX sdb enet cannot work. The cause is
-the commit add mdio node with un-correct phy address.
+From: Thomas Graf
+> On 01/16/15 at 07:35pm, Patrick McHardy wrote:
+> > On 16.01, Thomas Graf wrote:
+> > > Right,but that's a Netlink dump issue and not specific to rhashtable.
+> >
+> > Well, rhashtable (or generally resizing) will make it a lot worse.
+> > Usually we at worst miss entries which were added during the dump,
+> > which is made up by the notifications.
+> >
+> > With resizing we might miss anything, its completely undeterministic.
+> >
+> > > Putting the sequence number check in place should be sufficient
+> > > for sets, right?
+> >
+> > I don't see how. The problem is that the ordering of the hash changes
+> > and it will skip different entries than those that have already been
+> > dumped.
+> 
+> Since an resize can only be triggered through insert/remove you
+> simply bump a sequence number when you insert/remove and have
+> userspace restart the dump when NLM_F_DUMP_INTR is set.
 
-The patch just correct i.MX6sx sdb board enet phy address.
+You could suppress 'shrink' while a userspace dump is in progress
+and force userspace to restart on 'grow'.
 
-Signed-off-by: Fugang Duan <B38611@freescale.com>
----
- arch/arm/boot/dts/imx6sx-sdb.dts |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+The suppress does rather require that you know when any userspace 'walk'
+gives up. OTOH it should be possible to defer the 'shrink' everytime
+a walk reads some more of the data.
 
-diff --git a/arch/arm/boot/dts/imx6sx-sdb.dts b/arch/arm/boot/dts/imx6sx-sdb.dts
-index 8c1febd..9db123f 100644
---- a/arch/arm/boot/dts/imx6sx-sdb.dts
-+++ b/arch/arm/boot/dts/imx6sx-sdb.dts
-@@ -167,11 +167,11 @@
- 		#size-cells = <0>;
- 
- 		ethphy1: ethernet-phy@0 {
--			reg = <0>;
-+			reg = <1>;
- 		};
- 
- 		ethphy2: ethernet-phy@1 {
--			reg = <1>;
-+			reg = <2>;
- 		};
- 	};
- };
--- 
-1.7.8
+	David
