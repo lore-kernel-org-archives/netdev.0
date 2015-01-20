@@ -1,50 +1,105 @@
-From: Govindarajulu Varadarajan <_govind@gmx.com>
-Subject: [PATCH net 2/2] bnx2x: fix napi poll return value for repoll
-Date: Tue, 20 Jan 2015 18:46:16 +0530
-Message-ID: <1421759776-376-3-git-send-email-_govind@gmx.com>
-References: <1421759776-376-1-git-send-email-_govind@gmx.com>
-Cc: ssujith@cisco.com, benve@cisco.com,
-	Govindarajulu Varadarajan <_govind@gmx.com>
-To: davem@davemloft.net, netdev@vger.kernel.org, ariel.elior@qlogic.com
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [PATCH 1/3] rhashtable: Provide notifier for deferred resizes
+Date: Tue, 20 Jan 2015 14:20:25 +0100
+Message-ID: <1a7fba3c718fb70f0f5d67c9c49e4c154ebcd915.1421759056.git.tgraf@suug.ch>
+References: <cover.1421759056.git.tgraf@suug.ch>
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: davem@davemloft.net, kaber@trash.net, herbert@gondor.apana.org.au,
+	paulmck@linux.vnet.ibm.com, ying.xue@windriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.com ([74.208.4.201]:56723 "EHLO mout.gmx.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754272AbbATNRd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Jan 2015 08:17:33 -0500
-In-Reply-To: <1421759776-376-1-git-send-email-_govind@gmx.com>
+Received: from bombadil.infradead.org ([198.137.202.9]:49252 "EHLO
+	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755090AbbATNUh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jan 2015 08:20:37 -0500
+In-Reply-To: <cover.1421759056.git.tgraf@suug.ch>
+In-Reply-To: <cover.1421759056.git.tgraf@suug.ch>
+References: <cover.1421759056.git.tgraf@suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-With the commit d75b1ade567ffab ("net: less interrupt masking in NAPI") napi repoll
-is done only when work_done == budget. When in busy_poll is we return 0 in
-napi_poll. We should return budget. Also do not return workdone > budget.
+Allowing users of rhashtable to bump a sequence counter and invalidate
+Netlink dumps which have been interrupted by a deferred resize.
 
-Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ include/linux/rhashtable.h | 10 +++++++++-
+ lib/rhashtable.c           | 13 ++++++++++---
+ 2 files changed, 19 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-index 1d1147c..ebcbe92 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-@@ -3175,7 +3175,7 @@ static int bnx2x_poll(struct napi_struct *napi, int budget)
- 		}
- #endif
- 		if (!bnx2x_fp_lock_napi(fp))
--			return work_done;
-+			return budget;
+diff --git a/include/linux/rhashtable.h b/include/linux/rhashtable.h
+index a2562ed..b711d16 100644
+--- a/include/linux/rhashtable.h
++++ b/include/linux/rhashtable.h
+@@ -1,7 +1,7 @@
+ /*
+  * Resizable, Scalable, Concurrent Hash Table
+  *
+- * Copyright (c) 2014 Thomas Graf <tgraf@suug.ch>
++ * Copyright (c) 2014-2015 Thomas Graf <tgraf@suug.ch>
+  * Copyright (c) 2008-2014 Patrick McHardy <kaber@trash.net>
+  *
+  * Based on the following paper by Josh Triplett, Paul E. McKenney
+@@ -64,6 +64,11 @@ typedef u32 (*rht_obj_hashfn_t)(const void *data, u32 seed);
  
- 		for_each_cos_in_tx_queue(fp, cos)
- 			if (bnx2x_tx_queue_has_work(fp->txdata_ptr[cos]))
-@@ -3187,7 +3187,7 @@ static int bnx2x_poll(struct napi_struct *napi, int budget)
- 			/* must not complete if we consumed full budget */
- 			if (work_done >= budget) {
- 				bnx2x_fp_unlock_napi(fp);
--				break;
-+				return budget;
- 			}
- 		}
+ struct rhashtable;
  
++enum rht_resize_op {
++	RHT_GROWING,
++	RHT_SHRINKING,
++};
++
+ /**
+  * struct rhashtable_params - Hash table construction parameters
+  * @nelem_hint: Hint on number of elements, should be 75% of desired size
+@@ -79,6 +84,7 @@ struct rhashtable;
+  * @obj_hashfn: Function to hash object
+  * @grow_decision: If defined, may return true if table should expand
+  * @shrink_decision: If defined, may return true if table should shrink
++ * @resize_notify: Called when a table resize is scheduled.
+  *
+  * Note: when implementing the grow and shrink decision function, min/max
+  * shift must be enforced, otherwise, resizing watermarks they set may be
+@@ -100,6 +106,8 @@ struct rhashtable_params {
+ 						 size_t new_size);
+ 	bool			(*shrink_decision)(const struct rhashtable *ht,
+ 						   size_t new_size);
++	void			(*resize_notify)(const struct rhashtable *ht,
++						 enum rht_resize_op op);
+ };
+ 
+ /**
+diff --git a/lib/rhashtable.c b/lib/rhashtable.c
+index 84a78e3..a4449c4 100644
+--- a/lib/rhashtable.c
++++ b/lib/rhashtable.c
+@@ -1,7 +1,7 @@
+ /*
+  * Resizable, Scalable, Concurrent Hash Table
+  *
+- * Copyright (c) 2014 Thomas Graf <tgraf@suug.ch>
++ * Copyright (c) 2014-2015 Thomas Graf <tgraf@suug.ch>
+  * Copyright (c) 2008-2014 Patrick McHardy <kaber@trash.net>
+  *
+  * Based on the following paper:
+@@ -489,10 +489,17 @@ static void rht_deferred_worker(struct work_struct *work)
+ 	mutex_lock(&ht->mutex);
+ 	tbl = rht_dereference(ht->tbl, ht);
+ 
+-	if (ht->p.grow_decision && ht->p.grow_decision(ht, tbl->size))
++	if (ht->p.grow_decision && ht->p.grow_decision(ht, tbl->size)) {
++		if (ht->p.resize_notify)
++			ht->p.resize_notify(ht, RHT_GROWING);
++
+ 		rhashtable_expand(ht);
+-	else if (ht->p.shrink_decision && ht->p.shrink_decision(ht, tbl->size))
++	} else if (ht->p.shrink_decision && ht->p.shrink_decision(ht, tbl->size)) {
++		if (ht->p.resize_notify)
++			ht->p.resize_notify(ht, RHT_SHRINKING);
++
+ 		rhashtable_shrink(ht);
++	}
+ 
+ 	mutex_unlock(&ht->mutex);
+ }
 -- 
-2.2.2
+1.9.3
