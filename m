@@ -1,70 +1,69 @@
-From: Olivier Sobrie <olivier@sobrie.be>
-Subject: Re: [PATCH 04/11] hso: fix memory leak in hso_create_rfkill()
-Date: Tue, 20 Jan 2015 16:10:39 +0100
-Message-ID: <20150120151039.GB5681@hposo>
-References: <1421756978-4093-1-git-send-email-olivier@sobrie.be>
- <1421756978-4093-2-git-send-email-olivier@sobrie.be>
- <1421756978-4093-3-git-send-email-olivier@sobrie.be>
- <1421756978-4093-4-git-send-email-olivier@sobrie.be>
- <1421756978-4093-5-git-send-email-olivier@sobrie.be>
- <1421759597.29486.22.camel@linux-0dmf.site>
-Reply-To: Olivier Sobrie <olivier@sobrie.be>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 3/3] netlink: Lock out table resizes while dumping
+ Netlink sockets
+Date: Tue, 20 Jan 2015 15:21:49 +0000
+Message-ID: <20150120152149.GA3012@acer.localdomain>
+References: <cover.1421759056.git.tgraf@suug.ch>
+ <e164edeacaeffee43be64d4ed6a5b5e7e8923bd1.1421759056.git.tgraf@suug.ch>
+ <20150120143154.GR14883@acer.localdomain>
+ <20150120145551.GH20315@casper.infradead.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jan Dumon <j.dumon@option.com>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Oliver Neukum <oneukum@suse.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: davem@davemloft.net, herbert@gondor.apana.org.au,
+	paulmck@linux.vnet.ibm.com, ying.xue@windriver.com,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: Thomas Graf <tgraf@suug.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:45348 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751801AbbATPVz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jan 2015 10:21:55 -0500
 Content-Disposition: inline
-In-Reply-To: <1421759597.29486.22.camel@linux-0dmf.site>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20150120145551.GH20315@casper.infradead.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 20, 2015 at 02:13:17PM +0100, Oliver Neukum wrote:
-> On Tue, 2015-01-20 at 13:29 +0100, Olivier Sobrie wrote:
-> > When the rfkill interface was created, a buffer containing the name
-> > of the rfkill node was allocated. This buffer was never freed when the
-> > device disappears.
+On 20.01, Thomas Graf wrote:
+> On 01/20/15 at 02:31pm, Patrick McHardy wrote:
+> > On 20.01, Thomas Graf wrote:
+> > > Lock out table resizes while dumping Netlink sockets to user space.
+> > > This keeps disruptions to a minimum for readers which don't handle
+> > > the NLM_F_DUMP_INTR flag.
 > > 
-> > To fix the problem, we put the name given to rfkill_alloc() in
-> > the hso_net structure.
-> > 
-> > Signed-off-by: Olivier Sobrie <olivier@sobrie.be>
-> > ---
-> >  drivers/net/usb/hso.c | 12 +++---------
-> >  1 file changed, 3 insertions(+), 9 deletions(-)
-> > 
-> > diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
-> > index 470ef9e..a49ac2e 100644
-> > --- a/drivers/net/usb/hso.c
-> > +++ b/drivers/net/usb/hso.c
-> > @@ -153,6 +153,7 @@ struct hso_net {
-> >  	struct hso_device *parent;
-> >  	struct net_device *net;
-> >  	struct rfkill *rfkill;
-> > +	char name[8];
-> >  
-> >  	struct usb_endpoint_descriptor *in_endp;
-> >  	struct usb_endpoint_descriptor *out_endp;
-> > @@ -2467,27 +2468,20 @@ static void hso_create_rfkill(struct hso_device *hso_dev,
-> >  {
-> >  	struct hso_net *hso_net = dev2net(hso_dev);
-> >  	struct device *dev = &hso_net->net->dev;
-> > -	char *rfkn;
-> >  
-> > -	rfkn = kzalloc(20, GFP_KERNEL);
-> > -	if (!rfkn)
-> > -		dev_err(dev, "%s - Out of memory\n", __func__);
-> > -
-> > -	snprintf(rfkn, 20, "hso-%d",
-> > +	snprintf(hso_net->name, sizeof(hso_net->name), "hso-%d",
-> >  		 interface->altsetting->desc.bInterfaceNumber);
+> > This doesn't lock them out for the duration of the entire dump of
+> > course, so the benefit seems rather small. Still with this patch,
+> > they will need to handle NLM_F_DUMP_INTR or will get unpredictable
+> > behaviour, in which case I'd think it makes more sense to not even
+> > try this, all it does is hide parts of the brokenness.
 > 
-> That number is not unique. Indeed it will be identical for all devices.
+> If it would lock out the resize for the entire dump I would not have
+> done patches 1 and 2 ;-)
+> 
+> I does provide better behaviour if the whole dump fits into a single
+> buffer or if it fits into 2 buffers and we are already dumping into
+> the 2nd buffer when the resize occurs. Otherwise we will see resizes
+> and thus tons of duplicates even in those scenarios even if no insert
+> or removal occurs in parallel.
+> 
+> In the case of Netlink diag that should be typical case. Most systems
+> will not have 1000s of Netlink sockets in parallel.
 
-Indeed. That should be corrected too.
-Thank you,
+I think its preferrable to make the need to handle NETLINK_F_DUMP_INTR
+as noticable as possible and not hide it. Silent failure is the worst
+kind of failure.
 
-Olivier
+> > An alternative would be to set a flag in ht when a dump begins that
+> > indicates to skip resizing operations and on the end of the dump
+> > perform any resizing operations that might be necessary. Herbert
+> > disagrees though and he might be right.
+> 
+> I don't like the flag as it prevents resizes (and possibly rehashes
+> further down the road) for a long period of time. The hashtable
+> becomes attackable.
+
+Yeah. The point could be made that this is a regression though. We didn't
+require userspace to deal with interruptions before, and the behaviour
+was well defined and acceptable for most cases, its not anymore.
+
+So I think it should be handled by the kernel, without changes to
+userspace.
