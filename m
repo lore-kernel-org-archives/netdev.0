@@ -1,59 +1,209 @@
 From: Tom Herbert <therbert@google.com>
-Subject: Re: [PATCH net-next 2/2] vxlan: Eliminate dependency on UDP socket in
- transmit path
-Date: Tue, 20 Jan 2015 09:29:42 -0800
-Message-ID: <CA+mtBx-QVcK2yP7hwr01X-KaXedzrgMGrHH503-i5y54BPnNPA@mail.gmail.com>
+Subject: Re: [PATCH net-next 1/2] udp: Do not require sock in udp_tunnel_xmit_skb
+Date: Tue, 20 Jan 2015 09:36:58 -0800
+Message-ID: <CA+mtBx8dihFYb1v_WeyukfV5hk==2=3_b_GNUJoxCuL8_GUf6A@mail.gmail.com>
 References: <1421518700-22460-1-git-send-email-therbert@google.com>
-	<1421518700-22460-3-git-send-email-therbert@google.com>
-	<20150119085938.GG20315@casper.infradead.org>
+	<1421518700-22460-2-git-send-email-therbert@google.com>
+	<CAJ3xEMg0xJU4JShBLzs4g+zZVzH+uo79=aQGx4NwoQOv1h13Kw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
+Cc: David Miller <davem@davemloft.net>, Thomas Graf <tgraf@suug.ch>,
 	Linux Netdev List <netdev@vger.kernel.org>
-To: Thomas Graf <tgraf@suug.ch>
+To: Or Gerlitz <gerlitz.or@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f177.google.com ([209.85.223.177]:40894 "EHLO
-	mail-ie0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755187AbbATR3n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jan 2015 12:29:43 -0500
-Received: by mail-ie0-f177.google.com with SMTP id at20so11633339iec.8
-        for <netdev@vger.kernel.org>; Tue, 20 Jan 2015 09:29:42 -0800 (PST)
-In-Reply-To: <20150119085938.GG20315@casper.infradead.org>
+Received: from mail-ig0-f170.google.com ([209.85.213.170]:52597 "EHLO
+	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751643AbbATRg7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jan 2015 12:36:59 -0500
+Received: by mail-ig0-f170.google.com with SMTP id l13so17825741iga.1
+        for <netdev@vger.kernel.org>; Tue, 20 Jan 2015 09:36:58 -0800 (PST)
+In-Reply-To: <CAJ3xEMg0xJU4JShBLzs4g+zZVzH+uo79=aQGx4NwoQOv1h13Kw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 19, 2015 at 12:59 AM, Thomas Graf <tgraf@suug.ch> wrote:
-> On 01/17/15 at 10:18am, Tom Herbert wrote:
->> diff --git a/include/net/vxlan.h b/include/net/vxlan.h
->> index 7be8c34..2927d62 100644
->> --- a/include/net/vxlan.h
->> +++ b/include/net/vxlan.h
->> @@ -129,8 +129,12 @@ struct vxlan_sock {
->>  #define VXLAN_F_REMCSUM_RX           0x400
->>  #define VXLAN_F_GBP                  0x800
->>
->> -/* These flags must match in order for a socket to be shareable */
->> -#define VXLAN_F_UNSHAREABLE          VXLAN_F_GBP
->> +/* Flags that are used in the receive patch. These flags must match in
->                                           ^^^^^
+On Sun, Jan 18, 2015 at 2:43 PM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
+> On Sat, Jan 17, 2015 at 8:18 PM, Tom Herbert <therbert@google.com> wrote:
+>> The UDP tunnel transmit functions udp_tunnel_xmit_skb and
+>> udp_tunnel6_xmit_skb include a socket argument. The socket being
+>> passed to the functions (from VXLAN) is a UDP created for receive
+>> side. The only thing that the socket is used for in the transmit
+>> functions is to get the setting for checksum (enabled or zero).
 >
+> Tom, just to clarify - re the sockets usage in the transmit side,
+> somewhere bind or alike is done on them such that we have multiple
+> source UDP ports for given host VXLAN traffic. Here for example the
+> sender host is 192.168.31.17 and two ports are seen here 54206 and
+> 50795.
 >
+> Just wanted to make sure this series doesn't change that, since if
+> this is the case, we introduce here a regression w.r.t RSS hash
+> spreading from the outer UDP header data at the receiver side (which
+> is the right thing to do, per your LKS session...)
 >
->> + * order for a socket to be shareable
->> + */
->> +#define VXLAN_F_RCV_FLAGS            (VXLAN_F_GBP |                  \
->> +                                      VXLAN_F_UDP_ZERO_CSUM6_RX |    \
->> +                                      VXLAN_F_REMCSUM_RX)
->
-> I'm fine with this. It is slightly odd that we will be transmitting
-> RCO and other extensions on UDP ports which cannot accept the same
-> frames. I assume you have specific use cases for this scenario.
+Hi Or,
 
-I didn't see any reason to preclude that, if it needs to be symmetric
-in that case it can be forced at the configuration. Being able to
-receive RCO but not have to send it to certain peers is important use
-case. You may want to consider this also for GBP if there are cases
-where we accept GBP from different peers, but only send it to certain
-ones.
+Using or not using a socket on transmit should have no bearing to the
+receive side. RSS works based on the hash of the UDP 5-tuple which
+should include a source port set to a value for the inner flow. Since
+the UDP socket is unconnected it should have no bearing on RFS or XPS
+either.
+
+By the way, for the receiver we should never need to use SO_REUSEPORT
+for these encapsulation sockets. If we're getting contention on a
+single socket that should be resolved in the kernel (I believe Eric
+was looking at eliminate lookup costs for these).
 
 Tom
+
+> IP 192.168.31.18.45367 > 192.168.31.17.4789: UDP, length 62
+> IP 192.168.31.18.45515 > 192.168.31.17.4789: UDP, length 62
+> IP 192.168.31.17.54206 > 192.168.31.18.4789: UDP, length 26814
+> IP 192.168.31.18.45367 > 192.168.31.17.4789: UDP, length 62
+> IP 192.168.31.18.45515 > 192.168.31.17.4789: UDP, length 62
+> IP 192.168.31.17.50795 > 192.168.31.18.4789: UDP, length 25498
+> IP 192.168.31.17.50795 > 192.168.31.18.4789: UDP, length 64922
+> IP 192.168.31.17.50795 > 192.168.31.18.4789: UDP, length 64922
+> IP 192.168.31.18.45367 > 192.168.31.17.4789: UDP, length 62
+> IP 192.168.31.17.54206 > 192.168.31.18.4789: UDP, length 38170
+>
+>> This patch removes the argument and and adds a nocheck argument
+>> for checksum setting. This eliminates the unnecessary dependency
+>> on a UDP socket for UDP tunnel transmit.
+>>
+>> Signed-off-by: Tom Herbert <therbert@google.com>
+>> ---
+>>  drivers/net/vxlan.c       | 10 ++++++----
+>>  include/net/udp_tunnel.h  | 16 ++++++++--------
+>>  net/ipv4/udp_tunnel.c     | 12 ++++++------
+>>  net/ipv6/ip6_udp_tunnel.c | 12 ++++++------
+>>  4 files changed, 26 insertions(+), 24 deletions(-)
+>>
+>> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+>> index 6b6b456..4fb4205 100644
+>> --- a/drivers/net/vxlan.c
+>> +++ b/drivers/net/vxlan.c
+>> @@ -1763,8 +1763,9 @@ static int vxlan6_xmit_skb(struct vxlan_sock *vs,
+>>
+>>         skb_set_inner_protocol(skb, htons(ETH_P_TEB));
+>>
+>> -       udp_tunnel6_xmit_skb(vs->sock, dst, skb, dev, saddr, daddr, prio,
+>> -                            ttl, src_port, dst_port);
+>> +       udp_tunnel6_xmit_skb(dst, skb, dev, saddr, daddr, prio,
+>> +                            ttl, src_port, dst_port,
+>> +                            udp_get_no_check6_tx(vs->sock->sk));
+>>         return 0;
+>>  err:
+>>         dst_release(dst);
+>> @@ -1842,8 +1843,9 @@ int vxlan_xmit_skb(struct vxlan_sock *vs,
+>>
+>>         skb_set_inner_protocol(skb, htons(ETH_P_TEB));
+>>
+>> -       return udp_tunnel_xmit_skb(vs->sock, rt, skb, src, dst, tos,
+>> -                                  ttl, df, src_port, dst_port, xnet);
+>> +       return udp_tunnel_xmit_skb(rt, skb, src, dst, tos,
+>> +                                  ttl, df, src_port, dst_port, xnet,
+>> +                                  vs->sock->sk->sk_no_check_tx);
+>>  }
+>>  EXPORT_SYMBOL_GPL(vxlan_xmit_skb);
+>>
+>> diff --git a/include/net/udp_tunnel.h b/include/net/udp_tunnel.h
+>> index 2a50a70..1a20d33 100644
+>> --- a/include/net/udp_tunnel.h
+>> +++ b/include/net/udp_tunnel.h
+>> @@ -77,17 +77,17 @@ void setup_udp_tunnel_sock(struct net *net, struct socket *sock,
+>>                            struct udp_tunnel_sock_cfg *sock_cfg);
+>>
+>>  /* Transmit the skb using UDP encapsulation. */
+>> -int udp_tunnel_xmit_skb(struct socket *sock, struct rtable *rt,
+>> -                       struct sk_buff *skb, __be32 src, __be32 dst,
+>> -                       __u8 tos, __u8 ttl, __be16 df, __be16 src_port,
+>> -                       __be16 dst_port, bool xnet);
+>> +int udp_tunnel_xmit_skb(struct rtable *rt, struct sk_buff *skb,
+>> +                       __be32 src, __be32 dst, __u8 tos, __u8 ttl,
+>> +                       __be16 df, __be16 src_port, __be16 dst_port,
+>> +                       bool xnet, bool nocheck);
+>>
+>>  #if IS_ENABLED(CONFIG_IPV6)
+>> -int udp_tunnel6_xmit_skb(struct socket *sock, struct dst_entry *dst,
+>> -                        struct sk_buff *skb, struct net_device *dev,
+>> -                        struct in6_addr *saddr, struct in6_addr *daddr,
+>> +int udp_tunnel6_xmit_skb(struct dst_entry *dst, struct sk_buff *skb,
+>> +                        struct net_device *dev, struct in6_addr *saddr,
+>> +                        struct in6_addr *daddr,
+>>                          __u8 prio, __u8 ttl, __be16 src_port,
+>> -                        __be16 dst_port);
+>> +                        __be16 dst_port, bool nocheck);
+>>  #endif
+>>
+>>  void udp_tunnel_sock_release(struct socket *sock);
+>> diff --git a/net/ipv4/udp_tunnel.c b/net/ipv4/udp_tunnel.c
+>> index 9996e63..c83b354 100644
+>> --- a/net/ipv4/udp_tunnel.c
+>> +++ b/net/ipv4/udp_tunnel.c
+>> @@ -75,10 +75,10 @@ void setup_udp_tunnel_sock(struct net *net, struct socket *sock,
+>>  }
+>>  EXPORT_SYMBOL_GPL(setup_udp_tunnel_sock);
+>>
+>> -int udp_tunnel_xmit_skb(struct socket *sock, struct rtable *rt,
+>> -                       struct sk_buff *skb, __be32 src, __be32 dst,
+>> -                       __u8 tos, __u8 ttl, __be16 df, __be16 src_port,
+>> -                       __be16 dst_port, bool xnet)
+>> +int udp_tunnel_xmit_skb(struct rtable *rt, struct sk_buff *skb,
+>> +                       __be32 src, __be32 dst, __u8 tos, __u8 ttl,
+>> +                       __be16 df, __be16 src_port, __be16 dst_port,
+>> +                       bool xnet, bool nocheck)
+>>  {
+>>         struct udphdr *uh;
+>>
+>> @@ -90,9 +90,9 @@ int udp_tunnel_xmit_skb(struct socket *sock, struct rtable *rt,
+>>         uh->source = src_port;
+>>         uh->len = htons(skb->len);
+>>
+>> -       udp_set_csum(sock->sk->sk_no_check_tx, skb, src, dst, skb->len);
+>> +       udp_set_csum(nocheck, skb, src, dst, skb->len);
+>>
+>> -       return iptunnel_xmit(sock->sk, rt, skb, src, dst, IPPROTO_UDP,
+>> +       return iptunnel_xmit(skb->sk, rt, skb, src, dst, IPPROTO_UDP,
+>>                              tos, ttl, df, xnet);
+>>  }
+>>  EXPORT_SYMBOL_GPL(udp_tunnel_xmit_skb);
+>> diff --git a/net/ipv6/ip6_udp_tunnel.c b/net/ipv6/ip6_udp_tunnel.c
+>> index 8db6c98..32d9b26 100644
+>> --- a/net/ipv6/ip6_udp_tunnel.c
+>> +++ b/net/ipv6/ip6_udp_tunnel.c
+>> @@ -62,14 +62,14 @@ error:
+>>  }
+>>  EXPORT_SYMBOL_GPL(udp_sock_create6);
+>>
+>> -int udp_tunnel6_xmit_skb(struct socket *sock, struct dst_entry *dst,
+>> -                        struct sk_buff *skb, struct net_device *dev,
+>> -                        struct in6_addr *saddr, struct in6_addr *daddr,
+>> -                        __u8 prio, __u8 ttl, __be16 src_port, __be16 dst_port)
+>> +int udp_tunnel6_xmit_skb(struct dst_entry *dst, struct sk_buff *skb,
+>> +                        struct net_device *dev, struct in6_addr *saddr,
+>> +                        struct in6_addr *daddr,
+>> +                        __u8 prio, __u8 ttl, __be16 src_port,
+>> +                        __be16 dst_port, bool nocheck)
+>>  {
+>>         struct udphdr *uh;
+>>         struct ipv6hdr *ip6h;
+>> -       struct sock *sk = sock->sk;
+>>
+>>         __skb_push(skb, sizeof(*uh));
+>>         skb_reset_transport_header(skb);
+>> @@ -85,7 +85,7 @@ int udp_tunnel6_xmit_skb(struct socket *sock, struct dst_entry *dst,
+>>                             | IPSKB_REROUTED);
+>>         skb_dst_set(skb, dst);
+>>
+>> -       udp6_set_csum(udp_get_no_check6_tx(sk), skb, saddr, daddr, skb->len);
+>> +       udp6_set_csum(nocheck, skb, saddr, daddr, skb->len);
+>>
+>>         __skb_push(skb, sizeof(*ip6h));
+>>         skb_reset_network_header(skb);
+>> --
+>> 2.2.0.rc0.207.ga3a616c
+>>
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
