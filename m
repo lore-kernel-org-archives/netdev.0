@@ -1,28 +1,99 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH v2 net-next] net: ipv6: Add sysctl entry to disable MTU
- updates from RA
-Date: Tue, 20 Jan 2015 17:56:40 +0100
-Message-ID: <54BE88C8.3060606@redhat.com>
-References: <1421703363-3376-1-git-send-email-harouth@codeaurora.org> <54BD8CB0.8050800@redhat.com> <006301d034d0$f9e10520$eda30f60$@codeaurora.org>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [PATCH net-next] rhashtable: rhashtable_remove() must unlink in both
+ tbl and future_tbl
+Date: Tue, 20 Jan 2015 16:58:26 +0000
+Message-ID: <20150120165826.GK20315@casper.infradead.org>
+References: <54BCBA35.2080103@windriver.com>
+ <20150119125928.GB7672@casper.infradead.org>
+ <54BDC30D.5000606@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Harout Hedeshian <harouth@codeaurora.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "richard.alpe@ericsson.com >> Richard Alpe"
+	<richard.alpe@ericsson.com>, Netdev <netdev@vger.kernel.org>,
+	tipc-discussion@lists.sourceforge.net
+To: davem@davemloft.net, Ying Xue <ying.xue@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:43312 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751715AbbATQ4w (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Jan 2015 11:56:52 -0500
-In-Reply-To: <006301d034d0$f9e10520$eda30f60$@codeaurora.org>
+Received: from casper.infradead.org ([85.118.1.10]:60953 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752126AbbATQ6b (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jan 2015 11:58:31 -0500
+Content-Disposition: inline
+In-Reply-To: <54BDC30D.5000606@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/20/2015 05:48 PM, Harout Hedeshian wrote:
-...
-> I will upload v3 with the following changes:
->   - Fix tab indentation in documentation
->   - Remove changes from sysctl_binary.c and sysctl.h
->   - Fixed netlink dumps
+As removals can occur during resizes, entries may be referred to from
+both tbl and future_tbl when the removal is requested. Therefore
+rhashtable_remove() must unlink the entry in both tables if this is
+the case. The existing code did search both tables but stopped when it
+hit the first match.
 
-Sounds good, thanks!
+Failing to do so resulted in use after remove.
+
+Fixes: 97defe1 ("rhashtable: Per bucket locks & deferred expansion/shrinking")
+Reported-by: Ying Xue <ying.xue@windriver.com>
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
+---
+
+Ying: This should fix the panic that was at the end of your TIPC
+      related boot log. I'm still working on the use after free.
+
+ lib/rhashtable.c | 24 +++++++++++++++---------
+ 1 file changed, 15 insertions(+), 9 deletions(-)
+
+diff --git a/lib/rhashtable.c b/lib/rhashtable.c
+index a4449c4..b1aa10e 100644
+--- a/lib/rhashtable.c
++++ b/lib/rhashtable.c
+@@ -592,6 +592,7 @@ bool rhashtable_remove(struct rhashtable *ht, struct rhash_head *obj)
+ 	struct rhash_head *he;
+ 	spinlock_t *lock;
+ 	unsigned int hash;
++	bool ret = false;
+ 
+ 	rcu_read_lock();
+ 	tbl = rht_dereference_rcu(ht->tbl, ht);
+@@ -609,17 +610,16 @@ restart:
+ 		}
+ 
+ 		rcu_assign_pointer(*pprev, obj->next);
+-		atomic_dec(&ht->nelems);
+-
+-		spin_unlock_bh(lock);
+-
+-		rhashtable_wakeup_worker(ht);
+-
+-		rcu_read_unlock();
+ 
+-		return true;
++		ret = true;
++		break;
+ 	}
+ 
++	/* The entry may be linked in either 'tbl', 'future_tbl', or both.
++	 * 'future_tbl' only exists for a short period of time during
++	 * resizing. Thus traversing both is fine and the added cost is
++	 * very rare.
++	 */
+ 	if (tbl != rht_dereference_rcu(ht->future_tbl, ht)) {
+ 		spin_unlock_bh(lock);
+ 
+@@ -632,9 +632,15 @@ restart:
+ 	}
+ 
+ 	spin_unlock_bh(lock);
++
++	if (ret) {
++		atomic_dec(&ht->nelems);
++		rhashtable_wakeup_worker(ht);
++	}
++
+ 	rcu_read_unlock();
+ 
+-	return false;
++	return ret;
+ }
+ EXPORT_SYMBOL_GPL(rhashtable_remove);
+ 
+-- 
+1.9.3
