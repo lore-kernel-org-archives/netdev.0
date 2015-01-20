@@ -1,61 +1,70 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [PATCH net-next 1/2] udp: Do not require sock in udp_tunnel_xmit_skb
-Date: Tue, 20 Jan 2015 23:47:29 +0200
-Message-ID: <CAJ3xEMit2By8S=SwRGJKcwii9J3LKj29sX=tAbCC3bcAMDkr5Q@mail.gmail.com>
-References: <1421518700-22460-1-git-send-email-therbert@google.com>
-	<1421518700-22460-2-git-send-email-therbert@google.com>
-	<CAJ3xEMg0xJU4JShBLzs4g+zZVzH+uo79=aQGx4NwoQOv1h13Kw@mail.gmail.com>
-	<CA+mtBx8dihFYb1v_WeyukfV5hk==2=3_b_GNUJoxCuL8_GUf6A@mail.gmail.com>
+From: "Ahmed S. Darwish" <darwish.07@gmail.com>
+Subject: [PATCH v5 4/5] can: kvaser_usb: Retry the first bulk transfer on
+ -ETIMEDOUT
+Date: Tue, 20 Jan 2015 16:48:34 -0500
+Message-ID: <20150120214834.GD16828@linux>
+References: <20141223154654.GB6460@vivalin-002>
+ <20150120214409.GA16828@linux>
+ <20150120214537.GB16828@linux>
+ <20150120214709.GC16828@linux>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>, Thomas Graf <tgraf@suug.ch>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Tom Herbert <therbert@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f173.google.com ([209.85.214.173]:51265 "EHLO
-	mail-ob0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752322AbbATVr3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jan 2015 16:47:29 -0500
-Received: by mail-ob0-f173.google.com with SMTP id vb8so10417212obc.4
-        for <netdev@vger.kernel.org>; Tue, 20 Jan 2015 13:47:29 -0800 (PST)
-In-Reply-To: <CA+mtBx8dihFYb1v_WeyukfV5hk==2=3_b_GNUJoxCuL8_GUf6A@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andri Yngvason <andri.yngvason@marel.com>,
+	Linux-CAN <linux-can@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Olivier Sobrie <olivier@sobrie.be>,
+	Oliver Hartkopp <socketcan@hartkopp.net>,
+	Wolfgang Grandegger <wg@grandegger.com>,
+	Marc Kleine-Budde <mkl@pengutronix.de>
+Return-path: <linux-can-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20150120214709.GC16828@linux>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 20, 2015 at 7:36 PM, Tom Herbert <therbert@google.com> wrote:
-> On Sun, Jan 18, 2015 at 2:43 PM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
->> On Sat, Jan 17, 2015 at 8:18 PM, Tom Herbert <therbert@google.com> wrote:
->>> The UDP tunnel transmit functions udp_tunnel_xmit_skb and
->>> udp_tunnel6_xmit_skb include a socket argument. The socket being
->>> passed to the functions (from VXLAN) is a UDP created for receive
->>> side. The only thing that the socket is used for in the transmit
->>> functions is to get the setting for checksum (enabled or zero).
->>
->> Tom, just to clarify - re the sockets usage in the transmit side,
->> somewhere bind or alike is done on them such that we have multiple
->> source UDP ports for given host VXLAN traffic. Here for example the
->> sender host is 192.168.31.17 and two ports are seen here 54206 and
->> 50795.
->>
->> Just wanted to make sure this series doesn't change that, since if
->> this is the case, we introduce here a regression w.r.t RSS hash
->> spreading from the outer UDP header data at the receiver side (which
->> is the right thing to do, per your LKS session...)
->>
-> Hi Or,
->
-> Using or not using a socket on transmit should have no bearing to the
-> receive side. RSS works based on the hash of the UDP 5-tuple which
-> should include a source port set to a value for the inner flow. Since
-> the UDP socket is unconnected it should have no bearing on RFS or XPS
-> either.
+From: Ahmed S. Darwish <ahmed.darwish@valeo.com>
 
-Hi Tom,
+On some x86 laptops, plugging a Kvaser device again after an
+unplug makes the firmware always ignore the very first command.
+For such a case, provide some room for retries instead of
+completly exiting the driver init code.
 
-You say "which should include a source port set to a value for the
-inner flow", well this series doesn't add such logic, nor I am fully
-clear what piece exactly is responsible for the fact that I see
-multiple source udp ports used from vxlan traffic flowing out of a
-certain host. I just wanted to make sure that these patches don't
-introduce a regression w.r.t to the **current** (not future) state of
-things, can you confirm this?
+Signed-off-by: Ahmed S. Darwish <ahmed.darwish@valeo.com>
+---
+ drivers/net/can/usb/kvaser_usb.c | 12 ++++++++++--
+ 1 file changed, 10 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/can/usb/kvaser_usb.c b/drivers/net/can/usb/kvaser_usb.c
+index 640b0eb..068e76c 100644
+--- a/drivers/net/can/usb/kvaser_usb.c
++++ b/drivers/net/can/usb/kvaser_usb.c
+@@ -1614,7 +1614,7 @@ static int kvaser_usb_probe(struct usb_interface *intf,
+ {
+ 	struct kvaser_usb *dev;
+ 	int err = -ENOMEM;
+-	int i;
++	int i, retry = 3;
+ 
+ 	dev = devm_kzalloc(&intf->dev, sizeof(*dev), GFP_KERNEL);
+ 	if (!dev)
+@@ -1632,7 +1632,15 @@ static int kvaser_usb_probe(struct usb_interface *intf,
+ 
+ 	usb_set_intfdata(intf, dev);
+ 
+-	err = kvaser_usb_get_software_info(dev);
++	/* On some x86 laptops, plugging a Kvaser device again after
++	 * an unplug makes the firmware always ignore the very first
++	 * command. For such a case, provide some room for retries
++	 * instead of completly exiting the driver.
++	 */
++	do {
++		err = kvaser_usb_get_software_info(dev);
++	} while (--retry && err == -ETIMEDOUT);
++
+ 	if (err) {
+ 		dev_err(&intf->dev,
+ 			"Cannot get software infos, error %d\n", err);
+-- 
+1.9.1
+
