@@ -1,64 +1,46 @@
-From: Olivier Sobrie <olivier-Ui3EtX6WB9GzQB+pC5nmwQ@public.gmane.org>
-Subject: [PATCH 06/11] hso: rename hso_dev into serial in hso_free_interface()
-Date: Tue, 20 Jan 2015 13:29:33 +0100
-Message-ID: <1421756978-4093-7-git-send-email-olivier@sobrie.be>
+From: Olivier Sobrie <olivier@sobrie.be>
+Subject: [PATCH 05/11] hso: fix small indentation error
+Date: Tue, 20 Jan 2015 13:29:32 +0100
+Message-ID: <1421756978-4093-6-git-send-email-olivier@sobrie.be>
 References: <1421756978-4093-1-git-send-email-olivier@sobrie.be>
  <1421756978-4093-2-git-send-email-olivier@sobrie.be>
  <1421756978-4093-3-git-send-email-olivier@sobrie.be>
  <1421756978-4093-4-git-send-email-olivier@sobrie.be>
  <1421756978-4093-5-git-send-email-olivier@sobrie.be>
- <1421756978-4093-6-git-send-email-olivier@sobrie.be>
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Olivier Sobrie <olivier-Ui3EtX6WB9GzQB+pC5nmwQ@public.gmane.org>
-To: Jan Dumon <j.dumon-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>,
-	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1421756978-4093-6-git-send-email-olivier-Ui3EtX6WB9GzQB+pC5nmwQ@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org,
+	netdev@vger.kernel.org, Olivier Sobrie <olivier@sobrie.be>
+To: Jan Dumon <j.dumon@option.com>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f170.google.com ([74.125.82.170]:48329 "EHLO
+	mail-we0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754624AbbATMaZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jan 2015 07:30:25 -0500
+In-Reply-To: <1421756978-4093-5-git-send-email-olivier@sobrie.be>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In other functions of the driver, variables of type "struct hso_serial"
-are denoted by "serial" and variables of type "struct hso_device" are
-denoted by "hso_dev". This patch makes the hso_free_interface()
-consistent with these notations.
+Simply remove the useless extra tab.
 
-Signed-off-by: Olivier Sobrie <olivier-Ui3EtX6WB9GzQB+pC5nmwQ@public.gmane.org>
+Signed-off-by: Olivier Sobrie <olivier@sobrie.be>
 ---
- drivers/net/usb/hso.c | 12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
+ drivers/net/usb/hso.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
-index 2f2343d..484e423 100644
+index a49ac2e..2f2343d 100644
 --- a/drivers/net/usb/hso.c
 +++ b/drivers/net/usb/hso.c
-@@ -3115,17 +3115,17 @@ static void hso_serial_ref_free(struct kref *ref)
+@@ -2206,8 +2206,8 @@ static int hso_stop_serial_device(struct hso_device *hso_dev)
  
- static void hso_free_interface(struct usb_interface *interface)
- {
--	struct hso_serial *hso_dev;
-+	struct hso_serial *serial;
- 	int i;
- 
- 	for (i = 0; i < HSO_SERIAL_TTY_MINORS; i++) {
- 		if (serial_table[i] &&
- 		    (serial_table[i]->interface == interface)) {
--			hso_dev = dev2ser(serial_table[i]);
--			tty_port_tty_hangup(&hso_dev->port, false);
--			mutex_lock(&hso_dev->parent->mutex);
--			hso_dev->parent->usb_gone = 1;
--			mutex_unlock(&hso_dev->parent->mutex);
-+			serial = dev2ser(serial_table[i]);
-+			tty_port_tty_hangup(&serial->port, false);
-+			mutex_lock(&serial->parent->mutex);
-+			serial->parent->usb_gone = 1;
-+			mutex_unlock(&serial->parent->mutex);
- 			kref_put(&serial_table[i]->ref, hso_serial_ref_free);
+ 	for (i = 0; i < serial->num_rx_urbs; i++) {
+ 		if (serial->rx_urb[i]) {
+-				usb_kill_urb(serial->rx_urb[i]);
+-				serial->rx_urb_filled[i] = 0;
++			usb_kill_urb(serial->rx_urb[i]);
++			serial->rx_urb_filled[i] = 0;
  		}
  	}
+ 	serial->curr_rx_urb_idx = 0;
 -- 
 2.2.0
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
