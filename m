@@ -1,75 +1,66 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [net-next PATCH v3 04/12] net: flow_table: create a set of common
- headers and actions
-Date: Tue, 20 Jan 2015 14:10:45 -0800
-Message-ID: <54BED265.3040507@gmail.com>
-References: <20150120202404.1741.8658.stgit@nitbit.x32> <20150120202752.1741.13810.stgit@nitbit.x32> <20150120205938.GD1854@tuxdriver.com>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCH net-next 1/2] udp: Do not require sock in udp_tunnel_xmit_skb
+Date: Tue, 20 Jan 2015 14:24:51 -0800
+Message-ID: <CA+mtBx80QDU4FJfzh0WATTuaDGS4vaBv0H0r8AfmKjw0rk1f3A@mail.gmail.com>
+References: <1421518700-22460-1-git-send-email-therbert@google.com>
+	<1421518700-22460-2-git-send-email-therbert@google.com>
+	<CAJ3xEMg0xJU4JShBLzs4g+zZVzH+uo79=aQGx4NwoQOv1h13Kw@mail.gmail.com>
+	<CA+mtBx8dihFYb1v_WeyukfV5hk==2=3_b_GNUJoxCuL8_GUf6A@mail.gmail.com>
+	<CAJ3xEMit2By8S=SwRGJKcwii9J3LKj29sX=tAbCC3bcAMDkr5Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: tgraf@suug.ch, simon.horman@netronome.com, sfeldma@gmail.com,
-	netdev@vger.kernel.org, jhs@mojatatu.com, davem@davemloft.net,
-	gerlitz.or@gmail.com, andy@greyhouse.net, ast@plumgrid.com
-To: "John W. Linville" <linville@tuxdriver.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>, Thomas Graf <tgraf@suug.ch>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Or Gerlitz <gerlitz.or@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f175.google.com ([209.85.214.175]:41680 "EHLO
-	mail-ob0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750727AbbATWLM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jan 2015 17:11:12 -0500
-Received: by mail-ob0-f175.google.com with SMTP id wp4so15698215obc.6
-        for <netdev@vger.kernel.org>; Tue, 20 Jan 2015 14:11:11 -0800 (PST)
-In-Reply-To: <20150120205938.GD1854@tuxdriver.com>
+Received: from mail-ig0-f176.google.com ([209.85.213.176]:57904 "EHLO
+	mail-ig0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751453AbbATWYw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jan 2015 17:24:52 -0500
+Received: by mail-ig0-f176.google.com with SMTP id hl2so17845399igb.3
+        for <netdev@vger.kernel.org>; Tue, 20 Jan 2015 14:24:51 -0800 (PST)
+In-Reply-To: <CAJ3xEMit2By8S=SwRGJKcwii9J3LKj29sX=tAbCC3bcAMDkr5Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/20/2015 12:59 PM, John W. Linville wrote:
-> On Tue, Jan 20, 2015 at 12:27:53PM -0800, John Fastabend wrote:
->> This adds common headers and actions that drivers can use.
+On Tue, Jan 20, 2015 at 1:47 PM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
+> On Tue, Jan 20, 2015 at 7:36 PM, Tom Herbert <therbert@google.com> wrote:
+>> On Sun, Jan 18, 2015 at 2:43 PM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
+>>> On Sat, Jan 17, 2015 at 8:18 PM, Tom Herbert <therbert@google.com> wrote:
+>>>> The UDP tunnel transmit functions udp_tunnel_xmit_skb and
+>>>> udp_tunnel6_xmit_skb include a socket argument. The socket being
+>>>> passed to the functions (from VXLAN) is a UDP created for receive
+>>>> side. The only thing that the socket is used for in the transmit
+>>>> functions is to get the setting for checksum (enabled or zero).
+>>>
+>>> Tom, just to clarify - re the sockets usage in the transmit side,
+>>> somewhere bind or alike is done on them such that we have multiple
+>>> source UDP ports for given host VXLAN traffic. Here for example the
+>>> sender host is 192.168.31.17 and two ports are seen here 54206 and
+>>> 50795.
+>>>
+>>> Just wanted to make sure this series doesn't change that, since if
+>>> this is the case, we introduce here a regression w.r.t RSS hash
+>>> spreading from the outer UDP header data at the receiver side (which
+>>> is the right thing to do, per your LKS session...)
+>>>
+>> Hi Or,
 >>
->> I have not yet moved the header graphs into the common header
->> because I'm not entirely convinced its re-usable. The devices
->> I have been looking at have different enough header graphs that
->> they wouldn't be re-usable. However possibly many 40Gbp NICs
->> for example could share a common header graph. When we get
->> multiple implementations we can move this into the common file
->> if it makes sense.
->>
->> And table structures seem to be unique enough that there is
->> little value in putting each devices table layout into the
->> common file so its left for device specific implementation.
->>
->> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
->> ---
->>   include/linux/if_flow_common.h |  257 ++++++++++++++++++++++++++++++++++++++++
->>   1 file changed, 257 insertions(+)
->>   create mode 100644 include/linux/if_flow_common.h
->>
->> diff --git a/include/linux/if_flow_common.h b/include/linux/if_flow_common.h
->> new file mode 100644
->> index 0000000..ef2d66f
->> --- /dev/null
->> +++ b/include/linux/if_flow_common.h
+>> Using or not using a socket on transmit should have no bearing to the
+>> receive side. RSS works based on the hash of the UDP 5-tuple which
+>> should include a source port set to a value for the inner flow. Since
+>> the UDP socket is unconnected it should have no bearing on RFS or XPS
+>> either.
 >
-> <snip>
+> Hi Tom,
 >
->> +struct net_flow_action net_flow_pop_vlan = {
->> +	.name = "pop_vlan",
->> +	.uid = ACTION_POP_VLAN,
->> +	.args = net_flow_null_args,
->> +};
->
-> Random thought, should there be a "push_vlan" (for double VLAN tagging)?
->
->
+> You say "which should include a source port set to a value for the
+> inner flow", well this series doesn't add such logic, nor I am fully
+> clear what piece exactly is responsible for the fact that I see
+> multiple source udp ports used from vxlan traffic flowing out of a
+> certain host. I just wanted to make sure that these patches don't
+> introduce a regression w.r.t to the **current** (not future) state of
+> things, can you confirm this?
 
-Yep I should add that one there are also some other actions
-on my todo list but some of them require updates to the driver.
-
-Assuming its not a big issue for anyone I would like like to
-get this series in with the match/actions it has and then extend
-the action and match lists.
-
-.John
-
--- 
-John Fastabend         Intel Corporation
+vxlan_xmit_one calls udp_flow_src_port to get a source port value
+based on the encapsulated flow.
