@@ -1,55 +1,59 @@
-From: Paul Bolle <pebolle@tiscali.nl>
-Subject: Re: [PATCH net-next v8 2/4] net: netcp: Add Keystone NetCP core
- ethernet driver
-Date: Tue, 20 Jan 2015 18:26:37 +0100
-Message-ID: <1421774797.29393.4.camel@x220>
-References: <1421367172-19793-1-git-send-email-m-karicheri2@ti.com>
-	  <1421367172-19793-2-git-send-email-m-karicheri2@ti.com>
-	 <1421741935.9655.73.camel@x220> <54BE8BEA.3000100@ti.com>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCH net-next 2/2] vxlan: Eliminate dependency on UDP socket in
+ transmit path
+Date: Tue, 20 Jan 2015 09:29:42 -0800
+Message-ID: <CA+mtBx-QVcK2yP7hwr01X-KaXedzrgMGrHH503-i5y54BPnNPA@mail.gmail.com>
+References: <1421518700-22460-1-git-send-email-therbert@google.com>
+	<1421518700-22460-3-git-send-email-therbert@google.com>
+	<20150119085938.GG20315@casper.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Wingman Kwok <w-kwok2@ti.com>,
-	Valentin Rothberg <valentinrothberg@gmail.com>,
-	davem@davemloft.net, devicetree@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Murali Karicheri <m-karicheri2@ti.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <54BE8BEA.3000100@ti.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Thomas Graf <tgraf@suug.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f177.google.com ([209.85.223.177]:40894 "EHLO
+	mail-ie0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755187AbbATR3n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jan 2015 12:29:43 -0500
+Received: by mail-ie0-f177.google.com with SMTP id at20so11633339iec.8
+        for <netdev@vger.kernel.org>; Tue, 20 Jan 2015 09:29:42 -0800 (PST)
+In-Reply-To: <20150119085938.GG20315@casper.infradead.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2015-01-20 at 12:10 -0500, Murali Karicheri wrote:
-> On 01/20/2015 03:18 AM, Paul Bolle wrote:
-> > On Thu, 2015-01-15 at 19:12 -0500, Murali Karicheri wrote:
-> >> diff --git a/drivers/net/ethernet/ti/Kconfig b/drivers/net/ethernet/ti/Kconfig
-> >> index 605dd90..e11bcfa 100644
-> >> --- a/drivers/net/ethernet/ti/Kconfig
-> >> +++ b/drivers/net/ethernet/ti/Kconfig
-> >> @@ -73,12 +73,23 @@ config TI_CPSW
-> >>   config TI_CPTS
-> >>   	boolean "TI Common Platform Time Sync (CPTS) Support"
-> >>   	depends on TI_CPSW
-> >> +	depends on TI_CPSW || TI_KEYSTONE_NET
-> >
-> > You probably meant to add
-> >      || TI_KEYSTONE_NETCP
-> >
-> > here. Ie, add CP. But as this slipped through testing it _might_ not be
-> > needed at all.
-> 
-> Currently CPTS driver is not used for NetCP. So I want to remove the 
-> above Kconfig dependency from Kconfig and cpts.o from the Makefile. Do 
-> you expect me to send an incremental patch for this to the netdev list? 
+On Mon, Jan 19, 2015 at 12:59 AM, Thomas Graf <tgraf@suug.ch> wrote:
+> On 01/17/15 at 10:18am, Tom Herbert wrote:
+>> diff --git a/include/net/vxlan.h b/include/net/vxlan.h
+>> index 7be8c34..2927d62 100644
+>> --- a/include/net/vxlan.h
+>> +++ b/include/net/vxlan.h
+>> @@ -129,8 +129,12 @@ struct vxlan_sock {
+>>  #define VXLAN_F_REMCSUM_RX           0x400
+>>  #define VXLAN_F_GBP                  0x800
+>>
+>> -/* These flags must match in order for a socket to be shareable */
+>> -#define VXLAN_F_UNSHAREABLE          VXLAN_F_GBP
+>> +/* Flags that are used in the receive patch. These flags must match in
+>                                           ^^^^^
+>
+>
+>
+>> + * order for a socket to be shareable
+>> + */
+>> +#define VXLAN_F_RCV_FLAGS            (VXLAN_F_GBP |                  \
+>> +                                      VXLAN_F_UDP_ZERO_CSUM6_RX |    \
+>> +                                      VXLAN_F_REMCSUM_RX)
+>
+> I'm fine with this. It is slightly odd that we will be transmitting
+> RCO and other extensions on UDP ports which cannot accept the same
+> frames. I assume you have specific use cases for this scenario.
 
-That's Dave's call. I think that Dave works with incremental patches
-exclusively once things have hit (one of the trees that feed into)
-linux-next.
+I didn't see any reason to preclude that, if it needs to be symmetric
+in that case it can be forced at the configuration. Being able to
+receive RCO but not have to send it to certain peers is important use
+case. You may want to consider this also for GBP if there are cases
+where we accept GBP from different peers, but only send it to certain
+ones.
 
-> or can pick the attached patch that addresses this issue. Let me know.
-
-I'm just the reporter. Please send it through the regular channels. That
-would certainly include netdev.
-
-
-Paul Bolle
+Tom
