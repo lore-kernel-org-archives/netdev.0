@@ -1,8 +1,8 @@
 From: Ian Campbell <Ian.Campbell@citrix.com>
 Subject: Re: [Xen-devel] [RFC PATCHv1 net-next] xen-netback: always fully
  coalesce guest Rx packets
-Date: Tue, 20 Jan 2015 11:21:48 +0000
-Message-ID: <1421752908.10440.224.camel@citrix.com>
+Date: Tue, 20 Jan 2015 11:23:13 +0000
+Message-ID: <1421752993.10440.225.camel@citrix.com>
 References: <1421157917-31333-1-git-send-email-david.vrabel@citrix.com>
 	 <20150113143033.GN4226@zion.uk.xensource.com> <54BD408A.6080405@citrix.com>
 Mime-Version: 1.0
@@ -13,10 +13,10 @@ Cc: Wei Liu <wei.liu2@citrix.com>, <netdev@vger.kernel.org>,
 	Jonathan Davies <jonathan.davies@citrix.com>
 To: David Vrabel <david.vrabel@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:17469 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755004AbbATLVv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Jan 2015 06:21:51 -0500
+Received: from smtp02.citrix.com ([66.165.176.63]:59100 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753584AbbATLXQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jan 2015 06:23:16 -0500
 In-Reply-To: <54BD408A.6080405@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -46,39 +46,8 @@ On Mon, 2015-01-19 at 17:36 +0000, David Vrabel wrote:
 > Interhost VM receive      7.2 Gb/s   11 Gb/s
 > Intrahost single stream  14 Gb/s     14 Gb/s
 > Intrahost aggregate      34 Gb/s     34 Gb/s
-> 
-> We do not measure the performance of dom0 to guest traffic but my ad-hoc
-> measurements suggest this may be 5-10% slower.  I don't think this is a
-> very important use case though.
 
-If you are updating your dom0 kernel to take advantage of this
-improvement and you care about dom0->domU performance too then also
-updating your Xen at the same is not a huge deal, I think. Or at least I
-don't consider it a blocker for making progress (certainly not progress
-of the order of 50% improvements!).
-
-> So...
-> 
-> >> /unless/ grant copy has been optimized for adjacent ops with the same
-> >> source or destination (see "grant-table: defer releasing pages
-> >> acquired in a grant copy"[1]).
-> >>
-> >> Do we need to retain the existing path and make the always coalesce
-> >> path conditional on a suitable version of Xen?
-> 
-> ...I think the answer to this is no.
-
-Agreed.
-
-> >> ---
-> >>  drivers/net/xen-netback/common.h  |    1 -
-> >>  drivers/net/xen-netback/netback.c |  106 ++-----------------------------------
-> >>  2 files changed, 3 insertions(+), 104 deletions(-)
-> > 
-> > Love the diffstat!
-> 
-> Yes, it's always nice when you delete code and it goes faster... :)
-
-Full-Ack to that ;-)
+Do you have a third column to hand, for Full-coalesce w/ grant copy
+optimisation case? (Don't worry if not)
 
 Ian.
