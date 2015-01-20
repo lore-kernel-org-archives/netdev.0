@@ -1,176 +1,332 @@
-From: David Miller <davem@davemloft.net>
-Subject: [GIT] Networking
-Date: Mon, 19 Jan 2015 20:07:32 -0500 (EST)
-Message-ID: <20150119.200732.1458473731331084345.davem@davemloft.net>
+From: ethan zhao <ethan.zhao@oracle.com>
+Subject: Re: [PATCH] i40e: don't enable and init FCOE by
+ default when do PF reset
+Date: Tue, 20 Jan 2015 10:05:39 +0800
+Message-ID: <54BDB7F3.2020400@oracle.com>
+References: <933BEC2E04D6A5458F4B0239FB547F9A34CCCD35@fmsmsx118.amr.corp.intel.com>
+	<54B86DF8.3040206@oracle.com>
+	<1421419628.2632.112.camel@jtkirshe-mobl>
+	<54B9D082.9050601@oracle.com>
+	<933BEC2E04D6A5458F4B0239FB547F9A34CCE42B@fmsmsx118.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
+	"brian.maly@oracle.com" <brian.maly@oracle.com>, "Allan,
+	Bruce W" <bruce.w.allan@intel.com>, "Brandeburg,
+	Jesse" <jesse.brandeburg@intel.com>, "Parikh,
+	Neerav" <neerav.parikh@intel.com>,
+	Linux NICS <Linux-nics@isotope.jf.intel.com>, "Ronciak,
+	John" <john.ronciak@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Ethan Zhao <ethan.kernel@gmail.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: "Dev, Vasu" <vasu.dev@intel.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <933BEC2E04D6A5458F4B0239FB547F9A34CCE42B@fmsmsx118.amr.corp.intel.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
 
-1) Socket addresses returned in the error queue need to be fully
-   initialized before being passed on to userspace, fix from
-   Willem de Bruijn.
+On 2015/1/20 5:10, Dev, Vasu wrote:
+>> -----Original Message-----
+>> From: ethan zhao [mailto:ethan.zhao@oracle.com]
+>> Sent: Friday, January 16, 2015 7:01 PM
+>> To: Kirsher, Jeffrey T
+>> Cc: Dev, Vasu; Ethan Zhao; Ronciak, John; Brandeburg, Jesse; Allan, Bruce W;
+>> Wyborny, Carolyn; Skidmore, Donald C; Rose, Gregory V; Vick, Matthew;
+>> Williams, Mitch A; Parikh, Neerav; Linux NICS; e1000-
+>> devel@lists.sourceforge.net; netdev@vger.kernel.org; linux-
+>> kernel@vger.kernel.org; brian.maly@oracle.com
+>> Subject: Re: [PATCH] i40e: don't enable and init FCOE by default when do PF
+>> reset
+>>
+>> Vasu,
+>>
+>>     What' your idea about the v2, any suggestion ?  Jeff is looking forward to
+>> see it.
+>>
+> Jeff was asking for v2 in response to your last comment as "disable FCOE as default configuration as a temporary step" but I think that is the fix and user should n't enable FCoE until they have FCoE enabled X710 FCoE with either fabric or VN2VN mode FCoE setup.
+  As a Linux distro, we don't know users have FCoE capable X710 or not, 
+so we couldn't disable the FCoE configuration
+  by default in the released kernel except FCoE is officially not 
+supported yet with X710, but if yes, fix those bugs I
+  mentioned is the only choice.
 
-2) Interrupt handling fixes to davinci_emac driver from Tony
-   Lindgren.
 
-3) Fix races between receive packet steering and cpu hotplug, from
-   Eric Dumazet.
+Thanks,
+Ethan
 
-4) Allowing netlink sockets to subscribe to unknown multicast groups
-   leads to crashes, don't allow it.  From Johannes Berg.
 
-5) One to many socket races in SCTP fixed by Daniel Borkmann.
+>
+> Thanks,
+> Vasu
+>
+>> Thanks,
+>> Ethan
+>>
+>>
+>> On 2015/1/16 22:47, Jeff Kirsher wrote:
+>>> On Fri, 2015-01-16 at 09:48 +0800, ethan zhao wrote:
+>>>> Vasu,
+>>>>
+>>>>       OK, disable FCOE as default configuration as a temporary step to
+>>>> make it  work.
+>>> Sounds like I should expect a v2 coming, correct?
+>>>
+>>>> Thanks,
+>>>> Ethan
+>>>>
+>>>> On 2015/1/16 7:45, Dev, Vasu wrote:
+>>>>>> -----Original Message-----
+>>>>>> From: ethan zhao [mailto:ethan.zhao@oracle.com]
+>>>>>> Sent: Tuesday, January 13, 2015 6:41 PM
+>>>>>> To: Dev, Vasu
+>>>>>> Cc: Ethan Zhao; Ronciak, John; Kirsher, Jeffrey T; Brandeburg,
+>>>>>> Jesse; Allan, Bruce W; Wyborny, Carolyn; Skidmore, Donald C; Rose,
+>>>>>> Gregory V; Vick, Matthew; Williams, Mitch A; Parikh, Neerav; Linux
+>>>>>> NICS; e1000- devel@lists.sourceforge.net; netdev@vger.kernel.org;
+>>>>>> linux- kernel@vger.kernel.org; brian.maly@oracle.com
+>>>>>> Subject: Re: [PATCH] i40e: don't enable and init FCOE by default
+>>>>>> when do PF reset
+>>>>>>
+>>>>>> Vasu,
+>>>>>>
+>>>>>> On 2015/1/14 3:38, Dev, Vasu wrote:
+>>>>>>>> -----Original Message-----
+>>>>>>>>>>> diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c
+>>>>>>>>>>> b/drivers/net/ethernet/intel/i40e/i40e_main.c
+>>>>>>>>>>> index a5f2660..a2572cc 100644
+>>>>>>>>>>> --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
+>>>>>>>>>>> +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+>>>>>>>>>>> @@ -6180,9 +6180,12 @@ static void
+>>>>>>>>>>> i40e_reset_and_rebuild(struct i40e_pf *pf, bool reinit)
+>>>>>>>>>>>         }
+>>>>>>>>>>>      #endif /* CONFIG_I40E_DCB */
+>>>>>>>>>>>      #ifdef I40E_FCOE
+>>>>>>>>>>> -   ret = i40e_init_pf_fcoe(pf);
+>>>>>>>>>>> -   if (ret)
+>>>>>>>>>>> -           dev_info(&pf->pdev->dev, "init_pf_fcoe failed: %d\n", ret);
+>>>>>>>>>>> +   if (pf->flags & I40E_FLAG_FCOE_ENABLED) {
+>>>>>>>>>>> +           ret = i40e_init_pf_fcoe(pf);
+>>>>>>>>> Calling i40e_init_pf_fcoe() here conflicts with its
+>>>>>>>> I40E_FLAG_FCOE_ENABLED pre-condition since
+>>>>>> I40E_FLAG_FCOE_ENABLED is
+>>>>>>>> set by very same i40e_init_pf_fcoe(), in turn i40e_init_pf_fcoe()
+>>>>>>>> will never get called.
+>>>>>>>>
+>>>>>>>> I don't think so,  here ,i40e_reset_and_rebuild()  is not the
+>>>>>>>> only and the first place that  i40e_init_pf_fcoe() is called, see
+>>>>>>>> i40e_probe(), that is the first chance.
+>>>>>>>>
+>>>>>>>> i40e_probe()
+>>>>>>>> -->i40e_sw_init()
+>>>>>>>>          -->i40e_init_pf_fcoe()
+>>>>>>>>
+>>>>>>>> And the I40E_FLAG_FCOE_ENABLED is possible be set by
+>>>>>>>> i40e_fcoe_enable() or i40e_fcoe_disable() interface before the
+>>>>>>>> reset action is to be done.
+>>>>>>>>
+>>>>>>> It is set by i40e_init_pf_fcoe() and you are right that the
+>>>>>>> modified call flow
+>>>>>> by your patch won't impact setting of I40E_FLAG_FCOE_ENABLED
+>> anyway
+>>>>>> which could have prevented calling i40e_init_pf_fcoe() as I
+>>>>>> described above, so this is not an issue with the patch.
+>>>>>>>> BTW, the reason I post this patch is that we hit a bug, after
+>>>>>>>> setup vlan, the PF is enabled to FCOE.
+>>>>>>>>
+>>>>>>> Then that BUG would still remain un-fixed and calling
+>>>>>>> i40e_init_pf_fcoe()
+>>>>>> under I40E_FLAG_FCOE_ENABLED  flag really won't affect call flow to
+>>>>>> fix anything. I mean I40E_FLAG_FCOE_ENABLED  condition will be true
+>>>>>> with "pf-
+>>>>>>> hw.func_caps.fcoe == true" and otherwise calling
+>>>>>>> i40e_init_pf_fcoe() simply
+>>>>>> returns back early on after checking "pf->hw.func_caps.fcoe ==
+>>>>>> false", so how that bug is fixed here by added
+>> I40E_FLAG_FCOE_ENABLED  condition ?
+>>>>>> What is the bug ?
+>>>>>>      The func_caps.fcoe is assigned by following call path, under
+>>>>>> our test environment,
+>>>>>>
+>>>>>>      i40e_probe()
+>>>>>>       ->i40e_get_capabilities()
+>>>>>>          ->i40e_aq_discover_capabilities()
+>>>>>>             ->i40e_parse_discover_capabilities()
+>>>>>>
+>>>>>>      Or
+>>>>>>
+>>>>>>      i40e_reset_and_rebuild()
+>>>>>>       ->i40e_get_capabilities()
+>>>>>>         ->i40e_aq_discover_capabilities()
+>>>>>>           ->i40e_parse_discover_capabilities()
+>>>>>>
+>>>>>>      Under our test environment, the "pf->hw.func_caps.fcoe" is
+>>>>>> true. so if
+>>>>>> i40e_reset_and_rebuild() is called for VLAN setup, ethtool diagnostic
+>> test.
+>>>>>>      And then i40e_init_pf_fcoe() is to be called,
+>>>>>>
+>>>>>>      While if (!pf->hw.func_caps.fcoe) wouldn't return,
+>>>>>>
+>>>>> I said it would return with "pf->hw.func_caps.fcoe == false" in my last
+>> response, more details below.
+>>>>>>      So  pf->flags is set to I40E_FLAG_FCOE_ENABLED.
+>>>>>>
+>>>>>>      With my patch,  i40e_init_pf_fcoe() is only called after
+>>>>>> I40E_FLAG_FCOE_ENABLED is set before reset.
+>>>>>>
+>>>>>> Enable FCOE in i40e_probe() or not is another issue.
+>>>>>>
+>>>>> Nope since both cases we should do i40e_init_pf_fcoe() or don't based
+>> on fcoe cap true or false.
+>>>>> I don't have much to add as I described before with the your patch that
+>> "calling i40e_init_pf_fcoe() under I40E_FLAG_FCOE_ENABLED  flag really
+>> won't affect call flow to fix anything. I mean I40E_FLAG_FCOE_ENABLED
+>> condition will be true with "pf->hw.func_caps.fcoe == true" and otherwise
+>> calling i40e_init_pf_fcoe() simply returns back early on after checking "pf-
+>>> hw.func_caps.fcoe == false".
+>>>>> May be I'm missing something, I guess next either go with
+>> CONFIG_I40E_FCOE disable as I suggested before and now it in upstream
+>> kernel or we can have further off list discussion to fix the issue you are trying
+>> to fix with the patch.
+>>>>> Thanks,
+>>>>> Vasu
+>>>>>
+>>>>>> Thanks,
+>>>>>> Ethan
+>>>>>>
+>>>>>>
+>>>>>>>>> Jeff Kirsher should be getting out a patch queued by me which
+>>>>>>>>> adds
+>>>>>>>> I40E_FCoE Kbuild option, in that FCoE is disabled by default and
+>>>>>>>> user could enable FCoE only if needed, that patch would do same
+>>>>>>>> of skipping
+>>>>>>>> i40e_init_pf_fcoe() whether FCoE capability in device enabled or
+>>>>>>>> not in default config.
+>>>>>>>> The following patch will not fix the above issue -- configuration
+>>>>>>>> of PF will be changed via reset.
+>>>>>>>> How about the FCOE is configured and disabled by
+>>>>>>>> i40e_fcoe_disable() , then reset happens ?
+>>>>>>>>
+>>>>>>> May be but if the BUG is due to FCoE being enabled then having it
+>>>>>>> disabled
+>>>>>> in config will avoid the bug for non FCoE config option and once
+>>>>>> bug is understood then that has to be fixed for FCoE enabled config
+>>>>>> also as I asked above.
+>>>>>>> Thanks Ethan for detailed response.
+>>>>>>> Vasu
+>>>>>>>
+>>>>>>>>>     From patchwork Wed Oct  2 23:26:08 2013
+>>>>>>>>> Content-Type: text/plain; charset="utf-8"
+>>>>>>>>> MIME-Version: 1.0
+>>>>>>>>> Content-Transfer-Encoding: 7bit
+>>>>>>>>> Subject: [net] i40e: adds FCoE configure option
+>>>>>>>>> Date: Thu, 03 Oct 2013 07:26:08 -0000
+>>>>>>>>> From: Vasu Dev <vasu.dev@intel.com>
+>>>>>>>>> X-Patchwork-Id: 11797
+>>>>>>>>>
+>>>>>>>>> Adds FCoE config option I40E_FCOE, so that FCoE can be enabled
+>>>>>>>>> as needed but otherwise have it disabled by default.
+>>>>>>>>>
+>>>>>>>>> This also eliminate multiple FCoE config checks, instead now
+>>>>>>>>> just one config check for CONFIG_I40E_FCOE.
+>>>>>>>>>
+>>>>>>>>> The I40E FCoE was added with 3.17 kernel and therefore this
+>>>>>>>>> patch shall be applied to stable 3.17 kernel also.
+>>>>>>>>>
+>>>>>>>>> CC: <stable@vger.kernel.org>
+>>>>>>>>> Signed-off-by: Vasu Dev <vasu.dev@intel.com>
+>>>>>>>>> Tested-by: Jim Young <jamesx.m.young@intel.com>
+>>>>>>>>>
+>>>>>>>>> ---
+>>>>>>>>> drivers/net/ethernet/intel/Kconfig           |   11 +++++++++++
+>>>>>>>>>      drivers/net/ethernet/intel/i40e/Makefile     |    2 +-
+>>>>>>>>>      drivers/net/ethernet/intel/i40e/i40e_osdep.h |    4 ++--
+>>>>>>>>>      3 files changed, 14 insertions(+), 3 deletions(-)
+>>>>>>>>>
+>>>>>>>>> diff --git a/drivers/net/ethernet/intel/Kconfig
+>>>>>>>>> b/drivers/net/ethernet/intel/Kconfig
+>>>>>>>>> index 5b8300a..4d61ef5 100644
+>>>>>>>>> --- a/drivers/net/ethernet/intel/Kconfig
+>>>>>>>>> +++ b/drivers/net/ethernet/intel/Kconfig
+>>>>>>>>> @@ -281,6 +281,17 @@ config I40E_DCB
+>>>>>>>>>
+>>>>>>>>>               If unsure, say N.
+>>>>>>>>>
+>>>>>>>>> +config I40E_FCOE
+>>>>>>>>> +       bool "Fibre Channel over Ethernet (FCoE)"
+>>>>>>>>> +       default n
+>>>>>>>>> +       depends on I40E && DCB && FCOE
+>>>>>>>>> +       ---help---
+>>>>>>>>> +         Say Y here if you want to use Fibre Channel over Ethernet
+>> (FCoE)
+>>>>>>>>> +         in the driver. This will create new netdev for exclusive FCoE
+>>>>>>>>> +         use with XL710 FCoE offloads enabled.
+>>>>>>>>> +
+>>>>>>>>> +         If unsure, say N.
+>>>>>>>>> +
+>>>>>>>>>      config I40EVF
+>>>>>>>>>             tristate "Intel(R) XL710 X710 Virtual Function Ethernet
+>> support"
+>>>>>>>>>             depends on PCI_MSI
+>>>>>>>>> diff --git a/drivers/net/ethernet/intel/i40e/Makefile
+>>>>>>>>> b/drivers/net/ethernet/intel/i40e/Makefile
+>>>>>>>>> index 4b94ddb..c405819 100644
+>>>>>>>>> --- a/drivers/net/ethernet/intel/i40e/Makefile
+>>>>>>>>> +++ b/drivers/net/ethernet/intel/i40e/Makefile
+>>>>>>>>> @@ -44,4 +44,4 @@ i40e-objs := i40e_main.o \
+>>>>>>>>>             i40e_virtchnl_pf.o
+>>>>>>>>>
+>>>>>>>>>      i40e-$(CONFIG_I40E_DCB) += i40e_dcb.o i40e_dcb_nl.o
+>>>>>>>>> -i40e-$(CONFIG_FCOE:m=y) += i40e_fcoe.o
+>>>>>>>>> +i40e-$(CONFIG_I40E_FCOE) += i40e_fcoe.o
+>>>>>>>>> diff --git a/drivers/net/ethernet/intel/i40e/i40e_osdep.h
+>>>>>>>>> b/drivers/net/ethernet/intel/i40e/i40e_osdep.h
+>>>>>>>>> index 045b5c4..ad802dd 100644
+>>>>>>>>> --- a/drivers/net/ethernet/intel/i40e/i40e_osdep.h
+>>>>>>>>> +++ b/drivers/net/ethernet/intel/i40e/i40e_osdep.h
+>>>>>>>>> @@ -78,7 +78,7 @@ do {                                                            \
+>>>>>>>>>      } while (0)
+>>>>>>>>>
+>>>>>>>>>      typedef enum i40e_status_code i40e_status; -#if
+>>>>>>>>> defined(CONFIG_FCOE)
+>>>>>>>>> || defined(CONFIG_FCOE_MODULE)
+>>>>>>>>> +#ifdef CONFIG_I40E_FCOE
+>>>>>>>>>      #define I40E_FCOE
+>>>>>>>>> -#endif /* CONFIG_FCOE or CONFIG_FCOE_MODULE */
+>>>>>>>>> +#endif
+>>>>>>>>>      #endif /* _I40E_OSDEP_H_ */
+>>>>>>>>>
+>>>>>>>>>>> +           if (ret)
+>>>>>>>>>>> +                   dev_info(&pf->pdev->dev,
+>>>>>>>>>>> +                            "init_pf_fcoe failed: %d\n", ret);
+>>>>>>>>>>> +   }
+>>>>>>>>>>>
+>>>>>>>>>>>      #endif
+>>>>>>>>>>>         /* do basic switch setup */
+>>>>>>>>>>> --
+>>>>>>>>>>> 1.8.3.1
+>>>>>>>> Thanks,
+>>>>>>>> Ethan
 
-6) Put in a guard against the mis-use of ipv6 atomic fragments, from
-   Hagen Paul Pfeifer.
 
-7) Fix promisc mode and ethtool crashes in sh_eth driver, from Ben
-   Hutchings.
-
-8) Null deref and double kfree fix in sxgbe driver from Girish K.S
-   and Byungho An.
-
-9) cfg80211 deadlock fix from Arik Nemtsov.
-
-Please pull, thanks a lot!
-
-The following changes since commit a6391a924cf5a16761ccd6b45094a7d5b9aeebac:
-
-  Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net (2015-01-15 11:17:37 +1300)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git 
-
-for you to fetch changes up to a8c1d28ac3925b99b5a939617d3fef1644298ee8:
-
-  s2io: use snprintf() as a safety feature (2015-01-19 19:42:21 -0500)
-
-----------------------------------------------------------------
-Ahmed S. Darwish (4):
-      can: kvaser_usb: Don't free packets when tight on URBs
-      can: kvaser_usb: Reset all URB tx contexts upon channel close
-      can: kvaser_usb: Don't send a RESET_CHIP for non-existing channels
-      can: kvaser_usb: Don't dereference skb after a netif_rx()
-
-Arik Nemtsov (1):
-      cfg80211: fix deadlock during reg chan check
-
-Ben Hutchings (2):
-      sh_eth: Fix promiscuous mode on chips without TSU
-      sh_eth: Fix ethtool operation crash when net device is down
-
-Byungho An (1):
-      net: sxgbe: Fix waring for double kfree()
-
-Dan Carpenter (1):
-      s2io: use snprintf() as a safety feature
-
-Daniel Borkmann (1):
-      net: sctp: fix race for one-to-many sockets in sendmsg's auto associate
-
-David S. Miller (6):
-      Merge tag 'mac80211-for-davem-2015-01-15' of git://git.kernel.org/.../jberg/mac80211
-      Merge tag 'linux-can-fixes-for-3.19-20150115' of git://git.kernel.org/.../mkl/linux-can
-      Merge branch 'davinci_emac'
-      Merge branch 'sh_eth'
-      Merge branch 'bgmac'
-      Merge branch 'r8152'
-
-Eric Dumazet (1):
-      net: rps: fix cpu unplug
-
-Geert Uytterhoeven (1):
-      sh_eth: Fix addition of .trscer_err_mask to wrong SoC data
-
-Girish K.S (1):
-      net: sxgbe: Fix NULL dereferece when using DT
-
-Hagen Paul Pfeifer (1):
-      ipv6: stop sending PTB packets for MTU < 1280
-
-Hauke Mehrtens (2):
-      bgmac: register napi before the device
-      bgmac: activate irqs only if there is nothing to poll
-
-Johannes Berg (3):
-      genetlink: document parallel_ops
-      genetlink: disallow subscribing to unknown mcast groups
-      genetlink: synchronize socket closing and family removal
-
-John Linville (1):
-      mac80211: uninitialized return val in __ieee80211_sta_handle_tspec_ac_params
-
-Marc Kleine-Budde (1):
-      MAINTAINERS: update linux-can git repositories
-
-Mugunthan V N (1):
-      drivers: net: cpsw: fix cpsw hung with add vlan using vconfig
-
-Oliver Hartkopp (2):
-      can: dev: fix crtlmode_supported check
-      can: m_can: tag current CAN FD controllers as non-ISO
-
-Or Gerlitz (1):
-      net/mlx4: Don't disable vxlan offloads under DMFS-A0 optimized steering
-
-Roger Quadros (1):
-      can: c_can: use regmap_update_bits() to modify RAMINIT register
-
-Sriharsha Basavapatna (1):
-      be2net: Allow GRE to work concurrently while a VxLAN tunnel is configured
-
-Tony Lindgren (6):
-      net: davinci_emac: Fix hangs with interrupts
-      net: davinci_emac: Fix runtime pm calls for davinci_emac
-      net: davinci_emac: Free clock after checking the frequency
-      net: davinci_emac: Fix incomplete code for getting the phy from device tree
-      net: davinci_emac: Fix ioremap for devices with MDIO within the EMAC address space
-      net: davinci_emac: Add support for emac on dm816x
-
-Willem de Bruijn (1):
-      ip: zero sockaddr returned on error queue
-
-hayeswang (2):
-      r8152: remove generic_ocp_read before writing
-      r8152: remove sram_read
-
- Documentation/devicetree/bindings/net/davinci_emac.txt |  3 +-
- MAINTAINERS                                            |  6 ++--
- drivers/infiniband/hw/mlx4/main.c                      |  3 +-
- drivers/net/can/c_can/c_can_platform.c                 | 29 ++++++++++-------
- drivers/net/can/dev.c                                  |  8 +++--
- drivers/net/can/m_can/m_can.c                          |  5 +++
- drivers/net/can/usb/kvaser_usb.c                       | 31 +++++++++---------
- drivers/net/ethernet/broadcom/bgmac.c                  | 12 +++----
- drivers/net/ethernet/emulex/benet/be_main.c            | 41 +++++++++++++++++++++--
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c         |  3 +-
- drivers/net/ethernet/mellanox/mlx4/main.c              |  3 +-
- drivers/net/ethernet/neterion/s2io.c                   | 11 +++++--
- drivers/net/ethernet/renesas/sh_eth.c                  | 32 +++++++++++-------
- drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c        | 21 ++++++------
- drivers/net/ethernet/samsung/sxgbe/sxgbe_platform.c    |  8 ++---
- drivers/net/ethernet/ti/cpsw.c                         | 27 +++++++++------
- drivers/net/ethernet/ti/davinci_emac.c                 | 96 ++++++++++++++++++++++++++++++++++++++++++------------
- drivers/net/usb/r8152.c                                | 30 ++++-------------
- include/linux/genetlink.h                              |  4 +++
- include/net/genetlink.h                                |  7 +++-
- include/uapi/linux/can/netlink.h                       |  1 +
- net/core/dev.c                                         | 20 +++++++++---
- net/ipv4/ip_sockglue.c                                 |  8 ++---
- net/ipv6/datagram.c                                    | 10 ++----
- net/ipv6/route.c                                       |  7 ++--
- net/mac80211/mlme.c                                    |  2 +-
- net/netlink/af_netlink.c                               | 24 ++++++++++----
- net/netlink/af_netlink.h                               |  1 +
- net/netlink/genetlink.c                                | 18 +++++-----
- net/sctp/socket.c                                      |  8 ++++-
- net/wireless/reg.c                                     | 56 ++++++++++++++++++-------------
- 31 files changed, 343 insertions(+), 192 deletions(-)
+------------------------------------------------------------------------------
+New Year. New Location. New Benefits. New Data Center in Ashburn, VA.
+GigeNET is offering a free month of service with a new server in Ashburn.
+Choose from 2 high performing configs, both with 100TB of bandwidth.
+Higher redundancy.Lower latency.Increased capacity.Completely compliant.
+http://p.sf.net/sfu/gigenet
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
