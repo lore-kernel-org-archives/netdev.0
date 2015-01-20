@@ -1,134 +1,71 @@
-From: Fugang Duan <b38611@freescale.com>
-Subject: [PATCH net-next 1/1] net: fec: fix the warning found by dma debug
-Date: Tue, 20 Jan 2015 14:10:35 +0800
-Message-ID: <1421734235-6563-1-git-send-email-b38611@freescale.com>
+From: roopa <roopa@cumulusnetworks.com>
+Subject: Re: [RFC PATCH net-next] bridge: ability to disable forwarding on
+ a port
+Date: Mon, 19 Jan 2015 22:20:55 -0800
+Message-ID: <54BDF3C7.5010806@cumulusnetworks.com>
+References: <1421479975-62049-1-git-send-email-roopa@cumulusnetworks.com> <CAE4R7bBeNojtj3Zyd6+zSJFGRjG4vejBObnS1XUFAfJDZJZYow@mail.gmail.com> <54BB7874.90201@cumulusnetworks.com> <54BC1DC5.1000401@cumulusnetworks.com> <CAE4R7bC=j-mT65TzFOhJL-Hd0GeHg3-k+=+VFHaj-m+h5PjMuQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <festevam@gmail.com>,
-	<christian.gmeiner@gmail.com>, <moon.linux@yahoo.com>,
-	<bhutchings@solarflare.com>, <stephen@networkplumber.org>,
-	<b38611@freescale.com>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "stephen@networkplumber.org" <stephen@networkplumber.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
+	"Arad, Ronen" <ronen.arad@intel.com>, Thomas Graf <tgraf@suug.ch>,
+	john fastabend <john.fastabend@gmail.com>,
+	"vyasevic@redhat.com" <vyasevic@redhat.com>,
+	Netdev <netdev@vger.kernel.org>,
+	Wilson Kok <wkok@cumulusnetworks.com>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>
+To: Scott Feldman <sfeldma@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2on0112.outbound.protection.outlook.com ([65.55.169.112]:4231
-	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752071AbbATGNg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Jan 2015 01:13:36 -0500
+Received: from mail-pd0-f179.google.com ([209.85.192.179]:39837 "EHLO
+	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750756AbbATGU6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jan 2015 01:20:58 -0500
+Received: by mail-pd0-f179.google.com with SMTP id v10so22785030pde.10
+        for <netdev@vger.kernel.org>; Mon, 19 Jan 2015 22:20:57 -0800 (PST)
+In-Reply-To: <CAE4R7bC=j-mT65TzFOhJL-Hd0GeHg3-k+=+VFHaj-m+h5PjMuQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Enable kernel config "CONFIG_HAVE_DMA_API_DEBUG", FEC have kernel warning:
-[    6.650444] fec 2188000.ethernet: DMA-API: device driver tries to free DMA memory it has not allocated
-[    6.664289] Modules linked in:
-[    6.667378] CPU: 0 PID: 3 Comm: ksoftirqd/0 Not tainted 3.19.0-rc4-00688-g8834016-dirty #150
-[    6.675841] Hardware name: Freescale i.MX6 SoloX (Device Tree)
-[    6.681698] Backtrace:
-[    6.684189] [<80011e3c>] (dump_backtrace) from [<80011fdc>] (show_stack+0x18/0x1c)
-[    6.691789]  r6:80890154 r5:00000000 r4:00000000 r3:00000000
-[    6.697533] [<80011fc4>] (show_stack) from [<806d2d88>] (dump_stack+0x80/0x9c)
-[    6.704799] [<806d2d08>] (dump_stack) from [<8002a4e4>] (warn_slowpath_common+0x7c/0xb4)
-[    6.712917]  r5:00000445 r4:00000000
-[    6.716544] [<8002a468>] (warn_slowpath_common) from [<8002a5c0>] (warn_slowpath_fmt+0x38/0x40)
-[    6.725265]  r8:809a2ee8 r7:00000000 r6:00000000 r5:00000000 r4:00000042
-[    6.732087] [<8002a58c>] (warn_slowpath_fmt) from [<802d6268>] (check_unmap+0x86c/0x98c)
-[    6.740202]  r3:808c79bc r2:8089060c
-[    6.743826] [<802d59fc>] (check_unmap) from [<802d65e4>] (debug_dma_unmap_page+0x80/0x88)
-[    6.752029]  r10:00000000 r9:00000000 r8:00000000 r7:00000001 r6:be12a410 r5:00000000
-[    6.759967]  r4:00000042
-[    6.762538] [<802d6564>] (debug_dma_unmap_page) from [<80440248>] (fec_enet_rx_napi+0x7ec/0xb9c)
-[    6.771345]  r7:00000400 r6:be3e4000 r5:bf08fa20 r4:be036000
-[    6.777094] [<8043fa5c>] (fec_enet_rx_napi) from [<8056ae24>] (net_rx_action+0x134/0x324)
-[    6.785297]  r10:be089e60 r9:80998180 r8:ffff8d68 r7:0000012c r6:00000040 r5:00000001
-[    6.793239]  r4:be036718
-[    6.795801] [<8056acf0>] (net_rx_action) from [<8002db24>] (__do_softirq+0x138/0x2d0)
-[    6.803655]  r10:00000003 r9:00000003 r8:80996378 r7:8099c080 r6:00000100 r5:8099c08c
-[    6.811593]  r4:00000000
-[    6.814157] [<8002d9ec>] (__do_softirq) from [<8002dd00>] (run_ksoftirqd+0x44/0x5c)
-[    6.821836]  r10:00000000 r9:00000000 r8:809b133c r7:00000000 r6:00000001 r5:00000000
-[    6.829775]  r4:be027e80
-[    6.832346] [<8002dcbc>] (run_ksoftirqd) from [<80048290>] (smpboot_thread_fn+0x154/0x1c4)
-[    6.840649] [<8004813c>] (smpboot_thread_fn) from [<80044780>] (kthread+0xdc/0xf8)
-[    6.848224]  r10:00000000 r8:00000000 r7:8004813c r6:be027e80 r5:be027ec0 r4:00000000
-[    6.856179] [<800446a4>] (kthread) from [<8000ebc8>] (ret_from_fork+0x14/0x2c)
-[    6.863425]  r7:00000000 r6:00000000 r5:800446a4 r4:be027ec0
-[    6.869156] ---[ end trace 861cf914d2461a8b ]---
+On 1/18/15, 11:37 PM, Scott Feldman wrote:
 
-There have one bug in .fec_enet_tx_queue() function to unmap the DMA memory:
-For SG or TSO, get one buffer descriptor and then unmap the related DMA memory, and then
-get the next buffer descriptor, loop to while() to check "TX_READY". If "TX_READY" bit
-still __IS__ existed in the BD (The next fraglist or next TSO packet is not transmited
-complitely), exit the current clean work. When the next work is triggered, it still repeat
-above step with the same BD. The potential issue is that unmap the same DMA memory for
-multiple times.
+<snip..>
+>
+> Not sure. I don't know the use case, but I think I might have heard that
+> there could be a case
+>   where a switch port could be bridged with a vm's port running on the
+> switch. (?)
+>>
+>> Ignoring the above usecase for a bit. And thinking through this again, It
+>> appears that this check should
+>> be only on the ingress port, no ?
+>>
+>> If the ingress bridge port is an offloaded port, don't flood or forward
+>> because hardware has already done it.
+>> And this is best done with the offload feature flag on the bridge port.
+> That's assuming hardware did the flood.  Maybe your other option to
+> mark the skb if already flooded by hw is best.  That's enough info for
+> the bridge driver to make a decision to flood or not to the other
+> ports, and it's an implementation decision for the driver/device to do
+> the flood offload, if desired, and mark the skb if it did.
 
-The patch fix the clean work for SG and TSO packet.
+Still thinking we can just use the offload feature flag here. How about  
+avoid forwarding only if both src and dst ports have
+forwarding offloaded/accelerated by a switch asic  ?. That should cover 
+all cases.
+>
+> Btw, you're still saying flood or forward, but in my mind we're
+> talking about flood only: flood of unknown unicast or flood of
+> bcast/mcast pkts.  Forwarding would be for known-unicast pkts, which
+> should even involve the bridge driver since that forwarding is
+> offloaded to the device.
 
-Reported-by: Anand Moon <moon.linux@yahoo.com>
-Reported-by: Christian Gmeiner <christian.gmeiner@gmail.com>
-Signed-off-by: Fugang Duan <B38611@freescale.com>
----
- drivers/net/ethernet/freescale/fec_main.c |   34 +++++++++++++++++++---------
- 1 files changed, 23 insertions(+), 11 deletions(-)
+I was also taking into account pkts copied to the CPU due to an acl rule such as log.
+These unicast pkts can come to cpu even if it is already forwarded in hw.
 
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index 1c7a7e4..58cabee 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -1189,12 +1189,13 @@ static void
- fec_enet_tx_queue(struct net_device *ndev, u16 queue_id)
- {
- 	struct	fec_enet_private *fep;
--	struct bufdesc *bdp;
-+	struct bufdesc *bdp, *bdp_t;
- 	unsigned short status;
- 	struct	sk_buff	*skb;
- 	struct fec_enet_priv_tx_q *txq;
- 	struct netdev_queue *nq;
- 	int	index = 0;
-+	int	i, bdnum;
- 	int	entries_free;
- 
- 	fep = netdev_priv(ndev);
-@@ -1215,18 +1216,29 @@ fec_enet_tx_queue(struct net_device *ndev, u16 queue_id)
- 		if (bdp == txq->cur_tx)
- 			break;
- 
--		index = fec_enet_get_bd_index(txq->tx_bd_base, bdp, fep);
--
-+		bdp_t = bdp;
-+		bdnum = 1;
-+		index = fec_enet_get_bd_index(txq->tx_bd_base, bdp_t, fep);
- 		skb = txq->tx_skbuff[index];
--		txq->tx_skbuff[index] = NULL;
--		if (!IS_TSO_HEADER(txq, bdp->cbd_bufaddr))
--			dma_unmap_single(&fep->pdev->dev, bdp->cbd_bufaddr,
--					bdp->cbd_datlen, DMA_TO_DEVICE);
--		bdp->cbd_bufaddr = 0;
--		if (!skb) {
--			bdp = fec_enet_get_nextdesc(bdp, fep, queue_id);
--			continue;
-+		while (!skb) {
-+			bdp_t = fec_enet_get_nextdesc(bdp_t, fep, queue_id);
-+			index = fec_enet_get_bd_index(txq->tx_bd_base, bdp_t, fep);
-+			skb = txq->tx_skbuff[index];
-+			bdnum++;
- 		}
-+		if (skb_shinfo(skb)->nr_frags &&
-+		    (status = bdp_t->cbd_sc) & BD_ENET_TX_READY)
-+			break;
-+
-+		for (i = 0; i < bdnum; i++) {
-+			if (!IS_TSO_HEADER(txq, bdp->cbd_bufaddr))
-+				dma_unmap_single(&fep->pdev->dev, bdp->cbd_bufaddr,
-+						 bdp->cbd_datlen, DMA_TO_DEVICE);
-+			bdp->cbd_bufaddr = 0;
-+			if (i < bdnum - 1)
-+				bdp = fec_enet_get_nextdesc(bdp, fep, queue_id);
-+		}
-+		txq->tx_skbuff[index] = NULL;
- 
- 		/* Check for errors. */
- 		if (status & (BD_ENET_TX_HB | BD_ENET_TX_LC |
--- 
-1.7.8
+
+Thanks,
+Roopa
+  
