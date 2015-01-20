@@ -1,69 +1,43 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 3/3] netlink: Lock out table resizes while dumping
- Netlink sockets
-Date: Tue, 20 Jan 2015 15:21:49 +0000
-Message-ID: <20150120152149.GA3012@acer.localdomain>
-References: <cover.1421759056.git.tgraf@suug.ch>
- <e164edeacaeffee43be64d4ed6a5b5e7e8923bd1.1421759056.git.tgraf@suug.ch>
- <20150120143154.GR14883@acer.localdomain>
- <20150120145551.GH20315@casper.infradead.org>
+From: Govindarajulu Varadarajan <_govind@gmx.com>
+Subject: Re: [PATCH net 2/2] bnx2x: fix napi poll return value for repoll
+Date: Tue, 20 Jan 2015 20:54:29 +0530 (IST)
+Message-ID: <alpine.LNX.2.03.1501202027430.31736@ws.cisco>
+References: <1421759776-376-1-git-send-email-_govind@gmx.com>  <1421759776-376-3-git-send-email-_govind@gmx.com> <1421765480.4832.2.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, herbert@gondor.apana.org.au,
-	paulmck@linux.vnet.ibm.com, ying.xue@windriver.com,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Thomas Graf <tgraf@suug.ch>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Govindarajulu Varadarajan <_govind@gmx.com>,
+	Willem de Bruijn <willemb@google.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, ariel.elior@qlogic.com, ssujith@cisco.com,
+	benve@cisco.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:45348 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751801AbbATPVz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jan 2015 10:21:55 -0500
-Content-Disposition: inline
-In-Reply-To: <20150120145551.GH20315@casper.infradead.org>
+Received: from mout.gmx.com ([74.208.4.201]:59123 "EHLO mout.gmx.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752334AbbATPY4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Jan 2015 10:24:56 -0500
+In-Reply-To: <1421765480.4832.2.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 20.01, Thomas Graf wrote:
-> On 01/20/15 at 02:31pm, Patrick McHardy wrote:
-> > On 20.01, Thomas Graf wrote:
-> > > Lock out table resizes while dumping Netlink sockets to user space.
-> > > This keeps disruptions to a minimum for readers which don't handle
-> > > the NLM_F_DUMP_INTR flag.
-> > 
-> > This doesn't lock them out for the duration of the entire dump of
-> > course, so the benefit seems rather small. Still with this patch,
-> > they will need to handle NLM_F_DUMP_INTR or will get unpredictable
-> > behaviour, in which case I'd think it makes more sense to not even
-> > try this, all it does is hide parts of the brokenness.
-> 
-> If it would lock out the resize for the entire dump I would not have
-> done patches 1 and 2 ;-)
-> 
-> I does provide better behaviour if the whole dump fits into a single
-> buffer or if it fits into 2 buffers and we are already dumping into
-> the 2nd buffer when the resize occurs. Otherwise we will see resizes
-> and thus tons of duplicates even in those scenarios even if no insert
-> or removal occurs in parallel.
-> 
-> In the case of Netlink diag that should be typical case. Most systems
-> will not have 1000s of Netlink sockets in parallel.
+On Tue, 20 Jan 2015, Eric Dumazet wrote:
 
-I think its preferrable to make the need to handle NETLINK_F_DUMP_INTR
-as noticable as possible and not hide it. Silent failure is the worst
-kind of failure.
+> On Tue, 2015-01-20 at 18:46 +0530, Govindarajulu Varadarajan wrote:
+>> With the commit d75b1ade567ffab ("net: less interrupt masking in NAPI") napi repoll
+>> is done only when work_done == budget. When in busy_poll is we return 0 in
+>> napi_poll. We should return budget. Also do not return workdone > budget.
+>>
+>
+> I am not sure.
+>
 
-> > An alternative would be to set a flag in ht when a dump begins that
-> > indicates to skip resizing operations and on the end of the dump
-> > perform any resizing operations that might be necessary. Herbert
-> > disagrees though and he might be right.
-> 
-> I don't like the flag as it prevents resizes (and possibly rehashes
-> further down the road) for a long period of time. The hashtable
-> becomes attackable.
+This is based on f41281d02f8b94e136f78cb1b6a5d78182c222bd &
+9dfa9a27b620640322588df399eb8f624b48d877
 
-Yeah. The point could be made that this is a regression though. We didn't
-require userspace to deal with interruptions before, and the behaviour
-was well defined and acceptable for most cases, its not anymore.
+I do not know about bnx2x, but in enic driver, when busy_poll is enables
+rq clean is not happening. This is because, in napi_poll() when
+work_done < budget, we do not repoll. At this point, enic has disables rq intr
+and has not called napi_complete. Driver assumes that napi will repoll.
+Which does not happen.
 
-So I think it should be handled by the kernel, without changes to
-userspace.
+Lot of drivers I have checked return full budget if they want to repoll.
+eg. mlx4_en_poll_rx_cq()
