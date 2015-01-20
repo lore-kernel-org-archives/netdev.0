@@ -1,84 +1,140 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: [net-next PATCH v3 12/12] net: rocker: implement delete flow routine
-Date: Tue, 20 Jan 2015 12:31:33 -0800
-Message-ID: <20150120203131.1741.52435.stgit@nitbit.x32>
-References: <20150120202404.1741.8658.stgit@nitbit.x32>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: Re: Re: [PATCH tip 0/9] tracing: attach eBPF programs to tracepoints/syscalls/kprobe
+Date: Tue, 20 Jan 2015 12:33:03 -0800
+Message-ID: <CAMEtUuxGxCHc0ifdEeKXr=aq-znwGZ2g22+RdJ9SzWmYeSEnuA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jhs@mojatatu.com, davem@davemloft.net,
-	gerlitz.or@gmail.com, andy@greyhouse.net, ast@plumgrid.com
-To: tgraf@suug.ch, simon.horman@netronome.com, sfeldma@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f176.google.com ([209.85.214.176]:64008 "EHLO
-	mail-ob0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751152AbbATUbx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jan 2015 15:31:53 -0500
-Received: by mail-ob0-f176.google.com with SMTP id va2so12350752obc.7
-        for <netdev@vger.kernel.org>; Tue, 20 Jan 2015 12:31:53 -0800 (PST)
-In-Reply-To: <20150120202404.1741.8658.stgit@nitbit.x32>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Ingo Molnar <mingo@kernel.org>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Namhyung Kim <namhyung@kernel.org>,
+	Arnaldo Carvalho de Melo <acme@infradead.org>,
+	Jiri Olsa <jolsa@redhat.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Brendan Gregg <brendan.d.gregg@gmail.com>,
+	Linux API <linux-api@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	"yrl.pp-manager.tt@hitachi.com" <yrl.pp-manager.tt@hitachi.com>,
+	Jovi Zhangwei <jovi.zhangwei@gmail.com>
+To: Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
----
- drivers/net/ethernet/rocker/rocker.c |   46 +++++++++++++++++++++++++++++++++-
- 1 file changed, 45 insertions(+), 1 deletion(-)
+On Tue, Jan 20, 2015 at 3:57 AM, Masami Hiramatsu
+<masami.hiramatsu.pt@hitachi.com> wrote:
+>
+> Ok, BTW, would you think is it possible to use a reusable small scratchpad
+> memory for passing arguments? (just a thought)
 
-diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
-index 3ceb313..ba48e88 100644
---- a/drivers/net/ethernet/rocker/rocker.c
-+++ b/drivers/net/ethernet/rocker/rocker.c
-@@ -4436,7 +4436,51 @@ static int rocker_set_rules(struct net_device *dev,
- static int rocker_del_rules(struct net_device *dev,
- 			    struct net_flow_rule *rule)
- {
--	return -EOPNOTSUPP;
-+	struct rocker_port *rocker_port = netdev_priv(dev);
-+	struct rocker_flow_tbl_entry *entry;
-+	struct rocker_group_tbl_entry *group;
-+	struct hlist_node *tmp;
-+	int bkt, err = -EEXIST;
-+	unsigned long flags;
-+
-+	spin_lock_irqsave(&rocker_port->rocker->flow_tbl_lock, flags);
-+	hash_for_each_safe(rocker_port->rocker->flow_tbl,
-+			   bkt, tmp, entry, entry) {
-+		if (rocker_goto_value(rule->table_id) != entry->key.tbl_id ||
-+		    rule->uid != entry->cookie)
-+			continue;
-+
-+		hash_del(&entry->entry);
-+		err = 0;
-+		break;
-+	}
-+	spin_unlock_irqrestore(&rocker_port->rocker->flow_tbl_lock, flags);
-+
-+	if (!err)
-+		goto done;
-+
-+	spin_lock_irqsave(&rocker_port->rocker->group_tbl_lock, flags);
-+	hash_for_each_safe(rocker_port->rocker->group_tbl,
-+			   bkt, tmp, group, entry) {
-+		if (rocker_goto_value(rule->table_id) !=
-+			ROCKER_GROUP_TYPE_GET(group->group_id) ||
-+		    rule->uid != group->cookie)
-+			continue;
-+
-+		hash_del(&group->entry);
-+		err = 0;
-+		break;
-+	}
-+	spin_unlock_irqrestore(&rocker_port->rocker->group_tbl_lock, flags);
-+
-+done:
-+	if (!err) {
-+		err = rocker_cmd_exec(rocker_port->rocker, rocker_port,
-+				      rocker_cmd_flow_tbl_del,
-+				      entry, NULL, NULL, true);
-+		kfree(entry);
-+	}
-+	return err;
- }
- #endif
- 
+sure. doable, but what's the use case?
+
+>> It's not usable for high frequency events which
+>> need this in-kernel aggregation.
+>> If events are rare, then just dumping everything
+>> into trace buffer is just fine. No in-kernel program is needed.
+>
+> Hmm, let me ensure your point, the performance number is the reason why
+> we need to do it in the kernel, right? Not mainly for the flexibility but speed.
+
+if user space can do X at the same speed as kernel,
+then user space is a better choice and more flexible.
+In case of bpf programs two things user space cannot do:
+- fast aggregation without adding penalty to things being traced
+- access to in-kernel data structures
+And often both used together.
+Say, we want to monitor amount of network traffic per user.
+So we'd use trace_net_dev_xmit() tracepoint and do
+map[current_uid()] += skb_len
+as part of the program.
+Overhead will be tiny and users won't notice any slowdown.
+Trying to do the same in user space by enabling
+this tracepoint has two problems:
+high overhead and events are hard to aggregate
+per user, since trace has 'pid', but short lived
+processes will have dead pids in trace output.
+
+> - perf probe and kprobe-event gives us a complete understandable
+>  interface for what will be recorded at where.
+>  (we can see the event definitions via kprobe_events interface,
+>   without any tools)
+> - kprobe-event gives a completely same interface as other tracepoint
+>   events.
+> - it also doesn't require any build-binary parts :) nor special tools.
+>   We can play with ftrace on just a small busybox.
+
+yeah, when debugging in busybox is the goal
+and 'cat' and 'echo' are your only tools, then
+debugfs interface is the only choice :)
+
+> However, this does NOT interfere your patch upstreaming. I just said current
+> ftrace method is also meaningful for some reasons :)
+
+of course :)
+To emphasize the point I was trying to make with tracex1:
+The program is a filter/aggregator. The bpf maps
+are not suitable for streaming the events. That's the job
+of ring buffer/trace_pipe. The program may choose
+to aggregate some events and discard them (by
+returning 0 from the program), and the rest of
+the events will be streamed to user space via
+ring buffer in the format statically defined by tracepoint
+or by kprobe arguments.
+The tracex1 example loads the program and then
+reads /sys/kernel/debugfs/tracing/trace_pipe...
+
+That part I was trying to improve with bpf_trace_printk:
+to give ability to programs to stream data in a format
+different from the one statically defined by tracepoints.
+But trace_printk has its disadvantages, so probably
+something cleaner is needed.
+Like in my earlier example of trace_net_dev_xmit,
+if the program could add printing of uid to arguments
+already printed, it would have helped user space.
+
+> By the way, I concern about that bpf compiler can become another systemtap,
+> especially if you build it on llvm.
+> Would you plan to develop it on kernel
+> tree? or apart from the kernel-side development?
+
+I'm not sure I completely understand the concern.
+perf is using a bunch of out-of-tree libraries.
+mcjit of llvm or libgccjit are another libraries.
+Or may be eventually eBPF can be generated
+by something like libpcap.
+
+Ideally I would like to see 'perf run script.txt'
+where script.txt is a program in a language suited
+for tracing. The tracing language not necessary
+will fit networking use cases. Currently I'm
+using C for both and it's the most convenient,
+but some folks complained that 'restricted'
+nature of this C is hard to grasp, so I can only
+encourage Jovi to do ktap language to bpf
+translator. If it generates bpf directly that's great,
+if it uses gcc or llvm backend that's fine too.
+
+> I think it is hard to sync the development if you do it out-of-tree.
+
+I think some pieces would have to be out of tree.
+I've kept standalone llvm backend across 3.2, 3.3 and 3.4
+but it gets polluted with ifdefs and not really a long term
+solution, so now I'm working on upstreaming it
+and feedback/codereviews I got, definitely improved
+the quality of the bpf backend.
+In case of backends the only bit to sync is instruction
+set itself, which is stable. New instructions may be
+added, but that's not a concern.
+llvm backend doesn't care what language is
+used in front-end or how programs are attached
+to tracepoints or what set of bpf helper
+functions is available.
+All such bits and the main interface for
+dynamic tracer, imo, should be in perf binary.
+What it does underneath and how
+many times it calls into llvm/gcc lib, won't be visible.
+In case of systemtap compile time, for whatever
+reason, is slow to the point of being annoying,
+but here it should be instant.
