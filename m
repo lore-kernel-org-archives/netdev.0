@@ -1,93 +1,30 @@
-From: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
-Subject: Re: [PATCH 1/2] if_link: Add VF multicast promiscuous
-	mode control
-Date: Tue, 20 Jan 2015 23:40:05 +0000
-Message-ID: <7F861DC0615E0C47A872E6F3C5FCDDBD05E07B7C@BPXM14GP.gisp.nec.co.jp>
-References: <7F861DC0615E0C47A872E6F3C5FCDDBD05E0734E@BPXM14GP.gisp.nec.co.jp>
-	<874mrlu18e.fsf@nemi.mork.no>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 1/3] skbuff: Add skb_list_linearize()
+Date: Tue, 20 Jan 2015 15:51:20 -0800
+Message-ID: <1421797880.4832.13.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1421785543-19823-1-git-send-email-pshelar@nicira.com>
+	 <1421790195.4832.12.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CALnjE+pDdvcSdQV83J_DLJwmcM8OsC94xDnH2mSSsxDCNnsztg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>, "Choi,
-	Sy Jong" <sy.jong.choi@intel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Hayato Momma <h-momma@ce.jp.nec.com>
-To: =?utf-8?B?QmrDuHJuIE1vcms=?= <bjorn@mork.no>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <874mrlu18e.fsf@nemi.mork.no>
-Content-Language: ja-JP
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Pravin Shelar <pshelar@nicira.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f181.google.com ([209.85.213.181]:56211 "EHLO
+	mail-ig0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751602AbbATXvX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jan 2015 18:51:23 -0500
+Received: by mail-ig0-f181.google.com with SMTP id hn18so5921555igb.2
+        for <netdev@vger.kernel.org>; Tue, 20 Jan 2015 15:51:22 -0800 (PST)
+In-Reply-To: <CALnjE+pDdvcSdQV83J_DLJwmcM8OsC94xDnH2mSSsxDCNnsztg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-PiBTdWJqZWN0OiBSZTogW1BBVENIIDEvMl0gaWZfbGluazogQWRkIFZGIG11bHRpY2FzdCBwcm9t
-aXNjdW91cyBtb2RlIGNvbnRyb2wNCj4gDQo+IEhpcm9zaGkgU2hpbWFtb3RvIDxoLXNoaW1hbW90
-b0BjdC5qcC5uZWMuY29tPiB3cml0ZXM6DQo+IA0KPiA+IEZyb206IEhpcm9zaGkgU2hpbWFtb3Rv
-IDxoLXNoaW1hbW90b0BjdC5qcC5uZWMuY29tPg0KPiA+DQo+ID4gQWRkIG5ldGxpbmsgZGlyZWN0
-aXZlcyBhbmQgbmRvIGVudHJ5IHRvIGNvbnRyb2wgVkYgbXVsdGljYXN0IHByb21pc2N1b3VzIG1v
-ZGUuDQo+ID4NCj4gPiBJbnRlbCBpeGdiZSBhbmQgaXhnYmV2ZiBkcml2ZXIgY2FuIGhhbmRsZSBv
-bmx5IDMwIG11bHRpY2FzdCBNQUMgYWRkcmVzc2VzDQo+ID4gcGVyIFZGLiBJdCBtZWFucyB0aGF0
-IHdlIGNhbm5vdCBhc3NpZ24gb3ZlciAzMCBJUHY2IGFkZHJlc3NlcyB0byBhIHNpbmdsZQ0KPiA+
-IFZGIGludGVyZmFjZSBvbiBWTS4gV2Ugd2FudCB0aG91c2FuZHMgSVB2NiBhZGRyZXNzZXMgaW4g
-Vk0uDQo+ID4NCj4gPiBUaGVyZSBpcyBjYXBhYmlsaXR5IG9mIG11bHRpY2FzdCBwcm9taXNjdW91
-cyBtb2RlIGluIEludGVsIDgyNTk5IGNoaXAuDQo+ID4gSXQgZW5hYmxlcyBhbGwgbXVsdGljYXN0
-IHBhY2tldHMgYXJlIGRlbGl2ZXJlZCB0byB0aGUgdGFyZ2V0IFZGLg0KPiA+DQo+ID4gVGhpcyBw
-YXRjaCBwcmVwYXJlcyB0byBjb250cm9sIHRoYXQgVkYgbXVsdGljYXN0IHByb21pc2N1b3VzIGZ1
-bmN0aW9uYWxpdHkuDQo+IA0KPiBBZGRpbmcgYSBuZXcgaG9vayBmb3IgdGhpcyBzZWVtcyBvdmVy
-LWNvbXBsaWNhdGVkIHRvIG1lLiAgQW5kIGl0IHN0aWxsDQo+IGRvZXNuJ3Qgc29sdmUgdGhlIHJl
-YWwgcHJvYmxlbXMgdGhhdA0KPiAgYSkgdGhlIHVzZXIgaGFzIHRvIGtub3cgYWJvdXQgdGhpcyBs
-aW1pdCwgYW5kDQo+ICBiKSBtYW51YWxseSBjb25maWd1cmUgdGhlIGZlYXR1cmUNCj4gDQo+IE1v
-c3Qgb2YgdXMsIGxhY2tpbmcgdGhlIGFiaWxpdHkgdG8gaW1hZ2luZSBzdWNoIGFyYml0cmFyeSBo
-YXJkd2FyZQ0KPiBsaW1pdGF0aW9ucywgd2lsbCBnbyB0aHJvdWdoIGEgZmV3IGhvdXJzIG9mIGZy
-dXN0cmF0aW5nIGRlYnVnZ2luZyBiZWZvcmUNCj4gd2UgZmlndXJlIHRoaXMgb25lIG91dC4uLg0K
-PiANCj4gV2h5IGNhbid0IHRoZSBpeGdiZXZmIGRyaXZlciBqdXN0IGF1dG9tYXRpY2FsbHkgc2ln
-bmFsIHRoZSBpeGdiZSBkcml2ZXINCj4gdG8gZW5hYmxlIG11bHRpY2FzdCBwcm9taXNjdW91cyBt
-b2RlIHdoZW5ldmVyIHRoZSBsaXN0IGdyb3dzIHBhc3QgdGhlDQo+IGxpbWl0Pw0KDQpJIGhhZCBz
-dWJtaXR0ZWQgYSBwYXRjaCB0byBjaGFuZ2UgaXhnYmUgYW5kIGl4Z2JldmYgZHJpdmVyIGZvciB0
-aGlzIGlzc3VlLg0KaHR0cHM6Ly9sa21sLm9yZy9sa21sLzIwMTQvMTEvMjcvMjY5DQoNClRoZSBw
-cmV2aW91cyBwYXRjaCBpbnRyb2R1Y2VzIEFQSSBiZXR3ZWVuIGl4Z2JlIGFuZCBpeGdiZXZmIGRy
-aXZlciB0bw0KZW5hYmxlIG11bHRpY2FzdCBwcm9taXNjdW91cyBtb2RlLCBhbmQgaXhnYmV2ZiBl
-bmFibGVzIGl0IGF1dG9tYXRpY2FsbHkNCmlmIHRoZSBudW1iZXIgb2YgYWRkcmVzc2VzIGlzIG92
-ZXIgdGhhbiAzMC4NCg0KSSBnb3Qgc29tZSBjb21tZW50IGFuZCBJIHdvdWxkIGxpa2UgdG8gY2xh
-cmlmeSB0aGUgcG9pbnQsIGJ1dCB0aGVyZSB3YXMgbm8NCmFuc3dlci4NClRoYXQncyB0aGUgcmVh
-c29uIEkgc3VibWl0dGVkIHRoaXMgcGF0Y2guDQoNCkRvIHlvdSB0aGluayBhIHBhdGNoIGZvciB0
-aGUgaXhnYmUvaXhnYmV2ZiBkcml2ZXIgaXMgcHJlZmVycmVkPw0KDQoNCnRoYW5rcywNCkhpcm9z
-aGkNCg0KPiANCj4gSSdkIGFsc28gbGlrZSB0byBub3RlIHRoYXQgdGhpcyBjb21tZW50IGluDQo+
-IGRyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2l4Z2JldmYvdmYuYw0KPiBpbmRpY2F0ZXMgdGhh
-dCB0aGUgYXV0aG9yIGhhZCBzb21lIGlkZWFzIGFib3V0IGhvdyBtb3JlIHRoYW4gMzANCj4gYWRk
-cmVzc2VzIGNvdWxkL3Nob3VsZCBiZSBoYW5kbGVkOg0KPiANCj4gc3RhdGljIHMzMiBpeGdiZXZm
-X3VwZGF0ZV9tY19hZGRyX2xpc3RfdmYoc3RydWN0IGl4Z2JlX2h3ICpodywNCj4gCQkJCQkgIHN0
-cnVjdCBuZXRfZGV2aWNlICpuZXRkZXYpDQo+IHsNCj4gCXN0cnVjdCBuZXRkZXZfaHdfYWRkciAq
-aGE7DQo+IAl1MzIgbXNnYnVmW0lYR0JFX1ZGTUFJTEJPWF9TSVpFXTsNCj4gCXUxNiAqdmVjdG9y
-X2xpc3QgPSAodTE2ICopJm1zZ2J1ZlsxXTsNCj4gCXUzMiBjbnQsIGk7DQo+IA0KPiAJLyogRWFj
-aCBlbnRyeSBpbiB0aGUgbGlzdCB1c2VzIDEgMTYgYml0IHdvcmQuICBXZSBoYXZlIDMwDQo+IAkg
-KiAxNiBiaXQgd29yZHMgYXZhaWxhYmxlIGluIG91ciBIVyBtc2cgYnVmZmVyIChtaW51cyAxIGZv
-ciB0aGUNCj4gCSAqIG1zZyB0eXBlKS4gIFRoYXQncyAzMCBoYXNoIHZhbHVlcyBpZiB3ZSBwYWNr
-ICdlbSByaWdodC4gIElmDQo+IAkgKiB0aGVyZSBhcmUgbW9yZSB0aGFuIDMwIE1DIGFkZHJlc3Nl
-cyB0byBhZGQgdGhlbiBwdW50IHRoZQ0KPiAJICogZXh0cmFzIGZvciBub3cgYW5kIHRoZW4gYWRk
-IGNvZGUgdG8gaGFuZGxlIG1vcmUgdGhhbiAzMCBsYXRlci4NCj4gCSAqIEl0IHdvdWxkIGJlIHVu
-dXN1YWwgZm9yIGEgc2VydmVyIHRvIHJlcXVlc3QgdGhhdCBtYW55IG11bHRpLWNhc3QNCj4gCSAq
-IGFkZHJlc3NlcyBleGNlcHQgZm9yIGluIGxhcmdlIGVudGVycHJpc2UgbmV0d29yayBlbnZpcm9u
-bWVudHMuDQo+IAkgKi8NCj4gDQo+IA0KPiANCj4gVGhlIGxhc3QgMiBsaW5lcyBvZiB0aGF0IGNv
-bW1lbnQgYXJlIG9mIGNvdXJzZSB0b3RhbGx5IGJvZ3VzIGFuZA0KPiBwb2ludGxlc3MgYW5kIHNo
-b3VsZCBiZSBkZWxldGVkIGluIGFueSBjYXNlLi4uICBJdCdzIG9idmlvdXMgdGhhdCAzMA0KPiBt
-dWx0aWNhc3QgYWRkcmVzc2VzIGlzIHJpZGljdWxvdXNseSBsb3cgZm9yIGxvdHMgb2Ygbm9ybWFs
-IHVzZSBjYXNlcy4NCj4gDQo+IA0KPiBCasO4cm4NCi0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQpOZXcg
-WWVhci4gTmV3IExvY2F0aW9uLiBOZXcgQmVuZWZpdHMuIE5ldyBEYXRhIENlbnRlciBpbiBBc2hi
-dXJuLCBWQS4KR2lnZU5FVCBpcyBvZmZlcmluZyBhIGZyZWUgbW9udGggb2Ygc2VydmljZSB3aXRo
-IGEgbmV3IHNlcnZlciBpbiBBc2hidXJuLgpDaG9vc2UgZnJvbSAyIGhpZ2ggcGVyZm9ybWluZyBj
-b25maWdzLCBib3RoIHdpdGggMTAwVEIgb2YgYmFuZHdpZHRoLgpIaWdoZXIgcmVkdW5kYW5jeS5M
-b3dlciBsYXRlbmN5LkluY3JlYXNlZCBjYXBhY2l0eS5Db21wbGV0ZWx5IGNvbXBsaWFudC4KaHR0
-cDovL3Auc2YubmV0L3NmdS9naWdlbmV0Cl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fCkUxMDAwLWRldmVsIG1haWxpbmcgbGlzdApFMTAwMC1kZXZlbEBsaXN0
-cy5zb3VyY2Vmb3JnZS5uZXQKaHR0cHM6Ly9saXN0cy5zb3VyY2Vmb3JnZS5uZXQvbGlzdHMvbGlz
-dGluZm8vZTEwMDAtZGV2ZWwKVG8gbGVhcm4gbW9yZSBhYm91dCBJbnRlbCYjMTc0OyBFdGhlcm5l
-dCwgdmlzaXQgaHR0cDovL2NvbW11bml0aWVzLmludGVsLmNvbS9jb21tdW5pdHkvd2lyZWQK
+On Tue, 2015-01-20 at 14:46 -0800, Pravin Shelar wrote:
+
+> In current use-case it is never called for skb which is tied to
+> socket. But I agree it need to be fixed. I can call skb_orphan() to
+> fix it.
+
+I would do nothing at all, like skb_linearize()
