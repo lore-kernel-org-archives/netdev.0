@@ -1,258 +1,71 @@
-From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Subject: Re: [PATCH net-next v13 3/3] net: hisilicon: new hip04 ethernet driver
-Date: Tue, 20 Jan 2015 13:01:53 +0100
-Message-ID: <17360357.cJoZFH8idi@wuerfel>
-References: <1421217254-12008-1-git-send-email-dingtianhong@huawei.com> <9314032.C8yR0htxiP@wuerfel> <54BDBA29.10703@huawei.com>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: [net PATCH 1/1] drivers: net: cpsw: discard dual emac default vlan configuration
+Date: Tue, 20 Jan 2015 17:55:40 +0530
+Message-ID: <1421756740-32180-1-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Ding Tianhong <dingtianhong-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	Alexander Graf <agraf-l3A5Bk7waGM@public.gmane.org>, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org, sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org,
-	eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	xuwei5-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org,
-	zhangfei.gao-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <54BDBA29.10703-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, Mugunthan V N <mugunthanvnm@ti.com>,
+	<stable@vger.kernel.org>
+To: <netdev@vger.kernel.org>
+Return-path: <stable-owner@vger.kernel.org>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday 20 January 2015 10:15:05 Ding Tianhong wrote:
-> On 2015/1/20 4:34, Arnd Bergmann wrote:
-> > On Monday 19 January 2015 19:11:11 Alexander Graf wrote:
-> >>
-> >> After hammering on the box a bit again, I'm in a situation where I get 
-> >> lots of
-> >>
-> >> [302398.232603] hip04-ether e28b0000.ethernet eth0: rx drop
-> >> [302398.377309] hip04-ether e28b0000.ethernet eth0: rx drop
-> >> [302398.395198] hip04-ether e28b0000.ethernet eth0: rx drop
-> >> [302398.466118] hip04-ether e28b0000.ethernet eth0: rx drop
-> >> [302398.659009] hip04-ether e28b0000.ethernet eth0: rx drop
-> >> [302399.053389] hip04-ether e28b0000.ethernet eth0: rx drop
-> >> [302399.122067] hip04-ether e28b0000.ethernet eth0: rx drop
-> >> [302399.268192] hip04-ether e28b0000.ethernet eth0: rx drop
-> >> [302399.286081] hip04-ether e28b0000.ethernet eth0: rx drop
-> >> [302399.594201] hip04-ether e28b0000.ethernet eth0: rx drop
-> >> [302399.683416] hip04-ether e28b0000.ethernet eth0: rx drop
-> >> [302399.701307] hip04-ether e28b0000.ethernet eth0: rx drop
-> >>
-> >> and I really am getting a lot of drops - I can't even ping the machine 
-> >> anymore.
-> >>
-> >> However, as it is there's a good chance the machine is simply 
-> >> unreachable because it's busy writing to the UART, and even if not all 
-> >> useful messages indicating anything have scrolled out. I really don't 
-> >> think you should emit any message over and over again to the user. Once 
-> >> or twice is enough.
-> >>
-> >> Please make sure to rate limit it.
-> > 
-> > I would argue that packet loss is not an error condition at all
-> > and you should not print this at netdev_err() level. You could make
-> > this a netdev_dbg(), or just make it silent because it's already
-> > counted in the statistics.
-> > 
-> 
-> I think something wrong with Graf's board, I will try to make it happen on my board, and 
-> in any case I will add rate limit to xx_drop and change to dbg log level.
+In Dual EMAC, the default vlans are used to segregate rx packets between
+the ports, so adding the same default vlan to the switch will affect the
+normal packet transfers. So returning error on addition of dual emac
+default vlans.
 
-I've looked at the interrupt handling in more detail and came up
-with this patch. Please review, and forward if you are happy with the
-changes.
+Even if emac 0 default port vlan is added to emac 1, it will lead to
+break dual EMAC port seperations.
 
-Alex, could you try if this solves your problem?
+Fixes: d9ba8f9 (driver: net: ethernet: cpsw: dual emac interface implementation)
+Cc: <stable@vger.kernel.org> # v3.9+
+Reported-by: Felipe Balbi <balbi@ti.com>
+Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
+---
+ drivers/net/ethernet/ti/cpsw.c | 22 ++++++++++++++++++++++
+ 1 file changed, 22 insertions(+)
 
-8<----
-Subject: [PATCH] net/hip04: refactor interrupt masking
-
-The hip04 ethernet driver currently acknowledges all interrupts directly
-in the interrupt handler, and leaves all interrupts except the RX data
-enabled the whole time. This causes multiple problems:
-
-- When more packets come in between the original interrupt and the
-  NAPI poll function, we will get an extraneous RX interrupt as soon
-  as interrupts are enabled again.
-
-- The two error interrupts are by definition combining all errors that
-  may have happened since the last time they were handled, but just
-  acknowledging the irq without dealing with the cause of the condition
-  makes it come back immediately. In particular, when NAPI is intentionally
-  stalling the rx queue, this causes a storm of "rx dropped" messages.  
-
-- The access to the 'reg_inten' field in hip_priv is used for serializing
-  access, but is in fact racy itself.
-
-To deal with these issues, the driver is changed to only acknowledge
-the IRQ at the point when it is being handled. The RX interrupts now get
-acked right before reading the number of received frames to keep spurious
-interrupts to the absolute minimum without losing interrupts.
-
-As there is no tx-complete interrupt, only an informational tx-dropped
-one, we now ack that in the tx reclaim handler, hoping that clearing
-the descriptors has also eliminated the error condition.
-
-The only place that reads the reg_inten now just relies on
-napi_schedule_prep() to return whether NAPI is active or not, and
-the poll() function is then going to ack and reenabled the IRQ if
-necessary.
-
-Finally, when we disable interrupts, they are now all disabled
-together, in order to simplify the logic and to avoid getting
-rx-dropped interrupts when NAPI is in control of the rx queue.
-
-Signed-off-by: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-
-diff --git a/drivers/net/ethernet/hisilicon/hip04_eth.c b/drivers/net/ethernet/hisilicon/hip04_eth.c
-index 525214ef5984..83773247a368 100644
---- a/drivers/net/ethernet/hisilicon/hip04_eth.c
-+++ b/drivers/net/ethernet/hisilicon/hip04_eth.c
-@@ -56,6 +56,8 @@
- #define RCV_DROP			BIT(7)
- #define TX_DROP				BIT(6)
- #define DEF_INT_ERR			(RCV_NOBUF | RCV_DROP | TX_DROP)
-+#define DEF_INT_RX			(RCV_INT | RCV_NOBUF | RCV_DROP)
-+#define DEF_INT_TX			(TX_DROP)
- #define DEF_INT_MASK			(RCV_INT | DEF_INT_ERR)
+diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+index e068d48..7c32815 100644
+--- a/drivers/net/ethernet/ti/cpsw.c
++++ b/drivers/net/ethernet/ti/cpsw.c
+@@ -1683,6 +1683,19 @@ static int cpsw_ndo_vlan_rx_add_vid(struct net_device *ndev,
+ 	if (vid == priv->data.default_vlan)
+ 		return 0;
  
- /* TX descriptor config */
-@@ -154,7 +156,6 @@ struct hip04_priv {
- 	unsigned int port;
- 	unsigned int speed;
- 	unsigned int duplex;
--	unsigned int reg_inten;
- 
- 	struct napi_struct napi;
- 	struct net_device *ndev;
-@@ -303,17 +304,15 @@ static void hip04_mac_enable(struct net_device *ndev)
- 	val |= GE_RX_PORT_EN | GE_TX_PORT_EN;
- 	writel_relaxed(val, priv->base + GE_PORT_EN);
- 
--	/* clear rx int */
--	val = RCV_INT;
--	writel_relaxed(val, priv->base + PPE_RINT);
-+	/* clear prior interrupts */
-+	writel_relaxed(DEF_INT_MASK, priv->base + PPE_RINT);
- 
- 	/* config recv int */
- 	val = GE_RX_INT_THRESHOLD | GE_RX_TIMEOUT;
- 	writel_relaxed(val, priv->base + PPE_CFG_RX_PKT_INT);
- 
- 	/* enable interrupt */
--	priv->reg_inten = DEF_INT_MASK;
--	writel_relaxed(priv->reg_inten, priv->base + PPE_INTEN);
-+	writel_relaxed(DEF_INT_MASK, priv->base + PPE_INTEN);
- }
- 
- static void hip04_mac_disable(struct net_device *ndev)
-@@ -322,8 +321,7 @@ static void hip04_mac_disable(struct net_device *ndev)
- 	u32 val;
- 
- 	/* disable int */
--	priv->reg_inten &= ~(DEF_INT_MASK);
--	writel_relaxed(priv->reg_inten, priv->base + PPE_INTEN);
-+	writel_relaxed(0, priv->base + PPE_INTEN);
- 
- 	/* disable tx & rx */
- 	val = readl_relaxed(priv->base + GE_PORT_EN);
-@@ -403,6 +401,8 @@ static int hip04_tx_reclaim(struct net_device *ndev, bool force)
- 	priv->tx_tail = tx_tail;
- 	smp_wmb(); /* Ensure tx_tail visible to xmit */
- 
-+	writel_relaxed(DEF_INT_TX, priv->base + PPE_RINT);
++	if (priv->data.dual_emac) {
++		/* In dual EMAC, reserved VLAN id should not be used of
++		 * creating vlan interfaces as this can break the dual
++		 * EMAC port seperation
++		 */
++		int i;
 +
- out:
- 	if (pkts_compl || bytes_compl)
- 		netdev_completed_queue(ndev, pkts_compl, bytes_compl);
-@@ -458,9 +458,7 @@ static int hip04_mac_start_xmit(struct sk_buff *skb, struct net_device *ndev)
- 	if (count >= priv->tx_coalesce_frames) {
- 		if (napi_schedule_prep(&priv->napi)) {
- 			/* disable rx interrupt and timer */
--			priv->reg_inten &= ~(RCV_INT);
--			writel_relaxed(DEF_INT_MASK & ~RCV_INT,
--				       priv->base + PPE_INTEN);
-+			writel_relaxed(0, priv->base + PPE_INTEN);
- 			hrtimer_cancel(&priv->tx_coalesce_timer);
- 			__napi_schedule(&priv->napi);
- 		}
-@@ -478,7 +476,7 @@ static int hip04_rx_poll(struct napi_struct *napi, int budget)
- 	struct hip04_priv *priv = container_of(napi, struct hip04_priv, napi);
- 	struct net_device *ndev = priv->ndev;
- 	struct net_device_stats *stats = &ndev->stats;
--	unsigned int cnt = hip04_recv_cnt(priv);
-+	unsigned int cnt;
- 	struct rx_desc *desc;
- 	struct sk_buff *skb;
- 	unsigned char *buf;
-@@ -489,6 +487,10 @@ static int hip04_rx_poll(struct napi_struct *napi, int budget)
- 	u16 len;
- 	u32 err;
- 
-+	/* acknowledge interrupts and read status */
-+	writel_relaxed(DEF_INT_RX, priv->base + PPE_RINT);
-+	cnt = hip04_recv_cnt(priv);
-+
- 	while (cnt && !last) {
- 		buf = priv->rx_buf[priv->rx_head];
- 		skb = build_skb(buf, priv->rx_buf_size);
-@@ -539,11 +541,8 @@ static int hip04_rx_poll(struct napi_struct *napi, int budget)
- 			cnt = hip04_recv_cnt(priv);
- 	}
- 
--	if (!(priv->reg_inten & RCV_INT)) {
--		/* enable rx interrupt */
--		priv->reg_inten |= RCV_INT;
--		writel_relaxed(priv->reg_inten, priv->base + PPE_INTEN);
--	}
-+	/* enable rx interrupt */
-+	writel_relaxed(DEF_INT_MASK, priv->base + PPE_INTEN);
- 	napi_complete(napi);
- done:
- 	/* clean up tx descriptors and start a new timer if necessary */
-@@ -564,23 +563,21 @@ static irqreturn_t hip04_mac_interrupt(int irq, void *dev_id)
- 	if (!ists)
- 		return IRQ_NONE;
- 
--	writel_relaxed(DEF_INT_MASK, priv->base + PPE_RINT);
--
- 	if (unlikely(ists & DEF_INT_ERR)) {
--		if (ists & (RCV_NOBUF | RCV_DROP))
-+		if (ists & (RCV_NOBUF | RCV_DROP)) {
- 			stats->rx_errors++;
- 			stats->rx_dropped++;
--			netdev_err(ndev, "rx drop\n");
-+			netdev_dbg(ndev, "rx drop\n");
++		for (i = 0; i < priv->data.slaves; i++) {
++			if (vid == priv->slaves[i].port_vlan)
++				return -EINVAL;
 +		}
- 		if (ists & TX_DROP) {
- 			stats->tx_dropped++;
--			netdev_err(ndev, "tx drop\n");
-+			netdev_dbg(ndev, "tx drop\n");
- 		}
- 	}
++	}
++
+ 	dev_info(priv->dev, "Adding vlanid %d to vlan filter\n", vid);
+ 	return cpsw_add_vlan_ale_entry(priv, vid);
+ }
+@@ -1696,6 +1709,15 @@ static int cpsw_ndo_vlan_rx_kill_vid(struct net_device *ndev,
+ 	if (vid == priv->data.default_vlan)
+ 		return 0;
  
--	if (ists & RCV_INT && napi_schedule_prep(&priv->napi)) {
--		/* disable rx interrupt */
--		priv->reg_inten &= ~(RCV_INT);
--		writel_relaxed(DEF_INT_MASK & ~RCV_INT, priv->base + PPE_INTEN);
-+	if (napi_schedule_prep(&priv->napi)) {
-+		/* disable interrupt */
-+		writel_relaxed(0, priv->base + PPE_INTEN);
- 		hrtimer_cancel(&priv->tx_coalesce_timer);
- 		__napi_schedule(&priv->napi);
- 	}
-@@ -596,8 +593,7 @@ enum hrtimer_restart tx_done(struct hrtimer *hrtimer)
- 
- 	if (napi_schedule_prep(&priv->napi)) {
- 		/* disable rx interrupt */
--		priv->reg_inten &= ~(RCV_INT);
--		writel_relaxed(DEF_INT_MASK & ~RCV_INT, priv->base + PPE_INTEN);
-+		writel_relaxed(0, priv->base + PPE_INTEN);
- 		__napi_schedule(&priv->napi);
- 	}
- 
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
++	if (priv->data.dual_emac) {
++		int i;
++
++		for (i = 0; i < priv->data.slaves; i++) {
++			if (vid == priv->slaves[i].port_vlan)
++				return -EINVAL;
++		}
++	}
++
+ 	dev_info(priv->dev, "removing vlanid %d from vlan filter\n", vid);
+ 	ret = cpsw_ale_del_vlan(priv->ale, vid, 0);
+ 	if (ret != 0)
+-- 
+2.2.1.62.g3f15098
