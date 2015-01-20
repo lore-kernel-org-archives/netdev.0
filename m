@@ -1,81 +1,54 @@
-From: Romain Perier <romain.perier@gmail.com>
-Subject: Re: [PATCH v1 0/4] net: stmmac: dwmac-rk: Fix phy regulator issues
-Date: Tue, 20 Jan 2015 07:58:43 +0100
-Message-ID: <CABgxDoLXBvrqt5SnGybWa_EbT_wGjwHj80bLvhAE3og-m-7t6A@mail.gmail.com>
-References: <1421690889-11901-1-git-send-email-romain.perier@gmail.com>
-	<1446006.BXnWRvK5p3@phil>
+From: Kiran Raparthy <kiran.kumar@linaro.org>
+Subject: Re: [RFC 1/2] misc: uidstat: Add uid stat driver to collect network statistics.
+Date: Tue, 20 Jan 2015 12:33:18 +0530
+Message-ID: <CA+RfmHbK4FBZcwZ85HT-Zokv0P+XU7P5tXxH3tbyH-U_QjOh4w@mail.gmail.com>
+References: <1421147642-28360-1-git-send-email-kiran.kumar@linaro.org>
+	<20150113183441.GA24908@kroah.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, peppe.cavallaro@st.com,
-	netdev <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	"open list:ARM/Rockchip SoC..." <linux-rockchip@lists.infradead.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	devicetree <devicetree@vger.kernel.org>,
-	roger.chen@rock-chips.com
-To: =?UTF-8?Q?Heiko_St=C3=BCbner?= <heiko@sntech.de>
+Cc: LKML <linux-kernel@vger.kernel.org>, Mike Chan <mike@android.com>,
+	Arnd Bergmann <arnd@arndb.de>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	"open list:NETWORKING [GENERAL]" <netdev@vger.kernel.org>,
+	Android Kernel Team <kernel-team@android.com>,
+	John Stultz <john.stultz@linaro.org>,
+	Sumit Semwal <sumit.semwal@linaro.org>,
+	JP Abgrall <jpa@google.com>,
+	=?UTF-8?B?QXJ2ZSBIau+/vW5uZXbvv71n?= <arve@android.com>
+To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1446006.BXnWRvK5p3@phil>
+In-Reply-To: <20150113183441.GA24908@kroah.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi all,
-
-2015-01-19 21:19 GMT+01:00 Heiko St=C3=BCbner <heiko@sntech.de>:
-> Hi Romain
->
-> Am Montag, 19. Januar 2015, 18:08:05 schrieb Romain Perier:
->> This series fixes few issues in dwmac-rk:
+On 14 January 2015 at 00:04, Greg Kroah-Hartman
+<gregkh@linuxfoundation.org> wrote:
+> On Tue, Jan 13, 2015 at 04:44:01PM +0530, Kiran Raparthy wrote:
+>> From: Mike Chan <mike@android.com>
 >>
->> 1. Voltage settings was hardcoded into the driver for the phy regula=
-tor.
->>    The driver now uses the default voltage settings found in the dev=
-icetree,
->> which are applied throught the regulator framework.
->> 2. The regulator name used to power on or power off the phy was put =
-in the
->> devicetree variable "phy_regulator", which is not standard and added=
- a lot
->> of code for nothing. The driver now uses the devicetree property
->> "phy-supply" and the corresponding functions to manipulate this regu=
-lator.
+>> misc: uidstat: Add uid stat driver to collect network statistics.
 >>
->> The corresponding devicetree files are also updated. As, dwmac-rk wa=
-s
->> recently pushed in the development tree, I don't care about devicetr=
-ee
->> backward compatibility issues.
+>> To analyze application's network statistics, we need a mechanism to export
+>> the UID based statistics to userspace so that userspace tools can use the
+>> exported numbers and generate the report against the UID.
+>>
+>> This patch allows the user to explore the UID based network statistics
+>> exported to /proc/uid_stat.
 >
-> This last sentence is slightly misleading :-) .
+> This is a joke, right?  It's not April 1 yet people, why send this in
+> January?
 >
+> confused,
 
-Yes, I meant that I don't need to care about it, as you explain it well=
- below.
-Sorry for my misleading sentence ;) . I will fix it in my second serie.
+Hi Greg,
+It was part of clearing the backlog,didn't realize that this is obsolete.
+Please ignore the patch-set.
+Regards,
+Kiran
 
-> The actual fact is, that these new bindings for the rk3288 gmac have =
-not been
-> released with any official kernel release yet ... i.e. the will be re=
-leased with
-> 3.20 in whatever form, so we don't _need_ to care about keeping compa=
-tibility
-> still for the next 2.5 weeks or so.
 >
-> @Dave: it would be good if this series (when fixed) could still go in=
-to the
-> 3.20 material so we don't get stuck with the non-standard regulator p=
-roperty.
->
->
-> As we'll probably need a v2 due to at the issue in patch3, could you =
-also
-> switch places of patch1 and 2, which would keep bisecatbility (i.e. r=
-egulator
-> property before removing the voltage setting from the driver).
-
-This sentence about re-ordering patches is for Dave or for me ?
-
-Thanks,
-Romain
+> greg k-h
