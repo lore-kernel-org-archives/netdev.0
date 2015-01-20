@@ -1,73 +1,50 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [PATCH net-next 1/3] skbuff: Add skb_list_linearize()
-Date: Tue, 20 Jan 2015 14:46:19 -0800
-Message-ID: <CALnjE+pDdvcSdQV83J_DLJwmcM8OsC94xDnH2mSSsxDCNnsztg@mail.gmail.com>
-References: <1421785543-19823-1-git-send-email-pshelar@nicira.com>
-	<1421790195.4832.12.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCH net-next 2/2] vxlan: Eliminate dependency on UDP socket in
+ transmit path
+Date: Tue, 20 Jan 2015 14:53:33 -0800
+Message-ID: <CA+mtBx9p0hXP=f4pCTASM_7RXfP8t2qkGQ34iQ7-vuCq1sMAWQ@mail.gmail.com>
+References: <1421518700-22460-1-git-send-email-therbert@google.com>
+	<1421518700-22460-3-git-send-email-therbert@google.com>
+	<20150119085938.GG20315@casper.infradead.org>
+	<CA+mtBx-QVcK2yP7hwr01X-KaXedzrgMGrHH503-i5y54BPnNPA@mail.gmail.com>
+	<20150120181335.GL20315@casper.infradead.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog126.obsmtp.com ([74.125.149.155]:42049 "HELO
-	na3sys009aog126.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752006AbbATWqU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jan 2015 17:46:20 -0500
-Received: by mail-ig0-f182.google.com with SMTP id z20so9967901igj.3
-        for <netdev@vger.kernel.org>; Tue, 20 Jan 2015 14:46:20 -0800 (PST)
-In-Reply-To: <1421790195.4832.12.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-ig0-f178.google.com ([209.85.213.178]:62525 "EHLO
+	mail-ig0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751479AbbATWxe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jan 2015 17:53:34 -0500
+Received: by mail-ig0-f178.google.com with SMTP id hl2so17305655igb.5
+        for <netdev@vger.kernel.org>; Tue, 20 Jan 2015 14:53:34 -0800 (PST)
+In-Reply-To: <20150120181335.GL20315@casper.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 20, 2015 at 1:43 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Tue, 2015-01-20 at 12:25 -0800, Pravin B Shelar wrote:
->> similar to skb_linearize(), this API takes skb list as arg and
->> linearize it into one big skb. STT driver patch will use this.
->>
->> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
->> ---
-...
->> @@ -2329,6 +2329,41 @@ void skb_copy_and_csum_dev(const struct sk_buff *skb, u8 *to)
->>  }
->>  EXPORT_SYMBOL(skb_copy_and_csum_dev);
->>
->> +int skb_list_linearize(struct sk_buff *head, gfp_t gfp_mask)
->> +{
->> +     struct sk_buff *skb;
->> +     int tlen = 0;
->> +     int err;
->> +
->> +     err = skb_linearize(head);
->> +     if (err)
->> +             return err;
->> +
->> +     skb = head->next;
->> +     while (skb) {
->> +             tlen += skb->len;
->> +             skb = skb->next;
->> +     }
->> +     err = pskb_expand_head(head, 0, tlen, gfp_mask);
->> +     if (err)
->> +             return err;
->> +
->> +     skb = head->next;
->> +     while (skb) {
->> +             err = skb_copy_bits(skb, 0, skb_tail_pointer(head), skb->len);
->> +             if (err)
->> +                     return err;
->> +             head->tail += skb->len;
->> +             skb = skb->next;
->> +     }
->> +     kfree_skb_list(head->next);
->> +     head->next = NULL;
->> +     head->len += tlen;
->> +     head->truesize = SKB_TRUESIZE(skb_end_offset(head));
+On Tue, Jan 20, 2015 at 10:13 AM, Thomas Graf <tgraf@suug.ch> wrote:
+> On 01/20/15 at 09:29am, Tom Herbert wrote:
+>> I didn't see any reason to preclude that, if it needs to be symmetric
+>> in that case it can be forced at the configuration. Being able to
+>> receive RCO but not have to send it to certain peers is important use
+>> case. You may want to consider this also for GBP if there are cases
+>> where we accept GBP from different peers, but only send it to certain
+>> ones.
 >
-> This is buggy : skb can have a destructor, like sock_wfree()
+> I think asymmetric configurations are fine, in particular
+> receive-only. I was reluctant to the send-only scenario initially
+> as I would expect a VTEP sending RCO frames on UDP dport 8472 to
+> also always be able to accept RCO frames on that port. I can't
+> come up with any specific cases where this would lead to problems
+> though so I have no objections.
 >
+> As for GBP, as processing of the policy group requires additional
+> iptables or OVS rules anyway, such behaviour would be implemented
+> in those rules by either ignoring the mark or dropping such frames.
 
-In current use-case it is never called for skb which is tied to
-socket. But I agree it need to be fixed. I can call skb_orphan() to
-fix it.
-
-Thanks.
+It's risky from a protocol perspective to assume that sending
+something will be properly ignored. Just because we're willing to
+receive something, doesn't mean we necessarily want to send it--
+that's the robustness principle :-)
