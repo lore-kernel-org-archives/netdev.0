@@ -1,11 +1,11 @@
 From: Michael Ellerman <mpe@ellerman.id.au>
-Subject: Re: [PATCH 1/6] selftests: Introduce minimal shared logic for
- running tests
-Date: Tue, 20 Jan 2015 14:08:08 +1100
-Message-ID: <1421723288.10632.1.camel@ellerman.id.au>
+Subject: Re: [PATCH 2/6] selftests: Add install target
+Date: Tue, 20 Jan 2015 14:13:15 +1100
+Message-ID: <1421723595.10632.2.camel@ellerman.id.au>
 References: <1420794375-31881-1-git-send-email-mpe@ellerman.id.au>
-	 <54B95006.3080502@osg.samsung.com> <1421627742.3787.6.camel@ellerman.id.au>
-	 <54BD332D.6010907@osg.samsung.com>
+	 <1420794375-31881-2-git-send-email-mpe@ellerman.id.au>
+	 <54B94E75.8030504@osg.samsung.com> <1421627752.3787.8.camel@ellerman.id.au>
+	 <54BD326A.6030409@osg.samsung.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -20,67 +20,44 @@ Cc: linux-kernel@vger.kernel.org, mmarek@suse.cz,
 	netdev@vger.kernel.org
 To: Shuah Khan <shuahkh@osg.samsung.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <54BD332D.6010907@osg.samsung.com>
+In-Reply-To: <54BD326A.6030409@osg.samsung.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2015-01-19 at 09:39 -0700, Shuah Khan wrote:
+On Mon, 2015-01-19 at 09:35 -0700, Shuah Khan wrote:
 > On 01/18/2015 05:35 PM, Michael Ellerman wrote:
-> > On Fri, 2015-01-16 at 10:53 -0700, Shuah Khan wrote:
+> > On Fri, 2015-01-16 at 10:46 -0700, Shuah Khan wrote:
 > >> On 01/09/2015 02:06 AM, Michael Ellerman wrote:
-> >>> This adds a Make include file which most selftests can then include to
-> >>> get the run_tests logic.
+> >>> This adds make install support to selftests. The basic usage is:
 > >>>
-> >>> On its own this has the advantage of some reduction in repetition, and
-> >>> also means the pass/fail message is defined in fewer places.
+> >>> $ cd tools/testing/selftests
+> >>> $ make install
 > >>>
-> >>> However the key advantage is it will allow us to implement install very
-> >>> simply in a subsequent patch.
+> >>> That installs into tools/testing/selftests/install, which can then be
+> >>> copied where ever necessary.
 > >>>
-> >>> The default implementation just executes each program in $(TEST_PROGS).
+> >>> The install destination is also configurable using eg:
 > >>>
-> >>> We use a variable to hold the default implementation of $(RUN_TESTS)
-> >>> because that gives us a clean way to override it if necessary, ie. using
-> >>> override. The mount, memory-hotplug and mqueue tests use that to provide
-> >>> a different implementation.
-> >>>
-> >>> Tests are not run via /bin/bash, so if they are scripts they must be
-> >>> executable, we add u+x to several.
-> >>>
-> >>> Signed-off-by: Michael Ellerman <mpe@ellerman.id.au>
+> >>> $ INSTALL_PATH=/mnt/selftests make install
 > >>
-> >> I like the shared logic approach in general provided it leaves the
-> >> flexibility to not use the shared logic if a test have the need to
-> >> do so.
+> >> Please see my response to [PATCH 4/6] kbuild: add a new
+> >> kselftest_install make target to install selftests
+> >>
+> >> These are addressed by the current approach to use existing
+> >> INSTALL_MOD_PATH.
 > > 
-> > Yes of course it does, it's entirely optional to include lib.mk.
+> > No that's a separate issue.
 > > 
-> >> This series requires some patch planning. shared logic patch
-> >> followed by individual test patches as opposed a single patch.
-> > 
-> > It could be a single patch too, but there's no reason to do it that way. The
-> > series works fine as I sent it.
-> > 
-> >> I would like to see the shared logic work done on top of my patch v4
-> >> series.
-> > 
-> > That's a waste of time. This series replaces your v4. Doing this "on top" of
-> > your v4 would just mean reverting your v4 series and then applying this.
+> > This patch adds install support for tools/testing/selftests, *completely
+> > separate* from the kbuild infrastructure. 
 > 
-> No necessarily if the work is done as evolutionary step. In any case,
-> I want the first step install target support going into the upcoming
-> release and then make improvements to it. Please send separate patch
-> for the shared logic and individual test patches that use the shared
-> logic if you would like to make the improvements.
+> What's the use-case for this feature? I don't see why we need multiple
+> ways to do the install?
 
-No that's pointless.
+Exactly the use case I described in the sentence above.
 
-My series does everything yours does, and more, and is less code.
-
-It is ready to merge in the next release, you just need to remove your series
-and merge it.
-
-I'm happy to change the default install path or change other minor details, but
-it's pointless to merge your series and then remove it all to merge mine.
+Currently the selftests directory is usable on its own. You can copy the
+selftests directory somewhere and it is functional. That is a useful feature,
+and there's no reason to break it.
 
 cheers
