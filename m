@@ -1,99 +1,40 @@
-From: Olivier Sobrie <olivier@sobrie.be>
-Subject: [PATCH 02/11] hso: fix crash when device disappears while serial port is open
-Date: Tue, 20 Jan 2015 13:29:29 +0100
-Message-ID: <1421756978-4093-3-git-send-email-olivier@sobrie.be>
-References: <1421756978-4093-1-git-send-email-olivier@sobrie.be>
- <1421756978-4093-2-git-send-email-olivier@sobrie.be>
-Cc: linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org,
-	netdev@vger.kernel.org, Olivier Sobrie <olivier@sobrie.be>
-To: Jan Dumon <j.dumon@option.com>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1421756978-4093-2-git-send-email-olivier@sobrie.be>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [PATCH net-next] act_connmark: Add missing dependency on NF_CONNTRACK_MARK
+Date: Tue, 20 Jan 2015 13:44:25 +0100
+Message-ID: <eb5e12e8fec691cb08e663f2f8ed183ac92e5a1f.1421757793.git.tgraf@suug.ch>
+Cc: netdev@vger.kernel.org, Felix Fietkau <nbd@openwrt.org>,
+	Jamal Hadi Salim <jhs@mojatatu.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bombadil.infradead.org ([198.137.202.9]:35689 "EHLO
+	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753389AbbATMoc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jan 2015 07:44:32 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-When the device disappear, the function hso_disconnect() is called to
-perform cleanup. In the cleanup function, hso_free_interface() calls
-tty_port_tty_hangup() in view of scheduling a work to hang up the tty if
-needed. If the port was not open then hso_serial_ref_free() is called
-directly to cleanup everything. Otherwise, hso_serial_ref_free() is called
-when the last fd associated to the port is closed.
+Depending on NETFILTER is not sufficient to ensure the presence of the
+'mark' field in nf_conn, also needs to depend on NF_CONNTRACK_MARK.
 
-For each open port, tty_release() will call the close method,
-hso_serial_close(), which drops the last kref and call
-hso_serial_ref_free() which unregisters, destroys the tty port
-and finally frees the structure in which the tty_port structure
-is included. Later, in tty_release(), more precisely when release_tty()
-is called, the tty_port previously freed is accessed to cancel
-the tty buf workqueue and it leads to a crash.
-
-In view of avoiding this crash, we add a cleanup method that is called
-at the end of the hangup process and we drop the last kref in this
-function when all the ports have been closed, when tty_port is no
-more needed and when it is safe to free the structure containing the
-tty_port structure.
-
-Signed-off-by: Olivier Sobrie <olivier@sobrie.be>
+Fixes: 22a5dc ("net: sched: Introduce connmark action")
+Cc: Felix Fietkau <nbd@openwrt.org>
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
 ---
- drivers/net/usb/hso.c | 17 +++++++++++++----
- 1 file changed, 13 insertions(+), 4 deletions(-)
+ net/sched/Kconfig | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
-index cb0bcc1..3a6c630 100644
---- a/drivers/net/usb/hso.c
-+++ b/drivers/net/usb/hso.c
-@@ -1270,7 +1270,6 @@ static int hso_serial_open(struct tty_struct *tty, struct file *filp)
- 		goto err_out;
+diff --git a/net/sched/Kconfig b/net/sched/Kconfig
+index 475e35e..7a57f66 100644
+--- a/net/sched/Kconfig
++++ b/net/sched/Kconfig
+@@ -713,6 +713,7 @@ config NET_ACT_BPF
+ config NET_ACT_CONNMARK
+         tristate "Netfilter Connection Mark Retriever"
+         depends on NET_CLS_ACT && NETFILTER && IP_NF_IPTABLES
++        depends on NF_CONNTRACK_MARK
+         ---help---
+ 	  Say Y here to allow retrieving of conn mark
  
- 	D1("Opening %d", serial->minor);
--	kref_get(&serial->parent->ref);
- 
- 	/* setup */
- 	tty->driver_data = serial;
-@@ -1289,7 +1288,8 @@ static int hso_serial_open(struct tty_struct *tty, struct file *filp)
- 		if (result) {
- 			hso_stop_serial_device(serial->parent);
- 			serial->port.count--;
--			kref_put(&serial->parent->ref, hso_serial_ref_free);
-+		} else {
-+			kref_get(&serial->parent->ref);
- 		}
- 	} else {
- 		D1("Port was already open");
-@@ -1339,8 +1339,6 @@ static void hso_serial_close(struct tty_struct *tty, struct file *filp)
- 		usb_autopm_put_interface(serial->parent->interface);
- 
- 	mutex_unlock(&serial->parent->mutex);
--
--	kref_put(&serial->parent->ref, hso_serial_ref_free);
- }
- 
- /* close the requested serial port */
-@@ -1391,6 +1389,16 @@ static int hso_serial_write_room(struct tty_struct *tty)
- 	return room;
- }
- 
-+static void hso_serial_cleanup(struct tty_struct *tty)
-+{
-+	struct hso_serial *serial = tty->driver_data;
-+
-+	if (!serial)
-+		return;
-+
-+	kref_put(&serial->parent->ref, hso_serial_ref_free);
-+}
-+
- /* setup the term */
- static void hso_serial_set_termios(struct tty_struct *tty, struct ktermios *old)
- {
-@@ -3215,6 +3223,7 @@ static const struct tty_operations hso_serial_ops = {
- 	.close = hso_serial_close,
- 	.write = hso_serial_write,
- 	.write_room = hso_serial_write_room,
-+	.cleanup = hso_serial_cleanup,
- 	.ioctl = hso_serial_ioctl,
- 	.set_termios = hso_serial_set_termios,
- 	.chars_in_buffer = hso_serial_chars_in_buffer,
 -- 
-2.2.0
+1.9.3
