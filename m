@@ -1,51 +1,138 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH 3/3] netlink: Lock out table resizes while dumping
- Netlink sockets
-Date: Tue, 20 Jan 2015 15:05:46 +0000
-Message-ID: <20150120150546.GI20315@casper.infradead.org>
-References: <cover.1421759056.git.tgraf@suug.ch>
- <e164edeacaeffee43be64d4ed6a5b5e7e8923bd1.1421759056.git.tgraf@suug.ch>
- <20150120143154.GR14883@acer.localdomain>
- <063D6719AE5E284EB5DD2968C1650D6D1CACF400@AcuExch.aculab.com>
+From: Olivier Sobrie <olivier@sobrie.be>
+Subject: Re: [PATCH 11/11] usb: core: fix a race with usb_queue_reset_device()
+Date: Tue, 20 Jan 2015 16:10:01 +0100
+Message-ID: <20150120151001.GA5681@hposo>
+References: <1421756978-4093-4-git-send-email-olivier@sobrie.be>
+ <1421756978-4093-5-git-send-email-olivier@sobrie.be>
+ <1421756978-4093-6-git-send-email-olivier@sobrie.be>
+ <1421756978-4093-7-git-send-email-olivier@sobrie.be>
+ <1421756978-4093-8-git-send-email-olivier@sobrie.be>
+ <1421756978-4093-9-git-send-email-olivier@sobrie.be>
+ <1421756978-4093-10-git-send-email-olivier@sobrie.be>
+ <1421756978-4093-11-git-send-email-olivier@sobrie.be>
+ <1421756978-4093-12-git-send-email-olivier@sobrie.be>
+ <1421761717.29486.24.camel@linux-0dmf.site>
+Reply-To: Olivier Sobrie <olivier@sobrie.be>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: 'Patrick McHardy' <kaber@trash.net>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"herbert@gondor.apana.org.au" <herbert@gondor.apana.org.au>,
-	"paulmck@linux.vnet.ibm.com" <paulmck@linux.vnet.ibm.com>,
-	"ying.xue@windriver.com" <ying.xue@windriver.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>
-To: David Laight <David.Laight@ACULAB.COM>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Cc: Jan Dumon <j.dumon@option.com>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Oliver Neukum <oneukum@suse.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CACF400@AcuExch.aculab.com>
-Sender: netfilter-devel-owner@vger.kernel.org
+In-Reply-To: <1421761717.29486.24.camel@linux-0dmf.site>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 01/20/15 at 03:00pm, David Laight wrote:
-> From: Patrick McHardy
-> > An alternative would be to set a flag in ht when a dump begins that
-> > indicates to skip resizing operations and on the end of the dump
-> > perform any resizing operations that might be necessary. Herbert
-> > disagrees though and he might be right.
-> 
-> Can you rely on being told when the dump completes?
-> If the program is killed in the middle then it can't tell you.
-> 
-> I suspect you'd have to suppress resize for some time interval
-> after a partial dump.
-> Unfortunately two continuous dumps would be likely to suppress
-> it forever. Maybe sleep user space dump requests for the first
-> block while any resize (esp. grow) is pending.
-> 
-> What is passed to userspace as the 'continue from here' marker?
-> Even without resize there are likely to be issues if something
-> nearer the head of a hash chain being processed is deleted.
+Hi Oliver,
 
-I assumed that the proposal would include a timer in the Netlink
-cb which fires after 2s or so and cancels the dump. 2s is still
-a long time and a lot of inserts can happen in the meantime.
+On Tue, Jan 20, 2015 at 02:48:37PM +0100, Oliver Neukum wrote:
+> On Tue, 2015-01-20 at 13:29 +0100, Olivier Sobrie wrote:
+> > When usb_queue_reset() is called it schedules a work in view of
+> > resetting the usb interface. When the reset work is running, it
+> > can be scheduled again (e.g. by the usb disconnect method of
+> > the driver).
+> > 
+> > Consider that the reset work is queued again while the reset work
+> > is running and that this work leads to a forced unbinding of the
+> > usb interface (e.g. because a driver is bound to the interface
+> > and has no pre/post_reset methods - see usb_reset_device()).
+> > In such condition, usb_unbind_interface() gets called and this
+> > function calls usb_cancel_queued_reset() which does nothing
+> > because the flag "reset_running" is set to 1. The second reset
+> > work that has been scheduled is therefore not cancelled.
+> > Later, the usb_reset_device() tries to rebind the interface.
+> > If it fails, then the usb interface context which contain the
+> > reset work struct is freed and it most likely crash when the
+> > second reset work tries to be run.
+> > 
+> > The following flow shows the problem:
+> > * usb_queue_reset_device()
+> > * __usb_queue_reset_device() <- If the reset work is queued after here, then
+> >     reset_running = 1           it will never be cancelled.
+> >     usb_reset_device()
+> >       usb_forced_unbind_intf()
+> >         usb_driver_release_interface()
+> >           usb_unbind_interface()
+> >             driver->disconnect()
+> >               usb_queue_reset_device() <- second reset
+> 
+> That is the sledgehammer approach. Wouldn't it be better to guarantee
+> that usb_queue_reset_device() be a nop when reset_running==1 ?
 
-This may become more viable once insert()s can fail above a
-certain watermark as Herbert suggests.
+If I'm right, we have to prevent that usb_queue_reset_device() shedules
+the work a second time before the variable reset_running is set.
+An other task can requeue a reset while the work __usb_queue_reset_device()
+is busy but when the flag reset_running hasn't been set yet.
+
+I see different other approaches to solve the problem:
+
+ * Setting a flag in the usb_queue_reset_device() when a reset has been
+   scheduled and resetting this flag when the reset is done. This implies
+   a locking mechanism around the flag.
+
+ * Avoid that the hso driver queues multiple resets by using a flag. It
+   also requires locking. It comes more or less to the same solution
+   as the previous one but the patch is done in the hso driver.
+
+ * using get_device() and put_device() to avoid that the usb interface
+   structure get freed before the second reset is run.
+   I mean:
+	void usb_queue_reset_device(struct usb_interface *iface)
+	{
+		get_device()
+		if (!schedule_work(&iface->reset_ws))
+			put_device()
+	}
+
+	static void __usb_queue_reset_device(struct work_struct *ws)
+	{
+		...
+		put_device()
+	}
+
+   But this solution does not avoid the second reset...
+
+If you have other better ideas, let me know.
+Correct me if I'm wrong.
+
+Thank you,
+
+Olivier
+
+> 
+> >             usb_cancel_queued_reset() <- does nothing because
+> >                                          the flag reset_running
+> >                                          is set
+> >       usb_unbind_and_rebind_marked_interfaces()
+> >         usb_rebind_intf()
+> >           device_attach()
+> >             driver->probe() <- fails (no more drivers hold a reference to
+> > 				      the usb interface)
+> >     reset_running = 0
+> > * hub_event()
+> >     usb_disconnect()
+> >       usb_disable_device()
+> >         kobject_release()
+> >           device_release()
+> >             usb_release_interface()
+> >               kfree(intf) <- usb interface context is released
+> >                              while we still have a pending reset
+> >                              work that should be run
+> > 
+> > To avoid this problem, we use a delayed work so that if the reset
+> > work is currently run, we can avoid further call to
+> > __usb_queue_reset_device() work by using cancel_delayed_work().
+> > Unfortunately it increases the size of the usb_interface structure...
+> 
+> 	Regards
+> 		Oliver
+> 
+> -- 
+> Oliver Neukum <oneukum@suse.de>
+> 
+
+-- 
+Olivier
