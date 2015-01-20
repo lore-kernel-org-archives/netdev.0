@@ -1,36 +1,92 @@
-From: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
-Subject: Re: Bug: mv643xxx fails with highmem
-Date: Tue, 20 Jan 2015 10:42:58 -0300
-Message-ID: <54BE5B62.8020704@free-electrons.com>
-References: <20141211194920.GR11285@n2100.arm.linux.org.uk> <20141211.151055.817876561546126576.davem@davemloft.net> <20141211202507.GS11285@n2100.arm.linux.org.uk> <5491F342.5090301@free-electrons.com> <20141218000357.GX11285@n2100.arm.linux.org.uk> <5492D2EF.6050807@free-electrons.com> <20141221165106.GN11285@n2100.arm.linux.org.uk> <20150120134104.GA12253@n2100.arm.linux.org.uk>
+From: Oliver Neukum <oneukum@suse.de>
+Subject: Re: [PATCH 11/11] usb: core: fix a race with
+ usb_queue_reset_device()
+Date: Tue, 20 Jan 2015 14:48:37 +0100
+Message-ID: <1421761717.29486.24.camel@linux-0dmf.site>
+References: <1421756978-4093-1-git-send-email-olivier@sobrie.be>
+	 <1421756978-4093-2-git-send-email-olivier@sobrie.be>
+	 <1421756978-4093-3-git-send-email-olivier@sobrie.be>
+	 <1421756978-4093-4-git-send-email-olivier@sobrie.be>
+	 <1421756978-4093-5-git-send-email-olivier@sobrie.be>
+	 <1421756978-4093-6-git-send-email-olivier@sobrie.be>
+	 <1421756978-4093-7-git-send-email-olivier@sobrie.be>
+	 <1421756978-4093-8-git-send-email-olivier@sobrie.be>
+	 <1421756978-4093-9-git-send-email-olivier@sobrie.be>
+	 <1421756978-4093-10-git-send-email-olivier@sobrie.be>
+	 <1421756978-4093-11-git-send-email-olivier@sobrie.be>
+	 <1421756978-4093-12-git-send-email-olivier@sobrie.be>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Nimrod Andy <B38611@freescale.com>,
-	Fabio Estevam <fabio.estevam@freescale.com>,
-	netdev@vger.kernel.org, fugang.duan@freescale.com
-To: Russell King - ARM Linux <linux@arm.linux.org.uk>,
-	David Miller <davem@davemloft.net>,
-	Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from down.free-electrons.com ([37.187.137.238]:56745 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751356AbbATNpS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jan 2015 08:45:18 -0500
-In-Reply-To: <20150120134104.GA12253@n2100.arm.linux.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Jan Dumon <j.dumon@option.com>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Olivier Sobrie <olivier@sobrie.be>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1421756978-4093-12-git-send-email-olivier@sobrie.be>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 01/20/2015 10:41 AM, Russell King - ARM Linux wrote:
-> Ping.  What's happening on this?
->=20
-> I guess we don't care about regressions in the Linux kernel?
->=20
+On Tue, 2015-01-20 at 13:29 +0100, Olivier Sobrie wrote:
+> When usb_queue_reset() is called it schedules a work in view of
+> resetting the usb interface. When the reset work is running, it
+> can be scheduled again (e.g. by the usb disconnect method of
+> the driver).
+> 
+> Consider that the reset work is queued again while the reset work
+> is running and that this work leads to a forced unbinding of the
+> usb interface (e.g. because a driver is bound to the interface
+> and has no pre/post_reset methods - see usb_reset_device()).
+> In such condition, usb_unbind_interface() gets called and this
+> function calls usb_cancel_queued_reset() which does nothing
+> because the flag "reset_running" is set to 1. The second reset
+> work that has been scheduled is therefore not cancelled.
+> Later, the usb_reset_device() tries to rebind the interface.
+> If it fails, then the usb interface context which contain the
+> reset work struct is freed and it most likely crash when the
+> second reset work tries to be run.
+> 
+> The following flow shows the problem:
+> * usb_queue_reset_device()
+> * __usb_queue_reset_device() <- If the reset work is queued after here, then
+>     reset_running = 1           it will never be cancelled.
+>     usb_reset_device()
+>       usb_forced_unbind_intf()
+>         usb_driver_release_interface()
+>           usb_unbind_interface()
+>             driver->disconnect()
+>               usb_queue_reset_device() <- second reset
 
-Sorry, a holiday trip got in the middle of this.
+That is the sledgehammer approach. Wouldn't it be better to guarantee
+that usb_queue_reset_device() be a nop when reset_running==1 ?
 
-I'll try to submit a fix this week.
---=20
-Ezequiel Garc=EDa, Free Electrons
-Embedded Linux, Kernel and Android Engineering
-http://free-electrons.com
+>             usb_cancel_queued_reset() <- does nothing because
+>                                          the flag reset_running
+>                                          is set
+>       usb_unbind_and_rebind_marked_interfaces()
+>         usb_rebind_intf()
+>           device_attach()
+>             driver->probe() <- fails (no more drivers hold a reference to
+> 				      the usb interface)
+>     reset_running = 0
+> * hub_event()
+>     usb_disconnect()
+>       usb_disable_device()
+>         kobject_release()
+>           device_release()
+>             usb_release_interface()
+>               kfree(intf) <- usb interface context is released
+>                              while we still have a pending reset
+>                              work that should be run
+> 
+> To avoid this problem, we use a delayed work so that if the reset
+> work is currently run, we can avoid further call to
+> __usb_queue_reset_device() work by using cancel_delayed_work().
+> Unfortunately it increases the size of the usb_interface structure...
+
+	Regards
+		Oliver
+
+-- 
+Oliver Neukum <oneukum@suse.de>
