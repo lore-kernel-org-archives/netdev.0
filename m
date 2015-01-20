@@ -1,64 +1,113 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [net-next PATCH v3 04/12] net: flow_table: create a set of
- common headers and actions
-Date: Tue, 20 Jan 2015 15:59:38 -0500
-Message-ID: <20150120205938.GD1854@tuxdriver.com>
-References: <20150120202404.1741.8658.stgit@nitbit.x32>
- <20150120202752.1741.13810.stgit@nitbit.x32>
+From: "Harout Hedeshian" <harouth@codeaurora.org>
+Subject: RE: [PATCH net-next 1/3] skbuff: Add skb_list_linearize()
+Date: Tue, 20 Jan 2015 14:16:54 -0700
+Message-ID: <00a801d034f6$6b6b55e0$424201a0$@codeaurora.org>
+References: <1421785543-19823-1-git-send-email-pshelar@nicira.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: tgraf@suug.ch, simon.horman@netronome.com, sfeldma@gmail.com,
-	netdev@vger.kernel.org, jhs@mojatatu.com, davem@davemloft.net,
-	gerlitz.or@gmail.com, andy@greyhouse.net, ast@plumgrid.com
-To: John Fastabend <john.fastabend@gmail.com>
+Content-Type: text/plain;
+	charset="US-ASCII"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>
+To: "'Pravin B Shelar'" <pshelar@nicira.com>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:60565 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751649AbbATVP2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jan 2015 16:15:28 -0500
-Content-Disposition: inline
-In-Reply-To: <20150120202752.1741.13810.stgit@nitbit.x32>
+Received: from smtp.codeaurora.org ([198.145.11.231]:53346 "EHLO
+	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750756AbbATVQ6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jan 2015 16:16:58 -0500
+In-Reply-To: <1421785543-19823-1-git-send-email-pshelar@nicira.com>
+Content-Language: en-us
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 20, 2015 at 12:27:53PM -0800, John Fastabend wrote:
-> This adds common headers and actions that drivers can use.
+
+
+> -----Original Message-----
+> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
+> On Behalf Of Pravin B Shelar
+> Sent: Tuesday, January 20, 2015 1:26 PM
+> To: davem@davemloft.net
+> Cc: netdev@vger.kernel.org; Pravin B Shelar
+> Subject: [PATCH net-next 1/3] skbuff: Add skb_list_linearize()
 > 
-> I have not yet moved the header graphs into the common header
-> because I'm not entirely convinced its re-usable. The devices
-> I have been looking at have different enough header graphs that
-> they wouldn't be re-usable. However possibly many 40Gbp NICs
-> for example could share a common header graph. When we get
-> multiple implementations we can move this into the common file
-> if it makes sense.
+> similar to skb_linearize(), this API takes skb list as arg and linearize
+> it into one big skb. STT driver patch will use this.
 > 
-> And table structures seem to be unique enough that there is
-> little value in putting each devices table layout into the
-> common file so its left for device specific implementation.
-> 
-> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
 > ---
->  include/linux/if_flow_common.h |  257 ++++++++++++++++++++++++++++++++++++++++
->  1 file changed, 257 insertions(+)
->  create mode 100644 include/linux/if_flow_common.h
+>  include/linux/skbuff.h |  2 ++
+>  net/core/skbuff.c      | 35 +++++++++++++++++++++++++++++++++++
+>  2 files changed, 37 insertions(+)
 > 
-> diff --git a/include/linux/if_flow_common.h b/include/linux/if_flow_common.h
-> new file mode 100644
-> index 0000000..ef2d66f
-> --- /dev/null
-> +++ b/include/linux/if_flow_common.h
+> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h index
+> 85ab7d7..c9194c1 100644
+> --- a/include/linux/skbuff.h
+> +++ b/include/linux/skbuff.h
+> @@ -2532,6 +2532,8 @@ static inline int skb_linearize(struct sk_buff
+> *skb)
+>  	return skb_is_nonlinear(skb) ? __skb_linearize(skb) : 0;  }
+> 
+> +int skb_list_linearize(struct sk_buff *head, gfp_t gfp_mask);
+> +
+>  /**
+>   * skb_has_shared_frag - can any frag be overwritten
+>   * @skb: buffer to test
+> diff --git a/net/core/skbuff.c b/net/core/skbuff.c index
+> 56db472..9ef2881 100644
+> --- a/net/core/skbuff.c
+> +++ b/net/core/skbuff.c
+> @@ -2329,6 +2329,41 @@ void skb_copy_and_csum_dev(const struct sk_buff
+> *skb, u8 *to)  }  EXPORT_SYMBOL(skb_copy_and_csum_dev);
+> 
+> +int skb_list_linearize(struct sk_buff *head, gfp_t gfp_mask) {
+> +	struct sk_buff *skb;
+> +	int tlen = 0;
+> +	int err;
+> +
+> +	err = skb_linearize(head);
+> +	if (err)
+> +		return err;
+> +
+> +	skb = head->next;
+> +	while (skb) {
+> +		tlen += skb->len;
+> +		skb = skb->next;
+> +	}
+> +	err = pskb_expand_head(head, 0, tlen, gfp_mask);
+> +	if (err)
+> +		return err;
+> +
+> +	skb = head->next;
+> +	while (skb) {
+> +		err = skb_copy_bits(skb, 0, skb_tail_pointer(head),
+skb->len);
+> +		if (err)
+> +			return err;
+> +		head->tail += skb->len;
+> +		skb = skb->next;
+> +	}
+> +	kfree_skb_list(head->next);
+> +	head->next = NULL;
+> +	head->len += tlen;
+> +	head->truesize = SKB_TRUESIZE(skb_end_offset(head));
+> +	return 0;
+> +}
+> +EXPORT_SYMBOL(skb_list_linearize);
+> +
+>  /**
+>   *	skb_dequeue - remove from the head of the queue
+>   *	@list: list to dequeue from
+> --
+> 1.9.1
+> 
 
-<snip>
+This looks useful for us as well.
 
-> +struct net_flow_action net_flow_pop_vlan = {
-> +	.name = "pop_vlan",
-> +	.uid = ACTION_POP_VLAN,
-> +	.args = net_flow_null_args,
-> +};
+Acked-by: Harout Hedeshian <harouth@codeaurora.org>
 
-Random thought, should there be a "push_vlan" (for double VLAN tagging)?
+Thanks,
+Harout
 
-
--- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+--
+Employee of Qualcomm Innovation Center, Inc.
+Qualcomm Innovation Center, Inc. is a member of Code Aurora Forum, a Linux
+Foundation Collaborative Project
