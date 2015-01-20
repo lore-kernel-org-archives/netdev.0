@@ -1,87 +1,61 @@
-From: "Ahmed S. Darwish" <darwish.07@gmail.com>
-Subject: [PATCH v5 3/5] can: kvaser_usb: Fix state handling upon BUS_ERROR
- events
-Date: Tue, 20 Jan 2015 16:47:09 -0500
-Message-ID: <20150120214709.GC16828@linux>
-References: <20141223154654.GB6460@vivalin-002>
- <20150120214409.GA16828@linux>
- <20150120214537.GB16828@linux>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [PATCH net-next 1/2] udp: Do not require sock in udp_tunnel_xmit_skb
+Date: Tue, 20 Jan 2015 23:47:29 +0200
+Message-ID: <CAJ3xEMit2By8S=SwRGJKcwii9J3LKj29sX=tAbCC3bcAMDkr5Q@mail.gmail.com>
+References: <1421518700-22460-1-git-send-email-therbert@google.com>
+	<1421518700-22460-2-git-send-email-therbert@google.com>
+	<CAJ3xEMg0xJU4JShBLzs4g+zZVzH+uo79=aQGx4NwoQOv1h13Kw@mail.gmail.com>
+	<CA+mtBx8dihFYb1v_WeyukfV5hk==2=3_b_GNUJoxCuL8_GUf6A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andri Yngvason <andri.yngvason@marel.com>,
-	Linux-CAN <linux-can@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Olivier Sobrie <olivier@sobrie.be>,
-	Oliver Hartkopp <socketcan@hartkopp.net>,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	Marc Kleine-Budde <mkl@pengutronix.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150120214537.GB16828@linux>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>, Thomas Graf <tgraf@suug.ch>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Tom Herbert <therbert@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f173.google.com ([209.85.214.173]:51265 "EHLO
+	mail-ob0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752322AbbATVr3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jan 2015 16:47:29 -0500
+Received: by mail-ob0-f173.google.com with SMTP id vb8so10417212obc.4
+        for <netdev@vger.kernel.org>; Tue, 20 Jan 2015 13:47:29 -0800 (PST)
+In-Reply-To: <CA+mtBx8dihFYb1v_WeyukfV5hk==2=3_b_GNUJoxCuL8_GUf6A@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Ahmed S. Darwish <ahmed.darwish@valeo.com>
+On Tue, Jan 20, 2015 at 7:36 PM, Tom Herbert <therbert@google.com> wrote:
+> On Sun, Jan 18, 2015 at 2:43 PM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
+>> On Sat, Jan 17, 2015 at 8:18 PM, Tom Herbert <therbert@google.com> wrote:
+>>> The UDP tunnel transmit functions udp_tunnel_xmit_skb and
+>>> udp_tunnel6_xmit_skb include a socket argument. The socket being
+>>> passed to the functions (from VXLAN) is a UDP created for receive
+>>> side. The only thing that the socket is used for in the transmit
+>>> functions is to get the setting for checksum (enabled or zero).
+>>
+>> Tom, just to clarify - re the sockets usage in the transmit side,
+>> somewhere bind or alike is done on them such that we have multiple
+>> source UDP ports for given host VXLAN traffic. Here for example the
+>> sender host is 192.168.31.17 and two ports are seen here 54206 and
+>> 50795.
+>>
+>> Just wanted to make sure this series doesn't change that, since if
+>> this is the case, we introduce here a regression w.r.t RSS hash
+>> spreading from the outer UDP header data at the receiver side (which
+>> is the right thing to do, per your LKS session...)
+>>
+> Hi Or,
+>
+> Using or not using a socket on transmit should have no bearing to the
+> receive side. RSS works based on the hash of the UDP 5-tuple which
+> should include a source port set to a value for the inner flow. Since
+> the UDP socket is unconnected it should have no bearing on RFS or XPS
+> either.
 
-While being in an ERROR_WARNING state and receiving further
-bus error events with error counts in the range of 97-127 inclusive,
-the state handling code erroneously reverts back to ERROR_ACTIVE.
+Hi Tom,
 
-As per the CAN standard recommendations, only revert to ERROR_ACTIVE
-when the error counters are less than 96.
-
-Moreover, in certain Kvaser models, the BUS_ERROR flag is always set
-along with undefined bits in the M16C status register. Thus use
-bitwise ops instead of full equality for checking the register
-against bus errors.
-
-Signed-off-by: Ahmed S. Darwish <ahmed.darwish@valeo.com>
----
- drivers/net/can/usb/kvaser_usb.c | 24 +++++++++++-------------
- 1 file changed, 11 insertions(+), 13 deletions(-)
-
-diff --git a/drivers/net/can/usb/kvaser_usb.c b/drivers/net/can/usb/kvaser_usb.c
-index 0386d3f..640b0eb 100644
---- a/drivers/net/can/usb/kvaser_usb.c
-+++ b/drivers/net/can/usb/kvaser_usb.c
-@@ -635,10 +635,12 @@ static void kvaser_usb_rx_error_update_can_state(struct kvaser_usb_net_priv *pri
- 		new_state = CAN_STATE_BUS_OFF;
- 	else if (es->status & M16C_STATE_BUS_PASSIVE)
- 		new_state = CAN_STATE_ERROR_PASSIVE;
--
--	if (es->status == M16C_STATE_BUS_ERROR) {
--		if ((cur_state < CAN_STATE_ERROR_WARNING) &&
--		    ((es->txerr >= 96) || (es->rxerr >= 96)))
-+	else if (es->status & M16C_STATE_BUS_ERROR) {
-+		if ((es->txerr >= 256) || (es->rxerr >= 256))
-+			new_state = CAN_STATE_BUS_OFF;
-+		else if ((es->txerr >= 128) || (es->rxerr >= 128))
-+			new_state = CAN_STATE_ERROR_PASSIVE;
-+		else if ((es->txerr >= 96) || (es->rxerr >= 96))
- 			new_state = CAN_STATE_ERROR_WARNING;
- 		else if (cur_state > CAN_STATE_ERROR_ACTIVE)
- 			new_state = CAN_STATE_ERROR_ACTIVE;
-@@ -748,15 +750,11 @@ static void kvaser_usb_rx_error(const struct kvaser_usb *dev,
- 			if (!priv->can.restart_ms)
- 				kvaser_usb_simple_msg_async(priv, CMD_STOP_CHIP);
- 			netif_carrier_off(priv->netdev);
--		}
--
--		if (es.status == M16C_STATE_BUS_ERROR) {
--			if ((old_state >= CAN_STATE_ERROR_WARNING) ||
--			    (es.txerr < 96 && es.rxerr < 96)) {
--				if (old_state > CAN_STATE_ERROR_ACTIVE) {
--					cf->can_id |= CAN_ERR_PROT;
--					cf->data[2] = CAN_ERR_PROT_ACTIVE;
--				}
-+		} else if (es.status & M16C_STATE_BUS_ERROR) {
-+			if ((es.txerr < 96 && es.rxerr < 96) &&
-+			    (old_state > CAN_STATE_ERROR_ACTIVE)) {
-+				cf->can_id |= CAN_ERR_PROT;
-+				cf->data[2] = CAN_ERR_PROT_ACTIVE;
- 			}
- 		}
- 
--- 
-1.9.1
+You say "which should include a source port set to a value for the
+inner flow", well this series doesn't add such logic, nor I am fully
+clear what piece exactly is responsible for the fact that I see
+multiple source udp ports used from vxlan traffic flowing out of a
+certain host. I just wanted to make sure that these patches don't
+introduce a regression w.r.t to the **current** (not future) state of
+things, can you confirm this?
