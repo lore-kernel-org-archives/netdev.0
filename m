@@ -1,116 +1,56 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: BW regression after "tcp: refine TSO autosizing"
-Date: Mon, 19 Jan 2015 19:14:11 -0800
-Message-ID: <1421723651.17892.3.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <54B54C72.8060705@dev.mellanox.co.il>
-	 <1421175434.4099.21.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CAJ3xEMibMzJH-AB7pBnO9qBL4McTdsajqHzxXkadnTf1khNdxA@mail.gmail.com>
-	 <54B590FB.5040805@dev.mellanox.co.il>
-	 <1421186430.11734.6.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CAM_57Zgx3DoQbQMffAJNMeZHa8Yb8M+JuwEH=1Fo_Xou+DkgcQ@mail.gmail.com>
-	 <1421603317.11734.154.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <54BC286B.8000605@mellanox.com>
-	 <1421720216.11734.188.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CAA93jw42i37s5BJO5QJvFc=JnQBT5JsOX4QDxT6yKY3Ha3J3rg@mail.gmail.com>
+From: Hayes Wang <hayeswang@realtek.com>
+Subject: RE: [PATCH net-next 1/7] r8152: adjust rx_bottom
+Date: Tue, 20 Jan 2015 03:24:52 +0000
+Message-ID: <0835B3720019904CB8F7AA43166CEEB2EE6E9F@RTITMBSV03.realtek.com.tw>
+References: <CAE4R7bAv26f-+DW-TmjspJxAb-3Add5sf563mnMUTGCyiqG3rQ@mail.gmail.com>
+	<20150119.161333.1471925264489559119.davem@davemloft.net>
+	<0835B3720019904CB8F7AA43166CEEB2EE6E76@RTITMBSV03.realtek.com.tw>
+ <20150119.215220.720365670558757349.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Eyal Perry <eyalpe@mellanox.com>,
-	Yuchung Cheng <ycheng@google.com>,
-	Neal Cardwell <ncardwell@google.com>,
-	Eyal Perry <eyalpe@dev.mellanox.co.il>,
-	Or Gerlitz <gerlitz.or@gmail.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Amir Vadai <amirv@mellanox.com>,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	Ido Shamay <idos@mellanox.com>, Amir Ancel <amira@mellanox.com>
-To: Dave Taht <dave.taht@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f177.google.com ([209.85.213.177]:41179 "EHLO
-	mail-ig0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752524AbbATDOO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jan 2015 22:14:14 -0500
-Received: by mail-ig0-f177.google.com with SMTP id h15so7223780igd.4
-        for <netdev@vger.kernel.org>; Mon, 19 Jan 2015 19:14:14 -0800 (PST)
-In-Reply-To: <CAA93jw42i37s5BJO5QJvFc=JnQBT5JsOX4QDxT6yKY3Ha3J3rg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "sfeldma@gmail.com" <sfeldma@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	nic_swsd <nic_swsd@realtek.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150119.215220.720365670558757349.davem@davemloft.net>
+Content-Language: zh-TW
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2015-01-19 at 18:37 -0800, Dave Taht wrote:
-> On Mon, Jan 19, 2015 at 6:16 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> > On Sun, 2015-01-18 at 23:40 +0200, Eyal Perry wrote:
-> >
-> >> So indeed, interrupt mitigation (tx-usecs 1 tx-frames 1) improves things up
-> >> for the "refined TSO autosizing" kernel (from 18.4Gbps to 19.7Gbps). but
-> >> in the
-> >> other kernel, the BW is remains the same with and without the coalescing.
-> >
-> > OK thanks for testing.
-> >
-> > I believe the regression comes from inability for cc to cope with
-> > stretch acks.
-> >
-> > Nowadays on fast networks, each ACK packet acknowledges ~45 MSS, but
-> > CUBIC (and others cc) got support for this only during slow start, with
-> > commit 9f9843a751d0a2057f9f3d313886e7e5e6ebaac9
-> > ("tcp: properly handle stretch acks in slow start")
-> >
-> > I guess it is time to also handle congestion avoidance phase.
+ David Miller [mailto:davem@davemloft.net] 
+> Sent: Tuesday, January 20, 2015 10:52 AM
+[...]
+> agg->list is not local, you have to use a spinlock to protect
+> modifications to it, some other sites which modify agg->list do take
+> the lock properly.
 > 
-> Are you saying that at long last, delayed acks as we knew them are
-> dead, dead, dead?
+> You cannot modify a list like agg->list without proper locking.
 
-Sorry, I can not parse what you are saying.
+Excuse me. I don't understand.
 
-In case you missed it, it has nothing to do with delayed ACK but GRO on
-receiver.
+Before step1
+   tp_rx_done->listA->listB->listC->listD->...
+   rx_queue->
+Because the other function would chage tp->rx_done,
+I need move the lists with spin lock.
 
+After step1
+   tp_rx_done->
+   rx_queue->listA->listB->listC->listD->...
 
-> 
-> > With following patch (very close to what we use here at Google) I
-> > reached 37Gbps instead of 20Gbps :
-> >
-> > ethtool -C eth1 tx-usecs 4 tx-frames 4
-> 
-> What is the default here?
+Now I dequeue one of the lists from the list_head and
+deal with it.
+   tp_rx_done->
+   rx_queue->listA->listC->listD->...
+                    listB
 
-16 & 16, see my prior answer in this thread.
-
-> 
-> What happens with the default here?
-
-ethtool -C eth1 tx-usecs 16 tx-frames 16
-DUMP_TCP_INFO=1 ./netperf -H remote -T2,2 -t TCP_STREAM -l 20
-MIGRATED TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to remote
-() port 0 AF_INET : cpu bind
-rto=201000 ato=0 pmtu=1500 rcv_ssthresh=29200 rtt=60 rttvar=2
-snd_ssthresh=179 cwnd=243 reordering=3 total_retrans=23 ca_state=0
-Recv   Send    Send                          
-Socket Socket  Message  Elapsed              
-Size   Size    Size     Time     Throughput  
-bytes  bytes   bytes    secs.    10^6bits/sec  
-
- 87380  16384  16384    20.00    22923.74   
-
-
-
-
-> 
-> >
-> > DUMP_TCP_INFO=1 ./netperf -H remote -T2,2 -t TCP_STREAM -l 20
-> > MIGRATED TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to remote () port 0 AF_INET : cpu bind
-> > rto=201000 ato=0 pmtu=1500 rcv_ssthresh=29200 rtt=67 rttvar=6 snd_ssthresh=263 cwnd=265 reordering=3 total_retrans=4569 ca_state=0
-> 
-> The above statistics are not dumped by my netperf, and look extremely
-> desirable to capture in netperf-wrapper. This is a script parsing some
-> other kernel data at the conclusion of the run? or a better netperf?
-
-Thats a 3 lines patch in netperf actually.
-
-> 
-> If ECN was on the bottleneck link, I imagine total_retrans would be 0,
-> or are packets getting dropped in the kernel?
-
-The receiver drops frames, because we are at the limit of what the NIC
-can do on a single RX queue.
+Then, if I want to put it back to rx_queue, I have to
+use spin lock. Why? No other function would chage
+rx_queue and the items in it.
+ 
+Best Regards,
+Hayes
