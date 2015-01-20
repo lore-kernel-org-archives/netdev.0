@@ -1,91 +1,131 @@
-From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Subject: [PATCH V2 for 3.19 3/7] rtlwifi: rtl8192ee: Fix adhoc fail
-Date: Tue, 20 Jan 2015 11:01:22 -0600
-Message-ID: <1421773286-1039-4-git-send-email-Larry.Finger@lwfinger.net>
-References: <1421773286-1039-1-git-send-email-Larry.Finger@lwfinger.net>
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Troy Tan <troy_tan-kXabqFNEczNtrwSWzY7KCg@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>,
-	Stable <stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1421773286-1039-1-git-send-email-Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Harout Hedeshian <harouth@codeaurora.org>
+Subject: [PATCH v3 net-next] net: ipv6: Add sysctl entry to disable MTU updates from RA
+Date: Tue, 20 Jan 2015 10:06:05 -0700
+Message-ID: <1421773565-5181-1-git-send-email-harouth@codeaurora.org>
+Cc: Harout Hedeshian <harouth@codeaurora.org>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.codeaurora.org ([198.145.11.231]:36052 "EHLO
+	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751849AbbATRGP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jan 2015 12:06:15 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Troy Tan <troy_tan-kXabqFNEczNtrwSWzY7KCg@public.gmane.org>
+The kernel forcefully applies MTU values received in router
+advertisements provided the new MTU is less than the current. This
+behavior is undesirable when the user space is managing the MTU. Instead
+a sysctl flag 'accept_ra_mtu' is introduced such that the user space
+can control whether or not RA provided MTU updates should be applied. The
+default behavior is unchanged; user space must explicitly set this flag
+to 0 for RA MTUs to be ignored.
 
-When the buffer descriptor index exceeds 2, then a TX HANG condition
-will result.
-
-Signed-off-by: Troy Tan <troy_tan-kXabqFNEczNtrwSWzY7KCg@public.gmane.org>
-Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Cc: Stable <stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org> [V3.18]
+Signed-off-by: Harout Hedeshian <harouth@codeaurora.org>
 ---
- drivers/net/wireless/rtlwifi/rtl8192ee/fw.c |  6 +-----
- drivers/net/wireless/rtlwifi/rtl8192ee/hw.c | 26 --------------------------
- 2 files changed, 1 insertion(+), 31 deletions(-)
+ Documentation/networking/ip-sysctl.txt |  7 +++++++
+ include/linux/ipv6.h                   |  1 +
+ include/uapi/linux/ipv6.h              |  1 +
+ net/ipv6/addrconf.c                    | 10 ++++++++++
+ net/ipv6/ndisc.c                       |  2 +-
+ 5 files changed, 20 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/wireless/rtlwifi/rtl8192ee/fw.c b/drivers/net/wireless/rtlwifi/rtl8192ee/fw.c
-index 45c128b..c5d4b80 100644
---- a/drivers/net/wireless/rtlwifi/rtl8192ee/fw.c
-+++ b/drivers/net/wireless/rtlwifi/rtl8192ee/fw.c
-@@ -666,7 +666,6 @@ void rtl92ee_set_fw_rsvdpagepkt(struct ieee80211_hw *hw, bool b_dl_finished)
- 	struct sk_buff *skb = NULL;
+diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+index 85b0221..a5e4c81 100644
+--- a/Documentation/networking/ip-sysctl.txt
++++ b/Documentation/networking/ip-sysctl.txt
+@@ -1287,6 +1287,13 @@ accept_ra_rtr_pref - BOOLEAN
+ 	Functional default: enabled if accept_ra is enabled.
+ 			    disabled if accept_ra is disabled.
  
- 	u32 totalpacketlen;
--	bool rtstatus;
- 	u8 u1rsvdpageloc[5] = { 0 };
- 	bool b_dlok = false;
++accept_ra_mtu - BOOLEAN
++	Apply the MTU value specified in RA option 5 (RFC4861). If
++	disabled, the MTU specified in the RA will be ignored.
++
++	Functional default: enabled if accept_ra is enabled.
++			    disabled if accept_ra is disabled.
++
+ accept_redirects - BOOLEAN
+ 	Accept Redirects.
  
-@@ -728,10 +727,7 @@ void rtl92ee_set_fw_rsvdpagepkt(struct ieee80211_hw *hw, bool b_dl_finished)
- 	memcpy((u8 *)skb_put(skb, totalpacketlen),
- 	       &reserved_page_packet, totalpacketlen);
+diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
+index c694e7b..2805062 100644
+--- a/include/linux/ipv6.h
++++ b/include/linux/ipv6.h
+@@ -52,6 +52,7 @@ struct ipv6_devconf {
+ 	__s32		force_tllao;
+ 	__s32           ndisc_notify;
+ 	__s32		suppress_frag_ndisc;
++	__s32		accept_ra_mtu;
+ 	void		*sysctl;
+ };
  
--	rtstatus = rtl_cmd_send_packet(hw, skb);
--
--	if (rtstatus)
--		b_dlok = true;
-+	b_dlok = true;
+diff --git a/include/uapi/linux/ipv6.h b/include/uapi/linux/ipv6.h
+index 73cb02d..437a6a4 100644
+--- a/include/uapi/linux/ipv6.h
++++ b/include/uapi/linux/ipv6.h
+@@ -169,6 +169,7 @@ enum {
+ 	DEVCONF_SUPPRESS_FRAG_NDISC,
+ 	DEVCONF_ACCEPT_RA_FROM_LOCAL,
+ 	DEVCONF_USE_OPTIMISTIC,
++	DEVCONF_ACCEPT_RA_MTU,
+ 	DEVCONF_MAX
+ };
  
- 	if (b_dlok) {
- 		RT_TRACE(rtlpriv, COMP_POWER, DBG_LOUD ,
-diff --git a/drivers/net/wireless/rtlwifi/rtl8192ee/hw.c b/drivers/net/wireless/rtlwifi/rtl8192ee/hw.c
-index 47beb49..9199559 100644
---- a/drivers/net/wireless/rtlwifi/rtl8192ee/hw.c
-+++ b/drivers/net/wireless/rtlwifi/rtl8192ee/hw.c
-@@ -85,29 +85,6 @@ static void _rtl92ee_enable_bcn_sub_func(struct ieee80211_hw *hw)
- 	_rtl92ee_set_bcn_ctrl_reg(hw, 0, BIT(1));
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index d6b4f5d..7dcc065e 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -201,6 +201,7 @@ static struct ipv6_devconf ipv6_devconf __read_mostly = {
+ 	.disable_ipv6		= 0,
+ 	.accept_dad		= 1,
+ 	.suppress_frag_ndisc	= 1,
++	.accept_ra_mtu		= 1,
+ };
+ 
+ static struct ipv6_devconf ipv6_devconf_dflt __read_mostly = {
+@@ -238,6 +239,7 @@ static struct ipv6_devconf ipv6_devconf_dflt __read_mostly = {
+ 	.disable_ipv6		= 0,
+ 	.accept_dad		= 1,
+ 	.suppress_frag_ndisc	= 1,
++	.accept_ra_mtu		= 1,
+ };
+ 
+ /* Check if a valid qdisc is available */
+@@ -4380,6 +4382,7 @@ static inline void ipv6_store_devconf(struct ipv6_devconf *cnf,
+ 	array[DEVCONF_NDISC_NOTIFY] = cnf->ndisc_notify;
+ 	array[DEVCONF_SUPPRESS_FRAG_NDISC] = cnf->suppress_frag_ndisc;
+ 	array[DEVCONF_ACCEPT_RA_FROM_LOCAL] = cnf->accept_ra_from_local;
++	array[DEVCONF_ACCEPT_RA_MTU] = cnf->accept_ra_mtu;
  }
  
--static void _rtl92ee_return_beacon_queue_skb(struct ieee80211_hw *hw)
--{
--	struct rtl_priv *rtlpriv = rtl_priv(hw);
--	struct rtl_pci *rtlpci = rtl_pcidev(rtl_pcipriv(hw));
--	struct rtl8192_tx_ring *ring = &rtlpci->tx_ring[BEACON_QUEUE];
--	unsigned long flags;
--
--	spin_lock_irqsave(&rtlpriv->locks.irq_th_lock, flags);
--	while (skb_queue_len(&ring->queue)) {
--		struct rtl_tx_buffer_desc *entry =
--						&ring->buffer_desc[ring->idx];
--		struct sk_buff *skb = __skb_dequeue(&ring->queue);
--
--		pci_unmap_single(rtlpci->pdev,
--				 rtlpriv->cfg->ops->get_desc(
--				 (u8 *)entry, true, HW_DESC_TXBUFF_ADDR),
--				 skb->len, PCI_DMA_TODEVICE);
--		kfree_skb(skb);
--		ring->idx = (ring->idx + 1) % ring->entries;
--	}
--	spin_unlock_irqrestore(&rtlpriv->locks.irq_th_lock, flags);
--}
--
- static void _rtl92ee_disable_bcn_sub_func(struct ieee80211_hw *hw)
- {
- 	_rtl92ee_set_bcn_ctrl_reg(hw, BIT(1), 0);
-@@ -403,9 +380,6 @@ static void _rtl92ee_download_rsvd_page(struct ieee80211_hw *hw)
- 		rtl_write_byte(rtlpriv, REG_DWBCN0_CTRL + 2,
- 			       bcnvalid_reg | BIT(0));
+ static inline size_t inet6_ifla6_size(void)
+@@ -5259,6 +5262,13 @@ static struct addrconf_sysctl_table
+ 			.proc_handler	= proc_dointvec,
+ 		},
+ 		{
++			.procname	= "accept_ra_mtu",
++			.data		= &ipv6_devconf.accept_ra_mtu,
++			.maxlen		= sizeof(int),
++			.mode		= 0644,
++			.proc_handler	= proc_dointvec,
++		},
++		{
+ 			/* sentinel */
+ 		}
+ 	},
+diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+index 6828667..8a9d7c1 100644
+--- a/net/ipv6/ndisc.c
++++ b/net/ipv6/ndisc.c
+@@ -1348,7 +1348,7 @@ skip_routeinfo:
+ 		}
+ 	}
  
--		/* Return Beacon TCB */
--		_rtl92ee_return_beacon_queue_skb(hw);
+-	if (ndopts.nd_opts_mtu) {
++	if (ndopts.nd_opts_mtu && in6_dev->cnf.accept_ra_mtu) {
+ 		__be32 n;
+ 		u32 mtu;
+ 
+-- 
+Employee of Qualcomm Innovation Center, Inc.
+Qualcomm Innovation Center, Inc. is a member of Code Aurora Forum, a Linux Foundation Collaborative Project
