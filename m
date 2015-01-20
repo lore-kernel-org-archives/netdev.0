@@ -1,148 +1,127 @@
-From: Romain Perier <romain.perier@gmail.com>
-Subject: [PATCH v2 3/4] net: stmmac: dwmac-rk: Use standard devicetree
- property for phy regulator
-Date: Tue, 20 Jan 2015 07:09:39 +0000
-Message-ID: <1421737780-1533-4-git-send-email-romain.perier@gmail.com>
-References: <1421737780-1533-1-git-send-email-romain.perier@gmail.com>
+From: Paul Bolle <pebolle-IWqWACnzNjzz+pZb47iToQ@public.gmane.org>
+Subject: Re: [PATCH net-next v8 2/4] net: netcp: Add Keystone NetCP core
+ ethernet driver
+Date: Tue, 20 Jan 2015 09:18:55 +0100
+Message-ID: <1421741935.9655.73.camel@x220>
+References: <1421367172-19793-1-git-send-email-m-karicheri2@ti.com>
+	 <1421367172-19793-2-git-send-email-m-karicheri2@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: devicetree@vger.kernel.org, heiko@sntech.de, netdev@vger.kernel.org,
- linux-kernel@vger.kernel.org, linux-rockchip@lists.infradead.org,
- roger.chen@rock-chips.com, linux-arm-kernel@lists.infradead.org
-To: peppe.cavallaro@st.com
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1421737780-1533-1-git-send-email-romain.perier@gmail.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Cc: Valentin Rothberg <valentinrothberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Murali Karicheri <m-karicheri2-l0cyMroinI0@public.gmane.org>,
+	Wingman Kwok <w-kwok2-l0cyMroinI0@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1421367172-19793-2-git-send-email-m-karicheri2-l0cyMroinI0@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Currently, dwmac-rk uses a custom propety "phy_regulator" to get the name of the
-right regulator to use to power on or power off the phy. This commit converts the
-driver to use phy-supply devicetree property and the corresponding API, it cleans
-the code a bit and make it simpler to maintain. This also replaces the property
-phy_regulator by the standard property phy-supply in rk3288-evb-rk808.dts.
+Murali, Wingman,
 
-Signed-off-by: Romain Perier <romain.perier@gmail.com>
----
- arch/arm/boot/dts/rk3288-evb-rk808.dts         |  2 +-
- drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c | 63 +++++++++-----------------
- 2 files changed, 22 insertions(+), 43 deletions(-)
+On Thu, 2015-01-15 at 19:12 -0500, Murali Karicheri wrote:
+> The network coprocessor (NetCP) is a hardware accelerator available in
+> Keystone SoCs that processes Ethernet packets. NetCP consists of following
+> hardware components
+> 
+>  1 Gigabit Ethernet (GbE) subsystem with a Ethernet switch sub-module to
+>    send and receive packets.
+>  2 Packet Accelerator (PA) module to perform packet classification
+>    operations such as header matching, and packet modification operations
+>    such as checksum generation.
+>  3 Security Accelerator(SA) capable of performing IPSec operations on
+>    ingress/egress packets.
+>  4 An optional 10 Gigabit Ethernet Subsystem (XGbE) which includes a
+>    3-port Ethernet switch sub-module capable of 10Gb/s and 1Gb/s rates
+>    per Ethernet port.
+>  5 Packet DMA and Queue Management Subsystem (QMSS) to enqueue and dequeue
+>    packets and DMA the packets between memory and NetCP hardware components
+>    described above.
+> 
+> NetCP core driver make use of the Keystone Navigator driver API to allocate
+> DMA channel for the Ethenet device and to handle packet queue/de-queue,
+> Please refer API's in include/linux/soc/ti/knav_dma.h and
+> drivers/soc/ti/knav_qmss.h for details.
+> 
+> NetCP driver consists of NetCP core driver and at a minimum Gigabit
+> Ethernet (GBE) module (1) driver to implement the Network device function.
+> Other modules (2,3) can be optionally added to achieve supported hardware
+> acceleration function. The initial version of the driver include NetCP
+> core driver and GBE driver modules.
+> 
+> Please refer Documentation/devicetree/bindings/net/keystone-netcp.txt
+> for design of the driver.
+> 
+>  Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+>  Cc: Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+>  Cc: Grant Likely <grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+>  Cc: Santosh Shilimkar <santosh.shilimkar-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+>  Cc: Pawel Moll <pawel.moll-5wv7dgnIgG8@public.gmane.org>
+>  Cc: Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>
+>  Cc: Ian Campbell <ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>
+>  Cc: Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+> 
+> Signed-off-by: Murali Karicheri <m-karicheri2-l0cyMroinI0@public.gmane.org>
+> Signed-off-by: Wingman Kwok <w-kwok2-l0cyMroinI0@public.gmane.org>
 
-diff --git a/arch/arm/boot/dts/rk3288-evb-rk808.dts b/arch/arm/boot/dts/rk3288-evb-rk808.dts
-index 831a7aa..e1d3eeb 100644
---- a/arch/arm/boot/dts/rk3288-evb-rk808.dts
-+++ b/arch/arm/boot/dts/rk3288-evb-rk808.dts
-@@ -161,7 +161,7 @@
- };
- 
- &gmac {
--	phy_regulator = "vcc_phy";
-+	phy-supply = <&vcc_phy>;
- 	phy-mode = "rgmii";
- 	clock_in_out = "input";
- 	snps,reset-gpio = <&gpio4 7 0>;
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
-index 06e1637..6249a4e 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
-@@ -32,7 +32,7 @@
- struct rk_priv_data {
- 	struct platform_device *pdev;
- 	int phy_iface;
--	char regulator[32];
-+	struct regulator *regulator;
- 
- 	bool clk_enabled;
- 	bool clock_input;
-@@ -287,46 +287,25 @@ static int gmac_clk_enable(struct rk_priv_data *bsp_priv, bool enable)
- 
- static int phy_power_on(struct rk_priv_data *bsp_priv, bool enable)
- {
--	struct regulator *ldo;
--	char *ldostr = bsp_priv->regulator;
-+	struct regulator *ldo = bsp_priv->regulator;
- 	int ret;
- 	struct device *dev = &bsp_priv->pdev->dev;
- 
--	if (!ldostr) {
--		dev_err(dev, "%s: no ldo found\n", __func__);
-+	if (!ldo) {
-+		dev_err(dev, "%s: no regulator found\n", __func__);
- 		return -1;
- 	}
- 
--	ldo = regulator_get(NULL, ldostr);
--	if (!ldo) {
--		dev_err(dev, "\n%s get ldo %s failed\n", __func__, ldostr);
-+	if (enable) {
-+		ret = regulator_enable(ldo);
-+		if (ret)
-+			dev_err(dev, "%s: fail to enable phy-supply\n",
-+				__func__);
- 	} else {
--		if (enable) {
--			if (!regulator_is_enabled(ldo)) {
--				ret = regulator_enable(ldo);
--				if (ret != 0)
--					dev_err(dev, "%s: fail to enable %s\n",
--						__func__, ldostr);
--				else
--					dev_info(dev, "turn on ldo done.\n");
--			} else {
--				dev_warn(dev, "%s is enabled before enable",
--					 ldostr);
--			}
--		} else {
--			if (regulator_is_enabled(ldo)) {
--				ret = regulator_disable(ldo);
--				if (ret != 0)
--					dev_err(dev, "%s: fail to disable %s\n",
--						__func__, ldostr);
--				else
--					dev_info(dev, "turn off ldo done.\n");
--			} else {
--				dev_warn(dev, "%s is disabled before disable",
--					 ldostr);
--			}
--		}
--		regulator_put(ldo);
-+		ret = regulator_disable(ldo);
-+		if (ret)
-+			dev_err(dev, "%s: fail to disable phy-supply\n",
-+				__func__);
- 	}
- 
- 	return 0;
-@@ -346,14 +325,14 @@ static void *rk_gmac_setup(struct platform_device *pdev)
- 
- 	bsp_priv->phy_iface = of_get_phy_mode(dev->of_node);
- 
--	ret = of_property_read_string(dev->of_node, "phy_regulator", &strings);
--	if (ret) {
--		dev_warn(dev, "%s: Can not read property: phy_regulator.\n",
--			 __func__);
--	} else {
--		dev_info(dev, "%s: PHY power controlled by regulator(%s).\n",
--			 __func__, strings);
--		strcpy(bsp_priv->regulator, strings);
-+	bsp_priv->regulator = devm_regulator_get_optional(dev, "phy");
-+	if (IS_ERR(bsp_priv->regulator)) {
-+		if (PTR_ERR(bsp_priv->regulator) == -EPROBE_DEFER) {
-+			dev_err(dev, "phy regulator is not available yet, deferred probing\n");
-+			return ERR_PTR(-EPROBE_DEFER);
-+		}
-+		dev_err(dev, "no regulator found\n");
-+		bsp_priv->regulator = NULL;
- 	}
- 
- 	ret = of_property_read_string(dev->of_node, "clock_in_out", &strings);
--- 
-1.9.1
+This patch is included as commit 84640e27f230 ("net: netcp: Add Keystone
+NetCP core ethernet driver") in today's linux-next. I noticed because a
+script I run on linux-next spotted a problem in it.
+
+> ---
+>  MAINTAINERS                          |    7 +
+>  drivers/net/ethernet/ti/Kconfig      |   11 +
+>  drivers/net/ethernet/ti/Makefile     |    3 +
+>  drivers/net/ethernet/ti/netcp.h      |  229 ++++
+>  drivers/net/ethernet/ti/netcp_core.c | 2141 ++++++++++++++++++++++++++++++++++
+>  5 files changed, 2391 insertions(+)
+>  create mode 100644 drivers/net/ethernet/ti/netcp.h
+>  create mode 100644 drivers/net/ethernet/ti/netcp_core.c
+> 
+>[...]
+> diff --git a/drivers/net/ethernet/ti/Kconfig b/drivers/net/ethernet/ti/Kconfig
+> index 605dd90..e11bcfa 100644
+> --- a/drivers/net/ethernet/ti/Kconfig
+> +++ b/drivers/net/ethernet/ti/Kconfig
+> @@ -73,12 +73,23 @@ config TI_CPSW
+>  config TI_CPTS
+>  	boolean "TI Common Platform Time Sync (CPTS) Support"
+>  	depends on TI_CPSW
+> +	depends on TI_CPSW || TI_KEYSTONE_NET
+
+You probably meant to add
+    || TI_KEYSTONE_NETCP
+
+here. Ie, add CP. But as this slipped through testing it _might_ not be
+needed at all.
+
+>  	select PTP_1588_CLOCK
+>  	---help---
+>  	  This driver supports the Common Platform Time Sync unit of
+>  	  the CPSW Ethernet Switch. The unit can time stamp PTP UDP/IPv4
+>  	  and Layer 2 packets, and the driver offers a PTP Hardware Clock.
+>  
+> +config TI_KEYSTONE_NETCP
+> +	tristate "TI Keystone NETCP Ethernet subsystem Support"
+> +	depends on OF
+> +	depends on KEYSTONE_NAVIGATOR_DMA && KEYSTONE_NAVIGATOR_QMSS
+> +	---help---
+> +	  This driver supports TI's Keystone NETCP Ethernet subsystem.
+> +
+> +	  To compile this driver as a module, choose M here: the module
+> +	  will be called keystone_netcp.
+> +
+>  config TLAN
+>  	tristate "TI ThunderLAN support"
+>  	depends on (PCI || EISA)
+
+Thanks,
+
+
+Paul Bolle
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
