@@ -1,53 +1,45 @@
 From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Subject: [PATCH V2 for 3.19 0/7] Fixes for rtl8192ee
-Date: Tue, 20 Jan 2015 11:01:19 -0600
-Message-ID: <1421773286-1039-1-git-send-email-Larry.Finger@lwfinger.net>
+Subject: [PATCH V2 for 3.19 1/7] rtlwifi: Remove logging statement that is no longer needed
+Date: Tue, 20 Jan 2015 11:01:20 -0600
+Message-ID: <1421773286-1039-2-git-send-email-Larry.Finger@lwfinger.net>
+References: <1421773286-1039-1-git-send-email-Larry.Finger@lwfinger.net>
 Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
 	Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Stable <stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 To: kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org
 Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1421773286-1039-1-git-send-email-Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
 Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Kalle,
+In commit e9538cf4f907 ("rtlwifi: Fix error when accessing unmapped memory
+in skb"), a printk was included to indicate that the condition had been
+reached. There is now enough evidence from other users that the fix is
+working. That logging statement can now be removed.
 
-This is V2 of the patches for rtl8192ee to be applied to 3.19. They replace
-all the patches submitted under the title '[PATCH for 3.19 0/3] rtlwifi:
-Various updates/fixes". All are marked for backporting to 3.18.
-
-The first of these removes a logging statement that is no longer needed.
-
-Patches 1-6 are relatively small and should not be a problem for 3.19.
-Patch 7 is quite a bit larger, and adds two new routines to detect
-DMA stalls. I will understand if you want to defer that to -next; however,
-it does fix a serious problem.
-
-Larry
+Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Cc: Stable <stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org> [V3.18]
 ---
-Larry Finger (2):
-  rtlwifi: Remove logging statement that is no longer needed
-  rtlwifi: rtl8192ee: Fix problems with calculating free space in FIFO
+ drivers/net/wireless/rtlwifi/pci.c | 5 +----
+ 1 file changed, 1 insertion(+), 4 deletions(-)
 
-Troy Tan (5):
-  rtlwifi: rtl8192ee: Fix handling of new style descriptors
-  rtlwifi: rtl8192ee: Fix adhoc fail
-  rtlwifi: rtl8192ee: Fix TX hang due to failure to update TX write
-    point
-  rtlwifi: rtl8192ee: Fix parsing of received packet
-  rtlwifi: rtl8192ee: Fix DMA stalls
-
- drivers/net/wireless/rtlwifi/pci.c           |  36 ++++--
- drivers/net/wireless/rtlwifi/pci.h           |   7 ++
- drivers/net/wireless/rtlwifi/rtl8192ee/fw.c  |   6 +-
- drivers/net/wireless/rtlwifi/rtl8192ee/hw.c  | 166 ++++++++++++++++++++++-----
- drivers/net/wireless/rtlwifi/rtl8192ee/reg.h |   2 +
- drivers/net/wireless/rtlwifi/rtl8192ee/sw.c  |   3 +-
- drivers/net/wireless/rtlwifi/rtl8192ee/trx.c |  36 +++---
- drivers/net/wireless/rtlwifi/rtl8192ee/trx.h |   4 +-
- drivers/net/wireless/rtlwifi/wifi.h          |   1 +
- 9 files changed, 192 insertions(+), 69 deletions(-)
-
+diff --git a/drivers/net/wireless/rtlwifi/pci.c b/drivers/net/wireless/rtlwifi/pci.c
+index c70efb9..e25faac 100644
+--- a/drivers/net/wireless/rtlwifi/pci.c
++++ b/drivers/net/wireless/rtlwifi/pci.c
+@@ -816,11 +816,8 @@ static void _rtl_pci_rx_interrupt(struct ieee80211_hw *hw)
+ 
+ 		/* get a new skb - if fail, old one will be reused */
+ 		new_skb = dev_alloc_skb(rtlpci->rxbuffersize);
+-		if (unlikely(!new_skb)) {
+-			pr_err("Allocation of new skb failed in %s\n",
+-			       __func__);
++		if (unlikely(!new_skb))
+ 			goto no_new;
+-		}
+ 		if (rtlpriv->use_new_trx_flow) {
+ 			buffer_desc =
+ 			  &rtlpci->rx_ring[rxring_idx].buffer_desc
 -- 
 2.1.2
 
