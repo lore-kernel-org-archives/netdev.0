@@ -1,74 +1,51 @@
-From: Shawn Guo <shawn.guo@linaro.org>
-Subject: Re: [PATCH net-next v2 1/1] ARM: dts: imx6sx: correct i.MX6sx sdb
- board enet phy address
-Date: Tue, 20 Jan 2015 19:15:36 +0800
-Message-ID: <20150120111534.GA2766@dragon>
-References: <1421743697-26918-1-git-send-email-b38611@freescale.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH iproute2 3/3] ss: Unify tcp stats output
+Date: Tue, 20 Jan 2015 12:17:03 +0100
+Message-ID: <54BE392F.2070804@redhat.com>
+References: <1421613815-6635-1-git-send-email-vadim4j@gmail.com> <1421613815-6635-4-git-send-email-vadim4j@gmail.com> <CAPh34mdi+8wLaUY3ZBks40wbOtdzsbTrmuvsHivRouc9rs3gig@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, s.hauer@pengutronix.de, stefan@agner.ch,
-	linux-arm-kernel@lists.infradead.org
-To: Fugang Duan <b38611@freescale.com>, davem@davemloft.net
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Vadim Kochan <vadim4j@gmail.com>, netdev <netdev@vger.kernel.org>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Hagen Paul Pfeifer <hagen@jauu.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f180.google.com ([209.85.192.180]:39570 "EHLO
-	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754029AbbATLQY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jan 2015 06:16:24 -0500
-Received: by mail-pd0-f180.google.com with SMTP id ft15so13216215pdb.11
-        for <netdev@vger.kernel.org>; Tue, 20 Jan 2015 03:16:24 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1421743697-26918-1-git-send-email-b38611@freescale.com>
+Received: from mx1.redhat.com ([209.132.183.28]:41424 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752738AbbATLRS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Jan 2015 06:17:18 -0500
+In-Reply-To: <CAPh34mdi+8wLaUY3ZBks40wbOtdzsbTrmuvsHivRouc9rs3gig@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 20, 2015 at 04:48:17PM +0800, Fugang Duan wrote:
-> The commit (3d125f9c91c5) cause i.MX6SX sdb enet cannot work. The cause is
-> the commit add mdio node with un-correct phy address.
-> 
-> The patch just correct i.MX6sx sdb board enet phy address.
-> 
-> V2:
-> * As Shawn's suggestion that unit-address should match 'reg' property, so
->   update ethernet-phy unit-address.
-> 
-> Acked-by: Stefan Agner <stefan@agner.ch>
-> Signed-off-by: Fugang Duan <B38611@freescale.com>
+Hi Hagen,
 
-Acked-by: Shawn Guo <shawn.guo@linaro.org>
+On 01/20/2015 11:29 AM, Hagen Paul Pfeifer wrote:
+> On 18 January 2015 at 21:43, Vadim Kochan <vadim4j@gmail.com> wrote:
+...
+> My proposal:
+>
+> 1) support grouping. E.g. DCTCP could be separated in the following
+> manner. I.e. "dctcp:[ ce_state: %d, alpha: %d, ...  ]" or
+> "dctcp:ce_state.%d;alpha,%d" like the socket memory output.
+>      This makes it easier for humans and scripts to parse the output.
+> Since some time ss output is extended really extensive (especially
+> Eric make use of this). This is not the end and additional values are
+> added - make the current babylon even worse.
 
-David,
+I have no strong opinion on this, but I also have a limited view on
+what applications try to parse ss output in general.
 
-I assume that you will send this fix for 3.19, since commit 3d125f9c91c5
-was sent via your tree.  Otherwise, let me know and I will manage to
-send it via arm-soc tree.
+As mentioned, for human readability, we should implement a top-like
+display option which is allowed to have a rather 'instable' output
+by nature and levels of detail can be folded/unfolded on demand.
 
-Shawn
+> 2) add a JSON formater as soon as possible to make the output
+> parseable. I would do this - it is required anyway.
 
-> ---
->  arch/arm/boot/dts/imx6sx-sdb.dts |    8 ++++----
->  1 files changed, 4 insertions(+), 4 deletions(-)
-> 
-> diff --git a/arch/arm/boot/dts/imx6sx-sdb.dts b/arch/arm/boot/dts/imx6sx-sdb.dts
-> index 8c1febd..c108bb4 100644
-> --- a/arch/arm/boot/dts/imx6sx-sdb.dts
-> +++ b/arch/arm/boot/dts/imx6sx-sdb.dts
-> @@ -166,12 +166,12 @@
->  		#address-cells = <1>;
->  		#size-cells = <0>;
->  
-> -		ethphy1: ethernet-phy@0 {
-> -			reg = <0>;
-> +		ethphy1: ethernet-phy@1 {
-> +			reg = <1>;
->  		};
->  
-> -		ethphy2: ethernet-phy@1 {
-> -			reg = <1>;
-> +		ethphy2: ethernet-phy@2 {
-> +			reg = <2>;
->  		};
->  	};
->  };
-> -- 
-> 1.7.8
-> 
+Given the recent discussion on web10g, json output option might
+be very useful to provide i.e. when stats are being further extended.
+
+Cheers,
+Daniel
