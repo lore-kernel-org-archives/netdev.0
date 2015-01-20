@@ -1,57 +1,66 @@
-From: Fernando Gont <fgont@si6networks.com>
-Subject: Re: [PATCH net] ipv6: stop sending PTB packets for MTU < 1280
-Date: Tue, 20 Jan 2015 01:52:35 -0300
-Message-ID: <54BDDF13.9010007@si6networks.com>
-References: <1421357665-2804-1-git-send-email-hagen@jauu.net>	<1421675722.32277.3.camel@stressinduktion.org>	<CAPh34mc3T7W81J_NjMkHvQpjad1gTM3j99gnX8x8jnKvh2TBDg@mail.gmail.com>	<20150119.145058.954790496532942109.davem@davemloft.net>	<1421697951.13047.9.camel@stressinduktion.org>	<CAPh34mc_5XPqC5_Xdx3gZScfnqtZC7b9JPGp4FfWVh+PvSfb3w@mail.gmail.com> <CAOp4FwRdRai8tL5koFvHKr0P=dR6MgT5ZLtMg85drt6LTzYNrQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, stable@vger.kernel.org
-To: Loganaden Velvindron <loganaden@gmail.com>,
-	Hagen Paul Pfeifer <hagen@jauu.net>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <CAOp4FwRdRai8tL5koFvHKr0P=dR6MgT5ZLtMg85drt6LTzYNrQ@mail.gmail.com>
-Sender: stable-owner@vger.kernel.org
+From: Nicholas Mc Guire <der.herr@hofr.at>
+Subject: [PATCH] wireless: p54: add handling of the signal case
+Date: Tue, 20 Jan 2015 06:25:43 +0100
+Message-ID: <1421731543-13290-1-git-send-email-der.herr@hofr.at>
+Cc: Kalle Valo <kvalo@codeaurora.org>, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Nicholas Mc Guire <der.herr@hofr.at>
+To: Christian Lamparter <chunkeey@googlemail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi, Loganaden,
+if(!wait_for_completion_interruptible_timeout(...))
+only handles the timeout case - this patch adds handling the
+signal case the same as timeout.
 
-On 01/20/2015 01:02 AM, Loganaden Velvindron wrote:
-> 
-> Last time I was inquiring about depracated atomic fragments, people
-> were concerned that there wasn't enough practical data to decide
-> whether to go forward or not.
+Signed-off-by: Nicholas Mc Guire <der.herr@hofr.at>
+---
 
-What kind of practical data?
+Only the timeout case was being handled, the signal case
+(-ERESTARTSYS) was treated just like the case of successful
+completion, which is most likely not reasonable.
 
-FWIW,
-<https://tools.ietf.org/id/draft-ietf-6man-deprecate-atomfrag-generation-00.txt>
-seems to be good enough when it comes to reasons for deprecating them.
+p54_download_eeprom() is called in p54_read_eeprom() and will 
+terminate if p54_download_eeprom() returned != 0 so the logic
+should be correct - but this needs a check from someone who
+knows the driver. Translating -ETIMEOUT to -EBUSY might be ok
+not sure if -ERESTARTSYS also should be returned as -EBUSY ?
 
+Patch was only compild tested with x86_64_defcofnig +
+CONFIG_P54_COMMON=m, CONFIG_P54_PCI=m
 
-Besides, please check Section 5.2 of
-<http://www.ietf.org/id/draft-gont-v6ops-ipv6-ehs-in-real-world-01.txt>
--- my "connection" to kernel.org was vulnerable to such attack.
+Patch is against 3.19.0-rc5 -next-20150119
 
+ drivers/net/wireless/p54/fwio.c |    9 ++++++---
+ 1 file changed, 6 insertions(+), 3 deletions(-)
 
-
-> Would a sysctl with it turned on by default be a good option, until we
-> are 100% sure ?
-
-<https://tools.ietf.org/id/draft-ietf-6man-deprecate-atomfrag-generation-00.txt>
- was adopted by the 6man wg last November. While the I-D is not ready an
-RFC, and there might be minor modifications, it seems that there's
-agreement in not generating atomic fragments.
-
-If you do want to have a sysctl for this, please make it default to "off".
-
-Thanks!
-
-Best regards,
+diff --git a/drivers/net/wireless/p54/fwio.c b/drivers/net/wireless/p54/fwio.c
+index bc065e8..5367d51 100644
+--- a/drivers/net/wireless/p54/fwio.c
++++ b/drivers/net/wireless/p54/fwio.c
+@@ -220,6 +220,7 @@ int p54_download_eeprom(struct p54_common *priv, void *buf,
+ 	struct sk_buff *skb;
+ 	size_t eeprom_hdr_size;
+ 	int ret = 0;
++	long timeout;
+ 
+ 	if (priv->fw_var >= 0x509)
+ 		eeprom_hdr_size = sizeof(*eeprom_hdr);
+@@ -249,9 +250,11 @@ int p54_download_eeprom(struct p54_common *priv, void *buf,
+ 
+ 	p54_tx(priv, skb);
+ 
+-	if (!wait_for_completion_interruptible_timeout(
+-	     &priv->eeprom_comp, HZ)) {
+-		wiphy_err(priv->hw->wiphy, "device does not respond!\n");
++	timeout = wait_for_completion_interruptible_timeout(
++			&priv->eeprom_comp, HZ);
++	if (timeout <= 0) {
++		wiphy_err(priv->hw->wiphy,
++			"device does not respond or signal received!\n");
+ 		ret = -EBUSY;
+ 	}
+ 	priv->eeprom = NULL;
 -- 
-Fernando Gont
-SI6 Networks
-e-mail: fgont@si6networks.com
-PGP Fingerprint: 6666 31C6 D484 63B2 8FB1 E3C4 AE25 0D55 1D4E 7492
+1.7.10.4
