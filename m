@@ -1,42 +1,131 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: BW regression after "tcp: refine TSO autosizing"
-Date: Tue, 20 Jan 2015 11:44:08 -0800
-Message-ID: <54BEB008.2070402@hp.com>
-References: <54B54C72.8060705@dev.mellanox.co.il> <1421175434.4099.21.camel@edumazet-glaptop2.roam.corp.google.com> <CAJ3xEMibMzJH-AB7pBnO9qBL4McTdsajqHzxXkadnTf1khNdxA@mail.gmail.com> <54B590FB.5040805@dev.mellanox.co.il> <1421186430.11734.6.camel@edumazet-glaptop2.roam.corp.google.com> <CAM_57Zgx3DoQbQMffAJNMeZHa8Yb8M+JuwEH=1Fo_Xou+DkgcQ@mail.gmail.com> <1421603317.11734.154.camel@edumazet-glaptop2.roam.corp.google.com> <54BC286B.8000605@mellanox.com> <1421720216.11734.188.camel@edumazet-glaptop2.roam.corp.google.com> <CAA93jw42i37s5BJO5QJvFc=JnQBT5JsOX4QDxT6yKY3Ha3J3rg@mail.gmail.com> <1421723651.17892.3.camel@edumazet-glaptop2.roam.corp.google.com> <54BEA91D.1050001@hp.com> <1421781991.4832.8.camel@edumazet-glaptop2.roam.corp.google.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: [net-next PATCH v3 00/12] Flow API
+Date: Tue, 20 Jan 2015 12:26:13 -0800
+Message-ID: <20150120202404.1741.8658.stgit@nitbit.x32>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Dave Taht <dave.taht@gmail.com>, Eyal Perry <eyalpe@mellanox.com>,
-	Yuchung Cheng <ycheng@google.com>,
-	Neal Cardwell <ncardwell@google.com>,
-	Eyal Perry <eyalpe@dev.mellanox.co.il>,
-	Or Gerlitz <gerlitz.or@gmail.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Amir Vadai <amirv@mellanox.com>,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	Ido Shamay <idos@mellanox.com>, Amir Ancel <amira@mellanox.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: netdev@vger.kernel.org, jhs@mojatatu.com, davem@davemloft.net,
+	gerlitz.or@gmail.com, andy@greyhouse.net, ast@plumgrid.com
+To: tgraf@suug.ch, simon.horman@netronome.com, sfeldma@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g2t2353.austin.hp.com ([15.217.128.52]:54522 "EHLO
-	g2t2353.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753848AbbATToL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jan 2015 14:44:11 -0500
-In-Reply-To: <1421781991.4832.8.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-oi0-f46.google.com ([209.85.218.46]:50254 "EHLO
+	mail-oi0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751664AbbATU0a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jan 2015 15:26:30 -0500
+Received: by mail-oi0-f46.google.com with SMTP id a141so8375486oig.5
+        for <netdev@vger.kernel.org>; Tue, 20 Jan 2015 12:26:30 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->> More stuff to pull from a TCP_INFO call I presume?  Feel free to drop me
->> a patch, though I'd probably want it to be in the guise of the omni
->> output selectors.
->>
->
-> It was something like :
+I believe I addressed all the comments so far except for the integrate
+with 'tc'. I plan to work on the integration pieces next.
 
-I'd forgotten about dump_tcp_info() :)
+v3:
+ - fixes from Simon Horman integrated see netdev mailing list
+ - converted synch rcu to call_rcu
+ - updated git commit messages to match code
+ - updated flow-api.html document to match latest updates
+ - also updated user space flow tool with a handful of fixes
+v2:
+ - Use a software rhashtable to store add/del flows so we can skip
+   having to interrogate drivers for get_flow requests.
 
-Committed revision 673.
+ - Removed structures from UAPI this should make it easier to evolve
+   as needed.
 
-happy benchmarking,
+ - Added net_flow_lock around set/del rule ops.
 
-rick
+ - Alexei Starovoitov suggested renaming NET_FLOW -> NFL for
+   brevity/clarity. Seems reasonable to me so went ahead and changed
+   the UAPI enums. Also renamed flow types and calls  to *_rule. Core
+   flow_table still using net_flow_* prefix.
+
+ - various fixes/suggestion from Simon Horman, Jiri Pirko, Scot
+   Feldman, Thomas Graf, et. al.
+	* SimonH: sent patch series of fixes to netdev
+	* JiriP: some naming issues, some helper funcs added, etc.
+ 	* ScottF: use ARRAY_SIZE, let compiler define array sizes, use
+	          ETH_P_* macros. Various fixes.
+	* ThomasG: various suggestions
+
+ - fixed a few cases to catch invalid messages from user space
+   and dev_put errors.
+
+---
+
+This set creates a new netlink family and set of messages to configure
+flow tables in hardware. I tried to make the commit messages
+reasonably verbose at least in the flow_table patches possibly too
+verbose.
+
+What we get at the end of this series is a working API to get device
+capabilities and program flows using the rocker switch.
+
+I created a user space tool 'flow' that I use to configure and query
+the devices it is posted here,
+
+	https://github.com/jrfastab/iprotue2-flow-tool
+
+For now it is a stand-alone tool but once the kernel bits get sorted
+out I would like to port it into the iproute2 package. This way we
+can keep all of our tooling in one package.
+
+As far as testing, I've tested various combinations of tables and
+rules on the rocker switch and it seems to work.
+
+For some examples and maybe a bit more illustrative description I
+posted a  set of notes on github io pages. Here we can show the
+description along with images produced by the flow tool showing
+the pipeline.
+
+http://jrfastab.github.io/jekyll/update/2014/12/21/flow-api.html
+
+After this base work is complete the next task is to integrate with
+existing subsystems 'tc' and OVS for example. And provide more
+example setups in the notes.
+
+Thanks! Any comments/feedback always welcome.
+
+And also thanks to everyone who helped with this flow API so
+far. All the folks at Dusseldorf LPC, OVS summit Santa Clara, P4
+authors for some inspiration, the collection of IETF FoRCES
+documents I mulled over, Netfilter workshop where I started
+to realize fixing ethtool was most likely not going to work,
+etc.
+
+---
+
+John Fastabend (12):
+      net: flow_table: create interface for hw match/action tables
+      net: flow_table: add rule, delete rule
+      net: flow: implement flow cache for get routines
+      net: flow_table: create a set of common headers and actions
+      net: flow_table: add validation functions for rules
+      net: rocker: add pipeline model for rocker switch
+      net: rocker: add set rule ops
+      net: rocker: add group_id slices and drop explicit goto
+      net: rocker: add multicast path to bridging
+      net: rocker: add cookie to group acls and use flow_id to set cookie
+      net: rocker: have flow api calls set cookie value
+      net: rocker: implement delete flow routine
+
+
+ drivers/net/ethernet/rocker/rocker.c          |  754 ++++++++++
+ drivers/net/ethernet/rocker/rocker_pipeline.h |  595 ++++++++
+ include/linux/if_flow.h                       |  231 +++
+ include/linux/if_flow_common.h                |  257 +++
+ include/linux/netdevice.h                     |   48 +
+ include/uapi/linux/if_flow.h                  |  440 ++++++
+ net/Kconfig                                   |    7 
+ net/core/Makefile                             |    1 
+ net/core/flow_table.c                         | 1915 +++++++++++++++++++++++++
+ 9 files changed, 4231 insertions(+), 17 deletions(-)
+ create mode 100644 drivers/net/ethernet/rocker/rocker_pipeline.h
+ create mode 100644 include/linux/if_flow.h
+ create mode 100644 include/linux/if_flow_common.h
+ create mode 100644 include/uapi/linux/if_flow.h
+ create mode 100644 net/core/flow_table.c
+
+-- 
+Signature
