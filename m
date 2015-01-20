@@ -1,106 +1,207 @@
 From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH V2 for 3.19 6/7] rtlwifi: rtl8192ee: Fix problems with calculating free space in FIFO
-Date: Tue, 20 Jan 2015 11:01:25 -0600
-Message-ID: <1421773286-1039-7-git-send-email-Larry.Finger@lwfinger.net>
+Subject: [PATCH V2 for 3.19 7/7] rtlwifi: rtl8192ee: Fix DMA stalls
+Date: Tue, 20 Jan 2015 11:01:26 -0600
+Message-ID: <1421773286-1039-8-git-send-email-Larry.Finger@lwfinger.net>
 References: <1421773286-1039-1-git-send-email-Larry.Finger@lwfinger.net>
-Cc: linux-wireless@vger.kernel.org,
-	Larry Finger <Larry.Finger@lwfinger.net>,
-	netdev@vger.kernel.org, Stable <stable@vger.kernel.org>
+Cc: linux-wireless@vger.kernel.org, Troy Tan <troy_tan@realsil.com.cn>,
+	netdev@vger.kernel.org, Larry Finger <Larry.Finger@lwfinger.net>,
+	Stable <stable@vger.kernel.org>
 To: kvalo@codeaurora.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f177.google.com ([209.85.214.177]:43530 "EHLO
-	mail-ob0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755462AbbATRBt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jan 2015 12:01:49 -0500
+Received: from mail-oi0-f51.google.com ([209.85.218.51]:43379 "EHLO
+	mail-oi0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755385AbbATRBv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jan 2015 12:01:51 -0500
 In-Reply-To: <1421773286-1039-1-git-send-email-Larry.Finger@lwfinger.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This driver utilizes a FIFO buffer for RX descriptors. There are four places
-in the code where it calculates the number of free slots. Several of those
-locations do the calculation incorrectly. To fix these and to prevent future
-mistakes, a common inline routine is created.
+From: Troy Tan <troy_tan@realsil.com.cn>
 
+There are instances where the DMA engine stalls. The new code detects
+such stalls and restarts DMA without needing a power reset.
+
+Signed-off-by: Troy Tan <troy_tan@realsil.com.cn>
 Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
-Cc: Stable <stable@vger.kernel.org> [V3.18]
+Cc: Stable <stable@vger.kernel.org> [3.18]
 ---
- drivers/net/wireless/rtlwifi/pci.h           |  7 +++++++
- drivers/net/wireless/rtlwifi/rtl8192ee/trx.c | 26 ++++++--------------------
- 2 files changed, 13 insertions(+), 20 deletions(-)
+ drivers/net/wireless/rtlwifi/rtl8192ee/hw.c  | 140 +++++++++++++++++++++++++++
+ drivers/net/wireless/rtlwifi/rtl8192ee/reg.h |   2 +
+ 2 files changed, 142 insertions(+)
 
-diff --git a/drivers/net/wireless/rtlwifi/pci.h b/drivers/net/wireless/rtlwifi/pci.h
-index 5e83230..d4567d1 100644
---- a/drivers/net/wireless/rtlwifi/pci.h
-+++ b/drivers/net/wireless/rtlwifi/pci.h
-@@ -325,4 +325,11 @@ static inline void pci_write32_async(struct rtl_priv *rtlpriv,
- 	writel(val, (u8 __iomem *) rtlpriv->io.pci_mem_start + addr);
+diff --git a/drivers/net/wireless/rtlwifi/rtl8192ee/hw.c b/drivers/net/wireless/rtlwifi/rtl8192ee/hw.c
+index 9199559..09bc43e 100644
+--- a/drivers/net/wireless/rtlwifi/rtl8192ee/hw.c
++++ b/drivers/net/wireless/rtlwifi/rtl8192ee/hw.c
+@@ -1137,6 +1137,139 @@ void rtl92ee_enable_hw_security_config(struct ieee80211_hw *hw)
+ 	rtlpriv->cfg->ops->set_hw_reg(hw, HW_VAR_WPA_CONFIG, &sec_reg_value);
  }
  
-+static inline u16 calc_fifo_space(u16 rp, u16 wp)
++static bool _rtl8192ee_check_pcie_dma_hang(struct rtl_priv *rtlpriv)
 +{
-+	if (rp <= wp)
-+		return RTL_PCI_MAX_RX_COUNT - 1 + rp - wp;
-+	return rp - wp - 1;
++	u8 tmp;
++
++	/* write reg 0x350 Bit[26]=1. Enable debug port. */
++	tmp = rtl_read_byte(rtlpriv, REG_BACKDOOR_DBI_DATA + 3);
++	if (!(tmp & BIT(2))) {
++		rtl_write_byte(rtlpriv, REG_BACKDOOR_DBI_DATA + 3,
++			       tmp | BIT(2));
++		mdelay(100); /* Suggested by DD Justin_tsai. */
++	}
++
++	/* read reg 0x350 Bit[25] if 1 : RX hang
++	 * read reg 0x350 Bit[24] if 1 : TX hang
++	 */
++	tmp = rtl_read_byte(rtlpriv, REG_BACKDOOR_DBI_DATA + 3);
++	if ((tmp & BIT(0)) || (tmp & BIT(1))) {
++		RT_TRACE(rtlpriv, COMP_INIT, DBG_LOUD,
++			 "CheckPcieDMAHang8192EE(): true!!\n");
++		return true;
++	}
++	return false;
 +}
 +
- #endif
-diff --git a/drivers/net/wireless/rtlwifi/rtl8192ee/trx.c b/drivers/net/wireless/rtlwifi/rtl8192ee/trx.c
-index cb3cbb6..80658bdf 100644
---- a/drivers/net/wireless/rtlwifi/rtl8192ee/trx.c
-+++ b/drivers/net/wireless/rtlwifi/rtl8192ee/trx.c
-@@ -499,14 +499,7 @@ u16 rtl92ee_rx_desc_buff_remained_cnt(struct ieee80211_hw *hw, u8 queue_index)
- 	if (!start_rx)
- 		return 0;
- 
--	if ((last_read_point > (RX_DESC_NUM_92E / 2)) &&
--	    (read_point <= (RX_DESC_NUM_92E / 2))) {
--		remind_cnt = RX_DESC_NUM_92E - write_point;
--	} else {
--		remind_cnt = (read_point >= write_point) ?
--			     (read_point - write_point) :
--			     (RX_DESC_NUM_92E - write_point + read_point);
--	}
-+	remind_cnt = calc_fifo_space(read_point, write_point);
- 
- 	if (remind_cnt == 0)
- 		return 0;
-@@ -568,10 +561,8 @@ u16 rtl92ee_get_available_desc(struct ieee80211_hw *hw, u8 q_idx)
- 	current_tx_read_point = (u16)((tmp_4byte >> 16) & 0x0fff);
- 	current_tx_write_point = (u16)((tmp_4byte) & 0x0fff);
- 
--	point_diff = ((current_tx_read_point > current_tx_write_point) ?
--		      (current_tx_read_point - current_tx_write_point) :
--		      (TX_DESC_NUM_92E - current_tx_write_point +
--		       current_tx_read_point));
-+	point_diff = calc_fifo_space(current_tx_read_point,
-+				     current_tx_write_point);
- 
- 	rtlpci->tx_ring[q_idx].avl_desc = point_diff;
- 	return point_diff;
-@@ -973,11 +964,8 @@ void rtl92ee_set_desc(struct ieee80211_hw *hw, u8 *pdesc, bool istx,
- 
- 				ring->cur_tx_wp = cur_tx_wp;
- 				ring->cur_tx_rp = cur_tx_rp;
--				point_diff = ((cur_tx_rp > cur_tx_wp) ?
--					      (cur_tx_rp - cur_tx_wp) :
--					      (TX_DESC_NUM_92E - 1 -
--					       cur_tx_wp + cur_tx_rp));
--
-+				point_diff = calc_fifo_space(cur_tx_rp,
-+							     cur_tx_wp);
- 				ring->avl_desc = point_diff;
- 			}
- 		}
-@@ -1066,9 +1054,7 @@ bool rtl92ee_is_tx_desc_closed(struct ieee80211_hw *hw, u8 hw_queue, u16 index)
- 
- 		ring->cur_tx_wp = cur_tx_wp;
- 		ring->cur_tx_rp = cur_tx_rp;
--		point_diff = ((cur_tx_rp > cur_tx_wp) ?
--			      (cur_tx_rp - cur_tx_wp) :
--			      (TX_DESC_NUM_92E - cur_tx_wp + cur_tx_rp));
-+		point_diff = calc_fifo_space(cur_tx_rp, cur_tx_wp);
- 
- 		ring->avl_desc = point_diff;
++static void _rtl8192ee_reset_pcie_interface_dma(struct rtl_priv *rtlpriv,
++						bool mac_power_on)
++{
++	u8 tmp;
++	bool release_mac_rx_pause;
++	u8 backup_pcie_dma_pause;
++
++	RT_TRACE(rtlpriv, COMP_INIT, DBG_LOUD,
++		 "ResetPcieInterfaceDMA8192EE()\n");
++
++	/* Revise Note: Follow the document "PCIe RX DMA Hang Reset Flow_v03"
++	 * released by SD1 Alan.
++	 */
++
++	/* 1. disable register write lock
++	 *	write 0x1C bit[1:0] = 2'h0
++	 *	write 0xCC bit[2] = 1'b1
++	 */
++	tmp = rtl_read_byte(rtlpriv, REG_RSV_CTRL);
++	tmp &= ~(BIT(1) | BIT(0));
++	rtl_write_byte(rtlpriv, REG_RSV_CTRL, tmp);
++	tmp = rtl_read_byte(rtlpriv, REG_PMC_DBG_CTRL2);
++	tmp |= BIT(2);
++	rtl_write_byte(rtlpriv, REG_PMC_DBG_CTRL2, tmp);
++
++	/* 2. Check and pause TRX DMA
++	 *	write 0x284 bit[18] = 1'b1
++	 *	write 0x301 = 0xFF
++	 */
++	tmp = rtl_read_byte(rtlpriv, REG_RXDMA_CONTROL);
++	if (tmp & BIT(2)) {
++		/* Already pause before the function for another reason. */
++		release_mac_rx_pause = false;
++	} else {
++		rtl_write_byte(rtlpriv, REG_RXDMA_CONTROL, (tmp | BIT(2)));
++		release_mac_rx_pause = true;
++	}
++
++	backup_pcie_dma_pause = rtl_read_byte(rtlpriv, REG_PCIE_CTRL_REG + 1);
++	if (backup_pcie_dma_pause != 0xFF)
++		rtl_write_byte(rtlpriv, REG_PCIE_CTRL_REG + 1, 0xFF);
++
++	if (mac_power_on) {
++		/* 3. reset TRX function
++		 *	write 0x100 = 0x00
++		 */
++		rtl_write_byte(rtlpriv, REG_CR, 0);
++	}
++
++	/* 4. Reset PCIe DMA
++	 *	write 0x003 bit[0] = 0
++	 */
++	tmp = rtl_read_byte(rtlpriv, REG_SYS_FUNC_EN + 1);
++	tmp &= ~(BIT(0));
++	rtl_write_byte(rtlpriv, REG_SYS_FUNC_EN + 1, tmp);
++
++	/* 5. Enable PCIe DMA
++	 *	write 0x003 bit[0] = 1
++	 */
++	tmp = rtl_read_byte(rtlpriv, REG_SYS_FUNC_EN + 1);
++	tmp |= BIT(0);
++	rtl_write_byte(rtlpriv, REG_SYS_FUNC_EN + 1, tmp);
++
++	if (mac_power_on) {
++		/* 6. enable TRX function
++		 *	write 0x100 = 0xFF
++		 */
++		rtl_write_byte(rtlpriv, REG_CR, 0xFF);
++
++		/* We should init LLT & RQPN and
++		 * prepare Tx/Rx descrptor address later
++		 * because MAC function is reset.
++		 */
++	}
++
++	/* 7. Restore PCIe autoload down bit
++	 *	write 0xF8 bit[17] = 1'b1
++	 */
++	tmp = rtl_read_byte(rtlpriv, REG_MAC_PHY_CTRL_NORMAL + 2);
++	tmp |= BIT(1);
++	rtl_write_byte(rtlpriv, REG_MAC_PHY_CTRL_NORMAL + 2, tmp);
++
++	/* In MAC power on state, BB and RF maybe in ON state,
++	 * if we release TRx DMA here
++	 * it will cause packets to be started to Tx/Rx,
++	 * so we release Tx/Rx DMA later.
++	 */
++	if (!mac_power_on) {
++		/* 8. release TRX DMA
++		 *	write 0x284 bit[18] = 1'b0
++		 *	write 0x301 = 0x00
++		 */
++		if (release_mac_rx_pause) {
++			tmp = rtl_read_byte(rtlpriv, REG_RXDMA_CONTROL);
++			rtl_write_byte(rtlpriv, REG_RXDMA_CONTROL,
++				       (tmp & (~BIT(2))));
++		}
++		rtl_write_byte(rtlpriv, REG_PCIE_CTRL_REG + 1,
++			       backup_pcie_dma_pause);
++	}
++
++	/* 9. lock system register
++	 *	write 0xCC bit[2] = 1'b0
++	 */
++	tmp = rtl_read_byte(rtlpriv, REG_PMC_DBG_CTRL2);
++	tmp &= ~(BIT(2));
++	rtl_write_byte(rtlpriv, REG_PMC_DBG_CTRL2, tmp);
++}
++
+ int rtl92ee_hw_init(struct ieee80211_hw *hw)
+ {
+ 	struct rtl_priv *rtlpriv = rtl_priv(hw);
+@@ -1162,6 +1295,13 @@ int rtl92ee_hw_init(struct ieee80211_hw *hw)
+ 		rtlhal->fw_ps_state = FW_PS_STATE_ALL_ON_92E;
  	}
+ 
++	if (_rtl8192ee_check_pcie_dma_hang(rtlpriv)) {
++		RT_TRACE(rtlpriv, COMP_INIT, DBG_DMESG, "92ee dma hang!\n");
++		_rtl8192ee_reset_pcie_interface_dma(rtlpriv,
++						    rtlhal->mac_func_enable);
++		rtlhal->mac_func_enable = false;
++	}
++
+ 	rtstatus = _rtl92ee_init_mac(hw);
+ 
+ 	rtl_write_byte(rtlpriv, 0x577, 0x03);
+diff --git a/drivers/net/wireless/rtlwifi/rtl8192ee/reg.h b/drivers/net/wireless/rtlwifi/rtl8192ee/reg.h
+index 3f2a959..1eaa1fa 100644
+--- a/drivers/net/wireless/rtlwifi/rtl8192ee/reg.h
++++ b/drivers/net/wireless/rtlwifi/rtl8192ee/reg.h
+@@ -77,9 +77,11 @@
+ #define REG_HIMRE				0x00B8
+ #define REG_HISRE				0x00BC
+ 
++#define REG_PMC_DBG_CTRL2			0x00CC
+ #define REG_EFUSE_ACCESS			0x00CF
+ #define REG_HPON_FSM				0x00EC
+ #define REG_SYS_CFG1				0x00F0
++#define REG_MAC_PHY_CTRL_NORMAL			0x00F8
+ #define REG_SYS_CFG2				0x00FC
+ 
+ #define REG_CR					0x0100
 -- 
 2.1.2
