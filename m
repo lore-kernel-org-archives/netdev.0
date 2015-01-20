@@ -1,57 +1,79 @@
-From: Fugang Duan <b38611@freescale.com>
-Subject: [PATCH net-next v2 1/1] ARM: dts: imx6sx: correct i.MX6sx sdb board enet phy address
-Date: Tue, 20 Jan 2015 16:48:17 +0800
-Message-ID: <1421743697-26918-1-git-send-email-b38611@freescale.com>
+From: Kalle Valo <kvalo@qca.qualcomm.com>
+Subject: pull-request: wireless-drivers 2015-01-20
+Date: Tue, 20 Jan 2015 11:03:33 +0200
+Message-ID: <87oapt3jtm.fsf@kamboji.qca.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <s.hauer@pengutronix.de>,
-	<stefan@agner.ch>, <linux-arm-kernel@lists.infradead.org>,
-	<b38611@freescale.com>
-To: <shawn.guo@linaro.org>, <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1bon0118.outbound.protection.outlook.com ([157.56.111.118]:24000
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751241AbbATIv1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Jan 2015 03:51:27 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <linux-wireless@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The commit (3d125f9c91c5) cause i.MX6SX sdb enet cannot work. The cause is
-the commit add mdio node with un-correct phy address.
+Hi Dave,
 
-The patch just correct i.MX6sx sdb board enet phy address.
+more fixes for 3.19, I hope these are still appropriate. Please let me
+know if there are any issues.
 
-V2:
-* As Shawn's suggestion that unit-address should match 'reg' property, so
-  update ethernet-phy unit-address.
+Kalle
 
-Acked-by: Stefan Agner <stefan@agner.ch>
-Signed-off-by: Fugang Duan <B38611@freescale.com>
----
- arch/arm/boot/dts/imx6sx-sdb.dts |    8 ++++----
- 1 files changed, 4 insertions(+), 4 deletions(-)
+The following changes since commit 16dde0d6ac159531a5e03cd3f8bc8a401d9f3fb6:
 
-diff --git a/arch/arm/boot/dts/imx6sx-sdb.dts b/arch/arm/boot/dts/imx6sx-sdb.dts
-index 8c1febd..c108bb4 100644
---- a/arch/arm/boot/dts/imx6sx-sdb.dts
-+++ b/arch/arm/boot/dts/imx6sx-sdb.dts
-@@ -166,12 +166,12 @@
- 		#address-cells = <1>;
- 		#size-cells = <0>;
- 
--		ethphy1: ethernet-phy@0 {
--			reg = <0>;
-+		ethphy1: ethernet-phy@1 {
-+			reg = <1>;
- 		};
- 
--		ethphy2: ethernet-phy@1 {
--			reg = <1>;
-+		ethphy2: ethernet-phy@2 {
-+			reg = <2>;
- 		};
- 	};
- };
+  be2net: Allow GRE to work concurrently while a VxLAN tunnel is configured (2015-01-15 01:55:05 -0500)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/kvalo/wireless-drivers.git tags/wireless-drivers-for-davem-2015-01-20
+
+for you to fetch changes up to e3f31175a3eeb492a6ab788e4fa136c19b43aab4:
+
+  ath9k: fix race condition in irq processing during hardware reset (2015-01-19 14:32:29 +0200)
+
+----------------------------------------------------------------
+ath9k:
+
+* fix an IRQ storm caused by commit 872b5d814f99
+
+iwlwifi:
+
+* A fix for scan that fixes a firmware assertion
+
+* A fix that improves roaming behavior. Same fix has been tested for
+  a while in iwldvm. This is a bit of a work around, but the real fix
+  should be in mac80211 and will come later.
+
+* A fix for BARs that avoids a WARNING.
+
+* one fix for rfkill while scheduled scan is running.
+  Linus's system hit this issue. WiFi would be unavailable
+  after this has happpened because of bad state in cfg80211.
+
+----------------------------------------------------------------
+David Spinadel (1):
+      iwlwifi: mvm: fix EBS on single scan
+
+Emmanuel Grumbach (2):
+      iwlwifi: mvm: drop non VO frames when flushing
+      iwlwifi: mvm: abort scheduled scan upon RFKILL
+
+Eyal Shapira (1):
+      iwlwifi: mvm: set the tx cmd tid for BAR frame correctly
+
+Felix Fietkau (1):
+      ath9k: fix race condition in irq processing during hardware reset
+
+Kalle Valo (2):
+      Merge tag 'iwlwifi-for-kalle-2015-01-13' of https://git.kernel.org/.../iwlwifi/iwlwifi-fixes
+      Merge tag 'iwlwifi-for-kalle-2015-01-15' of https://git.kernel.org/.../iwlwifi/iwlwifi-fixes
+
+ drivers/net/wireless/ath/ath9k/main.c          |    7 ++--
+ drivers/net/wireless/iwlwifi/iwl-fw-file.h     |    2 +
+ drivers/net/wireless/iwlwifi/mvm/fw-api-scan.h |    7 +++-
+ drivers/net/wireless/iwlwifi/mvm/mac80211.c    |   20 ++++-----
+ drivers/net/wireless/iwlwifi/mvm/scan.c        |   53 ++++++++++++++++++------
+ drivers/net/wireless/iwlwifi/mvm/tx.c          |   11 ++++-
+ 6 files changed, 69 insertions(+), 31 deletions(-)
+
 -- 
-1.7.8
+Kalle Valo
