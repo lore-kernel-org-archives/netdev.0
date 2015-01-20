@@ -1,71 +1,48 @@
 From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH net-next 6/6] vxlan: advertise netns of vxlan dev in fdb msg
-Date: Tue, 20 Jan 2015 15:15:47 +0100
-Message-ID: <1421763347-4354-7-git-send-email-nicolas.dichtel@6wind.com>
+Subject: [PATCH net-next 4/6] macvlan: advertise link netns via netlink
+Date: Tue, 20 Jan 2015 15:15:45 +0100
+Message-ID: <1421763347-4354-5-git-send-email-nicolas.dichtel@6wind.com>
 References: <1421763347-4354-1-git-send-email-nicolas.dichtel@6wind.com>
 Cc: davem@davemloft.net, Nicolas Dichtel <nicolas.dichtel@6wind.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:53815 "EHLO
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:53814 "EHLO
 	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752189AbbATOP6 (ORCPT
+	with ESMTP id S1751980AbbATOP6 (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jan 2015 09:15:58 -0500
 In-Reply-To: <1421763347-4354-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Netlink FDB messages are sent in the link netns. The header of these messages
-contains the ifindex (ndm_ifindex) of the netdevice, but this ifindex is
-unusable in case of x-netns vxlan.
-I named the new attribute NDA_NDM_IFINDEX_NETNSID, to avoid confusion with
-NDA_IFINDEX.
+Assign rtnl_link_ops->get_link_net() callback so that IFLA_LINK_NETNSID is
+added to rtnetlink messages.
 
 Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 ---
- drivers/net/vxlan.c            | 5 +++++
- include/uapi/linux/neighbour.h | 1 +
- net/core/net_namespace.c       | 1 +
- 3 files changed, 7 insertions(+)
+ drivers/net/macvlan.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 0346eaa6d236..19d3664ab9dd 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -339,6 +339,11 @@ static int vxlan_fdb_info(struct sk_buff *skb, struct vxlan_dev *vxlan,
- 	ndm->ndm_flags = fdb->flags;
- 	ndm->ndm_type = RTN_UNICAST;
+diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+index 612e0731142d..1df38bdae2ee 100644
+--- a/drivers/net/macvlan.c
++++ b/drivers/net/macvlan.c
+@@ -1471,11 +1471,17 @@ int macvlan_link_register(struct rtnl_link_ops *ops)
+ };
+ EXPORT_SYMBOL_GPL(macvlan_link_register);
  
-+	if (!net_eq(dev_net(vxlan->dev), vxlan->net) &&
-+	    nla_put_s32(skb, NDA_NDM_IFINDEX_NETNSID,
-+			peernet2id(vxlan->net, dev_net(vxlan->dev))))
-+		goto nla_put_failure;
++static struct net *macvlan_get_link_net(const struct net_device *dev)
++{
++	return dev_net(macvlan_dev_real_dev(dev));
++}
 +
- 	if (send_eth && nla_put(skb, NDA_LLADDR, ETH_ALEN, &fdb->eth_addr))
- 		goto nla_put_failure;
- 
-diff --git a/include/uapi/linux/neighbour.h b/include/uapi/linux/neighbour.h
-index f3d77f9f1e0b..38f236853cc0 100644
---- a/include/uapi/linux/neighbour.h
-+++ b/include/uapi/linux/neighbour.h
-@@ -25,6 +25,7 @@ enum {
- 	NDA_VNI,
- 	NDA_IFINDEX,
- 	NDA_MASTER,
-+	NDA_NDM_IFINDEX_NETNSID,
- 	__NDA_MAX
+ static struct rtnl_link_ops macvlan_link_ops = {
+ 	.kind		= "macvlan",
+ 	.setup		= macvlan_setup,
+ 	.newlink	= macvlan_newlink,
+ 	.dellink	= macvlan_dellink,
++	.get_link_net	= macvlan_get_link_net,
  };
  
-diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
-index 9d1a4cac83b6..b7bde551ef76 100644
---- a/net/core/net_namespace.c
-+++ b/net/core/net_namespace.c
-@@ -202,6 +202,7 @@ int peernet2id(struct net *net, struct net *peer)
- 
- 	return id >= 0 ? id : NETNSA_NSID_NOT_ASSIGNED;
- }
-+EXPORT_SYMBOL(peernet2id);
- 
- struct net *get_net_ns_by_id(struct net *net, int id)
- {
+ static int macvlan_device_event(struct notifier_block *unused,
 -- 
 2.2.2
