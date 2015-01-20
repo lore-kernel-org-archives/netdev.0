@@ -1,45 +1,44 @@
-From: Govindarajulu Varadarajan <_govind@gmx.com>
-Subject: Re: [PATCH net 2/2] bnx2x: fix napi poll return value for repoll
-Date: Tue, 20 Jan 2015 20:56:49 +0530 (IST)
-Message-ID: <alpine.LNX.2.03.1501202055210.31736@ws.cisco>
-References: <1421759776-376-1-git-send-email-_govind@gmx.com>  <1421759776-376-3-git-send-email-_govind@gmx.com>  <1421765480.4832.2.camel@edumazet-glaptop2.roam.corp.google.com> <1421765644.4832.4.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH 3/3] netlink: Lock out table resizes while dumping
+ Netlink sockets
+Date: Tue, 20 Jan 2015 15:35:56 +0000
+Message-ID: <20150120153556.GJ20315@casper.infradead.org>
+References: <cover.1421759056.git.tgraf@suug.ch>
+ <e164edeacaeffee43be64d4ed6a5b5e7e8923bd1.1421759056.git.tgraf@suug.ch>
+ <20150120143154.GR14883@acer.localdomain>
+ <20150120145551.GH20315@casper.infradead.org>
+ <20150120152149.GA3012@acer.localdomain>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: Govindarajulu Varadarajan <_govind@gmx.com>,
-	Willem de Bruijn <willemb@google.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, ariel.elior@qlogic.com, ssujith@cisco.com,
-	benve@cisco.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.com ([74.208.4.200]:54321 "EHLO mout.gmx.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752919AbbATP1D (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Jan 2015 10:27:03 -0500
-In-Reply-To: <1421765644.4832.4.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, herbert@gondor.apana.org.au,
+	paulmck@linux.vnet.ibm.com, ying.xue@windriver.com,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20150120152149.GA3012@acer.localdomain>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 20 Jan 2015, Eric Dumazet wrote:
+On 01/20/15 at 03:21pm, Patrick McHardy wrote:
+> I think its preferrable to make the need to handle NETLINK_F_DUMP_INTR
+> as noticable as possible and not hide it. Silent failure is the worst
+> kind of failure.
 
-> On Tue, 2015-01-20 at 06:51 -0800, Eric Dumazet wrote:
->
->>>
->>>  		for_each_cos_in_tx_queue(fp, cos)
->>>  			if (bnx2x_tx_queue_has_work(fp->txdata_ptr[cos]))
->>> @@ -3187,7 +3187,7 @@ static int bnx2x_poll(struct napi_struct *napi, int budget)
->>>  			/* must not complete if we consumed full budget */
->>>  			if (work_done >= budget) {
->>>  				bnx2x_fp_unlock_napi(fp);
->>> -				break;
->>> +				return budget;
->>
->> This one looks fine.
->
-> But its not necessary, as here budget == work_done.
->
-> (work_done > budget) would be a bug from bnx2x_rx_int()
->
+I agree to that. The point here is to avoid unnecessary use of
+NETLINK_F_DUMP_INTR if all entries fit into a single message buffer.
+ 
+> Yeah. The point could be made that this is a regression though. We didn't
+> require userspace to deal with interruptions before, and the behaviour
+> was well defined and acceptable for most cases, its not anymore.
+> 
+> So I think it should be handled by the kernel, without changes to
+> userspace.
 
-Yes, I missed that one. This change here is not needed.
+nl_table_lock was released between individual messages just like
+ht->mutex is released with this change.
 
-Thanks
+What changed is that inserts and removal can now occur *while* the
+message is being constructed whereas previously they could only
+occur between message construction periods. In either case, the dump
+would end up missing entries or showing duplicates.
