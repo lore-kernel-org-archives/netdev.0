@@ -1,75 +1,49 @@
-From: "Samudrala, Sridhar" <sridhar.samudrala@intel.com>
-Subject: Re: [RFC PATCH net-next] bridge: ability to disable forwarding on
- a port
-Date: Mon, 19 Jan 2015 23:09:20 -0800
-Message-ID: <54BDFF20.9020909@intel.com>
-References: <1421479975-62049-1-git-send-email-roopa@cumulusnetworks.com> <CAE4R7bBeNojtj3Zyd6+zSJFGRjG4vejBObnS1XUFAfJDZJZYow@mail.gmail.com> <54BB7874.90201@cumulusnetworks.com> <54BC1DC5.1000401@cumulusnetworks.com> <CAE4R7bC=j-mT65TzFOhJL-Hd0GeHg3-k+=+VFHaj-m+h5PjMuQ@mail.gmail.com> <54BDF3C7.5010806@cumulusnetworks.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "stephen@networkplumber.org" <stephen@networkplumber.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
-	"Arad, Ronen" <ronen.arad@intel.com>, Thomas Graf <tgraf@suug.ch>,
-	john fastabend <john.fastabend@gmail.com>,
-	"vyasevic@redhat.com" <vyasevic@redhat.com>,
-	Netdev <netdev@vger.kernel.org>,
-	Wilson Kok <wkok@cumulusnetworks.com>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>
-To: roopa <roopa@cumulusnetworks.com>,
-	Scott Feldman <sfeldma@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:36978 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751177AbbATHJ0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Jan 2015 02:09:26 -0500
-In-Reply-To: <54BDF3C7.5010806@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Romain Perier <romain.perier-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH v2 0/4] net: stmmac: dwmac-rk: Fix phy regulator issues
+Date: Tue, 20 Jan 2015 07:09:36 +0000
+Message-ID: <1421737780-1533-1-git-send-email-romain.perier@gmail.com>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	heiko-4mtYJXux2i+zQB+pC5nmwQ@public.gmane.org, linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	roger.chen-TNX95d0MmH7DzftRWevZcw@public.gmane.org
+To: peppe.cavallaro-qxv4g6HH51o@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+This series fixes few issues in dwmac-rk:
 
-On 1/19/2015 10:20 PM, roopa wrote:
-> On 1/18/15, 11:37 PM, Scott Feldman wrote:
->
-> <snip..>
->>
->> Not sure. I don't know the use case, but I think I might have heard that
->> there could be a case
->>   where a switch port could be bridged with a vm's port running on the
->> switch. (?)
->>>
->>> Ignoring the above usecase for a bit. And thinking through this 
->>> again, It
->>> appears that this check should
->>> be only on the ingress port, no ?
->>>
->>> If the ingress bridge port is an offloaded port, don't flood or forward
->>> because hardware has already done it.
->>> And this is best done with the offload feature flag on the bridge port.
->> That's assuming hardware did the flood.  Maybe your other option to
->> mark the skb if already flooded by hw is best.  That's enough info for
->> the bridge driver to make a decision to flood or not to the other
->> ports, and it's an implementation decision for the driver/device to do
->> the flood offload, if desired, and mark the skb if it did.
->
-> Still thinking we can just use the offload feature flag here. How 
-> about  avoid forwarding only if both src and dst ports have
-> forwarding offloaded/accelerated by a switch asic  ?. That should 
-> cover all cases.
->>
->> Btw, you're still saying flood or forward, but in my mind we're
->> talking about flood only: flood of unknown unicast or flood of
->> bcast/mcast pkts.  Forwarding would be for known-unicast pkts, which
->> should even involve the bridge driver since that forwarding is
->> offloaded to the device.
->
-> I was also taking into account pkts copied to the CPU due to an acl 
-> rule such as log.
-> These unicast pkts can come to cpu even if it is already forwarded in hw.
+1. Voltage settings was hardcoded into the driver for the phy regulator.
+   The driver now uses the default voltage settings found in the devicetree,
+   which are applied throught the regulator framework.
+2. The regulator name used to power on or power off the phy was put in the devicetree
+   variable "phy_regulator", which is not standard and added a lot of code for nothing.
+   The driver now uses the devicetree property "phy-supply" and the corresponding functions
+   to manipulate this regulator.
 
-Do you have a switch port netdev that corresponds to CPU port? Or are 
-they seen on the bridge device?
+The corresponding devicetree files are also updated. As this new binding for
+rk3288 has not been released with any official kernel yet (not until 3.20),
+I don't need to care about keeping compatibility with the old non standard property.
 
-Thanks
-Sridhar
+Romain Perier (4):
+  net: stmmac: dwmac-rk: Don't set the regulator voltage for phy from
+    the driver
+  ARM: dts: Add regulator voltage settings for vcc_phy in
+    rk3288-evb.dtsi
+  net: stmmac: dwmac-rk: Use standard devicetree property for phy
+    regulator
+  dt-bindings: Document phy-supply property in rockchip-dwmac
+
+ .../devicetree/bindings/net/rockchip-dwmac.txt     |  1 +
+ arch/arm/boot/dts/rk3288-evb-rk808.dts             |  2 +-
+ arch/arm/boot/dts/rk3288-evb.dtsi                  |  2 +
+ drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c     | 64 +++++++---------------
+ 4 files changed, 25 insertions(+), 44 deletions(-)
+
+-- 
+1.9.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
