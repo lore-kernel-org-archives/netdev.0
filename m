@@ -1,54 +1,64 @@
-From: Pravin B Shelar <pshelar@nicira.com>
-Subject: [PATCH net-next 0/3] openvswitch: Add STT support.
-Date: Tue, 20 Jan 2015 12:25:36 -0800
-Message-ID: <1421785536-19793-1-git-send-email-pshelar@nicira.com>
-Cc: netdev@vger.kernel.org, Pravin B Shelar <pshelar@nicira.com>
-To: davem@davemloft.net
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: [net-next PATCH v3 04/12] net: flow_table: create a set of
+ common headers and actions
+Date: Tue, 20 Jan 2015 15:59:38 -0500
+Message-ID: <20150120205938.GD1854@tuxdriver.com>
+References: <20150120202404.1741.8658.stgit@nitbit.x32>
+ <20150120202752.1741.13810.stgit@nitbit.x32>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: tgraf@suug.ch, simon.horman@netronome.com, sfeldma@gmail.com,
+	netdev@vger.kernel.org, jhs@mojatatu.com, davem@davemloft.net,
+	gerlitz.or@gmail.com, andy@greyhouse.net, ast@plumgrid.com
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog106.obsmtp.com ([74.125.149.77]:54727 "HELO
-	na3sys009aog106.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753394AbbATVIw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jan 2015 16:08:52 -0500
-Received: by mail-pd0-f182.google.com with SMTP id z10so5855562pdj.13
-        for <netdev@vger.kernel.org>; Tue, 20 Jan 2015 13:08:51 -0800 (PST)
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:60565 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751649AbbATVP2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jan 2015 16:15:28 -0500
+Content-Disposition: inline
+In-Reply-To: <20150120202752.1741.13810.stgit@nitbit.x32>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Following patch series adds support for Stateless Transport
-Tunneling protocol.
-STT uses TCP segmentation offload available in most of NIC. On
-packet xmit STT driver appends STT header along with TCP header
-to the packet. For GSO packet GSO parameters are set according
-to tunnel configuration and packet is handed over to networking
-stack. This allows use of segmentation offload available in NICs
+On Tue, Jan 20, 2015 at 12:27:53PM -0800, John Fastabend wrote:
+> This adds common headers and actions that drivers can use.
+> 
+> I have not yet moved the header graphs into the common header
+> because I'm not entirely convinced its re-usable. The devices
+> I have been looking at have different enough header graphs that
+> they wouldn't be re-usable. However possibly many 40Gbp NICs
+> for example could share a common header graph. When we get
+> multiple implementations we can move this into the common file
+> if it makes sense.
+> 
+> And table structures seem to be unique enough that there is
+> little value in putting each devices table layout into the
+> common file so its left for device specific implementation.
+> 
+> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+> ---
+>  include/linux/if_flow_common.h |  257 ++++++++++++++++++++++++++++++++++++++++
+>  1 file changed, 257 insertions(+)
+>  create mode 100644 include/linux/if_flow_common.h
+> 
+> diff --git a/include/linux/if_flow_common.h b/include/linux/if_flow_common.h
+> new file mode 100644
+> index 0000000..ef2d66f
+> --- /dev/null
+> +++ b/include/linux/if_flow_common.h
 
-Netperf unidirectional test gives ~9.4 Gbits/s performance on 10Gbit
-NIC with 1500 byte MTU with two TCP streams.
+<snip>
 
-The protocol is documented at
-http://www.ietf.org/archive/id/draft-davie-stt-06.txt
+> +struct net_flow_action net_flow_pop_vlan = {
+> +	.name = "pop_vlan",
+> +	.uid = ACTION_POP_VLAN,
+> +	.args = net_flow_null_args,
+> +};
 
-I will send out OVS userspace patch on ovs-dev mailing list.
+Random thought, should there be a "push_vlan" (for double VLAN tagging)?
 
-Pravin B Shelar (3):
-  skbuff: Add skb_list_linearize()
-  net: Add STT tunneling protocol.
-  openvswitch: Add support for STT tunneling.
-
- include/linux/skbuff.h           |    2 +
- include/net/stt.h                |   55 ++
- include/uapi/linux/openvswitch.h |    1 +
- net/core/skbuff.c                |   35 +
- net/ipv4/Kconfig                 |   11 +
- net/ipv4/Makefile                |    1 +
- net/ipv4/stt.c                   | 1386 ++++++++++++++++++++++++++++++++++++++
- net/openvswitch/Kconfig          |   10 +
- net/openvswitch/Makefile         |    1 +
- net/openvswitch/vport-stt.c      |  214 ++++++
- 10 files changed, 1716 insertions(+)
- create mode 100644 include/net/stt.h
- create mode 100644 net/ipv4/stt.c
- create mode 100644 net/openvswitch/vport-stt.c
 
 -- 
-1.9.1
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
