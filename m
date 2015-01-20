@@ -1,79 +1,61 @@
-From: Kalle Valo <kvalo@qca.qualcomm.com>
-Subject: pull-request: wireless-drivers 2015-01-20
-Date: Tue, 20 Jan 2015 11:03:33 +0200
-Message-ID: <87oapt3jtm.fsf@kamboji.qca.qualcomm.com>
+From: Hagen Paul Pfeifer <hagen@jauu.net>
+Subject: Re: [PATCH iproute2 3/3] ss: Unify tcp stats output
+Date: Tue, 20 Jan 2015 11:29:53 +0100
+Message-ID: <CAPh34mdi+8wLaUY3ZBks40wbOtdzsbTrmuvsHivRouc9rs3gig@mail.gmail.com>
+References: <1421613815-6635-1-git-send-email-vadim4j@gmail.com>
+	<1421613815-6635-4-git-send-email-vadim4j@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <linux-wireless@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Vadim Kochan <vadim4j@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f180.google.com ([209.85.217.180]:46418 "EHLO
+	mail-lb0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752144AbbATK3y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jan 2015 05:29:54 -0500
+Received: by mail-lb0-f180.google.com with SMTP id b6so7115123lbj.11
+        for <netdev@vger.kernel.org>; Tue, 20 Jan 2015 02:29:53 -0800 (PST)
+In-Reply-To: <1421613815-6635-4-git-send-email-vadim4j@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+On 18 January 2015 at 21:43, Vadim Kochan <vadim4j@gmail.com> wrote:
 
-more fixes for 3.19, I hope these are still appropriate. Please let me
-know if there are any issues.
+Hey Stephen,
 
-Kalle
+it is time to think about the format of the ss output - it starts to
+get unreadable. Neither humans nor scripts will parse the output. See
+the patch at the end,to get idea what I mean: who will understand
+"fallback_mode"? I don't want to blame someone - not at all, it is
+just one example. My proposal:
 
-The following changes since commit 16dde0d6ac159531a5e03cd3f8bc8a401d9f3fb6:
+1) support grouping. E.g. DCTCP could be separated in the following
+manner. I.e. "dctcp:[ ce_state: %d, alpha: %d, ...  ]" or
+"dctcp:ce_state.%d;alpha,%d" like the socket memory output.
+    This makes it easier for humans and scripts to parse the output.
+Since some time ss output is extended really extensive (especially
+Eric make use of this). This is not the end and additional values are
+added - make the current babylon even worse.
 
-  be2net: Allow GRE to work concurrently while a VxLAN tunnel is configured (2015-01-15 01:55:05 -0500)
+2) add a JSON formater as soon as possible to make the output
+parseable. I would do this - it is required anyway.
 
-are available in the git repository at:
+Any comments on this?
 
-  git://git.kernel.org/pub/scm/linux/kernel/git/kvalo/wireless-drivers.git tags/wireless-drivers-for-davem-2015-01-20
-
-for you to fetch changes up to e3f31175a3eeb492a6ab788e4fa136c19b43aab4:
-
-  ath9k: fix race condition in irq processing during hardware reset (2015-01-19 14:32:29 +0200)
-
-----------------------------------------------------------------
-ath9k:
-
-* fix an IRQ storm caused by commit 872b5d814f99
-
-iwlwifi:
-
-* A fix for scan that fixes a firmware assertion
-
-* A fix that improves roaming behavior. Same fix has been tested for
-  a while in iwldvm. This is a bit of a work around, but the real fix
-  should be in mac80211 and will come later.
-
-* A fix for BARs that avoids a WARNING.
-
-* one fix for rfkill while scheduled scan is running.
-  Linus's system hit this issue. WiFi would be unavailable
-  after this has happpened because of bad state in cfg80211.
-
-----------------------------------------------------------------
-David Spinadel (1):
-      iwlwifi: mvm: fix EBS on single scan
-
-Emmanuel Grumbach (2):
-      iwlwifi: mvm: drop non VO frames when flushing
-      iwlwifi: mvm: abort scheduled scan upon RFKILL
-
-Eyal Shapira (1):
-      iwlwifi: mvm: set the tx cmd tid for BAR frame correctly
-
-Felix Fietkau (1):
-      ath9k: fix race condition in irq processing during hardware reset
-
-Kalle Valo (2):
-      Merge tag 'iwlwifi-for-kalle-2015-01-13' of https://git.kernel.org/.../iwlwifi/iwlwifi-fixes
-      Merge tag 'iwlwifi-for-kalle-2015-01-15' of https://git.kernel.org/.../iwlwifi/iwlwifi-fixes
-
- drivers/net/wireless/ath/ath9k/main.c          |    7 ++--
- drivers/net/wireless/iwlwifi/iwl-fw-file.h     |    2 +
- drivers/net/wireless/iwlwifi/mvm/fw-api-scan.h |    7 +++-
- drivers/net/wireless/iwlwifi/mvm/mac80211.c    |   20 ++++-----
- drivers/net/wireless/iwlwifi/mvm/scan.c        |   53 ++++++++++++++++++------
- drivers/net/wireless/iwlwifi/mvm/tx.c          |   11 ++++-
- 6 files changed, 69 insertions(+), 31 deletions(-)
-
--- 
-Kalle Valo
+> +       if (s->ssthresh)
+> +               printf(" ssthresh:%d", s->ssthresh);
+> +
+> +       if (s->dctcp && s->dctcp->enabled) {
+> +               struct dctcpstat *dctcp = s->dctcp;
+> +
+> +               printf(" ce_state %u alpha %u ab_ecn %u ab_tot %u",
+> +                               dctcp->ce_state, dctcp->alpha, dctcp->ab_ecn,
+> +                               dctcp->ab_tot);
+> +       } else if (s->dctcp) {
+> +               printf(" fallback_mode");
+> +       }
+> +
+> +       if (s->send_bps)
+> +               printf(" send %sbps", sprint_bandw(b1, s->send_bps));
