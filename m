@@ -1,54 +1,75 @@
-From: Kiran Raparthy <kiran.kumar@linaro.org>
-Subject: Re: [RFC 1/2] misc: uidstat: Add uid stat driver to collect network statistics.
-Date: Tue, 20 Jan 2015 12:33:18 +0530
-Message-ID: <CA+RfmHbK4FBZcwZ85HT-Zokv0P+XU7P5tXxH3tbyH-U_QjOh4w@mail.gmail.com>
-References: <1421147642-28360-1-git-send-email-kiran.kumar@linaro.org>
-	<20150113183441.GA24908@kroah.com>
+From: "Samudrala, Sridhar" <sridhar.samudrala@intel.com>
+Subject: Re: [RFC PATCH net-next] bridge: ability to disable forwarding on
+ a port
+Date: Mon, 19 Jan 2015 23:09:20 -0800
+Message-ID: <54BDFF20.9020909@intel.com>
+References: <1421479975-62049-1-git-send-email-roopa@cumulusnetworks.com> <CAE4R7bBeNojtj3Zyd6+zSJFGRjG4vejBObnS1XUFAfJDZJZYow@mail.gmail.com> <54BB7874.90201@cumulusnetworks.com> <54BC1DC5.1000401@cumulusnetworks.com> <CAE4R7bC=j-mT65TzFOhJL-Hd0GeHg3-k+=+VFHaj-m+h5PjMuQ@mail.gmail.com> <54BDF3C7.5010806@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: LKML <linux-kernel@vger.kernel.org>, Mike Chan <mike@android.com>,
-	Arnd Bergmann <arnd@arndb.de>,
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "stephen@networkplumber.org" <stephen@networkplumber.org>,
 	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	"open list:NETWORKING [GENERAL]" <netdev@vger.kernel.org>,
-	Android Kernel Team <kernel-team@android.com>,
-	John Stultz <john.stultz@linaro.org>,
-	Sumit Semwal <sumit.semwal@linaro.org>,
-	JP Abgrall <jpa@google.com>,
-	=?UTF-8?B?QXJ2ZSBIau+/vW5uZXbvv71n?= <arve@android.com>
-To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150113183441.GA24908@kroah.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
+	"Arad, Ronen" <ronen.arad@intel.com>, Thomas Graf <tgraf@suug.ch>,
+	john fastabend <john.fastabend@gmail.com>,
+	"vyasevic@redhat.com" <vyasevic@redhat.com>,
+	Netdev <netdev@vger.kernel.org>,
+	Wilson Kok <wkok@cumulusnetworks.com>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>
+To: roopa <roopa@cumulusnetworks.com>,
+	Scott Feldman <sfeldma@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga14.intel.com ([192.55.52.115]:36978 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751177AbbATHJ0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Jan 2015 02:09:26 -0500
+In-Reply-To: <54BDF3C7.5010806@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 14 January 2015 at 00:04, Greg Kroah-Hartman
-<gregkh@linuxfoundation.org> wrote:
-> On Tue, Jan 13, 2015 at 04:44:01PM +0530, Kiran Raparthy wrote:
->> From: Mike Chan <mike@android.com>
->>
->> misc: uidstat: Add uid stat driver to collect network statistics.
->>
->> To analyze application's network statistics, we need a mechanism to export
->> the UID based statistics to userspace so that userspace tools can use the
->> exported numbers and generate the report against the UID.
->>
->> This patch allows the user to explore the UID based network statistics
->> exported to /proc/uid_stat.
->
-> This is a joke, right?  It's not April 1 yet people, why send this in
-> January?
->
-> confused,
 
-Hi Greg,
-It was part of clearing the backlog,didn't realize that this is obsolete.
-Please ignore the patch-set.
-Regards,
-Kiran
-
+On 1/19/2015 10:20 PM, roopa wrote:
+> On 1/18/15, 11:37 PM, Scott Feldman wrote:
 >
-> greg k-h
+> <snip..>
+>>
+>> Not sure. I don't know the use case, but I think I might have heard that
+>> there could be a case
+>>   where a switch port could be bridged with a vm's port running on the
+>> switch. (?)
+>>>
+>>> Ignoring the above usecase for a bit. And thinking through this 
+>>> again, It
+>>> appears that this check should
+>>> be only on the ingress port, no ?
+>>>
+>>> If the ingress bridge port is an offloaded port, don't flood or forward
+>>> because hardware has already done it.
+>>> And this is best done with the offload feature flag on the bridge port.
+>> That's assuming hardware did the flood.  Maybe your other option to
+>> mark the skb if already flooded by hw is best.  That's enough info for
+>> the bridge driver to make a decision to flood or not to the other
+>> ports, and it's an implementation decision for the driver/device to do
+>> the flood offload, if desired, and mark the skb if it did.
+>
+> Still thinking we can just use the offload feature flag here. How 
+> about  avoid forwarding only if both src and dst ports have
+> forwarding offloaded/accelerated by a switch asic  ?. That should 
+> cover all cases.
+>>
+>> Btw, you're still saying flood or forward, but in my mind we're
+>> talking about flood only: flood of unknown unicast or flood of
+>> bcast/mcast pkts.  Forwarding would be for known-unicast pkts, which
+>> should even involve the bridge driver since that forwarding is
+>> offloaded to the device.
+>
+> I was also taking into account pkts copied to the CPU due to an acl 
+> rule such as log.
+> These unicast pkts can come to cpu even if it is already forwarded in hw.
+
+Do you have a switch port netdev that corresponds to CPU port? Or are 
+they seen on the bridge device?
+
+Thanks
+Sridhar
