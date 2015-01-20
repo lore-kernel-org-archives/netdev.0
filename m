@@ -1,65 +1,90 @@
-From: "fugang.duan@freescale.com" <fugang.duan@freescale.com>
-Subject: RE: [PATCH net-next 1/1] ARM: dts: imx6sx: correct i.MX6sx sdb board
- enet phy address
-Date: Tue, 20 Jan 2015 08:44:09 +0000
-Message-ID: <BLUPR03MB3732D6601E8D5F5CD12D348F54B0@BLUPR03MB373.namprd03.prod.outlook.com>
-References: <1421660282-29494-1-git-send-email-b38611@freescale.com>
- <20150120083156.GY2766@dragon>
+From: Sathya Perla <sathya.perla@emulex.com>
+Subject: [PATCH net-next 2/7] be2net: fix failure case in setting flow control
+Date: Tue, 20 Jan 2015 03:51:44 -0500
+Message-ID: <1421743909-14716-3-git-send-email-sathya.perla@emulex.com>
+References: <1421743909-14716-1-git-send-email-sathya.perla@emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	"s.hauer@pengutronix.de" <s.hauer@pengutronix.de>,
-	"stefan@agner.ch" <stefan@agner.ch>
-To: Shawn Guo <shawn.guo@linaro.org>
+Content-Type: text/plain
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1bn0108.outbound.protection.outlook.com ([157.56.110.108]:33634
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751356AbbATIoM convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jan 2015 03:44:12 -0500
-In-Reply-To: <20150120083156.GY2766@dragon>
-Content-Language: en-US
+Received: from cmexedge2.emulex.com ([138.239.224.100]:42758 "EHLO
+	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752027AbbATIs7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jan 2015 03:48:59 -0500
+In-Reply-To: <1421743909-14716-1-git-send-email-sathya.perla@emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shawn Guo <shawn.guo@linaro.org> Sent: Tuesday, January 20, 2015 4:32 PM
-> To: Duan Fugang-B38611
-> Cc: davem@davemloft.net; netdev@vger.kernel.org; linux-arm-
-> kernel@lists.infradead.org; s.hauer@pengutronix.de; stefan@agner.ch
-> Subject: Re: [PATCH net-next 1/1] ARM: dts: imx6sx: correct i.MX6sx sdb
-> board enet phy address
-> 
-> On Mon, Jan 19, 2015 at 05:38:02PM +0800, Fugang Duan wrote:
-> > The commit (3d125f9c91c5) cause i.MX6SX sdb enet cannot work. The
-> > cause is the commit add mdio node with un-correct phy address.
-> >
-> > The patch just correct i.MX6sx sdb board enet phy address.
-> >
-> > Signed-off-by: Fugang Duan <B38611@freescale.com>
-> > ---
-> >  arch/arm/boot/dts/imx6sx-sdb.dts |    4 ++--
-> >  1 files changed, 2 insertions(+), 2 deletions(-)
-> >
-> > diff --git a/arch/arm/boot/dts/imx6sx-sdb.dts
-> > b/arch/arm/boot/dts/imx6sx-sdb.dts
-> > index 8c1febd..9db123f 100644
-> > --- a/arch/arm/boot/dts/imx6sx-sdb.dts
-> > +++ b/arch/arm/boot/dts/imx6sx-sdb.dts
-> > @@ -167,11 +167,11 @@
-> >  		#size-cells = <0>;
-> >
-> >  		ethphy1: ethernet-phy@0 {
-> 
-> The unit-address should match 'reg' property, so it needs an update too.
-> 
-> Shawn
+From: Kalesh AP <kalesh.purayil@emulex.com>
 
-Yes, you are right.
-I update it and send the next version.
+When the FW cmd to set flow control fails, the adapter state must simply
+reflect the old values.
 
-Thanks,
-Andy
+Signed-off-by: Kalesh AP <kalesh.purayil@emulex.com>
+Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
+---
+ drivers/net/ethernet/emulex/benet/be_ethtool.c | 14 ++++++++------
+ drivers/net/ethernet/emulex/benet/be_main.c    | 12 +++++++-----
+ 2 files changed, 15 insertions(+), 11 deletions(-)
+
+diff --git a/drivers/net/ethernet/emulex/benet/be_ethtool.c b/drivers/net/ethernet/emulex/benet/be_ethtool.c
+index 32c53bc..4d2de47 100644
+--- a/drivers/net/ethernet/emulex/benet/be_ethtool.c
++++ b/drivers/net/ethernet/emulex/benet/be_ethtool.c
+@@ -705,15 +705,17 @@ be_set_pauseparam(struct net_device *netdev, struct ethtool_pauseparam *ecmd)
+ 
+ 	if (ecmd->autoneg != adapter->phy.fc_autoneg)
+ 		return -EINVAL;
+-	adapter->tx_fc = ecmd->tx_pause;
+-	adapter->rx_fc = ecmd->rx_pause;
+ 
+-	status = be_cmd_set_flow_control(adapter,
+-					 adapter->tx_fc, adapter->rx_fc);
+-	if (status)
++	status = be_cmd_set_flow_control(adapter, ecmd->tx_pause,
++					 ecmd->rx_pause);
++	if (status) {
+ 		dev_warn(&adapter->pdev->dev, "Pause param set failed\n");
++		return be_cmd_status(status);
++	}
+ 
+-	return be_cmd_status(status);
++	adapter->tx_fc = ecmd->tx_pause;
++	adapter->rx_fc = ecmd->rx_pause;
++	return 0;
+ }
+ 
+ static int be_set_phys_id(struct net_device *netdev,
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index c40d7ef..f5ac35c 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -3667,7 +3667,6 @@ int be_update_queues(struct be_adapter *adapter)
+ static int be_setup(struct be_adapter *adapter)
+ {
+ 	struct device *dev = &adapter->pdev->dev;
+-	u32 tx_fc, rx_fc;
+ 	int status;
+ 
+ 	be_setup_init(adapter);
+@@ -3717,11 +3716,14 @@ static int be_setup(struct be_adapter *adapter)
+ 
+ 	be_cmd_get_acpi_wol_cap(adapter);
+ 
+-	be_cmd_get_flow_control(adapter, &tx_fc, &rx_fc);
++	status = be_cmd_set_flow_control(adapter, adapter->tx_fc,
++					 adapter->rx_fc);
++	if (status)
++		be_cmd_get_flow_control(adapter, &adapter->tx_fc,
++					&adapter->rx_fc);
+ 
+-	if (rx_fc != adapter->rx_fc || tx_fc != adapter->tx_fc)
+-		be_cmd_set_flow_control(adapter, adapter->tx_fc,
+-					adapter->rx_fc);
++	dev_info(&adapter->pdev->dev, "HW Flow control - TX:%d RX:%d\n",
++		 adapter->tx_fc, adapter->rx_fc);
+ 
+ 	if (be_physfn(adapter))
+ 		be_cmd_set_logical_link_config(adapter,
+-- 
+2.2.0
