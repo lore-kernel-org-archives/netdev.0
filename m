@@ -1,50 +1,74 @@
 From: Tom Herbert <therbert@google.com>
-Subject: Re: [PATCH net-next 2/2] vxlan: Eliminate dependency on UDP socket in
- transmit path
-Date: Tue, 20 Jan 2015 14:53:33 -0800
-Message-ID: <CA+mtBx9p0hXP=f4pCTASM_7RXfP8t2qkGQ34iQ7-vuCq1sMAWQ@mail.gmail.com>
-References: <1421518700-22460-1-git-send-email-therbert@google.com>
-	<1421518700-22460-3-git-send-email-therbert@google.com>
-	<20150119085938.GG20315@casper.infradead.org>
-	<CA+mtBx-QVcK2yP7hwr01X-KaXedzrgMGrHH503-i5y54BPnNPA@mail.gmail.com>
-	<20150120181335.GL20315@casper.infradead.org>
+Subject: Re: [PATCH net-next 0/3] openvswitch: Add STT support.
+Date: Tue, 20 Jan 2015 15:06:26 -0800
+Message-ID: <CA+mtBx90TipY9uJvW2uQfrCYL9JNM9Rk75HzdJPhE0qsdy8dnw@mail.gmail.com>
+References: <1421785536-19793-1-git-send-email-pshelar@nicira.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Cc: David Miller <davem@davemloft.net>,
 	Linux Netdev List <netdev@vger.kernel.org>
-To: Thomas Graf <tgraf@suug.ch>
+To: Pravin B Shelar <pshelar@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f178.google.com ([209.85.213.178]:62525 "EHLO
+Received: from mail-ig0-f178.google.com ([209.85.213.178]:52886 "EHLO
 	mail-ig0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751479AbbATWxe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jan 2015 17:53:34 -0500
-Received: by mail-ig0-f178.google.com with SMTP id hl2so17305655igb.5
-        for <netdev@vger.kernel.org>; Tue, 20 Jan 2015 14:53:34 -0800 (PST)
-In-Reply-To: <20150120181335.GL20315@casper.infradead.org>
+	with ESMTP id S1752530AbbATXG1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jan 2015 18:06:27 -0500
+Received: by mail-ig0-f178.google.com with SMTP id hl2so17349732igb.5
+        for <netdev@vger.kernel.org>; Tue, 20 Jan 2015 15:06:26 -0800 (PST)
+In-Reply-To: <1421785536-19793-1-git-send-email-pshelar@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 20, 2015 at 10:13 AM, Thomas Graf <tgraf@suug.ch> wrote:
-> On 01/20/15 at 09:29am, Tom Herbert wrote:
->> I didn't see any reason to preclude that, if it needs to be symmetric
->> in that case it can be forced at the configuration. Being able to
->> receive RCO but not have to send it to certain peers is important use
->> case. You may want to consider this also for GBP if there are cases
->> where we accept GBP from different peers, but only send it to certain
->> ones.
+On Tue, Jan 20, 2015 at 12:25 PM, Pravin B Shelar <pshelar@nicira.com> wrote:
+> Following patch series adds support for Stateless Transport
+> Tunneling protocol.
+> STT uses TCP segmentation offload available in most of NIC. On
+> packet xmit STT driver appends STT header along with TCP header
+> to the packet. For GSO packet GSO parameters are set according
+> to tunnel configuration and packet is handed over to networking
+> stack. This allows use of segmentation offload available in NICs
 >
-> I think asymmetric configurations are fine, in particular
-> receive-only. I was reluctant to the send-only scenario initially
-> as I would expect a VTEP sending RCO frames on UDP dport 8472 to
-> also always be able to accept RCO frames on that port. I can't
-> come up with any specific cases where this would lead to problems
-> though so I have no objections.
+> Netperf unidirectional test gives ~9.4 Gbits/s performance on 10Gbit
+> NIC with 1500 byte MTU with two TCP streams.
 >
-> As for GBP, as processing of the policy group requires additional
-> iptables or OVS rules anyway, such behaviour would be implemented
-> in those rules by either ignoring the mark or dropping such frames.
+Having packets marked TCP which really aren't TCP is a rather scary
+prospect to deploy in a real data center (TCP is kind of an important
+protocol ;-) ). Can you give some more motivation on this, more data
+that shows what the benefits are and how this compares to equivalent
+encapsulation protocols that implement GRO and GSO.
 
-It's risky from a protocol perspective to assume that sending
-something will be properly ignored. Just because we're willing to
-receive something, doesn't mean we necessarily want to send it--
-that's the robustness principle :-)
+Thanks,
+Tom
+
+> The protocol is documented at
+> http://www.ietf.org/archive/id/draft-davie-stt-06.txt
+>
+> I will send out OVS userspace patch on ovs-dev mailing list.
+>
+> Pravin B Shelar (3):
+>   skbuff: Add skb_list_linearize()
+>   net: Add STT tunneling protocol.
+>   openvswitch: Add support for STT tunneling.
+>
+>  include/linux/skbuff.h           |    2 +
+>  include/net/stt.h                |   55 ++
+>  include/uapi/linux/openvswitch.h |    1 +
+>  net/core/skbuff.c                |   35 +
+>  net/ipv4/Kconfig                 |   11 +
+>  net/ipv4/Makefile                |    1 +
+>  net/ipv4/stt.c                   | 1386 ++++++++++++++++++++++++++++++++++++++
+>  net/openvswitch/Kconfig          |   10 +
+>  net/openvswitch/Makefile         |    1 +
+>  net/openvswitch/vport-stt.c      |  214 ++++++
+>  10 files changed, 1716 insertions(+)
+>  create mode 100644 include/net/stt.h
+>  create mode 100644 net/ipv4/stt.c
+>  create mode 100644 net/openvswitch/vport-stt.c
+>
+> --
+> 1.9.1
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
