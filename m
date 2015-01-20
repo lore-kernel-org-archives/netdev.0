@@ -1,56 +1,77 @@
-From: Hayes Wang <hayeswang@realtek.com>
-Subject: RE: [PATCH net-next 1/7] r8152: adjust rx_bottom
-Date: Tue, 20 Jan 2015 03:24:52 +0000
-Message-ID: <0835B3720019904CB8F7AA43166CEEB2EE6E9F@RTITMBSV03.realtek.com.tw>
-References: <CAE4R7bAv26f-+DW-TmjspJxAb-3Add5sf563mnMUTGCyiqG3rQ@mail.gmail.com>
-	<20150119.161333.1471925264489559119.davem@davemloft.net>
-	<0835B3720019904CB8F7AA43166CEEB2EE6E76@RTITMBSV03.realtek.com.tw>
- <20150119.215220.720365670558757349.davem@davemloft.net>
+From: "Fu, Zhonghui" <zhonghui.fu@linux.intel.com>
+Subject: [PATCH] brcmfmac: avoid duplicated suspend/resume operation
+Date: Tue, 20 Jan 2015 11:31:18 +0800
+Message-ID: <54BDCC06.8090107@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "sfeldma@gmail.com" <sfeldma@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	nic_swsd <nic_swsd@realtek.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+To: brudley@broadcom.com, Arend van Spriel <arend@broadcom.com>,
+	Franky Lin <frankyl@broadcom.com>, meuleman@broadcom.com,
+	kvalo@codeaurora.org, linville@tuxdriver.com,
+	pieterpg@broadcom.com, hdegoede@redhat.com, wens@csie.org,
+	linux-wireless@vger.kernel.org, brcm80211-dev-list@broadcom.com,
+	netdev@vger.kernel.org,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150119.215220.720365670558757349.davem@davemloft.net>
-Content-Language: zh-TW
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
- David Miller [mailto:davem@davemloft.net] 
-> Sent: Tuesday, January 20, 2015 10:52 AM
-[...]
-> agg->list is not local, you have to use a spinlock to protect
-> modifications to it, some other sites which modify agg->list do take
-> the lock properly.
-> 
-> You cannot modify a list like agg->list without proper locking.
+>From 04d3fa673897ca4ccbea6c76836d0092dba2484a Mon Sep 17 00:00:00 2001
+From: Zhonghui Fu <zhonghui.fu@linux.intel.com>
+Date: Tue, 20 Jan 2015 11:14:13 +0800
+Subject: [PATCH] brcmfmac: avoid duplicated suspend/resume operation
 
-Excuse me. I don't understand.
+WiFi chip has 2 SDIO functions, and PM core will trigger
+twice suspend/resume operations for one WiFi chip to do
+the same things. This patch avoid this case.
 
-Before step1
-   tp_rx_done->listA->listB->listC->listD->...
-   rx_queue->
-Because the other function would chage tp->rx_done,
-I need move the lists with spin lock.
+Acked-by: Arend van Spriel <arend@broadcom.com>
+Acked-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Acked-by: Kalle Valo <kvalo@codeaurora.org>
+Signed-off-by: Zhonghui Fu <zhonghui.fu@linux.intel.com>
+---
+ drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c |   17 +++++++++++++++--
+ 1 files changed, 15 insertions(+), 2 deletions(-)
 
-After step1
-   tp_rx_done->
-   rx_queue->listA->listB->listC->listD->...
-
-Now I dequeue one of the lists from the list_head and
-deal with it.
-   tp_rx_done->
-   rx_queue->listA->listC->listD->...
-                    listB
-
-Then, if I want to put it back to rx_queue, I have to
-use spin lock. Why? No other function would chage
-rx_queue and the items in it.
+diff --git a/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c b/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c
+index 9880dae..618b545 100644
+--- a/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c
++++ b/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c
+@@ -1139,11 +1139,17 @@ void brcmf_sdio_wowl_config(struct device *dev, bool enabled)
+ static int brcmf_ops_sdio_suspend(struct device *dev)
+ {
+ 	struct brcmf_bus *bus_if = dev_get_drvdata(dev);
+-	struct brcmf_sdio_dev *sdiodev = bus_if->bus_priv.sdio;
++	struct brcmf_sdio_dev *sdiodev;
+ 	mmc_pm_flag_t sdio_flags;
++	struct sdio_func *func = dev_to_sdio_func(dev);
  
-Best Regards,
-Hayes
+ 	brcmf_dbg(SDIO, "Enter\n");
+ 
++	if (func->num == 2)
++		return 0;
++
++	sdiodev = bus_if->bus_priv.sdio;
++
+ 	atomic_set(&sdiodev->suspend, true);
+ 
+ 	if (sdiodev->wowl_enabled) {
+@@ -1164,9 +1170,16 @@ static int brcmf_ops_sdio_suspend(struct device *dev)
+ static int brcmf_ops_sdio_resume(struct device *dev)
+ {
+ 	struct brcmf_bus *bus_if = dev_get_drvdata(dev);
+-	struct brcmf_sdio_dev *sdiodev = bus_if->bus_priv.sdio;
++	struct brcmf_sdio_dev *sdiodev;
++	struct sdio_func *func = dev_to_sdio_func(dev);
+ 
+ 	brcmf_dbg(SDIO, "Enter\n");
++
++	if (func->num == 2)
++		return 0;
++
++	sdiodev = bus_if->bus_priv.sdio;
++
+ 	if (sdiodev->pdata && sdiodev->pdata->oob_irq_supported)
+ 		disable_irq_wake(sdiodev->pdata->oob_irq_nr);
+ 	brcmf_sdio_wd_timer(sdiodev->bus, BRCMF_WD_POLL_MS);
+-- 1.7.1
