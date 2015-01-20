@@ -1,62 +1,84 @@
-From: Vadim Kochan <vadim4j@gmail.com>
-Subject: Re: [PATCH iproute2 3/3] ss: Unify tcp stats output
-Date: Tue, 20 Jan 2015 13:09:51 +0200
-Message-ID: <20150120110951.GA18551@angus-think.wlc.globallogic.com>
-References: <1421613815-6635-1-git-send-email-vadim4j@gmail.com>
- <1421613815-6635-4-git-send-email-vadim4j@gmail.com>
- <CAPh34mdi+8wLaUY3ZBks40wbOtdzsbTrmuvsHivRouc9rs3gig@mail.gmail.com>
- <54BE392F.2070804@redhat.com>
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Subject: Re: [Xen-devel] [RFC PATCHv1 net-next] xen-netback: always fully
+ coalesce guest Rx packets
+Date: Tue, 20 Jan 2015 11:21:48 +0000
+Message-ID: <1421752908.10440.224.camel@citrix.com>
+References: <1421157917-31333-1-git-send-email-david.vrabel@citrix.com>
+	 <20150113143033.GN4226@zion.uk.xensource.com> <54BD408A.6080405@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Hagen Paul Pfeifer <hagen@jauu.net>,
-	Vadim Kochan <vadim4j@gmail.com>,
-	netdev <netdev@vger.kernel.org>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: Daniel Borkmann <dborkman@redhat.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Wei Liu <wei.liu2@citrix.com>, <netdev@vger.kernel.org>,
+	<xen-devel@lists.xenproject.org>,
+	Jonathan Davies <jonathan.davies@citrix.com>
+To: David Vrabel <david.vrabel@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f51.google.com ([74.125.82.51]:38033 "EHLO
-	mail-wg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754378AbbATLUb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jan 2015 06:20:31 -0500
-Received: by mail-wg0-f51.google.com with SMTP id l18so14541785wgh.10
-        for <netdev@vger.kernel.org>; Tue, 20 Jan 2015 03:20:30 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <54BE392F.2070804@redhat.com>
+Received: from smtp.citrix.com ([66.165.176.89]:17469 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755004AbbATLVv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Jan 2015 06:21:51 -0500
+In-Reply-To: <54BD408A.6080405@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 20, 2015 at 12:17:03PM +0100, Daniel Borkmann wrote:
-> Hi Hagen,
+On Mon, 2015-01-19 at 17:36 +0000, David Vrabel wrote:
+> On 13/01/15 14:30, Wei Liu wrote:
+> > On Tue, Jan 13, 2015 at 02:05:17PM +0000, David Vrabel wrote:
+> >> Always fully coalesce guest Rx packets into the minimum number of ring
+> >> slots.  Reducing the number of slots per packet has significant
+> >> performance benefits (e.g., 7.2 Gbit/s to 11 Gbit/s in an off-host
+> >> receive test).
+> >>
+> > 
+> > Good number.
+> > 
+> >> However, this does increase the number of grant ops per packet which
+> >> decreases performance with some workloads (intrahost VM to VM)
+> > 
+> > Do you have figures before and after this change?
 > 
-> On 01/20/2015 11:29 AM, Hagen Paul Pfeifer wrote:
-> >On 18 January 2015 at 21:43, Vadim Kochan <vadim4j@gmail.com> wrote:
-> ...
-> >My proposal:
-> >
-> >1) support grouping. E.g. DCTCP could be separated in the following
-> >manner. I.e. "dctcp:[ ce_state: %d, alpha: %d, ...  ]" or
-> >"dctcp:ce_state.%d;alpha,%d" like the socket memory output.
-> >     This makes it easier for humans and scripts to parse the output.
-> >Since some time ss output is extended really extensive (especially
-> >Eric make use of this). This is not the end and additional values are
-> >added - make the current babylon even worse.
+> Some better (more rigorous) results done by Jonathan Davies shows no
+> regressions with full coalescing even without the grant copy
+> optimization, and a big improvement to single stream receive.
 > 
-> I have no strong opinion on this, but I also have a limited view on
-> what applications try to parse ss output in general.
+>                          baseline    Full coalesce
+> Interhost aggregate      24 Gb/s     24 Gb/s
+> Interhost VM receive      7.2 Gb/s   11 Gb/s
+> Intrahost single stream  14 Gb/s     14 Gb/s
+> Intrahost aggregate      34 Gb/s     34 Gb/s
 > 
-> As mentioned, for human readability, we should implement a top-like
-> display option which is allowed to have a rather 'instable' output
-> by nature and levels of detail can be folded/unfolded on demand.
+> We do not measure the performance of dom0 to guest traffic but my ad-hoc
+> measurements suggest this may be 5-10% slower.  I don't think this is a
+> very important use case though.
 
-I think it would be good to have as option and output some default basic
-info ?
+If you are updating your dom0 kernel to take advantage of this
+improvement and you care about dom0->domU performance too then also
+updating your Xen at the same is not a huge deal, I think. Or at least I
+don't consider it a blocker for making progress (certainly not progress
+of the order of 50% improvements!).
+
+> So...
 > 
-> >2) add a JSON formater as soon as possible to make the output
-> >parseable. I would do this - it is required anyway.
+> >> /unless/ grant copy has been optimized for adjacent ops with the same
+> >> source or destination (see "grant-table: defer releasing pages
+> >> acquired in a grant copy"[1]).
+> >>
+> >> Do we need to retain the existing path and make the always coalesce
+> >> path conditional on a suitable version of Xen?
 > 
-> Given the recent discussion on web10g, json output option might
-> be very useful to provide i.e. when stats are being further extended.
+> ...I think the answer to this is no.
+
+Agreed.
+
+> >> ---
+> >>  drivers/net/xen-netback/common.h  |    1 -
+> >>  drivers/net/xen-netback/netback.c |  106 ++-----------------------------------
+> >>  2 files changed, 3 insertions(+), 104 deletions(-)
+> > 
+> > Love the diffstat!
 > 
-> Cheers,
-> Daniel
+> Yes, it's always nice when you delete code and it goes faster... :)
+
+Full-Ack to that ;-)
+
+Ian.
