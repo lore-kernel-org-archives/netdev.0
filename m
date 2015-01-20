@@ -1,218 +1,258 @@
-From: Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>
-Subject: Re: [PATCH tip 4/9] samples: bpf: simple tracing example in eBPF
- assembler
-Date: Tue, 20 Jan 2015 20:57:38 +0900
-Message-ID: <54BE42B2.4060706@hitachi.com>
-References: <1421381770-4866-1-git-send-email-ast@plumgrid.com> <1421381770-4866-5-git-send-email-ast@plumgrid.com>
+From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Subject: Re: [PATCH net-next v13 3/3] net: hisilicon: new hip04 ethernet driver
+Date: Tue, 20 Jan 2015 13:01:53 +0100
+Message-ID: <17360357.cJoZFH8idi@wuerfel>
+References: <1421217254-12008-1-git-send-email-dingtianhong@huawei.com> <9314032.C8yR0htxiP@wuerfel> <54BDBA29.10703@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
-Content-Transfer-Encoding: 7bit
-Cc: Ingo Molnar <mingo@kernel.org>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Namhyung Kim <namhyung@kernel.org>,
-	Arnaldo Carvalho de Melo <acme@infradead.org>,
-	Jiri Olsa <jolsa@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Brendan Gregg <brendan.d.gregg@gmail.com>,
-	linux-api@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	"yrl.pp-manager.tt@hitachi.com" <yrl.pp-manager.tt@hitachi.com>
-To: Alexei Starovoitov <ast@plumgrid.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1421381770-4866-5-git-send-email-ast@plumgrid.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Ding Tianhong <dingtianhong-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	Alexander Graf <agraf-l3A5Bk7waGM@public.gmane.org>, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org, sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org,
+	eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	xuwei5-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org,
+	zhangfei.gao-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <54BDBA29.10703-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-(2015/01/16 13:16), Alexei Starovoitov wrote:
-> simple packet drop monitor:
-> - in-kernel eBPF program attaches to kfree_skb() event and records number
->   of packet drops at given location
-> - userspace iterates over the map every second and prints stats
+On Tuesday 20 January 2015 10:15:05 Ding Tianhong wrote:
+> On 2015/1/20 4:34, Arnd Bergmann wrote:
+> > On Monday 19 January 2015 19:11:11 Alexander Graf wrote:
+> >>
+> >> After hammering on the box a bit again, I'm in a situation where I get 
+> >> lots of
+> >>
+> >> [302398.232603] hip04-ether e28b0000.ethernet eth0: rx drop
+> >> [302398.377309] hip04-ether e28b0000.ethernet eth0: rx drop
+> >> [302398.395198] hip04-ether e28b0000.ethernet eth0: rx drop
+> >> [302398.466118] hip04-ether e28b0000.ethernet eth0: rx drop
+> >> [302398.659009] hip04-ether e28b0000.ethernet eth0: rx drop
+> >> [302399.053389] hip04-ether e28b0000.ethernet eth0: rx drop
+> >> [302399.122067] hip04-ether e28b0000.ethernet eth0: rx drop
+> >> [302399.268192] hip04-ether e28b0000.ethernet eth0: rx drop
+> >> [302399.286081] hip04-ether e28b0000.ethernet eth0: rx drop
+> >> [302399.594201] hip04-ether e28b0000.ethernet eth0: rx drop
+> >> [302399.683416] hip04-ether e28b0000.ethernet eth0: rx drop
+> >> [302399.701307] hip04-ether e28b0000.ethernet eth0: rx drop
+> >>
+> >> and I really am getting a lot of drops - I can't even ping the machine 
+> >> anymore.
+> >>
+> >> However, as it is there's a good chance the machine is simply 
+> >> unreachable because it's busy writing to the UART, and even if not all 
+> >> useful messages indicating anything have scrolled out. I really don't 
+> >> think you should emit any message over and over again to the user. Once 
+> >> or twice is enough.
+> >>
+> >> Please make sure to rate limit it.
+> > 
+> > I would argue that packet loss is not an error condition at all
+> > and you should not print this at netdev_err() level. You could make
+> > this a netdev_dbg(), or just make it silent because it's already
+> > counted in the statistics.
+> > 
+> 
+> I think something wrong with Graf's board, I will try to make it happen on my board, and 
+> in any case I will add rate limit to xx_drop and change to dbg log level.
 
-Hmm, this eBPF assembly macros are very interesting. Maybe I can
-replace current kprobe's argument "fetching methods" with this.
+I've looked at the interrupt handling in more detail and came up
+with this patch. Please review, and forward if you are happy with the
+changes.
 
-Thank you,
+Alex, could you try if this solves your problem?
 
-> 
-> Usage:
-> $ sudo dropmon
-> location 0xffffffff81695995 count 1
-> location 0xffffffff816d0da9 count 2
-> 
-> location 0xffffffff81695995 count 2
-> location 0xffffffff816d0da9 count 2
-> 
-> location 0xffffffff81695995 count 3
-> location 0xffffffff816d0da9 count 2
-> 
-> $ addr2line -ape ./bld_x64/vmlinux 0xffffffff81695995 0xffffffff816d0da9
-> 0xffffffff81695995: ./bld_x64/../net/ipv4/icmp.c:1038
-> 0xffffffff816d0da9: ./bld_x64/../net/unix/af_unix.c:1231
-> 
-> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
-> ---
->  samples/bpf/Makefile  |    2 +
->  samples/bpf/dropmon.c |  129 +++++++++++++++++++++++++++++++++++++++++++++++++
->  2 files changed, 131 insertions(+)
->  create mode 100644 samples/bpf/dropmon.c
-> 
-> diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
-> index b5b3600dcdf5..789691374562 100644
-> --- a/samples/bpf/Makefile
-> +++ b/samples/bpf/Makefile
-> @@ -6,7 +6,9 @@ hostprogs-y := test_verifier test_maps
->  hostprogs-y += sock_example
->  hostprogs-y += sockex1
->  hostprogs-y += sockex2
-> +hostprogs-y += dropmon
->  
-> +dropmon-objs := dropmon.o libbpf.o
->  test_verifier-objs := test_verifier.o libbpf.o
->  test_maps-objs := test_maps.o libbpf.o
->  sock_example-objs := sock_example.o libbpf.o
-> diff --git a/samples/bpf/dropmon.c b/samples/bpf/dropmon.c
-> new file mode 100644
-> index 000000000000..9a2cd3344d69
-> --- /dev/null
-> +++ b/samples/bpf/dropmon.c
-> @@ -0,0 +1,129 @@
-> +/* simple packet drop monitor:
-> + * - in-kernel eBPF program attaches to kfree_skb() event and records number
-> + *   of packet drops at given location
-> + * - userspace iterates over the map every second and prints stats
-> + */
-> +#include <stdio.h>
-> +#include <unistd.h>
-> +#include <linux/bpf.h>
-> +#include <errno.h>
-> +#include <linux/unistd.h>
-> +#include <string.h>
-> +#include <linux/filter.h>
-> +#include <stdlib.h>
-> +#include <sys/types.h>
-> +#include <sys/stat.h>
-> +#include <fcntl.h>
-> +#include <stdbool.h>
-> +#include "libbpf.h"
-> +
-> +#define TRACEPOINT "/sys/kernel/debug/tracing/events/skb/kfree_skb/"
-> +
-> +static int write_to_file(const char *file, const char *str, bool keep_open)
-> +{
-> +	int fd, err;
-> +
-> +	fd = open(file, O_WRONLY);
-> +	err = write(fd, str, strlen(str));
-> +	(void) err;
-> +
-> +	if (keep_open) {
-> +		return fd;
-> +	} else {
-> +		close(fd);
-> +		return -1;
-> +	}
-> +}
-> +
-> +static int dropmon(void)
-> +{
-> +	long long key, next_key, value = 0;
-> +	int prog_fd, map_fd, i;
-> +	char fmt[32];
-> +
-> +	map_fd = bpf_create_map(BPF_MAP_TYPE_HASH, sizeof(key), sizeof(value), 1024);
-> +	if (map_fd < 0) {
-> +		printf("failed to create map '%s'\n", strerror(errno));
-> +		goto cleanup;
-> +	}
-> +
-> +	/* the following eBPF program is equivalent to C:
-> +	 * int filter(struct bpf_context *ctx)
-> +	 * {
-> +	 *   long loc = ctx->arg2;
-> +	 *   long init_val = 1;
-> +	 *   long *value;
-> +	 *
-> +	 *   value = bpf_map_lookup_elem(MAP_ID, &loc);
-> +	 *   if (value) {
-> +	 *      __sync_fetch_and_add(value, 1);
-> +	 *   } else {
-> +	 *      bpf_map_update_elem(MAP_ID, &loc, &init_val, BPF_ANY);
-> +	 *   }
-> +	 *   return 0;
-> +	 * }
-> +	 */
-> +	struct bpf_insn prog[] = {
-> +		BPF_LDX_MEM(BPF_DW, BPF_REG_2, BPF_REG_1, 8), /* r2 = *(u64 *)(r1 + 8) */
-> +		BPF_STX_MEM(BPF_DW, BPF_REG_10, BPF_REG_2, -8), /* *(u64 *)(fp - 8) = r2 */
-> +		BPF_MOV64_REG(BPF_REG_2, BPF_REG_10),
-> +		BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -8), /* r2 = fp - 8 */
-> +		BPF_LD_MAP_FD(BPF_REG_1, map_fd),
-> +		BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_map_lookup_elem),
-> +		BPF_JMP_IMM(BPF_JEQ, BPF_REG_0, 0, 4),
-> +		BPF_MOV64_IMM(BPF_REG_1, 1), /* r1 = 1 */
-> +		BPF_RAW_INSN(BPF_STX | BPF_XADD | BPF_DW, BPF_REG_0, BPF_REG_1, 0, 0), /* xadd r0 += r1 */
-> +		BPF_MOV64_IMM(BPF_REG_0, 0), /* r0 = 0 */
-> +		BPF_EXIT_INSN(),
-> +		BPF_ST_MEM(BPF_DW, BPF_REG_10, -16, 1), /* *(u64 *)(fp - 16) = 1 */
-> +		BPF_MOV64_IMM(BPF_REG_4, BPF_ANY),
-> +		BPF_MOV64_REG(BPF_REG_3, BPF_REG_10),
-> +		BPF_ALU64_IMM(BPF_ADD, BPF_REG_3, -16), /* r3 = fp - 16 */
-> +		BPF_MOV64_REG(BPF_REG_2, BPF_REG_10),
-> +		BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -8), /* r2 = fp - 8 */
-> +		BPF_LD_MAP_FD(BPF_REG_1, map_fd),
-> +		BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_map_update_elem),
-> +		BPF_MOV64_IMM(BPF_REG_0, 0), /* r0 = 0 */
-> +		BPF_EXIT_INSN(),
-> +	};
-> +
-> +	prog_fd = bpf_prog_load(BPF_PROG_TYPE_TRACING_FILTER, prog,
-> +				sizeof(prog), "GPL");
-> +	if (prog_fd < 0) {
-> +		printf("failed to load prog '%s'\n%s", strerror(errno), bpf_log_buf);
-> +		return -1;
-> +	}
-> +
-> +	sprintf(fmt, "bpf_%d", prog_fd);
-> +
-> +	write_to_file(TRACEPOINT "filter", fmt, true);
-> +
-> +	for (i = 0; i < 10; i++) {
-> +		key = 0;
-> +		while (bpf_get_next_key(map_fd, &key, &next_key) == 0) {
-> +			bpf_lookup_elem(map_fd, &next_key, &value);
-> +			printf("location 0x%llx count %lld\n", next_key, value);
-> +			key = next_key;
-> +		}
-> +		if (key)
-> +			printf("\n");
-> +		sleep(1);
-> +	}
-> +
-> +cleanup:
-> +	/* maps, programs, tracepoint filters will auto cleanup on process exit */
-> +
-> +	return 0;
-> +}
-> +
-> +int main(void)
-> +{
-> +	FILE *f;
-> +
-> +	/* start ping in the background to get some kfree_skb events */
-> +	f = popen("ping -c5 localhost", "r");
-> +	(void) f;
-> +
-> +	dropmon();
-> +	return 0;
-> +}
-> 
+8<----
+Subject: [PATCH] net/hip04: refactor interrupt masking
 
+The hip04 ethernet driver currently acknowledges all interrupts directly
+in the interrupt handler, and leaves all interrupts except the RX data
+enabled the whole time. This causes multiple problems:
 
--- 
-Masami HIRAMATSU
-Software Platform Research Dept. Linux Technology Center
-Hitachi, Ltd., Yokohama Research Laboratory
-E-mail: masami.hiramatsu.pt@hitachi.com
+- When more packets come in between the original interrupt and the
+  NAPI poll function, we will get an extraneous RX interrupt as soon
+  as interrupts are enabled again.
+
+- The two error interrupts are by definition combining all errors that
+  may have happened since the last time they were handled, but just
+  acknowledging the irq without dealing with the cause of the condition
+  makes it come back immediately. In particular, when NAPI is intentionally
+  stalling the rx queue, this causes a storm of "rx dropped" messages.  
+
+- The access to the 'reg_inten' field in hip_priv is used for serializing
+  access, but is in fact racy itself.
+
+To deal with these issues, the driver is changed to only acknowledge
+the IRQ at the point when it is being handled. The RX interrupts now get
+acked right before reading the number of received frames to keep spurious
+interrupts to the absolute minimum without losing interrupts.
+
+As there is no tx-complete interrupt, only an informational tx-dropped
+one, we now ack that in the tx reclaim handler, hoping that clearing
+the descriptors has also eliminated the error condition.
+
+The only place that reads the reg_inten now just relies on
+napi_schedule_prep() to return whether NAPI is active or not, and
+the poll() function is then going to ack and reenabled the IRQ if
+necessary.
+
+Finally, when we disable interrupts, they are now all disabled
+together, in order to simplify the logic and to avoid getting
+rx-dropped interrupts when NAPI is in control of the rx queue.
+
+Signed-off-by: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+
+diff --git a/drivers/net/ethernet/hisilicon/hip04_eth.c b/drivers/net/ethernet/hisilicon/hip04_eth.c
+index 525214ef5984..83773247a368 100644
+--- a/drivers/net/ethernet/hisilicon/hip04_eth.c
++++ b/drivers/net/ethernet/hisilicon/hip04_eth.c
+@@ -56,6 +56,8 @@
+ #define RCV_DROP			BIT(7)
+ #define TX_DROP				BIT(6)
+ #define DEF_INT_ERR			(RCV_NOBUF | RCV_DROP | TX_DROP)
++#define DEF_INT_RX			(RCV_INT | RCV_NOBUF | RCV_DROP)
++#define DEF_INT_TX			(TX_DROP)
+ #define DEF_INT_MASK			(RCV_INT | DEF_INT_ERR)
+ 
+ /* TX descriptor config */
+@@ -154,7 +156,6 @@ struct hip04_priv {
+ 	unsigned int port;
+ 	unsigned int speed;
+ 	unsigned int duplex;
+-	unsigned int reg_inten;
+ 
+ 	struct napi_struct napi;
+ 	struct net_device *ndev;
+@@ -303,17 +304,15 @@ static void hip04_mac_enable(struct net_device *ndev)
+ 	val |= GE_RX_PORT_EN | GE_TX_PORT_EN;
+ 	writel_relaxed(val, priv->base + GE_PORT_EN);
+ 
+-	/* clear rx int */
+-	val = RCV_INT;
+-	writel_relaxed(val, priv->base + PPE_RINT);
++	/* clear prior interrupts */
++	writel_relaxed(DEF_INT_MASK, priv->base + PPE_RINT);
+ 
+ 	/* config recv int */
+ 	val = GE_RX_INT_THRESHOLD | GE_RX_TIMEOUT;
+ 	writel_relaxed(val, priv->base + PPE_CFG_RX_PKT_INT);
+ 
+ 	/* enable interrupt */
+-	priv->reg_inten = DEF_INT_MASK;
+-	writel_relaxed(priv->reg_inten, priv->base + PPE_INTEN);
++	writel_relaxed(DEF_INT_MASK, priv->base + PPE_INTEN);
+ }
+ 
+ static void hip04_mac_disable(struct net_device *ndev)
+@@ -322,8 +321,7 @@ static void hip04_mac_disable(struct net_device *ndev)
+ 	u32 val;
+ 
+ 	/* disable int */
+-	priv->reg_inten &= ~(DEF_INT_MASK);
+-	writel_relaxed(priv->reg_inten, priv->base + PPE_INTEN);
++	writel_relaxed(0, priv->base + PPE_INTEN);
+ 
+ 	/* disable tx & rx */
+ 	val = readl_relaxed(priv->base + GE_PORT_EN);
+@@ -403,6 +401,8 @@ static int hip04_tx_reclaim(struct net_device *ndev, bool force)
+ 	priv->tx_tail = tx_tail;
+ 	smp_wmb(); /* Ensure tx_tail visible to xmit */
+ 
++	writel_relaxed(DEF_INT_TX, priv->base + PPE_RINT);
++
+ out:
+ 	if (pkts_compl || bytes_compl)
+ 		netdev_completed_queue(ndev, pkts_compl, bytes_compl);
+@@ -458,9 +458,7 @@ static int hip04_mac_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+ 	if (count >= priv->tx_coalesce_frames) {
+ 		if (napi_schedule_prep(&priv->napi)) {
+ 			/* disable rx interrupt and timer */
+-			priv->reg_inten &= ~(RCV_INT);
+-			writel_relaxed(DEF_INT_MASK & ~RCV_INT,
+-				       priv->base + PPE_INTEN);
++			writel_relaxed(0, priv->base + PPE_INTEN);
+ 			hrtimer_cancel(&priv->tx_coalesce_timer);
+ 			__napi_schedule(&priv->napi);
+ 		}
+@@ -478,7 +476,7 @@ static int hip04_rx_poll(struct napi_struct *napi, int budget)
+ 	struct hip04_priv *priv = container_of(napi, struct hip04_priv, napi);
+ 	struct net_device *ndev = priv->ndev;
+ 	struct net_device_stats *stats = &ndev->stats;
+-	unsigned int cnt = hip04_recv_cnt(priv);
++	unsigned int cnt;
+ 	struct rx_desc *desc;
+ 	struct sk_buff *skb;
+ 	unsigned char *buf;
+@@ -489,6 +487,10 @@ static int hip04_rx_poll(struct napi_struct *napi, int budget)
+ 	u16 len;
+ 	u32 err;
+ 
++	/* acknowledge interrupts and read status */
++	writel_relaxed(DEF_INT_RX, priv->base + PPE_RINT);
++	cnt = hip04_recv_cnt(priv);
++
+ 	while (cnt && !last) {
+ 		buf = priv->rx_buf[priv->rx_head];
+ 		skb = build_skb(buf, priv->rx_buf_size);
+@@ -539,11 +541,8 @@ static int hip04_rx_poll(struct napi_struct *napi, int budget)
+ 			cnt = hip04_recv_cnt(priv);
+ 	}
+ 
+-	if (!(priv->reg_inten & RCV_INT)) {
+-		/* enable rx interrupt */
+-		priv->reg_inten |= RCV_INT;
+-		writel_relaxed(priv->reg_inten, priv->base + PPE_INTEN);
+-	}
++	/* enable rx interrupt */
++	writel_relaxed(DEF_INT_MASK, priv->base + PPE_INTEN);
+ 	napi_complete(napi);
+ done:
+ 	/* clean up tx descriptors and start a new timer if necessary */
+@@ -564,23 +563,21 @@ static irqreturn_t hip04_mac_interrupt(int irq, void *dev_id)
+ 	if (!ists)
+ 		return IRQ_NONE;
+ 
+-	writel_relaxed(DEF_INT_MASK, priv->base + PPE_RINT);
+-
+ 	if (unlikely(ists & DEF_INT_ERR)) {
+-		if (ists & (RCV_NOBUF | RCV_DROP))
++		if (ists & (RCV_NOBUF | RCV_DROP)) {
+ 			stats->rx_errors++;
+ 			stats->rx_dropped++;
+-			netdev_err(ndev, "rx drop\n");
++			netdev_dbg(ndev, "rx drop\n");
++		}
+ 		if (ists & TX_DROP) {
+ 			stats->tx_dropped++;
+-			netdev_err(ndev, "tx drop\n");
++			netdev_dbg(ndev, "tx drop\n");
+ 		}
+ 	}
+ 
+-	if (ists & RCV_INT && napi_schedule_prep(&priv->napi)) {
+-		/* disable rx interrupt */
+-		priv->reg_inten &= ~(RCV_INT);
+-		writel_relaxed(DEF_INT_MASK & ~RCV_INT, priv->base + PPE_INTEN);
++	if (napi_schedule_prep(&priv->napi)) {
++		/* disable interrupt */
++		writel_relaxed(0, priv->base + PPE_INTEN);
+ 		hrtimer_cancel(&priv->tx_coalesce_timer);
+ 		__napi_schedule(&priv->napi);
+ 	}
+@@ -596,8 +593,7 @@ enum hrtimer_restart tx_done(struct hrtimer *hrtimer)
+ 
+ 	if (napi_schedule_prep(&priv->napi)) {
+ 		/* disable rx interrupt */
+-		priv->reg_inten &= ~(RCV_INT);
+-		writel_relaxed(DEF_INT_MASK & ~RCV_INT, priv->base + PPE_INTEN);
++		writel_relaxed(0, priv->base + PPE_INTEN);
+ 		__napi_schedule(&priv->napi);
+ 	}
+ 
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
