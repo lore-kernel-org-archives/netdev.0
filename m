@@ -1,81 +1,69 @@
-From: roopa <roopa@cumulusnetworks.com>
-Subject: Re: [RFC PATCH net-next] bridge: ability to disable forwarding on
- a port
-Date: Tue, 20 Jan 2015 05:59:04 -0800
-Message-ID: <54BE5F28.5090706@cumulusnetworks.com>
-References: <1421479975-62049-1-git-send-email-roopa@cumulusnetworks.com> <CAE4R7bBeNojtj3Zyd6+zSJFGRjG4vejBObnS1XUFAfJDZJZYow@mail.gmail.com> <54BB7874.90201@cumulusnetworks.com> <54BC1DC5.1000401@cumulusnetworks.com> <CAE4R7bC=j-mT65TzFOhJL-Hd0GeHg3-k+=+VFHaj-m+h5PjMuQ@mail.gmail.com> <54BDF3C7.5010806@cumulusnetworks.com> <54BDFF20.9020909@intel.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH] ethernet: atheros: Add nss-gmac driver
+Date: Tue, 20 Jan 2015 15:05:17 +0100
+Message-ID: <1702448.pOVnDx4KzI@wuerfel>
+References: <1420754626-30121-1-git-send-email-wstephen@codeaurora.org> <2318041.V2OJAPu7gC@wuerfel> <3ad19b16fe5c58612479f70c052d0045.squirrel@www.codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Scott Feldman <sfeldma@gmail.com>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
-	"Arad, Ronen" <ronen.arad@intel.com>, Thomas Graf <tgraf@suug.ch>,
-	john fastabend <john.fastabend@gmail.com>,
-	"vyasevic@redhat.com" <vyasevic@redhat.com>,
-	Netdev <netdev@vger.kernel.org>,
-	Wilson Kok <wkok@cumulusnetworks.com>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>
-To: "Samudrala, Sridhar" <sridhar.samudrala@intel.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: jcliburn@gmail.com, grant.likely@linaro.org, robh+dt@kernel.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	devicetree@vger.kernel.org
+To: wstephen@codeaurora.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:41792 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752500AbbATN7J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jan 2015 08:59:09 -0500
-Received: by mail-pa0-f43.google.com with SMTP id eu11so8533015pac.2
-        for <netdev@vger.kernel.org>; Tue, 20 Jan 2015 05:59:08 -0800 (PST)
-In-Reply-To: <54BDFF20.9020909@intel.com>
+Received: from mout.kundenserver.de ([212.227.126.131]:65004 "EHLO
+	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751537AbbATOF3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jan 2015 09:05:29 -0500
+In-Reply-To: <3ad19b16fe5c58612479f70c052d0045.squirrel@www.codeaurora.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 1/19/15, 11:09 PM, Samudrala, Sridhar wrote:
->
-> On 1/19/2015 10:20 PM, roopa wrote:
->> On 1/18/15, 11:37 PM, Scott Feldman wrote:
->>
->> <snip..>
->>>
->>> Not sure. I don't know the use case, but I think I might have heard 
->>> that
->>> there could be a case
->>>   where a switch port could be bridged with a vm's port running on the
->>> switch. (?)
->>>>
->>>> Ignoring the above usecase for a bit. And thinking through this 
->>>> again, It
->>>> appears that this check should
->>>> be only on the ingress port, no ?
->>>>
->>>> If the ingress bridge port is an offloaded port, don't flood or 
->>>> forward
->>>> because hardware has already done it.
->>>> And this is best done with the offload feature flag on the bridge 
->>>> port.
->>> That's assuming hardware did the flood.  Maybe your other option to
->>> mark the skb if already flooded by hw is best.  That's enough info for
->>> the bridge driver to make a decision to flood or not to the other
->>> ports, and it's an implementation decision for the driver/device to do
->>> the flood offload, if desired, and mark the skb if it did.
->>
->> Still thinking we can just use the offload feature flag here. How 
->> about  avoid forwarding only if both src and dst ports have
->> forwarding offloaded/accelerated by a switch asic  ?. That should 
->> cover all cases.
->>>
->>> Btw, you're still saying flood or forward, but in my mind we're
->>> talking about flood only: flood of unknown unicast or flood of
->>> bcast/mcast pkts.  Forwarding would be for known-unicast pkts, which
->>> should even involve the bridge driver since that forwarding is
->>> offloaded to the device.
->>
->> I was also taking into account pkts copied to the CPU due to an acl 
->> rule such as log.
->> These unicast pkts can come to cpu even if it is already forwarded in 
->> hw.
->
-> Do you have a switch port netdev that corresponds to CPU port? Or are 
-> they seen on the bridge device?
-No we dont have a netdev for the CPU port. These show up on the netdev 
-corresponding to the ingress front panel port.
+On Monday 19 January 2015 21:58:09 wstephen@codeaurora.org wrote:
+> > On Thursday 15 January 2015 08:12:51 wstephen@codeaurora.org wrote:
+> >
+> >> The nss-gmac driver is designed to work standalone or with the nss-drv
+> >> driver so the switchable data plane overlay was implemented. When it
+> >> worked standalone, the data plane is running on the ARM core as a
+> >> standard
+> >> networking driver.
+> >
+> > How do you decide which way it gets used on a particular system?
+> >
+> 
+> By default the GMAC driver uses a native (Host ARM CPU) based data plane. 
+> If the configuration loads the offload nss-drv driver, the offload driver
+> registers an overlay with the GMAC.
+
+Right. For review purposes, I think it would be helpful to split this
+huge patch into several steps then:
+
+- add a base driver
+- add the overlay interface
+- add the nss driver
+
+Ideally more of them.
+
+> >> The nss-drv driver can take over the data plane and
+> >> offload it to the NSS cores. The STMicro stmmac driver does not have
+> >> this
+> >> kind of overlay design so is not suitable for IPQ806x. This is why we
+> >> don't based on the stmmac driver
+> >
+> > Which kind of offload is implemented specifically? 'data plane' sounds
+> > fairly generic and could mean anything, and the code isn't readable enough
+> > in its current form for me to find out.
+> 
+> The Network Subsystem (NSS core) provides a GMAC pass-through until it is
+> given a rule to offload work.  Once a rule is given, it is capable of
+> performing: bridging, IPv4 NAT/FWD, IPv6 NAT/FWD, IPSec, LAG, and other
+> protocols.
+> 
+> Hope this clarify your question!
+
+Thanks for the description, this sounds very interesting indeed. I do
+have more questions though: how do you get the rules into the NSS driver?
+Does this get handled transparently by the openvswitch driver or
+did you have to add new user interfaces for it?
+
+	Arnd
