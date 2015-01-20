@@ -1,100 +1,75 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net] ipv4: try to cache dst_entries which would cause a redirect
-Date: Tue, 20 Jan 2015 23:08:03 +0100
-Message-ID: <16ab8e83e2c0719bd449f8e10f82637820624712.1421789827.git.hannes@stressinduktion.org>
-Cc: Julian Anastasov <ja@ssi.bg>,
-	Marcelo Leitner <mleitner@redhat.com>,
-	Florian Westphal <fw@strlen.de>
-To: netdev@vger.kernel.org
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [net-next PATCH v3 04/12] net: flow_table: create a set of common
+ headers and actions
+Date: Tue, 20 Jan 2015 14:10:45 -0800
+Message-ID: <54BED265.3040507@gmail.com>
+References: <20150120202404.1741.8658.stgit@nitbit.x32> <20150120202752.1741.13810.stgit@nitbit.x32> <20150120205938.GD1854@tuxdriver.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: tgraf@suug.ch, simon.horman@netronome.com, sfeldma@gmail.com,
+	netdev@vger.kernel.org, jhs@mojatatu.com, davem@davemloft.net,
+	gerlitz.or@gmail.com, andy@greyhouse.net, ast@plumgrid.com
+To: "John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out3-smtp.messagingengine.com ([66.111.4.27]:46670 "EHLO
-	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751801AbbATWIL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jan 2015 17:08:11 -0500
-Received: from compute4.internal (compute4.nyi.internal [10.202.2.44])
-	by mailout.nyi.internal (Postfix) with ESMTP id 23FE620C1B
-	for <netdev@vger.kernel.org>; Tue, 20 Jan 2015 17:08:11 -0500 (EST)
+Received: from mail-ob0-f175.google.com ([209.85.214.175]:41680 "EHLO
+	mail-ob0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750727AbbATWLM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jan 2015 17:11:12 -0500
+Received: by mail-ob0-f175.google.com with SMTP id wp4so15698215obc.6
+        for <netdev@vger.kernel.org>; Tue, 20 Jan 2015 14:11:11 -0800 (PST)
+In-Reply-To: <20150120205938.GD1854@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Not caching dst_entries which cause redirects could be exploited by hosts
-on the same subnet, causing a severe DoS attack. This effect aggravated
-since commit f88649721268999 ("ipv4: fix dst race in sk_dst_get()").
+On 01/20/2015 12:59 PM, John W. Linville wrote:
+> On Tue, Jan 20, 2015 at 12:27:53PM -0800, John Fastabend wrote:
+>> This adds common headers and actions that drivers can use.
+>>
+>> I have not yet moved the header graphs into the common header
+>> because I'm not entirely convinced its re-usable. The devices
+>> I have been looking at have different enough header graphs that
+>> they wouldn't be re-usable. However possibly many 40Gbp NICs
+>> for example could share a common header graph. When we get
+>> multiple implementations we can move this into the common file
+>> if it makes sense.
+>>
+>> And table structures seem to be unique enough that there is
+>> little value in putting each devices table layout into the
+>> common file so its left for device specific implementation.
+>>
+>> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+>> ---
+>>   include/linux/if_flow_common.h |  257 ++++++++++++++++++++++++++++++++++++++++
+>>   1 file changed, 257 insertions(+)
+>>   create mode 100644 include/linux/if_flow_common.h
+>>
+>> diff --git a/include/linux/if_flow_common.h b/include/linux/if_flow_common.h
+>> new file mode 100644
+>> index 0000000..ef2d66f
+>> --- /dev/null
+>> +++ b/include/linux/if_flow_common.h
+>
+> <snip>
+>
+>> +struct net_flow_action net_flow_pop_vlan = {
+>> +	.name = "pop_vlan",
+>> +	.uid = ACTION_POP_VLAN,
+>> +	.args = net_flow_null_args,
+>> +};
+>
+> Random thought, should there be a "push_vlan" (for double VLAN tagging)?
+>
+>
 
-Lookups causing redirects will be allocated with DST_NOCACHE set which
-will force dst_release to free them via RCU.  Unfortunately waiting for
-RCU grace period just takes too long, we can end up with >1M dst_entries
-waiting to be released and the system will run OOM. rcuos threads cannot
-catch up under high softirq load.
+Yep I should add that one there are also some other actions
+on my todo list but some of them require updates to the driver.
 
-Attaching the flag to emit a redirect later on to the specific skb allows
-us to cache those dst_entries thus reducing the pressure on allocation
-and deallocation.
+Assuming its not a big issue for anyone I would like like to
+get this series in with the match/actions it has and then extend
+the action and match lists.
 
-This issue was discovered by Marcelo Leitner.
+.John
 
-Cc: Julian Anastasov <ja@ssi.bg>
-Signed-off-by: Marcelo Leitner <mleitner@redhat.com>
-Signed-off-by: Florian Westphal <fw@strlen.de>
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
----
- include/net/ip.h      | 11 ++++++-----
- net/ipv4/ip_forward.c |  3 ++-
- net/ipv4/route.c      |  6 ++----
- 3 files changed, 10 insertions(+), 10 deletions(-)
-
-diff --git a/include/net/ip.h b/include/net/ip.h
-index 0e5a0ba..14211ea 100644
---- a/include/net/ip.h
-+++ b/include/net/ip.h
-@@ -39,11 +39,12 @@ struct inet_skb_parm {
- 	struct ip_options	opt;		/* Compiled IP options		*/
- 	unsigned char		flags;
- 
--#define IPSKB_FORWARDED		1
--#define IPSKB_XFRM_TUNNEL_SIZE	2
--#define IPSKB_XFRM_TRANSFORMED	4
--#define IPSKB_FRAG_COMPLETE	8
--#define IPSKB_REROUTED		16
-+#define IPSKB_FORWARDED		BIT(0)
-+#define IPSKB_XFRM_TUNNEL_SIZE	BIT(1)
-+#define IPSKB_XFRM_TRANSFORMED	BIT(2)
-+#define IPSKB_FRAG_COMPLETE	BIT(3)
-+#define IPSKB_REROUTED		BIT(4)
-+#define IPSKB_DOREDIRECT	BIT(5)
- 
- 	u16			frag_max_size;
- };
-diff --git a/net/ipv4/ip_forward.c b/net/ipv4/ip_forward.c
-index 3a83ce5..787b3c2 100644
---- a/net/ipv4/ip_forward.c
-+++ b/net/ipv4/ip_forward.c
-@@ -129,7 +129,8 @@ int ip_forward(struct sk_buff *skb)
- 	 *	We now generate an ICMP HOST REDIRECT giving the route
- 	 *	we calculated.
- 	 */
--	if (rt->rt_flags&RTCF_DOREDIRECT && !opt->srr && !skb_sec_path(skb))
-+	if (IPCB(skb)->flags & IPSKB_DOREDIRECT && !opt->srr &&
-+	    !skb_sec_path(skb))
- 		ip_rt_send_redirect(skb);
- 
- 	skb->priority = rt_tos2priority(iph->tos);
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 2000110..f41cd21 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -1568,10 +1568,8 @@ static int __mkroute_input(struct sk_buff *skb,
- 	do_cache = res->fi && !itag;
- 	if (out_dev == in_dev && err && IN_DEV_TX_REDIRECTS(out_dev) &&
- 	    (IN_DEV_SHARED_MEDIA(out_dev) ||
--	     inet_addr_onlink(out_dev, saddr, FIB_RES_GW(*res)))) {
--		flags |= RTCF_DOREDIRECT;
--		do_cache = false;
--	}
-+	     inet_addr_onlink(out_dev, saddr, FIB_RES_GW(*res))))
-+		IPCB(skb)->flags |= IPSKB_DOREDIRECT;
- 
- 	if (skb->protocol != htons(ETH_P_IP)) {
- 		/* Not IP (i.e. ARP). Do not create route, if it is
 -- 
-2.1.0
+John Fastabend         Intel Corporation
