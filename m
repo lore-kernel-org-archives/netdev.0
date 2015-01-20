@@ -1,42 +1,51 @@
-From: Hagen Paul Pfeifer <hagen@jauu.net>
-Subject: Re: [PATCH iproute2 3/3] ss: Unify tcp stats output
-Date: Tue, 20 Jan 2015 12:43:32 +0100
-Message-ID: <CAPh34mejiAe6zgM+VtSTGgjJir7CK8wP9AufsXgz1rQ7-_skvQ@mail.gmail.com>
-References: <1421613815-6635-1-git-send-email-vadim4j@gmail.com>
-	<1421613815-6635-4-git-send-email-vadim4j@gmail.com>
-	<CAPh34mdi+8wLaUY3ZBks40wbOtdzsbTrmuvsHivRouc9rs3gig@mail.gmail.com>
-	<54BE392F.2070804@redhat.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH 1/2] if_link: Add VF multicast promiscuous mode control
+Date: Tue, 20 Jan 2015 11:53:29 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CACF10D@AcuExch.aculab.com>
+References: <7F861DC0615E0C47A872E6F3C5FCDDBD05E0734E@BPXM14GP.gisp.nec.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Vadim Kochan <vadim4j@gmail.com>, netdev <netdev@vger.kernel.org>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: Daniel Borkmann <dborkman@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f45.google.com ([209.85.215.45]:57754 "EHLO
-	mail-la0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754253AbbATLnf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jan 2015 06:43:35 -0500
-Received: by mail-la0-f45.google.com with SMTP id gd6so10032455lab.4
-        for <netdev@vger.kernel.org>; Tue, 20 Jan 2015 03:43:33 -0800 (PST)
-In-Reply-To: <54BE392F.2070804@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="iso-2022-jp"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Choi, Sy Jong" <sy.jong.choi@intel.com>,
+	Hayato Momma <h-momma@ce.jp.nec.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: 'Hiroshi Shimamoto' <h-shimamoto@ct.jp.nec.com>,
+	Alexander Duyck <alexander.duyck@gmail.com>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <7F861DC0615E0C47A872E6F3C5FCDDBD05E0734E@BPXM14GP.gisp.nec.co.jp>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 20 January 2015 at 12:17, Daniel Borkmann <dborkman@redhat.com> wrote:
+From: Hiroshi Shimamoto
+> From: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
+> 
+> Add netlink directives and ndo entry to control VF multicast promiscuous mode.
+> 
+> Intel ixgbe and ixgbevf driver can handle only 30 multicast MAC addresses
+> per VF. It means that we cannot assign over 30 IPv6 addresses to a single
+> VF interface on VM. We want thousands IPv6 addresses in VM.
+> 
+> There is capability of multicast promiscuous mode in Intel 82599 chip.
+> It enables all multicast packets are delivered to the target VF.
 
-> I have no strong opinion on this, but I also have a limited view on
-> what applications try to parse ss output in general.
->
-> As mentioned, for human readability, we should implement a top-like
-> display option which is allowed to have a rather 'instable' output
-> by nature and levels of detail can be folded/unfolded on demand.
+A lot of ethernet chips (certainly older ones) used a hash for the
+multicast filter. So the hardware filter was never perfect.
 
-+1 on that.
+I even know of one that needed to be told the addresses and used
+those to set the hash bits.
+For that device I generated a canonical set of MAC addresses (one
+for each multicast hash) and did a software count of how many times
+each one was needed for each of the enabled multicasts.
 
-> Given the recent discussion on web10g, json output option might
-> be very useful to provide i.e. when stats are being further extended.
+My guess is that 'multicast promiscuous mode' is always valid
+and should be enabled by the relevant low level driver when
+any table setup fails because there are too many entries.
 
-Ok, there seems conses on JSON output.
+I actually suspect that most systems want all the multicasts
+that occur at any moderate rate on the local network segment.
 
-Stephan, what do you think?
+	David
