@@ -1,45 +1,40 @@
 From: Romain Perier <romain.perier-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH v2 0/4] net: stmmac: dwmac-rk: Fix phy regulator issues
-Date: Tue, 20 Jan 2015 07:09:36 +0000
-Message-ID: <1421737780-1533-1-git-send-email-romain.perier@gmail.com>
+Subject: [PATCH v2 1/4] net: stmmac: dwmac-rk: Don't set the regulator voltage for phy from the driver
+Date: Tue, 20 Jan 2015 07:09:37 +0000
+Message-ID: <1421737780-1533-2-git-send-email-romain.perier@gmail.com>
+References: <1421737780-1533-1-git-send-email-romain.perier@gmail.com>
 Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
 	heiko-4mtYJXux2i+zQB+pC5nmwQ@public.gmane.org, linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
 	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
 	roger.chen-TNX95d0MmH7DzftRWevZcw@public.gmane.org
 To: peppe.cavallaro-qxv4g6HH51o@public.gmane.org
 Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1421737780-1533-1-git-send-email-romain.perier-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This series fixes few issues in dwmac-rk:
+As these settings can be directly expressed from devicetree for both fixed
+regulators and pmic-integrated regulators, it is more standard to set them
+from dts and let the regulator framework use the right voltage informations
+when it is used in the driver.
 
-1. Voltage settings was hardcoded into the driver for the phy regulator.
-   The driver now uses the default voltage settings found in the devicetree,
-   which are applied throught the regulator framework.
-2. The regulator name used to power on or power off the phy was put in the devicetree
-   variable "phy_regulator", which is not standard and added a lot of code for nothing.
-   The driver now uses the devicetree property "phy-supply" and the corresponding functions
-   to manipulate this regulator.
+Signed-off-by: Romain Perier <romain.perier-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+---
+ drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c | 1 -
+ 1 file changed, 1 deletion(-)
 
-The corresponding devicetree files are also updated. As this new binding for
-rk3288 has not been released with any official kernel yet (not until 3.20),
-I don't need to care about keeping compatibility with the old non standard property.
-
-Romain Perier (4):
-  net: stmmac: dwmac-rk: Don't set the regulator voltage for phy from
-    the driver
-  ARM: dts: Add regulator voltage settings for vcc_phy in
-    rk3288-evb.dtsi
-  net: stmmac: dwmac-rk: Use standard devicetree property for phy
-    regulator
-  dt-bindings: Document phy-supply property in rockchip-dwmac
-
- .../devicetree/bindings/net/rockchip-dwmac.txt     |  1 +
- arch/arm/boot/dts/rk3288-evb-rk808.dts             |  2 +-
- arch/arm/boot/dts/rk3288-evb.dtsi                  |  2 +
- drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c     | 64 +++++++---------------
- 4 files changed, 25 insertions(+), 44 deletions(-)
-
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
+index 35f9b86..06e1637 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
+@@ -303,7 +303,6 @@ static int phy_power_on(struct rk_priv_data *bsp_priv, bool enable)
+ 	} else {
+ 		if (enable) {
+ 			if (!regulator_is_enabled(ldo)) {
+-				regulator_set_voltage(ldo, 3300000, 3300000);
+ 				ret = regulator_enable(ldo);
+ 				if (ret != 0)
+ 					dev_err(dev, "%s: fail to enable %s\n",
 -- 
 1.9.1
 
