@@ -1,7 +1,7 @@
 From: Romain Perier <romain.perier@gmail.com>
-Subject: [PATCH v2 4/4] dt-bindings: Document phy-supply property in rockchip-dwmac
-Date: Tue, 20 Jan 2015 07:09:40 +0000
-Message-ID: <1421737780-1533-5-git-send-email-romain.perier@gmail.com>
+Subject: [PATCH v2 2/4] ARM: dts: Add regulator voltage settings for vcc_phy in rk3288-evb.dtsi
+Date: Tue, 20 Jan 2015 07:09:38 +0000
+Message-ID: <1421737780-1533-3-git-send-email-romain.perier@gmail.com>
 References: <1421737780-1533-1-git-send-email-romain.perier@gmail.com>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	heiko@sntech.de, linux-rockchip@lists.infradead.org,
@@ -13,25 +13,23 @@ In-Reply-To: <1421737780-1533-1-git-send-email-romain.perier@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-As no property for phy regulator was documented in this dt-binding documentation,
-this commit adds an entry for the optional property phy-supply.
-
 Signed-off-by: Romain Perier <romain.perier@gmail.com>
 ---
- Documentation/devicetree/bindings/net/rockchip-dwmac.txt | 1 +
- 1 file changed, 1 insertion(+)
+ arch/arm/boot/dts/rk3288-evb.dtsi | 2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/Documentation/devicetree/bindings/net/rockchip-dwmac.txt b/Documentation/devicetree/bindings/net/rockchip-dwmac.txt
-index 2362dcd..21fd199 100644
---- a/Documentation/devicetree/bindings/net/rockchip-dwmac.txt
-+++ b/Documentation/devicetree/bindings/net/rockchip-dwmac.txt
-@@ -33,6 +33,7 @@ Required properties:
- Optional properties:
-  - tx_delay: Delay value for TXD timing. Range value is 0~0x7F, 0x30 as default.
-  - rx_delay: Delay value for RXD timing. Range value is 0~0x7F, 0x10 as default.
-+ - phy-supply: phandle to a regulator if the PHY needs one
- 
- Example:
- 
+diff --git a/arch/arm/boot/dts/rk3288-evb.dtsi b/arch/arm/boot/dts/rk3288-evb.dtsi
+index 489643c..1c08eb0 100644
+--- a/arch/arm/boot/dts/rk3288-evb.dtsi
++++ b/arch/arm/boot/dts/rk3288-evb.dtsi
+@@ -98,6 +98,8 @@
+ 		pinctrl-names = "default";
+ 		pinctrl-0 = <&eth_phy_pwr>;
+ 		regulator-name = "vcc_phy";
++		regulator-min-microvolt = <3300000>;
++		regulator-max-microvolt = <3300000>;
+ 		regulator-always-on;
+ 		regulator-boot-on;
+ 	};
 -- 
 1.9.1
