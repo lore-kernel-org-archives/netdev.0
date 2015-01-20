@@ -1,46 +1,45 @@
-From: Alan Stern <stern@rowland.harvard.edu>
-Subject: Re: [PATCH 11/11] usb: core: fix a race with usb_queue_reset_device()
-Date: Tue, 20 Jan 2015 10:26:30 -0500 (EST)
-Message-ID: <Pine.LNX.4.44L0.1501201022360.1150-100000@iolanthe.rowland.org>
-References: <1421756978-4093-12-git-send-email-olivier@sobrie.be>
+From: Govindarajulu Varadarajan <_govind@gmx.com>
+Subject: Re: [PATCH net 2/2] bnx2x: fix napi poll return value for repoll
+Date: Tue, 20 Jan 2015 20:56:49 +0530 (IST)
+Message-ID: <alpine.LNX.2.03.1501202055210.31736@ws.cisco>
+References: <1421759776-376-1-git-send-email-_govind@gmx.com>  <1421759776-376-3-git-send-email-_govind@gmx.com>  <1421765480.4832.2.camel@edumazet-glaptop2.roam.corp.google.com> <1421765644.4832.4.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Jan Dumon <j.dumon@option.com>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	<linux-kernel@vger.kernel.org>, <linux-usb@vger.kernel.org>,
-	<netdev@vger.kernel.org>
-To: Olivier Sobrie <olivier@sobrie.be>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1421756978-4093-12-git-send-email-olivier@sobrie.be>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Govindarajulu Varadarajan <_govind@gmx.com>,
+	Willem de Bruijn <willemb@google.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, ariel.elior@qlogic.com, ssujith@cisco.com,
+	benve@cisco.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.gmx.com ([74.208.4.200]:54321 "EHLO mout.gmx.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752919AbbATP1D (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Jan 2015 10:27:03 -0500
+In-Reply-To: <1421765644.4832.4.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 20 Jan 2015, Olivier Sobrie wrote:
+On Tue, 20 Jan 2015, Eric Dumazet wrote:
 
-> When usb_queue_reset() is called it schedules a work in view of
-> resetting the usb interface. When the reset work is running, it
-> can be scheduled again (e.g. by the usb disconnect method of
-> the driver).
-> 
-> Consider that the reset work is queued again while the reset work
-> is running and that this work leads to a forced unbinding of the
-> usb interface (e.g. because a driver is bound to the interface
-> and has no pre/post_reset methods - see usb_reset_device()).
-> In such condition, usb_unbind_interface() gets called and this
-> function calls usb_cancel_queued_reset() which does nothing
-> because the flag "reset_running" is set to 1. The second reset
-> work that has been scheduled is therefore not cancelled.
-> Later, the usb_reset_device() tries to rebind the interface.
-> If it fails, then the usb interface context which contain the
-> reset work struct is freed and it most likely crash when the
-> second reset work tries to be run.
+> On Tue, 2015-01-20 at 06:51 -0800, Eric Dumazet wrote:
+>
+>>>
+>>>  		for_each_cos_in_tx_queue(fp, cos)
+>>>  			if (bnx2x_tx_queue_has_work(fp->txdata_ptr[cos]))
+>>> @@ -3187,7 +3187,7 @@ static int bnx2x_poll(struct napi_struct *napi, int budget)
+>>>  			/* must not complete if we consumed full budget */
+>>>  			if (work_done >= budget) {
+>>>  				bnx2x_fp_unlock_napi(fp);
+>>> -				break;
+>>> +				return budget;
+>>
+>> This one looks fine.
+>
+> But its not necessary, as here budget == work_done.
+>
+> (work_done > budget) would be a bug from bnx2x_rx_int()
+>
 
-There was an earlier patch posted for testing (no results yet)  
-affecting this same region of code:
+Yes, I missed that one. This change here is not needed.
 
-	http://marc.info/?l=linux-usb&m=142064533924019&w=2
-
-It should fix the problem described here, because (among other things) 
-it adds usb_get/put_intf calls to the delayed-reset routines.
-
-Alan Stern
+Thanks
