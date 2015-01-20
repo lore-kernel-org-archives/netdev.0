@@ -1,78 +1,50 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: [PATCH 04/11] hso: fix memory leak in hso_create_rfkill()
-Date: Tue, 20 Jan 2015 12:41:33 -0600
-Message-ID: <1421779293.681.16.camel@dcbw.local>
-References: <1421756978-4093-1-git-send-email-olivier@sobrie.be>
-	 <1421756978-4093-2-git-send-email-olivier@sobrie.be>
-	 <1421756978-4093-3-git-send-email-olivier@sobrie.be>
-	 <1421756978-4093-4-git-send-email-olivier@sobrie.be>
-	 <1421756978-4093-5-git-send-email-olivier@sobrie.be>
-	 <1421759597.29486.22.camel@linux-0dmf.site>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next] rhashtable: rhashtable_remove() must unlink
+ in both tbl and future_tbl
+Date: Tue, 20 Jan 2015 21:44:09 +0300
+Message-ID: <54BEA1F9.1050908@cogentembedded.com>
+References: <54BCBA35.2080103@windriver.com> <20150119125928.GB7672@casper.infradead.org> <54BDC30D.5000606@windriver.com> <20150120165826.GK20315@casper.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Olivier Sobrie <olivier@sobrie.be>, Jan Dumon <j.dumon@option.com>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Oliver Neukum <oneukum@suse.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1421759597.29486.22.camel@linux-0dmf.site>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "richard.alpe@ericsson.com >> Richard Alpe"
+	<richard.alpe@ericsson.com>, Netdev <netdev@vger.kernel.org>,
+	tipc-discussion@lists.sourceforge.net
+To: Thomas Graf <tgraf@suug.ch>, davem@davemloft.net,
+	Ying Xue <ying.xue@windriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f44.google.com ([209.85.215.44]:52013 "EHLO
+	mail-la0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751109AbbATSoY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jan 2015 13:44:24 -0500
+Received: by mail-la0-f44.google.com with SMTP id s18so2783526lam.3
+        for <netdev@vger.kernel.org>; Tue, 20 Jan 2015 10:44:12 -0800 (PST)
+In-Reply-To: <20150120165826.GK20315@casper.infradead.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2015-01-20 at 14:13 +0100, Oliver Neukum wrote:
-> On Tue, 2015-01-20 at 13:29 +0100, Olivier Sobrie wrote:
-> > When the rfkill interface was created, a buffer containing the name
-> > of the rfkill node was allocated. This buffer was never freed when the
-> > device disappears.
-> > 
-> > To fix the problem, we put the name given to rfkill_alloc() in
-> > the hso_net structure.
-> > 
-> > Signed-off-by: Olivier Sobrie <olivier@sobrie.be>
-> > ---
-> >  drivers/net/usb/hso.c | 12 +++---------
-> >  1 file changed, 3 insertions(+), 9 deletions(-)
-> > 
-> > diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
-> > index 470ef9e..a49ac2e 100644
-> > --- a/drivers/net/usb/hso.c
-> > +++ b/drivers/net/usb/hso.c
-> > @@ -153,6 +153,7 @@ struct hso_net {
-> >  	struct hso_device *parent;
-> >  	struct net_device *net;
-> >  	struct rfkill *rfkill;
-> > +	char name[8];
-> >  
-> >  	struct usb_endpoint_descriptor *in_endp;
-> >  	struct usb_endpoint_descriptor *out_endp;
-> > @@ -2467,27 +2468,20 @@ static void hso_create_rfkill(struct hso_device *hso_dev,
-> >  {
-> >  	struct hso_net *hso_net = dev2net(hso_dev);
-> >  	struct device *dev = &hso_net->net->dev;
-> > -	char *rfkn;
-> >  
-> > -	rfkn = kzalloc(20, GFP_KERNEL);
-> > -	if (!rfkn)
-> > -		dev_err(dev, "%s - Out of memory\n", __func__);
-> > -
-> > -	snprintf(rfkn, 20, "hso-%d",
-> > +	snprintf(hso_net->name, sizeof(hso_net->name), "hso-%d",
-> >  		 interface->altsetting->desc.bInterfaceNumber);
-> 
-> That number is not unique. Indeed it will be identical for all devices.
+Hello.
 
-I would say just do "static u32 rfkill_counter = 0" and 
+On 01/20/2015 07:58 PM, Thomas Graf wrote:
 
-+	snprintf(hso_net->name, sizeof(hso_net->name), "hso-%d",
-+  		 rfkill_counter++);
+> As removals can occur during resizes, entries may be referred to from
+> both tbl and future_tbl when the removal is requested. Therefore
+> rhashtable_remove() must unlink the entry in both tables if this is
+> the case. The existing code did search both tables but stopped when it
+> hit the first match.
 
-We can't just use the netdev's name because that may have conflicts.
-eg, the netdev will get hso0 when plugged in (and thus rfkill would get
-hso-0) but then udev will rename that to something like wwp0s26f7u2i8.
-Then the second HSO you plug in will get the name 'hso0', and so the
-second rfkill would get 'hso-0', but that's already taken by the first
-rfkill...  Which is why I just suggest a counter.
+> Failing to do so resulted in use after remove.
 
-Dan
+    Er, failing to do what? Stopping when it hit the first match?
+
+> Fixes: 97defe1 ("rhashtable: Per bucket locks & deferred expansion/shrinking")
+
+    SHA1 should be 12 hex digits in this case, accordong to 
+Documentation/SubmittingPatches.
+
+> Reported-by: Ying Xue <ying.xue@windriver.com>
+> Signed-off-by: Thomas Graf <tgraf@suug.ch>
+
+[...]
+
+WBR, Sergei
