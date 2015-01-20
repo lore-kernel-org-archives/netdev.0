@@ -1,127 +1,61 @@
-From: Paul Bolle <pebolle-IWqWACnzNjzz+pZb47iToQ@public.gmane.org>
-Subject: Re: [PATCH net-next v8 2/4] net: netcp: Add Keystone NetCP core
- ethernet driver
-Date: Tue, 20 Jan 2015 09:18:55 +0100
-Message-ID: <1421741935.9655.73.camel@x220>
-References: <1421367172-19793-1-git-send-email-m-karicheri2@ti.com>
-	 <1421367172-19793-2-git-send-email-m-karicheri2@ti.com>
+From: Shawn Guo <shawn.guo@linaro.org>
+Subject: Re: [PATCH net-next 1/1] ARM: dts: imx6sx: correct i.MX6sx sdb board
+ enet phy address
+Date: Tue, 20 Jan 2015 16:31:57 +0800
+Message-ID: <20150120083156.GY2766@dragon>
+References: <1421660282-29494-1-git-send-email-b38611@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Valentin Rothberg <valentinrothberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Murali Karicheri <m-karicheri2-l0cyMroinI0@public.gmane.org>,
-	Wingman Kwok <w-kwok2-l0cyMroinI0@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1421367172-19793-2-git-send-email-m-karicheri2-l0cyMroinI0@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, s.hauer@pengutronix.de,
+	stefan@agner.ch
+To: Fugang Duan <b38611@freescale.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f170.google.com ([209.85.192.170]:55337 "EHLO
+	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752312AbbATIcp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jan 2015 03:32:45 -0500
+Received: by mail-pd0-f170.google.com with SMTP id p10so30065889pdj.1
+        for <netdev@vger.kernel.org>; Tue, 20 Jan 2015 00:32:44 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1421660282-29494-1-git-send-email-b38611@freescale.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Murali, Wingman,
-
-On Thu, 2015-01-15 at 19:12 -0500, Murali Karicheri wrote:
-> The network coprocessor (NetCP) is a hardware accelerator available in
-> Keystone SoCs that processes Ethernet packets. NetCP consists of following
-> hardware components
+On Mon, Jan 19, 2015 at 05:38:02PM +0800, Fugang Duan wrote:
+> The commit (3d125f9c91c5) cause i.MX6SX sdb enet cannot work. The cause is
+> the commit add mdio node with un-correct phy address.
 > 
->  1 Gigabit Ethernet (GbE) subsystem with a Ethernet switch sub-module to
->    send and receive packets.
->  2 Packet Accelerator (PA) module to perform packet classification
->    operations such as header matching, and packet modification operations
->    such as checksum generation.
->  3 Security Accelerator(SA) capable of performing IPSec operations on
->    ingress/egress packets.
->  4 An optional 10 Gigabit Ethernet Subsystem (XGbE) which includes a
->    3-port Ethernet switch sub-module capable of 10Gb/s and 1Gb/s rates
->    per Ethernet port.
->  5 Packet DMA and Queue Management Subsystem (QMSS) to enqueue and dequeue
->    packets and DMA the packets between memory and NetCP hardware components
->    described above.
+> The patch just correct i.MX6sx sdb board enet phy address.
 > 
-> NetCP core driver make use of the Keystone Navigator driver API to allocate
-> DMA channel for the Ethenet device and to handle packet queue/de-queue,
-> Please refer API's in include/linux/soc/ti/knav_dma.h and
-> drivers/soc/ti/knav_qmss.h for details.
-> 
-> NetCP driver consists of NetCP core driver and at a minimum Gigabit
-> Ethernet (GBE) module (1) driver to implement the Network device function.
-> Other modules (2,3) can be optionally added to achieve supported hardware
-> acceleration function. The initial version of the driver include NetCP
-> core driver and GBE driver modules.
-> 
-> Please refer Documentation/devicetree/bindings/net/keystone-netcp.txt
-> for design of the driver.
-> 
->  Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
->  Cc: Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
->  Cc: Grant Likely <grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
->  Cc: Santosh Shilimkar <santosh.shilimkar-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
->  Cc: Pawel Moll <pawel.moll-5wv7dgnIgG8@public.gmane.org>
->  Cc: Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>
->  Cc: Ian Campbell <ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>
->  Cc: Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-> 
-> Signed-off-by: Murali Karicheri <m-karicheri2-l0cyMroinI0@public.gmane.org>
-> Signed-off-by: Wingman Kwok <w-kwok2-l0cyMroinI0@public.gmane.org>
-
-This patch is included as commit 84640e27f230 ("net: netcp: Add Keystone
-NetCP core ethernet driver") in today's linux-next. I noticed because a
-script I run on linux-next spotted a problem in it.
-
+> Signed-off-by: Fugang Duan <B38611@freescale.com>
 > ---
->  MAINTAINERS                          |    7 +
->  drivers/net/ethernet/ti/Kconfig      |   11 +
->  drivers/net/ethernet/ti/Makefile     |    3 +
->  drivers/net/ethernet/ti/netcp.h      |  229 ++++
->  drivers/net/ethernet/ti/netcp_core.c | 2141 ++++++++++++++++++++++++++++++++++
->  5 files changed, 2391 insertions(+)
->  create mode 100644 drivers/net/ethernet/ti/netcp.h
->  create mode 100644 drivers/net/ethernet/ti/netcp_core.c
+>  arch/arm/boot/dts/imx6sx-sdb.dts |    4 ++--
+>  1 files changed, 2 insertions(+), 2 deletions(-)
 > 
->[...]
-> diff --git a/drivers/net/ethernet/ti/Kconfig b/drivers/net/ethernet/ti/Kconfig
-> index 605dd90..e11bcfa 100644
-> --- a/drivers/net/ethernet/ti/Kconfig
-> +++ b/drivers/net/ethernet/ti/Kconfig
-> @@ -73,12 +73,23 @@ config TI_CPSW
->  config TI_CPTS
->  	boolean "TI Common Platform Time Sync (CPTS) Support"
->  	depends on TI_CPSW
-> +	depends on TI_CPSW || TI_KEYSTONE_NET
-
-You probably meant to add
-    || TI_KEYSTONE_NETCP
-
-here. Ie, add CP. But as this slipped through testing it _might_ not be
-needed at all.
-
->  	select PTP_1588_CLOCK
->  	---help---
->  	  This driver supports the Common Platform Time Sync unit of
->  	  the CPSW Ethernet Switch. The unit can time stamp PTP UDP/IPv4
->  	  and Layer 2 packets, and the driver offers a PTP Hardware Clock.
+> diff --git a/arch/arm/boot/dts/imx6sx-sdb.dts b/arch/arm/boot/dts/imx6sx-sdb.dts
+> index 8c1febd..9db123f 100644
+> --- a/arch/arm/boot/dts/imx6sx-sdb.dts
+> +++ b/arch/arm/boot/dts/imx6sx-sdb.dts
+> @@ -167,11 +167,11 @@
+>  		#size-cells = <0>;
 >  
-> +config TI_KEYSTONE_NETCP
-> +	tristate "TI Keystone NETCP Ethernet subsystem Support"
-> +	depends on OF
-> +	depends on KEYSTONE_NAVIGATOR_DMA && KEYSTONE_NAVIGATOR_QMSS
-> +	---help---
-> +	  This driver supports TI's Keystone NETCP Ethernet subsystem.
-> +
-> +	  To compile this driver as a module, choose M here: the module
-> +	  will be called keystone_netcp.
-> +
->  config TLAN
->  	tristate "TI ThunderLAN support"
->  	depends on (PCI || EISA)
+>  		ethphy1: ethernet-phy@0 {
 
-Thanks,
+The unit-address should match 'reg' property, so it needs an update too.
 
+Shawn
 
-Paul Bolle
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> -			reg = <0>;
+> +			reg = <1>;
+>  		};
+>  
+>  		ethphy2: ethernet-phy@1 {
+> -			reg = <1>;
+> +			reg = <2>;
+>  		};
+>  	};
+>  };
+> -- 
+> 1.7.8
+> 
