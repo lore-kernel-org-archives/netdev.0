@@ -1,40 +1,68 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH net-next] act_connmark: Add missing dependency on NF_CONNTRACK_MARK
-Date: Tue, 20 Jan 2015 13:44:25 +0100
-Message-ID: <eb5e12e8fec691cb08e663f2f8ed183ac92e5a1f.1421757793.git.tgraf@suug.ch>
-Cc: netdev@vger.kernel.org, Felix Fietkau <nbd@openwrt.org>,
-	Jamal Hadi Salim <jhs@mojatatu.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([198.137.202.9]:35689 "EHLO
-	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753389AbbATMoc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jan 2015 07:44:32 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Oliver Neukum <oneukum@suse.de>
+Subject: Re: [PATCH 04/11] hso: fix memory leak in hso_create_rfkill()
+Date: Tue, 20 Jan 2015 14:13:17 +0100
+Message-ID: <1421759597.29486.22.camel@linux-0dmf.site>
+References: <1421756978-4093-1-git-send-email-olivier@sobrie.be>
+	 <1421756978-4093-2-git-send-email-olivier@sobrie.be>
+	 <1421756978-4093-3-git-send-email-olivier@sobrie.be>
+	 <1421756978-4093-4-git-send-email-olivier@sobrie.be>
+	 <1421756978-4093-5-git-send-email-olivier@sobrie.be>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Jan Dumon <j.dumon@option.com>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Olivier Sobrie <olivier@sobrie.be>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1421756978-4093-5-git-send-email-olivier@sobrie.be>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Depending on NETFILTER is not sufficient to ensure the presence of the
-'mark' field in nf_conn, also needs to depend on NF_CONNTRACK_MARK.
+On Tue, 2015-01-20 at 13:29 +0100, Olivier Sobrie wrote:
+> When the rfkill interface was created, a buffer containing the name
+> of the rfkill node was allocated. This buffer was never freed when the
+> device disappears.
+> 
+> To fix the problem, we put the name given to rfkill_alloc() in
+> the hso_net structure.
+> 
+> Signed-off-by: Olivier Sobrie <olivier@sobrie.be>
+> ---
+>  drivers/net/usb/hso.c | 12 +++---------
+>  1 file changed, 3 insertions(+), 9 deletions(-)
+> 
+> diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
+> index 470ef9e..a49ac2e 100644
+> --- a/drivers/net/usb/hso.c
+> +++ b/drivers/net/usb/hso.c
+> @@ -153,6 +153,7 @@ struct hso_net {
+>  	struct hso_device *parent;
+>  	struct net_device *net;
+>  	struct rfkill *rfkill;
+> +	char name[8];
+>  
+>  	struct usb_endpoint_descriptor *in_endp;
+>  	struct usb_endpoint_descriptor *out_endp;
+> @@ -2467,27 +2468,20 @@ static void hso_create_rfkill(struct hso_device *hso_dev,
+>  {
+>  	struct hso_net *hso_net = dev2net(hso_dev);
+>  	struct device *dev = &hso_net->net->dev;
+> -	char *rfkn;
+>  
+> -	rfkn = kzalloc(20, GFP_KERNEL);
+> -	if (!rfkn)
+> -		dev_err(dev, "%s - Out of memory\n", __func__);
+> -
+> -	snprintf(rfkn, 20, "hso-%d",
+> +	snprintf(hso_net->name, sizeof(hso_net->name), "hso-%d",
+>  		 interface->altsetting->desc.bInterfaceNumber);
 
-Fixes: 22a5dc ("net: sched: Introduce connmark action")
-Cc: Felix Fietkau <nbd@openwrt.org>
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-Signed-off-by: Thomas Graf <tgraf@suug.ch>
----
- net/sched/Kconfig | 1 +
- 1 file changed, 1 insertion(+)
+That number is not unique. Indeed it will be identical for all devices.
 
-diff --git a/net/sched/Kconfig b/net/sched/Kconfig
-index 475e35e..7a57f66 100644
---- a/net/sched/Kconfig
-+++ b/net/sched/Kconfig
-@@ -713,6 +713,7 @@ config NET_ACT_BPF
- config NET_ACT_CONNMARK
-         tristate "Netfilter Connection Mark Retriever"
-         depends on NET_CLS_ACT && NETFILTER && IP_NF_IPTABLES
-+        depends on NF_CONNTRACK_MARK
-         ---help---
- 	  Say Y here to allow retrieving of conn mark
- 
+	Regards
+		Oliver
+
 -- 
-1.9.3
+Oliver Neukum <oneukum@suse.de>
