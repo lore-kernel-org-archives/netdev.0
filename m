@@ -1,89 +1,53 @@
-From: Kishon Vijay Abraham I <kishon@ti.com>
-Subject: Re: [PATCH v2 0/7] Fix sti drivers whcih mix reg address spaces
-Date: Wed, 21 Jan 2015 14:24:17 +0530
-Message-ID: <54BF6939.6050200@ti.com>
-References: <1420643052-4506-1-git-send-email-peter.griffin@linaro.org>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH net] ipv4: try to cache dst_entries which would cause a
+ redirect
+Date: Wed, 21 Jan 2015 10:56:16 +0200 (EET)
+Message-ID: <alpine.LFD.2.11.1501211041360.2329@ja.home.ssi.bg>
+References: <16ab8e83e2c0719bd449f8e10f82637820624712.1421789827.git.hannes@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: <lee.jones@linaro.org>, <devicetree@vger.kernel.org>,
-	<netdev@vger.kernel.org>
-To: Peter Griffin <peter.griffin@linaro.org>,
-	<linux-arm-kernel@lists.infradead.org>,
-	<linux-kernel@vger.kernel.org>, <srinivas.kandagatla@gmail.com>,
-	<maxime.coquelin@st.com>, <patrice.chotard@st.com>,
-	<peppe.cavallaro@st.com>, <arnd@arndb.de>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, Marcelo Leitner <mleitner@redhat.com>,
+	Florian Westphal <fw@strlen.de>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bear.ext.ti.com ([192.94.94.41]:58228 "EHLO bear.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751779AbbAUIyx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Jan 2015 03:54:53 -0500
-In-Reply-To: <1420643052-4506-1-git-send-email-peter.griffin@linaro.org>
+Received: from ja.ssi.bg ([178.16.129.10]:48465 "EHLO ja.ssi.bg"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752202AbbAUI4t (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Jan 2015 03:56:49 -0500
+In-Reply-To: <16ab8e83e2c0719bd449f8e10f82637820624712.1421789827.git.hannes@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
 
-On Wednesday 07 January 2015 08:34 PM, Peter Griffin wrote:
-> Hi folks,
-> 
-> A V2 of this old series incorporating Arnd and Lees Feedback form v1.
-> 
-> Following on from Arnds comments about the picophy driver here
-> https://lkml.org/lkml/2014/11/13/161, this series fixes the
-> remaining upstreamed drivers for STI, which are mixing address spaces
-> in the reg property. We do this in a way similar to the keystone
-> and bcm7445 platforms, by having sysconfig phandle/ offset pair 
-> (where only one register is required). Or phandle / integer array
-> where multiple offsets in the same bank are needed).
-> 
-> This series breaks DT compatability! But the platform support
-> is WIP and only being used by the few developers who are upstreaming
-> support for it. I've made each change to the driver / dt doc / dt
-> file as a single atomic commit so the kernel will remain bisectable. 
-> 
-> This series then also enables the picophy driver, and adds back in
-> the ehci/ohci dt nodes for stih410 which make use of the picophy.
-> 
-> regards,
-> 
-> Peter.
-> 
-> Changes since v1:
-> - Add missing space after */ (Lee)
-> - Change comment to "indexed from" rather than "not indexed from" (Lee)
-> - Change naming to phy1, phy2 rather than phy@1 phy@2 if there is no reg property (Arnd / Grant)
-> - Rebased on v3.19-rc3 (me)
-> - Checkpatch "no space before tabs" warning in stih41*.dtsi (me)
-> 
-> Peter Griffin (7):
->   phy: phy-stih407-usb: Pass sysconfig register offsets via syscfg
->     property.
->   phy: miphy365x: Pass sysconfig register offsets via syscfg dt
->     property.
->   ARM: STi: DT: STiH407: Add usb2 picophy dt nodes
->   ARM: STi: DT: STiH410: Add usb2 picophy dt nodes
->   ARM: STi: DT: STiH410: Add DT nodes for the ehci and ohci usb
->     controllers.
->   ARM: multi_v7_defconfig: Enable stih407 usb picophy
->   stmmac: dwmac-sti: Pass sysconfig register offset via syscon dt
->     property.
-> 
->  .../devicetree/bindings/net/sti-dwmac.txt          | 14 ++---
->  .../devicetree/bindings/phy/phy-miphy365x.txt      | 15 ++---
->  .../devicetree/bindings/phy/phy-stih407-usb.txt    | 10 +---
->  arch/arm/boot/dts/stih407-family.dtsi              |  9 +++
->  arch/arm/boot/dts/stih410.dtsi                     | 70 ++++++++++++++++++++++
->  arch/arm/boot/dts/stih415.dtsi                     | 12 ++--
->  arch/arm/boot/dts/stih416.dtsi                     | 22 +++----
->  arch/arm/configs/multi_v7_defconfig                |  1 +
->  drivers/net/ethernet/stmicro/stmmac/dwmac-sti.c    | 13 ++--
->  drivers/phy/phy-miphy365x.c                        | 29 ++++-----
->  drivers/phy/phy-stih407-usb.c                      | 25 ++++----
->  11 files changed, 143 insertions(+), 77 deletions(-)
-> 
+	Hello,
 
-Queued the first two patches of this series in linux-phy.
+On Tue, 20 Jan 2015, Hannes Frederic Sowa wrote:
 
-Thanks
-Kishon
+> Not caching dst_entries which cause redirects could be exploited by hosts
+> on the same subnet, causing a severe DoS attack. This effect aggravated
+> since commit f88649721268999 ("ipv4: fix dst race in sk_dst_get()").
+> 
+> Lookups causing redirects will be allocated with DST_NOCACHE set which
+> will force dst_release to free them via RCU.  Unfortunately waiting for
+> RCU grace period just takes too long, we can end up with >1M dst_entries
+> waiting to be released and the system will run OOM. rcuos threads cannot
+> catch up under high softirq load.
+> 
+> Attaching the flag to emit a redirect later on to the specific skb allows
+> us to cache those dst_entries thus reducing the pressure on allocation
+> and deallocation.
+> 
+> This issue was discovered by Marcelo Leitner.
+
+	Change looks good to me but additional place
+should be changed too: inet_rtm_getroute() will call
+ip_route_input() and later rt_fill_info() will put
+rt_flags in rtm_flags. We have to set RTCF_DOREDIRECT
+just in rtm_flags depending on IPSKB_DOREDIRECT becuase
+iproute needs to print "redirect". You can test it with
+ip route get ... iif INDEV
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
