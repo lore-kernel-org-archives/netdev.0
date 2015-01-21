@@ -1,58 +1,104 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 3/3] netlink: Lock out table resizes while dumping
- Netlink sockets
-Date: Wed, 21 Jan 2015 16:15:55 +1100
-Message-ID: <20150121051555.GA23300@gondor.apana.org.au>
-References: <cover.1421759056.git.tgraf@suug.ch>
- <e164edeacaeffee43be64d4ed6a5b5e7e8923bd1.1421759056.git.tgraf@suug.ch>
- <20150120143154.GR14883@acer.localdomain>
- <20150120145551.GH20315@casper.infradead.org>
- <20150120152149.GA3012@acer.localdomain>
- <20150120153556.GJ20315@casper.infradead.org>
- <20150121050819.GA23062@gondor.apana.org.au>
+From: Jonathan Toppins <jtoppins@cumulusnetworks.com>
+Subject: Re: [PATCH net-next 1/5] bonding: keep bond interface carrier off
+ until at least one active member
+Date: Wed, 21 Jan 2015 00:22:14 -0500
+Message-ID: <54BF3786.9050505@cumulusnetworks.com>
+References: <1421423848-414-1-git-send-email-jtoppins@cumulusnetworks.com> <1421423848-414-2-git-send-email-jtoppins@cumulusnetworks.com> <20956.1421702213@famine>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>, davem@davemloft.net,
-	paulmck@linux.vnet.ibm.com, ying.xue@windriver.com,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Thomas Graf <tgraf@suug.ch>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150121050819.GA23062@gondor.apana.org.au>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Scott Feldman <sfeldma@gmail.com>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>,
+	Veaceslav Falico <vfalico@gmail.com>,
+	Nikolay Aleksandrov <nikolay@redhat.com>
+To: Jay Vosburgh <jay.vosburgh@canonical.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qc0-f177.google.com ([209.85.216.177]:35682 "EHLO
+	mail-qc0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750736AbbAUFWQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jan 2015 00:22:16 -0500
+Received: by mail-qc0-f177.google.com with SMTP id p6so9444960qcv.8
+        for <netdev@vger.kernel.org>; Tue, 20 Jan 2015 21:22:15 -0800 (PST)
+In-Reply-To: <20956.1421702213@famine>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 21, 2015 at 04:08:19PM +1100, Herbert Xu wrote:
-> 
-> OK I think I have a solution for you guys.  But first you'll need to
-> wait for me to undo the nulls stuff so I can steal that bit which
-> is central to my solution.
-> 
-> Essentially I need a bit to indicate an entry in the bucket chain
-> should be skipped, either because it has just been removed or that
-> it is a walker entry (see xfrm_state_walk).
-> 
-> The way it'll work then is exactly the same as xfrm_state_walk,
-> except that the linked list is broken up into individual buckets.
-> 
-> Of course we'll still need to postpone resizes (and rehashes which
-> is what my work is about) during a walk but I think that's a fair
-> price to pay.
+On 1/19/15 4:16 PM, Jay Vosburgh wrote:
+> Jonathan Toppins <jtoppins@cumulusnetworks.com> wrote:
+>
+>> From: Scott Feldman <sfeldma@cumulusnetworks.com>
+>>
+>> Bonding driver parameter min_links is now used to signal upper-level
+>> protocols of bond status. The way it works is if the total number of
+>> active members in slaves drops below min_links, the bond link carrier
+>> will go down, signaling upper levels that bond is inactive.  When active
+>> members returns to >= min_links, bond link carrier will go up (RUNNING),
+>> and protocols can resume.  When bond is carrier down, member ports are
+>> in stp fwd state blocked (rather than normal disabled state), so
+>> low-level ctrl protocols (LACP) can still get in and be processed by
+>> bonding driver.
+>
+> 	Presuming that "stp" is Spanning Tree, is the last sentence
+> above actually describing the behavior of a bridge port when a bond is
+> the member of the bridge?  I'm not sure I understand what "member ports"
+> refers to (bridge ports or bonding slaves).
 
-I failed to address the security aspect of this approach.  Obviously
-this can only work if the only entites doing the walk are trusted.
-Which means that the vast majority (if not all) hash table users
-would be excluded, in particular, netlink.
+Ack, maybe replacing the last sentence with something like:
+   When bond is carrier down, the slave ports are only forwarding
+   low-level control protocols (e.g. LACP PDU) and discarding all other
+   packets.
 
-Even with trusted cases such as netfilter I'm uneasy about this
-so I don't think I'm going to go forward with this approach.
+>> @@ -2381,10 +2386,15 @@ int bond_3ad_set_carrier(struct bonding *bond)
+>> 		ret = 0;
+>> 		goto out;
+>> 	}
+>> +
+>> +	bond_for_each_slave_rcu(bond, slave, iter)
+>> +		if (SLAVE_AD_INFO(slave)->aggregator.is_active)
+>> +			active_slaves++;
+>> +
+>> 	active = __get_active_agg(&(SLAVE_AD_INFO(first_slave)->aggregator));
+>> -	if (active) {
+>> +	if (active && __agg_has_partner(active)) {
+>
+> 	Why "__agg_has_partner"?  Since the "else" of this clause is:
+>
+>          } else if (netif_carrier_ok(bond->dev)) {
+>                  netif_carrier_off(bond->dev);
+>          }
+>
+> 	I'm wondering if this will do the right thing for the case that
+> there are no LACP partners at all (e.g., the switch ports do not have
+> LACP enabled), in which case the active aggregator should be a single
+> "individual" port as a fallback, but will not have a partner.
+>
+> 	-J
+>
 
-At this point I think the best thing that'll give you stable dumps
-is a separate list like xfrm_state_walk.  If you did that then
-we don't need to touch rhashtable at all.
+I see your point. The initial thinking was the logical bond carrier 
+should not be brought up until the bond has a partner and is ready to 
+pass traffic, otherwise we start blackholing frames. Looking over the 
+code it seems the aggregator.is_individual flag is only set to true when 
+a slave is in half-duplex, this seems odd?
 
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+My initial thinking to alleviate the concern is something like the 
+following:
+
+if (active && !SLAVE_AD_INFO(slave)->aggregator.is_individual &&
+     __agg_has_partner(active)) {
+     /* set carrier based on min_links */
+} else if (active && SLAVE_AD_INFO(slave)->aggregator.is_individual) {
+     /* set bond carrier state according to carrier state of slave */
+} else if (netif_carrier_ok(bond->dev)) {
+     netif_carrier_off(bond->dev);
+}
+
+Maybe I am missing something and there is a simpler option.
+
+Thinking about how to validate this, it seems having a bond with two 
+slaves and both slaves in half-duplex will force an aggregator that is 
+individual to be selected.
+
+Thoughts?
+
+-Jon
