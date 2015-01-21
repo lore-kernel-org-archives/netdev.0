@@ -1,122 +1,45 @@
-From: Ying Xue <ying.xue@windriver.com>
-Subject: Re: [PATCH net-next] rhashtable:
- rhashtable_remove() must unlink in both tbl and future_tbl
-Date: Wed, 21 Jan 2015 16:51:05 +0800
-Message-ID: <54BF6879.5050500@windriver.com>
-References: <54BCBA35.2080103@windriver.com>
-	<20150119125928.GB7672@casper.infradead.org>
-	<54BDC30D.5000606@windriver.com>
-	<20150120165826.GK20315@casper.infradead.org>
+From: Hagen Paul Pfeifer <hagen@jauu.net>
+Subject: Re: [PATCH iproute2 3/3] ss: Unify tcp stats output
+Date: Wed, 21 Jan 2015 09:54:02 +0100
+Message-ID: <CAPh34me2T6+GbK3GTwir3kraa6eB-rMFkP_YaHN7Oaeyza6PVw@mail.gmail.com>
+References: <1421613815-6635-1-git-send-email-vadim4j@gmail.com>
+	<1421613815-6635-4-git-send-email-vadim4j@gmail.com>
+	<CAPh34mdi+8wLaUY3ZBks40wbOtdzsbTrmuvsHivRouc9rs3gig@mail.gmail.com>
+	<CAHA+R7PgJytCaeVz8aOyJ06JjKACMCrtp8oAnfuaSDSNJX8NvQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>, tipc-discussion@lists.sourceforge.net,
-	davem@davemloft.net
-To: Thomas Graf <tgraf@suug.ch>, "richard.alpe@ericsson.com >> Richard Alpe"
-	<richard.alpe@ericsson.com>
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-In-Reply-To: <20150120165826.GK20315@casper.infradead.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Vadim Kochan <vadim4j@gmail.com>, netdev <netdev@vger.kernel.org>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Cong Wang <cwang@twopensource.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f182.google.com ([209.85.217.182]:45632 "EHLO
+	mail-lb0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750890AbbAUIyF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jan 2015 03:54:05 -0500
+Received: by mail-lb0-f182.google.com with SMTP id l4so12617503lbv.13
+        for <netdev@vger.kernel.org>; Wed, 21 Jan 2015 00:54:02 -0800 (PST)
+In-Reply-To: <CAHA+R7PgJytCaeVz8aOyJ06JjKACMCrtp8oAnfuaSDSNJX8NvQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Thomas,
+20 January 2015 at 19:36, Cong Wang <cwang@twopensource.com> wrote:
 
-I will be on vacation in next few days. So if you have an updated patch
-resolving the issue, please let Richard(richard.alpe@ericsson.com) help
-you to verify because he initially found the issue. After I identified
-what it closely was related to rhashtable and it also happened in
-netlink, I posted it on netdev mail list.
+> On the other hand, what blocks you from parsing the netlink message
+> by yourself? Don't get me wrong, I am not a fan of netlink, but
+> generally speaking, ss is not alone, too many scripts and applications
+> nowadays parse iproute2 tools output.
 
-Regards,
-Ying
+Agree, thus the proposal:
 
-On 01/21/2015 12:58 AM, Thomas Graf wrote:
-> As removals can occur during resizes, entries may be referred to from
-> both tbl and future_tbl when the removal is requested. Therefore
-> rhashtable_remove() must unlink the entry in both tables if this is
-> the case. The existing code did search both tables but stopped when it
-> hit the first match.
-> 
-> Failing to do so resulted in use after remove.
-> 
-> Fixes: 97defe1 ("rhashtable: Per bucket locks & deferred expansion/shrinking")
-> Reported-by: Ying Xue <ying.xue@windriver.com>
-> Signed-off-by: Thomas Graf <tgraf@suug.ch>
-> ---
-> 
-> Ying: This should fix the panic that was at the end of your TIPC
->       related boot log. I'm still working on the use after free.
-> 
->  lib/rhashtable.c | 24 +++++++++++++++---------
->  1 file changed, 15 insertions(+), 9 deletions(-)
-> 
-> diff --git a/lib/rhashtable.c b/lib/rhashtable.c
-> index a4449c4..b1aa10e 100644
-> --- a/lib/rhashtable.c
-> +++ b/lib/rhashtable.c
-> @@ -592,6 +592,7 @@ bool rhashtable_remove(struct rhashtable *ht, struct rhash_head *obj)
->  	struct rhash_head *he;
->  	spinlock_t *lock;
->  	unsigned int hash;
-> +	bool ret = false;
->  
->  	rcu_read_lock();
->  	tbl = rht_dereference_rcu(ht->tbl, ht);
-> @@ -609,17 +610,16 @@ restart:
->  		}
->  
->  		rcu_assign_pointer(*pprev, obj->next);
-> -		atomic_dec(&ht->nelems);
-> -
-> -		spin_unlock_bh(lock);
-> -
-> -		rhashtable_wakeup_worker(ht);
-> -
-> -		rcu_read_unlock();
->  
-> -		return true;
-> +		ret = true;
-> +		break;
->  	}
->  
-> +	/* The entry may be linked in either 'tbl', 'future_tbl', or both.
-> +	 * 'future_tbl' only exists for a short period of time during
-> +	 * resizing. Thus traversing both is fine and the added cost is
-> +	 * very rare.
-> +	 */
->  	if (tbl != rht_dereference_rcu(ht->future_tbl, ht)) {
->  		spin_unlock_bh(lock);
->  
-> @@ -632,9 +632,15 @@ restart:
->  	}
->  
->  	spin_unlock_bh(lock);
-> +
-> +	if (ret) {
-> +		atomic_dec(&ht->nelems);
-> +		rhashtable_wakeup_worker(ht);
-> +	}
-> +
->  	rcu_read_unlock();
->  
-> -	return false;
-> +	return ret;
->  }
->  EXPORT_SYMBOL_GPL(rhashtable_remove);
->  
-> 
+1) *new* ss values are "prefixed" by an name to make it possible that
+*humans* can understand the value ("make ss output human readable").
+Concrete rule for scalar value: key:value. Concrete rule for list of
+values: subsystem:(key1:val1,key1:val2). The actual ss output is
+nearly formatted matching these rules. E.g. see socket memory for list
+formated output. Sure, there are values like SACK that do not need any
+prefix and can assumed to be known.
 
+2) add JSON format for scripts and tools.
 
-------------------------------------------------------------------------------
-New Year. New Location. New Benefits. New Data Center in Ashburn, VA.
-GigeNET is offering a free month of service with a new server in Ashburn.
-Choose from 2 high performing configs, both with 100TB of bandwidth.
-Higher redundancy.Lower latency.Increased capacity.Completely compliant.
-http://p.sf.net/sfu/gigenet
+Hagen
