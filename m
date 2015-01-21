@@ -1,120 +1,45 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH net v2] ipv4: try to cache dst_entries which would cause
- a redirect
-Date: Wed, 21 Jan 2015 23:26:25 +0200 (EET)
-Message-ID: <alpine.LFD.2.11.1501212144530.2701@ja.home.ssi.bg>
-References: <c758eb2d861f2eeb981615c3297b19443d4061d6.1421837207.git.hannes@stressinduktion.org>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, Marcelo Leitner <mleitner@redhat.com>,
-	Florian Westphal <fw@strlen.de>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:35357 "EHLO ja.ssi.bg"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751999AbbAUV1H (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Jan 2015 16:27:07 -0500
-In-Reply-To: <c758eb2d861f2eeb981615c3297b19443d4061d6.1421837207.git.hannes@stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: pull-request: can 2015-01-21
+Date: Wed, 21 Jan 2015 22:46:30 +0100
+Message-ID: <1421876791-31014-1-git-send-email-mkl@pengutronix.de>
+Cc: davem@davemloft.net, linux-can@vger.kernel.org,
+	kernel@pengutronix.de
+To: netdev@vger.kernel.org
+Return-path: <linux-can-owner@vger.kernel.org>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Hello David,
 
-	Hello,
+this is a pull request for v3.19, net/master, which consists of a single patch.
 
-On Wed, 21 Jan 2015, Hannes Frederic Sowa wrote:
+Viktor Babrian fixes the issue in the c_can dirver, that the CAN interface
+might continue to send frames after the interface has been shut down.
 
-> Not caching dst_entries which cause redirects could be exploited by hosts
-> on the same subnet, causing a severe DoS attack. This effect aggravated
-> since commit f88649721268999 ("ipv4: fix dst race in sk_dst_get()").
-> 
-> Lookups causing redirects will be allocated with DST_NOCACHE set which
-> will force dst_release to free them via RCU.  Unfortunately waiting for
-> RCU grace period just takes too long, we can end up with >1M dst_entries
-> waiting to be released and the system will run OOM. rcuos threads cannot
-> catch up under high softirq load.
-> 
-> Attaching the flag to emit a redirect later on to the specific skb allows
-> us to cache those dst_entries thus reducing the pressure on allocation
-> and deallocation.
-> 
-> This issue was discovered by Marcelo Leitner.
+regards,
+Marc
 
-	After more thinking and after checking all
-ip_route_input places other issues popup :(
+---
 
-	Another place with non-trivial handling is
-icmp_route_lookup(), only called by icmp_send(). We do
-lookup and then revert it. ip_options_rcv_srr() too.
-In this case we even can replace initial route (which
-should be to local host, without redirect flag) with
-new route (which can be with  IPSKB_DOREDIRECT).
-So, for this case we do not wrongly leave some
-IPSKB_DOREDIRECT flag.
+The following changes since commit 06efe0e54018cb19cf0807447dc3ac747ffcfd1c:
 
-	But in icmp_route_lookup() should we restore the
-original IPSKB_DOREDIRECT bit when_skb_refdst is restored?
-I.e. I'm not sure if some icmp_send() caller continues to
-use the skb. For now I see only one place where we continue
-to use skb after icmp_send: ip_rt_send_redirect(). But
-it is after our check for RTCF_DOREDIRECT. Other places
-free the skb.
+  Merge tag 'pinctrl-v3.19-3' of git://git.kernel.org/pub/scm/linux/kernel/git/linusw/linux-pinctrl (2015-01-20 21:23:41 +1200)
 
-	If we want to be pedantic, should we create some
-helper functions and structure to save old state? For now
-we are ok but using IPCB looks risky. For example:
+are available in the git repository at:
 
-struct ip_route_input_state {
-	unsigned long	refdst;
-	unsigned char	flags;
-};
+  git://git.kernel.org/pub/scm/linux/kernel/git/mkl/linux-can.git tags/linux-can-fixes-for-3.19-20150121
 
-/* Save state and re-init skb for new route lookup */
-static inline void
-ip_route_input_state_save(struct sk_buff *skb,
-			  struct ip_route_input_state *state)
-{
-	state->refdst = skb->_skb_refdst;
-	state->flags = IPCB(skb)->flags;
-	skb_dst_set(skb, NULL);
-	IPCB(skb)->flags &= ~IPSKB_DOREDIRECT;
-}
+for you to fetch changes up to 7ffd7b4e169d619e66928fe5d997723f2c6f1056:
 
-static inline void
-ip_route_input_state_restore(struct sk_buff *skb,
-			     struct ip_route_input_state *state)
-{
-	skb->_skb_refdst = state->refdst;
-	IPCB(skb)->flags = state->flags;
-}
+  can: c_can: end pending transmission on network stop (ifdown) (2015-01-21 22:43:14 +0100)
 
-static inline void
-ip_route_input_state_drop(struct ip_route_input_state *state)
-{
-	refdst_drop(state->refdst);
-}
+----------------------------------------------------------------
+linux-can-fixes-for-3.19-20150121
 
->  	skb->priority = rt_tos2priority(iph->tos);
-> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-> index 2000110..868c829 100644
-> --- a/net/ipv4/route.c
-> +++ b/net/ipv4/route.c
-> @@ -1568,10 +1568,8 @@ static int __mkroute_input(struct sk_buff *skb,
->  	do_cache = res->fi && !itag;
->  	if (out_dev == in_dev && err && IN_DEV_TX_REDIRECTS(out_dev) &&
->  	    (IN_DEV_SHARED_MEDIA(out_dev) ||
-> -	     inet_addr_onlink(out_dev, saddr, FIB_RES_GW(*res)))) {
-> -		flags |= RTCF_DOREDIRECT;
-> -		do_cache = false;
-> -	}
-> +	     inet_addr_onlink(out_dev, saddr, FIB_RES_GW(*res))))
-> +		IPCB(skb)->flags |= IPSKB_DOREDIRECT;
+----------------------------------------------------------------
+Viktor Babrian (1):
+      can: c_can: end pending transmission on network stop (ifdown)
 
-	Looks like accessing IPCB may not be safe for
-ARP (NEIGH_CB is used) or other protocols, may be we have
-to add skb->protocol == htons(ETH_P_IP) check here because
-ip_route_input() can be called for different protocols.
+ drivers/net/can/c_can/c_can.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
