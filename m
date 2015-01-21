@@ -1,61 +1,47 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [PATCH net-next v13 5/5] openvswitch: Add support for unique flow IDs.
-Date: Wed, 21 Jan 2015 15:41:11 -0800
-Message-ID: <CALnjE+rWu7HsmjK9O0KEzkgngh7fc62aMp-ecMrAZP_3r8gtSw@mail.gmail.com>
-References: <1421778772-11879-1-git-send-email-joestringer@nicira.com>
-	<1421778772-11879-6-git-send-email-joestringer@nicira.com>
-	<CALnjE+qHjf5djBybPQUzoR_+dxDskQJQwtgvSN=G5NW9pckETw@mail.gmail.com>
-	<CANr6G5yc1PZTAXHGrDJ-zLZf13UB4aef1hsQyK7RTPHzJMGoRg@mail.gmail.com>
+From: Vincent JARDIN <vincent.jardin@6wind.com>
+Subject: Re: [PATCH net-next 0/3] openvswitch: Add STT support.
+Date: Thu, 22 Jan 2015 00:46:31 +0100
+Message-ID: <54C03A57.4080002@6wind.com>
+References: <1421785536-19793-1-git-send-email-pshelar@nicira.com> <CA+mtBx90TipY9uJvW2uQfrCYL9JNM9Rk75HzdJPhE0qsdy8dnw@mail.gmail.com> <CALnjE+rSXpPftiG4Vw3azkN2s2-Ey6ZcZr9Bv422pOdwrvU=tw@mail.gmail.com> <CA+mtBx9yM+C8GeEHOGTHPVxNB3fJd7LQG0RaC3jywrO9_tQ58A@mail.gmail.com> <CALnjE+po5gy7g8ftmiNcnrN_gRL9tzCRHNtn=fxUafFikKB1rg@mail.gmail.com> <CA+mtBx-v5dvX-OPGeWJb6uwQGhJ5T6iewD83xJGqXb+Ggf+LQw@mail.gmail.com> <CAEP_g=-3GXJfawPb4jevkZhqmzTttsO1Rv_2J6GwpG=PR_a-0g@mail.gmail.com> <CA+mtBx9B5aS9Jv6tpUJpmBkvQFnUqjcxcgTjbBHee8K0f1C9KQ@mail.gmail.com> <CAEP_g=_B5xTcfONUP4PTw91PdJKx_cN_+Qdd4F6300aXVyzLZg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	"dev@openvswitch.org" <dev@openvswitch.org>
-To: Joe Stringer <joestringer@nicira.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Pravin Shelar <pshelar@nicira.com>,
+	David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Jesse Gross <jesse@nicira.com>, Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog133.obsmtp.com ([74.125.149.82]:60812 "HELO
-	na3sys009aog133.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752571AbbAUXlM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jan 2015 18:41:12 -0500
-Received: by mail-ig0-f171.google.com with SMTP id h15so17130269igd.4
-        for <netdev@vger.kernel.org>; Wed, 21 Jan 2015 15:41:11 -0800 (PST)
-In-Reply-To: <CANr6G5yc1PZTAXHGrDJ-zLZf13UB4aef1hsQyK7RTPHzJMGoRg@mail.gmail.com>
+Received: from mail-we0-f179.google.com ([74.125.82.179]:35149 "EHLO
+	mail-we0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752462AbbAUXql (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jan 2015 18:46:41 -0500
+Received: by mail-we0-f179.google.com with SMTP id q59so22463881wes.10
+        for <netdev@vger.kernel.org>; Wed, 21 Jan 2015 15:46:39 -0800 (PST)
+In-Reply-To: <CAEP_g=_B5xTcfONUP4PTw91PdJKx_cN_+Qdd4F6300aXVyzLZg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 21, 2015 at 11:29 AM, Joe Stringer <joestringer@nicira.com> wrote:
-> On 21 January 2015 at 10:31, Pravin Shelar <pshelar@nicira.com> wrote:
->> On Tue, Jan 20, 2015 at 10:32 AM, Joe Stringer <joestringer@nicira.com> wrote:
->>> Previously, flows were manipulated by userspace specifying a full,
->>> unmasked flow key. This adds significant burden onto flow
->>> serialization/deserialization, particularly when dumping flows.
->>>
->>> This patch adds an alternative way to refer to flows using a
->>> variable-length "unique flow identifier" (UFID). At flow setup time,
->>> userspace may specify a UFID for a flow, which is stored with the flow
->>> and inserted into a separate table for lookup, in addition to the
->>> standard flow table. Flows created using a UFID must be fetched or
->>> deleted using the UFID.
->>>
->>> All flow dump operations may now be made more terse with OVS_UFID_F_*
->>> flags. For example, the OVS_UFID_F_OMIT_KEY flag allows responses to
->>> omit the flow key from a datapath operation if the flow has a
->>> corresponding UFID. This significantly reduces the time spent assembling
->>> and transacting netlink messages. With all OVS_UFID_F_OMIT_* flags
->>> enabled, the datapath only returns the UFID and statistics for each flow
->>> during flow dump, increasing ovs-vswitchd revalidator performance by 40%
->>> or more.
->>>
->>> Signed-off-by: Joe Stringer <joestringer@nicira.com>
->>
->> Its almost ready. But I saw minor issues,
->> few checkpatch.pl failures.
->> in ovs_flow_cmd_new() we should use unmasked key to lookup in flow
->> table for legacy case.
->
-> Thanks for review, I can send out a fresh version soon. Should I
-> resend the whole series or is just a new version of this patch
-> sufficient?
+Jesse, Tom,
 
-I think you have to send entire series. Dave will not apply series
-patches from different versions.
+On 21/01/2015 23:14, Jesse Gross wrote:
+>> I'm not going to try to draw conclusions from data which is obviously
+>> >biased and incomplete. If you want to move forward on this, then just
+>> >provide network interface for STT so we can independently run our own
+>> >comparisons against other encapsulations like we've been doing all
+>> >along.
+> You have the source code, so you are totally free to run whatever
+> tests you like to draw your own conclusions. Personally, I find a more
+> than doubling of performance in the environments that I have seen
+> compelling. Your mileage may vary.
+
++1 for STT in the kernel:
+   - whatever the performances, it is needed because it happened to be 
+used. If the patch can be optimized, someone will do and provide the 
+related patches. The patch from Pravin is ok but...
+
+   - ...I agree with Tom, a netdevice is a must have to ack't this 
+patch. Such feature should not be added into openvswitch without its 
+counter-part netdevice.
+
+thank you,
+   Vincent
