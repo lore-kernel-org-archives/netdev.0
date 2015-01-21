@@ -1,60 +1,62 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] ipv6: tcp: fix race in IPV6_2292PKTOPTIONS
-Date: Wed, 21 Jan 2015 03:45:42 -0800
-Message-ID: <1421840742.4832.24.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f181.google.com ([209.85.213.181]:50167 "EHLO
-	mail-ig0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752251AbbAULpp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jan 2015 06:45:45 -0500
-Received: by mail-ig0-f181.google.com with SMTP id hn18so7898092igb.2
-        for <netdev@vger.kernel.org>; Wed, 21 Jan 2015 03:45:44 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Rasmus Villemoes <linux@rasmusvillemoes.dk>
+Subject: [PATCH v2] net: wireless: atmel: Remove open-coded and wrong strcasecmp
+Date: Wed, 21 Jan 2015 12:52:07 +0100
+Message-ID: <1421841127-8209-1-git-send-email-linux@rasmusvillemoes.dk>
+References: <1421414907-26764-1-git-send-email-linux@rasmusvillemoes.dk>
+Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	Rasmus Villemoes <linux@rasmusvillemoes.dk>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Simon Kelley <simon@thekelleys.org.uk>,
+	Kalle Valo <kvalo@codeaurora.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1421414907-26764-1-git-send-email-linux@rasmusvillemoes.dk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+The kernel's string library does in fact have strcasecmp, at least
+since ded220bd8f08 ("[STRING]: Move strcasecmp/strncasecmp to
+lib/string.c"). Moreover, this open-coded version is in fact wrong: If
+the strings only differ in their last character, a and b have already
+been incremented to point to the terminating NUL bytes, so they would
+wrongly be treated as equal.
 
-IPv6 TCP sockets store in np->pktoptions skbs, and use skb_set_owner_r()
-to charge the skb to socket.
-
-It means that destructor must be called while socket is locked.
-
-Therefore, we cannot use skb_get() or atomic_inc(&skb->users)
-to protect ourselves : kfree_skb() might race with other users
-manipulating sk->sk_forward_alloc
-
-Fix this race by holding socket lock for the duration of
-ip6_datagram_recv_ctl()
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
+Signed-off-by: Rasmus Villemoes <linux@rasmusvillemoes.dk>
 ---
- Since this bug is very old, feel free to apply on net-next ;)
+v2: Address Sergei's comments to the commit message.
 
- net/ipv6/ipv6_sockglue.c |    8 ++------
- 1 file changed, 2 insertions(+), 6 deletions(-)
+ drivers/net/wireless/atmel.c | 12 +-----------
+ 1 file changed, 1 insertion(+), 11 deletions(-)
 
-diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
-index 66980d8d98d1f5b3ef7a50dc33cb9b617f25604d..8d766d9100cba408525faf5818b7b0c6b6bc543c 100644
---- a/net/ipv6/ipv6_sockglue.c
-+++ b/net/ipv6/ipv6_sockglue.c
-@@ -996,13 +996,9 @@ static int do_ipv6_getsockopt(struct sock *sk, int level, int optname,
- 		lock_sock(sk);
- 		skb = np->pktoptions;
- 		if (skb)
--			atomic_inc(&skb->users);
--		release_sock(sk);
--
--		if (skb) {
- 			ip6_datagram_recv_ctl(sk, &msg, skb);
--			kfree_skb(skb);
--		} else {
-+		release_sock(sk);
-+		if (!skb) {
- 			if (np->rxopt.bits.rxinfo) {
- 				struct in6_pktinfo src_info;
- 				src_info.ipi6_ifindex = np->mcast_oif ? np->mcast_oif :
+diff --git a/drivers/net/wireless/atmel.c b/drivers/net/wireless/atmel.c
+index 9183f1cf89a7..55db9f03eb2a 100644
+--- a/drivers/net/wireless/atmel.c
++++ b/drivers/net/wireless/atmel.c
+@@ -45,7 +45,6 @@
+ #include <linux/ptrace.h>
+ #include <linux/slab.h>
+ #include <linux/string.h>
+-#include <linux/ctype.h>
+ #include <linux/timer.h>
+ #include <asm/byteorder.h>
+ #include <asm/io.h>
+@@ -2699,16 +2698,7 @@ static int atmel_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+ 		domain[REGDOMAINSZ] = 0;
+ 		rc = -EINVAL;
+ 		for (i = 0; i < ARRAY_SIZE(channel_table); i++) {
+-			/* strcasecmp doesn't exist in the library */
+-			char *a = channel_table[i].name;
+-			char *b = domain;
+-			while (*a) {
+-				char c1 = *a++;
+-				char c2 = *b++;
+-				if (tolower(c1) != tolower(c2))
+-					break;
+-			}
+-			if (!*a && !*b) {
++			if (!strcasecmp(channel_table[i].name, domain)) {
+ 				priv->config_reg_domain = channel_table[i].reg_domain;
+ 				rc = 0;
+ 			}
+-- 
+2.1.3
