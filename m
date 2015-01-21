@@ -1,45 +1,89 @@
-From: Hagen Paul Pfeifer <hagen@jauu.net>
-Subject: Re: [PATCH iproute2 3/3] ss: Unify tcp stats output
-Date: Wed, 21 Jan 2015 09:54:02 +0100
-Message-ID: <CAPh34me2T6+GbK3GTwir3kraa6eB-rMFkP_YaHN7Oaeyza6PVw@mail.gmail.com>
-References: <1421613815-6635-1-git-send-email-vadim4j@gmail.com>
-	<1421613815-6635-4-git-send-email-vadim4j@gmail.com>
-	<CAPh34mdi+8wLaUY3ZBks40wbOtdzsbTrmuvsHivRouc9rs3gig@mail.gmail.com>
-	<CAHA+R7PgJytCaeVz8aOyJ06JjKACMCrtp8oAnfuaSDSNJX8NvQ@mail.gmail.com>
+From: Kishon Vijay Abraham I <kishon@ti.com>
+Subject: Re: [PATCH v2 0/7] Fix sti drivers whcih mix reg address spaces
+Date: Wed, 21 Jan 2015 14:24:17 +0530
+Message-ID: <54BF6939.6050200@ti.com>
+References: <1420643052-4506-1-git-send-email-peter.griffin@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Vadim Kochan <vadim4j@gmail.com>, netdev <netdev@vger.kernel.org>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: Cong Wang <cwang@twopensource.com>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <lee.jones@linaro.org>, <devicetree@vger.kernel.org>,
+	<netdev@vger.kernel.org>
+To: Peter Griffin <peter.griffin@linaro.org>,
+	<linux-arm-kernel@lists.infradead.org>,
+	<linux-kernel@vger.kernel.org>, <srinivas.kandagatla@gmail.com>,
+	<maxime.coquelin@st.com>, <patrice.chotard@st.com>,
+	<peppe.cavallaro@st.com>, <arnd@arndb.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f182.google.com ([209.85.217.182]:45632 "EHLO
-	mail-lb0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750890AbbAUIyF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jan 2015 03:54:05 -0500
-Received: by mail-lb0-f182.google.com with SMTP id l4so12617503lbv.13
-        for <netdev@vger.kernel.org>; Wed, 21 Jan 2015 00:54:02 -0800 (PST)
-In-Reply-To: <CAHA+R7PgJytCaeVz8aOyJ06JjKACMCrtp8oAnfuaSDSNJX8NvQ@mail.gmail.com>
+Received: from bear.ext.ti.com ([192.94.94.41]:58228 "EHLO bear.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751779AbbAUIyx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Jan 2015 03:54:53 -0500
+In-Reply-To: <1420643052-4506-1-git-send-email-peter.griffin@linaro.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-20 January 2015 at 19:36, Cong Wang <cwang@twopensource.com> wrote:
+Hi,
 
-> On the other hand, what blocks you from parsing the netlink message
-> by yourself? Don't get me wrong, I am not a fan of netlink, but
-> generally speaking, ss is not alone, too many scripts and applications
-> nowadays parse iproute2 tools output.
+On Wednesday 07 January 2015 08:34 PM, Peter Griffin wrote:
+> Hi folks,
+> 
+> A V2 of this old series incorporating Arnd and Lees Feedback form v1.
+> 
+> Following on from Arnds comments about the picophy driver here
+> https://lkml.org/lkml/2014/11/13/161, this series fixes the
+> remaining upstreamed drivers for STI, which are mixing address spaces
+> in the reg property. We do this in a way similar to the keystone
+> and bcm7445 platforms, by having sysconfig phandle/ offset pair 
+> (where only one register is required). Or phandle / integer array
+> where multiple offsets in the same bank are needed).
+> 
+> This series breaks DT compatability! But the platform support
+> is WIP and only being used by the few developers who are upstreaming
+> support for it. I've made each change to the driver / dt doc / dt
+> file as a single atomic commit so the kernel will remain bisectable. 
+> 
+> This series then also enables the picophy driver, and adds back in
+> the ehci/ohci dt nodes for stih410 which make use of the picophy.
+> 
+> regards,
+> 
+> Peter.
+> 
+> Changes since v1:
+> - Add missing space after */ (Lee)
+> - Change comment to "indexed from" rather than "not indexed from" (Lee)
+> - Change naming to phy1, phy2 rather than phy@1 phy@2 if there is no reg property (Arnd / Grant)
+> - Rebased on v3.19-rc3 (me)
+> - Checkpatch "no space before tabs" warning in stih41*.dtsi (me)
+> 
+> Peter Griffin (7):
+>   phy: phy-stih407-usb: Pass sysconfig register offsets via syscfg
+>     property.
+>   phy: miphy365x: Pass sysconfig register offsets via syscfg dt
+>     property.
+>   ARM: STi: DT: STiH407: Add usb2 picophy dt nodes
+>   ARM: STi: DT: STiH410: Add usb2 picophy dt nodes
+>   ARM: STi: DT: STiH410: Add DT nodes for the ehci and ohci usb
+>     controllers.
+>   ARM: multi_v7_defconfig: Enable stih407 usb picophy
+>   stmmac: dwmac-sti: Pass sysconfig register offset via syscon dt
+>     property.
+> 
+>  .../devicetree/bindings/net/sti-dwmac.txt          | 14 ++---
+>  .../devicetree/bindings/phy/phy-miphy365x.txt      | 15 ++---
+>  .../devicetree/bindings/phy/phy-stih407-usb.txt    | 10 +---
+>  arch/arm/boot/dts/stih407-family.dtsi              |  9 +++
+>  arch/arm/boot/dts/stih410.dtsi                     | 70 ++++++++++++++++++++++
+>  arch/arm/boot/dts/stih415.dtsi                     | 12 ++--
+>  arch/arm/boot/dts/stih416.dtsi                     | 22 +++----
+>  arch/arm/configs/multi_v7_defconfig                |  1 +
+>  drivers/net/ethernet/stmicro/stmmac/dwmac-sti.c    | 13 ++--
+>  drivers/phy/phy-miphy365x.c                        | 29 ++++-----
+>  drivers/phy/phy-stih407-usb.c                      | 25 ++++----
+>  11 files changed, 143 insertions(+), 77 deletions(-)
+> 
 
-Agree, thus the proposal:
+Queued the first two patches of this series in linux-phy.
 
-1) *new* ss values are "prefixed" by an name to make it possible that
-*humans* can understand the value ("make ss output human readable").
-Concrete rule for scalar value: key:value. Concrete rule for list of
-values: subsystem:(key1:val1,key1:val2). The actual ss output is
-nearly formatted matching these rules. E.g. see socket memory for list
-formated output. Sure, there are values like SACK that do not need any
-prefix and can assumed to be known.
-
-2) add JSON format for scripts and tools.
-
-Hagen
+Thanks
+Kishon
