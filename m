@@ -1,70 +1,58 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH 3/3] netlink: Lock out table resizes while dumping
- Netlink sockets
-Date: Wed, 21 Jan 2015 10:36:48 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CACFFEA@AcuExch.aculab.com>
-References: <cover.1421759056.git.tgraf@suug.ch>
- <e164edeacaeffee43be64d4ed6a5b5e7e8923bd1.1421759056.git.tgraf@suug.ch>
- <20150120143154.GR14883@acer.localdomain>
- <20150120145551.GH20315@casper.infradead.org>
- <20150120152149.GA3012@acer.localdomain>
- <20150120153556.GJ20315@casper.infradead.org>
- <20150121050819.GA23062@gondor.apana.org.au>
- <20150121093722.GM20315@casper.infradead.org>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net] ipv4: try to cache dst_entries which would cause a
+ redirect
+Date: Wed, 21 Jan 2015 11:39:55 +0100
+Message-ID: <1421836795.16127.0.camel@stressinduktion.org>
+References: <16ab8e83e2c0719bd449f8e10f82637820624712.1421789827.git.hannes@stressinduktion.org>
+	 <alpine.LFD.2.11.1501211041360.2329@ja.home.ssi.bg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: Patrick McHardy <kaber@trash.net>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"paulmck@linux.vnet.ibm.com" <paulmck@linux.vnet.ibm.com>,
-	"ying.xue@windriver.com" <ying.xue@windriver.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>
-To: 'Thomas Graf' <tgraf@suug.ch>,
-	Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20150121093722.GM20315@casper.infradead.org>
-Content-Language: en-US
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Marcelo Leitner <mleitner@redhat.com>,
+	Florian Westphal <fw@strlen.de>
+To: Julian Anastasov <ja@ssi.bg>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out3-smtp.messagingengine.com ([66.111.4.27]:46420 "EHLO
+	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750803AbbAUKj5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jan 2015 05:39:57 -0500
+Received: from compute1.internal (compute1.nyi.internal [10.202.2.41])
+	by mailout.nyi.internal (Postfix) with ESMTP id 59F6920EEB
+	for <netdev@vger.kernel.org>; Wed, 21 Jan 2015 05:39:57 -0500 (EST)
+In-Reply-To: <alpine.LFD.2.11.1501211041360.2329@ja.home.ssi.bg>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Thomas Graf
-> On 01/21/15 at 04:08pm, Herbert Xu wrote:
-...
-> > Essentially I need a bit to indicate an entry in the bucket chain
-> > should be skipped, either because it has just been removed or that
-> > it is a walker entry (see xfrm_state_walk).
-> >
-> > The way it'll work then is exactly the same as xfrm_state_walk,
-> > except that the linked list is broken up into individual buckets.
-> >
-> > Of course we'll still need to postpone resizes (and rehashes which
-> > is what my work is about) during a walk but I think that's a fair
-> > price to pay.
+Hi Julian,
+
+On Mi, 2015-01-21 at 10:56 +0200, Julian Anastasov wrote:
+> On Tue, 20 Jan 2015, Hannes Frederic Sowa wrote:
 > 
-> If I understand this correctly we also need to block out parallel
-> walkers and we need to start taking bucket locks while walking to
-> modify the walker mark bit in peace.
+> > Not caching dst_entries which cause redirects could be exploited by hosts
+> > on the same subnet, causing a severe DoS attack. This effect aggravated
+> > since commit f88649721268999 ("ipv4: fix dst race in sk_dst_get()").
+> > 
+> > Lookups causing redirects will be allocated with DST_NOCACHE set which
+> > will force dst_release to free them via RCU.  Unfortunately waiting for
+> > RCU grace period just takes too long, we can end up with >1M dst_entries
+> > waiting to be released and the system will run OOM. rcuos threads cannot
+> > catch up under high softirq load.
+> > 
+> > Attaching the flag to emit a redirect later on to the specific skb allows
+> > us to cache those dst_entries thus reducing the pressure on allocation
+> > and deallocation.
+> > 
+> > This issue was discovered by Marcelo Leitner.
+> 
+> 	Change looks good to me but additional place
+> should be changed too: inet_rtm_getroute() will call
+> ip_route_input() and later rt_fill_info() will put
+> rt_flags in rtm_flags. We have to set RTCF_DOREDIRECT
+> just in rtm_flags depending on IPSKB_DOREDIRECT becuase
+> iproute needs to print "redirect". You can test it with
+> ip route get ... iif INDEV
 
-Running 'walker | grep foo | less' really shouldn't stop any activity,
-including further requests by the same person to dump the same table in a
-different window.
-I would also expect the above request to be able to continue correctly
-when restarted hours later (unless something unusual - like a resize -
-happens).
+Very good catch, thanks. Will post v2 soon.
 
-Suppressing 'table shrink' because you think a walker might be active
-if probably a good idea, and just requires a timestamp of the last
-walk action.
-
-Thought...
-It is possible to break walking only on hash chain boundaries?
-At least in the case where the response buffer is large enough
-for a full 'chain' of entries.
-
-Also what happens if there is a page fault on any userpage?
-You don't want to be holding a mutex.
-
-	David
-
-
+Thanks,
+Hannes
