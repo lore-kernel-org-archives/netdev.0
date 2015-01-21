@@ -1,7 +1,7 @@
 From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: [PATCH 1/2] sh_eth: use SET_RUNTIME_PM_OPS()
-Date: Thu, 22 Jan 2015 01:18:44 +0300
-Message-ID: <1921430.9kt2FLVU1I@wasted.cogentembedded.com>
+Subject: [PATCH 2/2] sh_eth: add more PM methods
+Date: Thu, 22 Jan 2015 01:19:48 +0300
+Message-ID: <2238953.qWhbSccAbj@wasted.cogentembedded.com>
 References: <5608250.lrFkJTjgSf@wasted.cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -15,29 +15,68 @@ List-Id: netdev.vger.kernel.org
 
 From: Mikhail Ulyanov <mikhail.ulyanov@cogentembedded.com>
 
-Use SET_RUNTIME_PM_OPS() macro to initialize the runtime PM method pointers in
-the 'struct dev_pm_ops'.
+Add sh_eth_{suspend|resume}() implementing {suspend|resume|freeze|thaw|poweroff|
+restore}() PM methods to make it possible to restore from hibernation not only
+in Linux  but also in e.g. U-Boot and  to have more determined state on resume/
+restore.
 
 Signed-off-by: Mikhail Ulyanov <mikhail.ulyanov@cogentembedded.com>
-[Sergei: renamed, added the changelog.]
+[Sergei: moved sh_eth_{suspend|resume}() before sh_eth_runtime_nop(), enclosed
+them with #ifdef CONFIG_PM_SLEEP, reordered the local variables, got rid of
+*goto* and label, reordered macro invocations, renamed, modified the changelog.]
 Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 
 ---
- drivers/net/ethernet/renesas/sh_eth.c |    3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+ drivers/net/ethernet/renesas/sh_eth.c |   31 +++++++++++++++++++++++++++++++
+ 1 file changed, 31 insertions(+)
 
 Index: net-next/drivers/net/ethernet/renesas/sh_eth.c
 ===================================================================
 --- net-next.orig/drivers/net/ethernet/renesas/sh_eth.c
 +++ net-next/drivers/net/ethernet/renesas/sh_eth.c
-@@ -2960,8 +2960,7 @@ static int sh_eth_runtime_nop(struct dev
+@@ -2947,6 +2947,36 @@ static int sh_eth_drv_remove(struct plat
+ }
+ 
+ #ifdef CONFIG_PM
++#ifdef CONFIG_PM_SLEEP
++static int sh_eth_suspend(struct device *dev)
++{
++	struct net_device *ndev = dev_get_drvdata(dev);
++	int ret = 0;
++
++	if (netif_running(ndev)) {
++		netif_device_detach(ndev);
++		ret = sh_eth_close(ndev);
++	}
++
++	return ret;
++}
++
++static int sh_eth_resume(struct device *dev)
++{
++	struct net_device *ndev = dev_get_drvdata(dev);
++	int ret = 0;
++
++	if (netif_running(ndev)) {
++		ret = sh_eth_open(ndev);
++		if (ret < 0)
++			return ret;
++		netif_device_attach(ndev);
++	}
++
++	return ret;
++}
++#endif
++
+ static int sh_eth_runtime_nop(struct device *dev)
+ {
+ 	/* Runtime PM callback shared between ->runtime_suspend()
+@@ -2960,6 +2990,7 @@ static int sh_eth_runtime_nop(struct dev
  }
  
  static const struct dev_pm_ops sh_eth_dev_pm_ops = {
--	.runtime_suspend = sh_eth_runtime_nop,
--	.runtime_resume = sh_eth_runtime_nop,
-+	SET_RUNTIME_PM_OPS(sh_eth_runtime_nop, sh_eth_runtime_nop, NULL)
++	SET_SYSTEM_SLEEP_PM_OPS(sh_eth_suspend, sh_eth_resume)
+ 	SET_RUNTIME_PM_OPS(sh_eth_runtime_nop, sh_eth_runtime_nop, NULL)
  };
  #define SH_ETH_PM_OPS (&sh_eth_dev_pm_ops)
- #else
 
