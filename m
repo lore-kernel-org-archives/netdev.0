@@ -1,54 +1,75 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH 2/3] netlink: Mark dumps as inconsistent which have been
- interrupted by a resize
-Date: Wed, 21 Jan 2015 12:17:48 +0000
-Message-ID: <20150121121748.GD12570@casper.infradead.org>
-References: <cover.1421759056.git.tgraf@suug.ch>
- <cce004895ab6bcef267e2133a1c7ecab0fac403b.1421759056.git.tgraf@suug.ch>
- <54BF5FC4.4070808@windriver.com>
+From: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
+Subject: Re: [PATCH 1/2] if_link: Add VF multicast
+	promiscuous	mode control
+Date: Wed, 21 Jan 2015 12:18:23 +0000
+Message-ID: <7F861DC0615E0C47A872E6F3C5FCDDBD05E090FE@BPXM14GP.gisp.nec.co.jp>
+References: <7F861DC0615E0C47A872E6F3C5FCDDBD05E0734E@BPXM14GP.gisp.nec.co.jp>
+	<874mrlu18e.fsf@nemi.mork.no>
+	<7F861DC0615E0C47A872E6F3C5FCDDBD05E07B7C@BPXM14GP.gisp.nec.co.jp>
+	<F6FB0E698C9B3143BDF729DF222866469129B7F5@ORSMSX110.amr.corp.intel.com>
+	<7F861DC0615E0C47A872E6F3C5FCDDBD05E07F09@BPXM14GP.gisp.nec.co.jp>
+	<F6FB0E698C9B3143BDF729DF222866469129B844@ORSMSX110.amr.corp.intel.com>
+	<7F861DC0615E0C47A872E6F3C5FCDDBD05E08FF6@BPXM14GP.gisp.nec.co.jp>
+	<063D6719AE5E284EB5DD2968C1650D6D1CAD01D6@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, kaber@trash.net, herbert@gondor.apana.org.au,
-	paulmck@linux.vnet.ibm.com, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: Ying Xue <ying.xue@windriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:36424 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750812AbbAUMRv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jan 2015 07:17:51 -0500
-Content-Disposition: inline
-In-Reply-To: <54BF5FC4.4070808@windriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>, "Choi,
+	Sy Jong" <sy.jong.choi@intel.com>, Hayato Momma <h-momma@ce.jp.nec.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: David Laight <David.Laight@ACULAB.COM>,
+	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+	=?utf-8?B?QmrDuHJuIE1vcms=?= <bjorn@mork.no>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CAD01D6@AcuExch.aculab.com>
+Content-Language: ja-JP
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On 01/21/15 at 04:13pm, Ying Xue wrote:
-> On 01/20/2015 09:20 PM, Thomas Graf wrote:
-> > A deferred resize of nl_table causes the offsets that Netlink diag keeps
-> > to become inaccurate. Mark the dump as inconsistent and have user space
-> > request a new dump.
-> > 
-> > Signed-off-by: Thomas Graf <tgraf@suug.ch>
-> > ---
-> >  net/netlink/af_netlink.c | 10 ++++++++++
-> >  net/netlink/af_netlink.h |  1 +
-> >  net/netlink/diag.c       |  1 +
-> >  3 files changed, 12 insertions(+)
-> > 
-> > diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-> > index 7a94185..e214557 100644
-> > --- a/net/netlink/af_netlink.c
-> > +++ b/net/netlink/af_netlink.c
-> > @@ -91,6 +91,9 @@ static inline int netlink_is_kernel(struct sock *sk)
-> >  struct netlink_table *nl_table;
-> >  EXPORT_SYMBOL_GPL(nl_table);
-> >  
-> > +atomic_t nl_table_seq;
+> Subject: RE: [E1000-devel] [PATCH 1/2] if_link: Add VF multicast promiscuous mode control
 > 
-> It sounds like the atomic variable is not initialized.
+> From: Hiroshi Shimamoto
+> > My concern is what is the real issue that VF multicast promiscuous mode can cause.
+> > I think there is the 4k entries to filter multicast address, and the current ixgbe/ixgbevf
+> > can turn all bits on from VM. That is almost same as enabling multicast promiscuous mode.
+> > I mean that we can receive all multicast addresses by an onerous operation in untrusted VM.
+> > I think we should clarify what is real security issue in this context.
+> 
+> If you are worried about passing un-enabled multicasts to users then
+> what about doing a software hash of received multicasts and checking
+> against an actual list of multicasts enabled for that hash entry.
+> Under normal conditions there is likely to be only a single address to check.
+> 
+> It may (or may not) be best to use the same hash as any hashing hardware
+> filter uses.
 
-Thanks for the review. We also need to avoid hitting 0 when we overflow
-on a seq increment.  The netfilter code is doing this correctly but several
-other users are suffering from this as well.
+thanks for the comment. But I don't think that is the point.
 
-I'll address this in v2 together with the other discussed changes.
+I guess, introducing VF multicast promiscuous mode seems to add new privilege
+to peek every multicast packet in VM and that doesn't look good.
+On the other hand, I think that there has been the same privilege in the current
+ixgbe/ixgbevf implementation already. Or I'm reading the code wrongly.
+I'd like to clarify what is the issue of allowing to receive all multicast packets.
+
+thanks,
+Hiroshi
+
+------------------------------------------------------------------------------
+New Year. New Location. New Benefits. New Data Center in Ashburn, VA.
+GigeNET is offering a free month of service with a new server in Ashburn.
+Choose from 2 high performing configs, both with 100TB of bandwidth.
+Higher redundancy.Lower latency.Increased capacity.Completely compliant.
+http://p.sf.net/sfu/gigenet
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
