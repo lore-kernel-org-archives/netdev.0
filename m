@@ -1,47 +1,112 @@
-From: Ben Hutchings <ben.hutchings@codethink.co.uk>
-Subject: Questions about the sh_eth driver and hardware
-Date: Wed, 21 Jan 2015 17:24:38 +0000
-Message-ID: <1421861078.1222.271.camel@xylophone.i.decadent.org.uk>
+From: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Subject: Re: [PATCH 2/2] net: mv643xx_eth: Fix highmem support in non-TSO
+ egress path
+Date: Wed, 21 Jan 2015 17:40:49 +0000
+Message-ID: <20150121174049.GW26493@n2100.arm.linux.org.uk>
+References: <1421844850-30886-1-git-send-email-ezequiel.garcia@free-electrons.com>
+ <1421844850-30886-3-git-send-email-ezequiel.garcia@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	ct-linux-kernel <linux-kernel@codethink.co.uk>
-To: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>,
-	Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>,
-	Hisashi Nakamura <hisashi.nakamura.ak@renesas.com>,
-	Yoshihiro Kaneko <ykaneko0929@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	B38611@freescale.com, fabio.estevam@freescale.com
+To: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ducie-dc1.codethink.co.uk ([185.25.241.215]:49462 "EHLO
-	ducie-dc1.codethink.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751713AbbAURYk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jan 2015 12:24:40 -0500
+Received: from pandora.arm.linux.org.uk ([78.32.30.218]:44217 "EHLO
+	pandora.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751713AbbAURk5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jan 2015 12:40:57 -0500
+Content-Disposition: inline
+In-Reply-To: <1421844850-30886-3-git-send-email-ezequiel.garcia@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I found several more bugs in the sh_eth driver, but for some of them I'm
-really unsure what to do.  I only have a manual for the R8A7790 (R-Car
-H2) and I don't know how all the other supported chips will behave.
-Maybe you can answer some of these questions.
+On Wed, Jan 21, 2015 at 09:54:10AM -0300, Ezequiel Garcia wrote:
+> Commit 69ad0dd7af22b61d9e0e68e56b6290121618b0fb
+> Author: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
+> Date:   Mon May 19 13:59:59 2014 -0300
+> 
+>     net: mv643xx_eth: Use dma_map_single() to map the skb fragments
+> 
+> caused a nasty regression by removing the support for highmem skb
+> fragments. By using page_address() to get the address of a fragment's
+> page, we are assuming a lowmem page. However, such assumption is incorrect,
+> as fragments can be in highmem pages, resulting in very nasty issues.
+> 
+> This commit fixes this by using the skb_frag_dma_map() helper,
+> which takes care of mapping the skb fragment properly.
 
-1. When freeing packet buffers, we currently try to stop the DMA engines
-by clearing EDRRR and EDTRR but we *don't* wait after that.  This seems
-unsafe because in general register writes are not serialised with DMA.
+This seems fine, so:
 
-The R8A7790 (R-Car H2) manual specifically says that the R bit of EDTRR
-(aka CXR2) cannot be cleared by writing to it.  I think that we could
-stop TX DMA by clearing the active flags of all the descriptors and then
-polling the R bit until it clears.  What do you think?
+> Fixes: 69ad0dd7af22 ("net: mv643xx_eth: Use dma_map_single() to map the skb fragments")
+> Reported-by: Russell King <linux@arm.linux.org.uk>
 
-As for RX DMA, I think we should wait some time after clearing the R bit
-that we can be sure is long enough to transfer one packet.  Do you know
-how long that could be?
+Reported-by: Russell King <rmk+kernel@arm.linux.org.uk>
+Tested-by: Russell King <rmk+kernel@arm.linux.org.uk>
 
-2. In case of a Receive Descriptor Empty error (RDE), we currently read
-the RDFAR register to find the next descriptor the DMA engine will use.
-But this register is not documented for the R8A7790 and the driver does
-not define an offset for it on R-Car chips.  The manual doesn't say how
-to set the address of the next descriptor to use.  Maybe we should
-assume that R-Car chips will never skip descriptors after RDE?
+Thanks.
 
-Ben.
+> Signed-off-by: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
+> ---
+>  drivers/net/ethernet/marvell/mv643xx_eth.c | 26 +++++++++++++++++++-------
+>  1 file changed, 19 insertions(+), 7 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/marvell/mv643xx_eth.c b/drivers/net/ethernet/marvell/mv643xx_eth.c
+> index a62fc38..0c77f0e 100644
+> --- a/drivers/net/ethernet/marvell/mv643xx_eth.c
+> +++ b/drivers/net/ethernet/marvell/mv643xx_eth.c
+> @@ -879,10 +879,8 @@ static void txq_submit_frag_skb(struct tx_queue *txq, struct sk_buff *skb)
+>  		skb_frag_t *this_frag;
+>  		int tx_index;
+>  		struct tx_desc *desc;
+> -		void *addr;
+>  
+>  		this_frag = &skb_shinfo(skb)->frags[frag];
+> -		addr = page_address(this_frag->page.p) + this_frag->page_offset;
+>  		tx_index = txq->tx_curr_desc++;
+>  		if (txq->tx_curr_desc == txq->tx_ring_size)
+>  			txq->tx_curr_desc = 0;
+> @@ -902,8 +900,9 @@ static void txq_submit_frag_skb(struct tx_queue *txq, struct sk_buff *skb)
+>  
+>  		desc->l4i_chk = 0;
+>  		desc->byte_cnt = skb_frag_size(this_frag);
+> -		desc->buf_ptr = dma_map_single(mp->dev->dev.parent, addr,
+> -					       desc->byte_cnt, DMA_TO_DEVICE);
+> +		desc->buf_ptr = skb_frag_dma_map(mp->dev->dev.parent,
+> +						 this_frag, 0, desc->byte_cnt,
+> +						 DMA_TO_DEVICE);
+>  	}
+>  }
+>  
+> @@ -1065,9 +1064,22 @@ static int txq_reclaim(struct tx_queue *txq, int budget, int force)
+>  		reclaimed++;
+>  		txq->tx_desc_count--;
+>  
+> -		if (!IS_TSO_HEADER(txq, desc->buf_ptr))
+> -			dma_unmap_single(mp->dev->dev.parent, desc->buf_ptr,
+> -					 desc->byte_cnt, DMA_TO_DEVICE);
+> +		if (!IS_TSO_HEADER(txq, desc->buf_ptr)) {
+> +
+> +			/* The first descriptor is either a TSO header or
+> +			 * the linear part of the skb.
+> +			 */
+> +			if (desc->cmd_sts & TX_FIRST_DESC)
+> +				dma_unmap_single(mp->dev->dev.parent,
+> +						 desc->buf_ptr,
+> +						 desc->byte_cnt,
+> +						 DMA_TO_DEVICE);
+> +			else
+> +				dma_unmap_page(mp->dev->dev.parent,
+> +					       desc->buf_ptr,
+> +					       desc->byte_cnt,
+> +					       DMA_TO_DEVICE);
+> +		}
+>  
+>  		if (cmd_sts & TX_ENABLE_INTERRUPT) {
+>  			struct sk_buff *skb = __skb_dequeue(&txq->tx_skb);
+> -- 
+> 2.2.1
+> 
+
+-- 
+FTTC broadband for 0.8mile line: currently at 10.5Mbps down 400kbps up
+according to speedtest.net.
