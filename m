@@ -1,53 +1,41 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 7/9] rhashtable: Per bucket locks & deferred
- expansion/shrinking
-Date: Wed, 21 Jan 2015 16:23:33 +1100
-Message-ID: <20150121052333.GA23382@gondor.apana.org.au>
-References: <20150116160354.GI30132@acer.localdomain>
- <20150116161530.GC15052@casper.infradead.org>
- <20150116163202.GJ30132@acer.localdomain>
- <063D6719AE5E284EB5DD2968C1650D6D1CACADAF@AcuExch.aculab.com>
- <20150116165302.GE15052@casper.infradead.org>
- <20150116183626.GS30132@acer.localdomain>
- <20150116191831.GA26730@casper.infradead.org>
- <20150116193557.GU30132@acer.localdomain>
- <20150116204644.GA2232@salvia>
- <20150119090121.GG9719@linux.vnet.ibm.com>
+From: Jonathan Toppins <jtoppins@cumulusnetworks.com>
+Subject: Re: [PATCH net-next 1/5] bonding: keep bond interface carrier off
+ until at least one active member
+Date: Wed, 21 Jan 2015 00:27:05 -0500
+Message-ID: <54BF38A9.7070608@cumulusnetworks.com>
+References: <1421423848-414-1-git-send-email-jtoppins@cumulusnetworks.com>	<1421423848-414-2-git-send-email-jtoppins@cumulusnetworks.com> <CAE4R7bBzeO5MvL5zS5Piq6Ld2ZbD8smGx8XaJy5SvY7kHbX_Kw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>, Thomas Graf <tgraf@suug.ch>,
-	David Laight <David.Laight@ACULAB.COM>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"edumazet@google.com" <edumazet@google.com>,
-	"john.r.fastabend@intel.com" <john.r.fastabend@intel.com>,
-	"josh@joshtriplett.org" <josh@joshtriplett.org>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>
-To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Netdev <netdev@vger.kernel.org>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>
+To: Scott Feldman <sfeldma@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:37219 "EHLO
-	helcar.apana.org.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750736AbbAUFYR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jan 2015 00:24:17 -0500
-Content-Disposition: inline
-In-Reply-To: <20150119090121.GG9719@linux.vnet.ibm.com>
+Received: from mail-qc0-f169.google.com ([209.85.216.169]:35495 "EHLO
+	mail-qc0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750796AbbAUF1H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jan 2015 00:27:07 -0500
+Received: by mail-qc0-f169.google.com with SMTP id b13so15941126qcw.0
+        for <netdev@vger.kernel.org>; Tue, 20 Jan 2015 21:27:07 -0800 (PST)
+In-Reply-To: <CAE4R7bBzeO5MvL5zS5Piq6Ld2ZbD8smGx8XaJy5SvY7kHbX_Kw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 19, 2015 at 01:01:21AM -0800, Paul E. McKenney wrote:
+On 1/19/15 5:15 PM, Scott Feldman wrote:
 >
-> One unconventional way of handling this is to associate the scan with
-> a one-to-one resize operation.  This can be implemented to have the
-> effect of taking a snapshot of the table.
+> On Jan 16, 2015 7:57 AM, "Jonathan Toppins"
+> <jtoppins@cumulusnetworks.com <mailto:jtoppins@cumulusnetworks.com>> wrote:
+>  >
+>  > From: Scott Feldman <sfeldma@cumulusnetworks.com
+> <mailto:sfeldma@cumulusnetworks.com>>
+>
+> Hmmmm, this feels a little creepy, sending a patch from my past.  I do
+> appreciate the attribution, but I can't ACK or NACK or even comment as
+> I've lost the context around this patch.  And I'm afraid I'll break out
+> in hives if I look at the bonding code again, so if you don't mind,
+> please remove me from this patch.  Thank you.
+>
 
-The problem is that in general (not for netfilter, but certainly
-other rhashtable users such as netlink) dumps/walks can be started
-by ordinary users and I don't think we can afford creating a
-snapshot for each one, or can we?
-
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Have removed you for v2 of series, should we consider this a blanket 
+statement for any other patches we might be releasing that you had a 
+hand in? There were a few ;)
