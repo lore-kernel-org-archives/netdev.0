@@ -1,81 +1,62 @@
-From: Wolfgang Grandegger <wg@grandegger.com>
-Subject: Re: [PATCH v5 2/5] can: =?UTF-8?Q?kvaser=5Fusb=3A=20Consolidate?=  =?UTF-8?Q?=20and=20unify=20state=20change=20handling?=
-Date: Wed, 21 Jan 2015 12:53:58 +0100
-Message-ID: <e5439ed067931dc01bda70592eb6ed52@grandegger.com>
-References: <20141223154654.GB6460@vivalin-002>
- <20150120214409.GA16828@linux> <20150120214537.GB16828@linux>
- <20150121103319.14511.57709@shannon>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH 3/3] netlink: Lock out table resizes while dumping
+ Netlink sockets
+Date: Wed, 21 Jan 2015 12:07:27 +0000
+Message-ID: <20150121120727.GC12570@casper.infradead.org>
+References: <20150120153556.GJ20315@casper.infradead.org>
+ <20150121050819.GA23062@gondor.apana.org.au>
+ <20150121093722.GM20315@casper.infradead.org>
+ <20150121093836.GA25489@gondor.apana.org.au>
+ <20150121094928.GN20315@casper.infradead.org>
+ <20150121095837.GA25750@gondor.apana.org.au>
+ <20150121103421.GR20315@casper.infradead.org>
+ <20150121103959.GR3012@acer.localdomain>
+ <20150121113751.GT20315@casper.infradead.org>
+ <20150121115924.GW3012@acer.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: "Ahmed S. Darwish" <darwish.07@gmail.com>,
-	Olivier Sobrie <olivier@sobrie.be>,
-	Oliver Hartkopp <socketcan@hartkopp.net>,
-	Marc Kleine-Budde <mkl@pengutronix.de>,
-	Linux-CAN <linux-can@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Andri Yngvason <andri.yngvason@marel.com>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <20150121103319.14511.57709@shannon>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Herbert Xu <herbert@gondor.apana.org.au>, davem@davemloft.net,
+	paulmck@linux.vnet.ibm.com, ying.xue@windriver.com,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from casper.infradead.org ([85.118.1.10]:36359 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750813AbbAUMH3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jan 2015 07:07:29 -0500
+Content-Disposition: inline
+In-Reply-To: <20150121115924.GW3012@acer.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 21 Jan 2015 10:33:19 +0000, Andri Yngvason
-<andri.yngvason@marel.com> wrote:
-> Quoting Ahmed S. Darwish (2015-01-20 21:45:37)
->> From: Ahmed S. Darwish <ahmed.darwish@valeo.com>
->> 
->> Replace most of the can interface's state and error counters
->> handling with the new can-dev can_change_state() mechanism.
->> 
->> Suggested-by: Andri Yngvason <andri.yngvason@marel.com>
->> Signed-off-by: Ahmed S. Darwish <ahmed.darwish@valeo.com>
->> ---
->>  drivers/net/can/usb/kvaser_usb.c | 114
->>  +++++++++++++++++++--------------------
->>  1 file changed, 55 insertions(+), 59 deletions(-)
->> 
->> diff --git a/drivers/net/can/usb/kvaser_usb.c
->> b/drivers/net/can/usb/kvaser_usb.c
->> index 971c5f9..0386d3f 100644
->> --- a/drivers/net/can/usb/kvaser_usb.c
->> +++ b/drivers/net/can/usb/kvaser_usb.c
-
-...
+On 01/21/15 at 11:59am, Patrick McHardy wrote:
+> On 21.01, Thomas Graf wrote:
+> > On 01/21/15 at 10:40am, Patrick McHardy wrote:
+> > > An automatic restart handles this well. Userspace always had to
+> > > expect duplicates.
+> > 
+> > Maybe I don't understand the restart yet. How do you restart if the
+> > dump was already started and the user has read part of the dump?
 > 
-> Looks good.
+> You use the mutex to prevent concurrent resizes and dumps, for dumps
+> that have left the kernel you simply reset the iterator state after
+> a resize operation.
 
-Would be nice to see some "candump" traces as well. Ahmed, could you
-please generate such traces doing:
+I see, so we possibly see a lot of duplicates but we will never miss
+any entries.
 
-1. Execute in a session:
-   # candump -t d -e any,0:0,#FFFFFFFF
+So in summary we do:
 
-2. Execute in another session:
-   # cangen -g 10 -D i can0
+2) We allow rhashtable users to opt in to Herbert's consistent walker
+   relying on the use of an additional bit.
 
-3. Disconnect the CAN cable
+2) If user supports NLM_F_DUMP_INTR we block out resizes during
+   message construction and set NLM_F_DUMP_INTR if a resize/rehash
+   interrupted us while the user read.
 
-4. After a while reconnect the CAN cable
+3) If (1) and (2) are not available we do (2) but restart the dump
+   on interruption thus causing duplicates but never missing any
+   entries.
 
-5. Stop candump and save the trace.
-
-and to test bus-off:
-
-1. Execute in a session:
-   # candump -t d -e any,0:0,#FFFFFFFF
-
-2. Execute in another session:
-   # cangen -g 10 -D i can0
-
-3. Short-circuit the CAN low and high wires of the CAN cable
-
-4. After a while remove the short-circuit.
-
-5. Stop candump and save the trace.
-
-Thanks,
-
-Wolfgang.
+I think this offers good flexibility for new users and compatibility
+for existing users.
