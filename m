@@ -1,49 +1,92 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 0/3] openvswitch: Add STT support.
-Date: Wed, 21 Jan 2015 12:22:29 -0800
-Message-ID: <1421871749.4832.32.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1421785536-19793-1-git-send-email-pshelar@nicira.com>
-	 <CA+mtBx90TipY9uJvW2uQfrCYL9JNM9Rk75HzdJPhE0qsdy8dnw@mail.gmail.com>
-	 <CALnjE+rSXpPftiG4Vw3azkN2s2-Ey6ZcZr9Bv422pOdwrvU=tw@mail.gmail.com>
-	 <CA+mtBx9yM+C8GeEHOGTHPVxNB3fJd7LQG0RaC3jywrO9_tQ58A@mail.gmail.com>
-	 <CALnjE+po5gy7g8ftmiNcnrN_gRL9tzCRHNtn=fxUafFikKB1rg@mail.gmail.com>
-	 <CA+mtBx-v5dvX-OPGeWJb6uwQGhJ5T6iewD83xJGqXb+Ggf+LQw@mail.gmail.com>
+From: "Skidmore, Donald C" <donald.c.skidmore@intel.com>
+Subject: Re: [PATCH 1/2] if_link: Add VF multicast
+	promiscuous	mode control
+Date: Wed, 21 Jan 2015 20:27:49 +0000
+Message-ID: <F6FB0E698C9B3143BDF729DF222866469129BC03@ORSMSX110.amr.corp.intel.com>
+References: <7F861DC0615E0C47A872E6F3C5FCDDBD05E0734E@BPXM14GP.gisp.nec.co.jp>
+	<874mrlu18e.fsf@nemi.mork.no>
+	<7F861DC0615E0C47A872E6F3C5FCDDBD05E07B7C@BPXM14GP.gisp.nec.co.jp>
+	<F6FB0E698C9B3143BDF729DF222866469129B7F5@ORSMSX110.amr.corp.intel.com>
+	<7F861DC0615E0C47A872E6F3C5FCDDBD05E07F09@BPXM14GP.gisp.nec.co.jp>
+	<F6FB0E698C9B3143BDF729DF222866469129B844@ORSMSX110.amr.corp.intel.com>
+	<7F861DC0615E0C47A872E6F3C5FCDDBD05E08FF6@BPXM14GP.gisp.nec.co.jp>
+	<063D6719AE5E284EB5DD2968C1650D6D1CAD01D6@AcuExch.aculab.com>
+	<7F861DC0615E0C47A872E6F3C5FCDDBD05E090FE@BPXM14GP.gisp.nec.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Pravin Shelar <pshelar@nicira.com>,
-	David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Tom Herbert <therbert@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f181.google.com ([209.85.223.181]:50704 "EHLO
-	mail-ie0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751484AbbAUUWe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jan 2015 15:22:34 -0500
-Received: by mail-ie0-f181.google.com with SMTP id rp18so5114618iec.12
-        for <netdev@vger.kernel.org>; Wed, 21 Jan 2015 12:22:32 -0800 (PST)
-In-Reply-To: <CA+mtBx-v5dvX-OPGeWJb6uwQGhJ5T6iewD83xJGqXb+Ggf+LQw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>, "Choi,
+	Sy Jong" <sy.jong.choi@intel.com>, Hayato Momma <h-momma@ce.jp.nec.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>, David Laight
+	<David.Laight@ACULAB.COM>, =?utf-8?B?QmrDuHJuIE1vcms=?= <bjorn@mork.no>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <7F861DC0615E0C47A872E6F3C5FCDDBD05E090FE@BPXM14GP.gisp.nec.co.jp>
+Content-Language: en-US
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2015-01-21 at 11:45 -0800, Tom Herbert wrote:
-> > I used bare metal intel servers. All VXLAN tests were done using linux
-> > kernel device without any VMs. All STT tests are done using OVS bridge
-> > and STT port.
-> >
-> So right off the bat you're running the baseline differently than the
-> target. Anyway, I cannot replicate your numbers for VXLAN, I see much
-> better performance and this with pretty old servers and dumb NICs. I
-> suspect you might not have GSO/GRO properly enabled, but instead of
-> trying to debug your setup, I'd rather restate my request that you
-> provide a network interface to STT so we can do our own fair
-> comparison.
-
-I have not read specs nor the patch, but I would expect that with a TCP
-stream, you simply can coalesce as many inner segments as you want.
-
-So you could build a single TSO packet containing 400 'messages' of 160
-bytes or so.
-
-Something that a datagram tunneling cannot really do, assuming you want
-full offloading support.
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogSGlyb3NoaSBTaGltYW1v
+dG8gW21haWx0bzpoLXNoaW1hbW90b0BjdC5qcC5uZWMuY29tXQ0KPiBTZW50OiBXZWRuZXNkYXks
+IEphbnVhcnkgMjEsIDIwMTUgNDoxOCBBTQ0KPiBUbzogRGF2aWQgTGFpZ2h0OyBTa2lkbW9yZSwg
+RG9uYWxkIEM7IEJqw7hybiBNb3JrDQo+IENjOiBlMTAwMC1kZXZlbEBsaXN0cy5zb3VyY2Vmb3Jn
+ZS5uZXQ7IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IENob2ksIFN5DQo+IEpvbmc7IGxpbnV4LWtl
+cm5lbEB2Z2VyLmtlcm5lbC5vcmc7IEhheWF0byBNb21tYQ0KPiBTdWJqZWN0OiBSRTogW0UxMDAw
+LWRldmVsXSBbUEFUQ0ggMS8yXSBpZl9saW5rOiBBZGQgVkYgbXVsdGljYXN0IHByb21pc2N1b3Vz
+DQo+IG1vZGUgY29udHJvbA0KPiANCj4gPiBTdWJqZWN0OiBSRTogW0UxMDAwLWRldmVsXSBbUEFU
+Q0ggMS8yXSBpZl9saW5rOiBBZGQgVkYgbXVsdGljYXN0DQo+ID4gcHJvbWlzY3VvdXMgbW9kZSBj
+b250cm9sDQo+ID4NCj4gPiBGcm9tOiBIaXJvc2hpIFNoaW1hbW90bw0KPiA+ID4gTXkgY29uY2Vy
+biBpcyB3aGF0IGlzIHRoZSByZWFsIGlzc3VlIHRoYXQgVkYgbXVsdGljYXN0IHByb21pc2N1b3Vz
+IG1vZGUNCj4gY2FuIGNhdXNlLg0KPiA+ID4gSSB0aGluayB0aGVyZSBpcyB0aGUgNGsgZW50cmll
+cyB0byBmaWx0ZXIgbXVsdGljYXN0IGFkZHJlc3MsIGFuZCB0aGUNCj4gPiA+IGN1cnJlbnQgaXhn
+YmUvaXhnYmV2ZiBjYW4gdHVybiBhbGwgYml0cyBvbiBmcm9tIFZNLiBUaGF0IGlzIGFsbW9zdCBz
+YW1lIGFzDQo+IGVuYWJsaW5nIG11bHRpY2FzdCBwcm9taXNjdW91cyBtb2RlLg0KPiA+ID4gSSBt
+ZWFuIHRoYXQgd2UgY2FuIHJlY2VpdmUgYWxsIG11bHRpY2FzdCBhZGRyZXNzZXMgYnkgYW4gb25l
+cm91cw0KPiBvcGVyYXRpb24gaW4gdW50cnVzdGVkIFZNLg0KPiA+ID4gSSB0aGluayB3ZSBzaG91
+bGQgY2xhcmlmeSB3aGF0IGlzIHJlYWwgc2VjdXJpdHkgaXNzdWUgaW4gdGhpcyBjb250ZXh0Lg0K
+PiA+DQo+ID4gSWYgeW91IGFyZSB3b3JyaWVkIGFib3V0IHBhc3NpbmcgdW4tZW5hYmxlZCBtdWx0
+aWNhc3RzIHRvIHVzZXJzIHRoZW4NCj4gPiB3aGF0IGFib3V0IGRvaW5nIGEgc29mdHdhcmUgaGFz
+aCBvZiByZWNlaXZlZCBtdWx0aWNhc3RzIGFuZCBjaGVja2luZw0KPiA+IGFnYWluc3QgYW4gYWN0
+dWFsIGxpc3Qgb2YgbXVsdGljYXN0cyBlbmFibGVkIGZvciB0aGF0IGhhc2ggZW50cnkuDQo+ID4g
+VW5kZXIgbm9ybWFsIGNvbmRpdGlvbnMgdGhlcmUgaXMgbGlrZWx5IHRvIGJlIG9ubHkgYSBzaW5n
+bGUgYWRkcmVzcyB0byBjaGVjay4NCj4gPg0KPiA+IEl0IG1heSAob3IgbWF5IG5vdCkgYmUgYmVz
+dCB0byB1c2UgdGhlIHNhbWUgaGFzaCBhcyBhbnkgaGFzaGluZw0KPiA+IGhhcmR3YXJlIGZpbHRl
+ciB1c2VzLg0KPiANCj4gdGhhbmtzIGZvciB0aGUgY29tbWVudC4gQnV0IEkgZG9uJ3QgdGhpbmsg
+dGhhdCBpcyB0aGUgcG9pbnQuDQo+IA0KPiBJIGd1ZXNzLCBpbnRyb2R1Y2luZyBWRiBtdWx0aWNh
+c3QgcHJvbWlzY3VvdXMgbW9kZSBzZWVtcyB0byBhZGQgbmV3DQo+IHByaXZpbGVnZSB0byBwZWVr
+IGV2ZXJ5IG11bHRpY2FzdCBwYWNrZXQgaW4gVk0gYW5kIHRoYXQgZG9lc24ndCBsb29rIGdvb2Qu
+DQo+IE9uIHRoZSBvdGhlciBoYW5kLCBJIHRoaW5rIHRoYXQgdGhlcmUgaGFzIGJlZW4gdGhlIHNh
+bWUgcHJpdmlsZWdlIGluIHRoZQ0KPiBjdXJyZW50IGl4Z2JlL2l4Z2JldmYgaW1wbGVtZW50YXRp
+b24gYWxyZWFkeS4gT3IgSSdtIHJlYWRpbmcgdGhlIGNvZGUNCj4gd3JvbmdseS4NCj4gSSdkIGxp
+a2UgdG8gY2xhcmlmeSB3aGF0IGlzIHRoZSBpc3N1ZSBvZiBhbGxvd2luZyB0byByZWNlaXZlIGFs
+bCBtdWx0aWNhc3QgcGFja2V0cy4NCg0KQWxsb3dpbmcgYSBWTSB0byBnaXZlIGl0c2VsZiB0aGUg
+cHJpdmlsZWdlIG9mIHNlZWluZyBldmVyeSBtdWx0aWNhc3QgcGFja2V0IGNvdWxkIGJlIHNlZW4g
+YXMgYSBob2xlIGluIFZNIGlzb2xhdGlvbi4gIE5vdyBpZiB0aGUgaG9zdCBzeXN0ZW0gYWxsb3dz
+IHRoaXMgcG9saWN5IEkgZG9uJ3Qgc2VlIHRoaXMgYXMgYW4gaXNzdWUgYXMgc29tZW9uZSBzcGVj
+aWZpY2FsbHkgYWxsb3dlZCB0aGlzIHRvIGhhcHBlbiBhbmQgdGhlbiBtdXN0IG5vdCBiZSBjb25j
+ZXJuZWQuICBXZSBjb3VsZCBldmVuIGxvZyB0aGF0IGl0IGhhcyBvY2N1cnJlZCwgd2hpY2ggSSBi
+ZWxpZXZlIHlvdXIgcGF0Y2ggZGlkIGRvLiAgVGhlIGlzc3VlIGlzIGFsc28gZnVydGhlciBtdWRk
+aWVkLCBhcyB5b3UgbWVudGlvbmVkIGFib3ZlLCBzaW5jZSBzb21lIG9mIHRoZXNlIG11bHRpY2Fz
+dCBwYWNrZXRzIGFyZSBsZWFraW5nIGFueXdheSAodGhlIEhXIGN1cnJlbnRseSB1c2VzIGEgMTIg
+Yml0IG1hc2spLiAgSXQncyBqdXN0IHRoYXQgdGhpcyBjaGFuZ2Ugd291bGQgZ3JlYXRseSBlbmxh
+cmdlIHRoYXQgaG9sZSBmcm9tIGEgZnJhY3Rpb24gdG8gYWxsIG11bHRpY2FzdCBwYWNrZXRzLiAg
+ICANCg0KPiANCj4gdGhhbmtzLA0KPiBIaXJvc2hpDQoNCi0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQpO
+ZXcgWWVhci4gTmV3IExvY2F0aW9uLiBOZXcgQmVuZWZpdHMuIE5ldyBEYXRhIENlbnRlciBpbiBB
+c2hidXJuLCBWQS4KR2lnZU5FVCBpcyBvZmZlcmluZyBhIGZyZWUgbW9udGggb2Ygc2VydmljZSB3
+aXRoIGEgbmV3IHNlcnZlciBpbiBBc2hidXJuLgpDaG9vc2UgZnJvbSAyIGhpZ2ggcGVyZm9ybWlu
+ZyBjb25maWdzLCBib3RoIHdpdGggMTAwVEIgb2YgYmFuZHdpZHRoLgpIaWdoZXIgcmVkdW5kYW5j
+eS5Mb3dlciBsYXRlbmN5LkluY3JlYXNlZCBjYXBhY2l0eS5Db21wbGV0ZWx5IGNvbXBsaWFudC4K
+aHR0cDovL3Auc2YubmV0L3NmdS9naWdlbmV0Cl9fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fCkUxMDAwLWRldmVsIG1haWxpbmcgbGlzdApFMTAwMC1kZXZlbEBs
+aXN0cy5zb3VyY2Vmb3JnZS5uZXQKaHR0cHM6Ly9saXN0cy5zb3VyY2Vmb3JnZS5uZXQvbGlzdHMv
+bGlzdGluZm8vZTEwMDAtZGV2ZWwKVG8gbGVhcm4gbW9yZSBhYm91dCBJbnRlbCYjMTc0OyBFdGhl
+cm5ldCwgdmlzaXQgaHR0cDovL2NvbW11bml0aWVzLmludGVsLmNvbS9jb21tdW5pdHkvd2lyZWQK
