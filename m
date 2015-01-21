@@ -1,343 +1,1443 @@
-From: "Ahmed S. Darwish" <darwish.07@gmail.com>
-Subject: Re: [PATCH v5 2/5] can: kvaser_usb: Consolidate and unify state
- change handling
-Date: Wed, 21 Jan 2015 09:43:23 -0500
-Message-ID: <20150121144323.GA17070@linux>
-References: <20141223154654.GB6460@vivalin-002>
- <20150120214409.GA16828@linux>
- <20150120214537.GB16828@linux>
- <20150121103319.14511.57709@shannon>
- <e5439ed067931dc01bda70592eb6ed52@grandegger.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andri Yngvason <andri.yngvason@marel.com>,
-	Olivier Sobrie <olivier@sobrie.be>,
-	Oliver Hartkopp <socketcan@hartkopp.net>,
-	Marc Kleine-Budde <mkl@pengutronix.de>,
-	Linux-CAN <linux-can@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Wolfgang Grandegger <wg@grandegger.com>
-Return-path: <linux-can-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <e5439ed067931dc01bda70592eb6ed52@grandegger.com>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH net-next 1/9] net/mlx4_core: Maintain a persistent memory for mlx4 devices
+Date: Wed, 21 Jan 2015 16:45:49 +0200
+Message-ID: <1421851557-12084-2-git-send-email-ogerlitz@mellanox.com>
+References: <1421851557-12084-1-git-send-email-ogerlitz@mellanox.com>
+Cc: netdev@vger.kernel.org, Matan Barak <matanb@mellanox.com>,
+	Amir Vadai <amirv@mellanox.com>, Tal Alon <talal@mellanox.com>,
+	Roland Dreier <roland@kernel.org>,
+	Yishai Hadas <yishaih@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailp.voltaire.com ([193.47.165.129]:43008 "EHLO mellanox.co.il"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751742AbbAUOqc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Jan 2015 09:46:32 -0500
+In-Reply-To: <1421851557-12084-1-git-send-email-ogerlitz@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi!
+From: Yishai Hadas <yishaih@mellanox.com>
 
-On Wed, Jan 21, 2015 at 12:53:58PM +0100, Wolfgang Grandegger wrote:
-> On Wed, 21 Jan 2015 10:33:19 +0000, Andri Yngvason
-> <andri.yngvason@marel.com> wrote:
-> > Quoting Ahmed S. Darwish (2015-01-20 21:45:37)
-> >> From: Ahmed S. Darwish <ahmed.darwish@valeo.com>
-> >> 
-> >> Replace most of the can interface's state and error counters
-> >> handling with the new can-dev can_change_state() mechanism.
-> >> 
-> >> Suggested-by: Andri Yngvason <andri.yngvason@marel.com>
-> >> Signed-off-by: Ahmed S. Darwish <ahmed.darwish@valeo.com>
-> >> ---
-> >>  drivers/net/can/usb/kvaser_usb.c | 114
-> >>  +++++++++++++++++++--------------------
-> >>  1 file changed, 55 insertions(+), 59 deletions(-)
-> >> 
-> >> diff --git a/drivers/net/can/usb/kvaser_usb.c
-> >> b/drivers/net/can/usb/kvaser_usb.c
-> >> index 971c5f9..0386d3f 100644
-> >> --- a/drivers/net/can/usb/kvaser_usb.c
-> >> +++ b/drivers/net/can/usb/kvaser_usb.c
-> 
-> ...
-> > 
-> > Looks good.
-> 
-> Would be nice to see some "candump" traces as well.
+Maintain a persistent memory that should survive reset flow/PCI error.
 
-Sure. The USBCan-II device trace below is generated after applying
-all patches in the series, especially patch #3, which fixes some
-some invalid CAN state transitions logic in the original driver.
+A preparation step for further patches to properly support device reset.
 
-##########################################################################
+Signed-off-by: Yishai Hadas <yishaih@mellanox.com>
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+---
+ drivers/infiniband/hw/mlx4/alias_GUID.c            |    2 +-
+ drivers/infiniband/hw/mlx4/mad.c                   |    3 +-
+ drivers/infiniband/hw/mlx4/main.c                  |   17 ++--
+ drivers/infiniband/hw/mlx4/mr.c                    |    6 +-
+ drivers/infiniband/hw/mlx4/sysfs.c                 |    6 +-
+ drivers/net/ethernet/mellanox/mlx4/alloc.c         |   15 ++-
+ drivers/net/ethernet/mellanox/mlx4/catas.c         |   13 ++-
+ drivers/net/ethernet/mellanox/mlx4/cmd.c           |   46 +++++----
+ drivers/net/ethernet/mellanox/mlx4/en_cq.c         |    4 +-
+ drivers/net/ethernet/mellanox/mlx4/en_ethtool.c    |    2 +-
+ drivers/net/ethernet/mellanox/mlx4/en_main.c       |    4 +-
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c     |    2 +-
+ drivers/net/ethernet/mellanox/mlx4/en_rx.c         |    4 +-
+ drivers/net/ethernet/mellanox/mlx4/en_tx.c         |    4 +-
+ drivers/net/ethernet/mellanox/mlx4/eq.c            |   42 +++++----
+ drivers/net/ethernet/mellanox/mlx4/icm.c           |   11 +-
+ drivers/net/ethernet/mellanox/mlx4/main.c          |  106 ++++++++++++--------
+ drivers/net/ethernet/mellanox/mlx4/mlx4.h          |    9 +-
+ drivers/net/ethernet/mellanox/mlx4/mr.c            |    8 +-
+ drivers/net/ethernet/mellanox/mlx4/pd.c            |    6 +-
+ drivers/net/ethernet/mellanox/mlx4/port.c          |   17 ++--
+ drivers/net/ethernet/mellanox/mlx4/reset.c         |   23 +++--
+ .../net/ethernet/mellanox/mlx4/resource_tracker.c  |   36 ++++---
+ include/linux/mlx4/device.h                        |   11 ++-
+ 24 files changed, 234 insertions(+), 163 deletions(-)
 
-candump on a PC, Kvaser USB device on the receiving end:
-
- ...
- (000.011392)  can0  71D   [8]  5B 06 00 00 00 00 00 00
- (000.009270)  can0  712   [3]  5C 06 00
- (000.010691)  can0  0F3   [7]  5D 06 00 00 00 00 00
- (000.010443)  can0  63E   [8]  5E 06 00 00 00 00 00 00
- (000.010112)  can0  502   [8]  5F 06 00 00 00 00 00 00
- (000.009944)  can0  39A   [8]  60 06 00 00 00 00 00 00
- (000.010186)  can0  721   [8]  61 06 00 00 00 00 00 00
- (000.009628)  can0  5B7   [6]  62 06 00 00 00 00
- (000.009784)  can0  1D7   [4]  63 06 00 00
- (000.010806)  can0  4FE   [8]  64 06 00 00 00 00 00 00
- (000.008897)  can0  75E   [1]  65
- (000.010257)  can0  1EA   [2]  66 06
-
-<-- Unplug the cable -->
- (000.010640)  can0  20000080   [8]  00 00 00 00 00 00 00 01   ERRORFRAME
-	bus-error
-	error-counter-tx-rx{{0}{1}}
-
-<-- Replug the cable, after 12 seconds -->
- (044.345134)  can0  20000080   [8]  00 00 00 00 00 00 00 02   ERRORFRAME
-	bus-error
-	error-counter-tx-rx{{0}{2}}
-
- (000.002730)  can0  75E   [8]  67 06 00 00 00 00 00 00
- (000.002097)  can0  696   [6]  68 06 00 00 00 00
- (000.002328)  can0  45A   [8]  69 06 00 00 00 00 00 00
- (000.002484)  can0  496   [8]  6A 06 00 00 00 00 00 00
- (000.002458)  can0  604   [8]  6B 06 00 00 00 00 00 00
- (000.002252)  can0  27B   [7]  6C 06 00 00 00 00 00
- (000.002420)  can0  48F   [8]  6D 06 00 00 00 00 00 00
- (000.001306)  can0  1B3   [1]  6E
- (000.002518)  can0  145   [8]  6F 06 00 00 00 00 00 00
- (000.002262)  can0  6EA   [7]  70 06 00 00 00 00 00
- (000.001053)  can0  2DC   [1]  71
- (000.001731)  can0  1DD   [4]  72 06 00 00
- (000.002332)  can0  455   [8]  73 06 00 00 00 00 00 00
- ...
-
-If the cable was _swiftly_ plugged and unplugged, no errors appear.
-So it seems the errors above are just due to noise.
-
-##########################################################################
-
-Afterwards, candump on a PC, Kvaser USB device on the sending end:
-
- ...
- (000.008784)  can0  60A   [1]  C1
- (000.011341)  can0  2A8   [8]  C2 0A 00 00 00 00 00 00
- (000.009873)  can0  03D   [7]  C3 0A 00 00 00 00 00
- (000.010394)  can0  55C   [8]  C4 0A 00 00 00 00 00 00
- (000.009979)  can0  45A   [8]  C5 0A 00 00 00 00 00 00
- (000.010125)  can0  6E8   [8]  C6 0A 00 00 00 00 00 00
- (000.010149)  can0  4EE   [8]  C7 0A 00 00 00 00 00 00
- (000.010102)  can0  5D2   [8]  C8 0A 00 00 00 00 00 00
- (000.010000)  can0  61F   [8]  C9 0A 00 00 00 00 00 00
- (000.010271)  can0  5F8   [8]  CA 0A 00 00 00 00 00 00
-
-<-- Unplug the cable -->
-
- (000.009106)  can0  20000080   [8]  00 00 00 00 00 00 08 00   ERRORFRAME
-	bus-error
-	error-counter-tx-rx{{8}{0}}
- (000.001872)  can0  20000080   [8]  00 00 00 00 00 00 10 00   ERRORFRAME
-	bus-error
-	error-counter-tx-rx{{16}{0}}
- (000.001748)  can0  20000080   [8]  00 00 00 00 00 00 18 00   ERRORFRAME
-	bus-error
-	error-counter-tx-rx{{24}{0}}
- (000.001751)  can0  20000080   [8]  00 00 00 00 00 00 20 00   ERRORFRAME
-	bus-error
-	error-counter-tx-rx{{32}{0}}
- (000.001874)  can0  20000080   [8]  00 00 00 00 00 00 28 00   ERRORFRAME
-	bus-error
-	error-counter-tx-rx{{40}{0}}
- (000.001625)  can0  20000080   [8]  00 00 00 00 00 00 30 00   ERRORFRAME
-	bus-error
-	error-counter-tx-rx{{48}{0}}
- (000.001875)  can0  20000080   [8]  00 00 00 00 00 00 38 00   ERRORFRAME
-	bus-error
-	error-counter-tx-rx{{56}{0}}
- (000.001751)  can0  20000080   [8]  00 00 00 00 00 00 40 00   ERRORFRAME
-	bus-error
-	error-counter-tx-rx{{64}{0}}
- (000.001761)  can0  20000080   [8]  00 00 00 00 00 00 48 00   ERRORFRAME
-	bus-error
-	error-counter-tx-rx{{72}{0}}
- (000.001743)  can0  20000080   [8]  00 00 00 00 00 00 50 00   ERRORFRAME
-	bus-error
-	error-counter-tx-rx{{80}{0}}
- (000.001910)  can0  20000080   [8]  00 00 00 00 00 00 58 00   ERRORFRAME
-	bus-error
-	error-counter-tx-rx{{88}{0}}
- (000.001753)  can0  20000084   [8]  00 08 00 00 00 00 60 00   ERRORFRAME
-	controller-problem{tx-error-warning}
-	bus-error
-	error-counter-tx-rx{{96}{0}}
- (000.001720)  can0  20000080   [8]  00 00 00 00 00 00 68 00   ERRORFRAME
-	bus-error
-	error-counter-tx-rx{{104}{0}}
- (000.001876)  can0  20000080   [8]  00 00 00 00 00 00 70 00   ERRORFRAME
-	bus-error
-	error-counter-tx-rx{{112}{0}}
- (000.001749)  can0  20000080   [8]  00 00 00 00 00 00 78 00   ERRORFRAME
-	bus-error
-	error-counter-tx-rx{{120}{0}}
- (000.001771)  can0  20000084   [8]  00 20 00 00 00 00 80 00   ERRORFRAME
-	controller-problem{tx-error-passive}
-	bus-error
-	error-counter-tx-rx{{128}{0}}
- (000.001868)  can0  20000080   [8]  00 00 00 00 00 00 80 00   ERRORFRAME
-	bus-error
-	error-counter-tx-rx{{128}{0}}
- (000.001982)  can0  20000080   [8]  00 00 00 00 00 00 80 00   ERRORFRAME
-	bus-error
-	error-counter-tx-rx{{128}{0}}
-
-(( Then a continous flood, exactly similar to the above packet, appears.
-   Unfortunately this flooding is a firmware problem. ))
-
-<-- Replug the cable, after a good amount of time -->
-
- (000.520485)  can0  33D   [4]  CB 0A 00 00
- (000.002693)  can0  42E   [8]  CC 0A 00 00 00 00 00 00
- (000.001795)  can0  319   [4]  CD 0A 00 00
- (000.002705)  can0  3B1   [8]  CE 0A 00 00 00 00 00 00
- (000.001295)  can0  4CC   [2]  CF 0A
- (000.002205)  can0  42B   [6]  D0 0A 00 00 00 00
- (000.001620)  can0  5A2   [3]  D1 0A 00
- (000.002636)  can0  691   [8]  D2 0A 00 00 00 00 00 00
- (000.002615)  can0  36A   [8]  D3 0A 00 00 00 00 00 00
- (000.001729)  can0  068   [4]  D4 0A 00 00
- (000.001195)  can0  4C8   [1]  D5
- ...
-
-##########################################################################
-
-Bus-off Testing:
-
-candump on a PC, Kvaser device on the sending end. An i.mx6 ARM
-board with flexcan is on the receiving end:
-
- (000.010319)  can0  5CC   [8]  90 02 00 00 00 00 00 00
- (000.008747)  can0  679   [1]  91
- (000.011442)  can0  011   [8]  92 02 00 00 00 00 00 00
- (000.008991)  can0  631   [2]  93 02
- (000.011097)  can0  532   [7]  94 02 00 00 00 00 00
- (000.009781)  can0  0A9   [5]  95 02 00 00 00
- (000.010792)  can0  1DD   [8]  96 02 00 00 00 00 00 00
- (000.010026)  can0  44E   [8]  97 02 00 00 00 00 00 00
- (000.010181)  can0  76A   [8]  98 02 00 00 00 00 00 00
- (000.008867)  can0  1A5   [1]  99
- (000.011322)  can0  2B4   [8]  9A 02 00 00 00 00 00 00
-
-<-- Unplug the can low and high wires from the board -->
-
- (000.009688)  can0  20000080   [8]  00 00 00 00 00 00 08 00   ERRORFRAME
-	bus-error
-	error-counter-tx-rx{{8}{0}}
- (000.002246)  can0  20000080   [8]  00 00 00 00 00 00 10 00   ERRORFRAME
-	bus-error
-	error-counter-tx-rx{{16}{0}}
- (000.002124)  can0  20000080   [8]  00 00 00 00 00 00 18 00   ERRORFRAME
-	bus-error
-	error-counter-tx-rx{{24}{0}}
- (000.002115)  can0  20000080   [8]  00 00 00 00 00 00 20 00   ERRORFRAME
-	bus-error
-	error-counter-tx-rx{{32}{0}}
- (000.002132)  can0  20000080   [8]  00 00 00 00 00 00 28 00   ERRORFRAME
-	bus-error
-	error-counter-tx-rx{{40}{0}}
- (000.002266)  can0  20000080   [8]  00 00 00 00 00 00 30 00   ERRORFRAME
-	bus-error
-	error-counter-tx-rx{{48}{0}}
- (000.002187)  can0  20000080   [8]  00 00 00 00 00 00 38 00   ERRORFRAME
-	bus-error
-	error-counter-tx-rx{{56}{0}}
- (000.002046)  can0  20000080   [8]  00 00 00 00 00 00 40 00   ERRORFRAME
-	bus-error
-	error-counter-tx-rx{{64}{0}}
- (000.002076)  can0  20000080   [8]  00 00 00 00 00 00 48 00   ERRORFRAME
-	bus-error
-	error-counter-tx-rx{{72}{0}}
- (000.002406)  can0  20000080   [8]  00 00 00 00 00 00 50 00   ERRORFRAME
-	bus-error
-	error-counter-tx-rx{{80}{0}}
- (000.001969)  can0  20000080   [8]  00 00 00 00 00 00 58 00   ERRORFRAME
-	bus-error
-	error-counter-tx-rx{{88}{0}}
- (000.002388)  can0  20000084   [8]  00 08 00 00 00 00 60 00   ERRORFRAME
-	controller-problem{tx-error-warning}
-	bus-error
-	error-counter-tx-rx{{96}{0}}
- (000.002021)  can0  20000080   [8]  00 00 00 00 00 00 68 00   ERRORFRAME
-	bus-error
-	error-counter-tx-rx{{104}{0}}
- (000.002110)  can0  20000080   [8]  00 00 00 00 00 00 70 00   ERRORFRAME
-	bus-error
-	error-counter-tx-rx{{112}{0}}
- (000.002155)  can0  20000080   [8]  00 00 00 00 00 00 78 00   ERRORFRAME
-	bus-error
-	error-counter-tx-rx{{120}{0}}
- (000.002140)  can0  20000084   [8]  00 20 00 00 00 00 80 00   ERRORFRAME
-	controller-problem{tx-error-passive}
-	bus-error
-	error-counter-tx-rx{{128}{0}}
- (000.002324)  can0  20000080   [8]  00 00 00 00 00 00 80 00   ERRORFRAME
-	bus-error
-	error-counter-tx-rx{{128}{0}}
- (000.002416)  can0  20000080   [8]  00 00 00 00 00 00 80 00   ERRORFRAME
-	bus-error
-	error-counter-tx-rx{{128}{0}}
- (000.002237)  can0  20000080   [8]  00 00 00 00 00 00 80 00   ERRORFRAME
-	bus-error
-	error-counter-tx-rx{{128}{0}}
-
-(( Then a continous flood, exactly similar to the above packet, appears ))
-
-<-- Short-circuit the can high and low wires -->
-
- (000.002364)  can0  20000080   [8]  00 00 00 00 00 00 80 00   ERRORFRAME
-	bus-error
-	error-counter-tx-rx{{128}{0}}
- (000.002108)  can0  20000080   [8]  00 00 00 00 00 00 88 00   ERRORFRAME
-	bus-error
-	error-counter-tx-rx{{136}{0}}
- (000.000494)  can0  20000080   [8]  00 00 00 00 00 00 90 00   ERRORFRAME
-	bus-error
-	error-counter-tx-rx{{144}{0}}
- (000.000523)  can0  20000080   [8]  00 00 00 00 00 00 98 00   ERRORFRAME
-	bus-error
-	error-counter-tx-rx{{152}{0}}
- (000.000661)  can0  20000080   [8]  00 00 00 00 00 00 A0 00   ERRORFRAME
-	bus-error
-	error-counter-tx-rx{{160}{0}}
- (000.000464)  can0  20000080   [8]  00 00 00 00 00 00 A8 00   ERRORFRAME
-	bus-error
-	error-counter-tx-rx{{168}{0}}
- (000.000534)  can0  20000080   [8]  00 00 00 00 00 00 B0 00   ERRORFRAME
-	bus-error
-	error-counter-tx-rx{{176}{0}}
- (000.000499)  can0  20000080   [8]  00 00 00 00 00 00 B8 00   ERRORFRAME
-	bus-error
-	error-counter-tx-rx{{184}{0}}
- (000.000626)  can0  20000080   [8]  00 00 00 00 00 00 C0 00   ERRORFRAME
-	bus-error
-	error-counter-tx-rx{{192}{0}}
- (000.000373)  can0  20000080   [8]  00 00 00 00 00 00 C8 00   ERRORFRAME
-	bus-error
-	error-counter-tx-rx{{200}{0}}
- (000.000627)  can0  20000080   [8]  00 00 00 00 00 00 D0 00   ERRORFRAME
-	bus-error
-	error-counter-tx-rx{{208}{0}}
- (000.000507)  can0  20000080   [8]  00 00 00 00 00 00 D8 00   ERRORFRAME
-	bus-error
-	error-counter-tx-rx{{216}{0}}
- (000.000501)  can0  20000080   [8]  00 00 00 00 00 00 E0 00   ERRORFRAME
-	bus-error
-	error-counter-tx-rx{{224}{0}}
- (000.000459)  can0  20000080   [8]  00 00 00 00 00 00 E8 00   ERRORFRAME
-	bus-error
-	error-counter-tx-rx{{232}{0}}
- (000.000606)  can0  20000080   [8]  00 00 00 00 00 00 F0 00   ERRORFRAME
-	bus-error
-	error-counter-tx-rx{{240}{0}}
- (000.000454)  can0  20000080   [8]  00 00 00 00 00 00 F8 00   ERRORFRAME
-	bus-error
-	error-counter-tx-rx{{248}{0}}
- (000.000664)  can0  200000C0   [8]  00 00 00 00 00 00 00 00   ERRORFRAME
-	bus-off
-	bus-error
-
- (( No further bus activity ))
-
-
-##########################################################################
-
-Regards,
-Darwish
+diff --git a/drivers/infiniband/hw/mlx4/alias_GUID.c b/drivers/infiniband/hw/mlx4/alias_GUID.c
+index 0eb141c..a31e031 100644
+--- a/drivers/infiniband/hw/mlx4/alias_GUID.c
++++ b/drivers/infiniband/hw/mlx4/alias_GUID.c
+@@ -154,7 +154,7 @@ void mlx4_ib_notify_slaves_on_guid_change(struct mlx4_ib_dev *dev,
+ 			continue;
+ 
+ 		slave_id = (block_num * NUM_ALIAS_GUID_IN_REC) + i ;
+-		if (slave_id >= dev->dev->num_vfs + 1)
++		if (slave_id >= dev->dev->persist->num_vfs + 1)
+ 			return;
+ 		tmp_cur_ag = *(__be64 *)&p_data[i * GUID_REC_SIZE];
+ 		form_cache_ag = get_cached_alias_guid(dev, port_num,
+diff --git a/drivers/infiniband/hw/mlx4/mad.c b/drivers/infiniband/hw/mlx4/mad.c
+index 82a7dd8..c761971 100644
+--- a/drivers/infiniband/hw/mlx4/mad.c
++++ b/drivers/infiniband/hw/mlx4/mad.c
+@@ -1951,7 +1951,8 @@ static int mlx4_ib_alloc_demux_ctx(struct mlx4_ib_dev *dev,
+ 	ctx->ib_dev = &dev->ib_dev;
+ 
+ 	for (i = 0;
+-	     i < min(dev->dev->caps.sqp_demux, (u16)(dev->dev->num_vfs + 1));
++	     i < min(dev->dev->caps.sqp_demux,
++	     (u16)(dev->dev->persist->num_vfs + 1));
+ 	     i++) {
+ 		struct mlx4_active_ports actv_ports =
+ 			mlx4_get_active_ports(dev->dev, i);
+diff --git a/drivers/infiniband/hw/mlx4/main.c b/drivers/infiniband/hw/mlx4/main.c
+index 57ecc5b..b4fa6f6 100644
+--- a/drivers/infiniband/hw/mlx4/main.c
++++ b/drivers/infiniband/hw/mlx4/main.c
+@@ -198,7 +198,7 @@ static int mlx4_ib_query_device(struct ib_device *ibdev,
+ 
+ 	props->vendor_id	   = be32_to_cpup((__be32 *) (out_mad->data + 36)) &
+ 		0xffffff;
+-	props->vendor_part_id	   = dev->dev->pdev->device;
++	props->vendor_part_id	   = dev->dev->persist->pdev->device;
+ 	props->hw_ver		   = be32_to_cpup((__be32 *) (out_mad->data + 32));
+ 	memcpy(&props->sys_image_guid, out_mad->data +	4, 8);
+ 
+@@ -1375,7 +1375,7 @@ static ssize_t show_hca(struct device *device, struct device_attribute *attr,
+ {
+ 	struct mlx4_ib_dev *dev =
+ 		container_of(device, struct mlx4_ib_dev, ib_dev.dev);
+-	return sprintf(buf, "MT%d\n", dev->dev->pdev->device);
++	return sprintf(buf, "MT%d\n", dev->dev->persist->pdev->device);
+ }
+ 
+ static ssize_t show_fw_ver(struct device *device, struct device_attribute *attr,
+@@ -1937,7 +1937,8 @@ static void init_pkeys(struct mlx4_ib_dev *ibdev)
+ 	int i;
+ 
+ 	if (mlx4_is_master(ibdev->dev)) {
+-		for (slave = 0; slave <= ibdev->dev->num_vfs; ++slave) {
++		for (slave = 0; slave <= ibdev->dev->persist->num_vfs;
++		     ++slave) {
+ 			for (port = 1; port <= ibdev->dev->caps.num_ports; ++port) {
+ 				for (i = 0;
+ 				     i < ibdev->dev->phys_caps.pkey_phys_table_len[port];
+@@ -1994,7 +1995,7 @@ static void mlx4_ib_alloc_eqs(struct mlx4_dev *dev, struct mlx4_ib_dev *ibdev)
+ 	mlx4_foreach_port(i, dev, MLX4_PORT_TYPE_IB) {
+ 		for (j = 0; j < eq_per_port; j++) {
+ 			snprintf(name, sizeof(name), "mlx4-ib-%d-%d@%s",
+-				 i, j, dev->pdev->bus->name);
++				 i, j, dev->persist->pdev->bus->name);
+ 			/* Set IRQ for specific name (per ring) */
+ 			if (mlx4_assign_eq(dev, name, NULL,
+ 					   &ibdev->eq_table[eq])) {
+@@ -2058,7 +2059,8 @@ static void *mlx4_ib_add(struct mlx4_dev *dev)
+ 
+ 	ibdev = (struct mlx4_ib_dev *) ib_alloc_device(sizeof *ibdev);
+ 	if (!ibdev) {
+-		dev_err(&dev->pdev->dev, "Device struct alloc failed\n");
++		dev_err(&dev->persist->pdev->dev,
++			"Device struct alloc failed\n");
+ 		return NULL;
+ 	}
+ 
+@@ -2085,7 +2087,7 @@ static void *mlx4_ib_add(struct mlx4_dev *dev)
+ 	ibdev->num_ports		= num_ports;
+ 	ibdev->ib_dev.phys_port_cnt     = ibdev->num_ports;
+ 	ibdev->ib_dev.num_comp_vectors	= dev->caps.num_comp_vectors;
+-	ibdev->ib_dev.dma_device	= &dev->pdev->dev;
++	ibdev->ib_dev.dma_device	= &dev->persist->pdev->dev;
+ 
+ 	if (dev->caps.userspace_caps)
+ 		ibdev->ib_dev.uverbs_abi_ver = MLX4_IB_UVERBS_ABI_VERSION;
+@@ -2236,7 +2238,8 @@ static void *mlx4_ib_add(struct mlx4_dev *dev)
+ 				sizeof(long),
+ 				GFP_KERNEL);
+ 		if (!ibdev->ib_uc_qpns_bitmap) {
+-			dev_err(&dev->pdev->dev, "bit map alloc failed\n");
++			dev_err(&dev->persist->pdev->dev,
++				"bit map alloc failed\n");
+ 			goto err_steer_qp_release;
+ 		}
+ 
+diff --git a/drivers/infiniband/hw/mlx4/mr.c b/drivers/infiniband/hw/mlx4/mr.c
+index c36ccbd..e0d2717 100644
+--- a/drivers/infiniband/hw/mlx4/mr.c
++++ b/drivers/infiniband/hw/mlx4/mr.c
+@@ -401,7 +401,8 @@ struct ib_fast_reg_page_list *mlx4_ib_alloc_fast_reg_page_list(struct ib_device
+ 	if (!mfrpl->ibfrpl.page_list)
+ 		goto err_free;
+ 
+-	mfrpl->mapped_page_list = dma_alloc_coherent(&dev->dev->pdev->dev,
++	mfrpl->mapped_page_list = dma_alloc_coherent(&dev->dev->persist->
++						     pdev->dev,
+ 						     size, &mfrpl->map,
+ 						     GFP_KERNEL);
+ 	if (!mfrpl->mapped_page_list)
+@@ -423,7 +424,8 @@ void mlx4_ib_free_fast_reg_page_list(struct ib_fast_reg_page_list *page_list)
+ 	struct mlx4_ib_fast_reg_page_list *mfrpl = to_mfrpl(page_list);
+ 	int size = page_list->max_page_list_len * sizeof (u64);
+ 
+-	dma_free_coherent(&dev->dev->pdev->dev, size, mfrpl->mapped_page_list,
++	dma_free_coherent(&dev->dev->persist->pdev->dev, size,
++			  mfrpl->mapped_page_list,
+ 			  mfrpl->map);
+ 	kfree(mfrpl->ibfrpl.page_list);
+ 	kfree(mfrpl);
+diff --git a/drivers/infiniband/hw/mlx4/sysfs.c b/drivers/infiniband/hw/mlx4/sysfs.c
+index cb4c66e..d10c2b8 100644
+--- a/drivers/infiniband/hw/mlx4/sysfs.c
++++ b/drivers/infiniband/hw/mlx4/sysfs.c
+@@ -375,7 +375,7 @@ static void get_name(struct mlx4_ib_dev *dev, char *name, int i, int max)
+ 	char base_name[9];
+ 
+ 	/* pci_name format is: bus:dev:func -> xxxx:yy:zz.n */
+-	strlcpy(name, pci_name(dev->dev->pdev), max);
++	strlcpy(name, pci_name(dev->dev->persist->pdev), max);
+ 	strncpy(base_name, name, 8); /*till xxxx:yy:*/
+ 	base_name[8] = '\0';
+ 	/* with no ARI only 3 last bits are used so when the fn is higher than 8
+@@ -792,7 +792,7 @@ static int register_pkey_tree(struct mlx4_ib_dev *device)
+ 	if (!mlx4_is_master(device->dev))
+ 		return 0;
+ 
+-	for (i = 0; i <= device->dev->num_vfs; ++i)
++	for (i = 0; i <= device->dev->persist->num_vfs; ++i)
+ 		register_one_pkey_tree(device, i);
+ 
+ 	return 0;
+@@ -807,7 +807,7 @@ static void unregister_pkey_tree(struct mlx4_ib_dev *device)
+ 	if (!mlx4_is_master(device->dev))
+ 		return;
+ 
+-	for (slave = device->dev->num_vfs; slave >= 0; --slave) {
++	for (slave = device->dev->persist->num_vfs; slave >= 0; --slave) {
+ 		list_for_each_entry_safe(p, t,
+ 					 &device->pkeys.pkey_port_list[slave],
+ 					 entry) {
+diff --git a/drivers/net/ethernet/mellanox/mlx4/alloc.c b/drivers/net/ethernet/mellanox/mlx4/alloc.c
+index 963dd7e..a716c26 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/alloc.c
++++ b/drivers/net/ethernet/mellanox/mlx4/alloc.c
+@@ -592,7 +592,7 @@ int mlx4_buf_alloc(struct mlx4_dev *dev, int size, int max_direct,
+ 		buf->nbufs        = 1;
+ 		buf->npages       = 1;
+ 		buf->page_shift   = get_order(size) + PAGE_SHIFT;
+-		buf->direct.buf   = dma_alloc_coherent(&dev->pdev->dev,
++		buf->direct.buf   = dma_alloc_coherent(&dev->persist->pdev->dev,
+ 						       size, &t, gfp);
+ 		if (!buf->direct.buf)
+ 			return -ENOMEM;
+@@ -619,7 +619,8 @@ int mlx4_buf_alloc(struct mlx4_dev *dev, int size, int max_direct,
+ 
+ 		for (i = 0; i < buf->nbufs; ++i) {
+ 			buf->page_list[i].buf =
+-				dma_alloc_coherent(&dev->pdev->dev, PAGE_SIZE,
++				dma_alloc_coherent(&dev->persist->pdev->dev,
++						   PAGE_SIZE,
+ 						   &t, gfp);
+ 			if (!buf->page_list[i].buf)
+ 				goto err_free;
+@@ -657,7 +658,8 @@ void mlx4_buf_free(struct mlx4_dev *dev, int size, struct mlx4_buf *buf)
+ 	int i;
+ 
+ 	if (buf->nbufs == 1)
+-		dma_free_coherent(&dev->pdev->dev, size, buf->direct.buf,
++		dma_free_coherent(&dev->persist->pdev->dev, size,
++				  buf->direct.buf,
+ 				  buf->direct.map);
+ 	else {
+ 		if (BITS_PER_LONG == 64 && buf->direct.buf)
+@@ -665,7 +667,8 @@ void mlx4_buf_free(struct mlx4_dev *dev, int size, struct mlx4_buf *buf)
+ 
+ 		for (i = 0; i < buf->nbufs; ++i)
+ 			if (buf->page_list[i].buf)
+-				dma_free_coherent(&dev->pdev->dev, PAGE_SIZE,
++				dma_free_coherent(&dev->persist->pdev->dev,
++						  PAGE_SIZE,
+ 						  buf->page_list[i].buf,
+ 						  buf->page_list[i].map);
+ 		kfree(buf->page_list);
+@@ -738,7 +741,7 @@ int mlx4_db_alloc(struct mlx4_dev *dev, struct mlx4_db *db, int order, gfp_t gfp
+ 		if (!mlx4_alloc_db_from_pgdir(pgdir, db, order))
+ 			goto out;
+ 
+-	pgdir = mlx4_alloc_db_pgdir(&(dev->pdev->dev), gfp);
++	pgdir = mlx4_alloc_db_pgdir(&dev->persist->pdev->dev, gfp);
+ 	if (!pgdir) {
+ 		ret = -ENOMEM;
+ 		goto out;
+@@ -775,7 +778,7 @@ void mlx4_db_free(struct mlx4_dev *dev, struct mlx4_db *db)
+ 	set_bit(i, db->u.pgdir->bits[o]);
+ 
+ 	if (bitmap_full(db->u.pgdir->order1, MLX4_DB_PER_PAGE / 2)) {
+-		dma_free_coherent(&(dev->pdev->dev), PAGE_SIZE,
++		dma_free_coherent(&dev->persist->pdev->dev, PAGE_SIZE,
+ 				  db->u.pgdir->db_page, db->u.pgdir->db_dma);
+ 		list_del(&db->u.pgdir->list);
+ 		kfree(db->u.pgdir);
+diff --git a/drivers/net/ethernet/mellanox/mlx4/catas.c b/drivers/net/ethernet/mellanox/mlx4/catas.c
+index 9c656fe..1a102c9 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/catas.c
++++ b/drivers/net/ethernet/mellanox/mlx4/catas.c
+@@ -70,7 +70,7 @@ static void poll_catas(unsigned long dev_ptr)
+ 
+ 	if (readl(priv->catas_err.map)) {
+ 		/* If the device is off-line, we cannot try to recover it */
+-		if (pci_channel_offline(dev->pdev))
++		if (pci_channel_offline(dev->persist->pdev))
+ 			mod_timer(&priv->catas_err.timer,
+ 				  round_jiffies(jiffies + MLX4_CATAS_POLL_INTERVAL));
+ 		else {
+@@ -94,6 +94,7 @@ static void catas_reset(struct work_struct *work)
+ {
+ 	struct mlx4_priv *priv, *tmppriv;
+ 	struct mlx4_dev *dev;
++	struct mlx4_dev_persistent *persist;
+ 
+ 	LIST_HEAD(tlist);
+ 	int ret;
+@@ -103,20 +104,20 @@ static void catas_reset(struct work_struct *work)
+ 	spin_unlock_irq(&catas_lock);
+ 
+ 	list_for_each_entry_safe(priv, tmppriv, &tlist, catas_err.list) {
+-		struct pci_dev *pdev = priv->dev.pdev;
++		struct pci_dev *pdev = priv->dev.persist->pdev;
+ 
+ 		/* If the device is off-line, we cannot reset it */
+ 		if (pci_channel_offline(pdev))
+ 			continue;
+ 
+-		ret = mlx4_restart_one(priv->dev.pdev);
++		ret = mlx4_restart_one(priv->dev.persist->pdev);
+ 		/* 'priv' now is not valid */
+ 		if (ret)
+ 			pr_err("mlx4 %s: Reset failed (%d)\n",
+ 			       pci_name(pdev), ret);
+ 		else {
+-			dev  = pci_get_drvdata(pdev);
+-			mlx4_dbg(dev, "Reset succeeded\n");
++			persist  = pci_get_drvdata(pdev);
++			mlx4_dbg(persist->dev, "Reset succeeded\n");
+ 		}
+ 	}
+ }
+@@ -134,7 +135,7 @@ void mlx4_start_catas_poll(struct mlx4_dev *dev)
+ 	init_timer(&priv->catas_err.timer);
+ 	priv->catas_err.map = NULL;
+ 
+-	addr = pci_resource_start(dev->pdev, priv->fw.catas_bar) +
++	addr = pci_resource_start(dev->persist->pdev, priv->fw.catas_bar) +
+ 		priv->fw.catas_offset;
+ 
+ 	priv->catas_err.map = ioremap(addr, priv->fw.catas_size * 4);
+diff --git a/drivers/net/ethernet/mellanox/mlx4/cmd.c b/drivers/net/ethernet/mellanox/mlx4/cmd.c
+index 5c93d14..7cd90e6 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/cmd.c
++++ b/drivers/net/ethernet/mellanox/mlx4/cmd.c
+@@ -307,7 +307,7 @@ static int cmd_pending(struct mlx4_dev *dev)
+ {
+ 	u32 status;
+ 
+-	if (pci_channel_offline(dev->pdev))
++	if (pci_channel_offline(dev->persist->pdev))
+ 		return -EIO;
+ 
+ 	status = readl(mlx4_priv(dev)->cmd.hcr + HCR_STATUS_OFFSET);
+@@ -328,7 +328,7 @@ static int mlx4_cmd_post(struct mlx4_dev *dev, u64 in_param, u64 out_param,
+ 
+ 	mutex_lock(&cmd->hcr_mutex);
+ 
+-	if (pci_channel_offline(dev->pdev)) {
++	if (pci_channel_offline(dev->persist->pdev)) {
+ 		/*
+ 		 * Device is going through error recovery
+ 		 * and cannot accept commands.
+@@ -342,7 +342,7 @@ static int mlx4_cmd_post(struct mlx4_dev *dev, u64 in_param, u64 out_param,
+ 		end += msecs_to_jiffies(GO_BIT_TIMEOUT_MSECS);
+ 
+ 	while (cmd_pending(dev)) {
+-		if (pci_channel_offline(dev->pdev)) {
++		if (pci_channel_offline(dev->persist->pdev)) {
+ 			/*
+ 			 * Device is going through error recovery
+ 			 * and cannot accept commands.
+@@ -464,7 +464,7 @@ static int mlx4_cmd_poll(struct mlx4_dev *dev, u64 in_param, u64 *out_param,
+ 
+ 	down(&priv->cmd.poll_sem);
+ 
+-	if (pci_channel_offline(dev->pdev)) {
++	if (pci_channel_offline(dev->persist->pdev)) {
+ 		/*
+ 		 * Device is going through error recovery
+ 		 * and cannot accept commands.
+@@ -487,7 +487,7 @@ static int mlx4_cmd_poll(struct mlx4_dev *dev, u64 in_param, u64 *out_param,
+ 
+ 	end = msecs_to_jiffies(timeout) + jiffies;
+ 	while (cmd_pending(dev) && time_before(jiffies, end)) {
+-		if (pci_channel_offline(dev->pdev)) {
++		if (pci_channel_offline(dev->persist->pdev)) {
+ 			/*
+ 			 * Device is going through error recovery
+ 			 * and cannot accept commands.
+@@ -612,7 +612,7 @@ int __mlx4_cmd(struct mlx4_dev *dev, u64 in_param, u64 *out_param,
+ 	       int out_is_imm, u32 in_modifier, u8 op_modifier,
+ 	       u16 op, unsigned long timeout, int native)
+ {
+-	if (pci_channel_offline(dev->pdev))
++	if (pci_channel_offline(dev->persist->pdev))
+ 		return -EIO;
+ 
+ 	if (!mlx4_is_mfunc(dev) || (native && mlx4_is_master(dev))) {
+@@ -1997,11 +1997,12 @@ int mlx4_multi_func_init(struct mlx4_dev *dev)
+ 
+ 	if (mlx4_is_master(dev))
+ 		priv->mfunc.comm =
+-		ioremap(pci_resource_start(dev->pdev, priv->fw.comm_bar) +
++		ioremap(pci_resource_start(dev->persist->pdev,
++					   priv->fw.comm_bar) +
+ 			priv->fw.comm_base, MLX4_COMM_PAGESIZE);
+ 	else
+ 		priv->mfunc.comm =
+-		ioremap(pci_resource_start(dev->pdev, 2) +
++		ioremap(pci_resource_start(dev->persist->pdev, 2) +
+ 			MLX4_SLAVE_COMM_BASE, MLX4_COMM_PAGESIZE);
+ 	if (!priv->mfunc.comm) {
+ 		mlx4_err(dev, "Couldn't map communication vector\n");
+@@ -2107,9 +2108,9 @@ err_comm_admin:
+ err_comm:
+ 	iounmap(priv->mfunc.comm);
+ err_vhcr:
+-	dma_free_coherent(&(dev->pdev->dev), PAGE_SIZE,
+-					     priv->mfunc.vhcr,
+-					     priv->mfunc.vhcr_dma);
++	dma_free_coherent(&dev->persist->pdev->dev, PAGE_SIZE,
++			  priv->mfunc.vhcr,
++			  priv->mfunc.vhcr_dma);
+ 	priv->mfunc.vhcr = NULL;
+ 	return -ENOMEM;
+ }
+@@ -2130,8 +2131,8 @@ int mlx4_cmd_init(struct mlx4_dev *dev)
+ 	}
+ 
+ 	if (!mlx4_is_slave(dev) && !priv->cmd.hcr) {
+-		priv->cmd.hcr = ioremap(pci_resource_start(dev->pdev, 0) +
+-					MLX4_HCR_BASE, MLX4_HCR_SIZE);
++		priv->cmd.hcr = ioremap(pci_resource_start(dev->persist->pdev,
++					0) + MLX4_HCR_BASE, MLX4_HCR_SIZE);
+ 		if (!priv->cmd.hcr) {
+ 			mlx4_err(dev, "Couldn't map command register\n");
+ 			goto err;
+@@ -2140,7 +2141,8 @@ int mlx4_cmd_init(struct mlx4_dev *dev)
+ 	}
+ 
+ 	if (mlx4_is_mfunc(dev) && !priv->mfunc.vhcr) {
+-		priv->mfunc.vhcr = dma_alloc_coherent(&(dev->pdev->dev), PAGE_SIZE,
++		priv->mfunc.vhcr = dma_alloc_coherent(&dev->persist->pdev->dev,
++						      PAGE_SIZE,
+ 						      &priv->mfunc.vhcr_dma,
+ 						      GFP_KERNEL);
+ 		if (!priv->mfunc.vhcr)
+@@ -2150,7 +2152,8 @@ int mlx4_cmd_init(struct mlx4_dev *dev)
+ 	}
+ 
+ 	if (!priv->cmd.pool) {
+-		priv->cmd.pool = pci_pool_create("mlx4_cmd", dev->pdev,
++		priv->cmd.pool = pci_pool_create("mlx4_cmd",
++						 dev->persist->pdev,
+ 						 MLX4_MAILBOX_SIZE,
+ 						 MLX4_MAILBOX_SIZE, 0);
+ 		if (!priv->cmd.pool)
+@@ -2202,7 +2205,7 @@ void mlx4_cmd_cleanup(struct mlx4_dev *dev, int cleanup_mask)
+ 	}
+ 	if (mlx4_is_mfunc(dev) && priv->mfunc.vhcr &&
+ 	    (cleanup_mask & MLX4_CMD_CLEANUP_VHCR)) {
+-		dma_free_coherent(&(dev->pdev->dev), PAGE_SIZE,
++		dma_free_coherent(&dev->persist->pdev->dev, PAGE_SIZE,
+ 				  priv->mfunc.vhcr, priv->mfunc.vhcr_dma);
+ 		priv->mfunc.vhcr = NULL;
+ 	}
+@@ -2306,8 +2309,9 @@ u32 mlx4_comm_get_version(void)
+ 
+ static int mlx4_get_slave_indx(struct mlx4_dev *dev, int vf)
+ {
+-	if ((vf < 0) || (vf >= dev->num_vfs)) {
+-		mlx4_err(dev, "Bad vf number:%d (number of activated vf: %d)\n", vf, dev->num_vfs);
++	if ((vf < 0) || (vf >= dev->persist->num_vfs)) {
++		mlx4_err(dev, "Bad vf number:%d (number of activated vf: %d)\n",
++			 vf, dev->persist->num_vfs);
+ 		return -EINVAL;
+ 	}
+ 
+@@ -2316,7 +2320,7 @@ static int mlx4_get_slave_indx(struct mlx4_dev *dev, int vf)
+ 
+ int mlx4_get_vf_indx(struct mlx4_dev *dev, int slave)
+ {
+-	if (slave < 1 || slave > dev->num_vfs) {
++	if (slave < 1 || slave > dev->persist->num_vfs) {
+ 		mlx4_err(dev,
+ 			 "Bad slave number:%d (number of activated slaves: %lu)\n",
+ 			 slave, dev->num_slaves);
+@@ -2388,7 +2392,7 @@ struct mlx4_slaves_pport mlx4_phys_to_slaves_pport(struct mlx4_dev *dev,
+ 	if (port <= 0 || port > dev->caps.num_ports)
+ 		return slaves_pport;
+ 
+-	for (i = 0; i < dev->num_vfs + 1; i++) {
++	for (i = 0; i < dev->persist->num_vfs + 1; i++) {
+ 		struct mlx4_active_ports actv_ports =
+ 			mlx4_get_active_ports(dev, i);
+ 		if (test_bit(port - 1, actv_ports.ports))
+@@ -2408,7 +2412,7 @@ struct mlx4_slaves_pport mlx4_phys_to_slaves_pport_actv(
+ 
+ 	bitmap_zero(slaves_pport.slaves, MLX4_MFUNC_MAX);
+ 
+-	for (i = 0; i < dev->num_vfs + 1; i++) {
++	for (i = 0; i < dev->persist->num_vfs + 1; i++) {
+ 		struct mlx4_active_ports actv_ports =
+ 			mlx4_get_active_ports(dev, i);
+ 		if (bitmap_equal(crit_ports->ports, actv_ports.ports,
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_cq.c b/drivers/net/ethernet/mellanox/mlx4/en_cq.c
+index 82322b1..22da4d0 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_cq.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_cq.c
+@@ -70,10 +70,10 @@ int mlx4_en_create_cq(struct mlx4_en_priv *priv,
+ 	/* Allocate HW buffers on provided NUMA node.
+ 	 * dev->numa_node is used in mtt range allocation flow.
+ 	 */
+-	set_dev_node(&mdev->dev->pdev->dev, node);
++	set_dev_node(&mdev->dev->persist->pdev->dev, node);
+ 	err = mlx4_alloc_hwq_res(mdev->dev, &cq->wqres,
+ 				cq->buf_size, 2 * PAGE_SIZE);
+-	set_dev_node(&mdev->dev->pdev->dev, mdev->dev->numa_node);
++	set_dev_node(&mdev->dev->persist->pdev->dev, mdev->dev->numa_node);
+ 	if (err)
+ 		goto err_cq;
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+index 90e0f04..569eda9 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+@@ -92,7 +92,7 @@ mlx4_en_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *drvinfo)
+ 		(u16) (mdev->dev->caps.fw_ver >> 32),
+ 		(u16) ((mdev->dev->caps.fw_ver >> 16) & 0xffff),
+ 		(u16) (mdev->dev->caps.fw_ver & 0xffff));
+-	strlcpy(drvinfo->bus_info, pci_name(mdev->dev->pdev),
++	strlcpy(drvinfo->bus_info, pci_name(mdev->dev->persist->pdev),
+ 		sizeof(drvinfo->bus_info));
+ 	drvinfo->n_stats = 0;
+ 	drvinfo->regdump_len = 0;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_main.c b/drivers/net/ethernet/mellanox/mlx4/en_main.c
+index 9f16f75..c643d2b 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_main.c
+@@ -241,8 +241,8 @@ static void *mlx4_en_add(struct mlx4_dev *dev)
+ 	spin_lock_init(&mdev->uar_lock);
+ 
+ 	mdev->dev = dev;
+-	mdev->dma_device = &(dev->pdev->dev);
+-	mdev->pdev = dev->pdev;
++	mdev->dma_device = &dev->persist->pdev->dev;
++	mdev->pdev = dev->persist->pdev;
+ 	mdev->device_up = false;
+ 
+ 	mdev->LSO_support = !!(dev->caps.flags & (1 << 15));
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index d0d6dc1..43a3f98 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -2457,7 +2457,7 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
+ 	netif_set_real_num_tx_queues(dev, prof->tx_ring_num);
+ 	netif_set_real_num_rx_queues(dev, prof->rx_ring_num);
+ 
+-	SET_NETDEV_DEV(dev, &mdev->dev->pdev->dev);
++	SET_NETDEV_DEV(dev, &mdev->dev->persist->pdev->dev);
+ 	dev->dev_port = port - 1;
+ 
+ 	/*
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+index a0474eb..2ba5d36 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+@@ -387,10 +387,10 @@ int mlx4_en_create_rx_ring(struct mlx4_en_priv *priv,
+ 		 ring->rx_info, tmp);
+ 
+ 	/* Allocate HW buffers on provided NUMA node */
+-	set_dev_node(&mdev->dev->pdev->dev, node);
++	set_dev_node(&mdev->dev->persist->pdev->dev, node);
+ 	err = mlx4_alloc_hwq_res(mdev->dev, &ring->wqres,
+ 				 ring->buf_size, 2 * PAGE_SIZE);
+-	set_dev_node(&mdev->dev->pdev->dev, mdev->dev->numa_node);
++	set_dev_node(&mdev->dev->persist->pdev->dev, mdev->dev->numa_node);
+ 	if (err)
+ 		goto err_info;
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+index 359bb12..55f9f5c 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+@@ -91,10 +91,10 @@ int mlx4_en_create_tx_ring(struct mlx4_en_priv *priv,
+ 	ring->buf_size = ALIGN(size * ring->stride, MLX4_EN_PAGE_SIZE);
+ 
+ 	/* Allocate HW buffers on provided NUMA node */
+-	set_dev_node(&mdev->dev->pdev->dev, node);
++	set_dev_node(&mdev->dev->persist->pdev->dev, node);
+ 	err = mlx4_alloc_hwq_res(mdev->dev, &ring->wqres, ring->buf_size,
+ 				 2 * PAGE_SIZE);
+-	set_dev_node(&mdev->dev->pdev->dev, mdev->dev->numa_node);
++	set_dev_node(&mdev->dev->persist->pdev->dev, mdev->dev->numa_node);
+ 	if (err) {
+ 		en_err(priv, "Failed allocating hwq resources\n");
+ 		goto err_bounce;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/eq.c b/drivers/net/ethernet/mellanox/mlx4/eq.c
+index 3d275fb..7538c9c 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/eq.c
++++ b/drivers/net/ethernet/mellanox/mlx4/eq.c
+@@ -237,7 +237,7 @@ int mlx4_gen_guid_change_eqe(struct mlx4_dev *dev, int slave, u8 port)
+ 	struct mlx4_eqe eqe;
+ 
+ 	/*don't send if we don't have the that slave */
+-	if (dev->num_vfs < slave)
++	if (dev->persist->num_vfs < slave)
+ 		return 0;
+ 	memset(&eqe, 0, sizeof eqe);
+ 
+@@ -255,7 +255,7 @@ int mlx4_gen_port_state_change_eqe(struct mlx4_dev *dev, int slave, u8 port,
+ 	struct mlx4_eqe eqe;
+ 
+ 	/*don't send if we don't have the that slave */
+-	if (dev->num_vfs < slave)
++	if (dev->persist->num_vfs < slave)
+ 		return 0;
+ 	memset(&eqe, 0, sizeof eqe);
+ 
+@@ -310,7 +310,7 @@ static void set_all_slave_state(struct mlx4_dev *dev, u8 port, int event)
+ 	struct mlx4_slaves_pport slaves_pport = mlx4_phys_to_slaves_pport(dev,
+ 									  port);
+ 
+-	for (i = 0; i < dev->num_vfs + 1; i++)
++	for (i = 0; i < dev->persist->num_vfs + 1; i++)
+ 		if (test_bit(i, slaves_pport.slaves))
+ 			set_and_calc_slave_port_state(dev, i, port,
+ 						      event, &gen_event);
+@@ -560,7 +560,8 @@ static int mlx4_eq_int(struct mlx4_dev *dev, struct mlx4_eq *eq)
+ 				mlx4_priv(dev)->sense.do_sense_port[port] = 1;
+ 				if (!mlx4_is_master(dev))
+ 					break;
+-				for (i = 0; i < dev->num_vfs + 1; i++) {
++				for (i = 0; i < dev->persist->num_vfs + 1;
++				     i++) {
+ 					if (!test_bit(i, slaves_port.slaves))
+ 						continue;
+ 					if (dev->caps.port_type[port] == MLX4_PORT_TYPE_ETH) {
+@@ -596,7 +597,9 @@ static int mlx4_eq_int(struct mlx4_dev *dev, struct mlx4_eq *eq)
+ 				if (!mlx4_is_master(dev))
+ 					break;
+ 				if (dev->caps.port_type[port] == MLX4_PORT_TYPE_ETH)
+-					for (i = 0; i < dev->num_vfs + 1; i++) {
++					for (i = 0;
++					     i < dev->persist->num_vfs + 1;
++					     i++) {
+ 						if (!test_bit(i, slaves_port.slaves))
+ 							continue;
+ 						if (i == mlx4_master_func_num(dev))
+@@ -865,7 +868,7 @@ static void __iomem *mlx4_get_eq_uar(struct mlx4_dev *dev, struct mlx4_eq *eq)
+ 
+ 	if (!priv->eq_table.uar_map[index]) {
+ 		priv->eq_table.uar_map[index] =
+-			ioremap(pci_resource_start(dev->pdev, 2) +
++			ioremap(pci_resource_start(dev->persist->pdev, 2) +
+ 				((eq->eqn / 4) << PAGE_SHIFT),
+ 				PAGE_SIZE);
+ 		if (!priv->eq_table.uar_map[index]) {
+@@ -928,8 +931,10 @@ static int mlx4_create_eq(struct mlx4_dev *dev, int nent,
+ 	eq_context = mailbox->buf;
+ 
+ 	for (i = 0; i < npages; ++i) {
+-		eq->page_list[i].buf = dma_alloc_coherent(&dev->pdev->dev,
+-							  PAGE_SIZE, &t, GFP_KERNEL);
++		eq->page_list[i].buf = dma_alloc_coherent(&dev->persist->
++							  pdev->dev,
++							  PAGE_SIZE, &t,
++							  GFP_KERNEL);
+ 		if (!eq->page_list[i].buf)
+ 			goto err_out_free_pages;
+ 
+@@ -995,7 +1000,7 @@ err_out_free_eq:
+ err_out_free_pages:
+ 	for (i = 0; i < npages; ++i)
+ 		if (eq->page_list[i].buf)
+-			dma_free_coherent(&dev->pdev->dev, PAGE_SIZE,
++			dma_free_coherent(&dev->persist->pdev->dev, PAGE_SIZE,
+ 					  eq->page_list[i].buf,
+ 					  eq->page_list[i].map);
+ 
+@@ -1044,9 +1049,9 @@ static void mlx4_free_eq(struct mlx4_dev *dev,
+ 
+ 	mlx4_mtt_cleanup(dev, &eq->mtt);
+ 	for (i = 0; i < npages; ++i)
+-		dma_free_coherent(&dev->pdev->dev, PAGE_SIZE,
+-				    eq->page_list[i].buf,
+-				    eq->page_list[i].map);
++		dma_free_coherent(&dev->persist->pdev->dev, PAGE_SIZE,
++				  eq->page_list[i].buf,
++				  eq->page_list[i].map);
+ 
+ 	kfree(eq->page_list);
+ 	mlx4_bitmap_free(&priv->eq_table.bitmap, eq->eqn, MLX4_USE_RR);
+@@ -1060,7 +1065,7 @@ static void mlx4_free_irqs(struct mlx4_dev *dev)
+ 	int	i, vec;
+ 
+ 	if (eq_table->have_irq)
+-		free_irq(dev->pdev->irq, dev);
++		free_irq(dev->persist->pdev->irq, dev);
+ 
+ 	for (i = 0; i < dev->caps.num_comp_vectors + 1; ++i)
+ 		if (eq_table->eq[i].have_irq) {
+@@ -1089,7 +1094,8 @@ static int mlx4_map_clr_int(struct mlx4_dev *dev)
+ {
+ 	struct mlx4_priv *priv = mlx4_priv(dev);
+ 
+-	priv->clr_base = ioremap(pci_resource_start(dev->pdev, priv->fw.clr_int_bar) +
++	priv->clr_base = ioremap(pci_resource_start(dev->persist->pdev,
++				 priv->fw.clr_int_bar) +
+ 				 priv->fw.clr_int_base, MLX4_CLR_INT_SIZE);
+ 	if (!priv->clr_base) {
+ 		mlx4_err(dev, "Couldn't map interrupt clear register, aborting\n");
+@@ -1212,13 +1218,13 @@ int mlx4_init_eq_table(struct mlx4_dev *dev)
+ 					 i * MLX4_IRQNAME_SIZE,
+ 					 MLX4_IRQNAME_SIZE,
+ 					 "mlx4-comp-%d@pci:%s", i,
+-					 pci_name(dev->pdev));
++					 pci_name(dev->persist->pdev));
+ 			} else {
+ 				snprintf(priv->eq_table.irq_names +
+ 					 i * MLX4_IRQNAME_SIZE,
+ 					 MLX4_IRQNAME_SIZE,
+ 					 "mlx4-async@pci:%s",
+-					 pci_name(dev->pdev));
++					 pci_name(dev->persist->pdev));
+ 			}
+ 
+ 			eq_name = priv->eq_table.irq_names +
+@@ -1235,8 +1241,8 @@ int mlx4_init_eq_table(struct mlx4_dev *dev)
+ 		snprintf(priv->eq_table.irq_names,
+ 			 MLX4_IRQNAME_SIZE,
+ 			 DRV_NAME "@pci:%s",
+-			 pci_name(dev->pdev));
+-		err = request_irq(dev->pdev->irq, mlx4_interrupt,
++			 pci_name(dev->persist->pdev));
++		err = request_irq(dev->persist->pdev->irq, mlx4_interrupt,
+ 				  IRQF_SHARED, priv->eq_table.irq_names, dev);
+ 		if (err)
+ 			goto err_out_async;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/icm.c b/drivers/net/ethernet/mellanox/mlx4/icm.c
+index 97c9b1d..2a9dd46 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/icm.c
++++ b/drivers/net/ethernet/mellanox/mlx4/icm.c
+@@ -56,7 +56,7 @@ static void mlx4_free_icm_pages(struct mlx4_dev *dev, struct mlx4_icm_chunk *chu
+ 	int i;
+ 
+ 	if (chunk->nsg > 0)
+-		pci_unmap_sg(dev->pdev, chunk->mem, chunk->npages,
++		pci_unmap_sg(dev->persist->pdev, chunk->mem, chunk->npages,
+ 			     PCI_DMA_BIDIRECTIONAL);
+ 
+ 	for (i = 0; i < chunk->npages; ++i)
+@@ -69,7 +69,8 @@ static void mlx4_free_icm_coherent(struct mlx4_dev *dev, struct mlx4_icm_chunk *
+ 	int i;
+ 
+ 	for (i = 0; i < chunk->npages; ++i)
+-		dma_free_coherent(&dev->pdev->dev, chunk->mem[i].length,
++		dma_free_coherent(&dev->persist->pdev->dev,
++				  chunk->mem[i].length,
+ 				  lowmem_page_address(sg_page(&chunk->mem[i])),
+ 				  sg_dma_address(&chunk->mem[i]));
+ }
+@@ -173,7 +174,7 @@ struct mlx4_icm *mlx4_alloc_icm(struct mlx4_dev *dev, int npages,
+ 			--cur_order;
+ 
+ 		if (coherent)
+-			ret = mlx4_alloc_icm_coherent(&dev->pdev->dev,
++			ret = mlx4_alloc_icm_coherent(&dev->persist->pdev->dev,
+ 						      &chunk->mem[chunk->npages],
+ 						      cur_order, gfp_mask);
+ 		else
+@@ -193,7 +194,7 @@ struct mlx4_icm *mlx4_alloc_icm(struct mlx4_dev *dev, int npages,
+ 		if (coherent)
+ 			++chunk->nsg;
+ 		else if (chunk->npages == MLX4_ICM_CHUNK_LEN) {
+-			chunk->nsg = pci_map_sg(dev->pdev, chunk->mem,
++			chunk->nsg = pci_map_sg(dev->persist->pdev, chunk->mem,
+ 						chunk->npages,
+ 						PCI_DMA_BIDIRECTIONAL);
+ 
+@@ -208,7 +209,7 @@ struct mlx4_icm *mlx4_alloc_icm(struct mlx4_dev *dev, int npages,
+ 	}
+ 
+ 	if (!coherent && chunk) {
+-		chunk->nsg = pci_map_sg(dev->pdev, chunk->mem,
++		chunk->nsg = pci_map_sg(dev->persist->pdev, chunk->mem,
+ 					chunk->npages,
+ 					PCI_DMA_BIDIRECTIONAL);
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
+index 03e9eb0..abcee61 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/main.c
++++ b/drivers/net/ethernet/mellanox/mlx4/main.c
+@@ -318,10 +318,11 @@ static int mlx4_dev_cap(struct mlx4_dev *dev, struct mlx4_dev_cap *dev_cap)
+ 		return -ENODEV;
+ 	}
+ 
+-	if (dev_cap->uar_size > pci_resource_len(dev->pdev, 2)) {
++	if (dev_cap->uar_size > pci_resource_len(dev->persist->pdev, 2)) {
+ 		mlx4_err(dev, "HCA reported UAR size of 0x%x bigger than PCI resource 2 size of 0x%llx, aborting\n",
+ 			 dev_cap->uar_size,
+-			 (unsigned long long) pci_resource_len(dev->pdev, 2));
++			 (unsigned long long)
++			 pci_resource_len(dev->persist->pdev, 2));
+ 		return -ENODEV;
+ 	}
+ 
+@@ -541,8 +542,10 @@ static int mlx4_get_pcie_dev_link_caps(struct mlx4_dev *dev,
+ 	*speed = PCI_SPEED_UNKNOWN;
+ 	*width = PCIE_LNK_WIDTH_UNKNOWN;
+ 
+-	err1 = pcie_capability_read_dword(dev->pdev, PCI_EXP_LNKCAP, &lnkcap1);
+-	err2 = pcie_capability_read_dword(dev->pdev, PCI_EXP_LNKCAP2, &lnkcap2);
++	err1 = pcie_capability_read_dword(dev->persist->pdev, PCI_EXP_LNKCAP,
++					  &lnkcap1);
++	err2 = pcie_capability_read_dword(dev->persist->pdev, PCI_EXP_LNKCAP2,
++					  &lnkcap2);
+ 	if (!err2 && lnkcap2) { /* PCIe r3.0-compliant */
+ 		if (lnkcap2 & PCI_EXP_LNKCAP2_SLS_8_0GB)
+ 			*speed = PCIE_SPEED_8_0GT;
+@@ -587,7 +590,7 @@ static void mlx4_check_pcie_caps(struct mlx4_dev *dev)
+ 		return;
+ 	}
+ 
+-	err = pcie_get_minimum_link(dev->pdev, &speed, &width);
++	err = pcie_get_minimum_link(dev->persist->pdev, &speed, &width);
+ 	if (err || speed == PCI_SPEED_UNKNOWN ||
+ 	    width == PCIE_LNK_WIDTH_UNKNOWN) {
+ 		mlx4_warn(dev,
+@@ -837,10 +840,12 @@ static int mlx4_slave_cap(struct mlx4_dev *dev)
+ 
+ 	if (dev->caps.uar_page_size * (dev->caps.num_uars -
+ 				       dev->caps.reserved_uars) >
+-				       pci_resource_len(dev->pdev, 2)) {
++				       pci_resource_len(dev->persist->pdev,
++							2)) {
+ 		mlx4_err(dev, "HCA reported UAR region size of 0x%x bigger than PCI resource 2 size of 0x%llx, aborting\n",
+ 			 dev->caps.uar_page_size * dev->caps.num_uars,
+-			 (unsigned long long) pci_resource_len(dev->pdev, 2));
++			 (unsigned long long)
++			 pci_resource_len(dev->persist->pdev, 2));
+ 		goto err_mem;
+ 	}
+ 
+@@ -1492,9 +1497,9 @@ static int map_bf_area(struct mlx4_dev *dev)
+ 	if (!dev->caps.bf_reg_size)
+ 		return -ENXIO;
+ 
+-	bf_start = pci_resource_start(dev->pdev, 2) +
++	bf_start = pci_resource_start(dev->persist->pdev, 2) +
+ 			(dev->caps.num_uars << PAGE_SHIFT);
+-	bf_len = pci_resource_len(dev->pdev, 2) -
++	bf_len = pci_resource_len(dev->persist->pdev, 2) -
+ 			(dev->caps.num_uars << PAGE_SHIFT);
+ 	priv->bf_mapping = io_mapping_create_wc(bf_start, bf_len);
+ 	if (!priv->bf_mapping)
+@@ -1536,7 +1541,8 @@ static int map_internal_clock(struct mlx4_dev *dev)
+ 	struct mlx4_priv *priv = mlx4_priv(dev);
+ 
+ 	priv->clock_mapping =
+-		ioremap(pci_resource_start(dev->pdev, priv->fw.clock_bar) +
++		ioremap(pci_resource_start(dev->persist->pdev,
++					   priv->fw.clock_bar) +
+ 			priv->fw.clock_offset, MLX4_CLOCK_SIZE);
+ 
+ 	if (!priv->clock_mapping)
+@@ -1705,7 +1711,8 @@ static void choose_steering_mode(struct mlx4_dev *dev,
+ 	if (mlx4_log_num_mgm_entry_size <= 0 &&
+ 	    dev_cap->flags2 & MLX4_DEV_CAP_FLAG2_FS_EN &&
+ 	    (!mlx4_is_mfunc(dev) ||
+-	     (dev_cap->fs_max_num_qp_per_entry >= (dev->num_vfs + 1))) &&
++	     (dev_cap->fs_max_num_qp_per_entry >=
++	     (dev->persist->num_vfs + 1))) &&
+ 	    choose_log_fs_mgm_entry_size(dev_cap->fs_max_num_qp_per_entry) >=
+ 		MLX4_MIN_MGM_LOG_ENTRY_SIZE) {
+ 		dev->oper_log_mgm_entry_size =
+@@ -2288,7 +2295,8 @@ static void mlx4_enable_msi_x(struct mlx4_dev *dev)
+ 		for (i = 0; i < nreq; ++i)
+ 			entries[i].entry = i;
+ 
+-		nreq = pci_enable_msix_range(dev->pdev, entries, 2, nreq);
++		nreq = pci_enable_msix_range(dev->persist->pdev, entries, 2,
++					     nreq);
+ 
+ 		if (nreq < 0) {
+ 			kfree(entries);
+@@ -2316,7 +2324,7 @@ no_msi:
+ 	dev->caps.comp_pool	   = 0;
+ 
+ 	for (i = 0; i < 2; ++i)
+-		priv->eq_table.eq[i].irq = dev->pdev->irq;
++		priv->eq_table.eq[i].irq = dev->persist->pdev->irq;
+ }
+ 
+ static int mlx4_init_port_info(struct mlx4_dev *dev, int port)
+@@ -2344,7 +2352,7 @@ static int mlx4_init_port_info(struct mlx4_dev *dev, int port)
+ 	info->port_attr.show      = show_port_type;
+ 	sysfs_attr_init(&info->port_attr.attr);
+ 
+-	err = device_create_file(&dev->pdev->dev, &info->port_attr);
++	err = device_create_file(&dev->persist->pdev->dev, &info->port_attr);
+ 	if (err) {
+ 		mlx4_err(dev, "Failed to create file for port %d\n", port);
+ 		info->port = -1;
+@@ -2361,10 +2369,12 @@ static int mlx4_init_port_info(struct mlx4_dev *dev, int port)
+ 	info->port_mtu_attr.show      = show_port_ib_mtu;
+ 	sysfs_attr_init(&info->port_mtu_attr.attr);
+ 
+-	err = device_create_file(&dev->pdev->dev, &info->port_mtu_attr);
++	err = device_create_file(&dev->persist->pdev->dev,
++				 &info->port_mtu_attr);
+ 	if (err) {
+ 		mlx4_err(dev, "Failed to create mtu file for port %d\n", port);
+-		device_remove_file(&info->dev->pdev->dev, &info->port_attr);
++		device_remove_file(&info->dev->persist->pdev->dev,
++				   &info->port_attr);
+ 		info->port = -1;
+ 	}
+ 
+@@ -2376,8 +2386,9 @@ static void mlx4_cleanup_port_info(struct mlx4_port_info *info)
+ 	if (info->port < 0)
+ 		return;
+ 
+-	device_remove_file(&info->dev->pdev->dev, &info->port_attr);
+-	device_remove_file(&info->dev->pdev->dev, &info->port_mtu_attr);
++	device_remove_file(&info->dev->persist->pdev->dev, &info->port_attr);
++	device_remove_file(&info->dev->persist->pdev->dev,
++			   &info->port_mtu_attr);
+ }
+ 
+ static int mlx4_init_steering(struct mlx4_dev *dev)
+@@ -2444,10 +2455,11 @@ static int mlx4_get_ownership(struct mlx4_dev *dev)
+ 	void __iomem *owner;
+ 	u32 ret;
+ 
+-	if (pci_channel_offline(dev->pdev))
++	if (pci_channel_offline(dev->persist->pdev))
+ 		return -EIO;
+ 
+-	owner = ioremap(pci_resource_start(dev->pdev, 0) + MLX4_OWNER_BASE,
++	owner = ioremap(pci_resource_start(dev->persist->pdev, 0) +
++			MLX4_OWNER_BASE,
+ 			MLX4_OWNER_SIZE);
+ 	if (!owner) {
+ 		mlx4_err(dev, "Failed to obtain ownership bit\n");
+@@ -2463,10 +2475,11 @@ static void mlx4_free_ownership(struct mlx4_dev *dev)
+ {
+ 	void __iomem *owner;
+ 
+-	if (pci_channel_offline(dev->pdev))
++	if (pci_channel_offline(dev->persist->pdev))
+ 		return;
+ 
+-	owner = ioremap(pci_resource_start(dev->pdev, 0) + MLX4_OWNER_BASE,
++	owner = ioremap(pci_resource_start(dev->persist->pdev, 0) +
++			MLX4_OWNER_BASE,
+ 			MLX4_OWNER_SIZE);
+ 	if (!owner) {
+ 		mlx4_err(dev, "Failed to obtain ownership bit\n");
+@@ -2514,13 +2527,13 @@ static u64 mlx4_enable_sriov(struct mlx4_dev *dev, struct pci_dev *pdev,
+ 		dev_flags |= MLX4_FLAG_SRIOV |
+ 			MLX4_FLAG_MASTER;
+ 		dev_flags &= ~MLX4_FLAG_SLAVE;
+-		dev->num_vfs = total_vfs;
++		dev->persist->num_vfs = total_vfs;
+ 	}
+ 	return dev_flags;
+ 
+ disable_sriov:
+ 	atomic_dec(&pf_loading);
+-	dev->num_vfs = 0;
++	dev->persist->num_vfs = 0;
+ 	kfree(dev->dev_vfs);
+ 	return dev_flags & ~MLX4_FLAG_MASTER;
+ }
+@@ -2607,7 +2620,7 @@ static int mlx4_load_one(struct pci_dev *pdev, int pci_dev_data,
+ 			existing_vfs = pci_num_vf(pdev);
+ 			if (existing_vfs)
+ 				dev->flags |= MLX4_FLAG_SRIOV;
+-			dev->num_vfs = total_vfs;
++			dev->persist->num_vfs = total_vfs;
+ 		}
+ 	}
+ 
+@@ -2771,12 +2784,14 @@ slave_start:
+ 				 dev->caps.num_ports);
+ 			goto err_close;
+ 		}
+-		memcpy(dev->nvfs, nvfs, sizeof(dev->nvfs));
++		memcpy(dev->persist->nvfs, nvfs, sizeof(dev->persist->nvfs));
+ 
+-		for (i = 0; i < sizeof(dev->nvfs)/sizeof(dev->nvfs[0]); i++) {
++		for (i = 0;
++		     i < sizeof(dev->persist->nvfs)/
++		     sizeof(dev->persist->nvfs[0]); i++) {
+ 			unsigned j;
+ 
+-			for (j = 0; j < dev->nvfs[i]; ++sum, ++j) {
++			for (j = 0; j < dev->persist->nvfs[i]; ++sum, ++j) {
+ 				dev->dev_vfs[sum].min_port = i < 2 ? i + 1 : 1;
+ 				dev->dev_vfs[sum].n_ports = i < 2 ? 1 :
+ 					dev->caps.num_ports;
+@@ -2846,7 +2861,7 @@ slave_start:
+ 
+ 	priv->removed = 0;
+ 
+-	if (mlx4_is_master(dev) && dev->num_vfs)
++	if (mlx4_is_master(dev) && dev->persist->num_vfs)
+ 		atomic_dec(&pf_loading);
+ 
+ 	kfree(dev_cap);
+@@ -2908,7 +2923,7 @@ err_sriov:
+ 	if (dev->flags & MLX4_FLAG_SRIOV && !existing_vfs)
+ 		pci_disable_sriov(pdev);
+ 
+-	if (mlx4_is_master(dev) && dev->num_vfs)
++	if (mlx4_is_master(dev) && dev->persist->num_vfs)
+ 		atomic_dec(&pf_loading);
+ 
+ 	kfree(priv->dev.dev_vfs);
+@@ -3076,20 +3091,28 @@ static int mlx4_init_one(struct pci_dev *pdev, const struct pci_device_id *id)
+ 		return -ENOMEM;
+ 
+ 	dev       = &priv->dev;
+-	dev->pdev = pdev;
+-	pci_set_drvdata(pdev, dev);
++	dev->persist = kzalloc(sizeof(*dev->persist), GFP_KERNEL);
++	if (!dev->persist) {
++		kfree(priv);
++		return -ENOMEM;
++	}
++	dev->persist->pdev = pdev;
++	dev->persist->dev = dev;
++	pci_set_drvdata(pdev, dev->persist);
+ 	priv->pci_dev_data = id->driver_data;
+ 
+ 	ret =  __mlx4_init_one(pdev, id->driver_data, priv);
+-	if (ret)
++	if (ret) {
++		kfree(dev->persist);
+ 		kfree(priv);
+-
++	}
+ 	return ret;
+ }
+ 
+ static void mlx4_unload_one(struct pci_dev *pdev)
+ {
+-	struct mlx4_dev  *dev  = pci_get_drvdata(pdev);
++	struct mlx4_dev_persistent *persist = pci_get_drvdata(pdev);
++	struct mlx4_dev  *dev  = persist->dev;
+ 	struct mlx4_priv *priv = mlx4_priv(dev);
+ 	int               pci_dev_data;
+ 	int p;
+@@ -3155,7 +3178,7 @@ static void mlx4_unload_one(struct pci_dev *pdev)
+ 		mlx4_warn(dev, "Disabling SR-IOV\n");
+ 		pci_disable_sriov(pdev);
+ 		dev->flags &= ~MLX4_FLAG_SRIOV;
+-		dev->num_vfs = 0;
++		dev->persist->num_vfs = 0;
+ 	}
+ 
+ 	if (!mlx4_is_slave(dev))
+@@ -3175,26 +3198,29 @@ static void mlx4_unload_one(struct pci_dev *pdev)
+ 
+ static void mlx4_remove_one(struct pci_dev *pdev)
+ {
+-	struct mlx4_dev  *dev  = pci_get_drvdata(pdev);
++	struct mlx4_dev_persistent *persist = pci_get_drvdata(pdev);
++	struct mlx4_dev  *dev  = persist->dev;
+ 	struct mlx4_priv *priv = mlx4_priv(dev);
+ 
+ 	mlx4_unload_one(pdev);
+ 	pci_release_regions(pdev);
+ 	pci_disable_device(pdev);
++	kfree(dev->persist);
+ 	kfree(priv);
+ 	pci_set_drvdata(pdev, NULL);
+ }
+ 
+ int mlx4_restart_one(struct pci_dev *pdev)
+ {
+-	struct mlx4_dev	 *dev  = pci_get_drvdata(pdev);
++	struct mlx4_dev_persistent *persist = pci_get_drvdata(pdev);
++	struct mlx4_dev	 *dev  = persist->dev;
+ 	struct mlx4_priv *priv = mlx4_priv(dev);
+ 	int nvfs[MLX4_MAX_PORTS + 1] = {0, 0, 0};
+ 	int pci_dev_data, err, total_vfs;
+ 
+ 	pci_dev_data = priv->pci_dev_data;
+-	total_vfs = dev->num_vfs;
+-	memcpy(nvfs, dev->nvfs, sizeof(dev->nvfs));
++	total_vfs = dev->persist->num_vfs;
++	memcpy(nvfs, dev->persist->nvfs, sizeof(dev->persist->nvfs));
+ 
+ 	mlx4_unload_one(pdev);
+ 	err = mlx4_load_one(pdev, pci_dev_data, total_vfs, nvfs, priv);
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4.h b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
+index bdd4eea..faa37ab 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mlx4.h
++++ b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
+@@ -221,16 +221,17 @@ extern int mlx4_debug_level;
+ #define mlx4_dbg(mdev, format, ...)					\
+ do {									\
+ 	if (mlx4_debug_level)						\
+-		dev_printk(KERN_DEBUG, &(mdev)->pdev->dev, format,	\
++		dev_printk(KERN_DEBUG,					\
++			   &(mdev)->persist->pdev->dev, format,		\
+ 			   ##__VA_ARGS__);				\
+ } while (0)
+ 
+ #define mlx4_err(mdev, format, ...)					\
+-	dev_err(&(mdev)->pdev->dev, format, ##__VA_ARGS__)
++	dev_err(&(mdev)->persist->pdev->dev, format, ##__VA_ARGS__)
+ #define mlx4_info(mdev, format, ...)					\
+-	dev_info(&(mdev)->pdev->dev, format, ##__VA_ARGS__)
++	dev_info(&(mdev)->persist->pdev->dev, format, ##__VA_ARGS__)
+ #define mlx4_warn(mdev, format, ...)					\
+-	dev_warn(&(mdev)->pdev->dev, format, ##__VA_ARGS__)
++	dev_warn(&(mdev)->persist->pdev->dev, format, ##__VA_ARGS__)
+ 
+ extern int mlx4_log_num_mgm_entry_size;
+ extern int log_mtts_per_seg;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mr.c b/drivers/net/ethernet/mellanox/mlx4/mr.c
+index 7094a9c..8dbdf1d 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mr.c
++++ b/drivers/net/ethernet/mellanox/mlx4/mr.c
+@@ -708,13 +708,13 @@ static int mlx4_write_mtt_chunk(struct mlx4_dev *dev, struct mlx4_mtt *mtt,
+ 	if (!mtts)
+ 		return -ENOMEM;
+ 
+-	dma_sync_single_for_cpu(&dev->pdev->dev, dma_handle,
++	dma_sync_single_for_cpu(&dev->persist->pdev->dev, dma_handle,
+ 				npages * sizeof (u64), DMA_TO_DEVICE);
+ 
+ 	for (i = 0; i < npages; ++i)
+ 		mtts[i] = cpu_to_be64(page_list[i] | MLX4_MTT_FLAG_PRESENT);
+ 
+-	dma_sync_single_for_device(&dev->pdev->dev, dma_handle,
++	dma_sync_single_for_device(&dev->persist->pdev->dev, dma_handle,
+ 				   npages * sizeof (u64), DMA_TO_DEVICE);
+ 
+ 	return 0;
+@@ -1020,13 +1020,13 @@ int mlx4_map_phys_fmr(struct mlx4_dev *dev, struct mlx4_fmr *fmr, u64 *page_list
+ 	/* Make sure MPT status is visible before writing MTT entries */
+ 	wmb();
+ 
+-	dma_sync_single_for_cpu(&dev->pdev->dev, fmr->dma_handle,
++	dma_sync_single_for_cpu(&dev->persist->pdev->dev, fmr->dma_handle,
+ 				npages * sizeof(u64), DMA_TO_DEVICE);
+ 
+ 	for (i = 0; i < npages; ++i)
+ 		fmr->mtts[i] = cpu_to_be64(page_list[i] | MLX4_MTT_FLAG_PRESENT);
+ 
+-	dma_sync_single_for_device(&dev->pdev->dev, fmr->dma_handle,
++	dma_sync_single_for_device(&dev->persist->pdev->dev, fmr->dma_handle,
+ 				   npages * sizeof(u64), DMA_TO_DEVICE);
+ 
+ 	fmr->mpt->key    = cpu_to_be32(key);
+diff --git a/drivers/net/ethernet/mellanox/mlx4/pd.c b/drivers/net/ethernet/mellanox/mlx4/pd.c
+index 7421607..a42b4c0 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/pd.c
++++ b/drivers/net/ethernet/mellanox/mlx4/pd.c
+@@ -151,11 +151,13 @@ int mlx4_uar_alloc(struct mlx4_dev *dev, struct mlx4_uar *uar)
+ 		return -ENOMEM;
+ 
+ 	if (mlx4_is_slave(dev))
+-		offset = uar->index % ((int) pci_resource_len(dev->pdev, 2) /
++		offset = uar->index % ((int)pci_resource_len(dev->persist->pdev,
++							     2) /
+ 				       dev->caps.uar_page_size);
+ 	else
+ 		offset = uar->index;
+-	uar->pfn = (pci_resource_start(dev->pdev, 2) >> PAGE_SHIFT) + offset;
++	uar->pfn = (pci_resource_start(dev->persist->pdev, 2) >> PAGE_SHIFT)
++		    + offset;
+ 	uar->map = NULL;
+ 	return 0;
+ }
+diff --git a/drivers/net/ethernet/mellanox/mlx4/port.c b/drivers/net/ethernet/mellanox/mlx4/port.c
+index 30eb1ea..9f268f0 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/port.c
++++ b/drivers/net/ethernet/mellanox/mlx4/port.c
+@@ -553,9 +553,9 @@ int mlx4_get_slave_num_gids(struct mlx4_dev *dev, int slave, int port)
+ 		slaves_pport_actv = mlx4_phys_to_slaves_pport_actv(
+ 				    dev, &exclusive_ports);
+ 		slave_gid -= bitmap_weight(slaves_pport_actv.slaves,
+-					   dev->num_vfs + 1);
++					   dev->persist->num_vfs + 1);
+ 	}
+-	vfs = bitmap_weight(slaves_pport.slaves, dev->num_vfs + 1) - 1;
++	vfs = bitmap_weight(slaves_pport.slaves, dev->persist->num_vfs + 1) - 1;
+ 	if (slave_gid <= ((MLX4_ROCE_MAX_GIDS - MLX4_ROCE_PF_GIDS) % vfs))
+ 		return ((MLX4_ROCE_MAX_GIDS - MLX4_ROCE_PF_GIDS) / vfs) + 1;
+ 	return (MLX4_ROCE_MAX_GIDS - MLX4_ROCE_PF_GIDS) / vfs;
+@@ -590,10 +590,10 @@ int mlx4_get_base_gid_ix(struct mlx4_dev *dev, int slave, int port)
+ 		slaves_pport_actv = mlx4_phys_to_slaves_pport_actv(
+ 				    dev, &exclusive_ports);
+ 		slave_gid -= bitmap_weight(slaves_pport_actv.slaves,
+-					   dev->num_vfs + 1);
++					   dev->persist->num_vfs + 1);
+ 	}
+ 	gids = MLX4_ROCE_MAX_GIDS - MLX4_ROCE_PF_GIDS;
+-	vfs = bitmap_weight(slaves_pport.slaves, dev->num_vfs + 1) - 1;
++	vfs = bitmap_weight(slaves_pport.slaves, dev->persist->num_vfs + 1) - 1;
+ 	if (slave_gid <= gids % vfs)
+ 		return MLX4_ROCE_PF_GIDS + ((gids / vfs) + 1) * (slave_gid - 1);
+ 
+@@ -644,7 +644,7 @@ void mlx4_reset_roce_gids(struct mlx4_dev *dev, int slave)
+ 	int num_eth_ports, err;
+ 	int i;
+ 
+-	if (slave < 0 || slave > dev->num_vfs)
++	if (slave < 0 || slave > dev->persist->num_vfs)
+ 		return;
+ 
+ 	actv_ports = mlx4_get_active_ports(dev, slave);
+@@ -1214,7 +1214,8 @@ int mlx4_get_slave_from_roce_gid(struct mlx4_dev *dev, int port, u8 *gid,
+ 		return -EINVAL;
+ 
+ 	slaves_pport = mlx4_phys_to_slaves_pport(dev, port);
+-	num_vfs = bitmap_weight(slaves_pport.slaves, dev->num_vfs + 1) - 1;
++	num_vfs = bitmap_weight(slaves_pport.slaves,
++				dev->persist->num_vfs + 1) - 1;
+ 
+ 	for (i = 0; i < MLX4_ROCE_MAX_GIDS; i++) {
+ 		if (!memcmp(priv->port[port].gid_table.roce_gids[i].raw, gid,
+@@ -1258,7 +1259,7 @@ int mlx4_get_slave_from_roce_gid(struct mlx4_dev *dev, int port, u8 *gid,
+ 							dev, &exclusive_ports);
+ 				num_vfs_before += bitmap_weight(
+ 						slaves_pport_actv.slaves,
+-						dev->num_vfs + 1);
++						dev->persist->num_vfs + 1);
+ 			}
+ 
+ 			/* candidate_slave_gid isn't necessarily the correct slave, but
+@@ -1288,7 +1289,7 @@ int mlx4_get_slave_from_roce_gid(struct mlx4_dev *dev, int port, u8 *gid,
+ 						dev, &exclusive_ports);
+ 				slave_gid += bitmap_weight(
+ 						slaves_pport_actv.slaves,
+-						dev->num_vfs + 1);
++						dev->persist->num_vfs + 1);
+ 			}
+ 		}
+ 		*slave_id = slave_gid;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/reset.c b/drivers/net/ethernet/mellanox/mlx4/reset.c
+index ea1c6d0..0076d88 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/reset.c
++++ b/drivers/net/ethernet/mellanox/mlx4/reset.c
+@@ -76,19 +76,21 @@ int mlx4_reset(struct mlx4_dev *dev)
+ 		goto out;
+ 	}
+ 
+-	pcie_cap = pci_pcie_cap(dev->pdev);
++	pcie_cap = pci_pcie_cap(dev->persist->pdev);
+ 
+ 	for (i = 0; i < 64; ++i) {
+ 		if (i == 22 || i == 23)
+ 			continue;
+-		if (pci_read_config_dword(dev->pdev, i * 4, hca_header + i)) {
++		if (pci_read_config_dword(dev->persist->pdev, i * 4,
++					  hca_header + i)) {
+ 			err = -ENODEV;
+ 			mlx4_err(dev, "Couldn't save HCA PCI header, aborting\n");
+ 			goto out;
+ 		}
+ 	}
+ 
+-	reset = ioremap(pci_resource_start(dev->pdev, 0) + MLX4_RESET_BASE,
++	reset = ioremap(pci_resource_start(dev->persist->pdev, 0) +
++			MLX4_RESET_BASE,
+ 			MLX4_RESET_SIZE);
+ 	if (!reset) {
+ 		err = -ENOMEM;
+@@ -122,8 +124,8 @@ int mlx4_reset(struct mlx4_dev *dev)
+ 
+ 	end = jiffies + MLX4_RESET_TIMEOUT_JIFFIES;
+ 	do {
+-		if (!pci_read_config_word(dev->pdev, PCI_VENDOR_ID, &vendor) &&
+-		    vendor != 0xffff)
++		if (!pci_read_config_word(dev->persist->pdev, PCI_VENDOR_ID,
++					  &vendor) && vendor != 0xffff)
+ 			break;
+ 
+ 		msleep(1);
+@@ -138,14 +140,16 @@ int mlx4_reset(struct mlx4_dev *dev)
+ 	/* Now restore the PCI headers */
+ 	if (pcie_cap) {
+ 		devctl = hca_header[(pcie_cap + PCI_EXP_DEVCTL) / 4];
+-		if (pcie_capability_write_word(dev->pdev, PCI_EXP_DEVCTL,
++		if (pcie_capability_write_word(dev->persist->pdev,
++					       PCI_EXP_DEVCTL,
+ 					       devctl)) {
+ 			err = -ENODEV;
+ 			mlx4_err(dev, "Couldn't restore HCA PCI Express Device Control register, aborting\n");
+ 			goto out;
+ 		}
+ 		linkctl = hca_header[(pcie_cap + PCI_EXP_LNKCTL) / 4];
+-		if (pcie_capability_write_word(dev->pdev, PCI_EXP_LNKCTL,
++		if (pcie_capability_write_word(dev->persist->pdev,
++					       PCI_EXP_LNKCTL,
+ 					       linkctl)) {
+ 			err = -ENODEV;
+ 			mlx4_err(dev, "Couldn't restore HCA PCI Express Link control register, aborting\n");
+@@ -157,7 +161,8 @@ int mlx4_reset(struct mlx4_dev *dev)
+ 		if (i * 4 == PCI_COMMAND)
+ 			continue;
+ 
+-		if (pci_write_config_dword(dev->pdev, i * 4, hca_header[i])) {
++		if (pci_write_config_dword(dev->persist->pdev, i * 4,
++					   hca_header[i])) {
+ 			err = -ENODEV;
+ 			mlx4_err(dev, "Couldn't restore HCA reg %x, aborting\n",
+ 				 i);
+@@ -165,7 +170,7 @@ int mlx4_reset(struct mlx4_dev *dev)
+ 		}
+ 	}
+ 
+-	if (pci_write_config_dword(dev->pdev, PCI_COMMAND,
++	if (pci_write_config_dword(dev->persist->pdev, PCI_COMMAND,
+ 				   hca_header[PCI_COMMAND / 4])) {
+ 		err = -ENODEV;
+ 		mlx4_err(dev, "Couldn't restore HCA COMMAND, aborting\n");
+diff --git a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
+index 4efbd1e..3e93879 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
++++ b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
+@@ -309,12 +309,13 @@ static inline int mlx4_grant_resource(struct mlx4_dev *dev, int slave,
+ 	int allocated, free, reserved, guaranteed, from_free;
+ 	int from_rsvd;
+ 
+-	if (slave > dev->num_vfs)
++	if (slave > dev->persist->num_vfs)
+ 		return -EINVAL;
+ 
+ 	spin_lock(&res_alloc->alloc_lock);
+ 	allocated = (port > 0) ?
+-		res_alloc->allocated[(port - 1) * (dev->num_vfs + 1) + slave] :
++		res_alloc->allocated[(port - 1) *
++		(dev->persist->num_vfs + 1) + slave] :
+ 		res_alloc->allocated[slave];
+ 	free = (port > 0) ? res_alloc->res_port_free[port - 1] :
+ 		res_alloc->res_free;
+@@ -352,7 +353,8 @@ static inline int mlx4_grant_resource(struct mlx4_dev *dev, int slave,
+ 	if (!err) {
+ 		/* grant the request */
+ 		if (port > 0) {
+-			res_alloc->allocated[(port - 1) * (dev->num_vfs + 1) + slave] += count;
++			res_alloc->allocated[(port - 1) *
++			(dev->persist->num_vfs + 1) + slave] += count;
+ 			res_alloc->res_port_free[port - 1] -= count;
+ 			res_alloc->res_port_rsvd[port - 1] -= from_rsvd;
+ 		} else {
+@@ -376,13 +378,14 @@ static inline void mlx4_release_resource(struct mlx4_dev *dev, int slave,
+ 		&priv->mfunc.master.res_tracker.res_alloc[res_type];
+ 	int allocated, guaranteed, from_rsvd;
+ 
+-	if (slave > dev->num_vfs)
++	if (slave > dev->persist->num_vfs)
+ 		return;
+ 
+ 	spin_lock(&res_alloc->alloc_lock);
+ 
+ 	allocated = (port > 0) ?
+-		res_alloc->allocated[(port - 1) * (dev->num_vfs + 1) + slave] :
++		res_alloc->allocated[(port - 1) *
++		(dev->persist->num_vfs + 1) + slave] :
+ 		res_alloc->allocated[slave];
+ 	guaranteed = res_alloc->guaranteed[slave];
+ 
+@@ -397,7 +400,8 @@ static inline void mlx4_release_resource(struct mlx4_dev *dev, int slave,
+ 	}
+ 
+ 	if (port > 0) {
+-		res_alloc->allocated[(port - 1) * (dev->num_vfs + 1) + slave] -= count;
++		res_alloc->allocated[(port - 1) *
++		(dev->persist->num_vfs + 1) + slave] -= count;
+ 		res_alloc->res_port_free[port - 1] += count;
+ 		res_alloc->res_port_rsvd[port - 1] += from_rsvd;
+ 	} else {
+@@ -415,7 +419,8 @@ static inline void initialize_res_quotas(struct mlx4_dev *dev,
+ 					 enum mlx4_resource res_type,
+ 					 int vf, int num_instances)
+ {
+-	res_alloc->guaranteed[vf] = num_instances / (2 * (dev->num_vfs + 1));
++	res_alloc->guaranteed[vf] = num_instances /
++				    (2 * (dev->persist->num_vfs + 1));
+ 	res_alloc->quota[vf] = (num_instances / 2) + res_alloc->guaranteed[vf];
+ 	if (vf == mlx4_master_func_num(dev)) {
+ 		res_alloc->res_free = num_instances;
+@@ -486,21 +491,26 @@ int mlx4_init_resource_tracker(struct mlx4_dev *dev)
+ 	for (i = 0; i < MLX4_NUM_OF_RESOURCE_TYPE; i++) {
+ 		struct resource_allocator *res_alloc =
+ 			&priv->mfunc.master.res_tracker.res_alloc[i];
+-		res_alloc->quota = kmalloc((dev->num_vfs + 1) * sizeof(int), GFP_KERNEL);
+-		res_alloc->guaranteed = kmalloc((dev->num_vfs + 1) * sizeof(int), GFP_KERNEL);
++		res_alloc->quota = kmalloc((dev->persist->num_vfs + 1) *
++					   sizeof(int), GFP_KERNEL);
++		res_alloc->guaranteed = kmalloc((dev->persist->num_vfs + 1) *
++						sizeof(int), GFP_KERNEL);
+ 		if (i == RES_MAC || i == RES_VLAN)
+ 			res_alloc->allocated = kzalloc(MLX4_MAX_PORTS *
+-						       (dev->num_vfs + 1) * sizeof(int),
+-							GFP_KERNEL);
++						       (dev->persist->num_vfs
++						       + 1) *
++						       sizeof(int), GFP_KERNEL);
+ 		else
+-			res_alloc->allocated = kzalloc((dev->num_vfs + 1) * sizeof(int), GFP_KERNEL);
++			res_alloc->allocated = kzalloc((dev->persist->
++							num_vfs + 1) *
++						       sizeof(int), GFP_KERNEL);
+ 
+ 		if (!res_alloc->quota || !res_alloc->guaranteed ||
+ 		    !res_alloc->allocated)
+ 			goto no_mem_err;
+ 
+ 		spin_lock_init(&res_alloc->alloc_lock);
+-		for (t = 0; t < dev->num_vfs + 1; t++) {
++		for (t = 0; t < dev->persist->num_vfs + 1; t++) {
+ 			struct mlx4_active_ports actv_ports =
+ 				mlx4_get_active_ports(dev, t);
+ 			switch (i) {
+diff --git a/include/linux/mlx4/device.h b/include/linux/mlx4/device.h
+index f1e41b3..1069ce6 100644
+--- a/include/linux/mlx4/device.h
++++ b/include/linux/mlx4/device.h
+@@ -744,8 +744,15 @@ struct mlx4_vf_dev {
+ 	u8			n_ports;
+ };
+ 
+-struct mlx4_dev {
++struct mlx4_dev_persistent {
+ 	struct pci_dev	       *pdev;
++	struct mlx4_dev	       *dev;
++	int                     nvfs[MLX4_MAX_PORTS + 1];
++	int			num_vfs;
++};
++
++struct mlx4_dev {
++	struct mlx4_dev_persistent *persist;
+ 	unsigned long		flags;
+ 	unsigned long		num_slaves;
+ 	struct mlx4_caps	caps;
+@@ -754,13 +761,11 @@ struct mlx4_dev {
+ 	struct radix_tree_root	qp_table_tree;
+ 	u8			rev_id;
+ 	char			board_id[MLX4_BOARD_ID_LEN];
+-	int			num_vfs;
+ 	int			numa_node;
+ 	int			oper_log_mgm_entry_size;
+ 	u64			regid_promisc_array[MLX4_MAX_PORTS + 1];
+ 	u64			regid_allmulti_array[MLX4_MAX_PORTS + 1];
+ 	struct mlx4_vf_dev     *dev_vfs;
+-	int                     nvfs[MLX4_MAX_PORTS + 1];
+ };
+ 
+ struct mlx4_eqe {
+-- 
+1.7.1
