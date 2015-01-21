@@ -1,53 +1,72 @@
-From: Murali Karicheri <m-karicheri2@ti.com>
-Subject: Question on arping not updating the arp table in v3.10.61
-Date: Wed, 21 Jan 2015 18:30:44 -0500
-Message-ID: <54C036A4.7000204@ti.com>
+From: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
+Subject: Re: [PATCH 2/2] net: mv643xx_eth: Fix highmem support in non-TSO
+ egress path
+Date: Wed, 21 Jan 2015 20:34:30 -0300
+Message-ID: <54C03786.2060101@free-electrons.com>
+References: <1421844850-30886-1-git-send-email-ezequiel.garcia@free-electrons.com> <1421844850-30886-3-git-send-email-ezequiel.garcia@free-electrons.com> <20150121174049.GW26493@n2100.arm.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	B38611@freescale.com, fabio.estevam@freescale.com
+To: Russell King - ARM Linux <linux@arm.linux.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from arroyo.ext.ti.com ([192.94.94.40]:56537 "EHLO arroyo.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751830AbbAUXan (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Jan 2015 18:30:43 -0500
-Received: from dflxv15.itg.ti.com ([128.247.5.124])
-	by arroyo.ext.ti.com (8.13.7/8.13.7) with ESMTP id t0LNUghR013543
-	for <netdev@vger.kernel.org>; Wed, 21 Jan 2015 17:30:43 -0600
-Received: from DLEE70.ent.ti.com (dlemailx.itg.ti.com [157.170.170.113])
-	by dflxv15.itg.ti.com (8.14.3/8.13.8) with ESMTP id t0LNUg4o019886
-	for <netdev@vger.kernel.org>; Wed, 21 Jan 2015 17:30:42 -0600
-Received: from [158.218.104.233] (ileax41-snat.itg.ti.com [10.172.224.153])	by
- dflp32.itg.ti.com (8.14.3/8.13.8) with ESMTP id t0LNUg4V016295	for
- <netdev@vger.kernel.org>; Wed, 21 Jan 2015 17:30:42 -0600
+Received: from down.free-electrons.com ([37.187.137.238]:40189 "EHLO
+	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752886AbbAUXgh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jan 2015 18:36:37 -0500
+In-Reply-To: <20150121174049.GW26493@n2100.arm.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On 01/21/2015 02:40 PM, Russell King - ARM Linux wrote:
+> On Wed, Jan 21, 2015 at 09:54:10AM -0300, Ezequiel Garcia wrote:
+>> Commit 69ad0dd7af22b61d9e0e68e56b6290121618b0fb
+>> Author: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
+>> Date:   Mon May 19 13:59:59 2014 -0300
+>>
+>>     net: mv643xx_eth: Use dma_map_single() to map the skb fragments
+>>
+>> caused a nasty regression by removing the support for highmem skb
+>> fragments. By using page_address() to get the address of a fragment'=
+s
+>> page, we are assuming a lowmem page. However, such assumption is inc=
+orrect,
+>> as fragments can be in highmem pages, resulting in very nasty issues=
+=2E
+>>
+>> This commit fixes this by using the skb_frag_dma_map() helper,
+>> which takes care of mapping the skb fragment properly.
+>=20
+> This seems fine, so:
+>=20
 
-I am facing an issue on my board that is using v3.10.61 Linux kernel. 
-The arping -c 3 -f <IP address> doesn't update the arp table even though 
-I get a proper response
+I have just realised that the non-TSO and the TSO paths must work
+simultaneously (we don't know which path an egress skb will take).
 
-root@keystone-evm:~# arping -b -c 3 -I eth0 -f 158.218.104.3
-ARPING to 158.218.104.3 from 158.218.104.192 via eth0
-Unicast reply from 158.218.104.3 [0:12:1:f7:d6:ff] 0.751ms
-Sent 1 probe(s) (1 broadcast(s))
-Received 1 replies (0 request(s), 0 broadcast(s))
+So, with these patches, the unmapping is done using dma_unmap_page() wh=
+ich
+is only correct if the skb took the non-TSO paths. In other words,
+these fixes are wrong (although I have no idea the effect of
+using dma_unmap_page on a mapping done with dma_map_single).
 
-root@keystone-evm:~# arp -n -a
-? (158.218.104.1) at 00:00:0c:07:ac:68 [ether]  on eth0
-? (158.218.104.233) at d4:be:d9:3d:b6:c1 [ether]  on eth0
+And the problem is that in the TSO path, the linear and the non-linear
+fragments use the same kind of descriptors, so we can't distinguish
+them in the cleanup, and can't decide if _single or _page should be use=
+d.
 
-But by enabling following sysfs entry, it works.
+Any ideas?
 
-  echo 1 > /proc/sys/net/ipv4/conf/eth0/arp_accept
+I guess we could keep track in some data structure of the type of mappi=
+ng
+on each descriptor. Or alternatively, avoid highmem fragments altogethe=
+r
+by mapping to a lowmem page.
 
-Is this the expected behavior? On my ubuntu Linux pc with v3.2 running I 
-don't have to do this and it always update the arp table.
+I'll try to come up with some more patches following the first idea.
 
-Thanks for your help.
-
--- 
-Murali Karicheri
-Linux Kernel, Texas Instruments
+Sorry for the crappiness,
+--=20
+Ezequiel Garc=EDa, Free Electrons
+Embedded Linux, Kernel and Android Engineering
+http://free-electrons.com
