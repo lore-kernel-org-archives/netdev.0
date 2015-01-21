@@ -1,370 +1,285 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next 9/9] net/mlx4_core: Reset flow activation upon SRIOV fatal command cases
-Date: Wed, 21 Jan 2015 16:45:57 +0200
-Message-ID: <1421851557-12084-10-git-send-email-ogerlitz@mellanox.com>
-References: <1421851557-12084-1-git-send-email-ogerlitz@mellanox.com>
-Cc: netdev@vger.kernel.org, Matan Barak <matanb@mellanox.com>,
-	Amir Vadai <amirv@mellanox.com>, Tal Alon <talal@mellanox.com>,
-	Roland Dreier <roland@kernel.org>,
-	Yishai Hadas <yishaih@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Andri Yngvason <andri.yngvason@marel.com>
+Subject: Re: [PATCH v5 2/5] can: kvaser_usb: Consolidate and unify state change
+ handling
+Date: Wed, 21 Jan 2015 15:00:15 +0000
+Message-ID: <20150121150015.31351.6605@shannon>
+References: <20141223154654.GB6460@vivalin-002> <20150120214409.GA16828@linux>
+ <20150120214537.GB16828@linux> <20150121103319.14511.57709@shannon>
+ <e5439ed067931dc01bda70592eb6ed52@grandegger.com>
+ <20150121144323.GA17070@linux>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8BIT
+Cc: Olivier Sobrie <olivier@sobrie.be>,
+	Oliver Hartkopp <socketcan@hartkopp.net>,
+	Marc Kleine-Budde <mkl@pengutronix.de>,
+	Linux-CAN <linux-can@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: "Ahmed S. Darwish" <darwish.07@gmail.com>,
+	Wolfgang Grandegger <wg@grandegger.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:56129 "EHLO mellanox.co.il"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752390AbbAUOrn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Jan 2015 09:47:43 -0500
-In-Reply-To: <1421851557-12084-1-git-send-email-ogerlitz@mellanox.com>
+Received: from mail-db3on0053.outbound.protection.outlook.com ([157.55.234.53]:41440
+	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753371AbbAUPAZ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jan 2015 10:00:25 -0500
+In-Reply-To: <20150121144323.GA17070@linux>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yishai Hadas <yishaih@mellanox.com>
+Quoting Ahmed S. Darwish (2015-01-21 14:43:23)
+> Hi!
+> 
+> On Wed, Jan 21, 2015 at 12:53:58PM +0100, Wolfgang Grandegger wrote:
+> > On Wed, 21 Jan 2015 10:33:19 +0000, Andri Yngvason
+> > <andri.yngvason@marel.com> wrote:
+> > > Quoting Ahmed S. Darwish (2015-01-20 21:45:37)
+> > >> From: Ahmed S. Darwish <ahmed.darwish@valeo.com>
+> > >> 
+> > >> Replace most of the can interface's state and error counters
+> > >> handling with the new can-dev can_change_state() mechanism.
+> > >> 
+> > >> Suggested-by: Andri Yngvason <andri.yngvason@marel.com>
+> > >> Signed-off-by: Ahmed S. Darwish <ahmed.darwish@valeo.com>
+> > >> ---
+> > >>  drivers/net/can/usb/kvaser_usb.c | 114
+> > >>  +++++++++++++++++++--------------------
+> > >>  1 file changed, 55 insertions(+), 59 deletions(-)
+> > >> 
+> > >> diff --git a/drivers/net/can/usb/kvaser_usb.c
+> > >> b/drivers/net/can/usb/kvaser_usb.c
+> > >> index 971c5f9..0386d3f 100644
+> > >> --- a/drivers/net/can/usb/kvaser_usb.c
+> > >> +++ b/drivers/net/can/usb/kvaser_usb.c
+> > 
+> > ...
+> > > 
+> > > Looks good.
+> > 
+> > Would be nice to see some "candump" traces as well.
+> 
+> Sure. The USBCan-II device trace below is generated after applying
+> all patches in the series, especially patch #3, which fixes some
+> some invalid CAN state transitions logic in the original driver.
+[...]
+> 
+> Afterwards, candump on a PC, Kvaser USB device on the sending end:
+> 
+>  ...
+>  (000.008784)  can0  60A   [1]  C1
+>  (000.011341)  can0  2A8   [8]  C2 0A 00 00 00 00 00 00
+>  (000.009873)  can0  03D   [7]  C3 0A 00 00 00 00 00
+>  (000.010394)  can0  55C   [8]  C4 0A 00 00 00 00 00 00
+>  (000.009979)  can0  45A   [8]  C5 0A 00 00 00 00 00 00
+>  (000.010125)  can0  6E8   [8]  C6 0A 00 00 00 00 00 00
+>  (000.010149)  can0  4EE   [8]  C7 0A 00 00 00 00 00 00
+>  (000.010102)  can0  5D2   [8]  C8 0A 00 00 00 00 00 00
+>  (000.010000)  can0  61F   [8]  C9 0A 00 00 00 00 00 00
+>  (000.010271)  can0  5F8   [8]  CA 0A 00 00 00 00 00 00
+> 
+> <-- Unplug the cable -->
+> 
+>  (000.009106)  can0  20000080   [8]  00 00 00 00 00 00 08 00   ERRORFRAME
+>         bus-error
+>         error-counter-tx-rx{{8}{0}}
+>  (000.001872)  can0  20000080   [8]  00 00 00 00 00 00 10 00   ERRORFRAME
+>         bus-error
+>         error-counter-tx-rx{{16}{0}}
+[...]
+>         error-counter-tx-rx{{80}{0}}
+>  (000.001910)  can0  20000080   [8]  00 00 00 00 00 00 58 00   ERRORFRAME
+>         bus-error
+>         error-counter-tx-rx{{88}{0}}
+>  (000.001753)  can0  20000084   [8]  00 08 00 00 00 00 60 00   ERRORFRAME
+>         controller-problem{tx-error-warning}
+Good.
+>         bus-error
+>         error-counter-tx-rx{{96}{0}}
+>  (000.001720)  can0  20000080   [8]  00 00 00 00 00 00 68 00   ERRORFRAME
+>         bus-error
+>         error-counter-tx-rx{{104}{0}}
+>  (000.001876)  can0  20000080   [8]  00 00 00 00 00 00 70 00   ERRORFRAME
+>         bus-error
+>         error-counter-tx-rx{{112}{0}}
+>  (000.001749)  can0  20000080   [8]  00 00 00 00 00 00 78 00   ERRORFRAME
+>         bus-error
+>         error-counter-tx-rx{{120}{0}}
+>  (000.001771)  can0  20000084   [8]  00 20 00 00 00 00 80 00   ERRORFRAME
+>         controller-problem{tx-error-passive}
+Also good.
+>         bus-error
+>         error-counter-tx-rx{{128}{0}}
+>  (000.001868)  can0  20000080   [8]  00 00 00 00 00 00 80 00   ERRORFRAME
+>         bus-error
+>         error-counter-tx-rx{{128}{0}}
+>  (000.001982)  can0  20000080   [8]  00 00 00 00 00 00 80 00   ERRORFRAME
+>         bus-error
+>         error-counter-tx-rx{{128}{0}}
+> 
+> (( Then a continous flood, exactly similar to the above packet, appears.
+>    Unfortunately this flooding is a firmware problem. ))
+> 
+> <-- Replug the cable, after a good amount of time -->
+>
+Where are the reverse state transitions?
+> 
+>  (000.520485)  can0  33D   [4]  CB 0A 00 00
+>  (000.002693)  can0  42E   [8]  CC 0A 00 00 00 00 00 00
+>  (000.001795)  can0  319   [4]  CD 0A 00 00
+>  (000.002705)  can0  3B1   [8]  CE 0A 00 00 00 00 00 00
+>  (000.001295)  can0  4CC   [2]  CF 0A
+>  (000.002205)  can0  42B   [6]  D0 0A 00 00 00 00
+>  (000.001620)  can0  5A2   [3]  D1 0A 00
+>  (000.002636)  can0  691   [8]  D2 0A 00 00 00 00 00 00
+>  (000.002615)  can0  36A   [8]  D3 0A 00 00 00 00 00 00
+>  (000.001729)  can0  068   [4]  D4 0A 00 00
+>  (000.001195)  can0  4C8   [1]  D5
+>  ...
+> 
+> ##########################################################################
+> 
+> Bus-off Testing:
+> 
+> candump on a PC, Kvaser device on the sending end. An i.mx6 ARM
+> board with flexcan is on the receiving end:
+> 
+>  (000.010319)  can0  5CC   [8]  90 02 00 00 00 00 00 00
+>  (000.008747)  can0  679   [1]  91
+>  (000.011442)  can0  011   [8]  92 02 00 00 00 00 00 00
+>  (000.008991)  can0  631   [2]  93 02
+>  (000.011097)  can0  532   [7]  94 02 00 00 00 00 00
+>  (000.009781)  can0  0A9   [5]  95 02 00 00 00
+>  (000.010792)  can0  1DD   [8]  96 02 00 00 00 00 00 00
+>  (000.010026)  can0  44E   [8]  97 02 00 00 00 00 00 00
+>  (000.010181)  can0  76A   [8]  98 02 00 00 00 00 00 00
+>  (000.008867)  can0  1A5   [1]  99
+>  (000.011322)  can0  2B4   [8]  9A 02 00 00 00 00 00 00
+> 
+> <-- Unplug the can low and high wires from the board -->
+> 
+>  (000.009688)  can0  20000080   [8]  00 00 00 00 00 00 08 00   ERRORFRAME
+>         bus-error
+>         error-counter-tx-rx{{8}{0}}
+>  (000.002246)  can0  20000080   [8]  00 00 00 00 00 00 10 00   ERRORFRAME
+>         bus-error
+>         error-counter-tx-rx{{16}{0}}
+>  (000.002124)  can0  20000080   [8]  00 00 00 00 00 00 18 00   ERRORFRAME
+>         bus-error
+>         error-counter-tx-rx{{24}{0}}
+>  (000.002115)  can0  20000080   [8]  00 00 00 00 00 00 20 00   ERRORFRAME
+>         bus-error
+>         error-counter-tx-rx{{32}{0}}
+>  (000.002132)  can0  20000080   [8]  00 00 00 00 00 00 28 00   ERRORFRAME
+>         bus-error
+>         error-counter-tx-rx{{40}{0}}
+>  (000.002266)  can0  20000080   [8]  00 00 00 00 00 00 30 00   ERRORFRAME
+>         bus-error
+>         error-counter-tx-rx{{48}{0}}
+>  (000.002187)  can0  20000080   [8]  00 00 00 00 00 00 38 00   ERRORFRAME
+>         bus-error
+>         error-counter-tx-rx{{56}{0}}
+>  (000.002046)  can0  20000080   [8]  00 00 00 00 00 00 40 00   ERRORFRAME
+>         bus-error
+>         error-counter-tx-rx{{64}{0}}
+>  (000.002076)  can0  20000080   [8]  00 00 00 00 00 00 48 00   ERRORFRAME
+>         bus-error
+>         error-counter-tx-rx{{72}{0}}
+>  (000.002406)  can0  20000080   [8]  00 00 00 00 00 00 50 00   ERRORFRAME
+>         bus-error
+>         error-counter-tx-rx{{80}{0}}
+>  (000.001969)  can0  20000080   [8]  00 00 00 00 00 00 58 00   ERRORFRAME
+>         bus-error
+>         error-counter-tx-rx{{88}{0}}
+>  (000.002388)  can0  20000084   [8]  00 08 00 00 00 00 60 00   ERRORFRAME
+>         controller-problem{tx-error-warning}
+>         bus-error
+>         error-counter-tx-rx{{96}{0}}
+>  (000.002021)  can0  20000080   [8]  00 00 00 00 00 00 68 00   ERRORFRAME
+>         bus-error
+>         error-counter-tx-rx{{104}{0}}
+>  (000.002110)  can0  20000080   [8]  00 00 00 00 00 00 70 00   ERRORFRAME
+>         bus-error
+>         error-counter-tx-rx{{112}{0}}
+>  (000.002155)  can0  20000080   [8]  00 00 00 00 00 00 78 00   ERRORFRAME
+>         bus-error
+>         error-counter-tx-rx{{120}{0}}
+>  (000.002140)  can0  20000084   [8]  00 20 00 00 00 00 80 00   ERRORFRAME
+>         controller-problem{tx-error-passive}
+>         bus-error
+>         error-counter-tx-rx{{128}{0}}
+>  (000.002324)  can0  20000080   [8]  00 00 00 00 00 00 80 00   ERRORFRAME
+>         bus-error
+>         error-counter-tx-rx{{128}{0}}
+>  (000.002416)  can0  20000080   [8]  00 00 00 00 00 00 80 00   ERRORFRAME
+>         bus-error
+>         error-counter-tx-rx{{128}{0}}
+>  (000.002237)  can0  20000080   [8]  00 00 00 00 00 00 80 00   ERRORFRAME
+>         bus-error
+>         error-counter-tx-rx{{128}{0}}
+> 
+> (( Then a continous flood, exactly similar to the above packet, appears ))
+> 
+> <-- Short-circuit the can high and low wires -->
+> 
+>  (000.002364)  can0  20000080   [8]  00 00 00 00 00 00 80 00   ERRORFRAME
+>         bus-error
+>         error-counter-tx-rx{{128}{0}}
+>  (000.002108)  can0  20000080   [8]  00 00 00 00 00 00 88 00   ERRORFRAME
+>         bus-error
+>         error-counter-tx-rx{{136}{0}}
+>  (000.000494)  can0  20000080   [8]  00 00 00 00 00 00 90 00   ERRORFRAME
+>         bus-error
+>         error-counter-tx-rx{{144}{0}}
+>  (000.000523)  can0  20000080   [8]  00 00 00 00 00 00 98 00   ERRORFRAME
+>         bus-error
+>         error-counter-tx-rx{{152}{0}}
+>  (000.000661)  can0  20000080   [8]  00 00 00 00 00 00 A0 00   ERRORFRAME
+>         bus-error
+>         error-counter-tx-rx{{160}{0}}
+>  (000.000464)  can0  20000080   [8]  00 00 00 00 00 00 A8 00   ERRORFRAME
+>         bus-error
+>         error-counter-tx-rx{{168}{0}}
+>  (000.000534)  can0  20000080   [8]  00 00 00 00 00 00 B0 00   ERRORFRAME
+>         bus-error
+>         error-counter-tx-rx{{176}{0}}
+>  (000.000499)  can0  20000080   [8]  00 00 00 00 00 00 B8 00   ERRORFRAME
+>         bus-error
+>         error-counter-tx-rx{{184}{0}}
+>  (000.000626)  can0  20000080   [8]  00 00 00 00 00 00 C0 00   ERRORFRAME
+>         bus-error
+>         error-counter-tx-rx{{192}{0}}
+>  (000.000373)  can0  20000080   [8]  00 00 00 00 00 00 C8 00   ERRORFRAME
+>         bus-error
+>         error-counter-tx-rx{{200}{0}}
+>  (000.000627)  can0  20000080   [8]  00 00 00 00 00 00 D0 00   ERRORFRAME
+>         bus-error
+>         error-counter-tx-rx{{208}{0}}
+>  (000.000507)  can0  20000080   [8]  00 00 00 00 00 00 D8 00   ERRORFRAME
+>         bus-error
+>         error-counter-tx-rx{{216}{0}}
+>  (000.000501)  can0  20000080   [8]  00 00 00 00 00 00 E0 00   ERRORFRAME
+>         bus-error
+>         error-counter-tx-rx{{224}{0}}
+>  (000.000459)  can0  20000080   [8]  00 00 00 00 00 00 E8 00   ERRORFRAME
+>         bus-error
+>         error-counter-tx-rx{{232}{0}}
+>  (000.000606)  can0  20000080   [8]  00 00 00 00 00 00 F0 00   ERRORFRAME
+>         bus-error
+>         error-counter-tx-rx{{240}{0}}
+>  (000.000454)  can0  20000080   [8]  00 00 00 00 00 00 F8 00   ERRORFRAME
+>         bus-error
+>         error-counter-tx-rx{{248}{0}}
+>  (000.000664)  can0  200000C0   [8]  00 00 00 00 00 00 00 00   ERRORFRAME
+>         bus-off
+>         bus-error
+> 
+>  (( No further bus activity ))
+> 
+Bus-off seems OK. You could have just short circuited them without
+disconnecting.
 
-When SRIOV commands are executed over the comm-channel and get
-a fatal error (e.g. timeout, closing command failure) the VF enters
-into error state and reset flow is activated.
+Reverse state transitions are missing from the logs. See comments above.
 
-To be able to recognize whether the failure was on a closing command, the
-operational code for the given VHCR command is used. Once the device entered
-into an error state we prevent redundant error messages from being printed.
-
-Signed-off-by: Yishai Hadas <yishaih@mellanox.com>
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx4/cmd.c  |  125 +++++++++++++++++++++--------
- drivers/net/ethernet/mellanox/mlx4/main.c |   16 ++--
- drivers/net/ethernet/mellanox/mlx4/mcg.c  |    3 +
- drivers/net/ethernet/mellanox/mlx4/mlx4.h |    4 +-
- 4 files changed, 107 insertions(+), 41 deletions(-)
-
-diff --git a/drivers/net/ethernet/mellanox/mlx4/cmd.c b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-index e3d6f7f..6e229a2 100644
---- a/drivers/net/ethernet/mellanox/mlx4/cmd.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-@@ -257,16 +257,30 @@ static int comm_pending(struct mlx4_dev *dev)
- 	return (swab32(status) >> 31) != priv->cmd.comm_toggle;
- }
- 
--static void mlx4_comm_cmd_post(struct mlx4_dev *dev, u8 cmd, u16 param)
-+static int mlx4_comm_cmd_post(struct mlx4_dev *dev, u8 cmd, u16 param)
- {
- 	struct mlx4_priv *priv = mlx4_priv(dev);
- 	u32 val;
- 
-+	/* To avoid writing to unknown addresses after the device state was
-+	 * changed to internal error and the function was rest,
-+	 * check the INTERNAL_ERROR flag which is updated under
-+	 * device_state_mutex lock.
-+	 */
-+	mutex_lock(&dev->persist->device_state_mutex);
-+
-+	if (dev->persist->state & MLX4_DEVICE_STATE_INTERNAL_ERROR) {
-+		mutex_unlock(&dev->persist->device_state_mutex);
-+		return -EIO;
-+	}
-+
- 	priv->cmd.comm_toggle ^= 1;
- 	val = param | (cmd << 16) | (priv->cmd.comm_toggle << 31);
- 	__raw_writel((__force u32) cpu_to_be32(val),
- 		     &priv->mfunc.comm->slave_write);
- 	mmiowb();
-+	mutex_unlock(&dev->persist->device_state_mutex);
-+	return 0;
- }
- 
- static int mlx4_comm_cmd_poll(struct mlx4_dev *dev, u8 cmd, u16 param,
-@@ -286,7 +300,13 @@ static int mlx4_comm_cmd_poll(struct mlx4_dev *dev, u8 cmd, u16 param,
- 
- 	/* Write command */
- 	down(&priv->cmd.poll_sem);
--	mlx4_comm_cmd_post(dev, cmd, param);
-+	if (mlx4_comm_cmd_post(dev, cmd, param)) {
-+		/* Only in case the device state is INTERNAL_ERROR,
-+		 * mlx4_comm_cmd_post returns with an error
-+		 */
-+		err = mlx4_status_to_errno(CMD_STAT_INTERNAL_ERR);
-+		goto out;
-+	}
- 
- 	end = msecs_to_jiffies(timeout) + jiffies;
- 	while (comm_pending(dev) && time_before(jiffies, end))
-@@ -298,18 +318,23 @@ static int mlx4_comm_cmd_poll(struct mlx4_dev *dev, u8 cmd, u16 param,
- 		 * is MLX4_DELAY_RESET_SLAVE*/
- 		if ((MLX4_COMM_CMD_RESET == cmd)) {
- 			err = MLX4_DELAY_RESET_SLAVE;
-+			goto out;
- 		} else {
--			mlx4_warn(dev, "Communication channel timed out\n");
--			err = -ETIMEDOUT;
-+			mlx4_warn(dev, "Communication channel command 0x%x timed out\n",
-+				  cmd);
-+			err = mlx4_status_to_errno(CMD_STAT_INTERNAL_ERR);
- 		}
- 	}
- 
-+	if (err)
-+		mlx4_enter_error_state(dev->persist);
-+out:
- 	up(&priv->cmd.poll_sem);
- 	return err;
- }
- 
--static int mlx4_comm_cmd_wait(struct mlx4_dev *dev, u8 op,
--			      u16 param, unsigned long timeout)
-+static int mlx4_comm_cmd_wait(struct mlx4_dev *dev, u8 vhcr_cmd,
-+			      u16 param, u16 op, unsigned long timeout)
- {
- 	struct mlx4_cmd *cmd = &mlx4_priv(dev)->cmd;
- 	struct mlx4_cmd_context *context;
-@@ -327,32 +352,47 @@ static int mlx4_comm_cmd_wait(struct mlx4_dev *dev, u8 op,
- 
- 	reinit_completion(&context->done);
- 
--	mlx4_comm_cmd_post(dev, op, param);
-+	if (mlx4_comm_cmd_post(dev, vhcr_cmd, param)) {
-+		/* Only in case the device state is INTERNAL_ERROR,
-+		 * mlx4_comm_cmd_post returns with an error
-+		 */
-+		err = mlx4_status_to_errno(CMD_STAT_INTERNAL_ERR);
-+		goto out;
-+	}
- 
- 	if (!wait_for_completion_timeout(&context->done,
- 					 msecs_to_jiffies(timeout))) {
--		mlx4_warn(dev, "communication channel command 0x%x timed out\n",
--			  op);
--		err = -EBUSY;
--		goto out;
-+		mlx4_warn(dev, "communication channel command 0x%x (op=0x%x) timed out\n",
-+			  vhcr_cmd, op);
-+		goto out_reset;
- 	}
- 
- 	err = context->result;
- 	if (err && context->fw_status != CMD_STAT_MULTI_FUNC_REQ) {
- 		mlx4_err(dev, "command 0x%x failed: fw status = 0x%x\n",
--			 op, context->fw_status);
--		goto out;
-+			 vhcr_cmd, context->fw_status);
-+		if (mlx4_closing_cmd_fatal_error(op, context->fw_status))
-+			goto out_reset;
- 	}
- 
--out:
- 	/* wait for comm channel ready
- 	 * this is necessary for prevention the race
- 	 * when switching between event to polling mode
-+	 * Skipping this section in case the device is in FATAL_ERROR state,
-+	 * In this state, no commands are sent via the comm channel until
-+	 * the device has returned from reset.
- 	 */
--	end = msecs_to_jiffies(timeout) + jiffies;
--	while (comm_pending(dev) && time_before(jiffies, end))
--		cond_resched();
-+	if (!(dev->persist->state & MLX4_DEVICE_STATE_INTERNAL_ERROR)) {
-+		end = msecs_to_jiffies(timeout) + jiffies;
-+		while (comm_pending(dev) && time_before(jiffies, end))
-+			cond_resched();
-+	}
-+	goto out;
- 
-+out_reset:
-+	err = mlx4_status_to_errno(CMD_STAT_INTERNAL_ERR);
-+	mlx4_enter_error_state(dev->persist);
-+out:
- 	spin_lock(&cmd->context_lock);
- 	context->next = cmd->free_head;
- 	cmd->free_head = context - cmd->context;
-@@ -363,10 +403,13 @@ out:
- }
- 
- int mlx4_comm_cmd(struct mlx4_dev *dev, u8 cmd, u16 param,
--		  unsigned long timeout)
-+		  u16 op, unsigned long timeout)
- {
-+	if (dev->persist->state & MLX4_DEVICE_STATE_INTERNAL_ERROR)
-+		return mlx4_status_to_errno(CMD_STAT_INTERNAL_ERR);
-+
- 	if (mlx4_priv(dev)->cmd.use_events)
--		return mlx4_comm_cmd_wait(dev, cmd, param, timeout);
-+		return mlx4_comm_cmd_wait(dev, cmd, param, op, timeout);
- 	return mlx4_comm_cmd_poll(dev, cmd, param, timeout);
- }
- 
-@@ -502,8 +545,11 @@ static int mlx4_slave_cmd(struct mlx4_dev *dev, u64 in_param, u64 *out_param,
- 			}
- 			ret = mlx4_status_to_errno(vhcr->status);
- 		}
-+		if (ret &&
-+		    dev->persist->state & MLX4_DEVICE_STATE_INTERNAL_ERROR)
-+			ret = mlx4_internal_err_ret_value(dev, op, op_modifier);
- 	} else {
--		ret = mlx4_comm_cmd(dev, MLX4_COMM_CMD_VHCR_POST, 0,
-+		ret = mlx4_comm_cmd(dev, MLX4_COMM_CMD_VHCR_POST, 0, op,
- 				    MLX4_COMM_TIME + timeout);
- 		if (!ret) {
- 			if (out_is_imm) {
-@@ -517,9 +563,14 @@ static int mlx4_slave_cmd(struct mlx4_dev *dev, u64 in_param, u64 *out_param,
- 				}
- 			}
- 			ret = mlx4_status_to_errno(vhcr->status);
--		} else
--			mlx4_err(dev, "failed execution of VHCR_POST command opcode 0x%x\n",
--				 op);
-+		} else {
-+			if (dev->persist->state &
-+			    MLX4_DEVICE_STATE_INTERNAL_ERROR)
-+				ret = mlx4_internal_err_ret_value(dev, op,
-+								  op_modifier);
-+			else
-+				mlx4_err(dev, "failed execution of VHCR_POST command opcode 0x%x\n", op);
-+		}
- 	}
- 
- 	mutex_unlock(&priv->cmd.slave_cmd_mutex);
-@@ -1559,8 +1610,10 @@ static int mlx4_master_process_vhcr(struct mlx4_dev *dev, int slave,
- 				      ALIGN(sizeof(struct mlx4_vhcr_cmd),
- 					    MLX4_ACCESS_MEM_ALIGN), 1);
- 		if (ret) {
--			mlx4_err(dev, "%s: Failed reading vhcr ret: 0x%x\n",
--				 __func__, ret);
-+			if (!(dev->persist->state &
-+			    MLX4_DEVICE_STATE_INTERNAL_ERROR))
-+				mlx4_err(dev, "%s: Failed reading vhcr ret: 0x%x\n",
-+					 __func__, ret);
- 			kfree(vhcr);
- 			return ret;
- 		}
-@@ -1599,11 +1652,14 @@ static int mlx4_master_process_vhcr(struct mlx4_dev *dev, int slave,
- 			goto out_status;
- 		}
- 
--		if (mlx4_ACCESS_MEM(dev, inbox->dma, slave,
--				    vhcr->in_param,
--				    MLX4_MAILBOX_SIZE, 1)) {
--			mlx4_err(dev, "%s: Failed reading inbox (cmd:0x%x)\n",
--				 __func__, cmd->opcode);
-+		ret = mlx4_ACCESS_MEM(dev, inbox->dma, slave,
-+				      vhcr->in_param,
-+				      MLX4_MAILBOX_SIZE, 1);
-+		if (ret) {
-+			if (!(dev->persist->state &
-+			    MLX4_DEVICE_STATE_INTERNAL_ERROR))
-+				mlx4_err(dev, "%s: Failed reading inbox (cmd:0x%x)\n",
-+					 __func__, cmd->opcode);
- 			vhcr_cmd->status = CMD_STAT_INTERNAL_ERR;
- 			goto out_status;
- 		}
-@@ -1651,8 +1707,9 @@ static int mlx4_master_process_vhcr(struct mlx4_dev *dev, int slave,
- 	}
- 
- 	if (err) {
--		mlx4_warn(dev, "vhcr command:0x%x slave:%d failed with error:%d, status %d\n",
--			  vhcr->op, slave, vhcr->errno, err);
-+		if (!(dev->persist->state & MLX4_DEVICE_STATE_INTERNAL_ERROR))
-+			mlx4_warn(dev, "vhcr command:0x%x slave:%d failed with error:%d, status %d\n",
-+				  vhcr->op, slave, vhcr->errno, err);
- 		vhcr_cmd->status = mlx4_errno_to_status(err);
- 		goto out_status;
- 	}
-@@ -1667,7 +1724,9 @@ static int mlx4_master_process_vhcr(struct mlx4_dev *dev, int slave,
- 			/* If we failed to write back the outbox after the
- 			 *command was successfully executed, we must fail this
- 			 * slave, as it is now in undefined state */
--			mlx4_err(dev, "%s:Failed writing outbox\n", __func__);
-+			if (!(dev->persist->state &
-+			    MLX4_DEVICE_STATE_INTERNAL_ERROR))
-+				mlx4_err(dev, "%s:Failed writing outbox\n", __func__);
- 			goto out;
- 		}
- 	}
-diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
-index 496d6e7..75f8133 100644
---- a/drivers/net/ethernet/mellanox/mlx4/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/main.c
-@@ -1484,7 +1484,8 @@ static void mlx4_slave_exit(struct mlx4_dev *dev)
- 	struct mlx4_priv *priv = mlx4_priv(dev);
- 
- 	mutex_lock(&priv->cmd.slave_cmd_mutex);
--	if (mlx4_comm_cmd(dev, MLX4_COMM_CMD_RESET, 0, MLX4_COMM_TIME))
-+	if (mlx4_comm_cmd(dev, MLX4_COMM_CMD_RESET, 0, MLX4_COMM_CMD_NA_OP,
-+			  MLX4_COMM_TIME))
- 		mlx4_warn(dev, "Failed to close slave function\n");
- 	mutex_unlock(&priv->cmd.slave_cmd_mutex);
- }
-@@ -1648,7 +1649,7 @@ static int mlx4_init_slave(struct mlx4_dev *dev)
- 	mlx4_reset_vf_support(dev);
- 	mlx4_warn(dev, "Sending reset\n");
- 	ret_from_reset = mlx4_comm_cmd(dev, MLX4_COMM_CMD_RESET, 0,
--				       MLX4_COMM_TIME);
-+				       MLX4_COMM_CMD_NA_OP, MLX4_COMM_TIME);
- 	/* if we are in the middle of flr the slave will try
- 	 * NUM_OF_RESET_RETRIES times before leaving.*/
- 	if (ret_from_reset) {
-@@ -1673,22 +1674,23 @@ static int mlx4_init_slave(struct mlx4_dev *dev)
- 
- 	mlx4_warn(dev, "Sending vhcr0\n");
- 	if (mlx4_comm_cmd(dev, MLX4_COMM_CMD_VHCR0, dma >> 48,
--						    MLX4_COMM_TIME))
-+			     MLX4_COMM_CMD_NA_OP, MLX4_COMM_TIME))
- 		goto err;
- 	if (mlx4_comm_cmd(dev, MLX4_COMM_CMD_VHCR1, dma >> 32,
--						    MLX4_COMM_TIME))
-+			     MLX4_COMM_CMD_NA_OP, MLX4_COMM_TIME))
- 		goto err;
- 	if (mlx4_comm_cmd(dev, MLX4_COMM_CMD_VHCR2, dma >> 16,
--						    MLX4_COMM_TIME))
-+			     MLX4_COMM_CMD_NA_OP, MLX4_COMM_TIME))
- 		goto err;
--	if (mlx4_comm_cmd(dev, MLX4_COMM_CMD_VHCR_EN, dma, MLX4_COMM_TIME))
-+	if (mlx4_comm_cmd(dev, MLX4_COMM_CMD_VHCR_EN, dma,
-+			  MLX4_COMM_CMD_NA_OP, MLX4_COMM_TIME))
- 		goto err;
- 
- 	mutex_unlock(&priv->cmd.slave_cmd_mutex);
- 	return 0;
- 
- err:
--	mlx4_comm_cmd(dev, MLX4_COMM_CMD_RESET, 0, 0);
-+	mlx4_comm_cmd(dev, MLX4_COMM_CMD_RESET, 0, MLX4_COMM_CMD_NA_OP, 0);
- err_offline:
- 	mutex_unlock(&priv->cmd.slave_cmd_mutex);
- 	return -EIO;
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mcg.c b/drivers/net/ethernet/mellanox/mlx4/mcg.c
-index d22d928..bd9ea0d 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mcg.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/mcg.c
-@@ -1350,6 +1350,9 @@ static int mlx4_QP_ATTACH(struct mlx4_dev *dev, struct mlx4_qp *qp,
- 		       MLX4_CMD_WRAPPED);
- 
- 	mlx4_free_cmd_mailbox(dev, mailbox);
-+	if (err && !attach &&
-+	    dev->persist->state & MLX4_DEVICE_STATE_INTERNAL_ERROR)
-+		err = 0;
- 	return err;
- }
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4.h b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-index 2a15b82..096a81c 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-@@ -123,6 +123,8 @@ enum mlx4_mpt_state {
- 
- #define MLX4_COMM_TIME		10000
- #define MLX4_COMM_OFFLINE_TIME_OUT 30000
-+#define MLX4_COMM_CMD_NA_OP    0x0
-+
- 
- enum {
- 	MLX4_COMM_CMD_RESET,
-@@ -1173,7 +1175,7 @@ int mlx4_cmd_use_events(struct mlx4_dev *dev);
- void mlx4_cmd_use_polling(struct mlx4_dev *dev);
- 
- int mlx4_comm_cmd(struct mlx4_dev *dev, u8 cmd, u16 param,
--		  unsigned long timeout);
-+		  u16 op, unsigned long timeout);
- 
- void mlx4_cq_tasklet_cb(unsigned long data);
- void mlx4_cq_completion(struct mlx4_dev *dev, u32 cqn);
--- 
-1.7.1
+--
+Andri
