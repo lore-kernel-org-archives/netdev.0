@@ -1,50 +1,147 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: unclear ipv6 redirect message (was Re: [PATCH v3 2/3] mfd:
- lubbock_io: add lubbock_io board)
-Date: Wed, 21 Jan 2015 08:40:44 -0800
-Message-ID: <1421858444.10574.14.camel@perches.com>
-References: <1421406010-14851-1-git-send-email-robert.jarzmik@free.fr>
-	 <1421406010-14851-2-git-send-email-robert.jarzmik@free.fr>
-	 <20150119091705.GG21886@x1> <87ppaah9k5.fsf@free.fr>
-	 <20150120102919.GP5767@x1> <20150120115658.GJ26493@n2100.arm.linux.org.uk>
-	 <873874fuei.fsf@free.fr> <20150121094453.GO26493@n2100.arm.linux.org.uk>
-	 <1421856321.10574.13.camel@perches.com>
-	 <20150121161059.GT26493@n2100.arm.linux.org.uk>
+From: Rojhalat Ibrahim <imr@rtschenk.de>
+Subject: [PATCH 3/3][v2] mdio-mux-gpio: use new gpiod_get_array and gpiod_put_array functions
+Date: Wed, 21 Jan 2015 17:46:25 +0100
+Message-ID: <2017147.PF4WHTmJS4@pcimr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Robert Jarzmik <robert.jarzmik@free.fr>,
-	Lee Jones <lee.jones@linaro.org>,
-	Mark Rutland <mark.rutland@arm.com>,
-	devicetree@vger.kernel.org, Samuel Ortiz <sameo@linux.intel.com>,
-	Pawel Moll <pawel.moll@arm.com>,
-	Ian Campbell <ijc+devicetree@hellion.org.uk>,
-	Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>,
-	linux-kernel@vger.kernel.org,
-	Haojian Zhuang <haojian.zhuang@gmail.com>,
-	Rob Herring <robh+dt@kernel.org>,
-	Arnd Bergmann <arnd@arndb.de>,
-	linux-arm-kernel@lists.infradead.org,
-	Kumar Gala <galak@codeaurora.org>,
-	Daniel Mack <daniel@zonque.org>
-To: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0251.hostedemail.com ([216.40.44.251]:49630 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752334AbbAUQkv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jan 2015 11:40:51 -0500
-In-Reply-To: <20150121161059.GT26493@n2100.arm.linux.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Alexandre Courbot <acourbot@nvidia.com>,
+	Linus Walleij <linus.walleij@linaro.org>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: "linux-gpio@vger.kernel.org" <linux-gpio@vger.kernel.org>
+Return-path: <linux-gpio-owner@vger.kernel.org>
+Sender: linux-gpio-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2015-01-21 at 16:11 +0000, Russell King - ARM Linux wrote:
-> On Wed, Jan 21, 2015 at 08:05:21AM -0800, Joe Perches wrote:
-> > (adding netdev)
-> 
-> I wasn't actually reporting that as an issue; I was using it as an
-> example.  It's from a very old kernel (2.6.27.21) which I run on one
-> of my old x86 machines.
+Use the new gpiod_get_array and gpiod_put_array functions for obtaining and
+disposing of GPIO descriptors.
 
-It's still the same code.
-If the message can be improved, why not do it?
+Cc: David Miller <davem@davemloft.net>
+Signed-off-by: Rojhalat Ibrahim <imr@rtschenk.de>
+---
+This patch depends on my previous patch "gpiolib: add gpiod_get_array and
+gpiod_put_array functions".
+
+v2: use the new interface
+
+Only compile-tested.
+
+ drivers/net/phy/mdio-mux-gpio.c |   61 +++++++++++-----------------------------
+ 1 file changed, 18 insertions(+), 43 deletions(-)
+
+diff --git a/drivers/net/phy/mdio-mux-gpio.c b/drivers/net/phy/mdio-mux-gpio.c
+index 320eb15..3f6929c 100644
+--- a/drivers/net/phy/mdio-mux-gpio.c
++++ b/drivers/net/phy/mdio-mux-gpio.c
+@@ -12,33 +12,31 @@
+ #include <linux/module.h>
+ #include <linux/phy.h>
+ #include <linux/mdio-mux.h>
+-#include <linux/of_gpio.h>
++#include <linux/gpio/consumer.h>
+ 
+ #define DRV_VERSION "1.1"
+ #define DRV_DESCRIPTION "GPIO controlled MDIO bus multiplexer driver"
+ 
+-#define MDIO_MUX_GPIO_MAX_BITS 8
+-
+ struct mdio_mux_gpio_state {
+-	struct gpio_desc *gpio[MDIO_MUX_GPIO_MAX_BITS];
+-	unsigned int num_gpios;
++	struct gpio_descs *gpios;
+ 	void *mux_handle;
+ };
+ 
+ static int mdio_mux_gpio_switch_fn(int current_child, int desired_child,
+ 				   void *data)
+ {
+-	int values[MDIO_MUX_GPIO_MAX_BITS];
+-	unsigned int n;
+ 	struct mdio_mux_gpio_state *s = data;
++	int values[s->gpios->array_size];
++	unsigned int n;
+ 
+ 	if (current_child == desired_child)
+ 		return 0;
+ 
+-	for (n = 0; n < s->num_gpios; n++) {
++	for (n = 0; n < s->gpios->array_size; n++)
+ 		values[n] = (desired_child >> n) & 1;
+-	}
+-	gpiod_set_array_cansleep(s->num_gpios, s->gpio, values);
++
++	gpiod_set_array_cansleep(s->gpios->array_size, s->gpios->desc_array,
++				 values);
+ 
+ 	return 0;
+ }
+@@ -46,56 +44,33 @@ static int mdio_mux_gpio_switch_fn(int current_child, int desired_child,
+ static int mdio_mux_gpio_probe(struct platform_device *pdev)
+ {
+ 	struct mdio_mux_gpio_state *s;
+-	int num_gpios;
+-	unsigned int n;
+ 	int r;
+ 
+-	if (!pdev->dev.of_node)
+-		return -ENODEV;
+-
+-	num_gpios = of_gpio_count(pdev->dev.of_node);
+-	if (num_gpios <= 0 || num_gpios > MDIO_MUX_GPIO_MAX_BITS)
+-		return -ENODEV;
+-
+ 	s = devm_kzalloc(&pdev->dev, sizeof(*s), GFP_KERNEL);
+ 	if (!s)
+ 		return -ENOMEM;
+ 
+-	s->num_gpios = num_gpios;
+-
+-	for (n = 0; n < num_gpios; ) {
+-		struct gpio_desc *gpio = gpiod_get_index(&pdev->dev, NULL, n,
+-							 GPIOD_OUT_LOW);
+-		if (IS_ERR(gpio)) {
+-			r = PTR_ERR(gpio);
+-			goto err;
+-		}
+-		s->gpio[n] = gpio;
+-		n++;
+-	}
++	s->gpios = gpiod_get_array(&pdev->dev, NULL, GPIOD_OUT_LOW);
++	if (IS_ERR(s->gpios))
++		return PTR_ERR(s->gpios);
+ 
+ 	r = mdio_mux_init(&pdev->dev,
+ 			  mdio_mux_gpio_switch_fn, &s->mux_handle, s);
+ 
+-	if (r == 0) {
+-		pdev->dev.platform_data = s;
+-		return 0;
+-	}
+-err:
+-	while (n) {
+-		n--;
+-		gpiod_put(s->gpio[n]);
++	if (r != 0) {
++		gpiod_put_array(s->gpios);
++		return r;
+ 	}
+-	return r;
++
++	pdev->dev.platform_data = s;
++	return 0;
+ }
+ 
+ static int mdio_mux_gpio_remove(struct platform_device *pdev)
+ {
+-	unsigned int n;
+ 	struct mdio_mux_gpio_state *s = dev_get_platdata(&pdev->dev);
+ 	mdio_mux_uninit(s->mux_handle);
+-	for (n = 0; n < s->num_gpios; n++)
+-		gpiod_put(s->gpio[n]);
++	gpiod_put_array(s->gpios);
+ 	return 0;
+ }
+ 
+--
+2.0.5
+
