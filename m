@@ -1,43 +1,39 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2] net: stmmac: add BQL support
-Date: Wed, 21 Jan 2015 10:37:03 -0800
-Message-ID: <1421865423.4832.28.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1421863647-20048-1-git-send-email-b.galvani@gmail.com>
+From: Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>
+Subject: Re: [PATCH 11/11] usb: core: fix a race with usb_queue_reset_device()
+Date: Wed, 21 Jan 2015 13:52:42 -0500 (EST)
+Message-ID: <Pine.LNX.4.44L0.1501211351560.1670-100000@iolanthe.rowland.org>
+References: <20150121135512.GA9889@hposo>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Dave Taht <dave.taht@gmail.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Beniamino Galvani <b.galvani@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f173.google.com ([209.85.223.173]:56707 "EHLO
-	mail-ie0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750917AbbAUShQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jan 2015 13:37:16 -0500
-In-Reply-To: <1421863647-20048-1-git-send-email-b.galvani@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Jan Dumon <j.dumon-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>,
+	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Olivier Sobrie <olivier-Ui3EtX6WB9GzQB+pC5nmwQ@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20150121135512.GA9889@hposo>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2015-01-21 at 19:07 +0100, Beniamino Galvani wrote:
-> Add support for Byte Queue Limits to the STMicro MAC driver.
-> 
-> Tested on a Amlogic S802 quad Cortex-A9 board, where the use of BQL
-> decreases the latency of a high priority ping from ~12ms to ~1ms when
-> the 100Mbit link is saturated by 20 TCP streams.
-> 
-> Signed-off-by: Beniamino Galvani <b.galvani@gmail.com>
-> ---
-> Changes since v1:
->  - don't access skb->len after the start of DMA transmission in
->    stmmac_xmit(), to avoid potential use after free in case tx_lock is
->    removed in the future
-> 
->  drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 9 +++++++++
->  1 file changed, 9 insertions(+)
+On Wed, 21 Jan 2015, Olivier Sobrie wrote:
 
-Reviewed-by: Eric Dumazet <edumazet@google.com>
+> I tested your patch. It also fixes the problem I observed.
+> You can drop mine.
+> 
+> For your info:
+> 
+> My test consists in powering down a usb hso modem while one of its
+> serial port is opened. It leads to two URB failures, each urb callback
+> queues a reset.
+> Without your fix (or without the one I sent), a crash happens after
+> less than ~20 power up/down sequences. With your fix, after more than
+> 1000 power up/down I don't see any crash.
 
-Thanks !
+Okay, I'll submit the patch.  Thanks for testing it.
+
+Alan Stern
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
