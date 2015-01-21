@@ -1,64 +1,57 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 3/3] netlink: Lock out table resizes while dumping
- Netlink sockets
-Date: Wed, 21 Jan 2015 20:14:57 +1100
-Message-ID: <20150121091457.GA25289@gondor.apana.org.au>
-References: <cover.1421759056.git.tgraf@suug.ch>
- <e164edeacaeffee43be64d4ed6a5b5e7e8923bd1.1421759056.git.tgraf@suug.ch>
- <20150120143154.GR14883@acer.localdomain>
- <20150120145551.GH20315@casper.infradead.org>
- <20150120152149.GA3012@acer.localdomain>
- <20150120153556.GJ20315@casper.infradead.org>
- <20150121050819.GA23062@gondor.apana.org.au>
- <20150121051555.GA23300@gondor.apana.org.au>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch] bridge: simplify br_getlink() a bit
+Date: Wed, 21 Jan 2015 12:22:35 +0300
+Message-ID: <20150121092235.GA19206@mwanda>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>, davem@davemloft.net,
-	paulmck@linux.vnet.ibm.com, ying.xue@windriver.com,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Thomas Graf <tgraf@suug.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:48408 "EHLO
-	helcar.apana.org.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751177AbbAUJPX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jan 2015 04:15:23 -0500
+Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
+	kernel-janitors@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
 Content-Disposition: inline
-In-Reply-To: <20150121051555.GA23300@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jan 21, 2015 at 04:15:55PM +1100, Herbert Xu wrote:
-> On Wed, Jan 21, 2015 at 04:08:19PM +1100, Herbert Xu wrote:
-> > 
-> > OK I think I have a solution for you guys.  But first you'll need to
-> > wait for me to undo the nulls stuff so I can steal that bit which
-> > is central to my solution.
-> > 
-> > Essentially I need a bit to indicate an entry in the bucket chain
-> > should be skipped, either because it has just been removed or that
-> > it is a walker entry (see xfrm_state_walk).
-> > 
-> > The way it'll work then is exactly the same as xfrm_state_walk,
-> > except that the linked list is broken up into individual buckets.
-> > 
-> > Of course we'll still need to postpone resizes (and rehashes which
-> > is what my work is about) during a walk but I think that's a fair
-> > price to pay.
-> 
-> I failed to address the security aspect of this approach.  Obviously
-> this can only work if the only entites doing the walk are trusted.
-> Which means that the vast majority (if not all) hash table users
-> would be excluded, in particular, netlink.
+Static checkers complain that we should maybe set "ret" before we do the
+"goto out;".  They interpret the NULL return from br_port_get_rtnl() as
+a failure and forgetting to set the error code is a common bug in this
+situation.
 
-OK maybe we can get around this.  So we will postpone the resize
-or rehash when a walk is in place, however, when we hit a hard
-limit, i.e., when insert would otherwise fail, then we do the
-rehash regardless of any outstanding walks.  The walks will just
-behave erratically or we could force them to start from scratch
-again.
+The code is confusing but it's actually correct.  We are returning zero
+deliberately.  Let's re-write it a bit to be more clear.
 
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+
+diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
+index 528cf27..3875ea51 100644
+--- a/net/bridge/br_netlink.c
++++ b/net/bridge/br_netlink.c
+@@ -311,17 +311,14 @@ errout:
+ int br_getlink(struct sk_buff *skb, u32 pid, u32 seq,
+ 	       struct net_device *dev, u32 filter_mask)
+ {
+-	int err = 0;
+ 	struct net_bridge_port *port = br_port_get_rtnl(dev);
+ 
+ 	if (!port && !(filter_mask & RTEXT_FILTER_BRVLAN) &&
+ 	    !(filter_mask & RTEXT_FILTER_BRVLAN_COMPRESSED))
+-		goto out;
++		return 0;
+ 
+-	err = br_fill_ifinfo(skb, port, pid, seq, RTM_NEWLINK, NLM_F_MULTI,
+-			     filter_mask, dev);
+-out:
+-	return err;
++	return br_fill_ifinfo(skb, port, pid, seq, RTM_NEWLINK, NLM_F_MULTI,
++			      filter_mask, dev);
+ }
+ 
+ static int br_vlan_info(struct net_bridge *br, struct net_bridge_port *p,
