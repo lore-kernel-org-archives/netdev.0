@@ -1,8 +1,8 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
+From: Patrick McHardy <kaber@trash.net>
 Subject: Re: [PATCH 3/3] netlink: Lock out table resizes while dumping
  Netlink sockets
-Date: Wed, 21 Jan 2015 20:59:10 +1100
-Message-ID: <20150121095910.GB25750@gondor.apana.org.au>
+Date: Wed, 21 Jan 2015 10:00:32 +0000
+Message-ID: <20150121100031.GL3012@acer.localdomain>
 References: <cover.1421759056.git.tgraf@suug.ch>
  <e164edeacaeffee43be64d4ed6a5b5e7e8923bd1.1421759056.git.tgraf@suug.ch>
  <20150120143154.GR14883@acer.localdomain>
@@ -15,7 +15,7 @@ References: <cover.1421759056.git.tgraf@suug.ch>
  <20150121095634.GO20315@casper.infradead.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>, davem@davemloft.net,
+Cc: Herbert Xu <herbert@gondor.apana.org.au>, davem@davemloft.net,
 	paulmck@linux.vnet.ibm.com, ying.xue@windriver.com,
 	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
 To: Thomas Graf <tgraf@suug.ch>
@@ -25,17 +25,26 @@ In-Reply-To: <20150121095634.GO20315@casper.infradead.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jan 21, 2015 at 09:56:34AM +0000, Thomas Graf wrote:
->
+On 21.01, Thomas Graf wrote:
+> On 01/21/15 at 08:14pm, Herbert Xu wrote:
+> > On Wed, Jan 21, 2015 at 04:15:55PM +1100, Herbert Xu wrote:
+> > > I failed to address the security aspect of this approach.  Obviously
+> > > this can only work if the only entites doing the walk are trusted.
+> > > Which means that the vast majority (if not all) hash table users
+> > > would be excluded, in particular, netlink.
+> > 
+> > OK maybe we can get around this.  So we will postpone the resize
+> > or rehash when a walk is in place, however, when we hit a hard
+> > limit, i.e., when insert would otherwise fail, then we do the
+> > rehash regardless of any outstanding walks.  The walks will just
+> > behave erratically or we could force them to start from scratch
+> > again.
+> 
 > Exactly. I think we also need a timer to abort walks because if
 > only a single walker is allowed, an attacker could start a walk and
 > not complete it to block out everybody else.
 
-My scheme should support an arbitrary number of walks.  See how
-xfrm_state_walk is implemented.
-
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Restarting them automatically sounds reasonable, duplicate entries have
+always been possible. That makes me think, we could have userspace
+indicate support for NLM_F_DUMP_INTR and otherwise always restart.
+That would solve the problem very easily.
