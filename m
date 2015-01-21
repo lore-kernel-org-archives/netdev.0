@@ -1,95 +1,124 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [PATCH net-next 0/3] openvswitch: Add STT support.
-Date: Wed, 21 Jan 2015 08:51:53 -0800
-Message-ID: <CA+mtBx9yM+C8GeEHOGTHPVxNB3fJd7LQG0RaC3jywrO9_tQ58A@mail.gmail.com>
-References: <1421785536-19793-1-git-send-email-pshelar@nicira.com>
-	<CA+mtBx90TipY9uJvW2uQfrCYL9JNM9Rk75HzdJPhE0qsdy8dnw@mail.gmail.com>
-	<CALnjE+rSXpPftiG4Vw3azkN2s2-Ey6ZcZr9Bv422pOdwrvU=tw@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: BW regression after "tcp: refine TSO autosizing"
+Date: Wed, 21 Jan 2015 09:01:56 -0800
+Message-ID: <1421859716.4832.27.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <54B54C72.8060705@dev.mellanox.co.il>
+	 <1421175434.4099.21.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAJ3xEMibMzJH-AB7pBnO9qBL4McTdsajqHzxXkadnTf1khNdxA@mail.gmail.com>
+	 <54B590FB.5040805@dev.mellanox.co.il>
+	 <1421186430.11734.6.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAM_57Zgx3DoQbQMffAJNMeZHa8Yb8M+JuwEH=1Fo_Xou+DkgcQ@mail.gmail.com>
+	 <1421603317.11734.154.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <54BC286B.8000605@mellanox.com>
+	 <1421720216.11734.188.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAA93jw42i37s5BJO5QJvFc=JnQBT5JsOX4QDxT6yKY3Ha3J3rg@mail.gmail.com>
+	 <1421723651.17892.3.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <54BEA91D.1050001@hp.com>
+	 <063D6719AE5E284EB5DD2968C1650D6D1CAD027E@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Pravin Shelar <pshelar@nicira.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: 'Rick Jones' <rick.jones2@hp.com>, Dave Taht <dave.taht@gmail.com>,
+	Eyal Perry <eyalpe@mellanox.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Eyal Perry <eyalpe@dev.mellanox.co.il>,
+	Or Gerlitz <gerlitz.or@gmail.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Amir Vadai <amirv@mellanox.com>,
+	Yevgeny Petrilin <yevgenyp@mellanox.com>,
+	Saeed Mahameed <saeedm@mellanox.com>,
+	Ido Shamay <idos@mellanox.com>, Amir Ancel <amira@mellanox.com>
+To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f176.google.com ([209.85.213.176]:53673 "EHLO
-	mail-ig0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753667AbbAUQvy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jan 2015 11:51:54 -0500
-Received: by mail-ig0-f176.google.com with SMTP id hl2so21624571igb.3
-        for <netdev@vger.kernel.org>; Wed, 21 Jan 2015 08:51:53 -0800 (PST)
-In-Reply-To: <CALnjE+rSXpPftiG4Vw3azkN2s2-Ey6ZcZr9Bv422pOdwrvU=tw@mail.gmail.com>
+Received: from mail-ig0-f175.google.com ([209.85.213.175]:50472 "EHLO
+	mail-ig0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752896AbbAURCB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jan 2015 12:02:01 -0500
+Received: by mail-ig0-f175.google.com with SMTP id hn18so2280368igb.2
+        for <netdev@vger.kernel.org>; Wed, 21 Jan 2015 09:02:00 -0800 (PST)
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CAD027E@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 21, 2015 at 1:08 AM, Pravin Shelar <pshelar@nicira.com> wrote:
-> On Tue, Jan 20, 2015 at 3:06 PM, Tom Herbert <therbert@google.com> wrote:
->> On Tue, Jan 20, 2015 at 12:25 PM, Pravin B Shelar <pshelar@nicira.com> wrote:
->>> Following patch series adds support for Stateless Transport
->>> Tunneling protocol.
->>> STT uses TCP segmentation offload available in most of NIC. On
->>> packet xmit STT driver appends STT header along with TCP header
->>> to the packet. For GSO packet GSO parameters are set according
->>> to tunnel configuration and packet is handed over to networking
->>> stack. This allows use of segmentation offload available in NICs
->>>
->>> Netperf unidirectional test gives ~9.4 Gbits/s performance on 10Gbit
->>> NIC with 1500 byte MTU with two TCP streams.
->>>
->> Having packets marked TCP which really aren't TCP is a rather scary
->> prospect to deploy in a real data center (TCP is kind of an important
->> protocol ;-) ). Can you give some more motivation on this, more data
->> that shows what the benefits are and how this compares to equivalent
->> encapsulation protocols that implement GRO and GSO.
->>
-> There are multi-year deployments of STT, So it is already in real data center.
-> Biggest advantage is STT does not need new NIC with tunnel offload.
-> Any NIC that supports TCP offload can be used to achieve better
-> performance.
->
-> Following are numbers you asked for.
-> Setup: net-next branch on server and client.
-> netperf: TCP unidirectional tests with 5 streams. Numbers are averaged
-> over 3 runs of 50 sec.
->
-Please provides more details on your configuration so that others
-might be able to reproduce your results. Also, it would be quite
-helpful if you could implement STT as a normal network interface like
-VXLAN does so that we can isolate performance of the protocol. For
-instance I have no problem getting line rate with VXLAN using 5
-streams with or without RCO in my testing. I assume you tested with
-OVS and maybe VMs which may have a significant impact beyond the
-protocol changes.
+On Wed, 2015-01-21 at 12:26 +0000, David Laight wrote:
+> From: Of Rick Jones
+> > >> Are you saying that at long last, delayed acks as we knew them are
+> > >> dead, dead, dead?
+> > >
+> > > Sorry, I can not parse what you are saying.
+> > >
+> > > In case you missed it, it has nothing to do with delayed ACK but GRO on
+> > > receiver.
+> > 
+> > Dave - assuming I've interpreted Eric's comments correctly, I believe
+> > the answer to your question is No.  Your desire for a world brimming
+> > with ack-every-other purity has not been fulfilled :)
+> > 
+> > However, the engineers formerly at Mentat are probably pleased that a
+> > functional near-equivalent to their ACK avoidance heuristic has ended-up
+> > being implemented and tacitly accepted, albeit by the back door :)
+> 
+> I must recheck something I discovered a while back with more recent kernels.
+> There has been a bad interaction between 'slow start' and 'delayed acks'
+> when nagle is disabled on 0 RTT local links with uni-directional traffic.
+> 
+> 'Slow start' would refuse to send more than 4 messages until it received
+> an ack (rather than 4 mss of data).
+> The receiving system wouldn't send an ack until the timer expired
+> (or several mss of data were received) by which time the sender could have
+> a lot of data queued.
+> 
+> Due to the 0 RTT and bursty nature of the data 'slow start' happened
+> all the time.
 
-Another thing to consider in your analysis is the performance with
-flows using small packets. STT should demonstrate better performance
-with bulk flows since LSO and LRO are better performing relative to
-GSO and GRO. But for flows with small packets, I don't see how there
-could be any performance advantage. We already have ways to leverage
-simple UDP checksum offload with UDP encapsulations, seems like STT
-might just represent unnecessary header overhead in those cases.
+Following packetdrill test suggests that current kernel send up to 10
+messages without having to wait for any ACK
+(IW10)
 
-> VXLAN:
-> CPU
->   Client: 1.6
->   Server: 14.2
-> Throughput: 5.6 Gbit/s
->
-> VXLAN with rcsum:
-> CPU
->   Client: 0.89
->   Server: 12.4
-> Throughput: 5.8 Gbit/s
->
-> STT:
-> CPU
->   Client: 1.28
->   Server: 4.0
-> Throughput: 9.5 Gbit/s
->
-9.5Gbps? Rounding error or is this 40Gbps or larger than 1500 byte MTU?
+// Set up production and experiment configs
+`../common/defaults.sh`
 
-Thanks,
-Tom
+// Establish a connection.
+0.000 socket(..., SOCK_STREAM, IPPROTO_TCP) = 3
+0.000 setsockopt(3, SOL_SOCKET, SO_REUSEADDR, [1], 4) = 0
+0.000 bind(3, ..., ...) = 0
+0.000 listen(3, 1) = 0
 
-> Thanks,
-> Pravin.
+0.100 < S 0:0(0) win 32792 <mss 1460,nop,wscale 7>
+0.100 > S. 0:0(0) ack 1 <mss 1460,nop,wscale 6>
+0.110 < . 1:1(0) ack 1 win 257
+0.110 accept(3, ..., ...) = 4
+
+0.200 %{ assert tcpi_snd_cwnd == 10 }%
++0 setsockopt(4, SOL_TCP, TCP_NODELAY, [1], 4) = 0
+
++0.01 write(4, ..., 100) = 100
++0  > P. 1:101(100) ack 1
+
++0.01 write(4, ..., 100) = 100
++0  > P. 101:201(100) ack 1
+
++0.01 write(4, ..., 100) = 100
++0  > P. 201:301(100) ack 1
+
++0.01 write(4, ..., 100) = 100
++0  > P. 301:401(100) ack 1
+
++0.01 write(4, ..., 100) = 100
++0  > P. 401:501(100) ack 1
+
++0.01 write(4, ..., 100) = 100
++0  > P. 501:601(100) ack 1
+
++0.01 write(4, ..., 100) = 100
++0  > P. 601:701(100) ack 1
+
++0.01 write(4, ..., 100) = 100
++0  > P. 701:801(100) ack 1
+
++0.01 write(4, ..., 100) = 100
++0  > P. 801:901(100) ack 1
+
++0.01 write(4, ..., 100) = 100
++0  > P. 901:1001(100) ack 1
