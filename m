@@ -1,96 +1,44 @@
-From: Ying Xue <ying.xue@windriver.com>
-Subject: Re: [PATCH 2/3] netlink: Mark dumps as inconsistent which have been
- interrupted by a resize
-Date: Wed, 21 Jan 2015 16:13:56 +0800
-Message-ID: <54BF5FC4.4070808@windriver.com>
-References: <cover.1421759056.git.tgraf@suug.ch> <cce004895ab6bcef267e2133a1c7ecab0fac403b.1421759056.git.tgraf@suug.ch>
+From: Heiko =?ISO-8859-1?Q?St=FCbner?= <heiko-4mtYJXux2i+zQB+pC5nmwQ@public.gmane.org>
+Subject: Re: [PATCH v2 0/4] net: stmmac: dwmac-rk: Fix phy regulator issues
+Date: Wed, 21 Jan 2015 09:32:38 +0100
+Message-ID: <1791081.FUojULYATz@phil>
+References: <1421737780-1533-1-git-send-email-romain.perier@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <netfilter-devel@vger.kernel.org>
-To: Thomas Graf <tgraf@suug.ch>, <davem@davemloft.net>,
-	<kaber@trash.net>, <herbert@gondor.apana.org.au>,
-	<paulmck@linux.vnet.ibm.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <cce004895ab6bcef267e2133a1c7ecab0fac403b.1421759056.git.tgraf@suug.ch>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: peppe.cavallaro-qxv4g6HH51o@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	roger.chen-TNX95d0MmH7DzftRWevZcw@public.gmane.org
+To: Romain Perier <romain.perier-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1421737780-1533-1-git-send-email-romain.perier-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 01/20/2015 09:20 PM, Thomas Graf wrote:
-> A deferred resize of nl_table causes the offsets that Netlink diag keeps
-> to become inaccurate. Mark the dump as inconsistent and have user space
-> request a new dump.
+Am Dienstag, 20. Januar 2015, 07:09:36 schrieb Romain Perier:
+> This series fixes few issues in dwmac-rk:
 > 
-> Signed-off-by: Thomas Graf <tgraf@suug.ch>
-> ---
->  net/netlink/af_netlink.c | 10 ++++++++++
->  net/netlink/af_netlink.h |  1 +
->  net/netlink/diag.c       |  1 +
->  3 files changed, 12 insertions(+)
+> 1. Voltage settings was hardcoded into the driver for the phy regulator.
+>    The driver now uses the default voltage settings found in the devicetree,
+> which are applied throught the regulator framework.
+> 2. The regulator name used to power on or power off the phy was put in the
+> devicetree variable "phy_regulator", which is not standard and added a lot
+> of code for nothing. The driver now uses the devicetree property
+> "phy-supply" and the corresponding functions to manipulate this regulator.
 > 
-> diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-> index 7a94185..e214557 100644
-> --- a/net/netlink/af_netlink.c
-> +++ b/net/netlink/af_netlink.c
-> @@ -91,6 +91,9 @@ static inline int netlink_is_kernel(struct sock *sk)
->  struct netlink_table *nl_table;
->  EXPORT_SYMBOL_GPL(nl_table);
->  
-> +atomic_t nl_table_seq;
+> The corresponding devicetree files are also updated. As this new binding for
+> rk3288 has not been released with any official kernel yet (not until 3.20),
+> I don't need to care about keeping compatibility with the old non standard
+> property.
 
-It sounds like the atomic variable is not initialized.
+This series
+Tested-by: Heiko Stuebner <heiko-4mtYJXux2i+zQB+pC5nmwQ@public.gmane.org>
+Reviewed-by: Heiko Stuebner <heiko-4mtYJXux2i+zQB+pC5nmwQ@public.gmane.org>
 
-Regards,
-Ying
-
-> +EXPORT_SYMBOL_GPL(nl_table_seq);
-> +
->  static DECLARE_WAIT_QUEUE_HEAD(nl_table_wait);
->  
->  static int netlink_dump(struct sock *sk);
-> @@ -3071,6 +3074,12 @@ static const struct net_proto_family netlink_family_ops = {
->  	.owner	= THIS_MODULE,	/* for consistency 8) */
->  };
->  
-> +static void nl_table_resize_notify(const struct rhashtable *ht,
-> +				   enum rht_resize_op op)
-> +{
-> +	atomic_inc(&nl_table_seq);
-> +}
-> +
->  static int __net_init netlink_net_init(struct net *net)
->  {
->  #ifdef CONFIG_PROC_FS
-> @@ -3124,6 +3133,7 @@ static int __init netlink_proto_init(void)
->  		.max_shift = 16, /* 64K */
->  		.grow_decision = rht_grow_above_75,
->  		.shrink_decision = rht_shrink_below_30,
-> +		.resize_notify = nl_table_resize_notify,
->  	};
->  
->  	if (err != 0)
-> diff --git a/net/netlink/af_netlink.h b/net/netlink/af_netlink.h
-> index 7518375..51c23c0 100644
-> --- a/net/netlink/af_netlink.h
-> +++ b/net/netlink/af_netlink.h
-> @@ -74,5 +74,6 @@ struct netlink_table {
->  
->  extern struct netlink_table *nl_table;
->  extern rwlock_t nl_table_lock;
-> +extern atomic_t nl_table_seq;
->  
->  #endif
-> diff --git a/net/netlink/diag.c b/net/netlink/diag.c
-> index 3ee63a3..50aa385 100644
-> --- a/net/netlink/diag.c
-> +++ b/net/netlink/diag.c
-> @@ -112,6 +112,7 @@ static int __netlink_diag_dump(struct sk_buff *skb, struct netlink_callback *cb,
->  	int ret = 0, num = 0, i;
->  
->  	req = nlmsg_data(cb->nlh);
-> +	cb->seq = atomic_read(&nl_table_seq);
->  
->  	for (i = 0; i < htbl->size; i++) {
->  		struct rhash_head *pos;
-> 
-
+@Dave: as said in the v1 mail, this would be nice to have for 3.20
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
