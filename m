@@ -1,53 +1,71 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH net] ipv4: try to cache dst_entries which would cause a
- redirect
-Date: Wed, 21 Jan 2015 10:56:16 +0200 (EET)
-Message-ID: <alpine.LFD.2.11.1501211041360.2329@ja.home.ssi.bg>
-References: <16ab8e83e2c0719bd449f8e10f82637820624712.1421789827.git.hannes@stressinduktion.org>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [PATCH net-next 0/3] openvswitch: Add STT support.
+Date: Wed, 21 Jan 2015 01:08:41 -0800
+Message-ID: <CALnjE+rSXpPftiG4Vw3azkN2s2-Ey6ZcZr9Bv422pOdwrvU=tw@mail.gmail.com>
+References: <1421785536-19793-1-git-send-email-pshelar@nicira.com>
+	<CA+mtBx90TipY9uJvW2uQfrCYL9JNM9Rk75HzdJPhE0qsdy8dnw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, Marcelo Leitner <mleitner@redhat.com>,
-	Florian Westphal <fw@strlen.de>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:48465 "EHLO ja.ssi.bg"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752202AbbAUI4t (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Jan 2015 03:56:49 -0500
-In-Reply-To: <16ab8e83e2c0719bd449f8e10f82637820624712.1421789827.git.hannes@stressinduktion.org>
+Received: from na3sys009aog105.obsmtp.com ([74.125.149.75]:36563 "HELO
+	na3sys009aog105.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752371AbbAUJIm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jan 2015 04:08:42 -0500
+Received: by mail-ie0-f179.google.com with SMTP id x19so7120734ier.10
+        for <netdev@vger.kernel.org>; Wed, 21 Jan 2015 01:08:41 -0800 (PST)
+In-Reply-To: <CA+mtBx90TipY9uJvW2uQfrCYL9JNM9Rk75HzdJPhE0qsdy8dnw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Tue, Jan 20, 2015 at 3:06 PM, Tom Herbert <therbert@google.com> wrote:
+> On Tue, Jan 20, 2015 at 12:25 PM, Pravin B Shelar <pshelar@nicira.com> wrote:
+>> Following patch series adds support for Stateless Transport
+>> Tunneling protocol.
+>> STT uses TCP segmentation offload available in most of NIC. On
+>> packet xmit STT driver appends STT header along with TCP header
+>> to the packet. For GSO packet GSO parameters are set according
+>> to tunnel configuration and packet is handed over to networking
+>> stack. This allows use of segmentation offload available in NICs
+>>
+>> Netperf unidirectional test gives ~9.4 Gbits/s performance on 10Gbit
+>> NIC with 1500 byte MTU with two TCP streams.
+>>
+> Having packets marked TCP which really aren't TCP is a rather scary
+> prospect to deploy in a real data center (TCP is kind of an important
+> protocol ;-) ). Can you give some more motivation on this, more data
+> that shows what the benefits are and how this compares to equivalent
+> encapsulation protocols that implement GRO and GSO.
+>
+There are multi-year deployments of STT, So it is already in real data center.
+Biggest advantage is STT does not need new NIC with tunnel offload.
+Any NIC that supports TCP offload can be used to achieve better
+performance.
 
-	Hello,
+Following are numbers you asked for.
+Setup: net-next branch on server and client.
+netperf: TCP unidirectional tests with 5 streams. Numbers are averaged
+over 3 runs of 50 sec.
 
-On Tue, 20 Jan 2015, Hannes Frederic Sowa wrote:
+VXLAN:
+CPU
+  Client: 1.6
+  Server: 14.2
+Throughput: 5.6 Gbit/s
 
-> Not caching dst_entries which cause redirects could be exploited by hosts
-> on the same subnet, causing a severe DoS attack. This effect aggravated
-> since commit f88649721268999 ("ipv4: fix dst race in sk_dst_get()").
-> 
-> Lookups causing redirects will be allocated with DST_NOCACHE set which
-> will force dst_release to free them via RCU.  Unfortunately waiting for
-> RCU grace period just takes too long, we can end up with >1M dst_entries
-> waiting to be released and the system will run OOM. rcuos threads cannot
-> catch up under high softirq load.
-> 
-> Attaching the flag to emit a redirect later on to the specific skb allows
-> us to cache those dst_entries thus reducing the pressure on allocation
-> and deallocation.
-> 
-> This issue was discovered by Marcelo Leitner.
+VXLAN with rcsum:
+CPU
+  Client: 0.89
+  Server: 12.4
+Throughput: 5.8 Gbit/s
 
-	Change looks good to me but additional place
-should be changed too: inet_rtm_getroute() will call
-ip_route_input() and later rt_fill_info() will put
-rt_flags in rtm_flags. We have to set RTCF_DOREDIRECT
-just in rtm_flags depending on IPSKB_DOREDIRECT becuase
-iproute needs to print "redirect". You can test it with
-ip route get ... iif INDEV
+STT:
+CPU
+  Client: 1.28
+  Server: 4.0
+Throughput: 9.5 Gbit/s
 
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+Thanks,
+Pravin.
