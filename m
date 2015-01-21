@@ -1,50 +1,47 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [E1000-devel] [PATCH 1/2] if_link: Add VF multicast promiscuous
-	mode control
-Date: Wed, 21 Jan 2015 11:56:53 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CAD01D6@AcuExch.aculab.com>
-References: <7F861DC0615E0C47A872E6F3C5FCDDBD05E0734E@BPXM14GP.gisp.nec.co.jp>
-	<874mrlu18e.fsf@nemi.mork.no>
- <7F861DC0615E0C47A872E6F3C5FCDDBD05E07B7C@BPXM14GP.gisp.nec.co.jp>
- <F6FB0E698C9B3143BDF729DF222866469129B7F5@ORSMSX110.amr.corp.intel.com>
- <7F861DC0615E0C47A872E6F3C5FCDDBD05E07F09@BPXM14GP.gisp.nec.co.jp>
- <F6FB0E698C9B3143BDF729DF222866469129B844@ORSMSX110.amr.corp.intel.com>
- <7F861DC0615E0C47A872E6F3C5FCDDBD05E08FF6@BPXM14GP.gisp.nec.co.jp>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 3/3] netlink: Lock out table resizes while dumping
+ Netlink sockets
+Date: Wed, 21 Jan 2015 11:59:25 +0000
+Message-ID: <20150121115924.GW3012@acer.localdomain>
+References: <20150120152149.GA3012@acer.localdomain>
+ <20150120153556.GJ20315@casper.infradead.org>
+ <20150121050819.GA23062@gondor.apana.org.au>
+ <20150121093722.GM20315@casper.infradead.org>
+ <20150121093836.GA25489@gondor.apana.org.au>
+ <20150121094928.GN20315@casper.infradead.org>
+ <20150121095837.GA25750@gondor.apana.org.au>
+ <20150121103421.GR20315@casper.infradead.org>
+ <20150121103959.GR3012@acer.localdomain>
+ <20150121113751.GT20315@casper.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Choi, Sy Jong" <sy.jong.choi@intel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Hayato Momma <h-momma@ce.jp.nec.com>
-To: 'Hiroshi Shimamoto' <h-shimamoto@ct.jp.nec.com>,
-	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
-	=?utf-8?B?QmrDuHJuIE1vcms=?= <bjorn@mork.no>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out6.electric.net ([192.162.217.188]:53700 "EHLO
-	smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751601AbbAUL5t (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jan 2015 06:57:49 -0500
-In-Reply-To: <7F861DC0615E0C47A872E6F3C5FCDDBD05E08FF6@BPXM14GP.gisp.nec.co.jp>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Herbert Xu <herbert@gondor.apana.org.au>, davem@davemloft.net,
+	paulmck@linux.vnet.ibm.com, ying.xue@windriver.com,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: Thomas Graf <tgraf@suug.ch>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20150121113751.GT20315@casper.infradead.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-RnJvbTogSGlyb3NoaSBTaGltYW1vdG8NCj4gTXkgY29uY2VybiBpcyB3aGF0IGlzIHRoZSByZWFs
-IGlzc3VlIHRoYXQgVkYgbXVsdGljYXN0IHByb21pc2N1b3VzIG1vZGUgY2FuIGNhdXNlLg0KPiBJ
-IHRoaW5rIHRoZXJlIGlzIHRoZSA0ayBlbnRyaWVzIHRvIGZpbHRlciBtdWx0aWNhc3QgYWRkcmVz
-cywgYW5kIHRoZSBjdXJyZW50IGl4Z2JlL2l4Z2JldmYNCj4gY2FuIHR1cm4gYWxsIGJpdHMgb24g
-ZnJvbSBWTS4gVGhhdCBpcyBhbG1vc3Qgc2FtZSBhcyBlbmFibGluZyBtdWx0aWNhc3QgcHJvbWlz
-Y3VvdXMgbW9kZS4NCj4gSSBtZWFuIHRoYXQgd2UgY2FuIHJlY2VpdmUgYWxsIG11bHRpY2FzdCBh
-ZGRyZXNzZXMgYnkgYW4gb25lcm91cyBvcGVyYXRpb24gaW4gdW50cnVzdGVkIFZNLg0KPiBJIHRo
-aW5rIHdlIHNob3VsZCBjbGFyaWZ5IHdoYXQgaXMgcmVhbCBzZWN1cml0eSBpc3N1ZSBpbiB0aGlz
-IGNvbnRleHQuDQoNCklmIHlvdSBhcmUgd29ycmllZCBhYm91dCBwYXNzaW5nIHVuLWVuYWJsZWQg
-bXVsdGljYXN0cyB0byB1c2VycyB0aGVuDQp3aGF0IGFib3V0IGRvaW5nIGEgc29mdHdhcmUgaGFz
-aCBvZiByZWNlaXZlZCBtdWx0aWNhc3RzIGFuZCBjaGVja2luZw0KYWdhaW5zdCBhbiBhY3R1YWwg
-bGlzdCBvZiBtdWx0aWNhc3RzIGVuYWJsZWQgZm9yIHRoYXQgaGFzaCBlbnRyeS4NClVuZGVyIG5v
-cm1hbCBjb25kaXRpb25zIHRoZXJlIGlzIGxpa2VseSB0byBiZSBvbmx5IGEgc2luZ2xlIGFkZHJl
-c3MgdG8gY2hlY2suDQoNCkl0IG1heSAob3IgbWF5IG5vdCkgYmUgYmVzdCB0byB1c2UgdGhlIHNh
-bWUgaGFzaCBhcyBhbnkgaGFzaGluZyBoYXJkd2FyZQ0KZmlsdGVyIHVzZXMuDQoNCglEYXZpZA0K
-DQo=
+On 21.01, Thomas Graf wrote:
+> On 01/21/15 at 10:40am, Patrick McHardy wrote:
+> > On the danger of repeating myself, every (converted) user requires
+> > that we at least keep the existing semantics since it is exposed to
+> > userspace. My opinion is that NLM_F_DUMP_INTR is fine if userspace
+> > indicates support, but without that, we have to take care of that
+> > in the kernel.
+> 
+> Absolutely agreed. I think this is an excellent low cost path for
+> future users where dumps are rare.
+> 
+> > An automatic restart handles this well. Userspace always had to
+> > expect duplicates.
+> 
+> Maybe I don't understand the restart yet. How do you restart if the
+> dump was already started and the user has read part of the dump?
+
+You use the mutex to prevent concurrent resizes and dumps, for dumps
+that have left the kernel you simply reset the iterator state after
+a resize operation.
