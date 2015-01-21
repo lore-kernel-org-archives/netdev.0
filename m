@@ -1,55 +1,40 @@
-From: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Subject: Re: [PATCH net 0/2] net: marvell: Fix highmem support on non-TSO path
-Date: Wed, 21 Jan 2015 15:01:59 +0000
-Message-ID: <20150121150159.GS26493@n2100.arm.linux.org.uk>
-References: <1421844850-30886-1-git-send-email-ezequiel.garcia@free-electrons.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	B38611@freescale.com, fabio.estevam@freescale.com
-To: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Subject: [PATCH net-next] cxgb4: Fixes cxgb4_inet6addr_notifier unregister call
+Date: Wed, 21 Jan 2015 20:57:52 +0530
+Message-ID: <1421854072-6427-1-git-send-email-hariprasad@chelsio.com>
+Cc: davem@davemloft.net, leedom@chelsio.com, anish@chelsio.com,
+	nirranjan@chelsio.com, praveenm@chelsio.com,
+	Hariprasad Shenai <hariprasad@chelsio.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pandora.arm.linux.org.uk ([78.32.30.218]:43848 "EHLO
-	pandora.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753973AbbAUPCO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jan 2015 10:02:14 -0500
-Content-Disposition: inline
-In-Reply-To: <1421844850-30886-1-git-send-email-ezequiel.garcia@free-electrons.com>
+Received: from stargate.chelsio.com ([67.207.112.58]:1515 "EHLO
+	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752938AbbAUPWP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jan 2015 10:22:15 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 21, 2015 at 09:54:08AM -0300, Ezequiel Garcia wrote:
-> These two commits are fixes to the issue reported by Russell King on
-> mv643xx_eth. Namely, the introduction of a regression by commit 69ad0dd7af22
-> which removed the support for highmem skb fragments. The guilty commit
-> introduced the assumption of fragment's payload being located in lowmem pages.
+commit b5a02f503caa0837 ("cxgb4 : Update ipv6 address handling api") introduced
+a regression where unregister cxgb4_inet6addr_notifier wasn't getting called
+during module_exit.
 
-I do wonder whether 69ad0dd7af22 is the real culpret, or whether there is
-some other change in the netdev layer that we're missing.  That commit is
-in 3.16, but from what I remember, 3.17 works fine, it's 3.18 which fails.
+Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
+---
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-> A similar pattern can be found in the original mvneta driver (in fact, the
-> regression was introduced by copy-pasting the mvneta code).
-> 
-> These fixes are for the non-TSO egress path in mvneta and mv643xx_eth drivers.
-> The TSO path needs a more intrusive change, as the TSO API needs to be fixed
-> (e.g. to make it work in skb fragments, instead of pointers to data).
-> 
-> Russell, as I'm still unable to reproduce this, do you think you can
-> give it a spin over there?
-
-Sure - I think the only one I can test is mv643xx_eth, I don't think I
-have any device which supports mv_neta.
-
-The test scenario is for a NFS mount (the Marvell device as the NFS
-client) over IPv6.
-
-Initial testing looks good, I'll let it run for a while with various
-builds on the NFS share (which iirc was one of the triggering
-workloads).
-
-Thanks.
-
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index 1147e1e..12c1a3f 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -6290,7 +6290,7 @@ static int __init cxgb4_init_module(void)
+ static void __exit cxgb4_cleanup_module(void)
+ {
+ #if IS_ENABLED(CONFIG_IPV6)
+-	if (inet6addr_registered && list_empty(&adapter_list)) {
++	if (inet6addr_registered) {
+ 		unregister_inet6addr_notifier(&cxgb4_inet6addr_notifier);
+ 		inet6addr_registered = false;
+ 	}
 -- 
-FTTC broadband for 0.8mile line: currently at 10.5Mbps down 400kbps up
-according to speedtest.net.
+1.7.1
