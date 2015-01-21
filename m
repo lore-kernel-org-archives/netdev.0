@@ -1,58 +1,91 @@
-From: Joe Stringer <joestringer-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH net-next v13 5/5] openvswitch: Add support for
-	unique flow IDs.
-Date: Wed, 21 Jan 2015 11:29:05 -0800
-Message-ID: <CANr6G5yc1PZTAXHGrDJ-zLZf13UB4aef1hsQyK7RTPHzJMGoRg@mail.gmail.com>
-References: <1421778772-11879-1-git-send-email-joestringer@nicira.com>
- <1421778772-11879-6-git-send-email-joestringer@nicira.com>
- <CALnjE+qHjf5djBybPQUzoR_+dxDskQJQwtgvSN=G5NW9pckETw@mail.gmail.com>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCH net-next 0/3] openvswitch: Add STT support.
+Date: Wed, 21 Jan 2015 11:45:52 -0800
+Message-ID: <CA+mtBx-v5dvX-OPGeWJb6uwQGhJ5T6iewD83xJGqXb+Ggf+LQw@mail.gmail.com>
+References: <1421785536-19793-1-git-send-email-pshelar@nicira.com>
+	<CA+mtBx90TipY9uJvW2uQfrCYL9JNM9Rk75HzdJPhE0qsdy8dnw@mail.gmail.com>
+	<CALnjE+rSXpPftiG4Vw3azkN2s2-Ey6ZcZr9Bv422pOdwrvU=tw@mail.gmail.com>
+	<CA+mtBx9yM+C8GeEHOGTHPVxNB3fJd7LQG0RaC3jywrO9_tQ58A@mail.gmail.com>
+	<CALnjE+po5gy7g8ftmiNcnrN_gRL9tzCRHNtn=fxUafFikKB1rg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
- netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Pravin Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <CALnjE+qHjf5djBybPQUzoR_+dxDskQJQwtgvSN=G5NW9pckETw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Pravin Shelar <pshelar@nicira.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f177.google.com ([209.85.223.177]:34598 "EHLO
+	mail-ie0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752306AbbAUTpx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jan 2015 14:45:53 -0500
+Received: by mail-ie0-f177.google.com with SMTP id at20so17681488iec.8
+        for <netdev@vger.kernel.org>; Wed, 21 Jan 2015 11:45:52 -0800 (PST)
+In-Reply-To: <CALnjE+po5gy7g8ftmiNcnrN_gRL9tzCRHNtn=fxUafFikKB1rg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gMjEgSmFudWFyeSAyMDE1IGF0IDEwOjMxLCBQcmF2aW4gU2hlbGFyIDxwc2hlbGFyQG5pY2ly
-YS5jb20+IHdyb3RlOgo+IE9uIFR1ZSwgSmFuIDIwLCAyMDE1IGF0IDEwOjMyIEFNLCBKb2UgU3Ry
-aW5nZXIgPGpvZXN0cmluZ2VyQG5pY2lyYS5jb20+IHdyb3RlOgo+PiBQcmV2aW91c2x5LCBmbG93
-cyB3ZXJlIG1hbmlwdWxhdGVkIGJ5IHVzZXJzcGFjZSBzcGVjaWZ5aW5nIGEgZnVsbCwKPj4gdW5t
-YXNrZWQgZmxvdyBrZXkuIFRoaXMgYWRkcyBzaWduaWZpY2FudCBidXJkZW4gb250byBmbG93Cj4+
-IHNlcmlhbGl6YXRpb24vZGVzZXJpYWxpemF0aW9uLCBwYXJ0aWN1bGFybHkgd2hlbiBkdW1waW5n
-IGZsb3dzLgo+Pgo+PiBUaGlzIHBhdGNoIGFkZHMgYW4gYWx0ZXJuYXRpdmUgd2F5IHRvIHJlZmVy
-IHRvIGZsb3dzIHVzaW5nIGEKPj4gdmFyaWFibGUtbGVuZ3RoICJ1bmlxdWUgZmxvdyBpZGVudGlm
-aWVyIiAoVUZJRCkuIEF0IGZsb3cgc2V0dXAgdGltZSwKPj4gdXNlcnNwYWNlIG1heSBzcGVjaWZ5
-IGEgVUZJRCBmb3IgYSBmbG93LCB3aGljaCBpcyBzdG9yZWQgd2l0aCB0aGUgZmxvdwo+PiBhbmQg
-aW5zZXJ0ZWQgaW50byBhIHNlcGFyYXRlIHRhYmxlIGZvciBsb29rdXAsIGluIGFkZGl0aW9uIHRv
-IHRoZQo+PiBzdGFuZGFyZCBmbG93IHRhYmxlLiBGbG93cyBjcmVhdGVkIHVzaW5nIGEgVUZJRCBt
-dXN0IGJlIGZldGNoZWQgb3IKPj4gZGVsZXRlZCB1c2luZyB0aGUgVUZJRC4KPj4KPj4gQWxsIGZs
-b3cgZHVtcCBvcGVyYXRpb25zIG1heSBub3cgYmUgbWFkZSBtb3JlIHRlcnNlIHdpdGggT1ZTX1VG
-SURfRl8qCj4+IGZsYWdzLiBGb3IgZXhhbXBsZSwgdGhlIE9WU19VRklEX0ZfT01JVF9LRVkgZmxh
-ZyBhbGxvd3MgcmVzcG9uc2VzIHRvCj4+IG9taXQgdGhlIGZsb3cga2V5IGZyb20gYSBkYXRhcGF0
-aCBvcGVyYXRpb24gaWYgdGhlIGZsb3cgaGFzIGEKPj4gY29ycmVzcG9uZGluZyBVRklELiBUaGlz
-IHNpZ25pZmljYW50bHkgcmVkdWNlcyB0aGUgdGltZSBzcGVudCBhc3NlbWJsaW5nCj4+IGFuZCB0
-cmFuc2FjdGluZyBuZXRsaW5rIG1lc3NhZ2VzLiBXaXRoIGFsbCBPVlNfVUZJRF9GX09NSVRfKiBm
-bGFncwo+PiBlbmFibGVkLCB0aGUgZGF0YXBhdGggb25seSByZXR1cm5zIHRoZSBVRklEIGFuZCBz
-dGF0aXN0aWNzIGZvciBlYWNoIGZsb3cKPj4gZHVyaW5nIGZsb3cgZHVtcCwgaW5jcmVhc2luZyBv
-dnMtdnN3aXRjaGQgcmV2YWxpZGF0b3IgcGVyZm9ybWFuY2UgYnkgNDAlCj4+IG9yIG1vcmUuCj4+
-Cj4+IFNpZ25lZC1vZmYtYnk6IEpvZSBTdHJpbmdlciA8am9lc3RyaW5nZXJAbmljaXJhLmNvbT4K
-Pgo+IEl0cyBhbG1vc3QgcmVhZHkuIEJ1dCBJIHNhdyBtaW5vciBpc3N1ZXMsCj4gZmV3IGNoZWNr
-cGF0Y2gucGwgZmFpbHVyZXMuCj4gaW4gb3ZzX2Zsb3dfY21kX25ldygpIHdlIHNob3VsZCB1c2Ug
-dW5tYXNrZWQga2V5IHRvIGxvb2t1cCBpbiBmbG93Cj4gdGFibGUgZm9yIGxlZ2FjeSBjYXNlLgoK
-VGhhbmtzIGZvciByZXZpZXcsIEkgY2FuIHNlbmQgb3V0IGEgZnJlc2ggdmVyc2lvbiBzb29uLiBT
-aG91bGQgSQpyZXNlbmQgdGhlIHdob2xlIHNlcmllcyBvciBpcyBqdXN0IGEgbmV3IHZlcnNpb24g
-b2YgdGhpcyBwYXRjaApzdWZmaWNpZW50PwpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fXwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0
-cDovL29wZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
+> I used bare metal intel servers. All VXLAN tests were done using linux
+> kernel device without any VMs. All STT tests are done using OVS bridge
+> and STT port.
+>
+So right off the bat you're running the baseline differently than the
+target. Anyway, I cannot replicate your numbers for VXLAN, I see much
+better performance and this with pretty old servers and dumb NICs. I
+suspect you might not have GSO/GRO properly enabled, but instead of
+trying to debug your setup, I'd rather restate my request that you
+provide a network interface to STT so we can do our own fair
+comparison.
+
+>> Another thing to consider in your analysis is the performance with
+>> flows using small packets. STT should demonstrate better performance
+>> with bulk flows since LSO and LRO are better performing relative to
+>> GSO and GRO. But for flows with small packets, I don't see how there
+>> could be any performance advantage. We already have ways to leverage
+>> simple UDP checksum offload with UDP encapsulations, seems like STT
+>> might just represent unnecessary header overhead in those cases.
+>>
+> All tunneling protocol has performance issue with small packet, I do
+> not see how is it related to STT patch. STT also make use of checksum
+> offload, so there should not be much overhead.
+>
+
+Given the pervasiveness of these patches and the fact that this is
+"modifying" the definition of TCP protocol we see on the wire, I would
+like to see more effort into analyzing performance and effects of this
+encapsulation. I assume that STT is intended to be used for small
+packets so it seems entirely reasonable to ask what exactly the
+performance effects are for that case. It's really not that hard to
+run some performance numbers with comparisons (TCP_RR, TCP_STREAM,
+TCP_CRR, with IPv6, etc.) and report them in the patch set
+description. You can look at FOU, GUE, vxlan rco, and the checksum
+patches I did for some examples.
+
+>>> VXLAN:
+>>> CPU
+>>>   Client: 1.6
+>>>   Server: 14.2
+>>> Throughput: 5.6 Gbit/s
+>>>
+>>> VXLAN with rcsum:
+>>> CPU
+>>>   Client: 0.89
+>>>   Server: 12.4
+>>> Throughput: 5.8 Gbit/s
+>>>
+>>> STT:
+>>> CPU
+>>>   Client: 1.28
+>>>   Server: 4.0
+>>> Throughput: 9.5 Gbit/s
+>>>
+>> 9.5Gbps? Rounding error or is this 40Gbps or larger than 1500 byte MTU?
+>>
+> Nope, its same as VXLAN setup, 10Gbps NIC with 1500MTU.
+>
+That would exceed that theoretical maximum for TCP over 10Gbps
+Ethernet. How are you measuring throughput? How many bytes of protocol
+headers are in STT case?
+
+Thanks,
+Tom
+
+> Thanks.
