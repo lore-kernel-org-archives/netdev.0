@@ -1,45 +1,77 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next 1/2] net: phy: fixed: allow setting no update_link callback
-Date: Tue, 20 Jan 2015 16:41:59 -0800
-Message-ID: <1421800920-6281-2-git-send-email-f.fainelli@gmail.com>
+Subject: [PATCH net-next 2/2] net: dsa: bcm_sf2: factor interrupt disabling in a function
+Date: Tue, 20 Jan 2015 16:42:00 -0800
+Message-ID: <1421800920-6281-3-git-send-email-f.fainelli@gmail.com>
 References: <1421800920-6281-1-git-send-email-f.fainelli@gmail.com>
 Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f181.google.com ([209.85.192.181]:46813 "EHLO
-	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751981AbbAUAmV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jan 2015 19:42:21 -0500
-Received: by mail-pd0-f181.google.com with SMTP id g10so13204186pdj.12
-        for <netdev@vger.kernel.org>; Tue, 20 Jan 2015 16:42:21 -0800 (PST)
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:34344 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752960AbbAUAmW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jan 2015 19:42:22 -0500
+Received: by mail-pa0-f45.google.com with SMTP id lf10so49156012pab.4
+        for <netdev@vger.kernel.org>; Tue, 20 Jan 2015 16:42:22 -0800 (PST)
 In-Reply-To: <1421800920-6281-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-fixed_phy_set_link_update() contains an early check against a NULL
-callback pointer, which basically prevents us from removing any
-previous callback we may have set. The users of the fp->link_update
-callback deal with a NULL callback just fine, so we really want to allow
-"removing" a link_update callback to avoid dangling callback pointers
-during e.g: module removal.
+Factor the interrupt disabling in a function: bcm_sf2_intr_disable()
+since we are doing the same thing in the setup and suspend paths.
 
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- drivers/net/phy/fixed_phy.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/dsa/bcm_sf2.c | 24 ++++++++++++------------
+ 1 file changed, 12 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/net/phy/fixed_phy.c b/drivers/net/phy/fixed_phy.c
-index 3ad0e6e16c39..a08a3c78ba97 100644
---- a/drivers/net/phy/fixed_phy.c
-+++ b/drivers/net/phy/fixed_phy.c
-@@ -168,7 +168,7 @@ int fixed_phy_set_link_update(struct phy_device *phydev,
- 	struct fixed_mdio_bus *fmb = &platform_fmb;
- 	struct fixed_phy *fp;
+diff --git a/drivers/net/dsa/bcm_sf2.c b/drivers/net/dsa/bcm_sf2.c
+index feb29c4526f7..09f6b3cc1f66 100644
+--- a/drivers/net/dsa/bcm_sf2.c
++++ b/drivers/net/dsa/bcm_sf2.c
+@@ -400,6 +400,16 @@ static int bcm_sf2_sw_rst(struct bcm_sf2_priv *priv)
+ 	return 0;
+ }
  
--	if (!link_update || !phydev || !phydev->bus)
-+	if (!phydev || !phydev->bus)
- 		return -EINVAL;
++static void bcm_sf2_intr_disable(struct bcm_sf2_priv *priv)
++{
++	intrl2_0_writel(priv, 0xffffffff, INTRL2_CPU_MASK_SET);
++	intrl2_0_writel(priv, 0xffffffff, INTRL2_CPU_CLEAR);
++	intrl2_0_writel(priv, 0, INTRL2_CPU_MASK_CLEAR);
++	intrl2_1_writel(priv, 0xffffffff, INTRL2_CPU_MASK_SET);
++	intrl2_1_writel(priv, 0xffffffff, INTRL2_CPU_CLEAR);
++	intrl2_1_writel(priv, 0, INTRL2_CPU_MASK_CLEAR);
++}
++
+ static int bcm_sf2_sw_setup(struct dsa_switch *ds)
+ {
+ 	const char *reg_names[BCM_SF2_REGS_NUM] = BCM_SF2_REGS_NAME;
+@@ -440,12 +450,7 @@ static int bcm_sf2_sw_setup(struct dsa_switch *ds)
+ 	}
  
- 	list_for_each_entry(fp, &fmb->phys, node) {
+ 	/* Disable all interrupts and request them */
+-	intrl2_0_writel(priv, 0xffffffff, INTRL2_CPU_MASK_SET);
+-	intrl2_0_writel(priv, 0xffffffff, INTRL2_CPU_CLEAR);
+-	intrl2_0_writel(priv, 0, INTRL2_CPU_MASK_CLEAR);
+-	intrl2_1_writel(priv, 0xffffffff, INTRL2_CPU_MASK_SET);
+-	intrl2_1_writel(priv, 0xffffffff, INTRL2_CPU_CLEAR);
+-	intrl2_1_writel(priv, 0, INTRL2_CPU_MASK_CLEAR);
++	bcm_sf2_intr_disable(priv);
+ 
+ 	ret = request_irq(priv->irq0, bcm_sf2_switch_0_isr, 0,
+ 			  "switch_0", priv);
+@@ -747,12 +752,7 @@ static int bcm_sf2_sw_suspend(struct dsa_switch *ds)
+ 	struct bcm_sf2_priv *priv = ds_to_priv(ds);
+ 	unsigned int port;
+ 
+-	intrl2_0_writel(priv, 0xffffffff, INTRL2_CPU_MASK_SET);
+-	intrl2_0_writel(priv, 0xffffffff, INTRL2_CPU_CLEAR);
+-	intrl2_0_writel(priv, 0, INTRL2_CPU_MASK_CLEAR);
+-	intrl2_1_writel(priv, 0xffffffff, INTRL2_CPU_MASK_SET);
+-	intrl2_1_writel(priv, 0xffffffff, INTRL2_CPU_CLEAR);
+-	intrl2_1_writel(priv, 0, INTRL2_CPU_MASK_CLEAR);
++	bcm_sf2_intr_disable(priv);
+ 
+ 	/* Disable all ports physically present including the IMP
+ 	 * port, the other ones have already been disabled during
 -- 
 2.1.0
