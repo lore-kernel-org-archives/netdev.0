@@ -1,98 +1,66 @@
-From: "Skidmore, Donald C" <donald.c.skidmore@intel.com>
-Subject: RE: [E1000-devel] [PATCH 1/2] if_link: Add VF multicast promiscuous
-	mode control
-Date: Wed, 21 Jan 2015 00:26:17 +0000
-Message-ID: <F6FB0E698C9B3143BDF729DF222866469129B7F5@ORSMSX110.amr.corp.intel.com>
-References: <7F861DC0615E0C47A872E6F3C5FCDDBD05E0734E@BPXM14GP.gisp.nec.co.jp>
-	<874mrlu18e.fsf@nemi.mork.no>
- <7F861DC0615E0C47A872E6F3C5FCDDBD05E07B7C@BPXM14GP.gisp.nec.co.jp>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH] net: dsa: set slave MII bus PHY mask
+Date: Tue, 20 Jan 2015 16:37:35 -0800
+Message-ID: <54BEF4CF.806@gmail.com>
+References: <1421799212-2028-1-git-send-email-vivien.didelot@savoirfairelinux.com> <1421799212-2028-2-git-send-email-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Choi, Sy Jong" <sy.jong.choi@intel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Hayato Momma <h-momma@ce.jp.nec.com>
-To: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>,
-	=?utf-8?B?QmrDuHJuIE1vcms=?= <bjorn@mork.no>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: "David S . Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+	netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <7F861DC0615E0C47A872E6F3C5FCDDBD05E07B7C@BPXM14GP.gisp.nec.co.jp>
-Content-Language: en-US
+In-Reply-To: <1421799212-2028-2-git-send-email-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogSGlyb3NoaSBTaGltYW1v
-dG8gW21haWx0bzpoLXNoaW1hbW90b0BjdC5qcC5uZWMuY29tXQ0KPiBTZW50OiBUdWVzZGF5LCBK
-YW51YXJ5IDIwLCAyMDE1IDM6NDAgUE0NCj4gVG86IEJqw7hybiBNb3JrDQo+IENjOiBlMTAwMC1k
-ZXZlbEBsaXN0cy5zb3VyY2Vmb3JnZS5uZXQ7IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IENob2ks
-IFN5DQo+IEpvbmc7IGxpbnV4LWtlcm5lbEB2Z2VyLmtlcm5lbC5vcmc7IEhheWF0byBNb21tYQ0K
-PiBTdWJqZWN0OiBSZTogW0UxMDAwLWRldmVsXSBbUEFUQ0ggMS8yXSBpZl9saW5rOiBBZGQgVkYg
-bXVsdGljYXN0IHByb21pc2N1b3VzDQo+IG1vZGUgY29udHJvbA0KPiANCj4gPiBTdWJqZWN0OiBS
-ZTogW1BBVENIIDEvMl0gaWZfbGluazogQWRkIFZGIG11bHRpY2FzdCBwcm9taXNjdW91cyBtb2Rl
-DQo+ID4gY29udHJvbA0KPiA+DQo+ID4gSGlyb3NoaSBTaGltYW1vdG8gPGgtc2hpbWFtb3RvQGN0
-LmpwLm5lYy5jb20+IHdyaXRlczoNCj4gPg0KPiA+ID4gRnJvbTogSGlyb3NoaSBTaGltYW1vdG8g
-PGgtc2hpbWFtb3RvQGN0LmpwLm5lYy5jb20+DQo+ID4gPg0KPiA+ID4gQWRkIG5ldGxpbmsgZGly
-ZWN0aXZlcyBhbmQgbmRvIGVudHJ5IHRvIGNvbnRyb2wgVkYgbXVsdGljYXN0IHByb21pc2N1b3Vz
-DQo+IG1vZGUuDQo+ID4gPg0KPiA+ID4gSW50ZWwgaXhnYmUgYW5kIGl4Z2JldmYgZHJpdmVyIGNh
-biBoYW5kbGUgb25seSAzMCBtdWx0aWNhc3QgTUFDDQo+ID4gPiBhZGRyZXNzZXMgcGVyIFZGLiBJ
-dCBtZWFucyB0aGF0IHdlIGNhbm5vdCBhc3NpZ24gb3ZlciAzMCBJUHY2DQo+ID4gPiBhZGRyZXNz
-ZXMgdG8gYSBzaW5nbGUgVkYgaW50ZXJmYWNlIG9uIFZNLiBXZSB3YW50IHRob3VzYW5kcyBJUHY2
-DQo+IGFkZHJlc3NlcyBpbiBWTS4NCj4gPiA+DQo+ID4gPiBUaGVyZSBpcyBjYXBhYmlsaXR5IG9m
-IG11bHRpY2FzdCBwcm9taXNjdW91cyBtb2RlIGluIEludGVsIDgyNTk5IGNoaXAuDQo+ID4gPiBJ
-dCBlbmFibGVzIGFsbCBtdWx0aWNhc3QgcGFja2V0cyBhcmUgZGVsaXZlcmVkIHRvIHRoZSB0YXJn
-ZXQgVkYuDQo+ID4gPg0KPiA+ID4gVGhpcyBwYXRjaCBwcmVwYXJlcyB0byBjb250cm9sIHRoYXQg
-VkYgbXVsdGljYXN0IHByb21pc2N1b3VzDQo+IGZ1bmN0aW9uYWxpdHkuDQo+ID4NCj4gPiBBZGRp
-bmcgYSBuZXcgaG9vayBmb3IgdGhpcyBzZWVtcyBvdmVyLWNvbXBsaWNhdGVkIHRvIG1lLiAgQW5k
-IGl0IHN0aWxsDQo+ID4gZG9lc24ndCBzb2x2ZSB0aGUgcmVhbCBwcm9ibGVtcyB0aGF0DQo+ID4g
-IGEpIHRoZSB1c2VyIGhhcyB0byBrbm93IGFib3V0IHRoaXMgbGltaXQsIGFuZA0KPiA+ICBiKSBt
-YW51YWxseSBjb25maWd1cmUgdGhlIGZlYXR1cmUNCj4gPg0KPiA+IE1vc3Qgb2YgdXMsIGxhY2tp
-bmcgdGhlIGFiaWxpdHkgdG8gaW1hZ2luZSBzdWNoIGFyYml0cmFyeSBoYXJkd2FyZQ0KPiA+IGxp
-bWl0YXRpb25zLCB3aWxsIGdvIHRocm91Z2ggYSBmZXcgaG91cnMgb2YgZnJ1c3RyYXRpbmcgZGVi
-dWdnaW5nDQo+ID4gYmVmb3JlIHdlIGZpZ3VyZSB0aGlzIG9uZSBvdXQuLi4NCj4gPg0KPiA+IFdo
-eSBjYW4ndCB0aGUgaXhnYmV2ZiBkcml2ZXIganVzdCBhdXRvbWF0aWNhbGx5IHNpZ25hbCB0aGUg
-aXhnYmUNCj4gPiBkcml2ZXIgdG8gZW5hYmxlIG11bHRpY2FzdCBwcm9taXNjdW91cyBtb2RlIHdo
-ZW5ldmVyIHRoZSBsaXN0IGdyb3dzDQo+ID4gcGFzdCB0aGUgbGltaXQ/DQo+IA0KPiBJIGhhZCBz
-dWJtaXR0ZWQgYSBwYXRjaCB0byBjaGFuZ2UgaXhnYmUgYW5kIGl4Z2JldmYgZHJpdmVyIGZvciB0
-aGlzIGlzc3VlLg0KPiBodHRwczovL2xrbWwub3JnL2xrbWwvMjAxNC8xMS8yNy8yNjkNCj4gDQo+
-IFRoZSBwcmV2aW91cyBwYXRjaCBpbnRyb2R1Y2VzIEFQSSBiZXR3ZWVuIGl4Z2JlIGFuZCBpeGdi
-ZXZmIGRyaXZlciB0bw0KPiBlbmFibGUgbXVsdGljYXN0IHByb21pc2N1b3VzIG1vZGUsIGFuZCBp
-eGdiZXZmIGVuYWJsZXMgaXQgYXV0b21hdGljYWxseSBpZg0KPiB0aGUgbnVtYmVyIG9mIGFkZHJl
-c3NlcyBpcyBvdmVyIHRoYW4gMzAuDQoNCkkgYmVsaWV2ZSB0aGUgaXNzdWUgaXMgd2l0aCBhbGxv
-d2luZyBhIFZGIHRvIGF1dG9tYXRpY2FsbHkgZW50ZXIgUHJvbWlzY3VvdXMgTXVsdGljYXN0IHdp
-dGhvdXQgdGhlIFBGJ3Mgb2sgaXMgY29uY2VybiBvdmVyIFZNIGlzb2xhdGlvbi4gICBPZiBjb3Vy
-c2UgdGhhdCBpc29sYXRpb24sIHdoZW4gaXQgY29tZXMgdG8gbXVsdGljYXN0LCBpcyByYXRoZXIg
-bGltaXRlZCBhbnl3YXkgZ2l2ZW4gdGhhdCBvdXIgbXVsdGljYXN0IGZpbHRlciB1c2VzIG9ubHkg
-MTItYml0IG9mIHRoZSBhZGRyZXNzIGZvciBhIG1hdGNoLiAgU3RpbGwgdGhpcyAob3IgZG9pbmcg
-aXQgYnkgZGVmYXVsdCkgd291bGQgb25seSBvcGVuIHRoYXQgdXAgY29uc2lkZXJhYmx5IG1vcmUg
-KGFsbCBtdWx0aWNhc3RzKS4gIEkgYXNzdW1lIGZvciB5b3VyIGFwcGxpY2F0aW9uIHlvdSdyZSBu
-b3QgY29uY2VybmVkLCBidXQgYXJlIHRoZXJlIG90aGVyIHVzZSBjYXNlcyB0aGF0IHdvdWxkIHdv
-cnJ5IGFib3V0IHN1Y2ggdGhpbmdzPw0KDQpUaGFua3MsDQotRG9uIFNraWRtb3JlIDxkb25hbGQu
-Yy5za2lkbW9yZUBpbnRlbC5jb20+DQoNCj4gDQo+IEkgZ290IHNvbWUgY29tbWVudCBhbmQgSSB3
-b3VsZCBsaWtlIHRvIGNsYXJpZnkgdGhlIHBvaW50LCBidXQgdGhlcmUgd2FzIG5vDQo+IGFuc3dl
-ci4NCj4gVGhhdCdzIHRoZSByZWFzb24gSSBzdWJtaXR0ZWQgdGhpcyBwYXRjaC4NCj4gDQo+IERv
-IHlvdSB0aGluayBhIHBhdGNoIGZvciB0aGUgaXhnYmUvaXhnYmV2ZiBkcml2ZXIgaXMgcHJlZmVy
-cmVkPw0KPiANCj4gDQo+IHRoYW5rcywNCj4gSGlyb3NoaQ0KPiANCj4gPg0KPiA+IEknZCBhbHNv
-IGxpa2UgdG8gbm90ZSB0aGF0IHRoaXMgY29tbWVudCBpbg0KPiA+IGRyaXZlcnMvbmV0L2V0aGVy
-bmV0L2ludGVsL2l4Z2JldmYvdmYuYw0KPiA+IGluZGljYXRlcyB0aGF0IHRoZSBhdXRob3IgaGFk
-IHNvbWUgaWRlYXMgYWJvdXQgaG93IG1vcmUgdGhhbiAzMA0KPiA+IGFkZHJlc3NlcyBjb3VsZC9z
-aG91bGQgYmUgaGFuZGxlZDoNCj4gPg0KPiA+IHN0YXRpYyBzMzIgaXhnYmV2Zl91cGRhdGVfbWNf
-YWRkcl9saXN0X3ZmKHN0cnVjdCBpeGdiZV9odyAqaHcsDQo+ID4gCQkJCQkgIHN0cnVjdCBuZXRf
-ZGV2aWNlICpuZXRkZXYpDQo+ID4gew0KPiA+IAlzdHJ1Y3QgbmV0ZGV2X2h3X2FkZHIgKmhhOw0K
-PiA+IAl1MzIgbXNnYnVmW0lYR0JFX1ZGTUFJTEJPWF9TSVpFXTsNCj4gPiAJdTE2ICp2ZWN0b3Jf
-bGlzdCA9ICh1MTYgKikmbXNnYnVmWzFdOw0KPiA+IAl1MzIgY250LCBpOw0KPiA+DQo+ID4gCS8q
-IEVhY2ggZW50cnkgaW4gdGhlIGxpc3QgdXNlcyAxIDE2IGJpdCB3b3JkLiAgV2UgaGF2ZSAzMA0K
-PiA+IAkgKiAxNiBiaXQgd29yZHMgYXZhaWxhYmxlIGluIG91ciBIVyBtc2cgYnVmZmVyIChtaW51
-cyAxIGZvciB0aGUNCj4gPiAJICogbXNnIHR5cGUpLiAgVGhhdCdzIDMwIGhhc2ggdmFsdWVzIGlm
-IHdlIHBhY2sgJ2VtIHJpZ2h0LiAgSWYNCj4gPiAJICogdGhlcmUgYXJlIG1vcmUgdGhhbiAzMCBN
-QyBhZGRyZXNzZXMgdG8gYWRkIHRoZW4gcHVudCB0aGUNCj4gPiAJICogZXh0cmFzIGZvciBub3cg
-YW5kIHRoZW4gYWRkIGNvZGUgdG8gaGFuZGxlIG1vcmUgdGhhbiAzMCBsYXRlci4NCj4gPiAJICog
-SXQgd291bGQgYmUgdW51c3VhbCBmb3IgYSBzZXJ2ZXIgdG8gcmVxdWVzdCB0aGF0IG1hbnkgbXVs
-dGktY2FzdA0KPiA+IAkgKiBhZGRyZXNzZXMgZXhjZXB0IGZvciBpbiBsYXJnZSBlbnRlcnByaXNl
-IG5ldHdvcmsgZW52aXJvbm1lbnRzLg0KPiA+IAkgKi8NCj4gPg0KPiA+DQo+ID4NCj4gPiBUaGUg
-bGFzdCAyIGxpbmVzIG9mIHRoYXQgY29tbWVudCBhcmUgb2YgY291cnNlIHRvdGFsbHkgYm9ndXMg
-YW5kDQo+ID4gcG9pbnRsZXNzIGFuZCBzaG91bGQgYmUgZGVsZXRlZCBpbiBhbnkgY2FzZS4uLiAg
-SXQncyBvYnZpb3VzIHRoYXQgMzANCj4gPiBtdWx0aWNhc3QgYWRkcmVzc2VzIGlzIHJpZGljdWxv
-dXNseSBsb3cgZm9yIGxvdHMgb2Ygbm9ybWFsIHVzZSBjYXNlcy4NCj4gPg0KPiA+DQo+ID4gQmrD
-uHJuDQoNCg==
+On 20/01/15 16:13, Vivien Didelot wrote:
+> When registering a mdio bus, Linux assumes than every port has a PHY and tries
+> to scan it. If a switch port has no PHY registered, DSA will fail to register
+> the slave MII bus. To fix this, set the slave MII bus PHY mask to the switch
+> PHYs mask.
+> 
+> As an example, if we use a Marvell MV88E6352 (which is a 7-port switch with no
+> registered PHYs for port 5 and port 6), with the following declared names:
+> 
+> 	static struct dsa_chip_data switch_cdata = {
+> 		[...]
+> 		.port_names[0] = "sw0",
+> 		.port_names[1] = "sw1",
+> 		.port_names[2] = "sw2",
+> 		.port_names[3] = "sw3",
+> 		.port_names[4] = "sw4",
+> 		.port_names[5] = "cpu",
+> 	};
+> 
+> DSA will fail to create the switch instance. With the PHY mask set for the
+> slave MII bus, only the PHY for ports 0-4 will be scanned and the instance will
+> be successfully created.
+> 
+> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+
+Tested-by: Florian Fainelli <f.fainelli@gmail.com>
+Acked-by: Florian Fainelli <f.fainelli@gmail.com>
+
+> ---
+>  net/dsa/slave.c | 1 +
+>  1 file changed, 1 insertion(+)
+> 
+> diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+> index 515569f..589aafd 100644
+> --- a/net/dsa/slave.c
+> +++ b/net/dsa/slave.c
+> @@ -46,6 +46,7 @@ void dsa_slave_mii_bus_init(struct dsa_switch *ds)
+>  	snprintf(ds->slave_mii_bus->id, MII_BUS_ID_SIZE, "dsa-%d:%.2x",
+>  			ds->index, ds->pd->sw_addr);
+>  	ds->slave_mii_bus->parent = ds->master_dev;
+> +	ds->slave_mii_bus->phy_mask = ~ds->phys_mii_mask;
+>  }
+>  
+>  
+> 
+
+
+-- 
+Florian
