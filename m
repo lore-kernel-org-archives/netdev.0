@@ -1,99 +1,58 @@
-From: Tom Herbert <therbert@google.com>
+From: Jesse Gross <jesse@nicira.com>
 Subject: Re: [PATCH net-next 0/3] openvswitch: Add STT support.
-Date: Wed, 21 Jan 2015 13:54:52 -0800
-Message-ID: <CA+mtBx9B5aS9Jv6tpUJpmBkvQFnUqjcxcgTjbBHee8K0f1C9KQ@mail.gmail.com>
+Date: Wed, 21 Jan 2015 14:14:05 -0800
+Message-ID: <CAEP_g=_B5xTcfONUP4PTw91PdJKx_cN_+Qdd4F6300aXVyzLZg@mail.gmail.com>
 References: <1421785536-19793-1-git-send-email-pshelar@nicira.com>
-	<CA+mtBx90TipY9uJvW2uQfrCYL9JNM9Rk75HzdJPhE0qsdy8dnw@mail.gmail.com>
-	<CALnjE+rSXpPftiG4Vw3azkN2s2-Ey6ZcZr9Bv422pOdwrvU=tw@mail.gmail.com>
-	<CA+mtBx9yM+C8GeEHOGTHPVxNB3fJd7LQG0RaC3jywrO9_tQ58A@mail.gmail.com>
-	<CALnjE+po5gy7g8ftmiNcnrN_gRL9tzCRHNtn=fxUafFikKB1rg@mail.gmail.com>
-	<CA+mtBx-v5dvX-OPGeWJb6uwQGhJ5T6iewD83xJGqXb+Ggf+LQw@mail.gmail.com>
-	<CAEP_g=-3GXJfawPb4jevkZhqmzTttsO1Rv_2J6GwpG=PR_a-0g@mail.gmail.com>
+ <CA+mtBx90TipY9uJvW2uQfrCYL9JNM9Rk75HzdJPhE0qsdy8dnw@mail.gmail.com>
+ <CALnjE+rSXpPftiG4Vw3azkN2s2-Ey6ZcZr9Bv422pOdwrvU=tw@mail.gmail.com>
+ <CA+mtBx9yM+C8GeEHOGTHPVxNB3fJd7LQG0RaC3jywrO9_tQ58A@mail.gmail.com>
+ <CALnjE+po5gy7g8ftmiNcnrN_gRL9tzCRHNtn=fxUafFikKB1rg@mail.gmail.com>
+ <CA+mtBx-v5dvX-OPGeWJb6uwQGhJ5T6iewD83xJGqXb+Ggf+LQw@mail.gmail.com>
+ <CAEP_g=-3GXJfawPb4jevkZhqmzTttsO1Rv_2J6GwpG=PR_a-0g@mail.gmail.com> <CA+mtBx9B5aS9Jv6tpUJpmBkvQFnUqjcxcgTjbBHee8K0f1C9KQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Cc: Pravin Shelar <pshelar@nicira.com>,
 	David Miller <davem@davemloft.net>,
 	Linux Netdev List <netdev@vger.kernel.org>
-To: Jesse Gross <jesse@nicira.com>
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f181.google.com ([209.85.223.181]:53028 "EHLO
-	mail-ie0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753534AbbAUVyx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jan 2015 16:54:53 -0500
-Received: by mail-ie0-f181.google.com with SMTP id rp18so5531968iec.12
-        for <netdev@vger.kernel.org>; Wed, 21 Jan 2015 13:54:52 -0800 (PST)
-In-Reply-To: <CAEP_g=-3GXJfawPb4jevkZhqmzTttsO1Rv_2J6GwpG=PR_a-0g@mail.gmail.com>
+Received: from na3sys009aog129.obsmtp.com ([74.125.149.142]:41558 "HELO
+	na3sys009aog129.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751702AbbAUWO0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jan 2015 17:14:26 -0500
+Received: by mail-qg0-f49.google.com with SMTP id i50so13048473qgf.8
+        for <netdev@vger.kernel.org>; Wed, 21 Jan 2015 14:14:26 -0800 (PST)
+In-Reply-To: <CA+mtBx9B5aS9Jv6tpUJpmBkvQFnUqjcxcgTjbBHee8K0f1C9KQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 21, 2015 at 12:35 PM, Jesse Gross <jesse@nicira.com> wrote:
-> On Wed, Jan 21, 2015 at 11:45 AM, Tom Herbert <therbert@google.com> wrote:
->>> I used bare metal intel servers. All VXLAN tests were done using linux
->>> kernel device without any VMs. All STT tests are done using OVS bridge
->>> and STT port.
->>>
->> So right off the bat you're running the baseline differently than the
->> target. Anyway, I cannot replicate your numbers for VXLAN, I see much
->> better performance and this with pretty old servers and dumb NICs. I
->> suspect you might not have GSO/GRO properly enabled, but instead of
->> trying to debug your setup, I'd rather restate my request that you
->> provide a network interface to STT so we can do our own fair
->> comparison.
->
-> If I had to guess, I suspect the difference is that UDP RSS wasn't
-> enabled, since it doesn't come that way out of the box. Regardless,
-> you can clearly see a significant difference in single core
-> performance and CPU consumption.
->
-I'm not going to try to draw conclusions from data which is obviously
-biased and incomplete. If you want to move forward on this, then just
-provide network interface for STT so we can independently run our own
-comparisons against other encapsulations like we've been doing all
-along.
-
-> STT has been fairly well known in network virtualization circles for
-> the past few years and has some large deployments, so the reported
-> performance is not a fluke. I remember Pankaj from Microsoft also
-> mentioning to you that they weren't able to get performance to
-> reasonable level without TSO. Totally different environment obviously
-> but same reasoning.
->
->>>>> VXLAN:
->>>>> CPU
->>>>>   Client: 1.6
->>>>>   Server: 14.2
->>>>> Throughput: 5.6 Gbit/s
->>>>>
->>>>> VXLAN with rcsum:
->>>>> CPU
->>>>>   Client: 0.89
->>>>>   Server: 12.4
->>>>> Throughput: 5.8 Gbit/s
->>>>>
->>>>> STT:
->>>>> CPU
->>>>>   Client: 1.28
->>>>>   Server: 4.0
->>>>> Throughput: 9.5 Gbit/s
->>>>>
->>>> 9.5Gbps? Rounding error or is this 40Gbps or larger than 1500 byte MTU?
+On Wed, Jan 21, 2015 at 1:54 PM, Tom Herbert <therbert@google.com> wrote:
+> On Wed, Jan 21, 2015 at 12:35 PM, Jesse Gross <jesse@nicira.com> wrote:
+>> On Wed, Jan 21, 2015 at 11:45 AM, Tom Herbert <therbert@google.com> wrote:
+>>>> I used bare metal intel servers. All VXLAN tests were done using linux
+>>>> kernel device without any VMs. All STT tests are done using OVS bridge
+>>>> and STT port.
 >>>>
->>> Nope, its same as VXLAN setup, 10Gbps NIC with 1500MTU.
->>>
->> That would exceed that theoretical maximum for TCP over 10Gbps
->> Ethernet. How are you measuring throughput? How many bytes of protocol
->> headers are in STT case?
->
-> For large packet cases, STT actually has less header overhead compared
-> to the unencapsulated traffic stream. This is because for a group of
-> STT packets generated by a TSO burst from the guest there is only a
-> single copy of the inner header. Even though TCP headers are used for
-> encapsulation, there are no options - as opposed to the inner headers,
-> which typically contain timestamps. Over the course of the ~45 packets
-> that could be generated from a maximum sized transmission, this
-> results in negative encapsulation overhead.
->
-> I would recommend you take a look at the draft if you haven't already:
-> http://tools.ietf.org/html/draft-davie-stt-06
->
-> It is currently in the final stages of the RFC publication process.
+>>> So right off the bat you're running the baseline differently than the
+>>> target. Anyway, I cannot replicate your numbers for VXLAN, I see much
+>>> better performance and this with pretty old servers and dumb NICs. I
+>>> suspect you might not have GSO/GRO properly enabled, but instead of
+>>> trying to debug your setup, I'd rather restate my request that you
+>>> provide a network interface to STT so we can do our own fair
+>>> comparison.
+>>
+>> If I had to guess, I suspect the difference is that UDP RSS wasn't
+>> enabled, since it doesn't come that way out of the box. Regardless,
+>> you can clearly see a significant difference in single core
+>> performance and CPU consumption.
+>>
+> I'm not going to try to draw conclusions from data which is obviously
+> biased and incomplete. If you want to move forward on this, then just
+> provide network interface for STT so we can independently run our own
+> comparisons against other encapsulations like we've been doing all
+> along.
+
+You have the source code, so you are totally free to run whatever
+tests you like to draw your own conclusions. Personally, I find a more
+than doubling of performance in the environments that I have seen
+compelling. Your mileage may vary.
