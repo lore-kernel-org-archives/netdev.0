@@ -1,56 +1,136 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [PATCH net-next 1/2] udp: Do not require sock in udp_tunnel_xmit_skb
-Date: Wed, 21 Jan 2015 14:55:35 -0800
-Message-ID: <CA+mtBx8ON8+UtsGPtiDnqzKq8BH10-8_zU2_=CjiDnkqZo0okw@mail.gmail.com>
-References: <1421518700-22460-1-git-send-email-therbert@google.com>
-	<1421518700-22460-2-git-send-email-therbert@google.com>
-	<CAJ3xEMg0xJU4JShBLzs4g+zZVzH+uo79=aQGx4NwoQOv1h13Kw@mail.gmail.com>
-	<CA+mtBx8dihFYb1v_WeyukfV5hk==2=3_b_GNUJoxCuL8_GUf6A@mail.gmail.com>
-	<CAJ3xEMit2By8S=SwRGJKcwii9J3LKj29sX=tAbCC3bcAMDkr5Q@mail.gmail.com>
-	<CA+mtBx80QDU4FJfzh0WATTuaDGS4vaBv0H0r8AfmKjw0rk1f3A@mail.gmail.com>
-	<CAJ3xEMhX+2J5hRuxF9_694sqxsMwi0LuwiEAK1G2-ZBaOPgBTQ@mail.gmail.com>
-	<CA+mtBx_uwwDV+ogt6BeYH36qLztJLt75H9Z_r0BY5FjkixdBCw@mail.gmail.com>
-	<CAJ3xEMhMgXLAv5qPXgUTdiTBuBuYO-DPczSvXOjKHfD0WsAn-g@mail.gmail.com>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: pull-request: can-next 2015-21-01
+Date: Wed, 21 Jan 2015 23:58:19 +0100
+Message-ID: <54C02F0B.7030509@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>, Thomas Graf <tgraf@suug.ch>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Or Gerlitz <gerlitz.or@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f179.google.com ([209.85.223.179]:46829 "EHLO
-	mail-ie0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751546AbbAUWzg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jan 2015 17:55:36 -0500
-Received: by mail-ie0-f179.google.com with SMTP id x19so10806174ier.10
-        for <netdev@vger.kernel.org>; Wed, 21 Jan 2015 14:55:35 -0800 (PST)
-In-Reply-To: <CAJ3xEMhMgXLAv5qPXgUTdiTBuBuYO-DPczSvXOjKHfD0WsAn-g@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha512;
+ protocol="application/pgp-signature";
+ boundary="tfTP5rqOXrI9nHioJ6GrBvdisXneJ5Wcj"
+Cc: David Miller <davem@davemloft.net>,
+	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
+	"kernel@pengutronix.de" <kernel@pengutronix.de>
+To: netdev@vger.kernel.org
+Return-path: <linux-can-owner@vger.kernel.org>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jan 21, 2015 at 2:37 PM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
-> On Thu, Jan 22, 2015 at 12:24 AM, Tom Herbert <therbert@google.com> wrote:
->> On Wed, Jan 21, 2015 at 12:57 PM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
->>> On Wed, Jan 21, 2015 at 12:24 AM, Tom Herbert <therbert@google.com> wrote:
->>>> vxlan_xmit_one calls udp_flow_src_port to get a source port value
->>>> based on the encapsulated flow.
->>>
->>> OK, got it -- does a by-product of invoking udp_flow_src_port on the
->>> skb is having an hash mark on the skb which is based on the inner
->>> packet and can (is?) used for TX queue selection over MQ devices?
->>
->> Yes, that should be fine. The hash can be used all the way up to TCP
->> and save in the TCP socket as the rxhash for a connection. This was
->> RFS, XPS, etc. will work for TCP over an encapsulation.
->
->
-> so.. can be used or is already used today? Also we're talking on the
-> TX path, so I wasn't sure to follow on your mentioning of RFS...
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--tfTP5rqOXrI9nHioJ6GrBvdisXneJ5Wcj
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
 
-Yes. AFAIK all encapsulation implementations are single queue and
-otherwise transparent to the application layer for the hash and queue
-selection.
+Hello David,
 
-Is there a particular feature you're having trouble with?
+this is a pull request of 4 patches for net-next/master.
 
-Thanks,
-Tom
+Andri Yngvason contributes one patch to further consolidate the CAN
+state change handling. The next patch is by kbuild test robot/Fengguang
+Wu which fixes a coccinelle warning in the CAN infrastructure. The two
+last patches are by me, they remove a unused variable from the flexcan
+and at91_can driver.
+
+Marc
+
+---
+
+The following changes since commit 0c49087462e8587c12ecfeaf1dd46fdc0ddc45=
+32:
+
+  Merge tag 'mac80211-next-for-davem-2015-01-19' of git://git.kernel.org/=
+pub/scm/linux/kernel/git/jberg/mac80211-next (2015-01-19 16:22:19 -0500)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/mkl/linux-can-next.git ta=
+gs/linux-can-next-for-3.20-20150121
+
+for you to fetch changes up to ef186f25fdf00d92c6bd5d3301fc0ee44f17ca33:
+
+  can: at91_can: remove unused variable (2015-01-21 22:47:44 +0100)
+
+----------------------------------------------------------------
+linux-can-next-for-3.20-20150121
+
+----------------------------------------------------------------
+Andri Yngvason (1):
+      can: move can_stats.bus_off++ from can_bus_off into can_change_stat=
+e
+
+Marc Kleine-Budde (2):
+      can: flexcan: remove unused variable
+      can: at91_can: remove unused variable
+
+kbuild test robot (1):
+      can: dev: fix semicolon.cocci warnings
+
+ drivers/net/can/at91_can.c                  | 2 --
+ drivers/net/can/bfin_can.c                  | 1 +
+ drivers/net/can/c_can/c_can.c               | 2 +-
+ drivers/net/can/cc770/cc770.c               | 1 +
+ drivers/net/can/dev.c                       | 5 +++--
+ drivers/net/can/flexcan.c                   | 2 --
+ drivers/net/can/janz-ican3.c                | 1 +
+ drivers/net/can/m_can/m_can.c               | 1 +
+ drivers/net/can/pch_can.c                   | 1 +
+ drivers/net/can/rcar_can.c                  | 1 +
+ drivers/net/can/softing/softing_main.c      | 1 +
+ drivers/net/can/spi/mcp251x.c               | 1 +
+ drivers/net/can/ti_hecc.c                   | 1 +
+ drivers/net/can/usb/ems_usb.c               | 1 +
+ drivers/net/can/usb/esd_usb2.c              | 1 +
+ drivers/net/can/usb/peak_usb/pcan_usb.c     | 1 +
+ drivers/net/can/usb/peak_usb/pcan_usb_pro.c | 1 +
+ drivers/net/can/usb/usb_8dev.c              | 1 +
+ 18 files changed, 18 insertions(+), 7 deletions(-)
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+--tfTP5rqOXrI9nHioJ6GrBvdisXneJ5Wcj
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAEBCgAGBQJUwC8PAAoJECte4hHFiupU5EcP/R8JqDHCRUqapOi93VHFqnqO
+1k7zK4Ie7OqpVrc0N4YRdzChtYv5dXp+5Z9uZgcT4MTrdgeQvjs9UQZ8xsxRDaLF
+JPS4TV2MLHxzI6NRxyG/TwtN25EE+rt2HmabAW0pS3ykd8VZRjjW5MtPE30q2MF9
+yXgoXIxTMgXYjKja5yTAUha6vLVtdLXW1mkMl/OPz5Qv30iW/aAYuA6pBCIE9XEP
+gnyHXAhKnU0V/wFupOCTO186TwOmcNi08hahXOZ/hRK3MIr7hdhIr1ZSr0hGjdqv
+Oni8a/uIlXCRpBd0Nh34soahlfv/umUarWNIkMoD37L0c7yRLfEJ0MS2jV3X4Nne
+TzmWHkdU+z02jcPS5GsQnI/Gv67tSvMuPFrNd1DeJ6DX90eJBeWnb1t5AifOeHP6
+X5IhvBj0mWj0Amb+5pmrKGAncpOD/PqumE4uhou2Pu3mV9K6sVrLRYQ8RHruIrm5
+uJM8K6CIUZcUjDM3CRbRRipV37ZhnXcfwWrdgcV9ahjueL9gOfh2jsl1UHyXO/mI
+PyRJJIubN0FQbhKZL+B6G0PrtmTq777djalO6RpMf+ejr6M+YYDy/xO8VWEZO72G
+cRkqLT0MtjLhFhu1gtOFvOUSdOojQqMFhvEtZJZzDleFAGydZErC2xK9YbcR3/0z
+79tfsRRQT9aeoyuXvZJV
+=v9uA
+-----END PGP SIGNATURE-----
+
+--tfTP5rqOXrI9nHioJ6GrBvdisXneJ5Wcj--
