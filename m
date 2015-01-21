@@ -1,71 +1,64 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [PATCH net-next 0/3] openvswitch: Add STT support.
-Date: Wed, 21 Jan 2015 01:08:41 -0800
-Message-ID: <CALnjE+rSXpPftiG4Vw3azkN2s2-Ey6ZcZr9Bv422pOdwrvU=tw@mail.gmail.com>
-References: <1421785536-19793-1-git-send-email-pshelar@nicira.com>
-	<CA+mtBx90TipY9uJvW2uQfrCYL9JNM9Rk75HzdJPhE0qsdy8dnw@mail.gmail.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 3/3] netlink: Lock out table resizes while dumping
+ Netlink sockets
+Date: Wed, 21 Jan 2015 20:14:57 +1100
+Message-ID: <20150121091457.GA25289@gondor.apana.org.au>
+References: <cover.1421759056.git.tgraf@suug.ch>
+ <e164edeacaeffee43be64d4ed6a5b5e7e8923bd1.1421759056.git.tgraf@suug.ch>
+ <20150120143154.GR14883@acer.localdomain>
+ <20150120145551.GH20315@casper.infradead.org>
+ <20150120152149.GA3012@acer.localdomain>
+ <20150120153556.GJ20315@casper.infradead.org>
+ <20150121050819.GA23062@gondor.apana.org.au>
+ <20150121051555.GA23300@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Tom Herbert <therbert@google.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick McHardy <kaber@trash.net>, davem@davemloft.net,
+	paulmck@linux.vnet.ibm.com, ying.xue@windriver.com,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog105.obsmtp.com ([74.125.149.75]:36563 "HELO
-	na3sys009aog105.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752371AbbAUJIm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jan 2015 04:08:42 -0500
-Received: by mail-ie0-f179.google.com with SMTP id x19so7120734ier.10
-        for <netdev@vger.kernel.org>; Wed, 21 Jan 2015 01:08:41 -0800 (PST)
-In-Reply-To: <CA+mtBx90TipY9uJvW2uQfrCYL9JNM9Rk75HzdJPhE0qsdy8dnw@mail.gmail.com>
+Received: from helcar.apana.org.au ([209.40.204.226]:48408 "EHLO
+	helcar.apana.org.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751177AbbAUJPX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jan 2015 04:15:23 -0500
+Content-Disposition: inline
+In-Reply-To: <20150121051555.GA23300@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 20, 2015 at 3:06 PM, Tom Herbert <therbert@google.com> wrote:
-> On Tue, Jan 20, 2015 at 12:25 PM, Pravin B Shelar <pshelar@nicira.com> wrote:
->> Following patch series adds support for Stateless Transport
->> Tunneling protocol.
->> STT uses TCP segmentation offload available in most of NIC. On
->> packet xmit STT driver appends STT header along with TCP header
->> to the packet. For GSO packet GSO parameters are set according
->> to tunnel configuration and packet is handed over to networking
->> stack. This allows use of segmentation offload available in NICs
->>
->> Netperf unidirectional test gives ~9.4 Gbits/s performance on 10Gbit
->> NIC with 1500 byte MTU with two TCP streams.
->>
-> Having packets marked TCP which really aren't TCP is a rather scary
-> prospect to deploy in a real data center (TCP is kind of an important
-> protocol ;-) ). Can you give some more motivation on this, more data
-> that shows what the benefits are and how this compares to equivalent
-> encapsulation protocols that implement GRO and GSO.
->
-There are multi-year deployments of STT, So it is already in real data center.
-Biggest advantage is STT does not need new NIC with tunnel offload.
-Any NIC that supports TCP offload can be used to achieve better
-performance.
+On Wed, Jan 21, 2015 at 04:15:55PM +1100, Herbert Xu wrote:
+> On Wed, Jan 21, 2015 at 04:08:19PM +1100, Herbert Xu wrote:
+> > 
+> > OK I think I have a solution for you guys.  But first you'll need to
+> > wait for me to undo the nulls stuff so I can steal that bit which
+> > is central to my solution.
+> > 
+> > Essentially I need a bit to indicate an entry in the bucket chain
+> > should be skipped, either because it has just been removed or that
+> > it is a walker entry (see xfrm_state_walk).
+> > 
+> > The way it'll work then is exactly the same as xfrm_state_walk,
+> > except that the linked list is broken up into individual buckets.
+> > 
+> > Of course we'll still need to postpone resizes (and rehashes which
+> > is what my work is about) during a walk but I think that's a fair
+> > price to pay.
+> 
+> I failed to address the security aspect of this approach.  Obviously
+> this can only work if the only entites doing the walk are trusted.
+> Which means that the vast majority (if not all) hash table users
+> would be excluded, in particular, netlink.
 
-Following are numbers you asked for.
-Setup: net-next branch on server and client.
-netperf: TCP unidirectional tests with 5 streams. Numbers are averaged
-over 3 runs of 50 sec.
+OK maybe we can get around this.  So we will postpone the resize
+or rehash when a walk is in place, however, when we hit a hard
+limit, i.e., when insert would otherwise fail, then we do the
+rehash regardless of any outstanding walks.  The walks will just
+behave erratically or we could force them to start from scratch
+again.
 
-VXLAN:
-CPU
-  Client: 1.6
-  Server: 14.2
-Throughput: 5.6 Gbit/s
-
-VXLAN with rcsum:
-CPU
-  Client: 0.89
-  Server: 12.4
-Throughput: 5.8 Gbit/s
-
-STT:
-CPU
-  Client: 1.28
-  Server: 4.0
-Throughput: 9.5 Gbit/s
-
-Thanks,
-Pravin.
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
