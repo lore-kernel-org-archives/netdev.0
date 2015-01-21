@@ -1,52 +1,68 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: Re: [PATCH] net: dsa: set parent of hwmon device
-Date: Tue, 20 Jan 2015 19:50:54 -0800
-Message-ID: <54BF221E.8000409@roeck-us.net>
-References: <1421799212-2028-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 3/3] netlink: Lock out table resizes while dumping
+ Netlink sockets
+Date: Wed, 21 Jan 2015 16:08:19 +1100
+Message-ID: <20150121050819.GA23062@gondor.apana.org.au>
+References: <cover.1421759056.git.tgraf@suug.ch>
+ <e164edeacaeffee43be64d4ed6a5b5e7e8923bd1.1421759056.git.tgraf@suug.ch>
+ <20150120143154.GR14883@acer.localdomain>
+ <20150120145551.GH20315@casper.infradead.org>
+ <20150120152149.GA3012@acer.localdomain>
+ <20150120153556.GJ20315@casper.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S . Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1421799212-2028-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick McHardy <kaber@trash.net>, davem@davemloft.net,
+	paulmck@linux.vnet.ibm.com, ying.xue@windriver.com,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: Thomas Graf <tgraf@suug.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from helcar.apana.org.au ([209.40.204.226]:33368 "EHLO
+	helcar.apana.org.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750729AbbAUFIw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jan 2015 00:08:52 -0500
+Content-Disposition: inline
+In-Reply-To: <20150120153556.GJ20315@casper.infradead.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/20/2015 04:13 PM, Vivien Didelot wrote:
-> Set the dsa device as the parent of the hwmon device, in order to link
-> the hwmon subsystem under the corresponding /sys/devices/platform/dsa.X/
-> sysfs directory.
->
-> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-> ---
->   net/dsa/dsa.c | 2 +-
->   1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-> index 3731714..363102a 100644
-> --- a/net/dsa/dsa.c
-> +++ b/net/dsa/dsa.c
-> @@ -347,7 +347,7 @@ dsa_switch_setup(struct dsa_switch_tree *dst, int index,
->   		hname[j] = '\0';
->   		scnprintf(ds->hwmon_name, sizeof(ds->hwmon_name), "%s_dsa%d",
->   			  hname, index);
-> -		ds->hwmon_dev = hwmon_device_register_with_groups(NULL,
-> +		ds->hwmon_dev = hwmon_device_register_with_groups(parent,
->   					ds->hwmon_name, ds, dsa_hwmon_groups);
->   		if (IS_ERR(ds->hwmon_dev))
->   			ds->hwmon_dev = NULL;
->
+On Tue, Jan 20, 2015 at 03:35:56PM +0000, Thomas Graf wrote:
+> On 01/20/15 at 03:21pm, Patrick McHardy wrote:
+> > I think its preferrable to make the need to handle NETLINK_F_DUMP_INTR
+> > as noticable as possible and not hide it. Silent failure is the worst
+> > kind of failure.
+> 
+> I agree to that. The point here is to avoid unnecessary use of
+> NETLINK_F_DUMP_INTR if all entries fit into a single message buffer.
 
-Looking into my old e-mail, turns out we did not add the parent device because
-it affected the output of the "sensors" command, and we wanted the device
-to be handled as 'virtual device' (which implies no parent). That was an explicit
-part of the patch set (v2 of 'net: dsa: Add support for reporting switch chip
-temperatures'), compared to v1, which did set the parent device.
+OK I think I have a solution for you guys.  But first you'll need to
+wait for me to undo the nulls stuff so I can steal that bit which
+is central to my solution.
 
-I would suggest to keep the code as is.
+Essentially I need a bit to indicate an entry in the bucket chain
+should be skipped, either because it has just been removed or that
+it is a walker entry (see xfrm_state_walk).
 
-Thanks,
-Guenter
+The way it'll work then is exactly the same as xfrm_state_walk,
+except that the linked list is broken up into individual buckets.
+
+Of course we'll still need to postpone resizes (and rehashes which
+is what my work is about) during a walk but I think that's a fair
+price to pay.
+
+This also means handling insertion failures but I think that
+should be acceptable if we make it based on a configurable maximum
+chain length along with forced resize/rehash where possible.
+
+Note that this can be made optional, i.e., if the user can afford
+memory to do their own walking (e.g., xfrm_state), then none of
+this needs to happen and it'll just work as it does now.  IOW if
+you don't use this special rhashtable walk function then you're
+not affected.
+
+Thoughts?
+
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
