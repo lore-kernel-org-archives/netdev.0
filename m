@@ -1,56 +1,79 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH 7/9] rhashtable: Per bucket locks & deferred
- expansion/shrinking
-Date: Tue, 20 Jan 2015 21:36:20 -0800
-Message-ID: <20150121053620.GZ9719@linux.vnet.ibm.com>
-References: <063D6719AE5E284EB5DD2968C1650D6D1CACADAF@AcuExch.aculab.com>
- <20150116165302.GE15052@casper.infradead.org>
- <20150116183626.GS30132@acer.localdomain>
- <20150116191831.GA26730@casper.infradead.org>
- <20150116193557.GU30132@acer.localdomain>
- <20150116204644.GA2232@salvia>
- <20150119090121.GG9719@linux.vnet.ibm.com>
- <20150121052333.GA23382@gondor.apana.org.au>
- <20150121052907.GY9719@linux.vnet.ibm.com>
- <20150121053025.GA23481@gondor.apana.org.au>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH] net: dsa: set parent of hwmon device
+Date: Tue, 20 Jan 2015 21:58:02 -0800
+Message-ID: <CAGVrzcawAF1=RPAJ+0O3B+PA7sDkstTjVjDQL_8C8a8kHL7CoA@mail.gmail.com>
+References: <1421799212-2028-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+ <54BF221E.8000409@roeck-us.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>, Thomas Graf <tgraf@suug.ch>,
-	David Laight <David.Laight@ACULAB.COM>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"edumazet@google.com" <edumazet@google.com>,
-	"john.r.fastabend@intel.com" <john.r.fastabend@intel.com>,
-	"josh@joshtriplett.org" <josh@joshtriplett.org>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e36.co.us.ibm.com ([32.97.110.154]:49399 "EHLO
-	e36.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750970AbbAUFg1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jan 2015 00:36:27 -0500
-Received: from /spool/local
-	by e36.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <paulmck@linux.vnet.ibm.com>;
-	Tue, 20 Jan 2015 22:36:27 -0700
-Content-Disposition: inline
-In-Reply-To: <20150121053025.GA23481@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+	netdev <netdev@vger.kernel.org>,
+	"David S . Miller" <davem@davemloft.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	kernel@savoirfairelinux.com
+To: Guenter Roeck <linux@roeck-us.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <54BF221E.8000409@roeck-us.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jan 21, 2015 at 04:30:25PM +1100, Herbert Xu wrote:
-> On Tue, Jan 20, 2015 at 09:29:07PM -0800, Paul E. McKenney wrote:
-> > 
-> > Well, you -could- batch them up, so that a single snapshot covered
-> > several users, and once that set was done and memory reclaimed, a second
-> > snapshot could cover any additional users that requested dumps/walks in
-> > the meantime.  Or are users allowed to walk arbitrarily slowly through
-> > the table?
-> 
-> Yes they can.  You could CTRL-Z a dumper quite easily.
+2015-01-20 19:50 GMT-08:00 Guenter Roeck <linux@roeck-us.net>:
+> On 01/20/2015 04:13 PM, Vivien Didelot wrote:
+>>
+>> Set the dsa device as the parent of the hwmon device, in order to link
+>> the hwmon subsystem under the corresponding /sys/devices/platform/dsa.X/
+>> sysfs directory.
+>>
+>> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+>> ---
+>>   net/dsa/dsa.c | 2 +-
+>>   1 file changed, 1 insertion(+), 1 deletion(-)
+>>
+>> diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
+>> index 3731714..363102a 100644
+>> --- a/net/dsa/dsa.c
+>> +++ b/net/dsa/dsa.c
+>> @@ -347,7 +347,7 @@ dsa_switch_setup(struct dsa_switch_tree *dst, int
+>> index,
+>>                 hname[j] = '\0';
+>>                 scnprintf(ds->hwmon_name, sizeof(ds->hwmon_name),
+>> "%s_dsa%d",
+>>                           hname, index);
+>> -               ds->hwmon_dev = hwmon_device_register_with_groups(NULL,
+>> +               ds->hwmon_dev = hwmon_device_register_with_groups(parent,
+>>                                         ds->hwmon_name, ds,
+>> dsa_hwmon_groups);
+>>                 if (IS_ERR(ds->hwmon_dev))
+>>                         ds->hwmon_dev = NULL;
+>>
+>
+> Looking into my old e-mail, turns out we did not add the parent device
+> because
+> it affected the output of the "sensors" command, and we wanted the device
+> to be handled as 'virtual device' (which implies no parent). That was an
+> explicit
+> part of the patch set (v2 of 'net: dsa: Add support for reporting switch
+> chip
+> temperatures'), compared to v1, which did set the parent device.
+>
+> I would suggest to keep the code as is.
 
-OK, never mind, then!  ;-)
+Maybe follow-up with a comment adding that above the call to
+hwmon_device_register_with_groups()? I suspect the intent is clear if
+you are deep into hwmon devices, but not necessarily for the reader ;)
 
-							Thanx, Paul
+>
+> Thanks,
+> Guenter
+>
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
+
+
+
+-- 
+Florian
