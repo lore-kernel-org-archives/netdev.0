@@ -1,30 +1,37 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 1/3] skbuff: Add skb_list_linearize()
-Date: Tue, 20 Jan 2015 15:51:20 -0800
-Message-ID: <1421797880.4832.13.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1421785543-19823-1-git-send-email-pshelar@nicira.com>
-	 <1421790195.4832.12.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CALnjE+pDdvcSdQV83J_DLJwmcM8OsC94xDnH2mSSsxDCNnsztg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Pravin Shelar <pshelar@nicira.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f181.google.com ([209.85.213.181]:56211 "EHLO
-	mail-ig0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751602AbbATXvX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jan 2015 18:51:23 -0500
-Received: by mail-ig0-f181.google.com with SMTP id hn18so5921555igb.2
-        for <netdev@vger.kernel.org>; Tue, 20 Jan 2015 15:51:22 -0800 (PST)
-In-Reply-To: <CALnjE+pDdvcSdQV83J_DLJwmcM8OsC94xDnH2mSSsxDCNnsztg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH] net: dsa: set parent of hwmon device
+Date: Tue, 20 Jan 2015 19:13:31 -0500
+Message-ID: <1421799212-2028-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+	"David S . Miller" <davem@davemloft.net>,
+	Guenter Roeck <linux@roeck-us.net>,
+	linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2015-01-20 at 14:46 -0800, Pravin Shelar wrote:
+Set the dsa device as the parent of the hwmon device, in order to link
+the hwmon subsystem under the corresponding /sys/devices/platform/dsa.X/
+sysfs directory.
 
-> In current use-case it is never called for skb which is tied to
-> socket. But I agree it need to be fixed. I can call skb_orphan() to
-> fix it.
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+---
+ net/dsa/dsa.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-I would do nothing at all, like skb_linearize()
+diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
+index 3731714..363102a 100644
+--- a/net/dsa/dsa.c
++++ b/net/dsa/dsa.c
+@@ -347,7 +347,7 @@ dsa_switch_setup(struct dsa_switch_tree *dst, int index,
+ 		hname[j] = '\0';
+ 		scnprintf(ds->hwmon_name, sizeof(ds->hwmon_name), "%s_dsa%d",
+ 			  hname, index);
+-		ds->hwmon_dev = hwmon_device_register_with_groups(NULL,
++		ds->hwmon_dev = hwmon_device_register_with_groups(parent,
+ 					ds->hwmon_name, ds, dsa_hwmon_groups);
+ 		if (IS_ERR(ds->hwmon_dev))
+ 			ds->hwmon_dev = NULL;
+-- 
+2.2.2
