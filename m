@@ -1,57 +1,66 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch] bridge: simplify br_getlink() a bit
-Date: Wed, 21 Jan 2015 12:22:35 +0300
-Message-ID: <20150121092235.GA19206@mwanda>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: [PATCH 1/2] if_link: Add VF multicast promiscuous
+	mode control
+Date: Wed, 21 Jan 2015 10:26:15 +0100
+Message-ID: <87iog0scw8.fsf@nemi.mork.no>
+References: <7F861DC0615E0C47A872E6F3C5FCDDBD05E0734E@BPXM14GP.gisp.nec.co.jp>
+	<874mrlu18e.fsf@nemi.mork.no>
+	<7F861DC0615E0C47A872E6F3C5FCDDBD05E07B7C@BPXM14GP.gisp.nec.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	kernel-janitors@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>, "Choi,
+	Sy Jong" <sy.jong.choi@intel.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Hayato Momma <h-momma@ce.jp.nec.com>
+To: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <7F861DC0615E0C47A872E6F3C5FCDDBD05E07B7C@BPXM14GP.gisp.nec.co.jp>
+	(Hiroshi Shimamoto's message of "Tue, 20 Jan 2015 23:40:05 +0000")
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Static checkers complain that we should maybe set "ret" before we do the
-"goto out;".  They interpret the NULL return from br_port_get_rtnl() as
-a failure and forgetting to set the error code is a common bug in this
-situation.
-
-The code is confusing but it's actually correct.  We are returning zero
-deliberately.  Let's re-write it a bit to be more clear.
-
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-
-diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
-index 528cf27..3875ea51 100644
---- a/net/bridge/br_netlink.c
-+++ b/net/bridge/br_netlink.c
-@@ -311,17 +311,14 @@ errout:
- int br_getlink(struct sk_buff *skb, u32 pid, u32 seq,
- 	       struct net_device *dev, u32 filter_mask)
- {
--	int err = 0;
- 	struct net_bridge_port *port = br_port_get_rtnl(dev);
- 
- 	if (!port && !(filter_mask & RTEXT_FILTER_BRVLAN) &&
- 	    !(filter_mask & RTEXT_FILTER_BRVLAN_COMPRESSED))
--		goto out;
-+		return 0;
- 
--	err = br_fill_ifinfo(skb, port, pid, seq, RTM_NEWLINK, NLM_F_MULTI,
--			     filter_mask, dev);
--out:
--	return err;
-+	return br_fill_ifinfo(skb, port, pid, seq, RTM_NEWLINK, NLM_F_MULTI,
-+			      filter_mask, dev);
- }
- 
- static int br_vlan_info(struct net_bridge *br, struct net_bridge_port *p,
+SGlyb3NoaSBTaGltYW1vdG8gPGgtc2hpbWFtb3RvQGN0LmpwLm5lYy5jb20+IHdyaXRlczoKCj4+
+IFdoeSBjYW4ndCB0aGUgaXhnYmV2ZiBkcml2ZXIganVzdCBhdXRvbWF0aWNhbGx5IHNpZ25hbCB0
+aGUgaXhnYmUgZHJpdmVyCj4+IHRvIGVuYWJsZSBtdWx0aWNhc3QgcHJvbWlzY3VvdXMgbW9kZSB3
+aGVuZXZlciB0aGUgbGlzdCBncm93cyBwYXN0IHRoZQo+PiBsaW1pdD8KPgo+IEkgaGFkIHN1Ym1p
+dHRlZCBhIHBhdGNoIHRvIGNoYW5nZSBpeGdiZSBhbmQgaXhnYmV2ZiBkcml2ZXIgZm9yIHRoaXMg
+aXNzdWUuCj4gaHR0cHM6Ly9sa21sLm9yZy9sa21sLzIwMTQvMTEvMjcvMjY5Cj4KPiBUaGUgcHJl
+dmlvdXMgcGF0Y2ggaW50cm9kdWNlcyBBUEkgYmV0d2VlbiBpeGdiZSBhbmQgaXhnYmV2ZiBkcml2
+ZXIgdG8KPiBlbmFibGUgbXVsdGljYXN0IHByb21pc2N1b3VzIG1vZGUsIGFuZCBpeGdiZXZmIGVu
+YWJsZXMgaXQgYXV0b21hdGljYWxseQo+IGlmIHRoZSBudW1iZXIgb2YgYWRkcmVzc2VzIGlzIG92
+ZXIgdGhhbiAzMC4KPgo+IEkgZ290IHNvbWUgY29tbWVudCBhbmQgSSB3b3VsZCBsaWtlIHRvIGNs
+YXJpZnkgdGhlIHBvaW50LCBidXQgdGhlcmUgd2FzIG5vCj4gYW5zd2VyLgo+IFRoYXQncyB0aGUg
+cmVhc29uIEkgc3VibWl0dGVkIHRoaXMgcGF0Y2guCgpUaGFua3MuICBZZXMsIG5vdyBJIHVuZGVy
+c3RhbmQgd2h5IHlvdSB3YW50IHRvIGhhdmUgYSBwb2xpY3kga25vYi4KCkkgc3RpbGwgdGhpbmsg
+dGhlIHBvbGljeSBjb3VsZCBzZWxlY3QgYmV0d2VlbiAiYXV0b21hdGljIi8iZGlzYWxsb3dlZCIK
+aW5zdGVhZCBvZiAiZW5hYmxlZCIvImRpc2FibGVkIiwgYnV0IHRoYXQncyBhIG1pbm9yIGRldGFp
+bC4gTGlrZXdpc2UgaXMKdGhlIGFjdHVhbCBpbXBsZW1lbnRpb24gb2YgImF1dG9tYXRpYyIuICBJ
+IHRoaW5rIHlvdSBjb3VsZCBkbyB0aGF0CndpdGhpbiB0aGUgY3VycmVudCBWRi1QRiBwcm90b2Nv
+bCBieSBvdmVybG9hZGluZyB0aGUgTUMgYWRkcmVzcyAiY291bnQiLgoKQnV0IGEgbW9yZSBnZW5l
+cmljIHF1ZXN0aW9uIGZvciBuZXRkZXYgaXM6IERvZXMgdGhpcyBWRiBwb2xpY3kgQVBJCnJlYWxs
+eSBzY2FsZT8KCkhvdyBtYW55IGRpZmZlcmVudCBWRiBwb2xpY3kgdHVuYWJsZXMgY2FuIHlvdSBp
+bWFnaW5nIGFkZCB1cCBvdmVyIGEgZmV3CnllYXJzIGFuZCBkcml2ZXJzLiAgQ3VycmVudGx5IGVh
+Y2ggcG9saWN5IGZsYWcgcmVxdWlyZSBpdHMgb3duIG5kbyBob29rLgpJIHByb2JhYmx5IGRvbid0
+IGhhdmUgbXVjaCB0byBzYXkgaGVyZSwgYnV0IElNSE8gdGhpcyBzY2hlbWUgaGFkIGFscmVhZHkK
+ZmFpbGVkIHdoZW4gLm5kb19zZXRfdmZfc3Bvb2ZjaGsgd2FzIGFkZGVkLi4KCgpCasO4cm4KCi0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLQpOZXcgWWVhci4gTmV3IExvY2F0aW9uLiBOZXcgQmVuZWZpdHMu
+IE5ldyBEYXRhIENlbnRlciBpbiBBc2hidXJuLCBWQS4KR2lnZU5FVCBpcyBvZmZlcmluZyBhIGZy
+ZWUgbW9udGggb2Ygc2VydmljZSB3aXRoIGEgbmV3IHNlcnZlciBpbiBBc2hidXJuLgpDaG9vc2Ug
+ZnJvbSAyIGhpZ2ggcGVyZm9ybWluZyBjb25maWdzLCBib3RoIHdpdGggMTAwVEIgb2YgYmFuZHdp
+ZHRoLgpIaWdoZXIgcmVkdW5kYW5jeS5Mb3dlciBsYXRlbmN5LkluY3JlYXNlZCBjYXBhY2l0eS5D
+b21wbGV0ZWx5IGNvbXBsaWFudC4KaHR0cDovL3Auc2YubmV0L3NmdS9naWdlbmV0Cl9fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCkUxMDAwLWRldmVsIG1haWxp
+bmcgbGlzdApFMTAwMC1kZXZlbEBsaXN0cy5zb3VyY2Vmb3JnZS5uZXQKaHR0cHM6Ly9saXN0cy5z
+b3VyY2Vmb3JnZS5uZXQvbGlzdHMvbGlzdGluZm8vZTEwMDAtZGV2ZWwKVG8gbGVhcm4gbW9yZSBh
+Ym91dCBJbnRlbCYjMTc0OyBFdGhlcm5ldCwgdmlzaXQgaHR0cDovL2NvbW11bml0aWVzLmludGVs
+LmNvbS9jb21tdW5pdHkvd2lyZWQK
