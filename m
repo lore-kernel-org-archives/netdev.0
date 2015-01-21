@@ -1,75 +1,61 @@
-From: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
-Subject: Re: [PATCH 1/2] if_link: Add VF multicast
-	promiscuous	mode control
-Date: Wed, 21 Jan 2015 12:18:23 +0000
-Message-ID: <7F861DC0615E0C47A872E6F3C5FCDDBD05E090FE@BPXM14GP.gisp.nec.co.jp>
-References: <7F861DC0615E0C47A872E6F3C5FCDDBD05E0734E@BPXM14GP.gisp.nec.co.jp>
-	<874mrlu18e.fsf@nemi.mork.no>
-	<7F861DC0615E0C47A872E6F3C5FCDDBD05E07B7C@BPXM14GP.gisp.nec.co.jp>
-	<F6FB0E698C9B3143BDF729DF222866469129B7F5@ORSMSX110.amr.corp.intel.com>
-	<7F861DC0615E0C47A872E6F3C5FCDDBD05E07F09@BPXM14GP.gisp.nec.co.jp>
-	<F6FB0E698C9B3143BDF729DF222866469129B844@ORSMSX110.amr.corp.intel.com>
-	<7F861DC0615E0C47A872E6F3C5FCDDBD05E08FF6@BPXM14GP.gisp.nec.co.jp>
-	<063D6719AE5E284EB5DD2968C1650D6D1CAD01D6@AcuExch.aculab.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH v5 4/5] can: kvaser_usb: Retry the first bulk transfer
+ on -ETIMEDOUT
+Date: Wed, 21 Jan 2015 15:24:46 +0300
+Message-ID: <54BF9A8E.7000202@cogentembedded.com>
+References: <20141223154654.GB6460@vivalin-002> <20150120214409.GA16828@linux> <20150120214537.GB16828@linux> <20150120214709.GC16828@linux> <20150120214834.GD16828@linux>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>, "Choi,
-	Sy Jong" <sy.jong.choi@intel.com>, Hayato Momma <h-momma@ce.jp.nec.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: David Laight <David.Laight@ACULAB.COM>,
-	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
-	=?utf-8?B?QmrDuHJuIE1vcms=?= <bjorn@mork.no>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CAD01D6@AcuExch.aculab.com>
-Content-Language: ja-JP
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Cc: Andri Yngvason <andri.yngvason@marel.com>,
+	Linux-CAN <linux-can@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: "Ahmed S. Darwish" <darwish.07@gmail.com>,
+	Olivier Sobrie <olivier@sobrie.be>,
+	Oliver Hartkopp <socketcan@hartkopp.net>,
+	Wolfgang Grandegger <wg@grandegger.com>,
+	Marc Kleine-Budde <mkl@pengutronix.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150120214834.GD16828@linux>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> Subject: RE: [E1000-devel] [PATCH 1/2] if_link: Add VF multicast promiscuous mode control
-> 
-> From: Hiroshi Shimamoto
-> > My concern is what is the real issue that VF multicast promiscuous mode can cause.
-> > I think there is the 4k entries to filter multicast address, and the current ixgbe/ixgbevf
-> > can turn all bits on from VM. That is almost same as enabling multicast promiscuous mode.
-> > I mean that we can receive all multicast addresses by an onerous operation in untrusted VM.
-> > I think we should clarify what is real security issue in this context.
-> 
-> If you are worried about passing un-enabled multicasts to users then
-> what about doing a software hash of received multicasts and checking
-> against an actual list of multicasts enabled for that hash entry.
-> Under normal conditions there is likely to be only a single address to check.
-> 
-> It may (or may not) be best to use the same hash as any hashing hardware
-> filter uses.
+Hello.
 
-thanks for the comment. But I don't think that is the point.
+On 1/21/2015 12:48 AM, Ahmed S. Darwish wrote:
 
-I guess, introducing VF multicast promiscuous mode seems to add new privilege
-to peek every multicast packet in VM and that doesn't look good.
-On the other hand, I think that there has been the same privilege in the current
-ixgbe/ixgbevf implementation already. Or I'm reading the code wrongly.
-I'd like to clarify what is the issue of allowing to receive all multicast packets.
+> From: Ahmed S. Darwish <ahmed.darwish@valeo.com>
 
-thanks,
-Hiroshi
+> On some x86 laptops, plugging a Kvaser device again after an
+> unplug makes the firmware always ignore the very first command.
+> For such a case, provide some room for retries instead of
+> completly exiting the driver init code.
 
-------------------------------------------------------------------------------
-New Year. New Location. New Benefits. New Data Center in Ashburn, VA.
-GigeNET is offering a free month of service with a new server in Ashburn.
-Choose from 2 high performing configs, both with 100TB of bandwidth.
-Higher redundancy.Lower latency.Increased capacity.Completely compliant.
-http://p.sf.net/sfu/gigenet
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+    Completely.
+
+> Signed-off-by: Ahmed S. Darwish <ahmed.darwish@valeo.com>
+> ---
+>   drivers/net/can/usb/kvaser_usb.c | 12 ++++++++++--
+>   1 file changed, 10 insertions(+), 2 deletions(-)
+
+> diff --git a/drivers/net/can/usb/kvaser_usb.c b/drivers/net/can/usb/kvaser_usb.c
+> index 640b0eb..068e76c 100644
+> --- a/drivers/net/can/usb/kvaser_usb.c
+> +++ b/drivers/net/can/usb/kvaser_usb.c
+[...]
+> @@ -1632,7 +1632,15 @@ static int kvaser_usb_probe(struct usb_interface *intf,
+>
+>   	usb_set_intfdata(intf, dev);
+>
+> -	err = kvaser_usb_get_software_info(dev);
+> +	/* On some x86 laptops, plugging a Kvaser device again after
+> +	 * an unplug makes the firmware always ignore the very first
+> +	 * command. For such a case, provide some room for retries
+> +	 * instead of completly exiting the driver.
+
+    Completely.
+
+[...]
+
+WBR, Sergei
