@@ -1,112 +1,91 @@
-From: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Subject: Re: [PATCH 2/2] net: mv643xx_eth: Fix highmem support in non-TSO
- egress path
-Date: Wed, 21 Jan 2015 17:40:49 +0000
-Message-ID: <20150121174049.GW26493@n2100.arm.linux.org.uk>
-References: <1421844850-30886-1-git-send-email-ezequiel.garcia@free-electrons.com>
- <1421844850-30886-3-git-send-email-ezequiel.garcia@free-electrons.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	B38611@freescale.com, fabio.estevam@freescale.com
-To: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
+From: Beniamino Galvani <b.galvani@gmail.com>
+Subject: [PATCH v2] net: stmmac: add BQL support
+Date: Wed, 21 Jan 2015 19:07:27 +0100
+Message-ID: <1421863647-20048-1-git-send-email-b.galvani@gmail.com>
+Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Dave Taht <dave.taht@gmail.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Beniamino Galvani <b.galvani@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pandora.arm.linux.org.uk ([78.32.30.218]:44217 "EHLO
-	pandora.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751713AbbAURk5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jan 2015 12:40:57 -0500
-Content-Disposition: inline
-In-Reply-To: <1421844850-30886-3-git-send-email-ezequiel.garcia@free-electrons.com>
+Received: from mail-wi0-f177.google.com ([209.85.212.177]:37915 "EHLO
+	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752024AbbAUSIY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jan 2015 13:08:24 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 21, 2015 at 09:54:10AM -0300, Ezequiel Garcia wrote:
-> Commit 69ad0dd7af22b61d9e0e68e56b6290121618b0fb
-> Author: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
-> Date:   Mon May 19 13:59:59 2014 -0300
-> 
->     net: mv643xx_eth: Use dma_map_single() to map the skb fragments
-> 
-> caused a nasty regression by removing the support for highmem skb
-> fragments. By using page_address() to get the address of a fragment's
-> page, we are assuming a lowmem page. However, such assumption is incorrect,
-> as fragments can be in highmem pages, resulting in very nasty issues.
-> 
-> This commit fixes this by using the skb_frag_dma_map() helper,
-> which takes care of mapping the skb fragment properly.
+Add support for Byte Queue Limits to the STMicro MAC driver.
 
-This seems fine, so:
+Tested on a Amlogic S802 quad Cortex-A9 board, where the use of BQL
+decreases the latency of a high priority ping from ~12ms to ~1ms when
+the 100Mbit link is saturated by 20 TCP streams.
 
-> Fixes: 69ad0dd7af22 ("net: mv643xx_eth: Use dma_map_single() to map the skb fragments")
-> Reported-by: Russell King <linux@arm.linux.org.uk>
+Signed-off-by: Beniamino Galvani <b.galvani@gmail.com>
+---
+Changes since v1:
+ - don't access skb->len after the start of DMA transmission in
+   stmmac_xmit(), to avoid potential use after free in case tx_lock is
+   removed in the future
 
-Reported-by: Russell King <rmk+kernel@arm.linux.org.uk>
-Tested-by: Russell King <rmk+kernel@arm.linux.org.uk>
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 9 +++++++++
+ 1 file changed, 9 insertions(+)
 
-Thanks.
-
-> Signed-off-by: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
-> ---
->  drivers/net/ethernet/marvell/mv643xx_eth.c | 26 +++++++++++++++++++-------
->  1 file changed, 19 insertions(+), 7 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/marvell/mv643xx_eth.c b/drivers/net/ethernet/marvell/mv643xx_eth.c
-> index a62fc38..0c77f0e 100644
-> --- a/drivers/net/ethernet/marvell/mv643xx_eth.c
-> +++ b/drivers/net/ethernet/marvell/mv643xx_eth.c
-> @@ -879,10 +879,8 @@ static void txq_submit_frag_skb(struct tx_queue *txq, struct sk_buff *skb)
->  		skb_frag_t *this_frag;
->  		int tx_index;
->  		struct tx_desc *desc;
-> -		void *addr;
->  
->  		this_frag = &skb_shinfo(skb)->frags[frag];
-> -		addr = page_address(this_frag->page.p) + this_frag->page_offset;
->  		tx_index = txq->tx_curr_desc++;
->  		if (txq->tx_curr_desc == txq->tx_ring_size)
->  			txq->tx_curr_desc = 0;
-> @@ -902,8 +900,9 @@ static void txq_submit_frag_skb(struct tx_queue *txq, struct sk_buff *skb)
->  
->  		desc->l4i_chk = 0;
->  		desc->byte_cnt = skb_frag_size(this_frag);
-> -		desc->buf_ptr = dma_map_single(mp->dev->dev.parent, addr,
-> -					       desc->byte_cnt, DMA_TO_DEVICE);
-> +		desc->buf_ptr = skb_frag_dma_map(mp->dev->dev.parent,
-> +						 this_frag, 0, desc->byte_cnt,
-> +						 DMA_TO_DEVICE);
->  	}
->  }
->  
-> @@ -1065,9 +1064,22 @@ static int txq_reclaim(struct tx_queue *txq, int budget, int force)
->  		reclaimed++;
->  		txq->tx_desc_count--;
->  
-> -		if (!IS_TSO_HEADER(txq, desc->buf_ptr))
-> -			dma_unmap_single(mp->dev->dev.parent, desc->buf_ptr,
-> -					 desc->byte_cnt, DMA_TO_DEVICE);
-> +		if (!IS_TSO_HEADER(txq, desc->buf_ptr)) {
-> +
-> +			/* The first descriptor is either a TSO header or
-> +			 * the linear part of the skb.
-> +			 */
-> +			if (desc->cmd_sts & TX_FIRST_DESC)
-> +				dma_unmap_single(mp->dev->dev.parent,
-> +						 desc->buf_ptr,
-> +						 desc->byte_cnt,
-> +						 DMA_TO_DEVICE);
-> +			else
-> +				dma_unmap_page(mp->dev->dev.parent,
-> +					       desc->buf_ptr,
-> +					       desc->byte_cnt,
-> +					       DMA_TO_DEVICE);
-> +		}
->  
->  		if (cmd_sts & TX_ENABLE_INTERRUPT) {
->  			struct sk_buff *skb = __skb_dequeue(&txq->tx_skb);
-> -- 
-> 2.2.1
-> 
-
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index 118a427..1d74313 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -1097,6 +1097,7 @@ static int init_dma_desc_rings(struct net_device *dev, gfp_t flags)
+ 
+ 	priv->dirty_tx = 0;
+ 	priv->cur_tx = 0;
++	netdev_reset_queue(priv->dev);
+ 
+ 	stmmac_clear_descriptors(priv);
+ 
+@@ -1300,6 +1301,7 @@ static void stmmac_dma_operation_mode(struct stmmac_priv *priv)
+ static void stmmac_tx_clean(struct stmmac_priv *priv)
+ {
+ 	unsigned int txsize = priv->dma_tx_size;
++	unsigned int bytes_compl = 0, pkts_compl = 0;
+ 
+ 	spin_lock(&priv->tx_lock);
+ 
+@@ -1356,6 +1358,8 @@ static void stmmac_tx_clean(struct stmmac_priv *priv)
+ 		priv->hw->mode->clean_desc3(priv, p);
+ 
+ 		if (likely(skb != NULL)) {
++			pkts_compl++;
++			bytes_compl += skb->len;
+ 			dev_consume_skb_any(skb);
+ 			priv->tx_skbuff[entry] = NULL;
+ 		}
+@@ -1364,6 +1368,9 @@ static void stmmac_tx_clean(struct stmmac_priv *priv)
+ 
+ 		priv->dirty_tx++;
+ 	}
++
++	netdev_completed_queue(priv->dev, pkts_compl, bytes_compl);
++
+ 	if (unlikely(netif_queue_stopped(priv->dev) &&
+ 		     stmmac_tx_avail(priv) > STMMAC_TX_THRESH(priv))) {
+ 		netif_tx_lock(priv->dev);
+@@ -1418,6 +1425,7 @@ static void stmmac_tx_err(struct stmmac_priv *priv)
+ 						     (i == txsize - 1));
+ 	priv->dirty_tx = 0;
+ 	priv->cur_tx = 0;
++	netdev_reset_queue(priv->dev);
+ 	priv->hw->dma->start_tx(priv->ioaddr);
+ 
+ 	priv->dev->stats.tx_errors++;
+@@ -2048,6 +2056,7 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	if (!priv->hwts_tx_en)
+ 		skb_tx_timestamp(skb);
+ 
++	netdev_sent_queue(dev, skb->len);
+ 	priv->hw->dma->enable_dma_transmission(priv->ioaddr);
+ 
+ 	spin_unlock(&priv->tx_lock);
 -- 
-FTTC broadband for 0.8mile line: currently at 10.5Mbps down 400kbps up
-according to speedtest.net.
+2.1.4
