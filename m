@@ -1,62 +1,102 @@
-From: Rasmus Villemoes <linux@rasmusvillemoes.dk>
-Subject: [PATCH v2] net: wireless: atmel: Remove open-coded and wrong strcasecmp
-Date: Wed, 21 Jan 2015 12:52:07 +0100
-Message-ID: <1421841127-8209-1-git-send-email-linux@rasmusvillemoes.dk>
-References: <1421414907-26764-1-git-send-email-linux@rasmusvillemoes.dk>
-Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Rasmus Villemoes <linux@rasmusvillemoes.dk>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Simon Kelley <simon@thekelleys.org.uk>,
-	Kalle Valo <kvalo@codeaurora.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1421414907-26764-1-git-send-email-linux@rasmusvillemoes.dk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [PATCH net-next v2] rhashtable: rhashtable_remove() must unlink in
+ both tbl and future_tbl
+Date: Wed, 21 Jan 2015 11:54:01 +0000
+Message-ID: <20150121115401.GA12570@casper.infradead.org>
+References: <54BCBA35.2080103@windriver.com>
+ <20150119125928.GB7672@casper.infradead.org>
+ <54BDC30D.5000606@windriver.com>
+ <20150120165826.GK20315@casper.infradead.org>
+ <54BEA1F9.1050908@cogentembedded.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Ying Xue <ying.xue@windriver.com>,
+	"richard.alpe@ericsson.com >> Richard Alpe"
+	<richard.alpe@ericsson.com>, Netdev <netdev@vger.kernel.org>,
+	tipc-discussion@lists.sourceforge.net
+To: davem@davemloft.net,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from casper.infradead.org ([85.118.1.10]:36274 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751939AbbAULyE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jan 2015 06:54:04 -0500
+Content-Disposition: inline
+In-Reply-To: <54BEA1F9.1050908@cogentembedded.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The kernel's string library does in fact have strcasecmp, at least
-since ded220bd8f08 ("[STRING]: Move strcasecmp/strncasecmp to
-lib/string.c"). Moreover, this open-coded version is in fact wrong: If
-the strings only differ in their last character, a and b have already
-been incremented to point to the terminating NUL bytes, so they would
-wrongly be treated as equal.
+As removals can occur during resizes, entries may be referred to from
+both tbl and future_tbl when the removal is requested. Therefore
+rhashtable_remove() must unlink the entry in both tables if this is
+the case. The existing code did search both tables but stopped when it
+hit the first match.
 
-Signed-off-by: Rasmus Villemoes <linux@rasmusvillemoes.dk>
+Failing to unlink in both tables resulted in use after free.
+
+Fixes: 97defe1ecf86 ("rhashtable: Per bucket locks & deferred expansion/shrinking")
+Reported-by: Ying Xue <ying.xue@windriver.com>
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
 ---
-v2: Address Sergei's comments to the commit message.
+v2: 12 digit commit reference, commit msg clarification as pointed
+    out by Sergei.
 
- drivers/net/wireless/atmel.c | 12 +-----------
- 1 file changed, 1 insertion(+), 11 deletions(-)
+ lib/rhashtable.c | 24 +++++++++++++++---------
+ 1 file changed, 15 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/wireless/atmel.c b/drivers/net/wireless/atmel.c
-index 9183f1cf89a7..55db9f03eb2a 100644
---- a/drivers/net/wireless/atmel.c
-+++ b/drivers/net/wireless/atmel.c
-@@ -45,7 +45,6 @@
- #include <linux/ptrace.h>
- #include <linux/slab.h>
- #include <linux/string.h>
--#include <linux/ctype.h>
- #include <linux/timer.h>
- #include <asm/byteorder.h>
- #include <asm/io.h>
-@@ -2699,16 +2698,7 @@ static int atmel_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
- 		domain[REGDOMAINSZ] = 0;
- 		rc = -EINVAL;
- 		for (i = 0; i < ARRAY_SIZE(channel_table); i++) {
--			/* strcasecmp doesn't exist in the library */
--			char *a = channel_table[i].name;
--			char *b = domain;
--			while (*a) {
--				char c1 = *a++;
--				char c2 = *b++;
--				if (tolower(c1) != tolower(c2))
--					break;
--			}
--			if (!*a && !*b) {
-+			if (!strcasecmp(channel_table[i].name, domain)) {
- 				priv->config_reg_domain = channel_table[i].reg_domain;
- 				rc = 0;
- 			}
+diff --git a/lib/rhashtable.c b/lib/rhashtable.c
+index 84a78e3..bc2d0d8 100644
+--- a/lib/rhashtable.c
++++ b/lib/rhashtable.c
+@@ -585,6 +585,7 @@ bool rhashtable_remove(struct rhashtable *ht, struct rhash_head *obj)
+ 	struct rhash_head *he;
+ 	spinlock_t *lock;
+ 	unsigned int hash;
++	bool ret = false;
+ 
+ 	rcu_read_lock();
+ 	tbl = rht_dereference_rcu(ht->tbl, ht);
+@@ -602,17 +603,16 @@ restart:
+ 		}
+ 
+ 		rcu_assign_pointer(*pprev, obj->next);
+-		atomic_dec(&ht->nelems);
+-
+-		spin_unlock_bh(lock);
+-
+-		rhashtable_wakeup_worker(ht);
+-
+-		rcu_read_unlock();
+ 
+-		return true;
++		ret = true;
++		break;
+ 	}
+ 
++	/* The entry may be linked in either 'tbl', 'future_tbl', or both.
++	 * 'future_tbl' only exists for a short period of time during
++	 * resizing. Thus traversing both is fine and the added cost is
++	 * very rare.
++	 */
+ 	if (tbl != rht_dereference_rcu(ht->future_tbl, ht)) {
+ 		spin_unlock_bh(lock);
+ 
+@@ -625,9 +625,15 @@ restart:
+ 	}
+ 
+ 	spin_unlock_bh(lock);
++
++	if (ret) {
++		atomic_dec(&ht->nelems);
++		rhashtable_wakeup_worker(ht);
++	}
++
+ 	rcu_read_unlock();
+ 
+-	return false;
++	return ret;
+ }
+ EXPORT_SYMBOL_GPL(rhashtable_remove);
+ 
 -- 
-2.1.3
+1.9.3
