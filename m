@@ -1,91 +1,103 @@
-From: Beniamino Galvani <b.galvani@gmail.com>
-Subject: [PATCH v2] net: stmmac: add BQL support
-Date: Wed, 21 Jan 2015 19:07:27 +0100
-Message-ID: <1421863647-20048-1-git-send-email-b.galvani@gmail.com>
-Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Dave Taht <dave.taht@gmail.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Beniamino Galvani <b.galvani@gmail.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [PATCH net-next 0/3] openvswitch: Add STT support.
+Date: Wed, 21 Jan 2015 10:30:45 -0800
+Message-ID: <CALnjE+po5gy7g8ftmiNcnrN_gRL9tzCRHNtn=fxUafFikKB1rg@mail.gmail.com>
+References: <1421785536-19793-1-git-send-email-pshelar@nicira.com>
+	<CA+mtBx90TipY9uJvW2uQfrCYL9JNM9Rk75HzdJPhE0qsdy8dnw@mail.gmail.com>
+	<CALnjE+rSXpPftiG4Vw3azkN2s2-Ey6ZcZr9Bv422pOdwrvU=tw@mail.gmail.com>
+	<CA+mtBx9yM+C8GeEHOGTHPVxNB3fJd7LQG0RaC3jywrO9_tQ58A@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f177.google.com ([209.85.212.177]:37915 "EHLO
-	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752024AbbAUSIY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jan 2015 13:08:24 -0500
+Received: from na3sys009aog105.obsmtp.com ([74.125.149.75]:59586 "HELO
+	na3sys009aog105.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752892AbbAUSar (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jan 2015 13:30:47 -0500
+Received: by mail-ig0-f177.google.com with SMTP id h15so15223679igd.4
+        for <netdev@vger.kernel.org>; Wed, 21 Jan 2015 10:30:45 -0800 (PST)
+In-Reply-To: <CA+mtBx9yM+C8GeEHOGTHPVxNB3fJd7LQG0RaC3jywrO9_tQ58A@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add support for Byte Queue Limits to the STMicro MAC driver.
+On Wed, Jan 21, 2015 at 8:51 AM, Tom Herbert <therbert@google.com> wrote:
+> On Wed, Jan 21, 2015 at 1:08 AM, Pravin Shelar <pshelar@nicira.com> wrote:
+>> On Tue, Jan 20, 2015 at 3:06 PM, Tom Herbert <therbert@google.com> wrote:
+>>> On Tue, Jan 20, 2015 at 12:25 PM, Pravin B Shelar <pshelar@nicira.com> wrote:
+>>>> Following patch series adds support for Stateless Transport
+>>>> Tunneling protocol.
+>>>> STT uses TCP segmentation offload available in most of NIC. On
+>>>> packet xmit STT driver appends STT header along with TCP header
+>>>> to the packet. For GSO packet GSO parameters are set according
+>>>> to tunnel configuration and packet is handed over to networking
+>>>> stack. This allows use of segmentation offload available in NICs
+>>>>
+>>>> Netperf unidirectional test gives ~9.4 Gbits/s performance on 10Gbit
+>>>> NIC with 1500 byte MTU with two TCP streams.
+>>>>
+>>> Having packets marked TCP which really aren't TCP is a rather scary
+>>> prospect to deploy in a real data center (TCP is kind of an important
+>>> protocol ;-) ). Can you give some more motivation on this, more data
+>>> that shows what the benefits are and how this compares to equivalent
+>>> encapsulation protocols that implement GRO and GSO.
+>>>
+>> There are multi-year deployments of STT, So it is already in real data center.
+>> Biggest advantage is STT does not need new NIC with tunnel offload.
+>> Any NIC that supports TCP offload can be used to achieve better
+>> performance.
+>>
+>> Following are numbers you asked for.
+>> Setup: net-next branch on server and client.
+>> netperf: TCP unidirectional tests with 5 streams. Numbers are averaged
+>> over 3 runs of 50 sec.
+>>
+> Please provides more details on your configuration so that others
+> might be able to reproduce your results. Also, it would be quite
+> helpful if you could implement STT as a normal network interface like
+> VXLAN does so that we can isolate performance of the protocol. For
+> instance I have no problem getting line rate with VXLAN using 5
+> streams with or without RCO in my testing. I assume you tested with
+> OVS and maybe VMs which may have a significant impact beyond the
+> protocol changes.
+>
+I used bare metal intel servers. All VXLAN tests were done using linux
+kernel device without any VMs. All STT tests are done using OVS bridge
+and STT port.
 
-Tested on a Amlogic S802 quad Cortex-A9 board, where the use of BQL
-decreases the latency of a high priority ping from ~12ms to ~1ms when
-the 100Mbit link is saturated by 20 TCP streams.
+> Another thing to consider in your analysis is the performance with
+> flows using small packets. STT should demonstrate better performance
+> with bulk flows since LSO and LRO are better performing relative to
+> GSO and GRO. But for flows with small packets, I don't see how there
+> could be any performance advantage. We already have ways to leverage
+> simple UDP checksum offload with UDP encapsulations, seems like STT
+> might just represent unnecessary header overhead in those cases.
+>
+All tunneling protocol has performance issue with small packet, I do
+not see how is it related to STT patch. STT also make use of checksum
+offload, so there should not be much overhead.
 
-Signed-off-by: Beniamino Galvani <b.galvani@gmail.com>
----
-Changes since v1:
- - don't access skb->len after the start of DMA transmission in
-   stmmac_xmit(), to avoid potential use after free in case tx_lock is
-   removed in the future
+>> VXLAN:
+>> CPU
+>>   Client: 1.6
+>>   Server: 14.2
+>> Throughput: 5.6 Gbit/s
+>>
+>> VXLAN with rcsum:
+>> CPU
+>>   Client: 0.89
+>>   Server: 12.4
+>> Throughput: 5.8 Gbit/s
+>>
+>> STT:
+>> CPU
+>>   Client: 1.28
+>>   Server: 4.0
+>> Throughput: 9.5 Gbit/s
+>>
+> 9.5Gbps? Rounding error or is this 40Gbps or larger than 1500 byte MTU?
+>
+Nope, its same as VXLAN setup, 10Gbps NIC with 1500MTU.
 
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 9 +++++++++
- 1 file changed, 9 insertions(+)
-
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 118a427..1d74313 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -1097,6 +1097,7 @@ static int init_dma_desc_rings(struct net_device *dev, gfp_t flags)
- 
- 	priv->dirty_tx = 0;
- 	priv->cur_tx = 0;
-+	netdev_reset_queue(priv->dev);
- 
- 	stmmac_clear_descriptors(priv);
- 
-@@ -1300,6 +1301,7 @@ static void stmmac_dma_operation_mode(struct stmmac_priv *priv)
- static void stmmac_tx_clean(struct stmmac_priv *priv)
- {
- 	unsigned int txsize = priv->dma_tx_size;
-+	unsigned int bytes_compl = 0, pkts_compl = 0;
- 
- 	spin_lock(&priv->tx_lock);
- 
-@@ -1356,6 +1358,8 @@ static void stmmac_tx_clean(struct stmmac_priv *priv)
- 		priv->hw->mode->clean_desc3(priv, p);
- 
- 		if (likely(skb != NULL)) {
-+			pkts_compl++;
-+			bytes_compl += skb->len;
- 			dev_consume_skb_any(skb);
- 			priv->tx_skbuff[entry] = NULL;
- 		}
-@@ -1364,6 +1368,9 @@ static void stmmac_tx_clean(struct stmmac_priv *priv)
- 
- 		priv->dirty_tx++;
- 	}
-+
-+	netdev_completed_queue(priv->dev, pkts_compl, bytes_compl);
-+
- 	if (unlikely(netif_queue_stopped(priv->dev) &&
- 		     stmmac_tx_avail(priv) > STMMAC_TX_THRESH(priv))) {
- 		netif_tx_lock(priv->dev);
-@@ -1418,6 +1425,7 @@ static void stmmac_tx_err(struct stmmac_priv *priv)
- 						     (i == txsize - 1));
- 	priv->dirty_tx = 0;
- 	priv->cur_tx = 0;
-+	netdev_reset_queue(priv->dev);
- 	priv->hw->dma->start_tx(priv->ioaddr);
- 
- 	priv->dev->stats.tx_errors++;
-@@ -2048,6 +2056,7 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
- 	if (!priv->hwts_tx_en)
- 		skb_tx_timestamp(skb);
- 
-+	netdev_sent_queue(dev, skb->len);
- 	priv->hw->dma->enable_dma_transmission(priv->ioaddr);
- 
- 	spin_unlock(&priv->tx_lock);
--- 
-2.1.4
+Thanks.
