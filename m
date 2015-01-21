@@ -1,45 +1,99 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: [PATCH] can: c_can: end pending transmission on network stop (ifdown)
-Date: Wed, 21 Jan 2015 22:46:31 +0100
-Message-ID: <1421876791-31014-2-git-send-email-mkl@pengutronix.de>
-References: <1421876791-31014-1-git-send-email-mkl@pengutronix.de>
-Cc: davem@davemloft.net, linux-can@vger.kernel.org,
-	kernel@pengutronix.de,
-	Viktor Babrian <babrian.viktor@renyi.mta.hu>,
-	linux-stable <stable@vger.kernel.org>,
-	Marc Kleine-Budde <mkl@pengutronix.de>
-To: netdev@vger.kernel.org
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1421876791-31014-1-git-send-email-mkl@pengutronix.de>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCH net-next 0/3] openvswitch: Add STT support.
+Date: Wed, 21 Jan 2015 13:54:52 -0800
+Message-ID: <CA+mtBx9B5aS9Jv6tpUJpmBkvQFnUqjcxcgTjbBHee8K0f1C9KQ@mail.gmail.com>
+References: <1421785536-19793-1-git-send-email-pshelar@nicira.com>
+	<CA+mtBx90TipY9uJvW2uQfrCYL9JNM9Rk75HzdJPhE0qsdy8dnw@mail.gmail.com>
+	<CALnjE+rSXpPftiG4Vw3azkN2s2-Ey6ZcZr9Bv422pOdwrvU=tw@mail.gmail.com>
+	<CA+mtBx9yM+C8GeEHOGTHPVxNB3fJd7LQG0RaC3jywrO9_tQ58A@mail.gmail.com>
+	<CALnjE+po5gy7g8ftmiNcnrN_gRL9tzCRHNtn=fxUafFikKB1rg@mail.gmail.com>
+	<CA+mtBx-v5dvX-OPGeWJb6uwQGhJ5T6iewD83xJGqXb+Ggf+LQw@mail.gmail.com>
+	<CAEP_g=-3GXJfawPb4jevkZhqmzTttsO1Rv_2J6GwpG=PR_a-0g@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Pravin Shelar <pshelar@nicira.com>,
+	David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Jesse Gross <jesse@nicira.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f181.google.com ([209.85.223.181]:53028 "EHLO
+	mail-ie0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753534AbbAUVyx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jan 2015 16:54:53 -0500
+Received: by mail-ie0-f181.google.com with SMTP id rp18so5531968iec.12
+        for <netdev@vger.kernel.org>; Wed, 21 Jan 2015 13:54:52 -0800 (PST)
+In-Reply-To: <CAEP_g=-3GXJfawPb4jevkZhqmzTttsO1Rv_2J6GwpG=PR_a-0g@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Viktor Babrian <babrian.viktor@renyi.mta.hu>
+On Wed, Jan 21, 2015 at 12:35 PM, Jesse Gross <jesse@nicira.com> wrote:
+> On Wed, Jan 21, 2015 at 11:45 AM, Tom Herbert <therbert@google.com> wrote:
+>>> I used bare metal intel servers. All VXLAN tests were done using linux
+>>> kernel device without any VMs. All STT tests are done using OVS bridge
+>>> and STT port.
+>>>
+>> So right off the bat you're running the baseline differently than the
+>> target. Anyway, I cannot replicate your numbers for VXLAN, I see much
+>> better performance and this with pretty old servers and dumb NICs. I
+>> suspect you might not have GSO/GRO properly enabled, but instead of
+>> trying to debug your setup, I'd rather restate my request that you
+>> provide a network interface to STT so we can do our own fair
+>> comparison.
+>
+> If I had to guess, I suspect the difference is that UDP RSS wasn't
+> enabled, since it doesn't come that way out of the box. Regardless,
+> you can clearly see a significant difference in single core
+> performance and CPU consumption.
+>
+I'm not going to try to draw conclusions from data which is obviously
+biased and incomplete. If you want to move forward on this, then just
+provide network interface for STT so we can independently run our own
+comparisons against other encapsulations like we've been doing all
+along.
 
-Put controller into init mode in network stop to end pending transmissions. The
-issue is observed in cases when transmitted frame is not acked.
-
-Signed-off-by: Viktor Babrian <babrian.viktor@renyi.mta.hu>
-Cc: linux-stable <stable@vger.kernel.org>
-Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
----
- drivers/net/can/c_can/c_can.c | 3 +++
- 1 file changed, 3 insertions(+)
-
-diff --git a/drivers/net/can/c_can/c_can.c b/drivers/net/can/c_can/c_can.c
-index f94a9fa60488..c672c4dcffac 100644
---- a/drivers/net/can/c_can/c_can.c
-+++ b/drivers/net/can/c_can/c_can.c
-@@ -615,6 +615,9 @@ static void c_can_stop(struct net_device *dev)
- 
- 	c_can_irq_control(priv, false);
- 
-+	/* put ctrl to init on stop to end ongoing transmission */
-+	priv->write_reg(priv, C_CAN_CTRL_REG, CONTROL_INIT);
-+
- 	/* deactivate pins */
- 	pinctrl_pm_select_sleep_state(dev->dev.parent);
- 	priv->can.state = CAN_STATE_STOPPED;
--- 
-2.1.4
-
+> STT has been fairly well known in network virtualization circles for
+> the past few years and has some large deployments, so the reported
+> performance is not a fluke. I remember Pankaj from Microsoft also
+> mentioning to you that they weren't able to get performance to
+> reasonable level without TSO. Totally different environment obviously
+> but same reasoning.
+>
+>>>>> VXLAN:
+>>>>> CPU
+>>>>>   Client: 1.6
+>>>>>   Server: 14.2
+>>>>> Throughput: 5.6 Gbit/s
+>>>>>
+>>>>> VXLAN with rcsum:
+>>>>> CPU
+>>>>>   Client: 0.89
+>>>>>   Server: 12.4
+>>>>> Throughput: 5.8 Gbit/s
+>>>>>
+>>>>> STT:
+>>>>> CPU
+>>>>>   Client: 1.28
+>>>>>   Server: 4.0
+>>>>> Throughput: 9.5 Gbit/s
+>>>>>
+>>>> 9.5Gbps? Rounding error or is this 40Gbps or larger than 1500 byte MTU?
+>>>>
+>>> Nope, its same as VXLAN setup, 10Gbps NIC with 1500MTU.
+>>>
+>> That would exceed that theoretical maximum for TCP over 10Gbps
+>> Ethernet. How are you measuring throughput? How many bytes of protocol
+>> headers are in STT case?
+>
+> For large packet cases, STT actually has less header overhead compared
+> to the unencapsulated traffic stream. This is because for a group of
+> STT packets generated by a TSO burst from the guest there is only a
+> single copy of the inner header. Even though TCP headers are used for
+> encapsulation, there are no options - as opposed to the inner headers,
+> which typically contain timestamps. Over the course of the ~45 packets
+> that could be generated from a maximum sized transmission, this
+> results in negative encapsulation overhead.
+>
+> I would recommend you take a look at the draft if you haven't already:
+> http://tools.ietf.org/html/draft-davie-stt-06
+>
+> It is currently in the final stages of the RFC publication process.
