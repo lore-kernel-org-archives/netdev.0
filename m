@@ -1,66 +1,72 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH 1/2] if_link: Add VF multicast promiscuous
-	mode control
-Date: Wed, 21 Jan 2015 10:26:15 +0100
-Message-ID: <87iog0scw8.fsf@nemi.mork.no>
-References: <7F861DC0615E0C47A872E6F3C5FCDDBD05E0734E@BPXM14GP.gisp.nec.co.jp>
-	<874mrlu18e.fsf@nemi.mork.no>
-	<7F861DC0615E0C47A872E6F3C5FCDDBD05E07B7C@BPXM14GP.gisp.nec.co.jp>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH 3/3] netlink: Lock out table resizes while dumping
+ Netlink sockets
+Date: Wed, 21 Jan 2015 09:37:22 +0000
+Message-ID: <20150121093722.GM20315@casper.infradead.org>
+References: <cover.1421759056.git.tgraf@suug.ch>
+ <e164edeacaeffee43be64d4ed6a5b5e7e8923bd1.1421759056.git.tgraf@suug.ch>
+ <20150120143154.GR14883@acer.localdomain>
+ <20150120145551.GH20315@casper.infradead.org>
+ <20150120152149.GA3012@acer.localdomain>
+ <20150120153556.GJ20315@casper.infradead.org>
+ <20150121050819.GA23062@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>, "Choi,
-	Sy Jong" <sy.jong.choi@intel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Hayato Momma <h-momma@ce.jp.nec.com>
-To: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <7F861DC0615E0C47A872E6F3C5FCDDBD05E07B7C@BPXM14GP.gisp.nec.co.jp>
-	(Hiroshi Shimamoto's message of "Tue, 20 Jan 2015 23:40:05 +0000")
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick McHardy <kaber@trash.net>, davem@davemloft.net,
+	paulmck@linux.vnet.ibm.com, ying.xue@windriver.com,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from casper.infradead.org ([85.118.1.10]:35714 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751577AbbAUJhZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jan 2015 04:37:25 -0500
+Content-Disposition: inline
+In-Reply-To: <20150121050819.GA23062@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-SGlyb3NoaSBTaGltYW1vdG8gPGgtc2hpbWFtb3RvQGN0LmpwLm5lYy5jb20+IHdyaXRlczoKCj4+
-IFdoeSBjYW4ndCB0aGUgaXhnYmV2ZiBkcml2ZXIganVzdCBhdXRvbWF0aWNhbGx5IHNpZ25hbCB0
-aGUgaXhnYmUgZHJpdmVyCj4+IHRvIGVuYWJsZSBtdWx0aWNhc3QgcHJvbWlzY3VvdXMgbW9kZSB3
-aGVuZXZlciB0aGUgbGlzdCBncm93cyBwYXN0IHRoZQo+PiBsaW1pdD8KPgo+IEkgaGFkIHN1Ym1p
-dHRlZCBhIHBhdGNoIHRvIGNoYW5nZSBpeGdiZSBhbmQgaXhnYmV2ZiBkcml2ZXIgZm9yIHRoaXMg
-aXNzdWUuCj4gaHR0cHM6Ly9sa21sLm9yZy9sa21sLzIwMTQvMTEvMjcvMjY5Cj4KPiBUaGUgcHJl
-dmlvdXMgcGF0Y2ggaW50cm9kdWNlcyBBUEkgYmV0d2VlbiBpeGdiZSBhbmQgaXhnYmV2ZiBkcml2
-ZXIgdG8KPiBlbmFibGUgbXVsdGljYXN0IHByb21pc2N1b3VzIG1vZGUsIGFuZCBpeGdiZXZmIGVu
-YWJsZXMgaXQgYXV0b21hdGljYWxseQo+IGlmIHRoZSBudW1iZXIgb2YgYWRkcmVzc2VzIGlzIG92
-ZXIgdGhhbiAzMC4KPgo+IEkgZ290IHNvbWUgY29tbWVudCBhbmQgSSB3b3VsZCBsaWtlIHRvIGNs
-YXJpZnkgdGhlIHBvaW50LCBidXQgdGhlcmUgd2FzIG5vCj4gYW5zd2VyLgo+IFRoYXQncyB0aGUg
-cmVhc29uIEkgc3VibWl0dGVkIHRoaXMgcGF0Y2guCgpUaGFua3MuICBZZXMsIG5vdyBJIHVuZGVy
-c3RhbmQgd2h5IHlvdSB3YW50IHRvIGhhdmUgYSBwb2xpY3kga25vYi4KCkkgc3RpbGwgdGhpbmsg
-dGhlIHBvbGljeSBjb3VsZCBzZWxlY3QgYmV0d2VlbiAiYXV0b21hdGljIi8iZGlzYWxsb3dlZCIK
-aW5zdGVhZCBvZiAiZW5hYmxlZCIvImRpc2FibGVkIiwgYnV0IHRoYXQncyBhIG1pbm9yIGRldGFp
-bC4gTGlrZXdpc2UgaXMKdGhlIGFjdHVhbCBpbXBsZW1lbnRpb24gb2YgImF1dG9tYXRpYyIuICBJ
-IHRoaW5rIHlvdSBjb3VsZCBkbyB0aGF0CndpdGhpbiB0aGUgY3VycmVudCBWRi1QRiBwcm90b2Nv
-bCBieSBvdmVybG9hZGluZyB0aGUgTUMgYWRkcmVzcyAiY291bnQiLgoKQnV0IGEgbW9yZSBnZW5l
-cmljIHF1ZXN0aW9uIGZvciBuZXRkZXYgaXM6IERvZXMgdGhpcyBWRiBwb2xpY3kgQVBJCnJlYWxs
-eSBzY2FsZT8KCkhvdyBtYW55IGRpZmZlcmVudCBWRiBwb2xpY3kgdHVuYWJsZXMgY2FuIHlvdSBp
-bWFnaW5nIGFkZCB1cCBvdmVyIGEgZmV3CnllYXJzIGFuZCBkcml2ZXJzLiAgQ3VycmVudGx5IGVh
-Y2ggcG9saWN5IGZsYWcgcmVxdWlyZSBpdHMgb3duIG5kbyBob29rLgpJIHByb2JhYmx5IGRvbid0
-IGhhdmUgbXVjaCB0byBzYXkgaGVyZSwgYnV0IElNSE8gdGhpcyBzY2hlbWUgaGFkIGFscmVhZHkK
-ZmFpbGVkIHdoZW4gLm5kb19zZXRfdmZfc3Bvb2ZjaGsgd2FzIGFkZGVkLi4KCgpCasO4cm4KCi0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLQpOZXcgWWVhci4gTmV3IExvY2F0aW9uLiBOZXcgQmVuZWZpdHMu
-IE5ldyBEYXRhIENlbnRlciBpbiBBc2hidXJuLCBWQS4KR2lnZU5FVCBpcyBvZmZlcmluZyBhIGZy
-ZWUgbW9udGggb2Ygc2VydmljZSB3aXRoIGEgbmV3IHNlcnZlciBpbiBBc2hidXJuLgpDaG9vc2Ug
-ZnJvbSAyIGhpZ2ggcGVyZm9ybWluZyBjb25maWdzLCBib3RoIHdpdGggMTAwVEIgb2YgYmFuZHdp
-ZHRoLgpIaWdoZXIgcmVkdW5kYW5jeS5Mb3dlciBsYXRlbmN5LkluY3JlYXNlZCBjYXBhY2l0eS5D
-b21wbGV0ZWx5IGNvbXBsaWFudC4KaHR0cDovL3Auc2YubmV0L3NmdS9naWdlbmV0Cl9fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCkUxMDAwLWRldmVsIG1haWxp
-bmcgbGlzdApFMTAwMC1kZXZlbEBsaXN0cy5zb3VyY2Vmb3JnZS5uZXQKaHR0cHM6Ly9saXN0cy5z
-b3VyY2Vmb3JnZS5uZXQvbGlzdHMvbGlzdGluZm8vZTEwMDAtZGV2ZWwKVG8gbGVhcm4gbW9yZSBh
-Ym91dCBJbnRlbCYjMTc0OyBFdGhlcm5ldCwgdmlzaXQgaHR0cDovL2NvbW11bml0aWVzLmludGVs
-LmNvbS9jb21tdW5pdHkvd2lyZWQK
+On 01/21/15 at 04:08pm, Herbert Xu wrote:
+> On Tue, Jan 20, 2015 at 03:35:56PM +0000, Thomas Graf wrote:
+> > On 01/20/15 at 03:21pm, Patrick McHardy wrote:
+> > > I think its preferrable to make the need to handle NETLINK_F_DUMP_INTR
+> > > as noticable as possible and not hide it. Silent failure is the worst
+> > > kind of failure.
+> > 
+> > I agree to that. The point here is to avoid unnecessary use of
+> > NETLINK_F_DUMP_INTR if all entries fit into a single message buffer.
+> 
+> OK I think I have a solution for you guys.  But first you'll need to
+> wait for me to undo the nulls stuff so I can steal that bit which
+> is central to my solution.
+
+Without having seen your code, can we make it configurable on what
+the bit is used for? Use of nulls marker is a strict requirement for
+some targeted users of rhashtable.
+
+> Essentially I need a bit to indicate an entry in the bucket chain
+> should be skipped, either because it has just been removed or that
+> it is a walker entry (see xfrm_state_walk).
+> 
+> The way it'll work then is exactly the same as xfrm_state_walk,
+> except that the linked list is broken up into individual buckets.
+> 
+> Of course we'll still need to postpone resizes (and rehashes which
+> is what my work is about) during a walk but I think that's a fair
+> price to pay.
+
+If I understand this correctly we also need to block out parallel
+walkers and we need to start taking bucket locks while walking to
+modify the walker mark bit in peace.
+
+> This also means handling insertion failures but I think that
+> should be acceptable if we make it based on a configurable maximum
+> chain length along with forced resize/rehash where possible.
+> 
+> Note that this can be made optional, i.e., if the user can afford
+> memory to do their own walking (e.g., xfrm_state), then none of
+> this needs to happen and it'll just work as it does now.  IOW if
+> you don't use this special rhashtable walk function then you're
+> not affected.
+
+That sounds like the best option to me.
