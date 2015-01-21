@@ -1,39 +1,45 @@
-From: Ani Sinha <ani@arista.com>
-Subject: subtle change in behavior with tun driver
-Date: Wed, 21 Jan 2015 14:36:17 -0800
-Message-ID: <CAOxq_8NJdFV6fbVh-uns3bpaKNjtcGEOEDb4U3_rX3d+w85SWQ@mail.gmail.com>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [PATCH net-next 1/2] udp: Do not require sock in udp_tunnel_xmit_skb
+Date: Thu, 22 Jan 2015 00:37:59 +0200
+Message-ID: <CAJ3xEMhMgXLAv5qPXgUTdiTBuBuYO-DPczSvXOjKHfD0WsAn-g@mail.gmail.com>
+References: <1421518700-22460-1-git-send-email-therbert@google.com>
+	<1421518700-22460-2-git-send-email-therbert@google.com>
+	<CAJ3xEMg0xJU4JShBLzs4g+zZVzH+uo79=aQGx4NwoQOv1h13Kw@mail.gmail.com>
+	<CA+mtBx8dihFYb1v_WeyukfV5hk==2=3_b_GNUJoxCuL8_GUf6A@mail.gmail.com>
+	<CAJ3xEMit2By8S=SwRGJKcwii9J3LKj29sX=tAbCC3bcAMDkr5Q@mail.gmail.com>
+	<CA+mtBx80QDU4FJfzh0WATTuaDGS4vaBv0H0r8AfmKjw0rk1f3A@mail.gmail.com>
+	<CAJ3xEMhX+2J5hRuxF9_694sqxsMwi0LuwiEAK1G2-ZBaOPgBTQ@mail.gmail.com>
+	<CA+mtBx_uwwDV+ogt6BeYH36qLztJLt75H9Z_r0BY5FjkixdBCw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-To: mst@redhat.com, "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>, Thomas Graf <tgraf@suug.ch>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f175.google.com ([209.85.213.175]:56240 "EHLO
-	mail-ig0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752337AbbAUWgj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jan 2015 17:36:39 -0500
-Received: by mail-ig0-f175.google.com with SMTP id hn18so3871003igb.2
-        for <netdev@vger.kernel.org>; Wed, 21 Jan 2015 14:36:38 -0800 (PST)
+Received: from mail-oi0-f48.google.com ([209.85.218.48]:60573 "EHLO
+	mail-oi0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751546AbbAUWh7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jan 2015 17:37:59 -0500
+Received: by mail-oi0-f48.google.com with SMTP id v63so3832403oia.7
+        for <netdev@vger.kernel.org>; Wed, 21 Jan 2015 14:37:59 -0800 (PST)
+In-Reply-To: <CA+mtBx_uwwDV+ogt6BeYH36qLztJLt75H9Z_r0BY5FjkixdBCw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi guys :
+On Thu, Jan 22, 2015 at 12:24 AM, Tom Herbert <therbert@google.com> wrote:
+> On Wed, Jan 21, 2015 at 12:57 PM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
+>> On Wed, Jan 21, 2015 at 12:24 AM, Tom Herbert <therbert@google.com> wrote:
+>>> vxlan_xmit_one calls udp_flow_src_port to get a source port value
+>>> based on the encapsulated flow.
+>>
+>> OK, got it -- does a by-product of invoking udp_flow_src_port on the
+>> skb is having an hash mark on the skb which is based on the inner
+>> packet and can (is?) used for TX queue selection over MQ devices?
+>
+> Yes, that should be fine. The hash can be used all the way up to TCP
+> and save in the TCP socket as the rxhash for a connection. This was
+> RFS, XPS, etc. will work for TCP over an encapsulation.
 
-Commit 5d097109257c03 ("tun: only queue packets on device") seems to
-have introduced a subtle change in behavior in the tun driver in the
-default (non IFF_ONE_QUEUE) case. Previously when the queues got full
-and eventually sk_wmem_alloc of the socket exceeded sk_sndbuf value,
-the user would be given a feedback by returning EAGAIN from sendto()
-etc. That way, the user could retry sending the packet again.
-Unfortunately, with this new  default single queue mode, the driver
-silently drops the packet when the device queue is full without giving
-userland any feedback. This makes it appear to userland as though the
-packet was transmitted successfully. It seems there is a semantic
-change in the driver with this commit.
 
-If the receiving process gets stuck for a short interval and is unable
-to drain packets and then restarts again, one might see strange packet
-drops in the kernel without getting any error back on the sender's
-side. It kind of feels wrong.
-
-Any thoughts?
-
-Ani
+so.. can be used or is already used today? Also we're talking on the
+TX path, so I wasn't sure to follow on your mentioning of RFS...
