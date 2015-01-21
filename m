@@ -1,58 +1,49 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [patch] bridge: simplify br_getlink() a bit
-Date: Wed, 21 Jan 2015 12:02:40 -0800
-Message-ID: <20150121120240.74db4cfa@urahara>
-References: <20150121092235.GA19206@mwanda>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 0/3] openvswitch: Add STT support.
+Date: Wed, 21 Jan 2015 12:22:29 -0800
+Message-ID: <1421871749.4832.32.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1421785536-19793-1-git-send-email-pshelar@nicira.com>
+	 <CA+mtBx90TipY9uJvW2uQfrCYL9JNM9Rk75HzdJPhE0qsdy8dnw@mail.gmail.com>
+	 <CALnjE+rSXpPftiG4Vw3azkN2s2-Ey6ZcZr9Bv422pOdwrvU=tw@mail.gmail.com>
+	 <CA+mtBx9yM+C8GeEHOGTHPVxNB3fJd7LQG0RaC3jywrO9_tQ58A@mail.gmail.com>
+	 <CALnjE+po5gy7g8ftmiNcnrN_gRL9tzCRHNtn=fxUafFikKB1rg@mail.gmail.com>
+	 <CA+mtBx-v5dvX-OPGeWJb6uwQGhJ5T6iewD83xJGqXb+Ggf+LQw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	bridge@lists.linux-foundation.org, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: Dan Carpenter <dan.carpenter@oracle.com>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <20150121092235.GA19206@mwanda>
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Pravin Shelar <pshelar@nicira.com>,
+	David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Tom Herbert <therbert@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f181.google.com ([209.85.223.181]:50704 "EHLO
+	mail-ie0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751484AbbAUUWe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jan 2015 15:22:34 -0500
+Received: by mail-ie0-f181.google.com with SMTP id rp18so5114618iec.12
+        for <netdev@vger.kernel.org>; Wed, 21 Jan 2015 12:22:32 -0800 (PST)
+In-Reply-To: <CA+mtBx-v5dvX-OPGeWJb6uwQGhJ5T6iewD83xJGqXb+Ggf+LQw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 21 Jan 2015 12:22:35 +0300
-Dan Carpenter <dan.carpenter@oracle.com> wrote:
+On Wed, 2015-01-21 at 11:45 -0800, Tom Herbert wrote:
+> > I used bare metal intel servers. All VXLAN tests were done using linux
+> > kernel device without any VMs. All STT tests are done using OVS bridge
+> > and STT port.
+> >
+> So right off the bat you're running the baseline differently than the
+> target. Anyway, I cannot replicate your numbers for VXLAN, I see much
+> better performance and this with pretty old servers and dumb NICs. I
+> suspect you might not have GSO/GRO properly enabled, but instead of
+> trying to debug your setup, I'd rather restate my request that you
+> provide a network interface to STT so we can do our own fair
+> comparison.
 
-> Static checkers complain that we should maybe set "ret" before we do the
-> "goto out;".  They interpret the NULL return from br_port_get_rtnl() as
-> a failure and forgetting to set the error code is a common bug in this
-> situation.
-> 
-> The code is confusing but it's actually correct.  We are returning zero
-> deliberately.  Let's re-write it a bit to be more clear.
-> 
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-> 
-> diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
-> index 528cf27..3875ea51 100644
-> --- a/net/bridge/br_netlink.c
-> +++ b/net/bridge/br_netlink.c
-> @@ -311,17 +311,14 @@ errout:
->  int br_getlink(struct sk_buff *skb, u32 pid, u32 seq,
->  	       struct net_device *dev, u32 filter_mask)
->  {
-> -	int err = 0;
->  	struct net_bridge_port *port = br_port_get_rtnl(dev);
->  
->  	if (!port && !(filter_mask & RTEXT_FILTER_BRVLAN) &&
->  	    !(filter_mask & RTEXT_FILTER_BRVLAN_COMPRESSED))
-> -		goto out;
-> +		return 0;
->  
-> -	err = br_fill_ifinfo(skb, port, pid, seq, RTM_NEWLINK, NLM_F_MULTI,
-> -			     filter_mask, dev);
-> -out:
-> -	return err;
-> +	return br_fill_ifinfo(skb, port, pid, seq, RTM_NEWLINK, NLM_F_MULTI,
-> +			      filter_mask, dev);
->  }
->  
->  static int br_vlan_info(struct net_bridge *br, struct net_bridge_port *p,
+I have not read specs nor the patch, but I would expect that with a TCP
+stream, you simply can coalesce as many inner segments as you want.
 
-That looks fine.
-Acked-by: Stephen Hemminger <stephen@networkplumber.org>
+So you could build a single TSO packet containing 400 'messages' of 160
+bytes or so.
+
+Something that a datagram tunneling cannot really do, assuming you want
+full offloading support.
