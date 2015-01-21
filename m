@@ -1,82 +1,39 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: [PATCH 2/2] sh_eth: add more PM methods
-Date: Thu, 22 Jan 2015 01:19:48 +0300
-Message-ID: <2238953.qWhbSccAbj@wasted.cogentembedded.com>
-References: <5608250.lrFkJTjgSf@wasted.cogentembedded.com>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCH net-next 1/2] udp: Do not require sock in udp_tunnel_xmit_skb
+Date: Wed, 21 Jan 2015 14:24:50 -0800
+Message-ID: <CA+mtBx_uwwDV+ogt6BeYH36qLztJLt75H9Z_r0BY5FjkixdBCw@mail.gmail.com>
+References: <1421518700-22460-1-git-send-email-therbert@google.com>
+	<1421518700-22460-2-git-send-email-therbert@google.com>
+	<CAJ3xEMg0xJU4JShBLzs4g+zZVzH+uo79=aQGx4NwoQOv1h13Kw@mail.gmail.com>
+	<CA+mtBx8dihFYb1v_WeyukfV5hk==2=3_b_GNUJoxCuL8_GUf6A@mail.gmail.com>
+	<CAJ3xEMit2By8S=SwRGJKcwii9J3LKj29sX=tAbCC3bcAMDkr5Q@mail.gmail.com>
+	<CA+mtBx80QDU4FJfzh0WATTuaDGS4vaBv0H0r8AfmKjw0rk1f3A@mail.gmail.com>
+	<CAJ3xEMhX+2J5hRuxF9_694sqxsMwi0LuwiEAK1G2-ZBaOPgBTQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: linux-sh@vger.kernel.org, mikhail.ulyanov@cogentembedded.com
-To: netdev@vger.kernel.org
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <5608250.lrFkJTjgSf@wasted.cogentembedded.com>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>, Thomas Graf <tgraf@suug.ch>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Or Gerlitz <gerlitz.or@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f177.google.com ([209.85.213.177]:33732 "EHLO
+	mail-ig0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751751AbbAUWYv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jan 2015 17:24:51 -0500
+Received: by mail-ig0-f177.google.com with SMTP id h15so16257691igd.4
+        for <netdev@vger.kernel.org>; Wed, 21 Jan 2015 14:24:50 -0800 (PST)
+In-Reply-To: <CAJ3xEMhX+2J5hRuxF9_694sqxsMwi0LuwiEAK1G2-ZBaOPgBTQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Mikhail Ulyanov <mikhail.ulyanov@cogentembedded.com>
+On Wed, Jan 21, 2015 at 12:57 PM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
+> On Wed, Jan 21, 2015 at 12:24 AM, Tom Herbert <therbert@google.com> wrote:
+>> vxlan_xmit_one calls udp_flow_src_port to get a source port value
+>> based on the encapsulated flow.
+>
+> OK, got it -- does a by-product of invoking udp_flow_src_port on the
+> skb is having an hash mark on the skb which is based on the inner
+> packet and can (is?) used for TX queue selection over MQ devices?
 
-Add sh_eth_{suspend|resume}() implementing {suspend|resume|freeze|thaw|poweroff|
-restore}() PM methods to make it possible to restore from hibernation not only
-in Linux  but also in e.g. U-Boot and  to have more determined state on resume/
-restore.
-
-Signed-off-by: Mikhail Ulyanov <mikhail.ulyanov@cogentembedded.com>
-[Sergei: moved sh_eth_{suspend|resume}() before sh_eth_runtime_nop(), enclosed
-them with #ifdef CONFIG_PM_SLEEP, reordered the local variables, got rid of
-*goto* and label, reordered macro invocations, renamed, modified the changelog.]
-Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-
----
- drivers/net/ethernet/renesas/sh_eth.c |   31 +++++++++++++++++++++++++++++++
- 1 file changed, 31 insertions(+)
-
-Index: net-next/drivers/net/ethernet/renesas/sh_eth.c
-===================================================================
---- net-next.orig/drivers/net/ethernet/renesas/sh_eth.c
-+++ net-next/drivers/net/ethernet/renesas/sh_eth.c
-@@ -2947,6 +2947,36 @@ static int sh_eth_drv_remove(struct plat
- }
- 
- #ifdef CONFIG_PM
-+#ifdef CONFIG_PM_SLEEP
-+static int sh_eth_suspend(struct device *dev)
-+{
-+	struct net_device *ndev = dev_get_drvdata(dev);
-+	int ret = 0;
-+
-+	if (netif_running(ndev)) {
-+		netif_device_detach(ndev);
-+		ret = sh_eth_close(ndev);
-+	}
-+
-+	return ret;
-+}
-+
-+static int sh_eth_resume(struct device *dev)
-+{
-+	struct net_device *ndev = dev_get_drvdata(dev);
-+	int ret = 0;
-+
-+	if (netif_running(ndev)) {
-+		ret = sh_eth_open(ndev);
-+		if (ret < 0)
-+			return ret;
-+		netif_device_attach(ndev);
-+	}
-+
-+	return ret;
-+}
-+#endif
-+
- static int sh_eth_runtime_nop(struct device *dev)
- {
- 	/* Runtime PM callback shared between ->runtime_suspend()
-@@ -2960,6 +2990,7 @@ static int sh_eth_runtime_nop(struct dev
- }
- 
- static const struct dev_pm_ops sh_eth_dev_pm_ops = {
-+	SET_SYSTEM_SLEEP_PM_OPS(sh_eth_suspend, sh_eth_resume)
- 	SET_RUNTIME_PM_OPS(sh_eth_runtime_nop, sh_eth_runtime_nop, NULL)
- };
- #define SH_ETH_PM_OPS (&sh_eth_dev_pm_ops)
-
+Yes, that should be fine. The hash can be used all the way up to TCP
+and save in the TCP socket as the rxhash for a connection. This was
+RFS, XPS, etc. will work for TCP over an encapsulation.
