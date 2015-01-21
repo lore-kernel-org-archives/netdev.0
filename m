@@ -1,8 +1,8 @@
-From: Thomas Graf <tgraf@suug.ch>
+From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: [PATCH 3/3] netlink: Lock out table resizes while dumping
  Netlink sockets
-Date: Wed, 21 Jan 2015 09:37:22 +0000
-Message-ID: <20150121093722.GM20315@casper.infradead.org>
+Date: Wed, 21 Jan 2015 20:38:36 +1100
+Message-ID: <20150121093836.GA25489@gondor.apana.org.au>
 References: <cover.1421759056.git.tgraf@suug.ch>
  <e164edeacaeffee43be64d4ed6a5b5e7e8923bd1.1421759056.git.tgraf@suug.ch>
  <20150120143154.GR14883@acer.localdomain>
@@ -10,63 +10,33 @@ References: <cover.1421759056.git.tgraf@suug.ch>
  <20150120152149.GA3012@acer.localdomain>
  <20150120153556.GJ20315@casper.infradead.org>
  <20150121050819.GA23062@gondor.apana.org.au>
+ <20150121093722.GM20315@casper.infradead.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Patrick McHardy <kaber@trash.net>, davem@davemloft.net,
 	paulmck@linux.vnet.ibm.com, ying.xue@windriver.com,
 	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:35714 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751577AbbAUJhZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jan 2015 04:37:25 -0500
+Received: from helcar.apana.org.au ([209.40.204.226]:43389 "EHLO
+	helcar.apana.org.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751546AbbAUJi6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jan 2015 04:38:58 -0500
 Content-Disposition: inline
-In-Reply-To: <20150121050819.GA23062@gondor.apana.org.au>
+In-Reply-To: <20150121093722.GM20315@casper.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/21/15 at 04:08pm, Herbert Xu wrote:
-> On Tue, Jan 20, 2015 at 03:35:56PM +0000, Thomas Graf wrote:
-> > On 01/20/15 at 03:21pm, Patrick McHardy wrote:
-> > > I think its preferrable to make the need to handle NETLINK_F_DUMP_INTR
-> > > as noticable as possible and not hide it. Silent failure is the worst
-> > > kind of failure.
-> > 
-> > I agree to that. The point here is to avoid unnecessary use of
-> > NETLINK_F_DUMP_INTR if all entries fit into a single message buffer.
-> 
-> OK I think I have a solution for you guys.  But first you'll need to
-> wait for me to undo the nulls stuff so I can steal that bit which
-> is central to my solution.
+On Wed, Jan 21, 2015 at 09:37:22AM +0000, Thomas Graf wrote:
+>
+> Without having seen your code, can we make it configurable on what
+> the bit is used for? Use of nulls marker is a strict requirement for
+> some targeted users of rhashtable.
 
-Without having seen your code, can we make it configurable on what
-the bit is used for? Use of nulls marker is a strict requirement for
-some targeted users of rhashtable.
+What do they need this for?
 
-> Essentially I need a bit to indicate an entry in the bucket chain
-> should be skipped, either because it has just been removed or that
-> it is a walker entry (see xfrm_state_walk).
-> 
-> The way it'll work then is exactly the same as xfrm_state_walk,
-> except that the linked list is broken up into individual buckets.
-> 
-> Of course we'll still need to postpone resizes (and rehashes which
-> is what my work is about) during a walk but I think that's a fair
-> price to pay.
-
-If I understand this correctly we also need to block out parallel
-walkers and we need to start taking bucket locks while walking to
-modify the walker mark bit in peace.
-
-> This also means handling insertion failures but I think that
-> should be acceptable if we make it based on a configurable maximum
-> chain length along with forced resize/rehash where possible.
-> 
-> Note that this can be made optional, i.e., if the user can afford
-> memory to do their own walking (e.g., xfrm_state), then none of
-> this needs to happen and it'll just work as it does now.  IOW if
-> you don't use this special rhashtable walk function then you're
-> not affected.
-
-That sounds like the best option to me.
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
