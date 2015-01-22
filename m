@@ -1,112 +1,57 @@
-From: clement.perrochaud-BPEPtVrvniRWk0Htik3J/w@public.gmane.org
-Subject: [PATCH 4/4] NFC: nxp-nci: Allow module removal during download
-Date: Thu, 22 Jan 2015 16:27:40 +0100
-Message-ID: <1421940460-14049-5-git-send-email-clement.perrochaud@effinnov.com>
-References: <1421940460-14049-1-git-send-email-clement.perrochaud@effinnov.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [net-next PATCH v3 00/12] Flow API
+Date: Thu, 22 Jan 2015 16:48:40 +0100
+Message-ID: <20150122154840.GC1863@nanopsycho.orion>
+References: <20150120202404.1741.8658.stgit@nitbit.x32>
+ <20150122125246.GA4486@salvia>
+ <20150122133713.GA25797@casper.infradead.org>
+ <20150122140022.GA5674@salvia>
+ <54C11094.2000807@mojatatu.com>
+ <20150122151316.GB25797@casper.infradead.org>
+ <54C11703.7030702@mojatatu.com>
+ <20150122153727.GC25797@casper.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?UTF-8?q?Cl=C3=A9ment=20Perrochaud?= <clement.perrochaud-3arQi8VN3Tc@public.gmane.org>,
-	sunil.jogi-3arQi8VN3Tc@public.gmane.org, jerome.pele-3arQi8VN3Tc@public.gmane.org,
-	Charles.Gorand-Effinnov-3arQi8VN3Tc@public.gmane.org, lauro.venancio-430g2QfJUUCGglJvpFV4uA@public.gmane.org,
-	aloisio.almeida-430g2QfJUUCGglJvpFV4uA@public.gmane.org, sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org,
-	robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, pawel.moll-5wv7dgnIgG8@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
-	ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org, galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org, lefrique-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org,
-	christophe.ricard-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, cuissard-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org,
-	bzhao-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org, hirent-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org, akarwar-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	=?UTF-8?q?Cl=C3=A9ment=20Perrochaud?=
-	<clement.perrochaud-BPEPtVrvniRWk0Htik3J/w@public.gmane.org>
-To: linux-nfc-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1421940460-14049-1-git-send-email-clement.perrochaud-BPEPtVrvniRWk0Htik3J/w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	John Fastabend <john.fastabend@gmail.com>,
+	simon.horman@netronome.com, sfeldma@gmail.com,
+	netdev@vger.kernel.org, davem@davemloft.net, gerlitz.or@gmail.com,
+	andy@greyhouse.net, ast@plumgrid.com
+To: Thomas Graf <tgraf@suug.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f177.google.com ([209.85.212.177]:64466 "EHLO
+	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751901AbbAVPsn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jan 2015 10:48:43 -0500
+Received: by mail-wi0-f177.google.com with SMTP id r20so4308529wiv.4
+        for <netdev@vger.kernel.org>; Thu, 22 Jan 2015 07:48:42 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20150122153727.GC25797@casper.infradead.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=46rom: Cl=C3=A9ment Perrochaud <clement.perrochaud-3arQi8VN3Tc@public.gmane.org>
-
-Signed-off-by: Cl=C3=A9ment Perrochaud <clement.perrochaud-3arQi8VN3Tc@public.gmane.org>
-Signed-off-by: Cl=C3=A9ment Perrochaud <clement.perrochaud-BPEPtVrvniRWk0Htik3J/w@public.gmane.org=
+Thu, Jan 22, 2015 at 04:37:27PM CET, tgraf@suug.ch wrote:
+>On 01/22/15 at 10:28am, Jamal Hadi Salim wrote:
+>> On 01/22/15 10:13, Thomas Graf wrote:
+>> 
+>> >I don't follow this. John's proposal allows to decide on a case by
+>> >case basis what we want to export. Just like with ethtool or
+>> >RTNETLINK. There is no direct access to hardware. A user can only
+>> >configure what is being exposed by the kernel.
+>> >
+>> 
+>> So if i am a vendor with my own driver, I can expose whatever i want.
 >
----
- drivers/nfc/nxp-nci/core.c     | 7 +++----
- drivers/nfc/nxp-nci/firmware.c | 9 ++++++---
- 2 files changed, 9 insertions(+), 7 deletions(-)
+>No. We will reject any driver change attempting to do so on this
+>list.
 
-diff --git a/drivers/nfc/nxp-nci/core.c b/drivers/nfc/nxp-nci/core.c
-index d3643ef..c15606d 100644
---- a/drivers/nfc/nxp-nci/core.c
-+++ b/drivers/nfc/nxp-nci/core.c
-@@ -165,12 +165,11 @@ void nxp_nci_remove(struct nci_dev *ndev)
- {
- 	struct nxp_nci_info *info =3D nci_get_drvdata(ndev);
-=20
--	mutex_lock(&info->info_lock);
--
--	cancel_work_sync(&info->fw_info.work);
--
- 	if (info->mode =3D=3D NXP_NCI_MODE_FW)
- 		nxp_nci_fw_work_complete(info, -ESHUTDOWN);
-+	cancel_work_sync(&info->fw_info.work);
-+
-+	mutex_lock(&info->info_lock);
-=20
- 	if (info->phy_ops->disable)
- 		info->phy_ops->disable(info->phy_id);
-diff --git a/drivers/nfc/nxp-nci/firmware.c b/drivers/nfc/nxp-nci/firmw=
-are.c
-index 1814e9f..de136e1 100644
---- a/drivers/nfc/nxp-nci/firmware.c
-+++ b/drivers/nfc/nxp-nci/firmware.c
-@@ -166,7 +166,8 @@ static int nxp_nci_fw_send(struct nxp_nci_info *inf=
-o)
-=20
- 	if (*fw_info->data =3D=3D NXP_NCI_FW_CMD_RESET) {
- 		fw_info->cmd_result =3D 0;
--		schedule_work(&fw_info->work);
-+		if (fw_info->fw)
-+			schedule_work(&fw_info->work);
- 	} else {
- 		completion_rc =3D wait_for_completion_interruptible_timeout(
- 			&fw_info->cmd_completion, NXP_NCI_FW_ANSWER_TIMEOUT);
-@@ -244,7 +245,8 @@ int nxp_nci_fw_download(struct nci_dev *ndev, const=
- char *firmware_name)
- 	fw_info->frame_size =3D 0;
- 	fw_info->cmd_result =3D 0;
-=20
--	schedule_work(&fw_info->work);
-+	if (fw_info->fw)
-+		schedule_work(&fw_info->work);
-=20
- fw_download_exit:
- 	mutex_unlock(&info->info_lock);
-@@ -316,6 +318,7 @@ void nxp_nci_fw_recv_frame(struct nci_dev *ndev, st=
-ruct sk_buff *skb)
- 		fw_info->cmd_result =3D -EIO;
- 	}
-=20
--	schedule_work(&fw_info->work);
-+	if (fw_info->fw)
-+		schedule_work(&fw_info->work);
- }
- EXPORT_SYMBOL(nxp_nci_fw_recv_frame);
---=20
-Cl=C3=A9ment Perrochaud
+That is not 100%, on contrary. If the infrastructure would be made to
+explicitly disallow that kind of behaviour, it would be much safer.
 
-Eff'Innov Technologies
-Caen, Aix-En-Provence, Grenoble
 
-Eff'Innov Technologies
-Campus EffiScience
-2, Esplanade Anton Philips
-14460 Colombelles, FRANCE
-
-http://www.effinnov.com
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" i=
-n
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+>This is the whole point of this: Coming up with a model that allows
+>to describe capabilities and offer flow programming capabilities
+>in a Vendor neutral way. A "push_vlan" or "pop_vlan" action will work
+>with any driver that supports it.
