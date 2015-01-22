@@ -1,52 +1,76 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [net-next PATCH v3 00/12] Flow API
-Date: Thu, 22 Jan 2015 17:58:31 +0000
-Message-ID: <20150122175831.GE25797@casper.infradead.org>
-References: <20150120202404.1741.8658.stgit@nitbit.x32>
- <20150122125246.GA4486@salvia>
- <20150122133713.GA25797@casper.infradead.org>
- <20150122140022.GA5674@salvia>
- <54C11094.2000807@mojatatu.com>
- <20150122151316.GB25797@casper.infradead.org>
- <54C11703.7030702@mojatatu.com>
- <20150122153727.GC25797@casper.infradead.org>
- <20150122154840.GC1863@nanopsycho.orion>
+From: Ben Hutchings <ben.hutchings@codethink.co.uk>
+Subject: Re: [PATCH net 4/4] sh_eth: Fix serialisation of interrupt disable
+ with interrupt & NAPI handlers
+Date: Thu, 22 Jan 2015 17:59:41 +0000
+Message-ID: <1421949581.1222.309.camel@xylophone.i.decadent.org.uk>
+References: <1421930284.1222.285.camel@xylophone.i.decadent.org.uk>
+		 <1421930648.1222.289.camel@xylophone.i.decadent.org.uk>
+		 <54C1002D.7090508@cogentembedded.com>
+	 <1421939177.1222.298.camel@xylophone.i.decadent.org.uk>
+	 <54C126BA.4030807@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	John Fastabend <john.fastabend@gmail.com>,
-	simon.horman@netronome.com, sfeldma@gmail.com,
-	netdev@vger.kernel.org, davem@davemloft.net, gerlitz.or@gmail.com,
-	andy@greyhouse.net, ast@plumgrid.com
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S.Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@lists.codethink.co.uk,
+	Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>,
+	Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>,
+	Hisashi Nakamura <hisashi.nakamura.ak@renesas.com>,
+	Yoshihiro Kaneko <ykaneko0929@gmail.com>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:42911 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751609AbbAVR6d (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jan 2015 12:58:33 -0500
-Content-Disposition: inline
-In-Reply-To: <20150122154840.GC1863@nanopsycho.orion>
+Received: from ducie-dc1.codethink.co.uk ([185.25.241.215]:51429 "EHLO
+	ducie-dc1.codethink.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753249AbbAVR7m (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jan 2015 12:59:42 -0500
+In-Reply-To: <54C126BA.4030807@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/22/15 at 04:48pm, Jiri Pirko wrote:
-> Thu, Jan 22, 2015 at 04:37:27PM CET, tgraf@suug.ch wrote:
-> >On 01/22/15 at 10:28am, Jamal Hadi Salim wrote:
-> >> On 01/22/15 10:13, Thomas Graf wrote:
-> >> 
-> >> >I don't follow this. John's proposal allows to decide on a case by
-> >> >case basis what we want to export. Just like with ethtool or
-> >> >RTNETLINK. There is no direct access to hardware. A user can only
-> >> >configure what is being exposed by the kernel.
-> >> >
-> >> 
-> >> So if i am a vendor with my own driver, I can expose whatever i want.
-> >
-> >No. We will reject any driver change attempting to do so on this
-> >list.
+On Thu, 2015-01-22 at 19:35 +0300, Sergei Shtylyov wrote:
+> Hello.
 > 
-> That is not 100%, on contrary. If the infrastructure would be made to
-> explicitly disallow that kind of behaviour, it would be much safer.
+> On 01/22/2015 06:06 PM, Ben Hutchings wrote:
+> 
+> >>> In order to stop the RX path accessing the RX ring while it's being
+> >>> stopped or resized, we clear the interrupt mask (EESIPR) and then call
+> >>> free_irq() or synchronise_irq().  This is insufficient because the
+> >>> interrupt handler or NAPI poller may set EESIPR again after we clear
+> >>> it.
+> 
+> >>      Hm, how come the interrupt handler gets called when we have disabled all
+> >> interrupts?
+> 
+> > It may be running on another processor and racing with the function that
+> > clears EESIPR.
+> 
+>     Ah, I didn't think about SMP... but then we need more spinlock protection 
+> instead, no?
 
-I'm very much in favour of that. Ideas?
+That's what I tried first.  As we need to serialise with NAPI as well,
+and napi_disable() may sleep, we need to call that first, so I ended up
+with:
+
+               napi_disable(&mdp->napi);
+               spin_lock_irq(&mdp->lock);
+               sh_eth_write(ndev, 0x0000, EESIPR);
+               spin_unlock_irq(&mdp->lock);
+               napi_enable(&mdp->napi);
+
+But after napi_disable() sets the NAPI_STATE_DISABLE bit,
+napi_schedule_prep() will return false and so the interrupt handler will
+not clear the EESR_RX_CHECK bit any more.  This can leave the interrupt
+screaming and prevent the NAPI handler from ever completing, so the
+system is livelocked.
+
+> >> Is it unmaskable EESR.ECI interrupt? BTW, I'm not seeing where the
+> >> interrupt handler enables interrupts again; only NAPI poller does that AFAIK.
+> 
+> > Normally it only clears EESR_RX_CHECK, but as it cannot atomically clear
+> > a single bit of EESIPR this can result in setting other bits.
+> 
+>     This is again only possible on SMP kernel, right?
+
+Yes.
+
+Ben.
