@@ -1,98 +1,116 @@
-From: "Skidmore, Donald C" <donald.c.skidmore@intel.com>
-Subject: RE: [E1000-devel] [PATCH 1/2] if_link: Add VF multicast promiscuous
-	mode control
-Date: Thu, 22 Jan 2015 19:00:51 +0000
-Message-ID: <F6FB0E698C9B3143BDF729DF222866469129BFFD@ORSMSX110.amr.corp.intel.com>
-References: <7F861DC0615E0C47A872E6F3C5FCDDBD05E0734E@BPXM14GP.gisp.nec.co.jp>
-	<874mrlu18e.fsf@nemi.mork.no>
- <7F861DC0615E0C47A872E6F3C5FCDDBD05E07B7C@BPXM14GP.gisp.nec.co.jp>
- <F6FB0E698C9B3143BDF729DF222866469129B7F5@ORSMSX110.amr.corp.intel.com>
- <7F861DC0615E0C47A872E6F3C5FCDDBD05E07F09@BPXM14GP.gisp.nec.co.jp>
- <F6FB0E698C9B3143BDF729DF222866469129B844@ORSMSX110.amr.corp.intel.com>
- <7F861DC0615E0C47A872E6F3C5FCDDBD05E08FF6@BPXM14GP.gisp.nec.co.jp>
- <063D6719AE5E284EB5DD2968C1650D6D1CAD01D6@AcuExch.aculab.com>
- <7F861DC0615E0C47A872E6F3C5FCDDBD05E090FE@BPXM14GP.gisp.nec.co.jp>
- <F6FB0E698C9B3143BDF729DF222866469129BC03@ORSMSX110.amr.corp.intel.com>
- <063D6719AE5E284EB5DD2968C1650D6D1CAD0C8A@AcuExch.aculab.com>
+From: Dean Gehnert <deang@tpi.com>
+Subject: Re: [PATCH net 0/2] net: marvell: Fix highmem support on non-TSO
+ path
+Date: Thu, 22 Jan 2015 11:01:21 -0800
+Message-ID: <54C14901.2050602@tpi.com>
+References: <1421844850-30886-1-git-send-email-ezequiel.garcia@free-electrons.com> <20150121150159.GS26493@n2100.arm.linux.org.uk> <54C1443C.80909@tpi.com> <54C14564.7060408@free-electrons.com>
+Reply-To: deang@tpi.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Choi, Sy Jong" <sy.jong.choi@intel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Hayato Momma <h-momma@ce.jp.nec.com>
-To: David Laight <David.Laight@ACULAB.COM>,
-	Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>,
-	=?utf-8?B?QmrDuHJuIE1vcms=?= <bjorn@mork.no>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CAD0C8A@AcuExch.aculab.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	B38611@freescale.com, fabio.estevam@freescale.com
+To: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
+	Russell King - ARM Linux <linux@arm.linux.org.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.tpi.com ([74.45.170.26]:43603 "EHLO mail.tpi.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752801AbbAVTBW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 Jan 2015 14:01:22 -0500
+In-Reply-To: <54C14564.7060408@free-electrons.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBEYXZpZCBMYWlnaHQgW21haWx0
-bzpEYXZpZC5MYWlnaHRAQUNVTEFCLkNPTV0NCj4gU2VudDogVGh1cnNkYXksIEphbnVhcnkgMjIs
-IDIwMTUgMTo1MCBBTQ0KPiBUbzogU2tpZG1vcmUsIERvbmFsZCBDOyBIaXJvc2hpIFNoaW1hbW90
-bzsgQmrDuHJuIE1vcmsNCj4gQ2M6IGUxMDAwLWRldmVsQGxpc3RzLnNvdXJjZWZvcmdlLm5ldDsg
-bmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgQ2hvaSwgU3kNCj4gSm9uZzsgbGludXgta2VybmVsQHZn
-ZXIua2VybmVsLm9yZzsgSGF5YXRvIE1vbW1hDQo+IFN1YmplY3Q6IFJFOiBbRTEwMDAtZGV2ZWxd
-IFtQQVRDSCAxLzJdIGlmX2xpbms6IEFkZCBWRiBtdWx0aWNhc3QgcHJvbWlzY3VvdXMNCj4gbW9k
-ZSBjb250cm9sDQo+IA0KPiBGcm9tOiBTa2lkbW9yZSwgRG9uYWxkIEMNCj4gPiA+ID4gRnJvbTog
-SGlyb3NoaSBTaGltYW1vdG8NCj4gPiA+ID4gPiBNeSBjb25jZXJuIGlzIHdoYXQgaXMgdGhlIHJl
-YWwgaXNzdWUgdGhhdCBWRiBtdWx0aWNhc3QNCj4gPiA+ID4gPiBwcm9taXNjdW91cyBtb2RlDQo+
-ID4gPiBjYW4gY2F1c2UuDQo+ID4gPiA+ID4gSSB0aGluayB0aGVyZSBpcyB0aGUgNGsgZW50cmll
-cyB0byBmaWx0ZXIgbXVsdGljYXN0IGFkZHJlc3MsIGFuZA0KPiA+ID4gPiA+IHRoZSBjdXJyZW50
-IGl4Z2JlL2l4Z2JldmYgY2FuIHR1cm4gYWxsIGJpdHMgb24gZnJvbSBWTS4gVGhhdCBpcw0KPiA+
-ID4gPiA+IGFsbW9zdCBzYW1lIGFzDQo+ID4gPiBlbmFibGluZyBtdWx0aWNhc3QgcHJvbWlzY3Vv
-dXMgbW9kZS4NCj4gPiA+ID4gPiBJIG1lYW4gdGhhdCB3ZSBjYW4gcmVjZWl2ZSBhbGwgbXVsdGlj
-YXN0IGFkZHJlc3NlcyBieSBhbiBvbmVyb3VzDQo+ID4gPiBvcGVyYXRpb24gaW4gdW50cnVzdGVk
-IFZNLg0KPiA+ID4gPiA+IEkgdGhpbmsgd2Ugc2hvdWxkIGNsYXJpZnkgd2hhdCBpcyByZWFsIHNl
-Y3VyaXR5IGlzc3VlIGluIHRoaXMgY29udGV4dC4NCj4gPiA+ID4NCj4gPiA+ID4gSWYgeW91IGFy
-ZSB3b3JyaWVkIGFib3V0IHBhc3NpbmcgdW4tZW5hYmxlZCBtdWx0aWNhc3RzIHRvIHVzZXJzDQo+
-ID4gPiA+IHRoZW4gd2hhdCBhYm91dCBkb2luZyBhIHNvZnR3YXJlIGhhc2ggb2YgcmVjZWl2ZWQg
-bXVsdGljYXN0cyBhbmQNCj4gPiA+ID4gY2hlY2tpbmcgYWdhaW5zdCBhbiBhY3R1YWwgbGlzdCBv
-ZiBtdWx0aWNhc3RzIGVuYWJsZWQgZm9yIHRoYXQgaGFzaCBlbnRyeS4NCj4gPiA+ID4gVW5kZXIg
-bm9ybWFsIGNvbmRpdGlvbnMgdGhlcmUgaXMgbGlrZWx5IHRvIGJlIG9ubHkgYSBzaW5nbGUgYWRk
-cmVzcyB0bw0KPiBjaGVjay4NCj4gPiA+ID4NCj4gPiA+ID4gSXQgbWF5IChvciBtYXkgbm90KSBi
-ZSBiZXN0IHRvIHVzZSB0aGUgc2FtZSBoYXNoIGFzIGFueSBoYXNoaW5nDQo+ID4gPiA+IGhhcmR3
-YXJlIGZpbHRlciB1c2VzLg0KPiA+ID4NCj4gPiA+IHRoYW5rcyBmb3IgdGhlIGNvbW1lbnQuIEJ1
-dCBJIGRvbid0IHRoaW5rIHRoYXQgaXMgdGhlIHBvaW50Lg0KPiA+ID4NCj4gPiA+IEkgZ3Vlc3Ms
-IGludHJvZHVjaW5nIFZGIG11bHRpY2FzdCBwcm9taXNjdW91cyBtb2RlIHNlZW1zIHRvIGFkZCBu
-ZXcNCj4gPiA+IHByaXZpbGVnZSB0byBwZWVrIGV2ZXJ5IG11bHRpY2FzdCBwYWNrZXQgaW4gVk0g
-YW5kIHRoYXQgZG9lc24ndCBsb29rDQo+IGdvb2QuDQo+ID4gPiBPbiB0aGUgb3RoZXIgaGFuZCwg
-SSB0aGluayB0aGF0IHRoZXJlIGhhcyBiZWVuIHRoZSBzYW1lIHByaXZpbGVnZSBpbg0KPiA+ID4g
-dGhlIGN1cnJlbnQgaXhnYmUvaXhnYmV2ZiBpbXBsZW1lbnRhdGlvbiBhbHJlYWR5LiBPciBJJ20g
-cmVhZGluZyB0aGUNCj4gPiA+IGNvZGUgd3JvbmdseS4NCj4gPiA+IEknZCBsaWtlIHRvIGNsYXJp
-Znkgd2hhdCBpcyB0aGUgaXNzdWUgb2YgYWxsb3dpbmcgdG8gcmVjZWl2ZSBhbGwgbXVsdGljYXN0
-DQo+IHBhY2tldHMuDQo+ID4NCj4gPiBBbGxvd2luZyBhIFZNIHRvIGdpdmUgaXRzZWxmIHRoZSBw
-cml2aWxlZ2Ugb2Ygc2VlaW5nIGV2ZXJ5IG11bHRpY2FzdA0KPiA+IHBhY2tldCBjb3VsZCBiZSBz
-ZWVuIGFzIGEgaG9sZSBpbiBWTSBpc29sYXRpb24uDQo+ID4gTm93IGlmIHRoZSBob3N0IHN5c3Rl
-bSBhbGxvd3MgdGhpcyBwb2xpY3kgSSBkb24ndCBzZWUgdGhpcyBhcyBhbiBpc3N1ZQ0KPiA+IGFz
-IHNvbWVvbmUgc3BlY2lmaWNhbGx5IGFsbG93ZWQgdGhpcyB0byBoYXBwZW4gYW5kIHRoZW4gbXVz
-dCBub3QgYmUNCj4gY29uY2VybmVkLg0KPiA+IFdlIGNvdWxkIGV2ZW4gbG9nIHRoYXQgaXQgaGFz
-IG9jY3VycmVkLCB3aGljaCBJIGJlbGlldmUgeW91ciBwYXRjaCBkaWQgZG8uDQo+ID4gVGhlIGlz
-c3VlIGlzIGFsc28gZnVydGhlciBtdWRkaWVkLCBhcyB5b3UgbWVudGlvbmVkIGFib3ZlLCBzaW5j
-ZSBzb21lDQo+ID4gb2YgdGhlc2UgbXVsdGljYXN0IHBhY2tldHMgYXJlIGxlYWtpbmcgYW55d2F5
-ICh0aGUgSFcgY3VycmVudGx5IHVzZXMgYSAxMg0KPiBiaXQgbWFzaykuDQo+ID4gSXQncyBqdXN0
-IHRoYXQgdGhpcyBjaGFuZ2Ugd291bGQgZ3JlYXRseSBlbmxhcmdlIHRoYXQgaG9sZSBmcm9tIGEN
-Cj4gPiBmcmFjdGlvbiB0byBhbGwgbXVsdGljYXN0IHBhY2tldHMuDQo+IA0KPiBXaHkgZG9lcyBp
-dCBoYXZlIGFueXRoaW5nIHRvIGRvIHdpdGggVk0gaXNvbGF0aW9uPw0KPiBJc24ndCBpcyBqdXN0
-IHRoZSBzYW1lIGFzIGlmIHRoZSBWTSB3ZXJlIGNvbm5lY3RlZCBkaXJlY3RseSB0byB0aGUgZXRo
-ZXJuZXQNCj4gY2FibGU/DQo+IA0KPiAJRGF2aWQNCg0KSSBkbyBzZWUgeW91ciBwb2ludC4gOikN
-Cg0KTXkgaGFuZyB1cCBpcyBtb3JlIHJlbGF0ZWQgdG86IHdpdGhvdXQgdGhlIG5vYiB0byBlbmFi
-bGUgaXQgKG9mZiBieSBkZWZhdWx0KSB3ZSBhcmUgbGV0dGluZyBvbmUgVkYgZGljdGF0ZSBwb2xp
-Y3kgZm9yIGFsbCB0aGUgb3RoZXIgVkZzIGFuZCB0aGUgUEYuICBJZiBvbmUgVkYgbmVlZHMgdG8g
-YmUgaW4gcHJvbWlzY3VvdXMgbXVsdGljYXN0IHNvIGlzIGV2ZXJ5b25lIGVsc2UuICBUaGVpciBz
-dGFja3Mgbm93IG5lZWRzIHRvIGRlYWwgd2l0aCBhbGwgdGhlIGV4dHJhIG11bHRpY2FzdCBwYWNr
-ZXRzLiAgQXMgeW91IHBvaW50IG91dCB0aGlzIG1pZ2h0IG5vdCBiZSBhIGRpcmVjdCBjb25jZXJu
-IGZvciBpc29sYXRpb24gaW4gdGhhdCB0aGUgVk0gY291bGQgaGF2ZSAnY2hvc2VuJyB0byBqb2lu
-IGFueSBNdWx0aWNhc3QgZ3JvdXAgYW5kIHNlZW4gdGhpcyB0cmFmZmljLiAgTXkgY29uY2VybiBv
-dmVyIGlzb2xhdGlvbiBpcyBvbmUgVkYgaGFzIGNob3NlbiB0aGF0IGFsbCB0aGUgb3RoZXIgVk0g
-bm93IGhhdmUgdG8gc2VlIHRoaXMgbXVsdGljYXN0IHRyYWZmaWMuDQoNClRoaXMgd2lsbCBlZmZl
-Y3QgcGVyZm9ybWFuY2UgYXMgdGhlc2UgcGFja2V0cyB3aWxsIG5lZWQgdG8gYmUgcmVwbGljYXRl
-ZC4gIFNvIG9uY2UgYWdhaW4gbXkgaXNzdWUgaXMgYSBWRiBpcyBtYWtpbmcgdGhlIHBvbGljeSBk
-ZWNpc2lvbiB0aGF0IGRvaW5nIHRoaXMgaXMgb2sgZm9yIHRoZSBlbnRpcmUgc3lzdGVtLiAgVGhh
-dCBzaG91bGQgYmUgdGhlIFBGJ3Mgam9iLg0KDQpEb2VzIHRoaXMgZ2l2ZSB5b3UgYSBiZXR0ZXIg
-aWRlYSB3aGVyZSBteSBjb25jZXJucyBsYXk/DQoNCg0K
+On 01/22/2015 10:45 AM, Ezequiel Garcia wrote:
+> On 01/22/2015 03:41 PM, Dean Gehnert wrote:
+>> On 01/21/2015 07:01 AM, Russell King - ARM Linux wrote:
+>>> On Wed, Jan 21, 2015 at 09:54:08AM -0300, Ezequiel Garcia wrote:
+>>>> These two commits are fixes to the issue reported by Russell King on
+>>>> mv643xx_eth. Namely, the introduction of a regression by commit
+>>>> 69ad0dd7af22
+>>>> which removed the support for highmem skb fragments. The guilty commit
+>>>> introduced the assumption of fragment's payload being located in
+>>>> lowmem pages.
+>>> I do wonder whether 69ad0dd7af22 is the real culpret, or whether there is
+>>> some other change in the netdev layer that we're missing.  That commit is
+>>> in 3.16, but from what I remember, 3.17 works fine, it's 3.18 which
+>>> fails.
+>>>
+>>>> A similar pattern can be found in the original mvneta driver (in
+>>>> fact, the
+>>>> regression was introduced by copy-pasting the mvneta code).
+>>>>
+>>>> These fixes are for the non-TSO egress path in mvneta and mv643xx_eth
+>>>> drivers.
+>>>> The TSO path needs a more intrusive change, as the TSO API needs to
+>>>> be fixed
+>>>> (e.g. to make it work in skb fragments, instead of pointers to data).
+>>>>
+>>>> Russell, as I'm still unable to reproduce this, do you think you can
+>>>> give it a spin over there?
+>>> Sure - I think the only one I can test is mv643xx_eth, I don't think I
+>>> have any device which supports mv_neta.
+>>>
+>>> The test scenario is for a NFS mount (the Marvell device as the NFS
+>>> client) over IPv6.
+>>>
+>>> Initial testing looks good, I'll let it run for a while with various
+>>> builds on the NFS share (which iirc was one of the triggering
+>>> workloads).
+>>>
+>>> Thanks.
+>>>
+>> FYI, I found a way to reproduce the mv643xx_eth transmit corruption
+>> without using a network filesystem by using SOCAT (should also be able
+>> to use NETCAT or NC) and I have a bit more information about the
+>> corruption that looks like it is somehow related to the cache line size.
+>>
+>> 1) Create a "large" input file with known data on the target (saved to
+>> RAM disk or other storage):
+>>      % php -r 'for ($x = 0; $x < 0x2000000; $x++) { printf("%08X\n", $x);
+>> }' > ExpectData.in
+>>        or
+>>      % perl -e 'for ($x = 0; $x < 0x2000000; $x++) { printf("%08X\n",
+>> $x); }' > ExpectData.in
+>>      % md5sum ExpectData.in
+>>      4a4727232209b85badc1ca25ed4df222  ExpectData.in
+>> 2) Start SOCAT on the host system to perform Ethernet receive MD5
+>> checksum of the data:
+>>      % socat -s -u TCP4-LISTEN:4000,fork,reuseaddr EXEC:md5sum
+>> 3) Enable TSO on the target:
+>>      % ethtool -K eth0 tso on
+>> 4)  Send the data file from the target to the host using SOCAT with a
+>> non-cache aligned block size:
+>>      % socat -b$(((1024*10)+1)) -u ExpectData.in TCP:192.168.1.212:4000
+>> 5) The SOCAT running on the host system will report the MD5 checksum. If
+>> the MD5 is correct, it should be 4a4727232209b85badc1ca25ed4df222.
+>>
+>> What I am seeing is every now and then, there are 32-bits (4 bytes) of
+>> data in the transmit Ethernet stream that are corrupted. If I change the
+>> SOCAT block size to something that is Armada 300 (Kirkwood) cache line
+>> aligned (ie. -b$(((1024*10)+0)) or -b$(((1024*10)+8))), it works just
+>> fine... If you want to capture the actual file and look at it, you can
+>> use SOCAT:
+>>    % socat -u TCP4-LISTEN:4000,fork,reuseaddr OPEN:ActualData.in,creat
+>> and since the data file is text, it is really easy to see the corruption
+>> (diff ExpectData.in ActualData.in | less).
+>>
+>> I can disable TSO (ethtool -K eth0 tso off) and re-run the tests and the
+>> corruption does not occur.
+>>
+>> I will give Ezequiel's latest patches a test a today and let you know if
+>> they change the behavior.
+>>
+> Sigh, this smells like a completely different bug. Which kernel version
+> are you testing?
+This was tested on v3.16.7 with all the patches forward to tip of tree 
+on the mv643xx_eth driver. We are still not devtree enabled, so v3.16.7 
+is where we are stuck until I get the Armada XP and MV-EBU enabled.
+
+BTW, I did check and I already have all the latest NetDev patches for 
+the driver and the problem still occurs...
+
+It is almost feeling like a low-level DMA issue being the root cause... 
+A bit off topic for the NetDev discussion, but we have also seen some 
+odd behavior with the Firewire OHCI driver in respect to the Kirkwood 
+platform and DMA... Not sure if they are could be related problems or not.
