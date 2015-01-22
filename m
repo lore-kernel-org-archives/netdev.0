@@ -1,51 +1,45 @@
-From: Nicolae Rosia <nicolae.rosia@certsign.ro>
-Subject: [PATCH] net: macb: allow deffered probe of the driver
-Date: Thu, 22 Jan 2015 17:31:05 +0000
-Message-ID: <1421947441.717.4.camel@uti.ro>
+From: Vincent JARDIN <vincent.jardin@6wind.com>
+Subject: Re: [PATCH net-next 0/3] openvswitch: Add STT support.
+Date: Thu, 22 Jan 2015 18:51:55 +0100
+Message-ID: <54C138BB.7000407@6wind.com>
+References: <1421785536-19793-1-git-send-email-pshelar@nicira.com>	<CA+mtBx90TipY9uJvW2uQfrCYL9JNM9Rk75HzdJPhE0qsdy8dnw@mail.gmail.com>	<CALnjE+rSXpPftiG4Vw3azkN2s2-Ey6ZcZr9Bv422pOdwrvU=tw@mail.gmail.com>	<CA+mtBx9yM+C8GeEHOGTHPVxNB3fJd7LQG0RaC3jywrO9_tQ58A@mail.gmail.com>	<CALnjE+po5gy7g8ftmiNcnrN_gRL9tzCRHNtn=fxUafFikKB1rg@mail.gmail.com>	<CA+mtBx-v5dvX-OPGeWJb6uwQGhJ5T6iewD83xJGqXb+Ggf+LQw@mail.gmail.com>	<CAEP_g=-3GXJfawPb4jevkZhqmzTttsO1Rv_2J6GwpG=PR_a-0g@mail.gmail.com>	<CA+mtBx9B5aS9Jv6tpUJpmBkvQFnUqjcxcgTjbBHee8K0f1C9KQ@mail.gmail.com>	<CAEP_g=_B5xTcfONUP4PTw91PdJKx_cN_+Qdd4F6300aXVyzLZg@mail.gmail.com>	<54C03A57.4080002@6wind.com> <CA+mtBx9pnkJBVftqFTK6fcd-toAxsJrvB=drTxWQs_=5s9C0+A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"nicolas.ferre@atmel.com" <nicolas.ferre@atmel.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jesse Gross <jesse@nicira.com>, Pravin Shelar <pshelar@nicira.com>,
+	David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.uti.ro ([91.220.13.110]:56171 "EHLO mx2.uti.ro"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752135AbbAVRqU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Jan 2015 12:46:20 -0500
-Content-Language: en-US
-Content-ID: <D2186B3019A6FF49A5190D205068C301@uti.ro>
+Received: from mail-wg0-f49.google.com ([74.125.82.49]:39770 "EHLO
+	mail-wg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752135AbbAVRv6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jan 2015 12:51:58 -0500
+Received: by mail-wg0-f49.google.com with SMTP id l18so3160284wgh.8
+        for <netdev@vger.kernel.org>; Thu, 22 Jan 2015 09:51:57 -0800 (PST)
+In-Reply-To: <CA+mtBx9pnkJBVftqFTK6fcd-toAxsJrvB=drTxWQs_=5s9C0+A@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-VGhlIGRyaXZlciBpcyB0cnlpbmcgdG8gYWNxdWlyZSBjbG9ja3Mgd2hpY2ggbWF5YmUNCmFyZSBu
-b3QgYXZhaWxhYmxlIHlldC4gQWxsb3cgdGhlIGRyaXZlciB0byByZXF1ZXN0DQpkZWZmZXJlZCBw
-cm9iZSBieSBwcm92aWRpbmcgYSBwcm9iZSBmdW5jdGlvbiBhbmQNCnJlZ2lzdGVyaW5nIGl0IHdp
-dGggbW9kdWxlX3BsYXRmb3JtX2RyaXZlci4gWzFdDQpUaGlzIHBhdGNoIGlzIGJhc2VkIG9uIDMu
-MTktcmM1Lg0KDQpbMV0gaHR0cHM6Ly9sa21sLm9yZy9sa21sLzIwMTMvOS8yMy8xMTgNCg0KU2ln
-bmVkLW9mZi1ieTogTmljb2xhZSBSb3NpYSA8bmljb2xhZS5yb3NpYUBjZXJ0c2lnbi5ybz4NCi0t
-LQ0KIGRyaXZlcnMvbmV0L2V0aGVybmV0L2NhZGVuY2UvbWFjYi5jIHwgOSArKysrKy0tLS0NCiAx
-IGZpbGUgY2hhbmdlZCwgNSBpbnNlcnRpb25zKCspLCA0IGRlbGV0aW9ucygtKQ0KDQpkaWZmIC0t
-Z2l0IGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvY2FkZW5jZS9tYWNiLmMNCmIvZHJpdmVycy9uZXQv
-ZXRoZXJuZXQvY2FkZW5jZS9tYWNiLmMNCmluZGV4IDM3NjcyNzEuLjRkZmNkNjYgMTAwNjQ0DQot
-LS0gYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9jYWRlbmNlL21hY2IuYw0KKysrIGIvZHJpdmVycy9u
-ZXQvZXRoZXJuZXQvY2FkZW5jZS9tYWNiLmMNCkBAIC0yMTQ4LDcgKzIxNDgsNyBAQCBzdGF0aWMg
-dm9pZCBtYWNiX3Byb2JlX3F1ZXVlcyh2b2lkIF9faW9tZW0gKm1lbSwNCiAJCQkoKm51bV9xdWV1
-ZXMpKys7DQogfQ0KIA0KLXN0YXRpYyBpbnQgX19pbml0IG1hY2JfcHJvYmUoc3RydWN0IHBsYXRm
-b3JtX2RldmljZSAqcGRldikNCitzdGF0aWMgaW50IG1hY2JfcHJvYmUoc3RydWN0IHBsYXRmb3Jt
-X2RldmljZSAqcGRldikNCiB7DQogCXN0cnVjdCBtYWNiX3BsYXRmb3JtX2RhdGEgKnBkYXRhOw0K
-IAlzdHJ1Y3QgcmVzb3VyY2UgKnJlZ3M7DQpAQCAtMjM4Niw3ICsyMzg2LDcgQEAgZXJyX291dDoN
-CiAJcmV0dXJuIGVycjsNCiB9DQogDQotc3RhdGljIGludCBfX2V4aXQgbWFjYl9yZW1vdmUoc3Ry
-dWN0IHBsYXRmb3JtX2RldmljZSAqcGRldikNCitzdGF0aWMgaW50IG1hY2JfcmVtb3ZlKHN0cnVj
-dCBwbGF0Zm9ybV9kZXZpY2UgKnBkZXYpDQogew0KIAlzdHJ1Y3QgbmV0X2RldmljZSAqZGV2Ow0K
-IAlzdHJ1Y3QgbWFjYiAqYnA7DQpAQCAtMjQ0OSw3ICsyNDQ5LDggQEAgc3RhdGljIGludCBtYWNi
-X3Jlc3VtZShzdHJ1Y3QgZGV2aWNlICpkZXYpDQogc3RhdGljIFNJTVBMRV9ERVZfUE1fT1BTKG1h
-Y2JfcG1fb3BzLCBtYWNiX3N1c3BlbmQsIG1hY2JfcmVzdW1lKTsNCiANCiBzdGF0aWMgc3RydWN0
-IHBsYXRmb3JtX2RyaXZlciBtYWNiX2RyaXZlciA9IHsNCi0JLnJlbW92ZQkJPSBfX2V4aXRfcCht
-YWNiX3JlbW92ZSksDQorCS5wcm9iZQkJPSBtYWNiX3Byb2JlLA0KKwkucmVtb3ZlCQk9IG1hY2Jf
-cmVtb3ZlLA0KIAkuZHJpdmVyCQk9IHsNCiAJCS5uYW1lCQk9ICJtYWNiIiwNCiAJCS5vZl9tYXRj
-aF90YWJsZQk9IG9mX21hdGNoX3B0cihtYWNiX2R0X2lkcyksDQpAQCAtMjQ1Nyw3ICsyNDU4LDcg
-QEAgc3RhdGljIHN0cnVjdCBwbGF0Zm9ybV9kcml2ZXIgbWFjYl9kcml2ZXIgPSB7DQogCX0sDQog
-fTsNCiANCi1tb2R1bGVfcGxhdGZvcm1fZHJpdmVyX3Byb2JlKG1hY2JfZHJpdmVyLCBtYWNiX3By
-b2JlKTsNCittb2R1bGVfcGxhdGZvcm1fZHJpdmVyKG1hY2JfZHJpdmVyKTsNCiANCiBNT0RVTEVf
-TElDRU5TRSgiR1BMIik7DQogTU9EVUxFX0RFU0NSSVBUSU9OKCJDYWRlbmNlIE1BQ0IvR0VNIEV0
-aGVybmV0IGRyaXZlciIpOw0KLS0gDQoyLjEuMA0KDQo=
+On 22/01/2015 17:24, Tom Herbert wrote:
+> STT is undoubtedly a creative and unique solution I'll give you that,
+> but the potential repercussions of allowing this to be widely deployed
+> are profound. IMO this needs to be fully explored before it can ever
+> be allowed in the kernel. If there has already been discussion on this
+> please forward a pointer (I didn't find anything in the IETF mailing
+> list archives other than the draft posting announcements), but at the
+> minimum these patches warrant a lot of scrutiny.
+
+I share this concern of biased use of TCP, all the critics will be 
+valid. But anyone can hack TCP (so peer to peer software does or CDN 
+software does). So, I prefer the let the freedom to the sysadmin to 
+enable/disable it for their networks. Not having this feature into the 
+kernel prevent sysadmin from doing it. To be safe, it can be an 
+experimental feature of the Linux kernel.
+
+Same: LRO/GRO is is bad features: it breaks many times networking (most 
+IP forwarders must disable it), but it helps for servers. Same for STT 
+in fact, it has its narrow set of use-cases which are valid.
+
+Best regards,
+   Vincent
