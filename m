@@ -1,50 +1,62 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [ovs-dev] [PATCH] net: openvswitch: Support masked set actions.
-Date: Thu, 22 Jan 2015 14:41:05 -0800
-Message-ID: <CALnjE+pCb_WCT=0ZUbK80__WFJEernoBU=35PvdPNDEZuF+sgQ@mail.gmail.com>
-References: <1418170225-9328-1-git-send-email-jrajahalme@nicira.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] drivers: net: xgene: fix: Out of order descriptor bytes
+ read
+Date: Thu, 22 Jan 2015 14:50:50 -0800
+Message-ID: <1421967050.3471.14.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1421957007-720-1-git-send-email-isubramanian@apm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	"dev@openvswitch.org" <dev@openvswitch.org>
-To: Jarno Rajahalme <jrajahalme@nicira.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	mlangsdo@redhat.com, patches@apm.com,
+	Keyur Chudgar <kchudgar@apm.com>
+To: Iyappan Subramanian <isubramanian@apm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog127.obsmtp.com ([74.125.149.107]:48994 "HELO
-	na3sys009aog127.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751597AbbAVWlH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jan 2015 17:41:07 -0500
-Received: by mail-ig0-f171.google.com with SMTP id r10so3098061igi.4
-        for <netdev@vger.kernel.org>; Thu, 22 Jan 2015 14:41:05 -0800 (PST)
-In-Reply-To: <1418170225-9328-1-git-send-email-jrajahalme@nicira.com>
+Received: from mail-ig0-f179.google.com ([209.85.213.179]:64412 "EHLO
+	mail-ig0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751930AbbAVWuw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jan 2015 17:50:52 -0500
+In-Reply-To: <1421957007-720-1-git-send-email-isubramanian@apm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 9, 2014 at 4:10 PM, Jarno Rajahalme <jrajahalme@nicira.com> wrote:
-> OVS userspace already probes the openvswitch kernel module for
-> OVS_ACTION_ATTR_SET_MASKED support.  This patch adds the kernel module
-> implementation of masked set actions.
->
-> The existing set action sets many fields at once.  When only a subset
-> of the IP header fields, for example, should be modified, all the IP
-> fields need to be exact matched so that the other field values can be
-> copied to the set action.  A masked set action allows modification of
-> an arbitrary subset of the supported header bits without requiring the
-> rest to be matched.
->
-> Masked set action is now supported for all writeable key types, except
-> for the tunnel key.  The set tunnel action is an exception as any
-> input tunnel info is cleared before action processing starts, so there
-> is no tunnel info to mask.
->
-> The kernel module converts all (non-tunnel) set actions to masked set
-> actions.  This makes action processing more uniform, and results in
-> less branching and duplicating the action processing code.  When
-> returning actions to userspace, the fully masked set actions are
-> converted back to normal set actions.  We use a kernel internal action
-> code to be able to tell the userspace provided and converted masked
-> set actions apart.
->
-> Signed-off-by: Jarno Rajahalme <jrajahalme@nicira.com>
-> ---
+On Thu, 2015-01-22 at 12:03 -0800, Iyappan Subramanian wrote:
+> This patch fixes the following kernel crash,
+> 
+> 	WARNING: CPU: 2 PID: 0 at net/ipv4/tcp_input.c:3079 tcp_clean_rtx_queue+0x658/0x80c()
+> 	Call trace:
 
-checkpatch few gave few warnings. otherwise looks good.
+> 
+> Software writes poison data into the descriptor bytes[15:8] and upon
+> receiving the interrupt, if those bytes are overwritten by the hardware with
+> the valid data, software also reads bytes[7:0] and executes receive/tx
+> completion logic.
+> 
+> If the CPU executes the above two reads in out of order fashion, then the
+> bytes[7:0] will have older data and causing the kernel panic.  We have to
+> force the order of the reads and thus this patch introduces read memory
+> barrier between these reads.
+> 
+> Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
+> Signed-off-by: Keyur Chudgar <kchudgar@apm.com>
+> Tested-by: Mark Langsdorf <mlangsdo@redhat.com>
+> ---
+>  drivers/net/ethernet/apm/xgene/xgene_enet_main.c | 2 ++
+>  1 file changed, 2 insertions(+)
+> 
+> diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
+> index 83a5028..3622cdb 100644
+> --- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
+> +++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
+> @@ -369,6 +369,8 @@ static int xgene_enet_process_ring(struct xgene_enet_desc_ring *ring,
+>  		if (unlikely(xgene_enet_is_desc_slot_empty(raw_desc)))
+>  			break;
+>  
+> +		/* read fpqnum field after dataaddr field */
+> +		smp_rmb();
+>  		if (is_rx_desc(raw_desc))
+>  			ret = xgene_enet_rx_frame(ring, raw_desc);
+>  		else
+
+Reading your changelog, it looks like you need a plain rmb() here.
