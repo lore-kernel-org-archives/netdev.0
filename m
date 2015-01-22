@@ -1,73 +1,68 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [E1000-devel] [PATCH 1/2] if_link: Add VF multicast promiscuous
-	mode control
-Date: Thu, 22 Jan 2015 09:50:00 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CAD0C8A@AcuExch.aculab.com>
-References: <7F861DC0615E0C47A872E6F3C5FCDDBD05E0734E@BPXM14GP.gisp.nec.co.jp>
-	<874mrlu18e.fsf@nemi.mork.no>
- <7F861DC0615E0C47A872E6F3C5FCDDBD05E07B7C@BPXM14GP.gisp.nec.co.jp>
- <F6FB0E698C9B3143BDF729DF222866469129B7F5@ORSMSX110.amr.corp.intel.com>
- <7F861DC0615E0C47A872E6F3C5FCDDBD05E07F09@BPXM14GP.gisp.nec.co.jp>
- <F6FB0E698C9B3143BDF729DF222866469129B844@ORSMSX110.amr.corp.intel.com>
- <7F861DC0615E0C47A872E6F3C5FCDDBD05E08FF6@BPXM14GP.gisp.nec.co.jp>
- <063D6719AE5E284EB5DD2968C1650D6D1CAD01D6@AcuExch.aculab.com>
- <7F861DC0615E0C47A872E6F3C5FCDDBD05E090FE@BPXM14GP.gisp.nec.co.jp>
- <F6FB0E698C9B3143BDF729DF222866469129BC03@ORSMSX110.amr.corp.intel.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: subtle change in behavior with tun driver
+Date: Thu, 22 Jan 2015 11:53:49 +0200
+Message-ID: <20150122095349.GC26178@redhat.com>
+References: <CAOxq_8NJdFV6fbVh-uns3bpaKNjtcGEOEDb4U3_rX3d+w85SWQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Choi, Sy Jong" <sy.jong.choi@intel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Hayato Momma <h-momma@ce.jp.nec.com>
-To: "'Skidmore, Donald C'" <donald.c.skidmore@intel.com>,
-	Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>,
-	=?utf-8?B?QmrDuHJuIE1vcms=?= <bjorn@mork.no>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <F6FB0E698C9B3143BDF729DF222866469129BC03@ORSMSX110.amr.corp.intel.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Ani Sinha <ani@arista.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:50269 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750816AbbAVJxy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 Jan 2015 04:53:54 -0500
+Content-Disposition: inline
+In-Reply-To: <CAOxq_8NJdFV6fbVh-uns3bpaKNjtcGEOEDb4U3_rX3d+w85SWQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogU2tpZG1vcmUsIERvbmFsZCBDIA0KPiA+ID4gRnJvbTogSGlyb3NoaSBTaGltYW1vdG8N
-Cj4gPiA+ID4gTXkgY29uY2VybiBpcyB3aGF0IGlzIHRoZSByZWFsIGlzc3VlIHRoYXQgVkYgbXVs
-dGljYXN0IHByb21pc2N1b3VzIG1vZGUNCj4gPiBjYW4gY2F1c2UuDQo+ID4gPiA+IEkgdGhpbmsg
-dGhlcmUgaXMgdGhlIDRrIGVudHJpZXMgdG8gZmlsdGVyIG11bHRpY2FzdCBhZGRyZXNzLCBhbmQg
-dGhlDQo+ID4gPiA+IGN1cnJlbnQgaXhnYmUvaXhnYmV2ZiBjYW4gdHVybiBhbGwgYml0cyBvbiBm
-cm9tIFZNLiBUaGF0IGlzIGFsbW9zdCBzYW1lIGFzDQo+ID4gZW5hYmxpbmcgbXVsdGljYXN0IHBy
-b21pc2N1b3VzIG1vZGUuDQo+ID4gPiA+IEkgbWVhbiB0aGF0IHdlIGNhbiByZWNlaXZlIGFsbCBt
-dWx0aWNhc3QgYWRkcmVzc2VzIGJ5IGFuIG9uZXJvdXMNCj4gPiBvcGVyYXRpb24gaW4gdW50cnVz
-dGVkIFZNLg0KPiA+ID4gPiBJIHRoaW5rIHdlIHNob3VsZCBjbGFyaWZ5IHdoYXQgaXMgcmVhbCBz
-ZWN1cml0eSBpc3N1ZSBpbiB0aGlzIGNvbnRleHQuDQo+ID4gPg0KPiA+ID4gSWYgeW91IGFyZSB3
-b3JyaWVkIGFib3V0IHBhc3NpbmcgdW4tZW5hYmxlZCBtdWx0aWNhc3RzIHRvIHVzZXJzIHRoZW4N
-Cj4gPiA+IHdoYXQgYWJvdXQgZG9pbmcgYSBzb2Z0d2FyZSBoYXNoIG9mIHJlY2VpdmVkIG11bHRp
-Y2FzdHMgYW5kIGNoZWNraW5nDQo+ID4gPiBhZ2FpbnN0IGFuIGFjdHVhbCBsaXN0IG9mIG11bHRp
-Y2FzdHMgZW5hYmxlZCBmb3IgdGhhdCBoYXNoIGVudHJ5Lg0KPiA+ID4gVW5kZXIgbm9ybWFsIGNv
-bmRpdGlvbnMgdGhlcmUgaXMgbGlrZWx5IHRvIGJlIG9ubHkgYSBzaW5nbGUgYWRkcmVzcyB0byBj
-aGVjay4NCj4gPiA+DQo+ID4gPiBJdCBtYXkgKG9yIG1heSBub3QpIGJlIGJlc3QgdG8gdXNlIHRo
-ZSBzYW1lIGhhc2ggYXMgYW55IGhhc2hpbmcNCj4gPiA+IGhhcmR3YXJlIGZpbHRlciB1c2VzLg0K
-PiA+DQo+ID4gdGhhbmtzIGZvciB0aGUgY29tbWVudC4gQnV0IEkgZG9uJ3QgdGhpbmsgdGhhdCBp
-cyB0aGUgcG9pbnQuDQo+ID4NCj4gPiBJIGd1ZXNzLCBpbnRyb2R1Y2luZyBWRiBtdWx0aWNhc3Qg
-cHJvbWlzY3VvdXMgbW9kZSBzZWVtcyB0byBhZGQgbmV3DQo+ID4gcHJpdmlsZWdlIHRvIHBlZWsg
-ZXZlcnkgbXVsdGljYXN0IHBhY2tldCBpbiBWTSBhbmQgdGhhdCBkb2Vzbid0IGxvb2sgZ29vZC4N
-Cj4gPiBPbiB0aGUgb3RoZXIgaGFuZCwgSSB0aGluayB0aGF0IHRoZXJlIGhhcyBiZWVuIHRoZSBz
-YW1lIHByaXZpbGVnZSBpbiB0aGUNCj4gPiBjdXJyZW50IGl4Z2JlL2l4Z2JldmYgaW1wbGVtZW50
-YXRpb24gYWxyZWFkeS4gT3IgSSdtIHJlYWRpbmcgdGhlIGNvZGUNCj4gPiB3cm9uZ2x5Lg0KPiA+
-IEknZCBsaWtlIHRvIGNsYXJpZnkgd2hhdCBpcyB0aGUgaXNzdWUgb2YgYWxsb3dpbmcgdG8gcmVj
-ZWl2ZSBhbGwgbXVsdGljYXN0IHBhY2tldHMuDQo+IA0KPiBBbGxvd2luZyBhIFZNIHRvIGdpdmUg
-aXRzZWxmIHRoZSBwcml2aWxlZ2Ugb2Ygc2VlaW5nIGV2ZXJ5IG11bHRpY2FzdCBwYWNrZXQNCj4g
-Y291bGQgYmUgc2VlbiBhcyBhIGhvbGUgaW4gVk0gaXNvbGF0aW9uLg0KPiBOb3cgaWYgdGhlIGhv
-c3Qgc3lzdGVtIGFsbG93cyB0aGlzIHBvbGljeSBJIGRvbid0IHNlZSB0aGlzIGFzIGFuIGlzc3Vl
-IGFzDQo+IHNvbWVvbmUgc3BlY2lmaWNhbGx5IGFsbG93ZWQgdGhpcyB0byBoYXBwZW4gYW5kIHRo
-ZW4gbXVzdCBub3QgYmUgY29uY2VybmVkLg0KPiBXZSBjb3VsZCBldmVuIGxvZyB0aGF0IGl0IGhh
-cyBvY2N1cnJlZCwgd2hpY2ggSSBiZWxpZXZlIHlvdXIgcGF0Y2ggZGlkIGRvLg0KPiBUaGUgaXNz
-dWUgaXMgYWxzbyBmdXJ0aGVyIG11ZGRpZWQsIGFzIHlvdSBtZW50aW9uZWQgYWJvdmUsIHNpbmNl
-IHNvbWUgb2YNCj4gdGhlc2UgbXVsdGljYXN0IHBhY2tldHMgYXJlIGxlYWtpbmcgYW55d2F5ICh0
-aGUgSFcgY3VycmVudGx5IHVzZXMgYSAxMiBiaXQgbWFzaykuDQo+IEl0J3MganVzdCB0aGF0IHRo
-aXMgY2hhbmdlIHdvdWxkIGdyZWF0bHkgZW5sYXJnZSB0aGF0IGhvbGUgZnJvbSBhIGZyYWN0aW9u
-IHRvDQo+IGFsbCBtdWx0aWNhc3QgcGFja2V0cy4NCg0KV2h5IGRvZXMgaXQgaGF2ZSBhbnl0aGlu
-ZyB0byBkbyB3aXRoIFZNIGlzb2xhdGlvbj8NCklzbid0IGlzIGp1c3QgdGhlIHNhbWUgYXMgaWYg
-dGhlIFZNIHdlcmUgY29ubmVjdGVkIGRpcmVjdGx5IHRvIHRoZQ0KZXRoZXJuZXQgY2FibGU/DQoN
-CglEYXZpZA0KDQo=
+On Wed, Jan 21, 2015 at 02:36:17PM -0800, Ani Sinha wrote:
+> Hi guys :
+> 
+> Commit 5d097109257c03 ("tun: only queue packets on device") seems to
+> have introduced a subtle change in behavior in the tun driver in the
+> default (non IFF_ONE_QUEUE) case. Previously when the queues got full
+> and eventually sk_wmem_alloc of the socket exceeded sk_sndbuf value,
+> the user would be given a feedback by returning EAGAIN from sendto()
+> etc. That way, the user could retry sending the packet again.
+
+This behaviour is common, but by no means guaranteed.
+For example, if socket buffer size is large enough,
+packets are small enough, or there are multiple sockets
+transmitting through tun, packets would previously
+accumulate in qdisc, followed by packet drops
+without EAGAIN.
+
+> Unfortunately, with this new  default single queue mode, the driver
+> silently drops the packet when the device queue is full without giving
+> userland any feedback. This makes it appear to userland as though the
+> packet was transmitted successfully. It seems there is a semantic
+> change in the driver with this commit.
+> 
+> If the receiving process gets stuck for a short interval and is unable
+> to drain packets and then restarts again, one might see strange packet
+> drops in the kernel without getting any error back on the sender's
+> side. It kind of feels wrong.
+> 
+> Any thoughts?
+> 
+> Ani
+
+Unfortunately - since it's pretty common for unpriveledged userspace to
+drive the tun device - blocking the queue indefinitely as was done
+previously leads to deadlocks for some apps, this was deemed worse than
+some performance degradation.
+
+As a simple work-around, if you want packets to accumulate in the qdisc,
+it's easy to implement by using a non work conserving qdisc.
+Set the limits to match the speed at which your application
+is able to consume the packets.
+
+I've been thinking about using some kind of watchdog to
+make it safe to put the old non IFF_ONE_QUEUE semantics back,
+unfortunately due to application being able to consume packets at the
+same time it's not trivial to do in a non-racy way.
+
+-- 
+MST
