@@ -1,64 +1,51 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [net-next PATCH v3 00/12] Flow API
-Date: Thu, 22 Jan 2015 17:44:45 +0000
-Message-ID: <20150122174445.GD25797@casper.infradead.org>
-References: <20150120202404.1741.8658.stgit@nitbit.x32>
- <20150122125246.GA4486@salvia>
- <20150122133713.GA25797@casper.infradead.org>
- <20150122140022.GA5674@salvia>
- <54C11094.2000807@mojatatu.com>
- <20150122151316.GB25797@casper.infradead.org>
- <54C11703.7030702@mojatatu.com>
- <20150122153727.GC25797@casper.infradead.org>
- <20150122164951.GA3417@salvia>
+From: Nicolae Rosia <nicolae.rosia@certsign.ro>
+Subject: [PATCH] net: macb: allow deffered probe of the driver
+Date: Thu, 22 Jan 2015 17:31:05 +0000
+Message-ID: <1421947441.717.4.camel@uti.ro>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
-	John Fastabend <john.fastabend@gmail.com>,
-	simon.horman@netronome.com, sfeldma@gmail.com,
-	netdev@vger.kernel.org, davem@davemloft.net, gerlitz.or@gmail.com,
-	andy@greyhouse.net, ast@plumgrid.com, Jiri Pirko <jiri@resnulli.us>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"nicolas.ferre@atmel.com" <nicolas.ferre@atmel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:42854 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752135AbbAVRou (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jan 2015 12:44:50 -0500
-Content-Disposition: inline
-In-Reply-To: <20150122164951.GA3417@salvia>
+Received: from mx2.uti.ro ([91.220.13.110]:56171 "EHLO mx2.uti.ro"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752135AbbAVRqU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 Jan 2015 12:46:20 -0500
+Content-Language: en-US
+Content-ID: <D2186B3019A6FF49A5190D205068C301@uti.ro>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/22/15 at 05:49pm, Pablo Neira Ayuso wrote:
-> On Thu, Jan 22, 2015 at 03:37:27PM +0000, Thomas Graf wrote:
-> > On 01/22/15 at 10:28am, Jamal Hadi Salim wrote:
-> > > On 01/22/15 10:13, Thomas Graf wrote:
-> > > 
-> > > >I don't follow this. John's proposal allows to decide on a case by
-> > > >case basis what we want to export. Just like with ethtool or
-> > > >RTNETLINK. There is no direct access to hardware. A user can only
-> > > >configure what is being exposed by the kernel.
-> > > >
-> > > 
-> > > So if i am a vendor with my own driver, I can expose whatever i want.
-> > 
-> > No. We will reject any driver change attempting to do so on this
-> > list.
-> 
-> I think those vendors do not want to push those driver changes
-> mainstream. They will likely use these new ndo's to fully expose their
-> vendor-specific capabilities distributed in proprietary blobs.
-
-You can achieve the exact same thing with an out of tree tc action,
-classifier or even a new link type. Nothing prevents an out of tree
-driver to register a new rtnetlink link type and do vendor specific
-crap.
-
-Out of tree code can abuse any kernel API in any way it wants. Not
-sure how much we can do about that.
-
-That said, as we know, vendor specific SDKs for most of the chips in
-question here already exist. I'm not sure why a vendor would want to
-use this infrastructure (which is subject to constant internal API
-changes) to implement vendor specific APIs if that vendor already has
-an indepdendent out of tree SDK.
+VGhlIGRyaXZlciBpcyB0cnlpbmcgdG8gYWNxdWlyZSBjbG9ja3Mgd2hpY2ggbWF5YmUNCmFyZSBu
+b3QgYXZhaWxhYmxlIHlldC4gQWxsb3cgdGhlIGRyaXZlciB0byByZXF1ZXN0DQpkZWZmZXJlZCBw
+cm9iZSBieSBwcm92aWRpbmcgYSBwcm9iZSBmdW5jdGlvbiBhbmQNCnJlZ2lzdGVyaW5nIGl0IHdp
+dGggbW9kdWxlX3BsYXRmb3JtX2RyaXZlci4gWzFdDQpUaGlzIHBhdGNoIGlzIGJhc2VkIG9uIDMu
+MTktcmM1Lg0KDQpbMV0gaHR0cHM6Ly9sa21sLm9yZy9sa21sLzIwMTMvOS8yMy8xMTgNCg0KU2ln
+bmVkLW9mZi1ieTogTmljb2xhZSBSb3NpYSA8bmljb2xhZS5yb3NpYUBjZXJ0c2lnbi5ybz4NCi0t
+LQ0KIGRyaXZlcnMvbmV0L2V0aGVybmV0L2NhZGVuY2UvbWFjYi5jIHwgOSArKysrKy0tLS0NCiAx
+IGZpbGUgY2hhbmdlZCwgNSBpbnNlcnRpb25zKCspLCA0IGRlbGV0aW9ucygtKQ0KDQpkaWZmIC0t
+Z2l0IGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvY2FkZW5jZS9tYWNiLmMNCmIvZHJpdmVycy9uZXQv
+ZXRoZXJuZXQvY2FkZW5jZS9tYWNiLmMNCmluZGV4IDM3NjcyNzEuLjRkZmNkNjYgMTAwNjQ0DQot
+LS0gYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9jYWRlbmNlL21hY2IuYw0KKysrIGIvZHJpdmVycy9u
+ZXQvZXRoZXJuZXQvY2FkZW5jZS9tYWNiLmMNCkBAIC0yMTQ4LDcgKzIxNDgsNyBAQCBzdGF0aWMg
+dm9pZCBtYWNiX3Byb2JlX3F1ZXVlcyh2b2lkIF9faW9tZW0gKm1lbSwNCiAJCQkoKm51bV9xdWV1
+ZXMpKys7DQogfQ0KIA0KLXN0YXRpYyBpbnQgX19pbml0IG1hY2JfcHJvYmUoc3RydWN0IHBsYXRm
+b3JtX2RldmljZSAqcGRldikNCitzdGF0aWMgaW50IG1hY2JfcHJvYmUoc3RydWN0IHBsYXRmb3Jt
+X2RldmljZSAqcGRldikNCiB7DQogCXN0cnVjdCBtYWNiX3BsYXRmb3JtX2RhdGEgKnBkYXRhOw0K
+IAlzdHJ1Y3QgcmVzb3VyY2UgKnJlZ3M7DQpAQCAtMjM4Niw3ICsyMzg2LDcgQEAgZXJyX291dDoN
+CiAJcmV0dXJuIGVycjsNCiB9DQogDQotc3RhdGljIGludCBfX2V4aXQgbWFjYl9yZW1vdmUoc3Ry
+dWN0IHBsYXRmb3JtX2RldmljZSAqcGRldikNCitzdGF0aWMgaW50IG1hY2JfcmVtb3ZlKHN0cnVj
+dCBwbGF0Zm9ybV9kZXZpY2UgKnBkZXYpDQogew0KIAlzdHJ1Y3QgbmV0X2RldmljZSAqZGV2Ow0K
+IAlzdHJ1Y3QgbWFjYiAqYnA7DQpAQCAtMjQ0OSw3ICsyNDQ5LDggQEAgc3RhdGljIGludCBtYWNi
+X3Jlc3VtZShzdHJ1Y3QgZGV2aWNlICpkZXYpDQogc3RhdGljIFNJTVBMRV9ERVZfUE1fT1BTKG1h
+Y2JfcG1fb3BzLCBtYWNiX3N1c3BlbmQsIG1hY2JfcmVzdW1lKTsNCiANCiBzdGF0aWMgc3RydWN0
+IHBsYXRmb3JtX2RyaXZlciBtYWNiX2RyaXZlciA9IHsNCi0JLnJlbW92ZQkJPSBfX2V4aXRfcCht
+YWNiX3JlbW92ZSksDQorCS5wcm9iZQkJPSBtYWNiX3Byb2JlLA0KKwkucmVtb3ZlCQk9IG1hY2Jf
+cmVtb3ZlLA0KIAkuZHJpdmVyCQk9IHsNCiAJCS5uYW1lCQk9ICJtYWNiIiwNCiAJCS5vZl9tYXRj
+aF90YWJsZQk9IG9mX21hdGNoX3B0cihtYWNiX2R0X2lkcyksDQpAQCAtMjQ1Nyw3ICsyNDU4LDcg
+QEAgc3RhdGljIHN0cnVjdCBwbGF0Zm9ybV9kcml2ZXIgbWFjYl9kcml2ZXIgPSB7DQogCX0sDQog
+fTsNCiANCi1tb2R1bGVfcGxhdGZvcm1fZHJpdmVyX3Byb2JlKG1hY2JfZHJpdmVyLCBtYWNiX3By
+b2JlKTsNCittb2R1bGVfcGxhdGZvcm1fZHJpdmVyKG1hY2JfZHJpdmVyKTsNCiANCiBNT0RVTEVf
+TElDRU5TRSgiR1BMIik7DQogTU9EVUxFX0RFU0NSSVBUSU9OKCJDYWRlbmNlIE1BQ0IvR0VNIEV0
+aGVybmV0IGRyaXZlciIpOw0KLS0gDQoyLjEuMA0KDQo=
