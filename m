@@ -1,131 +1,50 @@
-From: Rahul Sharma <rsharma@arista.com>
-Subject: Re: [PATCH net] ipv6: Prevent ipv6_find_hdr() from returning ENOENT
- for valid non-first fragments
-Date: Thu, 22 Jan 2015 16:54:35 +0530
-Message-ID: <CAFB3abzDE81hE2u-ysz3yTjibrQNPrMAjg7e_7wfoYfV-OLbjg@mail.gmail.com>
-References: <CAFB3abwKpR1VqZXUrsexqveAZrA2LTSmTe8a=-H7z2HjAptjwA@mail.gmail.com>
-	<1420627396.26870.36.camel@stressinduktion.org>
-	<20150108205328.GA3361@salvia>
-	<1420756756.1755002.211556745.0418D128@webmail.messagingengine.com>
-	<20150109000546.GA3488@salvia>
-	<CAFB3abwrjp61LLOk3RWwXYEq1g4QZUC8OTKuO2cAr+GbV3n4rw@mail.gmail.com>
-	<1420803255.1978819.211762005.707EFFB9@webmail.messagingengine.com>
-	<20150109114506.GA4857@salvia>
-	<1420818636.31075.15.camel@stressinduktion.org>
-	<CAFB3abwetkNa4753g9d-z8xU0fMThyApuESQNkbxGa8Yz2YRfQ@mail.gmail.com>
-	<20150112115111.GA3506@salvia>
-	<CAFB3abxcg4gdEh4CJHd_Vx8mZKFmO3kMG=pDjkQYS5awTzFbSQ@mail.gmail.com>
-	<1421143884.13626.1.camel@stressinduktion.org>
+From: Vadim Kochan <vadim4j@gmail.com>
+Subject: Re: [PATCH mac80211-next] nl80211: Allow set network namespace by fd
+Date: Thu, 22 Jan 2015 13:32:59 +0200
+Message-ID: <20150122113259.GA20706@angus-think.local>
+References: <1421073245-20312-1-git-send-email-vadim4j@gmail.com>
+ <1421225246.1950.22.camel@sipsolutions.net>
+ <20150119143457.GA6988@angus-think.wlc.globallogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1421143884.13626.1.camel@stressinduktion.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Vadim Kochan <vadim4j@gmail.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	linux-wireless@vger.kernel.org, netdev <netdev@vger.kernel.org>
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f42.google.com ([74.125.82.42]:41399 "EHLO
+	mail-wg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751595AbbAVLoE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jan 2015 06:44:04 -0500
+Content-Disposition: inline
+In-Reply-To: <20150119143457.GA6988@angus-think.wlc.globallogic.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Hannes,
-
-On Tue, Jan 13, 2015 at 3:41 PM, Hannes Frederic Sowa
-<hannes@stressinduktion.org> wrote:
-> On Di, 2015-01-13 at 09:53 +0530, Rahul Sharma wrote:
->> On Mon, Jan 12, 2015 at 5:21 PM, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
->> > On Mon, Jan 12, 2015 at 04:38:16PM +0530, Rahul Sharma wrote:
->> >> Hi Pablo, Hannes
->> >>
->> >> On Fri, Jan 9, 2015 at 9:20 PM, Hannes Frederic Sowa
->> >> <hannes@stressinduktion.org> wrote:
->> >> > On Fr, 2015-01-09 at 12:45 +0100, Pablo Neira Ayuso wrote:
->> >> >> Hi Hannes,
->> >> >>
->> >> >> On Fri, Jan 09, 2015 at 12:34:15PM +0100, Hannes Frederic Sowa wrote:
->> >> >> > On Fri, Jan 9, 2015, at 08:18, Rahul Sharma wrote:
->> >> >> > > Hi Pablo,
->> >> >> > >
->> >> >> > > On Fri, Jan 9, 2015 at 5:35 AM, Pablo Neira Ayuso <pablo@netfilter.org>
->> >> >> > > wrote:
->> >> >> > > > On Thu, Jan 08, 2015 at 11:39:16PM +0100, Hannes Frederic Sowa wrote:
->> >> >> > > >> Hi Pablo,
->> >> >> > > >>
->> >> >> > > >> On Thu, Jan 8, 2015, at 21:53, Pablo Neira Ayuso wrote:
->> >> >> > > >> > I'm afraid we cannot just get rid of that !ipv6_ext_hdr() check. The
->> >> >> > > >> > ipv6_find_hdr() function is designed to return the transport protocol.
->> >> >> > > >> > After the proposed change, it will return extension header numbers.
->> >> >> > > >> > This will break existing ip6tables rulesets since the `-p' option
->> >> >> > > >> > relies on this function to match the transport protocol.
->> >> >> > > >> >
->> >> >> > > >> > Note that the AH header is skipped (see code a bit below this
->> >> >> > > >> > problematic fragmentation handling) so the follow up header after the
->> >> >> > > >> > AH header is returned as the transport header.
->> >> >> > > >> >
->> >> >> > > >> > We can probably return the AH protocol number for non-1st fragments.
->> >> >> > > >> > However, that would be something new to ip6tables since nobody has
->> >> >> > > >> > ever seen packet matching `-p ah' rules. Thus, we restore control to
->> >> >> > > >> > the user to allow this, but we would accept all kind of fragmented AH
->> >> >> > > >> > traffic through the firewall since we cannot know what transport
->> >> >> > > >> > protocol contains from non-1st fragments (unless I'm missing anything,
->> >> >> > > >> > I need to have a closer look at this again tomorrow with fresher
->> >> >> > > >> > mind).
->> >> >> > > >>
->> >> >> > > >> The code in question is guarded by (_frag_off != 0), so we are
->> >> >> > > >> definitely processing a non-1st fragment currently. The -p match would
->> >> >> > > >> happen at the time when the packet is reassembled and thus ipv6_find_hdr
->> >> >> > > >> will find the real transport (final) header at this point (I hope I
->> >> >> > > >> followed the code correctly here).
->> >> >> > > >
->> >> >> > > > Then, Rahul should get things working by modprobing nf_defrag_ipv6.
->> >> >> > >
->> >> >> > > I already had nf_defrag_ipv6 installed when the issue occured. But I
->> >> >> > > see ip6table_raw_hook returning NF_DROP for the second fragment.
->> >> >> >
->> >> >> > That's what I expected. I think the change only affects hooks before
->> >> >> > reassembly.
->> >> >>
->> >> >> reassembly happens at NF_IP6_PRI_CONNTRACK_DEFRAG (-400), so that
->> >> >> happens before NF_IP6_PRI_RAW (-300) in IPv6 which is where the raw
->> >> >> table is placed.
->> >> >
->> >> > I tried to reproduce it, but couldn't get non-1st fragments getting
->> >> > dropped during traversal of the raw table. They get dropped earlier at
->> >> > during reassembly or pass.
->> >> >
->> >> > I agree with Pablo, I also would like to see more data.
->> >> >
->> >> > Thanks,
->> >> > Hannes
->> >> >
->> >> >
->> >>
->> >> I enabled pr_debug() and there was no error in nf_ct_frag6_gather().
->> >> It seems to have defragmented the packet correctly. As expected,
->> >> ipv6_defrag() returns NF_STOLEN for the first packet after queuing it.
->> >> For the next fragment, ipv6_defrag() calls nf_ct_frag6_output() after
->> >> after reassembling it.
->> >
->> > nf_ct_frag6_output() doesn't exist anymore. You're using an old
->> > kernel, you should have started by telling so in your report.
->> >
->> > See 6aafeef ("netfilter: push reasm skb through instead of original
->> > frag skbs").
->>
->>  I apologize for not mentioning the kernel version in my first mail. I
->> had suspected problem in ipv6_find_hdr, the code for which was same.
->> Anyway, thanks for the help. I ll try to figure out how to make this
->> work in my kernel.
->
-> If you have time could you quickly test a recent net-next kernel?
->
+On Mon, Jan 19, 2015 at 04:34:57PM +0200, Vadim Kochan wrote:
+> On Wed, Jan 14, 2015 at 09:47:26AM +0100, Johannes Berg wrote:
+> > On Mon, 2015-01-12 at 16:34 +0200, Vadim Kochan wrote:
+> > 
+> > > --- a/net/core/net_namespace.c
+> > > +++ b/net/core/net_namespace.c
+> > > @@ -361,6 +361,7 @@ struct net *get_net_ns_by_fd(int fd)
+> > >  	return ERR_PTR(-EINVAL);
+> > >  }
+> > >  #endif
+> > > +EXPORT_SYMBOL_GPL(get_net_ns_by_fd);
+> > 
+> > Does this seem OK? Vadim is adding support for using the ns-by-fd in
+> > nl80211, which can be a module as part of cfg80211.
+> > 
+> > johannes
+> > 
+> PING ... in case if this email was missed ...
+> 
 > Thanks,
-> Hannes
->
 
-I could not test the latest net-next kernel with my current setup.
-However, I ported the portion of the patch which pushes reasm skb
-through instead of original frags. The rest of the patch was mostly
-cleanup of some code which didn't exist in my kernel, so it was
-ignored. I could test it thoroughly and it seems to work all fine.
+Hi Johannes,
+
+Does it mean that patch will be rejected in case if no one answer on
+this ?:)
 
 Thanks,
-Rahul
