@@ -1,7 +1,8 @@
 From: Ben Hutchings <ben.hutchings@codethink.co.uk>
-Subject: [PATCH net 1/4] sh_eth: Fix padding of short frames on TX
-Date: Thu, 22 Jan 2015 12:40:13 +0000
-Message-ID: <1421930413.1222.286.camel@xylophone.i.decadent.org.uk>
+Subject: [PATCH net 2/4] sh_eth: Detach net device when stopping queue to
+ resize DMA rings
+Date: Thu, 22 Jan 2015 12:40:25 +0000
+Message-ID: <1421930425.1222.287.camel@xylophone.i.decadent.org.uk>
 References: <1421930284.1222.285.camel@xylophone.i.decadent.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
@@ -13,52 +14,51 @@ Cc: netdev@vger.kernel.org, linux-kernel@lists.codethink.co.uk,
 	Yoshihiro Kaneko <ykaneko0929@gmail.com>
 To: "David S.Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ducie-dc1.codethink.co.uk ([185.25.241.215]:40575 "EHLO
+Received: from ducie-dc1.codethink.co.uk ([185.25.241.215]:40613 "EHLO
 	ducie-dc1.codethink.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752061AbbAVMkO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jan 2015 07:40:14 -0500
+	with ESMTP id S1752439AbbAVMk0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jan 2015 07:40:26 -0500
 In-Reply-To: <1421930284.1222.285.camel@xylophone.i.decadent.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If an skb to be transmitted is shorter than the minimum Ethernet frame
-length, we currently set the DMA descriptor length to the minimum but
-do not add zero-padding.  This could result in leaking sensitive
-data.  We also pass different lengths to dma_map_single() and
-dma_unmap_single().
+We must only ever stop TX queues when they are full or the net device
+is not 'ready' so far as the net core, and specifically the watchdog,
+is concerned.  Otherwise, the watchdog may fire *immediately* if no
+packets have been added to the queue in the last 5 seconds.
 
-Use skb_padto() to pad properly, before calling dma_map_single().
+What's more, sh_eth_tx_timeout() will likely crash if called while
+we're resizing the TX ring.
+
+I could easily trigger this by running the loop:
+
+   while ethtool -G eth0 rx 128 && ethtool -G eth0 rx 64; do echo -n .; done
 
 Signed-off-by: Ben Hutchings <ben.hutchings@codethink.co.uk>
 ---
- drivers/net/ethernet/renesas/sh_eth.c |    8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/renesas/sh_eth.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-index 28e3822..69f9fff 100644
+index 69f9fff..0be16dd 100644
 --- a/drivers/net/ethernet/renesas/sh_eth.c
 +++ b/drivers/net/ethernet/renesas/sh_eth.c
-@@ -2117,6 +2117,9 @@ static int sh_eth_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+@@ -1968,6 +1968,7 @@ static int sh_eth_set_ringparam(struct net_device *ndev,
+ 		return -EINVAL;
+ 
+ 	if (netif_running(ndev)) {
++		netif_device_detach(ndev);
+ 		netif_tx_disable(ndev);
+ 		/* Disable interrupts by clearing the interrupt mask. */
+ 		sh_eth_write(ndev, 0x0000, EESIPR);
+@@ -2001,7 +2002,7 @@ static int sh_eth_set_ringparam(struct net_device *ndev,
+ 		sh_eth_write(ndev, mdp->cd->eesipr_value, EESIPR);
+ 		/* Setting the Rx mode will start the Rx process. */
+ 		sh_eth_write(ndev, EDRRR_R, EDRRR);
+-		netif_wake_queue(ndev);
++		netif_device_attach(ndev);
  	}
- 	spin_unlock_irqrestore(&mdp->lock, flags);
  
-+	if (skb_padto(skb, ETH_ZLEN))
-+		return NETDEV_TX_OK;
-+
- 	entry = mdp->cur_tx % mdp->num_tx_ring;
- 	mdp->tx_skbuff[entry] = skb;
- 	txdesc = &mdp->tx_ring[entry];
-@@ -2126,10 +2129,7 @@ static int sh_eth_start_xmit(struct sk_buff *skb, struct net_device *ndev)
- 				 skb->len + 2);
- 	txdesc->addr = dma_map_single(&ndev->dev, skb->data, skb->len,
- 				      DMA_TO_DEVICE);
--	if (skb->len < ETH_ZLEN)
--		txdesc->buffer_length = ETH_ZLEN;
--	else
--		txdesc->buffer_length = skb->len;
-+	txdesc->buffer_length = skb->len;
- 
- 	if (entry >= mdp->num_tx_ring - 1)
- 		txdesc->status |= cpu_to_edmac(mdp, TD_TACT | TD_TDLE);
+ 	return 0;
 -- 
 1.7.10.4
