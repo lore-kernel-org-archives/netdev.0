@@ -1,77 +1,54 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: Re: [net-next PATCH v3 01/12] net: flow_table: create interface for
- hw match/action tables
-Date: Thu, 22 Jan 2015 13:37:58 +0900
-Message-ID: <20150122043756.GA32765@vergenet.net>
-References: <20150120202404.1741.8658.stgit@nitbit.x32>
- <20150120202636.1741.86426.stgit@nitbit.x32>
+From: Mike Galbraith <umgwanakikbuti@gmail.com>
+Subject: netxen: box stuck in netxen_napi_disable()
+Date: Thu, 22 Jan 2015 05:43:25 +0100
+Message-ID: <1421901805.5286.37.camel@marge.simpson.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: tgraf@suug.ch, sfeldma@gmail.com, netdev@vger.kernel.org,
-	jhs@mojatatu.com, davem@davemloft.net, gerlitz.or@gmail.com,
-	andy@greyhouse.net, ast@plumgrid.com
-To: John Fastabend <john.fastabend@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f169.google.com ([209.85.192.169]:46826 "EHLO
-	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750796AbbAVEiL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jan 2015 23:38:11 -0500
-Received: by mail-pd0-f169.google.com with SMTP id g10so20989517pdj.0
-        for <netdev@vger.kernel.org>; Wed, 21 Jan 2015 20:38:10 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20150120202636.1741.86426.stgit@nitbit.x32>
+Received: from mail-we0-f171.google.com ([74.125.82.171]:34606 "EHLO
+	mail-we0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751764AbbAVEn2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jan 2015 23:43:28 -0500
+Received: by mail-we0-f171.google.com with SMTP id q58so1290863wes.2
+        for <netdev@vger.kernel.org>; Wed, 21 Jan 2015 20:43:27 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 20, 2015 at 12:26:37PM -0800, John Fastabend wrote:
+Greetings network wizards,
 
-[snip]
+After doing some generic NO_HZ_FULL isolated core perturbation
+measurements with a 64 core DL980G7 running 3.19-rc5, everything seeming
+just peachy, I came back later to check on the box only to find that I
+could no longer ssh into the thing.  NO_HZ_FULL doesn't seem to be
+involved in any obvious way, but I thought I should mention it.
 
-> diff --git a/include/linux/if_flow.h b/include/linux/if_flow.h
-> new file mode 100644
-> index 0000000..7ce1e1d
-> --- /dev/null
-> +++ b/include/linux/if_flow.h
-> @@ -0,0 +1,188 @@
+No idea how repeatable this is, the box has other work to do atm.  File
+under 'noted', or if you want me to peek at something, holler.
 
-[snip]
+rtnl_mutex was holding up the show, was held by the kworker below, who
+was stuck in napi_synchronize() waiting for NAPI_STATE_SCHED to go away,
+but whoever was supposed to make that happen, didn't.
 
-> +#define NFL_JUMP_TABLE_DONE 0
-> +enum {
-> +	NFL_JUMP_ENTRY_UNSPEC,
-> +	NFL_JUMP_ENTRY,
-> +	__NFL_JUMP_ENTRY_MAX,
-> +};
-
-For consistency it seems that the following could go here:
-
-#define NFL_JUMP_ENTRY_MAX (__NFL_JUMP_ENTRY_MAX - 1)
-
-> +enum {
-> +	NFL_HEADER_NODE_HDRS_UNSPEC,
-> +	NFL_HEADER_NODE_HDRS_VALUE,
-> +	__NFL_HEADER_NODE_HDRS_MAX,
-> +};
-> +
-> +#define NFL_HEADER_NODE_HDRS_MAX (__NFL_HEADER_NODE_HDRS_MAX - 1)
-> +
-> +enum {
-> +	NFL_HEADER_NODE_UNSPEC,
-> +	NFL_HEADER_NODE_NAME,
-> +	NFL_HEADER_NODE_UID,
-> +	NFL_HEADER_NODE_HDRS,
-> +	NFL_HEADER_NODE_JUMP,
-> +	__NFL_HEADER_NODE_MAX,
-> +};
-> +
-> +#define NFL_HEADER_NODE_MAX (__NFL_HEADER_NODE_MAX - 1)
-> +
-> +enum {
-> +	NFL_HEADER_GRAPH_UNSPEC,
-> +	NFL_HEADER_GRAPH_NODE,
-> +	__NFL_HEADER_GRAPH_MAX,
-> +};
-> +
-> +#define NFL_HEADER_GRAPH_MAX (__NFL_HEADER_GRAPH_MAX - 1)
-
-[snip]
+crash> ps | grep UN
+    405      2   2  ffff880273958000  UN   0.0       0      0  [kworker/2:1]
+    419      2  16  ffff880273bf0000  UN   0.0       0      0  [kworker/16:1]
+   4259      1  21  ffff88026f3cbaa0  UN   0.0   14636   1908  dhcpcd
+   6007      1   3  ffff8802736d1d50  UN   0.0   32292   3200  ntpd
+   6048      1   0  ffff880272521d50  UN   0.0   59568   3460  ypbind
+  13650      2   2  ffff8802749b0000  UN   0.0       0      0  [kworker/2:2]
+crash> bt ffff880273958000
+PID: 405    TASK: ffff880273958000  CPU: 2   COMMAND: "kworker/2:1"
+ #0 [ffff880273957c10] __schedule at ffffffff81588c59
+ #1 [ffff880273957c80] schedule at ffffffff81589119
+ #2 [ffff880273957c90] schedule_timeout at ffffffff8158bbe6
+ #3 [ffff880273957d30] msleep at ffffffff810c5aa7
+ #4 [ffff880273957d50] netxen_napi_disable at ffffffffa032892a [netxen_nic]
+ #5 [ffff880273957d80] __netxen_nic_down at ffffffffa032c6fc [netxen_nic]
+ #6 [ffff880273957dc0] netxen_nic_reset_context at ffffffffa032d56b [netxen_nic]
+ #7 [ffff880273957de0] netxen_tx_timeout_task at ffffffffa032d63d [netxen_nic]
+ #8 [ffff880273957e00] process_one_work at ffffffff81077b7a
+ #9 [ffff880273957e50] worker_thread at ffffffff81078231
+#10 [ffff880273957ec0] kthread at ffffffff8107d139
+#11 [ffff880273957f50] ret_from_fork at ffffffff8158cf7c
