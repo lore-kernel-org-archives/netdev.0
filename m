@@ -1,96 +1,110 @@
-From: Dean Gehnert <deang@tpi.com>
-Subject: Re: [PATCH net 0/2] net: marvell: Fix highmem support on non-TSO
- path
-Date: Thu, 22 Jan 2015 10:41:00 -0800
-Message-ID: <54C1443C.80909@tpi.com>
-References: <1421844850-30886-1-git-send-email-ezequiel.garcia@free-electrons.com> <20150121150159.GS26493@n2100.arm.linux.org.uk>
-Reply-To: deang@tpi.com
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: [E1000-devel] [PATCH 1/2] if_link: Add VF multicast promiscuous mode control
+Date: Thu, 22 Jan 2015 20:31:52 +0100
+Message-ID: <87bnlqpq6v.fsf@nemi.mork.no>
+References: <7F861DC0615E0C47A872E6F3C5FCDDBD05E0734E@BPXM14GP.gisp.nec.co.jp>
+	<874mrlu18e.fsf@nemi.mork.no>
+	<7F861DC0615E0C47A872E6F3C5FCDDBD05E07B7C@BPXM14GP.gisp.nec.co.jp>
+	<F6FB0E698C9B3143BDF729DF222866469129B7F5@ORSMSX110.amr.corp.intel.com>
+	<7F861DC0615E0C47A872E6F3C5FCDDBD05E07F09@BPXM14GP.gisp.nec.co.jp>
+	<F6FB0E698C9B3143BDF729DF222866469129B844@ORSMSX110.amr.corp.intel.com>
+	<7F861DC0615E0C47A872E6F3C5FCDDBD05E08FF6@BPXM14GP.gisp.nec.co.jp>
+	<063D6719AE5E284EB5DD2968C1650D6D1CAD01D6@AcuExch.aculab.com>
+	<7F861DC0615E0C47A872E6F3C5FCDDBD05E090FE@BPXM14GP.gisp.nec.co.jp>
+	<F6FB0E698C9B3143BDF729DF222866469129BC03@ORSMSX110.amr.corp.intel.com>
+	<063D6719AE5E284EB5DD2968C1650D6D1CAD0C8A@AcuExch.aculab.com>
+	<F6FB0E698C9B3143BDF729DF222866469129BFFD@ORSMSX110.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	B38611@freescale.com, fabio.estevam@freescale.com
-To: Russell King - ARM Linux <linux@arm.linux.org.uk>,
-	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.tpi.com ([74.45.170.26]:42818 "EHLO mail.tpi.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753166AbbAVTNZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Jan 2015 14:13:25 -0500
-In-Reply-To: <20150121150159.GS26493@n2100.arm.linux.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Laight <David.Laight@ACULAB.COM>,
+	Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>,
+	"e1000-devel\@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Choi\, Sy Jong" <sy.jong.choi@intel.com>,
+	"linux-kernel\@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Hayato Momma <h-momma@ce.jp.nec.com>
+To: "Skidmore\, Donald C" <donald.c.skidmore@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <F6FB0E698C9B3143BDF729DF222866469129BFFD@ORSMSX110.amr.corp.intel.com>
+	(Donald C. Skidmore's message of "Thu, 22 Jan 2015 19:00:51 +0000")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 01/21/2015 07:01 AM, Russell King - ARM Linux wrote:
-> On Wed, Jan 21, 2015 at 09:54:08AM -0300, Ezequiel Garcia wrote:
->> These two commits are fixes to the issue reported by Russell King on
->> mv643xx_eth. Namely, the introduction of a regression by commit 69ad0dd7af22
->> which removed the support for highmem skb fragments. The guilty commit
->> introduced the assumption of fragment's payload being located in lowmem pages.
-> I do wonder whether 69ad0dd7af22 is the real culpret, or whether there is
-> some other change in the netdev layer that we're missing.  That commit is
-> in 3.16, but from what I remember, 3.17 works fine, it's 3.18 which fails.
->
->> A similar pattern can be found in the original mvneta driver (in fact, the
->> regression was introduced by copy-pasting the mvneta code).
->>
->> These fixes are for the non-TSO egress path in mvneta and mv643xx_eth drivers.
->> The TSO path needs a more intrusive change, as the TSO API needs to be fixed
->> (e.g. to make it work in skb fragments, instead of pointers to data).
->>
->> Russell, as I'm still unable to reproduce this, do you think you can
->> give it a spin over there?
-> Sure - I think the only one I can test is mv643xx_eth, I don't think I
-> have any device which supports mv_neta.
->
-> The test scenario is for a NFS mount (the Marvell device as the NFS
-> client) over IPv6.
->
-> Initial testing looks good, I'll let it run for a while with various
-> builds on the NFS share (which iirc was one of the triggering
-> workloads).
->
-> Thanks.
->
-FYI, I found a way to reproduce the mv643xx_eth transmit corruption 
-without using a network filesystem by using SOCAT (should also be able 
-to use NETCAT or NC) and I have a bit more information about the 
-corruption that looks like it is somehow related to the cache line size.
+"Skidmore, Donald C" <donald.c.skidmore@intel.com> writes:
 
-1) Create a "large" input file with known data on the target (saved to 
-RAM disk or other storage):
-     % php -r 'for ($x = 0; $x < 0x2000000; $x++) { printf("%08X\n", 
-$x); }' > ExpectData.in
-       or
-     % perl -e 'for ($x = 0; $x < 0x2000000; $x++) { printf("%08X\n", 
-$x); }' > ExpectData.in
-     % md5sum ExpectData.in
-     4a4727232209b85badc1ca25ed4df222  ExpectData.in
-2) Start SOCAT on the host system to perform Ethernet receive MD5 
-checksum of the data:
-     % socat -s -u TCP4-LISTEN:4000,fork,reuseaddr EXEC:md5sum
-3) Enable TSO on the target:
-     % ethtool -K eth0 tso on
-4)  Send the data file from the target to the host using SOCAT with a 
-non-cache aligned block size:
-     % socat -b$(((1024*10)+1)) -u ExpectData.in TCP:192.168.1.212:4000
-5) The SOCAT running on the host system will report the MD5 checksum. If 
-the MD5 is correct, it should be 4a4727232209b85badc1ca25ed4df222.
+> My hang up is more related to: without the nob to enable it (off by
+> default) we are letting one VF dictate policy for all the other VFs
+> and the PF.  If one VF needs to be in promiscuous multicast so is
+> everyone else.  Their stacks now needs to deal with all the extra
+> multicast packets.  As you point out this might not be a direct
+> concern for isolation in that the VM could have 'chosen' to join any
+> Multicast group and seen this traffic.  My concern over isolation is
+> one VF has chosen that all the other VM now have to see this multicas=
+t
+> traffic.
 
-What I am seeing is every now and then, there are 32-bits (4 bytes) of 
-data in the transmit Ethernet stream that are corrupted. If I change the 
-SOCAT block size to something that is Armada 300 (Kirkwood) cache line 
-aligned (ie. -b$(((1024*10)+0)) or -b$(((1024*10)+8))), it works just 
-fine... If you want to capture the actual file and look at it, you can 
-use SOCAT:
-   % socat -u TCP4-LISTEN:4000,fork,reuseaddr OPEN:ActualData.in,creat
-and since the data file is text, it is really easy to see the corruption 
-(diff ExpectData.in ActualData.in | less).
+Apologies if this question is stupid, but I just have to ask about stuf=
+f
+I don't understand...
 
-I can disable TSO (ethtool -K eth0 tso off) and re-run the tests and the 
-corruption does not occur.
+Looking at the proposed implementation, the promiscous multicast flag
+seems to be a per-VF flag:
 
-I will give Ezequiel's latest patches a test a today and let you know if 
-they change the behavior.
++int ixgbe_ndo_set_vf_mc_promisc(struct net_device *netdev, int vf, boo=
+l setting)
++{
++	struct ixgbe_adapter *adapter =3D netdev_priv(netdev);
++	struct ixgbe_hw *hw =3D &adapter->hw;
++	u32 vmolr;
++
++	if (vf >=3D adapter->num_vfs)
++		return -EINVAL;
++
++	adapter->vfinfo[vf].mc_promisc_enabled =3D setting;
++
++	vmolr =3D IXGBE_READ_REG(hw, IXGBE_VMOLR(vf));
++	if (setting) {
++		e_info(drv, "VF %u: enabling multicast promiscuous\n", vf);
++		vmolr |=3D IXGBE_VMOLR_MPE;
++	} else {
++		e_info(drv, "VF %u: disabling multicast promiscuous\n", vf);
++		vmolr &=3D ~IXGBE_VMOLR_MPE;
++	}
++
++	IXGBE_WRITE_REG(hw, IXGBE_VMOLR(vf), vmolr);
++
++	return 0;
++}
++
 
-Dean
+I haven't read the data sheet, but I took a quick look at the excellent
+high level driver docs:
+http://www.intel.com/content/dam/doc/design-guide/82599-sr-iov-driver-c=
+ompanion-guide.pdf
+
+It mentions "Multicast Promiscuous Enable" in its "Thoughts for
+Customization" section:
+
+ 7.1 Multicast Promiscuous Enable
+
+ The controller has provisions to allow each VF to be put into Multicas=
+t
+ Promiscuous mode.  The Intel reference driver does not configure this
+ option .
+
+ The capability can be enabled/disabled by manipulating the MPE field
+ (bit 28) of the PF VF L2 Control Register (PFVML2FLT =E2=80=93 0x0F000=
+)
+
+and showing a section from the data sheet describing the
+"PF VM L2 Control Register - PFVML2FLT[n]  (0x0F000 + 4 * n, n=3D0...63=
+; RW)"
+
+To me it looks like enabling Promiscuos Multicast for a VF won't affect
+any other VF at all.  Is this really not the case?
+
+
+
+Bj=C3=B8rn
