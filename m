@@ -1,125 +1,40 @@
-From: "Skidmore, Donald C" <donald.c.skidmore@intel.com>
-Subject: RE: [E1000-devel] [PATCH 1/2] if_link: Add VF multicast promiscuous
- mode control
-Date: Thu, 22 Jan 2015 21:34:11 +0000
-Message-ID: <F6FB0E698C9B3143BDF729DF222866469129C09C@ORSMSX110.amr.corp.intel.com>
-References: <7F861DC0615E0C47A872E6F3C5FCDDBD05E0734E@BPXM14GP.gisp.nec.co.jp>
-	<874mrlu18e.fsf@nemi.mork.no>
-	<7F861DC0615E0C47A872E6F3C5FCDDBD05E07B7C@BPXM14GP.gisp.nec.co.jp>
-	<F6FB0E698C9B3143BDF729DF222866469129B7F5@ORSMSX110.amr.corp.intel.com>
-	<7F861DC0615E0C47A872E6F3C5FCDDBD05E07F09@BPXM14GP.gisp.nec.co.jp>
-	<F6FB0E698C9B3143BDF729DF222866469129B844@ORSMSX110.amr.corp.intel.com>
-	<7F861DC0615E0C47A872E6F3C5FCDDBD05E08FF6@BPXM14GP.gisp.nec.co.jp>
-	<063D6719AE5E284EB5DD2968C1650D6D1CAD01D6@AcuExch.aculab.com>
-	<7F861DC0615E0C47A872E6F3C5FCDDBD05E090FE@BPXM14GP.gisp.nec.co.jp>
-	<F6FB0E698C9B3143BDF729DF222866469129BC03@ORSMSX110.amr.corp.intel.com>
-	<063D6719AE5E284EB5DD2968C1650D6D1CAD0C8A@AcuExch.aculab.com>
-	<F6FB0E698C9B3143BDF729DF222866469129BFFD@ORSMSX110.amr.corp.intel.com>
- <87bnlqpq6v.fsf@nemi.mork.no>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: David Laight <David.Laight@ACULAB.COM>,
-	Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Choi, Sy Jong" <sy.jong.choi@intel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Hayato Momma <h-momma@ce.jp.nec.com>
-To: =?utf-8?B?QmrDuHJuIE1vcms=?= <bjorn@mork.no>
+From: Andy Shevchenko <andy.shevchenko@gmail.com>
+Subject: [PATCH v1] cxgb3: re-use native hex2bin()
+Date: Thu, 22 Jan 2015 23:37:39 +0200
+Message-ID: <1421962659-25885-1-git-send-email-andy.shevchenko@gmail.com>
+Cc: Andy Shevchenko <andy.shevchenko@gmail.com>
+To: netdev@vger.kernel.org, Santosh Raspatur <santosh@chelsio.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:57450 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753039AbbAVVei (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Jan 2015 16:34:38 -0500
-In-Reply-To: <87bnlqpq6v.fsf@nemi.mork.no>
-Content-Language: en-US
+Received: from gw02.mail.saunalahti.fi ([195.197.172.116]:58469 "EHLO
+	gw02.mail.saunalahti.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751777AbbAVVhf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jan 2015 16:37:35 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogQmrDuHJuIE1vcmsgW21h
-aWx0bzpiam9ybkBtb3JrLm5vXQ0KPiBTZW50OiBUaHVyc2RheSwgSmFudWFyeSAyMiwgMjAxNSAx
-MTozMiBBTQ0KPiBUbzogU2tpZG1vcmUsIERvbmFsZCBDDQo+IENjOiBEYXZpZCBMYWlnaHQ7IEhp
-cm9zaGkgU2hpbWFtb3RvOyBlMTAwMC1kZXZlbEBsaXN0cy5zb3VyY2Vmb3JnZS5uZXQ7DQo+IG5l
-dGRldkB2Z2VyLmtlcm5lbC5vcmc7IENob2ksIFN5IEpvbmc7IGxpbnV4LWtlcm5lbEB2Z2VyLmtl
-cm5lbC5vcmc7DQo+IEhheWF0byBNb21tYQ0KPiBTdWJqZWN0OiBSZTogW0UxMDAwLWRldmVsXSBb
-UEFUQ0ggMS8yXSBpZl9saW5rOiBBZGQgVkYgbXVsdGljYXN0IHByb21pc2N1b3VzDQo+IG1vZGUg
-Y29udHJvbA0KPiANCj4gIlNraWRtb3JlLCBEb25hbGQgQyIgPGRvbmFsZC5jLnNraWRtb3JlQGlu
-dGVsLmNvbT4gd3JpdGVzOg0KPiANCj4gPiBNeSBoYW5nIHVwIGlzIG1vcmUgcmVsYXRlZCB0bzog
-d2l0aG91dCB0aGUgbm9iIHRvIGVuYWJsZSBpdCAob2ZmIGJ5DQo+ID4gZGVmYXVsdCkgd2UgYXJl
-IGxldHRpbmcgb25lIFZGIGRpY3RhdGUgcG9saWN5IGZvciBhbGwgdGhlIG90aGVyIFZGcw0KPiA+
-IGFuZCB0aGUgUEYuICBJZiBvbmUgVkYgbmVlZHMgdG8gYmUgaW4gcHJvbWlzY3VvdXMgbXVsdGlj
-YXN0IHNvIGlzDQo+ID4gZXZlcnlvbmUgZWxzZS4gIFRoZWlyIHN0YWNrcyBub3cgbmVlZHMgdG8g
-ZGVhbCB3aXRoIGFsbCB0aGUgZXh0cmENCj4gPiBtdWx0aWNhc3QgcGFja2V0cy4gIEFzIHlvdSBw
-b2ludCBvdXQgdGhpcyBtaWdodCBub3QgYmUgYSBkaXJlY3QNCj4gPiBjb25jZXJuIGZvciBpc29s
-YXRpb24gaW4gdGhhdCB0aGUgVk0gY291bGQgaGF2ZSAnY2hvc2VuJyB0byBqb2luIGFueQ0KPiA+
-IE11bHRpY2FzdCBncm91cCBhbmQgc2VlbiB0aGlzIHRyYWZmaWMuICBNeSBjb25jZXJuIG92ZXIg
-aXNvbGF0aW9uIGlzDQo+ID4gb25lIFZGIGhhcyBjaG9zZW4gdGhhdCBhbGwgdGhlIG90aGVyIFZN
-IG5vdyBoYXZlIHRvIHNlZSB0aGlzIG11bHRpY2FzdA0KPiA+IHRyYWZmaWMuDQo+IA0KPiBBcG9s
-b2dpZXMgaWYgdGhpcyBxdWVzdGlvbiBpcyBzdHVwaWQsIGJ1dCBJIGp1c3QgaGF2ZSB0byBhc2sg
-YWJvdXQgc3R1ZmYgSSBkb24ndA0KPiB1bmRlcnN0YW5kLi4uDQo+IA0KPiBMb29raW5nIGF0IHRo
-ZSBwcm9wb3NlZCBpbXBsZW1lbnRhdGlvbiwgdGhlIHByb21pc2NvdXMgbXVsdGljYXN0IGZsYWcN
-Cj4gc2VlbXMgdG8gYmUgYSBwZXItVkYgZmxhZzoNCj4gDQo+ICtpbnQgaXhnYmVfbmRvX3NldF92
-Zl9tY19wcm9taXNjKHN0cnVjdCBuZXRfZGV2aWNlICpuZXRkZXYsIGludCB2ZiwgYm9vbA0KPiAr
-c2V0dGluZykgew0KPiArCXN0cnVjdCBpeGdiZV9hZGFwdGVyICphZGFwdGVyID0gbmV0ZGV2X3By
-aXYobmV0ZGV2KTsNCj4gKwlzdHJ1Y3QgaXhnYmVfaHcgKmh3ID0gJmFkYXB0ZXItPmh3Ow0KPiAr
-CXUzMiB2bW9scjsNCj4gKw0KPiArCWlmICh2ZiA+PSBhZGFwdGVyLT5udW1fdmZzKQ0KPiArCQly
-ZXR1cm4gLUVJTlZBTDsNCj4gKw0KPiArCWFkYXB0ZXItPnZmaW5mb1t2Zl0ubWNfcHJvbWlzY19l
-bmFibGVkID0gc2V0dGluZzsNCj4gKw0KPiArCXZtb2xyID0gSVhHQkVfUkVBRF9SRUcoaHcsIElY
-R0JFX1ZNT0xSKHZmKSk7DQo+ICsJaWYgKHNldHRpbmcpIHsNCj4gKwkJZV9pbmZvKGRydiwgIlZG
-ICV1OiBlbmFibGluZyBtdWx0aWNhc3QgcHJvbWlzY3VvdXNcbiIsIHZmKTsNCj4gKwkJdm1vbHIg
-fD0gSVhHQkVfVk1PTFJfTVBFOw0KPiArCX0gZWxzZSB7DQo+ICsJCWVfaW5mbyhkcnYsICJWRiAl
-dTogZGlzYWJsaW5nIG11bHRpY2FzdCBwcm9taXNjdW91c1xuIiwgdmYpOw0KPiArCQl2bW9sciAm
-PSB+SVhHQkVfVk1PTFJfTVBFOw0KPiArCX0NCj4gKw0KPiArCUlYR0JFX1dSSVRFX1JFRyhodywg
-SVhHQkVfVk1PTFIodmYpLCB2bW9scik7DQo+ICsNCj4gKwlyZXR1cm4gMDsNCj4gK30NCj4gKw0K
-PiANCj4gSSBoYXZlbid0IHJlYWQgdGhlIGRhdGEgc2hlZXQsIGJ1dCBJIHRvb2sgYSBxdWljayBs
-b29rIGF0IHRoZSBleGNlbGxlbnQgaGlnaA0KPiBsZXZlbCBkcml2ZXIgZG9jczoNCj4gaHR0cDov
-L3d3dy5pbnRlbC5jb20vY29udGVudC9kYW0vZG9jL2Rlc2lnbi1ndWlkZS84MjU5OS1zci1pb3Yt
-ZHJpdmVyLQ0KPiBjb21wYW5pb24tZ3VpZGUucGRmDQo+IA0KPiBJdCBtZW50aW9ucyAiTXVsdGlj
-YXN0IFByb21pc2N1b3VzIEVuYWJsZSIgaW4gaXRzICJUaG91Z2h0cyBmb3INCj4gQ3VzdG9taXph
-dGlvbiIgc2VjdGlvbjoNCj4gDQo+ICA3LjEgTXVsdGljYXN0IFByb21pc2N1b3VzIEVuYWJsZQ0K
-PiANCj4gIFRoZSBjb250cm9sbGVyIGhhcyBwcm92aXNpb25zIHRvIGFsbG93IGVhY2ggVkYgdG8g
-YmUgcHV0IGludG8gTXVsdGljYXN0DQo+IFByb21pc2N1b3VzIG1vZGUuICBUaGUgSW50ZWwgcmVm
-ZXJlbmNlIGRyaXZlciBkb2VzIG5vdCBjb25maWd1cmUgdGhpcw0KPiBvcHRpb24gLg0KPiANCj4g
-IFRoZSBjYXBhYmlsaXR5IGNhbiBiZSBlbmFibGVkL2Rpc2FibGVkIGJ5IG1hbmlwdWxhdGluZyB0
-aGUgTVBFIGZpZWxkICAoYml0DQo+IDI4KSBvZiB0aGUgUEYgVkYgTDIgQ29udHJvbCBSZWdpc3Rl
-ciAoUEZWTUwyRkxUIOKAkyAweDBGMDAwKQ0KPiANCj4gYW5kIHNob3dpbmcgYSBzZWN0aW9uIGZy
-b20gdGhlIGRhdGEgc2hlZXQgZGVzY3JpYmluZyB0aGUgIlBGIFZNIEwyIENvbnRyb2wNCj4gUmVn
-aXN0ZXIgLSBQRlZNTDJGTFRbbl0gICgweDBGMDAwICsgNCAqIG4sIG49MC4uLjYzOyBSVykiDQo+
-IA0KPiBUbyBtZSBpdCBsb29rcyBsaWtlIGVuYWJsaW5nIFByb21pc2N1b3MgTXVsdGljYXN0IGZv
-ciBhIFZGIHdvbid0IGFmZmVjdCBhbnkNCj4gb3RoZXIgVkYgYXQgYWxsLiAgSXMgdGhpcyByZWFs
-bHkgbm90IHRoZSBjYXNlPw0KPiANCj4gDQo+IA0KPiBCasO4cm4NCg0KQ2xlYXJseSBub3QgYSBk
-dW1iIHF1ZXN0aW9uIGF0IGFsbCBhbmQgSSdtIGdsYWQgeW91IG1lbnRpb25lZCB0aGF0LiA6KSAg
-SSB3YXMgZ29pbmcgb2ZmIHRoZSBhc3N1bXB0aW9uLCBiZWVuIGF3aGlsZSBzaW5jZSBJIHJlYWQg
-dGhlIHBhdGNoLCB0aGF0IHRoZSBwYXRjaCB3YXMgdXNpbmcgRkNUUkwuTVBFIG9yIE1BTkMuTUNT
-VF9QQVNTX0wyIHdoaWNoIHdvdWxkIHR1cm4gbXVsdGljYXN0IHByb21pc2N1b3VzIG9uIGZvciBl
-dmVyeW9uZS4gIFNpbmNlIHRoZSBwYXRjaCBpcyB1c2luZyBQRlZNTDJGTFQuTVBFIHRoaXMgbGVz
-c2VucyBteSBjb25jZXJuIG92ZXIgZWZmZWN0IG9uIHRoZSBlbnRpcmUgc3lzdGVtLg0KDQpUaGF0
-IHNhaWQgSSBzdGlsbCB3b3VsZCBwcmVmZXIgaGF2aW5nIGEgd2F5IHRvIG92ZXJyaWRlIHRoaXMg
-YmVoYXZpb3Igb24gdGhlIFBGLCBhbHRob3VnaCBJIGFkbWl0IG15IGFyZ3VtZW50IGlzIHdlYWtl
-ci4gICBJJ20gc3RpbGwgY29uY2VybmVkIGFib3V0IGEgVkYgY2hhbmdpbmcgdGhlIGJlaGF2aW9y
-IG9mIHRoZSBQRiB3aXRob3V0IGFueSB3YXkgdG8gcHJldmVudCBpdC4gIFRoaXMgbWlnaHQgYmUg
-b25lIHBhcnQgcGhpbG9zb3BoaWNhbCAoUEYgc2V0cyBwb2xpY3kgbm90IHRoZSBWRikgYnV0IHRo
-aXMgc3RpbGwgY291bGQgaGF2ZSBhIG5vdGljZWFibGUgZWZmZWN0IG9uIHRoZSBvdmVyYWxsIHN5
-c3RlbS4gIElmIGFueSBvdGhlciBWRnMgKG9yIHRoZSBQRikgYXJlIHJlY2VpdmluZyBNQyBwYWNr
-ZXRzIHRoZXNlIHdpbGwgaGF2ZSB0byBiZSByZXBsaWNhdGVkIHdoaWNoIHdpbGwgYmUgYSBwZXJm
-b3JtYW5jZSBoaXQuICBXaGVuIHdlIHVzZSB0aGUgTUMgaGFzaCB0aGlzIGlzIGxpbWl0ZWQgdnMu
-IHdoZW4gYW55b25lIGlzIGluIE1DIHByb21pc2N1b3VzIGV2ZXJ5IE1DIHBhY2tldCB1c2VkIGJ5
-IGFub3RoZXIgcG9vbCB3b3VsZCBiZSByZXBsaWNhdGVkLiAgSSBjb3VsZCBpbWFnaW5lIGluIHNv
-bWUgZW52aXJvbm1lbnRzIChpLmUuIHB1YmxpYyBjbG91ZHMpIHdoZXJlIHlvdSBkb24ndCB0cnVz
-dCB3aGF0IGlzIHJ1bm5pbmcgaW4geW91ciBWTSB5b3UgbWlnaHQgd2hhdCB0byBibG9jayB0aGlz
-IGZyb20gaGFwcGVuaW5nLiANCg0KSW4gc29tZSB3YXlzIGl0IGlzIGFsbW9zdCB0aGUgbWlycm9y
-IGltYWdlIG9mIHRoZSBpc3N1ZSB5b3UgYnJvdWdodCB1cDoNCg0KQWRkaW5nIGEgbmV3IGhvb2sg
-Zm9yIHRoaXMgc2VlbXMgb3Zlci1jb21wbGljYXRlZCB0byBtZS4gIEFuZCBpdCBzdGlsbA0KZG9l
-c24ndCBzb2x2ZSB0aGUgcmVhbCBwcm9ibGVtcyB0aGF0DQogYSkgdGhlIHVzZXIgaGFzIHRvIGtu
-b3cgYWJvdXQgdGhpcyBsaW1pdCwgYW5kDQogYikgbWFudWFsbHkgY29uZmlndXJlIHRoZSBmZWF0
-dXJlDQoNCk15IHJldmVyc2UgYXJndW1lbnQgbWlnaHQgYmUgdGhhdCBpZiB0aGlzIGhhcHBlbnMg
-YXV0b21hdGljYWxseS4gIEl0IG1pZ2h0IHRha2UgdGhlIFZNIHByb3ZpZGVyIGEgbG9uZyB0aW1l
-IHRvIHJlYWxpemUgcGVyZm9ybWFuY2UgaGFzIHRha2VuIGEgaGl0IGJlY2F1c2Ugc29tZSBWTSBh
-c2tlZCB0byBqb2luIDMxIG11bHRpY2FzdCBncm91cHMgYW5kIGVudGVyZWQgTUMgcHJvbWlzY3Vv
-dXMuICBUaGVuIG9ubHkgdG8gZmluZCB0aGF0IHRoZXkgaGF2ZSBubyB3YXkgdG8gYmxvY2sgc3Vj
-aCBiZWhhdmlvci4NCg0KTWF5YmUgSSB3b3VsZG4ndCBhcyBjb25jZXJuZWQgaWYgdGhlIHBhdGNo
-IGF1dGhvciBjb3VsZCBwcm92aWRlIHNvbWUgcGVyZm9ybWFuY2UgcmVzdWx0cyB0byBzaG93IHRo
-aXMgd29uJ3QgaGF2ZSBhcyBhIG5lZ2F0aXZlIGVmZmVjdCBhcyBJJ20gYWZyYWlkIGl0IG1pZ2h0
-Pw0KDQotRG9uIFNraWRtb3JlIDxkb25hbGQuYy5za2lkbW9yZUBpbnRlbC5jb20+DQo=
+Call hex2bin() library function instead of doing conversion here.
+
+Signed-off-by: Andy Shevchenko <andy.shevchenko@gmail.com>
+---
+ drivers/net/ethernet/chelsio/cxgb3/t3_hw.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/ethernet/chelsio/cxgb3/t3_hw.c b/drivers/net/ethernet/chelsio/cxgb3/t3_hw.c
+index c74a898..184a8d5 100644
+--- a/drivers/net/ethernet/chelsio/cxgb3/t3_hw.c
++++ b/drivers/net/ethernet/chelsio/cxgb3/t3_hw.c
+@@ -727,9 +727,9 @@ static int get_vpd_params(struct adapter *adapter, struct vpd_params *p)
+ 		p->xauicfg[1] = simple_strtoul(vpd.xaui1cfg_data, NULL, 16);
+ 	}
+ 
+-	for (i = 0; i < 6; i++)
+-		p->eth_base[i] = hex_to_bin(vpd.na_data[2 * i]) * 16 +
+-				 hex_to_bin(vpd.na_data[2 * i + 1]);
++	ret = hex2bin(p->eth_base, vpd.na_data, 6);
++	if (ret < 0)
++		return -EINVAL;
+ 	return 0;
+ }
+ 
+-- 
+1.8.3.101.g727a46b
