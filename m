@@ -1,89 +1,53 @@
-From: Joe Stringer <joestringer@nicira.com>
-Subject: [PATCH net-next v14 3/5] openvswitch: Use sw_flow_key_range for key ranges.
-Date: Wed, 21 Jan 2015 16:42:50 -0800
-Message-ID: <1421887372-56414-4-git-send-email-joestringer@nicira.com>
+From: Joe Stringer <joestringer-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH net-next v14 2/5] openvswitch: Refactor
+	ovs_flow_tbl_insert().
+Date: Wed, 21 Jan 2015 16:42:49 -0800
+Message-ID: <1421887372-56414-3-git-send-email-joestringer@nicira.com>
 References: <1421887372-56414-1-git-send-email-joestringer@nicira.com>
-Cc: linux-kernel@vger.kernel.org, dev@openvswitch.org,
-	pshelar@nicira.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog119.obsmtp.com ([74.125.149.246]:55939 "HELO
-	na3sys009aog119.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752838AbbAVAnE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jan 2015 19:43:04 -0500
-Received: by mail-pa0-f50.google.com with SMTP id bj1so56281695pad.9
-        for <netdev@vger.kernel.org>; Wed, 21 Jan 2015 16:43:03 -0800 (PST)
-In-Reply-To: <1421887372-56414-1-git-send-email-joestringer@nicira.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1421887372-56414-1-git-send-email-joestringer-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-These minor tidyups make a future patch a little tidier.
-
-Signed-off-by: Joe Stringer <joestringer@nicira.com>
----
- net/openvswitch/flow_table.c |   20 +++++++++-----------
- 1 file changed, 9 insertions(+), 11 deletions(-)
-
-diff --git a/net/openvswitch/flow_table.c b/net/openvswitch/flow_table.c
-index 81b977d..9a3f41f 100644
---- a/net/openvswitch/flow_table.c
-+++ b/net/openvswitch/flow_table.c
-@@ -357,9 +357,11 @@ int ovs_flow_tbl_flush(struct flow_table *flow_table)
- 	return 0;
- }
- 
--static u32 flow_hash(const struct sw_flow_key *key, int key_start,
--		     int key_end)
-+static u32 flow_hash(const struct sw_flow_key *key,
-+		     const struct sw_flow_key_range *range)
- {
-+	int key_start = range->start;
-+	int key_end = range->end;
- 	const u32 *hash_key = (const u32 *)((const u8 *)key + key_start);
- 	int hash_u32s = (key_end - key_start) >> 2;
- 
-@@ -395,9 +397,9 @@ static bool cmp_key(const struct sw_flow_key *key1,
- 
- static bool flow_cmp_masked_key(const struct sw_flow *flow,
- 				const struct sw_flow_key *key,
--				int key_start, int key_end)
-+				const struct sw_flow_key_range *range)
- {
--	return cmp_key(&flow->key, key, key_start, key_end);
-+	return cmp_key(&flow->key, key, range->start, range->end);
- }
- 
- bool ovs_flow_cmp_unmasked_key(const struct sw_flow *flow,
-@@ -416,18 +418,15 @@ static struct sw_flow *masked_flow_lookup(struct table_instance *ti,
- {
- 	struct sw_flow *flow;
- 	struct hlist_head *head;
--	int key_start = mask->range.start;
--	int key_end = mask->range.end;
- 	u32 hash;
- 	struct sw_flow_key masked_key;
- 
- 	ovs_flow_mask_key(&masked_key, unmasked, mask);
--	hash = flow_hash(&masked_key, key_start, key_end);
-+	hash = flow_hash(&masked_key, &mask->range);
- 	head = find_bucket(ti, hash);
- 	hlist_for_each_entry_rcu(flow, head, hash_node[ti->node_ver]) {
- 		if (flow->mask == mask && flow->hash == hash &&
--		    flow_cmp_masked_key(flow, &masked_key,
--					  key_start, key_end))
-+		    flow_cmp_masked_key(flow, &masked_key, &mask->range))
- 			return flow;
- 	}
- 	return NULL;
-@@ -590,8 +589,7 @@ static void flow_key_insert(struct flow_table *table, struct sw_flow *flow)
- 	struct table_instance *new_ti = NULL;
- 	struct table_instance *ti;
- 
--	flow->hash = flow_hash(&flow->key, flow->mask->range.start,
--			flow->mask->range.end);
-+	flow->hash = flow_hash(&flow->key, &flow->mask->range);
- 	ti = ovsl_dereference(table->ti);
- 	table_instance_insert(ti, flow);
- 	table->count++;
--- 
-1.7.10.4
+UmV3b3JrIHNvIHRoYXQgb3ZzX2Zsb3dfdGJsX2luc2VydCgpIGNhbGxzIGZsb3dfe2tleSxtYXNr
+fV9pbnNlcnQoKS4KVGhpcyB0aWRpZXMgdXAgYSBmdXR1cmUgcGF0Y2guCgpTaWduZWQtb2ZmLWJ5
+OiBKb2UgU3RyaW5nZXIgPGpvZXN0cmluZ2VyQG5pY2lyYS5jb20+Ci0tLQogbmV0L29wZW52c3dp
+dGNoL2Zsb3dfdGFibGUuYyB8ICAgMjEgKysrKysrKysrKysrKystLS0tLS0tCiAxIGZpbGUgY2hh
+bmdlZCwgMTQgaW5zZXJ0aW9ucygrKSwgNyBkZWxldGlvbnMoLSkKCmRpZmYgLS1naXQgYS9uZXQv
+b3BlbnZzd2l0Y2gvZmxvd190YWJsZS5jIGIvbmV0L29wZW52c3dpdGNoL2Zsb3dfdGFibGUuYwpp
+bmRleCA1ODk5YmYxLi44MWI5NzdkIDEwMDY0NAotLS0gYS9uZXQvb3BlbnZzd2l0Y2gvZmxvd190
+YWJsZS5jCisrKyBiL25ldC9vcGVudnN3aXRjaC9mbG93X3RhYmxlLmMKQEAgLTU4NSwxNiArNTg1
+LDEwIEBAIHN0YXRpYyBpbnQgZmxvd19tYXNrX2luc2VydChzdHJ1Y3QgZmxvd190YWJsZSAqdGJs
+LCBzdHJ1Y3Qgc3dfZmxvdyAqZmxvdywKIH0KIAogLyogTXVzdCBiZSBjYWxsZWQgd2l0aCBPVlMg
+bXV0ZXggaGVsZC4gKi8KLWludCBvdnNfZmxvd190YmxfaW5zZXJ0KHN0cnVjdCBmbG93X3RhYmxl
+ICp0YWJsZSwgc3RydWN0IHN3X2Zsb3cgKmZsb3csCi0JCQljb25zdCBzdHJ1Y3Qgc3dfZmxvd19t
+YXNrICptYXNrKQorc3RhdGljIHZvaWQgZmxvd19rZXlfaW5zZXJ0KHN0cnVjdCBmbG93X3RhYmxl
+ICp0YWJsZSwgc3RydWN0IHN3X2Zsb3cgKmZsb3cpCiB7CiAJc3RydWN0IHRhYmxlX2luc3RhbmNl
+ICpuZXdfdGkgPSBOVUxMOwogCXN0cnVjdCB0YWJsZV9pbnN0YW5jZSAqdGk7Ci0JaW50IGVycjsK
+LQotCWVyciA9IGZsb3dfbWFza19pbnNlcnQodGFibGUsIGZsb3csIG1hc2spOwotCWlmIChlcnIp
+Ci0JCXJldHVybiBlcnI7CiAKIAlmbG93LT5oYXNoID0gZmxvd19oYXNoKCZmbG93LT5rZXksIGZs
+b3ctPm1hc2stPnJhbmdlLnN0YXJ0LAogCQkJZmxvdy0+bWFzay0+cmFuZ2UuZW5kKTsKQEAgLTYx
+Myw2ICs2MDcsMTkgQEAgaW50IG92c19mbG93X3RibF9pbnNlcnQoc3RydWN0IGZsb3dfdGFibGUg
+KnRhYmxlLCBzdHJ1Y3Qgc3dfZmxvdyAqZmxvdywKIAkJdGFibGVfaW5zdGFuY2VfZGVzdHJveSh0
+aSwgdHJ1ZSk7CiAJCXRhYmxlLT5sYXN0X3JlaGFzaCA9IGppZmZpZXM7CiAJfQorfQorCisvKiBN
+dXN0IGJlIGNhbGxlZCB3aXRoIE9WUyBtdXRleCBoZWxkLiAqLworaW50IG92c19mbG93X3RibF9p
+bnNlcnQoc3RydWN0IGZsb3dfdGFibGUgKnRhYmxlLCBzdHJ1Y3Qgc3dfZmxvdyAqZmxvdywKKwkJ
+CWNvbnN0IHN0cnVjdCBzd19mbG93X21hc2sgKm1hc2spCit7CisJaW50IGVycjsKKworCWVyciA9
+IGZsb3dfbWFza19pbnNlcnQodGFibGUsIGZsb3csIG1hc2spOworCWlmIChlcnIpCisJCXJldHVy
+biBlcnI7CisJZmxvd19rZXlfaW5zZXJ0KHRhYmxlLCBmbG93KTsKKwogCXJldHVybiAwOwogfQog
+Ci0tIAoxLjcuMTAuNAoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX18KZGV2IG1haWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVudnN3
+aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
