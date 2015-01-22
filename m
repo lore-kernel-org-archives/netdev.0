@@ -1,42 +1,40 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next RFC] tc: introduce OpenFlow classifier
-Date: Thu, 22 Jan 2015 16:25:18 +0100
-Message-ID: <20150122152518.GB1863@nanopsycho.orion>
-References: <1421933824-17916-1-git-send-email-jiri@resnulli.us>
- <9B0331B6EBBD0E4684FBFAEDA55776F918903CD5@HASMSX110.ger.corp.intel.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [net-next PATCH v3 00/12] Flow API
+Date: Thu, 22 Jan 2015 10:28:03 -0500
+Message-ID: <54C11703.7030702@mojatatu.com>
+References: <20150120202404.1741.8658.stgit@nitbit.x32> <20150122125246.GA4486@salvia> <20150122133713.GA25797@casper.infradead.org> <20150122140022.GA5674@salvia> <54C11094.2000807@mojatatu.com> <20150122151316.GB25797@casper.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"jhs@mojatatu.com" <jhs@mojatatu.com>
-To: "Rosen, Rami" <rami.rosen@intel.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+	John Fastabend <john.fastabend@gmail.com>,
+	simon.horman@netronome.com, sfeldma@gmail.com,
+	netdev@vger.kernel.org, davem@davemloft.net, gerlitz.or@gmail.com,
+	andy@greyhouse.net, ast@plumgrid.com, Jiri Pirko <jiri@resnulli.us>
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f41.google.com ([74.125.82.41]:46519 "EHLO
-	mail-wg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751906AbbAVPZW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jan 2015 10:25:22 -0500
-Received: by mail-wg0-f41.google.com with SMTP id a1so2400852wgh.0
-        for <netdev@vger.kernel.org>; Thu, 22 Jan 2015 07:25:21 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <9B0331B6EBBD0E4684FBFAEDA55776F918903CD5@HASMSX110.ger.corp.intel.com>
+Received: from mail-ie0-f174.google.com ([209.85.223.174]:64396 "EHLO
+	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750754AbbAVP2H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jan 2015 10:28:07 -0500
+Received: by mail-ie0-f174.google.com with SMTP id vy18so1919335iec.5
+        for <netdev@vger.kernel.org>; Thu, 22 Jan 2015 07:28:05 -0800 (PST)
+In-Reply-To: <20150122151316.GB25797@casper.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thu, Jan 22, 2015 at 02:48:29PM CET, rami.rosen@intel.com wrote:
->+config NET_CLS_OPENFLOW
->+	tristate "OpenFlow classifier"
->+	select NET_CLS
->+	---help---
->+	  If you say Y here, you will be able to classify packets based on
->+	  a configurable combination of packet keys and masks accordint to
->+	  OpenFlow standard.
->+
->
->Should be: according to
+On 01/22/15 10:13, Thomas Graf wrote:
 
-I fixed this in my git. Thanks!
+> I don't follow this. John's proposal allows to decide on a case by
+> case basis what we want to export. Just like with ethtool or
+> RTNETLINK. There is no direct access to hardware. A user can only
+> configure what is being exposed by the kernel.
+>
 
->
->Regards,
->Rami Rosen
->
+So if i am a vendor with my own driver, I can expose whatever i want.
+Only my SDK needs to deal with what i expose. There is no needed
+feature in the kernel other than the driver exposing it that is
+required.
+
+cheers,
+jamal
