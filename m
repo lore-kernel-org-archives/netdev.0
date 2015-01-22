@@ -1,93 +1,64 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [net-next PATCH v3 00/12] Flow API
-Date: Thu, 22 Jan 2015 09:10:19 -0800
-Message-ID: <54C12EFB.3000004@gmail.com>
-References: <20150120202404.1741.8658.stgit@nitbit.x32> <20150122125246.GA4486@salvia> <20150122133713.GA25797@casper.infradead.org> <20150122140022.GA5674@salvia> <54C11094.2000807@mojatatu.com> <20150122151316.GB25797@casper.infradead.org> <54C11703.7030702@mojatatu.com> <20150122153727.GC25797@casper.infradead.org> <20150122164951.GA3417@salvia>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next 1/2] tipc: fix excessive network event logging
+Date: Thu, 22 Jan 2015 09:24:47 -0800
+Message-ID: <1421947487.2702.1.camel@perches.com>
+References: <1421943032-29924-1-git-send-email-erik.hugne@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Thomas Graf <tgraf@suug.ch>, Jamal Hadi Salim <jhs@mojatatu.com>,
-	simon.horman@netronome.com, sfeldma@gmail.com,
-	netdev@vger.kernel.org, davem@davemloft.net, gerlitz.or@gmail.com,
-	andy@greyhouse.net, ast@plumgrid.com, Jiri Pirko <jiri@resnulli.us>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
+Cc: richard.alpe@ericsson.com, netdev@vger.kernel.org,
+	jon.maloy@ericsson.com, ying.xue@windriver.com,
+	tipc-discussion@lists.sourceforge.net
+To: erik.hugne@ericsson.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f177.google.com ([209.85.214.177]:38998 "EHLO
-	mail-ob0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753630AbbAVRKg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jan 2015 12:10:36 -0500
-Received: by mail-ob0-f177.google.com with SMTP id uy5so2496696obc.8
-        for <netdev@vger.kernel.org>; Thu, 22 Jan 2015 09:10:36 -0800 (PST)
-In-Reply-To: <20150122164951.GA3417@salvia>
+Received: from smtprelay0099.hostedemail.com ([216.40.44.99]:44132 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751930AbbAVRYv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jan 2015 12:24:51 -0500
+In-Reply-To: <1421943032-29924-1-git-send-email-erik.hugne@ericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/22/2015 08:49 AM, Pablo Neira Ayuso wrote:
-> On Thu, Jan 22, 2015 at 03:37:27PM +0000, Thomas Graf wrote:
->> On 01/22/15 at 10:28am, Jamal Hadi Salim wrote:
->>> On 01/22/15 10:13, Thomas Graf wrote:
->>>
->>>> I don't follow this. John's proposal allows to decide on a case by
->>>> case basis what we want to export. Just like with ethtool or
->>>> RTNETLINK. There is no direct access to hardware. A user can only
->>>> configure what is being exposed by the kernel.
->>>>
->>>
->>> So if i am a vendor with my own driver, I can expose whatever i want.
->>
->> No. We will reject any driver change attempting to do so on this
->> list.
->
-> I think those vendors do not want to push those driver changes
-> mainstream. They will likely use these new ndo's to fully expose their
-> vendor-specific capabilities distributed in proprietary blobs.
->
-> I remember to have seen one ugly patch for netfilter that added
-> several hook functions (not netfilter hooks) at different positions of
-> the NAT code, the goal was to offload NAT through hardware. I was told
-> the code that was using those ad-hoc hooks was distributed in a binary
-> blob.
->
->> This is the whole point of this: Coming up with a model that allows
->> to describe capabilities and offer flow programming capabilities
->> in a Vendor neutral way. A "push_vlan" or "pop_vlan" action will work
->> with any driver that supports it.
->
-> Right, we need an abstraction for actions too, and the infrastructure
-> should not provide any means to circunvent and expose vendor specific
-> details.
->
+On Thu, 2015-01-22 at 17:10 +0100, erik.hugne@ericsson.com wrote:
+> From: Erik Hugne <erik.hugne@ericsson.com>
+> 
+> If a large number of namespaces is spawned on a node and TIPC is
+> enabled in each of these, the excessive printk tracing of network
+> events will cause the system to grind down to a near halt.
+> The traces are still of debug value, so instead of removing them
+> completely we fix it by changing the link state and node availability
+> logging debug traces.
 
-I'm not sure what a vendor specific detail is in the API now?
+Maybe some of these should be net_<level>_ratelimited(fmt, ...)
 
-The API provides a mechanism to define the headers you support in a
-vendor neutral way. Perhaps vendor X may be the only hardware to
-support the packet type but the packets are not really vendor specific
-if we have the packet layout we can generate code to create the packets
-if we care to in software and find it useful.
+> diff --git a/net/tipc/link.c b/net/tipc/link.c
+[]
 
-Maybe the issue is the actions look like UIDs without any specification
-as to what they do? The concern being as a vendor I could create an
-action and call it my_vendor_specific_action and if I never tell anyone
-how to use it then we are stuck.
+> @@ -588,8 +588,8 @@ static void link_state_event(struct tipc_link *l_ptr, unsigned int event)
+>  				l_ptr->fsm_msg_cnt++;
+>  				link_set_timer(l_ptr, cont_intv / 4);
+>  			} else {	/* Link has failed */
+> -				pr_warn("%s<%s>, peer not responding\n",
+> -					link_rst_msg, l_ptr->name);
 
-I can add a set of specifier attributes to the get_action call that
-describes actions using basic primitives to resolve this specific issue.
-Actions should either 'set' fields, 'get' fields, 'dec' fields, 'inc'
-fields, etc. Then you specify an action by providing the list of
-operations it performs. So set_group_id is simply
+Like this one.
 
-	'set_field uid=group_id_metadata'
+> +				pr_debug("%s<%s>, peer not responding\n",
+> +					 link_rst_msg, l_ptr->name);
+>  				tipc_link_reset(l_ptr);
+>  				l_ptr->state = RESET_UNKNOWN;
+>  				l_ptr->fsm_msg_cnt = 0;
 
-More complicated actions exist like route() and such which will be a
-list of operations that may set multiple fields in a single atomic step.
+> @@ -380,8 +380,8 @@ static void node_lost_contact(struct tipc_node *n_ptr)
+>  	char addr_string[16];
+>  	u32 i;
+>  
+> -	pr_info("Lost contact with %s\n",
+> -		tipc_addr_string_fill(addr_string, n_ptr->addr));
+> +	pr_debug("Lost contact with %s\n",
+> +		 tipc_addr_string_fill(addr_string, n_ptr->addr));
+>  
+>  	/* Flush broadcast link info associated with lost node */
+>  	if (n_ptr->bclink.recv_permitted) {
 
-The table API also seems vendor neutral to me. I'm not sure what
-specific details would be vendor specific here either.
-
-.John
-
-
-
--- 
-John Fastabend         Intel Corporation
+And maybe this one too.
