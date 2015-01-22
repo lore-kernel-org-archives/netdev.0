@@ -1,48 +1,36 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH 3/3] netlink: Lock out table resizes while dumping
- Netlink sockets
-Date: Thu, 22 Jan 2015 09:05:18 +0000
-Message-ID: <20150122090518.GA30859@casper.infradead.org>
-References: <20150120152149.GA3012@acer.localdomain>
- <20150120153556.GJ20315@casper.infradead.org>
- <20150121050819.GA23062@gondor.apana.org.au>
- <20150121093722.GM20315@casper.infradead.org>
- <20150121093836.GA25489@gondor.apana.org.au>
- <20150121094928.GN20315@casper.infradead.org>
- <20150121095837.GA25750@gondor.apana.org.au>
- <20150121102346.GQ20315@casper.infradead.org>
- <20150122063501.GA3746@gondor.apana.org.au>
- <20150122072030.GA4039@gondor.apana.org.au>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 2/3] netlink: Mark dumps as inconsistent which have been
+ interrupted by a resize
+Date: Thu, 22 Jan 2015 20:22:12 +1100
+Message-ID: <20150122092212.GA5035@gondor.apana.org.au>
+References: <cover.1421759056.git.tgraf@suug.ch>
+ <cce004895ab6bcef267e2133a1c7ecab0fac403b.1421759056.git.tgraf@suug.ch>
+ <54BF5FC4.4070808@windriver.com>
+ <20150121121748.GD12570@casper.infradead.org>
+ <20150122084924.GA4720@gondor.apana.org.au>
+ <20150122085643.GB4037@acer.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>, davem@davemloft.net,
-	paulmck@linux.vnet.ibm.com, ying.xue@windriver.com,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	Eric Dumazet <edumazet@google.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: Thomas Graf <tgraf@suug.ch>, Ying Xue <ying.xue@windriver.com>,
+	davem@davemloft.net, paulmck@linux.vnet.ibm.com,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20150122072030.GA4039@gondor.apana.org.au>
+In-Reply-To: <20150122085643.GB4037@acer.localdomain>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 01/22/15 at 06:20pm, Herbert Xu wrote:
-> On Thu, Jan 22, 2015 at 05:35:01PM +1100, Herbert Xu wrote:
-> > On Wed, Jan 21, 2015 at 10:23:46AM +0000, Thomas Graf wrote:
-> > >
-> > > The usage will be identical to how __inet_lookup_listener() uses it.
-> > > If at the end of the lookup, we ended up in a different table than
-> > > we started, the lookup is restarted as an entry has moved to another
-> > > table while we were moving over it.
-> > 
-> > Who uses this stuff apart from ip_dynaddr?
-> 
-> OK it's there for fast socket recycling.  Given that and the fact
-> that everyone seems to be happy with restarting the dump after a
-> resize, I think we should just go with that.
-> 
-> Anybody who wants a better walk can always implement their own
-> data structure outside of rhashtable.
+On Thu, Jan 22, 2015 at 08:56:44AM +0000, Patrick McHardy wrote:
+>
+> Hope it will still be possible, I need it for GC in timeout support for
+> nftables sets.
 
-What did you think of the idea to let the user store the walker
-bit for rhashtable?
+This should be able to use the same walk that you're currently
+using for dump once we add the restart, no?
+
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
