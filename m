@@ -1,59 +1,43 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net 4/4] sh_eth: Fix serialisation of interrupt disable
- with interrupt & NAPI handlers
-Date: Thu, 22 Jan 2015 19:35:06 +0300
-Message-ID: <54C126BA.4030807@cogentembedded.com>
-References: <1421930284.1222.285.camel@xylophone.i.decadent.org.uk>	 <1421930648.1222.289.camel@xylophone.i.decadent.org.uk>	 <54C1002D.7090508@cogentembedded.com> <1421939177.1222.298.camel@xylophone.i.decadent.org.uk>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH net 1/2] net: cls_bpf: fix size mismatch on filter preparation
+Date: Thu, 22 Jan 2015 08:39:59 -0800
+Message-ID: <CAADnVQL+Y9avwq4QkJc+hetqCM2=-vhuSTZTEUCE7T8o_4QDng@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S.Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@lists.codethink.co.uk,
-	Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>,
-	Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>,
-	Hisashi Nakamura <hisashi.nakamura.ak@renesas.com>,
-	Yoshihiro Kaneko <ykaneko0929@gmail.com>
-To: Ben Hutchings <ben.hutchings@codethink.co.uk>
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f43.google.com ([209.85.215.43]:38908 "EHLO
-	mail-la0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751680AbbAVQfM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jan 2015 11:35:12 -0500
-Received: by mail-la0-f43.google.com with SMTP id q1so2658628lam.2
-        for <netdev@vger.kernel.org>; Thu, 22 Jan 2015 08:35:10 -0800 (PST)
-In-Reply-To: <1421939177.1222.298.camel@xylophone.i.decadent.org.uk>
+Received: from mail-qg0-f41.google.com ([209.85.192.41]:36804 "EHLO
+	mail-qg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750805AbbAVQk0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jan 2015 11:40:26 -0500
+Received: by mail-qg0-f41.google.com with SMTP id q108so2041320qgd.0
+        for <netdev@vger.kernel.org>; Thu, 22 Jan 2015 08:40:25 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+On Thu, Jan 22, 2015 at 1:41 AM, Daniel Borkmann <dborkman@redhat.com> wrote:
+> In cls_bpf_modify_existing(), we read out the number of filter blocks,
+> do some sanity checks, allocate a block on that size, and copy over the
+> BPF instruction blob from user space, then pass everything through the
+> classic BPF checker prior to installation of the classifier.
+>
+> We should reject mismatches here, there are 2 scenarios: the number of
+> filter blocks could be smaller than the provided instruction blob, so
+> we do a partial copy of the BPF program, and thus the instructions will
+> either be rejected from the verifier or a valid BPF program will be run;
+> in the other case, we'll end up copying more than we're supposed to,
+> and most likely the trailing garbage will be rejected by the verifier
+> as well (i.e. we need to fit instruction pattern, ret {A,K} needs to be
+> last instruction, load/stores must be correct, etc); in case not, we
+> would leak memory when dumping back instruction patterns. The code should
+> have only used nla_len() as Dave noted to avoid this from the beginning.
+> Anyway, lets fix it by rejecting such load attempts.
+>
+> Fixes: 7d1d65cb84e1 ("net: sched: cls_bpf: add BPF-based classifier")
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+> Acked-by: Jiri Pirko <jiri@resnulli.us>
 
-On 01/22/2015 06:06 PM, Ben Hutchings wrote:
-
->>> In order to stop the RX path accessing the RX ring while it's being
->>> stopped or resized, we clear the interrupt mask (EESIPR) and then call
->>> free_irq() or synchronise_irq().  This is insufficient because the
->>> interrupt handler or NAPI poller may set EESIPR again after we clear
->>> it.
-
->>      Hm, how come the interrupt handler gets called when we have disabled all
->> interrupts?
-
-> It may be running on another processor and racing with the function that
-> clears EESIPR.
-
-    Ah, I didn't think about SMP... but then we need more spinlock protection 
-instead, no?
-
->> Is it unmaskable EESR.ECI interrupt? BTW, I'm not seeing where the
->> interrupt handler enables interrupts again; only NAPI poller does that AFAIK.
-
-> Normally it only clears EESR_RX_CHECK, but as it cannot atomically clear
-> a single bit of EESIPR this can result in setting other bits.
-
-    This is again only possible on SMP kernel, right?
-
-[...]
-
-> Ben.
-
-WBR, Sergei
+Acked-by: Alexei Starovoitov <ast@plumgrid.com>
