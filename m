@@ -1,36 +1,29 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 2/3] netlink: Mark dumps as inconsistent which have been
- interrupted by a resize
-Date: Thu, 22 Jan 2015 20:22:12 +1100
-Message-ID: <20150122092212.GA5035@gondor.apana.org.au>
-References: <cover.1421759056.git.tgraf@suug.ch>
- <cce004895ab6bcef267e2133a1c7ecab0fac403b.1421759056.git.tgraf@suug.ch>
- <54BF5FC4.4070808@windriver.com>
- <20150121121748.GD12570@casper.infradead.org>
- <20150122084924.GA4720@gondor.apana.org.au>
- <20150122085643.GB4037@acer.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Thomas Graf <tgraf@suug.ch>, Ying Xue <ying.xue@windriver.com>,
-	davem@davemloft.net, paulmck@linux.vnet.ibm.com,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150122085643.GB4037@acer.localdomain>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH net 0/2] Two cls_bpf fixes
+Date: Thu, 22 Jan 2015 10:41:00 +0100
+Message-ID: <1421919662-21066-1-git-send-email-dborkman@redhat.com>
+Cc: jiri@resnulli.us, netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:48639 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751449AbbAVJlI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 Jan 2015 04:41:08 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 22, 2015 at 08:56:44AM +0000, Patrick McHardy wrote:
->
-> Hope it will still be possible, I need it for GC in timeout support for
-> nftables sets.
+Found them while doing a review on act_bpf and going over the
+cls_bpf code again. Will also address the first issue in act_bpf
+as it needs to be fixed there, too.
 
-This should be able to use the same walk that you're currently
-using for dump once we add the restart, no?
+Thanks!
 
-Cheers,
+Daniel Borkmann (2):
+  net: cls_bpf: fix size mismatch on filter preparation
+  net: cls_bpf: fix auto generation of per list handles
+
+ net/sched/cls_bpf.c | 15 +++++++++++++--
+ 1 file changed, 13 insertions(+), 2 deletions(-)
+
 -- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+1.7.11.7
