@@ -1,57 +1,34 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [net-next PATCH v3 00/12] Flow API
-Date: Thu, 22 Jan 2015 15:00:22 +0100
-Message-ID: <20150122140022.GA5674@salvia>
-References: <20150120202404.1741.8658.stgit@nitbit.x32>
- <20150122125246.GA4486@salvia>
- <20150122133713.GA25797@casper.infradead.org>
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: Re: [PATCH net-next 0/9] mlx4: Fix and enhance the device reset flow
+Date: Thu, 22 Jan 2015 16:05:38 +0200
+Message-ID: <54C103B2.2090406@mellanox.com>
+References: <1421851557-12084-1-git-send-email-ogerlitz@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: John Fastabend <john.fastabend@gmail.com>,
-	simon.horman@netronome.com, sfeldma@gmail.com,
-	netdev@vger.kernel.org, jhs@mojatatu.com, davem@davemloft.net,
-	gerlitz.or@gmail.com, andy@greyhouse.net, ast@plumgrid.com
-To: Thomas Graf <tgraf@suug.ch>
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, Matan Barak <matanb@mellanox.com>,
+	Amir Vadai <amirv@mellanox.com>, Tal Alon <talal@mellanox.com>,
+	Roland Dreier <roland@kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:59994 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750832AbbAVN5Y (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Jan 2015 08:57:24 -0500
-Content-Disposition: inline
-In-Reply-To: <20150122133713.GA25797@casper.infradead.org>
+Received: from mail-am1on0062.outbound.protection.outlook.com ([157.56.112.62]:32368
+	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751236AbbAVOGU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 Jan 2015 09:06:20 -0500
+In-Reply-To: <1421851557-12084-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 22, 2015 at 01:37:13PM +0000, Thomas Graf wrote:
-> On 01/22/15 at 01:52pm, Pablo Neira Ayuso wrote:
-> > Hi John,
-> > 
-> > On Tue, Jan 20, 2015 at 12:26:13PM -0800, John Fastabend wrote:
-> > > I believe I addressed all the comments so far except for the integrate
-> > > with 'tc'. I plan to work on the integration pieces next.
-> > 
-> > I think that postponing the integration with 'tc' means that we're
-> > renouncing to provide some abstraction to represent the actions that
-> > the device provides. After this patch we'll have a standard API that
-> > exposes the vendor specific semantics, *so user configurations will
-> > not be portable anymore*.
-> > 
-> > At least, we should come up with some abstraction / mapping as
-> > interface, so the vendors can use them to represent their operations.
-> > That interface will provide a trade-off: If the vendor offers an
-> > operation that doesn't map to our abstraction, then sorry that
-> > operation has to remain behind the curtain.
-> 
-> I thought this *is* the abstraction ;-) Can you elaborate on which
-> parts you consider vendor specific?
+On 1/21/2015 4:45 PM, Or Gerlitz wrote:
+> This series from Yishai Hadas fixes the device reset flow and adds SRIOV support.
+>
+> Reset flows are required whenever a device experiences errors, is unresponsive,
+> or is not in a deterministic state. In such cases, the driver is expected to
+> reset the HW and continue operation. When SRIOV is enabled, these requirements
+> apply both to PF and VF devices.
 
-+/* rocker specific action definitions */
-+struct net_flow_action_arg rocker_set_group_id_args[] = {
-+       {
-+               .name = "group_id",
-+               .type = NFL_ACTION_ARG_TYPE_U32,
-+               .value_u32 = 0,
-+       },
+So we spotted some problem in the SRIOV flow and prefer to fix it in a 
+V1, which will be sent next week, please don't take this one.
 
-that is retrieved via ndo_flow_get_actions and fully exposed to
-userspace.
+Or.
