@@ -1,49 +1,42 @@
-From: Mike Galbraith <umgwanakikbuti@gmail.com>
-Subject: Re: netxen: box stuck in netxen_napi_disable()
-Date: Thu, 22 Jan 2015 07:15:58 +0100
-Message-ID: <1421907358.5286.42.camel@marge.simpson.net>
-References: <1421901805.5286.37.camel@marge.simpson.net>
-	 <1421906274.4832.35.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 3/3] netlink: Lock out table resizes while dumping
+ Netlink sockets
+Date: Thu, 22 Jan 2015 17:35:01 +1100
+Message-ID: <20150122063501.GA3746@gondor.apana.org.au>
+References: <20150120143154.GR14883@acer.localdomain>
+ <20150120145551.GH20315@casper.infradead.org>
+ <20150120152149.GA3012@acer.localdomain>
+ <20150120153556.GJ20315@casper.infradead.org>
+ <20150121050819.GA23062@gondor.apana.org.au>
+ <20150121093722.GM20315@casper.infradead.org>
+ <20150121093836.GA25489@gondor.apana.org.au>
+ <20150121094928.GN20315@casper.infradead.org>
+ <20150121095837.GA25750@gondor.apana.org.au>
+ <20150121102346.GQ20315@casper.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f49.google.com ([74.125.82.49]:46533 "EHLO
-	mail-wg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750829AbbAVGQD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jan 2015 01:16:03 -0500
-Received: by mail-wg0-f49.google.com with SMTP id l18so18086369wgh.8
-        for <netdev@vger.kernel.org>; Wed, 21 Jan 2015 22:16:01 -0800 (PST)
-In-Reply-To: <1421906274.4832.35.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick McHardy <kaber@trash.net>, davem@davemloft.net,
+	paulmck@linux.vnet.ibm.com, ying.xue@windriver.com,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	Eric Dumazet <edumazet@google.com>
+To: Thomas Graf <tgraf@suug.ch>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20150121102346.GQ20315@casper.infradead.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2015-01-21 at 21:57 -0800, Eric Dumazet wrote:
+On Wed, Jan 21, 2015 at 10:23:46AM +0000, Thomas Graf wrote:
+>
+> The usage will be identical to how __inet_lookup_listener() uses it.
+> If at the end of the lookup, we ended up in a different table than
+> we started, the lookup is restarted as an entry has moved to another
+> table while we were moving over it.
 
-> This driver doesn't follow the NAPI model correctly.
-> 
-> Please try following fix :
+Who uses this stuff apart from ip_dynaddr?
 
-Thanks Eric, I'll plug it in in a bit and poke at it.  No news is good
-news, as good as news gets for unknown repeatability bugs that is ;-)
-
-> diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c b/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
-> index 613037584d08..c531c8ae1be4 100644
-> --- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
-> +++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
-> @@ -2388,7 +2388,10 @@ static int netxen_nic_poll(struct napi_struct *napi, int budget)
->  
->  	work_done = netxen_process_rcv_ring(sds_ring, budget);
->  
-> -	if ((work_done < budget) && tx_complete) {
-> +	if (!tx_complete)
-> +		work_done = budget;
-> +
-> +	if (work_done < budget) {
->  		napi_complete(&sds_ring->napi);
->  		if (test_bit(__NX_DEV_UP, &adapter->state))
->  			netxen_nic_enable_int(sds_ring);
-> 
-> 
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
