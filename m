@@ -1,62 +1,125 @@
-From: Dean Gehnert <deang@tpi.com>
-Subject: Re: [PATCH net 0/2] net: marvell: Fix highmem support on non-TSO
- path
-Date: Thu, 22 Jan 2015 13:27:31 -0800
-Message-ID: <54C16B43.5040504@tpi.com>
-References: <1421844850-30886-1-git-send-email-ezequiel.garcia@free-electrons.com> <20150121150159.GS26493@n2100.arm.linux.org.uk> <54C1443C.80909@tpi.com> <20150122210951.GC26493@n2100.arm.linux.org.uk>
-Reply-To: deang@tpi.com
+From: "Skidmore, Donald C" <donald.c.skidmore@intel.com>
+Subject: RE: [E1000-devel] [PATCH 1/2] if_link: Add VF multicast promiscuous
+ mode control
+Date: Thu, 22 Jan 2015 21:34:11 +0000
+Message-ID: <F6FB0E698C9B3143BDF729DF222866469129C09C@ORSMSX110.amr.corp.intel.com>
+References: <7F861DC0615E0C47A872E6F3C5FCDDBD05E0734E@BPXM14GP.gisp.nec.co.jp>
+	<874mrlu18e.fsf@nemi.mork.no>
+	<7F861DC0615E0C47A872E6F3C5FCDDBD05E07B7C@BPXM14GP.gisp.nec.co.jp>
+	<F6FB0E698C9B3143BDF729DF222866469129B7F5@ORSMSX110.amr.corp.intel.com>
+	<7F861DC0615E0C47A872E6F3C5FCDDBD05E07F09@BPXM14GP.gisp.nec.co.jp>
+	<F6FB0E698C9B3143BDF729DF222866469129B844@ORSMSX110.amr.corp.intel.com>
+	<7F861DC0615E0C47A872E6F3C5FCDDBD05E08FF6@BPXM14GP.gisp.nec.co.jp>
+	<063D6719AE5E284EB5DD2968C1650D6D1CAD01D6@AcuExch.aculab.com>
+	<7F861DC0615E0C47A872E6F3C5FCDDBD05E090FE@BPXM14GP.gisp.nec.co.jp>
+	<F6FB0E698C9B3143BDF729DF222866469129BC03@ORSMSX110.amr.corp.intel.com>
+	<063D6719AE5E284EB5DD2968C1650D6D1CAD0C8A@AcuExch.aculab.com>
+	<F6FB0E698C9B3143BDF729DF222866469129BFFD@ORSMSX110.amr.corp.intel.com>
+ <87bnlqpq6v.fsf@nemi.mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
-	netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	B38611@freescale.com, fabio.estevam@freescale.com
-To: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: David Laight <David.Laight@ACULAB.COM>,
+	Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Choi, Sy Jong" <sy.jong.choi@intel.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Hayato Momma <h-momma@ce.jp.nec.com>
+To: =?utf-8?B?QmrDuHJuIE1vcms=?= <bjorn@mork.no>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.tpi.com ([74.45.170.26]:35374 "EHLO mail.tpi.com"
+Received: from mga11.intel.com ([192.55.52.93]:57450 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754227AbbAVV1c (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Jan 2015 16:27:32 -0500
-In-Reply-To: <20150122210951.GC26493@n2100.arm.linux.org.uk>
+	id S1753039AbbAVVei (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 Jan 2015 16:34:38 -0500
+In-Reply-To: <87bnlqpq6v.fsf@nemi.mork.no>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/22/2015 01:09 PM, Russell King - ARM Linux wrote:
-> On Thu, Jan 22, 2015 at 10:41:00AM -0800, Dean Gehnert wrote:
->> FYI, I found a way to reproduce the mv643xx_eth transmit corruption without
->> using a network filesystem by using SOCAT (should also be able to use NETCAT
->> or NC) and I have a bit more information about the corruption that looks
->> like it is somehow related to the cache line size.
-> That's not quite what I'm seeing.  What I'm seeing with NFS is that the
-> machine is basically unusable.  I have the etna_viv source in a NFS
-> share (it's shared amongst not only the Dove box but also my collection
-> of iMX6 based hardware.)
->
-> I'm fairly fully IPv6 enabled here, which includes NFS.
->
-> On the Dove, if I try to build this without any fixes, and then try to
-> build the etna_viv sources, it will take the machine out to the extent
-> that I have to reboot it - either the machine will freeze solidly, or
-> the kernel will oops in the DMA API functions, in a path which was
-> called from an interrupt handler.  That takes out the entire machine
-> because we miss acknowleding the interrupt.
-I am wondering if there is a possibility of the root cause of this being 
-in the arch DMA layer... From my testing with SOCAT and different cache 
-line alignments, I am seeing Ethernet 4 byte transmit corruptions. My 
-fear is this may not be restricted to the Ethernet transmit and maybe 
-the root cause is a DMA / cache issue... I have no way to prove that 
-theory. Your DMA API oops is a bit concerning that maybe there is some 
-corruption going on during DMA operation.
->
-> Either way, it's effectively a power cycle as there's no reset button on
-> the machine.
->
-> I have yet to see any sign of data corruption.
->
-Can you can try the SOCAT test on your Dove platform and see if that 
-passes the non-cache line aligned test case? I think what the SOCAT test 
-does is take the NFS "variable" out of the equation. My theory is that 
-if there is a DMA corruption, then hard telling what kinds of problems 
-will occur. It might be the payload of a file is corrupted, or if the 
-NFS structures are corrupted, it could manifest itself as a problem in 
-the NFS code.
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogQmrDuHJuIE1vcmsgW21h
+aWx0bzpiam9ybkBtb3JrLm5vXQ0KPiBTZW50OiBUaHVyc2RheSwgSmFudWFyeSAyMiwgMjAxNSAx
+MTozMiBBTQ0KPiBUbzogU2tpZG1vcmUsIERvbmFsZCBDDQo+IENjOiBEYXZpZCBMYWlnaHQ7IEhp
+cm9zaGkgU2hpbWFtb3RvOyBlMTAwMC1kZXZlbEBsaXN0cy5zb3VyY2Vmb3JnZS5uZXQ7DQo+IG5l
+dGRldkB2Z2VyLmtlcm5lbC5vcmc7IENob2ksIFN5IEpvbmc7IGxpbnV4LWtlcm5lbEB2Z2VyLmtl
+cm5lbC5vcmc7DQo+IEhheWF0byBNb21tYQ0KPiBTdWJqZWN0OiBSZTogW0UxMDAwLWRldmVsXSBb
+UEFUQ0ggMS8yXSBpZl9saW5rOiBBZGQgVkYgbXVsdGljYXN0IHByb21pc2N1b3VzDQo+IG1vZGUg
+Y29udHJvbA0KPiANCj4gIlNraWRtb3JlLCBEb25hbGQgQyIgPGRvbmFsZC5jLnNraWRtb3JlQGlu
+dGVsLmNvbT4gd3JpdGVzOg0KPiANCj4gPiBNeSBoYW5nIHVwIGlzIG1vcmUgcmVsYXRlZCB0bzog
+d2l0aG91dCB0aGUgbm9iIHRvIGVuYWJsZSBpdCAob2ZmIGJ5DQo+ID4gZGVmYXVsdCkgd2UgYXJl
+IGxldHRpbmcgb25lIFZGIGRpY3RhdGUgcG9saWN5IGZvciBhbGwgdGhlIG90aGVyIFZGcw0KPiA+
+IGFuZCB0aGUgUEYuICBJZiBvbmUgVkYgbmVlZHMgdG8gYmUgaW4gcHJvbWlzY3VvdXMgbXVsdGlj
+YXN0IHNvIGlzDQo+ID4gZXZlcnlvbmUgZWxzZS4gIFRoZWlyIHN0YWNrcyBub3cgbmVlZHMgdG8g
+ZGVhbCB3aXRoIGFsbCB0aGUgZXh0cmENCj4gPiBtdWx0aWNhc3QgcGFja2V0cy4gIEFzIHlvdSBw
+b2ludCBvdXQgdGhpcyBtaWdodCBub3QgYmUgYSBkaXJlY3QNCj4gPiBjb25jZXJuIGZvciBpc29s
+YXRpb24gaW4gdGhhdCB0aGUgVk0gY291bGQgaGF2ZSAnY2hvc2VuJyB0byBqb2luIGFueQ0KPiA+
+IE11bHRpY2FzdCBncm91cCBhbmQgc2VlbiB0aGlzIHRyYWZmaWMuICBNeSBjb25jZXJuIG92ZXIg
+aXNvbGF0aW9uIGlzDQo+ID4gb25lIFZGIGhhcyBjaG9zZW4gdGhhdCBhbGwgdGhlIG90aGVyIFZN
+IG5vdyBoYXZlIHRvIHNlZSB0aGlzIG11bHRpY2FzdA0KPiA+IHRyYWZmaWMuDQo+IA0KPiBBcG9s
+b2dpZXMgaWYgdGhpcyBxdWVzdGlvbiBpcyBzdHVwaWQsIGJ1dCBJIGp1c3QgaGF2ZSB0byBhc2sg
+YWJvdXQgc3R1ZmYgSSBkb24ndA0KPiB1bmRlcnN0YW5kLi4uDQo+IA0KPiBMb29raW5nIGF0IHRo
+ZSBwcm9wb3NlZCBpbXBsZW1lbnRhdGlvbiwgdGhlIHByb21pc2NvdXMgbXVsdGljYXN0IGZsYWcN
+Cj4gc2VlbXMgdG8gYmUgYSBwZXItVkYgZmxhZzoNCj4gDQo+ICtpbnQgaXhnYmVfbmRvX3NldF92
+Zl9tY19wcm9taXNjKHN0cnVjdCBuZXRfZGV2aWNlICpuZXRkZXYsIGludCB2ZiwgYm9vbA0KPiAr
+c2V0dGluZykgew0KPiArCXN0cnVjdCBpeGdiZV9hZGFwdGVyICphZGFwdGVyID0gbmV0ZGV2X3By
+aXYobmV0ZGV2KTsNCj4gKwlzdHJ1Y3QgaXhnYmVfaHcgKmh3ID0gJmFkYXB0ZXItPmh3Ow0KPiAr
+CXUzMiB2bW9scjsNCj4gKw0KPiArCWlmICh2ZiA+PSBhZGFwdGVyLT5udW1fdmZzKQ0KPiArCQly
+ZXR1cm4gLUVJTlZBTDsNCj4gKw0KPiArCWFkYXB0ZXItPnZmaW5mb1t2Zl0ubWNfcHJvbWlzY19l
+bmFibGVkID0gc2V0dGluZzsNCj4gKw0KPiArCXZtb2xyID0gSVhHQkVfUkVBRF9SRUcoaHcsIElY
+R0JFX1ZNT0xSKHZmKSk7DQo+ICsJaWYgKHNldHRpbmcpIHsNCj4gKwkJZV9pbmZvKGRydiwgIlZG
+ICV1OiBlbmFibGluZyBtdWx0aWNhc3QgcHJvbWlzY3VvdXNcbiIsIHZmKTsNCj4gKwkJdm1vbHIg
+fD0gSVhHQkVfVk1PTFJfTVBFOw0KPiArCX0gZWxzZSB7DQo+ICsJCWVfaW5mbyhkcnYsICJWRiAl
+dTogZGlzYWJsaW5nIG11bHRpY2FzdCBwcm9taXNjdW91c1xuIiwgdmYpOw0KPiArCQl2bW9sciAm
+PSB+SVhHQkVfVk1PTFJfTVBFOw0KPiArCX0NCj4gKw0KPiArCUlYR0JFX1dSSVRFX1JFRyhodywg
+SVhHQkVfVk1PTFIodmYpLCB2bW9scik7DQo+ICsNCj4gKwlyZXR1cm4gMDsNCj4gK30NCj4gKw0K
+PiANCj4gSSBoYXZlbid0IHJlYWQgdGhlIGRhdGEgc2hlZXQsIGJ1dCBJIHRvb2sgYSBxdWljayBs
+b29rIGF0IHRoZSBleGNlbGxlbnQgaGlnaA0KPiBsZXZlbCBkcml2ZXIgZG9jczoNCj4gaHR0cDov
+L3d3dy5pbnRlbC5jb20vY29udGVudC9kYW0vZG9jL2Rlc2lnbi1ndWlkZS84MjU5OS1zci1pb3Yt
+ZHJpdmVyLQ0KPiBjb21wYW5pb24tZ3VpZGUucGRmDQo+IA0KPiBJdCBtZW50aW9ucyAiTXVsdGlj
+YXN0IFByb21pc2N1b3VzIEVuYWJsZSIgaW4gaXRzICJUaG91Z2h0cyBmb3INCj4gQ3VzdG9taXph
+dGlvbiIgc2VjdGlvbjoNCj4gDQo+ICA3LjEgTXVsdGljYXN0IFByb21pc2N1b3VzIEVuYWJsZQ0K
+PiANCj4gIFRoZSBjb250cm9sbGVyIGhhcyBwcm92aXNpb25zIHRvIGFsbG93IGVhY2ggVkYgdG8g
+YmUgcHV0IGludG8gTXVsdGljYXN0DQo+IFByb21pc2N1b3VzIG1vZGUuICBUaGUgSW50ZWwgcmVm
+ZXJlbmNlIGRyaXZlciBkb2VzIG5vdCBjb25maWd1cmUgdGhpcw0KPiBvcHRpb24gLg0KPiANCj4g
+IFRoZSBjYXBhYmlsaXR5IGNhbiBiZSBlbmFibGVkL2Rpc2FibGVkIGJ5IG1hbmlwdWxhdGluZyB0
+aGUgTVBFIGZpZWxkICAoYml0DQo+IDI4KSBvZiB0aGUgUEYgVkYgTDIgQ29udHJvbCBSZWdpc3Rl
+ciAoUEZWTUwyRkxUIOKAkyAweDBGMDAwKQ0KPiANCj4gYW5kIHNob3dpbmcgYSBzZWN0aW9uIGZy
+b20gdGhlIGRhdGEgc2hlZXQgZGVzY3JpYmluZyB0aGUgIlBGIFZNIEwyIENvbnRyb2wNCj4gUmVn
+aXN0ZXIgLSBQRlZNTDJGTFRbbl0gICgweDBGMDAwICsgNCAqIG4sIG49MC4uLjYzOyBSVykiDQo+
+IA0KPiBUbyBtZSBpdCBsb29rcyBsaWtlIGVuYWJsaW5nIFByb21pc2N1b3MgTXVsdGljYXN0IGZv
+ciBhIFZGIHdvbid0IGFmZmVjdCBhbnkNCj4gb3RoZXIgVkYgYXQgYWxsLiAgSXMgdGhpcyByZWFs
+bHkgbm90IHRoZSBjYXNlPw0KPiANCj4gDQo+IA0KPiBCasO4cm4NCg0KQ2xlYXJseSBub3QgYSBk
+dW1iIHF1ZXN0aW9uIGF0IGFsbCBhbmQgSSdtIGdsYWQgeW91IG1lbnRpb25lZCB0aGF0LiA6KSAg
+SSB3YXMgZ29pbmcgb2ZmIHRoZSBhc3N1bXB0aW9uLCBiZWVuIGF3aGlsZSBzaW5jZSBJIHJlYWQg
+dGhlIHBhdGNoLCB0aGF0IHRoZSBwYXRjaCB3YXMgdXNpbmcgRkNUUkwuTVBFIG9yIE1BTkMuTUNT
+VF9QQVNTX0wyIHdoaWNoIHdvdWxkIHR1cm4gbXVsdGljYXN0IHByb21pc2N1b3VzIG9uIGZvciBl
+dmVyeW9uZS4gIFNpbmNlIHRoZSBwYXRjaCBpcyB1c2luZyBQRlZNTDJGTFQuTVBFIHRoaXMgbGVz
+c2VucyBteSBjb25jZXJuIG92ZXIgZWZmZWN0IG9uIHRoZSBlbnRpcmUgc3lzdGVtLg0KDQpUaGF0
+IHNhaWQgSSBzdGlsbCB3b3VsZCBwcmVmZXIgaGF2aW5nIGEgd2F5IHRvIG92ZXJyaWRlIHRoaXMg
+YmVoYXZpb3Igb24gdGhlIFBGLCBhbHRob3VnaCBJIGFkbWl0IG15IGFyZ3VtZW50IGlzIHdlYWtl
+ci4gICBJJ20gc3RpbGwgY29uY2VybmVkIGFib3V0IGEgVkYgY2hhbmdpbmcgdGhlIGJlaGF2aW9y
+IG9mIHRoZSBQRiB3aXRob3V0IGFueSB3YXkgdG8gcHJldmVudCBpdC4gIFRoaXMgbWlnaHQgYmUg
+b25lIHBhcnQgcGhpbG9zb3BoaWNhbCAoUEYgc2V0cyBwb2xpY3kgbm90IHRoZSBWRikgYnV0IHRo
+aXMgc3RpbGwgY291bGQgaGF2ZSBhIG5vdGljZWFibGUgZWZmZWN0IG9uIHRoZSBvdmVyYWxsIHN5
+c3RlbS4gIElmIGFueSBvdGhlciBWRnMgKG9yIHRoZSBQRikgYXJlIHJlY2VpdmluZyBNQyBwYWNr
+ZXRzIHRoZXNlIHdpbGwgaGF2ZSB0byBiZSByZXBsaWNhdGVkIHdoaWNoIHdpbGwgYmUgYSBwZXJm
+b3JtYW5jZSBoaXQuICBXaGVuIHdlIHVzZSB0aGUgTUMgaGFzaCB0aGlzIGlzIGxpbWl0ZWQgdnMu
+IHdoZW4gYW55b25lIGlzIGluIE1DIHByb21pc2N1b3VzIGV2ZXJ5IE1DIHBhY2tldCB1c2VkIGJ5
+IGFub3RoZXIgcG9vbCB3b3VsZCBiZSByZXBsaWNhdGVkLiAgSSBjb3VsZCBpbWFnaW5lIGluIHNv
+bWUgZW52aXJvbm1lbnRzIChpLmUuIHB1YmxpYyBjbG91ZHMpIHdoZXJlIHlvdSBkb24ndCB0cnVz
+dCB3aGF0IGlzIHJ1bm5pbmcgaW4geW91ciBWTSB5b3UgbWlnaHQgd2hhdCB0byBibG9jayB0aGlz
+IGZyb20gaGFwcGVuaW5nLiANCg0KSW4gc29tZSB3YXlzIGl0IGlzIGFsbW9zdCB0aGUgbWlycm9y
+IGltYWdlIG9mIHRoZSBpc3N1ZSB5b3UgYnJvdWdodCB1cDoNCg0KQWRkaW5nIGEgbmV3IGhvb2sg
+Zm9yIHRoaXMgc2VlbXMgb3Zlci1jb21wbGljYXRlZCB0byBtZS4gIEFuZCBpdCBzdGlsbA0KZG9l
+c24ndCBzb2x2ZSB0aGUgcmVhbCBwcm9ibGVtcyB0aGF0DQogYSkgdGhlIHVzZXIgaGFzIHRvIGtu
+b3cgYWJvdXQgdGhpcyBsaW1pdCwgYW5kDQogYikgbWFudWFsbHkgY29uZmlndXJlIHRoZSBmZWF0
+dXJlDQoNCk15IHJldmVyc2UgYXJndW1lbnQgbWlnaHQgYmUgdGhhdCBpZiB0aGlzIGhhcHBlbnMg
+YXV0b21hdGljYWxseS4gIEl0IG1pZ2h0IHRha2UgdGhlIFZNIHByb3ZpZGVyIGEgbG9uZyB0aW1l
+IHRvIHJlYWxpemUgcGVyZm9ybWFuY2UgaGFzIHRha2VuIGEgaGl0IGJlY2F1c2Ugc29tZSBWTSBh
+c2tlZCB0byBqb2luIDMxIG11bHRpY2FzdCBncm91cHMgYW5kIGVudGVyZWQgTUMgcHJvbWlzY3Vv
+dXMuICBUaGVuIG9ubHkgdG8gZmluZCB0aGF0IHRoZXkgaGF2ZSBubyB3YXkgdG8gYmxvY2sgc3Vj
+aCBiZWhhdmlvci4NCg0KTWF5YmUgSSB3b3VsZG4ndCBhcyBjb25jZXJuZWQgaWYgdGhlIHBhdGNo
+IGF1dGhvciBjb3VsZCBwcm92aWRlIHNvbWUgcGVyZm9ybWFuY2UgcmVzdWx0cyB0byBzaG93IHRo
+aXMgd29uJ3QgaGF2ZSBhcyBhIG5lZ2F0aXZlIGVmZmVjdCBhcyBJJ20gYWZyYWlkIGl0IG1pZ2h0
+Pw0KDQotRG9uIFNraWRtb3JlIDxkb25hbGQuYy5za2lkbW9yZUBpbnRlbC5jb20+DQo=
