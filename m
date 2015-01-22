@@ -1,50 +1,57 @@
-From: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
-Subject: Re: [PATCH] brcmfmac: avoid duplicated suspend/resume operation
-Date: Thu, 22 Jan 2015 16:54:55 +0300
-Message-ID: <54C1012F.1020400@cogentembedded.com>
-References: <54BDCC06.8090107@linux.intel.com> <87twzincvz.fsf@kamboji.qca.qualcomm.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [net-next PATCH v3 00/12] Flow API
+Date: Thu, 22 Jan 2015 15:00:22 +0100
+Message-ID: <20150122140022.GA5674@salvia>
+References: <20150120202404.1741.8658.stgit@nitbit.x32>
+ <20150122125246.GA4486@salvia>
+ <20150122133713.GA25797@casper.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: brudley-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	Franky Lin <frankyl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>, meuleman-dY08KVG/lbpWk0Htik3J/w@public.gmane.org,
-	linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, pieterpg-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, hdegoede-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	wens-jdAy2FN1RRM@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	brcm80211-dev-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	"Fu, Zhonghui" <zhonghui.fu-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <87twzincvz.fsf-HodKDYzPHsUD5k0oWYwrnHL1okKdlPRT@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: John Fastabend <john.fastabend@gmail.com>,
+	simon.horman@netronome.com, sfeldma@gmail.com,
+	netdev@vger.kernel.org, jhs@mojatatu.com, davem@davemloft.net,
+	gerlitz.or@gmail.com, andy@greyhouse.net, ast@plumgrid.com
+To: Thomas Graf <tgraf@suug.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:59994 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750832AbbAVN5Y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 Jan 2015 08:57:24 -0500
+Content-Disposition: inline
+In-Reply-To: <20150122133713.GA25797@casper.infradead.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+On Thu, Jan 22, 2015 at 01:37:13PM +0000, Thomas Graf wrote:
+> On 01/22/15 at 01:52pm, Pablo Neira Ayuso wrote:
+> > Hi John,
+> > 
+> > On Tue, Jan 20, 2015 at 12:26:13PM -0800, John Fastabend wrote:
+> > > I believe I addressed all the comments so far except for the integrate
+> > > with 'tc'. I plan to work on the integration pieces next.
+> > 
+> > I think that postponing the integration with 'tc' means that we're
+> > renouncing to provide some abstraction to represent the actions that
+> > the device provides. After this patch we'll have a standard API that
+> > exposes the vendor specific semantics, *so user configurations will
+> > not be portable anymore*.
+> > 
+> > At least, we should come up with some abstraction / mapping as
+> > interface, so the vendors can use them to represent their operations.
+> > That interface will provide a trade-off: If the vendor offers an
+> > operation that doesn't map to our abstraction, then sorry that
+> > operation has to remain behind the curtain.
+> 
+> I thought this *is* the abstraction ;-) Can you elaborate on which
+> parts you consider vendor specific?
 
-On 1/22/2015 4:49 PM, Kalle Valo wrote:
++/* rocker specific action definitions */
++struct net_flow_action_arg rocker_set_group_id_args[] = {
++       {
++               .name = "group_id",
++               .type = NFL_ACTION_ARG_TYPE_U32,
++               .value_u32 = 0,
++       },
 
->> >From 04d3fa673897ca4ccbea6c76836d0092dba2484a Mon Sep 17 00:00:00 2001
->> From: Zhonghui Fu <zhonghui.fu-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
->> Date: Tue, 20 Jan 2015 11:14:13 +0800
->> Subject: [PATCH] brcmfmac: avoid duplicated suspend/resume operation
-
->> WiFi chip has 2 SDIO functions, and PM core will trigger
->> twice suspend/resume operations for one WiFi chip to do
->> the same things. This patch avoid this case.
-
->> Acked-by: Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
->> Acked-by: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
->> Acked-by: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
->> Signed-off-by: Zhonghui Fu <zhonghui.fu-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-
-> I don't remember giving Acked-by to this (or for matter to anything for
-> a long time). What about Sergei or Arend?
-
-    I haven't ACK'ed this patch either.
-
-WBR, Sergei
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+that is retrieved via ndo_flow_get_actions and fully exposed to
+userspace.
