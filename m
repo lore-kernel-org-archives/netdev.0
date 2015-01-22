@@ -1,212 +1,54 @@
-From: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
-Subject: [PATCH v3] net: mv643xx_eth: Fix highmem support in non-TSO egress path
-Date: Thu, 22 Jan 2015 11:33:02 -0300
-Message-ID: <1421937182-1708-1-git-send-email-ezequiel.garcia@free-electrons.com>
-References: <1421928859-17923-1-git-send-email-ezequiel.garcia@free-electrons.com>
-Cc: <netdev@vger.kernel.org>, B38611@freescale.com,
-	fabio.estevam@freescale.com, David.Laight@ACULAB.COM,
-	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
-To: David Miller <davem@davemloft.net>,
-	Russell King <linux@arm.linux.org.uk>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [net-next PATCH v3 00/12] Flow API
+Date: Thu, 22 Jan 2015 10:00:36 -0500
+Message-ID: <54C11094.2000807@mojatatu.com>
+References: <20150120202404.1741.8658.stgit@nitbit.x32> <20150122125246.GA4486@salvia> <20150122133713.GA25797@casper.infradead.org> <20150122140022.GA5674@salvia>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: John Fastabend <john.fastabend@gmail.com>,
+	simon.horman@netronome.com, sfeldma@gmail.com,
+	netdev@vger.kernel.org, davem@davemloft.net, gerlitz.or@gmail.com,
+	andy@greyhouse.net, ast@plumgrid.com, Jiri Pirko <jiri@resnulli.us>
+To: Pablo Neira Ayuso <pablo@netfilter.org>,
+	Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from down.free-electrons.com ([37.187.137.238]:44041 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751801AbbAVOf0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jan 2015 09:35:26 -0500
-In-Reply-To: <1421928859-17923-1-git-send-email-ezequiel.garcia@free-electrons.com>
+Received: from mail-ie0-f170.google.com ([209.85.223.170]:49129 "EHLO
+	mail-ie0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751602AbbAVPAj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jan 2015 10:00:39 -0500
+Received: by mail-ie0-f170.google.com with SMTP id y20so1773778ier.1
+        for <netdev@vger.kernel.org>; Thu, 22 Jan 2015 07:00:39 -0800 (PST)
+In-Reply-To: <20150122140022.GA5674@salvia>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 69ad0dd7af22b61d9e0e68e56b6290121618b0fb
-Author: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
-Date:   Mon May 19 13:59:59 2014 -0300
+On 01/22/15 09:00, Pablo Neira Ayuso wrote:
 
-    net: mv643xx_eth: Use dma_map_single() to map the skb fragments
+>
+> +/* rocker specific action definitions */
+> +struct net_flow_action_arg rocker_set_group_id_args[] = {
+> +       {
+> +               .name = "group_id",
+> +               .type = NFL_ACTION_ARG_TYPE_U32,
+> +               .value_u32 = 0,
+> +       },
+>
+> that is retrieved via ndo_flow_get_actions and fully exposed to
+> userspace.
+>
 
-caused a nasty regression by removing the support for highmem skb
-fragments. By using page_address() to get the address of a fragment's
-page, we are assuming a lowmem page. However, such assumption is incorrect,
-as fragments can be in highmem pages, resulting in very nasty issues.
+My main concern is along similar lines (I did express it earlier and
+I think Jiri chimed in as well).
+The API exposes direct access to hardware. I am sure this was a result
+of trying to replace the ethtool interface (which was primitive).
+By providing vendors direct access to the hardware - they do not need
+to use any traditional Linux tooling/APIs. I see this as a gaping hole
+for vendor SDKs with their own definitions of their own hardware that
+doesnt work with anyone else. i.e it seems to standardize proprietary
+interfaces. Maybe thats what Pablo is alluding to.
+Interfacing tc or nftables (or pick your favorite linux tool here) would
+be preferable.
 
-This commit fixes this by using the skb_frag_dma_map() helper,
-which takes care of mapping the skb fragment properly. Additionally,
-the type of mapping is now tracked, so it can be unmapped using
-dma_unmap_page or dma_unmap_single when appropriate.
-
-This commit also fixes the error path in txq_init() to release the
-resources properly.
-
-Fixes: 69ad0dd7af22 ("net: mv643xx_eth: Use dma_map_single() to map the skb fragments")
-Reported-by: Russell King <rmk+kernel@arm.linux.org.uk>
-Signed-off-by: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
----
-Changes from v2:
-  * Add proper resource release in txq_init() error path
-
-Changes from v1:
-  * Sending the mv643xx_eth fix for now.
-  * Fix DMA mapping type track, to use the correct unmap call.
----
- drivers/net/ethernet/marvell/mv643xx_eth.c | 59 +++++++++++++++++++++++++-----
- 1 file changed, 49 insertions(+), 10 deletions(-)
-
-diff --git a/drivers/net/ethernet/marvell/mv643xx_eth.c b/drivers/net/ethernet/marvell/mv643xx_eth.c
-index a62fc38..1c75829 100644
---- a/drivers/net/ethernet/marvell/mv643xx_eth.c
-+++ b/drivers/net/ethernet/marvell/mv643xx_eth.c
-@@ -192,6 +192,10 @@ static char mv643xx_eth_driver_version[] = "1.4";
- #define IS_TSO_HEADER(txq, addr) \
- 	((addr >= txq->tso_hdrs_dma) && \
- 	 (addr < txq->tso_hdrs_dma + txq->tx_ring_size * TSO_HEADER_SIZE))
-+
-+#define DESC_DMA_MAP_SINGLE 0
-+#define DESC_DMA_MAP_PAGE 1
-+
- /*
-  * RX/TX descriptors.
-  */
-@@ -362,6 +366,7 @@ struct tx_queue {
- 	dma_addr_t tso_hdrs_dma;
- 
- 	struct tx_desc *tx_desc_area;
-+	char *tx_desc_mapping; /* array to track the type of the dma mapping */
- 	dma_addr_t tx_desc_dma;
- 	int tx_desc_area_size;
- 
-@@ -750,6 +755,7 @@ txq_put_data_tso(struct net_device *dev, struct tx_queue *txq,
- 	if (txq->tx_curr_desc == txq->tx_ring_size)
- 		txq->tx_curr_desc = 0;
- 	desc = &txq->tx_desc_area[tx_index];
-+	txq->tx_desc_mapping[tx_index] = DESC_DMA_MAP_SINGLE;
- 
- 	desc->l4i_chk = 0;
- 	desc->byte_cnt = length;
-@@ -879,14 +885,13 @@ static void txq_submit_frag_skb(struct tx_queue *txq, struct sk_buff *skb)
- 		skb_frag_t *this_frag;
- 		int tx_index;
- 		struct tx_desc *desc;
--		void *addr;
- 
- 		this_frag = &skb_shinfo(skb)->frags[frag];
--		addr = page_address(this_frag->page.p) + this_frag->page_offset;
- 		tx_index = txq->tx_curr_desc++;
- 		if (txq->tx_curr_desc == txq->tx_ring_size)
- 			txq->tx_curr_desc = 0;
- 		desc = &txq->tx_desc_area[tx_index];
-+		txq->tx_desc_mapping[tx_index] = DESC_DMA_MAP_PAGE;
- 
- 		/*
- 		 * The last fragment will generate an interrupt
-@@ -902,8 +907,9 @@ static void txq_submit_frag_skb(struct tx_queue *txq, struct sk_buff *skb)
- 
- 		desc->l4i_chk = 0;
- 		desc->byte_cnt = skb_frag_size(this_frag);
--		desc->buf_ptr = dma_map_single(mp->dev->dev.parent, addr,
--					       desc->byte_cnt, DMA_TO_DEVICE);
-+		desc->buf_ptr = skb_frag_dma_map(mp->dev->dev.parent,
-+						 this_frag, 0, desc->byte_cnt,
-+						 DMA_TO_DEVICE);
- 	}
- }
- 
-@@ -936,6 +942,7 @@ static int txq_submit_skb(struct tx_queue *txq, struct sk_buff *skb,
- 	if (txq->tx_curr_desc == txq->tx_ring_size)
- 		txq->tx_curr_desc = 0;
- 	desc = &txq->tx_desc_area[tx_index];
-+	txq->tx_desc_mapping[tx_index] = DESC_DMA_MAP_SINGLE;
- 
- 	if (nr_frags) {
- 		txq_submit_frag_skb(txq, skb);
-@@ -1047,9 +1054,12 @@ static int txq_reclaim(struct tx_queue *txq, int budget, int force)
- 		int tx_index;
- 		struct tx_desc *desc;
- 		u32 cmd_sts;
-+		char desc_dma_map;
- 
- 		tx_index = txq->tx_used_desc;
- 		desc = &txq->tx_desc_area[tx_index];
-+		desc_dma_map = txq->tx_desc_mapping[tx_index];
-+
- 		cmd_sts = desc->cmd_sts;
- 
- 		if (cmd_sts & BUFFER_OWNED_BY_DMA) {
-@@ -1065,9 +1075,19 @@ static int txq_reclaim(struct tx_queue *txq, int budget, int force)
- 		reclaimed++;
- 		txq->tx_desc_count--;
- 
--		if (!IS_TSO_HEADER(txq, desc->buf_ptr))
--			dma_unmap_single(mp->dev->dev.parent, desc->buf_ptr,
--					 desc->byte_cnt, DMA_TO_DEVICE);
-+		if (!IS_TSO_HEADER(txq, desc->buf_ptr)) {
-+
-+			if (desc_dma_map == DESC_DMA_MAP_PAGE)
-+				dma_unmap_page(mp->dev->dev.parent,
-+					       desc->buf_ptr,
-+					       desc->byte_cnt,
-+					       DMA_TO_DEVICE);
-+			else
-+				dma_unmap_single(mp->dev->dev.parent,
-+						 desc->buf_ptr,
-+						 desc->byte_cnt,
-+						 DMA_TO_DEVICE);
-+		}
- 
- 		if (cmd_sts & TX_ENABLE_INTERRUPT) {
- 			struct sk_buff *skb = __skb_dequeue(&txq->tx_skb);
-@@ -1996,6 +2016,7 @@ static int txq_init(struct mv643xx_eth_private *mp, int index)
- 	struct tx_queue *txq = mp->txq + index;
- 	struct tx_desc *tx_desc;
- 	int size;
-+	int ret;
- 	int i;
- 
- 	txq->index = index;
-@@ -2048,18 +2069,34 @@ static int txq_init(struct mv643xx_eth_private *mp, int index)
- 					nexti * sizeof(struct tx_desc);
- 	}
- 
-+	txq->tx_desc_mapping = kcalloc(txq->tx_ring_size, sizeof(char),
-+				       GFP_KERNEL);
-+	if (!txq->tx_desc_mapping) {
-+		ret = -ENOMEM;
-+		goto err_free_desc_area;
-+	}
-+
- 	/* Allocate DMA buffers for TSO MAC/IP/TCP headers */
- 	txq->tso_hdrs = dma_alloc_coherent(mp->dev->dev.parent,
- 					   txq->tx_ring_size * TSO_HEADER_SIZE,
- 					   &txq->tso_hdrs_dma, GFP_KERNEL);
- 	if (txq->tso_hdrs == NULL) {
--		dma_free_coherent(mp->dev->dev.parent, txq->tx_desc_area_size,
--				  txq->tx_desc_area, txq->tx_desc_dma);
--		return -ENOMEM;
-+		ret = -ENOMEM;
-+		goto err_free_desc_mapping;
- 	}
- 	skb_queue_head_init(&txq->tx_skb);
- 
- 	return 0;
-+
-+err_free_desc_mapping:
-+	kfree(txq->tx_desc_mapping);
-+err_free_desc_area:
-+	if (index == 0 && size <= mp->tx_desc_sram_size)
-+		iounmap(txq->tx_desc_area);
-+	else
-+		dma_free_coherent(mp->dev->dev.parent, txq->tx_desc_area_size,
-+				  txq->tx_desc_area, txq->tx_desc_dma);
-+	return ret;
- }
- 
- static void txq_deinit(struct tx_queue *txq)
-@@ -2077,6 +2114,8 @@ static void txq_deinit(struct tx_queue *txq)
- 	else
- 		dma_free_coherent(mp->dev->dev.parent, txq->tx_desc_area_size,
- 				  txq->tx_desc_area, txq->tx_desc_dma);
-+	kfree(txq->tx_desc_mapping);
-+
- 	if (txq->tso_hdrs)
- 		dma_free_coherent(mp->dev->dev.parent,
- 				  txq->tx_ring_size * TSO_HEADER_SIZE,
--- 
-2.2.1
+cheers,
+jamal
