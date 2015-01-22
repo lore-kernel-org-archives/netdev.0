@@ -1,54 +1,78 @@
-From: wstephen-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org
-Subject: Re: [PATCH] ethernet: atheros: Add nss-gmac driver
-Date: Thu, 22 Jan 2015 00:20:59 -0000
-Message-ID: <f9cbb34c9228b2af7ed6c1c96a6aa61c.squirrel@www.codeaurora.org>
-References: <1420754626-30121-1-git-send-email-wstephen@codeaurora.org>
-    <2318041.V2OJAPu7gC@wuerfel>
-    <3ad19b16fe5c58612479f70c052d0045.squirrel@www.codeaurora.org>
-    <1702448.pOVnDx4KzI@wuerfel>
+From: Joe Stringer <joestringer-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH net-next v14 0/5] openvswitch: Introduce 128-bit
+	unique flow identifiers.
+Date: Wed, 21 Jan 2015 16:42:47 -0800
+Message-ID: <1421887372-56414-1-git-send-email-joestringer@nicira.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: wstephen-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org, jcliburn-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "Arnd Bergmann" <arnd-r2nGTMty4D4@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1702448.pOVnDx4KzI@wuerfel>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-> Right. For review purposes, I think it would be helpful to split this
-> huge patch into several steps then:
->
-> - add a base driver
-> - add the overlay interface
-> - add the nss driver
->
-> Ideally more of them.
-
-The nss-drv driver is open sourced but we are currently not planning to
-upstream to linux kernel yet because we are still actively adding new
-features
-https://www.codeaurora.org/cgit/quic/qsdk/oss/lklm/nss-drv
-
-> Thanks for the description, this sounds very interesting indeed. I do
-> have more questions though: how do you get the rules into the NSS driver?
-> Does this get handled transparently by the openvswitch driver or
-> did you have to add new user interfaces for it?
->
-> 	Arnd
->
-
-No, we are not using openvswitch. We have a connection manager monitoring
-conntrack events and creates rules then send it through the interface
-built in nss-drv.
-
-Thanks,
-Stephen
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+VGhpcyBzZXJpZXMgZXh0ZW5kcyB0aGUgb3BlbnZzd2l0Y2ggZGF0YXBhdGggaW50ZXJmYWNlIGZv
+ciBmbG93IGNvbW1hbmRzIHRvIHVzZQoxMjgtYml0IHVuaXF1ZSBpZGVudGlmaWVycyBhcyBhbiBh
+bHRlcm5hdGl2ZSB0byB0aGUgbmV0bGluay1mb3JtYXR0ZWQgZmxvdyBrZXkuClRoaXMgc2lnbmlm
+aWNhbnRseSByZWR1Y2VzIHRoZSBjb3N0IG9mIGFzc2VtYmxpbmcgbWVzc2FnZXMgYmV0d2VlbiB0
+aGUga2VybmVsCmFuZCB1c2Vyc3BhY2UsIGluIHBhcnRpY3VsYXIgaW1wcm92aW5nIE9wZW4gdlN3
+aXRjaCByZXZhbGlkYXRpb24gcGVyZm9ybWFuY2UgYnkKNDAlIG9yIG1vcmUuCgp2MTQ6Ci0gUGVy
+Zm9ybSBsb29rdXAgdXNpbmcgdW5tYXNrZWQga2V5IGluIGxlZ2FjeSBjYXNlLgotIEZpeCBtaW5v
+ciBjaGVja3BhdGNoLnBsIHN0eWxlIHZpb2xhdGlvbnMuCgp2MTM6Ci0gRW1iZWQgc3dfZmxvd19p
+ZCBpbiBzd19mbG93IHRvIHNhdmUgbWVtb3J5IGFsbG9jYXRpb24gaW4gVUZJRCBjYXNlLgotIE1h
+bGxvYyB1bm1hc2tlZCBrZXkgZm9yIGlkIGluIG5vbi1VRklEIGNhc2UuCi0gRml4IGJ1ZyB3aGVy
+ZSBub24tVUZJRCBjYXNlIGNvdWxkIGRvdWJsZS1zZXJpYWxpemUga2V5cy4KCnYxMjoKLSBVc2Vy
+c3BhY2UgcGF0Y2hlcyBmdWxseSBtZXJnZWQgaW50byBPcGVuIHZTd2l0Y2ggbWFzdGVyCi0gTmV3
+IG1pbm9yIHJlZmFjdG9yIHBhdGNoZXMgKDIsMyw0KQotIE1lcmdlIHVubWFza2VkX2tleSwgdWZp
+ZCByZXByZXNlbnRhdGlvbiBvZiBmbG93IGlkZW50aWZpZXIgaW4gc3dfZmxvdwotIEltcHJvdmUg
+bWVtb3J5IGFsbG9jYXRpb24gc2l6ZXMgd2hlbiBzZXJpYWxpemluZyB1ZmlkCi0gSGFuZGxlIGNv
+cm5lciBjYXNlIHdoZXJlIGEgZmxvd19uZXcgaXMgcmVxdWVzdGVkIHdpdGggYSBmbG93IHRoYXQg
+aGFzIGFuCiAgaWRlbnRpY2FsIHVmaWQgYXMgYW4gZXhpc3RpbmcgZmxvdywgYnV0IGEgZGlmZmVy
+ZW50IGZsb3cga2V5Ci0gTGltaXQgVUZJRCB0byBiZXR3ZWVuIDEtMTYgb2N0ZXRzIGluY2x1c2l2
+ZS4KLSBBZGQgdmFyaW91cyBoZWxwZXIgZnVuY3Rpb25zIHRvIGltcHJvdmUgcmVhZGliaWxpdHkK
+CnYxMToKLSBQdXNoZWQgbW9zdCBvZiB0aGUgcHJlcmVxdWlzaXRlIHBhdGNoZXMgZm9yIHRoaXMg
+c2VyaWVzIHRvIE9WUyBtYXN0ZXIuCi0gU3BsaXQgb3V0IG9wZW52c3dpdGNoLmggaW50ZXJmYWNl
+IGNoYW5nZXMgZnJvbSBkYXRhcGF0aCBpbXBsZW1lbnRhdGlvbgotIERhdGFwYXRoIGltcGxlbWVu
+dGF0aW9uIHRvIGJlIHJldmlld2VkIG9uIG5ldC1uZXh0LCBzZXBhcmF0ZWx5Cgp2MTA6Ci0gTmV3
+IHBhdGNoIGFsbG93aW5nIGRhdGFwYXRoIHRvIHNlcmlhbGl6ZSBtYXNrZWQga2V5cwotIFNpbXBs
+aWZ5IGRhdGFwYXRoIGludGVyZmFjZSBieSBhY2NlcHRpbmcgVUZJRCBvciBmbG93X2tleSwgYnV0
+IG5vdCBib3RoCi0gRmxvd3Mgc2V0IHVwIHdpdGggVUZJRCBtdXN0IGJlIHF1ZXJpZWQvZGVsZXRl
+ZCB1c2luZyBVRklECi0gUmVkdWNlIHN3X2Zsb3cgbWVtb3J5IHVzYWdlIGZvciBVRklECi0gRG9u
+J3QgcGVyaW9kaWNhbGx5IHJlaGFzaCBVRklEIHRhYmxlIGluIGxpbnV4IGRhdGFwYXRoCi0gUmVt
+b3ZlIGtlcm5lbF9vbmx5IFVGSUQgaW4gbGludXggZGF0YXBhdGgKCnY5OgotIE5vIGtlcm5lbCBj
+aGFuZ2VzCgp2ODoKLSBSZW5hbWUgVUlEIC0+IFVGSUQKLSBGaXggbnVsbCBkZXJlZmVyZW5jZSBp
+biBkYXRhcGF0aCB3aGVuIHBhaXJlZCB3aXRoIG9sZGVyIHVzZXJzcGFjZQotIEFsbCBwYXRjaGVz
+IGFyZSByZXZpZXdlZC9hY2tlZCBleGNlcHQgZGF0YXBhdGggY2hhbmdlcy4KCnY3OgotIFJlbW92
+ZSBPVlNfRFBfRl9JTkRFWF9CWV9VSUQKLSBSZXdvcmsgZGF0YXBhdGggVUlEIHNlcmlhbGl6YXRp
+b24gZm9yIHZhcmlhYmxlIGxlbmd0aCBVSURzCgp2NjoKLSBSZWR1Y2UgbmV0bGluayBjb252ZXJz
+aW9ucyBmb3IgYWxsIGRhdGFwYXRocwotIFZhcmlvdXMgYnVnZml4ZXMKCnY1OgotIFZhcmlvdXMg
+YnVnZml4ZXMKLSBJbXByb3ZlIGxvZ2dpbmcKCnY0OgotIERhdGFwYXRoIG1lbW9yeSBsZWFrIGZp
+eGVzCi0gRW5hYmxlIFVJRC1iYXNlZCB0ZXJzZSBkdW1waW5nIGFuZCBkZWxldGluZyBieSBkZWZh
+dWx0Ci0gVmFyaW91cyBmaXhlcwoKUkZDdjM6Ci0gQWRkIGRhdGFwYXRoIGltcGxlbWVudGF0aW9u
+CgpKb2UgU3RyaW5nZXIgKDUpOgogIG9wZW52c3dpdGNoOiBSZWZhY3RvciBvdnNfbmxhX2ZpbGxf
+bWF0Y2goKS4KICBvcGVudnN3aXRjaDogUmVmYWN0b3Igb3ZzX2Zsb3dfdGJsX2luc2VydCgpLgog
+IG9wZW52c3dpdGNoOiBVc2Ugc3dfZmxvd19rZXlfcmFuZ2UgZm9yIGtleSByYW5nZXMuCiAgZ2Vu
+ZXRsaW5rOiBBZGQgZ2VubG1zZ19wYXJzZSgpIGhlbHBlciBmdW5jdGlvbi4KICBvcGVudnN3aXRj
+aDogQWRkIHN1cHBvcnQgZm9yIHVuaXF1ZSBmbG93IElEcy4KCiBEb2N1bWVudGF0aW9uL25ldHdv
+cmtpbmcvb3BlbnZzd2l0Y2gudHh0IHwgICAxMyArKwogaW5jbHVkZS9uZXQvZ2VuZXRsaW5rLmgg
+ICAgICAgICAgICAgICAgICB8ICAgMTcgKysrCiBpbmNsdWRlL3VhcGkvbGludXgvb3BlbnZzd2l0
+Y2guaCAgICAgICAgIHwgICAyMCArKysKIG5ldC9vcGVudnN3aXRjaC9kYXRhcGF0aC5jICAgICAg
+ICAgICAgICAgfCAgMjI2ICsrKysrKysrKysrKysrKysrKysrLS0tLS0tLS0tLQogbmV0L29wZW52
+c3dpdGNoL2Zsb3cuaCAgICAgICAgICAgICAgICAgICB8ICAgMjggKysrLQogbmV0L29wZW52c3dp
+dGNoL2Zsb3dfbmV0bGluay5jICAgICAgICAgICB8ICAxMDIgKysrKysrKysrKysrKy0KIG5ldC9v
+cGVudnN3aXRjaC9mbG93X25ldGxpbmsuaCAgICAgICAgICAgfCAgIDEzICstCiBuZXQvb3BlbnZz
+d2l0Y2gvZmxvd190YWJsZS5jICAgICAgICAgICAgIHwgIDIyNiArKysrKysrKysrKysrKysrKysr
+KysrKy0tLS0tLS0KIG5ldC9vcGVudnN3aXRjaC9mbG93X3RhYmxlLmggICAgICAgICAgICAgfCAg
+ICA4ICstCiA5IGZpbGVzIGNoYW5nZWQsIDUxOSBpbnNlcnRpb25zKCspLCAxMzQgZGVsZXRpb25z
+KC0pCgotLSAKMS43LjEwLjQKCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fCmRldiBtYWlsaW5nIGxpc3QKZGV2QG9wZW52c3dpdGNoLm9yZwpodHRwOi8vb3Bl
+bnZzd2l0Y2gub3JnL21haWxtYW4vbGlzdGluZm8vZGV2Cg==
