@@ -1,78 +1,68 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: [PATCH] iproute2: can: Add support for CAN FD non-ISO feature
-Date: Thu, 22 Jan 2015 19:04:33 +0100
-Message-ID: <1421949873-4876-1-git-send-email-socketcan@hartkopp.net>
-Cc: Oliver Hartkopp <socketcan@hartkopp.net>
-To: shemming@brocade.com, netdev@vger.kernel.org
+From: Jon Maloy <jon.maloy@ericsson.com>
+Subject: RE: [PATCH net-next 2/2] flow_dissector: add tipc support
+Date: Thu, 22 Jan 2015 18:38:23 +0000
+Message-ID: <A2BAEFC30C8FD34388F02C9B3121859D1C365C57@eusaamb103.ericsson.se>
+References: <1421943032-29924-1-git-send-email-erik.hugne@ericsson.com>
+	 <1421943032-29924-2-git-send-email-erik.hugne@ericsson.com>
+ <1421947751.3471.12.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Richard Alpe <richard.alpe@ericsson.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"ying.xue@windriver.com" <ying.xue@windriver.com>,
+	"tipc-discussion@lists.sourceforge.net"
+	<tipc-discussion@lists.sourceforge.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	Erik Hugne <erik.hugne@ericsson.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo4-p00-ob.smtp.rzone.de ([81.169.146.216]:24803 "EHLO
-	mo4-p00-ob.smtp.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752473AbbAVSLL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jan 2015 13:11:11 -0500
+Received: from usevmg20.ericsson.net ([198.24.6.45]:56809 "EHLO
+	usevmg20.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751841AbbAVSi2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jan 2015 13:38:28 -0500
+In-Reply-To: <1421947751.3471.12.camel@edumazet-glaptop2.roam.corp.google.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch makes CAN_CTRLMODE_FD_NON_ISO netlink feature configurable.
-
-During the CAN FD standardization process within the ISO it turned out that
-the failure detection capability has to be improved.
-
-The CAN in Automation organization (CiA) defined the already implemented CAN
-FD controllers as 'non-ISO' and the upcoming improved CAN FD controllers as
-'ISO' compliant. See at http://www.can-cia.com/index.php?id=1937
-
-Starting with the - currently non-ISO - driver for M_CAN v3.0.1 introduced in
-Linux 3.18 this bit needs to be propagated to userspace. In future drivers this
-bit will become configurable depending on the CAN FD controllers capabilities.
-
-Signed-off-by: Oliver Hartkopp <socketcan@hartkopp.net>
----
- include/linux/can/netlink.h | 1 +
- ip/iplink_can.c             | 6 ++++++
- 2 files changed, 7 insertions(+)
-
-diff --git a/include/linux/can/netlink.h b/include/linux/can/netlink.h
-index 25fd52c..6d4ec2a 100644
---- a/include/linux/can/netlink.h
-+++ b/include/linux/can/netlink.h
-@@ -98,6 +98,7 @@ struct can_ctrlmode {
- #define CAN_CTRLMODE_BERR_REPORTING	0x10	/* Bus-error reporting */
- #define CAN_CTRLMODE_FD			0x20	/* CAN FD mode */
- #define CAN_CTRLMODE_PRESUME_ACK	0x40	/* Ignore missing CAN ACKs */
-+#define CAN_CTRLMODE_FD_NON_ISO		0x80	/* CAN FD in non-ISO mode */
- 
- /*
-  * CAN device statistics
-diff --git a/ip/iplink_can.c b/ip/iplink_can.c
-index fb50332..f1b089d 100644
---- a/ip/iplink_can.c
-+++ b/ip/iplink_can.c
-@@ -37,6 +37,7 @@ static void print_usage(FILE *f)
- 		"\t[ one-shot { on | off } ]\n"
- 		"\t[ berr-reporting { on | off } ]\n"
- 		"\t[ fd { on | off } ]\n"
-+		"\t[ fd-non-iso { on | off } ]\n"
- 		"\t[ presume-ack { on | off } ]\n"
- 		"\n"
- 		"\t[ restart-ms TIME-MS ]\n"
-@@ -100,6 +101,7 @@ static void print_ctrlmode(FILE *f, __u32 cm)
- 	_PF(CAN_CTRLMODE_ONE_SHOT, "ONE-SHOT");
- 	_PF(CAN_CTRLMODE_BERR_REPORTING, "BERR-REPORTING");
- 	_PF(CAN_CTRLMODE_FD, "FD");
-+	_PF(CAN_CTRLMODE_FD_NON_ISO, "FD-NON-ISO");
- 	_PF(CAN_CTRLMODE_PRESUME_ACK, "PRESUME-ACK");
- #undef _PF
- 	if (cm)
-@@ -203,6 +205,10 @@ static int can_parse_opt(struct link_util *lu, int argc, char **argv,
- 			NEXT_ARG();
- 			set_ctrlmode("fd", *argv, &cm,
- 				     CAN_CTRLMODE_FD);
-+		} else if (matches(*argv, "fd-non-iso") == 0) {
-+			NEXT_ARG();
-+			set_ctrlmode("fd-non-iso", *argv, &cm,
-+				     CAN_CTRLMODE_FD_NON_ISO);
- 		} else if (matches(*argv, "presume-ack") == 0) {
- 			NEXT_ARG();
- 			set_ctrlmode("presume-ack", *argv, &cm,
--- 
-2.1.4
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogRXJpYyBEdW1hemV0IFtt
+YWlsdG86ZXJpYy5kdW1hemV0QGdtYWlsLmNvbV0NCj4gU2VudDogSmFudWFyeS0yMi0xNSAxMjoy
+OSBQTQ0KPiBUbzogRXJpayBIdWduZQ0KPiBDYzogUmljaGFyZCBBbHBlOyBuZXRkZXZAdmdlci5r
+ZXJuZWwub3JnOyBKb24gTWFsb3k7DQo+IHlpbmcueHVlQHdpbmRyaXZlci5jb207IHRpcGMtZGlz
+Y3Vzc2lvbkBsaXN0cy5zb3VyY2Vmb3JnZS5uZXQNCj4gU3ViamVjdDogUmU6IFtQQVRDSCBuZXQt
+bmV4dCAyLzJdIGZsb3dfZGlzc2VjdG9yOiBhZGQgdGlwYyBzdXBwb3J0DQo+IA0KPiBPbiBUaHUs
+IDIwMTUtMDEtMjIgYXQgMTc6MTAgKzAxMDAsIGVyaWsuaHVnbmVAZXJpY3Nzb24uY29tIHdyb3Rl
+Og0KPiA+IEZyb206IEVyaWsgSHVnbmUgPGVyaWsuaHVnbmVAZXJpY3Nzb24uY29tPg0KPiA+DQo+
+ID4gVGhlIGZsb3dzIGFyZSBoYXNoZWQgb24gdGhlIHNlbmRpbmcgbm9kZSBhZGRyZXNzLCB3aGlj
+aCBhbGxvd3MgdXMgdG8NCj4gPiBzcHJlYWQgb3V0IHRoZSBUSVBDIGxpbmsgcHJvY2Vzc2luZyB0
+byBSUFMgZW5hYmxlZCBjb3Jlcy4gVGhlcmUgaXMgbm8NCj4gPiBwb2ludCB0byBpbmNsdWRlIHRo
+ZSBkZXN0aW5hdGlvbiBhZGRyZXNzIGluIHRoZSBoYXNoIGFzIHRoYXQgd2lsbA0KPiA+IGFsd2F5
+cyBiZSB0aGUgc2FtZSBmb3IgYWxsIGluYm91bmQgbGlua3MuIFdlIGhhdmUgZXhwZXJpbWVudGVk
+IHdpdGggYQ0KPiA+IDMtdHVwbGUgaGFzaCBvdmVyIFtzcmNub2RlLCBzcG9ydCwgZHBvcnRdLCBi
+dXQgdGhpcyBzaG93ZWQgdG8gZ2l2ZQ0KPiA+IHNsaWdodGx5IGxvd2VyIHBlcmZvcm1hbmNlIGJl
+Y2F1c2Ugb2YgaW5jcmVhc2VkIGxvY2sgY29udGVudGlvbiB3aGVuDQo+ID4gdGhlIHNhbWUgbGlu
+ayB3YXMgaGFuZGxlZCBieSBtdWx0aXBsZSBjb3Jlcy4NCj4gPg0KPiA+IFNpZ25lZC1vZmYtYnk6
+IFlpbmcgWHVlIDx5aW5nLnh1ZUB3aW5kcml2ZXIuY29tPg0KPiA+IFNpZ25lZC1vZmYtYnk6IEVy
+aWsgSHVnbmUgPGVyaWsuaHVnbmVAZXJpY3Nzb24uY29tPg0KPiA+IFJldmlld2VkLWJ5OiBKb24g
+TWFsb3kgPGpvbi5tYWxveUBlcmljc3Nvbi5jb20+DQo+ID4gLS0tDQo+ID4gIG5ldC9jb3JlL2Zs
+b3dfZGlzc2VjdG9yLmMgfCAxNCArKysrKysrKysrKysrKw0KPiA+ICAxIGZpbGUgY2hhbmdlZCwg
+MTQgaW5zZXJ0aW9ucygrKQ0KPiA+DQo+ID4gZGlmZiAtLWdpdCBhL25ldC9jb3JlL2Zsb3dfZGlz
+c2VjdG9yLmMgYi9uZXQvY29yZS9mbG93X2Rpc3NlY3Rvci5jDQo+ID4gaW5kZXggNDUwODQ5My4u
+YmViODNkMSAxMDA2NDQNCj4gPiAtLS0gYS9uZXQvY29yZS9mbG93X2Rpc3NlY3Rvci5jDQo+ID4g
+KysrIGIvbmV0L2NvcmUvZmxvd19kaXNzZWN0b3IuYw0KPiA+IEBAIC0xNzgsNiArMTc4LDIwIEBA
+IGlwdjY6DQo+ID4gIAkJCXJldHVybiBmYWxzZTsNCj4gPiAgCQl9DQo+ID4gIAl9DQo+ID4gKwlj
+YXNlIGh0b25zKEVUSF9QX1RJUEMpOiB7DQo+ID4gKwkJc3RydWN0IHsNCj4gPiArCQkJX19iZTMy
+IHByZVszXTsNCj4gPiArCQkJX19iZTMyIHNyY25vZGU7DQo+ID4gKwkJfSAqaGRyLCBfaGRyOw0K
+PiANCj4gSXMgdGhpcyBoZWFkZXIgZGVmaW5lZCBzb21ld2hlcmUgaW4gYW4gaW5jbHVkZSBmaWxl
+ID8NCj4gDQo+IFRoaXMgbG9va3MgYSBiaXQgdWdseSB0byBsb2NhbGx5IGRlZmluZSB0aGUgZm9y
+bWF0Li4uDQoNClRoZSBoZWFkZXIgaXMgZGVmaW5lZCBpbiBhIGZpbGUgKG1zZy5oKSBpbnNpZGUg
+dGhlIFRJUEMgDQptb2R1bGUgY29kZSwgYW5kIGNhbm5vdCBiZSBpbmNsdWRlZCBmcm9tIGhlcmUu
+IEl0IGlzDQphbHNvIGEgbG90IG1vcmUgZGV0YWlsZWQsIGFuZCBjb21lcyB3aXRoIGEgbnVtYmVy
+IG9mIA0KaW5saW5lIGZ1bmN0aW9ucyB0byBtYW5pcHVsYXRlIHRoZSBoZWFkZXIuIFRoZSBwb2lu
+dCANCndpdGggZG9pbmcgaXQgdGhpcyB3YXkgaXMgdGhhdCB3ZSBkb24ndCB3YW50IHRvIGV4cG9z
+ZQ0KdGhpcyBoZWFkZXIgZmlsZSBvdXRzaWRlIHRoZSBtb2R1bGUgY29kZSwgd2hlbiBpdCBpc24n
+dA0Kc3RyaWN0bHkgbmVjZXNzYXJ5Lg0KDQpEZWZpbmluZyBpdCBsb2NhbGx5IGlzIGFsc28gYSB3
+YXkgb2YgbWFraW5nIGl0IGNsZWFyIHRoYXQgdGhlDQpjb250ZW50IG9mIHdvcmQgMyBvZiB0aGUg
+aGVhZGVyIGlzIHRoZSBvbmx5IHRoaW5nIHRoYXQNCm1hdHRlcnMgaW4gdGhpcyBjb250ZXh0LCBh
+bmQgdGhhdCB3ZSB3YW50IHRvIGtlZXAgdGhlDQpyZXN0IHByaXZhdGUuDQoNClJlZ2FyZHMNCi8v
+L2pvbg0KDQo+IA0KPiANCg0K
