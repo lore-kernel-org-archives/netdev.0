@@ -1,57 +1,62 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [net-next PATCH v3 00/12] Flow API
-Date: Thu, 22 Jan 2015 16:48:40 +0100
-Message-ID: <20150122154840.GC1863@nanopsycho.orion>
-References: <20150120202404.1741.8658.stgit@nitbit.x32>
- <20150122125246.GA4486@salvia>
- <20150122133713.GA25797@casper.infradead.org>
- <20150122140022.GA5674@salvia>
- <54C11094.2000807@mojatatu.com>
- <20150122151316.GB25797@casper.infradead.org>
- <54C11703.7030702@mojatatu.com>
- <20150122153727.GC25797@casper.infradead.org>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [patch net-next RFC] tc: introduce OpenFlow classifier
+Date: Thu, 22 Jan 2015 10:50:34 -0500
+Message-ID: <54C11C4A.1070206@mojatatu.com>
+References: <1421933824-17916-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	John Fastabend <john.fastabend@gmail.com>,
-	simon.horman@netronome.com, sfeldma@gmail.com,
-	netdev@vger.kernel.org, davem@davemloft.net, gerlitz.or@gmail.com,
-	andy@greyhouse.net, ast@plumgrid.com
-To: Thomas Graf <tgraf@suug.ch>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net
+To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f177.google.com ([209.85.212.177]:64466 "EHLO
-	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751901AbbAVPsn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jan 2015 10:48:43 -0500
-Received: by mail-wi0-f177.google.com with SMTP id r20so4308529wiv.4
-        for <netdev@vger.kernel.org>; Thu, 22 Jan 2015 07:48:42 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20150122153727.GC25797@casper.infradead.org>
+Received: from mail-ie0-f176.google.com ([209.85.223.176]:51836 "EHLO
+	mail-ie0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752244AbbAVPug (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jan 2015 10:50:36 -0500
+Received: by mail-ie0-f176.google.com with SMTP id rd18so2032134iec.7
+        for <netdev@vger.kernel.org>; Thu, 22 Jan 2015 07:50:36 -0800 (PST)
+In-Reply-To: <1421933824-17916-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thu, Jan 22, 2015 at 04:37:27PM CET, tgraf@suug.ch wrote:
->On 01/22/15 at 10:28am, Jamal Hadi Salim wrote:
->> On 01/22/15 10:13, Thomas Graf wrote:
->> 
->> >I don't follow this. John's proposal allows to decide on a case by
->> >case basis what we want to export. Just like with ethtool or
->> >RTNETLINK. There is no direct access to hardware. A user can only
->> >configure what is being exposed by the kernel.
->> >
->> 
->> So if i am a vendor with my own driver, I can expose whatever i want.
+On 01/22/15 08:37, Jiri Pirko wrote:
+> This patch introduces OpenFlow-based filter. So far, the very essential
+> packet fields are supported (according to OpenFlow v1.4 spec).
 >
->No. We will reject any driver change attempting to do so on this
->list.
-
-That is not 100%, on contrary. If the infrastructure would be made to
-explicitly disallow that kind of behaviour, it would be much safer.
-
-
+> Known issues: skb_flow_dissect hashes out ipv6 addresses. That needs
+> to be changed to store them somewhere so they can be used later on.
 >
->This is the whole point of this: Coming up with a model that allows
->to describe capabilities and offer flow programming capabilities
->in a Vendor neutral way. A "push_vlan" or "pop_vlan" action will work
->with any driver that supports it.
+> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+> ---
+>   include/uapi/linux/pkt_cls.h |  33 +++
+>   net/sched/Kconfig            |  11 +
+>   net/sched/Makefile           |   1 +
+>   net/sched/cls_openflow.c     | 514 +++++++++++++++++++++++++++++++++++++++++++
+>   4 files changed, 559 insertions(+)
+>   create mode 100644 net/sched/cls_openflow.c
+>
+> diff --git a/include/uapi/linux/pkt_cls.h b/include/uapi/linux/pkt_cls.h
+> index 25731df..d4cef16 100644
+> --- a/include/uapi/linux/pkt_cls.h
+> +++ b/include/uapi/linux/pkt_cls.h
+> @@ -402,6 +402,39 @@ enum {
+>
+>   #define TCA_BPF_MAX (__TCA_BPF_MAX - 1)
+>
+> +/* OpenFlow classifier */
+> +
+> +enum {
+> +	TCA_OF_UNSPEC,
+> +	TCA_OF_CLASSID,
+> +	TCA_OF_POLICE,
+> +	TCA_OF_INDEV,
+
+I think POLICE is an old way of doing policing and INDEV if i am not
+mistaken is only legit for u32 classifier.
+So i am not sure you want to keep them.
+
+Other than that looks good - will be interested to see how perfomance 
+looks on this with the list walking ;->
+
+cheers,
+jamal
