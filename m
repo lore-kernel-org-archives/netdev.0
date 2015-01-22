@@ -1,52 +1,59 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH] bpf: Call rcu_read_unlock() before copy_to_user()
-Date: Thu, 22 Jan 2015 09:27:21 -0800
-Message-ID: <CAADnVQLnrAgk3vTppugqCtSsHL4XiZeQJrQi3cqhgLCCq1v8Pg@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 2/2] flow_dissector: add tipc support
+Date: Thu, 22 Jan 2015 09:29:11 -0800
+Message-ID: <1421947751.3471.12.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1421943032-29924-1-git-send-email-erik.hugne@ericsson.com>
+	 <1421943032-29924-2-git-send-email-erik.hugne@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Alexei Starovoitov <ast@kernel.org>,
-	Martin Schwidefsky <schwidefsky@de.ibm.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Michael Holzheu <holzheu@linux.vnet.ibm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: richard.alpe@ericsson.com, netdev@vger.kernel.org,
+	jon.maloy@ericsson.com, ying.xue@windriver.com,
+	tipc-discussion@lists.sourceforge.net
+To: erik.hugne@ericsson.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f178.google.com ([209.85.223.178]:63954 "EHLO
+	mail-ie0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752276AbbAVR3Q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jan 2015 12:29:16 -0500
+Received: by mail-ie0-f178.google.com with SMTP id rp18so2591860iec.9
+        for <netdev@vger.kernel.org>; Thu, 22 Jan 2015 09:29:15 -0800 (PST)
+In-Reply-To: <1421943032-29924-2-git-send-email-erik.hugne@ericsson.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 22, 2015 at 7:57 AM, Michael Holzheu
-<holzheu@linux.vnet.ibm.com> wrote:
-> We must not hold locks when calling copy_to_user():
->
-> BUG: sleeping function called from invalid context at mm/memory.c:3732
-> in_atomic(): 0, irqs_disabled(): 0, pid: 671, name: test_maps
-> 1 lock held by test_maps/671:
->  #0:  (rcu_read_lock){......}, at: [<0000000000264190>] map_lookup_elem+0xe8/0x260
-> Preemption disabled at:[<00000000001be3b6>] vprintk_default+0x56/0x68
->
-> CPU: 0 PID: 671 Comm: test_maps Not tainted 3.19.0-rc5-00117-g5eb11d6-dirty #424
->        000000001e447bb0 000000001e447c40 0000000000000002 0000000000000000
->        000000001e447ce0 000000001e447c58 000000001e447c58 0000000000115c8a
->        0000000000000000 0000000000c08246 0000000000c27e8a 000000000000000b
->        000000001e447ca0 000000001e447c40 0000000000000000 0000000000000000
->        0000000000000000 0000000000115c8a 000000001e447c40 000000001e447ca0
-> Call Trace:
-> ([<0000000000115b7e>] show_trace+0x12e/0x150)
->  [<0000000000115c40>] show_stack+0xa0/0x100
->  [<00000000009b163c>] dump_stack+0x74/0xc8
->  [<000000000017424a>] ___might_sleep+0x23a/0x248
->  [<00000000002b58e8>] might_fault+0x70/0xe8
->  [<0000000000264230>] map_lookup_elem+0x188/0x260
->  [<0000000000264716>] SyS_bpf+0x20e/0x840
->  [<00000000009bbe3a>] system_call+0xd6/0x24c
->  [<000003fffd15f566>] 0x3fffd15f566
-> 1 lock held by test_maps/671:
->  #0:  (rcu_read_lock){......}, at: [<0000000000264190>] map_lookup_elem+0xe8/0x260
->
-> So call rcu_read_unlock() before copy_to_user(). We can
-> release the lock earlier because it is not needed for copy_to_user().
+On Thu, 2015-01-22 at 17:10 +0100, erik.hugne@ericsson.com wrote:
+> From: Erik Hugne <erik.hugne@ericsson.com>
+> 
+> The flows are hashed on the sending node address, which allows us
+> to spread out the TIPC link processing to RPS enabled cores. There
+> is no point to include the destination address in the hash as that
+> will always be the same for all inbound links. We have experimented
+> with a 3-tuple hash over [srcnode, sport, dport], but this showed to
+> give slightly lower performance because of increased lock contention
+> when the same link was handled by multiple cores.
+> 
+> Signed-off-by: Ying Xue <ying.xue@windriver.com>
+> Signed-off-by: Erik Hugne <erik.hugne@ericsson.com>
+> Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
+> ---
+>  net/core/flow_dissector.c | 14 ++++++++++++++
+>  1 file changed, 14 insertions(+)
+> 
+> diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
+> index 4508493..beb83d1 100644
+> --- a/net/core/flow_dissector.c
+> +++ b/net/core/flow_dissector.c
+> @@ -178,6 +178,20 @@ ipv6:
+>  			return false;
+>  		}
+>  	}
+> +	case htons(ETH_P_TIPC): {
+> +		struct {
+> +			__be32 pre[3];
+> +			__be32 srcnode;
+> +		} *hdr, _hdr;
 
-we cannot move the rcu unlock this way, since it protects the value.
-So we need to copy the value while still under rcu.
-I'm puzzled how I missed this warning.
-I guess you have CONFIG_PREEMPT_RCU=y ?
-and if (in_atomic()) return; as part of might_fault() hid it.
+Is this header defined somewhere in an include file ?
+
+This looks a bit ugly to locally define the format...
