@@ -1,8 +1,8 @@
 From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Subject: [next-next PATCH 2/7] fib_trie: Fix RCU bug and merge similar bits
- of inflate/halve
-Date: Thu, 22 Jan 2015 15:51:14 -0800
-Message-ID: <20150122235114.5779.12253.stgit@ahduyck-vm-fedora20>
+Subject: [next-next PATCH 3/7] fib_trie: Fall back to slen update on
+ inflate/halve failure
+Date: Thu, 22 Jan 2015 15:51:20 -0800
+Message-ID: <20150122235120.5779.51785.stgit@ahduyck-vm-fedora20>
 References: <20150122234652.5779.44251.stgit@ahduyck-vm-fedora20>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,277 +10,71 @@ Content-Transfer-Encoding: 7bit
 Cc: davem@davemloft.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:60300 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:52495 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753371AbbAVXvQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Jan 2015 18:51:16 -0500
+	id S1753371AbbAVXvW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 Jan 2015 18:51:22 -0500
 In-Reply-To: <20150122234652.5779.44251.stgit@ahduyck-vm-fedora20>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch addresses two issues.
-
-The first issue is the fact that I believe I had the RCU freeing sequence
-slightly out of order.  As a result we could get into an issue if a caller
-went into a child of a child of the new node, then backtraced into the to be
-freed parent, and then attempted to access a child of a child that may have
-been consumed in a resize of one of the new nodes children.  To resolve this I
-have moved the resize after we have freed the oldtnode.  The only side effect
-of this is that we will now be calling resize on more nodes in the case of
-inflate due to the fact that we don't have a good way to test to see if a
-full_tnode on the new node was there before or after the allocation.  This
-should have minimal impact however since the node should already be
-correctly size so it is just the cost of calling should_inflate that we
-will be taking on the node which is only a couple of cycles.
-
-The second issue is the fact that inflate and halve were essentially doing
-the same thing after the new node was added to the trie replacing the old
-one.  As such it wasn't really necessary to keep the code in both functions
-so I have split it out into two other functions, called replace and
-update_children.
+This change corrects an issue where if inflate or halve fails we were
+exiting the resize function without at least updating the slen for the
+node.  To correct this I have moved the update of max_size into the while
+loop so that it is only decremented on a successful call to either inflate
+or halve.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
 ---
- net/ipv4/fib_trie.c |  157 ++++++++++++++++++++++++---------------------------
- 1 file changed, 73 insertions(+), 84 deletions(-)
+ net/ipv4/fib_trie.c |   10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
 
 diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
-index dea2f80..7e90317 100644
+index 7e90317..80892f5 100644
 --- a/net/ipv4/fib_trie.c
 +++ b/net/ipv4/fib_trie.c
-@@ -396,8 +396,30 @@ static void put_child(struct tnode *tn, unsigned long i, struct tnode *n)
- 	rcu_assign_pointer(tn->child[i], n);
- }
- 
--static void put_child_root(struct tnode *tp, struct trie *t,
--			   t_key key, struct tnode *n)
-+static void update_children(struct tnode *tn)
-+{
-+	unsigned long i;
-+
-+	/* update all of the child parent pointers */
-+	for (i = tnode_child_length(tn); i;) {
-+		struct tnode *inode = tnode_get_child(tn, --i);
-+
-+		if (!inode)
-+			continue;
-+
-+		/* Either update the children of a tnode that
-+		 * already belongs to us or update the child
-+		 * to point to ourselves.
-+		 */
-+		if (node_parent(inode) == tn)
-+			update_children(inode);
-+		else
-+			node_set_parent(inode, tn);
-+	}
-+}
-+
-+static inline void put_child_root(struct tnode *tp, struct trie *t,
-+				  t_key key, struct tnode *n)
+@@ -752,7 +752,7 @@ static void resize(struct trie *t, struct tnode *tn)
  {
- 	if (tp)
- 		put_child(tp, get_index(key, tp), n);
-@@ -434,10 +456,35 @@ static void tnode_free(struct tnode *tn)
- 	}
- }
+ 	struct tnode *tp = node_parent(tn), *n = NULL;
+ 	struct tnode __rcu **cptr;
+-	int max_work;
++	int max_work = MAX_WORK;
  
-+static void replace(struct trie *t, struct tnode *oldtnode, struct tnode *tn)
-+{
-+	struct tnode *tp = node_parent(oldtnode);
-+	unsigned long i;
-+
-+	/* setup the parent pointer out of and back into this node */
-+	NODE_INIT_PARENT(tn, tp);
-+	put_child_root(tp, t, tn->key, tn);
-+
-+	/* update all of the child parent pointers */
-+	update_children(tn);
-+
-+	/* all pointers should be clean so we are done */
-+	tnode_free(oldtnode);
-+
-+	/* resize children now that oldtnode is freed */
-+	for (i = tnode_child_length(tn); i;) {
-+		struct tnode *inode = tnode_get_child(tn, --i);
-+
-+		/* resize child node */
-+		if (tnode_full(tn, inode))
-+			resize(t, inode);
-+	}
-+}
-+
- static int inflate(struct trie *t, struct tnode *oldtnode)
- {
--	struct tnode *inode, *node0, *node1, *tn, *tp;
--	unsigned long i, j, k;
-+	struct tnode *tn;
-+	unsigned long i;
- 	t_key m;
- 
- 	pr_debug("In inflate\n");
-@@ -446,13 +493,18 @@ static int inflate(struct trie *t, struct tnode *oldtnode)
- 	if (!tn)
- 		return -ENOMEM;
- 
-+	/* prepare oldtnode to be freed */
-+	tnode_free_init(oldtnode);
-+
- 	/* Assemble all of the pointers in our cluster, in this case that
- 	 * represents all of the pointers out of our allocated nodes that
- 	 * point to existing tnodes and the links between our allocated
- 	 * nodes.
+ 	pr_debug("In tnode_resize %p inflate_threshold=%d threshold=%d\n",
+ 		 tn, inflate_threshold, halve_threshold);
+@@ -775,8 +775,7 @@ static void resize(struct trie *t, struct tnode *tn)
+ 	/* Double as long as the resulting node has a number of
+ 	 * nonempty nodes that are above the threshold.
  	 */
- 	for (i = tnode_child_length(oldtnode), m = 1u << tn->pos; i;) {
--		inode = tnode_get_child(oldtnode, --i);
-+		struct tnode *inode = tnode_get_child(oldtnode, --i);
-+		struct tnode *node0, *node1;
-+		unsigned long j, k;
- 
- 		/* An empty child */
- 		if (inode == NULL)
-@@ -464,6 +516,9 @@ static int inflate(struct trie *t, struct tnode *oldtnode)
- 			continue;
+-	max_work = MAX_WORK;
+-	while (should_inflate(tp, tn) && max_work--) {
++	while (should_inflate(tp, tn) && max_work) {
+ 		if (inflate(t, tn)) {
+ #ifdef CONFIG_IP_FIB_TRIE_STATS
+ 			this_cpu_inc(t->stats->resize_node_skipped);
+@@ -784,6 +783,7 @@ static void resize(struct trie *t, struct tnode *tn)
+ 			break;
  		}
  
-+		/* drop the node in the old tnode free list */
-+		tnode_free_append(oldtnode, inode);
-+
- 		/* An internal node with two children */
- 		if (inode->bits == 1) {
- 			put_child(tn, 2 * i + 1, tnode_get_child(inode, 1));
-@@ -488,9 +543,9 @@ static int inflate(struct trie *t, struct tnode *oldtnode)
- 		node1 = tnode_new(inode->key | m, inode->pos, inode->bits - 1);
- 		if (!node1)
- 			goto nomem;
--		tnode_free_append(tn, node1);
-+		node0 = tnode_new(inode->key, inode->pos, inode->bits - 1);
- 
--		node0 = tnode_new(inode->key & ~m, inode->pos, inode->bits - 1);
-+		tnode_free_append(tn, node1);
- 		if (!node0)
- 			goto nomem;
- 		tnode_free_append(tn, node0);
-@@ -512,53 +567,9 @@ static int inflate(struct trie *t, struct tnode *oldtnode)
- 		put_child(tn, 2 * i, node0);
++		max_work--;
+ 		tn = rtnl_dereference(*cptr);
  	}
  
--	/* setup the parent pointer into and out of this node */
--	tp = node_parent(oldtnode);
--	NODE_INIT_PARENT(tn, tp);
--	put_child_root(tp, t, tn->key, tn);
--
--	/* prepare oldtnode to be freed */
--	tnode_free_init(oldtnode);
--
--	/* update all child nodes parent pointers to route to us */
--	for (i = tnode_child_length(oldtnode); i;) {
--		inode = tnode_get_child(oldtnode, --i);
--
--		/* A leaf or an internal node with skipped bits */
--		if (!tnode_full(oldtnode, inode)) {
--			node_set_parent(inode, tn);
--			continue;
--		}
--
--		/* drop the node in the old tnode free list */
--		tnode_free_append(oldtnode, inode);
--
--		/* fetch new nodes */
--		node1 = tnode_get_child(tn, 2 * i + 1);
--		node0 = tnode_get_child(tn, 2 * i);
-+	/* setup the parent pointers into and out of this node */
-+	replace(t, oldtnode, tn);
- 
--		/* bits == 1 then node0 and node1 represent inode's children */
--		if (inode->bits == 1) {
--			node_set_parent(node1, tn);
--			node_set_parent(node0, tn);
--			continue;
--		}
--
--		/* update parent pointers in child node's children */
--		for (k = tnode_child_length(inode), j = k / 2; j;) {
--			node_set_parent(tnode_get_child(inode, --k), node1);
--			node_set_parent(tnode_get_child(inode, --j), node0);
--			node_set_parent(tnode_get_child(inode, --k), node1);
--			node_set_parent(tnode_get_child(inode, --j), node0);
--		}
--
--		/* resize child nodes */
--		resize(t, node1);
--		resize(t, node0);
--	}
--
--	/* we completed without error, prepare to free old node */
--	tnode_free(oldtnode);
- 	return 0;
- nomem:
- 	/* all pointers should be clean so we are done */
-@@ -568,7 +579,7 @@ nomem:
- 
- static int halve(struct trie *t, struct tnode *oldtnode)
- {
--	struct tnode *tn, *tp, *inode, *node0, *node1;
-+	struct tnode *tn;
- 	unsigned long i;
- 
- 	pr_debug("In halve\n");
-@@ -577,14 +588,18 @@ static int halve(struct trie *t, struct tnode *oldtnode)
- 	if (!tn)
- 		return -ENOMEM;
- 
-+	/* prepare oldtnode to be freed */
-+	tnode_free_init(oldtnode);
-+
- 	/* Assemble all of the pointers in our cluster, in this case that
- 	 * represents all of the pointers out of our allocated nodes that
- 	 * point to existing tnodes and the links between our allocated
- 	 * nodes.
+@@ -794,8 +794,7 @@ static void resize(struct trie *t, struct tnode *tn)
+ 	/* Halve as long as the number of empty children in this
+ 	 * node is above threshold.
  	 */
- 	for (i = tnode_child_length(oldtnode); i;) {
--		node1 = tnode_get_child(oldtnode, --i);
--		node0 = tnode_get_child(oldtnode, --i);
-+		struct tnode *node1 = tnode_get_child(oldtnode, --i);
-+		struct tnode *node0 = tnode_get_child(oldtnode, --i);
-+		struct tnode *inode;
+-	max_work = MAX_WORK;
+-	while (should_halve(tp, tn) && max_work--) {
++	while (should_halve(tp, tn) && max_work) {
+ 		if (halve(t, tn)) {
+ #ifdef CONFIG_IP_FIB_TRIE_STATS
+ 			this_cpu_inc(t->stats->resize_node_skipped);
+@@ -803,6 +802,7 @@ static void resize(struct trie *t, struct tnode *tn)
+ 			break;
+ 		}
  
- 		/* At least one of the children is empty */
- 		if (!node1 || !node0) {
-@@ -609,34 +624,8 @@ static int halve(struct trie *t, struct tnode *oldtnode)
- 		put_child(tn, i / 2, inode);
++		max_work--;
+ 		tn = rtnl_dereference(*cptr);
  	}
  
--	/* setup the parent pointer out of and back into this node */
--	tp = node_parent(oldtnode);
--	NODE_INIT_PARENT(tn, tp);
--	put_child_root(tp, t, tn->key, tn);
--
--	/* prepare oldtnode to be freed */
--	tnode_free_init(oldtnode);
--
--	/* update all of the child parent pointers */
--	for (i = tnode_child_length(tn); i;) {
--		inode = tnode_get_child(tn, --i);
--
--		/* only new tnodes will be considered "full" nodes */
--		if (!tnode_full(tn, inode)) {
--			node_set_parent(inode, tn);
--			continue;
--		}
--
--		/* Two nonempty children */
--		node_set_parent(tnode_get_child(inode, 1), inode);
--		node_set_parent(tnode_get_child(inode, 0), inode);
--
--		/* resize child node */
--		resize(t, inode);
--	}
--
--	/* all pointers should be clean so we are done */
--	tnode_free(oldtnode);
-+	/* setup the parent pointers into and out of this node */
-+	replace(t, oldtnode, tn);
- 
- 	return 0;
- }
