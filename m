@@ -1,44 +1,52 @@
-From: Nicolae Rosia <nicolae.rosia@certsign.ro>
-Subject: [PATCH] net: phy: fix phy device autoneg wrong value
-Date: Thu, 22 Jan 2015 17:56:44 +0000
-Message-ID: <1421948980.717.6.camel@uti.ro>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [net-next PATCH v3 00/12] Flow API
+Date: Thu, 22 Jan 2015 17:58:31 +0000
+Message-ID: <20150122175831.GE25797@casper.infradead.org>
+References: <20150120202404.1741.8658.stgit@nitbit.x32>
+ <20150122125246.GA4486@salvia>
+ <20150122133713.GA25797@casper.infradead.org>
+ <20150122140022.GA5674@salvia>
+ <54C11094.2000807@mojatatu.com>
+ <20150122151316.GB25797@casper.infradead.org>
+ <54C11703.7030702@mojatatu.com>
+ <20150122153727.GC25797@casper.infradead.org>
+ <20150122154840.GC1863@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"f.fainelli@gmail.com" <f.fainelli@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	John Fastabend <john.fastabend@gmail.com>,
+	simon.horman@netronome.com, sfeldma@gmail.com,
+	netdev@vger.kernel.org, davem@davemloft.net, gerlitz.or@gmail.com,
+	andy@greyhouse.net, ast@plumgrid.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.uti.ro ([91.220.13.110]:56231 "EHLO mx2.uti.ro"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752552AbbAVR4t (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Jan 2015 12:56:49 -0500
-Content-Language: en-US
-Content-ID: <46B504E64B3D0145B8B7EF3904974B2E@uti.ro>
+Received: from casper.infradead.org ([85.118.1.10]:42911 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751609AbbAVR6d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jan 2015 12:58:33 -0500
+Content-Disposition: inline
+In-Reply-To: <20150122154840.GC1863@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SW4gcGh5X2RldmljZV9jcmVhdGUsIGF1dG9uZWcgaXMgc2V0IHRvIEFVVE9ORUdfRU5BQkxFLg0K
-V2hlbiB1c2luZyB0aGUgZ2VuZXJpYyBwaHkgZHJpdmVyIChwaHlfZGV2aWNlLmMpLA0KZ2VucGh5
-X2NvbmZpZ19pbml0IHJlYWRzIEJNU1IgYW5kIGZpbmRzIG91dCBpZiBhdXRvbmVnb3RpYXRpb24N
-CmlzIHBvc3NpYmxlIGFuZCBzZXRzIHRoZSBwaHkgZGV2aWNlIGZlYXR1cmVzIGFjY29yZGluZ2x5
-Lg0KcGh5X3Nhbml0aXplX3NldHRpbmdzIGlzIHN1cHBvc2VkIHRvIHNldCB0aGUgcmlnaHQgdmFs
-dWUgb2YNCmF1dG9uZWcsIGJ1dCBpdCBpcyBuZXZlciBjYWxsZWQgaWYgYXV0b25lZ290aWF0aW9u
-IGlzIGVuYWJsZWQsDQp3aGljaCBpcyBhbHdheXMgdGhlIGNhc2UuDQoNClNpZ25lZC1vZmYtYnk6
-IE5pY29sYWUgUm9zaWEgPG5pY29sYWUucm9zaWFAY2VydHNpZ24ucm8+DQotLS0NCiBkcml2ZXJz
-L25ldC9waHkvcGh5LmMgfCA2ICsrKy0tLQ0KIDEgZmlsZSBjaGFuZ2VkLCAzIGluc2VydGlvbnMo
-KyksIDMgZGVsZXRpb25zKC0pDQoNCmRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9waHkvcGh5LmMg
-Yi9kcml2ZXJzL25ldC9waHkvcGh5LmMNCmluZGV4IDc2N2NkMTEuLjljMzUxMzYgMTAwNjQ0DQot
-LS0gYS9kcml2ZXJzL25ldC9waHkvcGh5LmMNCisrKyBiL2RyaXZlcnMvbmV0L3BoeS9waHkuYw0K
-QEAgLTI0OSw5ICsyNDksNiBAQCBzdGF0aWMgdm9pZCBwaHlfc2FuaXRpemVfc2V0dGluZ3Moc3Ry
-dWN0IHBoeV9kZXZpY2UNCipwaHlkZXYpDQogCXVuc2lnbmVkIGludCBpZHg7DQogDQogCS8qIFNh
-bml0aXplIHNldHRpbmdzIGJhc2VkIG9uIFBIWSBjYXBhYmlsaXRpZXMgKi8NCi0JaWYgKChmZWF0
-dXJlcyAmIFNVUFBPUlRFRF9BdXRvbmVnKSA9PSAwKQ0KLQkJcGh5ZGV2LT5hdXRvbmVnID0gQVVU
-T05FR19ESVNBQkxFOw0KLQ0KIAlpZHggPSBwaHlfZmluZF92YWxpZChwaHlfZmluZF9zZXR0aW5n
-KHBoeWRldi0+c3BlZWQsIHBoeWRldi0+ZHVwbGV4KSwNCiAJCQlmZWF0dXJlcyk7DQogDQpAQCAt
-NDM2LDYgKzQzMyw5IEBAIGludCBwaHlfc3RhcnRfYW5lZyhzdHJ1Y3QgcGh5X2RldmljZSAqcGh5
-ZGV2KQ0KIA0KIAltdXRleF9sb2NrKCZwaHlkZXYtPmxvY2spOw0KIA0KKwlpZiAoKHBoeWRldi0+
-c3VwcG9ydGVkICYgU1VQUE9SVEVEX0F1dG9uZWcpID09IDApDQorCQlwaHlkZXYtPmF1dG9uZWcg
-PSBBVVRPTkVHX0RJU0FCTEU7DQorDQogCWlmIChBVVRPTkVHX0RJU0FCTEUgPT0gcGh5ZGV2LT5h
-dXRvbmVnKQ0KIAkJcGh5X3Nhbml0aXplX3NldHRpbmdzKHBoeWRldik7DQogDQotLSANCjIuMS4w
-DQoNCg0K
+On 01/22/15 at 04:48pm, Jiri Pirko wrote:
+> Thu, Jan 22, 2015 at 04:37:27PM CET, tgraf@suug.ch wrote:
+> >On 01/22/15 at 10:28am, Jamal Hadi Salim wrote:
+> >> On 01/22/15 10:13, Thomas Graf wrote:
+> >> 
+> >> >I don't follow this. John's proposal allows to decide on a case by
+> >> >case basis what we want to export. Just like with ethtool or
+> >> >RTNETLINK. There is no direct access to hardware. A user can only
+> >> >configure what is being exposed by the kernel.
+> >> >
+> >> 
+> >> So if i am a vendor with my own driver, I can expose whatever i want.
+> >
+> >No. We will reject any driver change attempting to do so on this
+> >list.
+> 
+> That is not 100%, on contrary. If the infrastructure would be made to
+> explicitly disallow that kind of behaviour, it would be much safer.
+
+I'm very much in favour of that. Ideas?
