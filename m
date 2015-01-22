@@ -1,37 +1,69 @@
-From: Andri Yngvason <andri.yngvason@marel.com>
-Subject: Re: [PATCH v5 2/5] can: kvaser_usb: Consolidate and unify state change
- handling
-Date: Thu, 22 Jan 2015 10:14:47 +0000
-Message-ID: <20150122101447.25198.24222@shannon>
-References: <20141223154654.GB6460@vivalin-002> <20150120214409.GA16828@linux>
- <20150120214537.GB16828@linux> <20150121162025.2933.13836@shannon>
- <54C02F4B.80206@pengutronix.de>
+From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Subject: Re: [PATCH] ethernet: atheros: Add nss-gmac driver
+Date: Thu, 22 Jan 2015 11:18:50 +0100
+Message-ID: <1753817.oBE21Kj2o0@wuerfel>
+References: <1420754626-30121-1-git-send-email-wstephen@codeaurora.org> <1702448.pOVnDx4KzI@wuerfel> <f9cbb34c9228b2af7ed6c1c96a6aa61c.squirrel@www.codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8BIT
-Cc: Linux-CAN <linux-can@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Marc Kleine-Budde <mkl@pengutronix.de>,
-	"Ahmed S. Darwish" <darwish.07@gmail.com>,
-	Olivier Sobrie <olivier@sobrie.be>,
-	Oliver Hartkopp <socketcan@hartkopp.net>,
-	Wolfgang Grandegger <wg@grandegger.com>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <54C02F4B.80206@pengutronix.de>
-Sender: linux-can-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: jcliburn-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: wstephen-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <f9cbb34c9228b2af7ed6c1c96a6aa61c.squirrel-mMfbam+mt9083fI46fginR2eb7JE58TQ@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Quoting Marc Kleine-Budde (2015-01-21 22:59:23)
-> On 01/21/2015 05:20 PM, Andri Yngvason wrote:
-> > Marc, could you merge the "move bus_off++" patch before you merge this so that I
-> > won't have to incorporate this patch-set into it?
+On Thursday 22 January 2015 00:20:59 wstephen-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org wrote:
+> > Right. For review purposes, I think it would be helpful to split this
+> > huge patch into several steps then:
+> >
+> > - add a base driver
+> > - add the overlay interface
+> > - add the nss driver
+> >
+> > Ideally more of them.
 > 
-> ...included in the lastest pull-request to David. Use
-> tags/linux-can-next-for-3.20-20150121 of the can-next repo as you new base.
+> The nss-drv driver is open sourced but we are currently not planning to
+> upstream to linux kernel yet because we are still actively adding new
+> features
+> https://www.codeaurora.org/cgit/quic/qsdk/oss/lklm/nss-drv
+> 
+> > Thanks for the description, this sounds very interesting indeed. I do
+> > have more questions though: how do you get the rules into the NSS driver?
+> > Does this get handled transparently by the openvswitch driver or
+> > did you have to add new user interfaces for it?
+> >
+> 
+> No, we are not using openvswitch. We have a connection manager monitoring
+> conntrack events and creates rules then send it through the interface
+> built in nss-drv.
 > 
 
-Thanks!
+I see. In this case, I think merging your new driver is not a good idea:
 
+- We already have a driver (dwmac1000) for the ethernet hardware,
+  which is known to work on a lot of hardware and has an established
+  binding.
+
+- The main difference in your new driver is the plug-in interface,
+  but that has no upstream users
+
+- The nss driver is not getting submitted, and has little chance of
+  getting merged if you do, because it introduces a driver-specific
+  API for something that should be hardware independent.
+
+You can simplify your private nss code a lot if you remove the
+abstraction layer and only implement ethernet features you need
+in the same module, and then load either the upstream driver or
+your nss driver. Make sure they use a compatible binding so the
+device gets attached to just one of the two drivers. For the
+built-in case, you can use the 'unbind' interface from user space
+to remove the device from the dwmac1000 driver.
+
+	Arnd
 --
-Andri
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
