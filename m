@@ -1,137 +1,52 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net] net: sctp: fix slab corruption from use after free on INIT collisions
-Date: Thu, 22 Jan 2015 18:26:54 +0100
-Message-ID: <1421947614-31407-1-git-send-email-dborkman@redhat.com>
-Cc: vyasevich@gmail.com, netdev@vger.kernel.org,
-	linux-sctp@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:48809 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752913AbbAVR06 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Jan 2015 12:26:58 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH] bpf: Call rcu_read_unlock() before copy_to_user()
+Date: Thu, 22 Jan 2015 09:27:21 -0800
+Message-ID: <CAADnVQLnrAgk3vTppugqCtSsHL4XiZeQJrQi3cqhgLCCq1v8Pg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Alexei Starovoitov <ast@kernel.org>,
+	Martin Schwidefsky <schwidefsky@de.ibm.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Michael Holzheu <holzheu@linux.vnet.ibm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-When hitting an INIT collision case during the 4WHS with AUTH enabled, as
-already described in detail in commit 1be9a950c646 ("net: sctp: inherit
-auth_capable on INIT collisions"), it can happen that we occasionally
-still remotely trigger the following panic on server side which seems to
-have been uncovered after the fix from commit 1be9a950c646 ...
+On Thu, Jan 22, 2015 at 7:57 AM, Michael Holzheu
+<holzheu@linux.vnet.ibm.com> wrote:
+> We must not hold locks when calling copy_to_user():
+>
+> BUG: sleeping function called from invalid context at mm/memory.c:3732
+> in_atomic(): 0, irqs_disabled(): 0, pid: 671, name: test_maps
+> 1 lock held by test_maps/671:
+>  #0:  (rcu_read_lock){......}, at: [<0000000000264190>] map_lookup_elem+0xe8/0x260
+> Preemption disabled at:[<00000000001be3b6>] vprintk_default+0x56/0x68
+>
+> CPU: 0 PID: 671 Comm: test_maps Not tainted 3.19.0-rc5-00117-g5eb11d6-dirty #424
+>        000000001e447bb0 000000001e447c40 0000000000000002 0000000000000000
+>        000000001e447ce0 000000001e447c58 000000001e447c58 0000000000115c8a
+>        0000000000000000 0000000000c08246 0000000000c27e8a 000000000000000b
+>        000000001e447ca0 000000001e447c40 0000000000000000 0000000000000000
+>        0000000000000000 0000000000115c8a 000000001e447c40 000000001e447ca0
+> Call Trace:
+> ([<0000000000115b7e>] show_trace+0x12e/0x150)
+>  [<0000000000115c40>] show_stack+0xa0/0x100
+>  [<00000000009b163c>] dump_stack+0x74/0xc8
+>  [<000000000017424a>] ___might_sleep+0x23a/0x248
+>  [<00000000002b58e8>] might_fault+0x70/0xe8
+>  [<0000000000264230>] map_lookup_elem+0x188/0x260
+>  [<0000000000264716>] SyS_bpf+0x20e/0x840
+>  [<00000000009bbe3a>] system_call+0xd6/0x24c
+>  [<000003fffd15f566>] 0x3fffd15f566
+> 1 lock held by test_maps/671:
+>  #0:  (rcu_read_lock){......}, at: [<0000000000264190>] map_lookup_elem+0xe8/0x260
+>
+> So call rcu_read_unlock() before copy_to_user(). We can
+> release the lock earlier because it is not needed for copy_to_user().
 
-[  533.876389] BUG: unable to handle kernel paging request at 00000000ffffffff
-[  533.913657] IP: [<ffffffff811ac385>] __kmalloc+0x95/0x230
-[  533.940559] PGD 5030f2067 PUD 0
-[  533.957104] Oops: 0000 [#1] SMP
-[  533.974283] Modules linked in: sctp mlx4_en [...]
-[  534.939704] Call Trace:
-[  534.951833]  [<ffffffff81294e30>] ? crypto_init_shash_ops+0x60/0xf0
-[  534.984213]  [<ffffffff81294e30>] crypto_init_shash_ops+0x60/0xf0
-[  535.015025]  [<ffffffff8128c8ed>] __crypto_alloc_tfm+0x6d/0x170
-[  535.045661]  [<ffffffff8128d12c>] crypto_alloc_base+0x4c/0xb0
-[  535.074593]  [<ffffffff8160bd42>] ? _raw_spin_lock_bh+0x12/0x50
-[  535.105239]  [<ffffffffa0418c11>] sctp_inet_listen+0x161/0x1e0 [sctp]
-[  535.138606]  [<ffffffff814e43bd>] SyS_listen+0x9d/0xb0
-[  535.166848]  [<ffffffff816149a9>] system_call_fastpath+0x16/0x1b
-
-... or depending on the the application, for example this one:
-
-[ 1370.026490] BUG: unable to handle kernel paging request at 00000000ffffffff
-[ 1370.026506] IP: [<ffffffff811ab455>] kmem_cache_alloc+0x75/0x1d0
-[ 1370.054568] PGD 633c94067 PUD 0
-[ 1370.070446] Oops: 0000 [#1] SMP
-[ 1370.085010] Modules linked in: sctp kvm_amd kvm [...]
-[ 1370.963431] Call Trace:
-[ 1370.974632]  [<ffffffff8120f7cf>] ? SyS_epoll_ctl+0x53f/0x960
-[ 1371.000863]  [<ffffffff8120f7cf>] SyS_epoll_ctl+0x53f/0x960
-[ 1371.027154]  [<ffffffff812100d3>] ? anon_inode_getfile+0xd3/0x170
-[ 1371.054679]  [<ffffffff811e3d67>] ? __alloc_fd+0xa7/0x130
-[ 1371.080183]  [<ffffffff816149a9>] system_call_fastpath+0x16/0x1b
-
-With slab debugging enabled, we can see that the poison has been overwritten:
-
-[  669.826368] BUG kmalloc-128 (Tainted: G        W     ): Poison overwritten
-[  669.826385] INFO: 0xffff880228b32e50-0xffff880228b32e50. First byte 0x6a instead of 0x6b
-[  669.826414] INFO: Allocated in sctp_auth_create_key+0x23/0x50 [sctp] age=3 cpu=0 pid=18494
-[  669.826424]  __slab_alloc+0x4bf/0x566
-[  669.826433]  __kmalloc+0x280/0x310
-[  669.826453]  sctp_auth_create_key+0x23/0x50 [sctp]
-[  669.826471]  sctp_auth_asoc_create_secret+0xcb/0x1e0 [sctp]
-[  669.826488]  sctp_auth_asoc_init_active_key+0x68/0xa0 [sctp]
-[  669.826505]  sctp_do_sm+0x29d/0x17c0 [sctp] [...]
-[  669.826629] INFO: Freed in kzfree+0x31/0x40 age=1 cpu=0 pid=18494
-[  669.826635]  __slab_free+0x39/0x2a8
-[  669.826643]  kfree+0x1d6/0x230
-[  669.826650]  kzfree+0x31/0x40
-[  669.826666]  sctp_auth_key_put+0x19/0x20 [sctp]
-[  669.826681]  sctp_assoc_update+0x1ee/0x2d0 [sctp]
-[  669.826695]  sctp_do_sm+0x674/0x17c0 [sctp]
-
-Since this only triggers in some collision-cases with AUTH, the problem at
-heart is that sctp_auth_key_put() on asoc->asoc_shared_key is called twice
-when having refcnt 1, once directly in sctp_assoc_update() and yet again
-from within sctp_auth_asoc_init_active_key() via sctp_assoc_update() on
-the already kzfree'd memory, which is also consistent with the observation
-of the poison decrease from 0x6b to 0x6a (note: the overwrite is detected
-at a later point in time when poison is checked on new allocation).
-
-Reference counting of auth keys revisited:
-
-Shared keys for AUTH chunks are being stored in endpoints and associations
-in endpoint_shared_keys list. On endpoint creation, a null key is being
-added; on association creation, all endpoint shared keys are being cached
-and thus cloned over to the association. struct sctp_shared_key only holds
-a pointer to the actual key bytes, that is, struct sctp_auth_bytes which
-keeps track of users internally through refcounting. Naturally, on assoc
-or enpoint destruction, sctp_shared_key are being destroyed directly and
-the reference on sctp_auth_bytes dropped.
-
-User space can add keys to either list via setsockopt(2) through struct
-sctp_authkey and by passing that to sctp_auth_set_key() which replaces or
-adds a new auth key. There, sctp_auth_create_key() creates a new sctp_auth_bytes
-with refcount 1 and in case of replacement drops the reference on the old
-sctp_auth_bytes. A key can be set active from user space through setsockopt()
-on the id via sctp_auth_set_active_key(), which iterates through either
-endpoint_shared_keys and in case of an assoc, invokes (one of various places)
-sctp_auth_asoc_init_active_key().
-
-sctp_auth_asoc_init_active_key() computes the actual secret from local's
-and peer's random, hmac and shared key parameters and returns a new key
-directly as sctp_auth_bytes, that is asoc->asoc_shared_key, plus drops
-the reference if there was a previous one. The secret, which where we
-eventually double drop the ref comes from sctp_auth_asoc_set_secret() with
-intitial refcount of 1, which also stays unchanged eventually in
-sctp_assoc_update(). This key is later being used for crypto layer to
-set the key for the hash in crypto_hash_setkey() from sctp_auth_calculate_hmac().
-
-To close the loop: asoc->asoc_shared_key is freshly allocated secret
-material and independant of the sctp_shared_key management keeping track
-of only shared keys in endpoints and assocs. Hence, also commit 4184b2a79a76
-("net: sctp: fix memory leak in auth key management") is independant of
-this bug here since it concerns a different layer (though same structures
-being used eventually). asoc->asoc_shared_key is reference dropped correctly
-on assoc destruction in sctp_association_free() and when active keys are
-being replaced in sctp_auth_asoc_init_active_key(), it always has a refcount
-of 1. Hence, it's freed prematurely in sctp_assoc_update(). Simple fix is
-to remove that sctp_auth_key_put() from there which fixes these panics.
-
-Fixes: 730fc3d05cd4 ("[SCTP]: Implete SCTP-AUTH parameter processing")
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
----
- net/sctp/associola.c | 1 -
- 1 file changed, 1 deletion(-)
-
-diff --git a/net/sctp/associola.c b/net/sctp/associola.c
-index f791edd..26d06db 100644
---- a/net/sctp/associola.c
-+++ b/net/sctp/associola.c
-@@ -1182,7 +1182,6 @@ void sctp_assoc_update(struct sctp_association *asoc,
- 	asoc->peer.peer_hmacs = new->peer.peer_hmacs;
- 	new->peer.peer_hmacs = NULL;
- 
--	sctp_auth_key_put(asoc->asoc_shared_key);
- 	sctp_auth_asoc_init_active_key(asoc, GFP_ATOMIC);
- }
- 
--- 
-1.7.11.7
+we cannot move the rcu unlock this way, since it protects the value.
+So we need to copy the value while still under rcu.
+I'm puzzled how I missed this warning.
+I guess you have CONFIG_PREEMPT_RCU=y ?
+and if (in_atomic()) return; as part of might_fault() hid it.
