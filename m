@@ -1,8 +1,7 @@
 From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Subject: [next-next PATCH 6/7] fib_trie: Move fib_find_alias to file where
- it is used
-Date: Thu, 22 Jan 2015 15:51:39 -0800
-Message-ID: <20150122235139.5779.21116.stgit@ahduyck-vm-fedora20>
+Subject: [next-next PATCH 7/7] fib_trie: Various clean-ups for handling slen
+Date: Thu, 22 Jan 2015 15:51:45 -0800
+Message-ID: <20150122235145.5779.73547.stgit@ahduyck-vm-fedora20>
 References: <20150122234652.5779.44251.stgit@ahduyck-vm-fedora20>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,95 +9,126 @@ Content-Transfer-Encoding: 7bit
 Cc: davem@davemloft.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:52563 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:37427 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754431AbbAVXvl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Jan 2015 18:51:41 -0500
+	id S1754431AbbAVXvr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 Jan 2015 18:51:47 -0500
 In-Reply-To: <20150122234652.5779.44251.stgit@ahduyck-vm-fedora20>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The function fib_find_alias is only accessed by functions in fib_trie.c as
-such it makes sense to relocate it and cast it as static so that the
-compiler can take advantage of optimizations it can do to it as a local
-function.
+While doing further work on the fib_trie I noted a few items.
+
+First I was using calls that were far more complicated than they needed to
+be for determining when to push/pull the suffix length.  I have updated the
+code to reflect the simplier logic.
+
+The second issue is that I realised we weren't necessarily handling the
+case of a leaf_info struct surviving a flush.  I have updated the logic so
+that now we will call pull_suffix in the event of having a leaf info value
+left in the leaf after flushing it.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
 ---
- net/ipv4/fib_lookup.h    |    1 -
- net/ipv4/fib_semantics.c |   18 ------------------
- net/ipv4/fib_trie.c      |   20 ++++++++++++++++++++
- 3 files changed, 20 insertions(+), 19 deletions(-)
+ net/ipv4/fib_trie.c |   49 +++++++++++++++++++++++++++++--------------------
+ 1 file changed, 29 insertions(+), 20 deletions(-)
 
-diff --git a/net/ipv4/fib_lookup.h b/net/ipv4/fib_lookup.h
-index 1e4f660..825981b 100644
---- a/net/ipv4/fib_lookup.h
-+++ b/net/ipv4/fib_lookup.h
-@@ -32,7 +32,6 @@ int fib_dump_info(struct sk_buff *skb, u32 pid, u32 seq, int event, u32 tb_id,
- 		  unsigned int);
- void rtmsg_fib(int event, __be32 key, struct fib_alias *fa, int dst_len,
- 	       u32 tb_id, const struct nl_info *info, unsigned int nlm_flags);
--struct fib_alias *fib_find_alias(struct list_head *fah, u8 tos, u32 prio);
- 
- static inline void fib_result_assign(struct fib_result *res,
- 				     struct fib_info *fi)
-diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
-index 265cb72..1e2090e 100644
---- a/net/ipv4/fib_semantics.c
-+++ b/net/ipv4/fib_semantics.c
-@@ -411,24 +411,6 @@ errout:
- 		rtnl_set_sk_err(info->nl_net, RTNLGRP_IPV4_ROUTE, err);
- }
- 
--/* Return the first fib alias matching TOS with
-- * priority less than or equal to PRIO.
-- */
--struct fib_alias *fib_find_alias(struct list_head *fah, u8 tos, u32 prio)
--{
--	if (fah) {
--		struct fib_alias *fa;
--		list_for_each_entry(fa, fah, fa_list) {
--			if (fa->fa_tos > tos)
--				continue;
--			if (fa->fa_info->fib_priority >= prio ||
--			    fa->fa_tos < tos)
--				return fa;
--		}
--	}
--	return NULL;
--}
--
- static int fib_detect_death(struct fib_info *fi, int order,
- 			    struct fib_info **last_resort, int *last_idx,
- 			    int dflt)
 diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
-index 90654bb..7f34226 100644
+index 7f34226..3daf022 100644
 --- a/net/ipv4/fib_trie.c
 +++ b/net/ipv4/fib_trie.c
-@@ -998,6 +998,26 @@ static struct tnode *fib_find_node(struct trie *t, u32 key)
- 	return n;
+@@ -917,27 +917,20 @@ static void leaf_push_suffix(struct tnode *l)
+ 
+ static void remove_leaf_info(struct tnode *l, struct leaf_info *old)
+ {
+-	struct hlist_node *prev;
+-
+-	/* record the location of the pointer to this object */
+-	prev = rtnl_dereference(hlist_pprev_rcu(&old->hlist));
++	/* record the location of the previous list_info entry */
++	struct hlist_node **pprev = old->hlist.pprev;
++	struct leaf_info *li = hlist_entry(pprev, typeof(*li), hlist.next);
+ 
+ 	/* remove the leaf info from the list */
+ 	hlist_del_rcu(&old->hlist);
+ 
+-	/* if we emptied the list this leaf will be freed and we can sort
+-	 * out parent suffix lengths as a part of trie_rebalance
+-	 */
+-	if (hlist_empty(&l->list))
++	/* only access li if it is pointing at the last valid hlist_node */
++	if (hlist_empty(&l->list) || (*pprev))
+ 		return;
+ 
+-	/* if we removed the tail then we need to update slen */
+-	if (!rcu_access_pointer(hlist_next_rcu(prev))) {
+-		struct leaf_info *li = hlist_entry(prev, typeof(*li), hlist);
+-
+-		l->slen = KEYLENGTH - li->plen;
+-		leaf_pull_suffix(l);
+-	}
++	/* update the trie with the latest suffix length */
++	l->slen = KEYLENGTH - li->plen;
++	leaf_pull_suffix(l);
  }
  
-+/* Return the first fib alias matching TOS with
-+ * priority less than or equal to PRIO.
-+ */
-+static struct fib_alias *fib_find_alias(struct list_head *fah, u8 tos, u32 prio)
-+{
-+	struct fib_alias *fa;
-+
-+	if (!fah)
-+		return NULL;
-+
-+	list_for_each_entry(fa, fah, fa_list) {
-+		if (fa->fa_tos > tos)
+ static void insert_leaf_info(struct tnode *l, struct leaf_info *new)
+@@ -961,7 +954,7 @@ static void insert_leaf_info(struct tnode *l, struct leaf_info *new)
+ 	}
+ 
+ 	/* if we added to the tail node then we need to update slen */
+-	if (!rcu_access_pointer(hlist_next_rcu(&new->hlist))) {
++	if (l->slen < (KEYLENGTH - new->plen)) {
+ 		l->slen = KEYLENGTH - new->plen;
+ 		leaf_push_suffix(l);
+ 	}
+@@ -1613,6 +1606,7 @@ static int trie_flush_leaf(struct tnode *l)
+ 	struct hlist_head *lih = &l->list;
+ 	struct hlist_node *tmp;
+ 	struct leaf_info *li = NULL;
++	unsigned char plen = KEYLENGTH;
+ 
+ 	hlist_for_each_entry_safe(li, tmp, lih, hlist) {
+ 		found += trie_flush_list(&li->falh);
+@@ -1620,8 +1614,14 @@ static int trie_flush_leaf(struct tnode *l)
+ 		if (list_empty(&li->falh)) {
+ 			hlist_del_rcu(&li->hlist);
+ 			free_leaf_info(li);
 +			continue;
-+		if (fa->fa_info->fib_priority >= prio || fa->fa_tos < tos)
-+			return fa;
+ 		}
++
++		plen = li->plen;
+ 	}
++
++	l->slen = KEYLENGTH - plen;
++
+ 	return found;
+ }
+ 
+@@ -1700,13 +1700,22 @@ int fib_table_flush(struct fib_table *tb)
+ 	for (l = trie_firstleaf(t); l; l = trie_nextleaf(l)) {
+ 		found += trie_flush_leaf(l);
+ 
+-		if (ll && hlist_empty(&ll->list))
+-			trie_leaf_remove(t, ll);
++		if (ll) {
++			if (hlist_empty(&ll->list))
++				trie_leaf_remove(t, ll);
++			else
++				leaf_pull_suffix(ll);
++		}
++
+ 		ll = l;
+ 	}
+ 
+-	if (ll && hlist_empty(&ll->list))
+-		trie_leaf_remove(t, ll);
++	if (ll) {
++		if (hlist_empty(&ll->list))
++			trie_leaf_remove(t, ll);
++		else
++			leaf_pull_suffix(ll);
 +	}
-+
-+	return NULL;
-+}
-+
- static void trie_rebalance(struct trie *t, struct tnode *tn)
- {
- 	struct tnode *tp;
+ 
+ 	pr_debug("trie_flush found=%d\n", found);
+ 	return found;
