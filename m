@@ -1,50 +1,59 @@
 From: Joe Stringer <joestringer@nicira.com>
-Subject: [PATCH net-next v14 4/5] genetlink: Add genlmsg_parse() helper function.
-Date: Wed, 21 Jan 2015 16:42:51 -0800
-Message-ID: <1421887372-56414-5-git-send-email-joestringer@nicira.com>
-References: <1421887372-56414-1-git-send-email-joestringer@nicira.com>
-Cc: linux-kernel@vger.kernel.org, dev@openvswitch.org,
-	pshelar@nicira.com
-To: netdev@vger.kernel.org
+Subject: Re: [PATCH net-next v13 5/5] openvswitch: Add support for unique flow IDs.
+Date: Wed, 21 Jan 2015 16:45:24 -0800
+Message-ID: <CANr6G5xSMeB0j12Ok98=1_iWUf-fFJmTDM-gsskd81JQ0SOp2g@mail.gmail.com>
+References: <1421778772-11879-1-git-send-email-joestringer@nicira.com>
+ <1421778772-11879-6-git-send-email-joestringer@nicira.com>
+ <CALnjE+qHjf5djBybPQUzoR_+dxDskQJQwtgvSN=G5NW9pckETw@mail.gmail.com>
+ <CANr6G5yc1PZTAXHGrDJ-zLZf13UB4aef1hsQyK7RTPHzJMGoRg@mail.gmail.com> <CALnjE+rWu7HsmjK9O0KEzkgngh7fc62aMp-ecMrAZP_3r8gtSw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	"dev@openvswitch.org" <dev@openvswitch.org>
+To: Pravin Shelar <pshelar@nicira.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1421887372-56414-1-git-send-email-joestringer@nicira.com>
+In-Reply-To: <CALnjE+rWu7HsmjK9O0KEzkgngh7fc62aMp-ecMrAZP_3r8gtSw@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The first user will be the next patch.
+On 21 January 2015 at 15:41, Pravin Shelar <pshelar@nicira.com> wrote:
+> On Wed, Jan 21, 2015 at 11:29 AM, Joe Stringer <joestringer@nicira.com> wrote:
+>> On 21 January 2015 at 10:31, Pravin Shelar <pshelar@nicira.com> wrote:
+>>> On Tue, Jan 20, 2015 at 10:32 AM, Joe Stringer <joestringer@nicira.com> wrote:
+>>>> Previously, flows were manipulated by userspace specifying a full,
+>>>> unmasked flow key. This adds significant burden onto flow
+>>>> serialization/deserialization, particularly when dumping flows.
+>>>>
+>>>> This patch adds an alternative way to refer to flows using a
+>>>> variable-length "unique flow identifier" (UFID). At flow setup time,
+>>>> userspace may specify a UFID for a flow, which is stored with the flow
+>>>> and inserted into a separate table for lookup, in addition to the
+>>>> standard flow table. Flows created using a UFID must be fetched or
+>>>> deleted using the UFID.
+>>>>
+>>>> All flow dump operations may now be made more terse with OVS_UFID_F_*
+>>>> flags. For example, the OVS_UFID_F_OMIT_KEY flag allows responses to
+>>>> omit the flow key from a datapath operation if the flow has a
+>>>> corresponding UFID. This significantly reduces the time spent assembling
+>>>> and transacting netlink messages. With all OVS_UFID_F_OMIT_* flags
+>>>> enabled, the datapath only returns the UFID and statistics for each flow
+>>>> during flow dump, increasing ovs-vswitchd revalidator performance by 40%
+>>>> or more.
+>>>>
+>>>> Signed-off-by: Joe Stringer <joestringer@nicira.com>
+>>>
+>>> Its almost ready. But I saw minor issues,
+>>> few checkpatch.pl failures.
+>>> in ovs_flow_cmd_new() we should use unmasked key to lookup in flow
+>>> table for legacy case.
+>>
+>> Thanks for review, I can send out a fresh version soon. Should I
+>> resend the whole series or is just a new version of this patch
+>> sufficient?
+>
+> I think you have to send entire series. Dave will not apply series
+> patches from different versions.
 
-Signed-off-by: Joe Stringer <joestringer@nicira.com>
----
- include/net/genetlink.h |   17 +++++++++++++++++
- 1 file changed, 17 insertions(+)
-
-diff --git a/include/net/genetlink.h b/include/net/genetlink.h
-index f24aa83..d5a9a8b 100644
---- a/include/net/genetlink.h
-+++ b/include/net/genetlink.h
-@@ -206,6 +206,23 @@ static inline struct nlmsghdr *genlmsg_nlhdr(void *user_hdr,
- }
- 
- /**
-+ * genlmsg_parse - parse attributes of a genetlink message
-+ * @nlh: netlink message header
-+ * @family: genetlink message family
-+ * @tb: destination array with maxtype+1 elements
-+ * @maxtype: maximum attribute type to be expected
-+ * @policy: validation policy
-+ * */
-+static inline int genlmsg_parse(const struct nlmsghdr *nlh,
-+				const struct genl_family *family,
-+				struct nlattr *tb[], int maxtype,
-+				const struct nla_policy *policy)
-+{
-+	return nlmsg_parse(nlh, family->hdrsize + GENL_HDRLEN, tb, maxtype,
-+			   policy);
-+}
-+
-+/**
-  * genl_dump_check_consistent - check if sequence is consistent and advertise if not
-  * @cb: netlink callback structure that stores the sequence number
-  * @user_hdr: user header as returned from genlmsg_put()
--- 
-1.7.10.4
+Thanks. I also realized there were checkpatch issues in the first
+patch, so I resent the whole series anyway.
