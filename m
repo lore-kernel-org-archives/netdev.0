@@ -1,30 +1,26 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH net 2/2] net: cls_bpf: fix auto generation of per list
- handles
-Date: Thu, 22 Jan 2015 20:02:34 +0100
-Message-ID: <54C1494A.5050205@redhat.com>
-References: <1421919662-21066-1-git-send-email-dborkman@redhat.com> <1421919662-21066-3-git-send-email-dborkman@redhat.com> <CAADnVQLn2QXJaDvbvothBrKZTnPD1sGjh7ZNPuUG=MH3ZJTU4A@mail.gmail.com>
+From: Jim Davis <jim.epost@gmail.com>
+Subject: make allyesconfig i386 build failure with next-20150122
+Date: Thu, 22 Jan 2015 12:10:33 -0700
+Message-ID: <CA+r1ZhhXF+hicy7JKo3jAbgSbO4KOLm6BwPosTKNb+E_Cb4yPQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+To: Stephen Rothwell <sfr@canb.auug.org.au>,
+	linux-next <linux-next@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	devel <devel@driverdev.osuosl.org>, isdn@linux-pingi.de,
+	netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:38145 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754321AbbAVTCm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Jan 2015 14:02:42 -0500
-In-Reply-To: <CAADnVQLn2QXJaDvbvothBrKZTnPD1sGjh7ZNPuUG=MH3ZJTU4A@mail.gmail.com>
+Received: from mail-ig0-f179.google.com ([209.85.213.179]:42643 "EHLO
+	mail-ig0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752655AbbAVTKe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jan 2015 14:10:34 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/22/2015 07:52 PM, Alexei Starovoitov wrote:
-...
-> interesting bug. first time I'm looking at this bit and wondering
-> why everyone copy pasting such hgenerator instead of using idr...
+make ARCH=i386 allyesconfig fails with
 
-I think we should abstract these bits into a helper function. ;)
-Hmm, looking into git history tree, hgenerator came later than
-idr, so I presume the overhead of idr was not worth it.
+drivers/staging/built-in.o: In function `reset':
+(.text+0x2ae89d): multiple definition of `reset'
+drivers/isdn/built-in.o:(.text+0x185dc2): first defined here
+make[1]: *** [drivers/built-in.o] Error 1
