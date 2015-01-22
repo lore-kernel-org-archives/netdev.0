@@ -1,43 +1,98 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH net 2/2] net: cls_bpf: fix auto generation of per list handles
-Date: Thu, 22 Jan 2015 10:52:20 -0800
-Message-ID: <CAADnVQLn2QXJaDvbvothBrKZTnPD1sGjh7ZNPuUG=MH3ZJTU4A@mail.gmail.com>
-References: <1421919662-21066-1-git-send-email-dborkman@redhat.com> <1421919662-21066-3-git-send-email-dborkman@redhat.com>
+From: "Skidmore, Donald C" <donald.c.skidmore@intel.com>
+Subject: RE: [E1000-devel] [PATCH 1/2] if_link: Add VF multicast promiscuous
+	mode control
+Date: Thu, 22 Jan 2015 19:00:51 +0000
+Message-ID: <F6FB0E698C9B3143BDF729DF222866469129BFFD@ORSMSX110.amr.corp.intel.com>
+References: <7F861DC0615E0C47A872E6F3C5FCDDBD05E0734E@BPXM14GP.gisp.nec.co.jp>
+	<874mrlu18e.fsf@nemi.mork.no>
+ <7F861DC0615E0C47A872E6F3C5FCDDBD05E07B7C@BPXM14GP.gisp.nec.co.jp>
+ <F6FB0E698C9B3143BDF729DF222866469129B7F5@ORSMSX110.amr.corp.intel.com>
+ <7F861DC0615E0C47A872E6F3C5FCDDBD05E07F09@BPXM14GP.gisp.nec.co.jp>
+ <F6FB0E698C9B3143BDF729DF222866469129B844@ORSMSX110.amr.corp.intel.com>
+ <7F861DC0615E0C47A872E6F3C5FCDDBD05E08FF6@BPXM14GP.gisp.nec.co.jp>
+ <063D6719AE5E284EB5DD2968C1650D6D1CAD01D6@AcuExch.aculab.com>
+ <7F861DC0615E0C47A872E6F3C5FCDDBD05E090FE@BPXM14GP.gisp.nec.co.jp>
+ <F6FB0E698C9B3143BDF729DF222866469129BC03@ORSMSX110.amr.corp.intel.com>
+ <063D6719AE5E284EB5DD2968C1650D6D1CAD0C8A@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Daniel Borkmann <dborkman@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f50.google.com ([209.85.192.50]:37584 "EHLO
-	mail-qg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750960AbbAVSwl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jan 2015 13:52:41 -0500
-Received: by mail-qg0-f50.google.com with SMTP id f51so2658205qge.9
-        for <netdev@vger.kernel.org>; Thu, 22 Jan 2015 10:52:40 -0800 (PST)
-In-Reply-To: <1421919662-21066-3-git-send-email-dborkman@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Choi, Sy Jong" <sy.jong.choi@intel.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Hayato Momma <h-momma@ce.jp.nec.com>
+To: David Laight <David.Laight@ACULAB.COM>,
+	Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>,
+	=?utf-8?B?QmrDuHJuIE1vcms=?= <bjorn@mork.no>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CAD0C8A@AcuExch.aculab.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 22, 2015 at 1:41 AM, Daniel Borkmann <dborkman@redhat.com> wrote:
-> When creating a bpf classifier in tc with priority collisions and
-> invoking automatic unique handle assignment, cls_bpf_grab_new_handle()
-> will return a wrong handle id which in fact is non-unique. Usually
-> altering of specific filters is being addressed over major id, but
-> in case of collisions we result in a filter chain, where handle ids
-> address individual cls_bpf_progs inside the classifier.
->
-> Issue is, in cls_bpf_grab_new_handle() we probe for head->hgen handle
-> in cls_bpf_get() and in case we found a free handle, we're supposed
-> to use exactly head->hgen. In case of insufficient numbers of handles,
-> we bail out later as handle id 0 is not allowed.
->
-> Fixes: 7d1d65cb84e1 ("net: sched: cls_bpf: add BPF-based classifier")
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-> Acked-by: Jiri Pirko <jiri@resnulli.us>
-
-Acked-by: Alexei Starovoitov <ast@plumgrid.com>
-
-interesting bug. first time I'm looking at this bit and wondering
-why everyone copy pasting such hgenerator instead of using idr...
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBEYXZpZCBMYWlnaHQgW21haWx0
+bzpEYXZpZC5MYWlnaHRAQUNVTEFCLkNPTV0NCj4gU2VudDogVGh1cnNkYXksIEphbnVhcnkgMjIs
+IDIwMTUgMTo1MCBBTQ0KPiBUbzogU2tpZG1vcmUsIERvbmFsZCBDOyBIaXJvc2hpIFNoaW1hbW90
+bzsgQmrDuHJuIE1vcmsNCj4gQ2M6IGUxMDAwLWRldmVsQGxpc3RzLnNvdXJjZWZvcmdlLm5ldDsg
+bmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgQ2hvaSwgU3kNCj4gSm9uZzsgbGludXgta2VybmVsQHZn
+ZXIua2VybmVsLm9yZzsgSGF5YXRvIE1vbW1hDQo+IFN1YmplY3Q6IFJFOiBbRTEwMDAtZGV2ZWxd
+IFtQQVRDSCAxLzJdIGlmX2xpbms6IEFkZCBWRiBtdWx0aWNhc3QgcHJvbWlzY3VvdXMNCj4gbW9k
+ZSBjb250cm9sDQo+IA0KPiBGcm9tOiBTa2lkbW9yZSwgRG9uYWxkIEMNCj4gPiA+ID4gRnJvbTog
+SGlyb3NoaSBTaGltYW1vdG8NCj4gPiA+ID4gPiBNeSBjb25jZXJuIGlzIHdoYXQgaXMgdGhlIHJl
+YWwgaXNzdWUgdGhhdCBWRiBtdWx0aWNhc3QNCj4gPiA+ID4gPiBwcm9taXNjdW91cyBtb2RlDQo+
+ID4gPiBjYW4gY2F1c2UuDQo+ID4gPiA+ID4gSSB0aGluayB0aGVyZSBpcyB0aGUgNGsgZW50cmll
+cyB0byBmaWx0ZXIgbXVsdGljYXN0IGFkZHJlc3MsIGFuZA0KPiA+ID4gPiA+IHRoZSBjdXJyZW50
+IGl4Z2JlL2l4Z2JldmYgY2FuIHR1cm4gYWxsIGJpdHMgb24gZnJvbSBWTS4gVGhhdCBpcw0KPiA+
+ID4gPiA+IGFsbW9zdCBzYW1lIGFzDQo+ID4gPiBlbmFibGluZyBtdWx0aWNhc3QgcHJvbWlzY3Vv
+dXMgbW9kZS4NCj4gPiA+ID4gPiBJIG1lYW4gdGhhdCB3ZSBjYW4gcmVjZWl2ZSBhbGwgbXVsdGlj
+YXN0IGFkZHJlc3NlcyBieSBhbiBvbmVyb3VzDQo+ID4gPiBvcGVyYXRpb24gaW4gdW50cnVzdGVk
+IFZNLg0KPiA+ID4gPiA+IEkgdGhpbmsgd2Ugc2hvdWxkIGNsYXJpZnkgd2hhdCBpcyByZWFsIHNl
+Y3VyaXR5IGlzc3VlIGluIHRoaXMgY29udGV4dC4NCj4gPiA+ID4NCj4gPiA+ID4gSWYgeW91IGFy
+ZSB3b3JyaWVkIGFib3V0IHBhc3NpbmcgdW4tZW5hYmxlZCBtdWx0aWNhc3RzIHRvIHVzZXJzDQo+
+ID4gPiA+IHRoZW4gd2hhdCBhYm91dCBkb2luZyBhIHNvZnR3YXJlIGhhc2ggb2YgcmVjZWl2ZWQg
+bXVsdGljYXN0cyBhbmQNCj4gPiA+ID4gY2hlY2tpbmcgYWdhaW5zdCBhbiBhY3R1YWwgbGlzdCBv
+ZiBtdWx0aWNhc3RzIGVuYWJsZWQgZm9yIHRoYXQgaGFzaCBlbnRyeS4NCj4gPiA+ID4gVW5kZXIg
+bm9ybWFsIGNvbmRpdGlvbnMgdGhlcmUgaXMgbGlrZWx5IHRvIGJlIG9ubHkgYSBzaW5nbGUgYWRk
+cmVzcyB0bw0KPiBjaGVjay4NCj4gPiA+ID4NCj4gPiA+ID4gSXQgbWF5IChvciBtYXkgbm90KSBi
+ZSBiZXN0IHRvIHVzZSB0aGUgc2FtZSBoYXNoIGFzIGFueSBoYXNoaW5nDQo+ID4gPiA+IGhhcmR3
+YXJlIGZpbHRlciB1c2VzLg0KPiA+ID4NCj4gPiA+IHRoYW5rcyBmb3IgdGhlIGNvbW1lbnQuIEJ1
+dCBJIGRvbid0IHRoaW5rIHRoYXQgaXMgdGhlIHBvaW50Lg0KPiA+ID4NCj4gPiA+IEkgZ3Vlc3Ms
+IGludHJvZHVjaW5nIFZGIG11bHRpY2FzdCBwcm9taXNjdW91cyBtb2RlIHNlZW1zIHRvIGFkZCBu
+ZXcNCj4gPiA+IHByaXZpbGVnZSB0byBwZWVrIGV2ZXJ5IG11bHRpY2FzdCBwYWNrZXQgaW4gVk0g
+YW5kIHRoYXQgZG9lc24ndCBsb29rDQo+IGdvb2QuDQo+ID4gPiBPbiB0aGUgb3RoZXIgaGFuZCwg
+SSB0aGluayB0aGF0IHRoZXJlIGhhcyBiZWVuIHRoZSBzYW1lIHByaXZpbGVnZSBpbg0KPiA+ID4g
+dGhlIGN1cnJlbnQgaXhnYmUvaXhnYmV2ZiBpbXBsZW1lbnRhdGlvbiBhbHJlYWR5LiBPciBJJ20g
+cmVhZGluZyB0aGUNCj4gPiA+IGNvZGUgd3JvbmdseS4NCj4gPiA+IEknZCBsaWtlIHRvIGNsYXJp
+Znkgd2hhdCBpcyB0aGUgaXNzdWUgb2YgYWxsb3dpbmcgdG8gcmVjZWl2ZSBhbGwgbXVsdGljYXN0
+DQo+IHBhY2tldHMuDQo+ID4NCj4gPiBBbGxvd2luZyBhIFZNIHRvIGdpdmUgaXRzZWxmIHRoZSBw
+cml2aWxlZ2Ugb2Ygc2VlaW5nIGV2ZXJ5IG11bHRpY2FzdA0KPiA+IHBhY2tldCBjb3VsZCBiZSBz
+ZWVuIGFzIGEgaG9sZSBpbiBWTSBpc29sYXRpb24uDQo+ID4gTm93IGlmIHRoZSBob3N0IHN5c3Rl
+bSBhbGxvd3MgdGhpcyBwb2xpY3kgSSBkb24ndCBzZWUgdGhpcyBhcyBhbiBpc3N1ZQ0KPiA+IGFz
+IHNvbWVvbmUgc3BlY2lmaWNhbGx5IGFsbG93ZWQgdGhpcyB0byBoYXBwZW4gYW5kIHRoZW4gbXVz
+dCBub3QgYmUNCj4gY29uY2VybmVkLg0KPiA+IFdlIGNvdWxkIGV2ZW4gbG9nIHRoYXQgaXQgaGFz
+IG9jY3VycmVkLCB3aGljaCBJIGJlbGlldmUgeW91ciBwYXRjaCBkaWQgZG8uDQo+ID4gVGhlIGlz
+c3VlIGlzIGFsc28gZnVydGhlciBtdWRkaWVkLCBhcyB5b3UgbWVudGlvbmVkIGFib3ZlLCBzaW5j
+ZSBzb21lDQo+ID4gb2YgdGhlc2UgbXVsdGljYXN0IHBhY2tldHMgYXJlIGxlYWtpbmcgYW55d2F5
+ICh0aGUgSFcgY3VycmVudGx5IHVzZXMgYSAxMg0KPiBiaXQgbWFzaykuDQo+ID4gSXQncyBqdXN0
+IHRoYXQgdGhpcyBjaGFuZ2Ugd291bGQgZ3JlYXRseSBlbmxhcmdlIHRoYXQgaG9sZSBmcm9tIGEN
+Cj4gPiBmcmFjdGlvbiB0byBhbGwgbXVsdGljYXN0IHBhY2tldHMuDQo+IA0KPiBXaHkgZG9lcyBp
+dCBoYXZlIGFueXRoaW5nIHRvIGRvIHdpdGggVk0gaXNvbGF0aW9uPw0KPiBJc24ndCBpcyBqdXN0
+IHRoZSBzYW1lIGFzIGlmIHRoZSBWTSB3ZXJlIGNvbm5lY3RlZCBkaXJlY3RseSB0byB0aGUgZXRo
+ZXJuZXQNCj4gY2FibGU/DQo+IA0KPiAJRGF2aWQNCg0KSSBkbyBzZWUgeW91ciBwb2ludC4gOikN
+Cg0KTXkgaGFuZyB1cCBpcyBtb3JlIHJlbGF0ZWQgdG86IHdpdGhvdXQgdGhlIG5vYiB0byBlbmFi
+bGUgaXQgKG9mZiBieSBkZWZhdWx0KSB3ZSBhcmUgbGV0dGluZyBvbmUgVkYgZGljdGF0ZSBwb2xp
+Y3kgZm9yIGFsbCB0aGUgb3RoZXIgVkZzIGFuZCB0aGUgUEYuICBJZiBvbmUgVkYgbmVlZHMgdG8g
+YmUgaW4gcHJvbWlzY3VvdXMgbXVsdGljYXN0IHNvIGlzIGV2ZXJ5b25lIGVsc2UuICBUaGVpciBz
+dGFja3Mgbm93IG5lZWRzIHRvIGRlYWwgd2l0aCBhbGwgdGhlIGV4dHJhIG11bHRpY2FzdCBwYWNr
+ZXRzLiAgQXMgeW91IHBvaW50IG91dCB0aGlzIG1pZ2h0IG5vdCBiZSBhIGRpcmVjdCBjb25jZXJu
+IGZvciBpc29sYXRpb24gaW4gdGhhdCB0aGUgVk0gY291bGQgaGF2ZSAnY2hvc2VuJyB0byBqb2lu
+IGFueSBNdWx0aWNhc3QgZ3JvdXAgYW5kIHNlZW4gdGhpcyB0cmFmZmljLiAgTXkgY29uY2VybiBv
+dmVyIGlzb2xhdGlvbiBpcyBvbmUgVkYgaGFzIGNob3NlbiB0aGF0IGFsbCB0aGUgb3RoZXIgVk0g
+bm93IGhhdmUgdG8gc2VlIHRoaXMgbXVsdGljYXN0IHRyYWZmaWMuDQoNClRoaXMgd2lsbCBlZmZl
+Y3QgcGVyZm9ybWFuY2UgYXMgdGhlc2UgcGFja2V0cyB3aWxsIG5lZWQgdG8gYmUgcmVwbGljYXRl
+ZC4gIFNvIG9uY2UgYWdhaW4gbXkgaXNzdWUgaXMgYSBWRiBpcyBtYWtpbmcgdGhlIHBvbGljeSBk
+ZWNpc2lvbiB0aGF0IGRvaW5nIHRoaXMgaXMgb2sgZm9yIHRoZSBlbnRpcmUgc3lzdGVtLiAgVGhh
+dCBzaG91bGQgYmUgdGhlIFBGJ3Mgam9iLg0KDQpEb2VzIHRoaXMgZ2l2ZSB5b3UgYSBiZXR0ZXIg
+aWRlYSB3aGVyZSBteSBjb25jZXJucyBsYXk/DQoNCg0K
