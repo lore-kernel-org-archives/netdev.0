@@ -1,80 +1,73 @@
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: [net PATCH v2 1/1] drivers: net: cpsw: discard dual emac default vlan configuration
-Date: Thu, 22 Jan 2015 15:19:22 +0530
-Message-ID: <1421920162-13398-1-git-send-email-mugunthanvnm@ti.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [E1000-devel] [PATCH 1/2] if_link: Add VF multicast promiscuous
+	mode control
+Date: Thu, 22 Jan 2015 09:50:00 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CAD0C8A@AcuExch.aculab.com>
+References: <7F861DC0615E0C47A872E6F3C5FCDDBD05E0734E@BPXM14GP.gisp.nec.co.jp>
+	<874mrlu18e.fsf@nemi.mork.no>
+ <7F861DC0615E0C47A872E6F3C5FCDDBD05E07B7C@BPXM14GP.gisp.nec.co.jp>
+ <F6FB0E698C9B3143BDF729DF222866469129B7F5@ORSMSX110.amr.corp.intel.com>
+ <7F861DC0615E0C47A872E6F3C5FCDDBD05E07F09@BPXM14GP.gisp.nec.co.jp>
+ <F6FB0E698C9B3143BDF729DF222866469129B844@ORSMSX110.amr.corp.intel.com>
+ <7F861DC0615E0C47A872E6F3C5FCDDBD05E08FF6@BPXM14GP.gisp.nec.co.jp>
+ <063D6719AE5E284EB5DD2968C1650D6D1CAD01D6@AcuExch.aculab.com>
+ <7F861DC0615E0C47A872E6F3C5FCDDBD05E090FE@BPXM14GP.gisp.nec.co.jp>
+ <F6FB0E698C9B3143BDF729DF222866469129BC03@ORSMSX110.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, Mugunthan V N <mugunthanvnm@ti.com>,
-	<stable@vger.kernel.org>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from comal.ext.ti.com ([198.47.26.152]:47808 "EHLO comal.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752496AbbAVJtX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Jan 2015 04:49:23 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Choi, Sy Jong" <sy.jong.choi@intel.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Hayato Momma <h-momma@ce.jp.nec.com>
+To: "'Skidmore, Donald C'" <donald.c.skidmore@intel.com>,
+	Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>,
+	=?utf-8?B?QmrDuHJuIE1vcms=?= <bjorn@mork.no>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <F6FB0E698C9B3143BDF729DF222866469129BC03@ORSMSX110.amr.corp.intel.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-In Dual EMAC, the default VLANs are used to segregate Rx packets between
-the ports, so adding the same default VLAN to the switch will affect the
-normal packet transfers. So returning error on addition of dual EMAC
-default VLANs.
-
-Even if EMAC 0 default port VLAN is added to EMAC 1, it will lead to
-break dual EMAC port separations.
-
-Fixes: d9ba8f9e6298 (driver: net: ethernet: cpsw: dual emac interface implementation)
-Cc: <stable@vger.kernel.org> # v3.9+
-Reported-by: Felipe Balbi <balbi@ti.com>
-Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
----
-
-Changes from initial version:
-* Fixed typo errors in comments and no code changes.
-
----
- drivers/net/ethernet/ti/cpsw.c | 22 ++++++++++++++++++++++
- 1 file changed, 22 insertions(+)
-
-diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index e068d48..a39131f 100644
---- a/drivers/net/ethernet/ti/cpsw.c
-+++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -1683,6 +1683,19 @@ static int cpsw_ndo_vlan_rx_add_vid(struct net_device *ndev,
- 	if (vid == priv->data.default_vlan)
- 		return 0;
- 
-+	if (priv->data.dual_emac) {
-+		/* In dual EMAC, reserved VLAN id should not be used for
-+		 * creating VLAN interfaces as this can break the dual
-+		 * EMAC port separation
-+		 */
-+		int i;
-+
-+		for (i = 0; i < priv->data.slaves; i++) {
-+			if (vid == priv->slaves[i].port_vlan)
-+				return -EINVAL;
-+		}
-+	}
-+
- 	dev_info(priv->dev, "Adding vlanid %d to vlan filter\n", vid);
- 	return cpsw_add_vlan_ale_entry(priv, vid);
- }
-@@ -1696,6 +1709,15 @@ static int cpsw_ndo_vlan_rx_kill_vid(struct net_device *ndev,
- 	if (vid == priv->data.default_vlan)
- 		return 0;
- 
-+	if (priv->data.dual_emac) {
-+		int i;
-+
-+		for (i = 0; i < priv->data.slaves; i++) {
-+			if (vid == priv->slaves[i].port_vlan)
-+				return -EINVAL;
-+		}
-+	}
-+
- 	dev_info(priv->dev, "removing vlanid %d from vlan filter\n", vid);
- 	ret = cpsw_ale_del_vlan(priv->ale, vid, 0);
- 	if (ret != 0)
--- 
-2.2.1.62.g3f15098
+RnJvbTogU2tpZG1vcmUsIERvbmFsZCBDIA0KPiA+ID4gRnJvbTogSGlyb3NoaSBTaGltYW1vdG8N
+Cj4gPiA+ID4gTXkgY29uY2VybiBpcyB3aGF0IGlzIHRoZSByZWFsIGlzc3VlIHRoYXQgVkYgbXVs
+dGljYXN0IHByb21pc2N1b3VzIG1vZGUNCj4gPiBjYW4gY2F1c2UuDQo+ID4gPiA+IEkgdGhpbmsg
+dGhlcmUgaXMgdGhlIDRrIGVudHJpZXMgdG8gZmlsdGVyIG11bHRpY2FzdCBhZGRyZXNzLCBhbmQg
+dGhlDQo+ID4gPiA+IGN1cnJlbnQgaXhnYmUvaXhnYmV2ZiBjYW4gdHVybiBhbGwgYml0cyBvbiBm
+cm9tIFZNLiBUaGF0IGlzIGFsbW9zdCBzYW1lIGFzDQo+ID4gZW5hYmxpbmcgbXVsdGljYXN0IHBy
+b21pc2N1b3VzIG1vZGUuDQo+ID4gPiA+IEkgbWVhbiB0aGF0IHdlIGNhbiByZWNlaXZlIGFsbCBt
+dWx0aWNhc3QgYWRkcmVzc2VzIGJ5IGFuIG9uZXJvdXMNCj4gPiBvcGVyYXRpb24gaW4gdW50cnVz
+dGVkIFZNLg0KPiA+ID4gPiBJIHRoaW5rIHdlIHNob3VsZCBjbGFyaWZ5IHdoYXQgaXMgcmVhbCBz
+ZWN1cml0eSBpc3N1ZSBpbiB0aGlzIGNvbnRleHQuDQo+ID4gPg0KPiA+ID4gSWYgeW91IGFyZSB3
+b3JyaWVkIGFib3V0IHBhc3NpbmcgdW4tZW5hYmxlZCBtdWx0aWNhc3RzIHRvIHVzZXJzIHRoZW4N
+Cj4gPiA+IHdoYXQgYWJvdXQgZG9pbmcgYSBzb2Z0d2FyZSBoYXNoIG9mIHJlY2VpdmVkIG11bHRp
+Y2FzdHMgYW5kIGNoZWNraW5nDQo+ID4gPiBhZ2FpbnN0IGFuIGFjdHVhbCBsaXN0IG9mIG11bHRp
+Y2FzdHMgZW5hYmxlZCBmb3IgdGhhdCBoYXNoIGVudHJ5Lg0KPiA+ID4gVW5kZXIgbm9ybWFsIGNv
+bmRpdGlvbnMgdGhlcmUgaXMgbGlrZWx5IHRvIGJlIG9ubHkgYSBzaW5nbGUgYWRkcmVzcyB0byBj
+aGVjay4NCj4gPiA+DQo+ID4gPiBJdCBtYXkgKG9yIG1heSBub3QpIGJlIGJlc3QgdG8gdXNlIHRo
+ZSBzYW1lIGhhc2ggYXMgYW55IGhhc2hpbmcNCj4gPiA+IGhhcmR3YXJlIGZpbHRlciB1c2VzLg0K
+PiA+DQo+ID4gdGhhbmtzIGZvciB0aGUgY29tbWVudC4gQnV0IEkgZG9uJ3QgdGhpbmsgdGhhdCBp
+cyB0aGUgcG9pbnQuDQo+ID4NCj4gPiBJIGd1ZXNzLCBpbnRyb2R1Y2luZyBWRiBtdWx0aWNhc3Qg
+cHJvbWlzY3VvdXMgbW9kZSBzZWVtcyB0byBhZGQgbmV3DQo+ID4gcHJpdmlsZWdlIHRvIHBlZWsg
+ZXZlcnkgbXVsdGljYXN0IHBhY2tldCBpbiBWTSBhbmQgdGhhdCBkb2Vzbid0IGxvb2sgZ29vZC4N
+Cj4gPiBPbiB0aGUgb3RoZXIgaGFuZCwgSSB0aGluayB0aGF0IHRoZXJlIGhhcyBiZWVuIHRoZSBz
+YW1lIHByaXZpbGVnZSBpbiB0aGUNCj4gPiBjdXJyZW50IGl4Z2JlL2l4Z2JldmYgaW1wbGVtZW50
+YXRpb24gYWxyZWFkeS4gT3IgSSdtIHJlYWRpbmcgdGhlIGNvZGUNCj4gPiB3cm9uZ2x5Lg0KPiA+
+IEknZCBsaWtlIHRvIGNsYXJpZnkgd2hhdCBpcyB0aGUgaXNzdWUgb2YgYWxsb3dpbmcgdG8gcmVj
+ZWl2ZSBhbGwgbXVsdGljYXN0IHBhY2tldHMuDQo+IA0KPiBBbGxvd2luZyBhIFZNIHRvIGdpdmUg
+aXRzZWxmIHRoZSBwcml2aWxlZ2Ugb2Ygc2VlaW5nIGV2ZXJ5IG11bHRpY2FzdCBwYWNrZXQNCj4g
+Y291bGQgYmUgc2VlbiBhcyBhIGhvbGUgaW4gVk0gaXNvbGF0aW9uLg0KPiBOb3cgaWYgdGhlIGhv
+c3Qgc3lzdGVtIGFsbG93cyB0aGlzIHBvbGljeSBJIGRvbid0IHNlZSB0aGlzIGFzIGFuIGlzc3Vl
+IGFzDQo+IHNvbWVvbmUgc3BlY2lmaWNhbGx5IGFsbG93ZWQgdGhpcyB0byBoYXBwZW4gYW5kIHRo
+ZW4gbXVzdCBub3QgYmUgY29uY2VybmVkLg0KPiBXZSBjb3VsZCBldmVuIGxvZyB0aGF0IGl0IGhh
+cyBvY2N1cnJlZCwgd2hpY2ggSSBiZWxpZXZlIHlvdXIgcGF0Y2ggZGlkIGRvLg0KPiBUaGUgaXNz
+dWUgaXMgYWxzbyBmdXJ0aGVyIG11ZGRpZWQsIGFzIHlvdSBtZW50aW9uZWQgYWJvdmUsIHNpbmNl
+IHNvbWUgb2YNCj4gdGhlc2UgbXVsdGljYXN0IHBhY2tldHMgYXJlIGxlYWtpbmcgYW55d2F5ICh0
+aGUgSFcgY3VycmVudGx5IHVzZXMgYSAxMiBiaXQgbWFzaykuDQo+IEl0J3MganVzdCB0aGF0IHRo
+aXMgY2hhbmdlIHdvdWxkIGdyZWF0bHkgZW5sYXJnZSB0aGF0IGhvbGUgZnJvbSBhIGZyYWN0aW9u
+IHRvDQo+IGFsbCBtdWx0aWNhc3QgcGFja2V0cy4NCg0KV2h5IGRvZXMgaXQgaGF2ZSBhbnl0aGlu
+ZyB0byBkbyB3aXRoIFZNIGlzb2xhdGlvbj8NCklzbid0IGlzIGp1c3QgdGhlIHNhbWUgYXMgaWYg
+dGhlIFZNIHdlcmUgY29ubmVjdGVkIGRpcmVjdGx5IHRvIHRoZQ0KZXRoZXJuZXQgY2FibGU/DQoN
+CglEYXZpZA0KDQo=
