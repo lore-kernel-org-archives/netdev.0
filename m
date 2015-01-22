@@ -1,53 +1,50 @@
-From: Joe Stringer <joestringer-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH net-next v14 2/5] openvswitch: Refactor
-	ovs_flow_tbl_insert().
-Date: Wed, 21 Jan 2015 16:42:49 -0800
-Message-ID: <1421887372-56414-3-git-send-email-joestringer@nicira.com>
+From: Joe Stringer <joestringer@nicira.com>
+Subject: [PATCH net-next v14 4/5] genetlink: Add genlmsg_parse() helper function.
+Date: Wed, 21 Jan 2015 16:42:51 -0800
+Message-ID: <1421887372-56414-5-git-send-email-joestringer@nicira.com>
 References: <1421887372-56414-1-git-send-email-joestringer@nicira.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1421887372-56414-1-git-send-email-joestringer-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Cc: linux-kernel@vger.kernel.org, dev@openvswitch.org,
+	pshelar@nicira.com
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1421887372-56414-1-git-send-email-joestringer@nicira.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-UmV3b3JrIHNvIHRoYXQgb3ZzX2Zsb3dfdGJsX2luc2VydCgpIGNhbGxzIGZsb3dfe2tleSxtYXNr
-fV9pbnNlcnQoKS4KVGhpcyB0aWRpZXMgdXAgYSBmdXR1cmUgcGF0Y2guCgpTaWduZWQtb2ZmLWJ5
-OiBKb2UgU3RyaW5nZXIgPGpvZXN0cmluZ2VyQG5pY2lyYS5jb20+Ci0tLQogbmV0L29wZW52c3dp
-dGNoL2Zsb3dfdGFibGUuYyB8ICAgMjEgKysrKysrKysrKysrKystLS0tLS0tCiAxIGZpbGUgY2hh
-bmdlZCwgMTQgaW5zZXJ0aW9ucygrKSwgNyBkZWxldGlvbnMoLSkKCmRpZmYgLS1naXQgYS9uZXQv
-b3BlbnZzd2l0Y2gvZmxvd190YWJsZS5jIGIvbmV0L29wZW52c3dpdGNoL2Zsb3dfdGFibGUuYwpp
-bmRleCA1ODk5YmYxLi44MWI5NzdkIDEwMDY0NAotLS0gYS9uZXQvb3BlbnZzd2l0Y2gvZmxvd190
-YWJsZS5jCisrKyBiL25ldC9vcGVudnN3aXRjaC9mbG93X3RhYmxlLmMKQEAgLTU4NSwxNiArNTg1
-LDEwIEBAIHN0YXRpYyBpbnQgZmxvd19tYXNrX2luc2VydChzdHJ1Y3QgZmxvd190YWJsZSAqdGJs
-LCBzdHJ1Y3Qgc3dfZmxvdyAqZmxvdywKIH0KIAogLyogTXVzdCBiZSBjYWxsZWQgd2l0aCBPVlMg
-bXV0ZXggaGVsZC4gKi8KLWludCBvdnNfZmxvd190YmxfaW5zZXJ0KHN0cnVjdCBmbG93X3RhYmxl
-ICp0YWJsZSwgc3RydWN0IHN3X2Zsb3cgKmZsb3csCi0JCQljb25zdCBzdHJ1Y3Qgc3dfZmxvd19t
-YXNrICptYXNrKQorc3RhdGljIHZvaWQgZmxvd19rZXlfaW5zZXJ0KHN0cnVjdCBmbG93X3RhYmxl
-ICp0YWJsZSwgc3RydWN0IHN3X2Zsb3cgKmZsb3cpCiB7CiAJc3RydWN0IHRhYmxlX2luc3RhbmNl
-ICpuZXdfdGkgPSBOVUxMOwogCXN0cnVjdCB0YWJsZV9pbnN0YW5jZSAqdGk7Ci0JaW50IGVycjsK
-LQotCWVyciA9IGZsb3dfbWFza19pbnNlcnQodGFibGUsIGZsb3csIG1hc2spOwotCWlmIChlcnIp
-Ci0JCXJldHVybiBlcnI7CiAKIAlmbG93LT5oYXNoID0gZmxvd19oYXNoKCZmbG93LT5rZXksIGZs
-b3ctPm1hc2stPnJhbmdlLnN0YXJ0LAogCQkJZmxvdy0+bWFzay0+cmFuZ2UuZW5kKTsKQEAgLTYx
-Myw2ICs2MDcsMTkgQEAgaW50IG92c19mbG93X3RibF9pbnNlcnQoc3RydWN0IGZsb3dfdGFibGUg
-KnRhYmxlLCBzdHJ1Y3Qgc3dfZmxvdyAqZmxvdywKIAkJdGFibGVfaW5zdGFuY2VfZGVzdHJveSh0
-aSwgdHJ1ZSk7CiAJCXRhYmxlLT5sYXN0X3JlaGFzaCA9IGppZmZpZXM7CiAJfQorfQorCisvKiBN
-dXN0IGJlIGNhbGxlZCB3aXRoIE9WUyBtdXRleCBoZWxkLiAqLworaW50IG92c19mbG93X3RibF9p
-bnNlcnQoc3RydWN0IGZsb3dfdGFibGUgKnRhYmxlLCBzdHJ1Y3Qgc3dfZmxvdyAqZmxvdywKKwkJ
-CWNvbnN0IHN0cnVjdCBzd19mbG93X21hc2sgKm1hc2spCit7CisJaW50IGVycjsKKworCWVyciA9
-IGZsb3dfbWFza19pbnNlcnQodGFibGUsIGZsb3csIG1hc2spOworCWlmIChlcnIpCisJCXJldHVy
-biBlcnI7CisJZmxvd19rZXlfaW5zZXJ0KHRhYmxlLCBmbG93KTsKKwogCXJldHVybiAwOwogfQog
-Ci0tIAoxLjcuMTAuNAoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX18KZGV2IG1haWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVudnN3
-aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
+The first user will be the next patch.
+
+Signed-off-by: Joe Stringer <joestringer@nicira.com>
+---
+ include/net/genetlink.h |   17 +++++++++++++++++
+ 1 file changed, 17 insertions(+)
+
+diff --git a/include/net/genetlink.h b/include/net/genetlink.h
+index f24aa83..d5a9a8b 100644
+--- a/include/net/genetlink.h
++++ b/include/net/genetlink.h
+@@ -206,6 +206,23 @@ static inline struct nlmsghdr *genlmsg_nlhdr(void *user_hdr,
+ }
+ 
+ /**
++ * genlmsg_parse - parse attributes of a genetlink message
++ * @nlh: netlink message header
++ * @family: genetlink message family
++ * @tb: destination array with maxtype+1 elements
++ * @maxtype: maximum attribute type to be expected
++ * @policy: validation policy
++ * */
++static inline int genlmsg_parse(const struct nlmsghdr *nlh,
++				const struct genl_family *family,
++				struct nlattr *tb[], int maxtype,
++				const struct nla_policy *policy)
++{
++	return nlmsg_parse(nlh, family->hdrsize + GENL_HDRLEN, tb, maxtype,
++			   policy);
++}
++
++/**
+  * genl_dump_check_consistent - check if sequence is consistent and advertise if not
+  * @cb: netlink callback structure that stores the sequence number
+  * @user_hdr: user header as returned from genlmsg_put()
+-- 
+1.7.10.4
