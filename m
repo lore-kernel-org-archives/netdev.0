@@ -1,48 +1,50 @@
-From: Sonic Zhang <sonic.adi@gmail.com>
-Subject: [PATCH 1/3] stmmac: if force_thresh_dma_mode is set, pass tc to both txmode and rxmode in tx_hard_error_bump_tc interrupt
-Date: Thu, 22 Jan 2015 14:55:56 +0800
-Message-ID: <1421909758-31359-1-git-send-email-sonic.adi@gmail.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 3/3] netlink: Lock out table resizes while dumping
+ Netlink sockets
+Date: Thu, 22 Jan 2015 18:20:31 +1100
+Message-ID: <20150122072030.GA4039@gondor.apana.org.au>
+References: <20150120145551.GH20315@casper.infradead.org>
+ <20150120152149.GA3012@acer.localdomain>
+ <20150120153556.GJ20315@casper.infradead.org>
+ <20150121050819.GA23062@gondor.apana.org.au>
+ <20150121093722.GM20315@casper.infradead.org>
+ <20150121093836.GA25489@gondor.apana.org.au>
+ <20150121094928.GN20315@casper.infradead.org>
+ <20150121095837.GA25750@gondor.apana.org.au>
+ <20150121102346.GQ20315@casper.infradead.org>
+ <20150122063501.GA3746@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>,
-	<adi-buildroot-devel@lists.sourceforge.net>,
-	Sonic Zhang <sonic.zhang@analog.com>
-To: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2on0085.outbound.protection.outlook.com ([65.55.169.85]:61664
-	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751608AbbAVHOt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Jan 2015 02:14:49 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick McHardy <kaber@trash.net>, davem@davemloft.net,
+	paulmck@linux.vnet.ibm.com, ying.xue@windriver.com,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	Eric Dumazet <edumazet@google.com>
+To: Thomas Graf <tgraf@suug.ch>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20150122063501.GA3746@gondor.apana.org.au>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Sonic Zhang <sonic.zhang@analog.com>
+On Thu, Jan 22, 2015 at 05:35:01PM +1100, Herbert Xu wrote:
+> On Wed, Jan 21, 2015 at 10:23:46AM +0000, Thomas Graf wrote:
+> >
+> > The usage will be identical to how __inet_lookup_listener() uses it.
+> > If at the end of the lookup, we ended up in a different table than
+> > we started, the lookup is restarted as an entry has moved to another
+> > table while we were moving over it.
+> 
+> Who uses this stuff apart from ip_dynaddr?
 
-Dont' pass SF_DMA_MODE to rxmode in this case.
+OK it's there for fast socket recycling.  Given that and the fact
+that everyone seems to be happy with restarting the dump after a
+resize, I think we should just go with that.
 
-Signed-off-by: Sonic Zhang <sonic.zhang@analog.com>
----
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |    6 +++++-
- 1 file changed, 5 insertions(+), 1 deletion(-)
+Anybody who wants a better walk can always implement their own
+data structure outside of rhashtable.
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 8c6b7c1..5edfc8a 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -1446,7 +1446,11 @@ static void stmmac_dma_interrupt(struct stmmac_priv *priv)
- 		/* Try to bump up the dma threshold on this failure */
- 		if (unlikely(tc != SF_DMA_MODE) && (tc <= 256)) {
- 			tc += 64;
--			priv->hw->dma->dma_mode(priv->ioaddr, tc, SF_DMA_MODE);
-+			if (priv->plat->force_thresh_dma_mode)
-+				priv->hw->dma->dma_mode(priv->ioaddr, tc, tc);
-+			else
-+				priv->hw->dma->dma_mode(priv->ioaddr, tc,
-+					SF_DMA_MODE);
- 			priv->xstats.threshold = tc;
- 		}
- 	} else if (unlikely(status == tx_hard_error))
+Cheers,
 -- 
-1.7.9.5
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
