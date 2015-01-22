@@ -1,50 +1,53 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 3/3] netlink: Lock out table resizes while dumping
- Netlink sockets
-Date: Thu, 22 Jan 2015 18:20:31 +1100
-Message-ID: <20150122072030.GA4039@gondor.apana.org.au>
-References: <20150120145551.GH20315@casper.infradead.org>
- <20150120152149.GA3012@acer.localdomain>
- <20150120153556.GJ20315@casper.infradead.org>
- <20150121050819.GA23062@gondor.apana.org.au>
- <20150121093722.GM20315@casper.infradead.org>
- <20150121093836.GA25489@gondor.apana.org.au>
- <20150121094928.GN20315@casper.infradead.org>
- <20150121095837.GA25750@gondor.apana.org.au>
- <20150121102346.GQ20315@casper.infradead.org>
- <20150122063501.GA3746@gondor.apana.org.au>
+From: Sonic Zhang <sonic.adi@gmail.com>
+Subject: [PATCH 2/3] stmmac: hardware TX COE doesn't work when force_thresh_dma_mode is set
+Date: Thu, 22 Jan 2015 14:55:57 +0800
+Message-ID: <1421909758-31359-2-git-send-email-sonic.adi@gmail.com>
+References: <1421909758-31359-1-git-send-email-sonic.adi@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>, davem@davemloft.net,
-	paulmck@linux.vnet.ibm.com, ying.xue@windriver.com,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	Eric Dumazet <edumazet@google.com>
-To: Thomas Graf <tgraf@suug.ch>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150122063501.GA3746@gondor.apana.org.au>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>,
+	<adi-buildroot-devel@lists.sourceforge.net>,
+	Sonic Zhang <sonic.zhang@analog.com>
+To: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bl2on0065.outbound.protection.outlook.com ([65.55.169.65]:64480
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751336AbbAVHa4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 Jan 2015 02:30:56 -0500
+In-Reply-To: <1421909758-31359-1-git-send-email-sonic.adi@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 22, 2015 at 05:35:01PM +1100, Herbert Xu wrote:
-> On Wed, Jan 21, 2015 at 10:23:46AM +0000, Thomas Graf wrote:
-> >
-> > The usage will be identical to how __inet_lookup_listener() uses it.
-> > If at the end of the lookup, we ended up in a different table than
-> > we started, the lookup is restarted as an entry has moved to another
-> > table while we were moving over it.
-> 
-> Who uses this stuff apart from ip_dynaddr?
+From: Sonic Zhang <sonic.zhang@analog.com>
 
-OK it's there for fast socket recycling.  Given that and the fact
-that everyone seems to be happy with restarting the dump after a
-resize, I think we should just go with that.
+Clear the TX COE bit when force_thresh_dma_mode is set even hardware
+dma capability says support.
 
-Anybody who wants a better walk can always implement their own
-data structure outside of rhashtable.
+Tested on BF609.
 
-Cheers,
+Signed-off-by: Sonic Zhang <sonic.zhang@analog.com>
+---
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |    6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index 5edfc8a..7a7385a 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -2746,7 +2746,11 @@ static int stmmac_hw_init(struct stmmac_priv *priv)
+ 		priv->plat->enh_desc = priv->dma_cap.enh_desc;
+ 		priv->plat->pmt = priv->dma_cap.pmt_remote_wake_up;
+ 
+-		priv->plat->tx_coe = priv->dma_cap.tx_coe;
++		/* TXCOE doesn't work in thresh DMA mode */
++		if (priv->plat->force_thresh_dma_mode)
++			priv->plat->tx_coe = 0;
++		else
++			priv->plat->tx_coe = priv->dma_cap.tx_coe;
+ 
+ 		if (priv->dma_cap.rx_coe_type2)
+ 			priv->plat->rx_coe = STMMAC_RX_COE_TYPE2;
 -- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+1.7.9.5
