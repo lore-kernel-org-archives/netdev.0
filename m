@@ -1,59 +1,33 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 2/2] flow_dissector: add tipc support
-Date: Thu, 22 Jan 2015 09:29:11 -0800
-Message-ID: <1421947751.3471.12.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1421943032-29924-1-git-send-email-erik.hugne@ericsson.com>
-	 <1421943032-29924-2-git-send-email-erik.hugne@ericsson.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH] samples/bpf: Fix test_maps/bpf_get_next_key() test
+Date: Thu, 22 Jan 2015 09:32:43 -0800
+Message-ID: <CAADnVQ+3exrhp8bS50HEnMrYdg4i3+K7c6ewNZHRkBqtW-uwOA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: richard.alpe@ericsson.com, netdev@vger.kernel.org,
-	jon.maloy@ericsson.com, ying.xue@windriver.com,
-	tipc-discussion@lists.sourceforge.net
-To: erik.hugne@ericsson.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f178.google.com ([209.85.223.178]:63954 "EHLO
-	mail-ie0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752276AbbAVR3Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jan 2015 12:29:16 -0500
-Received: by mail-ie0-f178.google.com with SMTP id rp18so2591860iec.9
-        for <netdev@vger.kernel.org>; Thu, 22 Jan 2015 09:29:15 -0800 (PST)
-In-Reply-To: <1421943032-29924-2-git-send-email-erik.hugne@ericsson.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Alexei Starovoitov <ast@kernel.org>,
+	Martin Schwidefsky <schwidefsky@de.ibm.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Michael Holzheu <holzheu@linux.vnet.ibm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2015-01-22 at 17:10 +0100, erik.hugne@ericsson.com wrote:
-> From: Erik Hugne <erik.hugne@ericsson.com>
-> 
-> The flows are hashed on the sending node address, which allows us
-> to spread out the TIPC link processing to RPS enabled cores. There
-> is no point to include the destination address in the hash as that
-> will always be the same for all inbound links. We have experimented
-> with a 3-tuple hash over [srcnode, sport, dport], but this showed to
-> give slightly lower performance because of increased lock contention
-> when the same link was handled by multiple cores.
-> 
-> Signed-off-by: Ying Xue <ying.xue@windriver.com>
-> Signed-off-by: Erik Hugne <erik.hugne@ericsson.com>
-> Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
-> ---
->  net/core/flow_dissector.c | 14 ++++++++++++++
->  1 file changed, 14 insertions(+)
-> 
-> diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-> index 4508493..beb83d1 100644
-> --- a/net/core/flow_dissector.c
-> +++ b/net/core/flow_dissector.c
-> @@ -178,6 +178,20 @@ ipv6:
->  			return false;
->  		}
->  	}
-> +	case htons(ETH_P_TIPC): {
-> +		struct {
-> +			__be32 pre[3];
-> +			__be32 srcnode;
-> +		} *hdr, _hdr;
+On Thu, Jan 22, 2015 at 8:01 AM, Michael Holzheu
+<holzheu@linux.vnet.ibm.com> wrote:
+> Looks like the "test_maps" test case expects to get the keys in
+> the wrong order when iterating over the elements:
+>
+> test_maps: samples/bpf/test_maps.c:79: test_hashmap_sanity: Assertion
+> `bpf_get_next_key(map_fd, &key, &next_key) == 0 && next_key == 2' failed.
+> Aborted
+>
+> Fix this and test for the correct order.
 
-Is this header defined somewhere in an include file ?
-
-This looks a bit ugly to locally define the format...
+that will break this test on x86...
+we need to understand first why the order of two elements
+came out different on s390...
+Could it be that jhash() produced different hash for the same
+values on x86 vs s390 ?
+The better fix for the test is probably not to assume AB or BA
+order, but accept both.
