@@ -1,59 +1,45 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] netxen: fix netxen_nic_poll() logic
-Date: Thu, 22 Jan 2015 07:56:18 -0800
-Message-ID: <1421942178.3471.10.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1421901805.5286.37.camel@marge.simpson.net>
-	 <1421906274.4832.35.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1421907358.5286.42.camel@marge.simpson.net>
-	 <1421909520.3471.2.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1421915821.5286.71.camel@marge.simpson.net>
+From: =?UTF-8?B?Si5QdWrDsw==?= <jpujob@gmail.com>
+Subject: ITECIR 8710 not recognized by any kernel
+Date: Thu, 22 Jan 2015 17:00:53 +0100
+Message-ID: <CAO39EDh1RCAC46=+MFYkxFzH5ZcZ00G866SBNfFxWLyOvDdo-g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Manish Chopra <manish.chopra@qlogic.com>
-To: Mike Galbraith <umgwanakikbuti@gmail.com>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f177.google.com ([209.85.223.177]:46508 "EHLO
-	mail-ie0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752971AbbAVP4U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jan 2015 10:56:20 -0500
-Received: by mail-ie0-f177.google.com with SMTP id vy18so2076638iec.8
-        for <netdev@vger.kernel.org>; Thu, 22 Jan 2015 07:56:20 -0800 (PST)
-In-Reply-To: <1421915821.5286.71.camel@marge.simpson.net>
+Received: from mail-ob0-f176.google.com ([209.85.214.176]:51495 "EHLO
+	mail-ob0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751188AbbAVQBO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jan 2015 11:01:14 -0500
+Received: by mail-ob0-f176.google.com with SMTP id va2so2168895obc.7
+        for <netdev@vger.kernel.org>; Thu, 22 Jan 2015 08:01:14 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+Hello,
 
-NAPI poll logic now enforces that a poller returns exactly the budget
-when it wants to be called again.
+My laptop comes with a ITECIR 8710 infrared receiver, but is not
+recognized by any kernel. I tried newer and older versions but nothing
+changed.
 
-If a driver limits TX completion, it has to return budget as well when
-the limit is hit, not the number of received packets.
+It's an integrated infrared receiver, which is working like a charm on
+Windows partition, so the device is working (obviously, not in Linux).
 
-Reported-and-tested-by: Mike Galbraith <umgwanakikbuti@gmail.com>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Fixes: d75b1ade567f ("net: less interrupt masking in NAPI")
-Cc: Manish Chopra <manish.chopra@qlogic.com>
----
- drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c |    5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
+I tried to search on the net, but I couldn't see anything useful to
+make it work with Linux. I guess the drivers never were developed. Is
+that possible?
 
-diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c b/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
-index 613037584d08..c531c8ae1be4 100644
---- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
-+++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
-@@ -2388,7 +2388,10 @@ static int netxen_nic_poll(struct napi_struct *napi, int budget)
- 
- 	work_done = netxen_process_rcv_ring(sds_ring, budget);
- 
--	if ((work_done < budget) && tx_complete) {
-+	if (!tx_complete)
-+		work_done = budget;
-+
-+	if (work_done < budget) {
- 		napi_complete(&sds_ring->napi);
- 		if (test_bit(__NX_DEV_UP, &adapter->state))
- 			netxen_nic_enable_int(sds_ring);
+Moreover, there is no /dev/lircX nor /sys/class/rc on my system. So
+it's not recognized at all.
+
+Here you have journalctl, dmesg, lsusb, lspci and lircd log.
+
+journalctl: https://dl.dropboxusercontent.com/u/2135959/journalctl.txt
+dmesg: https://dl.dropboxusercontent.com/u/2135959/dmesg.txt
+lsusb: https://dl.dropboxusercontent.com/u/2135959/lsusb.txt
+lspci: https://dl.dropboxusercontent.com/u/2135959/lspci.txt
+lircd: https://dl.dropboxusercontent.com/u/2135959/lircd
+
+Let me know if you need more info or details and if it's possible to
+make it work with Linux.
+
+Thanks.
