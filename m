@@ -1,54 +1,43 @@
-From: Mike Galbraith <umgwanakikbuti@gmail.com>
-Subject: Re: netxen: box stuck in netxen_napi_disable()
-Date: Thu, 22 Jan 2015 09:37:01 +0100
-Message-ID: <1421915821.5286.71.camel@marge.simpson.net>
-References: <1421901805.5286.37.camel@marge.simpson.net>
-	 <1421906274.4832.35.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1421907358.5286.42.camel@marge.simpson.net>
-	 <1421909520.3471.2.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 2/3] netlink: Mark dumps as inconsistent which have been
+ interrupted by a resize
+Date: Thu, 22 Jan 2015 19:49:24 +1100
+Message-ID: <20150122084924.GA4720@gondor.apana.org.au>
+References: <cover.1421759056.git.tgraf@suug.ch>
+ <cce004895ab6bcef267e2133a1c7ecab0fac403b.1421759056.git.tgraf@suug.ch>
+ <54BF5FC4.4070808@windriver.com>
+ <20150121121748.GD12570@casper.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Ying Xue <ying.xue@windriver.com>, davem@davemloft.net,
+	kaber@trash.net, paulmck@linux.vnet.ibm.com,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f172.google.com ([209.85.212.172]:61871 "EHLO
-	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750861AbbAVIhG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jan 2015 03:37:06 -0500
-Received: by mail-wi0-f172.google.com with SMTP id bs8so41876342wib.5
-        for <netdev@vger.kernel.org>; Thu, 22 Jan 2015 00:37:04 -0800 (PST)
-In-Reply-To: <1421909520.3471.2.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from helcar.apana.org.au ([209.40.204.226]:51322 "EHLO
+	helcar.apana.org.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751493AbbAVItu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jan 2015 03:49:50 -0500
+Content-Disposition: inline
+In-Reply-To: <20150121121748.GD12570@casper.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2015-01-21 at 22:52 -0800, Eric Dumazet wrote: 
-> On Thu, 2015-01-22 at 07:15 +0100, Mike Galbraith wrote:
-> > On Wed, 2015-01-21 at 21:57 -0800, Eric Dumazet wrote:
-> > 
-> > > This driver doesn't follow the NAPI model correctly.
-> > > 
-> > > Please try following fix :
-> > 
-> > Thanks Eric, I'll plug it in in a bit and poke at it.  No news is good
-> > news, as good as news gets for unknown repeatability bugs that is ;-)
+On Wed, Jan 21, 2015 at 12:17:48PM +0000, Thomas Graf wrote:
+>
+> Thanks for the review. We also need to avoid hitting 0 when we overflow
+> on a seq increment.  The netfilter code is doing this correctly but several
+> other users are suffering from this as well.
 > 
-> To trigger the bug, all you had to do was to stress the transmit side.
+> I'll address this in v2 together with the other discussed changes.
 
-Nope, it's easier than that...
+Could you hold off for a bit? I've got some changes that touch
+this area that I'd like to push out.  Basically I'm trying to
+eliminate direct access of rhashtable internals from the existing
+users.
 
-> You could reduce MAX_STATUS_HANDLE from 64 to 4 to trigger it even
-> faster.
-
-Wow, that made it amazingly easy to verify.
-
-With MAX_STATUS_HANDLE=4, without your patch applied box hangs as soon
-as I bring the network up.  Add your patch on top, all is peachy.  Fresh
-boot, or rmmod/modprobe and network restart, doesn't matter, box works
-with your patch, is dead without it.
-
-Here's an ornament for the fix if you think it'll look prettier :)
-
-Reported-and-tested-by: Mike Galbraith <umgwanakikbuti@gmail.com>
-
--Mike
+Thanks,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
