@@ -1,76 +1,74 @@
-From: <erik.hugne@ericsson.com>
-Subject: [PATCH net-next 2/2] flow_dissector: add tipc
-	support
-Date: Thu, 22 Jan 2015 17:10:32 +0100
-Message-ID: <1421943032-29924-2-git-send-email-erik.hugne@ericsson.com>
-References: <1421943032-29924-1-git-send-email-erik.hugne@ericsson.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next RFC] tc: introduce OpenFlow classifier
+Date: Thu, 22 Jan 2015 17:16:00 +0100
+Message-ID: <20150122161600.GD1863@nanopsycho.orion>
+References: <1421933824-17916-1-git-send-email-jiri@resnulli.us>
+ <54C11C4A.1070206@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: tipc-discussion@lists.sourceforge.net
-To: <richard.alpe@ericsson.com>, <netdev@vger.kernel.org>,
-	<jon.maloy@ericsson.com>, <ying.xue@windriver.com>
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-In-Reply-To: <1421943032-29924-1-git-send-email-erik.hugne@ericsson.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Jamal Hadi Salim <jhs@mojatatu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f170.google.com ([209.85.212.170]:62015 "EHLO
+	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753104AbbAVQQD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jan 2015 11:16:03 -0500
+Received: by mail-wi0-f170.google.com with SMTP id em10so22698718wid.1
+        for <netdev@vger.kernel.org>; Thu, 22 Jan 2015 08:16:02 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <54C11C4A.1070206@mojatatu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Erik Hugne <erik.hugne@ericsson.com>
+Thu, Jan 22, 2015 at 04:50:34PM CET, jhs@mojatatu.com wrote:
+>On 01/22/15 08:37, Jiri Pirko wrote:
+>>This patch introduces OpenFlow-based filter. So far, the very essential
+>>packet fields are supported (according to OpenFlow v1.4 spec).
+>>
+>>Known issues: skb_flow_dissect hashes out ipv6 addresses. That needs
+>>to be changed to store them somewhere so they can be used later on.
+>>
+>>Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+>>---
+>>  include/uapi/linux/pkt_cls.h |  33 +++
+>>  net/sched/Kconfig            |  11 +
+>>  net/sched/Makefile           |   1 +
+>>  net/sched/cls_openflow.c     | 514 +++++++++++++++++++++++++++++++++++++++++++
+>>  4 files changed, 559 insertions(+)
+>>  create mode 100644 net/sched/cls_openflow.c
+>>
+>>diff --git a/include/uapi/linux/pkt_cls.h b/include/uapi/linux/pkt_cls.h
+>>index 25731df..d4cef16 100644
+>>--- a/include/uapi/linux/pkt_cls.h
+>>+++ b/include/uapi/linux/pkt_cls.h
+>>@@ -402,6 +402,39 @@ enum {
+>>
+>>  #define TCA_BPF_MAX (__TCA_BPF_MAX - 1)
+>>
+>>+/* OpenFlow classifier */
+>>+
+>>+enum {
+>>+	TCA_OF_UNSPEC,
+>>+	TCA_OF_CLASSID,
+>>+	TCA_OF_POLICE,
+>>+	TCA_OF_INDEV,
+>
+>I think POLICE is an old way of doing policing and INDEV if i am not
+>mistaken is only legit for u32 classifier.
+>So i am not sure you want to keep them.
 
-The flows are hashed on the sending node address, which allows us
-to spread out the TIPC link processing to RPS enabled cores. There
-is no point to include the destination address in the hash as that
-will always be the same for all inbound links. We have experimented
-with a 3-tuple hash over [srcnode, sport, dport], but this showed to
-give slightly lower performance because of increased lock contention
-when the same link was handled by multiple cores.
+I use INDEV for matching skb input device. I can move this to
+TCA_OF_KEY_INDEV but since I spotted TCA_*_INDEV, I made this to be the
+same.
 
-Signed-off-by: Ying Xue <ying.xue@windriver.com>
-Signed-off-by: Erik Hugne <erik.hugne@ericsson.com>
-Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
----
- net/core/flow_dissector.c | 14 ++++++++++++++
- 1 file changed, 14 insertions(+)
+The POLICE, I just copied from the other cls's
 
-diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 4508493..beb83d1 100644
---- a/net/core/flow_dissector.c
-+++ b/net/core/flow_dissector.c
-@@ -178,6 +178,20 @@ ipv6:
- 			return false;
- 		}
- 	}
-+	case htons(ETH_P_TIPC): {
-+		struct {
-+			__be32 pre[3];
-+			__be32 srcnode;
-+		} *hdr, _hdr;
-+		hdr = __skb_header_pointer(skb, nhoff, sizeof(_hdr), data, hlen, &_hdr);
-+		if (!hdr)
-+			return false;
-+		flow->src = hdr->srcnode;
-+		flow->dst = 0;
-+		flow->n_proto = proto;
-+		flow->thoff = (u16)nhoff;
-+		return true;
-+	}
- 	case htons(ETH_P_FCOE):
- 		flow->thoff = (u16)(nhoff + FCOE_HEADER_LEN);
- 		/* fall through */
--- 
-2.1.3
+>
+>Other than that looks good - will be interested to see how perfomance looks
+>on this with the list walking ;->
 
+I plan to do some optimizations as follow-ups. (hash list for example)
 
-------------------------------------------------------------------------------
-New Year. New Location. New Benefits. New Data Center in Ashburn, VA.
-GigeNET is offering a free month of service with a new server in Ashburn.
-Choose from 2 high performing configs, both with 100TB of bandwidth.
-Higher redundancy.Lower latency.Increased capacity.Completely compliant.
-http://p.sf.net/sfu/gigenet
+>
+>cheers,
+>jamal
