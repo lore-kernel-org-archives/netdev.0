@@ -1,91 +1,70 @@
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: Re: [net PATCH 1/1] drivers: net: cpsw: discard dual emac default
- vlan configuration
-Date: Thu, 22 Jan 2015 13:50:26 +0530
-Message-ID: <54C0B2CA.1080001@ti.com>
-References: <1421756740-32180-1-git-send-email-mugunthanvnm@ti.com> <54BE6573.1040801@cogentembedded.com>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: [PATCH 3/3] stmmac: Add an optional device tree property "snps,burst_len"
+Date: Thu, 22 Jan 2015 09:20:25 +0100
+Message-ID: <54C0B2C9.9000907@st.com>
+References: <1421909758-31359-1-git-send-email-sonic.adi@gmail.com> <1421909758-31359-3-git-send-email-sonic.adi@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <stable@vger.kernel.org>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	<netdev@vger.kernel.org>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <54BE6573.1040801@cogentembedded.com>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <netdev@vger.kernel.org>,
+	<adi-buildroot-devel@lists.sourceforge.net>,
+	Sonic Zhang <sonic.zhang@analog.com>
+To: Sonic Zhang <sonic.adi@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx08-00178001.pphosted.com ([91.207.212.93]:41045 "EHLO
+	mx08-00178001.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751401AbbAVIUo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jan 2015 03:20:44 -0500
+In-Reply-To: <1421909758-31359-3-git-send-email-sonic.adi@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 20 January 2015 07:55 PM, Sergei Shtylyov wrote:
-> Hello.
-> 
-> On 1/20/2015 3:25 PM, Mugunthan V N wrote:
-> 
->> In Dual EMAC, the default vlans are used to segregate rx packets between
-> 
->    VLANs. And RX.
-> 
->> the ports, so adding the same default vlan to the switch will affect the
-> 
->    VLAN.
-> 
->> normal packet transfers. So returning error on addition of dual emac
-> 
->    EMAC.
-> 
->> default vlans.
-> 
->    VLANs.
-> 
->> Even if emac 0 default port vlan is added to emac 1, it will lead to
-> 
->    EMAC. And VLAN
-> 
->> break
-> 
->    Breaking.
-> 
->> dual EMAC port seperations.
-> 
->    Separations.
-> 
->> Fixes: d9ba8f9 (driver: net: ethernet: cpsw: dual emac interface
->> implementation)
-> 
->    12 hex digits, please.
-> 
->> Cc: <stable@vger.kernel.org> # v3.9+
->> Reported-by: Felipe Balbi <balbi@ti.com>
->> Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
->> ---
->>   drivers/net/ethernet/ti/cpsw.c | 22 ++++++++++++++++++++++
->>   1 file changed, 22 insertions(+)
-> 
->> diff --git a/drivers/net/ethernet/ti/cpsw.c
->> b/drivers/net/ethernet/ti/cpsw.c
->> index e068d48..7c32815 100644
->> --- a/drivers/net/ethernet/ti/cpsw.c
->> +++ b/drivers/net/ethernet/ti/cpsw.c
->> @@ -1683,6 +1683,19 @@ static int cpsw_ndo_vlan_rx_add_vid(struct
->> net_device *ndev,
->>       if (vid == priv->data.default_vlan)
->>           return 0;
->>
->> +    if (priv->data.dual_emac) {
->> +        /* In dual EMAC, reserved VLAN id should not be used of
-> 
->    s/of/for/, perhaps?
-> 
->> +         * creating vlan interfaces as this can break the dual
-> 
->    s/vlan/VLAN/. Be consistent, please.
-> 
->> +         * EMAC port seperation
-> 
->    Separation.
-> 
-> [...]
+On 1/22/2015 7:55 AM, Sonic Zhang wrote:
+> From: Sonic Zhang <sonic.zhang@analog.com>
+>
+> This property define the AXI bug lenth.
 
-Will fix this and resubmit next version.
+Hello
 
-Regards
-Mugunthan V N
+I can accept this patch for now. So thx :-)
+
+FYI, I will send a set of patches to program the AXI Bus mode
+register providing more parameters from DT.
+
+Peppe
+
+>
+> Signed-off-by: Sonic Zhang <sonic.zhang@analog.com>
+> ---
+>   Documentation/devicetree/bindings/net/stmmac.txt   |    1 +
+>   .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |    3 +++
+>   2 files changed, 4 insertions(+)
+>
+> diff --git a/Documentation/devicetree/bindings/net/stmmac.txt b/Documentation/devicetree/bindings/net/stmmac.txt
+> index c41afd9..8ca65ce 100644
+> --- a/Documentation/devicetree/bindings/net/stmmac.txt
+> +++ b/Documentation/devicetree/bindings/net/stmmac.txt
+> @@ -43,6 +43,7 @@ Optional properties:
+>     available this clock is used for programming the Timestamp Addend Register.
+>     If not passed then the system clock will be used and this is fine on some
+>     platforms.
+> +- snps,burst_len: The AXI burst lenth value of the AXI BUS MODE register.
+>
+>   Examples:
+>
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+> index 3039de2..a20cf0d 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+> @@ -234,6 +234,9 @@ static int stmmac_probe_config_dt(struct platform_device *pdev,
+>   			of_property_read_bool(np, "snps,fixed-burst");
+>   		dma_cfg->mixed_burst =
+>   			of_property_read_bool(np, "snps,mixed-burst");
+> +		of_property_read_u32(np, "snps,burst_len", &dma_cfg->burst_len);
+> +		if (dma_cfg->burst_len < 0 || dma_cfg->burst_len > 256)
+> +			dma_cfg->burst_len = 0;
+>   	}
+>   	plat->force_thresh_dma_mode = of_property_read_bool(np, "snps,force_thresh_dma_mode");
+>   	if (plat->force_thresh_dma_mode) {
+>
