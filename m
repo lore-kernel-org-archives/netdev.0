@@ -1,67 +1,59 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: Re: [RFC PATCH] net: ipv6: Make address flushing on ifdown optional
-Date: Fri, 23 Jan 2015 16:17:04 -0500
-Message-ID: <54C2BA50.6080208@hp.com>
-References: <1421263039-96198-1-git-send-email-dsahern@gmail.com> <54C27220.7020600@hp.com> <54C2919A.2050707@gmail.com>
+From: Sasha Levin <sasha.levin@oracle.com>
+Subject: net: raw socket accessing invalid memory
+Date: Fri, 23 Jan 2015 17:18:45 -0500
+Message-ID: <54C2C8C5.7020300@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 8bit
-Cc: hannes@redhat.com
-To: David Ahern <dsahern@gmail.com>, netdev@vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>,
+	James Morris <james.l.morris@oracle.com>,
+	yoshfuji@linux-ipv6.org, Patrick McHardy <kaber@trash.net>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Dave Jones <davej@redhat.com>,
+	Andrey Ryabinin <a.ryabinin@samsung.com>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t3426.houston.hp.com ([15.201.208.54]:44602 "EHLO
-	g4t3426.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751582AbbAWVRG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jan 2015 16:17:06 -0500
-In-Reply-To: <54C2919A.2050707@gmail.com>
+Received: from userp1040.oracle.com ([156.151.31.81]:43192 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750913AbbAWWTX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jan 2015 17:19:23 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/23/2015 01:23 PM, David Ahern wrote:
+Hi all,
 
->>> Add a new sysctl to make this behavior optional. Setting defaults to flush
->>> addresses to maintain backwards compatibility. When reset flushing is bypassed:
->>>
->>> [root@f20 ~]# echo 0 > /proc/sys/net/ipv6/conf/eth1/flush_addr_on_down
->>> [root@f20 ~]# ip -6 addr add dev eth1 2000:11:1:1::1/64
->>> [root@f20 ~]# ip addr show dev eth1
->>> 3: eth1: <BROADCAST,MULTICAST> mtu 1500 qdisc pfifo_fast state DOWN group
->>> default qlen 1000
->>>      link/ether 02:04:11:22:33:01 brd ff:ff:ff:ff:ff:ff
->>>      inet6 2000:11:1:1::1/64 scope global tentative
->>>         valid_lft forever preferred_lft forever
->>> [root@f20 ~]#  ip link set dev eth1 up
->>> [root@f20 ~]#  ip link set dev eth1 down
->>> [root@f20 ~]# ip addr show dev eth1
->>> 3: eth1: <BROADCAST,MULTICAST> mtu 1500 qdisc pfifo_fast state DOWN group
->>> default qlen 1000
->>>      link/ether 02:04:11:22:33:01 brd ff:ff:ff:ff:ff:ff
->>>      inet6 2000:11:1:1::1/64 scope global
->>>         valid_lft forever preferred_lft forever
->>>      inet6 fe80::4:11ff:fe22:3301/64 scope link
->>>         valid_lft forever preferred_lft forever
->>
->> I think this was brought up in a previous thread on this, but don't you have to
->> do DAD on these addresses once the interface comes back up?  Some other system
->> could have come along, done DAD, succeeded, and is now using it.  Or does the
->> use of this flag assume the user is Ok without doing DAD, and will deal with the
->> fallout?
-> 
-> You have the same problem today, don't you? Current code allows an IPv6 address
-> to be configured on interface in the down state. The intent of this sysctl is to
-> allow that address to stay on an up-down cycle.
+While fuzzing with trinity inside a KVM tools guest running the latest -next
+kernel and the KASan patchset, I've stumbled on the following spew:
 
-Yes, looks like ndisc_send_skb() never returns any lower-level error back up to
-the caller, so it's assumed the Neighbour Advertisement is always sent.
-Although the address will be marked "tentative" until IFF_UP is set.
+[ 2560.693067] BUG: AddressSanitizer: out of bounds on stack in memcpy_fromiovec+0x24d/0x260 at addr ffff880200697dd0
+[ 2560.693067] Read of size 8 by task trinity-c9/25362
+[ 2560.693067] page:ffffea000801a5c0 count:0 mapcount:0 mapping:          (null) index:0x0
+[ 2560.693067] flags: 0x1afffff80000000()
+[ 2560.693067] page dumped because: kasan: bad access detected
+[ 2560.693067] CPU: 9 PID: 25362 Comm: trinity-c9 Not tainted 3.19.0-rc5-next-20150121-sasha-00064-g3c37e35-dirty #1810
+[ 2560.693067]  0000000000000000 0000000000000000 ffff880200697790 ffff8802006976d8
+[ 2560.693067]  ffffffff92e9e8b7 1ffffd40010034bf ffffea000801a5c0 ffff880200697778
+[ 2560.693067]  ffffffff81b4a7b2 ffffed00629442ba dffffc0000000000 ffffed00629442b8
+[ 2560.693067] Call Trace:
+[ 2560.693067] dump_stack (lib/dump_stack.c:52)
+[ 2560.693067] kasan_report_error (mm/kasan/report.c:136 mm/kasan/report.c:194)
+[ 2560.693067] __asan_report_load8_noabort (mm/kasan/report.c:236)
+[ 2560.693067] memcpy_fromiovec (lib/iovec.c:14)
+[ 2560.693067] raw_sendmsg (net/ipv4/raw.c:444 net/ipv4/raw.c:606)
+[ 2560.693067] inet_sendmsg (net/ipv4/af_inet.c:734)
+[ 2560.693067] ? inet_sendmsg (include/net/sock.h:875 net/ipv4/af_inet.c:726)
+[ 2560.693067] do_sock_sendmsg (net/socket.c:645 (discriminator 4))
+[ 2560.771124] SYSC_sendto (net/socket.c:1782)
+[ 2560.794593] SyS_sendto (net/socket.c:1748)
+[ 2560.794593] tracesys_phase2 (arch/x86/kernel/entry_64.S:530)
+[ 2560.794593] Memory state around the buggy address:
+[ 2560.794593]  ffff880200697c80: 00 f4 f4 f3 f3 f3 f3 00 00 00 00 00 00 00 00 00
+[ 2560.794593]  ffff880200697d00: 00 00 00 f1 f1 f1 f1 04 f4 f4 f4 f2 f2 f2 f2 04
+[ 2560.794593] >ffff880200697d80: f4 f4 f4 f2 f2 f2 f2 00 00 f4 f4 f2 f2 f2 f2 00
+[ 2560.794593]                                                  ^
+[ 2560.794593]  ffff880200697e00: 00 00 00 00 00 00 00 00 00 f4 f4 f2 f2 f2 f2 00
+[ 2560.794593]  ffff880200697e80: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 f3
 
-> I don't have a strong IPv6 background so the first email thread and this RFC
-> patch are both asking first and foremost if there is any harm in this behavior.
-> None has been raised - so far. To maintain backwards compatibility this is a new
-> option which when reset allows the addresses to be retained (not flushed).
 
-Seems as though you're in an RFC grey area then.  Personally, I'd do DAD, even
-though the possibility of a collision is always very small.  But that's just my
-opinion.
-
--Brian
+Thanks,
+Sasha
