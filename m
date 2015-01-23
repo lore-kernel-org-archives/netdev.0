@@ -1,57 +1,119 @@
-From: Manish Chopra <manish.chopra@qlogic.com>
-Subject: RE: [PATCH net] netxen: fix netxen_nic_poll() logic
-Date: Fri, 23 Jan 2015 10:59:19 +0000
-Message-ID: <31AFFC7280259C4184970ABA9AFE8B93E08BDDAC@avmb3.qlogic.org>
-References: <1421901805.5286.37.camel@marge.simpson.net>
-	 <1421906274.4832.35.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1421907358.5286.42.camel@marge.simpson.net>
-	 <1421909520.3471.2.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1421915821.5286.71.camel@marge.simpson.net>
- <1421942178.3471.10.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	Mike Galbraith <umgwanakikbuti@gmail.com>,
-	David Miller <davem@davemloft.net>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: [PATCH net v3] ipv4: try to cache dst_entries which would cause a redirect
+Date: Fri, 23 Jan 2015 12:01:26 +0100
+Message-ID: <996db187263dc0419ea3ab4d6e3fad4c0e0e5b44.1422010254.git.hannes@stressinduktion.org>
+Cc: Julian Anastasov <ja@ssi.bg>,
+	Marcelo Leitner <mleitner@redhat.com>,
+	Florian Westphal <fw@strlen.de>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:61175 "EHLO
-	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752409AbbAWK70 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jan 2015 05:59:26 -0500
-In-Reply-To: <1421942178.3471.10.camel@edumazet-glaptop2.roam.corp.google.com>
-Content-Language: en-US
+Received: from out3-smtp.messagingengine.com ([66.111.4.27]:60046 "EHLO
+	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752409AbbAWLBd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jan 2015 06:01:33 -0500
+Received: from compute1.internal (compute1.nyi.internal [10.202.2.41])
+	by mailout.nyi.internal (Postfix) with ESMTP id 3DFF120873
+	for <netdev@vger.kernel.org>; Fri, 23 Jan 2015 06:01:33 -0500 (EST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBFcmljIER1bWF6ZXQgW21haWx0
-bzplcmljLmR1bWF6ZXRAZ21haWwuY29tXQ0KPiBTZW50OiBUaHVyc2RheSwgSmFudWFyeSAyMiwg
-MjAxNSA5OjI2IFBNDQo+IFRvOiBNaWtlIEdhbGJyYWl0aDsgRGF2aWQgTWlsbGVyDQo+IENjOiBu
-ZXRkZXY7IE1hbmlzaCBDaG9wcmENCj4gU3ViamVjdDogW1BBVENIIG5ldF0gbmV0eGVuOiBmaXgg
-bmV0eGVuX25pY19wb2xsKCkgbG9naWMNCj4gDQo+IEZyb206IEVyaWMgRHVtYXpldCA8ZWR1bWF6
-ZXRAZ29vZ2xlLmNvbT4NCj4gDQo+IE5BUEkgcG9sbCBsb2dpYyBub3cgZW5mb3JjZXMgdGhhdCBh
-IHBvbGxlciByZXR1cm5zIGV4YWN0bHkgdGhlIGJ1ZGdldCB3aGVuIGl0DQo+IHdhbnRzIHRvIGJl
-IGNhbGxlZCBhZ2Fpbi4NCj4gDQo+IElmIGEgZHJpdmVyIGxpbWl0cyBUWCBjb21wbGV0aW9uLCBp
-dCBoYXMgdG8gcmV0dXJuIGJ1ZGdldCBhcyB3ZWxsIHdoZW4gdGhlIGxpbWl0IGlzDQo+IGhpdCwg
-bm90IHRoZSBudW1iZXIgb2YgcmVjZWl2ZWQgcGFja2V0cy4NCj4gDQo+IFJlcG9ydGVkLWFuZC10
-ZXN0ZWQtYnk6IE1pa2UgR2FsYnJhaXRoIDx1bWd3YW5ha2lrYnV0aUBnbWFpbC5jb20+DQo+IFNp
-Z25lZC1vZmYtYnk6IEVyaWMgRHVtYXpldCA8ZWR1bWF6ZXRAZ29vZ2xlLmNvbT4NCj4gRml4ZXM6
-IGQ3NWIxYWRlNTY3ZiAoIm5ldDogbGVzcyBpbnRlcnJ1cHQgbWFza2luZyBpbiBOQVBJIikNCj4g
-Q2M6IE1hbmlzaCBDaG9wcmEgPG1hbmlzaC5jaG9wcmFAcWxvZ2ljLmNvbT4NCj4gLS0tDQo+ICBk
-cml2ZXJzL25ldC9ldGhlcm5ldC9xbG9naWMvbmV0eGVuL25ldHhlbl9uaWNfbWFpbi5jIHwgICAg
-NSArKysrLQ0KPiAgMSBmaWxlIGNoYW5nZWQsIDQgaW5zZXJ0aW9ucygrKSwgMSBkZWxldGlvbigt
-KQ0KPiANCj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L3Fsb2dpYy9uZXR4ZW4v
-bmV0eGVuX25pY19tYWluLmMNCj4gYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9xbG9naWMvbmV0eGVu
-L25ldHhlbl9uaWNfbWFpbi5jDQo+IGluZGV4IDYxMzAzNzU4NGQwOC4uYzUzMWM4YWUxYmU0IDEw
-MDY0NA0KPiAtLS0gYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9xbG9naWMvbmV0eGVuL25ldHhlbl9u
-aWNfbWFpbi5jDQo+ICsrKyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L3Fsb2dpYy9uZXR4ZW4vbmV0
-eGVuX25pY19tYWluLmMNCj4gQEAgLTIzODgsNyArMjM4OCwxMCBAQCBzdGF0aWMgaW50IG5ldHhl
-bl9uaWNfcG9sbChzdHJ1Y3QgbmFwaV9zdHJ1Y3QgKm5hcGksDQo+IGludCBidWRnZXQpDQo+IA0K
-PiAgCXdvcmtfZG9uZSA9IG5ldHhlbl9wcm9jZXNzX3Jjdl9yaW5nKHNkc19yaW5nLCBidWRnZXQp
-Ow0KPiANCj4gLQlpZiAoKHdvcmtfZG9uZSA8IGJ1ZGdldCkgJiYgdHhfY29tcGxldGUpIHsNCj4g
-KwlpZiAoIXR4X2NvbXBsZXRlKQ0KPiArCQl3b3JrX2RvbmUgPSBidWRnZXQ7DQo+ICsNCj4gKwlp
-ZiAod29ya19kb25lIDwgYnVkZ2V0KSB7DQo+ICAJCW5hcGlfY29tcGxldGUoJnNkc19yaW5nLT5u
-YXBpKTsNCj4gIAkJaWYgKHRlc3RfYml0KF9fTlhfREVWX1VQLCAmYWRhcHRlci0+c3RhdGUpKQ0K
-PiAgCQkJbmV0eGVuX25pY19lbmFibGVfaW50KHNkc19yaW5nKTsNCj4gDQpUaGFua3MgRXJpYy4N
-CkFja2VkLWJ5OiBNYW5pc2ggQ2hvcHJhIDxtYW5pc2guY2hvcHJhQHFsb2dpYy5jb20+DQoNCg==
+Not caching dst_entries which cause redirects could be exploited by hosts
+on the same subnet, causing a severe DoS attack. This effect aggravated
+since commit f88649721268999 ("ipv4: fix dst race in sk_dst_get()").
+
+Lookups causing redirects will be allocated with DST_NOCACHE set which
+will force dst_release to free them via RCU.  Unfortunately waiting for
+RCU grace period just takes too long, we can end up with >1M dst_entries
+waiting to be released and the system will run OOM. rcuos threads cannot
+catch up under high softirq load.
+
+Attaching the flag to emit a redirect later on to the specific skb allows
+us to cache those dst_entries thus reducing the pressure on allocation
+and deallocation.
+
+This issue was discovered by Marcelo Leitner.
+
+Cc: Julian Anastasov <ja@ssi.bg>
+Signed-off-by: Marcelo Leitner <mleitner@redhat.com>
+Signed-off-by: Florian Westphal <fw@strlen.de>
+Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+---
+v2:
+Julian noticed that v1 did omit the redirect flag in rtnetlink
+queries, fixed. Thanks!
+
+v3:
+Julian noticed that we could accidentally write into NEIGHCB, fixed
+and thanks again!
+
+ include/net/ip.h      | 11 ++++++-----
+ net/ipv4/ip_forward.c |  3 ++-
+ net/ipv4/route.c      |  9 +++++----
+ 3 files changed, 13 insertions(+), 10 deletions(-)
+
+diff --git a/include/net/ip.h b/include/net/ip.h
+index 0e5a0ba..14211ea 100644
+--- a/include/net/ip.h
++++ b/include/net/ip.h
+@@ -39,11 +39,12 @@ struct inet_skb_parm {
+ 	struct ip_options	opt;		/* Compiled IP options		*/
+ 	unsigned char		flags;
+ 
+-#define IPSKB_FORWARDED		1
+-#define IPSKB_XFRM_TUNNEL_SIZE	2
+-#define IPSKB_XFRM_TRANSFORMED	4
+-#define IPSKB_FRAG_COMPLETE	8
+-#define IPSKB_REROUTED		16
++#define IPSKB_FORWARDED		BIT(0)
++#define IPSKB_XFRM_TUNNEL_SIZE	BIT(1)
++#define IPSKB_XFRM_TRANSFORMED	BIT(2)
++#define IPSKB_FRAG_COMPLETE	BIT(3)
++#define IPSKB_REROUTED		BIT(4)
++#define IPSKB_DOREDIRECT	BIT(5)
+ 
+ 	u16			frag_max_size;
+ };
+diff --git a/net/ipv4/ip_forward.c b/net/ipv4/ip_forward.c
+index 3a83ce5..787b3c2 100644
+--- a/net/ipv4/ip_forward.c
++++ b/net/ipv4/ip_forward.c
+@@ -129,7 +129,8 @@ int ip_forward(struct sk_buff *skb)
+ 	 *	We now generate an ICMP HOST REDIRECT giving the route
+ 	 *	we calculated.
+ 	 */
+-	if (rt->rt_flags&RTCF_DOREDIRECT && !opt->srr && !skb_sec_path(skb))
++	if (IPCB(skb)->flags & IPSKB_DOREDIRECT && !opt->srr &&
++	    !skb_sec_path(skb))
+ 		ip_rt_send_redirect(skb);
+ 
+ 	skb->priority = rt_tos2priority(iph->tos);
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 2000110..0c63b2a 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -1567,11 +1567,10 @@ static int __mkroute_input(struct sk_buff *skb,
+ 
+ 	do_cache = res->fi && !itag;
+ 	if (out_dev == in_dev && err && IN_DEV_TX_REDIRECTS(out_dev) &&
++	    skb->protocol == htons(ETH_P_IP) &&
+ 	    (IN_DEV_SHARED_MEDIA(out_dev) ||
+-	     inet_addr_onlink(out_dev, saddr, FIB_RES_GW(*res)))) {
+-		flags |= RTCF_DOREDIRECT;
+-		do_cache = false;
+-	}
++	     inet_addr_onlink(out_dev, saddr, FIB_RES_GW(*res))))
++		IPCB(skb)->flags |= IPSKB_DOREDIRECT;
+ 
+ 	if (skb->protocol != htons(ETH_P_IP)) {
+ 		/* Not IP (i.e. ARP). Do not create route, if it is
+@@ -2316,6 +2315,8 @@ static int rt_fill_info(struct net *net,  __be32 dst, __be32 src,
+ 	r->rtm_flags	= (rt->rt_flags & ~0xFFFF) | RTM_F_CLONED;
+ 	if (rt->rt_flags & RTCF_NOTIFY)
+ 		r->rtm_flags |= RTM_F_NOTIFY;
++	if (IPCB(skb)->flags & IPSKB_DOREDIRECT)
++		r->rtm_flags |= RTCF_DOREDIRECT;
+ 
+ 	if (nla_put_be32(skb, RTA_DST, dst))
+ 		goto nla_put_failure;
+-- 
+2.1.0
