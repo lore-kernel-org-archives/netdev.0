@@ -1,64 +1,79 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH 1/2] ARM: EXYNOS: add fixed phy support for EXYNOS5440
-Date: Thu, 22 Jan 2015 20:12:58 -0800
-Message-ID: <54C1CA4A.4030703@gmail.com>
-References: <1421980893-14475-1-git-send-email-ming.lei@canonical.com> <1421980893-14475-2-git-send-email-ming.lei@canonical.com>
+Subject: Re: [PATCH 2/2] net: stmmac: add fixed_phy and phy_addr support using
+ DT file
+Date: Thu, 22 Jan 2015 20:15:25 -0800
+Message-ID: <54C1CADD.4060103@gmail.com>
+References: <1421980893-14475-1-git-send-email-ming.lei@canonical.com> <1421980893-14475-3-git-send-email-ming.lei@canonical.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-samsung-soc@vger.kernel.org,
-	Ike Panhc <ike.pan@canonical.com>, netdev@vger.kernel.org,
-	Ming Lei <ming.lei@canoncial.com>,
-	Kukjin Kim <kgene@kernel.org>, Byungho An <bh74.an@samsung.com>
-To: Ming Lei <ming.lei@canonical.com>,
-	linux-arm-kernel@lists.infradead.org,
+Cc: netdev@vger.kernel.org, linux-samsung-soc@vger.kernel.org,
+	Byungho An <bh74.an@samsung.com>, Kukjin Kim <kgene@kernel.org>
+To: linux-arm-kernel@lists.infradead.org,
 	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-samsung-soc-owner@vger.kernel.org>
-In-Reply-To: <1421980893-14475-2-git-send-email-ming.lei@canonical.com>
-Sender: linux-samsung-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f53.google.com ([209.85.218.53]:54450 "EHLO
+	mail-oi0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751911AbbAWEP2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jan 2015 23:15:28 -0500
+In-Reply-To: <1421980893-14475-3-git-send-email-ming.lei@canonical.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Le 22/01/2015 18:41, Ming Lei a =E9crit :
 > From: Byungho An <bh74.an@samsung.com>
 >=20
-> This patch adds fixed phy codes for Exynos5440. This patch can
-> support fixed_phy.
+> This patch adds codes for DT file support, fixed_phy and phy_addr=20
+> can be set in DT file.
 >=20
-> Signed-off-by: Byungho An <bh74.an@samsung.com> Signed-off-by: Ike
-> Panhc <ike.pan@canonical.com> Signed-off-by: Ming Lei
-> <ming.lei@canoncial.com> --- arch/arm/mach-exynos/exynos.c |   15
-> +++++++++++++++ 1 file changed, 15 insertions(+)
+> Signed-off-by: Byungho An <bh74.an@samsung.com> (bypass check for
+> fixed phy) Signed-off-by: Ming Lei<ming.lei@canonical.com> ---=20
+> drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |    5 ++++-=20
+> .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |    7 +++++++ 2
+> files changed, 11 insertions(+), 1 deletion(-)
 >=20
-> diff --git a/arch/arm/mach-exynos/exynos.c
-> b/arch/arm/mach-exynos/exynos.c index 78eca99b..dfd5699 100644 ---
-> a/arch/arm/mach-exynos/exynos.c +++
-> b/arch/arm/mach-exynos/exynos.c @@ -20,6 +20,8 @@ #include
-> <linux/platform_device.h> #include <linux/pm_domain.h> #include
-> <linux/irqchip.h> +#include <linux/phy.h> +#include
-> <linux/phy_fixed.h>
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c index
+> 8c6b7c16..ddb4351 100644 ---
+> a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c +++
+> b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c @@ -847,8
+> +847,11 @@ static int stmmac_init_phy(struct net_device *dev) * 0
+> rather than 0xffff. Catch this here and treat 0 as a non-existent *
+> device as well. * Note: phydev->phy_id is the result of reading the
+> UID PHY registers. +	 * But phy_id returned from fixed phy is
+> always zero, so bypass the +	 * check for fixed phy. */ -	if
+> (phydev->phy_id =3D=3D 0) { +	if (phydev->phy_id =3D=3D 0 &&
+> (!priv->plat->phy_bus_name || +
+> strcmp(priv->plat->phy_bus_name,"fixed"))) {=20
+> phy_disconnect(phydev); return -ENODEV; } diff --git
+> a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+> b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c index
+> 879e29f..4f11491 100644 ---
+> a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c +++
+> b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c @@ -128,6
+> +128,7 @@ static int stmmac_probe_config_dt(struct platform_device
+> *pdev, struct device_node *np =3D pdev->dev.of_node; struct
+> stmmac_dma_cfg *dma_cfg; const struct of_device_id *device; +	u32
+> phy_addr;
 >=20
-> #include <asm/cacheflush.h> #include <asm/hardware/cache-l2x0.h> @@
-> -202,8 +204,21 @@ static void __init exynos_init_irq(void)=20
-> exynos_map_pmu(); }
+> if (!np) return -ENODEV; @@ -217,6 +218,12 @@ static int
+> stmmac_probe_config_dt(struct platform_device *pdev, plat->pmt =3D
+> 1; }
 >=20
-> +static struct fixed_phy_status fixed_phy_status __initdata =3D { +
-> .link           =3D 1, +       .speed          =3D 1000, +
-> .duplex         =3D 1, +}; + static void __init
-> exynos_dt_machine_init(void) { +	struct device_node *gmac_np; +
-> unsigned int tmp; + +	/* add fixed phy in need */ +	gmac_np =3D
-> of_find_compatible_node(NULL, NULL, "snps,dwmac-3.70a"); +	if
-> (of_find_property(gmac_np, "fixed_phy", NULL)) +		tmp =3D
-> fixed_phy_add(PHY_POLL, 1, &fixed_phy_status);
+> +	if (of_find_property(np, "fixed_phy", NULL)) { +
+> plat->phy_bus_name =3D "fixed"; +		of_property_read_u32(np,
+> "phy_addr", &phy_addr); +		plat->phy_addr =3D phy_addr; +	}
 
-Is there a particular reason you are doing this and not using
-of_phy_is_fixed_link() and of_phy_register_fixed_link()?
+Humm, same here, it would look like you could use the existing Device
+Tree helpers for parsing and registering a fixed PHY here, provided
+that you use the proper binding though.
 
-See the gianfar and bcmsysport for examples on how to use it in a
-driver along with the relevant Device Tree binding in
-Documentation/devicetree/bindings/net/fixed-link.txt for examples.
+BTW, Ming Lei's email is bouncing, do we have an updated email he
+could be contacted with?
 
-> /* * This is called from smp_prepare_cpus if we've built for SMP,
-> but * we still need to set it up for PM and firmware ops if not.
+> + if (of_device_is_compatible(np, "snps,dwmac-3.610") ||=20
+> of_device_is_compatible(np, "snps,dwmac-3.710")) { plat->enh_desc =3D
+> 1;
 >=20
 
 
