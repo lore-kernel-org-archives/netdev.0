@@ -1,52 +1,61 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: Fwd: Question on SCTP ABORT chunk is generated when the association_max_retrans
- is reached
-Date: Fri, 23 Jan 2015 11:08:52 -0500
-Message-ID: <54C27214.9020003@gmail.com>
-References: <CAFXGftKp3=OfjkCVBuR-zM3+uZ42Sk_9i2UjAHBNnbX=hQJwpA@mail.gmail.com> <CAFXGft+fwo=8LJEG7h6uOpGciSo5f_dXjSx3sn67RZZp7jsYHw@mail.gmail.com>
+From: Brian Haley <brian.haley@hp.com>
+Subject: Re: [RFC PATCH] net: ipv6: Make address flushing on ifdown optional
+Date: Fri, 23 Jan 2015 11:09:04 -0500
+Message-ID: <54C27220.7020600@hp.com>
+References: <1421263039-96198-1-git-send-email-dsahern@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-To: Sun Paul <paulrbk@gmail.com>, linux-sctp@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAFXGft+fwo=8LJEG7h6uOpGciSo5f_dXjSx3sn67RZZp7jsYHw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 8bit
+Cc: hannes@redhat.com
+To: David Ahern <dsahern@gmail.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g4t3427.houston.hp.com ([15.201.208.55]:43096 "EHLO
+	g4t3427.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755856AbbAWQJG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jan 2015 11:09:06 -0500
+In-Reply-To: <1421263039-96198-1-git-send-email-dsahern@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/23/2015 05:25 AM, Sun Paul wrote:
-> Hi
+On 01/14/2015 02:17 PM, David Ahern wrote:
+> Currently, ipv6 addresses are flushed when the interface is configured down:
 > 
-> I would like to check the behave in LKSCTP.
+> [root@f20 ~]# ip -6 addr add dev eth1 2000:11:1:1::1/64
+> [root@f20 ~]# ip addr show dev eth1
+> 3: eth1: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN group default qlen 1000
+>     link/ether 02:04:11:22:33:01 brd ff:ff:ff:ff:ff:ff
+>     inet6 2000:11:1:1::1/64 scope global tentative
+>        valid_lft forever preferred_lft forever
+> [root@f20 ~]# ip link set dev eth1 up
+> [root@f20 ~]# ip link set dev eth1 down
+> [root@f20 ~]# ip addr show dev eth1
+> 3: eth1: <BROADCAST,MULTICAST> mtu 1500 qdisc pfifo_fast state DOWN group default qlen 1000
+>     link/ether 02:04:11:22:33:01 brd ff:ff:ff:ff:ff:ff
 > 
-> we are running DIAMETER message over SCTP, and we have set the
-> parameter "net.sctp.association_max_retrans = 4" in the LinuxOS.
+> Add a new sysctl to make this behavior optional. Setting defaults to flush
+> addresses to maintain backwards compatibility. When reset flushing is bypassed:
 > 
-> We noticed that when remote peer have retry to send the same request
-> for 4 times, the LKSCTP will initiate an ABORT chunk with reason
-> "association exceeded its max_retrans count".
-> 
-> We would like to know whether this is the correct behavior? is there
-> any other option that we can alter in order to avoid the ABORT chunk
-> being sent?
-> 
+> [root@f20 ~]# echo 0 > /proc/sys/net/ipv6/conf/eth1/flush_addr_on_down
+> [root@f20 ~]# ip -6 addr add dev eth1 2000:11:1:1::1/64
+> [root@f20 ~]# ip addr show dev eth1
+> 3: eth1: <BROADCAST,MULTICAST> mtu 1500 qdisc pfifo_fast state DOWN group default qlen 1000
+>     link/ether 02:04:11:22:33:01 brd ff:ff:ff:ff:ff:ff
+>     inet6 2000:11:1:1::1/64 scope global tentative
+>        valid_lft forever preferred_lft forever
+> [root@f20 ~]#  ip link set dev eth1 up
+> [root@f20 ~]#  ip link set dev eth1 down
+> [root@f20 ~]# ip addr show dev eth1
+> 3: eth1: <BROADCAST,MULTICAST> mtu 1500 qdisc pfifo_fast state DOWN group default qlen 1000
+>     link/ether 02:04:11:22:33:01 brd ff:ff:ff:ff:ff:ff
+>     inet6 2000:11:1:1::1/64 scope global
+>        valid_lft forever preferred_lft forever
+>     inet6 fe80::4:11ff:fe22:3301/64 scope link
+>        valid_lft forever preferred_lft forever
 
-Why do you not want ABORT to be sent? SCTP has attempted to retransmit
-the data maximum allows times, and at this point it will terminate
-the association.  It sends an ABORT notifying the peer of this, but
-most likely the peer is unreachable anyway.
+I think this was brought up in a previous thread on this, but don't you have to
+do DAD on these addresses once the interface comes back up?  Some other system
+could have come along, done DAD, succeeded, and is now using it.  Or does the
+use of this flag assume the user is Ok without doing DAD, and will deal with the
+fallout?
 
-Any message that a peer sends at this point will most likely result
-in an ABORT to be send back or an association restart.  Might
-as well start fresh.
-
--vlad
-
-> Thanks
-> 
-> PS
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+-Brian
