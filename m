@@ -1,70 +1,46 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 13/15] igb: Indicate failure on vf reset for empty mac address
-Date: Thu, 22 Jan 2015 18:37:09 -0800
-Message-ID: <1421980631-1955-14-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 12/15] fm10k: Increase the timeout for the data path reset
+Date: Thu, 22 Jan 2015 18:37:08 -0800
+Message-ID: <1421980631-1955-13-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1421980631-1955-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Alexander Graf <agraf@suse.de>, netdev@vger.kernel.org,
+Cc: Matthew Vick <matthew.vick@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:16347 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([192.55.52.115]:16352 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754188AbbAWChX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Jan 2015 21:37:23 -0500
+	id S1754024AbbAWChV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 Jan 2015 21:37:21 -0500
 In-Reply-To: <1421980631-1955-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Graf <agraf@suse.de>
+From: Matthew Vick <matthew.vick@intel.com>
 
-Commit 5ac6f91d changed the igb driver to expose a zero (empty) mac
-address to the VF on reset rather than a random one.
+Based on feedback from the hardware team, 100us is too short of a time
+to wait for the data path reset to complete and the recommendation is to
+increase this timeout to 150us.
 
-However, that behavioral change also requires igbvf driver changes
-which can be hard especially when we want to talk to proprietary
-guest OSs.
-
-Looking at the code previous to the commit in Linux that made igbvf
-work with empty mac addresses (8d56b6d), we can see that on reset
-failure the driver will try to generate a new mac address with both
-the old and the new code.
-
-Furthermore, ixgbe does send reset failure when it detects an empty
-mac address (35055928c).
-
-So I think it's safe to make igb behave the same. With this patch I
-can successfully run a Windows 8.1 guest with an empty mac address
-and an assigned igbvf device that has no mac address set by the host.
-
-If anyone is aware of a guest driver that chokes on NACK returns of
-VF RESET commands, please speak up.
-
-Signed-off-by: Alexander Graf <agraf@suse.de>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Signed-off-by: Matthew Vick <matthew.vick@intel.com>
+Tested-by: Krishneil Singh <Krishneil.k.singh@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/igb_main.c | 8 ++++++--
- 1 file changed, 6 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/fm10k/fm10k_type.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index 6e65449..f366b3b 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -6077,8 +6077,12 @@ static void igb_vf_reset_msg(struct igb_adapter *adapter, u32 vf)
- 	adapter->vf_data[vf].flags |= IGB_VF_FLAG_CTS;
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_type.h b/drivers/net/ethernet/intel/fm10k/fm10k_type.h
+index 280296f..7c6d9d5 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_type.h
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_type.h
+@@ -354,7 +354,7 @@ struct fm10k_hw;
  
- 	/* reply to reset with ack and vf mac address */
--	msgbuf[0] = E1000_VF_RESET | E1000_VT_MSGTYPE_ACK;
--	memcpy(addr, vf_mac, ETH_ALEN);
-+	if (!is_zero_ether_addr(vf_mac)) {
-+		msgbuf[0] = E1000_VF_RESET | E1000_VT_MSGTYPE_ACK;
-+		memcpy(addr, vf_mac, ETH_ALEN);
-+	} else {
-+		msgbuf[0] = E1000_VF_RESET | E1000_VT_MSGTYPE_NACK;
-+	}
- 	igb_write_mbx(hw, msgbuf, 3, vf);
- }
+ /* Define timeouts for resets and disables */
+ #define FM10K_QUEUE_DISABLE_TIMEOUT		100
+-#define FM10K_RESET_TIMEOUT			100
++#define FM10K_RESET_TIMEOUT			150
  
+ /* VF registers */
+ #define FM10K_VFCTRL		0x00000
 -- 
 1.9.3
