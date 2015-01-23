@@ -1,96 +1,234 @@
-From: roopa <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next v3 2/5] swdevice: add new api to set and del
- bridge port attributes
-Date: Fri, 23 Jan 2015 14:45:46 -0800
-Message-ID: <54C2CF1A.1080905@cumulusnetworks.com>
-References: <1421987606-10884-3-git-send-email-roopa@cumulusnetworks.com> <20150123104127.GC2065@nanopsycho.orion> <54C26FC1.70605@cumulusnetworks.com> <20150123160636.GM2065@nanopsycho.orion>
+From: Jonathan Toppins <jtoppins@cumulusnetworks.com>
+Subject: Re: [PATCH net-next 1/5] bonding: keep bond interface carrier off
+ until at least one active member
+Date: Fri, 23 Jan 2015 18:04:59 -0500
+Message-ID: <54C2D39B.7070104@cumulusnetworks.com>
+References: <1421423848-414-1-git-send-email-jtoppins@cumulusnetworks.com> <1421423848-414-2-git-send-email-jtoppins@cumulusnetworks.com> <20956.1421702213@famine> <54BF3786.9050505@cumulusnetworks.com> <5368.1421824444@famine>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: sfeldma@gmail.com, jhs@mojatatu.com, bcrl@kvack.org, tgraf@suug.ch,
-	john.fastabend@gmail.com, stephen@networkplumber.org,
-	vyasevic@redhat.com, ronen.arad@intel.com, netdev@vger.kernel.org,
-	davem@davemloft.net, shm@cumulusnetworks.com,
-	gospo@cumulusnetworks.com
-To: Jiri Pirko <jiri@resnulli.us>
+Cc: netdev@vger.kernel.org, Scott Feldman <sfeldma@gmail.com>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>,
+	Veaceslav Falico <vfalico@gmail.com>,
+	Nikolay Aleksandrov <nikolay@redhat.com>
+To: Jay Vosburgh <jay.vosburgh@canonical.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f170.google.com ([209.85.192.170]:59257 "EHLO
-	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752718AbbAWWpr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jan 2015 17:45:47 -0500
-Received: by mail-pd0-f170.google.com with SMTP id p10so197867pdj.1
-        for <netdev@vger.kernel.org>; Fri, 23 Jan 2015 14:45:47 -0800 (PST)
-In-Reply-To: <20150123160636.GM2065@nanopsycho.orion>
+Received: from mail-qc0-f173.google.com ([209.85.216.173]:47514 "EHLO
+	mail-qc0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751395AbbAWXFB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jan 2015 18:05:01 -0500
+Received: by mail-qc0-f173.google.com with SMTP id m20so143399qcx.4
+        for <netdev@vger.kernel.org>; Fri, 23 Jan 2015 15:05:00 -0800 (PST)
+In-Reply-To: <5368.1421824444@famine>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 1/23/15, 8:06 AM, Jiri Pirko wrote:
-> Fri, Jan 23, 2015 at 04:58:57PM CET, roopa@cumulusnetworks.com wrote:
->> On 1/23/15, 2:41 AM, Jiri Pirko wrote:
->>
->> <snip..>
->>> +
->>> +/**
->>> + *	netdev_switch_port_bridge_dellink - Notify switch device port of bridge
->>> + *	attribute delete
->>> + *
->>> + *	@dev: port device
->>> + *	@nlh: netlink msg with bridge port attributes
->>> + *
->>> + *	Notify switch device port of bridge port attribute delete
->>> + */
->>> +int netdev_switch_port_bridge_dellink(struct net_device *dev,
->>> +				      struct nlmsghdr *nlh, u16 flags)
->>> +{
->>> +	const struct net_device_ops *ops = dev->netdev_ops;
->>> +	struct net_device *lower_dev;
->>> +	struct list_head *iter;
->>> +	int ret = 0, err = 0;
->>> +
->>> +	if (!(dev->features & NETIF_F_HW_NETFUNC_OFFLOAD))
->>> +		return err;
->>> +
->>> +	if (ops->ndo_bridge_dellink) {
->>> +		WARN_ON(!ops->ndo_switch_parent_id_get);
->>> +		return ops->ndo_bridge_dellink(dev, nlh, flags);
->>> +	}
->>> +
->>> +	netdev_for_each_lower_dev(dev, lower_dev, iter) {
->>> +		err = netdev_switch_port_bridge_dellink(lower_dev, nlh, flags);
->>> +		if (err)
->>> +			ret = err;
->>> +	}
->>> +
->>> +	return ret;
->>> +}
->>> +EXPORT_SYMBOL(netdev_switch_port_bridge_dellink);
->>> -- 
->>> 1.7.10.4
->>>
->>> Is there any other place, other than bridge code, this functions are
->>> suppored to be called from?
->> No other place today. Its usually the master that implements
->> ndo_bridge_setlink/dellink.
->>
->>> If not, which I consider likely, it would
->>> make more sense to me to:
->>>
->>> - move netdev_for_each_lower_dev iterations directly to bridge code
->>> - let the masters (bond, team, ..) implement ndo_bridge_*link and do
->>>    the traversing there (can be in a form of pre-prepared default
->>>    ndo callback (ndo_dflt_netdev_switch_port_bridge_*link)
->> But, i am still not understanding why i would modify bond, team and other
->> slaves
-> Well, that is the usual way to propagate ndo calls. People are used to
-> this. It is visible right away in bonding/other code that is propagated
-> some ndo call to slaves. With your code, that is somehow hidden and only
-> dependent on NETIF_F_HW_NETFUNC_OFFLOAD flag.
+On 1/21/15 2:14 AM, Jay Vosburgh wrote:
+> Jonathan Toppins <jtoppins@cumulusnetworks.com> wrote:
 >
-> Note that there are only couple of "master drivers" (for this, most likely
-> only bond and team modifications are needed).
->   
-ndo_bridge_setlink today is only implemented by drivers that implement 
-bridging function.
-So, having the bond and team driver implement it...seems odd.
+>> On 1/19/15 4:16 PM, Jay Vosburgh wrote:
+>>> Jonathan Toppins <jtoppins@cumulusnetworks.com> wrote:
+>>>
+>>>> From: Scott Feldman <sfeldma@cumulusnetworks.com>
+>>>>
+>>>> Bonding driver parameter min_links is now used to signal upper-level
+>>>> protocols of bond status. The way it works is if the total number of
+>>>> active members in slaves drops below min_links, the bond link carrier
+>>>> will go down, signaling upper levels that bond is inactive.  When active
+>>>> members returns to >= min_links, bond link carrier will go up (RUNNING),
+>>>> and protocols can resume.  When bond is carrier down, member ports are
+>>>> in stp fwd state blocked (rather than normal disabled state), so
+>>>> low-level ctrl protocols (LACP) can still get in and be processed by
+>>>> bonding driver.
+>>>
+>>> 	Presuming that "stp" is Spanning Tree, is the last sentence
+>>> above actually describing the behavior of a bridge port when a bond is
+>>> the member of the bridge?  I'm not sure I understand what "member ports"
+>>> refers to (bridge ports or bonding slaves).
+>>
+>> Ack, maybe replacing the last sentence with something like:
+>>   When bond is carrier down, the slave ports are only forwarding
+>>   low-level control protocols (e.g. LACP PDU) and discarding all other
+>>   packets.
+>
+> 	Ah, are you actually referring to the fact that slaves that are
+> up will still deliver packets to listeners that bind directly to the
+> slave or hook in through a rx_handler?  This is, in part, the
+> "RX_HANDLER_EXACT" business in bond_handle_frame and
+> __netif_receive_skb_core.
+>
+> 	The decision for that has nothing to do with the protocol; I
+> seem to recall that FCoE (or maybe it's iSCSI) does its regular traffic
+> reception this way (although via dev_add_pack, not an rx_handler) so it
+> can run traffic regardless of the bonding master's state.
 
-But if you insist, i am going to do just that.
+I see, it seems you are basically saying; the slaves are up but when the 
+logical bond interface is carrier down there was no code changed in 
+bond_handle_frame() to actually drop frames other than LACPDUs. So 
+basically having this statement makes no sense until there is code to 
+actually drop those additional frames.
+
+>
+>>>> @@ -2381,10 +2386,15 @@ int bond_3ad_set_carrier(struct bonding *bond)
+>>>> 		ret = 0;
+>>>> 		goto out;
+>>>> 	}
+>>>> +
+>>>> +	bond_for_each_slave_rcu(bond, slave, iter)
+>>>> +		if (SLAVE_AD_INFO(slave)->aggregator.is_active)
+>>>> +			active_slaves++;
+>>>> +
+>>>> 	active = __get_active_agg(&(SLAVE_AD_INFO(first_slave)->aggregator));
+>>>> -	if (active) {
+>>>> +	if (active && __agg_has_partner(active)) {
+>>>
+>>> 	Why "__agg_has_partner"?  Since the "else" of this clause is:
+>>>
+>>>           } else if (netif_carrier_ok(bond->dev)) {
+>>>                   netif_carrier_off(bond->dev);
+>>>           }
+>>>
+>>> 	I'm wondering if this will do the right thing for the case that
+>>> there are no LACP partners at all (e.g., the switch ports do not have
+>>> LACP enabled), in which case the active aggregator should be a single
+>>> "individual" port as a fallback, but will not have a partner.
+>>>
+>>> 	-J
+>>>
+>>
+>> I see your point. The initial thinking was the logical bond carrier should
+>> not be brought up until the bond has a partner and is ready to pass
+>> traffic, otherwise we start blackholing frames. Looking over the code it
+>> seems the aggregator.is_individual flag is only set to true when a slave
+>> is in half-duplex, this seems odd?
+>
+> 	The agg.is_individual flag and an "individual" aggregator are
+> subtly different things.
+>
+> 	The is_individual flag is part of the implementation of the
+> standard requirement that half duplex ports are not allowed to enable
+> LACP (and thus cannot aggregate, and end up as "Individual" in
+> standard-ese).  The standard capitalizes "Individual" when it describes
+> the cannot-aggregate property of a port (note that half duplex is only
+> one reason of many for a port being Individual).
+>
+> 	An "individual" aggregator (my usage of 802.1AX 5.3.6 (b)) is an
+> aggregator containing exactly one port that is Individual.  A port can
+> end up as Individual (for purposes of this discussion) either through
+> the is_individual business, or because the bonding port does run LACP,
+> but the link partner does not, and thus no LACPDUs are ever received.
+>
+> 	For either of the above cases (is_individual or no-LACP-parter),
+> then the active aggregator will be an "individual" aggregator, but will
+> not have a parter (__agg_has_partner() will be false).  The standard has
+> a bunch of verbiage about this in 802.1AX 5.3.5 - 5.3.9.
+>
+>> My initial thinking to alleviate the concern is something like the
+>> following:
+>>
+>> if (active && !SLAVE_AD_INFO(slave)->aggregator.is_individual &&
+>>     __agg_has_partner(active)) {
+>>     /* set carrier based on min_links */
+>> } else if (active && SLAVE_AD_INFO(slave)->aggregator.is_individual) {
+>>     /* set bond carrier state according to carrier state of slave */
+>> } else if (netif_carrier_ok(bond->dev)) {
+>>     netif_carrier_off(bond->dev);
+>> }
+>
+> 	I'm not sure you need to care about is_individual or
+> __agg_has_partner at all.  If either of those conditions is true for the
+> active aggregator, it will contain exactly one port, and so if min_links
+> is 2, you'll have carrier off, and if min_links is 1 or less you'll have
+> carrier on.
+>
+> 	If I'm reading the patch right, the real point (which isn't
+> really described very well in the change log) is that you're changing
+> the carrier decision to count only active ports in the active
+> aggregator, not the total number of ports as is currently done.
+>
+> 	I'm not sure why this change is needed:
+>
+> @@ -2381,10 +2386,15 @@ int bond_3ad_set_carrier(struct bonding *bond)
+>   		ret = 0;
+>   		goto out;
+>   	}
+> +
+> +	bond_for_each_slave_rcu(bond, slave, iter)
+> +		if (SLAVE_AD_INFO(slave)->aggregator.is_active)
+> +			active_slaves++;
+> +
+>   	active = __get_active_agg(&(SLAVE_AD_INFO(first_slave)->aggregator));
+> -	if (active) {
+> +	if (active && __agg_has_partner(active)) {
+>   		/* are enough slaves available to consider link up? */
+> -		if (active->num_of_ports < bond->params.min_links) {
+> +		if (active_slaves < bond->params.min_links) {
+>   			if (netif_carrier_ok(bond->dev)) {
+>   				netif_carrier_off(bond->dev);
+>   				goto out;
+>
+> 	because a port (slave) that loses carrier or whose link partner
+> becomes unresponsive to LACPDUs will be removed from the aggregator.  As
+> I recall, there are no "inactive" ports in an aggregator; all of them
+> have to match in terms of capabilities.
+>
+> 	In other words, I'm unsure of when the count of is_active ports
+> will not match active->num_of_ports.
+>
+> 	Also, the other parts of the patch add some extra updates to the
+> carrier state when a port is enabled or disabled, e.g.,
+>
+> @@ -189,6 +189,7 @@ static inline int __agg_has_partner(struct aggregator *agg)
+>   static inline void __disable_port(struct port *port)
+>   {
+>   	bond_set_slave_inactive_flags(port->slave, BOND_SLAVE_NOTIFY_LATER);
+> +	bond_3ad_set_carrier(port->slave->bond);
+>   }
+>
+> 	Again, I'm not sure why this is necessary, as the cases that
+> disable or enable a port will eventually call bond_3ad_set_carrier.  For
+> example, ad_agg_selection_logic will, when changing active aggregator,
+> individually disable all ports of the old active and then may
+> individually enable ports of the new active if necessary, and then
+> finally call bond_3ad_set_carrier.
+>
+> 	In what situations is the patch's behavior an improvement (i.e.,
+> is there a situation I'm missing that doesn't do it right)?
+
+I think the addition of bond_3ad_set_carrier() to both __enable_port() 
+and __disable_port() were optimizations so the bond carrier transition 
+would happen faster, though I am not certain.
+
+>
+> 	The last portion of the patch:
+>
+> --- a/drivers/net/bonding/bond_options.c
+> +++ b/drivers/net/bonding/bond_options.c
+> @@ -1181,6 +1181,7 @@ static int bond_option_min_links_set(struct bonding *bond,
+>   	netdev_info(bond->dev, "Setting min links value to %llu\n",
+>   		    newval->value);
+>   	bond->params.min_links = newval->value;
+> +	bond_set_carrier(bond);
+>
+>   	return 0;
+>   }
+>
+> 	does seem to fix a legitimate bug, in that when min_links is
+> changed, it does not take effect in real time.
+>
+>> Maybe I am missing something and there is a simpler option.
+>>
+>> Thinking about how to validate this, it seems having a bond with two
+>> slaves and both slaves in half-duplex will force an aggregator that is
+>> individual to be selected.
+>>
+>> Thoughts?
+>
+> 	That's one way, yes.  You'll also get an "individual" aggregator
+> if none of the link partners enable LACP.
+>
+
+It seems it might be better to drop the changes to __enable/disable_port 
+and bond_3ad_set_carrier from this patch until more testing can be done 
+from me, especially if you agree the other changes in this series are of 
+benefit.
