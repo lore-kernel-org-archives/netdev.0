@@ -1,260 +1,67 @@
-From: Salam Noureddine <noureddine@arista.com>
-Subject: [PATCH 1/1 net-next] dev: add per net_device packet type chains
-Date: Fri, 23 Jan 2015 12:07:23 -0800
-Message-ID: <1422043643-3265-1-git-send-email-noureddine@arista.com>
-Cc: Salam Noureddine <noureddine@arista.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>
-To: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Tom Herbert <therbert@google.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Vlad Yasevich <vyasevic@redhat.com>, netdev@vger.kernel.org
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [PATCH net-next 0/3] openvswitch: Add STT support.
+Date: Fri, 23 Jan 2015 12:20:07 -0800
+Message-ID: <CAEP_g=-Yn849TmrN5xFLJVxuux0fBuYGFSM7K-psg=pdxgPR9w@mail.gmail.com>
+References: <1421785536-19793-1-git-send-email-pshelar@nicira.com>
+ <CA+mtBx_z3trTkK2qnVboXv7sJNjMHLr9V+4A=aFqyMo_0p1_Eg@mail.gmail.com>
+ <CAEP_g=-sVSwewV=7qAYQNtBRVSrUOAjNCpfwniNq_WPg2FVpFA@mail.gmail.com> <CA+mtBx87bZBnY_9cgQ7k=xsD0VGZUt0rc9DjhSqhpeH3LZiuFw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Pravin B Shelar <pshelar@nicira.com>,
+	David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx.aristanetworks.com ([162.210.130.12]:39725 "EHLO
-	prod-mx.aristanetworks.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751844AbbAWURs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jan 2015 15:17:48 -0500
+Received: from na3sys009aog129.obsmtp.com ([74.125.149.142]:47495 "HELO
+	na3sys009aog129.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1753244AbbAWUU3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jan 2015 15:20:29 -0500
+Received: by mail-qa0-f49.google.com with SMTP id v8so7418779qal.8
+        for <netdev@vger.kernel.org>; Fri, 23 Jan 2015 12:20:28 -0800 (PST)
+In-Reply-To: <CA+mtBx87bZBnY_9cgQ7k=xsD0VGZUt0rc9DjhSqhpeH3LZiuFw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When many pf_packet listeners are created on a lot of interfaces the
-current implementation using global packet type lists scales poorly.
-This patch adds per net_device packet type lists to fix thi problem.
+On Fri, Jan 23, 2015 at 10:25 AM, Tom Herbert <therbert@google.com> wrote:
+> On Fri, Jan 23, 2015 at 9:38 AM, Jesse Gross <jesse@nicira.com> wrote:
+>> On Fri, Jan 23, 2015 at 8:58 AM, Tom Herbert <therbert@google.com> wrote:
+>>> On Tue, Jan 20, 2015 at 12:25 PM, Pravin B Shelar <pshelar@nicira.com> wrote:
+>>>> Following patch series adds support for Stateless Transport
+>>>> Tunneling protocol.
+>>>> STT uses TCP segmentation offload available in most of NIC. On
+>>>> packet xmit STT driver appends STT header along with TCP header
+>>>> to the packet. For GSO packet GSO parameters are set according
+>>>> to tunnel configuration and packet is handed over to networking
+>>>> stack. This allows use of segmentation offload available in NICs
+>>>>
+>>>> Netperf unidirectional test gives ~9.4 Gbits/s performance on 10Gbit
+>>>> NIC with 1500 byte MTU with two TCP streams.
+>>>>
+>>> The reason you're able to get 9.4 Gbit/s with an L2 encapsulation
+>>> using STT is that it has less protocol overhead per packet when doing
+>>> segmentation compared to VXLAN (without segmentation STT packets will
+>>> have more overhead than VXLAN).
+>>>
+>>> A VXLAN packet with TCP/IP has headers
+>>> IP|UDP|VXLAN|Ethernet|IP|TCP+options. Assuming TCP is stuffed with
+>>> options, this is 20+8+8+16+20+40=112 bytes, or 7.4% MTU. Each STT
+>>> segment created in GSO, other than the first, has just IP|TCP headers
+>>> which is 20+20=40 bytes or 2.6% MTU. So this explains throughput
+>>> differences between VXLAN and STT.
+>>
+>> Tom, what performance do you see with a single stream of VXLAN running
+>> on net-next with default configuration? The difference in numbers
+>> being posted here is greater than a few percent caused by protocol
+>> overheard.
+>
+> Please look at the data I posted with the VXLAN RCO patches.
 
-The patch was originally written by Eric Biederman for linux-2.6.20.
-Tested on linux-3.16.
+The data you posted uses 200 streams, so I assume that you are using
+multiple CPUs. It's not surprising that you would be able to consume a
+10G link in that case. STT can do this with a single stream and less
+than 1 core (or alternately handle higher throughput). Claiming that
+since both can hit 10G they are same is not accurate.
 
-Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
-Signed-off-by: Salam Noureddine <noureddine@arista.com>
----
- include/linux/netdevice.h |   2 +
- net/core/dev.c            | 131 +++++++++++++++++++++++++++++-----------------
- 2 files changed, 85 insertions(+), 48 deletions(-)
-
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 642d426..3d37c6e 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -1514,6 +1514,8 @@ struct net_device {
- 	struct list_head	napi_list;
- 	struct list_head	unreg_list;
- 	struct list_head	close_list;
-+	struct list_head	ptype_all;
-+	struct list_head	ptype_specific;
- 
- 	struct {
- 		struct list_head upper;
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 1e325ad..0891d31 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -371,9 +371,10 @@ static inline void netdev_set_addr_lockdep_class(struct net_device *dev)
- static inline struct list_head *ptype_head(const struct packet_type *pt)
- {
- 	if (pt->type == htons(ETH_P_ALL))
--		return &ptype_all;
-+		return pt->dev ? &pt->dev->ptype_all : &ptype_all;
- 	else
--		return &ptype_base[ntohs(pt->type) & PTYPE_HASH_MASK];
-+		return pt->dev ? &pt->dev->ptype_specific :
-+				 &ptype_base[ntohs(pt->type) & PTYPE_HASH_MASK];
- }
- 
- /**
-@@ -1734,6 +1735,23 @@ static inline int deliver_skb(struct sk_buff *skb,
- 	return pt_prev->func(skb, skb->dev, pt_prev, orig_dev);
- }
- 
-+static inline void deliver_ptype_list_skb(struct sk_buff *skb,
-+					  struct packet_type **pt,
-+					  struct net_device *dev, __be16 type,
-+					  struct list_head *ptype_list)
-+{
-+	struct packet_type *ptype, *pt_prev = *pt;
-+
-+	list_for_each_entry_rcu(ptype, ptype_list, list) {
-+		if (ptype->type != type)
-+			continue;
-+		if (pt_prev)
-+			deliver_skb(skb, pt_prev, dev);
-+		pt_prev = ptype;
-+	}
-+	*pt = pt_prev;
-+}
-+
- static inline bool skb_loop_sk(struct packet_type *ptype, struct sk_buff *skb)
- {
- 	if (!ptype->af_packet_priv || !skb->sk)
-@@ -1757,45 +1775,54 @@ static void dev_queue_xmit_nit(struct sk_buff *skb, struct net_device *dev)
- 	struct packet_type *ptype;
- 	struct sk_buff *skb2 = NULL;
- 	struct packet_type *pt_prev = NULL;
-+	struct list_head *ptype_list = &ptype_all;
- 
- 	rcu_read_lock();
--	list_for_each_entry_rcu(ptype, &ptype_all, list) {
-+again:
-+	list_for_each_entry_rcu(ptype, ptype_list, list) {
- 		/* Never send packets back to the socket
- 		 * they originated from - MvS (miquels@drinkel.ow.org)
- 		 */
--		if ((ptype->dev == dev || !ptype->dev) &&
--		    (!skb_loop_sk(ptype, skb))) {
--			if (pt_prev) {
--				deliver_skb(skb2, pt_prev, skb->dev);
--				pt_prev = ptype;
--				continue;
--			}
-+		if (skb_loop_sk(ptype, skb))
-+			continue;
- 
--			skb2 = skb_clone(skb, GFP_ATOMIC);
--			if (!skb2)
--				break;
-+		if (pt_prev) {
-+			deliver_skb(skb2, pt_prev, skb->dev);
-+			pt_prev = ptype;
-+			continue;
-+		}
- 
--			net_timestamp_set(skb2);
-+		/* need to clone skb, done only once */
-+		skb2 = skb_clone(skb, GFP_ATOMIC);
-+		if (!skb2)
-+			goto out_unlock;
- 
--			/* skb->nh should be correctly
--			   set by sender, so that the second statement is
--			   just protection against buggy protocols.
--			 */
--			skb_reset_mac_header(skb2);
--
--			if (skb_network_header(skb2) < skb2->data ||
--			    skb_network_header(skb2) > skb_tail_pointer(skb2)) {
--				net_crit_ratelimited("protocol %04x is buggy, dev %s\n",
--						     ntohs(skb2->protocol),
--						     dev->name);
--				skb_reset_network_header(skb2);
--			}
-+		net_timestamp_set(skb2);
- 
--			skb2->transport_header = skb2->network_header;
--			skb2->pkt_type = PACKET_OUTGOING;
--			pt_prev = ptype;
-+		/* skb->nh should be correctly
-+		   set by sender, so that the second statement is
-+		   just protection against buggy protocols.
-+		 */
-+		skb_reset_mac_header(skb2);
-+
-+		if (skb_network_header(skb2) < skb2->data ||
-+		    skb_network_header(skb2) > skb_tail_pointer(skb2)) {
-+			net_crit_ratelimited("protocol %04x is buggy, dev %s\n",
-+					     ntohs(skb2->protocol),
-+					     dev->name);
-+			skb_reset_network_header(skb2);
- 		}
-+
-+		skb2->transport_header = skb2->network_header;
-+		skb2->pkt_type = PACKET_OUTGOING;
-+		pt_prev = ptype;
-+	}
-+
-+	if (ptype_list == &ptype_all) {
-+		ptype_list = &dev->ptype_all;
-+		goto again;
- 	}
-+out_unlock:
- 	if (pt_prev)
- 		pt_prev->func(skb2, skb->dev, pt_prev, skb->dev);
- 	rcu_read_unlock();
-@@ -2617,7 +2644,7 @@ static int xmit_one(struct sk_buff *skb, struct net_device *dev,
- 	unsigned int len;
- 	int rc;
- 
--	if (!list_empty(&ptype_all))
-+	if (!list_empty(&ptype_all) || !list_empty(&dev->ptype_all))
- 		dev_queue_xmit_nit(skb, dev);
- 
- 	len = skb->len;
-@@ -3615,7 +3642,6 @@ static int __netif_receive_skb_core(struct sk_buff *skb, bool pfmemalloc)
- 	struct packet_type *ptype, *pt_prev;
- 	rx_handler_func_t *rx_handler;
- 	struct net_device *orig_dev;
--	struct net_device *null_or_dev;
- 	bool deliver_exact = false;
- 	int ret = NET_RX_DROP;
- 	__be16 type;
-@@ -3658,11 +3684,15 @@ another_round:
- 		goto skip_taps;
- 
- 	list_for_each_entry_rcu(ptype, &ptype_all, list) {
--		if (!ptype->dev || ptype->dev == skb->dev) {
--			if (pt_prev)
--				ret = deliver_skb(skb, pt_prev, orig_dev);
--			pt_prev = ptype;
--		}
-+		if (pt_prev)
-+			ret = deliver_skb(skb, pt_prev, orig_dev);
-+		pt_prev = ptype;
-+	}
-+
-+	list_for_each_entry_rcu(ptype, &skb->dev->ptype_all, list) {
-+		if (pt_prev)
-+			ret = deliver_skb(skb, pt_prev, orig_dev);
-+		pt_prev = ptype;
- 	}
- 
- skip_taps:
-@@ -3718,19 +3748,20 @@ ncls:
- 		skb->vlan_tci = 0;
- 	}
- 
-+	type = skb->protocol;
-+
- 	/* deliver only exact match when indicated */
--	null_or_dev = deliver_exact ? skb->dev : NULL;
-+	if (likely(!deliver_exact)) {
-+		deliver_ptype_list_skb(skb, &pt_prev, orig_dev, type,
-+				&ptype_base[ntohs(type) & PTYPE_HASH_MASK]);
-+	}
- 
--	type = skb->protocol;
--	list_for_each_entry_rcu(ptype,
--			&ptype_base[ntohs(type) & PTYPE_HASH_MASK], list) {
--		if (ptype->type == type &&
--		    (ptype->dev == null_or_dev || ptype->dev == skb->dev ||
--		     ptype->dev == orig_dev)) {
--			if (pt_prev)
--				ret = deliver_skb(skb, pt_prev, orig_dev);
--			pt_prev = ptype;
--		}
-+	deliver_ptype_list_skb(skb, &pt_prev, orig_dev, type,
-+			       &orig_dev->ptype_specific);
-+
-+	if (unlikely(skb->dev != orig_dev)) {
-+		deliver_ptype_list_skb(skb, &pt_prev, orig_dev, type,
-+				       &skb->dev->ptype_specific);
- 	}
- 
- 	if (pt_prev) {
-@@ -6579,6 +6610,8 @@ void netdev_run_todo(void)
- 
- 		/* paranoia */
- 		BUG_ON(netdev_refcnt_read(dev));
-+		BUG_ON(!list_empty(&dev->ptype_all));
-+		BUG_ON(!list_empty(&dev->ptype_specific));
- 		WARN_ON(rcu_access_pointer(dev->ip_ptr));
- 		WARN_ON(rcu_access_pointer(dev->ip6_ptr));
- 		WARN_ON(dev->dn_ptr);
-@@ -6761,6 +6794,8 @@ struct net_device *alloc_netdev_mqs(int sizeof_priv, const char *name,
- 	INIT_LIST_HEAD(&dev->adj_list.lower);
- 	INIT_LIST_HEAD(&dev->all_adj_list.upper);
- 	INIT_LIST_HEAD(&dev->all_adj_list.lower);
-+	INIT_LIST_HEAD(&dev->ptype_all);
-+	INIT_LIST_HEAD(&dev->ptype_specific);
- 	dev->priv_flags = IFF_XMIT_DST_RELEASE | IFF_XMIT_DST_RELEASE_PERM;
- 	setup(dev);
- 
--- 
-1.8.1.4
+Discussing performance like this seems a little silly given that the
+code is available. Pravin posted some numbers that he got, if you want
+to dispute them then why don't you just try running it?
