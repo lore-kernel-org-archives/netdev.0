@@ -1,24 +1,61 @@
-From: Oliver Neukum <oneukum@suse.de>
-Subject: Re: [PATCH v1] usbnet: re-use native hex2bin()
-Date: Fri, 23 Jan 2015 09:12:39 +0100
-Message-ID: <1422000759.16104.0.camel@linux-0dmf.site>
-References: <1421962032-25497-1-git-send-email-andy.shevchenko@gmail.com>
+From: Ming Lei <ming.lei@canonical.com>
+Subject: Re: [PATCH 2/2] net: stmmac: add fixed_phy support via fixed-link DT binding
+Date: Fri, 23 Jan 2015 16:28:59 +0800
+Message-ID: <CACVXFVOoo1MeXH04edv6-4kc0GZB_pAf4n9+h7qkoQef=ffkPw@mail.gmail.com>
+References: <1421999305-19267-1-git-send-email-ming.lei@canonical.com>
+	<1421999305-19267-3-git-send-email-ming.lei@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Andy Shevchenko <andy.shevchenko@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:33622 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751849AbbAWIMw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 23 Jan 2015 03:12:52 -0500
-In-Reply-To: <1421962032-25497-1-git-send-email-andy.shevchenko@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: linux-samsung-soc@vger.kernel.org, Kukjin Kim <kgene@kernel.org>,
+	netdev@vger.kernel.org, Byungho An <bh74.an@samsung.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Ming Lei <ming.lei@canonical.com>
+To: linux-arm-kernel@lists.infradead.org,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-samsung-soc-owner@vger.kernel.org>
+In-Reply-To: <1421999305-19267-3-git-send-email-ming.lei@canonical.com>
+Sender: linux-samsung-soc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2015-01-22 at 23:27 +0200, Andy Shevchenko wrote:
-> Call hex2bin() library function, instead of doing conversion here.
-> 
-> Signed-off-by: Andy Shevchenko <andy.shevchenko@gmail.com>
-Acked-by: Oliver Neukum <oneukum@suse.de>
+On 1/23/15, Ming Lei <ming.lei@canonical.com> wrote:
+> Signed-off-by: Ming Lei <ming.lei@canonical.com>
+> ---
+>  .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |   10 ++++++++++
+>  1 file changed, 10 insertions(+)
+>
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+> b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+> index 3039de2..73a3ced 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+> @@ -27,6 +27,7 @@
+>  #include <linux/of.h>
+>  #include <linux/of_net.h>
+>  #include <linux/of_device.h>
+> +#include <linux/of_mdio.h>
+>
+>  #include "stmmac.h"
+>  #include "stmmac_platform.h"
+> @@ -216,6 +217,15 @@ static int stmmac_probe_config_dt(struct
+> platform_device *pdev,
+>  		plat->pmt = 1;
+>  	}
+>
+> +	if (of_phy_is_fixed_link(np)) {
+> +		int ret = of_phy_register_fixed_link(np);
+> +		if (ret) {
+> +			dev_err(&pdev->dev, "failed to register fixed PHY\n");
+> +			return ret;
+> +		}
+> +		plat->phy_bus_name = "fixed";
+> +	}
+> +
+>  	if (of_device_is_compatible(np, "snps,dwmac-3.610") ||
+>  		of_device_is_compatible(np, "snps,dwmac-3.710")) {
+>  		plat->enh_desc = 1;
+
+Sorry, bypassing check on phy id is missed in this patch, and will
+submit v1 later.
+
+Thanks,
+Ming Lei
