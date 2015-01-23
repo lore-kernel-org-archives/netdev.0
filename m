@@ -1,56 +1,123 @@
-From: Jonas Danielsson <jonas.danielsson@axis.com>
-Subject: Regression introduced by commit dbe9a4173ea53
-Date: Fri, 23 Jan 2015 15:16:23 +0100
-Message-ID: <20150123141623.GK30451@lnxjonasdn.se.axis.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [patch net-next RFC] tc: introduce OpenFlow classifier
+Date: Fri, 23 Jan 2015 15:11:45 +0000
+Message-ID: <20150123151145.GK25797@casper.infradead.org>
+References: <1421933824-17916-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<ebiederm@xmission.com>, <luto@amacapital.net>, <rgb@redhat.com>,
-	<johannes.berg@intel.com>, <viro@zeniv.linux.org.uk>,
-	<akpm@linux-foundation.org>, <fabf@skynet.be>,
-	<brian.cambell@editshare.com>, <mpatocka@redhat.com>,
-	<tgraf@suug.ch>, <eric.dumazet@gmail.com>, <desrt@desrt.ca>
-To: <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, jhs@mojatatu.com
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from casper.infradead.org ([85.118.1.10]:47413 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751464AbbAWPLs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jan 2015 10:11:48 -0500
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1421933824-17916-1-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On 01/22/15 at 02:37pm, Jiri Pirko wrote:
+> This patch introduces OpenFlow-based filter. So far, the very essential
+> packet fields are supported (according to OpenFlow v1.4 spec).
+> 
+> Known issues: skb_flow_dissect hashes out ipv6 addresses. That needs
+> to be changed to store them somewhere so they can be used later on.
+> 
+> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 
-I have seen a regression, that I think is caused by:
+Since OpenFlow is a wire protocol the description could be somewhat
+confusing as you are not actually implementing OpenFlow. Maybe call
+this "OpenFlow inspired classifier" or something along those lines?
 
-commit dbe9a4173ea53b72b2c35d19f676a85b69f1c9fe
-Author: Eric W. Biederman <ebiederm@xmission.com>
-Date:   Thu Sep 6 18:20:01 2012 +0000
+> diff --git a/net/sched/Kconfig b/net/sched/Kconfig
+> index 475e35e..9b01fae 100644
+> --- a/net/sched/Kconfig
+> +++ b/net/sched/Kconfig
+> @@ -477,6 +477,17 @@ config NET_CLS_BPF
+>  	  To compile this code as a module, choose M here: the module will
+>  	  be called cls_bpf.
+>  
+> +config NET_CLS_OPENFLOW
+> +	tristate "OpenFlow classifier"
+> +	select NET_CLS
+> +	---help---
+> +	  If you say Y here, you will be able to classify packets based on
+> +	  a configurable combination of packet keys and masks accordint to
+                                                                     ^^^
 
-    scm: Don't use struct ucred in NETLINK_CB and struct scm_cookie.
+Typo
 
+> +struct of_flow_key {
+> +	int	indev_ifindex;
+> +	struct {
+> +		u8	src[ETH_ALEN];
+> +		u8	dst[ETH_ALEN];
+> +		__be16	type;
+> +	} eth;
+> +	struct {
+> +		u8	proto;
+> +	} ip;
+> +	union {
+> +		struct {
+> +			__be32 src;
+> +			__be32 dst;
+> +		} ipv4;
+> +		struct {
+> +			struct in6_addr src;
+> +			struct in6_addr dst;
+> +		} ipv6;
+> +	};
+> +	union {
+> +		struct {
+> +			__be16 src;
+> +			__be16 dst;
+> +		} tp;
+> +	};
+> +} __aligned(BITS_PER_LONG / 8); /* Ensure that we can do comparisons as longs. */
 
-With this commit the value send as uid when credentials are missing
-changes from -1 to overflowuid (default -2, the 'nobody' user).
+I'm sure you considered this already. Any advantage in sharing the
+flow key definition w/ OVS?
 
-I was using dbus-send to perform a method call on a gdbus server.
-And sometimes I fall victim to the race condition caused by:
+> +static void of_extract_key(struct sk_buff *skb, struct of_flow_key *skb_key)
+> +{
+> +	struct flow_keys flow_keys;
+> +	struct ethhdr *eth;
+> +
+> +	skb_key->indev_ifindex = skb->skb_iif;
+> +
+> +	eth = eth_hdr(skb);
+> +	ether_addr_copy(skb_key->eth.src, eth->h_source);
+> +	ether_addr_copy(skb_key->eth.dst, eth->h_dest);
+> +
+> +	skb_flow_dissect(skb, &flow_keys);
+> +	skb_key->eth.type = flow_keys.n_proto;
+> +	skb_key->ip.proto = flow_keys.ip_proto;
+> +	skb_key->ipv4.src = flow_keys.src;
+> +	skb_key->ipv4.dst = flow_keys.dst;
+> +	skb_key->tp.src = flow_keys.port16[0];
+> +	skb_key->tp.dst = flow_keys.port16[1];
+> +}
 
-commit 16e5726 ("af_unix: dont send SCM_CREDENTIALS by default")
+If I understand skb_flow_dissect() correctly then you will always
+fill of_flow_key with the inner most header. How would you for
+example match on the outer UDP header?
 
-And then there will be no credentials on the socket. The glib library checks
-the uid, and if it is -1, it will fall back to using SO_PEERCRED and things
-will work for me. But since the commit in $subject changes the uid I get
-failure with NoReply from dbus-send.
+> +static bool of_match(struct of_flow_key *skb_key, struct cls_of_filter *f)
+> +{
+> +	const long *lkey = (const long *) &f->match.key;
+> +	const long *lmask = (const long *) &f->match.mask;
+> +	const long *lskb_key = (const long *) skb_key;
+> +	int i;
+> +
+> +	for (i = 0; i < sizeof(struct of_flow_key); i += sizeof(const long)) {
+> +		if ((*lkey++ & *lmask) != (*lskb_key++ & *lmask))
+> +			return false;
+> +		lmask++;
+> +	}
+> +	return true;
+> +}
 
-It seems that before the commit in $subject that the function from_kuid_munged
-was only called if there were credentials present. Otherwise we would set uid
-to -1. Now uid gets set to -1 if there is no credentials but from_kuid_munged
-is always called. And from the documentation of from_kuid_munged it states
-that it 'never fails and always returns a valid uid'. And in the case of
-uid being -1, it returns overflowuid.
-
-So this seems like it broke glib. Caused by 1) the introduced race condition
-that makes it not totally safe to set SO_PEERCRED on the accepted socket and
-2) that the value of uid when credentials are missing changed from -1 to
-overflowuid.
-
-Thanks for your time
-Jonas
+Nice. An further possible optimization would be to calculate the
+length of the flow key that must match and cut off the flow key if
+the remaining bits are all wildcarded, e.g. eth header only match.
