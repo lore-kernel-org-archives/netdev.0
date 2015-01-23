@@ -1,72 +1,56 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [net-next PATCH v3 00/12] Flow API
-Date: Fri, 23 Jan 2015 14:07:24 +0000
-Message-ID: <20150123140724.GJ25797@casper.infradead.org>
-References: <20150122151316.GB25797@casper.infradead.org>
- <54C11703.7030702@mojatatu.com>
- <20150122153727.GC25797@casper.infradead.org>
- <54C11ACC.5010005@mojatatu.com>
- <20150123101019.GF25797@casper.infradead.org>
- <20150123102421.GB2065@nanopsycho.orion>
- <20150123110821.GH25797@casper.infradead.org>
- <20150123113934.GD2065@nanopsycho.orion>
- <20150123122838.GI25797@casper.infradead.org>
- <20150123134315.GF2065@nanopsycho.orion>
+From: Michael Holzheu <holzheu@linux.vnet.ibm.com>
+Subject: Re: [PATCH] samples/bpf: Fix test_maps/bpf_get_next_key() test
+Date: Fri, 23 Jan 2015 15:13:46 +0100
+Message-ID: <20150123151346.28ae0d6c@holzheu>
+References: <CAADnVQ+3exrhp8bS50HEnMrYdg4i3+K7c6ewNZHRkBqtW-uwOA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	John Fastabend <john.fastabend@gmail.com>,
-	simon.horman@netronome.com, sfeldma@gmail.com,
-	netdev@vger.kernel.org, davem@davemloft.net, gerlitz.or@gmail.com,
-	andy@greyhouse.net, ast@plumgrid.com
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:47146 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753317AbbAWOH3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jan 2015 09:07:29 -0500
-Content-Disposition: inline
-In-Reply-To: <20150123134315.GF2065@nanopsycho.orion>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Alexei Starovoitov <ast@kernel.org>,
+	Martin Schwidefsky <schwidefsky@de.ibm.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAADnVQ+3exrhp8bS50HEnMrYdg4i3+K7c6ewNZHRkBqtW-uwOA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 01/23/15 at 02:43pm, Jiri Pirko wrote:
-> Fri, Jan 23, 2015 at 01:28:38PM CET, tgraf@suug.ch wrote:
-> >If I understand this correctly then you propose to do the decision on
-> >whether to implement a flow in software or offload it to hardware in the
-> >xflows classifier and action. I had exactly the same architecture in mind
-> >initially when I first approached this and wanted to offload OVS
-> >datapath flows transparently to hardware.
+On Thu, 22 Jan 2015 09:32:43 -0800
+Alexei Starovoitov <alexei.starovoitov@gmail.com> wrote:
+
+> On Thu, Jan 22, 2015 at 8:01 AM, Michael Holzheu
+> <holzheu@linux.vnet.ibm.com> wrote:
+> > Looks like the "test_maps" test case expects to get the keys in
+> > the wrong order when iterating over the elements:
+> >
+> > test_maps: samples/bpf/test_maps.c:79: test_hashmap_sanity: Assertion
+> > `bpf_get_next_key(map_fd, &key, &next_key) == 0 && next_key == 2' failed.
+> > Aborted
+> >
+> > Fix this and test for the correct order.
 > 
-> Think about xflows as an iface to multiple backends, some sw and some hw.
-> User will be able to specify which backed he wants to use for particular
-> "commands".
-> 
-> So for example, ovs kernel datapath module will implement an xflows
-> backend and register it as "ovsdp". Rocker will implement another xflows
-> backend and register it as "rockerdp". Then, ovs userspace will use xflows
-> api to setup both backends independently, but using the same xflows api.
-> 
-> It is still up to userspace to decide what should be put where (what
-> backend to use).
+> that will break this test on x86...
+> we need to understand first why the order of two elements
+> came out different on s390...
+> Could it be that jhash() produced different hash for the same
+> values on x86 vs s390 ?
 
-OK, sounds good so far. Although we can't completely ditch the existing
-genl based OVS flow API for obvious backwards compatibility reasons ;-)
+Yes I think jhash() produces different results for input > 12 bytes
+on big and little endian machines because of the following code
+in include/linux/jhash.h:
 
-How does John's API fit into this? How would you expose capabilities
-through xflows? How would it differ from what John proposes?
+        while (length > 12) {
+                a += __get_unaligned_cpu32(k);
+                b += __get_unaligned_cpu32(k + 4);
+                c += __get_unaligned_cpu32(k + 8);
+                __jhash_mix(a, b, c);
+                length -= 12;
+                k += 12;
+        }
 
-Since this would be a regular tc classifier I assume it could be
-attached to any tc class and interface and then combined with other
-classifiers which OVS would not be aware of. How do you intend to
-resolve such conflicts?
+The contents of "k" is directly used as u32 and the result
+of "__get_unaligned_cpu32(k)" is different for big and
+little endian.
 
-Example:
- eth0:
-   ingress qdisc:
-     cls prio 20 u32 match [...]
-     cls prio 10 xflows [...]
-
-If xflows offloads to hardware, the u32 classifier with higher
-priority is hidden unintentionally.
+Michael
