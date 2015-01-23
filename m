@@ -1,82 +1,82 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [net-next PATCH v3 00/12] Flow API
-Date: Fri, 23 Jan 2015 17:16:05 +0100
-Message-ID: <20150123161605.GN2065@nanopsycho.orion>
-References: <20150123101019.GF25797@casper.infradead.org>
- <20150123102421.GB2065@nanopsycho.orion>
- <20150123110821.GH25797@casper.infradead.org>
- <20150123113934.GD2065@nanopsycho.orion>
- <20150123122838.GI25797@casper.infradead.org>
- <20150123134315.GF2065@nanopsycho.orion>
- <20150123140724.GJ25797@casper.infradead.org>
- <54C26A1F.6060603@gmail.com>
- <20150123155332.GJ2065@nanopsycho.orion>
- <20150123160058.GN25797@casper.infradead.org>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: [PATCH V2 for 3.19 0/7] Fixes for rtl8192ee
+Date: Fri, 23 Jan 2015 10:40:21 -0600
+Message-ID: <54C27975.50501@lwfinger.net>
+References: <1421773286-1039-1-git-send-email-Larry.Finger@lwfinger.net> <873871msc7.fsf@kamboji.qca.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: John Fastabend <john.fastabend@gmail.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	simon.horman@netronome.com, sfeldma@gmail.com,
-	netdev@vger.kernel.org, davem@davemloft.net, gerlitz.or@gmail.com,
-	andy@greyhouse.net, ast@plumgrid.com
-To: Thomas Graf <tgraf@suug.ch>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	=?UTF-8?B?InRyb3lfdGFuQHJlYWxzaWwuY29tLmNuID4+IOiwreadreazoiI=?=
+	<troy_tan@realsil.com.cn>
+To: Kalle Valo <kvalo@codeaurora.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f53.google.com ([74.125.82.53]:56072 "EHLO
-	mail-wg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755833AbbAWQQJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jan 2015 11:16:09 -0500
-Received: by mail-wg0-f53.google.com with SMTP id a1so8325123wgh.12
-        for <netdev@vger.kernel.org>; Fri, 23 Jan 2015 08:16:07 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20150123160058.GN25797@casper.infradead.org>
+Received: from mail-oi0-f51.google.com ([209.85.218.51]:50528 "EHLO
+	mail-oi0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755611AbbAWQk3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jan 2015 11:40:29 -0500
+In-Reply-To: <873871msc7.fsf@kamboji.qca.qualcomm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fri, Jan 23, 2015 at 05:00:58PM CET, tgraf@suug.ch wrote:
->On 01/23/15 at 04:53pm, Jiri Pirko wrote:
->> Fri, Jan 23, 2015 at 04:34:55PM CET, john.fastabend@gmail.com wrote:
->> >What I don't have a lot of use for at the moment is an xflows that runs
->> >in software? Conceptually it sounds fine but why would I want to mirror
->> >hardware limitations into software? And if I make it completely generic
->> >it becomes u32 more or less. I could create an optimized version of the
->> >hardware dataplane in userspace which sits somewhere between u32 and the
->> >other classifiers on flexility and maybe gains some performance but I'm
->> >at a loss as to why this is useful. I would rather spend my time getting
->> >better performance out of u32 and dropping qdisc_lock completely then
->> >writing some partially useful filter for software.
->> 
->> Well, even software implementation has limitations. Take ovs kernel
->> datapath as example. You can use your graphs to describe exactly what
->> ovs can handle. And after that you could use xflows api to set it up as
->> well as your rocker offload. That to me seems lie a very nice feature to
->> have.
+On 01/23/2015 09:26 AM, Kalle Valo wrote:
+> Larry Finger <Larry.Finger@lwfinger.net> writes:
 >
->What is the value of this? The OVS kernel datapath is already built to
->fall back to user space if the kernel datapath does not support a
->specific feature.
+>> This is V2 of the patches for rtl8192ee to be applied to 3.19. They replace
+>> all the patches submitted under the title '[PATCH for 3.19 0/3] rtlwifi:
+>> Various updates/fixes". All are marked for backporting to 3.18.
+>>
+>> The first of these removes a logging statement that is no longer needed.
+>>
+>> Patches 1-6 are relatively small and should not be a problem for 3.19.
+>> Patch 7 is quite a bit larger, and adds two new routines to detect
+>> DMA stalls. I will understand if you want to defer that to -next; however,
+>> it does fix a serious problem.
+>
+> -rc6 is most likely released on Sunday, I cannot send six patches this
+> late in the cycle unless our inboxes are filling of bug reports. As my
+> inbox seems to be pretty empty about rtlwifi problems can you give more
+> background why you think it's important to get these to 3.19? Are these
+> all regressions from 3.18 or older bugs which just got fixed now?
+>
+>>    rtlwifi: Remove logging statement that is no longer needed
+>
+> I think this is ok.
+>
+>>    rtlwifi: rtl8192ee: Fix adhoc fail
+>
+> Ad-Hoc mode is not that popular, IMHO this can easily wait for -next.
+>
+>>    rtlwifi: rtl8192ee: Fix problems with calculating free space in FIFO
+>>    rtlwifi: rtl8192ee: Fix handling of new style descriptors
+>>    rtlwifi: rtl8192ee: Fix TX hang due to failure to update TX write
+>>      point
+>>    rtlwifi: rtl8192ee: Fix parsing of received packet
+>>    rtlwifi: rtl8192ee: Fix DMA stalls
+>
+> For -rc1 or -rc2 these would have been ok, but without really good
+> justifications getting these into -rc7 is difficult.
+>
+> But the patches itself are create, huge improvement compared to v1.
 
+Kalle,
 
-As I wrote earlier, the value is that userspace can easily use single
-xflows api to take care of all ways to handle flows (ovs kernel dp,
-rocker, other device, u32 tc filter + actions, you name it)
+It is too bad that it took so long to get these ready. I think the reason that 
+there are not a lot of bug reports is because the complaints are all in the 
+GitHub issues for the rtlwifi_new repo, or with Ubuntu. If there are any that 
+get filed against Bugzilla, I will refer them to that repo.
 
+Driver rtl8192ee was new in 3.18. There had been a previous version in staging, 
+but it did not get a lot of usage. I'm not sure if the additional usage after 
+3.18 was due to the driver being in the regular tree, or if vendors started 
+using the chips, but the problem reports started arriving. All these bugs have 
+been part of rtl8192ee since it has been in the kernel, thus they are hard to 
+categorize as regressions.
 
-    my flow managing app 
-          |
-uspc      |
-  --------|----------------------------------------------------
-krnl      |
-       tc xflows api
-          |  |  |
-          |  |  ---------------------------------------------------
-          |  |                                                    |
-          |  ------------------                                other xflows backend
-          |                   |
-     ovs xflows backend     rocker driver xflows backend
-          |                   |
-         ovs dp               |
-krnl	                      |
-  ----------------------------|--------------------------------
-hw                            |
-                           rocker switch
+Push all 7 into -next so that they will be in 3.20. If you think it to be 
+prudent, please leave the Cc for stable. That way 3.18 and 3.19 will eventually 
+get the fixes.
+
+Thanks,
+
+Larry
