@@ -1,7 +1,7 @@
 From: roopa@cumulusnetworks.com
-Subject: [PATCH net-next v3 4/5] rocker: set feature NETIF_F_HW_NETFUNC_OFFLOAD
-Date: Thu, 22 Jan 2015 20:33:25 -0800
-Message-ID: <1421987606-10884-5-git-send-email-roopa@cumulusnetworks.com>
+Subject: [PATCH net-next v3 5/5] bonding: handle NETIF_F_HW_NETFUNC_OFFLOAD flag to bonding feature mask
+Date: Thu, 22 Jan 2015 20:33:26 -0800
+Message-ID: <1421987606-10884-6-git-send-email-roopa@cumulusnetworks.com>
 Cc: netdev@vger.kernel.org, davem@davemloft.net,
 	shm@cumulusnetworks.com, gospo@cumulusnetworks.com,
 	Roopa Prabhu <roopa@cumulusnetworks.com>
@@ -10,37 +10,45 @@ To: jiri@resnulli.us, sfeldma@gmail.com, jhs@mojatatu.com,
 	stephen@networkplumber.org, vyasevic@redhat.com,
 	ronen.arad@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:45029 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753143AbbAWEdg (ORCPT
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:46104 "EHLO
+	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753386AbbAWEdg (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jan 2015 23:33:36 -0500
-Received: by mail-pa0-f44.google.com with SMTP id rd3so5085868pab.3
-        for <netdev@vger.kernel.org>; Thu, 22 Jan 2015 20:33:35 -0800 (PST)
+Received: by mail-pa0-f47.google.com with SMTP id lj1so6068445pab.6
+        for <netdev@vger.kernel.org>; Thu, 22 Jan 2015 20:33:36 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Roopa Prabhu <roopa@cumulusnetworks.com>
 
-This patch sets the NETIF_F_HW_NETFUNC_OFFLOAD feature flag on rocker ports
+We want bond to pick up the offload flag if any of its slaves have it.
+
+NETIF_F_HW_NETFUNC_OFFLOAD flag is added to the mask, so that
+netdev_increment_features does not ignore it.
+
+If this needs to be under CONFIG_NET_SWITCHDEV, I can do so.
 
 Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
 ---
- drivers/net/ethernet/rocker/rocker.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ drivers/net/bonding/bond_main.c |    6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
-index 109aa1b..3aa0e85 100644
---- a/drivers/net/ethernet/rocker/rocker.c
-+++ b/drivers/net/ethernet/rocker/rocker.c
-@@ -4004,7 +4004,8 @@ static int rocker_probe_port(struct rocker *rocker, unsigned int port_number)
- 		       NAPI_POLL_WEIGHT);
- 	rocker_carrier_init(rocker_port);
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 184c434..4304194 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -979,7 +979,11 @@ static netdev_features_t bond_fix_features(struct net_device *dev,
+ 	netdev_features_t mask;
+ 	struct slave *slave;
  
--	dev->features |= NETIF_F_HW_VLAN_CTAG_FILTER;
-+	dev->features |= NETIF_F_HW_VLAN_CTAG_FILTER |
-+				NETIF_F_HW_NETFUNC_OFFLOAD;
+-	mask = features;
++	/* If any slave has the offload feature flag set,
++	 * set the offload flag on the bond.
++	 */
++	mask = features | NETIF_F_HW_NETFUNC_OFFLOAD;
++
+ 	features &= ~NETIF_F_ONE_FOR_ALL;
+ 	features |= NETIF_F_ALL_FOR_ALL;
  
- 	err = register_netdev(dev);
- 	if (err) {
 -- 
 1.7.10.4
