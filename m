@@ -1,64 +1,72 @@
-From: Luis Henriques <luis.henriques@canonical.com>
-Subject: Re: net: prevent of emerging cross-namespace symlinks patches for
- 3.14?
-Date: Fri, 23 Jan 2015 12:14:48 +0000
-Message-ID: <20150123121448.GA2543@charon>
-References: <54B6E36F.9060703@xs4all.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, stable@vger.kernel.org,
-	"Alexander Y. Fomichev" <git.user@gmail.com>,
-	David Miller <davem@davemloft.net>
-To: Miquel van Smoorenburg <mikevs@xs4all.net>
-Return-path: <stable-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <54B6E36F.9060703@xs4all.net>
-Sender: stable-owner@vger.kernel.org
+From: Andreas Henriksson <andreas@fatal.se>
+Subject: Bug#776040: [PATCH] iproute2/ip: fix up filter when printing addresses
+Date: Fri, 23 Jan 2015 13:10:33 +0100
+Message-ID: <1422015033-14217-1-git-send-email-andreas@fatal.se>
+Reply-To: Andreas Henriksson <andreas@fatal.se>, 776040@bugs.debian.org
+Cc: netdev@vger.kernel.org,
+	Andreas Henriksson <andreas@fatal.se>,
+	776040@bugs.debian.org
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <bounce-debian-bugs-dist=glddb-debian-bugs-dist=m.gmane.org@lists.debian.org>
+Resent-Message-ID: <handler.776040.B776040.142201520014900@bugs.debian.org>
+List-URL: <http://lists.debian.org/debian-bugs-dist/>
+List-Post: <mailto:debian-bugs-dist@lists.debian.org>
+List-Help: <mailto:debian-bugs-dist-request@lists.debian.org?subject=help>
+List-Subscribe: <mailto:debian-bugs-dist-request@lists.debian.org?subject=subscribe>
+List-Unsubscribe: <mailto:debian-bugs-dist-request@lists.debian.org?subject=unsubscribe>
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jan 14, 2015 at 10:45:19PM +0100, Miquel van Smoorenburg wrote:
-> [first sent to lkml, now to netdev and the original patch author]
->=20
-> When running 'lxc' on the latest -stable kernel, 3.14.28, I'm seeing =
-these
-> errors:
->=20
-> Jan 14 17:47:16 lxc2 kernel: [   10.704890] WARNING: CPU: 0 PID: 3209=
- at
-> fs/sys
-> fs/dir.c:52 sysfs_warn_dup+0x8c/0xb0()
-> Jan 14 17:47:16 lxc2 kernel: [   10.704892] sysfs: cannot create dupl=
-icate
-> filename '/devices/virtual/net/eth0.104/upper_eth0'
-> Jan 14 17:47:16 lxc2 kernel: [   10.704954] CPU: 0 PID: 3209 Comm:
-> lxc-autostart Not tainted 3.14.28-xsserver #1
->=20
-> I did not see these errors in 3.12. This was fixed in 3.17 by:
->=20
-> net: prevent of emerging cross-namespace symlinks
-> https://github.com/torvalds/linux/commit/4c75431ac3520631f1d9e74aa884=
-07e6374dbbc4
->=20
-> net: fix creation adjacent device symlinks
-> https://github.com/torvalds/linux/commit/7ce64c79c4decdeb1afe0bf2f6ef=
-834b382871d1
->=20
-> These patches apply cleanly to 3.14.28.
->=20
-> If you agree that this should go into 3.14-stable, please ack.
->=20
+"ip addr show up" would exclude the interface (link), but include the
+addresses of down interfaces (which looked like they where indented
+under a different interface). This fixes the filtering.
 
-Thank you, I am queuing these 2 patches for the 3.16 kernel as well.
+For a full example see the original bug report at:
+http://bugs.debian.org/776040
 
-Cheers,
---
-Lu=EDs
+Reported-by: Paul Slootman <paul@debian.org>
+CC: 776040@bugs.debian.org
+Signed-off-by: Andreas Henriksson <andreas@fatal.se>
+---
+ ip/ipaddress.c | 10 +++++++---
+ 1 file changed, 7 insertions(+), 3 deletions(-)
 
-> Thanks,
->=20
-> Mike.
-> --
-> To unsubscribe from this list: send the line "unsubscribe stable" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/ip/ipaddress.c b/ip/ipaddress.c
+index d5e863d..3730424 100644
+--- a/ip/ipaddress.c
++++ b/ip/ipaddress.c
+@@ -970,7 +970,8 @@ struct nlmsg_chain
+ 	struct nlmsg_list *tail;
+ };
+ 
+-static int print_selected_addrinfo(int ifindex, struct nlmsg_list *ainfo, FILE *fp)
++static int print_selected_addrinfo(struct ifinfomsg *ifi,
++				   struct nlmsg_list *ainfo, FILE *fp)
+ {
+ 	for ( ;ainfo ;  ainfo = ainfo->next) {
+ 		struct nlmsghdr *n = &ainfo->h;
+@@ -982,10 +983,13 @@ static int print_selected_addrinfo(int ifindex, struct nlmsg_list *ainfo, FILE *
+ 		if (n->nlmsg_len < NLMSG_LENGTH(sizeof(ifa)))
+ 			return -1;
+ 
+-		if (ifa->ifa_index != ifindex ||
++		if (ifa->ifa_index != ifi->ifi_index ||
+ 		    (filter.family && filter.family != ifa->ifa_family))
+ 			continue;
+ 
++		if (filter.up && !(ifi->ifi_flags&IFF_UP))
++			continue;
++
+ 		print_addrinfo(NULL, n, fp);
+ 	}
+ 	return 0;
+@@ -1446,7 +1450,7 @@ static int ipaddr_list_flush_or_save(int argc, char **argv, int action)
+ 		if (no_link || (res = print_linkinfo(NULL, &l->h, stdout)) >= 0) {
+ 			struct ifinfomsg *ifi = NLMSG_DATA(&l->h);
+ 			if (filter.family != AF_PACKET)
+-				print_selected_addrinfo(ifi->ifi_index,
++				print_selected_addrinfo(ifi,
+ 							ainfo.head, stdout);
+ 			if (res > 0 && !do_link && show_stats)
+ 				print_link_stats(stdout, &l->h);
+-- 
+2.1.4
