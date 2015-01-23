@@ -1,54 +1,67 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [net-next PATCH v3 00/12] Flow API
-Date: Fri, 23 Jan 2015 16:00:58 +0000
-Message-ID: <20150123160058.GN25797@casper.infradead.org>
-References: <54C11ACC.5010005@mojatatu.com>
- <20150123101019.GF25797@casper.infradead.org>
- <20150123102421.GB2065@nanopsycho.orion>
- <20150123110821.GH25797@casper.infradead.org>
- <20150123113934.GD2065@nanopsycho.orion>
- <20150123122838.GI25797@casper.infradead.org>
- <20150123134315.GF2065@nanopsycho.orion>
- <20150123140724.GJ25797@casper.infradead.org>
- <54C26A1F.6060603@gmail.com>
- <20150123155332.GJ2065@nanopsycho.orion>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: Fwd: Question on SCTP ABORT chunk is generated when the association_max_retrans
+ is reached
+Date: Fri, 23 Jan 2015 11:05:11 -0500
+Message-ID: <54C27137.5010405@gmail.com>
+References: <CAFXGftKp3=OfjkCVBuR-zM3+uZ42Sk_9i2UjAHBNnbX=hQJwpA@mail.gmail.com> <CAFXGft+fwo=8LJEG7h6uOpGciSo5f_dXjSx3sn67RZZp7jsYHw@mail.gmail.com> <54C23581.9060809@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: John Fastabend <john.fastabend@gmail.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	simon.horman@netronome.com, sfeldma@gmail.com,
-	netdev@vger.kernel.org, davem@davemloft.net, gerlitz.or@gmail.com,
-	andy@greyhouse.net, ast@plumgrid.com
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:47734 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751397AbbAWQA7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jan 2015 11:00:59 -0500
-Content-Disposition: inline
-In-Reply-To: <20150123155332.GJ2065@nanopsycho.orion>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Daniel Borkmann <dborkman@redhat.com>, Sun Paul <paulrbk@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <54C23581.9060809@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 01/23/15 at 04:53pm, Jiri Pirko wrote:
-> Fri, Jan 23, 2015 at 04:34:55PM CET, john.fastabend@gmail.com wrote:
-> >What I don't have a lot of use for at the moment is an xflows that runs
-> >in software? Conceptually it sounds fine but why would I want to mirror
-> >hardware limitations into software? And if I make it completely generic
-> >it becomes u32 more or less. I could create an optimized version of the
-> >hardware dataplane in userspace which sits somewhere between u32 and the
-> >other classifiers on flexility and maybe gains some performance but I'm
-> >at a loss as to why this is useful. I would rather spend my time getting
-> >better performance out of u32 and dropping qdisc_lock completely then
-> >writing some partially useful filter for software.
+On 01/23/2015 06:50 AM, Daniel Borkmann wrote:
+> Hi,
 > 
-> Well, even software implementation has limitations. Take ovs kernel
-> datapath as example. You can use your graphs to describe exactly what
-> ovs can handle. And after that you could use xflows api to set it up as
-> well as your rocker offload. That to me seems lie a very nice feature to
-> have.
+> On 01/23/2015 11:25 AM, Sun Paul wrote:
+> ...
+>> I would like to check the behave in LKSCTP.
+>>
+>> we are running DIAMETER message over SCTP, and we have set the
+>> parameter "net.sctp.association_max_retrans = 4" in the LinuxOS.
+>>
+>> We noticed that when remote peer have retry to send the same request
+>> for 4 times, the LKSCTP will initiate an ABORT chunk with reason
+>> "association exceeded its max_retrans count".
+>>
+>> We would like to know whether this is the correct behavior? is there
+>> any other option that we can alter in order to avoid the ABORT chunk
+>> being sent?
+> 
+> I don't recall the RFC saying to send an ABORT, but let me double
+> check in the mean time.
 
-What is the value of this? The OVS kernel datapath is already built to
-fall back to user space if the kernel datapath does not support a
-specific feature.
+The RFC is silent on the matter.  The abort got added in 3.8 so
+it's been there for a while.
+
+
+> 
+> Hmm, untested, but could you try something like that?
+> 
+> diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
+> index fef2acd..5ce198d 100644
+> --- a/net/sctp/sm_sideeffect.c
+> +++ b/net/sctp/sm_sideeffect.c
+> @@ -584,7 +584,8 @@ static void sctp_cmd_assoc_failed(sctp_cmd_seq_t *commands,
+>          sctp_add_cmd_sf(commands, SCTP_CMD_EVENT_ULP,
+>                  SCTP_ULPEVENT(event));
+> 
+> -    if (asoc->overall_error_count >= asoc->max_retrans) {
+> +    if (asoc->overall_error_count >= asoc->max_retrans &&
+> +        error != SCTP_ERROR_NO_ERROR) {
+>          abort = sctp_make_violation_max_retrans(asoc, chunk);
+>          if (abort)
+>              sctp_add_cmd_sf(commands, SCTP_CMD_REPLY,
+
+
+This would pretty much stop all ABORTs due to excessive rtx.  Might
+as well take the code out :).
+
+I was a bit concerned about this ABORT when it went in.
+
+-vlad
