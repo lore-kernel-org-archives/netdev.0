@@ -1,76 +1,69 @@
-From: Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH] net: Linn Ethernet Packet Sniffer driver
-Date: Fri, 23 Jan 2015 12:20:08 +0100
-Message-ID: <54C22E68.1080601@redhat.com>
-References: <1422007621-13567-1-git-send-email-stathis.voukelatos@linn.co.uk>
+From: "Rosen, Rami" <rami.rosen@intel.com>
+Subject: RE: [PATCH net-next v3 2/5] swdevice: add new api to set and del
+ bridge port attributes
+Date: Fri, 23 Jan 2015 11:24:43 +0000
+Message-ID: <9B0331B6EBBD0E4684FBFAEDA55776F918906532@HASMSX110.ger.corp.intel.com>
+References: <1421987606-10884-3-git-send-email-roopa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Stathis Voukelatos <stathis.voukelatos-zgcZaY4qg+21Qrn1Bg8BZw@public.gmane.org>,
-	abrestic-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org
-To: Stathis Voukelatos <stathisv70-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1422007621-13567-1-git-send-email-stathis.voukelatos-zgcZaY4qg+21Qrn1Bg8BZw@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"shm@cumulusnetworks.com" <shm@cumulusnetworks.com>,
+	"gospo@cumulusnetworks.com" <gospo@cumulusnetworks.com>
+To: "roopa@cumulusnetworks.com" <roopa@cumulusnetworks.com>,
+	"jiri@resnulli.us" <jiri@resnulli.us>,
+	"sfeldma@gmail.com" <sfeldma@gmail.com>,
+	"jhs@mojatatu.com" <jhs@mojatatu.com>,
+	"bcrl@kvack.org" <bcrl@kvack.org>, "tgraf@suug.ch" <tgraf@suug.ch>,
+	"john.fastabend@gmail.com" <john.fastabend@gmail.com>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>,
+	"vyasevic@redhat.com" <vyasevic@redhat.com>,
+	"Arad, Ronen" <ronen.arad@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga14.intel.com ([192.55.52.115]:34064 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755087AbbAWLYu convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jan 2015 06:24:50 -0500
+In-Reply-To: <1421987606-10884-3-git-send-email-roopa@cumulusnetworks.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/23/2015 11:07 AM, Stathis Voukelatos wrote:
-> This patch adds support the Ethernet Packet Sniffer H/W module
-> developed by Linn Products Ltd and found in the IMG Pistachio SoC.
-> The module allows Ethernet packets to be parsed, matched against
-> a user-defined pattern and timestamped. It sits between a 100M
-> Ethernet MAC and PHY and is completely passive with respect to
-> Ethernet frames.
->
-> Matched packet bytes and timestamp values are returned through a
-> FIFO. Timestamps are provided to the module through an externally
-> generated Gray-encoded counter.
->
-> The command pattern for packet matching is stored in module RAM
-> and consists of a sequence of 16-bit entries. Each entry includes
-> an 8-bit command code and and 8-bit data value. Valid command
-> codes are:
-> 0 - Don't care
-> 1 - Match: packet data must match command string byte
-> 2 - Copy: packet data will be copied to FIFO
-> 3 - Match/Stamp: if packet data matches string byte, a timestamp
->                   is copied into the FIFO
-> 4 - Copy/Done: packet data will be copied into the FIFO.
->                 This command terminates the command string.
->
-> The driver consists of two modules:
-> - Core: it provides an API to user space using the Generic Netlink
->          framework. Specific backend implementations, like the
->          Ethernet Packet Sniffer, register one or more channels
->          with the Core. For each channel a Genl family is created.
->          User space can access a channel by sending Genl messages
->          to the Genl family associated with the channel. Packet
->          matching events are multicast.
->
-> - Ethernet Packet Sniffer backend: provides the driver for the
->          Linn Ethernet Packet Sniffer H/W modules.
->
-> The split between a core and backend modules allows software-only
-> implementations to be added for platforms where no H/W support
-> is available.
->
-> Based on 3.19-rc5
->
-> Signed-off-by: Stathis Voukelatos <stathis.voukelatos-zgcZaY4qg+21Qrn1Bg8BZw@public.gmane.org>
+Hi,
 
-Please have a look at packet sockets, they offer already all the
-functionality (if not more) your driver interface to the user space
-resembles, are transparent to the underlying hardware, and easily
-can cope with 100Mbit.
+Some trivial comments:
++
++/**
++ *	netdev_switch_port_bridge_setlink - Notify switch device port of bridge
++ *	port attributes
++ *
++ *	@dev: port device
++ *	@nlh: netlink msg with bridge port attributes
++ *
++ *	Notify switch device port of bridge port attributes
++ */
++int netdev_switch_port_bridge_setlink(struct net_device *dev,
++				      struct nlmsghdr *nlh, u16 flags) {
 
-If I understand this correctly, you are effectively introducing a
-parallel API *next* to packet sockets to user space that we have to
-maintain forever ...
+- Missing @flags after @nlh above.
+- Wouldn't "Notify switch device port of setting bridge port attributes"  or "Notify switch device port of bridge port attributes set" be 
+better here (also in terms of being consistent with the description of the netdev_switch_port_bridge_dellink() method later in this patch)? 
 
-Thanks !
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
++/**
++ *	netdev_switch_port_bridge_dellink - Notify switch device port of bridge
++ *	attribute delete
++ *
++ *	@dev: port device
++ *	@nlh: netlink msg with bridge port attributes
++ *
++ *	Notify switch device port of bridge port attribute delete
++ */
++int netdev_switch_port_bridge_dellink(struct net_device *dev,
++				      struct nlmsghdr *nlh, u16 flags) {
+
+- Again, missing @flags after @nlh for this method also.
+
+Rami Rosen
+Intel Corporation
