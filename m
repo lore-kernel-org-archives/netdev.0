@@ -1,107 +1,172 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [net-next PATCH v3 00/12] Flow API
-Date: Fri, 23 Jan 2015 10:49:32 +0000
-Message-ID: <20150123104932.GG25797@casper.infradead.org>
-References: <20150120202404.1741.8658.stgit@nitbit.x32>
- <20150122125246.GA4486@salvia>
- <20150122133713.GA25797@casper.infradead.org>
- <20150122140022.GA5674@salvia>
- <54C11094.2000807@mojatatu.com>
- <20150122151316.GB25797@casper.infradead.org>
- <54C12C1F.706@gmail.com>
+From: Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>
+Subject: Re: [PATCH] net: Linn Ethernet Packet Sniffer driver
+Date: Fri, 23 Jan 2015 10:51:14 +0000
+Message-ID: <20150123105114.GB23493@leverpostej>
+References: <1422007621-13567-1-git-send-email-stathis.voukelatos@linn.co.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	simon.horman@netronome.com, sfeldma@gmail.com,
-	netdev@vger.kernel.org, davem@davemloft.net, gerlitz.or@gmail.com,
-	andy@greyhouse.net, ast@plumgrid.com, Jiri Pirko <jiri@resnulli.us>
-To: John Fastabend <john.fastabend@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:46298 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751121AbbAWKtd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jan 2015 05:49:33 -0500
+Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Stathis Voukelatos <stathis.voukelatos-zgcZaY4qg+21Qrn1Bg8BZw@public.gmane.org>,
+	"abrestic-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org" <abrestic-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+To: Stathis Voukelatos <stathisv70-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <54C12C1F.706@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1422007621-13567-1-git-send-email-stathis.voukelatos-zgcZaY4qg+21Qrn1Bg8BZw@public.gmane.org>
+Content-Language: en-US
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 01/22/15 at 08:58am, John Fastabend wrote:
-> In response to Pablo's observation,
-> 
-> Correct this is fully exposed to user space, but it is also self
-> contained inside the API meaning I can learn when to use it and what it
-> does by looking at the other operations tables the table graph and
-> supported headers. The assumption I am making that is not in the API
-> explicitly yet. Is that actions named "set_field_name" perform the
-> set operation on that field. We can and plan to extend the API to make
-> this assumption explicit in the API.
+On Fri, Jan 23, 2015 at 10:07:01AM +0000, Stathis Voukelatos wrote:
+> This patch adds support the Ethernet Packet Sniffer H/W module
+> developed by Linn Products Ltd and found in the IMG Pistachio SoC.
+> The module allows Ethernet packets to be parsed, matched against
+> a user-defined pattern and timestamped. It sits between a 100M
+> Ethernet MAC and PHY and is completely passive with respect to
+> Ethernet frames.
+>
+> Matched packet bytes and timestamp values are returned through a
+> FIFO. Timestamps are provided to the module through an externally
+> generated Gray-encoded counter.
+>
+> The command pattern for packet matching is stored in module RAM
+> and consists of a sequence of 16-bit entries. Each entry includes
+> an 8-bit command code and and 8-bit data value. Valid command
+> codes are:
+> 0 - Don't care
+> 1 - Match: packet data must match command string byte
+> 2 - Copy: packet data will be copied to FIFO
+> 3 - Match/Stamp: if packet data matches string byte, a timestamp
+>                  is copied into the FIFO
+> 4 - Copy/Done: packet data will be copied into the FIFO.
+>                This command terminates the command string.
+>
+> The driver consists of two modules:
+> - Core: it provides an API to user space using the Generic Netlink
+>         framework. Specific backend implementations, like the
+>         Ethernet Packet Sniffer, register one or more channels
+>         with the Core. For each channel a Genl family is created.
+>         User space can access a channel by sending Genl messages
+>         to the Genl family associated with the channel. Packet
+>         matching events are multicast.
+>
+> - Ethernet Packet Sniffer backend: provides the driver for the
+>         Linn Ethernet Packet Sniffer H/W modules.
 
-OK. I think it's this assumption that is not explicitly in the API yet
-that causes confusion. Making it explicit would definitely help. Do
-we even need the driver to declare get/set operations at all? Can we
-just have the driver expose the field and the API takes care of
-providing get/set actions?
+It sounds like the framework and particular driver need to be split into
+separate patches.
 
-> Even though its a detail of the rocker world its easy enough for a
-> program on top of the API to learn how it works.
-> 
-> So in the rocker switch case if I want to rewrite an eth_dst adress I
-> have a  couple choices. I can set the group_id in one of the tables
-> that support setting the group_id and then do the rewrite in one of the
-> tables that supports matching on group_id and setting the eth_dst mac.
-> The "choice" I make is a policy IMO and I don't want to hard code logic
-> in the kernel that picks tables and decides things like what should I
-> do if table x is full but table y could also be used should I overflow
-> into table y? Or  is table y reserved for some other network function?
-> etc.
+Also, please split the binding patch as per
+Documentation/devicetree/bindings/submitting-patches.txt.
 
-Agreed. It might make sense to declare such fields as general purpose
-metadata or have some kind of field class which describes the nature
-of the field: { register, protocol-field, configuration, ... }
+>
+> The split between a core and backend modules allows software-only
+> implementations to be added for platforms where no H/W support
+> is available.
+>
+> Based on 3.19-rc5
+>
+> Signed-off-by: Stathis Voukelatos <stathis.voukelatos-zgcZaY4qg+21Qrn1Bg8BZw@public.gmane.org>
+> ---
+>  .../bindings/net/linn-ether-packet-sniffer.txt     |  27 ++
+>  .../devicetree/bindings/vendor-prefixes.txt        |   1 +
+>  MAINTAINERS                                        |   7 +
+>  drivers/net/Kconfig                                |   2 +
+>  drivers/net/Makefile                               |   1 +
+>  drivers/net/pkt-sniffer/Kconfig                    |  23 ++
+>  drivers/net/pkt-sniffer/Makefile                   |   8 +
+>  drivers/net/pkt-sniffer/backends/ether/channel.c   | 366 ++++++++++++++++++
+>  drivers/net/pkt-sniffer/backends/ether/channel.h   |  76 ++++
+>  drivers/net/pkt-sniffer/backends/ether/hw.h        |  46 +++
+>  drivers/net/pkt-sniffer/backends/ether/platform.c  | 231 +++++++++++
+>  drivers/net/pkt-sniffer/core/dev_table.c           | 124 ++++++
+>  drivers/net/pkt-sniffer/core/module.c              |  37 ++
+>  drivers/net/pkt-sniffer/core/nl.c                  | 427 +++++++++++++++++++++
+>  drivers/net/pkt-sniffer/core/nl.h                  |  34 ++
+>  drivers/net/pkt-sniffer/core/snf_core.h            |  64 +++
+>  include/linux/pkt_sniffer.h                        |  89 +++++
+>  17 files changed, 1563 insertions(+)
+>  create mode 100644 Documentation/devicetree/bindings/net/linn-ether-packet-sniffer.txt
+>  create mode 100644 drivers/net/pkt-sniffer/Kconfig
+>  create mode 100644 drivers/net/pkt-sniffer/Makefile
+>  create mode 100644 drivers/net/pkt-sniffer/backends/ether/channel.c
+>  create mode 100644 drivers/net/pkt-sniffer/backends/ether/channel.h
+>  create mode 100644 drivers/net/pkt-sniffer/backends/ether/hw.h
+>  create mode 100644 drivers/net/pkt-sniffer/backends/ether/platform.c
+>  create mode 100644 drivers/net/pkt-sniffer/core/dev_table.c
+>  create mode 100644 drivers/net/pkt-sniffer/core/module.c
+>  create mode 100644 drivers/net/pkt-sniffer/core/nl.c
+>  create mode 100644 drivers/net/pkt-sniffer/core/nl.h
+>  create mode 100644 drivers/net/pkt-sniffer/core/snf_core.h
+>  create mode 100644 include/linux/pkt_sniffer.h
+>
+> diff --git a/Documentation/devicetree/bindings/net/linn-ether-packet-sniffer.txt b/Documentation/devicetree/bindings/net/linn-ether-packet-sniffer.txt
+> new file mode 100644
+> index 0000000..6b6e105
+> --- /dev/null
+> +++ b/Documentation/devicetree/bindings/net/linn-ether-packet-sniffer.txt
+> @@ -0,0 +1,27 @@
+> +* Linn Products Ethernet Packet Sniffer
+> +
+> +Required properties:
+> +- compatible : must be "linn,eth-sniffer"
+> +- reg : physical addresses and sizes of registers. Must contain 3 entries:
+> +          first entry: registers memory space
+> +          second entry: TX command memory
+> +          third entry: RX command memory
 
-> There are some actions and metadata though that _need_ to be
-> standardized. These are the metadata that is used outside the API. For
-> example ingress_port is metadata that is set outside the tables.
-> Similarly set_egress_port and set_egress_queue provide the forwarding
-> and queueing fields. No matter how hard you look at the model from the
-> API you can not learn how these are used.
+Just to check: are those memories are part of the packet sniffer device,
+or are carveouts from other memory?
 
-Agreed. I assume we would implement a tun_dst the same standardized way.
+> +- reg-names : must contain the following 3 entries:
+> +                  "regs", "tx-ram", "rx-ram"
 
-> >What would a rocker group map to in the tc world?
-> 
-> In the 'tc' world I would guess the easiest thing to do is simply bind
-> a 'tc' qdisc to the ACL table. It seems a good first approximation of
-> how to make this work. But the rocker world doesn't yet have any QOS so
-> it makes it difficult to "offload" anything but the fifo qdiscs.
+If you use reg-names, please define reg in terms of reg-names. It's a
+little pointless to have redundant name and index requirements.
 
-Right. I was asking as tc will have the same difficulty if it wishes
-to classify based on rocker groups or other general purpose hardware
-metadata fields. We can either supoprt them by describing them and
-allow learning of such fields or ignore them.
+> +- interrupts : sniffer interrupt specifier
+> +- clocks : specify the system clock for the peripheral
+> +- clock-names : must contain the "sys" entry
 
-> >>I see this as a gaping hole
-> >>for vendor SDKs with their own definitions of their own hardware that
-> >>doesnt work with anyone else. i.e it seems to standardize proprietary
-> >>interfaces. Maybe thats what Pablo is alluding to.
-> >
-> >I will be the first to root for rejection if such patches appear.
-> >
-> 
-> Is it problematic if users define some unique header here and then
-> provide actions to set/pop/push/get operations on it?
+Likewise with clocks and clock-names.
 
-I have no problem with unique headers but we have to ensure that a
-field with identical purpose or same logical meaning is represented in
-the same way by all drivers. If a driver introduces a new field it
-must consider that other drivers will need/want to use it as well.
-I guess/hope this is obvious though ;-)
+> +- fifo-block-words : number of words in one data FIFO entry
+> +
+> +Example:
+> +
+> +sniffer@1814a000 {
+> +        compatible = "linn,eth-sniffer";
+> +        reg = <0x1814a000 0x100>, <0x1814a400 0x400>, <0x1814a800 0x400>;
+> +        reg-names = "regs", "tx-ram", "rx-ram";
+> +        interrupts = <GIC_SHARED 58 IRQ_TYPE_LEVEL_HIGH>;
+> +        interrupt-names = "eth-sniffer-irq";
+> +        clocks = <&system_clk>;
+> +        clock-names = "sys";
+> +        fifo-block-words = <4>;
+> +    };
 
-I agree that if chip A has 8 general purpose registers and chip B has
-32 of them then it doesn't matter how they are called. What matters is
-that they are declared as such to API users.
+Surely the relationship between the sniffer, MAC, and PHY should be
+described, so we know which interface the sniffer is related to?
 
-Actions must obviously be standardized as your proposal already does
-by exposing push_vlan, pop_vlan, etc.
+> diff --git a/Documentation/devicetree/bindings/vendor-prefixes.txt b/Documentation/devicetree/bindings/vendor-prefixes.txt
+> index b1df0ad..2c96f35 100644
+> --- a/Documentation/devicetree/bindings/vendor-prefixes.txt
+> +++ b/Documentation/devicetree/bindings/vendor-prefixes.txt
+> @@ -90,6 +90,7 @@ lacie LaCie
+>  lantiq Lantiq Semiconductor
+>  lenovo Lenovo Group Ltd.
+>  lg     LG Corporation
+> +linn   Linn Products Ltd.
+>  linux  Linux-specific binding
+>  lsi    LSI Corp. (LSI Logic)
+>  lltc   Linear Technology Corporation
+
+This addition looks fine to me.
+
+Thanks,
+Mark.
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
