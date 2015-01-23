@@ -1,85 +1,72 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 07/15] igb: serialize access to the time sync interrupt registers
-Date: Thu, 22 Jan 2015 18:37:03 -0800
-Message-ID: <1421980631-1955-8-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 14/15] net: e1000: support txtd update delay via xmit_more
+Date: Thu, 22 Jan 2015 18:37:10 -0800
+Message-ID: <1421980631-1955-15-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1421980631-1955-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Richard Cochran <richardcochran@gmail.com>, netdev@vger.kernel.org,
+Cc: Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:16347 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([192.55.52.115]:16348 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753557AbbAWChS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Jan 2015 21:37:18 -0500
+	id S1753484AbbAWChY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 Jan 2015 21:37:24 -0500
 In-Reply-To: <1421980631-1955-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Richard Cochran <richardcochran@gmail.com>
+From: Florian Westphal <fw@strlen.de>
 
-The time sync related interrupt registers may be manipulated from
-different contexts. This patch protects the registers from being
-asynchronously changed by the reset function.
+Don't update Tx tail descriptor if we queue hasn't been stopped and
+we know at least one more skb will be sent right away.
 
-Also, the patch removes a misleading comment. The reset function
-is disabling a bunch of functions, not enabling them.
-
-Signed-off-by: Richard Cochran <richardcochran@gmail.com>
+Signed-off-by: Florian Westphal <fw@strlen.de>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/igb_ptp.c | 10 +++++++---
- 1 file changed, 7 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/intel/e1000/e1000_main.c | 15 +++++++++------
+ 1 file changed, 9 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/igb/igb_ptp.c b/drivers/net/ethernet/intel/igb/igb_ptp.c
-index 5e7a4e3..8389bb4 100644
---- a/drivers/net/ethernet/intel/igb/igb_ptp.c
-+++ b/drivers/net/ethernet/intel/igb/igb_ptp.c
-@@ -900,6 +900,7 @@ void igb_ptp_stop(struct igb_adapter *adapter)
- void igb_ptp_reset(struct igb_adapter *adapter)
+diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
+index 9242982..7f997d3 100644
+--- a/drivers/net/ethernet/intel/e1000/e1000_main.c
++++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
+@@ -2977,7 +2977,6 @@ static void e1000_tx_queue(struct e1000_adapter *adapter,
+ 			   struct e1000_tx_ring *tx_ring, int tx_flags,
+ 			   int count)
  {
- 	struct e1000_hw *hw = &adapter->hw;
-+	unsigned long flags;
+-	struct e1000_hw *hw = &adapter->hw;
+ 	struct e1000_tx_desc *tx_desc = NULL;
+ 	struct e1000_tx_buffer *buffer_info;
+ 	u32 txd_upper = 0, txd_lower = E1000_TXD_CMD_IFCS;
+@@ -3031,11 +3030,6 @@ static void e1000_tx_queue(struct e1000_adapter *adapter,
+ 	wmb();
  
- 	if (!(adapter->flags & IGB_FLAG_PTP))
- 		return;
-@@ -907,6 +908,8 @@ void igb_ptp_reset(struct igb_adapter *adapter)
- 	/* reset the tstamp_config */
- 	igb_ptp_set_timestamp_mode(adapter, &adapter->tstamp_config);
- 
-+	spin_lock_irqsave(&adapter->tmreg_lock, flags);
-+
- 	switch (adapter->hw.mac.type) {
- 	case e1000_82576:
- 		/* Dial the nominal frequency. */
-@@ -917,23 +920,24 @@ void igb_ptp_reset(struct igb_adapter *adapter)
- 	case e1000_i350:
- 	case e1000_i210:
- 	case e1000_i211:
--		/* Enable the timer functions and interrupts. */
- 		wr32(E1000_TSAUXC, 0x0);
- 		wr32(E1000_TSIM, TSYNC_INTERRUPTS);
- 		wr32(E1000_IMS, E1000_IMS_TS);
- 		break;
- 	default:
- 		/* No work to do. */
--		return;
-+		goto out;
- 	}
- 
- 	/* Re-initialize the timer. */
- 	if ((hw->mac.type == e1000_i210) || (hw->mac.type == e1000_i211)) {
- 		struct timespec ts = ktime_to_timespec(ktime_get_real());
- 
--		igb_ptp_settime_i210(&adapter->ptp_caps, &ts);
-+		igb_ptp_write_i210(adapter, &ts);
- 	} else {
- 		timecounter_init(&adapter->tc, &adapter->cc,
- 				 ktime_to_ns(ktime_get_real()));
- 	}
-+out:
-+	spin_unlock_irqrestore(&adapter->tmreg_lock, flags);
+ 	tx_ring->next_to_use = i;
+-	writel(i, hw->hw_addr + tx_ring->tdt);
+-	/* we need this if more than one processor can write to our tail
+-	 * at a time, it synchronizes IO on IA64/Altix systems
+-	 */
+-	mmiowb();
  }
+ 
+ /* 82547 workaround to avoid controller hang in half-duplex environment.
+@@ -3264,6 +3258,15 @@ static netdev_tx_t e1000_xmit_frame(struct sk_buff *skb,
+ 		/* Make sure there is space in the ring for the next send. */
+ 		e1000_maybe_stop_tx(netdev, tx_ring, MAX_SKB_FRAGS + 2);
+ 
++		if (!skb->xmit_more ||
++		    netif_xmit_stopped(netdev_get_tx_queue(netdev, 0))) {
++			writel(tx_ring->next_to_use, hw->hw_addr + tx_ring->tdt);
++			/* we need this if more than one processor can write to
++			 * our tail at a time, it synchronizes IO on IA64/Altix
++			 * systems
++			 */
++			mmiowb();
++		}
+ 	} else {
+ 		dev_kfree_skb_any(skb);
+ 		tx_ring->buffer_info[first].time_stamp = 0;
 -- 
 1.9.3
