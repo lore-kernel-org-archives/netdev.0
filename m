@@ -1,82 +1,146 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: [PATCH V2 for 3.19 0/7] Fixes for rtl8192ee
-Date: Fri, 23 Jan 2015 10:40:21 -0600
-Message-ID: <54C27975.50501@lwfinger.net>
-References: <1421773286-1039-1-git-send-email-Larry.Finger@lwfinger.net> <873871msc7.fsf@kamboji.qca.qualcomm.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [net-next PATCH v3 00/12] Flow API
+Date: Fri, 23 Jan 2015 08:42:59 -0800
+Message-ID: <54C27A13.1000301@gmail.com>
+References: <20150120202404.1741.8658.stgit@nitbit.x32> <20150122125246.GA4486@salvia> <20150122133713.GA25797@casper.infradead.org> <20150122140022.GA5674@salvia> <54C11094.2000807@mojatatu.com> <20150122151316.GB25797@casper.infradead.org> <54C12C1F.706@gmail.com> <20150123104932.GG25797@casper.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	=?UTF-8?B?InRyb3lfdGFuQHJlYWxzaWwuY29tLmNuID4+IOiwreadreazoiI=?=
-	<troy_tan@realsil.com.cn>
-To: Kalle Valo <kvalo@codeaurora.org>
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	simon.horman@netronome.com, sfeldma@gmail.com,
+	netdev@vger.kernel.org, davem@davemloft.net, gerlitz.or@gmail.com,
+	andy@greyhouse.net, ast@plumgrid.com, Jiri Pirko <jiri@resnulli.us>
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f51.google.com ([209.85.218.51]:50528 "EHLO
-	mail-oi0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755611AbbAWQk3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jan 2015 11:40:29 -0500
-In-Reply-To: <873871msc7.fsf@kamboji.qca.qualcomm.com>
+Received: from mail-ob0-f173.google.com ([209.85.214.173]:52837 "EHLO
+	mail-ob0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755882AbbAWQnP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jan 2015 11:43:15 -0500
+Received: by mail-ob0-f173.google.com with SMTP id vb8so5988954obc.4
+        for <netdev@vger.kernel.org>; Fri, 23 Jan 2015 08:43:14 -0800 (PST)
+In-Reply-To: <20150123104932.GG25797@casper.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/23/2015 09:26 AM, Kalle Valo wrote:
-> Larry Finger <Larry.Finger@lwfinger.net> writes:
->
->> This is V2 of the patches for rtl8192ee to be applied to 3.19. They replace
->> all the patches submitted under the title '[PATCH for 3.19 0/3] rtlwifi:
->> Various updates/fixes". All are marked for backporting to 3.18.
+On 01/23/2015 02:49 AM, Thomas Graf wrote:
+> On 01/22/15 at 08:58am, John Fastabend wrote:
+>> In response to Pablo's observation,
 >>
->> The first of these removes a logging statement that is no longer needed.
+>> Correct this is fully exposed to user space, but it is also self
+>> contained inside the API meaning I can learn when to use it and what it
+>> does by looking at the other operations tables the table graph and
+>> supported headers. The assumption I am making that is not in the API
+>> explicitly yet. Is that actions named "set_field_name" perform the
+>> set operation on that field. We can and plan to extend the API to make
+>> this assumption explicit in the API.
+>
+> OK. I think it's this assumption that is not explicitly in the API yet
+> that causes confusion. Making it explicit would definitely help. Do
+> we even need the driver to declare get/set operations at all? Can we
+> just have the driver expose the field and the API takes care of
+> providing get/set actions?
+>
+>> Even though its a detail of the rocker world its easy enough for a
+>> program on top of the API to learn how it works.
 >>
->> Patches 1-6 are relatively small and should not be a problem for 3.19.
->> Patch 7 is quite a bit larger, and adds two new routines to detect
->> DMA stalls. I will understand if you want to defer that to -next; however,
->> it does fix a serious problem.
+>> So in the rocker switch case if I want to rewrite an eth_dst adress I
+>> have a  couple choices. I can set the group_id in one of the tables
+>> that support setting the group_id and then do the rewrite in one of the
+>> tables that supports matching on group_id and setting the eth_dst mac.
+>> The "choice" I make is a policy IMO and I don't want to hard code logic
+>> in the kernel that picks tables and decides things like what should I
+>> do if table x is full but table y could also be used should I overflow
+>> into table y? Or  is table y reserved for some other network function?
+>> etc.
 >
-> -rc6 is most likely released on Sunday, I cannot send six patches this
-> late in the cycle unless our inboxes are filling of bug reports. As my
-> inbox seems to be pretty empty about rtlwifi problems can you give more
-> background why you think it's important to get these to 3.19? Are these
-> all regressions from 3.18 or older bugs which just got fixed now?
+> Agreed. It might make sense to declare such fields as general purpose
+> metadata or have some kind of field class which describes the nature
+> of the field: { register, protocol-field, configuration, ... }
 >
->>    rtlwifi: Remove logging statement that is no longer needed
+>> There are some actions and metadata though that _need_ to be
+>> standardized. These are the metadata that is used outside the API. For
+>> example ingress_port is metadata that is set outside the tables.
+>> Similarly set_egress_port and set_egress_queue provide the forwarding
+>> and queueing fields. No matter how hard you look at the model from the
+>> API you can not learn how these are used.
 >
-> I think this is ok.
+> Agreed. I assume we would implement a tun_dst the same standardized way.
 >
->>    rtlwifi: rtl8192ee: Fix adhoc fail
+>>> What would a rocker group map to in the tc world?
+>>
+>> In the 'tc' world I would guess the easiest thing to do is simply bind
+>> a 'tc' qdisc to the ACL table. It seems a good first approximation of
+>> how to make this work. But the rocker world doesn't yet have any QOS so
+>> it makes it difficult to "offload" anything but the fifo qdiscs.
 >
-> Ad-Hoc mode is not that popular, IMHO this can easily wait for -next.
+> Right. I was asking as tc will have the same difficulty if it wishes
+> to classify based on rocker groups or other general purpose hardware
+> metadata fields. We can either supoprt them by describing them and
+> allow learning of such fields or ignore them.
 >
->>    rtlwifi: rtl8192ee: Fix problems with calculating free space in FIFO
->>    rtlwifi: rtl8192ee: Fix handling of new style descriptors
->>    rtlwifi: rtl8192ee: Fix TX hang due to failure to update TX write
->>      point
->>    rtlwifi: rtl8192ee: Fix parsing of received packet
->>    rtlwifi: rtl8192ee: Fix DMA stalls
->
-> For -rc1 or -rc2 these would have been ok, but without really good
-> justifications getting these into -rc7 is difficult.
->
-> But the patches itself are create, huge improvement compared to v1.
+>>>> I see this as a gaping hole
+>>>> for vendor SDKs with their own definitions of their own hardware that
+>>>> doesnt work with anyone else. i.e it seems to standardize proprietary
+>>>> interfaces. Maybe thats what Pablo is alluding to.
+>>>
+>>> I will be the first to root for rejection if such patches appear.
+>>>
+>>
+>> Is it problematic if users define some unique header here and then
+>> provide actions to set/pop/push/get operations on it?
 
-Kalle,
+couple additional comments I wanted to add here,
 
-It is too bad that it took so long to get these ready. I think the reason that 
-there are not a lot of bug reports is because the complaints are all in the 
-GitHub issues for the rtlwifi_new repo, or with Ubuntu. If there are any that 
-get filed against Bugzilla, I will refer them to that repo.
+>
+> I have no problem with unique headers but we have to ensure that a
+> field with identical purpose or same logical meaning is represented in
+> the same way by all drivers. If a driver introduces a new field it
+> must consider that other drivers will need/want to use it as well.
+> I guess/hope this is obvious though ;-)
+>
 
-Driver rtl8192ee was new in 3.18. There had been a previous version in staging, 
-but it did not get a lot of usage. I'm not sure if the additional usage after 
-3.18 was due to the driver being in the regular tree, or if vendors started 
-using the chips, but the problem reports started arriving. All these bugs have 
-been part of rtl8192ee since it has been in the kernel, thus they are hard to 
-categorize as regressions.
+Yep, so my thought here is as if_flow_common.h builds up a list of
+headers then a driver writer can go into their pipeline and "click" on
+the headers they support to define the devices parse graph. Because
+pkt headers are described using length/offset/mask types its always
+clear what an ethernet header is and what a ip header is. There really
+is no way to define/represent an ip header differently. If a driver
+writer puts in there own definition and doesn't use our if_flow_common
+definition it will be duplicate code and we should squash it. But for a
+consumer of the API it will be the _same_ header assuming there are no
+bugs in the definition.
 
-Push all 7 into -next so that they will be in 3.20. If you think it to be 
-prudent, please leave the Cc for stable. That way 3.18 and 3.19 will eventually 
-get the fixes.
+> I agree that if chip A has 8 general purpose registers and chip B has
+> 32 of them then it doesn't matter how they are called. What matters is
+> that they are declared as such to API users.
 
-Thanks,
+You could add a flag to the field type to indicate explicitly it is
+metadata or a register but I've not found any need for it. I leave
+it out of the pkt header graph and then let consumers note these
+are metadata fields that can be used. If we need this to be explicit
+its easy enough to add a flags field.
 
-Larry
+>
+> Actions must obviously be standardized as your proposal already does
+> by exposing push_vlan, pop_vlan, etc.
+>
+
+At minimum you need a standardized a primitive set that you can use to
+define other actions. push/pop/set/get can be standardized. It may be
+that hardware has more complicated actions that act as an atomic actions
+to do a entire list of actions, set some fields + pop headers for
+example. Consumers can sort out how these actions work by looking at
+the list of primitives. Its an optimization problem then for users of
+the API to "know" they have applied a set of actions that the hardware
+could actually do in a single action.
+
+Note this set of patches 00/12 did not define the primitives or use it
+in the action definitions. I think it is follow on work. Besides rocker
+doesn't have any of these type of actions yet. A 'route' action might
+be described using primitives for example.
+
+.John
+
+-- 
+John Fastabend         Intel Corporation
