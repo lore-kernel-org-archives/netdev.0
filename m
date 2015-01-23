@@ -1,166 +1,92 @@
-From: "Skidmore, Donald C" <donald.c.skidmore@intel.com>
-Subject: RE: [E1000-devel] [PATCH 1/2] if_link: Add VF multicast promiscuous
- mode control
-Date: Fri, 23 Jan 2015 01:21:41 +0000
-Message-ID: <F6FB0E698C9B3143BDF729DF222866469129C1F7@ORSMSX110.amr.corp.intel.com>
-References: <7F861DC0615E0C47A872E6F3C5FCDDBD05E0734E@BPXM14GP.gisp.nec.co.jp>
-	<874mrlu18e.fsf@nemi.mork.no>
-	<7F861DC0615E0C47A872E6F3C5FCDDBD05E07B7C@BPXM14GP.gisp.nec.co.jp>
-	<F6FB0E698C9B3143BDF729DF222866469129B7F5@ORSMSX110.amr.corp.intel.com>
-	<7F861DC0615E0C47A872E6F3C5FCDDBD05E07F09@BPXM14GP.gisp.nec.co.jp>
-	<F6FB0E698C9B3143BDF729DF222866469129B844@ORSMSX110.amr.corp.intel.com>
-	<7F861DC0615E0C47A872E6F3C5FCDDBD05E08FF6@BPXM14GP.gisp.nec.co.jp>
-	<063D6719AE5E284EB5DD2968C1650D6D1CAD01D6@AcuExch.aculab.com>
-	<7F861DC0615E0C47A872E6F3C5FCDDBD05E090FE@BPXM14GP.gisp.nec.co.jp>
-	<F6FB0E698C9B3143BDF729DF222866469129BC03@ORSMSX110.amr.corp.intel.com>
-	<063D6719AE5E284EB5DD2968C1650D6D1CAD0C8A@AcuExch.aculab.com>
-	<F6FB0E698C9B3143BDF729DF222866469129BFFD@ORSMSX110.amr.corp.intel.com>
- <87bnlqpq6v.fsf@nemi.mork.no>
- <F6FB0E698C9B3143BDF729DF222866469129C09C@ORSMSX110.amr.corp.intel.com>
- <7F861DC0615E0C47A872E6F3C5FCDDBD05E0B6B1@BPXM14GP.gisp.nec.co.jp>
+From: Bryton Lee <brytonlee01@gmail.com>
+Subject: Re: [PATCH iproute2] update obsolete fields in slabstat_ids[]
+Date: Fri, 23 Jan 2015 09:50:17 +0800
+Message-ID: <CAC2pzGc+0qEOUX1WSyapHN_Xnw3+2QtCn6uw8m+JMMVT6fDWGA@mail.gmail.com>
+References: <CAC2pzGdtPNiEK2g5-87kmzoU6s3umLujuv0fGoEyRfJYst91XA@mail.gmail.com>
+	<CAC2pzGe3Yd6sjeQG4UYcf9jyK4txjVR-CADzHEtkevMhWDTCOA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: David Laight <David.Laight@ACULAB.COM>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Choi, Sy Jong" <sy.jong.choi@intel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Hayato Momma <h-momma@ce.jp.nec.com>
-To: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>,
-	=?utf-8?B?QmrDuHJuIE1vcms=?= <bjorn@mork.no>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <7F861DC0615E0C47A872E6F3C5FCDDBD05E0B6B1@BPXM14GP.gisp.nec.co.jp>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Bryton Lee <brytonlee01@gmail.com>
+To: netdev@vger.kernel.org, stephen@networkplumber.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vc0-f177.google.com ([209.85.220.177]:59165 "EHLO
+	mail-vc0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751235AbbAWBuS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jan 2015 20:50:18 -0500
+Received: by mail-vc0-f177.google.com with SMTP id hy4so1701590vcb.8
+        for <netdev@vger.kernel.org>; Thu, 22 Jan 2015 17:50:17 -0800 (PST)
+In-Reply-To: <CAC2pzGe3Yd6sjeQG4UYcf9jyK4txjVR-CADzHEtkevMhWDTCOA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogSGlyb3NoaSBTaGltYW1v
-dG8gW21haWx0bzpoLXNoaW1hbW90b0BjdC5qcC5uZWMuY29tXQ0KPiBTZW50OiBUaHVyc2RheSwg
-SmFudWFyeSAyMiwgMjAxNSA0OjMyIFBNDQo+IFRvOiBTa2lkbW9yZSwgRG9uYWxkIEM7IEJqw7hy
-biBNb3JrDQo+IENjOiBEYXZpZCBMYWlnaHQ7IGUxMDAwLWRldmVsQGxpc3RzLnNvdXJjZWZvcmdl
-Lm5ldDsNCj4gbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgQ2hvaSwgU3kgSm9uZzsgbGludXgta2Vy
-bmVsQHZnZXIua2VybmVsLm9yZzsNCj4gSGF5YXRvIE1vbW1hDQo+IFN1YmplY3Q6IFJFOiBbRTEw
-MDAtZGV2ZWxdIFtQQVRDSCAxLzJdIGlmX2xpbms6IEFkZCBWRiBtdWx0aWNhc3QgcHJvbWlzY3Vv
-dXMNCj4gbW9kZSBjb250cm9sDQo+IA0KPiA+IFN1YmplY3Q6IFJFOiBbRTEwMDAtZGV2ZWxdIFtQ
-QVRDSCAxLzJdIGlmX2xpbms6IEFkZCBWRiBtdWx0aWNhc3QNCj4gPiBwcm9taXNjdW91cyBtb2Rl
-IGNvbnRyb2wNCj4gPiA+DQo+ID4gPiAiU2tpZG1vcmUsIERvbmFsZCBDIiA8ZG9uYWxkLmMuc2tp
-ZG1vcmVAaW50ZWwuY29tPiB3cml0ZXM6DQo+ID4gPg0KPiA+ID4gPiBNeSBoYW5nIHVwIGlzIG1v
-cmUgcmVsYXRlZCB0bzogd2l0aG91dCB0aGUgbm9iIHRvIGVuYWJsZSBpdCAob2ZmDQo+ID4gPiA+
-IGJ5DQo+ID4gPiA+IGRlZmF1bHQpIHdlIGFyZSBsZXR0aW5nIG9uZSBWRiBkaWN0YXRlIHBvbGlj
-eSBmb3IgYWxsIHRoZSBvdGhlcg0KPiA+ID4gPiBWRnMgYW5kIHRoZSBQRi4gIElmIG9uZSBWRiBu
-ZWVkcyB0byBiZSBpbiBwcm9taXNjdW91cyBtdWx0aWNhc3Qgc28NCj4gPiA+ID4gaXMgZXZlcnlv
-bmUgZWxzZS4gIFRoZWlyIHN0YWNrcyBub3cgbmVlZHMgdG8gZGVhbCB3aXRoIGFsbCB0aGUNCj4g
-PiA+ID4gZXh0cmEgbXVsdGljYXN0IHBhY2tldHMuICBBcyB5b3UgcG9pbnQgb3V0IHRoaXMgbWln
-aHQgbm90IGJlIGENCj4gPiA+ID4gZGlyZWN0IGNvbmNlcm4gZm9yIGlzb2xhdGlvbiBpbiB0aGF0
-IHRoZSBWTSBjb3VsZCBoYXZlICdjaG9zZW4nIHRvDQo+ID4gPiA+IGpvaW4gYW55IE11bHRpY2Fz
-dCBncm91cCBhbmQgc2VlbiB0aGlzIHRyYWZmaWMuICBNeSBjb25jZXJuIG92ZXINCj4gPiA+ID4g
-aXNvbGF0aW9uIGlzIG9uZSBWRiBoYXMgY2hvc2VuIHRoYXQgYWxsIHRoZSBvdGhlciBWTSBub3cg
-aGF2ZSB0bw0KPiA+ID4gPiBzZWUgdGhpcyBtdWx0aWNhc3QgdHJhZmZpYy4NCj4gPiA+DQo+ID4g
-PiBBcG9sb2dpZXMgaWYgdGhpcyBxdWVzdGlvbiBpcyBzdHVwaWQsIGJ1dCBJIGp1c3QgaGF2ZSB0
-byBhc2sgYWJvdXQNCj4gPiA+IHN0dWZmIEkgZG9uJ3QgdW5kZXJzdGFuZC4uLg0KPiA+ID4NCj4g
-PiA+IExvb2tpbmcgYXQgdGhlIHByb3Bvc2VkIGltcGxlbWVudGF0aW9uLCB0aGUgcHJvbWlzY291
-cyBtdWx0aWNhc3QNCj4gPiA+IGZsYWcgc2VlbXMgdG8gYmUgYSBwZXItVkYgZmxhZzoNCj4gPiA+
-DQo+ID4gPiAraW50IGl4Z2JlX25kb19zZXRfdmZfbWNfcHJvbWlzYyhzdHJ1Y3QgbmV0X2Rldmlj
-ZSAqbmV0ZGV2LCBpbnQgdmYsDQo+ID4gPiArYm9vbA0KPiA+ID4gK3NldHRpbmcpIHsNCj4gPiA+
-ICsJc3RydWN0IGl4Z2JlX2FkYXB0ZXIgKmFkYXB0ZXIgPSBuZXRkZXZfcHJpdihuZXRkZXYpOw0K
-PiA+ID4gKwlzdHJ1Y3QgaXhnYmVfaHcgKmh3ID0gJmFkYXB0ZXItPmh3Ow0KPiA+ID4gKwl1MzIg
-dm1vbHI7DQo+ID4gPiArDQo+ID4gPiArCWlmICh2ZiA+PSBhZGFwdGVyLT5udW1fdmZzKQ0KPiA+
-ID4gKwkJcmV0dXJuIC1FSU5WQUw7DQo+ID4gPiArDQo+ID4gPiArCWFkYXB0ZXItPnZmaW5mb1t2
-Zl0ubWNfcHJvbWlzY19lbmFibGVkID0gc2V0dGluZzsNCj4gPiA+ICsNCj4gPiA+ICsJdm1vbHIg
-PSBJWEdCRV9SRUFEX1JFRyhodywgSVhHQkVfVk1PTFIodmYpKTsNCj4gPiA+ICsJaWYgKHNldHRp
-bmcpIHsNCj4gPiA+ICsJCWVfaW5mbyhkcnYsICJWRiAldTogZW5hYmxpbmcgbXVsdGljYXN0IHBy
-b21pc2N1b3VzXG4iLCB2Zik7DQo+ID4gPiArCQl2bW9sciB8PSBJWEdCRV9WTU9MUl9NUEU7DQo+
-ID4gPiArCX0gZWxzZSB7DQo+ID4gPiArCQllX2luZm8oZHJ2LCAiVkYgJXU6IGRpc2FibGluZyBt
-dWx0aWNhc3QgcHJvbWlzY3VvdXNcbiIsIHZmKTsNCj4gPiA+ICsJCXZtb2xyICY9IH5JWEdCRV9W
-TU9MUl9NUEU7DQo+ID4gPiArCX0NCj4gPiA+ICsNCj4gPiA+ICsJSVhHQkVfV1JJVEVfUkVHKGh3
-LCBJWEdCRV9WTU9MUih2ZiksIHZtb2xyKTsNCj4gPiA+ICsNCj4gPiA+ICsJcmV0dXJuIDA7DQo+
-ID4gPiArfQ0KPiA+ID4gKw0KPiA+ID4NCj4gPiA+IEkgaGF2ZW4ndCByZWFkIHRoZSBkYXRhIHNo
-ZWV0LCBidXQgSSB0b29rIGEgcXVpY2sgbG9vayBhdCB0aGUNCj4gPiA+IGV4Y2VsbGVudCBoaWdo
-IGxldmVsIGRyaXZlciBkb2NzOg0KPiA+ID4gaHR0cDovL3d3dy5pbnRlbC5jb20vY29udGVudC9k
-YW0vZG9jL2Rlc2lnbi1ndWlkZS84MjU5OS1zci1pb3YtDQo+IGRyaXZlDQo+ID4gPiByLQ0KPiA+
-ID4gY29tcGFuaW9uLWd1aWRlLnBkZg0KPiA+ID4NCj4gPiA+IEl0IG1lbnRpb25zICJNdWx0aWNh
-c3QgUHJvbWlzY3VvdXMgRW5hYmxlIiBpbiBpdHMgIlRob3VnaHRzIGZvcg0KPiA+ID4gQ3VzdG9t
-aXphdGlvbiIgc2VjdGlvbjoNCj4gPiA+DQo+ID4gPiAgNy4xIE11bHRpY2FzdCBQcm9taXNjdW91
-cyBFbmFibGUNCj4gPiA+DQo+ID4gPiAgVGhlIGNvbnRyb2xsZXIgaGFzIHByb3Zpc2lvbnMgdG8g
-YWxsb3cgZWFjaCBWRiB0byBiZSBwdXQgaW50bw0KPiA+ID4gTXVsdGljYXN0IFByb21pc2N1b3Vz
-IG1vZGUuICBUaGUgSW50ZWwgcmVmZXJlbmNlIGRyaXZlciBkb2VzIG5vdA0KPiA+ID4gY29uZmln
-dXJlIHRoaXMgb3B0aW9uIC4NCj4gPiA+DQo+ID4gPiAgVGhlIGNhcGFiaWxpdHkgY2FuIGJlIGVu
-YWJsZWQvZGlzYWJsZWQgYnkgbWFuaXB1bGF0aW5nIHRoZSBNUEUNCj4gPiA+IGZpZWxkICAoYml0
-DQo+ID4gPiAyOCkgb2YgdGhlIFBGIFZGIEwyIENvbnRyb2wgUmVnaXN0ZXIgKFBGVk1MMkZMVCDi
-gJMgMHgwRjAwMCkNCj4gPiA+DQo+ID4gPiBhbmQgc2hvd2luZyBhIHNlY3Rpb24gZnJvbSB0aGUg
-ZGF0YSBzaGVldCBkZXNjcmliaW5nIHRoZSAiUEYgVk0gTDINCj4gPiA+IENvbnRyb2wgUmVnaXN0
-ZXIgLSBQRlZNTDJGTFRbbl0gICgweDBGMDAwICsgNCAqIG4sIG49MC4uLjYzOyBSVykiDQo+ID4g
-Pg0KPiA+ID4gVG8gbWUgaXQgbG9va3MgbGlrZSBlbmFibGluZyBQcm9taXNjdW9zIE11bHRpY2Fz
-dCBmb3IgYSBWRiB3b24ndA0KPiA+ID4gYWZmZWN0IGFueSBvdGhlciBWRiBhdCBhbGwuICBJcyB0
-aGlzIHJlYWxseSBub3QgdGhlIGNhc2U/DQo+ID4gPg0KPiA+ID4NCj4gPiA+DQo+ID4gPiBCasO4
-cm4NCj4gPg0KPiA+IENsZWFybHkgbm90IGEgZHVtYiBxdWVzdGlvbiBhdCBhbGwgYW5kIEknbSBn
-bGFkIHlvdSBtZW50aW9uZWQgdGhhdC4gOikNCj4gPiBJIHdhcyBnb2luZyBvZmYgdGhlIGFzc3Vt
-cHRpb24sIGJlZW4gYXdoaWxlIHNpbmNlIEkgcmVhZCB0aGUgcGF0Y2gsDQo+ID4gdGhhdCB0aGUg
-cGF0Y2ggd2FzIHVzaW5nIEZDVFJMLk1QRSBvciBNQU5DLk1DU1RfUEFTU19MMiB3aGljaCB3b3Vs
-ZA0KPiB0dXJuIG11bHRpY2FzdCBwcm9taXNjdW91cyBvbiBmb3IgZXZlcnlvbmUuICBTaW5jZSB0
-aGUgcGF0Y2ggaXMgdXNpbmcNCj4gUEZWTUwyRkxULk1QRSB0aGlzIGxlc3NlbnMgbXkgY29uY2Vy
-biBvdmVyIGVmZmVjdCBvbiB0aGUgZW50aXJlIHN5c3RlbS4NCj4gDQo+IEkgYmVsaWV2ZSB0aGUg
-cGF0Y2hlcyBmb3IgdGhpcyBWRiBtdWx0aWNhc3QgcHJvbWlzY3VvdXMgbW9kZSBpcyBwZXIgVkYu
-DQo+IA0KPiA+DQo+ID4gVGhhdCBzYWlkIEkgc3RpbGwgd291bGQgcHJlZmVyIGhhdmluZyBhIHdh
-eSB0byBvdmVycmlkZSB0aGlzIGJlaGF2aW9yIG9uIHRoZQ0KPiBQRiwgYWx0aG91Z2ggSSBhZG1p
-dCBteSBhcmd1bWVudCBpcyB3ZWFrZXIuDQo+ID4gSSdtIHN0aWxsIGNvbmNlcm5lZCBhYm91dCBh
-IFZGIGNoYW5naW5nIHRoZSBiZWhhdmlvciBvZiB0aGUgUEYgd2l0aG91dA0KPiA+IGFueSB3YXkg
-dG8gcHJldmVudCBpdC4gIFRoaXMgbWlnaHQgYmUgb25lIHBhcnQgcGhpbG9zb3BoaWNhbCAoUEYg
-c2V0cw0KPiA+IHBvbGljeSBub3QgdGhlIFZGKSBidXQgdGhpcyBzdGlsbCBjb3VsZCBoYXZlIGEg
-bm90aWNlYWJsZSBlZmZlY3Qgb24NCj4gPiB0aGUgb3ZlcmFsbCBzeXN0ZW0uICBJZiBhbnkgb3Ro
-ZXIgVkZzIChvciB0aGUgUEYpIGFyZSByZWNlaXZpbmcgTUMNCj4gPiBwYWNrZXRzIHRoZXNlIHdp
-bGwgaGF2ZSB0byBiZSByZXBsaWNhdGVkIHdoaWNoIHdpbGwgYmUgYSBwZXJmb3JtYW5jZQ0KPiA+
-IGhpdC4gIFdoZW4gd2UgdXNlIHRoZSBNQyBoYXNoIHRoaXMgaXMgbGltaXRlZCB2cy4gd2hlbiBh
-bnlvbmUgaXMgaW4gTUMNCj4gcHJvbWlzY3VvdXMgZXZlcnkgTUMgcGFja2V0IHVzZWQgYnkgYW5v
-dGhlciBwb29sIHdvdWxkIGJlIHJlcGxpY2F0ZWQuICBJDQo+IGNvdWxkIGltYWdpbmUgaW4gc29t
-ZSBlbnZpcm9ubWVudHMgKGkuZS4gcHVibGljIGNsb3Vkcykgd2hlcmUgeW91IGRvbid0DQo+IHRy
-dXN0IHdoYXQgaXMgcnVubmluZyBpbiB5b3VyIFZNIHlvdSBtaWdodCB3aGF0IHRvIGJsb2NrIHRo
-aXMgZnJvbQ0KPiBoYXBwZW5pbmcuDQo+IA0KPiBJIHVuZGVyc3RhbmQgeW91ciByZXF1ZXN0IGFu
-ZCBJJ20gdGhpbmtpbmcgdG8gc3VibWl0IHRoZSBwYXRjaGVzDQo+ICAgMSkgQWRkIG5ldyBtYm94
-IEFQSSBiZXR3ZWVuIGl4Z2JlL2l4Z2JldmYgdG8gdHVybiBNQyBwcm9taXNjdW91cyBvbiwNCj4g
-ICAgICBhbmQgZW5hYmxlcyBpdCB3aGVuIGl4Z2JldmYgbmVlZHMgb3ZlciAzMCBNQyBhZGRyZXNz
-ZXMuDQo+ICAgMikgQWRkIGEgcG9saWN5IGtub2IgdG8gcHJldmVudCBlbmFibGluZyBpdCBmcm9t
-IHRoZSBQRi4NCj4gDQo+IERvZXMgaXQgc2VlbSBva2F5Pw0KDQpUaGlzIHNvdW5kcyB0b3RhbGx5
-IGZpbmUgdG8gbWUuICBUaGF0IHdheSB1c2VycyB0aGF0IG5lZWQgdGhpcyBmdW5jdGlvbmFsaXR5
-IGNhbiBnZXQgaXQgd2hpbGUgYW55b25lIGNvbmNlcm5lZCBhYm91dCBzaWRlIGVmZmVjdHMgZG9u
-J3QgZW5hYmxlIGl0Lg0KDQo+IA0KPiBCVFcsIEknbSBiaXQgd29ycmllZCBhYm91dCB0byB1c2Ug
-bmRvIGludGVyZmFjZSBmb3IgMikgYmVjYXVzZSBhZGRpbmcgYSBuZXcNCj4gaG9vayBtYWtlcyBj
-b3JlIGNvZGUgY29tcGxpY2F0ZWQuDQo+IElzIGl0IHJlYWxseSByZWFzb25hYmxlIHRvIGRvIGl0
-IHdpdGggbmRvPw0KPiBJIGhhdmVuJ3QgZmluZCBhbnkgb3RoZXIgc3VpdGFibGUgbWV0aG9kIHRv
-IGRvIGl0LCByaWdodCBub3cuIEFuZCB1c2luZyBuZG8gVkYNCj4gaG9vayBsb29rcyBzdGFuZGFy
-ZCB3YXkgdG8gY29udHJvbCBWRiBmdW5jdGlvbmFsaXR5Lg0KDQpUbyBiZSBob25lc3QgSSBoYWQg
-YmVlbiB0aGlua2luZyBpdCB3b3VsZCBiZSBlbmFibGVkIGJ5IFBGLiAgQmFzaWNhbGx5IGEgaG9v
-ayBzYXlpbmcgdGhlIFBGIHdhcyB3aWxsaW5nIHRvIGxldCBhbnkgVkYncyBnbyBpbnRvIE1DIHBy
-b21pc2N1b3VzIGFuZCB0aHVzIHNvIG5vdCBib3RoZXJpbmcgdG8gYnJha2UgaXQgb3V0IGJ5IFZG
-LiAgU2luY2UgdGhlIGFkdmljZSBlZmZlY3RzIEkgd2FzIHdvcnJpZWQgYWJvdXQgd291bGQgYmUg
-ZmVsdCBvbiBhbGwgdGhlIFZGJ3MgYW5kIFBGIGV2ZW4gaWYgaXQgd2FzIGVuYWJsZWQgb24gb25s
-eSBzb21lIFZGJ3MuICAgSSBpbWFnaW5lIHRoZXJlIHdvdWxkIGJlIHNvbWUgYmVuZWZpdCB0byBi
-ZWluZyBhYmxlIHRvIGNvbnRyb2wgaG93IG1hbnkgVkYncyB3ZXJlIGFibGUgdG8gZW50ZXIgdGhp
-cyBtb2RlIGJ1dCBJIHdvdWxkIGJlIG9rIHdpdGggZWl0aGVyLg0KDQo+IFRoZW4sIEkgdGhpbmsg
-aXQncyB0aGUgYmVzdCB3YXkgdG8gaW1wbGVtZW50IHRoaXMgcG9saWN5IGluIG5kbyBob29rLg0K
-DQpUaGF0IHNlZW1zIHJlYXNvbmFibGUgdG8gbWUuICBJZiBub3QgSSdtIG5vdCBzdXJlIHdoYXQg
-ZWxzZSB3b3VsZCBiZSBhbnkgYmV0dGVyLCBtYXliZSBldGh0b29sIC0tc2V0LXByaXYtZmxhZ3Mg
-YnV0IHRoYXQgd291bGRuJ3QgbWFrZSBtdWNoIHNlbnNlIGlmIHlvdSBzZXQgaXQgYnkgVkYuICBM
-aWtld2lzZSBJJ20gbm90IHN1cmUgaG93IGV4Y2l0ZWQgcGVvcGxlIHdvdWxkIGJlIGFib3V0IGlu
-Y2x1ZGluZyBwb2xpY3kgbGlrZSB0aGlzIGluIGV0aHRvb2wuDQoNCj4gDQo+ID4NCj4gPiBJbiBz
-b21lIHdheXMgaXQgaXMgYWxtb3N0IHRoZSBtaXJyb3IgaW1hZ2Ugb2YgdGhlIGlzc3VlIHlvdSBi
-cm91Z2h0IHVwOg0KPiA+DQo+ID4gQWRkaW5nIGEgbmV3IGhvb2sgZm9yIHRoaXMgc2VlbXMgb3Zl
-ci1jb21wbGljYXRlZCB0byBtZS4gIEFuZCBpdCBzdGlsbA0KPiA+IGRvZXNuJ3Qgc29sdmUgdGhl
-IHJlYWwgcHJvYmxlbXMgdGhhdA0KPiA+ICBhKSB0aGUgdXNlciBoYXMgdG8ga25vdyBhYm91dCB0
-aGlzIGxpbWl0LCBhbmQNCj4gPiAgYikgbWFudWFsbHkgY29uZmlndXJlIHRoZSBmZWF0dXJlDQo+
-ID4NCj4gPiBNeSByZXZlcnNlIGFyZ3VtZW50IG1pZ2h0IGJlIHRoYXQgaWYgdGhpcyBoYXBwZW5z
-IGF1dG9tYXRpY2FsbHkuICBJdA0KPiA+IG1pZ2h0IHRha2UgdGhlIFZNIHByb3ZpZGVyIGEgbG9u
-ZyB0aW1lIHRvIHJlYWxpemUgcGVyZm9ybWFuY2UgaGFzDQo+ID4gdGFrZW4gYSBoaXQgYmVjYXVz
-ZSBzb21lIFZNIGFza2VkIHRvIGpvaW4gMzEgbXVsdGljYXN0IGdyb3VwcyBhbmQNCj4gZW50ZXJl
-ZCBNQyBwcm9taXNjdW91cy4gIFRoZW4gb25seSB0byBmaW5kIHRoYXQgdGhleSBoYXZlIG5vIHdh
-eSB0byBibG9jaw0KPiBzdWNoIGJlaGF2aW9yLg0KPiA+DQo+ID4gTWF5YmUgSSB3b3VsZG4ndCBh
-cyBjb25jZXJuZWQgaWYgdGhlIHBhdGNoIGF1dGhvciBjb3VsZCBwcm92aWRlIHNvbWUNCj4gPiBw
-ZXJmb3JtYW5jZSByZXN1bHRzIHRvIHNob3cgdGhpcyB3b24ndCBoYXZlIGFzIGEgbmVnYXRpdmUg
-ZWZmZWN0IGFzIEknbQ0KPiBhZnJhaWQgaXQgbWlnaHQ/DQo+IA0KPiBIbSwgd2hhdCBraW5kIG9m
-IHRlc3QgY2FzZSB3b3VsZCB5b3UgbGlrZSB0byBoYXZlPw0KPiBUaGUgdXNlciBBIHdobyBoYXMg
-MzAgTUMgYWRkcmVzc2VzIHZzIHRoZSB1c2VyIEIgd2hvIGhhcyAzMSBNQyBhZGRyZXNzZXMsDQo+
-IHdoaWNoIG1lYW5zIHRoYXQgTUMgcHJvbWlzY3VvdXMgbW9kZSwgYW5kIGNvbWluZyBNQyBwYWNr
-ZXRzIHRoZSB1c2VyDQo+IGRvZXNuJ3QgZXhwZWN0Pw0KPiANCj4gdGhhbmtzLA0KPiBIaXJvc2hp
-DQo=
+Any one has any comment?  Have you didn't saw this issue before when run ss -s ?
+
+On Fri, Jan 16, 2015 at 10:27 AM, Bryton Lee <brytonlee01@gmail.com> wrote:
+> Hi Stephen:
+>
+> This is the first time I submit a patch to iproute2, I forgot CC to a
+> iproute2's maintainer. It's my fault. Could you please review my
+> patch? :)
+>
+> this patch can help some old system get TCP info correctly.  such as
+> Red Hat 5u7,  although  is not perfect.  ss searching  tcp_bind_bucket
+> and request_sock_TCP in /proc/slabinfo will fail on current upstream
+> kernel,
+> because on current upstream kernel slab tcp_bind_bucket and
+> request_sock_TCP have merged into kmalloc-xx when they are creating.
+> so  in /proc/slabinfo  we cannot see them any more.
+>
+> I have submitted other patch to mm subsystem to prevent such merging,
+> but it still not accepted. (Yep, finally, I know my patch has problem,
+> it doesn't make any sense, but may be we should still think about how
+> to prevent slab merging in slab layer. )
+>
+>
+> On Mon, Dec 29, 2014 at 8:16 PM, Bryton Lee <brytonlee01@gmail.com> wrote:
+>> From: Bryton Lee <brytonlee01@gmail.com>
+>> Date: Mon, 29 Dec 2014 19:56:23 +0800
+>> Subject: [PATCH] tcp_open_request and tcp_tw_bucket are obsolete in current
+>>  stable kernel version, replace by request_sock_TCP and tw_sock_TCP
+>>
+>> Signed-off-by: Bryton Lee <brytonlee01@gmail.com>
+>> ---
+>>  misc/ss.c | 4 ++--
+>>  1 file changed, 2 insertions(+), 2 deletions(-)
+>>
+>> diff --git a/misc/ss.c b/misc/ss.c
+>> index f0c7b34..24d58c7 100644
+>> --- a/misc/ss.c
+>> +++ b/misc/ss.c
+>> @@ -506,8 +506,8 @@ static const char *slabstat_ids[] =
+>>  {
+>>      "sock",
+>>      "tcp_bind_bucket",
+>> -    "tcp_tw_bucket",
+>> -    "tcp_open_request",
+>> +    "tw_sock_TCP",
+>> +    "request_sock_TCP",
+>>      "skbuff_head_cache",
+>>  };
+>>
+>> --
+>> 2.0.5
+>>
+>> --
+>> Best Regards
+>>
+>> Bryton.Lee
+>>
+>
+>
+>
+> --
+> Best Regards
+>
+> Bryton.Lee
+
+
+
+-- 
+Best Regards
+
+Bryton.Lee
