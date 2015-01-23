@@ -1,139 +1,81 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [net-next PATCH v3 00/12] Flow API
-Date: Fri, 23 Jan 2015 14:43:15 +0100
-Message-ID: <20150123134315.GF2065@nanopsycho.orion>
-References: <54C11094.2000807@mojatatu.com>
- <20150122151316.GB25797@casper.infradead.org>
- <54C11703.7030702@mojatatu.com>
- <20150122153727.GC25797@casper.infradead.org>
- <54C11ACC.5010005@mojatatu.com>
- <20150123101019.GF25797@casper.infradead.org>
- <20150123102421.GB2065@nanopsycho.orion>
- <20150123110821.GH25797@casper.infradead.org>
- <20150123113934.GD2065@nanopsycho.orion>
- <20150123122838.GI25797@casper.infradead.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] bonding: handle more gso types
+Date: Fri, 23 Jan 2015 05:57:26 -0800
+Message-ID: <1422021446.29618.8.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	John Fastabend <john.fastabend@gmail.com>,
-	simon.horman@netronome.com, sfeldma@gmail.com,
-	netdev@vger.kernel.org, davem@davemloft.net, gerlitz.or@gmail.com,
-	andy@greyhouse.net, ast@plumgrid.com
-To: Thomas Graf <tgraf@suug.ch>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, Or Gerlitz <ogerlitz@mellanox.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f181.google.com ([74.125.82.181]:36106 "EHLO
-	mail-we0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750902AbbAWNnS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jan 2015 08:43:18 -0500
-Received: by mail-we0-f181.google.com with SMTP id k48so5932179wev.12
-        for <netdev@vger.kernel.org>; Fri, 23 Jan 2015 05:43:17 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20150123122838.GI25797@casper.infradead.org>
+Received: from mail-ie0-f170.google.com ([209.85.223.170]:52080 "EHLO
+	mail-ie0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750827AbbAWN52 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jan 2015 08:57:28 -0500
+Received: by mail-ie0-f170.google.com with SMTP id y20so3108845ier.1
+        for <netdev@vger.kernel.org>; Fri, 23 Jan 2015 05:57:27 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fri, Jan 23, 2015 at 01:28:38PM CET, tgraf@suug.ch wrote:
->On 01/23/15 at 12:39pm, Jiri Pirko wrote:
->> Maybe I did not express myself correctly. I do not care if this is
->> exposed by rtnl or a separate genetlink. The issue still stands. And the
->> issue is that the user have to use "the way A" to setup sw datapath and
->> "the way B" to setup hw datapath. The preferable would be to have
->> "the way X" which can be used to setup both sw and hw.
->> 
->> And I believe that could be achieved. Consider something like this:
->> 
->> - have cls_xflows tc classifier and act_xflows tc action as a wrapper
->>   (or api) for John's work. With possibility for multiple backends. The
->>   backend iface would looke very similar to what John has now.
->> - other tc clses and acts will implement xflows backend
->> - openvswitch datapath will implement xflows backend
->> - rocker switch will implement xflows backend
->> - other drivers will implement xflows backend
->> 
->> Now if user wants to manipulate with any flow setting, he can just use
->> cls_xflows and act_xflows to to that.
->> 
->> This is very rough, but I just wanted to draw the picture. This would
->> provide single entry to flow world manipulation in kernel, no matter if
->> sw or hw.
->
->If I understand this correctly then you propose to do the decision on
->whether to implement a flow in software or offload it to hardware in the
->xflows classifier and action. I had exactly the same architecture in mind
->initially when I first approached this and wanted to offload OVS
->datapath flows transparently to hardware.
+From: Eric Dumazet <edumazet@google.com>
 
-Think about xflows as an iface to multiple backends, some sw and some hw.
-User will be able to specify which backed he wants to use for particular
-"commands".
+In commit 5a7baa78851b ("bonding: Advertize vxlan offload features when
+supported"), Or Gerlitz added support conditional vxlan offload.
 
-So for example, ovs kernel datapath module will implement an xflows
-backend and register it as "ovsdp". Rocker will implement another xflows
-backend and register it as "rockerdp". Then, ovs userspace will use xflows
-api to setup both backends independently, but using the same xflows api.
+In this patch I also add support for GRE, IPIP and SIT tunnels,
+but we allow a bonding device to not require segmentation,
+as it is always better to make this segmentation at the very last stage,
+if a particular slave device requires it.
 
-It is still up to userspace to decide what should be put where (what
-backend to use).
+Tested:
 
->
->If you look at this from the existing tc world then that makes a lot
->of sense, in particular if you only support a single flat table with
->wildcard flows and no priorities.
->
->If you want to support priorities it already gets complicated. If flow
->A, B, C are offloaded to hardware and the user then inserts a new flow
->D with higher priority that can't be offloaded you need to figure out
->whether you have to remove any of A, B, C from the hardware tables again
->on the basis whether D overlaps with A, B, or C. If you have to remove
->any of them you then have to verify whether that removal needs to
->remove other already offloaded flows as well. It's certainly doable but
->already adds considerable complexity to the kernel.
->
->If you want to support multiple tables it gets even more complicated
->because a flow in table 2 which can be offloaded might depend on a
->flow in table 1 which can't be offloaded. You somehow need to track
->that dependency and ensure that table 1 sends that flow to the CPU so
->that the flow in table 2 sees it. The answer to this might be to maybe
->only support  offload to a single table but that decreases the value
->of the offload dramatically because the capabilities of each table are
->very different.
->
->If you bring the full programmability of OVS into the picture you might
->have a pipeline consisting of multiple tables like this:
->
-> +-------+   +------+   +-----+   +-------+
-> | Decap |-->| L2   |-->| L3  |-->| Encap |
-> +-------+   +------+   +-----+   +-------+
->
->Each table contains flows and metadata registers plus header matches
->are used to talk among the tables. The pipeline builds a chain of
->actions which may be executed at any point in the pipeline or at the
->end. If you want to map such a software pipeline to a set of hardware
->tables you need to have full visbility into this table structure at
->the point where you make the offload decision. This means that all of
->this complexity would have to move into xflows.
->
->Another aspect is that you might want to split a flow X into a hardware
->and software part, e.g. consider the following flow:
->
->in_port=vxlan0,vni=10,ip_dst=10.1.1.1,actions=decap(),nfqueue(10),output(tap0)
->
->The hardware might be capable of matching on the VXLAN VNI, IP dst and
->it might also capable of deencap. It obviously doesn't know about
->netfilter queues. Ideally what you want is to split this into the
->following flows:
->
->Hardware table (offloaded):
->in_port=vxlan0,vni=10,ip_dst=10.1.1.1,actions=decap(),metadata=1
->
->Software table:
->metadata=1,actions=nfqueue(10),output(tap0)
->
->If the hardware capabilities are not exported to OVS then xflows would
->need to encode such logic and xflows would need to be made aware of the
->full software pipeline with all tables as you need to see all flows in
->order to decide what to offload where.
->
->I would love to see a tc interface to John's flow API and I see
->tremendous value but I don't think it's appropriate to offload OVS.
+ethtool -K bond0 tx-gre-segmentation off
+
+super_netperf 50 --google-pacing-rate 30000000 -H 10.7.8.152 -l 15
+7538.32
+
+ethtool -K bond0 tx-gre-segmentation on 
+
+super_netperf 50 --google-pacing-rate 30000000 -H 10.7.8.152 -l 15
+10200.5
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Or Gerlitz <ogerlitz@mellanox.com>
+---
+ drivers/net/bonding/bond_main.c |    9 ++++++---
+ 1 file changed, 6 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 0dceba1a2ba15f4706922a5423f680e7cd17ef77..1e837fceb3fb7b739c543b0d5babc4da4797caf3 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -998,7 +998,10 @@ static netdev_features_t bond_fix_features(struct net_device *dev,
+ 				 NETIF_F_HIGHDMA | NETIF_F_LRO)
+ 
+ #define BOND_ENC_FEATURES	(NETIF_F_ALL_CSUM | NETIF_F_SG | NETIF_F_RXCSUM |\
+-				 NETIF_F_TSO | NETIF_F_GSO_UDP_TUNNEL)
++				 NETIF_F_TSO)
++
++#define BOND_ENC_ALWAYS		(NETIF_F_GSO_GRE | NETIF_F_GSO_IPIP | \
++				 NETIF_F_GSO_SIT | NETIF_F_GSO_UDP_TUNNEL)
+ 
+ static void bond_compute_features(struct bonding *bond)
+ {
+@@ -1034,7 +1037,7 @@ static void bond_compute_features(struct bonding *bond)
+ 
+ done:
+ 	bond_dev->vlan_features = vlan_features;
+-	bond_dev->hw_enc_features = enc_features;
++	bond_dev->hw_enc_features = enc_features | BOND_ENC_ALWAYS;
+ 	bond_dev->hard_header_len = max_hard_header_len;
+ 	bond_dev->gso_max_segs = gso_max_segs;
+ 	netif_set_gso_max_size(bond_dev, gso_max_size);
+@@ -4010,7 +4013,7 @@ void bond_setup(struct net_device *bond_dev)
+ 				NETIF_F_HW_VLAN_CTAG_FILTER;
+ 
+ 	bond_dev->hw_features &= ~(NETIF_F_ALL_CSUM & ~NETIF_F_HW_CSUM);
+-	bond_dev->hw_features |= NETIF_F_GSO_UDP_TUNNEL;
++	bond_dev->hw_features |= BOND_ENC_ALWAYS;
+ 	bond_dev->features |= bond_dev->hw_features;
+ }
+ 
