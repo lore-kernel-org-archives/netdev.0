@@ -1,60 +1,61 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [PATCH V2 for 3.19 0/7] Fixes for rtl8192ee
-Date: Fri, 23 Jan 2015 17:26:00 +0200
-Message-ID: <873871msc7.fsf@kamboji.qca.qualcomm.com>
-References: <1421773286-1039-1-git-send-email-Larry.Finger@lwfinger.net>
+From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Subject: Re: [PATCH] brcmfmac: avoid duplicated suspend/resume operation
+Date: Fri, 23 Jan 2015 17:29:40 +0200
+Message-ID: <87y4otldln.fsf@kamboji.qca.qualcomm.com>
+References: <54BDCC06.8090107@linux.intel.com>
+	<87twzincvz.fsf@kamboji.qca.qualcomm.com>
+	<54C1012F.1020400@cogentembedded.com> <54C1646B.4080409@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: Larry Finger <Larry.Finger@lwfinger.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.11.231]:47443 "EHLO
-	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753127AbbAWP0I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jan 2015 10:26:08 -0500
-In-Reply-To: <1421773286-1039-1-git-send-email-Larry.Finger@lwfinger.net>
-	(Larry Finger's message of "Tue, 20 Jan 2015 11:01:19 -0600")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>,
+	"Fu\, Zhonghui" <zhonghui.fu-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+	<brudley-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>, Franky Lin <frankyl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	<meuleman-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>, <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	<pieterpg-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>, <hdegoede-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, <wens-jdAy2FN1RRM@public.gmane.org>,
+	<linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<brcm80211-dev-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel\@vger.kernel.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <54C1646B.4080409-dY08KVG/lbpWk0Htik3J/w@public.gmane.org> (Arend van Spriel's message of
+	"Thu, 22 Jan 2015 21:58:19 +0100")
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Larry Finger <Larry.Finger@lwfinger.net> writes:
+Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org> writes:
 
-> This is V2 of the patches for rtl8192ee to be applied to 3.19. They replace
-> all the patches submitted under the title '[PATCH for 3.19 0/3] rtlwifi:
-> Various updates/fixes". All are marked for backporting to 3.18.
+> On 01/22/15 14:54, Sergei Shtylyov wrote:
+>> Hello.
+>>
+>> On 1/22/2015 4:49 PM, Kalle Valo wrote:
+>>
+>>>> >From 04d3fa673897ca4ccbea6c76836d0092dba2484a Mon Sep 17 00:00:00 2001
+>>>> From: Zhonghui Fu <zhonghui.fu-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+>>>> Date: Tue, 20 Jan 2015 11:14:13 +0800
+>>>> Subject: [PATCH] brcmfmac: avoid duplicated suspend/resume operation
+>>
+>>>> WiFi chip has 2 SDIO functions, and PM core will trigger
+>>>> twice suspend/resume operations for one WiFi chip to do
+>>>> the same things. This patch avoid this case.
+>>
+>>>> Acked-by: Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+>>>> Acked-by: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
+>>>> Acked-by: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+>>>> Signed-off-by: Zhonghui Fu <zhonghui.fu-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+>>
+>>> I don't remember giving Acked-by to this (or for matter to anything for
+>>> a long time). What about Sergei or Arend?
+>>
+>> I haven't ACK'ed this patch either.
 >
-> The first of these removes a logging statement that is no longer needed.
->
-> Patches 1-6 are relatively small and should not be a problem for 3.19.
-> Patch 7 is quite a bit larger, and adds two new routines to detect
-> DMA stalls. I will understand if you want to defer that to -next; however,
-> it does fix a serious problem.
+> I did ACK the initial patch and felt it still valid for this 'V2' patch.
 
--rc6 is most likely released on Sunday, I cannot send six patches this
-late in the cycle unless our inboxes are filling of bug reports. As my
-inbox seems to be pretty empty about rtlwifi problems can you give more
-background why you think it's important to get these to 3.19? Are these
-all regressions from 3.18 or older bugs which just got fixed now?
-
->   rtlwifi: Remove logging statement that is no longer needed
-
-I think this is ok.
-
->   rtlwifi: rtl8192ee: Fix adhoc fail
-
-Ad-Hoc mode is not that popular, IMHO this can easily wait for -next.
-
->   rtlwifi: rtl8192ee: Fix problems with calculating free space in FIFO
->   rtlwifi: rtl8192ee: Fix handling of new style descriptors
->   rtlwifi: rtl8192ee: Fix TX hang due to failure to update TX write
->     point
->   rtlwifi: rtl8192ee: Fix parsing of received packet
->   rtlwifi: rtl8192ee: Fix DMA stalls
-
-For -rc1 or -rc2 these would have been ok, but without really good
-justifications getting these into -rc7 is difficult.
-
-But the patches itself are create, huge improvement compared to v1.
+Ok, thanks. So the patch is good, Zhonghui just needs to remove the two
+acked-by lines.
 
 -- 
 Kalle Valo
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
