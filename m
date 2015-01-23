@@ -1,67 +1,54 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [PATCH net-next 0/3] openvswitch: Add STT support.
-Date: Fri, 23 Jan 2015 12:20:07 -0800
-Message-ID: <CAEP_g=-Yn849TmrN5xFLJVxuux0fBuYGFSM7K-psg=pdxgPR9w@mail.gmail.com>
-References: <1421785536-19793-1-git-send-email-pshelar@nicira.com>
- <CA+mtBx_z3trTkK2qnVboXv7sJNjMHLr9V+4A=aFqyMo_0p1_Eg@mail.gmail.com>
- <CAEP_g=-sVSwewV=7qAYQNtBRVSrUOAjNCpfwniNq_WPg2FVpFA@mail.gmail.com> <CA+mtBx87bZBnY_9cgQ7k=xsD0VGZUt0rc9DjhSqhpeH3LZiuFw@mail.gmail.com>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: [PATCH V2 for 3.19 0/7] Fixes for rtl8192ee
+Date: Fri, 23 Jan 2015 22:24:10 +0200
+Message-ID: <87egqljled.fsf@kamboji.qca.qualcomm.com>
+References: <1421773286-1039-1-git-send-email-Larry.Finger@lwfinger.net>
+	<873871msc7.fsf@kamboji.qca.qualcomm.com>
+	<54C27975.50501@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Pravin B Shelar <pshelar@nicira.com>,
-	David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Tom Herbert <therbert@google.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	=?utf-8?Q?tr?=
+	 =?utf-8?Q?oy=5Ftan=40realsil=2Ecom=2Ecn_=3E=3E_=E8=B0=AD=E6=9D=AD?=
+	 =?utf-8?Q?=E6=B3=A2?= <troy_tan@realsil.com.cn>
+To: Larry Finger <Larry.Finger@lwfinger.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog129.obsmtp.com ([74.125.149.142]:47495 "HELO
-	na3sys009aog129.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753244AbbAWUU3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jan 2015 15:20:29 -0500
-Received: by mail-qa0-f49.google.com with SMTP id v8so7418779qal.8
-        for <netdev@vger.kernel.org>; Fri, 23 Jan 2015 12:20:28 -0800 (PST)
-In-Reply-To: <CA+mtBx87bZBnY_9cgQ7k=xsD0VGZUt0rc9DjhSqhpeH3LZiuFw@mail.gmail.com>
+Received: from smtp.codeaurora.org ([198.145.11.231]:47415 "EHLO
+	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755381AbbAWUYR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jan 2015 15:24:17 -0500
+In-Reply-To: <54C27975.50501@lwfinger.net> (Larry Finger's message of "Fri, 23
+	Jan 2015 10:40:21 -0600")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 23, 2015 at 10:25 AM, Tom Herbert <therbert@google.com> wrote:
-> On Fri, Jan 23, 2015 at 9:38 AM, Jesse Gross <jesse@nicira.com> wrote:
->> On Fri, Jan 23, 2015 at 8:58 AM, Tom Herbert <therbert@google.com> wrote:
->>> On Tue, Jan 20, 2015 at 12:25 PM, Pravin B Shelar <pshelar@nicira.com> wrote:
->>>> Following patch series adds support for Stateless Transport
->>>> Tunneling protocol.
->>>> STT uses TCP segmentation offload available in most of NIC. On
->>>> packet xmit STT driver appends STT header along with TCP header
->>>> to the packet. For GSO packet GSO parameters are set according
->>>> to tunnel configuration and packet is handed over to networking
->>>> stack. This allows use of segmentation offload available in NICs
->>>>
->>>> Netperf unidirectional test gives ~9.4 Gbits/s performance on 10Gbit
->>>> NIC with 1500 byte MTU with two TCP streams.
->>>>
->>> The reason you're able to get 9.4 Gbit/s with an L2 encapsulation
->>> using STT is that it has less protocol overhead per packet when doing
->>> segmentation compared to VXLAN (without segmentation STT packets will
->>> have more overhead than VXLAN).
->>>
->>> A VXLAN packet with TCP/IP has headers
->>> IP|UDP|VXLAN|Ethernet|IP|TCP+options. Assuming TCP is stuffed with
->>> options, this is 20+8+8+16+20+40=112 bytes, or 7.4% MTU. Each STT
->>> segment created in GSO, other than the first, has just IP|TCP headers
->>> which is 20+20=40 bytes or 2.6% MTU. So this explains throughput
->>> differences between VXLAN and STT.
->>
->> Tom, what performance do you see with a single stream of VXLAN running
->> on net-next with default configuration? The difference in numbers
->> being posted here is greater than a few percent caused by protocol
->> overheard.
->
-> Please look at the data I posted with the VXLAN RCO patches.
+Larry Finger <Larry.Finger@lwfinger.net> writes:
 
-The data you posted uses 200 streams, so I assume that you are using
-multiple CPUs. It's not surprising that you would be able to consume a
-10G link in that case. STT can do this with a single stream and less
-than 1 core (or alternately handle higher throughput). Claiming that
-since both can hit 10G they are same is not accurate.
+> It is too bad that it took so long to get these ready. I think the
+> reason that there are not a lot of bug reports is because the
+> complaints are all in the GitHub issues for the rtlwifi_new repo, or
+> with Ubuntu. If there are any that get filed against Bugzilla, I will
+> refer them to that repo.
 
-Discussing performance like this seems a little silly given that the
-code is available. Pravin posted some numbers that he got, if you want
-to dispute them then why don't you just try running it?
+Ok.
+
+> Driver rtl8192ee was new in 3.18. There had been a previous version in
+> staging, but it did not get a lot of usage. I'm not sure if the
+> additional usage after 3.18 was due to the driver being in the regular
+> tree, or if vendors started using the chips, but the problem reports
+> started arriving. All these bugs have been part of rtl8192ee since it
+> has been in the kernel, thus they are hard to categorize as
+> regressions.
+
+Good. So we are not going backwards in quality, that's most important.
+
+> Push all 7 into -next so that they will be in 3.20. If you think it to
+> be prudent, please leave the Cc for stable. That way 3.18 and 3.19
+> will eventually get the fixes.
+
+I think that's the best plan, thanks for understanding. The patches are
+in my queue and I should apply them within the next few days, unless
+anything comes during the review.
+
+-- 
+Kalle Valo
