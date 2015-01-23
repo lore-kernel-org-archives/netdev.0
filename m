@@ -1,27 +1,57 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH net 2/2] samples: bpf: relax test_maps check
-Date: Fri, 23 Jan 2015 11:58:00 +0100
-Message-ID: <54C22938.3070709@redhat.com>
-References: <1421975469-13035-1-git-send-email-ast@plumgrid.com> <1421975469-13035-3-git-send-email-ast@plumgrid.com>
+From: Manish Chopra <manish.chopra@qlogic.com>
+Subject: RE: [PATCH net] netxen: fix netxen_nic_poll() logic
+Date: Fri, 23 Jan 2015 10:59:19 +0000
+Message-ID: <31AFFC7280259C4184970ABA9AFE8B93E08BDDAC@avmb3.qlogic.org>
+References: <1421901805.5286.37.camel@marge.simpson.net>
+	 <1421906274.4832.35.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1421907358.5286.42.camel@marge.simpson.net>
+	 <1421909520.3471.2.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1421915821.5286.71.camel@marge.simpson.net>
+ <1421942178.3471.10.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Michael Holzheu <holzheu@linux.vnet.ibm.com>,
-	Martin Schwidefsky <schwidefsky@de.ibm.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Alexei Starovoitov <ast@plumgrid.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1421975469-13035-3-git-send-email-ast@plumgrid.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	Mike Galbraith <umgwanakikbuti@gmail.com>,
+	David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:61175 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752409AbbAWK70 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jan 2015 05:59:26 -0500
+In-Reply-To: <1421942178.3471.10.camel@edumazet-glaptop2.roam.corp.google.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/23/2015 02:11 AM, Alexei Starovoitov wrote:
-> hash map is unordered, so get_next_key() iterator shouldn't
-> rely on particular order of elements. So relax this test.
->
-> Fixes: ffb65f27a155 ("bpf: add a testsuite for eBPF maps")
-> Reported-by: Michael Holzheu <holzheu@linux.vnet.ibm.com>
-> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
-
-Acked-by: Daniel Borkmann <dborkman@redhat.com>
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBFcmljIER1bWF6ZXQgW21haWx0
+bzplcmljLmR1bWF6ZXRAZ21haWwuY29tXQ0KPiBTZW50OiBUaHVyc2RheSwgSmFudWFyeSAyMiwg
+MjAxNSA5OjI2IFBNDQo+IFRvOiBNaWtlIEdhbGJyYWl0aDsgRGF2aWQgTWlsbGVyDQo+IENjOiBu
+ZXRkZXY7IE1hbmlzaCBDaG9wcmENCj4gU3ViamVjdDogW1BBVENIIG5ldF0gbmV0eGVuOiBmaXgg
+bmV0eGVuX25pY19wb2xsKCkgbG9naWMNCj4gDQo+IEZyb206IEVyaWMgRHVtYXpldCA8ZWR1bWF6
+ZXRAZ29vZ2xlLmNvbT4NCj4gDQo+IE5BUEkgcG9sbCBsb2dpYyBub3cgZW5mb3JjZXMgdGhhdCBh
+IHBvbGxlciByZXR1cm5zIGV4YWN0bHkgdGhlIGJ1ZGdldCB3aGVuIGl0DQo+IHdhbnRzIHRvIGJl
+IGNhbGxlZCBhZ2Fpbi4NCj4gDQo+IElmIGEgZHJpdmVyIGxpbWl0cyBUWCBjb21wbGV0aW9uLCBp
+dCBoYXMgdG8gcmV0dXJuIGJ1ZGdldCBhcyB3ZWxsIHdoZW4gdGhlIGxpbWl0IGlzDQo+IGhpdCwg
+bm90IHRoZSBudW1iZXIgb2YgcmVjZWl2ZWQgcGFja2V0cy4NCj4gDQo+IFJlcG9ydGVkLWFuZC10
+ZXN0ZWQtYnk6IE1pa2UgR2FsYnJhaXRoIDx1bWd3YW5ha2lrYnV0aUBnbWFpbC5jb20+DQo+IFNp
+Z25lZC1vZmYtYnk6IEVyaWMgRHVtYXpldCA8ZWR1bWF6ZXRAZ29vZ2xlLmNvbT4NCj4gRml4ZXM6
+IGQ3NWIxYWRlNTY3ZiAoIm5ldDogbGVzcyBpbnRlcnJ1cHQgbWFza2luZyBpbiBOQVBJIikNCj4g
+Q2M6IE1hbmlzaCBDaG9wcmEgPG1hbmlzaC5jaG9wcmFAcWxvZ2ljLmNvbT4NCj4gLS0tDQo+ICBk
+cml2ZXJzL25ldC9ldGhlcm5ldC9xbG9naWMvbmV0eGVuL25ldHhlbl9uaWNfbWFpbi5jIHwgICAg
+NSArKysrLQ0KPiAgMSBmaWxlIGNoYW5nZWQsIDQgaW5zZXJ0aW9ucygrKSwgMSBkZWxldGlvbigt
+KQ0KPiANCj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L3Fsb2dpYy9uZXR4ZW4v
+bmV0eGVuX25pY19tYWluLmMNCj4gYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9xbG9naWMvbmV0eGVu
+L25ldHhlbl9uaWNfbWFpbi5jDQo+IGluZGV4IDYxMzAzNzU4NGQwOC4uYzUzMWM4YWUxYmU0IDEw
+MDY0NA0KPiAtLS0gYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9xbG9naWMvbmV0eGVuL25ldHhlbl9u
+aWNfbWFpbi5jDQo+ICsrKyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L3Fsb2dpYy9uZXR4ZW4vbmV0
+eGVuX25pY19tYWluLmMNCj4gQEAgLTIzODgsNyArMjM4OCwxMCBAQCBzdGF0aWMgaW50IG5ldHhl
+bl9uaWNfcG9sbChzdHJ1Y3QgbmFwaV9zdHJ1Y3QgKm5hcGksDQo+IGludCBidWRnZXQpDQo+IA0K
+PiAgCXdvcmtfZG9uZSA9IG5ldHhlbl9wcm9jZXNzX3Jjdl9yaW5nKHNkc19yaW5nLCBidWRnZXQp
+Ow0KPiANCj4gLQlpZiAoKHdvcmtfZG9uZSA8IGJ1ZGdldCkgJiYgdHhfY29tcGxldGUpIHsNCj4g
+KwlpZiAoIXR4X2NvbXBsZXRlKQ0KPiArCQl3b3JrX2RvbmUgPSBidWRnZXQ7DQo+ICsNCj4gKwlp
+ZiAod29ya19kb25lIDwgYnVkZ2V0KSB7DQo+ICAJCW5hcGlfY29tcGxldGUoJnNkc19yaW5nLT5u
+YXBpKTsNCj4gIAkJaWYgKHRlc3RfYml0KF9fTlhfREVWX1VQLCAmYWRhcHRlci0+c3RhdGUpKQ0K
+PiAgCQkJbmV0eGVuX25pY19lbmFibGVfaW50KHNkc19yaW5nKTsNCj4gDQpUaGFua3MgRXJpYy4N
+CkFja2VkLWJ5OiBNYW5pc2ggQ2hvcHJhIDxtYW5pc2guY2hvcHJhQHFsb2dpYy5jb20+DQoNCg==
