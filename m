@@ -1,195 +1,177 @@
-From: Andri Yngvason <andri.yngvason@marel.com>
-Subject: Re: [PATCH v5 2/5] can: kvaser_usb: Consolidate and unify state change
- handling
-Date: Fri, 23 Jan 2015 10:32:13 +0000
-Message-ID: <20150123103213.6205.54618@shannon>
-References: <20141223154654.GB6460@vivalin-002> <20150120214409.GA16828@linux>
- <20150120214537.GB16828@linux> <20150121103319.14511.57709@shannon>
- <e5439ed067931dc01bda70592eb6ed52@grandegger.com>
- <20150121144323.GA17070@linux> <20150121150015.31351.6605@shannon>
- <20150121153647.GB17070@linux>
- <49707d45a389a1acb9ccec4295d05762@grandegger.com>
- <20150123060734.GA7949@Darwish.PC>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next v3 2/5] swdevice: add new api to set and del
+ bridge port attributes
+Date: Fri, 23 Jan 2015 11:41:27 +0100
+Message-ID: <20150123104127.GC2065@nanopsycho.orion>
+References: <1421987606-10884-3-git-send-email-roopa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8BIT
-Cc: Olivier Sobrie <olivier@sobrie.be>,
-	Oliver Hartkopp <socketcan@hartkopp.net>,
-	Marc Kleine-Budde <mkl@pengutronix.de>,
-	Linux-CAN <linux-can@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: "Ahmed S. Darwish" <darwish.07@gmail.com>,
-	Wolfgang Grandegger <wg@grandegger.com>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <20150123060734.GA7949@Darwish.PC>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: sfeldma@gmail.com, jhs@mojatatu.com, bcrl@kvack.org, tgraf@suug.ch,
+	john.fastabend@gmail.com, stephen@networkplumber.org,
+	vyasevic@redhat.com, ronen.arad@intel.com, netdev@vger.kernel.org,
+	davem@davemloft.net, shm@cumulusnetworks.com,
+	gospo@cumulusnetworks.com
+To: roopa@cumulusnetworks.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f181.google.com ([209.85.212.181]:52069 "EHLO
+	mail-wi0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751753AbbAWKlb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jan 2015 05:41:31 -0500
+Received: by mail-wi0-f181.google.com with SMTP id fb4so1836036wid.2
+        for <netdev@vger.kernel.org>; Fri, 23 Jan 2015 02:41:29 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1421987606-10884-3-git-send-email-roopa@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Quoting Ahmed S. Darwish (2015-01-23 06:07:34)
-> On Wed, Jan 21, 2015 at 05:13:45PM +0100, Wolfgang Grandegger wrote:
-> > On Wed, 21 Jan 2015 10:36:47 -0500, "Ahmed S. Darwish"
-> > <darwish.07@gmail.com> wrote:
-> > > On Wed, Jan 21, 2015 at 03:00:15PM +0000, Andri Yngvason wrote:
-> > >> Quoting Ahmed S. Darwish (2015-01-21 14:43:23)
-> > >> > Hi!
-> > > 
-> > > ...
-> > > 
-> > >> > <-- Unplug the cable -->
-> > >> > 
-> > >> >  (000.009106)  can0  20000080   [8]  00 00 00 00 00 00 08 00  
-> > >> >  ERRORFRAME
-> > >> >         bus-error
-> > >> >         error-counter-tx-rx{{8}{0}}
-> > >> >  (000.001872)  can0  20000080   [8]  00 00 00 00 00 00 10 00  
-> > 
-> > For a bus-errors I would also expcect some more information in the
-> > data[2..3] fields. But these are always zero.
-> > 
-> 
-> M16C error factors made it possible to report things like
-> CAN_ERR_PROT_FORM/STUFF/BIT0/BIT1/TX in data[2], and
-> CAN_ERR_PROT_LOC_ACK/CRC_DEL in data[3].
-> 
-> Unfortunately such error factors are only reported in Leaf, but
-> not in USBCan-II due to the wire format change in the error event:
-> 
->         struct leaf_msg_error_event {
->                 u8 tid;
->                 u8 flags;
->                 __le16 time[3];
->                 u8 channel;
->                 u8 padding;
->                 u8 tx_errors_count;
->                 u8 rx_errors_count;
->                 u8 status;
->                 u8 error_factor;
->         } __packed;
-> 
->         struct usbcan_msg_error_event {
->                 u8 tid;
->                 u8 padding;
->                 u8 tx_errors_count_ch0;
->                 u8 rx_errors_count_ch0;
->                 u8 tx_errors_count_ch1;
->                 u8 rx_errors_count_ch1;
->                 u8 status_ch0;
->                 u8 status_ch1;
->                 __le16 time;
->         } __packed;
-> 
-> I speculate that the wire format was changed due to controller
-> bugs in the USBCan-II, which was slightly mentioned in their
-> data sheets here:
-> 
->         http://www.kvaser.com/canlib-webhelp/page_hardware_specific_can_controllers.html
-> 
-> So it seems there's really no way for filling such bus error
-> info given the very limited amount of data exported :-(
+Fri, Jan 23, 2015 at 05:33:23AM CET, roopa@cumulusnetworks.com wrote:
+>From: Roopa Prabhu <roopa@cumulusnetworks.com>
 >
-We experienced similar problems with FlexCAN.
-> 
-> The issue of incomplete data does not even stop here, kindly
-> check below notes regarding reverse state transitions:
-> 
-> > >> >  ERRORFRAME
-> > >> >         bus-error
-> > >> >         error-counter-tx-rx{{16}{0}}
-> > >> [...]
-[...]
-> > >> >  ERRORFRAME
-> > >> >         bus-error
-> > >> >         error-counter-tx-rx{{128}{0}}
-> > >> > 
-> > >> > (( Then a continous flood, exactly similar to the above packet,
-> > >> > appears.
-> > >> >    Unfortunately this flooding is a firmware problem. ))
-> > >> > 
-> > >> > <-- Replug the cable, after a good amount of time -->
-> > >> >
-> > >> Where are the reverse state transitions?
-> > >> > 
-> > > 
-> > > Hmmm...
-> > > 
-> > > [ ... ]
-> > >> 
-> > >> Reverse state transitions are missing from the logs. See comments
-> > above.
-> > >> 
-> > > 
-> > > When the device is on the _receiving_ end, and I unplug the CAN cable
-> > after
-> > > introducing some noise to the level of reaching WARNING or PASSIVE, I
-> > > receive a BUS_ERROR event with the rxerr count reset back to 0 or 1. In
-> > > that case, the driver correctly transitions back the state to
-> > ERROR_ACTIVE
-> > > and candump produces something similar to:
-> > > 
-> > >     (000.000362)  can0  2000008C   [8]  00 40 40 00 00 00 00 01  
-> > >     ERRORFRAME
-> > >     controller-problem{}
-> > >     protocol-violation{{back-to-error-active}{}}
-> > >     bus-error
-> > >     error-counter-tx-rx{{0}{1}}
-> > > 
-> > > which is, AFAIK, the correct behaviour from the driver side.
-> > > 
-> > > Meanwhile, when the device is on the _sending_ end and I re-plug the CAN
-> > > cable again. Sometimes I receive events with txerr reset to 0 or 1, and
-> > > the driver correctly reverts back to ERROR_ACTIVE in that case. But on
-> > > another times like the quoted case above, I don't receive any events
-> > > resetting txerr back -- only data packets on the bus.
-> > 
-> > Well, the firmware seems to report *only* bus-errors via
-> > CMD_CAN_ERROR_EVENT messages, also carrying the new state, but no
-> > CMD_CHIP_STATE_EVENT just for the state changes.
-> > 
-> 
-> I've dumped _every_ message I receive from the firmware while
-> disconnecting the CAN bus, waiting a while, and connecting it again.
-> I really received _nothing_ from the firmware when the CAN bus was
-> reconnected and the data packets were flowing again. Not even a
-> single CHIP_STATE_EVENT, even after waiting for a long time.
-> 
-> So it's basically:
-> ...
-> ERR EVENT, txerr=128, rxerr=0
-> ERR EVENT, txerr=128, rxerr=0
-> ERR EVENT, txerr=128, rxerr=0
-> ...
-> 
-> then complete silence, except the data frames. I've even tried with
-> different versions of the firmware, but the same behaviour persisted.
-> 
-> > > So, What can the driver do given the above?
-> > 
-> > Little if the notification does not come.
-> > 
-> 
-> We can poll the state by sending CMD_GET_CHIP_STATE to the firmware,
-> and it will hopefully reply with a CHIP_STATE_EVENT response
-> containing the new txerr and rxerr values that we can use for
-> reverse state transitions.
+>This patch adds two new api's netdev_switch_port_bridge_setlink
+>and netdev_switch_port_bridge_dellink to offload bridge port attributes
+>to switch asic
 >
-> But do we _really_ want to go through the path? I feel that it will
-> open some cans of worms w.r.t. concurrent access to both the netdev
-> and USB stacks from a single driver.
+>(The names of the apis look odd with 'switch_port_bridge',
+>but am more inclined to change the prefix of the api to something else.
+>Will take any suggestions).
 >
-Honestly, I don't know.
+>The api's look at the NETIF_F_HW_NETFUNC_OFFLOAD feature flag to
+>pass bridge port attributes to the port device.
 >
-> A possible solution can be setting up a kernel thread that queries
-> for a CHIP_STATE_EVENT every second?
+>If the device has the NETIF_F_HW_NETFUNC_OFFLOAD, but does not support
+>the bridge port attribute offload ndo, call bridge port attribute ndo's on
+>the lowerdevs if supported. This is one way to pass bridge port attributes
+>through stacked netdevs (example when bridge port is a bond and bond slaves
+>are switch ports).
+>
+>Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+>---
+> include/net/switchdev.h   |   17 ++++++++++-
+> net/switchdev/switchdev.c |   70 +++++++++++++++++++++++++++++++++++++++++++++
+> 2 files changed, 86 insertions(+), 1 deletion(-)
+>
+>diff --git a/include/net/switchdev.h b/include/net/switchdev.h
+>index 8a6d164..362f53a 100644
+>--- a/include/net/switchdev.h
+>+++ b/include/net/switchdev.h
+>@@ -17,7 +17,10 @@
+> int netdev_switch_parent_id_get(struct net_device *dev,
+> 				struct netdev_phys_item_id *psid);
+> int netdev_switch_port_stp_update(struct net_device *dev, u8 state);
+>-
+>+int netdev_switch_port_bridge_setlink(struct net_device *dev,
+>+				struct nlmsghdr *nlh, u16 flags);
+>+int netdev_switch_port_bridge_dellink(struct net_device *dev,
+>+				struct nlmsghdr *nlh, u16 flags);
+> #else
 > 
-Have you considered polling in kvaser_usb_tx_acknowledge? You could do something
-like:
-if(unlikely(dev->can.state != CAN_STATE_ERROR_ACTIVE))
-{
-    request_state();
-}
+> static inline int netdev_switch_parent_id_get(struct net_device *dev,
+>@@ -32,6 +35,18 @@ static inline int netdev_switch_port_stp_update(struct net_device *dev,
+> 	return -EOPNOTSUPP;
+> }
+> 
+>+int netdev_switch_port_bridge_setlink(struct net_device *dev,
+>+				      struct nlmsghdr *nlh, u16 flags)
+>+{
+>+	return -EOPNOTSUPP;
+>+}
+>+
+>+int netdev_switch_port_bridge_dellink(struct net_device *dev,
+>+				      struct nlmsghdr *nlh, u16 flags)
+>+{
+>+	return -EOPNOTSUPP;
+>+}
+>+
+> #endif
+> 
+> #endif /* _LINUX_SWITCHDEV_H_ */
+>diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
+>index d162b21..bf0be98 100644
+>--- a/net/switchdev/switchdev.c
+>+++ b/net/switchdev/switchdev.c
+>@@ -50,3 +50,73 @@ int netdev_switch_port_stp_update(struct net_device *dev, u8 state)
+> 	return ops->ndo_switch_port_stp_update(dev, state);
+> }
+> EXPORT_SYMBOL(netdev_switch_port_stp_update);
+>+
+>+/**
+>+ *	netdev_switch_port_bridge_setlink - Notify switch device port of bridge
+>+ *	port attributes
+>+ *
+>+ *	@dev: port device
+>+ *	@nlh: netlink msg with bridge port attributes
+>+ *
+>+ *	Notify switch device port of bridge port attributes
+>+ */
+>+int netdev_switch_port_bridge_setlink(struct net_device *dev,
+>+				      struct nlmsghdr *nlh, u16 flags)
+>+{
+>+	const struct net_device_ops *ops = dev->netdev_ops;
+>+	struct net_device *lower_dev;
+>+	struct list_head *iter;
+>+	int ret = 0, err = 0;
+>+
+>+	if (!(dev->features & NETIF_F_HW_NETFUNC_OFFLOAD))
+>+		return err;
+>+
+>+	if (ops->ndo_bridge_setlink) {
+>+		WARN_ON(!ops->ndo_switch_parent_id_get);
+>+		return ops->ndo_bridge_setlink(dev, nlh, flags);
+>+	}
+>+
+>+	netdev_for_each_lower_dev(dev, lower_dev, iter) {
+>+		err = netdev_switch_port_bridge_setlink(lower_dev, nlh, flags);
+>+		if (err)
+>+			ret = err;
+>+	}
+>+
+>+	return ret;
+>+}
+>+EXPORT_SYMBOL(netdev_switch_port_bridge_setlink);
+>+
+>+/**
+>+ *	netdev_switch_port_bridge_dellink - Notify switch device port of bridge
+>+ *	attribute delete
+>+ *
+>+ *	@dev: port device
+>+ *	@nlh: netlink msg with bridge port attributes
+>+ *
+>+ *	Notify switch device port of bridge port attribute delete
+>+ */
+>+int netdev_switch_port_bridge_dellink(struct net_device *dev,
+>+				      struct nlmsghdr *nlh, u16 flags)
+>+{
+>+	const struct net_device_ops *ops = dev->netdev_ops;
+>+	struct net_device *lower_dev;
+>+	struct list_head *iter;
+>+	int ret = 0, err = 0;
+>+
+>+	if (!(dev->features & NETIF_F_HW_NETFUNC_OFFLOAD))
+>+		return err;
+>+
+>+	if (ops->ndo_bridge_dellink) {
+>+		WARN_ON(!ops->ndo_switch_parent_id_get);
+>+		return ops->ndo_bridge_dellink(dev, nlh, flags);
+>+	}
+>+
+>+	netdev_for_each_lower_dev(dev, lower_dev, iter) {
+>+		err = netdev_switch_port_bridge_dellink(lower_dev, nlh, flags);
+>+		if (err)
+>+			ret = err;
+>+	}
+>+
+>+	return ret;
+>+}
+>+EXPORT_SYMBOL(netdev_switch_port_bridge_dellink);
+>-- 
+>1.7.10.4
+>
 
-I don't think that anything beyond that would be worth pursuing.
+Is there any other place, other than bridge code, this functions are
+suppored to be called from? If not, which I consider likely, it would
+make more sense to me to:
 
-Best regards,
-Andri
+- move netdev_for_each_lower_dev iterations directly to bridge code
+- let the masters (bond, team, ..) implement ndo_bridge_*link and do
+  the traversing there (can be in a form of pre-prepared default
+  ndo callback (ndo_dflt_netdev_switch_port_bridge_*link)
