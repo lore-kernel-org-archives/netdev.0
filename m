@@ -1,45 +1,29 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next v3 1/5] netdev: introduce new
- NETIF_F_HW_NETFUNC_OFFLOAD feature flag for switch device offloads
-Date: Fri, 23 Jan 2015 20:05:18 +0100
-Message-ID: <20150123190518.GP2065@nanopsycho.orion>
-References: <1421987606-10884-2-git-send-email-roopa@cumulusnetworks.com>
- <20150123094459.GA2065@nanopsycho.orion>
- <54C26D4C.9050407@cumulusnetworks.com>
- <20150123175654.GB25374@casper.infradead.org>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: Question on SCTP ABORT chunk is generated when the association_max_retrans
+ is reached
+Date: Fri, 23 Jan 2015 20:05:38 +0100
+Message-ID: <54C29B82.7090502@redhat.com>
+References: <CAFXGftKp3=OfjkCVBuR-zM3+uZ42Sk_9i2UjAHBNnbX=hQJwpA@mail.gmail.com> <CAFXGft+fwo=8LJEG7h6uOpGciSo5f_dXjSx3sn67RZZp7jsYHw@mail.gmail.com> <54C23581.9060809@redhat.com> <54C27137.5010405@gmail.com> <54C2807E.8080607@redhat.com> <8BBFBEE6-FA34-4190-BFCB-AB6BEC093774@fh-muenster.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: roopa <roopa@cumulusnetworks.com>, sfeldma@gmail.com,
-	jhs@mojatatu.com, bcrl@kvack.org, john.fastabend@gmail.com,
-	stephen@networkplumber.org, vyasevic@redhat.com,
-	ronen.arad@intel.com, netdev@vger.kernel.org, davem@davemloft.net,
-	shm@cumulusnetworks.com, gospo@cumulusnetworks.com
-To: Thomas Graf <tgraf@suug.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f176.google.com ([74.125.82.176]:65421 "EHLO
-	mail-we0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752848AbbAWTFY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jan 2015 14:05:24 -0500
-Received: by mail-we0-f176.google.com with SMTP id w62so9279918wes.7
-        for <netdev@vger.kernel.org>; Fri, 23 Jan 2015 11:05:23 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20150123175654.GB25374@casper.infradead.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Vlad Yasevich <vyasevich@gmail.com>, Sun Paul <paulrbk@gmail.com>,
+	linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Michael Tuexen <tuexen@fh-muenster.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <8BBFBEE6-FA34-4190-BFCB-AB6BEC093774@fh-muenster.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Fri, Jan 23, 2015 at 06:56:54PM CET, tgraf@suug.ch wrote:
->On 01/23/15 at 07:48am, roopa wrote:
->> On 1/23/15, 1:44 AM, Jiri Pirko wrote:
->> >How about rather "HW_DATAPATH_OFFLOAD"? Feels more accurate. By the
->> >name, I still cannot understand what NETFUNC should mean.
->> 
->> It was supposed to mean 'network function offload'. sure, will consider
->> HW_DATAPATH_OFFLOAD
->> or if anybody has other suggestions.
->
->I'm still fascinated that the description says 'for all switch asic
->offloads', 'switch drivers', 'switch ports' but we try very hard to
->come up with a different name ;-)
+On 01/23/2015 07:36 PM, Michael Tuexen wrote:
+...
+> Yepp. It might not reach the peer or it might. If it does it helps
+> to keep the states in sync. If it doesn't it sometimes helps in
+> analysing tracefiles. In BSD, we also send it. It is not required,
+> doesn't harm and is useful in some cases...
 
-+1
-But we'll see in future. I bet that "switch" will stick.
+Ok, as the TCB is destroyed in any case, should be fine then.
+
+Thanks,
+Daniel
