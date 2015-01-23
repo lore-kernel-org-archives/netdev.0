@@ -1,89 +1,123 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [RFC PATCH] net: ipv6: Make address flushing on ifdown optional
-Date: Fri, 23 Jan 2015 13:22:17 +0100
-Message-ID: <1422015737.2824.8.camel@stressinduktion.org>
-References: <1421263039-96198-1-git-send-email-dsahern@gmail.com>
-	 <20150122224033.6e2db5ce@urahara>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [net-next PATCH v3 00/12] Flow API
+Date: Fri, 23 Jan 2015 12:28:38 +0000
+Message-ID: <20150123122838.GI25797@casper.infradead.org>
+References: <20150122140022.GA5674@salvia>
+ <54C11094.2000807@mojatatu.com>
+ <20150122151316.GB25797@casper.infradead.org>
+ <54C11703.7030702@mojatatu.com>
+ <20150122153727.GC25797@casper.infradead.org>
+ <54C11ACC.5010005@mojatatu.com>
+ <20150123101019.GF25797@casper.infradead.org>
+ <20150123102421.GB2065@nanopsycho.orion>
+ <20150123110821.GH25797@casper.infradead.org>
+ <20150123113934.GD2065@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Ahern <dsahern@gmail.com>, netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	John Fastabend <john.fastabend@gmail.com>,
+	simon.horman@netronome.com, sfeldma@gmail.com,
+	netdev@vger.kernel.org, davem@davemloft.net, gerlitz.or@gmail.com,
+	andy@greyhouse.net, ast@plumgrid.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out3-smtp.messagingengine.com ([66.111.4.27]:53730 "EHLO
-	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750836AbbAWMWT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jan 2015 07:22:19 -0500
-Received: from compute4.internal (compute4.nyi.internal [10.202.2.44])
-	by mailout.nyi.internal (Postfix) with ESMTP id 478D420990
-	for <netdev@vger.kernel.org>; Fri, 23 Jan 2015 07:22:19 -0500 (EST)
-In-Reply-To: <20150122224033.6e2db5ce@urahara>
+Received: from casper.infradead.org ([85.118.1.10]:46735 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754015AbbAWM2l (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jan 2015 07:28:41 -0500
+Content-Disposition: inline
+In-Reply-To: <20150123113934.GD2065@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Do, 2015-01-22 at 22:40 -0800, Stephen Hemminger wrote:
-> On Wed, 14 Jan 2015 12:17:19 -0700
-> David Ahern <dsahern@gmail.com> wrote:
+On 01/23/15 at 12:39pm, Jiri Pirko wrote:
+> Maybe I did not express myself correctly. I do not care if this is
+> exposed by rtnl or a separate genetlink. The issue still stands. And the
+> issue is that the user have to use "the way A" to setup sw datapath and
+> "the way B" to setup hw datapath. The preferable would be to have
+> "the way X" which can be used to setup both sw and hw.
 > 
-> > Currently, ipv6 addresses are flushed when the interface is configured down:
-> > 
-> > [root@f20 ~]# ip -6 addr add dev eth1 2000:11:1:1::1/64
-> > [root@f20 ~]# ip addr show dev eth1
-> > 3: eth1: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN group default qlen 1000
-> >     link/ether 02:04:11:22:33:01 brd ff:ff:ff:ff:ff:ff
-> >     inet6 2000:11:1:1::1/64 scope global tentative
-> >        valid_lft forever preferred_lft forever
-> > [root@f20 ~]# ip link set dev eth1 up
-> > [root@f20 ~]# ip link set dev eth1 down
-> > [root@f20 ~]# ip addr show dev eth1
-> > 3: eth1: <BROADCAST,MULTICAST> mtu 1500 qdisc pfifo_fast state DOWN group default qlen 1000
-> >     link/ether 02:04:11:22:33:01 brd ff:ff:ff:ff:ff:ff
-> > 
-> > Add a new sysctl to make this behavior optional. Setting defaults to flush
-> > addresses to maintain backwards compatibility. When reset flushing is bypassed:
-> > 
-> > [root@f20 ~]# echo 0 > /proc/sys/net/ipv6/conf/eth1/flush_addr_on_down
-> > [root@f20 ~]# ip -6 addr add dev eth1 2000:11:1:1::1/64
-> > [root@f20 ~]# ip addr show dev eth1
-> > 3: eth1: <BROADCAST,MULTICAST> mtu 1500 qdisc pfifo_fast state DOWN group default qlen 1000
-> >     link/ether 02:04:11:22:33:01 brd ff:ff:ff:ff:ff:ff
-> >     inet6 2000:11:1:1::1/64 scope global tentative
-> >        valid_lft forever preferred_lft forever
-> > [root@f20 ~]#  ip link set dev eth1 up
-> > [root@f20 ~]#  ip link set dev eth1 down
-> > [root@f20 ~]# ip addr show dev eth1
-> > 3: eth1: <BROADCAST,MULTICAST> mtu 1500 qdisc pfifo_fast state DOWN group default qlen 1000
-> >     link/ether 02:04:11:22:33:01 brd ff:ff:ff:ff:ff:ff
-> >     inet6 2000:11:1:1::1/64 scope global
-> >        valid_lft forever preferred_lft forever
-> >     inet6 fe80::4:11ff:fe22:3301/64 scope link
-> >        valid_lft forever preferred_lft forever
-> > 
-> > Suggested-by: Hannes Frederic Sowa <hannes@redhat.com>
-> > Signed-off-by: David Ahern <dsahern@gmail.com>
-> > Cc: Hannes Frederic Sowa <hannes@redhat.com>
+> And I believe that could be achieved. Consider something like this:
 > 
-> Would this break existing application expecting a particular semantic
-> by listening to netlink?  What happens to packets received with the static
-> address when interface is down? With IPv4 Linux is mostly a weak host
-> model, and IPv6 somewhere in between.
+> - have cls_xflows tc classifier and act_xflows tc action as a wrapper
+>   (or api) for John's work. With possibility for multiple backends. The
+>   backend iface would looke very similar to what John has now.
+> - other tc clses and acts will implement xflows backend
+> - openvswitch datapath will implement xflows backend
+> - rocker switch will implement xflows backend
+> - other drivers will implement xflows backend
+> 
+> Now if user wants to manipulate with any flow setting, he can just use
+> cls_xflows and act_xflows to to that.
+> 
+> This is very rough, but I just wanted to draw the picture. This would
+> provide single entry to flow world manipulation in kernel, no matter if
+> sw or hw.
 
-IPv6 is mostly a weak end model, too, but IFA_LINK addresses are used
-much more. So yes, it is somewhere in between.
+If I understand this correctly then you propose to do the decision on
+whether to implement a flow in software or offload it to hardware in the
+xflows classifier and action. I had exactly the same architecture in mind
+initially when I first approached this and wanted to offload OVS
+datapath flows transparently to hardware.
 
-Addresses bound to interfaces which are currently down will work with
-IPv6 (in contrast to IPv4).
+If you look at this from the existing tc world then that makes a lot
+of sense, in particular if you only support a single flat table with
+wildcard flows and no priorities.
 
-> For vendors that control the application stack or have limited number
-> of services this would work fine, but what about RHEL?
+If you want to support priorities it already gets complicated. If flow
+A, B, C are offloaded to hardware and the user then inserts a new flow
+D with higher priority that can't be offloaded you need to figure out
+whether you have to remove any of A, B, C from the hardware tables again
+on the basis whether D overlaps with A, B, or C. If you have to remove
+any of them you then have to verify whether that removal needs to
+remove other already offloaded flows as well. It's certainly doable but
+already adds considerable complexity to the kernel.
 
-The new model is only enabled if the sysctl is set. I don't expect a lot
-of vendors or distributions switching anytime soon.
+If you want to support multiple tables it gets even more complicated
+because a flow in table 2 which can be offloaded might depend on a
+flow in table 1 which can't be offloaded. You somehow need to track
+that dependency and ensure that table 1 sends that flow to the CPU so
+that the flow in table 2 sees it. The answer to this might be to maybe
+only support  offload to a single table but that decreases the value
+of the offload dramatically because the capabilities of each table are
+very different.
 
-I wonder if we should try to come up with a way of IPV6_NEW_WORLD_ORDER
-we can make some changes to the stack which align much better with the
-RFCs, e.g. no default link local address generation, no default on-link
-routes etc.
+If you bring the full programmability of OVS into the picture you might
+have a pipeline consisting of multiple tables like this:
 
-Bye,
-Hannes
+ +-------+   +------+   +-----+   +-------+
+ | Decap |-->| L2   |-->| L3  |-->| Encap |
+ +-------+   +------+   +-----+   +-------+
+
+Each table contains flows and metadata registers plus header matches
+are used to talk among the tables. The pipeline builds a chain of
+actions which may be executed at any point in the pipeline or at the
+end. If you want to map such a software pipeline to a set of hardware
+tables you need to have full visbility into this table structure at
+the point where you make the offload decision. This means that all of
+this complexity would have to move into xflows.
+
+Another aspect is that you might want to split a flow X into a hardware
+and software part, e.g. consider the following flow:
+
+in_port=vxlan0,vni=10,ip_dst=10.1.1.1,actions=decap(),nfqueue(10),output(tap0)
+
+The hardware might be capable of matching on the VXLAN VNI, IP dst and
+it might also capable of deencap. It obviously doesn't know about
+netfilter queues. Ideally what you want is to split this into the
+following flows:
+
+Hardware table (offloaded):
+in_port=vxlan0,vni=10,ip_dst=10.1.1.1,actions=decap(),metadata=1
+
+Software table:
+metadata=1,actions=nfqueue(10),output(tap0)
+
+If the hardware capabilities are not exported to OVS then xflows would
+need to encode such logic and xflows would need to be made aware of the
+full software pipeline with all tables as you need to see all flows in
+order to decide what to offload where.
+
+I would love to see a tc interface to John's flow API and I see
+tremendous value but I don't think it's appropriate to offload OVS.
