@@ -1,52 +1,96 @@
-From: Mahesh Bandewar <maheshb@google.com>
-Subject: Re: ipvlan: Initial check-in of the IPVLAN driver.
-Date: Fri, 23 Jan 2015 14:40:44 -0800
-Message-ID: <CAF2d9jgkrwkMKuSjhibZvjvG4fV=SadyU-1AnKNdD8EvHDd5qw@mail.gmail.com>
-References: <20150119144011.GA19086@mwanda> <20150119.162059.2087370902498436539.davem@davemloft.net>
+From: roopa <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next v3 2/5] swdevice: add new api to set and del
+ bridge port attributes
+Date: Fri, 23 Jan 2015 14:45:46 -0800
+Message-ID: <54C2CF1A.1080905@cumulusnetworks.com>
+References: <1421987606-10884-3-git-send-email-roopa@cumulusnetworks.com> <20150123104127.GC2065@nanopsycho.orion> <54C26FC1.70605@cumulusnetworks.com> <20150123160636.GM2065@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: dan.carpenter@oracle.com, linux-netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: sfeldma@gmail.com, jhs@mojatatu.com, bcrl@kvack.org, tgraf@suug.ch,
+	john.fastabend@gmail.com, stephen@networkplumber.org,
+	vyasevic@redhat.com, ronen.arad@intel.com, netdev@vger.kernel.org,
+	davem@davemloft.net, shm@cumulusnetworks.com,
+	gospo@cumulusnetworks.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f173.google.com ([209.85.214.173]:36645 "EHLO
-	mail-ob0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751236AbbAWWlF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jan 2015 17:41:05 -0500
-Received: by mail-ob0-f173.google.com with SMTP id vb8so77685obc.4
-        for <netdev@vger.kernel.org>; Fri, 23 Jan 2015 14:41:05 -0800 (PST)
-In-Reply-To: <20150119.162059.2087370902498436539.davem@davemloft.net>
+Received: from mail-pd0-f170.google.com ([209.85.192.170]:59257 "EHLO
+	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752718AbbAWWpr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jan 2015 17:45:47 -0500
+Received: by mail-pd0-f170.google.com with SMTP id p10so197867pdj.1
+        for <netdev@vger.kernel.org>; Fri, 23 Jan 2015 14:45:47 -0800 (PST)
+In-Reply-To: <20150123160636.GM2065@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 19, 2015 at 1:20 PM, David Miller <davem@davemloft.net> wrote:
-> From: Dan Carpenter <dan.carpenter@oracle.com>
-> Date: Mon, 19 Jan 2015 17:40:11 +0300
+On 1/23/15, 8:06 AM, Jiri Pirko wrote:
+> Fri, Jan 23, 2015 at 04:58:57PM CET, roopa@cumulusnetworks.com wrote:
+>> On 1/23/15, 2:41 AM, Jiri Pirko wrote:
+>>
+>> <snip..>
+>>> +
+>>> +/**
+>>> + *	netdev_switch_port_bridge_dellink - Notify switch device port of bridge
+>>> + *	attribute delete
+>>> + *
+>>> + *	@dev: port device
+>>> + *	@nlh: netlink msg with bridge port attributes
+>>> + *
+>>> + *	Notify switch device port of bridge port attribute delete
+>>> + */
+>>> +int netdev_switch_port_bridge_dellink(struct net_device *dev,
+>>> +				      struct nlmsghdr *nlh, u16 flags)
+>>> +{
+>>> +	const struct net_device_ops *ops = dev->netdev_ops;
+>>> +	struct net_device *lower_dev;
+>>> +	struct list_head *iter;
+>>> +	int ret = 0, err = 0;
+>>> +
+>>> +	if (!(dev->features & NETIF_F_HW_NETFUNC_OFFLOAD))
+>>> +		return err;
+>>> +
+>>> +	if (ops->ndo_bridge_dellink) {
+>>> +		WARN_ON(!ops->ndo_switch_parent_id_get);
+>>> +		return ops->ndo_bridge_dellink(dev, nlh, flags);
+>>> +	}
+>>> +
+>>> +	netdev_for_each_lower_dev(dev, lower_dev, iter) {
+>>> +		err = netdev_switch_port_bridge_dellink(lower_dev, nlh, flags);
+>>> +		if (err)
+>>> +			ret = err;
+>>> +	}
+>>> +
+>>> +	return ret;
+>>> +}
+>>> +EXPORT_SYMBOL(netdev_switch_port_bridge_dellink);
+>>> -- 
+>>> 1.7.10.4
+>>>
+>>> Is there any other place, other than bridge code, this functions are
+>>> suppored to be called from?
+>> No other place today. Its usually the master that implements
+>> ndo_bridge_setlink/dellink.
+>>
+>>> If not, which I consider likely, it would
+>>> make more sense to me to:
+>>>
+>>> - move netdev_for_each_lower_dev iterations directly to bridge code
+>>> - let the masters (bond, team, ..) implement ndo_bridge_*link and do
+>>>    the traversing there (can be in a form of pre-prepared default
+>>>    ndo callback (ndo_dflt_netdev_switch_port_bridge_*link)
+>> But, i am still not understanding why i would modify bond, team and other
+>> slaves
+> Well, that is the usual way to propagate ndo calls. People are used to
+> this. It is visible right away in bonding/other code that is propagated
+> some ndo call to slaves. With your code, that is somehow hidden and only
+> dependent on NETIF_F_HW_NETFUNC_OFFLOAD flag.
 >
->> The patch 2ad7bf363841: "ipvlan: Initial check-in of the IPVLAN
->> driver." from Nov 23, 2014, leads to the following static checker
->> warning:
->>
->>       drivers/net/ipvlan/ipvlan_core.c:380 ipvlan_process_v6_outbound()
->>       warn: 'dst' isn't an ERR_PTR
->>
->> drivers/net/ipvlan/ipvlan_core.c
->>    378
->>    379          dst = ip6_route_output(dev_net(dev), NULL, &fl6);
->>    380          if (IS_ERR(dst))
->>    381                  goto err;
->>
->> The ip6_route_output() function is not documented but it always returns
->> a valid pointer.  I believe you are supposed to check something like:
->>
->>               if (dst->error) {
->>                       ret = dst->error;
->>                       goto error;
->>               }
->>
->>    382
->>    383          skb_dst_drop(skb);
->>    384          skb_dst_set(skb, dst);
->
-> This is correct.
+> Note that there are only couple of "master drivers" (for this, most likely
+> only bond and team modifications are needed).
+>   
+ndo_bridge_setlink today is only implemented by drivers that implement 
+bridging function.
+So, having the bond and team driver implement it...seems odd.
 
-Thanks Dan for pointing it out. I'll send a patch correcting that code.
+But if you insist, i am going to do just that.
