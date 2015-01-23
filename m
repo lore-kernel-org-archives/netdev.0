@@ -1,119 +1,66 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net v3] ipv4: try to cache dst_entries which would cause a redirect
-Date: Fri, 23 Jan 2015 12:01:26 +0100
-Message-ID: <996db187263dc0419ea3ab4d6e3fad4c0e0e5b44.1422010254.git.hannes@stressinduktion.org>
-Cc: Julian Anastasov <ja@ssi.bg>,
-	Marcelo Leitner <mleitner@redhat.com>,
-	Florian Westphal <fw@strlen.de>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out3-smtp.messagingengine.com ([66.111.4.27]:60046 "EHLO
-	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752409AbbAWLBd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jan 2015 06:01:33 -0500
-Received: from compute1.internal (compute1.nyi.internal [10.202.2.41])
-	by mailout.nyi.internal (Postfix) with ESMTP id 3DFF120873
-	for <netdev@vger.kernel.org>; Fri, 23 Jan 2015 06:01:33 -0500 (EST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Rasmus Villemoes <linux@rasmusvillemoes.dk>
+Subject: [PATCH] atheros/atlx: Simplify bit manipulations
+Date: Fri, 23 Jan 2015 12:06:52 +0100
+Message-ID: <1422011212-30095-1-git-send-email-linux@rasmusvillemoes.dk>
+Cc: Rasmus Villemoes <linux@rasmusvillemoes.dk>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Jay Cliburn <jcliburn@gmail.com>,
+	Chris Snook <chris.snook@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Not caching dst_entries which cause redirects could be exploited by hosts
-on the same subnet, causing a severe DoS attack. This effect aggravated
-since commit f88649721268999 ("ipv4: fix dst race in sk_dst_get()").
+The code 'if (foo & X) foo &= ~X;' is semantically equivalent to
+simply 'foo &= ~X;', but gcc generates about four instructions for the
+former, one for the latter. Similarly, if X consists of a single bit,
+'if (!(foo & X)) X |= X;' can be replaced by 'foo |= X;'.
 
-Lookups causing redirects will be allocated with DST_NOCACHE set which
-will force dst_release to free them via RCU.  Unfortunately waiting for
-RCU grace period just takes too long, we can end up with >1M dst_entries
-waiting to be released and the system will run OOM. rcuos threads cannot
-catch up under high softirq load.
+In the atl2 case, gcc does know how to merge the new adjacent
+operations, so altogether this gives a nice little code size
+reduction of about 80 bytes.
 
-Attaching the flag to emit a redirect later on to the specific skb allows
-us to cache those dst_entries thus reducing the pressure on allocation
-and deallocation.
-
-This issue was discovered by Marcelo Leitner.
-
-Cc: Julian Anastasov <ja@ssi.bg>
-Signed-off-by: Marcelo Leitner <mleitner@redhat.com>
-Signed-off-by: Florian Westphal <fw@strlen.de>
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Signed-off-by: Rasmus Villemoes <linux@rasmusvillemoes.dk>
 ---
-v2:
-Julian noticed that v1 did omit the redirect flag in rtnetlink
-queries, fixed. Thanks!
+ drivers/net/ethernet/atheros/atlx/atl1.c |  3 +--
+ drivers/net/ethernet/atheros/atlx/atl2.c | 12 ++++--------
+ 2 files changed, 5 insertions(+), 10 deletions(-)
 
-v3:
-Julian noticed that we could accidentally write into NEIGHCB, fixed
-and thanks again!
-
- include/net/ip.h      | 11 ++++++-----
- net/ipv4/ip_forward.c |  3 ++-
- net/ipv4/route.c      |  9 +++++----
- 3 files changed, 13 insertions(+), 10 deletions(-)
-
-diff --git a/include/net/ip.h b/include/net/ip.h
-index 0e5a0ba..14211ea 100644
---- a/include/net/ip.h
-+++ b/include/net/ip.h
-@@ -39,11 +39,12 @@ struct inet_skb_parm {
- 	struct ip_options	opt;		/* Compiled IP options		*/
- 	unsigned char		flags;
+diff --git a/drivers/net/ethernet/atheros/atlx/atl1.c b/drivers/net/ethernet/atheros/atlx/atl1.c
+index 2c8f398aeda9..d9d61d6e8386 100644
+--- a/drivers/net/ethernet/atheros/atlx/atl1.c
++++ b/drivers/net/ethernet/atheros/atlx/atl1.c
+@@ -1667,8 +1667,7 @@ static void atl1_via_workaround(struct atl1_adapter *adapter)
+ 	unsigned long value;
  
--#define IPSKB_FORWARDED		1
--#define IPSKB_XFRM_TUNNEL_SIZE	2
--#define IPSKB_XFRM_TRANSFORMED	4
--#define IPSKB_FRAG_COMPLETE	8
--#define IPSKB_REROUTED		16
-+#define IPSKB_FORWARDED		BIT(0)
-+#define IPSKB_XFRM_TUNNEL_SIZE	BIT(1)
-+#define IPSKB_XFRM_TRANSFORMED	BIT(2)
-+#define IPSKB_FRAG_COMPLETE	BIT(3)
-+#define IPSKB_REROUTED		BIT(4)
-+#define IPSKB_DOREDIRECT	BIT(5)
+ 	value = ioread16(adapter->hw.hw_addr + PCI_COMMAND);
+-	if (value & PCI_COMMAND_INTX_DISABLE)
+-		value &= ~PCI_COMMAND_INTX_DISABLE;
++	value &= ~PCI_COMMAND_INTX_DISABLE;
+ 	iowrite32(value, adapter->hw.hw_addr + PCI_COMMAND);
+ }
  
- 	u16			frag_max_size;
- };
-diff --git a/net/ipv4/ip_forward.c b/net/ipv4/ip_forward.c
-index 3a83ce5..787b3c2 100644
---- a/net/ipv4/ip_forward.c
-+++ b/net/ipv4/ip_forward.c
-@@ -129,7 +129,8 @@ int ip_forward(struct sk_buff *skb)
- 	 *	We now generate an ICMP HOST REDIRECT giving the route
- 	 *	we calculated.
- 	 */
--	if (rt->rt_flags&RTCF_DOREDIRECT && !opt->srr && !skb_sec_path(skb))
-+	if (IPCB(skb)->flags & IPSKB_DOREDIRECT && !opt->srr &&
-+	    !skb_sec_path(skb))
- 		ip_rt_send_redirect(skb);
+diff --git a/drivers/net/ethernet/atheros/atlx/atl2.c b/drivers/net/ethernet/atheros/atlx/atl2.c
+index 84a09e8ddd9c..46d1b959daa8 100644
+--- a/drivers/net/ethernet/atheros/atlx/atl2.c
++++ b/drivers/net/ethernet/atheros/atlx/atl2.c
+@@ -1278,14 +1278,10 @@ static void atl2_setup_pcicmd(struct pci_dev *pdev)
  
- 	skb->priority = rt_tos2priority(iph->tos);
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 2000110..0c63b2a 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -1567,11 +1567,10 @@ static int __mkroute_input(struct sk_buff *skb,
+ 	pci_read_config_word(pdev, PCI_COMMAND, &cmd);
  
- 	do_cache = res->fi && !itag;
- 	if (out_dev == in_dev && err && IN_DEV_TX_REDIRECTS(out_dev) &&
-+	    skb->protocol == htons(ETH_P_IP) &&
- 	    (IN_DEV_SHARED_MEDIA(out_dev) ||
--	     inet_addr_onlink(out_dev, saddr, FIB_RES_GW(*res)))) {
--		flags |= RTCF_DOREDIRECT;
--		do_cache = false;
--	}
-+	     inet_addr_onlink(out_dev, saddr, FIB_RES_GW(*res))))
-+		IPCB(skb)->flags |= IPSKB_DOREDIRECT;
+-	if (cmd & PCI_COMMAND_INTX_DISABLE)
+-		cmd &= ~PCI_COMMAND_INTX_DISABLE;
+-	if (cmd & PCI_COMMAND_IO)
+-		cmd &= ~PCI_COMMAND_IO;
+-	if (0 == (cmd & PCI_COMMAND_MEMORY))
+-		cmd |= PCI_COMMAND_MEMORY;
+-	if (0 == (cmd & PCI_COMMAND_MASTER))
+-		cmd |= PCI_COMMAND_MASTER;
++	cmd &= ~PCI_COMMAND_INTX_DISABLE;
++	cmd &= ~PCI_COMMAND_IO;
++	cmd |= PCI_COMMAND_MEMORY;
++	cmd |= PCI_COMMAND_MASTER;
+ 	pci_write_config_word(pdev, PCI_COMMAND, cmd);
  
- 	if (skb->protocol != htons(ETH_P_IP)) {
- 		/* Not IP (i.e. ARP). Do not create route, if it is
-@@ -2316,6 +2315,8 @@ static int rt_fill_info(struct net *net,  __be32 dst, __be32 src,
- 	r->rtm_flags	= (rt->rt_flags & ~0xFFFF) | RTM_F_CLONED;
- 	if (rt->rt_flags & RTCF_NOTIFY)
- 		r->rtm_flags |= RTM_F_NOTIFY;
-+	if (IPCB(skb)->flags & IPSKB_DOREDIRECT)
-+		r->rtm_flags |= RTCF_DOREDIRECT;
- 
- 	if (nla_put_be32(skb, RTA_DST, dst))
- 		goto nla_put_failure;
+ 	/*
 -- 
-2.1.0
+2.1.3
