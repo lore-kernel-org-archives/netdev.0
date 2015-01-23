@@ -1,83 +1,154 @@
-From: Ani Sinha <ani@arista.com>
-Subject: Re: subtle change in behavior with tun driver
-Date: Thu, 22 Jan 2015 16:28:09 -0800
-Message-ID: <CAOxq_8PCJXw+yoXj0MtLO7nTvWWdR3N4XvKUZ00SX6y-A9EziQ@mail.gmail.com>
-References: <CAOxq_8NJdFV6fbVh-uns3bpaKNjtcGEOEDb4U3_rX3d+w85SWQ@mail.gmail.com>
- <20150122095349.GC26178@redhat.com>
+From: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
+Subject: Re: [PATCH 1/2] if_link: Add VF multicast promiscuous
+ mode control
+Date: Fri, 23 Jan 2015 00:32:00 +0000
+Message-ID: <7F861DC0615E0C47A872E6F3C5FCDDBD05E0B6B1@BPXM14GP.gisp.nec.co.jp>
+References: <7F861DC0615E0C47A872E6F3C5FCDDBD05E0734E@BPXM14GP.gisp.nec.co.jp>
+	<874mrlu18e.fsf@nemi.mork.no>
+	<7F861DC0615E0C47A872E6F3C5FCDDBD05E07B7C@BPXM14GP.gisp.nec.co.jp>
+	<F6FB0E698C9B3143BDF729DF222866469129B7F5@ORSMSX110.amr.corp.intel.com>
+	<7F861DC0615E0C47A872E6F3C5FCDDBD05E07F09@BPXM14GP.gisp.nec.co.jp>
+	<F6FB0E698C9B3143BDF729DF222866469129B844@ORSMSX110.amr.corp.intel.com>
+	<7F861DC0615E0C47A872E6F3C5FCDDBD05E08FF6@BPXM14GP.gisp.nec.co.jp>
+	<063D6719AE5E284EB5DD2968C1650D6D1CAD01D6@AcuExch.aculab.com>
+	<7F861DC0615E0C47A872E6F3C5FCDDBD05E090FE@BPXM14GP.gisp.nec.co.jp>
+	<F6FB0E698C9B3143BDF729DF222866469129BC03@ORSMSX110.amr.corp.intel.com>
+	<063D6719AE5E284EB5DD2968C1650D6D1CAD0C8A@AcuExch.aculab.com>
+	<F6FB0E698C9B3143BDF729DF222866469129BFFD@ORSMSX110.amr.corp.intel.com>
+	<87bnlqpq6v.fsf@nemi.mork.no>
+	<F6FB0E698C9B3143BDF729DF222866469129C09C@ORSMSX110.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Michael S. Tsirkin" <mst@redhat.com>,
-	fruggeri <fruggeri@arista.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f170.google.com ([209.85.223.170]:55205 "EHLO
-	mail-ie0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752338AbbAWA2d (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jan 2015 19:28:33 -0500
-Received: by mail-ie0-f170.google.com with SMTP id y20so486697ier.1
-        for <netdev@vger.kernel.org>; Thu, 22 Jan 2015 16:28:32 -0800 (PST)
-In-Reply-To: <20150122095349.GC26178@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>, "Choi,
+	Sy Jong" <sy.jong.choi@intel.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	David Laight <David.Laight@ACULAB.COM>,
+	Hayato Momma <h-momma@ce.jp.nec.com>
+To: "Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+	=?utf-8?B?QmrDuHJuIE1vcms=?= <bjorn@mork.no>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <F6FB0E698C9B3143BDF729DF222866469129C09C@ORSMSX110.amr.corp.intel.com>
+Content-Language: ja-JP
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 22, 2015 at 1:53 AM, Michael S. Tsirkin <mst@redhat.com> wrote:
-> On Wed, Jan 21, 2015 at 02:36:17PM -0800, Ani Sinha wrote:
->> Hi guys :
->>
->> Commit 5d097109257c03 ("tun: only queue packets on device") seems to
->> have introduced a subtle change in behavior in the tun driver in the
->> default (non IFF_ONE_QUEUE) case. Previously when the queues got full
->> and eventually sk_wmem_alloc of the socket exceeded sk_sndbuf value,
->> the user would be given a feedback by returning EAGAIN from sendto()
->> etc. That way, the user could retry sending the packet again.
->
-> This behaviour is common, but by no means guaranteed.
-> For example, if socket buffer size is large enough,
-> packets are small enough, or there are multiple sockets
-> transmitting through tun, packets would previously
-> accumulate in qdisc, followed by packet drops
-> without EAGAIN.
-
-Ah I see. pfifo_fast_enqueue() also starts dropping packets when it's
-length exceeds a threshold. So I supposed we do not have a strong
-argument for bringing back the old semantics because it wasn't
-guranteed in every scenario in the first place.
-
->
->> Unfortunately, with this new  default single queue mode, the driver
->> silently drops the packet when the device queue is full without giving
->> userland any feedback. This makes it appear to userland as though the
->> packet was transmitted successfully. It seems there is a semantic
->> change in the driver with this commit.
->>
->> If the receiving process gets stuck for a short interval and is unable
->> to drain packets and then restarts again, one might see strange packet
->> drops in the kernel without getting any error back on the sender's
->> side. It kind of feels wrong.
->>
->> Any thoughts?
->>
->> Ani
->
-> Unfortunately - since it's pretty common for unpriveledged userspace to
-> drive the tun device - blocking the queue indefinitely as was done
-> previously leads to deadlocks for some apps, this was deemed worse than
-> some performance degradation.
-
-agreed. However applications which needs protection from deadlock can
-exclusively set IFF_ONE_QUEUE mode and live with the fact that they
-might see dropped packets.
-
->
-> As a simple work-around, if you want packets to accumulate in the qdisc,
-> it's easy to implement by using a non work conserving qdisc.
-> Set the limits to match the speed at which your application
-> is able to consume the packets.
->
-> I've been thinking about using some kind of watchdog to
-> make it safe to put the old non IFF_ONE_QUEUE semantics back,
-> unfortunately due to application being able to consume packets at the
-> same time it's not trivial to do in a non-racy way.
-
-I do not have an answer to this issue either. I agree that this is a
-hard issue to solve.
+PiBTdWJqZWN0OiBSRTogW0UxMDAwLWRldmVsXSBbUEFUQ0ggMS8yXSBpZl9saW5rOiBBZGQgVkYg
+bXVsdGljYXN0IHByb21pc2N1b3VzIG1vZGUgY29udHJvbA0KPiA+DQo+ID4gIlNraWRtb3JlLCBE
+b25hbGQgQyIgPGRvbmFsZC5jLnNraWRtb3JlQGludGVsLmNvbT4gd3JpdGVzOg0KPiA+DQo+ID4g
+PiBNeSBoYW5nIHVwIGlzIG1vcmUgcmVsYXRlZCB0bzogd2l0aG91dCB0aGUgbm9iIHRvIGVuYWJs
+ZSBpdCAob2ZmIGJ5DQo+ID4gPiBkZWZhdWx0KSB3ZSBhcmUgbGV0dGluZyBvbmUgVkYgZGljdGF0
+ZSBwb2xpY3kgZm9yIGFsbCB0aGUgb3RoZXIgVkZzDQo+ID4gPiBhbmQgdGhlIFBGLiAgSWYgb25l
+IFZGIG5lZWRzIHRvIGJlIGluIHByb21pc2N1b3VzIG11bHRpY2FzdCBzbyBpcw0KPiA+ID4gZXZl
+cnlvbmUgZWxzZS4gIFRoZWlyIHN0YWNrcyBub3cgbmVlZHMgdG8gZGVhbCB3aXRoIGFsbCB0aGUg
+ZXh0cmENCj4gPiA+IG11bHRpY2FzdCBwYWNrZXRzLiAgQXMgeW91IHBvaW50IG91dCB0aGlzIG1p
+Z2h0IG5vdCBiZSBhIGRpcmVjdA0KPiA+ID4gY29uY2VybiBmb3IgaXNvbGF0aW9uIGluIHRoYXQg
+dGhlIFZNIGNvdWxkIGhhdmUgJ2Nob3NlbicgdG8gam9pbiBhbnkNCj4gPiA+IE11bHRpY2FzdCBn
+cm91cCBhbmQgc2VlbiB0aGlzIHRyYWZmaWMuICBNeSBjb25jZXJuIG92ZXIgaXNvbGF0aW9uIGlz
+DQo+ID4gPiBvbmUgVkYgaGFzIGNob3NlbiB0aGF0IGFsbCB0aGUgb3RoZXIgVk0gbm93IGhhdmUg
+dG8gc2VlIHRoaXMgbXVsdGljYXN0DQo+ID4gPiB0cmFmZmljLg0KPiA+DQo+ID4gQXBvbG9naWVz
+IGlmIHRoaXMgcXVlc3Rpb24gaXMgc3R1cGlkLCBidXQgSSBqdXN0IGhhdmUgdG8gYXNrIGFib3V0
+IHN0dWZmIEkgZG9uJ3QNCj4gPiB1bmRlcnN0YW5kLi4uDQo+ID4NCj4gPiBMb29raW5nIGF0IHRo
+ZSBwcm9wb3NlZCBpbXBsZW1lbnRhdGlvbiwgdGhlIHByb21pc2NvdXMgbXVsdGljYXN0IGZsYWcN
+Cj4gPiBzZWVtcyB0byBiZSBhIHBlci1WRiBmbGFnOg0KPiA+DQo+ID4gK2ludCBpeGdiZV9uZG9f
+c2V0X3ZmX21jX3Byb21pc2Moc3RydWN0IG5ldF9kZXZpY2UgKm5ldGRldiwgaW50IHZmLCBib29s
+DQo+ID4gK3NldHRpbmcpIHsNCj4gPiArCXN0cnVjdCBpeGdiZV9hZGFwdGVyICphZGFwdGVyID0g
+bmV0ZGV2X3ByaXYobmV0ZGV2KTsNCj4gPiArCXN0cnVjdCBpeGdiZV9odyAqaHcgPSAmYWRhcHRl
+ci0+aHc7DQo+ID4gKwl1MzIgdm1vbHI7DQo+ID4gKw0KPiA+ICsJaWYgKHZmID49IGFkYXB0ZXIt
+Pm51bV92ZnMpDQo+ID4gKwkJcmV0dXJuIC1FSU5WQUw7DQo+ID4gKw0KPiA+ICsJYWRhcHRlci0+
+dmZpbmZvW3ZmXS5tY19wcm9taXNjX2VuYWJsZWQgPSBzZXR0aW5nOw0KPiA+ICsNCj4gPiArCXZt
+b2xyID0gSVhHQkVfUkVBRF9SRUcoaHcsIElYR0JFX1ZNT0xSKHZmKSk7DQo+ID4gKwlpZiAoc2V0
+dGluZykgew0KPiA+ICsJCWVfaW5mbyhkcnYsICJWRiAldTogZW5hYmxpbmcgbXVsdGljYXN0IHBy
+b21pc2N1b3VzXG4iLCB2Zik7DQo+ID4gKwkJdm1vbHIgfD0gSVhHQkVfVk1PTFJfTVBFOw0KPiA+
+ICsJfSBlbHNlIHsNCj4gPiArCQllX2luZm8oZHJ2LCAiVkYgJXU6IGRpc2FibGluZyBtdWx0aWNh
+c3QgcHJvbWlzY3VvdXNcbiIsIHZmKTsNCj4gPiArCQl2bW9sciAmPSB+SVhHQkVfVk1PTFJfTVBF
+Ow0KPiA+ICsJfQ0KPiA+ICsNCj4gPiArCUlYR0JFX1dSSVRFX1JFRyhodywgSVhHQkVfVk1PTFIo
+dmYpLCB2bW9scik7DQo+ID4gKw0KPiA+ICsJcmV0dXJuIDA7DQo+ID4gK30NCj4gPiArDQo+ID4N
+Cj4gPiBJIGhhdmVuJ3QgcmVhZCB0aGUgZGF0YSBzaGVldCwgYnV0IEkgdG9vayBhIHF1aWNrIGxv
+b2sgYXQgdGhlIGV4Y2VsbGVudCBoaWdoDQo+ID4gbGV2ZWwgZHJpdmVyIGRvY3M6DQo+ID4gaHR0
+cDovL3d3dy5pbnRlbC5jb20vY29udGVudC9kYW0vZG9jL2Rlc2lnbi1ndWlkZS84MjU5OS1zci1p
+b3YtZHJpdmVyLQ0KPiA+IGNvbXBhbmlvbi1ndWlkZS5wZGYNCj4gPg0KPiA+IEl0IG1lbnRpb25z
+ICJNdWx0aWNhc3QgUHJvbWlzY3VvdXMgRW5hYmxlIiBpbiBpdHMgIlRob3VnaHRzIGZvcg0KPiA+
+IEN1c3RvbWl6YXRpb24iIHNlY3Rpb246DQo+ID4NCj4gPiAgNy4xIE11bHRpY2FzdCBQcm9taXNj
+dW91cyBFbmFibGUNCj4gPg0KPiA+ICBUaGUgY29udHJvbGxlciBoYXMgcHJvdmlzaW9ucyB0byBh
+bGxvdyBlYWNoIFZGIHRvIGJlIHB1dCBpbnRvIE11bHRpY2FzdA0KPiA+IFByb21pc2N1b3VzIG1v
+ZGUuICBUaGUgSW50ZWwgcmVmZXJlbmNlIGRyaXZlciBkb2VzIG5vdCBjb25maWd1cmUgdGhpcw0K
+PiA+IG9wdGlvbiAuDQo+ID4NCj4gPiAgVGhlIGNhcGFiaWxpdHkgY2FuIGJlIGVuYWJsZWQvZGlz
+YWJsZWQgYnkgbWFuaXB1bGF0aW5nIHRoZSBNUEUgZmllbGQgIChiaXQNCj4gPiAyOCkgb2YgdGhl
+IFBGIFZGIEwyIENvbnRyb2wgUmVnaXN0ZXIgKFBGVk1MMkZMVCDigJMgMHgwRjAwMCkNCj4gPg0K
+PiA+IGFuZCBzaG93aW5nIGEgc2VjdGlvbiBmcm9tIHRoZSBkYXRhIHNoZWV0IGRlc2NyaWJpbmcg
+dGhlICJQRiBWTSBMMiBDb250cm9sDQo+ID4gUmVnaXN0ZXIgLSBQRlZNTDJGTFRbbl0gICgweDBG
+MDAwICsgNCAqIG4sIG49MC4uLjYzOyBSVykiDQo+ID4NCj4gPiBUbyBtZSBpdCBsb29rcyBsaWtl
+IGVuYWJsaW5nIFByb21pc2N1b3MgTXVsdGljYXN0IGZvciBhIFZGIHdvbid0IGFmZmVjdCBhbnkN
+Cj4gPiBvdGhlciBWRiBhdCBhbGwuICBJcyB0aGlzIHJlYWxseSBub3QgdGhlIGNhc2U/DQo+ID4N
+Cj4gPg0KPiA+DQo+ID4gQmrDuHJuDQo+IA0KPiBDbGVhcmx5IG5vdCBhIGR1bWIgcXVlc3Rpb24g
+YXQgYWxsIGFuZCBJJ20gZ2xhZCB5b3UgbWVudGlvbmVkIHRoYXQuIDopICBJIHdhcyBnb2luZyBv
+ZmYgdGhlIGFzc3VtcHRpb24sIGJlZW4gYXdoaWxlIHNpbmNlDQo+IEkgcmVhZCB0aGUgcGF0Y2gs
+IHRoYXQgdGhlIHBhdGNoIHdhcyB1c2luZyBGQ1RSTC5NUEUgb3IgTUFOQy5NQ1NUX1BBU1NfTDIg
+d2hpY2ggd291bGQgdHVybiBtdWx0aWNhc3QgcHJvbWlzY3VvdXMgb24gZm9yDQo+IGV2ZXJ5b25l
+LiAgU2luY2UgdGhlIHBhdGNoIGlzIHVzaW5nIFBGVk1MMkZMVC5NUEUgdGhpcyBsZXNzZW5zIG15
+IGNvbmNlcm4gb3ZlciBlZmZlY3Qgb24gdGhlIGVudGlyZSBzeXN0ZW0uDQoNCkkgYmVsaWV2ZSB0
+aGUgcGF0Y2hlcyBmb3IgdGhpcyBWRiBtdWx0aWNhc3QgcHJvbWlzY3VvdXMgbW9kZSBpcyBwZXIg
+VkYuDQoNCj4gDQo+IFRoYXQgc2FpZCBJIHN0aWxsIHdvdWxkIHByZWZlciBoYXZpbmcgYSB3YXkg
+dG8gb3ZlcnJpZGUgdGhpcyBiZWhhdmlvciBvbiB0aGUgUEYsIGFsdGhvdWdoIEkgYWRtaXQgbXkg
+YXJndW1lbnQgaXMgd2Vha2VyLg0KPiBJJ20gc3RpbGwgY29uY2VybmVkIGFib3V0IGEgVkYgY2hh
+bmdpbmcgdGhlIGJlaGF2aW9yIG9mIHRoZSBQRiB3aXRob3V0IGFueSB3YXkgdG8gcHJldmVudCBp
+dC4gIFRoaXMgbWlnaHQgYmUgb25lIHBhcnQNCj4gcGhpbG9zb3BoaWNhbCAoUEYgc2V0cyBwb2xp
+Y3kgbm90IHRoZSBWRikgYnV0IHRoaXMgc3RpbGwgY291bGQgaGF2ZSBhIG5vdGljZWFibGUgZWZm
+ZWN0IG9uIHRoZSBvdmVyYWxsIHN5c3RlbS4gIElmIGFueQ0KPiBvdGhlciBWRnMgKG9yIHRoZSBQ
+RikgYXJlIHJlY2VpdmluZyBNQyBwYWNrZXRzIHRoZXNlIHdpbGwgaGF2ZSB0byBiZSByZXBsaWNh
+dGVkIHdoaWNoIHdpbGwgYmUgYSBwZXJmb3JtYW5jZSBoaXQuICBXaGVuDQo+IHdlIHVzZSB0aGUg
+TUMgaGFzaCB0aGlzIGlzIGxpbWl0ZWQgdnMuIHdoZW4gYW55b25lIGlzIGluIE1DIHByb21pc2N1
+b3VzIGV2ZXJ5IE1DIHBhY2tldCB1c2VkIGJ5IGFub3RoZXIgcG9vbCB3b3VsZCBiZQ0KPiByZXBs
+aWNhdGVkLiAgSSBjb3VsZCBpbWFnaW5lIGluIHNvbWUgZW52aXJvbm1lbnRzIChpLmUuIHB1Ymxp
+YyBjbG91ZHMpIHdoZXJlIHlvdSBkb24ndCB0cnVzdCB3aGF0IGlzIHJ1bm5pbmcgaW4geW91ciBW
+TQ0KPiB5b3UgbWlnaHQgd2hhdCB0byBibG9jayB0aGlzIGZyb20gaGFwcGVuaW5nLg0KDQpJIHVu
+ZGVyc3RhbmQgeW91ciByZXF1ZXN0IGFuZCBJJ20gdGhpbmtpbmcgdG8gc3VibWl0IHRoZSBwYXRj
+aGVzDQogIDEpIEFkZCBuZXcgbWJveCBBUEkgYmV0d2VlbiBpeGdiZS9peGdiZXZmIHRvIHR1cm4g
+TUMgcHJvbWlzY3VvdXMgb24sDQogICAgIGFuZCBlbmFibGVzIGl0IHdoZW4gaXhnYmV2ZiBuZWVk
+cyBvdmVyIDMwIE1DIGFkZHJlc3Nlcy4NCiAgMikgQWRkIGEgcG9saWN5IGtub2IgdG8gcHJldmVu
+dCBlbmFibGluZyBpdCBmcm9tIHRoZSBQRi4NCg0KRG9lcyBpdCBzZWVtIG9rYXk/DQoNCkJUVywg
+SSdtIGJpdCB3b3JyaWVkIGFib3V0IHRvIHVzZSBuZG8gaW50ZXJmYWNlIGZvciAyKSBiZWNhdXNl
+IGFkZGluZyBhDQpuZXcgaG9vayBtYWtlcyBjb3JlIGNvZGUgY29tcGxpY2F0ZWQuDQpJcyBpdCBy
+ZWFsbHkgcmVhc29uYWJsZSB0byBkbyBpdCB3aXRoIG5kbz8NCkkgaGF2ZW4ndCBmaW5kIGFueSBv
+dGhlciBzdWl0YWJsZSBtZXRob2QgdG8gZG8gaXQsIHJpZ2h0IG5vdy4gQW5kIHVzaW5nDQpuZG8g
+VkYgaG9vayBsb29rcyBzdGFuZGFyZCB3YXkgdG8gY29udHJvbCBWRiBmdW5jdGlvbmFsaXR5Lg0K
+VGhlbiwgSSB0aGluayBpdCdzIHRoZSBiZXN0IHdheSB0byBpbXBsZW1lbnQgdGhpcyBwb2xpY3kg
+aW4gbmRvIGhvb2suDQoNCj4gDQo+IEluIHNvbWUgd2F5cyBpdCBpcyBhbG1vc3QgdGhlIG1pcnJv
+ciBpbWFnZSBvZiB0aGUgaXNzdWUgeW91IGJyb3VnaHQgdXA6DQo+IA0KPiBBZGRpbmcgYSBuZXcg
+aG9vayBmb3IgdGhpcyBzZWVtcyBvdmVyLWNvbXBsaWNhdGVkIHRvIG1lLiAgQW5kIGl0IHN0aWxs
+DQo+IGRvZXNuJ3Qgc29sdmUgdGhlIHJlYWwgcHJvYmxlbXMgdGhhdA0KPiAgYSkgdGhlIHVzZXIg
+aGFzIHRvIGtub3cgYWJvdXQgdGhpcyBsaW1pdCwgYW5kDQo+ICBiKSBtYW51YWxseSBjb25maWd1
+cmUgdGhlIGZlYXR1cmUNCj4gDQo+IE15IHJldmVyc2UgYXJndW1lbnQgbWlnaHQgYmUgdGhhdCBp
+ZiB0aGlzIGhhcHBlbnMgYXV0b21hdGljYWxseS4gIEl0IG1pZ2h0IHRha2UgdGhlIFZNIHByb3Zp
+ZGVyIGEgbG9uZyB0aW1lIHRvIHJlYWxpemUNCj4gcGVyZm9ybWFuY2UgaGFzIHRha2VuIGEgaGl0
+IGJlY2F1c2Ugc29tZSBWTSBhc2tlZCB0byBqb2luIDMxIG11bHRpY2FzdCBncm91cHMgYW5kIGVu
+dGVyZWQgTUMgcHJvbWlzY3VvdXMuICBUaGVuIG9ubHkgdG8NCj4gZmluZCB0aGF0IHRoZXkgaGF2
+ZSBubyB3YXkgdG8gYmxvY2sgc3VjaCBiZWhhdmlvci4NCj4gDQo+IE1heWJlIEkgd291bGRuJ3Qg
+YXMgY29uY2VybmVkIGlmIHRoZSBwYXRjaCBhdXRob3IgY291bGQgcHJvdmlkZSBzb21lIHBlcmZv
+cm1hbmNlIHJlc3VsdHMgdG8gc2hvdyB0aGlzIHdvbid0IGhhdmUgYXMgYQ0KPiBuZWdhdGl2ZSBl
+ZmZlY3QgYXMgSSdtIGFmcmFpZCBpdCBtaWdodD8NCg0KSG0sIHdoYXQga2luZCBvZiB0ZXN0IGNh
+c2Ugd291bGQgeW91IGxpa2UgdG8gaGF2ZT8NClRoZSB1c2VyIEEgd2hvIGhhcyAzMCBNQyBhZGRy
+ZXNzZXMgdnMgdGhlIHVzZXIgQiB3aG8gaGFzIDMxIE1DIGFkZHJlc3Nlcywgd2hpY2gNCm1lYW5z
+IHRoYXQgTUMgcHJvbWlzY3VvdXMgbW9kZSwgYW5kIGNvbWluZyBNQyBwYWNrZXRzIHRoZSB1c2Vy
+IGRvZXNuJ3QgZXhwZWN0Pw0KDQp0aGFua3MsDQpIaXJvc2hpDQotLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0KTmV3IFllYXIuIE5ldyBMb2NhdGlvbi4gTmV3IEJlbmVmaXRzLiBOZXcgRGF0YSBDZW50ZXIg
+aW4gQXNoYnVybiwgVkEuCkdpZ2VORVQgaXMgb2ZmZXJpbmcgYSBmcmVlIG1vbnRoIG9mIHNlcnZp
+Y2Ugd2l0aCBhIG5ldyBzZXJ2ZXIgaW4gQXNoYnVybi4KQ2hvb3NlIGZyb20gMiBoaWdoIHBlcmZv
+cm1pbmcgY29uZmlncywgYm90aCB3aXRoIDEwMFRCIG9mIGJhbmR3aWR0aC4KSGlnaGVyIHJlZHVu
+ZGFuY3kuTG93ZXIgbGF0ZW5jeS5JbmNyZWFzZWQgY2FwYWNpdHkuQ29tcGxldGVseSBjb21wbGlh
+bnQuCmh0dHA6Ly9wLnNmLm5ldC9zZnUvZ2lnZW5ldApfX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fXwpFMTAwMC1kZXZlbCBtYWlsaW5nIGxpc3QKRTEwMDAtZGV2
+ZWxAbGlzdHMuc291cmNlZm9yZ2UubmV0Cmh0dHBzOi8vbGlzdHMuc291cmNlZm9yZ2UubmV0L2xp
+c3RzL2xpc3RpbmZvL2UxMDAwLWRldmVsClRvIGxlYXJuIG1vcmUgYWJvdXQgSW50ZWwmIzE3NDsg
+RXRoZXJuZXQsIHZpc2l0IGh0dHA6Ly9jb21tdW5pdGllcy5pbnRlbC5jb20vY29tbXVuaXR5L3dp
+cmVkCg==
