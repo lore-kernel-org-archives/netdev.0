@@ -1,39 +1,81 @@
-From: Mohammad Jamal <md.jamalmohiuddin@gmail.com>
-Subject: [PATCH] net: ieee802154: cc2520: fix coding style issue
-Date: Fri, 23 Jan 2015 15:06:40 +0530
-Message-ID: <1422005800-13442-1-git-send-email-md.jamalmohiuddin@gmail.com>
-Cc: Mohammad Jamal <md.jamalmohiuddin@gmail.com>
-To: varkabhadram@gmail.com, alex.aring@gmail.com,
-	linux-wpan@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next v3 1/5] netdev: introduce new
+ NETIF_F_HW_NETFUNC_OFFLOAD feature flag for switch device offloads
+Date: Fri, 23 Jan 2015 10:44:59 +0100
+Message-ID: <20150123094459.GA2065@nanopsycho.orion>
+References: <1421987606-10884-2-git-send-email-roopa@cumulusnetworks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: sfeldma@gmail.com, jhs@mojatatu.com, bcrl@kvack.org, tgraf@suug.ch,
+	john.fastabend@gmail.com, stephen@networkplumber.org,
+	vyasevic@redhat.com, ronen.arad@intel.com, netdev@vger.kernel.org,
+	davem@davemloft.net, shm@cumulusnetworks.com,
+	gospo@cumulusnetworks.com
+To: roopa@cumulusnetworks.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f179.google.com ([209.85.212.179]:42878 "EHLO
+	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754730AbbAWJpE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jan 2015 04:45:04 -0500
+Received: by mail-wi0-f179.google.com with SMTP id l15so1508601wiw.0
+        for <netdev@vger.kernel.org>; Fri, 23 Jan 2015 01:45:02 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1421987606-10884-2-git-send-email-roopa@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch solves the coding style issue warning
-by replacing the shifting operations by BIT macro
+Fri, Jan 23, 2015 at 05:33:22AM CET, roopa@cumulusnetworks.com wrote:
+>From: Roopa Prabhu <roopa@cumulusnetworks.com>
+>
+>This is a high level feature flag for all switch asic offloads
+>
+>switch drivers set this flag on switch ports. Logical devices like
+>bridge, bonds, vxlans can inherit this flag from their slaves/ports.
+>
+>The patch also adds the flag to NETIF_F_ONE_FOR_ALL, so that it gets
+>propagated to the upperdevices (bridges and bonds).
+>
+>Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+>---
+> include/linux/netdev_features.h |    6 +++++-
+> 1 file changed, 5 insertions(+), 1 deletion(-)
+>
+>diff --git a/include/linux/netdev_features.h b/include/linux/netdev_features.h
+>index 8e30685..784a461 100644
+>--- a/include/linux/netdev_features.h
+>+++ b/include/linux/netdev_features.h
+>@@ -66,6 +66,7 @@ enum {
+> 	NETIF_F_HW_VLAN_STAG_FILTER_BIT,/* Receive filtering on VLAN STAGs */
+> 	NETIF_F_HW_L2FW_DOFFLOAD_BIT,	/* Allow L2 Forwarding in Hardware */
+> 	NETIF_F_BUSY_POLL_BIT,		/* Busy poll */
+>+	NETIF_F_HW_NETFUNC_OFFLOAD_BIT,  /* HW switch offload */
 
-Signed-off-by: Mohammad Jamal <md.jamalmohiuddin@gmail.com>
----
- drivers/net/ieee802154/cc2520.c |    6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+How about rather "HW_DATAPATH_OFFLOAD"? Feels more accurate. By the
+name, I still cannot understand what NETFUNC should mean.
 
-diff --git a/drivers/net/ieee802154/cc2520.c b/drivers/net/ieee802154/cc2520.c
-index dd129be..b9b2a49 100644
---- a/drivers/net/ieee802154/cc2520.c
-+++ b/drivers/net/ieee802154/cc2520.c
-@@ -45,9 +45,9 @@
- #define	CC2520_FREG_MASK	0x3F
- 
- /* status byte values */
--#define	CC2520_STATUS_XOSC32M_STABLE	(1 << 7)
--#define	CC2520_STATUS_RSSI_VALID	(1 << 6)
--#define	CC2520_STATUS_TX_UNDERFLOW	(1 << 3)
-+#define	CC2520_STATUS_XOSC32M_STABLE	BIT(7)
-+#define	CC2520_STATUS_RSSI_VALID	BIT(6)
-+#define	CC2520_STATUS_TX_UNDERFLOW	BIT(3)
- 
- /* IEEE-802.15.4 defined constants (2.4 GHz logical channels) */
- #define	CC2520_MINCHANNEL		11
--- 
-1.7.9.5
+
+> 
+> 	/*
+> 	 * Add your fresh new feature above and remember to update
+>@@ -124,6 +125,7 @@ enum {
+> #define NETIF_F_HW_VLAN_STAG_TX	__NETIF_F(HW_VLAN_STAG_TX)
+> #define NETIF_F_HW_L2FW_DOFFLOAD	__NETIF_F(HW_L2FW_DOFFLOAD)
+> #define NETIF_F_BUSY_POLL	__NETIF_F(BUSY_POLL)
+>+#define NETIF_F_HW_NETFUNC_OFFLOAD	__NETIF_F(HW_NETFUNC_OFFLOAD)
+> 
+> /* Features valid for ethtool to change */
+> /* = all defined minus driver/device-class-related */
+>@@ -159,7 +161,9 @@ enum {
+>  */
+> #define NETIF_F_ONE_FOR_ALL	(NETIF_F_GSO_SOFTWARE | NETIF_F_GSO_ROBUST | \
+> 				 NETIF_F_SG | NETIF_F_HIGHDMA |		\
+>-				 NETIF_F_FRAGLIST | NETIF_F_VLAN_CHALLENGED)
+>+				 NETIF_F_FRAGLIST | NETIF_F_VLAN_CHALLENGED | \
+>+				 NETIF_F_HW_NETFUNC_OFFLOAD)
+>+
+> /*
+>  * If one device doesn't support one of these features, then disable it
+>  * for all in netdev_increment_features.
+>-- 
+>1.7.10.4
+>
