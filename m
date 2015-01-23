@@ -1,62 +1,66 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH] ethernet: fm10k: Actually drop 4 bits
-Date: Thu, 22 Jan 2015 19:27:52 -0800
-Message-ID: <1421983672.2560.41.camel@jtkirshe-mobl>
-References: <1421967198-16667-1-git-send-email-linux@rasmusvillemoes.dk>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH 1/2] ARM: EXYNOS: add fixed phy support for EXYNOS5440
+Date: Thu, 22 Jan 2015 20:12:58 -0800
+Message-ID: <54C1CA4A.4030703@gmail.com>
+References: <1421980893-14475-1-git-send-email-ming.lei@canonical.com> <1421980893-14475-2-git-send-email-ming.lei@canonical.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-cB5feE4NS2SCmVETGgyc"
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Rasmus Villemoes <linux@rasmusvillemoes.dk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:14928 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751911AbbAWD15 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Jan 2015 22:27:57 -0500
-In-Reply-To: <1421967198-16667-1-git-send-email-linux@rasmusvillemoes.dk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-samsung-soc@vger.kernel.org,
+	Ike Panhc <ike.pan@canonical.com>, netdev@vger.kernel.org,
+	Ming Lei <ming.lei@canoncial.com>,
+	Kukjin Kim <kgene@kernel.org>, Byungho An <bh74.an@samsung.com>
+To: Ming Lei <ming.lei@canonical.com>,
+	linux-arm-kernel@lists.infradead.org,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-samsung-soc-owner@vger.kernel.org>
+In-Reply-To: <1421980893-14475-2-git-send-email-ming.lei@canonical.com>
+Sender: linux-samsung-soc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-
---=-cB5feE4NS2SCmVETGgyc
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Thu, 2015-01-22 at 23:53 +0100, Rasmus Villemoes wrote:
-> The comment explains the intention, but vid has type u16. Before the
-> inner shift, it is promoted to int, which has plenty of space for all
-> vid's bits, so nothing is dropped. Use a simple mask instead.
+Le 22/01/2015 18:41, Ming Lei a =E9crit :
+> From: Byungho An <bh74.an@samsung.com>
 >=20
-> Signed-off-by: Rasmus Villemoes <linux@rasmusvillemoes.dk>
-> ---
->  drivers/net/ethernet/intel/fm10k/fm10k_pf.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
+> This patch adds fixed phy codes for Exynos5440. This patch can
+> support fixed_phy.
+>=20
+> Signed-off-by: Byungho An <bh74.an@samsung.com> Signed-off-by: Ike
+> Panhc <ike.pan@canonical.com> Signed-off-by: Ming Lei
+> <ming.lei@canoncial.com> --- arch/arm/mach-exynos/exynos.c |   15
+> +++++++++++++++ 1 file changed, 15 insertions(+)
+>=20
+> diff --git a/arch/arm/mach-exynos/exynos.c
+> b/arch/arm/mach-exynos/exynos.c index 78eca99b..dfd5699 100644 ---
+> a/arch/arm/mach-exynos/exynos.c +++
+> b/arch/arm/mach-exynos/exynos.c @@ -20,6 +20,8 @@ #include
+> <linux/platform_device.h> #include <linux/pm_domain.h> #include
+> <linux/irqchip.h> +#include <linux/phy.h> +#include
+> <linux/phy_fixed.h>
+>=20
+> #include <asm/cacheflush.h> #include <asm/hardware/cache-l2x0.h> @@
+> -202,8 +204,21 @@ static void __init exynos_init_irq(void)=20
+> exynos_map_pmu(); }
+>=20
+> +static struct fixed_phy_status fixed_phy_status __initdata =3D { +
+> .link           =3D 1, +       .speed          =3D 1000, +
+> .duplex         =3D 1, +}; + static void __init
+> exynos_dt_machine_init(void) { +	struct device_node *gmac_np; +
+> unsigned int tmp; + +	/* add fixed phy in need */ +	gmac_np =3D
+> of_find_compatible_node(NULL, NULL, "snps,dwmac-3.70a"); +	if
+> (of_find_property(gmac_np, "fixed_phy", NULL)) +		tmp =3D
+> fixed_phy_add(PHY_POLL, 1, &fixed_phy_status);
 
-Thanks Rasmus, I will add your patch to my queue.
+Is there a particular reason you are doing this and not using
+of_phy_is_fixed_link() and of_phy_register_fixed_link()?
 
---=-cB5feE4NS2SCmVETGgyc
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
+See the gianfar and bcmsysport for examples on how to use it in a
+driver along with the relevant Device Tree binding in
+Documentation/devicetree/bindings/net/fixed-link.txt for examples.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
+> /* * This is called from smp_prepare_cpus if we've built for SMP,
+> but * we still need to set it up for PM and firmware ops if not.
+>=20
 
-iQIcBAABCgAGBQJUwb+4AAoJEOVv75VaS+3OIfIP/RcuhentUqJMrWPbjO7VNq68
-LyyzZNWEjRg2/WL3u/ppz9Yh7DEFXsJYe7u8uGN5gclN5y4u+Yh079oJ1+lWyzeT
-BguQnpArvbvLREDymuE95NIj1+A0n4sI2J10MRMfNLSN0JHwgx9+qzqDgpXLP9bd
-ZiS+xWc+ewSucth+ujyWc30XLEcZutGTg8dBjNllW8eyBDN16FUUQk0zx5wrXMCc
-juT2f21yD3Jgo16vtE0JcxzbLDapOjn9XF/AhaDCGqxhz3V79qXMfuZE0faK6y4A
-TH6j9eNFSHC9CKGxImr96+Cic9pjjRZr8vkX9LfimkGXzy+H6HTZOKGwQNsVcB7c
-dHbR3nwGqXiImWAgpmCS48PW+L7NHvg0fo+ak2YYNwgOV3j1FVDz1/fOTnXypFZ9
-fAbh3k6WIdOEh2H7nKf+siihVa+vunR98CArj6JpPS5Upa/vey7rD6bvnBJRKUmf
-mMC/d0MjdQzmvQCMFLdzHkfqiPSxDwp/M3so0P977tsvvZuxGn6L2BpGqhSMfOqa
-tYdhJENjHpGdPvIGDN1/SPRwhPt+rCymAEhJqYLdd1qqwtr/l3m4cPXn0SwlWUsA
-gybM3Nzq8Rh4WjIzzeYtbE5KlCGDmeT7EPANE8k63tHvJloJ1rG0WN7jjU7MvH9C
-5VIrSXc8LoXaqeRP0d/w
-=WGrr
------END PGP SIGNATURE-----
 
---=-cB5feE4NS2SCmVETGgyc--
+--=20
+=46lorian
