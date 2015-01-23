@@ -1,56 +1,56 @@
-From: Michael Holzheu <holzheu@linux.vnet.ibm.com>
-Subject: Re: [PATCH] samples/bpf: Fix test_maps/bpf_get_next_key() test
-Date: Fri, 23 Jan 2015 15:13:46 +0100
-Message-ID: <20150123151346.28ae0d6c@holzheu>
-References: <CAADnVQ+3exrhp8bS50HEnMrYdg4i3+K7c6ewNZHRkBqtW-uwOA@mail.gmail.com>
+From: Jonas Danielsson <jonas.danielsson@axis.com>
+Subject: Regression introduced by commit dbe9a4173ea53
+Date: Fri, 23 Jan 2015 15:16:23 +0100
+Message-ID: <20150123141623.GK30451@lnxjonasdn.se.axis.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Alexei Starovoitov <ast@kernel.org>,
-	Martin Schwidefsky <schwidefsky@de.ibm.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<ebiederm@xmission.com>, <luto@amacapital.net>, <rgb@redhat.com>,
+	<johannes.berg@intel.com>, <viro@zeniv.linux.org.uk>,
+	<akpm@linux-foundation.org>, <fabf@skynet.be>,
+	<brian.cambell@editshare.com>, <mpatocka@redhat.com>,
+	<tgraf@suug.ch>, <eric.dumazet@gmail.com>, <desrt@desrt.ca>
+To: <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAADnVQ+3exrhp8bS50HEnMrYdg4i3+K7c6ewNZHRkBqtW-uwOA@mail.gmail.com>
+Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 22 Jan 2015 09:32:43 -0800
-Alexei Starovoitov <alexei.starovoitov@gmail.com> wrote:
+Hi,
 
-> On Thu, Jan 22, 2015 at 8:01 AM, Michael Holzheu
-> <holzheu@linux.vnet.ibm.com> wrote:
-> > Looks like the "test_maps" test case expects to get the keys in
-> > the wrong order when iterating over the elements:
-> >
-> > test_maps: samples/bpf/test_maps.c:79: test_hashmap_sanity: Assertion
-> > `bpf_get_next_key(map_fd, &key, &next_key) == 0 && next_key == 2' failed.
-> > Aborted
-> >
-> > Fix this and test for the correct order.
-> 
-> that will break this test on x86...
-> we need to understand first why the order of two elements
-> came out different on s390...
-> Could it be that jhash() produced different hash for the same
-> values on x86 vs s390 ?
+I have seen a regression, that I think is caused by:
 
-Yes I think jhash() produces different results for input > 12 bytes
-on big and little endian machines because of the following code
-in include/linux/jhash.h:
+commit dbe9a4173ea53b72b2c35d19f676a85b69f1c9fe
+Author: Eric W. Biederman <ebiederm@xmission.com>
+Date:   Thu Sep 6 18:20:01 2012 +0000
 
-        while (length > 12) {
-                a += __get_unaligned_cpu32(k);
-                b += __get_unaligned_cpu32(k + 4);
-                c += __get_unaligned_cpu32(k + 8);
-                __jhash_mix(a, b, c);
-                length -= 12;
-                k += 12;
-        }
+    scm: Don't use struct ucred in NETLINK_CB and struct scm_cookie.
 
-The contents of "k" is directly used as u32 and the result
-of "__get_unaligned_cpu32(k)" is different for big and
-little endian.
 
-Michael
+With this commit the value send as uid when credentials are missing
+changes from -1 to overflowuid (default -2, the 'nobody' user).
+
+I was using dbus-send to perform a method call on a gdbus server.
+And sometimes I fall victim to the race condition caused by:
+
+commit 16e5726 ("af_unix: dont send SCM_CREDENTIALS by default")
+
+And then there will be no credentials on the socket. The glib library checks
+the uid, and if it is -1, it will fall back to using SO_PEERCRED and things
+will work for me. But since the commit in $subject changes the uid I get
+failure with NoReply from dbus-send.
+
+It seems that before the commit in $subject that the function from_kuid_munged
+was only called if there were credentials present. Otherwise we would set uid
+to -1. Now uid gets set to -1 if there is no credentials but from_kuid_munged
+is always called. And from the documentation of from_kuid_munged it states
+that it 'never fails and always returns a valid uid'. And in the case of
+uid being -1, it returns overflowuid.
+
+So this seems like it broke glib. Caused by 1) the introduced race condition
+that makes it not totally safe to set SO_PEERCRED on the accepted socket and
+2) that the value of uid when credentials are missing changed from -1 to
+overflowuid.
+
+Thanks for your time
+Jonas
