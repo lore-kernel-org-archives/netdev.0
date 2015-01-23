@@ -1,7 +1,7 @@
 From: roopa@cumulusnetworks.com
-Subject: [PATCH net-next v3 2/5] swdevice: add new api to set and del bridge port attributes
-Date: Thu, 22 Jan 2015 20:33:23 -0800
-Message-ID: <1421987606-10884-3-git-send-email-roopa@cumulusnetworks.com>
+Subject: [PATCH net-next v3 3/5] bridge: offload bridge port attributes to switch asic if feature flag set
+Date: Thu, 22 Jan 2015 20:33:24 -0800
+Message-ID: <1421987606-10884-4-git-send-email-roopa@cumulusnetworks.com>
 Cc: netdev@vger.kernel.org, davem@davemloft.net,
 	shm@cumulusnetworks.com, gospo@cumulusnetworks.com,
 	Roopa Prabhu <roopa@cumulusnetworks.com>
@@ -10,152 +10,229 @@ To: jiri@resnulli.us, sfeldma@gmail.com, jhs@mojatatu.com,
 	stephen@networkplumber.org, vyasevic@redhat.com,
 	ronen.arad@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:41285 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753085AbbAWEde (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jan 2015 23:33:34 -0500
-Received: by mail-pa0-f41.google.com with SMTP id kq14so3475530pab.0
-        for <netdev@vger.kernel.org>; Thu, 22 Jan 2015 20:33:33 -0800 (PST)
+Received: from mail-pd0-f175.google.com ([209.85.192.175]:63039 "EHLO
+	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751815AbbAWEdf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jan 2015 23:33:35 -0500
+Received: by mail-pd0-f175.google.com with SMTP id fl12so6158662pdb.6
+        for <netdev@vger.kernel.org>; Thu, 22 Jan 2015 20:33:34 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Roopa Prabhu <roopa@cumulusnetworks.com>
 
-This patch adds two new api's netdev_switch_port_bridge_setlink
-and netdev_switch_port_bridge_dellink to offload bridge port attributes
-to switch asic
+This patch adds support to set/del bridge port attributes in hardware from
+the bridge driver.
 
-(The names of the apis look odd with 'switch_port_bridge',
-but am more inclined to change the prefix of the api to something else.
-Will take any suggestions).
+When the user sends a bridge setlink message, it will come in with 'master',
+   - go to the bridge driver ndo_bridge_setlink handler,
+   - set settings in the kernel
+   - if offload mode is set on the port, also call the swicthdev api to
+     propagate the attrs to the switchdev hardware
 
-The api's look at the NETIF_F_HW_NETFUNC_OFFLOAD feature flag to
-pass bridge port attributes to the port device.
+   If you want to act on the hw alone, you can still use the self flag to
+   go to the switch hw or switch port driver directly.
 
-If the device has the NETIF_F_HW_NETFUNC_OFFLOAD, but does not support
-the bridge port attribute offload ndo, call bridge port attribute ndo's on
-the lowerdevs if supported. This is one way to pass bridge port attributes
-through stacked netdevs (example when bridge port is a bond and bond slaves
-are switch ports).
+With this, it also makes sure a notification goes out only after the
+attributes are set both in the kernel and hw.
+
+The patch calls switchdev api only if BRIDGE_FLAGS_SELF is not set.
+This is because the offload cases with BRIDGE_FLAGS_SELF are handled in
+the caller (in rtnetlink.c). This needed flags (IFLA_BRIDGE_FLAGS) to be
+passed to bridge setlink and dellink functions, to avoid
+another call to parse of IFLA_AF_SPEC in br_setlink/br_getlink respectively.
 
 Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
 ---
- include/net/switchdev.h   |   17 ++++++++++-
- net/switchdev/switchdev.c |   70 +++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 86 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    2 +-
+ drivers/net/ethernet/rocker/rocker.c          |    2 +-
+ include/linux/netdevice.h                     |    6 +++--
+ net/bridge/br_netlink.c                       |   30 ++++++++++++++++++++-----
+ net/bridge/br_private.h                       |    4 ++--
+ net/core/rtnetlink.c                          |   10 +++++----
+ 6 files changed, 39 insertions(+), 15 deletions(-)
 
-diff --git a/include/net/switchdev.h b/include/net/switchdev.h
-index 8a6d164..362f53a 100644
---- a/include/net/switchdev.h
-+++ b/include/net/switchdev.h
-@@ -17,7 +17,10 @@
- int netdev_switch_parent_id_get(struct net_device *dev,
- 				struct netdev_phys_item_id *psid);
- int netdev_switch_port_stp_update(struct net_device *dev, u8 state);
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 2ed2c7d..13425e5 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -7786,7 +7786,7 @@ static int ixgbe_ndo_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
+ }
+ 
+ static int ixgbe_ndo_bridge_setlink(struct net_device *dev,
+-				    struct nlmsghdr *nlh)
++				    struct nlmsghdr *nlh, u16 flags)
+ {
+ 	struct ixgbe_adapter *adapter = netdev_priv(dev);
+ 	struct nlattr *attr, *br_spec;
+diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
+index 2f398fa..109aa1b 100644
+--- a/drivers/net/ethernet/rocker/rocker.c
++++ b/drivers/net/ethernet/rocker/rocker.c
+@@ -3713,7 +3713,7 @@ skip:
+ }
+ 
+ static int rocker_port_bridge_setlink(struct net_device *dev,
+-				      struct nlmsghdr *nlh)
++				      struct nlmsghdr *nlh, u16 flags)
+ {
+ 	struct rocker_port *rocker_port = netdev_priv(dev);
+ 	struct nlattr *protinfo;
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index c31f74d..1c8641f 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1151,13 +1151,15 @@ struct net_device_ops {
+ 						int idx);
+ 
+ 	int			(*ndo_bridge_setlink)(struct net_device *dev,
+-						      struct nlmsghdr *nlh);
++						      struct nlmsghdr *nlh,
++						      u16 flags);
+ 	int			(*ndo_bridge_getlink)(struct sk_buff *skb,
+ 						      u32 pid, u32 seq,
+ 						      struct net_device *dev,
+ 						      u32 filter_mask);
+ 	int			(*ndo_bridge_dellink)(struct net_device *dev,
+-						      struct nlmsghdr *nlh);
++						      struct nlmsghdr *nlh,
++						      u16 flags);
+ 	int			(*ndo_change_carrier)(struct net_device *dev,
+ 						      bool new_carrier);
+ 	int			(*ndo_get_phys_port_id)(struct net_device *dev,
+diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
+index 9f5eb55..f73b094 100644
+--- a/net/bridge/br_netlink.c
++++ b/net/bridge/br_netlink.c
+@@ -16,6 +16,7 @@
+ #include <net/rtnetlink.h>
+ #include <net/net_namespace.h>
+ #include <net/sock.h>
++#include <net/switchdev.h>
+ #include <uapi/linux/if_bridge.h>
+ 
+ #include "br_private.h"
+@@ -359,13 +360,13 @@ static int br_setport(struct net_bridge_port *p, struct nlattr *tb[])
+ }
+ 
+ /* Change state and parameters on port. */
+-int br_setlink(struct net_device *dev, struct nlmsghdr *nlh)
++int br_setlink(struct net_device *dev, struct nlmsghdr *nlh, u16 flags)
+ {
+ 	struct nlattr *protinfo;
+ 	struct nlattr *afspec;
+ 	struct net_bridge_port *p;
+ 	struct nlattr *tb[IFLA_BRPORT_MAX + 1];
+-	int err = 0;
++	int err = 0, ret_offload = 0;
+ 
+ 	protinfo = nlmsg_find_attr(nlh, sizeof(struct ifinfomsg), IFLA_PROTINFO);
+ 	afspec = nlmsg_find_attr(nlh, sizeof(struct ifinfomsg), IFLA_AF_SPEC);
+@@ -407,19 +408,28 @@ int br_setlink(struct net_device *dev, struct nlmsghdr *nlh)
+ 				afspec, RTM_SETLINK);
+ 	}
+ 
++	if (!(flags & BRIDGE_FLAGS_SELF)) {
++		/* set bridge attributes in hardware if supported
++		 */
++		ret_offload = netdev_switch_port_bridge_setlink(dev, nlh,
++								flags);
++		if (ret_offload && ret_offload != -EOPNOTSUPP)
++			br_warn(p->br, "error setting attrs on port %u(%s)\n",
++				(unsigned int)p->port_no, p->dev->name);
++	}
++
+ 	if (err == 0)
+ 		br_ifinfo_notify(RTM_NEWLINK, p);
 -
-+int netdev_switch_port_bridge_setlink(struct net_device *dev,
-+				struct nlmsghdr *nlh, u16 flags);
-+int netdev_switch_port_bridge_dellink(struct net_device *dev,
-+				struct nlmsghdr *nlh, u16 flags);
- #else
- 
- static inline int netdev_switch_parent_id_get(struct net_device *dev,
-@@ -32,6 +35,18 @@ static inline int netdev_switch_port_stp_update(struct net_device *dev,
- 	return -EOPNOTSUPP;
+ out:
+ 	return err;
  }
  
-+int netdev_switch_port_bridge_setlink(struct net_device *dev,
-+				      struct nlmsghdr *nlh, u16 flags)
-+{
-+	return -EOPNOTSUPP;
-+}
-+
-+int netdev_switch_port_bridge_dellink(struct net_device *dev,
-+				      struct nlmsghdr *nlh, u16 flags)
-+{
-+	return -EOPNOTSUPP;
-+}
-+
- #endif
+ /* Delete port information */
+-int br_dellink(struct net_device *dev, struct nlmsghdr *nlh)
++int br_dellink(struct net_device *dev, struct nlmsghdr *nlh, u16 flags)
+ {
+ 	struct nlattr *afspec;
+ 	struct net_bridge_port *p;
+-	int err;
++	int err = 0, ret_offload = 0;
  
- #endif /* _LINUX_SWITCHDEV_H_ */
-diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
-index d162b21..bf0be98 100644
---- a/net/switchdev/switchdev.c
-+++ b/net/switchdev/switchdev.c
-@@ -50,3 +50,73 @@ int netdev_switch_port_stp_update(struct net_device *dev, u8 state)
- 	return ops->ndo_switch_port_stp_update(dev, state);
+ 	afspec = nlmsg_find_attr(nlh, sizeof(struct ifinfomsg), IFLA_AF_SPEC);
+ 	if (!afspec)
+@@ -433,6 +443,16 @@ int br_dellink(struct net_device *dev, struct nlmsghdr *nlh)
+ 	err = br_afspec((struct net_bridge *)netdev_priv(dev), p,
+ 			afspec, RTM_DELLINK);
+ 
++	if (!(flags & BRIDGE_FLAGS_SELF)) {
++		/* del bridge attributes in hardware
++		 */
++		ret_offload = netdev_switch_port_bridge_dellink(dev, nlh,
++								flags);
++		if (ret_offload && ret_offload != -EOPNOTSUPP)
++			br_warn(p->br, "error deleting attrs on port %u (%s)\n",
++				(unsigned int)p->port_no, p->dev->name);
++	}
++
+ 	return err;
  }
- EXPORT_SYMBOL(netdev_switch_port_stp_update);
-+
-+/**
-+ *	netdev_switch_port_bridge_setlink - Notify switch device port of bridge
-+ *	port attributes
-+ *
-+ *	@dev: port device
-+ *	@nlh: netlink msg with bridge port attributes
-+ *
-+ *	Notify switch device port of bridge port attributes
-+ */
-+int netdev_switch_port_bridge_setlink(struct net_device *dev,
-+				      struct nlmsghdr *nlh, u16 flags)
-+{
-+	const struct net_device_ops *ops = dev->netdev_ops;
-+	struct net_device *lower_dev;
-+	struct list_head *iter;
-+	int ret = 0, err = 0;
-+
-+	if (!(dev->features & NETIF_F_HW_NETFUNC_OFFLOAD))
-+		return err;
-+
-+	if (ops->ndo_bridge_setlink) {
-+		WARN_ON(!ops->ndo_switch_parent_id_get);
-+		return ops->ndo_bridge_setlink(dev, nlh, flags);
-+	}
-+
-+	netdev_for_each_lower_dev(dev, lower_dev, iter) {
-+		err = netdev_switch_port_bridge_setlink(lower_dev, nlh, flags);
-+		if (err)
-+			ret = err;
-+	}
-+
-+	return ret;
-+}
-+EXPORT_SYMBOL(netdev_switch_port_bridge_setlink);
-+
-+/**
-+ *	netdev_switch_port_bridge_dellink - Notify switch device port of bridge
-+ *	attribute delete
-+ *
-+ *	@dev: port device
-+ *	@nlh: netlink msg with bridge port attributes
-+ *
-+ *	Notify switch device port of bridge port attribute delete
-+ */
-+int netdev_switch_port_bridge_dellink(struct net_device *dev,
-+				      struct nlmsghdr *nlh, u16 flags)
-+{
-+	const struct net_device_ops *ops = dev->netdev_ops;
-+	struct net_device *lower_dev;
-+	struct list_head *iter;
-+	int ret = 0, err = 0;
-+
-+	if (!(dev->features & NETIF_F_HW_NETFUNC_OFFLOAD))
-+		return err;
-+
-+	if (ops->ndo_bridge_dellink) {
-+		WARN_ON(!ops->ndo_switch_parent_id_get);
-+		return ops->ndo_bridge_dellink(dev, nlh, flags);
-+	}
-+
-+	netdev_for_each_lower_dev(dev, lower_dev, iter) {
-+		err = netdev_switch_port_bridge_dellink(lower_dev, nlh, flags);
-+		if (err)
-+			ret = err;
-+	}
-+
-+	return ret;
-+}
-+EXPORT_SYMBOL(netdev_switch_port_bridge_dellink);
+ static int br_validate(struct nlattr *tb[], struct nlattr *data[])
+diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+index aea3d13..0ebad7c 100644
+--- a/net/bridge/br_private.h
++++ b/net/bridge/br_private.h
+@@ -815,8 +815,8 @@ extern struct rtnl_link_ops br_link_ops;
+ int br_netlink_init(void);
+ void br_netlink_fini(void);
+ void br_ifinfo_notify(int event, struct net_bridge_port *port);
+-int br_setlink(struct net_device *dev, struct nlmsghdr *nlmsg);
+-int br_dellink(struct net_device *dev, struct nlmsghdr *nlmsg);
++int br_setlink(struct net_device *dev, struct nlmsghdr *nlmsg, u16 flags);
++int br_dellink(struct net_device *dev, struct nlmsghdr *nlmsg, u16 flags);
+ int br_getlink(struct sk_buff *skb, u32 pid, u32 seq, struct net_device *dev,
+ 	       u32 filter_mask);
+ 
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index d06107d..70e5c93 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -2946,7 +2946,7 @@ static int rtnl_bridge_setlink(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 			goto out;
+ 		}
+ 
+-		err = br_dev->netdev_ops->ndo_bridge_setlink(dev, nlh);
++		err = br_dev->netdev_ops->ndo_bridge_setlink(dev, nlh, flags);
+ 		if (err)
+ 			goto out;
+ 
+@@ -2957,7 +2957,8 @@ static int rtnl_bridge_setlink(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 		if (!dev->netdev_ops->ndo_bridge_setlink)
+ 			err = -EOPNOTSUPP;
+ 		else
+-			err = dev->netdev_ops->ndo_bridge_setlink(dev, nlh);
++			err = dev->netdev_ops->ndo_bridge_setlink(dev, nlh,
++								  flags);
+ 
+ 		if (!err)
+ 			flags &= ~BRIDGE_FLAGS_SELF;
+@@ -3019,7 +3020,7 @@ static int rtnl_bridge_dellink(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 			goto out;
+ 		}
+ 
+-		err = br_dev->netdev_ops->ndo_bridge_dellink(dev, nlh);
++		err = br_dev->netdev_ops->ndo_bridge_dellink(dev, nlh, flags);
+ 		if (err)
+ 			goto out;
+ 
+@@ -3030,7 +3031,8 @@ static int rtnl_bridge_dellink(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 		if (!dev->netdev_ops->ndo_bridge_dellink)
+ 			err = -EOPNOTSUPP;
+ 		else
+-			err = dev->netdev_ops->ndo_bridge_dellink(dev, nlh);
++			err = dev->netdev_ops->ndo_bridge_dellink(dev, nlh,
++								  flags);
+ 
+ 		if (!err)
+ 			flags &= ~BRIDGE_FLAGS_SELF;
 -- 
 1.7.10.4
