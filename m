@@ -1,151 +1,66 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next v3 2/5] swdevice: add new api to set and del
- bridge port attributes
-Date: Fri, 23 Jan 2015 17:06:36 +0100
-Message-ID: <20150123160636.GM2065@nanopsycho.orion>
-References: <1421987606-10884-3-git-send-email-roopa@cumulusnetworks.com>
- <20150123104127.GC2065@nanopsycho.orion>
- <54C26FC1.70605@cumulusnetworks.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [net-next PATCH v3 00/12] Flow API
+Date: Fri, 23 Jan 2015 08:08:28 -0800
+Message-ID: <54C271FC.4080105@gmail.com>
+References: <54C11ACC.5010005@mojatatu.com> <20150123101019.GF25797@casper.infradead.org> <20150123102421.GB2065@nanopsycho.orion> <20150123110821.GH25797@casper.infradead.org> <20150123113934.GD2065@nanopsycho.orion> <20150123122838.GI25797@casper.infradead.org> <20150123134315.GF2065@nanopsycho.orion> <20150123140724.GJ25797@casper.infradead.org> <54C26A1F.6060603@gmail.com> <20150123155332.GJ2065@nanopsycho.orion> <20150123160058.GN25797@casper.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: sfeldma@gmail.com, jhs@mojatatu.com, bcrl@kvack.org, tgraf@suug.ch,
-	john.fastabend@gmail.com, stephen@networkplumber.org,
-	vyasevic@redhat.com, ronen.arad@intel.com, netdev@vger.kernel.org,
-	davem@davemloft.net, shm@cumulusnetworks.com,
-	gospo@cumulusnetworks.com
-To: roopa <roopa@cumulusnetworks.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jiri Pirko <jiri@resnulli.us>, Jamal Hadi Salim <jhs@mojatatu.com>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	simon.horman@netronome.com, sfeldma@gmail.com,
+	netdev@vger.kernel.org, davem@davemloft.net, gerlitz.or@gmail.com,
+	andy@greyhouse.net, ast@plumgrid.com
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f172.google.com ([209.85.212.172]:54957 "EHLO
-	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750919AbbAWQGj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jan 2015 11:06:39 -0500
-Received: by mail-wi0-f172.google.com with SMTP id bs8so3863073wib.5
-        for <netdev@vger.kernel.org>; Fri, 23 Jan 2015 08:06:38 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <54C26FC1.70605@cumulusnetworks.com>
+Received: from mail-oi0-f42.google.com ([209.85.218.42]:44498 "EHLO
+	mail-oi0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751885AbbAWQIp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jan 2015 11:08:45 -0500
+Received: by mail-oi0-f42.google.com with SMTP id i138so5234230oig.1
+        for <netdev@vger.kernel.org>; Fri, 23 Jan 2015 08:08:44 -0800 (PST)
+In-Reply-To: <20150123160058.GN25797@casper.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fri, Jan 23, 2015 at 04:58:57PM CET, roopa@cumulusnetworks.com wrote:
->On 1/23/15, 2:41 AM, Jiri Pirko wrote:
->
-><snip..>
+On 01/23/2015 08:00 AM, Thomas Graf wrote:
+> On 01/23/15 at 04:53pm, Jiri Pirko wrote:
+>> Fri, Jan 23, 2015 at 04:34:55PM CET, john.fastabend@gmail.com wrote:
+>>> What I don't have a lot of use for at the moment is an xflows that runs
+>>> in software? Conceptually it sounds fine but why would I want to mirror
+>>> hardware limitations into software? And if I make it completely generic
+>>> it becomes u32 more or less. I could create an optimized version of the
+>>> hardware dataplane in userspace which sits somewhere between u32 and the
+>>> other classifiers on flexility and maybe gains some performance but I'm
+>>> at a loss as to why this is useful. I would rather spend my time getting
+>>> better performance out of u32 and dropping qdisc_lock completely then
+>>> writing some partially useful filter for software.
 >>
->>diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
->>index d162b21..bf0be98 100644
->>--- a/net/switchdev/switchdev.c
->>+++ b/net/switchdev/switchdev.c
->>@@ -50,3 +50,73 @@ int netdev_switch_port_stp_update(struct net_device *dev, u8 state)
->>	return ops->ndo_switch_port_stp_update(dev, state);
->>}
->>EXPORT_SYMBOL(netdev_switch_port_stp_update);
->>+
->>+/**
->>+ *	netdev_switch_port_bridge_setlink - Notify switch device port of bridge
->>+ *	port attributes
->>+ *
->>+ *	@dev: port device
->>+ *	@nlh: netlink msg with bridge port attributes
->>+ *
->>+ *	Notify switch device port of bridge port attributes
->>+ */
->>+int netdev_switch_port_bridge_setlink(struct net_device *dev,
->>+				      struct nlmsghdr *nlh, u16 flags)
->>+{
->>+	const struct net_device_ops *ops = dev->netdev_ops;
->>+	struct net_device *lower_dev;
->>+	struct list_head *iter;
->>+	int ret = 0, err = 0;
->>+
->>+	if (!(dev->features & NETIF_F_HW_NETFUNC_OFFLOAD))
->>+		return err;
->>+
->>+	if (ops->ndo_bridge_setlink) {
->>+		WARN_ON(!ops->ndo_switch_parent_id_get);
->>+		return ops->ndo_bridge_setlink(dev, nlh, flags);
->>+	}
->>+
->>+	netdev_for_each_lower_dev(dev, lower_dev, iter) {
->>+		err = netdev_switch_port_bridge_setlink(lower_dev, nlh, flags);
->>+		if (err)
->>+			ret = err;
->>+	}
->>+
->>+	return ret;
->>+}
->>+EXPORT_SYMBOL(netdev_switch_port_bridge_setlink);
->>+
->>+/**
->>+ *	netdev_switch_port_bridge_dellink - Notify switch device port of bridge
->>+ *	attribute delete
->>+ *
->>+ *	@dev: port device
->>+ *	@nlh: netlink msg with bridge port attributes
->>+ *
->>+ *	Notify switch device port of bridge port attribute delete
->>+ */
->>+int netdev_switch_port_bridge_dellink(struct net_device *dev,
->>+				      struct nlmsghdr *nlh, u16 flags)
->>+{
->>+	const struct net_device_ops *ops = dev->netdev_ops;
->>+	struct net_device *lower_dev;
->>+	struct list_head *iter;
->>+	int ret = 0, err = 0;
->>+
->>+	if (!(dev->features & NETIF_F_HW_NETFUNC_OFFLOAD))
->>+		return err;
->>+
->>+	if (ops->ndo_bridge_dellink) {
->>+		WARN_ON(!ops->ndo_switch_parent_id_get);
->>+		return ops->ndo_bridge_dellink(dev, nlh, flags);
->>+	}
->>+
->>+	netdev_for_each_lower_dev(dev, lower_dev, iter) {
->>+		err = netdev_switch_port_bridge_dellink(lower_dev, nlh, flags);
->>+		if (err)
->>+			ret = err;
->>+	}
->>+
->>+	return ret;
->>+}
->>+EXPORT_SYMBOL(netdev_switch_port_bridge_dellink);
->>-- 
->>1.7.10.4
->>
->>Is there any other place, other than bridge code, this functions are
->>suppored to be called from?
->No other place today. Its usually the master that implements
->ndo_bridge_setlink/dellink.
+>> Well, even software implementation has limitations. Take ovs kernel
+>> datapath as example. You can use your graphs to describe exactly what
+>> ovs can handle. And after that you could use xflows api to set it up as
+>> well as your rocker offload. That to me seems lie a very nice feature to
+>> have.
 >
->>If not, which I consider likely, it would
->>make more sense to me to:
->>
->>- move netdev_for_each_lower_dev iterations directly to bridge code
->>- let the masters (bond, team, ..) implement ndo_bridge_*link and do
->>   the traversing there (can be in a form of pre-prepared default
->>   ndo callback (ndo_dflt_netdev_switch_port_bridge_*link)
->But, i am still not understanding why i would modify bond, team and other
->slaves
+> What is the value of this? The OVS kernel datapath is already built to
+> fall back to user space if the kernel datapath does not support a
+> specific feature.
+>
 
-Well, that is the usual way to propagate ndo calls. People are used to
-this. It is visible right away in bonding/other code that is propagated
-some ndo call to slaves. With your code, that is somehow hidden and only
-dependent on NETIF_F_HW_NETFUNC_OFFLOAD flag.
+I might be reaching.. but one advantage of something like this API is
+the headers are not pre-defined nor are the actions. Coupled with eBPF
+or a generic parser (think optimized u32) you would provide the ability
+to configure the OVS fields in use and the actions being supported. Also
+I haven't thought about it as much but if you had programmable hardware
+and/or software you could create the set operations for headers, tables,
+actions. I've done some work on the set tables because its relatively
+common on existing hardware. Its on github in the flow tool and the
+user space tester flowd.
 
-Note that there are only couple of "master drivers" (for this, most likely
-only bond and team modifications are needed).
- 
+I think the OVS folks have been thinking along these lines. Of course
+your still bound by OF1.x at the moment.
 
->to offload bridge attributes. They could independently do so in the future if
->they
->want to do something more than what this default api provides.
->The api's setlink/dellink provided by this patch are the default api's.
->The drivers can override them if needed in the future (which aligns with what
->you want as well).
->
->Thanks,
->Roopa
->
->
->
->
+.John
+
+-- 
+John Fastabend         Intel Corporation
