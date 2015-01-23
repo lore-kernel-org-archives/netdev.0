@@ -1,57 +1,64 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: Fwd: Question on SCTP ABORT chunk is generated when the association_max_retrans
- is reached
-Date: Fri, 23 Jan 2015 12:50:25 +0100
-Message-ID: <54C23581.9060809@redhat.com>
-References: <CAFXGftKp3=OfjkCVBuR-zM3+uZ42Sk_9i2UjAHBNnbX=hQJwpA@mail.gmail.com> <CAFXGft+fwo=8LJEG7h6uOpGciSo5f_dXjSx3sn67RZZp7jsYHw@mail.gmail.com>
+From: Luis Henriques <luis.henriques@canonical.com>
+Subject: Re: net: prevent of emerging cross-namespace symlinks patches for
+ 3.14?
+Date: Fri, 23 Jan 2015 12:14:48 +0000
+Message-ID: <20150123121448.GA2543@charon>
+References: <54B6E36F.9060703@xs4all.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, vyasevich@gmail.com
-To: Sun Paul <paulrbk@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:60591 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755077AbbAWLud (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 23 Jan 2015 06:50:33 -0500
-In-Reply-To: <CAFXGft+fwo=8LJEG7h6uOpGciSo5f_dXjSx3sn67RZZp7jsYHw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, stable@vger.kernel.org,
+	"Alexander Y. Fomichev" <git.user@gmail.com>,
+	David Miller <davem@davemloft.net>
+To: Miquel van Smoorenburg <mikevs@xs4all.net>
+Return-path: <stable-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <54B6E36F.9060703@xs4all.net>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+On Wed, Jan 14, 2015 at 10:45:19PM +0100, Miquel van Smoorenburg wrote:
+> [first sent to lkml, now to netdev and the original patch author]
+>=20
+> When running 'lxc' on the latest -stable kernel, 3.14.28, I'm seeing =
+these
+> errors:
+>=20
+> Jan 14 17:47:16 lxc2 kernel: [   10.704890] WARNING: CPU: 0 PID: 3209=
+ at
+> fs/sys
+> fs/dir.c:52 sysfs_warn_dup+0x8c/0xb0()
+> Jan 14 17:47:16 lxc2 kernel: [   10.704892] sysfs: cannot create dupl=
+icate
+> filename '/devices/virtual/net/eth0.104/upper_eth0'
+> Jan 14 17:47:16 lxc2 kernel: [   10.704954] CPU: 0 PID: 3209 Comm:
+> lxc-autostart Not tainted 3.14.28-xsserver #1
+>=20
+> I did not see these errors in 3.12. This was fixed in 3.17 by:
+>=20
+> net: prevent of emerging cross-namespace symlinks
+> https://github.com/torvalds/linux/commit/4c75431ac3520631f1d9e74aa884=
+07e6374dbbc4
+>=20
+> net: fix creation adjacent device symlinks
+> https://github.com/torvalds/linux/commit/7ce64c79c4decdeb1afe0bf2f6ef=
+834b382871d1
+>=20
+> These patches apply cleanly to 3.14.28.
+>=20
+> If you agree that this should go into 3.14-stable, please ack.
+>=20
 
-On 01/23/2015 11:25 AM, Sun Paul wrote:
-...
-> I would like to check the behave in LKSCTP.
->
-> we are running DIAMETER message over SCTP, and we have set the
-> parameter "net.sctp.association_max_retrans = 4" in the LinuxOS.
->
-> We noticed that when remote peer have retry to send the same request
-> for 4 times, the LKSCTP will initiate an ABORT chunk with reason
-> "association exceeded its max_retrans count".
->
-> We would like to know whether this is the correct behavior? is there
-> any other option that we can alter in order to avoid the ABORT chunk
-> being sent?
+Thank you, I am queuing these 2 patches for the 3.16 kernel as well.
 
-I don't recall the RFC saying to send an ABORT, but let me double
-check in the mean time.
+Cheers,
+--
+Lu=EDs
 
-Hmm, untested, but could you try something like that?
-
-diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
-index fef2acd..5ce198d 100644
---- a/net/sctp/sm_sideeffect.c
-+++ b/net/sctp/sm_sideeffect.c
-@@ -584,7 +584,8 @@ static void sctp_cmd_assoc_failed(sctp_cmd_seq_t *commands,
-  		sctp_add_cmd_sf(commands, SCTP_CMD_EVENT_ULP,
-  				SCTP_ULPEVENT(event));
-
--	if (asoc->overall_error_count >= asoc->max_retrans) {
-+	if (asoc->overall_error_count >= asoc->max_retrans &&
-+	    error != SCTP_ERROR_NO_ERROR) {
-  		abort = sctp_make_violation_max_retrans(asoc, chunk);
-  		if (abort)
-  			sctp_add_cmd_sf(commands, SCTP_CMD_REPLY,
+> Thanks,
+>=20
+> Mike.
+> --
+> To unsubscribe from this list: send the line "unsubscribe stable" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
