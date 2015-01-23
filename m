@@ -1,28 +1,76 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [RESEND,
- 1/2] wlcore: fix copy-paste bug: assign from src struct not dest
-Date: Fri, 23 Jan 2015 17:07:18 +0000 (UTC)
-Message-ID: <20150123170718.3FCF9141373@smtp.codeaurora.org>
-References: <1420659525-22975-1-git-send-email-me@mortis.eu>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: Fwd: Question on SCTP ABORT chunk is generated when the association_max_retrans
+ is reached
+Date: Fri, 23 Jan 2015 18:10:22 +0100
+Message-ID: <54C2807E.8080607@redhat.com>
+References: <CAFXGftKp3=OfjkCVBuR-zM3+uZ42Sk_9i2UjAHBNnbX=hQJwpA@mail.gmail.com> <CAFXGft+fwo=8LJEG7h6uOpGciSo5f_dXjSx3sn67RZZp7jsYHw@mail.gmail.com> <54C23581.9060809@redhat.com> <54C27137.5010405@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, Giel van Schijndel <me@mortis.eu>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Eliad Peller <eliad@wizery.com>,
-	Arik Nemtsov <arik@wizery.com>,
-	linux-wireless@vger.kernel.org (open list:TI WILINK WIRELES...),
-	netdev@vger.kernel.org (open list:NETWORKING DRIVERS)
-To: Giel van Schijndel <me@mortis.eu>
+Cc: Sun Paul <paulrbk@gmail.com>, linux-sctp@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	tuexen@fh-muenster.de
+To: Vlad Yasevich <vyasevich@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1420659525-22975-1-git-send-email-me@mortis.eu>
+In-Reply-To: <54C27137.5010405@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On 01/23/2015 05:05 PM, Vlad Yasevich wrote:
+> On 01/23/2015 06:50 AM, Daniel Borkmann wrote:
+>> On 01/23/2015 11:25 AM, Sun Paul wrote:
+>> ...
+>>> I would like to check the behave in LKSCTP.
+>>>
+>>> we are running DIAMETER message over SCTP, and we have set the
+>>> parameter "net.sctp.association_max_retrans = 4" in the LinuxOS.
+>>>
+>>> We noticed that when remote peer have retry to send the same request
+>>> for 4 times, the LKSCTP will initiate an ABORT chunk with reason
+>>> "association exceeded its max_retrans count".
+>>>
+>>> We would like to know whether this is the correct behavior? is there
+>>> any other option that we can alter in order to avoid the ABORT chunk
+>>> being sent?
+>>
+>> I don't recall the RFC saying to send an ABORT, but let me double
+>> check in the mean time.
+>
+> The RFC is silent on the matter.  The abort got added in 3.8 so
+> it's been there for a while.
 
-> Signed-off-by: Giel van Schijndel <me@mortis.eu>
-> Reported-at: http://www.viva64.com/en/b/0299/
+I see, commit de4594a51c90 ("sctp: send abort chunk when max_retrans
+exceeded") added the behaviour.
 
-Thanks, applied to wireless-drivers-next.git.
+>> Hmm, untested, but could you try something like that?
+>>
+>> diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
+>> index fef2acd..5ce198d 100644
+>> --- a/net/sctp/sm_sideeffect.c
+>> +++ b/net/sctp/sm_sideeffect.c
+>> @@ -584,7 +584,8 @@ static void sctp_cmd_assoc_failed(sctp_cmd_seq_t *commands,
+>>           sctp_add_cmd_sf(commands, SCTP_CMD_EVENT_ULP,
+>>                   SCTP_ULPEVENT(event));
+>>
+>> -    if (asoc->overall_error_count >= asoc->max_retrans) {
+>> +    if (asoc->overall_error_count >= asoc->max_retrans &&
+>> +        error != SCTP_ERROR_NO_ERROR) {
+>>           abort = sctp_make_violation_max_retrans(asoc, chunk);
+>>           if (abort)
+>>               sctp_add_cmd_sf(commands, SCTP_CMD_REPLY,
+>
+> This would pretty much stop all ABORTs due to excessive rtx.  Might
+> as well take the code out :).
+>
+> I was a bit concerned about this ABORT when it went in.
 
-Kalle Valo
+So effectively, if I understand the argument from the commit, the
+assumption is that the ABORT would never reach the peer anyway, but
+is a way for tcpdump users to see on the wire that rtx limit has
+been exceeded and since there's not mentioned anything in the RFC
+about this, it doesn't break it. Hm.
+
+Sun Paul, what exactly broke in your scenario? Can you be more explicit?
+
+Thanks,
+Daniel
