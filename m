@@ -1,79 +1,41 @@
-From: Jamal Mohammad <md.jamalmohiuddin@gmail.com>
-Subject: Re: [PATCH] net: ieee802154: cc2520: Fix coding style issues
-Date: Fri, 23 Jan 2015 18:14:54 +0530
-Message-ID: <CAP8vtKJnGE3=UM+XV5DgMvTXNGXFsX_D-c0u7nDoYhTXVJaR4Q@mail.gmail.com>
-References: <1422005180-13230-1-git-send-email-md.jamalmohiuddin@gmail.com>
-	<54C2409A.6020506@cogentembedded.com>
+From: "Rosen, Rami" <rami.rosen@intel.com>
+Subject: RE: [PATCH net-next v3 3/5] bridge: offload bridge port attributes
+ to switch asic if feature flag set
+Date: Fri, 23 Jan 2015 12:53:34 +0000
+Message-ID: <9B0331B6EBBD0E4684FBFAEDA55776F9189065DD@HASMSX110.ger.corp.intel.com>
+References: <1421987606-10884-4-git-send-email-roopa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Varka Bhadram <varkabhadram@gmail.com>,
-	Alexander Aring <alex.aring@gmail.com>,
-	linux-wpan - ML <linux-wpan@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"shm@cumulusnetworks.com" <shm@cumulusnetworks.com>,
+	"gospo@cumulusnetworks.com" <gospo@cumulusnetworks.com>
+To: "roopa@cumulusnetworks.com" <roopa@cumulusnetworks.com>,
+	"jiri@resnulli.us" <jiri@resnulli.us>,
+	"sfeldma@gmail.com" <sfeldma@gmail.com>,
+	"jhs@mojatatu.com" <jhs@mojatatu.com>,
+	"bcrl@kvack.org" <bcrl@kvack.org>, "tgraf@suug.ch" <tgraf@suug.ch>,
+	"john.fastabend@gmail.com" <john.fastabend@gmail.com>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>,
+	"vyasevic@redhat.com" <vyasevic@redhat.com>,
+	"Arad, Ronen" <ronen.arad@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f181.google.com ([74.125.82.181]:55500 "EHLO
-	mail-we0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750898AbbAWMoz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jan 2015 07:44:55 -0500
-In-Reply-To: <54C2409A.6020506@cogentembedded.com>
+Received: from mga11.intel.com ([192.55.52.93]:2728 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750786AbbAWMxk convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jan 2015 07:53:40 -0500
+In-Reply-To: <1421987606-10884-4-git-send-email-roopa@cumulusnetworks.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 23, 2015 at 6:07 PM, Sergei Shtylyov
-<sergei.shtylyov@cogentembedded.com> wrote:
-> Hello.
->
-> On 1/23/2015 12:26 PM, Mohammad Jamal wrote:
->
->> This patch solves the coding style issues such as space after ,
->
->
->    s/after/before/?
->
->> and removes the blank lines
->
->
->   Extra blank lines, you mean?
->
->> Signed-off-by: Mohammad Jamal <md.jamalmohiuddin@gmail.com>
->> ---
->>   drivers/net/ieee802154/cc2520.c |    6 ++----
->>   1 file changed, 2 insertions(+), 4 deletions(-)
->
->
->> diff --git a/drivers/net/ieee802154/cc2520.c
->> b/drivers/net/ieee802154/cc2520.c
->> index f9df9fa..dd129be 100644
->> --- a/drivers/net/ieee802154/cc2520.c
->> +++ b/drivers/net/ieee802154/cc2520.c
->
-> [...]
->>
->> @@ -551,14 +550,14 @@ cc2520_ed(struct ieee802154_hw *hw, u8 *level)
->>         u8 rssi;
->>         int ret;
->>
->> -       ret = cc2520_read_register(priv , CC2520_RSSISTAT, &status);
->> +       ret = cc2520_read_register(priv, CC2520_RSSISTAT, &status);
->>         if (ret)
->>                 return ret;
->>
->>         if (status != RSSI_VALID)
->>                 return -EINVAL;
->>
->> -       ret = cc2520_read_register(priv , CC2520_RSSI, &rssi);
->> +       ret = cc2520_read_register(priv, CC2520_RSSI, &rssi);
->
-> [...]
->
-> WBR, Sergei
->
 
-Sorry for that,
+Hi,
+There is another Linux Ethernet driver which defines the ndo_bridge_setlink() callback, which is not included in the patch. It is the 
+Emulex ServerEngines' 10Gbps NIC (BladeEngine) (drivers/net/ethernet/emulex/benet).
+So once the CONFIG_BE2NET kernel config item is set, running make will emit a compile warning.
 
-i actually have cloned and linus torvalds git and when i ran
-checkpatch.pl i have found some warnings. so this patch was removing
-those warnings...as bhadram told that these warnings are already
-removed in bluetooth-next tree...so this patch any how fails....
+Regards,
+Rami Rosen
+Intel Corporation
