@@ -1,69 +1,42 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [RFC PATCH] net: ipv6: Make address flushing on ifdown optional
-Date: Thu, 22 Jan 2015 22:40:33 -0800
-Message-ID: <20150122224033.6e2db5ce@urahara>
-References: <1421263039-96198-1-git-send-email-dsahern@gmail.com>
+From: Erik Hugne <erik.hugne@ericsson.com>
+Subject: Re: [PATCH net-next 1/2] tipc: fix excessive network event logging
+Date: Fri, 23 Jan 2015 07:44:30 +0100
+Message-ID: <20150123064430.GA26059@haze>
+References: <1421943032-29924-1-git-send-email-erik.hugne@ericsson.com>
+ <1421947487.2702.1.camel@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hannes@redhat.com
-To: David Ahern <dsahern@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <richard.alpe@ericsson.com>, <netdev@vger.kernel.org>,
+	<jon.maloy@ericsson.com>, <ying.xue@windriver.com>,
+	<tipc-discussion@lists.sourceforge.net>
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f174.google.com ([209.85.192.174]:59758 "EHLO
-	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751125AbbAWGkp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jan 2015 01:40:45 -0500
-Received: by mail-pd0-f174.google.com with SMTP id ft15so6737958pdb.5
-        for <netdev@vger.kernel.org>; Thu, 22 Jan 2015 22:40:44 -0800 (PST)
-In-Reply-To: <1421263039-96198-1-git-send-email-dsahern@gmail.com>
+Received: from sesbmg23.ericsson.net ([193.180.251.37]:52611 "EHLO
+	sesbmg23.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750996AbbAWGqP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jan 2015 01:46:15 -0500
+Content-Disposition: inline
+In-Reply-To: <1421947487.2702.1.camel@perches.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 14 Jan 2015 12:17:19 -0700
-David Ahern <dsahern@gmail.com> wrote:
+On Thu, Jan 22, 2015 at 09:24:47AM -0800, Joe Perches wrote:
+> On Thu, 2015-01-22 at 17:10 +0100, erik.hugne@ericsson.com wrote:
+> > From: Erik Hugne <erik.hugne@ericsson.com>
+> > 
+> > If a large number of namespaces is spawned on a node and TIPC is
+> > enabled in each of these, the excessive printk tracing of network
+> > events will cause the system to grind down to a near halt.
+> > The traces are still of debug value, so instead of removing them
+> > completely we fix it by changing the link state and node availability
+> > logging debug traces.
+> 
+> Maybe some of these should be net_<level>_ratelimited(fmt, ...)
 
-> Currently, ipv6 addresses are flushed when the interface is configured down:
-> 
-> [root@f20 ~]# ip -6 addr add dev eth1 2000:11:1:1::1/64
-> [root@f20 ~]# ip addr show dev eth1
-> 3: eth1: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN group default qlen 1000
->     link/ether 02:04:11:22:33:01 brd ff:ff:ff:ff:ff:ff
->     inet6 2000:11:1:1::1/64 scope global tentative
->        valid_lft forever preferred_lft forever
-> [root@f20 ~]# ip link set dev eth1 up
-> [root@f20 ~]# ip link set dev eth1 down
-> [root@f20 ~]# ip addr show dev eth1
-> 3: eth1: <BROADCAST,MULTICAST> mtu 1500 qdisc pfifo_fast state DOWN group default qlen 1000
->     link/ether 02:04:11:22:33:01 brd ff:ff:ff:ff:ff:ff
-> 
-> Add a new sysctl to make this behavior optional. Setting defaults to flush
-> addresses to maintain backwards compatibility. When reset flushing is bypassed:
-> 
-> [root@f20 ~]# echo 0 > /proc/sys/net/ipv6/conf/eth1/flush_addr_on_down
-> [root@f20 ~]# ip -6 addr add dev eth1 2000:11:1:1::1/64
-> [root@f20 ~]# ip addr show dev eth1
-> 3: eth1: <BROADCAST,MULTICAST> mtu 1500 qdisc pfifo_fast state DOWN group default qlen 1000
->     link/ether 02:04:11:22:33:01 brd ff:ff:ff:ff:ff:ff
->     inet6 2000:11:1:1::1/64 scope global tentative
->        valid_lft forever preferred_lft forever
-> [root@f20 ~]#  ip link set dev eth1 up
-> [root@f20 ~]#  ip link set dev eth1 down
-> [root@f20 ~]# ip addr show dev eth1
-> 3: eth1: <BROADCAST,MULTICAST> mtu 1500 qdisc pfifo_fast state DOWN group default qlen 1000
->     link/ether 02:04:11:22:33:01 brd ff:ff:ff:ff:ff:ff
->     inet6 2000:11:1:1::1/64 scope global
->        valid_lft forever preferred_lft forever
->     inet6 fe80::4:11ff:fe22:3301/64 scope link
->        valid_lft forever preferred_lft forever
-> 
-> Suggested-by: Hannes Frederic Sowa <hannes@redhat.com>
-> Signed-off-by: David Ahern <dsahern@gmail.com>
-> Cc: Hannes Frederic Sowa <hannes@redhat.com>
+We proposed that initially, but changed all to pr_debug after David's comment:
+http://www.spinics.net/lists/netdev/msg312902.html
+The topology information (links going up/down) can be accessed
+both via netlink ('tipc link list' command) and the topology server
+via a subscription API.
 
-Would this break existing application expecting a particular semantic
-by listening to netlink?  What happens to packets received with the static
-address when interface is down? With IPv4 Linux is mostly a weak host
-model, and IPv6 somewhere in between.
-
-For vendors that control the application stack or have limited number
-of services this would work fine, but what about RHEL?
+//E
