@@ -1,63 +1,135 @@
-From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Subject: Re: [PATCH 3/6] rtlwifi: btcoexist: Add routines for RTL8812AE with single antenna
-Date: Fri, 23 Jan 2015 22:06:35 +0200
-Message-ID: <87r3uljm7o.fsf@kamboji.qca.qualcomm.com>
-References: <1422033044-7461-1-git-send-email-Larry.Finger@lwfinger.net>
-	<1422033044-7461-4-git-send-email-Larry.Finger@lwfinger.net>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH net v3] ipv4: try to cache dst_entries which would cause
+ a redirect
+Date: Fri, 23 Jan 2015 22:09:40 +0200 (EET)
+Message-ID: <alpine.LFD.2.11.1501232207210.2481@ja.home.ssi.bg>
+References: <996db187263dc0419ea3ab4d6e3fad4c0e0e5b44.1422010254.git.hannes@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Troy Tan <troy_tan-kXabqFNEczNtrwSWzY7KCg@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1422033044-7461-4-git-send-email-Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-	(Larry Finger's message of "Fri, 23 Jan 2015 11:10:41 -0600")
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, Marcelo Leitner <mleitner@redhat.com>,
+	Florian Westphal <fw@strlen.de>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ja.ssi.bg ([178.16.129.10]:40905 "EHLO ja.ssi.bg"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751990AbbAWUKp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 Jan 2015 15:10:45 -0500
+In-Reply-To: <996db187263dc0419ea3ab4d6e3fad4c0e0e5b44.1422010254.git.hannes@stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org> writes:
 
-> From: Troy Tan <troy_tan-kXabqFNEczNtrwSWzY7KCg@public.gmane.org>
->
-> The RTL8812AE needs different BT coexistence routines than does the
-> RTL8821AE. This patch adds the necessary routines for devices with a
-> single antenna.
->
-> Signed-off-by: Troy Tan <troy_tan-kXabqFNEczNtrwSWzY7KCg@public.gmane.org>
-> Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+	Hello,
+
+On Fri, 23 Jan 2015, Hannes Frederic Sowa wrote:
+
+> Not caching dst_entries which cause redirects could be exploited by hosts
+> on the same subnet, causing a severe DoS attack. This effect aggravated
+> since commit f88649721268999 ("ipv4: fix dst race in sk_dst_get()").
+> 
+> Lookups causing redirects will be allocated with DST_NOCACHE set which
+> will force dst_release to free them via RCU.  Unfortunately waiting for
+> RCU grace period just takes too long, we can end up with >1M dst_entries
+> waiting to be released and the system will run OOM. rcuos threads cannot
+> catch up under high softirq load.
+> 
+> Attaching the flag to emit a redirect later on to the specific skb allows
+> us to cache those dst_entries thus reducing the pressure on allocation
+> and deallocation.
+> 
+> This issue was discovered by Marcelo Leitner.
+> 
+> Cc: Julian Anastasov <ja@ssi.bg>
+> Signed-off-by: Marcelo Leitner <mleitner@redhat.com>
+> Signed-off-by: Florian Westphal <fw@strlen.de>
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+
+	Thanks! Looks fine.
+
+Signed-off-by: Julian Anastasov <ja@ssi.bg>
+
 > ---
->  .../wireless/rtlwifi/btcoexist/halbtc8812a1ant.c   | 2073 ++++++++++++++++++++
->  .../wireless/rtlwifi/btcoexist/halbtc8812a1ant.h   |  152 ++
->  2 files changed, 2225 insertions(+)
->  create mode 100644 drivers/net/wireless/rtlwifi/btcoexist/halbtc8812a1ant.c
->  create mode 100644 drivers/net/wireless/rtlwifi/btcoexist/halbtc8812a1ant.h
->
-> diff --git a/drivers/net/wireless/rtlwifi/btcoexist/halbtc8812a1ant.c b/drivers/net/wireless/rtlwifi/btcoexist/halbtc8812a1ant.c
-> new file mode 100644
-> index 0000000..11ae66b
-> --- /dev/null
-> +++ b/drivers/net/wireless/rtlwifi/btcoexist/halbtc8812a1ant.c
-> @@ -0,0 +1,2073 @@
-> +/*  */
-> +/*  Description: */
-> +/*  */
-> +/*  This file is for 8812a1ant Co-exist mechanism */
-> +/*  */
-> +/*  History */
-> +/*  2012/11/15 Cosa first check in. */
-> +/*  */
-> +/*  */
-> +
-> +/*  */
-> +/*  include files */
-> +/*  */
+> v2:
+> Julian noticed that v1 did omit the redirect flag in rtnetlink
+> queries, fixed. Thanks!
+> 
+> v3:
+> Julian noticed that we could accidentally write into NEIGHCB, fixed
+> and thanks again!
+> 
+>  include/net/ip.h      | 11 ++++++-----
+>  net/ipv4/ip_forward.c |  3 ++-
+>  net/ipv4/route.c      |  9 +++++----
+>  3 files changed, 13 insertions(+), 10 deletions(-)
+> 
+> diff --git a/include/net/ip.h b/include/net/ip.h
+> index 0e5a0ba..14211ea 100644
+> --- a/include/net/ip.h
+> +++ b/include/net/ip.h
+> @@ -39,11 +39,12 @@ struct inet_skb_parm {
+>  	struct ip_options	opt;		/* Compiled IP options		*/
+>  	unsigned char		flags;
+>  
+> -#define IPSKB_FORWARDED		1
+> -#define IPSKB_XFRM_TUNNEL_SIZE	2
+> -#define IPSKB_XFRM_TRANSFORMED	4
+> -#define IPSKB_FRAG_COMPLETE	8
+> -#define IPSKB_REROUTED		16
+> +#define IPSKB_FORWARDED		BIT(0)
+> +#define IPSKB_XFRM_TUNNEL_SIZE	BIT(1)
+> +#define IPSKB_XFRM_TRANSFORMED	BIT(2)
+> +#define IPSKB_FRAG_COMPLETE	BIT(3)
+> +#define IPSKB_REROUTED		BIT(4)
+> +#define IPSKB_DOREDIRECT	BIT(5)
+>  
+>  	u16			frag_max_size;
+>  };
+> diff --git a/net/ipv4/ip_forward.c b/net/ipv4/ip_forward.c
+> index 3a83ce5..787b3c2 100644
+> --- a/net/ipv4/ip_forward.c
+> +++ b/net/ipv4/ip_forward.c
+> @@ -129,7 +129,8 @@ int ip_forward(struct sk_buff *skb)
+>  	 *	We now generate an ICMP HOST REDIRECT giving the route
+>  	 *	we calculated.
+>  	 */
+> -	if (rt->rt_flags&RTCF_DOREDIRECT && !opt->srr && !skb_sec_path(skb))
+> +	if (IPCB(skb)->flags & IPSKB_DOREDIRECT && !opt->srr &&
+> +	    !skb_sec_path(skb))
+>  		ip_rt_send_redirect(skb);
+>  
+>  	skb->priority = rt_tos2priority(iph->tos);
+> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+> index 2000110..0c63b2a 100644
+> --- a/net/ipv4/route.c
+> +++ b/net/ipv4/route.c
+> @@ -1567,11 +1567,10 @@ static int __mkroute_input(struct sk_buff *skb,
+>  
+>  	do_cache = res->fi && !itag;
+>  	if (out_dev == in_dev && err && IN_DEV_TX_REDIRECTS(out_dev) &&
+> +	    skb->protocol == htons(ETH_P_IP) &&
+>  	    (IN_DEV_SHARED_MEDIA(out_dev) ||
+> -	     inet_addr_onlink(out_dev, saddr, FIB_RES_GW(*res)))) {
+> -		flags |= RTCF_DOREDIRECT;
+> -		do_cache = false;
+> -	}
+> +	     inet_addr_onlink(out_dev, saddr, FIB_RES_GW(*res))))
+> +		IPCB(skb)->flags |= IPSKB_DOREDIRECT;
+>  
+>  	if (skb->protocol != htons(ETH_P_IP)) {
+>  		/* Not IP (i.e. ARP). Do not create route, if it is
+> @@ -2316,6 +2315,8 @@ static int rt_fill_info(struct net *net,  __be32 dst, __be32 src,
+>  	r->rtm_flags	= (rt->rt_flags & ~0xFFFF) | RTM_F_CLONED;
+>  	if (rt->rt_flags & RTCF_NOTIFY)
+>  		r->rtm_flags |= RTM_F_NOTIFY;
+> +	if (IPCB(skb)->flags & IPSKB_DOREDIRECT)
+> +		r->rtm_flags |= RTCF_DOREDIRECT;
+>  
+>  	if (nla_put_be32(skb, RTA_DST, dst))
+>  		goto nla_put_failure;
+> -- 
+> 2.1.0
 
-One problem I see is that there's no license on either of the files. It
-would be much better if the files had that.
+Regards
 
--- 
-Kalle Valo
 --
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Julian Anastasov <ja@ssi.bg>
