@@ -1,61 +1,85 @@
-From: Ming Lei <ming.lei@canonical.com>
-Subject: Re: [PATCH 2/2] net: stmmac: add fixed_phy support via fixed-link DT binding
-Date: Fri, 23 Jan 2015 16:28:59 +0800
-Message-ID: <CACVXFVOoo1MeXH04edv6-4kc0GZB_pAf4n9+h7qkoQef=ffkPw@mail.gmail.com>
-References: <1421999305-19267-1-git-send-email-ming.lei@canonical.com>
-	<1421999305-19267-3-git-send-email-ming.lei@canonical.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: linux-samsung-soc@vger.kernel.org, Kukjin Kim <kgene@kernel.org>,
-	netdev@vger.kernel.org, Byungho An <bh74.an@samsung.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Ming Lei <ming.lei@canonical.com>
-To: linux-arm-kernel@lists.infradead.org,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-samsung-soc-owner@vger.kernel.org>
-In-Reply-To: <1421999305-19267-3-git-send-email-ming.lei@canonical.com>
-Sender: linux-samsung-soc-owner@vger.kernel.org
+From: Michal Simek <michal.simek@xilinx.com>
+Subject: [PATCH] net: macb: Remove CONFIG_PM ifdef because of compilation warning
+Date: Fri, 23 Jan 2015 09:36:03 +0100
+Message-ID: <7970145ad4d864eaf31d694d22f2fecbcf6825c9.1422002161.git.michal.simek@xilinx.com>
+Content-Type: multipart/signed;
+    boundary="=_mimegpg-monstr-desktop-10131-1422002164-0001";
+    micalg=pgp-sha1; protocol="application/pgp-signature"
+Cc: Nicolas Ferre <nicolas.ferre@atmel.com>, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org, monstr@monstr.eu
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 1/23/15, Ming Lei <ming.lei@canonical.com> wrote:
-> Signed-off-by: Ming Lei <ming.lei@canonical.com>
-> ---
->  .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |   10 ++++++++++
->  1 file changed, 10 insertions(+)
->
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-> b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-> index 3039de2..73a3ced 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-> @@ -27,6 +27,7 @@
->  #include <linux/of.h>
->  #include <linux/of_net.h>
->  #include <linux/of_device.h>
-> +#include <linux/of_mdio.h>
->
->  #include "stmmac.h"
->  #include "stmmac_platform.h"
-> @@ -216,6 +217,15 @@ static int stmmac_probe_config_dt(struct
-> platform_device *pdev,
->  		plat->pmt = 1;
->  	}
->
-> +	if (of_phy_is_fixed_link(np)) {
-> +		int ret = of_phy_register_fixed_link(np);
-> +		if (ret) {
-> +			dev_err(&pdev->dev, "failed to register fixed PHY\n");
-> +			return ret;
-> +		}
-> +		plat->phy_bus_name = "fixed";
-> +	}
-> +
->  	if (of_device_is_compatible(np, "snps,dwmac-3.610") ||
->  		of_device_is_compatible(np, "snps,dwmac-3.710")) {
->  		plat->enh_desc = 1;
+This is a MIME GnuPG-signed message.  If you see this text, it means that
+your E-mail or Usenet software does not support MIME signed messages.
+The Internet standard for MIME PGP messages, RFC 2015, was published in 1996.
+To open this message correctly you will need to install E-mail or Usenet
+software that supports modern Internet standards.
 
-Sorry, bypassing check on phy id is missed in this patch, and will
-submit v1 later.
+--=_mimegpg-monstr-desktop-10131-1422002164-0001
 
-Thanks,
-Ming Lei
+Fix compilation warning:
+drivers/net/ethernet/cadence/macb.c:2415:12: warning: 'macb_suspend'
+defined but not used [-Wunused-function]
+ static int macb_suspend(struct device *dev)
+drivers/net/ethernet/cadence/macb.c:2432:12: warning: 'macb_resume'
+defined but not used [-Wunused-function]
+ static int macb_resume(struct device *dev)
+
+when CONFIG_PM=y, CONFIG_PM_SLEEP=n are used.
+
+Signed-off-by: Michal Simek <michal.simek@xilinx.com>
+---
+
+ drivers/net/ethernet/cadence/macb.c | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
+index 3767271c7667..23ae32f118c2 100644
+--- a/drivers/net/ethernet/cadence/macb.c
++++ b/drivers/net/ethernet/cadence/macb.c
+@@ -2411,8 +2411,7 @@ static int __exit macb_remove(struct platform_device *pdev)
+ 	return 0;
+ }
+
+-#ifdef CONFIG_PM
+-static int macb_suspend(struct device *dev)
++static int __maybe_unused macb_suspend(struct device *dev)
+ {
+ 	struct platform_device *pdev = to_platform_device(dev);
+ 	struct net_device *netdev = platform_get_drvdata(pdev);
+@@ -2429,7 +2428,7 @@ static int macb_suspend(struct device *dev)
+ 	return 0;
+ }
+
+-static int macb_resume(struct device *dev)
++static int __maybe_unused macb_resume(struct device *dev)
+ {
+ 	struct platform_device *pdev = to_platform_device(dev);
+ 	struct net_device *netdev = platform_get_drvdata(pdev);
+@@ -2444,7 +2443,6 @@ static int macb_resume(struct device *dev)
+
+ 	return 0;
+ }
+-#endif
+
+ static SIMPLE_DEV_PM_OPS(macb_pm_ops, macb_suspend, macb_resume);
+
+--
+1.8.2.3
+
+
+--=_mimegpg-monstr-desktop-10131-1422002164-0001
+Content-Type: application/pgp-signature
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iEYEABECAAYFAlTCB/QACgkQykllyylKDCH7FQCggJJguVnhD3vLkYA31hivSz5S
+bd4AmwUqFItZDZVBFEIO3Vf1TpZ+sfid
+=/CfN
+-----END PGP SIGNATURE-----
+
+--=_mimegpg-monstr-desktop-10131-1422002164-0001--
