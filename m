@@ -1,72 +1,62 @@
-From: Ming Lei <ming.lei@canonical.com>
-Subject: [PATCH 2/2] net: stmmac: add fixed_phy and phy_addr support using DT file
-Date: Fri, 23 Jan 2015 10:41:33 +0800
-Message-ID: <1421980893-14475-3-git-send-email-ming.lei@canonical.com>
-References: <1421980893-14475-1-git-send-email-ming.lei@canonical.com>
-Cc: linux-samsung-soc@vger.kernel.org, Kukjin Kim <kgene@kernel.org>,
-	netdev@vger.kernel.org, Byungho An <bh74.an@samsung.com>,
-	Ming Lei <ming.lei@canonical.com>
-To: linux-arm-kernel@lists.infradead.org,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-samsung-soc-owner@vger.kernel.org>
-In-Reply-To: <1421980893-14475-1-git-send-email-ming.lei@canonical.com>
-Sender: linux-samsung-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH] ethernet: fm10k: Actually drop 4 bits
+Date: Thu, 22 Jan 2015 19:27:52 -0800
+Message-ID: <1421983672.2560.41.camel@jtkirshe-mobl>
+References: <1421967198-16667-1-git-send-email-linux@rasmusvillemoes.dk>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-cB5feE4NS2SCmVETGgyc"
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Rasmus Villemoes <linux@rasmusvillemoes.dk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:14928 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751911AbbAWD15 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 Jan 2015 22:27:57 -0500
+In-Reply-To: <1421967198-16667-1-git-send-email-linux@rasmusvillemoes.dk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Byungho An <bh74.an@samsung.com>
 
-This patch adds codes for DT file support, fixed_phy and phy_addr
-can be set in DT file.
+--=-cB5feE4NS2SCmVETGgyc
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Signed-off-by: Byungho An <bh74.an@samsung.com>
-(bypass check for fixed phy)
-Signed-off-by: Ming Lei<ming.lei@canonical.com>
----
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |    5 ++++-
- .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |    7 +++++++
- 2 files changed, 11 insertions(+), 1 deletion(-)
+On Thu, 2015-01-22 at 23:53 +0100, Rasmus Villemoes wrote:
+> The comment explains the intention, but vid has type u16. Before the
+> inner shift, it is promoted to int, which has plenty of space for all
+> vid's bits, so nothing is dropped. Use a simple mask instead.
+>=20
+> Signed-off-by: Rasmus Villemoes <linux@rasmusvillemoes.dk>
+> ---
+>  drivers/net/ethernet/intel/fm10k/fm10k_pf.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 8c6b7c16..ddb4351 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -847,8 +847,11 @@ static int stmmac_init_phy(struct net_device *dev)
- 	 * 0 rather than 0xffff. Catch this here and treat 0 as a non-existent
- 	 * device as well.
- 	 * Note: phydev->phy_id is the result of reading the UID PHY registers.
-+	 * But phy_id returned from fixed phy is always zero, so bypass the
-+	 * check for fixed phy.
- 	 */
--	if (phydev->phy_id == 0) {
-+	if (phydev->phy_id == 0 && (!priv->plat->phy_bus_name ||
-+			strcmp(priv->plat->phy_bus_name,"fixed"))) {
- 		phy_disconnect(phydev);
- 		return -ENODEV;
- 	}
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-index 879e29f..4f11491 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-@@ -128,6 +128,7 @@ static int stmmac_probe_config_dt(struct platform_device *pdev,
- 	struct device_node *np = pdev->dev.of_node;
- 	struct stmmac_dma_cfg *dma_cfg;
- 	const struct of_device_id *device;
-+	u32 phy_addr;
- 
- 	if (!np)
- 		return -ENODEV;
-@@ -217,6 +218,12 @@ static int stmmac_probe_config_dt(struct platform_device *pdev,
- 		plat->pmt = 1;
- 	}
- 
-+	if (of_find_property(np, "fixed_phy", NULL)) {
-+		plat->phy_bus_name = "fixed";
-+		of_property_read_u32(np, "phy_addr", &phy_addr);
-+		plat->phy_addr = phy_addr;
-+	}
-+
- 	if (of_device_is_compatible(np, "snps,dwmac-3.610") ||
- 		of_device_is_compatible(np, "snps,dwmac-3.710")) {
- 		plat->enh_desc = 1;
--- 
-1.7.9.5
+Thanks Rasmus, I will add your patch to my queue.
+
+--=-cB5feE4NS2SCmVETGgyc
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAABCgAGBQJUwb+4AAoJEOVv75VaS+3OIfIP/RcuhentUqJMrWPbjO7VNq68
+LyyzZNWEjRg2/WL3u/ppz9Yh7DEFXsJYe7u8uGN5gclN5y4u+Yh079oJ1+lWyzeT
+BguQnpArvbvLREDymuE95NIj1+A0n4sI2J10MRMfNLSN0JHwgx9+qzqDgpXLP9bd
+ZiS+xWc+ewSucth+ujyWc30XLEcZutGTg8dBjNllW8eyBDN16FUUQk0zx5wrXMCc
+juT2f21yD3Jgo16vtE0JcxzbLDapOjn9XF/AhaDCGqxhz3V79qXMfuZE0faK6y4A
+TH6j9eNFSHC9CKGxImr96+Cic9pjjRZr8vkX9LfimkGXzy+H6HTZOKGwQNsVcB7c
+dHbR3nwGqXiImWAgpmCS48PW+L7NHvg0fo+ak2YYNwgOV3j1FVDz1/fOTnXypFZ9
+fAbh3k6WIdOEh2H7nKf+siihVa+vunR98CArj6JpPS5Upa/vey7rD6bvnBJRKUmf
+mMC/d0MjdQzmvQCMFLdzHkfqiPSxDwp/M3so0P977tsvvZuxGn6L2BpGqhSMfOqa
+tYdhJENjHpGdPvIGDN1/SPRwhPt+rCymAEhJqYLdd1qqwtr/l3m4cPXn0SwlWUsA
+gybM3Nzq8Rh4WjIzzeYtbE5KlCGDmeT7EPANE8k63tHvJloJ1rG0WN7jjU7MvH9C
+5VIrSXc8LoXaqeRP0d/w
+=WGrr
+-----END PGP SIGNATURE-----
+
+--=-cB5feE4NS2SCmVETGgyc--
