@@ -1,41 +1,49 @@
-From: "Rosen, Rami" <rami.rosen@intel.com>
-Subject: RE: [PATCH net-next v3 3/5] bridge: offload bridge port attributes
- to switch asic if feature flag set
-Date: Fri, 23 Jan 2015 12:53:34 +0000
-Message-ID: <9B0331B6EBBD0E4684FBFAEDA55776F9189065DD@HASMSX110.ger.corp.intel.com>
-References: <1421987606-10884-4-git-send-email-roopa@cumulusnetworks.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: NetDev 0.1 conference: Important!  Hotel Reservation Deadline Expiring
+Date: Fri, 23 Jan 2015 08:27:56 -0500
+Message-ID: <54C24C5C.5080709@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"shm@cumulusnetworks.com" <shm@cumulusnetworks.com>,
-	"gospo@cumulusnetworks.com" <gospo@cumulusnetworks.com>
-To: "roopa@cumulusnetworks.com" <roopa@cumulusnetworks.com>,
-	"jiri@resnulli.us" <jiri@resnulli.us>,
-	"sfeldma@gmail.com" <sfeldma@gmail.com>,
-	"jhs@mojatatu.com" <jhs@mojatatu.com>,
-	"bcrl@kvack.org" <bcrl@kvack.org>, "tgraf@suug.ch" <tgraf@suug.ch>,
-	"john.fastabend@gmail.com" <john.fastabend@gmail.com>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>,
-	"vyasevic@redhat.com" <vyasevic@redhat.com>,
-	"Arad, Ronen" <ronen.arad@intel.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Richard Guy Briggs <rgb@tricolour.ca>, info@netdev01.org,
+	speakers@netdev01.org, attendees@netdev01.org
+To: netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
+	lwn@lwn.net, netdev01@lists.netfilter.org, lartc@vger.kernel.org,
+	netfilter@vger.kernel.org, netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:2728 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750786AbbAWMxk convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jan 2015 07:53:40 -0500
-In-Reply-To: <1421987606-10884-4-git-send-email-roopa@cumulusnetworks.com>
-Content-Language: en-US
+Received: from mail-ie0-f179.google.com ([209.85.223.179]:52040 "EHLO
+	mail-ie0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752786AbbAWN17 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jan 2015 08:27:59 -0500
+Received: by mail-ie0-f179.google.com with SMTP id x19so7052122ier.10
+        for <netdev@vger.kernel.org>; Fri, 23 Jan 2015 05:27:59 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-Hi,
-There is another Linux Ethernet driver which defines the ndo_bridge_setlink() callback, which is not included in the patch. It is the 
-Emulex ServerEngines' 10Gbps NIC (BladeEngine) (drivers/net/ethernet/emulex/benet).
-So once the CONFIG_BE2NET kernel config item is set, running make will emit a compile warning.
+Fellow netheads:
 
-Regards,
-Rami Rosen
-Intel Corporation
+On behalf of rgb, yours truly is sending out this announcement.
+
+Today is the last day that the Westin Hotel will be holding a block of
+rooms for Netdev01 at a guaranteed rate of $159.00 or $179.00
+(depending on the type of room required) and there are still rooms
+available.
+
+Please dont procastinate and book now. We are trying to negotiate with
+the hotel to see if they can extend the deadline but so far we have not
+been successful. We are competing against a few tourist activities for
+hotel rooms going on around the area at the same time (example:
+http://www.ottawafestivals.ca/events/winterlude-2/) so we can assure you
+the prices will go up.
+
+The content of the Tutorials/BOFs/talk continues to be updated at:
+https://www.netdev01.org/sessions
+This has to be the most amazing Linux netdev content put together
+anywhere.
+Avoid disappointment and do your reservations at:
+https://www.starwoodmeeting.com/StarGroupsWeb/res?id=1412035802&key=1AC9C1F8
+
+
+cheers,
+jamal (on behalf of Richard Guy Briggs)
