@@ -1,38 +1,58 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH net-next v3 1/5] netdev: introduce new
- NETIF_F_HW_NETFUNC_OFFLOAD feature flag for switch device offloads
-Date: Fri, 23 Jan 2015 17:56:54 +0000
-Message-ID: <20150123175654.GB25374@casper.infradead.org>
-References: <1421987606-10884-2-git-send-email-roopa@cumulusnetworks.com>
- <20150123094459.GA2065@nanopsycho.orion>
- <54C26D4C.9050407@cumulusnetworks.com>
+From: Arend van Spriel <arend@broadcom.com>
+Subject: Re: [PATCH] brcmfmac: avoid duplicated suspend/resume operation
+Date: Fri, 23 Jan 2015 19:09:47 +0100
+Message-ID: <54C28E6B.8090408@broadcom.com>
+References: <54BDCC06.8090107@linux.intel.com>	<87twzincvz.fsf@kamboji.qca.qualcomm.com>	<54C1012F.1020400@cogentembedded.com> <54C1646B.4080409@broadcom.com> <87y4otldln.fsf@kamboji.qca.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Pirko <jiri@resnulli.us>, sfeldma@gmail.com, jhs@mojatatu.com,
-	bcrl@kvack.org, john.fastabend@gmail.com,
-	stephen@networkplumber.org, vyasevic@redhat.com,
-	ronen.arad@intel.com, netdev@vger.kernel.org, davem@davemloft.net,
-	shm@cumulusnetworks.com, gospo@cumulusnetworks.com
-To: roopa <roopa@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:48299 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754098AbbAWR46 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jan 2015 12:56:58 -0500
-Content-Disposition: inline
-In-Reply-To: <54C26D4C.9050407@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	"Fu, Zhonghui" <zhonghui.fu@linux.intel.com>,
+	<brudley@broadcom.com>, Franky Lin <frankyl@broadcom.com>,
+	<meuleman@broadcom.com>, <linville@tuxdriver.com>,
+	<pieterpg@broadcom.com>, <hdegoede@redhat.com>, <wens@csie.org>,
+	<linux-wireless@vger.kernel.org>,
+	<brcm80211-dev-list@broadcom.com>, <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Kalle Valo <kvalo@codeaurora.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87y4otldln.fsf@kamboji.qca.qualcomm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 01/23/15 at 07:48am, roopa wrote:
-> On 1/23/15, 1:44 AM, Jiri Pirko wrote:
-> >How about rather "HW_DATAPATH_OFFLOAD"? Feels more accurate. By the
-> >name, I still cannot understand what NETFUNC should mean.
-> 
-> It was supposed to mean 'network function offload'. sure, will consider
-> HW_DATAPATH_OFFLOAD
-> or if anybody has other suggestions.
+On 01/23/15 16:29, Kalle Valo wrote:
+> Arend van Spriel<arend@broadcom.com>  writes:
+>
+>> On 01/22/15 14:54, Sergei Shtylyov wrote:
+>>> Hello.
+>>>
+>>> On 1/22/2015 4:49 PM, Kalle Valo wrote:
+>>>
+>>>>> > From 04d3fa673897ca4ccbea6c76836d0092dba2484a Mon Sep 17 00:00:00 2001
+>>>>> From: Zhonghui Fu<zhonghui.fu@linux.intel.com>
+>>>>> Date: Tue, 20 Jan 2015 11:14:13 +0800
+>>>>> Subject: [PATCH] brcmfmac: avoid duplicated suspend/resume operation
+>>>
+>>>>> WiFi chip has 2 SDIO functions, and PM core will trigger
+>>>>> twice suspend/resume operations for one WiFi chip to do
+>>>>> the same things. This patch avoid this case.
+>>>
+>>>>> Acked-by: Arend van Spriel<arend@broadcom.com>
+>>>>> Acked-by: Sergei Shtylyov<sergei.shtylyov@cogentembedded.com>
+>>>>> Acked-by: Kalle Valo<kvalo@codeaurora.org>
+>>>>> Signed-off-by: Zhonghui Fu<zhonghui.fu@linux.intel.com>
+>>>
+>>>> I don't remember giving Acked-by to this (or for matter to anything for
+>>>> a long time). What about Sergei or Arend?
+>>>
+>>> I haven't ACK'ed this patch either.
+>>
+>> I did ACK the initial patch and felt it still valid for this 'V2' patch.
+>
+> Ok, thanks. So the patch is good, Zhonghui just needs to remove the two
+> acked-by lines.
 
-I'm still fascinated that the description says 'for all switch asic
-offloads', 'switch drivers', 'switch ports' but we try very hard to
-come up with a different name ;-)
+Indeed.
+
+Regards,
+Arend
