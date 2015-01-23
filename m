@@ -1,7 +1,7 @@
 From: Ming Lei <ming.lei@canonical.com>
-Subject: [PATCH 1/2] ARM: exynos5440-sd5v1: switch to fixed-link DT binding
-Date: Fri, 23 Jan 2015 15:48:24 +0800
-Message-ID: <1421999305-19267-2-git-send-email-ming.lei@canonical.com>
+Subject: [PATCH 2/2] net: stmmac: add fixed_phy support via fixed-link DT binding
+Date: Fri, 23 Jan 2015 15:48:25 +0800
+Message-ID: <1421999305-19267-3-git-send-email-ming.lei@canonical.com>
 References: <1421999305-19267-1-git-send-email-ming.lei@canonical.com>
 Cc: linux-samsung-soc@vger.kernel.org, Kukjin Kim <kgene@kernel.org>,
 	netdev@vger.kernel.org, Byungho An <bh74.an@samsung.com>,
@@ -9,39 +9,43 @@ Cc: linux-samsung-soc@vger.kernel.org, Kukjin Kim <kgene@kernel.org>,
 	Ming Lei <ming.lei@canonical.com>
 To: linux-arm-kernel@lists.infradead.org,
 	"David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f46.google.com ([209.85.192.46]:55371 "EHLO
-	mail-qg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751830AbbAWHsu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jan 2015 02:48:50 -0500
+Return-path: <linux-samsung-soc-owner@vger.kernel.org>
 In-Reply-To: <1421999305-19267-1-git-send-email-ming.lei@canonical.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-The previous dts property isn't standard way for fixed phy
-support, and switch to the fixed-link DT binding.
+Sender: linux-samsung-soc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Ming Lei <ming.lei@canonical.com>
 ---
- arch/arm/boot/dts/exynos5440-sd5v1.dts |    6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
+ .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |   10 ++++++++++
+ 1 file changed, 10 insertions(+)
 
-diff --git a/arch/arm/boot/dts/exynos5440-sd5v1.dts b/arch/arm/boot/dts/exynos5440-sd5v1.dts
-index 268609a..ee65a5c 100644
---- a/arch/arm/boot/dts/exynos5440-sd5v1.dts
-+++ b/arch/arm/boot/dts/exynos5440-sd5v1.dts
-@@ -28,8 +28,10 @@
- 	};
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+index 3039de2..73a3ced 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+@@ -27,6 +27,7 @@
+ #include <linux/of.h>
+ #include <linux/of_net.h>
+ #include <linux/of_device.h>
++#include <linux/of_mdio.h>
  
- 	gmac: ethernet@00230000 {
--		fixed_phy;
--		phy_addr = <1>;
-+		fixed-link {
-+			speed = <1000>;
-+			full-duplex;
-+		};
- 	};
+ #include "stmmac.h"
+ #include "stmmac_platform.h"
+@@ -216,6 +217,15 @@ static int stmmac_probe_config_dt(struct platform_device *pdev,
+ 		plat->pmt = 1;
+ 	}
  
- 	spi {
++	if (of_phy_is_fixed_link(np)) {
++		int ret = of_phy_register_fixed_link(np);
++		if (ret) {
++			dev_err(&pdev->dev, "failed to register fixed PHY\n");
++			return ret;
++		}
++		plat->phy_bus_name = "fixed";
++	}
++
+ 	if (of_device_is_compatible(np, "snps,dwmac-3.610") ||
+ 		of_device_is_compatible(np, "snps,dwmac-3.710")) {
+ 		plat->enh_desc = 1;
 -- 
 1.7.9.5
