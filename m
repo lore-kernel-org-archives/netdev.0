@@ -1,177 +1,107 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next v3 2/5] swdevice: add new api to set and del
- bridge port attributes
-Date: Fri, 23 Jan 2015 11:41:27 +0100
-Message-ID: <20150123104127.GC2065@nanopsycho.orion>
-References: <1421987606-10884-3-git-send-email-roopa@cumulusnetworks.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [net-next PATCH v3 00/12] Flow API
+Date: Fri, 23 Jan 2015 10:49:32 +0000
+Message-ID: <20150123104932.GG25797@casper.infradead.org>
+References: <20150120202404.1741.8658.stgit@nitbit.x32>
+ <20150122125246.GA4486@salvia>
+ <20150122133713.GA25797@casper.infradead.org>
+ <20150122140022.GA5674@salvia>
+ <54C11094.2000807@mojatatu.com>
+ <20150122151316.GB25797@casper.infradead.org>
+ <54C12C1F.706@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: sfeldma@gmail.com, jhs@mojatatu.com, bcrl@kvack.org, tgraf@suug.ch,
-	john.fastabend@gmail.com, stephen@networkplumber.org,
-	vyasevic@redhat.com, ronen.arad@intel.com, netdev@vger.kernel.org,
-	davem@davemloft.net, shm@cumulusnetworks.com,
-	gospo@cumulusnetworks.com
-To: roopa@cumulusnetworks.com
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	simon.horman@netronome.com, sfeldma@gmail.com,
+	netdev@vger.kernel.org, davem@davemloft.net, gerlitz.or@gmail.com,
+	andy@greyhouse.net, ast@plumgrid.com, Jiri Pirko <jiri@resnulli.us>
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f181.google.com ([209.85.212.181]:52069 "EHLO
-	mail-wi0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751753AbbAWKlb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jan 2015 05:41:31 -0500
-Received: by mail-wi0-f181.google.com with SMTP id fb4so1836036wid.2
-        for <netdev@vger.kernel.org>; Fri, 23 Jan 2015 02:41:29 -0800 (PST)
+Received: from casper.infradead.org ([85.118.1.10]:46298 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751121AbbAWKtd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jan 2015 05:49:33 -0500
 Content-Disposition: inline
-In-Reply-To: <1421987606-10884-3-git-send-email-roopa@cumulusnetworks.com>
+In-Reply-To: <54C12C1F.706@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fri, Jan 23, 2015 at 05:33:23AM CET, roopa@cumulusnetworks.com wrote:
->From: Roopa Prabhu <roopa@cumulusnetworks.com>
->
->This patch adds two new api's netdev_switch_port_bridge_setlink
->and netdev_switch_port_bridge_dellink to offload bridge port attributes
->to switch asic
->
->(The names of the apis look odd with 'switch_port_bridge',
->but am more inclined to change the prefix of the api to something else.
->Will take any suggestions).
->
->The api's look at the NETIF_F_HW_NETFUNC_OFFLOAD feature flag to
->pass bridge port attributes to the port device.
->
->If the device has the NETIF_F_HW_NETFUNC_OFFLOAD, but does not support
->the bridge port attribute offload ndo, call bridge port attribute ndo's on
->the lowerdevs if supported. This is one way to pass bridge port attributes
->through stacked netdevs (example when bridge port is a bond and bond slaves
->are switch ports).
->
->Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
->---
-> include/net/switchdev.h   |   17 ++++++++++-
-> net/switchdev/switchdev.c |   70 +++++++++++++++++++++++++++++++++++++++++++++
-> 2 files changed, 86 insertions(+), 1 deletion(-)
->
->diff --git a/include/net/switchdev.h b/include/net/switchdev.h
->index 8a6d164..362f53a 100644
->--- a/include/net/switchdev.h
->+++ b/include/net/switchdev.h
->@@ -17,7 +17,10 @@
-> int netdev_switch_parent_id_get(struct net_device *dev,
-> 				struct netdev_phys_item_id *psid);
-> int netdev_switch_port_stp_update(struct net_device *dev, u8 state);
->-
->+int netdev_switch_port_bridge_setlink(struct net_device *dev,
->+				struct nlmsghdr *nlh, u16 flags);
->+int netdev_switch_port_bridge_dellink(struct net_device *dev,
->+				struct nlmsghdr *nlh, u16 flags);
-> #else
+On 01/22/15 at 08:58am, John Fastabend wrote:
+> In response to Pablo's observation,
 > 
-> static inline int netdev_switch_parent_id_get(struct net_device *dev,
->@@ -32,6 +35,18 @@ static inline int netdev_switch_port_stp_update(struct net_device *dev,
-> 	return -EOPNOTSUPP;
-> }
-> 
->+int netdev_switch_port_bridge_setlink(struct net_device *dev,
->+				      struct nlmsghdr *nlh, u16 flags)
->+{
->+	return -EOPNOTSUPP;
->+}
->+
->+int netdev_switch_port_bridge_dellink(struct net_device *dev,
->+				      struct nlmsghdr *nlh, u16 flags)
->+{
->+	return -EOPNOTSUPP;
->+}
->+
-> #endif
-> 
-> #endif /* _LINUX_SWITCHDEV_H_ */
->diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
->index d162b21..bf0be98 100644
->--- a/net/switchdev/switchdev.c
->+++ b/net/switchdev/switchdev.c
->@@ -50,3 +50,73 @@ int netdev_switch_port_stp_update(struct net_device *dev, u8 state)
-> 	return ops->ndo_switch_port_stp_update(dev, state);
-> }
-> EXPORT_SYMBOL(netdev_switch_port_stp_update);
->+
->+/**
->+ *	netdev_switch_port_bridge_setlink - Notify switch device port of bridge
->+ *	port attributes
->+ *
->+ *	@dev: port device
->+ *	@nlh: netlink msg with bridge port attributes
->+ *
->+ *	Notify switch device port of bridge port attributes
->+ */
->+int netdev_switch_port_bridge_setlink(struct net_device *dev,
->+				      struct nlmsghdr *nlh, u16 flags)
->+{
->+	const struct net_device_ops *ops = dev->netdev_ops;
->+	struct net_device *lower_dev;
->+	struct list_head *iter;
->+	int ret = 0, err = 0;
->+
->+	if (!(dev->features & NETIF_F_HW_NETFUNC_OFFLOAD))
->+		return err;
->+
->+	if (ops->ndo_bridge_setlink) {
->+		WARN_ON(!ops->ndo_switch_parent_id_get);
->+		return ops->ndo_bridge_setlink(dev, nlh, flags);
->+	}
->+
->+	netdev_for_each_lower_dev(dev, lower_dev, iter) {
->+		err = netdev_switch_port_bridge_setlink(lower_dev, nlh, flags);
->+		if (err)
->+			ret = err;
->+	}
->+
->+	return ret;
->+}
->+EXPORT_SYMBOL(netdev_switch_port_bridge_setlink);
->+
->+/**
->+ *	netdev_switch_port_bridge_dellink - Notify switch device port of bridge
->+ *	attribute delete
->+ *
->+ *	@dev: port device
->+ *	@nlh: netlink msg with bridge port attributes
->+ *
->+ *	Notify switch device port of bridge port attribute delete
->+ */
->+int netdev_switch_port_bridge_dellink(struct net_device *dev,
->+				      struct nlmsghdr *nlh, u16 flags)
->+{
->+	const struct net_device_ops *ops = dev->netdev_ops;
->+	struct net_device *lower_dev;
->+	struct list_head *iter;
->+	int ret = 0, err = 0;
->+
->+	if (!(dev->features & NETIF_F_HW_NETFUNC_OFFLOAD))
->+		return err;
->+
->+	if (ops->ndo_bridge_dellink) {
->+		WARN_ON(!ops->ndo_switch_parent_id_get);
->+		return ops->ndo_bridge_dellink(dev, nlh, flags);
->+	}
->+
->+	netdev_for_each_lower_dev(dev, lower_dev, iter) {
->+		err = netdev_switch_port_bridge_dellink(lower_dev, nlh, flags);
->+		if (err)
->+			ret = err;
->+	}
->+
->+	return ret;
->+}
->+EXPORT_SYMBOL(netdev_switch_port_bridge_dellink);
->-- 
->1.7.10.4
->
+> Correct this is fully exposed to user space, but it is also self
+> contained inside the API meaning I can learn when to use it and what it
+> does by looking at the other operations tables the table graph and
+> supported headers. The assumption I am making that is not in the API
+> explicitly yet. Is that actions named "set_field_name" perform the
+> set operation on that field. We can and plan to extend the API to make
+> this assumption explicit in the API.
 
-Is there any other place, other than bridge code, this functions are
-suppored to be called from? If not, which I consider likely, it would
-make more sense to me to:
+OK. I think it's this assumption that is not explicitly in the API yet
+that causes confusion. Making it explicit would definitely help. Do
+we even need the driver to declare get/set operations at all? Can we
+just have the driver expose the field and the API takes care of
+providing get/set actions?
 
-- move netdev_for_each_lower_dev iterations directly to bridge code
-- let the masters (bond, team, ..) implement ndo_bridge_*link and do
-  the traversing there (can be in a form of pre-prepared default
-  ndo callback (ndo_dflt_netdev_switch_port_bridge_*link)
+> Even though its a detail of the rocker world its easy enough for a
+> program on top of the API to learn how it works.
+> 
+> So in the rocker switch case if I want to rewrite an eth_dst adress I
+> have a  couple choices. I can set the group_id in one of the tables
+> that support setting the group_id and then do the rewrite in one of the
+> tables that supports matching on group_id and setting the eth_dst mac.
+> The "choice" I make is a policy IMO and I don't want to hard code logic
+> in the kernel that picks tables and decides things like what should I
+> do if table x is full but table y could also be used should I overflow
+> into table y? Or  is table y reserved for some other network function?
+> etc.
+
+Agreed. It might make sense to declare such fields as general purpose
+metadata or have some kind of field class which describes the nature
+of the field: { register, protocol-field, configuration, ... }
+
+> There are some actions and metadata though that _need_ to be
+> standardized. These are the metadata that is used outside the API. For
+> example ingress_port is metadata that is set outside the tables.
+> Similarly set_egress_port and set_egress_queue provide the forwarding
+> and queueing fields. No matter how hard you look at the model from the
+> API you can not learn how these are used.
+
+Agreed. I assume we would implement a tun_dst the same standardized way.
+
+> >What would a rocker group map to in the tc world?
+> 
+> In the 'tc' world I would guess the easiest thing to do is simply bind
+> a 'tc' qdisc to the ACL table. It seems a good first approximation of
+> how to make this work. But the rocker world doesn't yet have any QOS so
+> it makes it difficult to "offload" anything but the fifo qdiscs.
+
+Right. I was asking as tc will have the same difficulty if it wishes
+to classify based on rocker groups or other general purpose hardware
+metadata fields. We can either supoprt them by describing them and
+allow learning of such fields or ignore them.
+
+> >>I see this as a gaping hole
+> >>for vendor SDKs with their own definitions of their own hardware that
+> >>doesnt work with anyone else. i.e it seems to standardize proprietary
+> >>interfaces. Maybe thats what Pablo is alluding to.
+> >
+> >I will be the first to root for rejection if such patches appear.
+> >
+> 
+> Is it problematic if users define some unique header here and then
+> provide actions to set/pop/push/get operations on it?
+
+I have no problem with unique headers but we have to ensure that a
+field with identical purpose or same logical meaning is represented in
+the same way by all drivers. If a driver introduces a new field it
+must consider that other drivers will need/want to use it as well.
+I guess/hope this is obvious though ;-)
+
+I agree that if chip A has 8 general purpose registers and chip B has
+32 of them then it doesn't matter how they are called. What matters is
+that they are declared as such to API users.
+
+Actions must obviously be standardized as your proposal already does
+by exposing push_vlan, pop_vlan, etc.
