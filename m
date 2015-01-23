@@ -1,150 +1,60 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next RFC] tc: introduce OpenFlow classifier
-Date: Fri, 23 Jan 2015 16:38:42 +0100
-Message-ID: <20150123153842.GI2065@nanopsycho.orion>
-References: <1421933824-17916-1-git-send-email-jiri@resnulli.us>
- <20150123151145.GK25797@casper.infradead.org>
+From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Subject: Re: [PATCH 1/7] net: wireless: wcn36xx: add wcn3620 chip type definition
+Date: Fri, 23 Jan 2015 17:39:40 +0200
+Message-ID: <87twzhld4z.fsf@kamboji.qca.qualcomm.com>
+References: <20150118050741.31866.36490.stgit@114-36-241-182.dynamic.hinet.net>
+	<20150118051043.31866.53087.stgit@114-36-241-182.dynamic.hinet.net>
+	<878uh06ulp.fsf@kamboji.qca.qualcomm.com>
+	<CAAfg0W4cns51+B_imf1jGWOmA0S8jqNFR+6epRxv8qqTgvBAgg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, jhs@mojatatu.com
-To: Thomas Graf <tgraf@suug.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f179.google.com ([74.125.82.179]:45541 "EHLO
-	mail-we0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752128AbbAWPip (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jan 2015 10:38:45 -0500
-Received: by mail-we0-f179.google.com with SMTP id q59so8260169wes.10
-        for <netdev@vger.kernel.org>; Fri, 23 Jan 2015 07:38:44 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20150123151145.GK25797@casper.infradead.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Eugene Krasnikov <k.eugene.e-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	wcn36xx <wcn36xx-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Andy Green <andy.green-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAAfg0W4cns51+B_imf1jGWOmA0S8jqNFR+6epRxv8qqTgvBAgg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+	(Andy Green's message of "Mon, 19 Jan 2015 08:24:41 +0800")
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Fri, Jan 23, 2015 at 04:11:45PM CET, tgraf@suug.ch wrote:
->On 01/22/15 at 02:37pm, Jiri Pirko wrote:
->> This patch introduces OpenFlow-based filter. So far, the very essential
->> packet fields are supported (according to OpenFlow v1.4 spec).
->> 
->> Known issues: skb_flow_dissect hashes out ipv6 addresses. That needs
->> to be changed to store them somewhere so they can be used later on.
->> 
->> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+Andy Green <andy.green-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org> writes:
+
+> On 18 January 2015 at 22:17, Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org> wrote:
+>> Andy Green <andy.green-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org> writes:
+n>>
+>>> Convert the list of chip types to an enum, add the default
+>>> UNKNOWN type and a type for WCN3620 chip
+>>>
+>>> Signed-off-by: Andy Green <andy.green-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+>>
+>> Please just use "wcn36xx: ", you should drop "net: wireless: " entirely.
 >
->Since OpenFlow is a wire protocol the description could be somewhat
->confusing as you are not actually implementing OpenFlow. Maybe call
->this "OpenFlow inspired classifier" or something along those lines?
-
-Yep, therefore I do not call it "OpenFlow" but rather
-"Openflow-classifier". But sure, I will rename it to make it clearer
-
+> OK.
 >
->> diff --git a/net/sched/Kconfig b/net/sched/Kconfig
->> index 475e35e..9b01fae 100644
->> --- a/net/sched/Kconfig
->> +++ b/net/sched/Kconfig
->> @@ -477,6 +477,17 @@ config NET_CLS_BPF
->>  	  To compile this code as a module, choose M here: the module will
->>  	  be called cls_bpf.
->>  
->> +config NET_CLS_OPENFLOW
->> +	tristate "OpenFlow classifier"
->> +	select NET_CLS
->> +	---help---
->> +	  If you say Y here, you will be able to classify packets based on
->> +	  a configurable combination of packet keys and masks accordint to
->                                                                     ^^^
+> Can you help me understand what you'd like to see happen with the chip
+> variant detection stuff?
+
+I haven't looked at wcn36xx for a long time so I'm not really the right
+person to answer. I'm more like a desk jockey now ;)
+
+> There's a comment sent to one list only saying it might be preferable
+> to keep the old detection code as the default.  But there are no
+> in-tree users of wcn36xx (mainly due to PIL not being in mainline, I
+> guess).
 >
->Typo
+> The old test's equivalence that AC == 3680 seems kind of weak to me
+> and establishing the type must be passed in from platform code
+> reflects the situation that there's no public way to detect the chip
+> type from Qualcomm.  In the second not-for-upstream series I use that
+> to pass it in from DT, which is how it'd be normally used.
 
-Yep, already fixed.
+Please remember that the DT bindings document has to be acked by the
+device-tree maintainers.
 
->
->> +struct of_flow_key {
->> +	int	indev_ifindex;
->> +	struct {
->> +		u8	src[ETH_ALEN];
->> +		u8	dst[ETH_ALEN];
->> +		__be16	type;
->> +	} eth;
->> +	struct {
->> +		u8	proto;
->> +	} ip;
->> +	union {
->> +		struct {
->> +			__be32 src;
->> +			__be32 dst;
->> +		} ipv4;
->> +		struct {
->> +			struct in6_addr src;
->> +			struct in6_addr dst;
->> +		} ipv6;
->> +	};
->> +	union {
->> +		struct {
->> +			__be16 src;
->> +			__be16 dst;
->> +		} tp;
->> +	};
->> +} __aligned(BITS_PER_LONG / 8); /* Ensure that we can do comparisons as longs. */
->
->I'm sure you considered this already. Any advantage in sharing the
->flow key definition w/ OVS?
-
-
-For now, I support much less than ovs here. Therefore I wanted to keep
-the key simple. But I count with the eventual code merge with ovs in
-this matter.
-
-
->
->> +static void of_extract_key(struct sk_buff *skb, struct of_flow_key *skb_key)
->> +{
->> +	struct flow_keys flow_keys;
->> +	struct ethhdr *eth;
->> +
->> +	skb_key->indev_ifindex = skb->skb_iif;
->> +
->> +	eth = eth_hdr(skb);
->> +	ether_addr_copy(skb_key->eth.src, eth->h_source);
->> +	ether_addr_copy(skb_key->eth.dst, eth->h_dest);
->> +
->> +	skb_flow_dissect(skb, &flow_keys);
->> +	skb_key->eth.type = flow_keys.n_proto;
->> +	skb_key->ip.proto = flow_keys.ip_proto;
->> +	skb_key->ipv4.src = flow_keys.src;
->> +	skb_key->ipv4.dst = flow_keys.dst;
->> +	skb_key->tp.src = flow_keys.port16[0];
->> +	skb_key->tp.dst = flow_keys.port16[1];
->> +}
->
->If I understand skb_flow_dissect() correctly then you will always
->fill of_flow_key with the inner most header. How would you for
->example match on the outer UDP header?
-
-Yes, flow dissect is not ideal for this usage, for example also for the
-ipv6 addresses hashing. I was thinking about extending it. Eventually,
-this code can be merged with ovs as well.
-
-
->
->> +static bool of_match(struct of_flow_key *skb_key, struct cls_of_filter *f)
->> +{
->> +	const long *lkey = (const long *) &f->match.key;
->> +	const long *lmask = (const long *) &f->match.mask;
->> +	const long *lskb_key = (const long *) skb_key;
->> +	int i;
->> +
->> +	for (i = 0; i < sizeof(struct of_flow_key); i += sizeof(const long)) {
->> +		if ((*lkey++ & *lmask) != (*lskb_key++ & *lmask))
->> +			return false;
->> +		lmask++;
->> +	}
->> +	return true;
->> +}
->
->Nice. An further possible optimization would be to calculate the
->length of the flow key that must match and cut off the flow key if
->the remaining bits are all wildcarded, e.g. eth header only match.
-
-Yep, I have another optimization ideas. I just focused to getting this
-to work first, optimize later on.
+-- 
+Kalle Valo
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
