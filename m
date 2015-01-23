@@ -1,54 +1,70 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [PATCH V2 for 3.19 0/7] Fixes for rtl8192ee
-Date: Fri, 23 Jan 2015 22:24:10 +0200
-Message-ID: <87egqljled.fsf@kamboji.qca.qualcomm.com>
-References: <1421773286-1039-1-git-send-email-Larry.Finger@lwfinger.net>
-	<873871msc7.fsf@kamboji.qca.qualcomm.com>
-	<54C27975.50501@lwfinger.net>
+From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Subject: Re: [PATCH 3/6] rtlwifi: btcoexist: Add routines for RTL8812AE with
+ single antenna
+Date: Fri, 23 Jan 2015 14:24:27 -0600
+Message-ID: <54C2ADFB.2080806@lwfinger.net>
+References: <1422033044-7461-1-git-send-email-Larry.Finger@lwfinger.net>	<1422033044-7461-4-git-send-email-Larry.Finger@lwfinger.net> <87r3uljm7o.fsf@kamboji.qca.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	=?utf-8?Q?tr?=
-	 =?utf-8?Q?oy=5Ftan=40realsil=2Ecom=2Ecn_=3E=3E_=E8=B0=AD=E6=9D=AD?=
-	 =?utf-8?Q?=E6=B3=A2?= <troy_tan@realsil.com.cn>
-To: Larry Finger <Larry.Finger@lwfinger.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.11.231]:47415 "EHLO
-	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755381AbbAWUYR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jan 2015 15:24:17 -0500
-In-Reply-To: <54C27975.50501@lwfinger.net> (Larry Finger's message of "Fri, 23
-	Jan 2015 10:40:21 -0600")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Troy Tan <troy_tan-kXabqFNEczNtrwSWzY7KCg@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <87r3uljm7o.fsf-HodKDYzPHsUD5k0oWYwrnHL1okKdlPRT@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Larry Finger <Larry.Finger@lwfinger.net> writes:
+On 01/23/2015 02:06 PM, Kalle Valo wrote:
+> Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org> writes:
+>
+>> From: Troy Tan <troy_tan-kXabqFNEczNtrwSWzY7KCg@public.gmane.org>
+>>
+>> The RTL8812AE needs different BT coexistence routines than does the
+>> RTL8821AE. This patch adds the necessary routines for devices with a
+>> single antenna.
+>>
+>> Signed-off-by: Troy Tan <troy_tan-kXabqFNEczNtrwSWzY7KCg@public.gmane.org>
+>> Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+>> ---
+>>   .../wireless/rtlwifi/btcoexist/halbtc8812a1ant.c   | 2073 ++++++++++++++++++++
+>>   .../wireless/rtlwifi/btcoexist/halbtc8812a1ant.h   |  152 ++
+>>   2 files changed, 2225 insertions(+)
+>>   create mode 100644 drivers/net/wireless/rtlwifi/btcoexist/halbtc8812a1ant.c
+>>   create mode 100644 drivers/net/wireless/rtlwifi/btcoexist/halbtc8812a1ant.h
+>>
+>> diff --git a/drivers/net/wireless/rtlwifi/btcoexist/halbtc8812a1ant.c b/drivers/net/wireless/rtlwifi/btcoexist/halbtc8812a1ant.c
+>> new file mode 100644
+>> index 0000000..11ae66b
+>> --- /dev/null
+>> +++ b/drivers/net/wireless/rtlwifi/btcoexist/halbtc8812a1ant.c
+>> @@ -0,0 +1,2073 @@
+>> +/*  */
+>> +/*  Description: */
+>> +/*  */
+>> +/*  This file is for 8812a1ant Co-exist mechanism */
+>> +/*  */
+>> +/*  History */
+>> +/*  2012/11/15 Cosa first check in. */
+>> +/*  */
+>> +/*  */
+>> +
+>> +/*  */
+>> +/*  include files */
+>> +/*  */
+>
+> One problem I see is that there's no license on either of the files. It
+> would be much better if the files had that.
 
-> It is too bad that it took so long to get these ready. I think the
-> reason that there are not a lot of bug reports is because the
-> complaints are all in the GitHub issues for the rtlwifi_new repo, or
-> with Ubuntu. If there are any that get filed against Bugzilla, I will
-> refer them to that repo.
+I will add that and send a V2 after I wait a while for any other comments.
 
-Ok.
+Thanks,
 
-> Driver rtl8192ee was new in 3.18. There had been a previous version in
-> staging, but it did not get a lot of usage. I'm not sure if the
-> additional usage after 3.18 was due to the driver being in the regular
-> tree, or if vendors started using the chips, but the problem reports
-> started arriving. All these bugs have been part of rtl8192ee since it
-> has been in the kernel, thus they are hard to categorize as
-> regressions.
+Larry
 
-Good. So we are not going backwards in quality, that's most important.
 
-> Push all 7 into -next so that they will be in 3.20. If you think it to
-> be prudent, please leave the Cc for stable. That way 3.18 and 3.19
-> will eventually get the fixes.
 
-I think that's the best plan, thanks for understanding. The patches are
-in my queue and I should apply them within the next few days, unless
-anything comes during the review.
-
--- 
-Kalle Valo
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
