@@ -1,67 +1,151 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: Fwd: Question on SCTP ABORT chunk is generated when the association_max_retrans
- is reached
-Date: Fri, 23 Jan 2015 11:05:11 -0500
-Message-ID: <54C27137.5010405@gmail.com>
-References: <CAFXGftKp3=OfjkCVBuR-zM3+uZ42Sk_9i2UjAHBNnbX=hQJwpA@mail.gmail.com> <CAFXGft+fwo=8LJEG7h6uOpGciSo5f_dXjSx3sn67RZZp7jsYHw@mail.gmail.com> <54C23581.9060809@redhat.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next v3 2/5] swdevice: add new api to set and del
+ bridge port attributes
+Date: Fri, 23 Jan 2015 17:06:36 +0100
+Message-ID: <20150123160636.GM2065@nanopsycho.orion>
+References: <1421987606-10884-3-git-send-email-roopa@cumulusnetworks.com>
+ <20150123104127.GC2065@nanopsycho.orion>
+ <54C26FC1.70605@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Daniel Borkmann <dborkman@redhat.com>, Sun Paul <paulrbk@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <54C23581.9060809@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: sfeldma@gmail.com, jhs@mojatatu.com, bcrl@kvack.org, tgraf@suug.ch,
+	john.fastabend@gmail.com, stephen@networkplumber.org,
+	vyasevic@redhat.com, ronen.arad@intel.com, netdev@vger.kernel.org,
+	davem@davemloft.net, shm@cumulusnetworks.com,
+	gospo@cumulusnetworks.com
+To: roopa <roopa@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f172.google.com ([209.85.212.172]:54957 "EHLO
+	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750919AbbAWQGj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jan 2015 11:06:39 -0500
+Received: by mail-wi0-f172.google.com with SMTP id bs8so3863073wib.5
+        for <netdev@vger.kernel.org>; Fri, 23 Jan 2015 08:06:38 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <54C26FC1.70605@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/23/2015 06:50 AM, Daniel Borkmann wrote:
-> Hi,
-> 
-> On 01/23/2015 11:25 AM, Sun Paul wrote:
-> ...
->> I would like to check the behave in LKSCTP.
+Fri, Jan 23, 2015 at 04:58:57PM CET, roopa@cumulusnetworks.com wrote:
+>On 1/23/15, 2:41 AM, Jiri Pirko wrote:
+>
+><snip..>
 >>
->> we are running DIAMETER message over SCTP, and we have set the
->> parameter "net.sctp.association_max_retrans = 4" in the LinuxOS.
+>>diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
+>>index d162b21..bf0be98 100644
+>>--- a/net/switchdev/switchdev.c
+>>+++ b/net/switchdev/switchdev.c
+>>@@ -50,3 +50,73 @@ int netdev_switch_port_stp_update(struct net_device *dev, u8 state)
+>>	return ops->ndo_switch_port_stp_update(dev, state);
+>>}
+>>EXPORT_SYMBOL(netdev_switch_port_stp_update);
+>>+
+>>+/**
+>>+ *	netdev_switch_port_bridge_setlink - Notify switch device port of bridge
+>>+ *	port attributes
+>>+ *
+>>+ *	@dev: port device
+>>+ *	@nlh: netlink msg with bridge port attributes
+>>+ *
+>>+ *	Notify switch device port of bridge port attributes
+>>+ */
+>>+int netdev_switch_port_bridge_setlink(struct net_device *dev,
+>>+				      struct nlmsghdr *nlh, u16 flags)
+>>+{
+>>+	const struct net_device_ops *ops = dev->netdev_ops;
+>>+	struct net_device *lower_dev;
+>>+	struct list_head *iter;
+>>+	int ret = 0, err = 0;
+>>+
+>>+	if (!(dev->features & NETIF_F_HW_NETFUNC_OFFLOAD))
+>>+		return err;
+>>+
+>>+	if (ops->ndo_bridge_setlink) {
+>>+		WARN_ON(!ops->ndo_switch_parent_id_get);
+>>+		return ops->ndo_bridge_setlink(dev, nlh, flags);
+>>+	}
+>>+
+>>+	netdev_for_each_lower_dev(dev, lower_dev, iter) {
+>>+		err = netdev_switch_port_bridge_setlink(lower_dev, nlh, flags);
+>>+		if (err)
+>>+			ret = err;
+>>+	}
+>>+
+>>+	return ret;
+>>+}
+>>+EXPORT_SYMBOL(netdev_switch_port_bridge_setlink);
+>>+
+>>+/**
+>>+ *	netdev_switch_port_bridge_dellink - Notify switch device port of bridge
+>>+ *	attribute delete
+>>+ *
+>>+ *	@dev: port device
+>>+ *	@nlh: netlink msg with bridge port attributes
+>>+ *
+>>+ *	Notify switch device port of bridge port attribute delete
+>>+ */
+>>+int netdev_switch_port_bridge_dellink(struct net_device *dev,
+>>+				      struct nlmsghdr *nlh, u16 flags)
+>>+{
+>>+	const struct net_device_ops *ops = dev->netdev_ops;
+>>+	struct net_device *lower_dev;
+>>+	struct list_head *iter;
+>>+	int ret = 0, err = 0;
+>>+
+>>+	if (!(dev->features & NETIF_F_HW_NETFUNC_OFFLOAD))
+>>+		return err;
+>>+
+>>+	if (ops->ndo_bridge_dellink) {
+>>+		WARN_ON(!ops->ndo_switch_parent_id_get);
+>>+		return ops->ndo_bridge_dellink(dev, nlh, flags);
+>>+	}
+>>+
+>>+	netdev_for_each_lower_dev(dev, lower_dev, iter) {
+>>+		err = netdev_switch_port_bridge_dellink(lower_dev, nlh, flags);
+>>+		if (err)
+>>+			ret = err;
+>>+	}
+>>+
+>>+	return ret;
+>>+}
+>>+EXPORT_SYMBOL(netdev_switch_port_bridge_dellink);
+>>-- 
+>>1.7.10.4
 >>
->> We noticed that when remote peer have retry to send the same request
->> for 4 times, the LKSCTP will initiate an ABORT chunk with reason
->> "association exceeded its max_retrans count".
+>>Is there any other place, other than bridge code, this functions are
+>>suppored to be called from?
+>No other place today. Its usually the master that implements
+>ndo_bridge_setlink/dellink.
+>
+>>If not, which I consider likely, it would
+>>make more sense to me to:
 >>
->> We would like to know whether this is the correct behavior? is there
->> any other option that we can alter in order to avoid the ABORT chunk
->> being sent?
-> 
-> I don't recall the RFC saying to send an ABORT, but let me double
-> check in the mean time.
+>>- move netdev_for_each_lower_dev iterations directly to bridge code
+>>- let the masters (bond, team, ..) implement ndo_bridge_*link and do
+>>   the traversing there (can be in a form of pre-prepared default
+>>   ndo callback (ndo_dflt_netdev_switch_port_bridge_*link)
+>But, i am still not understanding why i would modify bond, team and other
+>slaves
 
-The RFC is silent on the matter.  The abort got added in 3.8 so
-it's been there for a while.
+Well, that is the usual way to propagate ndo calls. People are used to
+this. It is visible right away in bonding/other code that is propagated
+some ndo call to slaves. With your code, that is somehow hidden and only
+dependent on NETIF_F_HW_NETFUNC_OFFLOAD flag.
 
+Note that there are only couple of "master drivers" (for this, most likely
+only bond and team modifications are needed).
+ 
 
-> 
-> Hmm, untested, but could you try something like that?
-> 
-> diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
-> index fef2acd..5ce198d 100644
-> --- a/net/sctp/sm_sideeffect.c
-> +++ b/net/sctp/sm_sideeffect.c
-> @@ -584,7 +584,8 @@ static void sctp_cmd_assoc_failed(sctp_cmd_seq_t *commands,
->          sctp_add_cmd_sf(commands, SCTP_CMD_EVENT_ULP,
->                  SCTP_ULPEVENT(event));
-> 
-> -    if (asoc->overall_error_count >= asoc->max_retrans) {
-> +    if (asoc->overall_error_count >= asoc->max_retrans &&
-> +        error != SCTP_ERROR_NO_ERROR) {
->          abort = sctp_make_violation_max_retrans(asoc, chunk);
->          if (abort)
->              sctp_add_cmd_sf(commands, SCTP_CMD_REPLY,
-
-
-This would pretty much stop all ABORTs due to excessive rtx.  Might
-as well take the code out :).
-
-I was a bit concerned about this ABORT when it went in.
-
--vlad
+>to offload bridge attributes. They could independently do so in the future if
+>they
+>want to do something more than what this default api provides.
+>The api's setlink/dellink provided by this patch are the default api's.
+>The drivers can override them if needed in the future (which aligns with what
+>you want as well).
+>
+>Thanks,
+>Roopa
+>
+>
+>
+>
