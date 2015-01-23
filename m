@@ -1,67 +1,83 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [PATCH net-next 0/3] openvswitch: Add STT support.
-Date: Fri, 23 Jan 2015 10:25:26 -0800
-Message-ID: <CA+mtBx87bZBnY_9cgQ7k=xsD0VGZUt0rc9DjhSqhpeH3LZiuFw@mail.gmail.com>
-References: <1421785536-19793-1-git-send-email-pshelar@nicira.com>
-	<CA+mtBx_z3trTkK2qnVboXv7sJNjMHLr9V+4A=aFqyMo_0p1_Eg@mail.gmail.com>
-	<CAEP_g=-sVSwewV=7qAYQNtBRVSrUOAjNCpfwniNq_WPg2FVpFA@mail.gmail.com>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: Fwd: Question on SCTP ABORT chunk is generated when the association_max_retrans
+ is reached
+Date: Fri, 23 Jan 2015 13:30:55 -0500
+Message-ID: <54C2935F.2000105@gmail.com>
+References: <CAFXGftKp3=OfjkCVBuR-zM3+uZ42Sk_9i2UjAHBNnbX=hQJwpA@mail.gmail.com> <CAFXGft+fwo=8LJEG7h6uOpGciSo5f_dXjSx3sn67RZZp7jsYHw@mail.gmail.com> <54C23581.9060809@redhat.com> <54C27137.5010405@gmail.com> <54C2807E.8080607@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Pravin B Shelar <pshelar@nicira.com>,
-	David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Jesse Gross <jesse@nicira.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f181.google.com ([209.85.213.181]:53141 "EHLO
-	mail-ig0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754585AbbAWSZ2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jan 2015 13:25:28 -0500
-Received: by mail-ig0-f181.google.com with SMTP id hn18so3402995igb.2
-        for <netdev@vger.kernel.org>; Fri, 23 Jan 2015 10:25:27 -0800 (PST)
-In-Reply-To: <CAEP_g=-sVSwewV=7qAYQNtBRVSrUOAjNCpfwniNq_WPg2FVpFA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Sun Paul <paulrbk@gmail.com>, linux-sctp@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	tuexen@fh-muenster.de
+To: Daniel Borkmann <dborkman@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <54C2807E.8080607@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jan 23, 2015 at 9:38 AM, Jesse Gross <jesse@nicira.com> wrote:
-> On Fri, Jan 23, 2015 at 8:58 AM, Tom Herbert <therbert@google.com> wrote:
->> On Tue, Jan 20, 2015 at 12:25 PM, Pravin B Shelar <pshelar@nicira.com> wrote:
->>> Following patch series adds support for Stateless Transport
->>> Tunneling protocol.
->>> STT uses TCP segmentation offload available in most of NIC. On
->>> packet xmit STT driver appends STT header along with TCP header
->>> to the packet. For GSO packet GSO parameters are set according
->>> to tunnel configuration and packet is handed over to networking
->>> stack. This allows use of segmentation offload available in NICs
+On 01/23/2015 12:10 PM, Daniel Borkmann wrote:
+> On 01/23/2015 05:05 PM, Vlad Yasevich wrote:
+>> On 01/23/2015 06:50 AM, Daniel Borkmann wrote:
+>>> On 01/23/2015 11:25 AM, Sun Paul wrote:
+>>> ...
+>>>> I would like to check the behave in LKSCTP.
+>>>>
+>>>> we are running DIAMETER message over SCTP, and we have set the
+>>>> parameter "net.sctp.association_max_retrans = 4" in the LinuxOS.
+>>>>
+>>>> We noticed that when remote peer have retry to send the same request
+>>>> for 4 times, the LKSCTP will initiate an ABORT chunk with reason
+>>>> "association exceeded its max_retrans count".
+>>>>
+>>>> We would like to know whether this is the correct behavior? is there
+>>>> any other option that we can alter in order to avoid the ABORT chunk
+>>>> being sent?
 >>>
->>> Netperf unidirectional test gives ~9.4 Gbits/s performance on 10Gbit
->>> NIC with 1500 byte MTU with two TCP streams.
->>>
->> The reason you're able to get 9.4 Gbit/s with an L2 encapsulation
->> using STT is that it has less protocol overhead per packet when doing
->> segmentation compared to VXLAN (without segmentation STT packets will
->> have more overhead than VXLAN).
+>>> I don't recall the RFC saying to send an ABORT, but let me double
+>>> check in the mean time.
 >>
->> A VXLAN packet with TCP/IP has headers
->> IP|UDP|VXLAN|Ethernet|IP|TCP+options. Assuming TCP is stuffed with
->> options, this is 20+8+8+16+20+40=112 bytes, or 7.4% MTU. Each STT
->> segment created in GSO, other than the first, has just IP|TCP headers
->> which is 20+20=40 bytes or 2.6% MTU. So this explains throughput
->> differences between VXLAN and STT.
->
-> Tom, what performance do you see with a single stream of VXLAN running
-> on net-next with default configuration? The difference in numbers
-> being posted here is greater than a few percent caused by protocol
-> overheard.
+>> The RFC is silent on the matter.  The abort got added in 3.8 so
+>> it's been there for a while.
+> 
+> I see, commit de4594a51c90 ("sctp: send abort chunk when max_retrans
+> exceeded") added the behaviour.
+> 
+>>> Hmm, untested, but could you try something like that?
+>>>
+>>> diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
+>>> index fef2acd..5ce198d 100644
+>>> --- a/net/sctp/sm_sideeffect.c
+>>> +++ b/net/sctp/sm_sideeffect.c
+>>> @@ -584,7 +584,8 @@ static void sctp_cmd_assoc_failed(sctp_cmd_seq_t *commands,
+>>>           sctp_add_cmd_sf(commands, SCTP_CMD_EVENT_ULP,
+>>>                   SCTP_ULPEVENT(event));
+>>>
+>>> -    if (asoc->overall_error_count >= asoc->max_retrans) {
+>>> +    if (asoc->overall_error_count >= asoc->max_retrans &&
+>>> +        error != SCTP_ERROR_NO_ERROR) {
+>>>           abort = sctp_make_violation_max_retrans(asoc, chunk);
+>>>           if (abort)
+>>>               sctp_add_cmd_sf(commands, SCTP_CMD_REPLY,
+>>
+>> This would pretty much stop all ABORTs due to excessive rtx.  Might
+>> as well take the code out :).
+>>
+>> I was a bit concerned about this ABORT when it went in.
+> 
+> So effectively, if I understand the argument from the commit, the
+> assumption is that the ABORT would never reach the peer anyway, but
+> is a way for tcpdump users to see on the wire that rtx limit has
+> been exceeded and since there's not mentioned anything in the RFC
+> about this, it doesn't break it. Hm.
+> 
 
-Please look at the data I posted with the VXLAN RCO patches.
+Additionally I seem to recall BSD sending this type of ABORT for pretty
+much the same reason.
 
-TCP/IP 10Gbps with 1500 byte MTU, 14 bytes for Ethernet header, 15
-bytes for preamble, FCS, IPG, and no TCP options gives 9.54Gbps
-maximum throughput. About what you see in STT minus overhead in first
-segment.
+-vlad
 
-TCP/IPv4 on VXLAN with TCP options gives max throughout 9.09Gbps,
-TCP/IPv6 over VXLAN then gives 8.96Gbps. Pretty much what we see give
-or take a few bytes for TCP options and rounding error.
-
-Tom
+> Sun Paul, what exactly broke in your scenario? Can you be more explicit?
+> 
+> Thanks,
+> Daniel
