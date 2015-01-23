@@ -1,227 +1,162 @@
-From: "Ahmed S. Darwish" <darwish.07@gmail.com>
-Subject: Re: [PATCH v5 2/5] can: kvaser_usb: Consolidate and unify state
- change handling
-Date: Fri, 23 Jan 2015 08:07:34 +0200
-Message-ID: <20150123060734.GA7949@Darwish.PC>
-References: <20141223154654.GB6460@vivalin-002>
- <20150120214409.GA16828@linux>
- <20150120214537.GB16828@linux>
- <20150121103319.14511.57709@shannon>
- <e5439ed067931dc01bda70592eb6ed52@grandegger.com>
- <20150121144323.GA17070@linux>
- <20150121150015.31351.6605@shannon>
- <20150121153647.GB17070@linux>
- <49707d45a389a1acb9ccec4295d05762@grandegger.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andri Yngvason <andri.yngvason@marel.com>,
-	Olivier Sobrie <olivier@sobrie.be>,
-	Oliver Hartkopp <socketcan@hartkopp.net>,
-	Marc Kleine-Budde <mkl@pengutronix.de>,
-	Linux-CAN <linux-can@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Wolfgang Grandegger <wg@grandegger.com>
-Return-path: <linux-can-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <49707d45a389a1acb9ccec4295d05762@grandegger.com>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: roopa@cumulusnetworks.com
+Subject: [PATCH net-next v2] iproute2: bridge: support vlan range
+Date: Thu, 22 Jan 2015 22:25:10 -0800
+Message-ID: <1421994310-48811-1-git-send-email-roopa@cumulusnetworks.com>
+Cc: wkok@cumulusnetworks.com, sfeldma@gmail.com
+To: davem@davemloft.net, stephen@networkplumber.org,
+	netdev@vger.kernel.org, vyasevic@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:40230 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753177AbbAWGZY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jan 2015 01:25:24 -0500
+Received: by mail-pa0-f54.google.com with SMTP id eu11so6584773pac.13
+        for <netdev@vger.kernel.org>; Thu, 22 Jan 2015 22:25:23 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 21, 2015 at 05:13:45PM +0100, Wolfgang Grandegger wrote:
-> On Wed, 21 Jan 2015 10:36:47 -0500, "Ahmed S. Darwish"
-> <darwish.07@gmail.com> wrote:
-> > On Wed, Jan 21, 2015 at 03:00:15PM +0000, Andri Yngvason wrote:
-> >> Quoting Ahmed S. Darwish (2015-01-21 14:43:23)
-> >> > Hi!
-> > 
-> > ...
-> > 
-> >> > <-- Unplug the cable -->
-> >> > 
-> >> >  (000.009106)  can0  20000080   [8]  00 00 00 00 00 00 08 00  
-> >> >  ERRORFRAME
-> >> >         bus-error
-> >> >         error-counter-tx-rx{{8}{0}}
-> >> >  (000.001872)  can0  20000080   [8]  00 00 00 00 00 00 10 00  
-> 
-> For a bus-errors I would also expcect some more information in the
-> data[2..3] fields. But these are always zero.
-> 
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
 
-M16C error factors made it possible to report things like
-CAN_ERR_PROT_FORM/STUFF/BIT0/BIT1/TX in data[2], and
-CAN_ERR_PROT_LOC_ACK/CRC_DEL in data[3].
+This patch adds vlan range support to bridge command
+using the newly added vinfo flags BRIDGE_VLAN_INFO_RANGE_BEGIN and
+BRIDGE_VLAN_INFO_RANGE_END.
 
-Unfortunately such error factors are only reported in Leaf, but
-not in USBCan-II due to the wire format change in the error event:
+$bridge vlan show
+port    vlan ids
+br0      1 PVID Egress Untagged
 
-	struct leaf_msg_error_event {
-		u8 tid;
-		u8 flags;
-		__le16 time[3];
-		u8 channel;
-		u8 padding;
-		u8 tx_errors_count;
-		u8 rx_errors_count;
-		u8 status;
-		u8 error_factor;
-	} __packed;
+dummy0   1 PVID Egress Untagged
 
-	struct usbcan_msg_error_event {
-		u8 tid;
-		u8 padding;
-		u8 tx_errors_count_ch0;
-		u8 rx_errors_count_ch0;
-		u8 tx_errors_count_ch1;
-		u8 rx_errors_count_ch1;
-		u8 status_ch0;
-		u8 status_ch1;
-		__le16 time;
-	} __packed;
+$bridge vlan add vid 10-15 dev dummy0
+port    vlan ids
+br0      1 PVID Egress Untagged
 
-I speculate that the wire format was changed due to controller
-bugs in the USBCan-II, which was slightly mentioned in their
-data sheets here:
+dummy0   1 PVID Egress Untagged
+         10
+         11
+         12
+         13
+         14
+         15
 
-	http://www.kvaser.com/canlib-webhelp/page_hardware_specific_can_controllers.html
+$bridge vlan del vid 14 dev dummy0
 
-So it seems there's really no way for filling such bus error
-info given the very limited amount of data exported :-(
+$bridge vlan show
+port    vlan ids
+br0      1 PVID Egress Untagged
 
-The issue of incomplete data does not even stop here, kindly
-check below notes regarding reverse state transitions:
+dummy0   1 PVID Egress Untagged
+         10
+         11
+         12
+         13
+         15
 
-> >> >  ERRORFRAME
-> >> >         bus-error
-> >> >         error-counter-tx-rx{{16}{0}}
-> >> [...]
-> >> >         error-counter-tx-rx{{80}{0}}
-> >> >  (000.001910)  can0  20000080   [8]  00 00 00 00 00 00 58 00  
-> >> >  ERRORFRAME
-> >> >         bus-error
-> >> >         error-counter-tx-rx{{88}{0}}
-> >> >  (000.001753)  can0  20000084   [8]  00 08 00 00 00 00 60 00  
-> >> >  ERRORFRAME
-> >> >         controller-problem{tx-error-warning}
-> >> Good.
-> >> >         bus-error
-> >> >         error-counter-tx-rx{{96}{0}}
-> > 
-> > Nice.
-> > 
-> >> >  (000.001720)  can0  20000080   [8]  00 00 00 00 00 00 68 00  
-> >> >  ERRORFRAME
-> >> >         bus-error
-> >> >         error-counter-tx-rx{{104}{0}}
-> >> >  (000.001876)  can0  20000080   [8]  00 00 00 00 00 00 70 00  
-> >> >  ERRORFRAME
-> >> >         bus-error
-> >> >         error-counter-tx-rx{{112}{0}}
-> >> >  (000.001749)  can0  20000080   [8]  00 00 00 00 00 00 78 00  
-> >> >  ERRORFRAME
-> >> >         bus-error
-> >> >         error-counter-tx-rx{{120}{0}}
-> >> >  (000.001771)  can0  20000084   [8]  00 20 00 00 00 00 80 00  
-> >> >  ERRORFRAME
-> >> >         controller-problem{tx-error-passive}
-> >> Also good.
-> >> >         bus-error
-> >> >         error-counter-tx-rx{{128}{0}}
-> > 
-> > Also nice :-)
-> > 
-> >> >  (000.001868)  can0  20000080   [8]  00 00 00 00 00 00 80 00  
-> >> >  ERRORFRAME
-> >> >         bus-error
-> >> >         error-counter-tx-rx{{128}{0}}
-> >> >  (000.001982)  can0  20000080   [8]  00 00 00 00 00 00 80 00  
-> >> >  ERRORFRAME
-> >> >         bus-error
-> >> >         error-counter-tx-rx{{128}{0}}
-> >> > 
-> >> > (( Then a continous flood, exactly similar to the above packet,
-> >> > appears.
-> >> >    Unfortunately this flooding is a firmware problem. ))
-> >> > 
-> >> > <-- Replug the cable, after a good amount of time -->
-> >> >
-> >> Where are the reverse state transitions?
-> >> > 
-> > 
-> > Hmmm...
-> > 
-> > [ ... ]
-> >> 
-> >> Reverse state transitions are missing from the logs. See comments
-> above.
-> >> 
-> > 
-> > When the device is on the _receiving_ end, and I unplug the CAN cable
-> after
-> > introducing some noise to the level of reaching WARNING or PASSIVE, I
-> > receive a BUS_ERROR event with the rxerr count reset back to 0 or 1. In
-> > that case, the driver correctly transitions back the state to
-> ERROR_ACTIVE
-> > and candump produces something similar to:
-> > 
-> >     (000.000362)  can0  2000008C   [8]  00 40 40 00 00 00 00 01  
-> >     ERRORFRAME
-> >     controller-problem{}
-> >     protocol-violation{{back-to-error-active}{}}
-> >     bus-error
-> >     error-counter-tx-rx{{0}{1}}
-> > 
-> > which is, AFAIK, the correct behaviour from the driver side.
-> > 
-> > Meanwhile, when the device is on the _sending_ end and I re-plug the CAN
-> > cable again. Sometimes I receive events with txerr reset to 0 or 1, and
-> > the driver correctly reverts back to ERROR_ACTIVE in that case. But on
-> > another times like the quoted case above, I don't receive any events
-> > resetting txerr back -- only data packets on the bus.
-> 
-> Well, the firmware seems to report *only* bus-errors via
-> CMD_CAN_ERROR_EVENT messages, also carrying the new state, but no
-> CMD_CHIP_STATE_EVENT just for the state changes.
-> 
+$bridge vlan del vid 10-15 dev dummy0
 
-I've dumped _every_ message I receive from the firmware while
-disconnecting the CAN bus, waiting a while, and connecting it again.
-I really received _nothing_ from the firmware when the CAN bus was
-reconnected and the data packets were flowing again. Not even a
-single CHIP_STATE_EVENT, even after waiting for a long time.
+$bridge vlan show
+port    vlan ids
+br0      1 PVID Egress Untagged
 
-So it's basically:
-...
-ERR EVENT, txerr=128, rxerr=0
-ERR EVENT, txerr=128, rxerr=0
-ERR EVENT, txerr=128, rxerr=0
-...
+dummy0   1 PVID Egress Untagged
 
-then complete silence, except the data frames. I've even tried with
-different versions of the firmware, but the same behaviour persisted.
+v2: fix vid check
 
-> > So, What can the driver do given the above?
-> 
-> Little if the notification does not come.
-> 
+Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+Signed-off-by: Wilson Kok <wkok@cumulusnetworks.com>
+---
+ bridge/vlan.c             |   44 ++++++++++++++++++++++++++++++++++++++++----
+ include/linux/if_bridge.h |    2 ++
+ 2 files changed, 42 insertions(+), 4 deletions(-)
 
-We can poll the state by sending CMD_GET_CHIP_STATE to the firmware,
-and it will hopefully reply with a CHIP_STATE_EVENT response
-containing the new txerr and rxerr values that we can use for
-reverse state transitions.
-
-But do we _really_ want to go through the path? I feel that it will
-open some cans of worms w.r.t. concurrent access to both the netdev
-and USB stacks from a single driver.
-
-A possible solution can be setting up a kernel thread that queries
-for a CHIP_STATE_EVENT every second?
-
-Your inputs on this is appreciated.
-
-> Wolfgang.
-> 
-
-Regards,
-Darwish
+diff --git a/bridge/vlan.c b/bridge/vlan.c
+index 3bd7b0d..88992e6 100644
+--- a/bridge/vlan.c
++++ b/bridge/vlan.c
+@@ -32,6 +32,7 @@ static int vlan_modify(int cmd, int argc, char **argv)
+ 	} req;
+ 	char *d = NULL;
+ 	short vid = -1;
++	short vid_end = -1;
+ 	struct rtattr *afspec;
+ 	struct bridge_vlan_info vinfo;
+ 	unsigned short flags = 0;
+@@ -49,8 +50,18 @@ static int vlan_modify(int cmd, int argc, char **argv)
+ 			NEXT_ARG();
+ 			d = *argv;
+ 		} else if (strcmp(*argv, "vid") == 0) {
++			char *p;
+ 			NEXT_ARG();
+-			vid = atoi(*argv);
++			p = strchr(*argv, '-');
++			if (p) {
++				*p = '\0';
++				p++;
++				vid = atoi(*argv);
++				vid_end = atoi(p);
++				vinfo.flags |= BRIDGE_VLAN_INFO_RANGE_BEGIN;
++			} else {
++				vid = atoi(*argv);
++			}
+ 		} else if (strcmp(*argv, "self") == 0) {
+ 			flags |= BRIDGE_FLAGS_SELF;
+ 		} else if (strcmp(*argv, "master") == 0) {
+@@ -83,15 +94,40 @@ static int vlan_modify(int cmd, int argc, char **argv)
+ 		return -1;
+ 	}
+ 
+-	vinfo.vid = vid;
++	if (vinfo.flags & BRIDGE_VLAN_INFO_RANGE_BEGIN) {
++		if (vid_end == -1 || vid_end >= 4096 || vid >= vid_end) {
++			fprintf(stderr, "Invalid VLAN range \"%hu-%hu\"\n",
++				vid, vid_end);
++			return -1;
++		}
++		if (vinfo.flags & BRIDGE_VLAN_INFO_PVID) {
++			fprintf(stderr,
++				"pvid cannot be configured for a vlan range\n");
++			return -1;
++		}
++	}
+ 
+ 	afspec = addattr_nest(&req.n, sizeof(req), IFLA_AF_SPEC);
+ 
+ 	if (flags)
+ 		addattr16(&req.n, sizeof(req), IFLA_BRIDGE_FLAGS, flags);
+ 
+-	addattr_l(&req.n, sizeof(req), IFLA_BRIDGE_VLAN_INFO, &vinfo,
+-		  sizeof(vinfo));
++	vinfo.vid = vid;
++	if (vid_end != -1) {
++		/* send vlan range start */
++		addattr_l(&req.n, sizeof(req), IFLA_BRIDGE_VLAN_INFO, &vinfo,
++			  sizeof(vinfo));
++		vinfo.flags &= ~BRIDGE_VLAN_INFO_RANGE_BEGIN;
++
++		/* Now send the vlan range end */
++		vinfo.flags |= BRIDGE_VLAN_INFO_RANGE_END;
++		vinfo.vid = vid_end;
++		addattr_l(&req.n, sizeof(req), IFLA_BRIDGE_VLAN_INFO, &vinfo,
++			  sizeof(vinfo));
++	} else {
++		addattr_l(&req.n, sizeof(req), IFLA_BRIDGE_VLAN_INFO, &vinfo,
++			  sizeof(vinfo));
++	}
+ 
+ 	addattr_nest_end(&req.n, afspec);
+ 
+diff --git a/include/linux/if_bridge.h b/include/linux/if_bridge.h
+index 19ff22a..efa10b8 100644
+--- a/include/linux/if_bridge.h
++++ b/include/linux/if_bridge.h
+@@ -125,6 +125,8 @@ enum {
+ #define BRIDGE_VLAN_INFO_MASTER	(1<<0)	/* Operate on Bridge device as well */
+ #define BRIDGE_VLAN_INFO_PVID	(1<<1)	/* VLAN is PVID, ingress untagged */
+ #define BRIDGE_VLAN_INFO_UNTAGGED	(1<<2)	/* VLAN egresses untagged */
++#define BRIDGE_VLAN_INFO_RANGE_BEGIN	(1<<3) /* VLAN is start of vlan range */
++#define BRIDGE_VLAN_INFO_RANGE_END	(1<<4)	/* VLAN is end of vlan range */
+ 
+ struct bridge_vlan_info {
+ 	__u16 flags;
+-- 
+1.7.10.4
