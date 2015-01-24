@@ -1,76 +1,64 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH] net: dsa/mv88e6352: make mv88e6352_wait generic
-Date: Fri, 23 Jan 2015 18:34:41 -0500
-Message-ID: <1422056081-30088-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-	Guenter Roeck <linux@roeck-us.net>,
-	linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com
-To: netdev@vger.kernel.org
+From: "Vick, Matthew" <matthew.vick@intel.com>
+Subject: Re: [PATCH] ethernet: fm10k: Actually drop 4 bits
+Date: Sat, 24 Jan 2015 00:18:59 +0000
+Message-ID: <D0E81E0C.682EB%matthew.vick@intel.com>
+References: <1421967198-16667-1-git-send-email-linux@rasmusvillemoes.dk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Rasmus Villemoes <linux@rasmusvillemoes.dk>,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([209.172.62.77]:53323 "EHLO
-	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751395AbbAWXeq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jan 2015 18:34:46 -0500
+Received: from mga03.intel.com ([134.134.136.65]:2854 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751602AbbAXATE convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jan 2015 19:19:04 -0500
+In-Reply-To: <1421967198-16667-1-git-send-email-linux@rasmusvillemoes.dk>
+Content-Language: en-US
+Content-ID: <543D00244348774BBCF40F383798268E@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Some busy bits are available in the global register 1, such as the ATU
-Busy bit. We may want to use this function to wait for them to change,
-so add a new parameter to mv88e6352_wait() instead of hard-coding
-REG_GLOBAL2.
+On 1/22/15, 2:53 PM, "Rasmus Villemoes" <linux@rasmusvillemoes.dk> wrote:
 
-In the meantime, since the REG_READ() macro already checks for error,
-remove the redundant check for ret < 0.
+>The comment explains the intention, but vid has type u16. Before the
+>inner shift, it is promoted to int, which has plenty of space for all
+>vid's bits, so nothing is dropped. Use a simple mask instead.
+>
+>Signed-off-by: Rasmus Villemoes <linux@rasmusvillemoes.dk>
+>---
+> drivers/net/ethernet/intel/fm10k/fm10k_pf.c | 2 +-
+> 1 file changed, 1 insertion(+), 1 deletion(-)
+>
+>diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_pf.c
+>b/drivers/net/ethernet/intel/fm10k/fm10k_pf.c
+>index 275423d4f777..b1c57d0166a9 100644
+>--- a/drivers/net/ethernet/intel/fm10k/fm10k_pf.c
+>+++ b/drivers/net/ethernet/intel/fm10k/fm10k_pf.c
+>@@ -335,7 +335,7 @@ static s32 fm10k_update_xc_addr_pf(struct fm10k_hw
+>*hw, u16 glort,
+> 		return FM10K_ERR_PARAM;
+> 
+> 	/* drop upper 4 bits of VLAN ID */
+>-	vid = (vid << 4) >> 4;
+>+	vid &= 0x0fff;
+> 
+> 	/* record fields */
+> 	mac_update.mac_lower = cpu_to_le32(((u32)mac[2] << 24) |
 
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
----
- drivers/net/dsa/mv88e6352.c | 13 +++++--------
- 1 file changed, 5 insertions(+), 8 deletions(-)
+Good catch! I noticed this too and was getting a patch together to address
+this.
 
-diff --git a/drivers/net/dsa/mv88e6352.c b/drivers/net/dsa/mv88e6352.c
-index 258d9ef..e13adc7 100644
---- a/drivers/net/dsa/mv88e6352.c
-+++ b/drivers/net/dsa/mv88e6352.c
-@@ -22,17 +22,14 @@
- #include <net/dsa.h>
- #include "mv88e6xxx.h"
- 
--static int mv88e6352_wait(struct dsa_switch *ds, int reg, u16 mask)
-+static int mv88e6352_wait(struct dsa_switch *ds, int reg, int offset, u16 mask)
- {
- 	unsigned long timeout = jiffies + HZ / 10;
- 
- 	while (time_before(jiffies, timeout)) {
- 		int ret;
- 
--		ret = REG_READ(REG_GLOBAL2, reg);
--		if (ret < 0)
--			return ret;
--
-+		ret = REG_READ(reg, offset);
- 		if (!(ret & mask))
- 			return 0;
- 
-@@ -43,17 +40,17 @@ static int mv88e6352_wait(struct dsa_switch *ds, int reg, u16 mask)
- 
- static inline int mv88e6352_phy_wait(struct dsa_switch *ds)
- {
--	return mv88e6352_wait(ds, 0x18, 0x8000);
-+	return mv88e6352_wait(ds, REG_GLOBAL2, 0x18, 0x8000);
- }
- 
- static inline int mv88e6352_eeprom_load_wait(struct dsa_switch *ds)
- {
--	return mv88e6352_wait(ds, 0x14, 0x0800);
-+	return mv88e6352_wait(ds, REG_GLOBAL2, 0x14, 0x0800);
- }
- 
- static inline int mv88e6352_eeprom_busy_wait(struct dsa_switch *ds)
- {
--	return mv88e6352_wait(ds, 0x14, 0x8000);
-+	return mv88e6352_wait(ds, REG_GLOBAL2, 0x14, 0x8000);
- }
- 
- static int __mv88e6352_phy_read(struct dsa_switch *ds, int addr, int regnum)
--- 
-2.2.2
+The difference is that I was planning on not silently accepting an invalid
+VLAN ID to begin with and returning FM10K_ERR_PARAM if the VLAN was
+invalid, which I think is a better approach for this situation. If it's
+alright with you, I'll generate the patch shortly and credit you via your
+Reported-by.
+
+Cheers,
+Matthew
