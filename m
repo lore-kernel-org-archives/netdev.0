@@ -1,56 +1,67 @@
 From: Jamal Hadi Salim <jhs@mojatatu.com>
 Subject: Re: [net-next PATCH v3 00/12] Flow API
-Date: Sat, 24 Jan 2015 08:04:42 -0500
-Message-ID: <54C3986A.9070105@mojatatu.com>
-References: <20150123101019.GF25797@casper.infradead.org> <20150123102421.GB2065@nanopsycho.orion> <20150123110821.GH25797@casper.infradead.org> <20150123113934.GD2065@nanopsycho.orion> <20150123122838.GI25797@casper.infradead.org> <20150123134315.GF2065@nanopsycho.orion> <20150123140724.GJ25797@casper.infradead.org> <54C26A1F.6060603@gmail.com> <20150123155332.GJ2065@nanopsycho.orion> <20150123160058.GN25797@casper.infradead.org> <20150123161605.GN2065@nanopsycho.orion>
+Date: Sat, 24 Jan 2015 08:22:22 -0500
+Message-ID: <54C39C8E.4@mojatatu.com>
+References: <20150123174609.GA23242@casper.infradead.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: John Fastabend <john.fastabend@gmail.com>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
 	simon.horman@netronome.com, sfeldma@gmail.com,
 	netdev@vger.kernel.org, davem@davemloft.net, gerlitz.or@gmail.com,
 	andy@greyhouse.net, ast@plumgrid.com
-To: Jiri Pirko <jiri@resnulli.us>, Thomas Graf <tgraf@suug.ch>
+To: Thomas Graf <tgraf@suug.ch>,
+	John Fastabend <john.fastabend@gmail.com>,
+	Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f176.google.com ([209.85.213.176]:40253 "EHLO
-	mail-ig0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751846AbbAXNEp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 24 Jan 2015 08:04:45 -0500
-Received: by mail-ig0-f176.google.com with SMTP id hl2so1836165igb.3
-        for <netdev@vger.kernel.org>; Sat, 24 Jan 2015 05:04:45 -0800 (PST)
-In-Reply-To: <20150123161605.GN2065@nanopsycho.orion>
+Received: from mail-ie0-f172.google.com ([209.85.223.172]:63040 "EHLO
+	mail-ie0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752081AbbAXNWZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 24 Jan 2015 08:22:25 -0500
+Received: by mail-ie0-f172.google.com with SMTP id rd18so1945113iec.3
+        for <netdev@vger.kernel.org>; Sat, 24 Jan 2015 05:22:24 -0800 (PST)
+In-Reply-To: <20150123174609.GA23242@casper.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I am not big on high fives but here's my +1
-Excellent diagram below.
+On 01/23/15 12:46, Thomas Graf wrote:
+
+> I'm not sure I understand the offload qdisc yet. My interpretation
+> so far is that it would contain childs which *must* be offloaded.
+>
+> How would one transparently offload tc in this model? e.g. let's
+> assume we have a simple prio qdisc with u32 cls:
+>
+> eth0
+>    prio
+>        class
+>        class
+>        ...
+>      u32 ...
+>      u32 ...
+>
+
+My view is:
+It is up to user space to decide on what the policy should do.
+The kernel is not paid to think. You tell it what to do and it does it
+efficiently. So if you are going to tell it to have a mix and match
+of some things to execute in hardware and some in software then
+it may shoot someone's big toe.
+IOW, user space should decide how a packet is going to flow.
+Agreed that we would need a good way to provide this knowledge
+to user space.
+BTW: Thomas, reading your other email quickly:
+the idea that metadata would be carried around on OF pipeline and
+some script at the end executes the actions is imo  a hardware
+pipeline hack limitation. Why do i want to defer dropping a packet
+when some action is telling me to drop it? ;->
+For some reason, brcm hardware in particulat requires that i
+complete the pipeline first.
+I dont know why we need such a limitation in s/ware (and tc will kill
+the pipeline when needed).
+
+Sorry, trying to post while doing other things so not paying close
+attention to possibly other important details.
 
 cheers,
 jamal
-On 01/23/15 11:16, Jiri Pirko wrote:
->
-> As I wrote earlier, the value is that userspace can easily use single
-> xflows api to take care of all ways to handle flows (ovs kernel dp,
-> rocker, other device, u32 tc filter + actions, you name it)
->
->
->      my flow managing app
->            |
-> uspc      |
->    --------|----------------------------------------------------
-> krnl      |
->         tc xflows api
->            |  |  |
->            |  |  ---------------------------------------------------
->            |  |                                                    |
->            |  ------------------                                other xflows backend
->            |                   |
->       ovs xflows backend     rocker driver xflows backend
->            |                   |
->           ovs dp               |
-> krnl	                      |
->    ----------------------------|--------------------------------
-> hw                            |
->                             rocker switch
->
