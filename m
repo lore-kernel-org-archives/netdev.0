@@ -1,35 +1,32 @@
-From: Rasmus Villemoes <linux@rasmusvillemoes.dk>
-Subject: Re: [PATCH] ethernet: fm10k: Actually drop 4 bits
-Date: Sat, 24 Jan 2015 01:50:06 +0100
-Message-ID: <87twzhknnl.fsf@rasmusvillemoes.dk>
-References: <1421967198-16667-1-git-send-email-linux@rasmusvillemoes.dk>
-	<D0E81E0C.682EB%matthew.vick@intel.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] act_connmark: Add missing dependency on
+ NF_CONNTRACK_MARK
+Date: Fri, 23 Jan 2015 17:46:53 -0800 (PST)
+Message-ID: <20150123.174653.1630115619853127599.davem@davemloft.net>
+References: <eb5e12e8fec691cb08e663f2f8ed183ac92e5a1f.1421757793.git.tgraf@suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-	"Kirsher\, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"e1000-devel\@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel\@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: "Vick\, Matthew" <matthew.vick@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <D0E81E0C.682EB%matthew.vick@intel.com> (Matthew Vick's message
-	of "Sat, 24 Jan 2015 00:18:59 +0000")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, nbd@openwrt.org, jhs@mojatatu.com
+To: tgraf@suug.ch
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:52821 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752836AbbAXBq4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jan 2015 20:46:56 -0500
+In-Reply-To: <eb5e12e8fec691cb08e663f2f8ed183ac92e5a1f.1421757793.git.tgraf@suug.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jan 24 2015, "Vick, Matthew" <matthew.vick@intel.com> wrote:
+From: Thomas Graf <tgraf@suug.ch>
+Date: Tue, 20 Jan 2015 13:44:25 +0100
 
-> Good catch! I noticed this too and was getting a patch together to address
-> this.
->
-> The difference is that I was planning on not silently accepting an invalid
-> VLAN ID to begin with and returning FM10K_ERR_PARAM if the VLAN was
-> invalid, which I think is a better approach for this situation. If it's
-> alright with you, I'll generate the patch shortly and credit you via your
-> Reported-by.
+> Depending on NETFILTER is not sufficient to ensure the presence of the
+> 'mark' field in nf_conn, also needs to depend on NF_CONNTRACK_MARK.
+> 
+> Fixes: 22a5dc ("net: sched: Introduce connmark action")
+> Cc: Felix Fietkau <nbd@openwrt.org>
+> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+> Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
-Sure, do what you think is best.
-
-Rasmus
+Applied, thanks Thomas.
