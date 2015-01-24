@@ -1,30 +1,61 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: Re: [PATCH] net: dsa/mv88e6352: make mv88e6352_wait generic
-Date: Fri, 23 Jan 2015 17:47:53 -0800
-Message-ID: <54C2F9C9.2000404@roeck-us.net>
-References: <1422056081-30088-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-	netdev@vger.kernel.org
+From: Sasha Levin <sasha.levin@oracle.com>
+Subject: [PATCH] net: llc: use correct size for sysctl timeout entries
+Date: Fri, 23 Jan 2015 20:47:00 -0500
+Message-ID: <1422064020-22080-1-git-send-email-sasha.levin@oracle.com>
+Cc: Sasha Levin <sasha.levin@oracle.com>,
+	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	netdev@vger.kernel.org (open list:NETWORKING [GENERAL])
+To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1422056081-30088-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 01/23/2015 03:34 PM, Vivien Didelot wrote:
-> Some busy bits are available in the global register 1, such as the ATU
-> Busy bit. We may want to use this function to wait for them to change,
-> so add a new parameter to mv88e6352_wait() instead of hard-coding
-> REG_GLOBAL2.
->
-> In the meantime, since the REG_READ() macro already checks for error,
-> remove the redundant check for ret < 0.
->
-> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+The timeout entries are sizeof(int) rather than sizeof(long), which
+means that when they were getting read we'd also leak kernel memory
+to userspace along with the timeout values.
 
-Acked-by: Guenter Roeck <linux@roeck-us.net>
+Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
+---
+ net/llc/sysctl_net_llc.c |    8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-Guenter
+diff --git a/net/llc/sysctl_net_llc.c b/net/llc/sysctl_net_llc.c
+index 612a5dd..799bafc 100644
+--- a/net/llc/sysctl_net_llc.c
++++ b/net/llc/sysctl_net_llc.c
+@@ -18,28 +18,28 @@ static struct ctl_table llc2_timeout_table[] = {
+ 	{
+ 		.procname	= "ack",
+ 		.data		= &sysctl_llc2_ack_timeout,
+-		.maxlen		= sizeof(long),
++		.maxlen		= sizeof(sysctl_llc2_ack_timeout),
+ 		.mode		= 0644,
+ 		.proc_handler   = proc_dointvec_jiffies,
+ 	},
+ 	{
+ 		.procname	= "busy",
+ 		.data		= &sysctl_llc2_busy_timeout,
+-		.maxlen		= sizeof(long),
++		.maxlen		= sizeof(sysctl_llc2_busy_timeout),
+ 		.mode		= 0644,
+ 		.proc_handler   = proc_dointvec_jiffies,
+ 	},
+ 	{
+ 		.procname	= "p",
+ 		.data		= &sysctl_llc2_p_timeout,
+-		.maxlen		= sizeof(long),
++		.maxlen		= sizeof(sysctl_llc2_p_timeout),
+ 		.mode		= 0644,
+ 		.proc_handler   = proc_dointvec_jiffies,
+ 	},
+ 	{
+ 		.procname	= "rej",
+ 		.data		= &sysctl_llc2_rej_timeout,
+-		.maxlen		= sizeof(long),
++		.maxlen		= sizeof(sysctl_llc2_rej_timeout),
+ 		.mode		= 0644,
+ 		.proc_handler   = proc_dointvec_jiffies,
+ 	},
+-- 
+1.7.10.4
