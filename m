@@ -1,31 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] amd-xgbe: Use proper Rx flow control register
-Date: Fri, 23 Jan 2015 22:18:04 -0800 (PST)
-Message-ID: <20150123.221804.251517843729287609.davem@davemloft.net>
-References: <20150120182031.20236.62843.stgit@tlendack-t1.amdoffice.net>
+Subject: Re: [net-next] net: netcp: remove unused kconfig option and code
+Date: Fri, 23 Jan 2015 22:21:20 -0800 (PST)
+Message-ID: <20150123.222120.467596005244092508.davem@davemloft.net>
+References: <1421781756-11151-1-git-send-email-m-karicheri2@ti.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: thomas.lendacky@amd.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54158 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751284AbbAXGSG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 24 Jan 2015 01:18:06 -0500
-In-Reply-To: <20150120182031.20236.62843.stgit@tlendack-t1.amdoffice.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: m-karicheri2@ti.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1421781756-11151-1-git-send-email-m-karicheri2@ti.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Tom Lendacky <thomas.lendacky@amd.com>
-Date: Tue, 20 Jan 2015 12:20:31 -0600
+From: Murali Karicheri <m-karicheri2@ti.com>
+Date: Tue, 20 Jan 2015 14:22:36 -0500
 
-> Updated hardware documention shows the Rx flow control settings were
-> moved from the Rx queue operation mode register to a new Rx queue flow
-> control register.  The old flow control settings are now reserved areas
-> of the Rx queue operation mode register. Update the code to use the new
-> register.
+> Currently CPTS is built into the netcp driver even though there is no
+> call out to the CPTS driver. This patch removes the dependency in Kconfig
+> and remove cpts.o from the Makefile for NetCP.
 > 
-> Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
+> Signed-off-by: Murali Karicheri <m-karicheri2@ti.com>
+> ---
+>  drivers/net/ethernet/ti/Kconfig  |    2 +-
+>  drivers/net/ethernet/ti/Makefile |    2 +-
+>  2 files changed, 2 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/ti/Kconfig b/drivers/net/ethernet/ti/Kconfig
+> index e11bcfa..824e376 100644
+> --- a/drivers/net/ethernet/ti/Kconfig
+> +++ b/drivers/net/ethernet/ti/Kconfig
+> @@ -73,7 +73,7 @@ config TI_CPSW
+>  config TI_CPTS
+>  	boolean "TI Common Platform Time Sync (CPTS) Support"
+>  	depends on TI_CPSW
+> -	depends on TI_CPSW || TI_KEYSTONE_NET
+> +	depends on TI_CPSW
 
-Applied, thanks TOm.
+Just remove the second dependency line, it's redundant because you've
+made it identical to the line before it.
