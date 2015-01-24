@@ -1,129 +1,68 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next v3 2/5] swdevice: add new api to set and del
- bridge port attributes
-Date: Sat, 24 Jan 2015 12:26:57 +0100
-Message-ID: <20150124112657.GA1879@nanopsycho.orion>
-References: <1421987606-10884-3-git-send-email-roopa@cumulusnetworks.com>
- <20150123104127.GC2065@nanopsycho.orion>
- <54C26FC1.70605@cumulusnetworks.com>
- <20150123160636.GM2065@nanopsycho.orion>
- <54C2CF1A.1080905@cumulusnetworks.com>
- <54C2D4C9.5000400@cumulusnetworks.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [net-next PATCH v3 00/12] Flow API
+Date: Sat, 24 Jan 2015 07:29:34 -0500
+Message-ID: <54C3902E.6080705@mojatatu.com>
+References: <20150120202404.1741.8658.stgit@nitbit.x32> <20150122125246.GA4486@salvia> <20150122133713.GA25797@casper.infradead.org> <20150122140022.GA5674@salvia> <54C11094.2000807@mojatatu.com> <20150122151316.GB25797@casper.infradead.org> <54C12C1F.706@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: sfeldma@gmail.com, jhs@mojatatu.com, bcrl@kvack.org, tgraf@suug.ch,
-	john.fastabend@gmail.com, stephen@networkplumber.org,
-	vyasevic@redhat.com, ronen.arad@intel.com, netdev@vger.kernel.org,
-	davem@davemloft.net, shm@cumulusnetworks.com,
-	gospo@cumulusnetworks.com
-To: roopa <roopa@cumulusnetworks.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+	simon.horman@netronome.com, sfeldma@gmail.com,
+	netdev@vger.kernel.org, davem@davemloft.net, gerlitz.or@gmail.com,
+	andy@greyhouse.net, ast@plumgrid.com, Jiri Pirko <jiri@resnulli.us>
+To: John Fastabend <john.fastabend@gmail.com>,
+	Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f41.google.com ([74.125.82.41]:56073 "EHLO
-	mail-wg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751923AbbAXL1D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 24 Jan 2015 06:27:03 -0500
-Received: by mail-wg0-f41.google.com with SMTP id a1so1749963wgh.0
-        for <netdev@vger.kernel.org>; Sat, 24 Jan 2015 03:27:01 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <54C2D4C9.5000400@cumulusnetworks.com>
+Received: from mail-ig0-f181.google.com ([209.85.213.181]:40180 "EHLO
+	mail-ig0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752758AbbAXM3h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 24 Jan 2015 07:29:37 -0500
+Received: by mail-ig0-f181.google.com with SMTP id hn18so1760546igb.2
+        for <netdev@vger.kernel.org>; Sat, 24 Jan 2015 04:29:36 -0800 (PST)
+In-Reply-To: <54C12C1F.706@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sat, Jan 24, 2015 at 12:10:01AM CET, roopa@cumulusnetworks.com wrote:
->On 1/23/15, 2:45 PM, roopa wrote:
->>On 1/23/15, 8:06 AM, Jiri Pirko wrote:
->>>Fri, Jan 23, 2015 at 04:58:57PM CET, roopa@cumulusnetworks.com wrote:
->>>>On 1/23/15, 2:41 AM, Jiri Pirko wrote:
->>>>
->>>><snip..>
->>>>>+
->>>>>+/**
->>>>>+ *    netdev_switch_port_bridge_dellink - Notify switch device port
->>>>>of bridge
->>>>>+ *    attribute delete
->>>>>+ *
->>>>>+ *    @dev: port device
->>>>>+ *    @nlh: netlink msg with bridge port attributes
->>>>>+ *
->>>>>+ *    Notify switch device port of bridge port attribute delete
->>>>>+ */
->>>>>+int netdev_switch_port_bridge_dellink(struct net_device *dev,
->>>>>+                      struct nlmsghdr *nlh, u16 flags)
->>>>>+{
->>>>>+    const struct net_device_ops *ops = dev->netdev_ops;
->>>>>+    struct net_device *lower_dev;
->>>>>+    struct list_head *iter;
->>>>>+    int ret = 0, err = 0;
->>>>>+
->>>>>+    if (!(dev->features & NETIF_F_HW_NETFUNC_OFFLOAD))
->>>>>+        return err;
->>>>>+
->>>>>+    if (ops->ndo_bridge_dellink) {
->>>>>+        WARN_ON(!ops->ndo_switch_parent_id_get);
->>>>>+        return ops->ndo_bridge_dellink(dev, nlh, flags);
->>>>>+    }
->>>>>+
->>>>>+    netdev_for_each_lower_dev(dev, lower_dev, iter) {
->>>>>+        err = netdev_switch_port_bridge_dellink(lower_dev, nlh,
->>>>>flags);
->>>>>+        if (err)
->>>>>+            ret = err;
->>>>>+    }
->>>>>+
->>>>>+    return ret;
->>>>>+}
->>>>>+EXPORT_SYMBOL(netdev_switch_port_bridge_dellink);
->>>>>-- 
->>>>>1.7.10.4
->>>>>
->>>>>Is there any other place, other than bridge code, this functions are
->>>>>suppored to be called from?
->>>>No other place today. Its usually the master that implements
->>>>ndo_bridge_setlink/dellink.
->>>>
->>>>>If not, which I consider likely, it would
->>>>>make more sense to me to:
->>>>>
->>>>>- move netdev_for_each_lower_dev iterations directly to bridge code
->>>>>- let the masters (bond, team, ..) implement ndo_bridge_*link and do
->>>>>   the traversing there (can be in a form of pre-prepared default
->>>>>   ndo callback (ndo_dflt_netdev_switch_port_bridge_*link)
->>>>But, i am still not understanding why i would modify bond, team and
->>>>other
->>>>slaves
->>>Well, that is the usual way to propagate ndo calls. People are used to
->>>this. It is visible right away in bonding/other code that is propagated
->>>some ndo call to slaves. With your code, that is somehow hidden and only
->>>dependent on NETIF_F_HW_NETFUNC_OFFLOAD flag.
->>>
->>>Note that there are only couple of "master drivers" (for this, most
->>>likely
->>>only bond and team modifications are needed).
->>ndo_bridge_setlink today is only implemented by drivers that implement
->>bridging function.
->>So, having the bond and team driver implement it...seems odd.
+Sorry I have been running around like a lunatic chicken so havent
+had time to join the fun discussion. I hope we can make progress at
+the meeting.
+I am going to skim and jump through the emails and comment.
 
-Well, it is not odd. It is ok I believe. Same as for example:
-.ndo_set_mac_address
-.ndo_change_mtu
-.ndo_vlan_rx_add_vid
-.ndo_vlan_rx_kill_vid
-.ndo_poll_controller
-.ndo_netpoll_setup
-.ndo_netpoll_cleanup
-
-All take care of propagating the ndo to slaves.
-
->>
->>But if you insist, i am going to do just that.
->A side note, I dont see any reason for ndo_bridge_setlink to be renamed to
->ndo_setlink. Because it seems to take the whole netlink msg anyways. It can
->be used to offload other link attributes besides bridging (vxlan and so on).
->Any thoughts on that ?.
-
-Well, it is PF_BRIDGE so I think that the name is accurate.
+On 01/22/15 11:58, John Fastabend wrote:
+> On 01/22/2015 07:13 AM, Thomas Graf wrote:
+>> On 01/22/15 at 10:00am, Jamal Hadi Salim wrote:
 
 >
+> Correct this is fully exposed to user space, but it is also self
+> contained inside the API meaning I can learn when to use it and what it
+> does by looking at the other operations tables the table graph and
+> supported headers. The assumption I am making that is not in the API
+> explicitly yet. Is that actions named "set_field_name" perform the
+> set operation on that field. We can and plan to extend the API to make
+> this assumption explicit in the API.
 >
+
+ From what you describe, you are running into a danger of going too low
+level such that the interface will end up weighing too much into
+flexibility/perfomance and less into usability. If there is one lesson
+i learnt from netfilter is usability counts for something. You dont
+want another u32 api (otherwise Jiri wouldnt have to write that new
+classifier - there is nothing he is doing that cant be done with
+u32).
+
+> In this case I can "learn" that I can match on group_id in some tables
+> and then use the above action to set the group_id in others.
 >
->
+
+And this discoverability was part of my concern especially when there is
+no "stickiness" to the kernel or Linux tooling for that matter by
+going direct to hardware. It is a tactical issue more than anything
+else. With the approach, you need a little bit of clue of course, you 
+really dont even care about compiling the kernel. Essentially the 
+barrier to entry for SDKs is immensely lowered.
+SDK joy. I know you were intending to replace ethtool - but you are
+replacing it with a turbo engine and we need to look at a much bigger
+scope.
+
+cheers,
+jamal
