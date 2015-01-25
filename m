@@ -1,7 +1,7 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH ethtool 4/5] ethtool: Prettify RX flow hash indirection table print
-Date: Sun, 25 Jan 2015 15:51:22 +0200
-Message-ID: <1422193883-30504-5-git-send-email-amirv@mellanox.com>
+Subject: [PATCH ethtool 5/5] ethtool: Support for configurable RSS hash function
+Date: Sun, 25 Jan 2015 15:51:23 +0200
+Message-ID: <1422193883-30504-6-git-send-email-amirv@mellanox.com>
 References: <1422193883-30504-1-git-send-email-amirv@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Yevgeny Petrilin <yevgenyp@mellanox.com>,
@@ -10,82 +10,176 @@ Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Amir Vadai <amirv@mellanox.com>
 To: Ben Hutchings <ben@decadent.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:55361 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:55375 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753868AbbAYNv7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 25 Jan 2015 08:51:59 -0500
+	id S1753516AbbAYNwJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 25 Jan 2015 08:52:09 -0500
 In-Reply-To: <1422193883-30504-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Eyal Perry <eyalpe@mellanox.com>
 
-When indirection table size is not a multiple of 8, a new line is
-missing at the last row of the table.
-In addition, make a distinction between the attribute name and its value
-by adding an indentation on the beginning of each line which contains
-values.
-
-Before the changne:
-[user@host]# ./ethtool-3.16 -x enp5s0
-RX flow hash indirection table for enp5s0 with 20 RX ring(s):
-    0:      0     1     2     3     4     5     6     7
-    8:      8     9    10    11    12    13    14    15
-   16:      0     1     2     3RSS hash key:
-16:d5:5a:31:21:8d:0e:2b:55:ea:ca:70:a8:19:5e:72:2e:c0:f9:0f:9b:6c:94:8f:59:ca:42:d1:c3:58:91:4a:3d:77:a1:e5:ab:8b:6f:68
-
-After:
-[user@host]# ./ethtool-3.16+ -x enp5s0
-RX flow hash indirection table for enp5s0 with 20 RX ring(s):
-    0:      0     1     2     3     4     5     6     7
-    8:      8     9    10    11    12    13    14    15
-   16:      0     1     2     3
-RSS hash key:
-    16:d5:5a:31:21:8d:0e:2b:55:ea:ca:70:a8:19:5e:72:2e:c0:f9:0f:9b:6c:94:8f:59:ca:42:d1:c3:58:91:4a:3d:77:a1:e5:ab:8b:6f:68
+This ethtool patch adds support to set and get the current RSS hash
+function for the device through through the new hfunc mask field in the
+ethtool_rxfh struct. Kernel supported hash function names are queried
+with ETHTOOL_GSTRINGS - each string is corresponding with a bit in hfunc
+mask according to its index in the string-set.
 
 Signed-off-by: Eyal Perry <eyalpe@mellanox.com>
 Signed-off-by: Amir Vadai <amirv@mellanox.com>
 ---
- ethtool.c | 12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
+ ethtool.8.in |  7 +++++++
+ ethtool.c    | 56 +++++++++++++++++++++++++++++++++++++++++++++++++++-----
+ 2 files changed, 58 insertions(+), 5 deletions(-)
 
+diff --git a/ethtool.8.in b/ethtool.8.in
+index ae56293..bdc77e0 100644
+--- a/ethtool.8.in
++++ b/ethtool.8.in
+@@ -297,6 +297,8 @@ ethtool \- query or control network driver and hardware settings
+ .BI weight\  W0
+ .IR W1
+ .RB ...\ ]
++.RB [ hfunc
++.IR FUNC ]
+ .HP
+ .B ethtool \-f|\-\-flash
+ .I devname file
+@@ -796,6 +798,11 @@ Sets RSS hash key of the specified network device. RSS hash key should be of dev
+ Hash key format must be in xx:yy:zz:aa:bb:cc format meaning both the nibbles of a byte should be mentioned
+ even if a nibble is zero.
+ .TP
++.BI hfunc
++Sets RSS hash function of the specified network device. Requested hash function
++should be supported by the kernel and the device. List of RSS hash functions
++which kernel supports is shown as a part of the --show-rxfh comand output.
++.TP
+ .BI equal\  N
+ Sets the receive flow hash indirection table to spread flows evenly
+ between the first \fIN\fR receive queues.
 diff --git a/ethtool.c b/ethtool.c
-index 8d53a53..c2f4164 100644
+index c2f4164..c584333 100644
 --- a/ethtool.c
 +++ b/ethtool.c
-@@ -3120,19 +3120,19 @@ static void print_indir_table(struct cmd_context *ctx,
+@@ -3176,10 +3176,11 @@ static int do_grxfh(struct cmd_context *ctx)
  {
- 	u32 i;
+ 	struct ethtool_rxfh rss_head = {0};
+ 	struct ethtool_rxnfc ring_count;
++	struct ethtool_gstrings *hfuncs;
+ 	struct ethtool_rxfh *rss;
+ 	u32 i, indir_bytes;
+ 	char *hkey;
+-	int err;
++	int err, cur_len, max_len = 0;
  
--	printf("RX flow hash indirection table for %s with %llu RX ring(s):\n",
-+	printf("RX flow hash indirection table for %s with %llu RX ring(s):",
- 	       ctx->devname, ring_count->data);
- 
- 	if (!indir_size)
--		printf("Operation not supported\n");
-+		printf("\n  Operation not supported");
- 
- 	for (i = 0; i < indir_size; i++) {
- 		if (i % 8 == 0)
--			printf("%5u: ", i);
-+			printf("\n%5u: ", i);
- 		printf(" %5u", indir[i]);
--		if (i % 8 == 7)
--			fputc('\n', stdout);
+ 	ring_count.cmd = ETHTOOL_GRXRINGS;
+ 	err = send_ioctl(ctx, &ring_count);
+@@ -3231,6 +3232,23 @@ static int do_grxfh(struct cmd_context *ctx)
+ 			printf("%02x:", (u8) hkey[i]);
  	}
-+	fputc('\n', stdout);
-+
+ 
++	printf("RSS hash function:\n");
++	if (!rss->hfunc) {
++		printf("    Operation not supported\n");
++		goto out;
++	}
++	hfuncs = get_stringset(ctx, ETH_SS_RSS_HASH_FUNCS, 0, 1);
++	for (i = 0; i < hfuncs->len; i++) {
++		cur_len = strlen((const char *)hfuncs->data +
++				 i * ETH_GSTRING_LEN);
++		if (cur_len > max_len)
++			max_len = cur_len;
++	}
++	for (i = 0; i < hfuncs->len; i++)
++		printf("    %-*s: %s\n", max_len,
++		       (const char *)hfuncs->data + i * ETH_GSTRING_LEN,
++		       (rss->hfunc & (1 << i)) ? "on" : "off");
++out:
+ 	free(rss);
+ 	return 0;
  }
+@@ -3330,12 +3348,15 @@ static int do_srxfh(struct cmd_context *ctx)
+ 	struct ethtool_rxfh rss_head = {0};
+ 	struct ethtool_rxfh *rss;
+ 	struct ethtool_rxnfc ring_count;
++	struct ethtool_gstrings *hfuncs;
+ 	int rxfhindir_equal = 0;
+ 	char **rxfhindir_weight = NULL;
+ 	char *rxfhindir_key = NULL;
++	char *req_hfunc_name = NULL;
++	char *hfunc_name = NULL;
+ 	char *hkey = NULL;
+-	int err = 0;
+-	u32 arg_num = 0, indir_bytes = 0;
++	int i, err = 0;
++	u32 arg_num = 0, indir_bytes = 0, req_hfunc = 0;
+ 	u32 entry_size = sizeof(rss_head.rss_config[0]);
+ 	u32 num_weights = 0;
  
- static int do_grxfhindir(struct cmd_context *ctx,
-@@ -3220,7 +3220,7 @@ static int do_grxfh(struct cmd_context *ctx)
- 	indir_bytes = rss->indir_size * sizeof(rss->rss_config[0]);
- 	hkey = ((char *)rss->rss_config + indir_bytes);
+@@ -3364,6 +3385,12 @@ static int do_srxfh(struct cmd_context *ctx)
+ 			if (!rxfhindir_key)
+ 				exit_bad_args();
+ 			++arg_num;
++		} else if (!strcmp(ctx->argp[arg_num], "hfunc")) {
++			++arg_num;
++			req_hfunc_name = ctx->argp[arg_num];
++			if (!req_hfunc_name)
++				exit_bad_args();
++			++arg_num;
+ 		} else {
+ 			exit_bad_args();
+ 		}
+@@ -3384,7 +3411,8 @@ static int do_srxfh(struct cmd_context *ctx)
  
--	printf("RSS hash key:\n");
-+	printf("RSS hash key:\n    ");
- 	if (!rss->key_size)
- 		printf("Operation not supported\n");
+ 	rss_head.cmd = ETHTOOL_GRSSH;
+ 	err = send_ioctl(ctx, &rss_head);
+-	if (err < 0 && errno == EOPNOTSUPP && !rxfhindir_key) {
++	if (err < 0 && errno == EOPNOTSUPP &&
++	    !rxfhindir_key && !req_hfunc_name) {
+ 		return do_srxfhindir(ctx, rxfhindir_equal, rxfhindir_weight,
+ 				     num_weights);
+ 	} else if (err < 0) {
+@@ -3402,6 +3430,22 @@ static int do_srxfh(struct cmd_context *ctx)
+ 	if (rxfhindir_equal || rxfhindir_weight)
+ 		indir_bytes = rss_head.indir_size * entry_size;
  
++	if (rss_head.hfunc && req_hfunc_name) {
++		hfuncs = get_stringset(ctx, ETH_SS_RSS_HASH_FUNCS, 0, 1);
++		for (i = 0; i < hfuncs->len && !req_hfunc ; i++) {
++			hfunc_name = (char *)(hfuncs->data +
++					      i * ETH_GSTRING_LEN);
++			if (!strncmp(hfunc_name, req_hfunc_name,
++				     ETH_GSTRING_LEN))
++				req_hfunc = (u32)1 << i;
++		}
++		if (!req_hfunc) {
++			fprintf(stderr,
++				"Unknown hash function: %s\n", req_hfunc_name);
++			return 1;
++		}
++	}
++
+ 	rss = calloc(1, sizeof(*rss) + indir_bytes + rss_head.key_size);
+ 	if (!rss) {
+ 		perror("Cannot allocate memory for RX flow hash config");
+@@ -3410,6 +3454,7 @@ static int do_srxfh(struct cmd_context *ctx)
+ 	rss->cmd = ETHTOOL_SRSSH;
+ 	rss->indir_size = rss_head.indir_size;
+ 	rss->key_size = rss_head.key_size;
++	rss->hfunc = req_hfunc ? req_hfunc : 0;
+ 
+ 	if (fill_indir_table(&rss->indir_size, rss->rss_config, rxfhindir_equal,
+ 			     rxfhindir_weight, num_weights)) {
+@@ -4119,7 +4164,8 @@ static const struct option {
+ 	{ "-X|--set-rxfh-indir|--rxfh", 1, do_srxfh,
+ 	  "Set Rx flow hash indirection and/or hash key",
+ 	  "		[ equal N | weight W0 W1 ... ]\n"
+-	  "		[ hkey %x:%x:%x:%x:%x:.... ]\n" },
++	  "		[ hkey %x:%x:%x:%x:%x:.... ]\n"
++	  "		[ hfunc FUNC ]\n"},
+ 	{ "-f|--flash", 1, do_flash,
+ 	  "Flash firmware image from the specified file to a region on the device",
+ 	  "               FILENAME [ REGION-NUMBER-TO-FLASH ]\n" },
 -- 
 1.9.3
