@@ -1,7 +1,7 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH V1 net-next 2/9] net/mlx4_core: Set device configuration data to be persistent across reset
-Date: Sun, 25 Jan 2015 16:59:36 +0200
-Message-ID: <1422197983-16048-3-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH V1 net-next 4/9] net/mlx4_core: Enhance the catas flow to support device reset
+Date: Sun, 25 Jan 2015 16:59:38 +0200
+Message-ID: <1422197983-16048-5-git-send-email-ogerlitz@mellanox.com>
 References: <1422197983-16048-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, Matan Barak <matanb@mellanox.com>,
 	Amir Vadai <amirv@mellanox.com>, Tal Alon <talal@mellanox.com>,
@@ -10,127 +10,243 @@ Cc: netdev@vger.kernel.org, Matan Barak <matanb@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:33668 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:33687 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753264AbbAYPAR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 25 Jan 2015 10:00:17 -0500
+	id S1753863AbbAYPAX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 25 Jan 2015 10:00:23 -0500
 In-Reply-To: <1422197983-16048-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Yishai Hadas <yishaih@mellanox.com>
 
-When an HCA enters an internal error state, this is detected by the driver.
-The driver then should reset the HCA and restart the software stack.
+This includes:
 
-Keep ports information and some SRIOV configuration in a persistent area
-to have it valid across reset.
+- resetting the chip when a fatal error is detected (the current code
+  does not do this).
+
+- exposing the ability to enter error state from outside the catas code
+  by calling its functionality. (E.g. FW Command timeout, AER error).
+
+- managing a persistent device state. This is needed to sync between
+  reset flow cases.
 
 Signed-off-by: Yishai Hadas <yishaih@mellanox.com>
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/main.c |   45 +++++++++++++++++++++++++++-
- include/linux/mlx4/device.h               |    2 +
- 2 files changed, 45 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/catas.c |  122 +++++++++++++++++++++-------
+ drivers/net/ethernet/mellanox/mlx4/main.c  |    6 ++
+ drivers/net/ethernet/mellanox/mlx4/mlx4.h  |    2 +-
+ include/linux/mlx4/device.h                |    7 ++
+ 4 files changed, 108 insertions(+), 29 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
-index abcee61..2c5a555 100644
---- a/drivers/net/ethernet/mellanox/mlx4/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/main.c
-@@ -3109,18 +3109,34 @@ static int mlx4_init_one(struct pci_dev *pdev, const struct pci_device_id *id)
- 	return ret;
- }
+diff --git a/drivers/net/ethernet/mellanox/mlx4/catas.c b/drivers/net/ethernet/mellanox/mlx4/catas.c
+index 5bb9aa6..588d6b5 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/catas.c
++++ b/drivers/net/ethernet/mellanox/mlx4/catas.c
+@@ -48,6 +48,83 @@ MODULE_PARM_DESC(internal_err_reset,
+ 		 "Reset device on internal errors if non-zero"
+ 		 " (default 1, in SRIOV mode default is 0)");
  
-+static void mlx4_clean_dev(struct mlx4_dev *dev)
++static int read_vendor_id(struct mlx4_dev *dev)
 +{
-+	struct mlx4_dev_persistent *persist = dev->persist;
-+	struct mlx4_priv *priv = mlx4_priv(dev);
++	u16 vendor_id = 0;
++	int ret;
 +
-+	memset(priv, 0, sizeof(*priv));
-+	priv->dev.persist = persist;
-+}
-+
- static void mlx4_unload_one(struct pci_dev *pdev)
- {
- 	struct mlx4_dev_persistent *persist = pci_get_drvdata(pdev);
- 	struct mlx4_dev  *dev  = persist->dev;
- 	struct mlx4_priv *priv = mlx4_priv(dev);
- 	int               pci_dev_data;
--	int p;
-+	int p, i;
- 	int active_vfs = 0;
- 
- 	if (priv->removed)
- 		return;
- 
-+	/* saving current ports type for further use */
-+	for (i = 0; i < dev->caps.num_ports; i++) {
-+		dev->persist->curr_port_type[i] = dev->caps.port_type[i + 1];
-+		dev->persist->curr_port_poss_type[i] = dev->caps.
-+						       possible_type[i + 1];
++	ret = pci_read_config_word(dev->persist->pdev, 0, &vendor_id);
++	if (ret) {
++		mlx4_err(dev, "Failed to read vendor ID, ret=%d\n", ret);
++		return ret;
 +	}
 +
- 	pci_dev_data = priv->pci_dev_data;
- 
- 	/* Disabling SR-IOV is not allowed while there are active vf's */
-@@ -3191,7 +3207,7 @@ static void mlx4_unload_one(struct pci_dev *pdev)
- 	kfree(dev->caps.qp1_proxy);
- 	kfree(dev->dev_vfs);
- 
--	memset(priv, 0, sizeof(*priv));
-+	mlx4_clean_dev(dev);
- 	priv->pci_dev_data = pci_dev_data;
- 	priv->removed = 1;
- }
-@@ -3210,6 +3226,25 @@ static void mlx4_remove_one(struct pci_dev *pdev)
- 	pci_set_drvdata(pdev, NULL);
- }
- 
-+static int restore_current_port_types(struct mlx4_dev *dev,
-+				      enum mlx4_port_type *types,
-+				      enum mlx4_port_type *poss_types)
++	if (vendor_id == 0xffff) {
++		mlx4_err(dev, "PCI can't be accessed to read vendor id\n");
++		return -EINVAL;
++	}
++
++	return 0;
++}
++
++static int mlx4_reset_master(struct mlx4_dev *dev)
 +{
-+	struct mlx4_priv *priv = mlx4_priv(dev);
-+	int err, i;
++	int err = 0;
 +
-+	mlx4_stop_sense(dev);
++	if (!pci_channel_offline(dev->persist->pdev)) {
++		err = read_vendor_id(dev);
++		/* If PCI can't be accessed to read vendor ID we assume that its
++		 * link was disabled and chip was already reset.
++		 */
++		if (err)
++			return 0;
 +
-+	mutex_lock(&priv->port_mutex);
-+	for (i = 0; i < dev->caps.num_ports; i++)
-+		dev->caps.possible_type[i + 1] = poss_types[i];
-+	err = mlx4_change_port_types(dev, types);
-+	mlx4_start_sense(dev);
-+	mutex_unlock(&priv->port_mutex);
++		err = mlx4_reset(dev);
++		if (err)
++			mlx4_err(dev, "Fail to reset HCA\n");
++	}
 +
 +	return err;
 +}
 +
- int mlx4_restart_one(struct pci_dev *pdev)
- {
- 	struct mlx4_dev_persistent *persist = pci_get_drvdata(pdev);
-@@ -3230,6 +3265,12 @@ int mlx4_restart_one(struct pci_dev *pdev)
- 		return err;
- 	}
- 
-+	err = restore_current_port_types(dev, dev->persist->curr_port_type,
-+					 dev->persist->curr_port_poss_type);
-+	if (err)
-+		mlx4_err(dev, "could not restore original port types (%d)\n",
-+			 err);
++void mlx4_enter_error_state(struct mlx4_dev_persistent *persist)
++{
++	int err;
++	struct mlx4_dev *dev;
 +
- 	return err;
++	if (!internal_err_reset)
++		return;
++
++	mutex_lock(&persist->device_state_mutex);
++	if (persist->state & MLX4_DEVICE_STATE_INTERNAL_ERROR)
++		goto out;
++
++	dev = persist->dev;
++	mlx4_err(dev, "device is going to be reset\n");
++	err = mlx4_reset_master(dev);
++	BUG_ON(err != 0);
++
++	dev->persist->state |= MLX4_DEVICE_STATE_INTERNAL_ERROR;
++	mlx4_err(dev, "device was reset successfully\n");
++	mutex_unlock(&persist->device_state_mutex);
++
++	/* At that step HW was already reset, now notify clients */
++	mlx4_dispatch_event(dev, MLX4_DEV_EVENT_CATASTROPHIC_ERROR, 0);
++	return;
++
++out:
++	mutex_unlock(&persist->device_state_mutex);
++}
++
++static void mlx4_handle_error_state(struct mlx4_dev_persistent *persist)
++{
++	int err = 0;
++
++	mlx4_enter_error_state(persist);
++	err = mlx4_restart_one(persist->pdev);
++	mlx4_info(persist->dev, "mlx4_restart_one was ended, ret=%d\n", err);
++}
++
+ static void dump_err_buf(struct mlx4_dev *dev)
+ {
+ 	struct mlx4_priv *priv = mlx4_priv(dev);
+@@ -66,21 +143,22 @@ static void poll_catas(unsigned long dev_ptr)
+ 	struct mlx4_priv *priv = mlx4_priv(dev);
+ 
+ 	if (readl(priv->catas_err.map)) {
+-		/* If the device is off-line, we cannot try to recover it */
+-		if (pci_channel_offline(dev->persist->pdev))
+-			mod_timer(&priv->catas_err.timer,
+-				  round_jiffies(jiffies + MLX4_CATAS_POLL_INTERVAL));
+-		else {
+-			dump_err_buf(dev);
+-			mlx4_dispatch_event(dev, MLX4_DEV_EVENT_CATASTROPHIC_ERROR, 0);
+-
+-			if (internal_err_reset)
+-				queue_work(dev->persist->catas_wq,
+-					   &dev->persist->catas_work);
+-		}
+-	} else
+-		mod_timer(&priv->catas_err.timer,
+-			  round_jiffies(jiffies + MLX4_CATAS_POLL_INTERVAL));
++		dump_err_buf(dev);
++		goto internal_err;
++	}
++
++	if (dev->persist->state & MLX4_DEVICE_STATE_INTERNAL_ERROR) {
++		mlx4_warn(dev, "Internal error mark was detected on device\n");
++		goto internal_err;
++	}
++
++	mod_timer(&priv->catas_err.timer,
++		  round_jiffies(jiffies + MLX4_CATAS_POLL_INTERVAL));
++	return;
++
++internal_err:
++	if (internal_err_reset)
++		queue_work(dev->persist->catas_wq, &dev->persist->catas_work);
  }
  
+ static void catas_reset(struct work_struct *work)
+@@ -88,20 +166,8 @@ static void catas_reset(struct work_struct *work)
+ 	struct mlx4_dev_persistent *persist =
+ 		container_of(work, struct mlx4_dev_persistent,
+ 			     catas_work);
+-	struct pci_dev *pdev = persist->pdev;
+-	int ret;
+-
+-	/* If the device is off-line, we cannot reset it */
+-	if (pci_channel_offline(pdev))
+-		return;
+ 
+-	ret = mlx4_restart_one(pdev);
+-	/* 'priv' now is not valid */
+-	if (ret)
+-		pr_err("mlx4 %s: Reset failed (%d)\n",
+-		       pci_name(pdev), ret);
+-	else
+-		mlx4_dbg(persist->dev, "Reset succeeded\n");
++	mlx4_handle_error_state(persist);
+ }
+ 
+ void mlx4_start_catas_poll(struct mlx4_dev *dev)
+diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
+index a61694c..dc2d910 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/main.c
++++ b/drivers/net/ethernet/mellanox/mlx4/main.c
+@@ -2624,6 +2624,11 @@ static int mlx4_load_one(struct pci_dev *pdev, int pci_dev_data,
+ 		}
+ 	}
+ 
++	/* on load remove any previous indication of internal error,
++	 * device is up.
++	 */
++	dev->persist->state = MLX4_DEVICE_STATE_UP;
++
+ slave_start:
+ 	err = mlx4_cmd_init(dev);
+ 	if (err) {
+@@ -3108,6 +3113,7 @@ static int mlx4_init_one(struct pci_dev *pdev, const struct pci_device_id *id)
+ 	dev->persist->dev = dev;
+ 	pci_set_drvdata(pdev, dev->persist);
+ 	priv->pci_dev_data = id->driver_data;
++	mutex_init(&dev->persist->device_state_mutex);
+ 
+ 	ret =  __mlx4_init_one(pdev, id->driver_data, priv);
+ 	if (ret) {
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4.h b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
+index d41af84..aa1ecbc 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mlx4.h
++++ b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
+@@ -1178,7 +1178,7 @@ void mlx4_qp_event(struct mlx4_dev *dev, u32 qpn, int event_type);
+ 
+ void mlx4_srq_event(struct mlx4_dev *dev, u32 srqn, int event_type);
+ 
+-void mlx4_handle_catas_err(struct mlx4_dev *dev);
++void mlx4_enter_error_state(struct mlx4_dev_persistent *persist);
+ 
+ int mlx4_SENSE_PORT(struct mlx4_dev *dev, int port,
+ 		    enum mlx4_port_type *type);
 diff --git a/include/linux/mlx4/device.h b/include/linux/mlx4/device.h
-index 1069ce6..8c3837a 100644
+index da425d2..7d5d317 100644
 --- a/include/linux/mlx4/device.h
 +++ b/include/linux/mlx4/device.h
-@@ -749,6 +749,8 @@ struct mlx4_dev_persistent {
- 	struct mlx4_dev	       *dev;
- 	int                     nvfs[MLX4_MAX_PORTS + 1];
- 	int			num_vfs;
-+	enum mlx4_port_type curr_port_type[MLX4_MAX_PORTS + 1];
-+	enum mlx4_port_type curr_port_poss_type[MLX4_MAX_PORTS + 1];
+@@ -411,6 +411,11 @@ enum {
+ 	MLX4_EQ_PORT_INFO_MSTR_SM_SL_CHANGE_MASK	= 1 << 4,
+ };
+ 
++enum {
++	MLX4_DEVICE_STATE_UP			= 1 << 0,
++	MLX4_DEVICE_STATE_INTERNAL_ERROR	= 1 << 1,
++};
++
+ #define MSTR_SM_CHANGE_MASK (MLX4_EQ_PORT_INFO_MSTR_SM_SL_CHANGE_MASK | \
+ 			     MLX4_EQ_PORT_INFO_MSTR_SM_LID_CHANGE_MASK)
+ 
+@@ -753,6 +758,8 @@ struct mlx4_dev_persistent {
+ 	enum mlx4_port_type curr_port_poss_type[MLX4_MAX_PORTS + 1];
+ 	struct work_struct      catas_work;
+ 	struct workqueue_struct *catas_wq;
++	struct mutex	device_state_mutex; /* protect HW state */
++	u8		state;
  };
  
  struct mlx4_dev {
