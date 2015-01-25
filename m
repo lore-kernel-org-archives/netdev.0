@@ -1,52 +1,35 @@
-From: Nicholas Krause <xerofoify-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH] net:wireless:Add proper locking for the function,
- b43_op_beacon_set_tim in main.c
-Date: Sun, 25 Jan 2015 02:06:14 -0500
-Message-ID: <1422169574-8451-1-git-send-email-xerofoify@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3 net-next] net: ipv6: Add sysctl entry to disable MTU
+ updates from RA
+Date: Sat, 24 Jan 2015 23:14:32 -0800 (PST)
+Message-ID: <20150124.231432.1788575004982971514.davem@davemloft.net>
+References: <1421773565-5181-1-git-send-email-harouth@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- b43-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
- linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: stefano.brivio-hl5o88x/ua9eoWH0uzbU5w@public.gmane.org
-Return-path: <b43-dev-bounces+gldbd-bcm43xx-dev=gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/b43-dev>,
- <mailto:b43-dev-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/b43-dev/>
-List-Post: <mailto:b43-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b43-dev-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/b43-dev>,
- <mailto:b43-dev-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: "b43-dev" <b43-dev-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-Errors-To: b43-dev-bounces+gldbd-bcm43xx-dev=gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: harouth@codeaurora.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:60452 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751672AbbAYHOf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 Jan 2015 02:14:35 -0500
+In-Reply-To: <1421773565-5181-1-git-send-email-harouth@codeaurora.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Adds proper locking for the function, b43_op_beacon_set_tim in main.c that internally calls b43_update_templates.
-Due to the function that is being called internally,b43_update_templates needing the mutex lock of the structure
-pointer wl passed  it to run successfully and without issues we add the calls to mutex_lock before and mutex_unlock
-after it's call internally in b43_op_beacon_set_tim in order to allow the function,,b43_update_templates to run
-successfully and without issues related to concurrent access.
+From: Harout Hedeshian <harouth@codeaurora.org>
+Date: Tue, 20 Jan 2015 10:06:05 -0700
 
-Signed-off-by: Nicholas Krause <xerofoify-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
----
- drivers/net/wireless/b43/main.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+> The kernel forcefully applies MTU values received in router
+> advertisements provided the new MTU is less than the current. This
+> behavior is undesirable when the user space is managing the MTU. Instead
+> a sysctl flag 'accept_ra_mtu' is introduced such that the user space
+> can control whether or not RA provided MTU updates should be applied. The
+> default behavior is unchanged; user space must explicitly set this flag
+> to 0 for RA MTUs to be ignored.
+> 
+> Signed-off-by: Harout Hedeshian <harouth@codeaurora.org>
 
-diff --git a/drivers/net/wireless/b43/main.c b/drivers/net/wireless/b43/main.c
-index 47731cb..b807958 100644
---- a/drivers/net/wireless/b43/main.c
-+++ b/drivers/net/wireless/b43/main.c
-@@ -5094,8 +5094,9 @@ static int b43_op_beacon_set_tim(struct ieee80211_hw *hw,
- {
- 	struct b43_wl *wl = hw_to_b43_wl(hw);
- 
--	/* FIXME: add locking */
-+	mutex_lock(&wl->mutex);
- 	b43_update_templates(wl);
-+	mutex_unlock(&wl->mutex);
- 
- 	return 0;
- }
--- 
-2.1.0
+Under what circumstances would userland ignore a router advertized
+MTU, and are the RFCs ok with this?
