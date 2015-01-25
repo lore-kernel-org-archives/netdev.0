@@ -1,110 +1,52 @@
-From: Jens Kuske <jenskuske-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH 3/3] net: allwinner: sun4i-emac: fix emac SRAM mapping
-Date: Sun, 25 Jan 2015 16:49:19 +0100
-Message-ID: <1422200959-1717-4-git-send-email-jenskuske@gmail.com>
-References: <1422200959-1717-1-git-send-email-jenskuske@gmail.com>
-Reply-To: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net v2] bnx2x: fix napi poll return value for repoll
+Date: Sun, 25 Jan 2015 08:05:13 -0800
+Message-ID: <1422201913.29618.13.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1422182363-10932-1-git-send-email-_govind@gmx.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-	Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>,
-	linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org,
-	Jens Kuske <jenskuske-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
-	Lee Jones <lee.jones-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-sunxi+bncBCC5XIE2SIHBBCNBSSTAKGQEETWSUZQ-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-In-Reply-To: <1422200959-1717-1-git-send-email-jenskuske-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-List-Post: <http://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Help: <http://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Archive: <http://groups.google.com/group/linux-sunxi
-Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-List-Subscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
- <http://groups.google.com/group/linux-sunxi/subscribe>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	ariel.elior@qlogic.com, edumazet@google.com
+To: Govindarajulu Varadarajan <_govind@gmx.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:44790 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753770AbbAYQFQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 Jan 2015 11:05:16 -0500
+Received: by mail-pa0-f49.google.com with SMTP id fa1so7035434pad.8
+        for <netdev@vger.kernel.org>; Sun, 25 Jan 2015 08:05:16 -0800 (PST)
+In-Reply-To: <1422182363-10932-1-git-send-email-_govind@gmx.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The EMAC needs SRAM block A3_A4 being mapped to EMAC peripheral to
-work. This is done by the bootloader most of the time, but U-Boot
-Falcon Mode, for example, skips emac initialization and SRAM would
-stay mapped to the CPU.
+On Sun, 2015-01-25 at 16:09 +0530, Govindarajulu Varadarajan wrote:
+> With the commit d75b1ade567ffab ("net: less interrupt masking in NAPI") napi
+> repoll is done only when work_done == budget. When in busy_poll is we return 0
+> in napi_poll. We should return budget.
+> 
+> Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
+> ---
+> v2:
+> Remove unnecessary change for work_done >= budget return value.
+> 
+>  drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+> index 1d1147c..e468ed3 100644
+> --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+> +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+> @@ -3175,7 +3175,7 @@ static int bnx2x_poll(struct napi_struct *napi, int budget)
+>  		}
+>  #endif
+>  		if (!bnx2x_fp_lock_napi(fp))
+> -			return work_done;
+> +			return budget;
+>  
+>  		for_each_cos_in_tx_queue(fp, cos)
+>  			if (bnx2x_tx_queue_has_work(fp->txdata_ptr[cos]))
 
-Signed-off-by: Jens Kuske <jenskuske-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
----
- drivers/net/ethernet/allwinner/Kconfig      |  1 +
- drivers/net/ethernet/allwinner/sun4i-emac.c | 18 ++++++++++++++++++
- 2 files changed, 19 insertions(+)
+Thanks !
 
-diff --git a/drivers/net/ethernet/allwinner/Kconfig b/drivers/net/ethernet/allwinner/Kconfig
-index d8d95d4..508a288 100644
---- a/drivers/net/ethernet/allwinner/Kconfig
-+++ b/drivers/net/ethernet/allwinner/Kconfig
-@@ -28,6 +28,7 @@ config SUN4I_EMAC
- 	select MII
- 	select PHYLIB
- 	select MDIO_SUN4I
-+	select MFD_SYSCON
-         ---help---
-           Support for Allwinner A10 EMAC ethernet driver.
- 
-diff --git a/drivers/net/ethernet/allwinner/sun4i-emac.c b/drivers/net/ethernet/allwinner/sun4i-emac.c
-index 1fcd556..86c891d 100644
---- a/drivers/net/ethernet/allwinner/sun4i-emac.c
-+++ b/drivers/net/ethernet/allwinner/sun4i-emac.c
-@@ -18,6 +18,8 @@
- #include <linux/gpio.h>
- #include <linux/interrupt.h>
- #include <linux/irq.h>
-+#include <linux/mfd/syscon.h>
-+#include <linux/mfd/syscon/sun4i-sc.h>
- #include <linux/mii.h>
- #include <linux/module.h>
- #include <linux/netdevice.h>
-@@ -28,6 +30,7 @@
- #include <linux/of_platform.h>
- #include <linux/platform_device.h>
- #include <linux/phy.h>
-+#include <linux/regmap.h>
- 
- #include "sun4i-emac.h"
- 
-@@ -78,6 +81,7 @@ struct emac_board_info {
- 
- 	struct phy_device	*phy_dev;
- 	struct device_node	*phy_node;
-+	struct regmap		*sc;
- 	unsigned int		link;
- 	unsigned int		speed;
- 	unsigned int		duplex;
-@@ -862,6 +866,18 @@ static int emac_probe(struct platform_device *pdev)
- 		goto out;
- 	}
- 
-+	/* Map SRAM_A3_A4 to EMAC */
-+	db->sc = syscon_regmap_lookup_by_compatible(
-+						"allwinner,sun4i-a10-syscon");
-+	if (IS_ERR(db->sc)) {
-+		dev_err(&pdev->dev, "failed to find syscon regmap\n");
-+		ret = PTR_ERR(db->sc);
-+		goto out;
-+	}
-+
-+	regmap_update_bits(db->sc, SUN4I_SC1, SUN4I_SC1_SRAM_A3_A4_MAP_MASK,
-+						SUN4I_SC1_SRAM_A3_A4_MAP_EMAC);
-+
- 	/* Read MAC-address from DT */
- 	mac_addr = of_get_mac_address(np);
- 	if (mac_addr)
-@@ -910,7 +926,9 @@ out:
- static int emac_remove(struct platform_device *pdev)
- {
- 	struct net_device *ndev = platform_get_drvdata(pdev);
-+	struct emac_board_info *db = netdev_priv(ndev);
- 
-+	regmap_update_bits(db->sc, SUN4I_SC1, SUN4I_SC1_SRAM_A3_A4_MAP_MASK, 0);
- 	unregister_netdev(ndev);
- 	free_netdev(ndev);
- 
--- 
-2.2.2
+Acked-by: Eric Dumazet <edumazet@google.com>
