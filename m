@@ -1,88 +1,121 @@
-From: Harout Hedeshian <harouth@codeaurora.org>
-Subject: Re: [PATCH v3 net-next] net: ipv6: Add sysctl entry to disable MTU
- updates from RA
-Date: Sun, 25 Jan 2015 09:28:35 -0700
-Message-ID: <54C519B3.9050905@codeaurora.org>
-References: <1421773565-5181-1-git-send-email-harouth@codeaurora.org> <20150124.231432.1788575004982971514.davem@davemloft.net> <20150125072101.GA25495@angus-think.lan>
+From: Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+Subject: Re: [PATCH 3/3] net: allwinner: sun4i-emac: fix emac
+ SRAM mapping
+Date: Sun, 25 Jan 2015 17:25:11 +0100
+Message-ID: <20150125162510.GK8470@lukather>
+References: <1422200959-1717-1-git-send-email-jenskuske@gmail.com>
+ <1422200959-1717-4-git-send-email-jenskuske@gmail.com>
+Reply-To: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Vadim Kochan <vadim4j@gmail.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.11.231]:34827 "EHLO
-	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751631AbbAYQ2h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 25 Jan 2015 11:28:37 -0500
-In-Reply-To: <20150125072101.GA25495@angus-think.lan>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="rwbb4r/vLufKlfJs"
+Cc: Lee Jones <lee.jones-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>, linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+To: Jens Kuske <jenskuske-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Return-path: <linux-sunxi+bncBD2ZNBF5VYJRBC5USSTAKGQE7BWZ33I-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1422200959-1717-4-git-send-email-jenskuske-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+List-Post: <http://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Help: <http://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Archive: <http://groups.google.com/group/linux-sunxi
+Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+List-Subscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
+ <http://groups.google.com/group/linux-sunxi/subscribe>
+List-Id: netdev.vger.kernel.org
 
+--rwbb4r/vLufKlfJs
+Content-Type: text/plain; charset=UTF-8
+Content-Disposition: inline
 
-On 01/25/2015 12:21 AM, Vadim Kochan wrote:
-> On Sat, Jan 24, 2015 at 11:14:32PM -0800, David Miller wrote:
->> From: Harout Hedeshian <harouth@codeaurora.org>
->> Date: Tue, 20 Jan 2015 10:06:05 -0700
->>
->>> The kernel forcefully applies MTU values received in router
->>> advertisements provided the new MTU is less than the current. This
->>> behavior is undesirable when the user space is managing the MTU.
-> Instead
->>> a sysctl flag 'accept_ra_mtu' is introduced such that the user space
->>> can control whether or not RA provided MTU updates should be applied.
-> The
->>> default behavior is unchanged; user space must explicitly set this
-> flag
->>> to 0 for RA MTUs to be ignored.
->>>
->>> Signed-off-by: Harout Hedeshian <harouth@codeaurora.org>
->> Under what circumstances would userland ignore a router advertized
->> MTU, and are the RFCs ok with this?
->> --
->> To unsubscribe from this list: send the line "unsubscribe netdev" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Hi,
->
-> I don't know if it make sense but I had the same use case when was
-> working on supporting IPv6 infrastructure for home gateway.
-> One of the provider had requirements to have ability set force IPv6 MTU
-> value via TR parameters and disable update it via RA.
-Hi David,
+Hi Jens,
 
-We are optionally allowing the kernel shift this responsibility to the 
-userland. The idea would be that the kernel would ignore it, not so much 
-the userland. Just like Vadim, we may not want to use the MTU value 
-which comes from the network. Instead, we get an MTU value from the 
-cellular modem via configuration message, and that is the MTU we use.
+On Sun, Jan 25, 2015 at 04:49:19PM +0100, Jens Kuske wrote:
+> The EMAC needs SRAM block A3_A4 being mapped to EMAC peripheral to
+> work. This is done by the bootloader most of the time, but U-Boot
+> Falcon Mode, for example, skips emac initialization and SRAM would
+> stay mapped to the CPU.
 
-In any case, none of the RFCs state that the kernel must update the MTU 
-and that the userland cannot. In fact, there is no mention of 
-kernel/user space at all in the RFC for this particular RA message. What 
-if someone wants to listen to these RA messages from userland and update 
-the MTU? Surely, that won't violate the RFC. In such a case, the kernel 
-is unnecessarily forcing policy on the user space.
+Thanks for reviving this.
 
-RFC4861 section 4.6.4 defines the MTU update option (RA option 5) for RA 
-messages. I don't see any language where the receiver "MUST" apply this 
-option. It merely states that the MTU value in the RA is "The 
-recommended MTU for the link." The description goes on to point out why 
-this option can be used by the router, but does not specifically enforce 
-it. The only receive action specifically enforced by the RFC is that 
-"This option MUST be silently ignored for other Neighbor Discovery 
-messages."
+> Signed-off-by: Jens Kuske <jenskuske-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> ---
+>  drivers/net/ethernet/allwinner/Kconfig      |  1 +
+>  drivers/net/ethernet/allwinner/sun4i-emac.c | 18 ++++++++++++++++++
+>  2 files changed, 19 insertions(+)
+> 
+> diff --git a/drivers/net/ethernet/allwinner/Kconfig b/drivers/net/ethernet/allwinner/Kconfig
+> index d8d95d4..508a288 100644
+> --- a/drivers/net/ethernet/allwinner/Kconfig
+> +++ b/drivers/net/ethernet/allwinner/Kconfig
+> @@ -28,6 +28,7 @@ config SUN4I_EMAC
+>  	select MII
+>  	select PHYLIB
+>  	select MDIO_SUN4I
+> +	select MFD_SYSCON
+>          ---help---
+>            Support for Allwinner A10 EMAC ethernet driver.
+>  
+> diff --git a/drivers/net/ethernet/allwinner/sun4i-emac.c b/drivers/net/ethernet/allwinner/sun4i-emac.c
+> index 1fcd556..86c891d 100644
+> --- a/drivers/net/ethernet/allwinner/sun4i-emac.c
+> +++ b/drivers/net/ethernet/allwinner/sun4i-emac.c
+> @@ -18,6 +18,8 @@
+>  #include <linux/gpio.h>
+>  #include <linux/interrupt.h>
+>  #include <linux/irq.h>
+> +#include <linux/mfd/syscon.h>
+> +#include <linux/mfd/syscon/sun4i-sc.h>
+>  #include <linux/mii.h>
+>  #include <linux/module.h>
+>  #include <linux/netdevice.h>
+> @@ -28,6 +30,7 @@
+>  #include <linux/of_platform.h>
+>  #include <linux/platform_device.h>
+>  #include <linux/phy.h>
+> +#include <linux/regmap.h>
+>  
+>  #include "sun4i-emac.h"
+>  
+> @@ -78,6 +81,7 @@ struct emac_board_info {
+>  
+>  	struct phy_device	*phy_dev;
+>  	struct device_node	*phy_node;
+> +	struct regmap		*sc;
+>  	unsigned int		link;
+>  	unsigned int		speed;
+>  	unsigned int		duplex;
+> @@ -862,6 +866,18 @@ static int emac_probe(struct platform_device *pdev)
+>  		goto out;
+>  	}
+>  
+> +	/* Map SRAM_A3_A4 to EMAC */
+> +	db->sc = syscon_regmap_lookup_by_compatible(
+> +						"allwinner,sun4i-a10-syscon");
+> +	if (IS_ERR(db->sc)) {
+> +		dev_err(&pdev->dev, "failed to find syscon regmap\n");
+> +		ret = PTR_ERR(db->sc);
+> +		goto out;
+> +	}
+> +
+> +	regmap_update_bits(db->sc, SUN4I_SC1, SUN4I_SC1_SRAM_A3_A4_MAP_MASK,
+> +						SUN4I_SC1_SRAM_A3_A4_MAP_EMAC);
+> +
 
-The risk of not applying the MTU updates is that packet may get dropped 
-if path MTU discovery is disabled or broken on the network. HOWEVER, 
-anyone explicitly setting accept_ra_mtu to 0 is already taking 
-responsibility for enforcing the correct MTU. Since this patch by 
-default does not change the kernel behavior, I don't see it breaking for 
-users who are unaware of this option.
+I don't think that using a syscon is the right solution here.
 
+All this SRAM mapping thing is mutually exclusive, and will possibly
+impact other drivers as well.
 
-Thanks,
-Harout
+I think this is a more a case for a small driver in drivers/soc that
+would take care of this, and make sure that client drivers don't step
+on each other's toe.
 
---
-Employee of Qualcomm Innovation Center, Inc.
-Qualcomm Innovation Center, Inc. is a member of Code Aurora Forum, a Linux Foundation Collaborative Project
+Maxime
+
+-- 
+Maxime Ripard, Free Electrons
+Embedded Linux, Kernel and Android engineering
+http://free-electrons.com
+--rwbb4r/vLufKlfJs--
