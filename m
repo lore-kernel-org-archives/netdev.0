@@ -1,52 +1,88 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net v2] bnx2x: fix napi poll return value for repoll
-Date: Sun, 25 Jan 2015 08:05:13 -0800
-Message-ID: <1422201913.29618.13.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1422182363-10932-1-git-send-email-_govind@gmx.com>
+From: Harout Hedeshian <harouth@codeaurora.org>
+Subject: Re: [PATCH v3 net-next] net: ipv6: Add sysctl entry to disable MTU
+ updates from RA
+Date: Sun, 25 Jan 2015 09:28:35 -0700
+Message-ID: <54C519B3.9050905@codeaurora.org>
+References: <1421773565-5181-1-git-send-email-harouth@codeaurora.org> <20150124.231432.1788575004982971514.davem@davemloft.net> <20150125072101.GA25495@angus-think.lan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	ariel.elior@qlogic.com, edumazet@google.com
-To: Govindarajulu Varadarajan <_govind@gmx.com>
+Cc: netdev@vger.kernel.org, Vadim Kochan <vadim4j@gmail.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:44790 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753770AbbAYQFQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 25 Jan 2015 11:05:16 -0500
-Received: by mail-pa0-f49.google.com with SMTP id fa1so7035434pad.8
-        for <netdev@vger.kernel.org>; Sun, 25 Jan 2015 08:05:16 -0800 (PST)
-In-Reply-To: <1422182363-10932-1-git-send-email-_govind@gmx.com>
+Received: from smtp.codeaurora.org ([198.145.11.231]:34827 "EHLO
+	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751631AbbAYQ2h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 Jan 2015 11:28:37 -0500
+In-Reply-To: <20150125072101.GA25495@angus-think.lan>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2015-01-25 at 16:09 +0530, Govindarajulu Varadarajan wrote:
-> With the commit d75b1ade567ffab ("net: less interrupt masking in NAPI") napi
-> repoll is done only when work_done == budget. When in busy_poll is we return 0
-> in napi_poll. We should return budget.
-> 
-> Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
-> ---
-> v2:
-> Remove unnecessary change for work_done >= budget return value.
-> 
->  drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-> index 1d1147c..e468ed3 100644
-> --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-> +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-> @@ -3175,7 +3175,7 @@ static int bnx2x_poll(struct napi_struct *napi, int budget)
->  		}
->  #endif
->  		if (!bnx2x_fp_lock_napi(fp))
-> -			return work_done;
-> +			return budget;
->  
->  		for_each_cos_in_tx_queue(fp, cos)
->  			if (bnx2x_tx_queue_has_work(fp->txdata_ptr[cos]))
 
-Thanks !
+On 01/25/2015 12:21 AM, Vadim Kochan wrote:
+> On Sat, Jan 24, 2015 at 11:14:32PM -0800, David Miller wrote:
+>> From: Harout Hedeshian <harouth@codeaurora.org>
+>> Date: Tue, 20 Jan 2015 10:06:05 -0700
+>>
+>>> The kernel forcefully applies MTU values received in router
+>>> advertisements provided the new MTU is less than the current. This
+>>> behavior is undesirable when the user space is managing the MTU.
+> Instead
+>>> a sysctl flag 'accept_ra_mtu' is introduced such that the user space
+>>> can control whether or not RA provided MTU updates should be applied.
+> The
+>>> default behavior is unchanged; user space must explicitly set this
+> flag
+>>> to 0 for RA MTUs to be ignored.
+>>>
+>>> Signed-off-by: Harout Hedeshian <harouth@codeaurora.org>
+>> Under what circumstances would userland ignore a router advertized
+>> MTU, and are the RFCs ok with this?
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Hi,
+>
+> I don't know if it make sense but I had the same use case when was
+> working on supporting IPv6 infrastructure for home gateway.
+> One of the provider had requirements to have ability set force IPv6 MTU
+> value via TR parameters and disable update it via RA.
+Hi David,
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+We are optionally allowing the kernel shift this responsibility to the 
+userland. The idea would be that the kernel would ignore it, not so much 
+the userland. Just like Vadim, we may not want to use the MTU value 
+which comes from the network. Instead, we get an MTU value from the 
+cellular modem via configuration message, and that is the MTU we use.
+
+In any case, none of the RFCs state that the kernel must update the MTU 
+and that the userland cannot. In fact, there is no mention of 
+kernel/user space at all in the RFC for this particular RA message. What 
+if someone wants to listen to these RA messages from userland and update 
+the MTU? Surely, that won't violate the RFC. In such a case, the kernel 
+is unnecessarily forcing policy on the user space.
+
+RFC4861 section 4.6.4 defines the MTU update option (RA option 5) for RA 
+messages. I don't see any language where the receiver "MUST" apply this 
+option. It merely states that the MTU value in the RA is "The 
+recommended MTU for the link." The description goes on to point out why 
+this option can be used by the router, but does not specifically enforce 
+it. The only receive action specifically enforced by the RFC is that 
+"This option MUST be silently ignored for other Neighbor Discovery 
+messages."
+
+The risk of not applying the MTU updates is that packet may get dropped 
+if path MTU discovery is disabled or broken on the network. HOWEVER, 
+anyone explicitly setting accept_ra_mtu to 0 is already taking 
+responsibility for enforcing the correct MTU. Since this patch by 
+default does not change the kernel behavior, I don't see it breaking for 
+users who are unaware of this option.
+
+
+Thanks,
+Harout
+
+--
+Employee of Qualcomm Innovation Center, Inc.
+Qualcomm Innovation Center, Inc. is a member of Code Aurora Forum, a Linux Foundation Collaborative Project
