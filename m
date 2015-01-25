@@ -1,29 +1,36 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: CONFIG_NF_CONNTRACK_PROCFS
-Date: Sun, 25 Jan 2015 12:22:09 +0100
-Message-ID: <20150125112209.GD13167@breakpoint.cc>
-References: <20150125055117.GA5586@localhost>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 1/3] hyperv: netvsc.c: fixup-of-wait_for_completion_timeout-return-type
+Date: Sun, 25 Jan 2015 14:37:45 +0300
+Message-ID: <54C4D589.3010406@cogentembedded.com>
+References: <1422183808-7655-1-git-send-email-der.herr@hofr.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Oleg <lego12239@yandex.ru>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Haiyang Zhang <haiyangz@microsoft.com>,
+	devel@linuxdriverproject.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Nicholas Mc Guire <der.herr@hofr.at>,
+	"K. Y. Srinivasan" <kys@microsoft.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:54465 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752488AbbAYLWL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 25 Jan 2015 06:22:11 -0500
-Content-Disposition: inline
-In-Reply-To: <20150125055117.GA5586@localhost>
+Received: from mail-la0-f42.google.com ([209.85.215.42]:62344 "EHLO
+	mail-la0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752626AbbAYLhr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 Jan 2015 06:37:47 -0500
+Received: by mail-la0-f42.google.com with SMTP id ms9so3892676lab.1
+        for <netdev@vger.kernel.org>; Sun, 25 Jan 2015 03:37:46 -0800 (PST)
+In-Reply-To: <1422183808-7655-1-git-send-email-der.herr@hofr.at>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Oleg <lego12239@yandex.ru> wrote:
-> net/netfilter/nf_conntrack procfs file is marked as obsolete in the recent
-> kernels. What's wrong with it? Or it's simply a new fashion to replace
-> simple file interface with anything else?
+Hello.
 
-proc has several drawbacks vs. ctnetlink:
- - not extensible
- - doesn't have ability to query for particular items
- - no add/delete support
- - no event notification (e.g. conntrack -E)
+On 1/25/2015 2:03 PM, Nicholas Mc Guire wrote:
+
+    You probably want to replace hyphens with spaces in the subject of this 
+and other patches.
+    And you're not fixing the return type of wait_for_completion_timeout(), 
+you're fixing the variables to match this type.
+
+> Signed-off-by: Nicholas Mc Guire <der.herr@hofr.at>
+
+WBR, Sergei
