@@ -1,63 +1,73 @@
-From: Nicholas Mc Guire <der.herr@hofr.at>
-Subject: [PATCH v2] net: hyperv: else branch not necessary
-Date: Sun, 25 Jan 2015 19:08:37 +0100
-Message-ID: <1422209317-18975-1-git-send-email-der.herr@hofr.at>
+From: Oleg <lego12239@yandex.ru>
+Subject: Re: CONFIG_NF_CONNTRACK_PROCFS
+Date: Sun, 25 Jan 2015 22:44:35 +0300
+Message-ID: <20150125194435.GA12981@localhost>
+References: <20150125055117.GA5586@localhost>
+ <20150125112209.GD13167@breakpoint.cc>
+Reply-To: Oleg <lego12239@yandex.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: devel@linuxdriverproject.org, Haiyang Zhang <haiyangz@microsoft.com>,
- Nicholas Mc Guire <der.herr@hofr.at>, linux-kernel@vger.kernel.org,
- netdev@vger.kernel.org
-To: "K. Y. Srinivasan" <kys@microsoft.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from forward3m.cmail.yandex.net ([5.255.216.21]:53841 "EHLO
+	forward3m.cmail.yandex.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755244AbbAYTyQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 Jan 2015 14:54:16 -0500
+Received: from smtp1o.mail.yandex.net (smtp1o.mail.yandex.net [37.140.190.26])
+	by forward3m.cmail.yandex.net (Yandex) with ESMTP id A25BE80907
+	for <netdev@vger.kernel.org>; Sun, 25 Jan 2015 22:46:19 +0300 (MSK)
+Received: from smtp1o.mail.yandex.net (localhost [127.0.0.1])
+	by smtp1o.mail.yandex.net (Yandex) with ESMTP id 47C34DE27D3
+	for <netdev@vger.kernel.org>; Sun, 25 Jan 2015 22:46:19 +0300 (MSK)
+Content-Disposition: inline
+In-Reply-To: <20150125112209.GD13167@breakpoint.cc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-As the if completes with a unconditional goto the else branch
-is not needed here.
+On Sun, Jan 25, 2015 at 12:22:09PM +0100, Florian Westphal wrote:
+> Oleg <lego12239@yandex.ru> wrote:
+> > net/netfilter/nf_conntrack procfs file is marked as obsolete in the recent
+> > kernels. What's wrong with it? Or it's simply a new fashion to replace
+> > simple file interface with anything else?
+> 
+> proc has several drawbacks vs. ctnetlink:
+>  - not extensible
 
-Signed-off-by: Nicholas Mc Guire <der.herr@hofr.at>
----
+In the what way?
+Sorry, but i think that limitations isn't in proc, but in a human fantasy.
 
-v2: added missing subsystem string in subject line - patch unchanged
+>  - doesn't have ability to query for particular items
 
-All paths of execution that did not exit through the if branch will 
-go through the else branch so no need for an explicit else here
+What about something like:
 
-Patch was compile tested only for x86_64_defconfig + CONFIG_X86_VSMP=y
-CONFIG_HYPERV=m, CONFIG_HYPERV_NET=m
+exec 3<>nf_conntrack; echo show tcp dport 12345 >&3; cat <&3
+HERE_WE_GET_NEEDED_ENTRIES
+exec 3<&-
 
-Patch is against 3.19.0-rc5 -next-20150123
+?
 
- drivers/net/hyperv/rndis_filter.c |    8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+>  - no add/delete support
 
-diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
-index 7bd8387..efb84a9 100644
---- a/drivers/net/hyperv/rndis_filter.c
-+++ b/drivers/net/hyperv/rndis_filter.c
-@@ -833,10 +833,10 @@ int rndis_filter_set_packet_filter(struct rndis_device *dev, u32 new_filter)
- 		 * send completion for it.
- 		 */
- 		goto exit;
--	} else {
--		set_complete = &request->response_msg.msg.set_complete;
--		status = set_complete->status;
--	}
-+	} 
-+
-+	set_complete = &request->response_msg.msg.set_complete;
-+	status = set_complete->status;
- 
- cleanup:
- 	if (request)
+What about simple:
+
+echo add ENTRY > nf_conntrack
+echo delete ENTRY > nf_conntrack
+
+?
+
+>  - no event notification (e.g. conntrack -E)
+
+Florian, are you seriosly? What's wrong with simple:
+
+cat nf_conntrack_event
+
+?
+
+Moreover, all things i have wrote save already existent scripts works.
+
+May be i don't understand anything? Please correct me if so.
+
+P.S. netlink is really cool thing, but i think we go in the wrong way.
+
 -- 
-1.7.10.4
+Nemanov Oleg
