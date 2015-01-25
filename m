@@ -1,35 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] amd-xgbe: Let OS arch support adjust DMA mask
- as needed
-Date: Sun, 25 Jan 2015 14:54:16 -0800 (PST)
-Message-ID: <20150125.145416.2119862314149568126.davem@davemloft.net>
-References: <20150120204755.23431.37523.stgit@tlendack-t1.amdoffice.net>
+Subject: Re: [PATCH v3 net-next] net: ipv6: Add sysctl entry to disable MTU
+ updates from RA
+Date: Sun, 25 Jan 2015 14:55:05 -0800 (PST)
+Message-ID: <20150125.145505.1692145787461736994.davem@davemloft.net>
+References: <1421773565-5181-1-git-send-email-harouth@codeaurora.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: thomas.lendacky@amd.com
+To: harouth@codeaurora.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37789 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:37793 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751778AbbAYWyR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 25 Jan 2015 17:54:17 -0500
-In-Reply-To: <20150120204755.23431.37523.stgit@tlendack-t1.amdoffice.net>
+	with ESMTP id S1751053AbbAYWzG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 Jan 2015 17:55:06 -0500
+In-Reply-To: <1421773565-5181-1-git-send-email-harouth@codeaurora.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tom Lendacky <thomas.lendacky@amd.com>
-Date: Tue, 20 Jan 2015 14:47:55 -0600
+From: Harout Hedeshian <harouth@codeaurora.org>
+Date: Tue, 20 Jan 2015 10:06:05 -0700
 
-> Set the DMA mask to 64-bit and let the underlying arch support adjust
-> it as appropriate based on device tree DMA ranges, etc.
+> The kernel forcefully applies MTU values received in router
+> advertisements provided the new MTU is less than the current. This
+> behavior is undesirable when the user space is managing the MTU. Instead
+> a sysctl flag 'accept_ra_mtu' is introduced such that the user space
+> can control whether or not RA provided MTU updates should be applied. The
+> default behavior is unchanged; user space must explicitly set this flag
+> to 0 for RA MTUs to be ignored.
 > 
-> Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
+> Signed-off-by: Harout Hedeshian <harouth@codeaurora.org>
 
-That's not how this works.
-
-The interface will fail if you ask for more bits than can be
-supported, so you should pass in the amount of bits you actually need
-but not more.
-
-I'm not applying this.
+Applied.
