@@ -1,62 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/7] r8152: adjust rx_bottom
-Date: Sat, 24 Jan 2015 22:43:42 -0800 (PST)
-Message-ID: <20150124.224342.425895080003524375.davem@davemloft.net>
-References: <0835B3720019904CB8F7AA43166CEEB2EE6E76@RTITMBSV03.realtek.com.tw>
-	<20150119.215220.720365670558757349.davem@davemloft.net>
-	<0835B3720019904CB8F7AA43166CEEB2EE6E9F@RTITMBSV03.realtek.com.tw>
+From: Nicholas Krause <xerofoify-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH] net:wireless:Add proper locking for the function,
+ b43_op_beacon_set_tim in main.c
+Date: Sun, 25 Jan 2015 02:06:14 -0500
+Message-ID: <1422169574-8451-1-git-send-email-xerofoify@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: sfeldma@gmail.com, netdev@vger.kernel.org, nic_swsd@realtek.com,
-	linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org
-To: hayeswang@realtek.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <0835B3720019904CB8F7AA43166CEEB2EE6E9F@RTITMBSV03.realtek.com.tw>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ b43-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
+ linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: stefano.brivio-hl5o88x/ua9eoWH0uzbU5w@public.gmane.org
+Return-path: <b43-dev-bounces+gldbd-bcm43xx-dev=gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/b43-dev>,
+ <mailto:b43-dev-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/b43-dev/>
+List-Post: <mailto:b43-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b43-dev-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/b43-dev>,
+ <mailto:b43-dev-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: "b43-dev" <b43-dev-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+Errors-To: b43-dev-bounces+gldbd-bcm43xx-dev=gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Hayes Wang <hayeswang@realtek.com>
-Date: Tue, 20 Jan 2015 03:24:52 +0000
+Adds proper locking for the function, b43_op_beacon_set_tim in main.c that internally calls b43_update_templates.
+Due to the function that is being called internally,b43_update_templates needing the mutex lock of the structure
+pointer wl passed  it to run successfully and without issues we add the calls to mutex_lock before and mutex_unlock
+after it's call internally in b43_op_beacon_set_tim in order to allow the function,,b43_update_templates to run
+successfully and without issues related to concurrent access.
 
->  David Miller [mailto:davem@davemloft.net] 
->> Sent: Tuesday, January 20, 2015 10:52 AM
-> [...]
->> agg->list is not local, you have to use a spinlock to protect
->> modifications to it, some other sites which modify agg->list do take
->> the lock properly.
->> 
->> You cannot modify a list like agg->list without proper locking.
-> 
-> Excuse me. I don't understand.
-> 
-> Before step1
->    tp_rx_done->listA->listB->listC->listD->...
->    rx_queue->
-> Because the other function would chage tp->rx_done,
-> I need move the lists with spin lock.
-> 
-> After step1
->    tp_rx_done->
->    rx_queue->listA->listB->listC->listD->...
-> 
-> Now I dequeue one of the lists from the list_head and
-> deal with it.
->    tp_rx_done->
->    rx_queue->listA->listC->listD->...
->                     listB
-> 
-> Then, if I want to put it back to rx_queue, I have to
-> use spin lock. Why? No other function would chage
-> rx_queue and the items in it.
+Signed-off-by: Nicholas Krause <xerofoify-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+---
+ drivers/net/wireless/b43/main.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-What keeps rtl_start_rx() from running in parallel with
-r8152_submit_rx(), or any other accessor of the RX agg->list?
-
-You also keep using different terminology from me when
-discussing what lists do or do not need protection, and that
-is going to make it difficult for anyone to follow our
-conversation at all.
-
-We're talking specifically about RX agg->list objects and
-whether access to them need synchronization or not.
+diff --git a/drivers/net/wireless/b43/main.c b/drivers/net/wireless/b43/main.c
+index 47731cb..b807958 100644
+--- a/drivers/net/wireless/b43/main.c
++++ b/drivers/net/wireless/b43/main.c
+@@ -5094,8 +5094,9 @@ static int b43_op_beacon_set_tim(struct ieee80211_hw *hw,
+ {
+ 	struct b43_wl *wl = hw_to_b43_wl(hw);
+ 
+-	/* FIXME: add locking */
++	mutex_lock(&wl->mutex);
+ 	b43_update_templates(wl);
++	mutex_unlock(&wl->mutex);
+ 
+ 	return 0;
+ }
+-- 
+2.1.0
