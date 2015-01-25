@@ -1,33 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] atheros/atlx: Simplify bit manipulations
-Date: Sat, 24 Jan 2015 23:35:40 -0800 (PST)
-Message-ID: <20150124.233540.192666118515975126.davem@davemloft.net>
-References: <1422011212-30095-1-git-send-email-linux@rasmusvillemoes.dk>
+Subject: Re: [PATCH v1] usbnet: re-use native hex2bin()
+Date: Sun, 25 Jan 2015 00:09:56 -0800 (PST)
+Message-ID: <20150125.000956.888238165205391832.davem@davemloft.net>
+References: <1421962032-25497-1-git-send-email-andy.shevchenko@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jcliburn@gmail.com, chris.snook@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: linux@rasmusvillemoes.dk
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1422011212-30095-1-git-send-email-linux@rasmusvillemoes.dk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: oneukum@suse.de, netdev@vger.kernel.org
+To: andy.shevchenko@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:60694 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752393AbbAYIJ7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 Jan 2015 03:09:59 -0500
+In-Reply-To: <1421962032-25497-1-git-send-email-andy.shevchenko@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Rasmus Villemoes <linux@rasmusvillemoes.dk>
-Date: Fri, 23 Jan 2015 12:06:52 +0100
+From: Andy Shevchenko <andy.shevchenko@gmail.com>
+Date: Thu, 22 Jan 2015 23:27:12 +0200
 
-> The code 'if (foo & X) foo &= ~X;' is semantically equivalent to
-> simply 'foo &= ~X;', but gcc generates about four instructions for the
-> former, one for the latter. Similarly, if X consists of a single bit,
-> 'if (!(foo & X)) X |= X;' can be replaced by 'foo |= X;'.
+> Call hex2bin() library function, instead of doing conversion here.
 > 
-> In the atl2 case, gcc does know how to merge the new adjacent
-> operations, so altogether this gives a nice little code size
-> reduction of about 80 bytes.
-> 
-> Signed-off-by: Rasmus Villemoes <linux@rasmusvillemoes.dk>
+> Signed-off-by: Andy Shevchenko <andy.shevchenko@gmail.com>
 
-I agree with the feedback given that these open-coded sequences should
-be replaced with the appropriate PCI helpers instead of edited
-further.
+Applied.
