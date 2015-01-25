@@ -1,35 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 net-next] net: ipv6: Add sysctl entry to disable MTU
- updates from RA
-Date: Sat, 24 Jan 2015 23:14:32 -0800 (PST)
-Message-ID: <20150124.231432.1788575004982971514.davem@davemloft.net>
-References: <1421773565-5181-1-git-send-email-harouth@codeaurora.org>
+Subject: Re: [PATCH v2 net-next 0/2] vxlan: Don't use UDP socket for
+ transmit
+Date: Sat, 24 Jan 2015 23:16:08 -0800 (PST)
+Message-ID: <20150124.231608.472694661359785983.davem@davemloft.net>
+References: <1421781785-24557-1-git-send-email-therbert@google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: harouth@codeaurora.org
+Cc: tgraf@suug.ch, jesse@nicira.com, netdev@vger.kernel.org
+To: therbert@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60452 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:60458 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751672AbbAYHOf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 25 Jan 2015 02:14:35 -0500
-In-Reply-To: <1421773565-5181-1-git-send-email-harouth@codeaurora.org>
+	with ESMTP id S1751337AbbAYHQJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 Jan 2015 02:16:09 -0500
+In-Reply-To: <1421781785-24557-1-git-send-email-therbert@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Harout Hedeshian <harouth@codeaurora.org>
-Date: Tue, 20 Jan 2015 10:06:05 -0700
+From: Tom Herbert <therbert@google.com>
+Date: Tue, 20 Jan 2015 11:23:03 -0800
 
-> The kernel forcefully applies MTU values received in router
-> advertisements provided the new MTU is less than the current. This
-> behavior is undesirable when the user space is managing the MTU. Instead
-> a sysctl flag 'accept_ra_mtu' is introduced such that the user space
-> can control whether or not RA provided MTU updates should be applied. The
-> default behavior is unchanged; user space must explicitly set this flag
-> to 0 for RA MTUs to be ignored.
+> UDP socket is not pertinent to transmit for UDP tunnels, checksum
+> enablement can be done without a socket. This patch set eliminates
+> reference to a socket in udp_tunnel_xmit functions and in VXLAN
+> transmit.
 > 
-> Signed-off-by: Harout Hedeshian <harouth@codeaurora.org>
+> Also, make GBP, RCO, can CSUM6_RX flags visible to receive socket
+> and only match these for shareable socket.
+> 
+> v2: Fix geneve to call udp_tunnel_xmit with good arguments.
 
-Under what circumstances would userland ignore a router advertized
-MTU, and are the RFCs ok with this?
+Series applied, thanks Tom.
