@@ -1,7 +1,7 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH V1 net-next 4/9] net/mlx4_core: Enhance the catas flow to support device reset
-Date: Sun, 25 Jan 2015 16:59:38 +0200
-Message-ID: <1422197983-16048-5-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH V1 net-next 5/9] net/mlx4_core: Activate reset flow upon fatal command cases
+Date: Sun, 25 Jan 2015 16:59:39 +0200
+Message-ID: <1422197983-16048-6-git-send-email-ogerlitz@mellanox.com>
 References: <1422197983-16048-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, Matan Barak <matanb@mellanox.com>,
 	Amir Vadai <amirv@mellanox.com>, Tal Alon <talal@mellanox.com>,
@@ -10,245 +10,447 @@ Cc: netdev@vger.kernel.org, Matan Barak <matanb@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:33687 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:33688 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753863AbbAYPAX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 25 Jan 2015 10:00:23 -0500
+	id S1753885AbbAYPA0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 25 Jan 2015 10:00:26 -0500
 In-Reply-To: <1422197983-16048-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Yishai Hadas <yishaih@mellanox.com>
 
-This includes:
+We activate reset flow upon command fatal errors, when the device enters an
+erroneous state, and must be reset.
 
-- resetting the chip when a fatal error is detected (the current code
-  does not do this).
+The cases below are assumed to be fatal: FW command timed-out, an error from FW
+on closing commands, pci is offline when posting/pending a command.
 
-- exposing the ability to enter error state from outside the catas code
-  by calling its functionality. (E.g. FW Command timeout, AER error).
+In those cases we place the device into an error state: chip is reset, pending
+commands are awakened and completed immediately. Subsequent commands will
+return immediately.
 
-- managing a persistent device state. This is needed to sync between
-  reset flow cases.
+The return code in the above cases will depend on the command. Commands which
+free and close resources will return success (because the chip was reset, so
+callers may safely free their kernel resources). Other commands will return -EIO.
+
+Since the device's state was marked as error, the catas poller will
+detect this and restart the device's software stack (as is done when a FW
+internal error is directly detected). The device state is protected by a
+persistent mutex lives on its mlx4_dev, as such no need any more for the
+hcr_mutex which is removed.
 
 Signed-off-by: Yishai Hadas <yishaih@mellanox.com>
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/catas.c |  122 +++++++++++++++++++++-------
- drivers/net/ethernet/mellanox/mlx4/main.c  |    6 ++
+ drivers/net/ethernet/mellanox/mlx4/catas.c |   11 +-
+ drivers/net/ethernet/mellanox/mlx4/cmd.c   |  163 ++++++++++++++++++++++++----
+ drivers/net/ethernet/mellanox/mlx4/mcg.c   |    3 +
  drivers/net/ethernet/mellanox/mlx4/mlx4.h  |    2 +-
- include/linux/mlx4/device.h                |    7 ++
- 4 files changed, 108 insertions(+), 29 deletions(-)
+ include/linux/mlx4/cmd.h                   |    1 +
+ 5 files changed, 153 insertions(+), 27 deletions(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlx4/catas.c b/drivers/net/ethernet/mellanox/mlx4/catas.c
-index 5bb9aa6..588d6b5 100644
+index 588d6b5..63f14ff 100644
 --- a/drivers/net/ethernet/mellanox/mlx4/catas.c
 +++ b/drivers/net/ethernet/mellanox/mlx4/catas.c
-@@ -48,6 +48,83 @@ MODULE_PARM_DESC(internal_err_reset,
+@@ -42,8 +42,8 @@ enum {
+ 
+ 
+ 
+-static int internal_err_reset = 1;
+-module_param(internal_err_reset, int, 0644);
++int mlx4_internal_err_reset = 1;
++module_param_named(internal_err_reset, mlx4_internal_err_reset,  int, 0644);
+ MODULE_PARM_DESC(internal_err_reset,
  		 "Reset device on internal errors if non-zero"
  		 " (default 1, in SRIOV mode default is 0)");
+@@ -92,7 +92,7 @@ void mlx4_enter_error_state(struct mlx4_dev_persistent *persist)
+ 	int err;
+ 	struct mlx4_dev *dev;
  
-+static int read_vendor_id(struct mlx4_dev *dev)
+-	if (!internal_err_reset)
++	if (!mlx4_internal_err_reset)
+ 		return;
+ 
+ 	mutex_lock(&persist->device_state_mutex);
+@@ -110,6 +110,7 @@ void mlx4_enter_error_state(struct mlx4_dev_persistent *persist)
+ 
+ 	/* At that step HW was already reset, now notify clients */
+ 	mlx4_dispatch_event(dev, MLX4_DEV_EVENT_CATASTROPHIC_ERROR, 0);
++	mlx4_cmd_wake_completions(dev);
+ 	return;
+ 
+ out:
+@@ -157,7 +158,7 @@ static void poll_catas(unsigned long dev_ptr)
+ 	return;
+ 
+ internal_err:
+-	if (internal_err_reset)
++	if (mlx4_internal_err_reset)
+ 		queue_work(dev->persist->catas_wq, &dev->persist->catas_work);
+ }
+ 
+@@ -177,7 +178,7 @@ void mlx4_start_catas_poll(struct mlx4_dev *dev)
+ 
+ 	/*If we are in SRIOV the default of the module param must be 0*/
+ 	if (mlx4_is_mfunc(dev))
+-		internal_err_reset = 0;
++		mlx4_internal_err_reset = 0;
+ 
+ 	INIT_LIST_HEAD(&priv->catas_err.list);
+ 	init_timer(&priv->catas_err.timer);
+diff --git a/drivers/net/ethernet/mellanox/mlx4/cmd.c b/drivers/net/ethernet/mellanox/mlx4/cmd.c
+index 7cd90e6..3895b2b 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/cmd.c
++++ b/drivers/net/ethernet/mellanox/mlx4/cmd.c
+@@ -182,6 +182,72 @@ static u8 mlx4_errno_to_status(int errno)
+ 	}
+ }
+ 
++static int mlx4_internal_err_ret_value(struct mlx4_dev *dev, u16 op,
++				       u8 op_modifier)
 +{
-+	u16 vendor_id = 0;
-+	int ret;
++	switch (op) {
++	case MLX4_CMD_UNMAP_ICM:
++	case MLX4_CMD_UNMAP_ICM_AUX:
++	case MLX4_CMD_UNMAP_FA:
++	case MLX4_CMD_2RST_QP:
++	case MLX4_CMD_HW2SW_EQ:
++	case MLX4_CMD_HW2SW_CQ:
++	case MLX4_CMD_HW2SW_SRQ:
++	case MLX4_CMD_HW2SW_MPT:
++	case MLX4_CMD_CLOSE_HCA:
++	case MLX4_QP_FLOW_STEERING_DETACH:
++	case MLX4_CMD_FREE_RES:
++	case MLX4_CMD_CLOSE_PORT:
++		return CMD_STAT_OK;
 +
-+	ret = pci_read_config_word(dev->persist->pdev, 0, &vendor_id);
-+	if (ret) {
-+		mlx4_err(dev, "Failed to read vendor ID, ret=%d\n", ret);
-+		return ret;
++	case MLX4_CMD_QP_ATTACH:
++		/* On Detach case return success */
++		if (op_modifier == 0)
++			return CMD_STAT_OK;
++		return mlx4_status_to_errno(CMD_STAT_INTERNAL_ERR);
++
++	default:
++		return mlx4_status_to_errno(CMD_STAT_INTERNAL_ERR);
 +	}
++}
 +
-+	if (vendor_id == 0xffff) {
-+		mlx4_err(dev, "PCI can't be accessed to read vendor id\n");
-+		return -EINVAL;
-+	}
-+
++static int mlx4_closing_cmd_fatal_error(u16 op, u8 fw_status)
++{
++	/* Any error during the closing commands below is considered fatal */
++	if (op == MLX4_CMD_CLOSE_HCA ||
++	    op == MLX4_CMD_HW2SW_EQ ||
++	    op == MLX4_CMD_HW2SW_CQ ||
++	    op == MLX4_CMD_2RST_QP ||
++	    op == MLX4_CMD_HW2SW_SRQ ||
++	    op == MLX4_CMD_SYNC_TPT ||
++	    op == MLX4_CMD_UNMAP_ICM ||
++	    op == MLX4_CMD_UNMAP_ICM_AUX ||
++	    op == MLX4_CMD_UNMAP_FA)
++		return 1;
++	/* Error on MLX4_CMD_HW2SW_MPT is fatal except when fw status equals
++	  * CMD_STAT_REG_BOUND.
++	  * This status indicates that memory region has memory windows bound to it
++	  * which may result from invalid user space usage and is not fatal.
++	  */
++	if (op == MLX4_CMD_HW2SW_MPT && fw_status != CMD_STAT_REG_BOUND)
++		return 1;
 +	return 0;
 +}
 +
-+static int mlx4_reset_master(struct mlx4_dev *dev)
++static int mlx4_cmd_reset_flow(struct mlx4_dev *dev, u16 op, u8 op_modifier,
++			       int err)
 +{
-+	int err = 0;
-+
-+	if (!pci_channel_offline(dev->persist->pdev)) {
-+		err = read_vendor_id(dev);
-+		/* If PCI can't be accessed to read vendor ID we assume that its
-+		 * link was disabled and chip was already reset.
-+		 */
-+		if (err)
-+			return 0;
-+
-+		err = mlx4_reset(dev);
-+		if (err)
-+			mlx4_err(dev, "Fail to reset HCA\n");
++	/* Only if reset flow is really active return code is based on
++	  * command, otherwise current error code is returned.
++	  */
++	if (mlx4_internal_err_reset) {
++		mlx4_enter_error_state(dev->persist);
++		err = mlx4_internal_err_ret_value(dev, op, op_modifier);
 +	}
 +
 +	return err;
 +}
 +
-+void mlx4_enter_error_state(struct mlx4_dev_persistent *persist)
-+{
-+	int err;
-+	struct mlx4_dev *dev;
-+
-+	if (!internal_err_reset)
-+		return;
-+
-+	mutex_lock(&persist->device_state_mutex);
-+	if (persist->state & MLX4_DEVICE_STATE_INTERNAL_ERROR)
-+		goto out;
-+
-+	dev = persist->dev;
-+	mlx4_err(dev, "device is going to be reset\n");
-+	err = mlx4_reset_master(dev);
-+	BUG_ON(err != 0);
-+
-+	dev->persist->state |= MLX4_DEVICE_STATE_INTERNAL_ERROR;
-+	mlx4_err(dev, "device was reset successfully\n");
-+	mutex_unlock(&persist->device_state_mutex);
-+
-+	/* At that step HW was already reset, now notify clients */
-+	mlx4_dispatch_event(dev, MLX4_DEV_EVENT_CATASTROPHIC_ERROR, 0);
-+	return;
-+
-+out:
-+	mutex_unlock(&persist->device_state_mutex);
-+}
-+
-+static void mlx4_handle_error_state(struct mlx4_dev_persistent *persist)
-+{
-+	int err = 0;
-+
-+	mlx4_enter_error_state(persist);
-+	err = mlx4_restart_one(persist->pdev);
-+	mlx4_info(persist->dev, "mlx4_restart_one was ended, ret=%d\n", err);
-+}
-+
- static void dump_err_buf(struct mlx4_dev *dev)
+ static int comm_pending(struct mlx4_dev *dev)
  {
  	struct mlx4_priv *priv = mlx4_priv(dev);
-@@ -66,21 +143,22 @@ static void poll_catas(unsigned long dev_ptr)
- 	struct mlx4_priv *priv = mlx4_priv(dev);
+@@ -258,7 +324,7 @@ static int mlx4_comm_cmd_wait(struct mlx4_dev *dev, u8 op,
+ 	cmd->free_head = context->next;
+ 	spin_unlock(&cmd->context_lock);
  
- 	if (readl(priv->catas_err.map)) {
--		/* If the device is off-line, we cannot try to recover it */
--		if (pci_channel_offline(dev->persist->pdev))
--			mod_timer(&priv->catas_err.timer,
--				  round_jiffies(jiffies + MLX4_CATAS_POLL_INTERVAL));
--		else {
--			dump_err_buf(dev);
--			mlx4_dispatch_event(dev, MLX4_DEV_EVENT_CATASTROPHIC_ERROR, 0);
+-	init_completion(&context->done);
++	reinit_completion(&context->done);
+ 
+ 	mlx4_comm_cmd_post(dev, op, param);
+ 
+@@ -323,17 +389,21 @@ static int mlx4_cmd_post(struct mlx4_dev *dev, u64 in_param, u64 out_param,
+ {
+ 	struct mlx4_cmd *cmd = &mlx4_priv(dev)->cmd;
+ 	u32 __iomem *hcr = cmd->hcr;
+-	int ret = -EAGAIN;
++	int ret = -EIO;
+ 	unsigned long end;
+ 
+-	mutex_lock(&cmd->hcr_mutex);
 -
--			if (internal_err_reset)
--				queue_work(dev->persist->catas_wq,
--					   &dev->persist->catas_work);
--		}
--	} else
--		mod_timer(&priv->catas_err.timer,
--			  round_jiffies(jiffies + MLX4_CATAS_POLL_INTERVAL));
-+		dump_err_buf(dev);
-+		goto internal_err;
-+	}
-+
-+	if (dev->persist->state & MLX4_DEVICE_STATE_INTERNAL_ERROR) {
-+		mlx4_warn(dev, "Internal error mark was detected on device\n");
-+		goto internal_err;
-+	}
-+
-+	mod_timer(&priv->catas_err.timer,
-+		  round_jiffies(jiffies + MLX4_CATAS_POLL_INTERVAL));
-+	return;
-+
-+internal_err:
-+	if (internal_err_reset)
-+		queue_work(dev->persist->catas_wq, &dev->persist->catas_work);
- }
- 
- static void catas_reset(struct work_struct *work)
-@@ -88,20 +166,8 @@ static void catas_reset(struct work_struct *work)
- 	struct mlx4_dev_persistent *persist =
- 		container_of(work, struct mlx4_dev_persistent,
- 			     catas_work);
--	struct pci_dev *pdev = persist->pdev;
--	int ret;
--
--	/* If the device is off-line, we cannot reset it */
--	if (pci_channel_offline(pdev))
--		return;
- 
--	ret = mlx4_restart_one(pdev);
--	/* 'priv' now is not valid */
--	if (ret)
--		pr_err("mlx4 %s: Reset failed (%d)\n",
--		       pci_name(pdev), ret);
--	else
--		mlx4_dbg(persist->dev, "Reset succeeded\n");
-+	mlx4_handle_error_state(persist);
- }
- 
- void mlx4_start_catas_poll(struct mlx4_dev *dev)
-diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
-index a61694c..dc2d910 100644
---- a/drivers/net/ethernet/mellanox/mlx4/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/main.c
-@@ -2624,6 +2624,11 @@ static int mlx4_load_one(struct pci_dev *pdev, int pci_dev_data,
- 		}
+-	if (pci_channel_offline(dev->persist->pdev)) {
++	mutex_lock(&dev->persist->device_state_mutex);
++	/* To avoid writing to unknown addresses after the device state was
++	  * changed to internal error and the chip was reset,
++	  * check the INTERNAL_ERROR flag which is updated under
++	  * device_state_mutex lock.
++	  */
++	if (pci_channel_offline(dev->persist->pdev) ||
++	    (dev->persist->state & MLX4_DEVICE_STATE_INTERNAL_ERROR)) {
+ 		/*
+ 		 * Device is going through error recovery
+ 		 * and cannot accept commands.
+ 		 */
+-		ret = -EIO;
+ 		goto out;
  	}
  
-+	/* on load remove any previous indication of internal error,
-+	 * device is up.
-+	 */
-+	dev->persist->state = MLX4_DEVICE_STATE_UP;
-+
- slave_start:
- 	err = mlx4_cmd_init(dev);
- 	if (err) {
-@@ -3108,6 +3113,7 @@ static int mlx4_init_one(struct pci_dev *pdev, const struct pci_device_id *id)
- 	dev->persist->dev = dev;
- 	pci_set_drvdata(pdev, dev->persist);
- 	priv->pci_dev_data = id->driver_data;
-+	mutex_init(&dev->persist->device_state_mutex);
+@@ -347,7 +417,6 @@ static int mlx4_cmd_post(struct mlx4_dev *dev, u64 in_param, u64 out_param,
+ 			 * Device is going through error recovery
+ 			 * and cannot accept commands.
+ 			 */
+-			ret = -EIO;
+ 			goto out;
+ 		}
  
- 	ret =  __mlx4_init_one(pdev, id->driver_data, priv);
- 	if (ret) {
+@@ -391,7 +460,11 @@ static int mlx4_cmd_post(struct mlx4_dev *dev, u64 in_param, u64 out_param,
+ 	ret = 0;
+ 
+ out:
+-	mutex_unlock(&cmd->hcr_mutex);
++	if (ret)
++		mlx4_warn(dev, "Could not post command 0x%x: ret=%d, in_param=0x%llx, in_mod=0x%x, op_mod=0x%x\n",
++			  op, ret, in_param, in_modifier, op_modifier);
++	mutex_unlock(&dev->persist->device_state_mutex);
++
+ 	return ret;
+ }
+ 
+@@ -464,12 +537,12 @@ static int mlx4_cmd_poll(struct mlx4_dev *dev, u64 in_param, u64 *out_param,
+ 
+ 	down(&priv->cmd.poll_sem);
+ 
+-	if (pci_channel_offline(dev->persist->pdev)) {
++	if (dev->persist->state & MLX4_DEVICE_STATE_INTERNAL_ERROR) {
+ 		/*
+ 		 * Device is going through error recovery
+ 		 * and cannot accept commands.
+ 		 */
+-		err = -EIO;
++		err = mlx4_internal_err_ret_value(dev, op, op_modifier);
+ 		goto out;
+ 	}
+ 
+@@ -483,7 +556,7 @@ static int mlx4_cmd_poll(struct mlx4_dev *dev, u64 in_param, u64 *out_param,
+ 	err = mlx4_cmd_post(dev, in_param, out_param ? *out_param : 0,
+ 			    in_modifier, op_modifier, op, CMD_POLL_TOKEN, 0);
+ 	if (err)
+-		goto out;
++		goto out_reset;
+ 
+ 	end = msecs_to_jiffies(timeout) + jiffies;
+ 	while (cmd_pending(dev) && time_before(jiffies, end)) {
+@@ -493,6 +566,11 @@ static int mlx4_cmd_poll(struct mlx4_dev *dev, u64 in_param, u64 *out_param,
+ 			 * and cannot accept commands.
+ 			 */
+ 			err = -EIO;
++			goto out_reset;
++		}
++
++		if (dev->persist->state & MLX4_DEVICE_STATE_INTERNAL_ERROR) {
++			err = mlx4_internal_err_ret_value(dev, op, op_modifier);
+ 			goto out;
+ 		}
+ 
+@@ -502,8 +580,8 @@ static int mlx4_cmd_poll(struct mlx4_dev *dev, u64 in_param, u64 *out_param,
+ 	if (cmd_pending(dev)) {
+ 		mlx4_warn(dev, "command 0x%x timed out (go bit not cleared)\n",
+ 			  op);
+-		err = -ETIMEDOUT;
+-		goto out;
++		err = -EIO;
++		goto out_reset;
+ 	}
+ 
+ 	if (out_is_imm)
+@@ -515,10 +593,17 @@ static int mlx4_cmd_poll(struct mlx4_dev *dev, u64 in_param, u64 *out_param,
+ 	stat = be32_to_cpu((__force __be32)
+ 			   __raw_readl(hcr + HCR_STATUS_OFFSET)) >> 24;
+ 	err = mlx4_status_to_errno(stat);
+-	if (err)
++	if (err) {
+ 		mlx4_err(dev, "command 0x%x failed: fw status = 0x%x\n",
+ 			 op, stat);
++		if (mlx4_closing_cmd_fatal_error(op, stat))
++			goto out_reset;
++		goto out;
++	}
+ 
++out_reset:
++	if (err)
++		err = mlx4_cmd_reset_flow(dev, op, op_modifier, err);
+ out:
+ 	up(&priv->cmd.poll_sem);
+ 	return err;
+@@ -565,17 +650,19 @@ static int mlx4_cmd_wait(struct mlx4_dev *dev, u64 in_param, u64 *out_param,
+ 		goto out;
+ 	}
+ 
+-	init_completion(&context->done);
++	reinit_completion(&context->done);
+ 
+-	mlx4_cmd_post(dev, in_param, out_param ? *out_param : 0,
+-		      in_modifier, op_modifier, op, context->token, 1);
++	err = mlx4_cmd_post(dev, in_param, out_param ? *out_param : 0,
++			    in_modifier, op_modifier, op, context->token, 1);
++	if (err)
++		goto out_reset;
+ 
+ 	if (!wait_for_completion_timeout(&context->done,
+ 					 msecs_to_jiffies(timeout))) {
+ 		mlx4_warn(dev, "command 0x%x timed out (go bit not cleared)\n",
+ 			  op);
+-		err = -EBUSY;
+-		goto out;
++		err = -EIO;
++		goto out_reset;
+ 	}
+ 
+ 	err = context->result;
+@@ -592,12 +679,20 @@ static int mlx4_cmd_wait(struct mlx4_dev *dev, u64 in_param, u64 *out_param,
+ 		else
+ 			mlx4_err(dev, "command 0x%x failed: fw status = 0x%x\n",
+ 				 op, context->fw_status);
++		if (dev->persist->state & MLX4_DEVICE_STATE_INTERNAL_ERROR)
++			err = mlx4_internal_err_ret_value(dev, op, op_modifier);
++		else if (mlx4_closing_cmd_fatal_error(op, context->fw_status))
++			goto out_reset;
++
+ 		goto out;
+ 	}
+ 
+ 	if (out_is_imm)
+ 		*out_param = context->out_param;
+ 
++out_reset:
++	if (err)
++		err = mlx4_cmd_reset_flow(dev, op, op_modifier, err);
+ out:
+ 	spin_lock(&cmd->context_lock);
+ 	context->next = cmd->free_head;
+@@ -613,9 +708,12 @@ int __mlx4_cmd(struct mlx4_dev *dev, u64 in_param, u64 *out_param,
+ 	       u16 op, unsigned long timeout, int native)
+ {
+ 	if (pci_channel_offline(dev->persist->pdev))
+-		return -EIO;
++		return mlx4_cmd_reset_flow(dev, op, op_modifier, -EIO);
+ 
+ 	if (!mlx4_is_mfunc(dev) || (native && mlx4_is_master(dev))) {
++		if (dev->persist->state & MLX4_DEVICE_STATE_INTERNAL_ERROR)
++			return mlx4_internal_err_ret_value(dev, op,
++							  op_modifier);
+ 		if (mlx4_priv(dev)->cmd.use_events)
+ 			return mlx4_cmd_wait(dev, in_param, out_param,
+ 					     out_is_imm, in_modifier,
+@@ -2121,7 +2219,6 @@ int mlx4_cmd_init(struct mlx4_dev *dev)
+ 	int flags = 0;
+ 
+ 	if (!priv->cmd.initialized) {
+-		mutex_init(&priv->cmd.hcr_mutex);
+ 		mutex_init(&priv->cmd.slave_cmd_mutex);
+ 		sema_init(&priv->cmd.poll_sem, 1);
+ 		priv->cmd.use_events = 0;
+@@ -2232,6 +2329,11 @@ int mlx4_cmd_use_events(struct mlx4_dev *dev)
+ 	for (i = 0; i < priv->cmd.max_cmds; ++i) {
+ 		priv->cmd.context[i].token = i;
+ 		priv->cmd.context[i].next  = i + 1;
++		/* To support fatal error flow, initialize all
++		 * cmd contexts to allow simulating completions
++		 * with complete() at any time.
++		 */
++		init_completion(&priv->cmd.context[i].done);
+ 	}
+ 
+ 	priv->cmd.context[priv->cmd.max_cmds - 1].next = -1;
+@@ -2329,6 +2431,25 @@ int mlx4_get_vf_indx(struct mlx4_dev *dev, int slave)
+ 	return slave - 1;
+ }
+ 
++void mlx4_cmd_wake_completions(struct mlx4_dev *dev)
++{
++	struct mlx4_priv *priv = mlx4_priv(dev);
++	struct mlx4_cmd_context *context;
++	int i;
++
++	spin_lock(&priv->cmd.context_lock);
++	if (priv->cmd.context) {
++		for (i = 0; i < priv->cmd.max_cmds; ++i) {
++			context = &priv->cmd.context[i];
++			context->fw_status = CMD_STAT_INTERNAL_ERR;
++			context->result    =
++				mlx4_status_to_errno(CMD_STAT_INTERNAL_ERR);
++			complete(&context->done);
++		}
++	}
++	spin_unlock(&priv->cmd.context_lock);
++}
++
+ struct mlx4_active_ports mlx4_get_active_ports(struct mlx4_dev *dev, int slave)
+ {
+ 	struct mlx4_active_ports actv_ports;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mcg.c b/drivers/net/ethernet/mellanox/mlx4/mcg.c
+index a3867e7..d22d928 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mcg.c
++++ b/drivers/net/ethernet/mellanox/mlx4/mcg.c
+@@ -1318,6 +1318,9 @@ out:
+ 	mutex_unlock(&priv->mcg_table.mutex);
+ 
+ 	mlx4_free_cmd_mailbox(dev, mailbox);
++	if (err && dev->persist->state & MLX4_DEVICE_STATE_INTERNAL_ERROR)
++		/* In case device is under an error, return success as a closing command */
++		err = 0;
+ 	return err;
+ }
+ 
 diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4.h b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-index d41af84..aa1ecbc 100644
+index aa1ecbc..5c772ea 100644
 --- a/drivers/net/ethernet/mellanox/mlx4/mlx4.h
 +++ b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-@@ -1178,7 +1178,7 @@ void mlx4_qp_event(struct mlx4_dev *dev, u32 qpn, int event_type);
+@@ -235,6 +235,7 @@ do {									\
  
- void mlx4_srq_event(struct mlx4_dev *dev, u32 srqn, int event_type);
+ extern int mlx4_log_num_mgm_entry_size;
+ extern int log_mtts_per_seg;
++extern int mlx4_internal_err_reset;
  
--void mlx4_handle_catas_err(struct mlx4_dev *dev);
-+void mlx4_enter_error_state(struct mlx4_dev_persistent *persist);
- 
- int mlx4_SENSE_PORT(struct mlx4_dev *dev, int port,
- 		    enum mlx4_port_type *type);
-diff --git a/include/linux/mlx4/device.h b/include/linux/mlx4/device.h
-index da425d2..7d5d317 100644
---- a/include/linux/mlx4/device.h
-+++ b/include/linux/mlx4/device.h
-@@ -411,6 +411,11 @@ enum {
- 	MLX4_EQ_PORT_INFO_MSTR_SM_SL_CHANGE_MASK	= 1 << 4,
- };
- 
-+enum {
-+	MLX4_DEVICE_STATE_UP			= 1 << 0,
-+	MLX4_DEVICE_STATE_INTERNAL_ERROR	= 1 << 1,
-+};
-+
- #define MSTR_SM_CHANGE_MASK (MLX4_EQ_PORT_INFO_MSTR_SM_SL_CHANGE_MASK | \
- 			     MLX4_EQ_PORT_INFO_MSTR_SM_LID_CHANGE_MASK)
- 
-@@ -753,6 +758,8 @@ struct mlx4_dev_persistent {
- 	enum mlx4_port_type curr_port_poss_type[MLX4_MAX_PORTS + 1];
- 	struct work_struct      catas_work;
- 	struct workqueue_struct *catas_wq;
-+	struct mutex	device_state_mutex; /* protect HW state */
-+	u8		state;
- };
- 
- struct mlx4_dev {
+ #define MLX4_MAX_NUM_SLAVES	(MLX4_MAX_NUM_PF + MLX4_MAX_NUM_VF)
+ #define ALL_SLAVES 0xff
+@@ -607,7 +608,6 @@ struct mlx4_mgm {
+ struct mlx4_cmd {
+ 	struct pci_pool	       *pool;
+ 	void __iomem	       *hcr;
+-	struct mutex		hcr_mutex;
+ 	struct mutex		slave_cmd_mutex;
+ 	struct semaphore	poll_sem;
+ 	struct semaphore	event_sem;
+diff --git a/include/linux/mlx4/cmd.h b/include/linux/mlx4/cmd.h
+index 64d2594..e754384 100644
+--- a/include/linux/mlx4/cmd.h
++++ b/include/linux/mlx4/cmd.h
+@@ -279,6 +279,7 @@ int mlx4_get_vf_config(struct mlx4_dev *dev, int port, int vf, struct ifla_vf_in
+ int mlx4_set_vf_link_state(struct mlx4_dev *dev, int port, int vf, int link_state);
+ int mlx4_config_dev_retrieval(struct mlx4_dev *dev,
+ 			      struct mlx4_config_dev_params *params);
++void mlx4_cmd_wake_completions(struct mlx4_dev *dev);
+ /*
+  * mlx4_get_slave_default_vlan -
+  * return true if VST ( default vlan)
 -- 
 1.7.1
