@@ -1,34 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next 0/2] vxlan: Don't use UDP socket for
- transmit
-Date: Sat, 24 Jan 2015 23:16:08 -0800 (PST)
-Message-ID: <20150124.231608.472694661359785983.davem@davemloft.net>
-References: <1421781785-24557-1-git-send-email-therbert@google.com>
+Subject: Re: [net-next 00/15][pull request] Intel Wired LAN Driver Updates
+ 2015-01-22
+Date: Sat, 24 Jan 2015 23:24:54 -0800 (PST)
+Message-ID: <20150124.232454.558659234418848076.davem@davemloft.net>
+References: <1421980631-1955-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: tgraf@suug.ch, jesse@nicira.com, netdev@vger.kernel.org
-To: therbert@google.com
+Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60458 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:60497 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751337AbbAYHQJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 25 Jan 2015 02:16:09 -0500
-In-Reply-To: <1421781785-24557-1-git-send-email-therbert@google.com>
+	with ESMTP id S1751851AbbAYHYz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 Jan 2015 02:24:55 -0500
+In-Reply-To: <1421980631-1955-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tom Herbert <therbert@google.com>
-Date: Tue, 20 Jan 2015 11:23:03 -0800
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Thu, 22 Jan 2015 18:36:56 -0800
 
-> UDP socket is not pertinent to transmit for UDP tunnels, checksum
-> enablement can be done without a socket. This patch set eliminates
-> reference to a socket in udp_tunnel_xmit functions and in VXLAN
-> transmit.
-> 
-> Also, make GBP, RCO, can CSUM6_RX flags visible to receive socket
-> and only match these for shareable socket.
-> 
-> v2: Fix geneve to call udp_tunnel_xmit with good arguments.
+> This series contains updates to e1000, e1000e, igb, fm10k and virtio_net.
 
-Series applied, thanks Tom.
+Pulled, thanks a lot Jeff.
