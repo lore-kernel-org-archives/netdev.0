@@ -1,30 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: llc: use correct size for sysctl timeout entries
-Date: Sun, 25 Jan 2015 00:23:44 -0800 (PST)
-Message-ID: <20150125.002344.882303502800355463.davem@davemloft.net>
-References: <1422064020-22080-1-git-send-email-sasha.levin@oracle.com>
+Subject: Re: [PATCH net] ipvlan: fix incorrect usage of IS_ERR() macro in
+ IPv6 code path.
+Date: Sun, 25 Jan 2015 00:24:45 -0800 (PST)
+Message-ID: <20150125.002445.702364447839790923.davem@davemloft.net>
+References: <1422165223-13496-1-git-send-email-maheshb@google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, acme@ghostprotocols.net,
-	netdev@vger.kernel.org
-To: sasha.levin@oracle.com
+Cc: netdev@vger.kernel.org, edumazet@google.com,
+	dan.carpenter@oracle.com
+To: maheshb@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60742 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:60754 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751076AbbAYIXp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 25 Jan 2015 03:23:45 -0500
-In-Reply-To: <1422064020-22080-1-git-send-email-sasha.levin@oracle.com>
+	with ESMTP id S1751076AbbAYIYq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 Jan 2015 03:24:46 -0500
+In-Reply-To: <1422165223-13496-1-git-send-email-maheshb@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sasha Levin <sasha.levin@oracle.com>
-Date: Fri, 23 Jan 2015 20:47:00 -0500
+From: Mahesh Bandewar <maheshb@google.com>
+Date: Sat, 24 Jan 2015 21:53:43 -0800
 
-> The timeout entries are sizeof(int) rather than sizeof(long), which
-> means that when they were getting read we'd also leak kernel memory
-> to userspace along with the timeout values.
+> The ip6_route_output() always returns a valid dst pointer unlike in IPv4
+> case. So the validation has to be different from the IPv4 path. Correcting
+> that error in this patch.
 > 
-> Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
+> This was picked up by a static checker with a following warning -
+> 
+>    drivers/net/ipvlan/ipvlan_core.c:380 ipvlan_process_v6_outbound()
+>         warn: 'dst' isn't an ERR_PTR
+> 
+> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+> Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-Applied, thank you.
+Applied, thanks.
