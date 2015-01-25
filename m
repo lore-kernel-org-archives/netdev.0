@@ -1,69 +1,40 @@
-From: "Ahmed S. Darwish" <darwish.07@gmail.com>
-Subject: Re: [PATCH v5 4/5] can: kvaser_usb: Retry the first bulk transfer on
- -ETIMEDOUT
-Date: Sun, 25 Jan 2015 13:59:19 +0200
-Message-ID: <20150125115919.GA16000@Darwish.PC>
-References: <20141223154654.GB6460@vivalin-002>
- <20150120214409.GA16828@linux>
- <20150120214537.GB16828@linux>
- <20150120214709.GC16828@linux>
- <20150120214834.GD16828@linux>
- <54BF9A8E.7000202@cogentembedded.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net] net: ipv6: allow explicitly choosing optimistic
+ addresses
+Date: Sun, 25 Jan 2015 13:46:33 +0100
+Message-ID: <1422189993.2148036.218504993.339586EE@webmail.messagingengine.com>
+References: <1421823759-15098-1-git-send-email-ek@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Olivier Sobrie <olivier@sobrie.be>,
-	Oliver Hartkopp <socketcan@hartkopp.net>,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	Marc Kleine-Budde <mkl@pengutronix.de>,
-	Andri Yngvason <andri.yngvason@marel.com>,
-	Linux-CAN <linux-can@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <54BF9A8E.7000202@cogentembedded.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net
+To: Erik Kline <ek@google.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out3-smtp.messagingengine.com ([66.111.4.27]:58302 "EHLO
+	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751537AbbAYMqe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 Jan 2015 07:46:34 -0500
+Received: from compute5.internal (compute5.nyi.internal [10.202.2.45])
+	by mailout.nyi.internal (Postfix) with ESMTP id A6E9F207EA
+	for <netdev@vger.kernel.org>; Sun, 25 Jan 2015 07:46:33 -0500 (EST)
+In-Reply-To: <1421823759-15098-1-git-send-email-ek@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 21, 2015 at 03:24:46PM +0300, Sergei Shtylyov wrote:
-> Hello.
-> 
-> On 1/21/2015 12:48 AM, Ahmed S. Darwish wrote:
-> 
-> >From: Ahmed S. Darwish <ahmed.darwish@valeo.com>
-> 
-> >On some x86 laptops, plugging a Kvaser device again after an
-> >unplug makes the firmware always ignore the very first command.
-> >For such a case, provide some room for retries instead of
-> >completly exiting the driver init code.
-> 
->    Completely.
-> 
-> >Signed-off-by: Ahmed S. Darwish <ahmed.darwish@valeo.com>
-> >---
-> >  drivers/net/can/usb/kvaser_usb.c | 12 ++++++++++--
-> >  1 file changed, 10 insertions(+), 2 deletions(-)
-> 
-> >diff --git a/drivers/net/can/usb/kvaser_usb.c b/drivers/net/can/usb/kvaser_usb.c
-> >index 640b0eb..068e76c 100644
-> >--- a/drivers/net/can/usb/kvaser_usb.c
-> >+++ b/drivers/net/can/usb/kvaser_usb.c
-> [...]
-> >@@ -1632,7 +1632,15 @@ static int kvaser_usb_probe(struct usb_interface *intf,
-> >
-> >  	usb_set_intfdata(intf, dev);
-> >
-> >-	err = kvaser_usb_get_software_info(dev);
-> >+	/* On some x86 laptops, plugging a Kvaser device again after
-> >+	 * an unplug makes the firmware always ignore the very first
-> >+	 * command. For such a case, provide some room for retries
-> >+	 * instead of completly exiting the driver.
-> 
->    Completely.
-> 
+Hi,
 
-Thanks, both fixed in the next submission :-D
+On Wed, Jan 21, 2015, at 08:02, Erik Kline wrote:
+>  		if (ipv6_addr_equal(&ifp->addr, addr) &&
+> -                   !(ifp->flags&IFA_F_TENTATIVE) &&
+> +                   (!(ifp->flags&IFA_F_TENTATIVE) ||
+> +                    ifp->flags&IFA_F_OPTIMISTIC) &&
+> +                   !(ifp->flags&banned_flags) &&
+>  		    (dev == NULL || ifp->idev->dev == dev ||
 
-Regards,
-Darwish
+Can the wrapper take the IFA_F_TENTATIVE and IFA_F_OPTIMISTIC into the
+banned_flags argument, so this condition becomes easier to read? The new
+caller could also specify them verbatim. I think it would improve
+readability.
+
+Thanks,
+Hannes
