@@ -1,38 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] netxen: fix netxen_nic_poll() logic
-Date: Sun, 25 Jan 2015 00:22:15 -0800 (PST)
-Message-ID: <20150125.002215.896643903032388131.davem@davemloft.net>
-References: <1421909520.3471.2.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1421915821.5286.71.camel@marge.simpson.net>
-	<1421942178.3471.10.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [PATCH] net: llc: use correct size for sysctl timeout entries
+Date: Sun, 25 Jan 2015 00:23:44 -0800 (PST)
+Message-ID: <20150125.002344.882303502800355463.davem@davemloft.net>
+References: <1422064020-22080-1-git-send-email-sasha.levin@oracle.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: umgwanakikbuti@gmail.com, netdev@vger.kernel.org,
-	manish.chopra@qlogic.com
-To: eric.dumazet@gmail.com
+Cc: linux-kernel@vger.kernel.org, acme@ghostprotocols.net,
+	netdev@vger.kernel.org
+To: sasha.levin@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60737 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:60742 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751076AbbAYIWQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 25 Jan 2015 03:22:16 -0500
-In-Reply-To: <1421942178.3471.10.camel@edumazet-glaptop2.roam.corp.google.com>
+	with ESMTP id S1751076AbbAYIXp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 Jan 2015 03:23:45 -0500
+In-Reply-To: <1422064020-22080-1-git-send-email-sasha.levin@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 22 Jan 2015 07:56:18 -0800
+From: Sasha Levin <sasha.levin@oracle.com>
+Date: Fri, 23 Jan 2015 20:47:00 -0500
 
-> From: Eric Dumazet <edumazet@google.com>
+> The timeout entries are sizeof(int) rather than sizeof(long), which
+> means that when they were getting read we'd also leak kernel memory
+> to userspace along with the timeout values.
 > 
-> NAPI poll logic now enforces that a poller returns exactly the budget
-> when it wants to be called again.
-> 
-> If a driver limits TX completion, it has to return budget as well when
-> the limit is hit, not the number of received packets.
-> 
-> Reported-and-tested-by: Mike Galbraith <umgwanakikbuti@gmail.com>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Fixes: d75b1ade567f ("net: less interrupt masking in NAPI")
+> Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
 
-Applied and queued up for -stable, thanks Eric.
+Applied, thank you.
