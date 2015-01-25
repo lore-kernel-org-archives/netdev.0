@@ -1,41 +1,53 @@
-From: Govindarajulu Varadarajan <_govind@gmx.com>
-Subject: [PATCH net v2] bnx2x: fix napi poll return value for repoll
-Date: Sun, 25 Jan 2015 16:09:23 +0530
-Message-ID: <1422182363-10932-1-git-send-email-_govind@gmx.com>
-Cc: edumazet@google.com, Govindarajulu Varadarajan <_govind@gmx.com>
-To: davem@davemloft.net, netdev@vger.kernel.org, ariel.elior@qlogic.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.com ([74.208.4.201]:49348 "EHLO mout.gmx.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751199AbbAYKj6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 25 Jan 2015 05:39:58 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Nicholas Mc Guire <der.herr@hofr.at>
+Subject: [PATCH 3/3] hyperv: hid-hyperv.c:
+ fixup-of-wait_for_completion_timeout-return-type
+Date: Sun, 25 Jan 2015 12:00:53 +0100
+Message-ID: <1422183653-7541-1-git-send-email-der.herr@hofr.at>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Jiri Kosina <jkosina@suse.cz>, Haiyang Zhang <haiyangz@microsoft.com>,
+ linux-kernel@vger.kernel.org, Nicholas Mc Guire <der.herr@hofr.at>,
+ netdev@vger.kernel.org, devel@linuxdriverproject.org
+To: "K. Y. Srinivasan" <kys@microsoft.com>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-With the commit d75b1ade567ffab ("net: less interrupt masking in NAPI") napi
-repoll is done only when work_done == budget. When in busy_poll is we return 0
-in napi_poll. We should return budget.
-
-Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
+Signed-off-by: Nicholas Mc Guire <der.herr@hofr.at>
 ---
-v2:
-Remove unnecessary change for work_done >= budget return value.
 
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c | 2 +-
+The return type of wait_for_completion_timeout is unsigned long not
+int. This patch fixes up the declarations only.
+
+Patch was compile tested only for x86_64_defconfig + CONFIG_X86_VSMP=y
+CONFIG_HYPERV=m, CONFIG_HID_HYPERV_MOUSE=m
+
+Patch is against 3.19.0-rc5 -next-20150123
+
+ drivers/hid/hid-hyperv.c |    2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-index 1d1147c..e468ed3 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-@@ -3175,7 +3175,7 @@ static int bnx2x_poll(struct napi_struct *napi, int budget)
- 		}
- #endif
- 		if (!bnx2x_fp_lock_napi(fp))
--			return work_done;
-+			return budget;
- 
- 		for_each_cos_in_tx_queue(fp, cos)
- 			if (bnx2x_tx_queue_has_work(fp->txdata_ptr[cos]))
+diff --git a/drivers/hid/hid-hyperv.c b/drivers/hid/hid-hyperv.c
+index 31fad64..6039f07 100644
+--- a/drivers/hid/hid-hyperv.c
++++ b/drivers/hid/hid-hyperv.c
+@@ -381,7 +381,7 @@ static void mousevsc_on_channel_callback(void *context)
+ static int mousevsc_connect_to_vsp(struct hv_device *device)
+ {
+ 	int ret = 0;
+-	int t;
++	unsigned long t;
+ 	struct mousevsc_dev *input_dev = hv_get_drvdata(device);
+ 	struct mousevsc_prt_msg *request;
+ 	struct mousevsc_prt_msg *response;
 -- 
-2.2.2
+1.7.10.4
