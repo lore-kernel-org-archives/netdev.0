@@ -1,34 +1,62 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 2/2] bnx2x: fix napi poll return value for repoll
-Date: Sat, 24 Jan 2015 22:40:04 -0800 (PST)
-Message-ID: <20150124.224004.1215346085544777165.davem@davemloft.net>
-References: <1421759776-376-1-git-send-email-_govind@gmx.com>
-	<1421759776-376-3-git-send-email-_govind@gmx.com>
+Subject: Re: [PATCH net-next 1/7] r8152: adjust rx_bottom
+Date: Sat, 24 Jan 2015 22:43:42 -0800 (PST)
+Message-ID: <20150124.224342.425895080003524375.davem@davemloft.net>
+References: <0835B3720019904CB8F7AA43166CEEB2EE6E76@RTITMBSV03.realtek.com.tw>
+	<20150119.215220.720365670558757349.davem@davemloft.net>
+	<0835B3720019904CB8F7AA43166CEEB2EE6E9F@RTITMBSV03.realtek.com.tw>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ariel.elior@qlogic.com, ssujith@cisco.com,
-	benve@cisco.com
-To: _govind@gmx.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60338 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750911AbbAYGkF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 25 Jan 2015 01:40:05 -0500
-In-Reply-To: <1421759776-376-3-git-send-email-_govind@gmx.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: sfeldma@gmail.com, netdev@vger.kernel.org, nic_swsd@realtek.com,
+	linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org
+To: hayeswang@realtek.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <0835B3720019904CB8F7AA43166CEEB2EE6E9F@RTITMBSV03.realtek.com.tw>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Govindarajulu Varadarajan <_govind@gmx.com>
-Date: Tue, 20 Jan 2015 18:46:16 +0530
+From: Hayes Wang <hayeswang@realtek.com>
+Date: Tue, 20 Jan 2015 03:24:52 +0000
 
-> With the commit d75b1ade567ffab ("net: less interrupt masking in NAPI") napi repoll
-> is done only when work_done == budget. When in busy_poll is we return 0 in
-> napi_poll. We should return budget. Also do not return workdone > budget.
+>  David Miller [mailto:davem@davemloft.net] 
+>> Sent: Tuesday, January 20, 2015 10:52 AM
+> [...]
+>> agg->list is not local, you have to use a spinlock to protect
+>> modifications to it, some other sites which modify agg->list do take
+>> the lock properly.
+>> 
+>> You cannot modify a list like agg->list without proper locking.
 > 
-> Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
+> Excuse me. I don't understand.
+> 
+> Before step1
+>    tp_rx_done->listA->listB->listC->listD->...
+>    rx_queue->
+> Because the other function would chage tp->rx_done,
+> I need move the lists with spin lock.
+> 
+> After step1
+>    tp_rx_done->
+>    rx_queue->listA->listB->listC->listD->...
+> 
+> Now I dequeue one of the lists from the list_head and
+> deal with it.
+>    tp_rx_done->
+>    rx_queue->listA->listC->listD->...
+>                     listB
+> 
+> Then, if I want to put it back to rx_queue, I have to
+> use spin lock. Why? No other function would chage
+> rx_queue and the items in it.
 
-This seems like it needs some adjustments, please make those corrections
-and respin this patch.
+What keeps rtl_start_rx() from running in parallel with
+r8152_submit_rx(), or any other accessor of the RX agg->list?
 
-Thanks.
+You also keep using different terminology from me when
+discussing what lists do or do not need protection, and that
+is going to make it difficult for anyone to follow our
+conversation at all.
+
+We're talking specifically about RX agg->list objects and
+whether access to them need synchronization or not.
