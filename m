@@ -1,59 +1,90 @@
-From: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>
-Subject: [PATCH 5/5] r8169: use PCI define for max read request size
-Date: Mon, 26 Jan 2015 18:06:31 +0100
-Message-ID: <1422291991-12535-1-git-send-email-zajec5@gmail.com>
-References: <1422291922-12324-1-git-send-email-zajec5@gmail.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next 1/1] net: phy: unbind phy device from generic
+ and specifical driver
+Date: Mon, 26 Jan 2015 09:14:25 -0800
+Message-ID: <54C675F1.9080803@gmail.com>
+References: <1422260045-22527-1-git-send-email-b38611@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Realtek linux nic maintainers <nic_swsd@realtek.com>,
-	netdev@vger.kernel.org,
-	=?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>
-To: Bjorn Helgaas <bhelgaas@google.com>, linux-pci@vger.kernel.org
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <1422291922-12324-1-git-send-email-zajec5@gmail.com>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, s.hauer@pengutronix.de,
+	bhutchings@solarflare.com, stephen@networkplumber.org
+To: Fugang Duan <b38611@freescale.com>, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f177.google.com ([209.85.192.177]:50792 "EHLO
+	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752808AbbAZROo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2015 12:14:44 -0500
+Received: by mail-pd0-f177.google.com with SMTP id y13so12980918pdi.8
+        for <netdev@vger.kernel.org>; Mon, 26 Jan 2015 09:14:43 -0800 (PST)
+In-Reply-To: <1422260045-22527-1-git-send-email-b38611@freescale.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>
----
- drivers/net/ethernet/realtek/r8169.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+On 26/01/15 00:14, Fugang Duan wrote:
+> The current .phy_detach() function only unbind generic phy driver, which causes
+> specifical driver suspend/resume function still work like Atheros AT803X PHYs.
+> 
+> For example:
+> ifconfig eth0 down
+> echo mem > /sys/power/status
+> 
+> After eth0 interface down, driver call phy_detach to unbind phy driver, and then
+> do suspend/resume operation, at803x_suspend()/at803x_resume() functions still get
+> called that call mdio bus read/write function. When eth0 interface down, MAC driver
+> may close all clocks and mdio bus cannot work. So the issue happens.
 
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/etherne=
-t/realtek/r8169.c
-index 14a1c5c..fa274e0 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -4915,7 +4915,7 @@ static void r8168c_hw_jumbo_enable(struct rtl8169=
-_private *tp)
-=20
- 	RTL_W8(Config3, RTL_R8(Config3) | Jumbo_En0);
- 	RTL_W8(Config4, RTL_R8(Config4) | Jumbo_En1);
--	rtl_tx_performance_tweak(tp->pci_dev, 0x2 << MAX_READ_REQUEST_SHIFT);
-+	rtl_tx_performance_tweak(tp->pci_dev, PCI_EXP_DEVCTL_READRQ_512B);
- }
-=20
- static void r8168c_hw_jumbo_disable(struct rtl8169_private *tp)
-@@ -4948,7 +4948,7 @@ static void r8168e_hw_jumbo_enable(struct rtl8169=
-_private *tp)
- 	RTL_W8(MaxTxPacketSize, 0x3f);
- 	RTL_W8(Config3, RTL_R8(Config3) | Jumbo_En0);
- 	RTL_W8(Config4, RTL_R8(Config4) | 0x01);
--	rtl_tx_performance_tweak(tp->pci_dev, 0x2 << MAX_READ_REQUEST_SHIFT);
-+	rtl_tx_performance_tweak(tp->pci_dev, PCI_EXP_DEVCTL_READRQ_512B);
- }
-=20
- static void r8168e_hw_jumbo_disable(struct rtl8169_private *tp)
-@@ -4964,7 +4964,7 @@ static void r8168e_hw_jumbo_disable(struct rtl816=
-9_private *tp)
- static void r8168b_0_hw_jumbo_enable(struct rtl8169_private *tp)
- {
- 	rtl_tx_performance_tweak(tp->pci_dev,
--		(0x2 << MAX_READ_REQUEST_SHIFT) | PCI_EXP_DEVCTL_NOSNOOP_EN);
-+		PCI_EXP_DEVCTL_READRQ_512B | PCI_EXP_DEVCTL_NOSNOOP_EN);
- }
-=20
- static void r8168b_0_hw_jumbo_disable(struct rtl8169_private *tp)
---=20
-1.8.4.5
+I was just hitting this problem on Friday evening and was about to
+submit a similar change. Thanks!
+
+> 
+> The patch can unbind generic and specifical driver.
+> 
+> Signed-off-by: Fugang Duan <B38611@freescale.com>
+
+Acked-by: Florian Fainelli <f.fainelli@gmail.com>
+Tested-by: Florian Fainelli <f.fainelli@gmail.com>
+
+
+> ---
+>  drivers/net/phy/phy_device.c |   15 ++-------------
+>  1 files changed, 2 insertions(+), 13 deletions(-)
+> 
+> diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+> index 3fc91e8..8adbc5d 100644
+> --- a/drivers/net/phy/phy_device.c
+> +++ b/drivers/net/phy/phy_device.c
+> @@ -672,8 +672,6 @@ EXPORT_SYMBOL(phy_attach);
+>   */
+>  void phy_detach(struct phy_device *phydev)
+>  {
+> -	int i;
+> -
+>  	if (phydev->bus->dev.driver)
+>  		module_put(phydev->bus->dev.driver->owner);
+>  
+> @@ -681,17 +679,8 @@ void phy_detach(struct phy_device *phydev)
+>  	phydev->attached_dev = NULL;
+>  	phy_suspend(phydev);
+>  
+> -	/* If the device had no specific driver before (i.e. - it
+> -	 * was using the generic driver), we unbind the device
+> -	 * from the generic driver so that there's a chance a
+> -	 * real driver could be loaded
+> -	 */
+> -	for (i = 0; i < ARRAY_SIZE(genphy_driver); i++) {
+> -		if (phydev->dev.driver == &genphy_driver[i].driver) {
+> -			device_release_driver(&phydev->dev);
+> -			break;
+> -		}
+> -	}
+> +	if (phydev->dev.driver)
+> +		device_release_driver(&phydev->dev);
+>  }
+>  EXPORT_SYMBOL(phy_detach);
+>  
+> 
+
+
+-- 
+Florian
