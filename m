@@ -1,80 +1,86 @@
-From: "Fu, Zhonghui" <zhonghui.fu-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Subject: [PATCH] brcmfmac: avoid duplicated suspend/resume operation
-Date: Mon, 26 Jan 2015 10:46:36 +0800
-Message-ID: <54C5AA8C.4010005@linux.intel.com>
+From: =?ISO-8859-15?Q?Andreas_F=E4rber?= <afaerber@suse.de>
+Subject: Re: [PATCH v1 2/2] net: stmmac: add fixed_phy support via fixed-link
+ DT binding
+Date: Mon, 26 Jan 2015 04:01:59 +0100
+Message-ID: <54C5AE27.4080206@suse.de>
+References: <1422239858-3452-1-git-send-email-ming.lei@canonical.com> <1422239858-3452-3-git-send-email-ming.lei@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-To: brudley-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	Franky Lin <frankyl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>, meuleman-dY08KVG/lbpWk0Htik3J/w@public.gmane.org,
-	Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
-	pieterpg-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, hdegoede-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, wens-jdAy2FN1RRM@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, brcm80211-dev-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="UoAUwrn7CUxkeqV6baeqQrvRaw4F63wkv"
+Cc: linux-samsung-soc@vger.kernel.org, Kukjin Kim <kgene@kernel.org>,
+	netdev@vger.kernel.org, Byungho An <bh74.an@samsung.com>,
+	Florian Fainelli <f.fainelli@gmail.com>
+To: Ming Lei <ming.lei@canonical.com>,
+	linux-arm-kernel@lists.infradead.org,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-samsung-soc-owner@vger.kernel.org>
+In-Reply-To: <1422239858-3452-3-git-send-email-ming.lei@canonical.com>
+Sender: linux-samsung-soc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
->From ff39ed4af9f1c50358fe92ec4c8eaac9db183e00 Mon Sep 17 00:00:00 2001
-From: Zhonghui Fu <zhonghui.fu-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Date: Mon, 26 Jan 2015 10:13:21 +0800
-Subject: [PATCH] brcmfmac: avoid duplicated suspend/resume operation
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--UoAUwrn7CUxkeqV6baeqQrvRaw4F63wkv
+Content-Type: text/plain; charset=iso-8859-15
+Content-Transfer-Encoding: quoted-printable
 
-WiFi chip has 2 SDIO functions, and PM core will trigger
-twice suspend/resume operations for one WiFi chip to do
-the same things. This patch avoid this case.
+Am 26.01.2015 um 03:37 schrieb Ming Lei:
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/driver=
+s/net/ethernet/stmicro/stmmac/stmmac_main.c
+> index 8c6b7c16..ddb4351 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> @@ -847,8 +847,11 @@ static int stmmac_init_phy(struct net_device *dev)=
 
-Acked-by: Arend van Spriel<arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Signed-off-by: Zhonghui Fu <zhonghui.fu-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
----
- drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c |   17 +++++++++++++++--
- 1 files changed, 15 insertions(+), 2 deletions(-)
+>  	 * 0 rather than 0xffff. Catch this here and treat 0 as a non-existen=
+t
+>  	 * device as well.
+>  	 * Note: phydev->phy_id is the result of reading the UID PHY register=
+s.
+> +	 * But phy_id returned from fixed phy is always zero, so bypass the
+> +	 * check for fixed phy.
+>  	 */
+> -	if (phydev->phy_id =3D=3D 0) {
+> +	if (phydev->phy_id =3D=3D 0 && (!priv->plat->phy_bus_name ||
+> +			strcmp(priv->plat->phy_bus_name,"fixed"))) {
 
-diff --git a/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c b/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c
-index 9880dae..618b545 100644
---- a/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c
-+++ b/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c
-@@ -1139,11 +1139,17 @@ void brcmf_sdio_wowl_config(struct device *dev, bool enabled)
- static int brcmf_ops_sdio_suspend(struct device *dev)
- {
- 	struct brcmf_bus *bus_if = dev_get_drvdata(dev);
--	struct brcmf_sdio_dev *sdiodev = bus_if->bus_priv.sdio;
-+	struct brcmf_sdio_dev *sdiodev;
- 	mmc_pm_flag_t sdio_flags;
-+	struct sdio_func *func = dev_to_sdio_func(dev);
- 
- 	brcmf_dbg(SDIO, "Enter\n");
- 
-+	if (func->num == 2)
-+		return 0;
-+
-+	sdiodev = bus_if->bus_priv.sdio;
-+
- 	atomic_set(&sdiodev->suspend, true);
- 
- 	if (sdiodev->wowl_enabled) {
-@@ -1164,9 +1170,16 @@ static int brcmf_ops_sdio_suspend(struct device *dev)
- static int brcmf_ops_sdio_resume(struct device *dev)
- {
- 	struct brcmf_bus *bus_if = dev_get_drvdata(dev);
--	struct brcmf_sdio_dev *sdiodev = bus_if->bus_priv.sdio;
-+	struct brcmf_sdio_dev *sdiodev;
-+	struct sdio_func *func = dev_to_sdio_func(dev);
- 
- 	brcmf_dbg(SDIO, "Enter\n");
-+
-+	if (func->num == 2)
-+		return 0;
-+
-+	sdiodev = bus_if->bus_priv.sdio;
-+
- 	if (sdiodev->pdata && sdiodev->pdata->oob_irq_supported)
- 		disable_irq_wake(sdiodev->pdata->oob_irq_nr);
- 	brcmf_sdio_wd_timer(sdiodev->bus, BRCMF_WD_POLL_MS);
--- 1.7.1
+Small nit here: There's a space missing between the arguments.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Cheers,
+Andreas
+
+>  		phy_disconnect(phydev);
+>  		return -ENODEV;
+>  	}
+[snip]
+
+--=20
+SUSE Linux GmbH, Maxfeldstr. 5, 90409 N=FCrnberg, Germany
+GF: Felix Imend=F6rffer, Jane Smithard, Jennifer Guild, Dilip Upmanyu,
+Graham Norton; HRB 21284 (AG N=FCrnberg)
+
+
+--UoAUwrn7CUxkeqV6baeqQrvRaw4F63wkv
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAEBAgAGBQJUxa4rAAoJEPou0S0+fgE/ZKoQAJBv1p2oQL2UR+uyUKXQ1NgL
+m/GBLBncN9U0YHuehPqX0QaXAEz1LYZAnuAGmVpxWaDRg7x5BguBbiMOz9I5/Olp
+bHgi+YZGb2mZKrEGnXvDjsXQSlbur2lNtTI/bqohyvj3++/85ftzFnlJk4lzUFOZ
+4WcY9p9hITvzjeRfH1EW0jr+TX8AxPvikz5krtFYQYPwkpHbqqddpvJohI6jwQ5X
+Ad5VHqIGoLCUvUoFdWnTP5TnLe6HN7zE1NhlE4DBbzKu+UEVuBBb3NP+BNsZtaeu
+j2ZOqeMfdapoWtRyhRBO38lrkZ9eO0J9HvJE+l0SDC41+A0utHuSp8LtxJnN7voS
+sEya9wolPqvc6QGfH/GhqTmV0QfTMoF5Ct2TMkYVRUtHJpJP+x09x+KxACeZJNg6
+tkfZb3s4V/qlOmmyGbGjYT1usqaMECxpemuEPbYDwEn4MVsCIb+BLuJP9/IO2Pzf
+vFOHiTTgH87t/fCrAsz5UwPrkZWOgr52WyquOM6n9P732ByFsbKNgcQwR1OGt/ib
+Y6ZVvTExwlkwKznWuTXGXeI+GjRuKpa1VUVE3qd0RWhVV5dayZ+wpO5+Owo0d4yL
+xvfIzIwHbAUFIknLtk+eC8G2zF9dxGImQ6PH9lCG0SD1sor2md1fdtrEoBw6pf/t
+kQu7jHglvdUyc+bDllkM
+=NGlL
+-----END PGP SIGNATURE-----
+
+--UoAUwrn7CUxkeqV6baeqQrvRaw4F63wkv--
