@@ -1,82 +1,55 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH 0/3] Restore UFO support to virtio_net devices
-Date: Mon, 26 Jan 2015 17:32:26 +0200
-Message-ID: <20150126153226.GA5396@redhat.com>
-References: <1422283026-27832-1-git-send-email-vyasevic@redhat.com>
-	<20150126152842.GA5130@redhat.com>
+From: Lubomir Rintel <lkundrak@v3.sk>
+Subject: Re: [PATCH net] ipv6: replacing a rt6_info needs to purge possible
+ propagated rt6_infos too
+Date: Mon, 26 Jan 2015 16:36:16 +0100
+Message-ID: <1422286576.6384.7.camel@v3.sk>
+References: <131075b1c8770c414675094c292d394316e8cd17.1422281427.git.hannes@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	edumazet@google.com, ben@decadent.org.uk,
-	David Miller <davem@davemloft.net>
-To: Vladislav Yasevich <vyasevich@gmail.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <20150126152842.GA5130@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shell.v3.sk ([195.168.3.45]:46695 "EHLO shell.v3.sk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755734AbbAZPqK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 Jan 2015 10:46:10 -0500
+In-Reply-To: <131075b1c8770c414675094c292d394316e8cd17.1422281427.git.hannes@stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 26, 2015 at 05:28:42PM +0200, Michael S. Tsirkin wrote:
-> On Mon, Jan 26, 2015 at 09:37:03AM -0500, Vladislav Yasevich wrote:
-> > commit 3d0ad09412ffe00c9afa201d01effdb6023d09b4
-> > Author: Ben Hutchings <ben@decadent.org.uk>
-> > Date:   Thu Oct 30 18:27:12 2014 +0000
-> > 
-> >     drivers/net: Disable UFO through virtio
-> > 
-> > Turned off UFO support to virtio-net based devices due to issues
-> > with IPv6 fragment id generation for UFO packets.  The issue
-> > was that IPv6 UFO/GSO implementation expects the fragment id
-> > to be supplied in skb_shinfo().  However, for packets generated
-> > by the VMs, the fragment id is not supplied which causes all
-> > IPv6 fragments to have the id of 0.
-> > 
-> > The problem is that turning off UFO support on tap/macvtap
-> > as well as virtio devices caused issues with migrations.  
-> > Migrations would fail when moving a vm from a kernel supporting
-> > expecting UFO to work to the newer kernels that disabled UFO.
-> > 
-> > This series provides a partial solution to address the migration
-> > issue.  The series reserves a bit in the skb and sets the bit
-> > with the ipv6 fragment id has been generated for the packet.
-> > UFO/GSO code then checks the bit to see if the fragment id
-> > is already present or if a new fragment id needs to be generated.
-> > This solution allows host-originated UFO packets to keep a
-> > better randomized fragment id, as well as generating a randomized
-> > id for VM generated traffic (solving the fragment id 0 issue).
-> > 
-> > Vladislav Yasevich (3):
-> >   ipv6: Select fragment id during UFO/GSO segmentation if not set.
-> >   Revert "drivers/net, ipv6: Select IPv6 fragment idents for virtio UFO
-> >     packets"
-> >   Revert "drivers/net: Disable UFO through virtio"
-> > 
-> >  drivers/net/macvtap.c    | 16 ++++++++--------
-> >  drivers/net/tun.c        | 25 +++++++++----------------
-> >  drivers/net/virtio_net.c | 24 ++++++++++--------------
-> >  include/linux/skbuff.h   |  3 ++-
-> >  include/net/ipv6.h       |  2 ++
-> >  net/ipv6/ip6_output.c    |  4 ++--
-> >  net/ipv6/output_core.c   |  9 ++++++++-
-> >  net/ipv6/udp_offload.c   | 10 +++++++++-
-> >  8 files changed, 50 insertions(+), 43 deletions(-)
+On Mon, 2015-01-26 at 15:11 +0100, Hannes Frederic Sowa wrote:
+> Lubomir Rintel reported that during replacing a route the interface
+> reference counter isn't correctly decremented.
 > 
-> Should also help a lot to put UDP performance where it was.
+> To quote bug <https://bugzilla.kernel.org/show_bug.cgi?id=91941>:
+> | [root@rhel7-5 lkundrak]# sh -x lal
+> | + ip link add dev0 type dummy
+> | + ip link set dev0 up
+> | + ip link add dev1 type dummy
+> | + ip link set dev1 up
+> | + ip addr add 2001:db8:8086::2/64 dev dev0
+> | + ip route add 2001:db8:8086::/48 dev dev0 proto static metric 20
+> | + ip route add 2001:db8:8088::/48 dev dev1 proto static metric 10
+> | + ip route replace 2001:db8:8086::/48 dev dev1 proto static metric 20
+> | + ip link del dev0 type dummy
+> | Message from syslogd@rhel7-5 at Jan 23 10:54:41 ...
+> |  kernel:unregister_netdevice: waiting for dev0 to become free. Usage count = 2
+> |
+> | Message from syslogd@rhel7-5 at Jan 23 10:54:51 ...
+> |  kernel:unregister_netdevice: waiting for dev0 to become free. Usage count = 2
 > 
-> Acked-by: Michael S. Tsirkin <mst@redhat.com>
+> During replacement of a rt6_info we must walk all parent nodes and check
+> if the to be replaced rt6_info got propagated. If so, replace it with
+> an alive one.
 > 
+> Reported-by: Lubomir Rintel <lkundrak@v3.sk>
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> ---
+>  net/ipv6/ip6_fib.c | 45 ++++++++++++++++++++++++++-------------------
+>  1 file changed, 26 insertions(+), 19 deletions(-)
 
-BTW these might also be a good stable candidate.
+Tested-by: Lubomir Rintel <lkundrak@v3.sk>
 
-> 
-> > -- 
-> > 1.9.3
+Thank you!
+Lubo
