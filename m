@@ -1,19 +1,21 @@
-From: Lubomir Rintel <lkundrak@v3.sk>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: [PATCH net] ipv6: replacing a rt6_info needs to purge possible
  propagated rt6_infos too
-Date: Mon, 26 Jan 2015 16:36:16 +0100
-Message-ID: <1422286576.6384.7.camel@v3.sk>
+Date: Mon, 26 Jan 2015 08:02:09 -0800
+Message-ID: <1422288129.29618.26.camel@edumazet-glaptop2.roam.corp.google.com>
 References: <131075b1c8770c414675094c292d394316e8cd17.1422281427.git.hannes@stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, lkundrak@v3.sk
 To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shell.v3.sk ([195.168.3.45]:46695 "EHLO shell.v3.sk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755734AbbAZPqK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 Jan 2015 10:46:10 -0500
+Received: from mail-pd0-f181.google.com ([209.85.192.181]:56534 "EHLO
+	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755558AbbAZQCM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2015 11:02:12 -0500
+Received: by mail-pd0-f181.google.com with SMTP id g10so12577555pdj.12
+        for <netdev@vger.kernel.org>; Mon, 26 Jan 2015 08:02:11 -0800 (PST)
 In-Reply-To: <131075b1c8770c414675094c292d394316e8cd17.1422281427.git.hannes@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -45,11 +47,11 @@ On Mon, 2015-01-26 at 15:11 +0100, Hannes Frederic Sowa wrote:
 > 
 > Reported-by: Lubomir Rintel <lkundrak@v3.sk>
 > Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> ---
->  net/ipv6/ip6_fib.c | 45 ++++++++++++++++++++++++++-------------------
->  1 file changed, 26 insertions(+), 19 deletions(-)
 
-Tested-by: Lubomir Rintel <lkundrak@v3.sk>
+Hi Hannes
 
-Thank you!
-Lubo
+Was this bug added in commit 4a287eba2de395713d8b2b2aeaa69fa086832d34
+("IPv6 routing, NLM_F_* flag support: REPLACE and EXCL flags support,
+warn about missing CREATE flag") ?
+
+Thanks !
