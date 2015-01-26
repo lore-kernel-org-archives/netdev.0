@@ -1,78 +1,46 @@
-From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Subject: Re: [PATCH] net: macb: Remove CONFIG_PM ifdef because of compilation
- warning
-Date: Mon, 26 Jan 2015 12:11:50 +0100
-Message-ID: <54C620F6.7010008@atmel.com>
-References: <7970145ad4d864eaf31d694d22f2fecbcf6825c9.1422002161.git.michal.simek@xilinx.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <netdev@vger.kernel.org>
-To: Michal Simek <michal.simek@xilinx.com>,
-	<linux-kernel@vger.kernel.org>, <monstr@monstr.eu>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <7970145ad4d864eaf31d694d22f2fecbcf6825c9.1422002161.git.michal.simek@xilinx.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Robert Dolca <robert.dolca-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH v2 0/2] Add ACPI support for NXP PN544
+Date: Mon, 26 Jan 2015 13:13:35 +0200
+Message-ID: <1422270817-10950-1-git-send-email-robert.dolca@intel.com>
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Berg Johannes <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Clement Perrochaud <clement.perrochaud-3arQi8VN3Tc@public.gmane.org>,
+	Robert Dolca <robert.dolca-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+To: linux-nfc-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org,
+	Lauro Ramos Venancio <lauro.venancio-430g2QfJUUCGglJvpFV4uA@public.gmane.org>,
+	Aloisio Almeida Jr <aloisio.almeida-430g2QfJUUCGglJvpFV4uA@public.gmane.org>,
+	Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Le 23/01/2015 09:36, Michal Simek a =E9crit :
-> Fix compilation warning:
-> drivers/net/ethernet/cadence/macb.c:2415:12: warning: 'macb_suspend'
-> defined but not used [-Wunused-function]
->  static int macb_suspend(struct device *dev)
-> drivers/net/ethernet/cadence/macb.c:2432:12: warning: 'macb_resume'
-> defined but not used [-Wunused-function]
->  static int macb_resume(struct device *dev)
->=20
-> when CONFIG_PM=3Dy, CONFIG_PM_SLEEP=3Dn are used.
->=20
-> Signed-off-by: Michal Simek <michal.simek@xilinx.com>
+This patch set introduces ACPI support for PN544.
 
-okay:
-Acked-by: Nicolas Ferre <nicolas.ferre@atmel.com>
+gpio_set_value was replaced with gpio_set_value_cansleep in order
+to allow GPIO access that may sleep. This is particularelly useful
+when GPIO is accessed using busses like I2C, SPI, USB
 
-> ---
->=20
->  drivers/net/ethernet/cadence/macb.c | 6 ++----
->  1 file changed, 2 insertions(+), 4 deletions(-)
->=20
-> diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethern=
-et/cadence/macb.c
-> index 3767271c7667..23ae32f118c2 100644
-> --- a/drivers/net/ethernet/cadence/macb.c
-> +++ b/drivers/net/ethernet/cadence/macb.c
-> @@ -2411,8 +2411,7 @@ static int __exit macb_remove(struct platform_d=
-evice *pdev)
->  	return 0;
->  }
->=20
-> -#ifdef CONFIG_PM
-> -static int macb_suspend(struct device *dev)
-> +static int __maybe_unused macb_suspend(struct device *dev)
->  {
->  	struct platform_device *pdev =3D to_platform_device(dev);
->  	struct net_device *netdev =3D platform_get_drvdata(pdev);
-> @@ -2429,7 +2428,7 @@ static int macb_suspend(struct device *dev)
->  	return 0;
->  }
->=20
-> -static int macb_resume(struct device *dev)
-> +static int __maybe_unused macb_resume(struct device *dev)
->  {
->  	struct platform_device *pdev =3D to_platform_device(dev);
->  	struct net_device *netdev =3D platform_get_drvdata(pdev);
-> @@ -2444,7 +2443,6 @@ static int macb_resume(struct device *dev)
->=20
->  	return 0;
->  }
-> -#endif
->=20
->  static SIMPLE_DEV_PM_OPS(macb_pm_ops, macb_suspend, macb_resume);
->=20
-> --
-> 1.8.2.3
->=20
+Changes since v1:
+	- Added cover letter
+	- Removed debug define and Kconfig include
+	- Minor fixes to patch subjects
 
+Links to v1:
+	- http://lkml.iu.edu/hypermail/linux/kernel/1501.1/00943.html
+	- http://lkml.iu.edu/hypermail/linux/kernel/1501.1/00944.html
 
---=20
-Nicolas Ferre
+Robert Dolca (2):
+  NFC: PN544: GPIO access that may sleep
+  NFC: Add ACPI support for NXP PN544
+
+ drivers/nfc/pn544/i2c.c | 137 +++++++++++++++++++++++++++++++++++++++++++-----
+ 1 file changed, 124 insertions(+), 13 deletions(-)
+
+-- 
+1.9.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
