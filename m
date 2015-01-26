@@ -1,59 +1,44 @@
-From: Scott Feldman <sfeldma-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH net-next 1/7] r8152: adjust rx_bottom
-Date: Mon, 26 Jan 2015 01:14:06 -0800
-Message-ID: <CAE4R7bAoTAMMtq0JQK0vmyLqooU88VVuoLkZcFd=1WfxCaqyaw@mail.gmail.com>
-References: <1394712342-15778-118-Taiwan-albertk@realtek.com>
-	<1394712342-15778-119-Taiwan-albertk@realtek.com>
-	<CAE4R7bAv26f-+DW-TmjspJxAb-3Add5sf563mnMUTGCyiqG3rQ@mail.gmail.com>
-	<20150119.161333.1471925264489559119.davem@davemloft.net>
-	<0835B3720019904CB8F7AA43166CEEB2EE6E76@RTITMBSV03.realtek.com.tw>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH net-next 0/6] netns: advertise netns via netlink
+Date: Mon, 26 Jan 2015 10:20:45 +0100
+Message-ID: <54C606ED.6060305@6wind.com>
+References: <1421763347-4354-1-git-send-email-nicolas.dichtel@6wind.com> <20150123.175142.618148236781483266.davem@davemloft.net>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	nic_swsd <nic_swsd-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <0835B3720019904CB8F7AA43166CEEB2EE6E76-JIZ+AM9kKNzuvTFwvkocLypo8c9IxeqyAjHCUHv49ws@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f177.google.com ([74.125.82.177]:44739 "EHLO
+	mail-we0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751406AbbAZJUs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2015 04:20:48 -0500
+Received: by mail-we0-f177.google.com with SMTP id l61so7840269wev.8
+        for <netdev@vger.kernel.org>; Mon, 26 Jan 2015 01:20:47 -0800 (PST)
+In-Reply-To: <20150123.175142.618148236781483266.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 19, 2015 at 6:48 PM, Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org> wrote:
->  David Miller [mailto:davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org]
->> Sent: Tuesday, January 20, 2015 5:14 AM
-> [...]
->> >> -               r8152_submit_rx(tp, agg, GFP_ATOMIC);
->> >> +               if (!ret) {
->> >> +                       ret = r8152_submit_rx(tp, agg, GFP_ATOMIC);
->> >> +               } else {
->> >> +                       urb->actual_length = 0;
->> >> +                       list_add_tail(&agg->list, next);
->> >
->> > Do you need a spin_lock_irqsave(&tp->rx_lock, flags) around this?
->>
->> Indeed, and rtl_start_rx() seems to also access agg->list without
->> proper locking.
+Le 24/01/2015 02:51, David Miller a =E9crit :
+> From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> Date: Tue, 20 Jan 2015 15:15:41 +0100
 >
-> It is unnecessary because I deal with them in a local list_head. My steps are
->    1. Move the whole list from tp->rx_done to local rx_queue. (with spin lock)
->    2. dequeue/enqueue the lists in rx_queue.
->    3. Move the lists in rx_queue to tp->rx_done if it is necessary. (spin lock)
-> For step 2, it wouldn't have race, because the list_head is local and no other
-> function would change it. Therefore, I don't think it needs the spin lock.
-
-Sorry guys, I think I made a mistake in my review and caused some
-confusion/grief.
-
-My mistake was getting the params to list_add_tail() backwards.  It's
-list_add_tail(entry, head).  I saw list_add_tail(&agg->list, next) and
-was fooled into thinking agg->list was the list getting appended with
-the entry 'next'.  It's the opposite.  Duh.  So locking isn't needed
-because the list is indeed local.
-
--scott
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>>
+>> The first patch of the serie fix a bug of the previous serie (presen=
+t in
+>> net-next only).
+>> The rest of the serie adds an attribute to advertise the peer netns =
+for
+>> rtnetlink messages where this information is needed by userland to b=
+e able to
+>> interpret fully the received message.
+>
+> "series" has a final 's'.  Well, as least you consistently misspell i=
+t
+> 3 times :-)
+Thanks for noticing it.
+=46or the story, it comes from the french word 'serie' which don't end =
+with a 's'
+;-)
