@@ -1,47 +1,54 @@
-From: "Vick, Matthew" <matthew.vick@intel.com>
-Subject: Re: [PATCH] ethernet: fm10k: Actually drop 4 bits
-Date: Mon, 26 Jan 2015 16:58:13 +0000
-Message-ID: <D0EBB1E6.6855F%matthew.vick@intel.com>
-References: <1421967198-16667-1-git-send-email-linux@rasmusvillemoes.dk>
- <D0E81E0C.682EB%matthew.vick@intel.com> <87twzhknnl.fsf@rasmusvillemoes.dk>
+From: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>
+Subject: [PATCH 1/5] PCI: Add defines for max read request sizes
+Date: Mon, 26 Jan 2015 18:05:22 +0100
+Message-ID: <1422291922-12324-1-git-send-email-zajec5@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Rasmus Villemoes <linux@rasmusvillemoes.dk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87twzhknnl.fsf@rasmusvillemoes.dk>
-Content-Language: en-US
-Content-ID: <BC1833DA4954844B8EA32498F76E075F@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Matt Porter <mporter@kernel.crashing.org>,
+	Alexandre Bounine <alexandre.bounine@idt.com>,
+	Chris Metcalf <cmetcalf@ezchip.com>,
+	Bradley Grove <linuxdrivers@attotech.com>,
+	linux-scsi@vger.kernel.org,
+	Realtek linux nic maintainers <nic_swsd@realtek.com>,
+	netdev@vger.kernel.org,
+	=?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>
+To: Bjorn Helgaas <bhelgaas@google.com>, linux-pci@vger.kernel.org
+Return-path: <linux-scsi-owner@vger.kernel.org>
+Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 1/23/15, 4:50 PM, "Rasmus Villemoes" <linux@rasmusvillemoes.dk> wrote:
+There are few drivers using magic numbers when operating with PCIe
+capabilities and PCI_EXP_DEVCTL_READRQ. Define known values to allow
+cleaning their code a bit.
 
->On Sat, Jan 24 2015, "Vick, Matthew" <matthew.vick@intel.com> wrote:
->
->> Good catch! I noticed this too and was getting a patch together to
->>address
->> this.
->>
->> The difference is that I was planning on not silently accepting an
->>invalid
->> VLAN ID to begin with and returning FM10K_ERR_PARAM if the VLAN was
->> invalid, which I think is a better approach for this situation. If it's
->> alright with you, I'll generate the patch shortly and credit you via
->>your
->> Reported-by.
->
->Sure, do what you think is best.
->
->Rasmus
+Signed-off-by: Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>
+---
+ include/uapi/linux/pci_regs.h | 4 ++++
+ 1 file changed, 4 insertions(+)
 
-Sounds good. I'll get the patch created and validated through Jeff's tree.
+diff --git a/include/uapi/linux/pci_regs.h b/include/uapi/linux/pci_reg=
+s.h
+index 4a1d0cc..efe3443 100644
+--- a/include/uapi/linux/pci_regs.h
++++ b/include/uapi/linux/pci_regs.h
+@@ -451,6 +451,10 @@
+ #define  PCI_EXP_DEVCTL_AUX_PME	0x0400	/* Auxiliary Power PM Enable */
+ #define  PCI_EXP_DEVCTL_NOSNOOP_EN 0x0800  /* Enable No Snoop */
+ #define  PCI_EXP_DEVCTL_READRQ	0x7000	/* Max_Read_Request_Size */
++#define  PCI_EXP_DEVCTL_READRQ_128B  0x0000 /* 128 Bytes */
++#define  PCI_EXP_DEVCTL_READRQ_256B  0x1000 /* 256 Bytes */
++#define  PCI_EXP_DEVCTL_READRQ_512B  0x2000 /* 512 Bytes */
++#define  PCI_EXP_DEVCTL_READRQ_1024B 0x3000 /* 1024 Bytes */
+ #define  PCI_EXP_DEVCTL_BCR_FLR 0x8000  /* Bridge Configuration Retry =
+/ FLR */
+ #define PCI_EXP_DEVSTA		10	/* Device Status */
+ #define  PCI_EXP_DEVSTA_CED	0x0001	/* Correctable Error Detected */
+--=20
+1.8.4.5
 
-Cheers,
-Matthew
+--
+To unsubscribe from this list: send the line "unsubscribe linux-scsi" i=
+n
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
