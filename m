@@ -1,25 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull-request: can 2015-01-21
-Date: Mon, 26 Jan 2015 15:24:43 -0800 (PST)
-Message-ID: <20150126.152443.449462610794630865.davem@davemloft.net>
-References: <1421876791-31014-1-git-send-email-mkl@pengutronix.de>
+Subject: Re: [PATCH 0/2] sh_eth: massage PM code
+Date: Mon, 26 Jan 2015 15:27:15 -0800 (PST)
+Message-ID: <20150126.152715.1448055643815693106.davem@davemloft.net>
+References: <5608250.lrFkJTjgSf@wasted.cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
-	kernel@pengutronix.de
-To: mkl@pengutronix.de
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1421876791-31014-1-git-send-email-mkl@pengutronix.de>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org
+To: sergei.shtylyov@cogentembedded.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:46311 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757410AbbA0AoC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2015 19:44:02 -0500
+In-Reply-To: <5608250.lrFkJTjgSf@wasted.cogentembedded.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Date: Wed, 21 Jan 2015 22:46:30 +0100
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Date: Thu, 22 Jan 2015 01:16:54 +0300
 
-> this is a pull request for v3.19, net/master, which consists of a single patch.
-> 
-> Viktor Babrian fixes the issue in the c_can dirver, that the CAN interface
-> might continue to send frames after the interface has been shut down.
+>    Here's a set of 2 patches against DaveM's 'net-next.git' repo. We're adding
+> the support for suspend/hibernation as well as somewhat changing the existing
+> code. There are still MDIO-related issue with suspend (kernel exception), we've
+> been working on it and shall address it with a separate patch...
 
-Pulled, thanks Marc.
+Series applied, thanks.
