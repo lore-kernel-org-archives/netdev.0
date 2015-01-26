@@ -1,224 +1,217 @@
 From: Andri Yngvason <andri.yngvason@marel.com>
-Subject: Re: [PATCH v5 2/5] can: kvaser_usb: Consolidate and unify state change
+Subject: Re: [PATCH v6 6/7] can: kvaser_usb: Consolidate and unify state change
  handling
-Date: Mon, 26 Jan 2015 10:21:34 +0000
-Message-ID: <20150126102134.16360.18418@shannon>
-References: <20150120214409.GA16828@linux>
- <20150121103319.14511.57709@shannon>
- <e5439ed067931dc01bda70592eb6ed52@grandegger.com>
- <20150121144323.GA17070@linux> <20150121150015.31351.6605@shannon>
- <20150121153647.GB17070@linux>
- <49707d45a389a1acb9ccec4295d05762@grandegger.com>
- <20150123060734.GA7949@Darwish.PC> <20150123103213.6205.54618@shannon>
- <20150125024300.GA6028@Darwish.PC>
+Date: Mon, 26 Jan 2015 10:26:43 +0000
+Message-ID: <20150126102643.17894.20176@shannon>
+References: <20141223154654.GB6460@vivalin-002>
+ <20150126051755.GA3014@Darwish.PC> <20150126052039.GB3014@Darwish.PC>
+ <20150126052254.GC3014@Darwish.PC> <20150126052406.GD3014@Darwish.PC>
+ <20150126052543.GE3014@Darwish.PC> <20150126052719.GF3014@Darwish.PC>
+ <20150126052915.GG3014@Darwish.PC>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 8BIT
-Cc: Wolfgang Grandegger <wg@grandegger.com>,
-	Olivier Sobrie <olivier@sobrie.be>,
-	Oliver Hartkopp <socketcan@hartkopp.net>,
-	"Marc Kleine-Budde" <mkl@pengutronix.de>,
-	Linux-CAN <linux-can@vger.kernel.org>,
+Cc: Linux-CAN <linux-can@vger.kernel.org>,
 	netdev <netdev@vger.kernel.org>,
 	LKML <linux-kernel@vger.kernel.org>
-To: "Ahmed S. Darwish" <darwish.07@gmail.com>
+To: "Ahmed S. Darwish" <darwish.07@gmail.com>,
+	Olivier Sobrie <olivier@sobrie.be>,
+	Oliver Hartkopp <socketcan@hartkopp.net>,
+	"Wolfgang Grandegger" <wg@grandegger.com>,
+	Marc Kleine-Budde <mkl@pengutronix.de>
 Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <20150125024300.GA6028@Darwish.PC>
+In-Reply-To: <20150126052915.GG3014@Darwish.PC>
 Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Quoting Ahmed S. Darwish (2015-01-25 02:43:00)
-> On Fri, Jan 23, 2015 at 10:32:13AM +0000, Andri Yngvason wrote:
-> > Quoting Ahmed S. Darwish (2015-01-23 06:07:34)
-> > > On Wed, Jan 21, 2015 at 05:13:45PM +0100, Wolfgang Grandegger wrote:
-> > > > On Wed, 21 Jan 2015 10:36:47 -0500, "Ahmed S. Darwish"
-> > > > <darwish.07@gmail.com> wrote:
-> > > > > On Wed, Jan 21, 2015 at 03:00:15PM +0000, Andri Yngvason wrote:
-> > > > >> Quoting Ahmed S. Darwish (2015-01-21 14:43:23)
-> > > > >> > Hi!
-> > > > > 
-> > > > > ...
-> > > > > 
-> > > > >> > <-- Unplug the cable -->
-> > > > >> > 
-> > > > >> >  (000.009106)  can0  20000080   [8]  00 00 00 00 00 00 08 00  
-> > > > >> >  ERRORFRAME
-> > > > >> >         bus-error
-> > > > >> >         error-counter-tx-rx{{8}{0}}
-> > > > >> >  (000.001872)  can0  20000080   [8]  00 00 00 00 00 00 10 00  
-> > > > 
-> > > > For a bus-errors I would also expcect some more information in the
-> > > > data[2..3] fields. But these are always zero.
-> > > > 
-> > > 
-> > > M16C error factors made it possible to report things like
-> > > CAN_ERR_PROT_FORM/STUFF/BIT0/BIT1/TX in data[2], and
-> > > CAN_ERR_PROT_LOC_ACK/CRC_DEL in data[3].
-> > > 
-> > > Unfortunately such error factors are only reported in Leaf, but
-> > > not in USBCan-II due to the wire format change in the error event:
-> > > 
-> > >         struct leaf_msg_error_event {
-> > >                 u8 tid;
-> > >                 u8 flags;
-> > >                 __le16 time[3];
-> > >                 u8 channel;
-> > >                 u8 padding;
-> > >                 u8 tx_errors_count;
-> > >                 u8 rx_errors_count;
-> > >                 u8 status;
-> > >                 u8 error_factor;
-> > >         } __packed;
-> > > 
-> > >         struct usbcan_msg_error_event {
-> > >                 u8 tid;
-> > >                 u8 padding;
-> > >                 u8 tx_errors_count_ch0;
-> > >                 u8 rx_errors_count_ch0;
-> > >                 u8 tx_errors_count_ch1;
-> > >                 u8 rx_errors_count_ch1;
-> > >                 u8 status_ch0;
-> > >                 u8 status_ch1;
-> > >                 __le16 time;
-> > >         } __packed;
-> > > 
-> > > I speculate that the wire format was changed due to controller
-> > > bugs in the USBCan-II, which was slightly mentioned in their
-> > > data sheets here:
-> > > 
-> > >         http://www.kvaser.com/canlib-webhelp/page_hardware_specific_can_controllers.html
-> > > 
-> > > So it seems there's really no way for filling such bus error
-> > > info given the very limited amount of data exported :-(
-> > >
-> > We experienced similar problems with FlexCAN.
+Quoting Ahmed S. Darwish (2015-01-26 05:29:15)
+> From: Ahmed S. Darwish <ahmed.darwish@valeo.com>
 > 
-> Hmm, I'll have a look there then...
+> Replace most of the can interface's state and error counters
+> handling with the new can-dev can_change_state() mechanism.
 > 
-> Although my initial instincts imply that the FlexCAN driver has
-> access to the raw CAN registers, something I'm unable to do here.
-> But maybe there's some black magic I'm missing :-)
->
-Yes, it's memory mapped.
+> Suggested-by: Andri Yngvason <andri.yngvason@marel.com>
+> Signed-off-by: Ahmed S. Darwish <ahmed.darwish@valeo.com>
+> ---
+>  drivers/net/can/usb/kvaser_usb.c |  113 ++++++++++++++++---------------------
+>  1 files changed, 49 insertions(+), 64 deletions(-)
 > 
-> [...]
-> 
-> > > 
-> > > I've dumped _every_ message I receive from the firmware while
-> > > disconnecting the CAN bus, waiting a while, and connecting it again.
-> > > I really received _nothing_ from the firmware when the CAN bus was
-> > > reconnected and the data packets were flowing again. Not even a
-> > > single CHIP_STATE_EVENT, even after waiting for a long time.
-> > > 
-> > > So it's basically:
-> > > ...
-> > > ERR EVENT, txerr=128, rxerr=0
-> > > ERR EVENT, txerr=128, rxerr=0
-> > > ERR EVENT, txerr=128, rxerr=0
-> > > ...
-> > > 
-> > > then complete silence, except the data frames. I've even tried with
-> > > different versions of the firmware, but the same behaviour persisted.
-> > > 
-> > > > > So, What can the driver do given the above?
-> > > > 
-> > > > Little if the notification does not come.
-> > > > 
-> > > 
-> > > We can poll the state by sending CMD_GET_CHIP_STATE to the firmware,
-> > > and it will hopefully reply with a CHIP_STATE_EVENT response
-> > > containing the new txerr and rxerr values that we can use for
-> > > reverse state transitions.
-> > >
-> > > But do we _really_ want to go through the path? I feel that it will
-> > > open some cans of worms w.r.t. concurrent access to both the netdev
-> > > and USB stacks from a single driver.
-> > >
-> > Honestly, I don't know.
-> > >
-> > > A possible solution can be setting up a kernel thread that queries
-> > > for a CHIP_STATE_EVENT every second?
-> > > 
-> > Have you considered polling in kvaser_usb_tx_acknowledge? You could do something
-> > like:
-> > if(unlikely(dev->can.state != CAN_STATE_ERROR_ACTIVE))
-> > {
-> >     request_state();
-> > }
-> > 
-> 
-> OK, I have four important updates on this issue:
-> 
-> a) My initial testing was done on high-speed channel, at a bitrate
->    of 50K. After setting the bus to a more reasonable bitrate 500K
->    or 1M, I was _consistently_ able to receive CHIP_STATE_EVENTs
->    when plugging the CAN connector again after an unplug.
-> 
-> b) The error counters on this device do not get reset on plugging
->    after an unplug. I've setup a kernel thread [2] that queries
->    the chip state event every second, and the error counters stays
->    the same all the time. [1]
-> 
-> c) There's a single case when the erro counters do indeed get
->    reversed, and it happens only when introducing some noise in
->    the bus after the re-plug. In that case, the new error events
->    get raised with new error counters starting from 0/1 again.
-> 
-> d) I've discovered a bug that forbids the CAN state from
->    returning to ERROR_ACTIVE in case of the error counters
->    numbers getting decreased. But independent from that bug, the
->    verbose debugging messages clearly imply that we only get the
->    error counters decreased in the case mentioned at `c)' above.
-> 
-> So from [1] and [2], it's now clear that the device do not reset
-> these counters back in the re-plug case. I'll give a check to
-> flexcan as advised, but unfortunately I don't really think there's
-> much I can do about this.
-> 
-> [1]
-> 
-> [  877.207082] CAN_ERROR_: channel=0, txerr=88, rxerr=0
-> [  877.207090] CAN_ERROR_: channel=0, txerr=136, rxerr=0
-> [  877.207094] CAN_ERROR_: channel=0, txerr=144, rxerr=0
-> [  877.207098] CAN_ERROR_: channel=0, txerr=152, rxerr=0
-> [  877.207100] CAN_ERROR_: channel=0, txerr=160, rxerr=0
-> [  877.207102] CAN_ERROR_: channel=0, txerr=168, rxerr=0
-> [  877.208075] CAN_ERROR_: channel=0, txerr=200, rxerr=0 
-> 
-> (( The above error event, staying the same at txerr=200 keeps
->    flooding the bus until the CAN cable is re-plugged ))
-> 
-> [  878.225116] CHIP_STATE: channel=0, txerr=200, rxerr=0
-> [  878.225143] CHIP_STATE: channel=1, txerr=0, rxerr=0
-> [  879.265167] CHIP_STATE: channel=0, txerr=200, rxerr=0
-> [  879.267152] CHIP_STATE: channel=1, txerr=0, rxerr=0
-> [  879.265167] CHIP_STATE: channel=0, txerr=200, rxerr=0
-> [  879.267152] CHIP_STATE: channel=1, txerr=0, rxerr=0
-> 
-> (( The same counters get repeated every second ))
-> 
-> [2] State was polled using:
-> 
-> static int kvaser_usb_poll_chip_state(void *vpriv) {
->       struct kvaser_usb_net_priv *priv = vpriv;
-> 
->       while (!kthread_should_stop()) {
->               kvaser_usb_simple_msg_async(priv, CMD_GET_CHIP_STATE);
->               ssleep(1);
->       }
-> 
->       return 0;
-> }
-> 
-> > I don't think that anything beyond that would be worth pursuing.
-> > 
-> 
-> I agree, but given the new input, it seems that our problem
-> extends to the error counters themselves not getting decreased
-> on re-plug. So, even polling will not solve the issue: we'll
-> get the same txerr/rxerr values again and again :-(
-> 
-Well, that's a damn shame. Not much you can do about that.
+> diff --git a/drivers/net/can/usb/kvaser_usb.c b/drivers/net/can/usb/kvaser_usb.c
+> index f57ce55..ddc2954 100644
+> --- a/drivers/net/can/usb/kvaser_usb.c
+> +++ b/drivers/net/can/usb/kvaser_usb.c
+> @@ -620,39 +620,44 @@ static void kvaser_usb_unlink_tx_urbs(struct kvaser_usb_net_priv *priv)
+>  }
+>  
+>  static void kvaser_usb_rx_error_update_can_state(struct kvaser_usb_net_priv *priv,
+> -                                                const struct kvaser_usb_error_summary *es)
+> +                                                const struct kvaser_usb_error_summary *es,
+> +                                                struct can_frame *cf)
+>  {
+>         struct net_device_stats *stats;
+> -       enum can_state new_state;
+> -
+> -       stats = &priv->netdev->stats;
+> -       new_state = priv->can.state;
+> +       enum can_state cur_state, new_state, tx_state, rx_state;
+>  
+>         netdev_dbg(priv->netdev, "Error status: 0x%02x\n", es->status);
+>  
+> -       if (es->status & (M16C_STATE_BUS_OFF | M16C_STATE_BUS_RESET)) {
+> -               priv->can.can_stats.bus_off++;
+> +       stats = &priv->netdev->stats;
+> +       new_state = cur_state = priv->can.state;
+> +
+> +       if (es->status & (M16C_STATE_BUS_OFF | M16C_STATE_BUS_RESET))
+>                 new_state = CAN_STATE_BUS_OFF;
+> -       } else if (es->status & M16C_STATE_BUS_PASSIVE) {
+> -               if (priv->can.state != CAN_STATE_ERROR_PASSIVE)
+> -                       priv->can.can_stats.error_passive++;
+> +       else if (es->status & M16C_STATE_BUS_PASSIVE)
+>                 new_state = CAN_STATE_ERROR_PASSIVE;
+> -       } else if (es->status & M16C_STATE_BUS_ERROR) {
+> -               if ((priv->can.state < CAN_STATE_ERROR_WARNING) &&
+> -                   ((es->txerr >= 96) || (es->rxerr >= 96))) {
+> -                       priv->can.can_stats.error_warning++;
+> +       else if (es->status & M16C_STATE_BUS_ERROR) {
+> +               if ((es->txerr >= 256) || (es->rxerr >= 256))
+> +                       new_state = CAN_STATE_BUS_OFF;
+> +               else if ((es->txerr >= 128) || (es->rxerr >= 128))
+> +                       new_state = CAN_STATE_ERROR_PASSIVE;
+> +               else if ((es->txerr >= 96) || (es->rxerr >= 96))
+>                         new_state = CAN_STATE_ERROR_WARNING;
+> -               } else if ((priv->can.state > CAN_STATE_ERROR_ACTIVE) &&
+> -                          ((es->txerr < 96) && (es->rxerr < 96))) {
+> +               else if (cur_state > CAN_STATE_ERROR_ACTIVE)
+>                         new_state = CAN_STATE_ERROR_ACTIVE;
+> -               }
+>         }
+>  
+>         if (!es->status)
+>                 new_state = CAN_STATE_ERROR_ACTIVE;
+>  
+> +       if (new_state != cur_state) {
+> +               tx_state = (es->txerr >= es->rxerr) ? new_state : 0;
+> +               rx_state = (es->txerr <= es->rxerr) ? new_state : 0;
+> +
+> +               can_change_state(priv->netdev, cf, tx_state, rx_state);
+> +       }
+> +
+>         if (priv->can.restart_ms &&
+> -           (priv->can.state >= CAN_STATE_BUS_OFF) &&
+> +           (cur_state >= CAN_STATE_BUS_OFF) &&
+>             (new_state < CAN_STATE_BUS_OFF)) {
+>                 priv->can.can_stats.restarts++;
+>         }
+> @@ -664,18 +669,17 @@ static void kvaser_usb_rx_error_update_can_state(struct kvaser_usb_net_priv *pri
+>  
+>         priv->bec.txerr = es->txerr;
+>         priv->bec.rxerr = es->rxerr;
+> -       priv->can.state = new_state;
+>  }
+>  
+>  static void kvaser_usb_rx_error(const struct kvaser_usb *dev,
+>                                 const struct kvaser_msg *msg)
+>  {
+> -       struct can_frame *cf;
+> +       struct can_frame *cf, tmp_cf = { .can_id = CAN_ERR_FLAG, .can_dlc = CAN_ERR_DLC };
+>         struct sk_buff *skb;
+>         struct net_device_stats *stats;
+>         struct kvaser_usb_net_priv *priv;
+>         struct kvaser_usb_error_summary es = { };
+> -       enum can_state old_state;
+> +       enum can_state old_state, new_state;
+>  
+>         switch (msg->id) {
+>         case CMD_CAN_ERROR_EVENT:
+> @@ -715,59 +719,40 @@ static void kvaser_usb_rx_error(const struct kvaser_usb *dev,
+>         stats = &priv->netdev->stats;
+>  
+>         /* Update all of the can interface's state and error counters before
+> -        * trying any skb allocation that can actually fail with -ENOMEM.
+> +        * trying any memory allocation that can actually fail with -ENOMEM.
+> +        *
+> +        * We send a temporary stack-allocated error can frame to
+> +        * can_change_state() for the very same reason.
+> +        *
+> +        * TODO: Split can_change_state() responsibility between updating the
+> +        * can interface's state and counters, and the setting up of can error
+> +        * frame ID and data to userspace. Remove stack allocation afterwards.
+>          */
+>         old_state = priv->can.state;
+> -       kvaser_usb_rx_error_update_can_state(priv, &es);
+> +       kvaser_usb_rx_error_update_can_state(priv, &es, &tmp_cf);
+> +       new_state = priv->can.state;
+>  
+>         skb = alloc_can_err_skb(priv->netdev, &cf);
+>         if (!skb) {
+>                 stats->rx_dropped++;
+>                 return;
+>         }
+> -
+> -       if (es.status & (M16C_STATE_BUS_OFF | M16C_STATE_BUS_RESET)) {
+> -               cf->can_id |= CAN_ERR_BUSOFF;
+> -
+> -               if (!priv->can.restart_ms)
+> -                       kvaser_usb_simple_msg_async(priv, CMD_STOP_CHIP);
+> -               netif_carrier_off(priv->netdev);
+> -       } else if (es.status & M16C_STATE_BUS_PASSIVE) {
+> -               if (old_state != CAN_STATE_ERROR_PASSIVE) {
+> -                       cf->can_id |= CAN_ERR_CRTL;
+> -
+> -                       if (es.txerr || es.rxerr)
+> -                               cf->data[1] = (es.txerr > es.rxerr)
+> -                                               ? CAN_ERR_CRTL_TX_PASSIVE
+> -                                               : CAN_ERR_CRTL_RX_PASSIVE;
+> -                       else
+> -                               cf->data[1] = CAN_ERR_CRTL_TX_PASSIVE |
+> -                                             CAN_ERR_CRTL_RX_PASSIVE;
+> -               }
+> -       } else if (es.status & M16C_STATE_BUS_ERROR) {
+> -               if ((old_state < CAN_STATE_ERROR_WARNING) &&
+> -                   ((es.txerr >= 96) || (es.rxerr >= 96))) {
+> -                       cf->can_id |= CAN_ERR_CRTL;
+> -                       cf->data[1] = (es.txerr > es.rxerr)
+> -                                       ? CAN_ERR_CRTL_TX_WARNING
+> -                                       : CAN_ERR_CRTL_RX_WARNING;
+> -               } else if ((old_state > CAN_STATE_ERROR_ACTIVE) &&
+> -                          ((es.txerr < 96) && (es.rxerr < 96))) {
+> -                       cf->can_id |= CAN_ERR_PROT;
+> -                       cf->data[2] = CAN_ERR_PROT_ACTIVE;
+> +       memcpy(cf, &tmp_cf, sizeof(*cf));
+> +
+> +       if (new_state != old_state) {
+> +               if (es.status &
+> +                   (M16C_STATE_BUS_OFF | M16C_STATE_BUS_RESET)) {
+> +                       if (!priv->can.restart_ms)
+> +                               kvaser_usb_simple_msg_async(priv, CMD_STOP_CHIP);
+> +                       netif_carrier_off(priv->netdev);
+>                 }
+> -       }
+> -
+> -       if (!es.status) {
+> -               cf->can_id |= CAN_ERR_PROT;
+> -               cf->data[2] = CAN_ERR_PROT_ACTIVE;
+> -       }
+>  
+> -       if (priv->can.restart_ms &&
+> -           (old_state >= CAN_STATE_BUS_OFF) &&
+> -           (priv->can.state < CAN_STATE_BUS_OFF)) {
+> -               cf->can_id |= CAN_ERR_RESTARTED;
+> -               netif_carrier_on(priv->netdev);
+> +               if (priv->can.restart_ms &&
+> +                   (old_state >= CAN_STATE_BUS_OFF) &&
+> +                   (new_state < CAN_STATE_BUS_OFF)) {
+> +                       cf->can_id |= CAN_ERR_RESTARTED;
+> +                       netif_carrier_on(priv->netdev);
+> +               }
+>         }
+>  
+>         if (es.error_factor) {
+> -- 
+> 1.7.7.6
 
-Best regards,
+ACK, for real this time. ;)
+
+--
 Andri
