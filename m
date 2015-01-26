@@ -1,64 +1,78 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: Question on SCTP ABORT chunk is generated when the association_max_retrans
- is reached
-Date: Mon, 26 Jan 2015 09:46:26 -0200
-Message-ID: <54C62912.3040401@gmail.com>
-References: <CAFXGftKp3=OfjkCVBuR-zM3+uZ42Sk_9i2UjAHBNnbX=hQJwpA@mail.gmail.com>	<CAFXGft+fwo=8LJEG7h6uOpGciSo5f_dXjSx3sn67RZZp7jsYHw@mail.gmail.com>	<54C23581.9060809@redhat.com>	<54C27137.5010405@gmail.com>	<54C2807E.8080607@redhat.com>	<8BBFBEE6-FA34-4190-BFCB-AB6BEC093774@fh-muenster.de>	<54C29B82.7090502@redhat.com> <CAFXGft+XZCmhuwj2QTCiU0MD10Uo+WZ3WCC+rfbsd_Lxbhk3iw@mail.gmail.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next v2 4/5] bonding: fix LACP PDU not sent on slave
+ port sometimes
+Date: Mon, 26 Jan 2015 15:04:46 +0300
+Message-ID: <54C62D5E.9030200@cogentembedded.com>
+References: <1422253021-3798-1-git-send-email-jtoppins@cumulusnetworks.com> <1422253021-3798-5-git-send-email-jtoppins@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Michael Tuexen <tuexen@fh-muenster.de>,
-	Vlad Yasevich <vyasevich@gmail.com>,
-	linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Sun Paul <paulrbk@gmail.com>, Daniel Borkmann <dborkman@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAFXGft+XZCmhuwj2QTCiU0MD10Uo+WZ3WCC+rfbsd_Lxbhk3iw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Satish Ashok <sashok@cumulusnetworks.com>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>
+To: Jonathan Toppins <jtoppins@cumulusnetworks.com>,
+	Jay Vosburgh <j.vosburgh@gmail.com>,
+	Veaceslav Falico <vfalico@gmail.com>,
+	Andy Gospodarek <andy@greyhouse.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f42.google.com ([209.85.215.42]:34850 "EHLO
+	mail-la0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751910AbbAZMEt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2015 07:04:49 -0500
+Received: by mail-la0-f42.google.com with SMTP id ms9so7228073lab.1
+        for <netdev@vger.kernel.org>; Mon, 26 Jan 2015 04:04:48 -0800 (PST)
+In-Reply-To: <1422253021-3798-5-git-send-email-jtoppins@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Hello.
 
-On 25-01-2015 23:27, Sun Paul wrote:
-> Hi
+On 1/26/2015 9:17 AM, Jonathan Toppins wrote:
+
+> From: Satish Ashok <sashok@cumulusnetworks.com>
+
+> When a slave is added to a bond and it is not in full duplex mode,
+> AD_PORT_LACP_ENABLED flag is cleared, due to this LACP PDU is not sent
+
+    s/is not/not being/.
+
+> on slave. When the duplex is changed to full, the flag needs to be set
+> to send LACP PDU.
+
+> Cc: Andy Gospodarek <gospo@cumulusnetworks.com>
+> Reviewed-by: Nikolay Aleksandrov <nikolay@redhat.com>
+> Signed-off-by: Satish Ashok <sashok@cumulusnetworks.com>
+> Signed-off-by: Jonathan Toppins <jtoppins@cumulusnetworks.com>
+> ---
+>   drivers/net/bonding/bond_3ad.c |   11 ++++++++---
+>   1 file changed, 8 insertions(+), 3 deletions(-)
 >
-> sorry for the late reply. I am a bit confused. when side-A sends a
-> request to side-B, and side-B return the response, but side-A keep
-> re-transmit the same request to side-B, why side-B needed to send a
-> ABORT to side-A?
+> diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
+> index e3c96b2..cfc4a9c 100644
+> --- a/drivers/net/bonding/bond_3ad.c
+> +++ b/drivers/net/bonding/bond_3ad.c
+> @@ -2219,8 +2219,10 @@ static int bond_3ad_rx_indication(struct lacpdu *lacpdu, struct slave *slave,
+>   		switch (lacpdu->subtype) {
+>   		case AD_TYPE_LACPDU:
+>   			ret = RX_HANDLER_CONSUMED;
+> -			netdev_dbg(slave->bond->dev, "Received LACPDU on port %d\n",
+> -				   port->actor_port_number);
+> +			netdev_dbg(slave->bond->dev,
+> +				   "Received LACPDU on port %d slave %s\n",
+> +				   port->actor_port_number,
+> +				   slave->dev->name);
+>   			/* Protect against concurrent state machines */
+>   			spin_lock(&slave->bond->mode_lock);
+>   			ad_rx_machine(lacpdu, port);
+> @@ -2312,7 +2314,10 @@ void bond_3ad_adapter_duplex_changed(struct slave *slave)
+>   	port->actor_admin_port_key &= ~AD_DUPLEX_KEY_MASKS;
+>   	port->actor_oper_port_key = port->actor_admin_port_key |=
+>   		__get_duplex(port);
+> -	netdev_dbg(slave->bond->dev, "Port %d changed duplex\n", port->actor_port_number);
+> +	netdev_dbg(slave->bond->dev, "Port %d slave %s changed duplex\n",
+> +		   port->actor_port_number, slave->dev->name);
 
-That happens on data transfers. When A pushes data to B, A has to retry it 
-until B finally acknowledges it and A receive this signal. If the ack from B 
-gets dropped, A has no way to know if a) the ack was lost or b) its initial 
-message never actually made it to A, thus it retransmits. If it reaches a 
-limit, it gives up..
+    The above 2 changes seem unrelated/undocumented in the change log...
 
-> If it is used in order to reestablish the connection, shoudn't it
-> should be side-A to send ABORT instead?
+[...]
 
-Meant to reestablish it? Not really.. just to keep both sides in sync, as A 
-has given up by then.
-
-   Marcelo
-
-> - PS
->
-> On Sat, Jan 24, 2015 at 3:05 AM, Daniel Borkmann <dborkman@redhat.com> wrote:
->> On 01/23/2015 07:36 PM, Michael Tuexen wrote:
->> ...
->>>
->>> Yepp. It might not reach the peer or it might. If it does it helps
->>> to keep the states in sync. If it doesn't it sometimes helps in
->>> analysing tracefiles. In BSD, we also send it. It is not required,
->>> doesn't harm and is useful in some cases...
->>
->>
->> Ok, as the TCB is destroyed in any case, should be fine then.
->>
->> Thanks,
->> Daniel
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+WBR, Sergei
