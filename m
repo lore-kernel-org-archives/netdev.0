@@ -1,8 +1,7 @@
 From: Vladislav Yasevich <vyasevich@gmail.com>
-Subject: [PATCH 1/3] ipv6: Select fragment id during UFO/GSO segmentation if
-	not set.
-Date: Mon, 26 Jan 2015 09:37:04 -0500
-Message-ID: <1422283026-27832-2-git-send-email-vyasevic@redhat.com>
+Subject: [PATCH 3/3] Revert "drivers/net: Disable UFO through virtio"
+Date: Mon, 26 Jan 2015 09:37:06 -0500
+Message-ID: <1422283026-27832-4-git-send-email-vyasevic@redhat.com>
 References: <1422283026-27832-1-git-send-email-vyasevic@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,133 +22,205 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-If the IPv6 fragment id has not been set and we perform
-fragmentation due to UFO, select a new fragment id.
-When we store the fragment id into skb_shinfo, set the bit
-in the skb so we can re-use the selected id.
-This preserves the behavior of UFO packets generated on the
-host and solves the issue of id generation for packet sockets
-and tap/macvtap devices.
+This reverts commit 3d0ad09412ffe00c9afa201d01effdb6023d09b4.
 
-This patch moves ipv6_select_ident() back in to the header file.  
-It also provides the helper function that sets skb_shinfo() frag
-id and sets the bit.
+Now that UFO functionality can correctly track the fragment
+id has been selected and select a fragment id if necessary,
+we can re-enable UFO on tap/macvap and virtio devices.
 
-It also makes sure that we select the fragment id when doing
-just gso validation, since it's possible for the packet to
-come from an untrusted source (VM) and be forwarded through
-a UFO enabled device which will expect the fragment id.
-
-CC: Eric Dumazet <edumazet@google.com>
 Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
 ---
- include/linux/skbuff.h |  3 ++-
- include/net/ipv6.h     |  2 ++
- net/ipv6/ip6_output.c  |  4 ++--
- net/ipv6/output_core.c |  9 ++++++++-
- net/ipv6/udp_offload.c | 10 +++++++++-
- 5 files changed, 23 insertions(+), 5 deletions(-)
+ drivers/net/macvtap.c    | 13 ++++++++-----
+ drivers/net/tun.c        | 19 ++++++++-----------
+ drivers/net/virtio_net.c | 24 ++++++++++--------------
+ 3 files changed, 26 insertions(+), 30 deletions(-)
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 85ab7d7..3ad5203 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -605,7 +605,8 @@ struct sk_buff {
- 	__u8			ipvs_property:1;
- 	__u8			inner_protocol_type:1;
- 	__u8			remcsum_offload:1;
--	/* 3 or 5 bit hole */
-+	__u8			ufo_fragid_set:1;
-+	/* 2 or 4 bit hole */
+diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+index 0b86e46..919f4fc 100644
+--- a/drivers/net/macvtap.c
++++ b/drivers/net/macvtap.c
+@@ -80,7 +80,7 @@ static struct cdev macvtap_cdev;
+ static const struct proto_ops macvtap_socket_ops;
  
- #ifdef CONFIG_NET_SCHED
- 	__u16			tc_index;	/* traffic control index */
-diff --git a/include/net/ipv6.h b/include/net/ipv6.h
-index 4292929..ca6137b 100644
---- a/include/net/ipv6.h
-+++ b/include/net/ipv6.h
-@@ -671,7 +671,9 @@ static inline int ipv6_addr_diff(const struct in6_addr *a1, const struct in6_add
- 	return __ipv6_addr_diff(a1, a2, sizeof(struct in6_addr));
- }
+ #define TUN_OFFLOADS (NETIF_F_HW_CSUM | NETIF_F_TSO_ECN | NETIF_F_TSO | \
+-		      NETIF_F_TSO6)
++		      NETIF_F_TSO6 | NETIF_F_UFO)
+ #define RX_OFFLOADS (NETIF_F_GRO | NETIF_F_LRO)
+ #define TAP_FEATURES (NETIF_F_GSO | NETIF_F_SG)
  
-+void ipv6_select_ident(struct frag_hdr *fhdr, struct rt6_info *rt);
- void ipv6_proxy_select_ident(struct sk_buff *skb);
-+void ipv6_skb_set_fragid(struct sk_buff *skb, __be32 frag_id);
- 
- int ip6_dst_hoplimit(struct dst_entry *dst);
- 
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index ce69a12..b940b3f 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -537,7 +537,7 @@ static void ip6_copy_metadata(struct sk_buff *to, struct sk_buff *from)
- 	skb_copy_secmark(to, from);
- }
- 
--static void ipv6_select_ident(struct frag_hdr *fhdr, struct rt6_info *rt)
-+void ipv6_select_ident(struct frag_hdr *fhdr, struct rt6_info *rt)
- {
- 	static u32 ip6_idents_hashrnd __read_mostly;
- 	u32 hash, id;
-@@ -1092,7 +1092,7 @@ static inline int ip6_ufo_append_data(struct sock *sk,
- 				     sizeof(struct frag_hdr)) & ~7;
- 	skb_shinfo(skb)->gso_type = SKB_GSO_UDP;
- 	ipv6_select_ident(&fhdr, rt);
--	skb_shinfo(skb)->ip6_frag_id = fhdr.identification;
-+	ipv6_skb_set_fragid(skb, fhdr.identification);
- 
- append:
- 	return skb_append_datato_frags(sk, skb, getfrag, from,
-diff --git a/net/ipv6/output_core.c b/net/ipv6/output_core.c
-index 97f41a3..68f879b 100644
---- a/net/ipv6/output_core.c
-+++ b/net/ipv6/output_core.c
-@@ -38,10 +38,17 @@ void ipv6_proxy_select_ident(struct sk_buff *skb)
- 	hash = __ipv6_addr_jhash(&addrs[0], hash);
- 
- 	id = ip_idents_reserve(hash, 1);
--	skb_shinfo(skb)->ip6_frag_id = htonl(id);
-+	ipv6_skb_set_fragid(skb, htonl(id));
- }
- EXPORT_SYMBOL_GPL(ipv6_proxy_select_ident);
- 
-+void ipv6_skb_set_fragid(struct sk_buff *skb, __be32 frag_id)
-+{
-+	skb_shinfo(skb)->ip6_frag_id = frag_id;
-+	skb->ufo_fragid_set = 1;
-+}
-+EXPORT_SYMBOL_GPL(ipv6_skb_set_fragid);
+@@ -585,8 +585,6 @@ static int macvtap_skb_from_vnet_hdr(struct macvtap_queue *q,
+ 			gso_type = SKB_GSO_TCPV6;
+ 			break;
+ 		case VIRTIO_NET_HDR_GSO_UDP:
+-			pr_warn_once("macvtap: %s: using disabled UFO feature; please fix this program\n",
+-				     current->comm);
+ 			gso_type = SKB_GSO_UDP;
+ 			break;
+ 		default:
+@@ -633,6 +631,8 @@ static void macvtap_skb_to_vnet_hdr(struct macvtap_queue *q,
+ 			vnet_hdr->gso_type = VIRTIO_NET_HDR_GSO_TCPV4;
+ 		else if (sinfo->gso_type & SKB_GSO_TCPV6)
+ 			vnet_hdr->gso_type = VIRTIO_NET_HDR_GSO_TCPV6;
++		else if (sinfo->gso_type & SKB_GSO_UDP)
++			vnet_hdr->gso_type = VIRTIO_NET_HDR_GSO_UDP;
+ 		else
+ 			BUG();
+ 		if (sinfo->gso_type & SKB_GSO_TCP_ECN)
+@@ -962,6 +962,9 @@ static int set_offload(struct macvtap_queue *q, unsigned long arg)
+ 			if (arg & TUN_F_TSO6)
+ 				feature_mask |= NETIF_F_TSO6;
+ 		}
 +
- int ip6_find_1stfragopt(struct sk_buff *skb, u8 **nexthdr)
- {
- 	u16 offset = sizeof(struct ipv6hdr);
-diff --git a/net/ipv6/udp_offload.c b/net/ipv6/udp_offload.c
-index b6aa8ed..7cda88d 100644
---- a/net/ipv6/udp_offload.c
-+++ b/net/ipv6/udp_offload.c
-@@ -52,6 +52,10 @@ static struct sk_buff *udp6_ufo_fragment(struct sk_buff *skb,
- 
- 		skb_shinfo(skb)->gso_segs = DIV_ROUND_UP(skb->len, mss);
- 
-+		/* Set the IPv6 fragment id if not set yet */
-+		if (!skb->ufo_fragid_set)
-+			ipv6_proxy_select_ident(skb);
-+
- 		segs = NULL;
- 		goto out;
++		if (arg & TUN_F_UFO)
++			feature_mask |= NETIF_F_UFO;
  	}
-@@ -108,7 +112,11 @@ static struct sk_buff *udp6_ufo_fragment(struct sk_buff *skb,
- 		fptr = (struct frag_hdr *)(skb_network_header(skb) + unfrag_ip6hlen);
- 		fptr->nexthdr = nexthdr;
- 		fptr->reserved = 0;
--		fptr->identification = skb_shinfo(skb)->ip6_frag_id;
-+		if (!skb->ufo_fragid_set)
-+			fptr->identification = skb_shinfo(skb)->ip6_frag_id;
-+		else
-+			ipv6_select_ident(fptr,
-+					  (struct rt6_info *)skb_dst(skb));
  
- 		/* Fragment the skb. ipv6 header and the remaining fields of the
- 		 * fragment header are updated in ipv6_gso_segment()
+ 	/* tun/tap driver inverts the usage for TSO offloads, where
+@@ -972,7 +975,7 @@ static int set_offload(struct macvtap_queue *q, unsigned long arg)
+ 	 * When user space turns off TSO, we turn off GSO/LRO so that
+ 	 * user-space will not receive TSO frames.
+ 	 */
+-	if (feature_mask & (NETIF_F_TSO | NETIF_F_TSO6))
++	if (feature_mask & (NETIF_F_TSO | NETIF_F_TSO6 | NETIF_F_UFO))
+ 		features |= RX_OFFLOADS;
+ 	else
+ 		features &= ~RX_OFFLOADS;
+@@ -1087,7 +1090,7 @@ static long macvtap_ioctl(struct file *file, unsigned int cmd,
+ 	case TUNSETOFFLOAD:
+ 		/* let the user check for future flags */
+ 		if (arg & ~(TUN_F_CSUM | TUN_F_TSO4 | TUN_F_TSO6 |
+-			    TUN_F_TSO_ECN))
++			    TUN_F_TSO_ECN | TUN_F_UFO))
+ 			return -EINVAL;
+ 
+ 		rtnl_lock();
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index 5ca42b7..10f9e40 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -186,7 +186,7 @@ struct tun_struct {
+ 	struct net_device	*dev;
+ 	netdev_features_t	set_features;
+ #define TUN_USER_FEATURES (NETIF_F_HW_CSUM|NETIF_F_TSO_ECN|NETIF_F_TSO| \
+-			  NETIF_F_TSO6)
++			  NETIF_F_TSO6|NETIF_F_UFO)
+ 
+ 	int			vnet_hdr_sz;
+ 	int			sndbuf;
+@@ -1176,18 +1176,8 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
+ 			skb_shinfo(skb)->gso_type = SKB_GSO_TCPV6;
+ 			break;
+ 		case VIRTIO_NET_HDR_GSO_UDP:
+-		{
+-			static bool warned;
+-
+-			if (!warned) {
+-				warned = true;
+-				netdev_warn(tun->dev,
+-					    "%s: using disabled UFO feature; please fix this program\n",
+-					    current->comm);
+-			}
+ 			skb_shinfo(skb)->gso_type = SKB_GSO_UDP;
+ 			break;
+-		}
+ 		default:
+ 			tun->dev->stats.rx_frame_errors++;
+ 			kfree_skb(skb);
+@@ -1294,6 +1284,8 @@ static ssize_t tun_put_user(struct tun_struct *tun,
+ 				gso.gso_type = VIRTIO_NET_HDR_GSO_TCPV4;
+ 			else if (sinfo->gso_type & SKB_GSO_TCPV6)
+ 				gso.gso_type = VIRTIO_NET_HDR_GSO_TCPV6;
++			else if (sinfo->gso_type & SKB_GSO_UDP)
++				gso.gso_type = VIRTIO_NET_HDR_GSO_UDP;
+ 			else {
+ 				pr_err("unexpected GSO type: "
+ 				       "0x%x, gso_size %d, hdr_len %d\n",
+@@ -1742,6 +1734,11 @@ static int set_offload(struct tun_struct *tun, unsigned long arg)
+ 				features |= NETIF_F_TSO6;
+ 			arg &= ~(TUN_F_TSO4|TUN_F_TSO6);
+ 		}
++
++		if (arg & TUN_F_UFO) {
++			features |= NETIF_F_UFO;
++			arg &= ~TUN_F_UFO;
++		}
+ 	}
+ 
+ 	/* This gives the user a way to test for new features in future by
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index 5ca9771..059fdf1 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -490,17 +490,8 @@ static void receive_buf(struct virtnet_info *vi, struct receive_queue *rq,
+ 			skb_shinfo(skb)->gso_type = SKB_GSO_TCPV4;
+ 			break;
+ 		case VIRTIO_NET_HDR_GSO_UDP:
+-		{
+-			static bool warned;
+-
+-			if (!warned) {
+-				warned = true;
+-				netdev_warn(dev,
+-					    "host using disabled UFO feature; please fix it\n");
+-			}
+ 			skb_shinfo(skb)->gso_type = SKB_GSO_UDP;
+ 			break;
+-		}
+ 		case VIRTIO_NET_HDR_GSO_TCPV6:
+ 			skb_shinfo(skb)->gso_type = SKB_GSO_TCPV6;
+ 			break;
+@@ -888,6 +879,8 @@ static int xmit_skb(struct send_queue *sq, struct sk_buff *skb)
+ 			hdr->hdr.gso_type = VIRTIO_NET_HDR_GSO_TCPV4;
+ 		else if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV6)
+ 			hdr->hdr.gso_type = VIRTIO_NET_HDR_GSO_TCPV6;
++		else if (skb_shinfo(skb)->gso_type & SKB_GSO_UDP)
++			hdr->hdr.gso_type = VIRTIO_NET_HDR_GSO_UDP;
+ 		else
+ 			BUG();
+ 		if (skb_shinfo(skb)->gso_type & SKB_GSO_TCP_ECN)
+@@ -1748,7 +1741,7 @@ static int virtnet_probe(struct virtio_device *vdev)
+ 			dev->features |= NETIF_F_HW_CSUM|NETIF_F_SG|NETIF_F_FRAGLIST;
+ 
+ 		if (virtio_has_feature(vdev, VIRTIO_NET_F_GSO)) {
+-			dev->hw_features |= NETIF_F_TSO
++			dev->hw_features |= NETIF_F_TSO | NETIF_F_UFO
+ 				| NETIF_F_TSO_ECN | NETIF_F_TSO6;
+ 		}
+ 		/* Individual feature bits: what can host handle? */
+@@ -1758,9 +1751,11 @@ static int virtnet_probe(struct virtio_device *vdev)
+ 			dev->hw_features |= NETIF_F_TSO6;
+ 		if (virtio_has_feature(vdev, VIRTIO_NET_F_HOST_ECN))
+ 			dev->hw_features |= NETIF_F_TSO_ECN;
++		if (virtio_has_feature(vdev, VIRTIO_NET_F_HOST_UFO))
++			dev->hw_features |= NETIF_F_UFO;
+ 
+ 		if (gso)
+-			dev->features |= dev->hw_features & NETIF_F_ALL_TSO;
++			dev->features |= dev->hw_features & (NETIF_F_ALL_TSO|NETIF_F_UFO);
+ 		/* (!csum && gso) case will be fixed by register_netdev() */
+ 	}
+ 	if (virtio_has_feature(vdev, VIRTIO_NET_F_GUEST_CSUM))
+@@ -1798,7 +1793,8 @@ static int virtnet_probe(struct virtio_device *vdev)
+ 	/* If we can receive ANY GSO packets, we must allocate large ones. */
+ 	if (virtio_has_feature(vdev, VIRTIO_NET_F_GUEST_TSO4) ||
+ 	    virtio_has_feature(vdev, VIRTIO_NET_F_GUEST_TSO6) ||
+-	    virtio_has_feature(vdev, VIRTIO_NET_F_GUEST_ECN))
++	    virtio_has_feature(vdev, VIRTIO_NET_F_GUEST_ECN) ||
++	    virtio_has_feature(vdev, VIRTIO_NET_F_GUEST_UFO))
+ 		vi->big_packets = true;
+ 
+ 	if (virtio_has_feature(vdev, VIRTIO_NET_F_MRG_RXBUF))
+@@ -1994,9 +1990,9 @@ static struct virtio_device_id id_table[] = {
+ static unsigned int features[] = {
+ 	VIRTIO_NET_F_CSUM, VIRTIO_NET_F_GUEST_CSUM,
+ 	VIRTIO_NET_F_GSO, VIRTIO_NET_F_MAC,
+-	VIRTIO_NET_F_HOST_TSO4, VIRTIO_NET_F_HOST_TSO6,
++	VIRTIO_NET_F_HOST_TSO4, VIRTIO_NET_F_HOST_UFO, VIRTIO_NET_F_HOST_TSO6,
+ 	VIRTIO_NET_F_HOST_ECN, VIRTIO_NET_F_GUEST_TSO4, VIRTIO_NET_F_GUEST_TSO6,
+-	VIRTIO_NET_F_GUEST_ECN,
++	VIRTIO_NET_F_GUEST_ECN, VIRTIO_NET_F_GUEST_UFO,
+ 	VIRTIO_NET_F_MRG_RXBUF, VIRTIO_NET_F_STATUS, VIRTIO_NET_F_CTRL_VQ,
+ 	VIRTIO_NET_F_CTRL_RX, VIRTIO_NET_F_CTRL_VLAN,
+ 	VIRTIO_NET_F_GUEST_ANNOUNCE, VIRTIO_NET_F_MQ,
 -- 
 1.9.3
