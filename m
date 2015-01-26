@@ -1,67 +1,80 @@
 From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH net 0/2] netns: audit netdevice creation with IFLA_NET_NS_[PID|FD]
-Date: Mon, 26 Jan 2015 22:28:12 +0100
-Message-ID: <1422307694-10079-1-git-send-email-nicolas.dichtel@6wind.com>
+Subject: [PATCH net 2/2] vxlan: setup the right link netns in newlink hdlr
+Date: Mon, 26 Jan 2015 22:28:14 +0100
+Message-ID: <1422307694-10079-3-git-send-email-nicolas.dichtel@6wind.com>
+References: <1422307694-10079-1-git-send-email-nicolas.dichtel@6wind.com>
 Cc: davem@davemloft.net, dmitry.tarnyagin@lockless.no,
 	arvid.brodin@alten.se, alex.aring@gmail.com,
-	linux-wpan@vger.kernel.org
+	linux-wpan@vger.kernel.org,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:41143 "EHLO
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:41144 "EHLO
 	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753568AbbAZV2k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2015 16:28:40 -0500
+	with ESMTP id S1753958AbbAZV2m (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2015 16:28:42 -0500
+In-Reply-To: <1422307694-10079-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Rename the netns to src_net to avoid confusion with the netns where the
+interface stands. The user may specify IFLA_NET_NS_[PID|FD] to create
+a x-netns netndevice: IFLA_NET_NS_[PID|FD] points to the netns where the
+netdevice stands and src_net to the link netns.
 
-When one of these attributes is set, the netdevice is created into the netns
-pointed by IFLA_NET_NS_[PID|FD] (see the call to rtnl_create_link() in
-rtnl_newlink()). Let's call this netns the dest_net. After this creation, if the
-newlink handler exists, it is called with a netns argument that points to the
-netns where the netlink message has been received (called src_net in the code)
-which is the link netns.
-Hence, with one of these attributes, it's possible to create a x-netns
-netdevice.
+Note that before commit f01ec1c017de ("vxlan: add x-netns support"), it was
+possible to create a x-netns vxlan netdevice, but the netdevice was not
+operational.
 
-Here is the result of my code review:
-- all ip tunnels (sit, ipip, ip6_tunnels, gre[tap][v6], ip_vti[6]) does not
-  really allows to use this feature: the netdevice is created in the dest_net
-  and the src_net is completely ignored in the newlink handler.
-- VLAN properly handles this x-netns creation.
-- bridge ignores src_net, which seems fine (NETIF_F_NETNS_LOCAL is set).
-- CAIF subsystem is not clear for me (I don't know how it works), but it seems
-  to wrongly use src_net. Patch #1 tries to fix this, but it was done only by
-  code review (and only compile-tested), so please carefully review it. I may
-  miss something.
-- HSR subsystem uses src_net to parse IFLA_HSR_SLAVE[1|2], but the netdevice has
-  the flag NETIF_F_NETNS_LOCAL, so the question is: does this netdevice really
-  supports x-netns? If not, the newlink handler should use the dest_net instead
-  of src_net, I can provide the patch.
-- ieee802154 uses also src_net and does not have NETIF_F_NETNS_LOCAL. Same
-  question: does this netdevice really supports x-netns?
-- bonding ignores src_net and flag NETIF_F_NETNS_LOCAL is set, ie x-netns is not
-  supported. Fine.
-- CAN does not support rtnl/newlink, ok.
-- ipvlan uses src_net and does not have NETIF_F_NETNS_LOCAL. After looking at
-  the code, it seems that this drivers support x-netns. Am I right?
-- macvlan/macvtap uses src_net and seems to have x-netns support.
-- team ignores src_net and has the flag NETIF_F_NETNS_LOCAL, ie x-netns is not
-  supported. Ok.
-- veth uses src_net and have x-netns support ;-) Ok.
-- VXLAN didn't properly handle this. The link netns (vxlan->net) is the src_net
-  and not dest_net (see patch #2). Note that it was already possible to create a
-  x-netns vxlan before the commit f01ec1c017de ("vxlan: add x-netns support")
-  but the nedevice remains broken.
+Fixes: f01ec1c017de ("vxlan: add x-netns support")
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+---
+ drivers/net/vxlan.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
 
-To summarize:
- - CAIF patch must be carefully reviewed
- - for HSR, ieee802154, ipvlan: is x-netns supported?
-
- drivers/net/caif/caif_hsi.c |  1 -
- drivers/net/vxlan.c         | 10 +++++-----
- net/caif/chnl_net.c         |  1 -
- 3 files changed, 5 insertions(+), 7 deletions(-)
-
-Regards,
-Nicolas
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index 7fbd89fbe107..a8c755dcab14 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -2432,10 +2432,10 @@ static void vxlan_sock_work(struct work_struct *work)
+ 	dev_put(vxlan->dev);
+ }
+ 
+-static int vxlan_newlink(struct net *net, struct net_device *dev,
++static int vxlan_newlink(struct net *src_net, struct net_device *dev,
+ 			 struct nlattr *tb[], struct nlattr *data[])
+ {
+-	struct vxlan_net *vn = net_generic(net, vxlan_net_id);
++	struct vxlan_net *vn = net_generic(src_net, vxlan_net_id);
+ 	struct vxlan_dev *vxlan = netdev_priv(dev);
+ 	struct vxlan_rdst *dst = &vxlan->default_dst;
+ 	__u32 vni;
+@@ -2445,7 +2445,7 @@ static int vxlan_newlink(struct net *net, struct net_device *dev,
+ 	if (!data[IFLA_VXLAN_ID])
+ 		return -EINVAL;
+ 
+-	vxlan->net = dev_net(dev);
++	vxlan->net = src_net;
+ 
+ 	vni = nla_get_u32(data[IFLA_VXLAN_ID]);
+ 	dst->remote_vni = vni;
+@@ -2481,7 +2481,7 @@ static int vxlan_newlink(struct net *net, struct net_device *dev,
+ 	if (data[IFLA_VXLAN_LINK] &&
+ 	    (dst->remote_ifindex = nla_get_u32(data[IFLA_VXLAN_LINK]))) {
+ 		struct net_device *lowerdev
+-			 = __dev_get_by_index(net, dst->remote_ifindex);
++			 = __dev_get_by_index(src_net, dst->remote_ifindex);
+ 
+ 		if (!lowerdev) {
+ 			pr_info("ifindex %d does not exist\n", dst->remote_ifindex);
+@@ -2557,7 +2557,7 @@ static int vxlan_newlink(struct net *net, struct net_device *dev,
+ 	    nla_get_u8(data[IFLA_VXLAN_UDP_ZERO_CSUM6_RX]))
+ 		vxlan->flags |= VXLAN_F_UDP_ZERO_CSUM6_RX;
+ 
+-	if (vxlan_find_vni(net, vni, use_ipv6 ? AF_INET6 : AF_INET,
++	if (vxlan_find_vni(src_net, vni, use_ipv6 ? AF_INET6 : AF_INET,
+ 			   vxlan->dst_port)) {
+ 		pr_info("duplicate VNI %u\n", vni);
+ 		return -EEXIST;
+-- 
+2.2.2
