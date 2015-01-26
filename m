@@ -1,50 +1,37 @@
-From: Sun Paul <paulrbk@gmail.com>
-Subject: Re: Question on SCTP ABORT chunk is generated when the
- association_max_retrans is reached
-Date: Mon, 26 Jan 2015 09:27:10 +0800
-Message-ID: <CAFXGft+XZCmhuwj2QTCiU0MD10Uo+WZ3WCC+rfbsd_Lxbhk3iw@mail.gmail.com>
-References: <CAFXGftKp3=OfjkCVBuR-zM3+uZ42Sk_9i2UjAHBNnbX=hQJwpA@mail.gmail.com>
-	<CAFXGft+fwo=8LJEG7h6uOpGciSo5f_dXjSx3sn67RZZp7jsYHw@mail.gmail.com>
-	<54C23581.9060809@redhat.com>
-	<54C27137.5010405@gmail.com>
-	<54C2807E.8080607@redhat.com>
-	<8BBFBEE6-FA34-4190-BFCB-AB6BEC093774@fh-muenster.de>
-	<54C29B82.7090502@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Michael Tuexen <tuexen@fh-muenster.de>,
-	Vlad Yasevich <vyasevich@gmail.com>,
-	linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Daniel Borkmann <dborkman@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <54C29B82.7090502@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: roopa@cumulusnetworks.com
+Subject: [PATCH net-next v3 0/2] iproute2: bridge vlan range support
+Date: Sun, 25 Jan 2015 18:26:23 -0800
+Message-ID: <1422239185-14054-1-git-send-email-roopa@cumulusnetworks.com>
+Cc: wkok@cumulusnetworks.com, sfeldma@gmail.com
+To: netdev@vger.kernel.org, shemminger@vyatta.com, vyasevic@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:37867 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751419AbbAZC0c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 Jan 2015 21:26:32 -0500
+Received: by mail-pa0-f42.google.com with SMTP id bj1so8999240pad.1
+        for <netdev@vger.kernel.org>; Sun, 25 Jan 2015 18:26:32 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
 
-sorry for the late reply. I am a bit confused. when side-A sends a
-request to side-B, and side-B return the response, but side-A keep
-re-transmit the same request to side-B, why side-B needed to send a
-ABORT to side-A?
+This series adds support for vlan ranges in iproute2 bridge add
+and show commands.
 
-If it is used in order to reestablish the connection, shoudn't it
-should be side-A to send ABORT instead?
+Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+Signed-off-by: Wilson Kok <wkok@cumulusnetworks.com>
 
-- PS
+Roopa Prabhu (2):
+  iproute2: bridge: support vlan range for adds
+  iproute2: bridge vlan show new option to print ranges
 
-On Sat, Jan 24, 2015 at 3:05 AM, Daniel Borkmann <dborkman@redhat.com> wrote:
-> On 01/23/2015 07:36 PM, Michael Tuexen wrote:
-> ...
->>
->> Yepp. It might not reach the peer or it might. If it does it helps
->> to keep the states in sync. If it doesn't it sometimes helps in
->> analysing tracefiles. In BSD, we also send it. It is not required,
->> doesn't harm and is useful in some cases...
->
->
-> Ok, as the TCB is destroyed in any case, should be fine then.
->
-> Thanks,
-> Daniel
+ bridge/br_common.h        |    1 +
+ bridge/bridge.c           |    6 ++++-
+ bridge/vlan.c             |   55 ++++++++++++++++++++++++++++++++++++++++-----
+ include/linux/if_bridge.h |    2 ++
+ include/linux/rtnetlink.h |    1 +
+ 5 files changed, 58 insertions(+), 7 deletions(-)
+
+-- 
+1.7.10.4
