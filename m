@@ -1,7 +1,7 @@
 From: Ming Lei <ming.lei@canonical.com>
-Subject: [PATCH v1 1/2] ARM: exynos5440-sd5v1: switch to fixed-link DT binding
-Date: Mon, 26 Jan 2015 10:37:37 +0800
-Message-ID: <1422239858-3452-2-git-send-email-ming.lei@canonical.com>
+Subject: [PATCH v1 2/2] net: stmmac: add fixed_phy support via fixed-link DT binding
+Date: Mon, 26 Jan 2015 10:37:38 +0800
+Message-ID: <1422239858-3452-3-git-send-email-ming.lei@canonical.com>
 References: <1422239858-3452-1-git-send-email-ming.lei@canonical.com>
 Cc: linux-samsung-soc@vger.kernel.org, Kukjin Kim <kgene@kernel.org>,
 	netdev@vger.kernel.org, Byungho An <bh74.an@samsung.com>,
@@ -14,30 +14,56 @@ In-Reply-To: <1422239858-3452-1-git-send-email-ming.lei@canonical.com>
 Sender: linux-samsung-soc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The previous dts property isn't standard way for fixed phy
-support, and switch to the fixed-link DT binding.
-
 Signed-off-by: Ming Lei <ming.lei@canonical.com>
 ---
- arch/arm/boot/dts/exynos5440-sd5v1.dts |    6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |    5 ++++-
+ .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |   10 ++++++++++
+ 2 files changed, 14 insertions(+), 1 deletion(-)
 
-diff --git a/arch/arm/boot/dts/exynos5440-sd5v1.dts b/arch/arm/boot/dts/exynos5440-sd5v1.dts
-index 268609a..ee65a5c 100644
---- a/arch/arm/boot/dts/exynos5440-sd5v1.dts
-+++ b/arch/arm/boot/dts/exynos5440-sd5v1.dts
-@@ -28,8 +28,10 @@
- 	};
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index 8c6b7c16..ddb4351 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -847,8 +847,11 @@ static int stmmac_init_phy(struct net_device *dev)
+ 	 * 0 rather than 0xffff. Catch this here and treat 0 as a non-existent
+ 	 * device as well.
+ 	 * Note: phydev->phy_id is the result of reading the UID PHY registers.
++	 * But phy_id returned from fixed phy is always zero, so bypass the
++	 * check for fixed phy.
+ 	 */
+-	if (phydev->phy_id == 0) {
++	if (phydev->phy_id == 0 && (!priv->plat->phy_bus_name ||
++			strcmp(priv->plat->phy_bus_name,"fixed"))) {
+ 		phy_disconnect(phydev);
+ 		return -ENODEV;
+ 	}
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+index 3039de2..73a3ced 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+@@ -27,6 +27,7 @@
+ #include <linux/of.h>
+ #include <linux/of_net.h>
+ #include <linux/of_device.h>
++#include <linux/of_mdio.h>
  
- 	gmac: ethernet@00230000 {
--		fixed_phy;
--		phy_addr = <1>;
-+		fixed-link {
-+			speed = <1000>;
-+			full-duplex;
-+		};
- 	};
+ #include "stmmac.h"
+ #include "stmmac_platform.h"
+@@ -216,6 +217,15 @@ static int stmmac_probe_config_dt(struct platform_device *pdev,
+ 		plat->pmt = 1;
+ 	}
  
- 	spi {
++	if (of_phy_is_fixed_link(np)) {
++		int ret = of_phy_register_fixed_link(np);
++		if (ret) {
++			dev_err(&pdev->dev, "failed to register fixed PHY\n");
++			return ret;
++		}
++		plat->phy_bus_name = "fixed";
++	}
++
+ 	if (of_device_is_compatible(np, "snps,dwmac-3.610") ||
+ 		of_device_is_compatible(np, "snps,dwmac-3.710")) {
+ 		plat->enh_desc = 1;
 -- 
 1.7.9.5
