@@ -1,90 +1,41 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next 1/1] net: phy: unbind phy device from generic
- and specifical driver
-Date: Mon, 26 Jan 2015 09:14:25 -0800
-Message-ID: <54C675F1.9080803@gmail.com>
-References: <1422260045-22527-1-git-send-email-b38611@freescale.com>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: [PATCH v3 net-next] net: ipv6: Add sysctl entry to disable MTU updates from RA
+Date: Mon, 26 Jan 2015 18:27:09 +0100
+Message-ID: <8761btxxjm.fsf@nemi.mork.no>
+References: <1421773565-5181-1-git-send-email-harouth@codeaurora.org>
+	<20150124.231432.1788575004982971514.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, s.hauer@pengutronix.de,
-	bhutchings@solarflare.com, stephen@networkplumber.org
-To: Fugang Duan <b38611@freescale.com>, davem@davemloft.net
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: harouth@codeaurora.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f177.google.com ([209.85.192.177]:50792 "EHLO
-	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752808AbbAZROo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2015 12:14:44 -0500
-Received: by mail-pd0-f177.google.com with SMTP id y13so12980918pdi.8
-        for <netdev@vger.kernel.org>; Mon, 26 Jan 2015 09:14:43 -0800 (PST)
-In-Reply-To: <1422260045-22527-1-git-send-email-b38611@freescale.com>
+Received: from canardo.mork.no ([148.122.252.1]:37557 "EHLO canardo.mork.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753022AbbAZR1T convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2015 12:27:19 -0500
+In-Reply-To: <20150124.231432.1788575004982971514.davem@davemloft.net> (David
+	Miller's message of "Sat, 24 Jan 2015 23:14:32 -0800 (PST)")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 26/01/15 00:14, Fugang Duan wrote:
-> The current .phy_detach() function only unbind generic phy driver, which causes
-> specifical driver suspend/resume function still work like Atheros AT803X PHYs.
-> 
-> For example:
-> ifconfig eth0 down
-> echo mem > /sys/power/status
-> 
-> After eth0 interface down, driver call phy_detach to unbind phy driver, and then
-> do suspend/resume operation, at803x_suspend()/at803x_resume() functions still get
-> called that call mdio bus read/write function. When eth0 interface down, MAC driver
-> may close all clocks and mdio bus cannot work. So the issue happens.
+David Miller <davem@davemloft.net> writes:
 
-I was just hitting this problem on Friday evening and was about to
-submit a similar change. Thanks!
+> Under what circumstances would userland ignore a router advertized
+> MTU, and are the RFCs ok with this?
 
-> 
-> The patch can unbind generic and specifical driver.
-> 
-> Signed-off-by: Fugang Duan <B38611@freescale.com>
+RFC 4861 ( https://tools.ietf.org/html/rfc4861#page-54 ) says:
 
-Acked-by: Florian Fainelli <f.fainelli@gmail.com>
-Tested-by: Florian Fainelli <f.fainelli@gmail.com>
+  "If the MTU option is present, hosts SHOULD copy the option's value
+   into LinkMTU so long as the value is greater than or equal to the
+   minimum link MTU [IPv6] and does not exceed the maximum LinkMTU valu=
+e
+   specified in the link-type-specific document (e.g., [IPv6-ETHER])."
+
+So the RFC acknowledge that there may exist valid reasons in particular
+circumstances to ignore the MTU option.  As others have stated: This
+might be necessary for DoS prevention, working around bugs in other
+equipment, etc.
 
 
-> ---
->  drivers/net/phy/phy_device.c |   15 ++-------------
->  1 files changed, 2 insertions(+), 13 deletions(-)
-> 
-> diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-> index 3fc91e8..8adbc5d 100644
-> --- a/drivers/net/phy/phy_device.c
-> +++ b/drivers/net/phy/phy_device.c
-> @@ -672,8 +672,6 @@ EXPORT_SYMBOL(phy_attach);
->   */
->  void phy_detach(struct phy_device *phydev)
->  {
-> -	int i;
-> -
->  	if (phydev->bus->dev.driver)
->  		module_put(phydev->bus->dev.driver->owner);
->  
-> @@ -681,17 +679,8 @@ void phy_detach(struct phy_device *phydev)
->  	phydev->attached_dev = NULL;
->  	phy_suspend(phydev);
->  
-> -	/* If the device had no specific driver before (i.e. - it
-> -	 * was using the generic driver), we unbind the device
-> -	 * from the generic driver so that there's a chance a
-> -	 * real driver could be loaded
-> -	 */
-> -	for (i = 0; i < ARRAY_SIZE(genphy_driver); i++) {
-> -		if (phydev->dev.driver == &genphy_driver[i].driver) {
-> -			device_release_driver(&phydev->dev);
-> -			break;
-> -		}
-> -	}
-> +	if (phydev->dev.driver)
-> +		device_release_driver(&phydev->dev);
->  }
->  EXPORT_SYMBOL(phy_detach);
->  
-> 
-
-
--- 
-Florian
+Bj=C3=B8rn
