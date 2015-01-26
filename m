@@ -1,226 +1,106 @@
-From: Vladislav Yasevich <vyasevich@gmail.com>
-Subject: [PATCH 3/3] Revert "drivers/net: Disable UFO through virtio"
-Date: Mon, 26 Jan 2015 09:37:06 -0500
-Message-ID: <1422283026-27832-4-git-send-email-vyasevic@redhat.com>
-References: <1422283026-27832-1-git-send-email-vyasevic@redhat.com>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: [PATCH v3 net-next] net: ipv6: Add sysctl entry to disable MTU
+ updates from RA
+Date: Mon, 26 Jan 2015 09:03:48 -0600
+Message-ID: <1422284628.2393.4.camel@dcbw.local>
+References: <1421773565-5181-1-git-send-email-harouth@codeaurora.org>
+	 <20150124.231432.1788575004982971514.davem@davemloft.net>
+	 <20150125072101.GA25495@angus-think.lan> <54C519B3.9050905@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: edumazet@google.com, mst@redhat.com, ben@decadent.org.uk,
-	virtualization@lists.linux-foundation.org
-To: netdev@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1422283026-27832-1-git-send-email-vyasevic@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Vadim Kochan <vadim4j@gmail.com>
+To: Harout Hedeshian <harouth@codeaurora.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:58795 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755418AbbAZPD4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 Jan 2015 10:03:56 -0500
+In-Reply-To: <54C519B3.9050905@codeaurora.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This reverts commit 3d0ad09412ffe00c9afa201d01effdb6023d09b4.
+On Sun, 2015-01-25 at 09:28 -0700, Harout Hedeshian wrote:
+> On 01/25/2015 12:21 AM, Vadim Kochan wrote:
+> > On Sat, Jan 24, 2015 at 11:14:32PM -0800, David Miller wrote:
+> >> From: Harout Hedeshian <harouth@codeaurora.org>
+> >> Date: Tue, 20 Jan 2015 10:06:05 -0700
+> >>
+> >>> The kernel forcefully applies MTU values received in router
+> >>> advertisements provided the new MTU is less than the current. This
+> >>> behavior is undesirable when the user space is managing the MTU.
+> > Instead
+> >>> a sysctl flag 'accept_ra_mtu' is introduced such that the user space
+> >>> can control whether or not RA provided MTU updates should be applied.
+> > The
+> >>> default behavior is unchanged; user space must explicitly set this
+> > flag
+> >>> to 0 for RA MTUs to be ignored.
+> >>>
+> >>> Signed-off-by: Harout Hedeshian <harouth@codeaurora.org>
+> >> Under what circumstances would userland ignore a router advertized
+> >> MTU, and are the RFCs ok with this?
+> >> --
+> >> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> >> the body of a message to majordomo@vger.kernel.org
+> >> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> > Hi,
+> >
+> > I don't know if it make sense but I had the same use case when was
+> > working on supporting IPv6 infrastructure for home gateway.
+> > One of the provider had requirements to have ability set force IPv6 MTU
+> > value via TR parameters and disable update it via RA.
+> Hi David,
+> 
+> We are optionally allowing the kernel shift this responsibility to the 
+> userland. The idea would be that the kernel would ignore it, not so much 
+> the userland. Just like Vadim, we may not want to use the MTU value 
+> which comes from the network. Instead, we get an MTU value from the 
+> cellular modem via configuration message, and that is the MTU we use.
 
-Now that UFO functionality can correctly track the fragment
-id has been selected and select a fragment id if necessary,
-we can re-enable UFO on tap/macvap and virtio devices.
+Are you talking about an ethernet interface exposed by the modem, or a
+separate network interface connected to a normal LAN?  In the modem
+case, why would the network-provided RA's MTU be incorrect, but the
+modem's MTU be correct?  If the normal LAN case, why would the modem's
+MTU be correct for a different network that is broadcasting its own RAs?
+Just curious...
 
-Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
----
- drivers/net/macvtap.c    | 13 ++++++++-----
- drivers/net/tun.c        | 19 ++++++++-----------
- drivers/net/virtio_net.c | 24 ++++++++++--------------
- 3 files changed, 26 insertions(+), 30 deletions(-)
+Dan
 
-diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-index 0b86e46..919f4fc 100644
---- a/drivers/net/macvtap.c
-+++ b/drivers/net/macvtap.c
-@@ -80,7 +80,7 @@ static struct cdev macvtap_cdev;
- static const struct proto_ops macvtap_socket_ops;
- 
- #define TUN_OFFLOADS (NETIF_F_HW_CSUM | NETIF_F_TSO_ECN | NETIF_F_TSO | \
--		      NETIF_F_TSO6)
-+		      NETIF_F_TSO6 | NETIF_F_UFO)
- #define RX_OFFLOADS (NETIF_F_GRO | NETIF_F_LRO)
- #define TAP_FEATURES (NETIF_F_GSO | NETIF_F_SG)
- 
-@@ -585,8 +585,6 @@ static int macvtap_skb_from_vnet_hdr(struct macvtap_queue *q,
- 			gso_type = SKB_GSO_TCPV6;
- 			break;
- 		case VIRTIO_NET_HDR_GSO_UDP:
--			pr_warn_once("macvtap: %s: using disabled UFO feature; please fix this program\n",
--				     current->comm);
- 			gso_type = SKB_GSO_UDP;
- 			break;
- 		default:
-@@ -633,6 +631,8 @@ static void macvtap_skb_to_vnet_hdr(struct macvtap_queue *q,
- 			vnet_hdr->gso_type = VIRTIO_NET_HDR_GSO_TCPV4;
- 		else if (sinfo->gso_type & SKB_GSO_TCPV6)
- 			vnet_hdr->gso_type = VIRTIO_NET_HDR_GSO_TCPV6;
-+		else if (sinfo->gso_type & SKB_GSO_UDP)
-+			vnet_hdr->gso_type = VIRTIO_NET_HDR_GSO_UDP;
- 		else
- 			BUG();
- 		if (sinfo->gso_type & SKB_GSO_TCP_ECN)
-@@ -962,6 +962,9 @@ static int set_offload(struct macvtap_queue *q, unsigned long arg)
- 			if (arg & TUN_F_TSO6)
- 				feature_mask |= NETIF_F_TSO6;
- 		}
-+
-+		if (arg & TUN_F_UFO)
-+			feature_mask |= NETIF_F_UFO;
- 	}
- 
- 	/* tun/tap driver inverts the usage for TSO offloads, where
-@@ -972,7 +975,7 @@ static int set_offload(struct macvtap_queue *q, unsigned long arg)
- 	 * When user space turns off TSO, we turn off GSO/LRO so that
- 	 * user-space will not receive TSO frames.
- 	 */
--	if (feature_mask & (NETIF_F_TSO | NETIF_F_TSO6))
-+	if (feature_mask & (NETIF_F_TSO | NETIF_F_TSO6 | NETIF_F_UFO))
- 		features |= RX_OFFLOADS;
- 	else
- 		features &= ~RX_OFFLOADS;
-@@ -1087,7 +1090,7 @@ static long macvtap_ioctl(struct file *file, unsigned int cmd,
- 	case TUNSETOFFLOAD:
- 		/* let the user check for future flags */
- 		if (arg & ~(TUN_F_CSUM | TUN_F_TSO4 | TUN_F_TSO6 |
--			    TUN_F_TSO_ECN))
-+			    TUN_F_TSO_ECN | TUN_F_UFO))
- 			return -EINVAL;
- 
- 		rtnl_lock();
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index 5ca42b7..10f9e40 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -186,7 +186,7 @@ struct tun_struct {
- 	struct net_device	*dev;
- 	netdev_features_t	set_features;
- #define TUN_USER_FEATURES (NETIF_F_HW_CSUM|NETIF_F_TSO_ECN|NETIF_F_TSO| \
--			  NETIF_F_TSO6)
-+			  NETIF_F_TSO6|NETIF_F_UFO)
- 
- 	int			vnet_hdr_sz;
- 	int			sndbuf;
-@@ -1176,18 +1176,8 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
- 			skb_shinfo(skb)->gso_type = SKB_GSO_TCPV6;
- 			break;
- 		case VIRTIO_NET_HDR_GSO_UDP:
--		{
--			static bool warned;
--
--			if (!warned) {
--				warned = true;
--				netdev_warn(tun->dev,
--					    "%s: using disabled UFO feature; please fix this program\n",
--					    current->comm);
--			}
- 			skb_shinfo(skb)->gso_type = SKB_GSO_UDP;
- 			break;
--		}
- 		default:
- 			tun->dev->stats.rx_frame_errors++;
- 			kfree_skb(skb);
-@@ -1294,6 +1284,8 @@ static ssize_t tun_put_user(struct tun_struct *tun,
- 				gso.gso_type = VIRTIO_NET_HDR_GSO_TCPV4;
- 			else if (sinfo->gso_type & SKB_GSO_TCPV6)
- 				gso.gso_type = VIRTIO_NET_HDR_GSO_TCPV6;
-+			else if (sinfo->gso_type & SKB_GSO_UDP)
-+				gso.gso_type = VIRTIO_NET_HDR_GSO_UDP;
- 			else {
- 				pr_err("unexpected GSO type: "
- 				       "0x%x, gso_size %d, hdr_len %d\n",
-@@ -1742,6 +1734,11 @@ static int set_offload(struct tun_struct *tun, unsigned long arg)
- 				features |= NETIF_F_TSO6;
- 			arg &= ~(TUN_F_TSO4|TUN_F_TSO6);
- 		}
-+
-+		if (arg & TUN_F_UFO) {
-+			features |= NETIF_F_UFO;
-+			arg &= ~TUN_F_UFO;
-+		}
- 	}
- 
- 	/* This gives the user a way to test for new features in future by
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index 5ca9771..059fdf1 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -490,17 +490,8 @@ static void receive_buf(struct virtnet_info *vi, struct receive_queue *rq,
- 			skb_shinfo(skb)->gso_type = SKB_GSO_TCPV4;
- 			break;
- 		case VIRTIO_NET_HDR_GSO_UDP:
--		{
--			static bool warned;
--
--			if (!warned) {
--				warned = true;
--				netdev_warn(dev,
--					    "host using disabled UFO feature; please fix it\n");
--			}
- 			skb_shinfo(skb)->gso_type = SKB_GSO_UDP;
- 			break;
--		}
- 		case VIRTIO_NET_HDR_GSO_TCPV6:
- 			skb_shinfo(skb)->gso_type = SKB_GSO_TCPV6;
- 			break;
-@@ -888,6 +879,8 @@ static int xmit_skb(struct send_queue *sq, struct sk_buff *skb)
- 			hdr->hdr.gso_type = VIRTIO_NET_HDR_GSO_TCPV4;
- 		else if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV6)
- 			hdr->hdr.gso_type = VIRTIO_NET_HDR_GSO_TCPV6;
-+		else if (skb_shinfo(skb)->gso_type & SKB_GSO_UDP)
-+			hdr->hdr.gso_type = VIRTIO_NET_HDR_GSO_UDP;
- 		else
- 			BUG();
- 		if (skb_shinfo(skb)->gso_type & SKB_GSO_TCP_ECN)
-@@ -1748,7 +1741,7 @@ static int virtnet_probe(struct virtio_device *vdev)
- 			dev->features |= NETIF_F_HW_CSUM|NETIF_F_SG|NETIF_F_FRAGLIST;
- 
- 		if (virtio_has_feature(vdev, VIRTIO_NET_F_GSO)) {
--			dev->hw_features |= NETIF_F_TSO
-+			dev->hw_features |= NETIF_F_TSO | NETIF_F_UFO
- 				| NETIF_F_TSO_ECN | NETIF_F_TSO6;
- 		}
- 		/* Individual feature bits: what can host handle? */
-@@ -1758,9 +1751,11 @@ static int virtnet_probe(struct virtio_device *vdev)
- 			dev->hw_features |= NETIF_F_TSO6;
- 		if (virtio_has_feature(vdev, VIRTIO_NET_F_HOST_ECN))
- 			dev->hw_features |= NETIF_F_TSO_ECN;
-+		if (virtio_has_feature(vdev, VIRTIO_NET_F_HOST_UFO))
-+			dev->hw_features |= NETIF_F_UFO;
- 
- 		if (gso)
--			dev->features |= dev->hw_features & NETIF_F_ALL_TSO;
-+			dev->features |= dev->hw_features & (NETIF_F_ALL_TSO|NETIF_F_UFO);
- 		/* (!csum && gso) case will be fixed by register_netdev() */
- 	}
- 	if (virtio_has_feature(vdev, VIRTIO_NET_F_GUEST_CSUM))
-@@ -1798,7 +1793,8 @@ static int virtnet_probe(struct virtio_device *vdev)
- 	/* If we can receive ANY GSO packets, we must allocate large ones. */
- 	if (virtio_has_feature(vdev, VIRTIO_NET_F_GUEST_TSO4) ||
- 	    virtio_has_feature(vdev, VIRTIO_NET_F_GUEST_TSO6) ||
--	    virtio_has_feature(vdev, VIRTIO_NET_F_GUEST_ECN))
-+	    virtio_has_feature(vdev, VIRTIO_NET_F_GUEST_ECN) ||
-+	    virtio_has_feature(vdev, VIRTIO_NET_F_GUEST_UFO))
- 		vi->big_packets = true;
- 
- 	if (virtio_has_feature(vdev, VIRTIO_NET_F_MRG_RXBUF))
-@@ -1994,9 +1990,9 @@ static struct virtio_device_id id_table[] = {
- static unsigned int features[] = {
- 	VIRTIO_NET_F_CSUM, VIRTIO_NET_F_GUEST_CSUM,
- 	VIRTIO_NET_F_GSO, VIRTIO_NET_F_MAC,
--	VIRTIO_NET_F_HOST_TSO4, VIRTIO_NET_F_HOST_TSO6,
-+	VIRTIO_NET_F_HOST_TSO4, VIRTIO_NET_F_HOST_UFO, VIRTIO_NET_F_HOST_TSO6,
- 	VIRTIO_NET_F_HOST_ECN, VIRTIO_NET_F_GUEST_TSO4, VIRTIO_NET_F_GUEST_TSO6,
--	VIRTIO_NET_F_GUEST_ECN,
-+	VIRTIO_NET_F_GUEST_ECN, VIRTIO_NET_F_GUEST_UFO,
- 	VIRTIO_NET_F_MRG_RXBUF, VIRTIO_NET_F_STATUS, VIRTIO_NET_F_CTRL_VQ,
- 	VIRTIO_NET_F_CTRL_RX, VIRTIO_NET_F_CTRL_VLAN,
- 	VIRTIO_NET_F_GUEST_ANNOUNCE, VIRTIO_NET_F_MQ,
--- 
-1.9.3
+> In any case, none of the RFCs state that the kernel must update the MTU 
+> and that the userland cannot. In fact, there is no mention of 
+> kernel/user space at all in the RFC for this particular RA message. What 
+> if someone wants to listen to these RA messages from userland and update 
+> the MTU? Surely, that won't violate the RFC. In such a case, the kernel 
+> is unnecessarily forcing policy on the user space.
+> 
+> RFC4861 section 4.6.4 defines the MTU update option (RA option 5) for RA 
+> messages. I don't see any language where the receiver "MUST" apply this 
+> option. It merely states that the MTU value in the RA is "The 
+> recommended MTU for the link." The description goes on to point out why 
+> this option can be used by the router, but does not specifically enforce 
+> it. The only receive action specifically enforced by the RFC is that 
+> "This option MUST be silently ignored for other Neighbor Discovery 
+> messages."
+> 
+> The risk of not applying the MTU updates is that packet may get dropped 
+> if path MTU discovery is disabled or broken on the network. HOWEVER, 
+> anyone explicitly setting accept_ra_mtu to 0 is already taking 
+> responsibility for enforcing the correct MTU. Since this patch by 
+> default does not change the kernel behavior, I don't see it breaking for 
+> users who are unaware of this option.
+> 
+> 
+> Thanks,
+> Harout
+> 
+> --
+> Employee of Qualcomm Innovation Center, Inc.
+> Qualcomm Innovation Center, Inc. is a member of Code Aurora Forum, a Linux Foundation Collaborative Project
+> 
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
