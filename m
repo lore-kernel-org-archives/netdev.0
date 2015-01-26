@@ -1,42 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] drivers: net: xgene: fix: Out of order descriptor
- bytes read
-Date: Mon, 26 Jan 2015 14:34:02 -0800 (PST)
-Message-ID: <20150126.143402.1309886104452878553.davem@davemloft.net>
-References: <1421957007-720-1-git-send-email-isubramanian@apm.com>
-	<1421967050.3471.14.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CAKh23FmxvV82mVrHq5jv-FE+e6u6CkW+xL_a2_ULAQgP_mM2VA@mail.gmail.com>
+Subject: Re: [PATCH 1/2] rhashtable: Introduce rhashtable_walk_*
+Date: Mon, 26 Jan 2015 14:36:13 -0800 (PST)
+Message-ID: <20150126.143613.1798698028405169123.davem@davemloft.net>
+References: <E1YFWUl-0004gE-SH@gondolin.me.apana.org.au>
+	<063D6719AE5E284EB5DD2968C1650D6D1CAD2C12@AcuExch.aculab.com>
+	<20150126222259.GC30116@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	mlangsdo@redhat.com, patches@apm.com, kchudgar@apm.com
-To: isubramanian@apm.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAKh23FmxvV82mVrHq5jv-FE+e6u6CkW+xL_a2_ULAQgP_mM2VA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: David.Laight@ACULAB.COM, tgraf@suug.ch, ying.xue@windriver.com,
+	kaber@trash.net, paulmck@linux.vnet.ibm.com,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: herbert@gondor.apana.org.au
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20150126222259.GC30116@gondor.apana.org.au>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Iyappan Subramanian <isubramanian@apm.com>
-Date: Mon, 26 Jan 2015 13:12:23 -0800
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Tue, 27 Jan 2015 09:23:00 +1100
 
->>> @@ -369,6 +369,8 @@ static int xgene_enet_process_ring(struct xgene_enet_desc_ring *ring,
->>>               if (unlikely(xgene_enet_is_desc_slot_empty(raw_desc)))
->>>                       break;
->>>
->>> +             /* read fpqnum field after dataaddr field */
->>> +             smp_rmb();
->>>               if (is_rx_desc(raw_desc))
->>>                       ret = xgene_enet_rx_frame(ring, raw_desc);
->>>               else
+> On Mon, Jan 26, 2015 at 10:09:24AM +0000, David Laight wrote:
 >>
->> Reading your changelog, it looks like you need a plain rmb() here.
+>> That doesn't look right to me.
+>> Surely you shouldn't be calling rcu_read_lock() when the mutex
+>> request is interrupted.
+>> 
+>> So maybe:
+>> 	err = mutex_lock_interruptible(&ht->mutex);
+>> 	if (err)
+>> 		return err;
+>> 	rcu_read_lock();
 > 
-> rmb() translates into dsb, which in arm64 serializes everything
-> including instructions and thus expensive compared to dmb.
+> No, we need to grab the RCU read lock while holding the mutex
+> in order to prevent future resizes from happening once we release
+> the mutex.
 > 
-> Do you see any issue with smp_rmb() (which translates into dmb) ?
+> We don't want to hold the mutex which would stop other walks from
+> starting.
 
-smp_rmb() is not appropriate.  You're not serializing accesses between
-two cpus, you're serializing the cpu with the device.
+I really think the amount of time and effort being put into making
+the walker function properly is excessive.
+
+Let's just say that if you want to use rhashtable, you have to use a
+linked list, or similar separate mechanism, to have stable walks of
+the entire set of objects.
