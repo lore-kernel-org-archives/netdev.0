@@ -1,67 +1,59 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: IPsec workshop at netdev01?
-Date: Mon, 26 Jan 2015 10:11:10 +0100
-Message-ID: <20150126091109.GK13046@secunet.com>
-References: <20150106101936.GC31458@secunet.com>
- <54AF677E.9080108@gmail.com>
+From: Scott Feldman <sfeldma-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH net-next 1/7] r8152: adjust rx_bottom
+Date: Mon, 26 Jan 2015 01:14:06 -0800
+Message-ID: <CAE4R7bAoTAMMtq0JQK0vmyLqooU88VVuoLkZcFd=1WfxCaqyaw@mail.gmail.com>
+References: <1394712342-15778-118-Taiwan-albertk@realtek.com>
+	<1394712342-15778-119-Taiwan-albertk@realtek.com>
+	<CAE4R7bAv26f-+DW-TmjspJxAb-3Add5sf563mnMUTGCyiqG3rQ@mail.gmail.com>
+	<20150119.161333.1471925264489559119.davem@davemloft.net>
+	<0835B3720019904CB8F7AA43166CEEB2EE6E76@RTITMBSV03.realtek.com.tw>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <netdev@vger.kernel.org>, Jamal Hadi Salim <jhs@mojatatu.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	David Miller <davem@davemloft.net>,
-	"Du, Fan" <fan.du@intel.com>
-To: Fan Du <fengyuleidian0615@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:36764 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751753AbbAZJLU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 Jan 2015 04:11:20 -0500
-Content-Disposition: inline
-In-Reply-To: <54AF677E.9080108@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	nic_swsd <nic_swsd-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <0835B3720019904CB8F7AA43166CEEB2EE6E76-JIZ+AM9kKNzuvTFwvkocLypo8c9IxeqyAjHCUHv49ws@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jan 09, 2015 at 01:30:38PM +0800, Fan Du wrote:
-> =E4=BA=8E 2015=E5=B9=B401=E6=9C=8806=E6=97=A5 18:19, Steffen Klassert=
- =E5=86=99=E9=81=93:
-> >
-> >- We still lack a 32/64 bit compatibiltiy layer for IPsec, this issu=
-e
-> >   comes up from time to time. Some solutions were proposed in the p=
-ast
-> >   but all had problems. The current behaviour is broken if someone =
-tries
-> >   to configure IPsec with 32 bit tools on a 64 bit machine. Can we =
-get
-> >   this right somehow or is it better to just return an error in thi=
-s case?
->=20
-> Before a clean solution show up, I think it's better to warn user in =
-some way
-> like http://patchwork.ozlabs.org/patch/323842/ did. Otherwise, many p=
-eople
-> who stuck there will always spend time and try to fix this issue in w=
-hatever way.
+On Mon, Jan 19, 2015 at 6:48 PM, Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org> wrote:
+>  David Miller [mailto:davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org]
+>> Sent: Tuesday, January 20, 2015 5:14 AM
+> [...]
+>> >> -               r8152_submit_rx(tp, agg, GFP_ATOMIC);
+>> >> +               if (!ret) {
+>> >> +                       ret = r8152_submit_rx(tp, agg, GFP_ATOMIC);
+>> >> +               } else {
+>> >> +                       urb->actual_length = 0;
+>> >> +                       list_add_tail(&agg->list, next);
+>> >
+>> > Do you need a spin_lock_irqsave(&tp->rx_lock, flags) around this?
+>>
+>> Indeed, and rtl_start_rx() seems to also access agg->list without
+>> proper locking.
+>
+> It is unnecessary because I deal with them in a local list_head. My steps are
+>    1. Move the whole list from tp->rx_done to local rx_queue. (with spin lock)
+>    2. dequeue/enqueue the lists in rx_queue.
+>    3. Move the lists in rx_queue to tp->rx_done if it is necessary. (spin lock)
+> For step 2, it wouldn't have race, because the list_head is local and no other
+> function would change it. Therefore, I don't think it needs the spin lock.
 
-Yes, this is the first thing we should do. I'm willing to accept a patc=
-h :)
+Sorry guys, I think I made a mistake in my review and caused some
+confusion/grief.
 
->=20
-> >- Changing the system time can lead to unexpected SA lifetime change=
-s. The
-> >   discussion on the list did not lead to a conclusion on how to fix=
- this.
-> >   What is the best way to get this fixed?
->=20
-> I rise this issue long ago before, the culprit is SA lifetime is mark=
-ed by wall clock.
-> In a reasonable way it should be marked as monotonic boot time(counti=
-ng suspend time
-> as well). Then every thing will be work correctly. I have such a patc=
-h works correctly.
-> EXCEPT: SA migration, where SA lifetime comes from outside.
-> I didn't look at SA migration part though, so any comments? Steffen
+My mistake was getting the params to list_add_tail() backwards.  It's
+list_add_tail(entry, head).  I saw list_add_tail(&agg->list, next) and
+was fooled into thinking agg->list was the list getting appended with
+the entry 'next'.  It's the opposite.  Duh.  So locking isn't needed
+because the list is indeed local.
 
-I have not looked into this for longer. So I can not comment on it
-now, but I could be prepared for discussion on netdev01.
+-scott
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
