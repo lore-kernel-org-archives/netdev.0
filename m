@@ -1,40 +1,78 @@
-From: Stathis Voukelatos <stathis.voukelatos@linn.co.uk>
-Subject: Re: [PATCH] net: Linn Ethernet Packet Sniffer driver
-Date: Mon, 26 Jan 2015 11:11:07 +0000
-Message-ID: <54C620CB.3010500@linn.co.uk>
-References: <1422007621-13567-1-git-send-email-stathis.voukelatos@linn.co.uk> <1422135432.18650.2.camel@perches.com>
+From: Nicolas Ferre <nicolas.ferre@atmel.com>
+Subject: Re: [PATCH] net: macb: Remove CONFIG_PM ifdef because of compilation
+ warning
+Date: Mon, 26 Jan 2015 12:11:50 +0100
+Message-ID: <54C620F6.7010008@atmel.com>
+References: <7970145ad4d864eaf31d694d22f2fecbcf6825c9.1422002161.git.michal.simek@xilinx.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<devicetree@vger.kernel.org>, <abrestic@chromium.org>
-To: Joe Perches <joe@perches.com>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <netdev@vger.kernel.org>
+To: Michal Simek <michal.simek@xilinx.com>,
+	<linux-kernel@vger.kernel.org>, <monstr@monstr.eu>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1422135432.18650.2.camel@perches.com>
+In-Reply-To: <7970145ad4d864eaf31d694d22f2fecbcf6825c9.1422002161.git.michal.simek@xilinx.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Le 23/01/2015 09:36, Michal Simek a =E9crit :
+> Fix compilation warning:
+> drivers/net/ethernet/cadence/macb.c:2415:12: warning: 'macb_suspend'
+> defined but not used [-Wunused-function]
+>  static int macb_suspend(struct device *dev)
+> drivers/net/ethernet/cadence/macb.c:2432:12: warning: 'macb_resume'
+> defined but not used [-Wunused-function]
+>  static int macb_resume(struct device *dev)
+>=20
+> when CONFIG_PM=3Dy, CONFIG_PM_SLEEP=3Dn are used.
+>=20
+> Signed-off-by: Michal Simek <michal.simek@xilinx.com>
 
-On 24/01/15 21:37, Joe Perches wrote:
-> On Fri, 2015-01-23 at 10:07 +0000, Stathis Voukelatos wrote:
->> This patch adds support the Ethernet Packet Sniffer H/W module
->> developed by Linn Products Ltd and found in the IMG Pistachio SoC.
->> The module allows Ethernet packets to be parsed, matched against
->> a user-defined pattern and timestamped. It sits between a 100M
->> Ethernet MAC and PHY and is completely passive with respect to
->> Ethernet frames.
-> []
->>   include/linux/pkt_sniffer.h                        |  89 +++++
-> Why should this file be here?
-> Why not in the drivers/net/pkt-sniffer directory?
->
-Hi Joe,
-Thank you for the feedback.
-This header file is the public API for the driver.
-Should it not live under the 'include' directory?
-Several other drivers seem to follow that convention.
+okay:
+Acked-by: Nicolas Ferre <nicolas.ferre@atmel.com>
 
-I will include your other suggestions in the next version
-of the patch set.
-Thank you,
-Stathis
+> ---
+>=20
+>  drivers/net/ethernet/cadence/macb.c | 6 ++----
+>  1 file changed, 2 insertions(+), 4 deletions(-)
+>=20
+> diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethern=
+et/cadence/macb.c
+> index 3767271c7667..23ae32f118c2 100644
+> --- a/drivers/net/ethernet/cadence/macb.c
+> +++ b/drivers/net/ethernet/cadence/macb.c
+> @@ -2411,8 +2411,7 @@ static int __exit macb_remove(struct platform_d=
+evice *pdev)
+>  	return 0;
+>  }
+>=20
+> -#ifdef CONFIG_PM
+> -static int macb_suspend(struct device *dev)
+> +static int __maybe_unused macb_suspend(struct device *dev)
+>  {
+>  	struct platform_device *pdev =3D to_platform_device(dev);
+>  	struct net_device *netdev =3D platform_get_drvdata(pdev);
+> @@ -2429,7 +2428,7 @@ static int macb_suspend(struct device *dev)
+>  	return 0;
+>  }
+>=20
+> -static int macb_resume(struct device *dev)
+> +static int __maybe_unused macb_resume(struct device *dev)
+>  {
+>  	struct platform_device *pdev =3D to_platform_device(dev);
+>  	struct net_device *netdev =3D platform_get_drvdata(pdev);
+> @@ -2444,7 +2443,6 @@ static int macb_resume(struct device *dev)
+>=20
+>  	return 0;
+>  }
+> -#endif
+>=20
+>  static SIMPLE_DEV_PM_OPS(macb_pm_ops, macb_suspend, macb_resume);
+>=20
+> --
+> 1.8.2.3
+>=20
+
+
+--=20
+Nicolas Ferre
