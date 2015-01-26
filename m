@@ -1,41 +1,28 @@
 From: David L Stevens <david.stevens@oracle.com>
-Subject: Re: [PATCH net-next] sunvnet: improve error handling when a remote
- crashes
-Date: Mon, 26 Jan 2015 15:53:51 -0500
-Message-ID: <54C6A95F.8010602@oracle.com>
-References: <54C6911B.5040501@oracle.com> <20150126195403.GE6437@oracle.com> <54C6A154.3090906@oracle.com> <54C6A3BA.3060004@oracle.com>
+Subject: [PATCH 0/2 net-next] sunvnet: fix null pointer deref and crash recovery
+Date: Mon, 26 Jan 2015 15:54:14 -0500
+Message-ID: <54C6A976.4060502@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: sowmini.varadhan@oracle.com
+Cc: netdev@vger.kernel.org,
+	Sowmini Varadhan <sowmini.varadhan@oracle.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:43820 "EHLO
+Received: from aserp1040.oracle.com ([141.146.126.69]:43987 "EHLO
 	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755575AbbAZUx4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2015 15:53:56 -0500
-In-Reply-To: <54C6A3BA.3060004@oracle.com>
+	with ESMTP id S1753958AbbAZUyS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2015 15:54:18 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+These patches fix an incorrect ordering in releasing ring data, clear pending
+tx buffers on a reset, and make the sunvnet driver more reliable when remote
+systems crash during active transmits.
 
+David L Stevens (2):
+  sunvnet: free pending tx buffers before clearing ring data
+  sunvnet: improve error handling when a remote crashes
 
-On 01/26/2015 03:29 PM, Sowmini Varadhan wrote:
-
->>     It should only happen if there is active traffic when a remote
->> crashes, but if a remote is giving us garbage in other cases, I think an
->> admin would want to check that out.
-> 
-> This allows one DomU to spam up everyone else's log file by crashing
-> periodically.
-> 
-> In any case, the contents of the message do not in any way suggest
-> that an admin (of the DomU, who probably has no control over
-> other DomU's anyway) should go and baby-sit some other DomU that
-> just crashed.
-
-I demoted it to a notice and we can change it to a counter when we add
-stats. This way it's clear that it's an unexpected state and it's easy
-to see them when we want them.
-
-						+-DLS
+ drivers/net/ethernet/sun/sunvnet.c |   83 +++++++++++++++++++----------------
+ 1 files changed, 45 insertions(+), 38 deletions(-)
