@@ -1,68 +1,80 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH net-next] vlan: take link netns into account in vlan_newlink()
-Date: Mon, 26 Jan 2015 10:44:15 +0100
-Message-ID: <1422265455-4331-1-git-send-email-nicolas.dichtel@6wind.com>
-Cc: davem@davemloft.net, Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:40032 "EHLO
-	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754572AbbAZJo1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2015 04:44:27 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH v6 0/7] can: kvaser_usb: Leaf bugfixes and USBCan-II support
+Date: Mon, 26 Jan 2015 10:55:31 +0100
+Message-ID: <54C60F13.5040104@pengutronix.de>
+References: <20141223154654.GB6460@vivalin-002> <20150126051755.GA3014@Darwish.PC>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha512;
+ protocol="application/pgp-signature";
+ boundary="OgiWu4PWPcHviuUHdTiJ3iKTenCI7BwD6"
+Cc: Linux-CAN <linux-can@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: "Ahmed S. Darwish" <darwish.07@gmail.com>,
+	Olivier Sobrie <olivier@sobrie.be>,
+	Oliver Hartkopp <socketcan@hartkopp.net>,
+	Wolfgang Grandegger <wg@grandegger.com>,
+	Andri Yngvason <andri.yngvason@marel.com>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <20150126051755.GA3014@Darwish.PC>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-When IFLA_LINK_NETNSID is set, the ifindex from IFLA_LINK comes from another
-netns.
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--OgiWu4PWPcHviuUHdTiJ3iKTenCI7BwD6
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
 
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
- net/8021q/vlan_netlink.c | 13 ++++++++++++-
- net/core/net_namespace.c |  1 +
- 2 files changed, 13 insertions(+), 1 deletion(-)
+On 01/26/2015 06:17 AM, Ahmed S. Darwish wrote:
+> Hi!
+>=20
+> This is an updated patch series for the Kvaser CAN/USB devices:
+>=20
+> 1- Extra patches are now added to the series. Most importantly
+> patch #1 which fixes a critical `sleep in atomic context' bug
+> in the current upstream driver. Patch #2 fixes a corruption in
+> the kernel logs, also affecting current upstream driver. Patch
+> #4 was originally USBCan-II only, but since it's a generic fix,
+> it's now retrofitted to the Leaf-only upstream driver first.
+>=20
+> 2- The series has been re-organized so that patches #1 -> #4
+> inclusive can go to linux-can/origin, while the rest can move
+> to -next.
 
-diff --git a/net/8021q/vlan_netlink.c b/net/8021q/vlan_netlink.c
-index c92b52f37d38..e7875c7f3cb4 100644
---- a/net/8021q/vlan_netlink.c
-+++ b/net/8021q/vlan_netlink.c
-@@ -118,6 +118,7 @@ static int vlan_newlink(struct net *src_net, struct net_device *dev,
- {
- 	struct vlan_dev_priv *vlan = vlan_dev_priv(dev);
- 	struct net_device *real_dev;
-+	struct net *link_net;
- 	__be16 proto;
- 	int err;
- 
-@@ -126,7 +127,17 @@ static int vlan_newlink(struct net *src_net, struct net_device *dev,
- 
- 	if (!tb[IFLA_LINK])
- 		return -EINVAL;
--	real_dev = __dev_get_by_index(src_net, nla_get_u32(tb[IFLA_LINK]));
-+	if (tb[IFLA_LINK_NETNSID]) {
-+		int id = nla_get_s32(tb[IFLA_LINK_NETNSID]);
-+
-+		link_net = get_net_ns_by_id(src_net, id);
-+		if (!link_net)
-+			return -EINVAL;
-+	} else {
-+		link_net = get_net(src_net);
-+	}
-+	real_dev = __dev_get_by_index(link_net, nla_get_u32(tb[IFLA_LINK]));
-+	put_net(link_net);
- 	if (!real_dev)
- 		return -ENODEV;
- 
-diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
-index b7bde551ef76..8e24f974c665 100644
---- a/net/core/net_namespace.c
-+++ b/net/core/net_namespace.c
-@@ -219,6 +219,7 @@ struct net *get_net_ns_by_id(struct net *net, int id)
- 
- 	return peer;
- }
-+EXPORT_SYMBOL(get_net_ns_by_id);
- 
- /*
-  * setup_net runs the initializers for the network namespace object.
--- 
-2.2.2
+Applied 1-4 to can/master, I'm adding stable on Cc before sending a
+pull-request to David.
+
+Thanks,
+Marc
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--OgiWu4PWPcHviuUHdTiJ3iKTenCI7BwD6
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAEBCgAGBQJUxg8WAAoJECte4hHFiupUJVwP/1nce41HvqiZB0ISlwYTzELI
+EjWwnlBF+ePEZTyuYmyqriPlrZaE8TamLQxYwcVmdw4y01BoRZVSAG1jovqqtgYd
+1oOeJMG5lCniJGPLmaxatQvsxyj+/WeB0OciwcoR9GYlyFfybJQa8q/dCtMzNosy
+fy45Y6neoHsQyegHHqMNV8p5avm/KA1LIpKIafq7iVA+fV7au5ijFAR89SZGoC6D
+pXBiRfyCC7NwcLstRej9k/MxSWxGviWspW/J2Y4Y5yjFOfAOMrxItX7ZVIaRuRpP
+its4yDDr8TzRFcpcwTiHzkPY8D8+DXf1JwgaPoV4m2EnLXLNHTRHLkI6lxb5pXmm
+9REf3yrbNTSqHay83fkL9pHotRG3NwCSqwiJqG2TqLoPiAGKZnyJl1CpynZL4uSp
+n4IAk2yIyyt/NcHSGPFifRvLmgW6ZWeMO/gq59AqkBoz+FS0dHbq8dsJUEEmoqTa
+pOIjJxW4GaHPQoTywFgwykxBZGiJEdt5IH7sn8lfAsB/G2yrvTXiet+G5QsqUQkI
+YVtit+ck0irhf+s1V3nBWlUtxBNIbUu1nyFLKRtNYwTw5Kg6UCuXXE5X33F3WhXU
+wVD6F+Sai/IKYVcPdsDoigRWBqBv1pgU3i0nMLMgOCRlx5MwK90Uj3FTxjviNe1O
+ROPRdJeeiB+ApdqUe4dV
+=o3CA
+-----END PGP SIGNATURE-----
+
+--OgiWu4PWPcHviuUHdTiJ3iKTenCI7BwD6--
