@@ -1,51 +1,47 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH v3 net-next] net: ipv6: Add sysctl entry to disable MTU
- updates from RA
-Date: Mon, 26 Jan 2015 17:19:25 +0100
-Message-ID: <1422289165.2687.34.camel@stressinduktion.org>
-References: <1421773565-5181-1-git-send-email-harouth@codeaurora.org>
-	 <20150124.231432.1788575004982971514.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: harouth@codeaurora.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Andrey Ryabinin <a.ryabinin@samsung.com>
+Subject: [PATCH] net/9p: fix format string in p9_mount_tag_show()
+Date: Mon, 26 Jan 2015 19:48:16 +0300
+Message-ID: <1422290896-25042-1-git-send-email-a.ryabinin@samsung.com>
+Cc: "Aneesh Kumar K.V" <aneesh.kumar@linux.vnet.ibm.com>,
+	Eric Van Hensbergen <ericvh@gmail.com>,
+	Ron Minnich <rminnich@sandia.gov>,
+	Latchesar Ionkov <lucho@ionkov.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	v9fs-developer@lists.sourceforge.net, netdev@vger.kernel.org,
+	Andrey Ryabinin <a.ryabinin@samsung.com>
+To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out3-smtp.messagingengine.com ([66.111.4.27]:49671 "EHLO
-	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752588AbbAZQTa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2015 11:19:30 -0500
-Received: from compute4.internal (compute4.nyi.internal [10.202.2.44])
-	by mailout.nyi.internal (Postfix) with ESMTP id ABD58201E9
-	for <netdev@vger.kernel.org>; Mon, 26 Jan 2015 11:19:27 -0500 (EST)
-In-Reply-To: <20150124.231432.1788575004982971514.davem@davemloft.net>
+Received: from mailout2.w1.samsung.com ([210.118.77.12]:11381 "EHLO
+	mailout2.w1.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756208AbbAZQs0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2015 11:48:26 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sa, 2015-01-24 at 23:14 -0800, David Miller wrote:
-> From: Harout Hedeshian <harouth@codeaurora.org>
-> Date: Tue, 20 Jan 2015 10:06:05 -0700
-> 
-> > The kernel forcefully applies MTU values received in router
-> > advertisements provided the new MTU is less than the current. This
-> > behavior is undesirable when the user space is managing the MTU. Instead
-> > a sysctl flag 'accept_ra_mtu' is introduced such that the user space
-> > can control whether or not RA provided MTU updates should be applied. The
-> > default behavior is unchanged; user space must explicitly set this flag
-> > to 0 for RA MTUs to be ignored.
-> > 
-> > Signed-off-by: Harout Hedeshian <harouth@codeaurora.org>
-> 
-> Under what circumstances would userland ignore a router advertized
-> MTU, and are the RFCs ok with this?
+Using "%s" for non-NULL terminated string is quite
+dangerous, since this causes reading out of bounds.
+chan->tag is non-NULL terminated, so precision
+must be specified for printing it.
 
-Sometimes those advertised MTUs are used to perform DoS attacks /
-performance-degrading attacks (force generation of fragments e.g.) on
-hosts. In larger, maybe non-controlled networks, it would be desirable
-if one could disable acceptance of the MTU option.
+Fixes: 86c8437383ac ("net/9p: Add sysfs mount_tag file for virtio 9P device")
+Signed-off-by: Andrey Ryabinin <a.ryabinin@samsung.com>
+---
+ net/9p/trans_virtio.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-Of course, there are similar issues with other options in RAs, too, but
-mostly they result in more catastrophic connection failures. ;)
-
-Bye,
-Hannes
+diff --git a/net/9p/trans_virtio.c b/net/9p/trans_virtio.c
+index daa749c..f0d5f90 100644
+--- a/net/9p/trans_virtio.c
++++ b/net/9p/trans_virtio.c
+@@ -504,7 +504,8 @@ static ssize_t p9_mount_tag_show(struct device *dev,
+ 	vdev = dev_to_virtio(dev);
+ 	chan = vdev->priv;
+ 
+-	return snprintf(buf, chan->tag_len + 1, "%s", chan->tag);
++	return snprintf(buf, chan->tag_len + 1, "%.*s",
++			chan->tag_len, chan->tag);
+ }
+ 
+ static DEVICE_ATTR(mount_tag, 0444, p9_mount_tag_show, NULL);
+-- 
+2.2.2
