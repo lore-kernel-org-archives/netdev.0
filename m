@@ -1,88 +1,48 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: netlink: Kill redundant net argument in netlink_insert
-Date: Mon, 26 Jan 2015 14:02:56 +1100
-Message-ID: <20150126030256.GA20066@gondor.apana.org.au>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [PATCH net-next v3 2/2] iproute2: bridge vlan show new option to
+ print ranges
+Date: Sun, 25 Jan 2015 20:35:52 -0800
+Message-ID: <CAE4R7bCR6YSK9J+OV+04w_UXWoSu56xSvHXkYkDzqP4Qudn76Q@mail.gmail.com>
+References: <1422239185-14054-3-git-send-email-roopa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Netdev <netdev@vger.kernel.org>, shemminger@vyatta.com,
+	"vyasevic@redhat.com" <vyasevic@redhat.com>,
+	Wilson Kok <wkok@cumulusnetworks.com>
+To: Roopa Prabhu <roopa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:56279 "EHLO
-	helcar.apana.org.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751035AbbAZDDA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 25 Jan 2015 22:03:00 -0500
-Content-Disposition: inline
+Received: from mail-wg0-f47.google.com ([74.125.82.47]:58769 "EHLO
+	mail-wg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751273AbbAZEfx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 Jan 2015 23:35:53 -0500
+Received: by mail-wg0-f47.google.com with SMTP id n12so6933403wgh.6
+        for <netdev@vger.kernel.org>; Sun, 25 Jan 2015 20:35:52 -0800 (PST)
+In-Reply-To: <1422239185-14054-3-git-send-email-roopa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The socket already carries the net namespace with it so there is
-no need to be passing another net around.
-    
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> diff --git a/bridge/bridge.c b/bridge/bridge.c
+> index 5fcc552..88469ca 100644
+> --- a/bridge/bridge.c
+> +++ b/bridge/bridge.c
+> @@ -21,6 +21,7 @@ int resolve_hosts;
+>  int oneline = 0;
+>  int show_stats;
+>  int show_details;
+> +int compress_vlans;
+>  int timestamp;
+>  char * _SL_ = NULL;
+>
+> @@ -32,7 +33,8 @@ static void usage(void)
+>  "Usage: bridge [ OPTIONS ] OBJECT { COMMAND | help }\n"
+>  "where  OBJECT := { link | fdb | mdb | vlan | monitor }\n"
+>  "       OPTIONS := { -V[ersion] | -s[tatistics] | -d[etails] |\n"
+> -"                    -o[neline] | -t[imestamp] | -n[etns] name }\n");
+> +"                    -o[neline] | -t[imestamp] | -n[etns] name |\n"
+> +"                    -c[ompressvlans] }\n");
 
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index 7a94185..d77b346 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -994,11 +994,10 @@ static struct sock *__netlink_lookup(struct netlink_table *table, u32 portid,
- 					 &netlink_compare, &arg);
- }
- 
--static bool __netlink_insert(struct netlink_table *table, struct sock *sk,
--			     struct net *net)
-+static bool __netlink_insert(struct netlink_table *table, struct sock *sk)
- {
- 	struct netlink_compare_arg arg = {
--		.net = net,
-+		.net = sock_net(sk),
- 		.portid = nlk_sk(sk)->portid,
- 	};
- 
-@@ -1047,7 +1046,7 @@ netlink_update_listeners(struct sock *sk)
- 	 * makes sure updates are visible before bind or setsockopt return. */
- }
- 
--static int netlink_insert(struct sock *sk, struct net *net, u32 portid)
-+static int netlink_insert(struct sock *sk, u32 portid)
- {
- 	struct netlink_table *table = &nl_table[sk->sk_protocol];
- 	int err;
-@@ -1067,7 +1066,7 @@ static int netlink_insert(struct sock *sk, struct net *net, u32 portid)
- 	sock_hold(sk);
- 
- 	err = 0;
--	if (!__netlink_insert(table, sk, net)) {
-+	if (!__netlink_insert(table, sk)) {
- 		err = -EADDRINUSE;
- 		sock_put(sk);
- 	}
-@@ -1289,7 +1288,7 @@ retry:
- 	}
- 	rcu_read_unlock();
- 
--	err = netlink_insert(sk, net, portid);
-+	err = netlink_insert(sk, portid);
- 	if (err == -EADDRINUSE)
- 		goto retry;
- 
-@@ -1477,7 +1476,7 @@ static int netlink_bind(struct socket *sock, struct sockaddr *addr,
- 
- 	if (!nlk->portid) {
- 		err = nladdr->nl_pid ?
--			netlink_insert(sk, net, nladdr->nl_pid) :
-+			netlink_insert(sk, nladdr->nl_pid) :
- 			netlink_autobind(sock);
- 		if (err) {
- 			netlink_undo_bind(nlk->ngroups, groups, sk);
-@@ -2483,7 +2482,7 @@ __netlink_kernel_create(struct net *net, int unit, struct module *module,
- 	if (cfg && cfg->input)
- 		nlk_sk(sk)->netlink_rcv = cfg->input;
- 
--	if (netlink_insert(sk, net, 0))
-+	if (netlink_insert(sk, 0))
- 		goto out_sock_release;
- 
- 	nlk = nlk_sk(sk);
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+This option is awkward at this level since it's specific to bridge vlan cmd.
+
+Is it even necessary?  The real user of compressed vlans isn't the
+"bridge show" cmd; just keep "bridge show" simple, listing each vlan
+per line.
