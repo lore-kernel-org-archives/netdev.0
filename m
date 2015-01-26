@@ -1,33 +1,44 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] drivers: net: xgene: fix: Out of order descriptor bytes
- read
-Date: Mon, 26 Jan 2015 13:32:42 -0800
-Message-ID: <1422307962.29618.31.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1421957007-720-1-git-send-email-isubramanian@apm.com>
-	 <1421967050.3471.14.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CAKh23FmxvV82mVrHq5jv-FE+e6u6CkW+xL_a2_ULAQgP_mM2VA@mail.gmail.com>
-	 <1422307652.29618.30.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Guenter Roeck <linux@roeck-us.net>
+Subject: Re: make allyesconfig i386 build failure with next-20150122 (caused
+ by fb_agm1264k-fl driver)
+Date: Mon, 26 Jan 2015 13:59:59 -0800
+Message-ID: <20150126215959.GA9853@roeck-us.net>
+References: <CA+r1ZhhXF+hicy7JKo3jAbgSbO4KOLm6BwPosTKNb+E_Cb4yPQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
+	linux-next <linux-next@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	devel <devel@driverdev.osuosl.org>, isdn@linux-pingi.de,
 	netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>, mlangsdo@redhat.com,
-	patches <patches@apm.com>, Keyur Chudgar <kchudgar@apm.com>
-To: Iyappan Subramanian <isubramanian@apm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1422307652.29618.30.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+To: Jim Davis <jim.epost@gmail.com>
+Return-path: <linux-next-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CA+r1ZhhXF+hicy7JKo3jAbgSbO4KOLm6BwPosTKNb+E_Cb4yPQ@mail.gmail.com>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2015-01-26 at 13:27 -0800, Eric Dumazet wrote:
-
-> What happens if you compile a kernel with CONFIG_SMP=n ?
+On Thu, Jan 22, 2015 at 12:10:33PM -0700, Jim Davis wrote:
+> make ARCH=i386 allyesconfig fails with
 > 
-> 
-> Most drivers in drivers/net use rmb() in this case, not smp_rmb() or
-> barrier()
+> drivers/staging/built-in.o: In function `reset':
+> (.text+0x2ae89d): multiple definition of `reset'
+> drivers/isdn/built-in.o:(.text+0x185dc2): first defined here
+> make[1]: *** [drivers/built-in.o] Error 1
 
-Note that dma_rmb() was recently added as well.
+Culprit:
+
+commit b2ebd4be6fa1d2329b63531b044f9e25474981cb
+Author: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Date:   Wed Dec 31 10:11:10 2014 +0100
+
+    staging: fbtft: add fb_agm1264k-fl driver
+
+A global function named 'reset' isn't really a good idea.
+
+Not that the global function with the same name in the isdn code
+is better ;-).
+
+Guenter
