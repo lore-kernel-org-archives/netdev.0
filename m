@@ -1,87 +1,67 @@
-From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Subject: Re: [PATCH] net: macb: allow deffered probe of the driver
-Date: Mon, 26 Jan 2015 15:37:00 +0100
-Message-ID: <54C6510C.8050002@atmel.com>
-References: <1421947441.717.4.camel@uti.ro>
+From: Vladislav Yasevich <vyasevich@gmail.com>
+Subject: [PATCH 0/3] Restore UFO support to virtio_net devices
+Date: Mon, 26 Jan 2015 09:37:03 -0500
+Message-ID: <1422283026-27832-1-git-send-email-vyasevic@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Nicolae Rosia <nicolae.rosia@certsign.ro>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eusmtp01.atmel.com ([212.144.249.243]:1726 "EHLO
-	eusmtp01.atmel.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754296AbbAZOhV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2015 09:37:21 -0500
-In-Reply-To: <1421947441.717.4.camel@uti.ro>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: edumazet@google.com, mst@redhat.com, ben@decadent.org.uk,
+	virtualization@lists.linux-foundation.org
+To: netdev@vger.kernel.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Le 22/01/2015 18:31, Nicolae Rosia a =C3=A9crit :
-> The driver is trying to acquire clocks which maybe
-> are not available yet. Allow the driver to request
-> deffered probe by providing a probe function and
-> registering it with module_platform_driver. [1]
-> This patch is based on 3.19-rc5.
+commit 3d0ad09412ffe00c9afa201d01effdb6023d09b4
+Author: Ben Hutchings <ben@decadent.org.uk>
+Date:   Thu Oct 30 18:27:12 2014 +0000
 
-Do you have a use case for this need?
+    drivers/net: Disable UFO through virtio
 
-> [1] https://lkml.org/lkml/2013/9/23/118
->=20
-> Signed-off-by: Nicolae Rosia <nicolae.rosia@certsign.ro>
+Turned off UFO support to virtio-net based devices due to issues
+with IPv6 fragment id generation for UFO packets.  The issue
+was that IPv6 UFO/GSO implementation expects the fragment id
+to be supplied in skb_shinfo().  However, for packets generated
+by the VMs, the fragment id is not supplied which causes all
+IPv6 fragments to have the id of 0.
 
-But anyway, it's not harmful:
-Acked-by: Nicolas Ferre <nicolas.ferre@atmel.com>
+The problem is that turning off UFO support on tap/macvtap
+as well as virtio devices caused issues with migrations.  
+Migrations would fail when moving a vm from a kernel supporting
+expecting UFO to work to the newer kernels that disabled UFO.
 
-> ---
->  drivers/net/ethernet/cadence/macb.c | 9 +++++----
->  1 file changed, 5 insertions(+), 4 deletions(-)
->=20
-> diff --git a/drivers/net/ethernet/cadence/macb.c
-> b/drivers/net/ethernet/cadence/macb.c
-> index 3767271..4dfcd66 100644
-> --- a/drivers/net/ethernet/cadence/macb.c
-> +++ b/drivers/net/ethernet/cadence/macb.c
-> @@ -2148,7 +2148,7 @@ static void macb_probe_queues(void __iomem *mem=
-,
->  			(*num_queues)++;
->  }
-> =20
-> -static int __init macb_probe(struct platform_device *pdev)
-> +static int macb_probe(struct platform_device *pdev)
->  {
->  	struct macb_platform_data *pdata;
->  	struct resource *regs;
-> @@ -2386,7 +2386,7 @@ err_out:
->  	return err;
->  }
-> =20
-> -static int __exit macb_remove(struct platform_device *pdev)
-> +static int macb_remove(struct platform_device *pdev)
->  {
->  	struct net_device *dev;
->  	struct macb *bp;
-> @@ -2449,7 +2449,8 @@ static int macb_resume(struct device *dev)
->  static SIMPLE_DEV_PM_OPS(macb_pm_ops, macb_suspend, macb_resume);
-> =20
->  static struct platform_driver macb_driver =3D {
-> -	.remove		=3D __exit_p(macb_remove),
-> +	.probe		=3D macb_probe,
-> +	.remove		=3D macb_remove,
->  	.driver		=3D {
->  		.name		=3D "macb",
->  		.of_match_table	=3D of_match_ptr(macb_dt_ids),
-> @@ -2457,7 +2458,7 @@ static struct platform_driver macb_driver =3D {
->  	},
->  };
-> =20
-> -module_platform_driver_probe(macb_driver, macb_probe);
-> +module_platform_driver(macb_driver);
-> =20
->  MODULE_LICENSE("GPL");
->  MODULE_DESCRIPTION("Cadence MACB/GEM Ethernet driver");
->=20
+This series provides a partial solution to address the migration
+issue.  The series reserves a bit in the skb and sets the bit
+with the ipv6 fragment id has been generated for the packet.
+UFO/GSO code then checks the bit to see if the fragment id
+is already present or if a new fragment id needs to be generated.
+This solution allows host-originated UFO packets to keep a
+better randomized fragment id, as well as generating a randomized
+id for VM generated traffic (solving the fragment id 0 issue).
 
+Vladislav Yasevich (3):
+  ipv6: Select fragment id during UFO/GSO segmentation if not set.
+  Revert "drivers/net, ipv6: Select IPv6 fragment idents for virtio UFO
+    packets"
+  Revert "drivers/net: Disable UFO through virtio"
 
---=20
-Nicolas Ferre
+ drivers/net/macvtap.c    | 16 ++++++++--------
+ drivers/net/tun.c        | 25 +++++++++----------------
+ drivers/net/virtio_net.c | 24 ++++++++++--------------
+ include/linux/skbuff.h   |  3 ++-
+ include/net/ipv6.h       |  2 ++
+ net/ipv6/ip6_output.c    |  4 ++--
+ net/ipv6/output_core.c   |  9 ++++++++-
+ net/ipv6/udp_offload.c   | 10 +++++++++-
+ 8 files changed, 50 insertions(+), 43 deletions(-)
+
+-- 
+1.9.3
