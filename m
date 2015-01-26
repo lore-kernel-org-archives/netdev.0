@@ -1,70 +1,69 @@
-From: David L Stevens <david.stevens@oracle.com>
-Subject: [PATCH 1/2 net-next] sunvnet: free pending tx buffers before clearing
- ring data
-Date: Mon, 26 Jan 2015 15:54:35 -0500
-Message-ID: <54C6A98B.40406@oracle.com>
+From: Iyappan Subramanian <isubramanian@apm.com>
+Subject: Re: [PATCH] drivers: net: xgene: fix: Out of order descriptor bytes read
+Date: Mon, 26 Jan 2015 13:12:23 -0800
+Message-ID: <CAKh23FmxvV82mVrHq5jv-FE+e6u6CkW+xL_a2_ULAQgP_mM2VA@mail.gmail.com>
+References: <1421957007-720-1-git-send-email-isubramanian@apm.com>
+	<1421967050.3471.14.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Sowmini Varadhan <sowmini.varadhan@oracle.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:25432 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757013AbbAZUyj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2015 15:54:39 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>, mlangsdo@redhat.com,
+	patches <patches@apm.com>, Keyur Chudgar <kchudgar@apm.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1421967050.3471.14.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
- This patch moves the clearing of ring data in vnet_port_free_tx_bufs to after
- the freeing of pending buffers in the ring. Otherwise, this can result in
- dereferencing a NULL pointer.
+On Thu, Jan 22, 2015 at 2:50 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Thu, 2015-01-22 at 12:03 -0800, Iyappan Subramanian wrote:
+>> This patch fixes the following kernel crash,
+>>
+>>       WARNING: CPU: 2 PID: 0 at net/ipv4/tcp_input.c:3079 tcp_clean_rtx_queue+0x658/0x80c()
+>>       Call trace:
+>
+>>
+>> Software writes poison data into the descriptor bytes[15:8] and upon
+>> receiving the interrupt, if those bytes are overwritten by the hardware with
+>> the valid data, software also reads bytes[7:0] and executes receive/tx
+>> completion logic.
+>>
+>> If the CPU executes the above two reads in out of order fashion, then the
+>> bytes[7:0] will have older data and causing the kernel panic.  We have to
+>> force the order of the reads and thus this patch introduces read memory
+>> barrier between these reads.
+>>
+>> Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
+>> Signed-off-by: Keyur Chudgar <kchudgar@apm.com>
+>> Tested-by: Mark Langsdorf <mlangsdo@redhat.com>
+>> ---
+>>  drivers/net/ethernet/apm/xgene/xgene_enet_main.c | 2 ++
+>>  1 file changed, 2 insertions(+)
+>>
+>> diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
+>> index 83a5028..3622cdb 100644
+>> --- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
+>> +++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
+>> @@ -369,6 +369,8 @@ static int xgene_enet_process_ring(struct xgene_enet_desc_ring *ring,
+>>               if (unlikely(xgene_enet_is_desc_slot_empty(raw_desc)))
+>>                       break;
+>>
+>> +             /* read fpqnum field after dataaddr field */
+>> +             smp_rmb();
+>>               if (is_rx_desc(raw_desc))
+>>                       ret = xgene_enet_rx_frame(ring, raw_desc);
+>>               else
+>
+> Reading your changelog, it looks like you need a plain rmb() here.
 
-Reported-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Signed-off-by: David L Stevens <david.stevens@oracle.com>
----
- drivers/net/ethernet/sun/sunvnet.c |   21 +++++++++++----------
- 1 files changed, 11 insertions(+), 10 deletions(-)
+rmb() translates into dsb, which in arm64 serializes everything
+including instructions and thus expensive compared to dmb.
 
-diff --git a/drivers/net/ethernet/sun/sunvnet.c b/drivers/net/ethernet/sun/sunvnet.c
-index b5a1d3d..fe044f3 100644
---- a/drivers/net/ethernet/sun/sunvnet.c
-+++ b/drivers/net/ethernet/sun/sunvnet.c
-@@ -1637,16 +1637,9 @@ static void vnet_port_free_tx_bufs(struct vnet_port *port)
- 	int i;
- 
- 	dr = &port->vio.drings[VIO_DRIVER_TX_RING];
--	if (dr->base) {
--		ldc_free_exp_dring(port->vio.lp, dr->base,
--				   (dr->entry_size * dr->num_entries),
--				   dr->cookies, dr->ncookies);
--		dr->base = NULL;
--		dr->entry_size = 0;
--		dr->num_entries = 0;
--		dr->pending = 0;
--		dr->ncookies = 0;
--	}
-+
-+	if (dr->base == NULL)
-+		return;
- 
- 	for (i = 0; i < VNET_TX_RING_SIZE; i++) {
- 		struct vio_net_desc *d;
-@@ -1666,6 +1659,14 @@ static void vnet_port_free_tx_bufs(struct vnet_port *port)
- 		port->tx_bufs[i].skb = NULL;
- 		d->hdr.state = VIO_DESC_FREE;
- 	}
-+	ldc_free_exp_dring(port->vio.lp, dr->base,
-+			   (dr->entry_size * dr->num_entries),
-+			   dr->cookies, dr->ncookies);
-+	dr->base = NULL;
-+	dr->entry_size = 0;
-+	dr->num_entries = 0;
-+	dr->pending = 0;
-+	dr->ncookies = 0;
- }
- 
- static int vnet_port_alloc_tx_ring(struct vnet_port *port)
--- 
-1.7.1
+Do you see any issue with smp_rmb() (which translates into dmb) ?
+
+>
+>
+>
