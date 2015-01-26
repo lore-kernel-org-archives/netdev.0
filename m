@@ -1,68 +1,78 @@
-From: Hagen Paul Pfeifer <hagen@jauu.net>
-Subject: [PATCH iproute2] ss: group DCTCP socket statistics
-Date: Mon, 26 Jan 2015 23:17:39 +0100
-Message-ID: <1422310659-9357-1-git-send-email-hagen@jauu.net>
-Cc: Hagen Paul Pfeifer <hagen@jauu.net>,
-	Stephen Hemminger <stephen@networkplumber.org>
-To: netdev@vger.kernel.org
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 1/2] rhashtable: Introduce rhashtable_walk_*
+Date: Tue, 27 Jan 2015 09:21:32 +1100
+Message-ID: <20150126222132.GB30116@gondor.apana.org.au>
+References: <20150125232040.GA17936@gondor.apana.org.au>
+ <E1YFWUl-0004gE-SH@gondolin.me.apana.org.au>
+ <20150126082000.GA22262@casper.infradead.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Ying Xue <ying.xue@windriver.com>, davem@davemloft.net,
+	kaber@trash.net, paulmck@linux.vnet.ibm.com,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f175.google.com ([74.125.82.175]:39724 "EHLO
-	mail-we0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755308AbbAZWQI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2015 17:16:08 -0500
-Received: by mail-we0-f175.google.com with SMTP id p10so11709514wes.6
-        for <netdev@vger.kernel.org>; Mon, 26 Jan 2015 14:16:07 -0800 (PST)
+Received: from helcar.apana.org.au ([209.40.204.226]:55910 "EHLO
+	helcar.apana.org.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755691AbbAZWWE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2015 17:22:04 -0500
+Content-Disposition: inline
+In-Reply-To: <20150126082000.GA22262@casper.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Keep ss output consistent and format DCTCP socket statistics similar to skmen
-and timer where a group of logical values are grouped by brackets. This makes
-parser scripts *and* humans more happy.
+On Mon, Jan 26, 2015 at 08:20:00AM +0000, Thomas Graf wrote:
+> On 01/26/15 at 10:21am, Herbert Xu wrote:
+> > +int rhashtable_walk_start(struct rhashtable_iter *iter)
+> > +{
+> > +	struct rhashtable *ht = iter->ht;
+> > +	int err;
+> > +
+> > +	err = mutex_lock_interruptible(&ht->mutex);
+> > +	rcu_read_lock();
+> > +
+> > +	if (!err)
+> > +		mutex_unlock(&ht->mutex);
+> > +
+> > +	return err;
+> > +}
+> > +EXPORT_SYMBOL_GPL(rhashtable_walk_start);
+> 
+> This doesn't seem to work for Netlink dumps as it would define
+> a RCU read side section across user read()s.
 
+No it does not.  The start call roughly corresponds to the start
+call in seq_file which does not span across reads.
 
-Current output of 'ss -inetm dst :80':
-ESTAB       0      0 192.168.11.14:55511 173.194.66.189:443
-	timer:(keepalive,14sec,0) uid:1000 ino:428768
-	sk:ffff88020ceb5b00 <-> skmem:(r0,rb372480,t0,tb87040,f0,w0,o0,bl0)
-	ts sack wscale:7,7 rto:250 rtt:49.225/20.837 ato:40 mss:1408 cwnd:10
-	ce_state 23 alpha 23 ab_ecn 23 ab_tot 23 send 2.3Mbps
-	lastsnd:121026 lastrcv:121026 lastack:30850 pacing_rate 4.6Mbps
-	retrans:0/2 rcv_rtt:40.416 rcv_space:2920
+> I assume you relying on RCU to defer the initial table relinking
+> in the resizing to be postponed. Wouldn't it be better to hold
+> the mutex instead, we could sleep during the dump.
 
-New grouped output:
-ESTAB       0      0 192.168.11.14:55511 173.194.66.189:443
-	timer:(keepalive,14sec,0) uid:1000 ino:428768
-	sk:ffff88020ceb5b00 <-> skmem:(r0,rb372480,t0,tb87040,f0,w0,o0,bl0)
-	ts sack wscale:7,7 rto:250 rtt:49.225/20.837 ato:40 mss:1408 cwnd:10
-	dctcp(ce_state:23,alpha:23,ab_ecn:23,ab_tot:23) send 2.3Mbps
-	lastsnd:121026 lastrcv:121026 lastack:30850 pacing_rate 4.6Mbps
-	retrans:0/2 rcv_rtt:40.416 rcv_space:2920
+Note that this is not the final solution but just the first step.
+So right now it does not prevent/postpone resizes completely.  It's
+only meant to be a strict improvement over what we currently have.
 
-Cc: Stephen Hemminger <stephen@networkplumber.org>
-Acked-by: Daniel Borkmann <dborkman@redhat.com>
-Acked-by: Florian Westphal <fw@strlen.de>
-Signed-off-by: Hagen Paul Pfeifer <hagen@jauu.net>
----
- misc/ss.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+So indeed resizes will be stopped within a single read but not
+across reads for seq_file.  Similarly for netlink dump resizes
+will only be stopped for a single skb.
 
-diff --git a/misc/ss.c b/misc/ss.c
-index f434f57..7d02650 100644
---- a/misc/ss.c
-+++ b/misc/ss.c
-@@ -1713,11 +1713,11 @@ static void tcp_show_info(const struct nlmsghdr *nlh, struct inet_diag_msg *r,
- 				= RTA_DATA(tb[INET_DIAG_DCTCPINFO]);
+I will do the rest of what we discussed once I implement rehashing
+since there will be dependencies on it.
  
- 			if (dinfo->dctcp_enabled) {
--				printf(" ce_state %u alpha %u ab_ecn %u ab_tot %u",
-+				printf("dctcp:(ce_state:%u,alpha:%u,ab_ecn:%u,ab_tot:%u)",
- 				       dinfo->dctcp_ce_state, dinfo->dctcp_alpha,
- 				       dinfo->dctcp_ab_ecn, dinfo->dctcp_ab_tot);
- 			} else {
--				printf(" fallback_mode");
-+				printf("dctcp:fallback_mode");
- 			}
- 		}
- 
+> Same here, we leave the iterator with the bucket lock held.
+
+This is intentional, it is what udp_diag does.  We'll have to do
+this if you ever want to convert UDP sockets over to rhashtable
+so we might as well do it now.
+
+If you don't hold the bucket lock then anyone that recycles objects
+like UDP will end up walking into the ether.
+
+As before this is not held across reads but only within a read.
+Please see patch #2.
+
+Cheers,
 -- 
-2.2.2
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
