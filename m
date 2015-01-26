@@ -1,63 +1,43 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: Re: [PATCH net-next] sunvnet: improve error handling when a remote
- crashes
-Date: Mon, 26 Jan 2015 14:54:03 -0500
-Message-ID: <20150126195403.GE6437@oracle.com>
-References: <54C6911B.5040501@oracle.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2] rhashtable: rhashtable_remove() must
+ unlink in both tbl and future_tbl
+Date: Mon, 26 Jan 2015 11:57:04 -0800 (PST)
+Message-ID: <20150126.115704.1748957006917820310.davem@davemloft.net>
+References: <20150120165826.GK20315@casper.infradead.org>
+	<54BEA1F9.1050908@cogentembedded.com>
+	<20150121115401.GA12570@casper.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: David L Stevens <david.stevens@oracle.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: sergei.shtylyov@cogentembedded.com, ying.xue@windriver.com,
+	richard.alpe@ericsson.com, netdev@vger.kernel.org,
+	tipc-discussion@lists.sourceforge.net
+To: tgraf@suug.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:29384 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753818AbbAZTyH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2015 14:54:07 -0500
-Content-Disposition: inline
-In-Reply-To: <54C6911B.5040501@oracle.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:44843 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753120AbbAZT5H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2015 14:57:07 -0500
+In-Reply-To: <20150121115401.GA12570@casper.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Thomas Graf <tgraf@suug.ch>
+Date: Wed, 21 Jan 2015 11:54:01 +0000
 
+> As removals can occur during resizes, entries may be referred to from
+> both tbl and future_tbl when the removal is requested. Therefore
+> rhashtable_remove() must unlink the entry in both tables if this is
+> the case. The existing code did search both tables but stopped when it
+> hit the first match.
+> 
+> Failing to unlink in both tables resulted in use after free.
+> 
+> Fixes: 97defe1ecf86 ("rhashtable: Per bucket locks & deferred expansion/shrinking")
+> Reported-by: Ying Xue <ying.xue@windriver.com>
+> Signed-off-by: Thomas Graf <tgraf@suug.ch>
+> ---
+> v2: 12 digit commit reference, commit msg clarification as pointed
+>     out by Sergei.
 
-
-> @@ -934,36 +933,36 @@ static struct sk_buff *vnet_clean_tx_ring(struct vnet_port *port,
->  
->  	*pending = 0;
->  
-> -	txi = dr->prod-1;
-> -	if (txi < 0)
-> -		txi = VNET_TX_RING_SIZE-1;
-> -
-> +	txi = dr->prod;
-
-As I understand it, this starts at dr->prod and goes through all
-descriptors, cleaning up !READY descriptors as it goes around.
-
-I think you'll have a higher reclaim rate for finding !READY if you
-started at dr->cons instead: dr->cons is the one that was last ACK'ed,
-and that ack would only have been sent after the peer had marked the 
-descriptor as DONE. (consumer would have had a chance to read more
-descriptors, by the time the tx-reclaim loop goes around) 
-
-> +		if (port->tx_bufs[txi].skb) {
-> +			if (d->hdr.state != VIO_DESC_DONE)
-> +				pr_warn("invalid ring buffer state %d\n",
-> +					d->hdr.state);
-
-I would even suggest skipping the pr_warn (maybe make it a viodbg
-instead) as it might alarm the end-user (who cannot really do 
-anything about it other than call us anyway :-)).
-
->  			   dr->cookies, dr->ncookies);
-> +	if (active_freed)
-> +		pr_warn("%s: active transmit buffers freed for remote %pM\n",
-> +			dev->name, port->raddr);
-
-Same comment as above.
-
-In general, I think we need some sysfs/ethtool  bean-counters/statistics
-for sunvnet, to keep track of this sort of thing efficiently in 
-a production env without triggering red-herrings calls.
-
---Sowmini
+Applied, thanks.
