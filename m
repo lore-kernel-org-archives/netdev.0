@@ -1,123 +1,71 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net] ipv6: replacing a rt6_info needs to purge possible propagated rt6_infos too
-Date: Mon, 26 Jan 2015 15:11:17 +0100
-Message-ID: <131075b1c8770c414675094c292d394316e8cd17.1422281427.git.hannes@stressinduktion.org>
-Cc: lkundrak@v3.sk
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: [PATCH net-next] vxlan: advertise link netns in fdb messages
+Date: Mon, 26 Jan 2015 14:10:53 +0100
+Message-ID: <1422277853-5722-1-git-send-email-nicolas.dichtel@6wind.com>
+Cc: davem@davemloft.net, Nicolas Dichtel <nicolas.dichtel@6wind.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out3-smtp.messagingengine.com ([66.111.4.27]:36485 "EHLO
-	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751910AbbAZOL3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2015 09:11:29 -0500
-Received: from compute4.internal (compute4.nyi.internal [10.202.2.44])
-	by mailout.nyi.internal (Postfix) with ESMTP id 932FE20857
-	for <netdev@vger.kernel.org>; Mon, 26 Jan 2015 09:11:28 -0500 (EST)
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:40817 "EHLO
+	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755817AbbAZO36 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2015 09:29:58 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Lubomir Rintel reported that during replacing a route the interface
-reference counter isn't correctly decremented.
+Previous commit is based on a wrong assumption, fdb messages are always sent
+into the netns where the interface stands (see vxlan_fdb_notify()).
 
-To quote bug <https://bugzilla.kernel.org/show_bug.cgi?id=91941>:
-| [root@rhel7-5 lkundrak]# sh -x lal
-| + ip link add dev0 type dummy
-| + ip link set dev0 up
-| + ip link add dev1 type dummy
-| + ip link set dev1 up
-| + ip addr add 2001:db8:8086::2/64 dev dev0
-| + ip route add 2001:db8:8086::/48 dev dev0 proto static metric 20
-| + ip route add 2001:db8:8088::/48 dev dev1 proto static metric 10
-| + ip route replace 2001:db8:8086::/48 dev dev1 proto static metric 20
-| + ip link del dev0 type dummy
-| Message from syslogd@rhel7-5 at Jan 23 10:54:41 ...
-|  kernel:unregister_netdevice: waiting for dev0 to become free. Usage count = 2
-|
-| Message from syslogd@rhel7-5 at Jan 23 10:54:51 ...
-|  kernel:unregister_netdevice: waiting for dev0 to become free. Usage count = 2
+These fdb messages doesn't embed the rtnl attribute IFLA_LINK_NETNSID, thus we
+need to add it (useful to interpret NDA_IFINDEX or NDA_DST for example).
 
-During replacement of a rt6_info we must walk all parent nodes and check
-if the to be replaced rt6_info got propagated. If so, replace it with
-an alive one.
+Note also that vxlan_nlmsg_size() was not updated.
 
-Reported-by: Lubomir Rintel <lkundrak@v3.sk>
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Fixes: 193523bf9373 ("vxlan: advertise netns of vxlan dev in fdb msg")
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 ---
- net/ipv6/ip6_fib.c | 45 ++++++++++++++++++++++++++-------------------
- 1 file changed, 26 insertions(+), 19 deletions(-)
 
-diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
-index 53775ee..263ef41 100644
---- a/net/ipv6/ip6_fib.c
-+++ b/net/ipv6/ip6_fib.c
-@@ -661,6 +661,29 @@ static int fib6_commit_metrics(struct dst_entry *dst, struct mx6_config *mxc)
- 	return 0;
+Note that NDA_NDM_IFINDEX_NETNSID exists only in net-next, thus it's still
+possible to remove it.
+
+ drivers/net/vxlan.c            | 5 +++--
+ include/uapi/linux/neighbour.h | 2 +-
+ 2 files changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index 19d3664ab9dd..c20a71fdcfa3 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -340,8 +340,8 @@ static int vxlan_fdb_info(struct sk_buff *skb, struct vxlan_dev *vxlan,
+ 	ndm->ndm_type = RTN_UNICAST;
+ 
+ 	if (!net_eq(dev_net(vxlan->dev), vxlan->net) &&
+-	    nla_put_s32(skb, NDA_NDM_IFINDEX_NETNSID,
+-			peernet2id(vxlan->net, dev_net(vxlan->dev))))
++	    nla_put_s32(skb, NDA_LINK_NETNSID,
++			peernet2id(dev_net(vxlan->dev), vxlan->net)))
+ 		goto nla_put_failure;
+ 
+ 	if (send_eth && nla_put(skb, NDA_LLADDR, ETH_ALEN, &fdb->eth_addr))
+@@ -384,6 +384,7 @@ static inline size_t vxlan_nlmsg_size(void)
+ 		+ nla_total_size(sizeof(__be16)) /* NDA_PORT */
+ 		+ nla_total_size(sizeof(__be32)) /* NDA_VNI */
+ 		+ nla_total_size(sizeof(__u32)) /* NDA_IFINDEX */
++		+ nla_total_size(sizeof(__s32)) /* NDA_LINK_NETNSID */
+ 		+ nla_total_size(sizeof(struct nda_cacheinfo));
  }
  
-+static void fib6_purge_rt(struct rt6_info *rt, struct fib6_node *fn,
-+			  struct net *net)
-+{
-+	if (atomic_read(&rt->rt6i_ref) != 1) {
-+		/* This route is used as dummy address holder in some split
-+		 * nodes. It is not leaked, but it still holds other resources,
-+		 * which must be released in time. So, scan ascendant nodes
-+		 * and replace dummy references to this route with references
-+		 * to still alive ones.
-+		 */
-+		while (fn) {
-+			if (!(fn->fn_flags & RTN_RTINFO) && fn->leaf == rt) {
-+				fn->leaf = fib6_find_prefix(net, fn);
-+				atomic_inc(&fn->leaf->rt6i_ref);
-+				rt6_release(rt);
-+			}
-+			fn = fn->parent;
-+		}
-+		/* No more references are possible at this point. */
-+		BUG_ON(atomic_read(&rt->rt6i_ref) != 1);
-+	}
-+}
-+
- /*
-  *	Insert routing information in a node.
-  */
-@@ -808,11 +831,12 @@ add:
- 		rt->dst.rt6_next = iter->dst.rt6_next;
- 		atomic_inc(&rt->rt6i_ref);
- 		inet6_rt_notify(RTM_NEWROUTE, rt, info);
--		rt6_release(iter);
- 		if (!(fn->fn_flags & RTN_RTINFO)) {
- 			info->nl_net->ipv6.rt6_stats->fib_route_nodes++;
- 			fn->fn_flags |= RTN_RTINFO;
- 		}
-+		fib6_purge_rt(iter, fn, info->nl_net);
-+		rt6_release(iter);
- 	}
+diff --git a/include/uapi/linux/neighbour.h b/include/uapi/linux/neighbour.h
+index 38f236853cc0..3873a35509aa 100644
+--- a/include/uapi/linux/neighbour.h
++++ b/include/uapi/linux/neighbour.h
+@@ -25,7 +25,7 @@ enum {
+ 	NDA_VNI,
+ 	NDA_IFINDEX,
+ 	NDA_MASTER,
+-	NDA_NDM_IFINDEX_NETNSID,
++	NDA_LINK_NETNSID,
+ 	__NDA_MAX
+ };
  
- 	return 0;
-@@ -1323,24 +1347,7 @@ static void fib6_del_route(struct fib6_node *fn, struct rt6_info **rtp,
- 		fn = fib6_repair_tree(net, fn);
- 	}
- 
--	if (atomic_read(&rt->rt6i_ref) != 1) {
--		/* This route is used as dummy address holder in some split
--		 * nodes. It is not leaked, but it still holds other resources,
--		 * which must be released in time. So, scan ascendant nodes
--		 * and replace dummy references to this route with references
--		 * to still alive ones.
--		 */
--		while (fn) {
--			if (!(fn->fn_flags & RTN_RTINFO) && fn->leaf == rt) {
--				fn->leaf = fib6_find_prefix(net, fn);
--				atomic_inc(&fn->leaf->rt6i_ref);
--				rt6_release(rt);
--			}
--			fn = fn->parent;
--		}
--		/* No more references are possible at this point. */
--		BUG_ON(atomic_read(&rt->rt6i_ref) != 1);
--	}
-+	fib6_purge_rt(rt, fn, net);
- 
- 	inet6_rt_notify(RTM_DELROUTE, rt, info);
- 	rt6_release(rt);
 -- 
-2.1.0
+2.2.2
