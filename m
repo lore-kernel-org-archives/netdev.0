@@ -1,151 +1,101 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH net] net: sctp: fix slab corruption from use after free
- on INIT collisions
-Date: Mon, 26 Jan 2015 07:33:59 -0500
-Message-ID: <20150126123359.GB31293@hmsreliant.think-freely.org>
-References: <1421947614-31407-1-git-send-email-dborkman@redhat.com>
+From: =?ISO-8859-2?Q?Vlastimil_=A9etka?= <setka@vsis.cz>
+Subject: Altera TSE (altera_tse) net_rx_action WARNING - polling bug in altera_tse_main.c?
+Date: Mon, 26 Jan 2015 13:39:33 +0100
+Message-ID: <54C63585.1010908@vsis.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, vyasevich@gmail.com, netdev@vger.kernel.org,
-	linux-sctp@vger.kernel.org
-To: Daniel Borkmann <dborkman@redhat.com>
+Content-Type: text/plain; charset=iso-8859-2; format=flowed
+Content-Transfer-Encoding: 7bit
+To: vbridger@opensource.altera.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:50927 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752145AbbAZMeN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2015 07:34:13 -0500
-Content-Disposition: inline
-In-Reply-To: <1421947614-31407-1-git-send-email-dborkman@redhat.com>
+Received: from mail.spsostrov.cz ([217.117.209.230]:53467 "EHLO
+	mail.spsostrov.cz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755052AbbAZMqh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2015 07:46:37 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 22, 2015 at 06:26:54PM +0100, Daniel Borkmann wrote:
-> When hitting an INIT collision case during the 4WHS with AUTH enabled, as
-> already described in detail in commit 1be9a950c646 ("net: sctp: inherit
-> auth_capable on INIT collisions"), it can happen that we occasionally
-> still remotely trigger the following panic on server side which seems to
-> have been uncovered after the fix from commit 1be9a950c646 ...
-> 
-> [  533.876389] BUG: unable to handle kernel paging request at 00000000ffffffff
-> [  533.913657] IP: [<ffffffff811ac385>] __kmalloc+0x95/0x230
-> [  533.940559] PGD 5030f2067 PUD 0
-> [  533.957104] Oops: 0000 [#1] SMP
-> [  533.974283] Modules linked in: sctp mlx4_en [...]
-> [  534.939704] Call Trace:
-> [  534.951833]  [<ffffffff81294e30>] ? crypto_init_shash_ops+0x60/0xf0
-> [  534.984213]  [<ffffffff81294e30>] crypto_init_shash_ops+0x60/0xf0
-> [  535.015025]  [<ffffffff8128c8ed>] __crypto_alloc_tfm+0x6d/0x170
-> [  535.045661]  [<ffffffff8128d12c>] crypto_alloc_base+0x4c/0xb0
-> [  535.074593]  [<ffffffff8160bd42>] ? _raw_spin_lock_bh+0x12/0x50
-> [  535.105239]  [<ffffffffa0418c11>] sctp_inet_listen+0x161/0x1e0 [sctp]
-> [  535.138606]  [<ffffffff814e43bd>] SyS_listen+0x9d/0xb0
-> [  535.166848]  [<ffffffff816149a9>] system_call_fastpath+0x16/0x1b
-> 
-> ... or depending on the the application, for example this one:
-> 
-> [ 1370.026490] BUG: unable to handle kernel paging request at 00000000ffffffff
-> [ 1370.026506] IP: [<ffffffff811ab455>] kmem_cache_alloc+0x75/0x1d0
-> [ 1370.054568] PGD 633c94067 PUD 0
-> [ 1370.070446] Oops: 0000 [#1] SMP
-> [ 1370.085010] Modules linked in: sctp kvm_amd kvm [...]
-> [ 1370.963431] Call Trace:
-> [ 1370.974632]  [<ffffffff8120f7cf>] ? SyS_epoll_ctl+0x53f/0x960
-> [ 1371.000863]  [<ffffffff8120f7cf>] SyS_epoll_ctl+0x53f/0x960
-> [ 1371.027154]  [<ffffffff812100d3>] ? anon_inode_getfile+0xd3/0x170
-> [ 1371.054679]  [<ffffffff811e3d67>] ? __alloc_fd+0xa7/0x130
-> [ 1371.080183]  [<ffffffff816149a9>] system_call_fastpath+0x16/0x1b
-> 
-> With slab debugging enabled, we can see that the poison has been overwritten:
-> 
-> [  669.826368] BUG kmalloc-128 (Tainted: G        W     ): Poison overwritten
-> [  669.826385] INFO: 0xffff880228b32e50-0xffff880228b32e50. First byte 0x6a instead of 0x6b
-> [  669.826414] INFO: Allocated in sctp_auth_create_key+0x23/0x50 [sctp] age=3 cpu=0 pid=18494
-> [  669.826424]  __slab_alloc+0x4bf/0x566
-> [  669.826433]  __kmalloc+0x280/0x310
-> [  669.826453]  sctp_auth_create_key+0x23/0x50 [sctp]
-> [  669.826471]  sctp_auth_asoc_create_secret+0xcb/0x1e0 [sctp]
-> [  669.826488]  sctp_auth_asoc_init_active_key+0x68/0xa0 [sctp]
-> [  669.826505]  sctp_do_sm+0x29d/0x17c0 [sctp] [...]
-> [  669.826629] INFO: Freed in kzfree+0x31/0x40 age=1 cpu=0 pid=18494
-> [  669.826635]  __slab_free+0x39/0x2a8
-> [  669.826643]  kfree+0x1d6/0x230
-> [  669.826650]  kzfree+0x31/0x40
-> [  669.826666]  sctp_auth_key_put+0x19/0x20 [sctp]
-> [  669.826681]  sctp_assoc_update+0x1ee/0x2d0 [sctp]
-> [  669.826695]  sctp_do_sm+0x674/0x17c0 [sctp]
-> 
-> Since this only triggers in some collision-cases with AUTH, the problem at
-> heart is that sctp_auth_key_put() on asoc->asoc_shared_key is called twice
-> when having refcnt 1, once directly in sctp_assoc_update() and yet again
-> from within sctp_auth_asoc_init_active_key() via sctp_assoc_update() on
-> the already kzfree'd memory, which is also consistent with the observation
-> of the poison decrease from 0x6b to 0x6a (note: the overwrite is detected
-> at a later point in time when poison is checked on new allocation).
-> 
-> Reference counting of auth keys revisited:
-> 
-> Shared keys for AUTH chunks are being stored in endpoints and associations
-> in endpoint_shared_keys list. On endpoint creation, a null key is being
-> added; on association creation, all endpoint shared keys are being cached
-> and thus cloned over to the association. struct sctp_shared_key only holds
-> a pointer to the actual key bytes, that is, struct sctp_auth_bytes which
-> keeps track of users internally through refcounting. Naturally, on assoc
-> or enpoint destruction, sctp_shared_key are being destroyed directly and
-> the reference on sctp_auth_bytes dropped.
-> 
-> User space can add keys to either list via setsockopt(2) through struct
-> sctp_authkey and by passing that to sctp_auth_set_key() which replaces or
-> adds a new auth key. There, sctp_auth_create_key() creates a new sctp_auth_bytes
-> with refcount 1 and in case of replacement drops the reference on the old
-> sctp_auth_bytes. A key can be set active from user space through setsockopt()
-> on the id via sctp_auth_set_active_key(), which iterates through either
-> endpoint_shared_keys and in case of an assoc, invokes (one of various places)
-> sctp_auth_asoc_init_active_key().
-> 
-> sctp_auth_asoc_init_active_key() computes the actual secret from local's
-> and peer's random, hmac and shared key parameters and returns a new key
-> directly as sctp_auth_bytes, that is asoc->asoc_shared_key, plus drops
-> the reference if there was a previous one. The secret, which where we
-> eventually double drop the ref comes from sctp_auth_asoc_set_secret() with
-> intitial refcount of 1, which also stays unchanged eventually in
-> sctp_assoc_update(). This key is later being used for crypto layer to
-> set the key for the hash in crypto_hash_setkey() from sctp_auth_calculate_hmac().
-> 
-> To close the loop: asoc->asoc_shared_key is freshly allocated secret
-> material and independant of the sctp_shared_key management keeping track
-> of only shared keys in endpoints and assocs. Hence, also commit 4184b2a79a76
-> ("net: sctp: fix memory leak in auth key management") is independant of
-> this bug here since it concerns a different layer (though same structures
-> being used eventually). asoc->asoc_shared_key is reference dropped correctly
-> on assoc destruction in sctp_association_free() and when active keys are
-> being replaced in sctp_auth_asoc_init_active_key(), it always has a refcount
-> of 1. Hence, it's freed prematurely in sctp_assoc_update(). Simple fix is
-> to remove that sctp_auth_key_put() from there which fixes these panics.
-> 
-> Fixes: 730fc3d05cd4 ("[SCTP]: Implete SCTP-AUTH parameter processing")
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-> ---
->  net/sctp/associola.c | 1 -
->  1 file changed, 1 deletion(-)
-> 
-> diff --git a/net/sctp/associola.c b/net/sctp/associola.c
-> index f791edd..26d06db 100644
-> --- a/net/sctp/associola.c
-> +++ b/net/sctp/associola.c
-> @@ -1182,7 +1182,6 @@ void sctp_assoc_update(struct sctp_association *asoc,
->  	asoc->peer.peer_hmacs = new->peer.peer_hmacs;
->  	new->peer.peer_hmacs = NULL;
->  
-> -	sctp_auth_key_put(asoc->asoc_shared_key);
->  	sctp_auth_asoc_init_active_key(asoc, GFP_ATOMIC);
->  }
->  
-> -- 
-> 1.7.11.7
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
+Hello,
+
+I am using Altera TSE kernel driver (altera_tse module) on Altera 
+socfpga platform (Cyclone V SoC with ARM Cortex-A9) and I probably 
+discovered a bug in it. I have two TSE controllers instantiated in FPGA 
+- my FPGA HW design is based on this tutorial: 
+http://www.rocketboards.org/foswiki/Projects/AlteraSoCTripleSpeedEthernetDesignExample
+
+The kernel version is 3.10.37-ltsi with RT patch, from 
+http://rocketboards.org/gitweb/?p=linux-socfpga.git;a=commit;h=7ea94617cfae6a62ee963adc1ae340196dbe2b34
+with backported some altera_tse fixes from current 3.19-rc5.
+
+I was not able to get TSE ethernets working on vanilla 3.19-rc5, 
+probably because of some changes around interrupts and devicetree, but 
+it's another story.
+
+After some time (minutes to hours) of exhaustive traffic generated by 
+iperf through altera_tse ethernet, I can see a kernel warning on console 
+like this:
+
+------------[ cut here ]------------
+WARNING: at net/core/dev.c:4255 net_rx_action+0x268/0x28c()
+Modules linked in: gpio_altera altera_sysid altera_tse
+CPU: 0 PID: 5885 Comm: irq/75-eth2 Not tainted 
+3.10.37-ltsi-rt37-vs-2-1-00062-g861955e #1
+[<800166c4>] (unwind_backtrace+0x0/0x100) from [<80012edc>] 
+(show_stack+0x20/0x24)
+[<80012edc>] (show_stack+0x20/0x24) from [<80503404>] (dump_stack+0x24/0x28)
+[<80503404>] (dump_stack+0x24/0x28) from [<8002303c>] 
+(warn_slowpath_common+0x64/0x7c)
+[<8002303c>] (warn_slowpath_common+0x64/0x7c) from [<80023110>] 
+(warn_slowpath_null+0x2c/0x34)
+[<80023110>] (warn_slowpath_null+0x2c/0x34) from [<80404d48>] 
+(net_rx_action+0x268/0x28c)
+[<80404d48>] (net_rx_action+0x268/0x28c) from [<8002bd18>] 
+(do_current_softirqs+0x1e4/0x388)
+[<8002bd18>] (do_current_softirqs+0x1e4/0x388) from [<8002bf34>] 
+(local_bh_enable+0x78/0x90)
+[<8002bf34>] (local_bh_enable+0x78/0x90) from [<80086c9c>] 
+(irq_forced_thread_fn+0x50/0x74)
+[<80086c9c>] (irq_forced_thread_fn+0x50/0x74) from [<80086fbc>] 
+(irq_thread+0x16c/0x1c8)
+[<80086fbc>] (irq_thread+0x16c/0x1c8) from [<80048104>] (kthread+0xb4/0xb8)
+[<80048104>] (kthread+0xb4/0xb8) from [<8000e718>] (ret_from_fork+0x14/0x20)
+---[ end trace 0000000000000002 ]---
+
+The warning point is:
+
+     WARN_ON_ONCE(work > weight);
+
+at 
+http://rocketboards.org/gitweb/?p=linux-socfpga.git;a=blob;f=net/core/dev.c;h=2193b5dc276ad6aa54adb1ee15ef3de625915fcd;hb=7ea94617cfae6a62ee963adc1ae340196dbe2b34#l4255
+
+After a warning, interface is still working without problems.
+
+I am not much familiar with Linux network stack and device drivers. But 
+I probably found a root cause in:
+
+    # drivers/net/ethernet/altera/altera_tse_main.c.
+    # 
+http://rocketboards.org/gitweb/?p=linux-socfpga.git;a=blob;f=drivers/net/ethernet/altera/altera_tse_main.c;h=07c0b193c55722d18ff2723f0a7e137671746ba1;hb=7ea94617cfae6a62ee963adc1ae340196dbe2b34#l368
+
+    static int tse_rx(struct altera_tse_private *priv, int limit)
+
+the `limit` parameter is not used anywhere in the function! When 
+`tse_rx` is called from `tse_poll` it can return more frames than limit, 
+which in the end triggers the kernel warning as I think:
+
+   # drivers/net/ethernet/altera/altera_tse_main.c
+   # 
+http://rocketboards.org/gitweb/?p=linux-socfpga.git;a=blob;f=drivers/net/ethernet/altera/altera_tse_main.c;h=07c0b193c55722d18ff2723f0a7e137671746ba1;hb=7ea94617cfae6a62ee963adc1ae340196dbe2b34#l488
+
+   static int tse_poll(struct napi_struct *napi, int budget)
+   {
+            ...
+            txcomplete = tse_tx_complete(priv);
+            rxcomplete = tse_rx(priv, budget);
+            if (rxcomplete >= budget || txcomplete > 0)
+                    return rxcomplete;
+
+Condition `if (rxcomplete >= budget || txcomplete > 0) return 
+rxcomplete;` is also very weird for me. I am not sure if it's buggy, but 
+I think it should be at least commented how it works.
+
+Vlastimil Setka
