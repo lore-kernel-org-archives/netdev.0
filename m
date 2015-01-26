@@ -1,67 +1,67 @@
 From: Jonathan Toppins <jtoppins@cumulusnetworks.com>
-Subject: [PATCH net-next v2 1/5] bonding: update bond carrier state when min_links option changes
-Date: Mon, 26 Jan 2015 01:16:57 -0500
-Message-ID: <1422253021-3798-2-git-send-email-jtoppins@cumulusnetworks.com>
+Subject: [PATCH net-next v2 4/5] bonding: fix LACP PDU not sent on slave port sometimes
+Date: Mon, 26 Jan 2015 01:17:00 -0500
+Message-ID: <1422253021-3798-5-git-send-email-jtoppins@cumulusnetworks.com>
 References: <1422253021-3798-1-git-send-email-jtoppins@cumulusnetworks.com>
-Cc: netdev@vger.kernel.org, Andy Gospodarek <gospo@cumulusnetworks.com>
+Cc: netdev@vger.kernel.org, Satish Ashok <sashok@cumulusnetworks.com>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>
 To: Jay Vosburgh <j.vosburgh@gmail.com>,
 	Veaceslav Falico <vfalico@gmail.com>,
 	Andy Gospodarek <andy@greyhouse.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f51.google.com ([209.85.192.51]:43782 "EHLO
-	mail-qg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752718AbbAZGUP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2015 01:20:15 -0500
-Received: by mail-qg0-f51.google.com with SMTP id z107so5568521qgd.10
-        for <netdev@vger.kernel.org>; Sun, 25 Jan 2015 22:20:15 -0800 (PST)
+Received: from mail-qc0-f169.google.com ([209.85.216.169]:64401 "EHLO
+	mail-qc0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752810AbbAZGUS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2015 01:20:18 -0500
+Received: by mail-qc0-f169.google.com with SMTP id b13so5678539qcw.0
+        for <netdev@vger.kernel.org>; Sun, 25 Jan 2015 22:20:18 -0800 (PST)
 In-Reply-To: <1422253021-3798-1-git-send-email-jtoppins@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Satish Ashok <sashok@cumulusnetworks.com>
+
+When a slave is added to a bond and it is not in full duplex mode,
+AD_PORT_LACP_ENABLED flag is cleared, due to this LACP PDU is not sent
+on slave. When the duplex is changed to full, the flag needs to be set
+to send LACP PDU.
+
 Cc: Andy Gospodarek <gospo@cumulusnetworks.com>
+Reviewed-by: Nikolay Aleksandrov <nikolay@redhat.com>
+Signed-off-by: Satish Ashok <sashok@cumulusnetworks.com>
 Signed-off-by: Jonathan Toppins <jtoppins@cumulusnetworks.com>
 ---
- drivers/net/bonding/bond_main.c    |    2 +-
- drivers/net/bonding/bond_options.c |    1 +
- include/net/bonding.h              |    1 +
- 3 files changed, 3 insertions(+), 1 deletion(-)
+ drivers/net/bonding/bond_3ad.c |   11 ++++++++---
+ 1 file changed, 8 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 0dceba1..02ffedb 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -334,7 +334,7 @@ static int bond_vlan_rx_kill_vid(struct net_device *bond_dev,
-  *
-  * Returns zero if carrier state does not change, nonzero if it does.
-  */
--static int bond_set_carrier(struct bonding *bond)
-+int bond_set_carrier(struct bonding *bond)
- {
- 	struct list_head *iter;
- 	struct slave *slave;
-diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
-index 9bd538d4..4df2894 100644
---- a/drivers/net/bonding/bond_options.c
-+++ b/drivers/net/bonding/bond_options.c
-@@ -1181,6 +1181,7 @@ static int bond_option_min_links_set(struct bonding *bond,
- 	netdev_info(bond->dev, "Setting min links value to %llu\n",
- 		    newval->value);
- 	bond->params.min_links = newval->value;
-+	bond_set_carrier(bond);
- 
- 	return 0;
- }
-diff --git a/include/net/bonding.h b/include/net/bonding.h
-index 983a94b..29f53ea 100644
---- a/include/net/bonding.h
-+++ b/include/net/bonding.h
-@@ -525,6 +525,7 @@ void bond_sysfs_slave_del(struct slave *slave);
- int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev);
- int bond_release(struct net_device *bond_dev, struct net_device *slave_dev);
- u32 bond_xmit_hash(struct bonding *bond, struct sk_buff *skb);
-+int bond_set_carrier(struct bonding *bond);
- void bond_select_active_slave(struct bonding *bond);
- void bond_change_active_slave(struct bonding *bond, struct slave *new_active);
- void bond_create_debugfs(void);
+diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
+index e3c96b2..cfc4a9c 100644
+--- a/drivers/net/bonding/bond_3ad.c
++++ b/drivers/net/bonding/bond_3ad.c
+@@ -2219,8 +2219,10 @@ static int bond_3ad_rx_indication(struct lacpdu *lacpdu, struct slave *slave,
+ 		switch (lacpdu->subtype) {
+ 		case AD_TYPE_LACPDU:
+ 			ret = RX_HANDLER_CONSUMED;
+-			netdev_dbg(slave->bond->dev, "Received LACPDU on port %d\n",
+-				   port->actor_port_number);
++			netdev_dbg(slave->bond->dev,
++				   "Received LACPDU on port %d slave %s\n",
++				   port->actor_port_number,
++				   slave->dev->name);
+ 			/* Protect against concurrent state machines */
+ 			spin_lock(&slave->bond->mode_lock);
+ 			ad_rx_machine(lacpdu, port);
+@@ -2312,7 +2314,10 @@ void bond_3ad_adapter_duplex_changed(struct slave *slave)
+ 	port->actor_admin_port_key &= ~AD_DUPLEX_KEY_MASKS;
+ 	port->actor_oper_port_key = port->actor_admin_port_key |=
+ 		__get_duplex(port);
+-	netdev_dbg(slave->bond->dev, "Port %d changed duplex\n", port->actor_port_number);
++	netdev_dbg(slave->bond->dev, "Port %d slave %s changed duplex\n",
++		   port->actor_port_number, slave->dev->name);
++	if (port->actor_oper_port_key & AD_DUPLEX_KEY_MASKS)
++		port->sm_vars |= AD_PORT_LACP_ENABLED;
+ 	/* there is no need to reselect a new aggregator, just signal the
+ 	 * state machines to reinitialize
+ 	 */
 -- 
 1.7.10.4
