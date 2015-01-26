@@ -1,65 +1,119 @@
-From: roopa <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next v3 2/2] iproute2: bridge vlan show new option
- to print ranges
-Date: Sun, 25 Jan 2015 21:18:02 -0800
-Message-ID: <54C5CE0A.2050209@cumulusnetworks.com>
-References: <1422239185-14054-3-git-send-email-roopa@cumulusnetworks.com> <CAE4R7bCR6YSK9J+OV+04w_UXWoSu56xSvHXkYkDzqP4Qudn76Q@mail.gmail.com>
+From: "Ahmed S. Darwish" <darwish.07@gmail.com>
+Subject: [PATCH v6 1/7] can: kvaser_usb: Do not sleep in atomic context
+Date: Mon, 26 Jan 2015 07:20:39 +0200
+Message-ID: <20150126052039.GB3014@Darwish.PC>
+References: <20141223154654.GB6460@vivalin-002>
+ <20150126051755.GA3014@Darwish.PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>, shemminger@vyatta.com,
-	"vyasevic@redhat.com" <vyasevic@redhat.com>,
-	Wilson Kok <wkok@cumulusnetworks.com>
-To: Scott Feldman <sfeldma@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:58693 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750949AbbAZFSE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2015 00:18:04 -0500
-Received: by mail-pa0-f41.google.com with SMTP id kq14so9712764pab.0
-        for <netdev@vger.kernel.org>; Sun, 25 Jan 2015 21:18:03 -0800 (PST)
-In-Reply-To: <CAE4R7bCR6YSK9J+OV+04w_UXWoSu56xSvHXkYkDzqP4Qudn76Q@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Linux-CAN <linux-can@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Olivier Sobrie <olivier@sobrie.be>,
+	Oliver Hartkopp <socketcan@hartkopp.net>,
+	Wolfgang Grandegger <wg@grandegger.com>,
+	Marc Kleine-Budde <mkl@pengutronix.de>,
+	Andri Yngvason <andri.yngvason@marel.com>
+Return-path: <linux-can-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20150126051755.GA3014@Darwish.PC>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 1/25/15, 8:35 PM, Scott Feldman wrote:
->> diff --git a/bridge/bridge.c b/bridge/bridge.c
->> index 5fcc552..88469ca 100644
->> --- a/bridge/bridge.c
->> +++ b/bridge/bridge.c
->> @@ -21,6 +21,7 @@ int resolve_hosts;
->>   int oneline = 0;
->>   int show_stats;
->>   int show_details;
->> +int compress_vlans;
->>   int timestamp;
->>   char * _SL_ = NULL;
->>
->> @@ -32,7 +33,8 @@ static void usage(void)
->>   "Usage: bridge [ OPTIONS ] OBJECT { COMMAND | help }\n"
->>   "where  OBJECT := { link | fdb | mdb | vlan | monitor }\n"
->>   "       OPTIONS := { -V[ersion] | -s[tatistics] | -d[etails] |\n"
->> -"                    -o[neline] | -t[imestamp] | -n[etns] name }\n");
->> +"                    -o[neline] | -t[imestamp] | -n[etns] name |\n"
->> +"                    -c[ompressvlans] }\n");
-> This option is awkward at this level since it's specific to bridge vlan cmd.
->
-> Is it even necessary?  The real user of compressed vlans isn't the
-> "bridge show" cmd; just keep "bridge show" simple, listing each vlan
-> per line.
-without ranges it does get a bit difficult (or rather long) to read if 
-there are many vlans (it was also a comment I received on v2).
+From: Ahmed S. Darwish <ahmed.darwish@valeo.com>
 
-All the available options whether they apply to the immediate 
-sub-command or not are at the toplevel command today.
-Hence the position (Not a big fan of the current name. suggestions welcome).
+Upon receiving a hardware event with the BUS_RESET flag set,
+the driver kills all of its anchored URBs and resets all of
+its transmit URB contexts.
 
-I would have loved to have the default output print ranges, If that is 
-acceptable. But, that can break new iproute2 on older kernels (If that 
-is something we should care about).
+Unfortunately it does so under the context of URB completion
+handler `kvaser_usb_read_bulk_callback()', which is often
+called in an atomic context.
 
-other option is keyword argument like maybe 'bridge vlan show 
-compressed' or 'bridge vlan show ranges'
+While the device is flooded with many received error packets,
+usb_kill_urb() typically sleeps/reschedules till the transfer
+request of each killed URB in question completes, leading to
+the sleep in atomic bug. [3]
 
-Thanks,
-Roopa
+In v2 submission of the original driver patch [1], it was
+stated that the URBs kill and tx contexts reset was needed
+since we don't receive any tx acknowledgments later and thus
+such resources will be locked down forever. Fortunately this
+is no longer needed since an earlier bugfix in this patch
+series is now applied: all tx URB contexts are reset upon CAN
+channel close. [2]
+
+Moreover, a BUS_RESET is now treated _exactly_ like a BUS_OFF
+event, which is the recommended handling method advised by
+the device manufacturer.
+
+[1] http://article.gmane.org/gmane.linux.network/239442
+    http://www.webcitation.org/6Vr2yagAQ
+
+[2] can: kvaser_usb: Reset all URB tx contexts upon channel close
+    889b77f7fd2bcc922493d73a4c51d8a851505815
+
+[3] Stacktrace:
+
+ <IRQ>  [<ffffffff8158de87>] dump_stack+0x45/0x57
+ [<ffffffff8158b60c>] __schedule_bug+0x41/0x4f
+ [<ffffffff815904b1>] __schedule+0x5f1/0x700
+ [<ffffffff8159360a>] ? _raw_spin_unlock_irqrestore+0xa/0x10
+ [<ffffffff81590684>] schedule+0x24/0x70
+ [<ffffffff8147d0a5>] usb_kill_urb+0x65/0xa0
+ [<ffffffff81077970>] ? prepare_to_wait_event+0x110/0x110
+ [<ffffffff8147d7d8>] usb_kill_anchored_urbs+0x48/0x80
+ [<ffffffffa01f4028>] kvaser_usb_unlink_tx_urbs+0x18/0x50 [kvaser_usb]
+ [<ffffffffa01f45d0>] kvaser_usb_rx_error+0xc0/0x400 [kvaser_usb]
+ [<ffffffff8108b14a>] ? vprintk_default+0x1a/0x20
+ [<ffffffffa01f5241>] kvaser_usb_read_bulk_callback+0x4c1/0x5f0 [kvaser_usb]
+ [<ffffffff8147a73e>] __usb_hcd_giveback_urb+0x5e/0xc0
+ [<ffffffff8147a8a1>] usb_hcd_giveback_urb+0x41/0x110
+ [<ffffffffa0008748>] finish_urb+0x98/0x180 [ohci_hcd]
+ [<ffffffff810cd1a7>] ? acct_account_cputime+0x17/0x20
+ [<ffffffff81069f65>] ? local_clock+0x15/0x30
+ [<ffffffffa000a36b>] ohci_work+0x1fb/0x5a0 [ohci_hcd]
+ [<ffffffff814fbb31>] ? process_backlog+0xb1/0x130
+ [<ffffffffa000cd5b>] ohci_irq+0xeb/0x270 [ohci_hcd]
+ [<ffffffff81479fc1>] usb_hcd_irq+0x21/0x30
+ [<ffffffff8108bfd3>] handle_irq_event_percpu+0x43/0x120
+ [<ffffffff8108c0ed>] handle_irq_event+0x3d/0x60
+ [<ffffffff8108ec84>] handle_fasteoi_irq+0x74/0x110
+ [<ffffffff81004dfd>] handle_irq+0x1d/0x30
+ [<ffffffff81004727>] do_IRQ+0x57/0x100
+ [<ffffffff8159482a>] common_interrupt+0x6a/0x6a
+
+Signed-off-by: Ahmed S. Darwish <ahmed.darwish@valeo.com>
+---
+ drivers/net/can/usb/kvaser_usb.c |    7 +------
+ 1 files changed, 1 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/net/can/usb/kvaser_usb.c b/drivers/net/can/usb/kvaser_usb.c
+index c32cd61..978a25e 100644
+--- a/drivers/net/can/usb/kvaser_usb.c
++++ b/drivers/net/can/usb/kvaser_usb.c
+@@ -662,11 +662,6 @@ static void kvaser_usb_rx_error(const struct kvaser_usb *dev,
+ 	priv = dev->nets[channel];
+ 	stats = &priv->netdev->stats;
+ 
+-	if (status & M16C_STATE_BUS_RESET) {
+-		kvaser_usb_unlink_tx_urbs(priv);
+-		return;
+-	}
+-
+ 	skb = alloc_can_err_skb(priv->netdev, &cf);
+ 	if (!skb) {
+ 		stats->rx_dropped++;
+@@ -677,7 +672,7 @@ static void kvaser_usb_rx_error(const struct kvaser_usb *dev,
+ 
+ 	netdev_dbg(priv->netdev, "Error status: 0x%02x\n", status);
+ 
+-	if (status & M16C_STATE_BUS_OFF) {
++	if (status & (M16C_STATE_BUS_OFF | M16C_STATE_BUS_RESET)) {
+ 		cf->can_id |= CAN_ERR_BUSOFF;
+ 
+ 		priv->can.can_stats.bus_off++;
+-- 
+1.7.7.6
+
+
