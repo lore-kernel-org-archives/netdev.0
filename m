@@ -1,34 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] net: mv643xx_eth: Fix highmem support in non-TSO
- egress path
-Date: Mon, 26 Jan 2015 14:40:36 -0800 (PST)
-Message-ID: <20150126.144036.1224674435633466851.davem@davemloft.net>
-References: <1421844850-30886-1-git-send-email-ezequiel.garcia@free-electrons.com>
-	<1421844850-30886-3-git-send-email-ezequiel.garcia@free-electrons.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 1/2] rhashtable: Introduce rhashtable_walk_*
+Date: Tue, 27 Jan 2015 09:42:16 +1100
+Message-ID: <20150126224216.GA30551@gondor.apana.org.au>
+References: <E1YFWUl-0004gE-SH@gondolin.me.apana.org.au>
+ <063D6719AE5E284EB5DD2968C1650D6D1CAD2C12@AcuExch.aculab.com>
+ <20150126222259.GC30116@gondor.apana.org.au>
+ <20150126.143613.1798698028405169123.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux@arm.linux.org.uk,
-	B38611@freescale.com, fabio.estevam@freescale.com
-To: ezequiel.garcia@free-electrons.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45666 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753422AbbAZWkh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2015 17:40:37 -0500
-In-Reply-To: <1421844850-30886-3-git-send-email-ezequiel.garcia@free-electrons.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David.Laight@ACULAB.COM, tgraf@suug.ch, ying.xue@windriver.com,
+	kaber@trash.net, paulmck@linux.vnet.ibm.com,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20150126.143613.1798698028405169123.davem@davemloft.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
-Date: Wed, 21 Jan 2015 09:54:10 -0300
+On Mon, Jan 26, 2015 at 02:36:13PM -0800, David Miller wrote:
+>
+> I really think the amount of time and effort being put into making
+> the walker function properly is excessive.
+> 
+> Let's just say that if you want to use rhashtable, you have to use a
+> linked list, or similar separate mechanism, to have stable walks of
+> the entire set of objects.
 
-> +		if (!IS_TSO_HEADER(txq, desc->buf_ptr)) {
-> +
-> +			/* The first descriptor is either a TSO header or
-> +			 * the linear part of the skb.
-> +			 */
+I definitely agree with that :)
 
-Similar to the first patch, please remove this empty line.
+However, I'd really like to get these primitives in first so that
+at least I can convert the existing rhashtable walkers over and
+get on with implementing rhashtable rehashing which is what I set
+out to do.
 
-Thanks.
+As otherwise we'd be looking at fixing the existing users (in
+particular, nft_hash) properly which might take a lot more time.
+
+If and when we finally fix the existing users we can always remove
+these primitives.
+
+FWIW when I first wrote this patch I called it
+rhashtable_walk_dangerously, I can readopt that name if you think
+that will dissuade people from using it.
+
+Thanks,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
