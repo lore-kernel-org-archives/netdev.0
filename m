@@ -1,44 +1,73 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: Re: [net-next PATCH v3 00/12] Flow API
-Date: Mon, 26 Jan 2015 17:26:05 +0900
-Message-ID: <20150126082602.GB8408@vergenet.net>
-References: <54C11ACC.5010005@mojatatu.com>
- <20150123101019.GF25797@casper.infradead.org>
- <20150123102421.GB2065@nanopsycho.orion>
- <20150123110821.GH25797@casper.infradead.org>
- <20150123113934.GD2065@nanopsycho.orion>
- <20150123122838.GI25797@casper.infradead.org>
- <20150123134315.GF2065@nanopsycho.orion>
- <20150123140724.GJ25797@casper.infradead.org>
- <54C26A1F.6060603@gmail.com>
- <54C397C0.3010508@mojatatu.com>
+From: Fugang Duan <b38611@freescale.com>
+Subject: [PATCH net-next 1/1] net: phy: unbind phy device from generic and specifical driver
+Date: Mon, 26 Jan 2015 16:14:05 +0800
+Message-ID: <1422260045-22527-1-git-send-email-b38611@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: John Fastabend <john.fastabend@gmail.com>,
-	Thomas Graf <tgraf@suug.ch>, Jiri Pirko <jiri@resnulli.us>,
-	Pablo Neira Ayuso <pablo@netfilter.org>, sfeldma@gmail.com,
-	netdev@vger.kernel.org, davem@davemloft.net, gerlitz.or@gmail.com,
-	andy@greyhouse.net, ast@plumgrid.com
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <s.hauer@pengutronix.de>,
+	<f.fainelli@gmail.com>, <bhutchings@solarflare.com>,
+	<stephen@networkplumber.org>, <b38611@freescale.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:53606 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750793AbbAZI0S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2015 03:26:18 -0500
-Received: by mail-pa0-f44.google.com with SMTP id rd3so10480226pab.3
-        for <netdev@vger.kernel.org>; Mon, 26 Jan 2015 00:26:18 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <54C397C0.3010508@mojatatu.com>
+Received: from mail-by2on0125.outbound.protection.outlook.com ([207.46.100.125]:49900
+	"EHLO na01-by2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750793AbbAZIa6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 Jan 2015 03:30:58 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jan 24, 2015 at 08:01:52AM -0500, Jamal Hadi Salim wrote:
+The current .phy_detach() function only unbind generic phy driver, which causes
+specifical driver suspend/resume function still work like Atheros AT803X PHYs.
 
-[snip]
+For example:
+ifconfig eth0 down
+echo mem > /sys/power/status
 
-> Lets discuss at the meeting. I am just skimming these emails (the
-> conference is chewing a lot of my time so i will mostly be absent).
-> Sorry if i am not responding to some things.
+After eth0 interface down, driver call phy_detach to unbind phy driver, and then
+do suspend/resume operation, at803x_suspend()/at803x_resume() functions still get
+called that call mdio bus read/write function. When eth0 interface down, MAC driver
+may close all clocks and mdio bus cannot work. So the issue happens.
 
-Is "the meeting" the Hardware Offloading BoF at Netdev 1.0?
-For the benefit of others: https://www.netdev01.org/sessions/10
+The patch can unbind generic and specifical driver.
+
+Signed-off-by: Fugang Duan <B38611@freescale.com>
+---
+ drivers/net/phy/phy_device.c |   15 ++-------------
+ 1 files changed, 2 insertions(+), 13 deletions(-)
+
+diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+index 3fc91e8..8adbc5d 100644
+--- a/drivers/net/phy/phy_device.c
++++ b/drivers/net/phy/phy_device.c
+@@ -672,8 +672,6 @@ EXPORT_SYMBOL(phy_attach);
+  */
+ void phy_detach(struct phy_device *phydev)
+ {
+-	int i;
+-
+ 	if (phydev->bus->dev.driver)
+ 		module_put(phydev->bus->dev.driver->owner);
+ 
+@@ -681,17 +679,8 @@ void phy_detach(struct phy_device *phydev)
+ 	phydev->attached_dev = NULL;
+ 	phy_suspend(phydev);
+ 
+-	/* If the device had no specific driver before (i.e. - it
+-	 * was using the generic driver), we unbind the device
+-	 * from the generic driver so that there's a chance a
+-	 * real driver could be loaded
+-	 */
+-	for (i = 0; i < ARRAY_SIZE(genphy_driver); i++) {
+-		if (phydev->dev.driver == &genphy_driver[i].driver) {
+-			device_release_driver(&phydev->dev);
+-			break;
+-		}
+-	}
++	if (phydev->dev.driver)
++		device_release_driver(&phydev->dev);
+ }
+ EXPORT_SYMBOL(phy_detach);
+ 
+-- 
+1.7.8
