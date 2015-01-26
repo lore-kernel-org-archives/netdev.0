@@ -1,159 +1,149 @@
 From: roopa@cumulusnetworks.com
-Subject: [PATCH net-next v3 1/2] iproute2: bridge: support vlan range adds
-Date: Sun, 25 Jan 2015 18:26:24 -0800
-Message-ID: <1422239185-14054-2-git-send-email-roopa@cumulusnetworks.com>
+Subject: [PATCH net-next v3 2/2] iproute2: bridge vlan show new option to print ranges
+Date: Sun, 25 Jan 2015 18:26:25 -0800
+Message-ID: <1422239185-14054-3-git-send-email-roopa@cumulusnetworks.com>
 Cc: wkok@cumulusnetworks.com, sfeldma@gmail.com
 To: netdev@vger.kernel.org, shemminger@vyatta.com, vyasevic@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:57398 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752024AbbAZC0d (ORCPT
+Received: from mail-pd0-f181.google.com ([209.85.192.181]:32889 "EHLO
+	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752053AbbAZC0d (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Sun, 25 Jan 2015 21:26:33 -0500
-Received: by mail-pa0-f49.google.com with SMTP id fa1so8951615pad.8
-        for <netdev@vger.kernel.org>; Sun, 25 Jan 2015 18:26:32 -0800 (PST)
+Received: by mail-pd0-f181.google.com with SMTP id g10so9209511pdj.12
+        for <netdev@vger.kernel.org>; Sun, 25 Jan 2015 18:26:33 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Roopa Prabhu <roopa@cumulusnetworks.com>
 
-This patch adds vlan range support to bridge add command
-using the newly added vinfo flags BRIDGE_VLAN_INFO_RANGE_BEGIN and
-BRIDGE_VLAN_INFO_RANGE_END.
+Introduce new option -c[ompressvlans] to request
+vlan ranges from kernel
+
+(pls suggest better option names if this does not look ok)
 
 $bridge vlan show
-port    vlan ids
-br0      1 PVID Egress Untagged
+port	vlan ids
+dummy0	 1 PVID Egress Untagged
 
-dummy0   1 PVID Egress Untagged
+dummy1	 1 PVID Egress Untagged
+	 2
+	 3
+	 4
+	 5
+	 6
+	 7
+	 9
+	 10
+	 12
 
-$bridge vlan add vid 10-15 dev dummy0
-port    vlan ids
-br0      1 PVID Egress Untagged
+br0	 1 PVID Egress Untagged
 
-dummy0   1 PVID Egress Untagged
-         10
-         11
-         12
-         13
-         14
-         15
+$bridge help
+Usage: bridge [ OPTIONS ] OBJECT { COMMAND | help }
+where  OBJECT := { link | fdb | mdb | vlan | monitor }
+       OPTIONS := { -V[ersion] | -s[tatistics] | -d[etails] |
+                    -o[neline] | -t[imestamp] | -n[etns] name |
+                    -c[ompressvlans] }
+$bridge -c vlan show
+port	vlan ids
+dummy0	 1 PVID Egress Untagged
 
-$bridge vlan del vid 14 dev dummy0
+dummy1	 1 PVID Egress Untagged
+	 2-7
+	 9-10
+	 12
 
-$bridge vlan show
-port    vlan ids
-br0      1 PVID Egress Untagged
-
-dummy0   1 PVID Egress Untagged
-         10
-         11
-         12
-         13
-         15
-
-$bridge vlan del vid 10-15 dev dummy0
-
-$bridge vlan show
-port    vlan ids
-br0      1 PVID Egress Untagged
-
-dummy0   1 PVID Egress Untagged
+br0	 1 PVID Egress Untagged
 
 Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
-Signed-off-by: Wilson Kok <wkok@cumulusnetworks.com>
 ---
- bridge/vlan.c             |   44 ++++++++++++++++++++++++++++++++++++++++----
- include/linux/if_bridge.h |    2 ++
- 2 files changed, 42 insertions(+), 4 deletions(-)
+ bridge/br_common.h        |    1 +
+ bridge/bridge.c           |    6 +++++-
+ bridge/vlan.c             |   11 +++++++++--
+ include/linux/rtnetlink.h |    1 +
+ 4 files changed, 16 insertions(+), 3 deletions(-)
 
+diff --git a/bridge/br_common.h b/bridge/br_common.h
+index 12fce3e..169a162 100644
+--- a/bridge/br_common.h
++++ b/bridge/br_common.h
+@@ -16,4 +16,5 @@ extern int preferred_family;
+ extern int show_stats;
+ extern int show_details;
+ extern int timestamp;
++extern int compress_vlans;
+ extern struct rtnl_handle rth;
+diff --git a/bridge/bridge.c b/bridge/bridge.c
+index 5fcc552..88469ca 100644
+--- a/bridge/bridge.c
++++ b/bridge/bridge.c
+@@ -21,6 +21,7 @@ int resolve_hosts;
+ int oneline = 0;
+ int show_stats;
+ int show_details;
++int compress_vlans;
+ int timestamp;
+ char * _SL_ = NULL;
+ 
+@@ -32,7 +33,8 @@ static void usage(void)
+ "Usage: bridge [ OPTIONS ] OBJECT { COMMAND | help }\n"
+ "where  OBJECT := { link | fdb | mdb | vlan | monitor }\n"
+ "       OPTIONS := { -V[ersion] | -s[tatistics] | -d[etails] |\n"
+-"                    -o[neline] | -t[imestamp] | -n[etns] name }\n");
++"                    -o[neline] | -t[imestamp] | -n[etns] name |\n"
++"                    -c[ompressvlans] }\n");
+ 	exit(-1);
+ }
+ 
+@@ -117,6 +119,8 @@ main(int argc, char **argv)
+ 			NEXT_ARG();
+ 			if (netns_switch(argv[1]))
+ 				exit(-1);
++		} else if (matches(opt, "-compressvlans") == 0) {
++			++compress_vlans;
+ 		} else {
+ 			fprintf(stderr, "Option \"%s\" is unknown, try \"bridge help\".\n", opt);
+ 			exit(-1);
 diff --git a/bridge/vlan.c b/bridge/vlan.c
-index 3bd7b0d..88992e6 100644
+index 88992e6..9f6c84e 100644
 --- a/bridge/vlan.c
 +++ b/bridge/vlan.c
-@@ -32,6 +32,7 @@ static int vlan_modify(int cmd, int argc, char **argv)
- 	} req;
- 	char *d = NULL;
- 	short vid = -1;
-+	short vid_end = -1;
- 	struct rtattr *afspec;
- 	struct bridge_vlan_info vinfo;
- 	unsigned short flags = 0;
-@@ -49,8 +50,18 @@ static int vlan_modify(int cmd, int argc, char **argv)
- 			NEXT_ARG();
- 			d = *argv;
- 		} else if (strcmp(*argv, "vid") == 0) {
-+			char *p;
- 			NEXT_ARG();
--			vid = atoi(*argv);
-+			p = strchr(*argv, '-');
-+			if (p) {
-+				*p = '\0';
-+				p++;
-+				vid = atoi(*argv);
-+				vid_end = atoi(p);
-+				vinfo.flags |= BRIDGE_VLAN_INFO_RANGE_BEGIN;
-+			} else {
-+				vid = atoi(*argv);
-+			}
- 		} else if (strcmp(*argv, "self") == 0) {
- 			flags |= BRIDGE_FLAGS_SELF;
- 		} else if (strcmp(*argv, "master") == 0) {
-@@ -83,15 +94,40 @@ static int vlan_modify(int cmd, int argc, char **argv)
- 		return -1;
+@@ -182,7 +182,12 @@ static int print_vlan(const struct sockaddr_nl *who,
+ 				continue;
+ 
+ 			vinfo = RTA_DATA(i);
+-			fprintf(fp, "\t %hu", vinfo->vid);
++			if (vinfo->flags & BRIDGE_VLAN_INFO_RANGE_END)
++				fprintf(fp, "-%hu", vinfo->vid);
++			else
++				fprintf(fp, "\t %hu", vinfo->vid);
++			if (vinfo->flags & BRIDGE_VLAN_INFO_RANGE_BEGIN)
++				continue;
+ 			if (vinfo->flags & BRIDGE_VLAN_INFO_PVID)
+ 				fprintf(fp, " PVID");
+ 			if (vinfo->flags & BRIDGE_VLAN_INFO_UNTAGGED)
+@@ -218,7 +223,9 @@ static int vlan_show(int argc, char **argv)
  	}
  
--	vinfo.vid = vid;
-+	if (vinfo.flags & BRIDGE_VLAN_INFO_RANGE_BEGIN) {
-+		if (vid_end == -1 || vid_end >= 4096 || vid >= vid_end) {
-+			fprintf(stderr, "Invalid VLAN range \"%hu-%hu\"\n",
-+				vid, vid_end);
-+			return -1;
-+		}
-+		if (vinfo.flags & BRIDGE_VLAN_INFO_PVID) {
-+			fprintf(stderr,
-+				"pvid cannot be configured for a vlan range\n");
-+			return -1;
-+		}
-+	}
+ 	if (rtnl_wilddump_req_filter(&rth, PF_BRIDGE, RTM_GETLINK,
+-				     RTEXT_FILTER_BRVLAN) < 0) {
++				    (compress_vlans ?
++				    RTEXT_FILTER_BRVLAN_COMPRESSED :
++				    RTEXT_FILTER_BRVLAN)) < 0) {
+ 		perror("Cannont send dump request");
+ 		exit(1);
+ 	}
+diff --git a/include/linux/rtnetlink.h b/include/linux/rtnetlink.h
+index 9aa5c2f..19eadb1 100644
+--- a/include/linux/rtnetlink.h
++++ b/include/linux/rtnetlink.h
+@@ -632,6 +632,7 @@ struct tcamsg {
+ /* New extended info filters for IFLA_EXT_MASK */
+ #define RTEXT_FILTER_VF		(1 << 0)
+ #define RTEXT_FILTER_BRVLAN	(1 << 1)
++#define RTEXT_FILTER_BRVLAN_COMPRESSED  (1 << 2)
  
- 	afspec = addattr_nest(&req.n, sizeof(req), IFLA_AF_SPEC);
+ /* End of information exported to user level */
  
- 	if (flags)
- 		addattr16(&req.n, sizeof(req), IFLA_BRIDGE_FLAGS, flags);
- 
--	addattr_l(&req.n, sizeof(req), IFLA_BRIDGE_VLAN_INFO, &vinfo,
--		  sizeof(vinfo));
-+	vinfo.vid = vid;
-+	if (vid_end != -1) {
-+		/* send vlan range start */
-+		addattr_l(&req.n, sizeof(req), IFLA_BRIDGE_VLAN_INFO, &vinfo,
-+			  sizeof(vinfo));
-+		vinfo.flags &= ~BRIDGE_VLAN_INFO_RANGE_BEGIN;
-+
-+		/* Now send the vlan range end */
-+		vinfo.flags |= BRIDGE_VLAN_INFO_RANGE_END;
-+		vinfo.vid = vid_end;
-+		addattr_l(&req.n, sizeof(req), IFLA_BRIDGE_VLAN_INFO, &vinfo,
-+			  sizeof(vinfo));
-+	} else {
-+		addattr_l(&req.n, sizeof(req), IFLA_BRIDGE_VLAN_INFO, &vinfo,
-+			  sizeof(vinfo));
-+	}
- 
- 	addattr_nest_end(&req.n, afspec);
- 
-diff --git a/include/linux/if_bridge.h b/include/linux/if_bridge.h
-index 19ff22a..efa10b8 100644
---- a/include/linux/if_bridge.h
-+++ b/include/linux/if_bridge.h
-@@ -125,6 +125,8 @@ enum {
- #define BRIDGE_VLAN_INFO_MASTER	(1<<0)	/* Operate on Bridge device as well */
- #define BRIDGE_VLAN_INFO_PVID	(1<<1)	/* VLAN is PVID, ingress untagged */
- #define BRIDGE_VLAN_INFO_UNTAGGED	(1<<2)	/* VLAN egresses untagged */
-+#define BRIDGE_VLAN_INFO_RANGE_BEGIN	(1<<3) /* VLAN is start of vlan range */
-+#define BRIDGE_VLAN_INFO_RANGE_END	(1<<4)	/* VLAN is end of vlan range */
- 
- struct bridge_vlan_info {
- 	__u16 flags;
 -- 
 1.7.10.4
