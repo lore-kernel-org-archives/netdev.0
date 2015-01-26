@@ -1,59 +1,67 @@
 From: Jonathan Toppins <jtoppins@cumulusnetworks.com>
-Subject: [PATCH net-next v2 5/5] bonding: cleanup and remove dead code
-Date: Mon, 26 Jan 2015 01:17:01 -0500
-Message-ID: <1422253021-3798-6-git-send-email-jtoppins@cumulusnetworks.com>
+Subject: [PATCH net-next v2 1/5] bonding: update bond carrier state when min_links option changes
+Date: Mon, 26 Jan 2015 01:16:57 -0500
+Message-ID: <1422253021-3798-2-git-send-email-jtoppins@cumulusnetworks.com>
 References: <1422253021-3798-1-git-send-email-jtoppins@cumulusnetworks.com>
-Cc: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, Andy Gospodarek <gospo@cumulusnetworks.com>
 To: Jay Vosburgh <j.vosburgh@gmail.com>,
 	Veaceslav Falico <vfalico@gmail.com>,
 	Andy Gospodarek <andy@greyhouse.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f171.google.com ([209.85.216.171]:60423 "EHLO
-	mail-qc0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752874AbbAZGUT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2015 01:20:19 -0500
-Received: by mail-qc0-f171.google.com with SMTP id s11so5694275qcv.2
-        for <netdev@vger.kernel.org>; Sun, 25 Jan 2015 22:20:19 -0800 (PST)
+Received: from mail-qg0-f51.google.com ([209.85.192.51]:43782 "EHLO
+	mail-qg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752718AbbAZGUP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2015 01:20:15 -0500
+Received: by mail-qg0-f51.google.com with SMTP id z107so5568521qgd.10
+        for <netdev@vger.kernel.org>; Sun, 25 Jan 2015 22:20:15 -0800 (PST)
 In-Reply-To: <1422253021-3798-1-git-send-email-jtoppins@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-fix sparse warning about non-static function
-
-drivers/net/bonding/bond_main.c:3737:5: warning: symbol
-'bond_3ad_xor_xmit' was not declared. Should it be static?
-
-Reviewed-by: Nikolay Aleksandrov <nikolay@redhat.com>
+Cc: Andy Gospodarek <gospo@cumulusnetworks.com>
 Signed-off-by: Jonathan Toppins <jtoppins@cumulusnetworks.com>
 ---
- drivers/net/bonding/bond_main.c |    2 +-
- include/net/bond_3ad.h          |    1 -
- 2 files changed, 1 insertion(+), 2 deletions(-)
+ drivers/net/bonding/bond_main.c    |    2 +-
+ drivers/net/bonding/bond_options.c |    1 +
+ include/net/bonding.h              |    1 +
+ 3 files changed, 3 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index c475d90..67437f3 100644
+index 0dceba1..02ffedb 100644
 --- a/drivers/net/bonding/bond_main.c
 +++ b/drivers/net/bonding/bond_main.c
-@@ -3734,7 +3734,7 @@ out:
-  * usable slave array is formed in the control path. The xmit function
-  * just calculates hash and sends the packet out.
+@@ -334,7 +334,7 @@ static int bond_vlan_rx_kill_vid(struct net_device *bond_dev,
+  *
+  * Returns zero if carrier state does not change, nonzero if it does.
   */
--int bond_3ad_xor_xmit(struct sk_buff *skb, struct net_device *dev)
-+static int bond_3ad_xor_xmit(struct sk_buff *skb, struct net_device *dev)
+-static int bond_set_carrier(struct bonding *bond)
++int bond_set_carrier(struct bonding *bond)
  {
- 	struct bonding *bond = netdev_priv(dev);
+ 	struct list_head *iter;
  	struct slave *slave;
-diff --git a/include/net/bond_3ad.h b/include/net/bond_3ad.h
-index e01d903..f04cdbb 100644
---- a/include/net/bond_3ad.h
-+++ b/include/net/bond_3ad.h
-@@ -274,7 +274,6 @@ void bond_3ad_handle_link_change(struct slave *slave, char link);
- int  bond_3ad_get_active_agg_info(struct bonding *bond, struct ad_info *ad_info);
- int  __bond_3ad_get_active_agg_info(struct bonding *bond,
- 				    struct ad_info *ad_info);
--int bond_3ad_xmit_xor(struct sk_buff *skb, struct net_device *dev);
- int bond_3ad_lacpdu_recv(const struct sk_buff *skb, struct bonding *bond,
- 			 struct slave *slave);
- int bond_3ad_set_carrier(struct bonding *bond);
+diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
+index 9bd538d4..4df2894 100644
+--- a/drivers/net/bonding/bond_options.c
++++ b/drivers/net/bonding/bond_options.c
+@@ -1181,6 +1181,7 @@ static int bond_option_min_links_set(struct bonding *bond,
+ 	netdev_info(bond->dev, "Setting min links value to %llu\n",
+ 		    newval->value);
+ 	bond->params.min_links = newval->value;
++	bond_set_carrier(bond);
+ 
+ 	return 0;
+ }
+diff --git a/include/net/bonding.h b/include/net/bonding.h
+index 983a94b..29f53ea 100644
+--- a/include/net/bonding.h
++++ b/include/net/bonding.h
+@@ -525,6 +525,7 @@ void bond_sysfs_slave_del(struct slave *slave);
+ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev);
+ int bond_release(struct net_device *bond_dev, struct net_device *slave_dev);
+ u32 bond_xmit_hash(struct bonding *bond, struct sk_buff *skb);
++int bond_set_carrier(struct bonding *bond);
+ void bond_select_active_slave(struct bonding *bond);
+ void bond_change_active_slave(struct bonding *bond, struct slave *new_active);
+ void bond_create_debugfs(void);
 -- 
 1.7.10.4
