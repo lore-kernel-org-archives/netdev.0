@@ -1,49 +1,67 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: Re: [PATCH net-next] sunvnet: improve error handling when a remote
- crashes
-Date: Mon, 26 Jan 2015 15:29:46 -0500
-Message-ID: <54C6A3BA.3060004@oracle.com>
-References: <54C6911B.5040501@oracle.com> <20150126195403.GE6437@oracle.com> <54C6A154.3090906@oracle.com>
-Reply-To: sowmini.varadhan@oracle.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: David L Stevens <david.stevens@oracle.com>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: [PATCH 0/6 V2] Some changes for rtlwifi
+Date: Mon, 26 Jan 2015 14:42:08 -0600
+Message-ID: <1422304934-9239-1-git-send-email-Larry.Finger@lwfinger.net>
+Cc: linux-wireless@vger.kernel.org,
+	Larry Finger <Larry.Finger@lwfinger.net>,
+	netdev@vger.kernel.org
+To: kvalo@codeaurora.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:48607 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753120AbbAZU3s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2015 15:29:48 -0500
-In-Reply-To: <54C6A154.3090906@oracle.com>
+Received: from mail-oi0-f43.google.com ([209.85.218.43]:60078 "EHLO
+	mail-oi0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752869AbbAZUmY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2015 15:42:24 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/26/2015 03:19 PM, David L Stevens wrote:
+The first of these patches changes the logging when an encryption key
+is changed. The rest are for changes in the btcoexist driver. Most
+contain the code needed to handle the RTL8812AE chips.
 
->> I think you'll have a higher reclaim rate for finding !READY if you
->> started at dr->cons instead: dr->cons is the one that was last ACK'ed,
->> and that ack would only have been sent after the peer had marked the
->> descriptor as DONE. (consumer would have had a chance to read more
->> descriptors, by the time the tx-reclaim loop goes around)
-   :
-> The descriptors indices we look at are unchanged by this patch.
+All patches are for -next.
 
-Understood, and what I suggested was an optimization for tx-reclaim.
+V2 - Add license for btcoexist/halbtc8812a1ant.{c,h}
+     Improve subject and commit message for patch 5 of series.
+     Add comments explaining routine that formats and sends kernel socket.
 
+Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+---
 
-> 	It should only happen if there is active traffic when a remote
-> crashes, but if a remote is giving us garbage in other cases, I think an
-> admin would want to check that out.
+Larry Finger (2):
+  rtlwifi: Change logging level for key change
+  rtlwifi: btcoexist: Remove typedef statements
 
-This allows one DomU to spam up everyone else's log file by crashing
-periodically.
+Troy Tan (4):
+  rtlwifi: btcoexist: Add routines for RTL8812AE with single antenna
+  rtlwifi: btcoexist: Add routines for RTL8812AE with dual antennae
+  rtlwifi: btcoexist: Add routines for RTL8812AE kernel socket
+  rtlwifi: btcoexist: Enable new routines for RTL8812AE
 
-In any case, the contents of the message do not in any way suggest
-that an admin (of the DomU, who probably has no control over
-other DomU's anyway) should go and baby-sit some other DomU that
-just crashed.
+ drivers/net/wireless/rtlwifi/btcoexist/Makefile    |    9 +
+ .../net/wireless/rtlwifi/btcoexist/halbt_precomp.h |    3 +
+ .../wireless/rtlwifi/btcoexist/halbtc8192e2ant.c   |    6 +-
+ .../wireless/rtlwifi/btcoexist/halbtc8723b2ant.h   |    6 +-
+ .../wireless/rtlwifi/btcoexist/halbtc8812a1ant.c   | 2073 ++++++++++
+ .../wireless/rtlwifi/btcoexist/halbtc8812a1ant.h   |  152 +
+ .../wireless/rtlwifi/btcoexist/halbtc8812a2ant.c   | 4207 ++++++++++++++++++++
+ .../wireless/rtlwifi/btcoexist/halbtc8812a2ant.h   |  177 +
+ .../wireless/rtlwifi/btcoexist/halbtc8812a_ext.c   |  921 +++++
+ .../wireless/rtlwifi/btcoexist/halbtc8812a_ext.h   |  359 ++
+ .../net/wireless/rtlwifi/btcoexist/halbtcoutsrc.c  |  713 +++-
+ .../net/wireless/rtlwifi/btcoexist/halbtcoutsrc.h  |  108 +-
+ drivers/net/wireless/rtlwifi/btcoexist/rtl_btc.c   |   37 +
+ drivers/net/wireless/rtlwifi/btcoexist/rtl_btc.h   |    6 +-
+ drivers/net/wireless/rtlwifi/cam.c                 |    2 +-
+ drivers/net/wireless/rtlwifi/core.c                |   17 +-
+ drivers/net/wireless/rtlwifi/rtl8723ae/hal_btc.h   |   14 -
+ drivers/net/wireless/rtlwifi/wifi.h                |   12 +-
+ 18 files changed, 8590 insertions(+), 232 deletions(-)
+ create mode 100644 drivers/net/wireless/rtlwifi/btcoexist/halbtc8812a1ant.c
+ create mode 100644 drivers/net/wireless/rtlwifi/btcoexist/halbtc8812a1ant.h
+ create mode 100644 drivers/net/wireless/rtlwifi/btcoexist/halbtc8812a2ant.c
+ create mode 100644 drivers/net/wireless/rtlwifi/btcoexist/halbtc8812a2ant.h
+ create mode 100644 drivers/net/wireless/rtlwifi/btcoexist/halbtc8812a_ext.c
+ create mode 100644 drivers/net/wireless/rtlwifi/btcoexist/halbtc8812a_ext.h
 
-ymmv.
-
---Sowmini
+-- 
+2.1.2
