@@ -1,99 +1,52 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: Fwd: Question on SCTP ABORT chunk is generated when the
- association_max_retrans is reached
-Date: Mon, 26 Jan 2015 08:47:27 -0500
-Message-ID: <20150126134727.GC31293@hmsreliant.think-freely.org>
-References: <CAFXGftKp3=OfjkCVBuR-zM3+uZ42Sk_9i2UjAHBNnbX=hQJwpA@mail.gmail.com>
- <CAFXGft+fwo=8LJEG7h6uOpGciSo5f_dXjSx3sn67RZZp7jsYHw@mail.gmail.com>
- <54C23581.9060809@redhat.com>
- <54C27137.5010405@gmail.com>
- <54C2807E.8080607@redhat.com>
- <54C2935F.2000105@gmail.com>
+From: Varka Bhadram <varkabhadram@gmail.com>
+Subject: Re: [PATCH bluetooth-next] ieee802154: cc2520: Replace shift operations
+ by BIT macro
+Date: Mon, 26 Jan 2015 19:34:18 +0530
+Message-ID: <54C64962.2070204@gmail.com>
+References: <1422021509-18877-1-git-send-email-md.jamalmohiuddin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Daniel Borkmann <dborkman@redhat.com>,
-	Sun Paul <paulrbk@gmail.com>, linux-sctp@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	tuexen@fh-muenster.de
-To: Vlad Yasevich <vyasevich@gmail.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Mohammad Jamal <md.jamalmohiuddin@gmail.com>, alex.aring@gmail.com,
+	linux-wpan@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <54C2935F.2000105@gmail.com>
+In-Reply-To: <1422021509-18877-1-git-send-email-md.jamalmohiuddin@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jan 23, 2015 at 01:30:55PM -0500, Vlad Yasevich wrote:
-> On 01/23/2015 12:10 PM, Daniel Borkmann wrote:
-> > On 01/23/2015 05:05 PM, Vlad Yasevich wrote:
-> >> On 01/23/2015 06:50 AM, Daniel Borkmann wrote:
-> >>> On 01/23/2015 11:25 AM, Sun Paul wrote:
-> >>> ...
-> >>>> I would like to check the behave in LKSCTP.
-> >>>>
-> >>>> we are running DIAMETER message over SCTP, and we have set the
-> >>>> parameter "net.sctp.association_max_retrans = 4" in the LinuxOS.
-> >>>>
-> >>>> We noticed that when remote peer have retry to send the same request
-> >>>> for 4 times, the LKSCTP will initiate an ABORT chunk with reason
-> >>>> "association exceeded its max_retrans count".
-> >>>>
-> >>>> We would like to know whether this is the correct behavior? is there
-> >>>> any other option that we can alter in order to avoid the ABORT chunk
-> >>>> being sent?
-> >>>
-> >>> I don't recall the RFC saying to send an ABORT, but let me double
-> >>> check in the mean time.
-> >>
-> >> The RFC is silent on the matter.  The abort got added in 3.8 so
-> >> it's been there for a while.
-> > 
-> > I see, commit de4594a51c90 ("sctp: send abort chunk when max_retrans
-> > exceeded") added the behaviour.
-> > 
-> >>> Hmm, untested, but could you try something like that?
-> >>>
-> >>> diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
-> >>> index fef2acd..5ce198d 100644
-> >>> --- a/net/sctp/sm_sideeffect.c
-> >>> +++ b/net/sctp/sm_sideeffect.c
-> >>> @@ -584,7 +584,8 @@ static void sctp_cmd_assoc_failed(sctp_cmd_seq_t *commands,
-> >>>           sctp_add_cmd_sf(commands, SCTP_CMD_EVENT_ULP,
-> >>>                   SCTP_ULPEVENT(event));
-> >>>
-> >>> -    if (asoc->overall_error_count >= asoc->max_retrans) {
-> >>> +    if (asoc->overall_error_count >= asoc->max_retrans &&
-> >>> +        error != SCTP_ERROR_NO_ERROR) {
-> >>>           abort = sctp_make_violation_max_retrans(asoc, chunk);
-> >>>           if (abort)
-> >>>               sctp_add_cmd_sf(commands, SCTP_CMD_REPLY,
-> >>
-> >> This would pretty much stop all ABORTs due to excessive rtx.  Might
-> >> as well take the code out :).
-> >>
-> >> I was a bit concerned about this ABORT when it went in.
-> > 
-> > So effectively, if I understand the argument from the commit, the
-> > assumption is that the ABORT would never reach the peer anyway, but
-> > is a way for tcpdump users to see on the wire that rtx limit has
-> > been exceeded and since there's not mentioned anything in the RFC
-> > about this, it doesn't break it. Hm.
-> > 
-> 
-> Additionally I seem to recall BSD sending this type of ABORT for pretty
-> much the same reason.
-> 
-> -vlad
-> 
-IIRC, BSD is where this patch came from initially.
-Neil
+Hi Jamal,
 
-> > Sun Paul, what exactly broke in your scenario? Can you be more explicit?
-> > 
-> > Thanks,
-> > Daniel
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+On Friday 23 January 2015 07:28 PM, Mohammad Jamal wrote:
+> This patch replaces the shifting operations by BIT macro
+
+Thanks for the patch.
+
+Acked-by: Varka Bhadram <varkabhadram@gmail.com>
+
+> Signed-off-by: Mohammad Jamal <md.jamalmohiuddin@gmail.com>
+> ---
+>   drivers/net/ieee802154/cc2520.c |    6 +++---
+>   1 file changed, 3 insertions(+), 3 deletions(-)
+>
+> diff --git a/drivers/net/ieee802154/cc2520.c b/drivers/net/ieee802154/cc2520.c
+> index 665a3db..181b349 100644
+> --- a/drivers/net/ieee802154/cc2520.c
+> +++ b/drivers/net/ieee802154/cc2520.c
+> @@ -44,9 +44,9 @@
+>   #define	CC2520_FREG_MASK	0x3F
+>   
+>   /* status byte values */
+> -#define	CC2520_STATUS_XOSC32M_STABLE	(1 << 7)
+> -#define	CC2520_STATUS_RSSI_VALID	(1 << 6)
+> -#define	CC2520_STATUS_TX_UNDERFLOW	(1 << 3)
+> +#define	CC2520_STATUS_XOSC32M_STABLE	BIT(7)
+> +#define	CC2520_STATUS_RSSI_VALID	BIT(6)
+> +#define	CC2520_STATUS_TX_UNDERFLOW	BIT(3)
+>   
+>   /* IEEE-802.15.4 defined constants (2.4 GHz logical channels) */
+>   #define	CC2520_MINCHANNEL		11
+
+-- 
+Thanks and Regards,
+Varka Bhadram.
