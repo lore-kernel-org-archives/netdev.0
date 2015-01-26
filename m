@@ -1,54 +1,59 @@
 From: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>
-Subject: [PATCH 1/5] PCI: Add defines for max read request sizes
-Date: Mon, 26 Jan 2015 18:05:22 +0100
-Message-ID: <1422291922-12324-1-git-send-email-zajec5@gmail.com>
+Subject: [PATCH 5/5] r8169: use PCI define for max read request size
+Date: Mon, 26 Jan 2015 18:06:31 +0100
+Message-ID: <1422291991-12535-1-git-send-email-zajec5@gmail.com>
+References: <1422291922-12324-1-git-send-email-zajec5@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Matt Porter <mporter@kernel.crashing.org>,
-	Alexandre Bounine <alexandre.bounine@idt.com>,
-	Chris Metcalf <cmetcalf@ezchip.com>,
-	Bradley Grove <linuxdrivers@attotech.com>,
-	linux-scsi@vger.kernel.org,
-	Realtek linux nic maintainers <nic_swsd@realtek.com>,
+Cc: Realtek linux nic maintainers <nic_swsd@realtek.com>,
 	netdev@vger.kernel.org,
 	=?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>
 To: Bjorn Helgaas <bhelgaas@google.com>, linux-pci@vger.kernel.org
-Return-path: <linux-scsi-owner@vger.kernel.org>
-Sender: linux-scsi-owner@vger.kernel.org
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <1422291922-12324-1-git-send-email-zajec5@gmail.com>
+Sender: linux-pci-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
-
-There are few drivers using magic numbers when operating with PCIe
-capabilities and PCI_EXP_DEVCTL_READRQ. Define known values to allow
-cleaning their code a bit.
 
 Signed-off-by: Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>
 ---
- include/uapi/linux/pci_regs.h | 4 ++++
- 1 file changed, 4 insertions(+)
+ drivers/net/ethernet/realtek/r8169.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/include/uapi/linux/pci_regs.h b/include/uapi/linux/pci_reg=
-s.h
-index 4a1d0cc..efe3443 100644
---- a/include/uapi/linux/pci_regs.h
-+++ b/include/uapi/linux/pci_regs.h
-@@ -451,6 +451,10 @@
- #define  PCI_EXP_DEVCTL_AUX_PME	0x0400	/* Auxiliary Power PM Enable */
- #define  PCI_EXP_DEVCTL_NOSNOOP_EN 0x0800  /* Enable No Snoop */
- #define  PCI_EXP_DEVCTL_READRQ	0x7000	/* Max_Read_Request_Size */
-+#define  PCI_EXP_DEVCTL_READRQ_128B  0x0000 /* 128 Bytes */
-+#define  PCI_EXP_DEVCTL_READRQ_256B  0x1000 /* 256 Bytes */
-+#define  PCI_EXP_DEVCTL_READRQ_512B  0x2000 /* 512 Bytes */
-+#define  PCI_EXP_DEVCTL_READRQ_1024B 0x3000 /* 1024 Bytes */
- #define  PCI_EXP_DEVCTL_BCR_FLR 0x8000  /* Bridge Configuration Retry =
-/ FLR */
- #define PCI_EXP_DEVSTA		10	/* Device Status */
- #define  PCI_EXP_DEVSTA_CED	0x0001	/* Correctable Error Detected */
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/etherne=
+t/realtek/r8169.c
+index 14a1c5c..fa274e0 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -4915,7 +4915,7 @@ static void r8168c_hw_jumbo_enable(struct rtl8169=
+_private *tp)
+=20
+ 	RTL_W8(Config3, RTL_R8(Config3) | Jumbo_En0);
+ 	RTL_W8(Config4, RTL_R8(Config4) | Jumbo_En1);
+-	rtl_tx_performance_tweak(tp->pci_dev, 0x2 << MAX_READ_REQUEST_SHIFT);
++	rtl_tx_performance_tweak(tp->pci_dev, PCI_EXP_DEVCTL_READRQ_512B);
+ }
+=20
+ static void r8168c_hw_jumbo_disable(struct rtl8169_private *tp)
+@@ -4948,7 +4948,7 @@ static void r8168e_hw_jumbo_enable(struct rtl8169=
+_private *tp)
+ 	RTL_W8(MaxTxPacketSize, 0x3f);
+ 	RTL_W8(Config3, RTL_R8(Config3) | Jumbo_En0);
+ 	RTL_W8(Config4, RTL_R8(Config4) | 0x01);
+-	rtl_tx_performance_tweak(tp->pci_dev, 0x2 << MAX_READ_REQUEST_SHIFT);
++	rtl_tx_performance_tweak(tp->pci_dev, PCI_EXP_DEVCTL_READRQ_512B);
+ }
+=20
+ static void r8168e_hw_jumbo_disable(struct rtl8169_private *tp)
+@@ -4964,7 +4964,7 @@ static void r8168e_hw_jumbo_disable(struct rtl816=
+9_private *tp)
+ static void r8168b_0_hw_jumbo_enable(struct rtl8169_private *tp)
+ {
+ 	rtl_tx_performance_tweak(tp->pci_dev,
+-		(0x2 << MAX_READ_REQUEST_SHIFT) | PCI_EXP_DEVCTL_NOSNOOP_EN);
++		PCI_EXP_DEVCTL_READRQ_512B | PCI_EXP_DEVCTL_NOSNOOP_EN);
+ }
+=20
+ static void r8168b_0_hw_jumbo_disable(struct rtl8169_private *tp)
 --=20
 1.8.4.5
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-scsi" i=
-n
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
