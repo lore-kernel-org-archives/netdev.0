@@ -1,21 +1,18 @@
-From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Subject: Re: make allyesconfig i386 build failure with next-20150122 (caused
- by fb_agm1264k-fl driver)
-Date: Mon, 26 Jan 2015 14:46:54 -0800
-Message-ID: <20150126224654.GA17166@kroah.com>
-References: <CA+r1ZhhXF+hicy7JKo3jAbgSbO4KOLm6BwPosTKNb+E_Cb4yPQ@mail.gmail.com>
- <20150126215959.GA9853@roeck-us.net>
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: RE: [PATCH v2] net: hyperv: else branch not necessary
+Date: Mon, 26 Jan 2015 22:47:18 +0000
+Message-ID: <BN1PR0301MB0770F37DD16FE4D9AF368083CA350@BN1PR0301MB0770.namprd03.prod.outlook.com>
+References: <1422209317-18975-1-git-send-email-der.herr@hofr.at>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: devel <devel@driverdev.osuosl.org>, Stephen Rothwell <sfr@canb.auug.org.au>,
- isdn@linux-pingi.de, netdev <netdev@vger.kernel.org>,
- linux-kernel <linux-kernel@vger.kernel.org>,
- linux-next <linux-next@vger.kernel.org>, Jim Davis <jim.epost@gmail.com>
-To: Guenter Roeck <linux@roeck-us.net>
+Cc: "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Nicholas Mc Guire <der.herr@hofr.at>, KY Srinivasan <kys@microsoft.com>
 Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-Content-Disposition: inline
-In-Reply-To: <20150126215959.GA9853@roeck-us.net>
+In-Reply-To: <1422209317-18975-1-git-send-email-der.herr@hofr.at>
+Content-Language: en-US
 List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
  <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
 List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
@@ -27,31 +24,59 @@ Errors-To: driverdev-devel-bounces@linuxdriverproject.org
 Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jan 26, 2015 at 01:59:59PM -0800, Guenter Roeck wrote:
-> On Thu, Jan 22, 2015 at 12:10:33PM -0700, Jim Davis wrote:
-> > make ARCH=i386 allyesconfig fails with
-> > 
-> > drivers/staging/built-in.o: In function `reset':
-> > (.text+0x2ae89d): multiple definition of `reset'
-> > drivers/isdn/built-in.o:(.text+0x185dc2): first defined here
-> > make[1]: *** [drivers/built-in.o] Error 1
-> 
-> Culprit:
-> 
-> commit b2ebd4be6fa1d2329b63531b044f9e25474981cb
-> Author: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-> Date:   Wed Dec 31 10:11:10 2014 +0100
-> 
->     staging: fbtft: add fb_agm1264k-fl driver
-> 
-> A global function named 'reset' isn't really a good idea.
-> 
-> Not that the global function with the same name in the isdn code
-> is better ;-).
 
-Agreed, the fbtft code is now fixed.  Patches to fix the isdn code would
-be gladly accepted as well :)
 
-thanks,
+> -----Original Message-----
+> From: Nicholas Mc Guire [mailto:der.herr@hofr.at]
+> Sent: Sunday, January 25, 2015 1:09 PM
+> To: KY Srinivasan
+> Cc: Haiyang Zhang; devel@linuxdriverproject.org; netdev@vger.kernel.org;
+> linux-kernel@vger.kernel.org; Nicholas Mc Guire
+> Subject: [PATCH v2] net: hyperv: else branch not necessary
+> 
+> As the if completes with a unconditional goto the else branch
+> is not needed here.
+> 
+> Signed-off-by: Nicholas Mc Guire <der.herr@hofr.at>
 
-greg k-h
+Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+Thank you!
+
+> ---
+> 
+> v2: added missing subsystem string in subject line - patch unchanged
+> 
+> All paths of execution that did not exit through the if branch will
+> go through the else branch so no need for an explicit else here
+> 
+> Patch was compile tested only for x86_64_defconfig + CONFIG_X86_VSMP=y
+> CONFIG_HYPERV=m, CONFIG_HYPERV_NET=m
+> 
+> Patch is against 3.19.0-rc5 -next-20150123
+> 
+>  drivers/net/hyperv/rndis_filter.c |    8 ++++----
+>  1 file changed, 4 insertions(+), 4 deletions(-)
+> 
+> diff --git a/drivers/net/hyperv/rndis_filter.c
+> b/drivers/net/hyperv/rndis_filter.c
+> index 7bd8387..efb84a9 100644
+> --- a/drivers/net/hyperv/rndis_filter.c
+> +++ b/drivers/net/hyperv/rndis_filter.c
+> @@ -833,10 +833,10 @@ int rndis_filter_set_packet_filter(struct
+> rndis_device *dev, u32 new_filter)
+>  		 * send completion for it.
+>  		 */
+>  		goto exit;
+> -	} else {
+> -		set_complete = &request->response_msg.msg.set_complete;
+> -		status = set_complete->status;
+> -	}
+> +	}
+> +
+> +	set_complete = &request->response_msg.msg.set_complete;
+> +	status = set_complete->status;
+> 
+>  cleanup:
+>  	if (request)
+> --
+> 1.7.10.4
