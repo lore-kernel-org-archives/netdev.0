@@ -1,83 +1,92 @@
-From: Erik Hugne <erik.hugne@ericsson.com>
-Subject: Re: [PATCH net-next 2/2] flow_dissector: add tipc
-	support
-Date: Tue, 27 Jan 2015 13:08:52 +0100
-Message-ID: <20150127120852.GB11522@haze>
-References: <1421943032-29924-1-git-send-email-erik.hugne@ericsson.com>
-	<1421943032-29924-2-git-send-email-erik.hugne@ericsson.com>
-	<1421947751.3471.12.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20150126.165749.913857343835846078.davem@davemloft.net>
+From: Luis Henriques <luis.henriques@canonical.com>
+Subject: [PATCH 3.16.y-ckt 073/126] xen-netfront: Fix handling
+	packets on compound pages with skb_linearize
+Date: Tue, 27 Jan 2015 12:16:18 +0000
+Message-ID: <1422361031-19364-74-git-send-email-luis.henriques@canonical.com>
+References: <1422361031-19364-1-git-send-email-luis.henriques@canonical.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: jon.maloy@ericsson.com, eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	tipc-discussion@lists.sourceforge.net
-To: David Miller <davem@davemloft.net>
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-Content-Disposition: inline
-In-Reply-To: <20150126.165749.913857343835846078.davem@davemloft.net>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+Cc: Wei Liu <wei.liu2@citrix.com>, Ian Campbell <Ian.Campbell@citrix.com>,
+	Luis Henriques <luis.henriques@canonical.com>, netdev@vger.kernel.org,
+	Stefan Bader <stefan.bader@canonical.com>,
+	Paul Durrant <paul.durrant@citrix.com>,
+	Zoltan Kiss <zoltan.kiss@citrix.com>, xen-devel@lists.xenproject.org,
+	"David S. Miller" <davem@davemloft.net>
+To: linux-kernel@vger.kernel.org, stable@vger.kernel.org,
+	kernel-team@lists.ubuntu.com
+Return-path: <xen-devel-bounces@lists.xen.org>
+In-Reply-To: <1422361031-19364-1-git-send-email-luis.henriques@canonical.com>
+List-Unsubscribe: <http://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
+	<mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xen.org>
+List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
+List-Subscribe: <http://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
+	<mailto:xen-devel-request@lists.xen.org?subject=subscribe>
+Sender: xen-devel-bounces@lists.xen.org
+Errors-To: xen-devel-bounces@lists.xen.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jan 26, 2015 at 04:57:49PM -0800, David Miller wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Thu, 22 Jan 2015 09:29:11 -0800
-> 
-> > On Thu, 2015-01-22 at 17:10 +0100, erik.hugne@ericsson.com wrote:
-> >> From: Erik Hugne <erik.hugne@ericsson.com>
-> >> 
-> >> The flows are hashed on the sending node address, which allows us
-> >> to spread out the TIPC link processing to RPS enabled cores. There
-> >> is no point to include the destination address in the hash as that
-> >> will always be the same for all inbound links. We have experimented
-> >> with a 3-tuple hash over [srcnode, sport, dport], but this showed to
-> >> give slightly lower performance because of increased lock contention
-> >> when the same link was handled by multiple cores.
-> >> 
-> >> Signed-off-by: Ying Xue <ying.xue@windriver.com>
-> >> Signed-off-by: Erik Hugne <erik.hugne@ericsson.com>
-> >> Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
-> >> ---
-> >>  net/core/flow_dissector.c | 14 ++++++++++++++
-> >>  1 file changed, 14 insertions(+)
-> >> 
-> >> diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-> >> index 4508493..beb83d1 100644
-> >> --- a/net/core/flow_dissector.c
-> >> +++ b/net/core/flow_dissector.c
-> >> @@ -178,6 +178,20 @@ ipv6:
-> >>  			return false;
-> >>  		}
-> >>  	}
-> >> +	case htons(ETH_P_TIPC): {
-> >> +		struct {
-> >> +			__be32 pre[3];
-> >> +			__be32 srcnode;
-> >> +		} *hdr, _hdr;
-> > 
-> > Is this header defined somewhere in an include file ?
-> > 
-> > This looks a bit ugly to locally define the format...
-> 
-> I'd like this situation improved but I plan to apply this as-is for
-> now.
+3.16.7-ckt5 -stable review patch.  If anyone has any objections, please let me know.
 
-About time we do something about this.. I'll post a patch with proper header
-definitions soon.
+------------------
 
-//E
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
 
+commit 97a6d1bb2b658ac85ed88205ccd1ab809899884d upstream.
 
-------------------------------------------------------------------------------
-Dive into the World of Parallel Programming. The Go Parallel Website,
-sponsored by Intel and developed in partnership with Slashdot Media, is your
-hub for all things parallel software development, from weekly thought
-leadership blogs to news, videos, case studies, tutorials and more. Take a
-look and join the conversation now. http://goparallel.sourceforge.net/
+There is a long known problem with the netfront/netback interface: if the guest
+tries to send a packet which constitues more than MAX_SKB_FRAGS + 1 ring slots,
+it gets dropped. The reason is that netback maps these slots to a frag in the
+frags array, which is limited by size. Having so many slots can occur since
+compound pages were introduced, as the ring protocol slice them up into
+individual (non-compound) page aligned slots. The theoretical worst case
+scenario looks like this (note, skbs are limited to 64 Kb here):
+linear buffer: at most PAGE_SIZE - 17 * 2 bytes, overlapping page boundary,
+using 2 slots
+first 15 frags: 1 + PAGE_SIZE + 1 bytes long, first and last bytes are at the
+end and the beginning of a page, therefore they use 3 * 15 = 45 slots
+last 2 frags: 1 + 1 bytes, overlapping page boundary, 2 * 2 = 4 slots
+Although I don't think this 51 slots skb can really happen, we need a solution
+which can deal with every scenario. In real life there is only a few slots
+overdue, but usually it causes the TCP stream to be blocked, as the retry will
+most likely have the same buffer layout.
+This patch solves this problem by linearizing the packet. This is not the
+fastest way, and it can fail much easier as it tries to allocate a big linear
+area for the whole packet, but probably easier by an order of magnitude than
+anything else. Probably this code path is not touched very frequently anyway.
+
+Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
+Cc: Wei Liu <wei.liu2@citrix.com>
+Cc: Ian Campbell <Ian.Campbell@citrix.com>
+Cc: Paul Durrant <paul.durrant@citrix.com>
+Cc: netdev@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
+Cc: xen-devel@lists.xenproject.org
+Signed-off-by: David S. Miller <davem@davemloft.net>
+Cc: Stefan Bader <stefan.bader@canonical.com>
+Signed-off-by: Luis Henriques <luis.henriques@canonical.com>
+---
+ drivers/net/xen-netfront.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+index 7a4cd11e6a07..3e0019503440 100644
+--- a/drivers/net/xen-netfront.c
++++ b/drivers/net/xen-netfront.c
+@@ -623,9 +623,10 @@ static int xennet_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	slots = DIV_ROUND_UP(offset + len, PAGE_SIZE) +
+ 		xennet_count_skb_frag_slots(skb);
+ 	if (unlikely(slots > MAX_SKB_FRAGS + 1)) {
+-		net_alert_ratelimited(
+-			"xennet: skb rides the rocket: %d slots\n", slots);
+-		goto drop;
++		net_dbg_ratelimited("xennet: skb rides the rocket: %d slots, %d bytes\n",
++				    slots, skb->len);
++		if (skb_linearize(skb))
++			goto drop;
+ 	}
+ 
+ 	spin_lock_irqsave(&queue->tx_lock, flags);
+-- 
+2.1.4
