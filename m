@@ -1,56 +1,36 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH net-next v8 0/4] net: Add Keystone NetCP ethernet driver support
-Date: Tue, 27 Jan 2015 23:28:42 +0100
-Message-ID: <25883654.BLFxICW9P0@wuerfel>
-References: <1421367007-19744-1-git-send-email-m-karicheri2@ti.com> <20150119.151106.822126941934010309.davem@davemloft.net> <54BE7A00.2020205@ti.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 1/2] rhashtable: Introduce rhashtable_walk_*
+Date: Wed, 28 Jan 2015 10:16:22 +1100
+Message-ID: <20150127231622.GA11287@gondor.apana.org.au>
+References: <20150127112304.GA4548@gondor.apana.org.au>
+ <20150127114028.GG22262@casper.infradead.org>
+ <20150127203924.GB9061@gondor.apana.org.au>
+ <20150127.141018.1208673547021029175.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: David Miller <davem@davemloft.net>, devicetree@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Murali Karicheri <m-karicheri2@ti.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <54BE7A00.2020205@ti.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: tgraf@suug.ch, David.Laight@ACULAB.COM, ying.xue@windriver.com,
+	kaber@trash.net, paulmck@linux.vnet.ibm.com,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from helcar.apana.org.au ([209.40.204.226]:43987 "EHLO
+	helcar.apana.org.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752259AbbA0XQ5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2015 18:16:57 -0500
+Content-Disposition: inline
+In-Reply-To: <20150127.141018.1208673547021029175.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 20 January 2015 10:53:36 Murali Karicheri wrote:
-> On 01/19/2015 03:11 PM, David Miller wrote:
-> > From: Murali Karicheri<m-karicheri2@ti.com>
-> > Date: Thu, 15 Jan 2015 19:10:03 -0500
-> >
-> >> The Network Coprocessor (NetCP) is a hardware accelerator that processes
-> >> Ethernet packets. NetCP has a gigabit Ethernet (GbE) subsystem with a ethernet
-> >> switch sub-module to send and receive packets. NetCP also includes a packet
-> >> accelerator (PA) module to perform packet classification operations such as
-> >> header matching, and packet modification operations such as checksum
-> >> generation. NetCP can also optionally include a Security Accelerator(SA)
-> >> capable of performing IPSec operations on ingress/egress packets.
-> >>
-> >> Keystone SoC's also have a 10 Gigabit Ethernet Subsystem (XGbE) which
-> >> includes a 3-port Ethernet switch sub-module capable of 10Gb/s and
-> >> 1Gb/s rates per Ethernet port.
-> >>
-> >> Both GBE and XGBE network processors supported using common driver. It
-> >> is also designed to handle future variants of NetCP.
-> >
-> > Series applied to net-next, thanks.
-> David,
-> 
-> Thanks a lot for applying this series. This helps us move forward to 
-> work on the next set of patches.
+On Tue, Jan 27, 2015 at 02:10:18PM -0800, David Miller wrote:
+>
+> For netlink a linked list is no big deal, but for something like TCP
+> sockets it really is.
 
-Hi Murali,
+OK then I'll resubmit my iterators.
 
-Building an ARM 'allmodconfig' kernel now runs into two separate problems
-from your driver:
-
-- you have two module_init() instances in one module, which conflict.
-
-- you have two files that are linked into more than one module, so building
-  both TI_CPSW and TI_KEYSTONE_NETCP in the same kernel fails.
-
-The answer to both of these is probably to have separate loadable modules,
-but you might be able to come up with a different solution.
-
-	Arnd
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
