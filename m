@@ -1,7 +1,7 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next 05/10] net/mlx4_core: Fix HW2SW_EQ to conform to the firmware spec
-Date: Tue, 27 Jan 2015 11:32:54 +0200
-Message-ID: <1422351179-27284-6-git-send-email-amirv@mellanox.com>
+Subject: [PATCH net-next 04/10] net/mlx4_core: Adjust command timeouts to conform to the firmware spec
+Date: Tue, 27 Jan 2015 11:32:53 +0200
+Message-ID: <1422351179-27284-5-git-send-email-amirv@mellanox.com>
 References: <1422351179-27284-1-git-send-email-amirv@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Amir Vadai <amirv@mellanox.com>,
@@ -9,139 +9,126 @@ Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Jack Morgenstein <jackm@dev.mellanox.co.il>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:56287 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:56305 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751895AbbA0JdV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Jan 2015 04:33:21 -0500
+	id S1751895AbbA0Jdh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Jan 2015 04:33:37 -0500
 In-Reply-To: <1422351179-27284-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jack Morgenstein <jackm@dev.mellanox.co.il>
 
-The driver incorrectly assigned an out-mailbox to this command,
-and used an opcode modifier = 0, which is a reserved value (it
-should use opcode modifier = 1).
+The firmware spec states that the timeout for all commands should be 60 seconds.
+
+In the past, the spec indicated that there were several classes of timeout
+(short, medium, and long).  The driver has these different timeout classes.
+We leave the class differentiation in the driver as-is (to protect against any
+future spec changes), but set the timeout for all classes to be 60 seconds.
+
+In addition, we fix a few commands which had hard-coded numeric timeouts specified.
 
 Signed-off-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
 Signed-off-by: Amir Vadai <amirv@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/cmd.c           |  2 +-
- drivers/net/ethernet/mellanox/mlx4/eq.c            | 26 ++++------------------
- .../net/ethernet/mellanox/mlx4/resource_tracker.c  | 16 ++++---------
- 3 files changed, 9 insertions(+), 35 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/fw.c | 19 ++++++++++---------
+ drivers/net/ethernet/mellanox/mlx4/mr.c |  4 ++--
+ include/linux/mlx4/cmd.h                |  6 +++---
+ 3 files changed, 15 insertions(+), 14 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/cmd.c b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-index 2b48932..928b706 100644
---- a/drivers/net/ethernet/mellanox/mlx4/cmd.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-@@ -1221,7 +1221,7 @@ static struct mlx4_cmd_info cmd_info[] = {
- 	{
- 		.opcode = MLX4_CMD_HW2SW_EQ,
- 		.has_inbox = false,
--		.has_outbox = true,
-+		.has_outbox = false,
- 		.out_is_imm = false,
- 		.encode_slave_id = true,
- 		.verify = NULL,
-diff --git a/drivers/net/ethernet/mellanox/mlx4/eq.c b/drivers/net/ethernet/mellanox/mlx4/eq.c
-index 4df006d..264bc15 100644
---- a/drivers/net/ethernet/mellanox/mlx4/eq.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/eq.c
-@@ -868,12 +868,10 @@ static int mlx4_SW2HW_EQ(struct mlx4_dev *dev, struct mlx4_cmd_mailbox *mailbox,
- 			MLX4_CMD_WRAPPED);
- }
+diff --git a/drivers/net/ethernet/mellanox/mlx4/fw.c b/drivers/net/ethernet/mellanox/mlx4/fw.c
+index 2aa7c23..0c90d10 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/fw.c
++++ b/drivers/net/ethernet/mellanox/mlx4/fw.c
+@@ -1774,8 +1774,8 @@ int mlx4_INIT_HCA(struct mlx4_dev *dev, struct mlx4_init_hca_param *param)
+ 		MLX4_PUT(inbox, parser_params,	INIT_HCA_VXLAN_OFFSET);
+ 	}
  
--static int mlx4_HW2SW_EQ(struct mlx4_dev *dev, struct mlx4_cmd_mailbox *mailbox,
--			 int eq_num)
-+static int mlx4_HW2SW_EQ(struct mlx4_dev *dev,  int eq_num)
+-	err = mlx4_cmd(dev, mailbox->dma, 0, 0, MLX4_CMD_INIT_HCA, 10000,
+-		       MLX4_CMD_NATIVE);
++	err = mlx4_cmd(dev, mailbox->dma, 0, 0, MLX4_CMD_INIT_HCA,
++		       MLX4_CMD_TIME_CLASS_C, MLX4_CMD_NATIVE);
+ 
+ 	if (err)
+ 		mlx4_err(dev, "INIT_HCA returns %d\n", err);
+@@ -2029,7 +2029,7 @@ int mlx4_CLOSE_PORT_wrapper(struct mlx4_dev *dev, int slave,
+ 	if (dev->caps.port_mask[port] != MLX4_PORT_TYPE_IB) {
+ 		if (priv->mfunc.master.init_port_ref[port] == 1) {
+ 			err = mlx4_cmd(dev, 0, port, 0, MLX4_CMD_CLOSE_PORT,
+-				       1000, MLX4_CMD_NATIVE);
++				       MLX4_CMD_TIME_CLASS_A, MLX4_CMD_NATIVE);
+ 			if (err)
+ 				return err;
+ 		}
+@@ -2040,7 +2040,7 @@ int mlx4_CLOSE_PORT_wrapper(struct mlx4_dev *dev, int slave,
+ 			if (!priv->mfunc.master.qp0_state[port].qp0_active &&
+ 			    priv->mfunc.master.qp0_state[port].port_active) {
+ 				err = mlx4_cmd(dev, 0, port, 0, MLX4_CMD_CLOSE_PORT,
+-					       1000, MLX4_CMD_NATIVE);
++					       MLX4_CMD_TIME_CLASS_A, MLX4_CMD_NATIVE);
+ 				if (err)
+ 					return err;
+ 				priv->mfunc.master.slave_state[slave].init_port_mask &= ~(1 << port);
+@@ -2055,15 +2055,15 @@ int mlx4_CLOSE_PORT_wrapper(struct mlx4_dev *dev, int slave,
+ 
+ int mlx4_CLOSE_PORT(struct mlx4_dev *dev, int port)
  {
--	return mlx4_cmd_box(dev, 0, mailbox->dma, eq_num,
--			    0, MLX4_CMD_HW2SW_EQ, MLX4_CMD_TIME_CLASS_A,
--			    MLX4_CMD_WRAPPED);
-+	return mlx4_cmd(dev, 0, eq_num, 1, MLX4_CMD_HW2SW_EQ,
+-	return mlx4_cmd(dev, 0, port, 0, MLX4_CMD_CLOSE_PORT, 1000,
+-			MLX4_CMD_WRAPPED);
++	return mlx4_cmd(dev, 0, port, 0, MLX4_CMD_CLOSE_PORT,
 +			MLX4_CMD_TIME_CLASS_A, MLX4_CMD_WRAPPED);
  }
+ EXPORT_SYMBOL_GPL(mlx4_CLOSE_PORT);
  
- static int mlx4_num_eq_uar(struct mlx4_dev *dev)
-@@ -1046,7 +1044,6 @@ static void mlx4_free_eq(struct mlx4_dev *dev,
- 			 struct mlx4_eq *eq)
+ int mlx4_CLOSE_HCA(struct mlx4_dev *dev, int panic)
  {
- 	struct mlx4_priv *priv = mlx4_priv(dev);
--	struct mlx4_cmd_mailbox *mailbox;
- 	int err;
- 	int i;
- 	/* CX3 is capable of extending the CQE/EQE from 32 to 64 bytes, with
-@@ -1054,24 +1051,10 @@ static void mlx4_free_eq(struct mlx4_dev *dev,
- 	 */
- 	int npages = PAGE_ALIGN(dev->caps.eqe_size  * eq->nent) / PAGE_SIZE;
- 
--	mailbox = mlx4_alloc_cmd_mailbox(dev);
--	if (IS_ERR(mailbox))
--		return;
--
--	err = mlx4_HW2SW_EQ(dev, mailbox, eq->eqn);
-+	err = mlx4_HW2SW_EQ(dev, eq->eqn);
- 	if (err)
- 		mlx4_warn(dev, "HW2SW_EQ failed (%d)\n", err);
- 
--	if (0) {
--		mlx4_dbg(dev, "Dumping EQ context %02x:\n", eq->eqn);
--		for (i = 0; i < sizeof (struct mlx4_eq_context) / 4; ++i) {
--			if (i % 4 == 0)
--				pr_cont("[%02x] ", i * 4);
--			pr_cont(" %08x", be32_to_cpup(mailbox->buf + i * 4));
--			if ((i + 1) % 4 == 0)
--				pr_cont("\n");
--		}
--	}
- 	synchronize_irq(eq->irq);
- 	tasklet_disable(&eq->tasklet_ctx.task);
- 
-@@ -1083,7 +1066,6 @@ static void mlx4_free_eq(struct mlx4_dev *dev,
- 
- 	kfree(eq->page_list);
- 	mlx4_bitmap_free(&priv->eq_table.bitmap, eq->eqn, MLX4_USE_RR);
--	mlx4_free_cmd_mailbox(dev, mailbox);
+-	return mlx4_cmd(dev, 0, 0, panic, MLX4_CMD_CLOSE_HCA, 1000,
+-			MLX4_CMD_NATIVE);
++	return mlx4_cmd(dev, 0, 0, panic, MLX4_CMD_CLOSE_HCA,
++			MLX4_CMD_TIME_CLASS_C, MLX4_CMD_NATIVE);
  }
  
- static void mlx4_free_irqs(struct mlx4_dev *dev)
-diff --git a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-index 3e93879..79feeb6 100644
---- a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-@@ -4677,7 +4677,6 @@ static void rem_slave_eqs(struct mlx4_dev *dev, int slave)
- 	int state;
- 	LIST_HEAD(tlist);
- 	int eqn;
--	struct mlx4_cmd_mailbox *mailbox;
+ struct mlx4_config_dev {
+@@ -2202,7 +2202,8 @@ int mlx4_SET_ICM_SIZE(struct mlx4_dev *dev, u64 icm_size, u64 *aux_pages)
+ int mlx4_NOP(struct mlx4_dev *dev)
+ {
+ 	/* Input modifier of 0x1f means "finish as soon as possible." */
+-	return mlx4_cmd(dev, 0, 0x1f, 0, MLX4_CMD_NOP, 100, MLX4_CMD_NATIVE);
++	return mlx4_cmd(dev, 0, 0x1f, 0, MLX4_CMD_NOP, MLX4_CMD_TIME_CLASS_A,
++			MLX4_CMD_NATIVE);
+ }
  
- 	err = move_all_busy(dev, slave, RES_EQ);
- 	if (err)
-@@ -4703,20 +4702,13 @@ static void rem_slave_eqs(struct mlx4_dev *dev, int slave)
- 					break;
+ int mlx4_get_phys_port_id(struct mlx4_dev *dev)
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mr.c b/drivers/net/ethernet/mellanox/mlx4/mr.c
+index 8dbdf1d..d21e884 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mr.c
++++ b/drivers/net/ethernet/mellanox/mlx4/mr.c
+@@ -1155,7 +1155,7 @@ EXPORT_SYMBOL_GPL(mlx4_fmr_free);
  
- 				case RES_EQ_HW:
--					mailbox = mlx4_alloc_cmd_mailbox(dev);
--					if (IS_ERR(mailbox)) {
--						cond_resched();
--						continue;
--					}
--					err = mlx4_cmd_box(dev, slave, 0,
--							   eqn & 0xff, 0,
--							   MLX4_CMD_HW2SW_EQ,
--							   MLX4_CMD_TIME_CLASS_A,
--							   MLX4_CMD_NATIVE);
-+					err = mlx4_cmd(dev, slave, eqn & 0xff,
-+						       1, MLX4_CMD_HW2SW_EQ,
-+						       MLX4_CMD_TIME_CLASS_A,
-+						       MLX4_CMD_NATIVE);
- 					if (err)
- 						mlx4_dbg(dev, "rem_slave_eqs: failed to move slave %d eqs %d to SW ownership\n",
- 							 slave, eqn);
--					mlx4_free_cmd_mailbox(dev, mailbox);
- 					atomic_dec(&eq->mtt->ref_count);
- 					state = RES_EQ_RESERVED;
- 					break;
+ int mlx4_SYNC_TPT(struct mlx4_dev *dev)
+ {
+-	return mlx4_cmd(dev, 0, 0, 0, MLX4_CMD_SYNC_TPT, 1000,
+-			MLX4_CMD_NATIVE);
++	return mlx4_cmd(dev, 0, 0, 0, MLX4_CMD_SYNC_TPT,
++			MLX4_CMD_TIME_CLASS_A, MLX4_CMD_NATIVE);
+ }
+ EXPORT_SYMBOL_GPL(mlx4_SYNC_TPT);
+diff --git a/include/linux/mlx4/cmd.h b/include/linux/mlx4/cmd.h
+index c989442..ae95adc 100644
+--- a/include/linux/mlx4/cmd.h
++++ b/include/linux/mlx4/cmd.h
+@@ -165,9 +165,9 @@ enum {
+ };
+ 
+ enum {
+-	MLX4_CMD_TIME_CLASS_A	= 10000,
+-	MLX4_CMD_TIME_CLASS_B	= 10000,
+-	MLX4_CMD_TIME_CLASS_C	= 10000,
++	MLX4_CMD_TIME_CLASS_A	= 60000,
++	MLX4_CMD_TIME_CLASS_B	= 60000,
++	MLX4_CMD_TIME_CLASS_C	= 60000,
+ };
+ 
+ enum {
 -- 
 1.9.3
