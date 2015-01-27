@@ -1,62 +1,61 @@
-From: Jay Vosburgh <jay.vosburgh@canonical.com>
-Subject: Re: [PATCH net-next v2 5/5] bonding: cleanup and remove dead code
-Date: Mon, 26 Jan 2015 16:46:04 -0800
-Message-ID: <21764.1422319564@famine>
-References: <1422253021-3798-1-git-send-email-jtoppins@cumulusnetworks.com> <1422253021-3798-6-git-send-email-jtoppins@cumulusnetworks.com>
-Cc: Veaceslav Falico <vfalico@gmail.com>,
-	Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org
+From: Andy Gospodarek <gospo@cumulusnetworks.com>
+Subject: Re: [PATCH net-next v2 0/5] bonding: various 802.3ad fixes
+Date: Mon, 26 Jan 2015 19:49:24 -0500
+Message-ID: <20150127004924.GA13164@gospo.home.greyhouse.net>
+References: <1422253021-3798-1-git-send-email-jtoppins@cumulusnetworks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Jay Vosburgh <j.vosburgh@gmail.com>,
+	Veaceslav Falico <vfalico@gmail.com>, netdev@vger.kernel.org
 To: Jonathan Toppins <jtoppins@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:60142 "EHLO
-	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757176AbbA0AqI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2015 19:46:08 -0500
-In-reply-to: <1422253021-3798-6-git-send-email-jtoppins@cumulusnetworks.com>
+Received: from mail-qg0-f43.google.com ([209.85.192.43]:41273 "EHLO
+	mail-qg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751623AbbA0Atd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2015 19:49:33 -0500
+Received: by mail-qg0-f43.google.com with SMTP id e89so9673575qgf.2
+        for <netdev@vger.kernel.org>; Mon, 26 Jan 2015 16:49:32 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1422253021-3798-1-git-send-email-jtoppins@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jonathan Toppins <jtoppins@cumulusnetworks.com> wrote:
+On Mon, Jan 26, 2015 at 01:16:56AM -0500, Jonathan Toppins wrote:
+> This patch series is a forward porting of patches we (Cumulus) are shipping
+> in our 3.2 series kernels. These fixes attempt to make 802.3ad bonding mode
+> more predictable in certian state machine transtions in addition to fixing
+> 802.3ad bond carrier determination when bonding min_links option is changed.
+> Specific notes are contained within each patch.
+> 
+> For this patch series there are no userspace facing changes, a diff between
+> the modinfo output showed no difference. However, there are behavioral
+> facing changes, primarily in the bond carrier state. Please make sure to
+> review carefully.
+> 
+> v2:
+>  * fixed some style issues
+>  * dropped a portion of patch 1 in favor of more testing on my side
+> 
+> Jonathan Toppins (2):
+>   bonding: update bond carrier state when min_links option changes
+>   bonding: cleanup and remove dead code
+> 
+> Satish Ashok (1):
+>   bonding: fix LACP PDU not sent on slave port sometimes
+> 
+> Wilson Kok (2):
+>   bonding: fix bond_open() don't always set slave active flag
+>   bonding: fix incorrect lacp mux state when agg not active
+> 
+>  drivers/net/bonding/bond_3ad.c     |   55 +++++++++++++++++++++++++++---------
+>  drivers/net/bonding/bond_main.c    |    6 ++--
+>  drivers/net/bonding/bond_options.c |    1 +
+>  include/net/bond_3ad.h             |    1 -
+>  include/net/bonding.h              |    1 +
+>  5 files changed, 47 insertions(+), 17 deletions(-)
 
->fix sparse warning about non-static function
->
->drivers/net/bonding/bond_main.c:3737:5: warning: symbol
->'bond_3ad_xor_xmit' was not declared. Should it be static?
->
->Reviewed-by: Nikolay Aleksandrov <nikolay@redhat.com>
->Signed-off-by: Jonathan Toppins <jtoppins@cumulusnetworks.com>
+Great work on this, Jon.
 
-Signed-off-by: Jay Vosburgh <jay.vosburgh@canonical.com>
+For the series:
 
->---
-> drivers/net/bonding/bond_main.c |    2 +-
-> include/net/bond_3ad.h          |    1 -
-> 2 files changed, 1 insertion(+), 2 deletions(-)
->
->diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
->index c475d90..67437f3 100644
->--- a/drivers/net/bonding/bond_main.c
->+++ b/drivers/net/bonding/bond_main.c
->@@ -3734,7 +3734,7 @@ out:
->  * usable slave array is formed in the control path. The xmit function
->  * just calculates hash and sends the packet out.
->  */
->-int bond_3ad_xor_xmit(struct sk_buff *skb, struct net_device *dev)
->+static int bond_3ad_xor_xmit(struct sk_buff *skb, struct net_device *dev)
-> {
-> 	struct bonding *bond = netdev_priv(dev);
-> 	struct slave *slave;
->diff --git a/include/net/bond_3ad.h b/include/net/bond_3ad.h
->index e01d903..f04cdbb 100644
->--- a/include/net/bond_3ad.h
->+++ b/include/net/bond_3ad.h
->@@ -274,7 +274,6 @@ void bond_3ad_handle_link_change(struct slave *slave, char link);
-> int  bond_3ad_get_active_agg_info(struct bonding *bond, struct ad_info *ad_info);
-> int  __bond_3ad_get_active_agg_info(struct bonding *bond,
-> 				    struct ad_info *ad_info);
->-int bond_3ad_xmit_xor(struct sk_buff *skb, struct net_device *dev);
-> int bond_3ad_lacpdu_recv(const struct sk_buff *skb, struct bonding *bond,
-> 			 struct slave *slave);
-> int bond_3ad_set_carrier(struct bonding *bond);
->-- 
->1.7.10.4
->
+Signed-off-by: Andy Gospodarek <gospo@cumulusnetworks.com>
