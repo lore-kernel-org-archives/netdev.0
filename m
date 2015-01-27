@@ -1,58 +1,33 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next] net: phy: Invalidate LP advertising flags when
- restarting or disabling AN
-Date: Mon, 26 Jan 2015 17:06:49 -0800
-Message-ID: <54C6E4A9.6070603@gmail.com>
-References: <1422320295.3524.26.camel@xylophone.i.decadent.org.uk>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: macb: allow deffered probe of the driver
+Date: Mon, 26 Jan 2015 17:10:16 -0800 (PST)
+Message-ID: <20150126.171016.257852699853217898.davem@davemloft.net>
+References: <1421947441.717.4.camel@uti.ro>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@lists.codethink.co.uk
-To: Ben Hutchings <ben.hutchings@codethink.co.uk>
+Cc: netdev@vger.kernel.org, nicolas.ferre@atmel.com
+To: nicolae.rosia@certsign.ro
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:47985 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751623AbbA0BHH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2015 20:07:07 -0500
-Received: by mail-pa0-f45.google.com with SMTP id et14so14916848pad.4
-        for <netdev@vger.kernel.org>; Mon, 26 Jan 2015 17:07:07 -0800 (PST)
-In-Reply-To: <1422320295.3524.26.camel@xylophone.i.decadent.org.uk>
+Received: from shards.monkeyblade.net ([149.20.54.216]:46479 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752438AbbA0BKS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2015 20:10:18 -0500
+In-Reply-To: <1421947441.717.4.camel@uti.ro>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 26/01/15 16:58, Ben Hutchings wrote:
-> It is possible to see the old value of the LP advertising flags
-> through ethtool after reconfiguring the PHY and before autonegotiation
-> completes.  If autonegotiation is turned off then the last value seen
-> will persist indefinitely.
+From: Nicolae Rosia <nicolae.rosia@certsign.ro>
+Date: Thu, 22 Jan 2015 17:31:05 +0000
 
-Good catch!
-
+> The driver is trying to acquire clocks which maybe
+> are not available yet. Allow the driver to request
+> deffered probe by providing a probe function and
+> registering it with module_platform_driver. [1]
+> This patch is based on 3.19-rc5.
 > 
-> Signed-off-by: Ben Hutchings <ben.hutchings@codethink.co.uk>
-
-Acked-by: Florian Fainelli <f.fainelli@gmail.com>
-
-> ---
->  drivers/net/phy/phy.c |    3 +++
->  1 file changed, 3 insertions(+)
+> [1] https://lkml.org/lkml/2013/9/23/118
 > 
-> diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-> index 767cd11..cdcac6a 100644
-> --- a/drivers/net/phy/phy.c
-> +++ b/drivers/net/phy/phy.c
-> @@ -439,6 +439,9 @@ int phy_start_aneg(struct phy_device *phydev)
->  	if (AUTONEG_DISABLE == phydev->autoneg)
->  		phy_sanitize_settings(phydev);
->  
-> +	/* Invalidate LP advertising flags */
-> +	phydev->lp_advertising = 0;
-> +
->  	err = phydev->drv->config_aneg(phydev);
->  	if (err < 0)
->  		goto out_unlock;
-> 
+> Signed-off-by: Nicolae Rosia <nicolae.rosia@certsign.ro>
 
-
--- 
-Florian
+Applied.
