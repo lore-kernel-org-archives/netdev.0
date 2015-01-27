@@ -1,52 +1,47 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [RFC PATCH] net: ipv6: Make address flushing on ifdown optional
-Date: Tue, 27 Jan 2015 16:28:43 +0100
-Message-ID: <1422372523.13969.23.camel@stressinduktion.org>
-References: <1421263039-96198-1-git-send-email-dsahern@gmail.com>
-		 <20150122224033.6e2db5ce@urahara>
-		 <1422015737.2824.8.camel@stressinduktion.org>
-		 <20150127045653.GB13164@gospo.home.greyhouse.net>
-	 <1422351861.13969.5.camel@stressinduktion.org> <54C7A6D6.8020805@gmail.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [net-next PATCH v3 00/12] Flow API
+Date: Tue, 27 Jan 2015 10:54:35 -0500
+Message-ID: <54C7B4BB.9030805@mojatatu.com>
+References: <20150123110821.GH25797@casper.infradead.org> <20150123113934.GD2065@nanopsycho.orion> <20150123122838.GI25797@casper.infradead.org> <20150123134315.GF2065@nanopsycho.orion> <20150123140724.GJ25797@casper.infradead.org> <54C26A1F.6060603@gmail.com> <54C397C0.3010508@mojatatu.com> <20150126082602.GB8408@vergenet.net> <54C6326D.4090608@mojatatu.com> <54C71409.8060007@gmail.com> <20150127045820.GC13164@gospo.home.greyhouse.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Andy Gospodarek <gospo@cumulusnetworks.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	netdev@vger.kernel.org
-To: David Ahern <dsahern@gmail.com>
+Cc: Simon Horman <simon.horman@netronome.com>,
+	John Fastabend <john.fastabend@gmail.com>,
+	Thomas Graf <tgraf@suug.ch>, Jiri Pirko <jiri@resnulli.us>,
+	Pablo Neira Ayuso <pablo@netfilter.org>, sfeldma@gmail.com,
+	netdev@vger.kernel.org, davem@davemloft.net, gerlitz.or@gmail.com,
+	andy@greyhouse.net, ast@plumgrid.com
+To: Andy Gospodarek <gospo@cumulusnetworks.com>,
+	David Ahern <dsahern@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out3-smtp.messagingengine.com ([66.111.4.27]:57016 "EHLO
-	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751888AbbA0P2q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2015 10:28:46 -0500
-Received: from compute5.internal (compute5.nyi.internal [10.202.2.45])
-	by mailout.nyi.internal (Postfix) with ESMTP id 9C12120B12
-	for <netdev@vger.kernel.org>; Tue, 27 Jan 2015 10:28:45 -0500 (EST)
-In-Reply-To: <54C7A6D6.8020805@gmail.com>
+Received: from mail-ie0-f177.google.com ([209.85.223.177]:54031 "EHLO
+	mail-ie0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751830AbbA0Pyi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2015 10:54:38 -0500
+Received: by mail-ie0-f177.google.com with SMTP id vy18so15931269iec.8
+        for <netdev@vger.kernel.org>; Tue, 27 Jan 2015 07:54:37 -0800 (PST)
+In-Reply-To: <20150127045820.GC13164@gospo.home.greyhouse.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Di, 2015-01-27 at 07:55 -0700, David Ahern wrote:
-> On 1/27/15 2:44 AM, Hannes Frederic Sowa wrote:
-> >> You are probably correct that many will not switch, but this sysctl
-> >> gives those who want to switch a nice option without having to carry
-> >> extra kernel patches.  I like it.
-> >
-> > I don't see any problem with the patch in general but DAD should
-> > definitely happen on reenabling interfaces. Current behavior does not
-> > seem fine to me. It's ok if this patch doesn't change this behavior now
-> > but a follow-up one will be needed then.
-> >
-> > David, will you look after the DAD logic and do you plan a follow-up
-> > patch?
-> 
-> Yes, I do plan a follow-up patch for this change. Will work on that this 
-> week.
-> 
->  From the discussion a second patch is needed to make sure DAD is done 
-> on a link up if there is an address configured.
+On 01/26/15 23:58, Andy Gospodarek wrote:
+> On Mon, Jan 26, 2015 at 09:28:57PM -0700, David Ahern wrote:
 
-Thank you!
+>> Will someone be taking copious notes or recording the sessions and then
+>> making those available for those not in attendance?
+>>
+>
+> I'm not sure if the sessions will be recorded, but notes will be taken
+> for those wise enough not to come to Ottawa this time of year.  :)
+>
 
-Let's see if the DAD patch isn't complex, maybe it is a candidate for
-stable?
+We hope the content is hot enough it will melt all the ice around the
+building but not down the street.
+Tourists are welcome as well ;->
+
+We are soliciting volunteers to do videos that we can post.
+Having volunteers taking notes certainly is an excellent idea.
+
+cheers,
+janmal
