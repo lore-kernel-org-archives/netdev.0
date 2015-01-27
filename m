@@ -1,50 +1,111 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Interaction between GSO and TSQ for single TCP stream
-Date: Tue, 27 Jan 2015 11:57:29 -0800
-Message-ID: <CA+mtBx8QSg+3VSiDgY6iqiJaQgScSd9FP-uxH8S5zGGv7tN1Yw@mail.gmail.com>
+From: Eugene Krasnikov <k.eugene.e@gmail.com>
+Subject: Re: [PATCH 7/7] net: wireless: wcn36xx: handle new trigger_ba format
+Date: Tue, 27 Jan 2015 19:58:28 +0000
+Message-ID: <CAFSJ42Z7OiPvKO3S3=DZo_t6Mu2AhY1aPnM7=LU1fL40PQoXXQ@mail.gmail.com>
+References: <20150118050741.31866.36490.stgit@114-36-241-182.dynamic.hinet.net>
+	<20150118051117.31866.68634.stgit@114-36-241-182.dynamic.hinet.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: Eric Dumazet <edumazet@google.com>
+Cc: Kalle Valo <kvalo@codeaurora.org>,
+	wcn36xx <wcn36xx@lists.infradead.org>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Andy Green <andy.green@linaro.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f179.google.com ([209.85.223.179]:51012 "EHLO
-	mail-ie0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932674AbbA0T5a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2015 14:57:30 -0500
-Received: by mail-ie0-f179.google.com with SMTP id x19so17418277ier.10
-        for <netdev@vger.kernel.org>; Tue, 27 Jan 2015 11:57:29 -0800 (PST)
+Received: from mail-qg0-f48.google.com ([209.85.192.48]:62512 "EHLO
+	mail-qg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932515AbbA0T63 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2015 14:58:29 -0500
+In-Reply-To: <20150118051117.31866.68634.stgit@114-36-241-182.dynamic.hinet.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric,
+arg... it looks like the code is starting to have to many
+if(chip_version) cases. Mabe we should concider separate files for
+chip specific logic.
 
-I am looking at why we are unable to achieve line rate throughput with
-a single connection using UDP encapsulation that supports GSO/GRO. I
-discovered that even for a non-encpasulated TCP connection I'm not
-able to get line rate using GSO/GRO (but do with TSO/LRO). There seems
-to be some interaction between TSQ and GSO. Setting
-tcp_limit_output_bytes to 1000000 gets single connection up to line
-rate for both native and encapsulated TCP.
+2015-01-18 5:11 GMT+00:00 Andy Green <andy.green@linaro.org>:
+> wcn3620 has a new message structure for the reply to trigger_ba
+> We don't know what to do with the candidate list he sends back,
+> but we can at least accept and ignore it nicely instead of dying.
+>
+> Signed-off-by: Andy Green <andy.green@linaro.org>
+> ---
+>  drivers/net/wireless/ath/wcn36xx/smd.c |   28 ++++++++++++++++++++++++++--
+>  drivers/net/wireless/ath/wcn36xx/smd.h |    9 +++++++++
+>  2 files changed, 35 insertions(+), 2 deletions(-)
+>
+> diff --git a/drivers/net/wireless/ath/wcn36xx/smd.c b/drivers/net/wireless/ath/wcn36xx/smd.c
+> index 819741c..dc24e1b 100644
+> --- a/drivers/net/wireless/ath/wcn36xx/smd.c
+> +++ b/drivers/net/wireless/ath/wcn36xx/smd.c
+> @@ -243,8 +243,31 @@ static int wcn36xx_smd_rsp_status_check(void *buf, size_t len)
+>         rsp = (struct wcn36xx_fw_msg_status_rsp *)
+>                 (buf + sizeof(struct wcn36xx_hal_msg_header));
+>
+> -       if (WCN36XX_FW_MSG_RESULT_SUCCESS != rsp->status)
+> +       if (WCN36XX_FW_MSG_RESULT_SUCCESS != rsp->status) {
+> +               pr_err("%s: bad status, len = %d\n", __func__, len);
+> +               return rsp->status;
+> +       }
+> +
+> +       return 0;
+> +}
+> +
+> +static int wcn36xx_smd_rsp_status_check_bav2(struct wcn36xx *wcn, void *buf,
+> +                                            size_t len)
+> +{
+> +       struct wcn36xx_fw_msg_status_rspv2 *rsp;
+> +
+> +       if (wcn->chip_version != WCN36XX_CHIP_3620)
+> +               return wcn36xx_smd_rsp_status_check(buf, len);
+> +
+> +       if (len < sizeof(struct wcn36xx_hal_msg_header) + sizeof(*rsp))
+> +               return -EIO;
+> +
+> +       rsp = buf + sizeof(struct wcn36xx_hal_msg_header);
+> +
+> +       if (WCN36XX_FW_MSG_RESULT_SUCCESS != rsp->status) {
+> +               pr_err("%s: bad status, len = %d\n", __func__, len);
+>                 return rsp->status;
+> +       }
+>
+>         return 0;
+>  }
+> @@ -1884,7 +1907,8 @@ int wcn36xx_smd_trigger_ba(struct wcn36xx *wcn, u8 sta_index)
+>                 wcn36xx_err("Sending hal_trigger_ba failed\n");
+>                 goto out;
+>         }
+> -       ret = wcn36xx_smd_rsp_status_check(wcn->hal_buf, wcn->hal_rsp_len);
+> +       ret = wcn36xx_smd_rsp_status_check_bav2(wcn, wcn->hal_buf,
+> +                                               wcn->hal_rsp_len);
+>         if (ret) {
+>                 wcn36xx_err("hal_trigger_ba response failed err=%d\n", ret);
+>                 goto out;
+> diff --git a/drivers/net/wireless/ath/wcn36xx/smd.h b/drivers/net/wireless/ath/wcn36xx/smd.h
+> index 008d034..432d3b8 100644
+> --- a/drivers/net/wireless/ath/wcn36xx/smd.h
+> +++ b/drivers/net/wireless/ath/wcn36xx/smd.h
+> @@ -44,6 +44,15 @@ struct wcn36xx_fw_msg_status_rsp {
+>         u32     status;
+>  } __packed;
+>
+> +/* wcn3620 returns this for tigger_ba */
+> +
+> +struct wcn36xx_fw_msg_status_rspv2 {
+> +       u8      bss_id[6];
+> +       u32     status __packed;
+> +       u16     count_following_candidates __packed;
+> +       /* candidate list follows */
+> +};
+> +
+>  struct wcn36xx_hal_ind_msg {
+>         struct list_head list;
+>         u8 *msg;
+>
 
-Some data:
 
-- netperf TCP_STREAM for a single connection no encapsulation
-  Using TSO/LRO
-    9412.44 Gbps
-  Using GSO/GRO (ethtool -K eth0 gso on gro on tso off lro off)
-    9286.08 Gbps
-  Using GSO/GRO with larger limit (echo 1000000 >
-/proc/sys/net/ipv4/tcp_limit_output_bytes)
-    9412.75
 
-- netperf TCP_STREAM for a single connection for GUE-IPIP encapsulation with RCO
-  Using GSO/GRO
-    8842.89 Gbps
-  Using GSO/GRO with larger limit (echo 1000000 >
-/proc/sys/net/ipv4/tcp_limit_output_bytes)
-    9143.99 Gbps
-
-Any ideas on how to address this?
-
-Thanks,
-Tom
+-- 
+Best regards,
+Eugene
