@@ -1,34 +1,58 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: sctp: fix slab corruption from use after free
- on INIT collisions
-Date: Mon, 26 Jan 2015 17:05:10 -0800 (PST)
-Message-ID: <20150126.170510.1181175198992396635.davem@davemloft.net>
-References: <1421947614-31407-1-git-send-email-dborkman@redhat.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next] net: phy: Invalidate LP advertising flags when
+ restarting or disabling AN
+Date: Mon, 26 Jan 2015 17:06:49 -0800
+Message-ID: <54C6E4A9.6070603@gmail.com>
+References: <1422320295.3524.26.camel@xylophone.i.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: vyasevich@gmail.com, netdev@vger.kernel.org,
-	linux-sctp@vger.kernel.org
-To: dborkman@redhat.com
+Cc: netdev@vger.kernel.org, linux-kernel@lists.codethink.co.uk
+To: Ben Hutchings <ben.hutchings@codethink.co.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46442 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757394AbbA0BFK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2015 20:05:10 -0500
-In-Reply-To: <1421947614-31407-1-git-send-email-dborkman@redhat.com>
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:47985 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751623AbbA0BHH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2015 20:07:07 -0500
+Received: by mail-pa0-f45.google.com with SMTP id et14so14916848pad.4
+        for <netdev@vger.kernel.org>; Mon, 26 Jan 2015 17:07:07 -0800 (PST)
+In-Reply-To: <1422320295.3524.26.camel@xylophone.i.decadent.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <dborkman@redhat.com>
-Date: Thu, 22 Jan 2015 18:26:54 +0100
+On 26/01/15 16:58, Ben Hutchings wrote:
+> It is possible to see the old value of the LP advertising flags
+> through ethtool after reconfiguring the PHY and before autonegotiation
+> completes.  If autonegotiation is turned off then the last value seen
+> will persist indefinitely.
 
-> When hitting an INIT collision case during the 4WHS with AUTH enabled, as
-> already described in detail in commit 1be9a950c646 ("net: sctp: inherit
-> auth_capable on INIT collisions"), it can happen that we occasionally
-> still remotely trigger the following panic on server side which seems to
-> have been uncovered after the fix from commit 1be9a950c646 ...
- ...
-> Fixes: 730fc3d05cd4 ("[SCTP]: Implete SCTP-AUTH parameter processing")
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+Good catch!
 
-Applied and queued up for -stable, thanks.
+> 
+> Signed-off-by: Ben Hutchings <ben.hutchings@codethink.co.uk>
+
+Acked-by: Florian Fainelli <f.fainelli@gmail.com>
+
+> ---
+>  drivers/net/phy/phy.c |    3 +++
+>  1 file changed, 3 insertions(+)
+> 
+> diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
+> index 767cd11..cdcac6a 100644
+> --- a/drivers/net/phy/phy.c
+> +++ b/drivers/net/phy/phy.c
+> @@ -439,6 +439,9 @@ int phy_start_aneg(struct phy_device *phydev)
+>  	if (AUTONEG_DISABLE == phydev->autoneg)
+>  		phy_sanitize_settings(phydev);
+>  
+> +	/* Invalidate LP advertising flags */
+> +	phydev->lp_advertising = 0;
+> +
+>  	err = phydev->drv->config_aneg(phydev);
+>  	if (err < 0)
+>  		goto out_unlock;
+> 
+
+
+-- 
+Florian
