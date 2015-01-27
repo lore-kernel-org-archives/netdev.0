@@ -1,30 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: dsa/mv88e6352: make mv88e6352_wait generic
-Date: Tue, 27 Jan 2015 00:06:25 -0800 (PST)
-Message-ID: <20150127.000625.1477155165878386119.davem@davemloft.net>
-References: <1422056081-30088-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH v2] net: hyperv: else branch not necessary
+Date: Tue, 27 Jan 2015 00:10:29 -0800 (PST)
+Message-ID: <20150127.001029.277347255719163174.davem@davemloft.net>
+References: <1422209317-18975-1-git-send-email-der.herr@hofr.at>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux@roeck-us.net,
-	linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com
-To: vivien.didelot@savoirfairelinux.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1422056081-30088-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: devel@linuxdriverproject.org, haiyangz@microsoft.com,
+ linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: der.herr@hofr.at
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <1422209317-18975-1-git-send-email-der.herr@hofr.at>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Date: Fri, 23 Jan 2015 18:34:41 -0500
+From: Nicholas Mc Guire <der.herr@hofr.at>
+Date: Sun, 25 Jan 2015 19:08:37 +0100
 
-> Some busy bits are available in the global register 1, such as the ATU
-> Busy bit. We may want to use this function to wait for them to change,
-> so add a new parameter to mv88e6352_wait() instead of hard-coding
-> REG_GLOBAL2.
+> As the if completes with a unconditional goto the else branch
+> is not needed here.
 > 
-> In the meantime, since the REG_READ() macro already checks for error,
-> remove the redundant check for ret < 0.
+> Signed-off-by: Nicholas Mc Guire <der.herr@hofr.at>
+> ---
 > 
-> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+> v2: added missing subsystem string in subject line - patch unchanged
 
-Applied.
+The feedback you were given was completely bogus.
+
+Saying "net: " in addition to "hyperv: " is unnecessary, redundant,
+and something you should not do.
+
+Just plain "hyperv: " is complete and unambiguous enough to stand
+upon itself.
+
+Nobody says "net: ixgbe: " for Intel ethernet driver changes.  That's
+just stupid.
