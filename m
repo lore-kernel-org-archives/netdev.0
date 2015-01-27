@@ -1,46 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 06/10] net/mlx4_core: Fix struct mlx4_vhcr_cmd
- to make implicit padding explicit
-Date: Tue, 27 Jan 2015 11:13:34 -0800 (PST)
-Message-ID: <20150127.111334.501141232585900738.davem@davemloft.net>
-References: <1422351179-27284-1-git-send-email-amirv@mellanox.com>
-	<1422351179-27284-7-git-send-email-amirv@mellanox.com>
-	<063D6719AE5E284EB5DD2968C1650D6D1CAD3B01@AcuExch.aculab.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next v2 0/4] net: phy: prevent double suspend
+Date: Tue, 27 Jan 2015 11:16:34 -0800
+Message-ID: <54C7E412.7010903@gmail.com>
+References: <1422338740-18418-1-git-send-email-f.fainelli@gmail.com> <54C7E140.4080908@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: amirv@mellanox.com, netdev@vger.kernel.org, ogerlitz@mellanox.com,
-	yevgenyp@mellanox.com, jackm@dev.mellanox.co.il
-To: David.Laight@ACULAB.COM
+Cc: davem@davemloft.net, s.hauer@pengutronix.de, b38611@freescale.com
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52133 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932557AbbA0TNg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2015 14:13:36 -0500
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CAD3B01@AcuExch.aculab.com>
+Received: from mail-pd0-f181.google.com ([209.85.192.181]:42358 "EHLO
+	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754667AbbA0TQy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2015 14:16:54 -0500
+Received: by mail-pd0-f181.google.com with SMTP id g10so20532153pdj.12
+        for <netdev@vger.kernel.org>; Tue, 27 Jan 2015 11:16:53 -0800 (PST)
+In-Reply-To: <54C7E140.4080908@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Laight <David.Laight@ACULAB.COM>
-Date: Tue, 27 Jan 2015 09:43:27 +0000
-
->>  	__be64 out_param;
->>  	__be16 token;
->>  	u16 reserved;
->>  	u8 status;
->>  	u8 flags;
->>  	__be16 opcode;
->> -};
->> +} __packed;
+On 27/01/15 11:04, Sergei Shtylyov wrote:
+> Hello.
 > 
-> Don't add '__packed' unless you expect the structure to be misaligned
-> in memory.
-> On systems that fault mis-aligned memory requests you've requested the
-> compiler generate code to read/write everything using byte sized memory
-> accesses and a lot of shifting and masking.
+> On 01/27/2015 09:05 AM, Florian Fainelli wrote:
+> 
+>> This patch series addresses a problem that Fugang and I observed on
+>> different
+>> platforms where a given PHY device might end-up being suspended twice.
+> 
+>> Once as part of the call from ndo_open() all the way down to
+>> phy_detach() and
+>> phy_suspend() and a second time when the generic platform device/driver
+>> suspend/resume callbacks are called in drivers/net/phy/mdio_bus.c.
+> 
+>> Thanks to Fugang for giving this a quick try on i.MX6/FEC and reporting
+>> positive test results!
+> 
+>    I can now confirm this patchset fixed our issue with an external
+> abort during suspend on R-Car platform (with the 'sh_eth' driver)!
 
-Indeed, I'm really sick of seeing these packed structures being
-created all over the place.
+Great, thanks Sergei!
 
-They are to be used in absolutely extreme cases where no other
-solution is possible.
+> 
+>> Florian Fainelli (4):
+>>    net: phy: utilize phy_suspend and phy_resume
+>>    net: phy: document has_fixups field
+>>    net: phy: keep track of the PHY suspend state
+>>    net: phy: avoid suspending twice a PHY
+> 
+> WBR, Sergei
+> 
+
+
+-- 
+Florian
