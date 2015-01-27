@@ -1,69 +1,80 @@
-From: "Fu, Zhonghui" <zhonghui.fu@linux.intel.com>
-Subject: Re: [PATCH] brcmfmac: avoid duplicated suspend/resume operation
-Date: Tue, 27 Jan 2015 13:35:31 +0800
-Message-ID: <54C723A3.8000508@linux.intel.com>
-References: <54BDCC06.8090107@linux.intel.com>	<87twzincvz.fsf@kamboji.qca.qualcomm.com>	<54C1012F.1020400@cogentembedded.com> <54C1646B.4080409@broadcom.com> <87y4otldln.fsf@kamboji.qca.qualcomm.com> <54C28E6B.8090408@broadcom.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next 3/4] net: phy: keep track of the PHY suspend state
+Date: Mon, 26 Jan 2015 21:55:46 -0800
+Message-ID: <CAGVrzcb=VnA16NUjrmviGOR_Hgu=srUhng+295Wn_Dy6OGY_0Q@mail.gmail.com>
+References: <1422318673-9418-1-git-send-email-f.fainelli@gmail.com>
+ <1422318673-9418-4-git-send-email-f.fainelli@gmail.com> <BLUPR03MB3730BDE319193713AC9EA27F5320@BLUPR03MB373.namprd03.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	brudley@broadcom.com, Franky Lin <frankyl@broadcom.com>,
-	meuleman@broadcom.com, linville@tuxdriver.com,
-	pieterpg@broadcom.com, hdegoede@redhat.com, wens@csie.org,
-	linux-wireless@vger.kernel.org, brcm80211-dev-list@broadcom.com,
-	netdev@vger.kernel.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Arend van Spriel <arend@broadcom.com>,
-	Kalle Valo <kvalo@codeaurora.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <54C28E6B.8090408@broadcom.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"s.hauer@pengutronix.de" <s.hauer@pengutronix.de>
+To: "fugang.duan@freescale.com" <fugang.duan@freescale.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f46.google.com ([209.85.218.46]:44804 "EHLO
+	mail-oi0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750864AbbA0F40 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2015 00:56:26 -0500
+Received: by mail-oi0-f46.google.com with SMTP id a141so10919929oig.5
+        for <netdev@vger.kernel.org>; Mon, 26 Jan 2015 21:56:26 -0800 (PST)
+In-Reply-To: <BLUPR03MB3730BDE319193713AC9EA27F5320@BLUPR03MB373.namprd03.prod.outlook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-On 2015/1/24 2:09, Arend van Spriel wrote:
-> On 01/23/15 16:29, Kalle Valo wrote:
->> Arend van Spriel<arend@broadcom.com>  writes:
+2015-01-26 18:43 GMT-08:00 fugang.duan@freescale.com
+<fugang.duan@freescale.com>:
+> From: Florian Fainelli <f.fainelli@gmail.com> Sent: Tuesday, January 27, 2015 8:31 AM
+>> To: netdev@vger.kernel.org
+>> Cc: davem@davemloft.net; s.hauer@pengutronix.de; Duan Fugang-B38611;
+>> Florian Fainelli
+>> Subject: [PATCH net-next 3/4] net: phy: keep track of the PHY suspend
+>> state
 >>
->>> On 01/22/15 14:54, Sergei Shtylyov wrote:
->>>> Hello.
->>>>
->>>> On 1/22/2015 4:49 PM, Kalle Valo wrote:
->>>>
->>>>>> > From 04d3fa673897ca4ccbea6c76836d0092dba2484a Mon Sep 17 00:00:00 2001
->>>>>> From: Zhonghui Fu<zhonghui.fu@linux.intel.com>
->>>>>> Date: Tue, 20 Jan 2015 11:14:13 +0800
->>>>>> Subject: [PATCH] brcmfmac: avoid duplicated suspend/resume operation
->>>>
->>>>>> WiFi chip has 2 SDIO functions, and PM core will trigger
->>>>>> twice suspend/resume operations for one WiFi chip to do
->>>>>> the same things. This patch avoid this case.
->>>>
->>>>>> Acked-by: Arend van Spriel<arend@broadcom.com>
->>>>>> Acked-by: Sergei Shtylyov<sergei.shtylyov@cogentembedded.com>
->>>>>> Acked-by: Kalle Valo<kvalo@codeaurora.org>
->>>>>> Signed-off-by: Zhonghui Fu<zhonghui.fu@linux.intel.com>
->>>>
->>>>> I don't remember giving Acked-by to this (or for matter to anything for
->>>>> a long time). What about Sergei or Arend?
->>>>
->>>> I haven't ACK'ed this patch either.
->>>
->>> I did ACK the initial patch and felt it still valid for this 'V2' patch.
+>> In order to avoid double calls to phydev->drv->suspend and resume, keep
+>> track of whether the PHY has already been suspended as a consequence of a
+>> successful call to phy_suspend(). We will use this in our MDIO bus
+>> suspend/resume hooks to avoid a double suspend call.
 >>
->> Ok, thanks. So the patch is good, Zhonghui just needs to remove the two
->> acked-by lines.
+>> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+>> ---
+>>  drivers/net/phy/phy_device.c | 22 ++++++++++++++++++----
+>>  include/linux/phy.h          |  2 ++
+>>  2 files changed, 20 insertions(+), 4 deletions(-)
+>>
+>> diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+>> index 3fc91e89f5a5..c90cecc0fe15 100644
+>> --- a/drivers/net/phy/phy_device.c
+>> +++ b/drivers/net/phy/phy_device.c
+>> @@ -699,6 +699,7 @@ int phy_suspend(struct phy_device *phydev)  {
+>>       struct phy_driver *phydrv = to_phy_driver(phydev->dev.driver);
+>>       struct ethtool_wolinfo wol = { .cmd = ETHTOOL_GWOL };
+>> +     int ret = 0;
+>>
+>>       /* If the device has WOL enabled, we cannot suspend the PHY */
+>>       phy_ethtool_get_wol(phydev, &wol);
+>> @@ -706,18 +707,31 @@ int phy_suspend(struct phy_device *phydev)
+>>               return -EBUSY;
+>>
+>>       if (phydrv->suspend)
+>> -             return phydrv->suspend(phydev);
+>> -     return 0;
+>> +             ret = phydrv->suspend(phydev);
+>> +
+>> +     if (ret)
+>> +             return ret;
+>> +
+>> +     phydev->suspended = true;
+>> +
+>> +     return ret;
+>>  }
+>>  EXPORT_SYMBOL(phy_suspend);
+>>
+>>  int phy_resume(struct phy_device *phydev)  {
+>>       struct phy_driver *phydrv = to_phy_driver(phydev->dev.driver);
+>> +     int ret;
 >
-> Indeed.
+> => int ret = 0;
 
-I have removed the two acked-by lines and sent the new patch in another mail.
-
-Thanks,
-Zhonghui
->
-> Regards,
-> Arend
-> -- 
-> To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Good catch, let me re-submit with your tags, thanks for testing!
+-- 
+Florian
