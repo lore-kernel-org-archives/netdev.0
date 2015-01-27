@@ -1,95 +1,83 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net-next tree with the arm-soc tree
-Date: Tue, 27 Jan 2015 13:04:37 +1100
-Message-ID: <20150127130437.3cd05af9@canb.auug.org.au>
+From: "fugang.duan@freescale.com" <fugang.duan@freescale.com>
+Subject: RE: [PATCH net-next 1/1] net: phy: unbind phy device from generic and
+ specifical driver
+Date: Tue, 27 Jan 2015 02:27:07 +0000
+Message-ID: <BLUPR03MB373A7E62B7922C9C337408DF5320@BLUPR03MB373.namprd03.prod.outlook.com>
+References: <1422260045-22527-1-git-send-email-b38611@freescale.com>
+ <54C675F1.9080803@gmail.com> <54C67D97.7080203@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
- boundary="Sig_/cAKF/xMDWBelX7fDnaj._Mk"; protocol="application/pgp-signature"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Roger Chen <roger.chen@rock-chips.com>,
-	Chris Zhong <zyw@rock-chips.com>,
-	Heiko Stuebner <heiko@sntech.de>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	Olof Johansson <olof@lixom.net>, Arnd Bergmann <arnd@arndb.de>,
-	<linux-arm-kernel@lists.infradead.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"s.hauer@pengutronix.de" <s.hauer@pengutronix.de>,
+	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>
+To: Florian Fainelli <f.fainelli@gmail.com>,
+	"davem@davemloft.net" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bn1on0143.outbound.protection.outlook.com ([157.56.110.143]:30545
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751535AbbA0C1K (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 Jan 2015 21:27:10 -0500
+In-Reply-To: <54C67D97.7080203@gmail.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Sig_/cAKF/xMDWBelX7fDnaj._Mk
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: quoted-printable
-
-Hi all,
-
-Today's linux-next merge of the net-next tree got a conflict in
-arch/arm/boot/dts/rk3288.dtsi between commit eecfe981cecd ("ARM: dts:
-rockchip: add RK3288 suspend support") from the arm-soc tree and commit
-3d3fb74afc9b ("ARM: dts: rockchip: add gmac info for rk3288") from the
-net-next tree.
-
-I fixed it up (see below) and can carry the fix as necessary (no action
-is required).
-
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-
-diff --cc arch/arm/boot/dts/rk3288.dtsi
-index 2a878a35facc,910dcad2088a..000000000000
---- a/arch/arm/boot/dts/rk3288.dtsi
-+++ b/arch/arm/boot/dts/rk3288.dtsi
-@@@ -734,24 -741,11 +750,29 @@@
-  			bias-disable;
-  		};
- =20
-+ 		pcfg_pull_none_12ma: pcfg-pull-none-12ma {
-+ 			bias-disable;
-+ 			drive-strength =3D <12>;
-+ 		};
-+=20
- +		sleep {
- +			global_pwroff: global-pwroff {
- +				rockchip,pins =3D <0 0 RK_FUNC_1 &pcfg_pull_none>;
- +			};
- +
- +			ddrio_pwroff: ddrio-pwroff {
- +				rockchip,pins =3D <0 1 RK_FUNC_1 &pcfg_pull_none>;
- +			};
- +
- +			ddr0_retention: ddr0-retention {
- +				rockchip,pins =3D <0 2 RK_FUNC_1 &pcfg_pull_up>;
- +			};
- +
- +			ddr1_retention: ddr1-retention {
- +				rockchip,pins =3D <0 3 RK_FUNC_1 &pcfg_pull_up>;
- +			};
- +		};
- +
-  		i2c0 {
-  			i2c0_xfer: i2c0-xfer {
-  				rockchip,pins =3D <0 15 RK_FUNC_1 &pcfg_pull_none>,
-
---Sig_/cAKF/xMDWBelX7fDnaj._Mk
-Content-Type: application/pgp-signature
-Content-Description: OpenPGP digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAEBCAAGBQJUxvI6AAoJEMDTa8Ir7ZwVbSgP/idOy0pPtJCcga1mktJsnQiX
-64W4nSTB0aHLwVgCtoo1zSkbtyKYCSKv5ePObrdz9MIhYBK9gZLsKf2XpOLU2fCS
-Pheqwx8i4p8f6G3qr/Z+EM4kxHln4HDSIfWLZw26GzVx2OZXAHIhBr7v19/9Z3yj
-d10qhfwB9V3/GpRqmlKKyDPUCofF2vFtfW3jGYTIi+UsuR1D96LIL/x5Qh9Ii6QT
-bE5ZIG535YWCZB5Q46KuuU15G7tYBpxRlUT67LXTRLkctvfLr/EmyjoxHvSanNM2
-BpKAgZi2OWHPySKj862uDVsZFNG5wc1jnv9EWUddidDK2zE8LEsBPrly7lA3txnP
-3wb0yI9JmtjwrROp/vwOlHvSsUVxTY0NK4SEqB/02oJVtHGKpIFpTvx7V4/bJEW0
-rpOfHSibBPuvAlueXm58y5pVJmbRFHxTW/QvYf/wr57rftyVUf/kRnHuevqghabu
-Z+XuykDLKZgDDAN+O2G32pOnTFDx6BBg0krBHKC+KgHsFE4X71tCg2411/1hpWe4
-UJucsNUSTlSW+Rm+4iIJ2p1+Ta5awMJ1VGwBR3wLeiaTUSRmSmdPGzOp9lfebx2C
-pei6L+iT18rX+IleMmqeSK6MFw0ERT5Fg7RYY7mvgHq+pzfs3H7VtbuuGqiGi7Yb
-Pakx2ScBTDffpLmXMXk2
-=T0OE
------END PGP SIGNATURE-----
-
---Sig_/cAKF/xMDWBelX7fDnaj._Mk--
+RnJvbTogRmxvcmlhbiBGYWluZWxsaSA8Zi5mYWluZWxsaUBnbWFpbC5jb20+IFNlbnQ6IFR1ZXNk
+YXksIEphbnVhcnkgMjcsIDIwMTUgMTo0NyBBTQ0KPiBUbzogRHVhbiBGdWdhbmctQjM4NjExOyBk
+YXZlbUBkYXZlbWxvZnQubmV0DQo+IENjOiBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBzLmhhdWVy
+QHBlbmd1dHJvbml4LmRlOw0KPiBiaHV0Y2hpbmdzQHNvbGFyZmxhcmUuY29tOyBzdGVwaGVuQG5l
+dHdvcmtwbHVtYmVyLm9yZw0KPiBTdWJqZWN0OiBSZTogW1BBVENIIG5ldC1uZXh0IDEvMV0gbmV0
+OiBwaHk6IHVuYmluZCBwaHkgZGV2aWNlIGZyb20NCj4gZ2VuZXJpYyBhbmQgc3BlY2lmaWNhbCBk
+cml2ZXINCj4gDQo+IE9uIDI2LzAxLzE1IDA5OjE0LCBGbG9yaWFuIEZhaW5lbGxpIHdyb3RlOg0K
+PiA+IE9uIDI2LzAxLzE1IDAwOjE0LCBGdWdhbmcgRHVhbiB3cm90ZToNCj4gPj4gVGhlIGN1cnJl
+bnQgLnBoeV9kZXRhY2goKSBmdW5jdGlvbiBvbmx5IHVuYmluZCBnZW5lcmljIHBoeSBkcml2ZXIs
+DQo+ID4+IHdoaWNoIGNhdXNlcyBzcGVjaWZpY2FsIGRyaXZlciBzdXNwZW5kL3Jlc3VtZSBmdW5j
+dGlvbiBzdGlsbCB3b3JrIGxpa2UNCj4gQXRoZXJvcyBBVDgwM1ggUEhZcy4NCj4gPj4NCj4gPj4g
+Rm9yIGV4YW1wbGU6DQo+ID4+IGlmY29uZmlnIGV0aDAgZG93bg0KPiA+PiBlY2hvIG1lbSA+IC9z
+eXMvcG93ZXIvc3RhdHVzDQo+ID4+DQo+ID4+IEFmdGVyIGV0aDAgaW50ZXJmYWNlIGRvd24sIGRy
+aXZlciBjYWxsIHBoeV9kZXRhY2ggdG8gdW5iaW5kIHBoeQ0KPiA+PiBkcml2ZXIsIGFuZCB0aGVu
+IGRvIHN1c3BlbmQvcmVzdW1lIG9wZXJhdGlvbiwNCj4gPj4gYXQ4MDN4X3N1c3BlbmQoKS9hdDgw
+M3hfcmVzdW1lKCkgZnVuY3Rpb25zIHN0aWxsIGdldCBjYWxsZWQgdGhhdCBjYWxsDQo+ID4+IG1k
+aW8gYnVzIHJlYWQvd3JpdGUgZnVuY3Rpb24uIFdoZW4gZXRoMCBpbnRlcmZhY2UgZG93biwgTUFD
+IGRyaXZlciBtYXkNCj4gY2xvc2UgYWxsIGNsb2NrcyBhbmQgbWRpbyBidXMgY2Fubm90IHdvcmsu
+IFNvIHRoZSBpc3N1ZSBoYXBwZW5zLg0KPiA+DQo+ID4gSSB3YXMganVzdCBoaXR0aW5nIHRoaXMg
+cHJvYmxlbSBvbiBGcmlkYXkgZXZlbmluZyBhbmQgd2FzIGFib3V0IHRvDQo+ID4gc3VibWl0IGEg
+c2ltaWxhciBjaGFuZ2UuIFRoYW5rcyENCj4gPg0KPiA+Pg0KPiA+PiBUaGUgcGF0Y2ggY2FuIHVu
+YmluZCBnZW5lcmljIGFuZCBzcGVjaWZpY2FsIGRyaXZlci4NCj4gPj4NCj4gPj4gU2lnbmVkLW9m
+Zi1ieTogRnVnYW5nIER1YW4gPEIzODYxMUBmcmVlc2NhbGUuY29tPg0KPiA+DQo+ID4gQWNrZWQt
+Ynk6IEZsb3JpYW4gRmFpbmVsbGkgPGYuZmFpbmVsbGlAZ21haWwuY29tPg0KPiA+IFRlc3RlZC1i
+eTogRmxvcmlhbiBGYWluZWxsaSA8Zi5mYWluZWxsaUBnbWFpbC5jb20+DQo+IA0KPiBIdW1tLCB0
+aGlzIGJyZWFrcyBhIHNlcXVlbmNlIG9mIGlmY29uZmlnIGRvd24gdGhlbiB1cCwgdGhlIGRyaXZl
+ciBpcw0KPiByZW1vdmVkLCBhbmQgd2UgbmV2ZXIgZ2V0IHRvIHByb2JlIGl0IGFnYWluLCBkb2Vz
+IHRoaXMgd29yayBmb3IgeW91IHVzaW5nDQo+IHRoZSBGRUMgZHJpdmVyPw0KPiANCkl0IHdvcmtz
+IGZpbmUgZm9yIEZFQyBkcml2ZXIgd2l0aCBiZWxvdyBmbG93IGNhc2UuDQplY2hvIGVuYWJsZWQg
+PiAvc3lzL2NsYXNzL3R0eS90dHlteGMwL3Bvd2VyL3dha2V1cA0KZWNobyBtZW0gPiAvc3lzL3Bv
+d2VyL3N0YXRlDQppZmNvbmZpZyBldGgwIGRvd24NCmVjaG8gbWVtID4gL3N5cy9wb3dlci9zdGF0
+ZQ0KaWZjb25maWcgZXRoMCB1cA0KcGluZyAxMC4xOTIuMjQyLjIwNCAvL3Bpbmcgd29yayBmaW5l
+DQplY2hvIG1lbSA+IC9zeXMvcG93ZXIvc3RhdGUNCi4uLg0KDQoNCkkga25vdyB0aGUgcmVhc29u
+LCB0aGUgZmlyc3QgZmVjIGRyaXZlciB1c2UgQXRoZXJvcyA4MDMxIGV0aGVybmV0IHNwZWNpYWwg
+cGh5IGRyaXZlciwgbGlrZToNCmZlYyAyMTg4MDAwLmV0aGVybmV0IGV0aDA6IEZyZWVzY2FsZSBG
+RUMgUEhZIGRyaXZlciBbQXRoZXJvcyA4MDMxIGV0aGVybmV0XSAobWlpX2J1czpwaHlfYWRkcj0y
+MTg4MDAwLmV0aGVybmV0OjAxLCBpcnE9LTEpDQoNCkFmdGVyIGRvd24gYW5kIHVwLCBmZWMgdXNl
+IGdlbmVyaWMgcGh5IGRyaXZlciwgYnV0IGl0IHN0aWxsIGNhbiB3b3JrIGZpbmU6DQpmZWMgMjE4
+ODAwMC5ldGhlcm5ldCBldGgwOiBGcmVlc2NhbGUgRkVDIFBIWSBkcml2ZXIgW0dlbmVyaWMgUEhZ
+XSAobWlpX2J1czpwaHlfYWRkcj0yMTg4MDAwLmV0aGVybmV0OjAxLCBpcnE9LTEpDQoNCkFmdGVy
+IGRvd24gYW5kIHVwLCBpbiBoZXJlLCBwaHkgZHJpdmVyIG9ubHkgaXMgaW5pdGlhbGl6ZWQgYXMg
+Z2VuZXJpYyBwaHkgZHJpdmVyLg0KaW50IHBoeV9hdHRhY2hfZGlyZWN0KHN0cnVjdCBuZXRfZGV2
+aWNlICpkZXYsIHN0cnVjdCBwaHlfZGV2aWNlICpwaHlkZXYsDQogICAgICAgICAgICAgICAgICAg
+ICAgdTMyIGZsYWdzLCBwaHlfaW50ZXJmYWNlX3QgaW50ZXJmYWNlKQ0Kew0KCSAuLi4NCiAgICAg
+ICAgLyogQXNzdW1lIHRoYXQgaWYgdGhlcmUgaXMgbm8gZHJpdmVyLCB0aGF0IGl0IGRvZXNuJ3QN
+CiAgICAgICAgICogZXhpc3QsIGFuZCB3ZSBzaG91bGQgdXNlIHRoZSBnZW5waHkgZHJpdmVyLg0K
+ICAgICAgICAgKi8NCiAgICAgICAgaWYgKE5VTEwgPT0gZC0+ZHJpdmVyKSB7DQogICAgICAgICAg
+ICAgICAgaWYgKHBoeWRldi0+aXNfYzQ1KQ0KICAgICAgICAgICAgICAgICAgICAgICAgZC0+ZHJp
+dmVyID0gJmdlbnBoeV9kcml2ZXJbR0VOUEhZX0RSVl8xMEddLmRyaXZlcjsNCiAgICAgICAgICAg
+ICAgICBlbHNlDQogICAgICAgICAgICAgICAgICAgICAgICBkLT5kcml2ZXIgPSAmZ2VucGh5X2Ry
+aXZlcltHRU5QSFlfRFJWXzFHXS5kcml2ZXI7DQoNCiAgICAgICAgICAgICAgICBlcnIgPSBkLT5k
+cml2ZXItPnByb2JlKGQpOw0KICAgICAgICAgICAgICAgIGlmIChlcnIgPj0gMCkNCiAgICAgICAg
+ICAgICAgICAgICAgICAgIGVyciA9IGRldmljZV9iaW5kX2RyaXZlcihkKTsNCg0KICAgICAgICAg
+ICAgICAgIGlmIChlcnIpDQogICAgICAgICAgICAgICAgICAgICAgICByZXR1cm4gZXJyOw0KICAg
+ICAgICB9DQoJLi4uDQp9DQoNClNvLCBJIHN1Z2dlc3QgdG8gdXNlIHlvdXIgcGF0Y2hlcyBzZXQu
+DQoNClJlZ2FyZHMsDQpBbmR5DQo=
