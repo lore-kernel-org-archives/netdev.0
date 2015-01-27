@@ -1,9 +1,9 @@
 From: Eugene Krasnikov <k.eugene.e@gmail.com>
-Subject: Re: [PATCH 7/7] net: wireless: wcn36xx: handle new trigger_ba format
-Date: Tue, 27 Jan 2015 19:58:28 +0000
-Message-ID: <CAFSJ42Z7OiPvKO3S3=DZo_t6Mu2AhY1aPnM7=LU1fL40PQoXXQ@mail.gmail.com>
+Subject: Re: [PATCH 4/7] net: wireless: wcn36xx: introduce WCN36XX_HAL_AVOID_FREQ_RANGE_IND
+Date: Tue, 27 Jan 2015 20:01:00 +0000
+Message-ID: <CAFSJ42ZydByi_u0auSGDx2A6_ObZGfjV7+kR_CzFYLORRHQ5wg@mail.gmail.com>
 References: <20150118050741.31866.36490.stgit@114-36-241-182.dynamic.hinet.net>
-	<20150118051117.31866.68634.stgit@114-36-241-182.dynamic.hinet.net>
+	<20150118051100.31866.37997.stgit@114-36-241-182.dynamic.hinet.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Cc: Kalle Valo <kvalo@codeaurora.org>,
@@ -12,96 +12,38 @@ Cc: Kalle Valo <kvalo@codeaurora.org>,
 	netdev <netdev@vger.kernel.org>
 To: Andy Green <andy.green@linaro.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f48.google.com ([209.85.192.48]:62512 "EHLO
-	mail-qg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932515AbbA0T63 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2015 14:58:29 -0500
-In-Reply-To: <20150118051117.31866.68634.stgit@114-36-241-182.dynamic.hinet.net>
+Received: from mail-qc0-f176.google.com ([209.85.216.176]:44797 "EHLO
+	mail-qc0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754074AbbA0UBB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2015 15:01:01 -0500
+In-Reply-To: <20150118051100.31866.37997.stgit@114-36-241-182.dynamic.hinet.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-arg... it looks like the code is starting to have to many
-if(chip_version) cases. Mabe we should concider separate files for
-chip specific logic.
+Do you know when is this message used? sounds important.
 
 2015-01-18 5:11 GMT+00:00 Andy Green <andy.green@linaro.org>:
-> wcn3620 has a new message structure for the reply to trigger_ba
-> We don't know what to do with the candidate list he sends back,
-> but we can at least accept and ignore it nicely instead of dying.
+> WCN3620 firmware introduces a new async indication, we need to
+> add it as a known message type so we can accept it
 >
 > Signed-off-by: Andy Green <andy.green@linaro.org>
 > ---
->  drivers/net/wireless/ath/wcn36xx/smd.c |   28 ++++++++++++++++++++++++++--
->  drivers/net/wireless/ath/wcn36xx/smd.h |    9 +++++++++
->  2 files changed, 35 insertions(+), 2 deletions(-)
+>  drivers/net/wireless/ath/wcn36xx/hal.h |    2 ++
+>  1 file changed, 2 insertions(+)
 >
-> diff --git a/drivers/net/wireless/ath/wcn36xx/smd.c b/drivers/net/wireless/ath/wcn36xx/smd.c
-> index 819741c..dc24e1b 100644
-> --- a/drivers/net/wireless/ath/wcn36xx/smd.c
-> +++ b/drivers/net/wireless/ath/wcn36xx/smd.c
-> @@ -243,8 +243,31 @@ static int wcn36xx_smd_rsp_status_check(void *buf, size_t len)
->         rsp = (struct wcn36xx_fw_msg_status_rsp *)
->                 (buf + sizeof(struct wcn36xx_hal_msg_header));
+> diff --git a/drivers/net/wireless/ath/wcn36xx/hal.h b/drivers/net/wireless/ath/wcn36xx/hal.h
+> index a1f1127..b947de0 100644
+> --- a/drivers/net/wireless/ath/wcn36xx/hal.h
+> +++ b/drivers/net/wireless/ath/wcn36xx/hal.h
+> @@ -345,6 +345,8 @@ enum wcn36xx_hal_host_msg_type {
+>         WCN36XX_HAL_DHCP_START_IND = 189,
+>         WCN36XX_HAL_DHCP_STOP_IND = 190,
 >
-> -       if (WCN36XX_FW_MSG_RESULT_SUCCESS != rsp->status)
-> +       if (WCN36XX_FW_MSG_RESULT_SUCCESS != rsp->status) {
-> +               pr_err("%s: bad status, len = %d\n", __func__, len);
-> +               return rsp->status;
-> +       }
+> +       WCN36XX_HAL_AVOID_FREQ_RANGE_IND = 233,
 > +
-> +       return 0;
-> +}
-> +
-> +static int wcn36xx_smd_rsp_status_check_bav2(struct wcn36xx *wcn, void *buf,
-> +                                            size_t len)
-> +{
-> +       struct wcn36xx_fw_msg_status_rspv2 *rsp;
-> +
-> +       if (wcn->chip_version != WCN36XX_CHIP_3620)
-> +               return wcn36xx_smd_rsp_status_check(buf, len);
-> +
-> +       if (len < sizeof(struct wcn36xx_hal_msg_header) + sizeof(*rsp))
-> +               return -EIO;
-> +
-> +       rsp = buf + sizeof(struct wcn36xx_hal_msg_header);
-> +
-> +       if (WCN36XX_FW_MSG_RESULT_SUCCESS != rsp->status) {
-> +               pr_err("%s: bad status, len = %d\n", __func__, len);
->                 return rsp->status;
-> +       }
+>         WCN36XX_HAL_MSG_MAX = WCN36XX_HAL_MSG_TYPE_MAX_ENUM_SIZE
+>  };
 >
->         return 0;
->  }
-> @@ -1884,7 +1907,8 @@ int wcn36xx_smd_trigger_ba(struct wcn36xx *wcn, u8 sta_index)
->                 wcn36xx_err("Sending hal_trigger_ba failed\n");
->                 goto out;
->         }
-> -       ret = wcn36xx_smd_rsp_status_check(wcn->hal_buf, wcn->hal_rsp_len);
-> +       ret = wcn36xx_smd_rsp_status_check_bav2(wcn, wcn->hal_buf,
-> +                                               wcn->hal_rsp_len);
->         if (ret) {
->                 wcn36xx_err("hal_trigger_ba response failed err=%d\n", ret);
->                 goto out;
-> diff --git a/drivers/net/wireless/ath/wcn36xx/smd.h b/drivers/net/wireless/ath/wcn36xx/smd.h
-> index 008d034..432d3b8 100644
-> --- a/drivers/net/wireless/ath/wcn36xx/smd.h
-> +++ b/drivers/net/wireless/ath/wcn36xx/smd.h
-> @@ -44,6 +44,15 @@ struct wcn36xx_fw_msg_status_rsp {
->         u32     status;
->  } __packed;
->
-> +/* wcn3620 returns this for tigger_ba */
-> +
-> +struct wcn36xx_fw_msg_status_rspv2 {
-> +       u8      bss_id[6];
-> +       u32     status __packed;
-> +       u16     count_following_candidates __packed;
-> +       /* candidate list follows */
-> +};
-> +
->  struct wcn36xx_hal_ind_msg {
->         struct list_head list;
->         u8 *msg;
 >
 
 
