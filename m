@@ -1,38 +1,53 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 1/2] rhashtable: Introduce rhashtable_walk_*
-Date: Tue, 27 Jan 2015 21:12:20 +1100
-Message-ID: <20150127101219.GA3413@gondor.apana.org.au>
-References: <20150125232040.GA17936@gondor.apana.org.au>
- <E1YFWUl-0004gE-SH@gondolin.me.apana.org.au>
- <063D6719AE5E284EB5DD2968C1650D6D1CAD2C12@AcuExch.aculab.com>
- <20150126222259.GC30116@gondor.apana.org.au>
- <063D6719AE5E284EB5DD2968C1650D6D1CAD3B6C@AcuExch.aculab.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Thomas Graf <tgraf@suug.ch>, Ying Xue <ying.xue@windriver.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"kaber@trash.net" <kaber@trash.net>,
-	"paulmck@linux.vnet.ibm.com" <paulmck@linux.vnet.ibm.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>
-To: David Laight <David.Laight@ACULAB.COM>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CAD3B6C@AcuExch.aculab.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: [PATCH net-next v2] rtnetlink: pass link_net to the newlink handler
+Date: Tue, 27 Jan 2015 11:13:08 +0100
+Message-ID: <1422353588-4830-1-git-send-email-nicolas.dichtel@6wind.com>
+References: <54C61ED1.5040501@6wind.com>
+Cc: davem@davemloft.net, Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:41682 "EHLO
+	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757584AbbA0KNO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2015 05:13:14 -0500
+In-Reply-To: <54C61ED1.5040501@6wind.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 27, 2015 at 10:09:18AM +0000, David Laight wrote:
->
-> But if err is non-zero you don't hold the mutex.
-> Presumably the calling code also errors out immediately,
-> so the RCU lock isn't needed at all.
+When IFLA_LINK_NETNSID is used, the netdevice should be built in this link netns
+and moved at the end to another netns (pointed by the socket netns or
+IFLA_NET_NS_[PID|FD]).
 
-No the calling code expects the RCU lock to be held because it
-will always call stop.  Look at how seq_file works.
+Existing user of the newlink handler will use the netns argument (src_net) to
+find a link netdevice or to check some other information into the link netns.
+For example, to find a netdevice, two information are required: an ifindex
+(usually from IFLA_LINK) and a netns (this link netns).
 
-Cheers,
+Note: when using IFLA_LINK_NETNSID and IFLA_NET_NS_[PID|FD], a user may create a
+netdevice that stands in netnsX and with its link part in netnsY, by sending a
+rtnl message from netnsZ.
+
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+---
+
+v2: instead of patching each subsystem, pass the right netns to
+    the newlink handler
+
+ net/core/rtnetlink.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index 07447d1665e6..fedd7ab4085a 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -2148,7 +2148,7 @@ replay:
+ 		dev->ifindex = ifm->ifi_index;
+ 
+ 		if (ops->newlink) {
+-			err = ops->newlink(net, dev, tb, data);
++			err = ops->newlink(link_net ? : net, dev, tb, data);
+ 			/* Drivers should call free_netdev() in ->destructor
+ 			 * and unregister it on failure after registration
+ 			 * so that device could be finally freed in rtnl_unlock.
 -- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+2.2.2
