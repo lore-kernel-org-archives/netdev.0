@@ -1,47 +1,64 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 1/2] rhashtable: Introduce rhashtable_walk_*
-Date: Tue, 27 Jan 2015 22:23:04 +1100
-Message-ID: <20150127112304.GA4548@gondor.apana.org.au>
-References: <063D6719AE5E284EB5DD2968C1650D6D1CAD2C12@AcuExch.aculab.com>
- <20150126222259.GC30116@gondor.apana.org.au>
- <20150126.143613.1798698028405169123.davem@davemloft.net>
- <20150126224216.GA30551@gondor.apana.org.au>
- <20150126233100.GA31108@gondor.apana.org.au>
- <20150127094541.GC22262@casper.infradead.org>
- <20150127095454.GA2695@gondor.apana.org.au>
- <20150127101512.GE22262@casper.infradead.org>
- <20150127102420.GA3777@gondor.apana.org.au>
- <20150127111604.GF22262@casper.infradead.org>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH net 1/2] caif: remove wrong dev_net_set() call
+Date: Tue, 27 Jan 2015 12:34:40 +0100
+Message-ID: <54C777D0.6090608@6wind.com>
+References: <1422307694-10079-1-git-send-email-nicolas.dichtel@6wind.com> <1422307694-10079-2-git-send-email-nicolas.dichtel@6wind.com>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, David.Laight@ACULAB.COM,
-	ying.xue@windriver.com, kaber@trash.net,
-	paulmck@linux.vnet.ibm.com, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: Thomas Graf <tgraf@suug.ch>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150127111604.GF22262@casper.infradead.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, dmitry.tarnyagin@lockless.no,
+	arvid.brodin@alten.se, alex.aring@gmail.com,
+	linux-wpan@vger.kernel.org,
+	=?UTF-8?B?U2p1ciBCcsOmbmRlbGFuZA==?=
+	<sjur.brandeland@stericsson.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f176.google.com ([209.85.212.176]:53751 "EHLO
+	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758228AbbA0Leo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2015 06:34:44 -0500
+Received: by mail-wi0-f176.google.com with SMTP id em10so4089432wid.3
+        for <netdev@vger.kernel.org>; Tue, 27 Jan 2015 03:34:42 -0800 (PST)
+In-Reply-To: <1422307694-10079-2-git-send-email-nicolas.dichtel@6wind.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 27, 2015 at 11:16:04AM +0000, Thomas Graf wrote:
-> 
-> No objection. I have a patch prepared which allows the user to
-> provide ht->mutex himself so nfset can provide its own existing
-> mutex to rhashtable and lock out the resizes from inserts,
-> removals and dump iterations automatically That would restore the
-> old behaviour of the nfset API without major surgery.
+Le 26/01/2015 22:28, Nicolas Dichtel a =C3=A9crit :
+> src_net points to the netns where the netlink message has been receiv=
+ed. This
+> netns may be different from the netns where the interface is created =
+(because
+> the user may add IFLA_NET_NS_[PID|FD]). In this case, src_net is the =
+link netns.
+>
+> It seems wrong to override the netns in the newlink() handler because=
+ if it
+> was not already src_net, it means that the user explicitly asks to cr=
+eate the
+> netdevice in another netns.
+>
+> CC: Sjur Br=C3=A6ndeland <sjur.brandeland@stericsson.com>
+> CC: Dmitry Tarnyagin <dmitry.tarnyagin@lockless.no>
 
-If you take the mutex you might as well just make it synchronous.
-There is zero difference.
+I got a "Delivery Status Notification (Failure)" for Dmitry Tarnyagin (=
+I took=20
+the email address from the MAINTAINERS file):
 
-Maybe you misunderstood my email.  I'm not making it synchronous
-for everybody, just those that always take a lock on inserts/removals
-and therefore don't need per-bucket locks.
+   Delivery to the following recipient failed permanently:
 
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+        dmitry.tarnyagin@lockless.no
+
+   Technical details of permanent failure:
+   Google tried to deliver your message, but it was rejected by the ser=
+ver for
+   the recipient domain lockless.no by mail.lockless.no. [46.29.221.38]=
+=2E
+
+   The error that the other server returned was:
+   550 5.1.1 <dmitry.tarnyagin@lockless.no>: Recipient address rejected=
+: User
+   unknown in virtual mailbox table
+
+Any suggestions?
