@@ -1,47 +1,105 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [net-next PATCH v3 00/12] Flow API
-Date: Tue, 27 Jan 2015 10:54:35 -0500
-Message-ID: <54C7B4BB.9030805@mojatatu.com>
-References: <20150123110821.GH25797@casper.infradead.org> <20150123113934.GD2065@nanopsycho.orion> <20150123122838.GI25797@casper.infradead.org> <20150123134315.GF2065@nanopsycho.orion> <20150123140724.GJ25797@casper.infradead.org> <54C26A1F.6060603@gmail.com> <54C397C0.3010508@mojatatu.com> <20150126082602.GB8408@vergenet.net> <54C6326D.4090608@mojatatu.com> <54C71409.8060007@gmail.com> <20150127045820.GC13164@gospo.home.greyhouse.net>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH 1/3] ipv6: Select fragment id during UFO/GSO
+	segmentation if not set.
+Date: Tue, 27 Jan 2015 17:02:31 +0100
+Message-ID: <1422374551.13969.35.camel@stressinduktion.org>
+References: <1422283026-27832-1-git-send-email-vyasevic@redhat.com>
+	<1422283026-27832-2-git-send-email-vyasevic@redhat.com>
+	<1422326874.31046.239.camel@decadent.org.uk>
+	<20150127084208.GB21584@redhat.com>
+	<1422366458.13969.11.camel@stressinduktion.org>
+	<54C7A007.6050707@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Simon Horman <simon.horman@netronome.com>,
-	John Fastabend <john.fastabend@gmail.com>,
-	Thomas Graf <tgraf@suug.ch>, Jiri Pirko <jiri@resnulli.us>,
-	Pablo Neira Ayuso <pablo@netfilter.org>, sfeldma@gmail.com,
-	netdev@vger.kernel.org, davem@davemloft.net, gerlitz.or@gmail.com,
-	andy@greyhouse.net, ast@plumgrid.com
-To: Andy Gospodarek <gospo@cumulusnetworks.com>,
-	David Ahern <dsahern@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f177.google.com ([209.85.223.177]:54031 "EHLO
-	mail-ie0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751830AbbA0Pyi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2015 10:54:38 -0500
-Received: by mail-ie0-f177.google.com with SMTP id vy18so15931269iec.8
-        for <netdev@vger.kernel.org>; Tue, 27 Jan 2015 07:54:37 -0800 (PST)
-In-Reply-To: <20150127045820.GC13164@gospo.home.greyhouse.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
+	Vladislav Yasevich <vyasevich@gmail.com>,
+	virtualization@lists.linux-foundation.org, edumazet@google.com,
+	Ben Hutchings <ben@decadent.org.uk>
+To: vyasevic@redhat.com
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <54C7A007.6050707@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On 01/26/15 23:58, Andy Gospodarek wrote:
-> On Mon, Jan 26, 2015 at 09:28:57PM -0700, David Ahern wrote:
+On Di, 2015-01-27 at 09:26 -0500, Vlad Yasevich wrote:
+> On 01/27/2015 08:47 AM, Hannes Frederic Sowa wrote:
+> > On Di, 2015-01-27 at 10:42 +0200, Michael S. Tsirkin wrote:
+> >> On Tue, Jan 27, 2015 at 02:47:54AM +0000, Ben Hutchings wrote:
+> >>> On Mon, 2015-01-26 at 09:37 -0500, Vladislav Yasevich wrote:
+> >>>> If the IPv6 fragment id has not been set and we perform
+> >>>> fragmentation due to UFO, select a new fragment id.
+> >>>> When we store the fragment id into skb_shinfo, set the bit
+> >>>> in the skb so we can re-use the selected id.
+> >>>> This preserves the behavior of UFO packets generated on the
+> >>>> host and solves the issue of id generation for packet sockets
+> >>>> and tap/macvtap devices.
+> >>>>
+> >>>> This patch moves ipv6_select_ident() back in to the header file.  
+> >>>> It also provides the helper function that sets skb_shinfo() frag
+> >>>> id and sets the bit.
+> >>>>
+> >>>> It also makes sure that we select the fragment id when doing
+> >>>> just gso validation, since it's possible for the packet to
+> >>>> come from an untrusted source (VM) and be forwarded through
+> >>>> a UFO enabled device which will expect the fragment id.
+> >>>>
+> >>>> CC: Eric Dumazet <edumazet@google.com>
+> >>>> Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
+> >>>> ---
+> >>>>  include/linux/skbuff.h |  3 ++-
+> >>>>  include/net/ipv6.h     |  2 ++
+> >>>>  net/ipv6/ip6_output.c  |  4 ++--
+> >>>>  net/ipv6/output_core.c |  9 ++++++++-
+> >>>>  net/ipv6/udp_offload.c | 10 +++++++++-
+> >>>>  5 files changed, 23 insertions(+), 5 deletions(-)
+> >>>>
+> >>>> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+> >>>> index 85ab7d7..3ad5203 100644
+> >>>> --- a/include/linux/skbuff.h
+> >>>> +++ b/include/linux/skbuff.h
+> >>>> @@ -605,7 +605,8 @@ struct sk_buff {
+> >>>>  	__u8			ipvs_property:1;
+> >>>>  	__u8			inner_protocol_type:1;
+> >>>>  	__u8			remcsum_offload:1;
+> >>>> -	/* 3 or 5 bit hole */
+> >>>> +	__u8			ufo_fragid_set:1;
+> >>> [...]
+> >>>
+> >>> Doesn't the flag belong in struct skb_shared_info, rather than struct
+> >>> sk_buff?  Otherwise this looks fine.
+> >>>
+> >>> Ben.
+> >>
+> >> Hmm we seem to be out of tx flags.
+> >> Maybe ip6_frag_id == 0 should mean "not set".
+> > 
+> > Maybe that is the best idea. Definitely the ufo_fragid_set bit should
+> > move into the skb_shared_info area.
+> 
+> That's what I originally wanted to do, but had to move and grow txflags thus
+> skb_shinfo ended up growing.  I wanted to avoid that, so stole an skb flag.
+> 
+> I considered treating fragid == 0 as unset, but a 0 fragid is perfectly valid
+> from the protocol perspective and could actually be generated by the id generator
+> functions.  This may cause us to call the id generation multiple times.
 
->> Will someone be taking copious notes or recording the sessions and then
->> making those available for those not in attendance?
->>
->
-> I'm not sure if the sessions will be recorded, but notes will be taken
-> for those wise enough not to come to Ottawa this time of year.  :)
->
+Are there plans in the long run to let virtio_net transmit auxiliary
+data to the other end so we can clean all of this this up one day?
 
-We hope the content is hot enough it will melt all the ice around the
-building but not down the street.
-Tourists are welcome as well ;->
+I don't like the whole situation: looking into the virtio_net headers
+just adding a field for ipv6 fragmentation ids to those small structs
+seems bloated, not doing it feels incorrect. :/
 
-We are soliciting volunteers to do videos that we can post.
-Having volunteers taking notes certainly is an excellent idea.
+Thoughts?
 
-cheers,
-janmal
+Bye,
+Hannes
