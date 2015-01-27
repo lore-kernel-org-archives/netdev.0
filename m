@@ -1,30 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v1] stmmac: prevent probe drivers to crash kernel
-Date: Tue, 27 Jan 2015 12:24:45 -0800 (PST)
-Message-ID: <20150127.122445.923392803091632565.davem@davemloft.net>
-References: <1422376683-30555-1-git-send-email-andriy.shevchenko@linux.intel.com>
+Subject: [PATCH] net: don't OOPS on socket aio
+Date: Tue, 27 Jan 2015 12:26:24 -0800 (PST)
+Message-ID: <20150127.122624.2124938550888384076.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: peppe.cavallaro@st.com, netdev@vger.kernel.org
-To: andriy.shevchenko@linux.intel.com
+Cc: hch@lst.de
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52614 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:52627 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751882AbbA0UYr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2015 15:24:47 -0500
-In-Reply-To: <1422376683-30555-1-git-send-email-andriy.shevchenko@linux.intel.com>
+	with ESMTP id S1755120AbbA0U0Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2015 15:26:24 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-Date: Tue, 27 Jan 2015 18:38:03 +0200
 
-> In the case when alloc_netdev fails we return NULL to a caller. But there is no
-> check for NULL in the probe drivers. This patch changes NULL to an error
-> pointer. The function description is amended to reflect what we may get
-> returned.
-> 
-> Signed-off-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+From: Christoph Hellwig <hch@lst.de>
 
-Applied, thank you.
+Signed-off-by: Christoph Hellwig <hch@lst.de>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/socket.c | 3 ---
+ 1 file changed, 3 deletions(-)
+
+diff --git a/net/socket.c b/net/socket.c
+index a2c33a4..418795c 100644
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -869,9 +869,6 @@ static ssize_t sock_splice_read(struct file *file, loff_t *ppos,
+ static struct sock_iocb *alloc_sock_iocb(struct kiocb *iocb,
+ 					 struct sock_iocb *siocb)
+ {
+-	if (!is_sync_kiocb(iocb))
+-		BUG();
+-
+ 	siocb->kiocb = iocb;
+ 	iocb->private = siocb;
+ 	return siocb;
+-- 
+1.7.11.7
