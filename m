@@ -1,83 +1,80 @@
 From: "fugang.duan@freescale.com" <fugang.duan@freescale.com>
-Subject: RE: [PATCH net-next 1/1] net: phy: unbind phy device from generic and
- specifical driver
-Date: Tue, 27 Jan 2015 02:27:07 +0000
-Message-ID: <BLUPR03MB373A7E62B7922C9C337408DF5320@BLUPR03MB373.namprd03.prod.outlook.com>
-References: <1422260045-22527-1-git-send-email-b38611@freescale.com>
- <54C675F1.9080803@gmail.com> <54C67D97.7080203@gmail.com>
+Subject: RE: [PATCH net-next 1/4] net: phy: utilize phy_suspend and phy_resume
+Date: Tue, 27 Jan 2015 02:42:26 +0000
+Message-ID: <BLUPR03MB3732890B34D9E7568D7C363F5320@BLUPR03MB373.namprd03.prod.outlook.com>
+References: <1422318673-9418-1-git-send-email-f.fainelli@gmail.com>
+ <1422318673-9418-2-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"s.hauer@pengutronix.de" <s.hauer@pengutronix.de>,
-	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"s.hauer@pengutronix.de" <s.hauer@pengutronix.de>
 To: Florian Fainelli <f.fainelli@gmail.com>,
-	"davem@davemloft.net" <davem@davemloft.net>
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1on0143.outbound.protection.outlook.com ([157.56.110.143]:30545
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+Received: from mail-by2on0135.outbound.protection.outlook.com ([207.46.100.135]:62123
+	"EHLO na01-by2-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751535AbbA0C1K (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 Jan 2015 21:27:10 -0500
-In-Reply-To: <54C67D97.7080203@gmail.com>
+	id S1751116AbbA0Cm2 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2015 21:42:28 -0500
+In-Reply-To: <1422318673-9418-2-git-send-email-f.fainelli@gmail.com>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRmxvcmlhbiBGYWluZWxsaSA8Zi5mYWluZWxsaUBnbWFpbC5jb20+IFNlbnQ6IFR1ZXNk
-YXksIEphbnVhcnkgMjcsIDIwMTUgMTo0NyBBTQ0KPiBUbzogRHVhbiBGdWdhbmctQjM4NjExOyBk
-YXZlbUBkYXZlbWxvZnQubmV0DQo+IENjOiBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBzLmhhdWVy
-QHBlbmd1dHJvbml4LmRlOw0KPiBiaHV0Y2hpbmdzQHNvbGFyZmxhcmUuY29tOyBzdGVwaGVuQG5l
-dHdvcmtwbHVtYmVyLm9yZw0KPiBTdWJqZWN0OiBSZTogW1BBVENIIG5ldC1uZXh0IDEvMV0gbmV0
-OiBwaHk6IHVuYmluZCBwaHkgZGV2aWNlIGZyb20NCj4gZ2VuZXJpYyBhbmQgc3BlY2lmaWNhbCBk
-cml2ZXINCj4gDQo+IE9uIDI2LzAxLzE1IDA5OjE0LCBGbG9yaWFuIEZhaW5lbGxpIHdyb3RlOg0K
-PiA+IE9uIDI2LzAxLzE1IDAwOjE0LCBGdWdhbmcgRHVhbiB3cm90ZToNCj4gPj4gVGhlIGN1cnJl
-bnQgLnBoeV9kZXRhY2goKSBmdW5jdGlvbiBvbmx5IHVuYmluZCBnZW5lcmljIHBoeSBkcml2ZXIs
-DQo+ID4+IHdoaWNoIGNhdXNlcyBzcGVjaWZpY2FsIGRyaXZlciBzdXNwZW5kL3Jlc3VtZSBmdW5j
-dGlvbiBzdGlsbCB3b3JrIGxpa2UNCj4gQXRoZXJvcyBBVDgwM1ggUEhZcy4NCj4gPj4NCj4gPj4g
-Rm9yIGV4YW1wbGU6DQo+ID4+IGlmY29uZmlnIGV0aDAgZG93bg0KPiA+PiBlY2hvIG1lbSA+IC9z
-eXMvcG93ZXIvc3RhdHVzDQo+ID4+DQo+ID4+IEFmdGVyIGV0aDAgaW50ZXJmYWNlIGRvd24sIGRy
-aXZlciBjYWxsIHBoeV9kZXRhY2ggdG8gdW5iaW5kIHBoeQ0KPiA+PiBkcml2ZXIsIGFuZCB0aGVu
-IGRvIHN1c3BlbmQvcmVzdW1lIG9wZXJhdGlvbiwNCj4gPj4gYXQ4MDN4X3N1c3BlbmQoKS9hdDgw
-M3hfcmVzdW1lKCkgZnVuY3Rpb25zIHN0aWxsIGdldCBjYWxsZWQgdGhhdCBjYWxsDQo+ID4+IG1k
-aW8gYnVzIHJlYWQvd3JpdGUgZnVuY3Rpb24uIFdoZW4gZXRoMCBpbnRlcmZhY2UgZG93biwgTUFD
-IGRyaXZlciBtYXkNCj4gY2xvc2UgYWxsIGNsb2NrcyBhbmQgbWRpbyBidXMgY2Fubm90IHdvcmsu
-IFNvIHRoZSBpc3N1ZSBoYXBwZW5zLg0KPiA+DQo+ID4gSSB3YXMganVzdCBoaXR0aW5nIHRoaXMg
-cHJvYmxlbSBvbiBGcmlkYXkgZXZlbmluZyBhbmQgd2FzIGFib3V0IHRvDQo+ID4gc3VibWl0IGEg
-c2ltaWxhciBjaGFuZ2UuIFRoYW5rcyENCj4gPg0KPiA+Pg0KPiA+PiBUaGUgcGF0Y2ggY2FuIHVu
-YmluZCBnZW5lcmljIGFuZCBzcGVjaWZpY2FsIGRyaXZlci4NCj4gPj4NCj4gPj4gU2lnbmVkLW9m
-Zi1ieTogRnVnYW5nIER1YW4gPEIzODYxMUBmcmVlc2NhbGUuY29tPg0KPiA+DQo+ID4gQWNrZWQt
-Ynk6IEZsb3JpYW4gRmFpbmVsbGkgPGYuZmFpbmVsbGlAZ21haWwuY29tPg0KPiA+IFRlc3RlZC1i
-eTogRmxvcmlhbiBGYWluZWxsaSA8Zi5mYWluZWxsaUBnbWFpbC5jb20+DQo+IA0KPiBIdW1tLCB0
-aGlzIGJyZWFrcyBhIHNlcXVlbmNlIG9mIGlmY29uZmlnIGRvd24gdGhlbiB1cCwgdGhlIGRyaXZl
-ciBpcw0KPiByZW1vdmVkLCBhbmQgd2UgbmV2ZXIgZ2V0IHRvIHByb2JlIGl0IGFnYWluLCBkb2Vz
-IHRoaXMgd29yayBmb3IgeW91IHVzaW5nDQo+IHRoZSBGRUMgZHJpdmVyPw0KPiANCkl0IHdvcmtz
-IGZpbmUgZm9yIEZFQyBkcml2ZXIgd2l0aCBiZWxvdyBmbG93IGNhc2UuDQplY2hvIGVuYWJsZWQg
-PiAvc3lzL2NsYXNzL3R0eS90dHlteGMwL3Bvd2VyL3dha2V1cA0KZWNobyBtZW0gPiAvc3lzL3Bv
-d2VyL3N0YXRlDQppZmNvbmZpZyBldGgwIGRvd24NCmVjaG8gbWVtID4gL3N5cy9wb3dlci9zdGF0
-ZQ0KaWZjb25maWcgZXRoMCB1cA0KcGluZyAxMC4xOTIuMjQyLjIwNCAvL3Bpbmcgd29yayBmaW5l
-DQplY2hvIG1lbSA+IC9zeXMvcG93ZXIvc3RhdGUNCi4uLg0KDQoNCkkga25vdyB0aGUgcmVhc29u
-LCB0aGUgZmlyc3QgZmVjIGRyaXZlciB1c2UgQXRoZXJvcyA4MDMxIGV0aGVybmV0IHNwZWNpYWwg
-cGh5IGRyaXZlciwgbGlrZToNCmZlYyAyMTg4MDAwLmV0aGVybmV0IGV0aDA6IEZyZWVzY2FsZSBG
-RUMgUEhZIGRyaXZlciBbQXRoZXJvcyA4MDMxIGV0aGVybmV0XSAobWlpX2J1czpwaHlfYWRkcj0y
-MTg4MDAwLmV0aGVybmV0OjAxLCBpcnE9LTEpDQoNCkFmdGVyIGRvd24gYW5kIHVwLCBmZWMgdXNl
-IGdlbmVyaWMgcGh5IGRyaXZlciwgYnV0IGl0IHN0aWxsIGNhbiB3b3JrIGZpbmU6DQpmZWMgMjE4
-ODAwMC5ldGhlcm5ldCBldGgwOiBGcmVlc2NhbGUgRkVDIFBIWSBkcml2ZXIgW0dlbmVyaWMgUEhZ
-XSAobWlpX2J1czpwaHlfYWRkcj0yMTg4MDAwLmV0aGVybmV0OjAxLCBpcnE9LTEpDQoNCkFmdGVy
-IGRvd24gYW5kIHVwLCBpbiBoZXJlLCBwaHkgZHJpdmVyIG9ubHkgaXMgaW5pdGlhbGl6ZWQgYXMg
-Z2VuZXJpYyBwaHkgZHJpdmVyLg0KaW50IHBoeV9hdHRhY2hfZGlyZWN0KHN0cnVjdCBuZXRfZGV2
-aWNlICpkZXYsIHN0cnVjdCBwaHlfZGV2aWNlICpwaHlkZXYsDQogICAgICAgICAgICAgICAgICAg
-ICAgdTMyIGZsYWdzLCBwaHlfaW50ZXJmYWNlX3QgaW50ZXJmYWNlKQ0Kew0KCSAuLi4NCiAgICAg
-ICAgLyogQXNzdW1lIHRoYXQgaWYgdGhlcmUgaXMgbm8gZHJpdmVyLCB0aGF0IGl0IGRvZXNuJ3QN
-CiAgICAgICAgICogZXhpc3QsIGFuZCB3ZSBzaG91bGQgdXNlIHRoZSBnZW5waHkgZHJpdmVyLg0K
-ICAgICAgICAgKi8NCiAgICAgICAgaWYgKE5VTEwgPT0gZC0+ZHJpdmVyKSB7DQogICAgICAgICAg
-ICAgICAgaWYgKHBoeWRldi0+aXNfYzQ1KQ0KICAgICAgICAgICAgICAgICAgICAgICAgZC0+ZHJp
-dmVyID0gJmdlbnBoeV9kcml2ZXJbR0VOUEhZX0RSVl8xMEddLmRyaXZlcjsNCiAgICAgICAgICAg
-ICAgICBlbHNlDQogICAgICAgICAgICAgICAgICAgICAgICBkLT5kcml2ZXIgPSAmZ2VucGh5X2Ry
-aXZlcltHRU5QSFlfRFJWXzFHXS5kcml2ZXI7DQoNCiAgICAgICAgICAgICAgICBlcnIgPSBkLT5k
-cml2ZXItPnByb2JlKGQpOw0KICAgICAgICAgICAgICAgIGlmIChlcnIgPj0gMCkNCiAgICAgICAg
-ICAgICAgICAgICAgICAgIGVyciA9IGRldmljZV9iaW5kX2RyaXZlcihkKTsNCg0KICAgICAgICAg
-ICAgICAgIGlmIChlcnIpDQogICAgICAgICAgICAgICAgICAgICAgICByZXR1cm4gZXJyOw0KICAg
-ICAgICB9DQoJLi4uDQp9DQoNClNvLCBJIHN1Z2dlc3QgdG8gdXNlIHlvdXIgcGF0Y2hlcyBzZXQu
-DQoNClJlZ2FyZHMsDQpBbmR5DQo=
+From: Florian Fainelli <f.fainelli@gmail.com> Sent: Tuesday, January 27, 2015 8:31 AM
+> To: netdev@vger.kernel.org
+> Cc: davem@davemloft.net; s.hauer@pengutronix.de; Duan Fugang-B38611;
+> Florian Fainelli
+> Subject: [PATCH net-next 1/4] net: phy: utilize phy_suspend and
+> phy_resume
+> 
+> phy_suspend and phy_resume are an abstraction on top of the PHY device
+> driver suspend and resume callbacks, utilize those since they are the
+> proper interface to suspending and resuming a PHY device.
+> 
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+> ---
+>  drivers/net/phy/mdio_bus.c | 6 ++----
+>  1 file changed, 2 insertions(+), 4 deletions(-)
+> 
+> diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
+> index 50051f271b10..20447741893a 100644
+> --- a/drivers/net/phy/mdio_bus.c
+> +++ b/drivers/net/phy/mdio_bus.c
+> @@ -465,7 +465,6 @@ static bool mdio_bus_phy_may_suspend(struct
+> phy_device *phydev)
+> 
+>  static int mdio_bus_suspend(struct device *dev)  {
+> -	struct phy_driver *phydrv = to_phy_driver(dev->driver);
+>  	struct phy_device *phydev = to_phy_device(dev);
+> 
+>  	/* We must stop the state machine manually, otherwise it stops out
+> of @@ -479,19 +478,18 @@ static int mdio_bus_suspend(struct device *dev)
+>  	if (!mdio_bus_phy_may_suspend(phydev))
+>  		return 0;
+> 
+> -	return phydrv->suspend(phydev);
+> +	return phy_suspend(phydev);
+>  }
+> 
+>  static int mdio_bus_resume(struct device *dev)  {
+> -	struct phy_driver *phydrv = to_phy_driver(dev->driver);
+>  	struct phy_device *phydev = to_phy_device(dev);
+>  	int ret;
+> 
+>  	if (!mdio_bus_phy_may_suspend(phydev))
+>  		goto no_resume;
+> 
+> -	ret = phydrv->resume(phydev);
+> +	ret = phy_resume(phydev);
+>  	if (ret < 0)
+>  		return ret;
+> 
+> --
+> 2.1.0
+
+Test on i.MX6q sabresd board, works fine.
+
+Acked-by: Fugang Duan <B38611@freescale.com>
+Tested-by: Fugang Duan <B38611@freescale.com>
