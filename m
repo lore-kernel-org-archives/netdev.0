@@ -1,114 +1,128 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH 1/3] ipv6: Select fragment id during UFO/GSO segmentation
-	if not set.
-Date: Tue, 27 Jan 2015 18:08:08 +0200
-Message-ID: <20150127160808.GA10765@redhat.com>
-References: <1422283026-27832-1-git-send-email-vyasevic@redhat.com>
-	<1422283026-27832-2-git-send-email-vyasevic@redhat.com>
-	<1422326874.31046.239.camel@decadent.org.uk>
-	<20150127084208.GB21584@redhat.com>
-	<1422366458.13969.11.camel@stressinduktion.org>
-	<54C7A007.6050707@redhat.com>
-	<1422374551.13969.35.camel@stressinduktion.org>
+From: Andy Gospodarek <gospo@cumulusnetworks.com>
+Subject: Re: [RFC PATCH] net: ipv6: Make address flushing on ifdown optional
+Date: Tue, 27 Jan 2015 11:09:15 -0500
+Message-ID: <20150127160915.GD13164@gospo.home.greyhouse.net>
+References: <1421263039-96198-1-git-send-email-dsahern@gmail.com>
+ <20150122224033.6e2db5ce@urahara>
+ <1422015737.2824.8.camel@stressinduktion.org>
+ <20150127045653.GB13164@gospo.home.greyhouse.net>
+ <1422351861.13969.5.camel@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Vladislav Yasevich <vyasevich@gmail.com>,
-	virtualization@lists.linux-foundation.org, edumazet@google.com,
-	Ben Hutchings <ben@decadent.org.uk>
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	David Ahern <dsahern@gmail.com>, netdev@vger.kernel.org
 To: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qg0-f49.google.com ([209.85.192.49]:47481 "EHLO
+	mail-qg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751614AbbA0QJU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2015 11:09:20 -0500
+Received: by mail-qg0-f49.google.com with SMTP id i50so12336909qgf.8
+        for <netdev@vger.kernel.org>; Tue, 27 Jan 2015 08:09:19 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <1422374551.13969.35.camel@stressinduktion.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1422351861.13969.5.camel@stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 27, 2015 at 05:02:31PM +0100, Hannes Frederic Sowa wrote:
-> On Di, 2015-01-27 at 09:26 -0500, Vlad Yasevich wrote:
-> > On 01/27/2015 08:47 AM, Hannes Frederic Sowa wrote:
-> > > On Di, 2015-01-27 at 10:42 +0200, Michael S. Tsirkin wrote:
-> > >> On Tue, Jan 27, 2015 at 02:47:54AM +0000, Ben Hutchings wrote:
-> > >>> On Mon, 2015-01-26 at 09:37 -0500, Vladislav Yasevich wrote:
-> > >>>> If the IPv6 fragment id has not been set and we perform
-> > >>>> fragmentation due to UFO, select a new fragment id.
-> > >>>> When we store the fragment id into skb_shinfo, set the bit
-> > >>>> in the skb so we can re-use the selected id.
-> > >>>> This preserves the behavior of UFO packets generated on the
-> > >>>> host and solves the issue of id generation for packet sockets
-> > >>>> and tap/macvtap devices.
-> > >>>>
-> > >>>> This patch moves ipv6_select_ident() back in to the header file.  
-> > >>>> It also provides the helper function that sets skb_shinfo() frag
-> > >>>> id and sets the bit.
-> > >>>>
-> > >>>> It also makes sure that we select the fragment id when doing
-> > >>>> just gso validation, since it's possible for the packet to
-> > >>>> come from an untrusted source (VM) and be forwarded through
-> > >>>> a UFO enabled device which will expect the fragment id.
-> > >>>>
-> > >>>> CC: Eric Dumazet <edumazet@google.com>
-> > >>>> Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
-> > >>>> ---
-> > >>>>  include/linux/skbuff.h |  3 ++-
-> > >>>>  include/net/ipv6.h     |  2 ++
-> > >>>>  net/ipv6/ip6_output.c  |  4 ++--
-> > >>>>  net/ipv6/output_core.c |  9 ++++++++-
-> > >>>>  net/ipv6/udp_offload.c | 10 +++++++++-
-> > >>>>  5 files changed, 23 insertions(+), 5 deletions(-)
-> > >>>>
-> > >>>> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-> > >>>> index 85ab7d7..3ad5203 100644
-> > >>>> --- a/include/linux/skbuff.h
-> > >>>> +++ b/include/linux/skbuff.h
-> > >>>> @@ -605,7 +605,8 @@ struct sk_buff {
-> > >>>>  	__u8			ipvs_property:1;
-> > >>>>  	__u8			inner_protocol_type:1;
-> > >>>>  	__u8			remcsum_offload:1;
-> > >>>> -	/* 3 or 5 bit hole */
-> > >>>> +	__u8			ufo_fragid_set:1;
-> > >>> [...]
-> > >>>
-> > >>> Doesn't the flag belong in struct skb_shared_info, rather than struct
-> > >>> sk_buff?  Otherwise this looks fine.
-> > >>>
-> > >>> Ben.
-> > >>
-> > >> Hmm we seem to be out of tx flags.
-> > >> Maybe ip6_frag_id == 0 should mean "not set".
+On Tue, Jan 27, 2015 at 10:44:21AM +0100, Hannes Frederic Sowa wrote:
+> Hi,
+> 
+> On Mo, 2015-01-26 at 23:56 -0500, Andy Gospodarek wrote:
+> > On Fri, Jan 23, 2015 at 01:22:17PM +0100, Hannes Frederic Sowa wrote:
+> > > On Do, 2015-01-22 at 22:40 -0800, Stephen Hemminger wrote:
+> > > > On Wed, 14 Jan 2015 12:17:19 -0700
+> > > > David Ahern <dsahern@gmail.com> wrote:
+> > > > 
+> > > > > Currently, ipv6 addresses are flushed when the interface is configured down:
+> > > > > 
+> > > > > [root@f20 ~]# ip -6 addr add dev eth1 2000:11:1:1::1/64
+> > > > > [root@f20 ~]# ip addr show dev eth1
+> > > > > 3: eth1: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN group default qlen 1000
+> > > > >     link/ether 02:04:11:22:33:01 brd ff:ff:ff:ff:ff:ff
+> > > > >     inet6 2000:11:1:1::1/64 scope global tentative
+> > > > >        valid_lft forever preferred_lft forever
+> > > > > [root@f20 ~]# ip link set dev eth1 up
+> > > > > [root@f20 ~]# ip link set dev eth1 down
+> > > > > [root@f20 ~]# ip addr show dev eth1
+> > > > > 3: eth1: <BROADCAST,MULTICAST> mtu 1500 qdisc pfifo_fast state DOWN group default qlen 1000
+> > > > >     link/ether 02:04:11:22:33:01 brd ff:ff:ff:ff:ff:ff
+> > > > > 
+> > > > > Add a new sysctl to make this behavior optional. Setting defaults to flush
+> > > > > addresses to maintain backwards compatibility. When reset flushing is bypassed:
+> > > > > 
+> > > > > [root@f20 ~]# echo 0 > /proc/sys/net/ipv6/conf/eth1/flush_addr_on_down
+> > > > > [root@f20 ~]# ip -6 addr add dev eth1 2000:11:1:1::1/64
+> > > > > [root@f20 ~]# ip addr show dev eth1
+> > > > > 3: eth1: <BROADCAST,MULTICAST> mtu 1500 qdisc pfifo_fast state DOWN group default qlen 1000
+> > > > >     link/ether 02:04:11:22:33:01 brd ff:ff:ff:ff:ff:ff
+> > > > >     inet6 2000:11:1:1::1/64 scope global tentative
+> > > > >        valid_lft forever preferred_lft forever
+> > > > > [root@f20 ~]#  ip link set dev eth1 up
+> > > > > [root@f20 ~]#  ip link set dev eth1 down
+> > > > > [root@f20 ~]# ip addr show dev eth1
+> > > > > 3: eth1: <BROADCAST,MULTICAST> mtu 1500 qdisc pfifo_fast state DOWN group default qlen 1000
+> > > > >     link/ether 02:04:11:22:33:01 brd ff:ff:ff:ff:ff:ff
+> > > > >     inet6 2000:11:1:1::1/64 scope global
+> > > > >        valid_lft forever preferred_lft forever
+> > > > >     inet6 fe80::4:11ff:fe22:3301/64 scope link
+> > > > >        valid_lft forever preferred_lft forever
+> > > > > 
+> > > > > Suggested-by: Hannes Frederic Sowa <hannes@redhat.com>
+> > > > > Signed-off-by: David Ahern <dsahern@gmail.com>
+> > > > > Cc: Hannes Frederic Sowa <hannes@redhat.com>
+> > > > 
+> > > > Would this break existing application expecting a particular semantic
+> > > > by listening to netlink?  What happens to packets received with the static
+> > > > address when interface is down? With IPv4 Linux is mostly a weak host
+> > > > model, and IPv6 somewhere in between.
 > > > 
-> > > Maybe that is the best idea. Definitely the ufo_fragid_set bit should
-> > > move into the skb_shared_info area.
+> > > IPv6 is mostly a weak end model, too, but IFA_LINK addresses are used
+> > > much more. So yes, it is somewhere in between.
+> > > 
+> > > Addresses bound to interfaces which are currently down will work with
+> > > IPv6 (in contrast to IPv4).
+> > > 
+> > > > For vendors that control the application stack or have limited number
+> > > > of services this would work fine, but what about RHEL?
+> > > 
+> > > The new model is only enabled if the sysctl is set. I don't expect a lot
+> > > of vendors or distributions switching anytime soon.
 > > 
-> > That's what I originally wanted to do, but had to move and grow txflags thus
-> > skb_shinfo ended up growing.  I wanted to avoid that, so stole an skb flag.
-> > 
-> > I considered treating fragid == 0 as unset, but a 0 fragid is perfectly valid
-> > from the protocol perspective and could actually be generated by the id generator
-> > functions.  This may cause us to call the id generation multiple times.
+> > You are probably correct that many will not switch, but this sysctl
+> > gives those who want to switch a nice option without having to carry
+> > extra kernel patches.  I like it. 
 > 
-> Are there plans in the long run to let virtio_net transmit auxiliary
-> data to the other end so we can clean all of this this up one day?
+> I don't see any problem with the patch in general but DAD should
+> definitely happen on reenabling interfaces. Current behavior does not
+> seem fine to me. It's ok if this patch doesn't change this behavior now
+> but a follow-up one will be needed then.
 > 
-> I don't like the whole situation: looking into the virtio_net headers
-> just adding a field for ipv6 fragmentation ids to those small structs
-> seems bloated, not doing it feels incorrect. :/
+> David, will you look after the DAD logic and do you plan a follow-up
+> patch?
 > 
-> Thoughts?
+> > I have been pondering a few different changes to interface address and
+> > route behavior on both interface and link (gasp!) down and would like to
+> > use sysctls to make those options available to those who are interested
+> > without changing the current model.
 > 
-> Bye,
-> Hannes
+> Can you be more specific? In the last year we added some per interface
+> flags to e.g. handle the creation of on-link routes in case of an
+> address gets added to the interface. Maybe this is the better approach,
+> because quite a lot of stuff happens interface local in IPv6.
 
-I'm not sure - what will be achieved by generating the IDs guest side as
-opposed to host side?  It's certainly harder to get hold of entropy
-guest-side.
+Unfortunately some of the work I've been doing is on a 3.2 long-term
+kernel, but I've also been testing some of my hacks^Wpatches on the
+latest tree as well to make control/mark FIB entries based on
+link-status (carrier not I would call 'admin state' set via 'ip link
+set').
 
--- 
-MST
+Overloading the use of the onlink could be a good option -- I'll review
+your patches and the functionality a bit more closely to see if I can
+merge my changes with those and clean everything up.
+
+I know that NM, netplugd, ifplugd, networkd, etc. could be used to
+handle issue like this, but an in-kernel solution has a much better
+chance of being reliable when you are dealing with ~100 network
+interfaces and do not want to black-hole traffic when link is down to a
+router in your datacenter and there is another possible route to get to
+the network that was previously directly connected.
