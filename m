@@ -1,7 +1,7 @@
 From: David Decotigny <ddecotig@gmail.com>
-Subject: [PATCH net-next v1 17/18] net: mlx4: identify predicate for debug messages
-Date: Mon, 26 Jan 2015 17:36:13 -0800
-Message-ID: <1422322574-6188-18-git-send-email-ddecotig@gmail.com>
+Subject: [PATCH net-next v1 14/18] net: bridge: use __ethtool_get_ksettings
+Date: Mon, 26 Jan 2015 17:36:10 -0800
+Message-ID: <1422322574-6188-15-git-send-email-ddecotig@gmail.com>
 References: <1422322574-6188-1-git-send-email-ddecotig@gmail.com>
 Cc: Eric Dumazet <edumazet@google.com>,
 	Eugenia Emantayev <eugenia@mellanox.co.il>,
@@ -28,25 +28,26 @@ From: David Decotigny <decot@googlers.com>
 
 Signed-off-by: David Decotigny <decot@googlers.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+ net/bridge/br_if.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-index 944a112..96bf728 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-@@ -869,9 +869,11 @@ __printf(3, 4)
- void en_print(const char *level, const struct mlx4_en_priv *priv,
- 	      const char *format, ...);
+diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
+index b087d27..57282a5 100644
+--- a/net/bridge/br_if.c
++++ b/net/bridge/br_if.c
+@@ -35,10 +35,10 @@
+  */
+ static int port_cost(struct net_device *dev)
+ {
+-	struct ethtool_cmd ecmd;
++	struct ethtool_ksettings ecmd;
  
-+#define en_dbg_enabled(mlevel, priv)		\
-+	(NETIF_MSG_##mlevel & (priv)->msg_enable)
- #define en_dbg(mlevel, priv, format, ...)				\
- do {									\
--	if (NETIF_MSG_##mlevel & (priv)->msg_enable)			\
-+	if (en_dbg_enabled(mlevel, priv))				\
- 		en_print(KERN_DEBUG, priv, format, ##__VA_ARGS__);	\
- } while (0)
- #define en_warn(priv, format, ...)					\
+-	if (!__ethtool_get_settings(dev, &ecmd)) {
+-		switch (ethtool_cmd_speed(&ecmd)) {
++	if (!__ethtool_get_ksettings(dev, &ecmd)) {
++		switch (ecmd.parent.speed) {
+ 		case SPEED_10000:
+ 			return 2;
+ 		case SPEED_1000:
 -- 
 2.2.0.rc0.207.ga3a616c
