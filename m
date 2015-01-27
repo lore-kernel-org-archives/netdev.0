@@ -1,24 +1,25 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH 1/3] ipv6: Select fragment id during UFO/GSO
-	segmentation if not set.
-Date: Tue, 27 Jan 2015 17:02:31 +0100
-Message-ID: <1422374551.13969.35.camel@stressinduktion.org>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH 1/3] ipv6: Select fragment id during UFO/GSO segmentation
+	if not set.
+Date: Tue, 27 Jan 2015 18:08:08 +0200
+Message-ID: <20150127160808.GA10765@redhat.com>
 References: <1422283026-27832-1-git-send-email-vyasevic@redhat.com>
 	<1422283026-27832-2-git-send-email-vyasevic@redhat.com>
 	<1422326874.31046.239.camel@decadent.org.uk>
 	<20150127084208.GB21584@redhat.com>
 	<1422366458.13969.11.camel@stressinduktion.org>
 	<54C7A007.6050707@redhat.com>
+	<1422374551.13969.35.camel@stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
-	Vladislav Yasevich <vyasevich@gmail.com>,
+Cc: netdev@vger.kernel.org, Vladislav Yasevich <vyasevich@gmail.com>,
 	virtualization@lists.linux-foundation.org, edumazet@google.com,
 	Ben Hutchings <ben@decadent.org.uk>
-To: vyasevic@redhat.com
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <54C7A007.6050707@redhat.com>
+Content-Disposition: inline
+In-Reply-To: <1422374551.13969.35.camel@stressinduktion.org>
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
 	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
 List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
@@ -30,76 +31,84 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On Di, 2015-01-27 at 09:26 -0500, Vlad Yasevich wrote:
-> On 01/27/2015 08:47 AM, Hannes Frederic Sowa wrote:
-> > On Di, 2015-01-27 at 10:42 +0200, Michael S. Tsirkin wrote:
-> >> On Tue, Jan 27, 2015 at 02:47:54AM +0000, Ben Hutchings wrote:
-> >>> On Mon, 2015-01-26 at 09:37 -0500, Vladislav Yasevich wrote:
-> >>>> If the IPv6 fragment id has not been set and we perform
-> >>>> fragmentation due to UFO, select a new fragment id.
-> >>>> When we store the fragment id into skb_shinfo, set the bit
-> >>>> in the skb so we can re-use the selected id.
-> >>>> This preserves the behavior of UFO packets generated on the
-> >>>> host and solves the issue of id generation for packet sockets
-> >>>> and tap/macvtap devices.
-> >>>>
-> >>>> This patch moves ipv6_select_ident() back in to the header file.  
-> >>>> It also provides the helper function that sets skb_shinfo() frag
-> >>>> id and sets the bit.
-> >>>>
-> >>>> It also makes sure that we select the fragment id when doing
-> >>>> just gso validation, since it's possible for the packet to
-> >>>> come from an untrusted source (VM) and be forwarded through
-> >>>> a UFO enabled device which will expect the fragment id.
-> >>>>
-> >>>> CC: Eric Dumazet <edumazet@google.com>
-> >>>> Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
-> >>>> ---
-> >>>>  include/linux/skbuff.h |  3 ++-
-> >>>>  include/net/ipv6.h     |  2 ++
-> >>>>  net/ipv6/ip6_output.c  |  4 ++--
-> >>>>  net/ipv6/output_core.c |  9 ++++++++-
-> >>>>  net/ipv6/udp_offload.c | 10 +++++++++-
-> >>>>  5 files changed, 23 insertions(+), 5 deletions(-)
-> >>>>
-> >>>> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-> >>>> index 85ab7d7..3ad5203 100644
-> >>>> --- a/include/linux/skbuff.h
-> >>>> +++ b/include/linux/skbuff.h
-> >>>> @@ -605,7 +605,8 @@ struct sk_buff {
-> >>>>  	__u8			ipvs_property:1;
-> >>>>  	__u8			inner_protocol_type:1;
-> >>>>  	__u8			remcsum_offload:1;
-> >>>> -	/* 3 or 5 bit hole */
-> >>>> +	__u8			ufo_fragid_set:1;
-> >>> [...]
-> >>>
-> >>> Doesn't the flag belong in struct skb_shared_info, rather than struct
-> >>> sk_buff?  Otherwise this looks fine.
-> >>>
-> >>> Ben.
-> >>
-> >> Hmm we seem to be out of tx flags.
-> >> Maybe ip6_frag_id == 0 should mean "not set".
+On Tue, Jan 27, 2015 at 05:02:31PM +0100, Hannes Frederic Sowa wrote:
+> On Di, 2015-01-27 at 09:26 -0500, Vlad Yasevich wrote:
+> > On 01/27/2015 08:47 AM, Hannes Frederic Sowa wrote:
+> > > On Di, 2015-01-27 at 10:42 +0200, Michael S. Tsirkin wrote:
+> > >> On Tue, Jan 27, 2015 at 02:47:54AM +0000, Ben Hutchings wrote:
+> > >>> On Mon, 2015-01-26 at 09:37 -0500, Vladislav Yasevich wrote:
+> > >>>> If the IPv6 fragment id has not been set and we perform
+> > >>>> fragmentation due to UFO, select a new fragment id.
+> > >>>> When we store the fragment id into skb_shinfo, set the bit
+> > >>>> in the skb so we can re-use the selected id.
+> > >>>> This preserves the behavior of UFO packets generated on the
+> > >>>> host and solves the issue of id generation for packet sockets
+> > >>>> and tap/macvtap devices.
+> > >>>>
+> > >>>> This patch moves ipv6_select_ident() back in to the header file.  
+> > >>>> It also provides the helper function that sets skb_shinfo() frag
+> > >>>> id and sets the bit.
+> > >>>>
+> > >>>> It also makes sure that we select the fragment id when doing
+> > >>>> just gso validation, since it's possible for the packet to
+> > >>>> come from an untrusted source (VM) and be forwarded through
+> > >>>> a UFO enabled device which will expect the fragment id.
+> > >>>>
+> > >>>> CC: Eric Dumazet <edumazet@google.com>
+> > >>>> Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
+> > >>>> ---
+> > >>>>  include/linux/skbuff.h |  3 ++-
+> > >>>>  include/net/ipv6.h     |  2 ++
+> > >>>>  net/ipv6/ip6_output.c  |  4 ++--
+> > >>>>  net/ipv6/output_core.c |  9 ++++++++-
+> > >>>>  net/ipv6/udp_offload.c | 10 +++++++++-
+> > >>>>  5 files changed, 23 insertions(+), 5 deletions(-)
+> > >>>>
+> > >>>> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+> > >>>> index 85ab7d7..3ad5203 100644
+> > >>>> --- a/include/linux/skbuff.h
+> > >>>> +++ b/include/linux/skbuff.h
+> > >>>> @@ -605,7 +605,8 @@ struct sk_buff {
+> > >>>>  	__u8			ipvs_property:1;
+> > >>>>  	__u8			inner_protocol_type:1;
+> > >>>>  	__u8			remcsum_offload:1;
+> > >>>> -	/* 3 or 5 bit hole */
+> > >>>> +	__u8			ufo_fragid_set:1;
+> > >>> [...]
+> > >>>
+> > >>> Doesn't the flag belong in struct skb_shared_info, rather than struct
+> > >>> sk_buff?  Otherwise this looks fine.
+> > >>>
+> > >>> Ben.
+> > >>
+> > >> Hmm we seem to be out of tx flags.
+> > >> Maybe ip6_frag_id == 0 should mean "not set".
+> > > 
+> > > Maybe that is the best idea. Definitely the ufo_fragid_set bit should
+> > > move into the skb_shared_info area.
 > > 
-> > Maybe that is the best idea. Definitely the ufo_fragid_set bit should
-> > move into the skb_shared_info area.
+> > That's what I originally wanted to do, but had to move and grow txflags thus
+> > skb_shinfo ended up growing.  I wanted to avoid that, so stole an skb flag.
+> > 
+> > I considered treating fragid == 0 as unset, but a 0 fragid is perfectly valid
+> > from the protocol perspective and could actually be generated by the id generator
+> > functions.  This may cause us to call the id generation multiple times.
 > 
-> That's what I originally wanted to do, but had to move and grow txflags thus
-> skb_shinfo ended up growing.  I wanted to avoid that, so stole an skb flag.
+> Are there plans in the long run to let virtio_net transmit auxiliary
+> data to the other end so we can clean all of this this up one day?
 > 
-> I considered treating fragid == 0 as unset, but a 0 fragid is perfectly valid
-> from the protocol perspective and could actually be generated by the id generator
-> functions.  This may cause us to call the id generation multiple times.
+> I don't like the whole situation: looking into the virtio_net headers
+> just adding a field for ipv6 fragmentation ids to those small structs
+> seems bloated, not doing it feels incorrect. :/
+> 
+> Thoughts?
+> 
+> Bye,
+> Hannes
 
-Are there plans in the long run to let virtio_net transmit auxiliary
-data to the other end so we can clean all of this this up one day?
+I'm not sure - what will be achieved by generating the IDs guest side as
+opposed to host side?  It's certainly harder to get hold of entropy
+guest-side.
 
-I don't like the whole situation: looking into the virtio_net headers
-just adding a field for ipv6 fragmentation ids to those small structs
-seems bloated, not doing it feels incorrect. :/
-
-Thoughts?
-
-Bye,
-Hannes
+-- 
+MST
