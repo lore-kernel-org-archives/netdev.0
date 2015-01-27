@@ -1,35 +1,33 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH net-next v14 0/5] openvswitch: Introduce
- 128-bit unique flow identifiers.
-Date: Mon, 26 Jan 2015 15:46:34 -0800 (PST)
-Message-ID: <20150126.154634.1861373962968263276.davem@davemloft.net>
-References: <1421887372-56414-1-git-send-email-joestringer@nicira.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Anyone have working cable for Intel 40GB Ethernet NIC?
+Date: Mon, 26 Jan 2015 16:03:51 -0800
+Message-ID: <54C6D5E7.30906@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: joestringer-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1421887372-56414-1-git-send-email-joestringer-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail2.candelatech.com ([208.74.158.173]:49968 "EHLO
+	mail2.candelatech.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753431AbbA0ADw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2015 19:03:52 -0500
+Received: from [192.168.100.236] (unknown [50.251.239.81])
+	(using TLSv1 with cipher DHE-RSA-CAMELLIA256-SHA (256/256 bits))
+	(No client certificate requested)
+	by mail2.candelatech.com (Postfix) with ESMTPSA id 051F540AB7C
+	for <netdev@vger.kernel.org>; Mon, 26 Jan 2015 16:03:51 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogSm9lIFN0cmluZ2VyIDxqb2VzdHJpbmdlckBuaWNpcmEuY29tPgpEYXRlOiBXZWQsIDIx
-IEphbiAyMDE1IDE2OjQyOjQ3IC0wODAwCgo+IFRoaXMgc2VyaWVzIGV4dGVuZHMgdGhlIG9wZW52
-c3dpdGNoIGRhdGFwYXRoIGludGVyZmFjZSBmb3IgZmxvdyBjb21tYW5kcyB0byB1c2UKPiAxMjgt
-Yml0IHVuaXF1ZSBpZGVudGlmaWVycyBhcyBhbiBhbHRlcm5hdGl2ZSB0byB0aGUgbmV0bGluay1m
-b3JtYXR0ZWQgZmxvdyBrZXkuCj4gVGhpcyBzaWduaWZpY2FudGx5IHJlZHVjZXMgdGhlIGNvc3Qg
-b2YgYXNzZW1ibGluZyBtZXNzYWdlcyBiZXR3ZWVuIHRoZSBrZXJuZWwKPiBhbmQgdXNlcnNwYWNl
-LCBpbiBwYXJ0aWN1bGFyIGltcHJvdmluZyBPcGVuIHZTd2l0Y2ggcmV2YWxpZGF0aW9uIHBlcmZv
-cm1hbmNlIGJ5Cj4gNDAlIG9yIG1vcmUuCgpTZXJpZXMgYXBwbGllZCwgdGhhbmtzLgpfX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpkZXYgbWFpbGluZyBsaXN0
-CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0cDovL29wZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3Rp
-bmZvL2Rldgo=
+I cannot find info on a direct-attached cable that is known to work..and the
+one I bought is not accepted by the driver/NIC.
+
+If anyone knows of a cable that works, please let me know
+so I can order one.
+
+Thanks,
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
