@@ -1,43 +1,38 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH 1/2] rhashtable: Introduce rhashtable_walk_*
-Date: Tue, 27 Jan 2015 09:45:41 +0000
-Message-ID: <20150127094541.GC22262@casper.infradead.org>
-References: <E1YFWUl-0004gE-SH@gondolin.me.apana.org.au>
- <063D6719AE5E284EB5DD2968C1650D6D1CAD2C12@AcuExch.aculab.com>
- <20150126222259.GC30116@gondor.apana.org.au>
- <20150126.143613.1798698028405169123.davem@davemloft.net>
- <20150126224216.GA30551@gondor.apana.org.au>
- <20150126233100.GA31108@gondor.apana.org.au>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCHv3 ipsec-next] xfrm: Do not parse 32bits compiled xfrm
+ netlink msg on 64bits host
+Date: Tue, 27 Jan 2015 09:46:21 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CAD3B2B@AcuExch.aculab.com>
+References: <20150127.001226.711259930266409202.davem () davemloft ! net>
+ <1422349230-17394-1-git-send-email-fan.du@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, David.Laight@ACULAB.COM,
-	ying.xue@windriver.com, kaber@trash.net,
-	paulmck@linux.vnet.ibm.com, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "herbert@gondor.apana.org.au" <herbert@gondor.apana.org.au>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"fengyuleidian0615@gmail.com" <fengyuleidian0615@gmail.com>
+To: 'Fan Du' <fan.du@intel.com>,
+	"steffen.klassert@secunet.com" <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:37299 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757717AbbA0Jpq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2015 04:45:46 -0500
-Content-Disposition: inline
-In-Reply-To: <20150126233100.GA31108@gondor.apana.org.au>
+Received: from smtp-out4.electric.net ([192.162.216.183]:51449 "EHLO
+	smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752710AbbA0Jqf convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2015 04:46:35 -0500
+In-Reply-To: <1422349230-17394-1-git-send-email-fan.du@intel.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/27/15 at 10:31am, Herbert Xu wrote:
-> On Tue, Jan 27, 2015 at 09:42:16AM +1100, Herbert Xu wrote:
-> > 
-> > As otherwise we'd be looking at fixing the existing users (in
-> > particular, nft_hash) properly which might take a lot more time.
-> 
-> I take that back.  Looks like my walkers would be no good for
-> netfilter anyway since it wants to do nested walks, meaning no
-> locks can be taken.
-> 
-> So I think I'll just have to tackle netfilter first in which case
-> the walk function would be no use anyway since I could just fix
-> netlink by itself.
+From: Fan Du
+> structure like xfrm_usersa_info or xfrm_userpolicy_info
+> has different sizeof when compiled as 32bits and 64bits
+> due to not appending pack attribute in their definition.
 
-OK. I'll wait for your netfilter approach before posting NLM_F_INTR
-patches.
+Don't 'pack' the structure, just ensure that all the fields
+are fixed sized and on their natural boundary.
+
+Possibly add a compile-time check that the structure is
+of the expected size.
+
+	David
