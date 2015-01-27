@@ -1,226 +1,147 @@
 From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCH net-next 3/5] cxgb4: Addded support in debugfs to dump CIM outbound queue content
-Date: Tue, 27 Jan 2015 13:47:47 +0530
-Message-ID: <1422346669-26913-4-git-send-email-hariprasad@chelsio.com>
+Subject: [PATCH net-next 5/5] cxgb4: Added support in debugfs to dump different timer and clock values of the adapter
+Date: Tue, 27 Jan 2015 13:47:49 +0530
+Message-ID: <1422346669-26913-6-git-send-email-hariprasad@chelsio.com>
 References: <1422346669-26913-1-git-send-email-hariprasad@chelsio.com>
 Cc: davem@davemloft.net, leedom@chelsio.com, anish@chelsio.com,
 	nirranjan@chelsio.com, praveenm@chelsio.com,
 	Hariprasad Shenai <hariprasad@chelsio.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:14589 "EHLO
+Received: from stargate.chelsio.com ([67.207.112.58]:8096 "EHLO
 	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1757716AbbA0IMT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2015 03:12:19 -0500
+	by vger.kernel.org with ESMTP id S932101AbbA0IMY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2015 03:12:24 -0500
 In-Reply-To: <1422346669-26913-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
 ---
- drivers/net/ethernet/chelsio/cxgb4/cxgb4.h         |    2 +
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c |   57 ++++++++++++++++++++
- drivers/net/ethernet/chelsio/cxgb4/t4_hw.c         |   43 +++++++++++++++
- drivers/net/ethernet/chelsio/cxgb4/t4_hw.h         |    1 +
- drivers/net/ethernet/chelsio/cxgb4/t4_regs.h       |   16 ++++++
- 5 files changed, 119 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c |   63 ++++++++++++++++++++
+ drivers/net/ethernet/chelsio/cxgb4/t4_regs.h       |   23 +++++++
+ 2 files changed, 86 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-index 368b5ad..da94b9a 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-@@ -1056,6 +1056,8 @@ int t4_edc_read(struct adapter *adap, int idx, u32 addr, __be32 *data,
- 		u64 *parity);
- int t4_read_cim_ibq(struct adapter *adap, unsigned int qid, u32 *data,
- 		    size_t n);
-+int t4_read_cim_obq(struct adapter *adap, unsigned int qid, u32 *data,
-+		    size_t n);
- int t4_cim_read(struct adapter *adap, unsigned int addr, unsigned int n,
- 		unsigned int *valp);
- int t4_cim_write(struct adapter *adap, unsigned int addr, unsigned int n,
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
-index 3f4b07e..4619bb3 100644
+index df90c78..47c0869 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
 +++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
-@@ -104,6 +104,17 @@ struct seq_tab *seq_open_tab(struct file *f, unsigned int rows,
- 	return p;
- }
+@@ -380,6 +380,68 @@ static const struct file_operations pm_stats_debugfs_fops = {
+ 	.write   = pm_stats_clear
+ };
  
-+/* Trim the size of a seq_tab to the supplied number of rows.  The operation is
-+ * irreversible.
++/* Format a value in a unit that differs from the value's native unit by the
++ * given factor.
 + */
-+static int seq_tab_trim(struct seq_tab *p, unsigned int new_rows)
++static char *unit_conv(char *buf, size_t len, unsigned int val,
++		       unsigned int factor)
 +{
-+	if (new_rows > p->rows)
-+		return -EINVAL;
-+	p->rows = new_rows;
++	unsigned int rem = val % factor;
++
++	if (rem == 0) {
++		snprintf(buf, len, "%u", val / factor);
++	} else {
++		while (rem % 10 == 0)
++			rem /= 10;
++		snprintf(buf, len, "%u.%u", val / factor, rem);
++	}
++	return buf;
++}
++
++static int clk_show(struct seq_file *seq, void *v)
++{
++	char buf[32];
++	struct adapter *adap = seq->private;
++	unsigned int cclk_ps = 1000000000 / adap->params.vpd.cclk;  /* in ps */
++	u32 res = t4_read_reg(adap, TP_TIMER_RESOLUTION_A);
++	unsigned int tre = TIMERRESOLUTION_G(res);
++	unsigned int dack_re = DELAYEDACKRESOLUTION_G(res);
++	unsigned long long tp_tick_us = (cclk_ps << tre) / 1000000; /* in us */
++
++	seq_printf(seq, "Core clock period: %s ns\n",
++		   unit_conv(buf, sizeof(buf), cclk_ps, 1000));
++	seq_printf(seq, "TP timer tick: %s us\n",
++		   unit_conv(buf, sizeof(buf), (cclk_ps << tre), 1000000));
++	seq_printf(seq, "TCP timestamp tick: %s us\n",
++		   unit_conv(buf, sizeof(buf),
++			     (cclk_ps << TIMESTAMPRESOLUTION_G(res)), 1000000));
++	seq_printf(seq, "DACK tick: %s us\n",
++		   unit_conv(buf, sizeof(buf), (cclk_ps << dack_re), 1000000));
++	seq_printf(seq, "DACK timer: %u us\n",
++		   ((cclk_ps << dack_re) / 1000000) *
++		   t4_read_reg(adap, TP_DACK_TIMER_A));
++	seq_printf(seq, "Retransmit min: %llu us\n",
++		   tp_tick_us * t4_read_reg(adap, TP_RXT_MIN_A));
++	seq_printf(seq, "Retransmit max: %llu us\n",
++		   tp_tick_us * t4_read_reg(adap, TP_RXT_MAX_A));
++	seq_printf(seq, "Persist timer min: %llu us\n",
++		   tp_tick_us * t4_read_reg(adap, TP_PERS_MIN_A));
++	seq_printf(seq, "Persist timer max: %llu us\n",
++		   tp_tick_us * t4_read_reg(adap, TP_PERS_MAX_A));
++	seq_printf(seq, "Keepalive idle timer: %llu us\n",
++		   tp_tick_us * t4_read_reg(adap, TP_KEEP_IDLE_A));
++	seq_printf(seq, "Keepalive interval: %llu us\n",
++		   tp_tick_us * t4_read_reg(adap, TP_KEEP_INTVL_A));
++	seq_printf(seq, "Initial SRTT: %llu us\n",
++		   tp_tick_us * INITSRTT_G(t4_read_reg(adap, TP_INIT_SRTT_A)));
++	seq_printf(seq, "FINWAIT2 timer: %llu us\n",
++		   tp_tick_us * t4_read_reg(adap, TP_FINWAIT2_TIMER_A));
++
 +	return 0;
 +}
 +
- static int cim_la_show(struct seq_file *seq, void *v, int idx)
- {
- 	if (v == SEQ_START_TOKEN)
-@@ -275,6 +286,35 @@ static const struct file_operations cim_ibq_fops = {
- 	.release = seq_release_private
- };
- 
-+static int cim_obq_open(struct inode *inode, struct file *file)
-+{
-+	int ret;
-+	struct seq_tab *p;
-+	unsigned int qid = (uintptr_t)inode->i_private & 7;
-+	struct adapter *adap = inode->i_private - qid;
-+
-+	p = seq_open_tab(file, 6 * CIM_OBQ_SIZE, 4 * sizeof(u32), 0, cimq_show);
-+	if (!p)
-+		return -ENOMEM;
-+
-+	ret = t4_read_cim_obq(adap, qid, (u32 *)p->data, 6 * CIM_OBQ_SIZE * 4);
-+	if (ret < 0) {
-+		seq_release_private(inode, file);
-+	} else {
-+		seq_tab_trim(p, ret / 4);
-+		ret = 0;
-+	}
-+	return ret;
-+}
-+
-+static const struct file_operations cim_obq_fops = {
-+	.owner   = THIS_MODULE,
-+	.open    = cim_obq_open,
-+	.read    = seq_read,
-+	.llseek  = seq_lseek,
-+	.release = seq_release_private
-+};
++DEFINE_SIMPLE_DEBUGFS_FILE(clk);
 +
  /* Firmware Device Log dump. */
  static const char * const devlog_level_strings[] = {
  	[FW_DEVLOG_LEVEL_EMERG]		= "EMERG",
-@@ -1388,14 +1428,31 @@ int t4_setup_debugfs(struct adapter *adap)
- 		{ "ibq_sge0", &cim_ibq_fops, S_IRUSR, 3 },
- 		{ "ibq_sge1", &cim_ibq_fops, S_IRUSR, 4 },
- 		{ "ibq_ncsi", &cim_ibq_fops, S_IRUSR, 5 },
-+		{ "obq_ulp0", &cim_obq_fops, S_IRUSR, 0 },
-+		{ "obq_ulp1", &cim_obq_fops, S_IRUSR, 1 },
-+		{ "obq_ulp2", &cim_obq_fops, S_IRUSR, 2 },
-+		{ "obq_ulp3", &cim_obq_fops, S_IRUSR, 3 },
-+		{ "obq_sge",  &cim_obq_fops, S_IRUSR, 4 },
-+		{ "obq_ncsi", &cim_obq_fops, S_IRUSR, 5 },
- #if IS_ENABLED(CONFIG_IPV6)
- 		{ "clip_tbl", &clip_tbl_debugfs_fops, S_IRUSR, 0 },
- #endif
- 	};
- 
-+	/* Debug FS nodes common to all T5 and later adapters.
-+	 */
-+	static struct t4_debugfs_entry t5_debugfs_files[] = {
-+		{ "obq_sge_rx_q0", &cim_obq_fops, S_IRUSR, 6 },
-+		{ "obq_sge_rx_q1", &cim_obq_fops, S_IRUSR, 7 },
-+	};
-+
- 	add_debugfs_files(adap,
- 			  t4_debugfs_files,
- 			  ARRAY_SIZE(t4_debugfs_files));
-+	if (!is_t4(adap->params.chip))
-+		add_debugfs_files(adap,
-+				  t5_debugfs_files,
-+				  ARRAY_SIZE(t5_debugfs_files));
- 
- 	i = t4_read_reg(adap, MA_TARGET_MEM_ENABLE_A);
- 	if (i & EDRAM0_ENABLE_F) {
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-index 4ea4a4a..a3d2f31 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-@@ -4568,6 +4568,49 @@ int t4_read_cim_ibq(struct adapter *adap, unsigned int qid, u32 *data, size_t n)
- }
- 
- /**
-+ *	t4_read_cim_obq - read the contents of a CIM outbound queue
-+ *	@adap: the adapter
-+ *	@qid: the queue index
-+ *	@data: where to store the queue contents
-+ *	@n: capacity of @data in 32-bit words
-+ *
-+ *	Reads the contents of the selected CIM queue starting at address 0 up
-+ *	to the capacity of @data.  @n must be a multiple of 4.  Returns < 0 on
-+ *	error and the number of 32-bit words actually read on success.
-+ */
-+int t4_read_cim_obq(struct adapter *adap, unsigned int qid, u32 *data, size_t n)
-+{
-+	int i, err;
-+	unsigned int addr, v, nwords;
-+	int cim_num_obq = is_t4(adap->params.chip) ?
-+				CIM_NUM_OBQ : CIM_NUM_OBQ_T5;
-+
-+	if ((qid > (cim_num_obq - 1)) || (n & 3))
-+		return -EINVAL;
-+
-+	t4_write_reg(adap, CIM_QUEUE_CONFIG_REF_A, OBQSELECT_F |
-+		     QUENUMSELECT_V(qid));
-+	v = t4_read_reg(adap, CIM_QUEUE_CONFIG_CTRL_A);
-+
-+	addr = CIMQBASE_G(v) * 64;    /* muliple of 256 -> muliple of 4 */
-+	nwords = CIMQSIZE_G(v) * 64;  /* same */
-+	if (n > nwords)
-+		n = nwords;
-+
-+	for (i = 0; i < n; i++, addr++) {
-+		t4_write_reg(adap, CIM_OBQ_DBG_CFG_A, OBQDBGADDR_V(addr) |
-+			     OBQDBGEN_F);
-+		err = t4_wait_op_done(adap, CIM_OBQ_DBG_CFG_A, OBQDBGBUSY_F, 0,
-+				      2, 1);
-+		if (err)
-+			return err;
-+		*data++ = t4_read_reg(adap, CIM_OBQ_DBG_DATA_A);
-+	}
-+	t4_write_reg(adap, CIM_OBQ_DBG_CFG_A, 0);
-+	return i;
-+}
-+
-+/**
-  *	t4_cim_read - read a block from CIM internal address space
-  *	@adap: the adapter
-  *	@addr: the start address within the CIM address space
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.h b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.h
-index 6581cd5..f9fb81e 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.h
-@@ -61,6 +61,7 @@ enum {
- 	CIM_NUM_OBQ_T5 = 8,     /* # of CIM OBQs for T5 adapter */
- 	CIMLA_SIZE     = 2048,  /* # of 32-bit words in CIM LA */
- 	CIM_IBQ_SIZE   = 128,   /* # of 128-bit words in a CIM IBQ */
-+	CIM_OBQ_SIZE   = 128,   /* # of 128-bit words in a CIM OBQ */
- };
- 
- enum {
+@@ -1478,6 +1540,7 @@ int t4_setup_debugfs(struct adapter *adap)
+ 	static struct t4_debugfs_entry t4_debugfs_files[] = {
+ 		{ "cim_la", &cim_la_fops, S_IRUSR, 0 },
+ 		{ "cim_qcfg", &cim_qcfg_fops, S_IRUSR, 0 },
++		{ "clk", &clk_debugfs_fops, S_IRUSR, 0 },
+ 		{ "devlog", &devlog_fops, S_IRUSR, 0 },
+ 		{ "l2t", &t4_l2t_fops, S_IRUSR, 0},
+ 		{ "mps_tcam", &mps_tcam_debugfs_fops, S_IRUSR, 0 },
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-index 39e4b75..1b1560a 100644
+index 7aa0db1..940b56c 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
 +++ b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-@@ -2553,7 +2553,23 @@
- #define IBQDBGEN_V(x) ((x) << IBQDBGEN_S)
- #define IBQDBGEN_F    IBQDBGEN_V(1U)
+@@ -1203,12 +1203,35 @@
+ #define TIMERRESOLUTION_M    0xffU
+ #define TIMERRESOLUTION_G(x) (((x) >> TIMERRESOLUTION_S) & TIMERRESOLUTION_M)
  
-+#define CIM_OBQ_DBG_CFG_A 0x7b64
++#define TIMESTAMPRESOLUTION_S    8
++#define TIMESTAMPRESOLUTION_M    0xffU
++#define TIMESTAMPRESOLUTION_G(x) \
++	(((x) >> TIMESTAMPRESOLUTION_S) & TIMESTAMPRESOLUTION_M)
 +
-+#define OBQDBGADDR_S    16
-+#define OBQDBGADDR_M    0xfffU
-+#define OBQDBGADDR_V(x) ((x) << OBQDBGADDR_S)
-+#define OBQDBGADDR_G(x) (((x) >> OBQDBGADDR_S) & OBQDBGADDR_M)
-+
-+#define OBQDBGBUSY_S    1
-+#define OBQDBGBUSY_V(x) ((x) << OBQDBGBUSY_S)
-+#define OBQDBGBUSY_F    OBQDBGBUSY_V(1U)
-+
-+#define OBQDBGEN_S    0
-+#define OBQDBGEN_V(x) ((x) << OBQDBGEN_S)
-+#define OBQDBGEN_F    OBQDBGEN_V(1U)
-+
- #define CIM_IBQ_DBG_DATA_A 0x7b68
-+#define CIM_OBQ_DBG_DATA_A 0x7b6c
+ #define DELAYEDACKRESOLUTION_S    0
+ #define DELAYEDACKRESOLUTION_M    0xffU
+ #define DELAYEDACKRESOLUTION_G(x) \
+ 	(((x) >> DELAYEDACKRESOLUTION_S) & DELAYEDACKRESOLUTION_M)
  
- #define UPDBGLARDEN_S		1
- #define UPDBGLARDEN_V(x)	((x) << UPDBGLARDEN_S)
+ #define TP_SHIFT_CNT_A 0x7dc0
++#define TP_RXT_MIN_A 0x7d98
++#define TP_RXT_MAX_A 0x7d9c
++#define TP_PERS_MIN_A 0x7da0
++#define TP_PERS_MAX_A 0x7da4
++#define TP_KEEP_IDLE_A 0x7da8
++#define TP_KEEP_INTVL_A 0x7dac
++#define TP_INIT_SRTT_A 0x7db0
++#define TP_DACK_TIMER_A 0x7db4
++#define TP_FINWAIT2_TIMER_A 0x7db8
++
++#define INITSRTT_S    0
++#define INITSRTT_M    0xffffU
++#define INITSRTT_G(x) (((x) >> INITSRTT_S) & INITSRTT_M)
++
++#define PERSMAX_S    0
++#define PERSMAX_M    0x3fffffffU
++#define PERSMAX_V(x) ((x) << PERSMAX_S)
++#define PERSMAX_G(x) (((x) >> PERSMAX_S) & PERSMAX_M)
+ 
+ #define SYNSHIFTMAX_S    24
+ #define SYNSHIFTMAX_M    0xffU
 -- 
 1.7.1
