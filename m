@@ -1,7 +1,7 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next 02/10] net/mlx4_core: Add reserved lkey for VFs to QUERY_FUNC_CAP
-Date: Tue, 27 Jan 2015 11:32:51 +0200
-Message-ID: <1422351179-27284-3-git-send-email-amirv@mellanox.com>
+Subject: [PATCH net-next 01/10] net/mlx4_core: Add bad-cable event support
+Date: Tue, 27 Jan 2015 11:32:50 +0200
+Message-ID: <1422351179-27284-2-git-send-email-amirv@mellanox.com>
 References: <1422351179-27284-1-git-send-email-amirv@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Amir Vadai <amirv@mellanox.com>,
@@ -9,125 +9,153 @@ Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Jack Morgenstein <jackm@dev.mellanox.co.il>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:56278 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:56272 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754588AbbA0JdR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Jan 2015 04:33:17 -0500
+	id S1757922AbbA0JdQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Jan 2015 04:33:16 -0500
 In-Reply-To: <1422351179-27284-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jack Morgenstein <jackm@dev.mellanox.co.il>
 
-The reserved lKey is different for each VF.
-A base lkey value is returned in QUERY_DEV_CAP at offset 0x98.
-
-The reserved L_key value for a VF is:
-    VF_lkey = base_lkey + (VF_number << 8).
-
-This VF L_key value should be returned in QUERY_FUNC_CAP
-(opcode-modifier = 0) at offset 0x48.
-
-To indicate that the lkey value at offset 0x48 is valid, the Hypervisor
-sets a flag bit in dword 0x0, offset 27 in the QUERY_FUNC_CAP wrapper
-function.
-
-When the VF calls QUERY_FUNC_CAP, it should check if this flag bit is set.
-If it is set, the VF should take the reserved lkey value at offset 0x48.
-If the bit is not set, the VF should not use a reserved lkey
-(i.e., should set its reserved lkey value to 0).
-
+If the firmware can detect a bad cable, allow it to generate an
+event, and print the problem in the log.
 
 Signed-off-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
 Signed-off-by: Amir Vadai <amirv@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/fw.c   | 19 +++++++++++++++++--
- drivers/net/ethernet/mellanox/mlx4/fw.h   |  1 +
- drivers/net/ethernet/mellanox/mlx4/main.c |  1 +
- 3 files changed, 19 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/eq.c | 22 ++++++++++++++++++++++
+ drivers/net/ethernet/mellanox/mlx4/fw.c |  9 ++++++++-
+ include/linux/mlx4/device.h             | 14 +++++++++++++-
+ 3 files changed, 43 insertions(+), 2 deletions(-)
 
+diff --git a/drivers/net/ethernet/mellanox/mlx4/eq.c b/drivers/net/ethernet/mellanox/mlx4/eq.c
+index 2f2e606..4df006d 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/eq.c
++++ b/drivers/net/ethernet/mellanox/mlx4/eq.c
+@@ -88,6 +88,8 @@ static u64 get_async_ev_mask(struct mlx4_dev *dev)
+ 	u64 async_ev_mask = MLX4_ASYNC_EVENT_MASK;
+ 	if (dev->caps.flags & MLX4_DEV_CAP_FLAG_PORT_MNG_CHG_EV)
+ 		async_ev_mask |= (1ull << MLX4_EVENT_TYPE_PORT_MNG_CHG_EVENT);
++	if (dev->caps.flags2 & MLX4_DEV_CAP_FLAG2_RECOVERABLE_ERROR_EVENT)
++		async_ev_mask |= (1ull << MLX4_EVENT_TYPE_RECOVERABLE_ERROR_EVENT);
+ 
+ 	return async_ev_mask;
+ }
+@@ -736,6 +738,26 @@ static int mlx4_eq_int(struct mlx4_dev *dev, struct mlx4_eq *eq)
+ 					    (unsigned long) eqe);
+ 			break;
+ 
++		case MLX4_EVENT_TYPE_RECOVERABLE_ERROR_EVENT:
++			switch (eqe->subtype) {
++			case MLX4_RECOVERABLE_ERROR_EVENT_SUBTYPE_BAD_CABLE:
++				mlx4_warn(dev, "Bad cable detected on port %u\n",
++					  eqe->event.bad_cable.port);
++				break;
++			case MLX4_RECOVERABLE_ERROR_EVENT_SUBTYPE_UNSUPPORTED_CABLE:
++				mlx4_warn(dev, "Unsupported cable detected\n");
++				break;
++			default:
++				mlx4_dbg(dev,
++					 "Unhandled recoverable error event detected: %02x(%02x) on EQ %d at index %u. owner=%x, nent=0x%x, ownership=%s\n",
++					 eqe->type, eqe->subtype, eq->eqn,
++					 eq->cons_index, eqe->owner, eq->nent,
++					 !!(eqe->owner & 0x80) ^
++					 !!(eq->cons_index & eq->nent) ? "HW" : "SW");
++				break;
++			}
++			break;
++
+ 		case MLX4_EVENT_TYPE_EEC_CATAS_ERROR:
+ 		case MLX4_EVENT_TYPE_ECC_DETECT:
+ 		default:
 diff --git a/drivers/net/ethernet/mellanox/mlx4/fw.c b/drivers/net/ethernet/mellanox/mlx4/fw.c
-index 2eadc28..2aa7c23 100644
+index 982861d..2eadc28 100644
 --- a/drivers/net/ethernet/mellanox/mlx4/fw.c
 +++ b/drivers/net/ethernet/mellanox/mlx4/fw.c
-@@ -260,6 +260,7 @@ int mlx4_QUERY_FUNC_CAP_wrapper(struct mlx4_dev *dev, int slave,
- #define QUERY_FUNC_CAP_MCG_QUOTA_OFFSET_DEP	0x28
- #define QUERY_FUNC_CAP_MAX_EQ_OFFSET		0x2c
- #define QUERY_FUNC_CAP_RESERVED_EQ_OFFSET	0x30
-+#define QUERY_FUNC_CAP_QP_RESD_LKEY_OFFSET	0x48
+@@ -145,7 +145,8 @@ static void dump_dev_cap_flags2(struct mlx4_dev *dev, u64 flags)
+ 		[16] = "CONFIG DEV support",
+ 		[17] = "Asymmetric EQs support",
+ 		[18] = "More than 80 VFs support",
+-		[19] = "Performance optimized for limited rule configuration flow steering support"
++		[19] = "Performance optimized for limited rule configuration flow steering support",
++		[20] = "Recoverable error events support"
+ 	};
+ 	int i;
  
- #define QUERY_FUNC_CAP_QP_QUOTA_OFFSET		0x50
- #define QUERY_FUNC_CAP_CQ_QUOTA_OFFSET		0x54
-@@ -274,6 +275,7 @@ int mlx4_QUERY_FUNC_CAP_wrapper(struct mlx4_dev *dev, int slave,
- #define QUERY_FUNC_CAP_FLAG_RDMA		0x40
- #define QUERY_FUNC_CAP_FLAG_ETH			0x80
- #define QUERY_FUNC_CAP_FLAG_QUOTAS		0x10
-+#define QUERY_FUNC_CAP_FLAG_RESD_LKEY		0x08
- #define QUERY_FUNC_CAP_FLAG_VALID_MAILBOX	0x04
+@@ -859,6 +860,8 @@ int mlx4_QUERY_DEV_CAP(struct mlx4_dev *dev, struct mlx4_dev_cap *dev_cap)
+ 	MLX4_GET(field32, outbox, QUERY_DEV_CAP_ETH_BACKPL_OFFSET);
+ 	if (field32 & (1 << 0))
+ 		dev_cap->flags2 |= MLX4_DEV_CAP_FLAG2_ETH_BACKPL_AN_REP;
++	if (field32 & (1 << 7))
++		dev_cap->flags2 |= MLX4_DEV_CAP_FLAG2_RECOVERABLE_ERROR_EVENT;
+ 	MLX4_GET(field, outbox, QUERY_DEV_CAP_FW_REASSIGN_MAC);
+ 	if (field & 1<<6)
+ 		dev_cap->flags2 |= MLX4_DEV_CAP_FLAG2_REASSIGN_MAC_EN;
+@@ -1562,6 +1565,7 @@ int mlx4_INIT_HCA(struct mlx4_dev *dev, struct mlx4_init_hca_param *param)
+ #define INIT_HCA_VXLAN_OFFSET		 0x0c
+ #define INIT_HCA_CACHELINE_SZ_OFFSET	 0x0e
+ #define INIT_HCA_FLAGS_OFFSET		 0x014
++#define INIT_HCA_RECOVERABLE_ERROR_EVENT_OFFSET 0x018
+ #define INIT_HCA_QPC_OFFSET		 0x020
+ #define	 INIT_HCA_QPC_BASE_OFFSET	 (INIT_HCA_QPC_OFFSET + 0x10)
+ #define	 INIT_HCA_LOG_QP_OFFSET		 (INIT_HCA_QPC_OFFSET + 0x17)
+@@ -1668,6 +1672,9 @@ int mlx4_INIT_HCA(struct mlx4_dev *dev, struct mlx4_init_hca_param *param)
+ 		dev->caps.userspace_caps |= MLX4_USER_DEV_CAP_LARGE_CQE;
+ 	}
  
- #define QUERY_FUNC_CAP_EXTRA_FLAGS_BF_QP_ALLOC_FLAG	(1UL << 31)
-@@ -345,9 +347,12 @@ int mlx4_QUERY_FUNC_CAP_wrapper(struct mlx4_dev *dev, int slave,
- 	} else if (vhcr->op_modifier == 0) {
- 		struct mlx4_active_ports actv_ports =
- 			mlx4_get_active_ports(dev, slave);
--		/* enable rdma and ethernet interfaces, and new quota locations */
-+		/* enable rdma and ethernet interfaces, new quota locations,
-+		 * and reserved lkey
-+		 */
- 		field = (QUERY_FUNC_CAP_FLAG_ETH | QUERY_FUNC_CAP_FLAG_RDMA |
--			 QUERY_FUNC_CAP_FLAG_QUOTAS | QUERY_FUNC_CAP_FLAG_VALID_MAILBOX);
-+			 QUERY_FUNC_CAP_FLAG_QUOTAS | QUERY_FUNC_CAP_FLAG_VALID_MAILBOX |
-+			 QUERY_FUNC_CAP_FLAG_RESD_LKEY);
- 		MLX4_PUT(outbox->buf, field, QUERY_FUNC_CAP_FLAGS_OFFSET);
- 
- 		field = min(
-@@ -412,6 +417,9 @@ int mlx4_QUERY_FUNC_CAP_wrapper(struct mlx4_dev *dev, int slave,
- 		size = QUERY_FUNC_CAP_EXTRA_FLAGS_BF_QP_ALLOC_FLAG |
- 			QUERY_FUNC_CAP_EXTRA_FLAGS_A0_QP_ALLOC_FLAG;
- 		MLX4_PUT(outbox->buf, size, QUERY_FUNC_CAP_EXTRA_FLAGS_OFFSET);
++	if (dev->caps.flags2 & MLX4_DEV_CAP_FLAG2_RECOVERABLE_ERROR_EVENT)
++		*(inbox + INIT_HCA_RECOVERABLE_ERROR_EVENT_OFFSET / 4) |= cpu_to_be32(1 << 31);
 +
-+		size = dev->caps.reserved_lkey + ((slave << 8) & 0xFF00);
-+		MLX4_PUT(outbox->buf, size, QUERY_FUNC_CAP_QP_RESD_LKEY_OFFSET);
- 	} else
- 		err = -EINVAL;
+ 	/* QPC/EEC/CQC/EQC/RDMARC attributes */
  
-@@ -504,6 +512,13 @@ int mlx4_QUERY_FUNC_CAP(struct mlx4_dev *dev, u8 gen_or_port,
- 		MLX4_GET(size, outbox, QUERY_FUNC_CAP_RESERVED_EQ_OFFSET);
- 		func_cap->reserved_eq = size & 0xFFFFFF;
+ 	MLX4_PUT(inbox, param->qpc_base,      INIT_HCA_QPC_BASE_OFFSET);
+diff --git a/include/linux/mlx4/device.h b/include/linux/mlx4/device.h
+index 5ef54e1..c95d659 100644
+--- a/include/linux/mlx4/device.h
++++ b/include/linux/mlx4/device.h
+@@ -200,7 +200,8 @@ enum {
+ 	MLX4_DEV_CAP_FLAG2_CONFIG_DEV		= 1LL <<  16,
+ 	MLX4_DEV_CAP_FLAG2_SYS_EQS		= 1LL <<  17,
+ 	MLX4_DEV_CAP_FLAG2_80_VFS		= 1LL <<  18,
+-	MLX4_DEV_CAP_FLAG2_FS_A0		= 1LL <<  19
++	MLX4_DEV_CAP_FLAG2_FS_A0		= 1LL <<  19,
++	MLX4_DEV_CAP_FLAG2_RECOVERABLE_ERROR_EVENT = 1LL << 20
+ };
  
-+		if (func_cap->flags & QUERY_FUNC_CAP_FLAG_RESD_LKEY) {
-+			MLX4_GET(size, outbox, QUERY_FUNC_CAP_QP_RESD_LKEY_OFFSET);
-+			func_cap->reserved_lkey = size;
-+		} else {
-+			func_cap->reserved_lkey = 0;
-+		}
+ enum {
+@@ -280,6 +281,7 @@ enum mlx4_event {
+ 	MLX4_EVENT_TYPE_FATAL_WARNING	   = 0x1b,
+ 	MLX4_EVENT_TYPE_FLR_EVENT	   = 0x1c,
+ 	MLX4_EVENT_TYPE_PORT_MNG_CHG_EVENT = 0x1d,
++	MLX4_EVENT_TYPE_RECOVERABLE_ERROR_EVENT  = 0x3e,
+ 	MLX4_EVENT_TYPE_NONE		   = 0xff,
+ };
+ 
+@@ -289,6 +291,11 @@ enum {
+ };
+ 
+ enum {
++	MLX4_RECOVERABLE_ERROR_EVENT_SUBTYPE_BAD_CABLE		= 1,
++	MLX4_RECOVERABLE_ERROR_EVENT_SUBTYPE_UNSUPPORTED_CABLE	= 2,
++};
 +
- 		func_cap->extra_flags = 0;
++enum {
+ 	MLX4_FATAL_WARNING_SUBTYPE_WARMING = 0,
+ };
  
- 		/* Mailbox data from 0x6c and onward should only be treated if
-diff --git a/drivers/net/ethernet/mellanox/mlx4/fw.h b/drivers/net/ethernet/mellanox/mlx4/fw.h
-index 62562b6..f44f7f6 100644
---- a/drivers/net/ethernet/mellanox/mlx4/fw.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/fw.h
-@@ -147,6 +147,7 @@ struct mlx4_func_cap {
- 	u32	qp0_proxy_qpn;
- 	u32	qp1_tunnel_qpn;
- 	u32	qp1_proxy_qpn;
-+	u32	reserved_lkey;
- 	u8	physical_port;
- 	u8	port_flags;
- 	u8	flags1;
-diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
-index 9c7ef0b..46531c2 100644
---- a/drivers/net/ethernet/mellanox/mlx4/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/main.c
-@@ -797,6 +797,7 @@ static int mlx4_slave_cap(struct mlx4_dev *dev)
- 	dev->caps.num_mpts		= 1 << hca_param.log_mpt_sz;
- 	dev->caps.num_eqs		= func_cap.max_eq;
- 	dev->caps.reserved_eqs		= func_cap.reserved_eq;
-+	dev->caps.reserved_lkey		= func_cap.reserved_lkey;
- 	dev->caps.num_pds               = MLX4_NUM_PDS;
- 	dev->caps.num_mgms              = 0;
- 	dev->caps.num_amgms             = 0;
+@@ -860,6 +867,11 @@ struct mlx4_eqe {
+ 				} __packed tbl_change_info;
+ 			} params;
+ 		} __packed port_mgmt_change;
++		struct {
++			u8 reserved[3];
++			u8 port;
++			u32 reserved1[5];
++		} __packed bad_cable;
+ 	}			event;
+ 	u8			slave_id;
+ 	u8			reserved3[2];
 -- 
 1.9.3
