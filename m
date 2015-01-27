@@ -1,25 +1,60 @@
-From: Jinghao Printing - CHINA <danielleremery812@gmail.com>
-Subject: Please let me know if you need to print color box, display box and labels
-Date: Tue, 27 Jan 2015 10:58:17 +0800
-Message-ID: <CAKJURmup0X-ZF1jmoFAkpFE4z3peHiGKn306oXLexyPO9w6bjg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: undisclosed-recipients:;
+From: Fan Du <fan.du@intel.com>
+Subject: [PATCH ipsec-next] xfrm: Do not parse 32bits compiled xfrm netlink msg on 64bits host
+Date: Tue, 27 Jan 2015 10:54:22 +0800
+Message-ID: <1422327262-6344-1-git-send-email-fan.du@intel.com>
+Cc: herbert@gondor.apana.org.au, davem@davemloft.net,
+	netdev@vger.kernel.org, fengyuleidian0615@gmail.com
+To: steffen.klassert@secunet.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f68.google.com ([209.85.220.68]:53092 "EHLO
-	mail-pa0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751350AbbA0C6T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2015 21:58:19 -0500
-Received: by mail-pa0-f68.google.com with SMTP id lj1so13403047pab.3
-        for <netdev@vger.kernel.org>; Mon, 26 Jan 2015 18:58:18 -0800 (PST)
+Received: from mga14.intel.com ([192.55.52.115]:18892 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751575AbbA0C6T (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 Jan 2015 21:58:19 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi, this is David Wu from Shanghai, China.
-Please let me know if you need color box, display box, corrugated box,
-label, hang tag etc.
+structure like xfrm_usersa_info or xfrm_userpolicy_info
+has different sizeof when compiled as 32bits and 64bits
+due to not appending pack attribute in their definition.
+This will result in broken SA and SP information when user
+trying to configure them through netlink interface.
 
-I will send you the website.
+Inform user land about this situation instead of keeping
+silent, the upper test scripts would behave accordingly.
 
-Best regards,
-David Wu
+Quotes from: http://marc.info/?l=linux-netdev&m=142226348715503&w=2
+>
+> Before a clean solution show up, I think it's better to warn user in some way
+> like http://patchwork.ozlabs.org/patch/323842/ did. Otherwise, many people
+> who stuck there will always spend time and try to fix this issue in whatever way.
+
+Yes, this is the first thing we should do. I'm willing to accept a patch
+
+Signed-off-by: Fan Du <fan.du@intel.com>
+---
+ChangeLog:
+v2:
+  - Rebase with latest tree
+
+---
+ net/xfrm/xfrm_user.c |    5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
+index 8128594..f960bd9 100644
+--- a/net/xfrm/xfrm_user.c
++++ b/net/xfrm/xfrm_user.c
+@@ -2419,6 +2419,11 @@ static int xfrm_user_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 	const struct xfrm_link *link;
+ 	int type, err;
+ 
++#ifdef CONFIG_COMPAT
++	if (is_compat_task())
++		return -EPERM;
++#endif
++
+ 	type = nlh->nlmsg_type;
+ 	if (type > XFRM_MSG_MAX)
+ 		return -EINVAL;
+-- 
+1.7.9.5
