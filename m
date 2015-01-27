@@ -1,47 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] rhashtable: Introduce rhashtable_walk_*
-Date: Tue, 27 Jan 2015 14:10:18 -0800 (PST)
-Message-ID: <20150127.141018.1208673547021029175.davem@davemloft.net>
-References: <20150127112304.GA4548@gondor.apana.org.au>
-	<20150127114028.GG22262@casper.infradead.org>
-	<20150127203924.GB9061@gondor.apana.org.au>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH net-next v8 0/4] net: Add Keystone NetCP ethernet driver support
+Date: Tue, 27 Jan 2015 23:28:42 +0100
+Message-ID: <25883654.BLFxICW9P0@wuerfel>
+References: <1421367007-19744-1-git-send-email-m-karicheri2@ti.com> <20150119.151106.822126941934010309.davem@davemloft.net> <54BE7A00.2020205@ti.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: tgraf@suug.ch, David.Laight@ACULAB.COM, ying.xue@windriver.com,
-	kaber@trash.net, paulmck@linux.vnet.ibm.com,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: herbert@gondor.apana.org.au
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53204 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753842AbbA0WKW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2015 17:10:22 -0500
-In-Reply-To: <20150127203924.GB9061@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: David Miller <davem@davemloft.net>, devicetree@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Murali Karicheri <m-karicheri2@ti.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <54BE7A00.2020205@ti.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Wed, 28 Jan 2015 07:39:24 +1100
-
-> On Tue, Jan 27, 2015 at 11:40:28AM +0000, Thomas Graf wrote:
->> 
->> This is unrelated to resize run control though, the reason is that
->> I'm converting tcp_hashinfo et al and they require a hybrid approach.
->> The tables may be too big to construct a parallel data structure, we
->> don't want to hold off inserts or deletes while the expensive dump
->> is underway. Even though we can't build a shadow structure while
->> locking everybody else out, we still want to provide a way to somehow
->> achieve consistent information. I think that NLM_F_INTR with fallback
->> to restarting the dump is a good option and very easy to implement. In
->> that case, we want to lock out resize from dumping iterations but
->> still allow parallel insert/delete.
+On Tuesday 20 January 2015 10:53:36 Murali Karicheri wrote:
+> On 01/19/2015 03:11 PM, David Miller wrote:
+> > From: Murali Karicheri<m-karicheri2@ti.com>
+> > Date: Thu, 15 Jan 2015 19:10:03 -0500
+> >
+> >> The Network Coprocessor (NetCP) is a hardware accelerator that processes
+> >> Ethernet packets. NetCP has a gigabit Ethernet (GbE) subsystem with a ethernet
+> >> switch sub-module to send and receive packets. NetCP also includes a packet
+> >> accelerator (PA) module to perform packet classification operations such as
+> >> header matching, and packet modification operations such as checksum
+> >> generation. NetCP can also optionally include a Security Accelerator(SA)
+> >> capable of performing IPSec operations on ingress/egress packets.
+> >>
+> >> Keystone SoC's also have a 10 Gigabit Ethernet Subsystem (XGbE) which
+> >> includes a 3-port Ethernet switch sub-module capable of 10Gb/s and
+> >> 1Gb/s rates per Ethernet port.
+> >>
+> >> Both GBE and XGBE network processors supported using common driver. It
+> >> is also designed to handle future variants of NetCP.
+> >
+> > Series applied to net-next, thanks.
+> David,
 > 
-> Well I guess Dave needs to make the call.  Do we want to allow
-> lockless walks over the hash table or not?
-> 
-> Personally I don't think a linked list is that big a deal.  But then
-> you guys were agonsing over a single pointer so who knows.
+> Thanks a lot for applying this series. This helps us move forward to 
+> work on the next set of patches.
 
-For netlink a linked list is no big deal, but for something like TCP
-sockets it really is.
+Hi Murali,
+
+Building an ARM 'allmodconfig' kernel now runs into two separate problems
+from your driver:
+
+- you have two module_init() instances in one module, which conflict.
+
+- you have two files that are linked into more than one module, so building
+  both TI_CPSW and TI_KEYSTONE_NETCP in the same kernel fails.
+
+The answer to both of these is probably to have separate loadable modules,
+but you might be able to come up with a different solution.
+
+	Arnd
