@@ -1,53 +1,49 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next 09/10] net/mlx4: Fix memory corruption in mlx4_MAD_IFC_wrapper
-Date: Tue, 27 Jan 2015 11:32:58 +0200
-Message-ID: <1422351179-27284-10-git-send-email-amirv@mellanox.com>
+Subject: [PATCH net-next 03/10] net/mlx4_core: Fix mem leak in SRIOV mlx4_init_one error flow
+Date: Tue, 27 Jan 2015 11:32:52 +0200
+Message-ID: <1422351179-27284-4-git-send-email-amirv@mellanox.com>
 References: <1422351179-27284-1-git-send-email-amirv@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Amir Vadai <amirv@mellanox.com>,
 	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Matan Barak <matanb@mellanox.com>
+	Jack Morgenstein <jackm@dev.mellanox.co.il>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:56330 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:56367 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1757972AbbA0Jdv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Jan 2015 04:33:51 -0500
+	id S1757999AbbA0JeM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Jan 2015 04:34:12 -0500
 In-Reply-To: <1422351179-27284-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Matan Barak <matanb@mellanox.com>
+From: Jack Morgenstein <jackm@dev.mellanox.co.il>
 
-Fix a memory corruption at mlx4_MAD_IFC_wrapper.
+Structs allocated for the resource tracker must be freed in
+the error flow.
 
-A table of size dev->caps.pkey_table_len[port]*sizeof(*table)
-was allocated, but get_full_pkey_table() assumes that the number
-of entries in the table is a multiplication of 32 (which isn't always
-correct).
 
-Fixes: 0a9a018 ('mlx4: MAD_IFC paravirtualization')
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
-Signed-off-by: Matan Barak <matanb@mellanox.com>
+Signed-off-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
 Signed-off-by: Amir Vadai <amirv@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/cmd.c | 4 +++-
+ drivers/net/ethernet/mellanox/mlx4/main.c | 4 +++-
  1 file changed, 3 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/cmd.c b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-index 928b706..154effb 100644
---- a/drivers/net/ethernet/mellanox/mlx4/cmd.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-@@ -901,7 +901,9 @@ static int mlx4_MAD_IFC_wrapper(struct mlx4_dev *dev, int slave,
- 				index = be32_to_cpu(smp->attr_mod);
- 				if (port < 1 || port > dev->caps.num_ports)
- 					return -EINVAL;
--				table = kcalloc(dev->caps.pkey_table_len[port], sizeof *table, GFP_KERNEL);
-+				table = kcalloc((dev->caps.pkey_table_len[port] / 32) + 1,
-+						sizeof(*table) * 32, GFP_KERNEL);
-+
- 				if (!table)
- 					return -ENOMEM;
- 				/* need to get the full pkey table because the paravirtualized
+diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
+index 46531c2..ab990f9 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/main.c
++++ b/drivers/net/ethernet/mellanox/mlx4/main.c
+@@ -2980,8 +2980,10 @@ err_free_eq:
+ 	mlx4_free_eq_table(dev);
+ 
+ err_master_mfunc:
+-	if (mlx4_is_master(dev))
++	if (mlx4_is_master(dev)) {
++		mlx4_free_resource_tracker(dev, RES_TR_FREE_STRUCTS_ONLY);
+ 		mlx4_multi_func_cleanup(dev);
++	}
+ 
+ 	if (mlx4_is_slave(dev)) {
+ 		kfree(dev->caps.qp0_qkey);
 -- 
 1.9.3
