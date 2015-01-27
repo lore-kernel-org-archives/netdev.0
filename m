@@ -1,7 +1,7 @@
 From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: [PATCH 3/4] can: kvaser_usb: Retry the first bulk transfer on -ETIMEDOUT
-Date: Tue, 27 Jan 2015 09:01:26 +0100
-Message-ID: <1422345687-12839-4-git-send-email-mkl@pengutronix.de>
+Subject: [PATCH 1/4] can: kvaser_usb: Do not sleep in atomic context
+Date: Tue, 27 Jan 2015 09:01:24 +0100
+Message-ID: <1422345687-12839-2-git-send-email-mkl@pengutronix.de>
 References: <1422345687-12839-1-git-send-email-mkl@pengutronix.de>
 Cc: davem@davemloft.net, linux-can@vger.kernel.org,
 	kernel@pengutronix.de,
@@ -9,55 +9,105 @@ Cc: davem@davemloft.net, linux-can@vger.kernel.org,
 	linux-stable <stable@vger.kernel.org>,
 	Marc Kleine-Budde <mkl@pengutronix.de>
 To: netdev@vger.kernel.org
-Return-path: <linux-can-owner@vger.kernel.org>
+Return-path: <stable-owner@vger.kernel.org>
 In-Reply-To: <1422345687-12839-1-git-send-email-mkl@pengutronix.de>
-Sender: linux-can-owner@vger.kernel.org
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: "Ahmed S. Darwish" <ahmed.darwish@valeo.com>
 
-On some x86 laptops, plugging a Kvaser device again after an
-unplug makes the firmware always ignore the very first command.
-For such a case, provide some room for retries instead of
-completely exiting the driver init code.
+Upon receiving a hardware event with the BUS_RESET flag set,
+the driver kills all of its anchored URBs and resets all of
+its transmit URB contexts.
+
+Unfortunately it does so under the context of URB completion
+handler `kvaser_usb_read_bulk_callback()', which is often
+called in an atomic context.
+
+While the device is flooded with many received error packets,
+usb_kill_urb() typically sleeps/reschedules till the transfer
+request of each killed URB in question completes, leading to
+the sleep in atomic bug. [3]
+
+In v2 submission of the original driver patch [1], it was
+stated that the URBs kill and tx contexts reset was needed
+since we don't receive any tx acknowledgments later and thus
+such resources will be locked down forever. Fortunately this
+is no longer needed since an earlier bugfix in this patch
+series is now applied: all tx URB contexts are reset upon CAN
+channel close. [2]
+
+Moreover, a BUS_RESET is now treated _exactly_ like a BUS_OFF
+event, which is the recommended handling method advised by
+the device manufacturer.
+
+[1] http://article.gmane.org/gmane.linux.network/239442
+    http://www.webcitation.org/6Vr2yagAQ
+
+[2] can: kvaser_usb: Reset all URB tx contexts upon channel close
+    889b77f7fd2bcc922493d73a4c51d8a851505815
+
+[3] Stacktrace:
+
+ <IRQ>  [<ffffffff8158de87>] dump_stack+0x45/0x57
+ [<ffffffff8158b60c>] __schedule_bug+0x41/0x4f
+ [<ffffffff815904b1>] __schedule+0x5f1/0x700
+ [<ffffffff8159360a>] ? _raw_spin_unlock_irqrestore+0xa/0x10
+ [<ffffffff81590684>] schedule+0x24/0x70
+ [<ffffffff8147d0a5>] usb_kill_urb+0x65/0xa0
+ [<ffffffff81077970>] ? prepare_to_wait_event+0x110/0x110
+ [<ffffffff8147d7d8>] usb_kill_anchored_urbs+0x48/0x80
+ [<ffffffffa01f4028>] kvaser_usb_unlink_tx_urbs+0x18/0x50 [kvaser_usb]
+ [<ffffffffa01f45d0>] kvaser_usb_rx_error+0xc0/0x400 [kvaser_usb]
+ [<ffffffff8108b14a>] ? vprintk_default+0x1a/0x20
+ [<ffffffffa01f5241>] kvaser_usb_read_bulk_callback+0x4c1/0x5f0 [kvaser_usb]
+ [<ffffffff8147a73e>] __usb_hcd_giveback_urb+0x5e/0xc0
+ [<ffffffff8147a8a1>] usb_hcd_giveback_urb+0x41/0x110
+ [<ffffffffa0008748>] finish_urb+0x98/0x180 [ohci_hcd]
+ [<ffffffff810cd1a7>] ? acct_account_cputime+0x17/0x20
+ [<ffffffff81069f65>] ? local_clock+0x15/0x30
+ [<ffffffffa000a36b>] ohci_work+0x1fb/0x5a0 [ohci_hcd]
+ [<ffffffff814fbb31>] ? process_backlog+0xb1/0x130
+ [<ffffffffa000cd5b>] ohci_irq+0xeb/0x270 [ohci_hcd]
+ [<ffffffff81479fc1>] usb_hcd_irq+0x21/0x30
+ [<ffffffff8108bfd3>] handle_irq_event_percpu+0x43/0x120
+ [<ffffffff8108c0ed>] handle_irq_event+0x3d/0x60
+ [<ffffffff8108ec84>] handle_fasteoi_irq+0x74/0x110
+ [<ffffffff81004dfd>] handle_irq+0x1d/0x30
+ [<ffffffff81004727>] do_IRQ+0x57/0x100
+ [<ffffffff8159482a>] common_interrupt+0x6a/0x6a
 
 Signed-off-by: Ahmed S. Darwish <ahmed.darwish@valeo.com>
 Cc: linux-stable <stable@vger.kernel.org>
 Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
 ---
- drivers/net/can/usb/kvaser_usb.c | 12 ++++++++++--
- 1 file changed, 10 insertions(+), 2 deletions(-)
+ drivers/net/can/usb/kvaser_usb.c | 7 +------
+ 1 file changed, 1 insertion(+), 6 deletions(-)
 
 diff --git a/drivers/net/can/usb/kvaser_usb.c b/drivers/net/can/usb/kvaser_usb.c
-index f0c62075df0a..55407b9663a6 100644
+index c32cd61073bc..978a25e9cd3c 100644
 --- a/drivers/net/can/usb/kvaser_usb.c
 +++ b/drivers/net/can/usb/kvaser_usb.c
-@@ -1585,7 +1585,7 @@ static int kvaser_usb_probe(struct usb_interface *intf,
- {
- 	struct kvaser_usb *dev;
- 	int err = -ENOMEM;
--	int i;
-+	int i, retry = 3;
+@@ -662,11 +662,6 @@ static void kvaser_usb_rx_error(const struct kvaser_usb *dev,
+ 	priv = dev->nets[channel];
+ 	stats = &priv->netdev->stats;
  
- 	dev = devm_kzalloc(&intf->dev, sizeof(*dev), GFP_KERNEL);
- 	if (!dev)
-@@ -1603,7 +1603,15 @@ static int kvaser_usb_probe(struct usb_interface *intf,
+-	if (status & M16C_STATE_BUS_RESET) {
+-		kvaser_usb_unlink_tx_urbs(priv);
+-		return;
+-	}
+-
+ 	skb = alloc_can_err_skb(priv->netdev, &cf);
+ 	if (!skb) {
+ 		stats->rx_dropped++;
+@@ -677,7 +672,7 @@ static void kvaser_usb_rx_error(const struct kvaser_usb *dev,
  
- 	usb_set_intfdata(intf, dev);
+ 	netdev_dbg(priv->netdev, "Error status: 0x%02x\n", status);
  
--	err = kvaser_usb_get_software_info(dev);
-+	/* On some x86 laptops, plugging a Kvaser device again after
-+	 * an unplug makes the firmware always ignore the very first
-+	 * command. For such a case, provide some room for retries
-+	 * instead of completely exiting the driver.
-+	 */
-+	do {
-+		err = kvaser_usb_get_software_info(dev);
-+	} while (--retry && err == -ETIMEDOUT);
-+
- 	if (err) {
- 		dev_err(&intf->dev,
- 			"Cannot get software infos, error %d\n", err);
+-	if (status & M16C_STATE_BUS_OFF) {
++	if (status & (M16C_STATE_BUS_OFF | M16C_STATE_BUS_RESET)) {
+ 		cf->can_id |= CAN_ERR_BUSOFF;
+ 
+ 		priv->can.can_stats.bus_off++;
 -- 
 2.1.4
-
