@@ -1,7 +1,7 @@
 From: David Decotigny <ddecotig@gmail.com>
-Subject: [PATCH net-next v1 08/18] net: ipvlan: use __ethtool_get_ksettings
-Date: Mon, 26 Jan 2015 17:36:04 -0800
-Message-ID: <1422322574-6188-9-git-send-email-ddecotig@gmail.com>
+Subject: [PATCH net-next v1 05/18] net: tx4939: use __ethtool_get_ksettings
+Date: Mon, 26 Jan 2015 17:36:01 -0800
+Message-ID: <1422322574-6188-6-git-send-email-ddecotig@gmail.com>
 References: <1422322574-6188-1-git-send-email-ddecotig@gmail.com>
 Cc: Eric Dumazet <edumazet@google.com>,
 	Eugenia Emantayev <eugenia@mellanox.co.il>,
@@ -28,37 +28,28 @@ From: David Decotigny <decot@googlers.com>
 
 Signed-off-by: David Decotigny <decot@googlers.com>
 ---
- drivers/net/ipvlan/ipvlan_main.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ arch/mips/txx9/generic/setup_tx4939.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ipvlan/ipvlan_main.c b/drivers/net/ipvlan/ipvlan_main.c
-index 4f4099d..79e3516 100644
---- a/drivers/net/ipvlan/ipvlan_main.c
-+++ b/drivers/net/ipvlan/ipvlan_main.c
-@@ -342,12 +342,12 @@ static const struct header_ops ipvlan_header_ops = {
- 	.cache_update	= eth_header_cache_update,
- };
- 
--static int ipvlan_ethtool_get_settings(struct net_device *dev,
--				       struct ethtool_cmd *cmd)
-+static int ipvlan_ethtool_get_ksettings(struct net_device *dev,
-+					struct ethtool_ksettings *cmd)
+diff --git a/arch/mips/txx9/generic/setup_tx4939.c b/arch/mips/txx9/generic/setup_tx4939.c
+index e3733cd..4a3ebf6 100644
+--- a/arch/mips/txx9/generic/setup_tx4939.c
++++ b/arch/mips/txx9/generic/setup_tx4939.c
+@@ -320,11 +320,12 @@ void __init tx4939_sio_init(unsigned int sclk, unsigned int cts_mask)
+ #if IS_ENABLED(CONFIG_TC35815)
+ static u32 tx4939_get_eth_speed(struct net_device *dev)
  {
- 	const struct ipvl_dev *ipvlan = netdev_priv(dev);
+-	struct ethtool_cmd cmd;
+-	if (__ethtool_get_settings(dev, &cmd))
++	struct ethtool_ksettings cmd;
++
++	if (__ethtool_get_ksettings(dev, &cmd))
+ 		return 100;	/* default 100Mbps */
  
--	return __ethtool_get_settings(ipvlan->phy_dev, cmd);
-+	return __ethtool_get_ksettings(ipvlan->phy_dev, cmd);
+-	return ethtool_cmd_speed(&cmd);
++	return cmd.parent.speed;
  }
  
- static void ipvlan_ethtool_get_drvinfo(struct net_device *dev,
-@@ -373,7 +373,7 @@ static void ipvlan_ethtool_set_msglevel(struct net_device *dev, u32 value)
- 
- static const struct ethtool_ops ipvlan_ethtool_ops = {
- 	.get_link	= ethtool_op_get_link,
--	.get_settings	= ipvlan_ethtool_get_settings,
-+	.get_ksettings	= ipvlan_ethtool_get_ksettings,
- 	.get_drvinfo	= ipvlan_ethtool_get_drvinfo,
- 	.get_msglevel	= ipvlan_ethtool_get_msglevel,
- 	.set_msglevel	= ipvlan_ethtool_set_msglevel,
+ static int tx4939_netdev_event(struct notifier_block *this,
 -- 
 2.2.0.rc0.207.ga3a616c
