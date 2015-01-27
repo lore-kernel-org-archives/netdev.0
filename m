@@ -1,152 +1,67 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH net 0/2] netns: audit netdevice creation with IFLA_NET_NS_[PID|FD]
-Date: Tue, 27 Jan 2015 11:32:44 +0100
-Message-ID: <54C7694C.2060709@6wind.com>
-References: <1422307694-10079-1-git-send-email-nicolas.dichtel@6wind.com> <20150127093425.GA2698@omega>
-Reply-To: nicolas.dichtel@6wind.com
+From: Stathis Voukelatos <stathis.voukelatos@linn.co.uk>
+Subject: Re: [PATCH] net: Linn Ethernet Packet Sniffer driver
+Date: Tue, 27 Jan 2015 10:51:09 +0000
+Message-ID: <54C76D9D.8070704@linn.co.uk>
+References: <1422007621-13567-1-git-send-email-stathis.voukelatos@linn.co.uk> <54C6BFEA.5020101@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	dmitry.tarnyagin@lockless.no, arvid.brodin@alten.se,
-	linux-wpan@vger.kernel.org
-To: Alexander Aring <alex.aring@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f178.google.com ([74.125.82.178]:39498 "EHLO
-	mail-we0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755619AbbA0Kcr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2015 05:32:47 -0500
-Received: by mail-we0-f178.google.com with SMTP id k48so14031411wev.9
-        for <netdev@vger.kernel.org>; Tue, 27 Jan 2015 02:32:46 -0800 (PST)
-In-Reply-To: <20150127093425.GA2698@omega>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <abrestic@chromium.org>
+To: Florian Fainelli <f.fainelli@gmail.com>,
+	Stathis Voukelatos <stathisv70@gmail.com>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<devicetree@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <54C6BFEA.5020101@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le 27/01/2015 10:34, Alexander Aring a =C3=A9crit :
-> Hi,
->
-> On Mon, Jan 26, 2015 at 10:28:12PM +0100, Nicolas Dichtel wrote:
+Hi Florian,
+
+On 26/01/15 22:30, Florian Fainelli wrote:
+> On 23/01/15 02:07, Stathis Voukelatos wrote:
+>> This patch adds support the Ethernet Packet Sniffer H/W module
+>> developed by Linn Products Ltd and found in the IMG Pistachio SoC.
+>> The module allows Ethernet packets to be parsed, matched against
+>> a user-defined pattern and timestamped. It sits between a 100M
+>> Ethernet MAC and PHY and is completely passive with respect to
+>> Ethernet frames.
+> Is there any latency penalty involved in capturing (or not) packets as
+> opposed to having this capture HW unused?
+
+There is no additional latency introduced by the sniffer at the H/W level,
+if that is what you mean. Only the S/W overhead for handling the
+sniffer interrupt for each match event.
+
+>> Matched packet bytes and timestamp values are returned through a
+>> FIFO. Timestamps are provided to the module through an externally
+>> generated Gray-encoded counter.
 >>
-[snip]
->> - ieee802154 uses also src_net and does not have NETIF_F_NETNS_LOCAL=
-=2E Same
->>    question: does this netdevice really supports x-netns?
->
-> I am not sure if I understand exactly what you mean. First of all, I
-> didn't test anything about net namespaces for the ieee802154 branch.
-> In 802.15.4 branch we have two interfaces: wpan and 6LoWPAN.
->
-> After running "grep -r "src_net" net" I found this is used in:
->
-> net/ieee802154/6lowpan/core.c [0]
-Yes, I was talking about this.
+>> The command pattern for packet matching is stored in module RAM
+>> and consists of a sequence of 16-bit entries. Each entry includes
+>> an 8-bit command code and and 8-bit data value. Valid command
+>> codes are:
+>> 0 - Don't care
+>> 1 - Match: packet data must match command string byte
+>> 2 - Copy: packet data will be copied to FIFO
+>> 3 - Match/Stamp: if packet data matches string byte, a timestamp
+>>                   is copied into the FIFO
+>> 4 - Copy/Done: packet data will be copied into the FIFO.
+>>                 This command terminates the command string.
+>>
+>> The driver consists of two modules:
+>> - Core: it provides an API to user space using the Generic Netlink
+>>          framework. Specific backend implementations, like the
+>>          Ethernet Packet Sniffer, register one or more channels
+>>          with the Core. For each channel a Genl family is created.
+>>          User space can access a channel by sending Genl messages
+>>          to the Genl family associated with the channel. Packet
+>>          matching events are multicast.
+> Instead of having this new generic netlink family to control sniffing,
+> could we imagine registering a netdevice which does not nothing but
+> still allows for tools like tcpdump, af_packet and other capture tools
+> to work transparently and just leverage the HW capture?
+Thanks, I will work on that change. It has been suggested by a previous
+reviewer too and it makes sense to go down that route.
 
->
-> This file handles the IEEE 802.15.4 6LoWPAN interface to offering a
-> IPv6 interface with an IEEE 802.15.4 6LoWPAN adaption layer.
->
-> To the codeline "dev_get_by_index(src_net, nla_get_u32(tb[IFLA_LINK])=
-);".
-> By calling "ip link add link wpan0 name lowpan0 type lowpan" the
-> lowpan_newlink function will be called and we need to find the wpan i=
-nterface
-> (returned as real_dev in this case).
->
-> Namespace setting in wpan interface:
->
-> Currently we don't use any net namespace settings there, also we don'=
-t
-> change the net namespace. The default net namespace for a wpan shoule=
- be
-> "init_net".
-Ok. After grepping for init_net, it seems to be used a lot in net/ieee8=
-02154/.
-
->
-> So this line could be also written as (I found also some others code =
-which search
-> the wpan interface in &init_net):
->
-> diff --git a/net/ieee802154/6lowpan/core.c b/net/ieee802154/6lowpan/c=
-ore.c
-> index 9dbe0d69..495c6ad 100644
-> --- a/net/ieee802154/6lowpan/core.c
-> +++ b/net/ieee802154/6lowpan/core.c
-> @@ -151,7 +151,7 @@ static int lowpan_newlink(struct net *src_net, st=
-ruct net_device *dev,
->          if (!tb[IFLA_LINK])
->                  return -EINVAL;
->          /* find and hold real wpan device */
-> -       real_dev =3D dev_get_by_index(src_net, nla_get_u32(tb[IFLA_LI=
-NK]));
-> +       real_dev =3D dev_get_by_index(&init_net, nla_get_u32(tb[IFLA_=
-LINK]));
->          if (!real_dev)
->                  return -ENODEV;
->          if (real_dev->type !=3D ARPHRD_IEEE802154) {
->
->
->
-> The above code is for finding the wpan interface (the real 802.15.4 L=
-2 interface).
-> For the IEEE 802.15.4 6LoWPAN interface the whole IPv6 implementation=
- is
-> used. This interface will be created inside function "newlink".
->
-> Running "grep -r "src_net" net/ipv6" reports me alot uses of "src_net=
-".
-> Don't know if this information is really necessary.
->
-> Should I set now the NETIF_F_NETNS_LOCAL for both interface types?
-I think yes. If it's not set, a user may do:
-$ ip link add link wpan0 name lowpan0 type lowpan
-$ ip netns add foo
-$ ip link set lowpan0 netns foo
-
-The flag forbids the last command.
-
-Instead of your patch, what about this one:
-
- From d9a9cd22d5e1db1417b3ffb53cc020481dc761b2 Mon Sep 17 00:00:00 2001
-=46rom: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Date: Tue, 27 Jan 2015 11:26:20 +0100
-Subject: [PATCH] ieee802154: forbid to create an iface in a netns !=3D =
-init_net
-
-6LoWPAN currently doesn't supports netns.
-
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
-  net/ieee802154/6lowpan/core.c | 5 ++++-
-  1 file changed, 4 insertions(+), 1 deletion(-)
-
-diff --git a/net/ieee802154/6lowpan/core.c b/net/ieee802154/6lowpan/cor=
-e.c
-index 055fbb71ba6f..fe8fd022042e 100644
---- a/net/ieee802154/6lowpan/core.c
-+++ b/net/ieee802154/6lowpan/core.c
-@@ -126,6 +126,7 @@ static void lowpan_setup(struct net_device *dev)
-  	dev->header_ops		=3D &lowpan_header_ops;
-  	dev->ml_priv		=3D &lowpan_mlme;
-  	dev->destructor		=3D free_netdev;
-+	dev->features		|=3D NETIF_F_NETNS_LOCAL;
-  }
-
-  static int lowpan_validate(struct nlattr *tb[], struct nlattr *data[]=
-)
-@@ -148,7 +149,9 @@ static int lowpan_newlink(struct net *src_net, stru=
-ct=20
-net_device *dev,
-
-  	pr_debug("adding new link\n");
-
--	if (!tb[IFLA_LINK])
-+	if (!tb[IFLA_LINK] ||
-+	    !net_eq(src_net, &init_net) ||
-+	    !net_eq(dev_net(dev), &init_net))
-  		return -EINVAL;
-  	/* find and hold real wpan device */
-  	real_dev =3D dev_get_by_index(src_net, nla_get_u32(tb[IFLA_LINK]));
---=20
-2.2.2
+Stathis
