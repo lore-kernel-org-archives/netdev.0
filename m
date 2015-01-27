@@ -1,57 +1,69 @@
-From: Andy Gospodarek <gospo@cumulusnetworks.com>
-Subject: Re: [net-next PATCH v3 00/12] Flow API
-Date: Mon, 26 Jan 2015 23:58:20 -0500
-Message-ID: <20150127045820.GC13164@gospo.home.greyhouse.net>
-References: <20150123110821.GH25797@casper.infradead.org>
- <20150123113934.GD2065@nanopsycho.orion>
- <20150123122838.GI25797@casper.infradead.org>
- <20150123134315.GF2065@nanopsycho.orion>
- <20150123140724.GJ25797@casper.infradead.org>
- <54C26A1F.6060603@gmail.com>
- <54C397C0.3010508@mojatatu.com>
- <20150126082602.GB8408@vergenet.net>
- <54C6326D.4090608@mojatatu.com>
- <54C71409.8060007@gmail.com>
+From: "Fu, Zhonghui" <zhonghui.fu@linux.intel.com>
+Subject: Re: [PATCH] brcmfmac: avoid duplicated suspend/resume operation
+Date: Tue, 27 Jan 2015 13:35:31 +0800
+Message-ID: <54C723A3.8000508@linux.intel.com>
+References: <54BDCC06.8090107@linux.intel.com>	<87twzincvz.fsf@kamboji.qca.qualcomm.com>	<54C1012F.1020400@cogentembedded.com> <54C1646B.4080409@broadcom.com> <87y4otldln.fsf@kamboji.qca.qualcomm.com> <54C28E6B.8090408@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
-	Simon Horman <simon.horman@netronome.com>,
-	John Fastabend <john.fastabend@gmail.com>,
-	Thomas Graf <tgraf@suug.ch>, Jiri Pirko <jiri@resnulli.us>,
-	Pablo Neira Ayuso <pablo@netfilter.org>, sfeldma@gmail.com,
-	netdev@vger.kernel.org, davem@davemloft.net, gerlitz.or@gmail.com,
-	andy@greyhouse.net, ast@plumgrid.com
-To: David Ahern <dsahern@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f52.google.com ([209.85.192.52]:38419 "EHLO
-	mail-qg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752155AbbA0E6Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2015 23:58:24 -0500
-Received: by mail-qg0-f52.google.com with SMTP id z107so10226848qgd.11
-        for <netdev@vger.kernel.org>; Mon, 26 Jan 2015 20:58:23 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <54C71409.8060007@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	brudley@broadcom.com, Franky Lin <frankyl@broadcom.com>,
+	meuleman@broadcom.com, linville@tuxdriver.com,
+	pieterpg@broadcom.com, hdegoede@redhat.com, wens@csie.org,
+	linux-wireless@vger.kernel.org, brcm80211-dev-list@broadcom.com,
+	netdev@vger.kernel.org,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Arend van Spriel <arend@broadcom.com>,
+	Kalle Valo <kvalo@codeaurora.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <54C28E6B.8090408@broadcom.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jan 26, 2015 at 09:28:57PM -0700, David Ahern wrote:
-> On 1/26/15 5:26 AM, Jamal Hadi Salim wrote:
-> >On 01/26/15 03:26, Simon Horman wrote:
-> >>On Sat, Jan 24, 2015 at 08:01:52AM -0500, Jamal Hadi Salim wrote:
-> >>>Lets discuss at the meeting. I am just skimming these emails (the
-> >>>conference is chewing a lot of my time so i will mostly be absent).
-> >>>Sorry if i am not responding to some things.
-> >>
-> >>Is "the meeting" the Hardware Offloading BoF at Netdev 1.0?
-> >>For the benefit of others: https://www.netdev01.org/sessions/10
-> >>
-> >
-> >Yes, that is the plan. Sorry - the statement was addressed at the usual
-> >suspects who probably understood the context.
-> 
-> Will someone be taking copious notes or recording the sessions and then
-> making those available for those not in attendance?
-> 
 
-I'm not sure if the sessions will be recorded, but notes will be taken
-for those wise enough not to come to Ottawa this time of year.  :)
+On 2015/1/24 2:09, Arend van Spriel wrote:
+> On 01/23/15 16:29, Kalle Valo wrote:
+>> Arend van Spriel<arend@broadcom.com>  writes:
+>>
+>>> On 01/22/15 14:54, Sergei Shtylyov wrote:
+>>>> Hello.
+>>>>
+>>>> On 1/22/2015 4:49 PM, Kalle Valo wrote:
+>>>>
+>>>>>> > From 04d3fa673897ca4ccbea6c76836d0092dba2484a Mon Sep 17 00:00:00 2001
+>>>>>> From: Zhonghui Fu<zhonghui.fu@linux.intel.com>
+>>>>>> Date: Tue, 20 Jan 2015 11:14:13 +0800
+>>>>>> Subject: [PATCH] brcmfmac: avoid duplicated suspend/resume operation
+>>>>
+>>>>>> WiFi chip has 2 SDIO functions, and PM core will trigger
+>>>>>> twice suspend/resume operations for one WiFi chip to do
+>>>>>> the same things. This patch avoid this case.
+>>>>
+>>>>>> Acked-by: Arend van Spriel<arend@broadcom.com>
+>>>>>> Acked-by: Sergei Shtylyov<sergei.shtylyov@cogentembedded.com>
+>>>>>> Acked-by: Kalle Valo<kvalo@codeaurora.org>
+>>>>>> Signed-off-by: Zhonghui Fu<zhonghui.fu@linux.intel.com>
+>>>>
+>>>>> I don't remember giving Acked-by to this (or for matter to anything for
+>>>>> a long time). What about Sergei or Arend?
+>>>>
+>>>> I haven't ACK'ed this patch either.
+>>>
+>>> I did ACK the initial patch and felt it still valid for this 'V2' patch.
+>>
+>> Ok, thanks. So the patch is good, Zhonghui just needs to remove the two
+>> acked-by lines.
+>
+> Indeed.
+
+I have removed the two acked-by lines and sent the new patch in another mail.
+
+Thanks,
+Zhonghui
+>
+> Regards,
+> Arend
+> -- 
+> To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
