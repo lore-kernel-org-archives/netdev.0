@@ -1,33 +1,38 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 1/2] rhashtable: Introduce rhashtable_walk_*
-Date: Wed, 28 Jan 2015 10:16:22 +1100
-Message-ID: <20150127231622.GA11287@gondor.apana.org.au>
-References: <20150127112304.GA4548@gondor.apana.org.au>
- <20150127114028.GG22262@casper.infradead.org>
- <20150127203924.GB9061@gondor.apana.org.au>
- <20150127.141018.1208673547021029175.davem@davemloft.net>
+Subject: [PATCH 0/2] rhashtable: Add walk iterator primitives and use them in
+ netlink
+Date: Wed, 28 Jan 2015 10:19:50 +1100
+Message-ID: <20150127231950.GA11374@gondor.apana.org.au>
+References: <cover.1421759056.git.tgraf@suug.ch>
+ <cce004895ab6bcef267e2133a1c7ecab0fac403b.1421759056.git.tgraf@suug.ch>
+ <54BF5FC4.4070808@windriver.com>
+ <20150121121748.GD12570@casper.infradead.org>
+ <20150122084924.GA4720@gondor.apana.org.au>
+ <20150125232040.GA17936@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: tgraf@suug.ch, David.Laight@ACULAB.COM, ying.xue@windriver.com,
+Cc: Ying Xue <ying.xue@windriver.com>, davem@davemloft.net,
 	kaber@trash.net, paulmck@linux.vnet.ibm.com,
 	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:43987 "EHLO
-	helcar.apana.org.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752259AbbA0XQ5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2015 18:16:57 -0500
+To: Thomas Graf <tgraf@suug.ch>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20150127.141018.1208673547021029175.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20150125232040.GA17936@gondor.apana.org.au>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 27, 2015 at 02:10:18PM -0800, David Miller wrote:
->
-> For netlink a linked list is no big deal, but for something like TCP
-> sockets it really is.
+On Mon, Jan 26, 2015 at 10:20:40AM +1100, Herbert Xu wrote:
+> 
+> Here are the first two patches, one to add the primitives and one
+> to demonstrate its use in netlink.  In fact while testing this I
+> found that the existing netlink walking code is totally broken.
 
-OK then I'll resubmit my iterators.
+So this is a repost of the same thing.  These lockless iterators
+won't be usable by netfilter as it stands because it wants to do
+nested walks and also isn't currently lockless.
+
+However, I'll wait for Patrick to post his pending patches to see
+what exactly he needs before implementing helpers for that case.
 
 Cheers,
 -- 
