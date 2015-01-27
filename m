@@ -1,33 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: udp_diag: Fix socket skipping within chain
-Date: Tue, 27 Jan 2015 00:03:11 -0800 (PST)
-Message-ID: <20150127.000311.103045565357925532.davem@davemloft.net>
-References: <20150123210240.GA1569@gondor.apana.org.au>
+Subject: Re: [PATCH] net: dsa/mv88e6xxx: add reg read and write debug
+Date: Tue, 27 Jan 2015 00:04:30 -0800 (PST)
+Message-ID: <20150127.000430.1352169065847404927.davem@davemloft.net>
+References: <1422047436-6864-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: xemul@parallels.com, netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48255 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756989AbbA0IDM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2015 03:03:12 -0500
-In-Reply-To: <20150123210240.GA1569@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel@savoirfairelinux.com
+To: vivien.didelot@savoirfairelinux.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1422047436-6864-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Sat, 24 Jan 2015 08:02:40 +1100
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Date: Fri, 23 Jan 2015 16:10:36 -0500
 
-> While working on rhashtable walking I noticed that the UDP diag
-> dumping code is buggy.  In particular, the socket skipping within
-> a chain never happens, even though we record the number of sockets
-> that should be skipped.
+> This commit adds debug messages for the generic mv88e6xxx read and write
+> routines. The output is similar to this:
 > 
-> As this code was supposedly copied from TCP, this patch does what
-> TCP does and resets num before we walk a chain.
+>     mdio-gpio mdio-gpio.0: <- addr: 0x1b reg: 0x05 val: 0x4000
+>     mdio-gpio mdio-gpio.0: -> addr: 0x1b reg: 0x07 val: 0x3113
+>     mdio-gpio mdio-gpio.0: -> addr: 0x1b reg: 0x08 val: 0x0330
+>     mdio-gpio mdio-gpio.0: -> addr: 0x1b reg: 0x09 val: 0x0000
 > 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> This is convenient to dynamically debug operations through debugfs with:
+> 
+>     echo file mv88e6xxx.c +p > <debugfs>/dynamic_debug/control
+> 
+> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 
-Applied and queued up for -stable, thanks Herbert.
+Applied, thanks.
