@@ -1,242 +1,297 @@
-From: Alexander Aring <alex.aring@gmail.com>
-Subject: Re: [PATCH net 0/2] netns: audit netdevice creation with
- IFLA_NET_NS_[PID|FD]
-Date: Tue, 27 Jan 2015 21:26:20 +0100
-Message-ID: <20150127202617.GA13654@omega>
-References: <1422307694-10079-1-git-send-email-nicolas.dichtel@6wind.com>
- <20150127093425.GA2698@omega>
- <54C7694C.2060709@6wind.com>
- <20150127122340.GA4338@omega>
- <54C7928F.9010002@6wind.com>
- <20150127140620.GA8941@omega>
- <54C7A5B7.60103@6wind.com>
+From: Eugene Krasnikov <k.eugene.e@gmail.com>
+Subject: Re: [PATCH 2/2] net wireless wcn36xx adapt wcnss platform to select
+ module by DT
+Date: Tue, 27 Jan 2015 20:27:26 +0000
+Message-ID: <CAFSJ42a7kuPfJfhiDSD5C+z4GqiX-CHOrdmAT=n6rdsPtsWMEQ@mail.gmail.com>
+References: <20150118051222.32019.32719.stgit@114-36-241-182.dynamic.hinet.net>
+	<20150118051650.32019.49483.stgit@114-36-241-182.dynamic.hinet.net>
+	<CAFSJ42YW5RNpeWA-VDjUT9Ct0MSCxaLNY8XQHUdo9NKzLbCjMg@mail.gmail.com>
+	<CAAfg0W6osNyLB1zPbbhVwQV1OsP_1K1stUK8zkyZygavNjmxGw@mail.gmail.com>
+	<CAFSJ42b2WaYcbvaW1RmBLdfU9t4C0ALXM_n_T=VXygpYNPPp9w@mail.gmail.com>
+	<CAAfg0W4uPeSUxngVB5nU3y66JNDUA4TrZ_J2eALwcpKryKiMQg@mail.gmail.com>
+	<CAFSJ42bK1WbCCBhsuKbOjh0TR7y3GwMibwkRKgiPRY=PW519Cw@mail.gmail.com>
+	<CAAfg0W6TWxi7Lp_nZZ7peuHvuYfBckeqRQaeo42snG=z2pMeag@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net, arvid.brodin@alten.se,
-	linux-wpan@vger.kernel.org
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Kalle Valo <kvalo@codeaurora.org>,
+	wcn36xx <wcn36xx@lists.infradead.org>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Andy Green <andy.green@linaro.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f175.google.com ([74.125.82.175]:40146 "EHLO
-	mail-we0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755120AbbA0U02 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2015 15:26:28 -0500
-Content-Disposition: inline
-In-Reply-To: <54C7A5B7.60103@6wind.com>
+Received: from mail-qa0-f52.google.com ([209.85.216.52]:59182 "EHLO
+	mail-qa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751299AbbA0U11 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2015 15:27:27 -0500
+In-Reply-To: <CAAfg0W6TWxi7Lp_nZZ7peuHvuYfBckeqRQaeo42snG=z2pMeag@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 27, 2015 at 03:50:31PM +0100, Nicolas Dichtel wrote:
-> Le 27/01/2015 15:06, Alexander Aring a =C3=A9crit :
-> >Hi,
-> >
-> >On Tue, Jan 27, 2015 at 02:28:47PM +0100, Nicolas Dichtel wrote:
-> >...
-> [snip]
-> >>
-> >>I don't know how wpan0 is created and if this interface can be crea=
-ted directly
-> >>in another netns than init_net.
-> >>
-> >
-> >no it can't. The wpan0 interface can be created via the 802.15.4
-> >userspace tools and we don't have such option for namespaces. It
-> >should be always to init_net while creation.
-> Even with 'ip netns exec foo iwpan ...'?
->=20
+What i mean is that it's not clear who knows what chip is this,
+whether wcn36xx or wcn36xx_msm. Previously the assumption was that SMD
+command will tell what interface to use. Now we are moving towards
+wcn36xx_msm telling what chip is installed. Both approaches will work.
+If it less work to do then fine.
 
-I did a quick test:
+Sorry for any confusion.
 
-diff --git a/net/mac802154/iface.c b/net/mac802154/iface.c
-index 6fb6bdf..df55b42 100644
---- a/net/mac802154/iface.c
-+++ b/net/mac802154/iface.c
-@@ -590,6 +590,11 @@ ieee802154_if_add(struct ieee802154_local *local, =
-const char *name,
-        list_add_tail_rcu(&sdata->list, &local->interfaces);
-        mutex_unlock(&local->iflist_mtx);
-=20
-+       if (net_eq(dev_net(ndev), &init_net))
-+               printk(KERN_INFO "it's init_net\n");
-+       else
-+               printk(KERN_INFO "it's not init_net\n");
+2015-01-19 9:34 GMT+00:00 Andy Green <andy.green@linaro.org>:
+> On 19 January 2015 at 17:02, Eugene Krasnikov <k.eugene.e@gmail.com> wrote:
+>> The idea is definitely better than just checking for AC support. But
+>> the question is whether platform/hardware/firmware support that?
+>
+> Sorry I don't understand what might be unsupported.
+>
+>  - We don't ask the firmware, we tell the driver what chip it is from
+> the outside.  There's nothing for the firmware to support.
+>
+>  - Platform supports a set of ops via platform_data already.  This
+> just adds one op to get the chip type from the platform code.
+>
+>  - What can't the hardware support?  The hardware physically is a
+> 3620, 3660 or 3680.  We just tell the driver what it is when we
+> instantiate the device.  We don't ask anything of the hardware.
+>
+> I expected to have a debate about whether to move the dt support to
+> wcn36xx directly which is also reasonable... there's no question
+> adding an op will work or not, it will work for all cases like this.
+> But it also implies there must be the "device faking" business in -msm
+> code, one day that will also go upstream and then it might be
+> considered a bit strange.
+>
+> I did it like this now because it's the minimum change from the
+> current situation.
+>
+> -Andy
+>
+>> 2015-01-19 9:00 GMT+00:00 Andy Green <andy.green@linaro.org>:
+>>> On 19 January 2015 at 16:49, Eugene Krasnikov <k.eugene.e@gmail.com> wrote:
+>>>> Have you tested this code on any device other than wcn3620?
+>>>
+>>> No... the only hardware I have is 3620.  But the only code we're
+>>> adding to mainline is the patch with the ops to get the chip type.
+>>>
+>>> The two-patch series just shows one way to set that (which will
+>>> certainly work for all three defined compatible types, if it works for
+>>> one).  And this code cannot go upstream.
+>>>
+>>> So the only decision to make is around whether adding the platform op
+>>> is a good way (or, eg, directly add DT support to wcn36xx and
+>>> eliminate the 'device regeneration' part of the OOT -msm code).
+>>>
+>>> At the moment the detect code does not work for 3620, so something
+>>> needs to be done.
+>>>
+>>> -Andy
+>>>
+>>>> 2015-01-19 8:44 GMT+00:00 Andy Green <andy.green@linaro.org>:
+>>>>> On 19 January 2015 at 16:34, Eugene Krasnikov <k.eugene.e@gmail.com> wrote:
+>>>>>
+>>>>>> So how do we insmod wcn36xx_msm with a parameter specifying what type
+>>>>>> of hardware do we use?
+>>>>>
+>>>>> The type of chip is defined in the DT "compatible" which also delivers
+>>>>> the resource information.
+>>>>>
+>>>>>         qcom,wcn36xx@0a000000 {
+>>>>>                 compatible = "qcom,wcn3620";
+>>>>>                 reg = <0x0a000000 0x280000>;
+>>>>>                 reg-names = "wcnss_mmio";
+>>>>>
+>>>>>                 interrupts = <0 145 0 0 146 0>;
+>>>>>                 interrupt-names = "wcnss_wlantx_irq", "wcnss_wlanrx_irq";
+>>>>> ...
+>>>>>
+>>>>> This bit based on your code can't go in mainline until there's some
+>>>>> kind of PIL support.
+>>>>>
+>>>>> So the only things we can discuss about it for mainline purpose is
+>>>>> whether using a platform ops is a good way to interface to the
+>>>>> mainline driver.
+>>>>>
+>>>>> If you're OK with that and you want a module parameter then this can
+>>>>> grow a module parameter and prefer to deliver the chip type from that
+>>>>> if given, without modifying the platform op interface.
+>>>>>
+>>>>> But with or without a module parameter this can't be upstreamed right
+>>>>> now due to PIL.
+>>>>>
+>>>>> -Andy
+>>>>>
+>>>>>> 2015-01-18 5:16 GMT+00:00 Andy Green <andy.green@linaro.org>:
+>>>>>>> Simplify the resource handling and use DT to indicate which chip type
+>>>>>>> we are dealing with
+>>>>>>>
+>>>>>>> Signed-off-by: Andy Green <andy.green@linaro.org>
+>>>>>>> ---
+>>>>>>>  drivers/net/wireless/ath/wcn36xx/wcn36xx-msm.c |  101 ++++++++++++------------
+>>>>>>>  1 file changed, 52 insertions(+), 49 deletions(-)
+>>>>>>>
+>>>>>>> diff --git a/drivers/net/wireless/ath/wcn36xx/wcn36xx-msm.c b/drivers/net/wireless/ath/wcn36xx/wcn36xx-msm.c
+>>>>>>> index f6f6c83..c9250e0 100644
+>>>>>>> --- a/drivers/net/wireless/ath/wcn36xx/wcn36xx-msm.c
+>>>>>>> +++ b/drivers/net/wireless/ath/wcn36xx/wcn36xx-msm.c
+>>>>>>> @@ -42,7 +42,10 @@ struct wcn36xx_msm {
+>>>>>>>         struct completion       smd_compl;
+>>>>>>>         smd_channel_t           *smd_ch;
+>>>>>>>         struct pinctrl *pinctrl;
+>>>>>>> -} wmsm;
+>>>>>>> +       enum wcn36xx_chip_type chip_type;
+>>>>>>> +};
+>>>>>>> +
+>>>>>>> +static struct wcn36xx_msm wmsm;
+>>>>>>>
+>>>>>>>  static int wcn36xx_msm_smsm_change_state(u32 clear_mask, u32 set_mask)
+>>>>>>>  {
+>>>>>>> @@ -217,14 +220,47 @@ int wcn36xx_msm_powerup(const struct subsys_desc *desc)
+>>>>>>>         return 0;
+>>>>>>>  }
+>>>>>>>
+>>>>>>> +static const struct of_device_id wcn36xx_msm_match_table[] = {
+>>>>>>> +       { .compatible = "qcom,wcn3660", .data = (void *)WCN36XX_CHIP_3660 },
+>>>>>>> +       { .compatible = "qcom,wcn3680", .data = (void *)WCN36XX_CHIP_3680 },
+>>>>>>> +       { .compatible = "qcom,wcn3620", .data = (void *)WCN36XX_CHIP_3620 },
+>>>>>>> +       { }
+>>>>>>> +};
+>>>>>>> +
+>>>>>>> +static int wcn36xx_msm_get_chip_type(void)
+>>>>>>> +{
+>>>>>>> +       return wmsm.chip_type;
+>>>>>>> +}
+>>>>>>> +
+>>>>>>> +static struct wcn36xx_msm wmsm = {
+>>>>>>> +       .ctrl_ops = {
+>>>>>>> +               .open = wcn36xx_msm_smd_open,
+>>>>>>> +               .close = wcn36xx_msm_smd_close,
+>>>>>>> +               .tx = wcn36xx_msm_smd_send_and_wait,
+>>>>>>> +               .get_hw_mac = wcn36xx_msm_get_hw_mac,
+>>>>>>> +               .smsm_change_state = wcn36xx_msm_smsm_change_state,
+>>>>>>> +               .get_chip_type = wcn36xx_msm_get_chip_type,
+>>>>>>> +       },
+>>>>>>> +};
+>>>>>>> +
+>>>>>>>  static int wcn36xx_msm_probe(struct platform_device *pdev)
+>>>>>>>  {
+>>>>>>>         int ret;
+>>>>>>> -       struct resource *wcnss_memory;
+>>>>>>> -       struct resource *tx_irq;
+>>>>>>> -       struct resource *rx_irq;
+>>>>>>> +       const struct of_device_id *of_id;
+>>>>>>> +       struct resource *r;
+>>>>>>>         struct resource res[3];
+>>>>>>>         struct pinctrl_state *ps;
+>>>>>>> +       static const char const *rnames[] = {
+>>>>>>> +               "wcnss_mmio", "wcnss_wlantx_irq", "wcnss_wlanrx_irq" };
+>>>>>>> +       static const int rtype[] = {
+>>>>>>> +               IORESOURCE_MEM, IORESOURCE_IRQ, IORESOURCE_IRQ };
+>>>>>>> +       int n;
+>>>>>>> +
+>>>>>>> +       of_id = of_match_node(wcn36xx_msm_match_table, pdev->dev.of_node);
+>>>>>>> +       if (!of_id)
+>>>>>>> +               return -EINVAL;
+>>>>>>> +
+>>>>>>> +       wmsm.chip_type = (enum wcn36xx_chip_type)of_id->data;
+>>>>>>>
+>>>>>>>         wmsm.pinctrl = devm_pinctrl_get(&pdev->dev);
+>>>>>>>         if (IS_ERR_OR_NULL(wmsm.pinctrl))
+>>>>>>> @@ -240,52 +276,23 @@ static int wcn36xx_msm_probe(struct platform_device *pdev)
+>>>>>>>
+>>>>>>>         if (IS_ERR_OR_NULL(pil))
+>>>>>>>                 pil = subsystem_get("wcnss");
+>>>>>>> -               if (IS_ERR_OR_NULL(pil))
+>>>>>>> -                       return PTR_ERR(pil);
+>>>>>>> +       if (IS_ERR_OR_NULL(pil))
+>>>>>>> +               return PTR_ERR(pil);
+>>>>>>>
+>>>>>>>         wmsm.core = platform_device_alloc("wcn36xx", -1);
+>>>>>>>
+>>>>>>> -       //dev_err(&pdev->dev, "%s starting\n", __func__);
+>>>>>>> -
+>>>>>>> -       memset(res, 0x00, sizeof(res));
+>>>>>>> -       wmsm.ctrl_ops.open = wcn36xx_msm_smd_open;
+>>>>>>> -       wmsm.ctrl_ops.close = wcn36xx_msm_smd_close;
+>>>>>>> -       wmsm.ctrl_ops.tx = wcn36xx_msm_smd_send_and_wait;
+>>>>>>> -       wmsm.ctrl_ops.get_hw_mac = wcn36xx_msm_get_hw_mac;
+>>>>>>> -       wmsm.ctrl_ops.smsm_change_state = wcn36xx_msm_smsm_change_state;
+>>>>>>> -       wcnss_memory =
+>>>>>>> -               platform_get_resource_byname(pdev,
+>>>>>>> -                                             IORESOURCE_MEM,
+>>>>>>> -                                             "wcnss_mmio");
+>>>>>>> -       if (wcnss_memory == NULL) {
+>>>>>>> -               dev_err(&wmsm.core->dev,
+>>>>>>> -                       "Failed to get wcnss wlan memory map.\n");
+>>>>>>> -               ret = -ENOMEM;
+>>>>>>> -               return ret;
+>>>>>>> -       }
+>>>>>>> -       memcpy(&res[0], wcnss_memory, sizeof(*wcnss_memory));
+>>>>>>> -
+>>>>>>> -       tx_irq = platform_get_resource_byname(pdev,
+>>>>>>> -                                             IORESOURCE_IRQ,
+>>>>>>> -                                             "wcnss_wlantx_irq");
+>>>>>>> -       if (tx_irq == NULL) {
+>>>>>>> -               dev_err(&wmsm.core->dev, "Failed to get wcnss tx_irq");
+>>>>>>> -               ret = -ENOMEM;
+>>>>>>> -               return ret;
+>>>>>>> -       }
+>>>>>>> -       memcpy(&res[1], tx_irq, sizeof(*tx_irq));
+>>>>>>> -
+>>>>>>> -       rx_irq = platform_get_resource_byname(pdev,
+>>>>>>> -                                             IORESOURCE_IRQ,
+>>>>>>> -                                             "wcnss_wlanrx_irq");
+>>>>>>> -       if (rx_irq == NULL) {
+>>>>>>> -               dev_err(&wmsm.core->dev, "Failed to get wcnss rx_irq");
+>>>>>>> -               ret = -ENOMEM;
+>>>>>>> -               return ret;
+>>>>>>> +       for (n = 0; n < ARRAY_SIZE(rnames); n++) {
+>>>>>>> +               r = platform_get_resource_byname(pdev, rtype[n], rnames[n]);
+>>>>>>> +               if (!r) {
+>>>>>>> +                       dev_err(&wmsm.core->dev,
+>>>>>>> +                               "Missing resource %s'\n", rnames[n]);
+>>>>>>> +                       ret = -ENOMEM;
+>>>>>>> +                       return ret;
+>>>>>>> +               }
+>>>>>>> +               res[n] = *r;
+>>>>>>>         }
+>>>>>>> -       memcpy(&res[2], rx_irq, sizeof(*rx_irq));
+>>>>>>>
+>>>>>>> -       platform_device_add_resources(wmsm.core, res, ARRAY_SIZE(res));
+>>>>>>> +       platform_device_add_resources(wmsm.core, res, n);
+>>>>>>>
+>>>>>>>         ret = platform_device_add_data(wmsm.core, &wmsm.ctrl_ops,
+>>>>>>>                                        sizeof(wmsm.ctrl_ops));
+>>>>>>> @@ -319,10 +326,6 @@ static int wcn36xx_msm_remove(struct platform_device *pdev)
+>>>>>>>         return 0;
+>>>>>>>  }
+>>>>>>>
+>>>>>>> -static const struct of_device_id wcn36xx_msm_match_table[] = {
+>>>>>>> -       { .compatible = "qcom,wcn36xx" },
+>>>>>>> -       { }
+>>>>>>> -};
+>>>>>>>  MODULE_DEVICE_TABLE(of, wcn36xx_msm_match_table);
+>>>>>>>
+>>>>>>>  static struct platform_driver wcn36xx_msm_driver = {
+>>>>>>>
+>>>>>>
+>>>>>>
+>>>>>>
+>>>>>> --
+>>>>>> Best regards,
+>>>>>> Eugene
+>>>>
+>>>>
+>>>>
+>>>> --
+>>>> Best regards,
+>>>> Eugene
+>>
+>>
+>>
+>> --
+>> Best regards,
+>> Eugene
 
-With this patch and running:
 
-ip netns exec foo iwpan phy phy0 interface add bar%d type node
 
-I got a:
-
-[   52.032956] it's init_net
-
-It's also init_net when I run with "ip netns exec foo iwpan ..."
-
-> >
-> >>>
-> >>>
-> >>>Summarize:
-> >>>
-> >>>I would add the dev->features |=3D NETIF_F_NETNS_LOCAL; while wpan
-> >>>interface generation and add only the !net_eq(src_net, &init_net) =
-check
-> >>>above. I suppose that src_net is the net namespace from "underlayi=
-ng"
-> >>>interface wpan by calling:
-> >>>
-> >>>$ ip link add link wpan0 name lowpan0 type lowpan
-> >>No. src_net is the netns where the ip command is launched. With thi=
-s patch, my
-> >
-> >ah, and when no "ip netns" is given it's default to init_net?
-> The default netns is the netns where your shell is running :)
-
-Now, I understood how basically that works (I think).
-
-> It may be different from init_net when you are playing on a virtual m=
-achine. On
-> a physical machine, it's usually init_net.
->=20
-
-ok.
-
-> >
-> >
-> >Okay, then I agree with that both interfaces should be set
-> >
-> >dev->features |=3D NETIF_F_NETNS_LOCAL
-> Ok.
->=20
-> >
-> >because both interfaces should started with "init_net" as default
-> >namespace. For wpan interface this should always be in "init_net",
-> >because we don't set anything while creation.
-> Not sure this is true. It's probably possible to create it directly i=
-n another
-> netns (with 'ip netns exec' or because your system is a virtual machi=
-ne that
-> runs over a namespaces construction (see docker [0], lxc [1], etc).
->=20
-> [0] https://www.docker.com/
-> [1] https://linuxcontainers.org/
->=20
-
-ah, ok.
-
-> >
-> >For 6LoWPAN interface this should also always in the same namespace =
-like
-> >the wpan interface and not diffrent namespace between link (wpan) an=
-d
-> >virtual (6LoWPAN) interface.
-> >
-> >Do you agree with that?
-> Yes.
->=20
-> But I still wonder if we should add a check about dev_net(dev) !=3D i=
-nit_net in
-> net/ieee802154/6lowpan/core.c.
-> If my understanding is correct:
->  - wpan can be created directly in a netns !=3D init_net
->  - 6lowpan must be in the same netns than wpan
->  - code under net/ieee802154 only works in init_net, thus 6lowpan onl=
-y works
->    in init_net.
->=20
-> Do you agree?
-
-yes. I will put the last item on my ToDo list if we can do more netns
-stuff there.
-
-> What about this (based on net-next)?
->=20
-
-There are some little issues, see below.
-
-> From 5ca1c46c68e4e4381b2f7e284f5dadeb28a53b2f Mon Sep 17 00:00:00 200=
-1
-> From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-> Date: Tue, 27 Jan 2015 11:26:20 +0100
-> Subject: [PATCH] wpan/6lowpan: fix netns settings
->=20
-
-use "ieee802154:" instead "wpan/6lowpan:".
-
-Can you rebase this patch on bluetooth-next?
-
-> 6LoWPAN currently doesn't supports x-netns and works only in init_net=
-=2E
->=20
-> With this patch, we ensure that:
->  - the wpan interface cannot be moved to another netns;
->  - the 6lowpan interface cannot be moved to another netns;
->  - the wpan interface is in the same netns than the 6lowpan interface=
-;
->  - the 6lowpan interface is in init_net.
->=20
-> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-> ---
->  net/ieee802154/6lowpan/core.c | 6 ++++--
->  net/mac802154/iface.c         | 1 +
->  2 files changed, 5 insertions(+), 2 deletions(-)
->=20
-> diff --git a/net/ieee802154/6lowpan/core.c b/net/ieee802154/6lowpan/c=
-ore.c
-> index 055fbb71ba6f..dfd3c6007f60 100644
-> --- a/net/ieee802154/6lowpan/core.c
-> +++ b/net/ieee802154/6lowpan/core.c
-> @@ -126,6 +126,7 @@ static void lowpan_setup(struct net_device *dev)
->  	dev->header_ops		=3D &lowpan_header_ops;
->  	dev->ml_priv		=3D &lowpan_mlme;
->  	dev->destructor		=3D free_netdev;
-> +	dev->features		|=3D NETIF_F_NETNS_LOCAL;
->  }
->=20
->  static int lowpan_validate(struct nlattr *tb[], struct nlattr *data[=
-])
-> @@ -148,10 +149,11 @@ static int lowpan_newlink(struct net *src_net, =
-struct
-> net_device *dev,
->=20
->  	pr_debug("adding new link\n");
->=20
-> -	if (!tb[IFLA_LINK])
-> +	if (!tb[IFLA_LINK] ||
-> +	    !net_eq(dev_net(dev), &init_net))
->  		return -EINVAL;
->  	/* find and hold real wpan device */
-> -	real_dev =3D dev_get_by_index(src_net, nla_get_u32(tb[IFLA_LINK]));
-> +	real_dev =3D dev_get_by_index(dev_net(dev), nla_get_u32(tb[IFLA_LIN=
-K]));
->  	if (!real_dev)
->  		return -ENODEV;
->  	if (real_dev->type !=3D ARPHRD_IEEE802154) {
-> diff --git a/net/mac802154/iface.c b/net/mac802154/iface.c
-> index 6fb6bdf9868c..b67da8d578b4 100644
-> --- a/net/mac802154/iface.c
-> +++ b/net/mac802154/iface.c
-> @@ -475,6 +475,7 @@ static void ieee802154_if_setup(struct net_device=
- *dev)
->  	dev->mtu		=3D IEEE802154_MTU;
->  	dev->tx_queue_len	=3D 300;
->  	dev->flags		=3D IFF_NOARP | IFF_BROADCAST;
-> +	dev->features		|=3D NETIF_F_NETNS_LOCAL;
-
-We should set this inside the cfg802154_netdev_notifier_call function
-and NETDEV_REGISTER case. This can be found in "net/ieee802154/core.c".=
- [0]
-
-The branch "net/mac802154" affects 802.15.4 SoftMAC interfaces only. We
-currently support SoftMAC only, but further we support HardMAC drivers.
-The HardMAC drivers doesn't use the "net/mac802154" branch and call
-netdev_register in driver layer.
-
-When we do it in cfg802154_netdev_notifier_call then this will be set
-for SoftMAC and HardMAC drivers (when we have a HardMAC driver). The
-same behaviour can also be found in wireless implementation. [1]
-
-- Alex
-
-[0] http://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/tree=
-/net/ieee802154/core.c#n227
-[1] http://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/tree=
-/net/wireless/core.c#n1000
+-- 
+Best regards,
+Eugene
