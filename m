@@ -1,51 +1,54 @@
-From: Murali Karicheri <m-karicheri2@ti.com>
-Subject: Re: [net-next] net: netcp: remove unused kconfig option and code
-Date: Tue, 27 Jan 2015 09:43:19 -0500
-Message-ID: <54C7A407.1080509@ti.com>
-References: <1421781756-11151-1-git-send-email-m-karicheri2@ti.com> <20150123.222120.467596005244092508.davem@davemloft.net>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH] net: Linn Ethernet Packet Sniffer driver
+Date: Tue, 27 Jan 2015 15:46:53 +0100
+Message-ID: <54C7A4DD.7030109@redhat.com>
+References: <1422007621-13567-1-git-send-email-stathis.voukelatos@linn.co.uk> <54C22E68.1080601@redhat.com> <54C60DB8.1060900@linn.co.uk> <54C612A5.2000208@redhat.com> <54C7736C.8090704@linn.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from comal.ext.ti.com ([198.47.26.152]:40703 "EHLO comal.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932262AbbA0OnW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Jan 2015 09:43:22 -0500
-In-Reply-To: <20150123.222120.467596005244092508.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	"abrestic@chromium.org" <abrestic@chromium.org>,
+	f.fainelli@gmail.com
+To: Stathis Voukelatos <stathis.voukelatos@linn.co.uk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <54C7736C.8090704@linn.co.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 01/24/2015 01:21 AM, David Miller wrote:
-> From: Murali Karicheri<m-karicheri2@ti.com>
-> Date: Tue, 20 Jan 2015 14:22:36 -0500
->
->> Currently CPTS is built into the netcp driver even though there is no
->> call out to the CPTS driver. This patch removes the dependency in Kconfig
->> and remove cpts.o from the Makefile for NetCP.
->>
->> Signed-off-by: Murali Karicheri<m-karicheri2@ti.com>
->> ---
->>   drivers/net/ethernet/ti/Kconfig  |    2 +-
->>   drivers/net/ethernet/ti/Makefile |    2 +-
->>   2 files changed, 2 insertions(+), 2 deletions(-)
->>
->> diff --git a/drivers/net/ethernet/ti/Kconfig b/drivers/net/ethernet/ti/Kconfig
->> index e11bcfa..824e376 100644
->> --- a/drivers/net/ethernet/ti/Kconfig
->> +++ b/drivers/net/ethernet/ti/Kconfig
->> @@ -73,7 +73,7 @@ config TI_CPSW
->>   config TI_CPTS
->>   	boolean "TI Common Platform Time Sync (CPTS) Support"
->>   	depends on TI_CPSW
->> -	depends on TI_CPSW || TI_KEYSTONE_NET
->> +	depends on TI_CPSW
->
-> Just remove the second dependency line, it's redundant because you've
-> made it identical to the line before it.
-Ok. Will post it with the change
+Hi Stathis,
 
--- 
-Murali Karicheri
-Linux Kernel, Texas Instruments
+On 01/27/2015 12:15 PM, Stathis Voukelatos wrote:
+> On 26/01/15 10:10, Daniel Borkmann wrote:
+>>> Hello Daniel. Thank you for your feedback.
+>>> Packet sockets could also be used for the driver interface to
+>>> user space, however I think that both approaches would require the same
+>>> amount of maintenance. We need to maintain a protocol consisting of
+>>> a set of messages or commands that user space can use to communicate
+>>> with the driver in order to configure the H/W and retrieve results.
+>>> We could use packet sockets to send those messages  too, but I thought
+>>> netlink already provides a message exchange framework that we could
+>>> make use of.
+>>
+>> When using packet sockets and your driver as a backend feeding them,
+>> users can see that there's an extra capturing/monitoring netdev present,
+>> all libpcap-based tools such as tcpdump et al would work out of the box
+>> w/o adapting any code, and as an admin you can also see what users/tools
+>> are making of use of the device through packet sockets. I couldn't parse
+>> the exact motivation from the commit message of why avoiding all this is
+>> better?
+>
+> Just wanted to clarify some implementation details for your approach.
+> - The driver would need to create and register two net_device instances.
+> One for sniffing Ethernet TX packets and one for RX.
+
+Hm, I would represent the whole device as a single monitoring-only netdev.
+I'm somehow still missing the big advantage of all this as compared to
+using packet sockets on the normal netdev? I couldn't parse that from your
+commit message.
+
+> - Would the control interface for the sniffer in that case need to be
+> through private socket ioctls (ie SIOCDEVPRIVATE + x ioctl ids)?
+
+Nope, please have a look at Documentation/networking/packet_mmap.txt.
