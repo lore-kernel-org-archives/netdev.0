@@ -1,44 +1,36 @@
-From: Ben Hutchings <ben.hutchings@codethink.co.uk>
-Subject: [PATCH net-next] net: phy: Invalidate LP advertising flags when
- restarting or disabling AN
-Date: Tue, 27 Jan 2015 00:58:15 +0000
-Message-ID: <1422320295.3524.26.camel@xylophone.i.decadent.org.uk>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 1/2] tipc: fix excessive network event logging
+Date: Mon, 26 Jan 2015 17:04:36 -0800 (PST)
+Message-ID: <20150126.170436.335819853373283571.davem@davemloft.net>
+References: <1421943032-29924-1-git-send-email-erik.hugne@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@lists.codethink.co.uk
-To: Florian Fainelli <f.fainelli@gmail.com>
+Cc: richard.alpe@ericsson.com, netdev@vger.kernel.org,
+	jon.maloy@ericsson.com, ying.xue@windriver.com,
+	tipc-discussion@lists.sourceforge.net
+To: erik.hugne@ericsson.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ducie-dc1.codethink.co.uk ([185.25.241.215]:50416 "EHLO
-	ducie-dc1.codethink.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752438AbbA0A6O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2015 19:58:14 -0500
+Received: from shards.monkeyblade.net ([149.20.54.216]:46430 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754795AbbA0BEh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2015 20:04:37 -0500
+In-Reply-To: <1421943032-29924-1-git-send-email-erik.hugne@ericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It is possible to see the old value of the LP advertising flags
-through ethtool after reconfiguring the PHY and before autonegotiation
-completes.  If autonegotiation is turned off then the last value seen
-will persist indefinitely.
+From: <erik.hugne@ericsson.com>
+Date: Thu, 22 Jan 2015 17:10:31 +0100
 
-Signed-off-by: Ben Hutchings <ben.hutchings@codethink.co.uk>
----
- drivers/net/phy/phy.c |    3 +++
- 1 file changed, 3 insertions(+)
+> From: Erik Hugne <erik.hugne@ericsson.com>
+> 
+> If a large number of namespaces is spawned on a node and TIPC is
+> enabled in each of these, the excessive printk tracing of network
+> events will cause the system to grind down to a near halt.
+> The traces are still of debug value, so instead of removing them
+> completely we fix it by changing the link state and node availability
+> logging debug traces.
+> 
+> Signed-off-by: Erik Hugne <erik.hugne@ericsson.com>
 
-diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-index 767cd11..cdcac6a 100644
---- a/drivers/net/phy/phy.c
-+++ b/drivers/net/phy/phy.c
-@@ -439,6 +439,9 @@ int phy_start_aneg(struct phy_device *phydev)
- 	if (AUTONEG_DISABLE == phydev->autoneg)
- 		phy_sanitize_settings(phydev);
- 
-+	/* Invalidate LP advertising flags */
-+	phydev->lp_advertising = 0;
-+
- 	err = phydev->drv->config_aneg(phydev);
- 	if (err < 0)
- 		goto out_unlock;
--- 
-1.7.10.4
+Applied.
