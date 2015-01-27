@@ -1,89 +1,126 @@
 From: Neal Cardwell <ncardwell@google.com>
-Subject: [PATCH net-next 5/5] tcp: fix timing issue in CUBIC slope calculation
-Date: Tue, 27 Jan 2015 15:34:43 -0500
-Message-ID: <1422390883-15603-6-git-send-email-ncardwell@google.com>
+Subject: [PATCH net-next 4/5] tcp: fix stretch ACK bugs in CUBIC
+Date: Tue, 27 Jan 2015 15:34:42 -0500
+Message-ID: <1422390883-15603-5-git-send-email-ncardwell@google.com>
 References: <1422390883-15603-1-git-send-email-ncardwell@google.com>
 Cc: netdev@vger.kernel.org, Neal Cardwell <ncardwell@google.com>,
 	Yuchung Cheng <ycheng@google.com>,
 	Eric Dumazet <edumazet@google.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f174.google.com ([209.85.160.174]:46941 "EHLO
-	mail-yk0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932066AbbA0UfH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2015 15:35:07 -0500
-Received: by mail-yk0-f174.google.com with SMTP id 131so7296759ykp.5
-        for <netdev@vger.kernel.org>; Tue, 27 Jan 2015 12:35:06 -0800 (PST)
+Received: from mail-yk0-f173.google.com ([209.85.160.173]:37564 "EHLO
+	mail-yk0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759708AbbA0UfG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2015 15:35:06 -0500
+Received: by mail-yk0-f173.google.com with SMTP id 142so7305111ykq.4
+        for <netdev@vger.kernel.org>; Tue, 27 Jan 2015 12:35:05 -0800 (PST)
 In-Reply-To: <1422390883-15603-1-git-send-email-ncardwell@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch fixes a bug in CUBIC that causes cwnd to increase slightly
-too slowly when multiple ACKs arrive in the same jiffy.
+Change CUBIC to properly handle stretch ACKs in additive increase mode
+by passing in the count of ACKed packets to tcp_cong_avoid_ai().
 
-If cwnd is supposed to increase at a rate of more than once per jiffy,
-then CUBIC was sometimes too slow. Because the bic_target is
-calculated for a future point in time, calculated with time in
-jiffies, the cwnd can increase over the course of the jiffy while the
-bic_target calculated as the proper CUBIC cwnd at time
-t=tcp_time_stamp+rtt does not increase, because tcp_time_stamp only
-increases on jiffy tick boundaries.
-
-So since the cnt is set to:
-	ca->cnt = cwnd / (bic_target - cwnd);
-as cwnd increases but bic_target does not increase due to jiffy
-granularity, the cnt becomes too large, causing cwnd to increase
-too slowly.
-
-For example:
-- suppose at the beginning of a jiffy, cwnd=40, bic_target=44
-- so CUBIC sets:
-   ca->cnt =  cwnd / (bic_target - cwnd) = 40 / (44 - 40) = 40/4 = 10
-- suppose we get 10 acks, each for 1 segment, so tcp_cong_avoid_ai()
-   increases cwnd to 41
-- so CUBIC sets:
-   ca->cnt =  cwnd / (bic_target - cwnd) = 41 / (44 - 41) = 41 / 3 = 13
-
-So now CUBIC will wait for 13 packets to be ACKed before increasing
-cwnd to 42, insted of 10 as it should.
-
-The fix is to avoid adjusting the slope (determined by ca->cnt)
-multiple times within a jiffy, and instead skip to compute the Reno
-cwnd, the "TCP friendliness" code path.
+In addition, because we are now precisely accounting for stretch ACKs,
+including delayed ACKs, we can now remove the delayed ACK tracking and
+estimation code that tracked recent delayed ACK behavior in
+ca->delayed_ack.
 
 Reported-by: Eyal Perry <eyalpe@mellanox.com>
 Signed-off-by: Neal Cardwell <ncardwell@google.com>
 Signed-off-by: Yuchung Cheng <ycheng@google.com>
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- net/ipv4/tcp_cubic.c | 8 ++++++++
- 1 file changed, 8 insertions(+)
+ net/ipv4/tcp_cubic.c | 30 +++++++++---------------------
+ 1 file changed, 9 insertions(+), 21 deletions(-)
 
 diff --git a/net/ipv4/tcp_cubic.c b/net/ipv4/tcp_cubic.c
-index e036958..4f91141 100644
+index df4bc4d..e036958 100644
 --- a/net/ipv4/tcp_cubic.c
 +++ b/net/ipv4/tcp_cubic.c
-@@ -213,6 +213,13 @@ static inline void bictcp_update(struct bictcp *ca, u32 cwnd, u32 acked)
+@@ -93,9 +93,7 @@ struct bictcp {
+ 	u32	epoch_start;	/* beginning of an epoch */
+ 	u32	ack_cnt;	/* number of acks */
+ 	u32	tcp_cwnd;	/* estimated tcp cwnd */
+-#define ACK_RATIO_SHIFT	4
+-#define ACK_RATIO_LIMIT (32u << ACK_RATIO_SHIFT)
+-	u16	delayed_ack;	/* estimate the ratio of Packets/ACKs << 4 */
++	u16	unused;
+ 	u8	sample_cnt;	/* number of samples to decide curr_rtt */
+ 	u8	found;		/* the exit point is found? */
+ 	u32	round_start;	/* beginning of each round */
+@@ -114,7 +112,6 @@ static inline void bictcp_reset(struct bictcp *ca)
+ 	ca->bic_K = 0;
+ 	ca->delay_min = 0;
+ 	ca->epoch_start = 0;
+-	ca->delayed_ack = 2 << ACK_RATIO_SHIFT;
+ 	ca->ack_cnt = 0;
+ 	ca->tcp_cwnd = 0;
+ 	ca->found = 0;
+@@ -205,12 +202,12 @@ static u32 cubic_root(u64 a)
+ /*
+  * Compute congestion window to use.
+  */
+-static inline void bictcp_update(struct bictcp *ca, u32 cwnd)
++static inline void bictcp_update(struct bictcp *ca, u32 cwnd, u32 acked)
+ {
+ 	u32 delta, bic_target, max_cnt;
+ 	u64 offs, t;
+ 
+-	ca->ack_cnt++;	/* count the number of ACKs */
++	ca->ack_cnt += acked;	/* count the number of ACKed packets */
+ 
+ 	if (ca->last_cwnd == cwnd &&
  	    (s32)(tcp_time_stamp - ca->last_time) <= HZ / 32)
+@@ -221,7 +218,7 @@ static inline void bictcp_update(struct bictcp *ca, u32 cwnd)
+ 
+ 	if (ca->epoch_start == 0) {
+ 		ca->epoch_start = tcp_time_stamp;	/* record beginning */
+-		ca->ack_cnt = 1;			/* start counting */
++		ca->ack_cnt = acked;			/* start counting */
+ 		ca->tcp_cwnd = cwnd;			/* syn with cubic */
+ 
+ 		if (ca->last_max_cwnd <= cwnd) {
+@@ -301,7 +298,6 @@ static inline void bictcp_update(struct bictcp *ca, u32 cwnd)
+ 		}
+ 	}
+ 
+-	ca->cnt = (ca->cnt << ACK_RATIO_SHIFT) / ca->delayed_ack;
+ 	if (ca->cnt == 0)			/* cannot be zero */
+ 		ca->cnt = 1;
+ }
+@@ -317,11 +313,12 @@ static void bictcp_cong_avoid(struct sock *sk, u32 ack, u32 acked)
+ 	if (tp->snd_cwnd <= tp->snd_ssthresh) {
+ 		if (hystart && after(ack, ca->end_seq))
+ 			bictcp_hystart_reset(sk);
+-		tcp_slow_start(tp, acked);
+-	} else {
+-		bictcp_update(ca, tp->snd_cwnd);
+-		tcp_cong_avoid_ai(tp, ca->cnt, 1);
++		acked = tcp_slow_start(tp, acked);
++		if (!acked)
++			return;
+ 	}
++	bictcp_update(ca, tp->snd_cwnd, acked);
++	tcp_cong_avoid_ai(tp, ca->cnt, acked);
+ }
+ 
+ static u32 bictcp_recalc_ssthresh(struct sock *sk)
+@@ -416,15 +413,6 @@ static void bictcp_acked(struct sock *sk, u32 cnt, s32 rtt_us)
+ 	struct bictcp *ca = inet_csk_ca(sk);
+ 	u32 delay;
+ 
+-	if (icsk->icsk_ca_state == TCP_CA_Open) {
+-		u32 ratio = ca->delayed_ack;
+-
+-		ratio -= ca->delayed_ack >> ACK_RATIO_SHIFT;
+-		ratio += cnt;
+-
+-		ca->delayed_ack = clamp(ratio, 1U, ACK_RATIO_LIMIT);
+-	}
+-
+ 	/* Some calls are for duplicates without timetamps */
+ 	if (rtt_us < 0)
  		return;
- 
-+	/* The CUBIC function can update ca->cnt at most once per jiffy.
-+	 * On all cwnd reduction events, ca->epoch_start is set to 0,
-+	 * which will force a recalculation of ca->cnt.
-+	 */
-+	if (ca->epoch_start && tcp_time_stamp == ca->last_time)
-+		goto tcp_friendliness;
-+
- 	ca->last_cwnd = cwnd;
- 	ca->last_time = tcp_time_stamp;
- 
-@@ -280,6 +287,7 @@ static inline void bictcp_update(struct bictcp *ca, u32 cwnd, u32 acked)
- 	if (ca->last_max_cwnd == 0 && ca->cnt > 20)
- 		ca->cnt = 20;	/* increase cwnd 5% per RTT */
- 
-+tcp_friendliness:
- 	/* TCP Friendly */
- 	if (tcp_friendliness) {
- 		u32 scale = beta_scale;
 -- 
 2.2.0.rc0.207.ga3a616c
