@@ -1,66 +1,57 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next 10/10] net/mlx4_core: Fix device capabilities dumping
-Date: Tue, 27 Jan 2015 11:32:59 +0200
-Message-ID: <1422351179-27284-11-git-send-email-amirv@mellanox.com>
+Subject: [PATCH net-next 06/10] net/mlx4_core: Fix struct mlx4_vhcr_cmd to make implicit padding explicit
+Date: Tue, 27 Jan 2015 11:32:55 +0200
+Message-ID: <1422351179-27284-7-git-send-email-amirv@mellanox.com>
 References: <1422351179-27284-1-git-send-email-amirv@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Amir Vadai <amirv@mellanox.com>,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>
+	Yevgeny Petrilin <yevgenyp@mellanox.com>,
+	Jack Morgenstein <jackm@dev.mellanox.co.il>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:56314 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:56336 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751895AbbA0Jdr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Jan 2015 04:33:47 -0500
+	id S1757973AbbA0Jdx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Jan 2015 04:33:53 -0500
 In-Reply-To: <1422351179-27284-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Or Gerlitz <ogerlitz@mellanox.com>
+From: Jack Morgenstein <jackm@dev.mellanox.co.il>
 
-We are dumping device capabilities which are supported both by the
-firmware and the driver. Align the array that holds the capability
-strings with this practice.
+Struct mlx4_vhcr was implicitly padded by the gcc compiler.
+This commit makes that padding explicit, to prevent issues with
+changing compilers. Note that we added the padding dword (rather
+than simply packing the structure) in order to maintain compatibility
+with previous kernels.
 
-Reported-by: Yuval Shaia <yuval.shaia@oracle.com>
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+
+Reported-by: Alexander Schmidt <alexs@linux.vnet.ibm.com>
+Signed-off-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
 Signed-off-by: Amir Vadai <amirv@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/fw.c | 8 ++------
- 1 file changed, 2 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/mlx4.h | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/fw.c b/drivers/net/ethernet/mellanox/mlx4/fw.c
-index 0c90d10..0ab81a9 100644
---- a/drivers/net/ethernet/mellanox/mlx4/fw.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/fw.c
-@@ -84,13 +84,10 @@ static void dump_dev_cap_flags(struct mlx4_dev *dev, u64 flags)
- 		[ 1] = "UC transport",
- 		[ 2] = "UD transport",
- 		[ 3] = "XRC transport",
--		[ 4] = "reliable multicast",
--		[ 5] = "FCoIB support",
- 		[ 6] = "SRQ support",
- 		[ 7] = "IPoIB checksum offload",
- 		[ 8] = "P_Key violation counter",
- 		[ 9] = "Q_Key violation counter",
--		[10] = "VMM",
- 		[12] = "Dual Port Different Protocol (DPDP) support",
- 		[15] = "Big LSO headers",
- 		[16] = "MW support",
-@@ -99,12 +96,11 @@ static void dump_dev_cap_flags(struct mlx4_dev *dev, u64 flags)
- 		[19] = "Raw multicast support",
- 		[20] = "Address vector port checking support",
- 		[21] = "UD multicast support",
--		[24] = "Demand paging support",
--		[25] = "Router support",
- 		[30] = "IBoE support",
- 		[32] = "Unicast loopback support",
- 		[34] = "FCS header control",
--		[38] = "Wake On LAN support",
-+		[37] = "Wake On LAN (port1) support",
-+		[38] = "Wake On LAN (port2) support",
- 		[40] = "UDP RSS support",
- 		[41] = "Unicast VEP steering support",
- 		[42] = "Multicast VEP steering support",
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4.h b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
+index 096a81c..595e18a 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mlx4.h
++++ b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
+@@ -196,13 +196,14 @@ struct mlx4_vhcr {
+ struct mlx4_vhcr_cmd {
+ 	__be64 in_param;
+ 	__be32 in_modifier;
++	u32 reserved1;
+ 	__be64 out_param;
+ 	__be16 token;
+ 	u16 reserved;
+ 	u8 status;
+ 	u8 flags;
+ 	__be16 opcode;
+-};
++} __packed;
+ 
+ struct mlx4_cmd_info {
+ 	u16 opcode;
 -- 
 1.9.3
