@@ -1,54 +1,48 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH] net: Linn Ethernet Packet Sniffer driver
-Date: Tue, 27 Jan 2015 15:46:53 +0100
-Message-ID: <54C7A4DD.7030109@redhat.com>
-References: <1422007621-13567-1-git-send-email-stathis.voukelatos@linn.co.uk> <54C22E68.1080601@redhat.com> <54C60DB8.1060900@linn.co.uk> <54C612A5.2000208@redhat.com> <54C7736C.8090704@linn.co.uk>
+From: Murali Karicheri <m-karicheri2@ti.com>
+Subject: [PATCH net-next v1] net: netcp: remove unused kconfig option and code
+Date: Tue, 27 Jan 2015 09:49:54 -0500
+Message-ID: <1422370194-2828-1-git-send-email-m-karicheri2@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	"abrestic@chromium.org" <abrestic@chromium.org>,
-	f.fainelli@gmail.com
-To: Stathis Voukelatos <stathis.voukelatos@linn.co.uk>
+Content-Type: text/plain
+Cc: Murali Karicheri <m-karicheri2@ti.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <54C7736C.8090704@linn.co.uk>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Stathis,
+Currently CPTS is built into the netcp driver even though there is no
+call out to the CPTS driver. This patch removes the dependency in Kconfig
+and remove cpts.o from the Makefile for NetCP.
 
-On 01/27/2015 12:15 PM, Stathis Voukelatos wrote:
-> On 26/01/15 10:10, Daniel Borkmann wrote:
->>> Hello Daniel. Thank you for your feedback.
->>> Packet sockets could also be used for the driver interface to
->>> user space, however I think that both approaches would require the same
->>> amount of maintenance. We need to maintain a protocol consisting of
->>> a set of messages or commands that user space can use to communicate
->>> with the driver in order to configure the H/W and retrieve results.
->>> We could use packet sockets to send those messages  too, but I thought
->>> netlink already provides a message exchange framework that we could
->>> make use of.
->>
->> When using packet sockets and your driver as a backend feeding them,
->> users can see that there's an extra capturing/monitoring netdev present,
->> all libpcap-based tools such as tcpdump et al would work out of the box
->> w/o adapting any code, and as an admin you can also see what users/tools
->> are making of use of the device through packet sockets. I couldn't parse
->> the exact motivation from the commit message of why avoiding all this is
->> better?
->
-> Just wanted to clarify some implementation details for your approach.
-> - The driver would need to create and register two net_device instances.
-> One for sniffing Ethernet TX packets and one for RX.
+Signed-off-by: Murali Karicheri <m-karicheri2@ti.com>
+---
+ v1 - removed the dependancy line introduced earlier as per comment
+ drivers/net/ethernet/ti/Kconfig  |    1 -
+ drivers/net/ethernet/ti/Makefile |    2 +-
+ 2 files changed, 1 insertion(+), 2 deletions(-)
 
-Hm, I would represent the whole device as a single monitoring-only netdev.
-I'm somehow still missing the big advantage of all this as compared to
-using packet sockets on the normal netdev? I couldn't parse that from your
-commit message.
-
-> - Would the control interface for the sniffer in that case need to be
-> through private socket ioctls (ie SIOCDEVPRIVATE + x ioctl ids)?
-
-Nope, please have a look at Documentation/networking/packet_mmap.txt.
+diff --git a/drivers/net/ethernet/ti/Kconfig b/drivers/net/ethernet/ti/Kconfig
+index e11bcfa..4ea1663 100644
+--- a/drivers/net/ethernet/ti/Kconfig
++++ b/drivers/net/ethernet/ti/Kconfig
+@@ -73,7 +73,6 @@ config TI_CPSW
+ config TI_CPTS
+ 	boolean "TI Common Platform Time Sync (CPTS) Support"
+ 	depends on TI_CPSW
+-	depends on TI_CPSW || TI_KEYSTONE_NET
+ 	select PTP_1588_CLOCK
+ 	---help---
+ 	  This driver supports the Common Platform Time Sync unit of
+diff --git a/drivers/net/ethernet/ti/Makefile b/drivers/net/ethernet/ti/Makefile
+index 465d03d..0a9813b 100644
+--- a/drivers/net/ethernet/ti/Makefile
++++ b/drivers/net/ethernet/ti/Makefile
+@@ -13,4 +13,4 @@ ti_cpsw-y := cpsw_ale.o cpsw.o cpts.o
+ 
+ obj-$(CONFIG_TI_KEYSTONE_NETCP) += keystone_netcp.o
+ keystone_netcp-y := netcp_core.o netcp_ethss.o	netcp_sgmii.o \
+-			netcp_xgbepcsr.o cpsw_ale.o cpts.o
++			netcp_xgbepcsr.o cpsw_ale.o
+-- 
+1.7.9.5
