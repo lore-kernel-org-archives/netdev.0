@@ -1,37 +1,51 @@
-From: David Decotigny <ddecotig-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH net-next v1 05/18] net: tx4939: use __ethtool_get_ksettings
-Date: Tue, 27 Jan 2015 09:38:11 -0800
-Message-ID: <CAG88wWaLxH9qyNDw4jVYBvcx-mQw-2iriS5uvt_A_5ThoETG5A@mail.gmail.com>
-References: <1422322574-6188-1-git-send-email-ddecotig@gmail.com>
- <1422322574-6188-6-git-send-email-ddecotig@gmail.com> <54C78540.6080404@cogentembedded.com>
+From: Jack Morgenstein <jackm@dev.mellanox.co.il>
+Subject: Re: [PATCH net-next V1 04/11] net/mlx4_core: Adjust command
+ timeouts to conform to the firmware spec
+Date: Tue, 27 Jan 2015 20:06:42 +0200
+Message-ID: <20150127200642.441db19f@jpm-OptiPlex-GX620>
+References: <1422367089-13419-1-git-send-email-amirv@mellanox.com>
+	<1422367089-13419-5-git-send-email-amirv@mellanox.com>
+	<063D6719AE5E284EB5DD2968C1650D6D1CAD3EAA@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>,
-	Amir Vadai <amirv-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Eugenia Emantayev <eugenia-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>,
-	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Ido Shamay <idos-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>,
-	Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Govindarajulu Varadarajan <_govind-KK0ffGbhmjU@public.gmane.org>,
-	Venkata Duvvuru <VenkatKumar.Duvvuru-laKkSmNT4hbQT0dZR+AlfA@public.gmane.org>,
-	Jeff Kirsher <jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Eyal Perry <eyalpe-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Pravin B Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>,
-	Ed Swierk <eswierk-FilZDy9cOaHkQYj/0HfcvtBPR1lH4CV8@public.gmane.org>
-To: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <54C78540.6080404-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: 'Amir Vadai' <amirv@mellanox.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Yevgeny Petrilin <yevgenyp@mellanox.com>
+To: David Laight <David.Laight@ACULAB.COM>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f175.google.com ([209.85.212.175]:38040 "EHLO
+	mail-wi0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759218AbbA0SFl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2015 13:05:41 -0500
+Received: by mail-wi0-f175.google.com with SMTP id fb4so6687101wid.2
+        for <netdev@vger.kernel.org>; Tue, 27 Jan 2015 10:05:40 -0800 (PST)
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CAD3EAA@AcuExch.aculab.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 27, 2015 at 4:32 AM, Sergei Shtylyov
-<sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org> wrote:
-> linux-mips-6z/3iImG2C/i7sgoIIk9UQ@public.gmane.org
+On Tue, 27 Jan 2015 14:30:31 +0000
+David Laight <David.Laight@ACULAB.COM> wrote:
 
-Thanks, added mips + usnic + fcoe in my copy for the next wave of
-reviews. Also updated the subject line.
+> From: Amir Vadai
+> > From: Jack Morgenstein <jackm@dev.mellanox.co.il>
+> > 
+> > The firmware spec states that the timeout for all commands should
+> > be 60 seconds.
+> 
+> Hmmm... 60 seconds seems a long time to wait for a device to do
+> something.
+> 
+> I'll have given up and reset the machine before that expires.
+> 
+> 	David
+> 
+
+We have some automatic recovery features which involve resetting the
+HCA upon command timeout, and we purposely give a long timeout
+in order to be sure that there are no false positives
+(i.e., unjustified resets).
+
+-Jack
