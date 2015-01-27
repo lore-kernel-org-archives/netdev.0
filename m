@@ -1,60 +1,76 @@
-From: Fan Du <fan.du@intel.com>
-Subject: [PATCH ipsec-next] xfrm: Do not parse 32bits compiled xfrm netlink msg on 64bits host
-Date: Tue, 27 Jan 2015 10:54:22 +0800
-Message-ID: <1422327262-6344-1-git-send-email-fan.du@intel.com>
-Cc: herbert@gondor.apana.org.au, davem@davemloft.net,
-	netdev@vger.kernel.org, fengyuleidian0615@gmail.com
-To: steffen.klassert@secunet.com
+From: "fugang.duan@freescale.com" <fugang.duan@freescale.com>
+Subject: RE: [PATCH net-next 4/4] net: phy: avoid suspending twice a PHY
+Date: Tue, 27 Jan 2015 02:44:14 +0000
+Message-ID: <BLUPR03MB37333B3BB74B3DD928EEE6FF5320@BLUPR03MB373.namprd03.prod.outlook.com>
+References: <1422318673-9418-1-git-send-email-f.fainelli@gmail.com>
+ <1422318673-9418-5-git-send-email-f.fainelli@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"s.hauer@pengutronix.de" <s.hauer@pengutronix.de>
+To: Florian Fainelli <f.fainelli@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:18892 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751575AbbA0C6T (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 Jan 2015 21:58:19 -0500
+Received: from mail-bl2on0126.outbound.protection.outlook.com ([65.55.169.126]:40833
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752280AbbA0C7y convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2015 21:59:54 -0500
+In-Reply-To: <1422318673-9418-5-git-send-email-f.fainelli@gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-structure like xfrm_usersa_info or xfrm_userpolicy_info
-has different sizeof when compiled as 32bits and 64bits
-due to not appending pack attribute in their definition.
-This will result in broken SA and SP information when user
-trying to configure them through netlink interface.
+From: Florian Fainelli <f.fainelli@gmail.com> Sent: Tuesday, January 27, 2015 8:31 AM
+> To: netdev@vger.kernel.org
+> Cc: davem@davemloft.net; s.hauer@pengutronix.de; Duan Fugang-B38611;
+> Florian Fainelli
+> Subject: [PATCH net-next 4/4] net: phy: avoid suspending twice a PHY
+> 
+> As part of a call to ndo_close() a netdevice driver may call
+> phy_disconnect() -> phy_detach() -> phy_suspend(), such that the PHY is
+> suspsended at this point and a netdevice driver may clock gate the
+> backing peripheral providing MDIO bus accessses as well.
+> 
+> Update mdio_bus_phy_may_suspend() to return whether a PHY is allowed to
+> be suspended and conversely resumed if and only if it was not previously
+> suspended before while it is currently in detached (netdev pointer is
+> NULL) state.
+> 
+> This fixes bus errors seen during S2/S3 suspend/resume cycles for
+> netdevice drivers such as GENET which clock gates the entire Ethernet MAC,
+> including the MDIO bus block.
+> 
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+> ---
+>  drivers/net/phy/mdio_bus.c | 8 ++++++--
+>  1 file changed, 6 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
+> index 20447741893a..095ef3fe369a 100644
+> --- a/drivers/net/phy/mdio_bus.c
+> +++ b/drivers/net/phy/mdio_bus.c
+> @@ -443,9 +443,13 @@ static bool mdio_bus_phy_may_suspend(struct
+> phy_device *phydev)
+>  	if (!drv || !phydrv->suspend)
+>  		return false;
+> 
+> -	/* PHY not attached? May suspend. */
+> +	/* PHY not attached? May suspend if the PHY has not already been
+> +	 * suspended as part of a prior call to phy_disconnect() ->
+> +	 * phy_detach() -> phy_suspend() because the parent netdev might be
+> the
+> +	 * MDIO bus driver and clock gated at this point.
+> +	 */
+>  	if (!netdev)
+> -		return true;
+> +		return !phydev->suspended;
+> 
+>  	/* Don't suspend PHY if the attched netdev parent may wakeup.
+>  	 * The parent may point to a PCI device, as in tg3 driver.
+> --
+> 2.1.0
 
-Inform user land about this situation instead of keeping
-silent, the upper test scripts would behave accordingly.
-
-Quotes from: http://marc.info/?l=linux-netdev&m=142226348715503&w=2
->
-> Before a clean solution show up, I think it's better to warn user in some way
-> like http://patchwork.ozlabs.org/patch/323842/ did. Otherwise, many people
-> who stuck there will always spend time and try to fix this issue in whatever way.
-
-Yes, this is the first thing we should do. I'm willing to accept a patch
-
-Signed-off-by: Fan Du <fan.du@intel.com>
----
-ChangeLog:
-v2:
-  - Rebase with latest tree
-
----
- net/xfrm/xfrm_user.c |    5 +++++
- 1 file changed, 5 insertions(+)
-
-diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
-index 8128594..f960bd9 100644
---- a/net/xfrm/xfrm_user.c
-+++ b/net/xfrm/xfrm_user.c
-@@ -2419,6 +2419,11 @@ static int xfrm_user_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
- 	const struct xfrm_link *link;
- 	int type, err;
- 
-+#ifdef CONFIG_COMPAT
-+	if (is_compat_task())
-+		return -EPERM;
-+#endif
-+
- 	type = nlh->nlmsg_type;
- 	if (type > XFRM_MSG_MAX)
- 		return -EINVAL;
--- 
-1.7.9.5
+Acked-by: Fugang Duan <B38611@freescale.com>
+Tested-by: Fugang Duan <B38611@freescale.com>
