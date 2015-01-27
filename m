@@ -1,7 +1,7 @@
 From: Priit Laes <plaes@plaes.org>
-Subject: [PATCH 7/7] rtlwifi: Remove unused defines from efuse.h
-Date: Tue, 27 Jan 2015 08:49:33 +0200
-Message-ID: <1422341373-22196-7-git-send-email-plaes@plaes.org>
+Subject: [PATCH 5/7] rtlwifi: Remove unused defines from cam.h
+Date: Tue, 27 Jan 2015 08:49:31 +0200
+Message-ID: <1422341373-22196-5-git-send-email-plaes@plaes.org>
 References: <1422341373-22196-1-git-send-email-plaes@plaes.org>
 Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org, Priit Laes <plaes@plaes.org>
@@ -15,25 +15,26 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Priit Laes <plaes@plaes.org>
 ---
- drivers/net/wireless/rtlwifi/efuse.h | 6 ------
- 1 file changed, 6 deletions(-)
+ drivers/net/wireless/rtlwifi/cam.h | 2 --
+ 1 file changed, 2 deletions(-)
 
-diff --git a/drivers/net/wireless/rtlwifi/efuse.h b/drivers/net/wireless/rtlwifi/efuse.h
-index fdab824..be02e78 100644
---- a/drivers/net/wireless/rtlwifi/efuse.h
-+++ b/drivers/net/wireless/rtlwifi/efuse.h
-@@ -40,12 +40,6 @@
- #define PG_STATE_WORD_3			0x10
- #define PG_STATE_DATA			0x20
+diff --git a/drivers/net/wireless/rtlwifi/cam.h b/drivers/net/wireless/rtlwifi/cam.h
+index 3550808..e2e647d 100644
+--- a/drivers/net/wireless/rtlwifi/cam.h
++++ b/drivers/net/wireless/rtlwifi/cam.h
+@@ -28,13 +28,11 @@
  
--#define PG_SWBYTE_H			0x01
--#define PG_SWBYTE_L			0x02
--
--#define _POWERON_DELAY_
--#define _PRE_EXECUTE_READ_CMD_
--
- #define EFUSE_REPEAT_THRESHOLD_		3
- #define EFUSE_ERROE_HANDLE		1
+ #define CAM_CONTENT_COUNT				8
  
+-#define CFG_DEFAULT_KEY					BIT(5)
+ #define CFG_VALID					BIT(15)
+ 
+ #define PAIRWISE_KEYIDX					0
+ #define CAM_PAIRWISE_KEY_POSITION			4
+ 
+-#define	CAM_CONFIG_USEDK				1
+ #define	CAM_CONFIG_NO_USEDK				0
+ 
+ void rtl_cam_reset_all_entry(struct ieee80211_hw *hw);
 -- 
 2.2.2
