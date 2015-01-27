@@ -1,208 +1,61 @@
-From: Jay Vosburgh <jay.vosburgh@canonical.com>
-Subject: Re: [PATCH net-next v2 3/5] bonding: fix incorrect lacp mux state when agg not active
-Date: Mon, 26 Jan 2015 18:42:24 -0800
-Message-ID: <22934.1422326544@famine>
-References: <1422253021-3798-1-git-send-email-jtoppins@cumulusnetworks.com> <1422253021-3798-4-git-send-email-jtoppins@cumulusnetworks.com>
-Cc: Veaceslav Falico <vfalico@gmail.com>,
-	Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org,
-	Wilson Kok <wkok@cumulusnetworks.com>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>
-To: Jonathan Toppins <jtoppins@cumulusnetworks.com>
+From: Guenter Roeck <linux@roeck-us.net>
+Subject: Re: make allyesconfig i386 build failure with next-20150122 (caused
+ by fb_agm1264k-fl driver)
+Date: Mon, 26 Jan 2015 18:42:48 -0800
+Message-ID: <54C6FB28.3000304@roeck-us.net>
+References: <CA+r1ZhhXF+hicy7JKo3jAbgSbO4KOLm6BwPosTKNb+E_Cb4yPQ@mail.gmail.com> <20150126215959.GA9853@roeck-us.net> <20150126224654.GA17166@kroah.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jim Davis <jim.epost@gmail.com>,
+	Stephen Rothwell <sfr@canb.auug.org.au>,
+	linux-next <linux-next@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	devel <devel@driverdev.osuosl.org>, isdn@linux-pingi.de,
+	netdev <netdev@vger.kernel.org>,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:60604 "EHLO
-	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751116AbbA0Cmb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2015 21:42:31 -0500
-In-reply-to: <1422253021-3798-4-git-send-email-jtoppins@cumulusnetworks.com>
+Received: from bh-25.webhostbox.net ([208.91.199.152]:47661 "EHLO
+	bh-25.webhostbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752369AbbA0Cmy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2015 21:42:54 -0500
+Received: from mailnull by bh-25.webhostbox.net with sa-checked (Exim 4.82)
+	(envelope-from <linux@roeck-us.net>)
+	id 1YFw7C-002zP1-R8
+	for netdev@vger.kernel.org; Tue, 27 Jan 2015 02:42:54 +0000
+In-Reply-To: <20150126224654.GA17166@kroah.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jonathan Toppins <jtoppins@cumulusnetworks.com> wrote:
-
->From: Wilson Kok <wkok@cumulusnetworks.com>
+On 01/26/2015 02:46 PM, Greg Kroah-Hartman wrote:
+> On Mon, Jan 26, 2015 at 01:59:59PM -0800, Guenter Roeck wrote:
+>> On Thu, Jan 22, 2015 at 12:10:33PM -0700, Jim Davis wrote:
+>>> make ARCH=i386 allyesconfig fails with
+>>>
+>>> drivers/staging/built-in.o: In function `reset':
+>>> (.text+0x2ae89d): multiple definition of `reset'
+>>> drivers/isdn/built-in.o:(.text+0x185dc2): first defined here
+>>> make[1]: *** [drivers/built-in.o] Error 1
+>>
+>> Culprit:
+>>
+>> commit b2ebd4be6fa1d2329b63531b044f9e25474981cb
+>> Author: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+>> Date:   Wed Dec 31 10:11:10 2014 +0100
+>>
+>>      staging: fbtft: add fb_agm1264k-fl driver
+>>
+>> A global function named 'reset' isn't really a good idea.
+>>
+>> Not that the global function with the same name in the isdn code
+>> is better ;-).
 >
->This patch attempts to fix the following problems when an actor or
->partner's aggregator is not active:
->    1. a slave's lacp port state is marked as AD_STATE_SYNCHRONIZATION
->       even if it is attached to an inactive aggregator. LACP advertises
->       this state to the partner, making the partner think he can move
->       into COLLECTING_DISTRIBUTING state even though this link will not
->       pass traffic on the local side
->
->    2. a slave goes into COLLECTING_DISTRIBUTING state without checking
->       if the aggregator is actually active
->
->    3. when in COLLECTING_DISTRIBUTING state, the partner parameters may
->       change, e.g. the partner_oper_port_state.SYNCHRONIZATION. The
->       local mux machine is not reacting to the change and continue to
->       keep the slave and bond up
->
->    4. When bond slave leaves an inactive aggregator and joins an active
->       aggregator, the actor oper port state need to update to SYNC state.
-
-	This is a lot of subtle changes for one patch, and it's
-difficult to read the patch and figure out which of the above points
-corresponds to which code change(s).  I think this would have been
-better as 2 or 3 patches, perhaps without the first blocks that merely
-add debug statements.
-
-	In general, though, I believe I understand the problems and the
-solutions, and the solutions appear sound.
-
-	For point 1, what it's doing is introducing an "ATTACHED-ish"
-state, ultimately because the standard lacks the concept of "active" or
-"inactive" aggregator.  From my reading, when the port transitions to
-ATTACHED state, 5.4.15 "Mux machine" requires that it set SYNC at that
-time.
-
-	I understand why we would want to not enable SYNC for a port
-that's a member of an aggregator that will not currently send or receive
-traffic (is inactive in bonding-speak), but in my opinion we are
-violating the standard and really should note that fact, and why we're
-doing so, in the code.
-
-	Point 2 is similar to point 1 (although here we're not
-transitioning from ATTACHED to COLLECTING / COLLECTING_DISTRIBUTING
-when the partner's SYNC is true); same comment applies.
-
-	Points 3 and 4 look to be independent issues from points 1 and
-2, and could be simple independent patches.
-
-	-J
-
-
->v2:
-> * fix style issues in bond_3ad.c
->
->Cc: Andy Gospodarek <gospo@cumulusnetworks.com>
->Reviewed-by: Nikolay Aleksandrov <nikolay@redhat.com>
->Signed-off-by: Wilson Kok <wkok@cumulusnetworks.com>
->Signed-off-by: Jonathan Toppins <jtoppins@cumulusnetworks.com>
->---
-> drivers/net/bonding/bond_3ad.c |   44 +++++++++++++++++++++++++++++++---------
-> 1 file changed, 34 insertions(+), 10 deletions(-)
->
->diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
->index 8baa87d..e3c96b2 100644
->--- a/drivers/net/bonding/bond_3ad.c
->+++ b/drivers/net/bonding/bond_3ad.c
->@@ -467,11 +467,14 @@ static void __record_pdu(struct lacpdu *lacpdu, struct port *port)
-> 		/* set the partner sync. to on if the partner is sync,
-> 		 * and the port is matched
-> 		 */
->-		if ((port->sm_vars & AD_PORT_MATCHED)
->-		    && (lacpdu->actor_state & AD_STATE_SYNCHRONIZATION))
->+		if ((port->sm_vars & AD_PORT_MATCHED) &&
->+		    (lacpdu->actor_state & AD_STATE_SYNCHRONIZATION)) {
-> 			partner->port_state |= AD_STATE_SYNCHRONIZATION;
->-		else
->+			pr_debug("%s partner sync=1\n", port->slave->dev->name);
->+		} else {
-> 			partner->port_state &= ~AD_STATE_SYNCHRONIZATION;
->+			pr_debug("%s partner sync=0\n", port->slave->dev->name);
->+		}
-> 	}
-> }
-> 
->@@ -726,6 +729,8 @@ static inline void __update_lacpdu_from_port(struct port *port)
-> 	lacpdu->actor_port_priority = htons(port->actor_port_priority);
-> 	lacpdu->actor_port = htons(port->actor_port_number);
-> 	lacpdu->actor_state = port->actor_oper_port_state;
->+	pr_debug("update lacpdu: %s, actor port state %x\n",
->+		 port->slave->dev->name, port->actor_oper_port_state);
-> 
-> 	/* lacpdu->reserved_3_1              initialized
-> 	 * lacpdu->tlv_type_partner_info     initialized
->@@ -898,7 +903,9 @@ static void ad_mux_machine(struct port *port, bool *update_slave_arr)
-> 			if ((port->sm_vars & AD_PORT_SELECTED) &&
-> 			    (port->partner_oper.port_state & AD_STATE_SYNCHRONIZATION) &&
-> 			    !__check_agg_selection_timer(port)) {
->-				port->sm_mux_state = AD_MUX_COLLECTING_DISTRIBUTING;
->+				if (port->aggregator->is_active)
->+					port->sm_mux_state =
->+					    AD_MUX_COLLECTING_DISTRIBUTING;
-> 			} else if (!(port->sm_vars & AD_PORT_SELECTED) ||
-> 				   (port->sm_vars & AD_PORT_STANDBY)) {
-> 				/* if UNSELECTED or STANDBY */
->@@ -910,12 +917,16 @@ static void ad_mux_machine(struct port *port, bool *update_slave_arr)
-> 				 */
-> 				__set_agg_ports_ready(port->aggregator, __agg_ports_are_ready(port->aggregator));
-> 				port->sm_mux_state = AD_MUX_DETACHED;
->+			} else if (port->aggregator->is_active) {
->+				port->actor_oper_port_state |=
->+				    AD_STATE_SYNCHRONIZATION;
-> 			}
-> 			break;
-> 		case AD_MUX_COLLECTING_DISTRIBUTING:
-> 			if (!(port->sm_vars & AD_PORT_SELECTED) ||
-> 			    (port->sm_vars & AD_PORT_STANDBY) ||
->-			    !(port->partner_oper.port_state & AD_STATE_SYNCHRONIZATION)) {
->+			    !(port->partner_oper.port_state & AD_STATE_SYNCHRONIZATION) ||
->+			    !(port->actor_oper_port_state & AD_STATE_SYNCHRONIZATION)) {
-> 				port->sm_mux_state = AD_MUX_ATTACHED;
-> 			} else {
-> 				/* if port state hasn't changed make
->@@ -937,8 +948,10 @@ static void ad_mux_machine(struct port *port, bool *update_slave_arr)
-> 
-> 	/* check if the state machine was changed */
-> 	if (port->sm_mux_state != last_state) {
->-		pr_debug("Mux Machine: Port=%d, Last State=%d, Curr State=%d\n",
->-			 port->actor_port_number, last_state,
->+		pr_debug("Mux Machine: Port=%d (%s), Last State=%d, Curr State=%d\n",
->+			 port->actor_port_number,
->+			 port->slave->dev->name,
->+			 last_state,
-> 			 port->sm_mux_state);
-> 		switch (port->sm_mux_state) {
-> 		case AD_MUX_DETACHED:
->@@ -953,7 +966,12 @@ static void ad_mux_machine(struct port *port, bool *update_slave_arr)
-> 			port->sm_mux_timer_counter = __ad_timer_to_ticks(AD_WAIT_WHILE_TIMER, 0);
-> 			break;
-> 		case AD_MUX_ATTACHED:
->-			port->actor_oper_port_state |= AD_STATE_SYNCHRONIZATION;
->+			if (port->aggregator->is_active)
->+				port->actor_oper_port_state |=
->+				    AD_STATE_SYNCHRONIZATION;
->+			else
->+				port->actor_oper_port_state &=
->+				    ~AD_STATE_SYNCHRONIZATION;
-> 			port->actor_oper_port_state &= ~AD_STATE_COLLECTING;
-> 			port->actor_oper_port_state &= ~AD_STATE_DISTRIBUTING;
-> 			ad_disable_collecting_distributing(port,
->@@ -963,6 +981,7 @@ static void ad_mux_machine(struct port *port, bool *update_slave_arr)
-> 		case AD_MUX_COLLECTING_DISTRIBUTING:
-> 			port->actor_oper_port_state |= AD_STATE_COLLECTING;
-> 			port->actor_oper_port_state |= AD_STATE_DISTRIBUTING;
->+			port->actor_oper_port_state |= AD_STATE_SYNCHRONIZATION;
-> 			ad_enable_collecting_distributing(port,
-> 							  update_slave_arr);
-> 			port->ntt = true;
->@@ -1044,8 +1063,10 @@ static void ad_rx_machine(struct lacpdu *lacpdu, struct port *port)
-> 
-> 	/* check if the State machine was changed or new lacpdu arrived */
-> 	if ((port->sm_rx_state != last_state) || (lacpdu)) {
->-		pr_debug("Rx Machine: Port=%d, Last State=%d, Curr State=%d\n",
->-			 port->actor_port_number, last_state,
->+		pr_debug("Rx Machine: Port=%d (%s), Last State=%d, Curr State=%d\n",
->+			 port->actor_port_number,
->+			 port->slave->dev->name,
->+			 last_state,
-> 			 port->sm_rx_state);
-> 		switch (port->sm_rx_state) {
-> 		case AD_RX_INITIALIZE:
->@@ -1394,6 +1415,9 @@ static void ad_port_selection_logic(struct port *port, bool *update_slave_arr)
-> 
-> 	aggregator = __get_first_agg(port);
-> 	ad_agg_selection_logic(aggregator, update_slave_arr);
->+
->+	if (!port->aggregator->is_active)
->+		port->actor_oper_port_state &= ~AD_STATE_SYNCHRONIZATION;
-> }
-> 
-> /* Decide if "agg" is a better choice for the new active aggregator that
->-- 
->1.7.10.4
+> Agreed, the fbtft code is now fixed.  Patches to fix the isdn code would
+> be gladly accepted as well :)
 >
 
----
-	-Jay Vosburgh, jay.vosburgh@canonical.com
+Did you have a look into the isdn code ? It will need someone
+with a lot of spare time to clean this code up.
+
+Guenter
