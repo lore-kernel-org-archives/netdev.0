@@ -1,39 +1,50 @@
-From: Jack Morgenstein <jackm@dev.mellanox.co.il>
-Subject: Re: [PATCH net-next 06/10] net/mlx4_core: Fix struct mlx4_vhcr_cmd
- to make implicit padding explicit
-Date: Tue, 27 Jan 2015 21:50:40 +0200
-Message-ID: <20150127215040.454b1560@jpm-OptiPlex-GX620>
-References: <1422351179-27284-1-git-send-email-amirv@mellanox.com>
-	<1422351179-27284-7-git-send-email-amirv@mellanox.com>
-	<063D6719AE5E284EB5DD2968C1650D6D1CAD3B01@AcuExch.aculab.com>
-	<20150127.111334.501141232585900738.davem@davemloft.net>
+From: Tom Herbert <therbert@google.com>
+Subject: Interaction between GSO and TSQ for single TCP stream
+Date: Tue, 27 Jan 2015 11:57:29 -0800
+Message-ID: <CA+mtBx8QSg+3VSiDgY6iqiJaQgScSd9FP-uxH8S5zGGv7tN1Yw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David.Laight@ACULAB.COM, amirv@mellanox.com,
-	netdev@vger.kernel.org, ogerlitz@mellanox.com,
-	yevgenyp@mellanox.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: Eric Dumazet <edumazet@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f171.google.com ([74.125.82.171]:52741 "EHLO
-	mail-we0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759603AbbA0Ttk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2015 14:49:40 -0500
-Received: by mail-we0-f171.google.com with SMTP id k11so14505828wes.2
-        for <netdev@vger.kernel.org>; Tue, 27 Jan 2015 11:49:39 -0800 (PST)
-In-Reply-To: <20150127.111334.501141232585900738.davem@davemloft.net>
+Received: from mail-ie0-f179.google.com ([209.85.223.179]:51012 "EHLO
+	mail-ie0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932674AbbA0T5a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2015 14:57:30 -0500
+Received: by mail-ie0-f179.google.com with SMTP id x19so17418277ier.10
+        for <netdev@vger.kernel.org>; Tue, 27 Jan 2015 11:57:29 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 27 Jan 2015 11:13:34 -0800 (PST)
-David Miller <davem@davemloft.net> wrote:
+Eric,
 
-> Indeed, I'm really sick of seeing these packed structures being
-> created all over the place.
-> 
-> They are to be used in absolutely extreme cases where no other
-> solution is possible.
+I am looking at why we are unable to achieve line rate throughput with
+a single connection using UDP encapsulation that supports GSO/GRO. I
+discovered that even for a non-encpasulated TCP connection I'm not
+able to get line rate using GSO/GRO (but do with TSO/LRO). There seems
+to be some interaction between TSQ and GSO. Setting
+tcp_limit_output_bytes to 1000000 gets single connection up to line
+rate for both native and encapsulated TCP.
 
-The V2 of this patch does not have "packed".
+Some data:
 
--Jack
+- netperf TCP_STREAM for a single connection no encapsulation
+  Using TSO/LRO
+    9412.44 Gbps
+  Using GSO/GRO (ethtool -K eth0 gso on gro on tso off lro off)
+    9286.08 Gbps
+  Using GSO/GRO with larger limit (echo 1000000 >
+/proc/sys/net/ipv4/tcp_limit_output_bytes)
+    9412.75
+
+- netperf TCP_STREAM for a single connection for GUE-IPIP encapsulation with RCO
+  Using GSO/GRO
+    8842.89 Gbps
+  Using GSO/GRO with larger limit (echo 1000000 >
+/proc/sys/net/ipv4/tcp_limit_output_bytes)
+    9143.99 Gbps
+
+Any ideas on how to address this?
+
+Thanks,
+Tom
