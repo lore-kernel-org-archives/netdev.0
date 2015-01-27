@@ -1,27 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2] Minor cls_basic, act_bpf update
-Date: Mon, 26 Jan 2015 16:09:16 -0800 (PST)
-Message-ID: <20150126.160916.1738188799632289062.davem@davemloft.net>
-References: <1421920699-26556-1-git-send-email-dborkman@redhat.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull-request: wireless-drivers-next 2015-01-22
+Date: Mon, 26 Jan 2015 16:12:10 -0800 (PST)
+Message-ID: <20150126.161210.78215547165591571.davem@davemloft.net>
+References: <87h9vjnic4.fsf@kamboji.qca.qualcomm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jiri@resnulli.us, netdev@vger.kernel.org
-To: dborkman@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46100 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757493AbbA0AJR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2015 19:09:17 -0500
-In-Reply-To: <1421920699-26556-1-git-send-email-dborkman@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <87h9vjnic4.fsf-HodKDYzPHsUD5k0oWYwrnHL1okKdlPRT@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Daniel Borkmann <dborkman@redhat.com>
-Date: Thu, 22 Jan 2015 10:58:17 +0100
+From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Date: Thu, 22 Jan 2015 13:52:11 +0200
 
-> Daniel Borkmann (2):
->   net: cls_basic: return from walking on match in basic_get
->   net: act_bpf: fix size mismatch on filter preparation
+> now a bigger pull request for net-next. Rafal found a UTF-8 bug in
+> patchwork[1] and because of that two commits (d0c102f70aec and
+> d0f66df5392a) have his name corrupted:
+> 
+>     Acked-by: Rafa? Mi?ecki <zajec5-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> 
+> Somehow I failed to spot that when I commited the patches. As rebasing
+> public git trees is bad, I thought we can live with these and decided
+> not to rebase. But I'll pay close attention to this in the future to
+> make sure that it won't happen again. Also we requested an update to
+> patchwork.kernel.org, the latest patchwork doesn't seem to have this
+> bug.
+> 
+> Also please note this pull request also adds one DT binding doc, but
+> this was reviewed in the device tree list:
+> 
+>  .../bindings/net/wireless/qcom,ath10k.txt          |   30 +
+> 
+> Please let me know if you have any issues.
 
-Seires applied, thanks.
+Pulled, thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
