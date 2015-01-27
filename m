@@ -1,49 +1,87 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next 03/10] net/mlx4_core: Fix mem leak in SRIOV mlx4_init_one error flow
-Date: Tue, 27 Jan 2015 11:32:52 +0200
-Message-ID: <1422351179-27284-4-git-send-email-amirv@mellanox.com>
+Subject: [PATCH net-next 08/10] net/mlx4_en: Use ethtool cmd->autoneg as a hint for ethtool set settings
+Date: Tue, 27 Jan 2015 11:32:57 +0200
+Message-ID: <1422351179-27284-9-git-send-email-amirv@mellanox.com>
 References: <1422351179-27284-1-git-send-email-amirv@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Amir Vadai <amirv@mellanox.com>,
 	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Jack Morgenstein <jackm@dev.mellanox.co.il>
+	Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:56367 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:56361 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1757999AbbA0JeM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Jan 2015 04:34:12 -0500
+	id S1757999AbbA0JeG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Jan 2015 04:34:06 -0500
 In-Reply-To: <1422351179-27284-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jack Morgenstein <jackm@dev.mellanox.co.il>
+From: Saeed Mahameed <saeedm@mellanox.com>
 
-Structs allocated for the resource tracker must be freed in
-the error flow.
+Use cmd->autoneg as a user hint to decide what to set in ethtool set settings callback.
+When cmd->autoneg == AUTONEG_ENABLE set according to ethtool->advertise otherwise,
+set according to ethtool->speed.
 
+Usage:
+	- ethtool -s eth<x> speed 56000 autoneg off
+	- ethtool -s eth<x> advertise 0x800000 autoneg on
 
-Signed-off-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
+While we're here:
+	- Move proto_admin masking outcome check to be adjacent to the operation.
+	- Move en_warn("port reset..") print to "port reset" block.
+
+Fixes: 312df74 ("net/mlx4_en: mlx4_en_set_settings() always fails when autoneg is set")
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 Signed-off-by: Amir Vadai <amirv@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/main.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/mellanox/mlx4/en_ethtool.c | 18 ++++++++----------
+ 1 file changed, 8 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
-index 46531c2..ab990f9 100644
---- a/drivers/net/ethernet/mellanox/mlx4/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/main.c
-@@ -2980,8 +2980,10 @@ err_free_eq:
- 	mlx4_free_eq_table(dev);
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+index 569eda9..a7b58ba 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+@@ -770,22 +770,20 @@ static int mlx4_en_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ 		return 0;
+ 	}
  
- err_master_mfunc:
--	if (mlx4_is_master(dev))
-+	if (mlx4_is_master(dev)) {
-+		mlx4_free_resource_tracker(dev, RES_TR_FREE_STRUCTS_ONLY);
- 		mlx4_multi_func_cleanup(dev);
-+	}
+-	proto_admin = cpu_to_be32(ptys_adv);
+-	if (speed >= 0 && speed != priv->port_state.link_speed)
+-		/* If speed was set then speed decides :-) */
+-		proto_admin = speed_set_ptys_admin(priv, speed,
+-						   ptys_reg.eth_proto_cap);
++	proto_admin = cmd->autoneg == AUTONEG_ENABLE ?
++		cpu_to_be32(ptys_adv) :
++		speed_set_ptys_admin(priv, speed,
++				     ptys_reg.eth_proto_cap);
  
- 	if (mlx4_is_slave(dev)) {
- 		kfree(dev->caps.qp0_qkey);
+ 	proto_admin &= ptys_reg.eth_proto_cap;
+-
+-	if (proto_admin == ptys_reg.eth_proto_admin)
+-		return 0; /* Nothing to change */
+-
+ 	if (!proto_admin) {
+ 		en_warn(priv, "Not supported link mode(s) requested, check supported link modes.\n");
+ 		return -EINVAL; /* nothing to change due to bad input */
+ 	}
+ 
++	if (proto_admin == ptys_reg.eth_proto_admin)
++		return 0; /* Nothing to change */
++
+ 	en_dbg(DRV, priv, "mlx4_ACCESS_PTYS_REG SET: ptys_reg.eth_proto_admin = 0x%x\n",
+ 	       be32_to_cpu(proto_admin));
+ 
+@@ -798,9 +796,9 @@ static int mlx4_en_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ 		return ret;
+ 	}
+ 
+-	en_warn(priv, "Port link mode changed, restarting port...\n");
+ 	mutex_lock(&priv->mdev->state_lock);
+ 	if (priv->port_up) {
++		en_warn(priv, "Port link mode changed, restarting port...\n");
+ 		mlx4_en_stop_port(dev, 1);
+ 		if (mlx4_en_start_port(dev))
+ 			en_err(priv, "Failed restarting port %d\n", priv->port);
 -- 
 1.9.3
