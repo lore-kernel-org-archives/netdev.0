@@ -1,57 +1,49 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next v2 0/4] net: phy: prevent double suspend
-Date: Tue, 27 Jan 2015 11:16:34 -0800
-Message-ID: <54C7E412.7010903@gmail.com>
-References: <1422338740-18418-1-git-send-email-f.fainelli@gmail.com> <54C7E140.4080908@cogentembedded.com>
+From: Murali Karicheri <m-karicheri2@ti.com>
+Subject: Does arping update arp table?
+Date: Tue, 27 Jan 2015 14:23:33 -0500
+Message-ID: <54C7E5B5.8060401@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, s.hauer@pengutronix.de, b38611@freescale.com
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	netdev@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f181.google.com ([209.85.192.181]:42358 "EHLO
-	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754667AbbA0TQy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2015 14:16:54 -0500
-Received: by mail-pd0-f181.google.com with SMTP id g10so20532153pdj.12
-        for <netdev@vger.kernel.org>; Tue, 27 Jan 2015 11:16:53 -0800 (PST)
-In-Reply-To: <54C7E140.4080908@cogentembedded.com>
+Received: from arroyo.ext.ti.com ([192.94.94.40]:46982 "EHLO arroyo.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757900AbbA0TXf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Jan 2015 14:23:35 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 27/01/15 11:04, Sergei Shtylyov wrote:
-> Hello.
-> 
-> On 01/27/2015 09:05 AM, Florian Fainelli wrote:
-> 
->> This patch series addresses a problem that Fugang and I observed on
->> different
->> platforms where a given PHY device might end-up being suspended twice.
-> 
->> Once as part of the call from ndo_open() all the way down to
->> phy_detach() and
->> phy_suspend() and a second time when the generic platform device/driver
->> suspend/resume callbacks are called in drivers/net/phy/mdio_bus.c.
-> 
->> Thanks to Fugang for giving this a quick try on i.MX6/FEC and reporting
->> positive test results!
-> 
->    I can now confirm this patchset fixed our issue with an external
-> abort during suspend on R-Car platform (with the 'sh_eth' driver)!
+Experts,
 
-Great, thanks Sergei!
+The ARP code (net/ipv4/arp.c) seems to treat arp response resulting from 
+a arping as an unsolicited response and doesn't update the arp table. 
+This get updated if the per interface accept sys ctrl is enabled. This 
+command seems to have been updating the arp table in older kernel. For 
+example on a Ubuntu 12.04 based kernel I see
 
-> 
->> Florian Fainelli (4):
->>    net: phy: utilize phy_suspend and phy_resume
->>    net: phy: document has_fixups field
->>    net: phy: keep track of the PHY suspend state
->>    net: phy: avoid suspending twice a PHY
-> 
-> WBR, Sergei
-> 
+a0868495@ula0868495 ~/Project/linux-keystone $ sudo arping 192.168.1.10 
+-c 1 -f
+ARPING 192.168.1.10 from 192.168.1.9 eth0
+Unicast reply from 192.168.1.10 [00:1B:A9:02:26:10]  5.411ms
+Sent 1 probes (1 broadcast(s))
+Received 1 response(s)
+a0868495@ula0868495 ~/Project/linux-keystone $ arp -n -a
+? (192.168.1.10) at 00:1b:a9:02:26:10 [ether] on eth0
+? (192.168.1.1) at 00:1f:90:6d:5c:a8 [ether] on eth0
 
+a0868495@ula0868495 ~/Project/linux-keystone $ uname -a
+Linux ula0868495 3.2.0-23-generic #36-Ubuntu SMP Tue Apr 10 20:41:14 UTC 
+2012 i686 i686 i386 GNU/Linux
 
+However this command doesn't update the arp table on my Keystone EVM 
+based on v3.19.x and also newer ubuntu machine based on v3.11. Is this 
+expected behavior? I believe the arp response resulting from a arping 
+command is controlled through per interface accept sys control like as 
+in gratuitous arp. Please repond.
+
+Thanks and regards,
 -- 
-Florian
+Murali Karicheri
+Linux Kernel, Texas Instruments
