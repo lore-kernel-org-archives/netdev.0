@@ -1,29 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v2] bnx2x: fix napi poll return value for repoll
-Date: Tue, 27 Jan 2015 00:29:50 -0800 (PST)
-Message-ID: <20150127.002950.1557783614506390313.davem@davemloft.net>
-References: <1422182363-10932-1-git-send-email-_govind@gmx.com>
+Subject: Re: netlink: Kill redundant net argument in netlink_insert
+Date: Tue, 27 Jan 2015 00:30:58 -0800 (PST)
+Message-ID: <20150127.003058.2155008113648861179.davem@davemloft.net>
+References: <20150126030256.GA20066@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ariel.elior@qlogic.com, edumazet@google.com
-To: _govind@gmx.com
+Cc: netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48433 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:48445 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752718AbbA0I3u (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2015 03:29:50 -0500
-In-Reply-To: <1422182363-10932-1-git-send-email-_govind@gmx.com>
+	with ESMTP id S1752752AbbA0Ia7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2015 03:30:59 -0500
+In-Reply-To: <20150126030256.GA20066@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Govindarajulu Varadarajan <_govind@gmx.com>
-Date: Sun, 25 Jan 2015 16:09:23 +0530
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Mon, 26 Jan 2015 14:02:56 +1100
 
-> With the commit d75b1ade567ffab ("net: less interrupt masking in NAPI") napi
-> repoll is done only when work_done == budget. When in busy_poll is we return 0
-> in napi_poll. We should return budget.
-> 
-> Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
+> The socket already carries the net namespace with it so there is
+> no need to be passing another net around.
+>     
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Applied, thank you.
+Applied to net-next, thanks Herbert.
