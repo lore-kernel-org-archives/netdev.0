@@ -1,23 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 5/5] r8169: use PCI define for max read request size
-Date: Tue, 27 Jan 2015 00:23:38 -0800 (PST)
-Message-ID: <20150127.002338.1636880267214027338.davem@davemloft.net>
-References: <1422291922-12324-1-git-send-email-zajec5@gmail.com>
-	<1422291991-12535-1-git-send-email-zajec5@gmail.com>
+Subject: Re: [PATCH 0/2 net-next] sunvnet: fix null pointer deref and crash
+ recovery
+Date: Tue, 27 Jan 2015 00:25:47 -0800 (PST)
+Message-ID: <20150127.002547.408138803887244028.davem@davemloft.net>
+References: <54C6A976.4060502@oracle.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=euc-kr
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: bhelgaas@google.com, linux-pci@vger.kernel.org,
-	nic_swsd@realtek.com, netdev@vger.kernel.org
-To: zajec5@gmail.com
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <1422291991-12535-1-git-send-email-zajec5@gmail.com>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, sowmini.varadhan@oracle.com
+To: david.stevens@oracle.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:48400 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751350AbbA0IZs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2015 03:25:48 -0500
+In-Reply-To: <54C6A976.4060502@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=46rom: Rafa=A9=A9 Mi=A9=A9ecki <zajec5@gmail.com>
-Date: Mon, 26 Jan 2015 18:06:31 +0100
+From: David L Stevens <david.stevens@oracle.com>
+Date: Mon, 26 Jan 2015 15:54:14 -0500
 
-> Signed-off-by: Rafa=A9=A9 Mi=A9=A9ecki <zajec5@gmail.com>
+> These patches fix an incorrect ordering in releasing ring data, clear pending
+> tx buffers on a reset, and make the sunvnet driver more reliable when remote
+> systems crash during active transmits.
 
-Acked-by: David S. Miller <davem@davemloft.net>
+Series applied, thanks David.
