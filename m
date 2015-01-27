@@ -1,49 +1,39 @@
-From: Greg Rose <gvrose8192@gmail.com>
-Subject: Re: Anyone have working cable for Intel 40GB Ethernet NIC?
-Date: Mon, 26 Jan 2015 16:39:01 -0800
-Message-ID: <CALgkqUqgVqKXMmOTzm0nebyacP2uYuBa0V3NA0ZDyUqjYCUsZA@mail.gmail.com>
-References: <54C6D5E7.30906@candelatech.com>
+From: Ben Hutchings <ben.hutchings@codethink.co.uk>
+Subject: [PATCH kernel 0/4] Fixes for sh_eth #3
+Date: Tue, 27 Jan 2015 00:40:32 +0000
+Message-ID: <1422319232.3524.14.camel@xylophone.i.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev <netdev@vger.kernel.org>
-To: Ben Greear <greearb@candelatech.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@lists.codethink.co.uk,
+	Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>,
+	Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>,
+	Hisashi Nakamura <hisashi.nakamura.ak@renesas.com>,
+	Yoshihiro Kaneko <ykaneko0929@gmail.com>
+To: "David S.Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f54.google.com ([209.85.218.54]:63122 "EHLO
-	mail-oi0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757120AbbA0AjB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2015 19:39:01 -0500
-Received: by mail-oi0-f54.google.com with SMTP id v63so10000025oia.13
-        for <netdev@vger.kernel.org>; Mon, 26 Jan 2015 16:39:01 -0800 (PST)
-In-Reply-To: <54C6D5E7.30906@candelatech.com>
+Received: from ducie-dc1.codethink.co.uk ([185.25.241.215]:49923 "EHLO
+	ducie-dc1.codethink.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752345AbbA0Akb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2015 19:40:31 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 26, 2015 at 4:03 PM, Ben Greear <greearb@candelatech.com> wrote:
-> I cannot find info on a direct-attached cable that is known to work..and the
-> one I bought is not accepted by the driver/NIC.
->
-> If anyone knows of a cable that works, please let me know
-> so I can order one.
->
-> Thanks,
-> Ben
+I'm continuing review and testing of Ethernet support on the R-Car H2
+chip.  This series fixes the last of the more serious issues I've found.
 
-The cable I'm using here is a QSFP+ DA cable made by Amphenol.  The
-part # G47684-001.
+These are not tested on any of the other supported chips.
 
-Hope that helps.
+Ben.
 
-- Greg Rose
-Intel Corp.
-Networking Division
-<gregory.v.rose@intel.com>
+Ben Hutchings (4):
+  sh_eth: Remove RX overflow log messages
+  sh_eth: Ensure DMA engines are stopped before freeing buffers
+  sh_eth: Check for DMA mapping errors on transmit
+  sh_eth: Fix DMA-API usage for RX buffers
 
->
-> --
-> Ben Greear <greearb@candelatech.com>
-> Candela Technologies Inc  http://www.candelatech.com
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+ drivers/net/ethernet/renesas/sh_eth.c |   80 ++++++++++++++++++++++++---------
+ 1 file changed, 59 insertions(+), 21 deletions(-)
+
+-- 
+1.7.10.4
