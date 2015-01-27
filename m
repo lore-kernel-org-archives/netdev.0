@@ -1,7 +1,7 @@
 From: David Decotigny <ddecotig@gmail.com>
-Subject: [PATCH net-next v1 14/18] net: bridge: use __ethtool_get_ksettings
-Date: Mon, 26 Jan 2015 17:36:10 -0800
-Message-ID: <1422322574-6188-15-git-send-email-ddecotig@gmail.com>
+Subject: [PATCH net-next v1 10/18] net: team: use __ethtool_get_ksettings
+Date: Mon, 26 Jan 2015 17:36:06 -0800
+Message-ID: <1422322574-6188-11-git-send-email-ddecotig@gmail.com>
 References: <1422322574-6188-1-git-send-email-ddecotig@gmail.com>
 Cc: Eric Dumazet <edumazet@google.com>,
 	Eugenia Emantayev <eugenia@mellanox.co.il>,
@@ -28,26 +28,29 @@ From: David Decotigny <decot@googlers.com>
 
 Signed-off-by: David Decotigny <decot@googlers.com>
 ---
- net/bridge/br_if.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ drivers/net/team/team.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
-index b087d27..57282a5 100644
---- a/net/bridge/br_if.c
-+++ b/net/bridge/br_if.c
-@@ -35,10 +35,10 @@
-  */
- static int port_cost(struct net_device *dev)
- {
--	struct ethtool_cmd ecmd;
-+	struct ethtool_ksettings ecmd;
+diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
+index 4b2bfc5..77576d1 100644
+--- a/drivers/net/team/team.c
++++ b/drivers/net/team/team.c
+@@ -2767,12 +2767,12 @@ static void __team_port_change_send(struct team_port *port, bool linkup)
+ 	port->state.linkup = linkup;
+ 	team_refresh_port_linkup(port);
+ 	if (linkup) {
+-		struct ethtool_cmd ecmd;
++		struct ethtool_ksettings ecmd;
  
--	if (!__ethtool_get_settings(dev, &ecmd)) {
--		switch (ethtool_cmd_speed(&ecmd)) {
-+	if (!__ethtool_get_ksettings(dev, &ecmd)) {
-+		switch (ecmd.parent.speed) {
- 		case SPEED_10000:
- 			return 2;
- 		case SPEED_1000:
+-		err = __ethtool_get_settings(port->dev, &ecmd);
++		err = __ethtool_get_ksettings(port->dev, &ecmd);
+ 		if (!err) {
+-			port->state.speed = ethtool_cmd_speed(&ecmd);
+-			port->state.duplex = ecmd.duplex;
++			port->state.speed = ecmd.parent.speed;
++			port->state.duplex = ecmd.parent.duplex;
+ 			goto send_event;
+ 		}
+ 	}
 -- 
 2.2.0.rc0.207.ga3a616c
