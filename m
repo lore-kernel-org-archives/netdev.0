@@ -1,55 +1,29 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 1/2] rhashtable: Introduce rhashtable_walk_*
-Date: Wed, 28 Jan 2015 07:39:24 +1100
-Message-ID: <20150127203924.GB9061@gondor.apana.org.au>
-References: <20150126.143613.1798698028405169123.davem@davemloft.net>
- <20150126224216.GA30551@gondor.apana.org.au>
- <20150126233100.GA31108@gondor.apana.org.au>
- <20150127094541.GC22262@casper.infradead.org>
- <20150127095454.GA2695@gondor.apana.org.au>
- <20150127101512.GE22262@casper.infradead.org>
- <20150127102420.GA3777@gondor.apana.org.au>
- <20150127111604.GF22262@casper.infradead.org>
- <20150127112304.GA4548@gondor.apana.org.au>
- <20150127114028.GG22262@casper.infradead.org>
+From: David Ahern <dsahern@gmail.com>
+Subject: Re: Does arping update arp table?
+Date: Tue, 27 Jan 2015 13:46:40 -0700
+Message-ID: <54C7F930.6090506@gmail.com>
+References: <54C7E5B5.8060401@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, David.Laight@ACULAB.COM,
-	ying.xue@windriver.com, kaber@trash.net,
-	paulmck@linux.vnet.ibm.com, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: Thomas Graf <tgraf@suug.ch>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>
+To: Murali Karicheri <m-karicheri2@ti.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:42282 "EHLO
-	helcar.apana.org.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932809AbbA0Ujv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2015 15:39:51 -0500
-Content-Disposition: inline
-In-Reply-To: <20150127114028.GG22262@casper.infradead.org>
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:32836 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932569AbbA0Uqv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2015 15:46:51 -0500
+Received: by mail-pa0-f45.google.com with SMTP id et14so20749044pad.4
+        for <netdev@vger.kernel.org>; Tue, 27 Jan 2015 12:46:51 -0800 (PST)
+In-Reply-To: <54C7E5B5.8060401@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 27, 2015 at 11:40:28AM +0000, Thomas Graf wrote:
-> 
-> This is unrelated to resize run control though, the reason is that
-> I'm converting tcp_hashinfo et al and they require a hybrid approach.
-> The tables may be too big to construct a parallel data structure, we
-> don't want to hold off inserts or deletes while the expensive dump
-> is underway. Even though we can't build a shadow structure while
-> locking everybody else out, we still want to provide a way to somehow
-> achieve consistent information. I think that NLM_F_INTR with fallback
-> to restarting the dump is a good option and very easy to implement. In
-> that case, we want to lock out resize from dumping iterations but
-> still allow parallel insert/delete.
+On 1/27/15 12:23 PM, Murali Karicheri wrote:
+> However this command doesn't update the arp table on my Keystone EVM
+> based on v3.19.x and also newer ubuntu machine based on v3.11. Is this
+> expected behavior? I believe the arp response resulting from a arping
+> command is controlled through per interface accept sys control like as
+> in gratuitous arp. Please repond.
 
-Well I guess Dave needs to make the call.  Do we want to allow
-lockless walks over the hash table or not?
-
-Personally I don't think a linked list is that big a deal.  But then
-you guys were agonsing over a single pointer so who knows.
-
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+echo 1 > /proc/sys/net/ipv4/conf/eth0/arp_accept
