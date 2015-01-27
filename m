@@ -1,45 +1,63 @@
-From: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
-Subject: Re: [PATCH net-next v1 05/18] net: tx4939: use __ethtool_get_ksettings
-Date: Tue, 27 Jan 2015 15:32:00 +0300
-Message-ID: <54C78540.6080404@cogentembedded.com>
-References: <1422322574-6188-1-git-send-email-ddecotig@gmail.com> <1422322574-6188-6-git-send-email-ddecotig@gmail.com>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: [PATCH net 1/2] caif: remove wrong dev_net_set() call
+Date: Tue, 27 Jan 2015 13:41:29 +0100
+Message-ID: <874mrcwg3q.fsf@nemi.mork.no>
+References: <1422307694-10079-1-git-send-email-nicolas.dichtel@6wind.com>
+	<1422307694-10079-2-git-send-email-nicolas.dichtel@6wind.com>
+	<54C777D0.6090608@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Eugenia Emantayev <eugenia-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>,
-	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Ido Shamay <idos-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>,
-	Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Govindarajulu Varadarajan <_govind-KK0ffGbhmjU@public.gmane.org>,
-	Venkata Duvvuru <VenkatKumar.Duvvuru-iH1Dq9VlAzfQT0dZR+AlfA@public.gmane.org>,
-	Jeff Kirsher <jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Eyal Perry <eyalpe-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Pravin B Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>,
-	Ed Swierk <eswierk-FilZDy9cOaHkQYj/0HfcvtBPR1lH4CV8@public.gmane.org>,
-	David Decotigny <decot-Ypc/8FJVVoBWk0Htik3J/w@public.gmane.org>
-To: David Decotigny <ddecotig-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>,
-	Amir Vadai <amirv-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1422322574-6188-6-git-send-email-ddecotig-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	dmitry.tarnyagin@lockless.no, arvid.brodin@alten.se,
+	alex.aring@gmail.com, linux-wpan@vger.kernel.org,
+	Sjur =?utf-8?Q?Br?= =?utf-8?Q?=C3=A6ndeland?=
+	<sjur.brandeland@stericsson.com>,
+	Dmitry Tarnyagin <abi.dmitryt@gmail.com>
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from canardo.mork.no ([148.122.252.1]:56107 "EHLO canardo.mork.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758801AbbA0Mlq convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2015 07:41:46 -0500
+In-Reply-To: <54C777D0.6090608@6wind.com> (Nicolas Dichtel's message of "Tue,
+	27 Jan 2015 12:34:40 +0100")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+Nicolas Dichtel <nicolas.dichtel@6wind.com> writes:
 
-On 1/27/2015 4:36 AM, David Decotigny wrote:
+>> CC: Sjur Br=C3=A6ndeland <sjur.brandeland@stericsson.com>
+>> CC: Dmitry Tarnyagin <dmitry.tarnyagin@lockless.no>
+>
+> I got a "Delivery Status Notification (Failure)" for Dmitry Tarnyagin
+> (I took the email address from the MAINTAINERS file):
+>
+>   Delivery to the following recipient failed permanently:
+>
+>        dmitry.tarnyagin@lockless.no
+>
+>   Technical details of permanent failure:
+>   Google tried to deliver your message, but it was rejected by the se=
+rver for
+>   the recipient domain lockless.no by mail.lockless.no. [46.29.221.38=
+].
+>
+>   The error that the other server returned was:
+>   550 5.1.1 <dmitry.tarnyagin@lockless.no>: Recipient address rejecte=
+d: User
+>   unknown in virtual mailbox table
+>
+> Any suggestions?
 
-> From: David Decotigny <decot-Ypc/8FJVVoBWk0Htik3J/w@public.gmane.org>
 
-> Signed-off-by: David Decotigny <decot-Ypc/8FJVVoBWk0Htik3J/w@public.gmane.org>
-> ---
->   arch/mips/txx9/generic/setup_tx4939.c | 7 ++++---
->   1 file changed, 4 insertions(+), 3 deletions(-)
+He used a gmail address in commit dd9dfb9f95e2 ("cfg80211: merge in
+beacon ies of hidden bss.").  Probably by accident, but worth trying
+anyway...
 
-    I don't think "net: " prefix applies here.
-    And you should have CC'ed linux-mips-6z/3iImG2C/i7sgoIIk9UQ@public.gmane.org
+I guess the stericsson.com addresses could be failing silently now? Ref
+http://stericsson.com/ . Or are they still routed to the named recepien=
+ts?
 
-WBR, Sergei
+
+Bj=C3=B8rn
