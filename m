@@ -1,33 +1,46 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 0/2] sh_eth: massage PM code
-Date: Tue, 27 Jan 2015 22:06:57 +0300
-Message-ID: <54C7E1D1.9050707@cogentembedded.com>
-References: <5608250.lrFkJTjgSf@wasted.cogentembedded.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 06/10] net/mlx4_core: Fix struct mlx4_vhcr_cmd
+ to make implicit padding explicit
+Date: Tue, 27 Jan 2015 11:13:34 -0800 (PST)
+Message-ID: <20150127.111334.501141232585900738.davem@davemloft.net>
+References: <1422351179-27284-1-git-send-email-amirv@mellanox.com>
+	<1422351179-27284-7-git-send-email-amirv@mellanox.com>
+	<063D6719AE5E284EB5DD2968C1650D6D1CAD3B01@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-sh@vger.kernel.org
-To: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <5608250.lrFkJTjgSf@wasted.cogentembedded.com>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: amirv@mellanox.com, netdev@vger.kernel.org, ogerlitz@mellanox.com,
+	yevgenyp@mellanox.com, jackm@dev.mellanox.co.il
+To: David.Laight@ACULAB.COM
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:52133 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932557AbbA0TNg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2015 14:13:36 -0500
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CAD3B01@AcuExch.aculab.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+From: David Laight <David.Laight@ACULAB.COM>
+Date: Tue, 27 Jan 2015 09:43:27 +0000
 
-On 01/22/2015 01:16 AM, Sergei Shtylyov wrote:
+>>  	__be64 out_param;
+>>  	__be16 token;
+>>  	u16 reserved;
+>>  	u8 status;
+>>  	u8 flags;
+>>  	__be16 opcode;
+>> -};
+>> +} __packed;
+> 
+> Don't add '__packed' unless you expect the structure to be misaligned
+> in memory.
+> On systems that fault mis-aligned memory requests you've requested the
+> compiler generate code to read/write everything using byte sized memory
+> accesses and a lot of shifting and masking.
 
->     Here's a set of 2 patches against DaveM's 'net-next.git' repo. We're adding
-> the support for suspend/hibernation as well as somewhat changing the existing
-> code. There are still MDIO-related issue with suspend (kernel exception), we've
-> been working on it and shall address it with a separate patch...
+Indeed, I'm really sick of seeing these packed structures being
+created all over the place.
 
-    It turned out that Florian Fainelli's recent series was the best approach 
-to fixing this issue. We were only looking at our driver while it was a common 
-MDIO problem...
-
-> [1/2] sh_eth: use SET_RUNTIME_PM_OPS()
-> [2/2] sh_eth: add more PM methods
-
-WBR, Sergei
-
+They are to be used in absolutely extreme cases where no other
+solution is possible.
