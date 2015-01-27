@@ -1,70 +1,113 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCHv3 ipsec-next] xfrm: Do not parse 32bits compiled xfrm
- netlink msg on 64bits host
-Date: Tue, 27 Jan 2015 11:54:16 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CAD3C5C@AcuExch.aculab.com>
-References: <1422349230-17394-1-git-send-email-fan.du@intel.com>
- <063D6719AE5E284EB5DD2968C1650D6D1CAD3B2B@AcuExch.aculab.com>
- <20150127110413.GF1373@breakpoint.cc>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: ipv6: oops in datagram.c line 260
+Date: Tue, 27 Jan 2015 12:58:15 +0100
+Message-ID: <20150127115814.GL13046@secunet.com>
+References: <5487DD65.60800@gtsys.com.hk>
+ <549AC2B4.8070203@gtsys.com.hk>
+ <1420560073.32369.60.camel@redhat.com>
+ <20150126083512.GI13046@secunet.com>
+ <54C71AFB.40300@gtsys.com.hk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: 'Fan Du' <fan.du@intel.com>,
-	"steffen.klassert@secunet.com" <steffen.klassert@secunet.com>,
-	"herbert@gondor.apana.org.au" <herbert@gondor.apana.org.au>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"fengyuleidian0615@gmail.com" <fengyuleidian0615@gmail.com>
-To: 'Florian Westphal' <fw@strlen.de>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Hannes Frederic Sowa <hannes@redhat.com>, <netdev@vger.kernel.org>,
+	<davem@davemloft.net>
+To: Chris Ruehl <chris.ruehl@gtsys.com.hk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out4.electric.net ([192.162.216.181]:56307 "EHLO
-	smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754203AbbA0Lyb convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2015 06:54:31 -0500
-In-Reply-To: <20150127110413.GF1373@breakpoint.cc>
-Content-Language: en-US
+Received: from a.mx.secunet.com ([195.81.216.161]:58336 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752317AbbA0L6Z (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Jan 2015 06:58:25 -0500
+Content-Disposition: inline
+In-Reply-To: <54C71AFB.40300@gtsys.com.hk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Westphal 
-> David Laight <David.Laight@ACULAB.COM> wrote:
-> > From: Fan Du
-> > > structure like xfrm_usersa_info or xfrm_userpolicy_info
-> > > has different sizeof when compiled as 32bits and 64bits
-> > > due to not appending pack attribute in their definition.
-> >
-> > Don't 'pack' the structure, just ensure that all the fields
-> > are fixed sized and on their natural boundary.
-> 
-> How do you propose to do this without breaking ABI?
+On Tue, Jan 27, 2015 at 12:58:35PM +0800, Chris Ruehl wrote:
+>=20
+>    Steffen,
+>=20
+>    your patch can't apply to the vanilla v3.14.29 can you cross check=
+ please.
 
-You may already have an ABI fubar.
-Adding __packed won't make it go away.
-IIRC your modified structure did have all its 64bit items
-aligned on 8 byte boundaries - so the __packed wouldn't affect
-the structure layout.
+Sorry, this patch was based on the net tree.
 
-The problem is that you can't add that field when the ABI
-only requires 4 byte alignment for 64bit items.
+>    I'm sorry but we running a productive system and I can't make to m=
+uch
+>    noise here!
+>    Your patch is partly in the 3.14.29 and
+>    skb->protocol =3D htons(ETH_P_IP)
+>    from the xfrm4/6_output_finish() no removed. I do then
+>=20
+>    --- linux-3.14.x/net/ipv4/xfrm4_output.c.orig=A0=A0=A0 2015-01-27
+>    12:50:01.830651344 +0800
+>    +++ linux-3.14.x/net/ipv4/xfrm4_output.c=A0=A0=A0 2015-01-27 12:51=
+:13.280386355
+>    +0800
+>    @@ -82,7 +82,6 @@
+>    =A0=A0=A0=A0 IPCB(skb)->flags |=3D IPSKB_XFRM_TRANSFORMED;
+>    =A0#endif
+>    =A0
+>    -=A0=A0=A0 skb->protocol =3D htons(ETH_P_IP);
+>    =A0=A0=A0=A0 return xfrm_output(skb);
+>    =A0}
+>    =A0
+>    --- linux-3.14.x/net/ipv6/xfrm6_output.c.orig=A0=A0=A0 2015-01-27
+>    12:49:39.260735321 +0800
+>    +++ linux-3.14.x/net/ipv6/xfrm6_output.c=A0=A0=A0 2015-01-27 12:50=
+:47.280482636
+>    +0800
+>    @@ -132,7 +132,6 @@
+>    =A0=A0=A0=A0 IP6CB(skb)->flags |=3D IP6SKB_XFRM_TRANSFORMED;
+>    =A0#endif
+>    =A0
+>    -=A0=A0=A0 skb->protocol =3D htons(ETH_P_IPV6);
+>    =A0=A0=A0=A0 return xfrm_output(skb);
+>    =A0}
 
-If you need to access a structure from (eg) an i386 application
-within an amd64 kernel then you can add __attribute__((aligned(4)))
-to any 64bit member to force that member to have only 4 byte aligment.
-On 64bit systems that can't do misaligned transfers (eg sparc64)
-that will result in two 32bit accesses for that member.
-(You'll need to do it to all 64bit members if the structure
-size needs to be an odd multiple of 4.)
+Yes, that should be ok. Here is the complete patch for v3.14.29:
 
-> > Possibly add a compile-time check that the structure is
-> > of the expected size.
-> 
-> Uh, what?
+Subject: [PATCH RFC v3.14.29] xfrm: Fix local error reporting crash wit=
+h interfamily tunnels
 
-eg something based on:
+We set the outer mode protocol too early. As a result, the
+local error handler might dispatch to the wrong address family
+and report the error to a wrong socket type. We fix this by
+seting the outer protocol to the skb only after we accessed the
+inner mode for the last time, right before we do the atcual
+encapsulation where we switch finally to the outer mode.
+The settings in xfrm{4,6}_output_finish() are removed.
 
-typedef foo_check char[sizeof foo == 32 ? 1 : -1];
+Reported-by: Chris Ruehl <chris.ruehl@gtsys.com.hk>
+Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+---
+ net/ipv4/xfrm4_output.c |    1 -
+ net/ipv6/xfrm6_output.c |    1 -
+ 2 files changed, 0 insertions(+), 2 deletions(-)
 
-There will be a standard define for this somewhere
-(and for the align attribute).
-
-	David
+diff --git a/net/ipv4/xfrm4_output.c b/net/ipv4/xfrm4_output.c
+index baa0f63..0cb9606 100644
+--- a/net/ipv4/xfrm4_output.c
++++ b/net/ipv4/xfrm4_output.c
+@@ -82,7 +82,6 @@ int xfrm4_output_finish(struct sk_buff *skb)
+ 	IPCB(skb)->flags |=3D IPSKB_XFRM_TRANSFORMED;
+ #endif
+=20
+-	skb->protocol =3D htons(ETH_P_IP);
+ 	return xfrm_output(skb);
+ }
+=20
+diff --git a/net/ipv6/xfrm6_output.c b/net/ipv6/xfrm6_output.c
+index 6cd625e..98396cf 100644
+--- a/net/ipv6/xfrm6_output.c
++++ b/net/ipv6/xfrm6_output.c
+@@ -132,7 +132,6 @@ int xfrm6_output_finish(struct sk_buff *skb)
+ 	IP6CB(skb)->flags |=3D IP6SKB_XFRM_TRANSFORMED;
+ #endif
+=20
+-	skb->protocol =3D htons(ETH_P_IPV6);
+ 	return xfrm_output(skb);
+ }
+=20
+--=20
+1.7.2.5
