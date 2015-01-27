@@ -1,68 +1,47 @@
-From: Vlastimil Setka <setka@vsis.cz>
-Subject: Altera TSE (altera_tse) - tx_fifo_depth init bug
-Date: Tue, 27 Jan 2015 22:26:03 +0100
-Message-ID: <54C8026B.9070607@vsis.cz>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/2] rhashtable: Introduce rhashtable_walk_*
+Date: Tue, 27 Jan 2015 14:10:18 -0800 (PST)
+Message-ID: <20150127.141018.1208673547021029175.davem@davemloft.net>
+References: <20150127112304.GA4548@gondor.apana.org.au>
+	<20150127114028.GG22262@casper.infradead.org>
+	<20150127203924.GB9061@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: vbridger@opensource.altera.com, netdev@vger.kernel.org,
-	rfi@lists.rocketboards.org
+Cc: tgraf@suug.ch, David.Laight@ACULAB.COM, ying.xue@windriver.com,
+	kaber@trash.net, paulmck@linux.vnet.ibm.com,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.spsostrov.cz ([217.117.209.230]:36447 "EHLO
-	mail.spsostrov.cz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759159AbbA0V0R (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2015 16:26:17 -0500
+Received: from shards.monkeyblade.net ([149.20.54.216]:53204 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753842AbbA0WKW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2015 17:10:22 -0500
+In-Reply-To: <20150127203924.GB9061@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Wed, 28 Jan 2015 07:39:24 +1100
 
-I have discovered a bug in Altera TSE (altera_tse) ethernet driver.
+> On Tue, Jan 27, 2015 at 11:40:28AM +0000, Thomas Graf wrote:
+>> 
+>> This is unrelated to resize run control though, the reason is that
+>> I'm converting tcp_hashinfo et al and they require a hybrid approach.
+>> The tables may be too big to construct a parallel data structure, we
+>> don't want to hold off inserts or deletes while the expensive dump
+>> is underway. Even though we can't build a shadow structure while
+>> locking everybody else out, we still want to provide a way to somehow
+>> achieve consistent information. I think that NLM_F_INTR with fallback
+>> to restarting the dump is a good option and very easy to implement. In
+>> that case, we want to lock out resize from dumping iterations but
+>> still allow parallel insert/delete.
+> 
+> Well I guess Dave needs to make the call.  Do we want to allow
+> lockless walks over the hash table or not?
+> 
+> Personally I don't think a linked list is that big a deal.  But then
+> you guys were agonsing over a single pointer so who knows.
 
-In altera_tse_main.c, function altera_tse_probe:
-
-	if (of_property_read_u32(pdev->dev.of_node, "tx-fifo-depth",
-				 &priv->rx_fifo_depth)) {
-
-the TX related "tx-fifo-depth" is read from device tree, but by mistake 
-written to RX related struct member rx_fifo_depth instead of correct 
-tx_fifo_depth.
-
-https://github.com/torvalds/linux/blob/master/drivers/net/ethernet/altera/altera_tse_main.c#L1401
-
-I am not sure about impact of this bug, but it seems that 
-priv->tx_fifo_depth is left uninitialised which is definitely not OK.
-
-[PATCH 1/1] Altera TSE: Fix priv->tx_fifo_depth initialization
-
-This patch fixes priv->tx_fifo_depth initialization in altera_tse_probe().
-The "tx-fifo-depth" attribute was read again into rx_fifo_depth instead 
-of correct tx_fifo_depth probably because of copy-and-paste typo,
-and tx_fifo_depth was left uninitialised.
-
-Signed-off-by: Vlastimil Setka <setka@vsis.cz>
----
-  drivers/net/ethernet/altera/altera_tse_main.c | 2 +-
-  1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/altera/altera_tse_main.c 
-b/drivers/net/ethernet/altera/altera_tse_main.c
-index 760c72c..f3d784a 100644
---- a/drivers/net/ethernet/altera/altera_tse_main.c
-+++ b/drivers/net/ethernet/altera/altera_tse_main.c
-@@ -1399,7 +1399,7 @@ static int altera_tse_probe(struct platform_device 
-*pdev)
-         }
-
-         if (of_property_read_u32(pdev->dev.of_node, "tx-fifo-depth",
--                                &priv->rx_fifo_depth)) {
-+                                &priv->tx_fifo_depth)) {
-                 dev_err(&pdev->dev, "cannot obtain tx-fifo-depth\n");
-                 ret = -ENXIO;
-                 goto err_free_netdev;
---
-1.8.1.2
-
-
-Regards,
-Vlastimil Setka
+For netlink a linked list is no big deal, but for something like TCP
+sockets it really is.
