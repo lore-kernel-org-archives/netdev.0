@@ -1,65 +1,50 @@
-From: Tilman Schmidt <tilman@imap.cc>
-Subject: Re: make allyesconfig i386 build failure with next-20150122 (caused
- by fb_agm1264k-fl driver)
-Date: Tue, 27 Jan 2015 14:04:32 +0100
-Message-ID: <54C78CE0.6040207@imap.cc>
-References: <CA+r1ZhhXF+hicy7JKo3jAbgSbO4KOLm6BwPosTKNb+E_Cb4yPQ@mail.gmail.com> <20150126215959.GA9853@roeck-us.net> <20150126224654.GA17166@kroah.com> <54C6FB28.3000304@roeck-us.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 1/2] rhashtable: Introduce rhashtable_walk_*
+Date: Tue, 27 Jan 2015 13:09:50 +0000
+Message-ID: <20150127130950.GA3950@acer.localdomain>
+References: <20150126222259.GC30116@gondor.apana.org.au>
+ <20150126.143613.1798698028405169123.davem@davemloft.net>
+ <20150126224216.GA30551@gondor.apana.org.au>
+ <20150126233100.GA31108@gondor.apana.org.au>
+ <20150127094541.GC22262@casper.infradead.org>
+ <20150127095454.GA2695@gondor.apana.org.au>
+ <20150127101512.GE22262@casper.infradead.org>
+ <20150127102420.GA3777@gondor.apana.org.au>
+ <20150127111604.GF22262@casper.infradead.org>
+ <20150127112304.GA4548@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Jim Davis <jim.epost@gmail.com>,
-	Stephen Rothwell <sfr@canb.auug.org.au>,
-	linux-next <linux-next@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	devel <devel@driverdev.osuosl.org>, isdn@linux-pingi.de,
-	netdev <netdev@vger.kernel.org>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-To: Guenter Roeck <linux@roeck-us.net>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <54C6FB28.3000304@roeck-us.net>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Thomas Graf <tgraf@suug.ch>, David Miller <davem@davemloft.net>,
+	David.Laight@ACULAB.COM, ying.xue@windriver.com,
+	paulmck@linux.vnet.ibm.com, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:42382 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754637AbbA0NJ5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2015 08:09:57 -0500
+Content-Disposition: inline
+In-Reply-To: <20150127112304.GA4548@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Am 27.01.2015 um 03:42 schrieb Guenter Roeck:
-> On 01/26/2015 02:46 PM, Greg Kroah-Hartman wrote:
->> On Mon, Jan 26, 2015 at 01:59:59PM -0800, Guenter Roeck wrote:
->>> On Thu, Jan 22, 2015 at 12:10:33PM -0700, Jim Davis wrote:
->>>> make ARCH=i386 allyesconfig fails with
->>>>
->>>> drivers/staging/built-in.o: In function `reset':
->>>> (.text+0x2ae89d): multiple definition of `reset'
->>>> drivers/isdn/built-in.o:(.text+0x185dc2): first defined here
->>>> make[1]: *** [drivers/built-in.o] Error 1
->>>
->>> Culprit:
->>>
->>> commit b2ebd4be6fa1d2329b63531b044f9e25474981cb
->>> Author: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
->>> Date:   Wed Dec 31 10:11:10 2014 +0100
->>>
->>>      staging: fbtft: add fb_agm1264k-fl driver
->>>
->>> A global function named 'reset' isn't really a good idea.
->>>
->>> Not that the global function with the same name in the isdn code
->>> is better ;-).
->>
->> Agreed, the fbtft code is now fixed.  Patches to fix the isdn code would
->> be gladly accepted as well :)
->>
+On 27.01, Herbert Xu wrote:
+> On Tue, Jan 27, 2015 at 11:16:04AM +0000, Thomas Graf wrote:
+> > 
+> > No objection. I have a patch prepared which allows the user to
+> > provide ht->mutex himself so nfset can provide its own existing
+> > mutex to rhashtable and lock out the resizes from inserts,
+> > removals and dump iterations automatically That would restore the
+> > old behaviour of the nfset API without major surgery.
 > 
-> Did you have a look into the isdn code ? It will need someone
-> with a lot of spare time to clean this code up.
+> If you take the mutex you might as well just make it synchronous.
+> There is zero difference.
+> 
+> Maybe you misunderstood my email.  I'm not making it synchronous
+> for everybody, just those that always take a lock on inserts/removals
+> and therefore don't need per-bucket locks.
 
-Cleaning up the entire isdn code certainly will, but that particular
-problem is in fact much more limited. The function in question is
-declared, along with several other also much too generically named
-ones, in drivers/isdn/sc/card.h which is included nowhere outside
-drivers/isdn/sc. So these are really private functions of the
-SpellCaster driver which could easily be renamed.
-
-OTOH good old SpellCaster was an ISA card, and the sc driver depends
-on the deprecated I4L framework. I wonder if it's worth any effort.
-
-Tilman
+Actually I have a patchset queued that adds runtime additions and
+removals, both active and timeout based. So netfilter won't have
+pure synchronous behaviour anymore.
