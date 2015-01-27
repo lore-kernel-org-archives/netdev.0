@@ -1,61 +1,160 @@
-From: Andy Gospodarek <gospo@cumulusnetworks.com>
-Subject: Re: [PATCH net-next v2 0/5] bonding: various 802.3ad fixes
-Date: Mon, 26 Jan 2015 19:49:24 -0500
-Message-ID: <20150127004924.GA13164@gospo.home.greyhouse.net>
-References: <1422253021-3798-1-git-send-email-jtoppins@cumulusnetworks.com>
+From: Ben Hutchings <ben.hutchings@codethink.co.uk>
+Subject: [PATCH kernel 2/4] sh_eth: Ensure DMA engines are stopped before
+ freeing buffers
+Date: Tue, 27 Jan 2015 00:49:32 +0000
+Message-ID: <1422319772.3524.22.camel@xylophone.i.decadent.org.uk>
+References: <1422319232.3524.14.camel@xylophone.i.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jay Vosburgh <j.vosburgh@gmail.com>,
-	Veaceslav Falico <vfalico@gmail.com>, netdev@vger.kernel.org
-To: Jonathan Toppins <jtoppins@cumulusnetworks.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@lists.codethink.co.uk,
+	Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>,
+	Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>,
+	Hisashi Nakamura <hisashi.nakamura.ak@renesas.com>,
+	Yoshihiro Kaneko <ykaneko0929@gmail.com>
+To: "David S.Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f43.google.com ([209.85.192.43]:41273 "EHLO
-	mail-qg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751623AbbA0Atd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2015 19:49:33 -0500
-Received: by mail-qg0-f43.google.com with SMTP id e89so9673575qgf.2
-        for <netdev@vger.kernel.org>; Mon, 26 Jan 2015 16:49:32 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1422253021-3798-1-git-send-email-jtoppins@cumulusnetworks.com>
+Received: from ducie-dc1.codethink.co.uk ([185.25.241.215]:50156 "EHLO
+	ducie-dc1.codethink.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754414AbbA0Ate (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jan 2015 19:49:34 -0500
+In-Reply-To: <1422319232.3524.14.camel@xylophone.i.decadent.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 26, 2015 at 01:16:56AM -0500, Jonathan Toppins wrote:
-> This patch series is a forward porting of patches we (Cumulus) are shipping
-> in our 3.2 series kernels. These fixes attempt to make 802.3ad bonding mode
-> more predictable in certian state machine transtions in addition to fixing
-> 802.3ad bond carrier determination when bonding min_links option is changed.
-> Specific notes are contained within each patch.
-> 
-> For this patch series there are no userspace facing changes, a diff between
-> the modinfo output showed no difference. However, there are behavioral
-> facing changes, primarily in the bond carrier state. Please make sure to
-> review carefully.
-> 
-> v2:
->  * fixed some style issues
->  * dropped a portion of patch 1 in favor of more testing on my side
-> 
-> Jonathan Toppins (2):
->   bonding: update bond carrier state when min_links option changes
->   bonding: cleanup and remove dead code
-> 
-> Satish Ashok (1):
->   bonding: fix LACP PDU not sent on slave port sometimes
-> 
-> Wilson Kok (2):
->   bonding: fix bond_open() don't always set slave active flag
->   bonding: fix incorrect lacp mux state when agg not active
-> 
->  drivers/net/bonding/bond_3ad.c     |   55 +++++++++++++++++++++++++++---------
->  drivers/net/bonding/bond_main.c    |    6 ++--
->  drivers/net/bonding/bond_options.c |    1 +
->  include/net/bond_3ad.h             |    1 -
->  include/net/bonding.h              |    1 +
->  5 files changed, 47 insertions(+), 17 deletions(-)
+Currently we try to clear EDRRR and EDTRR and immediately continue to
+free buffers.  This is unsafe because:
 
-Great work on this, Jon.
+- In general, register writes are not serialised with DMA, so we still
+  have to wait for DMA to complete somehow
+- The R8A7790 (R-Car H2) manual states that the TX running flag cannot
+  be cleared by writing to EDTRR
+- The same manual states that clearing the RX running flag only stops
+  RX DMA at the next packet boundary
 
-For the series:
+I applied this patch to the driver to detect DMA writes to freed
+buffers:
 
-Signed-off-by: Andy Gospodarek <gospo@cumulusnetworks.com>
+> --- a/drivers/net/ethernet/renesas/sh_eth.c
+> +++ b/drivers/net/ethernet/renesas/sh_eth.c
+> @@ -1098,7 +1098,14 @@ static void sh_eth_ring_free(struct net_device *ndev)
+>  	/* Free Rx skb ringbuffer */
+>  	if (mdp->rx_skbuff) {
+>  		for (i = 0; i < mdp->num_rx_ring; i++)
+> +			memcpy(mdp->rx_skbuff[i]->data,
+> +			       "Hello, world", 12);
+> +		msleep(100);
+> +		for (i = 0; i < mdp->num_rx_ring; i++) {
+> +			WARN_ON(memcmp(mdp->rx_skbuff[i]->data,
+> +				       "Hello, world", 12));
+>  			dev_kfree_skb(mdp->rx_skbuff[i]);
+> +		}
+>  	}
+>  	kfree(mdp->rx_skbuff);
+>  	mdp->rx_skbuff = NULL;
+
+then ran the loop:
+
+    while ethtool -G eth0 rx 128 ; ethtool -G eth0 rx 64; do echo -n .; done
+
+and 'ping -f' toward the sh_eth port from another machine.  The
+warning fired several times a minute.
+
+To fix these issues:
+
+- Deactivate all TX descriptors rather than writing to EDTRR
+- As there seems to be no way of telling when RX DMA is stopped,
+  perform a soft reset to ensure that both DMA enginess are stopped
+- To reduce the possibility of the reset truncating a transmitted
+  frame, disable egress and wait a reasonable time to reach a
+  packet boundary before resetting
+- Update statistics before resetting
+
+(The 'reasonable time' does not allow for CS/CD in half-duplex
+mode, but half-duplex no longer seems reasonable!)
+
+Signed-off-by: Ben Hutchings <ben.hutchings@codethink.co.uk>
+---
+I would prefer to find a way to wait for the DMA engines to stop, so
+that it's only necessary to reset if they fail to do so within some time
+limit.  But I just don't see it.
+
+Ben.
+
+ drivers/net/ethernet/renesas/sh_eth.c |   39 +++++++++++++++++++++++++++------
+ 1 file changed, 32 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
+index 3b49375..e43c9ce 100644
+--- a/drivers/net/ethernet/renesas/sh_eth.c
++++ b/drivers/net/ethernet/renesas/sh_eth.c
+@@ -396,6 +396,9 @@ static const u16 sh_eth_offset_fast_sh3_sh2[SH_ETH_MAX_REGISTER_OFFSET] = {
+ 	[TSU_ADRL31]	= 0x01fc,
+ };
+ 
++static void sh_eth_rcv_snd_disable(struct net_device *ndev);
++static struct net_device_stats *sh_eth_get_stats(struct net_device *ndev);
++
+ static bool sh_eth_is_gether(struct sh_eth_private *mdp)
+ {
+ 	return mdp->reg_offset == sh_eth_offset_gigabit;
+@@ -1358,6 +1361,33 @@ static int sh_eth_dev_init(struct net_device *ndev, bool start)
+ 	return ret;
+ }
+ 
++static void sh_eth_dev_exit(struct net_device *ndev)
++{
++	struct sh_eth_private *mdp = netdev_priv(ndev);
++	int i;
++
++	/* Deactivate all TX descriptors, so DMA should stop at next
++	 * packet boundary if it's currently running
++	 */
++	for (i = 0; i < mdp->num_tx_ring; i++)
++		mdp->tx_ring[i].status &= ~cpu_to_edmac(mdp, TD_TACT);
++
++	/* Disable TX FIFO egress to MAC */
++	sh_eth_rcv_snd_disable(ndev);
++
++	/* Stop RX DMA at next packet boundary */
++	sh_eth_write(ndev, 0, EDRRR);
++
++	/* Aside from TX DMA, we can't tell when the hardware is
++	 * really stopped, so we need to reset to make sure.
++	 * Before doing that, wait for long enough to *probably*
++	 * finish transmitting the last packet and poll stats.
++	 */
++	msleep(2); /* max frame time at 10 Mbps < 1250 us */
++	sh_eth_get_stats(ndev);
++	sh_eth_reset(ndev);
++}
++
+ /* free Tx skb function */
+ static int sh_eth_txfree(struct net_device *ndev)
+ {
+@@ -1986,9 +2016,7 @@ static int sh_eth_set_ringparam(struct net_device *ndev,
+ 		napi_synchronize(&mdp->napi);
+ 		sh_eth_write(ndev, 0x0000, EESIPR);
+ 
+-		/* Stop the chip's Tx and Rx processes. */
+-		sh_eth_write(ndev, 0, EDTRR);
+-		sh_eth_write(ndev, 0, EDRRR);
++		sh_eth_dev_exit(ndev);
+ 
+ 		/* Free all the skbuffs in the Rx queue. */
+ 		sh_eth_ring_free(ndev);
+@@ -2207,11 +2235,8 @@ static int sh_eth_close(struct net_device *ndev)
+ 	napi_disable(&mdp->napi);
+ 	sh_eth_write(ndev, 0x0000, EESIPR);
+ 
+-	/* Stop the chip's Tx and Rx processes. */
+-	sh_eth_write(ndev, 0, EDTRR);
+-	sh_eth_write(ndev, 0, EDRRR);
++	sh_eth_dev_exit(ndev);
+ 
+-	sh_eth_get_stats(ndev);
+ 	/* PHY Disconnect */
+ 	if (mdp->phydev) {
+ 		phy_stop(mdp->phydev);
+-- 
+1.7.10.4
