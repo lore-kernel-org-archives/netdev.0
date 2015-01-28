@@ -1,89 +1,135 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: [PATCH net-next v2 5/5] tcp: fix timing issue in CUBIC slope calculation
-Date: Wed, 28 Jan 2015 20:01:39 -0500
-Message-ID: <1422493299-22114-6-git-send-email-ncardwell@google.com>
-References: <1422493299-22114-1-git-send-email-ncardwell@google.com>
-Cc: netdev@vger.kernel.org, Neal Cardwell <ncardwell@google.com>,
-	Yuchung Cheng <ycheng@google.com>,
-	Eric Dumazet <edumazet@google.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f178.google.com ([209.85.160.178]:39553 "EHLO
-	mail-yk0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751214AbbA2BKI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jan 2015 20:10:08 -0500
-Received: by mail-yk0-f178.google.com with SMTP id q200so10942420ykb.9
-        for <netdev@vger.kernel.org>; Wed, 28 Jan 2015 17:10:08 -0800 (PST)
-In-Reply-To: <1422493299-22114-1-git-send-email-ncardwell@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Murali Karicheri <m-karicheri2@ti.com>
+Subject: Re: [PATCH net-next v8 0/4] net: Add Keystone NetCP ethernet driver
+ support
+Date: Wed, 28 Jan 2015 17:40:12 -0500
+Message-ID: <54C9654C.8030407@ti.com>
+References: <1421367007-19744-1-git-send-email-m-karicheri2@ti.com> <54C92878.3030207@ti.com> <54C94A0D.9050505@ti.com> <20343006.1NmdQEM9nn@wuerfel>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, <devicetree@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
+To: Arnd Bergmann <arnd@arndb.de>, "Balbi, Felipe" <balbi@ti.com>,
+	<mugunthanvnm@ti.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20343006.1NmdQEM9nn@wuerfel>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch fixes a bug in CUBIC that causes cwnd to increase slightly
-too slowly when multiple ACKs arrive in the same jiffy.
++ Felipe, Mugunthan for commenting on TI_CPSW, ALE.
 
-If cwnd is supposed to increase at a rate of more than once per jiffy,
-then CUBIC was sometimes too slow. Because the bic_target is
-calculated for a future point in time, calculated with time in
-jiffies, the cwnd can increase over the course of the jiffy while the
-bic_target calculated as the proper CUBIC cwnd at time
-t=tcp_time_stamp+rtt does not increase, because tcp_time_stamp only
-increases on jiffy tick boundaries.
+On 01/28/2015 04:03 PM, Arnd Bergmann wrote:
+> On Wednesday 28 January 2015 15:43:57 Murali Karicheri wrote:
+>>> this. Hope I am on the right track.
+>>
+>> Reproduced this. Following errors seen when building the modules.
+>>
+>>     LD [M]  drivers/net/ethernet/ti/keystone_netcp.o
+>> drivers/net/ethernet/ti/netcp_ethss.o: In function `init_module':
+>> netcp_ethss.c:(.init.text+0x0): multiple definition of `init_module'
+>> drivers/net/ethernet/ti/netcp_core.o:netcp_core.c:(.init.text+0x0):
+>> first defined here
+>> drivers/net/ethernet/ti/netcp_ethss.o: In function `cleanup_module':
+>> netcp_ethss.c:(.exit.text+0x0): multiple definition of `cleanup_modu=
+le'
+>> drivers/net/ethernet/ti/netcp_core.o:netcp_core.c:(.exit.text+0x0):
+>> first defined here
+>> make[4]: *** [drivers/net/ethernet/ti/keystone_netcp.o] Error 1
+>>
+>> BTW, I had to disable cpsw_ale.c to get to build keystone NetCP. I a=
+m
+>> assuming someone from TI is addressing this.
+>>
+>> drivers/net/ethernet/ti/cpsw_ale.c: In function =E2=80=98cpsw_ale_st=
+art=E2=80=99:
+>> drivers/net/ethernet/ti/cpsw_ale.c:759:2: error: =E2=80=98KBUILD_MOD=
+NAME=E2=80=99
+>> undeclared (first use in this function)
+>> drivers/net/ethernet/ti/cpsw_ale.c:759:2: note: each undeclared
+>> identifier is reported only once for each function it appears in
+>
+> I think both problems are nontrivial to fix. The first one is obvious=
+ly
+> that there are multiple init_module functions in one module. You have
+> to either split the driver into multiple loadable modules with at mos=
+t
+> one init_module/cleanup_module pair each, or call one of the function=
+s
+> from the other one in the right order.
+I have a version that is building now with out issues. I had to make=20
+several modifications.
 
-So since the cnt is set to:
-	ca->cnt = cwnd / (bic_target - cwnd);
-as cwnd increases but bic_target does not increase due to jiffy
-granularity, the cnt becomes too large, causing cwnd to increase
-too slowly.
+1. export functions from drivers/soc/ti/knav* that are used by the netc=
+p=20
+driver. I will be sending a patch for this soon.
 
-For example:
-- suppose at the beginning of a jiffy, cwnd=40, bic_target=44
-- so CUBIC sets:
-   ca->cnt =  cwnd / (bic_target - cwnd) = 40 / (44 - 40) = 40/4 = 10
-- suppose we get 10 acks, each for 1 segment, so tcp_cong_avoid_ai()
-   increases cwnd to 41
-- so CUBIC sets:
-   ca->cnt =  cwnd / (bic_target - cwnd) = 41 / (44 - 41) = 41 / 3 = 13
+2. Convert netcp_ethss.o to a module and add Kconfig for the same
 
-So now CUBIC will wait for 13 packets to be ACKed before increasing
-cwnd to 42, insted of 10 as it should.
-
-The fix is to avoid adjusting the slope (determined by ca->cnt)
-multiple times within a jiffy, and instead skip to compute the Reno
-cwnd, the "TCP friendliness" code path.
-
-Reported-by: Eyal Perry <eyalpe@mellanox.com>
-Signed-off-by: Neal Cardwell <ncardwell@google.com>
-Signed-off-by: Yuchung Cheng <ycheng@google.com>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/ipv4/tcp_cubic.c | 8 ++++++++
- 1 file changed, 8 insertions(+)
-
-diff --git a/net/ipv4/tcp_cubic.c b/net/ipv4/tcp_cubic.c
-index ffc045d..4b276d1 100644
---- a/net/ipv4/tcp_cubic.c
-+++ b/net/ipv4/tcp_cubic.c
-@@ -213,6 +213,13 @@ static inline void bictcp_update(struct bictcp *ca, u32 cwnd, u32 acked)
- 	    (s32)(tcp_time_stamp - ca->last_time) <= HZ / 32)
- 		return;
- 
-+	/* The CUBIC function can update ca->cnt at most once per jiffy.
-+	 * On all cwnd reduction events, ca->epoch_start is set to 0,
-+	 * which will force a recalculation of ca->cnt.
-+	 */
-+	if (ca->epoch_start && tcp_time_stamp == ca->last_time)
-+		goto tcp_friendliness;
+  config TI_KEYSTONE_NETCP
+-       tristate "TI Keystone NETCP Ethernet subsystem Support"
++       tristate "TI Keystone NETCP Core Support"
++       select TI_CPSW_ALE
+         depends on OF
+         depends on KEYSTONE_NAVIGATOR_DMA && KEYSTONE_NAVIGATOR_QMSS
+         ---help---
+-         This driver supports TI's Keystone NETCP Ethernet subsystem.
++         This driver supports TI's Keystone NETCP Core.
 +
- 	ca->last_cwnd = cwnd;
- 	ca->last_time = tcp_time_stamp;
- 
-@@ -280,6 +287,7 @@ static inline void bictcp_update(struct bictcp *ca, u32 cwnd, u32 acked)
- 	if (ca->last_max_cwnd == 0 && ca->cnt > 20)
- 		ca->cnt = 20;	/* increase cwnd 5% per RTT */
- 
-+tcp_friendliness:
- 	/* TCP Friendly */
- 	if (tcp_friendliness) {
- 		u32 scale = beta_scale;
--- 
-2.2.0.rc0.207.ga3a616c
++         To compile this driver as a module, choose M here: the module
++         will be called keystone_netcp.
++
++config TI_KEYSTONE_NETCP_ETHSS
++       depends on TI_KEYSTONE_NETCP
++       tristate "TI Keystone NETCP Ethernet subsystem Support"
++       ---help---
+
+
+And Makefile to change as
+
+diff --git a/drivers/net/ethernet/ti/Makefile=20
+b/drivers/net/ethernet/ti/Makefile
+index 0a9813b..1dbb8b5 100644
+--- a/drivers/net/ethernet/ti/Makefile
++++ b/drivers/net/ethernet/ti/Makefile
+@@ -8,9 +8,13 @@ obj-$(CONFIG_TI_DAVINCI_EMAC) +=3D davinci_emac.o
+  obj-$(CONFIG_TI_DAVINCI_MDIO) +=3D davinci_mdio.o
+  obj-$(CONFIG_TI_DAVINCI_CPDMA) +=3D davinci_cpdma.o
+  obj-$(CONFIG_TI_CPSW_PHY_SEL) +=3D cpsw-phy-sel.o
+  obj-$(CONFIG_TI_CPSW) +=3D ti_cpsw.o
+  ti_cpsw-y :=3D cpsw_ale.o cpsw.o cpts.o
+
+  obj-$(CONFIG_TI_KEYSTONE_NETCP) +=3D keystone_netcp.o
+-keystone_netcp-y :=3D netcp_core.o netcp_ethss.o netcp_sgmii.o \
+-                       netcp_xgbepcsr.o cpsw_ale.o
++keystone_netcp-y :=3D netcp_core.o
++
++obj-$(CONFIG_TI_KEYSTONE_NETCP_ETHSS) +=3D keystone_netcp_ethss.o
++keystone_netcp_ethss-y :=3D netcp_ethss.o netcp_sgmii.o netcp_xgbepcsr=
+=2Eo \
++               cpsw_ale.o
+
+3. export some of the functions in netcp_core.c to support building=20
+keystone_netcp_ethss as module.
+
+>
+> The second problem is where I got stuck myself: cpsw_ale.c (also cpts=
+=2Ec)
+> is getting linked into both modules, which is not allowed: It is
+> impossible for the kernel to compile these if one driver is a module
+> and the other one is not, and any use of KBUILD_MODNAME fails because
+> it is unclear what the modname is if the file is compiled once to
+> be linked into two drivers.
+
+I am still looking into this. Both Keystone and TI CPSW driver would=20
+need to use cpsw_ale.o and cpts.o (currently not used, but will need=20
+this later). Not found a solution yet.
+
+Murali
+>
+> 	Arnd
+
+
+--=20
+Murali Karicheri
+Linux Kernel, Texas Instruments
