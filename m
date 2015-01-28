@@ -1,158 +1,87 @@
-From: Namhyung Kim <namhyung@kernel.org>
-Subject: Re: [PATCH v2 linux-trace 1/8] tracing: attach eBPF programs to
- tracepoints and syscalls
-Date: Thu, 29 Jan 2015 09:46:31 +0900
-Message-ID: <20150129004631.GA24182@sejong>
-References: <1422417973-10195-1-git-send-email-ast@plumgrid.com>
- <1422417973-10195-2-git-send-email-ast@plumgrid.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Steven Rostedt <rostedt@goodmis.org>,
-	Ingo Molnar <mingo@kernel.org>,
-	Arnaldo Carvalho de Melo <acme@infradead.org>,
-	Jiri Olsa <jolsa@redhat.com>,
-	Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>,
-	linux-api@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Alexei Starovoitov <ast@plumgrid.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1422417973-10195-2-git-send-email-ast@plumgrid.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Tony Lindgren <tony@atomide.com>
+Subject: [PATCH 2/3] net: davinci_emac: Get device dm816x MAC address using the cpsw code
+Date: Wed, 28 Jan 2015 11:33:05 -0800
+Message-ID: <1422473586-18100-3-git-send-email-tony@atomide.com>
+References: <1422473586-18100-1-git-send-email-tony@atomide.com>
+Cc: netdev@vger.kernel.org, linux-omap@vger.kernel.org,
+	Brian Hutchinson <b.hutchman@gmail.com>,
+	Felipe Balbi <balbi@ti.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp5.ore.mailhop.org ([54.186.10.118]:35257 "EHLO
+	smtp5.ore.mailhop.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753172AbbA2BSt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jan 2015 20:18:49 -0500
+In-Reply-To: <1422473586-18100-1-git-send-email-tony@atomide.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Alexei,
+At least on dm81xx, we can get the davinci_emac MAC address the same
+way as on am33xx cpsw.
 
-On Tue, Jan 27, 2015 at 08:06:06PM -0800, Alexei Starovoitov wrote:
-> User interface:
-> fd = open("/sys/kernel/debug/tracing/__event__/filter")
-> 
-> write(fd, "bpf_123")
-> 
-> where 123 is process local FD associated with eBPF program previously loaded.
-> __event__ is static tracepoint event or syscall.
-> (kprobe support is in next patch)
-> Once program is successfully attached to tracepoint event, the tracepoint
-> will be auto-enabled
-> 
-> close(fd)
-> auto-disables tracepoint event and detaches eBPF program from it
-> 
-> eBPF programs can call in-kernel helper functions to:
-> - lookup/update/delete elements in maps
-> - memcmp
-> - fetch_ptr/u64/u32/u16/u8 values from unsafe address via probe_kernel_read(),
->   so that eBPF program can walk any kernel data structures
-> 
-> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
-> ---
+Let's also use ether_addr_copy() for davinci_emac while at it.
 
-[SNIP]
-> diff --git a/kernel/trace/trace_events.c b/kernel/trace/trace_events.c
-> index b03a0ea77b99..70482817231a 100644
-> --- a/kernel/trace/trace_events.c
-> +++ b/kernel/trace/trace_events.c
-> @@ -1084,6 +1084,26 @@ event_filter_read(struct file *filp, char __user *ubuf, size_t cnt,
->  	return r;
->  }
->  
-> +static int event_filter_release(struct inode *inode, struct file *filp)
-> +{
-> +	struct ftrace_event_file *file;
-> +	char buf[2] = "0";
-> +
-> +	mutex_lock(&event_mutex);
-> +	file = event_file_data(filp);
-> +	if (file) {
-> +		if (file->flags & TRACE_EVENT_FL_BPF) {
-> +			/* auto-disable the filter */
-> +			ftrace_event_enable_disable(file, 0);
+Cc: Brian Hutchinson <b.hutchman@gmail.com>
+Cc: Felipe Balbi <balbi@ti.com>
+Signed-off-by: Tony Lindgren <tony@atomide.com>
+---
+ drivers/net/ethernet/ti/davinci_emac.c | 23 ++++++++++++++++++++++-
+ 1 file changed, 22 insertions(+), 1 deletion(-)
 
-Hmm.. what if user already enabled an event, attached a bpf filter and
-then detached the filter - I'm not sure we can always auto-disable
-it..
-
-
-> +
-> +			/* if BPF filter was used, clear it on fd close */
-> +			apply_event_filter(file, buf);
-> +		}
-> +	}
-> +	mutex_unlock(&event_mutex);
-> +	return 0;
-> +}
-> +
->  static ssize_t
->  event_filter_write(struct file *filp, const char __user *ubuf, size_t cnt,
->  		   loff_t *ppos)
-> @@ -1107,8 +1127,18 @@ event_filter_write(struct file *filp, const char __user *ubuf, size_t cnt,
->  
->  	mutex_lock(&event_mutex);
->  	file = event_file_data(filp);
-> -	if (file)
-> +	if (file) {
-> +		/*
-> +		 * note to user space tools:
-> +		 * write() into debugfs/tracing/events/xxx/filter file
-> +		 * must be done with the same privilege level as open()
-> +		 */
->  		err = apply_event_filter(file, buf);
-> +		if (!err && file->flags & TRACE_EVENT_FL_BPF)
-> +			/* once filter is applied, auto-enable it */
-> +			ftrace_event_enable_disable(file, 1);
-> +	}
-> +
->  	mutex_unlock(&event_mutex);
->  
->  	free_page((unsigned long) buf);
-> @@ -1363,6 +1393,7 @@ static const struct file_operations ftrace_event_filter_fops = {
->  	.open = tracing_open_generic,
->  	.read = event_filter_read,
->  	.write = event_filter_write,
-> +	.release = event_filter_release,
->  	.llseek = default_llseek,
->  };
->  
-> diff --git a/kernel/trace/trace_events_filter.c b/kernel/trace/trace_events_filter.c
-> index ced69da0ff55..e0303b3cc9fb 100644
-> --- a/kernel/trace/trace_events_filter.c
-> +++ b/kernel/trace/trace_events_filter.c
-> @@ -23,6 +23,9 @@
->  #include <linux/mutex.h>
->  #include <linux/perf_event.h>
->  #include <linux/slab.h>
-> +#include <linux/bpf.h>
-> +#include <trace/bpf_trace.h>
-> +#include <linux/filter.h>
->  
->  #include "trace.h"
->  #include "trace_output.h"
-> @@ -541,6 +544,21 @@ static int filter_match_preds_cb(enum move_type move, struct filter_pred *pred,
->  	return WALK_PRED_DEFAULT;
->  }
->  
-> +unsigned int trace_filter_call_bpf(struct event_filter *filter, void *ctx)
-> +{
-> +	unsigned int ret;
-> +
-> +	if (in_nmi()) /* not supported yet */
-> +		return 0;
-
-But doesn't this mean to auto-disable all attached events during NMI
-as returning 0 will prevent the event going to ring buffer?
-
-I think it'd be better to keep an attached event in a soft-disabled
-state like event trigger and give control of enabling to users..
-
-Thanks,
-Namhyung
-
-
-> +
-> +	rcu_read_lock();
-> +	ret = BPF_PROG_RUN(filter->prog, ctx);
-> +	rcu_read_unlock();
-> +
-> +	return ret;
-> +}
-> +EXPORT_SYMBOL_GPL(trace_filter_call_bpf);
+diff --git a/drivers/net/ethernet/ti/davinci_emac.c b/drivers/net/ethernet/ti/davinci_emac.c
+index 5fae435..a716938 100644
+--- a/drivers/net/ethernet/ti/davinci_emac.c
++++ b/drivers/net/ethernet/ti/davinci_emac.c
+@@ -69,6 +69,7 @@
+ #include <asm/irq.h>
+ #include <asm/page.h>
+ 
++#include "cpsw.h"
+ #include "davinci_cpdma.h"
+ 
+ static int debug_level;
+@@ -1838,7 +1839,7 @@ davinci_emac_of_get_pdata(struct platform_device *pdev, struct emac_priv *priv)
+ 	if (!is_valid_ether_addr(pdata->mac_addr)) {
+ 		mac_addr = of_get_mac_address(np);
+ 		if (mac_addr)
+-			memcpy(pdata->mac_addr, mac_addr, ETH_ALEN);
++			ether_addr_copy(pdata->mac_addr, mac_addr);
+ 	}
+ 
+ 	of_property_read_u32(np, "ti,davinci-ctrl-reg-offset",
+@@ -1879,6 +1880,22 @@ davinci_emac_of_get_pdata(struct platform_device *pdev, struct emac_priv *priv)
+ 	return  pdata;
+ }
+ 
++static int davinci_emac_try_get_mac(struct platform_device *pdev,
++				    int instance, u8 *mac_addr)
++{
++	int error = -EINVAL;
++
++	if (!pdev->dev.of_node)
++		return error;
++
++	if (of_device_is_compatible(pdev->dev.of_node, "ti,dm816-emac"))
++		error = cpsw_am33xx_cm_get_macid(&pdev->dev, 0x30,
++						 instance,
++						 mac_addr);
++
++	return error;
++}
++
+ /**
+  * davinci_emac_probe - EMAC device probe
+  * @pdev: The DaVinci EMAC device that we are removing
+@@ -2009,6 +2026,10 @@ static int davinci_emac_probe(struct platform_device *pdev)
+ 	}
+ 	ndev->irq = res->start;
+ 
++	rc = davinci_emac_try_get_mac(pdev, res_ctrl ? 0 : 1, priv->mac_addr);
++	if (!rc)
++		ether_addr_copy(ndev->dev_addr, priv->mac_addr);
++
+ 	if (!is_valid_ether_addr(priv->mac_addr)) {
+ 		/* Use random MAC if none passed */
+ 		eth_hw_addr_random(ndev);
+-- 
+2.1.4
