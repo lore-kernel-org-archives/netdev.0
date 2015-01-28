@@ -1,140 +1,170 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH net 0/2] netns: audit netdevice creation with IFLA_NET_NS_[PID|FD]
-Date: Wed, 28 Jan 2015 10:37:21 +0100
-Message-ID: <54C8ADD1.4050203@6wind.com>
-References: <1422307694-10079-1-git-send-email-nicolas.dichtel@6wind.com> <20150127093425.GA2698@omega> <54C7694C.2060709@6wind.com> <20150127122340.GA4338@omega> <54C7928F.9010002@6wind.com> <20150127140620.GA8941@omega> <54C7A5B7.60103@6wind.com> <20150127202617.GA13654@omega>
-Reply-To: nicolas.dichtel@6wind.com
+From: Willem de Bruijn <willemb@google.com>
+Subject: Re: [PATCH net-next v1 2/3] net-timestamp: no-payload only sysctl
+Date: Wed, 28 Jan 2015 11:40:39 -0500
+Message-ID: <CA+FuTSdQA81nWeJPy6rKDc+nGM7TzeWmZPMQ4f_N3uF2HokE-g@mail.gmail.com>
+References: <1422462528-4060-1-git-send-email-willemb@google.com> <1422462528-4060-3-git-send-email-willemb@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net, arvid.brodin@alten.se,
-	linux-wpan@vger.kernel.org
-To: Alexander Aring <alex.aring@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Richard Cochran <richardcochran@gmail.com>,
+	Andy Lutomirski <luto@amacapital.net>,
+	Willem de Bruijn <willemb@google.com>
+To: Network Development <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f170.google.com ([209.85.212.170]:61868 "EHLO
-	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761729AbbA1Uo6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jan 2015 15:44:58 -0500
-Received: by mail-wi0-f170.google.com with SMTP id bs8so6099685wib.1
-        for <netdev@vger.kernel.org>; Wed, 28 Jan 2015 12:44:57 -0800 (PST)
-In-Reply-To: <20150127202617.GA13654@omega>
+Received: from mail-oi0-f54.google.com ([209.85.218.54]:50331 "EHLO
+	mail-oi0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752988AbbA1UxL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jan 2015 15:53:11 -0500
+Received: by mail-oi0-f54.google.com with SMTP id v63so19983873oia.13
+        for <netdev@vger.kernel.org>; Wed, 28 Jan 2015 12:53:11 -0800 (PST)
+In-Reply-To: <1422462528-4060-3-git-send-email-willemb@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 27/01/2015 21:26, Alexander Aring a =C3=A9crit :
-> On Tue, Jan 27, 2015 at 03:50:31PM +0100, Nicolas Dichtel wrote:
->> Le 27/01/2015 15:06, Alexander Aring a =C3=A9crit :
->>> Hi,
->>>
->>> On Tue, Jan 27, 2015 at 02:28:47PM +0100, Nicolas Dichtel wrote:
->>> ...
->> [snip]
->>>>
->>>> I don't know how wpan0 is created and if this interface can be cre=
-ated directly
->>>> in another netns than init_net.
->>>>
->>>
->>> no it can't. The wpan0 interface can be created via the 802.15.4
->>> userspace tools and we don't have such option for namespaces. It
->>> should be always to init_net while creation.
->> Even with 'ip netns exec foo iwpan ...'?
->>
+On Wed, Jan 28, 2015 at 11:28 AM, Willem de Bruijn <willemb@google.com> wrote:
+> Tx timestamps are looped onto the error queue on top of an skb. This
+> mechanism leaks packet headers to processes unless the no-payload
+> options SOF_TIMESTAMPING_OPT_TSONLY is set.
 >
-> I did a quick test:
+> Add a sysctl that optionally drops looped timestamp with data. This
+> only affects processes without CAP_NET_RAW.
 >
-> diff --git a/net/mac802154/iface.c b/net/mac802154/iface.c
-> index 6fb6bdf..df55b42 100644
-> --- a/net/mac802154/iface.c
-> +++ b/net/mac802154/iface.c
-> @@ -590,6 +590,11 @@ ieee802154_if_add(struct ieee802154_local *local=
-, const char *name,
->          list_add_tail_rcu(&sdata->list, &local->interfaces);
->          mutex_unlock(&local->iflist_mtx);
+> The policy is checked when timestamps are generated in the stack.
+> It is possible for timestamps with data to be reported after the
+> sysctl is set, if these were queued internally earlier.
 >
-> +       if (net_eq(dev_net(ndev), &init_net))
-> +               printk(KERN_INFO "it's init_net\n");
-> +       else
-> +               printk(KERN_INFO "it's not init_net\n");
+> No vulnerability is immediately known that exploits knowledge
+> gleaned from packet headers, but it may still be preferable to allow
+> administrators to lock down this path at the cost of possible
+> breakage of legacy applications.
 >
-> With this patch and running:
+> Signed-off-by: Willem de Bruijn <willemb@google.com>
 >
-> ip netns exec foo iwpan phy phy0 interface add bar%d type node
+> ----
 >
-> I got a:
+> Changes (rfc -> v1)
+>   - document the sysctl in Documentation/sysctl/net.txt
+>   - fix access control race: read .._OPT_TSONLY only once,
+>         use same value for permission check and skb generation.
+> ---
+>  Documentation/sysctl/net.txt |  8 ++++++++
+>  include/net/sock.h           |  1 +
+>  net/core/skbuff.c            | 10 +++++++++-
+>  net/core/sock.c              |  3 +++
+>  net/core/sysctl_net_core.c   |  9 +++++++++
+>  5 files changed, 30 insertions(+), 1 deletion(-)
 >
-> [   52.032956] it's init_net
+> diff --git a/Documentation/sysctl/net.txt b/Documentation/sysctl/net.txt
+> index 666594b..6294b51 100644
+> --- a/Documentation/sysctl/net.txt
+> +++ b/Documentation/sysctl/net.txt
+> @@ -97,6 +97,14 @@ rmem_max
 >
-> It's also init_net when I run with "ip netns exec foo iwpan ..."
-Ok. After looking at the code, it's right that no netns is set in
-ieee802154_if_add(), thus the interface is in the default netns (init_n=
-et).
+>  The maximum receive socket buffer size in bytes.
+>
+> +tstamp_allow_data
+> +-----------------
+> +Allow processes to receive tx timestamps looped together with the original
+> +packet contents. If disabled, transmit timestamp requests from unprivileged
+> +processes are dropped unless socket option SOF_TIMESTAMPING_OPT_TSONLY is set.
+> +Default: 1 (on)
+> +
+> +
+>  wmem_default
+>  ------------
+>
+> diff --git a/include/net/sock.h b/include/net/sock.h
+> index 2210fec..9729171 100644
+> --- a/include/net/sock.h
+> +++ b/include/net/sock.h
+> @@ -2262,6 +2262,7 @@ bool sk_net_capable(const struct sock *sk, int cap);
+>  extern __u32 sysctl_wmem_max;
+>  extern __u32 sysctl_rmem_max;
+>
+> +extern int sysctl_tstamp_allow_data;
+>  extern int sysctl_optmem_max;
+>
+>  extern __u32 sysctl_wmem_default;
+> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+> index 65a3798..333c62e 100644
+> --- a/net/core/skbuff.c
+> +++ b/net/core/skbuff.c
+> @@ -3690,11 +3690,19 @@ static void __skb_complete_tx_timestamp(struct sk_buff *skb,
+>                 kfree_skb(skb);
+>  }
+>
+> +static bool skb_may_tx_timestamp(struct sock *sk, bool tsonly)
+> +{
+> +       return sysctl_tstamp_allow_data || capable(CAP_NET_RAW) || tsonly;
 
-[snip]
->>
->> But I still wonder if we should add a check about dev_net(dev) !=3D =
-init_net in
->> net/ieee802154/6lowpan/core.c.
->> If my understanding is correct:
->>   - wpan can be created directly in a netns !=3D init_net
->>   - 6lowpan must be in the same netns than wpan
->>   - code under net/ieee802154 only works in init_net, thus 6lowpan o=
-nly works
->>     in init_net.
->>
->> Do you agree?
->
-> yes. I will put the last item on my ToDo list if we can do more netns
-> stuff there.
-Cool.
+Immediately after hitting send discovered an issue with this patch,
+sorry. This test for CAP_NET_RAW is not correct in this context. Will
+have to either drop the CAP_NET_RAW exception to policy enforcement or
+find another way of testing for it.
 
+> +}
+> +
+>  void skb_complete_tx_timestamp(struct sk_buff *skb,
+>                                struct skb_shared_hwtstamps *hwtstamps)
+>  {
+>         struct sock *sk = skb->sk;
 >
->> What about this (based on net-next)?
->>
+> +       if (!skb_may_tx_timestamp(sk, false))
+> +               return;
+> +
+>         /* take a reference to prevent skb_orphan() from freeing the socket */
+>         sock_hold(sk);
 >
-> There are some little issues, see below.
+> @@ -3712,7 +3720,7 @@ void __skb_tstamp_tx(struct sk_buff *orig_skb,
+>         struct sk_buff *skb;
+>         bool tsonly = sk->sk_tsflags & SOF_TIMESTAMPING_OPT_TSONLY;
 >
->>  From 5ca1c46c68e4e4381b2f7e284f5dadeb28a53b2f Mon Sep 17 00:00:00 2=
-001
->> From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
->> Date: Tue, 27 Jan 2015 11:26:20 +0100
->> Subject: [PATCH] wpan/6lowpan: fix netns settings
->>
+> -       if (!sk)
+> +       if (!sk || !skb_may_tx_timestamp(sk, tsonly))
+>                 return;
 >
-> use "ieee802154:" instead "wpan/6lowpan:".
-Ok.
-
+>         if (tsonly)
+> diff --git a/net/core/sock.c b/net/core/sock.c
+> index 1c7a33d..93c8b20 100644
+> --- a/net/core/sock.c
+> +++ b/net/core/sock.c
+> @@ -325,6 +325,8 @@ __u32 sysctl_rmem_default __read_mostly = SK_RMEM_MAX;
+>  int sysctl_optmem_max __read_mostly = sizeof(unsigned long)*(2*UIO_MAXIOV+512);
+>  EXPORT_SYMBOL(sysctl_optmem_max);
 >
-> Can you rebase this patch on bluetooth-next?
-Will do.
-
-[snip]
->> --- a/net/mac802154/iface.c
->> +++ b/net/mac802154/iface.c
->> @@ -475,6 +475,7 @@ static void ieee802154_if_setup(struct net_devic=
-e *dev)
->>   	dev->mtu		=3D IEEE802154_MTU;
->>   	dev->tx_queue_len	=3D 300;
->>   	dev->flags		=3D IFF_NOARP | IFF_BROADCAST;
->> +	dev->features		|=3D NETIF_F_NETNS_LOCAL;
+> +int sysctl_tstamp_allow_data __read_mostly = 1;
+> +
+>  struct static_key memalloc_socks = STATIC_KEY_INIT_FALSE;
+>  EXPORT_SYMBOL_GPL(memalloc_socks);
 >
-> We should set this inside the cfg802154_netdev_notifier_call function
-> and NETDEV_REGISTER case. This can be found in "net/ieee802154/core.c=
-". [0]
+> @@ -840,6 +842,7 @@ set_rcvbuf:
+>                         ret = -EINVAL;
+>                         break;
+>                 }
+> +
+>                 if (val & SOF_TIMESTAMPING_OPT_ID &&
+>                     !(sk->sk_tsflags & SOF_TIMESTAMPING_OPT_ID)) {
+>                         if (sk->sk_protocol == IPPROTO_TCP) {
+> diff --git a/net/core/sysctl_net_core.c b/net/core/sysctl_net_core.c
+> index 31baba2..fde21d1 100644
+> --- a/net/core/sysctl_net_core.c
+> +++ b/net/core/sysctl_net_core.c
+> @@ -321,6 +321,15 @@ static struct ctl_table net_core_table[] = {
+>                 .mode           = 0644,
+>                 .proc_handler   = proc_dointvec
+>         },
+> +       {
+> +               .procname       = "tstamp_allow_data",
+> +               .data           = &sysctl_tstamp_allow_data,
+> +               .maxlen         = sizeof(int),
+> +               .mode           = 0644,
+> +               .proc_handler   = proc_dointvec_minmax,
+> +               .extra1         = &zero,
+> +               .extra2         = &one
+> +       },
+>  #ifdef CONFIG_RPS
+>         {
+>                 .procname       = "rps_sock_flow_entries",
+> --
+> 2.2.0.rc0.207.ga3a616c
 >
-> The branch "net/mac802154" affects 802.15.4 SoftMAC interfaces only. =
-We
-> currently support SoftMAC only, but further we support HardMAC driver=
-s.
-> The HardMAC drivers doesn't use the "net/mac802154" branch and call
-> netdev_register in driver layer.
->
-> When we do it in cfg802154_netdev_notifier_call then this will be set
-> for SoftMAC and HardMAC drivers (when we have a HardMAC driver). The
-> same behaviour can also be found in wireless implementation. [1]
-Ok.
-
-
-Regards,
-Nicolas
