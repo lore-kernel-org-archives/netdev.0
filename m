@@ -1,112 +1,93 @@
-From: Murali Karicheri <m-karicheri2@ti.com>
-Subject: Re: [PATCH net-next v8 0/4] net: Add Keystone NetCP ethernet driver
- support
-Date: Wed, 28 Jan 2015 13:20:40 -0500
-Message-ID: <54C92878.3030207@ti.com>
-References: <1421367007-19744-1-git-send-email-m-karicheri2@ti.com> <20150119.151106.822126941934010309.davem@davemloft.net> <54BE7A00.2020205@ti.com> <25883654.BLFxICW9P0@wuerfel> <54C91328.6030208@ti.com> <54C91FDD.1000009@ti.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [PATCH net-next v1 01/18] net: ethtool: propagate get_settings
+ error
+Date: Wed, 28 Jan 2015 16:30:30 +0000
+Message-ID: <1422462630.2709.23.camel@decadent.org.uk>
+References: <1422322574-6188-1-git-send-email-ddecotig@gmail.com>
+	 <1422322574-6188-2-git-send-email-ddecotig@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, <devicetree@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
-To: Arnd Bergmann <arnd@arndb.de>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-+UcI3RAOAqXFNkoXi8f6"
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Amir Vadai <amirv@mellanox.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-api@vger.kernel.org,
+	Eric Dumazet <edumazet@google.com>,
+	Eugenia Emantayev <eugenia@mellanox.co.il>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Ido Shamay <idos@mellanox.com>, Joe Perches <joe@perches.com>,
+	Saeed Mahameed <saeedm@mellanox.com>,
+	Govindarajulu Varadarajan <_govind@gmx.com>,
+	Venkata Duvvuru <VenkatKumar.Duvvuru@Emulex.Com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Eyal Perry <eyalpe@mellanox.com>,
+	Pravin B Shelar <pshelar@nicira.com>,
+	Ed Swierk <eswierk@skyportsystems.com>,
+	David Decotigny <decot@googlers.com>
+To: David Decotigny <ddecotig@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <54C91FDD.1000009@ti.com>
+In-Reply-To: <1422322574-6188-2-git-send-email-ddecotig@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 01/28/2015 12:43 PM, Murali Karicheri wrote:
-> On 01/28/2015 11:49 AM, Murali Karicheri wrote:
->> On 01/27/2015 05:28 PM, Arnd Bergmann wrote:
->>> On Tuesday 20 January 2015 10:53:36 Murali Karicheri wrote:
->>>> On 01/19/2015 03:11 PM, David Miller wrote:
->>>>> From: Murali Karicheri<m-karicheri2@ti.com>
->>>>> Date: Thu, 15 Jan 2015 19:10:03 -0500
->>>>>
->>>>>> The Network Coprocessor (NetCP) is a hardware accelerator that
->>>>>> processes
->>>>>> Ethernet packets. NetCP has a gigabit Ethernet (GbE) subsystem with
->>>>>> a ethernet
->>>>>> switch sub-module to send and receive packets. NetCP also includes
->>>>>> a packet
->>>>>> accelerator (PA) module to perform packet classification operations
->>>>>> such as
->>>>>> header matching, and packet modification operations such as checksum
->>>>>> generation. NetCP can also optionally include a Security
->>>>>> Accelerator(SA)
->>>>>> capable of performing IPSec operations on ingress/egress packets.
->>>>>>
->>>>>> Keystone SoC's also have a 10 Gigabit Ethernet Subsystem (XGbE) which
->>>>>> includes a 3-port Ethernet switch sub-module capable of 10Gb/s and
->>>>>> 1Gb/s rates per Ethernet port.
->>>>>>
->>>>>> Both GBE and XGBE network processors supported using common
->>>>>> driver. It
->>>>>> is also designed to handle future variants of NetCP.
->>>>>
->>>>> Series applied to net-next, thanks.
->>>> David,
->>>>
->>>> Thanks a lot for applying this series. This helps us move forward to
->>>> work on the next set of patches.
->>>
->>> Hi Murali,
->>>
->>> Building an ARM 'allmodconfig' kernel now runs into two separate
->>> problems
->>> from your driver:
->>>
->>> - you have two module_init() instances in one module, which conflict.
->>>
->>> - you have two files that are linked into more than one module, so
->>> building
->>> both TI_CPSW and TI_KEYSTONE_NETCP in the same kernel fails.
->>>
->>> The answer to both of these is probably to have separate loadable
->>> modules,
->>> but you might be able to come up with a different solution.
->> Arnd,
->>
->> Thanks for letting us know. We will look into this.
->>
->> How do I reproduce this? Is there a defconfig used for allmodconfig? I
->> am unable to find one. Any details to reproduce this will be useful.
->>
-> Ok I think I found it.
->
-> I did this with next-next branch and it seems to work. I will make
-> kernel build to reproduce this.
->
-> make ARCH=arm allmodconfig
-> make uImage;
->
-> I am building it now.
-Arnd,
 
-I see allmodconfig configure NetCP driver as module. My uImage build 
-from net-next branch went through fine. I am building modules right now 
-and should show error as you have pointed out. Let me know if you any 
-issues on how I am working to reproduce the issue (wrong branch, wrong 
-/incomplete commands etc. I have my CROSS_COMPILE and ARCH set in my 
-env). Want to reproduce this so as to make sure my fix is addressing 
-this. Hope I am on the right track.
+--=-+UcI3RAOAqXFNkoXi8f6
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Thanks
+On Mon, 2015-01-26 at 17:35 -0800, David Decotigny wrote:
+> From: David Decotigny <decot@googlers.com>
+>=20
+> Signed-off-by: David Decotigny <decot@googlers.com>
+> ---
+>  net/core/ethtool.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+>=20
+> diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+> index 91f74f3..52efb7e 100644
+> --- a/net/core/ethtool.c
+> +++ b/net/core/ethtool.c
+> @@ -364,7 +364,7 @@ static int ethtool_get_settings(struct net_device *de=
+v, void __user *useraddr)
+> =20
+>  	if (copy_to_user(useraddr, &cmd, sizeof(cmd)))
+>  		return -EFAULT;
+> -	return 0;
+> +	return err;
 
-Murali
->
-> Murali
->> Thanks.
->>
->> Murali
->>>
->>> Arnd
->>
->>
->
->
+err cannnot be negative at this point (and if it's positive, that's a
+bug in the get_settings implementation which we happen to fix up).
 
+Ben.
 
--- 
-Murali Karicheri
-Linux Kernel, Texas Instruments
+>  }
+> =20
+>  static int ethtool_set_settings(struct net_device *dev, void __user *use=
+raddr)
+
+--=20
+Ben Hutchings
+Teamwork is essential - it allows you to blame someone else.
+
+--=-+UcI3RAOAqXFNkoXi8f6
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIVAwUAVMkOq+e/yOyVhhEJAQqV5Q/9HQltpXHuRfZqtnbHPvWQGD/zxSl4x4NS
+rFWrVYBlr9wdb250PSLuum7ixYWYS46BC6ON00yMV3IaU4Y5J48Y+comJEV7DnQ8
+rq0B9D1uJI1v6kQbgPzovU6i1E8RdZUI24JEBbN2hALuHwNznXj3ouoM06RPg5z1
+NZGNg40ucuk9r8IQAjk2UuNPJeHo+7NvOVeT0VeAvcQHGZwJdjxRgpITnbJ/6zOB
+hkxYzuRo7k1su4D2IDvsHo0OiufUna9pQVmEY5CI7/yfNq1JUZ7mN/TvZhxncwUY
+HS5jchcurqrnsUI80nNyq5k6QEC0A067HdrfMiVi9J12OynpOKd6gKHXqggWUnlc
+F7bxpsLGILuORekUyFYWNWgJxXJfMwtK0VsirEKjsswx/y5X2eFHlKCmXcojybVV
+gHsX3JWhLGirwPobEuwgivFtd0IjkjJdsLQjBrtD6+D2EZZ/sZJ1AOflZdPDBHgA
+akfERt+BQV2VpeG+6PCKNd4gWX+9e8cbUg/8K46Km5i0cOrGaW2yl4JMEZdf7gtf
+hTS5qFx+rzwka0NaTXxm2lxXly6jHpTzfTGjtv+dP608W5NX6j/WsBLKKOpWvdNp
+KiL5gLatujtfl87cBdeqtODWDPXsA2FlDnWlFATtF6CXaJarJn/nWkks5ddqqaik
+nGpp836Ye1U=
+=IaPK
+-----END PGP SIGNATURE-----
+
+--=-+UcI3RAOAqXFNkoXi8f6--
