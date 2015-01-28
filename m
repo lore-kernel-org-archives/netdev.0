@@ -1,64 +1,75 @@
-From: Karl Beldan <karl.beldan@gmail.com>
-Subject: [PATCH v2] lib/checksum.c: fix carry in csum_tcpudp_nofold
-Date: Wed, 28 Jan 2015 10:58:11 +0100
-Message-ID: <1422439091-31413-1-git-send-email-karl.beldan@rivierawaves.com>
-Cc: Karl Beldan <karl.beldan@gmail.com>,
-	Karl Beldan <karl.beldan@rivierawaves.com>,
-	Al Viro <viro@ZenIV.linux.org.uk>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Arnd Bergmann <arnd@arndb.de>,
-	Mike Frysinger <vapier@gentoo.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, stable@vger.kernel.org
-To: unlisted-recipients:; (no To-header on input)
+From: Arnaldo Carvalho de Melo <acme@kernel.org>
+Subject: Re: [PATCH v2 linux-trace 4/8] samples: bpf: simple tracing example
+ in C
+Date: Wed, 28 Jan 2015 13:25:57 -0300
+Message-ID: <20150128162557.GP7220@kernel.org>
+References: <1422417973-10195-1-git-send-email-ast@plumgrid.com>
+ <1422417973-10195-5-git-send-email-ast@plumgrid.com>
+ <20150128162415.GO7220@kernel.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Steven Rostedt <rostedt@goodmis.org>,
+	Ingo Molnar <mingo@kernel.org>,
+	Namhyung Kim <namhyung@kernel.org>,
+	Jiri Olsa <jolsa@redhat.com>,
+	Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>,
+	linux-api@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Alexei Starovoitov <ast@plumgrid.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20150128162415.GO7220@kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The carry from the 64->32bits folding was dropped, e.g with:
-saddr=0xFFFFFFFF daddr=0xFF0000FF len=0xFFFF proto=0 sum=1,
-csum_tcpudp_nofold returned 0 instead of 1.
+Em Wed, Jan 28, 2015 at 01:24:15PM -0300, Arnaldo Carvalho de Melo escreveu:
+> Em Tue, Jan 27, 2015 at 08:06:09PM -0800, Alexei Starovoitov escreveu:
+> > diff --git a/samples/bpf/tracex1_kern.c b/samples/bpf/tracex1_kern.c
+> > new file mode 100644
+> > index 000000000000..7849ceb4bce6
+> > --- /dev/null
+> > +++ b/samples/bpf/tracex1_kern.c
+> > @@ -0,0 +1,28 @@
+> > +#include <linux/skbuff.h>
+> > +#include <linux/netdevice.h>
+> > +#include <uapi/linux/bpf.h>
+> > +#include <trace/bpf_trace.h>
+> > +#include "bpf_helpers.h"
+> > +
+> > +SEC("events/net/netif_receive_skb")
+> > +int bpf_prog1(struct bpf_context *ctx)
+> > +{
+> > +	/*
+> > +	 * attaches to /sys/kernel/debug/tracing/events/net/netif_receive_skb
+> > +	 * prints events for loobpack device only
+> > +	 */
+> > +	char devname[] = "lo";
+> > +	struct net_device *dev;
+> > +	struct sk_buff *skb = 0;
+> > +
+> > +	skb = (struct sk_buff *) ctx->arg1;
+> > +	dev = bpf_fetch_ptr(&skb->dev);
+> > +	if (bpf_memcmp(dev->name, devname, 2) == 0)
+> 
+> I'm only starting to look at all this, so bear with me... But why do we
+> need to have it as "bpf_memcmp"? Can't we simply use it as "memcmp" and
+> have it use the right function?
+> 
+> Less typing, perhaps we would need to have a:
+> 
+> #define memcmp bpf_memcmp(s1, s2, n) bpf_memcmp(s1, s2, n)
 
-Signed-off-by: Karl Beldan <karl.beldan@rivierawaves.com>
-Cc: Al Viro <viro@ZenIV.linux.org.uk>
-Cc: Eric Dumazet <eric.dumazet@gmail.com>
-Cc: Arnd Bergmann <arnd@arndb.de>
-Cc: Mike Frysinger <vapier@gentoo.org>
-Cc: netdev@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org
-Cc: stable@vger.kernel.org
----
- lib/checksum.c | 12 ++++++++++--
- 1 file changed, 10 insertions(+), 2 deletions(-)
+Argh, like this:
 
-diff --git a/lib/checksum.c b/lib/checksum.c
-index 129775e..fcf3894 100644
---- a/lib/checksum.c
-+++ b/lib/checksum.c
-@@ -47,6 +47,15 @@ static inline unsigned short from32to16(unsigned int x)
- 	return x;
- }
+#define memcmp(s1, s2, n) bpf_memcmp(s1, s2, n)
  
-+static inline u32 from64to32(u64 x)
-+{
-+	/* add up 32-bit and 32-bit for 32+c bit */
-+	x = (x & 0xffffffff) + (x >> 32);
-+	/* add up carry.. */
-+	x = (x & 0xffffffff) + (x >> 32);
-+	return (u32)x;
-+}
-+
- static unsigned int do_csum(const unsigned char *buff, int len)
- {
- 	int odd;
-@@ -195,8 +204,7 @@ __wsum csum_tcpudp_nofold(__be32 saddr, __be32 daddr,
- #else
- 	s += (proto + len) << 8;
- #endif
--	s += (s >> 32);
--	return (__force __wsum)s;
-+	return (__force __wsum)from64to32(s);
- }
- EXPORT_SYMBOL(csum_tcpudp_nofold);
- #endif
--- 
-2.0.1
+> in bpf_helpers.h to have it work?
+> 
+> - Arnaldo
+> 
+> > +		/* print event using default tracepoint format */
+> > +		return 1;
+> > +
+> > +	/* drop event */
+> > +	return 0;
+> > +}
