@@ -1,38 +1,41 @@
-From: Tony Lindgren <tony@atomide.com>
-Subject: [PATCH 0/3] Changes to cpsw and davinci_emac for getting MAC address
-Date: Wed, 28 Jan 2015 11:33:03 -0800
-Message-ID: <1422473586-18100-1-git-send-email-tony@atomide.com>
-Cc: netdev@vger.kernel.org, linux-omap@vger.kernel.org
+From: Jack Morgenstein <jackm@dev.mellanox.co.il>
+Subject: Re: [PATCH net-next 06/10] net/mlx4_core: Fix struct mlx4_vhcr_cmd
+ to make implicit padding explicit
+Date: Wed, 28 Jan 2015 17:16:17 +0200
+Message-ID: <20150128171617.3d34cdfa@jpm-OptiPlex-GX620>
+References: <1422351179-27284-1-git-send-email-amirv@mellanox.com>
+ <1422351179-27284-7-git-send-email-amirv@mellanox.com>
+ <063D6719AE5E284EB5DD2968C1650D6D1CAD3B01@AcuExch.aculab.com>
+ <20150127.111334.501141232585900738.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: David.Laight@ACULAB.COM, amirv@mellanox.com,
+	netdev@vger.kernel.org, ogerlitz@mellanox.com,
+	yevgenyp@mellanox.com
 To: David Miller <davem@davemloft.net>
-Return-path: <linux-omap-owner@vger.kernel.org>
-Sender: linux-omap-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f169.google.com ([209.85.212.169]:43139 "EHLO
+	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754025AbbA1U1y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jan 2015 15:27:54 -0500
+Received: by mail-wi0-f169.google.com with SMTP id h11so11500433wiw.0
+        for <netdev@vger.kernel.org>; Wed, 28 Jan 2015 12:27:53 -0800 (PST)
+In-Reply-To: <20150127.111334.501141232585900738.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+>>On Tue, 27 Jan 2015 11:13:34 -0800 (PST)
+>>David Miller <davem@davemloft.net> wrote:
 
-Here are a few patches to add common code for cpsw and davinci_emac for
-getting the MAC address. Looks like we can also now add code to get the
-MAC address on 3517 but in a slightly different way.
+>> Indeed, I'm really sick of seeing these packed structures being
+>> created all over the place.
+>> 
+>> They are to be used in absolutely extreme cases where no other
+>> solution is possible.
 
-Regards,
+>The V2 of this patch does not have "packed".
 
-Tony
-
-
-Tony Lindgren (3):
-  net: cpsw: Add a minimal cpsw-common module for shared code
-  net: davinci_emac: Get device dm816x MAC address using the cpsw code
-  net: davinci_emac: Get device MAC on 3517
-
- arch/arm/boot/dts/am3517.dtsi          |  1 +
- drivers/net/ethernet/ti/Makefile       |  3 ++
- drivers/net/ethernet/ti/cpsw-common.c  | 53 ++++++++++++++++++++++++++++++++
- drivers/net/ethernet/ti/cpsw.c         | 35 ++-------------------
- drivers/net/ethernet/ti/cpsw.h         |  2 ++
- drivers/net/ethernet/ti/davinci_emac.c | 56 +++++++++++++++++++++++++++++++++-
- 6 files changed, 116 insertions(+), 34 deletions(-)
- create mode 100644 drivers/net/ethernet/ti/cpsw-common.c
-
--- 
-2.1.4
-
+I meant the **V1** version of the patch, does not have "packed".
+ 
+-Jack
