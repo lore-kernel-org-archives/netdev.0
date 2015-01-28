@@ -1,46 +1,70 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: A problem about ICMP packet-too-big message handler
-Date: Wed, 28 Jan 2015 04:45:09 -0800
-Message-ID: <1422449109.29618.42.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <54C78B8D.1070104@huawei.com>
-	 <20150128051929.GA3369592@devbig242.prn2.facebook.com>
-	 <54C885D3.70808@huawei.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Martin Lau <kafai@fb.com>, netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Yang Yingliang <yangyingliang@huawei.com>
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Subject: [PATCH] cxgb4: Remove preprocessor check for CONFIG_CXGB4_DCB
+Date: Wed, 28 Jan 2015 21:49:51 +0530
+Message-ID: <1422461991-20684-1-git-send-email-hariprasad@chelsio.com>
+Cc: davem@davemloft.net, leedom@chelsio.com, anish@chelsio.com,
+	nirranjan@chelsio.com, praveenm@chelsio.com,
+	Hariprasad Shenai <hariprasad@chelsio.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f176.google.com ([209.85.223.176]:36295 "EHLO
-	mail-ie0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755713AbbA2CAc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jan 2015 21:00:32 -0500
-Received: by mail-ie0-f176.google.com with SMTP id rd18so27762043iec.7
-        for <netdev@vger.kernel.org>; Wed, 28 Jan 2015 18:00:32 -0800 (PST)
-In-Reply-To: <54C885D3.70808@huawei.com>
+Received: from stargate.chelsio.com ([67.207.112.58]:18198 "EHLO
+	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1756039AbbA2CCC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jan 2015 21:02:02 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2015-01-28 at 14:46 +0800, Yang Yingliang wrote:
-> On 2015/1/28 13:19, Martin Lau wrote:
-> > On Tue, Jan 27, 2015 at 08:58:53PM +0800, Yang Yingliang wrote:
-> >> Hi,
-> >>
-> >> My kernel is 3.10 LTS.
-> >>
-> >> I got a problem here about handling ICMP packet-too-big message.
-> >>
-> >> Before sending a packet-too-big packet :
-> > The expires should be set by the host _receiving_ the icmpv6 too-big.
-> > 
-> > Can you spell out some details of the outgoing icmpv6 too-big packet?
-> > like, the src/dst ip of the icmpv6 and the original ip packet that triggered the
-> > too-big.
-> > 
-> 
-> I don't send too-big packet to trigger the err handling.
-> 
-> I just only send a ICMPv6 packet which type is ICMPV6_PKT_TOOBIG.
+In commit dc9daab226aa ("cxgb4: Added support in debugfs to dump
+sge_qinfo") a preprocessor check for CONFIG_CXGB4_DCB got added, which should
+have been CONFIG_CHELSIO_T4_DCB.
 
-You meant : you received an ICMPv6 packet, or you send it ?
+Reported-by: Paul Bolle <pebolle@tiscal.nl>
+Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
+---
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c |   24 +++++++++++++++++++-
+ 1 files changed, 23 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
+index 47c0869..61c000a 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
+@@ -1229,6 +1229,28 @@ static const struct file_operations rss_vf_config_debugfs_fops = {
+ 	.release = seq_release_private
+ };
+ 
++/**
++ * ethqset2pinfo - return port_info of an Ethernet Queue Set
++ * @adap: the adapter
++ * @qset: Ethernet Queue Set
++ */
++static inline struct port_info *ethqset2pinfo(struct adapter *adap, int qset)
++{
++	int pidx;
++
++	for_each_port(adap, pidx) {
++		struct port_info *pi = adap2pinfo(adap, pidx);
++
++		if (qset >= pi->first_qset &&
++		    qset < pi->first_qset + pi->nqsets)
++			return pi;
++	}
++
++	/* should never happen! */
++	BUG_ON(1);
++	return NULL;
++}
++
+ static int sge_qinfo_show(struct seq_file *seq, void *v)
+ {
+ 	struct adapter *adap = seq->private;
+@@ -1272,7 +1294,7 @@ do { \
+ 		T("TxQ inuse:", q.in_use);
+ 		T("TxQ CIDX:", q.cidx);
+ 		T("TxQ PIDX:", q.pidx);
+-#ifdef CONFIG_CXGB4_DCB
++#ifdef CONFIG_CHELSIO_T4_DCB
+ 		T("DCB Prio:", dcb_prio);
+ 		S3("u", "DCB PGID:",
+ 		   (ethqset2pinfo(adap, base_qset + i)->dcb.pgid >>
+-- 
+1.7.1
