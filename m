@@ -1,43 +1,23 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] act_connmark: fix dependencies better
-Date: Wed, 28 Jan 2015 17:30:09 +0100
-Message-ID: <1806649.OoZh1UV3MM@wuerfel>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: linux-next: manual merge of the net-next tree with the net tree
+Date: Wed, 28 Jan 2015 09:39:12 +0100
+Message-ID: <54C8A030.1000906@redhat.com>
+References: <20150128120214.3307aed8@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Thomas Graf <tgraf@suug.ch>, Felix Fietkau <nbd@openwrt.org>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.126.131]:58192 "EHLO
-	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753749AbbA1Uyk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jan 2015 15:54:40 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Jiri Pirko <jiri@resnulli.us>
+To: Stephen Rothwell <sfr@canb.auug.org.au>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20150128120214.3307aed8@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-NET_ACT_CONNMARK fails to build if NF_CONNTRACK_MARK is disabled,
-and d7924450e14ea4 ("act_connmark: Add missing dependency on
-NF_CONNTRACK_MARK") fixed that case, but missed the cased where
-NF_CONNTRACK is a loadable module.
+On 01/28/2015 02:02 AM, Stephen Rothwell wrote:
+...
+> I fixed it up (see below) and can carry the fix as necessary (no action
+> is required).
 
-This adds the second dependency to ensure that NET_ACT_CONNMARK
-can only be built-in if NF_CONNTRACK is also part of the kernel
-rather than a loadable module.
-
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-
-diff --git a/net/sched/Kconfig b/net/sched/Kconfig
-index 5fd81031f8f6..2264b491383a 100644
---- a/net/sched/Kconfig
-+++ b/net/sched/Kconfig
-@@ -713,7 +713,7 @@ config NET_ACT_BPF
- config NET_ACT_CONNMARK
-         tristate "Netfilter Connection Mark Retriever"
-         depends on NET_CLS_ACT && NETFILTER && IP_NF_IPTABLES
--        depends on NF_CONNTRACK_MARK
-+        depends on NF_CONNTRACK && NF_CONNTRACK_MARK
-         ---help---
- 	  Say Y here to allow retrieving of conn mark
- 
+Looks good, thanks!
