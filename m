@@ -1,87 +1,83 @@
-From: Tony Lindgren <tony@atomide.com>
-Subject: [PATCH 2/3] net: davinci_emac: Get device dm816x MAC address using the cpsw code
-Date: Wed, 28 Jan 2015 11:33:05 -0800
-Message-ID: <1422473586-18100-3-git-send-email-tony@atomide.com>
-References: <1422473586-18100-1-git-send-email-tony@atomide.com>
-Cc: netdev@vger.kernel.org, linux-omap@vger.kernel.org,
-	Brian Hutchinson <b.hutchman@gmail.com>,
-	Felipe Balbi <balbi@ti.com>
-To: David Miller <davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC] net: tcp: null pointer crash in __inet_put_port
+Date: Wed, 28 Jan 2015 13:03:35 -0800
+Message-ID: <1422479015.21689.3.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1422460613-10782-1-git-send-email-harouth@codeaurora.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Harout Hedeshian <harouth@codeaurora.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp5.ore.mailhop.org ([54.186.10.118]:35257 "EHLO
-	smtp5.ore.mailhop.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753172AbbA2BSt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jan 2015 20:18:49 -0500
-In-Reply-To: <1422473586-18100-1-git-send-email-tony@atomide.com>
+Received: from mail-ie0-f177.google.com ([209.85.223.177]:46290 "EHLO
+	mail-ie0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752562AbbA2BU0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jan 2015 20:20:26 -0500
+Received: by mail-ie0-f177.google.com with SMTP id vy18so27485998iec.8
+        for <netdev@vger.kernel.org>; Wed, 28 Jan 2015 17:20:25 -0800 (PST)
+In-Reply-To: <1422460613-10782-1-git-send-email-harouth@codeaurora.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-At least on dm81xx, we can get the davinci_emac MAC address the same
-way as on am33xx cpsw.
+On Wed, 2015-01-28 at 08:56 -0700, Harout Hedeshian wrote:
+> Hello,
+> 
+> We are observing a crash in __inet_put_port() wherein icsk_bind_hash
+> is null (stack trace below).
+> 
+> net/ipv4/inet_hashtables.c:
+> tb = inet_csk(sk)->icsk_bind_hash;
+> __sk_del_bind_node(sk);
+> tb->num_owners--;       <-- tb is unconditionally dereferenced here
+> 
+> From the RAM dumps: [D:0xFFFFFFC0222FB6F8] icsk_bind_hash = 0x0 = ,
+> 
+> The caller of inet_put_port() in this case is tcp_set_state() which
+> already does a null check on this particular field before calling
+> inet_put_port().
+> 
+> net/ipv4/tcp.c:
+> if (inet_csk(sk)->icsk_bind_hash &&
+>    !(sk->sk_userlocks & SOCK_BINDPORT_LOCK))
+> 	inet_put_port(sk);
+> 
+> It seems that inet_put_port() does some locking by disabling bottom
+> halves, but this locking is happening after the null check.
+> 
+> Additionally, I see tcp_v4_destroy_sock() also calling inet_put_port()
+> after doing a similar null check. However, I am unsure if it would
+> ever be called on the same socket.
+> 
+> Does the proposed solution of locking the bottom halves from
+> tcp_set_state() make any sense here? Or use some other locking mechanism
+> directly on the socket?
 
-Let's also use ether_addr_copy() for davinci_emac while at it.
+>  net/ipv4/tcp.c | 2 ++
+>  1 file changed, 2 insertions(+)
+> 
+> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+> index 3075723..f3b5714 100644
+> --- a/net/ipv4/tcp.c
+> +++ b/net/ipv4/tcp.c
+> @@ -1910,9 +1910,11 @@ void tcp_set_state(struct sock *sk, int state)
+>  			TCP_INC_STATS(sock_net(sk), TCP_MIB_ESTABRESETS);
+>  
+>  		sk->sk_prot->unhash(sk);
+> +		local_bh_disable();
+>  		if (inet_csk(sk)->icsk_bind_hash &&
+>  		    !(sk->sk_userlocks & SOCK_BINDPORT_LOCK))
+>  			inet_put_port(sk);
+> +		local_bh_enable();
+>  		/* fall through */
+>  	default:
+>  		if (oldstate == TCP_ESTABLISHED)
 
-Cc: Brian Hutchinson <b.hutchman@gmail.com>
-Cc: Felipe Balbi <balbi@ti.com>
-Signed-off-by: Tony Lindgren <tony@atomide.com>
----
- drivers/net/ethernet/ti/davinci_emac.c | 23 ++++++++++++++++++++++-
- 1 file changed, 22 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/ti/davinci_emac.c b/drivers/net/ethernet/ti/davinci_emac.c
-index 5fae435..a716938 100644
---- a/drivers/net/ethernet/ti/davinci_emac.c
-+++ b/drivers/net/ethernet/ti/davinci_emac.c
-@@ -69,6 +69,7 @@
- #include <asm/irq.h>
- #include <asm/page.h>
- 
-+#include "cpsw.h"
- #include "davinci_cpdma.h"
- 
- static int debug_level;
-@@ -1838,7 +1839,7 @@ davinci_emac_of_get_pdata(struct platform_device *pdev, struct emac_priv *priv)
- 	if (!is_valid_ether_addr(pdata->mac_addr)) {
- 		mac_addr = of_get_mac_address(np);
- 		if (mac_addr)
--			memcpy(pdata->mac_addr, mac_addr, ETH_ALEN);
-+			ether_addr_copy(pdata->mac_addr, mac_addr);
- 	}
- 
- 	of_property_read_u32(np, "ti,davinci-ctrl-reg-offset",
-@@ -1879,6 +1880,22 @@ davinci_emac_of_get_pdata(struct platform_device *pdev, struct emac_priv *priv)
- 	return  pdata;
- }
- 
-+static int davinci_emac_try_get_mac(struct platform_device *pdev,
-+				    int instance, u8 *mac_addr)
-+{
-+	int error = -EINVAL;
-+
-+	if (!pdev->dev.of_node)
-+		return error;
-+
-+	if (of_device_is_compatible(pdev->dev.of_node, "ti,dm816-emac"))
-+		error = cpsw_am33xx_cm_get_macid(&pdev->dev, 0x30,
-+						 instance,
-+						 mac_addr);
-+
-+	return error;
-+}
-+
- /**
-  * davinci_emac_probe - EMAC device probe
-  * @pdev: The DaVinci EMAC device that we are removing
-@@ -2009,6 +2026,10 @@ static int davinci_emac_probe(struct platform_device *pdev)
- 	}
- 	ndev->irq = res->start;
- 
-+	rc = davinci_emac_try_get_mac(pdev, res_ctrl ? 0 : 1, priv->mac_addr);
-+	if (!rc)
-+		ether_addr_copy(ndev->dev_addr, priv->mac_addr);
-+
- 	if (!is_valid_ether_addr(priv->mac_addr)) {
- 		/* Use random MAC if none passed */
- 		eth_hw_addr_random(ndev);
--- 
-2.1.4
+I don't think it makes sense.
+
+tcp_set_state() should only be used on a locked socket.
+
+I believe you are papering over another bug.
+
+bh are disabled in inet_put_port because of the spin_lock() that can be
+taken both from process and softirq contexts.
