@@ -1,276 +1,113 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: [PATCH v2 linux-trace 5/8] samples: bpf: counting example for kfree_skb tracepoint and write syscall
-Date: Tue, 27 Jan 2015 20:06:10 -0800
-Message-ID: <1422417973-10195-6-git-send-email-ast@plumgrid.com>
-References: <1422417973-10195-1-git-send-email-ast@plumgrid.com>
-Cc: Ingo Molnar <mingo@kernel.org>, Namhyung Kim <namhyung@kernel.org>,
-	Arnaldo Carvalho de Melo <acme@infradead.org>,
-	Jiri Olsa <jolsa@redhat.com>,
-	Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>,
-	linux-api@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Steven Rostedt <rostedt@goodmis.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1422417973-10195-1-git-send-email-ast@plumgrid.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Fan Du <fengyuleidian0615@gmail.com>
+Subject: Re: [PATCHv3 ipsec-next] xfrm: Do not parse 32bits compiled xfrm
+ netlink msg on 64bits host
+Date: Wed, 28 Jan 2015 12:34:29 +0800
+Message-ID: <54C866D5.4070708@gmail.com>
+References: <20150127.001226.711259930266409202.davem () davemloft ! net> <1422349230-17394-1-git-send-email-fan.du@intel.com> <063D6719AE5E284EB5DD2968C1650D6D1CAD3B2B@AcuExch.aculab.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: 'Fan Du' <fan.du@intel.com>,
+	"steffen.klassert@secunet.com" <steffen.klassert@secunet.com>,
+	"herbert@gondor.apana.org.au" <herbert@gondor.apana.org.au>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Laight <David.Laight@ACULAB.COM>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:58081 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965308AbbA1Eig (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2015 23:38:36 -0500
+Received: by mail-pa0-f46.google.com with SMTP id lj1so22954682pab.5
+        for <netdev@vger.kernel.org>; Tue, 27 Jan 2015 20:38:36 -0800 (PST)
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CAD3B2B@AcuExch.aculab.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-this example has two probes in one C file that attach to different tracepoints
-and use two different maps.
+=E4=BA=8E 2015=E5=B9=B401=E6=9C=8827=E6=97=A5 17:46, David Laight =E5=86=
+=99=E9=81=93:
+> From: Fan Du
+>> structure like xfrm_usersa_info or xfrm_userpolicy_info
+>> has different sizeof when compiled as 32bits and 64bits
+>> due to not appending pack attribute in their definition.
+>
+> Don't 'pack' the structure, just ensure that all the fields
+> are fixed sized and on their natural boundary.
 
-1st probe is the similar to dropmon.c. It attaches to kfree_skb tracepoint and
-count number of packet drops at different locations
+Is that simple??
 
-2nd probe attaches to syscalls/sys_enter_write and computes a histogram of different
-write sizes
+The layout is exactly the same between 32bits and 64bits, only differen=
+ce
+is the last cache line padding, because even if last cache line is not =
+fully
+occupied, but at least use even bytes, not odd bytes. I think this rela=
+tes
+to cache HW behaviour, not how the structure is naturally aligned or no=
+t.
+Actually, the structure members is aligned indeed.
 
-Usage:
-$ sudo tracex2
-writing bpf-8 -> /sys/kernel/debug/tracing/events/skb/kfree_skb/filter
-writing bpf-10 -> /sys/kernel/debug/tracing/events/syscalls/sys_enter_write/filter
-location 0xffffffff816959a5 count 1
+#### 64bits
+struct xfrm_usersa_info {
+     struct xfrm_selector       sel;                  /*     0    56 */
+     struct xfrm_id             id;                   /*    56    24 */
 
-location 0xffffffff816959a5 count 2
+     /* XXX last struct has 3 bytes of padding */
 
-557145+0 records in
-557145+0 records out
-285258240 bytes (285 MB) copied, 1.02379 s, 279 MB/s
-           syscall write() stats
-     byte_size       : count     distribution
-       1 -> 1        : 3        |                                      |
-       2 -> 3        : 0        |                                      |
-       4 -> 7        : 0        |                                      |
-       8 -> 15       : 0        |                                      |
-      16 -> 31       : 2        |                                      |
-      32 -> 63       : 3        |                                      |
-      64 -> 127      : 1        |                                      |
-     128 -> 255      : 1        |                                      |
-     256 -> 511      : 0        |                                      |
-     512 -> 1023     : 1118968  |************************************* |
+     /* --- cacheline 1 boundary (64 bytes) was 16 bytes ago --- */
+     xfrm_address_t             saddr;                /*    80    16 */
+     struct xfrm_lifetime_cfg   lft;                  /*    96    64 */
+     /* --- cacheline 2 boundary (128 bytes) was 32 bytes ago --- */
+     struct xfrm_lifetime_cur   curlft;               /*   160    32 */
+     /* --- cacheline 3 boundary (192 bytes) --- */
+     struct xfrm_stats          stats;                /*   192    12 */
+     __u32                      seq;                  /*   204     4 */
+     __u32                      reqid;                /*   208     4 */
+     __u16                      family;               /*   212     2 */
+     __u8                       mode;                 /*   214     1 */
+     __u8                       replay_window;        /*   215     1 */
+     __u8                       flags;                /*   216     1 */
 
-Ctrl-C at any time. Kernel will auto cleanup maps and programs
+     /* size: 224, cachelines: 4, members: 12 */
+     /* padding: 7 */
+     /* paddings: 1, sum paddings: 3 */
+     /* last cacheline: 32 bytes */
+};
 
-Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
----
- samples/bpf/Makefile       |    4 ++
- samples/bpf/tracex2_kern.c |   71 +++++++++++++++++++++++++++++++++
- samples/bpf/tracex2_user.c |   95 ++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 170 insertions(+)
- create mode 100644 samples/bpf/tracex2_kern.c
- create mode 100644 samples/bpf/tracex2_user.c
 
-diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
-index da28e1b6d3a6..416af24b01fd 100644
---- a/samples/bpf/Makefile
-+++ b/samples/bpf/Makefile
-@@ -8,6 +8,7 @@ hostprogs-y += sockex1
- hostprogs-y += sockex2
- hostprogs-y += dropmon
- hostprogs-y += tracex1
-+hostprogs-y += tracex2
- 
- dropmon-objs := dropmon.o libbpf.o
- test_verifier-objs := test_verifier.o libbpf.o
-@@ -16,12 +17,14 @@ sock_example-objs := sock_example.o libbpf.o
- sockex1-objs := bpf_load.o libbpf.o sockex1_user.o
- sockex2-objs := bpf_load.o libbpf.o sockex2_user.o
- tracex1-objs := bpf_load.o libbpf.o tracex1_user.o
-+tracex2-objs := bpf_load.o libbpf.o tracex2_user.o
- 
- # Tell kbuild to always build the programs
- always := $(hostprogs-y)
- always += sockex1_kern.o
- always += sockex2_kern.o
- always += tracex1_kern.o
-+always += tracex2_kern.o
- 
- HOSTCFLAGS += -I$(objtree)/usr/include
- 
-@@ -29,6 +32,7 @@ HOSTCFLAGS_bpf_load.o += -I$(objtree)/usr/include -Wno-unused-variable
- HOSTLOADLIBES_sockex1 += -lelf
- HOSTLOADLIBES_sockex2 += -lelf
- HOSTLOADLIBES_tracex1 += -lelf
-+HOSTLOADLIBES_tracex2 += -lelf
- 
- # point this to your LLVM backend with bpf support
- LLC=$(srctree)/tools/bpf/llvm/bld/Debug+Asserts/bin/llc
-diff --git a/samples/bpf/tracex2_kern.c b/samples/bpf/tracex2_kern.c
-new file mode 100644
-index 000000000000..a789c456c1b4
---- /dev/null
-+++ b/samples/bpf/tracex2_kern.c
-@@ -0,0 +1,71 @@
-+#include <linux/skbuff.h>
-+#include <linux/netdevice.h>
-+#include <uapi/linux/bpf.h>
-+#include <trace/bpf_trace.h>
-+#include "bpf_helpers.h"
-+
-+struct bpf_map_def SEC("maps") my_map = {
-+	.type = BPF_MAP_TYPE_HASH,
-+	.key_size = sizeof(long),
-+	.value_size = sizeof(long),
-+	.max_entries = 1024,
-+};
-+
-+SEC("events/skb/kfree_skb")
-+int bpf_prog2(struct bpf_context *ctx)
-+{
-+	long loc = ctx->arg2;
-+	long init_val = 1;
-+	long *value;
-+
-+	value = bpf_map_lookup_elem(&my_map, &loc);
-+	if (value)
-+		*value += 1;
-+	else
-+		bpf_map_update_elem(&my_map, &loc, &init_val, BPF_ANY);
-+	return 0;
-+}
-+
-+static unsigned int log2(unsigned int v)
-+{
-+	unsigned int r;
-+	unsigned int shift;
-+
-+	r = (v > 0xFFFF) << 4; v >>= r;
-+	shift = (v > 0xFF) << 3; v >>= shift; r |= shift;
-+	shift = (v > 0xF) << 2; v >>= shift; r |= shift;
-+	shift = (v > 0x3) << 1; v >>= shift; r |= shift;
-+	r |= (v >> 1);
-+	return r;
-+}
-+
-+static unsigned int log2l(unsigned long v)
-+{
-+	unsigned int hi = v >> 32;
-+	if (hi)
-+		return log2(hi) + 32;
-+	else
-+		return log2(v);
-+}
-+
-+struct bpf_map_def SEC("maps") my_hist_map = {
-+	.type = BPF_MAP_TYPE_ARRAY,
-+	.key_size = sizeof(u32),
-+	.value_size = sizeof(long),
-+	.max_entries = 64,
-+};
-+
-+SEC("events/syscalls/sys_enter_write")
-+int bpf_prog3(struct bpf_context *ctx)
-+{
-+	long write_size = ctx->arg3;
-+	long init_val = 1;
-+	long *value;
-+	u32 index = log2l(write_size);
-+
-+	value = bpf_map_lookup_elem(&my_hist_map, &index);
-+	if (value)
-+		__sync_fetch_and_add(value, 1);
-+	return 0;
-+}
-+char _license[] SEC("license") = "GPL";
-diff --git a/samples/bpf/tracex2_user.c b/samples/bpf/tracex2_user.c
-new file mode 100644
-index 000000000000..016a76e97cd7
---- /dev/null
-+++ b/samples/bpf/tracex2_user.c
-@@ -0,0 +1,95 @@
-+#include <stdio.h>
-+#include <unistd.h>
-+#include <stdlib.h>
-+#include <signal.h>
-+#include <linux/bpf.h>
-+#include "libbpf.h"
-+#include "bpf_load.h"
-+
-+#define MAX_INDEX	64
-+#define MAX_STARS	38
-+
-+static void stars(char *str, long val, long max, int width)
-+{
-+	int i;
-+
-+	for (i = 0; i < (width * val / max) - 1 && i < width - 1; i++)
-+		str[i] = '*';
-+	if (val > max)
-+		str[i - 1] = '+';
-+	str[i] = '\0';
-+}
-+
-+static void print_hist(int fd)
-+{
-+	int key;
-+	long value;
-+	long data[MAX_INDEX] = {};
-+	char starstr[MAX_STARS];
-+	int i;
-+	int max_ind = -1;
-+	long max_value = 0;
-+
-+	for (key = 0; key < MAX_INDEX; key++) {
-+		bpf_lookup_elem(fd, &key, &value);
-+		data[key] = value;
-+		if (value && key > max_ind)
-+			max_ind = key;
-+		if (value > max_value)
-+			max_value = value;
-+	}
-+
-+	printf("           syscall write() stats\n");
-+	printf("     byte_size       : count     distribution\n");
-+	for (i = 1; i <= max_ind + 1; i++) {
-+		stars(starstr, data[i - 1], max_value, MAX_STARS);
-+		printf("%8ld -> %-8ld : %-8ld |%-*s|\n",
-+		       (1l << i) >> 1, (1l << i) - 1, data[i - 1],
-+		       MAX_STARS, starstr);
-+	}
-+}
-+static void int_exit(int sig)
-+{
-+	print_hist(map_fd[1]);
-+	exit(0);
-+}
-+
-+int main(int ac, char **argv)
-+{
-+	char filename[256];
-+	long key, next_key, value;
-+	FILE *f;
-+	int i;
-+
-+	snprintf(filename, sizeof(filename), "%s_kern.o", argv[0]);
-+
-+	signal(SIGINT, int_exit);
-+
-+	/* start 'ping' in the background to have some kfree_skb events */
-+	f = popen("ping -c5 localhost", "r");
-+	(void) f;
-+
-+	/* start 'dd' in the background to have plenty of 'write' syscalls */
-+	f = popen("dd if=/dev/zero of=/dev/null", "r");
-+	(void) f;
-+
-+	if (load_bpf_file(filename)) {
-+		printf("%s", bpf_log_buf);
-+		return 1;
-+	}
-+
-+	for (i = 0; i < 5; i++) {
-+		key = 0;
-+		while (bpf_get_next_key(map_fd[0], &key, &next_key) == 0) {
-+			bpf_lookup_elem(map_fd[0], &next_key, &value);
-+			printf("location 0x%lx count %ld\n", next_key, value);
-+			key = next_key;
-+		}
-+		if (key)
-+			printf("\n");
-+		sleep(1);
-+	}
-+	print_hist(map_fd[1]);
-+
-+	return 0;
-+}
--- 
-1.7.9.5
+#### 32bits
+struct xfrm_usersa_info {
+     struct xfrm_selector       sel;                  /*     0    56 */
+     struct xfrm_id             id;                   /*    56    24 */
+
+     /* XXX last struct has 3 bytes of padding */
+
+     /* --- cacheline 1 boundary (64 bytes) was 16 bytes ago --- */
+     xfrm_address_t             saddr;                /*    80    16 */
+     struct xfrm_lifetime_cfg   lft;                  /*    96    64 */
+     /* --- cacheline 2 boundary (128 bytes) was 32 bytes ago --- */
+     struct xfrm_lifetime_cur   curlft;               /*   160    32 */
+     /* --- cacheline 3 boundary (192 bytes) --- */
+     struct xfrm_stats          stats;                /*   192    12 */
+     __u32                      seq;                  /*   204     4 */
+     __u32                      reqid;                /*   208     4 */
+     __u16                      family;               /*   212     2 */
+     __u8                       mode;                 /*   214     1 */
+     __u8                       replay_window;        /*   215     1 */
+     __u8                       flags;                /*   216     1 */
+
+     /* size: 220, cachelines: 4, members: 12 */
+     /* padding: 3 */
+     /* paddings: 1, sum paddings: 3 */
+     /* last cacheline: 28 bytes */
+};
+
+> Possibly add a compile-time check that the structure is
+> of the expected size.
+>
+> 	David
+>
+
+
+--=20
+No zuo no die but I have to try.
