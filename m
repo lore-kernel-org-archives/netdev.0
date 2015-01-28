@@ -1,111 +1,155 @@
-From: Harout Hedeshian <harouth@codeaurora.org>
-Subject: [RFC] net: tcp: null pointer crash in __inet_put_port
-Date: Wed, 28 Jan 2015 08:56:53 -0700
-Message-ID: <1422460613-10782-1-git-send-email-harouth@codeaurora.org>
-Cc: Harout Hedeshian <harouth@codeaurora.org>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.11.231]:45166 "EHLO
-	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761443AbbA1Umw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jan 2015 15:42:52 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Murali Karicheri <m-karicheri2@ti.com>
+Subject: Re: [PATCH net-next v8 0/4] net: Add Keystone NetCP ethernet driver
+ support
+Date: Wed, 28 Jan 2015 15:43:57 -0500
+Message-ID: <54C94A0D.9050505@ti.com>
+References: <1421367007-19744-1-git-send-email-m-karicheri2@ti.com> <20150119.151106.822126941934010309.davem@davemloft.net> <54BE7A00.2020205@ti.com> <25883654.BLFxICW9P0@wuerfel> <54C91328.6030208@ti.com> <54C91FDD.1000009@ti.com> <54C92878.3030207@ti.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, <devicetree@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <54C92878.3030207@ti.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello,
+On 01/28/2015 01:20 PM, Murali Karicheri wrote:
+> On 01/28/2015 12:43 PM, Murali Karicheri wrote:
+>> On 01/28/2015 11:49 AM, Murali Karicheri wrote:
+>>> On 01/27/2015 05:28 PM, Arnd Bergmann wrote:
+>>>> On Tuesday 20 January 2015 10:53:36 Murali Karicheri wrote:
+>>>>> On 01/19/2015 03:11 PM, David Miller wrote:
+>>>>>> From: Murali Karicheri<m-karicheri2@ti.com>
+>>>>>> Date: Thu, 15 Jan 2015 19:10:03 -0500
+>>>>>>
+>>>>>>> The Network Coprocessor (NetCP) is a hardware accelerator that
+>>>>>>> processes
+>>>>>>> Ethernet packets. NetCP has a gigabit Ethernet (GbE) subsystem =
+with
+>>>>>>> a ethernet
+>>>>>>> switch sub-module to send and receive packets. NetCP also inclu=
+des
+>>>>>>> a packet
+>>>>>>> accelerator (PA) module to perform packet classification operat=
+ions
+>>>>>>> such as
+>>>>>>> header matching, and packet modification operations such as che=
+cksum
+>>>>>>> generation. NetCP can also optionally include a Security
+>>>>>>> Accelerator(SA)
+>>>>>>> capable of performing IPSec operations on ingress/egress packet=
+s.
+>>>>>>>
+>>>>>>> Keystone SoC's also have a 10 Gigabit Ethernet Subsystem (XGbE)
+>>>>>>> which
+>>>>>>> includes a 3-port Ethernet switch sub-module capable of 10Gb/s =
+and
+>>>>>>> 1Gb/s rates per Ethernet port.
+>>>>>>>
+>>>>>>> Both GBE and XGBE network processors supported using common
+>>>>>>> driver. It
+>>>>>>> is also designed to handle future variants of NetCP.
+>>>>>>
+>>>>>> Series applied to net-next, thanks.
+>>>>> David,
+>>>>>
+>>>>> Thanks a lot for applying this series. This helps us move forward=
+ to
+>>>>> work on the next set of patches.
+>>>>
+>>>> Hi Murali,
+>>>>
+>>>> Building an ARM 'allmodconfig' kernel now runs into two separate
+>>>> problems
+>>>> from your driver:
+>>>>
+>>>> - you have two module_init() instances in one module, which confli=
+ct.
+>>>>
+>>>> - you have two files that are linked into more than one module, so
+>>>> building
+>>>> both TI_CPSW and TI_KEYSTONE_NETCP in the same kernel fails.
+>>>>
+>>>> The answer to both of these is probably to have separate loadable
+>>>> modules,
+>>>> but you might be able to come up with a different solution.
+>>> Arnd,
+>>>
+>>> Thanks for letting us know. We will look into this.
+>>>
+>>> How do I reproduce this? Is there a defconfig used for allmodconfig=
+? I
+>>> am unable to find one. Any details to reproduce this will be useful=
+=2E
+>>>
+>> Ok I think I found it.
+>>
+>> I did this with next-next branch and it seems to work. I will make
+>> kernel build to reproduce this.
+>>
+>> make ARCH=3Darm allmodconfig
+>> make uImage;
+>>
+>> I am building it now.
+> Arnd,
+>
+> I see allmodconfig configure NetCP driver as module. My uImage build
+> from net-next branch went through fine. I am building modules right n=
+ow
+> and should show error as you have pointed out. Let me know if you any
+> issues on how I am working to reproduce the issue (wrong branch, wron=
+g
+> /incomplete commands etc. I have my CROSS_COMPILE and ARCH set in my
+> env). Want to reproduce this so as to make sure my fix is addressing
+> this. Hope I am on the right track.
 
-We are observing a crash in __inet_put_port() wherein icsk_bind_hash
-is null (stack trace below).
+Reproduced this. Following errors seen when building the modules.
 
-net/ipv4/inet_hashtables.c:
-tb = inet_csk(sk)->icsk_bind_hash;
-__sk_del_bind_node(sk);
-tb->num_owners--;       <-- tb is unconditionally dereferenced here
+   LD [M]  drivers/net/ethernet/ti/keystone_netcp.o
+drivers/net/ethernet/ti/netcp_ethss.o: In function `init_module':
+netcp_ethss.c:(.init.text+0x0): multiple definition of `init_module'
+drivers/net/ethernet/ti/netcp_core.o:netcp_core.c:(.init.text+0x0):=20
+first defined here
+drivers/net/ethernet/ti/netcp_ethss.o: In function `cleanup_module':
+netcp_ethss.c:(.exit.text+0x0): multiple definition of `cleanup_module'
+drivers/net/ethernet/ti/netcp_core.o:netcp_core.c:(.exit.text+0x0):=20
+first defined here
+make[4]: *** [drivers/net/ethernet/ti/keystone_netcp.o] Error 1
 
->From the RAM dumps: [D:0xFFFFFFC0222FB6F8] icsk_bind_hash = 0x0 = ,
 
-The caller of inet_put_port() in this case is tcp_set_state() which
-already does a null check on this particular field before calling
-inet_put_port().
+BTW, I had to disable cpsw_ale.c to get to build keystone NetCP. I am=20
+assuming someone from TI is addressing this.
 
-net/ipv4/tcp.c:
-if (inet_csk(sk)->icsk_bind_hash &&
-   !(sk->sk_userlocks & SOCK_BINDPORT_LOCK))
-	inet_put_port(sk);
+drivers/net/ethernet/ti/cpsw_ale.c: In function =91cpsw_ale_start=92:
+drivers/net/ethernet/ti/cpsw_ale.c:759:2: error: =91KBUILD_MODNAME=92=20
+undeclared (first use in this function)
+drivers/net/ethernet/ti/cpsw_ale.c:759:2: note: each undeclared=20
+identifier is reported only once for each function it appears in
 
-It seems that inet_put_port() does some locking by disabling bottom
-halves, but this locking is happening after the null check.
+Murali
 
-Additionally, I see tcp_v4_destroy_sock() also calling inet_put_port()
-after doing a similar null check. However, I am unsure if it would
-ever be called on the same socket.
+>
+> Thanks
+>
+> Murali
+>>
+>> Murali
+>>> Thanks.
+>>>
+>>> Murali
+>>>>
+>>>> Arnd
+>>>
+>>>
+>>
+>>
+>
+>
 
-Does the proposed solution of locking the bottom halves from
-tcp_set_state() make any sense here? Or use some other locking mechanism
-directly on the socket?
 
-[66356.767342] Unable to handle kernel NULL pointer dereference at virtual address 00000010
-[66356.767366] pgd = ffffffc0409cb000
-[66356.767377] [00000010] *pgd=00000000409c9003, *pmd=0000000000000000
-[66356.767397] Internal error: Oops: 96000006 [#1] PREEMPT SMP
-[66356.767409] Modules linked in: ecryptfs(O) texfat(PO) mcKernelApi mcDrvModule moc_crypto_api_tmpl(O) moc_crypto(PO) moc_platform_mod(O)
-[66356.767453] CPU: 0 PID: 3735 Comm: GCMReader Tainted: P        W  O 3.10.49-g0d75018 #1
-[66356.767467] task: ffffffc03a790ac0 ti: ffffffc02b1d0000 task.ti: ffffffc02b1d0000
-[66356.767486] PC is at inet_put_port+0x7c/0xb4
-[66356.767498] LR is at inet_put_port+0x64/0xb4
-[66356.767509] pc : [<ffffffc000ba3890>] lr : [<ffffffc000ba3878>] pstate: 80000145
-[66356.767520] sp : ffffffc02b1d3d00
-[66356.767530] x29: ffffffc02b1d3d00 x28: ffffffc02b1d0000
-[66356.767544] x27: ffffffc0016cf000 x26: 0000000000000039
-[66356.767557] x25: ffffffc055644030 x24: ffffffc026280f10
-[66356.767570] x23: ffffffc055644030 x22: ffffffc0222fb398
-[66356.767583] x21: ffffffc001b2f4c0 x20: ffffffc0222fb300
-[66356.767597] x19: ffffffc0b50b7780 x18: 0000007f8399b000
-[66356.767610] x17: 0000007f869e00f8 x16: ffffffc0002fb850
-[66356.767624] x15: 0000007f83a4c000 x14: 0000000000000000
-[66356.767637] x13: 0000000000430000 x12: 0000000000550000
-[66356.767651] x11: 0000000000430000 x10: 0000000000000000
-[66356.767663] x9 : b36a52a36930d612 x8 : 0008e12c614dea00
-[66356.767676] x7 : 0000000000000018 x6 : 0000000034155555
-[66356.767689] x5 : 0000000000000000 x4 : 0000000000000000
-[66356.767702] x3 : 0000000000000200 x2 : ffffffc002c17de8
-[66356.767715] x1 : 0000000000000000 x0 : 0000000000000000
-[66356.767727]
-[66356.767739] Process GCMReader (pid: 3735, stack limit = 0xffffffc02b1d0058)
-[66356.767749] Call trace:
-[66356.767762] [<ffffffc000ba3890>] inet_put_port+0x7c/0xb4
-[66356.767777] [<ffffffc000ba6940>] tcp_set_state+0xbc/0x108
-[66356.767790] [<ffffffc000baa78c>] tcp_close+0x374/0x420
-[66356.767807] [<ffffffc000bca210>] inet_release+0x84/0x98
-[66356.767821] [<ffffffc000bfd0d8>] inet6_release+0x34/0x44
-[66356.767838] [<ffffffc000b22b38>] sock_release+0x34/0xac
-[66356.767852] [<ffffffc000b22bbc>] sock_close+0xc/0x1c
-[66356.767868] [<ffffffc0002fd718>] __fput+0x108/0x208
-[66356.767882] [<ffffffc0002fd8c0>] ____fput+0x8/0x14
-[66356.767898] [<ffffffc00023b8d4>] task_work_run+0xb0/0xe4
-[66356.767914] [<ffffffc0002072ec>] do_notify_resume+0x44/0x54
-[66356.767929] Code: f941fe81 f9000040 b4000040 f9000402 (b9401020)
-[66356.767942] ---[ end trace 421040d8ca7bbe73 ]---
----
- net/ipv4/tcp.c | 2 ++
- 1 file changed, 2 insertions(+)
-
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 3075723..f3b5714 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -1910,9 +1910,11 @@ void tcp_set_state(struct sock *sk, int state)
- 			TCP_INC_STATS(sock_net(sk), TCP_MIB_ESTABRESETS);
- 
- 		sk->sk_prot->unhash(sk);
-+		local_bh_disable();
- 		if (inet_csk(sk)->icsk_bind_hash &&
- 		    !(sk->sk_userlocks & SOCK_BINDPORT_LOCK))
- 			inet_put_port(sk);
-+		local_bh_enable();
- 		/* fall through */
- 	default:
- 		if (oldstate == TCP_ESTABLISHED)
--- 
-Employee of Qualcomm Innovation Center, Inc.
-Qualcomm Innovation Center, Inc. is a member of Code Aurora Forum, a Linux Foundation Collaborative Project
+--=20
+Murali Karicheri
+Linux Kernel, Texas Instruments
