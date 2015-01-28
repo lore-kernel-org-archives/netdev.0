@@ -1,70 +1,38 @@
-From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCH] cxgb4: Remove preprocessor check for CONFIG_CXGB4_DCB
-Date: Wed, 28 Jan 2015 21:49:51 +0530
-Message-ID: <1422461991-20684-1-git-send-email-hariprasad@chelsio.com>
-Cc: davem@davemloft.net, leedom@chelsio.com, anish@chelsio.com,
-	nirranjan@chelsio.com, praveenm@chelsio.com,
-	Hariprasad Shenai <hariprasad@chelsio.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:18198 "EHLO
-	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1756039AbbA2CCC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jan 2015 21:02:02 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch net-next] hisilicon: add some missing curly braces
+Date: Wed, 28 Jan 2015 21:58:33 +0300
+Message-ID: <20150128185833.GA10259@mwanda>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Zhangfei Gao <zhangfei.gao@linaro.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Arnd Bergmann <arnd@arndb.de>, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: dingtianhong <dingtianhong@huawei.com>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-In commit dc9daab226aa ("cxgb4: Added support in debugfs to dump
-sge_qinfo") a preprocessor check for CONFIG_CXGB4_DCB got added, which should
-have been CONFIG_CHELSIO_T4_DCB.
+The if block was supposed to have curly braces.  In the current code we
+complain about dropped rx packets when we shouldn't.
 
-Reported-by: Paul Bolle <pebolle@tiscal.nl>
-Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
----
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c |   24 +++++++++++++++++++-
- 1 files changed, 23 insertions(+), 1 deletions(-)
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
-index 47c0869..61c000a 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
-@@ -1229,6 +1229,28 @@ static const struct file_operations rss_vf_config_debugfs_fops = {
- 	.release = seq_release_private
- };
+diff --git a/drivers/net/ethernet/hisilicon/hip04_eth.c b/drivers/net/ethernet/hisilicon/hip04_eth.c
+index 525214e..c02b81b 100644
+--- a/drivers/net/ethernet/hisilicon/hip04_eth.c
++++ b/drivers/net/ethernet/hisilicon/hip04_eth.c
+@@ -567,10 +567,11 @@ static irqreturn_t hip04_mac_interrupt(int irq, void *dev_id)
+ 	writel_relaxed(DEF_INT_MASK, priv->base + PPE_RINT);
  
-+/**
-+ * ethqset2pinfo - return port_info of an Ethernet Queue Set
-+ * @adap: the adapter
-+ * @qset: Ethernet Queue Set
-+ */
-+static inline struct port_info *ethqset2pinfo(struct adapter *adap, int qset)
-+{
-+	int pidx;
-+
-+	for_each_port(adap, pidx) {
-+		struct port_info *pi = adap2pinfo(adap, pidx);
-+
-+		if (qset >= pi->first_qset &&
-+		    qset < pi->first_qset + pi->nqsets)
-+			return pi;
-+	}
-+
-+	/* should never happen! */
-+	BUG_ON(1);
-+	return NULL;
-+}
-+
- static int sge_qinfo_show(struct seq_file *seq, void *v)
- {
- 	struct adapter *adap = seq->private;
-@@ -1272,7 +1294,7 @@ do { \
- 		T("TxQ inuse:", q.in_use);
- 		T("TxQ CIDX:", q.cidx);
- 		T("TxQ PIDX:", q.pidx);
--#ifdef CONFIG_CXGB4_DCB
-+#ifdef CONFIG_CHELSIO_T4_DCB
- 		T("DCB Prio:", dcb_prio);
- 		S3("u", "DCB PGID:",
- 		   (ethqset2pinfo(adap, base_qset + i)->dcb.pgid >>
--- 
-1.7.1
+ 	if (unlikely(ists & DEF_INT_ERR)) {
+-		if (ists & (RCV_NOBUF | RCV_DROP))
++		if (ists & (RCV_NOBUF | RCV_DROP)) {
+ 			stats->rx_errors++;
+ 			stats->rx_dropped++;
+ 			netdev_err(ndev, "rx drop\n");
++		}
+ 		if (ists & TX_DROP) {
+ 			stats->tx_dropped++;
+ 			netdev_err(ndev, "tx drop\n");
