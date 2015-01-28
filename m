@@ -1,108 +1,64 @@
-From: Tony Lindgren <tony@atomide.com>
-Subject: [PATCH 3/3] net: davinci_emac: Get device MAC on 3517
-Date: Wed, 28 Jan 2015 11:33:06 -0800
-Message-ID: <1422473586-18100-4-git-send-email-tony@atomide.com>
-References: <1422473586-18100-1-git-send-email-tony@atomide.com>
-Cc: netdev@vger.kernel.org, linux-omap@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp5.ore.mailhop.org ([54.186.10.118]:58292 "EHLO
-	smtp5.ore.mailhop.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755385AbbA2COl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jan 2015 21:14:41 -0500
-In-Reply-To: <1422473586-18100-1-git-send-email-tony@atomide.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Karl Beldan <karl.beldan@gmail.com>
+Subject: [PATCH v2] lib/checksum.c: fix carry in csum_tcpudp_nofold
+Date: Wed, 28 Jan 2015 10:58:11 +0100
+Message-ID: <1422439091-31413-1-git-send-email-karl.beldan@rivierawaves.com>
+Cc: Karl Beldan <karl.beldan@gmail.com>,
+	Karl Beldan <karl.beldan@rivierawaves.com>,
+	Al Viro <viro@ZenIV.linux.org.uk>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Arnd Bergmann <arnd@arndb.de>,
+	Mike Frysinger <vapier@gentoo.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, stable@vger.kernel.org
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Looks like on 3517 davinci_emac MAC address registers have a
-different layout compared to dm816x and am33xx.
+The carry from the 64->32bits folding was dropped, e.g with:
+saddr=0xFFFFFFFF daddr=0xFF0000FF len=0xFFFF proto=0 sum=1,
+csum_tcpudp_nofold returned 0 instead of 1.
 
-Let's add a function to get the 3517 MAC address.
-
-Signed-off-by: Tony Lindgren <tony@atomide.com>
+Signed-off-by: Karl Beldan <karl.beldan@rivierawaves.com>
+Cc: Al Viro <viro@ZenIV.linux.org.uk>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Arnd Bergmann <arnd@arndb.de>
+Cc: Mike Frysinger <vapier@gentoo.org>
+Cc: netdev@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
+Cc: stable@vger.kernel.org
 ---
- arch/arm/boot/dts/am3517.dtsi          |  1 +
- drivers/net/ethernet/ti/davinci_emac.c | 35 +++++++++++++++++++++++++++++++++-
- 2 files changed, 35 insertions(+), 1 deletion(-)
+ lib/checksum.c | 12 ++++++++++--
+ 1 file changed, 10 insertions(+), 2 deletions(-)
 
-diff --git a/arch/arm/boot/dts/am3517.dtsi b/arch/arm/boot/dts/am3517.dtsi
-index 5a452fd..c90724b 100644
---- a/arch/arm/boot/dts/am3517.dtsi
-+++ b/arch/arm/boot/dts/am3517.dtsi
-@@ -31,6 +31,7 @@
- 			status = "disabled";
- 			reg = <0x5c000000 0x30000>;
- 			interrupts = <67 68 69 70>;
-+			syscon = <&omap3_scm_general>;
- 			ti,davinci-ctrl-reg-offset = <0x10000>;
- 			ti,davinci-ctrl-mod-reg-offset = <0>;
- 			ti,davinci-ctrl-ram-offset = <0x20000>;
-diff --git a/drivers/net/ethernet/ti/davinci_emac.c b/drivers/net/ethernet/ti/davinci_emac.c
-index a716938..aeebc0a 100644
---- a/drivers/net/ethernet/ti/davinci_emac.c
-+++ b/drivers/net/ethernet/ti/davinci_emac.c
-@@ -52,6 +52,7 @@
- #include <linux/dma-mapping.h>
- #include <linux/clk.h>
- #include <linux/platform_device.h>
-+#include <linux/regmap.h>
- #include <linux/semaphore.h>
- #include <linux/phy.h>
- #include <linux/bitops.h>
-@@ -65,6 +66,7 @@
- #include <linux/of_mdio.h>
- #include <linux/of_irq.h>
- #include <linux/of_net.h>
-+#include <linux/mfd/syscon.h>
- 
- #include <asm/irq.h>
- #include <asm/page.h>
-@@ -1880,6 +1882,33 @@ davinci_emac_of_get_pdata(struct platform_device *pdev, struct emac_priv *priv)
- 	return  pdata;
+diff --git a/lib/checksum.c b/lib/checksum.c
+index 129775e..fcf3894 100644
+--- a/lib/checksum.c
++++ b/lib/checksum.c
+@@ -47,6 +47,15 @@ static inline unsigned short from32to16(unsigned int x)
+ 	return x;
  }
  
-+static int davinci_emac_3517_get_macid(struct device *dev, u16 offset,
-+				       int slave, u8 *mac_addr)
++static inline u32 from64to32(u64 x)
 +{
-+	u32 macid_lsb;
-+	u32 macid_msb;
-+	struct regmap *syscon;
-+
-+	syscon = syscon_regmap_lookup_by_phandle(dev->of_node, "syscon");
-+	if (IS_ERR(syscon)) {
-+		if (PTR_ERR(syscon) == -ENODEV)
-+			return 0;
-+		return PTR_ERR(syscon);
-+	}
-+
-+	regmap_read(syscon, offset, &macid_lsb);
-+	regmap_read(syscon, offset + 4, &macid_msb);
-+
-+	mac_addr[0] = (macid_msb >> 16) & 0xff;
-+	mac_addr[1] = (macid_msb >> 8)  & 0xff;
-+	mac_addr[2] = macid_msb & 0xff;
-+	mac_addr[3] = (macid_lsb >> 16) & 0xff;
-+	mac_addr[4] = (macid_lsb >> 8)  & 0xff;
-+	mac_addr[5] = macid_lsb & 0xff;
-+
-+	return 0;
++	/* add up 32-bit and 32-bit for 32+c bit */
++	x = (x & 0xffffffff) + (x >> 32);
++	/* add up carry.. */
++	x = (x & 0xffffffff) + (x >> 32);
++	return (u32)x;
 +}
 +
- static int davinci_emac_try_get_mac(struct platform_device *pdev,
- 				    int instance, u8 *mac_addr)
+ static unsigned int do_csum(const unsigned char *buff, int len)
  {
-@@ -1888,7 +1917,11 @@ static int davinci_emac_try_get_mac(struct platform_device *pdev,
- 	if (!pdev->dev.of_node)
- 		return error;
- 
--	if (of_device_is_compatible(pdev->dev.of_node, "ti,dm816-emac"))
-+	if (of_device_is_compatible(pdev->dev.of_node, "ti,am3517-emac"))
-+		error = davinci_emac_3517_get_macid(&pdev->dev, 0x110,
-+						    0, mac_addr);
-+	else if (of_device_is_compatible(pdev->dev.of_node,
-+					 "ti,dm816-emac"))
- 		error = cpsw_am33xx_cm_get_macid(&pdev->dev, 0x30,
- 						 instance,
- 						 mac_addr);
+ 	int odd;
+@@ -195,8 +204,7 @@ __wsum csum_tcpudp_nofold(__be32 saddr, __be32 daddr,
+ #else
+ 	s += (proto + len) << 8;
+ #endif
+-	s += (s >> 32);
+-	return (__force __wsum)s;
++	return (__force __wsum)from64to32(s);
+ }
+ EXPORT_SYMBOL(csum_tcpudp_nofold);
+ #endif
 -- 
-2.1.4
+2.0.1
