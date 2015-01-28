@@ -1,81 +1,41 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH RFC 2/2] ipv6: Extend the route lookups to low priority
- metrics.
-Date: Wed, 28 Jan 2015 13:12:57 +0100
-Message-ID: <20150128121256.GO13046@secunet.com>
-References: <54C78B8D.1070104@huawei.com>
- <20150128121026.GM13046@secunet.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Yang Yingliang <yangyingliang@huawei.com>
+From: Kevin Hao <haokexin@gmail.com>
+Subject: [PATCH net-next] net: gianfar: remove the unneeded check of disabled device
+Date: Wed, 28 Jan 2015 20:06:48 +0800
+Message-ID: <1422446808-16460-1-git-send-email-haokexin@gmail.com>
+Cc: David Miller <davem@davemloft.net>,
+	Claudiu Manoil <claudiu.manoil@freescale.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:55849 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933864AbbA1UlU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Jan 2015 15:41:20 -0500
-Content-Disposition: inline
-In-Reply-To: <20150128121026.GM13046@secunet.com>
+Received: from mail-yk0-f181.google.com ([209.85.160.181]:49681 "EHLO
+	mail-yk0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932704AbbA1UmS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jan 2015 15:42:18 -0500
+Received: by mail-yk0-f181.google.com with SMTP id 79so10009892ykr.12
+        for <netdev@vger.kernel.org>; Wed, 28 Jan 2015 12:42:18 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We search only for routes with highest prioriy metric in
-find_rr_leaf(). However if one of these routes is marked
-as invalid, we may fail to find a route even if there is
-a appropriate route with lower priority. Then we loose
-connectivity until the garbage collector deletes the
-invalid route. This typically happens if a host route
-expires afer a pmtu event. Fix this by searching also
-for routes with a lower priority metric.
+Since commit cd1e65044d44 ("of/device: Don't register disabled
+devices"), the disabled device will not be registered at all. So we
+don't need to do the check again in the platform device driver.
 
-Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+Signed-off-by: Kevin Hao <haokexin@gmail.com>
 ---
- net/ipv6/route.c | 28 +++++++++++++++++++++++-----
- 1 file changed, 23 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/freescale/gianfar.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 3e864e7..ce354c9 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -654,15 +654,33 @@ static struct rt6_info *find_rr_leaf(struct fib6_node *fn,
- 				     u32 metric, int oif, int strict,
- 				     bool *do_rr)
- {
--	struct rt6_info *rt, *match;
-+	struct rt6_info *rt, *match, *cont;
- 	int mpri = -1;
+diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
+index 93ff846e96f1..43df78882e48 100644
+--- a/drivers/net/ethernet/freescale/gianfar.c
++++ b/drivers/net/ethernet/freescale/gianfar.c
+@@ -764,7 +764,7 @@ static int gfar_of_init(struct platform_device *ofdev, struct net_device **pdev)
+ 	u32 *tx_queues, *rx_queues;
+ 	unsigned short mode, poll_mode;
  
- 	match = NULL;
--	for (rt = rr_head; rt && rt->rt6i_metric == metric;
--	     rt = rt->dst.rt6_next)
-+	cont = NULL;
-+	for (rt = rr_head; rt; rt = rt->dst.rt6_next) {
-+		if (rt->rt6i_metric != metric) {
-+			cont = rt;
-+			break;
-+		}
-+
-+		match = find_match(rt, oif, strict, &mpri, match, do_rr);
-+	}
-+
-+	for (rt = fn->leaf; rt && rt != rr_head; rt = rt->dst.rt6_next) {
-+		if (rt->rt6i_metric != metric) {
-+			cont = rt;
-+			break;
-+		}
-+
- 		match = find_match(rt, oif, strict, &mpri, match, do_rr);
--	for (rt = fn->leaf; rt && rt != rr_head && rt->rt6i_metric == metric;
--	     rt = rt->dst.rt6_next)
-+	}
-+
-+	if (match || !cont)
-+		return match;
-+
-+	for (rt = cont; rt; rt = rt->dst.rt6_next)
- 		match = find_match(rt, oif, strict, &mpri, match, do_rr);
+-	if (!np || !of_device_is_available(np))
++	if (!np)
+ 		return -ENODEV;
  
- 	return match;
+ 	if (of_device_is_compatible(np, "fsl,etsec2")) {
 -- 
-1.9.1
+1.9.3
