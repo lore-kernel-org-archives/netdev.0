@@ -1,43 +1,39 @@
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Subject: [tip:irq/core PATCH] genirq: fix null pointer reference in
- irq_set_affinity_hint()
-Date: Wed, 28 Jan 2015 10:57:39 -0800
-Message-ID: <20150128185739.9689.84588.stgit@jbrandeb-cp2.jf.intel.com>
+From: Alexander Aring <alex.aring@gmail.com>
+Subject: Re: [PATCH bluetooth-next v2] ieee802154: fix netns settings
+Date: Wed, 28 Jan 2015 21:36:54 +0100
+Message-ID: <20150128203645.GB30188@omega>
+References: <alex.aring@gmail.com>
+ <1422457112-4377-1-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: mingo@kernel.org, netdev@vger.kernel.org, yinghai@kernel.org,
-	linux-kernel@vger.kernel.org, hpa@zytor.com
-To: tglx@linutronix.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	linux-wpan@vger.kernel.org, marcel@holtmann.org
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f53.google.com ([74.125.82.53]:55250 "EHLO
+	mail-wg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754346AbbA1Ug6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jan 2015 15:36:58 -0500
+Content-Disposition: inline
+In-Reply-To: <1422457112-4377-1-git-send-email-nicolas.dichtel@6wind.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The recent set_affinity commit by me introduced some null
-pointer dereferences on driver unload, because some drivers
-call this function with a NULL argument. This fixes the issue
-by just checking for null before setting the affinity mask.
+On Wed, Jan 28, 2015 at 03:58:32PM +0100, Nicolas Dichtel wrote:
+> 6LoWPAN currently doesn't supports x-netns and works only in init_net.
+> 
+> With this patch, we ensure that:
+>  - the wpan interface cannot be moved to another netns;
+>  - the 6lowpan interface cannot be moved to another netns;
+>  - the wpan interface is in the same netns than the 6lowpan interface;
+>  - the 6lowpan interface is in init_net.
+> 
+> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 
-Fixes: e2e64a932556 ("genirq: Set initial affinity in irq_set_affinity_hint()")
-Reported-by: Yinghai Lu <yinghai@kernel.org>
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-CC: Thomas Gleixner <tglx@linutronix.de>
-CC: netdev@vger.kernel.org
----
- kernel/irq/manage.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+Acked-by: Alexander Aring <alex.aring@gmail.com>
 
-diff --git a/kernel/irq/manage.c b/kernel/irq/manage.c
-index f038e58..196a06f 100644
---- a/kernel/irq/manage.c
-+++ b/kernel/irq/manage.c
-@@ -244,7 +244,8 @@ int irq_set_affinity_hint(unsigned int irq, const struct cpumask *m)
- 	desc->affinity_hint = m;
- 	irq_put_desc_unlock(desc, flags);
- 	/* set the initial affinity to prevent every interrupt being on CPU0 */
--	__irq_set_affinity(irq, m, false);
-+	if (m)
-+		__irq_set_affinity(irq, m, false);
- 	return 0;
- }
- EXPORT_SYMBOL_GPL(irq_set_affinity_hint);
+Marcel, can you please queue this for bluetooth-next?
+
+Thanks.
+
+- Alex
