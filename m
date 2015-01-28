@@ -1,59 +1,56 @@
-From: roopa@cumulusnetworks.com
-Subject: [PATCH] bridge: dont send notification when skb->len == 0 in rtnl_bridge_notify
-Date: Tue, 27 Jan 2015 21:46:24 -0800
-Message-ID: <1422423984-29743-1-git-send-email-roopa@cumulusnetworks.com>
-To: netdev@vger.kernel.org, stephen@networkplumber.org,
-	rami.rosen@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:46451 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750705AbbA1Fq3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jan 2015 00:46:29 -0500
-Received: by mail-pa0-f44.google.com with SMTP id rd3so23312227pab.3
-        for <netdev@vger.kernel.org>; Tue, 27 Jan 2015 21:46:28 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Pramod Gurav <pramod.gurav@smartplayin.com>
+Subject: [PATCH RESEND] ssb: Fix Sparse error in main
+Date: Wed, 28 Jan 2015 11:19:47 +0530
+Message-ID: <1422424187-19059-1-git-send-email-pramod.gurav@smartplayin.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-wireless@vger.kernel.org,
+	Pramod Gurav <pramod.gurav@smartplayin.com>
+To: Kalle Valo <kvalo@codeaurora.org>,
+	John Linville <linville@tuxdriver.com>,
+	Michael Buesch <m@bues.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
+This change fixes below sparse error:
+drivers/ssb/main.c:94:16: warning: symbol 'ssb_sdio_func_to_bus'
+was not declared. Should it be static?
 
-Reported in: https://bugzilla.kernel.org/show_bug.cgi?id=92081
-
-This patch avoids calling rtnl_notify if the device ndo_bridge_getlink
-handler does not return any bytes in the skb.
-
-Alternately, the skb->len check can be moved inside rtnl_notify.
-
-For the bridge vlan case described in 92081, there is also a fix needed
-in bridge driver to generate a proper notification. Will fix that in
-subsequent patch.
-
-Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+Acked-by: Michael Buesch <m@bues.ch>
+Signed-off-by: Pramod Gurav <pramod.gurav@smartplayin.com>
 ---
- net/core/rtnetlink.c |    5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+ drivers/ssb/main.c |   19 -------------------
+ 1 file changed, 19 deletions(-)
 
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 07447d1..e9d0f86 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -2934,7 +2934,7 @@ static int rtnl_bridge_notify(struct net_device *dev)
- 	}
- 
- 	err = dev->netdev_ops->ndo_bridge_getlink(skb, 0, 0, dev, 0);
--	if (err < 0)
-+	if (err < 0 || !skb->len)
- 		goto errout;
- 
- 	rtnl_notify(skb, net, 0, RTNLGRP_LINK, NULL, GFP_ATOMIC);
-@@ -2942,7 +2942,8 @@ static int rtnl_bridge_notify(struct net_device *dev)
- errout:
- 	WARN_ON(err == -EMSGSIZE);
- 	kfree_skb(skb);
--	rtnl_set_sk_err(net, RTNLGRP_LINK, err);
-+	if (err)
-+		rtnl_set_sk_err(net, RTNLGRP_LINK, err);
- 	return err;
+diff --git a/drivers/ssb/main.c b/drivers/ssb/main.c
+index 2fead38..1e180c4 100644
+--- a/drivers/ssb/main.c
++++ b/drivers/ssb/main.c
+@@ -90,25 +90,6 @@ found:
  }
+ #endif /* CONFIG_SSB_PCMCIAHOST */
  
+-#ifdef CONFIG_SSB_SDIOHOST
+-struct ssb_bus *ssb_sdio_func_to_bus(struct sdio_func *func)
+-{
+-	struct ssb_bus *bus;
+-
+-	ssb_buses_lock();
+-	list_for_each_entry(bus, &buses, list) {
+-		if (bus->bustype == SSB_BUSTYPE_SDIO &&
+-		    bus->host_sdio == func)
+-			goto found;
+-	}
+-	bus = NULL;
+-found:
+-	ssb_buses_unlock();
+-
+-	return bus;
+-}
+-#endif /* CONFIG_SSB_SDIOHOST */
+-
+ int ssb_for_each_bus_call(unsigned long data,
+ 			  int (*func)(struct ssb_bus *bus, unsigned long data))
+ {
 -- 
-1.7.10.4
+1.7.9.5
