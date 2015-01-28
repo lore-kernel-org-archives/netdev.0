@@ -1,40 +1,43 @@
-From: Rasmus Villemoes <linux@rasmusvillemoes.dk>
-Subject: [PATCH 0/2] Two printf fixes
-Date: Wed, 28 Jan 2015 14:25:40 +0100
-Message-ID: <1422451543-12401-1-git-send-email-linux@rasmusvillemoes.dk>
-Cc: Rasmus Villemoes <linux@rasmusvillemoes.dk>,
-	linux-kernel@vger.kernel.org, linux-nfs@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Andy Shevchenko <andriy.shevchenko@linux.intel.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Trond Myklebust <trond.myklebust@primarydata.com>,
-	"J. Bruce Fields" <bfields@fieldses.org>,
-	"David S. Miller" <davem@davemloft.net>
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Subject: [tip:irq/core PATCH] genirq: fix null pointer reference in
+ irq_set_affinity_hint()
+Date: Wed, 28 Jan 2015 10:57:39 -0800
+Message-ID: <20150128185739.9689.84588.stgit@jbrandeb-cp2.jf.intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: mingo@kernel.org, netdev@vger.kernel.org, yinghai@kernel.org,
+	linux-kernel@vger.kernel.org, hpa@zytor.com
+To: tglx@linutronix.de
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Both %pE and %ph are unusable in kasprintf(), since the occurrence of
-either will trigger an oops during the first vsnprintf call where
-kasprintf tries to find the correct size to allocate. These oopses
-could be papered over with somewhat smaller patches than these, but
-then the return value from vsnprintf would still not reflect the
-actual size needed. For %pE, this requires a change of semantics of
-string_escape_mem and hence an annoyingly large diffstat.
+The recent set_affinity commit by me introduced some null
+pointer dereferences on driver unload, because some drivers
+call this function with a NULL argument. This fixes the issue
+by just checking for null before setting the affinity mask.
 
-Whether this is 3.20, 3.21 and/or -stable material (or /dev/null
-material, for that matter ;-)) I'll leave to others to decide.
+Fixes: e2e64a932556 ("genirq: Set initial affinity in irq_set_affinity_hint()")
+Reported-by: Yinghai Lu <yinghai@kernel.org>
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+CC: Thomas Gleixner <tglx@linutronix.de>
+CC: netdev@vger.kernel.org
+---
+ kernel/irq/manage.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-Rasmus Villemoes (2):
-  lib/vsprintf.c: Fix potential NULL deref in hex_string
-  string_helpers: Change semantics of string_escape_mem
-
- include/linux/string_helpers.h |  10 +--
- lib/string_helpers.c           | 195 ++++++++++++++++-------------------------
- lib/test-string_helpers.c      |  37 ++++----
- lib/vsprintf.c                 |  25 ++++--
- net/sunrpc/cache.c             |   8 +-
- 5 files changed, 119 insertions(+), 156 deletions(-)
-
--- 
-2.1.3
+diff --git a/kernel/irq/manage.c b/kernel/irq/manage.c
+index f038e58..196a06f 100644
+--- a/kernel/irq/manage.c
++++ b/kernel/irq/manage.c
+@@ -244,7 +244,8 @@ int irq_set_affinity_hint(unsigned int irq, const struct cpumask *m)
+ 	desc->affinity_hint = m;
+ 	irq_put_desc_unlock(desc, flags);
+ 	/* set the initial affinity to prevent every interrupt being on CPU0 */
+-	__irq_set_affinity(irq, m, false);
++	if (m)
++		__irq_set_affinity(irq, m, false);
+ 	return 0;
+ }
+ EXPORT_SYMBOL_GPL(irq_set_affinity_hint);
