@@ -1,93 +1,73 @@
-From: Kamal Mostafa <kamal@canonical.com>
-Subject: [PATCH 3.13.y-ckt 017/139] xen-netfront: Fix handling
-	packets on compound pages with skb_linearize
-Date: Wed, 28 Jan 2015 14:19:20 -0800
-Message-ID: <1422483682-15393-18-git-send-email-kamal@canonical.com>
-References: <1422483682-15393-1-git-send-email-kamal@canonical.com>
+From: Murali Karicheri <m-karicheri2@ti.com>
+Subject: Re: [PATCH net-next v8 0/4] net: Add Keystone NetCP ethernet driver
+ support
+Date: Wed, 28 Jan 2015 11:49:44 -0500
+Message-ID: <54C91328.6030208@ti.com>
+References: <1421367007-19744-1-git-send-email-m-karicheri2@ti.com> <20150119.151106.822126941934010309.davem@davemloft.net> <54BE7A00.2020205@ti.com> <25883654.BLFxICW9P0@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Wei Liu <wei.liu2@citrix.com>, Ian Campbell <Ian.Campbell@citrix.com>,
-	netdev@vger.kernel.org, Kamal Mostafa <kamal@canonical.com>,
-	Stefan Bader <stefan.bader@canonical.com>,
-	Paul Durrant <paul.durrant@citrix.com>,
-	Zoltan Kiss <zoltan.kiss@citrix.com>, xen-devel@lists.xenproject.org,
-	"David S. Miller" <davem@davemloft.net>
-To: linux-kernel@vger.kernel.org, stable@vger.kernel.org,
-	kernel-team@lists.ubuntu.com
-Return-path: <xen-devel-bounces@lists.xen.org>
-In-Reply-To: <1422483682-15393-1-git-send-email-kamal@canonical.com>
-List-Unsubscribe: <http://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
-	<mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xen.org>
-List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
-List-Subscribe: <http://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
-	<mailto:xen-devel-request@lists.xen.org?subject=subscribe>
-Sender: xen-devel-bounces@lists.xen.org
-Errors-To: xen-devel-bounces@lists.xen.org
+Cc: David Miller <davem@davemloft.net>, <devicetree@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <25883654.BLFxICW9P0@wuerfel>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-3.13.11-ckt15 -stable review patch.  If anyone has any objections, please let me know.
+On 01/27/2015 05:28 PM, Arnd Bergmann wrote:
+> On Tuesday 20 January 2015 10:53:36 Murali Karicheri wrote:
+>> On 01/19/2015 03:11 PM, David Miller wrote:
+>>> From: Murali Karicheri<m-karicheri2@ti.com>
+>>> Date: Thu, 15 Jan 2015 19:10:03 -0500
+>>>
+>>>> The Network Coprocessor (NetCP) is a hardware accelerator that processes
+>>>> Ethernet packets. NetCP has a gigabit Ethernet (GbE) subsystem with a ethernet
+>>>> switch sub-module to send and receive packets. NetCP also includes a packet
+>>>> accelerator (PA) module to perform packet classification operations such as
+>>>> header matching, and packet modification operations such as checksum
+>>>> generation. NetCP can also optionally include a Security Accelerator(SA)
+>>>> capable of performing IPSec operations on ingress/egress packets.
+>>>>
+>>>> Keystone SoC's also have a 10 Gigabit Ethernet Subsystem (XGbE) which
+>>>> includes a 3-port Ethernet switch sub-module capable of 10Gb/s and
+>>>> 1Gb/s rates per Ethernet port.
+>>>>
+>>>> Both GBE and XGBE network processors supported using common driver. It
+>>>> is also designed to handle future variants of NetCP.
+>>>
+>>> Series applied to net-next, thanks.
+>> David,
+>>
+>> Thanks a lot for applying this series. This helps us move forward to
+>> work on the next set of patches.
+>
+> Hi Murali,
+>
+> Building an ARM 'allmodconfig' kernel now runs into two separate problems
+> from your driver:
+>
+> - you have two module_init() instances in one module, which conflict.
+>
+> - you have two files that are linked into more than one module, so building
+>    both TI_CPSW and TI_KEYSTONE_NETCP in the same kernel fails.
+>
+> The answer to both of these is probably to have separate loadable modules,
+> but you might be able to come up with a different solution.
+Arnd,
 
-------------------
+Thanks for letting us know. We will look into this.
 
-From: Zoltan Kiss <zoltan.kiss@citrix.com>
+How do I reproduce this? Is there a defconfig used for allmodconfig? I 
+am unable to find one. Any details to reproduce this will be useful.
 
-commit 97a6d1bb2b658ac85ed88205ccd1ab809899884d upstream.
+Thanks.
 
-There is a long known problem with the netfront/netback interface: if the guest
-tries to send a packet which constitues more than MAX_SKB_FRAGS + 1 ring slots,
-it gets dropped. The reason is that netback maps these slots to a frag in the
-frags array, which is limited by size. Having so many slots can occur since
-compound pages were introduced, as the ring protocol slice them up into
-individual (non-compound) page aligned slots. The theoretical worst case
-scenario looks like this (note, skbs are limited to 64 Kb here):
-linear buffer: at most PAGE_SIZE - 17 * 2 bytes, overlapping page boundary,
-using 2 slots
-first 15 frags: 1 + PAGE_SIZE + 1 bytes long, first and last bytes are at the
-end and the beginning of a page, therefore they use 3 * 15 = 45 slots
-last 2 frags: 1 + 1 bytes, overlapping page boundary, 2 * 2 = 4 slots
-Although I don't think this 51 slots skb can really happen, we need a solution
-which can deal with every scenario. In real life there is only a few slots
-overdue, but usually it causes the TCP stream to be blocked, as the retry will
-most likely have the same buffer layout.
-This patch solves this problem by linearizing the packet. This is not the
-fastest way, and it can fail much easier as it tries to allocate a big linear
-area for the whole packet, but probably easier by an order of magnitude than
-anything else. Probably this code path is not touched very frequently anyway.
+Murali
+>
+> 	Arnd
 
-Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
-Cc: Wei Liu <wei.liu2@citrix.com>
-Cc: Ian Campbell <Ian.Campbell@citrix.com>
-Cc: Paul Durrant <paul.durrant@citrix.com>
-Cc: netdev@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org
-Cc: xen-devel@lists.xenproject.org
-Signed-off-by: David S. Miller <davem@davemloft.net>
-BugLink: http://bugs.launchpad.net/bugs/1317811
-Signed-off-by: Stefan Bader <stefan.bader@canonical.com>
-Signed-off-by: Kamal Mostafa <kamal@canonical.com>
----
- drivers/net/xen-netfront.c | 7 ++++---
- 1 file changed, 4 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
-index d58830b..a3ed8de 100644
---- a/drivers/net/xen-netfront.c
-+++ b/drivers/net/xen-netfront.c
-@@ -568,9 +568,10 @@ static int xennet_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	slots = DIV_ROUND_UP(offset + len, PAGE_SIZE) +
- 		xennet_count_skb_frag_slots(skb);
- 	if (unlikely(slots > MAX_SKB_FRAGS + 1)) {
--		net_alert_ratelimited(
--			"xennet: skb rides the rocket: %d slots\n", slots);
--		goto drop;
-+		net_dbg_ratelimited("xennet: skb rides the rocket: %d slots, %d bytes\n",
-+				    slots, skb->len);
-+		if (skb_linearize(skb))
-+			goto drop;
- 	}
- 
- 	spin_lock_irqsave(&np->tx_lock, flags);
 -- 
-1.9.1
+Murali Karicheri
+Linux Kernel, Texas Instruments
