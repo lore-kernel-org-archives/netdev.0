@@ -1,40 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next V1 00/11] Mellanox ethernet driver updates
- Jan-27-2015
-Date: Tue, 27 Jan 2015 17:13:23 -0800 (PST)
-Message-ID: <20150127.171323.238151164961750703.davem@davemloft.net>
-References: <1422367089-13419-1-git-send-email-amirv@mellanox.com>
+Subject: Re: [PATCH] csiostor:T5 Firmware fix and cleanup.
+Date: Tue, 27 Jan 2015 17:17:45 -0800 (PST)
+Message-ID: <20150127.171745.2186381509685560794.davem@davemloft.net>
+References: <1422368197-22086-1-git-send-email-praveenm@chelsio.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ogerlitz@mellanox.com,
-	yevgenyp@mellanox.com
-To: amirv@mellanox.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54203 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757924AbbA1BNY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2015 20:13:24 -0500
-In-Reply-To: <1422367089-13419-1-git-send-email-amirv@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-scsi@vger.kernel.org,
+	JBottomley@parallels.com, hch@infradead.org,
+	hariprasad@chelsio.com, varun@chelsio.com
+To: praveenm@chelsio.com
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <1422368197-22086-1-git-send-email-praveenm@chelsio.com>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Amir Vadai <amirv@mellanox.com>
-Date: Tue, 27 Jan 2015 15:57:58 +0200
+From: Praveen Madhavan <praveenm@chelsio.com>
+Date: Tue, 27 Jan 2015 19:46:37 +0530
 
-> This patchset introduces some bug fixes, code cleanups and support in a new
-> firmware event called recoverable error events.
+> This patch fix is to use default firmware configuration files
+> present in the adapter incase if not available in standard
+> /lib/firmware/* dir. Additional cleanup is done to reuse flash
+> related defines from cxgb4 header file.
 > 
-> Patches were applied and tested against commit b8665c6 ("net: dsa/mv88e6352:
-> make mv88e6352_wait generic")
+> Please apply over net-next since it depends on previous commit.
 > 
-> Changes from V0:
-> - Patch 6/11 ("net/mlx4_core: Fix struct mlx4_vhcr_cmd to make implicit padding
->   explicit"):
->   - Removed __packed
->   - Rephrased commit message
-> 
-> - Added a new patch by Majd ("net/mlx4_core: Update the HCA core clock frequency
->   after INIT_PORT")
+> Signed-off-by: Praveen Madhavan <praveenm@chelsio.com>
 
-Series applied, thanks.
+Applied, thanks.
