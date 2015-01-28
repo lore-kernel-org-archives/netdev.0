@@ -1,7 +1,8 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH 0/4] net: driver fixes from arm randconfig builds
-Date: Wed, 28 Jan 2015 15:15:00 +0100
-Message-ID: <1422454504-439085-1-git-send-email-arnd@arndb.de>
+Subject: [PATCH 1/4] net: cs89x0: always build platform code if !HAS_IOPORT_MAP
+Date: Wed, 28 Jan 2015 15:15:01 +0100
+Message-ID: <1422454504-439085-2-git-send-email-arnd@arndb.de>
+References: <1422454504-439085-1-git-send-email-arnd@arndb.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -10,6 +11,7 @@ Cc: Arnd Bergmann <arnd@arndb.de>, linux-pcmcia@lists.infradead.org,
  linux-arm-kernel@lists.infradead.org
 To: netdev@vger.kernel.org
 Return-path: <linux-pcmcia-bounces+glkpd-linux-pcmcia=m.gmane.org@lists.infradead.org>
+In-Reply-To: <1422454504-439085-1-git-send-email-arnd@arndb.de>
 List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-pcmcia>,
  <mailto:linux-pcmcia-request@lists.infradead.org?subject=unsubscribe>
 List-Archive: <http://lists.infradead.org/pipermail/linux-pcmcia/>
@@ -21,36 +23,38 @@ Sender: "linux-pcmcia" <linux-pcmcia-bounces@lists.infradead.org>
 Errors-To: linux-pcmcia-bounces+glkpd-linux-pcmcia=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-These four patches are fallout from test builds on ARM. I have a
-few more of them in my backlog but have not yet confirmed them
-to still be valid.
+The cs89x0 driver can either be built as an ISA driver or a platform
+driver, the choice is controlled by the CS89x0_PLATFORM Kconfig
+symbol. Building the ISA driver on a system that does not have
+a way to map I/O ports fails with this error:
 
-The first three patches are about incomplete dependencies on
-old drivers. One could backport them to the beginning of time
-in theory, but there is little value since nobody would run into
-these problems.
+drivers/built-in.o: In function `cs89x0_ioport_probe.constprop.1':
+:(.init.text+0x4794): undefined reference to `ioport_map'
+:(.init.text+0x4830): undefined reference to `ioport_unmap'
 
-The final patch is one I had submitted before together with the
-respective pcmcia patch but forgot to follow up on that. It's
-still a valid but relatively theoretical bug, because the previous
-behavior of the driver was just as broken as what we have in
-mainline.
+This changes the Kconfig logic to take that option away and
+always force building the platform variant of this driver if
+CONFIG_HAS_IOPORT_MAP is not set. This is the only correct
+choice in this case, and it avoids the build error.
 
-Please apply,
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+---
+ drivers/net/ethernet/cirrus/Kconfig | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-	Arnd
-
-Arnd Bergmann (4):
-  net: cs89x0: always build platform code if !HAS_IOPORT_MAP
-  net: wan: add missing virt_to_bus dependencies
-  net: lance,ni64: don't build for ARM
-  net: am2150: fix nmclan_cs.c shared interrupt handling
-
- drivers/net/ethernet/amd/Kconfig     | 4 ++--
- drivers/net/ethernet/amd/nmclan_cs.c | 2 ++
- drivers/net/ethernet/cirrus/Kconfig  | 3 ++-
- drivers/net/wan/Kconfig              | 6 +++---
- 4 files changed, 9 insertions(+), 6 deletions(-)
-
+diff --git a/drivers/net/ethernet/cirrus/Kconfig b/drivers/net/ethernet/cirrus/Kconfig
+index 7403dff8f14a..905ac5f5d9a6 100644
+--- a/drivers/net/ethernet/cirrus/Kconfig
++++ b/drivers/net/ethernet/cirrus/Kconfig
+@@ -32,7 +32,8 @@ config CS89x0
+ 	  will be called cs89x0.
+ 
+ config CS89x0_PLATFORM
+-	bool "CS89x0 platform driver support"
++	bool "CS89x0 platform driver support" if HAS_IOPORT_MAP
++	default !HAS_IOPORT_MAP
+ 	depends on CS89x0
+ 	help
+ 	  Say Y to compile the cs89x0 driver as a platform driver. This
 -- 
 2.1.0.rc2
