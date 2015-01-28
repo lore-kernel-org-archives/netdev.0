@@ -1,46 +1,47 @@
-From: roopa <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH] bridge: dont send notification when skb->len == 0 in
- rtnl_bridge_notify
-Date: Wed, 28 Jan 2015 05:37:48 -0800
-Message-ID: <54C8E62C.5040603@cumulusnetworks.com>
-References: <1422423984-29743-1-git-send-email-roopa@cumulusnetworks.com> <20150127.230511.1131199235284204820.davem@davemloft.net>
+From: Erik Kline <ek@google.com>
+Subject: Re: [PATCH net] net: ipv6: allow explicitly choosing optimistic addresses
+Date: Wed, 28 Jan 2015 21:03:14 +0900
+Message-ID: <CAAedzxo2JC6yk5Oz2_ya_FrPuDzb+RdS4wi_ri-F2oUK9H9DWw@mail.gmail.com>
+References: <1421823759-15098-1-git-send-email-ek@google.com> <1422189993.2148036.218504993.339586EE@webmail.messagingengine.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, stephen@networkplumber.org,
-	rami.rosen@intel.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f182.google.com ([209.85.223.182]:45958 "EHLO
-	mail-ie0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756260AbbA1Ujb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jan 2015 15:39:31 -0500
-Received: by mail-ie0-f182.google.com with SMTP id ar1so24838430iec.13
-        for <netdev@vger.kernel.org>; Wed, 28 Jan 2015 12:39:31 -0800 (PST)
-In-Reply-To: <20150127.230511.1131199235284204820.davem@davemloft.net>
+Received: from mail-vc0-f171.google.com ([209.85.220.171]:47041 "EHLO
+	mail-vc0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933059AbbA1Ukf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jan 2015 15:40:35 -0500
+Received: by mail-vc0-f171.google.com with SMTP id hq11so7541190vcb.2
+        for <netdev@vger.kernel.org>; Wed, 28 Jan 2015 12:40:34 -0800 (PST)
+In-Reply-To: <1422189993.2148036.218504993.339586EE@webmail.messagingengine.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 1/27/15, 11:05 PM, David Miller wrote:
-> From: roopa@cumulusnetworks.com
-> Date: Tue, 27 Jan 2015 21:46:24 -0800
+On Sun, Jan 25, 2015 at 9:46 PM, Hannes Frederic Sowa
+<hannes@stressinduktion.org> wrote:
+> Hi,
 >
->> From: Roopa Prabhu <roopa@cumulusnetworks.com>
->>
->> Reported in: https://bugzilla.kernel.org/show_bug.cgi?id=92081
->>
->> This patch avoids calling rtnl_notify if the device ndo_bridge_getlink
->> handler does not return any bytes in the skb.
->>
->> Alternately, the skb->len check can be moved inside rtnl_notify.
->>
->> For the bridge vlan case described in 92081, there is also a fix needed
->> in bridge driver to generate a proper notification. Will fix that in
->> subsequent patch.
->>
->> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
-> This doesn't apply to the 'net' tree, is there something I missed?
-sorry, that's me. This should be net-next. Resubmitting with net-next in 
-the PATCH line.
+> On Wed, Jan 21, 2015, at 08:02, Erik Kline wrote:
+>>               if (ipv6_addr_equal(&ifp->addr, addr) &&
+>> -                   !(ifp->flags&IFA_F_TENTATIVE) &&
+>> +                   (!(ifp->flags&IFA_F_TENTATIVE) ||
+>> +                    ifp->flags&IFA_F_OPTIMISTIC) &&
+>> +                   !(ifp->flags&banned_flags) &&
+>>                   (dev == NULL || ifp->idev->dev == dev ||
+>
+> Can the wrapper take the IFA_F_TENTATIVE and IFA_F_OPTIMISTIC into the
+> banned_flags argument, so this condition becomes easier to read? The new
+> caller could also specify them verbatim. I think it would improve
+> readability.
 
-thanks.
+So I did a bit of fiddling (and some fiddling of bits) and I've got a
+working version with your suggestion.
+
+Note that because we use 2 flags to represent optimistic state we
+still have a bit of complication in order to check whether or not
+optimistic is explicitly banned or not (as opposed to accidentally
+banned by virtue of its pairing with tentative).
+
+Thanks,
+-Erik
