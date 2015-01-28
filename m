@@ -1,111 +1,94 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH v2 iproute2-next 1/4] include: update headers
-Date: Wed, 28 Jan 2015 15:15:47 +0100
-Message-ID: <1422454550-32222-1-git-send-email-nicolas.dichtel@6wind.com>
-References: <54C8E3EB.8050904@6wind.com>
-Cc: netdev@vger.kernel.org, Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: shemminger@vyatta.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:44108 "EHLO
-	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754898AbbA1UPP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jan 2015 15:15:15 -0500
-In-Reply-To: <54C8E3EB.8050904@6wind.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Murali Karicheri <m-karicheri2@ti.com>
+Subject: Re: [PATCH net-next v8 0/4] net: Add Keystone NetCP ethernet driver
+ support
+Date: Wed, 28 Jan 2015 12:43:57 -0500
+Message-ID: <54C91FDD.1000009@ti.com>
+References: <1421367007-19744-1-git-send-email-m-karicheri2@ti.com> <20150119.151106.822126941934010309.davem@davemloft.net> <54BE7A00.2020205@ti.com> <25883654.BLFxICW9P0@wuerfel> <54C91328.6030208@ti.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, <devicetree@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <54C91328.6030208@ti.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Copy from sanitized headers.
+On 01/28/2015 11:49 AM, Murali Karicheri wrote:
+> On 01/27/2015 05:28 PM, Arnd Bergmann wrote:
+>> On Tuesday 20 January 2015 10:53:36 Murali Karicheri wrote:
+>>> On 01/19/2015 03:11 PM, David Miller wrote:
+>>>> From: Murali Karicheri<m-karicheri2@ti.com>
+>>>> Date: Thu, 15 Jan 2015 19:10:03 -0500
+>>>>
+>>>>> The Network Coprocessor (NetCP) is a hardware accelerator that
+>>>>> processes
+>>>>> Ethernet packets. NetCP has a gigabit Ethernet (GbE) subsystem with
+>>>>> a ethernet
+>>>>> switch sub-module to send and receive packets. NetCP also includes
+>>>>> a packet
+>>>>> accelerator (PA) module to perform packet classification operations
+>>>>> such as
+>>>>> header matching, and packet modification operations such as checksum
+>>>>> generation. NetCP can also optionally include a Security
+>>>>> Accelerator(SA)
+>>>>> capable of performing IPSec operations on ingress/egress packets.
+>>>>>
+>>>>> Keystone SoC's also have a 10 Gigabit Ethernet Subsystem (XGbE) which
+>>>>> includes a 3-port Ethernet switch sub-module capable of 10Gb/s and
+>>>>> 1Gb/s rates per Ethernet port.
+>>>>>
+>>>>> Both GBE and XGBE network processors supported using common driver. It
+>>>>> is also designed to handle future variants of NetCP.
+>>>>
+>>>> Series applied to net-next, thanks.
+>>> David,
+>>>
+>>> Thanks a lot for applying this series. This helps us move forward to
+>>> work on the next set of patches.
+>>
+>> Hi Murali,
+>>
+>> Building an ARM 'allmodconfig' kernel now runs into two separate problems
+>> from your driver:
+>>
+>> - you have two module_init() instances in one module, which conflict.
+>>
+>> - you have two files that are linked into more than one module, so
+>> building
+>> both TI_CPSW and TI_KEYSTONE_NETCP in the same kernel fails.
+>>
+>> The answer to both of these is probably to have separate loadable
+>> modules,
+>> but you might be able to come up with a different solution.
+> Arnd,
+>
+> Thanks for letting us know. We will look into this.
+>
+> How do I reproduce this? Is there a defconfig used for allmodconfig? I
+> am unable to find one. Any details to reproduce this will be useful.
+>
+Ok I think I found it.
 
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
+I did this with next-next branch and it seems to work. I will make 
+kernel build to reproduce this.
 
-v2: took last headers from net-next
+make ARCH=arm allmodconfig
+make uImage;
 
- include/linux/if_link.h       |  4 ++++
- include/linux/neighbour.h     |  1 +
- include/linux/net_namespace.h | 23 +++++++++++++++++++++++
- include/linux/rtnetlink.h     |  5 +++++
- 4 files changed, 33 insertions(+)
- create mode 100644 include/linux/net_namespace.h
+I am building it now.
 
-diff --git a/include/linux/if_link.h b/include/linux/if_link.h
-index 167ec34bab73..ac64724c9425 100644
---- a/include/linux/if_link.h
-+++ b/include/linux/if_link.h
-@@ -146,6 +146,7 @@ enum {
- 	IFLA_PHYS_PORT_ID,
- 	IFLA_CARRIER_CHANGES,
- 	IFLA_PHYS_SWITCH_ID,
-+	IFLA_LINK_NETNSID,
- 	__IFLA_MAX
- };
- 
-@@ -368,6 +369,9 @@ enum {
- 	IFLA_VXLAN_UDP_CSUM,
- 	IFLA_VXLAN_UDP_ZERO_CSUM6_TX,
- 	IFLA_VXLAN_UDP_ZERO_CSUM6_RX,
-+	IFLA_VXLAN_REMCSUM_TX,
-+	IFLA_VXLAN_REMCSUM_RX,
-+	IFLA_VXLAN_GBP,
- 	__IFLA_VXLAN_MAX
- };
- #define IFLA_VXLAN_MAX	(__IFLA_VXLAN_MAX - 1)
-diff --git a/include/linux/neighbour.h b/include/linux/neighbour.h
-index f3d77f9f1e0b..3873a35509aa 100644
---- a/include/linux/neighbour.h
-+++ b/include/linux/neighbour.h
-@@ -25,6 +25,7 @@ enum {
- 	NDA_VNI,
- 	NDA_IFINDEX,
- 	NDA_MASTER,
-+	NDA_LINK_NETNSID,
- 	__NDA_MAX
- };
- 
-diff --git a/include/linux/net_namespace.h b/include/linux/net_namespace.h
-new file mode 100644
-index 000000000000..9a92b7e14a19
---- /dev/null
-+++ b/include/linux/net_namespace.h
-@@ -0,0 +1,23 @@
-+/* Copyright (c) 2015 6WIND S.A.
-+ * Author: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms and conditions of the GNU General Public License,
-+ * version 2, as published by the Free Software Foundation.
-+ */
-+#ifndef _LINUX_NET_NAMESPACE_H_
-+#define _LINUX_NET_NAMESPACE_H_
-+
-+/* Attributes of RTM_NEWNSID/RTM_GETNSID messages */
-+enum {
-+	NETNSA_NONE,
-+#define NETNSA_NSID_NOT_ASSIGNED -1
-+	NETNSA_NSID,
-+	NETNSA_PID,
-+	NETNSA_FD,
-+	__NETNSA_MAX,
-+};
-+
-+#define NETNSA_MAX		(__NETNSA_MAX - 1)
-+
-+#endif /* _LINUX_NET_NAMESPACE_H_ */
-diff --git a/include/linux/rtnetlink.h b/include/linux/rtnetlink.h
-index 9111053f2250..3eb78105399b 100644
---- a/include/linux/rtnetlink.h
-+++ b/include/linux/rtnetlink.h
-@@ -132,6 +132,11 @@ enum {
- 	RTM_GETMDB = 86,
- #define RTM_GETMDB RTM_GETMDB
- 
-+	RTM_NEWNSID = 88,
-+#define RTM_NEWNSID RTM_NEWNSID
-+	RTM_GETNSID = 90,
-+#define RTM_GETNSID RTM_GETNSID
-+
- 	__RTM_MAX,
- #define RTM_MAX		(((__RTM_MAX + 3) & ~3) - 1)
- };
+Murali
+> Thanks.
+>
+> Murali
+>>
+>> Arnd
+>
+>
+
+
 -- 
-2.2.2
+Murali Karicheri
+Linux Kernel, Texas Instruments
