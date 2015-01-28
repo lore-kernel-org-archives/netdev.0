@@ -1,39 +1,65 @@
-From: Alexander Aring <alex.aring@gmail.com>
-Subject: Re: [PATCH bluetooth-next v2] ieee802154: fix netns settings
-Date: Wed, 28 Jan 2015 21:36:54 +0100
-Message-ID: <20150128203645.GB30188@omega>
-References: <alex.aring@gmail.com>
- <1422457112-4377-1-git-send-email-nicolas.dichtel@6wind.com>
+From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Subject: Re: [PATCH 2/2] string_helpers: Change semantics of
+ string_escape_mem
+Date: Wed, 28 Jan 2015 17:05:45 +0200
+Message-ID: <1422457545.31903.301.camel@linux.intel.com>
+References: <1422451543-12401-1-git-send-email-linux@rasmusvillemoes.dk>
+	 <1422451543-12401-3-git-send-email-linux@rasmusvillemoes.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	linux-wpan@vger.kernel.org, marcel@holtmann.org
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f53.google.com ([74.125.82.53]:55250 "EHLO
-	mail-wg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754346AbbA1Ug6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jan 2015 15:36:58 -0500
-Content-Disposition: inline
-In-Reply-To: <1422457112-4377-1-git-send-email-nicolas.dichtel@6wind.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Trond Myklebust <trond.myklebust@primarydata.com>,
+	"J. Bruce Fields" <bfields@fieldses.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, linux-nfs@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Rasmus Villemoes <linux@rasmusvillemoes.dk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1422451543-12401-3-git-send-email-linux@rasmusvillemoes.dk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jan 28, 2015 at 03:58:32PM +0100, Nicolas Dichtel wrote:
-> 6LoWPAN currently doesn't supports x-netns and works only in init_net.
+On Wed, 2015-01-28 at 14:25 +0100, Rasmus Villemoes wrote:
+> The current semantics of string_escape_mem are inadequate for one of
+> its two current users, vsnprintf(). If that is to honour its contract,
+> it must know how much space would be needed for the entire escaped
+> buffer, and string_escape_mem provides no way of obtaining that (short
+> of allocating a large enough buffer (~4 times input string) to let it
+> play with, and that's definitely a big no-no inside vsnprintf).
 > 
-> With this patch, we ensure that:
->  - the wpan interface cannot be moved to another netns;
->  - the 6lowpan interface cannot be moved to another netns;
->  - the wpan interface is in the same netns than the 6lowpan interface;
->  - the 6lowpan interface is in init_net.
+> So change the semantics for string_escape_mem to be more
+> snprintf-like: Return the size of the output that would be generated
+> if the destination buffer was big enough, but of course still only
+> write to the part of dst it is allowed to, and don't do
+> '\0'-termination. It is then up to the caller to detect whether output
+> was truncated and to append a '\0' if desired.
 > 
-> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> This also fixes a bug in the escaped_string() helper function, which
+> used to unconditionally pass a length of "end-buf" to
+> string_escape_mem(); since the latter doesn't check osz for being
+> insanely large, it would happily write to dst. For example,
+> kasprintf(GFP_KERNEL, "something and then %pE", ...); is an easy way
+> to trigger an oops.
 
-Acked-by: Alexander Aring <alex.aring@gmail.com>
+> The patch is somewhat larger than I'd like, but I couldn't find a way
+> of splitting it into smaller pieces. Implementation-wise, I changed
+> the various escape_* helpers to return true if they handled the
+> character, updating dst appropriately, false otherwise. Maybe there's
+> a more elegant way, but this seems to work.
 
-Marcel, can you please queue this for bluetooth-next?
+Can we split this to at least two parts: internal API changes to
+string_escape_mem() and the rest?
 
-Thanks.
+> In test-string_helpers.c, I removed the now meaningless -ENOMEM test,
+> and replaced it with testing for getting the expected return value
+> even if the buffer is too small. Also ensure that nothing is written
+> when osz==0.
+> 
+> In net/sunrpc/cache.c, I think qword_add still has the same
+> semantics. Someone should definitely double-check this.
 
-- Alex
+
+-- 
+Andy Shevchenko <andriy.shevchenko@intel.com>
+Intel Finland Oy
