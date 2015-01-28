@@ -1,33 +1,55 @@
-From: Martin Lau <kafai@fb.com>
-Subject: Re: A problem about ICMP packet-too-big message handler
-Date: Tue, 27 Jan 2015 21:19:29 -0800
-Message-ID: <20150128051929.GA3369592@devbig242.prn2.facebook.com>
-References: <54C78B8D.1070104@huawei.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Yang Yingliang <yangyingliang@huawei.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:58674 "EHLO
-	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1762573AbbA1FTs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jan 2015 00:19:48 -0500
-Content-Disposition: inline
-In-Reply-To: <54C78B8D.1070104@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Pramod Gurav <pramod.gurav@smartplayin.com>
+Subject: [PATCH RESEND] ssb: Fix Sparse error in main
+Date: Wed, 28 Jan 2015 10:52:19 +0530
+Message-ID: <1422422539-18772-1-git-send-email-pramod.gurav@smartplayin.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Pramod Gurav <pramod.gurav@smartplayin.com>
+To: Kalle Valo <kvalo@codeaurora.org>,
+	John Linville <linville@tuxdriver.com>,
+	Michael Buesch <m@bues.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 27, 2015 at 08:58:53PM +0800, Yang Yingliang wrote:
-> Hi,
-> 
-> My kernel is 3.10 LTS.
-> 
-> I got a problem here about handling ICMP packet-too-big message.
-> 
-> Before sending a packet-too-big packet :
-The expires should be set by the host _receiving_ the icmpv6 too-big.
+This change fixes below sparse error:
+drivers/ssb/main.c:94:16: warning: symbol 'ssb_sdio_func_to_bus'
+was not declared. Should it be static?
 
-Can you spell out some details of the outgoing icmpv6 too-big packet?
-like, the src/dst ip of the icmpv6 and the original ip packet that triggered the
-too-big.
+Acked-by: Michael Buesch <m@bues.ch>
+Signed-off-by: Pramod Gurav <pramod.gurav@smartplayin.com>
+---
+ drivers/ssb/main.c |   19 -------------------
+ 1 file changed, 19 deletions(-)
+
+diff --git a/drivers/ssb/main.c b/drivers/ssb/main.c
+index 2fead38..1e180c4 100644
+--- a/drivers/ssb/main.c
++++ b/drivers/ssb/main.c
+@@ -90,25 +90,6 @@ found:
+ }
+ #endif /* CONFIG_SSB_PCMCIAHOST */
+ 
+-#ifdef CONFIG_SSB_SDIOHOST
+-struct ssb_bus *ssb_sdio_func_to_bus(struct sdio_func *func)
+-{
+-	struct ssb_bus *bus;
+-
+-	ssb_buses_lock();
+-	list_for_each_entry(bus, &buses, list) {
+-		if (bus->bustype == SSB_BUSTYPE_SDIO &&
+-		    bus->host_sdio == func)
+-			goto found;
+-	}
+-	bus = NULL;
+-found:
+-	ssb_buses_unlock();
+-
+-	return bus;
+-}
+-#endif /* CONFIG_SSB_SDIOHOST */
+-
+ int ssb_for_each_bus_call(unsigned long data,
+ 			  int (*func)(struct ssb_bus *bus, unsigned long data))
+ {
+-- 
+1.7.9.5
