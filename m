@@ -1,56 +1,39 @@
-From: Pramod Gurav <pramod.gurav@smartplayin.com>
-Subject: [PATCH RESEND] ssb: Fix Sparse error in main
-Date: Wed, 28 Jan 2015 11:19:47 +0530
-Message-ID: <1422424187-19059-1-git-send-email-pramod.gurav@smartplayin.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-wireless@vger.kernel.org,
-	Pramod Gurav <pramod.gurav@smartplayin.com>
-To: Kalle Valo <kvalo@codeaurora.org>,
-	John Linville <linville@tuxdriver.com>,
-	Michael Buesch <m@bues.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Yang Yingliang <yangyingliang@huawei.com>
+Subject: Re: A problem about ICMP packet-too-big message handler
+Date: Wed, 28 Jan 2015 14:46:43 +0800
+Message-ID: <54C885D3.70808@huawei.com>
+References: <54C78B8D.1070104@huawei.com> <20150128051929.GA3369592@devbig242.prn2.facebook.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Martin Lau <kafai@fb.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga01-in.huawei.com ([119.145.14.64]:24516 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760671AbbA1GrH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jan 2015 01:47:07 -0500
+In-Reply-To: <20150128051929.GA3369592@devbig242.prn2.facebook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This change fixes below sparse error:
-drivers/ssb/main.c:94:16: warning: symbol 'ssb_sdio_func_to_bus'
-was not declared. Should it be static?
+On 2015/1/28 13:19, Martin Lau wrote:
+> On Tue, Jan 27, 2015 at 08:58:53PM +0800, Yang Yingliang wrote:
+>> Hi,
+>>
+>> My kernel is 3.10 LTS.
+>>
+>> I got a problem here about handling ICMP packet-too-big message.
+>>
+>> Before sending a packet-too-big packet :
+> The expires should be set by the host _receiving_ the icmpv6 too-big.
+> 
+> Can you spell out some details of the outgoing icmpv6 too-big packet?
+> like, the src/dst ip of the icmpv6 and the original ip packet that triggered the
+> too-big.
+> 
 
-Acked-by: Michael Buesch <m@bues.ch>
-Signed-off-by: Pramod Gurav <pramod.gurav@smartplayin.com>
----
- drivers/ssb/main.c |   19 -------------------
- 1 file changed, 19 deletions(-)
+I don't send too-big packet to trigger the err handling.
 
-diff --git a/drivers/ssb/main.c b/drivers/ssb/main.c
-index 2fead38..1e180c4 100644
---- a/drivers/ssb/main.c
-+++ b/drivers/ssb/main.c
-@@ -90,25 +90,6 @@ found:
- }
- #endif /* CONFIG_SSB_PCMCIAHOST */
- 
--#ifdef CONFIG_SSB_SDIOHOST
--struct ssb_bus *ssb_sdio_func_to_bus(struct sdio_func *func)
--{
--	struct ssb_bus *bus;
--
--	ssb_buses_lock();
--	list_for_each_entry(bus, &buses, list) {
--		if (bus->bustype == SSB_BUSTYPE_SDIO &&
--		    bus->host_sdio == func)
--			goto found;
--	}
--	bus = NULL;
--found:
--	ssb_buses_unlock();
--
--	return bus;
--}
--#endif /* CONFIG_SSB_SDIOHOST */
--
- int ssb_for_each_bus_call(unsigned long data,
- 			  int (*func)(struct ssb_bus *bus, unsigned long data))
- {
--- 
-1.7.9.5
+I just only send a ICMPv6 packet which type is ICMPV6_PKT_TOOBIG.
