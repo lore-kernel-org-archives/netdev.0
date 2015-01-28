@@ -1,120 +1,53 @@
-From: Ivan Delalande <colona@arista.com>
-Subject: Bug in netlink_bind
-Date: Thu, 29 Jan 2015 00:46:46 +0100
-Message-ID: <20150128234646.GA23945@ycc.fr>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org, pablo@netfilter.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f170.google.com ([209.85.212.170]:45510 "EHLO
-	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753854AbbA2B0F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jan 2015 20:26:05 -0500
-Received: by mail-wi0-f170.google.com with SMTP id bs8so2417351wib.1
-        for <netdev@vger.kernel.org>; Wed, 28 Jan 2015 17:26:04 -0800 (PST)
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Robert Dolca <robert.dolca@intel.com>
+Subject: [RFC] NFC: PN544: Supply the right length to skb_trim
+Date: Thu, 29 Jan 2015 01:50:46 +0200
+Message-ID: <1422489046-6087-1-git-send-email-robert.dolca@intel.com>
+Cc: linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Berg Johannes <johannes.berg@intel.com>,
+	Clement Perrochaud <clement.perrochaud@nxp.com>,
+	Robert Dolca <robert.dolca@intel.com>
+To: linux-nfc@lists.01.org,
+	Lauro Ramos Venancio <lauro.venancio@openbossa.org>,
+	Aloisio Almeida Jr <aloisio.almeida@openbossa.org>,
+	Samuel Ortiz <sameo@linux.intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+The 2nd parameter of skb_trim is the new length of the skb.
 
-I=E2=80=99ve been trying to debug some of our tests that began failing =
-when
-upgrading to 3.18. Our actual failure is caused by the condition added
-in commit 97840cb to nfnetlink_bind but the bug has probably been
-introduced by 0329274.
+pn544_hci_i2c_remove_len_crc used the tailroom for the 2nd parameter so
+the new length was 2 no metter how big the skb was.
+Now the length is (skb->len - PN544_I2C_FRAME_TAILROOM)
 
-Our tests execute the following code, at some point:
+Signed-off-by: Robert Dolca <robert.dolca@intel.com>
+---
+ drivers/nfc/pn544/i2c.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
 
-	localAddr.nl_groups =3D
-		  NF_NETLINK_CONNTRACK_NEW
-		| NF_NETLINK_CONNTRACK_UPDATE
-		| NF_NETLINK_CONNTRACK_DESTROY;
-	int ret =3D bind(sd, (sockaddr*)&localAddr, sizeof(localAddr));
-
-these constants are from include/uapi/linux/netfilter/nfnetlink_compat.=
-h
-and used as a bit set:
-
-	#define NF_NETLINK_CONNTRACK_NEW        0x00000001
-	#define NF_NETLINK_CONNTRACK_UPDATE     0x00000002
-	#define NF_NETLINK_CONNTRACK_DESTROY    0x00000004
-
-but, if I understand correctly, internally, constants from
-include/uapi/linux/netfilter/nfnetlink.h are used instead:
-
-	enum nfnetlink_groups {
-		NFNLGRP_NONE,
-		NFNLGRP_CONNTRACK_NEW,
-		NFNLGRP_CONNTRACK_UPDATE,
-		NFNLGRP_CONNTRACK_DESTROY,
-
-	...
-
-	static const int nfnl_group2type[NFNLGRP_MAX+1] =3D {
-		[NFNLGRP_CONNTRACK_NEW]     =3D NFNL_SUBSYS_CTNETLINK,
-		[NFNLGRP_CONNTRACK_UPDATE]  =3D NFNL_SUBSYS_CTNETLINK,
-		[NFNLGRP_CONNTRACK_DESTROY] =3D NFNL_SUBSYS_CTNETLINK,
-
-Now in netlink_bind (net/netlink/af_netlink.c), our localAddr.nl_groups
-value is assigned to the groups variable and tested with test_bit:
-
-	for (group =3D 0; group < nlk->ngroups; group++) {
-		if (!test_bit(group, &groups)) {
-			continue;
-		}
-		err =3D nlk->netlink_bind(group);
-
-In our case, for group =3D 0, bit 0 is indeed set because nl_groups was
-ORed with NF_NETLINK_CONNTRACK_NEW (=3D 1), so nlk->netlink_bind is cal=
-led
-with 0, that is nfnetlink_bind(0) (net/netfilter/nfnetlink.c):
-
-	if (group <=3D NFNLGRP_NONE || group > NFNLGRP_MAX)
-		return -EINVAL;
-
-	type =3D nfnl_group2type[group];
-
-And so, with this condition added by 97840cb, the syscall fails with
-EINVAL. But it means that, before this commit, we would have tried to
-get nfnl_group2type[0].
-In the same way, with NF_NETLINK_CONNTRACK_UPDATE (=3D 2),
-nfnetlink_bind(1) would have been called and fetched nfnl_group2type[1]=
-,
-which is declared as nfnl_group2type[NFNLGRP_CONNTRACK_NEW] =3D
-NFNL_SUBSYS_CTNETLINK, and so on.
-
-So, am I missing something or are the group values incorrectly
-interpreted differently between netlink_bind and nfnetlink_bind, with a
-difference of one? I tried a really naive patch and it made this part o=
-f
-ours tests pass:
-
-	diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-	index b6bf8e8..d2c65b0 100644
-	--- a/net/netlink/af_netlink.c
-	+++ b/net/netlink/af_netlink.c
-	@@ -1479,7 +1479,7 @@ static int netlink_bind(struct socket *sock, str=
-uct sockaddr *addr,
-			for (group =3D 0; group < nlk->ngroups; group++) {
-				if (!test_bit(group, &groups))
-					continue;
-	-                       err =3D nlk->netlink_bind(group);
-	+                       err =3D nlk->netlink_bind(group + 1);
-				if (!err)
-					continue;
-				netlink_unbind(group, groups, nlk);
-
-
-But that was really to test if this would fix my problem, I haven=E2=80=
-=99t
-really looked if the value nlk->ngroups was still correct with that or
-if there was any other nlk->netlink_bind than netlink_bind that would b=
-e
-affected.
-
-Thanks,
---=20
-Ivan "Colona" Delalande
-Arista Networks
+diff --git a/drivers/nfc/pn544/i2c.c b/drivers/nfc/pn544/i2c.c
+index 58b9029..42e7b26 100644
+--- a/drivers/nfc/pn544/i2c.c
++++ b/drivers/nfc/pn544/i2c.c
+@@ -297,7 +297,7 @@ static void pn544_hci_i2c_add_len_crc(struct sk_buff *skb)
+ static void pn544_hci_i2c_remove_len_crc(struct sk_buff *skb)
+ {
+ 	skb_pull(skb, PN544_I2C_FRAME_HEADROOM);
+-	skb_trim(skb, PN544_I2C_FRAME_TAILROOM);
++	skb_trim(skb, skb->len - PN544_I2C_FRAME_TAILROOM);
+ }
+ 
+ /*
+@@ -411,8 +411,7 @@ static int pn544_hci_i2c_read(struct pn544_i2c_phy *phy, struct sk_buff **skb)
+ 		goto flush;
+ 	}
+ 
+-	skb_pull(*skb, 1);
+-	skb_trim(*skb, (*skb)->len - 2);
++	pn544_hci_i2c_remove_len_crc(*skb);
+ 
+ 	usleep_range(3000, 6000);
+ 
+-- 
+1.9.1
