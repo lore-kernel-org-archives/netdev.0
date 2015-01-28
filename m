@@ -1,260 +1,331 @@
-From: =?utf-8?B?6YOR546J5Lyf?= <zhengyuwei@360.cn>
-Subject: =?utf-8?B?562U5aSNOiBbYXRoOWstZGV2ZWxdIFtQQVRDSF0gUmVwYWlyIHNvZnQgbG9j?=
- =?utf-8?Q?kup_with_monitor_mode_of_ath9k=5Fhtc_card?=
-Date: Fri, 30 Jan 2015 10:24:25 +0000
-Message-ID: <82BAAE499C1FCC499D6E0F5DEB09AF5B529AF9@EX02.corp.qihoo.net>
-References: <1422504583-17839-1-git-send-email-zhengyuwei@360.cn>
- <54CA10DB.3070903@rempel-privat.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Oleksij Rempel <linux@rempel-privat.de>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"ath9k-devel@venema.h4ckr.net" <ath9k-devel@venema.h4ckr.net>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"kvalo@codeaurora.org" <kvalo@codeaurora.org>,
-	"ath9k-devel@qca.qualcomm.com" <ath9k-devel@qca.qualcomm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <54CA10DB.3070903@rempel-privat.de>
-Content-Language: zh-CN
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: yuweizheng@139.com
+Subject: [PATCH] Repair soft lockup with monitor mode of ath9k_htc card
+Date: Thu, 29 Jan 2015 07:14:32 +0800
+Message-ID: <1422486872-16308-1-git-send-email-yuweizheng@139.com>
+Cc: netdev@vger.kernel.org, Yuwei Zheng <yuweizheng@139.com>,
+	Yuwei Zheng <zhengyuwei@360.cn>
+To: linux-kernel@vger.kernel.org, ath9k-devel@lists.ath9k.org,
+	linux-wireless@vger.kernel.org, kvalo@codeaurora.org,
+	ath9k-devel@qca.qualcomm.com, linux@rempel-privat.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from n9-22.mail.139.com ([221.176.9.22]:63219 "EHLO
+	n9-22.mail.139.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760800AbbA3Kdx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jan 2015 05:33:53 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-U29ycnksIHRoZSBwYXRjaCBydWluZWQgYnkgdGhlIG1haWwgZWRpdG9yLCBJIHdpbGwgc2VuZCB0
-aGUgcGF0Y2ggd2l0aCBhbm90aGVyIG1haWwgYWNjb3VudCB3aXRjaCBzdXBwb3J0IHNtdHAuIA0K
-DQpJIHVzZSB0YXNrbGV0X2hydGltZXJfc3RhcnQgZm9yIGRlbGF5ZWQgc3VibWl0LCBhbmQgdGhl
-IGhydGltZXIgY2FsbGJhY2sgZnVuY3Rpb24gaXMgZXhjdXRlZCBpbiB0aGUgbG93ZXIgcHJpb3Jp
-dHkgdGhhbiBub3JtYWwgdGFza2xldC4gKFRBU0tMRVRfU09GVElSUSA1LCBIUlRJTUVSX1NPRlRJ
-UlEgNyApDQoNClRoZSBocnRpbWVyIG1vZGUgaGFzIGJlZW4gdGVzdGVkIHNldmVyYWwgd2Vla3Mu
-ICBTbyBJIHNlbGVjdCB0aGlzIHdheSBjdXJyZW50bHkuDQoNCg0KLS0tLS3pgq7ku7bljp/ku7Yt
-LS0tLQ0K5Y+R5Lu25Lq6OiBPbGVrc2lqIFJlbXBlbCBbbWFpbHRvOmxpbnV4QHJlbXBlbC1wcml2
-YXQuZGVdIA0K5Y+R6YCB5pe26Ze0OiAyMDE15bm0MeaciDI55pelIDE4OjUyDQrmlLbku7bkuro6
-IOmDkeeOieS8nzsgbGludXgta2VybmVsQHZnZXIua2VybmVsLm9yZzsgYXRoOWstZGV2ZWxAdmVu
-ZW1hLmg0Y2tyLm5ldDsgbGludXgtd2lyZWxlc3NAdmdlci5rZXJuZWwub3JnOyBrdmFsb0Bjb2Rl
-YXVyb3JhLm9yZzsgYXRoOWstZGV2ZWxAcWNhLnF1YWxjb21tLmNvbQ0K5oqE6YCBOiBuZXRkZXZA
-dmdlci5rZXJuZWwub3JnDQrkuLvpopg6IFJlOiBbYXRoOWstZGV2ZWxdIFtQQVRDSF0gUmVwYWly
-IHNvZnQgbG9ja3VwIHdpdGggbW9uaXRvciBtb2RlIG9mIGF0aDlrX2h0YyBjYXJkDQoNCkFtIDI5
-LjAxLjIwMTUgdW0gMDU6MDkgc2NocmllYiB6aGVuZ3l1d2VpQDM2MC5jbjoNCj4gRnJvbTogWXV3
-ZWkgWmhlbmcgPHpoZW5neXV3ZWlAMzYwLmNuPg0KPiANCj4gSW4gdGhlIGVudmlyb25tZW50IHdp
-dGggaGVhdnkgd2lmaSB0cmFmZmljLCBzZXQgdGhlIGFyOTI3MSBpbnRvIA0KPiBtb25pdG9yIG1v
-ZGUsIHdpbGwgdHJpZ2dlciBhIGRlYWRsb29wIHBhbmljLg0KPiANCj4gVGhlIGF0aDlrX2hpZl91
-c2JfcnhfY2IgZnVuY3Rpb24gZXhjdXRlIG9uICB0aGUgaW50ZXJydXB0IGNvbnRleHQsIGFuZCAN
-Cj4gYXRoOWtfcnhfdGFza2xldCBleGN1dGUgb24gdGhlIHNvZnQgaXJxIGNvbnRleHQuIEluIG90
-aGVyIHdvcmRzLCB0aGUgDQo+IGF0aDlrX2hpZl91c2JfcnhfY2IgaGF2ZSBtb3JlIGNoYW5jZSB0
-byBleGN1dGUgdGhhbiBhdGg5a19yeF90YXNrbGV0LiAgDQo+IFNvIGluIHRoZSB3b3JzdCBjb25k
-aXRpb24sICB0aGUgcngucnhidWYgcmVjZWl2ZSBsaXN0IGlzIGFsd2F5cyBmdWxsLCBhbmQgdGhl
-IGRvIHt9d2hpbGUodHJ1ZSkgbG9vcCB3aWxsIG5vdCBiZSBicmVhay4gVGhlIGtlcm5lbCBnZXQg
-YSBzb2Z0IGxvY2t1cCBwYW5pYy4NCj4gICANCj4gWzU5MDExLjAwNzIxMF0gQlVHOiBzb2Z0IGxv
-Y2t1cCAtIENQVSMwIHN0dWNrIGZvciAyM3MhIA0KPiBba3dvcmtlci8wOjA6MzA2MDldDQo+IFs1
-OTAxMS4wMzA1NjBdIEJVRzogc2NoZWR1bGluZyB3aGlsZSBhdG9taWM6IA0KPiBrd29ya2VyLzA6
-MC8zMDYwOS8weDQwMDEwMTAwIFs1OTAxMy44MDQ0ODZdIEJVRzogc2NoZWR1bGluZyB3aGlsZSAN
-Cj4gYXRvbWljOiBrd29ya2VyLzA6MC8zMDYwOS8weDQwMDEwMTAwIFs1OTAxMy44NTg1MjJdIEtl
-cm5lbCBwYW5pYyAtIG5vdCANCj4gc3luY2luZzogc29mdGxvY2t1cDogaHVuZyB0YXNrcw0KPiAN
-Cj4gWzU5MDE0LjAzODg5MV0gRXhjZXB0aW9uIHN0YWNrKDB4ZGY0YmJjMzggdG8gMHhkZjRiYmM4
-MCkNCj4gWzU5MDE0LjA0NjgzNF0gYmMyMDogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgZGU1N2I5NTAgNjAwMDAxMTMNCj4gWzU5MDE0LjA1OTU3
-OV0gYmM0MDogMDAwMDAwMDAgYmIzMmJiMzIgNjAwMDAxMTMgZGU1N2I5NDggZGU1N2I1MDAgDQo+
-IGRjN2JiNDQwIGRmNGJiY2QwIDAwMDAwMDAwIFs1OTAxNC4wNzIzMzddIGJjNjA6IGRlNTdiOTUw
-IDYwMDAwMTEzIA0KPiBkZjRiYmNkMCBkZjRiYmM4MCBjMDRjMjU5ZCBjMDRjMjVhMCA2MDAwMDEz
-MyBmZmZmZmZmZiBbNTkwMTQuMDg1MjMzXSANCj4gWzxjMDRjMjhkYj5dIChfX2lycV9zdmMrMHgz
-Yi8weDVjKSBmcm9tIFs8YzA0YzI1YTA+XSANCj4gKF9yYXdfc3Bpbl91bmxvY2tfaXJxcmVzdG9y
-ZSsweGMvMHgxMCkNCj4gWzU5MDE0LjEwMDQzN10gWzxjMDRjMjVhMD5dIChfcmF3X3NwaW5fdW5s
-b2NrX2lycXJlc3RvcmUrMHhjLzB4MTApIA0KPiBmcm9tIFs8YmY5YzIwODk+XSAoYXRoOWtfcnhf
-dGFza2xldCsweDI5MC8weDQ5MCBbYXRoOWtfaHRjXSkgDQo+IFs1OTAxNC4xMTgyNjddIFs8YmY5
-YzIwODk+XSAoYXRoOWtfcnhfdGFza2xldCsweDI5MC8weDQ5MCBbYXRoOWtfaHRjXSkgDQo+IGZy
-b20gWzxjMDAzNmQyMz5dICh0YXNrbGV0X2FjdGlvbisweDNiLzB4OTgpIFs1OTAxNC4xMzQxMzJd
-IA0KPiBbPGMwMDM2ZDIzPl0gKHRhc2tsZXRfYWN0aW9uKzB4M2IvMHg5OCkgZnJvbSBbPGMwMDM2
-NzA5Pl0gDQo+IChfX2RvX3NvZnRpcnErMHg5OS8weDE2YykgWzU5MDE0LjE0Nzc4NF0gWzxjMDAz
-NjcwOT5dIA0KPiAoX19kb19zb2Z0aXJxKzB4OTkvMHgxNmMpIGZyb20gWzxjMDAzNjlmNz5dIChp
-cnFfZXhpdCsweDViLzB4NWMpIA0KPiBbNTkwMTQuMTYwNjUzXSBbPGMwMDM2OWY3Pl0gKGlycV9l
-eGl0KzB4NWIvMHg1YykgZnJvbSBbPGMwMDBjZmMzPl0gDQo+IChoYW5kbGVfSVJRKzB4MzcvMHg3
-OCkgWzU5MDE0LjE3MzEyNF0gWzxjMDAwY2ZjMz5dIA0KPiAoaGFuZGxlX0lSUSsweDM3LzB4Nzgp
-IGZyb20gWzxjMDAwODVkZj5dIA0KPiAob21hcDNfaW50Y19oYW5kbGVfaXJxKzB4NWYvMHg2OCkg
-WzU5MDE0LjE4NzIyNV0gWzxjMDAwODVkZj5dIA0KPiAob21hcDNfaW50Y19oYW5kbGVfaXJxKzB4
-NWYvMHg2OCkgZnJvbSANCj4gWzxjMDRjMjhkYj5dKF9faXJxX3N2YysweDNiLzB4NWMpDQo+IA0K
-PiBUaGlzIGJ1ZyBjYW4gYmUgc2VlIHdpdGggbG93IHBlcmZvcm1hbmNlIGJvYXJkLCBzdWNoIGFz
-IHVuaXByb2Nlc3NvciBiZWFnbGUgYm9uZSBib2FyZC4NCj4gU2lnbmVkLW9mZi1ieTogWXV3ZWkg
-WmhlbmcgPHpoZW5neXV3ZWlAMzYwLmNuPg0KPiANCj4gLS0tDQo+ICBkcml2ZXJzL25ldC93aXJl
-bGVzcy9hdGgvYXRoOWsvaGlmX3VzYi5jICAgICAgIHwgNTMgKysrKysrKysrKysrKysrKysrKysr
-Ky0tLS0NCj4gIGRyaXZlcnMvbmV0L3dpcmVsZXNzL2F0aC9hdGg5ay9oaWZfdXNiLmggICAgICAg
-fCAgNSArKysNCj4gIGRyaXZlcnMvbmV0L3dpcmVsZXNzL2F0aC9hdGg5ay9odGMuaCAgICAgICAg
-ICAgfCAxMyArKysrKysrDQo+ICBkcml2ZXJzL25ldC93aXJlbGVzcy9hdGgvYXRoOWsvaHRjX2Ry
-dl9kZWJ1Zy5jIHwgNDkgDQo+ICsrKysrKysrKysrKysrKysrKysrKysrKyAgDQo+IGRyaXZlcnMv
-bmV0L3dpcmVsZXNzL2F0aC9hdGg5ay9odGNfZHJ2X3R4cnguYyAgfCAyNiArKysrKysrKysrKysr
-DQo+ICA1IGZpbGVzIGNoYW5nZWQsIDEzOSBpbnNlcnRpb25zKCspLCA3IGRlbGV0aW9ucygtKQ0K
-DQpGaXJzdCBvZiBhbGwsIHRoYW5rIHlvdSBmb3IgeW91IHdvcmshIDpEDQoNClBsZWFzZSBydW4g
-Li9zY3JpcHRzL2NoZWNrcGF0Y2gucGwgeW91cnBhdGNoX3BhdGggaSBnZXQ6DQp0b3RhbDogMTM5
-IGVycm9ycywgMTIgd2FybmluZ3MsIDIgY2hlY2tzLCAyMzEgbGluZXMgY2hlY2tlZA0KDQpZb3Ug
-dXNlIHRhc2tsZXRfaHJ0aW1lcl9zdGFydC4gU28gZmFyIGkga25vdywgdGhlcmUgaXMgbm8gdGhp
-cyBraW5kIG9mIGhydGltZXIgd2hpY2ggaXMgYWN0dWFsbHkgaGlkZGVuIGJlaGluZCB0aGlzIHdv
-cmQgb24gdGhpcyBTb0MuDQpFc3BlY2lhbGx5IGlmIHJlcXVlc3RlZCB2YWx1ZSBpcyBhbnkgd2F5
-IGluIDEgbWlsbGlzZWNvbmQgcmFuZ2UgeW91IHByb2JhYmx5IGNhbiBhbmQgc2hvdWxkIHVzZSBu
-b3JtYWwgcHJpb3JpdHkgdGFza2xldC4gKGNvcnJlY3QgbWUgaWYgaSdtDQp3cm9uZykNCg0KPiBk
-aWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvd2lyZWxlc3MvYXRoL2F0aDlrL2hpZl91c2IuYyANCj4g
-Yi9kcml2ZXJzL25ldC93aXJlbGVzcy9hdGgvYXRoOWsvaGlmX3VzYi5jDQo+IGluZGV4IDhlNzE1
-M2IuLmZlYmVhNWUgMTAwNjQ0DQo+IC0tLSBhL2RyaXZlcnMvbmV0L3dpcmVsZXNzL2F0aC9hdGg5
-ay9oaWZfdXNiLmMNCj4gKysrIGIvZHJpdmVycy9uZXQvd2lyZWxlc3MvYXRoL2F0aDlrL2hpZl91
-c2IuYw0KPiBAQCAtNjU4LDcgKzY1OCw2IEBAIHN0YXRpYyB2b2lkIGF0aDlrX2hpZl91c2Jfcnhf
-Y2Ioc3RydWN0IHVyYiAqdXJiKQ0KPiAgCWRlZmF1bHQ6DQo+ICAJCWdvdG8gcmVzdWJtaXQ7DQo+
-ICAJfQ0KPiAtDQo+ICAJaWYgKGxpa2VseSh1cmItPmFjdHVhbF9sZW5ndGggIT0gMCkpIHsNCj4g
-IAkJc2tiX3B1dChza2IsIHVyYi0+YWN0dWFsX2xlbmd0aCk7DQo+ICAJCWF0aDlrX2hpZl91c2Jf
-cnhfc3RyZWFtKGhpZl9kZXYsIHNrYik7IEBAIC02NjcsMTIgKzY2NiwxOCBAQCBzdGF0aWMgDQo+
-IHZvaWQgYXRoOWtfaGlmX3VzYl9yeF9jYihzdHJ1Y3QgdXJiICp1cmIpDQo+ICByZXN1Ym1pdDoN
-Cj4gIAlza2JfcmVzZXRfdGFpbF9wb2ludGVyKHNrYik7DQo+ICAJc2tiX3RyaW0oc2tiLCAwKTsN
-Cj4gLQ0KPiAtCXVzYl9hbmNob3JfdXJiKHVyYiwgJmhpZl9kZXYtPnJ4X3N1Ym1pdHRlZCk7DQo+
-IC0JcmV0ID0gdXNiX3N1Ym1pdF91cmIodXJiLCBHRlBfQVRPTUlDKTsNCj4gLQlpZiAocmV0KSB7
-DQo+IC0JCXVzYl91bmFuY2hvcl91cmIodXJiKTsNCj4gLQkJZ290byBmcmVlOw0KPiArCWlmIChh
-dG9taWNfcmVhZCgmaGlmX2Rldi0+cnhfdXJiX3N1Ym1pdF9kZWxheSkgPiAwKSB7DQo+ICsJCXVz
-Yl9hbmNob3JfdXJiKHVyYiwgJmhpZl9kZXYtPnJ4X2RlbGF5ZWRfc3VibWl0dGVkKTsNCj4gKwkJ
-cmV0ID0gdGFza2xldF9ocnRpbWVyX3N0YXJ0KCZoaWZfZGV2LT5yeF9zdWJtaXRfdGltZXIsDQo+
-ICsJCQkJCSAgICBrdGltZV9zZXQoMCwgYXRvbWljX3JlYWQoJmhpZl9kZXYtPnJ4X3VyYl9zdWJt
-aXRfZGVsYXkpKjEwMDApLA0KPiArCQkJCQkgICAgSFJUSU1FUl9NT0RFX1JFTCk7DQo+ICsJfSBl
-bHNlIHsNCj4gKwkJdXNiX2FuY2hvcl91cmIodXJiLCAmaGlmX2Rldi0+cnhfc3VibWl0dGVkKTsN
-Cj4gKwkJcmV0ID0gdXNiX3N1Ym1pdF91cmIodXJiLCBHRlBfQVRPTUlDKTsNCj4gKwkJaWYgKHJl
-dCkgew0KPiArCQkJdXNiX3VuYW5jaG9yX3VyYih1cmIpOw0KPiArCQkJZ290byBmcmVlOw0KPiAr
-CQl9DQo+ICAJfQ0KPiAgDQo+ICAJcmV0dXJuOw0KPiBAQCAtODE4LDkgKzgyMywzNyBAQCBlcnI6
-DQo+ICAJcmV0dXJuIC1FTk9NRU07DQo+ICB9DQo+ICANCj4gK3N0YXRpYyBlbnVtIGhydGltZXJf
-cmVzdGFydCByeF91cmJfc3VibWl0X3RpbWVyX2hhbmRsZXIoc3RydWN0IA0KPiAraHJ0aW1lciAq
-bWUpIHsNCj4gKwlzdHJ1Y3QgdGFza2xldF9ocnRpbWVyICp0aHIgPSBjb250YWluZXJfb2YobWUs
-IHN0cnVjdCB0YXNrbGV0X2hydGltZXIsIHRpbWVyKTsNCj4gKwlzdHJ1Y3QgIGhpZl9kZXZpY2Vf
-dXNiICpoaWZfZGV2ID0gY29udGFpbmVyX29mKHRociwgc3RydWN0IGhpZl9kZXZpY2VfdXNiLCBy
-eF9zdWJtaXRfdGltZXIpOw0KPiArCXN0cnVjdCB1cmIgKnVyYiA9IE5VTEw7DQo+ICsJc3RydWN0
-IHNrX2J1ZmYgKnNrYiA9IE5VTEw7DQo+ICsJaW50IHJldDsNCj4gKw0KPiArCXdoaWxlICh0cnVl
-KSB7DQo+ICsJCXVyYiA9IHVzYl9nZXRfZnJvbV9hbmNob3IoJmhpZl9kZXYtPnJ4X2RlbGF5ZWRf
-c3VibWl0dGVkKTsNCj4gKwkJaWYgKHVyYiAhPSBOVUxMKSB7DQo+ICsJCQlza2IgPSAoc3RydWN0
-IHNrX2J1ZmYgKil1cmItPmNvbnRleHQ7DQo+ICsJCQlyZXQgPSB1c2Jfc3VibWl0X3VyYih1cmIs
-IEdGUF9BVE9NSUMpOw0KPiArCQkJaWYgKHJldCAhPSAtRUJVU1kpIHsNCj4gKwkJCQl1c2JfdW5h
-bmNob3JfdXJiKHVyYik7DQo+ICsJCQkJZGV2X2tmcmVlX3NrYl9hbnkoc2tiKTsNCj4gKwkJCQl1
-cmItPmNvbnRleHQgPSBOVUxMOw0KPiArCQkJfQ0KPiArCQl9IGVsc2Ugew0KPiArCQkJYnJlYWs7
-DQo+ICsJCX0NCj4gKwl9DQo+ICsNCj4gKwlyZXR1cm4gSFJUSU1FUl9OT1JFU1RBUlQ7DQo+ICt9
-DQo+ICsNCj4gIHN0YXRpYyB2b2lkIGF0aDlrX2hpZl91c2JfZGVhbGxvY19yeF91cmJzKHN0cnVj
-dCBoaWZfZGV2aWNlX3VzYiANCj4gKmhpZl9kZXYpICB7DQo+ICAJdXNiX2tpbGxfYW5jaG9yZWRf
-dXJicygmaGlmX2Rldi0+cnhfc3VibWl0dGVkKTsNCj4gKwl1c2Jfa2lsbF9hbmNob3JlZF91cmJz
-KCZoaWZfZGV2LT5yeF9kZWxheWVkX3N1Ym1pdHRlZCk7DQo+ICsJdGFza2xldF9ocnRpbWVyX2Nh
-bmNlbCgmaGlmX2Rldi0+cnhfc3VibWl0X3RpbWVyKTsNCj4gIH0NCj4gIA0KPiAgc3RhdGljIGlu
-dCBhdGg5a19oaWZfdXNiX2FsbG9jX3J4X3VyYnMoc3RydWN0IGhpZl9kZXZpY2VfdXNiIA0KPiAq
-aGlmX2RldikgQEAgLTgzMCw2ICs4NjMsOCBAQCBzdGF0aWMgaW50IGF0aDlrX2hpZl91c2JfYWxs
-b2NfcnhfdXJicyhzdHJ1Y3QgaGlmX2RldmljZV91c2IgKmhpZl9kZXYpDQo+ICAJaW50IGksIHJl
-dDsNCj4gIA0KPiAgCWluaXRfdXNiX2FuY2hvcigmaGlmX2Rldi0+cnhfc3VibWl0dGVkKTsNCj4g
-Kwlpbml0X3VzYl9hbmNob3IoJmhpZl9kZXYtPnJ4X2RlbGF5ZWRfc3VibWl0dGVkKTsNCj4gKw0K
-PiAgCXNwaW5fbG9ja19pbml0KCZoaWZfZGV2LT5yeF9sb2NrKTsNCj4gIA0KPiAgCWZvciAoaSA9
-IDA7IGkgPCBNQVhfUlhfVVJCX05VTTsgaSsrKSB7IEBAIC04NzEsNiArOTA2LDEwIEBAIHN0YXRp
-YyANCj4gaW50IGF0aDlrX2hpZl91c2JfYWxsb2NfcnhfdXJicyhzdHJ1Y3QgaGlmX2RldmljZV91
-c2IgKmhpZl9kZXYpDQo+ICAJCXVzYl9mcmVlX3VyYih1cmIpOw0KPiAgCX0NCj4gIA0KPiArCS8q
-IGFkZCBmb3IgZmxvdyBjb250cm9sKi8NCj4gKwlhdG9taWNfc2V0KCZoaWZfZGV2LT5yeF91cmJf
-c3VibWl0X2RlbGF5LCAwKTsNCj4gKwl0YXNrbGV0X2hydGltZXJfaW5pdCgmaGlmX2Rldi0+cnhf
-c3VibWl0X3RpbWVyLCANCj4gK3J4X3VyYl9zdWJtaXRfdGltZXJfaGFuZGxlciwgQ0xPQ0tfTU9O
-T1RPTklDLCBIUlRJTUVSX01PREVfUkVMKTsNCj4gKw0KPiAgCXJldHVybiAwOw0KPiAgDQo+ICBl
-cnJfc3VibWl0Og0KPiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvd2lyZWxlc3MvYXRoL2F0aDlr
-L2hpZl91c2IuaCANCj4gYi9kcml2ZXJzL25ldC93aXJlbGVzcy9hdGgvYXRoOWsvaGlmX3VzYi5o
-DQo+IGluZGV4IDUxNDk2ZTcuLjU2ZDZiZTggMTAwNjQ0DQo+IC0tLSBhL2RyaXZlcnMvbmV0L3dp
-cmVsZXNzL2F0aC9hdGg5ay9oaWZfdXNiLmgNCj4gKysrIGIvZHJpdmVycy9uZXQvd2lyZWxlc3Mv
-YXRoL2F0aDlrL2hpZl91c2IuaA0KPiBAQCAtOTgsOSArOTgsMTQgQEAgc3RydWN0IGhpZl9kZXZp
-Y2VfdXNiIHsNCj4gIAlzdHJ1Y3QgaGlmX3VzYl90eCB0eDsNCj4gIAlzdHJ1Y3QgdXNiX2FuY2hv
-ciByZWdvdXRfc3VibWl0dGVkOw0KPiAgCXN0cnVjdCB1c2JfYW5jaG9yIHJ4X3N1Ym1pdHRlZDsN
-Cj4gKwlzdHJ1Y3QgdXNiX2FuY2hvciByeF9kZWxheWVkX3N1Ym1pdHRlZDsgLyogZGVsYXllZCBz
-dWJtaXQgYW5jaG9yICovDQo+ICAJc3RydWN0IHVzYl9hbmNob3IgcmVnX2luX3N1Ym1pdHRlZDsN
-Cj4gIAlzdHJ1Y3QgdXNiX2FuY2hvciBtZ210X3N1Ym1pdHRlZDsNCj4gIAlzdHJ1Y3Qgc2tfYnVm
-ZiAqcmVtYWluX3NrYjsNCj4gKw0KPiArCXN0cnVjdCB0YXNrbGV0X2hydGltZXIgIHJ4X3N1Ym1p
-dF90aW1lcjsvKiBkZWxheWVkIHN1Ym1pdCBocnRpbWVyICovDQo+ICsJYXRvbWljX3QgIHJ4X3Vy
-Yl9zdWJtaXRfZGVsYXk7IC8qdXMqLw0KPiArDQo+ICAJY29uc3QgY2hhciAqZndfbmFtZTsNCj4g
-IAlpbnQgcnhfcmVtYWluX2xlbjsNCj4gIAlpbnQgcnhfcGt0X2xlbjsNCj4gZGlmZiAtLWdpdCBh
-L2RyaXZlcnMvbmV0L3dpcmVsZXNzL2F0aC9hdGg5ay9odGMuaCANCj4gYi9kcml2ZXJzL25ldC93
-aXJlbGVzcy9hdGgvYXRoOWsvaHRjLmgNCj4gaW5kZXggOWRkZTI2NS4uNDUzZDBhOCAxMDA2NDQN
-Cj4gLS0tIGEvZHJpdmVycy9uZXQvd2lyZWxlc3MvYXRoL2F0aDlrL2h0Yy5oDQo+ICsrKyBiL2Ry
-aXZlcnMvbmV0L3dpcmVsZXNzL2F0aC9hdGg5ay9odGMuaA0KPiBAQCAtMzMxLDYgKzMzMSwxMCBA
-QCBzdGF0aWMgaW5saW5lIHN0cnVjdCBhdGg5a19odGNfdHhfY3RsIA0KPiAqSFRDX1NLQl9DQihz
-dHJ1Y3Qgc2tfYnVmZiAqc2tiKQ0KPiAgDQo+ICAjZGVmaW5lIFRYX1FTVEFUX0lOQyhxKSAocHJp
-di0+ZGVidWcudHhfc3RhdHMucXVldWVfc3RhdHNbcV0rKykNCj4gIA0KPiArI2RlZmluZSBUQVNL
-TEVUUlhfU1RBVF9JTkMoYykgDQo+ICsoaGlmX2Rldi0+aHRjX2hhbmRsZS0+ZHJ2X3ByaXYtPmRl
-YnVnLnRhc2tsZXRyeF9zdGF0cy5jKyspDQo+ICsjZGVmaW5lIFRBU0tMRVRSWF9TVEFUX0FERChj
-LCBhKSANCj4gKyhoaWZfZGV2LT5odGNfaGFuZGxlLT5kcnZfcHJpdi0+ZGVidWcudGFza2xldHJ4
-X3N0YXRzLmMgKz0gYSkgI2RlZmluZSANCj4gK1RBU0tMRVRSWF9TVEFUX1NFVChjLCBhKSANCj4g
-KyhoaWZfZGV2LT5odGNfaGFuZGxlLT5kcnZfcHJpdi0+ZGVidWcudGFza2xldHJ4X3N0YXRzLmMg
-PSBhKQ0KPiArDQo+ICB2b2lkIGF0aDlrX2h0Y19lcnJfc3RhdF9yeChzdHJ1Y3QgYXRoOWtfaHRj
-X3ByaXYgKnByaXYsDQo+ICAJCQkgICBzdHJ1Y3QgYXRoX3J4X3N0YXR1cyAqcnMpOw0KPiAgDQo+
-IEBAIC0zNTIsMTEgKzM1NiwyMCBAQCBzdHJ1Y3QgYXRoX3NrYnJ4X3N0YXRzIHsNCj4gIAl1MzIg
-c2tiX2Ryb3BwZWQ7DQo+ICB9Ow0KPiAgDQo+ICtzdHJ1Y3QgYXRoX3Rhc2tsZXRyeF9zdGF0cyB7
-DQo+ICsJdTMyIHRhc2tsZXRyeF9sb29wdGltZXM7DQo+ICsJdTMyIHRhc2tsZXRyeF9oaWdod2F0
-ZXI7DQo+ICsJdTMyIHRhc2tsZXRyeF9sb3d3YXRlcjsNCj4gKwl1MzIgdGFza2xldHJ4X3dhdGVy
-bWFya190cmlnZ2VyZWQ7DQo+ICsJdTMyIHRhc2tsZXRyeF91cmJfc3VibWl0X2RlbGF5Ow0KPiAr
-fTsNCj4gKw0KPiAgc3RydWN0IGF0aDlrX2RlYnVnIHsNCj4gIAlzdHJ1Y3QgZGVudHJ5ICpkZWJ1
-Z2ZzX3BoeTsNCj4gIAlzdHJ1Y3QgYXRoX3R4X3N0YXRzIHR4X3N0YXRzOw0KPiAgCXN0cnVjdCBh
-dGhfcnhfc3RhdHMgcnhfc3RhdHM7DQo+ICAJc3RydWN0IGF0aF9za2JyeF9zdGF0cyBza2JyeF9z
-dGF0czsNCj4gKwlzdHJ1Y3QgYXRoX3Rhc2tsZXRyeF9zdGF0cyB0YXNrbGV0cnhfc3RhdHM7DQo+
-ICB9Ow0KPiAgDQo+ICB2b2lkIGF0aDlrX2h0Y19nZXRfZXRfc3RyaW5ncyhzdHJ1Y3QgaWVlZTgw
-MjExX2h3ICpodywgZGlmZiAtLWdpdCANCj4gYS9kcml2ZXJzL25ldC93aXJlbGVzcy9hdGgvYXRo
-OWsvaHRjX2Rydl9kZWJ1Zy5jIA0KPiBiL2RyaXZlcnMvbmV0L3dpcmVsZXNzL2F0aC9hdGg5ay9o
-dGNfZHJ2X2RlYnVnLmMNCj4gaW5kZXggOGNlZjFlZC4uN2M4MzIyZSAxMDA2NDQNCj4gLS0tIGEv
-ZHJpdmVycy9uZXQvd2lyZWxlc3MvYXRoL2F0aDlrL2h0Y19kcnZfZGVidWcuYw0KPiArKysgYi9k
-cml2ZXJzL25ldC93aXJlbGVzcy9hdGgvYXRoOWsvaHRjX2Rydl9kZWJ1Zy5jDQo+IEBAIC0yODYs
-NiArMjg2LDUxIEBAIHN0YXRpYyBjb25zdCBzdHJ1Y3QgZmlsZV9vcGVyYXRpb25zIGZvcHNfc2ti
-X3J4ID0gew0KPiAgCS5sbHNlZWsgPSBkZWZhdWx0X2xsc2VlaywNCj4gIH07DQo+ICANCj4gK3N0
-YXRpYyBzc2l6ZV90IHJlYWRfZmlsZV90YXNrbGV0X3J4KHN0cnVjdCBmaWxlICpmaWxlLCBjaGFy
-IF9fdXNlciAqdXNlcl9idWYsDQo+ICsJCQkJICAgIHNpemVfdCBjb3VudCwgbG9mZl90ICpwcG9z
-KQ0KPiArew0KPiArCXN0cnVjdCBhdGg5a19odGNfcHJpdiAqcHJpdiA9IGZpbGUtPnByaXZhdGVf
-ZGF0YTsNCj4gKwljaGFyICpidWY7DQo+ICsJdW5zaWduZWQgaW50IGxlbiA9IDAsIHNpemUgPSAx
-NTAwOw0KPiArCXNzaXplX3QgcmV0dmFsID0gMDsNCj4gKw0KPiArCWJ1ZiA9IGt6YWxsb2Moc2l6
-ZSwgR0ZQX0tFUk5FTCk7DQo+ICsJaWYgKGJ1ZiA9PSBOVUxMKQ0KPiArCQlyZXR1cm4gLUVOT01F
-TTsNCj4gKw0KPiArCWxlbiArPSBzY25wcmludGYoYnVmICsgbGVuLCBzaXplIC0gbGVuLA0KPiAr
-CQkJIiUyMHMgOiAlMTB1XG4iLCAiTG9vcCB0aW1lcyIsDQo+ICsJCQlwcml2LT5kZWJ1Zy50YXNr
-bGV0cnhfc3RhdHMudGFza2xldHJ4X2xvb3B0aW1lcyk7DQo+ICsJbGVuICs9IHNjbnByaW50Zihi
-dWYgKyBsZW4sIHNpemUgLSBsZW4sDQo+ICsJCQkiJTIwcyA6ICUxMHVcbiIsICJIaWdoIHdhdGVy
-bWFyayIsDQo+ICsJCQlwcml2LT5kZWJ1Zy50YXNrbGV0cnhfc3RhdHMudGFza2xldHJ4X2hpZ2h3
-YXRlcik7DQo+ICsJbGVuICs9IHNjbnByaW50ZihidWYgKyBsZW4sIHNpemUgLSBsZW4sDQo+ICsJ
-CQkiJTIwcyA6ICUxMHVcbiIsICJMb3cgd2F0ZXJtYXJrIiwNCj4gKwkJCXByaXYtPmRlYnVnLnRh
-c2tsZXRyeF9zdGF0cy50YXNrbGV0cnhfbG93d2F0ZXIpOw0KPiArDQo+ICsJbGVuICs9IHNjbnBy
-aW50ZihidWYgKyBsZW4sIHNpemUgLSBsZW4sDQo+ICsJCQkiJTIwcyA6ICUxMHVcbiIsICJXTSB0
-cmlnZ2VyZWQiLA0KPiArCQkJcHJpdi0+ZGVidWcudGFza2xldHJ4X3N0YXRzLnRhc2tsZXRyeF93
-YXRlcm1hcmtfdHJpZ2dlcmVkKTsNCj4gKw0KPiArCWxlbiArPSBzY25wcmludGYoYnVmICsgbGVu
-LCBzaXplIC0gbGVuLA0KPiArCQkJIiUyMHMgOiAlMTB1XG4iLCAiVVJCIGRlbGF5IiwNCj4gKwkJ
-CXByaXYtPmRlYnVnLnRhc2tsZXRyeF9zdGF0cy50YXNrbGV0cnhfdXJiX3N1Ym1pdF9kZWxheSk7
-DQo+ICsJaWYgKGxlbiA+IHNpemUpDQo+ICsJCWxlbiA9IHNpemU7DQo+ICsNCj4gKwlyZXR2YWwg
-PSBzaW1wbGVfcmVhZF9mcm9tX2J1ZmZlcih1c2VyX2J1ZiwgY291bnQsIHBwb3MsIGJ1ZiwgbGVu
-KTsNCj4gKwlrZnJlZShidWYpOw0KPiArDQo+ICsJcmV0dXJuIHJldHZhbDsNCj4gK30NCj4gKw0K
-PiArc3RhdGljIGNvbnN0IHN0cnVjdCBmaWxlX29wZXJhdGlvbnMgZm9wc190YXNrbGV0X3J4ID0g
-ew0KPiArCS5yZWFkID0gcmVhZF9maWxlX3Rhc2tsZXRfcngsDQo+ICsJLm9wZW4gPSBzaW1wbGVf
-b3BlbiwNCj4gKwkub3duZXIgPSBUSElTX01PRFVMRSwNCj4gKwkubGxzZWVrID0gZGVmYXVsdF9s
-bHNlZWssDQo+ICt9Ow0KPiArDQo+ICBzdGF0aWMgc3NpemVfdCByZWFkX2ZpbGVfc2xvdChzdHJ1
-Y3QgZmlsZSAqZmlsZSwgY2hhciBfX3VzZXIgKnVzZXJfYnVmLA0KPiAgCQkJICAgICAgc2l6ZV90
-IGNvdW50LCBsb2ZmX3QgKnBwb3MpDQo+ICB7DQo+IEBAIC01MTgsNyArNTYzLDExIEBAIGludCBh
-dGg5a19odGNfaW5pdF9kZWJ1ZyhzdHJ1Y3QgYXRoX2h3ICphaCkNCj4gIAlkZWJ1Z2ZzX2NyZWF0
-ZV9maWxlKCJza2JfcngiLCBTX0lSVVNSLCBwcml2LT5kZWJ1Zy5kZWJ1Z2ZzX3BoeSwNCj4gIAkJ
-CSAgICBwcml2LCAmZm9wc19za2JfcngpOw0KPiAgDQo+ICsJZGVidWdmc19jcmVhdGVfZmlsZSgi
-dGFza2xldF9yeCIsIFNfSVJVU1IsIHByaXYtPmRlYnVnLmRlYnVnZnNfcGh5LA0KPiArCQkJICAg
-IHByaXYsICZmb3BzX3Rhc2tsZXRfcngpOw0KPiArDQo+ICAJYXRoOWtfY21uX2RlYnVnX3JlY3Yo
-cHJpdi0+ZGVidWcuZGVidWdmc19waHksIA0KPiAmcHJpdi0+ZGVidWcucnhfc3RhdHMpOw0KPiAr
-DQo+ICAJYXRoOWtfY21uX2RlYnVnX3BoeV9lcnIocHJpdi0+ZGVidWcuZGVidWdmc19waHksIA0K
-PiAmcHJpdi0+ZGVidWcucnhfc3RhdHMpOw0KPiAgDQo+ICAJZGVidWdmc19jcmVhdGVfZmlsZSgi
-c2xvdCIsIFNfSVJVU1IsIHByaXYtPmRlYnVnLmRlYnVnZnNfcGh5LCBkaWZmIA0KPiAtLWdpdCBh
-L2RyaXZlcnMvbmV0L3dpcmVsZXNzL2F0aC9hdGg5ay9odGNfZHJ2X3R4cnguYyANCj4gYi9kcml2
-ZXJzL25ldC93aXJlbGVzcy9hdGgvYXRoOWsvaHRjX2Rydl90eHJ4LmMNCj4gaW5kZXggYTBmNThl
-Mi4uZjVlNjIxNyAxMDA2NDQNCj4gLS0tIGEvZHJpdmVycy9uZXQvd2lyZWxlc3MvYXRoL2F0aDlr
-L2h0Y19kcnZfdHhyeC5jDQo+ICsrKyBiL2RyaXZlcnMvbmV0L3dpcmVsZXNzL2F0aC9hdGg5ay9o
-dGNfZHJ2X3R4cnguYw0KPiBAQCAtMTA2MSw3ICsxMDYxLDI4IEBAIHZvaWQgYXRoOWtfcnhfdGFz
-a2xldCh1bnNpZ25lZCBsb25nIGRhdGEpDQo+ICAJdW5zaWduZWQgbG9uZyBmbGFnczsNCj4gIAlz
-dHJ1Y3QgaWVlZTgwMjExX2hkciAqaGRyOw0KPiAgDQo+ICsJLyogYWRkIGZvciBhZGFwdGl2ZSBm
-bG93IGNvbnRyb2wqLw0KPiArCWludCBsb29wdGltZXMgPSAwOw0KPiArCWludCBoaWdod2F0ZXJt
-YXJrID0gQVRIOUtfSFRDX1JYQlVGKjMvNDsNCj4gKwlpbnQgbG93d2F0ZXJtYXJrID0gQVRIOUtf
-SFRDX1JYQlVGLzQ7DQo+ICsJdW5zaWduZWQgaW50IGRlbGF5ID0gMDsNCj4gKw0KPiArCXN0cnVj
-dCBodGNfdGFyZ2V0ICpodGMgPSBwcml2LT5odGM7DQo+ICsJc3RydWN0IGhpZl9kZXZpY2VfdXNi
-ICpoaWZfZGV2ID0gaHRjLT5oaWZfZGV2Ow0KPiArDQo+ICsJVEFTS0xFVFJYX1NUQVRfU0VUKHRh
-c2tsZXRyeF9oaWdod2F0ZXIsIGhpZ2h3YXRlcm1hcmspOw0KPiArCVRBU0tMRVRSWF9TVEFUX1NF
-VCh0YXNrbGV0cnhfbG93d2F0ZXIsIGxvd3dhdGVybWFyayk7DQo+ICsNCj4gIAlkbyB7DQo+ICsJ
-CWxvb3B0aW1lcysrOw0KPiArCQlUQVNLTEVUUlhfU1RBVF9TRVQodGFza2xldHJ4X2xvb3B0aW1l
-cywgbG9vcHRpbWVzKTsNCj4gKwkJaWYgKGxvb3B0aW1lcyA+IGhpZ2h3YXRlcm1hcmspIHsNCj4g
-KwkJCWRlbGF5ID0gbG9vcHRpbWVzKjEwOw0KPiArCQkJYXRvbWljX3NldCgmaGlmX2Rldi0+cnhf
-dXJiX3N1Ym1pdF9kZWxheSwgZGVsYXkpOw0KPiArCQkJVEFTS0xFVFJYX1NUQVRfSU5DKHRhc2ts
-ZXRyeF93YXRlcm1hcmtfdHJpZ2dlcmVkKTsNCj4gKwkJCVRBU0tMRVRSWF9TVEFUX1NFVCh0YXNr
-bGV0cnhfdXJiX3N1Ym1pdF9kZWxheSwgZGVsYXkpOw0KPiArCQl9DQo+ICsNCj4gIAkJc3Bpbl9s
-b2NrX2lycXNhdmUoJnByaXYtPnJ4LnJ4YnVmbG9jaywgZmxhZ3MpOw0KPiAgCQlsaXN0X2Zvcl9l
-YWNoX2VudHJ5KHRtcF9idWYsICZwcml2LT5yeC5yeGJ1ZiwgbGlzdCkgew0KPiAgCQkJaWYgKHRt
-cF9idWYtPmluX3Byb2Nlc3MpIHsNCj4gQEAgLTEwNzIsNiArMTA5MywxMSBAQCB2b2lkIGF0aDlr
-X3J4X3Rhc2tsZXQodW5zaWduZWQgbG9uZyBkYXRhKQ0KPiAgDQo+ICAJCWlmIChyeGJ1ZiA9PSBO
-VUxMKSB7DQo+ICAJCQlzcGluX3VubG9ja19pcnFyZXN0b3JlKCZwcml2LT5yeC5yeGJ1ZmxvY2ss
-IGZsYWdzKTsNCj4gKwkJCWlmIChsb29wdGltZXMgPCBsb3d3YXRlcm1hcmspIHsNCj4gKwkJCQlh
-dG9taWNfc2V0KCZoaWZfZGV2LT5yeF91cmJfc3VibWl0X2RlbGF5LCAwKTsNCj4gKwkJCQlUQVNL
-TEVUUlhfU1RBVF9TRVQodGFza2xldHJ4X3VyYl9zdWJtaXRfZGVsYXksIDApOw0KPiArCQkJfQ0K
-PiArDQo+ICAJCQlicmVhazsNCj4gIAkJfQ0KPiAgDQo+IA0KDQoNCi0tDQpSZWdhcmRzLA0KT2xl
-a3Npag0KDQo=
+From: Yuwei Zheng <yuweizheng@139.com>
+
+In the environment with heavy wifi traffic, set the ar9271 into monitor mode, will
+trigger a deadloop panic.
+ 
+The ath9k_hif_usb_rx_cb function excute on  the interrupt context, and ath9k_rx_tasklet excute
+on the soft irq context. In other words, the ath9k_hif_usb_rx_cb have more chance to excute than
+ath9k_rx_tasklet.  So in the worst condition,  the rx.rxbuf receive list is always full,
+and the do {}while(true) loop will not be break. The kernel get a soft lockup panic. 
+ 
+[59011.007210] BUG: soft lockup - CPU#0 stuck for 23s!
+[kworker/0:0:30609]
+[59011.030560] BUG: scheduling while atomic: kworker/0:0/30609/0x40010100
+[59013.804486] BUG: scheduling while atomic: kworker/0:0/30609/0x40010100
+[59013.858522] Kernel panic - not syncing: softlockup: hung tasks
+ 
+[59014.038891] Exception stack(0xdf4bbc38 to 0xdf4bbc80)
+[59014.046834] bc20:                                                       de57b950 60000113
+[59014.059579] bc40: 00000000 bb32bb32 60000113 de57b948 de57b500 dc7bb440 df4bbcd0 00000000
+[59014.072337] bc60: de57b950 60000113 df4bbcd0 df4bbc80 c04c259d c04c25a0 60000133 ffffffff
+[59014.085233] [<c04c28db>] (__irq_svc+0x3b/0x5c) from [<c04c25a0>] (_raw_spin_unlock_irqrestore+0xc/0x10)
+[59014.100437] [<c04c25a0>] (_raw_spin_unlock_irqrestore+0xc/0x10) from [<bf9c2089>] (ath9k_rx_tasklet+0x290/0x490 [ath9k_htc])
+[59014.118267] [<bf9c2089>] (ath9k_rx_tasklet+0x290/0x490 [ath9k_htc]) from [<c0036d23>] (tasklet_action+0x3b/0x98)
+[59014.134132] [<c0036d23>] (tasklet_action+0x3b/0x98) from [<c0036709>] (__do_softirq+0x99/0x16c)
+[59014.147784] [<c0036709>] (__do_softirq+0x99/0x16c) from [<c00369f7>] (irq_exit+0x5b/0x5c)
+[59014.160653] [<c00369f7>] (irq_exit+0x5b/0x5c) from [<c000cfc3>] (handle_IRQ+0x37/0x78)
+[59014.173124] [<c000cfc3>] (handle_IRQ+0x37/0x78) from [<c00085df>] (omap3_intc_handle_irq+0x5f/0x68)
+[59014.187225] [<c00085df>] (omap3_intc_handle_irq+0x5f/0x68) from [<c04c28db>](__irq_svc+0x3b/0x5c)
+ 
+This bug can be see with low performance board, such as uniprocessor beagle bone board.
+ 
+ 
+Signed-off-by: Yuwei Zheng <zhengyuwei@360.cn>
+Signed-off-by: Yuwei Zheng <yuweizheng@139.com>
+
+
+---
+ drivers/net/wireless/ath/ath9k/hif_usb.c       | 58 ++++++++++++++++++++++----
+ drivers/net/wireless/ath/ath9k/hif_usb.h       |  5 +++
+ drivers/net/wireless/ath/ath9k/htc.h           | 13 ++++++
+ drivers/net/wireless/ath/ath9k/htc_drv_debug.c | 49 ++++++++++++++++++++++
+ drivers/net/wireless/ath/ath9k/htc_drv_txrx.c  | 26 ++++++++++++
+ 5 files changed, 144 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/net/wireless/ath/ath9k/hif_usb.c b/drivers/net/wireless/ath/ath9k/hif_usb.c
+index 8e7153b..18c6f0e 100644
+--- a/drivers/net/wireless/ath/ath9k/hif_usb.c
++++ b/drivers/net/wireless/ath/ath9k/hif_usb.c
+@@ -658,7 +658,6 @@ static void ath9k_hif_usb_rx_cb(struct urb *urb)
+ 	default:
+ 		goto resubmit;
+ 	}
+-
+ 	if (likely(urb->actual_length != 0)) {
+ 		skb_put(skb, urb->actual_length);
+ 		ath9k_hif_usb_rx_stream(hif_dev, skb);
+@@ -667,12 +666,18 @@ static void ath9k_hif_usb_rx_cb(struct urb *urb)
+ resubmit:
+ 	skb_reset_tail_pointer(skb);
+ 	skb_trim(skb, 0);
+-
+-	usb_anchor_urb(urb, &hif_dev->rx_submitted);
+-	ret = usb_submit_urb(urb, GFP_ATOMIC);
+-	if (ret) {
+-		usb_unanchor_urb(urb);
+-		goto free;
++	if (atomic_read(&hif_dev->rx_urb_submit_delay) > 0) {
++		usb_anchor_urb(urb, &hif_dev->rx_delayed_submitted);
++		ret = tasklet_hrtimer_start(&hif_dev->rx_submit_timer,
++						ktime_set(0, atomic_read(&hif_dev->rx_urb_submit_delay)*1000),
++						HRTIMER_MODE_REL);
++	} else {
++		usb_anchor_urb(urb, &hif_dev->rx_submitted);
++		ret = usb_submit_urb(urb, GFP_ATOMIC);
++		if (ret) {
++			usb_unanchor_urb(urb);
++			goto free;
++		}
+ 	}
+ 
+ 	return;
+@@ -818,9 +823,39 @@ err:
+ 	return -ENOMEM;
+ }
+ 
++static enum hrtimer_restart rx_urb_submit_timer_handler(struct hrtimer *me)
++{
++	struct tasklet_hrtimer *thr =
++		container_of(me, struct tasklet_hrtimer, timer);
++	struct  hif_device_usb *hif_dev =
++		container_of(thr, struct hif_device_usb, rx_submit_timer);
++	struct urb *urb = NULL;
++	struct sk_buff *skb = NULL;
++	int ret;
++
++	while (true) {
++		urb = usb_get_from_anchor(&hif_dev->rx_delayed_submitted);
++		if (urb != NULL) {
++			skb = (struct sk_buff *)urb->context;
++			ret = usb_submit_urb(urb, GFP_ATOMIC);
++			if (ret != -EBUSY) {
++				usb_unanchor_urb(urb);
++				dev_kfree_skb_any(skb);
++				urb->context = NULL;
++			}
++		} else {
++			break;
++		}
++	}
++
++	return HRTIMER_NORESTART;
++}
++
+ static void ath9k_hif_usb_dealloc_rx_urbs(struct hif_device_usb *hif_dev)
+ {
+ 	usb_kill_anchored_urbs(&hif_dev->rx_submitted);
++	usb_kill_anchored_urbs(&hif_dev->rx_delayed_submitted);
++	tasklet_hrtimer_cancel(&hif_dev->rx_submit_timer);
+ }
+ 
+ static int ath9k_hif_usb_alloc_rx_urbs(struct hif_device_usb *hif_dev)
+@@ -830,6 +865,8 @@ static int ath9k_hif_usb_alloc_rx_urbs(struct hif_device_usb *hif_dev)
+ 	int i, ret;
+ 
+ 	init_usb_anchor(&hif_dev->rx_submitted);
++	init_usb_anchor(&hif_dev->rx_delayed_submitted);
++
+ 	spin_lock_init(&hif_dev->rx_lock);
+ 
+ 	for (i = 0; i < MAX_RX_URB_NUM; i++) {
+@@ -871,6 +908,13 @@ static int ath9k_hif_usb_alloc_rx_urbs(struct hif_device_usb *hif_dev)
+ 		usb_free_urb(urb);
+ 	}
+ 
++	/* add for flow control*/
++	atomic_set(&hif_dev->rx_urb_submit_delay, 0);
++	tasklet_hrtimer_init(&hif_dev->rx_submit_timer,
++				rx_urb_submit_timer_handler,
++				CLOCK_MONOTONIC,
++				HRTIMER_MODE_REL);
++
+ 	return 0;
+ 
+ err_submit:
+diff --git a/drivers/net/wireless/ath/ath9k/hif_usb.h b/drivers/net/wireless/ath/ath9k/hif_usb.h
+index 51496e7..56d6be8 100644
+--- a/drivers/net/wireless/ath/ath9k/hif_usb.h
++++ b/drivers/net/wireless/ath/ath9k/hif_usb.h
+@@ -98,9 +98,14 @@ struct hif_device_usb {
+ 	struct hif_usb_tx tx;
+ 	struct usb_anchor regout_submitted;
+ 	struct usb_anchor rx_submitted;
++	struct usb_anchor rx_delayed_submitted; /* delayed submit anchor */
+ 	struct usb_anchor reg_in_submitted;
+ 	struct usb_anchor mgmt_submitted;
+ 	struct sk_buff *remain_skb;
++
++	struct tasklet_hrtimer  rx_submit_timer;/* delayed submit hrtimer */
++	atomic_t  rx_urb_submit_delay; /*us*/
++
+ 	const char *fw_name;
+ 	int rx_remain_len;
+ 	int rx_pkt_len;
+diff --git a/drivers/net/wireless/ath/ath9k/htc.h b/drivers/net/wireless/ath/ath9k/htc.h
+index 9dde265..453d0a8 100644
+--- a/drivers/net/wireless/ath/ath9k/htc.h
++++ b/drivers/net/wireless/ath/ath9k/htc.h
+@@ -331,6 +331,10 @@ static inline struct ath9k_htc_tx_ctl *HTC_SKB_CB(struct sk_buff *skb)
+ 
+ #define TX_QSTAT_INC(q) (priv->debug.tx_stats.queue_stats[q]++)
+ 
++#define TASKLETRX_STAT_INC(c) (hif_dev->htc_handle->drv_priv->debug.taskletrx_stats.c++)
++#define TASKLETRX_STAT_ADD(c, a) (hif_dev->htc_handle->drv_priv->debug.taskletrx_stats.c += a)
++#define TASKLETRX_STAT_SET(c, a) (hif_dev->htc_handle->drv_priv->debug.taskletrx_stats.c = a)
++
+ void ath9k_htc_err_stat_rx(struct ath9k_htc_priv *priv,
+ 			   struct ath_rx_status *rs);
+ 
+@@ -352,11 +356,20 @@ struct ath_skbrx_stats {
+ 	u32 skb_dropped;
+ };
+ 
++struct ath_taskletrx_stats {
++	u32 taskletrx_looptimes;
++	u32 taskletrx_highwater;
++	u32 taskletrx_lowwater;
++	u32 taskletrx_watermark_triggered;
++	u32 taskletrx_urb_submit_delay;
++};
++
+ struct ath9k_debug {
+ 	struct dentry *debugfs_phy;
+ 	struct ath_tx_stats tx_stats;
+ 	struct ath_rx_stats rx_stats;
+ 	struct ath_skbrx_stats skbrx_stats;
++	struct ath_taskletrx_stats taskletrx_stats;
+ };
+ 
+ void ath9k_htc_get_et_strings(struct ieee80211_hw *hw,
+diff --git a/drivers/net/wireless/ath/ath9k/htc_drv_debug.c b/drivers/net/wireless/ath/ath9k/htc_drv_debug.c
+index 8cef1ed..7c8322e 100644
+--- a/drivers/net/wireless/ath/ath9k/htc_drv_debug.c
++++ b/drivers/net/wireless/ath/ath9k/htc_drv_debug.c
+@@ -286,6 +286,51 @@ static const struct file_operations fops_skb_rx = {
+ 	.llseek = default_llseek,
+ };
+ 
++static ssize_t read_file_tasklet_rx(struct file *file, char __user *user_buf,
++				    size_t count, loff_t *ppos)
++{
++	struct ath9k_htc_priv *priv = file->private_data;
++	char *buf;
++	unsigned int len = 0, size = 1500;
++	ssize_t retval = 0;
++
++	buf = kzalloc(size, GFP_KERNEL);
++	if (buf == NULL)
++		return -ENOMEM;
++
++	len += scnprintf(buf + len, size - len,
++			"%20s : %10u\n", "Loop times",
++			priv->debug.taskletrx_stats.taskletrx_looptimes);
++	len += scnprintf(buf + len, size - len,
++			"%20s : %10u\n", "High watermark",
++			priv->debug.taskletrx_stats.taskletrx_highwater);
++	len += scnprintf(buf + len, size - len,
++			"%20s : %10u\n", "Low watermark",
++			priv->debug.taskletrx_stats.taskletrx_lowwater);
++
++	len += scnprintf(buf + len, size - len,
++			"%20s : %10u\n", "WM triggered",
++			priv->debug.taskletrx_stats.taskletrx_watermark_triggered);
++
++	len += scnprintf(buf + len, size - len,
++			"%20s : %10u\n", "URB delay",
++			priv->debug.taskletrx_stats.taskletrx_urb_submit_delay);
++	if (len > size)
++		len = size;
++
++	retval = simple_read_from_buffer(user_buf, count, ppos, buf, len);
++	kfree(buf);
++
++	return retval;
++}
++
++static const struct file_operations fops_tasklet_rx = {
++	.read = read_file_tasklet_rx,
++	.open = simple_open,
++	.owner = THIS_MODULE,
++	.llseek = default_llseek,
++};
++
+ static ssize_t read_file_slot(struct file *file, char __user *user_buf,
+ 			      size_t count, loff_t *ppos)
+ {
+@@ -518,7 +563,11 @@ int ath9k_htc_init_debug(struct ath_hw *ah)
+ 	debugfs_create_file("skb_rx", S_IRUSR, priv->debug.debugfs_phy,
+ 			    priv, &fops_skb_rx);
+ 
++	debugfs_create_file("tasklet_rx", S_IRUSR, priv->debug.debugfs_phy,
++			    priv, &fops_tasklet_rx);
++
+ 	ath9k_cmn_debug_recv(priv->debug.debugfs_phy, &priv->debug.rx_stats);
++
+ 	ath9k_cmn_debug_phy_err(priv->debug.debugfs_phy, &priv->debug.rx_stats);
+ 
+ 	debugfs_create_file("slot", S_IRUSR, priv->debug.debugfs_phy,
+diff --git a/drivers/net/wireless/ath/ath9k/htc_drv_txrx.c b/drivers/net/wireless/ath/ath9k/htc_drv_txrx.c
+index a0f58e2..f5e6217 100644
+--- a/drivers/net/wireless/ath/ath9k/htc_drv_txrx.c
++++ b/drivers/net/wireless/ath/ath9k/htc_drv_txrx.c
+@@ -1061,7 +1061,28 @@ void ath9k_rx_tasklet(unsigned long data)
+ 	unsigned long flags;
+ 	struct ieee80211_hdr *hdr;
+ 
++	/* add for adaptive flow control*/
++	int looptimes = 0;
++	int highwatermark = ATH9K_HTC_RXBUF*3/4;
++	int lowwatermark = ATH9K_HTC_RXBUF/4;
++	unsigned int delay = 0;
++
++	struct htc_target *htc = priv->htc;
++	struct hif_device_usb *hif_dev = htc->hif_dev;
++
++	TASKLETRX_STAT_SET(taskletrx_highwater, highwatermark);
++	TASKLETRX_STAT_SET(taskletrx_lowwater, lowwatermark);
++
+ 	do {
++		looptimes++;
++		TASKLETRX_STAT_SET(taskletrx_looptimes, looptimes);
++		if (looptimes > highwatermark) {
++			delay = looptimes*10;
++			atomic_set(&hif_dev->rx_urb_submit_delay, delay);
++			TASKLETRX_STAT_INC(taskletrx_watermark_triggered);
++			TASKLETRX_STAT_SET(taskletrx_urb_submit_delay, delay);
++		}
++
+ 		spin_lock_irqsave(&priv->rx.rxbuflock, flags);
+ 		list_for_each_entry(tmp_buf, &priv->rx.rxbuf, list) {
+ 			if (tmp_buf->in_process) {
+@@ -1072,6 +1093,11 @@ void ath9k_rx_tasklet(unsigned long data)
+ 
+ 		if (rxbuf == NULL) {
+ 			spin_unlock_irqrestore(&priv->rx.rxbuflock, flags);
++			if (looptimes < lowwatermark) {
++				atomic_set(&hif_dev->rx_urb_submit_delay, 0);
++				TASKLETRX_STAT_SET(taskletrx_urb_submit_delay, 0);
++			}
++
+ 			break;
+ 		}
+ 
+-- 
+1.9.1
