@@ -1,61 +1,44 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: [PATCH net-next v2 3/5] tcp: fix stretch ACK bugs in Reno
-Date: Wed, 28 Jan 2015 20:01:37 -0500
-Message-ID: <1422493299-22114-4-git-send-email-ncardwell@google.com>
-References: <1422493299-22114-1-git-send-email-ncardwell@google.com>
-Cc: netdev@vger.kernel.org, Neal Cardwell <ncardwell@google.com>,
-	Yuchung Cheng <ycheng@google.com>,
-	Eric Dumazet <edumazet@google.com>
-To: David Miller <davem@davemloft.net>
+From: Hannes Frederic Sowa <hannes@redhat.com>
+Subject: Re: A problem about ICMP packet-too-big message handler
+Date: Wed, 28 Jan 2015 09:42:54 +0100
+Message-ID: <1422434574.4678.21.camel@redhat.com>
+References: <54C78B8D.1070104@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Yang Yingliang <yangyingliang@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f172.google.com ([209.85.160.172]:53866 "EHLO
-	mail-yk0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752263AbbA2BIc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jan 2015 20:08:32 -0500
-Received: by mail-yk0-f172.google.com with SMTP id 9so10966929ykp.3
-        for <netdev@vger.kernel.org>; Wed, 28 Jan 2015 17:08:31 -0800 (PST)
-In-Reply-To: <1422493299-22114-1-git-send-email-ncardwell@google.com>
+Received: from mx1.redhat.com ([209.132.183.28]:53612 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752185AbbA2BIW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Jan 2015 20:08:22 -0500
+In-Reply-To: <54C78B8D.1070104@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Change Reno to properly handle stretch ACKs in additive increase mode
-by passing in the count of ACKed packets to tcp_cong_avoid_ai().
+On Di, 2015-01-27 at 20:58 +0800, Yang Yingliang wrote:
+> Hi,
+> 
+> My kernel is 3.10 LTS.
+> 
+> I got a problem here about handling ICMP packet-too-big message.
+> 
+> Before sending a packet-too-big packet :
+> 
+> # ip -6 route list table local
+> local ::1 dev lo  metric 0 
+> local fe80:: dev lo  metric 0 
+> local fe80:: dev lo  metric 0 
+> local fe80:: dev lo  metric 0 
+> local fe80:: dev lo  metric 0 
+> local fe80:: dev lo  metric 0 
+> local fe80:: dev lo  metric 0 
+> local fe80::1 dev lo  metric 0 	//It  does not have expire value
 
-In addition, if snd_cwnd crosses snd_ssthresh during slow start
-processing, and we then exit slow start mode, we need to carry over
-any remaining "credit" for packets ACKed and apply that to additive
-increase by passing this remaining "acked" count to
-tcp_cong_avoid_ai().
+Did you just add a local route or do you also have a corresponding IPv6
+address bound to loopback?
 
-Reported-by: Eyal Perry <eyalpe@mellanox.com>
-Signed-off-by: Neal Cardwell <ncardwell@google.com>
-Signed-off-by: Yuchung Cheng <ycheng@google.com>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/ipv4/tcp_cong.c | 10 ++++++----
- 1 file changed, 6 insertions(+), 4 deletions(-)
-
-diff --git a/net/ipv4/tcp_cong.c b/net/ipv4/tcp_cong.c
-index 389fe7a..d694088 100644
---- a/net/ipv4/tcp_cong.c
-+++ b/net/ipv4/tcp_cong.c
-@@ -404,11 +404,13 @@ void tcp_reno_cong_avoid(struct sock *sk, u32 ack, u32 acked)
- 		return;
- 
- 	/* In "safe" area, increase. */
--	if (tp->snd_cwnd <= tp->snd_ssthresh)
--		tcp_slow_start(tp, acked);
-+	if (tp->snd_cwnd <= tp->snd_ssthresh) {
-+		acked = tcp_slow_start(tp, acked);
-+		if (!acked)
-+			return;
-+	}
- 	/* In dangerous area, increase slowly. */
--	else
--		tcp_cong_avoid_ai(tp, tp->snd_cwnd, 1);
-+	tcp_cong_avoid_ai(tp, tp->snd_cwnd, acked);
- }
- EXPORT_SYMBOL_GPL(tcp_reno_cong_avoid);
- 
--- 
-2.2.0.rc0.207.ga3a616c
+Bye,
+Hannes
