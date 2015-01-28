@@ -1,142 +1,121 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: pull-request: can-next 2015-28-01
-Date: Wed, 28 Jan 2015 14:58:42 +0100
-Message-ID: <54C8EB12.9030100@pengutronix.de>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="dd98LWTGFEupCSnvCK6qMXdo5fCkx0jVf"
-Cc: David Miller <davem@davemloft.net>,
-	"kernel@pengutronix.de" <kernel@pengutronix.de>,
-	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>
-To: netdev@vger.kernel.org
-Return-path: <linux-can-owner@vger.kernel.org>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: [PATCH v2 iproute2-next 3/4] iplink: add support of IFLA_LINK_NETNSID attribute
+Date: Wed, 28 Jan 2015 15:15:49 +0100
+Message-ID: <1422454550-32222-3-git-send-email-nicolas.dichtel@6wind.com>
+References: <54C8E3EB.8050904@6wind.com>
+ <1422454550-32222-1-git-send-email-nicolas.dichtel@6wind.com>
+Cc: netdev@vger.kernel.org, Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: shemminger@vyatta.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:44110 "EHLO
+	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754899AbbA1UPP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jan 2015 15:15:15 -0500
+In-Reply-To: <1422454550-32222-1-git-send-email-nicolas.dichtel@6wind.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---dd98LWTGFEupCSnvCK6qMXdo5fCkx0jVf
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
+This new attribute is now advertised by the kernel for x-netns interfaces.
+It's also possible to set it when an interface is created (and thus creating a
+x-netns interface with one single message).
 
-Hello David,
+Example:
+ $ ip netns add foo
+ $ ip netns add bar
+ $ ip -n foo netns set bar 15
+ $ ip -n foo link add ipip1 link-netnsid 15 type ipip remote 10.16.0.121 local 10.16.0.249
+ $ ip -n foo link ls ipip1
+ 3: ipip1@NONE: <POINTOPOINT,NOARP> mtu 1480 qdisc noop state DOWN mode DEFAULT group default
+     link/ipip 10.16.0.249 peer 10.16.0.121 link-netnsid 15
 
-this is a pull request of 12 patches for net-next/master.
-
-There are 3 patches by Ahmed S. Darwish, which update the kvaser_usb
-driver and add support for the USBcan-II based adapters. St=C3=A9phane
-Grosjean contributes 7 patches for the peak_usb driver, which add
-support for the CANFD USB adapters. I contribute 2 patches which clean
-up the peak_usb driver structure a bit.
-
-Marc
-
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 ---
 
-The following changes since commit ff660f75be36e6db75d45dc742a4a468c5a9c2=
-0d:
+v2: don't try to convert IFLA_LINK to the devname when IFLA_LINK_NETNSID is set
 
-  Merge branch 'stmmac-pci' (2015-01-27 21:08:13 -0800)
+ ip/ipaddress.c | 20 +++++++++++++++++---
+ ip/iplink.c    | 10 ++++++++++
+ 2 files changed, 27 insertions(+), 3 deletions(-)
 
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/mkl/linux-can-next.git ta=
-gs/linux-can-next-for-3.20-20150128
-
-for you to fetch changes up to 0a25e1f4f18566b750ebd3ae995af64e23111e63:
-
-  can: peak_usb: add support for PEAK new CANFD USB adapters (2015-01-28 =
-14:47:06 +0100)
-
-----------------------------------------------------------------
-linux-can-next-for-3.20-20150128
-
-----------------------------------------------------------------
-Ahmed S. Darwish (3):
-      can: kvaser_usb: Update interface state before exiting on OOM
-      can: kvaser_usb: Consolidate and unify state change handling
-      can: kvaser_usb: Add support for the USBcan-II family
-
-Marc Kleine-Budde (2):
-      can: peak_usb: use ARRAY_SIZE instead of NULL termination for peak_=
-usb_adapters_list
-      can: peak_usb: constify struct peak_usb_adapter
-
-Stephane Grosjean (7):
-      can: peak_usb: export ctrlmode_supported to adapter specific defini=
-tion
-      can: peak_usb: add adapter BEC callback definition
-      can: peak_usb: upgrade core to data bittiming specs
-      can: peak_usb: upgrade core to new struct canfd_frame
-      can: peak_usb: export pcan_usb_pro functions
-      can: peak_usb: add peak_usb_netif_rx() new function
-      can: peak_usb: add support for PEAK new CANFD USB adapters
-
- drivers/net/can/usb/Kconfig                  |   22 +-
- drivers/net/can/usb/kvaser_usb.c             |  722 ++++++++++++-----
- drivers/net/can/usb/peak_usb/Makefile        |    2 +-
- drivers/net/can/usb/peak_usb/pcan_ucan.h     |  222 ++++++
- drivers/net/can/usb/peak_usb/pcan_usb.c      |    3 +-
- drivers/net/can/usb/peak_usb/pcan_usb_core.c |   83 +-
- drivers/net/can/usb/peak_usb/pcan_usb_core.h |   26 +-
- drivers/net/can/usb/peak_usb/pcan_usb_fd.c   | 1095 ++++++++++++++++++++=
-++++++
- drivers/net/can/usb/peak_usb/pcan_usb_pro.c  |   19 +-
- drivers/net/can/usb/peak_usb/pcan_usb_pro.h  |   13 +
- 10 files changed, 1981 insertions(+), 226 deletions(-)
- create mode 100644 drivers/net/can/usb/peak_usb/pcan_ucan.h
- create mode 100644 drivers/net/can/usb/peak_usb/pcan_usb_fd.c
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
---dd98LWTGFEupCSnvCK6qMXdo5fCkx0jVf
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAEBCgAGBQJUyOsVAAoJECte4hHFiupUzToP/05IGBtduHOPM+JEyEmGgbf/
-QseZmQJ1LEA0IYGyXB+e+sQdEs9/43KVIwXoXaVZz8OI37MtMmOuv4hYqFeBDqLV
-rJlpKWXcwKLFzVBLkqCP/+gPDHTV9eODM6zoiolqWRt7j5SPDqhK0UeTEq3yjZuP
-bug/tLK6kfENVzF6EiTPBp/rRNgadRPB7TM3HvPuTCVqkWtcY6MjeDc+HFrEgjix
-Rt9IpWTp5+82Ovt/oAMfOUOdToA8WHpdUXzHil6pZoS3ScXCSfMZXGSEPKro3c+N
-UGC2pba+OhoDMPLAlR0yx/J/2/xoh4rSHm+e1g4CxW7RNqr7dcQja64oxmQDxle1
-P/DewTrugbIIluAXkHpywJd/eZs3u+5VqD8TIBleFdV+AkWu3LaGxZntqTPoylRj
-NLxkvANDdjTTf+BtZ9SZbzfnXyYkVntbZ477mYAEanqKu0gIj+z2jIg495SU0D2m
-/2J/w0bnToZU78RuuR0Iahuq77Xr0qodTpcksVkR1hz8FiXMWnkb8ZhFl/IkA6t2
-b0f6sAJuFIh6s0k6fe8BY+zKrAhA5UyookYh/iNFd1KkHbZRV2h2G1voqR3fPJqn
-xG+C8ZrzXagvwCFbjZw6gsDFdARKUsAo10EOH8cfRyQP5HDfFc/bt8Wfw/h44pl7
-EV0ibOtEHJHNYBctsZxC
-=581V
------END PGP SIGNATURE-----
-
---dd98LWTGFEupCSnvCK6qMXdo5fCkx0jVf--
+diff --git a/ip/ipaddress.c b/ip/ipaddress.c
+index d5e863dd1f12..8bc28b8a12c8 100644
+--- a/ip/ipaddress.c
++++ b/ip/ipaddress.c
+@@ -28,6 +28,7 @@
+ #include <linux/netdevice.h>
+ #include <linux/if_arp.h>
+ #include <linux/sockios.h>
++#include <linux/net_namespace.h>
+ 
+ #include "rt_names.h"
+ #include "utils.h"
+@@ -614,9 +615,13 @@ int print_linkinfo(const struct sockaddr_nl *who,
+ 		if (iflink == 0)
+ 			fprintf(fp, "@NONE: ");
+ 		else {
+-			fprintf(fp, "@%s: ", ll_idx_n2a(iflink, b1));
+-			m_flag = ll_index_to_flags(iflink);
+-			m_flag = !(m_flag & IFF_UP);
++			if (tb[IFLA_LINK_NETNSID])
++				fprintf(fp, "@if%d: ", iflink);
++			else {
++				fprintf(fp, "@%s: ", ll_idx_n2a(iflink, b1));
++				m_flag = ll_index_to_flags(iflink);
++				m_flag = !(m_flag & IFF_UP);
++			}
+ 		}
+ 	} else {
+ 		fprintf(fp, ": ");
+@@ -678,6 +683,15 @@ int print_linkinfo(const struct sockaddr_nl *who,
+ 		}
+ 	}
+ 
++	if (tb[IFLA_LINK_NETNSID]) {
++		int id = *(int*)RTA_DATA(tb[IFLA_LINK_NETNSID]);
++
++		if (id >= 0)
++			fprintf(fp, " link-netnsid %d", id);
++		else
++			fprintf(fp, " link-netnsid unknown");
++	}
++
+ 	if (tb[IFLA_PROMISCUITY] && show_details)
+ 		fprintf(fp, " promiscuity %u ",
+ 			*(int*)RTA_DATA(tb[IFLA_PROMISCUITY]));
+diff --git a/ip/iplink.c b/ip/iplink.c
+index c93d1dc3d5f6..5893ee401cf9 100644
+--- a/ip/iplink.c
++++ b/ip/iplink.c
+@@ -72,6 +72,7 @@ void iplink_usage(void)
+ 	fprintf(stderr, "	                  [ mtu MTU ]\n");
+ 	fprintf(stderr, "	                  [ netns PID ]\n");
+ 	fprintf(stderr, "	                  [ netns NAME ]\n");
++	fprintf(stderr, "                         [ link-netnsid ID ]\n");
+ 	fprintf(stderr, "			  [ alias NAME ]\n");
+ 	fprintf(stderr, "	                  [ vf NUM [ mac LLADDR ]\n");
+ 	fprintf(stderr, "				   [ vlan VLANID [ qos VLAN-QOS ] ]\n");
+@@ -386,6 +387,7 @@ int iplink_parse(int argc, char **argv, struct iplink_req *req,
+ 	int numtxqueues = -1;
+ 	int numrxqueues = -1;
+ 	int dev_index = 0;
++	int link_netnsid = -1;
+ 
+ 	*group = -1;
+ 	ret = argc;
+@@ -588,6 +590,14 @@ int iplink_parse(int argc, char **argv, struct iplink_req *req,
+ 			addattr8(&req->n, sizeof(*req), IFLA_INET6_ADDR_GEN_MODE, mode);
+ 			addattr_nest_end(&req->n, afs6);
+ 			addattr_nest_end(&req->n, afs);
++		} else if (matches(*argv, "link-netnsid") == 0) {
++			NEXT_ARG();
++			if (link_netnsid != -1)
++				duparg("link-netnsid", *argv);
++			if (get_integer(&link_netnsid, *argv, 0))
++				invarg("Invalid \"link-netnsid\" value\n", *argv);
++			addattr32(&req->n, sizeof(*req), IFLA_LINK_NETNSID,
++				  link_netnsid);
+ 		} else {
+ 			if (strcmp(*argv, "dev") == 0) {
+ 				NEXT_ARG();
+-- 
+2.2.2
