@@ -1,109 +1,89 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: NetDev 0.1 Schedule delay update
-Date: Wed, 28 Jan 2015 08:24:47 -0500
-Message-ID: <54C8E31F.5080808@mojatatu.com>
-Reply-To: info@netdev01.org
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH net 1/2] caif: remove wrong dev_net_set() call
+Date: Wed, 28 Jan 2015 16:07:02 +0100
+Message-ID: <54C8FB16.6040006@6wind.com>
+References: <1422307694-10079-1-git-send-email-nicolas.dichtel@6wind.com> <1422307694-10079-2-git-send-email-nicolas.dichtel@6wind.com>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: info@netdev01.org, speakers@netdev01.org, attendees@netdev01.org
-To: netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
-	lwn@lwn.net, netdev01@lists.netfilter.org, lartc@vger.kernel.org,
-	netfilter@vger.kernel.org, netfilter-devel@vger.kernel.org
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, arvid.brodin@alten.se, alex.aring@gmail.com,
+	linux-wpan@vger.kernel.org,
+	Dmitry Tarnyagin <abi.dmitryt@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f176.google.com ([209.85.223.176]:50948 "EHLO
-	mail-ie0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755408AbbA1U2o (ORCPT
+Received: from mail-wi0-f180.google.com ([209.85.212.180]:45881 "EHLO
+	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753716AbbA1U2o (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jan 2015 15:28:44 -0500
-Received: by mail-ie0-f176.google.com with SMTP id rd18so24625154iec.7
+Received: by mail-wi0-f180.google.com with SMTP id h11so15033081wiw.1
         for <netdev@vger.kernel.org>; Wed, 28 Jan 2015 12:28:43 -0800 (PST)
+In-Reply-To: <1422307694-10079-2-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Removing bouncing email addresses (dmitry.tarnyagin@lockless.no and
+sjur.brandeland@stericsson.com)
+CC: Dmitry Tarnyagin <abi.dmitryt@gmail.com>
 
-Fellow netheads,
-
-On behalf of rgb and the tech committee:
-
-Schedule update
-----------------
-We apologize, the schedule will not be ready until Thursday.
-The content is so good we are having a hard time coming up
-with a schedule which is not going to conflict with anybody's interest.
-
-We have finalized all the technical content. Every accepted proposal is
-now listed at:
-https://www.netdev01.org/sessions
-
-To help you plan your trip it should be understood that we are planning
-to have the first two days to be tutorial, workshop and BOF days. The
-next two days to be talks. There are some non-technical BOFs which
-are still in the pipeline - watch the RSS feed or twitter.
-
-New talks since last time:
---------------------------
-John Fastabend - Flow API: An abstraction for hardware flow tables
-https://www.netdev01.org/news/50
-
-New Tutorials since last time:
-------------------------------
-1) Cong Wang, Jamal Hadi Salim - Linux Traffic Control (TC) tutorial
-https://www.netdev01.org/news/48
-2) Jon Maloy - Introduction to basics of TIPC
-https://www.netdev01.org/news/49
-
-And as rgb already posted,Hotel update:
-
-The hotel has agreed, on a best effort basis to extend the
-netdev01 rate of $159.00 or $179.00 (depending on the type of room
-required).  Please dont procastinate and book now.  We are competing
-against a few tourist activities for hotel rooms going on around the
-area at the same time (example:
-http://www.ottawafestivals.ca/events/winterlude-2/).
-
-Do your reservations at:
-https://www.starwoodmeeting.com/StarGroupsWeb/res?id=1412035802&key=1AC9C1F8
-
-If you dont succeed getting the reservation, send us email at
-info at netdev01.org; we will try to bat for you but we cant guarantee
-results.
-
-conference registration at:
-https://onlineregistrations.ca/netdev01/
-
-Sponsors:
-=========
-NetDev 0.1 would like to gratefully acknowledge all our sponsors:
-https://netdev01.org/sponsors
-CENGN                   http://www.cengn.ca/
-Google                  https://www.google.ca
-Qualcomm                https://www.qualcomm.com/
-Verizon                 http://www.verizon.com/
-Cumulus Networks        http://cumulusnetworks.com/
-Mojatatu Networks       http://mojatatu.com/
-
-Important Dates:
-==========================
-December 2, 2014        Call for Papers opens
-December 10, 2014       Registration opens
-January 23, 2015        Hotel discount rates deadline
-January 24, 2015        Call for sessions deadline
-February 12, 2015       On-line registration closes
-February 14-17, 2015    Conference days
-
--------------------------------------------------------------------------------
-THE Technical Conference on Linux Networking, February 14-17, 2015, 
-Ottawa, Canada
-https://netdev01.org/
-
-Contact:                        info@xxxxxxxxxxxxx
-Main site:                      https://www.netdev01.org/
-Announcement:                   https://www.netdev01.org/announce
-CFP:                            https://www.netdev01.org/cfp
-Travel/hotel/weather/clothing:  https://www.netdev01.org/travel
-RSS feed:                       https://netdev01.org/atom
-Follow us on Twitter: @netdev01 https://twitter.com/netdev01
+Dmitry, please also have a look to
+http://permalink.gmane.org/gmane.linux.network/347942
 
 
-cheers,
-jamal
+Thank you,
+Nicolas
+
+Le 26/01/2015 22:28, Nicolas Dichtel a =C3=A9crit :
+> src_net points to the netns where the netlink message has been receiv=
+ed. This
+> netns may be different from the netns where the interface is created =
+(because
+> the user may add IFLA_NET_NS_[PID|FD]). In this case, src_net is the =
+link netns.
+>
+> It seems wrong to override the netns in the newlink() handler because=
+ if it
+> was not already src_net, it means that the user explicitly asks to cr=
+eate the
+> netdevice in another netns.
+>
+> CC: Sjur Br=C3=A6ndeland <sjur.brandeland@stericsson.com>
+> CC: Dmitry Tarnyagin <dmitry.tarnyagin@lockless.no>
+> Fixes: 8391c4aab1aa ("caif: Bugfixes in CAIF netdevice for close and =
+flow control")
+> Fixes: c41254006377 ("caif-hsi: Add rtnl support")
+> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> ---
+>   drivers/net/caif/caif_hsi.c | 1 -
+>   net/caif/chnl_net.c         | 1 -
+>   2 files changed, 2 deletions(-)
+>
+> diff --git a/drivers/net/caif/caif_hsi.c b/drivers/net/caif/caif_hsi.=
+c
+> index 5e40a8b68cbe..b3b922adc0e4 100644
+> --- a/drivers/net/caif/caif_hsi.c
+> +++ b/drivers/net/caif/caif_hsi.c
+> @@ -1415,7 +1415,6 @@ static int caif_hsi_newlink(struct net *src_net=
+, struct net_device *dev,
+>
+>   	cfhsi =3D netdev_priv(dev);
+>   	cfhsi_netlink_parms(data, cfhsi);
+> -	dev_net_set(cfhsi->ndev, src_net);
+>
+>   	get_ops =3D symbol_get(cfhsi_get_ops);
+>   	if (!get_ops) {
+> diff --git a/net/caif/chnl_net.c b/net/caif/chnl_net.c
+> index 4589ff67bfa9..67a4a36febd1 100644
+> --- a/net/caif/chnl_net.c
+> +++ b/net/caif/chnl_net.c
+> @@ -470,7 +470,6 @@ static int ipcaif_newlink(struct net *src_net, st=
+ruct net_device *dev,
+>   	ASSERT_RTNL();
+>   	caifdev =3D netdev_priv(dev);
+>   	caif_netlink_parms(data, &caifdev->conn_req);
+> -	dev_net_set(caifdev->netdev, src_net);
+>
+>   	ret =3D register_netdevice(dev);
+>   	if (ret)
+>
