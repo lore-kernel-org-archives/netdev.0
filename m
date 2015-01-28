@@ -1,30 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] cxgb4: Move firmware version MACRO to
- t4fw_version.h
-Date: Tue, 27 Jan 2015 17:18:35 -0800 (PST)
-Message-ID: <20150127.171835.2088395163984941384.davem@davemloft.net>
-References: <1422369772-2215-1-git-send-email-hariprasad@chelsio.com>
+Subject: Re: [PATCH net-next v1] net: netcp: remove unused kconfig option
+ and code
+Date: Tue, 27 Jan 2015 17:19:31 -0800 (PST)
+Message-ID: <20150127.171931.1483421801202546665.davem@davemloft.net>
+References: <1422370194-2828-1-git-send-email-m-karicheri2@ti.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, leedom@chelsio.com, anish@chelsio.com,
-	nirranjan@chelsio.com, praveenm@chelsio.com
-To: hariprasad@chelsio.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54238 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751934AbbA1BSg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2015 20:18:36 -0500
-In-Reply-To: <1422369772-2215-1-git-send-email-hariprasad@chelsio.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: m-karicheri2@ti.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1422370194-2828-1-git-send-email-m-karicheri2@ti.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Hariprasad Shenai <hariprasad@chelsio.com>
-Date: Tue, 27 Jan 2015 20:12:52 +0530
+From: Murali Karicheri <m-karicheri2@ti.com>
+Date: Tue, 27 Jan 2015 09:49:54 -0500
 
-> Move firmware version MACRO to a new t4fw_version.h file so that csiostor driver
-> can also use it.
+> Currently CPTS is built into the netcp driver even though there is no
+> call out to the CPTS driver. This patch removes the dependency in Kconfig
+> and remove cpts.o from the Makefile for NetCP.
 > 
-> Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
+> Signed-off-by: Murali Karicheri <m-karicheri2@ti.com>
 
-Applied.
+Applied, thank you.
