@@ -1,34 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] vxlan: advertise link netns in fdb messages
-Date: Tue, 27 Jan 2015 17:11:46 -0800 (PST)
-Message-ID: <20150127.171146.1854293554835563854.davem@davemloft.net>
-References: <1422277853-5722-1-git-send-email-nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH net-next V1 00/11] Mellanox ethernet driver updates
+ Jan-27-2015
+Date: Tue, 27 Jan 2015 17:13:23 -0800 (PST)
+Message-ID: <20150127.171323.238151164961750703.davem@davemloft.net>
+References: <1422367089-13419-1-git-send-email-amirv@mellanox.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: nicolas.dichtel@6wind.com
+Cc: netdev@vger.kernel.org, ogerlitz@mellanox.com,
+	yevgenyp@mellanox.com
+To: amirv@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54193 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:54203 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753230AbbA1BLr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2015 20:11:47 -0500
-In-Reply-To: <1422277853-5722-1-git-send-email-nicolas.dichtel@6wind.com>
+	with ESMTP id S1757924AbbA1BNY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jan 2015 20:13:24 -0500
+In-Reply-To: <1422367089-13419-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Date: Mon, 26 Jan 2015 14:10:53 +0100
+From: Amir Vadai <amirv@mellanox.com>
+Date: Tue, 27 Jan 2015 15:57:58 +0200
 
-> Previous commit is based on a wrong assumption, fdb messages are always sent
-> into the netns where the interface stands (see vxlan_fdb_notify()).
+> This patchset introduces some bug fixes, code cleanups and support in a new
+> firmware event called recoverable error events.
 > 
-> These fdb messages doesn't embed the rtnl attribute IFLA_LINK_NETNSID, thus we
-> need to add it (useful to interpret NDA_IFINDEX or NDA_DST for example).
+> Patches were applied and tested against commit b8665c6 ("net: dsa/mv88e6352:
+> make mv88e6352_wait generic")
 > 
-> Note also that vxlan_nlmsg_size() was not updated.
+> Changes from V0:
+> - Patch 6/11 ("net/mlx4_core: Fix struct mlx4_vhcr_cmd to make implicit padding
+>   explicit"):
+>   - Removed __packed
+>   - Rephrased commit message
 > 
-> Fixes: 193523bf9373 ("vxlan: advertise netns of vxlan dev in fdb msg")
-> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> - Added a new patch by Majd ("net/mlx4_core: Update the HCA core clock frequency
+>   after INIT_PORT")
 
-Applied.
+Series applied, thanks.
