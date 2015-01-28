@@ -1,7 +1,7 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH 3/4] net: lance,ni64: don't build for ARM
-Date: Wed, 28 Jan 2015 15:15:03 +0100
-Message-ID: <1422454504-439085-4-git-send-email-arnd@arndb.de>
+Subject: [PATCH 4/4] net: am2150: fix nmclan_cs.c shared interrupt handling
+Date: Wed, 28 Jan 2015 15:15:04 +0100
+Message-ID: <1422454504-439085-5-git-send-email-arnd@arndb.de>
 References: <1422454504-439085-1-git-send-email-arnd@arndb.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,53 +23,38 @@ Sender: "linux-pcmcia" <linux-pcmcia-bounces@lists.infradead.org>
 Errors-To: linux-pcmcia-bounces+glkpd-linux-pcmcia=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-The ni65 and lance ethernet drivers manually program the ISA DMA
-controller that is only available on x86 PCs and a few compatible
-systems. Trying to build it on ARM results in this error:
+A recent patch tried to work around a valid warning for the use of a
+deprecated interface by blindly changing from the old
+pcmcia_request_exclusive_irq() interface to pcmcia_request_irq().
 
-ni65.c: In function 'ni65_probe1':
-ni65.c:496:62: error: 'DMA1_STAT_REG' undeclared (first use in this function)
-     ((inb(DMA1_STAT_REG) >> 4) & 0x0f)
-                                                              ^
-ni65.c:496:62: note: each undeclared identifier is reported only once for each function it appears in
-ni65.c:497:63: error: 'DMA2_STAT_REG' undeclared (first use in this function)
-     | (inb(DMA2_STAT_REG) & 0xf0);
+This driver has an interrupt handler that is not currently aware
+of shared interrupts, but can be easily converted to be.
+At the moment, the driver reads the interrupt status register
+repeatedly until it contains only zeroes in the interesting bits,
+and handles each bit individually.
 
-The DMA1_STAT_REG and DMA2_STAT_REG registers are only defined for
-alpha, mips, parisc, powerpc and x86, although it is not clear
-which subarchitectures actually have them at the correct location.
-
-This patch for now just disables it for ARM, to avoid randconfig
-build errors. We could also decide to limit it to the set of
-architectures on which it does compile, but that might look more
-deliberate than guessing based on where the drivers build.
+This patch adds the missing part of returning IRQ_NONE in case none
+of the bits are set to start with, so we can move on to the next
+interrupt source.
 
 Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Fixes: 5f5316fcd08ef7 ("am2150: Update nmclan_cs.c to use update PCMCIA API")
 ---
- drivers/net/ethernet/amd/Kconfig | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/amd/nmclan_cs.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/drivers/net/ethernet/amd/Kconfig b/drivers/net/ethernet/amd/Kconfig
-index 5d3b5202327c..c638c85f3954 100644
---- a/drivers/net/ethernet/amd/Kconfig
-+++ b/drivers/net/ethernet/amd/Kconfig
-@@ -45,7 +45,7 @@ config AMD8111_ETH
+diff --git a/drivers/net/ethernet/amd/nmclan_cs.c b/drivers/net/ethernet/amd/nmclan_cs.c
+index 5b22764ba88d..27245efe9f50 100644
+--- a/drivers/net/ethernet/amd/nmclan_cs.c
++++ b/drivers/net/ethernet/amd/nmclan_cs.c
+@@ -952,6 +952,8 @@ static irqreturn_t mace_interrupt(int irq, void *dev_id)
+   do {
+     /* WARNING: MACE_IR is a READ/CLEAR port! */
+     status = inb(ioaddr + AM2150_MACE_BASE + MACE_IR);
++    if (!(status & ~MACE_IMR_DEFAULT) && IntrCnt == MACE_MAX_IR_ITERATIONS)
++      return IRQ_NONE;
  
- config LANCE
- 	tristate "AMD LANCE and PCnet (AT1500 and NE2100) support"
--	depends on ISA && ISA_DMA_API
-+	depends on ISA && ISA_DMA_API && !ARM
- 	---help---
- 	  If you have a network (Ethernet) card of this type, say Y and read
- 	  the Ethernet-HOWTO, available from
-@@ -142,7 +142,7 @@ config PCMCIA_NMCLAN
+     pr_debug("mace_interrupt: irq 0x%X status 0x%X.\n", irq, status);
  
- config NI65
- 	tristate "NI6510 support"
--	depends on ISA && ISA_DMA_API
-+	depends on ISA && ISA_DMA_API && !ARM
- 	---help---
- 	  If you have a network (Ethernet) card of this type, say Y and read
- 	  the Ethernet-HOWTO, available from
 -- 
 2.1.0.rc2
