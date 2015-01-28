@@ -1,248 +1,109 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: [PATCH] net: ipv6: Make address flushing on ifdown optional - v2
-Date: Wed, 28 Jan 2015 21:01:05 -0700
-Message-ID: <1422504065-17445-1-git-send-email-dsahern@gmail.com>
-Cc: David Ahern <dsahern@gmail.com>,
-	Hannes Frederic Sowa <hannes@redhat.com>
+From: Erik Kline <ek@google.com>
+Subject: [PATCH net v2] net: ipv6: allow explicitly choosing optimistic addresses
+Date: Wed, 28 Jan 2015 21:03:39 +0900
+Message-ID: <1422446619-9502-1-git-send-email-ek@google.com>
+Cc: hannes@stressinduktion.org, Erik Kline <ek@google.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f177.google.com ([209.85.223.177]:64198 "EHLO
-	mail-ie0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752544AbbA2ECS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jan 2015 23:02:18 -0500
-Received: by mail-ie0-f177.google.com with SMTP id vy18so28758755iec.8
-        for <netdev@vger.kernel.org>; Wed, 28 Jan 2015 20:02:18 -0800 (PST)
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:42633 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751265AbbA2EOT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jan 2015 23:14:19 -0500
+Received: by mail-pa0-f45.google.com with SMTP id et14so33799443pad.4
+        for <netdev@vger.kernel.org>; Wed, 28 Jan 2015 20:14:18 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently, all ipv6 addresses are flushed when the interface is configured
-down, even static address:
+RFC 4429 ("Optimistic DAD") states that optimistic addresses
+should be treated as deprecated addresses.  From section 2.1:
 
-[root@f20 ~]# ip -6 addr add dev eth1 2000:11:1:1::1/64
-[root@f20 ~]# ip addr show dev eth1
-3: eth1: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN group default qlen 1000
-    link/ether 02:04:11:22:33:01 brd ff:ff:ff:ff:ff:ff
-    inet6 2000:11:1:1::1/64 scope global tentative
-       valid_lft forever preferred_lft forever
-[root@f20 ~]# ip link set dev eth1 up
-[root@f20 ~]# ip link set dev eth1 down
-[root@f20 ~]# ip addr show dev eth1
-3: eth1: <BROADCAST,MULTICAST> mtu 1500 qdisc pfifo_fast state DOWN group default qlen 1000
-    link/ether 02:04:11:22:33:01 brd ff:ff:ff:ff:ff:ff
+   Unless noted otherwise, components of the IPv6 protocol stack
+   should treat addresses in the Optimistic state equivalently to
+   those in the Deprecated state, indicating that the address is
+   available for use but should not be used if another suitable
+   address is available.
 
-Add a new sysctl to make this behavior optional. The new setting defaults to
-flush all addresses to maintain backwards compatibility. When the setting is
-reset static addresses are not flushed:
+Optimistic addresses are indeed avoided when other addresses are
+available (i.e. at source address selection time), but they have
+not heretofore been available for things like explicit bind() and
+sendmsg() with struct in6_pktinfo, etc.
 
-[root@f20 ~]# echo 0 > /proc/sys/net/ipv6/conf/eth1/flush_addr_on_down
-[root@f20 ~]# ip -6 addr add dev eth1 2000:11:1:1::1/64
-[root@f20 ~]# ip addr show dev eth1
-3: eth1: <BROADCAST,MULTICAST> mtu 1500 qdisc pfifo_fast state DOWN group default qlen 1000
-    link/ether 02:04:11:22:33:01 brd ff:ff:ff:ff:ff:ff
-    inet6 2000:11:1:1::1/64 scope global tentative
-       valid_lft forever preferred_lft forever
-[root@f20 ~]#  ip link set dev eth1 up
-[root@f20 ~]#  ip link set dev eth1 down
-[root@f20 ~]# ip addr show dev eth1
-3: eth1: <BROADCAST,MULTICAST> mtu 1500 qdisc pfifo_fast state DOWN group default qlen 1000
-    link/ether 02:04:11:22:33:01 brd ff:ff:ff:ff:ff:ff
-    inet6 2000:11:1:1::1/64 scope global
-       valid_lft forever preferred_lft forever
-    inet6 fe80::4:11ff:fe22:3301/64 scope link
-       valid_lft forever preferred_lft forever
+This change makes optimistic addresses treated more like
+deprecated addresses than tentative ones.
 
-v2:
-- only keep static addresses as suggested by Hannes
-- added new managed flag to track configured addresses
-- on ifdown do not remove from configured address from inet6_addr_lst
-- on ifdown reset the TENTATIVE flag and set state to DAD so that DAD is
-  redone when link is brought up again
-
-Suggested-by: Hannes Frederic Sowa <hannes@redhat.com>
-Signed-off-by: David Ahern <dsahern@gmail.com>
-Cc: Hannes Frederic Sowa <hannes@redhat.com>
-
-Signed-off-by: David Ahern <dsahern@gmail.com>
+Signed-off-by: Erik Kline <ek@google.com>
 ---
- include/linux/ipv6.h      |  1 +
- include/net/if_inet6.h    |  1 +
- include/uapi/linux/ipv6.h |  1 +
- net/ipv6/addrconf.c       | 55 ++++++++++++++++++++++++++++++++++++++---------
- 4 files changed, 48 insertions(+), 10 deletions(-)
+ include/net/addrconf.h |  3 +++
+ net/ipv6/addrconf.c    | 13 +++++++++++--
+ net/ipv6/ndisc.c       |  4 +++-
+ 3 files changed, 17 insertions(+), 3 deletions(-)
 
-diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
-index 2805062c013f..b91b7c8be023 100644
---- a/include/linux/ipv6.h
-+++ b/include/linux/ipv6.h
-@@ -53,6 +53,7 @@ struct ipv6_devconf {
- 	__s32           ndisc_notify;
- 	__s32		suppress_frag_ndisc;
- 	__s32		accept_ra_mtu;
-+	__s32		flush_addr_on_down;
- 	void		*sysctl;
- };
+diff --git a/include/net/addrconf.h b/include/net/addrconf.h
+index d13573b..80456f7 100644
+--- a/include/net/addrconf.h
++++ b/include/net/addrconf.h
+@@ -62,6 +62,9 @@ int addrconf_set_dstaddr(struct net *net, void __user *arg);
  
-diff --git a/include/net/if_inet6.h b/include/net/if_inet6.h
-index 98e5f9578f86..3b6323111f77 100644
---- a/include/net/if_inet6.h
-+++ b/include/net/if_inet6.h
-@@ -72,6 +72,7 @@ struct inet6_ifaddr {
- 	int			regen_count;
+ int ipv6_chk_addr(struct net *net, const struct in6_addr *addr,
+ 		  const struct net_device *dev, int strict);
++int ipv6_chk_addr_and_flags(struct net *net, const struct in6_addr *addr,
++			    const struct net_device *dev, int strict,
++			    u32 banned_flags);
  
- 	bool			tokenized;
-+	bool			managed;
- 
- 	struct rcu_head		rcu;
- 	struct in6_addr		peer_addr;
-diff --git a/include/uapi/linux/ipv6.h b/include/uapi/linux/ipv6.h
-index 437a6a4b125a..ed10d4ba8340 100644
---- a/include/uapi/linux/ipv6.h
-+++ b/include/uapi/linux/ipv6.h
-@@ -170,6 +170,7 @@ enum {
- 	DEVCONF_ACCEPT_RA_FROM_LOCAL,
- 	DEVCONF_USE_OPTIMISTIC,
- 	DEVCONF_ACCEPT_RA_MTU,
-+	DEVCONF_FLUSH_ON_DOWN,
- 	DEVCONF_MAX
- };
- 
+ #if defined(CONFIG_IPV6_MIP6) || defined(CONFIG_IPV6_MIP6_MODULE)
+ int ipv6_chk_home_addr(struct net *net, const struct in6_addr *addr);
 diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 7dcc065e2160..e0e82aad2116 100644
+index f7c8bbe..943da83 100644
 --- a/net/ipv6/addrconf.c
 +++ b/net/ipv6/addrconf.c
-@@ -202,6 +202,7 @@ static struct ipv6_devconf ipv6_devconf __read_mostly = {
- 	.accept_dad		= 1,
- 	.suppress_frag_ndisc	= 1,
- 	.accept_ra_mtu		= 1,
-+	.flush_addr_on_down	= 1,
- };
- 
- static struct ipv6_devconf ipv6_devconf_dflt __read_mostly = {
-@@ -240,6 +241,7 @@ static struct ipv6_devconf ipv6_devconf_dflt __read_mostly = {
- 	.accept_dad		= 1,
- 	.suppress_frag_ndisc	= 1,
- 	.accept_ra_mtu		= 1,
-+	.flush_addr_on_down	= 1,
- };
- 
- /* Check if a valid qdisc is available */
-@@ -870,6 +872,7 @@ ipv6_add_addr(struct inet6_dev *idev, const struct in6_addr *addr,
- 	ifa->prefered_lft = prefered_lft;
- 	ifa->cstamp = ifa->tstamp = jiffies;
- 	ifa->tokenized = false;
-+	ifa->managed = false;
- 
- 	ifa->rt = rt;
- 
-@@ -2510,6 +2513,8 @@ static int inet6_addr_add(struct net *net, int ifindex,
- 			    valid_lft, prefered_lft);
- 
- 	if (!IS_ERR(ifp)) {
-+		ifp->managed = true;
-+
- 		if (!(ifa_flags & IFA_F_NOPREFIXROUTE)) {
- 			addrconf_prefix_route(&ifp->addr, ifp->prefix_len, dev,
- 					      expires, flags);
-@@ -3032,8 +3037,9 @@ static int addrconf_ifdown(struct net_device *dev, int how)
+@@ -1519,6 +1519,14 @@ static int ipv6_count_addresses(struct inet6_dev *idev)
+ int ipv6_chk_addr(struct net *net, const struct in6_addr *addr,
+ 		  const struct net_device *dev, int strict)
  {
- 	struct net *net = dev_net(dev);
- 	struct inet6_dev *idev;
--	struct inet6_ifaddr *ifa;
-+	struct inet6_ifaddr *ifa, *tmp;
- 	int state, i;
-+	struct list_head del_list;
- 
- 	ASSERT_RTNL();
- 
-@@ -3067,9 +3073,12 @@ static int addrconf_ifdown(struct net_device *dev, int how)
- restart:
- 		hlist_for_each_entry_rcu(ifa, h, addr_lst) {
- 			if (ifa->idev == idev) {
--				hlist_del_init_rcu(&ifa->addr_lst);
- 				addrconf_del_dad_work(ifa);
--				goto restart;
-+				if (how || idev->cnf.flush_addr_on_down ||
-+				    !ifa->managed) {
-+					hlist_del_init_rcu(&ifa->addr_lst);
-+					goto restart;
-+				}
- 			}
- 		}
- 		spin_unlock_bh(&addrconf_hash_lock);
-@@ -3103,14 +3112,35 @@ restart:
- 		write_lock_bh(&idev->lock);
- 	}
- 
--	while (!list_empty(&idev->addr_list)) {
--		ifa = list_first_entry(&idev->addr_list,
-+	INIT_LIST_HEAD(&del_list);
-+	list_for_each_entry_safe(ifa, tmp, &idev->addr_list, if_list) {
-+		/* 
-+		 * on NETDEV_DOWN events do not flush managed (user configured)
-+		 * addresses unless configured to do so. If the address is not
-+		 * deleted reset flags and state such that DAD is re-done on a
-+ 		 * subsequent link up.
-+ 		 */
-+		if (!how && !idev->cnf.flush_addr_on_down && ifa->managed) {
-+	    		if (!(ifa->flags & IFA_F_NODAD)) {
-+				ifa->flags |= IFA_F_TENTATIVE;
-+				ifa->state = INET6_IFADDR_STATE_DAD;
-+			}
-+		} else {
-+			list_del(&ifa->if_list);
-+			list_add(&ifa->if_list, &del_list);
-+		}
-+	}
++	return ipv6_chk_addr_and_flags(net, addr, dev, strict, IFA_F_TENTATIVE);
++}
++EXPORT_SYMBOL(ipv6_chk_addr);
 +
-+	write_unlock_bh(&idev->lock);
-+
-+	while (!list_empty(&del_list)) {
-+		ifa = list_first_entry(&del_list,
- 				       struct inet6_ifaddr, if_list);
-+
- 		addrconf_del_dad_work(ifa);
++int ipv6_chk_addr_and_flags(struct net *net, const struct in6_addr *addr,
++			    const struct net_device *dev, int strict,
++			    u32 banned_flags)
++{
+ 	struct inet6_ifaddr *ifp;
+ 	unsigned int hash = inet6_addr_hash(addr);
  
- 		list_del(&ifa->if_list);
- 
--		write_unlock_bh(&idev->lock);
- 
- 		spin_lock_bh(&ifa->state_lock);
- 		state = ifa->state;
-@@ -3122,12 +3152,8 @@ restart:
- 			inet6addr_notifier_call_chain(NETDEV_DOWN, ifa);
- 		}
- 		in6_ifa_put(ifa);
--
--		write_lock_bh(&idev->lock);
- 	}
- 
--	write_unlock_bh(&idev->lock);
--
- 	/* Step 5: Discard anycast and multicast list */
- 	if (how) {
- 		ipv6_ac_destroy_dev(idev);
-@@ -4383,6 +4409,7 @@ static inline void ipv6_store_devconf(struct ipv6_devconf *cnf,
- 	array[DEVCONF_SUPPRESS_FRAG_NDISC] = cnf->suppress_frag_ndisc;
- 	array[DEVCONF_ACCEPT_RA_FROM_LOCAL] = cnf->accept_ra_from_local;
- 	array[DEVCONF_ACCEPT_RA_MTU] = cnf->accept_ra_mtu;
-+	array[DEVCONF_FLUSH_ON_DOWN] = cnf->flush_addr_on_down;
+@@ -1527,7 +1535,8 @@ int ipv6_chk_addr(struct net *net, const struct in6_addr *addr,
+ 		if (!net_eq(dev_net(ifp->idev->dev), net))
+ 			continue;
+ 		if (ipv6_addr_equal(&ifp->addr, addr) &&
+-		    !(ifp->flags&IFA_F_TENTATIVE) &&
++		    (!(ifp->flags&banned_flags) ||
++		     ifp->flags&IFA_F_OPTIMISTIC&~banned_flags) &&
+ 		    (dev == NULL || ifp->idev->dev == dev ||
+ 		     !(ifp->scope&(IFA_LINK|IFA_HOST) || strict))) {
+ 			rcu_read_unlock_bh();
+@@ -1538,7 +1547,7 @@ int ipv6_chk_addr(struct net *net, const struct in6_addr *addr,
+ 	rcu_read_unlock_bh();
+ 	return 0;
  }
+-EXPORT_SYMBOL(ipv6_chk_addr);
++EXPORT_SYMBOL(ipv6_chk_addr_and_flags);
  
- static inline size_t inet6_ifla6_size(void)
-@@ -5269,6 +5296,14 @@ static struct addrconf_sysctl_table
- 			.proc_handler	= proc_dointvec,
- 		},
- 		{
-+			.procname       = "flush_addr_on_down",
-+			.data           = &ipv6_devconf.flush_addr_on_down,
-+			.maxlen         = sizeof(int),
-+			.mode           = 0644,
-+			.proc_handler   = proc_dointvec,
-+
-+		},
-+		{
- 			/* sentinel */
- 		}
- 	},
+ static bool ipv6_chk_same_addr(struct net *net, const struct in6_addr *addr,
+ 			       struct net_device *dev)
+diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+index 6828667..113fc6c 100644
+--- a/net/ipv6/ndisc.c
++++ b/net/ipv6/ndisc.c
+@@ -655,7 +655,9 @@ static void ndisc_solicit(struct neighbour *neigh, struct sk_buff *skb)
+ 	struct in6_addr *target = (struct in6_addr *)&neigh->primary_key;
+ 	int probes = atomic_read(&neigh->probes);
+ 
+-	if (skb && ipv6_chk_addr(dev_net(dev), &ipv6_hdr(skb)->saddr, dev, 1))
++	if (skb && ipv6_chk_addr_and_flags(dev_net(dev), &ipv6_hdr(skb)->saddr,
++					   dev, 1,
++					   IFA_F_TENTATIVE|IFA_F_OPTIMISTIC))
+ 		saddr = &ipv6_hdr(skb)->saddr;
+ 	probes -= NEIGH_VAR(neigh->parms, UCAST_PROBES);
+ 	if (probes < 0) {
 -- 
-1.9.3
+2.2.0.rc0.207.ga3a616c
