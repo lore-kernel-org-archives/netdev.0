@@ -1,52 +1,48 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH v2 iproute2-next 4/4] bridge/fdb: display link netns id
-Date: Wed, 28 Jan 2015 15:15:50 +0100
-Message-ID: <1422454550-32222-4-git-send-email-nicolas.dichtel@6wind.com>
-References: <54C8E3EB.8050904@6wind.com>
- <1422454550-32222-1-git-send-email-nicolas.dichtel@6wind.com>
-Cc: netdev@vger.kernel.org, Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: shemminger@vyatta.com
+From: Yang Yingliang <yangyingliang@huawei.com>
+Subject: Re: A problem about ICMP packet-too-big message handler
+Date: Wed, 28 Jan 2015 18:07:08 +0800
+Message-ID: <54C8B4CC.80309@huawei.com>
+References: <54C78B8D.1070104@huawei.com> <1422434574.4678.21.camel@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Hannes Frederic Sowa <hannes@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:44111 "EHLO
-	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754603AbbA1UPO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jan 2015 15:15:14 -0500
-In-Reply-To: <1422454550-32222-1-git-send-email-nicolas.dichtel@6wind.com>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:26648 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754948AbbA1UP1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jan 2015 15:15:27 -0500
+In-Reply-To: <1422434574.4678.21.camel@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When this attribute is set, it means that the i/o part of the related netdevice
-is in another netns.
+On 2015/1/28 16:42, Hannes Frederic Sowa wrote:
+> On Di, 2015-01-27 at 20:58 +0800, Yang Yingliang wrote:
+>> Hi,
+>>
+>> My kernel is 3.10 LTS.
+>>
+>> I got a problem here about handling ICMP packet-too-big message.
+>>
+>> Before sending a packet-too-big packet :
+>>
+>> # ip -6 route list table local
+>> local ::1 dev lo  metric 0 
+>> local fe80:: dev lo  metric 0 
+>> local fe80:: dev lo  metric 0 
+>> local fe80:: dev lo  metric 0 
+>> local fe80:: dev lo  metric 0 
+>> local fe80:: dev lo  metric 0 
+>> local fe80:: dev lo  metric 0 
+>> local fe80::1 dev lo  metric 0 	//It  does not have expire value
+> 
+> Did you just add a local route or do you also have a corresponding IPv6
+> address bound to loopback?
 
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
+I just set a IPv6 linklocal address and the route was added automatic.
+I do not add any other route by hand.
 
-v2: new in the series
-
- bridge/fdb.c | 6 +++++-
- 1 file changed, 5 insertions(+), 1 deletion(-)
-
-diff --git a/bridge/fdb.c b/bridge/fdb.c
-index c01a5020de63..6941edd90f90 100644
---- a/bridge/fdb.c
-+++ b/bridge/fdb.c
-@@ -131,12 +131,16 @@ int print_fdb(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
- 		if (ifindex) {
- 			char ifname[IF_NAMESIZE];
- 
--			if (if_indextoname(ifindex, ifname))
-+			if (!tb[NDA_LINK_NETNSID] &&
-+			    if_indextoname(ifindex, ifname))
- 				fprintf(fp, "via %s ", ifname);
- 			else
- 				fprintf(fp, "via ifindex %u ", ifindex);
- 		}
- 	}
-+	if (tb[NDA_LINK_NETNSID])
-+		fprintf(fp, "link-netnsid %d ",
-+			rta_getattr_u32(tb[NDA_LINK_NETNSID]));
- 
- 	if (show_stats && tb[NDA_CACHEINFO]) {
- 		struct nda_cacheinfo *ci = RTA_DATA(tb[NDA_CACHEINFO]);
--- 
-2.2.2
+Regards,
+Yang
