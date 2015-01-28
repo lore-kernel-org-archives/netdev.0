@@ -1,87 +1,46 @@
-From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH v2 linux-trace 4/8] samples: bpf: simple tracing example
- in C
-Date: Wed, 28 Jan 2015 08:42:29 -0800
-Message-ID: <CAMEtUuxRXEPOaX3rksqQKdz4THMmtLR3=uHymEKaMSNkjMBhxw@mail.gmail.com>
-References: <1422417973-10195-1-git-send-email-ast@plumgrid.com>
- <1422417973-10195-5-git-send-email-ast@plumgrid.com> <20150128162415.GO7220@kernel.org>
- <20150128162557.GP7220@kernel.org>
+From: roopa <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH] bridge: dont send notification when skb->len == 0 in
+ rtnl_bridge_notify
+Date: Wed, 28 Jan 2015 05:37:48 -0800
+Message-ID: <54C8E62C.5040603@cumulusnetworks.com>
+References: <1422423984-29743-1-git-send-email-roopa@cumulusnetworks.com> <20150127.230511.1131199235284204820.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
-	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Namhyung Kim <namhyung-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Jiri Olsa <jolsa-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Masami Hiramatsu <masami.hiramatsu.pt-FCd8Q96Dh0JBDgjK7y7TUQ@public.gmane.org>,
-	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Arnaldo Carvalho de Melo <acme-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20150128162557.GP7220-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, stephen@networkplumber.org,
+	rami.rosen@intel.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f182.google.com ([209.85.223.182]:45958 "EHLO
+	mail-ie0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756260AbbA1Ujb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jan 2015 15:39:31 -0500
+Received: by mail-ie0-f182.google.com with SMTP id ar1so24838430iec.13
+        for <netdev@vger.kernel.org>; Wed, 28 Jan 2015 12:39:31 -0800 (PST)
+In-Reply-To: <20150127.230511.1131199235284204820.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 28, 2015 at 8:25 AM, Arnaldo Carvalho de Melo
-<acme-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org> wrote:
-> Em Wed, Jan 28, 2015 at 01:24:15PM -0300, Arnaldo Carvalho de Melo escreveu:
->> Em Tue, Jan 27, 2015 at 08:06:09PM -0800, Alexei Starovoitov escreveu:
->> > diff --git a/samples/bpf/tracex1_kern.c b/samples/bpf/tracex1_kern.c
->> > new file mode 100644
->> > index 000000000000..7849ceb4bce6
->> > --- /dev/null
->> > +++ b/samples/bpf/tracex1_kern.c
->> > @@ -0,0 +1,28 @@
->> > +#include <linux/skbuff.h>
->> > +#include <linux/netdevice.h>
->> > +#include <uapi/linux/bpf.h>
->> > +#include <trace/bpf_trace.h>
->> > +#include "bpf_helpers.h"
->> > +
->> > +SEC("events/net/netif_receive_skb")
->> > +int bpf_prog1(struct bpf_context *ctx)
->> > +{
->> > +   /*
->> > +    * attaches to /sys/kernel/debug/tracing/events/net/netif_receive_skb
->> > +    * prints events for loobpack device only
->> > +    */
->> > +   char devname[] = "lo";
->> > +   struct net_device *dev;
->> > +   struct sk_buff *skb = 0;
->> > +
->> > +   skb = (struct sk_buff *) ctx->arg1;
->> > +   dev = bpf_fetch_ptr(&skb->dev);
->> > +   if (bpf_memcmp(dev->name, devname, 2) == 0)
->>
->> I'm only starting to look at all this, so bear with me... But why do we
->> need to have it as "bpf_memcmp"? Can't we simply use it as "memcmp" and
->> have it use the right function?
->>
->> Less typing, perhaps we would need to have a:
->>
->> #define memcmp bpf_memcmp(s1, s2, n) bpf_memcmp(s1, s2, n)
+On 1/27/15, 11:05 PM, David Miller wrote:
+> From: roopa@cumulusnetworks.com
+> Date: Tue, 27 Jan 2015 21:46:24 -0800
 >
-> Argh, like this:
->
-> #define memcmp(s1, s2, n) bpf_memcmp(s1, s2, n)
->
->> in bpf_helpers.h to have it work?
+>> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+>>
+>> Reported in: https://bugzilla.kernel.org/show_bug.cgi?id=92081
+>>
+>> This patch avoids calling rtnl_notify if the device ndo_bridge_getlink
+>> handler does not return any bytes in the skb.
+>>
+>> Alternately, the skb->len check can be moved inside rtnl_notify.
+>>
+>> For the bridge vlan case described in 92081, there is also a fix needed
+>> in bridge driver to generate a proper notification. Will fix that in
+>> subsequent patch.
+>>
+>> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+> This doesn't apply to the 'net' tree, is there something I missed?
+sorry, that's me. This should be net-next. Resubmitting with net-next in 
+the PATCH line.
 
-yes, that will work just fine.
-Since it's an example I made it explicit that bpf_memcmp()
-has memcmp() semantics, but little bit different:
-int bpf_memcmp(void *unsafe_ptr, void *safe_ptr, int size)
-meaning that one of the pointers can point anywhere and
-the function will be doing probe_kernel_read() underneath
-similar to bpf_fetch_*() helpers.
-
-If it was plain memcmp() it would give a wrong impression
-that vanilla memcmp() can be used.
-In general the programs cannot use any library functions
-outside of helpers defined in uapi/linux/bpf.h
-
-bpf_fetch_*() helpers are also explicit in examples.
-If one need to do a lot of pointer walking, then macro like
-#define D(P) ((typeof(P))bpf_fetch_ptr(&P))
-would be easier to use: p = D(D(skb->dev)->ifalias)
-multiple pointer derefs would look more natural...
+thanks.
