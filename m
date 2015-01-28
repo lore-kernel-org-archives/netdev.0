@@ -1,62 +1,142 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [RFC PATCH] net: ipv6: Make address flushing on ifdown optional
-Date: Wed, 28 Jan 2015 09:25:59 +0100
-Message-ID: <1422433559.4678.15.camel@stressinduktion.org>
-References: <1421263039-96198-1-git-send-email-dsahern@gmail.com>
-			 <20150122224033.6e2db5ce@urahara>
-			 <1422015737.2824.8.camel@stressinduktion.org>
-			 <20150127045653.GB13164@gospo.home.greyhouse.net>
-		 <1422351861.13969.5.camel@stressinduktion.org>
-	 <54C7A6D6.8020805@gmail.com>
-	 <1422372523.13969.23.camel@stressinduktion.org>
-	 <54C855D6.7050500@gmail.com>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: pull-request: can-next 2015-28-01
+Date: Wed, 28 Jan 2015 14:58:42 +0100
+Message-ID: <54C8EB12.9030100@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Andy Gospodarek <gospo@cumulusnetworks.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	netdev@vger.kernel.org
-To: David Ahern <dsahern@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out3-smtp.messagingengine.com ([66.111.4.27]:55019 "EHLO
-	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757172AbbA1UYc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jan 2015 15:24:32 -0500
-Received: from compute1.internal (compute1.nyi.internal [10.202.2.41])
-	by mailout.nyi.internal (Postfix) with ESMTP id AFD4C2085E
-	for <netdev@vger.kernel.org>; Wed, 28 Jan 2015 03:26:01 -0500 (EST)
-In-Reply-To: <54C855D6.7050500@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha512;
+ protocol="application/pgp-signature";
+ boundary="dd98LWTGFEupCSnvCK6qMXdo5fCkx0jVf"
+Cc: David Miller <davem@davemloft.net>,
+	"kernel@pengutronix.de" <kernel@pengutronix.de>,
+	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>
+To: netdev@vger.kernel.org
+Return-path: <linux-can-owner@vger.kernel.org>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Di, 2015-01-27 at 20:21 -0700, David Ahern wrote:
-> On 01/27/2015 08:28 AM, Hannes Frederic Sowa wrote:
-> >>   From the discussion a second patch is needed to make sure DAD is done
-> >> on a link up if there is an address configured.
-> >
-> > Thank you!
-> >
-> > Let's see if the DAD patch isn't complex, maybe it is a candidate for
-> > stable?
-> 
-> Actually, DAD is done on a link up; you can see the notifications go out 
-> when the link is brought up:
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--dd98LWTGFEupCSnvCK6qMXdo5fCkx0jVf
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
 
-Oh, cool, sorry I did not check and misunderstood you in the other mail.
+Hello David,
 
-> 18:46:28.519907 IP6 :: > ff02::1:ff00:10: ICMP6, neighbor solicitation, 
-> who has 2001:1::10, length 24
-> 18:46:28.607650 IP6 :: > ff02::1:ff03:402: ICMP6, neighbor solicitation, 
-> who has fe80::1:2ff:fe03:402, length 24
-> 
-> So current top of tree works fine wrt DAD on addresses added when a link 
-> is down and then the link is brought up.
-> 
-> But, my previous patch does not re-send notifications on the up in a 
-> down-up cycle. I believe it is because the IFA_F_TENTATIVE flag is not 
-> set for the global address configured. I will address that in the 
-> revised patch.
+this is a pull request of 12 patches for net-next/master.
 
-Sounds good, I don't see any more problems with this patch then.
+There are 3 patches by Ahmed S. Darwish, which update the kvaser_usb
+driver and add support for the USBcan-II based adapters. St=C3=A9phane
+Grosjean contributes 7 patches for the peak_usb driver, which add
+support for the CANFD USB adapters. I contribute 2 patches which clean
+up the peak_usb driver structure a bit.
 
-Thanks!
+Marc
+
+---
+
+The following changes since commit ff660f75be36e6db75d45dc742a4a468c5a9c2=
+0d:
+
+  Merge branch 'stmmac-pci' (2015-01-27 21:08:13 -0800)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/mkl/linux-can-next.git ta=
+gs/linux-can-next-for-3.20-20150128
+
+for you to fetch changes up to 0a25e1f4f18566b750ebd3ae995af64e23111e63:
+
+  can: peak_usb: add support for PEAK new CANFD USB adapters (2015-01-28 =
+14:47:06 +0100)
+
+----------------------------------------------------------------
+linux-can-next-for-3.20-20150128
+
+----------------------------------------------------------------
+Ahmed S. Darwish (3):
+      can: kvaser_usb: Update interface state before exiting on OOM
+      can: kvaser_usb: Consolidate and unify state change handling
+      can: kvaser_usb: Add support for the USBcan-II family
+
+Marc Kleine-Budde (2):
+      can: peak_usb: use ARRAY_SIZE instead of NULL termination for peak_=
+usb_adapters_list
+      can: peak_usb: constify struct peak_usb_adapter
+
+Stephane Grosjean (7):
+      can: peak_usb: export ctrlmode_supported to adapter specific defini=
+tion
+      can: peak_usb: add adapter BEC callback definition
+      can: peak_usb: upgrade core to data bittiming specs
+      can: peak_usb: upgrade core to new struct canfd_frame
+      can: peak_usb: export pcan_usb_pro functions
+      can: peak_usb: add peak_usb_netif_rx() new function
+      can: peak_usb: add support for PEAK new CANFD USB adapters
+
+ drivers/net/can/usb/Kconfig                  |   22 +-
+ drivers/net/can/usb/kvaser_usb.c             |  722 ++++++++++++-----
+ drivers/net/can/usb/peak_usb/Makefile        |    2 +-
+ drivers/net/can/usb/peak_usb/pcan_ucan.h     |  222 ++++++
+ drivers/net/can/usb/peak_usb/pcan_usb.c      |    3 +-
+ drivers/net/can/usb/peak_usb/pcan_usb_core.c |   83 +-
+ drivers/net/can/usb/peak_usb/pcan_usb_core.h |   26 +-
+ drivers/net/can/usb/peak_usb/pcan_usb_fd.c   | 1095 ++++++++++++++++++++=
+++++++
+ drivers/net/can/usb/peak_usb/pcan_usb_pro.c  |   19 +-
+ drivers/net/can/usb/peak_usb/pcan_usb_pro.h  |   13 +
+ 10 files changed, 1981 insertions(+), 226 deletions(-)
+ create mode 100644 drivers/net/can/usb/peak_usb/pcan_ucan.h
+ create mode 100644 drivers/net/can/usb/peak_usb/pcan_usb_fd.c
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+--dd98LWTGFEupCSnvCK6qMXdo5fCkx0jVf
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAEBCgAGBQJUyOsVAAoJECte4hHFiupUzToP/05IGBtduHOPM+JEyEmGgbf/
+QseZmQJ1LEA0IYGyXB+e+sQdEs9/43KVIwXoXaVZz8OI37MtMmOuv4hYqFeBDqLV
+rJlpKWXcwKLFzVBLkqCP/+gPDHTV9eODM6zoiolqWRt7j5SPDqhK0UeTEq3yjZuP
+bug/tLK6kfENVzF6EiTPBp/rRNgadRPB7TM3HvPuTCVqkWtcY6MjeDc+HFrEgjix
+Rt9IpWTp5+82Ovt/oAMfOUOdToA8WHpdUXzHil6pZoS3ScXCSfMZXGSEPKro3c+N
+UGC2pba+OhoDMPLAlR0yx/J/2/xoh4rSHm+e1g4CxW7RNqr7dcQja64oxmQDxle1
+P/DewTrugbIIluAXkHpywJd/eZs3u+5VqD8TIBleFdV+AkWu3LaGxZntqTPoylRj
+NLxkvANDdjTTf+BtZ9SZbzfnXyYkVntbZ477mYAEanqKu0gIj+z2jIg495SU0D2m
+/2J/w0bnToZU78RuuR0Iahuq77Xr0qodTpcksVkR1hz8FiXMWnkb8ZhFl/IkA6t2
+b0f6sAJuFIh6s0k6fe8BY+zKrAhA5UyookYh/iNFd1KkHbZRV2h2G1voqR3fPJqn
+xG+C8ZrzXagvwCFbjZw6gsDFdARKUsAo10EOH8cfRyQP5HDfFc/bt8Wfw/h44pl7
+EV0ibOtEHJHNYBctsZxC
+=581V
+-----END PGP SIGNATURE-----
+
+--dd98LWTGFEupCSnvCK6qMXdo5fCkx0jVf--
