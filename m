@@ -1,180 +1,109 @@
-From: Tony Lindgren <tony@atomide.com>
-Subject: [PATCH 1/3] net: cpsw: Add a minimal cpsw-common module for shared code
-Date: Wed, 28 Jan 2015 11:33:04 -0800
-Message-ID: <1422473586-18100-2-git-send-email-tony@atomide.com>
-References: <1422473586-18100-1-git-send-email-tony@atomide.com>
-Cc: netdev@vger.kernel.org, linux-omap@vger.kernel.org,
-	Brian Hutchinson <b.hutchman@gmail.com>,
-	Felipe Balbi <balbi@ti.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-omap-owner@vger.kernel.org>
-In-Reply-To: <1422473586-18100-1-git-send-email-tony@atomide.com>
-Sender: linux-omap-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: NetDev 0.1 Schedule delay update
+Date: Wed, 28 Jan 2015 08:24:47 -0500
+Message-ID: <54C8E31F.5080808@mojatatu.com>
+Reply-To: info@netdev01.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: info@netdev01.org, speakers@netdev01.org, attendees@netdev01.org
+To: netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
+	lwn@lwn.net, netdev01@lists.netfilter.org, lartc@vger.kernel.org,
+	netfilter@vger.kernel.org, netfilter-devel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f176.google.com ([209.85.223.176]:50948 "EHLO
+	mail-ie0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755408AbbA1U2o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jan 2015 15:28:44 -0500
+Received: by mail-ie0-f176.google.com with SMTP id rd18so24625154iec.7
+        for <netdev@vger.kernel.org>; Wed, 28 Jan 2015 12:28:43 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Looks like davinci_emac and cpsw can share some code although the
-device registers have a different layout.
 
-At least the code for getting the MAC address using syscon can
-be shared by passing the register offset. Let's start with that
-and set up a minimal shared cpsw-shared.c.
+Fellow netheads,
 
-Cc: Brian Hutchinson <b.hutchman@gmail.com>
-Cc: Felipe Balbi <balbi@ti.com>
-Signed-off-by: Tony Lindgren <tony@atomide.com>
----
- drivers/net/ethernet/ti/Makefile      |  3 ++
- drivers/net/ethernet/ti/cpsw-common.c | 53 +++++++++++++++++++++++++++++++++++
- drivers/net/ethernet/ti/cpsw.c        | 35 ++---------------------
- drivers/net/ethernet/ti/cpsw.h        |  2 ++
- 4 files changed, 60 insertions(+), 33 deletions(-)
- create mode 100644 drivers/net/ethernet/ti/cpsw-common.c
+On behalf of rgb and the tech committee:
 
-diff --git a/drivers/net/ethernet/ti/Makefile b/drivers/net/ethernet/ti/Makefile
-index 465d03d..7fa47f6 100644
---- a/drivers/net/ethernet/ti/Makefile
-+++ b/drivers/net/ethernet/ti/Makefile
-@@ -2,6 +2,9 @@
- # Makefile for the TI network device drivers.
- #
- 
-+obj-$(CONFIG_TI_CPSW) += cpsw-common.o
-+obj-$(CONFIG_TI_DAVINCI_EMAC) += cpsw-common.o
-+
- obj-$(CONFIG_TLAN) += tlan.o
- obj-$(CONFIG_CPMAC) += cpmac.o
- obj-$(CONFIG_TI_DAVINCI_EMAC) += davinci_emac.o
-diff --git a/drivers/net/ethernet/ti/cpsw-common.c b/drivers/net/ethernet/ti/cpsw-common.c
-new file mode 100644
-index 0000000..763ada1
---- /dev/null
-+++ b/drivers/net/ethernet/ti/cpsw-common.c
-@@ -0,0 +1,53 @@
-+/*
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ */
-+
-+#include <linux/kernel.h>
-+#include <linux/module.h>
-+#include <linux/of.h>
-+#include <linux/of_device.h>
-+#include <linux/regmap.h>
-+#include <linux/mfd/syscon.h>
-+
-+#define AM33XX_CTRL_MAC_LO_REG(offset, id) ((offset) + 0x8 * (id))
-+#define AM33XX_CTRL_MAC_HI_REG(offset, id) ((offset) + 0x8 * (id) + 0x4)
-+
-+int cpsw_am33xx_cm_get_macid(struct device *dev, u16 offset, int slave,
-+			     u8 *mac_addr)
-+{
-+	u32 macid_lo;
-+	u32 macid_hi;
-+	struct regmap *syscon;
-+
-+	syscon = syscon_regmap_lookup_by_phandle(dev->of_node, "syscon");
-+	if (IS_ERR(syscon)) {
-+		if (PTR_ERR(syscon) == -ENODEV)
-+			return 0;
-+		return PTR_ERR(syscon);
-+	}
-+
-+	regmap_read(syscon, AM33XX_CTRL_MAC_LO_REG(offset, slave),
-+		    &macid_lo);
-+	regmap_read(syscon, AM33XX_CTRL_MAC_HI_REG(offset, slave),
-+		    &macid_hi);
-+
-+	mac_addr[5] = (macid_lo >> 8) & 0xff;
-+	mac_addr[4] = macid_lo & 0xff;
-+	mac_addr[3] = (macid_hi >> 24) & 0xff;
-+	mac_addr[2] = (macid_hi >> 16) & 0xff;
-+	mac_addr[1] = (macid_hi >> 8) & 0xff;
-+	mac_addr[0] = macid_hi & 0xff;
-+
-+	return 0;
-+}
-+EXPORT_SYMBOL_GPL(cpsw_am33xx_cm_get_macid);
-+
-+MODULE_LICENSE("GPL");
-diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index 2b9d404..7d8dd0d 100644
---- a/drivers/net/ethernet/ti/cpsw.c
-+++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -33,8 +33,6 @@
- #include <linux/of_net.h>
- #include <linux/of_device.h>
- #include <linux/if_vlan.h>
--#include <linux/mfd/syscon.h>
--#include <linux/regmap.h>
- 
- #include <linux/pinctrl/consumer.h>
- 
-@@ -1936,36 +1934,6 @@ static void cpsw_slave_init(struct cpsw_slave *slave, struct cpsw_priv *priv,
- 	slave->port_vlan = data->dual_emac_res_vlan;
- }
- 
--#define AM33XX_CTRL_MAC_LO_REG(id) (0x630 + 0x8 * id)
--#define AM33XX_CTRL_MAC_HI_REG(id) (0x630 + 0x8 * id + 0x4)
--
--static int cpsw_am33xx_cm_get_macid(struct device *dev, int slave,
--		u8 *mac_addr)
--{
--	u32 macid_lo;
--	u32 macid_hi;
--	struct regmap *syscon;
--
--	syscon = syscon_regmap_lookup_by_phandle(dev->of_node, "syscon");
--	if (IS_ERR(syscon)) {
--		if (PTR_ERR(syscon) == -ENODEV)
--			return 0;
--		return PTR_ERR(syscon);
--	}
--
--	regmap_read(syscon, AM33XX_CTRL_MAC_LO_REG(slave), &macid_lo);
--	regmap_read(syscon, AM33XX_CTRL_MAC_HI_REG(slave), &macid_hi);
--
--	mac_addr[5] = (macid_lo >> 8) & 0xff;
--	mac_addr[4] = macid_lo & 0xff;
--	mac_addr[3] = (macid_hi >> 24) & 0xff;
--	mac_addr[2] = (macid_hi >> 16) & 0xff;
--	mac_addr[1] = (macid_hi >> 8) & 0xff;
--	mac_addr[0] = macid_hi & 0xff;
--
--	return 0;
--}
--
- static int cpsw_probe_dt(struct cpsw_platform_data *data,
- 			 struct platform_device *pdev)
- {
-@@ -2090,7 +2058,8 @@ no_phy_slave:
- 			memcpy(slave_data->mac_addr, mac_addr, ETH_ALEN);
- 		} else {
- 			if (of_machine_is_compatible("ti,am33xx")) {
--				ret = cpsw_am33xx_cm_get_macid(&pdev->dev, i,
-+				ret = cpsw_am33xx_cm_get_macid(&pdev->dev,
-+							0x630, i,
- 							slave_data->mac_addr);
- 				if (ret)
- 					return ret;
-diff --git a/drivers/net/ethernet/ti/cpsw.h b/drivers/net/ethernet/ti/cpsw.h
-index 1b71067..ca90efa 100644
---- a/drivers/net/ethernet/ti/cpsw.h
-+++ b/drivers/net/ethernet/ti/cpsw.h
-@@ -41,5 +41,7 @@ struct cpsw_platform_data {
- };
- 
- void cpsw_phy_sel(struct device *dev, phy_interface_t phy_mode, int slave);
-+int cpsw_am33xx_cm_get_macid(struct device *dev, u16 offset, int slave,
-+			     u8 *mac_addr);
- 
- #endif /* __CPSW_H__ */
--- 
-2.1.4
+Schedule update
+----------------
+We apologize, the schedule will not be ready until Thursday.
+The content is so good we are having a hard time coming up
+with a schedule which is not going to conflict with anybody's interest.
 
+We have finalized all the technical content. Every accepted proposal is
+now listed at:
+https://www.netdev01.org/sessions
+
+To help you plan your trip it should be understood that we are planning
+to have the first two days to be tutorial, workshop and BOF days. The
+next two days to be talks. There are some non-technical BOFs which
+are still in the pipeline - watch the RSS feed or twitter.
+
+New talks since last time:
+--------------------------
+John Fastabend - Flow API: An abstraction for hardware flow tables
+https://www.netdev01.org/news/50
+
+New Tutorials since last time:
+------------------------------
+1) Cong Wang, Jamal Hadi Salim - Linux Traffic Control (TC) tutorial
+https://www.netdev01.org/news/48
+2) Jon Maloy - Introduction to basics of TIPC
+https://www.netdev01.org/news/49
+
+And as rgb already posted,Hotel update:
+
+The hotel has agreed, on a best effort basis to extend the
+netdev01 rate of $159.00 or $179.00 (depending on the type of room
+required).  Please dont procastinate and book now.  We are competing
+against a few tourist activities for hotel rooms going on around the
+area at the same time (example:
+http://www.ottawafestivals.ca/events/winterlude-2/).
+
+Do your reservations at:
+https://www.starwoodmeeting.com/StarGroupsWeb/res?id=1412035802&key=1AC9C1F8
+
+If you dont succeed getting the reservation, send us email at
+info at netdev01.org; we will try to bat for you but we cant guarantee
+results.
+
+conference registration at:
+https://onlineregistrations.ca/netdev01/
+
+Sponsors:
+=========
+NetDev 0.1 would like to gratefully acknowledge all our sponsors:
+https://netdev01.org/sponsors
+CENGN                   http://www.cengn.ca/
+Google                  https://www.google.ca
+Qualcomm                https://www.qualcomm.com/
+Verizon                 http://www.verizon.com/
+Cumulus Networks        http://cumulusnetworks.com/
+Mojatatu Networks       http://mojatatu.com/
+
+Important Dates:
+==========================
+December 2, 2014        Call for Papers opens
+December 10, 2014       Registration opens
+January 23, 2015        Hotel discount rates deadline
+January 24, 2015        Call for sessions deadline
+February 12, 2015       On-line registration closes
+February 14-17, 2015    Conference days
+
+-------------------------------------------------------------------------------
+THE Technical Conference on Linux Networking, February 14-17, 2015, 
+Ottawa, Canada
+https://netdev01.org/
+
+Contact:                        info@xxxxxxxxxxxxx
+Main site:                      https://www.netdev01.org/
+Announcement:                   https://www.netdev01.org/announce
+CFP:                            https://www.netdev01.org/cfp
+Travel/hotel/weather/clothing:  https://www.netdev01.org/travel
+RSS feed:                       https://netdev01.org/atom
+Follow us on Twitter: @netdev01 https://twitter.com/netdev01
+
+
+cheers,
+jamal
