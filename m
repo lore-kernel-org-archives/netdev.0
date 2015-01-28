@@ -1,75 +1,39 @@
-From: Arnaldo Carvalho de Melo <acme@kernel.org>
-Subject: Re: [PATCH v2 linux-trace 4/8] samples: bpf: simple tracing example
- in C
-Date: Wed, 28 Jan 2015 13:25:57 -0300
-Message-ID: <20150128162557.GP7220@kernel.org>
-References: <1422417973-10195-1-git-send-email-ast@plumgrid.com>
- <1422417973-10195-5-git-send-email-ast@plumgrid.com>
- <20150128162415.GO7220@kernel.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2] lib/checksum.c: fix carry in csum_tcpudp_nofold
+Date: Wed, 28 Jan 2015 05:04:18 -0800
+Message-ID: <1422450258.29618.43.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1422439091-31413-1-git-send-email-karl.beldan@rivierawaves.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Steven Rostedt <rostedt@goodmis.org>,
-	Ingo Molnar <mingo@kernel.org>,
-	Namhyung Kim <namhyung@kernel.org>,
-	Jiri Olsa <jolsa@redhat.com>,
-	Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>,
-	linux-api@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Alexei Starovoitov <ast@plumgrid.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Karl Beldan <karl.beldan@rivierawaves.com>,
+	Al Viro <viro@ZenIV.linux.org.uk>,
+	Arnd Bergmann <arnd@arndb.de>,
+	Mike Frysinger <vapier@gentoo.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, stable@vger.kernel.org
+To: Karl Beldan <karl.beldan@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150128162415.GO7220@kernel.org>
+In-Reply-To: <1422439091-31413-1-git-send-email-karl.beldan@rivierawaves.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Em Wed, Jan 28, 2015 at 01:24:15PM -0300, Arnaldo Carvalho de Melo escreveu:
-> Em Tue, Jan 27, 2015 at 08:06:09PM -0800, Alexei Starovoitov escreveu:
-> > diff --git a/samples/bpf/tracex1_kern.c b/samples/bpf/tracex1_kern.c
-> > new file mode 100644
-> > index 000000000000..7849ceb4bce6
-> > --- /dev/null
-> > +++ b/samples/bpf/tracex1_kern.c
-> > @@ -0,0 +1,28 @@
-> > +#include <linux/skbuff.h>
-> > +#include <linux/netdevice.h>
-> > +#include <uapi/linux/bpf.h>
-> > +#include <trace/bpf_trace.h>
-> > +#include "bpf_helpers.h"
-> > +
-> > +SEC("events/net/netif_receive_skb")
-> > +int bpf_prog1(struct bpf_context *ctx)
-> > +{
-> > +	/*
-> > +	 * attaches to /sys/kernel/debug/tracing/events/net/netif_receive_skb
-> > +	 * prints events for loobpack device only
-> > +	 */
-> > +	char devname[] = "lo";
-> > +	struct net_device *dev;
-> > +	struct sk_buff *skb = 0;
-> > +
-> > +	skb = (struct sk_buff *) ctx->arg1;
-> > +	dev = bpf_fetch_ptr(&skb->dev);
-> > +	if (bpf_memcmp(dev->name, devname, 2) == 0)
+On Wed, 2015-01-28 at 10:58 +0100, Karl Beldan wrote:
+> The carry from the 64->32bits folding was dropped, e.g with:
+> saddr=0xFFFFFFFF daddr=0xFF0000FF len=0xFFFF proto=0 sum=1,
+> csum_tcpudp_nofold returned 0 instead of 1.
 > 
-> I'm only starting to look at all this, so bear with me... But why do we
-> need to have it as "bpf_memcmp"? Can't we simply use it as "memcmp" and
-> have it use the right function?
-> 
-> Less typing, perhaps we would need to have a:
-> 
-> #define memcmp bpf_memcmp(s1, s2, n) bpf_memcmp(s1, s2, n)
+> Signed-off-by: Karl Beldan <karl.beldan@rivierawaves.com>
+> Cc: Al Viro <viro@ZenIV.linux.org.uk>
+> Cc: Eric Dumazet <eric.dumazet@gmail.com>
+> Cc: Arnd Bergmann <arnd@arndb.de>
+> Cc: Mike Frysinger <vapier@gentoo.org>
+> Cc: netdev@vger.kernel.org
+> Cc: linux-kernel@vger.kernel.org
+> Cc: stable@vger.kernel.org
+> ---
+>  lib/checksum.c | 12 ++++++++++--
+>  1 file changed, 10 insertions(+), 2 deletions(-)
 
-Argh, like this:
+Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-#define memcmp(s1, s2, n) bpf_memcmp(s1, s2, n)
- 
-> in bpf_helpers.h to have it work?
-> 
-> - Arnaldo
-> 
-> > +		/* print event using default tracepoint format */
-> > +		return 1;
-> > +
-> > +	/* drop event */
-> > +	return 0;
-> > +}
+Thanks !
