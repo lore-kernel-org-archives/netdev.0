@@ -1,32 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] stmmac: DMA threshold mode or SF mode can be different
- among multiple device instance
-Date: Thu, 29 Jan 2015 15:28:39 -0800 (PST)
-Message-ID: <20150129.152839.1317212559062872075.davem@davemloft.net>
-References: <1422521699-14096-1-git-send-email-sonic.adi@gmail.com>
+From: Samuel Ortiz <sameo@linux.intel.com>
+Subject: Re: [PATCH 1/4] NFC: nci: Add FWDL support
+Date: Fri, 30 Jan 2015 00:28:59 +0100
+Message-ID: <20150129232859.GA20998@ribalta.ger.corp.intel.com>
+References: <1421940460-14049-1-git-send-email-clement.perrochaud@effinnov.com>
+ <1421940460-14049-2-git-send-email-clement.perrochaud@effinnov.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: peppe.cavallaro@st.com, netdev@vger.kernel.org,
-	adi-buildroot-devel@lists.sourceforge.net, sonic.zhang@analog.com
-To: sonic.adi@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43128 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750767AbbA2X2l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jan 2015 18:28:41 -0500
-In-Reply-To: <1422521699-14096-1-git-send-email-sonic.adi@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-nfc@lists.01.org,
+	=?iso-8859-1?Q?Cl=E9ment?= Perrochaud
+	<clement.perrochaud@nxp.com>, sunil.jogi@nxp.com,
+	jerome.pele@nxp.com, Charles.Gorand-Effinnov@nxp.com,
+	lauro.venancio@openbossa.org, aloisio.almeida@openbossa.org,
+	robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
+	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
+	davem@davemloft.net, grant.likely@linaro.org, lefrique@marvell.com,
+	christophe.ricard@gmail.com, cuissard@marvell.com,
+	bzhao@marvell.com, hirent@marvell.com, akarwar@marvell.com,
+	linux-wireless@vger.kernel.org, devicetree@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: clement.perrochaud@effinnov.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1421940460-14049-2-git-send-email-clement.perrochaud@effinnov.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Sonic Zhang <sonic.adi@gmail.com>
-Date: Thu, 29 Jan 2015 16:54:59 +0800
+Hi Clement,
 
->  		/* Try to bump up the dma threshold on this failure */
-> -		if (unlikely(tc != SF_DMA_MODE) && (tc <= 256)) {
-> +		if (unlikely(priv->xstats.threshold != SF_DMA_MODE) &&
-> +			(tc <= 256)) {
+On Thu, Jan 22, 2015 at 04:27:37PM +0100, clement.perrochaud@effinnov.c=
+om wrote:
+> From: Cl=E9ment Perrochaud <clement.perrochaud@nxp.com>
 
-This is not indented properly.  The second line of the conditional
-should start precisely at the first column after the openning
-parenthesis of the if() statement.
+- It really is not obvious that FWDL actually means firmware download
+- A small commit message explaining why you need this (Mostly for the
+  NXP chipset for now) would be nice.
+
+Cheers,
+Samuel.
