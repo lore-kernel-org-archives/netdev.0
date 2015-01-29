@@ -1,101 +1,55 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next] net: mark some potential candidates __read_mostly
-Date: Thu, 29 Jan 2015 12:15:03 +0100
-Message-ID: <1422530103-23869-1-git-send-email-dborkman@redhat.com>
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:56215 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755460AbbA2LPJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Jan 2015 06:15:09 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: =?iso-8859-1?Q?M=E5ns_Rullg=E5rd?= <mans@mansr.com>
+Subject: Re: [PATCH] net, ethernet, LLVMLinux: Add missing MODULE_DEVICE_TABLE()
+Date: Thu, 29 Jan 2015 11:29:32 +0000
+Message-ID: <yw1xlhklbzab.fsf@unicorn.mansr.com>
+References: <1422495374-22835-1-git-send-email-behanw@converseincode.com>
+	<20150128.224228.1533046356464752424.davem@davemloft.net>
+	<3392784.h8cmHX9fyr@wuerfel>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, behanw@converseincode.com,
+	sathya.perla@emulex.com, ajit.khaparde@emulex.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	subbu.seetharaman@emulex.com
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <3392784.h8cmHX9fyr@wuerfel> (Arnd Bergmann's message of "Thu, 29
+	Jan 2015 10:10:48 +0100")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-They are all either written once or extremly rarely (e.g. from init
-code), so we can move them to the .data..read_mostly section.
+Arnd Bergmann <arnd@arndb.de> writes:
 
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
----
- drivers/net/ipvlan/ipvlan_core.c | 2 +-
- net/bridge/br_netlink.c          | 2 +-
- net/ipv4/devinet.c               | 2 +-
- net/ipv6/addrconf.c              | 2 +-
- net/mpls/mpls_gso.c              | 4 ++--
- 5 files changed, 6 insertions(+), 6 deletions(-)
+> On Wednesday 28 January 2015 22:42:28 David Miller wrote:
+>> From: Behan Webster <behanw@converseincode.com>
+>> Date: Wed, 28 Jan 2015 17:36:14 -0800
+>>=20
+>> > Missing MODULE_DEVICE_TABLE for pci ids from benet driver found by=
+ clang.
+>> >=20
+>> > Signed-off-by: Behan Webster <behanw@converseincode.com>
+>> > Suggested-by: Arnd Bergmann <arnd@arndb.de>
+>>=20
+>> Why are you removing the device table?
+>
+> Behan took a patch that I did earlier and split it up to add descript=
+ions.
+> The patch is correct, but he either misunderstood or misexpressed the
+> intention.
+>
+> This driver has two identical lines that both say=20
+>
+> MODULE_DEVICE_TABLE(pci, be_dev_ids);
+>
+> I don't remember the exact symptom, but llvm/clang trips over this, w=
+hile gcc
+> silently ignores the second one.
 
-diff --git a/drivers/net/ipvlan/ipvlan_core.c b/drivers/net/ipvlan/ipvlan_core.c
-index 2e19528..2a17500 100644
---- a/drivers/net/ipvlan/ipvlan_core.c
-+++ b/drivers/net/ipvlan/ipvlan_core.c
-@@ -9,7 +9,7 @@
- 
- #include "ipvlan.h"
- 
--static u32 ipvlan_jhash_secret;
-+static u32 ipvlan_jhash_secret __read_mostly;
- 
- void ipvlan_init_secret(void)
- {
-diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
-index 3875ea5..e08b260 100644
---- a/net/bridge/br_netlink.c
-+++ b/net/bridge/br_netlink.c
-@@ -701,7 +701,7 @@ static size_t br_get_link_af_size(const struct net_device *dev)
- 	return pv->num_vlans * nla_total_size(sizeof(struct bridge_vlan_info));
- }
- 
--static struct rtnl_af_ops br_af_ops = {
-+static struct rtnl_af_ops br_af_ops __read_mostly = {
- 	.family			= AF_BRIDGE,
- 	.get_link_af_size	= br_get_link_af_size,
- };
-diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-index 59ebe16..f0b4a31 100644
---- a/net/ipv4/devinet.c
-+++ b/net/ipv4/devinet.c
-@@ -2322,7 +2322,7 @@ static __net_initdata struct pernet_operations devinet_ops = {
- 	.exit = devinet_exit_net,
- };
- 
--static struct rtnl_af_ops inet_af_ops = {
-+static struct rtnl_af_ops inet_af_ops __read_mostly = {
- 	.family		  = AF_INET,
- 	.fill_link_af	  = inet_fill_link_af,
- 	.get_link_af_size = inet_get_link_af_size,
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 7dcc065e..8623118 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -5405,7 +5405,7 @@ static struct pernet_operations addrconf_ops = {
- 	.exit = addrconf_exit_net,
- };
- 
--static struct rtnl_af_ops inet6_ops = {
-+static struct rtnl_af_ops inet6_ops __read_mostly = {
- 	.family		  = AF_INET6,
- 	.fill_link_af	  = inet6_fill_link_af,
- 	.get_link_af_size = inet6_get_link_af_size,
-diff --git a/net/mpls/mpls_gso.c b/net/mpls/mpls_gso.c
-index 349295d..809df53 100644
---- a/net/mpls/mpls_gso.c
-+++ b/net/mpls/mpls_gso.c
-@@ -60,14 +60,14 @@ out:
- 	return segs;
- }
- 
--static struct packet_offload mpls_mc_offload = {
-+static struct packet_offload mpls_mc_offload __read_mostly = {
- 	.type = cpu_to_be16(ETH_P_MPLS_MC),
- 	.callbacks = {
- 		.gso_segment    =	mpls_gso_segment,
- 	},
- };
- 
--static struct packet_offload mpls_uc_offload = {
-+static struct packet_offload mpls_uc_offload __read_mostly = {
- 	.type = cpu_to_be16(ETH_P_MPLS_UC),
- 	.callbacks = {
- 		.gso_segment    =	mpls_gso_segment,
--- 
-1.7.11.7
+GCC is probably being "helpful" and allowing multiple identical
+definitions even though the C spec does not.  Obviously all but one
+should go away.  No need to mention llvm, IMO.
+
+--=20
+M=E5ns Rullg=E5rd
+mans@mansr.com
