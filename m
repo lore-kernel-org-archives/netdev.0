@@ -1,41 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] cxgb4: Remove preprocessor check for CONFIG_CXGB4_DCB
-Date: Thu, 29 Jan 2015 15:10:30 -0800 (PST)
-Message-ID: <20150129.151030.621632674659139306.davem@davemloft.net>
-References: <1422461991-20684-1-git-send-email-hariprasad@chelsio.com>
+From: Murali Karicheri <m-karicheri2@ti.com>
+Subject: [PATCH net-next] netcp driver fixes to build as dynamic modules
+Date: Thu, 29 Jan 2015 18:15:50 -0500
+Message-ID: <1422573351-5603-1-git-send-email-m-karicheri2@ti.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, leedom@chelsio.com, anish@chelsio.com,
-	nirranjan@chelsio.com, praveenm@chelsio.com
-To: hariprasad@chelsio.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43000 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752799AbbA2XKb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jan 2015 18:10:31 -0500
-In-Reply-To: <1422461991-20684-1-git-send-email-hariprasad@chelsio.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: Murali Karicheri <m-karicheri2@ti.com>
+To: <w-kwok2@ti.com>, <davem@davemloft.net>, <mugunthanvnm@ti.com>,
+	<tony@atomide.com>, <prabhakar.csengg@gmail.com>,
+	<grygorii.strashko@ti.com>, <lokeshvutla@ti.com>,
+	<mpa@pengutronix.de>, <lsorense@csclub.uwaterloo.ca>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<arnd@arndb.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Hariprasad Shenai <hariprasad@chelsio.com>
-Date: Wed, 28 Jan 2015 21:49:51 +0530
+This patch introduce changes to netcp modules and makefile to build
+the driver as dynamic modules. This also convert existing cpsw_ale.c
+as a module so that it can be re-used across netcp and ti_cpsw drivers.
+This also fixes the issue seen when build using arm allmodconfig
+I have made an allmodconfig with this patch and the build succeeds.
 
-> In commit dc9daab226aa ("cxgb4: Added support in debugfs to dump
-> sge_qinfo") a preprocessor check for CONFIG_CXGB4_DCB got added, which should
-> have been CONFIG_CHELSIO_T4_DCB.
-> 
-> Reported-by: Paul Bolle <pebolle@tiscal.nl>
-> Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
+ make allmodconfig
+ make uImage LOADADDR=0x80008000; make modules
 
-That's not all this patch is doing:
+ After the build all of the following .ko files are seen
+ 
+Note: need to verify this on a platform with TI CPSW.
 
-> +static inline struct port_info *ethqset2pinfo(struct adapter *adap, int qset)
+ drivers/net/ethernet/ti/cpsw_ale.ko
+ drivers/net/ethernet/ti/davinci_cpdma.ko
+ drivers/net/ethernet/ti/davinci_emac.ko
+ drivers/net/ethernet/ti/davinci_mdio.ko
+ drivers/net/ethernet/ti/keystone_netcp_ethss.ko
+ drivers/net/ethernet/ti/keystone_netcp.ko
+ drivers/net/ethernet/ti/ti_cpsw.ko
+ drivers/net/ethernet/ti/tlan.ko
+ 
+ This also has dependency on the following patches for netcp :-
+ [1] https://lkml.org/lkml/2015/1/28/1102
+ [2] https://lkml.org/lkml/2015/1/29/881
+ [3] https://lkml.org/lkml/2015/1/29/882
 
-You need to explain why this function needs to be added in the
-commit message.
+Murali Karicheri (1):
+  drivers: net: cpsw: make cpsw_ale.c a module to allow re-use on
+    Keystone
 
-I can see myself that the build fails without it because you
-forgot to add it in the original commit, or someone removed
-it meanwhile, but you have to say so in the commit message
-so everyone can understand.
+ drivers/net/ethernet/ti/Kconfig       |   19 +++++++++++++++++--
+ drivers/net/ethernet/ti/Makefile      |    8 +++++---
+ drivers/net/ethernet/ti/cpsw_ale.c    |   26 ++++++++++++++++++++++++--
+ drivers/net/ethernet/ti/netcp_core.c  |    8 ++++++++
+ drivers/net/ethernet/ti/netcp_ethss.c |    5 +++++
+ 5 files changed, 59 insertions(+), 7 deletions(-)
+
+-- 
+1.7.9.5
