@@ -1,30 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: gianfar: remove the unneeded check of
- disabled device
-Date: Thu, 29 Jan 2015 14:51:42 -0800 (PST)
-Message-ID: <20150129.145142.1078710578535354028.davem@davemloft.net>
-References: <1422446808-16460-1-git-send-email-haokexin@gmail.com>
+Subject: Re: pull-request: can-next 2015-28-01
+Date: Thu, 29 Jan 2015 14:55:05 -0800 (PST)
+Message-ID: <20150129.145505.1773492435601157331.davem@davemloft.net>
+References: <54C8EB12.9030100@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, claudiu.manoil@freescale.com
-To: haokexin@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42906 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751108AbbA2Wvn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jan 2015 17:51:43 -0500
-In-Reply-To: <1422446808-16460-1-git-send-email-haokexin@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, kernel@pengutronix.de,
+	linux-can@vger.kernel.org
+To: mkl@pengutronix.de
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <54C8EB12.9030100@pengutronix.de>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Kevin Hao <haokexin@gmail.com>
-Date: Wed, 28 Jan 2015 20:06:48 +0800
+=46rom: Marc Kleine-Budde <mkl@pengutronix.de>
+Date: Wed, 28 Jan 2015 14:58:42 +0100
 
-> Since commit cd1e65044d44 ("of/device: Don't register disabled
-> devices"), the disabled device will not be registered at all. So we
-> don't need to do the check again in the platform device driver.
-> 
-> Signed-off-by: Kevin Hao <haokexin@gmail.com>
+> this is a pull request of 12 patches for net-next/master.
+>=20
+> There are 3 patches by Ahmed S. Darwish, which update the kvaser_usb
+> driver and add support for the USBcan-II based adapters. St=E9phane
+> Grosjean contributes 7 patches for the peak_usb driver, which add
+> support for the CANFD USB adapters. I contribute 2 patches which clea=
+n
+> up the peak_usb driver structure a bit.
 
-Applied, thanks.
+Pulled, thanks Marc.
