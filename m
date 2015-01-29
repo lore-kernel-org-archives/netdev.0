@@ -1,7 +1,7 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [GIT] [3.20] NFC update
-Date: Wed, 28 Jan 2015 22:50:19 -0800 (PST)
-Message-ID: <20150128.225019.1581863333410734561.davem@davemloft.net>
+Date: Wed, 28 Jan 2015 23:02:09 -0800 (PST)
+Message-ID: <20150128.230209.1790960150269220125.davem@davemloft.net>
 References: <20150129005216.GA1137@ribalta.ger.corp.intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
@@ -9,10 +9,10 @@ Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: sameo@linux.intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36652 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:36711 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751269AbbA2GuU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jan 2015 01:50:20 -0500
+	with ESMTP id S1750773AbbA2HCL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jan 2015 02:02:11 -0500
 In-Reply-To: <20150129005216.GA1137@ribalta.ger.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -35,4 +35,4 @@ Date: Thu, 29 Jan 2015 01:52:16 +0100
 >   I assumed it's too late for a 3.19 inclusion. Please let me know if
 >   you'd prefer to see them going through a net pull request instead.
 
-Applied, thanks Samuel.
+Pulled, thanks Sam.
