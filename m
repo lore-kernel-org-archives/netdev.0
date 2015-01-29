@@ -1,48 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: remove sock_iocb
-Date: Thu, 29 Jan 2015 00:01:25 -0800 (PST)
-Message-ID: <20150129.000125.1532086382063848714.davem@davemloft.net>
-References: <1422464693-7827-1-git-send-email-hch@lst.de>
-	<20150128.232211.1157376728217761804.davem@davemloft.net>
-	<20150129075721.GD29656@ZenIV.linux.org.uk>
+From: Li Wei <lw@cn.fujitsu.com>
+Subject: [PATCH] ipv4: Don't increase PMTU with Datagram Too Big message.
+Date: Thu, 29 Jan 2015 16:09:03 +0800
+Message-ID: <1422518943-30637-1-git-send-email-lw@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: hch@lst.de, netdev@vger.kernel.org
-To: viro@ZenIV.linux.org.uk
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, Li Wei <lw@cn.fujitsu.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37039 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751381AbbA2IB0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jan 2015 03:01:26 -0500
-In-Reply-To: <20150129075721.GD29656@ZenIV.linux.org.uk>
+Received: from cn.fujitsu.com ([59.151.112.132]:35284 "EHLO
+	heian.cn.fujitsu.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753649AbbA2IKd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jan 2015 03:10:33 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Date: Thu, 29 Jan 2015 07:57:21 +0000
+RFC 1191 said, "a host MUST not increase its estimate of the Path
+MTU in response to the contents of a Datagram Too Big message."
 
-> You know, that's getting _really_ interesting.  The thing is, now
-> there's only one ->sendmsg() instance using iocb argument at all,
-> and it's a really weird one.  TIPC.  Which only compares it with
-> NULL, and that - to tell the normal calls (== done by sock_sendmsg()
-> et.al.) from tipc_{accept,connect}()-generated ones.  And the way
-> it's used is
->         if (iocb)
->                 lock_sock(sk);
-> in tipc_send_stream().  IOW, "tipc_accept() and tipc_connect() would like
-> to use the guts of tipc_send_stream(), but they are already holding the
-> socket locked; let's just pass NULL iocb (which net/socket.c never does)
-> to tell it to leave the fucking lock alone, thank you very much".
-> 
-> And no ->recvmsg() are using iocb at all now.  How about we take the
-> guts of tipc_send_stream() into a helper function and have tipc_accept/connect
-> use _that_?  Then we could drop iocb argument completely and for ->sendmsg()
-> it would be the difference between 4 and 3 arguments, which has interesting
-> effects on certain register-starved architectures...
-> 
-> While we are at it, size (both for sendmsg and recvmsg) is always equal to
-> iov_iter_count(&msg->msg_iter), so that's not the only redundant argument
-> there...
+Signed-off-by: Li Wei <lw@cn.fujitsu.com>
+---
+ net/ipv4/route.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
-No objections from me.
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index d58dd0e..52e1f2b 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -966,6 +966,9 @@ static void __ip_rt_update_pmtu(struct rtable *rt, struct flowi4 *fl4, u32 mtu)
+ 	if (dst->dev->mtu < mtu)
+ 		return;
+ 
++	if (rt->rt_pmtu && rt->rt_pmtu < mtu)
++		return;
++
+ 	if (mtu < ip_rt_min_pmtu)
+ 		mtu = ip_rt_min_pmtu;
+ 
+-- 
+2.1.0
