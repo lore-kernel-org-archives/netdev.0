@@ -1,70 +1,137 @@
-From: Namhyung Kim <namhyung-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH v2 linux-trace 1/8] tracing: attach eBPF programs to
- tracepoints and syscalls
-Date: Thu, 29 Jan 2015 21:35:44 +0900
-Message-ID: <CAM9d7chgjWh6CyTiNHJX+kWbk29ANEHWSPgY4ga3BpkFbPwgiQ@mail.gmail.com>
-References: <CAMEtUuzSDYYWneoTy9=AmMa9=x4owWbWsXod=Do54+yj4Je3=Q@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Throughput regression with `tcp: refine TSO autosizing`
+Date: Thu, 29 Jan 2015 05:14:57 -0800
+Message-ID: <1422537297.21689.15.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CA+BoTQkVu23P3EOmY_Q3E1GJnWsyF==Pawz4iPOS_Bq5dvfO5Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
-	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Arnaldo Carvalho de Melo <acme-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	Jiri Olsa <jolsa-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Masami Hiramatsu <masami.hiramatsu.pt-FCd8Q96Dh0JBDgjK7y7TUQ@public.gmane.org>,
-	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAMEtUuzSDYYWneoTy9=AmMa9=x4owWbWsXod=Do54+yj4Je3=Q@mail.gmail.com>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless <linux-wireless@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	eyalpe@dev.mellanox.co.il
+To: Michal Kazior <michal.kazior@tieto.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f173.google.com ([209.85.223.173]:36820 "EHLO
+	mail-ie0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753566AbbA2NPA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jan 2015 08:15:00 -0500
+In-Reply-To: <CA+BoTQkVu23P3EOmY_Q3E1GJnWsyF==Pawz4iPOS_Bq5dvfO5Q@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 29, 2015 at 4:04 PM, Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org> wrote:
-> On Wed, Jan 28, 2015 at 10:41 PM, Namhyung Kim <namhyung-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org> wrote:
->>
->> I think it's not a problem of bpf.  An user process can be killed
->> anytime while it enabed events without bpf.  The only thing it should
->> care is the auto-unload IMHO.
->
-> ok. I think it does indeed make sense to decouple the logic.
-> We can add 'auto_enable' file to achieve desired Ctrl-C behavior.
-> While the 'auto_enable' file is open the event will be enabled
-> and writes to 'enable' file will be ignored.
-> As soon as file closes, the event is auto-disabled.
-> Then user space will use 'bpf' file to attach/auto-unload
-> and 'auto_enable' file together.
-> Seem there would be a use for such 'auto_enable'
-> without bpf as well.
+On Thu, 2015-01-29 at 12:48 +0100, Michal Kazior wrote:
+> Hi,
+> 
+> I'm not subscribed to netdev list and I can't find the message-id so I
+> can't reply directly to the original thread `BW regression after "tcp:
+> refine TSO autosizing"`.
+> 
+> I've noticed a big TCP performance drop with ath10k
+> (drivers/net/wireless/ath/ath10k) on 3.19-rc5. Instead of 500mbps I
+> get 250mbps in my testbed.
+> 
+> After bisecting I ended up at `tcp: refine TSO autosizing`. Reverting
+> `tcp: refine TSO autosizing` and `tcp: Do not apply TSO segment limit
+> to non-TSO packets` (for conflict free reverts) fixes the problem.
+> 
+> My testing setup is as follows:
+> 
+>  a) ath10k AP, github.com/kvalo/ath/tree/master 3.19-rc5, w/ reverts
+>  b) ath10k STA connected to (a), github.com/kvalo/ath/tree/master
+> 3.19-rc5, w/ reverts
+>  c) (b) w/o reverts
+> 
+> Devices are 3x3 (AP) and 2x2 (Client) and are RF cabled. 11ac@80MHz
+> 2x2 has 866mbps modulation rate. In practice this should deliver
+> ~700mbps of real UDP traffic.
+> 
+> Here are some numbers:
+> 
+> UDP: (b) -> (a): 672mbps
+> UDP: (a) -> (b): 687mbps
+> TCP: (b) -> (a): 526mbps
+> TCP: (a) -> (b): 500mbps
+> 
+> UDP: (c) -> (a): 669mbps*
+> UDP: (a) -> (c): 689mbps*
+> TCP: (c) -> (a): 240mbps**
+> TCP: (a) -> (c): 490mbps*
+> 
+> * no changes/within error margin
+> ** the performance drop
+> 
+> I'm using iperf:
+>   UDP: iperf -i1 -s -u vs iperf -i1 -c XX -u -B 200M -P5 -t 20
+>   TCP: iperf -i1 -s vs iperf -i1 -c XX -P5 -t 20
+> 
+> Result values were obtained at the receiver side.
+> 
+> Iperf reports a few frames lost and out-of-order at each UDP test
+> start (during first second) but later has no packet loss and no
+> out-of-order. This shouldn't have any effect on a TCP session, right?
+> 
+> The device delivers batched up tx/rx completions (no way to change
+> that). I suppose this could be an issue for timing sensitive
+> algorithms. Also keep in mind 802.11n and 802.11ac devices have frame
+> aggregation windows so there's an inherent extra (and non-uniform)
+> latency when compared to, e.g. ethernet devices.
+> 
+> The driver doesn't have GRO. I have an internal patch which implements
+> it. It improves overall TCP traffic (more stable, up to 600mbps TCP
+> which is ~100mbps more than without GRO) but the TCP: (c) -> (a)
+> performance drop remains unaffected regardless.
+> 
+> I've tried applying stretch ACK patchset (v2) on both machines and
+> re-run the above tests. I got no measurable difference in performance.
+> 
+> I've also run these tests with iwlwifi 7260 (also a 2x2) as (b) and
+> (c). It didn't seem to be affected by the TSO patch at all (it runs at
+> ~360mbps of TCP regardless of the TSO patch).
+> 
+> Any hints/ideas?
+> 
 
-Why do you want such an 'auto_enable' feature?  I guess it's enough
-just to keep an event in the soft-disabled state and run a bpf program
-before the check.
+Hi Michal
 
+This patch restored original TSQ behavior, because the 1ms worth of data
+per flow had totally destroyed TSQ intent.
 
->
->> I'm okay for not calling bpf program in NMI but not for disabling events.
->>
->> Suppose an user was collecting an event (including in NMI) and then
->> [s]he also wanted to run a bpf program.  So [s]he wrote a program
->> always return 1.  But after attaching the program, it didn't record
->> the event in NMI..  Isn't that a problem?
->
-> ok, I think 'if (in_nmi()) return 1;' will work then, right?
-> Or you're thinking something else ?
+vi +630 Documentation/networking/ip-sysctl.txt
 
-Nope, returning 1 would be okay..
+tcp_limit_output_bytes - INTEGER
+        Controls TCP Small Queue limit per tcp socket.
+        TCP bulk sender tends to increase packets in flight until it
+        gets losses notifications. With SNDBUF autotuning, this can
+        result in a large amount of packets queued in qdisc/device
+        on the local machine, hurting latency of other flows, for
+        typical pfifo_fast qdiscs.
+        tcp_limit_output_bytes limits the number of bytes on qdisc
+        or device to reduce artificial RTT/cwnd and reduce bufferbloat.
+        Default: 131072
 
+This is why I suggested to Eyal Perry to change the TX interrupt
+mitigation parameters as in :
 
->
->> Right.  I think bpf programs belong to a user process but events are
->> global resource.  Maybe you also need to consider attaching bpf
->> program via perf (ioctl?) interface..
->
-> yes. I did. Please see my reply to Masami.
-> ioctl only works for tracepoints.
+ethtool -C eth0 tx-frames 4 rx-frames 4
 
-What was the problem of kprobes then? :)
+With this change and the stretch ack fixes, I got 37Gbps of throughput
+on a single flow, on a 40Gbit NIC (mlx4)
 
-Thanks,
-Namhyung
+If a driver needs to buffer more than tcp_limit_output_bytes=131072 to
+get line rate, I suggest that you either :
+
+1) tweak tcp_limit_output_bytes, but its not practical from a driver.
+
+2) change the driver, knowing what are its exact requirements, by
+removing a fraction of skb->truesize at ndo_start_xmit() time as in :
+
+if ((skb->destructor == sock_wfree ||
+     skb->restuctor == tcp_wfree) &&
+    skb->sk) {
+    u32 fraction = skb->truesize / 2;
+
+    skb->truesize -= fraction;
+    atomic_sub(fraction, &skb->sk->sk_wmem_alloc);
+}
+
+Thanks.
