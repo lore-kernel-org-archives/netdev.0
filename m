@@ -1,31 +1,28 @@
-From: "Paul" <gulp@emailn.de>
-Subject: LOL
-Date: Wed, 28 Jan 2015 13:12:31 -0800
-Message-ID: <3920237171544250735428@WIN-6L6G26B063Q>
-Reply-To: gulp@emailn.de
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] lib/checksum.c: fix carry in csum_tcpudp_nofold
+Date: Wed, 28 Jan 2015 22:32:49 -0800 (PST)
+Message-ID: <20150128.223249.779296549693168395.davem@davemloft.net>
+References: <1422439091-31413-1-git-send-email-karl.beldan@rivierawaves.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 185-25-150-218.greendata.pl ([185.25.150.218]:43987 "EHLO
-	stronylekarzy.eu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753365AbbA2GY2 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jan 2015 01:24:28 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: karl.beldan@rivierawaves.com, viro@ZenIV.linux.org.uk,
+	eric.dumazet@gmail.com, arnd@arndb.de, vapier@gentoo.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	stable@vger.kernel.org
+To: karl.beldan@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1422439091-31413-1-git-send-email-karl.beldan@rivierawaves.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hahahaha! Is that you on that pic???? :)
+From: Karl Beldan <karl.beldan@gmail.com>
+Date: Wed, 28 Jan 2015 10:58:11 +0100
 
+> The carry from the 64->32bits folding was dropped, e.g with:
+> saddr=0xFFFFFFFF daddr=0xFF0000FF len=0xFFFF proto=0 sum=1,
+> csum_tcpudp_nofold returned 0 instead of 1.
+> 
+> Signed-off-by: Karl Beldan <karl.beldan@rivierawaves.com>
 
-
-http://tinyurl.com/nv3udu4
-
-
-
-
-
-
-
-
-No more such info? Simply answer <NO>
+Applied, thanks.
