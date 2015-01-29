@@ -1,83 +1,101 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC] net: tcp: null pointer crash in __inet_put_port
-Date: Wed, 28 Jan 2015 13:03:35 -0800
-Message-ID: <1422479015.21689.3.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1422460613-10782-1-git-send-email-harouth@codeaurora.org>
+From: Samuel Ortiz <sameo@linux.intel.com>
+Subject: [GIT] [3.20] NFC update
+Date: Thu, 29 Jan 2015 01:52:16 +0100
+Message-ID: <20150129005216.GA1137@ribalta.ger.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
-To: Harout Hedeshian <harouth@codeaurora.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f177.google.com ([209.85.223.177]:46290 "EHLO
-	mail-ie0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752562AbbA2BU0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jan 2015 20:20:26 -0500
-Received: by mail-ie0-f177.google.com with SMTP id vy18so27485998iec.8
-        for <netdev@vger.kernel.org>; Wed, 28 Jan 2015 17:20:25 -0800 (PST)
-In-Reply-To: <1422460613-10782-1-git-send-email-harouth@codeaurora.org>
+Received: from mga09.intel.com ([134.134.136.24]:53459 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754189AbbA2BUh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Jan 2015 20:20:37 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2015-01-28 at 08:56 -0700, Harout Hedeshian wrote:
-> Hello,
-> 
-> We are observing a crash in __inet_put_port() wherein icsk_bind_hash
-> is null (stack trace below).
-> 
-> net/ipv4/inet_hashtables.c:
-> tb = inet_csk(sk)->icsk_bind_hash;
-> __sk_del_bind_node(sk);
-> tb->num_owners--;       <-- tb is unconditionally dereferenced here
-> 
-> From the RAM dumps: [D:0xFFFFFFC0222FB6F8] icsk_bind_hash = 0x0 = ,
-> 
-> The caller of inet_put_port() in this case is tcp_set_state() which
-> already does a null check on this particular field before calling
-> inet_put_port().
-> 
-> net/ipv4/tcp.c:
-> if (inet_csk(sk)->icsk_bind_hash &&
->    !(sk->sk_userlocks & SOCK_BINDPORT_LOCK))
-> 	inet_put_port(sk);
-> 
-> It seems that inet_put_port() does some locking by disabling bottom
-> halves, but this locking is happening after the null check.
-> 
-> Additionally, I see tcp_v4_destroy_sock() also calling inet_put_port()
-> after doing a similar null check. However, I am unsure if it would
-> ever be called on the same socket.
-> 
-> Does the proposed solution of locking the bottom halves from
-> tcp_set_state() make any sense here? Or use some other locking mechanism
-> directly on the socket?
+Hi David,
 
->  net/ipv4/tcp.c | 2 ++
->  1 file changed, 2 insertions(+)
-> 
-> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-> index 3075723..f3b5714 100644
-> --- a/net/ipv4/tcp.c
-> +++ b/net/ipv4/tcp.c
-> @@ -1910,9 +1910,11 @@ void tcp_set_state(struct sock *sk, int state)
->  			TCP_INC_STATS(sock_net(sk), TCP_MIB_ESTABRESETS);
->  
->  		sk->sk_prot->unhash(sk);
-> +		local_bh_disable();
->  		if (inet_csk(sk)->icsk_bind_hash &&
->  		    !(sk->sk_userlocks & SOCK_BINDPORT_LOCK))
->  			inet_put_port(sk);
-> +		local_bh_enable();
->  		/* fall through */
->  	default:
->  		if (oldstate == TCP_ESTABLISHED)
+This is the first NFC pull request for 3.20.
+
+With this one we have:
+
+- Secure element support for the ST Micro st21nfca driver. This depends
+  on a few HCI internal changes in order for example to support more
+  than one secure element per controller.
+
+- ACPI support for NXP's pn544 HCI driver. This controller is found on
+  many x86 SoCs and is typically enumerated on the ACPI bus there.
+
+- A few st21nfca and st21nfcb fixes. Since they're not critical fixes,
+  I assumed it's too late for a 3.19 inclusion. Please let me know if
+  you'd prefer to see them going through a net pull request instead.
 
 
-I don't think it makes sense.
+The following changes since commit 7aee42c6764bae75d0eb2f674f0874193de90c05:
 
-tcp_set_state() should only be used on a locked socket.
+  cxgb3: re-use native hex2bin() (2015-01-25 00:09:41 -0800)
 
-I believe you are papering over another bug.
+are available in the git repository at:
 
-bh are disabled in inet_put_port because of the spin_lock() that can be
-taken both from process and softirq contexts.
+  git://git.kernel.org/pub/scm/linux/kernel/git/sameo/nfc-next.git tags/nfc-next-3.20-1
+
+for you to fetch changes up to 0a5942c8e1480db4b8ee7a8d643e4945ef2f8fed:
+
+  NFC: Add ACPI support for NXP PN544 (2015-01-28 01:09:08 +0100)
+
+----------------------------------------------------------------
+Christophe Ricard (23):
+      NFC: dts: st21nfca: Fix compatible string spelling to follow other drivers
+      NFC: dts: st21nfcb: Fix compatible string spelling to follow other drivers
+      NFC: st21nfcb: Fix "WARNING: invalid free of devm_ allocated data"
+      NFC: st21nfca: Remove unreachable code
+      NFC: st21nfcb: Avoid use of skb after free
+      NFC: nfc_enable_se Remove useless blank line at beginning of function
+      NFC: nfc_disable_se Remove useless blank line at beginning of function
+      NFC: st21nfca: Remove skb_pipe_list and skb_pipe_info useless allocation
+      NFC: st21nfca: Remove checkpatch.pl warning Possible unnecessary 'out of memory' message
+      NFC: st21nfca: Fix some skb memory leaks
+      NFC: st21nfcb: Fix "NULL pointer dereference" possible error
+      NFC: st21nfcb: Remove useless include
+      NFC: st21nfcb: Fix copy/paste error in comment
+      NFC: hci: Change event_received handler gate parameter to pipe
+      NFC: hci: Add pipes table to reference them with a tuple {gate, host}
+      NFC: hci: Change nfc_hci_send_response gate parameter to pipe
+      NFC: hci: Reference every pipe information according to notification
+      NFC: hci: Add cmd_received handler
+      NFC: pn544: Change event_received gate parameter to pipe
+      NFC: microread: Change event_received gate parameter to pipe
+      NFC: hci: Remove nfc_hci_pipe2gate function
+      NFC: st21nfca: Adding support for secure element
+      NFC: dts: st21nfca: Document ese-present & uicc-present DTS property
+
+Robert Dolca (2):
+      NFC: PN544: GPIO access that may sleep
+      NFC: Add ACPI support for NXP PN544
+
+ .../devicetree/bindings/net/nfc/st21nfca.txt       |  11 +-
+ .../devicetree/bindings/net/nfc/st21nfcb.txt       |   4 +-
+ drivers/nfc/microread/microread.c                  |   3 +-
+ drivers/nfc/pn544/i2c.c                            | 133 ++++++-
+ drivers/nfc/pn544/pn544.c                          |   3 +-
+ drivers/nfc/st21nfca/Makefile                      |   2 +-
+ drivers/nfc/st21nfca/i2c.c                         |  23 +-
+ drivers/nfc/st21nfca/st21nfca.c                    | 186 +++++++---
+ drivers/nfc/st21nfca/st21nfca.h                    |  21 +-
+ drivers/nfc/st21nfca/st21nfca_se.c                 | 390 +++++++++++++++++++++
+ drivers/nfc/st21nfca/st21nfca_se.h                 |  63 ++++
+ drivers/nfc/st21nfcb/i2c.c                         |  19 +-
+ drivers/nfc/st21nfcb/ndlc.c                        |   3 +-
+ include/linux/platform_data/st21nfca.h             |   2 +
+ include/linux/platform_data/st21nfcb.h             |   4 +-
+ include/net/nfc/hci.h                              |  25 +-
+ net/nfc/core.c                                     |   2 -
+ net/nfc/hci/command.c                              |  23 +-
+ net/nfc/hci/core.c                                 |  97 +++--
+ net/nfc/hci/hci.h                                  |  10 +-
+ net/nfc/hci/hcp.c                                  |  11 -
+ 21 files changed, 886 insertions(+), 149 deletions(-)
+ create mode 100644 drivers/nfc/st21nfca/st21nfca_se.c
+ create mode 100644 drivers/nfc/st21nfca/st21nfca_se.h
