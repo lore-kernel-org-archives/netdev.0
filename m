@@ -1,60 +1,158 @@
-From: roopa@cumulusnetworks.com
-Subject: [PATCH v2] bridge: dont send notification when skb->len == 0 in rtnl_bridge_notify
-Date: Wed, 28 Jan 2015 16:23:11 -0800
-Message-ID: <1422490991-4033-1-git-send-email-roopa@cumulusnetworks.com>
-To: netdev@vger.kernel.org, davem@davemloft.net,
-	stephen@networkplumber.org, rami.rosen@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:59092 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752620AbbA2BPw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jan 2015 20:15:52 -0500
-Received: by mail-pa0-f45.google.com with SMTP id et14so32053627pad.4
-        for <netdev@vger.kernel.org>; Wed, 28 Jan 2015 17:15:52 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Namhyung Kim <namhyung@kernel.org>
+Subject: Re: [PATCH v2 linux-trace 1/8] tracing: attach eBPF programs to
+ tracepoints and syscalls
+Date: Thu, 29 Jan 2015 09:46:31 +0900
+Message-ID: <20150129004631.GA24182@sejong>
+References: <1422417973-10195-1-git-send-email-ast@plumgrid.com>
+ <1422417973-10195-2-git-send-email-ast@plumgrid.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Cc: Steven Rostedt <rostedt@goodmis.org>,
+	Ingo Molnar <mingo@kernel.org>,
+	Arnaldo Carvalho de Melo <acme@infradead.org>,
+	Jiri Olsa <jolsa@redhat.com>,
+	Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>,
+	linux-api@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Alexei Starovoitov <ast@plumgrid.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1422417973-10195-2-git-send-email-ast@plumgrid.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Hi Alexei,
 
-Reported in: https://bugzilla.kernel.org/show_bug.cgi?id=92081
+On Tue, Jan 27, 2015 at 08:06:06PM -0800, Alexei Starovoitov wrote:
+> User interface:
+> fd = open("/sys/kernel/debug/tracing/__event__/filter")
+> 
+> write(fd, "bpf_123")
+> 
+> where 123 is process local FD associated with eBPF program previously loaded.
+> __event__ is static tracepoint event or syscall.
+> (kprobe support is in next patch)
+> Once program is successfully attached to tracepoint event, the tracepoint
+> will be auto-enabled
+> 
+> close(fd)
+> auto-disables tracepoint event and detaches eBPF program from it
+> 
+> eBPF programs can call in-kernel helper functions to:
+> - lookup/update/delete elements in maps
+> - memcmp
+> - fetch_ptr/u64/u32/u16/u8 values from unsafe address via probe_kernel_read(),
+>   so that eBPF program can walk any kernel data structures
+> 
+> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+> ---
 
-This patch avoids calling rtnl_notify if the device ndo_bridge_getlink
-handler does not return any bytes in the skb.
+[SNIP]
+> diff --git a/kernel/trace/trace_events.c b/kernel/trace/trace_events.c
+> index b03a0ea77b99..70482817231a 100644
+> --- a/kernel/trace/trace_events.c
+> +++ b/kernel/trace/trace_events.c
+> @@ -1084,6 +1084,26 @@ event_filter_read(struct file *filp, char __user *ubuf, size_t cnt,
+>  	return r;
+>  }
+>  
+> +static int event_filter_release(struct inode *inode, struct file *filp)
+> +{
+> +	struct ftrace_event_file *file;
+> +	char buf[2] = "0";
+> +
+> +	mutex_lock(&event_mutex);
+> +	file = event_file_data(filp);
+> +	if (file) {
+> +		if (file->flags & TRACE_EVENT_FL_BPF) {
+> +			/* auto-disable the filter */
+> +			ftrace_event_enable_disable(file, 0);
 
-Alternately, the skb->len check can be moved inside rtnl_notify.
+Hmm.. what if user already enabled an event, attached a bpf filter and
+then detached the filter - I'm not sure we can always auto-disable
+it..
 
-For the bridge vlan case described in 92081, there is also a fix needed
-in bridge driver to generate a proper notification. Will fix that in
-subsequent patch.
 
-v2: rebase patch on net tree
+> +
+> +			/* if BPF filter was used, clear it on fd close */
+> +			apply_event_filter(file, buf);
+> +		}
+> +	}
+> +	mutex_unlock(&event_mutex);
+> +	return 0;
+> +}
+> +
+>  static ssize_t
+>  event_filter_write(struct file *filp, const char __user *ubuf, size_t cnt,
+>  		   loff_t *ppos)
+> @@ -1107,8 +1127,18 @@ event_filter_write(struct file *filp, const char __user *ubuf, size_t cnt,
+>  
+>  	mutex_lock(&event_mutex);
+>  	file = event_file_data(filp);
+> -	if (file)
+> +	if (file) {
+> +		/*
+> +		 * note to user space tools:
+> +		 * write() into debugfs/tracing/events/xxx/filter file
+> +		 * must be done with the same privilege level as open()
+> +		 */
+>  		err = apply_event_filter(file, buf);
+> +		if (!err && file->flags & TRACE_EVENT_FL_BPF)
+> +			/* once filter is applied, auto-enable it */
+> +			ftrace_event_enable_disable(file, 1);
+> +	}
+> +
+>  	mutex_unlock(&event_mutex);
+>  
+>  	free_page((unsigned long) buf);
+> @@ -1363,6 +1393,7 @@ static const struct file_operations ftrace_event_filter_fops = {
+>  	.open = tracing_open_generic,
+>  	.read = event_filter_read,
+>  	.write = event_filter_write,
+> +	.release = event_filter_release,
+>  	.llseek = default_llseek,
+>  };
+>  
+> diff --git a/kernel/trace/trace_events_filter.c b/kernel/trace/trace_events_filter.c
+> index ced69da0ff55..e0303b3cc9fb 100644
+> --- a/kernel/trace/trace_events_filter.c
+> +++ b/kernel/trace/trace_events_filter.c
+> @@ -23,6 +23,9 @@
+>  #include <linux/mutex.h>
+>  #include <linux/perf_event.h>
+>  #include <linux/slab.h>
+> +#include <linux/bpf.h>
+> +#include <trace/bpf_trace.h>
+> +#include <linux/filter.h>
+>  
+>  #include "trace.h"
+>  #include "trace_output.h"
+> @@ -541,6 +544,21 @@ static int filter_match_preds_cb(enum move_type move, struct filter_pred *pred,
+>  	return WALK_PRED_DEFAULT;
+>  }
+>  
+> +unsigned int trace_filter_call_bpf(struct event_filter *filter, void *ctx)
+> +{
+> +	unsigned int ret;
+> +
+> +	if (in_nmi()) /* not supported yet */
+> +		return 0;
 
-Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
----
- net/core/rtnetlink.c |    6 +++++-
- 1 file changed, 5 insertions(+), 1 deletion(-)
+But doesn't this mean to auto-disable all attached events during NMI
+as returning 0 will prevent the event going to ring buffer?
 
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 9cf6fe9..446cbaf 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -2895,12 +2895,16 @@ static int rtnl_bridge_notify(struct net_device *dev, u16 flags)
- 			goto errout;
- 	}
- 
-+	if (!skb->len)
-+		goto errout;
-+
- 	rtnl_notify(skb, net, 0, RTNLGRP_LINK, NULL, GFP_ATOMIC);
- 	return 0;
- errout:
- 	WARN_ON(err == -EMSGSIZE);
- 	kfree_skb(skb);
--	rtnl_set_sk_err(net, RTNLGRP_LINK, err);
-+	if (err)
-+		rtnl_set_sk_err(net, RTNLGRP_LINK, err);
- 	return err;
- }
- 
--- 
-1.7.10.4
+I think it'd be better to keep an attached event in a soft-disabled
+state like event trigger and give control of enabling to users..
+
+Thanks,
+Namhyung
+
+
+> +
+> +	rcu_read_lock();
+> +	ret = BPF_PROG_RUN(filter->prog, ctx);
+> +	rcu_read_unlock();
+> +
+> +	return ret;
+> +}
+> +EXPORT_SYMBOL_GPL(trace_filter_call_bpf);
