@@ -1,35 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] act_connmark: fix dependencies better
-Date: Wed, 28 Jan 2015 23:23:28 -0800 (PST)
-Message-ID: <20150128.232328.1976350674232200974.davem@davemloft.net>
-References: <1806649.OoZh1UV3MM@wuerfel>
+Subject: Re: [PATCH net-next] pkt_sched: fq: remove useless TIME_WAIT check
+Date: Wed, 28 Jan 2015 23:24:21 -0800 (PST)
+Message-ID: <20150128.232421.1780933715008005387.davem@davemloft.net>
+References: <1422453996.29618.64.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tgraf@suug.ch, nbd@openwrt.org,
-	jhs@mojatatu.com
-To: arnd@arndb.de
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36838 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:36848 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754695AbbA2HX3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jan 2015 02:23:29 -0500
-In-Reply-To: <1806649.OoZh1UV3MM@wuerfel>
+	with ESMTP id S1752808AbbA2HYV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jan 2015 02:24:21 -0500
+In-Reply-To: <1422453996.29618.64.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Wed, 28 Jan 2015 17:30:09 +0100
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 28 Jan 2015 06:06:36 -0800
 
-> NET_ACT_CONNMARK fails to build if NF_CONNTRACK_MARK is disabled,
-> and d7924450e14ea4 ("act_connmark: Add missing dependency on
-> NF_CONNTRACK_MARK") fixed that case, but missed the cased where
-> NF_CONNTRACK is a loadable module.
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> This adds the second dependency to ensure that NET_ACT_CONNMARK
-> can only be built-in if NF_CONNTRACK is also part of the kernel
-> rather than a loadable module.
+> TIME_WAIT sockets are not owning any skb.
 > 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> ip_send_unicast_reply() and tcp_v6_send_response() both use
+> regular sockets.
+> 
+> We can safely remove a test in sch_fq and save one cache line miss,
+> as sk_state is far away from sk_pacing_rate.
+> 
+> Tested at Google for about one year.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Applied, thanks Arnd.
+Applied, thanks Eric.
