@@ -1,55 +1,69 @@
-From: =?iso-8859-1?Q?M=E5ns_Rullg=E5rd?= <mans@mansr.com>
-Subject: Re: [PATCH] net, ethernet, LLVMLinux: Add missing MODULE_DEVICE_TABLE()
-Date: Thu, 29 Jan 2015 11:29:32 +0000
-Message-ID: <yw1xlhklbzab.fsf@unicorn.mansr.com>
-References: <1422495374-22835-1-git-send-email-behanw@converseincode.com>
-	<20150128.224228.1533046356464752424.davem@davemloft.net>
-	<3392784.h8cmHX9fyr@wuerfel>
+From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Subject: [PATCH net 3/4] ixgbe: Fix checksum error when using
+	stacked vlan
+Date: Thu, 29 Jan 2015 20:37:09 +0900
+Message-ID: <1422531430-32012-4-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+References: <1422531430-32012-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, behanw@converseincode.com,
-	sathya.perla@emulex.com, ajit.khaparde@emulex.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	subbu.seetharaman@emulex.com
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <3392784.h8cmHX9fyr@wuerfel> (Arnd Bergmann's message of "Thu, 29
-	Jan 2015 10:10:48 +0100")
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+To: "David S . Miller" <davem@davemloft.net>, Linux NICS <linux.nics@intel.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <1422531430-32012-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Arnd Bergmann <arnd@arndb.de> writes:
+When a skb has multiple vlans and it is CHECKSUM_PARTIAL,
+ixgbe_tx_csum() fails to get the network protocol and checksum related
+descriptor fields are not configured correctly because skb->protocol
+doesn't show the L3 protocol in this case.
 
-> On Wednesday 28 January 2015 22:42:28 David Miller wrote:
->> From: Behan Webster <behanw@converseincode.com>
->> Date: Wed, 28 Jan 2015 17:36:14 -0800
->>=20
->> > Missing MODULE_DEVICE_TABLE for pci ids from benet driver found by=
- clang.
->> >=20
->> > Signed-off-by: Behan Webster <behanw@converseincode.com>
->> > Suggested-by: Arnd Bergmann <arnd@arndb.de>
->>=20
->> Why are you removing the device table?
->
-> Behan took a patch that I did earlier and split it up to add descript=
-ions.
-> The patch is correct, but he either misunderstood or misexpressed the
-> intention.
->
-> This driver has two identical lines that both say=20
->
-> MODULE_DEVICE_TABLE(pci, be_dev_ids);
->
-> I don't remember the exact symptom, but llvm/clang trips over this, w=
-hile gcc
-> silently ignores the second one.
+Use vlan_get_protocol() to get the proper network protocol.
 
-GCC is probably being "helpful" and allowing multiple identical
-definitions even though the C spec does not.  Obviously all but one
-should go away.  No need to mention llvm, IMO.
+Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
---=20
-M=E5ns Rullg=E5rd
-mans@mansr.com
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 2ed2c7d..67b02bd 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -7227,11 +7227,11 @@ netdev_tx_t ixgbe_xmit_frame_ring(struct sk_buff *skb,
+ 		if (!vhdr)
+ 			goto out_drop;
+ 
+-		protocol = vhdr->h_vlan_encapsulated_proto;
+ 		tx_flags |= ntohs(vhdr->h_vlan_TCI) <<
+ 				  IXGBE_TX_FLAGS_VLAN_SHIFT;
+ 		tx_flags |= IXGBE_TX_FLAGS_SW_VLAN;
+ 	}
++	protocol = vlan_get_protocol(skb);
+ 
+ 	if (unlikely(skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP) &&
+ 	    adapter->ptp_clock &&
+-- 
+1.8.1.2
+
+
+
+------------------------------------------------------------------------------
+Dive into the World of Parallel Programming. The Go Parallel Website,
+sponsored by Intel and developed in partnership with Slashdot Media, is your
+hub for all things parallel software development, from weekly thought
+leadership blogs to news, videos, case studies, tutorials and more. Take a
+look and join the conversation now. http://goparallel.sourceforge.net/
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
