@@ -1,8 +1,8 @@
 From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Subject: [PATCH net 4/4] ixgbevf: Fix checksum error when
-	using stacked vlan
-Date: Thu, 29 Jan 2015 20:37:10 +0900
-Message-ID: <1422531430-32012-5-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+Subject: [PATCH net 1/4] net: Fix vlan_get_protocol for
+	stacked vlan
+Date: Thu, 29 Jan 2015 20:37:07 +0900
+Message-ID: <1422531430-32012-2-git-send-email-makita.toshiaki@lab.ntt.co.jp>
 References: <1422531430-32012-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -22,41 +22,149 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-When a skb has multiple vlans and it is CHECKSUM_PARTIAL,
-ixgbevf_tx_csum() fails to get the network protocol and checksum related
-descriptor fields are not configured correctly because skb->protocol
-doesn't show the L3 protocol in this case.
+vlan_get_protocol() could not get network protocol if a skb has a 802.1ad
+vlan tag or multiple vlans, which caused incorrect checksum calculation
+in several drivers.
 
-Use first->protocol instead of skb->protocol to get the proper network
-protocol.
+Fix vlan_get_protocol() to retrieve network protocol instead of incorrect
+vlan protocol.
+
+As the logic is the same as skb_network_protocol(), create a common helper
+function __vlan_get_protocol() and call it from existing functions.
 
 Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
 ---
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ include/linux/if_vlan.h | 60 +++++++++++++++++++++++++++++++++++++------------
+ net/core/dev.c          | 31 +------------------------
+ 2 files changed, 47 insertions(+), 44 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-index 62a0d8e..38c7a0b 100644
---- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-+++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-@@ -3099,7 +3099,7 @@ static int ixgbevf_tso(struct ixgbevf_ring *tx_ring,
- 	/* ADV DTYP TUCMD MKRLOC/ISCSIHEDLEN */
- 	type_tucmd = IXGBE_ADVTXD_TUCMD_L4T_TCP;
+diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
+index 515a35e..960e666 100644
+--- a/include/linux/if_vlan.h
++++ b/include/linux/if_vlan.h
+@@ -472,27 +472,59 @@ static inline int vlan_get_tag(const struct sk_buff *skb, u16 *vlan_tci)
+ /**
+  * vlan_get_protocol - get protocol EtherType.
+  * @skb: skbuff to query
++ * @type: first vlan protocol
++ * @depth: buffer to store length of eth and vlan tags in bytes
+  *
+  * Returns the EtherType of the packet, regardless of whether it is
+  * vlan encapsulated (normal or hardware accelerated) or not.
+  */
+-static inline __be16 vlan_get_protocol(const struct sk_buff *skb)
++static inline __be16 __vlan_get_protocol(struct sk_buff *skb, __be16 type,
++					 int *depth)
+ {
+-	__be16 protocol = 0;
+-
+-	if (vlan_tx_tag_present(skb) ||
+-	     skb->protocol != cpu_to_be16(ETH_P_8021Q))
+-		protocol = skb->protocol;
+-	else {
+-		__be16 proto, *protop;
+-		protop = skb_header_pointer(skb, offsetof(struct vlan_ethhdr,
+-						h_vlan_encapsulated_proto),
+-						sizeof(proto), &proto);
+-		if (likely(protop))
+-			protocol = *protop;
++	unsigned int vlan_depth = skb->mac_len;
++
++	/* if type is 802.1Q/AD then the header should already be
++	 * present at mac_len - VLAN_HLEN (if mac_len > 0), or at
++	 * ETH_HLEN otherwise
++	 */
++	if (type == htons(ETH_P_8021Q) || type == htons(ETH_P_8021AD)) {
++		if (vlan_depth) {
++			if (WARN_ON(vlan_depth < VLAN_HLEN))
++				return 0;
++			vlan_depth -= VLAN_HLEN;
++		} else {
++			vlan_depth = ETH_HLEN;
++		}
++		do {
++			struct vlan_hdr *vh;
++
++			if (unlikely(!pskb_may_pull(skb,
++						    vlan_depth + VLAN_HLEN)))
++				return 0;
++
++			vh = (struct vlan_hdr *)(skb->data + vlan_depth);
++			type = vh->h_vlan_encapsulated_proto;
++			vlan_depth += VLAN_HLEN;
++		} while (type == htons(ETH_P_8021Q) ||
++			 type == htons(ETH_P_8021AD));
+ 	}
  
--	if (skb->protocol == htons(ETH_P_IP)) {
-+	if (first->protocol == htons(ETH_P_IP)) {
- 		struct iphdr *iph = ip_hdr(skb);
- 		iph->tot_len = 0;
- 		iph->check = 0;
-@@ -3156,7 +3156,7 @@ static void ixgbevf_tx_csum(struct ixgbevf_ring *tx_ring,
+-	return protocol;
++	if (depth)
++		*depth = vlan_depth;
++
++	return type;
++}
++
++/**
++ * vlan_get_protocol - get protocol EtherType.
++ * @skb: skbuff to query
++ *
++ * Returns the EtherType of the packet, regardless of whether it is
++ * vlan encapsulated (normal or hardware accelerated) or not.
++ */
++static inline __be16 vlan_get_protocol(struct sk_buff *skb)
++{
++	return __vlan_get_protocol(skb, skb->protocol, NULL);
+ }
  
- 	if (skb->ip_summed == CHECKSUM_PARTIAL) {
- 		u8 l4_hdr = 0;
--		switch (skb->protocol) {
-+		switch (first->protocol) {
- 		case htons(ETH_P_IP):
- 			vlan_macip_lens |= skb_network_header_len(skb);
- 			type_tucmd |= IXGBE_ADVTXD_TUCMD_IPV4;
+ static inline void vlan_set_encap_proto(struct sk_buff *skb,
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 171420e..c87a226 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2352,7 +2352,6 @@ EXPORT_SYMBOL(skb_checksum_help);
+ 
+ __be16 skb_network_protocol(struct sk_buff *skb, int *depth)
+ {
+-	unsigned int vlan_depth = skb->mac_len;
+ 	__be16 type = skb->protocol;
+ 
+ 	/* Tunnel gso handlers can set protocol to ethernet. */
+@@ -2366,35 +2365,7 @@ __be16 skb_network_protocol(struct sk_buff *skb, int *depth)
+ 		type = eth->h_proto;
+ 	}
+ 
+-	/* if skb->protocol is 802.1Q/AD then the header should already be
+-	 * present at mac_len - VLAN_HLEN (if mac_len > 0), or at
+-	 * ETH_HLEN otherwise
+-	 */
+-	if (type == htons(ETH_P_8021Q) || type == htons(ETH_P_8021AD)) {
+-		if (vlan_depth) {
+-			if (WARN_ON(vlan_depth < VLAN_HLEN))
+-				return 0;
+-			vlan_depth -= VLAN_HLEN;
+-		} else {
+-			vlan_depth = ETH_HLEN;
+-		}
+-		do {
+-			struct vlan_hdr *vh;
+-
+-			if (unlikely(!pskb_may_pull(skb,
+-						    vlan_depth + VLAN_HLEN)))
+-				return 0;
+-
+-			vh = (struct vlan_hdr *)(skb->data + vlan_depth);
+-			type = vh->h_vlan_encapsulated_proto;
+-			vlan_depth += VLAN_HLEN;
+-		} while (type == htons(ETH_P_8021Q) ||
+-			 type == htons(ETH_P_8021AD));
+-	}
+-
+-	*depth = vlan_depth;
+-
+-	return type;
++	return __vlan_get_protocol(skb, type, depth);
+ }
+ 
+ /**
 -- 
 1.8.1.2
 
