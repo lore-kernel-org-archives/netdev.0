@@ -1,53 +1,32 @@
-From: Murali Karicheri <m-karicheri2-l0cyMroinI0@public.gmane.org>
-Subject: Re: [PATCH net-next v8 0/4] net: Add Keystone NetCP ethernet driver
- support
-Date: Thu, 29 Jan 2015 18:20:24 -0500
-Message-ID: <54CAC038.9000009@ti.com>
-References: <1421367007-19744-1-git-send-email-m-karicheri2@ti.com> <54C9654C.8030407@ti.com> <54CA6C20.5090301@ti.com> <15828198.gHAJTouZOU@wuerfel>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] stmmac: DMA threshold mode or SF mode can be different
+ among multiple device instance
+Date: Thu, 29 Jan 2015 15:28:39 -0800 (PST)
+Message-ID: <20150129.152839.1317212559062872075.davem@davemloft.net>
+References: <1422521699-14096-1-git-send-email-sonic.adi@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "Balbi, Felipe" <balbi-l0cyMroinI0@public.gmane.org>, <mugunthanvnm-l0cyMroinI0@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	<devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <15828198.gHAJTouZOU@wuerfel>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: peppe.cavallaro@st.com, netdev@vger.kernel.org,
+	adi-buildroot-devel@lists.sourceforge.net, sonic.zhang@analog.com
+To: sonic.adi@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:43128 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750767AbbA2X2l (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jan 2015 18:28:41 -0500
+In-Reply-To: <1422521699-14096-1-git-send-email-sonic.adi@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/29/2015 05:00 PM, Arnd Bergmann wrote:
-> On Thursday 29 January 2015 12:21:36 Murali Karicheri wrote:
->>
->> I think the solution is to make the cpsw_ale as a module and configured
->> through a Kconfig option. I am working on a fix for this now.
->>
->> Similar fix is required for cpts.o. Currently we are not using this
->> module for Netcp, but soon this will be re-used. I have send a patch
->> that is already applied to net-next removing cpts.o for Netcp.
->>
->
-> Great, thanks a lot for the follow-up.
->
-> 	Arnd
-Arnd,
+From: Sonic Zhang <sonic.adi@gmail.com>
+Date: Thu, 29 Jan 2015 16:54:59 +0800
 
-I have just posted a patch to nedev list to address this issue. Please 
-review and let me know your comments. This also require some additional 
-fixes in drivers/soc/ti/ to build them as modules as well. Santosh has 
-queued them against next merge window.
+>  		/* Try to bump up the dma threshold on this failure */
+> -		if (unlikely(tc != SF_DMA_MODE) && (tc <= 256)) {
+> +		if (unlikely(priv->xstats.threshold != SF_DMA_MODE) &&
+> +			(tc <= 256)) {
 
-Felipe, Mugunthan,
-
-As the patch touches ti_cpsw as well, please review and provide your 
-comments. It will be great if you can apply this patch on net-next 
-branch and test it on ti platform using ti_cpsw driver.
-
--- 
-Murali Karicheri
-Linux Kernel, Texas Instruments
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+This is not indented properly.  The second line of the conditional
+should start precisely at the first column after the openning
+parenthesis of the if() statement.
