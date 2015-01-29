@@ -1,51 +1,46 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] [TEMPORARY] net: netfilter: IPV6 XT sockets need CONFIG_NF_DEFRAG_IPV6
-Date: Thu, 29 Jan 2015 17:18:59 +0100
-Message-ID: <1513018.IdvuSAziQY@wuerfel>
+From: David L Stevens <david.stevens@oracle.com>
+Subject: [PATCH net] sunvnet: set queue mapping when doing packet copies
+Date: Thu, 29 Jan 2015 11:46:30 -0500
+Message-ID: <54CA63E6.3020603@oracle.com>
+References: <54C90AED.7040404@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: davem@davemloft.net, KOVACS Krisztian <hidden@sch.bme.hu>,
-	linux-arm-kernel@lists.infradead.org
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	Sowmini Varadhan <sowmini.varadhan@oracle.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.126.187]:49707 "EHLO
-	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752869AbbA2QT4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jan 2015 11:19:56 -0500
+Received: from userp1040.oracle.com ([156.151.31.81]:37992 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751842AbbA2Qqe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jan 2015 11:46:34 -0500
+In-Reply-To: <54C90AED.7040404@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If IP6_NF_IPTABLES=m, NF_DEFRAG_IPV6 gets selected as a module as well
-from NETFILTER_XT_MATCH_SOCKET, so the latter cannot be built-in, or
-we get:
 
-net/built-in.o: In function `socket_mt_init':
-:(.init.text+0x32a0): undefined reference to `nf_defrag_ipv6_enable'
-net/built-in.o: In function `tproxy_tg_init':
-xt_TPROXY.c:582: undefined reference to `nf_defrag_ipv6_enable'
+[resending this since it never appeared on netdev yesterday]
 
-This adds one more dependency like the others to avoid the problem.
+This patch fixes a bug where vnet_skb_shape() didn't set the already-selected
+ queue mapping when a packet copy was required. This results in using the
+ wrong queue index for stops/starts, hung tx queues and watchdog timeouts
+ under heavy load.
 
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Signed-off-by: David L Stevens <david.stevens@oracle.com>
+Acked-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+---
+ drivers/net/ethernet/sun/sunvnet.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
-index b02660fa9eb0..2bd57d62a385 100644
---- a/net/netfilter/Kconfig
-+++ b/net/netfilter/Kconfig
-@@ -875,6 +875,7 @@ config NETFILTER_XT_TARGET_TPROXY
- 	depends on NETFILTER_ADVANCED
- 	depends on (IPV6 || IPV6=n)
- 	depends on IP_NF_MANGLE
-+	depends on (IP6_NF_IPTABLES || !IP6_NF_IPTABLES)
- 	select NF_DEFRAG_IPV4
- 	select NF_DEFRAG_IPV6 if IP6_NF_IPTABLES
- 	help
-@@ -1367,6 +1368,7 @@ config NETFILTER_XT_MATCH_SOCKET
- 	depends on NETFILTER_ADVANCED
- 	depends on !NF_CONNTRACK || NF_CONNTRACK
- 	depends on (IPV6 || IPV6=n)
-+	depends on (IP6_NF_IPTABLES || !IP6_NF_IPTABLES)
- 	select NF_DEFRAG_IPV4
- 	select NF_DEFRAG_IPV6 if IP6_NF_IPTABLES
- 	help
+diff --git a/drivers/net/ethernet/sun/sunvnet.c b/drivers/net/ethernet/sun/sunvnet.c
+index 2b719cc..2b10b85 100644
+--- a/drivers/net/ethernet/sun/sunvnet.c
++++ b/drivers/net/ethernet/sun/sunvnet.c
+@@ -1123,6 +1123,7 @@ static inline struct sk_buff *vnet_skb_shape(struct sk_buff *skb, int ncookies)
+ 			skb_shinfo(nskb)->gso_size = skb_shinfo(skb)->gso_size;
+ 			skb_shinfo(nskb)->gso_type = skb_shinfo(skb)->gso_type;
+ 		}
++		nskb->queue_mapping = skb->queue_mapping;
+ 		dev_kfree_skb(skb);
+ 		skb = nskb;
+ 	}
