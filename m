@@ -1,57 +1,85 @@
-From: Hannes Frederic Sowa <hannes@redhat.com>
-Subject: Re: [PATCH RFC 1/2] ipv6: Fix after pmtu events dissapearing host
- routes
-Date: Thu, 29 Jan 2015 11:26:51 +0100
-Message-ID: <1422527211.2861.2.camel@redhat.com>
-References: <54C78B8D.1070104@huawei.com>
-	 <20150128121026.GM13046@secunet.com> <20150128121150.GN13046@secunet.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCHv3, ipsec-next] xfrm: Do not parse 32bits compiled xfrm
+ netlink msg on 64bits host
+Date: Thu, 29 Jan 2015 11:29:51 +0100
+Message-ID: <54CA0B9F.8080104@6wind.com>
+References: <1422349230-17394-1-git-send-email-fan.du@intel.com>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Yang Yingliang <yangyingliang@huawei.com>,
-	netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Steffen Klassert <steffen.klassert@secunet.com>
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: herbert@gondor.apana.org.au, davem@davemloft.net,
+	netdev@vger.kernel.org, fengyuleidian0615@gmail.com
+To: Fan Du <fan.du@intel.com>, steffen.klassert@secunet.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:39543 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754269AbbA2K1J (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Jan 2015 05:27:09 -0500
-In-Reply-To: <20150128121150.GN13046@secunet.com>
+Received: from mail-wi0-f177.google.com ([209.85.212.177]:58102 "EHLO
+	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932264AbbA2K3z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jan 2015 05:29:55 -0500
+Received: by mail-wi0-f177.google.com with SMTP id r20so22508678wiv.4
+        for <netdev@vger.kernel.org>; Thu, 29 Jan 2015 02:29:53 -0800 (PST)
+In-Reply-To: <1422349230-17394-1-git-send-email-fan.du@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mi, 2015-01-28 at 13:11 +0100, Steffen Klassert wrote:
-> We currently don't clone host routes before we use them.
-> If a pmtu event is received on such a route, it gets
-> an expires value. As soon as the expiration time is
-> elapsed, the route is deleted. As a result, the host
-> is not reachable any more.
-> 
-> We fix this by cloning host routes if they are gatewayed,
-> i.e. if pmtu events can happen.
-> 
-> Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
-> ---
->  net/ipv6/route.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-> index c910831..3e864e7 100644
-> --- a/net/ipv6/route.c
-> +++ b/net/ipv6/route.c
-> @@ -961,7 +961,7 @@ redo_rt6_select:
->  
->  	if (!(rt->rt6i_flags & (RTF_NONEXTHOP | RTF_GATEWAY)))
->  		nrt = rt6_alloc_cow(rt, &fl6->daddr, &fl6->saddr);
-> -	else if (!(rt->dst.flags & DST_HOST))
-> +	else if (!(rt->dst.flags & DST_HOST) || (rt->rt6i_flags & RTF_GATEWAY))
->  		nrt = rt6_alloc_clone(rt, &fl6->daddr);
->  	else
->  		goto out2;
+Le 27/01/2015 10:00, Fan Du a =C3=A9crit :
+> structure like xfrm_usersa_info or xfrm_userpolicy_info
+> has different sizeof when compiled as 32bits and 64bits
+> due to not appending pack attribute in their definition.
+> This will result in broken SA and SP information when user
+> trying to configure them through netlink interface.
+>
+> Inform user land about this situation instead of keeping
+> silent, the upper test scripts would behave accordingly.
+>
+> Quotes from: http://marc.info/?l=3Dlinux-netdev&m=3D142226348715503&w=
+=3D2
+>>
+>> Before a clean solution show up, I think it's better to warn user in=
+ some way
+>> like http://patchwork.ozlabs.org/patch/323842/ did. Otherwise, many =
+people
+>> who stuck there will always spend time and try to fix this issue in =
+whatever way.
+>
+> Yes, this is the first thing we should do. I'm willing to accept a pa=
+tch
+>
+> Signed-off-by: Fan Du <fan.du@intel.com>
+A way to solve this problem was to provide to userland a xfrm compat he=
+ader
+file, which match the ABI of the kernel. Something like:
 
-My approach was to suppress mtu updates on the loopback interface.
-Hmm...
+#include <linux/xfrm.h>
 
-Bye,
-Hannes
+#define xfrm_usersa_info xfrm_usersa_info_64
+#define xfrm_usersa_info_compat xfrm_usersa_info
+struct xfrm_usersa_info_compat {
+	struct xfrm_selector		sel;
+	struct xfrm_id			id;
+	xfrm_address_t			saddr;
+	struct xfrm_lifetime_cfg	lft;
+	struct xfrm_lifetime_cur	curlft;
+	struct xfrm_stats		stats;
+	__u32				seq;
+	__u32				reqid;
+	__u16				family;
+	__u8				mode;
+	__u8				replay_window;
+	__u8				flags;
+	__u8				hole1;
+	__u32				hole2;
+};
+
+The point I try to make is that patching userland apps allows to use xf=
+rm on a
+32bits userland / 64bits kernel.
+
+If I understand well your patch, it will not be possible anymore, all m=
+essages
+will be rejected. And this may break existing apps.
+
+
+Regards,
+Nicolas
