@@ -1,48 +1,55 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCHv3 ipsec-next] xfrm: Do not parse 32bits compiled xfrm
- netlink msg on 64bits host
-Date: Wed, 28 Jan 2015 09:53:33 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CAD480D@AcuExch.aculab.com>
-References: <20150127.001226.711259930266409202.davem_()_davemloft_!_net>
-	<1422349230-17394-1-git-send-email-fan.du@intel.com>
-	<063D6719AE5E284EB5DD2968C1650D6D1CAD3B2B@AcuExch.aculab.com>
- <20150127.112406.159033030097516231.davem@davemloft.net>
+From: Dennis Chen <kernel.org.gnu@gmail.com>
+Subject: Re: [Patch iproute2] skbedit: print action too
+Date: Thu, 29 Jan 2015 11:49:23 +0800
+Message-ID: <CA+U0gViQrppOQXsKwDHWOF5oWs61j6Hbck5o2LnMXMectm64xw@mail.gmail.com>
+References: <1422485562-15572-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "fan.du@intel.com" <fan.du@intel.com>,
-	"steffen.klassert@secunet.com" <steffen.klassert@secunet.com>,
-	"herbert@gondor.apana.org.au" <herbert@gondor.apana.org.au>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"fengyuleidian0615@gmail.com" <fengyuleidian0615@gmail.com>
-To: 'David Miller' <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Stephen Hemminger <stephen@networkplumber.org>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out6.electric.net ([192.162.217.186]:55500 "EHLO
-	smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755679AbbA2Dr4 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jan 2015 22:47:56 -0500
-In-Reply-To: <20150127.112406.159033030097516231.davem@davemloft.net>
-Content-Language: en-US
+Received: from mail-pa0-f52.google.com ([209.85.220.52]:50319 "EHLO
+	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755704AbbA2Dtn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jan 2015 22:49:43 -0500
+Received: by mail-pa0-f52.google.com with SMTP id kx10so33515416pab.11
+        for <netdev@vger.kernel.org>; Wed, 28 Jan 2015 19:49:43 -0800 (PST)
+In-Reply-To: <1422485562-15572-1-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller
-> From: David Laight <David.Laight@ACULAB.COM>
-> Date: Tue, 27 Jan 2015 09:46:21 +0000
-> 
-> > From: Fan Du
-> >> structure like xfrm_usersa_info or xfrm_userpolicy_info
-> >> has different sizeof when compiled as 32bits and 64bits
-> >> due to not appending pack attribute in their definition.
-> >
-> > Don't 'pack' the structure, just ensure that all the fields
-> > are fixed sized and on their natural boundary.
-> 
-> This horse went out of the door more than a decade ago, we can't
-> change the layout of any of these structures and must at some point
-> add code to translate instead.
+On Thu, Jan 29, 2015 at 6:52 AM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+> Cc: Stephen Hemminger <stephen@networkplumber.org>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> ---
+>  tc/m_skbedit.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff --git a/tc/m_skbedit.c b/tc/m_skbedit.c
+> index 36323a9..c5deee0 100644
+> --- a/tc/m_skbedit.c
+> +++ b/tc/m_skbedit.c
+> @@ -193,7 +193,7 @@ static int print_skbedit(struct action_util *au, FILE *f, struct rtattr *arg)
+>                 fprintf(f, " mark %d", *mark);
+>         }
+>
+> -       fprintf(f, "\n\t index %d ref %d bind %d", p->index, p->refcnt, p->bindcnt);
+> +       fprintf(f, " %s\n\t index %d ref %d bind %d", action_n2a(p->action, b1, sizeof (b1)), p->index, p->refcnt, p->bindcnt);
+>
+>         if (show_stats) {
+>                 if (tb[TCA_SKBEDIT_TM]) {
+> --
+> 1.8.3.1
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
->From the other mail it might just be tail-padding.
-So any adaption code is easy.
+Hello cong, seems no big benifit I can see for the patch...
 
-	David
+-- 
+Den
