@@ -1,40 +1,65 @@
-From: Lorenzo Colitti <lorenzo@google.com>
-Subject: Re: [PATCH net v2] net: ipv6: allow explicitly choosing optimistic addresses
-Date: Thu, 29 Jan 2015 14:25:51 +0900
-Message-ID: <CAKD1Yr2LJT+rYwbKQMvMQFtSDTwQAHk5k__m22J=kx8eKxj1JA@mail.gmail.com>
-References: <1422446619-9502-1-git-send-email-ek@google.com>
+From: Masami Hiramatsu <masami.hiramatsu.pt-FCd8Q96Dh0JBDgjK7y7TUQ@public.gmane.org>
+Subject: Re: [PATCH v2 linux-trace 1/8] tracing: attach eBPF programs to tracepoints
+ and syscalls
+Date: Thu, 29 Jan 2015 14:39:19 +0900
+Message-ID: <54C9C787.1040706@hitachi.com>
+References: <CAMEtUuz+N52ms4ZFh8+fSGhg1UaXpBdk9RVPU_zBDCjaZ4bj4A@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: Erik Kline <ek@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f177.google.com ([209.85.223.177]:60002 "EHLO
-	mail-ie0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753159AbbA2F0M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jan 2015 00:26:12 -0500
-Received: by mail-ie0-f177.google.com with SMTP id vy18so29352068iec.8
-        for <netdev@vger.kernel.org>; Wed, 28 Jan 2015 21:26:11 -0800 (PST)
-In-Reply-To: <1422446619-9502-1-git-send-email-ek@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: Namhyung Kim <namhyung-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
+	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Arnaldo Carvalho de Melo <acme-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	Jiri Olsa <jolsa-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAMEtUuz+N52ms4ZFh8+fSGhg1UaXpBdk9RVPU_zBDCjaZ4bj4A-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jan 28, 2015 at 9:03 PM, Erik Kline <ek@google.com> wrote:
->                 if (ipv6_addr_equal(&ifp->addr, addr) &&
-> -                   !(ifp->flags&IFA_F_TENTATIVE) &&
-> +                   (!(ifp->flags&banned_flags) ||
-> +                    ifp->flags&IFA_F_OPTIMISTIC&~banned_flags) &&
+(2015/01/29 13:40), Alexei Starovoitov wrote:
+> On Wed, Jan 28, 2015 at 4:46 PM, Namhyung Kim <namhyung-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org> wrote:
+>>>
+>>> +static int event_filter_release(struct inode *inode, struct file *filp)
+>>> +{
+>>> +     struct ftrace_event_file *file;
+>>> +     char buf[2] = "0";
+>>> +
+>>> +     mutex_lock(&event_mutex);
+>>> +     file = event_file_data(filp);
+>>> +     if (file) {
+>>> +             if (file->flags & TRACE_EVENT_FL_BPF) {
+>>> +                     /* auto-disable the filter */
+>>> +                     ftrace_event_enable_disable(file, 0);
+>>
+>> Hmm.. what if user already enabled an event, attached a bpf filter and
+>> then detached the filter - I'm not sure we can always auto-disable
+>> it..
+> 
+> why not?
+> I think it makes sense auto enable/disable, since that
+> is cleaner user experience.
 
-Is this if statement correct?
+Maybe, would we need a reference counter for each event? :)
 
-The intent here is "if ifp has IFA_F_OPTIMISTIC set, then
-IFA_F_TENTATIVE is allowed, even if the caller explicitly banned
-IFA_F_TENTATIVE", right? Not "if ifp has IFA_F_OPTIMISTIC set, then
-any flags are allowed, even ones explicitly baned by the caller". For
-example, suppose that:
+Actually, ftrace event is not similar to perf-event which ktap
+is based on, ftrace event interface is always exported via
+debugfs, this means users can share the event for different
+usage.
 
-    banned_flags = IFA_F_SECONDARY
-    ifp->flags = IFA_F_SECONDARY | IFA_F_OPTIMISTIC
+One possible other solution is to add a instance-lock interface
+for each ftrace instance and lock it by bpf. Then, other users
+can not enable/disable the events in the instance.
 
-In that case, won't the if statement match ifp, even though it
-contains a flag that is explicitly banned?
+Thank you,
+
+
+-- 
+Masami HIRAMATSU
+Software Platform Research Dept. Linux Technology Research Center
+Hitachi, Ltd., Yokohama Research Laboratory
+E-mail: masami.hiramatsu.pt-FCd8Q96Dh0JBDgjK7y7TUQ@public.gmane.org
