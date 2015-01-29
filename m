@@ -1,110 +1,116 @@
 From: Tom Herbert <therbert@google.com>
-Subject: [PATCH iproute2 2/4] vxlan: Add support for remote checksum offload
-Date: Thu, 29 Jan 2015 08:51:59 -0800
-Message-ID: <1422550321-30901-3-git-send-email-therbert@google.com>
+Subject: [PATCH iproute2 1/4] ip link: Add support for remote checksum offload to IP tunnels
+Date: Thu, 29 Jan 2015 08:51:58 -0800
+Message-ID: <1422550321-30901-2-git-send-email-therbert@google.com>
 References: <1422550321-30901-1-git-send-email-therbert@google.com>
 To: stephen@networkplumber.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f177.google.com ([209.85.213.177]:41377 "EHLO
-	mail-ig0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753623AbbA2QxU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jan 2015 11:53:20 -0500
-Received: by mail-ig0-f177.google.com with SMTP id z20so13659941igj.4
-        for <netdev@vger.kernel.org>; Thu, 29 Jan 2015 08:53:20 -0800 (PST)
+Received: from mail-ig0-f176.google.com ([209.85.213.176]:54262 "EHLO
+	mail-ig0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753623AbbA2QxO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jan 2015 11:53:14 -0500
+Received: by mail-ig0-f176.google.com with SMTP id hl2so13276068igb.3
+        for <netdev@vger.kernel.org>; Thu, 29 Jan 2015 08:53:14 -0800 (PST)
 In-Reply-To: <1422550321-30901-1-git-send-email-therbert@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 This patch adds support to remote checksum checksum offload
-to VXLAN. This patch adds remcsumtx and remcsumrx to ip vxlan
-configuration to enable remote checksum offload for transmit
-and receive on the VXLAN tunnel.
+confinguration for IPIP, SIT, and GRE tunnels. This patch
+adds a [no]encap-remcsum to ip link command which applicable
+when configured tunnels that use GUE.
 
-https://tools.ietf.org/html/draft-herbert-vxlan-rco-00
+http://tools.ietf.org/html/draft-herbert-remotecsumoffload-00
 
 Example:
 
-ip link add name vxlan0 type vxlan id 42 group 239.1.1.1 dev eth0 \
-    udpcsum remcsumtx remcsumrx
+ip link add name tun1 type gre remote 192.168.1.1 local 192.168.1.2 \
+   ttl 225 encap fou encap-sport auto encap-dport 7777 encap-csum \
+   encap-remcsum
+
+This would create an GRE tunnel in GUE encapsulation where the source
+port is automatically selected (based on hash of inner packet),
+checksums in the encapsulating UDP header are enabled (needed.for
+remote checksum offload), and remote checksum ffload is configured to
+be used on the tunnel (affects TX side).
 
 Signed-off-by: Tom Herbert <therbert@google.com>
 ---
- include/linux/if_link.h |  2 ++
- ip/iplink_vxlan.c       | 21 +++++++++++++++++++++
- 2 files changed, 23 insertions(+)
+ ip/link_gre.c   | 11 ++++++++++-
+ ip/link_iptnl.c | 11 ++++++++++-
+ 2 files changed, 20 insertions(+), 2 deletions(-)
 
-diff --git a/include/linux/if_link.h b/include/linux/if_link.h
-index 167ec34..11df025 100644
---- a/include/linux/if_link.h
-+++ b/include/linux/if_link.h
-@@ -368,6 +368,8 @@ enum {
- 	IFLA_VXLAN_UDP_CSUM,
- 	IFLA_VXLAN_UDP_ZERO_CSUM6_TX,
- 	IFLA_VXLAN_UDP_ZERO_CSUM6_RX,
-+	IFLA_VXLAN_REMCSUM_TX,
-+	IFLA_VXLAN_REMCSUM_RX,
- 	__IFLA_VXLAN_MAX
- };
- #define IFLA_VXLAN_MAX	(__IFLA_VXLAN_MAX - 1)
-diff --git a/ip/iplink_vxlan.c b/ip/iplink_vxlan.c
-index 9cc3ec3..8fb11df 100644
---- a/ip/iplink_vxlan.c
-+++ b/ip/iplink_vxlan.c
-@@ -30,6 +30,7 @@ static void print_explain(FILE *f)
- 	fprintf(f, "                 [ [no]l2miss ] [ [no]l3miss ]\n");
- 	fprintf(f, "                 [ ageing SECONDS ] [ maxaddress NUMBER ]\n");
- 	fprintf(f, "                 [ [no]udpcsum ] [ [no]udp6zerocsumtx ] [ [no]udp6zerocsumrx ]\n");
-+	fprintf(f, "                 [ [no]remcsumtx ] [ [no]remcsumrx ]\n");
+diff --git a/ip/link_gre.c b/ip/link_gre.c
+index 47b64cb..1d78387 100644
+--- a/ip/link_gre.c
++++ b/ip/link_gre.c
+@@ -31,7 +31,7 @@ static void print_usage(FILE *f)
+ 	fprintf(f, "          [ ttl TTL ] [ tos TOS ] [ [no]pmtudisc ] [ dev PHYS_DEV ]\n");
+ 	fprintf(f, "          [ noencap ] [ encap { fou | gue | none } ]\n");
+ 	fprintf(f, "          [ encap-sport PORT ] [ encap-dport PORT ]\n");
+-	fprintf(f, "          [ [no]encap-csum ] [ [no]encap-csum6 ]\n");
++	fprintf(f, "          [ [no]encap-csum ] [ [no]encap-csum6 ] [ [no]encap-remcsum ]\n");
  	fprintf(f, "\n");
- 	fprintf(f, "Where: VNI := 0-16777215\n");
+ 	fprintf(f, "Where: NAME := STRING\n");
  	fprintf(f, "       ADDR := { IP_ADDRESS | any }\n");
-@@ -68,6 +69,8 @@ static int vxlan_parse_opt(struct link_util *lu, int argc, char **argv,
- 	__u8 udpcsum = 0;
- 	__u8 udp6zerocsumtx = 0;
- 	__u8 udp6zerocsumrx = 0;
-+	__u8 remcsumtx = 0;
-+	__u8 remcsumrx = 0;
- 	int dst_port_set = 0;
- 	struct ifla_vxlan_port_range range = { 0, 0 };
- 
-@@ -197,6 +200,14 @@ static int vxlan_parse_opt(struct link_util *lu, int argc, char **argv,
- 			udp6zerocsumrx = 1;
- 		} else if (!matches(*argv, "noudp6zerocsumrx")) {
- 			udp6zerocsumrx = 0;
-+		} else if (!matches(*argv, "remcsumtx")) {
-+			remcsumtx = 1;
-+		} else if (!matches(*argv, "noremcsumtx")) {
-+			remcsumtx = 0;
-+		} else if (!matches(*argv, "remcsumrx")) {
-+			remcsumrx = 1;
-+		} else if (!matches(*argv, "noremcsumrx")) {
-+			remcsumrx = 0;
- 		} else if (matches(*argv, "help") == 0) {
- 			explain();
- 			return -1;
-@@ -255,6 +266,8 @@ static int vxlan_parse_opt(struct link_util *lu, int argc, char **argv,
- 	addattr8(n, 1024, IFLA_VXLAN_UDP_CSUM, udpcsum);
- 	addattr8(n, 1024, IFLA_VXLAN_UDP_ZERO_CSUM6_TX, udp6zerocsumtx);
- 	addattr8(n, 1024, IFLA_VXLAN_UDP_ZERO_CSUM6_RX, udp6zerocsumrx);
-+	addattr8(n, 1024, IFLA_VXLAN_REMCSUM_TX, remcsumtx);
-+	addattr8(n, 1024, IFLA_VXLAN_REMCSUM_RX, remcsumrx);
- 
- 	if (noage)
- 		addattr32(n, 1024, IFLA_VXLAN_AGEING, 0);
-@@ -398,6 +411,14 @@ static void vxlan_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
- 	if (tb[IFLA_VXLAN_UDP_ZERO_CSUM6_RX] &&
- 	    rta_getattr_u8(tb[IFLA_VXLAN_UDP_ZERO_CSUM6_RX]))
- 		fputs("udp6zerocsumrx ", f);
+@@ -287,6 +287,10 @@ get_failed:
+ 			encapflags |= TUNNEL_ENCAP_FLAG_CSUM6;
+ 		} else if (strcmp(*argv, "noencap-udp6-csum") == 0) {
+ 			encapflags |= ~TUNNEL_ENCAP_FLAG_CSUM6;
++		} else if (strcmp(*argv, "encap-remcsum") == 0) {
++			encapflags |= TUNNEL_ENCAP_FLAG_REMCSUM;
++		} else if (strcmp(*argv, "noencap-remcsum") == 0) {
++			encapflags |= ~TUNNEL_ENCAP_FLAG_REMCSUM;
+ 		} else
+ 			usage();
+ 		argc--; argv++;
+@@ -445,6 +449,11 @@ static void gre_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
+ 			fputs("encap-csum6 ", f);
+ 		else
+ 			fputs("noencap-csum6 ", f);
 +
-+	if (tb[IFLA_VXLAN_REMCSUM_TX] &&
-+	    rta_getattr_u8(tb[IFLA_VXLAN_REMCSUM_TX]))
-+		fputs("remcsumtx ", f);
-+
-+	if (tb[IFLA_VXLAN_REMCSUM_RX] &&
-+	    rta_getattr_u8(tb[IFLA_VXLAN_REMCSUM_RX]))
-+		fputs("remcsumrx ", f);
++		if (flags & TUNNEL_ENCAP_FLAG_REMCSUM)
++			fputs("encap-remcsum ", f);
++		else
++			fputs("noencap-remcsum ", f);
+ 	}
  }
  
- static void vxlan_print_help(struct link_util *lu, int argc, char **argv,
+diff --git a/ip/link_iptnl.c b/ip/link_iptnl.c
+index 9487117..cab174f 100644
+--- a/ip/link_iptnl.c
++++ b/ip/link_iptnl.c
+@@ -31,7 +31,7 @@ static void print_usage(FILE *f, int sit)
+ 	fprintf(f, "          [ 6rd-prefix ADDR ] [ 6rd-relay_prefix ADDR ] [ 6rd-reset ]\n");
+ 	fprintf(f, "          [ noencap ] [ encap { fou | gue | none } ]\n");
+ 	fprintf(f, "          [ encap-sport PORT ] [ encap-dport PORT ]\n");
+-	fprintf(f, "          [ [no]encap-csum ] [ [no]encap-csum6 ]\n");
++	fprintf(f, "          [ [no]encap-csum ] [ [no]encap-csum6 ] [ [no]encap-remcsum ]\n");
+ 	if (sit) {
+ 		fprintf(f, "          [ mode { ip6ip | ipip | any } ]\n");
+ 		fprintf(f, "          [ isatap ]\n");
+@@ -256,6 +256,10 @@ get_failed:
+ 			encapflags |= TUNNEL_ENCAP_FLAG_CSUM6;
+ 		} else if (strcmp(*argv, "noencap-udp6-csum") == 0) {
+ 			encapflags &= ~TUNNEL_ENCAP_FLAG_CSUM6;
++		} else if (strcmp(*argv, "encap-remcsum") == 0) {
++			encapflags |= TUNNEL_ENCAP_FLAG_REMCSUM;
++		} else if (strcmp(*argv, "noencap-remcsum") == 0) {
++			encapflags &= ~TUNNEL_ENCAP_FLAG_REMCSUM;
+ 		} else if (strcmp(*argv, "6rd-prefix") == 0) {
+ 			inet_prefix prefix;
+ 			NEXT_ARG();
+@@ -438,6 +442,11 @@ static void iptunnel_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[
+ 			fputs("encap-csum6 ", f);
+ 		else
+ 			fputs("noencap-csum6 ", f);
++
++		if (flags & TUNNEL_ENCAP_FLAG_REMCSUM)
++			fputs("encap-remcsum ", f);
++		else
++			fputs("noencap-remcsum ", f);
+ 	}
+ }
+ 
 -- 
 2.2.0.rc0.207.ga3a616c
