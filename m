@@ -1,100 +1,210 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCHv3, ipsec-next] xfrm: Do not parse 32bits compiled xfrm
- netlink msg on 64bits host
-Date: Thu, 29 Jan 2015 15:14:46 +0100
-Message-ID: <54CA4056.6030301@6wind.com>
-References: <1422349230-17394-1-git-send-email-fan.du@intel.com> <54CA0B9F.8080104@6wind.com> <063D6719AE5E284EB5DD2968C1650D6D1CAD56B0@AcuExch.aculab.com>
-Reply-To: nicolas.dichtel@6wind.com
+From: Rasmus Villemoes <linux@rasmusvillemoes.dk>
+Subject: Re: [PATCH v2 3/3] lib/string_helpers.c: Change semantics of string_escape_mem
+Date: Thu, 29 Jan 2015 15:29:21 +0100
+Message-ID: <87oaphbqym.fsf@rasmusvillemoes.dk>
+References: <1422451543-12401-1-git-send-email-linux@rasmusvillemoes.dk>
+	<1422525801-26560-1-git-send-email-linux@rasmusvillemoes.dk>
+	<1422525801-26560-4-git-send-email-linux@rasmusvillemoes.dk>
+	<1422538178.31903.325.camel@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "herbert@gondor.apana.org.au" <herbert@gondor.apana.org.au>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"fengyuleidian0615@gmail.com" <fengyuleidian0615@gmail.com>
-To: David Laight <David.Laight@ACULAB.COM>, Fan Du <fan.du@intel.com>,
-	"steffen.klassert@secunet.com" <steffen.klassert@secunet.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f171.google.com ([209.85.212.171]:33391 "EHLO
-	mail-wi0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753835AbbA2OOt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jan 2015 09:14:49 -0500
-Received: by mail-wi0-f171.google.com with SMTP id l15so26789729wiw.4
-        for <netdev@vger.kernel.org>; Thu, 29 Jan 2015 06:14:48 -0800 (PST)
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CAD56B0@AcuExch.aculab.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Trond Myklebust <trond.myklebust@primarydata.com>,
+	"J. Bruce Fields" <bfields@fieldses.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, linux-nfs@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1422538178.31903.325.camel@linux.intel.com> (Andy Shevchenko's
+	message of "Thu, 29 Jan 2015 15:29:38 +0200")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le 29/01/2015 14:56, David Laight a =C3=A9crit :
-> From: Nicolas Dichtel
->> Le 27/01/2015 10:00, Fan Du a crit :
->>> structure like xfrm_usersa_info or xfrm_userpolicy_info
->>> has different sizeof when compiled as 32bits and 64bits
->>> due to not appending pack attribute in their definition.
->>> This will result in broken SA and SP information when user
->>> trying to configure them through netlink interface.
->>>
->>> Inform user land about this situation instead of keeping
->>> silent, the upper test scripts would behave accordingly.
->>>
->>> Quotes from: http://marc.info/?l=3Dlinux-netdev&m=3D142226348715503=
-&w=3D2
->>>>
->>>> Before a clean solution show up, I think it's better to warn user =
-in some way
->>>> like http://patchwork.ozlabs.org/patch/323842/ did. Otherwise, man=
-y people
->>>> who stuck there will always spend time and try to fix this issue i=
-n whatever way.
->>>
->>> Yes, this is the first thing we should do. I'm willing to accept a =
-patch
->>>
->>> Signed-off-by: Fan Du <fan.du@intel.com>
->> A way to solve this problem was to provide to userland a xfrm compat=
- header
->> file, which match the ABI of the kernel. Something like:
->>
->> #include <linux/xfrm.h>
->>
->> #define xfrm_usersa_info xfrm_usersa_info_64
->> #define xfrm_usersa_info_compat xfrm_usersa_info
->> struct xfrm_usersa_info_compat {
->> 	struct xfrm_selector		sel;
->> 	struct xfrm_id			id;
->> 	xfrm_address_t			saddr;
->> 	struct xfrm_lifetime_cfg	lft;
->> 	struct xfrm_lifetime_cur	curlft;
->> 	struct xfrm_stats		stats;
->> 	__u32				seq;
->> 	__u32				reqid;
->> 	__u16				family;
->> 	__u8				mode;
->> 	__u8				replay_window;
->> 	__u8				flags;
->> 	__u8				hole1;
->> 	__u32				hole2;
->> };
->>
->> The point I try to make is that patching userland apps allows to use=
- xfrm on a
->> 32bits userland / 64bits kernel.
->>
->> If I understand well your patch, it will not be possible anymore, al=
-l messages
->> will be rejected. And this may break existing apps.
+On Thu, Jan 29 2015, Andy Shevchenko <andriy.shevchenko@linux.intel.com> wrote:
+
+>>   *
+>>   * Return:
+>> - * The amount of the characters processed to the destination buffer, or
+>> - * %-ENOMEM if the size of buffer is not enough to put an escaped character is
+>> - * returned.
+>> - *
+>> - * Even in the case of error @dst pointer will be updated to point to the byte
+>> - * after the last processed character.
+>> + * The total size of the escaped output that would be generated for
+>> + * the given input and flags. To check whether the output was
+>> + * truncated, compare the return value to osz. There is room left in
+>> + * dst for a '\0' terminator if and only if ret < osz.
+>>   */
+>> -int string_escape_mem(const char *src, size_t isz, char **dst, size_t osz,
+>> -		      unsigned int flags, const char *esc)
+>> +size_t string_escape_mem(const char *src, size_t isz, char *dst, size_t osz,
+>> +			 unsigned int flags, const char *esc)
 >
-> Probably OTT in this case.
-> IIRC the only actual difference if the 'end padding'.
-> So the wrapper need only ensure the copyin/out isn't too long.
-It was just an example for one struct. Some other structures need to be
-patched (eg struct xfrm_userspi_info uses struct xfrm_usersa_info).
-And some attributes may follow this structure which will be padded to
-be aligned.
-The point was more to show that the existing interface can be used (and=
- cannot
-be used after the patch).
+> I prefer to leave the prototype the same. int for return is okay. dst
+> should be updated accordingly.
 
-Regards,
-Nicolas
+Please explain exactly what you think the return value should be, and
+what *dst should be set to.
+
+>>  {
+>> -	char *p = *dst;
+>> +	char *p = dst;
+>>  	char *end = p + osz;
+>>  	bool is_dict = esc && *esc;
+>> -	int ret;
+>>  
+>>  	while (isz--) {
+>>  		unsigned char c = *src++;
+>> @@ -466,13 +463,7 @@ int string_escape_mem(const char *src, size_t isz, char **dst, size_t osz,
+>>  
+>>  		escape_passthrough(c, &p, end);
+>>  	}
+>> -	if (p > end) {
+>> -		*dst = end;
+>> -		return -ENOMEM;
+>> -	}
+>>  
+>> -	ret = p - *dst;
+>> -	*dst = p;
+>> -	return ret;
+>> +	return p - dst;
+>>  }
+>>  EXPORT_SYMBOL(string_escape_mem);
+>> diff --git a/lib/test-string_helpers.c b/lib/test-string_helpers.c
+>> index ab0d30e1e18f..5f95114a2f86 100644
+>> --- a/lib/test-string_helpers.c
+>> +++ b/lib/test-string_helpers.c
+>> @@ -264,12 +264,12 @@ static __init void test_string_escape(const char *name,
+>>  				      const struct test_string_2 *s2,
+>>  				      unsigned int flags, const char *esc)
+>>  {
+>> -	int q_real = 512;
+>> -	char *out_test = kmalloc(q_real, GFP_KERNEL);
+>> -	char *out_real = kmalloc(q_real, GFP_KERNEL);
+>> +	size_t out_size = 512;
+>> +	char *out_test = kmalloc(out_size, GFP_KERNEL);
+>> +	char *out_real = kmalloc(out_size, GFP_KERNEL);
+>>  	char *in = kmalloc(256, GFP_KERNEL);
+>> -	char *buf = out_real;
+>> -	int p = 0, q_test = 0;
+>> +	size_t p = 0, q_test = 0;
+>> +	size_t q_real;
+>>  
+>>  	if (!out_test || !out_real || !in)
+>>  		goto out;
+>> @@ -301,29 +301,26 @@ static __init void test_string_escape(const char *name,
+>>  		q_test += len;
+>>  	}
+>>  
+>> -	q_real = string_escape_mem(in, p, &buf, q_real, flags, esc);
+>> +	q_real = string_escape_mem(in, p, out_real, out_size, flags, esc);
+>>  
+>>  	test_string_check_buf(name, flags, in, p, out_real, q_real, out_test,
+>>  			      q_test);
+>> +
+>> +	memset(out_real, 'Z', out_size);
+>> +	q_real = string_escape_mem(in, p, out_real, 0, flags, esc);
+>> +	if (q_real != q_test)
+>> +		pr_warn("Test '%s' failed: flags = %u, osz = 0, expected %zu, got %zu\n",
+>> +			name, flags, q_test, q_real);
+>> +	if (memchr_inv(out_real, 'Z', out_size))
+>> +		pr_warn("Test '%s' failed: osz = 0 but string_escape_mem wrote to the buffer\n",
+>> +			name);
+>
+> Could it be a part of nomem test still?
+
+What nomem test? string_escape_mem with snprintf-like semantics cannot
+return an error; that has to be checked by the caller. 
+
+>> +
+>>  out:
+>>  	kfree(in);
+>>  	kfree(out_real);
+>>  	kfree(out_test);
+>>  }
+>>  
+>> -static __init void test_string_escape_nomem(void)
+>> -{
+>> -	char *in = "\eb \\C\007\"\x90\r]";
+>> -	char out[64], *buf = out;
+>> -	int rc = -ENOMEM, ret;
+>> -
+>> -	ret = string_escape_str_any_np(in, &buf, strlen(in), NULL);
+>> -	if (ret == rc)
+>> -		return;
+>> -
+>> -	pr_err("Test 'escape nomem' failed: got %d instead of %d\n", ret, rc);
+>> -}
+>> -
+>>  static int __init test_string_helpers_init(void)
+>>  {
+>>  	unsigned int i;
+>> @@ -342,8 +339,6 @@ static int __init test_string_helpers_init(void)
+>>  	for (i = 0; i < (ESCAPE_ANY_NP | ESCAPE_HEX) + 1; i++)
+>>  		test_string_escape("escape 1", escape1, i, TEST_STRING_2_DICT_1);
+>>  
+>> -	test_string_escape_nomem();
+>> -
+>>  	return -EINVAL;
+>>  }
+>>  module_init(test_string_helpers_init);
+>> diff --git a/lib/vsprintf.c b/lib/vsprintf.c
+>> index 3568e3906777..d02c394b5b58 100644
+>> --- a/lib/vsprintf.c
+>> +++ b/lib/vsprintf.c
+>> @@ -1160,7 +1160,7 @@ char *escaped_string(char *buf, char *end, u8 *addr, struct printf_spec spec,
+>>  	len = spec.field_width < 0 ? 1 : spec.field_width;
+>>  
+>>  	/* Ignore the error. We print as many characters as we can */
+>> -	string_escape_mem(addr, len, &buf, end - buf, flags, NULL);
+>> +	buf += string_escape_mem(addr, len, buf, buf < end ? end - buf : 0, flags, NULL);
+>
+> So, the problem is when we have end < buf, right?
+> How about to move this check out of the call parameters?
+>
+> [Keep in might the original prototype]
+>
+> if (buf < end)
+>  string_escape_mem(addr, len, &buf, end - buf, flags, NULL);
+> else
+>  string_escape_mem(addr, len, &buf, 0, flags, NULL);
+
+In that case, I just did the same as is done for %pV, and prefer to keep
+it that way.
+
+
+>> diff --git a/net/sunrpc/cache.c b/net/sunrpc/cache.c
+>> index 33fb105d4352..22c4418057f4 100644
+>> --- a/net/sunrpc/cache.c
+>> +++ b/net/sunrpc/cache.c
+>> @@ -1068,12 +1068,14 @@ void qword_add(char **bpp, int *lp, char *str)
+>>  {
+>>  	char *bp = *bpp;
+>>  	int len = *lp;
+>> -	int ret;
+>> +	int ret, written;
+>>  
+>>  	if (len < 0) return;
+>>  
+>> -	ret = string_escape_str(str, &bp, len, ESCAPE_OCTAL, "\\ \n\t");
+>> -	if (ret < 0 || ret == len)
+>> +	ret = string_escape_str(str, bp, len, ESCAPE_OCTAL, "\\ \n\t");
+>> +	written = min(ret, len);
+>> +	bp += written;
+>> +	if (ret >= len)
+>>  		len = -1;
+>>  	else {
+>>  		len -= ret;
+>
+> For this part the comment from J. Bruce is needed.
+>
+> There is one more user, i.e. fs/proc/array.c::task_name().
+>
+> In all of them we have to amend a prepend commentary. Like changing
+> 'Ignore the error' to 'Ignore the overflow'.
+
+I hadn't looked for users in -next. I'll leave it to you to amend that
+patch before it hits mainline.
+
+Rasmus
