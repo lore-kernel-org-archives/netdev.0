@@ -1,76 +1,66 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Fw: [Bug 92281] New: Raspberry Pi crashes under network load
-Date: Thu, 29 Jan 2015 13:36:00 +0000
-Message-ID: <20150129133600.315acbd5@uryu.home.lan>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCHv3, ipsec-next] xfrm: Do not parse 32bits compiled xfrm
+ netlink msg on 64bits host
+Date: Thu, 29 Jan 2015 13:56:50 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CAD56B0@AcuExch.aculab.com>
+References: <1422349230-17394-1-git-send-email-fan.du@intel.com>
+ <54CA0B9F.8080104@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "herbert@gondor.apana.org.au" <herbert@gondor.apana.org.au>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"fengyuleidian0615@gmail.com" <fengyuleidian0615@gmail.com>
+To: "'nicolas.dichtel@6wind.com'" <nicolas.dichtel@6wind.com>,
+	Fan Du <fan.du@intel.com>,
+	"steffen.klassert@secunet.com" <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:58043 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757301AbbA2NgJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jan 2015 08:36:09 -0500
-Received: by mail-pa0-f46.google.com with SMTP id lj1so39138791pab.5
-        for <netdev@vger.kernel.org>; Thu, 29 Jan 2015 05:36:09 -0800 (PST)
-Received: from uryu.home.lan ([144.49.132.22])
-        by mx.google.com with ESMTPSA id ta2sm7961304pab.5.2015.01.29.05.36.07
-        for <netdev@vger.kernel.org>
-        (version=TLSv1.2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
-        Thu, 29 Jan 2015 05:36:08 -0800 (PST)
+Received: from smtp-out4.electric.net ([192.162.216.181]:56384 "EHLO
+	smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752478AbbA2N5L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jan 2015 08:57:11 -0500
+In-Reply-To: <54CA0B9F.8080104@6wind.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-
-Begin forwarded message:
-
-Date: Thu, 29 Jan 2015 05:26:08 -0800
-From: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla.kernel.org>
-To: "stephen@networkplumber.org" <stephen@networkplumber.org>
-Subject: [Bug 92281] New: Raspberry Pi crashes under network load
-
-
-https://bugzilla.kernel.org/show_bug.cgi?id=92281
-
-            Bug ID: 92281
-           Summary: Raspberry Pi crashes under network load
-           Product: Networking
-           Version: 2.5
-    Kernel Version: Linux raspberrypi 3.12.35+ #730 PREEMPT Fri Dec 19
-                    18:31:24 GMT 2014 armv6l
-          Hardware: ARM
-                OS: Linux
-              Tree: PREEMPT_RT
-            Status: NEW
-          Severity: normal
-          Priority: P1
-         Component: IPV4
-          Assignee: shemminger@linux-foundation.org
-          Reporter: morphex@gmail.com
-        Regression: No
-
-Created attachment 165141
-  --> https://bugzilla.kernel.org/attachment.cgi?id=165141&action=edit
-First kernel panic
-
-I've setup a Raspberry PI as a simple router, which connects to a WiFi access
-point. My desktop is then connected to the RPI using an ethernet cable, and the
-Raspberry Pi has an USB Ethernet dongle.
-
-I've attached pictures of the screen on two different kernel panics.
-
-Here's the USB setup:
-
-Bus 001 Device 002: ID 05e3:0606 Genesys Logic, Inc. USB 2.0 Hub / D-Link
-DUB-H4 USB 2.0 Hub
-Bus 001 Device 001: ID 1d6b:0002 Linux Foundation 2.0 root hub
-Bus 001 Device 003: ID 0bda:8176 Realtek Semiconductor Corp. RTL8188CUS 802.11n
-WLAN Adapter
-Bus 001 Device 004: ID 09da:054f A4 Tech Co., Ltd 
-Bus 001 Device 005: ID 0fe6:9700 Kontron (Industrial Computer Source / ICS
-Advent) DM9601 Fast Ethernet Adapter
-
--- 
-You are receiving this mail because:
-You are the assignee for the bug.
+RnJvbTogTmljb2xhcyBEaWNodGVsDQo+IExlIDI3LzAxLzIwMTUgMTA6MDAsIEZhbiBEdSBhIGNy
+aXQgOg0KPiA+IHN0cnVjdHVyZSBsaWtlIHhmcm1fdXNlcnNhX2luZm8gb3IgeGZybV91c2VycG9s
+aWN5X2luZm8NCj4gPiBoYXMgZGlmZmVyZW50IHNpemVvZiB3aGVuIGNvbXBpbGVkIGFzIDMyYml0
+cyBhbmQgNjRiaXRzDQo+ID4gZHVlIHRvIG5vdCBhcHBlbmRpbmcgcGFjayBhdHRyaWJ1dGUgaW4g
+dGhlaXIgZGVmaW5pdGlvbi4NCj4gPiBUaGlzIHdpbGwgcmVzdWx0IGluIGJyb2tlbiBTQSBhbmQg
+U1AgaW5mb3JtYXRpb24gd2hlbiB1c2VyDQo+ID4gdHJ5aW5nIHRvIGNvbmZpZ3VyZSB0aGVtIHRo
+cm91Z2ggbmV0bGluayBpbnRlcmZhY2UuDQo+ID4NCj4gPiBJbmZvcm0gdXNlciBsYW5kIGFib3V0
+IHRoaXMgc2l0dWF0aW9uIGluc3RlYWQgb2Yga2VlcGluZw0KPiA+IHNpbGVudCwgdGhlIHVwcGVy
+IHRlc3Qgc2NyaXB0cyB3b3VsZCBiZWhhdmUgYWNjb3JkaW5nbHkuDQo+ID4NCj4gPiBRdW90ZXMg
+ZnJvbTogaHR0cDovL21hcmMuaW5mby8/bD1saW51eC1uZXRkZXYmbT0xNDIyMjYzNDg3MTU1MDMm
+dz0yDQo+ID4+DQo+ID4+IEJlZm9yZSBhIGNsZWFuIHNvbHV0aW9uIHNob3cgdXAsIEkgdGhpbmsg
+aXQncyBiZXR0ZXIgdG8gd2FybiB1c2VyIGluIHNvbWUgd2F5DQo+ID4+IGxpa2UgaHR0cDovL3Bh
+dGNod29yay5vemxhYnMub3JnL3BhdGNoLzMyMzg0Mi8gZGlkLiBPdGhlcndpc2UsIG1hbnkgcGVv
+cGxlDQo+ID4+IHdobyBzdHVjayB0aGVyZSB3aWxsIGFsd2F5cyBzcGVuZCB0aW1lIGFuZCB0cnkg
+dG8gZml4IHRoaXMgaXNzdWUgaW4gd2hhdGV2ZXIgd2F5Lg0KPiA+DQo+ID4gWWVzLCB0aGlzIGlz
+IHRoZSBmaXJzdCB0aGluZyB3ZSBzaG91bGQgZG8uIEknbSB3aWxsaW5nIHRvIGFjY2VwdCBhIHBh
+dGNoDQo+ID4NCj4gPiBTaWduZWQtb2ZmLWJ5OiBGYW4gRHUgPGZhbi5kdUBpbnRlbC5jb20+DQo+
+IEEgd2F5IHRvIHNvbHZlIHRoaXMgcHJvYmxlbSB3YXMgdG8gcHJvdmlkZSB0byB1c2VybGFuZCBh
+IHhmcm0gY29tcGF0IGhlYWRlcg0KPiBmaWxlLCB3aGljaCBtYXRjaCB0aGUgQUJJIG9mIHRoZSBr
+ZXJuZWwuIFNvbWV0aGluZyBsaWtlOg0KPiANCj4gI2luY2x1ZGUgPGxpbnV4L3hmcm0uaD4NCj4g
+DQo+ICNkZWZpbmUgeGZybV91c2Vyc2FfaW5mbyB4ZnJtX3VzZXJzYV9pbmZvXzY0DQo+ICNkZWZp
+bmUgeGZybV91c2Vyc2FfaW5mb19jb21wYXQgeGZybV91c2Vyc2FfaW5mbw0KPiBzdHJ1Y3QgeGZy
+bV91c2Vyc2FfaW5mb19jb21wYXQgew0KPiAJc3RydWN0IHhmcm1fc2VsZWN0b3IJCXNlbDsNCj4g
+CXN0cnVjdCB4ZnJtX2lkCQkJaWQ7DQo+IAl4ZnJtX2FkZHJlc3NfdAkJCXNhZGRyOw0KPiAJc3Ry
+dWN0IHhmcm1fbGlmZXRpbWVfY2ZnCWxmdDsNCj4gCXN0cnVjdCB4ZnJtX2xpZmV0aW1lX2N1cglj
+dXJsZnQ7DQo+IAlzdHJ1Y3QgeGZybV9zdGF0cwkJc3RhdHM7DQo+IAlfX3UzMgkJCQlzZXE7DQo+
+IAlfX3UzMgkJCQlyZXFpZDsNCj4gCV9fdTE2CQkJCWZhbWlseTsNCj4gCV9fdTgJCQkJbW9kZTsN
+Cj4gCV9fdTgJCQkJcmVwbGF5X3dpbmRvdzsNCj4gCV9fdTgJCQkJZmxhZ3M7DQo+IAlfX3U4CQkJ
+CWhvbGUxOw0KPiAJX191MzIJCQkJaG9sZTI7DQo+IH07DQo+IA0KPiBUaGUgcG9pbnQgSSB0cnkg
+dG8gbWFrZSBpcyB0aGF0IHBhdGNoaW5nIHVzZXJsYW5kIGFwcHMgYWxsb3dzIHRvIHVzZSB4ZnJt
+IG9uIGENCj4gMzJiaXRzIHVzZXJsYW5kIC8gNjRiaXRzIGtlcm5lbC4NCj4gDQo+IElmIEkgdW5k
+ZXJzdGFuZCB3ZWxsIHlvdXIgcGF0Y2gsIGl0IHdpbGwgbm90IGJlIHBvc3NpYmxlIGFueW1vcmUs
+IGFsbCBtZXNzYWdlcw0KPiB3aWxsIGJlIHJlamVjdGVkLiBBbmQgdGhpcyBtYXkgYnJlYWsgZXhp
+c3RpbmcgYXBwcy4NCg0KUHJvYmFibHkgT1RUIGluIHRoaXMgY2FzZS4NCklJUkMgdGhlIG9ubHkg
+YWN0dWFsIGRpZmZlcmVuY2UgaWYgdGhlICdlbmQgcGFkZGluZycuDQpTbyB0aGUgd3JhcHBlciBu
+ZWVkIG9ubHkgZW5zdXJlIHRoZSBjb3B5aW4vb3V0IGlzbid0IHRvbyBsb25nLg0KUHJvYmFibHkg
+d29ydGggY29tcGlsZS10aW1lIGNoZWNrcyBmb3IgdGhlIHNpemUuDQpJZiB0aGUgc3RydWN0dXJl
+IGlzIGJlaW5nIGNvcGllZCB0byB1c2VyIHRoZW4gemVybyB2YWx1ZXMgbmVlZCBhc3NpZ25pbmcN
+CnRvIHRoZSBwYWQgZmllbGRzICh1bmxlc3MgcmVhZCBmcm9tIHVzZXIpLg0KDQoJRGF2aWQNCg0K
