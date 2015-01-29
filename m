@@ -1,38 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [GIT] [3.20] NFC update
-Date: Wed, 28 Jan 2015 23:02:09 -0800 (PST)
-Message-ID: <20150128.230209.1790960150269220125.davem@davemloft.net>
-References: <20150129005216.GA1137@ribalta.ger.corp.intel.com>
+Subject: Re: [PATCH net-next] openvswitch: Add support for checksums on UDP
+ tunnels.
+Date: Wed, 28 Jan 2015 23:04:28 -0800 (PST)
+Message-ID: <20150128.230428.986343026110615674.davem@davemloft.net>
+References: <1422491566-80453-1-git-send-email-jesse@nicira.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: sameo@linux.intel.com
+Cc: pshelar@nicira.com, netdev@vger.kernel.org, dev@openvswitch.org
+To: jesse@nicira.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36711 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:36727 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750773AbbA2HCL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jan 2015 02:02:11 -0500
-In-Reply-To: <20150129005216.GA1137@ribalta.ger.corp.intel.com>
+	with ESMTP id S1750785AbbA2HEa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jan 2015 02:04:30 -0500
+In-Reply-To: <1422491566-80453-1-git-send-email-jesse@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Samuel Ortiz <sameo@linux.intel.com>
-Date: Thu, 29 Jan 2015 01:52:16 +0100
+From: Jesse Gross <jesse@nicira.com>
+Date: Wed, 28 Jan 2015 16:32:46 -0800
 
-> This is the first NFC pull request for 3.20.
+> Currently, it isn't possible to request checksums on the outer UDP
+> header of tunnels - the TUNNEL_CSUM flag is ignored. This adds
+> support for requesting that UDP checksums be computed on transmit
+> and properly reported if they are present on receive.
 > 
-> With this one we have:
-> 
-> - Secure element support for the ST Micro st21nfca driver. This depends
->   on a few HCI internal changes in order for example to support more
->   than one secure element per controller.
-> 
-> - ACPI support for NXP's pn544 HCI driver. This controller is found on
->   many x86 SoCs and is typically enumerated on the ACPI bus there.
-> 
-> - A few st21nfca and st21nfcb fixes. Since they're not critical fixes,
->   I assumed it's too late for a 3.19 inclusion. Please let me know if
->   you'd prefer to see them going through a net pull request instead.
+> Signed-off-by: Jesse Gross <jesse@nicira.com>
 
-Pulled, thanks Sam.
+Applied.
