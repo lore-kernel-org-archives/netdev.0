@@ -1,62 +1,41 @@
-From: Nicholas Mc Guire <der.herr@hofr.at>
-Subject: [PATCH] irda: use msecs_to_jiffies for conversions
-Date: Thu, 29 Jan 2015 18:22:51 +0100
-Message-ID: <1422552171-25947-1-git-send-email-der.herr@hofr.at>
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Nicholas Mc Guire <der.herr@hofr.at>
-To: Samuel Ortiz <samuel@sortiz.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: rapier <rapier@psc.edu>
+Subject: NetDev 0.1 BoF on TCP Stack Instrumentation
+Date: Thu, 29 Jan 2015 12:47:52 -0500
+Message-ID: <54CA7248.8090400@psc.edu>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailer1.psc.edu ([128.182.58.100]:50425 "EHLO mailer1.psc.edu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756543AbbA2SLE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Jan 2015 13:11:04 -0500
+Received: from iztli.psc.edu (iztli.psc.edu [128.182.160.106])
+	(authenticated bits=0)
+	by mailer1.psc.edu (8.13.8/8.13.8) with ESMTP id t0THlq81026706
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES128-SHA bits=128 verify=NO)
+	for <netdev@vger.kernel.org>; Thu, 29 Jan 2015 12:47:52 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is only an API consolidation and should make things more readable
-it replaces  var * HZ / 1000  constructs by  msecs_to_jiffies(var).
+For those attending the NetDev 0.1 conference in Ottawa this February 
+I'll be leading a BoF on TCP stack instrumentation. There is a growing 
+understanding of the need for better stack transparency in order to 
+diagnose, monitor, and tune TCP flows. This BoF hopes to bring together 
+stakeholders and interested parties to determine what instruments 
+provide the most value in different use cases, methods for instrument 
+implementation, data access methods, and the like.
 
-Signed-off-by: Nicholas Mc Guire <der.herr@hofr.at>
----
+This BoF is scheduled for two hours in a round table format. I encourage 
+any interested party to attend and join in this discussion. I'm looking 
+for people and groups currently exploring and invested in this topic to 
+help focus the discussion and present their view points. As of this 
+moment the agenda for the BoF is flexible. If you'd like to be on the 
+agenda and/or make a brief presentation please contact me directly.
 
-Converting milliseconds to jiffies by val * HZ / 1000 is technically
-not wrong but msecs_to_jiffies(val) is the cleaner solution and handles
-all corner cases correctly. This is a minor API cleanup only.
+Thank you for your interest,
 
-This patch was only compile tested with x86_64_defconfig +
-CONFIG_IRDA=m
-
-Patch is against 3.19.0-rc6 -next-20150129
-
- net/irda/irlap.c |    8 +++++---
- 1 file changed, 5 insertions(+), 3 deletions(-)
-
-diff --git a/net/irda/irlap.c b/net/irda/irlap.c
-index 7f2cafd..1cde711 100644
---- a/net/irda/irlap.c
-+++ b/net/irda/irlap.c
-@@ -533,7 +533,7 @@ void irlap_discovery_request(struct irlap_cb *self, discovery_t *discovery)
- 	info.discovery = discovery;
- 
- 	/* sysctl_slot_timeout bounds are checked in irsysctl.c - Jean II */
--	self->slot_timeout = sysctl_slot_timeout * HZ / 1000;
-+	self->slot_timeout = msecs_to_jiffies(sysctl_slot_timeout);
- 
- 	irlap_do_event(self, DISCOVERY_REQUEST, NULL, &info);
- }
-@@ -1015,13 +1015,15 @@ void irlap_apply_connection_parameters(struct irlap_cb *self, int now)
- 	 * Or, this is how much we can keep the pf bit in primary mode.
- 	 * Therefore, it must be lower or equal than our *OWN* max turn around.
- 	 * Jean II */
--	self->poll_timeout = self->qos_tx.max_turn_time.value * HZ / 1000;
-+	self->poll_timeout = msecs_to_jiffies(
-+				self->qos_tx.max_turn_time.value);
- 	/* The Final timeout applies only to the primary station.
- 	 * It defines the maximum time the primary wait (mostly in RECV mode)
- 	 * for an answer from the secondary station before polling it again.
- 	 * Therefore, it must be greater or equal than our *PARTNER*
- 	 * max turn around time - Jean II */
--	self->final_timeout = self->qos_rx.max_turn_time.value * HZ / 1000;
-+	self->final_timeout = msecs_to_jiffies(
-+				self->qos_rx.max_turn_time.value);
- 	/* The Watchdog Bit timeout applies only to the secondary station.
- 	 * It defines the maximum time the secondary wait (mostly in RECV mode)
- 	 * for poll from the primary station before getting annoyed.
--- 
-1.7.10.4
+Chris Rapier
+Pittsburgh Supercomputing Center
+Web10G Project
