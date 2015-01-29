@@ -1,40 +1,35 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch iproute2] skbedit: print action too
-Date: Wed, 28 Jan 2015 14:52:42 -0800
-Message-ID: <1422485562-15572-1-git-send-email-xiyou.wangcong@gmail.com>
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Stephen Hemminger <stephen@networkplumber.org>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:65125 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751251AbbA2Baw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jan 2015 20:30:52 -0500
-Received: by mail-pa0-f48.google.com with SMTP id ey11so32210983pad.7
-        for <netdev@vger.kernel.org>; Wed, 28 Jan 2015 17:30:52 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Behan Webster <behanw@converseincode.com>
+Subject: [PATCH] net, ethernet, LLVMLinux: Add missing MODULE_DEVICE_TABLE()
+Date: Wed, 28 Jan 2015 17:36:14 -0800
+Message-ID: <1422495374-22835-1-git-send-email-behanw@converseincode.com>
+Cc: behanw@converseincode.com, ajit.khaparde@emulex.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	subbu.seetharaman@emulex.com, Arnd Bergmann <arnd@arndb.de>
+To: sathya.perla@emulex.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-Cc: Stephen Hemminger <stephen@networkplumber.org>
-Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+Missing MODULE_DEVICE_TABLE for pci ids from benet driver found by clang.
+
+Signed-off-by: Behan Webster <behanw@converseincode.com>
+Suggested-by: Arnd Bergmann <arnd@arndb.de>
+Cc: Arnd Bergmann <arnd@arndb.de>
 ---
- tc/m_skbedit.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/emulex/benet/be_main.c | 1 -
+ 1 file changed, 1 deletion(-)
 
-diff --git a/tc/m_skbedit.c b/tc/m_skbedit.c
-index 36323a9..c5deee0 100644
---- a/tc/m_skbedit.c
-+++ b/tc/m_skbedit.c
-@@ -193,7 +193,7 @@ static int print_skbedit(struct action_util *au, FILE *f, struct rtattr *arg)
- 		fprintf(f, " mark %d", *mark);
- 	}
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index d48806b..709400a 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -26,7 +26,6 @@
+ #include <net/vxlan.h>
  
--	fprintf(f, "\n\t index %d ref %d bind %d", p->index, p->refcnt, p->bindcnt);
-+	fprintf(f, " %s\n\t index %d ref %d bind %d", action_n2a(p->action, b1, sizeof (b1)), p->index, p->refcnt, p->bindcnt);
- 
- 	if (show_stats) {
- 		if (tb[TCA_SKBEDIT_TM]) {
+ MODULE_VERSION(DRV_VER);
+-MODULE_DEVICE_TABLE(pci, be_dev_ids);
+ MODULE_DESCRIPTION(DRV_DESC " " DRV_VER);
+ MODULE_AUTHOR("Emulex Corporation");
+ MODULE_LICENSE("GPL");
 -- 
-1.8.3.1
+1.9.1
