@@ -1,37 +1,40 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCHv2 net] sunvnet: set queue mapping when doing packet
- copies
-Date: Thu, 29 Jan 2015 14:22:56 -0800
-Message-ID: <1422570176.21689.38.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <54CA8D33.6020006@oracle.com>
-	 <1422563996.21689.26.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <54CAA7ED.5000100@oracle.com>
-	 <1422569982.21689.36.camel@edumazet-glaptop2.roam.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2] rtnetlink: pass link_net to the newlink
+ handler
+Date: Thu, 29 Jan 2015 14:23:46 -0800 (PST)
+Message-ID: <20150129.142346.2067967163788035274.davem@davemloft.net>
+References: <54C61ED1.5040501@6wind.com>
+	<1422353588-4830-1-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Sowmini Varadhan <sowmini.varadhan@oracle.com>
-To: David L Stevens <david.stevens@oracle.com>
+Cc: netdev@vger.kernel.org
+To: nicolas.dichtel@6wind.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f174.google.com ([209.85.223.174]:40764 "EHLO
-	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758634AbbA2WW6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jan 2015 17:22:58 -0500
-Received: by mail-ie0-f174.google.com with SMTP id vy18so538517iec.5
-        for <netdev@vger.kernel.org>; Thu, 29 Jan 2015 14:22:58 -0800 (PST)
-In-Reply-To: <1422569982.21689.36.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:42707 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751265AbbA2WXq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jan 2015 17:23:46 -0500
+In-Reply-To: <1422353588-4830-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2015-01-29 at 14:19 -0800, Eric Dumazet wrote:
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Date: Tue, 27 Jan 2015 11:13:08 +0100
 
-> I guess you can extend the test to sock_wfree and tcp_wfree, but :
+> When IFLA_LINK_NETNSID is used, the netdevice should be built in this link netns
+> and moved at the end to another netns (pointed by the socket netns or
+> IFLA_NET_NS_[PID|FD]).
 > 
-> You have to EXPORT_SYMBOL(tcp_wfree)
+> Existing user of the newlink handler will use the netns argument (src_net) to
+> find a link netdevice or to check some other information into the link netns.
+> For example, to find a netdevice, two information are required: an ifindex
+> (usually from IFLA_LINK) and a netns (this link netns).
 > 
-> Add an #ifdef CONFIG_INET   (take a look at skb_orphan_partial())
+> Note: when using IFLA_LINK_NETNSID and IFLA_NET_NS_[PID|FD], a user may create a
+> netdevice that stands in netnsX and with its link part in netnsY, by sending a
+> rtnl message from netnsZ.
+> 
+> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 
-Or even better, add a new helper in the same spirit than
-skb_orphan_partial() : You would EXPORT_SYMBOL() it and leave
-tcp_wfree() as non exported.
+Applied, thanks.
