@@ -1,183 +1,89 @@
 From: Neal Cardwell <ncardwell@google.com>
-Subject: [PATCH net-next v2 1/5] tcp: stretch ACK fixes prep
-Date: Wed, 28 Jan 2015 20:01:35 -0500
-Message-ID: <1422493299-22114-2-git-send-email-ncardwell@google.com>
+Subject: [PATCH net-next v2 5/5] tcp: fix timing issue in CUBIC slope calculation
+Date: Wed, 28 Jan 2015 20:01:39 -0500
+Message-ID: <1422493299-22114-6-git-send-email-ncardwell@google.com>
 References: <1422493299-22114-1-git-send-email-ncardwell@google.com>
 Cc: netdev@vger.kernel.org, Neal Cardwell <ncardwell@google.com>,
 	Yuchung Cheng <ycheng@google.com>,
 	Eric Dumazet <edumazet@google.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f176.google.com ([209.85.160.176]:50535 "EHLO
-	mail-yk0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752585AbbA2BJL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jan 2015 20:09:11 -0500
-Received: by mail-yk0-f176.google.com with SMTP id q200so10952673ykb.7
-        for <netdev@vger.kernel.org>; Wed, 28 Jan 2015 17:09:10 -0800 (PST)
+Received: from mail-yk0-f178.google.com ([209.85.160.178]:39553 "EHLO
+	mail-yk0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751214AbbA2BKI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jan 2015 20:10:08 -0500
+Received: by mail-yk0-f178.google.com with SMTP id q200so10942420ykb.9
+        for <netdev@vger.kernel.org>; Wed, 28 Jan 2015 17:10:08 -0800 (PST)
 In-Reply-To: <1422493299-22114-1-git-send-email-ncardwell@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-LRO, GRO, delayed ACKs, and middleboxes can cause "stretch ACKs" that
-cover more than the RFC-specified maximum of 2 packets. These stretch
-ACKs can cause serious performance shortfalls in common congestion
-control algorithms that were designed and tuned years ago with
-receiver hosts that were not using LRO or GRO, and were instead
-politely ACKing every other packet.
+This patch fixes a bug in CUBIC that causes cwnd to increase slightly
+too slowly when multiple ACKs arrive in the same jiffy.
 
-This patch series fixes Reno and CUBIC to handle stretch ACKs.
+If cwnd is supposed to increase at a rate of more than once per jiffy,
+then CUBIC was sometimes too slow. Because the bic_target is
+calculated for a future point in time, calculated with time in
+jiffies, the cwnd can increase over the course of the jiffy while the
+bic_target calculated as the proper CUBIC cwnd at time
+t=tcp_time_stamp+rtt does not increase, because tcp_time_stamp only
+increases on jiffy tick boundaries.
 
-This patch prepares for the upcoming stretch ACK bug fix patches. It
-adds an "acked" parameter to tcp_cong_avoid_ai() to allow for future
-fixes to tcp_cong_avoid_ai() to correctly handle stretch ACKs, and
-changes all congestion control algorithms to pass in 1 for the ACKed
-count. It also changes tcp_slow_start() to return the number of packet
-ACK "credits" that were not processed in slow start mode, and can be
-processed by the congestion control module in additive increase mode.
+So since the cnt is set to:
+	ca->cnt = cwnd / (bic_target - cwnd);
+as cwnd increases but bic_target does not increase due to jiffy
+granularity, the cnt becomes too large, causing cwnd to increase
+too slowly.
 
-In future patches we will fix tcp_cong_avoid_ai() to handle stretch
-ACKs, and fix Reno and CUBIC handling of stretch ACKs in slow start
-and additive increase mode.
+For example:
+- suppose at the beginning of a jiffy, cwnd=40, bic_target=44
+- so CUBIC sets:
+   ca->cnt =  cwnd / (bic_target - cwnd) = 40 / (44 - 40) = 40/4 = 10
+- suppose we get 10 acks, each for 1 segment, so tcp_cong_avoid_ai()
+   increases cwnd to 41
+- so CUBIC sets:
+   ca->cnt =  cwnd / (bic_target - cwnd) = 41 / (44 - 41) = 41 / 3 = 13
+
+So now CUBIC will wait for 13 packets to be ACKed before increasing
+cwnd to 42, insted of 10 as it should.
+
+The fix is to avoid adjusting the slope (determined by ca->cnt)
+multiple times within a jiffy, and instead skip to compute the Reno
+cwnd, the "TCP friendliness" code path.
 
 Reported-by: Eyal Perry <eyalpe@mellanox.com>
 Signed-off-by: Neal Cardwell <ncardwell@google.com>
 Signed-off-by: Yuchung Cheng <ycheng@google.com>
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- include/net/tcp.h       |  4 ++--
- net/ipv4/tcp_bic.c      |  2 +-
- net/ipv4/tcp_cong.c     | 11 +++++++----
- net/ipv4/tcp_cubic.c    |  2 +-
- net/ipv4/tcp_scalable.c |  3 ++-
- net/ipv4/tcp_veno.c     |  2 +-
- net/ipv4/tcp_yeah.c     |  2 +-
- 7 files changed, 15 insertions(+), 11 deletions(-)
+ net/ipv4/tcp_cubic.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
 
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index b8fdc6b..7c280a4 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -843,8 +843,8 @@ void tcp_get_available_congestion_control(char *buf, size_t len);
- void tcp_get_allowed_congestion_control(char *buf, size_t len);
- int tcp_set_allowed_congestion_control(char *allowed);
- int tcp_set_congestion_control(struct sock *sk, const char *name);
--void tcp_slow_start(struct tcp_sock *tp, u32 acked);
--void tcp_cong_avoid_ai(struct tcp_sock *tp, u32 w);
-+u32 tcp_slow_start(struct tcp_sock *tp, u32 acked);
-+void tcp_cong_avoid_ai(struct tcp_sock *tp, u32 w, u32 acked);
- 
- u32 tcp_reno_ssthresh(struct sock *sk);
- void tcp_reno_cong_avoid(struct sock *sk, u32 ack, u32 acked);
-diff --git a/net/ipv4/tcp_bic.c b/net/ipv4/tcp_bic.c
-index bb395d4..c037644 100644
---- a/net/ipv4/tcp_bic.c
-+++ b/net/ipv4/tcp_bic.c
-@@ -150,7 +150,7 @@ static void bictcp_cong_avoid(struct sock *sk, u32 ack, u32 acked)
- 		tcp_slow_start(tp, acked);
- 	else {
- 		bictcp_update(ca, tp->snd_cwnd);
--		tcp_cong_avoid_ai(tp, ca->cnt);
-+		tcp_cong_avoid_ai(tp, ca->cnt, 1);
- 	}
- }
- 
-diff --git a/net/ipv4/tcp_cong.c b/net/ipv4/tcp_cong.c
-index 63c29db..60bc170 100644
---- a/net/ipv4/tcp_cong.c
-+++ b/net/ipv4/tcp_cong.c
-@@ -360,25 +360,28 @@ int tcp_set_congestion_control(struct sock *sk, const char *name)
-  * ABC caps N to 2. Slow start exits when cwnd grows over ssthresh and
-  * returns the leftover acks to adjust cwnd in congestion avoidance mode.
-  */
--void tcp_slow_start(struct tcp_sock *tp, u32 acked)
-+u32 tcp_slow_start(struct tcp_sock *tp, u32 acked)
- {
- 	u32 cwnd = tp->snd_cwnd + acked;
- 
- 	if (cwnd > tp->snd_ssthresh)
- 		cwnd = tp->snd_ssthresh + 1;
-+	acked -= cwnd - tp->snd_cwnd;
- 	tp->snd_cwnd = min(cwnd, tp->snd_cwnd_clamp);
-+
-+	return acked;
- }
- EXPORT_SYMBOL_GPL(tcp_slow_start);
- 
- /* In theory this is tp->snd_cwnd += 1 / tp->snd_cwnd (or alternative w) */
--void tcp_cong_avoid_ai(struct tcp_sock *tp, u32 w)
-+void tcp_cong_avoid_ai(struct tcp_sock *tp, u32 w, u32 acked)
- {
- 	if (tp->snd_cwnd_cnt >= w) {
- 		if (tp->snd_cwnd < tp->snd_cwnd_clamp)
- 			tp->snd_cwnd++;
- 		tp->snd_cwnd_cnt = 0;
- 	} else {
--		tp->snd_cwnd_cnt++;
-+		tp->snd_cwnd_cnt += acked;
- 	}
- }
- EXPORT_SYMBOL_GPL(tcp_cong_avoid_ai);
-@@ -402,7 +405,7 @@ void tcp_reno_cong_avoid(struct sock *sk, u32 ack, u32 acked)
- 		tcp_slow_start(tp, acked);
- 	/* In dangerous area, increase slowly. */
- 	else
--		tcp_cong_avoid_ai(tp, tp->snd_cwnd);
-+		tcp_cong_avoid_ai(tp, tp->snd_cwnd, 1);
- }
- EXPORT_SYMBOL_GPL(tcp_reno_cong_avoid);
- 
 diff --git a/net/ipv4/tcp_cubic.c b/net/ipv4/tcp_cubic.c
-index 6b60024..df4bc4d 100644
+index ffc045d..4b276d1 100644
 --- a/net/ipv4/tcp_cubic.c
 +++ b/net/ipv4/tcp_cubic.c
-@@ -320,7 +320,7 @@ static void bictcp_cong_avoid(struct sock *sk, u32 ack, u32 acked)
- 		tcp_slow_start(tp, acked);
- 	} else {
- 		bictcp_update(ca, tp->snd_cwnd);
--		tcp_cong_avoid_ai(tp, ca->cnt);
-+		tcp_cong_avoid_ai(tp, ca->cnt, 1);
- 	}
- }
+@@ -213,6 +213,13 @@ static inline void bictcp_update(struct bictcp *ca, u32 cwnd, u32 acked)
+ 	    (s32)(tcp_time_stamp - ca->last_time) <= HZ / 32)
+ 		return;
  
-diff --git a/net/ipv4/tcp_scalable.c b/net/ipv4/tcp_scalable.c
-index 6824afb..333bcb2 100644
---- a/net/ipv4/tcp_scalable.c
-+++ b/net/ipv4/tcp_scalable.c
-@@ -25,7 +25,8 @@ static void tcp_scalable_cong_avoid(struct sock *sk, u32 ack, u32 acked)
- 	if (tp->snd_cwnd <= tp->snd_ssthresh)
- 		tcp_slow_start(tp, acked);
- 	else
--		tcp_cong_avoid_ai(tp, min(tp->snd_cwnd, TCP_SCALABLE_AI_CNT));
-+		tcp_cong_avoid_ai(tp, min(tp->snd_cwnd, TCP_SCALABLE_AI_CNT),
-+				  1);
- }
++	/* The CUBIC function can update ca->cnt at most once per jiffy.
++	 * On all cwnd reduction events, ca->epoch_start is set to 0,
++	 * which will force a recalculation of ca->cnt.
++	 */
++	if (ca->epoch_start && tcp_time_stamp == ca->last_time)
++		goto tcp_friendliness;
++
+ 	ca->last_cwnd = cwnd;
+ 	ca->last_time = tcp_time_stamp;
  
- static u32 tcp_scalable_ssthresh(struct sock *sk)
-diff --git a/net/ipv4/tcp_veno.c b/net/ipv4/tcp_veno.c
-index a4d2d2d..112151e 100644
---- a/net/ipv4/tcp_veno.c
-+++ b/net/ipv4/tcp_veno.c
-@@ -159,7 +159,7 @@ static void tcp_veno_cong_avoid(struct sock *sk, u32 ack, u32 acked)
- 				/* In the "non-congestive state", increase cwnd
- 				 *  every rtt.
- 				 */
--				tcp_cong_avoid_ai(tp, tp->snd_cwnd);
-+				tcp_cong_avoid_ai(tp, tp->snd_cwnd, 1);
- 			} else {
- 				/* In the "congestive state", increase cwnd
- 				 * every other rtt.
-diff --git a/net/ipv4/tcp_yeah.c b/net/ipv4/tcp_yeah.c
-index cd72732..17d3566 100644
---- a/net/ipv4/tcp_yeah.c
-+++ b/net/ipv4/tcp_yeah.c
-@@ -92,7 +92,7 @@ static void tcp_yeah_cong_avoid(struct sock *sk, u32 ack, u32 acked)
+@@ -280,6 +287,7 @@ static inline void bictcp_update(struct bictcp *ca, u32 cwnd, u32 acked)
+ 	if (ca->last_max_cwnd == 0 && ca->cnt > 20)
+ 		ca->cnt = 20;	/* increase cwnd 5% per RTT */
  
- 	} else {
- 		/* Reno */
--		tcp_cong_avoid_ai(tp, tp->snd_cwnd);
-+		tcp_cong_avoid_ai(tp, tp->snd_cwnd, 1);
- 	}
- 
- 	/* The key players are v_vegas.beg_snd_una and v_beg_snd_nxt.
++tcp_friendliness:
+ 	/* TCP Friendly */
+ 	if (tcp_friendliness) {
+ 		u32 scale = beta_scale;
 -- 
 2.2.0.rc0.207.ga3a616c
