@@ -1,75 +1,93 @@
-From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Subject: [PATCH net 0/4] Fix checksum error when using stacked
-	vlan
-Date: Thu, 29 Jan 2015 20:37:06 +0900
-Message-ID: <1422531430-32012-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+From: Michal Kazior <michal.kazior@tieto.com>
+Subject: Throughput regression with `tcp: refine TSO autosizing`
+Date: Thu, 29 Jan 2015 12:48:59 +0100
+Message-ID: <CA+BoTQkVu23P3EOmY_Q3E1GJnWsyF==Pawz4iPOS_Bq5dvfO5Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-To: "David S . Miller" <davem@davemloft.net>, Linux NICS <linux.nics@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-wireless <linux-wireless@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	eyalpe@dev.mellanox.co.il
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f173.google.com ([74.125.82.173]:53351 "EHLO
+	mail-we0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753851AbbA2LtC convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jan 2015 06:49:02 -0500
+Received: by mail-we0-f173.google.com with SMTP id w62so23232412wes.4
+        for <netdev@vger.kernel.org>; Thu, 29 Jan 2015 03:48:59 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-When I was testing 802.1ad, I found several drivers don't take into
-account 802.1ad or multiple vlans when retrieving L3 (IP/IPv6) or
-L4 (TCP/UDP) protocol for checksum offload.
+Hi,
 
-It is mainly due to vlan_get_protocol(), which extracts ether type only
-when it is tagged with single 802.1Q. When 802.1ad is used or there are
-multiple vlans, it extracts vlan protocol and drivers cannot determine
-which L3/L4 protocol is used.
+I'm not subscribed to netdev list and I can't find the message-id so I
+can't reply directly to the original thread `BW regression after "tcp:
+refine TSO autosizing"`.
 
-Those drivers, most of which have IP_CSUM/IPV6_CSUM features, get L3/L4
-header-offset by software, so it seems that their checksum offload works
-with multiple vlans if we can parse protocols correctly.
-(They know mac header length, and probably don't care about what is in it.)
+I've noticed a big TCP performance drop with ath10k
+(drivers/net/wireless/ath/ath10k) on 3.19-rc5. Instead of 500mbps I
+get 250mbps in my testbed.
 
-And another thing, some of Intel's drivers seem to use skb->protocol where
-vlan_get_protocol() is more suitable.
+After bisecting I ended up at `tcp: refine TSO autosizing`. Reverting
+`tcp: refine TSO autosizing` and `tcp: Do not apply TSO segment limit
+to non-TSO packets` (for conflict free reverts) fixes the problem.
 
-I tested that at least igb/igbvf on I350 works with this patch set.
+My testing setup is as follows:
 
-Note:
-We can hand a double tagged packet with CHECKSUM_PARTIAL to a HW driver
-by creating a vlan device on a bridge device and enabling vlan_filtering
-of the bridge with 802.1ad protocol.
+ a) ath10k AP, github.com/kvalo/ath/tree/master 3.19-rc5, w/ reverts
+ b) ath10k STA connected to (a), github.com/kvalo/ath/tree/master
+3.19-rc5, w/ reverts
+ c) (b) w/o reverts
 
-Toshiaki Makita (4):
-  net: Fix vlan_get_protocol for stacked vlan
-  igbvf: Fix checksum error when using stacked vlan
-  ixgbe: Fix checksum error when using stacked vlan
-  ixgbevf: Fix checksum error when using stacked vlan
+Devices are 3x3 (AP) and 2x2 (Client) and are RF cabled. 11ac@80MHz
+2x2 has 866mbps modulation rate. In practice this should deliver
+~700mbps of real UDP traffic.
 
- drivers/net/ethernet/intel/igbvf/netdev.c         | 19 ++++---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c     |  2 +-
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |  4 +-
- include/linux/if_vlan.h                           | 60 +++++++++++++++++------
- net/core/dev.c                                    | 31 +-----------
- 5 files changed, 61 insertions(+), 55 deletions(-)
+Here are some numbers:
 
--- 
-1.8.1.2
+UDP: (b) -> (a): 672mbps
+UDP: (a) -> (b): 687mbps
+TCP: (b) -> (a): 526mbps
+TCP: (a) -> (b): 500mbps
+
+UDP: (c) -> (a): 669mbps*
+UDP: (a) -> (c): 689mbps*
+TCP: (c) -> (a): 240mbps**
+TCP: (a) -> (c): 490mbps*
+
+* no changes/within error margin
+** the performance drop
+
+I'm using iperf:
+  UDP: iperf -i1 -s -u vs iperf -i1 -c XX -u -B 200M -P5 -t 20
+  TCP: iperf -i1 -s vs iperf -i1 -c XX -P5 -t 20
+
+Result values were obtained at the receiver side.
+
+Iperf reports a few frames lost and out-of-order at each UDP test
+start (during first second) but later has no packet loss and no
+out-of-order. This shouldn't have any effect on a TCP session, right?
+
+The device delivers batched up tx/rx completions (no way to change
+that). I suppose this could be an issue for timing sensitive
+algorithms. Also keep in mind 802.11n and 802.11ac devices have frame
+aggregation windows so there's an inherent extra (and non-uniform)
+latency when compared to, e.g. ethernet devices.
+
+The driver doesn't have GRO. I have an internal patch which implements
+it. It improves overall TCP traffic (more stable, up to 600mbps TCP
+which is ~100mbps more than without GRO) but the TCP: (c) -> (a)
+performance drop remains unaffected regardless.
+
+I've tried applying stretch ACK patchset (v2) on both machines and
+re-run the above tests. I got no measurable difference in performance.
+
+I've also run these tests with iwlwifi 7260 (also a 2x2) as (b) and
+(c). It didn't seem to be affected by the TSO patch at all (it runs at
+~360mbps of TCP regardless of the TSO patch).
+
+Any hints/ideas?
 
 
-
-------------------------------------------------------------------------------
-Dive into the World of Parallel Programming. The Go Parallel Website,
-sponsored by Intel and developed in partnership with Slashdot Media, is your
-hub for all things parallel software development, from weekly thought
-leadership blogs to news, videos, case studies, tutorials and more. Take a
-look and join the conversation now. http://goparallel.sourceforge.net/
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+Micha=C5=82
