@@ -1,44 +1,43 @@
-From: Behan Webster <behanw@converseincode.com>
-Subject: Re: [PATCH] net, ethernet, LLVMLinux: Add missing MODULE_DEVICE_TABLE()
-Date: Thu, 29 Jan 2015 10:25:09 -0800
-Message-ID: <54CA7B05.3000300@converseincode.com>
-References: <1422495374-22835-1-git-send-email-behanw@converseincode.com> <20150128.224228.1533046356464752424.davem@davemloft.net>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH v2 linux-trace 1/8] tracing: attach eBPF programs to
+ tracepoints and syscalls
+Date: Thu, 29 Jan 2015 10:55:07 -0800
+Message-ID: <CAMEtUuxHqpz0ERaKbdciX5p7xwoBrpUK0dFRCHxF_o1PfgKh+Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: sathya.perla@emulex.com, ajit.khaparde@emulex.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	subbu.seetharaman@emulex.com, arnd@arndb.de
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: Steven Rostedt <rostedt@goodmis.org>,
+	Ingo Molnar <mingo@kernel.org>,
+	Arnaldo Carvalho de Melo <acme@infradead.org>,
+	Jiri Olsa <jolsa@redhat.com>,
+	Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>,
+	Linux API <linux-api@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Namhyung Kim <namhyung@kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150128.224228.1533046356464752424.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 01/28/15 22:42, David Miller wrote:
-> From: Behan Webster <behanw@converseincode.com>
-> Date: Wed, 28 Jan 2015 17:36:14 -0800
->
->> Missing MODULE_DEVICE_TABLE for pci ids from benet driver found by clang.
+On Thu, Jan 29, 2015 at 4:35 AM, Namhyung Kim <namhyung@kernel.org> wrote:
+>>> Right.  I think bpf programs belong to a user process but events are
+>>> global resource.  Maybe you also need to consider attaching bpf
+>>> program via perf (ioctl?) interface..
 >>
->> Signed-off-by: Behan Webster <behanw@converseincode.com>
->> Suggested-by: Arnd Bergmann <arnd@arndb.de>
-> Why are you removing the device table?
-It is defined more than once; removing the duplicate (as Arnd
-indicated). My commit message was just completely wrong. Brain fart. Sorry.
+>> yes. I did. Please see my reply to Masami.
+>> ioctl only works for tracepoints.
+>
+> What was the problem of kprobes then? :)
 
-> Second of all, your Subject needs to be adjusted, using "net" and
-> "LLVMLinux" in your subsystem prefix is not appropriate.  Simply
-> "be2net: ", the name of this driver, is sufficient.
-Will fix.
-
-I've been in the habit of labelling the patches which go through the
-LLVMLinux project like this so they are trivially identifiable in the
-subject on lkml for reviewers and in the git log as being patches which
-exist because of clang. If it's annoying I certainly don't need to do it.
-
-Behan
-
--- 
-Behan Webster
-behanw@converseincode.com
+Looks like I misread the logic of attaching a filter via perf ioctl.
+Looking at it again it seems to be a major change in design:
+Instead of adding into ftrace_raw_* helpers, I would add
+to perf_trace_* helpers which are very stack heavy
+because of 'pt_regs'
+Ex: perf_trace_kfree_skb() is using 224 bytes of stack
+whereas ftrace_raw_event_kfree_skb() only 80.
+which doesn't help in my quest for lowest overhead.
+And the discussion about soft- and auto- enable/disable
+becomes meaningless, since there is no such things
+when it goes through perf events.
+I guess it means no hooks through tracefs...
+Anyway, I'll hook it up and see which way is cleaner.
