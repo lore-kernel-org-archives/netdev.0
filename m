@@ -1,30 +1,25 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH net-next v8 0/4] net: Add Keystone NetCP ethernet driver support
-Date: Thu, 29 Jan 2015 23:00:59 +0100
-Message-ID: <15828198.gHAJTouZOU@wuerfel>
-References: <1421367007-19744-1-git-send-email-m-karicheri2@ti.com> <54C9654C.8030407@ti.com> <54CA6C20.5090301@ti.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH] rhashtable: Make selftest modular
+Date: Thu, 29 Jan 2015 22:14:39 +0000
+Message-ID: <20150129221439.GA12928@casper.infradead.org>
+References: <1422542425-20940-1-git-send-email-geert@linux-m68k.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: "Balbi, Felipe" <balbi@ti.com>, mugunthanvnm@ti.com,
-	David Miller <davem@davemloft.net>, devicetree@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Murali Karicheri <m-karicheri2@ti.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Geert Uytterhoeven <geert@linux-m68k.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <54CA6C20.5090301@ti.com>
+Content-Disposition: inline
+In-Reply-To: <1422542425-20940-1-git-send-email-geert@linux-m68k.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thursday 29 January 2015 12:21:36 Murali Karicheri wrote:
+On 01/29/15 at 03:40pm, Geert Uytterhoeven wrote:
+> Allow the selftest on the resizable hash table to be built modular, just
+> like all other tests that do not depend on DEBUG_KERNEL.
 > 
-> I think the solution is to make the cpsw_ale as a module and configured 
-> through a Kconfig option. I am working on a fix for this now.
-> 
-> Similar fix is required for cpts.o. Currently we are not using this 
-> module for Netcp, but soon this will be re-used. I have send a patch 
-> that is already applied to net-next removing cpts.o for Netcp.
-> 
+> Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
 
-Great, thanks a lot for the follow-up.
+LGTM
 
-	Arnd
+Acked-by: Thomas Graf <tgraf@suug.ch>
