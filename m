@@ -1,71 +1,101 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [ath9k-devel] [PATCH] Repair soft lockup with monitor mode of ath9k_htc card
-Date: Thu, 29 Jan 2015 13:01:19 +0200
-Message-ID: <874mr93l6o.fsf@kamboji.qca.qualcomm.com>
-References: <1422504583-17839-1-git-send-email-zhengyuwei@360.cn>
-	<54CA10DB.3070903@rempel-privat.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: zhengyuwei@360.cn, linux-kernel@vger.kernel.org,
-	ath9k-devel@venema.h4ckr.net, linux-wireless@vger.kernel.org,
-	ath9k-devel@qca.qualcomm.com, netdev@vger.kernel.org
-To: Oleksij Rempel <linux@rempel-privat.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <54CA10DB.3070903@rempel-privat.de> (Oleksij Rempel's message of
-	"Thu, 29 Jan 2015 11:52:11 +0100")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH net-next] net: mark some potential candidates __read_mostly
+Date: Thu, 29 Jan 2015 12:15:03 +0100
+Message-ID: <1422530103-23869-1-git-send-email-dborkman@redhat.com>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:56215 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755460AbbA2LPJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Jan 2015 06:15:09 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Oleksij Rempel <linux@rempel-privat.de> writes:
+They are all either written once or extremly rarely (e.g. from init
+code), so we can move them to the .data..read_mostly section.
 
-> Am 29.01.2015 um 05:09 schrieb zhengyuwei@360.cn:
->> From: Yuwei Zheng <zhengyuwei@360.cn>
->> 
->> In the environment with heavy wifi traffic, set the ar9271 into monitor mode, will
->> trigger a deadloop panic. 
->> 
->> The ath9k_hif_usb_rx_cb function excute on  the interrupt context, and ath9k_rx_tasklet excute
->> on the soft irq context. In other words, the ath9k_hif_usb_rx_cb have more chance to excute than
->> ath9k_rx_tasklet.  So in the worst condition,  the rx.rxbuf receive list is always full,
->> and the do {}while(true) loop will not be break. The kernel get a soft lockup panic.  
->>   
->> [59011.007210] BUG: soft lockup - CPU#0 stuck for 23s! 
->> [kworker/0:0:30609]
->> [59011.030560] BUG: scheduling while atomic: kworker/0:0/30609/0x40010100
->> [59013.804486] BUG: scheduling while atomic: kworker/0:0/30609/0x40010100
->> [59013.858522] Kernel panic - not syncing: softlockup: hung tasks
->> 
->> [59014.038891] Exception stack(0xdf4bbc38 to 0xdf4bbc80)
->> [59014.046834] bc20:                                                       de57b950 60000113
->> [59014.059579] bc40: 00000000 bb32bb32 60000113 de57b948 de57b500 dc7bb440 df4bbcd0 00000000
->> [59014.072337] bc60: de57b950 60000113 df4bbcd0 df4bbc80 c04c259d c04c25a0 60000133 ffffffff
->> [59014.085233] [<c04c28db>] (__irq_svc+0x3b/0x5c) from [<c04c25a0>] (_raw_spin_unlock_irqrestore+0xc/0x10)
->> [59014.100437] [<c04c25a0>] (_raw_spin_unlock_irqrestore+0xc/0x10) from [<bf9c2089>] (ath9k_rx_tasklet+0x290/0x490 [ath9k_htc])
->> [59014.118267] [<bf9c2089>] (ath9k_rx_tasklet+0x290/0x490 [ath9k_htc]) from [<c0036d23>] (tasklet_action+0x3b/0x98)
->> [59014.134132] [<c0036d23>] (tasklet_action+0x3b/0x98) from [<c0036709>] (__do_softirq+0x99/0x16c)
->> [59014.147784] [<c0036709>] (__do_softirq+0x99/0x16c) from [<c00369f7>] (irq_exit+0x5b/0x5c)
->> [59014.160653] [<c00369f7>] (irq_exit+0x5b/0x5c) from [<c000cfc3>] (handle_IRQ+0x37/0x78)
->> [59014.173124] [<c000cfc3>] (handle_IRQ+0x37/0x78) from [<c00085df>] (omap3_intc_handle_irq+0x5f/0x68)
->> [59014.187225] [<c00085df>] (omap3_intc_handle_irq+0x5f/0x68) from [<c04c28db>](__irq_svc+0x3b/0x5c)
->> 
->> This bug can be see with low performance board, such as uniprocessor beagle bone board.
->> Signed-off-by: Yuwei Zheng <zhengyuwei@360.cn>
->> 
->> ---
->>  drivers/net/wireless/ath/ath9k/hif_usb.c       | 53 ++++++++++++++++++++++----
->>  drivers/net/wireless/ath/ath9k/hif_usb.h       |  5 +++
->>  drivers/net/wireless/ath/ath9k/htc.h           | 13 +++++++
->>  drivers/net/wireless/ath/ath9k/htc_drv_debug.c | 49 ++++++++++++++++++++++++
->>  drivers/net/wireless/ath/ath9k/htc_drv_txrx.c  | 26 +++++++++++++
->>  5 files changed, 139 insertions(+), 7 deletions(-)
->
-> First of all, thank you for you work! :D
->
-> Please run ./scripts/checkpatch.pl yourpatch_path
-> i get:
-> total: 139 errors, 12 warnings, 2 checks, 231 lines checked
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+---
+ drivers/net/ipvlan/ipvlan_core.c | 2 +-
+ net/bridge/br_netlink.c          | 2 +-
+ net/ipv4/devinet.c               | 2 +-
+ net/ipv6/addrconf.c              | 2 +-
+ net/mpls/mpls_gso.c              | 4 ++--
+ 5 files changed, 6 insertions(+), 6 deletions(-)
 
-Also please add "ath9k_htc:" prefix to the title.
-
+diff --git a/drivers/net/ipvlan/ipvlan_core.c b/drivers/net/ipvlan/ipvlan_core.c
+index 2e19528..2a17500 100644
+--- a/drivers/net/ipvlan/ipvlan_core.c
++++ b/drivers/net/ipvlan/ipvlan_core.c
+@@ -9,7 +9,7 @@
+ 
+ #include "ipvlan.h"
+ 
+-static u32 ipvlan_jhash_secret;
++static u32 ipvlan_jhash_secret __read_mostly;
+ 
+ void ipvlan_init_secret(void)
+ {
+diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
+index 3875ea5..e08b260 100644
+--- a/net/bridge/br_netlink.c
++++ b/net/bridge/br_netlink.c
+@@ -701,7 +701,7 @@ static size_t br_get_link_af_size(const struct net_device *dev)
+ 	return pv->num_vlans * nla_total_size(sizeof(struct bridge_vlan_info));
+ }
+ 
+-static struct rtnl_af_ops br_af_ops = {
++static struct rtnl_af_ops br_af_ops __read_mostly = {
+ 	.family			= AF_BRIDGE,
+ 	.get_link_af_size	= br_get_link_af_size,
+ };
+diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+index 59ebe16..f0b4a31 100644
+--- a/net/ipv4/devinet.c
++++ b/net/ipv4/devinet.c
+@@ -2322,7 +2322,7 @@ static __net_initdata struct pernet_operations devinet_ops = {
+ 	.exit = devinet_exit_net,
+ };
+ 
+-static struct rtnl_af_ops inet_af_ops = {
++static struct rtnl_af_ops inet_af_ops __read_mostly = {
+ 	.family		  = AF_INET,
+ 	.fill_link_af	  = inet_fill_link_af,
+ 	.get_link_af_size = inet_get_link_af_size,
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 7dcc065e..8623118 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -5405,7 +5405,7 @@ static struct pernet_operations addrconf_ops = {
+ 	.exit = addrconf_exit_net,
+ };
+ 
+-static struct rtnl_af_ops inet6_ops = {
++static struct rtnl_af_ops inet6_ops __read_mostly = {
+ 	.family		  = AF_INET6,
+ 	.fill_link_af	  = inet6_fill_link_af,
+ 	.get_link_af_size = inet6_get_link_af_size,
+diff --git a/net/mpls/mpls_gso.c b/net/mpls/mpls_gso.c
+index 349295d..809df53 100644
+--- a/net/mpls/mpls_gso.c
++++ b/net/mpls/mpls_gso.c
+@@ -60,14 +60,14 @@ out:
+ 	return segs;
+ }
+ 
+-static struct packet_offload mpls_mc_offload = {
++static struct packet_offload mpls_mc_offload __read_mostly = {
+ 	.type = cpu_to_be16(ETH_P_MPLS_MC),
+ 	.callbacks = {
+ 		.gso_segment    =	mpls_gso_segment,
+ 	},
+ };
+ 
+-static struct packet_offload mpls_uc_offload = {
++static struct packet_offload mpls_uc_offload __read_mostly = {
+ 	.type = cpu_to_be16(ETH_P_MPLS_UC),
+ 	.callbacks = {
+ 		.gso_segment    =	mpls_gso_segment,
 -- 
-Kalle Valo
+1.7.11.7
