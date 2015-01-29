@@ -1,31 +1,50 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] sunvnet: set queue mapping when doing packet copies
-Date: Thu, 29 Jan 2015 10:19:51 -0800
-Message-ID: <1422555591.21689.21.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <54C90AED.7040404@oracle.com> <54CA63E6.3020603@oracle.com>
-	 <1422555146.21689.19.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Behan Webster <behanw@converseincode.com>
+Subject: Re: [PATCH] net, ethernet, LLVMLinux: Add missing MODULE_DEVICE_TABLE()
+Date: Thu, 29 Jan 2015 10:21:01 -0800
+Message-ID: <54CA7A0D.8000104@converseincode.com>
+References: <1422495374-22835-1-git-send-email-behanw@converseincode.com> <20150128.224228.1533046356464752424.davem@davemloft.net> <3392784.h8cmHX9fyr@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Sowmini Varadhan <sowmini.varadhan@oracle.com>
-To: David L Stevens <david.stevens@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f176.google.com ([209.85.223.176]:52571 "EHLO
-	mail-ie0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751943AbbA2STw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jan 2015 13:19:52 -0500
-Received: by mail-ie0-f176.google.com with SMTP id rd18so36825965iec.7
-        for <netdev@vger.kernel.org>; Thu, 29 Jan 2015 10:19:52 -0800 (PST)
-In-Reply-To: <1422555146.21689.19.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: sathya.perla@emulex.com, ajit.khaparde@emulex.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	subbu.seetharaman@emulex.com
+To: Arnd Bergmann <arnd@arndb.de>, David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <3392784.h8cmHX9fyr@wuerfel>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2015-01-29 at 10:12 -0800, Eric Dumazet wrote:
+On 01/29/15 01:10, Arnd Bergmann wrote:
+> On Wednesday 28 January 2015 22:42:28 David Miller wrote:
+>> From: Behan Webster <behanw@converseincode.com>
+>> Date: Wed, 28 Jan 2015 17:36:14 -0800
+>>
+>>> Missing MODULE_DEVICE_TABLE for pci ids from benet driver found by clang.
+>>>
+>>> Signed-off-by: Behan Webster <behanw@converseincode.com>
+>>> Suggested-by: Arnd Bergmann <arnd@arndb.de>
+>> Why are you removing the device table?
+> Behan took a patch that I did earlier and split it up to add descriptions.
+> The patch is correct, but he either misunderstood or misexpressed the
+> intention.
+I was tired and rushed this submission in my preparation for FOSDEM.
+Apologies to all.
 
-> swap(nskb->sk, skb->sk);
-> swap(nskb->truesize, skb->truesize);
+I neglected to write the commit log when I first split the patch, and
+didn't look hard enough this time.
 
-and swap(nskb->destructor, skb->destructor);
+> This driver has two identical lines that both say 
+>
+> MODULE_DEVICE_TABLE(pci, be_dev_ids);
+This is indeed the case.
 
-(check skb_segment() for a similar path)
+> I don't remember the exact symptom, but llvm/clang trips over this, while gcc
+> silently ignores the second one.
+It claims that it is defined more than once.
+
+Behan
+
+-- 
+Behan Webster
+behanw@converseincode.com
