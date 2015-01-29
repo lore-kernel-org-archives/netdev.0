@@ -1,78 +1,86 @@
-From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH v2 linux-trace 4/8] samples: bpf: simple tracing example
- in C
-Date: Wed, 28 Jan 2015 20:19:45 -0800
-Message-ID: <CAMEtUuzW2xGGy6xGE_5EcKTEk-US1_o02qFbokxB2h9rU+TZfg@mail.gmail.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH v2 linux-trace 1/8] tracing: attach eBPF programs to
+ tracepoints and syscalls
+Date: Wed, 28 Jan 2015 20:40:11 -0800
+Message-ID: <CAMEtUuz+N52ms4ZFh8+fSGhg1UaXpBdk9RVPU_zBDCjaZ4bj4A@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
-	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Namhyung Kim <namhyung-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Jiri Olsa <jolsa-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Masami Hiramatsu <masami.hiramatsu.pt-FCd8Q96Dh0JBDgjK7y7TUQ@public.gmane.org>,
-	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Arnaldo Carvalho de Melo <acme-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Steven Rostedt <rostedt@goodmis.org>,
+	Ingo Molnar <mingo@kernel.org>,
+	Arnaldo Carvalho de Melo <acme@infradead.org>,
+	Jiri Olsa <jolsa@redhat.com>,
+	Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>,
+	Linux API <linux-api@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Namhyung Kim <namhyung@kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qg0-f43.google.com ([209.85.192.43]:45185 "EHLO
+	mail-qg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752721AbbA2Ekc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jan 2015 23:40:32 -0500
+Received: by mail-qg0-f43.google.com with SMTP id e89so23706822qgf.2
+        for <netdev@vger.kernel.org>; Wed, 28 Jan 2015 20:40:31 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 28, 2015 at 12:44 PM, Arnaldo Carvalho de Melo
-<acme-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org> wrote:
+On Wed, Jan 28, 2015 at 4:46 PM, Namhyung Kim <namhyung@kernel.org> wrote:
+>>
+>> +static int event_filter_release(struct inode *inode, struct file *filp)
+>> +{
+>> +     struct ftrace_event_file *file;
+>> +     char buf[2] = "0";
+>> +
+>> +     mutex_lock(&event_mutex);
+>> +     file = event_file_data(filp);
+>> +     if (file) {
+>> +             if (file->flags & TRACE_EVENT_FL_BPF) {
+>> +                     /* auto-disable the filter */
+>> +                     ftrace_event_enable_disable(file, 0);
 >
->> > #define memcmp(s1, s2, n) bpf_memcmp(s1, s2, n)
+> Hmm.. what if user already enabled an event, attached a bpf filter and
+> then detached the filter - I'm not sure we can always auto-disable
+> it..
+
+why not?
+I think it makes sense auto enable/disable, since that
+is cleaner user experience.
+Otherwise Ctrl-C of the user process will have bpf program dangling.
+not good. If we auto-unload bpf program only, it's equally bad.
+Since Ctrl-C of the process will auto-onload only
+and will keep tracepoint enabled which will be spamming
+the trace buffer.
+
+>> +unsigned int trace_filter_call_bpf(struct event_filter *filter, void *ctx)
+>> +{
+>> +     unsigned int ret;
+>> +
+>> +     if (in_nmi()) /* not supported yet */
+>> +             return 0;
 >
->> >> in bpf_helpers.h to have it work?
->
->> yes, that will work just fine.
->> Since it's an example I made it explicit that bpf_memcmp()
->> has memcmp() semantics, but little bit different:
->> int bpf_memcmp(void *unsafe_ptr, void *safe_ptr, int size)
->
-> Not knowing about the safe/unsafe pointers (at this point in my
-> conceptual eBPF learning process), I would think that it would be easier
-> to understand if it would reuse another well known idiom:
->
-> #define memcmp_from_user(kernel, user, n) bpf_memcmp(user, kernel, n)
+> But doesn't this mean to auto-disable all attached events during NMI
+> as returning 0 will prevent the event going to ring buffer?
 
-that actually won't be right. It's not reading from user.
-'unsafe' means that pointer is not known to be safe
-within the program. So far, bpf verifier recognizes pointer
-to context, stack and maps. Everything else is unsafe.
-Therefore all pointer walking of unknown data structures
-need to use bpf_fetch_*() helpers to access memory.
-Similarly bpf_memcmp() is used to do memcmp() of
-two memory regions: one known to be safe and one
-unknown.
+well, it means that if tracepoint fired during nmi the program
+won't be called and event won't be sent to trace buffer.
+The program might be broken (like divide by zero) and
+it will self-terminate with 'return 0'
+so zero should be the safest return value that
+causes minimum disturbance to the whole system overall.
 
- > I don't reuse anything I've learned before trying to understand eBPF,
-> not I see any well known marker (__user) that would help me understand
-> that that pointer needs special treatment/belongs to a different "domain".
+> I think it'd be better to keep an attached event in a soft-disabled
+> state like event trigger and give control of enabling to users..
 
-I tried to do exactly that actually :)
-bpf_fetch_*() helpers suppose to match existing fetch*()
-primitives used to do the same pointer walking for kprobes.
-Maybe bpf_probe_memcmp() would be a better name?
-Hard to tell.
-
->> bpf_fetch_*() helpers are also explicit in examples.
->> If one need to do a lot of pointer walking, then macro like
->> #define D(P) ((typeof(P))bpf_fetch_ptr(&P))
->> would be easier to use: p = D(D(skb->dev)->ifalias)
->> multiple pointer derefs would look more natural...
->
-> And if possible, i.e. if the eBPF compiler would take care of that
-> somehow, would indeed be preferred as it looks more natural :-)
-
-yes, on the user space side we have all the freedom.
-Note, these examples are using user's bpf_helpers.h
-which defines it as:
-static int (*bpf_memcmp)(void *unsafe_ptr, void *safe_ptr, int size) =
-        (void *) BPF_FUNC_memcmp;
-
-so whether we want to call the function bpf_memcmp() or
-bpf_probe_memcmp() is up to user space.
-The BPF_FUNC_memcmp name is what matters which
-is defined in uapi/linux/bpf.h
-I'll try to come up with more explicit name...
+I think it suffers from the same Ctrl-C issue.
+Say, attaching bpf program activates tracepoint and keeps
+it in soft-disabled. Then user space clears soft-disabled.
+Then user Ctrl-C it. Now bpf program must auto-detach
+and unload, since prog_fd is closing.
+If we don't completely deactivate tracepoint, then
+Ctrl-C will leave the state of the system in the state
+different from it was before user process started running.
+I think we must avoid such situation.
+'kill pid' should be completely cleaning all resources
+that user process was using.
+Yes. It's different from typical usage of /sys/.../tracing
+that has all global knobs, but, imo, it's cleaner this way.
