@@ -1,66 +1,100 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCHv3, ipsec-next] xfrm: Do not parse 32bits compiled xfrm
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCHv3, ipsec-next] xfrm: Do not parse 32bits compiled xfrm
  netlink msg on 64bits host
-Date: Thu, 29 Jan 2015 13:56:50 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CAD56B0@AcuExch.aculab.com>
-References: <1422349230-17394-1-git-send-email-fan.du@intel.com>
- <54CA0B9F.8080104@6wind.com>
+Date: Thu, 29 Jan 2015 15:14:46 +0100
+Message-ID: <54CA4056.6030301@6wind.com>
+References: <1422349230-17394-1-git-send-email-fan.du@intel.com> <54CA0B9F.8080104@6wind.com> <063D6719AE5E284EB5DD2968C1650D6D1CAD56B0@AcuExch.aculab.com>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: "herbert@gondor.apana.org.au" <herbert@gondor.apana.org.au>,
 	"davem@davemloft.net" <davem@davemloft.net>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"fengyuleidian0615@gmail.com" <fengyuleidian0615@gmail.com>
-To: "'nicolas.dichtel@6wind.com'" <nicolas.dichtel@6wind.com>,
-	Fan Du <fan.du@intel.com>,
+To: David Laight <David.Laight@ACULAB.COM>, Fan Du <fan.du@intel.com>,
 	"steffen.klassert@secunet.com" <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out4.electric.net ([192.162.216.181]:56384 "EHLO
-	smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752478AbbA2N5L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jan 2015 08:57:11 -0500
-In-Reply-To: <54CA0B9F.8080104@6wind.com>
-Content-Language: en-US
+Received: from mail-wi0-f171.google.com ([209.85.212.171]:33391 "EHLO
+	mail-wi0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753835AbbA2OOt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jan 2015 09:14:49 -0500
+Received: by mail-wi0-f171.google.com with SMTP id l15so26789729wiw.4
+        for <netdev@vger.kernel.org>; Thu, 29 Jan 2015 06:14:48 -0800 (PST)
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CAD56B0@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogTmljb2xhcyBEaWNodGVsDQo+IExlIDI3LzAxLzIwMTUgMTA6MDAsIEZhbiBEdSBhIGNy
-aXQgOg0KPiA+IHN0cnVjdHVyZSBsaWtlIHhmcm1fdXNlcnNhX2luZm8gb3IgeGZybV91c2VycG9s
-aWN5X2luZm8NCj4gPiBoYXMgZGlmZmVyZW50IHNpemVvZiB3aGVuIGNvbXBpbGVkIGFzIDMyYml0
-cyBhbmQgNjRiaXRzDQo+ID4gZHVlIHRvIG5vdCBhcHBlbmRpbmcgcGFjayBhdHRyaWJ1dGUgaW4g
-dGhlaXIgZGVmaW5pdGlvbi4NCj4gPiBUaGlzIHdpbGwgcmVzdWx0IGluIGJyb2tlbiBTQSBhbmQg
-U1AgaW5mb3JtYXRpb24gd2hlbiB1c2VyDQo+ID4gdHJ5aW5nIHRvIGNvbmZpZ3VyZSB0aGVtIHRo
-cm91Z2ggbmV0bGluayBpbnRlcmZhY2UuDQo+ID4NCj4gPiBJbmZvcm0gdXNlciBsYW5kIGFib3V0
-IHRoaXMgc2l0dWF0aW9uIGluc3RlYWQgb2Yga2VlcGluZw0KPiA+IHNpbGVudCwgdGhlIHVwcGVy
-IHRlc3Qgc2NyaXB0cyB3b3VsZCBiZWhhdmUgYWNjb3JkaW5nbHkuDQo+ID4NCj4gPiBRdW90ZXMg
-ZnJvbTogaHR0cDovL21hcmMuaW5mby8/bD1saW51eC1uZXRkZXYmbT0xNDIyMjYzNDg3MTU1MDMm
-dz0yDQo+ID4+DQo+ID4+IEJlZm9yZSBhIGNsZWFuIHNvbHV0aW9uIHNob3cgdXAsIEkgdGhpbmsg
-aXQncyBiZXR0ZXIgdG8gd2FybiB1c2VyIGluIHNvbWUgd2F5DQo+ID4+IGxpa2UgaHR0cDovL3Bh
-dGNod29yay5vemxhYnMub3JnL3BhdGNoLzMyMzg0Mi8gZGlkLiBPdGhlcndpc2UsIG1hbnkgcGVv
-cGxlDQo+ID4+IHdobyBzdHVjayB0aGVyZSB3aWxsIGFsd2F5cyBzcGVuZCB0aW1lIGFuZCB0cnkg
-dG8gZml4IHRoaXMgaXNzdWUgaW4gd2hhdGV2ZXIgd2F5Lg0KPiA+DQo+ID4gWWVzLCB0aGlzIGlz
-IHRoZSBmaXJzdCB0aGluZyB3ZSBzaG91bGQgZG8uIEknbSB3aWxsaW5nIHRvIGFjY2VwdCBhIHBh
-dGNoDQo+ID4NCj4gPiBTaWduZWQtb2ZmLWJ5OiBGYW4gRHUgPGZhbi5kdUBpbnRlbC5jb20+DQo+
-IEEgd2F5IHRvIHNvbHZlIHRoaXMgcHJvYmxlbSB3YXMgdG8gcHJvdmlkZSB0byB1c2VybGFuZCBh
-IHhmcm0gY29tcGF0IGhlYWRlcg0KPiBmaWxlLCB3aGljaCBtYXRjaCB0aGUgQUJJIG9mIHRoZSBr
-ZXJuZWwuIFNvbWV0aGluZyBsaWtlOg0KPiANCj4gI2luY2x1ZGUgPGxpbnV4L3hmcm0uaD4NCj4g
-DQo+ICNkZWZpbmUgeGZybV91c2Vyc2FfaW5mbyB4ZnJtX3VzZXJzYV9pbmZvXzY0DQo+ICNkZWZp
-bmUgeGZybV91c2Vyc2FfaW5mb19jb21wYXQgeGZybV91c2Vyc2FfaW5mbw0KPiBzdHJ1Y3QgeGZy
-bV91c2Vyc2FfaW5mb19jb21wYXQgew0KPiAJc3RydWN0IHhmcm1fc2VsZWN0b3IJCXNlbDsNCj4g
-CXN0cnVjdCB4ZnJtX2lkCQkJaWQ7DQo+IAl4ZnJtX2FkZHJlc3NfdAkJCXNhZGRyOw0KPiAJc3Ry
-dWN0IHhmcm1fbGlmZXRpbWVfY2ZnCWxmdDsNCj4gCXN0cnVjdCB4ZnJtX2xpZmV0aW1lX2N1cglj
-dXJsZnQ7DQo+IAlzdHJ1Y3QgeGZybV9zdGF0cwkJc3RhdHM7DQo+IAlfX3UzMgkJCQlzZXE7DQo+
-IAlfX3UzMgkJCQlyZXFpZDsNCj4gCV9fdTE2CQkJCWZhbWlseTsNCj4gCV9fdTgJCQkJbW9kZTsN
-Cj4gCV9fdTgJCQkJcmVwbGF5X3dpbmRvdzsNCj4gCV9fdTgJCQkJZmxhZ3M7DQo+IAlfX3U4CQkJ
-CWhvbGUxOw0KPiAJX191MzIJCQkJaG9sZTI7DQo+IH07DQo+IA0KPiBUaGUgcG9pbnQgSSB0cnkg
-dG8gbWFrZSBpcyB0aGF0IHBhdGNoaW5nIHVzZXJsYW5kIGFwcHMgYWxsb3dzIHRvIHVzZSB4ZnJt
-IG9uIGENCj4gMzJiaXRzIHVzZXJsYW5kIC8gNjRiaXRzIGtlcm5lbC4NCj4gDQo+IElmIEkgdW5k
-ZXJzdGFuZCB3ZWxsIHlvdXIgcGF0Y2gsIGl0IHdpbGwgbm90IGJlIHBvc3NpYmxlIGFueW1vcmUs
-IGFsbCBtZXNzYWdlcw0KPiB3aWxsIGJlIHJlamVjdGVkLiBBbmQgdGhpcyBtYXkgYnJlYWsgZXhp
-c3RpbmcgYXBwcy4NCg0KUHJvYmFibHkgT1RUIGluIHRoaXMgY2FzZS4NCklJUkMgdGhlIG9ubHkg
-YWN0dWFsIGRpZmZlcmVuY2UgaWYgdGhlICdlbmQgcGFkZGluZycuDQpTbyB0aGUgd3JhcHBlciBu
-ZWVkIG9ubHkgZW5zdXJlIHRoZSBjb3B5aW4vb3V0IGlzbid0IHRvbyBsb25nLg0KUHJvYmFibHkg
-d29ydGggY29tcGlsZS10aW1lIGNoZWNrcyBmb3IgdGhlIHNpemUuDQpJZiB0aGUgc3RydWN0dXJl
-IGlzIGJlaW5nIGNvcGllZCB0byB1c2VyIHRoZW4gemVybyB2YWx1ZXMgbmVlZCBhc3NpZ25pbmcN
-CnRvIHRoZSBwYWQgZmllbGRzICh1bmxlc3MgcmVhZCBmcm9tIHVzZXIpLg0KDQoJRGF2aWQNCg0K
+Le 29/01/2015 14:56, David Laight a =C3=A9crit :
+> From: Nicolas Dichtel
+>> Le 27/01/2015 10:00, Fan Du a crit :
+>>> structure like xfrm_usersa_info or xfrm_userpolicy_info
+>>> has different sizeof when compiled as 32bits and 64bits
+>>> due to not appending pack attribute in their definition.
+>>> This will result in broken SA and SP information when user
+>>> trying to configure them through netlink interface.
+>>>
+>>> Inform user land about this situation instead of keeping
+>>> silent, the upper test scripts would behave accordingly.
+>>>
+>>> Quotes from: http://marc.info/?l=3Dlinux-netdev&m=3D142226348715503=
+&w=3D2
+>>>>
+>>>> Before a clean solution show up, I think it's better to warn user =
+in some way
+>>>> like http://patchwork.ozlabs.org/patch/323842/ did. Otherwise, man=
+y people
+>>>> who stuck there will always spend time and try to fix this issue i=
+n whatever way.
+>>>
+>>> Yes, this is the first thing we should do. I'm willing to accept a =
+patch
+>>>
+>>> Signed-off-by: Fan Du <fan.du@intel.com>
+>> A way to solve this problem was to provide to userland a xfrm compat=
+ header
+>> file, which match the ABI of the kernel. Something like:
+>>
+>> #include <linux/xfrm.h>
+>>
+>> #define xfrm_usersa_info xfrm_usersa_info_64
+>> #define xfrm_usersa_info_compat xfrm_usersa_info
+>> struct xfrm_usersa_info_compat {
+>> 	struct xfrm_selector		sel;
+>> 	struct xfrm_id			id;
+>> 	xfrm_address_t			saddr;
+>> 	struct xfrm_lifetime_cfg	lft;
+>> 	struct xfrm_lifetime_cur	curlft;
+>> 	struct xfrm_stats		stats;
+>> 	__u32				seq;
+>> 	__u32				reqid;
+>> 	__u16				family;
+>> 	__u8				mode;
+>> 	__u8				replay_window;
+>> 	__u8				flags;
+>> 	__u8				hole1;
+>> 	__u32				hole2;
+>> };
+>>
+>> The point I try to make is that patching userland apps allows to use=
+ xfrm on a
+>> 32bits userland / 64bits kernel.
+>>
+>> If I understand well your patch, it will not be possible anymore, al=
+l messages
+>> will be rejected. And this may break existing apps.
+>
+> Probably OTT in this case.
+> IIRC the only actual difference if the 'end padding'.
+> So the wrapper need only ensure the copyin/out isn't too long.
+It was just an example for one struct. Some other structures need to be
+patched (eg struct xfrm_userspi_info uses struct xfrm_usersa_info).
+And some attributes may follow this structure which will be padded to
+be aligned.
+The point was more to show that the existing interface can be used (and=
+ cannot
+be used after the patch).
+
+Regards,
+Nicolas
