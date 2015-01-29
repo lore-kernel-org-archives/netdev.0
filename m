@@ -1,40 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2] rtnetlink: pass link_net to the newlink
- handler
-Date: Thu, 29 Jan 2015 14:23:46 -0800 (PST)
-Message-ID: <20150129.142346.2067967163788035274.davem@davemloft.net>
-References: <54C61ED1.5040501@6wind.com>
-	<1422353588-4830-1-git-send-email-nicolas.dichtel@6wind.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH 1/2] rhashtable: Introduce rhashtable_walk_*
+Date: Thu, 29 Jan 2015 22:26:31 +0000
+Message-ID: <20150129222631.GB12928@casper.infradead.org>
+References: <20150127231950.GA11374@gondor.apana.org.au>
+ <E1YGFRA-0002yN-I0@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: nicolas.dichtel@6wind.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Ying Xue <ying.xue@windriver.com>, davem@davemloft.net,
+	kaber@trash.net, paulmck@linux.vnet.ibm.com,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42707 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751265AbbA2WXq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jan 2015 17:23:46 -0500
-In-Reply-To: <1422353588-4830-1-git-send-email-nicolas.dichtel@6wind.com>
+Received: from casper.infradead.org ([85.118.1.10]:57891 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751224AbbA2W0h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jan 2015 17:26:37 -0500
+Content-Disposition: inline
+In-Reply-To: <E1YGFRA-0002yN-I0@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Date: Tue, 27 Jan 2015 11:13:08 +0100
+On 01/28/15 at 10:20am, Herbert Xu wrote:
+> Some existing rhashtable users get too intimate with it by walking
+> the buckets directly.  This prevents us from easily changing the
+> internals of rhashtable.
+> 
+> This patch adds the helpers rhashtable_walk_init/next/end which
+> will replace these custom walkers.
+> 
+> They are meant to be usable for both procfs seq_file walks as well
+> as walking by a netlink dump.  The iterator structure should fit
+> inside a netlink dump cb structure, with at least one element to
+> spare.
+>   
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-> When IFLA_LINK_NETNSID is used, the netdevice should be built in this link netns
-> and moved at the end to another netns (pointed by the socket netns or
-> IFLA_NET_NS_[PID|FD]).
-> 
-> Existing user of the newlink handler will use the netns argument (src_net) to
-> find a link netdevice or to check some other information into the link netns.
-> For example, to find a netdevice, two information are required: an ifindex
-> (usually from IFLA_LINK) and a netns (this link netns).
-> 
-> Note: when using IFLA_LINK_NETNSID and IFLA_NET_NS_[PID|FD], a user may create a
-> netdevice that stands in netnsX and with its link part in netnsY, by sending a
-> rtnl message from netnsZ.
-> 
-> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-
-Applied, thanks.
+Acked-by: Thomas Graf <tgraf@suug.ch>
