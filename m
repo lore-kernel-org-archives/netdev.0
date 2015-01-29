@@ -1,73 +1,93 @@
-From: Murali Karicheri <m-karicheri2@ti.com>
-Subject: Re: [PATCH net-next v8 0/4] net: Add Keystone NetCP ethernet driver
- support
-Date: Wed, 28 Jan 2015 11:49:44 -0500
-Message-ID: <54C91328.6030208@ti.com>
-References: <1421367007-19744-1-git-send-email-m-karicheri2@ti.com> <20150119.151106.822126941934010309.davem@davemloft.net> <54BE7A00.2020205@ti.com> <25883654.BLFxICW9P0@wuerfel>
+From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH net-next] openvswitch: Add support for checksums
+	on UDP tunnels.
+Date: Wed, 28 Jan 2015 16:32:46 -0800
+Message-ID: <1422491566-80453-1-git-send-email-jesse@nicira.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, <devicetree@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <25883654.BLFxICW9P0@wuerfel>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Pravin Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-On 01/27/2015 05:28 PM, Arnd Bergmann wrote:
-> On Tuesday 20 January 2015 10:53:36 Murali Karicheri wrote:
->> On 01/19/2015 03:11 PM, David Miller wrote:
->>> From: Murali Karicheri<m-karicheri2@ti.com>
->>> Date: Thu, 15 Jan 2015 19:10:03 -0500
->>>
->>>> The Network Coprocessor (NetCP) is a hardware accelerator that processes
->>>> Ethernet packets. NetCP has a gigabit Ethernet (GbE) subsystem with a ethernet
->>>> switch sub-module to send and receive packets. NetCP also includes a packet
->>>> accelerator (PA) module to perform packet classification operations such as
->>>> header matching, and packet modification operations such as checksum
->>>> generation. NetCP can also optionally include a Security Accelerator(SA)
->>>> capable of performing IPSec operations on ingress/egress packets.
->>>>
->>>> Keystone SoC's also have a 10 Gigabit Ethernet Subsystem (XGbE) which
->>>> includes a 3-port Ethernet switch sub-module capable of 10Gb/s and
->>>> 1Gb/s rates per Ethernet port.
->>>>
->>>> Both GBE and XGBE network processors supported using common driver. It
->>>> is also designed to handle future variants of NetCP.
->>>
->>> Series applied to net-next, thanks.
->> David,
->>
->> Thanks a lot for applying this series. This helps us move forward to
->> work on the next set of patches.
->
-> Hi Murali,
->
-> Building an ARM 'allmodconfig' kernel now runs into two separate problems
-> from your driver:
->
-> - you have two module_init() instances in one module, which conflict.
->
-> - you have two files that are linked into more than one module, so building
->    both TI_CPSW and TI_KEYSTONE_NETCP in the same kernel fails.
->
-> The answer to both of these is probably to have separate loadable modules,
-> but you might be able to come up with a different solution.
-Arnd,
-
-Thanks for letting us know. We will look into this.
-
-How do I reproduce this? Is there a defconfig used for allmodconfig? I 
-am unable to find one. Any details to reproduce this will be useful.
-
-Thanks.
-
-Murali
->
-> 	Arnd
-
-
--- 
-Murali Karicheri
-Linux Kernel, Texas Instruments
+Q3VycmVudGx5LCBpdCBpc24ndCBwb3NzaWJsZSB0byByZXF1ZXN0IGNoZWNrc3VtcyBvbiB0aGUg
+b3V0ZXIgVURQCmhlYWRlciBvZiB0dW5uZWxzIC0gdGhlIFRVTk5FTF9DU1VNIGZsYWcgaXMgaWdu
+b3JlZC4gVGhpcyBhZGRzCnN1cHBvcnQgZm9yIHJlcXVlc3RpbmcgdGhhdCBVRFAgY2hlY2tzdW1z
+IGJlIGNvbXB1dGVkIG9uIHRyYW5zbWl0CmFuZCBwcm9wZXJseSByZXBvcnRlZCBpZiB0aGV5IGFy
+ZSBwcmVzZW50IG9uIHJlY2VpdmUuCgpTaWduZWQtb2ZmLWJ5OiBKZXNzZSBHcm9zcyA8amVzc2VA
+bmljaXJhLmNvbT4KLS0tCiBpbmNsdWRlL25ldC9nZW5ldmUuaCAgICAgICAgICAgfCAyICstCiBu
+ZXQvaXB2NC9nZW5ldmUuYyAgICAgICAgICAgICAgfCA2ICsrKy0tLQogbmV0L29wZW52c3dpdGNo
+L3Zwb3J0LWdlbmV2ZS5jIHwgMiArLQogbmV0L29wZW52c3dpdGNoL3Zwb3J0LXZ4bGFuLmMgIHwg
+NyArKysrKy0tCiA0IGZpbGVzIGNoYW5nZWQsIDEwIGluc2VydGlvbnMoKyksIDcgZGVsZXRpb25z
+KC0pCgpkaWZmIC0tZ2l0IGEvaW5jbHVkZS9uZXQvZ2VuZXZlLmggYi9pbmNsdWRlL25ldC9nZW5l
+dmUuaAppbmRleCAwM2FhMmFkLi4xNGZiOGQzIDEwMDY0NAotLS0gYS9pbmNsdWRlL25ldC9nZW5l
+dmUuaAorKysgYi9pbmNsdWRlL25ldC9nZW5ldmUuaApAQCAtOTAsNyArOTAsNyBAQCBpbnQgZ2Vu
+ZXZlX3htaXRfc2tiKHN0cnVjdCBnZW5ldmVfc29jayAqZ3MsIHN0cnVjdCBydGFibGUgKnJ0LAog
+CQkgICAgc3RydWN0IHNrX2J1ZmYgKnNrYiwgX19iZTMyIHNyYywgX19iZTMyIGRzdCwgX191OCB0
+b3MsCiAJCSAgICBfX3U4IHR0bCwgX19iZTE2IGRmLCBfX2JlMTYgc3JjX3BvcnQsIF9fYmUxNiBk
+c3RfcG9ydCwKIAkJICAgIF9fYmUxNiB0dW5fZmxhZ3MsIHU4IHZuaVszXSwgdTggb3B0X2xlbiwg
+dTggKm9wdCwKLQkJICAgIGJvb2wgeG5ldCk7CisJCSAgICBib29sIGNzdW0sIGJvb2wgeG5ldCk7
+CiAjZW5kaWYgLyppZmRlZiBDT05GSUdfSU5FVCAqLwogCiAjZW5kaWYgLyppZmRlZl9fTkVUX0dF
+TkVWRV9IICovCmRpZmYgLS1naXQgYS9uZXQvaXB2NC9nZW5ldmUuYyBiL25ldC9pcHY0L2dlbmV2
+ZS5jCmluZGV4IDkzZTUxMTkuLjVhNDgyOGIgMTAwNjQ0Ci0tLSBhL25ldC9pcHY0L2dlbmV2ZS5j
+CisrKyBiL25ldC9pcHY0L2dlbmV2ZS5jCkBAIC0xMDcsMTMgKzEwNywxMyBAQCBpbnQgZ2VuZXZl
+X3htaXRfc2tiKHN0cnVjdCBnZW5ldmVfc29jayAqZ3MsIHN0cnVjdCBydGFibGUgKnJ0LAogCQkg
+ICAgc3RydWN0IHNrX2J1ZmYgKnNrYiwgX19iZTMyIHNyYywgX19iZTMyIGRzdCwgX191OCB0b3Ms
+CiAJCSAgICBfX3U4IHR0bCwgX19iZTE2IGRmLCBfX2JlMTYgc3JjX3BvcnQsIF9fYmUxNiBkc3Rf
+cG9ydCwKIAkJICAgIF9fYmUxNiB0dW5fZmxhZ3MsIHU4IHZuaVszXSwgdTggb3B0X2xlbiwgdTgg
+Km9wdCwKLQkJICAgIGJvb2wgeG5ldCkKKwkJICAgIGJvb2wgY3N1bSwgYm9vbCB4bmV0KQogewog
+CXN0cnVjdCBnZW5ldmVoZHIgKmdudmg7CiAJaW50IG1pbl9oZWFkcm9vbTsKIAlpbnQgZXJyOwog
+Ci0Jc2tiID0gdWRwX3R1bm5lbF9oYW5kbGVfb2ZmbG9hZHMoc2tiLCAhZ3MtPnNvY2stPnNrLT5z
+a19ub19jaGVja190eCk7CisJc2tiID0gdWRwX3R1bm5lbF9oYW5kbGVfb2ZmbG9hZHMoc2tiLCBj
+c3VtKTsKIAlpZiAoSVNfRVJSKHNrYikpCiAJCXJldHVybiBQVFJfRVJSKHNrYik7CiAKQEAgLTEz
+OCw3ICsxMzgsNyBAQCBpbnQgZ2VuZXZlX3htaXRfc2tiKHN0cnVjdCBnZW5ldmVfc29jayAqZ3Ms
+IHN0cnVjdCBydGFibGUgKnJ0LAogCiAJcmV0dXJuIHVkcF90dW5uZWxfeG1pdF9za2IocnQsIHNr
+Yiwgc3JjLCBkc3QsCiAJCQkJICAgdG9zLCB0dGwsIGRmLCBzcmNfcG9ydCwgZHN0X3BvcnQsIHhu
+ZXQsCi0JCQkJICAgZ3MtPnNvY2stPnNrLT5za19ub19jaGVja190eCk7CisJCQkJICAgIWNzdW0p
+OwogfQogRVhQT1JUX1NZTUJPTF9HUEwoZ2VuZXZlX3htaXRfc2tiKTsKIApkaWZmIC0tZ2l0IGEv
+bmV0L29wZW52c3dpdGNoL3Zwb3J0LWdlbmV2ZS5jIGIvbmV0L29wZW52c3dpdGNoL3Zwb3J0LWdl
+bmV2ZS5jCmluZGV4IDdjYTNkNDUuLmJmMDJmZDUgMTAwNjQ0Ci0tLSBhL25ldC9vcGVudnN3aXRj
+aC92cG9ydC1nZW5ldmUuYworKysgYi9uZXQvb3BlbnZzd2l0Y2gvdnBvcnQtZ2VuZXZlLmMKQEAg
+LTIxMiw3ICsyMTIsNyBAQCBzdGF0aWMgaW50IGdlbmV2ZV90bmxfc2VuZChzdHJ1Y3QgdnBvcnQg
+KnZwb3J0LCBzdHJ1Y3Qgc2tfYnVmZiAqc2tiKQogCQkJICAgICAgdHVuX2tleS0+aXB2NF9kc3Qs
+IHR1bl9rZXktPmlwdjRfdG9zLAogCQkJICAgICAgdHVuX2tleS0+aXB2NF90dGwsIGRmLCBzcG9y
+dCwgZHBvcnQsCiAJCQkgICAgICB0dW5fa2V5LT50dW5fZmxhZ3MsIHZuaSwgb3B0c19sZW4sIG9w
+dHMsCi0JCQkgICAgICBmYWxzZSk7CisJCQkgICAgICAhISh0dW5fa2V5LT50dW5fZmxhZ3MgJiBU
+VU5ORUxfQ1NVTSksIGZhbHNlKTsKIAlpZiAoZXJyIDwgMCkKIAkJaXBfcnRfcHV0KHJ0KTsKIAly
+ZXR1cm4gZXJyOwpkaWZmIC0tZ2l0IGEvbmV0L29wZW52c3dpdGNoL3Zwb3J0LXZ4bGFuLmMgYi9u
+ZXQvb3BlbnZzd2l0Y2gvdnBvcnQtdnhsYW4uYwppbmRleCAzY2M5ODNiLi5mZjA3ZDQwIDEwMDY0
+NAotLS0gYS9uZXQvb3BlbnZzd2l0Y2gvdnBvcnQtdnhsYW4uYworKysgYi9uZXQvb3BlbnZzd2l0
+Y2gvdnBvcnQtdnhsYW4uYwpAQCAtNzQsNyArNzQsNyBAQCBzdGF0aWMgdm9pZCB2eGxhbl9yY3Yo
+c3RydWN0IHZ4bGFuX3NvY2sgKnZzLCBzdHJ1Y3Qgc2tfYnVmZiAqc2tiLAogCV9fYmU2NCBrZXk7
+CiAJX19iZTE2IGZsYWdzOwogCi0JZmxhZ3MgPSBUVU5ORUxfS0VZOworCWZsYWdzID0gVFVOTkVM
+X0tFWSB8ICh1ZHBfaGRyKHNrYiktPmNoZWNrICE9IDAgPyBUVU5ORUxfQ1NVTSA6IDApOwogCXZ4
+bGFuX3BvcnQgPSB2eGxhbl92cG9ydCh2cG9ydCk7CiAJaWYgKHZ4bGFuX3BvcnQtPmV4dHMgJiBW
+WExBTl9GX0dCUCkKIAkJZmxhZ3MgfD0gVFVOTkVMX1ZYTEFOX09QVDsKQEAgLTIzMCw2ICsyMzAs
+NyBAQCBzdGF0aWMgaW50IHZ4bGFuX3RubF9zZW5kKHN0cnVjdCB2cG9ydCAqdnBvcnQsIHN0cnVj
+dCBza19idWZmICpza2IpCiAJX19iZTE2IHNyY19wb3J0OwogCV9fYmUxNiBkZjsKIAlpbnQgZXJy
+OworCXUzMiB2eGZsYWdzOwogCiAJaWYgKHVubGlrZWx5KCFPVlNfQ0Ioc2tiKS0+ZWdyZXNzX3R1
+bl9pbmZvKSkgewogCQllcnIgPSAtRUlOVkFMOwpAQCAtMjUxLDExICsyNTIsMTMgQEAgc3RhdGlj
+IGludCB2eGxhbl90bmxfc2VuZChzdHJ1Y3QgdnBvcnQgKnZwb3J0LCBzdHJ1Y3Qgc2tfYnVmZiAq
+c2tiKQogCXNyY19wb3J0ID0gdWRwX2Zsb3dfc3JjX3BvcnQobmV0LCBza2IsIDAsIDAsIHRydWUp
+OwogCW1kLnZuaSA9IGh0b25sKGJlNjRfdG9fY3B1KHR1bl9rZXktPnR1bl9pZCkgPDwgOCk7CiAJ
+bWQuZ2JwID0gdnhsYW5fZXh0X2dicChza2IpOworCXZ4ZmxhZ3MgPSB2eGxhbl9wb3J0LT5leHRz
+IHwKKwkJICAgICAgKHR1bl9rZXktPnR1bl9mbGFncyAmIFRVTk5FTF9DU1VNID8gVlhMQU5fRl9V
+RFBfQ1NVTSA6IDApOwogCiAJZXJyID0gdnhsYW5feG1pdF9za2IocnQsIHNrYiwgZmwuc2FkZHIs
+IHR1bl9rZXktPmlwdjRfZHN0LAogCQkJICAgICB0dW5fa2V5LT5pcHY0X3RvcywgdHVuX2tleS0+
+aXB2NF90dGwsIGRmLAogCQkJICAgICBzcmNfcG9ydCwgZHN0X3BvcnQsCi0JCQkgICAgICZtZCwg
+ZmFsc2UsIHZ4bGFuX3BvcnQtPmV4dHMpOworCQkJICAgICAmbWQsIGZhbHNlLCB2eGZsYWdzKTsK
+IAlpZiAoZXJyIDwgMCkKIAkJaXBfcnRfcHV0KHJ0KTsKIAlyZXR1cm4gZXJyOwotLSAKMS45LjEK
+Cl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmRldiBtYWls
+aW5nIGxpc3QKZGV2QG9wZW52c3dpdGNoLm9yZwpodHRwOi8vb3BlbnZzd2l0Y2gub3JnL21haWxt
+YW4vbGlzdGluZm8vZGV2Cg==
