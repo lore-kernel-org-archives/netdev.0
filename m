@@ -1,8 +1,8 @@
 From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Subject: [PATCH net 3/4] ixgbe: Fix checksum error when using
-	stacked vlan
-Date: Thu, 29 Jan 2015 20:37:09 +0900
-Message-ID: <1422531430-32012-4-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+Subject: [PATCH net 4/4] ixgbevf: Fix checksum error when
+	using stacked vlan
+Date: Thu, 29 Jan 2015 20:37:10 +0900
+Message-ID: <1422531430-32012-5-git-send-email-makita.toshiaki@lab.ntt.co.jp>
 References: <1422531430-32012-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,34 +23,40 @@ Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
 When a skb has multiple vlans and it is CHECKSUM_PARTIAL,
-ixgbe_tx_csum() fails to get the network protocol and checksum related
+ixgbevf_tx_csum() fails to get the network protocol and checksum related
 descriptor fields are not configured correctly because skb->protocol
 doesn't show the L3 protocol in this case.
 
-Use vlan_get_protocol() to get the proper network protocol.
+Use first->protocol instead of skb->protocol to get the proper network
+protocol.
 
 Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 2ed2c7d..67b02bd 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -7227,11 +7227,11 @@ netdev_tx_t ixgbe_xmit_frame_ring(struct sk_buff *skb,
- 		if (!vhdr)
- 			goto out_drop;
+diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+index 62a0d8e..38c7a0b 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
++++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+@@ -3099,7 +3099,7 @@ static int ixgbevf_tso(struct ixgbevf_ring *tx_ring,
+ 	/* ADV DTYP TUCMD MKRLOC/ISCSIHEDLEN */
+ 	type_tucmd = IXGBE_ADVTXD_TUCMD_L4T_TCP;
  
--		protocol = vhdr->h_vlan_encapsulated_proto;
- 		tx_flags |= ntohs(vhdr->h_vlan_TCI) <<
- 				  IXGBE_TX_FLAGS_VLAN_SHIFT;
- 		tx_flags |= IXGBE_TX_FLAGS_SW_VLAN;
- 	}
-+	protocol = vlan_get_protocol(skb);
+-	if (skb->protocol == htons(ETH_P_IP)) {
++	if (first->protocol == htons(ETH_P_IP)) {
+ 		struct iphdr *iph = ip_hdr(skb);
+ 		iph->tot_len = 0;
+ 		iph->check = 0;
+@@ -3156,7 +3156,7 @@ static void ixgbevf_tx_csum(struct ixgbevf_ring *tx_ring,
  
- 	if (unlikely(skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP) &&
- 	    adapter->ptp_clock &&
+ 	if (skb->ip_summed == CHECKSUM_PARTIAL) {
+ 		u8 l4_hdr = 0;
+-		switch (skb->protocol) {
++		switch (first->protocol) {
+ 		case htons(ETH_P_IP):
+ 			vlan_macip_lens |= skb_network_header_len(skb);
+ 			type_tucmd |= IXGBE_ADVTXD_TUCMD_IPV4;
 -- 
 1.8.1.2
 
