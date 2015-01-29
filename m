@@ -1,40 +1,29 @@
-From: Li Wei <lw@cn.fujitsu.com>
-Subject: [PATCH] ipv4: Don't increase PMTU with Datagram Too Big message.
-Date: Thu, 29 Jan 2015 16:09:03 +0800
-Message-ID: <1422518943-30637-1-git-send-email-lw@cn.fujitsu.com>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: [RESEND] ssb: Fix Sparse error in main
+Date: Thu, 29 Jan 2015 08:18:45 +0000 (UTC)
+Message-ID: <20150129081845.D4BA813FE12@smtp.codeaurora.org>
+References: <1422424187-19059-1-git-send-email-pramod.gurav@smartplayin.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, Li Wei <lw@cn.fujitsu.com>
-To: <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([59.151.112.132]:35284 "EHLO
-	heian.cn.fujitsu.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753649AbbA2IKd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jan 2015 03:10:33 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: John Linville <linville@tuxdriver.com>, Michael Buesch <m@bues.ch>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-wireless@vger.kernel.org,
+	Pramod Gurav <pramod.gurav@smartplayin.com>
+To: Pramod Gurav <pramod.gurav@smartplayin.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1422424187-19059-1-git-send-email-pramod.gurav@smartplayin.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-RFC 1191 said, "a host MUST not increase its estimate of the Path
-MTU in response to the contents of a Datagram Too Big message."
 
-Signed-off-by: Li Wei <lw@cn.fujitsu.com>
----
- net/ipv4/route.c | 3 +++
- 1 file changed, 3 insertions(+)
+> This change fixes below sparse error:
+> drivers/ssb/main.c:94:16: warning: symbol 'ssb_sdio_func_to_bus'
+> was not declared. Should it be static?
+> 
+> Acked-by: Michael Buesch <m@bues.ch>
+> Signed-off-by: Pramod Gurav <pramod.gurav@smartplayin.com>
 
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index d58dd0e..52e1f2b 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -966,6 +966,9 @@ static void __ip_rt_update_pmtu(struct rtable *rt, struct flowi4 *fl4, u32 mtu)
- 	if (dst->dev->mtu < mtu)
- 		return;
- 
-+	if (rt->rt_pmtu && rt->rt_pmtu < mtu)
-+		return;
-+
- 	if (mtu < ip_rt_min_pmtu)
- 		mtu = ip_rt_min_pmtu;
- 
--- 
-2.1.0
+Thanks, applied to wireless-drivers-next.git.
+
+Kalle Valo
