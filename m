@@ -1,65 +1,52 @@
-From: Masami Hiramatsu <masami.hiramatsu.pt-FCd8Q96Dh0JBDgjK7y7TUQ@public.gmane.org>
-Subject: Re: [PATCH v2 linux-trace 1/8] tracing: attach eBPF programs to tracepoints
- and syscalls
-Date: Thu, 29 Jan 2015 14:39:19 +0900
-Message-ID: <54C9C787.1040706@hitachi.com>
-References: <CAMEtUuz+N52ms4ZFh8+fSGhg1UaXpBdk9RVPU_zBDCjaZ4bj4A@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2 0/5] fix stretch ACK bugs in TCP CUBIC and
+ Reno
+Date: Wed, 28 Jan 2015 22:22:17 -0800 (PST)
+Message-ID: <20150128.222217.95436772179060210.davem@davemloft.net>
+References: <1422493299-22114-1-git-send-email-ncardwell@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Namhyung Kim <namhyung-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
-	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Arnaldo Carvalho de Melo <acme-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	Jiri Olsa <jolsa-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAMEtUuz+N52ms4ZFh8+fSGhg1UaXpBdk9RVPU_zBDCjaZ4bj4A-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: ncardwell@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:36469 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752326AbbA2GWU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jan 2015 01:22:20 -0500
+In-Reply-To: <1422493299-22114-1-git-send-email-ncardwell@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-(2015/01/29 13:40), Alexei Starovoitov wrote:
-> On Wed, Jan 28, 2015 at 4:46 PM, Namhyung Kim <namhyung-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org> wrote:
->>>
->>> +static int event_filter_release(struct inode *inode, struct file *filp)
->>> +{
->>> +     struct ftrace_event_file *file;
->>> +     char buf[2] = "0";
->>> +
->>> +     mutex_lock(&event_mutex);
->>> +     file = event_file_data(filp);
->>> +     if (file) {
->>> +             if (file->flags & TRACE_EVENT_FL_BPF) {
->>> +                     /* auto-disable the filter */
->>> +                     ftrace_event_enable_disable(file, 0);
->>
->> Hmm.. what if user already enabled an event, attached a bpf filter and
->> then detached the filter - I'm not sure we can always auto-disable
->> it..
+From: Neal Cardwell <ncardwell@google.com>
+Date: Wed, 28 Jan 2015 20:01:34 -0500
+
+> This patch series fixes the TCP CUBIC and Reno congestion control
+> modules to properly handle stretch ACKs in their respective additive
+> increase modes, and in the transitions from slow start to additive
+> increase.
 > 
-> why not?
-> I think it makes sense auto enable/disable, since that
-> is cleaner user experience.
+> This finishes the project started by commit 9f9843a751d0a2057 ("tcp:
+> properly handle stretch acks in slow start"), which fixed behavior for
+> TCP congestion control when handling stretch ACKs in slow start mode.
+> 
+> Motivation: In the Jan 2015 netdev thread 'BW regression after "tcp:
+> refine TSO autosizing"', Eyal Perry documented a regression that Eric
+> Dumazet determined was caused by improper handling of TCP stretch
+> ACKs.
+> 
+> Background: LRO, GRO, delayed ACKs, and middleboxes can cause "stretch
+> ACKs" that cover more than the RFC-specified maximum of 2
+> packets. These stretch ACKs can cause serious performance shortfalls
+> in common congestion control algorithms, like Reno and CUBIC, which
+> were designed and tuned years ago with receiver hosts that were not
+> using LRO or GRO, and were instead ACKing every other packet.
+> 
+> Testing: at Google we have been using this approach for handling
+> stretch ACKs for CUBIC datacenter and Internet traffic for several
+> years, with good results.
+> 
+> v2:
+>  * fixed return type of tcp_slow_start() to be u32 instead of int
 
-Maybe, would we need a reference counter for each event? :)
-
-Actually, ftrace event is not similar to perf-event which ktap
-is based on, ftrace event interface is always exported via
-debugfs, this means users can share the event for different
-usage.
-
-One possible other solution is to add a instance-lock interface
-for each ftrace instance and lock it by bpf. Then, other users
-can not enable/disable the events in the instance.
-
-Thank you,
-
-
--- 
-Masami HIRAMATSU
-Software Platform Research Dept. Linux Technology Research Center
-Hitachi, Ltd., Yokohama Research Laboratory
-E-mail: masami.hiramatsu.pt-FCd8Q96Dh0JBDgjK7y7TUQ@public.gmane.org
+Series applied, thanks Neal.
