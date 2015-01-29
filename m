@@ -1,109 +1,78 @@
-From: Erik Kline <ek@google.com>
-Subject: [PATCH net v2] net: ipv6: allow explicitly choosing optimistic addresses
-Date: Wed, 28 Jan 2015 21:03:39 +0900
-Message-ID: <1422446619-9502-1-git-send-email-ek@google.com>
-Cc: hannes@stressinduktion.org, Erik Kline <ek@google.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:42633 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751265AbbA2EOT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jan 2015 23:14:19 -0500
-Received: by mail-pa0-f45.google.com with SMTP id et14so33799443pad.4
-        for <netdev@vger.kernel.org>; Wed, 28 Jan 2015 20:14:18 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH v2 linux-trace 4/8] samples: bpf: simple tracing example
+ in C
+Date: Wed, 28 Jan 2015 20:19:45 -0800
+Message-ID: <CAMEtUuzW2xGGy6xGE_5EcKTEk-US1_o02qFbokxB2h9rU+TZfg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
+	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Namhyung Kim <namhyung-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Jiri Olsa <jolsa-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Masami Hiramatsu <masami.hiramatsu.pt-FCd8Q96Dh0JBDgjK7y7TUQ@public.gmane.org>,
+	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Arnaldo Carvalho de Melo <acme-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-RFC 4429 ("Optimistic DAD") states that optimistic addresses
-should be treated as deprecated addresses.  From section 2.1:
+On Wed, Jan 28, 2015 at 12:44 PM, Arnaldo Carvalho de Melo
+<acme-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org> wrote:
+>
+>> > #define memcmp(s1, s2, n) bpf_memcmp(s1, s2, n)
+>
+>> >> in bpf_helpers.h to have it work?
+>
+>> yes, that will work just fine.
+>> Since it's an example I made it explicit that bpf_memcmp()
+>> has memcmp() semantics, but little bit different:
+>> int bpf_memcmp(void *unsafe_ptr, void *safe_ptr, int size)
+>
+> Not knowing about the safe/unsafe pointers (at this point in my
+> conceptual eBPF learning process), I would think that it would be easier
+> to understand if it would reuse another well known idiom:
+>
+> #define memcmp_from_user(kernel, user, n) bpf_memcmp(user, kernel, n)
 
-   Unless noted otherwise, components of the IPv6 protocol stack
-   should treat addresses in the Optimistic state equivalently to
-   those in the Deprecated state, indicating that the address is
-   available for use but should not be used if another suitable
-   address is available.
+that actually won't be right. It's not reading from user.
+'unsafe' means that pointer is not known to be safe
+within the program. So far, bpf verifier recognizes pointer
+to context, stack and maps. Everything else is unsafe.
+Therefore all pointer walking of unknown data structures
+need to use bpf_fetch_*() helpers to access memory.
+Similarly bpf_memcmp() is used to do memcmp() of
+two memory regions: one known to be safe and one
+unknown.
 
-Optimistic addresses are indeed avoided when other addresses are
-available (i.e. at source address selection time), but they have
-not heretofore been available for things like explicit bind() and
-sendmsg() with struct in6_pktinfo, etc.
+ > I don't reuse anything I've learned before trying to understand eBPF,
+> not I see any well known marker (__user) that would help me understand
+> that that pointer needs special treatment/belongs to a different "domain".
 
-This change makes optimistic addresses treated more like
-deprecated addresses than tentative ones.
+I tried to do exactly that actually :)
+bpf_fetch_*() helpers suppose to match existing fetch*()
+primitives used to do the same pointer walking for kprobes.
+Maybe bpf_probe_memcmp() would be a better name?
+Hard to tell.
 
-Signed-off-by: Erik Kline <ek@google.com>
----
- include/net/addrconf.h |  3 +++
- net/ipv6/addrconf.c    | 13 +++++++++++--
- net/ipv6/ndisc.c       |  4 +++-
- 3 files changed, 17 insertions(+), 3 deletions(-)
+>> bpf_fetch_*() helpers are also explicit in examples.
+>> If one need to do a lot of pointer walking, then macro like
+>> #define D(P) ((typeof(P))bpf_fetch_ptr(&P))
+>> would be easier to use: p = D(D(skb->dev)->ifalias)
+>> multiple pointer derefs would look more natural...
+>
+> And if possible, i.e. if the eBPF compiler would take care of that
+> somehow, would indeed be preferred as it looks more natural :-)
 
-diff --git a/include/net/addrconf.h b/include/net/addrconf.h
-index d13573b..80456f7 100644
---- a/include/net/addrconf.h
-+++ b/include/net/addrconf.h
-@@ -62,6 +62,9 @@ int addrconf_set_dstaddr(struct net *net, void __user *arg);
- 
- int ipv6_chk_addr(struct net *net, const struct in6_addr *addr,
- 		  const struct net_device *dev, int strict);
-+int ipv6_chk_addr_and_flags(struct net *net, const struct in6_addr *addr,
-+			    const struct net_device *dev, int strict,
-+			    u32 banned_flags);
- 
- #if defined(CONFIG_IPV6_MIP6) || defined(CONFIG_IPV6_MIP6_MODULE)
- int ipv6_chk_home_addr(struct net *net, const struct in6_addr *addr);
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index f7c8bbe..943da83 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -1519,6 +1519,14 @@ static int ipv6_count_addresses(struct inet6_dev *idev)
- int ipv6_chk_addr(struct net *net, const struct in6_addr *addr,
- 		  const struct net_device *dev, int strict)
- {
-+	return ipv6_chk_addr_and_flags(net, addr, dev, strict, IFA_F_TENTATIVE);
-+}
-+EXPORT_SYMBOL(ipv6_chk_addr);
-+
-+int ipv6_chk_addr_and_flags(struct net *net, const struct in6_addr *addr,
-+			    const struct net_device *dev, int strict,
-+			    u32 banned_flags)
-+{
- 	struct inet6_ifaddr *ifp;
- 	unsigned int hash = inet6_addr_hash(addr);
- 
-@@ -1527,7 +1535,8 @@ int ipv6_chk_addr(struct net *net, const struct in6_addr *addr,
- 		if (!net_eq(dev_net(ifp->idev->dev), net))
- 			continue;
- 		if (ipv6_addr_equal(&ifp->addr, addr) &&
--		    !(ifp->flags&IFA_F_TENTATIVE) &&
-+		    (!(ifp->flags&banned_flags) ||
-+		     ifp->flags&IFA_F_OPTIMISTIC&~banned_flags) &&
- 		    (dev == NULL || ifp->idev->dev == dev ||
- 		     !(ifp->scope&(IFA_LINK|IFA_HOST) || strict))) {
- 			rcu_read_unlock_bh();
-@@ -1538,7 +1547,7 @@ int ipv6_chk_addr(struct net *net, const struct in6_addr *addr,
- 	rcu_read_unlock_bh();
- 	return 0;
- }
--EXPORT_SYMBOL(ipv6_chk_addr);
-+EXPORT_SYMBOL(ipv6_chk_addr_and_flags);
- 
- static bool ipv6_chk_same_addr(struct net *net, const struct in6_addr *addr,
- 			       struct net_device *dev)
-diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
-index 6828667..113fc6c 100644
---- a/net/ipv6/ndisc.c
-+++ b/net/ipv6/ndisc.c
-@@ -655,7 +655,9 @@ static void ndisc_solicit(struct neighbour *neigh, struct sk_buff *skb)
- 	struct in6_addr *target = (struct in6_addr *)&neigh->primary_key;
- 	int probes = atomic_read(&neigh->probes);
- 
--	if (skb && ipv6_chk_addr(dev_net(dev), &ipv6_hdr(skb)->saddr, dev, 1))
-+	if (skb && ipv6_chk_addr_and_flags(dev_net(dev), &ipv6_hdr(skb)->saddr,
-+					   dev, 1,
-+					   IFA_F_TENTATIVE|IFA_F_OPTIMISTIC))
- 		saddr = &ipv6_hdr(skb)->saddr;
- 	probes -= NEIGH_VAR(neigh->parms, UCAST_PROBES);
- 	if (probes < 0) {
--- 
-2.2.0.rc0.207.ga3a616c
+yes, on the user space side we have all the freedom.
+Note, these examples are using user's bpf_helpers.h
+which defines it as:
+static int (*bpf_memcmp)(void *unsafe_ptr, void *safe_ptr, int size) =
+        (void *) BPF_FUNC_memcmp;
+
+so whether we want to call the function bpf_memcmp() or
+bpf_probe_memcmp() is up to user space.
+The BPF_FUNC_memcmp name is what matters which
+is defined in uapi/linux/bpf.h
+I'll try to come up with more explicit name...
