@@ -1,31 +1,33 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH] [TEMPORARY] net: netfilter: IPV6 XT sockets need CONFIG_NF_DEFRAG_IPV6
-Date: Thu, 29 Jan 2015 17:50:30 +0100
-Message-ID: <1699413.oLnudLOjvJ@wuerfel>
-References: <1513018.IdvuSAziQY@wuerfel>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	KOVACS Krisztian <hidden@sch.bme.hu>
-To: linux-arm-kernel@lists.infradead.org
+From: Tom Herbert <therbert@google.com>
+Subject: [PATCH iproute2 0/4] iproute: Support for remote checksum offload
+Date: Thu, 29 Jan 2015 08:51:57 -0800
+Message-ID: <1422550321-30901-1-git-send-email-therbert@google.com>
+To: stephen@networkplumber.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.126.131]:52858 "EHLO
-	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755347AbbA2Qul (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jan 2015 11:50:41 -0500
-In-Reply-To: <1513018.IdvuSAziQY@wuerfel>
+Received: from mail-ie0-f177.google.com ([209.85.223.177]:49840 "EHLO
+	mail-ie0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751842AbbA2QxI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jan 2015 11:53:08 -0500
+Received: by mail-ie0-f177.google.com with SMTP id vy18so35981857iec.8
+        for <netdev@vger.kernel.org>; Thu, 29 Jan 2015 08:53:08 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thursday 29 January 2015 17:18:59 Arnd Bergmann wrote:
-> If IP6_NF_IPTABLES=m, NF_DEFRAG_IPV6 gets selected as a module as well
-> from NETFILTER_XT_MATCH_SOCKET, so the latter cannot be built-in, or
-> we get:
+Also, updated man pages for remote checksum offload options,
+and added a section on setting FOU/GUE encapsulation with IP tunnels.
 
-I messed up the subject line, the [TEMPORARY] was not meant to be
-in there, and I also saw that the subject was mixed up too.
+Tom Herbert (4):
+  ip link: Add support for remote checksum offload to IP tunnels
+  vxlan: Add support for remote checksum offload
+  iproute: Description of new options for VXLAN in ip-link man pages
+  iproute: Descriptions of fou and gue options in ip-link man pages
 
-I will send it again with the proper subject.
+ include/linux/if_link.h |  2 ++
+ ip/iplink_vxlan.c       | 21 ++++++++++++
+ ip/link_gre.c           | 11 ++++++-
+ ip/link_iptnl.c         | 11 ++++++-
+ man/man8/ip-link.8.in   | 86 ++++++++++++++++++++++++++++++++++++++++++++++++-
+ 5 files changed, 128 insertions(+), 3 deletions(-)
 
-	Arnd
+-- 
+2.2.0.rc0.207.ga3a616c
