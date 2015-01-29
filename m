@@ -1,64 +1,56 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH net] netlink: fix wrong subscription bitmask to group mapping in
-Date: Thu, 29 Jan 2015 10:51:53 +0100
-Message-ID: <1422525113-5698-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, colona@arista.com, andre@tomt.net
-To: netdev@vger.kernel.org
+From: Rasmus Villemoes <linux@rasmusvillemoes.dk>
+Subject: [PATCH v2 0/3] Two printf fixes
+Date: Thu, 29 Jan 2015 11:03:17 +0100
+Message-ID: <1422525801-26560-1-git-send-email-linux@rasmusvillemoes.dk>
+References: <1422451543-12401-1-git-send-email-linux@rasmusvillemoes.dk>
+Cc: Rasmus Villemoes <linux@rasmusvillemoes.dk>,
+	linux-kernel@vger.kernel.org, linux-nfs@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Andy Shevchenko <andriy.shevchenko@linux.intel.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Trond Myklebust <trond.myklebust@primarydata.com>,
+	"J. Bruce Fields" <bfields@fieldses.org>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:54835 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932326AbbA2JtH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Jan 2015 04:49:07 -0500
+Received: from mail-lb0-f178.google.com ([209.85.217.178]:61835 "EHLO
+	mail-lb0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752929AbbA2KDk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jan 2015 05:03:40 -0500
+Received: by mail-lb0-f178.google.com with SMTP id u10so26242332lbd.9
+        for <netdev@vger.kernel.org>; Thu, 29 Jan 2015 02:03:39 -0800 (PST)
+In-Reply-To: <1422451543-12401-1-git-send-email-linux@rasmusvillemoes.dk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The subscription bitmask passed via struct sockaddr_nl is converted to
-the group number when calling the netlink_bind() and netlink_unbind()
-callbacks.
+Both %pE and %ph are unusable in kasprintf(), since the occurrence of
+either will trigger an oops during the first vsnprintf call where
+kasprintf tries to find the correct size to allocate. These oopses
+could be papered over with somewhat smaller patches than these, but
+then the return value from vsnprintf would still not reflect the
+actual size needed. For %pE, this requires a change of semantics of
+string_escape_mem and hence an annoyingly large diffstat.
 
-The conversion is however incorrect since bitmask (1 << 0) needs to be
-mapped to group number 1. Note that you cannot specify the group number 0
-(usually known as _NONE) from setsockopt() using NETLINK_ADD_MEMBERSHIP
-since this is rejected through -EINVAL.
+Whether this is 3.20, 3.21 and/or -stable material (or /dev/null
+material, for that matter ;-)) I'll leave to others to decide.
 
-This problem became noticeable since 97840cb ("netfilter: nfnetlink:
-fix insufficient validation in nfnetlink_bind") when binding to bitmask
-(1 << 0) in ctnetlink.
+v2: Suggestions from Andy Shevchenko:
 
-Reported-by: Andre Tomt <andre@tomt.net>
-Reported-by: Ivan Delalande <colona@arista.com>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
-v2: Rebased upon current net tree. Previous patch:
+* Simpler fix of hex_string().
 
-http://patchwork.ozlabs.org/patch/426205/
+* The string_escape_mem change is split in two, 2/3 updating the
+  internal helpers and 3/3 then changing the external interface.
 
-did not apply cleanly.
+Rasmus Villemoes (3):
+  lib/vsprintf.c: Fix potential NULL deref in hex_string
+  lib/string_helpers.c: Refactor string_escape_mem
+  lib/string_helpers.c: Change semantics of string_escape_mem
 
- net/netlink/af_netlink.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ include/linux/string_helpers.h |  10 +--
+ lib/string_helpers.c           | 191 ++++++++++++++++-------------------------
+ lib/test-string_helpers.c      |  37 ++++----
+ lib/vsprintf.c                 |  18 ++--
+ net/sunrpc/cache.c             |   8 +-
+ 5 files changed, 111 insertions(+), 153 deletions(-)
 
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index 02fdde2..75532ef 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -1438,7 +1438,7 @@ static void netlink_undo_bind(int group, long unsigned int groups,
- 
- 	for (undo = 0; undo < group; undo++)
- 		if (test_bit(undo, &groups))
--			nlk->netlink_unbind(sock_net(sk), undo);
-+			nlk->netlink_unbind(sock_net(sk), undo + 1);
- }
- 
- static int netlink_bind(struct socket *sock, struct sockaddr *addr,
-@@ -1476,7 +1476,7 @@ static int netlink_bind(struct socket *sock, struct sockaddr *addr,
- 		for (group = 0; group < nlk->ngroups; group++) {
- 			if (!test_bit(group, &groups))
- 				continue;
--			err = nlk->netlink_bind(net, group);
-+			err = nlk->netlink_bind(net, group + 1);
- 			if (!err)
- 				continue;
- 			netlink_undo_bind(group, groups, sk);
 -- 
-1.7.10.4
+2.1.3
