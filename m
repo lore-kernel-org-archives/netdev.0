@@ -1,39 +1,56 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2] lib/checksum.c: fix carry in csum_tcpudp_nofold
-Date: Wed, 28 Jan 2015 05:04:18 -0800
-Message-ID: <1422450258.29618.43.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1422439091-31413-1-git-send-email-karl.beldan@rivierawaves.com>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: [patch net-next] hisilicon: add some missing curly braces
+Date: Thu, 29 Jan 2015 10:50:35 +0800
+Message-ID: <54C99FFB.2080207@huawei.com>
+References: <20150128185833.GA10259@mwanda>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Karl Beldan <karl.beldan@rivierawaves.com>,
-	Al Viro <viro@ZenIV.linux.org.uk>,
-	Arnd Bergmann <arnd@arndb.de>,
-	Mike Frysinger <vapier@gentoo.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, stable@vger.kernel.org
-To: Karl Beldan <karl.beldan@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1422439091-31413-1-git-send-email-karl.beldan@rivierawaves.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Zhangfei Gao <zhangfei.gao@linaro.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Arnd Bergmann <arnd@arndb.de>, <netdev@vger.kernel.org>,
+	<kernel-janitors@vger.kernel.org>
+To: Dan Carpenter <dan.carpenter@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga01-in.huawei.com ([119.145.14.64]:18866 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755086AbbA2Cuw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jan 2015 21:50:52 -0500
+In-Reply-To: <20150128185833.GA10259@mwanda>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2015-01-28 at 10:58 +0100, Karl Beldan wrote:
-> The carry from the 64->32bits folding was dropped, e.g with:
-> saddr=0xFFFFFFFF daddr=0xFF0000FF len=0xFFFF proto=0 sum=1,
-> csum_tcpudp_nofold returned 0 instead of 1.
+On 2015/1/29 2:58, Dan Carpenter wrote:
+> The if block was supposed to have curly braces.  In the current code we
+> complain about dropped rx packets when we shouldn't.
 > 
-> Signed-off-by: Karl Beldan <karl.beldan@rivierawaves.com>
-> Cc: Al Viro <viro@ZenIV.linux.org.uk>
-> Cc: Eric Dumazet <eric.dumazet@gmail.com>
-> Cc: Arnd Bergmann <arnd@arndb.de>
-> Cc: Mike Frysinger <vapier@gentoo.org>
-> Cc: netdev@vger.kernel.org
-> Cc: linux-kernel@vger.kernel.org
-> Cc: stable@vger.kernel.org
-> ---
->  lib/checksum.c | 12 ++++++++++--
->  1 file changed, 10 insertions(+), 2 deletions(-)
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> 
+Acked-by: Ding Tianhong <dingtianhong@huawei.com>
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
+Good catch. thanks;
 
-Thanks !
+Hi David, this patch looks good to me, and I was preparing a series patches for hip04,
+I could add this patch to the series or you could apply this alone as your wish.:)
+
+Ding
+
+> diff --git a/drivers/net/ethernet/hisilicon/hip04_eth.c b/drivers/net/ethernet/hisilicon/hip04_eth.c
+> index 525214e..c02b81b 100644
+> --- a/drivers/net/ethernet/hisilicon/hip04_eth.c
+> +++ b/drivers/net/ethernet/hisilicon/hip04_eth.c
+> @@ -567,10 +567,11 @@ static irqreturn_t hip04_mac_interrupt(int irq, void *dev_id)
+>  	writel_relaxed(DEF_INT_MASK, priv->base + PPE_RINT);
+>  
+>  	if (unlikely(ists & DEF_INT_ERR)) {
+> -		if (ists & (RCV_NOBUF | RCV_DROP))
+> +		if (ists & (RCV_NOBUF | RCV_DROP)) {
+>  			stats->rx_errors++;
+>  			stats->rx_dropped++;
+>  			netdev_err(ndev, "rx drop\n");
+> +		}
+>  		if (ists & TX_DROP) {
+>  			stats->tx_dropped++;
+>  			netdev_err(ndev, "tx drop\n");
+> 
+> 
