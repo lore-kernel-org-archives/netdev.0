@@ -1,44 +1,46 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] ipv6: tcp: tcp_v6_send_response() should give
- an owner to skb
-Date: Thu, 29 Jan 2015 13:31:36 -0800
-Message-ID: <1422567096.21689.29.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1422453433.29618.58.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1422566339.21689.28.camel@edumazet-glaptop2.roam.corp.google.com>
+From: David L Stevens <david.stevens@oracle.com>
+Subject: Re: [PATCHv2 net] sunvnet: set queue mapping when doing packet copies
+Date: Thu, 29 Jan 2015 16:36:45 -0500
+Message-ID: <54CAA7ED.5000100@oracle.com>
+References: <54CA8D33.6020006@oracle.com> <1422563996.21689.26.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Sowmini Varadhan <sowmini.varadhan@oracle.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f173.google.com ([209.85.223.173]:37258 "EHLO
-	mail-ie0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751930AbbA2Vbi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jan 2015 16:31:38 -0500
-Received: by mail-ie0-f173.google.com with SMTP id tr6so39438388ieb.4
-        for <netdev@vger.kernel.org>; Thu, 29 Jan 2015 13:31:37 -0800 (PST)
-In-Reply-To: <1422566339.21689.28.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from userp1040.oracle.com ([156.151.31.81]:39175 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751877AbbA2Vgu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jan 2015 16:36:50 -0500
+In-Reply-To: <1422563996.21689.26.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2015-01-29 at 13:18 -0800, Eric Dumazet wrote:
-> On Wed, 2015-01-28 at 05:57 -0800, Eric Dumazet wrote:
-> > From: Eric Dumazet <edumazet@google.com>
-> > 
-> > RST packets and ACK packets sent on behalf of TIME_WAIT sockets
-> > do not have a socket owner currently.
-> ...
-> > 
-> > Signed-off-by: Eric Dumazet <edumazet@google.com>
-> > ---
-> 
-> Please do not apply.
-> 
-> I forgot about commit 3a7c384ffd57ef5fbd95f48edaa2ca4eb3d9f2ee
-> ("ipv4: tcp: unicast_sock should not land outside of TCP stack")
-> 
-> I need to do this in another way.
 
-Well, no, patch was fine, sorry for the noise.
 
-I have to addresss ipv4 side.
+On 01/29/2015 03:39 PM, Eric Dumazet wrote:
+
+> Sorry, but you should remove this test.
+> 
+> (TCP uses another destructor, not sock_wfree())
+> 
+> All sent packets will support these swap() operations,
+> regardless of destructor.
+
+In general the destructor should match the allocator, right? So it bothers me
+here that we'd be replacing it in an skb allocated with alloc_and_align_skb(),
+with an an arbitrary destructor from an skb NOT allocated with alloc_and_align_skb().
+If it has a different destructor that does special handling related to the allocator,
+it is the original skb, not the new one, that needs the old destructor. This TCP
+accounting has less to do with the buffer destructor than with the freeing of the
+contents of the buffer, but that isn't necessarily true for all destructors.
+
+Checking for a known, specific destructor is less troubling, so I don't want
+to remove the test entirely.
+
+Since the concern here is specifically TCP flow control, do you think it's sufficient
+to substitute tcp_wfree for the sock_wfree here?
+
+							+-DLS
