@@ -1,40 +1,59 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH] net, ethernet, LLVMLinux: Add missing MODULE_DEVICE_TABLE()
-Date: Thu, 29 Jan 2015 10:10:48 +0100
-Message-ID: <3392784.h8cmHX9fyr@wuerfel>
-References: <1422495374-22835-1-git-send-email-behanw@converseincode.com> <20150128.224228.1533046356464752424.davem@davemloft.net>
+From: Sonic Zhang <sonic.adi@gmail.com>
+Subject: [PATCH] stmmac: DMA threshold mode or SF mode can be different among multiple device instance
+Date: Thu, 29 Jan 2015 16:54:59 +0800
+Message-ID: <1422521699-14096-1-git-send-email-sonic.adi@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: behanw@converseincode.com, sathya.perla@emulex.com,
-	ajit.khaparde@emulex.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, subbu.seetharaman@emulex.com
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150128.224228.1533046356464752424.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>,
+	<adi-buildroot-devel@lists.sourceforge.net>,
+	Sonic Zhang <sonic.zhang@analog.com>
+To: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-by2on0088.outbound.protection.outlook.com ([207.46.100.88]:35264
+	"EHLO na01-by2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753751AbbA2Jaf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Jan 2015 04:30:35 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 28 January 2015 22:42:28 David Miller wrote:
-> From: Behan Webster <behanw@converseincode.com>
-> Date: Wed, 28 Jan 2015 17:36:14 -0800
-> 
-> > Missing MODULE_DEVICE_TABLE for pci ids from benet driver found by clang.
-> > 
-> > Signed-off-by: Behan Webster <behanw@converseincode.com>
-> > Suggested-by: Arnd Bergmann <arnd@arndb.de>
-> 
-> Why are you removing the device table?
+From: Sonic Zhang <sonic.zhang@analog.com>
 
-Behan took a patch that I did earlier and split it up to add descriptions.
-The patch is correct, but he either misunderstood or misexpressed the
-intention.
+- In tx_hard_error_bump_tc interrupt, tc should be bumped only when current
+device instance is in DMA threshold mode. Check per device xstats.threshold
+other than global tc.
 
-This driver has two identical lines that both say 
+- Set per device xstats.threshold to SF_DMA_MODE when current device
+instance is set to SF mode.
 
-MODULE_DEVICE_TABLE(pci, be_dev_ids);
+Signed-off-by: Sonic Zhang <sonic.zhang@analog.com>
+---
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |    5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
-I don't remember the exact symptom, but llvm/clang trips over this, while gcc
-silently ignores the second one.
-
-	Arnd
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index cd6ebda..6c87850 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -1287,7 +1287,7 @@ static void stmmac_dma_operation_mode(struct stmmac_priv *priv)
+ 		 *    that needs to not insert csum in the TDES.
+ 		 */
+ 		priv->hw->dma->dma_mode(priv->ioaddr, SF_DMA_MODE, SF_DMA_MODE);
+-		tc = SF_DMA_MODE;
++		priv->xstats.threshold = SF_DMA_MODE;
+ 	} else
+ 		priv->hw->dma->dma_mode(priv->ioaddr, tc, SF_DMA_MODE);
+ }
+@@ -1444,7 +1444,8 @@ static void stmmac_dma_interrupt(struct stmmac_priv *priv)
+ 	}
+ 	if (unlikely(status & tx_hard_error_bump_tc)) {
+ 		/* Try to bump up the dma threshold on this failure */
+-		if (unlikely(tc != SF_DMA_MODE) && (tc <= 256)) {
++		if (unlikely(priv->xstats.threshold != SF_DMA_MODE) &&
++			(tc <= 256)) {
+ 			tc += 64;
+ 			if (priv->plat->force_thresh_dma_mode)
+ 				priv->hw->dma->dma_mode(priv->ioaddr, tc, tc);
+-- 
+1.7.9.5
