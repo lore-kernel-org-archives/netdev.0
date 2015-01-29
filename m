@@ -1,41 +1,58 @@
-From: rapier <rapier@psc.edu>
-Subject: NetDev 0.1 BoF on TCP Stack Instrumentation
-Date: Thu, 29 Jan 2015 12:47:52 -0500
-Message-ID: <54CA7248.8090400@psc.edu>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] sunvnet: set queue mapping when doing packet copies
+Date: Thu, 29 Jan 2015 10:12:26 -0800
+Message-ID: <1422555146.21689.19.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <54C90AED.7040404@oracle.com> <54CA63E6.3020603@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Sowmini Varadhan <sowmini.varadhan@oracle.com>
+To: David L Stevens <david.stevens@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailer1.psc.edu ([128.182.58.100]:50425 "EHLO mailer1.psc.edu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756543AbbA2SLE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Jan 2015 13:11:04 -0500
-Received: from iztli.psc.edu (iztli.psc.edu [128.182.160.106])
-	(authenticated bits=0)
-	by mailer1.psc.edu (8.13.8/8.13.8) with ESMTP id t0THlq81026706
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES128-SHA bits=128 verify=NO)
-	for <netdev@vger.kernel.org>; Thu, 29 Jan 2015 12:47:52 -0500
+Received: from mail-ig0-f180.google.com ([209.85.213.180]:37090 "EHLO
+	mail-ig0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755716AbbA2SNt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jan 2015 13:13:49 -0500
+Received: by mail-ig0-f180.google.com with SMTP id b16so13846303igk.1
+        for <netdev@vger.kernel.org>; Thu, 29 Jan 2015 10:13:48 -0800 (PST)
+In-Reply-To: <54CA63E6.3020603@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-For those attending the NetDev 0.1 conference in Ottawa this February 
-I'll be leading a BoF on TCP stack instrumentation. There is a growing 
-understanding of the need for better stack transparency in order to 
-diagnose, monitor, and tune TCP flows. This BoF hopes to bring together 
-stakeholders and interested parties to determine what instruments 
-provide the most value in different use cases, methods for instrument 
-implementation, data access methods, and the like.
+On Thu, 2015-01-29 at 11:46 -0500, David L Stevens wrote:
+> [resending this since it never appeared on netdev yesterday]
+> 
+> This patch fixes a bug where vnet_skb_shape() didn't set the already-selected
+>  queue mapping when a packet copy was required. This results in using the
+>  wrong queue index for stops/starts, hung tx queues and watchdog timeouts
+>  under heavy load.
+> 
+> Signed-off-by: David L Stevens <david.stevens@oracle.com>
+> Acked-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+> ---
+>  drivers/net/ethernet/sun/sunvnet.c |    1 +
+>  1 files changed, 1 insertions(+), 0 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/sun/sunvnet.c b/drivers/net/ethernet/sun/sunvnet.c
+> index 2b719cc..2b10b85 100644
+> --- a/drivers/net/ethernet/sun/sunvnet.c
+> +++ b/drivers/net/ethernet/sun/sunvnet.c
+> @@ -1123,6 +1123,7 @@ static inline struct sk_buff *vnet_skb_shape(struct sk_buff *skb, int ncookies)
+>  			skb_shinfo(nskb)->gso_size = skb_shinfo(skb)->gso_size;
+>  			skb_shinfo(nskb)->gso_type = skb_shinfo(skb)->gso_type;
+>  		}
+> +		nskb->queue_mapping = skb->queue_mapping;
+>  		dev_kfree_skb(skb);
+>  		skb = nskb;
+>  	}
 
-This BoF is scheduled for two hours in a round table format. I encourage 
-any interested party to attend and join in this discussion. I'm looking 
-for people and groups currently exploring and invested in this topic to 
-help focus the discussion and present their view points. As of this 
-moment the agenda for the BoF is flexible. If you'd like to be on the 
-agenda and/or make a brief presentation please contact me directly.
+Note that vnet_skb_shape() also drops the skb -> sk assocation.
 
-Thank you for your interest,
+-> That removes flow control, a single socket can fill TX ring buffer.
+TCP Small queue is also disabled.
 
-Chris Rapier
-Pittsburgh Supercomputing Center
-Web10G Project
+I would try add before the dev_kfree_skb(skb) :
+
+swap(nskb->sk, skb->sk);
+swap(nskb->truesize, skb->truesize);
