@@ -1,61 +1,53 @@
-From: khalasa@piap.pl (Krzysztof =?utf-8?Q?Ha=C5=82asa?=)
-Subject: Re: [PATCH] net:wan:Change location of debug printk statement in the function,hss_hdlc_poll
-Date: Thu, 29 Jan 2015 07:35:02 +0100
-Message-ID: <m3386uxfft.fsf@t19.piap.pl>
-References: <1422143181-4479-1-git-send-email-xerofoify@gmail.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH v2 linux-trace 1/8] tracing: attach eBPF programs to
+ tracepoints and syscalls
+Date: Wed, 28 Jan 2015 22:39:34 -0800
+Message-ID: <CAMEtUuywGh9p9yQdeJJiKRdpZhmgJdQYWgf3W3U0uSTXkjF_uA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Nicholas Krause <xerofoify@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Namhyung Kim <namhyung@kernel.org>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Ingo Molnar <mingo@kernel.org>,
+	Arnaldo Carvalho de Melo <acme@infradead.org>,
+	Jiri Olsa <jolsa@redhat.com>,
+	Linux API <linux-api@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1422143181-4479-1-git-send-email-xerofoify@gmail.com> (Nicholas
-	Krause's message of "Sat, 24 Jan 2015 18:46:21 -0500")
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Nicholas Krause <xerofoify@gmail.com> writes:
+On Wed, Jan 28, 2015 at 9:39 PM, Masami Hiramatsu
+<masami.hiramatsu.pt@hitachi.com> wrote:
+>
+> Maybe, would we need a reference counter for each event? :)
 
-> This changes the location of the printk for montioring if the stucture pointer
-> desc of type structure desc has a error count due to failing in the switch
-> statement for checking it's status from the default switch case in this switch
-> to the area of the function for checking if there is a error count. Due to this
-> this part of the function can now be uncommented as it's now needed for printing
-> out important information if the structure pointer,desc has a error count for
-> debugging purposes.
+when we would want multiple users to attach different programs
+to the same event, then yes.
+Right now I'd rather have things simple.
 
-This error count seems to be secondary to the desc->status. It's isn't
-normally logged (RX errors on serial links are quite normal) and only
-the "default" case, normally not seen, would be logged (to indicate
-unhandled condition). In the "normal" error path, the driver ignores
-error count, because there could be several errors counted for a single
-erroneous frame (or non-frame).
+> Actually, ftrace event is not similar to perf-event which ktap
+> is based on, ftrace event interface is always exported via
+> debugfs, this means users can share the event for different
+> usage.
 
-Also the patch seems to remove the beginning of a preprocessor directive
-(#if) without removing its end (#endif). I'd be surprised if it compiles.
+yes.I've been thinking to extend perf_event ioctl to attach programs,
+but right now it's only supporting tracepoints and kprobe
+seems not trivial to add.
+So I went for tracefs style of attaching for now.
 
-> --- a/drivers/net/wan/ixp4xx_hss.c
-> +++ b/drivers/net/wan/ixp4xx_hss.c
-> @@ -697,7 +697,6 @@ static int hss_hdlc_poll(struct napi_struct *napi, int budget)
->  		}
->  
->  		desc = rx_desc_ptr(port, n);
-> -#if 0 /* FIXME - error_count counts modulo 256, perhaps we should use it */
->  		if (desc->error_count)
->  			printk(KERN_DEBUG "%s: hss_hdlc_poll status 0x%02X"
->  			       " errors %u\n", dev->name, desc->status,
-> @@ -735,9 +734,7 @@ static int hss_hdlc_poll(struct napi_struct *napi, int budget)
->  			dev->stats.rx_length_errors++;
->  			dev->stats.rx_errors++;
->  			break;
-> -		default:	/* FIXME - remove printk */
-> -			netdev_err(dev, "hss_hdlc_poll: status 0x%02X errors %u\n",
-> -				   desc->status, desc->error_count);
-> +		default:
->  			dev->stats.rx_errors++;
->  		}
+> One possible other solution is to add a instance-lock interface
+> for each ftrace instance and lock it by bpf. Then, other users
+> can not enable/disable the events in the instance.
 
--- 
-Krzysztof Halasa
+the user space can synchronize itself via flock. kernel doesn't
+need to arbitrate. If one user process attached a program
+that auto-enabled an event and another process did
+'echo 0 > enable', it's fine. I think it's a feature instead of a bug.
+Both users are root anyway.
 
-Research Institute for Automation and Measurements PIAP
-Al. Jerozolimskie 202, 02-486 Warsaw, Poland
+The more we talk about it, the more I like a new 'bpf' file
+approach within tracefs (that I've mentioned in cover letter)
+with auto-enable/disable logic to make it clear that
+it's different from traditional global 'filter' file.
