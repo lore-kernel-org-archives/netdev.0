@@ -1,61 +1,62 @@
-From: Murali Karicheri <m-karicheri2-l0cyMroinI0@public.gmane.org>
-Subject: Re: [PATCH net-next v8 0/4] net: Add Keystone NetCP ethernet driver
- support
-Date: Thu, 29 Jan 2015 12:21:36 -0500
-Message-ID: <54CA6C20.5090301@ti.com>
-References: <1421367007-19744-1-git-send-email-m-karicheri2@ti.com> <54C92878.3030207@ti.com> <54C94A0D.9050505@ti.com> <20343006.1NmdQEM9nn@wuerfel> <54C9654C.8030407@ti.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>, "Balbi, Felipe" <balbi-l0cyMroinI0@public.gmane.org>,
-	<mugunthanvnm-l0cyMroinI0@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <54C9654C.8030407-l0cyMroinI0@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Nicholas Mc Guire <der.herr@hofr.at>
+Subject: [PATCH] irda: use msecs_to_jiffies for conversions
+Date: Thu, 29 Jan 2015 18:22:51 +0100
+Message-ID: <1422552171-25947-1-git-send-email-der.herr@hofr.at>
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Nicholas Mc Guire <der.herr@hofr.at>
+To: Samuel Ortiz <samuel@sortiz.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 01/28/2015 05:40 PM, Murali Karicheri wrote:
-> + Felipe, Mugunthan for commenting on TI_CPSW, ALE.
->
+This is only an API consolidation and should make things more readable
+it replaces  var * HZ / 1000  constructs by  msecs_to_jiffies(var).
 
-  --- Cut ------
+Signed-off-by: Nicholas Mc Guire <der.herr@hofr.at>
+---
 
->
->>
->> The second problem is where I got stuck myself: cpsw_ale.c (also cpts.c)
->> is getting linked into both modules, which is not allowed: It is
->> impossible for the kernel to compile these if one driver is a module
->> and the other one is not, and any use of KBUILD_MODNAME fails because
->> it is unclear what the modname is if the file is compiled once to
->> be linked into two drivers.
-Arnd,
+Converting milliseconds to jiffies by val * HZ / 1000 is technically
+not wrong but msecs_to_jiffies(val) is the cleaner solution and handles
+all corner cases correctly. This is a minor API cleanup only.
 
-I think the solution is to make the cpsw_ale as a module and configured 
-through a Kconfig option. I am working on a fix for this now.
+This patch was only compile tested with x86_64_defconfig +
+CONFIG_IRDA=m
 
-Similar fix is required for cpts.o. Currently we are not using this 
-module for Netcp, but soon this will be re-used. I have send a patch 
-that is already applied to net-next removing cpts.o for Netcp.
+Patch is against 3.19.0-rc6 -next-20150129
 
-Murali
->
-> I am still looking into this. Both Keystone and TI CPSW driver would
-> need to use cpsw_ale.o and cpts.o (currently not used, but will need
-> this later). Not found a solution yet.
->
-> Murali
->>
->> Arnd
->
->
+ net/irda/irlap.c |    8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
 
-
+diff --git a/net/irda/irlap.c b/net/irda/irlap.c
+index 7f2cafd..1cde711 100644
+--- a/net/irda/irlap.c
++++ b/net/irda/irlap.c
+@@ -533,7 +533,7 @@ void irlap_discovery_request(struct irlap_cb *self, discovery_t *discovery)
+ 	info.discovery = discovery;
+ 
+ 	/* sysctl_slot_timeout bounds are checked in irsysctl.c - Jean II */
+-	self->slot_timeout = sysctl_slot_timeout * HZ / 1000;
++	self->slot_timeout = msecs_to_jiffies(sysctl_slot_timeout);
+ 
+ 	irlap_do_event(self, DISCOVERY_REQUEST, NULL, &info);
+ }
+@@ -1015,13 +1015,15 @@ void irlap_apply_connection_parameters(struct irlap_cb *self, int now)
+ 	 * Or, this is how much we can keep the pf bit in primary mode.
+ 	 * Therefore, it must be lower or equal than our *OWN* max turn around.
+ 	 * Jean II */
+-	self->poll_timeout = self->qos_tx.max_turn_time.value * HZ / 1000;
++	self->poll_timeout = msecs_to_jiffies(
++				self->qos_tx.max_turn_time.value);
+ 	/* The Final timeout applies only to the primary station.
+ 	 * It defines the maximum time the primary wait (mostly in RECV mode)
+ 	 * for an answer from the secondary station before polling it again.
+ 	 * Therefore, it must be greater or equal than our *PARTNER*
+ 	 * max turn around time - Jean II */
+-	self->final_timeout = self->qos_rx.max_turn_time.value * HZ / 1000;
++	self->final_timeout = msecs_to_jiffies(
++				self->qos_rx.max_turn_time.value);
+ 	/* The Watchdog Bit timeout applies only to the secondary station.
+ 	 * It defines the maximum time the secondary wait (mostly in RECV mode)
+ 	 * for poll from the primary station before getting annoyed.
 -- 
-Murali Karicheri
-Linux Kernel, Texas Instruments
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+1.7.10.4
