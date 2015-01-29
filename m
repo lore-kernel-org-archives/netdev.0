@@ -1,31 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] openvswitch: Add support for checksums on UDP
- tunnels.
-Date: Wed, 28 Jan 2015 23:04:28 -0800 (PST)
-Message-ID: <20150128.230428.986343026110615674.davem@davemloft.net>
-References: <1422491566-80453-1-git-send-email-jesse@nicira.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH v2 linux-trace 1/8] tracing: attach eBPF programs to
+ tracepoints and syscalls
+Date: Wed, 28 Jan 2015 23:04:52 -0800
+Message-ID: <CAMEtUuzSDYYWneoTy9=AmMa9=x4owWbWsXod=Do54+yj4Je3=Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: pshelar@nicira.com, netdev@vger.kernel.org, dev@openvswitch.org
-To: jesse@nicira.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36727 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750785AbbA2HEa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jan 2015 02:04:30 -0500
-In-Reply-To: <1422491566-80453-1-git-send-email-jesse@nicira.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Steven Rostedt <rostedt@goodmis.org>,
+	Ingo Molnar <mingo@kernel.org>,
+	Arnaldo Carvalho de Melo <acme@infradead.org>,
+	Jiri Olsa <jolsa@redhat.com>,
+	Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>,
+	Linux API <linux-api@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Namhyung Kim <namhyung@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jesse Gross <jesse@nicira.com>
-Date: Wed, 28 Jan 2015 16:32:46 -0800
+On Wed, Jan 28, 2015 at 10:41 PM, Namhyung Kim <namhyung@kernel.org> wrote:
+>
+> I think it's not a problem of bpf.  An user process can be killed
+> anytime while it enabed events without bpf.  The only thing it should
+> care is the auto-unload IMHO.
 
-> Currently, it isn't possible to request checksums on the outer UDP
-> header of tunnels - the TUNNEL_CSUM flag is ignored. This adds
-> support for requesting that UDP checksums be computed on transmit
-> and properly reported if they are present on receive.
-> 
-> Signed-off-by: Jesse Gross <jesse@nicira.com>
+ok. I think it does indeed make sense to decouple the logic.
+We can add 'auto_enable' file to achieve desired Ctrl-C behavior.
+While the 'auto_enable' file is open the event will be enabled
+and writes to 'enable' file will be ignored.
+As soon as file closes, the event is auto-disabled.
+Then user space will use 'bpf' file to attach/auto-unload
+and 'auto_enable' file together.
+Seem there would be a use for such 'auto_enable'
+without bpf as well.
 
-Applied.
+> I'm okay for not calling bpf program in NMI but not for disabling events.
+>
+> Suppose an user was collecting an event (including in NMI) and then
+> [s]he also wanted to run a bpf program.  So [s]he wrote a program
+> always return 1.  But after attaching the program, it didn't record
+> the event in NMI..  Isn't that a problem?
+
+ok, I think 'if (in_nmi()) return 1;' will work then, right?
+Or you're thinking something else ?
+
+> Right.  I think bpf programs belong to a user process but events are
+> global resource.  Maybe you also need to consider attaching bpf
+> program via perf (ioctl?) interface..
+
+yes. I did. Please see my reply to Masami.
+ioctl only works for tracepoints.
