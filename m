@@ -1,75 +1,52 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: [PATCH net] hyperv: Fix the error processing in netvsc_send()
-Date: Thu, 29 Jan 2015 12:34:49 -0800
-Message-ID: <1422563689-31036-1-git-send-email-haiyangz@microsoft.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: olaf@aepfle.de, jasowang@redhat.com, driverdev-devel@linuxdriverproject.org,
- linux-kernel@vger.kernel.org, haiyangz@microsoft.com
-To: davem@davemloft.net,
-	netdev@vger.kernel.org
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+From: Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
+Subject: [PATCH net-next] tcp: use SACK RTTs for CC
+Date: Thu, 29 Jan 2015 20:08:03 +0100
+Message-ID: <1422558483-6168-1-git-send-email-kennetkl@ifi.uio.no>
+Cc: Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-out4.uio.no ([129.240.10.15]:44108 "EHLO mail-out4.uio.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751591AbbA2Tl1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Jan 2015 14:41:27 -0500
+Received: from mail-mx6.uio.no ([129.240.10.40])
+	by mail-out4.uio.no with esmtp (Exim 4.80.1)
+	(envelope-from <kennetkl@ifi.uio.no>)
+	id 1YGuV2-0002wc-B0
+	for netdev@vger.kernel.org; Thu, 29 Jan 2015 20:11:32 +0100
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The existing code frees the skb in EAGAIN case, in which the skb will be
-retried from upper layer and used again.
-Also, the existing code doesn't free send buffer slot in error case, because
-there is no completion message for unsent packets.
-This patch fixes these problems.
+Current behavior only passes RTTs from sequentially acked data to CC.
 
-(Please also include this patch for stable trees. Thanks!)
+If sender gets a combined ACK for segment 1 and SACK for segment 3, then the
+computed RTT for CC is the time between sending segment 1 and receiving SACK
+for segment 3.
 
-Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
-Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
+Pass the minimum computed RTT from any acked data to CC, i.e. time between
+sending segment 3 and receiving SACK for segment 3.
+
+Signed-off-by: Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
 ---
- drivers/net/hyperv/netvsc.c |   11 ++++++++---
- 1 files changed, 8 insertions(+), 3 deletions(-)
+ net/ipv4/tcp_input.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
-index 9f49c01..7cd4eb3 100644
---- a/drivers/net/hyperv/netvsc.c
-+++ b/drivers/net/hyperv/netvsc.c
-@@ -716,7 +716,7 @@ int netvsc_send(struct hv_device *device,
- 	u64 req_id;
- 	unsigned int section_index = NETVSC_INVALID_INDEX;
- 	u32 msg_size = 0;
--	struct sk_buff *skb;
-+	struct sk_buff *skb = NULL;
- 	u16 q_idx = packet->q_idx;
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 71fb37c..ed11931 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -3183,8 +3183,10 @@ static int tcp_clean_rtx_queue(struct sock *sk, int prior_fackets,
  
+ 		tp->fackets_out -= min(pkts_acked, tp->fackets_out);
  
-@@ -743,8 +743,6 @@ int netvsc_send(struct hv_device *device,
- 							   packet);
- 			skb = (struct sk_buff *)
- 			      (unsigned long)packet->send_completion_tid;
--			if (skb)
--				dev_kfree_skb_any(skb);
- 			packet->page_buf_cnt = 0;
- 		}
- 	}
-@@ -810,6 +808,13 @@ int netvsc_send(struct hv_device *device,
- 			   packet, ret);
- 	}
+-		if (ca_ops->pkts_acked)
+-			ca_ops->pkts_acked(sk, pkts_acked, ca_seq_rtt_us);
++		if (ca_ops->pkts_acked) {
++			long rtt_us = min_t(ulong, ca_seq_rtt_us, sack_rtt_us);
++			ca_ops->pkts_acked(sk, pkts_acked, rtt_us);
++		}
  
-+	if (ret != 0) {
-+		if (section_index != NETVSC_INVALID_INDEX)
-+			netvsc_free_send_slot(net_device, section_index);
-+	} else if (skb) {
-+		dev_kfree_skb_any(skb);
-+	}
-+
- 	return ret;
- }
- 
+ 	} else if (skb && rtt_update && sack_rtt_us >= 0 &&
+ 		   sack_rtt_us > skb_mstamp_us_delta(&now, &skb->skb_mstamp)) {
 -- 
-1.7.4.1
+1.9.1
