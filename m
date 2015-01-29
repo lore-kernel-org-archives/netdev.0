@@ -1,43 +1,114 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH net] ppp: deflate: never return len larger than output buffer
-Date: Wed, 28 Jan 2015 10:56:04 +0100
-Message-ID: <1422438964-7937-1-git-send-email-fw@strlen.de>
-Cc: Florian Westphal <fw@strlen.de>
-To: <netdev@vger.kernel.org>
+From: Yang Yingliang <yangyingliang@huawei.com>
+Subject: Re: A problem about ICMP packet-too-big message handler
+Date: Thu, 29 Jan 2015 11:16:16 +0800
+Message-ID: <54C9A600.9080004@huawei.com>
+References: <54C78B8D.1070104@huawei.com> <20150128121026.GM13046@secunet.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Steffen Klassert <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:38133 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1763900AbbA2DPW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jan 2015 22:15:22 -0500
+Received: from szxga03-in.huawei.com ([119.145.14.66]:53487 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755391AbbA2DQh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jan 2015 22:16:37 -0500
+In-Reply-To: <20150128121026.GM13046@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When we've run out of space in the output buffer to store more data, we
-will call zlib_deflate with a NULL output buffer until we've consumed
-remaining input.
+On 2015/1/28 20:10, Steffen Klassert wrote:
+> On Tue, Jan 27, 2015 at 08:58:53PM +0800, Yang Yingliang wrote:
+>> Hi,
+>>
+>> My kernel is 3.10 LTS.
+>>
+>> I got a problem here about handling ICMP packet-too-big message.
+>>
+>> Before sending a packet-too-big packet :
+>>
+>> # ip -6 route list table local
+>> local ::1 dev lo  metric 0 
+>> local fe80:: dev lo  metric 0 
+>> local fe80:: dev lo  metric 0 
+>> local fe80:: dev lo  metric 0 
+>> local fe80:: dev lo  metric 0 
+>> local fe80:: dev lo  metric 0 
+>> local fe80:: dev lo  metric 0 
+>> local fe80::1 dev lo  metric 0 	//It  does not have expire value
+>> local fe80::200:ff:fe00:0 dev lo  metric 0 
+>> local fe80::200:ff:fe00:0 dev lo  metric 0 
+>> local fe80::200:ff:fe00:0 dev lo  metric 0 
+>> local fe80::200:ff:fe00:0 dev lo  metric 0 
+>> local fe80::200:ff:fe00:2 dev lo  metric 0 
+>> local fe80::5054:ff:fe12:3456 dev lo  metric 0
+>>
+>>
+>> After sending a packet-too-big packet
+>>
+>> ip -6 route list table local
+>> local ::1 dev lo  metric 0 
+>> local fe80:: dev lo  metric 0 
+>> local fe80:: dev lo  metric 0 
+>> local fe80:: dev lo  metric 0 
+>> local fe80:: dev lo  metric 0 
+>> local fe80:: dev lo  metric 0 
+>> local fe80:: dev lo  metric 0 
+>> local fe80::1 dev lo  metric 0  expires _597_  //It has expire value
+> 
+> Is this route still present after the expiration time is elapsed?
+> 
+>> local fe80::200:ff:fe00:0 dev lo  metric 0 
+>> local fe80::200:ff:fe00:0 dev lo  metric 0 
+>> local fe80::200:ff:fe00:0 dev lo  metric 0 
+>> local fe80::200:ff:fe00:0 dev lo  metric 0 
+>> local fe80::200:ff:fe00:2 dev lo  metric 0 
+>> local fe80::5054:ff:fe12:3456 dev lo  metric 0
+>>
+>> When time is up, I can't ping fe80::1 .
+>> Is it ok or a bug ?
+> 
+> This looks pretty similar to a bug I discovered recently.
+> In my case, a ipv6 host route dissapeared 10 minutes after
+> a PMTU event. As a result, this host was not reachable
+> anymore.
+> 
+> This happens because we don't clone host routes before
+> we use them. If a PMTU event happens, the original route
+> is marked with an expire value. After the expiration time
+> is elapsed, the original route is deleted and we loose
+> conectivity to the host.
+> 
+> I'm currently testing patches to fix this. With these
+> patches the ipv6 host routes are cloned if they are
+> gateway routes, i.e. if PMTU events can happen.
+> 
+> I fear it will not fix your case because PMTU events are
+> not expected to happen at local fe80 routes.
 
-When this happens, olen contains the size the output buffer would have
-consumed iff we'd have had enough room.
+I found current kernel will do ip6_update_pmtu() anyway after
+receiving an ICMPV6_PKT_TOOBIG type packet in icmpv6_err().
 
-This can later cause skb_over_panic when ppp_generic skb_put()s
-the returned length.
+Does it need some more condition ? Like this:
 
-Reported-by: Iain Douglas <centos@1n6.org.uk>
-Signed-off-by: Florian Westphal <fw@strlen.de>
----
+diff --git a/net/ipv6/icmp.c b/net/ipv6/icmp.c
+index a5e95199585e..7c0a28add109 100644
+--- a/net/ipv6/icmp.c
++++ b/net/ipv6/icmp.c
+@@ -89,8 +89,10 @@ static void icmpv6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
+ 	/* icmpv6_notify checks 8 bytes can be pulled, icmp6hdr is 8 bytes */
+ 	struct icmp6hdr *icmp6 = (struct icmp6hdr *) (skb->data + offset);
+ 	struct net *net = dev_net(skb->dev);
++	const struct ipv6hdr *iph = (struct ipv6hdr *) skb->data;
+ 
+-	if (type == ICMPV6_PKT_TOOBIG)
++	if (type == ICMPV6_PKT_TOOBIG &&
++	    !(ipv6_addr_type(&iph->daddr) & IPV6_ADDR_LINKLOCAL))
+ 		ip6_update_pmtu(skb, net, info, 0, 0);
+ 	else if (type == NDISC_REDIRECT)
+ 		ip6_redirect(skb, net, skb->dev->ifindex, 0);
 
-diff --git a/drivers/net/ppp/ppp_deflate.c b/drivers/net/ppp/ppp_deflate.c
-index 602c625..b5edc7f 100644
---- a/drivers/net/ppp/ppp_deflate.c
-+++ b/drivers/net/ppp/ppp_deflate.c
-@@ -246,7 +246,7 @@ static int z_compress(void *arg, unsigned char *rptr, unsigned char *obuf,
- 	/*
- 	 * See if we managed to reduce the size of the packet.
- 	 */
--	if (olen < isize) {
-+	if (olen < isize && olen <= osize) {
- 		state->stats.comp_bytes += olen;
- 		state->stats.comp_packets++;
- 	} else {
--- 
-2.0.5
+
+Regards,
+Yang
