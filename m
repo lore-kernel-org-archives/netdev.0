@@ -1,69 +1,36 @@
-From: Yuchung Cheng <ycheng@google.com>
-Subject: Re: [PATCH net-next] tcp: use SACK RTTs for CC
-Date: Fri, 30 Jan 2015 09:47:36 -0800
-Message-ID: <CAK6E8=cRcBUr=H62WHzBetBgLBoV4hPC3ZFNwTZJN4EBTeiSmw@mail.gmail.com>
-References: <1422558483-6168-1-git-send-email-kennetkl@ifi.uio.no> <CAK6E8=c6uAeAMvRfdxYNcqBLWmFTywbpvaqmzf7XmajkGSNqeg@mail.gmail.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 2/9] nftables: reject NFT_SET_ELEM_INTERVAL_END flag for
+ non-interval sets
+Date: Fri, 30 Jan 2015 17:55:26 +0000
+Message-ID: <20150130175525.GA8670@acer.localdomain>
+References: <1422603994-5836-1-git-send-email-kaber@trash.net>
+ <1422603994-5836-3-git-send-email-kaber@trash.net>
+ <20150130173107.GA9243@salvia>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	Neal Cardwell <ncardwell@google.com>
-To: Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
+Content-Type: text/plain; charset=us-ascii
+Cc: herbert@gondor.apana.org.au, tgraf@suug.ch, davem@davemloft.net,
+	David.Laight@ACULAB.COM, ying.xue@windriver.com,
+	paulmck@linux.vnet.ibm.com, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: Pablo Neira Ayuso <pablo@netfilter.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f171.google.com ([209.85.213.171]:62899 "EHLO
-	mail-ig0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1762746AbbA3RsR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jan 2015 12:48:17 -0500
-Received: by mail-ig0-f171.google.com with SMTP id r10so4962070igi.4
-        for <netdev@vger.kernel.org>; Fri, 30 Jan 2015 09:48:17 -0800 (PST)
-In-Reply-To: <CAK6E8=c6uAeAMvRfdxYNcqBLWmFTywbpvaqmzf7XmajkGSNqeg@mail.gmail.com>
+Received: from stinky.trash.net ([213.144.137.162]:38729 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750742AbbA3Rzc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jan 2015 12:55:32 -0500
+Content-Disposition: inline
+In-Reply-To: <20150130173107.GA9243@salvia>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 30, 2015 at 9:21 AM, Yuchung Cheng <ycheng@google.com> wrote:
-> On Thu, Jan 29, 2015 at 11:08 AM, Kenneth Klette Jonassen
-> <kennetkl@ifi.uio.no> wrote:
->> Current behavior only passes RTTs from sequentially acked data to CC.
->>
->> If sender gets a combined ACK for segment 1 and SACK for segment 3, then the
->> computed RTT for CC is the time between sending segment 1 and receiving SACK
->> for segment 3.
-> since segment 3 is sent after segment 1, sack_rtt_us <= ca_seq_rtt so
-> taking a min is not necessary?
-ah i didn't notice you are taking a min_t of ulong for invalid
-sack_rtt_us now i get it.
+On 30.01, Pablo Neira Ayuso wrote:
+> Hi Patrick,
+> 
+> Unless you have any concern, I'm going to apply this and 8/9 to
+> nf-next, so you don't need to resend these two sanitization fixes.
 
+This one is not needed for mainline so far since nft_hash validates
+on its own. It is only required since my series centralizes that
+validation once the set extensions are added.
 
->
->>
->> Pass the minimum computed RTT from any acked data to CC, i.e. time between
->> sending segment 3 and receiving SACK for segment 3.
->>
->> Signed-off-by: Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
->> ---
->>  net/ipv4/tcp_input.c | 6 ++++--
->>  1 file changed, 4 insertions(+), 2 deletions(-)
->>
->> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
->> index 71fb37c..ed11931 100644
->> --- a/net/ipv4/tcp_input.c
->> +++ b/net/ipv4/tcp_input.c
->> @@ -3183,8 +3183,10 @@ static int tcp_clean_rtx_queue(struct sock *sk, int prior_fackets,
->>
->>                 tp->fackets_out -= min(pkts_acked, tp->fackets_out);
->>
->> -               if (ca_ops->pkts_acked)
->> -                       ca_ops->pkts_acked(sk, pkts_acked, ca_seq_rtt_us);
->> +               if (ca_ops->pkts_acked) {
->> +                       long rtt_us = min_t(ulong, ca_seq_rtt_us, sack_rtt_us);
->> +                       ca_ops->pkts_acked(sk, pkts_acked, rtt_us);
->> +               }
->>
->>         } else if (skb && rtt_update && sack_rtt_us >= 0 &&
->>                    sack_rtt_us > skb_mstamp_us_delta(&now, &skb->skb_mstamp)) {
->> --
->> 1.9.1
->>
->> --
->> To unsubscribe from this list: send the line "unsubscribe netdev" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+For 8/9, sure.
