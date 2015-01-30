@@ -1,54 +1,55 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH 2/9] nftables: reject NFT_SET_ELEM_INTERVAL_END flag for
- non-interval sets
-Date: Fri, 30 Jan 2015 18:31:07 +0100
-Message-ID: <20150130173107.GA9243@salvia>
-References: <1422603994-5836-1-git-send-email-kaber@trash.net>
- <1422603994-5836-3-git-send-email-kaber@trash.net>
+From: David L Stevens <david.stevens@oracle.com>
+Subject: [PATCH net] sunvnet: set queue mapping when doing packet copies
+Date: Fri, 30 Jan 2015 12:29:45 -0500
+Message-ID: <54CBBF89.4070800@oracle.com>
+References: <54C90AED.7040404@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: herbert@gondor.apana.org.au, tgraf@suug.ch, davem@davemloft.net,
-	David.Laight@ACULAB.COM, ying.xue@windriver.com,
-	paulmck@linux.vnet.ibm.com, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1422603994-5836-3-git-send-email-kaber@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	Sowmini Varadhan <sowmini.varadhan@oracle.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from aserp1040.oracle.com ([141.146.126.69]:35798 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1762730AbbA3R3u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jan 2015 12:29:50 -0500
+In-Reply-To: <54C90AED.7040404@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Patrick,
 
-Unless you have any concern, I'm going to apply this and 8/9 to
-nf-next, so you don't need to resend these two sanitization fixes.
 
-Thanks.
+This patch fixes a bug where vnet_skb_shape() didn't set the already-selected
+queue mapping when a packet copy was required. This results in using the
+wrong queue index for stops/starts, hung tx queues and watchdog timeouts
+under heavy load.
 
-On Fri, Jan 30, 2015 at 07:46:27AM +0000, Patrick McHardy wrote:
-> Signed-off-by: Patrick McHardy <kaber@trash.net>
-> ---
->  net/netfilter/nf_tables_api.c | 3 +++
->  1 file changed, 3 insertions(+)
-> 
-> diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
-> index 129a8da..92ba4a0 100644
-> --- a/net/netfilter/nf_tables_api.c
-> +++ b/net/netfilter/nf_tables_api.c
-> @@ -3112,6 +3112,9 @@ static int nft_add_set_elem(struct nft_ctx *ctx, struct nft_set *set,
->  		elem.flags = ntohl(nla_get_be32(nla[NFTA_SET_ELEM_FLAGS]));
->  		if (elem.flags & ~NFT_SET_ELEM_INTERVAL_END)
->  			return -EINVAL;
-> +		if (!(set->flags & NFT_SET_INTERVAL) &&
-> +		    elem.flags & NFT_SET_ELEM_INTERVAL_END)
-> +			return -EINVAL;
->  	}
->  
->  	if (set->flags & NFT_SET_MAP) {
-> -- 
-> 2.1.0
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Signed-off-by: David L Stevens <david.stevens@oracle.com>
+Acked-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+
+--
+I'm resubmitting this in its original form. Since skb_segment() doesn't do
+TCP flow control either, due to an incorrect destructor check, and those
+issues raised by Eric are a matter of fairness, while this missing queue_mapping
+assignment results in crashes, I'd like to get this piece fixed separately.
+
+---
+ drivers/net/ethernet/sun/sunvnet.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/ethernet/sun/sunvnet.c b/drivers/net/ethernet/sun/sunvnet.c
+index 2b719cc..2b10b85 100644
+--- a/drivers/net/ethernet/sun/sunvnet.c
++++ b/drivers/net/ethernet/sun/sunvnet.c
+@@ -1123,6 +1123,7 @@ static inline struct sk_buff *vnet_skb_shape(struct sk_buff *skb, int ncookies)
+ 			skb_shinfo(nskb)->gso_size = skb_shinfo(skb)->gso_size;
+ 			skb_shinfo(nskb)->gso_type = skb_shinfo(skb)->gso_type;
+ 		}
++		nskb->queue_mapping = skb->queue_mapping;
+ 		dev_kfree_skb(skb);
+ 		skb = nskb;
+ 	}
+-- 
+1.7.1
