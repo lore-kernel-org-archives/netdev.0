@@ -1,140 +1,99 @@
-From: Fan Du <fan.du@intel.com>
-Subject: [PATCH] net: restore lro after device leave forwarding state
-Date: Fri, 30 Jan 2015 07:33:29 -0500
-Message-ID: <1422621209-23222-1-git-send-email-fan.du@intel.com>
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	fengyuleidian0615@gmail.com
-To: bhutchings@solarflare.com
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [PATCH net-next v2 2/6] net: Add STT tunneling protocol.
+Date: Thu, 29 Jan 2015 21:02:29 -0800
+Message-ID: <CALnjE+okwQ0FBzq5YVSKDgkdo=u=DhCkX-Voo6qeSwOMQD-S0w@mail.gmail.com>
+References: <1422574170-1889-1-git-send-email-pshelar@nicira.com>
+	<CA+mtBx-gs0G5+uJX3kYc6-1piqVqetcUx2EgrmWOAzZ2j5Q1yA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Jesse Gross <jesse@nicira.com>
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:29749 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752017AbbA3Ekv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Jan 2015 23:40:51 -0500
+Received: from na3sys009aog107.obsmtp.com ([74.125.149.197]:57701 "HELO
+	na3sys009aog107.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1750708AbbA3FCc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jan 2015 00:02:32 -0500
+Received: by mail-ie0-f178.google.com with SMTP id rp18so1030918iec.9
+        for <netdev@vger.kernel.org>; Thu, 29 Jan 2015 21:02:29 -0800 (PST)
+In-Reply-To: <CA+mtBx-gs0G5+uJX3kYc6-1piqVqetcUx2EgrmWOAzZ2j5Q1yA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Either detaching a device from bridge or switching a device
-out of FORWARDING state, the original lro feature should
-possibly be enabled for good reason, e.g. hw feature like
-receive side coalescing could come into play.
+On Thu, Jan 29, 2015 at 8:10 PM, Tom Herbert <therbert@google.com> wrote:
+> On Thu, Jan 29, 2015 at 3:29 PM, Pravin B Shelar <pshelar@nicira.com> wrote:
+>> This adds a device level support for Stateless TCP Tunnel (STT)
+>> protocol encapsulation. NF-hook is used for receiving STT
+>> packets from networking stack.
+>> Open vSwitch can be used for configuring, set up and tear down
+>> STT tunnels.
+>>
+>> The protocol is documented at
+>> http://www.ietf.org/archive/id/draft-davie-stt-06.txt
+>>
+>> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+>> Signed-off-by: Jesse Gross <jesse@nicira.com>
+>> ---
+>>  include/net/stt.h |   59 +++
+>>  net/ipv4/Kconfig  |   11 +
+>>  net/ipv4/Makefile |    1 +
+>>  net/ipv4/stt.c    | 1398 +++++++++++++++++++++++++++++++++++++++++++++++++++++
+>>  4 files changed, 1469 insertions(+)
+>>  create mode 100644 include/net/stt.h
+>>  create mode 100644 net/ipv4/stt.c
+>>
 
-BEFORE:
-echo 1 > /proc/sys/net/ipv4/conf/ens806f0/forwarding && ethtool -k ens806f0 | grep large
-large-receive-offload: off
+....
+>> +
+>> +static void tcp_sock_release(struct socket *sock)
+>> +{
+>> +       kernel_sock_shutdown(sock, SHUT_RDWR);
+>> +       sk_release_kernel(sock->sk);
+>> +}
+>> +
+>> +static int tcp_sock_create4(struct net *net, __be16 port,
+>> +                           struct socket **sockp)
+>> +{
+>> +       int err;
+>> +       struct socket *sock = NULL;
+>> +       struct sockaddr_in tcp_addr;
+>> +
+>> +       err = sock_create_kern(AF_INET, SOCK_STREAM, 0, &sock);
+>
+> Should be: err = sock_create_kern(AF_INET, SOCK_STREAM, IPPROTO_TCP, &sock);
+>
 
-echo 0 > /proc/sys/net/ipv4/conf/ens806f0/forwarding && ethtool -k ens806f0 | grep large
-large-receive-offload: off
+ok.
 
-AFTER:
-echo 1 > /proc/sys/net/ipv4/conf/ens806f0/forwarding && ethtool -k ens806f0 | grep large
-large-receive-offload: off
+>> +       if (err < 0)
+>> +               goto error;
+>> +
+>> +       sk_change_net(sock->sk, net);
+>> +
+>> +       memset(&tcp_addr, 0, sizeof(tcp_addr));
+>> +       tcp_addr.sin_family = AF_INET;
+>> +       tcp_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+>> +       tcp_addr.sin_port = port;
+>> +       err = kernel_bind(sock, (struct sockaddr *)&tcp_addr,
+>> +                         sizeof(tcp_addr));
+>
+> I think there should also be a kernel_listen also. I'm a little
+> surprised that this could work without it, it doesn't seem like we
+> should be finding closed sockets on input. In any case even if that
+> did work, it is quite annoying that the socket doesn't appear in
+> "netstat -ant".
+>
 
-echo 0 > /proc/sys/net/ipv4/conf/ens806f0/forwarding && ethtool -k ens806f0 | grep large
-large-receive-offload: on
+This is fake TCP socket. it is created to gain exclusive access to the
+TCP port. STT receives packet from nf-hook, so no need to listening
+TCP socket.
+I am not updating any socket stats so I do not think you will see any
+socket stats.
 
-Signed-off-by: Fan Du <fan.du@intel.com>
-Fixes: 0187bdfb0567 ("net: Disable LRO on devices that are forwarding")
----
- include/linux/netdevice.h |  1 +
- net/bridge/br_if.c        |  1 +
- net/core/dev.c            | 24 ++++++++++++++++++++++++
- net/ipv4/devinet.c        |  4 ++++
- net/ipv6/addrconf.c       |  2 ++
- 5 files changed, 32 insertions(+)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 642d426..904b1a4 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -2153,6 +2153,7 @@ int dev_alloc_name(struct net_device *dev, const char *name);
- int dev_open(struct net_device *dev);
- int dev_close(struct net_device *dev);
- void dev_disable_lro(struct net_device *dev);
-+void dev_enable_lro(struct net_device *dev);
- int dev_loopback_xmit(struct sk_buff *newskb);
- int dev_queue_xmit(struct sk_buff *skb);
- int dev_queue_xmit_accel(struct sk_buff *skb, void *accel_priv);
-diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
-index 81e49fb..4236f3a 100644
---- a/net/bridge/br_if.c
-+++ b/net/bridge/br_if.c
-@@ -565,6 +565,7 @@ int br_del_if(struct net_bridge *br, struct net_device *dev)
- 		call_netdevice_notifiers(NETDEV_CHANGEADDR, br->dev);
- 
- 	netdev_update_features(br->dev);
-+	dev_enable_lro(dev);
- 
- 	return 0;
- }
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 1e325ad..938d7f6 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -1451,6 +1451,30 @@ void dev_disable_lro(struct net_device *dev)
- }
- EXPORT_SYMBOL(dev_disable_lro);
- 
-+/**
-+ *	dev_enable_lro - enable Large Receive Offload on a device
-+ *	@dev: device
-+ *
-+ *	Enable Large Receive Offload (LRO) on a net device.  Must be
-+ *	called under RTNL. This is needed if device is not attached
-+ *	to a bridge, or user change the forwarding state.
-+ */
-+void dev_enable_lro(struct net_device *dev)
-+{
-+	struct net_device *lower_dev;
-+	struct list_head *iter;
-+
-+	dev->wanted_features |= NETIF_F_LRO;
-+	netdev_update_features(dev);
-+
-+	if (unlikely(!(dev->features & NETIF_F_LRO)))
-+		netdev_WARN(dev, "failed to enable LRO!\n");
-+
-+	netdev_for_each_lower_dev(dev, lower_dev, iter)
-+		dev_enable_lro(lower_dev);
-+}
-+EXPORT_SYMBOL(dev_enable_lro);
-+
- static int call_netdevice_notifier(struct notifier_block *nb, unsigned long val,
- 				   struct net_device *dev)
- {
-diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-index 214882e..3307196 100644
---- a/net/ipv4/devinet.c
-+++ b/net/ipv4/devinet.c
-@@ -1956,6 +1956,8 @@ static void inet_forward_change(struct net *net)
- 		struct in_device *in_dev;
- 		if (on)
- 			dev_disable_lro(dev);
-+		else
-+			dev_enable_lro(dev);
- 		rcu_read_lock();
- 		in_dev = __in_dev_get_rcu(dev);
- 		if (in_dev) {
-@@ -2047,6 +2049,8 @@ static int devinet_sysctl_forward(struct ctl_table *ctl, int write,
- 					container_of(cnf, struct in_device, cnf);
- 				if (*valp)
- 					dev_disable_lro(idev->dev);
-+				else
-+					dev_enable_lro(idev->dev);
- 				inet_netconf_notify_devconf(net,
- 							    NETCONFA_FORWARDING,
- 							    idev->dev->ifindex,
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index f7c8bbe..4c3b54c 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -669,6 +669,8 @@ static void dev_forward_change(struct inet6_dev *idev)
- 	dev = idev->dev;
- 	if (idev->cnf.forwarding)
- 		dev_disable_lro(dev);
-+	else
-+		dev_enable_lro(dev);
- 	if (dev->flags & IFF_MULTICAST) {
- 		if (idev->cnf.forwarding) {
- 			ipv6_dev_mc_inc(dev, &in6addr_linklocal_allrouters);
--- 
-1.8.3.1
+>> +       if (err < 0)
+>> +               goto error;
+>> +
+>> +       *sockp = sock;
+>> +       return 0;
