@@ -1,7 +1,7 @@
 From: roopa@cumulusnetworks.com
-Subject: [PATCH net-next v4 1/7] netdev: introduce new NETIF_F_HW_SWITCH_OFFLOAD feature flag for switch device offloads
-Date: Thu, 29 Jan 2015 22:40:11 -0800
-Message-ID: <1422600017-42393-2-git-send-email-roopa@cumulusnetworks.com>
+Subject: [PATCH net-next v4 6/7] bonding: handle NETIF_F_HW_SWITCH_OFFLOAD flag and add ndo_bridge_setlink/dellink handlers
+Date: Thu, 29 Jan 2015 22:40:16 -0800
+Message-ID: <1422600017-42393-7-git-send-email-roopa@cumulusnetworks.com>
 Cc: netdev@vger.kernel.org, davem@davemloft.net,
 	shm@cumulusnetworks.com, gospo@cumulusnetworks.com
 To: jiri@resnulli.us, sfeldma@gmail.com, jhs@mojatatu.com,
@@ -9,60 +9,64 @@ To: jiri@resnulli.us, sfeldma@gmail.com, jhs@mojatatu.com,
 	stephen@networkplumber.org, vyasevic@redhat.com,
 	ronen.arad@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:55310 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751574AbbA3GkY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jan 2015 01:40:24 -0500
-Received: by mail-pa0-f51.google.com with SMTP id fb1so48772245pad.10
-        for <netdev@vger.kernel.org>; Thu, 29 Jan 2015 22:40:24 -0800 (PST)
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:50866 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752347AbbA3Gk3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jan 2015 01:40:29 -0500
+Received: by mail-pa0-f50.google.com with SMTP id rd3so48611918pab.9
+        for <netdev@vger.kernel.org>; Thu, 29 Jan 2015 22:40:28 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Roopa Prabhu <roopa@cumulusnetworks.com>
 
-This is a high level feature flag for all switch asic offloads
+We want bond to pick up the offload flag if any of its slaves have it.
 
-switch drivers set this flag on switch ports. Logical devices like
-bridge, bonds, vxlans can inherit this flag from their slaves/ports.
+NETIF_F_HW_SWITCH_OFFLOAD flag is added to the mask, so that
+netdev_increment_features does not ignore it.
 
-The patch also adds the flag to NETIF_F_ONE_FOR_ALL, so that it gets
-propagated to the upperdevices (bridges and bonds).
+This also adds ndo_bridge_setlink and ndo_bridge_dellink handlers.
+These currently point to the default handlers provided by the
+switchdev api.
 
 Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
 ---
- include/linux/netdev_features.h |    6 +++++-
- 1 file changed, 5 insertions(+), 1 deletion(-)
+ drivers/net/bonding/bond_main.c |    9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
 
-diff --git a/include/linux/netdev_features.h b/include/linux/netdev_features.h
-index 8e30685..7d59dc6 100644
---- a/include/linux/netdev_features.h
-+++ b/include/linux/netdev_features.h
-@@ -66,6 +66,7 @@ enum {
- 	NETIF_F_HW_VLAN_STAG_FILTER_BIT,/* Receive filtering on VLAN STAGs */
- 	NETIF_F_HW_L2FW_DOFFLOAD_BIT,	/* Allow L2 Forwarding in Hardware */
- 	NETIF_F_BUSY_POLL_BIT,		/* Busy poll */
-+	NETIF_F_HW_SWITCH_OFFLOAD_BIT,  /* HW switch offload */
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index e229a86..c9e519c 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -77,6 +77,7 @@
+ #include <net/pkt_sched.h>
+ #include <linux/rculist.h>
+ #include <net/flow_keys.h>
++#include <net/switchdev.h>
+ #include <net/bonding.h>
+ #include <net/bond_3ad.h>
+ #include <net/bond_alb.h>
+@@ -979,7 +980,11 @@ static netdev_features_t bond_fix_features(struct net_device *dev,
+ 	netdev_features_t mask;
+ 	struct slave *slave;
  
- 	/*
- 	 * Add your fresh new feature above and remember to update
-@@ -124,6 +125,7 @@ enum {
- #define NETIF_F_HW_VLAN_STAG_TX	__NETIF_F(HW_VLAN_STAG_TX)
- #define NETIF_F_HW_L2FW_DOFFLOAD	__NETIF_F(HW_L2FW_DOFFLOAD)
- #define NETIF_F_BUSY_POLL	__NETIF_F(BUSY_POLL)
-+#define NETIF_F_HW_SWITCH_OFFLOAD	__NETIF_F(HW_SWITCH_OFFLOAD)
- 
- /* Features valid for ethtool to change */
- /* = all defined minus driver/device-class-related */
-@@ -159,7 +161,9 @@ enum {
-  */
- #define NETIF_F_ONE_FOR_ALL	(NETIF_F_GSO_SOFTWARE | NETIF_F_GSO_ROBUST | \
- 				 NETIF_F_SG | NETIF_F_HIGHDMA |		\
--				 NETIF_F_FRAGLIST | NETIF_F_VLAN_CHALLENGED)
-+				 NETIF_F_FRAGLIST | NETIF_F_VLAN_CHALLENGED | \
-+				 NETIF_F_HW_SWITCH_OFFLOAD)
+-	mask = features;
++	/* If any slave has the offload feature flag set,
++	 * set the offload flag on the bond.
++	 */
++	mask = features | NETIF_F_HW_SWITCH_OFFLOAD;
 +
- /*
-  * If one device doesn't support one of these features, then disable it
-  * for all in netdev_increment_features.
+ 	features &= ~NETIF_F_ONE_FOR_ALL;
+ 	features |= NETIF_F_ALL_FOR_ALL;
+ 
+@@ -3952,6 +3957,8 @@ static const struct net_device_ops bond_netdev_ops = {
+ 	.ndo_add_slave		= bond_enslave,
+ 	.ndo_del_slave		= bond_release,
+ 	.ndo_fix_features	= bond_fix_features,
++	.ndo_bridge_setlink	= ndo_dflt_netdev_switch_port_bridge_setlink,
++	.ndo_bridge_dellink	= ndo_dflt_netdev_switch_port_bridge_dellink,
+ };
+ 
+ static const struct device_type bond_type = {
 -- 
 1.7.10.4
