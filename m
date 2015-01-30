@@ -1,46 +1,35 @@
-From: Olivier Sobrie <olivier@sobrie.be>
-Subject: [PATCH v2 10/11] hso: add missing cancel_work_sync in disconnect()
-Date: Fri, 30 Jan 2015 13:22:02 +0100
-Message-ID: <1422620523-15021-11-git-send-email-olivier@sobrie.be>
-References: <1421756978-4093-1-git-send-email-olivier@sobrie.be>
- <1422620523-15021-1-git-send-email-olivier@sobrie.be>
- <1422620523-15021-2-git-send-email-olivier@sobrie.be>
- <1422620523-15021-3-git-send-email-olivier@sobrie.be>
- <1422620523-15021-4-git-send-email-olivier@sobrie.be>
- <1422620523-15021-5-git-send-email-olivier@sobrie.be>
- <1422620523-15021-6-git-send-email-olivier@sobrie.be>
- <1422620523-15021-7-git-send-email-olivier@sobrie.be>
- <1422620523-15021-8-git-send-email-olivier@sobrie.be>
- <1422620523-15021-9-git-send-email-olivier@sobrie.be>
- <1422620523-15021-10-git-send-email-olivier@sobrie.be>
-Cc: linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org,
-	netdev@vger.kernel.org, Olivier Sobrie <olivier@sobrie.be>
-To: Jan Dumon <j.dumon@option.com>, Dan Williams <dcbw@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1422620523-15021-10-git-send-email-olivier@sobrie.be>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next v2 1/6] skbuff: Add skb_list_linearize()
+Date: Fri, 30 Jan 2015 12:25:57 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CAD6218@AcuExch.aculab.com>
+References: <1422574164-1860-1-git-send-email-pshelar@nicira.com>
+	<54CAFA72.60207@gmail.com>
+ <CALnjE+roOJx3seVQ8Jrc-x0FRx-Hdv+x4isfUCHY0rtz8XY+YA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: 'Pravin Shelar' <pshelar@nicira.com>,
+	Alexander Duyck <alexander.duyck@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out6.electric.net ([192.162.217.181]:59805 "EHLO
+	smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932485AbbA3M0T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jan 2015 07:26:19 -0500
+In-Reply-To: <CALnjE+roOJx3seVQ8Jrc-x0FRx-Hdv+x4isfUCHY0rtz8XY+YA@mail.gmail.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-For hso serial devices, two cancel_work_sync were missing in the
-disconnect method.
-
-Signed-off-by: Olivier Sobrie <olivier@sobrie.be>
----
- drivers/net/usb/hso.c | 2 ++
- 1 file changed, 2 insertions(+)
-
-diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
-index c916ab5..c14fc80 100644
---- a/drivers/net/usb/hso.c
-+++ b/drivers/net/usb/hso.c
-@@ -3107,6 +3107,8 @@ static void hso_free_interface(struct usb_interface *interface)
- 			mutex_lock(&serial->parent->mutex);
- 			serial->parent->usb_gone = 1;
- 			mutex_unlock(&serial->parent->mutex);
-+			cancel_work_sync(&serial_table[i]->async_put_intf);
-+			cancel_work_sync(&serial_table[i]->async_get_intf);
- 			hso_serial_tty_unregister(serial);
- 			kref_put(&serial_table[i]->ref, hso_serial_ref_free);
- 			set_serial_by_index(i, NULL);
--- 
-2.2.0
+RnJvbTogUHJhdmluIFNoZWxhcg0KLi4uDQo+ID4gSSdtIG5vdCBjb21wbGV0ZWx5IGNvbnZpbmNl
+ZCB0aGlzIGlzIGV2ZW4gbmVjZXNzYXJ5LiAgU2VlbXMgbGlrZSB5b3UgYXJlDQo+ID4gd2FzdGlu
+ZyBjeWNsZXMgY29weWluZyB0aGUgZnJhbWVzIGFyb3VuZCB3aGVuIHlvdSBjb3VsZCBwcm9iYWJs
+eSBqdXN0DQo+ID4gcHVsbCB0aGUgaGVhZGVyIG9mIHRoZSBmaXJzdCBmcmFtZSBhbmQgdGhlbiB1
+c2UgcGFnZSBmcmFnZXMgdG8gZmlsbCBpbg0KPiA+IHRoZSByZXN0Lg0KPiA+DQo+IA0KPiBUaGlz
+IGlzIHdoYXQgaXMgZG9uZSB3aGVuIHBvc3NpYmxlLiBCdXQgc2tiIG1lcmdpbmcgaXMgbm90IGFs
+d2F5cw0KPiBwb3NzaWJsZSwgZm9yIGV4YW1wbGUgd2hlbiAgTUFYX1NLQl9GUkFHUyBsaW1pdCBp
+cyByZWFjaGVkLiBZb3UgY2FuDQo+IGhhdmUgYSBsb29rIGF0IFNUVCBpbXBsZW1lbnRhdGlvbi4N
+Cg0KSWYgTUFYX1NLQl9GUkFHUyBpcyByZWFjaGVkIHdoeSBub3QganVzdCBnZW5lcmF0ZSB0d28g
+ZnJhbWVzPw0KRXhjZXB0IGluIHBhdGhvbG9naWNhbCBjYXNlcyB3aXRoIGEgbG9nIG9mIHNtYWxs
+IGZyYWdtZW50cw0KdGhlIGxpbmVhcml6ZSBpcyBsaWtlbHkgdG8gYmUgbW9yZSBleHBlbnNpdmUg
+dGhhbiB0aGUgcHJvY2Vzc2luZy4NCg0KCURhdmlkDQoNCg==
