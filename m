@@ -1,44 +1,78 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [PATCH net-next v2 0/6] net: Add STT support.
-Date: Fri, 30 Jan 2015 08:46:04 -0800
-Message-ID: <54CBB54C.2050307@hp.com>
-References: <1422574156-1831-1-git-send-email-pshelar@nicira.com> <54CAFE89.4090509@gmail.com> <CALnjE+pPh5nSvaLTnM-a0r2Gm6K8Hz5BU_CsiWzYmwijPCOgHg@mail.gmail.com>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: [PATCH v2 11/11] hso: fix rfkill name conflicts
+Date: Fri, 30 Jan 2015 10:59:02 -0600
+Message-ID: <1422637142.30854.7.camel@dcbw.local>
+References: <1422620523-15021-4-git-send-email-olivier@sobrie.be>
+	 <1422620523-15021-5-git-send-email-olivier@sobrie.be>
+	 <1422620523-15021-6-git-send-email-olivier@sobrie.be>
+	 <1422620523-15021-7-git-send-email-olivier@sobrie.be>
+	 <1422620523-15021-8-git-send-email-olivier@sobrie.be>
+	 <1422620523-15021-9-git-send-email-olivier@sobrie.be>
+	 <1422620523-15021-10-git-send-email-olivier@sobrie.be>
+	 <1422620523-15021-11-git-send-email-olivier@sobrie.be>
+	 <1422620523-15021-12-git-send-email-olivier@sobrie.be>
+	 <1422632879.30854.0.camel@dcbw.local>
+	 <20150130161555.GA22140@thinkoso.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Pravin Shelar <pshelar@nicira.com>,
-	Alexander Duyck <alexander.duyck@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g2t2352.austin.hp.com ([15.217.128.51]:56417 "EHLO
-	g2t2352.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753296AbbA3QqK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jan 2015 11:46:10 -0500
-In-Reply-To: <CALnjE+pPh5nSvaLTnM-a0r2Gm6K8Hz5BU_CsiWzYmwijPCOgHg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Jan Dumon <j.dumon@option.com>, linux-kernel@vger.kernel.org,
+	linux-usb@vger.kernel.org, netdev@vger.kernel.org
+To: Olivier Sobrie <olivier@sobrie.be>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150130161555.GA22140@thinkoso.home>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 01/29/2015 08:04 PM, Pravin Shelar wrote:
-> On Thu, Jan 29, 2015 at 7:46 PM, Alexander Duyck
->> What does the small packet or non-TCP performance look like for STT vs
->> VXLAN?  My concern is that STT looks like it is a one trick pony since
->> all your numbers show is TCP TSO performance, and based on some of the
->> comments in your patches it seems like other protocols such as UDP are
->> going to suffer pretty badly due to things like the linearization overhead.
->>
->
-> Current implementation is targeted for TCP workloads thats why I
-> posted numbers with TCP, once UDP is optimized we can discuss UDP
-> numbers. I am pretty sure the STT code can be optimized further
-> specially for protocols other than TCP.
+On Fri, 2015-01-30 at 17:15 +0100, Olivier Sobrie wrote:
+> Hello Dan,
+> 
+> On Fri, Jan 30, 2015 at 09:47:59AM -0600, Dan Williams wrote:
+> > On Fri, 2015-01-30 at 13:22 +0100, Olivier Sobrie wrote:
+> > > By using only the usb interface number for the rfkill name, we might
+> > > have a name conflicts in case two similar hso devices are connected.
+> > > 
+> > > In this patch, the name of the hso rfkill interface embed the value
+> > > of a counter that is incremented each time a new rfkill interface is
+> > > added.
+> > > 
+> > > Suggested-by: Dan Williams <dcbw@redhat.com>
+> > > Signed-off-by: Olivier Sobrie <olivier@sobrie.be>
+> > > ---
+> > >  drivers/net/usb/hso.c | 5 +++--
+> > >  1 file changed, 3 insertions(+), 2 deletions(-)
+> > > 
+> > > diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
+> > > index c14fc80..d31a165 100644
+> > > --- a/drivers/net/usb/hso.c
+> > > +++ b/drivers/net/usb/hso.c
+> > > @@ -153,7 +153,7 @@ struct hso_net {
+> > >  	struct hso_device *parent;
+> > >  	struct net_device *net;
+> > >  	struct rfkill *rfkill;
+> > > -	char name[8];
+> > > +	char name[24];
+> > >  
+> > >  	struct usb_endpoint_descriptor *in_endp;
+> > >  	struct usb_endpoint_descriptor *out_endp;
+> > > @@ -2469,9 +2469,10 @@ static void hso_create_rfkill(struct hso_device *hso_dev,
+> > >  {
+> > >  	struct hso_net *hso_net = dev2net(hso_dev);
+> > >  	struct device *dev = &hso_net->net->dev;
+> > > +	static u32 rfkill_counter;
+> > 
+> > It'll probably be initialized to 0, but still, it would feel safer with
+> > an explicit "rfkill_counter = 0"...
+> > 
+> 
+> If I set explicitly rfkill_counter = 0, checkpatch triggers an error:
+> 
+>   ERROR: do not initialise statics to 0 or NULL
+>   #36: FILE: drivers/net/usb/hso.c:2472:
+>   +	static u32 rfkill_counter = 0;
 
-Not to pile-on or anything but indeed, there is much more to "TCP 
-workloads" than just bulk transfer (TCP_STREAM), which is precisely why 
-netperf was created oh so many years ago with its TCP_RR test to try to 
-replace ttcp, and why there are the methods of mine and others to do 
-aggregate PPS with it and other benchmarks.
+Well OK then, life has changed since I last submitted a patch with a
+static variable :)  If checkpatch complains, then it is almost always
+correct, and you can ignore me.
 
-Of course that comment applies not only to STT but also to any other 
-"get to link-rate" on a (single|smallnumberof) stream" change.
-
-rick
+Dan
