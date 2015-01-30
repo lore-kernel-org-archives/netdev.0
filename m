@@ -1,73 +1,28 @@
-From: Olivier Sobrie <olivier@sobrie.be>
-Subject: Re: [PATCH v2 11/11] hso: fix rfkill name conflicts
-Date: Fri, 30 Jan 2015 17:15:55 +0100
-Message-ID: <20150130161555.GA22140@thinkoso.home>
-References: <1422620523-15021-4-git-send-email-olivier@sobrie.be>
- <1422620523-15021-5-git-send-email-olivier@sobrie.be>
- <1422620523-15021-6-git-send-email-olivier@sobrie.be>
- <1422620523-15021-7-git-send-email-olivier@sobrie.be>
- <1422620523-15021-8-git-send-email-olivier@sobrie.be>
- <1422620523-15021-9-git-send-email-olivier@sobrie.be>
- <1422620523-15021-10-git-send-email-olivier@sobrie.be>
- <1422620523-15021-11-git-send-email-olivier@sobrie.be>
- <1422620523-15021-12-git-send-email-olivier@sobrie.be>
- <1422632879.30854.0.camel@dcbw.local>
-Reply-To: Olivier Sobrie <olivier@sobrie.be>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH 1/9] rhashtable: simplify rhashtable_remove()
+Date: Fri, 30 Jan 2015 16:36:21 +0000
+Message-ID: <20150130163621.GA5807@casper.infradead.org>
+References: <1422603994-5836-1-git-send-email-kaber@trash.net>
+ <1422603994-5836-2-git-send-email-kaber@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jan Dumon <j.dumon@option.com>, linux-kernel@vger.kernel.org,
-	linux-usb@vger.kernel.org, netdev@vger.kernel.org
-To: Dan Williams <dcbw@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: herbert@gondor.apana.org.au, davem@davemloft.net,
+	David.Laight@ACULAB.COM, ying.xue@windriver.com,
+	paulmck@linux.vnet.ibm.com, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1422632879.30854.0.camel@dcbw.local>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <1422603994-5836-2-git-send-email-kaber@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello Dan,
-
-On Fri, Jan 30, 2015 at 09:47:59AM -0600, Dan Williams wrote:
-> On Fri, 2015-01-30 at 13:22 +0100, Olivier Sobrie wrote:
-> > By using only the usb interface number for the rfkill name, we might
-> > have a name conflicts in case two similar hso devices are connected.
-> > 
-> > In this patch, the name of the hso rfkill interface embed the value
-> > of a counter that is incremented each time a new rfkill interface is
-> > added.
-> > 
-> > Suggested-by: Dan Williams <dcbw@redhat.com>
-> > Signed-off-by: Olivier Sobrie <olivier@sobrie.be>
-> > ---
-> >  drivers/net/usb/hso.c | 5 +++--
-> >  1 file changed, 3 insertions(+), 2 deletions(-)
-> > 
-> > diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
-> > index c14fc80..d31a165 100644
-> > --- a/drivers/net/usb/hso.c
-> > +++ b/drivers/net/usb/hso.c
-> > @@ -153,7 +153,7 @@ struct hso_net {
-> >  	struct hso_device *parent;
-> >  	struct net_device *net;
-> >  	struct rfkill *rfkill;
-> > -	char name[8];
-> > +	char name[24];
-> >  
-> >  	struct usb_endpoint_descriptor *in_endp;
-> >  	struct usb_endpoint_descriptor *out_endp;
-> > @@ -2469,9 +2469,10 @@ static void hso_create_rfkill(struct hso_device *hso_dev,
-> >  {
-> >  	struct hso_net *hso_net = dev2net(hso_dev);
-> >  	struct device *dev = &hso_net->net->dev;
-> > +	static u32 rfkill_counter;
+On 01/30/15 at 07:46am, Patrick McHardy wrote:
+> Remove some duplicated code by moving the restart label up a few
+> lines. Also use rcu_access_pointer() for the pointer comparison
+> instead of rht_dereference_rcu().
 > 
-> It'll probably be initialized to 0, but still, it would feel safer with
-> an explicit "rfkill_counter = 0"...
-> 
+> Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-If I set explicitly rfkill_counter = 0, checkpatch triggers an error:
-
-  ERROR: do not initialise statics to 0 or NULL
-  #36: FILE: drivers/net/usb/hso.c:2472:
-  +	static u32 rfkill_counter = 0;
-
-Olivier
+BTW, everything except the rcu_access_pointer() optimization is
+also covered in the "rhashtable fixes" series I posted.
