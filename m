@@ -1,42 +1,29 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH 0/6 net-next] rhashtable fixes
-Date: Fri, 30 Jan 2015 09:29:11 +0000
-Message-ID: <20150130092911.GA2313@casper.infradead.org>
-References: <cover.1422576760.git.tgraf@suug.ch>
- <54CB4A95.9060000@windriver.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 9/9] netfilter: nf_tables: add support for dynamic set
+ updates
+Date: Fri, 30 Jan 2015 20:28:45 +1100
+Message-ID: <20150130092845.GA18725@gondor.apana.org.au>
+References: <1422603994-5836-1-git-send-email-kaber@trash.net>
+ <1422603994-5836-10-git-send-email-kaber@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Ying Xue <ying.xue@windriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:33177 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752525AbbA3J3O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jan 2015 04:29:14 -0500
+Cc: tgraf@suug.ch, davem@davemloft.net, David.Laight@ACULAB.COM,
+	ying.xue@windriver.com, paulmck@linux.vnet.ibm.com,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <54CB4A95.9060000@windriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1422603994-5836-10-git-send-email-kaber@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 01/30/15 at 05:10pm, Ying Xue wrote:
-> Hi Thomas,
-> 
-> I make sure that my local net-next tree is synchronized to the latest
-> version in which the commit fe6a043c535acfec8f8e554536c87923dcb45097
-> ("rhashtable: rhashtable_remove() must unlink in both tbl and
-> future_tbl") is already contained, and then I manually applied the whole
-> series patches. But when I repeatedly run the test case I originally
-> posted, soft lockup happens. Please see its relevant log:
+On Fri, Jan 30, 2015 at 07:46:34AM +0000, Patrick McHardy wrote:
+> Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-Right, I see the same soft lockup. Interestingly I cannot trigger it
-with the rht test code. I can only trigger it with your Netlink socket
-creation stress test. It is definitely related to the deferred worker,
-when I disable growing, then the bug disappears. I think that the
-expansion leaves a race open in which remove cannot find certain entries
-(I verified this by adding a BUG_ON() when rhashtable_remove() could not
-find a match). This then keeps an entry on the list which has already
-been freed.
+I presume this can't create any jumps/gotos, right?
 
-However, I think this was present before these fixes but hidden as the
-lockup requires a lot more iterations of your stress test on my
-machine.
+Thanks,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
