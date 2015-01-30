@@ -1,69 +1,97 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: RE: [PATCH net] hyperv: Fix the error processing in netvsc_send()
-Date: Fri, 30 Jan 2015 15:05:00 +0000
-Message-ID: <BN1PR0301MB0770FCDA58F3BC9E25382D95CA310@BN1PR0301MB0770.namprd03.prod.outlook.com>
-References: <1422563689-31036-1-git-send-email-haiyangz@microsoft.com>
- <1422613519.8840.0@smtp.corp.redhat.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: NetDev 0.1 Preliminary schedule posted
+Date: Fri, 30 Jan 2015 10:07:33 -0500
+Message-ID: <54CB9E35.4060606@mojatatu.com>
+Reply-To: info@netdev01.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "olaf@aepfle.de" <olaf@aepfle.de>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- "driverdev-devel@linuxdriverproject.org"
- <driverdev-devel@linuxdriverproject.org>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- "davem@davemloft.net" <davem@davemloft.net>
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1422613519.8840.0@smtp.corp.redhat.com>
-Content-Language: en-US
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Cc: info@netdev01.org, speakers@netdev01.org, attendees@netdev01.org
+To: netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
+	lwn@lwn.net, netdev01@lists.netfilter.org, lartc@vger.kernel.org,
+	netfilter@vger.kernel.org, netfilter-devel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f172.google.com ([209.85.213.172]:46839 "EHLO
+	mail-ig0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758564AbbA3PHg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jan 2015 10:07:36 -0500
+Received: by mail-ig0-f172.google.com with SMTP id l13so3755560iga.5
+        for <netdev@vger.kernel.org>; Fri, 30 Jan 2015 07:07:35 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+Fellow netheads:
+
+Yours truly posting on behalf of rgb.
+
+The preliminary schedule was published late yesterday.
+https://www.netdev01.org/schedule
+
+We wanted to get something out quickly while we make it pretty
+afterwards. There will be some minor changes later on.
+Talks are all on Mon/Tuesday and Tutorials/BoFs/Workshops are
+Sat/Sunday.
+
+There will be a click-able version of the schedule later, for now
+please correlate the schedule against the sessions at:
+https://www.netdev01.org/sessions
+
+We appologize for the inconvinience (all volunteers are hard at
+work to make this a fantastic conference for you).
+
+If you have been waiting for the schedule to register, now is the
+time:
+https://onlineregistrations.ca/netdev01/
+
+Hotel update:
+------------
+The hotel has agreed, on a best effort basis to extend the
+netdev01 rate of $159.00 or $179.00 (depending on the type of room
+required).  Please dont procastinate and book now.  We are competing
+against a few tourist activities for hotel rooms going on around the
+area at the same time (example:
+http://www.ottawafestivals.ca/events/winterlude-2/).
+
+Avoid disappointment and do your reservations at:
+https://www.starwoodmeeting.com/StarGroupsWeb/res?id=1412035802&key=1AC9C1F8
+
+If you dont succeed getting the reservation, send us email at
+info at netdev01.org; we will try to bat for you but we cant guarantee
+results. We are also putting effort into talking to other local hotels.
+
+Sponsors:
+=========
+NetDev 0.1 would like to gratefully acknowledge all our sponsors:
+https://netdev01.org/sponsors
+CENGN                   http://www.cengn.ca/
+Google                  https://www.google.ca
+Qualcomm                https://www.qualcomm.com/
+Verizon                 http://www.verizon.com/
+Cumulus Networks        http://cumulusnetworks.com/
+Mojatatu Networks       https://mojatatu.com/
 
 
+Important Dates:
+==========================
+December 2, 2014        Call for Papers opens
+December 10, 2014       Registration opens
+January 23, 2015        Hotel discount rates deadline
+January 24, 2015        Call for sessions deadline
+February 12, 2015       On-line registration closes
+February 14-17, 2015    Conference days
 
-> -----Original Message-----
-> From: Jason Wang [mailto:jasowang@redhat.com]
-> Sent: Friday, January 30, 2015 5:25 AM
-> > +	if (ret != 0) {
-> > +		if (section_index != NETVSC_INVALID_INDEX)
-> > +			netvsc_free_send_slot(net_device, section_index);
-> 
-> What if ret is -EINVAL or -ENOSPC? Looks like we need free the skb in
-> this case also.
+-------------------------------------------------------------------------------
+THE Technical Conference on Linux Networking, February 14-17, 2015, 
+Ottawa, Canada
+https://netdev01.org/
 
-In these cases, skb is freed in netvsc_start_xmit().
+Contact:                        info@xxxxxxxxxxxxx
+Main site:                      https://www.netdev01.org/
+Announcement:                   https://www.netdev01.org/announce
+CFP:                            https://www.netdev01.org/cfp
+Travel/hotel/weather/clothing:  https://www.netdev01.org/travel
+RSS feed:                       https://netdev01.org/atom
+Follow us on Twitter: @netdev01 https://twitter.com/netdev01
 
-
-> >
-> > +	} else if (skb) {
-> > +		dev_kfree_skb_any(skb);
-> 
-> The caller - netvsc_start_xmit() do this also, may be handle this in
-> caller is better since netvsc_start_xmit() is the only user that tries
-> to send a skb?
-
-When the packet is sent out normally, we frees it in netvsc_send() if it's
-copied to send-buffer. The free is done in netvsc_send(), because the copy
-is also in this function. If it's not copied, it will be freed in another
-function -- netvsc_xmit_completion().
-
-netvsc_start_xmit() only does free skb in error case.
-
-> btw, I find during netvsc_start_xmit(), ret was change to -ENOSPC when
-> queue_sends[q_idx] < 1. But non of the caller check -ENOSPC in fact?
-
-In this case, we don't request re-send, so set ret to a value other than
--EAGAIN. It's handled in the same way as errors != -EAGAIN, so we don't
-need to check this value specifically.
-
-Thanks,
-- Haiyang
+cheers,
+jamal (on behalf of Richard Guy Briggs)
