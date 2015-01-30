@@ -1,102 +1,230 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net] hyperv: Fix the error processing in netvsc_send()
-Date: Fri, 30 Jan 2015 10:33:19 +0008
-Message-ID: <1422613519.8840.0@smtp.corp.redhat.com>
-References: <1422563689-31036-1-git-send-email-haiyangz@microsoft.com>
+From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Subject: Re: [PATCH v2 3/3] lib/string_helpers.c: Change semantics of
+ string_escape_mem
+Date: Fri, 30 Jan 2015 12:27:35 +0200
+Message-ID: <1422613655.31903.351.camel@linux.intel.com>
+References: <1422451543-12401-1-git-send-email-linux@rasmusvillemoes.dk>
+	 <1422525801-26560-1-git-send-email-linux@rasmusvillemoes.dk>
+	 <1422525801-26560-4-git-send-email-linux@rasmusvillemoes.dk>
+	 <1422538178.31903.325.camel@linux.intel.com>
+	 <87oaphbqym.fsf@rasmusvillemoes.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: olaf@aepfle.de, netdev@vger.kernel.org, haiyangz@microsoft.com,
- driverdev-devel@linuxdriverproject.org, linux-kernel@vger.kernel.org,
- davem@davemloft.net
-To: Haiyang Zhang <haiyangz@microsoft.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1422563689-31036-1-git-send-email-haiyangz@microsoft.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Trond Myklebust <trond.myklebust@primarydata.com>,
+	"J. Bruce Fields" <bfields@fieldses.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, linux-nfs@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Rasmus Villemoes <linux@rasmusvillemoes.dk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87oaphbqym.fsf@rasmusvillemoes.dk>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Thu, 2015-01-29 at 15:29 +0100, Rasmus Villemoes wrote:
+> On Thu, Jan 29 2015, Andy Shevchenko <andriy.shevchenko@linux.intel.com> wrote:
+> 
+> >>   *
+> >>   * Return:
+> >> - * The amount of the characters processed to the destination buffer, or
+> >> - * %-ENOMEM if the size of buffer is not enough to put an escaped character is
+> >> - * returned.
+> >> - *
+> >> - * Even in the case of error @dst pointer will be updated to point to the byte
+> >> - * after the last processed character.
+> >> + * The total size of the escaped output that would be generated for
+> >> + * the given input and flags. To check whether the output was
+> >> + * truncated, compare the return value to osz. There is room left in
+> >> + * dst for a '\0' terminator if and only if ret < osz.
+> >>   */
+> >> -int string_escape_mem(const char *src, size_t isz, char **dst, size_t osz,
+> >> -		      unsigned int flags, const char *esc)
+> >> +size_t string_escape_mem(const char *src, size_t isz, char *dst, size_t osz,
+> >> +			 unsigned int flags, const char *esc)
+> >
+> > I prefer to leave the prototype the same. int for return is okay. dst
+> > should be updated accordingly.
+> 
+> Please explain exactly what you think the return value should be, and
+> what *dst should be set to.
+
+Return value like you proposed, *dst is incremented by it.
+
+> 
+> >>  {
+> >> -	char *p = *dst;
+> >> +	char *p = dst;
+> >>  	char *end = p + osz;
+> >>  	bool is_dict = esc && *esc;
+> >> -	int ret;
+> >>  
+> >>  	while (isz--) {
+> >>  		unsigned char c = *src++;
+> >> @@ -466,13 +463,7 @@ int string_escape_mem(const char *src, size_t isz, char **dst, size_t osz,
+> >>  
+> >>  		escape_passthrough(c, &p, end);
+> >>  	}
+> >> -	if (p > end) {
+> >> -		*dst = end;
+> >> -		return -ENOMEM;
+> >> -	}
+> >>  
+> >> -	ret = p - *dst;
+> >> -	*dst = p;
+> >> -	return ret;
+> >> +	return p - dst;
+> >>  }
+> >>  EXPORT_SYMBOL(string_escape_mem);
+> >> diff --git a/lib/test-string_helpers.c b/lib/test-string_helpers.c
+> >> index ab0d30e1e18f..5f95114a2f86 100644
+> >> --- a/lib/test-string_helpers.c
+> >> +++ b/lib/test-string_helpers.c
+> >> @@ -264,12 +264,12 @@ static __init void test_string_escape(const char *name,
+> >>  				      const struct test_string_2 *s2,
+> >>  				      unsigned int flags, const char *esc)
+> >>  {
+> >> -	int q_real = 512;
+> >> -	char *out_test = kmalloc(q_real, GFP_KERNEL);
+> >> -	char *out_real = kmalloc(q_real, GFP_KERNEL);
+> >> +	size_t out_size = 512;
+> >> +	char *out_test = kmalloc(out_size, GFP_KERNEL);
+> >> +	char *out_real = kmalloc(out_size, GFP_KERNEL);
+> >>  	char *in = kmalloc(256, GFP_KERNEL);
+> >> -	char *buf = out_real;
+> >> -	int p = 0, q_test = 0;
+> >> +	size_t p = 0, q_test = 0;
+> >> +	size_t q_real;
+> >>  
+> >>  	if (!out_test || !out_real || !in)
+> >>  		goto out;
+> >> @@ -301,29 +301,26 @@ static __init void test_string_escape(const char *name,
+> >>  		q_test += len;
+> >>  	}
+> >>  
+> >> -	q_real = string_escape_mem(in, p, &buf, q_real, flags, esc);
+> >> +	q_real = string_escape_mem(in, p, out_real, out_size, flags, esc);
+> >>  
+> >>  	test_string_check_buf(name, flags, in, p, out_real, q_real, out_test,
+> >>  			      q_test);
+> >> +
+> >> +	memset(out_real, 'Z', out_size);
+> >> +	q_real = string_escape_mem(in, p, out_real, 0, flags, esc);
+> >> +	if (q_real != q_test)
+> >> +		pr_warn("Test '%s' failed: flags = %u, osz = 0, expected %zu, got %zu\n",
+> >> +			name, flags, q_test, q_real);
+> >> +	if (memchr_inv(out_real, 'Z', out_size))
+> >> +		pr_warn("Test '%s' failed: osz = 0 but string_escape_mem wrote to the buffer\n",
+> >> +			name);
+> >
+> > Could it be a part of nomem test still?
+> 
+> What nomem test? string_escape_mem with snprintf-like semantics cannot
+> return an error; that has to be checked by the caller. 
+
+Make this code a separate test, which actually still nomem, since you
+have not enough memory in the destination buffer. What the problem to
+check for proper return value and the last couple of characters written
+to the destination buffer?
+
+> 
+> >> +
+> >>  out:
+> >>  	kfree(in);
+> >>  	kfree(out_real);
+> >>  	kfree(out_test);
+> >>  }
+> >>  
+> >> -static __init void test_string_escape_nomem(void)
+> >> -{
+> >> -	char *in = "\eb \\C\007\"\x90\r]";
+> >> -	char out[64], *buf = out;
+> >> -	int rc = -ENOMEM, ret;
+> >> -
+> >> -	ret = string_escape_str_any_np(in, &buf, strlen(in), NULL);
+> >> -	if (ret == rc)
+> >> -		return;
+> >> -
+> >> -	pr_err("Test 'escape nomem' failed: got %d instead of %d\n", ret, rc);
+> >> -}
+> >> -
+> >>  static int __init test_string_helpers_init(void)
+> >>  {
+> >>  	unsigned int i;
+> >> @@ -342,8 +339,6 @@ static int __init test_string_helpers_init(void)
+> >>  	for (i = 0; i < (ESCAPE_ANY_NP | ESCAPE_HEX) + 1; i++)
+> >>  		test_string_escape("escape 1", escape1, i, TEST_STRING_2_DICT_1);
+> >>  
+> >> -	test_string_escape_nomem();
+> >> -
+> >>  	return -EINVAL;
+> >>  }
+> >>  module_init(test_string_helpers_init);
+> >> diff --git a/lib/vsprintf.c b/lib/vsprintf.c
+> >> index 3568e3906777..d02c394b5b58 100644
+> >> --- a/lib/vsprintf.c
+> >> +++ b/lib/vsprintf.c
+> >> @@ -1160,7 +1160,7 @@ char *escaped_string(char *buf, char *end, u8 *addr, struct printf_spec spec,
+> >>  	len = spec.field_width < 0 ? 1 : spec.field_width;
+> >>  
+> >>  	/* Ignore the error. We print as many characters as we can */
+> >> -	string_escape_mem(addr, len, &buf, end - buf, flags, NULL);
+> >> +	buf += string_escape_mem(addr, len, buf, buf < end ? end - buf : 0, flags, NULL);
+> >
+> > So, the problem is when we have end < buf, right?
+> > How about to move this check out of the call parameters?
+> >
+> > [Keep in might the original prototype]
+> >
+> > if (buf < end)
+> >  string_escape_mem(addr, len, &buf, end - buf, flags, NULL);
+> > else
+> >  string_escape_mem(addr, len, &buf, 0, flags, NULL);
+> 
+> In that case, I just did the same as is done for %pV, and prefer to keep
+> it that way.
+
+I've checked the other case, we may keep same style.
+
+> >> diff --git a/net/sunrpc/cache.c b/net/sunrpc/cache.c
+> >> index 33fb105d4352..22c4418057f4 100644
+> >> --- a/net/sunrpc/cache.c
+> >> +++ b/net/sunrpc/cache.c
+> >> @@ -1068,12 +1068,14 @@ void qword_add(char **bpp, int *lp, char *str)
+> >>  {
+> >>  	char *bp = *bpp;
+> >>  	int len = *lp;
+> >> -	int ret;
+> >> +	int ret, written;
+> >>  
+> >>  	if (len < 0) return;
+> >>  
+> >> -	ret = string_escape_str(str, &bp, len, ESCAPE_OCTAL, "\\ \n\t");
+> >> -	if (ret < 0 || ret == len)
+> >> +	ret = string_escape_str(str, bp, len, ESCAPE_OCTAL, "\\ \n\t");
+> >> +	written = min(ret, len);
+> >> +	bp += written;
+> >> +	if (ret >= len)
+> >>  		len = -1;
+> >>  	else {
+> >>  		len -= ret;
+> >
+> > For this part the comment from J. Bruce is needed.
+> >
+> > There is one more user, i.e. fs/proc/array.c::task_name().
+> >
+> > In all of them we have to amend a prepend commentary. Like changing
+> > 'Ignore the error' to 'Ignore the overflow'.
+> 
+> I hadn't looked for users in -next. I'll leave it to you to amend that
+> patch before it hits mainline.
+
+When your series will be ready (and actually I recommend to push first
+patch apart from the rest since it's not related) I may do the update
+for fs/proc/array.c.
 
 
-On Fri, Jan 30, 2015 at 4:34 AM, Haiyang Zhang <haiyangz@microsoft.com> 
-wrote:
-> The existing code frees the skb in EAGAIN case, in which the skb will 
-> be
-> retried from upper layer and used again.
-> Also, the existing code doesn't free send buffer slot in error case, 
-> because
-> there is no completion message for unsent packets.
-> This patch fixes these problems.
-> 
-> (Please also include this patch for stable trees. Thanks!)
-> 
-> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
-> Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
-> ---
->  drivers/net/hyperv/netvsc.c |   11 ++++++++---
->  1 files changed, 8 insertions(+), 3 deletions(-)
-> 
-> diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
-> index 9f49c01..7cd4eb3 100644
-> --- a/drivers/net/hyperv/netvsc.c
-> +++ b/drivers/net/hyperv/netvsc.c
-> @@ -716,7 +716,7 @@ int netvsc_send(struct hv_device *device,
->  	u64 req_id;
->  	unsigned int section_index = NETVSC_INVALID_INDEX;
->  	u32 msg_size = 0;
-> -	struct sk_buff *skb;
-> +	struct sk_buff *skb = NULL;
->  	u16 q_idx = packet->q_idx;
->  
->  
-> @@ -743,8 +743,6 @@ int netvsc_send(struct hv_device *device,
->  							   packet);
->  			skb = (struct sk_buff *)
->  			      (unsigned long)packet->send_completion_tid;
-> -			if (skb)
-> -				dev_kfree_skb_any(skb);
->  			packet->page_buf_cnt = 0;
->  		}
->  	}
-> @@ -810,6 +808,13 @@ int netvsc_send(struct hv_device *device,
->  			   packet, ret);
->  	}
->  
-> +	if (ret != 0) {
-> +		if (section_index != NETVSC_INVALID_INDEX)
-> +			netvsc_free_send_slot(net_device, section_index);
-
-What if ret is -EINVAL or -ENOSPC? Looks like we need free the skb in 
-this case also.
-> 
-> +	} else if (skb) {
-> +		dev_kfree_skb_any(skb);
-
-The caller - netvsc_start_xmit() do this also, may be handle this in 
-caller is better since netvsc_start_xmit() is the only user that tries 
-to send a skb?
-
-btw, I find during netvsc_start_xmit(), ret was change to -ENOSPC when 
-queue_sends[q_idx] < 1. But non of the caller check -ENOSPC in fact?
-
-Thanks
-> 
-> +	}
-> +
->  	return ret;
->  }
->  
-> -- 
-> 1.7.4.1
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-- 
+Andy Shevchenko <andriy.shevchenko@intel.com>
+Intel Finland Oy
