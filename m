@@ -1,107 +1,97 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH -next] net: dctcp: loosen requirement to assert ECT(0) during 3WHS
-Date: Fri, 30 Jan 2015 20:45:20 +0100
-Message-ID: <1422647120-27252-1-git-send-email-fw@strlen.de>
-Cc: Florian Westphal <fw@strlen.de>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Glenn Judd <glenn.judd@morganstanley.com>
-To: <netdev@vger.kernel.org>
+From: roopa <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next v4 0/7] switchdev offload flags
+Date: Fri, 30 Jan 2015 11:49:07 -0800
+Message-ID: <54CBE033.4010501@cumulusnetworks.com>
+References: <1422600017-42393-1-git-send-email-roopa@cumulusnetworks.com> <20150130165940.GA1872@nanopsycho.orion>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: sfeldma@gmail.com, jhs@mojatatu.com, bcrl@kvack.org, tgraf@suug.ch,
+	john.fastabend@gmail.com, stephen@networkplumber.org,
+	vyasevic@redhat.com, ronen.arad@intel.com, netdev@vger.kernel.org,
+	davem@davemloft.net, shm@cumulusnetworks.com,
+	gospo@cumulusnetworks.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:43044 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752077AbbA3Tpf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jan 2015 14:45:35 -0500
+Received: from mail-pa0-f44.google.com ([209.85.220.44]:43773 "EHLO
+	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753005AbbA3TtJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jan 2015 14:49:09 -0500
+Received: by mail-pa0-f44.google.com with SMTP id rd3so55968188pab.3
+        for <netdev@vger.kernel.org>; Fri, 30 Jan 2015 11:49:08 -0800 (PST)
+In-Reply-To: <20150130165940.GA1872@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-One deployment requirement of DCTCP is to be able to run
-in a DC setting along with TCP traffic. As Glenn Judd's
-NSDI'15 paper "Attaining the Promise and Avoiding the Pitfalls
-of TCP in the Datacenter" [1] (tba) explains, one way to
-solve this on switch side is to split DCTCP and TCP traffic
-in two queues per switch port based on the DSCP: one queue
-soley intended for DCTCP traffic and one for non-DCTCP traffic.
-
-For the DCTCP queue, there's the marking threshold K as
-explained in commit e3118e8359bb ("net: tcp: add DCTCP congestion
-control algorithm") for RED marking ECT(0) packets with CE.
-For the non-DCTCP queue, there's f.e. a classic tail drop queue.
-As already explained in e3118e8359bb, running DCTCP at scale
-when not marking SYN/SYN-ACK packets with ECT(0) has severe
-consequences as for non-ECT(0) packets, traversing the RED
-marking DCTCP queue will result in a severe reduction of
-connection probability.
-
-This is due to the DCTCP queue being dominated by ECT(0) traffic
-and switches handle non-ECT traffic in the RED marking queue
-after passing K as drops, where K is usually a low watermark
-in order to leave enough tailroom for bursts. Splitting DCTCP
-traffic among several queues (ECN and non-ECN queue) is being
-considered a terrible idea in the network community as it
-splits single flows across multiple network paths.
-
-Therefore, commit e3118e8359bb implements this on Linux as
-ECT(0) marked traffic, as we argue that marking all packets
-of a DCTCP flow is the only viable solution and also doesn't
-speak against the draft.
-
-However, recently, a DCTCP implementation for FreeBSD hit also
-their mainline kernel [2]. In order to let them play well
-together with Linux' DCTCP, we would need to loosen the
-requirement that ECT(0) has to be asserted during the 3WHS as
-not implemented in FreeBSD. This simplifies the ECN test and
-lets DCTCP work together with FreeBSD.
-
-Joint work with Daniel Borkmann.
-
-  [1] https://www.usenix.org/conference/nsdi15/technical-sessions/presentation/judd
-  [2] https://github.com/freebsd/freebsd/commit/8ad879445281027858a7fa706d13e458095b595f
-
-Signed-off-by: Florian Westphal <fw@strlen.de>
-Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-Cc: Glenn Judd <glenn.judd@morganstanley.com>
----
- net/ipv4/tcp_input.c | 14 +++++---------
- 1 file changed, 5 insertions(+), 9 deletions(-)
-
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 71fb37c..9ec9115 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -5870,10 +5870,9 @@ static inline void pr_drop_req(struct request_sock *req, __u16 port, int family)
-  * TCP ECN negotiation.
-  *
-  * Exception: tcp_ca wants ECN. This is required for DCTCP
-- * congestion control; it requires setting ECT on all packets,
-- * including SYN. We inverse the test in this case: If our
-- * local socket wants ECN, but peer only set ece/cwr (but not
-- * ECT in IP header) its probably a non-DCTCP aware sender.
-+ * congestion control: Linux DCTCP asserts ECT on all packets,
-+ * including SYN, which is most optimal solution; however,
-+ * others, such as FreeBSD do not.
-  */
- static void tcp_ecn_create_request(struct request_sock *req,
- 				   const struct sk_buff *skb,
-@@ -5883,18 +5882,15 @@ static void tcp_ecn_create_request(struct request_sock *req,
- 	const struct tcphdr *th = tcp_hdr(skb);
- 	const struct net *net = sock_net(listen_sk);
- 	bool th_ecn = th->ece && th->cwr;
--	bool ect, need_ecn, ecn_ok;
-+	bool ect, ecn_ok;
- 
- 	if (!th_ecn)
- 		return;
- 
- 	ect = !INET_ECN_is_not_ect(TCP_SKB_CB(skb)->ip_dsfield);
--	need_ecn = tcp_ca_needs_ecn(listen_sk);
- 	ecn_ok = net->ipv4.sysctl_tcp_ecn || dst_feature(dst, RTAX_FEATURE_ECN);
- 
--	if (!ect && !need_ecn && ecn_ok)
--		inet_rsk(req)->ecn_ok = 1;
--	else if (ect && need_ecn)
-+	if ((!ect && ecn_ok) || tcp_ca_needs_ecn(listen_sk))
- 		inet_rsk(req)->ecn_ok = 1;
- }
- 
--- 
-2.0.5
+On 1/30/15, 8:59 AM, Jiri Pirko wrote:
+> Fri, Jan 30, 2015 at 07:40:10AM CET, roopa@cumulusnetworks.com wrote:
+>> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+>>
+>> This patch series introduces new offload flags for switchdev.
+>> Kernel network subsystems can use this flag to accelerate
+>> network functions by offloading to hw.
+>>
+>> I expect that there will be need for subsystem specific feature
+>> flag in the future.
+>>
+>> This patch series currently only addresses bridge driver link
+>> attribute offloads to hardware.
+>>
+>> Looking at the current state of bridge l2 offload in the kernel,
+>>     - flag 'self' is the way to directly manage the bridge device in hw via
+>>       the ndo_bridge_setlink/ndo_bridge_getlink calls
+>>
+>>     - flag 'master' is always used to manage the in kernel bridge devices
+>>       via the same ndo_bridge_setlink/ndo_bridge_getlink calls
+>>
+>> Today these are used separately. The nic offloads use hwmode "vepa/veb" to go
+>> directly to hw with the "self" flag.
+>>
+>> At this point i am trying not to introduce any new user facing flags/attributes.
+>> In the model where we want the kernel bridging to be accelerated with
+>> hardware, we very much want the bridge driver to be involved.
+>>
+>> In this proposal,
+>> - The offload flag/bit helps switch asic drivers to indicate that they
+>>   accelerate the kernel networking objects/functions
+>> - The user does not have to specify a new flag to do so. A bridge created with
+>>   switch asic ports will be accelerated if the switch driver supports it.
+>> - The user can continue to directly manage l2 in nics (ixgbe) using the
+>>   existing hwmode/self flags
+>> - It also does not stop users from using the 'self' flag to talk to the
+>>   switch asic driver directly
+>> - Involving the bridge driver makes sure the add/del notifications to user
+>>   space go out after both kernel and hardware are programmed
+>>
+>> (To selectively offload bridge port attributes,
+>> example learning in hw only etc, we can introduce offload bits for
+>> per bridge port flag attribute as in my previous patch
+>> https://patchwork.ozlabs.org/patch/413211/. I have not included that in this
+>> series)
+>>
+>> v2
+>>    - try a different name for the offload flag/bit
+>>    - tries to solve the stacked netdev case by traversing the lowerdev
+>>      list to reach the switch port
+>>
+>> v3 -
+>>     - Tested with bond as bridge port for the stacked device case.
+>>       Includes a bond_fix_features change to not ignore the
+>>       NETIF_F_HW_NETFUNC_OFFLOAD flag
+>>     - Some checkpatch fixes
+>>
+>> v4 -
+>>     - rename flag to NETIF_F_HW_SWITCH_OFFLOAD
+>>     - add ndo_bridge_setlink/dellink handlers in bond and team drivers as
+>>       suggested by jiri.
+>>     - introduce default ndo_dflt_netdev_switch_port_bridge_setlink/dellink
+>>     handlers that masters can use to call offload api on lowerdevs.
+>>
+>> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+>
+> Having a flu and being completely unusable, I gave this patchset a quick
+> peek and looks allright. I will review once I recover (Sun/Mon).
+> Not sure if Dave wants to hold the patchset until then.
+>
+>
+ok sounds good,  thanks, hope you feel better soon.
