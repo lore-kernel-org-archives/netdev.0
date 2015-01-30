@@ -1,104 +1,103 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] net: sched: fix panic in rate estimators
-Date: Thu, 29 Jan 2015 17:30:12 -0800
-Message-ID: <1422581412.21689.53.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Fan Du <fengyuleidian0615@gmail.com>
+Subject: Re: [PATCHv3, ipsec-next] xfrm: Do not parse 32bits compiled xfrm
+ netlink msg on 64bits host
+Date: Fri, 30 Jan 2015 10:11:42 +0800
+Message-ID: <54CAE85E.9070301@gmail.com>
+References: <1422349230-17394-1-git-send-email-fan.du@intel.com> <54CA0B9F.8080104@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	John Fastabend <john.fastabend@gmail.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Fan Du <fan.du@intel.com>, steffen.klassert@secunet.com,
+	herbert@gondor.apana.org.au, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: nicolas.dichtel@6wind.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f179.google.com ([209.85.223.179]:63870 "EHLO
-	mail-ie0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932208AbbA3BaO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jan 2015 20:30:14 -0500
-Received: by mail-ie0-f179.google.com with SMTP id x19so332614ier.10
-        for <netdev@vger.kernel.org>; Thu, 29 Jan 2015 17:30:14 -0800 (PST)
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:58996 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756696AbbA3CPx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jan 2015 21:15:53 -0500
+Received: by mail-pa0-f53.google.com with SMTP id kx10so46094061pab.12
+        for <netdev@vger.kernel.org>; Thu, 29 Jan 2015 18:15:52 -0800 (PST)
+In-Reply-To: <54CA0B9F.8080104@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+=E4=BA=8E 2015=E5=B9=B401=E6=9C=8829=E6=97=A5 18:29, Nicolas Dichtel =E5=
+=86=99=E9=81=93:
+> Le 27/01/2015 10:00, Fan Du a =C3=A9crit :
+>> structure like xfrm_usersa_info or xfrm_userpolicy_info
+>> has different sizeof when compiled as 32bits and 64bits
+>> due to not appending pack attribute in their definition.
+>> This will result in broken SA and SP information when user
+>> trying to configure them through netlink interface.
+>>
+>> Inform user land about this situation instead of keeping
+>> silent, the upper test scripts would behave accordingly.
+>>
+>> Quotes from: http://marc.info/?l=3Dlinux-netdev&m=3D142226348715503&=
+w=3D2
+>>>
+>>> Before a clean solution show up, I think it's better to warn user i=
+n some way
+>>> like http://patchwork.ozlabs.org/patch/323842/ did. Otherwise, many=
+ people
+>>> who stuck there will always spend time and try to fix this issue in=
+ whatever way.
+>>
+>> Yes, this is the first thing we should do. I'm willing to accept a p=
+atch
+>>
+>> Signed-off-by: Fan Du <fan.du@intel.com>
+> A way to solve this problem was to provide to userland a xfrm compat =
+header
+> file, which match the ABI of the kernel. Something like:
+>
+> #include <linux/xfrm.h>
+>
+> #define xfrm_usersa_info xfrm_usersa_info_64
+> #define xfrm_usersa_info_compat xfrm_usersa_info
+> struct xfrm_usersa_info_compat {
+>      struct xfrm_selector        sel;
+>      struct xfrm_id            id;
+>      xfrm_address_t            saddr;
+>      struct xfrm_lifetime_cfg    lft;
+>      struct xfrm_lifetime_cur    curlft;
+>      struct xfrm_stats        stats;
+>      __u32                seq;
+>      __u32                reqid;
+>      __u16                family;
+>      __u8                mode;
+>      __u8                replay_window;
+>      __u8                flags;
+>      __u8                hole1;
+>      __u32                hole2;
+> };
+>
+> The point I try to make is that patching userland apps allows to use =
+xfrm on a
+> 32bits userland / 64bits kernel.
+>
+> If I understand well your patch, it will not be possible anymore, all=
+ messages
+> will be rejected. And this may break existing apps.
 
-Doing the following commands on a non idle network device
-panics the box instantly, because cpu_bstats gets overwritten
-by stats.
+Add padding in user space does not fix existing 32bits ip binary, moreo=
+ver not sure all other ARCHes
+require the same padding. Maillist has various of proposals AFAICT, all=
+ is rejected for reasons
+whatever for a very long time including padding user space structure. I=
+n fact those structures
+are exposed by uapi from kernel to userspace.
 
-tc qdisc add dev eth0 root <your_favorite_qdisc>
-... some traffic (one packet is enough) ...
-tc qdisc replace dev eth0 root est 1sec 4sec <your_favorite_qdisc>
+Speaking of "break", run 32bits ip xfrm {state/policy/monitor} is _alre=
+ady_ broken on 64bits host.
+This patch is making user not stumble there by seeing invalid xfrm info=
+rmation and wondering what's
+going on. They can switch to setkey temporally.
 
-[  325.355596] BUG: unable to handle kernel paging request at ffff8841dc5a074c
-[  325.362609] IP: [<ffffffff81541c9e>] __gnet_stats_copy_basic+0x3e/0x90
-[  325.369158] PGD 1fa7067 PUD 0
-[  325.372254] Oops: 0000 [#1] SMP
-[  325.375514] Modules linked in: ...
-[  325.398346] CPU: 13 PID: 14313 Comm: tc Not tainted 3.19.0-smp-DEV #1163
-[  325.412042] task: ffff8800793ab5d0 ti: ffff881ff2fa4000 task.ti: ffff881ff2fa4000
-[  325.419518] RIP: 0010:[<ffffffff81541c9e>]  [<ffffffff81541c9e>] __gnet_stats_copy_basic+0x3e/0x90
-[  325.428506] RSP: 0018:ffff881ff2fa7928  EFLAGS: 00010286
-[  325.433824] RAX: 000000000000000c RBX: ffff881ff2fa796c RCX: 000000000000000c
-[  325.440988] RDX: ffff8841dc5a0744 RSI: 0000000000000060 RDI: 0000000000000060
-[  325.448120] RBP: ffff881ff2fa7948 R08: ffffffff81cd4f80 R09: 0000000000000000
-[  325.455268] R10: ffff883ff223e400 R11: 0000000000000000 R12: 000000015cba0744
-[  325.462405] R13: ffffffff81cd4f80 R14: ffff883ff223e460 R15: ffff883feea0722c
-[  325.469536] FS:  00007f2ee30fa700(0000) GS:ffff88407fa20000(0000) knlGS:0000000000000000
-[  325.477630] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-[  325.483380] CR2: ffff8841dc5a074c CR3: 0000003feeae9000 CR4: 00000000001407e0
-[  325.490510] Stack:
-[  325.492524]  ffff883feea0722c ffff883fef719dc0 ffff883feea0722c ffff883ff223e4a0
-[  325.499990]  ffff881ff2fa79a8 ffffffff815424ee ffff883ff223e49c 000000015cba0744
-[  325.507460]  00000000f2fa7978 0000000000000000 ffff881ff2fa79a8 ffff883ff223e4a0
-[  325.514956] Call Trace:
-[  325.517412]  [<ffffffff815424ee>] gen_new_estimator+0x8e/0x230
-[  325.523250]  [<ffffffff815427aa>] gen_replace_estimator+0x4a/0x60
-[  325.529349]  [<ffffffff815718ab>] tc_modify_qdisc+0x52b/0x590
-[  325.535117]  [<ffffffff8155edd0>] rtnetlink_rcv_msg+0xa0/0x240
-[  325.540963]  [<ffffffff8155ed30>] ? __rtnl_unlock+0x20/0x20
-[  325.546532]  [<ffffffff8157f811>] netlink_rcv_skb+0xb1/0xc0
-[  325.552145]  [<ffffffff8155b355>] rtnetlink_rcv+0x25/0x40
-[  325.557558]  [<ffffffff8157f0d8>] netlink_unicast+0x168/0x220
-[  325.563317]  [<ffffffff8157f47c>] netlink_sendmsg+0x2ec/0x3e0
+last, thanks for your comments after looking at the code...
 
-Lets play safe and not use an union : percpu 'pointers' are mostly read
-anyway, and we have typically few qdiscs per host.
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: John Fastabend <john.fastabend@gmail.com>
-Fixes: 22e0f8b9322c ("net: sched: make bstats per cpu and estimator RCU safe")
----
- include/net/sch_generic.h |   13 +++++--------
- 1 file changed, 5 insertions(+), 8 deletions(-)
-
-diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
-index 3d282cbb66bf..c605d305c577 100644
---- a/include/net/sch_generic.h
-+++ b/include/net/sch_generic.h
-@@ -79,6 +79,9 @@ struct Qdisc {
- 	struct netdev_queue	*dev_queue;
- 
- 	struct gnet_stats_rate_est64	rate_est;
-+	struct gnet_stats_basic_cpu __percpu *cpu_bstats;
-+	struct gnet_stats_queue	__percpu *cpu_qstats;
-+
- 	struct Qdisc		*next_sched;
- 	struct sk_buff		*gso_skb;
- 	/*
-@@ -86,15 +89,9 @@ struct Qdisc {
- 	 */
- 	unsigned long		state;
- 	struct sk_buff_head	q;
--	union {
--		struct gnet_stats_basic_packed bstats;
--		struct gnet_stats_basic_cpu __percpu *cpu_bstats;
--	} __packed;
-+	struct gnet_stats_basic_packed bstats;
- 	unsigned int		__state;
--	union {
--		struct gnet_stats_queue	qstats;
--		struct gnet_stats_queue	__percpu *cpu_qstats;
--	} __packed;
-+	struct gnet_stats_queue	qstats;
- 	struct rcu_head		rcu_head;
- 	int			padded;
- 	atomic_t		refcnt;
+>
+> Regards,
+> Nicolas
