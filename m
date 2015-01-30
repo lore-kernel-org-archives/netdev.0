@@ -1,215 +1,62 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] ipv4: tcp: get rid of ugly unicast_sock
-Date: Thu, 29 Jan 2015 21:35:05 -0800
-Message-ID: <1422596105.21689.66.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Sonic Zhang <sonic.adi@gmail.com>
+Subject: [PATCH v2] stmmac: DMA threshold mode or SF mode can be different among multiple device instance
+Date: Fri, 30 Jan 2015 13:49:32 +0800
+Message-ID: <1422596972-18559-1-git-send-email-sonic.adi@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>,
+	<adi-buildroot-devel@lists.sourceforge.net>,
+	Sonic Zhang <sonic.zhang@analog.com>
+To: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f179.google.com ([209.85.223.179]:61584 "EHLO
-	mail-ie0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750908AbbA3FfJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jan 2015 00:35:09 -0500
-Received: by mail-ie0-f179.google.com with SMTP id x19so1267116ier.10
-        for <netdev@vger.kernel.org>; Thu, 29 Jan 2015 21:35:08 -0800 (PST)
+Received: from mail-bn1on0054.outbound.protection.outlook.com ([157.56.110.54]:63545
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750846AbbA3FwW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 30 Jan 2015 00:52:22 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+From: Sonic Zhang <sonic.zhang@analog.com>
 
-In commit be9f4a44e7d41 ("ipv4: tcp: remove per net tcp_sock")
-I tried to address contention on a socket lock, but the solution
-I chose was horrible :
+- In tx_hard_error_bump_tc interrupt, tc should be bumped only when current
+device instance is in DMA threshold mode. Check per device xstats.threshold
+other than global tc.
 
-commit 3a7c384ffd57e ("ipv4: tcp: unicast_sock should not land outside
-of TCP stack") addressed a selinux regression.
+- Set per device xstats.threshold to SF_DMA_MODE when current device
+instance is set to SF mode.
 
-commit 0980e56e506b ("ipv4: tcp: set unicast_sock uc_ttl to -1")
-took care of another regression.
+v2-changes:
+- fix ident style
 
-commit b5ec8eeac46 ("ipv4: fix ip_send_skb()") fixed another regression.
-
-commit 811230cd85 ("tcp: ipv4: initialize unicast_sock sk_pacing_rate")
-was another shot in the dark.
-
-Really, just use a proper socket per cpu, and remove the skb_orphan()
-call, to re-enable flow control.
-
-This solves a serious problem with FQ packet scheduler when used in
-hostile environments, as we do not want to allocate a flow structure
-for every RST packet sent in response to a spoofed packet.
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
+Signed-off-by: Sonic Zhang <sonic.zhang@analog.com>
 ---
- include/net/ip.h         |    2 +-
- include/net/netns/ipv4.h |    1 +
- net/ipv4/ip_output.c     |   30 +++---------------------------
- net/ipv4/tcp_ipv4.c      |   37 ++++++++++++++++++++++++++++++++-----
- 4 files changed, 37 insertions(+), 33 deletions(-)
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |    5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
-diff --git a/include/net/ip.h b/include/net/ip.h
-index f7cbd703d15d..09cf5aebb283 100644
---- a/include/net/ip.h
-+++ b/include/net/ip.h
-@@ -181,7 +181,7 @@ static inline __u8 ip_reply_arg_flowi_flags(const struct ip_reply_arg *arg)
- 	return (arg->flags & IP_REPLY_ARG_NOSRCCHECK) ? FLOWI_FLAG_ANYSRC : 0;
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index cd6ebda..4d91147 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -1287,7 +1287,7 @@ static void stmmac_dma_operation_mode(struct stmmac_priv *priv)
+ 		 *    that needs to not insert csum in the TDES.
+ 		 */
+ 		priv->hw->dma->dma_mode(priv->ioaddr, SF_DMA_MODE, SF_DMA_MODE);
+-		tc = SF_DMA_MODE;
++		priv->xstats.threshold = SF_DMA_MODE;
+ 	} else
+ 		priv->hw->dma->dma_mode(priv->ioaddr, tc, SF_DMA_MODE);
  }
- 
--void ip_send_unicast_reply(struct net *net, struct sk_buff *skb,
-+void ip_send_unicast_reply(struct sock *sk, struct sk_buff *skb,
- 			   const struct ip_options *sopt,
- 			   __be32 daddr, __be32 saddr,
- 			   const struct ip_reply_arg *arg,
-diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
-index 24945cefc4fd..0ffef1a38efc 100644
---- a/include/net/netns/ipv4.h
-+++ b/include/net/netns/ipv4.h
-@@ -52,6 +52,7 @@ struct netns_ipv4 {
- 	struct inet_peer_base	*peers;
- 	struct tcpm_hash_bucket	*tcp_metrics_hash;
- 	unsigned int		tcp_metrics_hash_log;
-+	struct sock  * __percpu	*tcp_sk;
- 	struct netns_frags	frags;
- #ifdef CONFIG_NETFILTER
- 	struct xt_table		*iptable_filter;
-diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-index 38a20a9cca1a..c373c0708d97 100644
---- a/net/ipv4/ip_output.c
-+++ b/net/ipv4/ip_output.c
-@@ -1506,24 +1506,8 @@ static int ip_reply_glue_bits(void *dptr, char *to, int offset,
- /*
-  *	Generic function to send a packet as reply to another packet.
-  *	Used to send some TCP resets/acks so far.
-- *
-- *	Use a fake percpu inet socket to avoid false sharing and contention.
-  */
--static DEFINE_PER_CPU(struct inet_sock, unicast_sock) = {
--	.sk = {
--		.__sk_common = {
--			.skc_refcnt = ATOMIC_INIT(1),
--		},
--		.sk_wmem_alloc	= ATOMIC_INIT(1),
--		.sk_allocation	= GFP_ATOMIC,
--		.sk_flags	= (1UL << SOCK_USE_WRITE_QUEUE),
--		.sk_pacing_rate = ~0U,
--	},
--	.pmtudisc	= IP_PMTUDISC_WANT,
--	.uc_ttl		= -1,
--};
--
--void ip_send_unicast_reply(struct net *net, struct sk_buff *skb,
-+void ip_send_unicast_reply(struct sock *sk, struct sk_buff *skb,
- 			   const struct ip_options *sopt,
- 			   __be32 daddr, __be32 saddr,
- 			   const struct ip_reply_arg *arg,
-@@ -1533,9 +1517,8 @@ void ip_send_unicast_reply(struct net *net, struct sk_buff *skb,
- 	struct ipcm_cookie ipc;
- 	struct flowi4 fl4;
- 	struct rtable *rt = skb_rtable(skb);
-+	struct net *net = sock_net(sk);
- 	struct sk_buff *nskb;
--	struct sock *sk;
--	struct inet_sock *inet;
- 	int err;
- 
- 	if (__ip_options_echo(&replyopts.opt.opt, skb, sopt))
-@@ -1566,15 +1549,11 @@ void ip_send_unicast_reply(struct net *net, struct sk_buff *skb,
- 	if (IS_ERR(rt))
- 		return;
- 
--	inet = &get_cpu_var(unicast_sock);
-+	inet_sk(sk)->tos = arg->tos;
- 
--	inet->tos = arg->tos;
--	sk = &inet->sk;
- 	sk->sk_priority = skb->priority;
- 	sk->sk_protocol = ip_hdr(skb)->protocol;
- 	sk->sk_bound_dev_if = arg->bound_dev_if;
--	sock_net_set(sk, net);
--	__skb_queue_head_init(&sk->sk_write_queue);
- 	sk->sk_sndbuf = sysctl_wmem_default;
- 	err = ip_append_data(sk, &fl4, ip_reply_glue_bits, arg->iov->iov_base,
- 			     len, 0, &ipc, &rt, MSG_DONTWAIT);
-@@ -1590,13 +1569,10 @@ void ip_send_unicast_reply(struct net *net, struct sk_buff *skb,
- 			  arg->csumoffset) = csum_fold(csum_add(nskb->csum,
- 								arg->csum));
- 		nskb->ip_summed = CHECKSUM_NONE;
--		skb_orphan(nskb);
- 		skb_set_queue_mapping(nskb, skb_get_queue_mapping(skb));
- 		ip_push_pending_frames(sk, &fl4);
+@@ -1444,7 +1444,8 @@ static void stmmac_dma_interrupt(struct stmmac_priv *priv)
  	}
- out:
--	put_cpu_var(unicast_sock);
--
- 	ip_rt_put(rt);
- }
- 
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index a3f72d7fc06c..d22f54482bab 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -683,7 +683,8 @@ static void tcp_v4_send_reset(struct sock *sk, struct sk_buff *skb)
- 		arg.bound_dev_if = sk->sk_bound_dev_if;
- 
- 	arg.tos = ip_hdr(skb)->tos;
--	ip_send_unicast_reply(net, skb, &TCP_SKB_CB(skb)->header.h4.opt,
-+	ip_send_unicast_reply(*this_cpu_ptr(net->ipv4.tcp_sk),
-+			      skb, &TCP_SKB_CB(skb)->header.h4.opt,
- 			      ip_hdr(skb)->saddr, ip_hdr(skb)->daddr,
- 			      &arg, arg.iov[0].iov_len);
- 
-@@ -767,7 +768,8 @@ static void tcp_v4_send_ack(struct sk_buff *skb, u32 seq, u32 ack,
- 	if (oif)
- 		arg.bound_dev_if = oif;
- 	arg.tos = tos;
--	ip_send_unicast_reply(net, skb, &TCP_SKB_CB(skb)->header.h4.opt,
-+	ip_send_unicast_reply(*this_cpu_ptr(net->ipv4.tcp_sk),
-+			      skb, &TCP_SKB_CB(skb)->header.h4.opt,
- 			      ip_hdr(skb)->saddr, ip_hdr(skb)->daddr,
- 			      &arg, arg.iov[0].iov_len);
- 
-@@ -2428,14 +2430,39 @@ struct proto tcp_prot = {
- };
- EXPORT_SYMBOL(tcp_prot);
- 
-+static void __net_exit tcp_sk_exit(struct net *net)
-+{
-+	int cpu;
-+
-+	for_each_possible_cpu(cpu)
-+		inet_ctl_sock_destroy(*per_cpu_ptr(net->ipv4.tcp_sk, cpu));
-+	free_percpu(net->ipv4.tcp_sk);
-+}
-+
- static int __net_init tcp_sk_init(struct net *net)
- {
-+	int res, cpu;
-+
-+	net->ipv4.tcp_sk = alloc_percpu(struct sock *);
-+	if (!net->ipv4.tcp_sk)
-+		return -ENOMEM;
-+
-+	for_each_possible_cpu(cpu) {
-+		struct sock *sk;
-+
-+		res = inet_ctl_sock_create(&sk, PF_INET, SOCK_RAW,
-+					   IPPROTO_TCP, net);
-+		if (res)
-+			goto fail;
-+		*per_cpu_ptr(net->ipv4.tcp_sk, cpu) = sk;
-+	}
- 	net->ipv4.sysctl_tcp_ecn = 2;
- 	return 0;
--}
- 
--static void __net_exit tcp_sk_exit(struct net *net)
--{
-+fail:
-+	tcp_sk_exit(net);
-+
-+	return res;
- }
- 
- static void __net_exit tcp_sk_exit_batch(struct list_head *net_exit_list)
+ 	if (unlikely(status & tx_hard_error_bump_tc)) {
+ 		/* Try to bump up the dma threshold on this failure */
+-		if (unlikely(tc != SF_DMA_MODE) && (tc <= 256)) {
++		if (unlikely(priv->xstats.threshold != SF_DMA_MODE) &&
++		    (tc <= 256)) {
+ 			tc += 64;
+ 			if (priv->plat->force_thresh_dma_mode)
+ 				priv->hw->dma->dma_mode(priv->ioaddr, tc, tc);
+-- 
+1.7.9.5
