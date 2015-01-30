@@ -1,230 +1,159 @@
-From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-Subject: Re: [PATCH v2 3/3] lib/string_helpers.c: Change semantics of
- string_escape_mem
-Date: Fri, 30 Jan 2015 12:27:35 +0200
-Message-ID: <1422613655.31903.351.camel@linux.intel.com>
-References: <1422451543-12401-1-git-send-email-linux@rasmusvillemoes.dk>
-	 <1422525801-26560-1-git-send-email-linux@rasmusvillemoes.dk>
-	 <1422525801-26560-4-git-send-email-linux@rasmusvillemoes.dk>
-	 <1422538178.31903.325.camel@linux.intel.com>
-	 <87oaphbqym.fsf@rasmusvillemoes.dk>
+From: Arend van Spriel <arend@broadcom.com>
+Subject: Re: Throughput regression with `tcp: refine TSO autosizing`
+Date: Fri, 30 Jan 2015 11:29:28 +0100
+Message-ID: <54CB5D08.2070906@broadcom.com>
+References: <CA+BoTQkVu23P3EOmY_Q3E1GJnWsyF==Pawz4iPOS_Bq5dvfO5Q@mail.gmail.com> <1422537297.21689.15.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="UTF-8"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Trond Myklebust <trond.myklebust@primarydata.com>,
-	"J. Bruce Fields" <bfields@fieldses.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, linux-nfs@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Rasmus Villemoes <linux@rasmusvillemoes.dk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87oaphbqym.fsf@rasmusvillemoes.dk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Michal Kazior <michal.kazior@tieto.com>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	<eyalpe@dev.mellanox.co.il>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-gw1-out.broadcom.com ([216.31.210.62]:4245 "EHLO
+	mail-gw1-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758247AbbA3K3e (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jan 2015 05:29:34 -0500
+In-Reply-To: <1422537297.21689.15.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2015-01-29 at 15:29 +0100, Rasmus Villemoes wrote:
-> On Thu, Jan 29 2015, Andy Shevchenko <andriy.shevchenko@linux.intel.com> wrote:
-> 
-> >>   *
-> >>   * Return:
-> >> - * The amount of the characters processed to the destination buffer, or
-> >> - * %-ENOMEM if the size of buffer is not enough to put an escaped character is
-> >> - * returned.
-> >> - *
-> >> - * Even in the case of error @dst pointer will be updated to point to the byte
-> >> - * after the last processed character.
-> >> + * The total size of the escaped output that would be generated for
-> >> + * the given input and flags. To check whether the output was
-> >> + * truncated, compare the return value to osz. There is room left in
-> >> + * dst for a '\0' terminator if and only if ret < osz.
-> >>   */
-> >> -int string_escape_mem(const char *src, size_t isz, char **dst, size_t osz,
-> >> -		      unsigned int flags, const char *esc)
-> >> +size_t string_escape_mem(const char *src, size_t isz, char *dst, size_t osz,
-> >> +			 unsigned int flags, const char *esc)
-> >
-> > I prefer to leave the prototype the same. int for return is okay. dst
-> > should be updated accordingly.
-> 
-> Please explain exactly what you think the return value should be, and
-> what *dst should be set to.
+On 01/29/15 14:14, Eric Dumazet wrote:
+> On Thu, 2015-01-29 at 12:48 +0100, Michal Kazior wrote:
+>> Hi,
+>>
+>> I'm not subscribed to netdev list and I can't find the message-id so I
+>> can't reply directly to the original thread `BW regression after "tcp:
+>> refine TSO autosizing"`.
+>>
+>> I've noticed a big TCP performance drop with ath10k
+>> (drivers/net/wireless/ath/ath10k) on 3.19-rc5. Instead of 500mbps I
+>> get 250mbps in my testbed.
+>>
+>> After bisecting I ended up at `tcp: refine TSO autosizing`. Reverting
+>> `tcp: refine TSO autosizing` and `tcp: Do not apply TSO segment limit
+>> to non-TSO packets` (for conflict free reverts) fixes the problem.
+>>
+>> My testing setup is as follows:
+>>
+>>   a) ath10k AP, github.com/kvalo/ath/tree/master 3.19-rc5, w/ reverts
+>>   b) ath10k STA connected to (a), github.com/kvalo/ath/tree/master
+>> 3.19-rc5, w/ reverts
+>>   c) (b) w/o reverts
+>>
+>> Devices are 3x3 (AP) and 2x2 (Client) and are RF cabled. 11ac@80MHz
+>> 2x2 has 866mbps modulation rate. In practice this should deliver
+>> ~700mbps of real UDP traffic.
+>>
+>> Here are some numbers:
+>>
+>> UDP: (b) ->  (a): 672mbps
+>> UDP: (a) ->  (b): 687mbps
+>> TCP: (b) ->  (a): 526mbps
+>> TCP: (a) ->  (b): 500mbps
+>>
+>> UDP: (c) ->  (a): 669mbps*
+>> UDP: (a) ->  (c): 689mbps*
+>> TCP: (c) ->  (a): 240mbps**
+>> TCP: (a) ->  (c): 490mbps*
+>>
+>> * no changes/within error margin
+>> ** the performance drop
+>>
+>> I'm using iperf:
+>>    UDP: iperf -i1 -s -u vs iperf -i1 -c XX -u -B 200M -P5 -t 20
+>>    TCP: iperf -i1 -s vs iperf -i1 -c XX -P5 -t 20
+>>
+>> Result values were obtained at the receiver side.
+>>
+>> Iperf reports a few frames lost and out-of-order at each UDP test
+>> start (during first second) but later has no packet loss and no
+>> out-of-order. This shouldn't have any effect on a TCP session, right?
+>>
+>> The device delivers batched up tx/rx completions (no way to change
+>> that). I suppose this could be an issue for timing sensitive
+>> algorithms. Also keep in mind 802.11n and 802.11ac devices have frame
+>> aggregation windows so there's an inherent extra (and non-uniform)
+>> latency when compared to, e.g. ethernet devices.
+>>
+>> The driver doesn't have GRO. I have an internal patch which implements
+>> it. It improves overall TCP traffic (more stable, up to 600mbps TCP
+>> which is ~100mbps more than without GRO) but the TCP: (c) ->  (a)
+>> performance drop remains unaffected regardless.
+>>
+>> I've tried applying stretch ACK patchset (v2) on both machines and
+>> re-run the above tests. I got no measurable difference in performance.
+>>
+>> I've also run these tests with iwlwifi 7260 (also a 2x2) as (b) and
+>> (c). It didn't seem to be affected by the TSO patch at all (it runs at
+>> ~360mbps of TCP regardless of the TSO patch).
+>>
+>> Any hints/ideas?
+>>
+>
+> Hi Michal
+>
+> This patch restored original TSQ behavior, because the 1ms worth of data
+> per flow had totally destroyed TSQ intent.
+>
+> vi +630 Documentation/networking/ip-sysctl.txt
+>
+> tcp_limit_output_bytes - INTEGER
+>          Controls TCP Small Queue limit per tcp socket.
+>          TCP bulk sender tends to increase packets in flight until it
+>          gets losses notifications. With SNDBUF autotuning, this can
+>          result in a large amount of packets queued in qdisc/device
+>          on the local machine, hurting latency of other flows, for
+>          typical pfifo_fast qdiscs.
+>          tcp_limit_output_bytes limits the number of bytes on qdisc
+>          or device to reduce artificial RTT/cwnd and reduce bufferbloat.
+>          Default: 131072
+>
+> This is why I suggested to Eyal Perry to change the TX interrupt
+> mitigation parameters as in :
+>
+> ethtool -C eth0 tx-frames 4 rx-frames 4
+>
+> With this change and the stretch ack fixes, I got 37Gbps of throughput
+> on a single flow, on a 40Gbit NIC (mlx4)
+>
+> If a driver needs to buffer more than tcp_limit_output_bytes=131072 to
+> get line rate, I suggest that you either :
+>
+> 1) tweak tcp_limit_output_bytes, but its not practical from a driver.
+>
+> 2) change the driver, knowing what are its exact requirements, by
+> removing a fraction of skb->truesize at ndo_start_xmit() time as in :
+>
+> if ((skb->destructor == sock_wfree ||
+>       skb->restuctor == tcp_wfree)&&
+>      skb->sk) {
+>      u32 fraction = skb->truesize / 2;
+>
+>      skb->truesize -= fraction;
+>      atomic_sub(fraction,&skb->sk->sk_wmem_alloc);
+> }
 
-Return value like you proposed, *dst is incremented by it.
+Hi Eric,
 
-> 
-> >>  {
-> >> -	char *p = *dst;
-> >> +	char *p = dst;
-> >>  	char *end = p + osz;
-> >>  	bool is_dict = esc && *esc;
-> >> -	int ret;
-> >>  
-> >>  	while (isz--) {
-> >>  		unsigned char c = *src++;
-> >> @@ -466,13 +463,7 @@ int string_escape_mem(const char *src, size_t isz, char **dst, size_t osz,
-> >>  
-> >>  		escape_passthrough(c, &p, end);
-> >>  	}
-> >> -	if (p > end) {
-> >> -		*dst = end;
-> >> -		return -ENOMEM;
-> >> -	}
-> >>  
-> >> -	ret = p - *dst;
-> >> -	*dst = p;
-> >> -	return ret;
-> >> +	return p - dst;
-> >>  }
-> >>  EXPORT_SYMBOL(string_escape_mem);
-> >> diff --git a/lib/test-string_helpers.c b/lib/test-string_helpers.c
-> >> index ab0d30e1e18f..5f95114a2f86 100644
-> >> --- a/lib/test-string_helpers.c
-> >> +++ b/lib/test-string_helpers.c
-> >> @@ -264,12 +264,12 @@ static __init void test_string_escape(const char *name,
-> >>  				      const struct test_string_2 *s2,
-> >>  				      unsigned int flags, const char *esc)
-> >>  {
-> >> -	int q_real = 512;
-> >> -	char *out_test = kmalloc(q_real, GFP_KERNEL);
-> >> -	char *out_real = kmalloc(q_real, GFP_KERNEL);
-> >> +	size_t out_size = 512;
-> >> +	char *out_test = kmalloc(out_size, GFP_KERNEL);
-> >> +	char *out_real = kmalloc(out_size, GFP_KERNEL);
-> >>  	char *in = kmalloc(256, GFP_KERNEL);
-> >> -	char *buf = out_real;
-> >> -	int p = 0, q_test = 0;
-> >> +	size_t p = 0, q_test = 0;
-> >> +	size_t q_real;
-> >>  
-> >>  	if (!out_test || !out_real || !in)
-> >>  		goto out;
-> >> @@ -301,29 +301,26 @@ static __init void test_string_escape(const char *name,
-> >>  		q_test += len;
-> >>  	}
-> >>  
-> >> -	q_real = string_escape_mem(in, p, &buf, q_real, flags, esc);
-> >> +	q_real = string_escape_mem(in, p, out_real, out_size, flags, esc);
-> >>  
-> >>  	test_string_check_buf(name, flags, in, p, out_real, q_real, out_test,
-> >>  			      q_test);
-> >> +
-> >> +	memset(out_real, 'Z', out_size);
-> >> +	q_real = string_escape_mem(in, p, out_real, 0, flags, esc);
-> >> +	if (q_real != q_test)
-> >> +		pr_warn("Test '%s' failed: flags = %u, osz = 0, expected %zu, got %zu\n",
-> >> +			name, flags, q_test, q_real);
-> >> +	if (memchr_inv(out_real, 'Z', out_size))
-> >> +		pr_warn("Test '%s' failed: osz = 0 but string_escape_mem wrote to the buffer\n",
-> >> +			name);
-> >
-> > Could it be a part of nomem test still?
-> 
-> What nomem test? string_escape_mem with snprintf-like semantics cannot
-> return an error; that has to be checked by the caller. 
+Your suggestions are still based on the fact that you consider wireless 
+networking to be similar to ethernet, but as Michal indicated there are 
+some fundamental differences starting with CSMA/CD versus CSMA/CA. Also 
+the medium conditions are far from comparable. There is no shielding so 
+it needs to deal with interference and dynamically drops the link rate 
+so transmission of packets can take several milliseconds. Then with 11n 
+they came up with aggregation with sends up to 64 packets in a single 
+transmit over the air at worst case 6.5 Mbps (if I am not mistaken). The 
+parameter value for tcp_limit_output_bytes of 131072 means that it 
+allows queuing for about 1ms on a 1Gbps link, but I hope you can see 
+this is not realistic for dealing with all variances of the wireless 
+medium/standard. I suggested this as topic for the wireless workshop in 
+Otawa [1], but I can not attend there. Still hope that there will be 
+some discussions to get more awareness.
 
-Make this code a separate test, which actually still nomem, since you
-have not enough memory in the destination buffer. What the problem to
-check for proper return value and the last couple of characters written
-to the destination buffer?
+Regards,
+Arend
 
-> 
-> >> +
-> >>  out:
-> >>  	kfree(in);
-> >>  	kfree(out_real);
-> >>  	kfree(out_test);
-> >>  }
-> >>  
-> >> -static __init void test_string_escape_nomem(void)
-> >> -{
-> >> -	char *in = "\eb \\C\007\"\x90\r]";
-> >> -	char out[64], *buf = out;
-> >> -	int rc = -ENOMEM, ret;
-> >> -
-> >> -	ret = string_escape_str_any_np(in, &buf, strlen(in), NULL);
-> >> -	if (ret == rc)
-> >> -		return;
-> >> -
-> >> -	pr_err("Test 'escape nomem' failed: got %d instead of %d\n", ret, rc);
-> >> -}
-> >> -
-> >>  static int __init test_string_helpers_init(void)
-> >>  {
-> >>  	unsigned int i;
-> >> @@ -342,8 +339,6 @@ static int __init test_string_helpers_init(void)
-> >>  	for (i = 0; i < (ESCAPE_ANY_NP | ESCAPE_HEX) + 1; i++)
-> >>  		test_string_escape("escape 1", escape1, i, TEST_STRING_2_DICT_1);
-> >>  
-> >> -	test_string_escape_nomem();
-> >> -
-> >>  	return -EINVAL;
-> >>  }
-> >>  module_init(test_string_helpers_init);
-> >> diff --git a/lib/vsprintf.c b/lib/vsprintf.c
-> >> index 3568e3906777..d02c394b5b58 100644
-> >> --- a/lib/vsprintf.c
-> >> +++ b/lib/vsprintf.c
-> >> @@ -1160,7 +1160,7 @@ char *escaped_string(char *buf, char *end, u8 *addr, struct printf_spec spec,
-> >>  	len = spec.field_width < 0 ? 1 : spec.field_width;
-> >>  
-> >>  	/* Ignore the error. We print as many characters as we can */
-> >> -	string_escape_mem(addr, len, &buf, end - buf, flags, NULL);
-> >> +	buf += string_escape_mem(addr, len, buf, buf < end ? end - buf : 0, flags, NULL);
-> >
-> > So, the problem is when we have end < buf, right?
-> > How about to move this check out of the call parameters?
-> >
-> > [Keep in might the original prototype]
-> >
-> > if (buf < end)
-> >  string_escape_mem(addr, len, &buf, end - buf, flags, NULL);
-> > else
-> >  string_escape_mem(addr, len, &buf, 0, flags, NULL);
-> 
-> In that case, I just did the same as is done for %pV, and prefer to keep
-> it that way.
-
-I've checked the other case, we may keep same style.
-
-> >> diff --git a/net/sunrpc/cache.c b/net/sunrpc/cache.c
-> >> index 33fb105d4352..22c4418057f4 100644
-> >> --- a/net/sunrpc/cache.c
-> >> +++ b/net/sunrpc/cache.c
-> >> @@ -1068,12 +1068,14 @@ void qword_add(char **bpp, int *lp, char *str)
-> >>  {
-> >>  	char *bp = *bpp;
-> >>  	int len = *lp;
-> >> -	int ret;
-> >> +	int ret, written;
-> >>  
-> >>  	if (len < 0) return;
-> >>  
-> >> -	ret = string_escape_str(str, &bp, len, ESCAPE_OCTAL, "\\ \n\t");
-> >> -	if (ret < 0 || ret == len)
-> >> +	ret = string_escape_str(str, bp, len, ESCAPE_OCTAL, "\\ \n\t");
-> >> +	written = min(ret, len);
-> >> +	bp += written;
-> >> +	if (ret >= len)
-> >>  		len = -1;
-> >>  	else {
-> >>  		len -= ret;
-> >
-> > For this part the comment from J. Bruce is needed.
-> >
-> > There is one more user, i.e. fs/proc/array.c::task_name().
-> >
-> > In all of them we have to amend a prepend commentary. Like changing
-> > 'Ignore the error' to 'Ignore the overflow'.
-> 
-> I hadn't looked for users in -next. I'll leave it to you to amend that
-> patch before it hits mainline.
-
-When your series will be ready (and actually I recommend to push first
-patch apart from the rest since it's not related) I may do the update
-for fs/proc/array.c.
-
-
--- 
-Andy Shevchenko <andriy.shevchenko@intel.com>
-Intel Finland Oy
+[1] http://mid.gmane.org/54BE9791.1070706@broadcom.com
