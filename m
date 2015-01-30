@@ -1,68 +1,64 @@
-From: "Vick, Matthew" <matthew.vick@intel.com>
-Subject: Re: [patch -mainline] fm10k: drop upper bits of VLAN
-	ID
-Date: Fri, 30 Jan 2015 17:05:17 +0000
-Message-ID: <D0F0F914.69184%matthew.vick@intel.com>
-References: <20150130084127.GE21357@mwanda> <20150130105038.GL6507@mwanda>
+From: Yuchung Cheng <ycheng@google.com>
+Subject: Re: [PATCH net-next] tcp: use SACK RTTs for CC
+Date: Fri, 30 Jan 2015 09:21:45 -0800
+Message-ID: <CAK6E8=c6uAeAMvRfdxYNcqBLWmFTywbpvaqmzf7XmajkGSNqeg@mail.gmail.com>
+References: <1422558483-6168-1-git-send-email-kennetkl@ifi.uio.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>,
-	"e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
-	"Allan, Bruce W" <bruce.w.allan@intel.com>, "Brandeburg,
-	Jesse" <jesse.brandeburg@intel.com>,
-	Linux NICS <Linux-nics@isotope.jf.intel.com>, "Ronciak,
-	John" <john.ronciak@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Dan Carpenter <dan.carpenter@oracle.com>, "Kirsher, Jeffrey T"
-	<jeffrey.t.kirsher@intel.com>,
-	Alexander Duyck <alexander.h.duyck@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20150130105038.GL6507@mwanda>
-Content-Language: en-US
-Content-ID: <4A5584FE987EA14497072E4D32195941@intel.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	Neal Cardwell <ncardwell@google.com>
+To: Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f173.google.com ([209.85.213.173]:50179 "EHLO
+	mail-ig0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759704AbbA3RW0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jan 2015 12:22:26 -0500
+Received: by mail-ig0-f173.google.com with SMTP id a13so4805743igq.0
+        for <netdev@vger.kernel.org>; Fri, 30 Jan 2015 09:22:25 -0800 (PST)
+In-Reply-To: <1422558483-6168-1-git-send-email-kennetkl@ifi.uio.no>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 1/30/15, 2:50 AM, "Dan Carpenter" <dan.carpenter@oracle.com> wrote:
-
->On Fri, Jan 30, 2015 at 11:41:27AM +0300, Dan Carpenter wrote:
->> Static checkers complain that the shifts in "(vid << 4) >> 4" perfectly
->> cancel each other out and the code is a no-op.  "vid" is a u16.  The
->> comment says that the intention here is to drop the upper bits so I have
->> added a cast to "u16" to do that.
->> 
->> Fixes: 401b5383c6c9 ('fm10k: Add support for configuring PF interface')
->> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+On Thu, Jan 29, 2015 at 11:08 AM, Kenneth Klette Jonassen
+<kennetkl@ifi.uio.no> wrote:
+> Current behavior only passes RTTs from sequentially acked data to CC.
 >
->Oh...  Rasmus Villemoes already fixed this.
+> If sender gets a combined ACK for segment 1 and SACK for segment 3, then the
+> computed RTT for CC is the time between sending segment 1 and receiving SACK
+> for segment 3.
+since segment 3 is sent after segment 1, sack_rtt_us <= ca_seq_rtt so
+taking a min is not necessary?
+
 >
->regards,
->dan carpenter
-
-Yep, we have a patch coming through Jeff's tree now to resolve the issue
-(technically my version of the patch, which doesn't try to mask off the
-bits but instead rejects an out-of-bounds VLAN ID). Thanks, Dan!
-
-Cheers,
-Matthew
-
-
-------------------------------------------------------------------------------
-Dive into the World of Parallel Programming. The Go Parallel Website,
-sponsored by Intel and developed in partnership with Slashdot Media, is your
-hub for all things parallel software development, from weekly thought
-leadership blogs to news, videos, case studies, tutorials and more. Take a
-look and join the conversation now. http://goparallel.sourceforge.net/
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+> Pass the minimum computed RTT from any acked data to CC, i.e. time between
+> sending segment 3 and receiving SACK for segment 3.
+>
+> Signed-off-by: Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
+> ---
+>  net/ipv4/tcp_input.c | 6 ++++--
+>  1 file changed, 4 insertions(+), 2 deletions(-)
+>
+> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+> index 71fb37c..ed11931 100644
+> --- a/net/ipv4/tcp_input.c
+> +++ b/net/ipv4/tcp_input.c
+> @@ -3183,8 +3183,10 @@ static int tcp_clean_rtx_queue(struct sock *sk, int prior_fackets,
+>
+>                 tp->fackets_out -= min(pkts_acked, tp->fackets_out);
+>
+> -               if (ca_ops->pkts_acked)
+> -                       ca_ops->pkts_acked(sk, pkts_acked, ca_seq_rtt_us);
+> +               if (ca_ops->pkts_acked) {
+> +                       long rtt_us = min_t(ulong, ca_seq_rtt_us, sack_rtt_us);
+> +                       ca_ops->pkts_acked(sk, pkts_acked, rtt_us);
+> +               }
+>
+>         } else if (skb && rtt_update && sack_rtt_us >= 0 &&
+>                    sack_rtt_us > skb_mstamp_us_delta(&now, &skb->skb_mstamp)) {
+> --
+> 1.9.1
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
