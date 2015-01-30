@@ -1,72 +1,58 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: [PATCH v2 11/11] hso: fix rfkill name conflicts
-Date: Fri, 30 Jan 2015 09:47:59 -0600
-Message-ID: <1422632879.30854.0.camel@dcbw.local>
-References: <1421756978-4093-1-git-send-email-olivier@sobrie.be>
-	 <1422620523-15021-1-git-send-email-olivier@sobrie.be>
-	 <1422620523-15021-2-git-send-email-olivier@sobrie.be>
-	 <1422620523-15021-3-git-send-email-olivier@sobrie.be>
-	 <1422620523-15021-4-git-send-email-olivier@sobrie.be>
-	 <1422620523-15021-5-git-send-email-olivier@sobrie.be>
-	 <1422620523-15021-6-git-send-email-olivier@sobrie.be>
-	 <1422620523-15021-7-git-send-email-olivier@sobrie.be>
-	 <1422620523-15021-8-git-send-email-olivier@sobrie.be>
-	 <1422620523-15021-9-git-send-email-olivier@sobrie.be>
-	 <1422620523-15021-10-git-send-email-olivier@sobrie.be>
-	 <1422620523-15021-11-git-send-email-olivier@sobrie.be>
-	 <1422620523-15021-12-git-send-email-olivier@sobrie.be>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: [PATCH 4/7] rtlwifi: Remove unused RTL_SUPPORTED_CTRL_FILTER
+ define
+Date: Fri, 30 Jan 2015 10:06:44 -0600
+Message-ID: <54CBAC14.5060502@lwfinger.net>
+References: <1422341373-22196-1-git-send-email-plaes@plaes.org> <1422341373-22196-4-git-send-email-plaes@plaes.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jan Dumon <j.dumon@option.com>, linux-kernel@vger.kernel.org,
-	linux-usb@vger.kernel.org, netdev@vger.kernel.org
-To: Olivier Sobrie <olivier@sobrie.be>
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Priit Laes <plaes@plaes.org>,
+	Chaoming Li <chaoming_li@realsil.com.cn>,
+	Kalle Valo <kvalo@codeaurora.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1422620523-15021-12-git-send-email-olivier@sobrie.be>
+In-Reply-To: <1422341373-22196-4-git-send-email-plaes@plaes.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2015-01-30 at 13:22 +0100, Olivier Sobrie wrote:
-> By using only the usb interface number for the rfkill name, we might
-> have a name conflicts in case two similar hso devices are connected.
-> 
-> In this patch, the name of the hso rfkill interface embed the value
-> of a counter that is incremented each time a new rfkill interface is
-> added.
-> 
-> Suggested-by: Dan Williams <dcbw@redhat.com>
-> Signed-off-by: Olivier Sobrie <olivier@sobrie.be>
+On 01/27/2015 12:49 AM, Priit Laes wrote:
+> Signed-off-by: Priit Laes <plaes@plaes.org>
 > ---
->  drivers/net/usb/hso.c | 5 +++--
->  1 file changed, 3 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
-> index c14fc80..d31a165 100644
-> --- a/drivers/net/usb/hso.c
-> +++ b/drivers/net/usb/hso.c
-> @@ -153,7 +153,7 @@ struct hso_net {
->  	struct hso_device *parent;
->  	struct net_device *net;
->  	struct rfkill *rfkill;
-> -	char name[8];
-> +	char name[24];
->  
->  	struct usb_endpoint_descriptor *in_endp;
->  	struct usb_endpoint_descriptor *out_endp;
-> @@ -2469,9 +2469,10 @@ static void hso_create_rfkill(struct hso_device *hso_dev,
->  {
->  	struct hso_net *hso_net = dev2net(hso_dev);
->  	struct device *dev = &hso_net->net->dev;
-> +	static u32 rfkill_counter;
+>   drivers/net/wireless/rtlwifi/core.h | 2 --
+>   1 file changed, 2 deletions(-)
+>
+> diff --git a/drivers/net/wireless/rtlwifi/core.h b/drivers/net/wireless/rtlwifi/core.h
+> index 624e1dc..3b37557 100644
+> --- a/drivers/net/wireless/rtlwifi/core.h
+> +++ b/drivers/net/wireless/rtlwifi/core.h
+> @@ -33,8 +33,6 @@
+>   	FIF_FCSFAIL | \
+>   	FIF_BCN_PRBRESP_PROMISC)
+>
+> -#define RTL_SUPPORTED_CTRL_FILTER	0xFF
+> -
+>   extern const struct ieee80211_ops rtl_ops;
+>   void rtl_fw_cb(const struct firmware *firmware, void *context);
+>   void rtl_addr_delay(u32 addr);
 
-It'll probably be initialized to 0, but still, it would feel safer with
-an explicit "rfkill_counter = 0"...
+Priit,
 
-Dan
- 
->  	snprintf(hso_net->name, sizeof(hso_net->name), "hso-%d",
-> -		 interface->altsetting->desc.bInterfaceNumber);
-> +		 rfkill_counter++);
->  
->  	hso_net->rfkill = rfkill_alloc(hso_net->name,
->  				       &interface_to_usbdev(interface)->dev,
+I have a couple of points to make. First, when you submit a series of patches 
+like this, it is customary to use the cover letter feature of git to generate a 
+0/X patch in which to explain the set of patches. In this case, the cover letter 
+is not necessary, but it is a good habit to cultivate.
+
+The second point is more important. I'm not sure what source you used to 
+generate your patches, but it was clearly not wireless-drivers-next. Commit 
+6f8214b69057 ("rtlwifi: Create new routine to initialize the DM tables") moved a 
+lot of stuff from the individual drivers into the core. Some of the new stuff 
+was included right after the definition of RTL_SUPPORTED_CTRL_FILTER, thus your 
+patch fails to apply.
+
+Once you fix this problem, and resubmit V2 of the series, I will approve them. 
+FYI, Kalle prefers that all patches be resubmitted, not just the one that changes.
+
+
+Larry
