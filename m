@@ -1,128 +1,77 @@
-From: Willem de Bruijn <willemb@google.com>
-Subject: [PATCH net-next v3 3/3] net-timestamp: no-payload option in txtimestamp test
-Date: Fri, 30 Jan 2015 13:29:33 -0500
-Message-ID: <1422642573-6126-4-git-send-email-willemb@google.com>
-References: <1422642573-6126-1-git-send-email-willemb@google.com>
-Cc: davem@davemloft.net, richardcochran@gmail.com, luto@amacapital.net,
-	Willem de Bruijn <willemb@google.com>
-To: netdev@vger.kernel.org
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next v2 1/6] skbuff: Add skb_list_linearize()
+Date: Fri, 30 Jan 2015 21:32:16 +0300
+Message-ID: <54CBCE30.1000906@cogentembedded.com>
+References: <1422574164-1860-1-git-send-email-pshelar@nicira.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Pravin B Shelar <pshelar@nicira.com>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f43.google.com ([209.85.213.43]:37880 "EHLO
-	mail-yh0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1762952AbbA3S3x (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jan 2015 13:29:53 -0500
-Received: by mail-yh0-f43.google.com with SMTP id 29so11652198yhl.2
-        for <netdev@vger.kernel.org>; Fri, 30 Jan 2015 10:29:53 -0800 (PST)
-In-Reply-To: <1422642573-6126-1-git-send-email-willemb@google.com>
+Received: from mail-la0-f49.google.com ([209.85.215.49]:36141 "EHLO
+	mail-la0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932434AbbA3ScU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jan 2015 13:32:20 -0500
+Received: by mail-la0-f49.google.com with SMTP id gf13so25079523lab.8
+        for <netdev@vger.kernel.org>; Fri, 30 Jan 2015 10:32:19 -0800 (PST)
+In-Reply-To: <1422574164-1860-1-git-send-email-pshelar@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Willem de Bruijn <willemb@google.com>
+Hello.
 
-Demonstrate how SOF_TIMESTAMPING_OPT_TSONLY can be used and
-test the implementation.
+On 01/30/2015 02:29 AM, Pravin B Shelar wrote:
 
-Signed-off-by: Willem de Bruijn <willemb@google.com>
----
- .../networking/timestamping/txtimestamp.c          | 28 ++++++++++++++++++----
- 1 file changed, 24 insertions(+), 4 deletions(-)
+> similar to skb_linearize(), this API takes skb list as arg and
+> linearize it into one big skb. STT driver patch will use this.
 
-diff --git a/Documentation/networking/timestamping/txtimestamp.c b/Documentation/networking/timestamping/txtimestamp.c
-index 05694fe..8217510 100644
---- a/Documentation/networking/timestamping/txtimestamp.c
-+++ b/Documentation/networking/timestamping/txtimestamp.c
-@@ -70,6 +70,7 @@ static int do_ipv6 = 1;
- static int cfg_payload_len = 10;
- static bool cfg_show_payload;
- static bool cfg_do_pktinfo;
-+static bool cfg_loop_nodata;
- static uint16_t dest_port = 9000;
- 
- static struct sockaddr_in daddr;
-@@ -141,6 +142,9 @@ static void print_payload(char *data, int len)
- {
- 	int i;
- 
-+	if (!len)
-+		return;
-+
- 	if (len > 70)
- 		len = 70;
- 
-@@ -177,6 +181,7 @@ static void __recv_errmsg_cmsg(struct msghdr *msg, int payload_len)
- 	struct sock_extended_err *serr = NULL;
- 	struct scm_timestamping *tss = NULL;
- 	struct cmsghdr *cm;
-+	int batch = 0;
- 
- 	for (cm = CMSG_FIRSTHDR(msg);
- 	     cm && cm->cmsg_len;
-@@ -209,10 +214,18 @@ static void __recv_errmsg_cmsg(struct msghdr *msg, int payload_len)
- 		} else
- 			fprintf(stderr, "unknown cmsg %d,%d\n",
- 					cm->cmsg_level, cm->cmsg_type);
-+
-+		if (serr && tss) {
-+			print_timestamp(tss, serr->ee_info, serr->ee_data,
-+					payload_len);
-+			serr = NULL;
-+			tss = NULL;
-+			batch++;
-+		}
- 	}
- 
--	if (serr && tss)
--		print_timestamp(tss, serr->ee_info, serr->ee_data, payload_len);
-+	if (batch > 1)
-+		fprintf(stderr, "batched %d timestamps\n", batch);
- }
- 
- static int recv_errmsg(int fd)
-@@ -244,7 +257,7 @@ static int recv_errmsg(int fd)
- 	if (ret == -1 && errno != EAGAIN)
- 		error(1, errno, "recvmsg");
- 
--	if (ret > 0) {
-+	if (ret >= 0) {
- 		__recv_errmsg_cmsg(&msg, ret);
- 		if (cfg_show_payload)
- 			print_payload(data, cfg_payload_len);
-@@ -309,6 +322,9 @@ static void do_test(int family, unsigned int opt)
- 	opt |= SOF_TIMESTAMPING_SOFTWARE |
- 	       SOF_TIMESTAMPING_OPT_CMSG |
- 	       SOF_TIMESTAMPING_OPT_ID;
-+	if (cfg_loop_nodata)
-+		opt |= SOF_TIMESTAMPING_OPT_TSONLY;
-+
- 	if (setsockopt(fd, SOL_SOCKET, SO_TIMESTAMPING,
- 		       (char *) &opt, sizeof(opt)))
- 		error(1, 0, "setsockopt timestamping");
-@@ -378,6 +394,7 @@ static void __attribute__((noreturn)) usage(const char *filepath)
- 			"  -h:   show this message\n"
- 			"  -I:   request PKTINFO\n"
- 			"  -l N: send N bytes at a time\n"
-+			"  -n:   set no-payload option\n"
- 			"  -r:   use raw\n"
- 			"  -R:   use raw (IP_HDRINCL)\n"
- 			"  -p N: connect to port N\n"
-@@ -392,7 +409,7 @@ static void parse_opt(int argc, char **argv)
- 	int proto_count = 0;
- 	char c;
- 
--	while ((c = getopt(argc, argv, "46hIl:p:rRux")) != -1) {
-+	while ((c = getopt(argc, argv, "46hIl:np:rRux")) != -1) {
- 		switch (c) {
- 		case '4':
- 			do_ipv6 = 0;
-@@ -403,6 +420,9 @@ static void parse_opt(int argc, char **argv)
- 		case 'I':
- 			cfg_do_pktinfo = true;
- 			break;
-+		case 'n':
-+			cfg_loop_nodata = true;
-+			break;
- 		case 'r':
- 			proto_count++;
- 			cfg_proto = SOCK_RAW;
--- 
-2.2.0.rc0.207.ga3a616c
+> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+
+[...]
+
+> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+> index 56db472..d6358a7 100644
+> --- a/net/core/skbuff.c
+> +++ b/net/core/skbuff.c
+> @@ -2329,6 +2329,40 @@ void skb_copy_and_csum_dev(const struct sk_buff *skb, u8 *to)
+>   }
+>   EXPORT_SYMBOL(skb_copy_and_csum_dev);
+>
+> +int skb_list_linearize(struct sk_buff *head, gfp_t gfp_mask)
+> +{
+> +	struct sk_buff *skb;
+> +	int tlen = 0;
+> +	int err;
+> +
+> +	err = skb_linearize(head);
+> +	if (err)
+> +		return err;
+> +
+> +	skb = head->next;
+> +	while (skb) {
+> +		tlen += skb->len;
+> +		skb = skb->next;
+> +	}
+
+	for (skb = head->next; skb; skb = skb->next)
+		tlen += skb->len;
+
+> +	err = pskb_expand_head(head, 0, tlen, gfp_mask);
+> +	if (err)
+> +		return err;
+> +
+> +	skb = head->next;
+> +	while (skb) {
+> +		err = skb_copy_bits(skb, 0, skb_tail_pointer(head), skb->len);
+> +		if (err)
+> +			return err;
+> +		head->tail += skb->len;
+> +		skb = skb->next;
+> +	}
+
+    Likewise, this can easily be converted into a *for* loop.
+
+[...]
+
+WBR, Sergei
