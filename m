@@ -1,50 +1,39 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH 1/6] rhashtable: key_hashfn() must return full hash value
-Date: Fri, 30 Jan 2015 01:20:38 +0100
-Message-ID: <19e5f15060e51b8330cf37e60c733ba35234b769.1422576760.git.tgraf@suug.ch>
-References: <cover.1422576760.git.tgraf@suug.ch>
+Subject: [PATCH 0/6 net-next] rhashtable fixes
+Date: Fri, 30 Jan 2015 01:20:37 +0100
+Message-ID: <cover.1422576760.git.tgraf@suug.ch>
 Cc: netdev@vger.kernel.org, ying.xue@windriver.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([198.137.202.9]:53180 "EHLO
+Received: from bombadil.infradead.org ([198.137.202.9]:53161 "EHLO
 	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758835AbbA3AUu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jan 2015 19:20:50 -0500
-In-Reply-To: <cover.1422576760.git.tgraf@suug.ch>
-In-Reply-To: <cover.1422576760.git.tgraf@suug.ch>
-References: <cover.1422576760.git.tgraf@suug.ch>
+	with ESMTP id S1758834AbbA3AUs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jan 2015 19:20:48 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The value computed by key_hashfn() is used by rhashtable_lookup_compare()
-to traverse both tables during a resize. key_hashfn() must therefore
-return the hash value without the buckets mask applied so it can be
-masked to the size of each individual table.
+This is a series of fixes which have accumulated while tracking
+down the race condition reoprted by Ying Xue. The original
+DEBUG_PAGEALLOC splat is resolved.
 
-Fixes: 97defe1ecf86 ("rhashtable: Per bucket locks & deferred expansion/shrinking")
-Signed-off-by: Thomas Graf <tgraf@suug.ch>
----
- lib/rhashtable.c | 8 +-------
- 1 file changed, 1 insertion(+), 7 deletions(-)
+However, there is still a race (harder to trigger) remaining in
+which certain entries are unfindable when removing them from the
+table via netlink_remove() and thus they cause a use after free
+later on.
 
-diff --git a/lib/rhashtable.c b/lib/rhashtable.c
-index bc2d0d8..7413697 100644
---- a/lib/rhashtable.c
-+++ b/lib/rhashtable.c
-@@ -94,13 +94,7 @@ static u32 obj_raw_hashfn(const struct rhashtable *ht, const void *ptr)
- 
- static u32 key_hashfn(struct rhashtable *ht, const void *key, u32 len)
- {
--	struct bucket_table *tbl = rht_dereference_rcu(ht->tbl, ht);
--	u32 hash;
--
--	hash = ht->p.hashfn(key, len, ht->p.hash_rnd);
--	hash >>= HASH_RESERVED_SPACE;
--
--	return rht_bucket_index(tbl, hash);
-+	return ht->p.hashfn(key, len, ht->p.hash_rnd) >> HASH_RESERVED_SPACE;
- }
- 
- static u32 head_hashfn(const struct rhashtable *ht,
+Regardless, these fixes can go in now.
+
+Thomas Graf (6):
+  rhashtable: key_hashfn() must return full hash value
+  rhashtable: Use a single bucket lock for sibling buckets
+  rhashtable: Wait for RCU readers after final unzip work
+  rhashtable: Dump bucket tables on locking violation under
+    PROVE_LOCKING
+  rhashtable: Add more lock verification
+  rhashtable: Avoid bucket cross reference after removal
+
+ lib/rhashtable.c | 301 ++++++++++++++++++++++++++++++-------------------------
+ 1 file changed, 166 insertions(+), 135 deletions(-)
+
 -- 
 1.9.3
