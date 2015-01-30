@@ -1,78 +1,128 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: [PATCH v2 11/11] hso: fix rfkill name conflicts
-Date: Fri, 30 Jan 2015 10:59:02 -0600
-Message-ID: <1422637142.30854.7.camel@dcbw.local>
-References: <1422620523-15021-4-git-send-email-olivier@sobrie.be>
-	 <1422620523-15021-5-git-send-email-olivier@sobrie.be>
-	 <1422620523-15021-6-git-send-email-olivier@sobrie.be>
-	 <1422620523-15021-7-git-send-email-olivier@sobrie.be>
-	 <1422620523-15021-8-git-send-email-olivier@sobrie.be>
-	 <1422620523-15021-9-git-send-email-olivier@sobrie.be>
-	 <1422620523-15021-10-git-send-email-olivier@sobrie.be>
-	 <1422620523-15021-11-git-send-email-olivier@sobrie.be>
-	 <1422620523-15021-12-git-send-email-olivier@sobrie.be>
-	 <1422632879.30854.0.camel@dcbw.local>
-	 <20150130161555.GA22140@thinkoso.home>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next v4 0/7] switchdev offload flags
+Date: Fri, 30 Jan 2015 17:59:40 +0100
+Message-ID: <20150130165940.GA1872@nanopsycho.orion>
+References: <1422600017-42393-1-git-send-email-roopa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Jan Dumon <j.dumon@option.com>, linux-kernel@vger.kernel.org,
-	linux-usb@vger.kernel.org, netdev@vger.kernel.org
-To: Olivier Sobrie <olivier@sobrie.be>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150130161555.GA22140@thinkoso.home>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: sfeldma@gmail.com, jhs@mojatatu.com, bcrl@kvack.org, tgraf@suug.ch,
+	john.fastabend@gmail.com, stephen@networkplumber.org,
+	vyasevic@redhat.com, ronen.arad@intel.com, netdev@vger.kernel.org,
+	davem@davemloft.net, shm@cumulusnetworks.com,
+	gospo@cumulusnetworks.com
+To: roopa@cumulusnetworks.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f169.google.com ([74.125.82.169]:54427 "EHLO
+	mail-we0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1762801AbbA3Q7p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jan 2015 11:59:45 -0500
+Received: by mail-we0-f169.google.com with SMTP id u56so28290621wes.0
+        for <netdev@vger.kernel.org>; Fri, 30 Jan 2015 08:59:44 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1422600017-42393-1-git-send-email-roopa@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2015-01-30 at 17:15 +0100, Olivier Sobrie wrote:
-> Hello Dan,
-> 
-> On Fri, Jan 30, 2015 at 09:47:59AM -0600, Dan Williams wrote:
-> > On Fri, 2015-01-30 at 13:22 +0100, Olivier Sobrie wrote:
-> > > By using only the usb interface number for the rfkill name, we might
-> > > have a name conflicts in case two similar hso devices are connected.
-> > > 
-> > > In this patch, the name of the hso rfkill interface embed the value
-> > > of a counter that is incremented each time a new rfkill interface is
-> > > added.
-> > > 
-> > > Suggested-by: Dan Williams <dcbw@redhat.com>
-> > > Signed-off-by: Olivier Sobrie <olivier@sobrie.be>
-> > > ---
-> > >  drivers/net/usb/hso.c | 5 +++--
-> > >  1 file changed, 3 insertions(+), 2 deletions(-)
-> > > 
-> > > diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
-> > > index c14fc80..d31a165 100644
-> > > --- a/drivers/net/usb/hso.c
-> > > +++ b/drivers/net/usb/hso.c
-> > > @@ -153,7 +153,7 @@ struct hso_net {
-> > >  	struct hso_device *parent;
-> > >  	struct net_device *net;
-> > >  	struct rfkill *rfkill;
-> > > -	char name[8];
-> > > +	char name[24];
-> > >  
-> > >  	struct usb_endpoint_descriptor *in_endp;
-> > >  	struct usb_endpoint_descriptor *out_endp;
-> > > @@ -2469,9 +2469,10 @@ static void hso_create_rfkill(struct hso_device *hso_dev,
-> > >  {
-> > >  	struct hso_net *hso_net = dev2net(hso_dev);
-> > >  	struct device *dev = &hso_net->net->dev;
-> > > +	static u32 rfkill_counter;
-> > 
-> > It'll probably be initialized to 0, but still, it would feel safer with
-> > an explicit "rfkill_counter = 0"...
-> > 
-> 
-> If I set explicitly rfkill_counter = 0, checkpatch triggers an error:
-> 
->   ERROR: do not initialise statics to 0 or NULL
->   #36: FILE: drivers/net/usb/hso.c:2472:
->   +	static u32 rfkill_counter = 0;
+Fri, Jan 30, 2015 at 07:40:10AM CET, roopa@cumulusnetworks.com wrote:
+>From: Roopa Prabhu <roopa@cumulusnetworks.com>
+>
+>This patch series introduces new offload flags for switchdev.
+>Kernel network subsystems can use this flag to accelerate
+>network functions by offloading to hw.
+>
+>I expect that there will be need for subsystem specific feature
+>flag in the future.
+>
+>This patch series currently only addresses bridge driver link
+>attribute offloads to hardware.
+>
+>Looking at the current state of bridge l2 offload in the kernel,
+>    - flag 'self' is the way to directly manage the bridge device in hw via
+>      the ndo_bridge_setlink/ndo_bridge_getlink calls
+>
+>    - flag 'master' is always used to manage the in kernel bridge devices
+>      via the same ndo_bridge_setlink/ndo_bridge_getlink calls
+>
+>Today these are used separately. The nic offloads use hwmode "vepa/veb" to go
+>directly to hw with the "self" flag.
+>
+>At this point i am trying not to introduce any new user facing flags/attributes.
+>In the model where we want the kernel bridging to be accelerated with
+>hardware, we very much want the bridge driver to be involved.
+>
+>In this proposal,
+>- The offload flag/bit helps switch asic drivers to indicate that they
+>  accelerate the kernel networking objects/functions
+>- The user does not have to specify a new flag to do so. A bridge created with
+>  switch asic ports will be accelerated if the switch driver supports it.
+>- The user can continue to directly manage l2 in nics (ixgbe) using the
+>  existing hwmode/self flags
+>- It also does not stop users from using the 'self' flag to talk to the
+>  switch asic driver directly
+>- Involving the bridge driver makes sure the add/del notifications to user
+>  space go out after both kernel and hardware are programmed
+>
+>(To selectively offload bridge port attributes,
+>example learning in hw only etc, we can introduce offload bits for
+>per bridge port flag attribute as in my previous patch
+>https://patchwork.ozlabs.org/patch/413211/. I have not included that in this
+>series)
+>
+>v2
+>   - try a different name for the offload flag/bit
+>   - tries to solve the stacked netdev case by traversing the lowerdev
+>     list to reach the switch port
+>
+>v3 -
+>    - Tested with bond as bridge port for the stacked device case.
+>      Includes a bond_fix_features change to not ignore the
+>      NETIF_F_HW_NETFUNC_OFFLOAD flag
+>    - Some checkpatch fixes
+>
+>v4 -
+>    - rename flag to NETIF_F_HW_SWITCH_OFFLOAD
+>    - add ndo_bridge_setlink/dellink handlers in bond and team drivers as
+>      suggested by jiri.
+>    - introduce default ndo_dflt_netdev_switch_port_bridge_setlink/dellink
+>    handlers that masters can use to call offload api on lowerdevs.
+>
+>Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
 
-Well OK then, life has changed since I last submitted a patch with a
-static variable :)  If checkpatch complains, then it is almost always
-correct, and you can ignore me.
 
-Dan
+Having a flu and being completely unusable, I gave this patchset a quick
+peek and looks allright. I will review once I recover (Sun/Mon).
+Not sure if Dave wants to hold the patchset until then.
+
+
+>
+>Roopa Prabhu (7):
+>  netdev: introduce new NETIF_F_HW_SWITCH_OFFLOAD feature flag for
+>    switch device offloads
+>  bridge: add flags argument to ndo_bridge_setlink and
+>    ndo_bridge_dellink
+>  swdevice: add new apis to set and del bridge port attributes
+>  bridge: offload bridge port attributes to switch asic if feature flag
+>    set
+>  rocker: set feature NETIF_F_HW_SWITCH_OFFLOAD
+>  bonding: handle NETIF_F_HW_SWITCH_OFFLOAD flag and add
+>    ndo_bridge_setlink/dellink handlers
+>  team: handle NETIF_F_HW_SWITCH_OFFLOAD flag and add
+>    ndo_bridge_setlink/dellink handlers
+>
+> drivers/net/bonding/bond_main.c               |    9 +-
+> drivers/net/ethernet/emulex/benet/be_main.c   |    3 +-
+> drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    2 +-
+> drivers/net/ethernet/rocker/rocker.c          |    5 +-
+> drivers/net/team/team.c                       |    5 +-
+> include/linux/netdev_features.h               |    6 +-
+> include/linux/netdevice.h                     |    6 +-
+> include/net/switchdev.h                       |   37 ++++++++-
+> net/bridge/br_netlink.c                       |   30 +++++--
+> net/bridge/br_private.h                       |    4 +-
+> net/core/rtnetlink.c                          |   10 ++-
+> net/switchdev/switchdev.c                     |  110 +++++++++++++++++++++++++
+> 12 files changed, 206 insertions(+), 21 deletions(-)
+>
+>-- 
+>1.7.10.4
+>
