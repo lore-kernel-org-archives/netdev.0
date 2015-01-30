@@ -1,148 +1,114 @@
-From: Tadeusz Struk <tadeusz.struk@intel.com>
-Subject: Re: [PATCH 1/3] net: socket: enable async read and write
-Date: Fri, 30 Jan 2015 10:30:46 -0800
-Message-ID: <54CBCDD6.8010402@intel.com>
-References: <20150129231338.25156.65450.stgit@tstruk-mobl1> <20150129231345.25156.51764.stgit@tstruk-mobl1>
+From: Andy Gospodarek <gospo@cumulusnetworks.com>
+Subject: Re: [PATCH net-next v2 0/6] net: Add STT support.
+Date: Fri, 30 Jan 2015 13:44:46 -0500
+Message-ID: <20150130184446.GF13164@gospo.home.greyhouse.net>
+References: <1422574156-1831-1-git-send-email-pshelar@nicira.com>
+ <54CAFE89.4090509@gmail.com>
+ <CALnjE+pPh5nSvaLTnM-a0r2Gm6K8Hz5BU_CsiWzYmwijPCOgHg@mail.gmail.com>
+ <CA+mtBx_fFBY_FAsnAo8yu5bjoq5BqPY3Es_19oBdeqrjp4RdiA@mail.gmail.com>
+ <CALnjE+rjoRXnKsT9z2CK0BuYrxwqk+0FZq1=QwoPiysPN0gxZw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: linux-crypto@vger.kernel.org, netdev@vger.kernel.org,
-	davem@davemloft.net, qat-linux@intel.com,
-	linux-kernel@vger.kernel.org
-To: herbert@gondor.apana.org.au
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150129231345.25156.51764.stgit@tstruk-mobl1>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Tom Herbert <therbert@google.com>,
+	Alexander Duyck <alexander.duyck@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+To: Pravin Shelar <pshelar@nicira.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qg0-f48.google.com ([209.85.192.48]:58403 "EHLO
+	mail-qg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751382AbbA3Sov (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jan 2015 13:44:51 -0500
+Received: by mail-qg0-f48.google.com with SMTP id z60so39466917qgd.7
+        for <netdev@vger.kernel.org>; Fri, 30 Jan 2015 10:44:50 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <CALnjE+rjoRXnKsT9z2CK0BuYrxwqk+0FZq1=QwoPiysPN0gxZw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/29/2015 03:13 PM, Tadeusz Struk wrote:
-> AIO read or write are not currently supported on sockets.
-> This patch enables real socket async read/write.
+On Thu, Jan 29, 2015 at 09:03:14PM -0800, Pravin Shelar wrote:
+> On Thu, Jan 29, 2015 at 8:17 PM, Tom Herbert <therbert@google.com> wrote:
+> > On Thu, Jan 29, 2015 at 8:04 PM, Pravin Shelar <pshelar@nicira.com> wrote:
+> >> On Thu, Jan 29, 2015 at 7:46 PM, Alexander Duyck
+> >> <alexander.duyck@gmail.com> wrote:
+> >>> On 01/29/2015 03:29 PM, Pravin B Shelar wrote:
+> >>>> Following patch series adds support for Stateless Transport
+> >>>> Tunneling protocol.
+> >>>> STT uses TCP segmentation offload available in most of NIC. On
+> >>>> packet xmit STT driver appends STT header along with TCP header
+> >>>> to the packet. For GSO packet GSO parameters are set according
+> >>>> to tunnel configuration and packet is handed over to networking
+> >>>> stack. This allows use of segmentation offload available in NICs
+> >>>>
+> >>>> The protocol is documented at
+> >>>> http://www.ietf.org/archive/id/draft-davie-stt-06.txt
+> >>>>
+> >>>> I will send out OVS userspace patch on ovs-dev mailing list.
+> >>>>
+> >>>> Following are test results. All tests are done on net-next with
+> >>>> STT and VXLAN kernel device without OVS.
+> >>>>
+> >>>> Single Netperf session:
+> >>>> =======================
+> >>>> VXLAN:
+> >>>>     CPU utilization
+> >>>>      - Send local: 1.26
+> >>>>      - Recv remote: 8.62
+> >>>>     Throughput: 4.9 Gbit/sec
+> >>>> STT:
+> >>>>     CPU utilization
+> >>>>      - Send local: 1.01
+> >>>>      - Recv remote: 1.8
+> >>>>     Throughput: 9.45 Gbit/sec
+> >>>>
+> >>>> Five Netperf sessions:
+> >>>> ======================
+> >>>> VXLAN:
+> >>>>     CPU utilization
+> >>>>      - Send local: 9.7
+> >>>>      - Recv remote: 70 (varies from 60 to 80)
+> >>>>     Throughput: 9.05 Gbit/sec
+> >>>> STT:
+> >>>>     CPU utilization
+> >>>>      - Send local: 5.85
+> >>>>      - Recv remote: 14
+> >>>>     Throughput: 9.47 Gbit/sec
+> >>>>
+> >>>
+> >>> What does the small packet or non-TCP performance look like for STT vs
+> >>> VXLAN?  My concern is that STT looks like it is a one trick pony since
+> >>> all your numbers show is TCP TSO performance, and based on some of the
+> >>> comments in your patches it seems like other protocols such as UDP are
+> >>> going to suffer pretty badly due to things like the linearization overhead.
+> >>>
+> >>
+> >> Current implementation is targeted for TCP workloads thats why I
+> >> posted numbers with TCP, once UDP is optimized we can discuss UDP
+> >> numbers. I am pretty sure the STT code can be optimized further
+> >> specially for protocols other than TCP.
+> >> --
+> > There are many TCP workloads that use small packets, it is critical to
+> > test for these also. E.g. "super_netperf 200 -H <addr> -l 120 -t
+> > TCP_RR -- -r 1,1"
+> >
+> I have not tried it on STT device, I will collect those numbers.
 > 
-> Please note - this patch is generated against cryptodev.
+> > Please provide the *exact* commands that you are using to configure
+> > stt for optimal performance.
+> >
+> To create STT tunnel device.
+> `ip link add stt1  type stt key 1 remote 1.1.2.128`
 > 
-> Signed-off-by: Tadeusz Struk <tadeusz.struk@intel.com>
-> ---
->  include/net/sock.h |    2 ++
->  net/socket.c       |   48 ++++++++++++++++++++++++++++++++++++++----------
->  2 files changed, 40 insertions(+), 10 deletions(-)
-> 
-> diff --git a/include/net/sock.h b/include/net/sock.h
-> index 2210fec..2c7d160 100644
-> --- a/include/net/sock.h
-> +++ b/include/net/sock.h
-> @@ -1397,6 +1397,8 @@ static inline struct kiocb *siocb_to_kiocb(struct sock_iocb *si)
->  	return si->kiocb;
->  }
->  
-> +void sock_aio_complete(struct kiocb *iocb, long res, long res2);
-> +
->  struct socket_alloc {
->  	struct socket socket;
->  	struct inode vfs_inode;
-> diff --git a/net/socket.c b/net/socket.c
-> index a2c33a4..368fa9f 100644
-> --- a/net/socket.c
-> +++ b/net/socket.c
-> @@ -866,14 +866,25 @@ static ssize_t sock_splice_read(struct file *file, loff_t *ppos,
->  	return sock->ops->splice_read(sock, ppos, pipe, len, flags);
->  }
->  
-> +void sock_aio_complete(struct kiocb *iocb, long res, long res2)
-> +{
-> +	struct sock_iocb *siocb = kiocb_to_siocb(iocb);
-> +
-> +	kfree(siocb);
-> +	aio_complete(iocb, res, res2);
-> +}
-> +EXPORT_SYMBOL(sock_aio_complete);
-> +
->  static struct sock_iocb *alloc_sock_iocb(struct kiocb *iocb,
->  					 struct sock_iocb *siocb)
->  {
-> -	if (!is_sync_kiocb(iocb))
-> -		BUG();
-> +	if (!siocb)
-> +		siocb = kmalloc(sizeof(*siocb), GFP_KERNEL);
->  
-> -	siocb->kiocb = iocb;
-> -	iocb->private = siocb;
-> +	if (siocb) {
-> +		siocb->kiocb = iocb;
-> +		iocb->private = siocb;
-> +	}
->  	return siocb;
->  }
->  
-> @@ -901,7 +912,8 @@ static ssize_t do_sock_read(struct msghdr *msg, struct kiocb *iocb,
->  static ssize_t sock_aio_read(struct kiocb *iocb, const struct iovec *iov,
->  				unsigned long nr_segs, loff_t pos)
->  {
-> -	struct sock_iocb siocb, *x;
-> +	struct sock_iocb siocb, *x = NULL;
-> +	int ret;
->  
->  	if (pos != 0)
->  		return -ESPIPE;
-> @@ -909,11 +921,18 @@ static ssize_t sock_aio_read(struct kiocb *iocb, const struct iovec *iov,
->  	if (iocb->ki_nbytes == 0)	/* Match SYS5 behaviour */
->  		return 0;
->  
-> +	if (is_sync_kiocb(iocb))
-> +		x = &siocb;
->  
-> -	x = alloc_sock_iocb(iocb, &siocb);
-> +	x = alloc_sock_iocb(iocb, x);
->  	if (!x)
->  		return -ENOMEM;
-> -	return do_sock_read(&x->async_msg, iocb, iocb->ki_filp, iov, nr_segs);
-> +	ret = do_sock_read(&x->async_msg, iocb, iocb->ki_filp, iov, nr_segs);
-> +
-> +	if (!is_sync_kiocb(iocb) && ret != -EIOCBQUEUED)
-> +		kfree(x);
-> +
-> +	return ret;
->  }
->  
->  static ssize_t do_sock_write(struct msghdr *msg, struct kiocb *iocb,
-> @@ -942,16 +961,25 @@ static ssize_t do_sock_write(struct msghdr *msg, struct kiocb *iocb,
->  static ssize_t sock_aio_write(struct kiocb *iocb, const struct iovec *iov,
->  			  unsigned long nr_segs, loff_t pos)
->  {
-> -	struct sock_iocb siocb, *x;
-> +	struct sock_iocb siocb, *x = NULL;
-> +	int ret;
->  
->  	if (pos != 0)
->  		return -ESPIPE;
->  
-> -	x = alloc_sock_iocb(iocb, &siocb);
-> +	if (is_sync_kiocb(iocb))
-> +		x = &siocb;
-> +
-> +	x = alloc_sock_iocb(iocb, x);
->  	if (!x)
->  		return -ENOMEM;
->  
-> -	return do_sock_write(&x->async_msg, iocb, iocb->ki_filp, iov, nr_segs);
-> +	ret = do_sock_write(&x->async_msg, iocb, iocb->ki_filp, iov, nr_segs);
-> +
-> +	if (!is_sync_kiocb(iocb) && ret != -EIOCBQUEUED)
-> +		kfree(x);
-> +
-> +	return ret;
->  }
->  
->  /*
+> No other configuration is needed.
 
-Hi Herbert,
-Just noticed that the struct sock_iocb has just been removed on net-next
-(see [1]). What we can do is to call aio_complete() directly from
-algif_skcipher, assuming that it is ok to call asynchronous read or
-write with the struct msghdr allocated on the stack.
-Please let me know what you think.
-Thanks,
-Tadeusz
+Thanks for posting some performance numbers with your patch.  I also
+don't want to 'pile on' with additional complaints, but I do have one
+request.
 
-[1]
-https://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/commit/?id=7cc05662682da4b0e0a4fdf3c3f190577803ae81
+Can you share any specs (including number of cores and NIC hardware
+used) for the systems that gave you the above results?   If you do not
+want to endorse a particular NIC that is fine --  I'm mostly curious how
+many cores were used and if UDP and TCP RSS were both being used in this
+configuration.
+
+Thanks!
