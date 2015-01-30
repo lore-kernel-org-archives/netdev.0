@@ -1,105 +1,216 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH 3/9] nftables: nft_rbtree: fix locking
-Date: Fri, 30 Jan 2015 11:52:17 +0100
-Message-ID: <20150130105217.GA4093@salvia>
-References: <1422603994-5836-1-git-send-email-kaber@trash.net>
- <1422603994-5836-4-git-send-email-kaber@trash.net>
+From: Maxime Coquelin <maxime.coquelin@st.com>
+Subject: Re: [PATCH v2 2/7] phy: miphy365x: Pass sysconfig register offsets
+ via syscfg dt property.
+Date: Fri, 30 Jan 2015 11:48:46 +0100
+Message-ID: <54CB618E.60808@st.com>
+References: <1420643052-4506-1-git-send-email-peter.griffin@linaro.org> <1420643052-4506-3-git-send-email-peter.griffin@linaro.org> <54CB5E7E.8050507@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: herbert@gondor.apana.org.au, tgraf@suug.ch, davem@davemloft.net,
-	David.Laight@ACULAB.COM, ying.xue@windriver.com,
-	paulmck@linux.vnet.ibm.com, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:48189 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760931AbbA3KtR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 Jan 2015 05:49:17 -0500
-Content-Disposition: inline
-In-Reply-To: <1422603994-5836-4-git-send-email-kaber@trash.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <lee.jones@linaro.org>, <devicetree@vger.kernel.org>,
+	<netdev@vger.kernel.org>
+To: Kishon Vijay Abraham I <kishon@ti.com>,
+	Peter Griffin <peter.griffin@linaro.org>,
+	<linux-arm-kernel@lists.infradead.org>,
+	<linux-kernel@vger.kernel.org>, <srinivas.kandagatla@gmail.com>,
+	<patrice.chotard@st.com>, <peppe.cavallaro@st.com>, <arnd@arndb.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <54CB5E7E.8050507@ti.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Patrick,
+Hi Kishon,
 
-On Fri, Jan 30, 2015 at 07:46:28AM +0000, Patrick McHardy wrote:
-> Fix a race condition and unnecessary locking:
-> 
-> * the root rb_node must only be accessed under the lock in nft_rbtree_lookup()
-> * the lock is not needed in lookup functions in netlink contexts
-> 
-> Signed-off-by: Patrick McHardy <kaber@trash.net>
-> ---
->  net/netfilter/nft_rbtree.c | 12 +++---------
->  1 file changed, 3 insertions(+), 9 deletions(-)
-> 
-> diff --git a/net/netfilter/nft_rbtree.c b/net/netfilter/nft_rbtree.c
-> index 46214f2..417796f 100644
-> --- a/net/netfilter/nft_rbtree.c
-> +++ b/net/netfilter/nft_rbtree.c
-> @@ -37,10 +37,11 @@ static bool nft_rbtree_lookup(const struct nft_set *set,
->  {
->  	const struct nft_rbtree *priv = nft_set_priv(set);
->  	const struct nft_rbtree_elem *rbe, *interval = NULL;
-> -	const struct rb_node *parent = priv->root.rb_node;
-> +	const struct rb_node *parent;
->  	int d;
->  
->  	spin_lock_bh(&nft_rbtree_lock);
-> +	parent = priv->root.rb_node;
+On 01/30/2015 11:35 AM, Kishon Vijay Abraham I wrote:
+> Hi,
+>
+> On Wednesday 07 January 2015 08:34 PM, Peter Griffin wrote:
+>> Based on Arnds review comments here https://lkml.org/lkml/2014/11/13/161,
+>> update the miphy365 phy driver to access sysconfig register offsets via
+>> syscfg dt property.
+>>
+>> This is because the reg property should not be mixing address spaces
+>> like it does currently for miphy365. This change then also aligns us
+>> to how other platforms such as keystone and bcm7445 pass there syscon
+>> offsets via DT.
+>>
+>> This patch breaks DT compatibility, but this platform is considered WIP,
+>> and is only used by a few developers who are upstreaming support for it.
+>> This change has been done as a single atomic commit to ensure it is
+>> bisectable.
+> I'm dropping this from my tree since I didn't get Ack from
+> "arch/arm/boot/dts/stih416.dtsi" Maintainer.
+Sorry, on cover letter, I replied the series looked good to me.
+So you can add:
 
-Good catch.
+Acked-by: Maxime Coquelin <maxime.coquelin@st.com>
 
->  	while (parent != NULL) {
->  		rbe = rb_entry(parent, struct nft_rbtree_elem, node);
->  
-> @@ -158,7 +159,6 @@ static int nft_rbtree_get(const struct nft_set *set, struct nft_set_elem *elem)
->  	struct nft_rbtree_elem *rbe;
->  	int d;
->  
-> -	spin_lock_bh(&nft_rbtree_lock);
->  	while (parent != NULL) {
->  		rbe = rb_entry(parent, struct nft_rbtree_elem, node);
->  
-> @@ -173,11 +173,9 @@ static int nft_rbtree_get(const struct nft_set *set, struct nft_set_elem *elem)
->  			    !(rbe->flags & NFT_SET_ELEM_INTERVAL_END))
->  				nft_data_copy(&elem->data, rbe->data);
->  			elem->flags = rbe->flags;
-> -			spin_unlock_bh(&nft_rbtree_lock);
->  			return 0;
->  		}
->  	}
-> -	spin_unlock_bh(&nft_rbtree_lock);
->  	return -ENOENT;
+And even:
 
-this chunk looks fine to me, we always hold the nfnetlink mutex.
+Tested-by: Maxime Coquelin <maxime.coquelin@st.com>
 
->  }
-> @@ -190,7 +188,6 @@ static void nft_rbtree_walk(const struct nft_ctx *ctx,
->  	struct nft_set_elem elem;
->  	struct rb_node *node;
->  
-> -	spin_lock_bh(&nft_rbtree_lock);
->  	for (node = rb_first(&priv->root); node != NULL; node = rb_next(node)) {
->  		if (iter->count < iter->skip)
->  			goto cont;
-> @@ -203,14 +200,11 @@ static void nft_rbtree_walk(const struct nft_ctx *ctx,
->  		elem.flags = rbe->flags;
->  
->  		iter->err = iter->fn(ctx, set, iter, &elem);
-> -		if (iter->err < 0) {
-> -			spin_unlock_bh(&nft_rbtree_lock);
-> +		if (iter->err < 0)
->  			return;
-> -		}
->  cont:
->  		iter->count++;
->  	}
-> -	spin_unlock_bh(&nft_rbtree_lock);
->  }
->  
+Kind regards,
+Maxime
 
-I think that _walk still needs the lock there. This is called from
-nf_tables_dump_set() for each recvmsg() in netlink, and IIRC unlike
-rtnetlink the dump path in nfnetlink is lockless.
+>
+> Thanks
+> Kishon
+>> Signed-off-by: Peter Griffin <peter.griffin@linaro.org>
+>> Reviewed-by: Arnd Bergmann <arnd@arndb.de>
+>> ---
+>>   .../devicetree/bindings/phy/phy-miphy365x.txt      | 15 +++++------
+>>   arch/arm/boot/dts/stih416.dtsi                     | 10 ++++----
+>>   drivers/phy/phy-miphy365x.c                        | 29 ++++++++--------------
+>>   3 files changed, 23 insertions(+), 31 deletions(-)
+>>
+>> diff --git a/Documentation/devicetree/bindings/phy/phy-miphy365x.txt b/Documentation/devicetree/bindings/phy/phy-miphy365x.txt
+>> index 42c8808..9802d5d 100644
+>> --- a/Documentation/devicetree/bindings/phy/phy-miphy365x.txt
+>> +++ b/Documentation/devicetree/bindings/phy/phy-miphy365x.txt
+>> @@ -6,8 +6,10 @@ for SATA and PCIe.
+>>   
+>>   Required properties (controller (parent) node):
+>>   - compatible    : Should be "st,miphy365x-phy"
+>> -- st,syscfg     : Should be a phandle of the system configuration register group
+>> -		  which contain the SATA, PCIe mode setting bits
+>> +- st,syscfg     : Phandle / integer array property. Phandle of sysconfig group
+>> +		  containing the miphy registers and integer array should contain
+>> +		  an entry for each port sub-node, specifying the control
+>> +		  register offset inside the sysconfig group.
+>>   
+>>   Required nodes	:  A sub-node is required for each channel the controller
+>>   		   provides. Address range information including the usual
+>> @@ -26,7 +28,6 @@ Required properties (port (child) node):
+>>   		  registers filled in "reg":
+>>   			- sata:   For SATA devices
+>>   			- pcie:   For PCIe devices
+>> -			- syscfg: To specify the syscfg based config register
+>>   
+>>   Optional properties (port (child) node):
+>>   - st,sata-gen	     :	Generation of locally attached SATA IP. Expected values
+>> @@ -39,20 +40,20 @@ Example:
+>>   
+>>   	miphy365x_phy: miphy365x@fe382000 {
+>>   		compatible      = "st,miphy365x-phy";
+>> -		st,syscfg  	= <&syscfg_rear>;
+>> +		st,syscfg  	= <&syscfg_rear 0x824 0x828>;
+>>   		#address-cells	= <1>;
+>>   		#size-cells	= <1>;
+>>   		ranges;
+>>   
+>>   		phy_port0: port@fe382000 {
+>> -			reg = <0xfe382000 0x100>, <0xfe394000 0x100>, <0x824 0x4>;
+>> -			reg-names = "sata", "pcie", "syscfg";
+>> +			reg = <0xfe382000 0x100>, <0xfe394000 0x100>;
+>> +			reg-names = "sata", "pcie";
+>>   			#phy-cells = <1>;
+>>   			st,sata-gen = <3>;
+>>   		};
+>>   
+>>   		phy_port1: port@fe38a000 {
+>> -			reg = <0xfe38a000 0x100>, <0xfe804000 0x100>, <0x828 0x4>;;
+>> +			reg = <0xfe38a000 0x100>, <0xfe804000 0x100>;;
+>>   			reg-names = "sata", "pcie", "syscfg";
+>>   			#phy-cells = <1>;
+>>   			st,pcie-tx-pol-inv;
+>> diff --git a/arch/arm/boot/dts/stih416.dtsi b/arch/arm/boot/dts/stih416.dtsi
+>> index fad9073..85afe01 100644
+>> --- a/arch/arm/boot/dts/stih416.dtsi
+>> +++ b/arch/arm/boot/dts/stih416.dtsi
+>> @@ -283,21 +283,21 @@
+>>   
+>>   		miphy365x_phy: phy@fe382000 {
+>>   			compatible      = "st,miphy365x-phy";
+>> -			st,syscfg  	= <&syscfg_rear>;
+>> +			st,syscfg	= <&syscfg_rear 0x824 0x828>;
+>>   			#address-cells	= <1>;
+>>   			#size-cells	= <1>;
+>>   			ranges;
+>>   
+>>   			phy_port0: port@fe382000 {
+>>   				#phy-cells = <1>;
+>> -				reg = <0xfe382000 0x100>, <0xfe394000 0x100>, <0x824 0x4>;
+>> -				reg-names = "sata", "pcie", "syscfg";
+>> +				reg = <0xfe382000 0x100>, <0xfe394000 0x100>;
+>> +				reg-names = "sata", "pcie";
+>>   			};
+>>   
+>>   			phy_port1: port@fe38a000 {
+>>   				#phy-cells = <1>;
+>> -				reg = <0xfe38a000 0x100>, <0xfe804000 0x100>, <0x828 0x4>;
+>> -				reg-names = "sata", "pcie", "syscfg";
+>> +				reg = <0xfe38a000 0x100>, <0xfe804000 0x100>;
+>> +				reg-names = "sata", "pcie";
+>>   			};
+>>   		};
+>>   
+>> diff --git a/drivers/phy/phy-miphy365x.c b/drivers/phy/phy-miphy365x.c
+>> index 6ab43a8..6c80154 100644
+>> --- a/drivers/phy/phy-miphy365x.c
+>> +++ b/drivers/phy/phy-miphy365x.c
+>> @@ -141,7 +141,7 @@ struct miphy365x_phy {
+>>   	bool pcie_tx_pol_inv;
+>>   	bool sata_tx_pol_inv;
+>>   	u32 sata_gen;
+>> -	u64 ctrlreg;
+>> +	u32 ctrlreg;
+>>   	u8 type;
+>>   };
+>>   
+>> @@ -179,7 +179,7 @@ static int miphy365x_set_path(struct miphy365x_phy *miphy_phy,
+>>   	bool sata = (miphy_phy->type == MIPHY_TYPE_SATA);
+>>   
+>>   	return regmap_update_bits(miphy_dev->regmap,
+>> -				  (unsigned int)miphy_phy->ctrlreg,
+>> +				  miphy_phy->ctrlreg,
+>>   				  SYSCFG_SELECT_SATA_MASK,
+>>   				  sata << SYSCFG_SELECT_SATA_POS);
+>>   }
+>> @@ -445,7 +445,6 @@ int miphy365x_get_addr(struct device *dev, struct miphy365x_phy *miphy_phy,
+>>   {
+>>   	struct device_node *phynode = miphy_phy->phy->dev.of_node;
+>>   	const char *name;
+>> -	const __be32 *taddr;
+>>   	int type = miphy_phy->type;
+>>   	int ret;
+>>   
+>> @@ -455,22 +454,6 @@ int miphy365x_get_addr(struct device *dev, struct miphy365x_phy *miphy_phy,
+>>   		return ret;
+>>   	}
+>>   
+>> -	if (!strncmp(name, "syscfg", 6)) {
+>> -		taddr = of_get_address(phynode, index, NULL, NULL);
+>> -		if (!taddr) {
+>> -			dev_err(dev, "failed to fetch syscfg address\n");
+>> -			return -EINVAL;
+>> -		}
+>> -
+>> -		miphy_phy->ctrlreg = of_translate_address(phynode, taddr);
+>> -		if (miphy_phy->ctrlreg == OF_BAD_ADDR) {
+>> -			dev_err(dev, "failed to translate syscfg address\n");
+>> -			return -EINVAL;
+>> -		}
+>> -
+>> -		return 0;
+>> -	}
+>> -
+>>   	if (!((!strncmp(name, "sata", 4) && type == MIPHY_TYPE_SATA) ||
+>>   	      (!strncmp(name, "pcie", 4) && type == MIPHY_TYPE_PCIE)))
+>>   		return 0;
+>> @@ -606,7 +589,15 @@ static int miphy365x_probe(struct platform_device *pdev)
+>>   			return ret;
+>>   
+>>   		phy_set_drvdata(phy, miphy_dev->phys[port]);
+>> +
+>>   		port++;
+>> +		/* sysconfig offsets are indexed from 1 */
+>> +		ret = of_property_read_u32_index(np, "st,syscfg", port,
+>> +					&miphy_phy->ctrlreg);
+>> +		if (ret) {
+>> +			dev_err(&pdev->dev, "No sysconfig offset found\n");
+>> +			return ret;
+>> +		}
+>>   	}
+>>   
+>>   	provider = devm_of_phy_provider_register(&pdev->dev, miphy365x_xlate);
+>>
