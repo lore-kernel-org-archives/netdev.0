@@ -1,59 +1,50 @@
-From: Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Subject: Re: [PATCH 2/4] NFC: nxp-nci: Add support for NXP NCI chips
-Date: Fri, 30 Jan 2015 01:10:48 +0100
-Message-ID: <20150130001048.GD20998@ribalta.ger.corp.intel.com>
-References: <1421940460-14049-1-git-send-email-clement.perrochaud@effinnov.com>
- <1421940460-14049-3-git-send-email-clement.perrochaud@effinnov.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-nfc-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org,
-	=?iso-8859-1?Q?Cl=E9ment?= Perrochaud
-	<clement.perrochaud-3arQi8VN3Tc@public.gmane.org>, sunil.jogi-3arQi8VN3Tc@public.gmane.org,
-	jerome.pele-3arQi8VN3Tc@public.gmane.org, Charles.Gorand-Effinnov-3arQi8VN3Tc@public.gmane.org,
-	lauro.venancio-430g2QfJUUCGglJvpFV4uA@public.gmane.org, aloisio.almeida-430g2QfJUUCGglJvpFV4uA@public.gmane.org,
-	robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, pawel.moll-5wv7dgnIgG8@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
-	ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org, galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org, lefrique-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org,
-	christophe.ricard-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, cuissard-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org,
-	bzhao-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org, hirent-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org, akarwar-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: clement.perrochaud-BPEPtVrvniRWk0Htik3J/w@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1421940460-14049-3-git-send-email-clement.perrochaud-BPEPtVrvniRWk0Htik3J/w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [PATCH 1/6] rhashtable: key_hashfn() must return full hash value
+Date: Fri, 30 Jan 2015 01:20:38 +0100
+Message-ID: <19e5f15060e51b8330cf37e60c733ba35234b769.1422576760.git.tgraf@suug.ch>
+References: <cover.1422576760.git.tgraf@suug.ch>
+Cc: netdev@vger.kernel.org, ying.xue@windriver.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bombadil.infradead.org ([198.137.202.9]:53180 "EHLO
+	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758835AbbA3AUu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jan 2015 19:20:50 -0500
+In-Reply-To: <cover.1422576760.git.tgraf@suug.ch>
+In-Reply-To: <cover.1422576760.git.tgraf@suug.ch>
+References: <cover.1422576760.git.tgraf@suug.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Clement,
+The value computed by key_hashfn() is used by rhashtable_lookup_compare()
+to traverse both tables during a resize. key_hashfn() must therefore
+return the hash value without the buckets mask applied so it can be
+masked to the size of each individual table.
 
-On Thu, Jan 22, 2015 at 04:27:38PM +0100, clement.perrochaud-BPEPtVrvniRWk0Htik3J/w@public.gmane.org wrote:
-> @@ -686,7 +686,7 @@ L:	alsa-devel-K7yf7f+aM1XWsZ/bQMPhNw@public.gmane.org (moderated for non-subscribers)
->  W:	http://blackfin.uclinux.org/
->  S:	Supported
->  F:	sound/soc/blackfin/*
-> - 
-> +
-Unneeded change, please remove it.
+Fixes: 97defe1ecf86 ("rhashtable: Per bucket locks & deferred expansion/shrinking")
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
+---
+ lib/rhashtable.c | 8 +-------
+ 1 file changed, 1 insertion(+), 7 deletions(-)
 
-> +config NFC_NXP_NCI
-> +	tristate "NXP-NCI NFC driver"
-> +	depends on NFC_NCI
-> +	default n
-> +	---help---
-> +	  Generic core driver for NXP NCI chips.
-It usually is nice to be more specific and describe which chipsets
-(e.g. NPC100) this driver supports among all the NXP NCI chipsets.
-
-> +struct nxp_nci_phy_ops {
-> +	int (*enable)(void *id);
-> +	int (*fw_enable)(void *id);
-Wouldn't a int (*enable)(void *id, enum nxp_nci_mode mode); hook be
-enough ?
-
-Cheers,
-Samuel.
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/lib/rhashtable.c b/lib/rhashtable.c
+index bc2d0d8..7413697 100644
+--- a/lib/rhashtable.c
++++ b/lib/rhashtable.c
+@@ -94,13 +94,7 @@ static u32 obj_raw_hashfn(const struct rhashtable *ht, const void *ptr)
+ 
+ static u32 key_hashfn(struct rhashtable *ht, const void *key, u32 len)
+ {
+-	struct bucket_table *tbl = rht_dereference_rcu(ht->tbl, ht);
+-	u32 hash;
+-
+-	hash = ht->p.hashfn(key, len, ht->p.hash_rnd);
+-	hash >>= HASH_RESERVED_SPACE;
+-
+-	return rht_bucket_index(tbl, hash);
++	return ht->p.hashfn(key, len, ht->p.hash_rnd) >> HASH_RESERVED_SPACE;
+ }
+ 
+ static u32 head_hashfn(const struct rhashtable *ht,
+-- 
+1.9.3
