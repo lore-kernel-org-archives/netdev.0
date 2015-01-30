@@ -1,101 +1,45 @@
-From: Rasmus Villemoes <linux-qQsb+v5E8BnlAoU/VqSP6n9LOBIZ5rWg@public.gmane.org>
-Subject: Re: [PATCH v2 3/3] lib/string_helpers.c: Change semantics of string_escape_mem
-Date: Sat, 31 Jan 2015 00:39:22 +0100
-Message-ID: <87pp9vhm8l.fsf@rasmusvillemoes.dk>
-References: <1422451543-12401-1-git-send-email-linux@rasmusvillemoes.dk>
-	<1422525801-26560-1-git-send-email-linux@rasmusvillemoes.dk>
-	<1422525801-26560-4-git-send-email-linux@rasmusvillemoes.dk>
-	<1422538178.31903.325.camel@linux.intel.com>
-	<87oaphbqym.fsf@rasmusvillemoes.dk>
-	<1422613655.31903.351.camel@linux.intel.com>
+From: Harish Patil <harish.patil@qlogic.com>
+Subject: Re: [PATCH net] qlge: Fix qlge_update_hw_vlan_features to handle if
+ interface is down
+Date: Fri, 30 Jan 2015 23:40:17 +0000
+Message-ID: <036FA1BC4A80D448AB7D9C3AAFBBCAF59F87DCD8@AVMB1.qlogic.org>
+References: <10e24de024f81e60ab64a6f0bf9647d27eb40be1.1422618157.git.mleitner@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
-	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Andy Shevchenko <andriy.shevchenko-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1422613655.31903.351.camel-VuQAYsv1563Yd54FQh9/CA@public.gmane.org> (Andy Shevchenko's
-	message of "Fri, 30 Jan 2015 12:27:35 +0200")
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "cdupuis@redhat.com" <cdupuis@redhat.com>
+To: Marcelo Ricardo Leitner <mleitner@redhat.com>,
+	netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:31675 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750842AbbA3XkW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jan 2015 18:40:22 -0500
+In-Reply-To: <10e24de024f81e60ab64a6f0bf9647d27eb40be1.1422618157.git.mleitner@redhat.com>
+Content-Language: en-US
+Content-ID: <C9BD2878AB47504ABF39F2B99B8F9DF9@qlogic.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 30 2015, Andy Shevchenko <andriy.shevchenko-VuQAYsv1563Yd54FQh9/CA@public.gmane.org> wrote:
-
-> On Thu, 2015-01-29 at 15:29 +0100, Rasmus Villemoes wrote:
->> On Thu, Jan 29 2015, Andy Shevchenko <andriy.shevchenko-VuQAYsv1563Yd54FQh9/CA@public.gmane.org> wrote:
->> 
->> >>   *
->> >>   * Return:
->> >> - * The amount of the characters processed to the destination buffer, or
->> >> - * %-ENOMEM if the size of buffer is not enough to put an escaped character is
->> >> - * returned.
->> >> - *
->> >> - * Even in the case of error @dst pointer will be updated to point to the byte
->> >> - * after the last processed character.
->> >> + * The total size of the escaped output that would be generated for
->> >> + * the given input and flags. To check whether the output was
->> >> + * truncated, compare the return value to osz. There is room left in
->> >> + * dst for a '\0' terminator if and only if ret < osz.
->> >>   */
->> >> -int string_escape_mem(const char *src, size_t isz, char **dst, size_t osz,
->> >> -		      unsigned int flags, const char *esc)
->> >> +size_t string_escape_mem(const char *src, size_t isz, char *dst, size_t osz,
->> >> +			 unsigned int flags, const char *esc)
->> >
->> > I prefer to leave the prototype the same. int for return is okay. dst
->> > should be updated accordingly.
->> 
->> Please explain exactly what you think the return value should be, and
->> what *dst should be set to.
->
-> Return value like you proposed, *dst is incremented by it.
-
-The more I think about it, the less I like having dst being char**.
-
-(1) It is unlike most other functions taking buffer+size arguments.
-(2) It is inconvenient. Callers doing
-
-  char escaped[SOME_SIZE];
-
-or
-
-  char *escaped = kmalloc(likely_big_enough);
-
-can't just pass &escaped; they would need to use an extra dummy variable.
-
-(3) With the return value telling the size of the would-be generated
-output, it is redundant.
-
-In fact, I dislike it so much that I'm not going to sign off on a patch
-where dst is still char**.
-
->> > Could it be a part of nomem test still?
->> 
->> What nomem test? string_escape_mem with snprintf-like semantics cannot
->> return an error; that has to be checked by the caller. 
->
-> Make this code a separate test, which actually still nomem, since you
-> have not enough memory in the destination buffer. What the problem to
-> check for proper return value and the last couple of characters written
-> to the destination buffer?
-
-Sure, it could go into a separate helper. Anyway, the semantics of
-string_escape_mem needs to be decided before it makes sense to update
-the tests.
-
-> When your series will be ready (and actually I recommend to push first
-> patch apart from the rest since it's not related) 
-
-I agree on that part. Andrew, could you take 1/3
-(http://thread.gmane.org/gmane.linux.kernel/1876841/focus=348404), and
-then we'll see when the %pE case gets sorted out.
-
-Rasmus
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Pg0KPkN1cnJlbnRseSBxbGdlX3VwZGF0ZV9od192bGFuX2ZlYXR1cmVzKCkgd2lsbCBhbHdheXMg
+Zmlyc3QgcHV0IHRoZQ0KPmludGVyZmFjZSBkb3duLCB0aGVuIHVwZGF0ZSBmZWF0dXJlcyBhbmQg
+dGhlbiBicmluZyBpdCB1cCBhZ2Fpbi4gQnV0IGl0DQo+aXMgcG9zc2libGUgdG8gaGl0IHRoaXMg
+Y29kZSB3aGlsZSB0aGUgYWRhcHRlciBpcyBkb3duIGFuZCB0aGlzIGNhdXNlcyBhDQo+bm9uLXBh
+aXJlZCBjYWxsIHRvIG5hcGlfZGlzYWJsZSgpLCB3aGljaCB3aWxsIGdldCBzdHVjay4NCj4NCj5U
+aGlzIHBhdGNoIGZpeGVzIGl0IGJ5IHNraXBwaW5nIHRoZXNlIGRvd24vdXAgYWN0aW9ucyBpZiB0
+aGUgaW50ZXJmYWNlDQo+aXMgYWxyZWFkeSBkb3duLg0KPg0KPkZpeGVzOiBhNDVhZGJlOGQzNTIg
+KCJxbGdlOiBFbmhhbmNlIG5lc3RlZCBWTEFOIChRLWluLVEpIGhhbmRsaW5nLiIpDQo+Q2M6IEhh
+cmlzaCBQYXRpbCA8aGFyaXNoLnBhdGlsQHFsb2dpYy5jb20+DQo+U2lnbmVkLW9mZi1ieTogTWFy
+Y2VsbyBSaWNhcmRvIExlaXRuZXIgPG1sZWl0bmVyQHJlZGhhdC5jb20+DQo+LS0tDQo+IGRyaXZl
+cnMvbmV0L2V0aGVybmV0L3Fsb2dpYy9xbGdlL3FsZ2VfbWFpbi5jIHwgMjYNCj4rKysrKysrKysr
+KysrKysrLS0tLS0tLS0tLQ0KPiAxIGZpbGUgY2hhbmdlZCwgMTYgaW5zZXJ0aW9ucygrKSwgMTAg
+ZGVsZXRpb25zKC0pDQoNCg0KQWNrZWQtYnk6IEhhcmlzaCBQYXRpbCA8aGFyaXNoLnBhdGlsQHFs
+b2dpYy5jb20+DQoNClRoYW5rcywNCkhhcmlzaA0KDQoNCg0KDQpfX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fXw0KDQpUaGlzIG1lc3NhZ2UgYW5kIGFueSBhdHRhY2hlZCBkb2N1bWVudHMg
+Y29udGFpbiBpbmZvcm1hdGlvbiBmcm9tIHRoZSBzZW5kaW5nIGNvbXBhbnkgb3IgaXRzIHBhcmVu
+dCBjb21wYW55KHMpLCBzdWJzaWRpYXJpZXMsIGRpdmlzaW9ucyBvciBicmFuY2ggb2ZmaWNlcyB0
+aGF0IG1heSBiZSBjb25maWRlbnRpYWwuIElmIHlvdSBhcmUgbm90IHRoZSBpbnRlbmRlZCByZWNp
+cGllbnQsIHlvdSBtYXkgbm90IHJlYWQsIGNvcHksIGRpc3RyaWJ1dGUsIG9yIHVzZSB0aGlzIGlu
+Zm9ybWF0aW9uLiBJZiB5b3UgaGF2ZSByZWNlaXZlZCB0aGlzIHRyYW5zbWlzc2lvbiBpbiBlcnJv
+ciwgcGxlYXNlIG5vdGlmeSB0aGUgc2VuZGVyIGltbWVkaWF0ZWx5IGJ5IHJlcGx5IGUtbWFpbCBh
+bmQgdGhlbiBkZWxldGUgdGhpcyBtZXNzYWdlLg0K
