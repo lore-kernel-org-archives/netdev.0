@@ -1,47 +1,69 @@
-From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: Throughput regression with `tcp: refine TSO autosizing`
-Date: Fri, 30 Jan 2015 06:40:35 -0800
-Message-ID: <1422628835.21689.95.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CA+BoTQkVu23P3EOmY_Q3E1GJnWsyF==Pawz4iPOS_Bq5dvfO5Q@mail.gmail.com>
-	 <1422537297.21689.15.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+BoTQk2xT-8DqPuiiKG+kHAjLPrj8F9dLTb-rcGhvMq0u_2Qw@mail.gmail.com>
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: RE: [PATCH net] hyperv: Fix the error processing in netvsc_send()
+Date: Fri, 30 Jan 2015 15:05:00 +0000
+Message-ID: <BN1PR0301MB0770FCDA58F3BC9E25382D95CA310@BN1PR0301MB0770.namprd03.prod.outlook.com>
+References: <1422563689-31036-1-git-send-email-haiyangz@microsoft.com>
+ <1422613519.8840.0@smtp.corp.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	eyalpe-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org
-To: Michal Kazior <michal.kazior-++hxYGjEMp0AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CA+BoTQk2xT-8DqPuiiKG+kHAjLPrj8F9dLTb-rcGhvMq0u_2Qw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: "olaf@aepfle.de" <olaf@aepfle.de>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ "driverdev-devel@linuxdriverproject.org"
+ <driverdev-devel@linuxdriverproject.org>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ "davem@davemloft.net" <davem@davemloft.net>
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <1422613519.8840.0@smtp.corp.redhat.com>
+Content-Language: en-US
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2015-01-30 at 14:39 +0100, Michal Kazior wrote:
-
-> I've briefly tried playing with this knob to no avail unfortunately. I
-> tried 256K, 1M - it didn't improve TCP performance. When I tried to
-> make it smaller (e.g. 16K) the traffic dropped even more so it does
-> have an effect. It seems there's some other limiting factor in this
-> case.
-
-Interesting.
-
-Could you take some tcpdump/pcap with various tcp_limit_output_bytes
-values ?
-
-echo 131072 >/proc/sys/net/ipv4/tcp_limit_output_bytes
-tcpdump -p -i wlanX -s 128 -c 20000 -w 128k.pcap
-
-echo 262144 >/proc/sys/net/ipv4/tcp_limit_output_bytes
-tcpdump -p -i wlanX -s 128 -c 20000 -w 256k.pcap
-
-...
-
-Thanks !
 
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> -----Original Message-----
+> From: Jason Wang [mailto:jasowang@redhat.com]
+> Sent: Friday, January 30, 2015 5:25 AM
+> > +	if (ret != 0) {
+> > +		if (section_index != NETVSC_INVALID_INDEX)
+> > +			netvsc_free_send_slot(net_device, section_index);
+> 
+> What if ret is -EINVAL or -ENOSPC? Looks like we need free the skb in
+> this case also.
+
+In these cases, skb is freed in netvsc_start_xmit().
+
+
+> >
+> > +	} else if (skb) {
+> > +		dev_kfree_skb_any(skb);
+> 
+> The caller - netvsc_start_xmit() do this also, may be handle this in
+> caller is better since netvsc_start_xmit() is the only user that tries
+> to send a skb?
+
+When the packet is sent out normally, we frees it in netvsc_send() if it's
+copied to send-buffer. The free is done in netvsc_send(), because the copy
+is also in this function. If it's not copied, it will be freed in another
+function -- netvsc_xmit_completion().
+
+netvsc_start_xmit() only does free skb in error case.
+
+> btw, I find during netvsc_start_xmit(), ret was change to -ENOSPC when
+> queue_sends[q_idx] < 1. But non of the caller check -ENOSPC in fact?
+
+In this case, we don't request re-send, so set ret to a value other than
+-EAGAIN. It's handled in the same way as errors != -EAGAIN, so we don't
+need to check this value specifically.
+
+Thanks,
+- Haiyang
