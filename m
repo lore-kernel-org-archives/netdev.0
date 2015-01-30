@@ -1,35 +1,95 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net-next v2 1/6] skbuff: Add skb_list_linearize()
-Date: Fri, 30 Jan 2015 12:25:57 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CAD6218@AcuExch.aculab.com>
-References: <1422574164-1860-1-git-send-email-pshelar@nicira.com>
-	<54CAFA72.60207@gmail.com>
- <CALnjE+roOJx3seVQ8Jrc-x0FRx-Hdv+x4isfUCHY0rtz8XY+YA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: 'Pravin Shelar' <pshelar@nicira.com>,
-	Alexander Duyck <alexander.duyck@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out6.electric.net ([192.162.217.181]:59805 "EHLO
-	smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932485AbbA3M0T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jan 2015 07:26:19 -0500
-In-Reply-To: <CALnjE+roOJx3seVQ8Jrc-x0FRx-Hdv+x4isfUCHY0rtz8XY+YA@mail.gmail.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Olivier Sobrie <olivier@sobrie.be>
+Subject: [PATCH v2 07/11] hso: replace reset_device work by usb_queue_reset_device()
+Date: Fri, 30 Jan 2015 13:21:59 +0100
+Message-ID: <1422620523-15021-8-git-send-email-olivier@sobrie.be>
+References: <1421756978-4093-1-git-send-email-olivier@sobrie.be>
+ <1422620523-15021-1-git-send-email-olivier@sobrie.be>
+ <1422620523-15021-2-git-send-email-olivier@sobrie.be>
+ <1422620523-15021-3-git-send-email-olivier@sobrie.be>
+ <1422620523-15021-4-git-send-email-olivier@sobrie.be>
+ <1422620523-15021-5-git-send-email-olivier@sobrie.be>
+ <1422620523-15021-6-git-send-email-olivier@sobrie.be>
+ <1422620523-15021-7-git-send-email-olivier@sobrie.be>
+Cc: linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org,
+	netdev@vger.kernel.org, Olivier Sobrie <olivier@sobrie.be>
+To: Jan Dumon <j.dumon@option.com>, Dan Williams <dcbw@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1422620523-15021-7-git-send-email-olivier@sobrie.be>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-RnJvbTogUHJhdmluIFNoZWxhcg0KLi4uDQo+ID4gSSdtIG5vdCBjb21wbGV0ZWx5IGNvbnZpbmNl
-ZCB0aGlzIGlzIGV2ZW4gbmVjZXNzYXJ5LiAgU2VlbXMgbGlrZSB5b3UgYXJlDQo+ID4gd2FzdGlu
-ZyBjeWNsZXMgY29weWluZyB0aGUgZnJhbWVzIGFyb3VuZCB3aGVuIHlvdSBjb3VsZCBwcm9iYWJs
-eSBqdXN0DQo+ID4gcHVsbCB0aGUgaGVhZGVyIG9mIHRoZSBmaXJzdCBmcmFtZSBhbmQgdGhlbiB1
-c2UgcGFnZSBmcmFnZXMgdG8gZmlsbCBpbg0KPiA+IHRoZSByZXN0Lg0KPiA+DQo+IA0KPiBUaGlz
-IGlzIHdoYXQgaXMgZG9uZSB3aGVuIHBvc3NpYmxlLiBCdXQgc2tiIG1lcmdpbmcgaXMgbm90IGFs
-d2F5cw0KPiBwb3NzaWJsZSwgZm9yIGV4YW1wbGUgd2hlbiAgTUFYX1NLQl9GUkFHUyBsaW1pdCBp
-cyByZWFjaGVkLiBZb3UgY2FuDQo+IGhhdmUgYSBsb29rIGF0IFNUVCBpbXBsZW1lbnRhdGlvbi4N
-Cg0KSWYgTUFYX1NLQl9GUkFHUyBpcyByZWFjaGVkIHdoeSBub3QganVzdCBnZW5lcmF0ZSB0d28g
-ZnJhbWVzPw0KRXhjZXB0IGluIHBhdGhvbG9naWNhbCBjYXNlcyB3aXRoIGEgbG9nIG9mIHNtYWxs
-IGZyYWdtZW50cw0KdGhlIGxpbmVhcml6ZSBpcyBsaWtlbHkgdG8gYmUgbW9yZSBleHBlbnNpdmUg
-dGhhbiB0aGUgcHJvY2Vzc2luZy4NCg0KCURhdmlkDQoNCg==
+There is no need for a dedicated reset work in the hso driver since
+there is already a reset work foreseen in usb_interface that does
+the same.
+
+Signed-off-by: Olivier Sobrie <olivier@sobrie.be>
+---
+ drivers/net/usb/hso.c | 25 +------------------------
+ 1 file changed, 1 insertion(+), 24 deletions(-)
+
+diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
+index 484e423..55074da 100644
+--- a/drivers/net/usb/hso.c
++++ b/drivers/net/usb/hso.c
+@@ -274,7 +274,6 @@ struct hso_device {
+ 	u8 usb_gone;
+ 	struct work_struct async_get_intf;
+ 	struct work_struct async_put_intf;
+-	struct work_struct reset_device;
+ 
+ 	struct usb_device *usb;
+ 	struct usb_interface *interface;
+@@ -340,7 +339,6 @@ static void async_put_intf(struct work_struct *data);
+ static int hso_put_activity(struct hso_device *hso_dev);
+ static int hso_get_activity(struct hso_device *hso_dev);
+ static void tiocmget_intr_callback(struct urb *urb);
+-static void reset_device(struct work_struct *data);
+ /*****************************************************************************/
+ /* Helping functions                                                         */
+ /*****************************************************************************/
+@@ -696,7 +694,7 @@ static void handle_usb_error(int status, const char *function,
+ 	case -ETIMEDOUT:
+ 		explanation = "protocol error";
+ 		if (hso_dev)
+-			schedule_work(&hso_dev->reset_device);
++			usb_queue_reset_device(hso_dev->interface);
+ 		break;
+ 	default:
+ 		explanation = "unknown status";
+@@ -2347,7 +2345,6 @@ static struct hso_device *hso_create_device(struct usb_interface *intf,
+ 
+ 	INIT_WORK(&hso_dev->async_get_intf, async_get_intf);
+ 	INIT_WORK(&hso_dev->async_put_intf, async_put_intf);
+-	INIT_WORK(&hso_dev->reset_device, reset_device);
+ 
+ 	return hso_dev;
+ }
+@@ -3086,26 +3083,6 @@ out:
+ 	return result;
+ }
+ 
+-static void reset_device(struct work_struct *data)
+-{
+-	struct hso_device *hso_dev =
+-	    container_of(data, struct hso_device, reset_device);
+-	struct usb_device *usb = hso_dev->usb;
+-	int result;
+-
+-	if (hso_dev->usb_gone) {
+-		D1("No reset during disconnect\n");
+-	} else {
+-		result = usb_lock_device_for_reset(usb, hso_dev->interface);
+-		if (result < 0)
+-			D1("unable to lock device for reset: %d\n", result);
+-		else {
+-			usb_reset_device(usb);
+-			usb_unlock_device(usb);
+-		}
+-	}
+-}
+-
+ static void hso_serial_ref_free(struct kref *ref)
+ {
+ 	struct hso_device *hso_dev = container_of(ref, struct hso_device, ref);
+-- 
+2.2.0
