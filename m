@@ -1,38 +1,37 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] net: hip04: add missing MODULE_LICENSE
-Date: Fri, 30 Jan 2015 22:57:01 +0100
-Message-ID: <4018099.9I7f6kd5jC@wuerfel>
+Subject: [PATCH] net/tulip: don't warn about unknown ARM architecture
+Date: Fri, 30 Jan 2015 22:58:19 +0100
+Message-ID: <1780413.LLpv9s01CB@wuerfel>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7Bit
 Cc: David Miller <davem@davemloft.net>,
-	Zhangfei Gao <zhangfei.gao@linaro.org>,
-	Ding Tianhong <dingtianhong@huawei.com>
+	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
+	Grant Grundler <grundler@parisc-linux.org>
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.17.13]:51704 "EHLO
-	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750876AbbA3V5J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jan 2015 16:57:09 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The hip04 ethernet driver causes a new compile-time warning
-when built as a loadable module:
+ARM has 32-byte cache lines, which according to the comment in
+the init registers function seems to work best with the default
+value of 0x4800 that is also used on sparc and parisc.
 
-WARNING: modpost: missing MODULE_LICENSE() in drivers/net/ethernet/hisilicon/hip04_eth.o
-see include/linux/module.h for more information
-
-This adds the license as "GPL", which matches the header of the file.
+This adds ARM to the same list, to use that default but no
+longer warn about it.
 
 Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 
-diff --git a/drivers/net/ethernet/hisilicon/hip04_eth.c b/drivers/net/ethernet/hisilicon/hip04_eth.c
-index c02b81bcfffb..b72d238695d7 100644
---- a/drivers/net/ethernet/hisilicon/hip04_eth.c
-+++ b/drivers/net/ethernet/hisilicon/hip04_eth.c
-@@ -968,3 +968,4 @@ static struct platform_driver hip04_mac_driver = {
- module_platform_driver(hip04_mac_driver);
- 
- MODULE_DESCRIPTION("HISILICON P04 Ethernet driver");
-+MODULE_LICENSE("GPL");
+diff --git a/drivers/net/ethernet/dec/tulip/winbond-840.c b/drivers/net/ethernet/dec/tulip/winbond-840.c
+index 6aa887e0e1cb..9beb3d34d4ba 100644
+--- a/drivers/net/ethernet/dec/tulip/winbond-840.c
++++ b/drivers/net/ethernet/dec/tulip/winbond-840.c
+@@ -904,7 +904,7 @@ static void init_registers(struct net_device *dev)
+ 	}
+ #elif defined(__powerpc__) || defined(__i386__) || defined(__alpha__) || defined(__ia64__) || defined(__x86_64__)
+ 	i |= 0xE000;
+-#elif defined(CONFIG_SPARC) || defined (CONFIG_PARISC)
++#elif defined(CONFIG_SPARC) || defined (CONFIG_PARISC) || defined(CONFIG_ARM)
+ 	i |= 0x4800;
+ #else
+ #warning Processor architecture undefined
