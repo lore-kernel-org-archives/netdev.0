@@ -1,49 +1,41 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 1/2] rhashtable: Introduce rhashtable_walk_*
-Date: Fri, 30 Jan 2015 08:10:56 +0000
-Message-ID: <20150130081055.GA6164@acer.localdomain>
-References: <20150127094541.GC22262@casper.infradead.org>
- <20150127095454.GA2695@gondor.apana.org.au>
- <20150127101512.GE22262@casper.infradead.org>
- <20150127102420.GA3777@gondor.apana.org.au>
- <20150127111604.GF22262@casper.infradead.org>
- <20150127112304.GA4548@gondor.apana.org.au>
- <20150127130950.GA3950@acer.localdomain>
- <20150127203657.GA9061@gondor.apana.org.au>
- <20150128190715.GA4764@acer.localdomain>
- <20150130055859.GA17149@gondor.apana.org.au>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: Re: [PATCH net-next] drivers: net: cpsw: make cpsw_ale.c a module
+ to allow re-use on Keystone
+Date: Fri, 30 Jan 2015 13:48:27 +0530
+Message-ID: <54CB3E53.8050307@ti.com>
+References: <1422573351-5603-1-git-send-email-m-karicheri2@ti.com> <1422573351-5603-2-git-send-email-m-karicheri2@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Thomas Graf <tgraf@suug.ch>, David Miller <davem@davemloft.net>,
-	David.Laight@ACULAB.COM, ying.xue@windriver.com,
-	paulmck@linux.vnet.ibm.com, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150130055859.GA17149@gondor.apana.org.au>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+To: Murali Karicheri <m-karicheri2@ti.com>, <w-kwok2@ti.com>,
+	<davem@davemloft.net>, <tony@atomide.com>,
+	<prabhakar.csengg@gmail.com>, <grygorii.strashko@ti.com>,
+	<lokeshvutla@ti.com>, <mpa@pengutronix.de>,
+	<lsorense@csclub.uwaterloo.ca>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <arnd@arndb.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1422573351-5603-2-git-send-email-m-karicheri2@ti.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 30.01, Herbert Xu wrote:
-> On Wed, Jan 28, 2015 at 07:07:16PM +0000, Patrick McHardy wrote:
-> > On 28.01, Herbert Xu wrote:
-> > > On Tue, Jan 27, 2015 at 01:09:50PM +0000, Patrick McHardy wrote:
-> > > >
-> > > > Actually I have a patchset queued that adds runtime additions and
-> > > > removals, both active and timeout based. So netfilter won't have
-> > > > pure synchronous behaviour anymore.
-> > > 
-> > > Can you show us the patchset?
-> > 
-> > Sure, will send it over tomorrow.
+On Friday 30 January 2015 04:45 AM, Murali Karicheri wrote:
+> NetCP on Keystone has cpsw ale function similar to other TI SoCs
+> and this driver is re-used. To allow both ti cpsw and keystone netcp
+> to re-use the driver, convert the cpsw ale to a module and configure
+> it through Kconfig option CONFIG_TI_CPSW_ALE. Currently it is statically
+> linked to both TI CPSW and NetCP and this causes issues when the above
+> drivers are built as dynamic modules. This patch addresses this issue
 > 
-> So how are you handling the locking in these cases?
+> While at it, fix the Makefile and code to build both netcp_core and
+> netcp_ethss as dynamic modules. This is needed to support arm allmodconfig.
+> This also requires exporting of API calls provided by netcp_core so that
+> both the above can be dynamic modules.
+> 
+> Signed-off-by: Murali Karicheri <m-karicheri2@ti.com>
 
-Insertion is handled using the rhashtable internal locks. GC happens
-in work context and takes the rhashtable mutex, then walks the table
-similar to nft_hash_walk and removes stale entries.
+Acked-by: Mugunthan V N <mugunthanvnm@ti.com>
 
-Still need to work out something to reduce RCU grace periods
-(currently ignored) and make sure we don't race between ->get/->remove
-in the netlink API and GC.
+Will try to test this today/Monday.
+
+Regards
+Mugunthan V N
