@@ -1,95 +1,140 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [PATCH net-next v2 0/6] net: Add STT support.
-Date: Thu, 29 Jan 2015 20:17:22 -0800
-Message-ID: <CA+mtBx_fFBY_FAsnAo8yu5bjoq5BqPY3Es_19oBdeqrjp4RdiA@mail.gmail.com>
-References: <1422574156-1831-1-git-send-email-pshelar@nicira.com>
-	<54CAFE89.4090509@gmail.com>
-	<CALnjE+pPh5nSvaLTnM-a0r2Gm6K8Hz5BU_CsiWzYmwijPCOgHg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Alexander Duyck <alexander.duyck@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Pravin Shelar <pshelar@nicira.com>
+From: Fan Du <fan.du@intel.com>
+Subject: [PATCH] net: restore lro after device leave forwarding state
+Date: Fri, 30 Jan 2015 07:33:29 -0500
+Message-ID: <1422621209-23222-1-git-send-email-fan.du@intel.com>
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	fengyuleidian0615@gmail.com
+To: bhutchings@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f170.google.com ([209.85.213.170]:43843 "EHLO
-	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752586AbbA3ERX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jan 2015 23:17:23 -0500
-Received: by mail-ig0-f170.google.com with SMTP id l13so780844iga.1
-        for <netdev@vger.kernel.org>; Thu, 29 Jan 2015 20:17:22 -0800 (PST)
-In-Reply-To: <CALnjE+pPh5nSvaLTnM-a0r2Gm6K8Hz5BU_CsiWzYmwijPCOgHg@mail.gmail.com>
+Received: from mga03.intel.com ([134.134.136.65]:29749 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752017AbbA3Ekv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Jan 2015 23:40:51 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 29, 2015 at 8:04 PM, Pravin Shelar <pshelar@nicira.com> wrote:
-> On Thu, Jan 29, 2015 at 7:46 PM, Alexander Duyck
-> <alexander.duyck@gmail.com> wrote:
->> On 01/29/2015 03:29 PM, Pravin B Shelar wrote:
->>> Following patch series adds support for Stateless Transport
->>> Tunneling protocol.
->>> STT uses TCP segmentation offload available in most of NIC. On
->>> packet xmit STT driver appends STT header along with TCP header
->>> to the packet. For GSO packet GSO parameters are set according
->>> to tunnel configuration and packet is handed over to networking
->>> stack. This allows use of segmentation offload available in NICs
->>>
->>> The protocol is documented at
->>> http://www.ietf.org/archive/id/draft-davie-stt-06.txt
->>>
->>> I will send out OVS userspace patch on ovs-dev mailing list.
->>>
->>> Following are test results. All tests are done on net-next with
->>> STT and VXLAN kernel device without OVS.
->>>
->>> Single Netperf session:
->>> =======================
->>> VXLAN:
->>>     CPU utilization
->>>      - Send local: 1.26
->>>      - Recv remote: 8.62
->>>     Throughput: 4.9 Gbit/sec
->>> STT:
->>>     CPU utilization
->>>      - Send local: 1.01
->>>      - Recv remote: 1.8
->>>     Throughput: 9.45 Gbit/sec
->>>
->>> Five Netperf sessions:
->>> ======================
->>> VXLAN:
->>>     CPU utilization
->>>      - Send local: 9.7
->>>      - Recv remote: 70 (varies from 60 to 80)
->>>     Throughput: 9.05 Gbit/sec
->>> STT:
->>>     CPU utilization
->>>      - Send local: 5.85
->>>      - Recv remote: 14
->>>     Throughput: 9.47 Gbit/sec
->>>
->>
->> What does the small packet or non-TCP performance look like for STT vs
->> VXLAN?  My concern is that STT looks like it is a one trick pony since
->> all your numbers show is TCP TSO performance, and based on some of the
->> comments in your patches it seems like other protocols such as UDP are
->> going to suffer pretty badly due to things like the linearization overhead.
->>
->
-> Current implementation is targeted for TCP workloads thats why I
-> posted numbers with TCP, once UDP is optimized we can discuss UDP
-> numbers. I am pretty sure the STT code can be optimized further
-> specially for protocols other than TCP.
-> --
-There are many TCP workloads that use small packets, it is critical to
-test for these also. E.g. "super_netperf 200 -H <addr> -l 120 -t
-TCP_RR -- -r 1,1"
+Either detaching a device from bridge or switching a device
+out of FORWARDING state, the original lro feature should
+possibly be enabled for good reason, e.g. hw feature like
+receive side coalescing could come into play.
 
-Please provide the *exact* commands that you are using to configure
-stt for optimal performance.
+BEFORE:
+echo 1 > /proc/sys/net/ipv4/conf/ens806f0/forwarding && ethtool -k ens806f0 | grep large
+large-receive-offload: off
 
-Tom
+echo 0 > /proc/sys/net/ipv4/conf/ens806f0/forwarding && ethtool -k ens806f0 | grep large
+large-receive-offload: off
 
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+AFTER:
+echo 1 > /proc/sys/net/ipv4/conf/ens806f0/forwarding && ethtool -k ens806f0 | grep large
+large-receive-offload: off
+
+echo 0 > /proc/sys/net/ipv4/conf/ens806f0/forwarding && ethtool -k ens806f0 | grep large
+large-receive-offload: on
+
+Signed-off-by: Fan Du <fan.du@intel.com>
+Fixes: 0187bdfb0567 ("net: Disable LRO on devices that are forwarding")
+---
+ include/linux/netdevice.h |  1 +
+ net/bridge/br_if.c        |  1 +
+ net/core/dev.c            | 24 ++++++++++++++++++++++++
+ net/ipv4/devinet.c        |  4 ++++
+ net/ipv6/addrconf.c       |  2 ++
+ 5 files changed, 32 insertions(+)
+
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 642d426..904b1a4 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -2153,6 +2153,7 @@ int dev_alloc_name(struct net_device *dev, const char *name);
+ int dev_open(struct net_device *dev);
+ int dev_close(struct net_device *dev);
+ void dev_disable_lro(struct net_device *dev);
++void dev_enable_lro(struct net_device *dev);
+ int dev_loopback_xmit(struct sk_buff *newskb);
+ int dev_queue_xmit(struct sk_buff *skb);
+ int dev_queue_xmit_accel(struct sk_buff *skb, void *accel_priv);
+diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
+index 81e49fb..4236f3a 100644
+--- a/net/bridge/br_if.c
++++ b/net/bridge/br_if.c
+@@ -565,6 +565,7 @@ int br_del_if(struct net_bridge *br, struct net_device *dev)
+ 		call_netdevice_notifiers(NETDEV_CHANGEADDR, br->dev);
+ 
+ 	netdev_update_features(br->dev);
++	dev_enable_lro(dev);
+ 
+ 	return 0;
+ }
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 1e325ad..938d7f6 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -1451,6 +1451,30 @@ void dev_disable_lro(struct net_device *dev)
+ }
+ EXPORT_SYMBOL(dev_disable_lro);
+ 
++/**
++ *	dev_enable_lro - enable Large Receive Offload on a device
++ *	@dev: device
++ *
++ *	Enable Large Receive Offload (LRO) on a net device.  Must be
++ *	called under RTNL. This is needed if device is not attached
++ *	to a bridge, or user change the forwarding state.
++ */
++void dev_enable_lro(struct net_device *dev)
++{
++	struct net_device *lower_dev;
++	struct list_head *iter;
++
++	dev->wanted_features |= NETIF_F_LRO;
++	netdev_update_features(dev);
++
++	if (unlikely(!(dev->features & NETIF_F_LRO)))
++		netdev_WARN(dev, "failed to enable LRO!\n");
++
++	netdev_for_each_lower_dev(dev, lower_dev, iter)
++		dev_enable_lro(lower_dev);
++}
++EXPORT_SYMBOL(dev_enable_lro);
++
+ static int call_netdevice_notifier(struct notifier_block *nb, unsigned long val,
+ 				   struct net_device *dev)
+ {
+diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+index 214882e..3307196 100644
+--- a/net/ipv4/devinet.c
++++ b/net/ipv4/devinet.c
+@@ -1956,6 +1956,8 @@ static void inet_forward_change(struct net *net)
+ 		struct in_device *in_dev;
+ 		if (on)
+ 			dev_disable_lro(dev);
++		else
++			dev_enable_lro(dev);
+ 		rcu_read_lock();
+ 		in_dev = __in_dev_get_rcu(dev);
+ 		if (in_dev) {
+@@ -2047,6 +2049,8 @@ static int devinet_sysctl_forward(struct ctl_table *ctl, int write,
+ 					container_of(cnf, struct in_device, cnf);
+ 				if (*valp)
+ 					dev_disable_lro(idev->dev);
++				else
++					dev_enable_lro(idev->dev);
+ 				inet_netconf_notify_devconf(net,
+ 							    NETCONFA_FORWARDING,
+ 							    idev->dev->ifindex,
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index f7c8bbe..4c3b54c 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -669,6 +669,8 @@ static void dev_forward_change(struct inet6_dev *idev)
+ 	dev = idev->dev;
+ 	if (idev->cnf.forwarding)
+ 		dev_disable_lro(dev);
++	else
++		dev_enable_lro(dev);
+ 	if (dev->flags & IFF_MULTICAST) {
+ 		if (idev->cnf.forwarding) {
+ 			ipv6_dev_mc_inc(dev, &in6addr_linklocal_allrouters);
+-- 
+1.8.3.1
