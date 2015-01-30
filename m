@@ -1,7 +1,7 @@
 From: roopa@cumulusnetworks.com
-Subject: [PATCH net-next v4 4/7] bridge: offload bridge port attributes to switch asic if feature flag set
-Date: Thu, 29 Jan 2015 22:40:14 -0800
-Message-ID: <1422600017-42393-5-git-send-email-roopa@cumulusnetworks.com>
+Subject: [PATCH net-next v4 1/7] netdev: introduce new NETIF_F_HW_SWITCH_OFFLOAD feature flag for switch device offloads
+Date: Thu, 29 Jan 2015 22:40:11 -0800
+Message-ID: <1422600017-42393-2-git-send-email-roopa@cumulusnetworks.com>
 Cc: netdev@vger.kernel.org, davem@davemloft.net,
 	shm@cumulusnetworks.com, gospo@cumulusnetworks.com
 To: jiri@resnulli.us, sfeldma@gmail.com, jhs@mojatatu.com,
@@ -9,107 +9,60 @@ To: jiri@resnulli.us, sfeldma@gmail.com, jhs@mojatatu.com,
 	stephen@networkplumber.org, vyasevic@redhat.com,
 	ronen.arad@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:38569 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752609AbbA3Gk1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jan 2015 01:40:27 -0500
-Received: by mail-pa0-f47.google.com with SMTP id lj1so48615411pab.6
-        for <netdev@vger.kernel.org>; Thu, 29 Jan 2015 22:40:26 -0800 (PST)
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:55310 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751574AbbA3GkY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jan 2015 01:40:24 -0500
+Received: by mail-pa0-f51.google.com with SMTP id fb1so48772245pad.10
+        for <netdev@vger.kernel.org>; Thu, 29 Jan 2015 22:40:24 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Roopa Prabhu <roopa@cumulusnetworks.com>
 
-This patch adds support to set/del bridge port attributes in hardware from
-the bridge driver.
+This is a high level feature flag for all switch asic offloads
 
-With this, when the user sends a bridge setlink message with no flags or
-master flags set,
-   - the bridge driver ndo_bridge_setlink handler sets settings in the kernel
-   - calls the swicthdev api to propagate the attrs to the switchdev
-	hardware
+switch drivers set this flag on switch ports. Logical devices like
+bridge, bonds, vxlans can inherit this flag from their slaves/ports.
 
-   You can still use the self flag to go to the switch hw or switch port
-   driver directly.
-
-With this, it also makes sure a notification goes out only after the
-attributes are set both in the kernel and hw.
-
-The patch calls switchdev api only if BRIDGE_FLAGS_SELF is not set.
-This is because the offload cases with BRIDGE_FLAGS_SELF are handled in
-the caller (in rtnetlink.c).
+The patch also adds the flag to NETIF_F_ONE_FOR_ALL, so that it gets
+propagated to the upperdevices (bridges and bonds).
 
 Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
 ---
- net/bridge/br_netlink.c |   26 +++++++++++++++++++++++---
- 1 file changed, 23 insertions(+), 3 deletions(-)
+ include/linux/netdev_features.h |    6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
 
-diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
-index 5b38221..a180706 100644
---- a/net/bridge/br_netlink.c
-+++ b/net/bridge/br_netlink.c
-@@ -16,6 +16,7 @@
- #include <net/rtnetlink.h>
- #include <net/net_namespace.h>
- #include <net/sock.h>
-+#include <net/switchdev.h>
- #include <uapi/linux/if_bridge.h>
+diff --git a/include/linux/netdev_features.h b/include/linux/netdev_features.h
+index 8e30685..7d59dc6 100644
+--- a/include/linux/netdev_features.h
++++ b/include/linux/netdev_features.h
+@@ -66,6 +66,7 @@ enum {
+ 	NETIF_F_HW_VLAN_STAG_FILTER_BIT,/* Receive filtering on VLAN STAGs */
+ 	NETIF_F_HW_L2FW_DOFFLOAD_BIT,	/* Allow L2 Forwarding in Hardware */
+ 	NETIF_F_BUSY_POLL_BIT,		/* Busy poll */
++	NETIF_F_HW_SWITCH_OFFLOAD_BIT,  /* HW switch offload */
  
- #include "br_private.h"
-@@ -500,7 +501,7 @@ int br_setlink(struct net_device *dev, struct nlmsghdr *nlh, u16 flags)
- 	struct nlattr *afspec;
- 	struct net_bridge_port *p;
- 	struct nlattr *tb[IFLA_BRPORT_MAX + 1];
--	int err = 0;
-+	int err = 0, ret_offload = 0;
+ 	/*
+ 	 * Add your fresh new feature above and remember to update
+@@ -124,6 +125,7 @@ enum {
+ #define NETIF_F_HW_VLAN_STAG_TX	__NETIF_F(HW_VLAN_STAG_TX)
+ #define NETIF_F_HW_L2FW_DOFFLOAD	__NETIF_F(HW_L2FW_DOFFLOAD)
+ #define NETIF_F_BUSY_POLL	__NETIF_F(BUSY_POLL)
++#define NETIF_F_HW_SWITCH_OFFLOAD	__NETIF_F(HW_SWITCH_OFFLOAD)
  
- 	protinfo = nlmsg_find_attr(nlh, sizeof(struct ifinfomsg), IFLA_PROTINFO);
- 	afspec = nlmsg_find_attr(nlh, sizeof(struct ifinfomsg), IFLA_AF_SPEC);
-@@ -542,9 +543,18 @@ int br_setlink(struct net_device *dev, struct nlmsghdr *nlh, u16 flags)
- 				afspec, RTM_SETLINK);
- 	}
- 
-+	if (!(flags & BRIDGE_FLAGS_SELF)) {
-+		/* set bridge attributes in hardware if supported
-+		 */
-+		ret_offload = netdev_switch_port_bridge_setlink(dev, nlh,
-+								flags);
-+		if (ret_offload && ret_offload != -EOPNOTSUPP)
-+			br_warn(p->br, "error setting attrs on port %u(%s)\n",
-+				(unsigned int)p->port_no, p->dev->name);
-+	}
+ /* Features valid for ethtool to change */
+ /* = all defined minus driver/device-class-related */
+@@ -159,7 +161,9 @@ enum {
+  */
+ #define NETIF_F_ONE_FOR_ALL	(NETIF_F_GSO_SOFTWARE | NETIF_F_GSO_ROBUST | \
+ 				 NETIF_F_SG | NETIF_F_HIGHDMA |		\
+-				 NETIF_F_FRAGLIST | NETIF_F_VLAN_CHALLENGED)
++				 NETIF_F_FRAGLIST | NETIF_F_VLAN_CHALLENGED | \
++				 NETIF_F_HW_SWITCH_OFFLOAD)
 +
- 	if (err == 0)
- 		br_ifinfo_notify(RTM_NEWLINK, p);
--
- out:
- 	return err;
- }
-@@ -554,7 +564,7 @@ int br_dellink(struct net_device *dev, struct nlmsghdr *nlh, u16 flags)
- {
- 	struct nlattr *afspec;
- 	struct net_bridge_port *p;
--	int err;
-+	int err = 0, ret_offload = 0;
- 
- 	afspec = nlmsg_find_attr(nlh, sizeof(struct ifinfomsg), IFLA_AF_SPEC);
- 	if (!afspec)
-@@ -573,6 +583,16 @@ int br_dellink(struct net_device *dev, struct nlmsghdr *nlh, u16 flags)
- 		 */
- 		br_ifinfo_notify(RTM_NEWLINK, p);
- 
-+	if (!(flags & BRIDGE_FLAGS_SELF)) {
-+		/* del bridge attributes in hardware
-+		 */
-+		ret_offload = netdev_switch_port_bridge_dellink(dev, nlh,
-+								flags);
-+		if (ret_offload && ret_offload != -EOPNOTSUPP)
-+			br_warn(p->br, "error deleting attrs on port %u (%s)\n",
-+				(unsigned int)p->port_no, p->dev->name);
-+	}
-+
- 	return err;
- }
- static int br_validate(struct nlattr *tb[], struct nlattr *data[])
+ /*
+  * If one device doesn't support one of these features, then disable it
+  * for all in netdev_increment_features.
 -- 
 1.7.10.4
