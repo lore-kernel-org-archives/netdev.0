@@ -1,114 +1,94 @@
-From: Andy Gospodarek <gospo@cumulusnetworks.com>
-Subject: Re: [PATCH net-next v2 0/6] net: Add STT support.
-Date: Fri, 30 Jan 2015 13:44:46 -0500
-Message-ID: <20150130184446.GF13164@gospo.home.greyhouse.net>
-References: <1422574156-1831-1-git-send-email-pshelar@nicira.com>
- <54CAFE89.4090509@gmail.com>
- <CALnjE+pPh5nSvaLTnM-a0r2Gm6K8Hz5BU_CsiWzYmwijPCOgHg@mail.gmail.com>
- <CA+mtBx_fFBY_FAsnAo8yu5bjoq5BqPY3Es_19oBdeqrjp4RdiA@mail.gmail.com>
- <CALnjE+rjoRXnKsT9z2CK0BuYrxwqk+0FZq1=QwoPiysPN0gxZw@mail.gmail.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH net] netlink: fix wrong subscription bitmask to group
+ mapping in
+Date: Fri, 30 Jan 2015 20:26:37 +0100
+Message-ID: <20150130192637.GA23375@salvia>
+References: <1422525113-5698-1-git-send-email-pablo@netfilter.org>
+ <20150129222701.GP17877@ycc.fr>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Tom Herbert <therbert@google.com>,
-	Alexander Duyck <alexander.duyck@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Pravin Shelar <pshelar@nicira.com>
+Cc: netdev@vger.kernel.org, davem@davemloft.net, andre@tomt.net
+To: Ivan Delalande <colona@arista.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f48.google.com ([209.85.192.48]:58403 "EHLO
-	mail-qg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751382AbbA3Sov (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jan 2015 13:44:51 -0500
-Received: by mail-qg0-f48.google.com with SMTP id z60so39466917qgd.7
-        for <netdev@vger.kernel.org>; Fri, 30 Jan 2015 10:44:50 -0800 (PST)
+Received: from mail.us.es ([193.147.175.20]:49990 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753005AbbA3TXm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 30 Jan 2015 14:23:42 -0500
 Content-Disposition: inline
-In-Reply-To: <CALnjE+rjoRXnKsT9z2CK0BuYrxwqk+0FZq1=QwoPiysPN0gxZw@mail.gmail.com>
+In-Reply-To: <20150129222701.GP17877@ycc.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 29, 2015 at 09:03:14PM -0800, Pravin Shelar wrote:
-> On Thu, Jan 29, 2015 at 8:17 PM, Tom Herbert <therbert@google.com> wrote:
-> > On Thu, Jan 29, 2015 at 8:04 PM, Pravin Shelar <pshelar@nicira.com> wrote:
-> >> On Thu, Jan 29, 2015 at 7:46 PM, Alexander Duyck
-> >> <alexander.duyck@gmail.com> wrote:
-> >>> On 01/29/2015 03:29 PM, Pravin B Shelar wrote:
-> >>>> Following patch series adds support for Stateless Transport
-> >>>> Tunneling protocol.
-> >>>> STT uses TCP segmentation offload available in most of NIC. On
-> >>>> packet xmit STT driver appends STT header along with TCP header
-> >>>> to the packet. For GSO packet GSO parameters are set according
-> >>>> to tunnel configuration and packet is handed over to networking
-> >>>> stack. This allows use of segmentation offload available in NICs
-> >>>>
-> >>>> The protocol is documented at
-> >>>> http://www.ietf.org/archive/id/draft-davie-stt-06.txt
-> >>>>
-> >>>> I will send out OVS userspace patch on ovs-dev mailing list.
-> >>>>
-> >>>> Following are test results. All tests are done on net-next with
-> >>>> STT and VXLAN kernel device without OVS.
-> >>>>
-> >>>> Single Netperf session:
-> >>>> =======================
-> >>>> VXLAN:
-> >>>>     CPU utilization
-> >>>>      - Send local: 1.26
-> >>>>      - Recv remote: 8.62
-> >>>>     Throughput: 4.9 Gbit/sec
-> >>>> STT:
-> >>>>     CPU utilization
-> >>>>      - Send local: 1.01
-> >>>>      - Recv remote: 1.8
-> >>>>     Throughput: 9.45 Gbit/sec
-> >>>>
-> >>>> Five Netperf sessions:
-> >>>> ======================
-> >>>> VXLAN:
-> >>>>     CPU utilization
-> >>>>      - Send local: 9.7
-> >>>>      - Recv remote: 70 (varies from 60 to 80)
-> >>>>     Throughput: 9.05 Gbit/sec
-> >>>> STT:
-> >>>>     CPU utilization
-> >>>>      - Send local: 5.85
-> >>>>      - Recv remote: 14
-> >>>>     Throughput: 9.47 Gbit/sec
-> >>>>
-> >>>
-> >>> What does the small packet or non-TCP performance look like for STT vs
-> >>> VXLAN?  My concern is that STT looks like it is a one trick pony since
-> >>> all your numbers show is TCP TSO performance, and based on some of the
-> >>> comments in your patches it seems like other protocols such as UDP are
-> >>> going to suffer pretty badly due to things like the linearization overhead.
-> >>>
-> >>
-> >> Current implementation is targeted for TCP workloads thats why I
-> >> posted numbers with TCP, once UDP is optimized we can discuss UDP
-> >> numbers. I am pretty sure the STT code can be optimized further
-> >> specially for protocols other than TCP.
-> >> --
-> > There are many TCP workloads that use small packets, it is critical to
-> > test for these also. E.g. "super_netperf 200 -H <addr> -l 120 -t
-> > TCP_RR -- -r 1,1"
+On Thu, Jan 29, 2015 at 11:27:01PM +0100, Ivan Delalande wrote:
+> On Thu, Jan 29, 2015 at 10:51:53AM +0100, Pablo Neira Ayuso wrote:
+> > The subscription bitmask passed via struct sockaddr_nl is converted to
+> > the group number when calling the netlink_bind() and netlink_unbind()
+> > callbacks.
 > >
-> I have not tried it on STT device, I will collect those numbers.
-> 
-> > Please provide the *exact* commands that you are using to configure
-> > stt for optimal performance.
+> > The conversion is however incorrect since bitmask (1 << 0) needs to be
+> > mapped to group number 1. Note that you cannot specify the group number 0
+> > (usually known as _NONE) from setsockopt() using NETLINK_ADD_MEMBERSHIP
+> > since this is rejected through -EINVAL.
 > >
-> To create STT tunnel device.
-> `ip link add stt1  type stt key 1 remote 1.1.2.128`
-> 
-> No other configuration is needed.
+> > This problem became noticeable since 97840cb ("netfilter: nfnetlink:
+> > fix insufficient validation in nfnetlink_bind") when binding to bitmask
+> > (1 << 0) in ctnetlink.
+> >
+> > Reported-by: Andre Tomt <andre@tomt.net>
+> > Reported-by: Ivan Delalande <colona@arista.com>
+> > Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+>
+> Thanks a lot for this fix!
+>
+> > ---
+> > v2: Rebased upon current net tree. Previous patch:
+> >
+> > http://patchwork.ozlabs.org/patch/426205/
+> >
+> > did not apply cleanly.
+> >
+> >  net/netlink/af_netlink.c |    4 ++--
+> >  1 file changed, 2 insertions(+), 2 deletions(-)
+> >
+> > diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+> > index 02fdde2..75532ef 100644
+> > --- a/net/netlink/af_netlink.c
+> > +++ b/net/netlink/af_netlink.c
+> > @@ -1438,7 +1438,7 @@ static void netlink_undo_bind(int group, long unsigned int groups,
+> >
+> >  	for (undo = 0; undo < group; undo++)
+> >  		if (test_bit(undo, &groups))
+> > -			nlk->netlink_unbind(sock_net(sk), undo);
+> > +			nlk->netlink_unbind(sock_net(sk), undo + 1);
+> >  }
+> >
+> >  static int netlink_bind(struct socket *sock, struct sockaddr *addr,
+> > @@ -1476,7 +1476,7 @@ static int netlink_bind(struct socket *sock, struct sockaddr *addr,
+> >  		for (group = 0; group < nlk->ngroups; group++) {
+> >  			if (!test_bit(group, &groups))
+> >  				continue;
+> > -			err = nlk->netlink_bind(net, group);
+> > +			err = nlk->netlink_bind(net, group + 1);
+> >  			if (!err)
+> >  				continue;
+> >  			netlink_undo_bind(group, groups, sk);
+>
+> I guess this should also be group + 1 there:
+>
+> 	netlink_undo_bind(group + 1, groups, sk);
 
-Thanks for posting some performance numbers with your patch.  I also
-don't want to 'pile on' with additional complaints, but I do have one
-request.
+We don't need that change you suggest.
 
-Can you share any specs (including number of cores and NIC hardware
-used) for the systems that gave you the above results?   If you do not
-want to endorse a particular NIC that is fine --  I'm mostly curious how
-many cores were used and if UDP and TCP RSS were both being used in this
-configuration.
+Asumming nlk->netlink_bind(...) fails when 'group' is 0, then we have
+nothing to undo.
 
-Thanks!
+See netlink_undo_bind():
+
+     for (undo = 0; undo < group; undo++)
+             if (test_bit(undo, &groups))
+                   nlk->netlink_unbind(sock_net(sk), undo + 1);
+
+'undo' and 'group' will be both 0, so nothing is undone as expected.
+
+So my patch seems good to me after second look. Let me know if you
+have more concerns, thanks.
