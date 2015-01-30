@@ -1,74 +1,103 @@
-From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCHv2 net-next] cxgb4: Remove preprocessor check for CONFIG_CXGB4_DCB
-Date: Fri, 30 Jan 2015 08:49:27 +0530
-Message-ID: <1422587967-18405-1-git-send-email-hariprasad@chelsio.com>
-Cc: davem@davemloft.net, leedom@chelsio.com, anish@chelsio.com,
-	nirranjan@chelsio.com, praveenm@chelsio.com,
-	Hariprasad Shenai <hariprasad@chelsio.com>
-To: netdev@vger.kernel.org
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH net-next v2 1/6] skbuff: Add skb_list_linearize()
+Date: Thu, 29 Jan 2015 19:28:50 -0800
+Message-ID: <54CAFA72.60207@gmail.com>
+References: <1422574164-1860-1-git-send-email-pshelar@nicira.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Pravin B Shelar <pshelar@nicira.com>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:5061 "EHLO
-	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752358AbbA3DN4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jan 2015 22:13:56 -0500
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:45000 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752517AbbA3D2w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jan 2015 22:28:52 -0500
+Received: by mail-pa0-f51.google.com with SMTP id fb1so46923313pad.10
+        for <netdev@vger.kernel.org>; Thu, 29 Jan 2015 19:28:51 -0800 (PST)
+In-Reply-To: <1422574164-1860-1-git-send-email-pshelar@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In commit dc9daab226aa ("cxgb4: Added support in debugfs to dump
-sge_qinfo") a preprocessor check for CONFIG_CXGB4_DCB got added, which should
-have been CONFIG_CHELSIO_T4_DCB. After adding the right preprocessor, build
-fails due to missing function ethqset2pinfo. Fixing that as well.
+On 01/29/2015 03:29 PM, Pravin B Shelar wrote:
+> similar to skb_linearize(), this API takes skb list as arg and
+> linearize it into one big skb. STT driver patch will use this.
+>
+> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+> ---
+> Fixed according to comments from Eric.
+> ---
+>  include/linux/skbuff.h |  2 ++
+>  net/core/skbuff.c      | 34 ++++++++++++++++++++++++++++++++++
+>  2 files changed, 36 insertions(+)
+>
+> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+> index 85ab7d7..c9194c1 100644
+> --- a/include/linux/skbuff.h
+> +++ b/include/linux/skbuff.h
+> @@ -2532,6 +2532,8 @@ static inline int skb_linearize(struct sk_buff *skb)
+>  	return skb_is_nonlinear(skb) ? __skb_linearize(skb) : 0;
+>  }
+>  
+> +int skb_list_linearize(struct sk_buff *head, gfp_t gfp_mask);
+> +
+>  /**
+>   * skb_has_shared_frag - can any frag be overwritten
+>   * @skb: buffer to test
+> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+> index 56db472..d6358a7 100644
+> --- a/net/core/skbuff.c
+> +++ b/net/core/skbuff.c
+> @@ -2329,6 +2329,40 @@ void skb_copy_and_csum_dev(const struct sk_buff *skb, u8 *to)
+>  }
+>  EXPORT_SYMBOL(skb_copy_and_csum_dev);
+>  
+> +int skb_list_linearize(struct sk_buff *head, gfp_t gfp_mask)
+> +{
+> +	struct sk_buff *skb;
+> +	int tlen = 0;
+> +	int err;
+> +
+> +	err = skb_linearize(head);
+> +	if (err)
+> +		return err;
 
-Reported-by: Paul Bolle <pebolle@tiscal.nl>
-Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
+What is the point in linearizing the head if you are just going to
+reallocated it pskb_expand_head anyway?  It seems like you should
+probably just be calling __pskb_pull_tail after your call
+pskb_expand_head below.
 
-V2: Updated description since the patch also fixes build failure
+> +	skb = head->next;
+> +	while (skb) {
+> +		tlen += skb->len;
+> +		skb = skb->next;
+> +	}
+> +	err = pskb_expand_head(head, 0, tlen, gfp_mask);
+> +	if (err)
+> +		return err;
+> +
+> +	skb = head->next;
+> +	while (skb) {
+> +		err = skb_copy_bits(skb, 0, skb_tail_pointer(head), skb->len);
+> +		if (err)
+> +			return err;
+> +		head->tail += skb->len;
+> +		skb = skb->next;
+> +	}
+> +	kfree_skb_list(head->next);
+> +	head->next = NULL;
+> +	head->len += tlen;
+> +	return 0;
+> +}
+> +EXPORT_SYMBOL(skb_list_linearize);
+> +
+>  /**
+>   *	skb_dequeue - remove from the head of the queue
+>   *	@list: list to dequeue from
 
----
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c |   24 +++++++++++++++++++-
- 1 files changed, 23 insertions(+), 1 deletions(-)
+I'm not completely convinced this is even necessary.  Seems like you are
+wasting cycles copying the frames around when you could probably just
+pull the header of the first frame and then use page frages to fill in
+the rest.
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
-index 47c0869..61c000a 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
-@@ -1229,6 +1229,28 @@ static const struct file_operations rss_vf_config_debugfs_fops = {
- 	.release = seq_release_private
- };
- 
-+/**
-+ * ethqset2pinfo - return port_info of an Ethernet Queue Set
-+ * @adap: the adapter
-+ * @qset: Ethernet Queue Set
-+ */
-+static inline struct port_info *ethqset2pinfo(struct adapter *adap, int qset)
-+{
-+	int pidx;
-+
-+	for_each_port(adap, pidx) {
-+		struct port_info *pi = adap2pinfo(adap, pidx);
-+
-+		if (qset >= pi->first_qset &&
-+		    qset < pi->first_qset + pi->nqsets)
-+			return pi;
-+	}
-+
-+	/* should never happen! */
-+	BUG_ON(1);
-+	return NULL;
-+}
-+
- static int sge_qinfo_show(struct seq_file *seq, void *v)
- {
- 	struct adapter *adap = seq->private;
-@@ -1272,7 +1294,7 @@ do { \
- 		T("TxQ inuse:", q.in_use);
- 		T("TxQ CIDX:", q.cidx);
- 		T("TxQ PIDX:", q.pidx);
--#ifdef CONFIG_CXGB4_DCB
-+#ifdef CONFIG_CHELSIO_T4_DCB
- 		T("DCB Prio:", dcb_prio);
- 		S3("u", "DCB PGID:",
- 		   (ethqset2pinfo(adap, base_qset + i)->dcb.pgid >>
--- 
-1.7.1
+- Alex
