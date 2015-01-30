@@ -1,55 +1,69 @@
-From: David L Stevens <david.stevens@oracle.com>
-Subject: [PATCH net] sunvnet: set queue mapping when doing packet copies
-Date: Fri, 30 Jan 2015 12:29:45 -0500
-Message-ID: <54CBBF89.4070800@oracle.com>
-References: <54C90AED.7040404@oracle.com>
+From: Yuchung Cheng <ycheng@google.com>
+Subject: Re: [PATCH net-next] tcp: use SACK RTTs for CC
+Date: Fri, 30 Jan 2015 09:47:36 -0800
+Message-ID: <CAK6E8=cRcBUr=H62WHzBetBgLBoV4hPC3ZFNwTZJN4EBTeiSmw@mail.gmail.com>
+References: <1422558483-6168-1-git-send-email-kennetkl@ifi.uio.no> <CAK6E8=c6uAeAMvRfdxYNcqBLWmFTywbpvaqmzf7XmajkGSNqeg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Sowmini Varadhan <sowmini.varadhan@oracle.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	Neal Cardwell <ncardwell@google.com>
+To: Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:35798 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1762730AbbA3R3u (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jan 2015 12:29:50 -0500
-In-Reply-To: <54C90AED.7040404@oracle.com>
+Received: from mail-ig0-f171.google.com ([209.85.213.171]:62899 "EHLO
+	mail-ig0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1762746AbbA3RsR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jan 2015 12:48:17 -0500
+Received: by mail-ig0-f171.google.com with SMTP id r10so4962070igi.4
+        for <netdev@vger.kernel.org>; Fri, 30 Jan 2015 09:48:17 -0800 (PST)
+In-Reply-To: <CAK6E8=c6uAeAMvRfdxYNcqBLWmFTywbpvaqmzf7XmajkGSNqeg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Fri, Jan 30, 2015 at 9:21 AM, Yuchung Cheng <ycheng@google.com> wrote:
+> On Thu, Jan 29, 2015 at 11:08 AM, Kenneth Klette Jonassen
+> <kennetkl@ifi.uio.no> wrote:
+>> Current behavior only passes RTTs from sequentially acked data to CC.
+>>
+>> If sender gets a combined ACK for segment 1 and SACK for segment 3, then the
+>> computed RTT for CC is the time between sending segment 1 and receiving SACK
+>> for segment 3.
+> since segment 3 is sent after segment 1, sack_rtt_us <= ca_seq_rtt so
+> taking a min is not necessary?
+ah i didn't notice you are taking a min_t of ulong for invalid
+sack_rtt_us now i get it.
 
 
-This patch fixes a bug where vnet_skb_shape() didn't set the already-selected
-queue mapping when a packet copy was required. This results in using the
-wrong queue index for stops/starts, hung tx queues and watchdog timeouts
-under heavy load.
-
-Signed-off-by: David L Stevens <david.stevens@oracle.com>
-Acked-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-
---
-I'm resubmitting this in its original form. Since skb_segment() doesn't do
-TCP flow control either, due to an incorrect destructor check, and those
-issues raised by Eric are a matter of fairness, while this missing queue_mapping
-assignment results in crashes, I'd like to get this piece fixed separately.
-
----
- drivers/net/ethernet/sun/sunvnet.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/ethernet/sun/sunvnet.c b/drivers/net/ethernet/sun/sunvnet.c
-index 2b719cc..2b10b85 100644
---- a/drivers/net/ethernet/sun/sunvnet.c
-+++ b/drivers/net/ethernet/sun/sunvnet.c
-@@ -1123,6 +1123,7 @@ static inline struct sk_buff *vnet_skb_shape(struct sk_buff *skb, int ncookies)
- 			skb_shinfo(nskb)->gso_size = skb_shinfo(skb)->gso_size;
- 			skb_shinfo(nskb)->gso_type = skb_shinfo(skb)->gso_type;
- 		}
-+		nskb->queue_mapping = skb->queue_mapping;
- 		dev_kfree_skb(skb);
- 		skb = nskb;
- 	}
--- 
-1.7.1
+>
+>>
+>> Pass the minimum computed RTT from any acked data to CC, i.e. time between
+>> sending segment 3 and receiving SACK for segment 3.
+>>
+>> Signed-off-by: Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
+>> ---
+>>  net/ipv4/tcp_input.c | 6 ++++--
+>>  1 file changed, 4 insertions(+), 2 deletions(-)
+>>
+>> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+>> index 71fb37c..ed11931 100644
+>> --- a/net/ipv4/tcp_input.c
+>> +++ b/net/ipv4/tcp_input.c
+>> @@ -3183,8 +3183,10 @@ static int tcp_clean_rtx_queue(struct sock *sk, int prior_fackets,
+>>
+>>                 tp->fackets_out -= min(pkts_acked, tp->fackets_out);
+>>
+>> -               if (ca_ops->pkts_acked)
+>> -                       ca_ops->pkts_acked(sk, pkts_acked, ca_seq_rtt_us);
+>> +               if (ca_ops->pkts_acked) {
+>> +                       long rtt_us = min_t(ulong, ca_seq_rtt_us, sack_rtt_us);
+>> +                       ca_ops->pkts_acked(sk, pkts_acked, rtt_us);
+>> +               }
+>>
+>>         } else if (skb && rtt_update && sack_rtt_us >= 0 &&
+>>                    sack_rtt_us > skb_mstamp_us_delta(&now, &skb->skb_mstamp)) {
+>> --
+>> 1.9.1
+>>
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
