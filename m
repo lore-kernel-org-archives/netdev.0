@@ -1,46 +1,50 @@
-From: Richard Weinberger <richard@nod.at>
-Subject: [PATCH] Documentation: Update netlink_mmap.txt
-Date: Fri, 30 Jan 2015 20:50:44 +0100
-Message-ID: <1422647444-4004-1-git-send-email-richard@nod.at>
-Cc: corbet@lwn.net, shemming@brocade.com, linux-doc@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Richard Weinberger <richard@nod.at>
-To: davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Arvid Brodin <arvid.brodin@alten.se>
+Subject: Re: [PATCH net 0/2] netns: audit netdevice creation with IFLA_NET_NS_[PID|FD]
+Date: Fri, 30 Jan 2015 21:00:47 +0100
+Message-ID: <54CBE2EF.7050003@alten.se>
+References: <1422307694-10079-1-git-send-email-nicolas.dichtel@6wind.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <davem@davemloft.net>, <dmitry.tarnyagin@lockless.no>,
+	<alex.aring@gmail.com>, <linux-wpan@vger.kernel.org>
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	<netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from spam1.webland.se ([91.207.112.90]:56923 "EHLO spam1.webland.se"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753978AbbA3UFc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 30 Jan 2015 15:05:32 -0500
+In-Reply-To: <1422307694-10079-1-git-send-email-nicolas.dichtel@6wind.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Update netlink_mmap.txt wrt. commit 4682a0358639b29cf
-("netlink: Always copy on mmap TX.").
+On 2015-01-26 22:28, Nicolas Dichtel wrote:
+*snip*
+> - HSR subsystem uses src_net to parse IFLA_HSR_SLAVE[1|2], but the ne=
+tdevice has
+>   the flag NETIF_F_NETNS_LOCAL, so the question is: does this netdevi=
+ce really
+>   supports x-netns? If not, the newlink handler should use the dest_n=
+et instead
+>   of src_net, I can provide the patch.
+*snip*
 
-Signed-off-by: Richard Weinberger <richard@nod.at>
----
- Documentation/networking/netlink_mmap.txt | 13 +++----------
- 1 file changed, 3 insertions(+), 10 deletions(-)
+As the author of the HSR driver, I'd like to answer this question, but =
+unfortunately=20
+I don't know what x-netns is. Neither Google nor Documentation/ has bee=
+n particularly
+helpful.
 
-diff --git a/Documentation/networking/netlink_mmap.txt b/Documentation/networking/netlink_mmap.txt
-index c6af4ba..30a95fd 100644
---- a/Documentation/networking/netlink_mmap.txt
-+++ b/Documentation/networking/netlink_mmap.txt
-@@ -199,16 +199,9 @@ frame header.
- TX limitations
- --------------
- 
--Kernel processing usually involves validation of the message received by
--user-space, then processing its contents. The kernel must assure that
--userspace is not able to modify the message contents after they have been
--validated. In order to do so, the message is copied from the ring frame
--to an allocated buffer if either of these conditions is false:
--
--- only a single mapping of the ring exists
--- the file descriptor is not shared between processes
--
--This means that for threaded programs, the kernel will fall back to copying.
-+As of Jan 2015 the message is always copied from the ring frame to an
-+allocated buffer due to unresolved security concerns.
-+See commit 4682a0358639b29cf ("netlink: Always copy on mmap TX.").
- 
- Example
- -------
--- 
-2.2.2
+Care to elaborate? (Maybe this is a moot point now that the patch has b=
+een accepted,
+but I'd still like to understand, if you have the time to explain.)
+
+(Pretty much all I know about network namespaces is from this article:=20
+http://lwn.net/Articles/580893/.)
+
+
+--=20
+Arvid Brodin | Consultant (Linux)
+ALTEN | Knarrarn=C3=A4sgatan 7 | SE-164 40 Kista | Sweden
+arvid.brodin@alten.se | www.alten.se/en/
