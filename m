@@ -1,96 +1,82 @@
-From: Michal Kazior <michal.kazior-++hxYGjEMp0AvxtiuMwx3w@public.gmane.org>
+From: Arend van Spriel <arend@broadcom.com>
 Subject: Re: Throughput regression with `tcp: refine TSO autosizing`
-Date: Fri, 30 Jan 2015 14:39:45 +0100
-Message-ID: <CA+BoTQk2xT-8DqPuiiKG+kHAjLPrj8F9dLTb-rcGhvMq0u_2Qw@mail.gmail.com>
-References: <CA+BoTQkVu23P3EOmY_Q3E1GJnWsyF==Pawz4iPOS_Bq5dvfO5Q@mail.gmail.com>
-	<1422537297.21689.15.camel@edumazet-glaptop2.roam.corp.google.com>
+Date: Fri, 30 Jan 2015 14:47:21 +0100
+Message-ID: <54CB8B69.1070807@broadcom.com>
+References: <CA+BoTQkVu23P3EOmY_Q3E1GJnWsyF==Pawz4iPOS_Bq5dvfO5Q@mail.gmail.com>	 <1422537297.21689.15.camel@edumazet-glaptop2.roam.corp.google.com>	 <54CB5D08.2070906@broadcom.com> <1422623975.21689.77.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	eyalpe-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org
-To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1422537297.21689.15.camel-XN9IlZ5yJG9HTL0Zs8A6p/gx64E7kk8eUsxypvmhUTTZJqsBc5GL+g@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Michal Kazior <michal.kazior@tieto.com>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	<eyalpe@dev.mellanox.co.il>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-gw1-out.broadcom.com ([216.31.210.62]:4857 "EHLO
+	mail-gw1-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1762299AbbA3Nrj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jan 2015 08:47:39 -0500
+In-Reply-To: <1422623975.21689.77.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 29 January 2015 at 14:14, Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrot=
-e:
-> On Thu, 2015-01-29 at 12:48 +0100, Michal Kazior wrote:
->> Hi,
+On 01/30/15 14:19, Eric Dumazet wrote:
+> On Fri, 2015-01-30 at 11:29 +0100, Arend van Spriel wrote:
+>
+>> Hi Eric,
 >>
->> I'm not subscribed to netdev list and I can't find the message-id so=
- I
->> can't reply directly to the original thread `BW regression after "tc=
-p:
->> refine TSO autosizing"`.
->>
->> I've noticed a big TCP performance drop with ath10k
->> (drivers/net/wireless/ath/ath10k) on 3.19-rc5. Instead of 500mbps I
->> get 250mbps in my testbed.
->>
->> After bisecting I ended up at `tcp: refine TSO autosizing`. Revertin=
-g
->> `tcp: refine TSO autosizing` and `tcp: Do not apply TSO segment limi=
-t
->> to non-TSO packets` (for conflict free reverts) fixes the problem.
-[...]
->> Any hints/ideas?
->>
+>> Your suggestions are still based on the fact that you consider wireless
+>> networking to be similar to ethernet, but as Michal indicated there are
+>> some fundamental differences starting with CSMA/CD versus CSMA/CA. Also
+>> the medium conditions are far from comparable. There is no shielding so
+>> it needs to deal with interference and dynamically drops the link rate
+>> so transmission of packets can take several milliseconds. Then with 11n
+>> they came up with aggregation with sends up to 64 packets in a single
+>> transmit over the air at worst case 6.5 Mbps (if I am not mistaken). The
+>> parameter value for tcp_limit_output_bytes of 131072 means that it
+>> allows queuing for about 1ms on a 1Gbps link, but I hope you can see
+>> this is not realistic for dealing with all variances of the wireless
+>> medium/standard. I suggested this as topic for the wireless workshop in
+>> Otawa [1], but I can not attend there. Still hope that there will be
+>> some discussions to get more awareness.
 >
-> Hi Michal
+> Ever heard about bufferbloat ?
+
+Sure. I am trying to get awareness about that in our wireless 
+driver/firmware development teams. So bear with me.
+
+> Have you read my suggestions and tried them ?
 >
-> This patch restored original TSQ behavior, because the 1ms worth of d=
-ata
-> per flow had totally destroyed TSQ intent.
+> You can adjust the limit per flow to pretty much you want. If you need
+> 64 packets, just do the math. If in 2018 you need 128 packets, do the
+> math again.
 >
-> vi +630 Documentation/networking/ip-sysctl.txt
-[...]
-> With this change and the stretch ack fixes, I got 37Gbps of throughpu=
-t
-> on a single flow, on a 40Gbit NIC (mlx4)
+> I am very well aware that wireless wants aggregation, thank you.
+
+Sorry if I offended you. I was just giving these as example combined 
+with effective rate usable on the medium to say that the bandwidth is 
+more dynamic in wireless and as such need dynamic change of queue depth. 
+Now this can be done by making the fraction size as used in your 
+suggestion adaptive to these conditions.
+
+> 131072 bytes of queue on 40Gbit is not 1ms, but 26 usec of queueing, and
+> we get line rate nevertheless.
+
+I was saying it was about 1ms on *1Gbit* as the wireless TCP rates are 
+moving into that direction in 11ac.
+
+> We need this level of shallow queues (BQL, TSQ), to get very precise rtt
+> estimations so that TCP has good entropy for its pacing, even in the 50
+> usec rtt ranges.
 >
-> If a driver needs to buffer more than tcp_limit_output_bytes=3D131072=
- to
-> get line rate, I suggest that you either :
+> If we allowed 1ms of queueing, then a 40Gbit flow would queue 5 MBytes.
 >
-> 1) tweak tcp_limit_output_bytes, but its not practical from a driver.
+> This was terrible, because it increased cwnd and all sender queues to
+> insane levels.
 
-I've briefly tried playing with this knob to no avail unfortunately. I
-tried 256K, 1M - it didn't improve TCP performance. When I tried to
-make it smaller (e.g. 16K) the traffic dropped even more so it does
-have an effect. It seems there's some other limiting factor in this
-case.
+Indeed and that is what we would like to address in our wireless 
+drivers. I will setup some experiments using the fraction sizing and 
+post my findings. Again sorry if I offended you.
 
-
-> 2) change the driver, knowing what are its exact requirements, by
-> removing a fraction of skb->truesize at ndo_start_xmit() time as in :
->
-> if ((skb->destructor =3D=3D sock_wfree ||
->      skb->restuctor =3D=3D tcp_wfree) &&
->     skb->sk) {
->     u32 fraction =3D skb->truesize / 2;
->
->     skb->truesize -=3D fraction;
->     atomic_sub(fraction, &skb->sk->sk_wmem_alloc);
-> }
-
-tcp_wfree isn't exported so I went and just did a quick hack and used
-`if (skb->sk)` as the condition. Didn't help with TCP.
-
-I wonder if this TSO patch is the single thing to blame. Maybe it's
-just the trigger and something else is broken? I've been seeing some
-UDP performance inconsistencies in 3.19 (I don't recall seeing these
-in 3.18) - but maybe my perception is failing on me.
-
-Anyway, thanks for the tips so far.
-
-
-Micha=C5=82
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Regards,
+Arend
