@@ -1,141 +1,104 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: [PATCH] ipvs: rerouting to local clients is not needed anymore
-Date: Fri, 30 Jan 2015 10:22:18 +0900
-Message-ID: <1422580938-31520-2-git-send-email-horms@verge.net.au>
-References: <1422580938-31520-1-git-send-email-horms@verge.net.au>
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>, Simon Horman <horms@verge.net.au>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] net: sched: fix panic in rate estimators
+Date: Thu, 29 Jan 2015 17:30:12 -0800
+Message-ID: <1422581412.21689.53.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	John Fastabend <john.fastabend@gmail.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:54908 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754208AbbA3BW0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jan 2015 20:22:26 -0500
-In-Reply-To: <1422580938-31520-1-git-send-email-horms@verge.net.au>
+Received: from mail-ie0-f179.google.com ([209.85.223.179]:63870 "EHLO
+	mail-ie0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932208AbbA3BaO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jan 2015 20:30:14 -0500
+Received: by mail-ie0-f179.google.com with SMTP id x19so332614ier.10
+        for <netdev@vger.kernel.org>; Thu, 29 Jan 2015 17:30:14 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Julian Anastasov <ja@ssi.bg>
+From: Eric Dumazet <edumazet@google.com>
 
-commit f5a41847acc5 ("ipvs: move ip_route_me_harder for ICMP")
-from 2.6.37 introduced ip_route_me_harder() call for responses to
-local clients, so that we can provide valid rt_src after SNAT.
-It was used by TCP to provide valid daddr for ip_send_reply().
-After commit 0a5ebb8000c5 ("ipv4: Pass explicit daddr arg to
-ip_send_reply()." from 3.0 this rerouting is not needed anymore
-and should be avoided, especially in LOCAL_IN.
+Doing the following commands on a non idle network device
+panics the box instantly, because cpu_bstats gets overwritten
+by stats.
 
-Fixes 3.12.33 crash in xfrm reported by Florian Wiessner:
-"3.12.33 - BUG xfrm_selector_match+0x25/0x2f6"
+tc qdisc add dev eth0 root <your_favorite_qdisc>
+... some traffic (one packet is enough) ...
+tc qdisc replace dev eth0 root est 1sec 4sec <your_favorite_qdisc>
 
-Reported-by: Smart Weblications GmbH - Florian Wiessner <f.wiessner@smart-weblications.de>
-Tested-by: Smart Weblications GmbH - Florian Wiessner <f.wiessner@smart-weblications.de>
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
-Signed-off-by: Simon Horman <horms@verge.net.au>
+[  325.355596] BUG: unable to handle kernel paging request at ffff8841dc5a074c
+[  325.362609] IP: [<ffffffff81541c9e>] __gnet_stats_copy_basic+0x3e/0x90
+[  325.369158] PGD 1fa7067 PUD 0
+[  325.372254] Oops: 0000 [#1] SMP
+[  325.375514] Modules linked in: ...
+[  325.398346] CPU: 13 PID: 14313 Comm: tc Not tainted 3.19.0-smp-DEV #1163
+[  325.412042] task: ffff8800793ab5d0 ti: ffff881ff2fa4000 task.ti: ffff881ff2fa4000
+[  325.419518] RIP: 0010:[<ffffffff81541c9e>]  [<ffffffff81541c9e>] __gnet_stats_copy_basic+0x3e/0x90
+[  325.428506] RSP: 0018:ffff881ff2fa7928  EFLAGS: 00010286
+[  325.433824] RAX: 000000000000000c RBX: ffff881ff2fa796c RCX: 000000000000000c
+[  325.440988] RDX: ffff8841dc5a0744 RSI: 0000000000000060 RDI: 0000000000000060
+[  325.448120] RBP: ffff881ff2fa7948 R08: ffffffff81cd4f80 R09: 0000000000000000
+[  325.455268] R10: ffff883ff223e400 R11: 0000000000000000 R12: 000000015cba0744
+[  325.462405] R13: ffffffff81cd4f80 R14: ffff883ff223e460 R15: ffff883feea0722c
+[  325.469536] FS:  00007f2ee30fa700(0000) GS:ffff88407fa20000(0000) knlGS:0000000000000000
+[  325.477630] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+[  325.483380] CR2: ffff8841dc5a074c CR3: 0000003feeae9000 CR4: 00000000001407e0
+[  325.490510] Stack:
+[  325.492524]  ffff883feea0722c ffff883fef719dc0 ffff883feea0722c ffff883ff223e4a0
+[  325.499990]  ffff881ff2fa79a8 ffffffff815424ee ffff883ff223e49c 000000015cba0744
+[  325.507460]  00000000f2fa7978 0000000000000000 ffff881ff2fa79a8 ffff883ff223e4a0
+[  325.514956] Call Trace:
+[  325.517412]  [<ffffffff815424ee>] gen_new_estimator+0x8e/0x230
+[  325.523250]  [<ffffffff815427aa>] gen_replace_estimator+0x4a/0x60
+[  325.529349]  [<ffffffff815718ab>] tc_modify_qdisc+0x52b/0x590
+[  325.535117]  [<ffffffff8155edd0>] rtnetlink_rcv_msg+0xa0/0x240
+[  325.540963]  [<ffffffff8155ed30>] ? __rtnl_unlock+0x20/0x20
+[  325.546532]  [<ffffffff8157f811>] netlink_rcv_skb+0xb1/0xc0
+[  325.552145]  [<ffffffff8155b355>] rtnetlink_rcv+0x25/0x40
+[  325.557558]  [<ffffffff8157f0d8>] netlink_unicast+0x168/0x220
+[  325.563317]  [<ffffffff8157f47c>] netlink_sendmsg+0x2ec/0x3e0
+
+Lets play safe and not use an union : percpu 'pointers' are mostly read
+anyway, and we have typically few qdiscs per host.
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: John Fastabend <john.fastabend@gmail.com>
+Fixes: 22e0f8b9322c ("net: sched: make bstats per cpu and estimator RCU safe")
 ---
- net/netfilter/ipvs/ip_vs_core.c | 33 ++++++++++++++++++++++-----------
- 1 file changed, 22 insertions(+), 11 deletions(-)
+ include/net/sch_generic.h |   13 +++++--------
+ 1 file changed, 5 insertions(+), 8 deletions(-)
 
-diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
-index 990decb..b87ca32 100644
---- a/net/netfilter/ipvs/ip_vs_core.c
-+++ b/net/netfilter/ipvs/ip_vs_core.c
-@@ -659,16 +659,24 @@ static inline int ip_vs_gather_frags(struct sk_buff *skb, u_int32_t user)
- 	return err;
- }
+diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
+index 3d282cbb66bf..c605d305c577 100644
+--- a/include/net/sch_generic.h
++++ b/include/net/sch_generic.h
+@@ -79,6 +79,9 @@ struct Qdisc {
+ 	struct netdev_queue	*dev_queue;
  
--static int ip_vs_route_me_harder(int af, struct sk_buff *skb)
-+static int ip_vs_route_me_harder(int af, struct sk_buff *skb,
-+				 unsigned int hooknum)
- {
-+	if (!sysctl_snat_reroute(skb))
-+		return 0;
-+	/* Reroute replies only to remote clients (FORWARD and LOCAL_OUT) */
-+	if (NF_INET_LOCAL_IN == hooknum)
-+		return 0;
- #ifdef CONFIG_IP_VS_IPV6
- 	if (af == AF_INET6) {
--		if (sysctl_snat_reroute(skb) && ip6_route_me_harder(skb) != 0)
-+		struct dst_entry *dst = skb_dst(skb);
+ 	struct gnet_stats_rate_est64	rate_est;
++	struct gnet_stats_basic_cpu __percpu *cpu_bstats;
++	struct gnet_stats_queue	__percpu *cpu_qstats;
 +
-+		if (dst->dev && !(dst->dev->flags & IFF_LOOPBACK) &&
-+		    ip6_route_me_harder(skb) != 0)
- 			return 1;
- 	} else
- #endif
--		if ((sysctl_snat_reroute(skb) ||
--		     skb_rtable(skb)->rt_flags & RTCF_LOCAL) &&
-+		if (!(skb_rtable(skb)->rt_flags & RTCF_LOCAL) &&
- 		    ip_route_me_harder(skb, RTN_LOCAL) != 0)
- 			return 1;
- 
-@@ -791,7 +799,8 @@ static int handle_response_icmp(int af, struct sk_buff *skb,
- 				union nf_inet_addr *snet,
- 				__u8 protocol, struct ip_vs_conn *cp,
- 				struct ip_vs_protocol *pp,
--				unsigned int offset, unsigned int ihl)
-+				unsigned int offset, unsigned int ihl,
-+				unsigned int hooknum)
- {
- 	unsigned int verdict = NF_DROP;
- 
-@@ -821,7 +830,7 @@ static int handle_response_icmp(int af, struct sk_buff *skb,
- #endif
- 		ip_vs_nat_icmp(skb, pp, cp, 1);
- 
--	if (ip_vs_route_me_harder(af, skb))
-+	if (ip_vs_route_me_harder(af, skb, hooknum))
- 		goto out;
- 
- 	/* do the statistics and put it back */
-@@ -916,7 +925,7 @@ static int ip_vs_out_icmp(struct sk_buff *skb, int *related,
- 
- 	snet.ip = iph->saddr;
- 	return handle_response_icmp(AF_INET, skb, &snet, cih->protocol, cp,
--				    pp, ciph.len, ihl);
-+				    pp, ciph.len, ihl, hooknum);
- }
- 
- #ifdef CONFIG_IP_VS_IPV6
-@@ -981,7 +990,8 @@ static int ip_vs_out_icmp_v6(struct sk_buff *skb, int *related,
- 	snet.in6 = ciph.saddr.in6;
- 	writable = ciph.len;
- 	return handle_response_icmp(AF_INET6, skb, &snet, ciph.protocol, cp,
--				    pp, writable, sizeof(struct ipv6hdr));
-+				    pp, writable, sizeof(struct ipv6hdr),
-+				    hooknum);
- }
- #endif
- 
-@@ -1040,7 +1050,8 @@ static inline bool is_new_conn(const struct sk_buff *skb,
-  */
- static unsigned int
- handle_response(int af, struct sk_buff *skb, struct ip_vs_proto_data *pd,
--		struct ip_vs_conn *cp, struct ip_vs_iphdr *iph)
-+		struct ip_vs_conn *cp, struct ip_vs_iphdr *iph,
-+		unsigned int hooknum)
- {
- 	struct ip_vs_protocol *pp = pd->pp;
- 
-@@ -1078,7 +1089,7 @@ handle_response(int af, struct sk_buff *skb, struct ip_vs_proto_data *pd,
- 	 * if it came from this machine itself.  So re-compute
- 	 * the routing information.
+ 	struct Qdisc		*next_sched;
+ 	struct sk_buff		*gso_skb;
+ 	/*
+@@ -86,15 +89,9 @@ struct Qdisc {
  	 */
--	if (ip_vs_route_me_harder(af, skb))
-+	if (ip_vs_route_me_harder(af, skb, hooknum))
- 		goto drop;
- 
- 	IP_VS_DBG_PKT(10, af, pp, skb, 0, "After SNAT");
-@@ -1181,7 +1192,7 @@ ip_vs_out(unsigned int hooknum, struct sk_buff *skb, int af)
- 	cp = pp->conn_out_get(af, skb, &iph, 0);
- 
- 	if (likely(cp))
--		return handle_response(af, skb, pd, cp, &iph);
-+		return handle_response(af, skb, pd, cp, &iph, hooknum);
- 	if (sysctl_nat_icmp_send(net) &&
- 	    (pp->protocol == IPPROTO_TCP ||
- 	     pp->protocol == IPPROTO_UDP ||
--- 
-2.1.4
+ 	unsigned long		state;
+ 	struct sk_buff_head	q;
+-	union {
+-		struct gnet_stats_basic_packed bstats;
+-		struct gnet_stats_basic_cpu __percpu *cpu_bstats;
+-	} __packed;
++	struct gnet_stats_basic_packed bstats;
+ 	unsigned int		__state;
+-	union {
+-		struct gnet_stats_queue	qstats;
+-		struct gnet_stats_queue	__percpu *cpu_qstats;
+-	} __packed;
++	struct gnet_stats_queue	qstats;
+ 	struct rcu_head		rcu_head;
+ 	int			padded;
+ 	atomic_t		refcnt;
