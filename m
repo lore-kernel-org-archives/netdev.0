@@ -1,52 +1,80 @@
-From: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
-Subject: Re: [PATCH V2 5/6] rtlwifi: btcoexist: Add routines for RTL8812AE kernel socket communications
-Date: Fri, 30 Jan 2015 10:05:24 -0800
-Message-ID: <B814EF26-CBC9-43E4-A6C9-761A013F85C1@holtmann.org>
-References: <1422304934-9239-1-git-send-email-Larry.Finger@lwfinger.net> <1422304934-9239-6-git-send-email-Larry.Finger@lwfinger.net> <87h9v8zkuh.fsf@kamboji.qca.qualcomm.com> <EC423C22-AEA0-4232-A452-7A131C41780A@holtmann.org> <54CBA0CE.8030800@lwfinger.net>
-Mime-Version: 1.0 (Mac OS X Mail 8.1 \(1993\))
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 8BIT
-Cc: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Troy Tan <troy_tan-kXabqFNEczNtrwSWzY7KCg@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <54CBA0CE.8030800-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Willem de Bruijn <willemb@google.com>
+Subject: [PATCH net-next v3 0/3] net-timestamp: blinding
+Date: Fri, 30 Jan 2015 13:29:30 -0500
+Message-ID: <1422642573-6126-1-git-send-email-willemb@google.com>
+Cc: davem@davemloft.net, richardcochran@gmail.com, luto@amacapital.net,
+	Willem de Bruijn <willemb@google.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yk0-f172.google.com ([209.85.160.172]:57247 "EHLO
+	mail-yk0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751798AbbA3S3v (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jan 2015 13:29:51 -0500
+Received: by mail-yk0-f172.google.com with SMTP id 9so17816055ykp.3
+        for <netdev@vger.kernel.org>; Fri, 30 Jan 2015 10:29:50 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Larry,
+From: Willem de Bruijn <willemb@google.com>
 
->>> I'm adding bluetooth list to the discussion. Full patch is available
->>> here:
->>> 
->>> https://patchwork.kernel.org/patch/5712591/
+Changes
+  (v2 -> v3)
+  - rebase only: v2 did not make it to patchwork / netdev
+  (v1 -> v2)
+  - fix capability check in patch 2
+      this could be moved into net/core/sock.c as sk_capable_nouser()
+  (rfc -> v1)
+  - dropped patch 4: timestamp batching
+      due to complexity, as discussed
+  - dropped patch 5: default mode
+      because it does not really cover all use cases, as discussed
+  - added documentation
+  - minor fix, see patch 2
 
-<snip>
 
->>> So the wireless driver communicates with the bluetooth driver (which is
->>> not in upstream) via a localhost UDP connection?
->> 
->> I think the first order of business should be to get the Bluetooth driver upstream. Until that has happened this is all kinda pointless discussion.
-> 
-> I agree with this; however, the last time I tried to submit a BT driver for Realtek, I was told that this driver should use some (as yet included) feature. I have watched the driver development, and if that feature was ever included, it was in a form that I did not recognize. I'm sorry that this is vague, but this happened a long time ago.
+Two issues were raised during recent timestamping discussions:
+1. looping full packets on the error queue exposes packet headers
+2. TCP timestamping with retransmissions generates many timestamps
 
-if the Bluetooth side is running over USB, then it should be driven from the existing btusb.ko module with a vendor specific ->setup() callback. However nothing materialized that I could merge it.
+This RFC patchset is an attempt at addressing both without breaking
+legacy behavior.
 
->>> I know there's a general need for something similar like this, but it
->>> needs to properly discussed and designed.
->> 
->> This is just insane. Clear NAK.
->> 
->> Two kernel modules will not use UDP ports over the loopback interface to communicate with each other.
-> 
-> I will work on combining the latest BT drivers from Realtek with btusb to see if I can achieve a patch that will both work with the Realtek hardware, and get approval from the reviewers.
-> 
-> What would be an approved method of communicating between two kernel modules? Is there some example in the kernel that I could study?
+Patch 1 reintroduces the "no payload" timestamp option, which loops
+timestamps onto an empty skb. This reduces the pressure on SO_RCVBUF
+from looping many timestamps. It does not reduce the number of recv()
+calls needed to process them. The timestamp cookie mechanism developed
+in http://patchwork.ozlabs.org/patch/427213/ did, but this is
+considerably simpler.
 
-We need a btcoex subsystem that both WiFi and Bluetooth can register to and communicate with.
+Patch 2 then gives administrators the power to block all timestamp
+requests that contain data by unprivileged users. I proposed this
+earlier as a backward compatible workaround in the discussion of
 
-Regards
+  net-timestamp: pull headers for SOCK_STREAM
+  http://patchwork.ozlabs.org/patch/414810/
 
-Marcel
+Patch 3 only updates the txtimestamp example to test this option.
+Verified that with option '-n', length is zero in all cases and
+option '-I' (PKTINFO) stops working.
+
+
+Willem de Bruijn (3):
+  net-timestamp: no-payload option
+  net-timestamp: no-payload only sysctl
+  net-timestamp: no-payload option in txtimestamp test
+
+ Documentation/networking/timestamping.txt          | 21 ++++++++++++
+ .../networking/timestamping/txtimestamp.c          | 28 ++++++++++++---
+ Documentation/sysctl/net.txt                       |  8 +++++
+ include/net/sock.h                                 |  1 +
+ include/uapi/linux/net_tstamp.h                    |  3 +-
+ net/core/skbuff.c                                  | 40 ++++++++++++++++++----
+ net/core/sock.c                                    |  3 ++
+ net/core/sysctl_net_core.c                         |  9 +++++
+ net/ipv4/ip_sockglue.c                             |  7 ++--
+ net/ipv6/datagram.c                                |  5 ++-
+ net/rxrpc/ar-error.c                               |  5 +++
+ 11 files changed, 113 insertions(+), 17 deletions(-)
+
+-- 
+2.2.0.rc0.207.ga3a616c
