@@ -1,298 +1,198 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 1/2] rhashtable: Introduce rhashtable_walk_*
-Date: Sat, 31 Jan 2015 14:14:58 +1100
-Message-ID: <E1YHOWQ-00071K-43@gondolin.me.apana.org.au>
+Subject: [PATCH 2/2] netlink: Use rhashtable walk iterator
+Date: Sat, 31 Jan 2015 14:14:59 +1100
+Message-ID: <E1YHOWR-00071f-Dc@gondolin.me.apana.org.au>
 References: <20150131031356.GA26781@gondor.apana.org.au>
 To: David Miller <davem@davemloft.net>, tgraf@suug.ch,
 	ying.xue@windriver.com, kaber@trash.net,
 	paulmck@linux.vnet.ibm.com, netdev@vger.kernel.org,
 	netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:54288 "EHLO
+Received: from helcar.apana.org.au ([209.40.204.226]:33995 "EHLO
 	helcar.apana.org.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753422AbbAaDPQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jan 2015 22:15:16 -0500
+	with ESMTP id S1758927AbbAaDPU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jan 2015 22:15:20 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Some existing rhashtable users get too intimate with it by walking
-the buckets directly.  This prevents us from easily changing the
-internals of rhashtable.
+This patch gets rid of the manual rhashtable walk in netlink
+which touches rhashtable internals that should not be exposed.
+It does so by using the rhashtable iterator primitives.
 
-This patch adds the helpers rhashtable_walk_init/exit/start/next/stop
-which will replace these custom walkers.
-
-They are meant to be usable for both procfs seq_file walks as well
-as walking by a netlink dump.  The iterator structure should fit
-inside a netlink dump cb structure, with at least one element to
-spare.
-  
+In fact the existing code was very buggy.  Some sockets weren't
+shown at all while others were shown more than once.
+ 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 ---
 
- include/linux/rhashtable.h |   35 +++++++++
- lib/rhashtable.c           |  162 +++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 197 insertions(+)
+ net/netlink/af_netlink.c |  130 +++++++++++++++++++++++------------------------
+ 1 file changed, 64 insertions(+), 66 deletions(-)
 
-diff --git a/include/linux/rhashtable.h b/include/linux/rhashtable.h
-index 6d7e840..a0e5b08 100644
---- a/include/linux/rhashtable.h
-+++ b/include/linux/rhashtable.h
-@@ -18,6 +18,7 @@
- #ifndef _LINUX_RHASHTABLE_H
- #define _LINUX_RHASHTABLE_H
- 
-+#include <linux/compiler.h>
- #include <linux/list_nulls.h>
- #include <linux/workqueue.h>
- #include <linux/mutex.h>
-@@ -110,6 +111,7 @@ struct rhashtable_params {
-  * @p: Configuration parameters
-  * @run_work: Deferred worker to expand/shrink asynchronously
-  * @mutex: Mutex to protect current/future table swapping
-+ * @walkers: List of active walkers
-  * @being_destroyed: True if table is set up for destruction
-  */
- struct rhashtable {
-@@ -120,9 +122,36 @@ struct rhashtable {
- 	struct rhashtable_params	p;
- 	struct work_struct		run_work;
- 	struct mutex                    mutex;
-+	struct list_head		walkers;
- 	bool                            being_destroyed;
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index d77b346..2c7a95a 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -2884,99 +2884,97 @@ EXPORT_SYMBOL(nlmsg_notify);
+ #ifdef CONFIG_PROC_FS
+ struct nl_seq_iter {
+ 	struct seq_net_private p;
++	struct rhashtable_iter hti;
+ 	int link;
+-	int hash_idx;
  };
  
-+/**
-+ * struct rhashtable_walker - Hash table walker
-+ * @list: List entry on list of walkers
-+ * @resize: Resize event occured
-+ */
-+struct rhashtable_walker {
-+	struct list_head list;
-+	bool resize;
-+};
-+
-+/**
-+ * struct rhashtable_iter - Hash table iterator, fits into netlink cb
-+ * @ht: Table to iterate through
-+ * @p: Current pointer
-+ * @walker: Associated rhashtable walker
-+ * @slot: Current slot
-+ * @skip: Number of entries to skip in slot
-+ */
-+struct rhashtable_iter {
-+	struct rhashtable *ht;
-+	struct rhash_head *p;
-+	struct rhashtable_walker *walker;
-+	unsigned int slot;
-+	unsigned int skip;
-+};
-+
- static inline unsigned long rht_marker(const struct rhashtable *ht, u32 hash)
+-static struct sock *netlink_seq_socket_idx(struct seq_file *seq, loff_t pos)
++static int netlink_walk_start(struct nl_seq_iter *iter)
  {
- 	return NULLS_MARKER(ht->p.nulls_base + hash);
-@@ -178,6 +207,12 @@ bool rhashtable_lookup_compare_insert(struct rhashtable *ht,
- 				      bool (*compare)(void *, void *),
- 				      void *arg);
+-	struct nl_seq_iter *iter = seq->private;
+-	int i, j;
+-	struct netlink_sock *nlk;
+-	struct sock *s;
+-	loff_t off = 0;
+-
+-	for (i = 0; i < MAX_LINKS; i++) {
+-		struct rhashtable *ht = &nl_table[i].hash;
+-		const struct bucket_table *tbl = rht_dereference_rcu(ht->tbl, ht);
+-
+-		for (j = 0; j < tbl->size; j++) {
+-			struct rhash_head *node;
+-
+-			rht_for_each_entry_rcu(nlk, node, tbl, j, node) {
+-				s = (struct sock *)nlk;
++	int err;
  
-+int rhashtable_walk_init(struct rhashtable *ht, struct rhashtable_iter *iter);
-+void rhashtable_walk_exit(struct rhashtable_iter *iter);
-+int rhashtable_walk_start(struct rhashtable_iter *iter) __acquires(RCU);
-+void *rhashtable_walk_next(struct rhashtable_iter *iter);
-+void rhashtable_walk_stop(struct rhashtable_iter *iter) __releases(RCU);
+-				if (sock_net(s) != seq_file_net(seq))
+-					continue;
+-				if (off == pos) {
+-					iter->link = i;
+-					iter->hash_idx = j;
+-					return s;
+-				}
+-				++off;
+-			}
+-		}
++	err = rhashtable_walk_init(&nl_table[iter->link].hash, &iter->hti);
++	if (err) {
++		iter->link = MAX_LINKS;
++		return err;
+ 	}
+-	return NULL;
 +
- void rhashtable_destroy(struct rhashtable *ht);
- 
- #define rht_dereference(p, ht) \
-diff --git a/lib/rhashtable.c b/lib/rhashtable.c
-index 71c6aa1..69a4eb0 100644
---- a/lib/rhashtable.c
-+++ b/lib/rhashtable.c
-@@ -485,11 +485,15 @@ static void rht_deferred_worker(struct work_struct *work)
- {
- 	struct rhashtable *ht;
- 	struct bucket_table *tbl;
-+	struct rhashtable_walker *walker;
- 
- 	ht = container_of(work, struct rhashtable, run_work);
- 	mutex_lock(&ht->mutex);
- 	tbl = rht_dereference(ht->tbl, ht);
- 
-+	list_for_each_entry(walker, &ht->walkers, list)
-+		walker->resize = true;
-+
- 	if (ht->p.grow_decision && ht->p.grow_decision(ht, tbl->size))
- 		rhashtable_expand(ht);
- 	else if (ht->p.shrink_decision && ht->p.shrink_decision(ht, tbl->size))
-@@ -813,6 +817,163 @@ exit:
++	err = rhashtable_walk_start(&iter->hti);
++	return err == -EAGAIN ? 0 : err;
  }
- EXPORT_SYMBOL_GPL(rhashtable_lookup_compare_insert);
  
-+/**
-+ * rhashtable_walk_init - Initialise an iterator
-+ * @ht:		Table to walk over
-+ * @iter:	Hash table Iterator
-+ *
-+ * This function prepares a hash table walk.
-+ *
-+ * Note that if you restart a walk after rhashtable_walk_stop you
-+ * may see the same object twice.  Also, you may miss objects if
-+ * there are removals in between rhashtable_walk_stop and the next
-+ * call to rhashtable_walk_start.
-+ *
-+ * For a completely stable walk you should construct your own data
-+ * structure outside the hash table.
-+ *
-+ * This function may sleep so you must not call it from interrupt
-+ * context or with spin locks held.
-+ *
-+ * You must call rhashtable_walk_exit if this function returns
-+ * successfully.
-+ */
-+int rhashtable_walk_init(struct rhashtable *ht, struct rhashtable_iter *iter)
-+{
-+	iter->ht = ht;
-+	iter->p = NULL;
-+	iter->slot = 0;
-+	iter->skip = 0;
-+
-+	iter->walker = kmalloc(sizeof(*iter->walker), GFP_KERNEL);
-+	if (!iter->walker)
-+		return -ENOMEM;
-+
-+	mutex_lock(&ht->mutex);
-+	list_add(&iter->walker->list, &ht->walkers);
-+	mutex_unlock(&ht->mutex);
-+
-+	return 0;
-+}
-+EXPORT_SYMBOL_GPL(rhashtable_walk_init);
-+
-+/**
-+ * rhashtable_walk_exit - Free an iterator
-+ * @iter:	Hash table Iterator
-+ *
-+ * This function frees resources allocated by rhashtable_walk_init.
-+ */
-+void rhashtable_walk_exit(struct rhashtable_iter *iter)
-+{
-+	mutex_lock(&iter->ht->mutex);
-+	list_del(&iter->walker->list);
-+	mutex_unlock(&iter->ht->mutex);
-+	kfree(iter->walker);
-+}
-+EXPORT_SYMBOL_GPL(rhashtable_walk_exit);
-+
-+/**
-+ * rhashtable_walk_start - Start a hash table walk
-+ * @iter:	Hash table iterator
-+ *
-+ * Start a hash table walk.  Note that we take the RCU lock in all
-+ * cases including when we return an error.  So you must always call
-+ * rhashtable_walk_stop to clean up.
-+ *
-+ * Returns zero if successful.
-+ *
-+ * Returns -EAGAIN if resize event occured.  Note that the iterator
-+ * will rewind back to the beginning and you may use it immediately
-+ * by calling rhashtable_walk_next.
-+ */
-+int rhashtable_walk_start(struct rhashtable_iter *iter)
-+{
-+	rcu_read_lock();
-+
-+	if (iter->walker->resize) {
-+		iter->slot = 0;
-+		iter->skip = 0;
-+		iter->walker->resize = false;
-+		return -EAGAIN;
-+	}
-+
-+	return 0;
-+}
-+
-+/**
-+ * rhashtable_walk_next - Return the next object and advance the iterator
-+ * @iter:	Hash table iterator
-+ *
-+ * Note that you must call rhashtable_walk_stop when you are finished
-+ * with the walk.
-+ *
-+ * Returns the next object or NULL when the end of the table is reached.
-+ *
-+ * Returns -EAGAIN if resize event occured.  Note that the iterator
-+ * will rewind back to the beginning and you may continue to use it.
-+ */
-+void *rhashtable_walk_next(struct rhashtable_iter *iter)
-+{
-+	const struct bucket_table *tbl;
-+	struct rhashtable *ht = iter->ht;
-+	struct rhash_head *p = iter->p;
-+	void *obj = NULL;
-+
-+	tbl = rht_dereference_rcu(ht->tbl, ht);
-+
-+	if (p) {
-+		p = rht_dereference_bucket_rcu(p->next, tbl, iter->slot);
-+		goto next;
-+	}
-+
-+	for (; iter->slot < tbl->size; iter->slot++) {
-+		int skip = iter->skip;
-+
-+		rht_for_each_rcu(p, tbl, iter->slot) {
-+			if (!skip)
+-static void *netlink_seq_start(struct seq_file *seq, loff_t *pos)
+-	__acquires(RCU)
++static void netlink_walk_stop(struct nl_seq_iter *iter)
+ {
+-	rcu_read_lock();
+-	return *pos ? netlink_seq_socket_idx(seq, *pos - 1) : SEQ_START_TOKEN;
++	rhashtable_walk_stop(&iter->hti);
++	rhashtable_walk_exit(&iter->hti);
+ }
+ 
+-static void *netlink_seq_next(struct seq_file *seq, void *v, loff_t *pos)
++static void *__netlink_seq_next(struct seq_file *seq)
+ {
+-	struct rhashtable *ht;
+-	const struct bucket_table *tbl;
+-	struct rhash_head *node;
++	struct nl_seq_iter *iter = seq->private;
+ 	struct netlink_sock *nlk;
+-	struct nl_seq_iter *iter;
+-	struct net *net;
+-	int i, j;
+ 
+-	++*pos;
++	do {
++		for (;;) {
++			int err;
+ 
+-	if (v == SEQ_START_TOKEN)
+-		return netlink_seq_socket_idx(seq, 0);
++			nlk = rhashtable_walk_next(&iter->hti);
+ 
+-	net = seq_file_net(seq);
+-	iter = seq->private;
+-	nlk = v;
++			if (IS_ERR(nlk)) {
++				if (PTR_ERR(nlk) == -EAGAIN)
++					continue;
+ 
+-	i = iter->link;
+-	ht = &nl_table[i].hash;
+-	tbl = rht_dereference_rcu(ht->tbl, ht);
+-	rht_for_each_entry_rcu_continue(nlk, node, nlk->node.next, tbl, iter->hash_idx, node)
+-		if (net_eq(sock_net((struct sock *)nlk), net))
+-			return nlk;
++				return nlk;
++			}
+ 
+-	j = iter->hash_idx + 1;
++			if (nlk)
 +				break;
-+			skip--;
-+		}
+ 
+-	do {
++			netlink_walk_stop(iter);
++			if (++iter->link >= MAX_LINKS)
++				return NULL;
+ 
+-		for (; j < tbl->size; j++) {
+-			rht_for_each_entry_rcu(nlk, node, tbl, j, node) {
+-				if (net_eq(sock_net((struct sock *)nlk), net)) {
+-					iter->link = i;
+-					iter->hash_idx = j;
+-					return nlk;
+-				}
+-			}
++			err = netlink_walk_start(iter);
++			if (err)
++				return ERR_PTR(err);
+ 		}
++	} while (sock_net(&nlk->sk) != seq_file_net(seq));
+ 
+-		j = 0;
+-	} while (++i < MAX_LINKS);
++	return nlk;
++}
+ 
+-	return NULL;
++static void *netlink_seq_start(struct seq_file *seq, loff_t *posp)
++{
++	struct nl_seq_iter *iter = seq->private;
++	void *obj = SEQ_START_TOKEN;
++	loff_t pos;
++	int err;
 +
-+next:
-+		if (!rht_is_a_nulls(p)) {
-+			iter->skip++;
-+			iter->p = p;
-+			obj = rht_obj(ht, p);
-+			goto out;
-+		}
++	iter->link = 0;
 +
-+		iter->skip = 0;
-+	}
++	err = netlink_walk_start(iter);
++	if (err)
++		return ERR_PTR(err);
 +
-+	iter->p = NULL;
-+
-+out:
-+	if (iter->walker->resize) {
-+		iter->p = NULL;
-+		iter->slot = 0;
-+		iter->skip = 0;
-+		iter->walker->resize = false;
-+		return ERR_PTR(-EAGAIN);
-+	}
++	for (pos = *posp; pos && obj && !IS_ERR(obj); pos--)
++		obj = __netlink_seq_next(seq);
 +
 +	return obj;
 +}
-+EXPORT_SYMBOL_GPL(rhashtable_walk_next);
 +
-+/**
-+ * rhashtable_walk_stop - Finish a hash table walk
-+ * @iter:	Hash table iterator
-+ *
-+ * Finish a hash table walk.
-+ */
-+void rhashtable_walk_stop(struct rhashtable_iter *iter)
++static void *netlink_seq_next(struct seq_file *seq, void *v, loff_t *pos)
 +{
-+	rcu_read_unlock();
-+	iter->p = NULL;
-+}
-+EXPORT_SYMBOL_GPL(rhashtable_walk_stop);
-+
- static size_t rounded_hashtable_size(struct rhashtable_params *params)
- {
- 	return max(roundup_pow_of_two(params->nelem_hint * 4 / 3),
-@@ -885,6 +1046,7 @@ int rhashtable_init(struct rhashtable *ht, struct rhashtable_params *params)
- 	memset(ht, 0, sizeof(*ht));
- 	mutex_init(&ht->mutex);
- 	memcpy(&ht->p, params, sizeof(*params));
-+	INIT_LIST_HEAD(&ht->walkers);
++	++*pos;
++	return __netlink_seq_next(seq);
+ }
  
- 	if (params->locks_mul)
- 		ht->p.locks_mul = roundup_pow_of_two(params->locks_mul);
+ static void netlink_seq_stop(struct seq_file *seq, void *v)
+-	__releases(RCU)
+ {
+-	rcu_read_unlock();
++	struct nl_seq_iter *iter = seq->private;
++
++	if (iter->link >= MAX_LINKS)
++		return;
++
++	netlink_walk_stop(iter);
+ }
+ 
+ 
