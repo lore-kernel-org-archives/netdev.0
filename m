@@ -1,31 +1,49 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Is sch_teql still useful?
-Date: Fri, 30 Jan 2015 20:23:32 -0800
-Message-ID: <CAHA+R7NDfn705P0OrgpMfx7nbsNcHh-cXrPVQezG9WtH1Ya3Yg@mail.gmail.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 7/9] netfilter: nft_hash: add support for timeouts
+Date: Sat, 31 Jan 2015 15:29:20 +1100
+Message-ID: <20150131042920.GA27480@gondor.apana.org.au>
+References: <1422603994-5836-1-git-send-email-kaber@trash.net>
+ <1422603994-5836-8-git-send-email-kaber@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Stephen Hemminger <stephen@networkplumber.org>
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: tgraf@suug.ch, davem@davemloft.net, David.Laight@ACULAB.COM,
+	ying.xue@windriver.com, paulmck@linux.vnet.ibm.com,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f174.google.com ([209.85.213.174]:34034 "EHLO
-	mail-ig0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753388AbbAaEXd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jan 2015 23:23:33 -0500
-Received: by mail-ig0-f174.google.com with SMTP id b16so7901105igk.1
-        for <netdev@vger.kernel.org>; Fri, 30 Jan 2015 20:23:33 -0800 (PST)
+Received: from helcar.apana.org.au ([209.40.204.226]:45135 "EHLO
+	helcar.apana.org.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752430AbbAaE34 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jan 2015 23:29:56 -0500
+Content-Disposition: inline
+In-Reply-To: <1422603994-5836-8-git-send-email-kaber@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Fri, Jan 30, 2015 at 07:46:32AM +0000, Patrick McHardy wrote:
+>
+> +	mutex_lock(&priv->ht.mutex);
+> +	tbl = rht_dereference(priv->ht.tbl, &priv->ht);
+> +	for (i = 0; i < tbl->size; i++) {
+> +		rht_for_each_entry_safe(he, pos, next, tbl, i, node) {
+> +			if (!nft_set_ext_exists(&he->ext, NFT_SET_EXT_TIMEOUT))
+> +				continue;
+> +			timeout = *nft_set_ext_timeout(&he->ext);
+> +			if (time_before(jiffies, timeout))
+> +				continue;
+> +
+> +			rhashtable_remove(&priv->ht, &he->node);
+> +			nft_hash_elem_destroy(set, he);
+> +		}
+> +	}
+> +	mutex_unlock(&priv->ht.mutex);
 
+What if somebody is currently walking over the table? Shouldn't
+you do an RCU free here instead of immediately destroying the
+element?
 
-Since we have bonding alb, is it still needed to have sch_teql since
-they do the same thing, load balancing over multiple interfaces? Also
-sch_teql mixes netdevice with qdisc, which somewhat breaks the
-abstraction?
-
-I don't dig the history so I could easily miss something here.
-
-Thanks!
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
