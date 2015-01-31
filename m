@@ -1,38 +1,105 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 2/6] rhashtable: Use a single bucket lock for sibling
- buckets
-Date: Sat, 31 Jan 2015 20:38:12 +1100
-Message-ID: <20150131093812.GA29240@gondor.apana.org.au>
-References: <14d537500868b4ff0396168cf9d5db95d327c128.1422576760.git.tgraf@suug.ch>
- <20150131043436.GA27564@gondor.apana.org.au>
- <20150131084127.GA13841@casper.infradead.org>
+Subject: rhashtable: Move hash_rnd into bucket_table
+Date: Sat, 31 Jan 2015 21:21:50 +1100
+Message-ID: <20150131102150.GA29498@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org, ying.xue@windriver.com
-To: Thomas Graf <tgraf@suug.ch>
+To: Thomas Graf <tgraf@suug.ch>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:40531 "EHLO
+Received: from helcar.apana.org.au ([209.40.204.226]:39627 "EHLO
 	helcar.apana.org.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751783AbbAaJiV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 31 Jan 2015 04:38:21 -0500
+	with ESMTP id S1751715AbbAaKVz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 31 Jan 2015 05:21:55 -0500
 Content-Disposition: inline
-In-Reply-To: <20150131084127.GA13841@casper.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jan 31, 2015 at 08:41:27AM +0000, Thomas Graf wrote:
-> On 01/31/15 at 03:34pm, Herbert Xu wrote:
-> > Thomas, could you please hold off on these changes? They totally
-> > conflict with my rehash work, which is going to render these changes
-> > moot anyway since it'll completely change how expansion/shrinking
-> > works.
-> 
-> Can you share that work?
+Currently hash_rnd is a parameter that users can set.  However,
+no existing users set this parameter.  It is also something that
+people are unlikely to want to set directly since it's just a
+random number.
+    
+In preparation for allowing the reseeding/rehashing of rhashtable,
+this patch moves hash_rnd into bucket_table so that it's now an
+internal state rather than a parameter.
+    
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-I will post it when it's ready.  But if you keep moving the goal
-posts then I'll never get there.
-
-Thanks,
+diff --git a/include/linux/rhashtable.h b/include/linux/rhashtable.h
+index a2562ed..6d7e840 100644
+--- a/include/linux/rhashtable.h
++++ b/include/linux/rhashtable.h
+@@ -55,6 +55,7 @@ struct rhash_head {
+ struct bucket_table {
+ 	size_t				size;
+ 	unsigned int			locks_mask;
++	u32				hash_rnd;
+ 	spinlock_t			*locks;
+ 	struct rhash_head __rcu		*buckets[];
+ };
+@@ -70,7 +71,6 @@ struct rhashtable;
+  * @key_len: Length of key
+  * @key_offset: Offset of key in struct to be hashed
+  * @head_offset: Offset of rhash_head in struct to be hashed
+- * @hash_rnd: Seed to use while hashing
+  * @max_shift: Maximum number of shifts while expanding
+  * @min_shift: Minimum number of shifts while shrinking
+  * @nulls_base: Base value to generate nulls marker
+@@ -89,7 +89,6 @@ struct rhashtable_params {
+ 	size_t			key_len;
+ 	size_t			key_offset;
+ 	size_t			head_offset;
+-	u32			hash_rnd;
+ 	size_t			max_shift;
+ 	size_t			min_shift;
+ 	u32			nulls_base;
+diff --git a/lib/rhashtable.c b/lib/rhashtable.c
+index 84a78e3..71c6aa1 100644
+--- a/lib/rhashtable.c
++++ b/lib/rhashtable.c
+@@ -81,13 +81,14 @@ static u32 rht_bucket_index(const struct bucket_table *tbl, u32 hash)
+ 
+ static u32 obj_raw_hashfn(const struct rhashtable *ht, const void *ptr)
+ {
++	struct bucket_table *tbl = rht_dereference_rcu(ht->tbl, ht);
+ 	u32 hash;
+ 
+ 	if (unlikely(!ht->p.key_len))
+-		hash = ht->p.obj_hashfn(ptr, ht->p.hash_rnd);
++		hash = ht->p.obj_hashfn(ptr, tbl->hash_rnd);
+ 	else
+ 		hash = ht->p.hashfn(ptr + ht->p.key_offset, ht->p.key_len,
+-				    ht->p.hash_rnd);
++				    tbl->hash_rnd);
+ 
+ 	return hash >> HASH_RESERVED_SPACE;
+ }
+@@ -97,7 +98,7 @@ static u32 key_hashfn(struct rhashtable *ht, const void *key, u32 len)
+ 	struct bucket_table *tbl = rht_dereference_rcu(ht->tbl, ht);
+ 	u32 hash;
+ 
+-	hash = ht->p.hashfn(key, len, ht->p.hash_rnd);
++	hash = ht->p.hashfn(key, len, tbl->hash_rnd);
+ 	hash >>= HASH_RESERVED_SPACE;
+ 
+ 	return rht_bucket_index(tbl, hash);
+@@ -894,14 +895,13 @@ int rhashtable_init(struct rhashtable *ht, struct rhashtable_params *params)
+ 	if (tbl == NULL)
+ 		return -ENOMEM;
+ 
++	get_random_bytes(&tbl->hash_rnd, sizeof(tbl->hash_rnd));
++
+ 	atomic_set(&ht->nelems, 0);
+ 	atomic_set(&ht->shift, ilog2(tbl->size));
+ 	RCU_INIT_POINTER(ht->tbl, tbl);
+ 	RCU_INIT_POINTER(ht->future_tbl, tbl);
+ 
+-	if (!ht->p.hash_rnd)
+-		get_random_bytes(&ht->p.hash_rnd, sizeof(ht->p.hash_rnd));
+-
+ 	if (ht->p.grow_decision || ht->p.shrink_decision)
+ 		INIT_WORK(&ht->run_work, rht_deferred_worker);
+ 
 -- 
 Email: Herbert Xu <herbert@gondor.apana.org.au>
 Home Page: http://gondor.apana.org.au/~herbert/
