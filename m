@@ -1,103 +1,117 @@
 From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: [PATCH 06/18] make the users of rxrpc_kernel_send_data() set kvec-backed msg_iter properly
-Date: Sat, 31 Jan 2015 03:56:32 +0000
-Message-ID: <1422676604-18533-6-git-send-email-viro@ZenIV.linux.org.uk>
+Subject: [PATCH 04/18] propagate msghdr all way down to __qp_memcpy_to_queue()
+Date: Sat, 31 Jan 2015 03:56:30 +0000
+Message-ID: <1422676604-18533-4-git-send-email-viro@ZenIV.linux.org.uk>
 References: <20150131035513.GK29656@ZenIV.linux.org.uk>
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeniv.linux.org.uk ([195.92.253.2]:54991 "EHLO
+Received: from zeniv.linux.org.uk ([195.92.253.2]:54987 "EHLO
 	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756578AbbAaD4q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jan 2015 22:56:46 -0500
+	with ESMTP id S1756507AbbAaD4p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jan 2015 22:56:45 -0500
 In-Reply-To: <20150131035513.GK29656@ZenIV.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Al Viro <viro@zeniv.linux.org.uk>
 
-... which makes the games with set_fs() in rxrpc_kernel_send_data() useless.
-
 Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
 ---
- fs/afs/rxrpc.c        | 14 +++++++-------
- net/rxrpc/ar-output.c |  3 ---
- 2 files changed, 7 insertions(+), 10 deletions(-)
+ drivers/misc/vmw_vmci/vmci_queue_pair.c | 16 ++++++++--------
+ include/linux/vmw_vmci_api.h            |  2 +-
+ net/vmw_vsock/vmci_transport.c          |  3 +--
+ 3 files changed, 10 insertions(+), 11 deletions(-)
 
-diff --git a/fs/afs/rxrpc.c b/fs/afs/rxrpc.c
-index 06e14bf..dbc732e 100644
---- a/fs/afs/rxrpc.c
-+++ b/fs/afs/rxrpc.c
-@@ -306,8 +306,8 @@ static int afs_send_pages(struct afs_call *call, struct msghdr *msg,
+diff --git a/drivers/misc/vmw_vmci/vmci_queue_pair.c b/drivers/misc/vmw_vmci/vmci_queue_pair.c
+index 7aaaf51..35f19a6 100644
+--- a/drivers/misc/vmw_vmci/vmci_queue_pair.c
++++ b/drivers/misc/vmw_vmci/vmci_queue_pair.c
+@@ -370,12 +370,12 @@ static int __qp_memcpy_to_queue(struct vmci_queue *queue,
+ 			to_copy = size - bytes_copied;
  
- 			_debug("- range %u-%u%s",
- 			       offset, to, msg->msg_flags ? " [more]" : "");
--			iov_iter_init(&msg->msg_iter, WRITE,
--				      (struct iovec *) iov, 1, to - offset);
-+			iov_iter_kvec(&msg->msg_iter, WRITE | ITER_KVEC,
-+				      iov, 1, to - offset);
+ 		if (is_iovec) {
+-			struct iovec *iov = (struct iovec *)src;
++			struct msghdr *msg = (struct msghdr *)src;
+ 			int err;
  
- 			/* have to change the state *before* sending the last
- 			 * packet as RxRPC might give us the reply before it
-@@ -384,7 +384,7 @@ int afs_make_call(struct in_addr *addr, struct afs_call *call, gfp_t gfp,
- 
- 	msg.msg_name		= NULL;
- 	msg.msg_namelen		= 0;
--	iov_iter_init(&msg.msg_iter, WRITE, (struct iovec *)iov, 1,
-+	iov_iter_kvec(&msg.msg_iter, WRITE | ITER_KVEC, iov, 1,
- 		      call->request_size);
- 	msg.msg_control		= NULL;
- 	msg.msg_controllen	= 0;
-@@ -770,7 +770,7 @@ static int afs_deliver_cm_op_id(struct afs_call *call, struct sk_buff *skb,
- void afs_send_empty_reply(struct afs_call *call)
+ 			/* The iovec will track bytes_copied internally. */
+-			err = memcpy_fromiovec((u8 *)va + page_offset,
+-					       iov, to_copy);
++			err = memcpy_from_msg((u8 *)va + page_offset,
++					      msg, to_copy);
+ 			if (err != 0) {
+ 				if (kernel_if->host)
+ 					kunmap(kernel_if->u.h.page[page_index]);
+@@ -580,7 +580,7 @@ static int qp_memcpy_from_queue(void *dest,
+  */
+ static int qp_memcpy_to_queue_iov(struct vmci_queue *queue,
+ 				  u64 queue_offset,
+-				  const void *src,
++				  const void *msg,
+ 				  size_t src_offset, size_t size)
  {
- 	struct msghdr msg;
--	struct iovec iov[1];
-+	struct kvec iov[1];
  
- 	_enter("");
+@@ -588,7 +588,7 @@ static int qp_memcpy_to_queue_iov(struct vmci_queue *queue,
+ 	 * We ignore src_offset because src is really a struct iovec * and will
+ 	 * maintain offset internally.
+ 	 */
+-	return __qp_memcpy_to_queue(queue, queue_offset, src, size, true);
++	return __qp_memcpy_to_queue(queue, queue_offset, msg, size, true);
+ }
  
-@@ -778,7 +778,7 @@ void afs_send_empty_reply(struct afs_call *call)
- 	iov[0].iov_len		= 0;
- 	msg.msg_name		= NULL;
- 	msg.msg_namelen		= 0;
--	iov_iter_init(&msg.msg_iter, WRITE, iov, 0, 0);	/* WTF? */
-+	iov_iter_kvec(&msg.msg_iter, WRITE | ITER_KVEC, iov, 0, 0);	/* WTF? */
- 	msg.msg_control		= NULL;
- 	msg.msg_controllen	= 0;
- 	msg.msg_flags		= 0;
-@@ -805,7 +805,7 @@ void afs_send_empty_reply(struct afs_call *call)
- void afs_send_simple_reply(struct afs_call *call, const void *buf, size_t len)
+ /*
+@@ -3223,13 +3223,13 @@ EXPORT_SYMBOL_GPL(vmci_qpair_peek);
+  * of bytes enqueued or < 0 on error.
+  */
+ ssize_t vmci_qpair_enquev(struct vmci_qp *qpair,
+-			  void *iov,
++			  struct msghdr *msg,
+ 			  size_t iov_size,
+ 			  int buf_type)
  {
- 	struct msghdr msg;
--	struct iovec iov[1];
-+	struct kvec iov[1];
- 	int n;
+ 	ssize_t result;
  
- 	_enter("");
-@@ -814,7 +814,7 @@ void afs_send_simple_reply(struct afs_call *call, const void *buf, size_t len)
- 	iov[0].iov_len		= len;
- 	msg.msg_name		= NULL;
- 	msg.msg_namelen		= 0;
--	iov_iter_init(&msg.msg_iter, WRITE, iov, 1, len);
-+	iov_iter_kvec(&msg.msg_iter, WRITE | ITER_KVEC, iov, 1, len);
- 	msg.msg_control		= NULL;
- 	msg.msg_controllen	= 0;
- 	msg.msg_flags		= 0;
-diff --git a/net/rxrpc/ar-output.c b/net/rxrpc/ar-output.c
-index 963a5b9..8331c95 100644
---- a/net/rxrpc/ar-output.c
-+++ b/net/rxrpc/ar-output.c
-@@ -232,10 +232,7 @@ int rxrpc_kernel_send_data(struct rxrpc_call *call, struct msghdr *msg,
- 		   call->state != RXRPC_CALL_SERVER_SEND_REPLY) {
- 		ret = -EPROTO; /* request phase complete for this client call */
- 	} else {
--		mm_segment_t oldfs = get_fs();
--		set_fs(KERNEL_DS);
- 		ret = rxrpc_send_data(NULL, call->socket, call, msg, len);
--		set_fs(oldfs);
- 	}
+-	if (!qpair || !iov)
++	if (!qpair)
+ 		return VMCI_ERROR_INVALID_ARGS;
  
- 	release_sock(&call->socket->sk);
+ 	qp_lock(qpair);
+@@ -3238,7 +3238,7 @@ ssize_t vmci_qpair_enquev(struct vmci_qp *qpair,
+ 		result = qp_enqueue_locked(qpair->produce_q,
+ 					   qpair->consume_q,
+ 					   qpair->produce_q_size,
+-					   iov, iov_size,
++					   msg, iov_size,
+ 					   qp_memcpy_to_queue_iov);
+ 
+ 		if (result == VMCI_ERROR_QUEUEPAIR_NOT_READY &&
+diff --git a/include/linux/vmw_vmci_api.h b/include/linux/vmw_vmci_api.h
+index 5691f75..63df3a2a 100644
+--- a/include/linux/vmw_vmci_api.h
++++ b/include/linux/vmw_vmci_api.h
+@@ -74,7 +74,7 @@ ssize_t vmci_qpair_dequeue(struct vmci_qp *qpair,
+ ssize_t vmci_qpair_peek(struct vmci_qp *qpair, void *buf, size_t buf_size,
+ 			int mode);
+ ssize_t vmci_qpair_enquev(struct vmci_qp *qpair,
+-			  void *iov, size_t iov_size, int mode);
++			  struct msghdr *msg, size_t iov_size, int mode);
+ ssize_t vmci_qpair_dequev(struct vmci_qp *qpair,
+ 			  struct msghdr *msg, size_t iov_size, int mode);
+ ssize_t vmci_qpair_peekv(struct vmci_qp *qpair, struct msghdr *msg, size_t iov_size,
+diff --git a/net/vmw_vsock/vmci_transport.c b/net/vmw_vsock/vmci_transport.c
+index 02d2e52..7f32550 100644
+--- a/net/vmw_vsock/vmci_transport.c
++++ b/net/vmw_vsock/vmci_transport.c
+@@ -1850,8 +1850,7 @@ static ssize_t vmci_transport_stream_enqueue(
+ 	struct msghdr *msg,
+ 	size_t len)
+ {
+-	/* XXX: stripping const */
+-	return vmci_qpair_enquev(vmci_trans(vsk)->qpair, (struct iovec *)msg->msg_iter.iov, len, 0);
++	return vmci_qpair_enquev(vmci_trans(vsk)->qpair, msg, len, 0);
+ }
+ 
+ static s64 vmci_transport_stream_has_data(struct vsock_sock *vsk)
 -- 
 2.1.4
