@@ -1,103 +1,71 @@
 From: Vladislav Yasevich <vyasevich@gmail.com>
-Subject: [PATCH net-next 5/6] udpv6: Add lockless sendmsg() support
-Date: Sat, 31 Jan 2015 10:40:17 -0500
-Message-ID: <1422718818-21093-6-git-send-email-vyasevic@redhat.com>
+Subject: [PATCH net-next 6/6] ipv6: Allow for partial checksums on non-ufo packets
+Date: Sat, 31 Jan 2015 10:40:18 -0500
+Message-ID: <1422718818-21093-7-git-send-email-vyasevic@redhat.com>
 References: <1422718818-21093-1-git-send-email-vyasevic@redhat.com>
 Cc: herbert@gondor.apana.org.au, hannes@stressinduktion.org,
 	Vladislav Yasevich <vyasevic@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f50.google.com ([209.85.192.50]:39465 "EHLO
-	mail-qg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752710AbbAaPlK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 31 Jan 2015 10:41:10 -0500
-Received: by mail-qg0-f50.google.com with SMTP id f51so42229350qge.9
-        for <netdev@vger.kernel.org>; Sat, 31 Jan 2015 07:41:09 -0800 (PST)
+Received: from mail-qa0-f52.google.com ([209.85.216.52]:47017 "EHLO
+	mail-qa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753978AbbAaPl1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 31 Jan 2015 10:41:27 -0500
+Received: by mail-qa0-f52.google.com with SMTP id x12so23881450qac.11
+        for <netdev@vger.kernel.org>; Sat, 31 Jan 2015 07:41:26 -0800 (PST)
 In-Reply-To: <1422718818-21093-1-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This commit adds the same functionaliy to IPv6 that
-commit 903ab86d195cca295379699299c5fc10beba31c7
-Author: Herbert Xu <herbert@gondor.apana.org.au>
-Date:   Tue Mar 1 02:36:48 2011 +0000
+Currntly, if we are not doing UFO on the packet, all UDP
+packets will start with CHECKSUM_NONE and thus perform full
+checksum computations in software even if device support
+IPv6 checksum offloading.
 
-    udp: Add lockless transmit path
-
-added to IPv4.
-
-UDP transmit path can now run without a socket lock,
-thus allowing multiple threads to send to a single socket
-more efficiently.
-This is only used when corking/MSG_MORE is not used.
+Let's start start with CHECKSUM_PARTIAL if the device
+supports it and we are sending only a single packet at
+or below mtu size.
 
 Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
 ---
- net/ipv6/udp.c | 24 ++++++++++++++++++++----
- 1 file changed, 20 insertions(+), 4 deletions(-)
+ net/ipv6/ip6_output.c | 11 ++++++++++-
+ 1 file changed, 10 insertions(+), 1 deletion(-)
 
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index 67a3d70..d048d46 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -1177,6 +1177,7 @@ do_udp_sendmsg:
- 	if (len > INT_MAX - sizeof(struct udphdr))
- 		return -EMSGSIZE;
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index b89d3c2..1a036f3 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -1227,6 +1227,7 @@ static int __ip6_append_data(struct sock *sk,
+ 	u32 tskey = 0;
+ 	struct rt6_info *rt = (struct rt6_info *)cork->dst;
+ 	struct ipv6_txoptions *opt = v6_cork->opt;
++	int csummode = CHECKSUM_NONE;
  
-+	getfrag  =  is_udplite ?  udplite_getfrag : ip_generic_getfrag;
- 	if (up->pending) {
- 		/*
- 		 * There are pending frames.
-@@ -1307,6 +1308,20 @@ do_udp_sendmsg:
- 		goto do_confirm;
- back_from_confirm:
- 
-+	/* Lockless fast path for the non-corking case */
-+	if (!corkreq) {
-+		struct sk_buff *skb;
-+
-+		skb = ip6_make_skb(sk, getfrag, msg, ulen,
-+				   sizeof(struct udphdr), hlimit, tclass, opt,
-+				   &fl6, (struct rt6_info *)dst,
-+				   msg->msg_flags, dontfrag);
-+		err = PTR_ERR(skb);
-+		if (!IS_ERR_OR_NULL(skb))
-+			err = udp_v6_send_skb(skb, &fl6);
-+		goto release_dst;
-+	}
-+
- 	lock_sock(sk);
- 	if (unlikely(up->pending)) {
- 		/* The socket is already corked while preparing it. */
-@@ -1324,7 +1339,6 @@ do_append_data:
- 	if (dontfrag < 0)
- 		dontfrag = np->dontfrag;
- 	up->len += ulen;
--	getfrag  =  is_udplite ?  udplite_getfrag : ip_generic_getfrag;
- 	err = ip6_append_data(sk, getfrag, msg, ulen,
- 		sizeof(struct udphdr), hlimit, tclass, opt, &fl6,
- 		(struct rt6_info *)dst,
-@@ -1336,6 +1350,11 @@ do_append_data:
- 	else if (unlikely(skb_queue_empty(&sk->sk_write_queue)))
- 		up->pending = 0;
- 
-+	if (err > 0)
-+		err = np->recverr ? net_xmit_errno(err) : 0;
-+	release_sock(sk);
-+
-+release_dst:
- 	if (dst) {
- 		if (connected) {
- 			ip6_dst_store(sk, dst,
-@@ -1352,9 +1371,6 @@ do_append_data:
- 		dst = NULL;
+ 	skb = skb_peek_tail(queue);
+ 	if (!skb) {
+@@ -1283,6 +1284,14 @@ emsgsize:
+ 			tskey = sk->sk_tskey++;
  	}
  
--	if (err > 0)
--		err = np->recverr ? net_xmit_errno(err) : 0;
--	release_sock(sk);
- out:
- 	dst_release(dst);
- 	fl6_sock_release(flowlabel);
++	/* If this is the first and only packet and device
++	 * supports checksum offloading, let's use it.
++	 */
++	if (!skb &&
++	    length + fragheaderlen < mtu &&
++	    rt->dst.dev->features & NETIF_F_V6_CSUM &&
++	    !exthdrlen)
++		csummode = CHECKSUM_PARTIAL;
+ 	/*
+ 	 * Let's try using as much space as possible.
+ 	 * Use MTU if total length of the message fits into the MTU.
+@@ -1395,7 +1404,7 @@ alloc_new_skb:
+ 			 *	Fill in the control structures
+ 			 */
+ 			skb->protocol = htons(ETH_P_IPV6);
+-			skb->ip_summed = CHECKSUM_NONE;
++			skb->ip_summed = csummode;
+ 			skb->csum = 0;
+ 			/* reserve for fragmentation and ipsec header */
+ 			skb_reserve(skb, hh_len + sizeof(struct frag_hdr) +
 -- 
 1.9.3
