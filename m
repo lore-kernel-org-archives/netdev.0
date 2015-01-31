@@ -1,39 +1,44 @@
-From: Ahmed Mohammed <Ev.kirchengemeinde.mahlow@t-online.de>
-Subject: Hello   B !!  !!
-Date: Sat, 31 Jan 2015 15:29:10 +0200 (EET)
-Message-ID: <20150131132910.6B0BD209FD@gtws09.netonehosting.com>
-Reply-To: ahmed.mohammed4b@yahoo.com
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+From: Vladislav Yasevich <vyasevich@gmail.com>
+Subject: [PATCH net-next 0/6] ipv6: Add lockless UDP send path
+Date: Sat, 31 Jan 2015 10:40:12 -0500
+Message-ID: <1422718818-21093-1-git-send-email-vyasevic@redhat.com>
+Cc: herbert@gondor.apana.org.au, hannes@stressinduktion.org,
+	Vladislav Yasevich <vyasevic@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gtws09.netonehosting.com ([193.192.100.145]:49207 "EHLO
-	gtws09.netonehosting.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751993AbbAaNgL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 31 Jan 2015 08:36:11 -0500
+Received: from mail-qc0-f178.google.com ([209.85.216.178]:45780 "EHLO
+	mail-qc0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752095AbbAaPk0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 31 Jan 2015 10:40:26 -0500
+Received: by mail-qc0-f178.google.com with SMTP id b13so24835501qcw.9
+        for <netdev@vger.kernel.org>; Sat, 31 Jan 2015 07:40:25 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=0D
-=46=FCr Ihre Aufmerksamkeit, ich werde mich sehr freuen, wenn Sie mir h=
-elfen, eine Summe (=80 69,500,000.00 Euro) auf Ihr pers=F6nliches Bankk=
-onto zu Gunsten der uns beide und zuk=FCnftige Investitionen in Ihrem L=
-and.=0D
-=0D
-Beachten Sie, bin ich mit der Bundesregierung Roh=F6l Unternehmen Einri=
-chtungen arbeiten hier, und wir sind nicht gestattet oder erlaubt, ausl=
-=E4ndisches Bankkonto haben, und wenn dieses Geld in meinem lokalen Kon=
-to zu sehen hier dann Regierung wird mich vermuten, daher brauche ich I=
-hre Hilfe, um die Empfangs riesige Mittel in meinem Namen, das werde ic=
-h f=FCr Ihre Unterst=FCtzung erhalten Sie 30%. Ich werde Ihnen mehr Det=
-ails, sobald ich von Ihnen h=F6re senden=0D
-=0D
-Bitte senden Sie mir dringend Ihren vollst=E4ndigen Namen und Ihre Adre=
-sse, Ihre Telefonnummern anruft, Ihre Handynummer und Ihre Bankverbindu=
-ng f=FCr die =DCbertragung des Sonderverm=F6gens f=FCr mein Unternehmen=
- Investitionen in Ihrem Land=0D
-=0D
-Gr=FC=DFe=0D
-=0D
-Ahmed Mohammed
+This series introduces a lockless UDPv6 send path similar to
+what Herbert Xu did for IPv4 a while ago.
+
+There are some difference from IPv4.  IPv6 caching for flow
+label is a bit different, as well as it requires another cork
+cork structure that holds the IPv6 ancillary data.
+
+Please take a look.
+
+Thanks
+-vlad
+
+Vladislav Yasevich (5):
+  ipv6: pull cork initialization into its own function.
+  ipv6: Append sending data to arbitrary queue
+  ipv6: introduce ipv6_make_skb
+  ipv6: Introduce udpv6_send_skb()
+  udpv6: Add lockless sendmsg() support
+
+ include/linux/ipv6.h  |  12 +-
+ include/net/ipv6.h    |  19 +++
+ net/ipv6/ip6_output.c | 349 +++++++++++++++++++++++++++++++++-----------------
+ net/ipv6/udp.c        |  91 ++++++++-----
+ 4 files changed, 317 insertions(+), 154 deletions(-)
+
+-- 
+1.9.3
