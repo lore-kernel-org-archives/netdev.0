@@ -1,165 +1,122 @@
 From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: [PATCH 05/18] switch rxrpc_send_data() to iov_iter primitives
-Date: Sat, 31 Jan 2015 03:56:31 +0000
-Message-ID: <1422676604-18533-5-git-send-email-viro@ZenIV.linux.org.uk>
+Subject: Re: [RFC][PATCHSET] more iov_iter conversion in net/*
+Date: Sat, 31 Jan 2015 04:03:47 +0000
+Message-ID: <20150131040347.GL29656@ZenIV.linux.org.uk>
 References: <20150131035513.GK29656@ZenIV.linux.org.uk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeniv.linux.org.uk ([195.92.253.2]:54989 "EHLO
+Received: from zeniv.linux.org.uk ([195.92.253.2]:55030 "EHLO
 	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756520AbbAaD4p (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jan 2015 22:56:45 -0500
+	with ESMTP id S1753388AbbAaEDs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jan 2015 23:03:48 -0500
+Content-Disposition: inline
 In-Reply-To: <20150131035513.GK29656@ZenIV.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Al Viro <viro@zeniv.linux.org.uk>
+On Sat, Jan 31, 2015 at 03:55:13AM +0000, Al Viro wrote:
+> 	->sendmsg() side of that business, now.  By the end of it, we
+> get all ->sendmsg() instances leaving iovec unchanged and ->msg_iter -
+> drained.
+> 
+> 1/18:	netlink: make the check for "send from tx_ring" deterministic
+> 	As discussed last year.
+> 2/18:	raw_send_hdrinc(): pass msghdr
+> 	Switch from passing msg->iov_iter.iov to passing msg itself
+> 3/18:	rawv6_send_hdrinc(): pass msghdr
+> 	Ditto
+> 4/18:	propagate msghdr all way down to __qp_memcpy_to_queue()
+> 	Ditto
+> 5/18:	switch rxrpc_send_data() to iov_iter primitives
+> 	Convert skb_add_data() to iov_iter; allows to get rid of the explicit
+> messing with iovec in its only caller - skb_add_data() will keep advancing
+> ->msg_iter for us, so there's no need to similate that manually.
+> 6/18:	make the users of rxrpc_kernel_send_data() set kvec-backed msg_iter
+> properly
+> 	Use iov_iter_kvec() there, get rid of set_fs() games - now that
+> rxrpc_send_data() uses iov_iter primitives, it'll handle ITER_KVEC just
+> fine.	
+> 7/18:	stash a pointer to msghdr in struct ping_fakehdr
+> 	... instead of storing its ->mgs_iter.iov there
+> 8/18:	convert tcp_sendmsg() to iov_iter primitives
+> 	There's one potentially subtle change here: in case of short
+> copy from userland, mainline tcp_send_syn_data() discards the skb it
+> has allocated and falls back to normal path, where we'll send as much
+> as possible after rereading the same data again.  This patch trims
+> SYN+data skb instead - that way we don't need to copy from the same
+> place twice.  I _think_ it's correct, but I'd really appreciate a review
+> of that one.
+> 9/18:	switch memcpy_fromiovec()/memcpy_fromiovecend() users to
+> copy_from_iter()
+> 	That takes care of the majority of ->sendmsg() instances.
+> 10/18:	tipc ->sendmsg() conversion
+> 	This one needs to copy the same data from user potentially more than
+> once.  Sadly, MTU changes can trigger that ;-/
+> 11/18:	bury net/core/iovec.c - nothing in there is used anymore
+> 12/18:	switch af_alg_make_sg() to iov_iter
+> 	With that, all ->sendmsg() instances are converted to iov_iter
+> primitives and are agnostic wrt the kind of iov_iter they are working with.
+> So's the last remaining ->recvmsg() instance that wasn't kind-agnostic yet.
+> All ->sendmsg() and ->recvmsg() advance ->msg_iter by the amount actually
+> copied and none of them modifies the underlying iovec, etc.
+> 13/18:	net/socket.c: fold do_sock_{read,write} into callers
+> 14/18:	switch sockets to ->read_iter/->write_iter
+> 15/18:	switch vhost get_indirect() to iov_iter, kill memcpy_fromiovec()
+> 16/18:	vhost: don't bother with copying iovec in handle_tx()
+> 17/18:	vhost: don't bother copying iovecs in handle_rx(), kill
+> memcpy_toiovecend()
+> 18/18:	vhost: vhost_scsi_handle_vq() should just use copy_from_user()
+> 	... and with that lib/iovec.c is gone - nothing in there has callers
+> left.
+> 
+> 	The pile after that one will be dealing with the kernel_sendmsg and
+> kernel_recvmg callers - at that point we can start reaping benefits of
+> consistent way ->msg_iter is handled.  Note that after these changes if
+> iov_iter_kvec() is used to initialize ->msg_iter, we don't need the games
+> with get_fs()/set_fs() anymore; just sock_sendmsg()/sock_recvmsg() will do,
+> so quite a few of those kernel_{send,recv}msg() callers will turn into
+> sock_{send,recv}msg() ones.
 
-... and switch skb_add_data() to iov_iter *, while we are at it -
-rxrpc_send_data() is its only caller.
+FWIW, for those who prefer to review stuff in git, this pile is in
+git://git.kernel.org/pub/scm/linux/kernel/git/viro/vfs.git for-davem, and
+diffstat is
 
-Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
----
- include/linux/skbuff.h | 11 +++++------
- net/rxrpc/ar-output.c  | 43 ++++++++++---------------------------------
- 2 files changed, 15 insertions(+), 39 deletions(-)
+ crypto/af_alg.c                         |  40 ++----
+ crypto/algif_hash.c                     |  45 +++---
+ crypto/algif_skcipher.c                 |  74 +++++-----
+ drivers/misc/vmw_vmci/vmci_queue_pair.c |  16 +--
+ drivers/vhost/net.c                     |  88 ++++--------
+ drivers/vhost/scsi.c                    |   2 +-
+ drivers/vhost/vhost.c                   |   6 +-
+ fs/afs/rxrpc.c                          |  14 +-
+ include/crypto/if_alg.h                 |   3 +-
+ include/linux/skbuff.h                  |  14 +-
+ include/linux/socket.h                  |   7 -
+ include/linux/uio.h                     |   6 -
+ include/linux/vmw_vmci_api.h            |   2 +-
+ include/net/ping.h                      |   2 +-
+ include/net/sock.h                      |  18 ++-
+ include/net/udplite.h                   |   3 +-
+ lib/Makefile                            |   2 +-
+ lib/iovec.c                             |  87 ------------
+ net/core/Makefile                       |   2 +-
+ net/core/iovec.c                        | 137 -------------------
+ net/ipv4/ip_output.c                    |   6 +-
+ net/ipv4/ping.c                         |  17 ++-
+ net/ipv4/raw.c                          |   7 +-
+ net/ipv4/tcp.c                          | 233 +++++++++++++++-----------------
+ net/ipv4/tcp_output.c                   |  11 +-
+ net/ipv6/ping.c                         |   3 +-
+ net/ipv6/raw.c                          |   7 +-
+ net/netlink/af_netlink.c                |   4 +
+ net/rxrpc/ar-output.c                   |  46 ++-----
+ net/socket.c                            |  76 ++++-------
+ net/tipc/msg.c                          |   7 +-
+ net/tipc/socket.c                       |  14 +-
+ net/vmw_vsock/vmci_transport.c          |   3 +-
+ 33 files changed, 316 insertions(+), 686 deletions(-)
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 85ab7d7..9a8bafe 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -2484,19 +2484,18 @@ static inline int skb_put_padto(struct sk_buff *skb, unsigned int len)
- }
- 
- static inline int skb_add_data(struct sk_buff *skb,
--			       char __user *from, int copy)
-+			       struct iov_iter *from, int copy)
- {
- 	const int off = skb->len;
- 
- 	if (skb->ip_summed == CHECKSUM_NONE) {
--		int err = 0;
--		__wsum csum = csum_and_copy_from_user(from, skb_put(skb, copy),
--							    copy, 0, &err);
--		if (!err) {
-+		__wsum csum = 0;
-+		if (csum_and_copy_from_iter(skb_put(skb, copy), copy,
-+					    &csum, from) == copy) {
- 			skb->csum = csum_block_add(skb->csum, csum, off);
- 			return 0;
- 		}
--	} else if (!copy_from_user(skb_put(skb, copy), from, copy))
-+	} else if (copy_from_iter(skb_put(skb, copy), copy, from) == copy)
- 		return 0;
- 
- 	__skb_trim(skb, off);
-diff --git a/net/rxrpc/ar-output.c b/net/rxrpc/ar-output.c
-index e1a9373..963a5b9 100644
---- a/net/rxrpc/ar-output.c
-+++ b/net/rxrpc/ar-output.c
-@@ -529,13 +529,11 @@ static int rxrpc_send_data(struct kiocb *iocb,
- 			   struct msghdr *msg, size_t len)
- {
- 	struct rxrpc_skb_priv *sp;
--	unsigned char __user *from;
- 	struct sk_buff *skb;
--	const struct iovec *iov;
- 	struct sock *sk = &rx->sk;
- 	long timeo;
- 	bool more;
--	int ret, ioc, segment, copied;
-+	int ret, copied;
- 
- 	timeo = sock_sndtimeo(sk, msg->msg_flags & MSG_DONTWAIT);
- 
-@@ -545,25 +543,17 @@ static int rxrpc_send_data(struct kiocb *iocb,
- 	if (sk->sk_err || (sk->sk_shutdown & SEND_SHUTDOWN))
- 		return -EPIPE;
- 
--	iov = msg->msg_iter.iov;
--	ioc = msg->msg_iter.nr_segs - 1;
--	from = iov->iov_base;
--	segment = iov->iov_len;
--	iov++;
- 	more = msg->msg_flags & MSG_MORE;
- 
- 	skb = call->tx_pending;
- 	call->tx_pending = NULL;
- 
- 	copied = 0;
--	do {
-+	if (len > iov_iter_count(&msg->msg_iter))
-+		len = iov_iter_count(&msg->msg_iter);
-+	while (len) {
- 		int copy;
- 
--		if (segment > len)
--			segment = len;
--
--		_debug("SEGMENT %d @%p", segment, from);
--
- 		if (!skb) {
- 			size_t size, chunk, max, space;
- 
-@@ -631,13 +621,13 @@ static int rxrpc_send_data(struct kiocb *iocb,
- 		/* append next segment of data to the current buffer */
- 		copy = skb_tailroom(skb);
- 		ASSERTCMP(copy, >, 0);
--		if (copy > segment)
--			copy = segment;
-+		if (copy > len)
-+			copy = len;
- 		if (copy > sp->remain)
- 			copy = sp->remain;
- 
- 		_debug("add");
--		ret = skb_add_data(skb, from, copy);
-+		ret = skb_add_data(skb, &msg->msg_iter, copy);
- 		_debug("added");
- 		if (ret < 0)
- 			goto efault;
-@@ -646,18 +636,6 @@ static int rxrpc_send_data(struct kiocb *iocb,
- 		copied += copy;
- 
- 		len -= copy;
--		segment -= copy;
--		from += copy;
--		while (segment == 0 && ioc > 0) {
--			from = iov->iov_base;
--			segment = iov->iov_len;
--			iov++;
--			ioc--;
--		}
--		if (len == 0) {
--			segment = 0;
--			ioc = 0;
--		}
- 
- 		/* check for the far side aborting the call or a network error
- 		 * occurring */
-@@ -665,7 +643,7 @@ static int rxrpc_send_data(struct kiocb *iocb,
- 			goto call_aborted;
- 
- 		/* add the packet to the send queue if it's now full */
--		if (sp->remain <= 0 || (segment == 0 && !more)) {
-+		if (sp->remain <= 0 || (!len && !more)) {
- 			struct rxrpc_connection *conn = call->conn;
- 			uint32_t seq;
- 			size_t pad;
-@@ -711,11 +689,10 @@ static int rxrpc_send_data(struct kiocb *iocb,
- 
- 			memcpy(skb->head, &sp->hdr,
- 			       sizeof(struct rxrpc_header));
--			rxrpc_queue_packet(call, skb, segment == 0 && !more);
-+			rxrpc_queue_packet(call, skb, !iov_iter_count(&msg->msg_iter) && !more);
- 			skb = NULL;
- 		}
--
--	} while (segment > 0);
-+	}
- 
- success:
- 	ret = copied;
--- 
-2.1.4
+Please, review.
