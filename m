@@ -1,69 +1,66 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next 5/6] udpv6: Add lockless sendmsg() support
-Date: Sat, 31 Jan 2015 23:49:56 +0300
-Message-ID: <54CD3FF4.1030007@cogentembedded.com>
-References: <1422718818-21093-1-git-send-email-vyasevic@redhat.com> <1422718818-21093-6-git-send-email-vyasevic@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, hannes@stressinduktion.org,
-	Vladislav Yasevich <vyasevic@redhat.com>
-To: Vladislav Yasevich <vyasevich@gmail.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f51.google.com ([209.85.215.51]:44837 "EHLO
-	mail-la0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753547AbbAaUt7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 31 Jan 2015 15:49:59 -0500
-Received: by mail-la0-f51.google.com with SMTP id ge10so30680993lab.10
-        for <netdev@vger.kernel.org>; Sat, 31 Jan 2015 12:49:57 -0800 (PST)
-In-Reply-To: <1422718818-21093-6-git-send-email-vyasevic@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [PATCH 0/4] Netfilter/IPVS fixes for net
+Date: Sat, 31 Jan 2015 21:55:07 +0100
+Message-ID: <1422737711-5169-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello.
+Hi David,
 
-On 1/31/2015 6:40 PM, Vladislav Yasevich wrote:
+The following patchset contains Netfilter/IPVS fixes for your net tree,
+they are:
 
-> This commit adds the same functionaliy to IPv6 that
-> commit 903ab86d195cca295379699299c5fc10beba31c7
-> Author: Herbert Xu <herbert@gondor.apana.org.au>
-> Date:   Tue Mar 1 02:36:48 2011 +0000
+1) Validate hooks for nf_tables NAT expressions, otherwise users can
+   crash the kernel when using them from the wrong hook. We already
+   got one user trapped on this when configuring masquerading.
 
->      udp: Add lockless transmit path
+2) Fix a BUG splat in nf_tables with CONFIG_DEBUG_PREEMPT=y. Reported
+   by Andreas Schultz.
 
-> added to IPv4.
+3) Avoid unnecessary reroute of traffic in the local input path
+   in IPVS that triggers a crash in in xfrm. Reported by Florian
+   Wiessner and fixes by Julian Anastasov.
 
-> UDP transmit path can now run without a socket lock,
-> thus allowing multiple threads to send to a single socket
-> more efficiently.
-> This is only used when corking/MSG_MORE is not used.
+4) Fix memory and module refcount leak from the error path of
+   nf_tables_newchain().
 
-> Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
-> ---
->   net/ipv6/udp.c | 24 ++++++++++++++++++++----
->   1 file changed, 20 insertions(+), 4 deletions(-)
+You can pull these changes from:
 
-> diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-> index 67a3d70..d048d46 100644
-> --- a/net/ipv6/udp.c
-> +++ b/net/ipv6/udp.c
-[...]
-> @@ -1307,6 +1308,20 @@ do_udp_sendmsg:
->   		goto do_confirm;
->   back_from_confirm:
->
-> +	/* Lockless fast path for the non-corking case */
-> +	if (!corkreq) {
-> +		struct sk_buff *skb;
-> +
-> +		skb = ip6_make_skb(sk, getfrag, msg, ulen,
-> +				   sizeof(struct udphdr), hlimit, tclass, opt,
-> +				   &fl6, (struct rt6_info *)dst,
-> +				   msg->msg_flags, dontfrag);
-> +		err = PTR_ERR(skb);
+  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git
 
-    You should use PTR_ERR_OR_ZERO() here, I think.
+Thanks!
 
-[...]
+----------------------------------------------------------------
 
-WBR, Sergei
+The following changes since commit 2061dcd6bff8b774b4fac8b0739b6be3f87bc9f2:
+
+  net: sctp: fix race for one-to-many sockets in sendmsg's auto associate (2015-01-17 23:52:20 -0500)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git master
+
+for you to fetch changes up to f5553c19ff9058136e7082c0b1f4268e705ea538:
+
+  netfilter: nf_tables: fix leaks in error path of nf_tables_newchain() (2015-01-30 18:42:08 +0100)
+
+----------------------------------------------------------------
+Julian Anastasov (1):
+      ipvs: rerouting to local clients is not needed anymore
+
+Pablo Neira Ayuso (3):
+      netfilter: nf_tables: validate hooks in NAT expressions
+      netfilter: nf_tables: disable preemption when restoring chain counters
+      netfilter: nf_tables: fix leaks in error path of nf_tables_newchain()
+
+ include/net/netfilter/nf_tables.h        |    2 ++
+ net/bridge/netfilter/nft_reject_bridge.c |   29 +++++-----------------
+ net/netfilter/ipvs/ip_vs_core.c          |   33 ++++++++++++++++--------
+ net/netfilter/nf_tables_api.c            |   28 +++++++++++++++++++--
+ net/netfilter/nft_masq.c                 |   26 ++++++++++++-------
+ net/netfilter/nft_nat.c                  |   40 ++++++++++++++++++++++--------
+ net/netfilter/nft_redir.c                |   25 +++++++++++++------
+ 7 files changed, 120 insertions(+), 63 deletions(-)
