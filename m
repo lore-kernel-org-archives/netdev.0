@@ -1,44 +1,62 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 7/9] netfilter: nft_hash: add support for timeouts
-Date: Sat, 31 Jan 2015 12:16:12 +0000
-Message-ID: <20150131121611.GA31500@acer.localdomain>
-References: <1422603994-5836-1-git-send-email-kaber@trash.net>
- <1422603994-5836-8-git-send-email-kaber@trash.net>
- <20150131042920.GA27480@gondor.apana.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: tgraf@suug.ch, davem@davemloft.net, David.Laight@ACULAB.COM,
-	ying.xue@windriver.com, paulmck@linux.vnet.ibm.com,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150131042920.GA27480@gondor.apana.org.au>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Govindarajulu Varadarajan <_govind@gmx.com>
+Subject: [PATCH net-next 0/4] enic: improve rq buff allocation and reduce dma mapping
+Date: Sat, 31 Jan 2015 17:58:06 +0530
+Message-ID: <1422707290-939-1-git-send-email-_govind@gmx.com>
+Cc: ssujith@cisco.com, benve@cisco.com, edumazet@google.com,
+	ben@decadent.org.uk, Govindarajulu Varadarajan <_govind@gmx.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.gmx.com ([74.208.4.201]:50380 "EHLO mout.gmx.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750753AbbAaM2n (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 31 Jan 2015 07:28:43 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 31.01, Herbert Xu wrote:
-> On Fri, Jan 30, 2015 at 07:46:32AM +0000, Patrick McHardy wrote:
-> >
-> > +	mutex_lock(&priv->ht.mutex);
-> > +	tbl = rht_dereference(priv->ht.tbl, &priv->ht);
-> > +	for (i = 0; i < tbl->size; i++) {
-> > +		rht_for_each_entry_safe(he, pos, next, tbl, i, node) {
-> > +			if (!nft_set_ext_exists(&he->ext, NFT_SET_EXT_TIMEOUT))
-> > +				continue;
-> > +			timeout = *nft_set_ext_timeout(&he->ext);
-> > +			if (time_before(jiffies, timeout))
-> > +				continue;
-> > +
-> > +			rhashtable_remove(&priv->ht, &he->node);
-> > +			nft_hash_elem_destroy(set, he);
-> > +		}
-> > +	}
-> > +	mutex_unlock(&priv->ht.mutex);
-> 
-> What if somebody is currently walking over the table? Shouldn't
-> you do an RCU free here instead of immediately destroying the
-> element?
+The following series tries to address these two problem in rq buff allocation.
 
-Yes, that's what I meant in mail 0/x regarding the existing races.
-Probably will add some fixed sized batching here.
+* Memory wastage because of large 9k allocation using kmalloc:
+  For 9k mtu buffer, netdev_alloc_skb_ip_align internally calls kmalloc for
+  size > 4096. In case of 9k buff, kmalloc returns pages for order 2, 16k.
+  And we use only ~9k of 16k. 7k memory wasted. Using the frag the frag
+  allocator in patch 1/2, we can allocate three 9k buffs in a 32k page size.
+  Typical enic configuration has 8 rq, and desc ring of size 4096.
+  Thats 8 * 4096 * (16*1024) = 512 MB. Using this frag allocator:
+  8 * 4096 * (32*1024/3) = 341 MB. Thats 171 MB of memory save.
+
+* frequent dma_map() calls:
+  we call dma_map() for every buff we allocate. When iommu is on, This is very
+  cpu time consuming. From my testing, most of the cpu cycles are wasted
+  spinning on spin_lock_irqsave(&iovad->iova_rbtree_lock, flags) in
+  intel_map_page() .. -> ..__alloc_and_insert_iova_range()
+
+  With this patch, we call dma_map() once for 32k page. i.e once for every three
+  9k desc, and once every twenty 1500 bytes desc.
+
+Here are testing result with 8 rq, 4096 ring size and 9k mtu. irq of each rq
+is affinitized with different CPU. Ran iperf with 32 threads. Link is 10G.
+iommu is on.
+
+                CPU utilization         throughput
+
+without patch   100%                    1.8 Gbps
+with patch      13%                     9.8 Gbps
+
+Govindarajulu Varadarajan (4):
+  enic: implement frag allocator
+  enic: Add rq allocation failure stats
+  ethtool: add RX_ALLOC_ORDER to tunable
+  enic: add ethtool support for changing alloc order
+
+ drivers/net/ethernet/cisco/enic/enic.h         |  16 +++
+ drivers/net/ethernet/cisco/enic/enic_ethtool.c |  17 +++
+ drivers/net/ethernet/cisco/enic/enic_main.c    | 177 +++++++++++++++++++++----
+ drivers/net/ethernet/cisco/enic/vnic_rq.c      |  13 ++
+ drivers/net/ethernet/cisco/enic/vnic_rq.h      |   2 +
+ drivers/net/ethernet/cisco/enic/vnic_stats.h   |   2 +
+ include/uapi/linux/ethtool.h                   |   1 +
+ net/core/ethtool.c                             |   5 +
+ 8 files changed, 209 insertions(+), 24 deletions(-)
+
+-- 
+2.2.2
