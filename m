@@ -1,198 +1,78 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 2/2] netlink: Use rhashtable walk iterator
-Date: Sat, 31 Jan 2015 14:14:59 +1100
-Message-ID: <E1YHOWR-00071f-Dc@gondolin.me.apana.org.au>
-References: <20150131031356.GA26781@gondor.apana.org.au>
-To: David Miller <davem@davemloft.net>, tgraf@suug.ch,
-	ying.xue@windriver.com, kaber@trash.net,
-	paulmck@linux.vnet.ibm.com, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Subject: [RFC][PATCHSET] more iov_iter conversion in net/*
+Date: Sat, 31 Jan 2015 03:55:13 +0000
+Message-ID: <20150131035513.GK29656@ZenIV.linux.org.uk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:33995 "EHLO
-	helcar.apana.org.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758927AbbAaDPU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jan 2015 22:15:20 -0500
+Received: from zeniv.linux.org.uk ([195.92.253.2]:54980 "EHLO
+	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753388AbbAaDzQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jan 2015 22:55:16 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch gets rid of the manual rhashtable walk in netlink
-which touches rhashtable internals that should not be exposed.
-It does so by using the rhashtable iterator primitives.
+	->sendmsg() side of that business, now.  By the end of it, we
+get all ->sendmsg() instances leaving iovec unchanged and ->msg_iter -
+drained.
 
-In fact the existing code was very buggy.  Some sockets weren't
-shown at all while others were shown more than once.
- 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
----
+1/18:	netlink: make the check for "send from tx_ring" deterministic
+	As discussed last year.
+2/18:	raw_send_hdrinc(): pass msghdr
+	Switch from passing msg->iov_iter.iov to passing msg itself
+3/18:	rawv6_send_hdrinc(): pass msghdr
+	Ditto
+4/18:	propagate msghdr all way down to __qp_memcpy_to_queue()
+	Ditto
+5/18:	switch rxrpc_send_data() to iov_iter primitives
+	Convert skb_add_data() to iov_iter; allows to get rid of the explicit
+messing with iovec in its only caller - skb_add_data() will keep advancing
+->msg_iter for us, so there's no need to similate that manually.
+6/18:	make the users of rxrpc_kernel_send_data() set kvec-backed msg_iter
+properly
+	Use iov_iter_kvec() there, get rid of set_fs() games - now that
+rxrpc_send_data() uses iov_iter primitives, it'll handle ITER_KVEC just
+fine.	
+7/18:	stash a pointer to msghdr in struct ping_fakehdr
+	... instead of storing its ->mgs_iter.iov there
+8/18:	convert tcp_sendmsg() to iov_iter primitives
+	There's one potentially subtle change here: in case of short
+copy from userland, mainline tcp_send_syn_data() discards the skb it
+has allocated and falls back to normal path, where we'll send as much
+as possible after rereading the same data again.  This patch trims
+SYN+data skb instead - that way we don't need to copy from the same
+place twice.  I _think_ it's correct, but I'd really appreciate a review
+of that one.
+9/18:	switch memcpy_fromiovec()/memcpy_fromiovecend() users to
+copy_from_iter()
+	That takes care of the majority of ->sendmsg() instances.
+10/18:	tipc ->sendmsg() conversion
+	This one needs to copy the same data from user potentially more than
+once.  Sadly, MTU changes can trigger that ;-/
+11/18:	bury net/core/iovec.c - nothing in there is used anymore
+12/18:	switch af_alg_make_sg() to iov_iter
+	With that, all ->sendmsg() instances are converted to iov_iter
+primitives and are agnostic wrt the kind of iov_iter they are working with.
+So's the last remaining ->recvmsg() instance that wasn't kind-agnostic yet.
+All ->sendmsg() and ->recvmsg() advance ->msg_iter by the amount actually
+copied and none of them modifies the underlying iovec, etc.
+13/18:	net/socket.c: fold do_sock_{read,write} into callers
+14/18:	switch sockets to ->read_iter/->write_iter
+15/18:	switch vhost get_indirect() to iov_iter, kill memcpy_fromiovec()
+16/18:	vhost: don't bother with copying iovec in handle_tx()
+17/18:	vhost: don't bother copying iovecs in handle_rx(), kill
+memcpy_toiovecend()
+18/18:	vhost: vhost_scsi_handle_vq() should just use copy_from_user()
+	... and with that lib/iovec.c is gone - nothing in there has callers
+left.
 
- net/netlink/af_netlink.c |  130 +++++++++++++++++++++++------------------------
- 1 file changed, 64 insertions(+), 66 deletions(-)
-
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index d77b346..2c7a95a 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -2884,99 +2884,97 @@ EXPORT_SYMBOL(nlmsg_notify);
- #ifdef CONFIG_PROC_FS
- struct nl_seq_iter {
- 	struct seq_net_private p;
-+	struct rhashtable_iter hti;
- 	int link;
--	int hash_idx;
- };
- 
--static struct sock *netlink_seq_socket_idx(struct seq_file *seq, loff_t pos)
-+static int netlink_walk_start(struct nl_seq_iter *iter)
- {
--	struct nl_seq_iter *iter = seq->private;
--	int i, j;
--	struct netlink_sock *nlk;
--	struct sock *s;
--	loff_t off = 0;
--
--	for (i = 0; i < MAX_LINKS; i++) {
--		struct rhashtable *ht = &nl_table[i].hash;
--		const struct bucket_table *tbl = rht_dereference_rcu(ht->tbl, ht);
--
--		for (j = 0; j < tbl->size; j++) {
--			struct rhash_head *node;
--
--			rht_for_each_entry_rcu(nlk, node, tbl, j, node) {
--				s = (struct sock *)nlk;
-+	int err;
- 
--				if (sock_net(s) != seq_file_net(seq))
--					continue;
--				if (off == pos) {
--					iter->link = i;
--					iter->hash_idx = j;
--					return s;
--				}
--				++off;
--			}
--		}
-+	err = rhashtable_walk_init(&nl_table[iter->link].hash, &iter->hti);
-+	if (err) {
-+		iter->link = MAX_LINKS;
-+		return err;
- 	}
--	return NULL;
-+
-+	err = rhashtable_walk_start(&iter->hti);
-+	return err == -EAGAIN ? 0 : err;
- }
- 
--static void *netlink_seq_start(struct seq_file *seq, loff_t *pos)
--	__acquires(RCU)
-+static void netlink_walk_stop(struct nl_seq_iter *iter)
- {
--	rcu_read_lock();
--	return *pos ? netlink_seq_socket_idx(seq, *pos - 1) : SEQ_START_TOKEN;
-+	rhashtable_walk_stop(&iter->hti);
-+	rhashtable_walk_exit(&iter->hti);
- }
- 
--static void *netlink_seq_next(struct seq_file *seq, void *v, loff_t *pos)
-+static void *__netlink_seq_next(struct seq_file *seq)
- {
--	struct rhashtable *ht;
--	const struct bucket_table *tbl;
--	struct rhash_head *node;
-+	struct nl_seq_iter *iter = seq->private;
- 	struct netlink_sock *nlk;
--	struct nl_seq_iter *iter;
--	struct net *net;
--	int i, j;
- 
--	++*pos;
-+	do {
-+		for (;;) {
-+			int err;
- 
--	if (v == SEQ_START_TOKEN)
--		return netlink_seq_socket_idx(seq, 0);
-+			nlk = rhashtable_walk_next(&iter->hti);
- 
--	net = seq_file_net(seq);
--	iter = seq->private;
--	nlk = v;
-+			if (IS_ERR(nlk)) {
-+				if (PTR_ERR(nlk) == -EAGAIN)
-+					continue;
- 
--	i = iter->link;
--	ht = &nl_table[i].hash;
--	tbl = rht_dereference_rcu(ht->tbl, ht);
--	rht_for_each_entry_rcu_continue(nlk, node, nlk->node.next, tbl, iter->hash_idx, node)
--		if (net_eq(sock_net((struct sock *)nlk), net))
--			return nlk;
-+				return nlk;
-+			}
- 
--	j = iter->hash_idx + 1;
-+			if (nlk)
-+				break;
- 
--	do {
-+			netlink_walk_stop(iter);
-+			if (++iter->link >= MAX_LINKS)
-+				return NULL;
- 
--		for (; j < tbl->size; j++) {
--			rht_for_each_entry_rcu(nlk, node, tbl, j, node) {
--				if (net_eq(sock_net((struct sock *)nlk), net)) {
--					iter->link = i;
--					iter->hash_idx = j;
--					return nlk;
--				}
--			}
-+			err = netlink_walk_start(iter);
-+			if (err)
-+				return ERR_PTR(err);
- 		}
-+	} while (sock_net(&nlk->sk) != seq_file_net(seq));
- 
--		j = 0;
--	} while (++i < MAX_LINKS);
-+	return nlk;
-+}
- 
--	return NULL;
-+static void *netlink_seq_start(struct seq_file *seq, loff_t *posp)
-+{
-+	struct nl_seq_iter *iter = seq->private;
-+	void *obj = SEQ_START_TOKEN;
-+	loff_t pos;
-+	int err;
-+
-+	iter->link = 0;
-+
-+	err = netlink_walk_start(iter);
-+	if (err)
-+		return ERR_PTR(err);
-+
-+	for (pos = *posp; pos && obj && !IS_ERR(obj); pos--)
-+		obj = __netlink_seq_next(seq);
-+
-+	return obj;
-+}
-+
-+static void *netlink_seq_next(struct seq_file *seq, void *v, loff_t *pos)
-+{
-+	++*pos;
-+	return __netlink_seq_next(seq);
- }
- 
- static void netlink_seq_stop(struct seq_file *seq, void *v)
--	__releases(RCU)
- {
--	rcu_read_unlock();
-+	struct nl_seq_iter *iter = seq->private;
-+
-+	if (iter->link >= MAX_LINKS)
-+		return;
-+
-+	netlink_walk_stop(iter);
- }
- 
- 
+	The pile after that one will be dealing with the kernel_sendmsg and
+kernel_recvmg callers - at that point we can start reaping benefits of
+consistent way ->msg_iter is handled.  Note that after these changes if
+iov_iter_kvec() is used to initialize ->msg_iter, we don't need the games
+with get_fs()/set_fs() anymore; just sock_sendmsg()/sock_recvmsg() will do,
+so quite a few of those kernel_{send,recv}msg() callers will turn into
+sock_{send,recv}msg() ones.
