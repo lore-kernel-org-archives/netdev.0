@@ -1,374 +1,80 @@
 From: Govindarajulu Varadarajan <_govind@gmx.com>
-Subject: [PATCH net-next 1/4] enic: implement frag allocator
-Date: Sat, 31 Jan 2015 17:58:07 +0530
-Message-ID: <1422707290-939-2-git-send-email-_govind@gmx.com>
+Subject: [PATCH net-next 2/4] enic: Add rq allocation failure stats
+Date: Sat, 31 Jan 2015 17:58:08 +0530
+Message-ID: <1422707290-939-3-git-send-email-_govind@gmx.com>
 References: <1422707290-939-1-git-send-email-_govind@gmx.com>
 Cc: ssujith@cisco.com, benve@cisco.com, edumazet@google.com,
 	ben@decadent.org.uk, Govindarajulu Varadarajan <_govind@gmx.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.com ([74.208.4.201]:55280 "EHLO mout.gmx.com"
+Received: from mout.gmx.com ([74.208.4.200]:53234 "EHLO mout.gmx.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750985AbbAaM3I (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 31 Jan 2015 07:29:08 -0500
+	id S1751002AbbAaM3T (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 31 Jan 2015 07:29:19 -0500
 In-Reply-To: <1422707290-939-1-git-send-email-_govind@gmx.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch implements frag allocator for rq buffer. This is based on
-__alloc_page_frag & __page_frag_refill implementation in net/core/skbuff.c
+This patch adds rq buff allocation failure stats.
 
-In addition to frag allocation from order(3) page in __alloc_page_frag,
-we also maintain dma address of the page. While allocating a frag for rx buffer
-we return va + offset for virtual address of the frag, and pa + offset for
-dma address of the frag. This reduces the number of calls to dma_map()
-by 1/3 for 9k mtu and by 1/20 for 1500 mtu.
+cache_alloc_err: incremented when higher order page allocation fails.
 
-__alloc_page_frag is limited to max buffer size of PAGE_SIZE, i.e 4096 in most
-of the cases. So 9k buffer allocation goes through kmalloc which return
-page of order 2, 16k. We waste 7k bytes for every 9k buffer.
-
-We maintain dma_count variable which is incremented when we allocate a frag.
-enic_unmap_dma will decrement the dma_count and unmap it when there is no user
-of that page in rx ring.
-
-This reduces the memory utilization for 9k mtu by 33%.
-
-enic_alloc_cache struct, which stores the page details, is declared per rq.
-And all calls to allocation, free, dmap_unmap is serialized. So we do not need
-locks.
+enic_rq_alloc_buf: incremented rq buff fails. Either due to page alloc
+failure or build_skb.
 
 Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
 ---
- drivers/net/ethernet/cisco/enic/enic.h      |  16 +++
- drivers/net/ethernet/cisco/enic/enic_main.c | 156 +++++++++++++++++++++++-----
- drivers/net/ethernet/cisco/enic/vnic_rq.c   |  13 +++
- drivers/net/ethernet/cisco/enic/vnic_rq.h   |   2 +
- 4 files changed, 163 insertions(+), 24 deletions(-)
+ drivers/net/ethernet/cisco/enic/enic_ethtool.c | 2 ++
+ drivers/net/ethernet/cisco/enic/enic_main.c    | 3 +++
+ drivers/net/ethernet/cisco/enic/vnic_stats.h   | 2 ++
+ 3 files changed, 7 insertions(+)
 
-diff --git a/drivers/net/ethernet/cisco/enic/enic.h b/drivers/net/ethernet/cisco/enic/enic.h
-index 84b6a2b..7fd3db1 100644
---- a/drivers/net/ethernet/cisco/enic/enic.h
-+++ b/drivers/net/ethernet/cisco/enic/enic.h
-@@ -20,6 +20,11 @@
- #ifndef _ENIC_H_
- #define _ENIC_H_
+diff --git a/drivers/net/ethernet/cisco/enic/enic_ethtool.c b/drivers/net/ethernet/cisco/enic/enic_ethtool.c
+index 0c396c1..3f9d91b 100644
+--- a/drivers/net/ethernet/cisco/enic/enic_ethtool.c
++++ b/drivers/net/ethernet/cisco/enic/enic_ethtool.c
+@@ -86,6 +86,8 @@ static const struct enic_stat enic_rx_stats[] = {
  
-+#include <linux/if.h>
-+#include <linux/if_link.h>
-+#include <linux/if_ether.h>
-+#include <linux/netdevice.h>
-+
- #include "vnic_enet.h"
- #include "vnic_dev.h"
- #include "vnic_wq.h"
-@@ -176,6 +181,7 @@ struct enic {
- 	u64 rq_truncated_pkts;
- 	u64 rq_bad_fcs;
- 	struct napi_struct napi[ENIC_RQ_MAX + ENIC_WQ_MAX];
-+	u8 alloc_order;
- 
- 	/* interrupt resource cache line section */
- 	____cacheline_aligned struct vnic_intr intr[ENIC_INTR_MAX];
-@@ -191,6 +197,16 @@ struct enic {
- 	struct vnic_gen_stats gen_stats;
+ static const struct enic_stat enic_gen_stats[] = {
+ 	ENIC_GEN_STAT(dma_map_error),
++	ENIC_GEN_STAT(cache_alloc_err),
++	ENIC_GEN_STAT(rq_alloc_err),
  };
  
-+#define ENIC_ALLOC_ORDER		get_order(32 * 1024)
-+
-+struct enic_alloc_cache {
-+	struct page_frag	frag;
-+	unsigned int		pagecnt_bias;
-+	int			dma_count;
-+	void			*va;
-+	dma_addr_t		pa;
-+};
-+
- static inline struct device *enic_get_dev(struct enic *enic)
- {
- 	return &(enic->pdev->dev);
+ static const unsigned int enic_n_tx_stats = ARRAY_SIZE(enic_tx_stats);
 diff --git a/drivers/net/ethernet/cisco/enic/enic_main.c b/drivers/net/ethernet/cisco/enic/enic_main.c
-index ee44c82..d9cad93 100644
+index d9cad93..f15687d 100644
 --- a/drivers/net/ethernet/cisco/enic/enic_main.c
 +++ b/drivers/net/ethernet/cisco/enic/enic_main.c
-@@ -950,6 +950,105 @@ nla_put_failure:
- 	return -EMSGSIZE;
- }
- 
-+struct enic_alloc_cache *enic_page_refill(struct enic *enic, size_t sz,
-+					  gfp_t gfp)
-+{
-+	struct enic_alloc_cache *ec;
-+	gfp_t gfp_comp = gfp | __GFP_COMP | __GFP_NOWARN | __GFP_NORETRY;
-+	u8 order = enic->alloc_order;
-+
-+	ec = kzalloc(sizeof(*ec), GFP_ATOMIC);
-+	if (unlikely(!ec))
-+		goto no_ec;
-+	ec->frag.page = alloc_pages_node(NUMA_NO_NODE, gfp_comp, order);
-+	if (unlikely(!ec->frag.page)) {
-+		order = get_order(sz);
-+		ec->frag.page = alloc_pages_node(NUMA_NO_NODE, gfp, order);
-+		if (!ec->frag.page)
-+			goto free_ec;
-+	}
-+
-+	ec->frag.size = (PAGE_SIZE << order);
-+	ec->va = page_address(ec->frag.page);
-+	ec->pa = pci_map_single(enic->pdev, ec->va, ec->frag.size,
-+				PCI_DMA_FROMDEVICE);
-+	if (unlikely(enic_dma_map_check(enic, ec->pa)))
-+		goto free_page;
-+	atomic_add(ec->frag.size - 1, &ec->frag.page->_count);
-+	ec->pagecnt_bias = ec->frag.size;
-+	ec->frag.offset = ec->frag.size;
-+
-+	return ec;
-+
-+free_page:
-+	__free_pages(ec->frag.page, order);
-+free_ec:
-+	kfree(ec);
-+no_ec:
-+	return NULL;
-+}
-+
-+struct enic_alloc_cache *enic_alloc_frag(struct vnic_rq *rq, size_t sz)
-+{
-+	struct enic *enic = vnic_dev_priv(rq->vdev);
-+	struct enic_alloc_cache *ec = rq->ec;
-+	int offset;
-+
-+	if (unlikely(!ec)) {
-+refill:
-+		ec = enic_page_refill(enic, sz, GFP_ATOMIC);
-+		rq->ec = ec;
-+
-+		if (unlikely(!ec))
-+			return NULL;
-+	}
-+
-+	offset = ec->frag.offset - sz;
-+	if (offset < 0) {
-+		if (!atomic_sub_and_test(ec->pagecnt_bias,
-+					 &ec->frag.page->_count)) {
-+			/* rq cleanup service has processed all the frags
-+			 * belonging to this page. Since page->_count is not 0
-+			 * and ec->dma_count is 0 these frags should be in
-+			 * stack. We should unmap the page here.
-+			 */
-+			if (!ec->dma_count) {
-+				pci_unmap_single(enic->pdev, ec->pa,
-+						 ec->frag.size,
-+						 PCI_DMA_FROMDEVICE);
-+				kfree(ec);
-+			} else {
-+			/* frags from this page are still in rx queue. Let the
-+			 * rx cleanup service unmap the page in enic_unmap_dma.
-+			 */
-+				ec->pagecnt_bias = 0;
-+			}
-+			goto refill;
-+		}
-+		WARN_ON(ec->dma_count);
-+		atomic_set(&ec->frag.page->_count, ec->frag.size);
-+		ec->pagecnt_bias = ec->frag.size;
-+		offset = ec->frag.size - sz;
-+	}
-+	ec->pagecnt_bias--;
-+	ec->dma_count++;
-+	ec->frag.offset = offset;
-+
-+	return ec;
-+}
-+
-+void enic_unmap_dma(struct enic *enic, struct enic_alloc_cache *ec)
-+{
-+	/* enic_alloc_frag is done using this page. We should be free to unmap
-+	 * the page if there are no pending frags in the queue.
-+	 */
-+	if (!--ec->dma_count && !ec->pagecnt_bias) {
-+		pci_unmap_single(enic->pdev, ec->pa, ec->frag.size,
-+				 PCI_DMA_FROMDEVICE);
-+		kfree(ec);
-+	}
-+}
-+
- static void enic_free_rq_buf(struct vnic_rq *rq, struct vnic_rq_buf *buf)
- {
- 	struct enic *enic = vnic_dev_priv(rq->vdev);
-@@ -957,8 +1056,7 @@ static void enic_free_rq_buf(struct vnic_rq *rq, struct vnic_rq_buf *buf)
- 	if (!buf->os_buf)
- 		return;
- 
--	pci_unmap_single(enic->pdev, buf->dma_addr,
--		buf->len, PCI_DMA_FROMDEVICE);
-+	enic_unmap_dma(enic, buf->ec);
- 	dev_kfree_skb_any(buf->os_buf);
- 	buf->os_buf = NULL;
- }
-@@ -968,10 +1066,12 @@ static int enic_rq_alloc_buf(struct vnic_rq *rq)
- 	struct enic *enic = vnic_dev_priv(rq->vdev);
- 	struct net_device *netdev = enic->netdev;
- 	struct sk_buff *skb;
--	unsigned int len = netdev->mtu + VLAN_ETH_HLEN;
-+	unsigned int len;
- 	unsigned int os_buf_index = 0;
- 	dma_addr_t dma_addr;
- 	struct vnic_rq_buf *buf = rq->to_use;
-+	struct enic_alloc_cache *ec;
-+	void *va;
- 
- 	if (buf->os_buf) {
- 		enic_queue_rq_desc(rq, buf->os_buf, os_buf_index, buf->dma_addr,
-@@ -979,21 +1079,33 @@ static int enic_rq_alloc_buf(struct vnic_rq *rq)
- 
- 		return 0;
- 	}
--	skb = netdev_alloc_skb_ip_align(netdev, len);
--	if (!skb)
--		return -ENOMEM;
- 
--	dma_addr = pci_map_single(enic->pdev, skb->data, len,
--				  PCI_DMA_FROMDEVICE);
--	if (unlikely(enic_dma_map_check(enic, dma_addr))) {
--		dev_kfree_skb(skb);
--		return -ENOMEM;
--	}
-+	len = netdev->mtu + VLAN_ETH_HLEN + NET_IP_ALIGN + NET_SKB_PAD;
-+	len = SKB_DATA_ALIGN(len) +
-+	      SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
- 
--	enic_queue_rq_desc(rq, skb, os_buf_index,
--		dma_addr, len);
-+	ec = enic_alloc_frag(rq, len);
-+	if (unlikely(!ec))
-+		goto alloc_fail;
-+	va = ec->va + ec->frag.offset;
-+	skb = build_skb(va, len);
-+	if (unlikely(!skb)) {
-+		ec->pagecnt_bias++;
-+		ec->frag.offset += len;
-+		ec->dma_count--;
-+
-+		goto alloc_fail;
-+	}
-+	skb_reserve(skb, NET_SKB_PAD + NET_IP_ALIGN);
-+	dma_addr = ec->pa + ec->frag.offset + NET_SKB_PAD + NET_IP_ALIGN;
-+	buf->ec = ec;
-+	enic_queue_rq_desc(rq, skb, os_buf_index, dma_addr,
-+			   netdev->mtu + VLAN_ETH_HLEN);
- 
- 	return 0;
-+
-+alloc_fail:
-+	return -ENOMEM;
- }
- 
- static void enic_intr_update_pkt_size(struct vnic_rx_bytes_counter *pkt_size,
-@@ -1016,8 +1128,6 @@ static bool enic_rxcopybreak(struct net_device *netdev, struct sk_buff **skb,
- 	new_skb = netdev_alloc_skb_ip_align(netdev, len);
- 	if (!new_skb)
- 		return false;
--	pci_dma_sync_single_for_cpu(enic->pdev, buf->dma_addr, len,
--				    DMA_FROM_DEVICE);
- 	memcpy(new_skb->data, (*skb)->data, len);
- 	*skb = new_skb;
- 
-@@ -1065,8 +1175,7 @@ static void enic_rq_indicate_buf(struct vnic_rq *rq,
- 				enic->rq_truncated_pkts++;
- 		}
- 
--		pci_unmap_single(enic->pdev, buf->dma_addr, buf->len,
--				 PCI_DMA_FROMDEVICE);
-+		enic_unmap_dma(enic, buf->ec);
- 		dev_kfree_skb_any(skb);
- 		buf->os_buf = NULL;
- 
-@@ -1077,11 +1186,11 @@ static void enic_rq_indicate_buf(struct vnic_rq *rq,
- 
- 		/* Good receive
- 		 */
--
-+		pci_dma_sync_single_for_cpu(enic->pdev, buf->dma_addr,
-+					    bytes_written, DMA_FROM_DEVICE);
- 		if (!enic_rxcopybreak(netdev, &skb, buf, bytes_written)) {
- 			buf->os_buf = NULL;
--			pci_unmap_single(enic->pdev, buf->dma_addr, buf->len,
--					 PCI_DMA_FROMDEVICE);
-+			enic_unmap_dma(enic, buf->ec);
- 		}
- 		prefetch(skb->data - NET_IP_ALIGN);
- 
-@@ -1122,9 +1231,7 @@ static void enic_rq_indicate_buf(struct vnic_rq *rq,
- 
- 		/* Buffer overflow
- 		 */
--
--		pci_unmap_single(enic->pdev, buf->dma_addr, buf->len,
--				 PCI_DMA_FROMDEVICE);
-+		enic_unmap_dma(enic, buf->ec);
- 		dev_kfree_skb_any(skb);
- 		buf->os_buf = NULL;
- 	}
-@@ -2637,6 +2744,7 @@ static int enic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		goto err_out_dev_deinit;
- 	}
- 	enic->rx_copybreak = RX_COPYBREAK_DEFAULT;
-+	enic->alloc_order = ENIC_ALLOC_ORDER;
- 
+@@ -962,6 +962,7 @@ struct enic_alloc_cache *enic_page_refill(struct enic *enic, size_t sz,
+ 		goto no_ec;
+ 	ec->frag.page = alloc_pages_node(NUMA_NO_NODE, gfp_comp, order);
+ 	if (unlikely(!ec->frag.page)) {
++		enic->gen_stats.cache_alloc_err++;
+ 		order = get_order(sz);
+ 		ec->frag.page = alloc_pages_node(NUMA_NO_NODE, gfp, order);
+ 		if (!ec->frag.page)
+@@ -1105,6 +1106,8 @@ static int enic_rq_alloc_buf(struct vnic_rq *rq)
  	return 0;
  
-diff --git a/drivers/net/ethernet/cisco/enic/vnic_rq.c b/drivers/net/ethernet/cisco/enic/vnic_rq.c
-index 36a2ed6..c31669f 100644
---- a/drivers/net/ethernet/cisco/enic/vnic_rq.c
-+++ b/drivers/net/ethernet/cisco/enic/vnic_rq.c
-@@ -26,6 +26,7 @@
- 
- #include "vnic_dev.h"
- #include "vnic_rq.h"
-+#include "enic.h"
- 
- static int vnic_rq_alloc_bufs(struct vnic_rq *rq)
- {
-@@ -199,6 +200,18 @@ void vnic_rq_clean(struct vnic_rq *rq,
- 		rq->ring.desc_avail++;
- 	}
- 
-+	if (rq->ec) {
-+		struct enic *enic = vnic_dev_priv(rq->vdev);
-+		struct enic_alloc_cache *ec = rq->ec;
+ alloc_fail:
++	enic->gen_stats.rq_alloc_err++;
 +
-+		WARN_ON(ec->dma_count);
-+		pci_unmap_single(enic->pdev, ec->pa, ec->frag.size,
-+				 PCI_DMA_FROMDEVICE);
-+		atomic_sub(ec->pagecnt_bias - 1, &ec->frag.page->_count);
-+		__free_pages(ec->frag.page, get_order(ec->frag.size));
-+		kfree(ec);
-+		rq->ec = NULL;
-+	}
- 	/* Use current fetch_index as the ring starting point */
- 	fetch_index = ioread32(&rq->ctrl->fetch_index);
+ 	return -ENOMEM;
+ }
  
-diff --git a/drivers/net/ethernet/cisco/enic/vnic_rq.h b/drivers/net/ethernet/cisco/enic/vnic_rq.h
-index 8111d52..2e4815a 100644
---- a/drivers/net/ethernet/cisco/enic/vnic_rq.h
-+++ b/drivers/net/ethernet/cisco/enic/vnic_rq.h
-@@ -73,6 +73,7 @@ struct vnic_rq_buf {
- 	unsigned int index;
- 	void *desc;
- 	uint64_t wr_id;
-+	struct enic_alloc_cache	*ec;
+diff --git a/drivers/net/ethernet/cisco/enic/vnic_stats.h b/drivers/net/ethernet/cisco/enic/vnic_stats.h
+index 74c81ed..b2a4528 100644
+--- a/drivers/net/ethernet/cisco/enic/vnic_stats.h
++++ b/drivers/net/ethernet/cisco/enic/vnic_stats.h
+@@ -65,6 +65,8 @@ struct vnic_rx_stats {
+ /* Generic statistics */
+ struct vnic_gen_stats {
+ 	u64 dma_map_error;
++	u64 cache_alloc_err;	/* alloc_pages(enic->order) failures */
++	u64 rq_alloc_err;	/* rq buf + skb alloc failures */
  };
  
- struct vnic_rq {
-@@ -100,6 +101,7 @@ struct vnic_rq {
- 	unsigned int bpoll_state;
- 	spinlock_t bpoll_lock;
- #endif /* CONFIG_NET_RX_BUSY_POLL */
-+	struct enic_alloc_cache	*ec;
- };
- 
- static inline unsigned int vnic_rq_desc_avail(struct vnic_rq *rq)
+ struct vnic_stats {
 -- 
 2.2.2
