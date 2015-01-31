@@ -1,241 +1,159 @@
 From: Vladislav Yasevich <vyasevich@gmail.com>
-Subject: [PATCH net-next 3/6] ipv6: introduce ipv6_make_skb
-Date: Sat, 31 Jan 2015 10:40:15 -0500
-Message-ID: <1422718818-21093-4-git-send-email-vyasevic@redhat.com>
+Subject: [PATCH net-next 4/6] ipv6: Introduce udpv6_send_skb()
+Date: Sat, 31 Jan 2015 10:40:16 -0500
+Message-ID: <1422718818-21093-5-git-send-email-vyasevic@redhat.com>
 References: <1422718818-21093-1-git-send-email-vyasevic@redhat.com>
 Cc: herbert@gondor.apana.org.au, hannes@stressinduktion.org,
 	Vladislav Yasevich <vyasevic@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f52.google.com ([209.85.192.52]:45911 "EHLO
-	mail-qg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753467AbbAaPkj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 31 Jan 2015 10:40:39 -0500
-Received: by mail-qg0-f52.google.com with SMTP id z107so42237443qgd.11
-        for <netdev@vger.kernel.org>; Sat, 31 Jan 2015 07:40:39 -0800 (PST)
+Received: from mail-qg0-f54.google.com ([209.85.192.54]:41571 "EHLO
+	mail-qg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751244AbbAaPk5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 31 Jan 2015 10:40:57 -0500
+Received: by mail-qg0-f54.google.com with SMTP id q108so42261190qgd.13
+        for <netdev@vger.kernel.org>; Sat, 31 Jan 2015 07:40:56 -0800 (PST)
 In-Reply-To: <1422718818-21093-1-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This commit is very similar to
-commit 1c32c5ad6fac8cee1a77449f5abf211e911ff830
-Author: Herbert Xu <herbert@gondor.apana.org.au>
-Date:   Tue Mar 1 02:36:47 2011 +0000
-
-    inet: Add ip_make_skb and ip_finish_skb
-
-It adds IPv6 version of the helpers ip6_make_skb and ip6_finish_skb.
-
-The job of ip6_make_skb is to collect messages into an ipv6 packet
-and poplulate ipv6 eader.  The job of ip6_finish_skb is to transmit
-the generated skb.  Together they replicated the job of
-ip6_push_pending_frames() while also provide the capability to be
-called independently.  This will be needed to add lockless UDP sendmsg
-support.
+Now that we can individually construct IPv6 skbs to send, add a
+udpv6_send_skb() function to populate the udp header and send the
+skb.  This allows udp_v6_push_pending_frames() to re-use this
+function as well as enables us to add lockless sendmsg() support.
 
 Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
 ---
- include/net/ipv6.h    |  19 ++++++++++
- net/ipv6/ip6_output.c | 103 ++++++++++++++++++++++++++++++++++++++++----------
- 2 files changed, 103 insertions(+), 19 deletions(-)
+ net/ipv6/udp.c | 67 +++++++++++++++++++++++++++++++++++-----------------------
+ 1 file changed, 40 insertions(+), 27 deletions(-)
 
-diff --git a/include/net/ipv6.h b/include/net/ipv6.h
-index 4292929..8027ca5 100644
---- a/include/net/ipv6.h
-+++ b/include/net/ipv6.h
-@@ -788,6 +788,25 @@ int ip6_push_pending_frames(struct sock *sk);
- 
- void ip6_flush_pending_frames(struct sock *sk);
- 
-+int ip6_send_skb(struct sk_buff *skb);
-+
-+struct sk_buff *__ip6_make_skb(struct sock *sk, struct sk_buff_head *queue,
-+			       struct inet_cork_full *cork,
-+			       struct inet6_cork *v6_cork);
-+struct sk_buff *ip6_make_skb(struct sock *sk,
-+			     int getfrag(void *from, char *to, int offset,
-+					 int len, int odd, struct sk_buff *skb),
-+			     void *from, int length, int transhdrlen,
-+			     int hlimit, int tclass, struct ipv6_txoptions *opt,
-+			     struct flowi6 *fl6, struct rt6_info *rt,
-+			     unsigned int flags, int dontfrag);
-+
-+static inline struct sk_buff *ip6_finish_skb(struct sock *sk)
-+{
-+	return __ip6_make_skb(sk, &sk->sk_write_queue, &inet_sk(sk)->cork,
-+			      &inet6_sk(sk)->cork);
-+}
-+
- int ip6_dst_lookup(struct sock *sk, struct dst_entry **dst, struct flowi6 *fl6);
- struct dst_entry *ip6_dst_lookup_flow(struct sock *sk, struct flowi6 *fl6,
- 				      const struct in6_addr *final_dst);
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index 1b66453..b89d3c2 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -1564,22 +1564,23 @@ static void ip6_cork_release(struct inet_cork_full *cork,
- 	memset(&cork->fl, 0, sizeof(cork->fl));
- }
- 
--int ip6_push_pending_frames(struct sock *sk)
-+struct sk_buff *__ip6_make_skb(struct sock *sk,
-+			       struct sk_buff_head *queue,
-+			       struct inet_cork_full *cork,
-+			       struct inet6_cork *v6_cork)
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index e41f017..67a3d70 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -990,9 +990,10 @@ static void udp6_hwcsum_outgoing(struct sock *sk, struct sk_buff *skb,
  {
- 	struct sk_buff *skb, *tmp_skb;
- 	struct sk_buff **tail_skb;
- 	struct in6_addr final_dst_buf, *final_dst = &final_dst_buf;
+ 	unsigned int offset;
+ 	struct udphdr *uh = udp_hdr(skb);
++	struct sk_buff *frags = skb_shinfo(skb)->frag_list;
+ 	__wsum csum = 0;
+ 
+-	if (skb_queue_len(&sk->sk_write_queue) == 1) {
++	if (!frags) {
+ 		/* Only one fragment on the socket.  */
+ 		skb->csum_start = skb_transport_header(skb) - skb->head;
+ 		skb->csum_offset = offsetof(struct udphdr, check);
+@@ -1008,9 +1009,9 @@ static void udp6_hwcsum_outgoing(struct sock *sk, struct sk_buff *skb,
+ 
+ 		skb->ip_summed = CHECKSUM_NONE;
+ 
+-		skb_queue_walk(&sk->sk_write_queue, skb) {
+-			csum = csum_add(csum, skb->csum);
+-		}
++		do {
++			csum = csum_add(csum, frags->csum);
++		} while ((frags = frags->next));
+ 
+ 		uh->check = csum_ipv6_magic(saddr, daddr, len, IPPROTO_UDP,
+ 					    csum);
+@@ -1023,26 +1024,15 @@ static void udp6_hwcsum_outgoing(struct sock *sk, struct sk_buff *skb,
+  *	Sending
+  */
+ 
+-static int udp_v6_push_pending_frames(struct sock *sk)
++static int udp_v6_send_skb(struct sk_buff *skb, struct flowi6 *fl6)
+ {
+-	struct sk_buff *skb;
++	struct sock *sk = skb->sk;
+ 	struct udphdr *uh;
+-	struct udp_sock  *up = udp_sk(sk);
 -	struct inet_sock *inet = inet_sk(sk);
- 	struct ipv6_pinfo *np = inet6_sk(sk);
- 	struct net *net = sock_net(sk);
- 	struct ipv6hdr *hdr;
--	struct ipv6_txoptions *opt = np->cork.opt;
--	struct rt6_info *rt = (struct rt6_info *)inet->cork.base.dst;
--	struct flowi6 *fl6 = &inet->cork.fl.u.ip6;
-+	struct ipv6_txoptions *opt = v6_cork->opt;
-+	struct rt6_info *rt = (struct rt6_info *)cork->base.dst;
-+	struct flowi6 *fl6 = &cork->fl.u.ip6;
- 	unsigned char proto = fl6->flowi6_proto;
--	int err = 0;
+-	struct flowi6 *fl6;
+ 	int err = 0;
+ 	int is_udplite = IS_UDPLITE(sk);
+ 	__wsum csum = 0;
+-
+-	if (up->pending == AF_INET)
+-		return udp_push_pending_frames(sk);
+-
+-	fl6 = &inet->cork.fl.u.ip6;
+-
+-	/* Grab the skbuff where UDP header space exists. */
+-	skb = skb_peek(&sk->sk_write_queue);
+-	if (skb == NULL)
+-		goto out;
++	int offset = skb_transport_offset(skb);
++	int len = skb->len - offset;
  
--	skb = __skb_dequeue(&sk->sk_write_queue);
-+	skb = __skb_dequeue(queue);
- 	if (skb == NULL)
- 		goto out;
- 	tail_skb = &(skb_shinfo(skb)->frag_list);
-@@ -1587,7 +1588,7 @@ int ip6_push_pending_frames(struct sock *sk)
- 	/* move skb->data to ip header from ext header */
- 	if (skb->data < skb_network_header(skb))
- 		__skb_pull(skb, skb_network_offset(skb));
--	while ((tmp_skb = __skb_dequeue(&sk->sk_write_queue)) != NULL) {
-+	while ((tmp_skb = __skb_dequeue(queue)) != NULL) {
- 		__skb_pull(tmp_skb, skb_network_header_len(skb));
- 		*tail_skb = tmp_skb;
- 		tail_skb = &(tmp_skb->next);
-@@ -1612,10 +1613,10 @@ int ip6_push_pending_frames(struct sock *sk)
- 	skb_reset_network_header(skb);
- 	hdr = ipv6_hdr(skb);
+ 	/*
+ 	 * Create a UDP header
+@@ -1050,29 +1040,28 @@ static int udp_v6_push_pending_frames(struct sock *sk)
+ 	uh = udp_hdr(skb);
+ 	uh->source = fl6->fl6_sport;
+ 	uh->dest = fl6->fl6_dport;
+-	uh->len = htons(up->len);
++	uh->len = htons(len);
+ 	uh->check = 0;
  
--	ip6_flow_hdr(hdr, np->cork.tclass,
-+	ip6_flow_hdr(hdr, v6_cork->tclass,
- 		     ip6_make_flowlabel(net, skb, fl6->flowlabel,
- 					np->autoflowlabel));
--	hdr->hop_limit = np->cork.hop_limit;
-+	hdr->hop_limit = v6_cork->hop_limit;
- 	hdr->nexthdr = proto;
- 	hdr->saddr = fl6->saddr;
- 	hdr->daddr = *final_dst;
-@@ -1632,25 +1633,45 @@ int ip6_push_pending_frames(struct sock *sk)
- 		ICMP6_INC_STATS(net, idev, ICMP6_MIB_OUTMSGS);
- 	}
+ 	if (is_udplite)
+-		csum = udplite_csum_outgoing(sk, skb);
+-	else if (up->no_check6_tx) {   /* UDP csum disabled */
++		csum = udplite_csum(skb);
++	else if (udp_sk(sk)->no_check6_tx) {   /* UDP csum disabled */
+ 		skb->ip_summed = CHECKSUM_NONE;
+ 		goto send;
+ 	} else if (skb->ip_summed == CHECKSUM_PARTIAL) { /* UDP hardware csum */
+-		udp6_hwcsum_outgoing(sk, skb, &fl6->saddr, &fl6->daddr,
+-				     up->len);
++		udp6_hwcsum_outgoing(sk, skb, &fl6->saddr, &fl6->daddr, len);
+ 		goto send;
+ 	} else
+-		csum = udp_csum_outgoing(sk, skb);
++		csum = udp_csum(skb);
  
-+	ip6_cork_release(cork, v6_cork);
-+out:
-+	return skb;
-+}
-+
-+int ip6_send_skb(struct sk_buff *skb)
-+{
-+	struct net *net = sock_net(skb->sk);
-+	struct rt6_info *rt = (struct rt6_info *)skb_dst(skb);
-+	int err;
-+
- 	err = ip6_local_out(skb);
+ 	/* add protocol-dependent pseudo-header */
+ 	uh->check = csum_ipv6_magic(&fl6->saddr, &fl6->daddr,
+-				    up->len, fl6->flowi6_proto, csum);
++				    len, fl6->flowi6_proto, csum);
+ 	if (uh->check == 0)
+ 		uh->check = CSUM_MANGLED_0;
+ 
+ send:
+-	err = ip6_push_pending_frames(sk);
++	err = ip6_send_skb(skb);
  	if (err) {
- 		if (err > 0)
- 			err = net_xmit_errno(err);
- 		if (err)
--			goto error;
-+			IP6_INC_STATS(net, rt->rt6i_idev,
-+				      IPSTATS_MIB_OUTDISCARDS);
- 	}
- 
--out:
--	ip6_cork_release(&inet->cork, &np->cork);
- 	return err;
--error:
--	IP6_INC_STATS(net, rt->rt6i_idev, IPSTATS_MIB_OUTDISCARDS);
--	goto out;
+ 		if (err == -ENOBUFS && !inet6_sk(sk)->recverr) {
+ 			UDP6_INC_STATS_USER(sock_net(sk),
+@@ -1082,6 +1071,30 @@ send:
+ 	} else
+ 		UDP6_INC_STATS_USER(sock_net(sk),
+ 				    UDP_MIB_OUTDATAGRAMS, is_udplite);
++	return err;
 +}
 +
-+int ip6_push_pending_frames(struct sock *sk)
++static int udp_v6_push_pending_frames(struct sock *sk)
 +{
 +	struct sk_buff *skb;
++	struct udp_sock  *up = udp_sk(sk);
++	struct flowi6 fl6;
++	int err = 0;
++
++	if (up->pending == AF_INET)
++		return udp_push_pending_frames(sk);
++
++	/* ip6_finish_skb will release the cork, so make a copy of
++	 * fl6 here.
++	 */
++	fl6 = inet_sk(sk)->cork.fl.u.ip6;
 +
 +	skb = ip6_finish_skb(sk);
 +	if (!skb)
-+		return 0;
++		goto out;
 +
-+	return ip6_send_skb(skb);
- }
- EXPORT_SYMBOL_GPL(ip6_push_pending_frames);
- 
- static void __ip6_flush_pending_frames(struct sock *sk,
--				       struct sk_buff_head *queue)
-+				       struct sk_buff_head *queue,
-+				       struct inet_cork_full *cork,
-+				       struct inet6_cork *v6_cork)
- {
- 	struct sk_buff *skb;
- 
-@@ -1661,11 +1682,55 @@ static void __ip6_flush_pending_frames(struct sock *sk,
- 		kfree_skb(skb);
- 	}
- 
--	ip6_cork_release(&inet_sk(sk)->cork, &inet6_sk(sk)->cork);
-+	ip6_cork_release(cork, v6_cork);
- }
- 
- void ip6_flush_pending_frames(struct sock *sk)
- {
--	__ip6_flush_pending_frames(sk, &sk->sk_write_queue);
-+	__ip6_flush_pending_frames(sk, &sk->sk_write_queue,
-+				   &inet_sk(sk)->cork, &inet6_sk(sk)->cork);
- }
- EXPORT_SYMBOL_GPL(ip6_flush_pending_frames);
++	err = udp_v6_send_skb(skb, &fl6);
 +
-+struct sk_buff *ip6_make_skb(struct sock *sk,
-+			     int getfrag(void *from, char *to, int offset,
-+					 int len, int odd, struct sk_buff *skb),
-+			     void *from, int length, int transhdrlen,
-+			     int hlimit, int tclass,
-+			     struct ipv6_txoptions *opt, struct flowi6 *fl6,
-+			     struct rt6_info *rt, unsigned int flags,
-+			     int dontfrag)
-+{
-+	struct inet_cork_full cork;
-+	struct inet6_cork v6_cork;
-+	struct sk_buff_head queue;
-+	int exthdrlen = (opt ? opt->opt_flen : 0);
-+	int err;
-+
-+	if (flags & MSG_PROBE)
-+		return NULL;
-+
-+	__skb_queue_head_init(&queue);
-+
-+	cork.base.flags = 0;
-+	cork.base.addr = 0;
-+	cork.base.opt = NULL;
-+	v6_cork.opt = NULL;
-+	err = ip6_setup_cork(sk, &cork, &v6_cork, hlimit, tclass, opt, rt, fl6);
-+	if (err)
-+		return ERR_PTR(err);
-+
-+	if (dontfrag < 0)
-+		dontfrag = inet6_sk(sk)->dontfrag;
-+
-+	err = __ip6_append_data(sk, fl6, &queue, &cork.base, &v6_cork,
-+				&current->task_frag, getfrag, from,
-+				length + exthdrlen, transhdrlen + exthdrlen,
-+				flags, dontfrag);
-+	if (err) {
-+		__ip6_flush_pending_frames(sk, &queue, &cork, &v6_cork);
-+		return ERR_PTR(err);
-+	}
-+
-+	return __ip6_make_skb(sk, &queue, &cork, &v6_cork);
-+}
+ out:
+ 	up->len = 0;
+ 	up->pending = 0;
 -- 
 1.9.3
