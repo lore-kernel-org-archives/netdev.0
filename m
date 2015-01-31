@@ -1,45 +1,181 @@
-From: Harish Patil <harish.patil@qlogic.com>
-Subject: Re: [PATCH net] qlge: Fix qlge_update_hw_vlan_features to handle if
- interface is down
-Date: Fri, 30 Jan 2015 23:40:17 +0000
-Message-ID: <036FA1BC4A80D448AB7D9C3AAFBBCAF59F87DCD8@AVMB1.qlogic.org>
-References: <10e24de024f81e60ab64a6f0bf9647d27eb40be1.1422618157.git.mleitner@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "cdupuis@redhat.com" <cdupuis@redhat.com>
-To: Marcelo Ricardo Leitner <mleitner@redhat.com>,
-	netdev <netdev@vger.kernel.org>
+From: Anish Bhatt <anish@chelsio.com>
+Subject: [PATCH net-next] cxgb4 : Improve IEEE DCBx support, other minor open-lldp fixes
+Date: Fri, 30 Jan 2015 17:20:17 -0800
+Message-ID: <1422667217-2610-1-git-send-email-anish@chelsio.com>
+Cc: davem@davemloft.net, hariprasad@chelsio.com,
+	Anish Bhatt <anish@chelsio.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:31675 "EHLO
-	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750842AbbA3XkW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jan 2015 18:40:22 -0500
-In-Reply-To: <10e24de024f81e60ab64a6f0bf9647d27eb40be1.1422618157.git.mleitner@redhat.com>
-Content-Language: en-US
-Content-ID: <C9BD2878AB47504ABF39F2B99B8F9DF9@qlogic.com>
+Received: from stargate.chelsio.com ([67.207.112.58]:7083 "EHLO
+	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1757268AbbAaBUZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jan 2015 20:20:25 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Pg0KPkN1cnJlbnRseSBxbGdlX3VwZGF0ZV9od192bGFuX2ZlYXR1cmVzKCkgd2lsbCBhbHdheXMg
-Zmlyc3QgcHV0IHRoZQ0KPmludGVyZmFjZSBkb3duLCB0aGVuIHVwZGF0ZSBmZWF0dXJlcyBhbmQg
-dGhlbiBicmluZyBpdCB1cCBhZ2Fpbi4gQnV0IGl0DQo+aXMgcG9zc2libGUgdG8gaGl0IHRoaXMg
-Y29kZSB3aGlsZSB0aGUgYWRhcHRlciBpcyBkb3duIGFuZCB0aGlzIGNhdXNlcyBhDQo+bm9uLXBh
-aXJlZCBjYWxsIHRvIG5hcGlfZGlzYWJsZSgpLCB3aGljaCB3aWxsIGdldCBzdHVjay4NCj4NCj5U
-aGlzIHBhdGNoIGZpeGVzIGl0IGJ5IHNraXBwaW5nIHRoZXNlIGRvd24vdXAgYWN0aW9ucyBpZiB0
-aGUgaW50ZXJmYWNlDQo+aXMgYWxyZWFkeSBkb3duLg0KPg0KPkZpeGVzOiBhNDVhZGJlOGQzNTIg
-KCJxbGdlOiBFbmhhbmNlIG5lc3RlZCBWTEFOIChRLWluLVEpIGhhbmRsaW5nLiIpDQo+Q2M6IEhh
-cmlzaCBQYXRpbCA8aGFyaXNoLnBhdGlsQHFsb2dpYy5jb20+DQo+U2lnbmVkLW9mZi1ieTogTWFy
-Y2VsbyBSaWNhcmRvIExlaXRuZXIgPG1sZWl0bmVyQHJlZGhhdC5jb20+DQo+LS0tDQo+IGRyaXZl
-cnMvbmV0L2V0aGVybmV0L3Fsb2dpYy9xbGdlL3FsZ2VfbWFpbi5jIHwgMjYNCj4rKysrKysrKysr
-KysrKysrLS0tLS0tLS0tLQ0KPiAxIGZpbGUgY2hhbmdlZCwgMTYgaW5zZXJ0aW9ucygrKSwgMTAg
-ZGVsZXRpb25zKC0pDQoNCg0KQWNrZWQtYnk6IEhhcmlzaCBQYXRpbCA8aGFyaXNoLnBhdGlsQHFs
-b2dpYy5jb20+DQoNClRoYW5rcywNCkhhcmlzaA0KDQoNCg0KDQpfX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fXw0KDQpUaGlzIG1lc3NhZ2UgYW5kIGFueSBhdHRhY2hlZCBkb2N1bWVudHMg
-Y29udGFpbiBpbmZvcm1hdGlvbiBmcm9tIHRoZSBzZW5kaW5nIGNvbXBhbnkgb3IgaXRzIHBhcmVu
-dCBjb21wYW55KHMpLCBzdWJzaWRpYXJpZXMsIGRpdmlzaW9ucyBvciBicmFuY2ggb2ZmaWNlcyB0
-aGF0IG1heSBiZSBjb25maWRlbnRpYWwuIElmIHlvdSBhcmUgbm90IHRoZSBpbnRlbmRlZCByZWNp
-cGllbnQsIHlvdSBtYXkgbm90IHJlYWQsIGNvcHksIGRpc3RyaWJ1dGUsIG9yIHVzZSB0aGlzIGlu
-Zm9ybWF0aW9uLiBJZiB5b3UgaGF2ZSByZWNlaXZlZCB0aGlzIHRyYW5zbWlzc2lvbiBpbiBlcnJv
-ciwgcGxlYXNlIG5vdGlmeSB0aGUgc2VuZGVyIGltbWVkaWF0ZWx5IGJ5IHJlcGx5IGUtbWFpbCBh
-bmQgdGhlbiBkZWxldGUgdGhpcyBtZXNzYWdlLg0K
+* Add support for IEEE ets & pfc api.
+* Fix bug that resulted in incorrect bandwidth percentage being returned for
+  CEE peers
+* Convert pfc enabled info from firmware format to what dcbnl expects before
+  returning
+
+Signed-off-by: Anish Bhatt <anish@chelsio.com>
+---
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.c | 98 +++++++++++++++++++++++++-
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.h | 11 +++
+ 2 files changed, 107 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.c
+index a35d1ec6950e..b65a5bda3195 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.c
+@@ -428,7 +428,10 @@ static void cxgb4_getpgtccfg(struct net_device *dev, int tc,
+ 	}
+ 	*pgid = (be32_to_cpu(pcmd.u.dcb.pgid.pgid) >> (tc * 4)) & 0xf;
+ 
+-	INIT_PORT_DCB_READ_PEER_CMD(pcmd, pi->port_id);
++	if (local)
++		INIT_PORT_DCB_READ_LOCAL_CMD(pcmd, pi->port_id);
++	else
++		INIT_PORT_DCB_READ_PEER_CMD(pcmd, pi->port_id);
+ 	pcmd.u.dcb.pgrate.type = FW_PORT_DCB_TYPE_PGRATE;
+ 	err = t4_wr_mbox(adap, adap->mbox, &pcmd, sizeof(pcmd), &pcmd);
+ 	if (err != FW_PORT_DCB_CFG_SUCCESS) {
+@@ -900,6 +903,88 @@ cxgb4_ieee_negotiation_complete(struct net_device *dev,
+ 		(dcb->supported & DCB_CAP_DCBX_VER_IEEE));
+ }
+ 
++static int cxgb4_ieee_read_ets(struct net_device *dev, struct ieee_ets *ets,
++			       int local)
++{
++	struct port_info *pi = netdev2pinfo(dev);
++	struct port_dcb_info *dcb = &pi->dcb;
++	struct adapter *adap = pi->adapter;
++	uint32_t tc_info;
++	struct fw_port_cmd pcmd;
++	int i, bwg, err;
++
++	if (!(dcb->msgs & (CXGB4_DCB_FW_PGID | CXGB4_DCB_FW_PGRATE)))
++		return 0;
++
++	ets->ets_cap =  dcb->pg_num_tcs_supported;
++
++	if (local) {
++		ets->willing = 1;
++		INIT_PORT_DCB_READ_LOCAL_CMD(pcmd, pi->port_id);
++	} else {
++		INIT_PORT_DCB_READ_PEER_CMD(pcmd, pi->port_id);
++	}
++
++	pcmd.u.dcb.pgid.type = FW_PORT_DCB_TYPE_PGID;
++	err = t4_wr_mbox(adap, adap->mbox, &pcmd, sizeof(pcmd), &pcmd);
++	if (err != FW_PORT_DCB_CFG_SUCCESS) {
++		dev_err(adap->pdev_dev, "DCB read PGID failed with %d\n", -err);
++		return err;
++	}
++
++	tc_info = be32_to_cpu(pcmd.u.dcb.pgid.pgid);
++
++	if (local)
++		INIT_PORT_DCB_READ_LOCAL_CMD(pcmd, pi->port_id);
++	else
++		INIT_PORT_DCB_READ_PEER_CMD(pcmd, pi->port_id);
++
++	pcmd.u.dcb.pgrate.type = FW_PORT_DCB_TYPE_PGRATE;
++	err = t4_wr_mbox(adap, adap->mbox, &pcmd, sizeof(pcmd), &pcmd);
++	if (err != FW_PORT_DCB_CFG_SUCCESS) {
++		dev_err(adap->pdev_dev, "DCB read PGRATE failed with %d\n",
++			-err);
++		return err;
++	}
++
++	for (i = 0; i < IEEE_8021QAZ_MAX_TCS; i++) {
++		bwg = (tc_info >> ((7 - i) * 4)) & 0xF;
++		ets->prio_tc[i] = bwg;
++		ets->tc_tx_bw[i] = pcmd.u.dcb.pgrate.pgrate[i];
++		ets->tc_rx_bw[i] = ets->tc_tx_bw[i];
++		ets->tc_tsa[i] = pcmd.u.dcb.pgrate.tsa[i];
++	}
++
++	return 0;
++}
++
++static int cxgb4_ieee_get_ets(struct net_device *dev, struct ieee_ets *ets)
++{
++	return cxgb4_ieee_read_ets(dev, ets, 1);
++}
++
++/* We reuse this for peer PFC as well, as we can't have it enabled one way */
++static int cxgb4_ieee_get_pfc(struct net_device *dev, struct ieee_pfc *pfc)
++{
++	struct port_info *pi = netdev2pinfo(dev);
++	struct port_dcb_info *dcb = &pi->dcb;
++
++	memset(pfc, 0, sizeof(struct ieee_pfc));
++
++	if (!(dcb->msgs & CXGB4_DCB_FW_PFC))
++		return 0;
++
++	pfc->pfc_cap = dcb->pfc_num_tcs_supported;
++	pfc->pfc_en = bitswap_1(dcb->pfcen);
++
++	return 0;
++}
++
++static int cxgb4_ieee_peer_ets(struct net_device *dev, struct ieee_ets *ets)
++{
++	return cxgb4_ieee_read_ets(dev, ets, 0);
++}
++
+ /* Fill in the Application User Priority Map associated with the
+  * specified Application.
+  * Priority for IEEE dcb_app is an integer, with 0 being a valid value
+@@ -1106,14 +1191,23 @@ static int cxgb4_cee_peer_getpfc(struct net_device *dev, struct cee_pfc *pfc)
+ 	struct port_info *pi = netdev2pinfo(dev);
+ 
+ 	cxgb4_getnumtcs(dev, DCB_NUMTCS_ATTR_PFC, &(pfc->tcs_supported));
+-	pfc->pfc_en = pi->dcb.pfcen;
++
++	/* Firmware sends this to us in a formwat that is a bit flipped version
++	 * of spec, correct it before we send it to host. This is taken care of
++	 * by bit shifting in other uses of pfcen
++	 */
++	pfc->pfc_en = bitswap_1(pi->dcb.pfcen);
+ 
+ 	return 0;
+ }
+ 
+ const struct dcbnl_rtnl_ops cxgb4_dcb_ops = {
++	.ieee_getets		= cxgb4_ieee_get_ets,
++	.ieee_getpfc		= cxgb4_ieee_get_pfc,
+ 	.ieee_getapp		= cxgb4_ieee_getapp,
+ 	.ieee_setapp		= cxgb4_ieee_setapp,
++	.ieee_peer_getets	= cxgb4_ieee_peer_ets,
++	.ieee_peer_getpfc	= cxgb4_ieee_get_pfc,
+ 
+ 	/* CEE std */
+ 	.getstate		= cxgb4_getstate,
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.h
+index 31ce425616c9..ccf24d3dc982 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.h
+@@ -136,6 +136,17 @@ void cxgb4_dcb_handle_fw_update(struct adapter *, const struct fw_port_cmd *);
+ void cxgb4_dcb_set_caps(struct adapter *, const struct fw_port_cmd *);
+ extern const struct dcbnl_rtnl_ops cxgb4_dcb_ops;
+ 
++static inline __u8 bitswap_1(unsigned char val)
++{
++	return ((val & 0x80) >> 7) |
++	       ((val & 0x40) >> 5) |
++	       ((val & 0x20) >> 3) |
++	       ((val & 0x10) >> 1) |
++	       ((val & 0x08) << 1) |
++	       ((val & 0x04) << 3) |
++	       ((val & 0x02) << 5) |
++	       ((val & 0x01) << 7);
++}
+ #define CXGB4_DCB_ENABLED true
+ 
+ #else /* !CONFIG_CHELSIO_T4_DCB */
+-- 
+2.2.2
