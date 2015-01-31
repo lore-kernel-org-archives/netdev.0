@@ -1,41 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] netlink: fix wrong subscription bitmask to group
- mapping in
-Date: Fri, 30 Jan 2015 17:44:57 -0800 (PST)
-Message-ID: <20150130.174457.1399299755338734165.davem@davemloft.net>
-References: <1422525113-5698-1-git-send-email-pablo@netfilter.org>
+Subject: Re: [PATCH net] net: sctp: fix passing wrong parameter header to
+ param_type2af in sctp_process_param
+Date: Fri, 30 Jan 2015 17:45:43 -0800 (PST)
+Message-ID: <20150130.174543.641220081613613919.davem@davemloft.net>
+References: <1422525958-5737-1-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, colona@arista.com, andre@tomt.net
-To: pablo@netfilter.org
+Cc: vyasevich@gmail.com, netdev@vger.kernel.org,
+	linux-sctp@vger.kernel.org, saran.neti@telus.com
+To: dborkman@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51973 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:51978 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753320AbbAaBo7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jan 2015 20:44:59 -0500
-In-Reply-To: <1422525113-5698-1-git-send-email-pablo@netfilter.org>
+	with ESMTP id S1753320AbbAaBpo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jan 2015 20:45:44 -0500
+In-Reply-To: <1422525958-5737-1-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Thu, 29 Jan 2015 10:51:53 +0100
+From: Daniel Borkmann <dborkman@redhat.com>
+Date: Thu, 29 Jan 2015 11:05:58 +0100
 
-> The subscription bitmask passed via struct sockaddr_nl is converted to
-> the group number when calling the netlink_bind() and netlink_unbind()
-> callbacks.
+> From: Saran Maruti Ramanara <saran.neti@telus.com>
 > 
-> The conversion is however incorrect since bitmask (1 << 0) needs to be
-> mapped to group number 1. Note that you cannot specify the group number 0
-> (usually known as _NONE) from setsockopt() using NETLINK_ADD_MEMBERSHIP
-> since this is rejected through -EINVAL.
+> When making use of RFC5061, section 4.2.4. for setting the primary IP
+> address, we're passing a wrong parameter header to param_type2af(),
+> resulting always in NULL being returned.
 > 
-> This problem became noticeable since 97840cb ("netfilter: nfnetlink:
-> fix insufficient validation in nfnetlink_bind") when binding to bitmask
-> (1 << 0) in ctnetlink.
+> At this point, param.p points to a sctp_addip_param struct, containing
+> a sctp_paramhdr (type = 0xc004, length = var), and crr_id as a correlation
+> id. Followed by that, as also presented in RFC5061 section 4.2.4., comes
+> the actual sctp_addr_param, which also contains a sctp_paramhdr, but
+> this time with the correct type SCTP_PARAM_IPV{4,6}_ADDRESS that
+> param_type2af() can make use of. Since we already hold a pointer to
+> addr_param from previous line, just reuse it for param_type2af().
 > 
-> Reported-by: Andre Tomt <andre@tomt.net>
-> Reported-by: Ivan Delalande <colona@arista.com>
-> Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+> Fixes: d6de3097592b ("[SCTP]: Add the handling of "Set Primary IP Address" parameter to INIT")
+> Signed-off-by: Saran Maruti Ramanara <saran.neti@telus.com>
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
 
-Applied, thanks Pablo.
+Applied, thanks.
