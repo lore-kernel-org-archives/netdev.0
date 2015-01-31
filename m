@@ -1,117 +1,44 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: netfilter: Use rhashtable walk iterator
-Date: Sat, 31 Jan 2015 15:31:51 +1100
-Message-ID: <20150131043151.GA27524@gondor.apana.org.au>
-References: <20150122084924.GA4720@gondor.apana.org.au>
- <20150125232040.GA17936@gondor.apana.org.au>
- <20150127231950.GA11374@gondor.apana.org.au>
- <20150129.144246.1383921666389409323.davem@davemloft.net>
- <20150131031356.GA26781@gondor.apana.org.au>
+Subject: Re: [PATCH 2/6] rhashtable: Use a single bucket lock for sibling
+ buckets
+Date: Sat, 31 Jan 2015 15:34:37 +1100
+Message-ID: <20150131043436.GA27564@gondor.apana.org.au>
+References: <14d537500868b4ff0396168cf9d5db95d327c128.1422576760.git.tgraf@suug.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: tgraf@suug.ch, ying.xue@windriver.com, kaber@trash.net,
-	paulmck@linux.vnet.ibm.com, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org, ying.xue@windriver.com
+To: Thomas Graf <tgraf@suug.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from helcar.apana.org.au ([209.40.204.226]:33815 "EHLO
+	helcar.apana.org.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754458AbbAaEen (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jan 2015 23:34:43 -0500
 Content-Disposition: inline
-In-Reply-To: <20150131031356.GA26781@gondor.apana.org.au>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <14d537500868b4ff0396168cf9d5db95d327c128.1422576760.git.tgraf@suug.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jan 31, 2015 at 02:13:56PM +1100, Herbert Xu wrote:
+Thomas Graf <tgraf@suug.ch> wrote:
+> rhashtable currently allows to use a bucket lock per bucket. This
+> requires multiple levels of complicated nested locking because when
+> resizing, a single bucket of the smaller table will map to two
+> buckets in the larger table. So far rhashtable has explicitly locked
+> both buckets in the larger table.
 > 
-> No problems.  Here is a new version of these two patches which
-> hopefully should work on netfilter as well.
+> By excluding the highest bit of the hash from the bucket lock map and
+> thus only allowing locks to buckets in a ratio of 1:2, the locking
+> can be simplified a lot without losing the benefits of multiple locks.
+> Larger tables which benefit from multiple locks will not have a single
+> lock per bucket anyway.
+> 
+> Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
-And here is the patch for netfilter.
+Thomas, could you please hold off on these changes? They totally
+conflict with my rehash work, which is going to render these changes
+moot anyway since it'll completely change how expansion/shrinking
+works.
 
--- >8 --
-This patch gets rid of the manual rhashtable walk in nft_hash
-which touches rhashtable internals that should not be exposed.
-It does so by using the rhashtable iterator primitives.
-    
-Note that I'm leaving nft_hash_destroy alone since it's only
-invoked on shutdown and it shouldn't be affected by changes
-to rhashtable internals (or at least not what I'm planning to
-change).
-    
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-diff --git a/net/netfilter/nft_hash.c b/net/netfilter/nft_hash.c
-index 75887d7..61e6c40 100644
---- a/net/netfilter/nft_hash.c
-+++ b/net/netfilter/nft_hash.c
-@@ -130,31 +130,50 @@ static void nft_hash_walk(const struct nft_ctx *ctx, const struct nft_set *set,
- 			  struct nft_set_iter *iter)
- {
- 	struct rhashtable *priv = nft_set_priv(set);
--	const struct bucket_table *tbl;
- 	const struct nft_hash_elem *he;
-+	struct rhashtable_iter hti;
- 	struct nft_set_elem elem;
--	unsigned int i;
-+	int err;
- 
--	tbl = rht_dereference_rcu(priv->tbl, priv);
--	for (i = 0; i < tbl->size; i++) {
--		struct rhash_head *pos;
-+	err = rhashtable_walk_init(priv, &hti);
-+	iter->err = err;
-+	if (err)
-+		return;
-+
-+	err = rhashtable_walk_start(&hti);
-+	if (err && err != -EAGAIN) {
-+		iter->err = err;
-+		goto out;
-+	}
- 
--		rht_for_each_entry_rcu(he, pos, tbl, i, node) {
--			if (iter->count < iter->skip)
--				goto cont;
-+	while ((he = rhashtable_walk_next(&hti))) {
-+		if (IS_ERR(he)) {
-+			err = PTR_ERR(he);
-+			if (err != -EAGAIN) {
-+				iter->err = err;
-+				goto out;
-+			}
-+		}
-+
-+		if (iter->count < iter->skip)
-+			goto cont;
-+
-+		memcpy(&elem.key, &he->key, sizeof(elem.key));
-+		if (set->flags & NFT_SET_MAP)
-+			memcpy(&elem.data, he->data, sizeof(elem.data));
-+		elem.flags = 0;
- 
--			memcpy(&elem.key, &he->key, sizeof(elem.key));
--			if (set->flags & NFT_SET_MAP)
--				memcpy(&elem.data, he->data, sizeof(elem.data));
--			elem.flags = 0;
-+		iter->err = iter->fn(ctx, set, iter, &elem);
-+		if (iter->err < 0)
-+			goto out;
- 
--			iter->err = iter->fn(ctx, set, iter, &elem);
--			if (iter->err < 0)
--				return;
- cont:
--			iter->count++;
--		}
-+		iter->count++;
- 	}
-+
-+out:
-+	rhashtable_walk_stop(&hti);
-+	rhashtable_walk_exit(&hti);
- }
- 
- static unsigned int nft_hash_privsize(const struct nlattr * const nla[])
-
-Cheers,
+Thanks,
 -- 
 Email: Herbert Xu <herbert@gondor.apana.org.au>
 Home Page: http://gondor.apana.org.au/~herbert/
