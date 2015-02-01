@@ -1,172 +1,181 @@
-From: Jonathan Morton <chromatix99@gmail.com>
-Subject: Re: Fwd: Throughput regression with `tcp: refine
-	TSO autosizing`
-Date: Sun, 1 Feb 2015 12:47:23 +0200
-Message-ID: <CAJq5cE3ETbpEtecFHmhgHQveNRUhVfrzjTOygHm-TRCTwHNyKA@mail.gmail.com>
-References: <CA+BoTQkVu23P3EOmY_Q3E1GJnWsyF==Pawz4iPOS_Bq5dvfO5Q@mail.gmail.com>
-	<1422537297.21689.15.camel@edumazet-glaptop2.roam.corp.google.com>
-	<54CB5D08.2070906@broadcom.com>
-	<1422623975.21689.77.camel@edumazet-glaptop2.roam.corp.google.com>
-	<54CB8B69.1070807@broadcom.com>
-	<CAA93jw5fqhz0Hiw74L2GXgtZ9JsMg+NtYydKxKzGDrvQcZn4hA@mail.gmail.com>
-	<CAA93jw7b0E9jjQYXrEPzjLLC9j8xNC0TFYXpWVtgFameJaNBdw@mail.gmail.com>
-	<1422741065.199624134@apps.rackspace.com>
-	<CAPp0ZBb2nkA6Y0s=W0kw=zvyn0wi0NMBRsBCw_xcD61ScOmgQg@mail.gmail.com>
-	<CAA_e5Z46Bu+zZZFzf_ejzA35Gw3g1_OG85yv6yd7MpbwZcE-nw@mail.gmail.com>
-	<CAA93jw7=oTex0Mp-0ThvuDRUnfR0N8tzdOQ8DD7QYWphp1b=4w@mail.gmail.com>
+From: David Woodhouse <dwmw2@infradead.org>
+Subject: Re: [PATCH] tun: orphan an skb on tx
+Date: Sun, 01 Feb 2015 11:20:33 +0000
+Message-ID: <1422789633.11044.18.camel@infradead.org>
+References: <20100413145944.GA7716@redhat.com>
+	 <4BC48F79.5090409@siemens.com> <1271176838.16881.537.camel@edumazet-laptop>
+	 <20100413173919.GC26011@redhat.com>
+	 <1271183463.16881.545.camel@edumazet-laptop>
+	 <20100414005822.GD18044@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============1192999118683223606=="
-Cc: dstanley@arubanetworks.com, Andrew McGregor <andrewmcgr@gmail.com>,
-	Stig Thormodsrud <stig@ubnt.com>, netdev@vger.kernel.org,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	Jesper Dangaard Brouer <jbrouer@redhat.com>,
-	cerowrt-devel@lists.bufferbloat.net, Matt Mathis <mattmathis@google.com>,
-	Derrick Pallas <pallas@meraki.com>,
-	Mahesh Paolini-Subramanya <mahesh@dieswaytoofast.com>,
-	Kathy Giori <kgiori@qca.qualcomm.com>, Tim Shepard <shep@alum.mit.edu>,
-	Avery Pennarun <apenwarr@google.com>
-To: Dave Taht <dave.taht@gmail.com>
-Return-path: <cerowrt-devel-bounces@lists.bufferbloat.net>
-In-Reply-To: <CAA93jw7=oTex0Mp-0ThvuDRUnfR0N8tzdOQ8DD7QYWphp1b=4w@mail.gmail.com>
-List-Unsubscribe: <https://lists.bufferbloat.net/options/cerowrt-devel>,
-	<mailto:cerowrt-devel-request@lists.bufferbloat.net?subject=unsubscribe>
-List-Archive: <https://lists.bufferbloat.net/pipermail/cerowrt-devel>
-List-Post: <mailto:cerowrt-devel@lists.bufferbloat.net>
-List-Help: <mailto:cerowrt-devel-request@lists.bufferbloat.net?subject=help>
-List-Subscribe: <https://lists.bufferbloat.net/listinfo/cerowrt-devel>,
-	<mailto:cerowrt-devel-request@lists.bufferbloat.net?subject=subscribe>
-Sender: cerowrt-devel-bounces@lists.bufferbloat.net
-Errors-To: cerowrt-devel-bounces@lists.bufferbloat.net
+Content-Type: multipart/signed; micalg="sha-1"; protocol="application/x-pkcs7-signature";
+	boundary="=-veIGnxzbfFksq7FaRHqw"
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	"Michael S. Tsirkin" <mst@redhat.com>,
+	Jan Kiszka <jan.kiszka@siemens.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Paul Moore <paul.moore@hp.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	qemu-devel <qemu-devel@nongnu.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100414005822.GD18044@gondor.apana.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---===============1192999118683223606==
-Content-Type: multipart/alternative; boundary=001a11335bfc143769050e049085
 
---001a11335bfc143769050e049085
-Content-Type: text/plain; charset=UTF-8
-
-Since this is going to be a big job, it's worth prioritising parts of it
-appropriately.
-
-Minstrel is probably already the single best feature of the Linux Wi-Fi
-stack. AFAIK it still outperforms any other rate selector we know about. So
-I don't consider improving it further to be a high priority, although that
-trick of using it as a sneaky random packet loss inducer is intriguing.
-
-Much more important and urgent is getting some form of functioning SQM
-closer to the hardware, where the information is. I don't think we need to
-get super fancy here to do some real good, in the same way that PIE is a
-major improvement over drop-tail. I'd settle for a variant of fq_codel that
-gets and uses information about whether the current packet request might be
-aggregated with the previous packet provided, and adjusts its choice of
-packet accordingly.
-
-At the same time, models would undoubtedly be useful to help test and
-repeatably demonstrate the advantages of both simple and more sophisticated
-solutions. Ns3 allows laying out a reasonably complex radio environment,
-which is great for this. To counter the prevalence of one-station Faraday
-cage tests in the industry, the simulated environments should represent
-realistic, challenging use cases:
-
-1) the family home, with half a dozen client devices competing with several
-interference sources (Bluetooth, RC toys, microwave oven, etc). This is a
-relatively easy environment, representing the expected environment for
-consumer equipment.
-
-2) the apartment block, with fewer clients per AP but lots of APs
-distributed throughout a large building. Walls and floors may provide
-valuable attenuation here - unless you're in Japan, where they can be
-notoriously thin.
-
-3) the railway carriage, consisting of eighty passengers in a 20x3 m space,
-and roughly the same number of client devices. The uplink is 3G based and
-has some inherent latency. Add some Bluetooth for flavour, stir gently.
-This one is rather challenging, but there is scope to optimise AP antenna
-placement, and to scale the test down slightly by reducing seat occupancy.
-
-4) the jumbo jet, consisting of several hundred passengers crammed in like
-sardines. The uplink has satellite latencies built in. Good luck.
-
-5) the business hotel. Multiple APs will be needed to provide adequate
-coverage for this environment, which should encompass the rooms as well as
-lounge, conference and dining areas. Some visitors may bring their own APs,
-and the system must be able to cope with this without seriously degrading
-performance.
-
-6) the trade conference. A large arena filled with thousands of people.
-Multiple APs required. Good luck.
-
-I also feel that ultimately we're going to have to get industry on board.
-Not just passively letting us play around as with ath9k, but actively
-taking note of our findings and implementing at least a few of our ideas
-themselves. Of course, tools, models and real-world results are likely to
-make that easier.
-
-- Jonathan Morton
-
---001a11335bfc143769050e049085
-Content-Type: text/html; charset=UTF-8
+--=-veIGnxzbfFksq7FaRHqw
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-<p dir=3D"ltr">Since this is going to be a big job, it&#39;s worth prioriti=
-sing parts of it appropriately.</p>
-<p dir=3D"ltr">Minstrel is probably already the single best feature of the =
-Linux Wi-Fi stack. AFAIK it still outperforms any other rate selector we kn=
-ow about. So I don&#39;t consider improving it further to be a high priorit=
-y, although that trick of using it as a sneaky random packet loss inducer i=
-s intriguing.</p>
-<p dir=3D"ltr">Much more important and urgent is getting some form of funct=
-ioning SQM closer to the hardware, where the information is. I don&#39;t th=
-ink we need to get super fancy here to do some real good, in the same way t=
-hat PIE is a major improvement over drop-tail. I&#39;d settle for a variant=
- of fq_codel that gets and uses information about whether the current packe=
-t request might be aggregated with the previous packet provided, and adjust=
-s its choice of packet accordingly.</p>
-<p dir=3D"ltr">At the same time, models would undoubtedly be useful to help=
- test and repeatably demonstrate the advantages of both simple and more sop=
-histicated solutions. Ns3 allows laying out a reasonably complex radio envi=
-ronment, which is great for this. To counter the prevalence of one-station =
-Faraday cage tests in the industry, the simulated environments should repre=
-sent realistic, challenging use cases:</p>
-<p dir=3D"ltr">1) the family home, with half a dozen client devices competi=
-ng with several interference sources (Bluetooth, RC toys, microwave oven, e=
-tc). This is a relatively easy environment, representing the expected envir=
-onment for consumer equipment.</p>
-<p dir=3D"ltr">2) the apartment block, with fewer clients per AP but lots o=
-f APs distributed throughout a large building. Walls and floors may provide=
- valuable attenuation here - unless you&#39;re in Japan, where they can be =
-notoriously thin.</p>
-<p dir=3D"ltr">3) the railway carriage, consisting of eighty passengers in =
-a 20x3 m space, and roughly the same number of client devices. The uplink i=
-s 3G based and has some inherent latency. Add some Bluetooth for flavour, s=
-tir gently. This one is rather challenging, but there is scope to optimise =
-AP antenna placement, and to scale the test down slightly by reducing seat =
-occupancy.</p>
-<p dir=3D"ltr">4) the jumbo jet, consisting of several hundred passengers c=
-rammed in like sardines. The uplink has satellite latencies built in. Good =
-luck.</p>
-<p dir=3D"ltr">5) the business hotel. Multiple APs will be needed to provid=
-e adequate coverage for this environment, which should encompass the rooms =
-as well as lounge, conference and dining areas. Some visitors may bring the=
-ir own APs, and the system must be able to cope with this without seriously=
- degrading performance.</p>
-<p dir=3D"ltr">6) the trade conference. A large arena filled with thousands=
- of people. Multiple APs required. Good luck.</p>
-<p dir=3D"ltr">I also feel that ultimately we&#39;re going to have to get i=
-ndustry on board. Not just passively letting us play around as with ath9k, =
-but actively taking note of our findings and implementing at least a few of=
- our ideas themselves. Of course, tools, models and real-world results are =
-likely to make that easier.</p>
-<p dir=3D"ltr"> - Jonathan Morton<br>
-</p>
+On Wed, 2010-04-14 at 08:58 +0800, Herbert Xu wrote:
+> On Tue, Apr 13, 2010 at 08:31:03PM +0200, Eric Dumazet wrote:
+> >
+> > Herbert Acked your patch, so I guess its OK, but I think it can be
+> > dangerous.
+>=20
+> The tun socket accounting was never designed to stop it from
+> flooding another tun interface.  It's there to stop it from
+> transmitting above a destination interface TX bandwidth and
+> cause unnecessary packet drops.  It also limits the total amount
+> of kernel memory that can be pinned down by a single tun interface.
+>=20
+> In this case, all we're doing is shifting the accounting from the
+> "hardware" queue to the qdisc queue.
+>=20
+> So your ability to flood a tun interface is essentially unchanged.
 
---001a11335bfc143769050e049085--
+I've just been looking at VPN performance, using netperf to flood an
+openconnect/ocserv connection over GigE and profiling my VPN client.
 
---===============1192999118683223606==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+If I run netperf over the *unencrypted* link, it only sends 1Gb/s of
+packets =E2=80=94 because the packets are correctly accounted to netperf's =
+UDP
+socket until the moment they're actually transmitted on the wire, and
+the backpressure works correctly.
+
+When I run over the VPN, netperf thinks it sent 2=C2=BD times the amount of
+TX traffic. Packets are being dropped by the tun device before even
+feeding them up to the VPN client to be sent =E2=80=94 presumably because o=
+f
+this skb_orphan() call. (The client itself should do the right thing,
+and only suck packets out of the tun at the rate it can shove them out
+*its* UDP socket.)
+
+Did we ever look at the alternative solution of taking ownership only
+after a timeout, or on demand when we need to shut down the device?
+
+--=20
+dwmw2
 
 
---===============1192999118683223606==--
+--=-veIGnxzbfFksq7FaRHqw
+Content-Type: application/x-pkcs7-signature; name="smime.p7s"
+Content-Disposition: attachment; filename="smime.p7s"
+Content-Transfer-Encoding: base64
+
+MIAGCSqGSIb3DQEHAqCAMIACAQExCzAJBgUrDgMCGgUAMIAGCSqGSIb3DQEHAQAAoIISxDCCBjQw
+ggQcoAMCAQICAR4wDQYJKoZIhvcNAQEFBQAwfTELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0
+Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcxKTAn
+BgNVBAMTIFN0YXJ0Q29tIENlcnRpZmljYXRpb24gQXV0aG9yaXR5MB4XDTA3MTAyNDIxMDE1NVoX
+DTE3MTAyNDIxMDE1NVowgYwxCzAJBgNVBAYTAklMMRYwFAYDVQQKEw1TdGFydENvbSBMdGQuMSsw
+KQYDVQQLEyJTZWN1cmUgRGlnaXRhbCBDZXJ0aWZpY2F0ZSBTaWduaW5nMTgwNgYDVQQDEy9TdGFy
+dENvbSBDbGFzcyAxIFByaW1hcnkgSW50ZXJtZWRpYXRlIENsaWVudCBDQTCCASIwDQYJKoZIhvcN
+AQEBBQADggEPADCCAQoCggEBAMcJg8zOLdgasSmkLhOrlr6KMoOMpohBllVHrdRvEg/q6r8jR+EK
+75xCGhR8ToREoqe7zM9/UnC6TS2y9UKTpT1v7RSMzR0t6ndl0TWBuUr/UXBhPk+Kmy7bI4yW4urC
++y7P3/1/X7U8ocb8VpH/Clt+4iq7nirMcNh6qJR+xjOhV+VHzQMALuGYn5KZmc1NbJQYclsGkDxD
+z2UbFqE2+6vIZoL+jb9x4Pa5gNf1TwSDkOkikZB1xtB4ZqtXThaABSONdfmv/Z1pua3FYxnCFmdr
+/+N2JLKutIxMYqQOJebr/f/h5t95m4JgrM3Y/w7YX9d7YAL9jvN4SydHsU6n65cCAwEAAaOCAa0w
+ggGpMA8GA1UdEwEB/wQFMAMBAf8wDgYDVR0PAQH/BAQDAgEGMB0GA1UdDgQWBBRTcu2SnODaywFc
+fH6WNU7y1LhRgjAfBgNVHSMEGDAWgBROC+8apEBbpRdphzDKNGhD0EGu8jBmBggrBgEFBQcBAQRa
+MFgwJwYIKwYBBQUHMAGGG2h0dHA6Ly9vY3NwLnN0YXJ0c3NsLmNvbS9jYTAtBggrBgEFBQcwAoYh
+aHR0cDovL3d3dy5zdGFydHNzbC5jb20vc2ZzY2EuY3J0MFsGA1UdHwRUMFIwJ6AloCOGIWh0dHA6
+Ly93d3cuc3RhcnRzc2wuY29tL3Nmc2NhLmNybDAnoCWgI4YhaHR0cDovL2NybC5zdGFydHNzbC5j
+b20vc2ZzY2EuY3JsMIGABgNVHSAEeTB3MHUGCysGAQQBgbU3AQIBMGYwLgYIKwYBBQUHAgEWImh0
+dHA6Ly93d3cuc3RhcnRzc2wuY29tL3BvbGljeS5wZGYwNAYIKwYBBQUHAgEWKGh0dHA6Ly93d3cu
+c3RhcnRzc2wuY29tL2ludGVybWVkaWF0ZS5wZGYwDQYJKoZIhvcNAQEFBQADggIBAAqDCH14qywG
+XLhjjF6uHLkjd02hcdh9hrw+VUsv+q1eeQWB21jWj3kJ96AUlPCoEGZ/ynJNScWy6QMVQjbbMXlt
+UfO4n4bGGdKo3awPWp61tjAFgraLJgDk+DsSvUD6EowjMTNx25GQgyYJ5RPIzKKR9tQW8gGK+2+R
+HxkUCTbYFnL6kl8Ch507rUdPPipJ9CgJFws3kDS3gOS5WFMxcjO5DwKfKSETEPrHh7p5shuuNktv
+sv6hxHTLhiMKX893gxdT3XLS9OKmCv87vkINQcNEcIIoFWbP9HORz9v3vQwR4e3ksLc2JZOAFK+s
+sS5XMEoznzpihEP0PLc4dCBYjbvSD7kxgDwZ+Aj8Q9PkbvE9sIPP7ON0fz095HdThKjiVJe6vofq
++n6b1NBc8XdrQvBmunwxD5nvtTW4vtN6VY7mUCmxsCieuoBJ9OlqmsVWQvifIYf40dJPZkk9YgGT
+zWLpXDSfLSplbY2LL9C9U0ptvjcDjefLTvqSFc7tw1sEhF0n/qpA2r0GpvkLRDmcSwVyPvmjFBGq
+Up/pNy8ZuPGQmHwFi2/14+xeSUDG2bwnsYJQG2EdJCB6luQ57GEnTA/yKZSTKI8dDQa8Sd3zfXb1
+9mOgSF0bBdXbuKhEpuP9wirslFe6fQ1t5j5R0xi72MZ8ikMu1RQZKCyDbMwazlHiMIIGQjCCBSqg
+AwIBAgIDCdkyMA0GCSqGSIb3DQEBBQUAMIGMMQswCQYDVQQGEwJJTDEWMBQGA1UEChMNU3RhcnRD
+b20gTHRkLjErMCkGA1UECxMiU2VjdXJlIERpZ2l0YWwgQ2VydGlmaWNhdGUgU2lnbmluZzE4MDYG
+A1UEAxMvU3RhcnRDb20gQ2xhc3MgMSBQcmltYXJ5IEludGVybWVkaWF0ZSBDbGllbnQgQ0EwHhcN
+MTQwNTA0MTczMDIyWhcNMTUwNTA0MjM0MTAxWjBdMRkwFwYDVQQNExAzODNCMTVkSHFQSUR0cDZO
+MRwwGgYDVQQDDBNkd213MkBpbmZyYWRlYWQub3JnMSIwIAYJKoZIhvcNAQkBFhNkd213MkBpbmZy
+YWRlYWQub3JnMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAy7K+t+REIdZGFUfgR8Io
+QrJ/VLZil9I00JcwqTo8BiGy1dqSIB2y923siya5SDKMh1YurtCPsX96cNzwPmmN2cs0MKeVPQWz
+iQhHk3uKcB6LvvS7pzTahRWMRmTyW3CH+RphRM9plvyClY23GEeEnpBnGz4GaJJiPcJjGgzyZ/tI
+q473pOlSrDPZnZk43vt/5CJN46nIZOZ2I+PzlgINI+EbiwsXVn3VohHB7nVTwGaRLk5oywGt8ZT7
+tDdxn3BQ3inO1sr5MtkV1o2cHlenIC8mlU8nL/mrqqVve7Vib1YQUycW+Pj4CBYm4FTeuctAvNzK
+U/daeBclOZ8ofgQe2wIDAQABo4IC2TCCAtUwCQYDVR0TBAIwADALBgNVHQ8EBAMCBLAwHQYDVR0l
+BBYwFAYIKwYBBQUHAwIGCCsGAQUFBwMEMB0GA1UdDgQWBBRAjCSCV70BpLBeXge5DXi+mPhHTTAf
+BgNVHSMEGDAWgBRTcu2SnODaywFcfH6WNU7y1LhRgjAeBgNVHREEFzAVgRNkd213MkBpbmZyYWRl
+YWQub3JnMIIBTAYDVR0gBIIBQzCCAT8wggE7BgsrBgEEAYG1NwECAzCCASowLgYIKwYBBQUHAgEW
+Imh0dHA6Ly93d3cuc3RhcnRzc2wuY29tL3BvbGljeS5wZGYwgfcGCCsGAQUFBwICMIHqMCcWIFN0
+YXJ0Q29tIENlcnRpZmljYXRpb24gQXV0aG9yaXR5MAMCAQEagb5UaGlzIGNlcnRpZmljYXRlIHdh
+cyBpc3N1ZWQgYWNjb3JkaW5nIHRvIHRoZSBDbGFzcyAxIFZhbGlkYXRpb24gcmVxdWlyZW1lbnRz
+IG9mIHRoZSBTdGFydENvbSBDQSBwb2xpY3ksIHJlbGlhbmNlIG9ubHkgZm9yIHRoZSBpbnRlbmRl
+ZCBwdXJwb3NlIGluIGNvbXBsaWFuY2Ugb2YgdGhlIHJlbHlpbmcgcGFydHkgb2JsaWdhdGlvbnMu
+MDYGA1UdHwQvMC0wK6ApoCeGJWh0dHA6Ly9jcmwuc3RhcnRzc2wuY29tL2NydHUxLWNybC5jcmww
+gY4GCCsGAQUFBwEBBIGBMH8wOQYIKwYBBQUHMAGGLWh0dHA6Ly9vY3NwLnN0YXJ0c3NsLmNvbS9z
+dWIvY2xhc3MxL2NsaWVudC9jYTBCBggrBgEFBQcwAoY2aHR0cDovL2FpYS5zdGFydHNzbC5jb20v
+Y2VydHMvc3ViLmNsYXNzMS5jbGllbnQuY2EuY3J0MCMGA1UdEgQcMBqGGGh0dHA6Ly93d3cuc3Rh
+cnRzc2wuY29tLzANBgkqhkiG9w0BAQUFAAOCAQEAWS2KNN7O3vZVtNHXVqgbmijeptKwt+8b6yiF
+wT3kJoywInPl5U+OeKRZfQKTHghM4Ohof6lF244ZMxhir/xp7l/zkZ/BUbxLwp6kIL27Gi5pgP4D
+KLnTZheQL9N5Yi/vMONxMWcpcW+ZNv5hnDCfEsfVcLXC8sNLPjx2ezfMIhSSPwBuJpmOun70te4E
+P0YBqjSalPfvc5fC5KgaYtqTDFwo9Mw25X5HHDC0r6BK5aNrF1nD/xYTX7cdvZZWl7cUApr4PCrn
+uI2DEn7OWQ/rY407ytV1c5pjvmuv/IT/ZUb/kXV6Q47UvrJp2Ifi2VhsBcnHHasKavjtRCmpDsGM
+rTCCBkIwggUqoAMCAQICAwnZMjANBgkqhkiG9w0BAQUFADCBjDELMAkGA1UEBhMCSUwxFjAUBgNV
+BAoTDVN0YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNp
+Z25pbmcxODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xp
+ZW50IENBMB4XDTE0MDUwNDE3MzAyMloXDTE1MDUwNDIzNDEwMVowXTEZMBcGA1UEDRMQMzgzQjE1
+ZEhxUElEdHA2TjEcMBoGA1UEAwwTZHdtdzJAaW5mcmFkZWFkLm9yZzEiMCAGCSqGSIb3DQEJARYT
+ZHdtdzJAaW5mcmFkZWFkLm9yZzCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAMuyvrfk
+RCHWRhVH4EfCKEKyf1S2YpfSNNCXMKk6PAYhstXakiAdsvdt7IsmuUgyjIdWLq7Qj7F/enDc8D5p
+jdnLNDCnlT0Fs4kIR5N7inAei770u6c02oUVjEZk8ltwh/kaYUTPaZb8gpWNtxhHhJ6QZxs+BmiS
+Yj3CYxoM8mf7SKuO96TpUqwz2Z2ZON77f+QiTeOpyGTmdiPj85YCDSPhG4sLF1Z91aIRwe51U8Bm
+kS5OaMsBrfGU+7Q3cZ9wUN4pztbK+TLZFdaNnB5XpyAvJpVPJy/5q6qlb3u1Ym9WEFMnFvj4+AgW
+JuBU3rnLQLzcylP3WngXJTmfKH4EHtsCAwEAAaOCAtkwggLVMAkGA1UdEwQCMAAwCwYDVR0PBAQD
+AgSwMB0GA1UdJQQWMBQGCCsGAQUFBwMCBggrBgEFBQcDBDAdBgNVHQ4EFgQUQIwkgle9AaSwXl4H
+uQ14vpj4R00wHwYDVR0jBBgwFoAUU3Ltkpzg2ssBXHx+ljVO8tS4UYIwHgYDVR0RBBcwFYETZHdt
+dzJAaW5mcmFkZWFkLm9yZzCCAUwGA1UdIASCAUMwggE/MIIBOwYLKwYBBAGBtTcBAgMwggEqMC4G
+CCsGAQUFBwIBFiJodHRwOi8vd3d3LnN0YXJ0c3NsLmNvbS9wb2xpY3kucGRmMIH3BggrBgEFBQcC
+AjCB6jAnFiBTdGFydENvbSBDZXJ0aWZpY2F0aW9uIEF1dGhvcml0eTADAgEBGoG+VGhpcyBjZXJ0
+aWZpY2F0ZSB3YXMgaXNzdWVkIGFjY29yZGluZyB0byB0aGUgQ2xhc3MgMSBWYWxpZGF0aW9uIHJl
+cXVpcmVtZW50cyBvZiB0aGUgU3RhcnRDb20gQ0EgcG9saWN5LCByZWxpYW5jZSBvbmx5IGZvciB0
+aGUgaW50ZW5kZWQgcHVycG9zZSBpbiBjb21wbGlhbmNlIG9mIHRoZSByZWx5aW5nIHBhcnR5IG9i
+bGlnYXRpb25zLjA2BgNVHR8ELzAtMCugKaAnhiVodHRwOi8vY3JsLnN0YXJ0c3NsLmNvbS9jcnR1
+MS1jcmwuY3JsMIGOBggrBgEFBQcBAQSBgTB/MDkGCCsGAQUFBzABhi1odHRwOi8vb2NzcC5zdGFy
+dHNzbC5jb20vc3ViL2NsYXNzMS9jbGllbnQvY2EwQgYIKwYBBQUHMAKGNmh0dHA6Ly9haWEuc3Rh
+cnRzc2wuY29tL2NlcnRzL3N1Yi5jbGFzczEuY2xpZW50LmNhLmNydDAjBgNVHRIEHDAahhhodHRw
+Oi8vd3d3LnN0YXJ0c3NsLmNvbS8wDQYJKoZIhvcNAQEFBQADggEBAFktijTezt72VbTR11aoG5oo
+3qbSsLfvG+sohcE95CaMsCJz5eVPjnikWX0Ckx4ITODoaH+pRduOGTMYYq/8ae5f85GfwVG8S8Ke
+pCC9uxouaYD+Ayi502YXkC/TeWIv7zDjcTFnKXFvmTb+YZwwnxLH1XC1wvLDSz48dns3zCIUkj8A
+biaZjrp+9LXuBD9GAao0mpT373OXwuSoGmLakwxcKPTMNuV+RxwwtK+gSuWjaxdZw/8WE1+3Hb2W
+Vpe3FAKa+Dwq57iNgxJ+zlkP62ONO8rVdXOaY75rr/yE/2VG/5F1ekOO1L6yadiH4tlYbAXJxx2r
+Cmr47UQpqQ7BjK0xggNvMIIDawIBATCBlDCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0
+Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcxODA2
+BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENBAgMJ
+2TIwCQYFKw4DAhoFAKCCAa8wGAYJKoZIhvcNAQkDMQsGCSqGSIb3DQEHATAcBgkqhkiG9w0BCQUx
+DxcNMTUwMjAxMTEyMDMzWjAjBgkqhkiG9w0BCQQxFgQUag8aB7SZ3lX2vhudOzcavTobmEkwgaUG
+CSsGAQQBgjcQBDGBlzCBlDCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0ZC4x
+KzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcxODA2BgNVBAMTL1N0
+YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENBAgMJ2TIwgacGCyqG
+SIb3DQEJEAILMYGXoIGUMIGMMQswCQYDVQQGEwJJTDEWMBQGA1UEChMNU3RhcnRDb20gTHRkLjEr
+MCkGA1UECxMiU2VjdXJlIERpZ2l0YWwgQ2VydGlmaWNhdGUgU2lnbmluZzE4MDYGA1UEAxMvU3Rh
+cnRDb20gQ2xhc3MgMSBQcmltYXJ5IEludGVybWVkaWF0ZSBDbGllbnQgQ0ECAwnZMjANBgkqhkiG
+9w0BAQEFAASCAQDFG/jBxNnsS7t7Nmmqm3k2eM7V0fPwx0rbNHaUxyGfKPvPOBJoYKCpOP0x24OQ
+27Uf8AIvmNc9ohGeZkI6SR/yzTGM2guvzkIs8U/aETKkZZcigWaK6N2oHlEvCJxMLu5Ap2fIrxJ9
+Qj7Bww2n2H6+ffU6N0YRDTZ024Nm9h11lB6PfW6ZJV3w90NVOUzwI7OonCPtt/fn6mrkDYX/NcH0
+B/cjvLmRTrPWIPBEglKIlLD29DXVBpe4llPoY6zfaxBcYetb8MolM3d3dkFrQ0b3Yue5CmvgGvu8
+c7aK41ttJjTV+u5KVjIocBuoMA5qCkSVG17NxGPg7ssoFE5QuDDYAAAAAAAA
+
+
+--=-veIGnxzbfFksq7FaRHqw--
