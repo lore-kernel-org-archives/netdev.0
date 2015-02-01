@@ -1,120 +1,92 @@
-From: Yann Droneaud <ydroneaud-RlY5vtjFyJ3QT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH for-next 02/10] IB/core: Pass network namespace as a
- parameter to relevant functions
-Date: Sun, 01 Feb 2015 13:26:50 +0100
-Message-ID: <1422793610.3030.39.camel@opteya.com>
-References: <1422790133-28725-1-git-send-email-raindel@mellanox.com>
-	 <1422790133-28725-3-git-send-email-raindel@mellanox.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH] tun: orphan an skb on tx
+Date: Sun, 1 Feb 2015 14:26:11 +0200
+Message-ID: <20150201122611.GA8883@redhat.com>
+References: <20100413145944.GA7716@redhat.com>
+ <4BC48F79.5090409@siemens.com>
+ <1271176838.16881.537.camel@edumazet-laptop>
+ <20100413173919.GC26011@redhat.com>
+ <1271183463.16881.545.camel@edumazet-laptop>
+ <20100414005822.GD18044@gondor.apana.org.au>
+ <1422789633.11044.18.camel@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, Guy Shapiro <guysh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Yotam Kenneth <yotamke-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-To: Shachar Raindel <raindel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1422790133-28725-3-git-send-email-raindel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Jan Kiszka <jan.kiszka@siemens.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Paul Moore <paul.moore@hp.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	qemu-devel <qemu-devel@nongnu.org>
+To: David Woodhouse <dwmw2@infradead.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1422789633.11044.18.camel@infradead.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
-
-Le dimanche 01 f=C3=A9vrier 2015 =C3=A0 13:28 +0200, Shachar Raindel a =
-=C3=A9crit :
-> From: Guy Shapiro <guysh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+On Sun, Feb 01, 2015 at 11:20:33AM +0000, David Woodhouse wrote:
+> On Wed, 2010-04-14 at 08:58 +0800, Herbert Xu wrote:
+> > On Tue, Apr 13, 2010 at 08:31:03PM +0200, Eric Dumazet wrote:
+> > >
+> > > Herbert Acked your patch, so I guess its OK, but I think it can b=
+e
+> > > dangerous.
+> >=20
+> > The tun socket accounting was never designed to stop it from
+> > flooding another tun interface.  It's there to stop it from
+> > transmitting above a destination interface TX bandwidth and
+> > cause unnecessary packet drops.  It also limits the total amount
+> > of kernel memory that can be pinned down by a single tun interface.
+> >=20
+> > In this case, all we're doing is shifting the accounting from the
+> > "hardware" queue to the qdisc queue.
+> >=20
+> > So your ability to flood a tun interface is essentially unchanged.
 >=20
-> Add network namespace parameters for the address related ib_core
-> functions. The parameter is passed to lower level function, instead o=
-f
-> &init_net, so things are done in the correct namespace.
+> I've just been looking at VPN performance, using netperf to flood an
+> openconnect/ocserv connection over GigE and profiling my VPN client.
 >=20
-> For now pass &init_net on every caller.
-> Callers that will pass &init_net permanently are marked with an
-> appropriate comment.
+> If I run netperf over the *unencrypted* link, it only sends 1Gb/s of
+> packets =E2=80=94 because the packets are correctly accounted to netp=
+erf's UDP
+> socket until the moment they're actually transmitted on the wire, and
+> the backpressure works correctly.
 >=20
-> Signed-off-by: Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-> Signed-off-by: Yotam Kenneth <yotamke-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-> Signed-off-by: Shachar Raindel <raindel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-> Signed-off-by: Guy Shapiro <guysh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
->=20
-> ---
->  drivers/infiniband/core/agent.c       |  4 +++-
->  drivers/infiniband/core/cm.c          |  9 +++++++--
->  drivers/infiniband/core/mad_rmpp.c    | 10 ++++++++--
->  drivers/infiniband/core/user_mad.c    |  4 +++-
->  drivers/infiniband/core/verbs.c       | 10 ++++++----
->  drivers/infiniband/ulp/srpt/ib_srpt.c |  3 ++-
->  include/rdma/ib_verbs.h               | 15 +++++++++++++--
->  7 files changed, 42 insertions(+), 13 deletions(-)
+> When I run over the VPN, netperf thinks it sent 2=C2=BD times the amo=
+unt of
+> TX traffic.
 
-> diff --git a/include/rdma/ib_verbs.h b/include/rdma/ib_verbs.h
-> index 0d74f1de99aa..dd4c80cea8d3 100644
-> --- a/include/rdma/ib_verbs.h
-> +++ b/include/rdma/ib_verbs.h
-> @@ -48,6 +48,7 @@
->  #include <linux/rwsem.h>
->  #include <linux/scatterlist.h>
->  #include <linux/workqueue.h>
-> +#include <net/net_namespace.h>
->  #include <uapi/linux/if_ether.h>
-> =20
->  #include <linux/atomic.h>
-> @@ -1801,9 +1802,14 @@ struct ib_ah *ib_create_ah(struct ib_pd *pd, s=
-truct ib_ah_attr *ah_attr);
->   *   ignored unless the work completion indicates that the GRH is va=
-lid.
->   * @ah_attr: Returned attributes that can be used when creating an a=
-ddress
->   *   handle for replying to the message.
-> + * @net: The network namespace to use for address resolution.
-> + *
-> + * It is the caller's responsibility to make sure the network namesp=
-ace is
-> + * alive until the function returns.
+At some level, it's expected: netperf's manual actually says:
+	A UDP_STREAM test has no end-to-end flow control - UDP provides none a=
+nd
+	neither does netperf. However, if you wish, you can configure netperf
+	with --enable-intervals=3Dyes to enable the global command-line -b and=
+ -w
+	options to pace bursts of traffic onto the network.
 
-Why ?
+> Packets are being dropped by the tun device before even
+> feeding them up to the VPN client to be sent =E2=80=94 presumably bec=
+ause of
+> this skb_orphan() call. (The client itself should do the right thing,
+> and only suck packets out of the tun at the rate it can shove them ou=
+t
+> *its* UDP socket.)
 
->   */
->  int ib_init_ah_from_wc(struct ib_device *device, u8 port_num, struct=
- ib_wc *wc,
-> -		       struct ib_grh *grh, struct ib_ah_attr *ah_attr);
-> +		       struct ib_grh *grh, struct ib_ah_attr *ah_attr,
-> +		       struct net *net);
-> =20
->  /**
->   * ib_create_ah_from_wc - Creates an address handle associated with =
-the
-> @@ -1813,12 +1819,17 @@ int ib_init_ah_from_wc(struct ib_device *devi=
-ce, u8 port_num, struct ib_wc *wc,
->   * @grh: References the received global route header.  This paramete=
-r is
->   *   ignored unless the work completion indicates that the GRH is va=
-lid.
->   * @port_num: The outbound port number to associate with the address=
-=2E
-> + * @net: The network namespace to use for address resolution.
->   *
->   * The address handle is used to reference a local or global destina=
-tion
->   * in all UD QP post sends.
-> + *
-> + * It is the caller's responsibility to make sure the network namesp=
-ace is
-> + * alive until the function returns.
+A simple work-around is to limit the rate using a non work conservig qd=
+isc.
 
-Why ?
+> Did we ever look at the alternative solution of taking ownership only
+> after a timeout, or on demand when we need to shut down the device?
 
-Regards.
+I've been thinking about this on and off, but didn't find a good
+safe solution yet.
+
+=46or timeout, the difficulty is to find a good timer value,
+low enough to avoid DOS attacks but high enough to avoid
+spurious packet drops (and expensive timer interrupts).
 
 --=20
-Yann Droneaud
-OPTEYA
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" i=
-n
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+MST
