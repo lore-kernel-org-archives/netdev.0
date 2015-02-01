@@ -1,484 +1,283 @@
-From: Shachar Raindel <raindel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Subject: [PATCH for-next 06/10] IB/cm: Add network namespace support
-Date: Sun,  1 Feb 2015 13:28:49 +0200
-Message-ID: <1422790133-28725-7-git-send-email-raindel@mellanox.com>
+From: Shachar Raindel <raindel@mellanox.com>
+Subject: [PATCH for-next 07/10] IB/cma: Separate port allocation to network namespaces
+Date: Sun,  1 Feb 2015 13:28:50 +0200
+Message-ID: <1422790133-28725-8-git-send-email-raindel@mellanox.com>
 References: <1422790133-28725-1-git-send-email-raindel@mellanox.com>
-Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, Guy Shapiro <guysh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Yotam Kenneth <yotamke-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Shachar Raindel <raindel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-To: roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1422790133-28725-1-git-send-email-raindel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
+	liranl@mellanox.com, Yotam Kenneth <yotamke@mellanox.com>,
+	Haggai Eran <haggaie@mellanox.com>,
+	Shachar Raindel <raindel@mellanox.com>,
+	Guy Shapiro <guysh@mellanox.com>
+To: roland@kernel.org, sean.hefty@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailp.voltaire.com ([193.47.165.129]:33854 "EHLO mellanox.co.il"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752877AbbBALcF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 1 Feb 2015 06:32:05 -0500
+In-Reply-To: <1422790133-28725-1-git-send-email-raindel@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Guy Shapiro <guysh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+From: Yotam Kenneth <yotamke@mellanox.com>
 
-Add namespace support to the IB-CM layer.
+Keep a radix-tree for the network namespaces we support for each port-space.
+Dynamically allocate idr for network namespace upon first bind request for a
+port in the (ps, net) tuple.
+Destroy the idr when the (ps, net) tuple does not contain any bounded ports.
 
-- Each CM-ID now has a network namespace it is associated with, assigned at
-  creation. This namespace is used as needed during subsequent action on the
-  CM-ID or related objects.
+This patch is internal infrastructure work for the following patch. In
+this patch, init_net is statically used as the network namespace for
+the new port-space API.
 
-- All of the relevant calls to ib_addr and ib_core were updated to use the
-  namespace from the CM-ID. External APIs were extended as needed to allow
-  specifying the namespace where relevant.
+The radix-tree is protected under the same locking that protects the
+rest of the port space data. This locking is practically a big, static
+mutex lock for the entire module.
 
-- The listening service ID table is now also indexed by the CM-ID namespace.
-
-- For incoming connection requests, we use the connection parameters to select
-  namespace. The namespace is matched when looking for listening service ID.
-
-To preserve current behavior pass init_net to ib_cm wherever network namespace
-function parameters were added.
-
-The ib_cm_create_id interface now takes a reference to the relevant network
-namespace. CM-IDs created by accepting a connection for a listening CM-ID will
-also take a reference to the namespace. When the ID is destroyed, the
-namespace reference is released.
-
-Signed-off-by: Guy Shapiro <guysh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Signed-off-by: Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Signed-off-by: Yotam Kenneth <yotamke-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Signed-off-by: Shachar Raindel <raindel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Signed-off-by: Haggai Eran <haggaie@mellanox.com>
+Signed-off-by: Yotam Kenneth <yotamke@mellanox.com>
+Signed-off-by: Shachar Raindel <raindel@mellanox.com>
+Signed-off-by: Guy Shapiro <guysh@mellanox.com>
 
 ---
- drivers/infiniband/core/cm.c            | 124 ++++++++++++++++++++++++--------
- drivers/infiniband/core/cma.c           |   8 ++-
- drivers/infiniband/core/ucm.c           |   3 +-
- drivers/infiniband/ulp/ipoib/ipoib_cm.c |  21 +++++-
- drivers/infiniband/ulp/srp/ib_srp.c     |   2 +-
- drivers/infiniband/ulp/srpt/ib_srpt.c   |   2 +-
- include/rdma/ib_cm.h                    |   7 +-
- 7 files changed, 130 insertions(+), 37 deletions(-)
+ drivers/infiniband/core/cma.c | 122 ++++++++++++++++++++++++++++++++++--------
+ 1 file changed, 99 insertions(+), 23 deletions(-)
 
-diff --git a/drivers/infiniband/core/cm.c b/drivers/infiniband/core/cm.c
-index 5cc1a4aa9728..278970c89acd 100644
---- a/drivers/infiniband/core/cm.c
-+++ b/drivers/infiniband/core/cm.c
-@@ -241,6 +241,8 @@ struct cm_id_private {
- 	u8 service_timeout;
- 	u8 target_ack_delay;
+diff --git a/drivers/infiniband/core/cma.c b/drivers/infiniband/core/cma.c
+index 1ce84a03c883..022b0d0a51cc 100644
+--- a/drivers/infiniband/core/cma.c
++++ b/drivers/infiniband/core/cma.c
+@@ -39,11 +39,13 @@
+ #include <linux/mutex.h>
+ #include <linux/random.h>
+ #include <linux/idr.h>
++#include <linux/radix-tree.h>
+ #include <linux/inetdevice.h>
+ #include <linux/slab.h>
+ #include <linux/module.h>
+ #include <net/route.h>
  
-+	struct net *net; /* A network namespace that the ID belongs to */
++#include <net/netns/hash.h>
+ #include <net/tcp.h>
+ #include <net/ipv6.h>
+ 
+@@ -80,10 +82,83 @@ static LIST_HEAD(dev_list);
+ static LIST_HEAD(listen_any_list);
+ static DEFINE_MUTEX(lock);
+ static struct workqueue_struct *cma_wq;
+-static DEFINE_IDR(tcp_ps);
+-static DEFINE_IDR(udp_ps);
+-static DEFINE_IDR(ipoib_ps);
+-static DEFINE_IDR(ib_ps);
++static RADIX_TREE(tcp_ps, GFP_KERNEL);
++static RADIX_TREE(udp_ps, GFP_KERNEL);
++static RADIX_TREE(ipoib_ps, GFP_KERNEL);
++static RADIX_TREE(ib_ps, GFP_KERNEL);
 +
- 	struct list_head work_list;
- 	atomic_t work_count;
- };
-@@ -347,12 +349,13 @@ static void cm_set_private_data(struct cm_id_private *cm_id_priv,
- }
- 
- static void cm_init_av_for_response(struct cm_port *port, struct ib_wc *wc,
--				    struct ib_grh *grh, struct cm_av *av)
-+				    struct ib_grh *grh, struct cm_av *av,
-+				    struct net *net)
- {
- 	av->port = port;
- 	av->pkey_index = wc->pkey_index;
- 	ib_init_ah_from_wc(port->cm_dev->ib_device, port->port_num, wc,
--			   grh, &av->ah_attr, &init_net);
-+			   grh, &av->ah_attr, net);
- }
- 
- static int cm_init_av_by_path(struct ib_sa_path_rec *path, struct cm_av *av)
-@@ -521,10 +524,15 @@ static struct cm_id_private * cm_insert_listen(struct cm_id_private *cm_id_priv)
- 		if ((cur_cm_id_priv->id.service_mask & service_id) ==
- 		    (service_mask & cur_cm_id_priv->id.service_id) &&
- 		    (cm_id_priv->id.device == cur_cm_id_priv->id.device) &&
--		    !data_cmp)
-+		    !data_cmp &&
-+		    net_eq(cm_id_priv->net, cur_cm_id_priv->net))
- 			return cur_cm_id_priv;
- 
--		if (cm_id_priv->id.device < cur_cm_id_priv->id.device)
-+		if (cm_id_priv->net < cur_cm_id_priv->net)
-+			link = &(*link)->rb_left;
-+		else if (cm_id_priv->net > cur_cm_id_priv->net)
-+			link = &(*link)->rb_right;
-+		else if	(cm_id_priv->id.device < cur_cm_id_priv->id.device)
- 			link = &(*link)->rb_left;
- 		else if (cm_id_priv->id.device > cur_cm_id_priv->id.device)
- 			link = &(*link)->rb_right;
-@@ -544,7 +552,8 @@ static struct cm_id_private * cm_insert_listen(struct cm_id_private *cm_id_priv)
- 
- static struct cm_id_private * cm_find_listen(struct ib_device *device,
- 					     __be64 service_id,
--					     u8 *private_data)
-+					     u8 *private_data,
-+					     struct net *net)
- {
- 	struct rb_node *node = cm.listen_service_table.rb_node;
- 	struct cm_id_private *cm_id_priv;
-@@ -556,10 +565,14 @@ static struct cm_id_private * cm_find_listen(struct ib_device *device,
- 						   cm_id_priv->compare_data);
- 		if ((cm_id_priv->id.service_mask & service_id) ==
- 		     cm_id_priv->id.service_id &&
--		    (cm_id_priv->id.device == device) && !data_cmp)
-+		    (cm_id_priv->id.device == device) && !data_cmp &&
-+		    net_eq(cm_id_priv->net, net))
- 			return cm_id_priv;
--
--		if (device < cm_id_priv->id.device)
-+		if (net < cm_id_priv->net)
-+			node = node->rb_left;
-+		else if (net > cm_id_priv->net)
-+			node = node->rb_right;
-+		else if (device < cm_id_priv->id.device)
- 			node = node->rb_left;
- 		else if (device > cm_id_priv->id.device)
- 			node = node->rb_right;
-@@ -868,7 +881,8 @@ EXPORT_SYMBOL(cm_save_net_info);
- 
- struct ib_cm_id *ib_create_cm_id(struct ib_device *device,
- 				 ib_cm_handler cm_handler,
--				 void *context)
-+				 void *context,
-+				 struct net *net)
- {
- 	struct cm_id_private *cm_id_priv;
- 	int ret;
-@@ -886,6 +900,8 @@ struct ib_cm_id *ib_create_cm_id(struct ib_device *device,
- 	if (ret)
- 		goto error;
- 
-+	cm_id_priv->net = get_net(net);
++static LIST_HEAD(idrs_list);
 +
- 	spin_lock_init(&cm_id_priv->lock);
- 	init_completion(&cm_id_priv->comp);
- 	INIT_LIST_HEAD(&cm_id_priv->work_list);
-@@ -1089,6 +1105,7 @@ retest:
- 		cm_free_work(work);
- 	kfree(cm_id_priv->compare_data);
- 	kfree(cm_id_priv->private_data);
-+	put_net(cm_id_priv->net);
- 	kfree(cm_id_priv);
- }
- 
-@@ -1608,7 +1625,8 @@ free:	cm_free_msg(msg);
- }
- 
- static struct cm_id_private * cm_match_req(struct cm_work *work,
--					   struct cm_id_private *cm_id_priv)
-+					   struct cm_id_private *cm_id_priv,
-+					   struct net *net)
- {
- 	struct cm_id_private *listen_cm_id_priv, *cur_cm_id_priv;
- 	struct cm_timewait_info *timewait_info;
-@@ -1644,7 +1662,8 @@ static struct cm_id_private * cm_match_req(struct cm_work *work,
- 	/* Find matching listen request. */
- 	listen_cm_id_priv = cm_find_listen(cm_id_priv->id.device,
- 					   req_msg->service_id,
--					   req_msg->private_data);
-+					   req_msg->private_data,
-+					   net);
- 	if (!listen_cm_id_priv) {
- 		cm_cleanup_timewait(cm_id_priv->timewait_info);
- 		spin_unlock_irq(&cm.lock);
-@@ -1690,24 +1709,58 @@ static void cm_process_routed_req(struct cm_req_msg *req_msg, struct ib_wc *wc)
- 	}
- }
- 
-+static int cm_is_cma_service_id(__be64 service_id)
-+{
-+	return (IB_CMA_SERVICE_ID_MASK & service_id) == IB_CMA_SERVICE_ID;
-+}
-+
-+static struct net *cm_get_net_ns(struct cm_work *work, __be64 service_id,
-+				 __be16 pkey)
-+{
-+	struct sockaddr_storage addr_storage;
-+	struct sockaddr *listen_addr;
-+
-+	if (cm_is_cma_service_id(service_id)) {
-+		listen_addr = (struct sockaddr *)&addr_storage;
-+		cm_save_ip_info(listen_addr, NULL, work);
-+	} else {
-+		/* On RoCE we could extend this branch to determine the
-+		 * destination IP from the incoming packet headers, and add
-+		 * support for services that are not RDMA IP CM compliant. */
-+		listen_addr = NULL;
-+	}
-+
-+	return ib_get_net_ns_by_port_pkey_ip(work->port->cm_dev->ib_device,
-+					     work->port->port_num,
-+					     be16_to_cpu(pkey),
-+					     listen_addr);
-+}
- static int cm_req_handler(struct cm_work *work)
- {
- 	struct ib_cm_id *cm_id;
- 	struct cm_id_private *cm_id_priv, *listen_cm_id_priv;
- 	struct cm_req_msg *req_msg;
++struct idr_ll {
++	unsigned net_val;
 +	struct net *net;
- 	int ret;
- 
- 	req_msg = (struct cm_req_msg *)work->mad_recv_wc->recv_buf.mad;
-+	work->cm_event.private_data = req_msg->private_data;
- 
--	cm_id = ib_create_cm_id(work->port->cm_dev->ib_device, NULL, NULL);
--	if (IS_ERR(cm_id))
--		return PTR_ERR(cm_id);
-+	net = cm_get_net_ns(work, req_msg->service_id, req_msg->pkey);
++	struct radix_tree_root *ps;
++	struct idr idr;
++};
 +
-+	cm_id = ib_create_cm_id(work->port->cm_dev->ib_device, NULL, NULL, net);
-+	/* cm_id took a reference to net, so no need to hold it anymore */
-+	put_net(net);
-+	if (IS_ERR(cm_id)) {
-+		ret = PTR_ERR(cm_id);
-+		goto out;
++static void zap_ps_idr(struct idr_ll *idr_ll)
++{
++	radix_tree_delete(idr_ll->ps, idr_ll->net_val);
++	idr_destroy(&idr_ll->idr);
++	kfree(idr_ll);
++}
++
++static int cma_ps_alloc(struct radix_tree_root *ps, struct net *net, void *ptr,
++			int snum)
++{
++	struct idr_ll *idr_ll;
++	int err;
++	int res;
++
++	idr_ll = radix_tree_lookup(ps, net_hash_mix(net));
++	if (!idr_ll) {
++		idr_ll = kmalloc(sizeof(*idr_ll), GFP_KERNEL);
++		if (!idr_ll)
++			return -ENOMEM;
++		idr_init(&idr_ll->idr);
++		idr_ll->net_val = net_hash_mix(net);
++		idr_ll->net = net;
++		idr_ll->ps = ps;
++		err = radix_tree_insert(ps, idr_ll->net_val, idr_ll);
++		if (err) {
++			idr_destroy(&idr_ll->idr);
++			kfree(idr_ll);
++			return err;
++		}
 +	}
++	res = idr_alloc(&idr_ll->idr, ptr, snum, snum + 1, GFP_KERNEL);
++	if (unlikely((res < 0) && idr_is_empty(&idr_ll->idr))) {
++		zap_ps_idr(idr_ll);
++		return res;
++	}
++	return res;
++}
++
++static void *cma_ps_find(struct radix_tree_root *ps, struct net *net, int snum)
++{
++	struct idr_ll *idr_ll;
++
++	idr_ll = radix_tree_lookup(ps, net_hash_mix(net));
++	if (!idr_ll)
++		return NULL;
++	return idr_find(&idr_ll->idr, snum);
++}
++
++static void cma_ps_remove(struct radix_tree_root *ps, struct net *net, int snum)
++{
++	struct idr_ll *idr_ll;
++
++	idr_ll = radix_tree_lookup(ps, net_hash_mix(net));
++	if (unlikely(!idr_ll)) {
++		WARN(1, "cma_ps_removed can't find expected net ns 0x%lx\n",
++		     (unsigned long)net);
++		return;
++	}
++	idr_remove(&idr_ll->idr, snum);
++	if (idr_is_empty(&idr_ll->idr)) {
++		zap_ps_idr(idr_ll);
++	}
++}
  
- 	cm_id_priv = container_of(cm_id, struct cm_id_private, id);
- 	cm_id_priv->id.remote_id = req_msg->local_comm_id;
- 	cm_init_av_for_response(work->port, work->mad_recv_wc->wc,
- 				work->mad_recv_wc->recv_buf.grh,
--				&cm_id_priv->av);
-+				&cm_id_priv->av, net);
- 	cm_id_priv->timewait_info = cm_create_timewait_info(cm_id_priv->
- 							    id.local_id);
- 	if (IS_ERR(cm_id_priv->timewait_info)) {
-@@ -1718,7 +1771,7 @@ static int cm_req_handler(struct cm_work *work)
- 	cm_id_priv->timewait_info->remote_ca_guid = req_msg->local_ca_guid;
- 	cm_id_priv->timewait_info->remote_qpn = cm_req_get_local_qpn(req_msg);
+ struct cma_device {
+ 	struct list_head	list;
+@@ -94,9 +169,9 @@ struct cma_device {
+ };
  
--	listen_cm_id_priv = cm_match_req(work, cm_id_priv);
-+	listen_cm_id_priv = cm_match_req(work, cm_id_priv, net);
- 	if (!listen_cm_id_priv) {
- 		ret = -EINVAL;
- 		kfree(cm_id_priv->timewait_info);
-@@ -1777,6 +1830,7 @@ rejected:
- 	cm_deref_id(listen_cm_id_priv);
- destroy:
- 	ib_destroy_cm_id(cm_id);
-+out:
+ struct rdma_bind_list {
+-	struct idr		*ps;
+-	struct hlist_head	owners;
+-	unsigned short		port;
++	struct radix_tree_root	*ps;
++	struct hlist_head		owners;
++	unsigned short			port;
+ };
+ 
+ enum {
+@@ -885,7 +960,7 @@ static void cma_release_port(struct rdma_id_private *id_priv)
+ 	mutex_lock(&lock);
+ 	hlist_del(&id_priv->node);
+ 	if (hlist_empty(&bind_list->owners)) {
+-		idr_remove(bind_list->ps, bind_list->port);
++		cma_ps_remove(bind_list->ps, &init_net, bind_list->port);
+ 		kfree(bind_list);
+ 	}
+ 	mutex_unlock(&lock);
+@@ -2198,8 +2273,8 @@ static void cma_bind_port(struct rdma_bind_list *bind_list,
+ 	hlist_add_head(&id_priv->node, &bind_list->owners);
+ }
+ 
+-static int cma_alloc_port(struct idr *ps, struct rdma_id_private *id_priv,
+-			  unsigned short snum)
++static int cma_alloc_port(struct radix_tree_root *ps,
++			  struct rdma_id_private *id_priv, unsigned short snum)
+ {
+ 	struct rdma_bind_list *bind_list;
+ 	int ret;
+@@ -2208,7 +2283,7 @@ static int cma_alloc_port(struct idr *ps, struct rdma_id_private *id_priv,
+ 	if (!bind_list)
+ 		return -ENOMEM;
+ 
+-	ret = idr_alloc(ps, bind_list, snum, snum + 1, GFP_KERNEL);
++	ret = cma_ps_alloc(ps, &init_net, bind_list, snum);
+ 	if (ret < 0)
+ 		goto err;
+ 
+@@ -2221,7 +2296,8 @@ err:
+ 	return ret == -ENOSPC ? -EADDRNOTAVAIL : ret;
+ }
+ 
+-static int cma_alloc_any_port(struct idr *ps, struct rdma_id_private *id_priv)
++static int cma_alloc_any_port(struct radix_tree_root *ps,
++			      struct rdma_id_private *id_priv)
+ {
+ 	static unsigned int last_used_port;
+ 	int low, high, remaining;
+@@ -2232,7 +2308,7 @@ static int cma_alloc_any_port(struct idr *ps, struct rdma_id_private *id_priv)
+ 	rover = prandom_u32() % remaining + low;
+ retry:
+ 	if (last_used_port != rover &&
+-	    !idr_find(ps, (unsigned short) rover)) {
++	    !cma_ps_find(ps, &init_net, (unsigned short)rover)) {
+ 		int ret = cma_alloc_port(ps, id_priv, rover);
+ 		/*
+ 		 * Remember previously used port number in order to avoid
+@@ -2257,6 +2333,8 @@ retry:
+  * bind to a specific port, or when trying to listen on a bound port.  In
+  * the latter case, the provided id_priv may already be on the bind_list, but
+  * we still need to check that it's okay to start listening.
++ *
++ * Assume the bind_list contains only services from the correct name space.
+  */
+ static int cma_check_port(struct rdma_bind_list *bind_list,
+ 			  struct rdma_id_private *id_priv, uint8_t reuseaddr)
+@@ -2287,7 +2365,8 @@ static int cma_check_port(struct rdma_bind_list *bind_list,
+ 	return 0;
+ }
+ 
+-static int cma_use_port(struct idr *ps, struct rdma_id_private *id_priv)
++static int cma_use_port(struct radix_tree_root *ps,
++			struct rdma_id_private *id_priv)
+ {
+ 	struct rdma_bind_list *bind_list;
+ 	unsigned short snum;
+@@ -2297,7 +2376,7 @@ static int cma_use_port(struct idr *ps, struct rdma_id_private *id_priv)
+ 	if (snum < PROT_SOCK && !capable(CAP_NET_BIND_SERVICE))
+ 		return -EACCES;
+ 
+-	bind_list = idr_find(ps, snum);
++	bind_list = cma_ps_find(ps, &init_net, snum);
+ 	if (!bind_list) {
+ 		ret = cma_alloc_port(ps, id_priv, snum);
+ 	} else {
+@@ -2320,7 +2399,8 @@ static int cma_bind_listen(struct rdma_id_private *id_priv)
  	return ret;
  }
  
-@@ -2911,7 +2965,7 @@ static int cm_lap_handler(struct cm_work *work)
- 	cm_id_priv->tid = lap_msg->hdr.tid;
- 	cm_init_av_for_response(work->port, work->mad_recv_wc->wc,
- 				work->mad_recv_wc->recv_buf.grh,
--				&cm_id_priv->av);
-+				&cm_id_priv->av, cm_id_priv->net);
- 	cm_init_av_by_path(param->alternate_path, &cm_id_priv->alt_av);
- 	ret = atomic_inc_and_test(&cm_id_priv->work_count);
- 	if (!ret)
-@@ -3161,21 +3215,31 @@ static int cm_sidr_req_handler(struct cm_work *work)
- 	struct cm_id_private *cm_id_priv, *cur_cm_id_priv;
- 	struct cm_sidr_req_msg *sidr_req_msg;
- 	struct ib_wc *wc;
-+	struct net *net;
-+	int retval;
-+
-+	sidr_req_msg = (struct cm_sidr_req_msg *)
-+				work->mad_recv_wc->recv_buf.mad;
-+	work->cm_event.private_data = sidr_req_msg->private_data;
-+
-+	net = cm_get_net_ns(work, sidr_req_msg->service_id, sidr_req_msg->pkey);
- 
--	cm_id = ib_create_cm_id(work->port->cm_dev->ib_device, NULL, NULL);
--	if (IS_ERR(cm_id))
--		return PTR_ERR(cm_id);
-+	cm_id = ib_create_cm_id(work->port->cm_dev->ib_device, NULL, NULL, net);
-+	/* cm_id took a reference to net, so no need to hold it anymore */
-+	put_net(net);
-+	if (IS_ERR(cm_id)) {
-+		retval = PTR_ERR(cm_id);
-+		goto out;
-+	}
- 	cm_id_priv = container_of(cm_id, struct cm_id_private, id);
- 
- 	/* Record SGID/SLID and request ID for lookup. */
--	sidr_req_msg = (struct cm_sidr_req_msg *)
--				work->mad_recv_wc->recv_buf.mad;
- 	wc = work->mad_recv_wc->wc;
- 	cm_id_priv->av.dgid.global.subnet_prefix = cpu_to_be64(wc->slid);
- 	cm_id_priv->av.dgid.global.interface_id = 0;
- 	cm_init_av_for_response(work->port, work->mad_recv_wc->wc,
- 				work->mad_recv_wc->recv_buf.grh,
--				&cm_id_priv->av);
-+				&cm_id_priv->av, net);
- 	cm_id_priv->id.remote_id = sidr_req_msg->request_id;
- 	cm_id_priv->tid = sidr_req_msg->hdr.tid;
- 	atomic_inc(&cm_id_priv->work_count);
-@@ -3186,16 +3250,19 @@ static int cm_sidr_req_handler(struct cm_work *work)
- 		spin_unlock_irq(&cm.lock);
- 		atomic_long_inc(&work->port->counter_group[CM_RECV_DUPLICATES].
- 				counter[CM_SIDR_REQ_COUNTER]);
--		goto out; /* Duplicate message. */
-+		retval = -EINVAL; /* Duplicate message. */
-+		goto out_id;
+-static struct idr *cma_select_inet_ps(struct rdma_id_private *id_priv)
++static struct radix_tree_root *cma_select_inet_ps(
++		struct rdma_id_private *id_priv)
+ {
+ 	switch (id_priv->id.ps) {
+ 	case RDMA_PS_TCP:
+@@ -2336,9 +2416,9 @@ static struct idr *cma_select_inet_ps(struct rdma_id_private *id_priv)
  	}
- 	cm_id_priv->id.state = IB_CM_SIDR_REQ_RCVD;
- 	cur_cm_id_priv = cm_find_listen(cm_id->device,
- 					sidr_req_msg->service_id,
--					sidr_req_msg->private_data);
-+					sidr_req_msg->private_data,
-+					net);
- 	if (!cur_cm_id_priv) {
- 		spin_unlock_irq(&cm.lock);
- 		cm_reject_sidr_req(cm_id_priv, IB_SIDR_UNSUPPORTED);
--		goto out; /* No match. */
-+		retval = -EINVAL; /* No match. */
-+		goto out_id;
- 	}
- 	atomic_inc(&cur_cm_id_priv->refcount);
- 	atomic_inc(&cm_id_priv->refcount);
-@@ -3210,9 +3277,10 @@ static int cm_sidr_req_handler(struct cm_work *work)
- 	cm_process_work(cm_id_priv, work);
- 	cm_deref_id(cur_cm_id_priv);
- 	return 0;
--out:
-+out_id:
- 	ib_destroy_cm_id(&cm_id_priv->id);
--	return -EINVAL;
-+out:
-+	return retval;
  }
  
- static void cm_format_sidr_rep(struct cm_sidr_rep_msg *sidr_rep_msg,
-diff --git a/drivers/infiniband/core/cma.c b/drivers/infiniband/core/cma.c
-index 9f6faeb1de5f..1ce84a03c883 100644
---- a/drivers/infiniband/core/cma.c
-+++ b/drivers/infiniband/core/cma.c
-@@ -1456,7 +1456,8 @@ static int cma_ib_listen(struct rdma_id_private *id_priv)
- 	__be64 svc_id;
+-static struct idr *cma_select_ib_ps(struct rdma_id_private *id_priv)
++static struct radix_tree_root *cma_select_ib_ps(struct rdma_id_private *id_priv)
+ {
+-	struct idr *ps = NULL;
++	struct radix_tree_root *ps = NULL;
+ 	struct sockaddr_ib *sib;
+ 	u64 sid_ps, mask, sid;
+ 
+@@ -2369,7 +2449,7 @@ static struct idr *cma_select_ib_ps(struct rdma_id_private *id_priv)
+ 
+ static int cma_get_port(struct rdma_id_private *id_priv)
+ {
+-	struct idr *ps;
++	struct radix_tree_root *ps;
  	int ret;
  
--	id = ib_create_cm_id(id_priv->id.device, cma_req_handler, id_priv);
-+	id = ib_create_cm_id(id_priv->id.device, cma_req_handler, id_priv,
-+			     &init_net);
- 	if (IS_ERR(id))
- 		return PTR_ERR(id);
+ 	if (cma_family(id_priv) != AF_IB)
+@@ -3567,10 +3647,6 @@ static void __exit cma_cleanup(void)
+ 	rdma_addr_unregister_client(&addr_client);
+ 	ib_sa_unregister_client(&sa_client);
+ 	destroy_workqueue(cma_wq);
+-	idr_destroy(&tcp_ps);
+-	idr_destroy(&udp_ps);
+-	idr_destroy(&ipoib_ps);
+-	idr_destroy(&ib_ps);
+ }
  
-@@ -2606,7 +2607,7 @@ static int cma_resolve_ib_udp(struct rdma_id_private *id_priv,
- 	}
- 
- 	id = ib_create_cm_id(id_priv->id.device, cma_sidr_rep_handler,
--			     id_priv);
-+			     id_priv, &init_net);
- 	if (IS_ERR(id)) {
- 		ret = PTR_ERR(id);
- 		goto out;
-@@ -2655,7 +2656,8 @@ static int cma_connect_ib(struct rdma_id_private *id_priv,
- 		memcpy(private_data + offset, conn_param->private_data,
- 		       conn_param->private_data_len);
- 
--	id = ib_create_cm_id(id_priv->id.device, cma_ib_handler, id_priv);
-+	id = ib_create_cm_id(id_priv->id.device, cma_ib_handler, id_priv,
-+			     &init_net);
- 	if (IS_ERR(id)) {
- 		ret = PTR_ERR(id);
- 		goto out;
-diff --git a/drivers/infiniband/core/ucm.c b/drivers/infiniband/core/ucm.c
-index f2f63933e8a9..9604ab068984 100644
---- a/drivers/infiniband/core/ucm.c
-+++ b/drivers/infiniband/core/ucm.c
-@@ -489,7 +489,8 @@ static ssize_t ib_ucm_create_id(struct ib_ucm_file *file,
- 
- 	ctx->uid = cmd.uid;
- 	ctx->cm_id = ib_create_cm_id(file->device->ib_dev,
--				     ib_ucm_event_handler, ctx);
-+				     ib_ucm_event_handler, ctx,
-+				     &init_net);
- 	if (IS_ERR(ctx->cm_id)) {
- 		result = PTR_ERR(ctx->cm_id);
- 		goto err1;
-diff --git a/drivers/infiniband/ulp/ipoib/ipoib_cm.c b/drivers/infiniband/ulp/ipoib/ipoib_cm.c
-index 56959adb6c7d..65dbe4523bf5 100644
---- a/drivers/infiniband/ulp/ipoib/ipoib_cm.c
-+++ b/drivers/infiniband/ulp/ipoib/ipoib_cm.c
-@@ -846,7 +846,15 @@ int ipoib_cm_dev_open(struct net_device *dev)
- 	if (!IPOIB_CM_SUPPORTED(dev->dev_addr))
- 		return 0;
- 
--	priv->cm.id = ib_create_cm_id(priv->ca, ipoib_cm_rx_handler, dev);
-+	/*
-+	 * The IPoIB CM ID should always be in the init_net namespace.
-+	 * It is using a service ID which is not in the RDMA IP CM
-+	 * range.  Furthermore, it is guaranteed that this service ID
-+	 * will be unique in the machine, as it is based on the UD QP
-+	 * number.
-+	 */
-+	priv->cm.id = ib_create_cm_id(priv->ca, ipoib_cm_rx_handler, dev,
-+				      &init_net);
- 	if (IS_ERR(priv->cm.id)) {
- 		printk(KERN_WARNING "%s: failed to create CM ID\n", priv->ca->name);
- 		ret = PTR_ERR(priv->cm.id);
-@@ -1130,7 +1138,16 @@ static int ipoib_cm_tx_init(struct ipoib_cm_tx *p, u32 qpn,
- 		goto err_qp;
- 	}
- 
--	p->id = ib_create_cm_id(priv->ca, ipoib_cm_tx_handler, p);
-+	/*
-+	 * The IPoIB CM ID should always be in the init_net namespace.
-+	 *
-+	 * The target for connection is specified by an explicit GID,
-+	 * which is machine global and not specific for the namespace
-+	 * the device resides at. The service ID is also guaranteed to
-+	 * be per machine unique, and therefore init_net is the right
-+	 * namespace.
-+	 */
-+	p->id = ib_create_cm_id(priv->ca, ipoib_cm_tx_handler, p, &init_net);
- 	if (IS_ERR(p->id)) {
- 		ret = PTR_ERR(p->id);
- 		ipoib_warn(priv, "failed to create tx cm id: %d\n", ret);
-diff --git a/drivers/infiniband/ulp/srp/ib_srp.c b/drivers/infiniband/ulp/srp/ib_srp.c
-index 0747c0595a9d..3b418be1509f 100644
---- a/drivers/infiniband/ulp/srp/ib_srp.c
-+++ b/drivers/infiniband/ulp/srp/ib_srp.c
-@@ -294,7 +294,7 @@ static int srp_new_cm_id(struct srp_rdma_ch *ch)
- 	struct ib_cm_id *new_cm_id;
- 
- 	new_cm_id = ib_create_cm_id(target->srp_host->srp_dev->dev,
--				    srp_cm_handler, ch);
-+				    srp_cm_handler, ch, &init_net);
- 	if (IS_ERR(new_cm_id))
- 		return PTR_ERR(new_cm_id);
- 
-diff --git a/drivers/infiniband/ulp/srpt/ib_srpt.c b/drivers/infiniband/ulp/srpt/ib_srpt.c
-index 7867bd554027..c0a1de3f5a95 100644
---- a/drivers/infiniband/ulp/srpt/ib_srpt.c
-+++ b/drivers/infiniband/ulp/srpt/ib_srpt.c
-@@ -3247,7 +3247,7 @@ static void srpt_add_one(struct ib_device *device)
- 	if (!srpt_service_guid)
- 		srpt_service_guid = be64_to_cpu(device->node_guid);
- 
--	sdev->cm_id = ib_create_cm_id(device, srpt_cm_handler, sdev);
-+	sdev->cm_id = ib_create_cm_id(device, srpt_cm_handler, sdev, &init_net);
- 	if (IS_ERR(sdev->cm_id))
- 		goto err_srq;
- 
-diff --git a/include/rdma/ib_cm.h b/include/rdma/ib_cm.h
-index e418a11afcfe..331095b6e84b 100644
---- a/include/rdma/ib_cm.h
-+++ b/include/rdma/ib_cm.h
-@@ -359,13 +359,18 @@ struct ib_cm_id {
-  * @cm_handler: Callback invoked to notify the user of CM events.
-  * @context: User specified context associated with the communication
-  *   identifier.
-+ * @net: Network namespace associated with the cm_id.
-  *
-  * Communication identifiers are used to track connection states, service
-  * ID resolution requests, and listen requests.
-+ *
-+ * The created CM ID will hold a reference on the network namespace until its
-+ * destruction.
-  */
- struct ib_cm_id *ib_create_cm_id(struct ib_device *device,
- 				 ib_cm_handler cm_handler,
--				 void *context);
-+				 void *context,
-+				 struct net *net);
- 
- /**
-  * ib_destroy_cm_id - Destroy a connection identifier.
+ module_init(cma_init);
 -- 
 1.7.11.2
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
