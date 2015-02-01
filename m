@@ -1,95 +1,56 @@
-From: Paul Moore <paul@paul-moore.com>
-Subject: Re: [PATCH 3/3] netlabel: Less function calls in netlbl_mgmt_add_common()
- after error detection
-Date: Sat, 31 Jan 2015 21:40:50 -0500
-Message-ID: <CAHC9VhQ5C32zRqG0emVUoMmuvBsV+TXvdNn+54iVyCPBNk9dDQ@mail.gmail.com>
-References: <5307CAA2.8060406@users.sourceforge.net>
-	<alpine.DEB.2.02.1402212321410.2043@localhost6.localdomain6>
-	<530A086E.8010901@users.sourceforge.net>
-	<alpine.DEB.2.02.1402231635510.1985@localhost6.localdomain6>
-	<530A72AA.3000601@users.sourceforge.net>
-	<alpine.DEB.2.02.1402240658210.2090@localhost6.localdomain6>
-	<530B5FB6.6010207@users.sourceforge.net>
-	<alpine.DEB.2.10.1402241710370.2074@hadrien>
-	<530C5E18.1020800@users.sourceforge.net>
-	<alpine.DEB.2.10.1402251014170.2080@hadrien>
-	<530CD2C4.4050903@users.sourceforge.net>
-	<alpine.DEB.2.10.1402251840450.7035@hadrien>
-	<530CF8FF.8080600@users.sourceforge.net>
-	<alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6>
-	<530DD06F.4090703@users.sourceforge.net>
-	<alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6>
-	<5317A59D.4@users.sourceforge.net>
-	<54CD45B6.6010703@users.sourceforge.net>
-	<54CD4B5F.9010502@users.sourceforge.net>
+From: "Zayats, Michael" <michael.zayats@hp.com>
+Subject: AF_NETDEV - device specific sockets
+Date: Sun, 1 Feb 2015 04:20:10 +0000
+Message-ID: <FC8E8D0ECC753F45808079B18C3203FE1CCA0C@G4W3293.americas.hpqcorp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>,
-	kernel-janitors@vger.kernel.org,
-	Julia Lawall <julia.lawall@lip6.fr>
-To: SF Markus Elfring <elfring@users.sourceforge.net>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <54CD4B5F.9010502@users.sourceforge.net>
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g4t3426.houston.hp.com ([15.201.208.54]:46778 "EHLO
+	g4t3426.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751320AbbBAEYU convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 31 Jan 2015 23:24:20 -0500
+Received: from G9W0364.americas.hpqcorp.net (g9w0364.houston.hp.com [16.216.193.45])
+	(using TLSv1 with cipher AES128-SHA (128/128 bits))
+	(No client certificate requested)
+	by g4t3426.houston.hp.com (Postfix) with ESMTPS id BD38466
+	for <netdev@vger.kernel.org>; Sun,  1 Feb 2015 04:24:19 +0000 (UTC)
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jan 31, 2015 at 4:38 PM, SF Markus Elfring
-<elfring@users.sourceforge.net> wrote:
-> From: Markus Elfring <elfring@users.sourceforge.net>
-> Date: Sat, 31 Jan 2015 21:55:48 +0100
->
-> The functions "cipso_v4_doi_putdef" and "kfree" could be called in some cases
-> by the netlbl_mgmt_add_common() function during error handling even if the
-> passed variables contained still a null pointer.
->
-> * This implementation detail could be improved by adjustments for jump labels.
->
-> * Let us return immediately after the first failed function call according to
->   the current Linux coding style convention.
->
-> * Let us delete also an unnecessary check for the variable "entry" there.
->
-> Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
-> ---
->  net/netlabel/netlabel_mgmt.c | 46 ++++++++++++++++++++++----------------------
->  1 file changed, 23 insertions(+), 23 deletions(-)
->
-> diff --git a/net/netlabel/netlabel_mgmt.c b/net/netlabel/netlabel_mgmt.c
-> index f5807f5..17f1ed5 100644
-> --- a/net/netlabel/netlabel_mgmt.c
-> +++ b/net/netlabel/netlabel_mgmt.c
+Hi,
 
-...
+I am looking for a generic mechanism that would allow network device drivers to provide socket interface to user and kernel space clients.
 
-> @@ -237,15 +235,17 @@ static int netlbl_mgmt_add_common(struct genl_info *info,
->
->         ret_val = netlbl_domhsh_add(entry, audit_info);
->         if (ret_val != 0)
-> -               goto add_failure;
-> +               goto free_address_map;
->
->         return 0;
->
-> -add_failure:
-> -       cipso_v4_doi_putdef(cipsov4);
-> -       if (entry)
-> -               kfree(entry->domain);
-> +free_address_map:
->         kfree(addrmap);
-> +doi_put_def:
-> +       cipso_v4_doi_putdef(cipsov4);
-> +free_domain:
-> +       kfree(entry->domain);
-> +free_entry:
->         kfree(entry);
->         return ret_val;
->  }
+Such an interface might be used to provide access to important sub-streams of packets, alongside with device specific packet metadata, provided through msg_control fields of recv/sendmsg.
 
-It would be nice if you could stick with the goto label naming style
-in the rest of the file, e.g.
-"add_free_addrmap"/"add_put_doi_def"/"add_free_domain"/"add_free_entry".
+RX Metadata might include device specific information, such as queuing priorities applied, potential destination interface in case of switching hardware etc.
 
--- 
-paul moore
-www.paul-moore.com
+On the transmission, metadata might be used to indicate hardware specific required optimizations, as well as any other transformation or accounting required on the packet.
+
+AF_PACKET based mechanism doesn't allow metadata to be exchanged between the client and the device driver.
+Extending it would require extending of sk_buff and potentially additional per packet operations.
+Generic Netlink is not intended to pass packets.
+
+As I am trying to validate generic applicability of such a mechanism, I see that TUN driver is providing custom socket interface, in order to deal with user information through msg_control.
+Only usable inside the kernel, through custom interface.
+
+Proposed interface
+------------------
+Kernel side: 
+(struct proto *) should be added to struct net_device.
+Device driver that is interested to support socket interface would populate the pointer.
+
+User space: 
+After creating AF_NETDEV socket, the only successful operation would be setting SO_BINDTODEVICE option.
+Once set, all socket operations would be implemented by calling functions, that are registered at struct proto on the appropriate net_device.
+
+What do you think?
+Would you see a better approach?
+Some other mechanism that already exists for such a purpose?
+
+Thanks,
+
+Michael
