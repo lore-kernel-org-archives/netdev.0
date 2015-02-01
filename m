@@ -1,200 +1,172 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: [PATCH v2 3/3] netlabel: Less function calls in netlbl_mgmt_add_common()
- after error detection
-Date: Sun, 01 Feb 2015 11:15:54 +0100
-Message-ID: <54CDFCDA.9010802@users.sourceforge.net>
-References: <5307CAA2.8060406@users.sourceforge.net>	<alpine.DEB.2.02.1402212321410.2043@localhost6.localdomain6>	<530A086E.8010901@users.sourceforge.net>	<alpine.DEB.2.02.1402231635510.1985@localhost6.localdomain6>	<530A72AA.3000601@users.sourceforge.net>	<alpine.DEB.2.02.1402240658210.2090@localhost6.localdomain6>	<530B5FB6.6010207@users.sourceforge.net>	<alpine.DEB.2.10.1402241710370.2074@hadrien>	<530C5E18.1020800@users.sourceforge.net>	<alpine.DEB.2.10.1402251014170.2080@hadrien>	<530CD2C4.4050903@users.sourceforge.net>	<alpine.DEB.2.10.1402251840450.7035@hadrien>	<530CF8FF.8080600@users.sourceforge.net>	<alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6>	<530DD06F.4090703@users.sourceforge.net>	<alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6>	<5317A59D.4@users.so
- urceforge.net>	<54CD45B6.6010703@users.sourceforge.net>	<54CD4B5F.9010502@users.sourceforge.net> <CAHC9VhQ5C32zRqG0emVUoMmuvBsV+TXvdNn+54iVyCPBNk9dDQ@mail.gmail.com>
+From: Jonathan Morton <chromatix99@gmail.com>
+Subject: Re: Fwd: Throughput regression with `tcp: refine
+	TSO autosizing`
+Date: Sun, 1 Feb 2015 12:47:23 +0200
+Message-ID: <CAJq5cE3ETbpEtecFHmhgHQveNRUhVfrzjTOygHm-TRCTwHNyKA@mail.gmail.com>
+References: <CA+BoTQkVu23P3EOmY_Q3E1GJnWsyF==Pawz4iPOS_Bq5dvfO5Q@mail.gmail.com>
+	<1422537297.21689.15.camel@edumazet-glaptop2.roam.corp.google.com>
+	<54CB5D08.2070906@broadcom.com>
+	<1422623975.21689.77.camel@edumazet-glaptop2.roam.corp.google.com>
+	<54CB8B69.1070807@broadcom.com>
+	<CAA93jw5fqhz0Hiw74L2GXgtZ9JsMg+NtYydKxKzGDrvQcZn4hA@mail.gmail.com>
+	<CAA93jw7b0E9jjQYXrEPzjLLC9j8xNC0TFYXpWVtgFameJaNBdw@mail.gmail.com>
+	<1422741065.199624134@apps.rackspace.com>
+	<CAPp0ZBb2nkA6Y0s=W0kw=zvyn0wi0NMBRsBCw_xcD61ScOmgQg@mail.gmail.com>
+	<CAA_e5Z46Bu+zZZFzf_ejzA35Gw3g1_OG85yv6yd7MpbwZcE-nw@mail.gmail.com>
+	<CAA93jw7=oTex0Mp-0ThvuDRUnfR0N8tzdOQ8DD7QYWphp1b=4w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>,
-	kernel-janitors@vger.kernel.org,
-	Julia Lawall <julia.lawall@lip6.fr>
-To: Paul Moore <paul@paul-moore.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAHC9VhQ5C32zRqG0emVUoMmuvBsV+TXvdNn+54iVyCPBNk9dDQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/mixed; boundary="===============1192999118683223606=="
+Cc: dstanley@arubanetworks.com, Andrew McGregor <andrewmcgr@gmail.com>,
+	Stig Thormodsrud <stig@ubnt.com>, netdev@vger.kernel.org,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	Jesper Dangaard Brouer <jbrouer@redhat.com>,
+	cerowrt-devel@lists.bufferbloat.net, Matt Mathis <mattmathis@google.com>,
+	Derrick Pallas <pallas@meraki.com>,
+	Mahesh Paolini-Subramanya <mahesh@dieswaytoofast.com>,
+	Kathy Giori <kgiori@qca.qualcomm.com>, Tim Shepard <shep@alum.mit.edu>,
+	Avery Pennarun <apenwarr@google.com>
+To: Dave Taht <dave.taht@gmail.com>
+Return-path: <cerowrt-devel-bounces@lists.bufferbloat.net>
+In-Reply-To: <CAA93jw7=oTex0Mp-0ThvuDRUnfR0N8tzdOQ8DD7QYWphp1b=4w@mail.gmail.com>
+List-Unsubscribe: <https://lists.bufferbloat.net/options/cerowrt-devel>,
+	<mailto:cerowrt-devel-request@lists.bufferbloat.net?subject=unsubscribe>
+List-Archive: <https://lists.bufferbloat.net/pipermail/cerowrt-devel>
+List-Post: <mailto:cerowrt-devel@lists.bufferbloat.net>
+List-Help: <mailto:cerowrt-devel-request@lists.bufferbloat.net?subject=help>
+List-Subscribe: <https://lists.bufferbloat.net/listinfo/cerowrt-devel>,
+	<mailto:cerowrt-devel-request@lists.bufferbloat.net?subject=subscribe>
+Sender: cerowrt-devel-bounces@lists.bufferbloat.net
+Errors-To: cerowrt-devel-bounces@lists.bufferbloat.net
 List-Id: netdev.vger.kernel.org
 
-From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Sun, 1 Feb 2015 11:11:29 +0100
+--===============1192999118683223606==
+Content-Type: multipart/alternative; boundary=001a11335bfc143769050e049085
 
-The functions "cipso_v4_doi_putdef" and "kfree" could be called in some cases
-by the netlbl_mgmt_add_common() function during error handling even if the
-passed variables contained still a null pointer.
+--001a11335bfc143769050e049085
+Content-Type: text/plain; charset=UTF-8
 
-* This implementation detail could be improved by adjustments for jump labels.
+Since this is going to be a big job, it's worth prioritising parts of it
+appropriately.
 
-* Let us return immediately after the first failed function call according to
-  the current Linux coding style convention.
+Minstrel is probably already the single best feature of the Linux Wi-Fi
+stack. AFAIK it still outperforms any other rate selector we know about. So
+I don't consider improving it further to be a high priority, although that
+trick of using it as a sneaky random packet loss inducer is intriguing.
 
-* Let us delete also an unnecessary check for the variable "entry" there.
+Much more important and urgent is getting some form of functioning SQM
+closer to the hardware, where the information is. I don't think we need to
+get super fancy here to do some real good, in the same way that PIE is a
+major improvement over drop-tail. I'd settle for a variant of fq_codel that
+gets and uses information about whether the current packet request might be
+aggregated with the previous packet provided, and adjusts its choice of
+packet accordingly.
 
-Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
----
- net/netlabel/netlabel_mgmt.c | 49 ++++++++++++++++++++++----------------------
- 1 file changed, 24 insertions(+), 25 deletions(-)
+At the same time, models would undoubtedly be useful to help test and
+repeatably demonstrate the advantages of both simple and more sophisticated
+solutions. Ns3 allows laying out a reasonably complex radio environment,
+which is great for this. To counter the prevalence of one-station Faraday
+cage tests in the industry, the simulated environments should represent
+realistic, challenging use cases:
 
-diff --git a/net/netlabel/netlabel_mgmt.c b/net/netlabel/netlabel_mgmt.c
-index f5807f5..7044074 100644
---- a/net/netlabel/netlabel_mgmt.c
-+++ b/net/netlabel/netlabel_mgmt.c
-@@ -93,23 +93,20 @@ static int netlbl_mgmt_add_common(struct genl_info *info,
- 				  struct netlbl_audit *audit_info)
- {
- 	int ret_val = -EINVAL;
--	struct netlbl_dom_map *entry = NULL;
- 	struct netlbl_domaddr_map *addrmap = NULL;
- 	struct cipso_v4_doi *cipsov4 = NULL;
- 	u32 tmp_val;
-+	struct netlbl_dom_map *entry = kzalloc(sizeof(*entry), GFP_KERNEL);
- 
--	entry = kzalloc(sizeof(*entry), GFP_KERNEL);
--	if (entry == NULL) {
--		ret_val = -ENOMEM;
--		goto add_failure;
--	}
-+	if (!entry)
-+		return -ENOMEM;
- 	entry->def.type = nla_get_u32(info->attrs[NLBL_MGMT_A_PROTOCOL]);
- 	if (info->attrs[NLBL_MGMT_A_DOMAIN]) {
- 		size_t tmp_size = nla_len(info->attrs[NLBL_MGMT_A_DOMAIN]);
- 		entry->domain = kmalloc(tmp_size, GFP_KERNEL);
- 		if (entry->domain == NULL) {
- 			ret_val = -ENOMEM;
--			goto add_failure;
-+			goto add_free_entry;
- 		}
- 		nla_strlcpy(entry->domain,
- 			    info->attrs[NLBL_MGMT_A_DOMAIN], tmp_size);
-@@ -125,16 +122,16 @@ static int netlbl_mgmt_add_common(struct genl_info *info,
- 		break;
- 	case NETLBL_NLTYPE_CIPSOV4:
- 		if (!info->attrs[NLBL_MGMT_A_CV4DOI])
--			goto add_failure;
-+			goto add_free_domain;
- 
- 		tmp_val = nla_get_u32(info->attrs[NLBL_MGMT_A_CV4DOI]);
- 		cipsov4 = cipso_v4_doi_getdef(tmp_val);
- 		if (cipsov4 == NULL)
--			goto add_failure;
-+			goto add_free_domain;
- 		entry->def.cipso = cipsov4;
- 		break;
- 	default:
--		goto add_failure;
-+		goto add_free_domain;
- 	}
- 
- 	if (info->attrs[NLBL_MGMT_A_IPV4ADDR]) {
-@@ -145,7 +142,7 @@ static int netlbl_mgmt_add_common(struct genl_info *info,
- 		addrmap = kzalloc(sizeof(*addrmap), GFP_KERNEL);
- 		if (addrmap == NULL) {
- 			ret_val = -ENOMEM;
--			goto add_failure;
-+			goto add_doi_put_def;
- 		}
- 		INIT_LIST_HEAD(&addrmap->list4);
- 		INIT_LIST_HEAD(&addrmap->list6);
-@@ -153,12 +150,12 @@ static int netlbl_mgmt_add_common(struct genl_info *info,
- 		if (nla_len(info->attrs[NLBL_MGMT_A_IPV4ADDR]) !=
- 		    sizeof(struct in_addr)) {
- 			ret_val = -EINVAL;
--			goto add_failure;
-+			goto add_free_addrmap;
- 		}
- 		if (nla_len(info->attrs[NLBL_MGMT_A_IPV4MASK]) !=
- 		    sizeof(struct in_addr)) {
- 			ret_val = -EINVAL;
--			goto add_failure;
-+			goto add_free_addrmap;
- 		}
- 		addr = nla_data(info->attrs[NLBL_MGMT_A_IPV4ADDR]);
- 		mask = nla_data(info->attrs[NLBL_MGMT_A_IPV4MASK]);
-@@ -166,7 +163,7 @@ static int netlbl_mgmt_add_common(struct genl_info *info,
- 		map = kzalloc(sizeof(*map), GFP_KERNEL);
- 		if (map == NULL) {
- 			ret_val = -ENOMEM;
--			goto add_failure;
-+			goto add_free_addrmap;
- 		}
- 		map->list.addr = addr->s_addr & mask->s_addr;
- 		map->list.mask = mask->s_addr;
-@@ -178,7 +175,7 @@ static int netlbl_mgmt_add_common(struct genl_info *info,
- 		ret_val = netlbl_af4list_add(&map->list, &addrmap->list4);
- 		if (ret_val != 0) {
- 			kfree(map);
--			goto add_failure;
-+			goto add_free_addrmap;
- 		}
- 
- 		entry->def.type = NETLBL_NLTYPE_ADDRSELECT;
-@@ -192,7 +189,7 @@ static int netlbl_mgmt_add_common(struct genl_info *info,
- 		addrmap = kzalloc(sizeof(*addrmap), GFP_KERNEL);
- 		if (addrmap == NULL) {
- 			ret_val = -ENOMEM;
--			goto add_failure;
-+			goto add_doi_put_def;
- 		}
- 		INIT_LIST_HEAD(&addrmap->list4);
- 		INIT_LIST_HEAD(&addrmap->list6);
-@@ -200,12 +197,12 @@ static int netlbl_mgmt_add_common(struct genl_info *info,
- 		if (nla_len(info->attrs[NLBL_MGMT_A_IPV6ADDR]) !=
- 		    sizeof(struct in6_addr)) {
- 			ret_val = -EINVAL;
--			goto add_failure;
-+			goto add_free_addrmap;
- 		}
- 		if (nla_len(info->attrs[NLBL_MGMT_A_IPV6MASK]) !=
- 		    sizeof(struct in6_addr)) {
- 			ret_val = -EINVAL;
--			goto add_failure;
-+			goto add_free_addrmap;
- 		}
- 		addr = nla_data(info->attrs[NLBL_MGMT_A_IPV6ADDR]);
- 		mask = nla_data(info->attrs[NLBL_MGMT_A_IPV6MASK]);
-@@ -213,7 +210,7 @@ static int netlbl_mgmt_add_common(struct genl_info *info,
- 		map = kzalloc(sizeof(*map), GFP_KERNEL);
- 		if (map == NULL) {
- 			ret_val = -ENOMEM;
--			goto add_failure;
-+			goto add_free_addrmap;
- 		}
- 		map->list.addr = *addr;
- 		map->list.addr.s6_addr32[0] &= mask->s6_addr32[0];
-@@ -227,7 +224,7 @@ static int netlbl_mgmt_add_common(struct genl_info *info,
- 		ret_val = netlbl_af6list_add(&map->list, &addrmap->list6);
- 		if (ret_val != 0) {
- 			kfree(map);
--			goto add_failure;
-+			goto add_free_addrmap;
- 		}
- 
- 		entry->def.type = NETLBL_NLTYPE_ADDRSELECT;
-@@ -237,15 +234,17 @@ static int netlbl_mgmt_add_common(struct genl_info *info,
- 
- 	ret_val = netlbl_domhsh_add(entry, audit_info);
- 	if (ret_val != 0)
--		goto add_failure;
-+		goto add_free_addrmap;
- 
- 	return 0;
- 
--add_failure:
--	cipso_v4_doi_putdef(cipsov4);
--	if (entry)
--		kfree(entry->domain);
-+add_free_addrmap:
- 	kfree(addrmap);
-+add_doi_put_def:
-+	cipso_v4_doi_putdef(cipsov4);
-+add_free_domain:
-+	kfree(entry->domain);
-+add_free_entry:
- 	kfree(entry);
- 	return ret_val;
- }
--- 
-2.2.2
+1) the family home, with half a dozen client devices competing with several
+interference sources (Bluetooth, RC toys, microwave oven, etc). This is a
+relatively easy environment, representing the expected environment for
+consumer equipment.
+
+2) the apartment block, with fewer clients per AP but lots of APs
+distributed throughout a large building. Walls and floors may provide
+valuable attenuation here - unless you're in Japan, where they can be
+notoriously thin.
+
+3) the railway carriage, consisting of eighty passengers in a 20x3 m space,
+and roughly the same number of client devices. The uplink is 3G based and
+has some inherent latency. Add some Bluetooth for flavour, stir gently.
+This one is rather challenging, but there is scope to optimise AP antenna
+placement, and to scale the test down slightly by reducing seat occupancy.
+
+4) the jumbo jet, consisting of several hundred passengers crammed in like
+sardines. The uplink has satellite latencies built in. Good luck.
+
+5) the business hotel. Multiple APs will be needed to provide adequate
+coverage for this environment, which should encompass the rooms as well as
+lounge, conference and dining areas. Some visitors may bring their own APs,
+and the system must be able to cope with this without seriously degrading
+performance.
+
+6) the trade conference. A large arena filled with thousands of people.
+Multiple APs required. Good luck.
+
+I also feel that ultimately we're going to have to get industry on board.
+Not just passively letting us play around as with ath9k, but actively
+taking note of our findings and implementing at least a few of our ideas
+themselves. Of course, tools, models and real-world results are likely to
+make that easier.
+
+- Jonathan Morton
+
+--001a11335bfc143769050e049085
+Content-Type: text/html; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+
+<p dir=3D"ltr">Since this is going to be a big job, it&#39;s worth prioriti=
+sing parts of it appropriately.</p>
+<p dir=3D"ltr">Minstrel is probably already the single best feature of the =
+Linux Wi-Fi stack. AFAIK it still outperforms any other rate selector we kn=
+ow about. So I don&#39;t consider improving it further to be a high priorit=
+y, although that trick of using it as a sneaky random packet loss inducer i=
+s intriguing.</p>
+<p dir=3D"ltr">Much more important and urgent is getting some form of funct=
+ioning SQM closer to the hardware, where the information is. I don&#39;t th=
+ink we need to get super fancy here to do some real good, in the same way t=
+hat PIE is a major improvement over drop-tail. I&#39;d settle for a variant=
+ of fq_codel that gets and uses information about whether the current packe=
+t request might be aggregated with the previous packet provided, and adjust=
+s its choice of packet accordingly.</p>
+<p dir=3D"ltr">At the same time, models would undoubtedly be useful to help=
+ test and repeatably demonstrate the advantages of both simple and more sop=
+histicated solutions. Ns3 allows laying out a reasonably complex radio envi=
+ronment, which is great for this. To counter the prevalence of one-station =
+Faraday cage tests in the industry, the simulated environments should repre=
+sent realistic, challenging use cases:</p>
+<p dir=3D"ltr">1) the family home, with half a dozen client devices competi=
+ng with several interference sources (Bluetooth, RC toys, microwave oven, e=
+tc). This is a relatively easy environment, representing the expected envir=
+onment for consumer equipment.</p>
+<p dir=3D"ltr">2) the apartment block, with fewer clients per AP but lots o=
+f APs distributed throughout a large building. Walls and floors may provide=
+ valuable attenuation here - unless you&#39;re in Japan, where they can be =
+notoriously thin.</p>
+<p dir=3D"ltr">3) the railway carriage, consisting of eighty passengers in =
+a 20x3 m space, and roughly the same number of client devices. The uplink i=
+s 3G based and has some inherent latency. Add some Bluetooth for flavour, s=
+tir gently. This one is rather challenging, but there is scope to optimise =
+AP antenna placement, and to scale the test down slightly by reducing seat =
+occupancy.</p>
+<p dir=3D"ltr">4) the jumbo jet, consisting of several hundred passengers c=
+rammed in like sardines. The uplink has satellite latencies built in. Good =
+luck.</p>
+<p dir=3D"ltr">5) the business hotel. Multiple APs will be needed to provid=
+e adequate coverage for this environment, which should encompass the rooms =
+as well as lounge, conference and dining areas. Some visitors may bring the=
+ir own APs, and the system must be able to cope with this without seriously=
+ degrading performance.</p>
+<p dir=3D"ltr">6) the trade conference. A large arena filled with thousands=
+ of people. Multiple APs required. Good luck.</p>
+<p dir=3D"ltr">I also feel that ultimately we&#39;re going to have to get i=
+ndustry on board. Not just passively letting us play around as with ath9k, =
+but actively taking note of our findings and implementing at least a few of=
+ our ideas themselves. Of course, tools, models and real-world results are =
+likely to make that easier.</p>
+<p dir=3D"ltr"> - Jonathan Morton<br>
+</p>
+
+--001a11335bfc143769050e049085--
+
+--===============1192999118683223606==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+
+--===============1192999118683223606==--
