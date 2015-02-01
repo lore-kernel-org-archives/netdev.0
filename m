@@ -1,45 +1,60 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: netfilter: Use rhashtable walk iterator
-Date: Sun, 1 Feb 2015 07:45:27 +0000
-Message-ID: <20150201074527.GA10054@acer.localdomain>
-References: <20150122084924.GA4720@gondor.apana.org.au>
- <20150125232040.GA17936@gondor.apana.org.au>
- <20150127231950.GA11374@gondor.apana.org.au>
- <20150129.144246.1383921666389409323.davem@davemloft.net>
- <20150131031356.GA26781@gondor.apana.org.au>
- <20150131043151.GA27524@gondor.apana.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, tgraf@suug.ch,
-	ying.xue@windriver.com, paulmck@linux.vnet.ibm.com,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150131043151.GA27524@gondor.apana.org.au>
-Sender: netfilter-devel-owner@vger.kernel.org
+From: Nicholas Mc Guire <hofrat@osadl.org>
+Subject: [PATCH] can: janz-ican3: fix type missmatch in assignment
+Date: Sun,  1 Feb 2015 03:34:34 -0500
+Message-ID: <1422779674-27823-1-git-send-email-hofrat@osadl.org>
+Cc: Marc Kleine-Budde <mkl@pengutronix.de>, linux-can@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Nicholas Mc Guire <der.herr@hofr.at>
+To: Wolfgang Grandegger <wg@grandegger.com>
+Return-path: <linux-can-owner@vger.kernel.org>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 31.01, Herbert Xu wrote:
-> On Sat, Jan 31, 2015 at 02:13:56PM +1100, Herbert Xu wrote:
-> > 
-> > No problems.  Here is a new version of these two patches which
-> > hopefully should work on netfilter as well.
-> 
-> And here is the patch for netfilter.
-> 
-> -- >8 --
-> This patch gets rid of the manual rhashtable walk in nft_hash
-> which touches rhashtable internals that should not be exposed.
-> It does so by using the rhashtable iterator primitives.
->     
-> Note that I'm leaving nft_hash_destroy alone since it's only
-> invoked on shutdown and it shouldn't be affected by changes
-> to rhashtable internals (or at least not what I'm planning to
-> change).
->     
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+From: Nicholas Mc Guire <der.herr@hofr.at>
 
-Acked-by: Patrick McHardy <kaber@trash.net>
+return type of wait_for_completion_timeout is unsigned long not int, this
+patch removes the type missmatch by moving the call into the condition.
 
-Thanks Herbert!
+Signed-off-by: Nicholas Mc Guire <der.herr@hofr.at>
+---
+
+The return type of wait_for_completion_timeout is unsigned long not
+int. This patch resolves the type missmatch by moving the call to 
+wait_for_completion_timeout into the condition. 
+
+Patch was compile tested only for x86_64_defconfig + CONFIG_CAN=m
+CONFIG_COMPILE_TEST=y, CONFIG_MFD_CS5535=m, CONFIG_OLPC=y
+CONFIG_MFD_JANZ_CMODIO=m, CONFIG_CAN_JANZ_ICAN3=m
+
+Patch is against 3.19.0-rc6 -next-20150130
+
+ drivers/net/can/janz-ican3.c |    6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/can/janz-ican3.c b/drivers/net/can/janz-ican3.c
+index 0eb4d18..4dd183a 100644
+--- a/drivers/net/can/janz-ican3.c
++++ b/drivers/net/can/janz-ican3.c
+@@ -1679,8 +1679,7 @@ static int ican3_get_berr_counter(const struct net_device *ndev,
+ 	if (ret)
+ 		return ret;
+ 
+-	ret = wait_for_completion_timeout(&mod->buserror_comp, HZ);
+-	if (ret == 0) {
++	if (!wait_for_completion_timeout(&mod->buserror_comp, HZ)) {
+ 		netdev_info(mod->ndev, "%s timed out\n", __func__);
+ 		return -ETIMEDOUT;
+ 	}
+@@ -1705,8 +1704,7 @@ static ssize_t ican3_sysfs_show_term(struct device *dev,
+ 	if (ret)
+ 		return ret;
+ 
+-	ret = wait_for_completion_timeout(&mod->termination_comp, HZ);
+-	if (ret == 0) {
++	if (!wait_for_completion_timeout(&mod->termination_comp, HZ)) {
+ 		netdev_info(mod->ndev, "%s timed out\n", __func__);
+ 		return -ETIMEDOUT;
+ 	}
+-- 
+1.7.10.4
+
