@@ -1,110 +1,45 @@
-From: "Zayats, Michael" <michael.zayats@hp.com>
-Subject: RE: AF_NETDEV - device specific sockets
-Date: Sun, 1 Feb 2015 05:04:44 +0000
-Message-ID: <FC8E8D0ECC753F45808079B18C3203FE1CCAF4@G4W3293.americas.hpqcorp.net>
-References: <FC8E8D0ECC753F45808079B18C3203FE1CCA0C@G4W3293.americas.hpqcorp.net>
- <54CDAE61.60100@gmail.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: netfilter: Use rhashtable walk iterator
+Date: Sun, 1 Feb 2015 07:45:27 +0000
+Message-ID: <20150201074527.GA10054@acer.localdomain>
+References: <20150122084924.GA4720@gondor.apana.org.au>
+ <20150125232040.GA17936@gondor.apana.org.au>
+ <20150127231950.GA11374@gondor.apana.org.au>
+ <20150129.144246.1383921666389409323.davem@davemloft.net>
+ <20150131031356.GA26781@gondor.apana.org.au>
+ <20150131043151.GA27524@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: John Fastabend <john.fastabend@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t3425.houston.hp.com ([15.201.208.53]:13515 "EHLO
-	g4t3425.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750715AbbBAFHr convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Feb 2015 00:07:47 -0500
-Received: from G4W6310.americas.hpqcorp.net (g4w6310.houston.hp.com [16.210.26.217])
-	(using TLSv1 with cipher AES128-SHA (128/128 bits))
-	(No client certificate requested)
-	by g4t3425.houston.hp.com (Postfix) with ESMTPS id D2803139
-	for <netdev@vger.kernel.org>; Sun,  1 Feb 2015 05:07:46 +0000 (UTC)
-In-Reply-To: <54CDAE61.60100@gmail.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, tgraf@suug.ch,
+	ying.xue@windriver.com, paulmck@linux.vnet.ibm.com,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20150131043151.GA27524@gondor.apana.org.au>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-More specific example would be when NIC performs certain fast path processing, 
-while punting to the CPU for a slow path.
-Slow path would be interested to know the punt reason.
+On 31.01, Herbert Xu wrote:
+> On Sat, Jan 31, 2015 at 02:13:56PM +1100, Herbert Xu wrote:
+> > 
+> > No problems.  Here is a new version of these two patches which
+> > hopefully should work on netfilter as well.
+> 
+> And here is the patch for netfilter.
+> 
+> -- >8 --
+> This patch gets rid of the manual rhashtable walk in nft_hash
+> which touches rhashtable internals that should not be exposed.
+> It does so by using the rhashtable iterator primitives.
+>     
+> Note that I'm leaving nft_hash_destroy alone since it's only
+> invoked on shutdown and it shouldn't be affected by changes
+> to rhashtable internals (or at least not what I'm planning to
+> change).
+>     
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Another example would be if specific NIC strips S-tag in QinQ case and would like to communicate the stripped 
-Tag to the client. 
+Acked-by: Patrick McHardy <kaber@trash.net>
 
-There might be many types of custom functionality, agreed between the NIC and the clients, 
-which is not generic or not practical enough for inclusion in the kernel.
-
-That's why I am looking for a generic, socket like mechanism of device<->client, packet + metadata communication,
-which wouldn't require core kernel modification.
-
-Thanks,
-
-Michael
-
-
-
-
-
------Original Message-----
-From: John Fastabend [mailto:john.fastabend@gmail.com] 
-Sent: Saturday, January 31, 2015 8:41 PM
-To: Zayats, Michael
-Cc: netdev@vger.kernel.org
-Subject: Re: AF_NETDEV - device specific sockets
-
-On 01/31/2015 08:20 PM, Zayats, Michael wrote:
-> Hi,
->
-> I am looking for a generic mechanism that would allow network device 
-> drivers to provide socket interface to user and kernel space clients.
->
-> Such an interface might be used to provide access to important 
-> sub-streams of packets, alongside with device specific packet 
-> metadata, provided through msg_control fields of recv/sendmsg.
->
-> RX Metadata might include device specific information, such as queuing 
-> priorities applied, potential destination interface in case of 
-> switching hardware etc.
->
-> On the transmission, metadata might be used to indicate hardware 
-> specific required optimizations, as well as any other transformation 
-> or accounting required on the packet.
->
-> AF_PACKET based mechanism doesn't allow metadata to be exchanged 
-> between the client and the device driver. Extending it would require 
-> extending of sk_buff and potentially additional per packet operations. 
-> Generic Netlink is not intended to pass packets.
->
-> As I am trying to validate generic applicability of such a mechanism, 
-> I see that TUN driver is providing custom socket interface, in order 
-> to deal with user information through msg_control. Only usable inside 
-> the kernel, through custom interface.
-
-> Proposed interface
-> ------------------
-> Kernel side:
-> (struct proto *) should be added to struct net_device.
-> Device driver that is interested to support socket interface would populate the pointer.
->
-
-> User space: After creating AF_NETDEV socket, the only successful 
-> operation would be setting SO_BINDTODEVICE option. Once set, all 
-> socket operations would be implemented by calling functions, that are 
-> registered at struct proto on the appropriate net_device.
->
-> What do you think?
-> Would you see a better approach?
-> Some other mechanism that already exists for such a purpose?
-
-It might help to come up with specific examples but an alternate proposal would be to use skb->priority field and then mqprio to steer the traffic to a specific queue and then bind attributes to the queue.
-
-For example the NIC offloaded QOS can be mapped on to queues and then sockets mapped to the queues.
-
-Another example would be to forward all traffic from one queue to a virtual fuction in SR-IOV use case. We don't have an interface to do this but I have been working on an API that could be used for this.
-
-In this case you don't need to modify AF_PACKET interface but configure the device correctly. If you need per-packet control you could use 'tc' or 'nftables' to do the steering.
-
-.John
-
--- 
-John Fastabend         Intel Corporation
+Thanks Herbert!
