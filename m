@@ -1,619 +1,187 @@
-From: Yann Droneaud <ydroneaud@opteya.com>
-Subject: Re: [PATCH for-next 05/10] IB/cm,cma: Move RDMA IP CM private-data
- parsing code from ib_cma to ib_cm
-Date: Sun, 01 Feb 2015 13:55:59 +0100
-Message-ID: <1422795359.3030.43.camel@opteya.com>
-References: <1422790133-28725-1-git-send-email-raindel@mellanox.com>
-	 <1422790133-28725-6-git-send-email-raindel@mellanox.com>
+From: David Woodhouse <dwmw2@infradead.org>
+Subject: Re: [PATCH] tun: orphan an skb on tx
+Date: Sun, 01 Feb 2015 13:33:50 +0000
+Message-ID: <1422797630.11044.32.camel@infradead.org>
+References: <20100413145944.GA7716@redhat.com>
+	 <4BC48F79.5090409@siemens.com> <1271176838.16881.537.camel@edumazet-laptop>
+	 <20100413173919.GC26011@redhat.com>
+	 <1271183463.16881.545.camel@edumazet-laptop>
+	 <20100414005822.GD18044@gondor.apana.org.au>
+	 <1422789633.11044.18.camel@infradead.org>
+	 <20150201122611.GA8883@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: roland@kernel.org, sean.hefty@intel.com,
-	linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
-	liranl@mellanox.com, Guy Shapiro <guysh@mellanox.com>,
-	Haggai Eran <haggaie@mellanox.com>,
-	Yotam Kenneth <yotamke@mellanox.com>
-To: Shachar Raindel <raindel@mellanox.com>
+Content-Type: multipart/signed; micalg="sha-1"; protocol="application/x-pkcs7-signature";
+	boundary="=-L8x0a5yGZb/XVLgxgGXH"
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Jan Kiszka <jan.kiszka@siemens.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Paul Moore <paul.moore@hp.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	qemu-devel <qemu-devel@nongnu.org>
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ou.quest-ce.net ([195.154.187.82]:46021 "EHLO ou.quest-ce.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752934AbbBAM4H (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 1 Feb 2015 07:56:07 -0500
-In-Reply-To: <1422790133-28725-6-git-send-email-raindel@mellanox.com>
+Received: from bombadil.infradead.org ([198.137.202.9]:36224 "EHLO
+	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753043AbbBANeD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Feb 2015 08:34:03 -0500
+In-Reply-To: <20150201122611.GA8883@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le dimanche 01 f=C3=A9vrier 2015 =C3=A0 13:28 +0200, Shachar Raindel a =
-=C3=A9crit :
-> From: Guy Shapiro <guysh@mellanox.com>
->=20
-> When receiving a connection request, ib_cm needs to associate the req=
-uest with
-> a network namespace. To do this, it needs to know the request's desti=
-nation
-> IP. For this the RDMA IP CM packet formatting functionality needs to =
-be
-> exposed to ib_cm.
->=20
-> This patch merely moves the RDMA IP CM data formatting and parsing fu=
-nctions
-> to be part of ib_cm. The following patch will utilize the new knowled=
-ge to
-> look-up the appropriate namespace. Each namespace maintains an indepe=
-ndent
-> table of RDMA CM service IDs, allowing isolation and separation betwe=
-en the
-> network namespaces.
->=20
-> When creating a new incoming connection ID, the code in cm_save_ip_in=
-fo can no
-> longer rely on the listener's private data to find the port number, s=
-o it
-> reads it from the requested service ID. This required saving the serv=
-ice ID in
-> cm_format_paths_from_req.
->=20
-> Signed-off-by: Guy Shapiro <guysh@mellanox.com>
-> Signed-off-by: Haggai Eran <haggaie@mellanox.com>
-> Signed-off-by: Yotam Kenneth <yotamke@mellanox.com>
-> Signed-off-by: Shachar Raindel <raindel@mellanox.com>
->=20
-> ---
->  drivers/infiniband/core/cm.c  | 167 ++++++++++++++++++++++++++++++++=
-++++++++++
->  drivers/infiniband/core/cma.c | 166 +++++---------------------------=
----------
->  include/rdma/ib_cm.h          |  46 ++++++++++++
->  3 files changed, 231 insertions(+), 148 deletions(-)
->=20
-> diff --git a/drivers/infiniband/core/cm.c b/drivers/infiniband/core/c=
-m.c
-> index 5a45cb76c43e..5cc1a4aa9728 100644
-> --- a/drivers/infiniband/core/cm.c
-> +++ b/drivers/infiniband/core/cm.c
-> @@ -51,6 +51,7 @@
-> =20
->  #include <rdma/ib_cache.h>
->  #include <rdma/ib_cm.h>
-> +#include <rdma/ib.h>
->  #include "cm_msgs.h"
-> =20
->  MODULE_AUTHOR("Sean Hefty");
-> @@ -701,6 +702,170 @@ static void cm_reject_sidr_req(struct cm_id_pri=
-vate *cm_id_priv,
->  	ib_send_cm_sidr_rep(&cm_id_priv->id, &param);
->  }
-> =20
-> +static inline u8 cm_get_ip_ver(struct cm_hdr *hdr)
-> +{
-> +	return hdr->ip_version >> 4;
-> +}
-> +
-> +void cm_set_ip_ver(struct cm_hdr *hdr, u8 ip_ver)
-> +{
-> +	hdr->ip_version =3D (ip_ver << 4) | (hdr->ip_version & 0xF);
-> +}
-> +EXPORT_SYMBOL(cm_set_ip_ver);
-> +
 
-That can be defined as an inline function in header.
+--=-L8x0a5yGZb/XVLgxgGXH
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-> +int cm_format_hdr(void *hdr, int family,
-> +		  struct sockaddr *src_addr,
-> +		  struct sockaddr *dst_addr)
-> +{
-> +	struct cm_hdr *cm_hdr;
-> +
-> +	cm_hdr =3D hdr;
-> +	cm_hdr->cm_version =3D RDMA_IP_CM_VERSION;
-> +	if (family =3D=3D AF_INET) {
-> +		struct sockaddr_in *src4, *dst4;
-> +
-> +		src4 =3D (struct sockaddr_in *)src_addr;
-> +		dst4 =3D (struct sockaddr_in *)dst_addr;
-> +
-> +		cm_set_ip_ver(cm_hdr, 4);
-> +		cm_hdr->src_addr.ip4.addr =3D src4->sin_addr.s_addr;
-> +		cm_hdr->dst_addr.ip4.addr =3D dst4->sin_addr.s_addr;
-> +		cm_hdr->port =3D src4->sin_port;
-> +	} else if (family =3D=3D AF_INET6) {
-> +		struct sockaddr_in6 *src6, *dst6;
-> +
-> +		src6 =3D (struct sockaddr_in6 *)src_addr;
-> +		dst6 =3D (struct sockaddr_in6 *)dst_addr;
-> +
-> +		cm_set_ip_ver(cm_hdr, 6);
-> +		cm_hdr->src_addr.ip6 =3D src6->sin6_addr;
-> +		cm_hdr->dst_addr.ip6 =3D dst6->sin6_addr;
-> +		cm_hdr->port =3D src6->sin6_port;
-> +	}
-> +	return 0;
-> +}
-> +EXPORT_SYMBOL(cm_format_hdr);
-> +
-> +static void cm_save_ib_info(struct sockaddr *src_addr,
-> +			    struct sockaddr *dst_addr,
-> +			    struct ib_sa_path_rec *path)
-> +{
-> +	struct sockaddr_ib  *ib;
-> +
-> +	if (src_addr) {
-> +		ib =3D (struct sockaddr_ib *)src_addr;
-> +		ib->sib_family =3D AF_IB;
-> +		ib->sib_pkey =3D path->pkey;
-> +		ib->sib_flowinfo =3D path->flow_label;
-> +		memcpy(&ib->sib_addr, &path->sgid, 16);
-> +		ib->sib_sid =3D path->service_id;
-> +		ib->sib_sid_mask =3D cpu_to_be64(0xffffffffffffffffULL);
-> +		ib->sib_scope_id =3D 0;
-> +	}
-> +	if (dst_addr) {
-> +		ib =3D (struct sockaddr_ib *)dst_addr;
-> +		ib->sib_family =3D AF_IB;
-> +		ib->sib_pkey =3D path->pkey;
-> +		ib->sib_flowinfo =3D path->flow_label;
-> +		memcpy(&ib->sib_addr, &path->dgid, 16);
-> +	}
-> +}
-> +
-> +static void cm_save_ip6_info(struct sockaddr *src_addr,
-> +			     struct sockaddr *dst_addr,
-> +			     struct cm_hdr *hdr,
-> +			     __be16 local_port)
-> +{
-> +	struct sockaddr_in6 *ip6;
-> +
-> +	if (src_addr) {
-> +		ip6 =3D (struct sockaddr_in6 *)src_addr;
-> +		ip6->sin6_family =3D AF_INET6;
-> +		ip6->sin6_addr =3D hdr->dst_addr.ip6;
-> +		ip6->sin6_port =3D local_port;
-> +	}
-> +
-> +	if (dst_addr) {
-> +		ip6 =3D (struct sockaddr_in6 *)dst_addr;
-> +		ip6->sin6_family =3D AF_INET6;
-> +		ip6->sin6_addr =3D hdr->src_addr.ip6;
-> +		ip6->sin6_port =3D hdr->port;
-> +	}
-> +}
-> +
-> +static void cm_save_ip4_info(struct sockaddr *src_addr,
-> +			     struct sockaddr *dst_addr,
-> +			     struct cm_hdr *hdr,
-> +			     __be16 local_port)
-> +{
-> +	struct sockaddr_in *ip4;
-> +
-> +	if (src_addr) {
-> +		ip4 =3D (struct sockaddr_in *)src_addr;
-> +		ip4->sin_family =3D AF_INET;
-> +		ip4->sin_addr.s_addr =3D hdr->dst_addr.ip4.addr;
-> +		ip4->sin_port =3D local_port;
-> +	}
-> +
-> +	if (dst_addr) {
-> +		ip4 =3D (struct sockaddr_in *)dst_addr;
-> +		ip4->sin_family =3D AF_INET;
-> +		ip4->sin_addr.s_addr =3D hdr->src_addr.ip4.addr;
-> +		ip4->sin_port =3D hdr->port;
-> +	}
-> +}
-> +
-> +static __be16 cm_port_from_service_id(__be64 service_id)
-> +{
-> +	return htons(be64_to_cpu(service_id));
-> +}
-> +
-> +static int cm_save_ip_info(struct sockaddr *src_addr,
-> +			   struct sockaddr *dst_addr,
-> +			   struct cm_work *work)
-> +{
-> +	struct cm_hdr *hdr;
-> +	__be16 port;
-> +
-> +	hdr =3D work->cm_event.private_data;
-> +	if (hdr->cm_version !=3D RDMA_IP_CM_VERSION)
-> +		return -EINVAL;
-> +
-> +	port =3D cm_port_from_service_id(work->path->service_id);
-> +
-> +	switch (cm_get_ip_ver(hdr)) {
-> +	case 4:
-> +		cm_save_ip4_info(src_addr, dst_addr, hdr, port);
-> +		break;
-> +	case 6:
-> +		cm_save_ip6_info(src_addr, dst_addr, hdr, port);
-> +		break;
-> +	default:
-> +		return -EINVAL;
-> +	}
-> +
-> +	return 0;
-> +}
-> +
-> +int cm_save_net_info(struct sockaddr *src_addr,
-> +		     struct sockaddr *dst_addr,
-> +		     struct ib_cm_event *ib_event)
-> +{
-> +	struct cm_work *work =3D container_of(ib_event, struct cm_work, cm_=
-event);
-> +
-> +	if ((rdma_port_get_link_layer(work->port->cm_dev->ib_device,
-> +				      work->port->port_num) =3D=3D
-> +	     IB_LINK_LAYER_INFINIBAND) &&
-> +	    (ib_event->event =3D=3D IB_CM_REQ_RECEIVED)) {
-> +		cm_save_ib_info(src_addr, dst_addr,
-> +				ib_event->param.req_rcvd.primary_path);
-> +		return 0;
-> +	}
-> +
-> +	return cm_save_ip_info(src_addr, dst_addr, work);
-> +}
-> +EXPORT_SYMBOL(cm_save_net_info);
-> +
->  struct ib_cm_id *ib_create_cm_id(struct ib_device *device,
->  				 ib_cm_handler cm_handler,
->  				 void *context)
-> @@ -1260,6 +1425,7 @@ static void cm_format_paths_from_req(struct cm_=
-req_msg *req_msg,
->  	primary_path->packet_life_time =3D
->  		cm_req_get_primary_local_ack_timeout(req_msg);
->  	primary_path->packet_life_time -=3D (primary_path->packet_life_time=
- > 0);
-> +	primary_path->service_id =3D req_msg->service_id;
-> =20
->  	if (req_msg->alt_local_lid) {
->  		memset(alt_path, 0, sizeof *alt_path);
-> @@ -1281,6 +1447,7 @@ static void cm_format_paths_from_req(struct cm_=
-req_msg *req_msg,
->  		alt_path->packet_life_time =3D
->  			cm_req_get_alt_local_ack_timeout(req_msg);
->  		alt_path->packet_life_time -=3D (alt_path->packet_life_time > 0);
-> +		alt_path->service_id =3D req_msg->service_id;
->  	}
->  }
-> =20
-> diff --git a/drivers/infiniband/core/cma.c b/drivers/infiniband/core/=
-cma.c
-> index aeb2417ec928..9f6faeb1de5f 100644
-> --- a/drivers/infiniband/core/cma.c
-> +++ b/drivers/infiniband/core/cma.c
-> @@ -179,23 +179,8 @@ struct iboe_mcast_work {
->  	struct cma_multicast	*mc;
->  };
-> =20
-> -union cma_ip_addr {
-> -	struct in6_addr ip6;
-> -	struct {
-> -		__be32 pad[3];
-> -		__be32 addr;
-> -	} ip4;
-> -};
-> =20
-> -struct cma_hdr {
-> -	u8 cma_version;
-> -	u8 ip_version;	/* IP version: 7:4 */
-> -	__be16 port;
-> -	union cma_ip_addr src_addr;
-> -	union cma_ip_addr dst_addr;
-> -};
-> =20
-> -#define CMA_VERSION 0x00
-> =20
->  static int cma_comp(struct rdma_id_private *id_priv, enum rdma_cm_st=
-ate comp)
->  {
-> @@ -234,16 +219,6 @@ static enum rdma_cm_state cma_exch(struct rdma_i=
-d_private *id_priv,
->  	return old;
->  }
-> =20
-> -static inline u8 cma_get_ip_ver(struct cma_hdr *hdr)
-> -{
-> -	return hdr->ip_version >> 4;
-> -}
-> -
-> -static inline void cma_set_ip_ver(struct cma_hdr *hdr, u8 ip_ver)
-> -{
-> -	hdr->ip_version =3D (ip_ver << 4) | (hdr->ip_version & 0xF);
-> -}
-> -
->  static void cma_attach_to_dev(struct rdma_id_private *id_priv,
->  			      struct cma_device *cma_dev)
->  {
-> @@ -839,93 +814,9 @@ static inline int cma_any_port(struct sockaddr *=
-addr)
->  	return !cma_port(addr);
->  }
-> =20
-> -static void cma_save_ib_info(struct rdma_cm_id *id, struct rdma_cm_i=
-d *listen_id,
-> -			     struct ib_sa_path_rec *path)
-> -{
-> -	struct sockaddr_ib *listen_ib, *ib;
-> -
-> -	listen_ib =3D (struct sockaddr_ib *) &listen_id->route.addr.src_add=
-r;
-> -	ib =3D (struct sockaddr_ib *) &id->route.addr.src_addr;
-> -	ib->sib_family =3D listen_ib->sib_family;
-> -	ib->sib_pkey =3D path->pkey;
-> -	ib->sib_flowinfo =3D path->flow_label;
-> -	memcpy(&ib->sib_addr, &path->sgid, 16);
-> -	ib->sib_sid =3D listen_ib->sib_sid;
-> -	ib->sib_sid_mask =3D cpu_to_be64(0xffffffffffffffffULL);
-> -	ib->sib_scope_id =3D listen_ib->sib_scope_id;
-> -
-> -	ib =3D (struct sockaddr_ib *) &id->route.addr.dst_addr;
-> -	ib->sib_family =3D listen_ib->sib_family;
-> -	ib->sib_pkey =3D path->pkey;
-> -	ib->sib_flowinfo =3D path->flow_label;
-> -	memcpy(&ib->sib_addr, &path->dgid, 16);
-> -}
-> -
-> -static void cma_save_ip4_info(struct rdma_cm_id *id, struct rdma_cm_=
-id *listen_id,
-> -			      struct cma_hdr *hdr)
-> -{
-> -	struct sockaddr_in *listen4, *ip4;
-> -
-> -	listen4 =3D (struct sockaddr_in *) &listen_id->route.addr.src_addr;
-> -	ip4 =3D (struct sockaddr_in *) &id->route.addr.src_addr;
-> -	ip4->sin_family =3D AF_INET;
-> -	ip4->sin_addr.s_addr =3D hdr->dst_addr.ip4.addr;
-> -	ip4->sin_port =3D listen4->sin_port;
-> -
-> -	ip4 =3D (struct sockaddr_in *) &id->route.addr.dst_addr;
-> -	ip4->sin_family =3D AF_INET;
-> -	ip4->sin_addr.s_addr =3D hdr->src_addr.ip4.addr;
-> -	ip4->sin_port =3D hdr->port;
-> -}
-> -
-> -static void cma_save_ip6_info(struct rdma_cm_id *id, struct rdma_cm_=
-id *listen_id,
-> -			      struct cma_hdr *hdr)
-> -{
-> -	struct sockaddr_in6 *listen6, *ip6;
-> -
-> -	listen6 =3D (struct sockaddr_in6 *) &listen_id->route.addr.src_addr=
-;
-> -	ip6 =3D (struct sockaddr_in6 *) &id->route.addr.src_addr;
-> -	ip6->sin6_family =3D AF_INET6;
-> -	ip6->sin6_addr =3D hdr->dst_addr.ip6;
-> -	ip6->sin6_port =3D listen6->sin6_port;
-> -
-> -	ip6 =3D (struct sockaddr_in6 *) &id->route.addr.dst_addr;
-> -	ip6->sin6_family =3D AF_INET6;
-> -	ip6->sin6_addr =3D hdr->src_addr.ip6;
-> -	ip6->sin6_port =3D hdr->port;
-> -}
-> -
-> -static int cma_save_net_info(struct rdma_cm_id *id, struct rdma_cm_i=
-d *listen_id,
-> -			     struct ib_cm_event *ib_event)
-> -{
-> -	struct cma_hdr *hdr;
-> -
-> -	if ((listen_id->route.addr.src_addr.ss_family =3D=3D AF_IB) &&
-> -	    (ib_event->event =3D=3D IB_CM_REQ_RECEIVED)) {
-> -		cma_save_ib_info(id, listen_id, ib_event->param.req_rcvd.primary_p=
-ath);
-> -		return 0;
-> -	}
-> -
-> -	hdr =3D ib_event->private_data;
-> -	if (hdr->cma_version !=3D CMA_VERSION)
-> -		return -EINVAL;
-> -
-> -	switch (cma_get_ip_ver(hdr)) {
-> -	case 4:
-> -		cma_save_ip4_info(id, listen_id, hdr);
-> -		break;
-> -	case 6:
-> -		cma_save_ip6_info(id, listen_id, hdr);
-> -		break;
-> -	default:
-> -		return -EINVAL;
-> -	}
-> -	return 0;
-> -}
-> -
->  static inline int cma_user_data_offset(struct rdma_id_private *id_pr=
-iv)
->  {
-> -	return cma_family(id_priv) =3D=3D AF_IB ? 0 : sizeof(struct cma_hdr=
-);
-> +	return cma_family(id_priv) =3D=3D AF_IB ? 0 : sizeof(struct cm_hdr)=
-;
->  }
-> =20
->  static void cma_cancel_route(struct rdma_id_private *id_priv)
-> @@ -1195,7 +1086,9 @@ static struct rdma_id_private *cma_new_conn_id(=
-struct rdma_cm_id *listen_id,
->  		return NULL;
-> =20
->  	id_priv =3D container_of(id, struct rdma_id_private, id);
-> -	if (cma_save_net_info(id, listen_id, ib_event))
-> +	if (cm_save_net_info((struct sockaddr *)&id->route.addr.src_addr,
-> +			     (struct sockaddr *)&id->route.addr.dst_addr,
-> +			     ib_event))
->  		goto err;
-> =20
->  	rt =3D &id->route;
-> @@ -1241,7 +1134,9 @@ static struct rdma_id_private *cma_new_udp_id(s=
-truct rdma_cm_id *listen_id,
->  		return NULL;
-> =20
->  	id_priv =3D container_of(id, struct rdma_id_private, id);
-> -	if (cma_save_net_info(id, listen_id, ib_event))
-> +	if (cm_save_net_info((struct sockaddr *)&id->route.addr.src_addr,
-> +			     (struct sockaddr *)&id->route.addr.dst_addr,
-> +			     ib_event))
->  		goto err;
-> =20
->  	if (!cma_any_addr((struct sockaddr *) &id->route.addr.src_addr)) {
-> @@ -1369,7 +1264,7 @@ EXPORT_SYMBOL(rdma_get_service_id);
->  static void cma_set_compare_data(enum rdma_port_space ps, struct soc=
-kaddr *addr,
->  				 struct ib_cm_compare_data *compare)
->  {
-> -	struct cma_hdr *cma_data, *cma_mask;
-> +	struct cm_hdr *cma_data, *cma_mask;
->  	__be32 ip4_addr;
->  	struct in6_addr ip6_addr;
-> =20
-> @@ -1380,8 +1275,8 @@ static void cma_set_compare_data(enum rdma_port=
-_space ps, struct sockaddr *addr,
->  	switch (addr->sa_family) {
->  	case AF_INET:
->  		ip4_addr =3D ((struct sockaddr_in *) addr)->sin_addr.s_addr;
-> -		cma_set_ip_ver(cma_data, 4);
-> -		cma_set_ip_ver(cma_mask, 0xF);
-> +		cm_set_ip_ver(cma_data, 4);
-> +		cm_set_ip_ver(cma_mask, 0xF);
->  		if (!cma_any_addr(addr)) {
->  			cma_data->dst_addr.ip4.addr =3D ip4_addr;
->  			cma_mask->dst_addr.ip4.addr =3D htonl(~0);
-> @@ -1389,8 +1284,8 @@ static void cma_set_compare_data(enum rdma_port=
-_space ps, struct sockaddr *addr,
->  		break;
->  	case AF_INET6:
->  		ip6_addr =3D ((struct sockaddr_in6 *) addr)->sin6_addr;
-> -		cma_set_ip_ver(cma_data, 6);
-> -		cma_set_ip_ver(cma_mask, 0xF);
-> +		cm_set_ip_ver(cma_data, 6);
-> +		cm_set_ip_ver(cma_mask, 0xF);
->  		if (!cma_any_addr(addr)) {
->  			cma_data->dst_addr.ip6 =3D ip6_addr;
->  			memset(&cma_mask->dst_addr.ip6, 0xFF,
-> @@ -2615,35 +2510,6 @@ err1:
->  }
->  EXPORT_SYMBOL(rdma_bind_addr);
-> =20
-> -static int cma_format_hdr(void *hdr, struct rdma_id_private *id_priv=
-)
-> -{
-> -	struct cma_hdr *cma_hdr;
-> -
-> -	cma_hdr =3D hdr;
-> -	cma_hdr->cma_version =3D CMA_VERSION;
-> -	if (cma_family(id_priv) =3D=3D AF_INET) {
-> -		struct sockaddr_in *src4, *dst4;
-> -
-> -		src4 =3D (struct sockaddr_in *) cma_src_addr(id_priv);
-> -		dst4 =3D (struct sockaddr_in *) cma_dst_addr(id_priv);
-> -
-> -		cma_set_ip_ver(cma_hdr, 4);
-> -		cma_hdr->src_addr.ip4.addr =3D src4->sin_addr.s_addr;
-> -		cma_hdr->dst_addr.ip4.addr =3D dst4->sin_addr.s_addr;
-> -		cma_hdr->port =3D src4->sin_port;
-> -	} else if (cma_family(id_priv) =3D=3D AF_INET6) {
-> -		struct sockaddr_in6 *src6, *dst6;
-> -
-> -		src6 =3D (struct sockaddr_in6 *) cma_src_addr(id_priv);
-> -		dst6 =3D (struct sockaddr_in6 *) cma_dst_addr(id_priv);
-> -
-> -		cma_set_ip_ver(cma_hdr, 6);
-> -		cma_hdr->src_addr.ip6 =3D src6->sin6_addr;
-> -		cma_hdr->dst_addr.ip6 =3D dst6->sin6_addr;
-> -		cma_hdr->port =3D src6->sin6_port;
-> -	}
-> -	return 0;
-> -}
-> =20
->  static int cma_sidr_rep_handler(struct ib_cm_id *cm_id,
->  				struct ib_cm_event *ib_event)
-> @@ -2731,7 +2597,9 @@ static int cma_resolve_ib_udp(struct rdma_id_pr=
-ivate *id_priv,
->  		       conn_param->private_data_len);
-> =20
->  	if (private_data) {
-> -		ret =3D cma_format_hdr(private_data, id_priv);
-> +		ret =3D cm_format_hdr(private_data, cma_family(id_priv),
-> +				    cma_src_addr(id_priv),
-> +				    cma_dst_addr(id_priv));
->  		if (ret)
->  			goto out;
->  		req.private_data =3D private_data;
-> @@ -2796,7 +2664,9 @@ static int cma_connect_ib(struct rdma_id_privat=
-e *id_priv,
-> =20
->  	route =3D &id_priv->id.route;
->  	if (private_data) {
-> -		ret =3D cma_format_hdr(private_data, id_priv);
-> +		ret =3D cm_format_hdr(private_data, cma_family(id_priv),
-> +				    cma_src_addr(id_priv),
-> +				    cma_dst_addr(id_priv));
->  		if (ret)
->  			goto out;
->  		req.private_data =3D private_data;
-> diff --git a/include/rdma/ib_cm.h b/include/rdma/ib_cm.h
-> index 0e3ff30647d5..e418a11afcfe 100644
-> --- a/include/rdma/ib_cm.h
-> +++ b/include/rdma/ib_cm.h
-> @@ -274,6 +274,52 @@ struct ib_cm_event {
->  #define CM_LAP_ATTR_ID		cpu_to_be16(0x0019)
->  #define CM_APR_ATTR_ID		cpu_to_be16(0x001A)
-> =20
-> +union cm_ip_addr {
-> +	struct in6_addr ip6;
-> +	struct {
-> +		__be32 pad[3];
-> +		__be32 addr;
-> +	} ip4;
-> +};
-> +
-> +struct cm_hdr {
-> +	u8 cm_version;
-> +	u8 ip_version;	/* IP version: 7:4 */
-> +	__be16 port;
-> +	union cm_ip_addr src_addr;
-> +	union cm_ip_addr dst_addr;
-> +};
-> +
-> +#define RDMA_IP_CM_VERSION 0x00
-> +
-> +/**
-> + * cm_format_hdr - Fill in a cm_hdr struct according to connection d=
-etails
-> + * @hdr:      cm_hdr struct to fill
-> + * @family:   ip family of the addresses - AF_INET or AF_INTET6
-> + * @src_addr: source address of the connection
-> + * @dst_addr: destination address of the connection
-> + **/
-> +int cm_format_hdr(void *hdr, int family,
-> +		  struct sockaddr *src_addr,
-> +		  struct sockaddr *dst_addr);
-> +
-> +/**
-> + * cm_save_net_info - saves ib connection event details
-> + * @src_addr: source address of the connection
-> + * @dst_addr: destination address of the connection
-> + * @ib_event: ib event to take connection details from
-> + **/
-> +int cm_save_net_info(struct sockaddr *src_addr,
-> +		     struct sockaddr *dst_addr,
-> +		     struct ib_cm_event *ib_event);
-> +
-> +/**
-> + * cm_set_ip_ver - sets the ip version of a cm_hdr struct
-> + * @hdr:    cm_hdr struct to change
-> + * @ip_ver: ip version to set - a 4 bit value
-> + **/
-> +void cm_set_ip_ver(struct cm_hdr *hdr, u8 ip_ver);
-> +
->  /**
->   * ib_cm_handler - User-defined callback to process communication ev=
-ents.
->   * @cm_id: Communication identifier associated with the reported eve=
-nt.
+On Sun, 2015-02-01 at 14:26 +0200, Michael S. Tsirkin wrote:
+> > When I run over the VPN, netperf thinks it sent 2=C2=BD times the amoun=
+t of
+> > TX traffic.
+>=20
+> At some level, it's expected: netperf's manual actually says:
+> 	A UDP_STREAM test has no end-to-end flow control - UDP provides none and
+> 	neither does netperf. However, if you wish, you can configure netperf
+> 	with --enable-intervals=3Dyes to enable the global command-line -b and -=
+w
+> 	options to pace bursts of traffic onto the network.
 
-Every other symbols in ib_cm.h are prefixed by "ib_cm_", so I would
-prefer having symbols moved from ib_cma.c to ib_cm.c be renamed, except
-it would create a lot of code change ...
+True, but UDP is just a canary for other protocols here. We *should* be
+able to keep track of the packets before they even leave the box, and
+know that we haven't even managed to send them. Even if we know it's a
+datagram protocol and it's potentially going to be dropped in transit
+later.
 
-Regards.
+Of course, now I'm looking closely at the path these packets take to
+leave the box, it starts to offend me that they're being passed up to
+userspace just to encrypt them (as DTLS or ESP) and then send them back
+down to the kernel on a UDP socket. The kernel already knows how to
+{en,de}crypt ESP, and do the sequence number checking on incoming
+packets.
+
+I'm wondering if we bypass userspace in that case somehow =E2=80=94 let
+userspace negotiate the encryption and connect the UDP socket, then just
+pass the socket fd and the parameters to the kernel so that incoming
+packets are decrypted and 'received' on the tun device, and outgoing
+packets on the tun device are encrypted and sent out on the UDP socket.=20
+
+The performance isn't too much of an issue for a VPN *client* in
+practice, but we have a server implementation too which would probably
+benefit quite well from such an offload facility.
+
+If I were to look at such a thing, would it provoke screams of horror?=20
 
 --=20
-Yann Droneaud
-OPTEYA
+dwmw2
+
+
+--=-L8x0a5yGZb/XVLgxgGXH
+Content-Type: application/x-pkcs7-signature; name="smime.p7s"
+Content-Disposition: attachment; filename="smime.p7s"
+Content-Transfer-Encoding: base64
+
+MIAGCSqGSIb3DQEHAqCAMIACAQExCzAJBgUrDgMCGgUAMIAGCSqGSIb3DQEHAQAAoIISxDCCBjQw
+ggQcoAMCAQICAR4wDQYJKoZIhvcNAQEFBQAwfTELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0
+Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcxKTAn
+BgNVBAMTIFN0YXJ0Q29tIENlcnRpZmljYXRpb24gQXV0aG9yaXR5MB4XDTA3MTAyNDIxMDE1NVoX
+DTE3MTAyNDIxMDE1NVowgYwxCzAJBgNVBAYTAklMMRYwFAYDVQQKEw1TdGFydENvbSBMdGQuMSsw
+KQYDVQQLEyJTZWN1cmUgRGlnaXRhbCBDZXJ0aWZpY2F0ZSBTaWduaW5nMTgwNgYDVQQDEy9TdGFy
+dENvbSBDbGFzcyAxIFByaW1hcnkgSW50ZXJtZWRpYXRlIENsaWVudCBDQTCCASIwDQYJKoZIhvcN
+AQEBBQADggEPADCCAQoCggEBAMcJg8zOLdgasSmkLhOrlr6KMoOMpohBllVHrdRvEg/q6r8jR+EK
+75xCGhR8ToREoqe7zM9/UnC6TS2y9UKTpT1v7RSMzR0t6ndl0TWBuUr/UXBhPk+Kmy7bI4yW4urC
++y7P3/1/X7U8ocb8VpH/Clt+4iq7nirMcNh6qJR+xjOhV+VHzQMALuGYn5KZmc1NbJQYclsGkDxD
+z2UbFqE2+6vIZoL+jb9x4Pa5gNf1TwSDkOkikZB1xtB4ZqtXThaABSONdfmv/Z1pua3FYxnCFmdr
+/+N2JLKutIxMYqQOJebr/f/h5t95m4JgrM3Y/w7YX9d7YAL9jvN4SydHsU6n65cCAwEAAaOCAa0w
+ggGpMA8GA1UdEwEB/wQFMAMBAf8wDgYDVR0PAQH/BAQDAgEGMB0GA1UdDgQWBBRTcu2SnODaywFc
+fH6WNU7y1LhRgjAfBgNVHSMEGDAWgBROC+8apEBbpRdphzDKNGhD0EGu8jBmBggrBgEFBQcBAQRa
+MFgwJwYIKwYBBQUHMAGGG2h0dHA6Ly9vY3NwLnN0YXJ0c3NsLmNvbS9jYTAtBggrBgEFBQcwAoYh
+aHR0cDovL3d3dy5zdGFydHNzbC5jb20vc2ZzY2EuY3J0MFsGA1UdHwRUMFIwJ6AloCOGIWh0dHA6
+Ly93d3cuc3RhcnRzc2wuY29tL3Nmc2NhLmNybDAnoCWgI4YhaHR0cDovL2NybC5zdGFydHNzbC5j
+b20vc2ZzY2EuY3JsMIGABgNVHSAEeTB3MHUGCysGAQQBgbU3AQIBMGYwLgYIKwYBBQUHAgEWImh0
+dHA6Ly93d3cuc3RhcnRzc2wuY29tL3BvbGljeS5wZGYwNAYIKwYBBQUHAgEWKGh0dHA6Ly93d3cu
+c3RhcnRzc2wuY29tL2ludGVybWVkaWF0ZS5wZGYwDQYJKoZIhvcNAQEFBQADggIBAAqDCH14qywG
+XLhjjF6uHLkjd02hcdh9hrw+VUsv+q1eeQWB21jWj3kJ96AUlPCoEGZ/ynJNScWy6QMVQjbbMXlt
+UfO4n4bGGdKo3awPWp61tjAFgraLJgDk+DsSvUD6EowjMTNx25GQgyYJ5RPIzKKR9tQW8gGK+2+R
+HxkUCTbYFnL6kl8Ch507rUdPPipJ9CgJFws3kDS3gOS5WFMxcjO5DwKfKSETEPrHh7p5shuuNktv
+sv6hxHTLhiMKX893gxdT3XLS9OKmCv87vkINQcNEcIIoFWbP9HORz9v3vQwR4e3ksLc2JZOAFK+s
+sS5XMEoznzpihEP0PLc4dCBYjbvSD7kxgDwZ+Aj8Q9PkbvE9sIPP7ON0fz095HdThKjiVJe6vofq
++n6b1NBc8XdrQvBmunwxD5nvtTW4vtN6VY7mUCmxsCieuoBJ9OlqmsVWQvifIYf40dJPZkk9YgGT
+zWLpXDSfLSplbY2LL9C9U0ptvjcDjefLTvqSFc7tw1sEhF0n/qpA2r0GpvkLRDmcSwVyPvmjFBGq
+Up/pNy8ZuPGQmHwFi2/14+xeSUDG2bwnsYJQG2EdJCB6luQ57GEnTA/yKZSTKI8dDQa8Sd3zfXb1
+9mOgSF0bBdXbuKhEpuP9wirslFe6fQ1t5j5R0xi72MZ8ikMu1RQZKCyDbMwazlHiMIIGQjCCBSqg
+AwIBAgIDCdkyMA0GCSqGSIb3DQEBBQUAMIGMMQswCQYDVQQGEwJJTDEWMBQGA1UEChMNU3RhcnRD
+b20gTHRkLjErMCkGA1UECxMiU2VjdXJlIERpZ2l0YWwgQ2VydGlmaWNhdGUgU2lnbmluZzE4MDYG
+A1UEAxMvU3RhcnRDb20gQ2xhc3MgMSBQcmltYXJ5IEludGVybWVkaWF0ZSBDbGllbnQgQ0EwHhcN
+MTQwNTA0MTczMDIyWhcNMTUwNTA0MjM0MTAxWjBdMRkwFwYDVQQNExAzODNCMTVkSHFQSUR0cDZO
+MRwwGgYDVQQDDBNkd213MkBpbmZyYWRlYWQub3JnMSIwIAYJKoZIhvcNAQkBFhNkd213MkBpbmZy
+YWRlYWQub3JnMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAy7K+t+REIdZGFUfgR8Io
+QrJ/VLZil9I00JcwqTo8BiGy1dqSIB2y923siya5SDKMh1YurtCPsX96cNzwPmmN2cs0MKeVPQWz
+iQhHk3uKcB6LvvS7pzTahRWMRmTyW3CH+RphRM9plvyClY23GEeEnpBnGz4GaJJiPcJjGgzyZ/tI
+q473pOlSrDPZnZk43vt/5CJN46nIZOZ2I+PzlgINI+EbiwsXVn3VohHB7nVTwGaRLk5oywGt8ZT7
+tDdxn3BQ3inO1sr5MtkV1o2cHlenIC8mlU8nL/mrqqVve7Vib1YQUycW+Pj4CBYm4FTeuctAvNzK
+U/daeBclOZ8ofgQe2wIDAQABo4IC2TCCAtUwCQYDVR0TBAIwADALBgNVHQ8EBAMCBLAwHQYDVR0l
+BBYwFAYIKwYBBQUHAwIGCCsGAQUFBwMEMB0GA1UdDgQWBBRAjCSCV70BpLBeXge5DXi+mPhHTTAf
+BgNVHSMEGDAWgBRTcu2SnODaywFcfH6WNU7y1LhRgjAeBgNVHREEFzAVgRNkd213MkBpbmZyYWRl
+YWQub3JnMIIBTAYDVR0gBIIBQzCCAT8wggE7BgsrBgEEAYG1NwECAzCCASowLgYIKwYBBQUHAgEW
+Imh0dHA6Ly93d3cuc3RhcnRzc2wuY29tL3BvbGljeS5wZGYwgfcGCCsGAQUFBwICMIHqMCcWIFN0
+YXJ0Q29tIENlcnRpZmljYXRpb24gQXV0aG9yaXR5MAMCAQEagb5UaGlzIGNlcnRpZmljYXRlIHdh
+cyBpc3N1ZWQgYWNjb3JkaW5nIHRvIHRoZSBDbGFzcyAxIFZhbGlkYXRpb24gcmVxdWlyZW1lbnRz
+IG9mIHRoZSBTdGFydENvbSBDQSBwb2xpY3ksIHJlbGlhbmNlIG9ubHkgZm9yIHRoZSBpbnRlbmRl
+ZCBwdXJwb3NlIGluIGNvbXBsaWFuY2Ugb2YgdGhlIHJlbHlpbmcgcGFydHkgb2JsaWdhdGlvbnMu
+MDYGA1UdHwQvMC0wK6ApoCeGJWh0dHA6Ly9jcmwuc3RhcnRzc2wuY29tL2NydHUxLWNybC5jcmww
+gY4GCCsGAQUFBwEBBIGBMH8wOQYIKwYBBQUHMAGGLWh0dHA6Ly9vY3NwLnN0YXJ0c3NsLmNvbS9z
+dWIvY2xhc3MxL2NsaWVudC9jYTBCBggrBgEFBQcwAoY2aHR0cDovL2FpYS5zdGFydHNzbC5jb20v
+Y2VydHMvc3ViLmNsYXNzMS5jbGllbnQuY2EuY3J0MCMGA1UdEgQcMBqGGGh0dHA6Ly93d3cuc3Rh
+cnRzc2wuY29tLzANBgkqhkiG9w0BAQUFAAOCAQEAWS2KNN7O3vZVtNHXVqgbmijeptKwt+8b6yiF
+wT3kJoywInPl5U+OeKRZfQKTHghM4Ohof6lF244ZMxhir/xp7l/zkZ/BUbxLwp6kIL27Gi5pgP4D
+KLnTZheQL9N5Yi/vMONxMWcpcW+ZNv5hnDCfEsfVcLXC8sNLPjx2ezfMIhSSPwBuJpmOun70te4E
+P0YBqjSalPfvc5fC5KgaYtqTDFwo9Mw25X5HHDC0r6BK5aNrF1nD/xYTX7cdvZZWl7cUApr4PCrn
+uI2DEn7OWQ/rY407ytV1c5pjvmuv/IT/ZUb/kXV6Q47UvrJp2Ifi2VhsBcnHHasKavjtRCmpDsGM
+rTCCBkIwggUqoAMCAQICAwnZMjANBgkqhkiG9w0BAQUFADCBjDELMAkGA1UEBhMCSUwxFjAUBgNV
+BAoTDVN0YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNp
+Z25pbmcxODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xp
+ZW50IENBMB4XDTE0MDUwNDE3MzAyMloXDTE1MDUwNDIzNDEwMVowXTEZMBcGA1UEDRMQMzgzQjE1
+ZEhxUElEdHA2TjEcMBoGA1UEAwwTZHdtdzJAaW5mcmFkZWFkLm9yZzEiMCAGCSqGSIb3DQEJARYT
+ZHdtdzJAaW5mcmFkZWFkLm9yZzCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAMuyvrfk
+RCHWRhVH4EfCKEKyf1S2YpfSNNCXMKk6PAYhstXakiAdsvdt7IsmuUgyjIdWLq7Qj7F/enDc8D5p
+jdnLNDCnlT0Fs4kIR5N7inAei770u6c02oUVjEZk8ltwh/kaYUTPaZb8gpWNtxhHhJ6QZxs+BmiS
+Yj3CYxoM8mf7SKuO96TpUqwz2Z2ZON77f+QiTeOpyGTmdiPj85YCDSPhG4sLF1Z91aIRwe51U8Bm
+kS5OaMsBrfGU+7Q3cZ9wUN4pztbK+TLZFdaNnB5XpyAvJpVPJy/5q6qlb3u1Ym9WEFMnFvj4+AgW
+JuBU3rnLQLzcylP3WngXJTmfKH4EHtsCAwEAAaOCAtkwggLVMAkGA1UdEwQCMAAwCwYDVR0PBAQD
+AgSwMB0GA1UdJQQWMBQGCCsGAQUFBwMCBggrBgEFBQcDBDAdBgNVHQ4EFgQUQIwkgle9AaSwXl4H
+uQ14vpj4R00wHwYDVR0jBBgwFoAUU3Ltkpzg2ssBXHx+ljVO8tS4UYIwHgYDVR0RBBcwFYETZHdt
+dzJAaW5mcmFkZWFkLm9yZzCCAUwGA1UdIASCAUMwggE/MIIBOwYLKwYBBAGBtTcBAgMwggEqMC4G
+CCsGAQUFBwIBFiJodHRwOi8vd3d3LnN0YXJ0c3NsLmNvbS9wb2xpY3kucGRmMIH3BggrBgEFBQcC
+AjCB6jAnFiBTdGFydENvbSBDZXJ0aWZpY2F0aW9uIEF1dGhvcml0eTADAgEBGoG+VGhpcyBjZXJ0
+aWZpY2F0ZSB3YXMgaXNzdWVkIGFjY29yZGluZyB0byB0aGUgQ2xhc3MgMSBWYWxpZGF0aW9uIHJl
+cXVpcmVtZW50cyBvZiB0aGUgU3RhcnRDb20gQ0EgcG9saWN5LCByZWxpYW5jZSBvbmx5IGZvciB0
+aGUgaW50ZW5kZWQgcHVycG9zZSBpbiBjb21wbGlhbmNlIG9mIHRoZSByZWx5aW5nIHBhcnR5IG9i
+bGlnYXRpb25zLjA2BgNVHR8ELzAtMCugKaAnhiVodHRwOi8vY3JsLnN0YXJ0c3NsLmNvbS9jcnR1
+MS1jcmwuY3JsMIGOBggrBgEFBQcBAQSBgTB/MDkGCCsGAQUFBzABhi1odHRwOi8vb2NzcC5zdGFy
+dHNzbC5jb20vc3ViL2NsYXNzMS9jbGllbnQvY2EwQgYIKwYBBQUHMAKGNmh0dHA6Ly9haWEuc3Rh
+cnRzc2wuY29tL2NlcnRzL3N1Yi5jbGFzczEuY2xpZW50LmNhLmNydDAjBgNVHRIEHDAahhhodHRw
+Oi8vd3d3LnN0YXJ0c3NsLmNvbS8wDQYJKoZIhvcNAQEFBQADggEBAFktijTezt72VbTR11aoG5oo
+3qbSsLfvG+sohcE95CaMsCJz5eVPjnikWX0Ckx4ITODoaH+pRduOGTMYYq/8ae5f85GfwVG8S8Ke
+pCC9uxouaYD+Ayi502YXkC/TeWIv7zDjcTFnKXFvmTb+YZwwnxLH1XC1wvLDSz48dns3zCIUkj8A
+biaZjrp+9LXuBD9GAao0mpT373OXwuSoGmLakwxcKPTMNuV+RxwwtK+gSuWjaxdZw/8WE1+3Hb2W
+Vpe3FAKa+Dwq57iNgxJ+zlkP62ONO8rVdXOaY75rr/yE/2VG/5F1ekOO1L6yadiH4tlYbAXJxx2r
+Cmr47UQpqQ7BjK0xggNvMIIDawIBATCBlDCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0
+Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcxODA2
+BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENBAgMJ
+2TIwCQYFKw4DAhoFAKCCAa8wGAYJKoZIhvcNAQkDMQsGCSqGSIb3DQEHATAcBgkqhkiG9w0BCQUx
+DxcNMTUwMjAxMTMzMzUwWjAjBgkqhkiG9w0BCQQxFgQUWSINPdoMHEvK8LecZV1Iam3HNqowgaUG
+CSsGAQQBgjcQBDGBlzCBlDCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0ZC4x
+KzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcxODA2BgNVBAMTL1N0
+YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENBAgMJ2TIwgacGCyqG
+SIb3DQEJEAILMYGXoIGUMIGMMQswCQYDVQQGEwJJTDEWMBQGA1UEChMNU3RhcnRDb20gTHRkLjEr
+MCkGA1UECxMiU2VjdXJlIERpZ2l0YWwgQ2VydGlmaWNhdGUgU2lnbmluZzE4MDYGA1UEAxMvU3Rh
+cnRDb20gQ2xhc3MgMSBQcmltYXJ5IEludGVybWVkaWF0ZSBDbGllbnQgQ0ECAwnZMjANBgkqhkiG
+9w0BAQEFAASCAQCxy8rmfBYPBrxaqyqmMeqAEB7S/LotSF39qi7qYdjBTiNpXJuT17Vih+QWmo4s
+uZH/n0abaN+fuACPlwijoHXanQvicDNQVEj7PRtK5f0gPSVLLSpeYjrllwJgg6KmJP9PTqZmEJkt
+Rc3vuy/YU9EKQZ+oqDWLfqfBgq8dtbdtsAkPDpDjeGOnMhaE8LLiMG+QmFptz+uzGumcpzVQLg5q
+62cV0NidEEG9NODYAvNdplhDtwgEq5+bdMF49aws/xgexKqW4spdYBxldDw0+mId2Wr4N/+67h6g
+/4oX1cM3JfPrsUq1PWyYAYROVuEDgIaeGsdNJ44uXzwUTM40aIyHAAAAAAAA
+
+
+--=-L8x0a5yGZb/XVLgxgGXH--
