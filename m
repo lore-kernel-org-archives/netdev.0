@@ -1,39 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] hyperv: Fix the error processing in netvsc_send()
-Date: Sat, 31 Jan 2015 17:32:17 -0800 (PST)
-Message-ID: <20150131.173217.1599465880594497324.davem@davemloft.net>
-References: <1422563689-31036-1-git-send-email-haiyangz@microsoft.com>
+Subject: Re: [PATCH net-next] drivers: net: cpsw: make cpsw_ale.c a module
+ to allow re-use on Keystone
+Date: Sat, 31 Jan 2015 17:36:10 -0800 (PST)
+Message-ID: <20150131.173610.754001675443670809.davem@davemloft.net>
+References: <1422573351-5603-1-git-send-email-m-karicheri2@ti.com>
+	<1422573351-5603-2-git-send-email-m-karicheri2@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: olaf@aepfle.de, netdev@vger.kernel.org, jasowang@redhat.com,
- driverdev-devel@linuxdriverproject.org, linux-kernel@vger.kernel.org
-To: haiyangz@microsoft.com
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1422563689-31036-1-git-send-email-haiyangz@microsoft.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Cc: w-kwok2@ti.com, mugunthanvnm@ti.com, tony@atomide.com,
+	prabhakar.csengg@gmail.com, grygorii.strashko@ti.com,
+	lokeshvutla@ti.com, mpa@pengutronix.de,
+	lsorense@csclub.uwaterloo.ca, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, arnd@arndb.de
+To: m-karicheri2@ti.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:32847 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754193AbbBABgL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 31 Jan 2015 20:36:11 -0500
+In-Reply-To: <1422573351-5603-2-git-send-email-m-karicheri2@ti.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Date: Thu, 29 Jan 2015 12:34:49 -0800
+From: Murali Karicheri <m-karicheri2@ti.com>
+Date: Thu, 29 Jan 2015 18:15:51 -0500
 
-> The existing code frees the skb in EAGAIN case, in which the skb will be
-> retried from upper layer and used again.
-> Also, the existing code doesn't free send buffer slot in error case, because
-> there is no completion message for unsent packets.
-> This patch fixes these problems.
+> NetCP on Keystone has cpsw ale function similar to other TI SoCs
+> and this driver is re-used. To allow both ti cpsw and keystone netcp
+> to re-use the driver, convert the cpsw ale to a module and configure
+> it through Kconfig option CONFIG_TI_CPSW_ALE. Currently it is statically
+> linked to both TI CPSW and NetCP and this causes issues when the above
+> drivers are built as dynamic modules. This patch addresses this issue
 > 
-> (Please also include this patch for stable trees. Thanks!)
+> While at it, fix the Makefile and code to build both netcp_core and
+> netcp_ethss as dynamic modules. This is needed to support arm allmodconfig.
+> This also requires exporting of API calls provided by netcp_core so that
+> both the above can be dynamic modules.
 > 
-> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
-> Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
+> Signed-off-by: Murali Karicheri <m-karicheri2@ti.com>
 
-Applied and queued up for -stable, thanks.
+Applied, thanks
