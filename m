@@ -1,34 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tcp: use SACK RTTs for CC
-Date: Sat, 31 Jan 2015 17:26:01 -0800 (PST)
-Message-ID: <20150131.172601.384724758739744851.davem@davemloft.net>
-References: <1422558483-6168-1-git-send-email-kennetkl@ifi.uio.no>
+Subject: Re: [PATCH net] hyperv: Fix the error processing in netvsc_send()
+Date: Sat, 31 Jan 2015 17:32:17 -0800 (PST)
+Message-ID: <20150131.173217.1599465880594497324.davem@davemloft.net>
+References: <1422563689-31036-1-git-send-email-haiyangz@microsoft.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: kennetkl@ifi.uio.no
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60989 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752471AbbBAB0C (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 31 Jan 2015 20:26:02 -0500
-In-Reply-To: <1422558483-6168-1-git-send-email-kennetkl@ifi.uio.no>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: olaf@aepfle.de, netdev@vger.kernel.org, jasowang@redhat.com,
+ driverdev-devel@linuxdriverproject.org, linux-kernel@vger.kernel.org
+To: haiyangz@microsoft.com
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <1422563689-31036-1-git-send-email-haiyangz@microsoft.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-From: Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
-Date: Thu, 29 Jan 2015 20:08:03 +0100
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Date: Thu, 29 Jan 2015 12:34:49 -0800
 
-> Current behavior only passes RTTs from sequentially acked data to CC.
+> The existing code frees the skb in EAGAIN case, in which the skb will be
+> retried from upper layer and used again.
+> Also, the existing code doesn't free send buffer slot in error case, because
+> there is no completion message for unsent packets.
+> This patch fixes these problems.
 > 
-> If sender gets a combined ACK for segment 1 and SACK for segment 3, then the
-> computed RTT for CC is the time between sending segment 1 and receiving SACK
-> for segment 3.
+> (Please also include this patch for stable trees. Thanks!)
 > 
-> Pass the minimum computed RTT from any acked data to CC, i.e. time between
-> sending segment 3 and receiving SACK for segment 3.
-> 
-> Signed-off-by: Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
+> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+> Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
 
-Applied, thanks.
+Applied and queued up for -stable, thanks.
