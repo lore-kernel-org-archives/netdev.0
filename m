@@ -1,169 +1,134 @@
-From: Shachar Raindel <raindel@mellanox.com>
-Subject: [PATCH for-next 03/10] IB/core: Find the network namespace matching connection parameters
-Date: Sun,  1 Feb 2015 13:28:46 +0200
-Message-ID: <1422790133-28725-4-git-send-email-raindel@mellanox.com>
-References: <1422790133-28725-1-git-send-email-raindel@mellanox.com>
-Cc: linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
-	liranl@mellanox.com, Yotam Kenneth <yotamke@mellanox.com>,
-	Haggai Eran <haggaie@mellanox.com>,
-	Shachar Raindel <raindel@mellanox.com>,
-	Guy Shapiro <guysh@mellanox.com>
-To: roland@kernel.org, sean.hefty@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:33784 "EHLO mellanox.co.il"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752887AbbBALb3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 1 Feb 2015 06:31:29 -0500
-In-Reply-To: <1422790133-28725-1-git-send-email-raindel@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Shachar Raindel <raindel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Subject: [PATCH for-next 00/11] Add network namespace support in the RDMA-CM
+Date: Sun,  1 Feb 2015 13:28:43 +0200
+Message-ID: <1422790133-28725-1-git-send-email-raindel@mellanox.com>
+Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, Shachar Raindel <raindel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+To: roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Yotam Kenneth <yotamke@mellanox.com>
+RDMA-CM uses IP based addressing and routing to setup RDMA connections between
+hosts. Currently, all of the IP interfaces and addresses used by the RDMA-CM
+must reside in the init_net namespace. This restricts the usage of containers
+with RDMA to only work with host network namespace (aka the kernel init_net NS
+instance).
 
-In the case of IPoIB, and maybe in other cases, the network device is
-managed by an upper-layer protocol (ULP). In order to expose this
-network device to other users of the IB device, let ULPs implement
-a callback that returns network device according to connection parameters.
+This patchset allows using network namespaces with the RDMA-CM.
 
-The IB device and port, together with the P_Key and the IP address should be
-enough to uniquely identify the ULP net device.
+Each RDMA-CM and CM id is keeping a reference to a network namespace.
 
-This function is passed to ib_core as part of the ib_client
-registration.
+This reference is based on the process network namespace at the time of the
+creation of the object or inherited from the listener.
 
-Using this functionality, add a way to get the network namespace
-corresponding to a work completion. This is needed so that responses to CM
-requests can be sent from the same network namespace as the request.
+This network namespace is used to perform all IP and network related
+operations. Specifically, the local device lookup, as well as the remote GID
+address resolution are done in the context of the RDMA-CM object's namespace.
+This allows outgoing connections to reach the right target, even if the same
+IP address exists in multiple network namespaces. This can happen if each
+network namespace resides on a different pkey.
 
-Signed-off-by: Haggai Eran <haggaie@mellanox.com>
-Signed-off-by: Yotam Kenneth <yotamke@mellanox.com>
-Signed-off-by: Shachar Raindel <raindel@mellanox.com>
-Signed-off-by: Guy Shapiro <guysh@mellanox.com>
+Additionally, the network namespace is used to split the listener service ID
+table. From the user point of view, each network namespace has a unique,
+completely independent table of service IDs. This allows running multiple
+instances of a single service on the same machine, using containers. To
+implement this, the CM layer now parses the IP address from the CM connect
+requests, and searches for the matching networking device. The namespace of
+the device found is used when looking up the service ID in the listener table.
 
----
- drivers/infiniband/core/device.c | 57 ++++++++++++++++++++++++++++++++++++++++
- include/rdma/ib_verbs.h          | 29 ++++++++++++++++++++
- 2 files changed, 86 insertions(+)
+The functionnality introduced by this series would come into play when the
+transport is InfiniBand and IPoIB interfaces are assigned to each namespace.
+Multiple IPoIB interfaces can be created and assigned to different RDMA-CM
+capable containers, for example using pipework [1].
 
-diff --git a/drivers/infiniband/core/device.c b/drivers/infiniband/core/device.c
-index 18c1ece765f2..2f06be5b0b59 100644
---- a/drivers/infiniband/core/device.c
-+++ b/drivers/infiniband/core/device.c
-@@ -38,6 +38,7 @@
- #include <linux/slab.h>
- #include <linux/init.h>
- #include <linux/mutex.h>
-+#include <linux/netdevice.h>
- #include <rdma/rdma_netlink.h>
- 
- #include "core_priv.h"
-@@ -733,6 +734,62 @@ int ib_find_pkey(struct ib_device *device,
- }
- EXPORT_SYMBOL(ib_find_pkey);
- 
-+static struct net_device *ib_get_net_dev_by_port_pkey_ip(struct ib_device *dev,
-+							 u8 port,
-+							 u16 pkey,
-+							 struct sockaddr *addr)
-+{
-+	struct net_device *ret = NULL;
-+	struct ib_client *client;
-+
-+	mutex_lock(&device_mutex);
-+	list_for_each_entry(client, &client_list, list)
-+		if (client->get_net_device_by_port_pkey_ip) {
-+			ret = client->get_net_device_by_port_pkey_ip(dev, port,
-+								     pkey,
-+								     addr);
-+			if (ret)
-+				break;
-+		}
-+
-+	mutex_unlock(&device_mutex);
-+	return ret;
-+}
-+
-+struct net *ib_get_net_ns_by_port_pkey_ip(struct ib_device *dev,
-+					  u8 port,
-+					  u16 pkey,
-+					  struct sockaddr *addr)
-+{
-+	struct net_device *ndev = NULL;
-+	struct net *ns;
-+
-+	switch (rdma_port_get_link_layer(dev, port)) {
-+	case IB_LINK_LAYER_INFINIBAND:
-+		if (!addr)
-+			goto not_found;
-+		ndev = ib_get_net_dev_by_port_pkey_ip(dev, port, pkey, addr);
-+		break;
-+	default:
-+		goto not_found;
-+	}
-+
-+	if (!ndev)
-+		goto not_found;
-+
-+	rcu_read_lock();
-+	ns = maybe_get_net(dev_net(ndev));
-+	dev_put(ndev);
-+	rcu_read_unlock();
-+	if (!ns)
-+		goto not_found;
-+	return ns;
-+
-+not_found:
-+	return get_net(&init_net);
-+}
-+EXPORT_SYMBOL(ib_get_net_ns_by_port_pkey_ip);
-+
- static int __init ib_core_init(void)
- {
- 	int ret;
-diff --git a/include/rdma/ib_verbs.h b/include/rdma/ib_verbs.h
-index dd4c80cea8d3..12c2ae285b91 100644
---- a/include/rdma/ib_verbs.h
-+++ b/include/rdma/ib_verbs.h
-@@ -1683,6 +1683,21 @@ struct ib_client {
- 	void (*add)   (struct ib_device *);
- 	void (*remove)(struct ib_device *);
- 
-+	/* Returns the net_dev belonging to this ib_client and matching the
-+	 * given parameters.
-+	 * @dev:	An RDMA device that the net_dev use for communication.
-+	 * @port:	A physical port number on the RDMA device.
-+	 * @pkey:	P_Key that the net_dev uses if applicable.
-+	 * @addr:	An IP address the net_dev is configured with.
-+	 *
-+	 * An ib_client that implements a net_dev on top of RDMA devices
-+	 * (such as IP over IB) should implement this callback, allowing the
-+	 * rdma_cm module to find the right net_dev for a given request. */
-+	struct net_device *(*get_net_device_by_port_pkey_ip)(
-+			struct ib_device *dev,
-+			u8 port,
-+			u16 pkey,
-+			struct sockaddr *addr);
- 	struct list_head list;
- };
- 
-@@ -2682,4 +2697,18 @@ static inline int ib_check_mr_access(int flags)
- int ib_check_mr_status(struct ib_mr *mr, u32 check_mask,
- 		       struct ib_mr_status *mr_status);
- 
-+/**
-+ * ib_get_net_ns_by_port_pkey_ip() - Return the appropriate net namespace
-+ * for a received CM request
-+ * @dev:	An RDMA device on which the request has been received.
-+ * @port:	Port number on the RDMA device.
-+ * @pkey:	The Pkey the request came on.
-+ * @addr:	Contains the IP address that the request specified as its
-+ *		destination.
-+ */
-+struct net *ib_get_net_ns_by_port_pkey_ip(struct ib_device *dev,
-+					  u8 port,
-+					  u16 pkey,
-+					  struct sockaddr *addr);
-+
- #endif /* IB_VERBS_H */
+Full support for RoCE will be introduced in a later stage.
+
+The patches apply against kernel v3.19-rc5, with the patch "RDMA/CMA: Mark
+IPv4 addresses correctly when the listener is IPv6" [2] applied.
+
+The patchset is structured as follows:
+
+Patches 1 and 2 are relatively trivial API extensions, requiring the callers
+of certain ib_addr and ib_core functions to provide a network namespace, as
+needed.
+
+Patches 3 and 4 adds the ability to lookup a network namespace according to
+the IP address, device and pkey. It finds the matching IPoIB interfaces, and
+safely takes a reference on the network namespace before returning to the
+caller.
+
+Patch 5 moves the logic that extracts the IP address from a connect request
+into the CM layer. This is needed for the upcoming listener lookup by
+namespace.
+
+Patch 6 adds support for network namespaces in the CM layer. All callers are
+still passing init_net as the namespace, to maintain backward compatibility.
+For incoming requests, the namespace of the relevant IPoIB device is used.
+
+Patches 7 and 8 add proper namespace support to the RDMA-CM module.
+
+Patches 9 and 10 add namespace support to the relevant user facing modules in
+the IB stack.
+
+
+[1] https://github.com/jpetazzo/pipework/pull/108
+[2] https://patchwork.kernel.org/patch/5298971/
+
+Guy Shapiro (7):
+  IB/addr: Pass network namespace as a parameter
+  IB/core: Pass network namespace as a parameter to relevant functions
+  IB/ipoib: Return IPoIB devices as possible matches to
+    get_net_device_by_port_pkey_ip
+  IB/cm,cma: Move RDMA IP CM private-data parsing code from ib_cma to
+    ib_cm
+  IB/cm: Add network namespace support
+  IB/cma: Add support for network namespaces
+  IB/ucma: Take the network namespace from the process
+
+Shachar Raindel (1):
+  IB/ucm: Add partial support for network namespaces
+
+Yotam Kenneth (2):
+  IB/core: Find the network namespace matching connection parameters
+  IB/cma: Separate port allocation to network namespaces
+
+ drivers/infiniband/core/addr.c                     |  31 +-
+ drivers/infiniband/core/agent.c                    |   4 +-
+ drivers/infiniband/core/cm.c                       | 298 ++++++++++++++++--
+ drivers/infiniband/core/cma.c                      | 332 +++++++++------------
+ drivers/infiniband/core/device.c                   |  57 ++++
+ drivers/infiniband/core/mad_rmpp.c                 |  10 +-
+ drivers/infiniband/core/ucm.c                      |   4 +-
+ drivers/infiniband/core/ucma.c                     |   4 +-
+ drivers/infiniband/core/user_mad.c                 |   4 +-
+ drivers/infiniband/core/verbs.c                    |  22 +-
+ drivers/infiniband/hw/ocrdma/ocrdma_ah.c           |   3 +-
+ drivers/infiniband/ulp/ipoib/ipoib_cm.c            |  21 +-
+ drivers/infiniband/ulp/ipoib/ipoib_main.c          | 122 +++++++-
+ drivers/infiniband/ulp/iser/iser_verbs.c           |   2 +-
+ drivers/infiniband/ulp/isert/ib_isert.c            |   2 +-
+ drivers/infiniband/ulp/srp/ib_srp.c                |   2 +-
+ drivers/infiniband/ulp/srpt/ib_srpt.c              |   5 +-
+ .../staging/lustre/lnet/klnds/o2iblnd/o2iblnd.h    |   4 +-
+ include/rdma/ib_addr.h                             |  44 ++-
+ include/rdma/ib_cm.h                               |  53 +++-
+ include/rdma/ib_verbs.h                            |  44 ++-
+ include/rdma/rdma_cm.h                             |   6 +-
+ net/9p/trans_rdma.c                                |   2 +-
+ net/rds/ib.c                                       |   2 +-
+ net/rds/ib_cm.c                                    |   2 +-
+ net/rds/iw.c                                       |   2 +-
+ net/rds/iw_cm.c                                    |   2 +-
+ net/rds/rdma_transport.c                           |   2 +-
+ net/sunrpc/xprtrdma/svc_rdma_transport.c           |   2 +-
+ net/sunrpc/xprtrdma/verbs.c                        |   3 +-
+ 30 files changed, 823 insertions(+), 268 deletions(-)
+
 -- 
 1.7.11.2
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
