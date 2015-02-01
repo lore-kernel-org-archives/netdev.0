@@ -1,42 +1,49 @@
-From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
-Subject: Re: [PATCH] net: sched: One function call less in em_meta_change()
- after error detection
-Date: Sat, 31 Jan 2015 23:51:25 +0100
-Message-ID: <54CD5C6D.2040704@gmx.de>
-References: <5307CAA2.8060406@users.sourceforge.net> <alpine.DEB.2.02.1402212321410.2043@localhost6.localdomain6> <530A086E.8010901@users.sourceforge.net> <alpine.DEB.2.02.1402231635510.1985@localhost6.localdomain6> <530A72AA.3000601@users.sourceforge.net> <alpine.DEB.2.02.1402240658210.2090@localhost6.localdomain6> <530B5FB6.6010207@users.sourceforge.net> <alpine.DEB.2.10.1402241710370.2074@hadrien> <530C5E18.1020800@users.sourceforge.net> <alpine.DEB.2.10.1402251014170.2080@hadrien> <530CD2C4.4050903@users.sourceforge.net> <alpine.DEB.2.10.1402251840450.7035@hadrien> <530CF8FF.8080600@users.sourceforge.net> <alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6> <530DD06F.4090703@users.sourceforge.net> <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6> <5317A59D.4@users.so
- urceforge.net> <54CD042E.6030606@users.sourceforge.net> <54CD115C.8070801@gmx.de> <54CD4D91.9080801@users.sourceforge.net> <54CD5404.1010004@gmx.de> <54CD5529.5060209@users.sourceforge.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: ipv6: Make address flushing on ifdown optional -
+ v2
+Date: Sat, 31 Jan 2015 17:17:09 -0800 (PST)
+Message-ID: <20150131.171709.1522796376864907030.davem@davemloft.net>
+References: <1422504065-17445-1-git-send-email-dsahern@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	kernel-janitors@vger.kernel.org,
-	Julia Lawall <julia.lawall@lip6.fr>
-To: SF Markus Elfring <elfring@users.sourceforge.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jamal Hadi Salim <jhs@mojatatu.com>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <54CD5529.5060209@users.sourceforge.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, hannes@redhat.com
+To: dsahern@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:60898 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752090AbbBABRK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 31 Jan 2015 20:17:10 -0500
+In-Reply-To: <1422504065-17445-1-git-send-email-dsahern@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 31.01.2015 23:20, SF Markus Elfring wrote:
->>> I find that all these cases correspond to the current Linux coding
->>> style documentation, doesn't it?
->> 
->> Sure, I think it does.
-> 
-> Thanks for your acknowledgement.
-> 
-> 
->> But it was not coding style violation what I was reffering to.
-> 
-> Do you suggest any fine-tuning for the affected documentation
-> so that I would tweak my update suggestion once more?
-> 
+From: David Ahern <dsahern@gmail.com>
+Date: Wed, 28 Jan 2015 21:01:05 -0700
 
-No I dont think that any documentation has to be adjusted. If you agree
-with me you should adjust the patch accordingly and resend it. Otherwise
-keep it as it is.
+> @@ -3032,8 +3037,9 @@ static int addrconf_ifdown(struct net_device *dev, int how)
+>  {
+>  	struct net *net = dev_net(dev);
+>  	struct inet6_dev *idev;
+> -	struct inet6_ifaddr *ifa;
+> +	struct inet6_ifaddr *ifa, *tmp;
+>  	int state, i;
+> +	struct list_head del_list;
 
-Regards,
-Lino
+Please order local variable declarations from longest to shortest line
+(ie. reverse christmas tree) when it is easy to do so.
+
+> +		/* 
+> +		 * on NETDEV_DOWN events do not flush managed (user configured)
+> +		 * addresses unless configured to do so. If the address is not
+> +		 * deleted reset flags and state such that DAD is re-done on a
+> + 		 * subsequent link up.
+> + 		 */
+
+Comments in the networking are to be formatted:
+
+	/* Like
+	 * this.
+	 */
+
+Thanks.
