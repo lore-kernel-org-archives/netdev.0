@@ -1,14 +1,15 @@
-From: Shachar Raindel <raindel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Subject: RE: [PATCH for-next 05/10] IB/cm,cma: Move RDMA IP CM private-data
- parsing code from ib_cma to ib_cm
-Date: Sun, 1 Feb 2015 14:29:46 +0000
-Message-ID: <AM3PR05MB09354C6DF6438B46B7157766DC3F0@AM3PR05MB0935.eurprd05.prod.outlook.com>
+From: Yann Droneaud <ydroneaud-RlY5vtjFyJ3QT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH for-next 01/10] IB/addr: Pass network namespace as a
+ parameter
+Date: Sun, 01 Feb 2015 15:38:00 +0100
+Message-ID: <1422801480.3030.53.camel@opteya.com>
 References: <1422790133-28725-1-git-send-email-raindel@mellanox.com>
-	 <1422790133-28725-6-git-send-email-raindel@mellanox.com>
- <1422795359.3030.43.camel@opteya.com>
+	 <1422790133-28725-2-git-send-email-raindel@mellanox.com>
+	 <1422793376.3030.37.camel@opteya.com>
+	 <AM3PR05MB0935B7B53439298A7429158BDC3F0@AM3PR05MB0935.eurprd05.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: "roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org" <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
 	"sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org" <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
 	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
@@ -17,386 +18,505 @@ Cc: "roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org" <roland-DgEjT+Ai2ygdnm+yROf
 	Guy Shapiro <guysh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
 	Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
 	Yotam Kenneth <yotamke-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-To: Yann Droneaud <ydroneaud-RlY5vtjFyJ3QT0dZR+AlfA@public.gmane.org>
+To: Shachar Raindel <raindel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
 Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1422795359.3030.43.camel-RlY5vtjFyJ3QT0dZR+AlfA@public.gmane.org>
-Content-Language: en-US
+In-Reply-To: <AM3PR05MB0935B7B53439298A7429158BDC3F0-LOZWmgKjnYgQouBfZGh8ttqRiQSDpxhJvxpqHgZTriW3zl9H0oFU5g@public.gmane.org>
 Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogWWFubiBEcm9uZWF1ZCBb
-bWFpbHRvOnlkcm9uZWF1ZEBvcHRleWEuY29tXQ0KPiBTZW50OiBTdW5kYXksIEZlYnJ1YXJ5IDAx
-LCAyMDE1IDI6NTYgUE0NCj4gVG86IFNoYWNoYXIgUmFpbmRlbA0KPiBDYzogcm9sYW5kQGtlcm5l
-bC5vcmc7IHNlYW4uaGVmdHlAaW50ZWwuY29tOyBsaW51eC1yZG1hQHZnZXIua2VybmVsLm9yZzsN
-Cj4gbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgTGlyYW4gTGlzczsgR3V5IFNoYXBpcm87IEhhZ2dh
-aSBFcmFuOyBZb3RhbQ0KPiBLZW5uZXRoDQo+IFN1YmplY3Q6IFJlOiBbUEFUQ0ggZm9yLW5leHQg
-MDUvMTBdIElCL2NtLGNtYTogTW92ZSBSRE1BIElQIENNIHByaXZhdGUtDQo+IGRhdGEgcGFyc2lu
-ZyBjb2RlIGZyb20gaWJfY21hIHRvIGliX2NtDQo+IA0KPiBMZSBkaW1hbmNoZSAwMSBmw6l2cmll
-ciAyMDE1IMOgIDEzOjI4ICswMjAwLCBTaGFjaGFyIFJhaW5kZWwgYSDDqWNyaXQgOg0KPiA+IEZy
-b206IEd1eSBTaGFwaXJvIDxndXlzaEBtZWxsYW5veC5jb20+DQo+ID4NCj4gPiBXaGVuIHJlY2Vp
-dmluZyBhIGNvbm5lY3Rpb24gcmVxdWVzdCwgaWJfY20gbmVlZHMgdG8gYXNzb2NpYXRlIHRoZQ0K
-PiByZXF1ZXN0IHdpdGgNCj4gPiBhIG5ldHdvcmsgbmFtZXNwYWNlLiBUbyBkbyB0aGlzLCBpdCBu
-ZWVkcyB0byBrbm93IHRoZSByZXF1ZXN0J3MNCj4gZGVzdGluYXRpb24NCj4gPiBJUC4gRm9yIHRo
-aXMgdGhlIFJETUEgSVAgQ00gcGFja2V0IGZvcm1hdHRpbmcgZnVuY3Rpb25hbGl0eSBuZWVkcyB0
-bw0KPiBiZQ0KPiA+IGV4cG9zZWQgdG8gaWJfY20uDQo+ID4NCj4gPiBUaGlzIHBhdGNoIG1lcmVs
-eSBtb3ZlcyB0aGUgUkRNQSBJUCBDTSBkYXRhIGZvcm1hdHRpbmcgYW5kIHBhcnNpbmcNCj4gZnVu
-Y3Rpb25zDQo+ID4gdG8gYmUgcGFydCBvZiBpYl9jbS4gVGhlIGZvbGxvd2luZyBwYXRjaCB3aWxs
-IHV0aWxpemUgdGhlIG5ldw0KPiBrbm93bGVkZ2UgdG8NCj4gPiBsb29rLXVwIHRoZSBhcHByb3By
-aWF0ZSBuYW1lc3BhY2UuIEVhY2ggbmFtZXNwYWNlIG1haW50YWlucyBhbg0KPiBpbmRlcGVuZGVu
-dA0KPiA+IHRhYmxlIG9mIFJETUEgQ00gc2VydmljZSBJRHMsIGFsbG93aW5nIGlzb2xhdGlvbiBh
-bmQgc2VwYXJhdGlvbg0KPiBiZXR3ZWVuIHRoZQ0KPiA+IG5ldHdvcmsgbmFtZXNwYWNlcy4NCj4g
-Pg0KPiA+IFdoZW4gY3JlYXRpbmcgYSBuZXcgaW5jb21pbmcgY29ubmVjdGlvbiBJRCwgdGhlIGNv
-ZGUgaW4NCj4gY21fc2F2ZV9pcF9pbmZvIGNhbiBubw0KPiA+IGxvbmdlciByZWx5IG9uIHRoZSBs
-aXN0ZW5lcidzIHByaXZhdGUgZGF0YSB0byBmaW5kIHRoZSBwb3J0IG51bWJlciwgc28NCj4gaXQN
-Cj4gPiByZWFkcyBpdCBmcm9tIHRoZSByZXF1ZXN0ZWQgc2VydmljZSBJRC4gVGhpcyByZXF1aXJl
-ZCBzYXZpbmcgdGhlDQo+IHNlcnZpY2UgSUQgaW4NCj4gPiBjbV9mb3JtYXRfcGF0aHNfZnJvbV9y
-ZXEuDQo+ID4NCj4gPiBTaWduZWQtb2ZmLWJ5OiBHdXkgU2hhcGlybyA8Z3V5c2hAbWVsbGFub3gu
-Y29tPg0KPiA+IFNpZ25lZC1vZmYtYnk6IEhhZ2dhaSBFcmFuIDxoYWdnYWllQG1lbGxhbm94LmNv
-bT4NCj4gPiBTaWduZWQtb2ZmLWJ5OiBZb3RhbSBLZW5uZXRoIDx5b3RhbWtlQG1lbGxhbm94LmNv
-bT4NCj4gPiBTaWduZWQtb2ZmLWJ5OiBTaGFjaGFyIFJhaW5kZWwgPHJhaW5kZWxAbWVsbGFub3gu
-Y29tPg0KPiA+DQo+ID4gLS0tDQo+ID4gIGRyaXZlcnMvaW5maW5pYmFuZC9jb3JlL2NtLmMgIHwg
-MTY3DQo+ICsrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKw0KPiA+ICBk
-cml2ZXJzL2luZmluaWJhbmQvY29yZS9jbWEuYyB8IDE2NiArKysrKy0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0NCj4gLS0tLS0tLS0NCj4gPiAgaW5jbHVkZS9yZG1hL2liX2NtLmggICAgICAg
-ICAgfCAgNDYgKysrKysrKysrKysrDQo+ID4gIDMgZmlsZXMgY2hhbmdlZCwgMjMxIGluc2VydGlv
-bnMoKyksIDE0OCBkZWxldGlvbnMoLSkNCj4gPg0KPiA+IGRpZmYgLS1naXQgYS9kcml2ZXJzL2lu
-ZmluaWJhbmQvY29yZS9jbS5jDQo+IGIvZHJpdmVycy9pbmZpbmliYW5kL2NvcmUvY20uYw0KPiA+
-IGluZGV4IDVhNDVjYjc2YzQzZS4uNWNjMWE0YWE5NzI4IDEwMDY0NA0KPiA+IC0tLSBhL2RyaXZl
-cnMvaW5maW5pYmFuZC9jb3JlL2NtLmMNCj4gPiArKysgYi9kcml2ZXJzL2luZmluaWJhbmQvY29y
-ZS9jbS5jDQo+ID4gQEAgLTUxLDYgKzUxLDcgQEANCj4gPg0KPiA+ICAjaW5jbHVkZSA8cmRtYS9p
-Yl9jYWNoZS5oPg0KPiA+ICAjaW5jbHVkZSA8cmRtYS9pYl9jbS5oPg0KPiA+ICsjaW5jbHVkZSA8
-cmRtYS9pYi5oPg0KPiA+ICAjaW5jbHVkZSAiY21fbXNncy5oIg0KPiA+DQo+ID4gIE1PRFVMRV9B
-VVRIT1IoIlNlYW4gSGVmdHkiKTsNCj4gPiBAQCAtNzAxLDYgKzcwMiwxNzAgQEAgc3RhdGljIHZv
-aWQgY21fcmVqZWN0X3NpZHJfcmVxKHN0cnVjdA0KPiBjbV9pZF9wcml2YXRlICpjbV9pZF9wcml2
-LA0KPiA+ICAJaWJfc2VuZF9jbV9zaWRyX3JlcCgmY21faWRfcHJpdi0+aWQsICZwYXJhbSk7DQo+
-ID4gIH0NCj4gPg0KPiA+ICtzdGF0aWMgaW5saW5lIHU4IGNtX2dldF9pcF92ZXIoc3RydWN0IGNt
-X2hkciAqaGRyKQ0KPiA+ICt7DQo+ID4gKwlyZXR1cm4gaGRyLT5pcF92ZXJzaW9uID4+IDQ7DQo+
-ID4gK30NCj4gPiArDQo+ID4gK3ZvaWQgY21fc2V0X2lwX3ZlcihzdHJ1Y3QgY21faGRyICpoZHIs
-IHU4IGlwX3ZlcikNCj4gPiArew0KPiA+ICsJaGRyLT5pcF92ZXJzaW9uID0gKGlwX3ZlciA8PCA0
-KSB8IChoZHItPmlwX3ZlcnNpb24gJiAweEYpOw0KPiA+ICt9DQo+ID4gK0VYUE9SVF9TWU1CT0wo
-Y21fc2V0X2lwX3Zlcik7DQo+ID4gKw0KPiANCj4gVGhhdCBjYW4gYmUgZGVmaW5lZCBhcyBhbiBp
-bmxpbmUgZnVuY3Rpb24gaW4gaGVhZGVyLg0KPiANCg0KV2hpbGUgeW91IGFyZSB0ZWNobmljYWxs
-eSBjb3JyZWN0ICh0aGUgZnVuY3Rpb24gaXMgbGVzcyB0aGFuIDMgbGluZXMsIGFuZCB0aGVyZWZv
-cmUgeW91IGNhbiBpbmxpbmUgaXQpLCB0aGUgcGVyZm9ybWFuY2UgZ2FpbiBmcm9tIGlubGluaW5n
-IGl0IGlzIG5lZ2xpZ2libGUuIEF0IHRoZSBzYW1lIHRpbWUsIGhhdmluZyBhIG5pY2UgYmxvY2sg
-d2hlcmUgYWxsIG9mIHRoZSBSRE1BIElQIENNIHByb3RvY29sIHNlcmlhbGl6YXRpb24gbGl2ZXMg
-bWFrZSB0aGUgY29kZSBtdWNoIGVhc2llciB0byBtYWludGFpbi4NCg0KPiA+ICtpbnQgY21fZm9y
-bWF0X2hkcih2b2lkICpoZHIsIGludCBmYW1pbHksDQo+ID4gKwkJICBzdHJ1Y3Qgc29ja2FkZHIg
-KnNyY19hZGRyLA0KPiA+ICsJCSAgc3RydWN0IHNvY2thZGRyICpkc3RfYWRkcikNCj4gPiArew0K
-PiA+ICsJc3RydWN0IGNtX2hkciAqY21faGRyOw0KPiA+ICsNCj4gPiArCWNtX2hkciA9IGhkcjsN
-Cj4gPiArCWNtX2hkci0+Y21fdmVyc2lvbiA9IFJETUFfSVBfQ01fVkVSU0lPTjsNCj4gPiArCWlm
-IChmYW1pbHkgPT0gQUZfSU5FVCkgew0KPiA+ICsJCXN0cnVjdCBzb2NrYWRkcl9pbiAqc3JjNCwg
-KmRzdDQ7DQo+ID4gKw0KPiA+ICsJCXNyYzQgPSAoc3RydWN0IHNvY2thZGRyX2luICopc3JjX2Fk
-ZHI7DQo+ID4gKwkJZHN0NCA9IChzdHJ1Y3Qgc29ja2FkZHJfaW4gKilkc3RfYWRkcjsNCj4gPiAr
-DQo+ID4gKwkJY21fc2V0X2lwX3ZlcihjbV9oZHIsIDQpOw0KPiA+ICsJCWNtX2hkci0+c3JjX2Fk
-ZHIuaXA0LmFkZHIgPSBzcmM0LT5zaW5fYWRkci5zX2FkZHI7DQo+ID4gKwkJY21faGRyLT5kc3Rf
-YWRkci5pcDQuYWRkciA9IGRzdDQtPnNpbl9hZGRyLnNfYWRkcjsNCj4gPiArCQljbV9oZHItPnBv
-cnQgPSBzcmM0LT5zaW5fcG9ydDsNCj4gPiArCX0gZWxzZSBpZiAoZmFtaWx5ID09IEFGX0lORVQ2
-KSB7DQo+ID4gKwkJc3RydWN0IHNvY2thZGRyX2luNiAqc3JjNiwgKmRzdDY7DQo+ID4gKw0KPiA+
-ICsJCXNyYzYgPSAoc3RydWN0IHNvY2thZGRyX2luNiAqKXNyY19hZGRyOw0KPiA+ICsJCWRzdDYg
-PSAoc3RydWN0IHNvY2thZGRyX2luNiAqKWRzdF9hZGRyOw0KPiA+ICsNCj4gPiArCQljbV9zZXRf
-aXBfdmVyKGNtX2hkciwgNik7DQo+ID4gKwkJY21faGRyLT5zcmNfYWRkci5pcDYgPSBzcmM2LT5z
-aW42X2FkZHI7DQo+ID4gKwkJY21faGRyLT5kc3RfYWRkci5pcDYgPSBkc3Q2LT5zaW42X2FkZHI7
-DQo+ID4gKwkJY21faGRyLT5wb3J0ID0gc3JjNi0+c2luNl9wb3J0Ow0KPiA+ICsJfQ0KPiA+ICsJ
-cmV0dXJuIDA7DQo+ID4gK30NCj4gPiArRVhQT1JUX1NZTUJPTChjbV9mb3JtYXRfaGRyKTsNCj4g
-PiArDQo+ID4gK3N0YXRpYyB2b2lkIGNtX3NhdmVfaWJfaW5mbyhzdHJ1Y3Qgc29ja2FkZHIgKnNy
-Y19hZGRyLA0KPiA+ICsJCQkgICAgc3RydWN0IHNvY2thZGRyICpkc3RfYWRkciwNCj4gPiArCQkJ
-ICAgIHN0cnVjdCBpYl9zYV9wYXRoX3JlYyAqcGF0aCkNCj4gPiArew0KPiA+ICsJc3RydWN0IHNv
-Y2thZGRyX2liICAqaWI7DQo+ID4gKw0KPiA+ICsJaWYgKHNyY19hZGRyKSB7DQo+ID4gKwkJaWIg
-PSAoc3RydWN0IHNvY2thZGRyX2liICopc3JjX2FkZHI7DQo+ID4gKwkJaWItPnNpYl9mYW1pbHkg
-PSBBRl9JQjsNCj4gPiArCQlpYi0+c2liX3BrZXkgPSBwYXRoLT5wa2V5Ow0KPiA+ICsJCWliLT5z
-aWJfZmxvd2luZm8gPSBwYXRoLT5mbG93X2xhYmVsOw0KPiA+ICsJCW1lbWNweSgmaWItPnNpYl9h
-ZGRyLCAmcGF0aC0+c2dpZCwgMTYpOw0KPiA+ICsJCWliLT5zaWJfc2lkID0gcGF0aC0+c2Vydmlj
-ZV9pZDsNCj4gPiArCQlpYi0+c2liX3NpZF9tYXNrID0gY3B1X3RvX2JlNjQoMHhmZmZmZmZmZmZm
-ZmZmZmZmVUxMKTsNCj4gPiArCQlpYi0+c2liX3Njb3BlX2lkID0gMDsNCj4gPiArCX0NCj4gPiAr
-CWlmIChkc3RfYWRkcikgew0KPiA+ICsJCWliID0gKHN0cnVjdCBzb2NrYWRkcl9pYiAqKWRzdF9h
-ZGRyOw0KPiA+ICsJCWliLT5zaWJfZmFtaWx5ID0gQUZfSUI7DQo+ID4gKwkJaWItPnNpYl9wa2V5
-ID0gcGF0aC0+cGtleTsNCj4gPiArCQlpYi0+c2liX2Zsb3dpbmZvID0gcGF0aC0+Zmxvd19sYWJl
-bDsNCj4gPiArCQltZW1jcHkoJmliLT5zaWJfYWRkciwgJnBhdGgtPmRnaWQsIDE2KTsNCj4gPiAr
-CX0NCj4gPiArfQ0KPiA+ICsNCj4gPiArc3RhdGljIHZvaWQgY21fc2F2ZV9pcDZfaW5mbyhzdHJ1
-Y3Qgc29ja2FkZHIgKnNyY19hZGRyLA0KPiA+ICsJCQkgICAgIHN0cnVjdCBzb2NrYWRkciAqZHN0
-X2FkZHIsDQo+ID4gKwkJCSAgICAgc3RydWN0IGNtX2hkciAqaGRyLA0KPiA+ICsJCQkgICAgIF9f
-YmUxNiBsb2NhbF9wb3J0KQ0KPiA+ICt7DQo+ID4gKwlzdHJ1Y3Qgc29ja2FkZHJfaW42ICppcDY7
-DQo+ID4gKw0KPiA+ICsJaWYgKHNyY19hZGRyKSB7DQo+ID4gKwkJaXA2ID0gKHN0cnVjdCBzb2Nr
-YWRkcl9pbjYgKilzcmNfYWRkcjsNCj4gPiArCQlpcDYtPnNpbjZfZmFtaWx5ID0gQUZfSU5FVDY7
-DQo+ID4gKwkJaXA2LT5zaW42X2FkZHIgPSBoZHItPmRzdF9hZGRyLmlwNjsNCj4gPiArCQlpcDYt
-PnNpbjZfcG9ydCA9IGxvY2FsX3BvcnQ7DQo+ID4gKwl9DQo+ID4gKw0KPiA+ICsJaWYgKGRzdF9h
-ZGRyKSB7DQo+ID4gKwkJaXA2ID0gKHN0cnVjdCBzb2NrYWRkcl9pbjYgKilkc3RfYWRkcjsNCj4g
-PiArCQlpcDYtPnNpbjZfZmFtaWx5ID0gQUZfSU5FVDY7DQo+ID4gKwkJaXA2LT5zaW42X2FkZHIg
-PSBoZHItPnNyY19hZGRyLmlwNjsNCj4gPiArCQlpcDYtPnNpbjZfcG9ydCA9IGhkci0+cG9ydDsN
-Cj4gPiArCX0NCj4gPiArfQ0KPiA+ICsNCj4gPiArc3RhdGljIHZvaWQgY21fc2F2ZV9pcDRfaW5m
-byhzdHJ1Y3Qgc29ja2FkZHIgKnNyY19hZGRyLA0KPiA+ICsJCQkgICAgIHN0cnVjdCBzb2NrYWRk
-ciAqZHN0X2FkZHIsDQo+ID4gKwkJCSAgICAgc3RydWN0IGNtX2hkciAqaGRyLA0KPiA+ICsJCQkg
-ICAgIF9fYmUxNiBsb2NhbF9wb3J0KQ0KPiA+ICt7DQo+ID4gKwlzdHJ1Y3Qgc29ja2FkZHJfaW4g
-KmlwNDsNCj4gPiArDQo+ID4gKwlpZiAoc3JjX2FkZHIpIHsNCj4gPiArCQlpcDQgPSAoc3RydWN0
-IHNvY2thZGRyX2luICopc3JjX2FkZHI7DQo+ID4gKwkJaXA0LT5zaW5fZmFtaWx5ID0gQUZfSU5F
-VDsNCj4gPiArCQlpcDQtPnNpbl9hZGRyLnNfYWRkciA9IGhkci0+ZHN0X2FkZHIuaXA0LmFkZHI7
-DQo+ID4gKwkJaXA0LT5zaW5fcG9ydCA9IGxvY2FsX3BvcnQ7DQo+ID4gKwl9DQo+ID4gKw0KPiA+
-ICsJaWYgKGRzdF9hZGRyKSB7DQo+ID4gKwkJaXA0ID0gKHN0cnVjdCBzb2NrYWRkcl9pbiAqKWRz
-dF9hZGRyOw0KPiA+ICsJCWlwNC0+c2luX2ZhbWlseSA9IEFGX0lORVQ7DQo+ID4gKwkJaXA0LT5z
-aW5fYWRkci5zX2FkZHIgPSBoZHItPnNyY19hZGRyLmlwNC5hZGRyOw0KPiA+ICsJCWlwNC0+c2lu
-X3BvcnQgPSBoZHItPnBvcnQ7DQo+ID4gKwl9DQo+ID4gK30NCj4gPiArDQo+ID4gK3N0YXRpYyBf
-X2JlMTYgY21fcG9ydF9mcm9tX3NlcnZpY2VfaWQoX19iZTY0IHNlcnZpY2VfaWQpDQo+ID4gK3sN
-Cj4gPiArCXJldHVybiBodG9ucyhiZTY0X3RvX2NwdShzZXJ2aWNlX2lkKSk7DQo+ID4gK30NCj4g
-PiArDQo+ID4gK3N0YXRpYyBpbnQgY21fc2F2ZV9pcF9pbmZvKHN0cnVjdCBzb2NrYWRkciAqc3Jj
-X2FkZHIsDQo+ID4gKwkJCSAgIHN0cnVjdCBzb2NrYWRkciAqZHN0X2FkZHIsDQo+ID4gKwkJCSAg
-IHN0cnVjdCBjbV93b3JrICp3b3JrKQ0KPiA+ICt7DQo+ID4gKwlzdHJ1Y3QgY21faGRyICpoZHI7
-DQo+ID4gKwlfX2JlMTYgcG9ydDsNCj4gPiArDQo+ID4gKwloZHIgPSB3b3JrLT5jbV9ldmVudC5w
-cml2YXRlX2RhdGE7DQo+ID4gKwlpZiAoaGRyLT5jbV92ZXJzaW9uICE9IFJETUFfSVBfQ01fVkVS
-U0lPTikNCj4gPiArCQlyZXR1cm4gLUVJTlZBTDsNCj4gPiArDQo+ID4gKwlwb3J0ID0gY21fcG9y
-dF9mcm9tX3NlcnZpY2VfaWQod29yay0+cGF0aC0+c2VydmljZV9pZCk7DQo+ID4gKw0KPiA+ICsJ
-c3dpdGNoIChjbV9nZXRfaXBfdmVyKGhkcikpIHsNCj4gPiArCWNhc2UgNDoNCj4gPiArCQljbV9z
-YXZlX2lwNF9pbmZvKHNyY19hZGRyLCBkc3RfYWRkciwgaGRyLCBwb3J0KTsNCj4gPiArCQlicmVh
-azsNCj4gPiArCWNhc2UgNjoNCj4gPiArCQljbV9zYXZlX2lwNl9pbmZvKHNyY19hZGRyLCBkc3Rf
-YWRkciwgaGRyLCBwb3J0KTsNCj4gPiArCQlicmVhazsNCj4gPiArCWRlZmF1bHQ6DQo+ID4gKwkJ
-cmV0dXJuIC1FSU5WQUw7DQo+ID4gKwl9DQo+ID4gKw0KPiA+ICsJcmV0dXJuIDA7DQo+ID4gK30N
-Cj4gPiArDQo+ID4gK2ludCBjbV9zYXZlX25ldF9pbmZvKHN0cnVjdCBzb2NrYWRkciAqc3JjX2Fk
-ZHIsDQo+ID4gKwkJICAgICBzdHJ1Y3Qgc29ja2FkZHIgKmRzdF9hZGRyLA0KPiA+ICsJCSAgICAg
-c3RydWN0IGliX2NtX2V2ZW50ICppYl9ldmVudCkNCj4gPiArew0KPiA+ICsJc3RydWN0IGNtX3dv
-cmsgKndvcmsgPSBjb250YWluZXJfb2YoaWJfZXZlbnQsIHN0cnVjdCBjbV93b3JrLA0KPiBjbV9l
-dmVudCk7DQo+ID4gKw0KPiA+ICsJaWYgKChyZG1hX3BvcnRfZ2V0X2xpbmtfbGF5ZXIod29yay0+
-cG9ydC0+Y21fZGV2LT5pYl9kZXZpY2UsDQo+ID4gKwkJCQkgICAgICB3b3JrLT5wb3J0LT5wb3J0
-X251bSkgPT0NCj4gPiArCSAgICAgSUJfTElOS19MQVlFUl9JTkZJTklCQU5EKSAmJg0KPiA+ICsJ
-ICAgIChpYl9ldmVudC0+ZXZlbnQgPT0gSUJfQ01fUkVRX1JFQ0VJVkVEKSkgew0KPiA+ICsJCWNt
-X3NhdmVfaWJfaW5mbyhzcmNfYWRkciwgZHN0X2FkZHIsDQo+ID4gKwkJCQlpYl9ldmVudC0+cGFy
-YW0ucmVxX3JjdmQucHJpbWFyeV9wYXRoKTsNCj4gPiArCQlyZXR1cm4gMDsNCj4gPiArCX0NCj4g
-PiArDQo+ID4gKwlyZXR1cm4gY21fc2F2ZV9pcF9pbmZvKHNyY19hZGRyLCBkc3RfYWRkciwgd29y
-ayk7DQo+ID4gK30NCj4gPiArRVhQT1JUX1NZTUJPTChjbV9zYXZlX25ldF9pbmZvKTsNCj4gPiAr
-DQo+ID4gIHN0cnVjdCBpYl9jbV9pZCAqaWJfY3JlYXRlX2NtX2lkKHN0cnVjdCBpYl9kZXZpY2Ug
-KmRldmljZSwNCj4gPiAgCQkJCSBpYl9jbV9oYW5kbGVyIGNtX2hhbmRsZXIsDQo+ID4gIAkJCQkg
-dm9pZCAqY29udGV4dCkNCj4gPiBAQCAtMTI2MCw2ICsxNDI1LDcgQEAgc3RhdGljIHZvaWQgY21f
-Zm9ybWF0X3BhdGhzX2Zyb21fcmVxKHN0cnVjdA0KPiBjbV9yZXFfbXNnICpyZXFfbXNnLA0KPiA+
-ICAJcHJpbWFyeV9wYXRoLT5wYWNrZXRfbGlmZV90aW1lID0NCj4gPiAgCQljbV9yZXFfZ2V0X3By
-aW1hcnlfbG9jYWxfYWNrX3RpbWVvdXQocmVxX21zZyk7DQo+ID4gIAlwcmltYXJ5X3BhdGgtPnBh
-Y2tldF9saWZlX3RpbWUgLT0gKHByaW1hcnlfcGF0aC0+cGFja2V0X2xpZmVfdGltZSA+DQo+IDAp
-Ow0KPiA+ICsJcHJpbWFyeV9wYXRoLT5zZXJ2aWNlX2lkID0gcmVxX21zZy0+c2VydmljZV9pZDsN
-Cj4gPg0KPiA+ICAJaWYgKHJlcV9tc2ctPmFsdF9sb2NhbF9saWQpIHsNCj4gPiAgCQltZW1zZXQo
-YWx0X3BhdGgsIDAsIHNpemVvZiAqYWx0X3BhdGgpOw0KPiA+IEBAIC0xMjgxLDYgKzE0NDcsNyBA
-QCBzdGF0aWMgdm9pZCBjbV9mb3JtYXRfcGF0aHNfZnJvbV9yZXEoc3RydWN0DQo+IGNtX3JlcV9t
-c2cgKnJlcV9tc2csDQo+ID4gIAkJYWx0X3BhdGgtPnBhY2tldF9saWZlX3RpbWUgPQ0KPiA+ICAJ
-CQljbV9yZXFfZ2V0X2FsdF9sb2NhbF9hY2tfdGltZW91dChyZXFfbXNnKTsNCj4gPiAgCQlhbHRf
-cGF0aC0+cGFja2V0X2xpZmVfdGltZSAtPSAoYWx0X3BhdGgtPnBhY2tldF9saWZlX3RpbWUgPg0K
-PiAwKTsNCj4gPiArCQlhbHRfcGF0aC0+c2VydmljZV9pZCA9IHJlcV9tc2ctPnNlcnZpY2VfaWQ7
-DQo+ID4gIAl9DQo+ID4gIH0NCj4gPg0KPiA+IGRpZmYgLS1naXQgYS9kcml2ZXJzL2luZmluaWJh
-bmQvY29yZS9jbWEuYw0KPiBiL2RyaXZlcnMvaW5maW5pYmFuZC9jb3JlL2NtYS5jDQo+ID4gaW5k
-ZXggYWViMjQxN2VjOTI4Li45ZjZmYWViMWRlNWYgMTAwNjQ0DQo+ID4gLS0tIGEvZHJpdmVycy9p
-bmZpbmliYW5kL2NvcmUvY21hLmMNCj4gPiArKysgYi9kcml2ZXJzL2luZmluaWJhbmQvY29yZS9j
-bWEuYw0KPiA+IEBAIC0xNzksMjMgKzE3OSw4IEBAIHN0cnVjdCBpYm9lX21jYXN0X3dvcmsgew0K
-PiA+ICAJc3RydWN0IGNtYV9tdWx0aWNhc3QJKm1jOw0KPiA+ICB9Ow0KPiA+DQo+ID4gLXVuaW9u
-IGNtYV9pcF9hZGRyIHsNCj4gPiAtCXN0cnVjdCBpbjZfYWRkciBpcDY7DQo+ID4gLQlzdHJ1Y3Qg
-ew0KPiA+IC0JCV9fYmUzMiBwYWRbM107DQo+ID4gLQkJX19iZTMyIGFkZHI7DQo+ID4gLQl9IGlw
-NDsNCj4gPiAtfTsNCj4gPg0KPiA+IC1zdHJ1Y3QgY21hX2hkciB7DQo+ID4gLQl1OCBjbWFfdmVy
-c2lvbjsNCj4gPiAtCXU4IGlwX3ZlcnNpb247CS8qIElQIHZlcnNpb246IDc6NCAqLw0KPiA+IC0J
-X19iZTE2IHBvcnQ7DQo+ID4gLQl1bmlvbiBjbWFfaXBfYWRkciBzcmNfYWRkcjsNCj4gPiAtCXVu
-aW9uIGNtYV9pcF9hZGRyIGRzdF9hZGRyOw0KPiA+IC19Ow0KPiA+DQo+ID4gLSNkZWZpbmUgQ01B
-X1ZFUlNJT04gMHgwMA0KPiA+DQo+ID4gIHN0YXRpYyBpbnQgY21hX2NvbXAoc3RydWN0IHJkbWFf
-aWRfcHJpdmF0ZSAqaWRfcHJpdiwgZW51bQ0KPiByZG1hX2NtX3N0YXRlIGNvbXApDQo+ID4gIHsN
-Cj4gPiBAQCAtMjM0LDE2ICsyMTksNiBAQCBzdGF0aWMgZW51bSByZG1hX2NtX3N0YXRlIGNtYV9l
-eGNoKHN0cnVjdA0KPiByZG1hX2lkX3ByaXZhdGUgKmlkX3ByaXYsDQo+ID4gIAlyZXR1cm4gb2xk
-Ow0KPiA+ICB9DQo+ID4NCj4gPiAtc3RhdGljIGlubGluZSB1OCBjbWFfZ2V0X2lwX3ZlcihzdHJ1
-Y3QgY21hX2hkciAqaGRyKQ0KPiA+IC17DQo+ID4gLQlyZXR1cm4gaGRyLT5pcF92ZXJzaW9uID4+
-IDQ7DQo+ID4gLX0NCj4gPiAtDQo+ID4gLXN0YXRpYyBpbmxpbmUgdm9pZCBjbWFfc2V0X2lwX3Zl
-cihzdHJ1Y3QgY21hX2hkciAqaGRyLCB1OCBpcF92ZXIpDQo+ID4gLXsNCj4gPiAtCWhkci0+aXBf
-dmVyc2lvbiA9IChpcF92ZXIgPDwgNCkgfCAoaGRyLT5pcF92ZXJzaW9uICYgMHhGKTsNCj4gPiAt
-fQ0KPiA+IC0NCj4gPiAgc3RhdGljIHZvaWQgY21hX2F0dGFjaF90b19kZXYoc3RydWN0IHJkbWFf
-aWRfcHJpdmF0ZSAqaWRfcHJpdiwNCj4gPiAgCQkJICAgICAgc3RydWN0IGNtYV9kZXZpY2UgKmNt
-YV9kZXYpDQo+ID4gIHsNCj4gPiBAQCAtODM5LDkzICs4MTQsOSBAQCBzdGF0aWMgaW5saW5lIGlu
-dCBjbWFfYW55X3BvcnQoc3RydWN0IHNvY2thZGRyDQo+ICphZGRyKQ0KPiA+ICAJcmV0dXJuICFj
-bWFfcG9ydChhZGRyKTsNCj4gPiAgfQ0KPiA+DQo+ID4gLXN0YXRpYyB2b2lkIGNtYV9zYXZlX2li
-X2luZm8oc3RydWN0IHJkbWFfY21faWQgKmlkLCBzdHJ1Y3QgcmRtYV9jbV9pZA0KPiAqbGlzdGVu
-X2lkLA0KPiA+IC0JCQkgICAgIHN0cnVjdCBpYl9zYV9wYXRoX3JlYyAqcGF0aCkNCj4gPiAtew0K
-PiA+IC0Jc3RydWN0IHNvY2thZGRyX2liICpsaXN0ZW5faWIsICppYjsNCj4gPiAtDQo+ID4gLQls
-aXN0ZW5faWIgPSAoc3RydWN0IHNvY2thZGRyX2liICopICZsaXN0ZW5faWQtPnJvdXRlLmFkZHIu
-c3JjX2FkZHI7DQo+ID4gLQlpYiA9IChzdHJ1Y3Qgc29ja2FkZHJfaWIgKikgJmlkLT5yb3V0ZS5h
-ZGRyLnNyY19hZGRyOw0KPiA+IC0JaWItPnNpYl9mYW1pbHkgPSBsaXN0ZW5faWItPnNpYl9mYW1p
-bHk7DQo+ID4gLQlpYi0+c2liX3BrZXkgPSBwYXRoLT5wa2V5Ow0KPiA+IC0JaWItPnNpYl9mbG93
-aW5mbyA9IHBhdGgtPmZsb3dfbGFiZWw7DQo+ID4gLQltZW1jcHkoJmliLT5zaWJfYWRkciwgJnBh
-dGgtPnNnaWQsIDE2KTsNCj4gPiAtCWliLT5zaWJfc2lkID0gbGlzdGVuX2liLT5zaWJfc2lkOw0K
-PiA+IC0JaWItPnNpYl9zaWRfbWFzayA9IGNwdV90b19iZTY0KDB4ZmZmZmZmZmZmZmZmZmZmZlVM
-TCk7DQo+ID4gLQlpYi0+c2liX3Njb3BlX2lkID0gbGlzdGVuX2liLT5zaWJfc2NvcGVfaWQ7DQo+
-ID4gLQ0KPiA+IC0JaWIgPSAoc3RydWN0IHNvY2thZGRyX2liICopICZpZC0+cm91dGUuYWRkci5k
-c3RfYWRkcjsNCj4gPiAtCWliLT5zaWJfZmFtaWx5ID0gbGlzdGVuX2liLT5zaWJfZmFtaWx5Ow0K
-PiA+IC0JaWItPnNpYl9wa2V5ID0gcGF0aC0+cGtleTsNCj4gPiAtCWliLT5zaWJfZmxvd2luZm8g
-PSBwYXRoLT5mbG93X2xhYmVsOw0KPiA+IC0JbWVtY3B5KCZpYi0+c2liX2FkZHIsICZwYXRoLT5k
-Z2lkLCAxNik7DQo+ID4gLX0NCj4gPiAtDQo+ID4gLXN0YXRpYyB2b2lkIGNtYV9zYXZlX2lwNF9p
-bmZvKHN0cnVjdCByZG1hX2NtX2lkICppZCwgc3RydWN0DQo+IHJkbWFfY21faWQgKmxpc3Rlbl9p
-ZCwNCj4gPiAtCQkJICAgICAgc3RydWN0IGNtYV9oZHIgKmhkcikNCj4gPiAtew0KPiA+IC0Jc3Ry
-dWN0IHNvY2thZGRyX2luICpsaXN0ZW40LCAqaXA0Ow0KPiA+IC0NCj4gPiAtCWxpc3RlbjQgPSAo
-c3RydWN0IHNvY2thZGRyX2luICopICZsaXN0ZW5faWQtPnJvdXRlLmFkZHIuc3JjX2FkZHI7DQo+
-ID4gLQlpcDQgPSAoc3RydWN0IHNvY2thZGRyX2luICopICZpZC0+cm91dGUuYWRkci5zcmNfYWRk
-cjsNCj4gPiAtCWlwNC0+c2luX2ZhbWlseSA9IEFGX0lORVQ7DQo+ID4gLQlpcDQtPnNpbl9hZGRy
-LnNfYWRkciA9IGhkci0+ZHN0X2FkZHIuaXA0LmFkZHI7DQo+ID4gLQlpcDQtPnNpbl9wb3J0ID0g
-bGlzdGVuNC0+c2luX3BvcnQ7DQo+ID4gLQ0KPiA+IC0JaXA0ID0gKHN0cnVjdCBzb2NrYWRkcl9p
-biAqKSAmaWQtPnJvdXRlLmFkZHIuZHN0X2FkZHI7DQo+ID4gLQlpcDQtPnNpbl9mYW1pbHkgPSBB
-Rl9JTkVUOw0KPiA+IC0JaXA0LT5zaW5fYWRkci5zX2FkZHIgPSBoZHItPnNyY19hZGRyLmlwNC5h
-ZGRyOw0KPiA+IC0JaXA0LT5zaW5fcG9ydCA9IGhkci0+cG9ydDsNCj4gPiAtfQ0KPiA+IC0NCj4g
-PiAtc3RhdGljIHZvaWQgY21hX3NhdmVfaXA2X2luZm8oc3RydWN0IHJkbWFfY21faWQgKmlkLCBz
-dHJ1Y3QNCj4gcmRtYV9jbV9pZCAqbGlzdGVuX2lkLA0KPiA+IC0JCQkgICAgICBzdHJ1Y3QgY21h
-X2hkciAqaGRyKQ0KPiA+IC17DQo+ID4gLQlzdHJ1Y3Qgc29ja2FkZHJfaW42ICpsaXN0ZW42LCAq
-aXA2Ow0KPiA+IC0NCj4gPiAtCWxpc3RlbjYgPSAoc3RydWN0IHNvY2thZGRyX2luNiAqKSAmbGlz
-dGVuX2lkLT5yb3V0ZS5hZGRyLnNyY19hZGRyOw0KPiA+IC0JaXA2ID0gKHN0cnVjdCBzb2NrYWRk
-cl9pbjYgKikgJmlkLT5yb3V0ZS5hZGRyLnNyY19hZGRyOw0KPiA+IC0JaXA2LT5zaW42X2ZhbWls
-eSA9IEFGX0lORVQ2Ow0KPiA+IC0JaXA2LT5zaW42X2FkZHIgPSBoZHItPmRzdF9hZGRyLmlwNjsN
-Cj4gPiAtCWlwNi0+c2luNl9wb3J0ID0gbGlzdGVuNi0+c2luNl9wb3J0Ow0KPiA+IC0NCj4gPiAt
-CWlwNiA9IChzdHJ1Y3Qgc29ja2FkZHJfaW42ICopICZpZC0+cm91dGUuYWRkci5kc3RfYWRkcjsN
-Cj4gPiAtCWlwNi0+c2luNl9mYW1pbHkgPSBBRl9JTkVUNjsNCj4gPiAtCWlwNi0+c2luNl9hZGRy
-ID0gaGRyLT5zcmNfYWRkci5pcDY7DQo+ID4gLQlpcDYtPnNpbjZfcG9ydCA9IGhkci0+cG9ydDsN
-Cj4gPiAtfQ0KPiA+IC0NCj4gPiAtc3RhdGljIGludCBjbWFfc2F2ZV9uZXRfaW5mbyhzdHJ1Y3Qg
-cmRtYV9jbV9pZCAqaWQsIHN0cnVjdCByZG1hX2NtX2lkDQo+ICpsaXN0ZW5faWQsDQo+ID4gLQkJ
-CSAgICAgc3RydWN0IGliX2NtX2V2ZW50ICppYl9ldmVudCkNCj4gPiAtew0KPiA+IC0Jc3RydWN0
-IGNtYV9oZHIgKmhkcjsNCj4gPiAtDQo+ID4gLQlpZiAoKGxpc3Rlbl9pZC0+cm91dGUuYWRkci5z
-cmNfYWRkci5zc19mYW1pbHkgPT0gQUZfSUIpICYmDQo+ID4gLQkgICAgKGliX2V2ZW50LT5ldmVu
-dCA9PSBJQl9DTV9SRVFfUkVDRUlWRUQpKSB7DQo+ID4gLQkJY21hX3NhdmVfaWJfaW5mbyhpZCwg
-bGlzdGVuX2lkLCBpYl9ldmVudC0NCj4gPnBhcmFtLnJlcV9yY3ZkLnByaW1hcnlfcGF0aCk7DQo+
-ID4gLQkJcmV0dXJuIDA7DQo+ID4gLQl9DQo+ID4gLQ0KPiA+IC0JaGRyID0gaWJfZXZlbnQtPnBy
-aXZhdGVfZGF0YTsNCj4gPiAtCWlmIChoZHItPmNtYV92ZXJzaW9uICE9IENNQV9WRVJTSU9OKQ0K
-PiA+IC0JCXJldHVybiAtRUlOVkFMOw0KPiA+IC0NCj4gPiAtCXN3aXRjaCAoY21hX2dldF9pcF92
-ZXIoaGRyKSkgew0KPiA+IC0JY2FzZSA0Og0KPiA+IC0JCWNtYV9zYXZlX2lwNF9pbmZvKGlkLCBs
-aXN0ZW5faWQsIGhkcik7DQo+ID4gLQkJYnJlYWs7DQo+ID4gLQljYXNlIDY6DQo+ID4gLQkJY21h
-X3NhdmVfaXA2X2luZm8oaWQsIGxpc3Rlbl9pZCwgaGRyKTsNCj4gPiAtCQlicmVhazsNCj4gPiAt
-CWRlZmF1bHQ6DQo+ID4gLQkJcmV0dXJuIC1FSU5WQUw7DQo+ID4gLQl9DQo+ID4gLQlyZXR1cm4g
-MDsNCj4gPiAtfQ0KPiA+IC0NCj4gPiAgc3RhdGljIGlubGluZSBpbnQgY21hX3VzZXJfZGF0YV9v
-ZmZzZXQoc3RydWN0IHJkbWFfaWRfcHJpdmF0ZQ0KPiAqaWRfcHJpdikNCj4gPiAgew0KPiA+IC0J
-cmV0dXJuIGNtYV9mYW1pbHkoaWRfcHJpdikgPT0gQUZfSUIgPyAwIDogc2l6ZW9mKHN0cnVjdCBj
-bWFfaGRyKTsNCj4gPiArCXJldHVybiBjbWFfZmFtaWx5KGlkX3ByaXYpID09IEFGX0lCID8gMCA6
-IHNpemVvZihzdHJ1Y3QgY21faGRyKTsNCj4gPiAgfQ0KPiA+DQo+ID4gIHN0YXRpYyB2b2lkIGNt
-YV9jYW5jZWxfcm91dGUoc3RydWN0IHJkbWFfaWRfcHJpdmF0ZSAqaWRfcHJpdikNCj4gPiBAQCAt
-MTE5NSw3ICsxMDg2LDkgQEAgc3RhdGljIHN0cnVjdCByZG1hX2lkX3ByaXZhdGUNCj4gKmNtYV9u
-ZXdfY29ubl9pZChzdHJ1Y3QgcmRtYV9jbV9pZCAqbGlzdGVuX2lkLA0KPiA+ICAJCXJldHVybiBO
-VUxMOw0KPiA+DQo+ID4gIAlpZF9wcml2ID0gY29udGFpbmVyX29mKGlkLCBzdHJ1Y3QgcmRtYV9p
-ZF9wcml2YXRlLCBpZCk7DQo+ID4gLQlpZiAoY21hX3NhdmVfbmV0X2luZm8oaWQsIGxpc3Rlbl9p
-ZCwgaWJfZXZlbnQpKQ0KPiA+ICsJaWYgKGNtX3NhdmVfbmV0X2luZm8oKHN0cnVjdCBzb2NrYWRk
-ciAqKSZpZC0+cm91dGUuYWRkci5zcmNfYWRkciwNCj4gPiArCQkJICAgICAoc3RydWN0IHNvY2th
-ZGRyICopJmlkLT5yb3V0ZS5hZGRyLmRzdF9hZGRyLA0KPiA+ICsJCQkgICAgIGliX2V2ZW50KSkN
-Cj4gPiAgCQlnb3RvIGVycjsNCj4gPg0KPiA+ICAJcnQgPSAmaWQtPnJvdXRlOw0KPiA+IEBAIC0x
-MjQxLDcgKzExMzQsOSBAQCBzdGF0aWMgc3RydWN0IHJkbWFfaWRfcHJpdmF0ZQ0KPiAqY21hX25l
-d191ZHBfaWQoc3RydWN0IHJkbWFfY21faWQgKmxpc3Rlbl9pZCwNCj4gPiAgCQlyZXR1cm4gTlVM
-TDsNCj4gPg0KPiA+ICAJaWRfcHJpdiA9IGNvbnRhaW5lcl9vZihpZCwgc3RydWN0IHJkbWFfaWRf
-cHJpdmF0ZSwgaWQpOw0KPiA+IC0JaWYgKGNtYV9zYXZlX25ldF9pbmZvKGlkLCBsaXN0ZW5faWQs
-IGliX2V2ZW50KSkNCj4gPiArCWlmIChjbV9zYXZlX25ldF9pbmZvKChzdHJ1Y3Qgc29ja2FkZHIg
-KikmaWQtPnJvdXRlLmFkZHIuc3JjX2FkZHIsDQo+ID4gKwkJCSAgICAgKHN0cnVjdCBzb2NrYWRk
-ciAqKSZpZC0+cm91dGUuYWRkci5kc3RfYWRkciwNCj4gPiArCQkJICAgICBpYl9ldmVudCkpDQo+
-ID4gIAkJZ290byBlcnI7DQo+ID4NCj4gPiAgCWlmICghY21hX2FueV9hZGRyKChzdHJ1Y3Qgc29j
-a2FkZHIgKikgJmlkLT5yb3V0ZS5hZGRyLnNyY19hZGRyKSkgew0KPiA+IEBAIC0xMzY5LDcgKzEy
-NjQsNyBAQCBFWFBPUlRfU1lNQk9MKHJkbWFfZ2V0X3NlcnZpY2VfaWQpOw0KPiA+ICBzdGF0aWMg
-dm9pZCBjbWFfc2V0X2NvbXBhcmVfZGF0YShlbnVtIHJkbWFfcG9ydF9zcGFjZSBwcywgc3RydWN0
-DQo+IHNvY2thZGRyICphZGRyLA0KPiA+ICAJCQkJIHN0cnVjdCBpYl9jbV9jb21wYXJlX2RhdGEg
-KmNvbXBhcmUpDQo+ID4gIHsNCj4gPiAtCXN0cnVjdCBjbWFfaGRyICpjbWFfZGF0YSwgKmNtYV9t
-YXNrOw0KPiA+ICsJc3RydWN0IGNtX2hkciAqY21hX2RhdGEsICpjbWFfbWFzazsNCj4gPiAgCV9f
-YmUzMiBpcDRfYWRkcjsNCj4gPiAgCXN0cnVjdCBpbjZfYWRkciBpcDZfYWRkcjsNCj4gPg0KPiA+
-IEBAIC0xMzgwLDggKzEyNzUsOCBAQCBzdGF0aWMgdm9pZCBjbWFfc2V0X2NvbXBhcmVfZGF0YShl
-bnVtDQo+IHJkbWFfcG9ydF9zcGFjZSBwcywgc3RydWN0IHNvY2thZGRyICphZGRyLA0KPiA+ICAJ
-c3dpdGNoIChhZGRyLT5zYV9mYW1pbHkpIHsNCj4gPiAgCWNhc2UgQUZfSU5FVDoNCj4gPiAgCQlp
-cDRfYWRkciA9ICgoc3RydWN0IHNvY2thZGRyX2luICopIGFkZHIpLT5zaW5fYWRkci5zX2FkZHI7
-DQo+ID4gLQkJY21hX3NldF9pcF92ZXIoY21hX2RhdGEsIDQpOw0KPiA+IC0JCWNtYV9zZXRfaXBf
-dmVyKGNtYV9tYXNrLCAweEYpOw0KPiA+ICsJCWNtX3NldF9pcF92ZXIoY21hX2RhdGEsIDQpOw0K
-PiA+ICsJCWNtX3NldF9pcF92ZXIoY21hX21hc2ssIDB4Rik7DQo+ID4gIAkJaWYgKCFjbWFfYW55
-X2FkZHIoYWRkcikpIHsNCj4gPiAgCQkJY21hX2RhdGEtPmRzdF9hZGRyLmlwNC5hZGRyID0gaXA0
-X2FkZHI7DQo+ID4gIAkJCWNtYV9tYXNrLT5kc3RfYWRkci5pcDQuYWRkciA9IGh0b25sKH4wKTsN
-Cj4gPiBAQCAtMTM4OSw4ICsxMjg0LDggQEAgc3RhdGljIHZvaWQgY21hX3NldF9jb21wYXJlX2Rh
-dGEoZW51bQ0KPiByZG1hX3BvcnRfc3BhY2UgcHMsIHN0cnVjdCBzb2NrYWRkciAqYWRkciwNCj4g
-PiAgCQlicmVhazsNCj4gPiAgCWNhc2UgQUZfSU5FVDY6DQo+ID4gIAkJaXA2X2FkZHIgPSAoKHN0
-cnVjdCBzb2NrYWRkcl9pbjYgKikgYWRkciktPnNpbjZfYWRkcjsNCj4gPiAtCQljbWFfc2V0X2lw
-X3ZlcihjbWFfZGF0YSwgNik7DQo+ID4gLQkJY21hX3NldF9pcF92ZXIoY21hX21hc2ssIDB4Rik7
-DQo+ID4gKwkJY21fc2V0X2lwX3ZlcihjbWFfZGF0YSwgNik7DQo+ID4gKwkJY21fc2V0X2lwX3Zl
-cihjbWFfbWFzaywgMHhGKTsNCj4gPiAgCQlpZiAoIWNtYV9hbnlfYWRkcihhZGRyKSkgew0KPiA+
-ICAJCQljbWFfZGF0YS0+ZHN0X2FkZHIuaXA2ID0gaXA2X2FkZHI7DQo+ID4gIAkJCW1lbXNldCgm
-Y21hX21hc2stPmRzdF9hZGRyLmlwNiwgMHhGRiwNCj4gPiBAQCAtMjYxNSwzNSArMjUxMCw2IEBA
-IGVycjE6DQo+ID4gIH0NCj4gPiAgRVhQT1JUX1NZTUJPTChyZG1hX2JpbmRfYWRkcik7DQo+ID4N
-Cj4gPiAtc3RhdGljIGludCBjbWFfZm9ybWF0X2hkcih2b2lkICpoZHIsIHN0cnVjdCByZG1hX2lk
-X3ByaXZhdGUgKmlkX3ByaXYpDQo+ID4gLXsNCj4gPiAtCXN0cnVjdCBjbWFfaGRyICpjbWFfaGRy
-Ow0KPiA+IC0NCj4gPiAtCWNtYV9oZHIgPSBoZHI7DQo+ID4gLQljbWFfaGRyLT5jbWFfdmVyc2lv
-biA9IENNQV9WRVJTSU9OOw0KPiA+IC0JaWYgKGNtYV9mYW1pbHkoaWRfcHJpdikgPT0gQUZfSU5F
-VCkgew0KPiA+IC0JCXN0cnVjdCBzb2NrYWRkcl9pbiAqc3JjNCwgKmRzdDQ7DQo+ID4gLQ0KPiA+
-IC0JCXNyYzQgPSAoc3RydWN0IHNvY2thZGRyX2luICopIGNtYV9zcmNfYWRkcihpZF9wcml2KTsN
-Cj4gPiAtCQlkc3Q0ID0gKHN0cnVjdCBzb2NrYWRkcl9pbiAqKSBjbWFfZHN0X2FkZHIoaWRfcHJp
-dik7DQo+ID4gLQ0KPiA+IC0JCWNtYV9zZXRfaXBfdmVyKGNtYV9oZHIsIDQpOw0KPiA+IC0JCWNt
-YV9oZHItPnNyY19hZGRyLmlwNC5hZGRyID0gc3JjNC0+c2luX2FkZHIuc19hZGRyOw0KPiA+IC0J
-CWNtYV9oZHItPmRzdF9hZGRyLmlwNC5hZGRyID0gZHN0NC0+c2luX2FkZHIuc19hZGRyOw0KPiA+
-IC0JCWNtYV9oZHItPnBvcnQgPSBzcmM0LT5zaW5fcG9ydDsNCj4gPiAtCX0gZWxzZSBpZiAoY21h
-X2ZhbWlseShpZF9wcml2KSA9PSBBRl9JTkVUNikgew0KPiA+IC0JCXN0cnVjdCBzb2NrYWRkcl9p
-bjYgKnNyYzYsICpkc3Q2Ow0KPiA+IC0NCj4gPiAtCQlzcmM2ID0gKHN0cnVjdCBzb2NrYWRkcl9p
-bjYgKikgY21hX3NyY19hZGRyKGlkX3ByaXYpOw0KPiA+IC0JCWRzdDYgPSAoc3RydWN0IHNvY2th
-ZGRyX2luNiAqKSBjbWFfZHN0X2FkZHIoaWRfcHJpdik7DQo+ID4gLQ0KPiA+IC0JCWNtYV9zZXRf
-aXBfdmVyKGNtYV9oZHIsIDYpOw0KPiA+IC0JCWNtYV9oZHItPnNyY19hZGRyLmlwNiA9IHNyYzYt
-PnNpbjZfYWRkcjsNCj4gPiAtCQljbWFfaGRyLT5kc3RfYWRkci5pcDYgPSBkc3Q2LT5zaW42X2Fk
-ZHI7DQo+ID4gLQkJY21hX2hkci0+cG9ydCA9IHNyYzYtPnNpbjZfcG9ydDsNCj4gPiAtCX0NCj4g
-PiAtCXJldHVybiAwOw0KPiA+IC19DQo+ID4NCj4gPiAgc3RhdGljIGludCBjbWFfc2lkcl9yZXBf
-aGFuZGxlcihzdHJ1Y3QgaWJfY21faWQgKmNtX2lkLA0KPiA+ICAJCQkJc3RydWN0IGliX2NtX2V2
-ZW50ICppYl9ldmVudCkNCj4gPiBAQCAtMjczMSw3ICsyNTk3LDkgQEAgc3RhdGljIGludCBjbWFf
-cmVzb2x2ZV9pYl91ZHAoc3RydWN0DQo+IHJkbWFfaWRfcHJpdmF0ZSAqaWRfcHJpdiwNCj4gPiAg
-CQkgICAgICAgY29ubl9wYXJhbS0+cHJpdmF0ZV9kYXRhX2xlbik7DQo+ID4NCj4gPiAgCWlmIChw
-cml2YXRlX2RhdGEpIHsNCj4gPiAtCQlyZXQgPSBjbWFfZm9ybWF0X2hkcihwcml2YXRlX2RhdGEs
-IGlkX3ByaXYpOw0KPiA+ICsJCXJldCA9IGNtX2Zvcm1hdF9oZHIocHJpdmF0ZV9kYXRhLCBjbWFf
-ZmFtaWx5KGlkX3ByaXYpLA0KPiA+ICsJCQkJICAgIGNtYV9zcmNfYWRkcihpZF9wcml2KSwNCj4g
-PiArCQkJCSAgICBjbWFfZHN0X2FkZHIoaWRfcHJpdikpOw0KPiA+ICAJCWlmIChyZXQpDQo+ID4g
-IAkJCWdvdG8gb3V0Ow0KPiA+ICAJCXJlcS5wcml2YXRlX2RhdGEgPSBwcml2YXRlX2RhdGE7DQo+
-ID4gQEAgLTI3OTYsNyArMjY2NCw5IEBAIHN0YXRpYyBpbnQgY21hX2Nvbm5lY3RfaWIoc3RydWN0
-IHJkbWFfaWRfcHJpdmF0ZQ0KPiAqaWRfcHJpdiwNCj4gPg0KPiA+ICAJcm91dGUgPSAmaWRfcHJp
-di0+aWQucm91dGU7DQo+ID4gIAlpZiAocHJpdmF0ZV9kYXRhKSB7DQo+ID4gLQkJcmV0ID0gY21h
-X2Zvcm1hdF9oZHIocHJpdmF0ZV9kYXRhLCBpZF9wcml2KTsNCj4gPiArCQlyZXQgPSBjbV9mb3Jt
-YXRfaGRyKHByaXZhdGVfZGF0YSwgY21hX2ZhbWlseShpZF9wcml2KSwNCj4gPiArCQkJCSAgICBj
-bWFfc3JjX2FkZHIoaWRfcHJpdiksDQo+ID4gKwkJCQkgICAgY21hX2RzdF9hZGRyKGlkX3ByaXYp
-KTsNCj4gPiAgCQlpZiAocmV0KQ0KPiA+ICAJCQlnb3RvIG91dDsNCj4gPiAgCQlyZXEucHJpdmF0
-ZV9kYXRhID0gcHJpdmF0ZV9kYXRhOw0KPiA+IGRpZmYgLS1naXQgYS9pbmNsdWRlL3JkbWEvaWJf
-Y20uaCBiL2luY2x1ZGUvcmRtYS9pYl9jbS5oDQo+ID4gaW5kZXggMGUzZmYzMDY0N2Q1Li5lNDE4
-YTExYWZjZmUgMTAwNjQ0DQo+ID4gLS0tIGEvaW5jbHVkZS9yZG1hL2liX2NtLmgNCj4gPiArKysg
-Yi9pbmNsdWRlL3JkbWEvaWJfY20uaA0KPiA+IEBAIC0yNzQsNiArMjc0LDUyIEBAIHN0cnVjdCBp
-Yl9jbV9ldmVudCB7DQo+ID4gICNkZWZpbmUgQ01fTEFQX0FUVFJfSUQJCWNwdV90b19iZTE2KDB4
-MDAxOSkNCj4gPiAgI2RlZmluZSBDTV9BUFJfQVRUUl9JRAkJY3B1X3RvX2JlMTYoMHgwMDFBKQ0K
-PiA+DQo+ID4gK3VuaW9uIGNtX2lwX2FkZHIgew0KPiA+ICsJc3RydWN0IGluNl9hZGRyIGlwNjsN
-Cj4gPiArCXN0cnVjdCB7DQo+ID4gKwkJX19iZTMyIHBhZFszXTsNCj4gPiArCQlfX2JlMzIgYWRk
-cjsNCj4gPiArCX0gaXA0Ow0KPiA+ICt9Ow0KPiA+ICsNCj4gPiArc3RydWN0IGNtX2hkciB7DQo+
-ID4gKwl1OCBjbV92ZXJzaW9uOw0KPiA+ICsJdTggaXBfdmVyc2lvbjsJLyogSVAgdmVyc2lvbjog
-Nzo0ICovDQo+ID4gKwlfX2JlMTYgcG9ydDsNCj4gPiArCXVuaW9uIGNtX2lwX2FkZHIgc3JjX2Fk
-ZHI7DQo+ID4gKwl1bmlvbiBjbV9pcF9hZGRyIGRzdF9hZGRyOw0KPiA+ICt9Ow0KPiA+ICsNCj4g
-PiArI2RlZmluZSBSRE1BX0lQX0NNX1ZFUlNJT04gMHgwMA0KPiA+ICsNCj4gPiArLyoqDQo+ID4g
-KyAqIGNtX2Zvcm1hdF9oZHIgLSBGaWxsIGluIGEgY21faGRyIHN0cnVjdCBhY2NvcmRpbmcgdG8g
-Y29ubmVjdGlvbg0KPiBkZXRhaWxzDQo+ID4gKyAqIEBoZHI6ICAgICAgY21faGRyIHN0cnVjdCB0
-byBmaWxsDQo+ID4gKyAqIEBmYW1pbHk6ICAgaXAgZmFtaWx5IG9mIHRoZSBhZGRyZXNzZXMgLSBB
-Rl9JTkVUIG9yIEFGX0lOVEVUNg0KPiA+ICsgKiBAc3JjX2FkZHI6IHNvdXJjZSBhZGRyZXNzIG9m
-IHRoZSBjb25uZWN0aW9uDQo+ID4gKyAqIEBkc3RfYWRkcjogZGVzdGluYXRpb24gYWRkcmVzcyBv
-ZiB0aGUgY29ubmVjdGlvbg0KPiA+ICsgKiovDQo+ID4gK2ludCBjbV9mb3JtYXRfaGRyKHZvaWQg
-KmhkciwgaW50IGZhbWlseSwNCj4gPiArCQkgIHN0cnVjdCBzb2NrYWRkciAqc3JjX2FkZHIsDQo+
-ID4gKwkJICBzdHJ1Y3Qgc29ja2FkZHIgKmRzdF9hZGRyKTsNCj4gPiArDQo+ID4gKy8qKg0KPiA+
-ICsgKiBjbV9zYXZlX25ldF9pbmZvIC0gc2F2ZXMgaWIgY29ubmVjdGlvbiBldmVudCBkZXRhaWxz
-DQo+ID4gKyAqIEBzcmNfYWRkcjogc291cmNlIGFkZHJlc3Mgb2YgdGhlIGNvbm5lY3Rpb24NCj4g
-PiArICogQGRzdF9hZGRyOiBkZXN0aW5hdGlvbiBhZGRyZXNzIG9mIHRoZSBjb25uZWN0aW9uDQo+
-ID4gKyAqIEBpYl9ldmVudDogaWIgZXZlbnQgdG8gdGFrZSBjb25uZWN0aW9uIGRldGFpbHMgZnJv
-bQ0KPiA+ICsgKiovDQo+ID4gK2ludCBjbV9zYXZlX25ldF9pbmZvKHN0cnVjdCBzb2NrYWRkciAq
-c3JjX2FkZHIsDQo+ID4gKwkJICAgICBzdHJ1Y3Qgc29ja2FkZHIgKmRzdF9hZGRyLA0KPiA+ICsJ
-CSAgICAgc3RydWN0IGliX2NtX2V2ZW50ICppYl9ldmVudCk7DQo+ID4gKw0KPiA+ICsvKioNCj4g
-PiArICogY21fc2V0X2lwX3ZlciAtIHNldHMgdGhlIGlwIHZlcnNpb24gb2YgYSBjbV9oZHIgc3Ry
-dWN0DQo+ID4gKyAqIEBoZHI6ICAgIGNtX2hkciBzdHJ1Y3QgdG8gY2hhbmdlDQo+ID4gKyAqIEBp
-cF92ZXI6IGlwIHZlcnNpb24gdG8gc2V0IC0gYSA0IGJpdCB2YWx1ZQ0KPiA+ICsgKiovDQo+ID4g
-K3ZvaWQgY21fc2V0X2lwX3ZlcihzdHJ1Y3QgY21faGRyICpoZHIsIHU4IGlwX3Zlcik7DQo+ID4g
-Kw0KPiA+ICAvKioNCj4gPiAgICogaWJfY21faGFuZGxlciAtIFVzZXItZGVmaW5lZCBjYWxsYmFj
-ayB0byBwcm9jZXNzIGNvbW11bmljYXRpb24NCj4gZXZlbnRzLg0KPiA+ICAgKiBAY21faWQ6IENv
-bW11bmljYXRpb24gaWRlbnRpZmllciBhc3NvY2lhdGVkIHdpdGggdGhlIHJlcG9ydGVkDQo+IGV2
-ZW50Lg0KPiANCj4gRXZlcnkgb3RoZXIgc3ltYm9scyBpbiBpYl9jbS5oIGFyZSBwcmVmaXhlZCBi
-eSAiaWJfY21fIiwgc28gSSB3b3VsZA0KPiBwcmVmZXIgaGF2aW5nIHN5bWJvbHMgbW92ZWQgZnJv
-bSBpYl9jbWEuYyB0byBpYl9jbS5jIGJlIHJlbmFtZWQsIGV4Y2VwdA0KPiBpdCB3b3VsZCBjcmVh
-dGUgYSBsb3Qgb2YgY29kZSBjaGFuZ2UgLi4uDQo+IA0KDQpTYWRseSwgaWJfY20gZG9lcyBub3Qg
-aGF2ZSBzdWNoIHNjaGVtZSBmb3IgZXhwb3J0ZWQgc3ltYm9scyBhcyBvZiB0aW1lIGJlaW5nOg0K
-DQokIGdpdCBjaGVja291dCB2My4xOS1yYzYgDQpOb3RlOiBjaGVja2luZyBvdXQgJ3YzLjE5LXJj
-NicNCi4uLg0KSEVBRCBpcyBub3cgYXQgMjZiYzQyMGIuLi4gTGludXggMy4xOS1yYzYNCiQgZ3Jl
-cCBFWFBPUlQgZHJpdmVycy9pbmZpbmliYW5kL2NvcmUvY20uYyANCkVYUE9SVF9TWU1CT0woaWJf
-Y3JlYXRlX2NtX2lkKTsNCkVYUE9SVF9TWU1CT0woaWJfZGVzdHJveV9jbV9pZCk7DQpFWFBPUlRf
-U1lNQk9MKGliX2NtX2xpc3Rlbik7DQpFWFBPUlRfU1lNQk9MKGliX3NlbmRfY21fcmVxKTsNCkVY
-UE9SVF9TWU1CT0woaWJfc2VuZF9jbV9yZXApOw0KRVhQT1JUX1NZTUJPTChpYl9zZW5kX2NtX3J0
-dSk7DQpFWFBPUlRfU1lNQk9MKGliX3NlbmRfY21fZHJlcSk7DQpFWFBPUlRfU1lNQk9MKGliX3Nl
-bmRfY21fZHJlcCk7DQpFWFBPUlRfU1lNQk9MKGliX3NlbmRfY21fcmVqKTsNCkVYUE9SVF9TWU1C
-T0woaWJfc2VuZF9jbV9tcmEpOw0KRVhQT1JUX1NZTUJPTChpYl9zZW5kX2NtX2xhcCk7DQpFWFBP
-UlRfU1lNQk9MKGliX3NlbmRfY21fYXByKTsNCkVYUE9SVF9TWU1CT0woaWJfc2VuZF9jbV9zaWRy
-X3JlcSk7DQpFWFBPUlRfU1lNQk9MKGliX3NlbmRfY21fc2lkcl9yZXApOw0KRVhQT1JUX1NZTUJP
-TChpYl9jbV9ub3RpZnkpOw0KRVhQT1JUX1NZTUJPTChpYl9jbV9pbml0X3FwX2F0dHIpOw0KRVhQ
-T1JUX1NZTUJPTChjbV9jbGFzcyk7DQoNCkkgZmVlbCB0aGF0IGdvaW5nIHRocm91Z2ggY2hhbmdp
-bmcgdGhlIG5hbWVzIHdpbGwgbm90IGJlIHByb2R1Y3RpdmUsIGVzcGVjaWFsbHkgY29uc2lkZXJp
-bmcgdGhlIGluY29uc2lzdGVuY3kgdGhhdCBhbHJlYWR5IGV4aXN0cyBpbiB0aGUgaWJfY20gZXhw
-b3J0ZWQgc3ltYm9scyBuYW1lcy4NCk9uIHRoZSBvdGhlciBoYW5kLCBwYXRjaGVzIHRvIGZpeCB0
-aGlzIG5hbWluZyBpbmNvbnNpc3RlbmN5IGluIGliX2NtIGFyZSB3ZWxjb21lIDspDQoNClRoYW5r
-cywNCi0tU2hhY2hhcg0KDQo=
+Hi,
+
+Le dimanche 01 f=C3=A9vrier 2015 =C3=A0 13:46 +0000, Shachar Raindel a =
+=C3=A9crit :
+
+> > -----Original Message-----
+> > From: Yann Droneaud [mailto:ydroneaud-RlY5vtjFyJ3QT0dZR+AlfA@public.gmane.org]
+> > Sent: Sunday, February 01, 2015 2:23 PM
+> > To: Shachar Raindel
+> > Cc: roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org; sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org; linux-rdma-u79uwXL29TZUIDd8j+nm9g@public.gmane.org=
+=2Eorg;
+> > netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; Liran Liss; Guy Shapiro; Haggai Eran; Yotam
+> > Kenneth
+> > Subject: Re: [PATCH for-next 01/10] IB/addr: Pass network namespace=
+ as a
+> > parameter
+> >=20
+> > Hi,
+> >=20
+> > Le dimanche 01 f=C3=A9vrier 2015 =C3=A0 13:28 +0200, Shachar Rainde=
+l a =C3=A9crit :
+> > > From: Guy Shapiro <guysh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+> > >
+> > > Add network namespace support to the ib_addr module. For that, al=
+l the
+> > address
+> > > resolution and matching should be done using the appropriate name=
+space
+> > instead
+> > > of init_net.
+> > >
+> > > This is achieved by:
+> > >
+> > > 1. Adding an explicit network namespace argument to exported func=
+tion
+> > that
+> > >    require a namespace.
+> > > 2. Saving the namespace in the rdma_addr_client structure.
+> > > 3. Using it when calling networking functions.
+> > >
+> > > In order to preserve the behavior of calling modules, &init_net i=
+s
+> > > passed as the parameter in calls from other modules. This is modi=
+fied
+> > as
+> > > namspace support is added on more levels.
+> >=20
+> > typo: "namespace"
+> >=20
+>=20
+> Thanks. Will fix in next iteration.
+>=20
+> > >
+> > > Signed-off-by: Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+> > > Signed-off-by: Yotam Kenneth <yotamke-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+> > > Signed-off-by: Shachar Raindel <raindel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+> > > Signed-off-by: Guy Shapiro <guysh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+> > >
+> > > ---
+> > >  drivers/infiniband/core/addr.c           | 31 ++++++++++++------=
+----
+> > >  drivers/infiniband/core/cma.c            |  4 ++-
+> > >  drivers/infiniband/core/verbs.c          | 14 +++++++---
+> > >  drivers/infiniband/hw/ocrdma/ocrdma_ah.c |  3 ++-
+> > >  include/rdma/ib_addr.h                   | 44
+> > ++++++++++++++++++++++++++++----
+> > >  5 files changed, 72 insertions(+), 24 deletions(-)
+> > >
+> > > diff --git a/drivers/infiniband/core/addr.c
+> > b/drivers/infiniband/core/addr.c
+> > > index f80da50d84a5..95beaef6b66d 100644
+> > > --- a/drivers/infiniband/core/addr.c
+> > > +++ b/drivers/infiniband/core/addr.c
+> > > @@ -128,7 +128,7 @@ int rdma_translate_ip(struct sockaddr *addr,
+> > struct rdma_dev_addr *dev_addr,
+> > >  	int ret =3D -EADDRNOTAVAIL;
+> > >
+> > >  	if (dev_addr->bound_dev_if) {
+> > > -		dev =3D dev_get_by_index(&init_net, dev_addr->bound_dev_if);
+> > > +		dev =3D dev_get_by_index(dev_addr->net, dev_addr-
+> > >bound_dev_if);
+> > >  		if (!dev)
+> > >  			return -ENODEV;
+> > >  		ret =3D rdma_copy_addr(dev_addr, dev, NULL);
+> > > @@ -137,9 +137,10 @@ int rdma_translate_ip(struct sockaddr *addr,
+> > struct rdma_dev_addr *dev_addr,
+> > >  	}
+> > >
+> > >  	switch (addr->sa_family) {
+> > > -	case AF_INET:
+> > > -		dev =3D ip_dev_find(&init_net,
+> > > -			((struct sockaddr_in *) addr)->sin_addr.s_addr);
+> > > +	case AF_INET: {
+> > > +		struct sockaddr_in *addr_in =3D (struct sockaddr_in *)addr;
+> > > +
+> > > +		dev =3D ip_dev_find(dev_addr->net, addr_in->sin_addr.s_addr);
+> >=20
+> > I don't see the point of this change.
+> >=20
+>=20
+> Note that we changed &init_net to be dev_addr->net .
+> The rest of the change here was done to avoid issues with checkpatch,=
+ as the line was getting really long.
+>=20
+> > >
+> > >  		if (!dev)
+> > >  			return ret;
+> > > @@ -149,12 +150,12 @@ int rdma_translate_ip(struct sockaddr *addr=
+,
+> > struct rdma_dev_addr *dev_addr,
+> > >  			*vlan_id =3D rdma_vlan_dev_vlan_id(dev);
+> > >  		dev_put(dev);
+> > >  		break;
+> > > -
+> > > +	}
+> >=20
+> > closing } here ?
+>=20
+> We opened a block in the beginning of this case ("case AF_INET: {"), =
+we close it at the end of the case.
+>=20
+> >=20
+> > >  #if IS_ENABLED(CONFIG_IPV6)
+> > >  	case AF_INET6:
+> > >  		rcu_read_lock();
+> > > -		for_each_netdev_rcu(&init_net, dev) {
+> > > -			if (ipv6_chk_addr(&init_net,
+> > > +		for_each_netdev_rcu(dev_addr->net, dev) {
+> > > +			if (ipv6_chk_addr(dev_addr->net,
+> > >  					  &((struct sockaddr_in6 *) addr)->sin6_addr,
+> > >  					  dev, 1)) {
+> > >  				ret =3D rdma_copy_addr(dev_addr, dev, NULL);
+> > > @@ -236,7 +237,7 @@ static int addr4_resolve(struct sockaddr_in
+> > *src_in,
+> > >  	fl4.daddr =3D dst_ip;
+> > >  	fl4.saddr =3D src_ip;
+> > >  	fl4.flowi4_oif =3D addr->bound_dev_if;
+> > > -	rt =3D ip_route_output_key(&init_net, &fl4);
+> > > +	rt =3D ip_route_output_key(addr->net, &fl4);
+> > >  	if (IS_ERR(rt)) {
+> > >  		ret =3D PTR_ERR(rt);
+> > >  		goto out;
+> > > @@ -278,12 +279,13 @@ static int addr6_resolve(struct sockaddr_in=
+6
+> > *src_in,
+> > >  	fl6.saddr =3D src_in->sin6_addr;
+> > >  	fl6.flowi6_oif =3D addr->bound_dev_if;
+> > >
+> > > -	dst =3D ip6_route_output(&init_net, NULL, &fl6);
+> > > +	dst =3D ip6_route_output(addr->net, NULL, &fl6);
+> > >  	if ((ret =3D dst->error))
+> > >  		goto put;
+> > >
+> > >  	if (ipv6_addr_any(&fl6.saddr)) {
+> > > -		ret =3D ipv6_dev_get_saddr(&init_net, ip6_dst_idev(dst)->dev,
+> > > +		ret =3D ipv6_dev_get_saddr(addr->net,
+> > > +					 ip6_dst_idev(dst)->dev,
+> > >  					 &fl6.daddr, 0, &fl6.saddr);
+> > >  		if (ret)
+> > >  			goto put;
+> > > @@ -458,7 +460,7 @@ static void resolve_cb(int status, struct soc=
+kaddr
+> > *src_addr,
+> > >  }
+> > >
+> > >  int rdma_addr_find_dmac_by_grh(union ib_gid *sgid, union ib_gid
+> > *dgid, u8 *dmac,
+> > > -			       u16 *vlan_id)
+> > > +			       u16 *vlan_id, struct net *net)
+> > >  {
+> > >  	int ret =3D 0;
+> > >  	struct rdma_dev_addr dev_addr;
+> > > @@ -481,6 +483,7 @@ int rdma_addr_find_dmac_by_grh(union ib_gid *=
+sgid,
+> > union ib_gid *dgid, u8 *dmac,
+> > >  		return ret;
+> > >
+> > >  	memset(&dev_addr, 0, sizeof(dev_addr));
+> > > +	dev_addr.net =3D net;
+> >=20
+> > Should be get_net() be used somewhere to grab a reference on the ne=
+t
+> > namespace ?
+> >=20
+>=20
+> Not needed, as dev_addr.net is used only inside this function. Assumi=
+ng that the caller guarantees that the network namespace doesn't disapp=
+ear until the function returns, there is no need to take a reference he=
+re. This kind of assumption makes sense, as otherwise we will not be ab=
+le to use the argument at all.
+>=20
+> > >
+> > >  	ctx.addr =3D &dev_addr;
+> > >  	init_completion(&ctx.comp);
+> > > @@ -492,7 +495,7 @@ int rdma_addr_find_dmac_by_grh(union ib_gid *=
+sgid,
+> > union ib_gid *dgid, u8 *dmac,
+> > >  	wait_for_completion(&ctx.comp);
+> > >
+> > >  	memcpy(dmac, dev_addr.dst_dev_addr, ETH_ALEN);
+> > > -	dev =3D dev_get_by_index(&init_net, dev_addr.bound_dev_if);
+> > > +	dev =3D dev_get_by_index(net, dev_addr.bound_dev_if);
+> > >  	if (!dev)
+> > >  		return -ENODEV;
+> > >  	if (vlan_id)
+> > > @@ -502,7 +505,8 @@ int rdma_addr_find_dmac_by_grh(union ib_gid *=
+sgid,
+> > union ib_gid *dgid, u8 *dmac,
+> > >  }
+> > >  EXPORT_SYMBOL(rdma_addr_find_dmac_by_grh);
+> > >
+> > > -int rdma_addr_find_smac_by_sgid(union ib_gid *sgid, u8 *smac, u1=
+6
+> > *vlan_id)
+> > > +int rdma_addr_find_smac_by_sgid(union ib_gid *sgid, u8 *smac, u1=
+6
+> > *vlan_id,
+> > > +				struct net *net)
+> > >  {
+> > >  	int ret =3D 0;
+> > >  	struct rdma_dev_addr dev_addr;
+> > > @@ -517,6 +521,7 @@ int rdma_addr_find_smac_by_sgid(union ib_gid
+> > *sgid, u8 *smac, u16 *vlan_id)
+> > >  	if (ret)
+> > >  		return ret;
+> > >  	memset(&dev_addr, 0, sizeof(dev_addr));
+> > > +	dev_addr.net =3D net;
+> >=20
+> > get_net() ?
+> >=20
+>=20
+> Same as before - used only in the function, caller must make sure it =
+doesn't disappear.
+>=20
+> > >  	ret =3D rdma_translate_ip(&gid_addr._sockaddr, &dev_addr, vlan_=
+id);
+> > >  	if (ret)
+> > >  		return ret;
+> > > diff --git a/drivers/infiniband/core/cma.c
+> > b/drivers/infiniband/core/cma.c
+> > > index 6e5e11ca7702..aeb2417ec928 100644
+> > > --- a/drivers/infiniband/core/cma.c
+> > > +++ b/drivers/infiniband/core/cma.c
+> > > @@ -512,6 +512,7 @@ struct rdma_cm_id
+> > *rdma_create_id(rdma_cm_event_handler event_handler,
+> > >  	INIT_LIST_HEAD(&id_priv->listen_list);
+> > >  	INIT_LIST_HEAD(&id_priv->mc_list);
+> > >  	get_random_bytes(&id_priv->seq_num, sizeof id_priv->seq_num);
+> > > +	id_priv->id.route.addr.dev_addr.net =3D &init_net;
+> > >
+> > >  	return &id_priv->id;
+> > >  }
+> > > @@ -637,7 +638,8 @@ static int cma_modify_qp_rtr(struct
+> > rdma_id_private *id_priv,
+> > >  	    =3D=3D RDMA_TRANSPORT_IB &&
+> > >  	    rdma_port_get_link_layer(id_priv->id.device, id_priv-
+> > >id.port_num)
+> > >  	    =3D=3D IB_LINK_LAYER_ETHERNET) {
+> > > -		ret =3D rdma_addr_find_smac_by_sgid(&sgid, qp_attr.smac, NULL)=
+;
+> > > +		ret =3D rdma_addr_find_smac_by_sgid(&sgid, qp_attr.smac, NULL,
+> > > +						  &init_net);
+> > >
+> > >  		if (ret)
+> > >  			goto out;
+> > > diff --git a/drivers/infiniband/core/verbs.c
+> > b/drivers/infiniband/core/verbs.c
+> > > index f93eb8da7b5a..ca5c4dd8a67a 100644
+> > > --- a/drivers/infiniband/core/verbs.c
+> > > +++ b/drivers/infiniband/core/verbs.c
+> > > @@ -212,7 +212,9 @@ int ib_init_ah_from_wc(struct ib_device *devi=
+ce,
+> > u8 port_num, struct ib_wc *wc,
+> > >  			ah_attr->vlan_id =3D wc->vlan_id;
+> > >  		} else {
+> > >  			ret =3D rdma_addr_find_dmac_by_grh(&grh->dgid, &grh->sgid,
+> > > -					ah_attr->dmac, &ah_attr->vlan_id);
+> > > +							 ah_attr->dmac,
+> > > +							 &ah_attr->vlan_id,
+> > > +							 &init_net);
+> > >  			if (ret)
+> > >  				return ret;
+> > >  		}
+> > > @@ -882,11 +884,15 @@ int ib_resolve_eth_l2_attrs(struct ib_qp *q=
+p,
+> > >  			if (!(*qp_attr_mask & IB_QP_VID))
+> > >  				qp_attr->vlan_id =3D rdma_get_vlan_id(&sgid);
+> > >  		} else {
+> > > -			ret =3D rdma_addr_find_dmac_by_grh(&sgid, &qp_attr-
+> > >ah_attr.grh.dgid,
+> > > -					qp_attr->ah_attr.dmac, &qp_attr->vlan_id);
+> > > +			ret =3D rdma_addr_find_dmac_by_grh(
+> > > +				&sgid,
+> > > +				&qp_attr->ah_attr.grh.dgid,
+> > > +				qp_attr->ah_attr.dmac, &qp_attr->vlan_id,
+> > > +				&init_net);
+> > >  			if (ret)
+> > >  				goto out;
+> > > -			ret =3D rdma_addr_find_smac_by_sgid(&sgid, qp_attr->smac,
+> > NULL);
+> > > +			ret =3D rdma_addr_find_smac_by_sgid(&sgid, qp_attr->smac,
+> > > +							  NULL, &init_net);
+> > >  			if (ret)
+> > >  				goto out;
+> > >  		}
+> > > diff --git a/drivers/infiniband/hw/ocrdma/ocrdma_ah.c
+> > b/drivers/infiniband/hw/ocrdma/ocrdma_ah.c
+> > > index f3cc8c9e65ae..debaac2b6ee8 100644
+> > > --- a/drivers/infiniband/hw/ocrdma/ocrdma_ah.c
+> > > +++ b/drivers/infiniband/hw/ocrdma/ocrdma_ah.c
+> > > @@ -119,7 +119,8 @@ struct ib_ah *ocrdma_create_ah(struct ib_pd *=
+ibpd,
+> > struct ib_ah_attr *attr)
+> > >
+> > >  	if (pd->uctx) {
+> > >  		status =3D rdma_addr_find_dmac_by_grh(&sgid, &attr->grh.dgid,
+> > > -                                        attr->dmac, &attr->vlan_=
+id);
+> > > +						    attr->dmac, &attr->vlan_id,
+> > > +						    &init_net);
+> > >  		if (status) {
+> > >  			pr_err("%s(): Failed to resolve dmac from gid."
+> > >  				"status =3D %d\n", __func__, status);
+> > > diff --git a/include/rdma/ib_addr.h b/include/rdma/ib_addr.h
+> > > index ce55906b54a0..40ccf8b83755 100644
+> > > --- a/include/rdma/ib_addr.h
+> > > +++ b/include/rdma/ib_addr.h
+> > > @@ -47,6 +47,7 @@
+> > >  #include <rdma/ib_verbs.h>
+> > >  #include <rdma/ib_pack.h>
+> > >  #include <net/ipv6.h>
+> > > +#include <net/net_namespace.h>
+> > >
+> > >  struct rdma_addr_client {
+> > >  	atomic_t refcount;
+> > > @@ -64,6 +65,16 @@ void rdma_addr_register_client(struct
+> > rdma_addr_client *client);
+> > >   */
+> > >  void rdma_addr_unregister_client(struct rdma_addr_client *client=
+);
+> > >
+> > > +/**
+> > > + * struct rdma_dev_addr - Contains resolved RDMA hardware addres=
+ses
+> > > + * @src_dev_addr:	Source MAC address.
+> > > + * @dst_dev_addr:	Destination MAC address.
+> > > + * @broadcast:		Broadcast address of the device.
+> > > + * @dev_type:		The interface hardware type of the device.
+> > > + * @bound_dev_if:	An optional device interface index.
+> > > + * @transport:		The transport type used.
+> > > + * @net:		Network namespace containing the bound_dev_if
+> > net_dev.
+> > > + */
+> > >  struct rdma_dev_addr {
+> > >  	unsigned char src_dev_addr[MAX_ADDR_LEN];
+> > >  	unsigned char dst_dev_addr[MAX_ADDR_LEN];
+> > > @@ -71,11 +82,14 @@ struct rdma_dev_addr {
+> > >  	unsigned short dev_type;
+> > >  	int bound_dev_if;
+> > >  	enum rdma_transport_type transport;
+> > > +	struct net *net;
+> > >  };
+> > >
+> > >  /**
+> > >   * rdma_translate_ip - Translate a local IP address to an RDMA
+> > hardware
+> > >   *   address.
+> > > + *
+> > > + * The dev_addr->net field must be initialized.
+> > >   */
+> > >  int rdma_translate_ip(struct sockaddr *addr, struct rdma_dev_add=
+r
+> > *dev_addr,
+> > >  		      u16 *vlan_id);
+> > > @@ -90,7 +104,7 @@ int rdma_translate_ip(struct sockaddr *addr, s=
+truct
+> > rdma_dev_addr *dev_addr,
+> > >   * @dst_addr: The destination address to resolve.
+> > >   * @addr: A reference to a data location that will receive the
+> > resolved
+> > >   *   addresses.  The data location must remain valid until the
+> > callback has
+> > > - *   been invoked.
+> > > + *   been invoked. The net field of the addr struct must be vali=
+d.
+> > >   * @timeout_ms: Amount of time to wait for the address resolutio=
+n to
+> > complete.
+> > >   * @callback: Call invoked once address resolution has completed=
+,
+> > timed out,
+> > >   *   or been canceled.  A status of 0 indicates success.
+> > > @@ -110,9 +124,29 @@ int rdma_copy_addr(struct rdma_dev_addr
+> > *dev_addr, struct net_device *dev,
+> > >
+> > >  int rdma_addr_size(struct sockaddr *addr);
+> > >
+> > > -int rdma_addr_find_smac_by_sgid(union ib_gid *sgid, u8 *smac, u1=
+6
+> > *vlan_id);
+> > > -int rdma_addr_find_dmac_by_grh(union ib_gid *sgid, union ib_gid
+> > *dgid, u8 *smac,
+> > > -			       u16 *vlan_id);
+> > > +/** rdma_addr_find_smac_by_sgid() - Find the src MAC and VLAN ID=
+ for
+> > a src GID
+> > > + * @sgid:	Source GID to find the MAC and VLAN for.
+> > > + * @smac:	A buffer to contain the resulting MAC address.
+> > > + * @vlan_id:	Will contain the resulting VLAN ID.
+> > > + * @net:	Network namespace to use for the address resolution.
+> > > + *
+> > > + * It is the caller's responsibility to keep the network namespa=
+ce
+> > alive until
+> > > + * the function returns.
+> >=20
+> > Why ?
+> >=20
+>=20
+> So that we could use the argument. Otherwise, we will need to have ug=
+ly code like:
+> ------------------------
+> struct net *local_net =3D NULL;
+> rcu_read_lock();
+> for_each_net_rcu(local_net)
+> 	if (local_net =3D=3D net)
+> 		break;
+> if (local_net =3D=3D net)
+> 	get_net(local_net);
+> else
+> 	local_net =3D NULL;
+> rcu_read_unlock();
+> ------------------------
+> however, the callers (in following patches), can easily ensure that t=
+he network namespace is here to stay. This is much easier to understand=
+ and maintain.
+>=20
+>=20
+> > > + */
+> > > +int rdma_addr_find_smac_by_sgid(union ib_gid *sgid, u8 *smac, u1=
+6
+> > *vlan_id,
+> > > +				struct net *net);
+> > > +/** rdma_addr_find_dmac_by_grh() - Find the dst MAC and VLAN ID =
+for a
+> > GID pair
+> > > + * @sgid:	Source GID to use for the search.
+> > > + * @dgid:	Destination GID to find the details for.
+> > > + * @dmac:	Contains the resulting destination MAC address.
+> > > + * @vlan_id:	Contains the resulting VLAN ID.
+> > > + * @net:	Network namespace to use for the address resolution.
+> > > + *
+> > > + * It is the caller's responsibility to keep the network namespa=
+ce
+> > alive until
+> > > + * the function returns.
+> >=20
+> > Why ?
+> >=20
+>=20
+> See above.
+>=20
+> >=20
+> >=20
+> > I believe this patch lack proper reference counting in form of
+> > get_net() / put_net(), but cannot say for sure.
+> >=20
+>=20
+> If you could point to specific issues or race conditions, that would =
+be great.
+> We have thoroughly tested and reviewed the code, and couldn't find an=
+y such issues with the submitted patches.
+>=20
+
+OK, that's enough for me: I was just concerned about the various=20
+references that were copied to data structure inside the functions
+and the functions were asking for the caller to manage the reference
+for them, which seems wrong.
+
+So I think the messages "It is the caller's responsibility to keep the
+network namespace alive until the function returns" are obvious,
+and could be removed.
+
+Regards.
+
+--=20
+Yann Droneaud
+OPTEYA
+
+
+
 --
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" i=
+n
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 More majordomo info at  http://vger.kernel.org/majordomo-info.html
