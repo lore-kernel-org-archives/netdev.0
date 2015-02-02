@@ -1,135 +1,117 @@
 From: Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
-Subject: [PATCH net-next 1/2] pkt_sched: fq: avoid artificial bursts for clocked flows
-Date: Mon,  2 Feb 2015 19:59:15 +0100
-Message-ID: <1422903556-30393-1-git-send-email-kennetkl@ifi.uio.no>
+Subject: [PATCH net-next 2/2] pkt_sched: fq: remove redundant flow credit refill
+Date: Mon,  2 Feb 2015 19:59:16 +0100
+Message-ID: <1422903556-30393-2-git-send-email-kennetkl@ifi.uio.no>
+References: <1422903556-30393-1-git-send-email-kennetkl@ifi.uio.no>
 Cc: Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out5.uio.no ([129.240.10.17]:56226 "EHLO mail-out5.uio.no"
+Received: from mail-out4.uio.no ([129.240.10.15]:38356 "EHLO mail-out4.uio.no"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751116AbbBBS7n (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Feb 2015 13:59:43 -0500
+	id S1754680AbbBBS7x (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Feb 2015 13:59:53 -0500
 Received: from mail-mx4.uio.no ([129.240.10.45])
-	by mail-out5.uio.no with esmtp (Exim 4.80.1)
+	by mail-out4.uio.no with esmtp (Exim 4.80.1)
 	(envelope-from <kennetkl@ifi.uio.no>)
-	id 1YIMDl-0007pG-PI
-	for netdev@vger.kernel.org; Mon, 02 Feb 2015 19:59:41 +0100
+	id 1YIMDv-0003Z2-KF
+	for netdev@vger.kernel.org; Mon, 02 Feb 2015 19:59:51 +0100
+In-Reply-To: <1422903556-30393-1-git-send-email-kennetkl@ifi.uio.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Current pacing behavior always throttle flows for a time equal to one full
-quantum, starting at the instance in time when a flow depletes its credit.
-This is optimal for burst sizes that are a multiple of the chosen quantum.
+Current behavior explicitly refills flow credit after idle. But following
+the first patch in this series, regular refill no longer throttles a flow
+if idle_time >= quantum_time.
 
-For flows with many small and evenly clocked packets, the depletion and
-refilling of credits cause packets to queue and transmit in bursts, even
-when their clocked rate is below the pacing rate. With TCP ACKs, this
-artificial queueing induces significant noise to RTTs, e.g. up to 2.07 ms
-for rtt 20 ms, cwnd 10 and quantum 3028.
+Remove redundant refill, and warn possible users of the refill delay knob.
 
-Packetdrill script to illustrate bursts:
-0.000 socket(..., SOCK_DGRAM, IPPROTO_UDP) = 3
-0.000 setsockopt(3, SOL_SOCKET, SO_REUSEADDR, [1], 4) = 0
-0.000 bind(3, ..., ...) = 0
-0.000 connect(3, ..., ...) = 0
-
-// SO_MAX_PACING_RATE: 2500 Bps, 100 ms per quantum, 20 ms per 50B packet.
-0.000 setsockopt(3, SOL_SOCKET, 47, [2500], 4) = 0
-0.000 `tc qdisc add dev tun0 root fq initial_quantum 250 quantum 250`
-
-// Use 200 credits: send four perfectly spaced 50 byte packets.
-0.000 write(3, ..., 22) = 22
-0.000 > udp (22)
-0.020 write(3, ..., 22) = 22
-0.020 > udp (22)
-0.040 write(3, ..., 22) = 22
-0.040 > udp (22)
-0.060 write(3, ..., 22) = 22
-0.060 > udp (22)
-
-// Send five perfectly spaced packets. The first credits are depleted at
-// 1.000, and the remaining four packets are sent in a burst at 1.100.
-// Packets are sent at their intended times when this patch is applied.
-1.000 write(3, ..., 22) = 22
-1.000 > udp (22)
-1.020 write(3, ..., 22) = 22
-1.040 write(3, ..., 22) = 22
-1.060 write(3, ..., 22) = 22
-1.080 write(3, ..., 22) = 22
-1.100 > udp (22)
-1.100 > udp (22)
-1.100 > udp (22)
-1.100 > udp (22)
-
-Keep track of when a flows credit was last filled, and use this to
-approximate a credit refill for each quantum of time that passes.
-
-Increases memory footprint from 104 to 112 bytes per flow.
+Updates f52ed89971ad ("pkt_sched: fq: fix pacing for small frames").
+Inspired by 65c5189a2b57 ("pkt_sched: fq: warn users using defrate").
 
 Signed-off-by: Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
 ---
- net/sched/sch_fq.c | 13 +++++++++++--
- 1 file changed, 11 insertions(+), 2 deletions(-)
+ include/uapi/linux/pkt_sched.h |  2 +-
+ net/sched/sch_fq.c             | 20 ++++++--------------
+ 2 files changed, 7 insertions(+), 15 deletions(-)
 
+diff --git a/include/uapi/linux/pkt_sched.h b/include/uapi/linux/pkt_sched.h
+index d62316b..5a9afb4 100644
+--- a/include/uapi/linux/pkt_sched.h
++++ b/include/uapi/linux/pkt_sched.h
+@@ -772,7 +772,7 @@ enum {
+ 
+ 	TCA_FQ_BUCKETS_LOG,	/* log2(number of buckets) */
+ 
+-	TCA_FQ_FLOW_REFILL_DELAY,	/* flow credit refill delay in usec */
++	TCA_FQ_FLOW_REFILL_DELAY,	/* obsolete, do not use */
+ 
+ 	__TCA_FQ_MAX
+ };
 diff --git a/net/sched/sch_fq.c b/net/sched/sch_fq.c
-index 2a50f5c..6f0c45e 100644
+index 6f0c45e..81695ac 100644
 --- a/net/sched/sch_fq.c
 +++ b/net/sched/sch_fq.c
-@@ -71,6 +71,7 @@ struct fq_flow {
- 
- 	struct rb_node  rate_node;	/* anchor in q->delayed tree */
- 	u64		time_next_packet;
-+	u64		time_credit_filled;
- };
- 
- struct fq_flow_head {
-@@ -250,6 +251,7 @@ static struct fq_flow *fq_classify(struct sk_buff *skb, struct fq_sched_data *q)
- 			if (unlikely(skb->sk &&
- 				     f->socket_hash != sk->sk_hash)) {
- 				f->credit = q->initial_quantum;
-+				f->time_credit_filled = ktime_get_ns();
- 				f->socket_hash = sk->sk_hash;
- 				f->time_next_packet = 0ULL;
- 			}
-@@ -271,6 +273,7 @@ static struct fq_flow *fq_classify(struct sk_buff *skb, struct fq_sched_data *q)
- 	if (skb->sk)
- 		f->socket_hash = sk->sk_hash;
- 	f->credit = q->initial_quantum;
-+	f->time_credit_filled = ktime_get_ns();
- 
- 	rb_link_node(&f->fq_node, parent, p);
- 	rb_insert_color(&f->fq_node, root);
-@@ -374,8 +377,10 @@ static int fq_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+@@ -90,7 +90,6 @@ struct fq_sched_data {
+ 	struct fq_flow	internal;	/* for non classified or high prio packets */
+ 	u32		quantum;
+ 	u32		initial_quantum;
+-	u32		flow_refill_delay;
+ 	u32		flow_max_rate;	/* optional max rate per flow */
+ 	u32		flow_plimit;	/* max packets per flow */
+ 	struct rb_root	*fq_root;
+@@ -377,10 +376,6 @@ static int fq_enqueue(struct sk_buff *skb, struct Qdisc *sch)
  	qdisc_qstats_backlog_inc(sch, skb);
  	if (fq_flow_is_detached(f)) {
  		fq_flow_add_tail(&q->new_flows, f);
--		if (time_after(jiffies, f->age + q->flow_refill_delay))
-+		if (time_after(jiffies, f->age + q->flow_refill_delay)) {
- 			f->credit = max_t(u32, f->credit, q->quantum);
-+			f->time_credit_filled = ktime_get_ns();
-+		}
+-		if (time_after(jiffies, f->age + q->flow_refill_delay)) {
+-			f->credit = max_t(u32, f->credit, q->quantum);
+-			f->time_credit_filled = ktime_get_ns();
+-		}
  		q->inactive_flows--;
  	}
  
-@@ -440,6 +445,7 @@ begin:
- 
- 	if (f->credit <= 0) {
- 		f->credit += q->quantum;
-+		f->time_credit_filled = max(now, f->time_next_packet);
- 		head->first = f->next;
- 		fq_flow_add_tail(&q->old_flows, f);
- 		goto begin;
-@@ -489,7 +495,10 @@ begin:
- 			q->stat_pkts_too_long++;
- 		}
- 
--		f->time_next_packet = now + len;
-+		/* If now < time_next_packet, throttles flow for a time equal
-+		 * to one quantum (len) after current credits were filled.
-+		 */
-+		f->time_next_packet = f->time_credit_filled + len;
+@@ -701,11 +696,9 @@ static int fq_change(struct Qdisc *sch, struct nlattr *opt)
+ 			err = -EINVAL;
  	}
- out:
- 	qdisc_bstats_update(sch, skb);
+ 
+-	if (tb[TCA_FQ_FLOW_REFILL_DELAY]) {
+-		u32 usecs_delay = nla_get_u32(tb[TCA_FQ_FLOW_REFILL_DELAY]) ;
+-
+-		q->flow_refill_delay = usecs_to_jiffies(usecs_delay);
+-	}
++	if (tb[TCA_FQ_FLOW_REFILL_DELAY])
++		pr_warn_ratelimited("sch_fq: refill delay %u ignored.\n",
++				    nla_get_u32(tb[TCA_FQ_FLOW_REFILL_DELAY]));
+ 
+ 	if (!err) {
+ 		sch_tree_unlock(sch);
+@@ -744,7 +737,6 @@ static int fq_init(struct Qdisc *sch, struct nlattr *opt)
+ 	q->flow_plimit		= 100;
+ 	q->quantum		= 2 * psched_mtu(qdisc_dev(sch));
+ 	q->initial_quantum	= 10 * psched_mtu(qdisc_dev(sch));
+-	q->flow_refill_delay	= msecs_to_jiffies(40);
+ 	q->flow_max_rate	= ~0U;
+ 	q->rate_enable		= 1;
+ 	q->new_flows.first	= NULL;
+@@ -771,7 +763,9 @@ static int fq_dump(struct Qdisc *sch, struct sk_buff *skb)
+ 	if (opts == NULL)
+ 		goto nla_put_failure;
+ 
+-	/* TCA_FQ_FLOW_DEFAULT_RATE is not used anymore */
++	/* TCA_FQ_FLOW_DEFAULT_RATE and TCA_FQ_FLOW_REFILL_DELAY
++	 * is not used anymore.
++	 */
+ 
+ 	if (nla_put_u32(skb, TCA_FQ_PLIMIT, sch->limit) ||
+ 	    nla_put_u32(skb, TCA_FQ_FLOW_PLIMIT, q->flow_plimit) ||
+@@ -779,8 +773,6 @@ static int fq_dump(struct Qdisc *sch, struct sk_buff *skb)
+ 	    nla_put_u32(skb, TCA_FQ_INITIAL_QUANTUM, q->initial_quantum) ||
+ 	    nla_put_u32(skb, TCA_FQ_RATE_ENABLE, q->rate_enable) ||
+ 	    nla_put_u32(skb, TCA_FQ_FLOW_MAX_RATE, q->flow_max_rate) ||
+-	    nla_put_u32(skb, TCA_FQ_FLOW_REFILL_DELAY,
+-			jiffies_to_usecs(q->flow_refill_delay)) ||
+ 	    nla_put_u32(skb, TCA_FQ_BUCKETS_LOG, q->fq_trees_log))
+ 		goto nla_put_failure;
+ 
 -- 
 1.9.1
