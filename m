@@ -1,55 +1,82 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [PATCH net-next 0/3] openvswitch: Add STT support.
-Date: Mon, 2 Feb 2015 12:39:50 -0800
-Message-ID: <CAEP_g=_rBmDKDM7fjud78YY=HLnf1r3OdcXux=tm55TxG1DFig@mail.gmail.com>
-References: <1421785536-19793-1-git-send-email-pshelar@nicira.com>
- <CA+mtBx90TipY9uJvW2uQfrCYL9JNM9Rk75HzdJPhE0qsdy8dnw@mail.gmail.com>
- <CALnjE+rSXpPftiG4Vw3azkN2s2-Ey6ZcZr9Bv422pOdwrvU=tw@mail.gmail.com>
- <CA+mtBx9yM+C8GeEHOGTHPVxNB3fJd7LQG0RaC3jywrO9_tQ58A@mail.gmail.com>
- <CALnjE+po5gy7g8ftmiNcnrN_gRL9tzCRHNtn=fxUafFikKB1rg@mail.gmail.com>
- <CA+mtBx-v5dvX-OPGeWJb6uwQGhJ5T6iewD83xJGqXb+Ggf+LQw@mail.gmail.com>
- <CAEP_g=-3GXJfawPb4jevkZhqmzTttsO1Rv_2J6GwpG=PR_a-0g@mail.gmail.com> <CA+mtBx8mQ4ai3mbY4=HrKjximaEe-+ui2uEqeunQ3kOG=YNBpA@mail.gmail.com>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH net-next 5/6] udpv6: Add lockless sendmsg() support
+Date: Mon, 02 Feb 2015 15:42:16 -0500
+Message-ID: <54CFE128.8000605@gmail.com>
+References: <1422718818-21093-1-git-send-email-vyasevic@redhat.com> <1422718818-21093-6-git-send-email-vyasevic@redhat.com> <54CD3FF4.1030007@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Pravin Shelar <pshelar@nicira.com>,
-	David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Tom Herbert <therbert@google.com>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: herbert@gondor.apana.org.au, hannes@stressinduktion.org,
+	Vladislav Yasevich <vyasevic@redhat.com>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog107.obsmtp.com ([74.125.149.197]:36904 "HELO
-	na3sys009aog107.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S933243AbbBBUkL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2015 15:40:11 -0500
-Received: by mail-qg0-f44.google.com with SMTP id l89so49357172qgf.3
-        for <netdev@vger.kernel.org>; Mon, 02 Feb 2015 12:40:10 -0800 (PST)
-In-Reply-To: <CA+mtBx8mQ4ai3mbY4=HrKjximaEe-+ui2uEqeunQ3kOG=YNBpA@mail.gmail.com>
+Received: from mail-qc0-f176.google.com ([209.85.216.176]:63554 "EHLO
+	mail-qc0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753260AbbBBUmT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2015 15:42:19 -0500
+Received: by mail-qc0-f176.google.com with SMTP id c9so32314496qcz.7
+        for <netdev@vger.kernel.org>; Mon, 02 Feb 2015 12:42:19 -0800 (PST)
+In-Reply-To: <54CD3FF4.1030007@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 2, 2015 at 8:23 AM, Tom Herbert <therbert@google.com> wrote:
->> I would recommend you take a look at the draft if you haven't already:
->> http://tools.ietf.org/html/draft-davie-stt-06
+On 01/31/2015 03:49 PM, Sergei Shtylyov wrote:
+> Hello.
+> 
+> On 1/31/2015 6:40 PM, Vladislav Yasevich wrote:
+> 
+>> This commit adds the same functionaliy to IPv6 that
+>> commit 903ab86d195cca295379699299c5fc10beba31c7
+>> Author: Herbert Xu <herbert@gondor.apana.org.au>
+>> Date:   Tue Mar 1 02:36:48 2011 +0000
+> 
+>>      udp: Add lockless transmit path
+> 
+>> added to IPv4.
+> 
+>> UDP transmit path can now run without a socket lock,
+>> thus allowing multiple threads to send to a single socket
+>> more efficiently.
+>> This is only used when corking/MSG_MORE is not used.
+> 
+>> Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
+>> ---
+>>   net/ipv6/udp.c | 24 ++++++++++++++++++++----
+>>   1 file changed, 20 insertions(+), 4 deletions(-)
+> 
+>> diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+>> index 67a3d70..d048d46 100644
+>> --- a/net/ipv6/udp.c
+>> +++ b/net/ipv6/udp.c
+> [...]
+>> @@ -1307,6 +1308,20 @@ do_udp_sendmsg:
+>>           goto do_confirm;
+>>   back_from_confirm:
 >>
->> It is currently in the final stages of the RFC publication process.
->
-> Sorry, but this statement is completely wrong and misleading.
-> According to datatracker this draft has been expired since October,
-> there's been no discussion on it in IETF, and this has not gone to
-> IESG. You cannot say this is an IETF standard nor that it is about to
-> be published as one.  See
-> https://datatracker.ietf.org/doc/draft-davie-stt/ and please read the
-> Internet Standards process in RFC2026.
->
-> I suggest that you update the draft and post it on both nvo3 and tsvwg
-> so there can be some real discussion on the implications of
-> repurposing an IP protocol number and breaking TCP protocol standards.
+>> +    /* Lockless fast path for the non-corking case */
+>> +    if (!corkreq) {
+>> +        struct sk_buff *skb;
+>>
+>> +        skb = ip6_make_skb(sk, getfrag, msg, ulen,
+>> +                   sizeof(struct udphdr), hlimit, tclass, opt,
+>> +                   &fl6, (struct rt6_info *)dst,
+>> +                   msg->msg_flags, dontfrag);
+>> +        err = PTR_ERR(skb);
+> 
+>    You should use PTR_ERR_OR_ZERO() here, I think.
+> 
 
-Seriously, Tom?
+That particular code was stolen from ipv4/udp.c.  You are
+right, we can use PTR_ERR_OR_ZERO() and simplify the following
+check as well.
 
-It's currently in the ISE queue to be published as an RFC, which you
-can see in the history in the datatracker link. I didn't say that it
-was being published as a standard, I said RFC. This is the same
-process and status that VXLAN has.. It also was presented in nvo3
-before you started coming.
+Will fix.
 
-Please get your facts straight before making accusations.
+Thanks
+-vlad
+
+> [...]
+> 
+> WBR, Sergei
+> 
