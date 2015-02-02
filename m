@@ -1,44 +1,55 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] bluetooth: hci_sock: Use type cast "(void *)" to avoid
- building warnings
-Date: Mon, 02 Feb 2015 12:39:58 -0800
-Message-ID: <1422909598.30476.20.camel@perches.com>
-References: <54CFE01D.5090309@sunrus.com.cn>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [PATCH net-next 0/3] openvswitch: Add STT support.
+Date: Mon, 2 Feb 2015 12:39:50 -0800
+Message-ID: <CAEP_g=_rBmDKDM7fjud78YY=HLnf1r3OdcXux=tm55TxG1DFig@mail.gmail.com>
+References: <1421785536-19793-1-git-send-email-pshelar@nicira.com>
+ <CA+mtBx90TipY9uJvW2uQfrCYL9JNM9Rk75HzdJPhE0qsdy8dnw@mail.gmail.com>
+ <CALnjE+rSXpPftiG4Vw3azkN2s2-Ey6ZcZr9Bv422pOdwrvU=tw@mail.gmail.com>
+ <CA+mtBx9yM+C8GeEHOGTHPVxNB3fJd7LQG0RaC3jywrO9_tQ58A@mail.gmail.com>
+ <CALnjE+po5gy7g8ftmiNcnrN_gRL9tzCRHNtn=fxUafFikKB1rg@mail.gmail.com>
+ <CA+mtBx-v5dvX-OPGeWJb6uwQGhJ5T6iewD83xJGqXb+Ggf+LQw@mail.gmail.com>
+ <CAEP_g=-3GXJfawPb4jevkZhqmzTttsO1Rv_2J6GwpG=PR_a-0g@mail.gmail.com> <CA+mtBx8mQ4ai3mbY4=HrKjximaEe-+ui2uEqeunQ3kOG=YNBpA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: marcel@holtmann.org, gustavo@padovan.org, johan.hedberg@gmail.com,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-bluetooth@vger.kernel.org,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Chen Gang S <gang.chen@sunrus.com.cn>
+Content-Type: text/plain; charset=UTF-8
+Cc: Pravin Shelar <pshelar@nicira.com>,
+	David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0004.hostedemail.com ([216.40.44.4]:42615 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S933243AbbBBUkD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2015 15:40:03 -0500
-In-Reply-To: <54CFE01D.5090309@sunrus.com.cn>
+Received: from na3sys009aog107.obsmtp.com ([74.125.149.197]:36904 "HELO
+	na3sys009aog107.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S933243AbbBBUkL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2015 15:40:11 -0500
+Received: by mail-qg0-f44.google.com with SMTP id l89so49357172qgf.3
+        for <netdev@vger.kernel.org>; Mon, 02 Feb 2015 12:40:10 -0800 (PST)
+In-Reply-To: <CA+mtBx8mQ4ai3mbY4=HrKjximaEe-+ui2uEqeunQ3kOG=YNBpA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2015-02-03 at 04:37 +0800, Chen Gang S wrote:
-> The related warning (with allmodconfig under xtensa):
-[]
-> diff --git a/net/bluetooth/hci_sock.c b/net/bluetooth/hci_sock.c
-[]
-> @@ -952,7 +952,7 @@ static int hci_sock_sendmsg(struct kiocb *iocb, struct socket *sock,
->  
->  		if (((ogf > HCI_SFLT_MAX_OGF) ||
->  		     !hci_test_bit(ocf & HCI_FLT_OCF_BITS,
-> -				   &hci_sec_filter.ocf_mask[ogf])) &&
-> +				   (void *)&hci_sec_filter.ocf_mask[ogf])) &&
->  		    !capable(CAP_NET_RAW)) {
->  			err = -EPERM;
->  			goto drop;
+On Mon, Feb 2, 2015 at 8:23 AM, Tom Herbert <therbert@google.com> wrote:
+>> I would recommend you take a look at the draft if you haven't already:
+>> http://tools.ietf.org/html/draft-davie-stt-06
+>>
+>> It is currently in the final stages of the RFC publication process.
+>
+> Sorry, but this statement is completely wrong and misleading.
+> According to datatracker this draft has been expired since October,
+> there's been no discussion on it in IETF, and this has not gone to
+> IESG. You cannot say this is an IETF standard nor that it is about to
+> be published as one.  See
+> https://datatracker.ietf.org/doc/draft-davie-stt/ and please read the
+> Internet Standards process in RFC2026.
+>
+> I suggest that you update the draft and post it on both nvo3 and tsvwg
+> so there can be some real discussion on the implications of
+> repurposing an IP protocol number and breaking TCP protocol standards.
 
-Probably better to change the hci_test_bit to take const void *
+Seriously, Tom?
 
-static inline int hci_test_bit(int nr, void *addr)
-{
-	return *((__u32 *) addr + (nr >> 5)) & ((__u32) 1 << (nr & 31));
-}
+It's currently in the ISE queue to be published as an RFC, which you
+can see in the history in the datatracker link. I didn't say that it
+was being published as a standard, I said RFC. This is the same
+process and status that VXLAN has.. It also was presented in nvo3
+before you started coming.
+
+Please get your facts straight before making accusations.
