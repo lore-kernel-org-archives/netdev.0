@@ -1,74 +1,81 @@
-From: David Vrabel <david.vrabel@citrix.com>
-Subject: [PATCHv1 net] xen-netback: stop the guest rx thread after a fatal error
-Date: Mon, 2 Feb 2015 16:57:51 +0000
-Message-ID: <1422896271-26551-1-git-send-email-david.vrabel@citrix.com>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [PATCHv1 net] xen-netback: stop the guest rx thread after a
+ fatal error
+Date: Mon, 2 Feb 2015 17:00:37 +0000
+Message-ID: <20150202170037.GA841@zion.uk.xensource.com>
+References: <1422896271-26551-1-git-send-email-david.vrabel@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: David Vrabel <david.vrabel@citrix.com>,
-	<xen-devel@lists.xenproject.org>,
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>, <xen-devel@lists.xenproject.org>,
 	Ian Campbell <ian.campbell@citrix.com>,
 	Wei Liu <wei.liu2@citrix.com>
-To: <netdev@vger.kernel.org>
+To: David Vrabel <david.vrabel@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:29250 "EHLO SMTP.CITRIX.COM"
+Received: from smtp.citrix.com ([66.165.176.89]:28534 "EHLO SMTP.CITRIX.COM"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932536AbbBBQ6D (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Feb 2015 11:58:03 -0500
+	id S932424AbbBBRAi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Feb 2015 12:00:38 -0500
+Content-Disposition: inline
+In-Reply-To: <1422896271-26551-1-git-send-email-david.vrabel@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-After commit e9d8b2c2968499c1f96563e6522c56958d5a1d0d (xen-netback:
-disable rogue vif in kthread context), a fatal (protocol) error would
-leave the guest Rx thread spinning, wasting CPU time.  Commit
-ecf08d2dbb96d5a4b4bcc53a39e8d29cc8fef02e (xen-netback: reintroduce
-guest Rx stall detection) made this even worse by removing a
-cond_resched() from this path.
+On Mon, Feb 02, 2015 at 04:57:51PM +0000, David Vrabel wrote:
+> After commit e9d8b2c2968499c1f96563e6522c56958d5a1d0d (xen-netback:
+> disable rogue vif in kthread context), a fatal (protocol) error would
+> leave the guest Rx thread spinning, wasting CPU time.  Commit
+> ecf08d2dbb96d5a4b4bcc53a39e8d29cc8fef02e (xen-netback: reintroduce
+> guest Rx stall detection) made this even worse by removing a
+> cond_resched() from this path.
+> 
+> Since a fatal error is non-recoverable, just allow the guest Rx thread
+> to exit.  This requires taking additional refs to the task so the
+> thread exiting early is handled safely.
+> 
+> Signed-off-by: David Vrabel <david.vrabel@citrix.com>
+> Reported-by: Julien Grall <julien.grall@linaro.org>
+> Tested-by: Julien Grall <julien.grall@linaro.org>
 
-Since a fatal error is non-recoverable, just allow the guest Rx thread
-to exit.  This requires taking additional refs to the task so the
-thread exiting early is handled safely.
+Acked-by: Wei Liu <wei.liu2@citrix.com>
 
-Signed-off-by: David Vrabel <david.vrabel@citrix.com>
-Reported-by: Julien Grall <julien.grall@linaro.org>
-Tested-by: Julien Grall <julien.grall@linaro.org>
----
- drivers/net/xen-netback/interface.c |    2 ++
- drivers/net/xen-netback/netback.c   |    3 +--
- 2 files changed, 3 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
-index 9259a73..037f74f 100644
---- a/drivers/net/xen-netback/interface.c
-+++ b/drivers/net/xen-netback/interface.c
-@@ -578,6 +578,7 @@ int xenvif_connect(struct xenvif_queue *queue, unsigned long tx_ring_ref,
- 		goto err_rx_unbind;
- 	}
- 	queue->task = task;
-+	get_task_struct(task);
- 
- 	task = kthread_create(xenvif_dealloc_kthread,
- 			      (void *)queue, "%s-dealloc", queue->name);
-@@ -634,6 +635,7 @@ void xenvif_disconnect(struct xenvif *vif)
- 
- 		if (queue->task) {
- 			kthread_stop(queue->task);
-+			put_task_struct(queue->task);
- 			queue->task = NULL;
- 		}
- 
-diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-index 908e65e..c8ce701 100644
---- a/drivers/net/xen-netback/netback.c
-+++ b/drivers/net/xen-netback/netback.c
-@@ -2109,8 +2109,7 @@ int xenvif_kthread_guest_rx(void *data)
- 		 */
- 		if (unlikely(vif->disabled && queue->id == 0)) {
- 			xenvif_carrier_off(vif);
--			xenvif_rx_queue_purge(queue);
--			continue;
-+			break;
- 		}
- 
- 		if (!skb_queue_empty(&queue->rx_queue))
--- 
-1.7.10.4
+> ---
+>  drivers/net/xen-netback/interface.c |    2 ++
+>  drivers/net/xen-netback/netback.c   |    3 +--
+>  2 files changed, 3 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
+> index 9259a73..037f74f 100644
+> --- a/drivers/net/xen-netback/interface.c
+> +++ b/drivers/net/xen-netback/interface.c
+> @@ -578,6 +578,7 @@ int xenvif_connect(struct xenvif_queue *queue, unsigned long tx_ring_ref,
+>  		goto err_rx_unbind;
+>  	}
+>  	queue->task = task;
+> +	get_task_struct(task);
+>  
+>  	task = kthread_create(xenvif_dealloc_kthread,
+>  			      (void *)queue, "%s-dealloc", queue->name);
+> @@ -634,6 +635,7 @@ void xenvif_disconnect(struct xenvif *vif)
+>  
+>  		if (queue->task) {
+>  			kthread_stop(queue->task);
+> +			put_task_struct(queue->task);
+>  			queue->task = NULL;
+>  		}
+>  
+> diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+> index 908e65e..c8ce701 100644
+> --- a/drivers/net/xen-netback/netback.c
+> +++ b/drivers/net/xen-netback/netback.c
+> @@ -2109,8 +2109,7 @@ int xenvif_kthread_guest_rx(void *data)
+>  		 */
+>  		if (unlikely(vif->disabled && queue->id == 0)) {
+>  			xenvif_carrier_off(vif);
+> -			xenvif_rx_queue_purge(queue);
+> -			continue;
+> +			break;
+>  		}
+>  
+>  		if (!skb_queue_empty(&queue->rx_queue))
+> -- 
+> 1.7.10.4
