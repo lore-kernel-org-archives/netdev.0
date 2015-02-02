@@ -1,48 +1,60 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: rocker: Change netdev names to include slot number
-Date: Mon, 02 Feb 2015 14:16:44 -0800 (PST)
-Message-ID: <20150202.141644.1997150889832162344.davem@davemloft.net>
-References: <1422856985-16530-1-git-send-email-dsahern@gmail.com>
-	<CAE4R7bA0Ea9zugm=OR0EN2qSeoiROEoMiYZ-5YMwd9UdS4L0Sg@mail.gmail.com>
-	<54CFEF20.8060300@gmail.com>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCH net-next 0/3] openvswitch: Add STT support.
+Date: Mon, 2 Feb 2015 14:49:37 -0800
+Message-ID: <CA+mtBx9RYKY0zDAZEe5Pcc759ysAoXfgwn1rb3PfC92rM-_VvA@mail.gmail.com>
+References: <1421785536-19793-1-git-send-email-pshelar@nicira.com>
+	<CA+mtBx90TipY9uJvW2uQfrCYL9JNM9Rk75HzdJPhE0qsdy8dnw@mail.gmail.com>
+	<CALnjE+rSXpPftiG4Vw3azkN2s2-Ey6ZcZr9Bv422pOdwrvU=tw@mail.gmail.com>
+	<CA+mtBx9yM+C8GeEHOGTHPVxNB3fJd7LQG0RaC3jywrO9_tQ58A@mail.gmail.com>
+	<CALnjE+po5gy7g8ftmiNcnrN_gRL9tzCRHNtn=fxUafFikKB1rg@mail.gmail.com>
+	<CA+mtBx-v5dvX-OPGeWJb6uwQGhJ5T6iewD83xJGqXb+Ggf+LQw@mail.gmail.com>
+	<CAEP_g=-3GXJfawPb4jevkZhqmzTttsO1Rv_2J6GwpG=PR_a-0g@mail.gmail.com>
+	<CA+mtBx8mQ4ai3mbY4=HrKjximaEe-+ui2uEqeunQ3kOG=YNBpA@mail.gmail.com>
+	<CAEP_g=_rBmDKDM7fjud78YY=HLnf1r3OdcXux=tm55TxG1DFig@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: sfeldma@gmail.com, netdev@vger.kernel.org
-To: dsahern@gmail.com
+Content-Type: text/plain; charset=UTF-8
+Cc: Pravin Shelar <pshelar@nicira.com>,
+	David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Jesse Gross <jesse@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48715 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933530AbbBBWQo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2015 17:16:44 -0500
-In-Reply-To: <54CFEF20.8060300@gmail.com>
+Received: from mail-ig0-f170.google.com ([209.85.213.170]:65238 "EHLO
+	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965084AbbBBWti (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2015 17:49:38 -0500
+Received: by mail-ig0-f170.google.com with SMTP id l13so20604205iga.1
+        for <netdev@vger.kernel.org>; Mon, 02 Feb 2015 14:49:37 -0800 (PST)
+In-Reply-To: <CAEP_g=_rBmDKDM7fjud78YY=HLnf1r3OdcXux=tm55TxG1DFig@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Ahern <dsahern@gmail.com>
-Date: Mon, 02 Feb 2015 14:41:52 -0700
-
-> On 2/2/15 2:33 PM, Scott Feldman wrote:
->> On Sun, Feb 1, 2015 at 10:03 PM, David Ahern <dsahern@gmail.com>
->> wrote:
->>> Currently, rocker devices are given eth%d names. If you have multiple
->>> rocker devices it is difficult to easily correlate eth%d names to a
->>> rocker device and port. Change the device name to sw + PCI slot
->>> number + p + id (sw%dp%d). This makes the device names easier to
->>> correlate. ie., Rather than eth0, ..., eth N (N = number of ports in
->>> device) the ports get netdev names like sw5p0, ..., sw5pN.
+On Mon, Feb 2, 2015 at 12:39 PM, Jesse Gross <jesse@nicira.com> wrote:
+> On Mon, Feb 2, 2015 at 8:23 AM, Tom Herbert <therbert@google.com> wrote:
+>>> I would recommend you take a look at the draft if you haven't already:
+>>> http://tools.ietf.org/html/draft-davie-stt-06
+>>>
+>>> It is currently in the final stages of the RFC publication process.
 >>
->> I think udev is the preferred tool for interface naming, rather than
->> hard-coding interface names in the driver.
+>> Sorry, but this statement is completely wrong and misleading.
+>> According to datatracker this draft has been expired since October,
+>> there's been no discussion on it in IETF, and this has not gone to
+>> IESG. You cannot say this is an IETF standard nor that it is about to
+>> be published as one.  See
+>> https://datatracker.ietf.org/doc/draft-davie-stt/ and please read the
+>> Internet Standards process in RFC2026.
 >>
-> 
-> hmmm...  What I am seeing right now is a race as to which devices are
-> detected first -- rocker or virtio. On half of the boots the virtio
-> are detected first and named eth0 and eth1. The other half of the
-> boots virtio devices are detected last and become ethN+1 and ethN+2
-> (N=number of rocker ports) -- which makes it a PITA to script
-> commands. AFAIK udev won't solve that problem.
+>> I suggest that you update the draft and post it on both nvo3 and tsvwg
+>> so there can be some real discussion on the implications of
+>> repurposing an IP protocol number and breaking TCP protocol standards.
+>
+> Seriously, Tom?
+>
+> It's currently in the ISE queue to be published as an RFC, which you
+> can see in the history in the datatracker link. I didn't say that it
+> was being published as a standard, I said RFC. This is the same
+> process and status that VXLAN has.. It also was presented in nvo3
+> before you started coming.
+>
+> Please get your facts straight before making accusations.
 
-udev has already tackled this problem, it uses platform specific code
-to determine the physical geographic location of devices on the bus,
-and uses that to map device names.
+The draft has not come up before the IESG, I have confirmed that with the ADs.
