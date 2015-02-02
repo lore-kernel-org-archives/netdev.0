@@ -1,49 +1,41 @@
-From: Chen Gang S <gang.chen-/B7AUNIrSHOPt1CcHtbs0g@public.gmane.org>
-Subject: [PATCH v2] net: bluetooth: hci_sock: Use 'const void *' instead of
- 'void *' for 2nd parameter of hci_test_bit()
-Date: Tue, 03 Feb 2015 05:14:38 +0800
-Message-ID: <54CFE8BE.5030700@sunrus.com.cn>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3 0/3] Restore UFO support to virtio_net devices
+Date: Mon, 02 Feb 2015 13:11:58 -0800 (PST)
+Message-ID: <20150202.131158.2302675247156677150.davem@davemloft.net>
+References: <1422889269-16007-1-git-send-email-vyasevic@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org, gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org, johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: eric.dumazet@gmail.com, mst@redhat.com, netdev@vger.kernel.org,
+	virtualization@lists.linux-foundation.org,
+	hannes@stressinduktion.org, ben@decadent.org.uk
+To: vyasevich@gmail.com
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1422889269-16007-1-git-send-email-vyasevic@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-hci_test_bit() does not modify 2nd parameter, so it is better to let it
-be constant, or may cause build warning. The related warning (with
-allmodconfig under xtensa):
 
-  net/bluetooth/hci_sock.c: In function 'hci_sock_sendmsg':
-  net/bluetooth/hci_sock.c:955:8: warning: passing argument 2 of 'hci_test_bit' discards 'const' qualifier from pointer target type [-Wdiscarded-array-qualifiers]
-          &hci_sec_filter.ocf_mask[ogf])) &&
-          ^
-  net/bluetooth/hci_sock.c:49:19: note: expected 'void *' but argument is of type 'const __u32 (*)[4] {aka const unsigned int (*)[4]}'
-   static inline int hci_test_bit(int nr, void *addr)
-                     ^
+Vlad, this still fails the same way.
 
-Signed-off-by: Chen Gang <gang.chen.5i5j-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
----
- net/bluetooth/hci_sock.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+[davem@dokdo net]$ make -s -j8
+kernel/Makefile:132: *** No X.509 certificates found ***
+kernel/Makefile:132: *** No X.509 certificates found ***
+net/built-in.o: In function `udp6_ufo_fragment':
+udp_offload.c:(.text+0x103514): undefined reference to `ipv6_select_ident'
+make: *** [vmlinux] Error 1
 
-diff --git a/net/bluetooth/hci_sock.c b/net/bluetooth/hci_sock.c
-index 80c5a79..858b53a 100644
---- a/net/bluetooth/hci_sock.c
-+++ b/net/bluetooth/hci_sock.c
-@@ -46,7 +46,7 @@ struct hci_pinfo {
- 	unsigned short    channel;
- };
- 
--static inline int hci_test_bit(int nr, void *addr)
-+static inline int hci_test_bit(int nr, const void *addr)
- {
- 	return *((__u32 *) addr + (nr >> 5)) & ((__u32) 1 << (nr & 31));
- }
--- 
-1.9.3
+You're putting ipv6_select_ident() into the ipv6 module via
+ip6_output.c, but that means that code like udp_offload.c which is
+built statically into the kernel can't see the symbol.
+
+Please build allmodconfig, that is the exact build I use to test your
+and everyone else's changes.
