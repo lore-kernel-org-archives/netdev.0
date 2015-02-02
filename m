@@ -1,60 +1,58 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [PATCH net-next 0/3] openvswitch: Add STT support.
-Date: Mon, 2 Feb 2015 14:49:37 -0800
-Message-ID: <CA+mtBx9RYKY0zDAZEe5Pcc759ysAoXfgwn1rb3PfC92rM-_VvA@mail.gmail.com>
-References: <1421785536-19793-1-git-send-email-pshelar@nicira.com>
-	<CA+mtBx90TipY9uJvW2uQfrCYL9JNM9Rk75HzdJPhE0qsdy8dnw@mail.gmail.com>
-	<CALnjE+rSXpPftiG4Vw3azkN2s2-Ey6ZcZr9Bv422pOdwrvU=tw@mail.gmail.com>
-	<CA+mtBx9yM+C8GeEHOGTHPVxNB3fJd7LQG0RaC3jywrO9_tQ58A@mail.gmail.com>
-	<CALnjE+po5gy7g8ftmiNcnrN_gRL9tzCRHNtn=fxUafFikKB1rg@mail.gmail.com>
-	<CA+mtBx-v5dvX-OPGeWJb6uwQGhJ5T6iewD83xJGqXb+Ggf+LQw@mail.gmail.com>
-	<CAEP_g=-3GXJfawPb4jevkZhqmzTttsO1Rv_2J6GwpG=PR_a-0g@mail.gmail.com>
-	<CA+mtBx8mQ4ai3mbY4=HrKjximaEe-+ui2uEqeunQ3kOG=YNBpA@mail.gmail.com>
-	<CAEP_g=_rBmDKDM7fjud78YY=HLnf1r3OdcXux=tm55TxG1DFig@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: Throughput regression with `tcp: refine TSO autosizing`
+Date: Mon, 02 Feb 2015 15:06:03 -0800
+Message-ID: <1422918363.21689.132.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CA+BoTQkVu23P3EOmY_Q3E1GJnWsyF==Pawz4iPOS_Bq5dvfO5Q@mail.gmail.com>
+	 <1422537297.21689.15.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CA+BoTQk2xT-8DqPuiiKG+kHAjLPrj8F9dLTb-rcGhvMq0u_2Qw@mail.gmail.com>
+	 <1422628835.21689.95.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CA+BoTQkV+mOZfe_Niz5101sMQeaV6muKCsShptjGQ1AgOHqqoQ@mail.gmail.com>
+	 <1422903136.21689.114.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <54CFEB46.3050006@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Pravin Shelar <pshelar@nicira.com>,
-	David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Jesse Gross <jesse@nicira.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f170.google.com ([209.85.213.170]:65238 "EHLO
-	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965084AbbBBWti (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2015 17:49:38 -0500
-Received: by mail-ig0-f170.google.com with SMTP id l13so20604205iga.1
-        for <netdev@vger.kernel.org>; Mon, 02 Feb 2015 14:49:37 -0800 (PST)
-In-Reply-To: <CAEP_g=_rBmDKDM7fjud78YY=HLnf1r3OdcXux=tm55TxG1DFig@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Michal Kazior <michal.kazior-++hxYGjEMp0AvxtiuMwx3w@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	eyalpe-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org
+To: Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <54CFEB46.3050006-my8/4N5VtI7c+919tysfdA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Feb 2, 2015 at 12:39 PM, Jesse Gross <jesse@nicira.com> wrote:
-> On Mon, Feb 2, 2015 at 8:23 AM, Tom Herbert <therbert@google.com> wrote:
->>> I would recommend you take a look at the draft if you haven't already:
->>> http://tools.ietf.org/html/draft-davie-stt-06
->>>
->>> It is currently in the final stages of the RFC publication process.
->>
->> Sorry, but this statement is completely wrong and misleading.
->> According to datatracker this draft has been expired since October,
->> there's been no discussion on it in IETF, and this has not gone to
->> IESG. You cannot say this is an IETF standard nor that it is about to
->> be published as one.  See
->> https://datatracker.ietf.org/doc/draft-davie-stt/ and please read the
->> Internet Standards process in RFC2026.
->>
->> I suggest that you update the draft and post it on both nvo3 and tsvwg
->> so there can be some real discussion on the implications of
->> repurposing an IP protocol number and breaking TCP protocol standards.
->
-> Seriously, Tom?
->
-> It's currently in the ISE queue to be published as an RFC, which you
-> can see in the history in the datatracker link. I didn't say that it
-> was being published as a standard, I said RFC. This is the same
-> process and status that VXLAN has.. It also was presented in nvo3
-> before you started coming.
->
-> Please get your facts straight before making accusations.
+On Mon, 2015-02-02 at 13:25 -0800, Ben Greear wrote:
 
-The draft has not come up before the IESG, I have confirmed that with the ADs.
+> It is a big throughput win to have fewer TCP ack packets on
+> wireless since it is a half-duplex environment.  Is there anything
+> we could improve so that we can have fewer acks and still get
+> good tcp stack behaviour?
+
+First apply TCP stretch ack fixes to the sender. There is no way to get
+good performance if the sender does not handle stretch ack.
+
+d6b1a8a92a14 tcp: fix timing issue in CUBIC slope calculation
+9cd981dcf174 tcp: fix stretch ACK bugs in CUBIC
+c22bdca94782 tcp: fix stretch ACK bugs in Reno
+814d488c6126 tcp: fix the timid additive increase on stretch ACKs
+e73ebb0881ea tcp: stretch ACK fixes prep
+
+Then, make sure you do not throttle ACK too long, especially if you hope
+to get Gbit line rate on a 4 ms RTT flow.
+
+GRO does not mean : send one ACK every ms, or after 3ms delay...
+
+It is literally :
+  aggregate X packets at receive, and send the ACK asap.
+
+If the receiver expects to have 64 ACK packets in the TX ring buffer to
+actually send them (wifi aggregation), then you certainly do not want to
+compress ACK too much.
+
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
