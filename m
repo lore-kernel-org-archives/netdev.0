@@ -1,126 +1,183 @@
-From: Phil Sutter <phil@nwl.cc>
+From: David Woodhouse <dwmw2@infradead.org>
 Subject: Re: [PATCH] tun: orphan an skb on tx
-Date: Mon, 2 Feb 2015 16:23:43 +0100
-Message-ID: <20150202152343.GA15880@orbit.nwl.cc>
+Date: Mon, 02 Feb 2015 15:30:25 +0000
+Message-ID: <1422891025.5293.262.camel@infradead.org>
 References: <1422797630.11044.32.camel@infradead.org>
- <20150201.121948.998046471405758397.davem@davemloft.net>
- <1422826183.11044.72.camel@infradead.org>
- <20150201.210716.588479604128207372.davem@davemloft.net>
- <1422862030.11044.86.camel@infradead.org>
+	 <20150201.121948.998046471405758397.davem@davemloft.net>
+	 <1422826183.11044.72.camel@infradead.org>
+	 <20150201.210716.588479604128207372.davem@davemloft.net>
+	 <1422862030.11044.86.camel@infradead.org>
+	 <20150202082446.GR13046@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: multipart/signed; micalg="sha-1"; protocol="application/x-pkcs7-signature";
+	boundary="=-lnFOyJIGQviHU/0JU38H"
 Cc: David Miller <davem@davemloft.net>, mst@redhat.com,
 	herbert@gondor.apana.org.au, eric.dumazet@gmail.com,
 	jan.kiszka@siemens.com, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org, qemu-devel@nongnu.org
-To: David Woodhouse <dwmw2@infradead.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1422862030.11044.86.camel@infradead.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Steffen Klassert <steffen.klassert@secunet.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from casper.infradead.org ([85.118.1.10]:60311 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754105AbbBBPaj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2015 10:30:39 -0500
+In-Reply-To: <20150202082446.GR13046@secunet.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
 
-On Mon, Feb 02, 2015 at 07:27:10AM +0000, David Woodhouse wrote:
-> On Sun, 2015-02-01 at 21:07 -0800, David Miller wrote:
-> > From: David Woodhouse <dwmw2@infradead.org>
-> > Date: Sun, 01 Feb 2015 21:29:43 +0000
-> >=20
-> > > I really was looking for some way to push down something like an =
-XFRM
-> > > state into the tun device and just say "shove them out here until=
- I tell
-> > > you otherwise".
-> >=20
-> > People decided to use TUN and push VPN stuff back into userspace,
-> > and there are repercussions for that decision.
-> >=20
-> > I'm not saying this to be mean or whatever, but I was very
-> > disappointed when userland IPSEC solutions using TUN started showin=
-g
-> > up.
+--=-lnFOyJIGQviHU/0JU38H
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+On Mon, 2015-02-02 at 09:24 +0100, Steffen Klassert wrote:
 >=20
-> Yeah. That's a valid criticism of vpnc, certainly. I never did
-> understand why it reimplemented the IPSec stack.
+> Maybe you want to use a virtual tunnel interface (vti) what we have
+> already. Everything that is routed through such an interface is
+> guaranteed to be either encrypted if a matching xfrm state is present
+> or dropped. Same on the rceive side, everything that is received by
+> this interface is guaranteed to be IPsec processed. So you can do
+> a routing based decision about the IPsec processing.
 >=20
-> For my OpenConnect client it's somewhat more justified though =E2=80=94=
- the
-> initial data transport there is over TLS, which the kernel doesn't
-> support. And if we *can* establish UDP communication, that's over DTL=
-S
-> which the kernel doesn't support either. It's not even the *standard*
-> version of DTLS because Cisco are still using a pre-RFC4347 version o=
-f
-> the protocol. And we also need to probe the UDP connectivity and do
-> keepalives and manage the fallback to using the TCP data transport.
->=20
-> It's not like vpnc where it really is just a case of setting up the E=
-SP
-> context and letting it run.
->=20
-> It's only now I've added Juniper support, which uses ESP-in-UDP for t=
-he
-> data transport, that I'm doing something that the kernel supports at
-> all. And now I'm looking at how to make use of that.
->=20
-> > We might as well have not have implemented the IPSEC stack at all,
-> > because as a result of the userland VPN stuff our IPSEC stack is
-> > largely unused except by a very narrow group of users.
->=20
-> Well, I'd love to make better use of it if I can. I do suspect it mak=
-es
-> most sense for userspace to continue to manage the probing of UDP
-> connectivity, and the fallback to TCP mode =E2=80=94 and I suspect it=
- also makes
-> sense to continue to use tun for passing packets up to the VPN client
-> when it's using the TCP transport.
->=20
-> So the question would be how we handle redirecting the packet flow to
-> the optional UDP transport, when the VPN client determines that it's
-> available. For the sake of the user setting up firewall and routing
-> rules, I do think it's important that it continues to appear to
-> userspace as the *same* device for the entire lifetime of the session=
-,
-> regardless of which transport the packets happen to be using at a giv=
-en
-> moment in time. It doesn't *have* to be tun, though.=20
+> While I'm sure it could handle the ESP in UDP encapsulation, I'm not that
+> sure about your TCP fallback because this requires a valid xfrm state
+> to allow packets to pass. Using the same interface for both is probably
+> not possible.
 
-Since you want to provide connectivity over HTTPS which is not possible
-in kernel space, you are stuck with keeping the tun device. So the
-packet flow in that case is identical to how e.g. OpenVPN does it:
+I'm trying to imagine how we could make it work in practice if we end up
+exposing two *different* interfaces and having to change the kernel's
+routing according to whether we have UDP connectivity at any given
+moment in time.
 
-- tunX holds default route
-- OpenConnect then:
-  - receives packets on /dev/tun
-  - holds TCP socket to VPN concentrator
-  - does encapsulation into TLS
+Given how painful it already is to maintain vpnc-script and make it do
+the right thing for split-include and split-exclude routing, I'm not
+really sure I want to go there.
 
-Speaking of optimisation, the interesting part is the alternative flow
-via IPsec in UDP. AFAICT, it should be possible to setup an ESP in UDP
-tunnel using XFRM (see ip-xfrm(8) for reference), although I didn't try
-that myself. The funny thing with XFRM is, it applies before the routin=
-g
-decision does: If my IPsec policy matches, the packet goes that way no
-matter what the routing table says about the original destination. This
-can be used to override the default route provided via tun0 in the abov=
-e
-case.
+Even if we could get such a scheme to work, it would probably also
+require retaining root privileges to make the changes =E2=80=94 and one of =
+the
+security benefits over the proprietary VPN clients is that we don't
+*need* to run as root. We can either drop privs after running
+vpnc-script to do the initial routing setup, or in the NetworkManager
+case we *never* run with elevated privileges; we just pass the
+IP/routing information back over DBus to NetworkManager.
 
-Of course, OpenConnect has to manage all the XFRM/policy stuff on it's
-own, since switching from ESP in UDP back to TLS would mean to tear dow=
-n
-the XFRM tunnel. OpenConnect would have to setup (a limited) XFRM and
-send test traffic to decide whether to set it up fully (if limited) or
-tear it down (if unlimited) again so traffic arrives at tunX again.
+It occurs to me that for the approach I was thinking about, I wouldn't
+even need to touch the internals of the tun driver. It could be a
+separate driver which just uses tun_get_socket(). Userspace could hand
+it the file descriptors of the tun device and the connected UDP socket,
+along with the encryption parameters =E2=80=94 and then just stop reading
+packets from the tun device for itself.
 
-In my opinion, this might work. The whole setup is probably about as
-intuitive as the fact that kernel IPsec tunnel mode does not naturally
-provide an own interface. Firewall setup on top of that might become a
-matter of try-and-error. Maybe having a VTI interface and merely moving
-the default route instead of fiddling with policies all the time might
-make things a little easier to comprehend, but surely adds some
-performance overhead.
+--=20
+dwmw2
 
-Cheers, Phil
+--=-lnFOyJIGQviHU/0JU38H
+Content-Type: application/x-pkcs7-signature; name="smime.p7s"
+Content-Disposition: attachment; filename="smime.p7s"
+Content-Transfer-Encoding: base64
+
+MIAGCSqGSIb3DQEHAqCAMIACAQExCzAJBgUrDgMCGgUAMIAGCSqGSIb3DQEHAQAAoIISxDCCBjQw
+ggQcoAMCAQICAR4wDQYJKoZIhvcNAQEFBQAwfTELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0
+Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcxKTAn
+BgNVBAMTIFN0YXJ0Q29tIENlcnRpZmljYXRpb24gQXV0aG9yaXR5MB4XDTA3MTAyNDIxMDE1NVoX
+DTE3MTAyNDIxMDE1NVowgYwxCzAJBgNVBAYTAklMMRYwFAYDVQQKEw1TdGFydENvbSBMdGQuMSsw
+KQYDVQQLEyJTZWN1cmUgRGlnaXRhbCBDZXJ0aWZpY2F0ZSBTaWduaW5nMTgwNgYDVQQDEy9TdGFy
+dENvbSBDbGFzcyAxIFByaW1hcnkgSW50ZXJtZWRpYXRlIENsaWVudCBDQTCCASIwDQYJKoZIhvcN
+AQEBBQADggEPADCCAQoCggEBAMcJg8zOLdgasSmkLhOrlr6KMoOMpohBllVHrdRvEg/q6r8jR+EK
+75xCGhR8ToREoqe7zM9/UnC6TS2y9UKTpT1v7RSMzR0t6ndl0TWBuUr/UXBhPk+Kmy7bI4yW4urC
++y7P3/1/X7U8ocb8VpH/Clt+4iq7nirMcNh6qJR+xjOhV+VHzQMALuGYn5KZmc1NbJQYclsGkDxD
+z2UbFqE2+6vIZoL+jb9x4Pa5gNf1TwSDkOkikZB1xtB4ZqtXThaABSONdfmv/Z1pua3FYxnCFmdr
+/+N2JLKutIxMYqQOJebr/f/h5t95m4JgrM3Y/w7YX9d7YAL9jvN4SydHsU6n65cCAwEAAaOCAa0w
+ggGpMA8GA1UdEwEB/wQFMAMBAf8wDgYDVR0PAQH/BAQDAgEGMB0GA1UdDgQWBBRTcu2SnODaywFc
+fH6WNU7y1LhRgjAfBgNVHSMEGDAWgBROC+8apEBbpRdphzDKNGhD0EGu8jBmBggrBgEFBQcBAQRa
+MFgwJwYIKwYBBQUHMAGGG2h0dHA6Ly9vY3NwLnN0YXJ0c3NsLmNvbS9jYTAtBggrBgEFBQcwAoYh
+aHR0cDovL3d3dy5zdGFydHNzbC5jb20vc2ZzY2EuY3J0MFsGA1UdHwRUMFIwJ6AloCOGIWh0dHA6
+Ly93d3cuc3RhcnRzc2wuY29tL3Nmc2NhLmNybDAnoCWgI4YhaHR0cDovL2NybC5zdGFydHNzbC5j
+b20vc2ZzY2EuY3JsMIGABgNVHSAEeTB3MHUGCysGAQQBgbU3AQIBMGYwLgYIKwYBBQUHAgEWImh0
+dHA6Ly93d3cuc3RhcnRzc2wuY29tL3BvbGljeS5wZGYwNAYIKwYBBQUHAgEWKGh0dHA6Ly93d3cu
+c3RhcnRzc2wuY29tL2ludGVybWVkaWF0ZS5wZGYwDQYJKoZIhvcNAQEFBQADggIBAAqDCH14qywG
+XLhjjF6uHLkjd02hcdh9hrw+VUsv+q1eeQWB21jWj3kJ96AUlPCoEGZ/ynJNScWy6QMVQjbbMXlt
+UfO4n4bGGdKo3awPWp61tjAFgraLJgDk+DsSvUD6EowjMTNx25GQgyYJ5RPIzKKR9tQW8gGK+2+R
+HxkUCTbYFnL6kl8Ch507rUdPPipJ9CgJFws3kDS3gOS5WFMxcjO5DwKfKSETEPrHh7p5shuuNktv
+sv6hxHTLhiMKX893gxdT3XLS9OKmCv87vkINQcNEcIIoFWbP9HORz9v3vQwR4e3ksLc2JZOAFK+s
+sS5XMEoznzpihEP0PLc4dCBYjbvSD7kxgDwZ+Aj8Q9PkbvE9sIPP7ON0fz095HdThKjiVJe6vofq
++n6b1NBc8XdrQvBmunwxD5nvtTW4vtN6VY7mUCmxsCieuoBJ9OlqmsVWQvifIYf40dJPZkk9YgGT
+zWLpXDSfLSplbY2LL9C9U0ptvjcDjefLTvqSFc7tw1sEhF0n/qpA2r0GpvkLRDmcSwVyPvmjFBGq
+Up/pNy8ZuPGQmHwFi2/14+xeSUDG2bwnsYJQG2EdJCB6luQ57GEnTA/yKZSTKI8dDQa8Sd3zfXb1
+9mOgSF0bBdXbuKhEpuP9wirslFe6fQ1t5j5R0xi72MZ8ikMu1RQZKCyDbMwazlHiMIIGQjCCBSqg
+AwIBAgIDCdkyMA0GCSqGSIb3DQEBBQUAMIGMMQswCQYDVQQGEwJJTDEWMBQGA1UEChMNU3RhcnRD
+b20gTHRkLjErMCkGA1UECxMiU2VjdXJlIERpZ2l0YWwgQ2VydGlmaWNhdGUgU2lnbmluZzE4MDYG
+A1UEAxMvU3RhcnRDb20gQ2xhc3MgMSBQcmltYXJ5IEludGVybWVkaWF0ZSBDbGllbnQgQ0EwHhcN
+MTQwNTA0MTczMDIyWhcNMTUwNTA0MjM0MTAxWjBdMRkwFwYDVQQNExAzODNCMTVkSHFQSUR0cDZO
+MRwwGgYDVQQDDBNkd213MkBpbmZyYWRlYWQub3JnMSIwIAYJKoZIhvcNAQkBFhNkd213MkBpbmZy
+YWRlYWQub3JnMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAy7K+t+REIdZGFUfgR8Io
+QrJ/VLZil9I00JcwqTo8BiGy1dqSIB2y923siya5SDKMh1YurtCPsX96cNzwPmmN2cs0MKeVPQWz
+iQhHk3uKcB6LvvS7pzTahRWMRmTyW3CH+RphRM9plvyClY23GEeEnpBnGz4GaJJiPcJjGgzyZ/tI
+q473pOlSrDPZnZk43vt/5CJN46nIZOZ2I+PzlgINI+EbiwsXVn3VohHB7nVTwGaRLk5oywGt8ZT7
+tDdxn3BQ3inO1sr5MtkV1o2cHlenIC8mlU8nL/mrqqVve7Vib1YQUycW+Pj4CBYm4FTeuctAvNzK
+U/daeBclOZ8ofgQe2wIDAQABo4IC2TCCAtUwCQYDVR0TBAIwADALBgNVHQ8EBAMCBLAwHQYDVR0l
+BBYwFAYIKwYBBQUHAwIGCCsGAQUFBwMEMB0GA1UdDgQWBBRAjCSCV70BpLBeXge5DXi+mPhHTTAf
+BgNVHSMEGDAWgBRTcu2SnODaywFcfH6WNU7y1LhRgjAeBgNVHREEFzAVgRNkd213MkBpbmZyYWRl
+YWQub3JnMIIBTAYDVR0gBIIBQzCCAT8wggE7BgsrBgEEAYG1NwECAzCCASowLgYIKwYBBQUHAgEW
+Imh0dHA6Ly93d3cuc3RhcnRzc2wuY29tL3BvbGljeS5wZGYwgfcGCCsGAQUFBwICMIHqMCcWIFN0
+YXJ0Q29tIENlcnRpZmljYXRpb24gQXV0aG9yaXR5MAMCAQEagb5UaGlzIGNlcnRpZmljYXRlIHdh
+cyBpc3N1ZWQgYWNjb3JkaW5nIHRvIHRoZSBDbGFzcyAxIFZhbGlkYXRpb24gcmVxdWlyZW1lbnRz
+IG9mIHRoZSBTdGFydENvbSBDQSBwb2xpY3ksIHJlbGlhbmNlIG9ubHkgZm9yIHRoZSBpbnRlbmRl
+ZCBwdXJwb3NlIGluIGNvbXBsaWFuY2Ugb2YgdGhlIHJlbHlpbmcgcGFydHkgb2JsaWdhdGlvbnMu
+MDYGA1UdHwQvMC0wK6ApoCeGJWh0dHA6Ly9jcmwuc3RhcnRzc2wuY29tL2NydHUxLWNybC5jcmww
+gY4GCCsGAQUFBwEBBIGBMH8wOQYIKwYBBQUHMAGGLWh0dHA6Ly9vY3NwLnN0YXJ0c3NsLmNvbS9z
+dWIvY2xhc3MxL2NsaWVudC9jYTBCBggrBgEFBQcwAoY2aHR0cDovL2FpYS5zdGFydHNzbC5jb20v
+Y2VydHMvc3ViLmNsYXNzMS5jbGllbnQuY2EuY3J0MCMGA1UdEgQcMBqGGGh0dHA6Ly93d3cuc3Rh
+cnRzc2wuY29tLzANBgkqhkiG9w0BAQUFAAOCAQEAWS2KNN7O3vZVtNHXVqgbmijeptKwt+8b6yiF
+wT3kJoywInPl5U+OeKRZfQKTHghM4Ohof6lF244ZMxhir/xp7l/zkZ/BUbxLwp6kIL27Gi5pgP4D
+KLnTZheQL9N5Yi/vMONxMWcpcW+ZNv5hnDCfEsfVcLXC8sNLPjx2ezfMIhSSPwBuJpmOun70te4E
+P0YBqjSalPfvc5fC5KgaYtqTDFwo9Mw25X5HHDC0r6BK5aNrF1nD/xYTX7cdvZZWl7cUApr4PCrn
+uI2DEn7OWQ/rY407ytV1c5pjvmuv/IT/ZUb/kXV6Q47UvrJp2Ifi2VhsBcnHHasKavjtRCmpDsGM
+rTCCBkIwggUqoAMCAQICAwnZMjANBgkqhkiG9w0BAQUFADCBjDELMAkGA1UEBhMCSUwxFjAUBgNV
+BAoTDVN0YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNp
+Z25pbmcxODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xp
+ZW50IENBMB4XDTE0MDUwNDE3MzAyMloXDTE1MDUwNDIzNDEwMVowXTEZMBcGA1UEDRMQMzgzQjE1
+ZEhxUElEdHA2TjEcMBoGA1UEAwwTZHdtdzJAaW5mcmFkZWFkLm9yZzEiMCAGCSqGSIb3DQEJARYT
+ZHdtdzJAaW5mcmFkZWFkLm9yZzCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAMuyvrfk
+RCHWRhVH4EfCKEKyf1S2YpfSNNCXMKk6PAYhstXakiAdsvdt7IsmuUgyjIdWLq7Qj7F/enDc8D5p
+jdnLNDCnlT0Fs4kIR5N7inAei770u6c02oUVjEZk8ltwh/kaYUTPaZb8gpWNtxhHhJ6QZxs+BmiS
+Yj3CYxoM8mf7SKuO96TpUqwz2Z2ZON77f+QiTeOpyGTmdiPj85YCDSPhG4sLF1Z91aIRwe51U8Bm
+kS5OaMsBrfGU+7Q3cZ9wUN4pztbK+TLZFdaNnB5XpyAvJpVPJy/5q6qlb3u1Ym9WEFMnFvj4+AgW
+JuBU3rnLQLzcylP3WngXJTmfKH4EHtsCAwEAAaOCAtkwggLVMAkGA1UdEwQCMAAwCwYDVR0PBAQD
+AgSwMB0GA1UdJQQWMBQGCCsGAQUFBwMCBggrBgEFBQcDBDAdBgNVHQ4EFgQUQIwkgle9AaSwXl4H
+uQ14vpj4R00wHwYDVR0jBBgwFoAUU3Ltkpzg2ssBXHx+ljVO8tS4UYIwHgYDVR0RBBcwFYETZHdt
+dzJAaW5mcmFkZWFkLm9yZzCCAUwGA1UdIASCAUMwggE/MIIBOwYLKwYBBAGBtTcBAgMwggEqMC4G
+CCsGAQUFBwIBFiJodHRwOi8vd3d3LnN0YXJ0c3NsLmNvbS9wb2xpY3kucGRmMIH3BggrBgEFBQcC
+AjCB6jAnFiBTdGFydENvbSBDZXJ0aWZpY2F0aW9uIEF1dGhvcml0eTADAgEBGoG+VGhpcyBjZXJ0
+aWZpY2F0ZSB3YXMgaXNzdWVkIGFjY29yZGluZyB0byB0aGUgQ2xhc3MgMSBWYWxpZGF0aW9uIHJl
+cXVpcmVtZW50cyBvZiB0aGUgU3RhcnRDb20gQ0EgcG9saWN5LCByZWxpYW5jZSBvbmx5IGZvciB0
+aGUgaW50ZW5kZWQgcHVycG9zZSBpbiBjb21wbGlhbmNlIG9mIHRoZSByZWx5aW5nIHBhcnR5IG9i
+bGlnYXRpb25zLjA2BgNVHR8ELzAtMCugKaAnhiVodHRwOi8vY3JsLnN0YXJ0c3NsLmNvbS9jcnR1
+MS1jcmwuY3JsMIGOBggrBgEFBQcBAQSBgTB/MDkGCCsGAQUFBzABhi1odHRwOi8vb2NzcC5zdGFy
+dHNzbC5jb20vc3ViL2NsYXNzMS9jbGllbnQvY2EwQgYIKwYBBQUHMAKGNmh0dHA6Ly9haWEuc3Rh
+cnRzc2wuY29tL2NlcnRzL3N1Yi5jbGFzczEuY2xpZW50LmNhLmNydDAjBgNVHRIEHDAahhhodHRw
+Oi8vd3d3LnN0YXJ0c3NsLmNvbS8wDQYJKoZIhvcNAQEFBQADggEBAFktijTezt72VbTR11aoG5oo
+3qbSsLfvG+sohcE95CaMsCJz5eVPjnikWX0Ckx4ITODoaH+pRduOGTMYYq/8ae5f85GfwVG8S8Ke
+pCC9uxouaYD+Ayi502YXkC/TeWIv7zDjcTFnKXFvmTb+YZwwnxLH1XC1wvLDSz48dns3zCIUkj8A
+biaZjrp+9LXuBD9GAao0mpT373OXwuSoGmLakwxcKPTMNuV+RxwwtK+gSuWjaxdZw/8WE1+3Hb2W
+Vpe3FAKa+Dwq57iNgxJ+zlkP62ONO8rVdXOaY75rr/yE/2VG/5F1ekOO1L6yadiH4tlYbAXJxx2r
+Cmr47UQpqQ7BjK0xggNvMIIDawIBATCBlDCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0
+Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcxODA2
+BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENBAgMJ
+2TIwCQYFKw4DAhoFAKCCAa8wGAYJKoZIhvcNAQkDMQsGCSqGSIb3DQEHATAcBgkqhkiG9w0BCQUx
+DxcNMTUwMjAyMTUzMDI1WjAjBgkqhkiG9w0BCQQxFgQUS1abxbrxnd9rWwkReWgxrbj9F3AwgaUG
+CSsGAQQBgjcQBDGBlzCBlDCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0ZC4x
+KzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcxODA2BgNVBAMTL1N0
+YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENBAgMJ2TIwgacGCyqG
+SIb3DQEJEAILMYGXoIGUMIGMMQswCQYDVQQGEwJJTDEWMBQGA1UEChMNU3RhcnRDb20gTHRkLjEr
+MCkGA1UECxMiU2VjdXJlIERpZ2l0YWwgQ2VydGlmaWNhdGUgU2lnbmluZzE4MDYGA1UEAxMvU3Rh
+cnRDb20gQ2xhc3MgMSBQcmltYXJ5IEludGVybWVkaWF0ZSBDbGllbnQgQ0ECAwnZMjANBgkqhkiG
+9w0BAQEFAASCAQCBPKsoONupjdZzx/PvKynKAz7Tz6oPrImFaOMDMfNM5Kd7GJbclnK9OyEQC5Vz
+S9QvPoSL5RuLvTQDvAwThIKW97DZy1CwWVa+ktiHyU4Yy6fJCkOTKCuLyxifmhbyYfnX429Sw4IC
+aBTO0w1qI1LjBp2LUuYtnQDqZG8LVqXdgnH//G0bV2EprSy1EUSbGIriqUOej5Tvqz3xGMCm9O8+
+BYCq1zo5wyrv2/apOEsC0ZgO+DZYCZ7rdbnfby9DCgGoJY29m3WaMsqxpsC3stGouBnKJNFRkbyy
+Z/hUFttTbigCYc3JSpUVIBZ2TUOiG7FPc40I/E5ELUpCdietW1z6AAAAAAAA
+
+
+--=-lnFOyJIGQviHU/0JU38H--
