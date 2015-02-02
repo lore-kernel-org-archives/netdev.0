@@ -1,31 +1,47 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: [PATCH bluetooth-next] ieee802154: cc2520: Replace shift operations by BIT macro
-Date: Sun, 1 Feb 2015 21:10:39 -0800
-Message-ID: <9000AC78-D8DB-4FE3-86A1-666DE5A1295E@holtmann.org>
-References: <1422021509-18877-1-git-send-email-md.jamalmohiuddin@gmail.com>
-Mime-Version: 1.0 (Mac OS X Mail 8.1 \(1993\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: varkabhadram@gmail.com, alex.aring@gmail.com,
-	linux-wpan@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Mohammad Jamal <md.jamalmohiuddin@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1422021509-18877-1-git-send-email-md.jamalmohiuddin@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Ahern <dsahern@gmail.com>
+Subject: [PATCH] net: rocker: Change netdev names to include slot number
+Date: Sun,  1 Feb 2015 23:03:05 -0700
+Message-ID: <1422856985-16530-1-git-send-email-dsahern@gmail.com>
+Cc: sfeldma@gmail.com, David Ahern <dsahern@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f180.google.com ([209.85.223.180]:32938 "EHLO
+	mail-ie0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932172AbbBBGDP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2015 01:03:15 -0500
+Received: by mail-ie0-f180.google.com with SMTP id rl12so15438554iec.11
+        for <netdev@vger.kernel.org>; Sun, 01 Feb 2015 22:03:14 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Mohammad,
+Currently, rocker devices are given eth%d names. If you have multiple
+rocker devices it is difficult to easily correlate eth%d names to a
+rocker device and port. Change the device name to sw + PCI slot
+number + p + id (sw%dp%d). This makes the device names easier to
+correlate. ie., Rather than eth0, ..., eth N (N = number of ports in
+device) the ports get netdev names like sw5p0, ..., sw5pN.
 
-> This patch replaces the shifting operations by BIT macro
-> 
-> Signed-off-by: Mohammad Jamal <md.jamalmohiuddin@gmail.com>
-> ---
-> drivers/net/ieee802154/cc2520.c |    6 +++---
-> 1 file changed, 3 insertions(+), 3 deletions(-)
+Signed-off-by: David Ahern <dsahern@gmail.com>
+---
+ drivers/net/ethernet/rocker/rocker.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
 
-patch has been applied to bluetooth-next tree.
-
-Regards
-
-Marcel
+diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
+index 11f4ffcc113d..1d1cf84e6f47 100644
+--- a/drivers/net/ethernet/rocker/rocker.c
++++ b/drivers/net/ethernet/rocker/rocker.c
+@@ -4010,8 +4010,11 @@ static int rocker_probe_port(struct rocker *rocker, unsigned int port_number)
+ 	struct rocker_port *rocker_port;
+ 	struct net_device *dev;
+ 	int err;
++	char str[IFNAMSIZ];
+ 
+-	dev = alloc_etherdev(sizeof(struct rocker_port));
++	snprintf(str, sizeof(str), "sw%dp%%d", pdev->slot->number);
++	dev = alloc_netdev_mqs(sizeof(struct rocker_port),
++			       str, NET_NAME_UNKNOWN, ether_setup, 1, 1);
+ 	if (!dev)
+ 		return -ENOMEM;
+ 	rocker_port = netdev_priv(dev);
+-- 
+1.9.3 (Apple Git-50)
