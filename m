@@ -1,77 +1,97 @@
-From: Michal Kazior <michal.kazior-++hxYGjEMp0AvxtiuMwx3w@public.gmane.org>
-Subject: Re: Throughput regression with `tcp: refine TSO autosizing`
-Date: Mon, 2 Feb 2015 11:27:15 +0100
-Message-ID: <CA+BoTQkV+mOZfe_Niz5101sMQeaV6muKCsShptjGQ1AgOHqqoQ@mail.gmail.com>
-References: <CA+BoTQkVu23P3EOmY_Q3E1GJnWsyF==Pawz4iPOS_Bq5dvfO5Q@mail.gmail.com>
-	<1422537297.21689.15.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CA+BoTQk2xT-8DqPuiiKG+kHAjLPrj8F9dLTb-rcGhvMq0u_2Qw@mail.gmail.com>
-	<1422628835.21689.95.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Alexander Duyck <alexander.h.duyck@redhat.com>
+Subject: Re: [PATCHv2 net] net: restore lro after device detached from bridge
+Date: Mon, 02 Feb 2015 02:35:02 -0800
+Message-ID: <54CF52D6.90701@redhat.com>
+References: <1422621209-23222-1-git-send-email-fan.du@intel.com> <54CBEE24.8000603@redhat.com> <54CEDEDC.7060507@gmail.com>
+Reply-To: alexander.h.duyck@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	eyalpe-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org
-To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1422628835.21689.95.camel-XN9IlZ5yJG9HTL0Zs8A6p/gx64E7kk8eUsxypvmhUTTZJqsBc5GL+g@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Fan Du <fan.du@intel.com>, bhutchings@solarflare.com,
+	davem@davemloft.net, netdev@vger.kernel.org
+To: Fan Du <fengyuleidian0615@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:37860 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933141AbbBBKfM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Feb 2015 05:35:12 -0500
+In-Reply-To: <54CEDEDC.7060507@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 30 January 2015 at 15:40, Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrot=
-e:
-> On Fri, 2015-01-30 at 14:39 +0100, Michal Kazior wrote:
+On 02/01/2015 06:20 PM, Fan Du wrote:
+> =E4=BA=8E 2015=E5=B9=B401=E6=9C=8831=E6=97=A5 04:48, Alexander Duyck =
+=E5=86=99=E9=81=93:
+>> On 01/30/2015 04:33 AM, Fan Du wrote:
+>>> Either detaching a device from bridge or switching a device
+>>> out of FORWARDING state, the original lro feature should
+>>> possibly be enabled for good reason, e.g. hw feature like
+>>> receive side coalescing could come into play.
+>>>
+>>> BEFORE:
+>>> echo 1 > /proc/sys/net/ipv4/conf/ens806f0/forwarding && ethtool -k=20
+>>> ens806f0 | grep large
+>>> large-receive-offload: off
+>>>
+>>> echo 0 > /proc/sys/net/ipv4/conf/ens806f0/forwarding && ethtool -k=20
+>>> ens806f0 | grep large
+>>> large-receive-offload: off
+>>>
+>>> AFTER:
+>>> echo 1 > /proc/sys/net/ipv4/conf/ens806f0/forwarding && ethtool -k=20
+>>> ens806f0 | grep large
+>>> large-receive-offload: off
+>>>
+>>> echo 0 > /proc/sys/net/ipv4/conf/ens806f0/forwarding && ethtool -k=20
+>>> ens806f0 | grep large
+>>> large-receive-offload: on
+>>>
+>>> Signed-off-by: Fan Du <fan.du@intel.com>
+>>> Fixes: 0187bdfb0567 ("net: Disable LRO on devices that are forwardi=
+ng")
+>>
 >
->> I've briefly tried playing with this knob to no avail unfortunately.=
- I
->> tried 256K, 1M - it didn't improve TCP performance. When I tried to
->> make it smaller (e.g. 16K) the traffic dropped even more so it does
->> have an effect. It seems there's some other limiting factor in this
->> case.
+>> First off this isn't a "fix".  This is going to likely break more th=
+an
+>> it fixes.  The main reason why LRO is disabled is because it can cau=
+se
+>> more harm then it helps.  Since GRO is available we should err on th=
+e
+>> side of caution since enabling LRO/RSC can have undesirable side eff=
+ects
+>> in a number of cases.
 >
-> Interesting.
+> I think you are talking about bad scenarios when net device is=20
+> attached to a bridge.
+> Then what's the good reason user has to pay extra cpu power for using=
+=20
+> GRO, instead
+> of using hw capable LRO/RSC when this net device is detached from=20
+> bridge acting as
+> a standalone NIC?
 >
-> Could you take some tcpdump/pcap with various tcp_limit_output_bytes
-> values ?
->
-> echo 131072 >/proc/sys/net/ipv4/tcp_limit_output_bytes
-> tcpdump -p -i wlanX -s 128 -c 20000 -w 128k.pcap
->
-> echo 262144 >/proc/sys/net/ipv4/tcp_limit_output_bytes
-> tcpdump -p -i wlanX -s 128 -c 20000 -w 256k.pcap
+> Note, SRC is defaulted to *ON* in practice for ALL ixgbe NICs, as sam=
+e=20
+> other RSC capable
+> NICs. Attaching net device to a bridge _once_ should not changed its=20
+> default configuration,
+> moreover it's a subtle change without any message that user won't=20
+> noticed at all.
 
-I've run a couple of tests across different kernels. This got pretty
-big so I decided to use an external file hosting:
- http://www.filedropper.com/testtar
+No, RSC only has benefits for IPv4/TCP large packets.  However=20
+historically there have been issues seen w/ small packet performance=20
+with RSC enabled.  Some have been addressed, however there are still=20
+other effects such as increasing latency for receive unless the push=20
+flag is set in the frame.
 
-Let me know if you can't access it (and perhaps you could suggest how
-you prefer the logs to be delivered in that case).
+I still say this patch is not valid, even with your changes.  Your=20
+performance gain doesn't trump the regressions you would be causing on=20
+other peoples platforms.
 
-The layout of logs is: $kernel/$limit-P$threads.pcap. I've also
-included the test script and output of each test run.
+I would suggest figuring out why you are seeing issues with routing or=20
+bridging being enabled and disabled and possibly cleaning up the issue=20
+via a script rather than trying to modify the kernel to make it take=20
+care of it for you.
 
-While testing I've had my internal GRO patch for ath10k and no stretch
-ack patches.
-
-When I was trying to come up with a testing methodology I've noticed
-something interesting:
- 1. set 16k limit
- 2. start iperf -P1
- 3. observe 200mbps
- 4. set 2048k limit (while iperf is running)
- 5. observe 600mbps
- 6. set 16limit back (while iperf is running)
- 7. observe 500-600mbps (i.e. no drop to 200mbps)
-
-Due to that I've decided to re-start iperf for each limit test.
-
-If you want me to gather some other logs/dumps/configuration
-permutations let me know, please.
-
-
-Micha=C5=82
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+- Alex
