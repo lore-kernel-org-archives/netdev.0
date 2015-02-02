@@ -1,49 +1,77 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: [PATCH v3 2/3] netlabel: Deletion of an unnecessary check before
- the function call "cipso_v4_doi_free"
-Date: Mon, 02 Feb 2015 11:26:57 +0100
-Message-ID: <54CF50F1.4080005@users.sourceforge.net>
-References: <54CD4B5F.9010502@users.sourceforge.net>	<CAHC9VhQ5C32zRqG0emVUoMmuvBsV+TXvdNn+54iVyCPBNk9dDQ@mail.gmail.com>	<54CDFCDA.9010802@users.sourceforge.net> <20150201.123054.366525761630045391.davem@davemloft.net> <54CF4FEC.2010906@users.sourceforge.net>
+From: Michal Kazior <michal.kazior-++hxYGjEMp0AvxtiuMwx3w@public.gmane.org>
+Subject: Re: Throughput regression with `tcp: refine TSO autosizing`
+Date: Mon, 2 Feb 2015 11:27:15 +0100
+Message-ID: <CA+BoTQkV+mOZfe_Niz5101sMQeaV6muKCsShptjGQ1AgOHqqoQ@mail.gmail.com>
+References: <CA+BoTQkVu23P3EOmY_Q3E1GJnWsyF==Pawz4iPOS_Bq5dvfO5Q@mail.gmail.com>
+	<1422537297.21689.15.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CA+BoTQk2xT-8DqPuiiKG+kHAjLPrj8F9dLTb-rcGhvMq0u_2Qw@mail.gmail.com>
+	<1422628835.21689.95.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org,
-	Julia Lawall <julia.lawall@lip6.fr>
-To: "David S. Miller" <davem@davemloft.net>,
-	Paul Moore <paul@paul-moore.com>, netdev@vger.kernel.org
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <54CF4FEC.2010906@users.sourceforge.net>
-Sender: kernel-janitors-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	eyalpe-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org
+To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1422628835.21689.95.camel-XN9IlZ5yJG9HTL0Zs8A6p/gx64E7kk8eUsxypvmhUTTZJqsBc5GL+g@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Mon, 2 Feb 2015 10:40:30 +0100
+On 30 January 2015 at 15:40, Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrot=
+e:
+> On Fri, 2015-01-30 at 14:39 +0100, Michal Kazior wrote:
+>
+>> I've briefly tried playing with this knob to no avail unfortunately.=
+ I
+>> tried 256K, 1M - it didn't improve TCP performance. When I tried to
+>> make it smaller (e.g. 16K) the traffic dropped even more so it does
+>> have an effect. It seems there's some other limiting factor in this
+>> case.
+>
+> Interesting.
+>
+> Could you take some tcpdump/pcap with various tcp_limit_output_bytes
+> values ?
+>
+> echo 131072 >/proc/sys/net/ipv4/tcp_limit_output_bytes
+> tcpdump -p -i wlanX -s 128 -c 20000 -w 128k.pcap
+>
+> echo 262144 >/proc/sys/net/ipv4/tcp_limit_output_bytes
+> tcpdump -p -i wlanX -s 128 -c 20000 -w 256k.pcap
 
-The cipso_v4_doi_free() function tests whether its argument is NULL and then
-returns immediately. Thus the test around the call is not needed.
+I've run a couple of tests across different kernels. This got pretty
+big so I decided to use an external file hosting:
+ http://www.filedropper.com/testtar
 
-This issue was detected by using the Coccinelle software.
+Let me know if you can't access it (and perhaps you could suggest how
+you prefer the logs to be delivered in that case).
 
-Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
-Acked-by: Paul Moore <paul@paul-moore.com>
----
- net/netlabel/netlabel_cipso_v4.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+The layout of logs is: $kernel/$limit-P$threads.pcap. I've also
+included the test script and output of each test run.
 
-diff --git a/net/netlabel/netlabel_cipso_v4.c b/net/netlabel/netlabel_cipso_v4.c
-index 1796253..7fd1104 100644
---- a/net/netlabel/netlabel_cipso_v4.c
-+++ b/net/netlabel/netlabel_cipso_v4.c
-@@ -324,8 +324,7 @@ static int netlbl_cipsov4_add_std(struct genl_info *info,
- 	return 0;
- 
- add_std_failure:
--	if (doi_def)
--		cipso_v4_doi_free(doi_def);
-+	cipso_v4_doi_free(doi_def);
- 	return ret_val;
- }
- 
--- 
-2.2.2
+While testing I've had my internal GRO patch for ath10k and no stretch
+ack patches.
 
+When I was trying to come up with a testing methodology I've noticed
+something interesting:
+ 1. set 16k limit
+ 2. start iperf -P1
+ 3. observe 200mbps
+ 4. set 2048k limit (while iperf is running)
+ 5. observe 600mbps
+ 6. set 16limit back (while iperf is running)
+ 7. observe 500-600mbps (i.e. no drop to 200mbps)
+
+Due to that I've decided to re-start iperf for each limit test.
+
+If you want me to gather some other logs/dumps/configuration
+permutations let me know, please.
+
+
+Micha=C5=82
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireles=
+s" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
