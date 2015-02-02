@@ -1,37 +1,34 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: rhashtable: Fix potential crash on destroy in rhashtable_shrink
-Date: Mon, 2 Feb 2015 09:48:19 +0000
-Message-ID: <20150202094819.GA22611@casper.infradead.org>
-References: <20150131093637.GA29106@gondor.apana.org.au>
- <54CF44B0.4040205@windriver.com>
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Subject: [PATCH v3 0/3] netlabel: Deletion of a few unnecessary checks
+Date: Mon, 02 Feb 2015 11:22:36 +0100
+Message-ID: <54CF4FEC.2010906@users.sourceforge.net>
+References: <54CD4B5F.9010502@users.sourceforge.net>	<CAHC9VhQ5C32zRqG0emVUoMmuvBsV+TXvdNn+54iVyCPBNk9dDQ@mail.gmail.com>	<54CDFCDA.9010802@users.sourceforge.net> <20150201.123054.366525761630045391.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@vger.kernel.org
-To: Ying Xue <ying.xue@windriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:58735 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754799AbbBBJsW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2015 04:48:22 -0500
-Content-Disposition: inline
-In-Reply-To: <54CF44B0.4040205@windriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org,
+	Julia Lawall <julia.lawall@lip6.fr>
+To: "David S. Miller" <davem@davemloft.net>,
+	Paul Moore <paul@paul-moore.com>, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150201.123054.366525761630045391.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 02/02/15 at 05:34pm, Ying Xue wrote:
-> On 01/31/2015 05:36 PM, Herbert Xu wrote:
-> > The current being_destroyed check in rhashtable_expand is not
-> > enough since if we start a shrinking process after freeing all
-> > elements in the table that's also going to crash.
-> > 
-> 
-> Sorry, I cannot understand the scenario.
-> 
-> When we free the table in rhashtable_destroy(), we call
-> cancel_work_sync() to synchronously cancel the work. So, why does your
-> described crash still happen?
+From: Markus Elfring <elfring@users.sourceforge.net>
+Date: Mon, 2 Feb 2015 11:15:56 +0100
 
-It's nft_hash specific. nft_hash frees all entries under ht->mutex without
-unlinking them upon destroy and sets being_destroyed before doing. Therefore
-it must be ensured that a resize is not started afterwards because the table
-contains freed entries.
+Further update suggestions were taken into account after patches were applied
+from static source code analysis.
+
+Markus Elfring (3):
+  Deletion of an unnecessary check before the function call "cipso_v4_doi_putdef"
+  Deletion of an unnecessary check before the function call "cipso_v4_doi_free"
+  Less function calls in netlbl_mgmt_add_common() after error detection
+
+ net/netlabel/netlabel_cipso_v4.c |  3 +--
+ net/netlabel/netlabel_mgmt.c     | 50 +++++++++++++++++++---------------------
+ 2 files changed, 25 insertions(+), 28 deletions(-)
+
+-- 
+2.2.2
