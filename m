@@ -1,44 +1,49 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC][PATCHSET] more iov_iter conversion in net/*
-Date: Sun, 01 Feb 2015 23:05:43 -0800 (PST)
-Message-ID: <20150201.230543.805545555059024836.davem@davemloft.net>
-References: <20150131035513.GK29656@ZenIV.linux.org.uk>
-	<20150201.222646.1280320067605385223.davem@davemloft.net>
-	<20150202065339.GU29656@ZenIV.linux.org.uk>
+Subject: Re: [PATCH] ipv4: tcp: get rid of ugly unicast_sock
+Date: Sun, 01 Feb 2015 23:06:33 -0800 (PST)
+Message-ID: <20150201.230633.1092529804938943818.davem@davemloft.net>
+References: <1422596105.21689.66.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: viro@ZenIV.linux.org.uk
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42391 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:42398 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752064AbbBBHFr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2015 02:05:47 -0500
-In-Reply-To: <20150202065339.GU29656@ZenIV.linux.org.uk>
+	with ESMTP id S932245AbbBBHGe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2015 02:06:34 -0500
+In-Reply-To: <1422596105.21689.66.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Date: Mon, 2 Feb 2015 06:53:39 +0000
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 29 Jan 2015 21:35:05 -0800
 
-> Point...  Are you OK with tcp_send_syn_data() change in 8/18?  Basically,
-> tcp_sendmsg() treats short copy from userland as "send as much as we can,
-> stop at the first point where copy_from_user() fails", same as write(),
-> etc.; that much is unchanged, but the current mainline has a strange behaviour
-> in case when short copy happens within what would be packed into SYN packet -
-> if that happens, it still sends as much as possible, but it falls back to
-> separate SYN.  With this patch it simply sends shorter SYN+data packet instead.
-> The reason I went that way is that I wanted to avoid copying the same data
-> from userland twice and it was easy to do; I can preserve the current mainline
-> behaviour, but it'll cost making a backup copy of ->msg_iter in
-> tcp_send_syn_data(), only to never use it in normal case *and* do piles
-> of extra work (extra packet to send, repeated copying from userland) in case
-> of short copy.  Is there any reason not to combine SYN+data in case of short
-> copy?  Again, we do send exact same data, return the same value, etc. - you
-> need tcpdump to see the difference.
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> In commit be9f4a44e7d41 ("ipv4: tcp: remove per net tcp_sock")
+> I tried to address contention on a socket lock, but the solution
+> I chose was horrible :
+> 
+> commit 3a7c384ffd57e ("ipv4: tcp: unicast_sock should not land outside
+> of TCP stack") addressed a selinux regression.
+> 
+> commit 0980e56e506b ("ipv4: tcp: set unicast_sock uc_ttl to -1")
+> took care of another regression.
+> 
+> commit b5ec8eeac46 ("ipv4: fix ip_send_skb()") fixed another regression.
+> 
+> commit 811230cd85 ("tcp: ipv4: initialize unicast_sock sk_pacing_rate")
+> was another shot in the dark.
+> 
+> Really, just use a proper socket per cpu, and remove the skb_orphan()
+> call, to re-enable flow control.
+> 
+> This solves a serious problem with FQ packet scheduler when used in
+> hostile environments, as we do not want to allocate a flow structure
+> for every RST packet sent in response to a spoofed packet.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-I think dropping down to plain SYN in the short copy case was just based
-upon a blanket decision to not do SYN+DATA if anything out of the
-ordinary happens, rathe than an explicit policy decision.  So that change
-should be OK.
+Applied, thanks Eric.
