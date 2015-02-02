@@ -1,63 +1,63 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH v2 01/18] netlink: make the check for "send from tx_ring"
- deterministic
-Date: Mon, 02 Feb 2015 16:14:16 +0300
-Message-ID: <54CF7828.6040605@cogentembedded.com>
-References: <20150131035513.GK29656@ZenIV.linux.org.uk> <1422863977-17668-1-git-send-email-viro@ZenIV.linux.org.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Al Viro <viro@ZenIV.linux.org.uk>,
-	David Miller <davem@davemloft.net>
+From: Amir Vadai <amirv@mellanox.com>
+Subject: [PATCH net] net/mlx4_core: Fix kernel Oops (mem corruption) when working with more than 80 VFs
+Date: Mon,  2 Feb 2015 15:18:42 +0200
+Message-ID: <1422883122-29020-1-git-send-email-amirv@mellanox.com>
+Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Yevgeny Petrilin <yevgenyp@mellanox.com>,
+	Jack Morgenstein <jackm@dev.mellanox.co.il>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f44.google.com ([209.85.215.44]:62367 "EHLO
-	mail-la0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932156AbbBBNOR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2015 08:14:17 -0500
-Received: by mail-la0-f44.google.com with SMTP id s18so40683588lam.3
-        for <netdev@vger.kernel.org>; Mon, 02 Feb 2015 05:14:15 -0800 (PST)
-In-Reply-To: <1422863977-17668-1-git-send-email-viro@ZenIV.linux.org.uk>
+Received: from mailp.voltaire.com ([193.47.165.129]:40055 "EHLO mellanox.co.il"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753790AbbBBNSr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Feb 2015 08:18:47 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+From: Jack Morgenstein <jackm@dev.mellanox.co.il>
 
-On 2/2/2015 10:59 AM, Al Viro wrote:
+Commit de966c592802 (net/mlx4_core: Support more than 64 VFs) was meant to
+allow up to 126 VFs.  However, due to leaving MLX4_MFUNC_MAX too low, using
+more than 80 VFs resulted in memory corruptions (and Oopses) when more than
+80 VFs were requested. In addition, the number of slaves was left too high.
 
-> From: Al Viro <viro@zeniv.linux.org.uk>
+This commit fixes these issues.
 
-> As it is, zero msg_iovlen means that the first iovec in the kernel
-> array of iovecs is left uninitialized, so checking if its ->iov_base
-> is NULL is random.  Since the real users of that thing are doing
-> sendto(fd, NULL, 0, ...), they are getting msg_iovlen = 1 and
-> msg_iov[0] = {NULL, 0}, which is what this test is trying to catch.
-> As suggested by davem, let's just check that msg_iovlen was 1 and
-> msg_iov[0].iov_base was NULL - _that_ is well-defined and it catches
-> what we want to catch.
+Fixes: de966c592802 ("net/mlx4_core: Support more than 64 VFs")
+Signed-off-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
+Signed-off-by: Amir Vadai <amirv@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/mlx4.h | 3 ++-
+ include/linux/mlx4/device.h               | 2 +-
+ 2 files changed, 3 insertions(+), 2 deletions(-)
 
-> Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
-> ---
->   net/netlink/af_netlink.c | 4 ++++
->   1 file changed, 4 insertions(+)
-
-> diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-> index a36777b..af51d58 100644
-> --- a/net/netlink/af_netlink.c
-> +++ b/net/netlink/af_netlink.c
-> @@ -2298,7 +2298,11 @@ static int netlink_sendmsg(struct kiocb *kiocb, struct socket *sock,
->   			goto out;
->   	}
->
-> +        /* It's a really convoluted way for userland to ask for mmaped
-> +	 * sendmsg(), but that's what we've got...  */
-
-    Hmm, not sure why DaveM hasn't commented on this broken comment formatting 
-(perhaps he was going to fix it while applying?). The preferred comment style 
-in the networking code is:
-
-/* bla
-  * bla
-  */
-
-WBR, Sergei
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4.h b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
+index bdd4eea..210691c 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mlx4.h
++++ b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
+@@ -235,7 +235,8 @@ do {									\
+ extern int mlx4_log_num_mgm_entry_size;
+ extern int log_mtts_per_seg;
+ 
+-#define MLX4_MAX_NUM_SLAVES	(MLX4_MAX_NUM_PF + MLX4_MAX_NUM_VF)
++#define MLX4_MAX_NUM_SLAVES	(min(MLX4_MAX_NUM_PF + MLX4_MAX_NUM_VF, \
++				     MLX4_MFUNC_MAX))
+ #define ALL_SLAVES 0xff
+ 
+ struct mlx4_bitmap {
+diff --git a/include/linux/mlx4/device.h b/include/linux/mlx4/device.h
+index 25c791e..5f3a9aa 100644
+--- a/include/linux/mlx4/device.h
++++ b/include/linux/mlx4/device.h
+@@ -97,7 +97,7 @@ enum {
+ 	MLX4_MAX_NUM_PF		= 16,
+ 	MLX4_MAX_NUM_VF		= 126,
+ 	MLX4_MAX_NUM_VF_P_PORT  = 64,
+-	MLX4_MFUNC_MAX		= 80,
++	MLX4_MFUNC_MAX		= 128,
+ 	MLX4_MAX_EQ_NUM		= 1024,
+ 	MLX4_MFUNC_EQ_NUM	= 4,
+ 	MLX4_MFUNC_MAX_EQES     = 8,
+-- 
+1.9.3
