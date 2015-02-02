@@ -1,31 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 0/3] Restore UFO support to virtio_net devices
-Date: Sun, 01 Feb 2015 22:28:34 -0800 (PST)
-Message-ID: <20150201.222834.1543634857152757099.davem@davemloft.net>
-References: <1422646047-13168-1-git-send-email-vyasevic@redhat.com>
-	<20150201.221935.283572621026340671.davem@davemloft.net>
+From: Fam Zheng <famz@redhat.com>
+Subject: Re: [PATCH target] vhost/scsi: vhost_skip_iovec_bytes() can be static
+Date: Mon, 2 Feb 2015 14:35:55 +0800
+Message-ID: <20150202063555.GA7376@ad.nay.redhat.com>
+References: <201502021411.KBLYtCzS%fengguang.wu@intel.com>
+	<20150202062521.GA18113@snb>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	mst@redhat.com, ben@decadent.org.uk, eric.dumazet@gmail.com,
-	hannes@stressinduktion.org, vyasevic@redhat.com
-To: vyasevich@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42192 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932199AbbBBG2f (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2015 01:28:35 -0500
-In-Reply-To: <20150201.221935.283572621026340671.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: kvm@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, kbuild-all@01.org
+To: kbuild test robot <fengguang.wu@intel.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <20150202062521.GA18113@snb>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: David Miller <davem@davemloft.net>
-Date: Sun, 01 Feb 2015 22:19:35 -0800 (PST)
+On Mon, 02/02 14:25, kbuild test robot wrote:
+> drivers/vhost/scsi.c:1081:5: sparse: symbol 'vhost_skip_iovec_bytes' was not declared. Should it be static?
+> 
+> Signed-off-by: Fengguang Wu <fengguang.wu@intel.com>
+> ---
+>  scsi.c |    2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/drivers/vhost/scsi.c b/drivers/vhost/scsi.c
+> index d888bd9..8ac003f 100644
+> --- a/drivers/vhost/scsi.c
+> +++ b/drivers/vhost/scsi.c
+> @@ -1078,7 +1078,7 @@ vhost_scsi_send_bad_target(struct vhost_scsi *vs,
+>  		pr_err("Faulted on virtio_scsi_cmd_resp\n");
+>  }
+>  
+> -int vhost_skip_iovec_bytes(size_t bytes, int max_niov,
+> +static int vhost_skip_iovec_bytes(size_t bytes, int max_niov,
+>  			   struct iovec *iov_in, size_t off_in,
+>  			   struct iovec **iov_out, size_t *off_out)
 
-> Series applied and queued up for -stable.
+Probably keep the parameter list lines aligned?
 
-I have to revert, this breaks the build.
-
-net/built-in.o: In function `udp6_ufo_fragment':
-udp_offload.c:(.text+0x103380): undefined reference to `ipv6_select_ident'
+Fam
