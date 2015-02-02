@@ -1,41 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 0/3] Restore UFO support to virtio_net devices
-Date: Mon, 02 Feb 2015 13:11:58 -0800 (PST)
-Message-ID: <20150202.131158.2302675247156677150.davem@davemloft.net>
-References: <1422889269-16007-1-git-send-email-vyasevic@redhat.com>
+Subject: Re: [PATCH net-next 2/8] cxgb4: Added support in debugfs to
+ display tp_la stats
+Date: Mon, 02 Feb 2015 13:14:36 -0800 (PST)
+Message-ID: <20150202.131436.102902508236295371.davem@davemloft.net>
+References: <1422888789-12016-1-git-send-email-hariprasad@chelsio.com>
+	<1422888789-12016-3-git-send-email-hariprasad@chelsio.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, mst@redhat.com, netdev@vger.kernel.org,
-	virtualization@lists.linux-foundation.org,
-	hannes@stressinduktion.org, ben@decadent.org.uk
-To: vyasevich@gmail.com
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1422889269-16007-1-git-send-email-vyasevic@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, leedom@chelsio.com, anish@chelsio.com,
+	nirranjan@chelsio.com, praveenm@chelsio.com
+To: hariprasad@chelsio.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:48341 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964927AbbBBVOh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2015 16:14:37 -0500
+In-Reply-To: <1422888789-12016-3-git-send-email-hariprasad@chelsio.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Date: Mon,  2 Feb 2015 20:23:03 +0530
 
-Vlad, this still fails the same way.
+> Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
 
-[davem@dokdo net]$ make -s -j8
-kernel/Makefile:132: *** No X.509 certificates found ***
-kernel/Makefile:132: *** No X.509 certificates found ***
-net/built-in.o: In function `udp6_ufo_fragment':
-udp_offload.c:(.text+0x103514): undefined reference to `ipv6_select_ident'
-make: *** [vmlinux] Error 1
+Ok I've seen enough.
 
-You're putting ipv6_select_ident() into the ipv6 module via
-ip6_output.c, but that means that code like udp_offload.c which is
-built statically into the kernel can't see the symbol.
+You guys really, truly, abuse debugfs.  So I'm putting my foot down now.
 
-Please build allmodconfig, that is the exact build I use to test your
-and everyone else's changes.
+Stats like this can be exported through traditional means such as via
+ethtool.
