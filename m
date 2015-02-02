@@ -1,51 +1,39 @@
 From: Erik Kline <ek@google.com>
 Subject: Re: [PATCH net v2] net: ipv6: allow explicitly choosing optimistic addresses
-Date: Mon, 2 Feb 2015 15:20:45 +0900
-Message-ID: <CAAedzxr0kv4QKHdHJK5QvvZhgb+1pYjxGua2iuMWWEWE2fwOAg@mail.gmail.com>
-References: <1422446619-9502-1-git-send-email-ek@google.com> <CAKD1Yr2LJT+rYwbKQMvMQFtSDTwQAHk5k__m22J=kx8eKxj1JA@mail.gmail.com>
+Date: Mon, 2 Feb 2015 15:21:42 +0900
+Message-ID: <CAAedzxqsVBsDb6_xLDX_Ek-Rz_R2ZzUWMRyTPgm7M1mPkM1B6g@mail.gmail.com>
+References: <1422446619-9502-1-git-send-email-ek@google.com> <20150130.173151.820376779924109928.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+Cc: netdev <netdev@vger.kernel.org>,
 	Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: Lorenzo Colitti <lorenzo@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f178.google.com ([209.85.216.178]:44687 "EHLO
-	mail-qc0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932073AbbBBGVH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2015 01:21:07 -0500
-Received: by mail-qc0-f178.google.com with SMTP id b13so28853540qcw.9
-        for <netdev@vger.kernel.org>; Sun, 01 Feb 2015 22:21:05 -0800 (PST)
-In-Reply-To: <CAKD1Yr2LJT+rYwbKQMvMQFtSDTwQAHk5k__m22J=kx8eKxj1JA@mail.gmail.com>
+Received: from mail-qc0-f173.google.com ([209.85.216.173]:47882 "EHLO
+	mail-qc0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932073AbbBBGWE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2015 01:22:04 -0500
+Received: by mail-qc0-f173.google.com with SMTP id m20so28617640qcx.4
+        for <netdev@vger.kernel.org>; Sun, 01 Feb 2015 22:22:03 -0800 (PST)
+In-Reply-To: <20150130.173151.820376779924109928.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 29, 2015 at 2:25 PM, Lorenzo Colitti <lorenzo@google.com> wrote:
-> On Wed, Jan 28, 2015 at 9:03 PM, Erik Kline <ek@google.com> wrote:
->>                 if (ipv6_addr_equal(&ifp->addr, addr) &&
->> -                   !(ifp->flags&IFA_F_TENTATIVE) &&
->> +                   (!(ifp->flags&banned_flags) ||
->> +                    ifp->flags&IFA_F_OPTIMISTIC&~banned_flags) &&
+On Sat, Jan 31, 2015 at 10:31 AM, David Miller <davem@davemloft.net> wrote:
 >
-> Is this if statement correct?
+> Erik, you have to address and respond to the feedback you received
+> from Lorenzo Colitti.
 >
-> The intent here is "if ifp has IFA_F_OPTIMISTIC set, then
-> IFA_F_TENTATIVE is allowed, even if the caller explicitly banned
-> IFA_F_TENTATIVE", right? Not "if ifp has IFA_F_OPTIMISTIC set, then
-> any flags are allowed, even ones explicitly baned by the caller". For
-> example, suppose that:
+> If you do not respond and handle that soon, I'm simply taking
+> your patch out of my queue and you'll have to resubmit even
+> if no changes are necessary.
 >
->     banned_flags = IFA_F_SECONDARY
->     ifp->flags = IFA_F_SECONDARY | IFA_F_OPTIMISTIC
->
-> In that case, won't the if statement match ifp, even though it
-> contains a flag that is explicitly banned?
+> Thanks.
 
-Yep, true.  It works for all existing inputs, but is not generally
-future-proof.  :(
+Ack.
 
-I have a rewrite that explicitly defines the circumstances under which
-optimistic would be considered ok in this check.  If there are changes
-in that definition in the future that one clause will need to be
-updated accordingly.
+I didn't get to it on Friday, nor was I able to get to the office on
+the weekend, but I have coming in minutes.
 
-Patch coming in minutes.
+Apologies,
+-Erik
