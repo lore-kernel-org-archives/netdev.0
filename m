@@ -1,8 +1,8 @@
 From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: [PATCH v3 1/3] netlabel: Deletion of an unnecessary check before
- the function call "cipso_v4_doi_putdef"
-Date: Mon, 02 Feb 2015 11:25:30 +0100
-Message-ID: <54CF509A.2000801@users.sourceforge.net>
+Subject: [PATCH v3 2/3] netlabel: Deletion of an unnecessary check before
+ the function call "cipso_v4_doi_free"
+Date: Mon, 02 Feb 2015 11:26:57 +0100
+Message-ID: <54CF50F1.4080005@users.sourceforge.net>
 References: <54CD4B5F.9010502@users.sourceforge.net>	<CAHC9VhQ5C32zRqG0emVUoMmuvBsV+TXvdNn+54iVyCPBNk9dDQ@mail.gmail.com>	<54CDFCDA.9010802@users.sourceforge.net> <20150201.123054.366525761630045391.davem@davemloft.net> <54CF4FEC.2010906@users.sourceforge.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252
@@ -17,9 +17,9 @@ Sender: kernel-janitors-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Mon, 2 Feb 2015 10:01:45 +0100
+Date: Mon, 2 Feb 2015 10:40:30 +0100
 
-The cipso_v4_doi_putdef() function tests whether its argument is NULL and then
+The cipso_v4_doi_free() function tests whether its argument is NULL and then
 returns immediately. Thus the test around the call is not needed.
 
 This issue was detected by using the Coccinelle software.
@@ -27,23 +27,23 @@ This issue was detected by using the Coccinelle software.
 Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
 Acked-by: Paul Moore <paul@paul-moore.com>
 ---
- net/netlabel/netlabel_mgmt.c | 3 +--
+ net/netlabel/netlabel_cipso_v4.c | 3 +--
  1 file changed, 1 insertion(+), 2 deletions(-)
 
-diff --git a/net/netlabel/netlabel_mgmt.c b/net/netlabel/netlabel_mgmt.c
-index 8b3b789..f5807f5 100644
---- a/net/netlabel/netlabel_mgmt.c
-+++ b/net/netlabel/netlabel_mgmt.c
-@@ -242,8 +242,7 @@ static int netlbl_mgmt_add_common(struct genl_info *info,
+diff --git a/net/netlabel/netlabel_cipso_v4.c b/net/netlabel/netlabel_cipso_v4.c
+index 1796253..7fd1104 100644
+--- a/net/netlabel/netlabel_cipso_v4.c
++++ b/net/netlabel/netlabel_cipso_v4.c
+@@ -324,8 +324,7 @@ static int netlbl_cipsov4_add_std(struct genl_info *info,
  	return 0;
  
- add_failure:
--	if (cipsov4)
--		cipso_v4_doi_putdef(cipsov4);
-+	cipso_v4_doi_putdef(cipsov4);
- 	if (entry)
- 		kfree(entry->domain);
- 	kfree(addrmap);
+ add_std_failure:
+-	if (doi_def)
+-		cipso_v4_doi_free(doi_def);
++	cipso_v4_doi_free(doi_def);
+ 	return ret_val;
+ }
+ 
 -- 
 2.2.2
 
