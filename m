@@ -1,298 +1,85 @@
-From: Tadeusz Struk <tadeusz.struk@intel.com>
-Subject: Re: [PATCH 0/3] crypto: algif - change algif_skcipher to be asynchronous
-Date: Mon, 02 Feb 2015 07:03:02 -0800
-Message-ID: <54CF91A6.2020100@intel.com>
-References: <20150129231338.25156.65450.stgit@tstruk-mobl1> <1653087.XMGL7JlhQx@tachyon.chronox.de>
+From: Jim Gettys <jg@freedesktop.org>
+Subject: Re: [Cerowrt-devel] Fwd: Throughput regression with `tcp: refine TSO autosizing`
+Date: Mon, 2 Feb 2015 10:25:45 -0500
+Message-ID: <CAGhGL2CnECP=3JkYEeshjqh7p1ra1jUunvVkSDQftGA+CVrPug@mail.gmail.com>
+References: <CA+BoTQkVu23P3EOmY_Q3E1GJnWsyF==Pawz4iPOS_Bq5dvfO5Q@mail.gmail.com>
+	<1422537297.21689.15.camel@edumazet-glaptop2.roam.corp.google.com>
+	<54CB5D08.2070906@broadcom.com>
+	<1422623975.21689.77.camel@edumazet-glaptop2.roam.corp.google.com>
+	<54CB8B69.1070807@broadcom.com>
+	<CAA93jw5fqhz0Hiw74L2GXgtZ9JsMg+NtYydKxKzGDrvQcZn4hA@mail.gmail.com>
+	<CAA93jw7b0E9jjQYXrEPzjLLC9j8xNC0TFYXpWVtgFameJaNBdw@mail.gmail.com>
+	<1422741065.199624134@apps.rackspace.com>
+	<CAPp0ZBb2nkA6Y0s=W0kw=zvyn0wi0NMBRsBCw_xcD61ScOmgQg@mail.gmail.com>
+	<CAA_e5Z46Bu+zZZFzf_ejzA35Gw3g1_OG85yv6yd7MpbwZcE-nw@mail.gmail.com>
+	<CAA93jw7=oTex0Mp-0ThvuDRUnfR0N8tzdOQ8DD7QYWphp1b=4w@mail.gmail.com>
+	<CAJq5cE3ETbpEtecFHmhgHQveNRUhVfrzjTOygHm-TRCTwHNyKA@mail.gmail.com>
+	<1422801814.796219699@apps.rackspace.com>
+	<CAA_e5Z5PfimZeC5cqSk_xFpKOBeZ74htLeEdwtKieAYWJaEX+A@mail.gmail.com>
+	<CAPp0ZBbKu-B3yPf0Et=XByJ1SrnxBgVbRXr9PBe0f6P08w87=Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, linux-crypto@vger.kernel.org,
-	netdev@vger.kernel.org, davem@davemloft.net, qat-linux@intel.com,
-	linux-kernel@vger.kernel.org
-To: Stephan Mueller <smueller@chronox.de>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-In-Reply-To: <1653087.XMGL7JlhQx@tachyon.chronox.de>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Andrew McGregor <andrewmcgr@gmail.com>,
+	David Reed <dpreed@reed.com>,
+	Jonathan Morton <chromatix99@gmail.com>,
+	Dave Taht <dave.taht@gmail.com>,
+	Matt Mathis <mattmathis@google.com>,
+	Tim Shepard <shep@alum.mit.edu>,
+	"dstanley@arubanetworks.com" <dstanley@arubanetworks.com>,
+	Kathy Giori <kgiori@qca.qualcomm.com>,
+	Stig Thormodsrud <stig@ubnt.com>,
+	Derrick Pallas <pallas@meraki.com>,
+	"cerowrt-devel@lists.bufferbloat.net"
+	<cerowrt-devel@lists.bufferbloat.net>,
+	Mahesh Paolini-Subramanya <mahesh@dieswaytoofast.com>,
+	Jesper Dangaard Brouer <jbrouer@redhat.com>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: Avery Pennarun <apenwarr@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f176.google.com ([209.85.214.176]:48408 "EHLO
+	mail-ob0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752470AbbBBPZp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2015 10:25:45 -0500
+In-Reply-To: <CAPp0ZBbKu-B3yPf0Et=XByJ1SrnxBgVbRXr9PBe0f6P08w87=Q@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 02/01/2015 10:31 AM, Stephan Mueller wrote:
-> Hi Tadeusz,
-> 
->> > The way the algif_skcipher works currently is that on sendmsg/sendpage it
->> > builds an sgl for the input data and then on read/recvmsg it sends the job
->> > for encryption putting the user to sleep till the data is processed.
->> > This way it can only handle one job at a given time.
->> > To be able to fuly utilize the potential of existing crypto hardware
->> > accelerators it is required to submit multiple jobs in asynchronously.
->> > First patch enables asynchronous read and write on socket.
->> > Second patch enables af_alg sgl to be linked.
->> > Third patch implement asynch read for skcipher.
-> Do you have a code fragment on how to test that patch? I would like to see 
-> whether I can test that with my libkcapi.
+On Sun, Feb 1, 2015 at 11:04 PM, Avery Pennarun <apenwarr@google.com> wrote:
+> On Sun, Feb 1, 2015 at 6:34 PM, Andrew McGregor <andrewmcgr@gmail.com> wrote:
+>> I missed one item in my list of potential improvements: the most braindead
+>> thing 802.11 has to say about rates is that broadcast and multicast packets
+>> should be sent at 'the lowest basic rate in the current supported rate set',
+>> which is really wasteful.  There are a couple of ways of dealing with this:
+>> one, ignore the standard and pick the rate that is most likely to get the
+>> frame to as many neighbours as possible (by a scan of the Minstrel tables).
+>> Or two, fan it out as unicast, which might well take less airtime (due to
+>> aggregation) as well as being much more likely to be delivered, since you
+>> get ACKs and retries by doing that.
+>
+> As far as I can see, the only sensible thing to do with
+> multicast/broadcast is some variation of the unicast fanout, unless
+> you've got a truly huge number of nodes.  I don't know of any
+> protocols (certainly not video streams) that actually work well with
+> the kind of packet loss you see at medium/long range with wifi if
+> retransmits aren't used.  I've heard that openwrt already has a patch
+> included that does this kind of fanout at the bridge layer.
 
-Hi Stephan,
-This is what I'm using.
+I gather some Windows drivers from some vendors do this unicast fanout
+(claim made by one of their engineers in an early homenet meeting).
 
-#include <unistd.h>
-#include <fcntl.h>
-#include <stdio.h>
-#include <errno.h>
-#include <string.h>
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <linux/types.h>
-#include <linux/aio_abi.h>
-#include <sys/syscall.h>
-#include <sys/uio.h>
+>
+> I've also heard of a new "reliable multicast" in some newer 802.11
+> variant, which essentially sends out a single multicast packet and
+> expects an ACK from each intended recipient.  Other than adding
+> complexity, it seems like the best of both worlds.
 
-#define SOL_ALG 279
+So long as it times out in some very small, finite time.  We don't
+want a repeat of the infinite retry bugs Dave found in drivers a few
+years back...
 
-#define SPLICE_F_GIFT	(0x08)	/* pages passed in are a gift */
-struct sockaddr_alg {
-	__u16	salg_family;
-	__u8	salg_type[14];
-	__u32	salg_feat;
-	__u32	salg_mask;
-	__u8	salg_name[64];
-};
-struct af_alg_iv {
-	__u32	ivlen;
-	__u8	iv[0];
-};
-/* Socket options */
-#define ALG_SET_KEY			1
-#define ALG_SET_IV			2
-#define ALG_SET_OP			3
-#define ALG_SET_AEAD_ASSOCLEN		4
-#define ALG_SET_AEAD_AUTHSIZE		5
-
-/* Operations */
-#define ALG_OP_DECRYPT			0
-#define ALG_OP_ENCRYPT			1
-
-#define BUFFSIZE (4096)
-//#define BUFFSIZE (4096)
-#define PKGSIZE (4096)
-
-#define INFLIGTHS 256
-#define TO_SEND (1024 * 1024)
-//#define OUT_OFFSET 2048;
-//#define IN_OFFSET 4064;
-#define OUT_OFFSET 0;
-#define IN_OFFSET 0;
-
-static char buf[BUFFSIZE] __attribute__((__aligned__(BUFFSIZE)));
-static char *buf_out = buf;
-
-static inline int io_setup(unsigned n, aio_context_t *ctx)
-{
-	return syscall(__NR_io_setup, n, ctx);
-}
-
-static inline int io_destroy(aio_context_t ctx)
-{
-	return syscall(__NR_io_destroy, ctx);
-}
-
-static inline int io_read(aio_context_t ctx, long n,  struct iocb **iocb)
-{
-	return syscall(__NR_io_submit, ctx, n, iocb);
-}
-
-static inline int io_getevents(aio_context_t ctx, long min, long max,
-			struct io_event *events, struct timespec *timeout)
-{
-	return syscall(__NR_io_getevents, ctx, min, max, events, timeout);
-}
-
-static inline int eventfd(int n)
-{
-	return syscall(__NR_eventfd, n);
-}
-
-static int crypt_kernel(const char *key, char *oiv, int zcp)
-{
-	int opfd;
-	int tfmfd;
-	int efd;
-	struct timespec timeout;
-	fd_set rfds;
-        struct timeval tv;
-	struct sockaddr_alg sa = {
-		.salg_family = AF_ALG,
-		.salg_type = "skcipher",
-		.salg_name = "cbc(aes)"
-	};
-	struct msghdr msg = {};
-	struct cmsghdr *cmsg;
-	char cbuf[CMSG_SPACE(4) + CMSG_SPACE(20)] = {};
-	struct aes_iv {
-		__u32 len;
-		__u8 iv[16];
-	} *iv;
-	struct iovec iov;
-	int pipes[2];
-	aio_context_t aio_ctx;
-	struct iocb *cb;
-	struct iocb cbt[INFLIGTHS];
-	struct io_event events[INFLIGTHS];
-	unsigned int received = 0;
-	int i, r;
-
-	timeout.tv_sec = 0;
-	timeout.tv_nsec = 0;
-	pipe(pipes);
-	memset(cbt, 0, sizeof(cbt));
-	efd = eventfd(0);
-	tfmfd = socket(AF_ALG, SOCK_SEQPACKET, 0);
-	bind(tfmfd, (struct sockaddr *)&sa, sizeof(sa));
-	setsockopt(tfmfd, SOL_ALG, ALG_SET_KEY, key, 16);
-	opfd = accept(tfmfd, NULL, 0);
-
-	msg.msg_control = cbuf;
-	msg.msg_controllen = sizeof(cbuf);
-
-	cmsg = CMSG_FIRSTHDR(&msg);
-	cmsg->cmsg_level = SOL_ALG;
-	cmsg->cmsg_type = ALG_SET_OP;
-	cmsg->cmsg_len = CMSG_LEN(4);
-	*(__u32 *)CMSG_DATA(cmsg) = ALG_OP_ENCRYPT;
-
-	cmsg = CMSG_NXTHDR(&msg, cmsg);
-	cmsg->cmsg_level = SOL_ALG;
-	cmsg->cmsg_type = ALG_SET_IV;
-	cmsg->cmsg_len = CMSG_LEN(20);
-	iv = (void *)CMSG_DATA(cmsg);
-	iv->len = 16;
-	memcpy(iv->iv, oiv, 16);
-
-	iov.iov_base = buf + IN_OFFSET;
-	iov.iov_len = PKGSIZE;
-	msg.msg_flags = MSG_MORE;
-
-	aio_ctx = 0;
-	r = io_setup(INFLIGTHS, &aio_ctx);
-	if (r < 0) {
-		perror("io_setup error");
-		return -1;
-	}
-
-	for (i = 0; i < TO_SEND; i++) {
-		if (zcp) {
-			msg.msg_iovlen = 0;
-			msg.msg_iov = NULL;
-
-			r = sendmsg(opfd, &msg, 0);
-			if (r < 0)
-				printf("sendmsg returned Error: %d\n", errno);
-
-			r = vmsplice(pipes[1], &iov, 1, SPLICE_F_GIFT);
-			if (r < 0)
-				printf("vmsplice returned Error: %d\n", errno);
-
-			r = splice(pipes[0], NULL, opfd, NULL, PKGSIZE, 0);
-			if (r < 0)
-				printf("splice returned Error: %d\n", errno);
-		} else {
-			msg.msg_iovlen = 1;
-			msg.msg_iov = &iov;
-			r = sendmsg(opfd, &msg, PKGSIZE);
-			if (r < 0)
-				printf("zero cp sendmsg returned Error: %d\n", errno);
-		}
-
-		cb = &cbt[i % INFLIGTHS];
-		if (cb->aio_fildes) {
-			printf("req %d not processed yet???\n", i - INFLIGTHS);
-			return -1;
-		}
-		memset(cb, '\0', sizeof(*cb));
-		cb->aio_fildes = opfd;
-		cb->aio_lio_opcode = IOCB_CMD_PREAD;
-		cb->aio_buf = (unsigned long)buf_out + OUT_OFFSET;
-		cb->aio_offset = 0;
-		cb->aio_nbytes = PKGSIZE;
-		cb->aio_flags = IOCB_FLAG_RESFD;
-		cb->aio_resfd = efd;
-		r = io_read(aio_ctx, 1, &cb);
-		if (r != 1) {
-			if (r < 0) {
-				printf("io_read Error: %d\n", errno);
-				return -1;
-			} else {
-				printf("Could not sumbit AIO read\n");
-				return -1;
-			}
-		}
-
-		FD_ZERO(&rfds);
-		FD_SET(efd, &rfds);
-		tv.tv_sec = 0;
-		tv.tv_usec = 0;
-		r = select(efd + 1, &rfds, NULL, NULL, &tv);
-
-		if (r == -1) {
-			printf("Select Error: %d\n", errno);
-			return -1;
-		} else if (FD_ISSET(efd, &rfds)) {
-			r = io_getevents(aio_ctx, 1, INFLIGTHS, events + (received % INFLIGTHS),
-					 &timeout);
-			if (r > 0) {
-				int y;
-
-				for (y = 0; y < r; y++) {
-					cb = (void*) events[(received + y) % INFLIGTHS].obj;
-					cb->aio_fildes = 0;
-					if (events[(received + y) % INFLIGTHS].res)
-						printf("req %d failed\n", received + y);
-				}
-				received += r;
-			} else if (r < 0) {
-				printf("io_getevents Error: %d\n", errno);
-				return -1;
-			}
-		}
-
-		if (i == 0) {
-			msg.msg_control = NULL;
-			msg.msg_controllen = 0;
-		}
-	}
-
-	while (received != TO_SEND) {
-		r = io_getevents(aio_ctx, 1, TO_SEND - received,
-				events + (received % INFLIGTHS), NULL);
-		if (r > 0)
-			received += r;
-	}
-	printf("All done!\n");
-	close(efd);
-	close(opfd);
-	close(tfmfd);
-	close(pipes[0]);
-	close(pipes[1]);
-	io_destroy(aio_ctx);
-	return 0;
-}
-
-int main(int argc, char **argv)
-{
-	const char key[16] =
-		"\x06\xa9\x21\x40\x36\xb8\xa1\x5b"
-		"\x51\x2e\x03\xd5\x34\x12\x00\x06";
-	char iv[16] =
-		"\x3d\xaf\xba\x42\x9d\x9e\xb4\x30"
-		"\xb4\x22\xda\x80\x2c\x9f\xac\x41";
-
-	memcpy(buf, "Single block msg", 16);
-
-	if (argc == 2) {
-		printf("zero copy\n");
-		crypt_kernel(key, iv, 1);
-	}
-	else {
-		printf("copy\n");
-		crypt_kernel(key, iv, 0);
-	}
-	return 0;
-}
+"Reliable multicast" ultimately is an oxymoron, particularly on a
+medium with hundreds/one bandwidth variation.  One remote low
+bandwidth station cannot be allowed to drag the entire network to the
+basement.
+                                     - Jim
