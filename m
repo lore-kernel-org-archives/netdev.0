@@ -1,66 +1,44 @@
-From: "Fu, Zhonghui" <zhonghui.fu@linux.intel.com>
-Subject: Re: [PATCH] brcmfmac: avoid duplicated suspend/resume operation
-Date: Mon, 02 Feb 2015 09:58:45 +0800
-Message-ID: <54CED9D5.8070309@linux.intel.com>
-References: <54BDCC06.8090107@linux.intel.com>	<87twzincvz.fsf@kamboji.qca.qualcomm.com>	<54C1012F.1020400@cogentembedded.com> <54C1646B.4080409@broadcom.com> <87y4otldln.fsf@kamboji.qca.qualcomm.com> <54C28E6B.8090408@broadcom.com> <54C723A3.8000508@linux.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	brudley@broadcom.com, Franky Lin <frankyl@broadcom.com>,
-	meuleman@broadcom.com, linville@tuxdriver.com,
-	pieterpg@broadcom.com, hdegoede@redhat.com, wens@csie.org,
-	linux-wireless@vger.kernel.org, brcm80211-dev-list@broadcom.com,
-	netdev@vger.kernel.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Arend van Spriel <arend@broadcom.com>,
-	Kalle Valo <kvalo@codeaurora.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <54C723A3.8000508@linux.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Guy Harris <guy@alum.mit.edu>
+Subject: Re: [PATCH] Fixed TPACKET V3 to signal poll when block is closed rather than every packet
+Date: Sun, 1 Feb 2015 18:11:00 -0800
+Message-ID: <176300FC-C2D7-40D3-8286-7248FC48B9F7@alum.mit.edu>
+References: <1418960965-29522-1-git-send-email-dan@dcollins.co.nz> <20141222.154144.2133538994062884017.davem@davemloft.net>
+Mime-Version: 1.0 (Mac OS X Mail 6.6 \(1510\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: dan@dcollins.co.nz, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from d.mail.sonic.net ([64.142.111.50]:43007 "EHLO d.mail.sonic.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752277AbbBBCVs convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Feb 2015 21:21:48 -0500
+In-Reply-To: <20141222.154144.2133538994062884017.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-On 2015/1/27 13:35, Fu, Zhonghui wrote:
-> On 2015/1/24 2:09, Arend van Spriel wrote:
->> On 01/23/15 16:29, Kalle Valo wrote:
->>> Arend van Spriel<arend@broadcom.com>  writes:
->>>
->>>> On 01/22/15 14:54, Sergei Shtylyov wrote:
->>>>> Hello.
->>>>>
->>>>> On 1/22/2015 4:49 PM, Kalle Valo wrote:
->>>>>
->>>>>>>> From 04d3fa673897ca4ccbea6c76836d0092dba2484a Mon Sep 17 00:00:00 2001
->>>>>>> From: Zhonghui Fu<zhonghui.fu@linux.intel.com>
->>>>>>> Date: Tue, 20 Jan 2015 11:14:13 +0800
->>>>>>> Subject: [PATCH] brcmfmac: avoid duplicated suspend/resume operation
->>>>>>> WiFi chip has 2 SDIO functions, and PM core will trigger
->>>>>>> twice suspend/resume operations for one WiFi chip to do
->>>>>>> the same things. This patch avoid this case.
->>>>>>> Acked-by: Arend van Spriel<arend@broadcom.com>
->>>>>>> Acked-by: Sergei Shtylyov<sergei.shtylyov@cogentembedded.com>
->>>>>>> Acked-by: Kalle Valo<kvalo@codeaurora.org>
->>>>>>> Signed-off-by: Zhonghui Fu<zhonghui.fu@linux.intel.com>
->>>>>> I don't remember giving Acked-by to this (or for matter to anything for
->>>>>> a long time). What about Sergei or Arend?
->>>>> I haven't ACK'ed this patch either.
->>>> I did ACK the initial patch and felt it still valid for this 'V2' patch.
->>> Ok, thanks. So the patch is good, Zhonghui just needs to remove the two
->>> acked-by lines.
->> Indeed.
-> I have removed the two acked-by lines and sent the new patch in another mail.
->
-> Thanks,
-> Zhonghui
-What comments about the new patch?  Can this new patch be accepted?
+On Dec 22, 2014, at 12:41 PM, David Miller <davem@davemloft.net> wrote:
 
+> From: Dan Collins <dan@dcollins.co.nz>
+> Date: Fri, 19 Dec 2014 16:49:25 +1300
+> 
+>> Make TPACKET_V3 signal poll when block is closed rather than for every
+>> packet. Side effect is that poll will be signaled when block retire
+>> timer expires which didn't previously happen. Issue was visible when
+>> sending packets at a very low frequency such that all blocks are retired
+>> before packets are received by TPACKET_V3. This caused avoidable packet
+>> loss. The fix ensures that the signal is sent when blocks are closed
+>> which covers the normal path where the block is filled as well as the
+>> path where the timer expires. The case where a block is filled without
+>> moving to the next block (ie. all blocks are full) will still cause poll
+>> to be signaled.
+>> 
+>> Signed-off-by: Dan Collins <dan@dcollins.co.nz>
+> 
+> Applied, thanks.
 
-Thanks,
-Zhonghui
->> Regards,
->> Arend
->> -- 
->> To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Should this be applied to any of the stable kernel branches?  The old behavior is the source of some libpcap/tcpdump/etc. complaints; see, for example, the thread that included
+
+	http://marc.info/?l=linux-netdev&m=140713966510035&w=2
