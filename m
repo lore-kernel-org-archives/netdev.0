@@ -1,61 +1,135 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Throughput regression with `tcp: refine TSO autosizing`
-Date: Mon, 02 Feb 2015 10:52:16 -0800
-Message-ID: <1422903136.21689.114.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CA+BoTQkVu23P3EOmY_Q3E1GJnWsyF==Pawz4iPOS_Bq5dvfO5Q@mail.gmail.com>
-	 <1422537297.21689.15.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+BoTQk2xT-8DqPuiiKG+kHAjLPrj8F9dLTb-rcGhvMq0u_2Qw@mail.gmail.com>
-	 <1422628835.21689.95.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+BoTQkV+mOZfe_Niz5101sMQeaV6muKCsShptjGQ1AgOHqqoQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless <linux-wireless@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	eyalpe@dev.mellanox.co.il
-To: Michal Kazior <michal.kazior@tieto.com>
+From: Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
+Subject: [PATCH net-next 1/2] pkt_sched: fq: avoid artificial bursts for clocked flows
+Date: Mon,  2 Feb 2015 19:59:15 +0100
+Message-ID: <1422903556-30393-1-git-send-email-kennetkl@ifi.uio.no>
+Cc: Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f172.google.com ([209.85.223.172]:46093 "EHLO
-	mail-ie0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753123AbbBBSwS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2015 13:52:18 -0500
-In-Reply-To: <CA+BoTQkV+mOZfe_Niz5101sMQeaV6muKCsShptjGQ1AgOHqqoQ@mail.gmail.com>
+Received: from mail-out5.uio.no ([129.240.10.17]:56226 "EHLO mail-out5.uio.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751116AbbBBS7n (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Feb 2015 13:59:43 -0500
+Received: from mail-mx4.uio.no ([129.240.10.45])
+	by mail-out5.uio.no with esmtp (Exim 4.80.1)
+	(envelope-from <kennetkl@ifi.uio.no>)
+	id 1YIMDl-0007pG-PI
+	for netdev@vger.kernel.org; Mon, 02 Feb 2015 19:59:41 +0100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2015-02-02 at 11:27 +0100, Michal Kazior wrote:
+Current pacing behavior always throttle flows for a time equal to one full
+quantum, starting at the instance in time when a flow depletes its credit.
+This is optimal for burst sizes that are a multiple of the chosen quantum.
 
-> While testing I've had my internal GRO patch for ath10k and no stretch
-> ack patches.
+For flows with many small and evenly clocked packets, the depletion and
+refilling of credits cause packets to queue and transmit in bursts, even
+when their clocked rate is below the pacing rate. With TCP ACKs, this
+artificial queueing induces significant noise to RTTs, e.g. up to 2.07 ms
+for rtt 20 ms, cwnd 10 and quantum 3028.
 
-Thanks for the data, I took a look at it.
+Packetdrill script to illustrate bursts:
+0.000 socket(..., SOCK_DGRAM, IPPROTO_UDP) = 3
+0.000 setsockopt(3, SOL_SOCKET, SO_REUSEADDR, [1], 4) = 0
+0.000 bind(3, ..., ...) = 0
+0.000 connect(3, ..., ...) = 0
 
-I am afraid this GRO patch might be the problem.
+// SO_MAX_PACING_RATE: 2500 Bps, 100 ms per quantum, 20 ms per 50B packet.
+0.000 setsockopt(3, SOL_SOCKET, 47, [2500], 4) = 0
+0.000 `tc qdisc add dev tun0 root fq initial_quantum 250 quantum 250`
 
-It seems to break ACK clocking badly (linux stack has a somewhat buggy
-tcp_tso_should_defer(), which relies on ACK being received smoothly, as
-no timer is setup to split the TSO packet.)
+// Use 200 credits: send four perfectly spaced 50 byte packets.
+0.000 write(3, ..., 22) = 22
+0.000 > udp (22)
+0.020 write(3, ..., 22) = 22
+0.020 > udp (22)
+0.040 write(3, ..., 22) = 22
+0.040 > udp (22)
+0.060 write(3, ..., 22) = 22
+0.060 > udp (22)
 
-I am seeing huge delays on ACK packets and bursts like that :
+// Send five perfectly spaced packets. The first credits are depleted at
+// 1.000, and the remaining four packets are sent in a burst at 1.100.
+// Packets are sent at their intended times when this patch is applied.
+1.000 write(3, ..., 22) = 22
+1.000 > udp (22)
+1.020 write(3, ..., 22) = 22
+1.040 write(3, ..., 22) = 22
+1.060 write(3, ..., 22) = 22
+1.080 write(3, ..., 22) = 22
+1.100 > udp (22)
+1.100 > udp (22)
+1.100 > udp (22)
+1.100 > udp (22)
 
-05:01:53.413038 IP 192.168.1.2.5001 > 192.168.1.3.49669: Flags [.], ack 76745, win 4435, options [nop,nop,TS val 4294758508 ecr 4294757300], length 0
-05:01:53.413407 IP 192.168.1.2.5001 > 192.168.1.3.49669: Flags [.], ack 79641, win 4435, options [nop,nop,TS val 4294758508 ecr 4294757301], length 0
-05:01:53.413969 IP 192.168.1.2.5001 > 192.168.1.3.49669: Flags [.], ack 92673, win 4435, options [nop,nop,TS val 4294758510 ecr 4294757302], length 0
-05:01:53.413990 IP 192.168.1.2.5001 > 192.168.1.3.49669: Flags [.], ack 97017, win 4435, options [nop,nop,TS val 4294758510 ecr 4294757302], length 0
-05:01:53.414011 IP 192.168.1.2.5001 > 192.168.1.3.49669: Flags [.], ack 110049, win 4435, options [nop,nop,TS val 4294758510 ecr 4294757302], length 0
-...
-05:01:53.422663 IP 192.168.1.2.5001 > 192.168.1.3.49669: Flags [.], ack 189689, win 4435, options [nop,nop,TS val 4294758519 ecr 4294757310], length 0
-05:01:53.424354 IP 192.168.1.2.5001 > 192.168.1.3.49669: Flags [.], ack 198377, win 4435, options [nop,nop,TS val 4294758520 ecr 4294757311], length 0
-05:01:53.424400 IP 192.168.1.2.5001 > 192.168.1.3.49669: Flags [.], ack 202721, win 4435, options [nop,nop,TS val 4294758520 ecr 4294757313], length 0
-05:01:53.424409 IP 192.168.1.2.5001 > 192.168.1.3.49669: Flags [.], ack 205617, win 4435, options [nop,nop,TS val 4294758520 ecr 4294757313], length 0
-...
-05:01:53.450248 IP 192.168.1.2.5001 > 192.168.1.3.49669: Flags [.], ack 419921, win 4435, options [nop,nop,TS val 4294758547 ecr 4294757337], length 0
-05:01:53.450266 IP 192.168.1.2.5001 > 192.168.1.3.49669: Flags [.], ack 427161, win 4435, options [nop,nop,TS val 4294758547 ecr 4294757340], length 0
-05:01:53.450289 IP 192.168.1.2.5001 > 192.168.1.3.49669: Flags [.], ack 431505, win 4435, options [nop,nop,TS val 4294758547 ecr 4294757340], length 0
+Keep track of when a flows credit was last filled, and use this to
+approximate a credit refill for each quantum of time that passes.
 
-Could you make again your experiments using upstream kernel (David
-Miller net tree) ?
+Increases memory footprint from 104 to 112 bytes per flow.
 
-You also could post the GRO patch so that we can comment on it.
+Signed-off-by: Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
+---
+ net/sched/sch_fq.c | 13 +++++++++++--
+ 1 file changed, 11 insertions(+), 2 deletions(-)
 
-Thanks
+diff --git a/net/sched/sch_fq.c b/net/sched/sch_fq.c
+index 2a50f5c..6f0c45e 100644
+--- a/net/sched/sch_fq.c
++++ b/net/sched/sch_fq.c
+@@ -71,6 +71,7 @@ struct fq_flow {
+ 
+ 	struct rb_node  rate_node;	/* anchor in q->delayed tree */
+ 	u64		time_next_packet;
++	u64		time_credit_filled;
+ };
+ 
+ struct fq_flow_head {
+@@ -250,6 +251,7 @@ static struct fq_flow *fq_classify(struct sk_buff *skb, struct fq_sched_data *q)
+ 			if (unlikely(skb->sk &&
+ 				     f->socket_hash != sk->sk_hash)) {
+ 				f->credit = q->initial_quantum;
++				f->time_credit_filled = ktime_get_ns();
+ 				f->socket_hash = sk->sk_hash;
+ 				f->time_next_packet = 0ULL;
+ 			}
+@@ -271,6 +273,7 @@ static struct fq_flow *fq_classify(struct sk_buff *skb, struct fq_sched_data *q)
+ 	if (skb->sk)
+ 		f->socket_hash = sk->sk_hash;
+ 	f->credit = q->initial_quantum;
++	f->time_credit_filled = ktime_get_ns();
+ 
+ 	rb_link_node(&f->fq_node, parent, p);
+ 	rb_insert_color(&f->fq_node, root);
+@@ -374,8 +377,10 @@ static int fq_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+ 	qdisc_qstats_backlog_inc(sch, skb);
+ 	if (fq_flow_is_detached(f)) {
+ 		fq_flow_add_tail(&q->new_flows, f);
+-		if (time_after(jiffies, f->age + q->flow_refill_delay))
++		if (time_after(jiffies, f->age + q->flow_refill_delay)) {
+ 			f->credit = max_t(u32, f->credit, q->quantum);
++			f->time_credit_filled = ktime_get_ns();
++		}
+ 		q->inactive_flows--;
+ 	}
+ 
+@@ -440,6 +445,7 @@ begin:
+ 
+ 	if (f->credit <= 0) {
+ 		f->credit += q->quantum;
++		f->time_credit_filled = max(now, f->time_next_packet);
+ 		head->first = f->next;
+ 		fq_flow_add_tail(&q->old_flows, f);
+ 		goto begin;
+@@ -489,7 +495,10 @@ begin:
+ 			q->stat_pkts_too_long++;
+ 		}
+ 
+-		f->time_next_packet = now + len;
++		/* If now < time_next_packet, throttles flow for a time equal
++		 * to one quantum (len) after current credits were filled.
++		 */
++		f->time_next_packet = f->time_credit_filled + len;
+ 	}
+ out:
+ 	qdisc_bstats_update(sch, skb);
+-- 
+1.9.1
