@@ -1,117 +1,69 @@
-From: Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
-Subject: [PATCH net-next 2/2] pkt_sched: fq: remove redundant flow credit refill
-Date: Mon,  2 Feb 2015 19:59:16 +0100
-Message-ID: <1422903556-30393-2-git-send-email-kennetkl@ifi.uio.no>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 1/2] pkt_sched: fq: avoid artificial bursts for
+ clocked flows
+Date: Mon, 02 Feb 2015 11:24:52 -0800
+Message-ID: <1422905092.21689.122.camel@edumazet-glaptop2.roam.corp.google.com>
 References: <1422903556-30393-1-git-send-email-kennetkl@ifi.uio.no>
-Cc: Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
-To: netdev@vger.kernel.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out4.uio.no ([129.240.10.15]:38356 "EHLO mail-out4.uio.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754680AbbBBS7x (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Feb 2015 13:59:53 -0500
-Received: from mail-mx4.uio.no ([129.240.10.45])
-	by mail-out4.uio.no with esmtp (Exim 4.80.1)
-	(envelope-from <kennetkl@ifi.uio.no>)
-	id 1YIMDv-0003Z2-KF
-	for netdev@vger.kernel.org; Mon, 02 Feb 2015 19:59:51 +0100
+Received: from mail-ig0-f171.google.com ([209.85.213.171]:33277 "EHLO
+	mail-ig0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932562AbbBBTYy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2015 14:24:54 -0500
+Received: by mail-ig0-f171.google.com with SMTP id h15so4621844igd.4
+        for <netdev@vger.kernel.org>; Mon, 02 Feb 2015 11:24:53 -0800 (PST)
 In-Reply-To: <1422903556-30393-1-git-send-email-kennetkl@ifi.uio.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Current behavior explicitly refills flow credit after idle. But following
-the first patch in this series, regular refill no longer throttles a flow
-if idle_time >= quantum_time.
+On Mon, 2015-02-02 at 19:59 +0100, Kenneth Klette Jonassen wrote:
+> Current pacing behavior always throttle flows for a time equal to one full
+> quantum, starting at the instance in time when a flow depletes its credit.
+> This is optimal for burst sizes that are a multiple of the chosen quantum.
+> 
+> For flows with many small and evenly clocked packets, the depletion and
+> refilling of credits cause packets to queue and transmit in bursts, even
+> when their clocked rate is below the pacing rate. With TCP ACKs, this
+> artificial queueing induces significant noise to RTTs, e.g. up to 2.07 ms
+> for rtt 20 ms, cwnd 10 and quantum 3028.
+> 
+> Packetdrill script to illustrate bursts:
+> 0.000 socket(..., SOCK_DGRAM, IPPROTO_UDP) = 3
+> 0.000 setsockopt(3, SOL_SOCKET, SO_REUSEADDR, [1], 4) = 0
+> 0.000 bind(3, ..., ...) = 0
+> 0.000 connect(3, ..., ...) = 0
+> 
+> // SO_MAX_PACING_RATE: 2500 Bps, 100 ms per quantum, 20 ms per 50B packet.
+> 0.000 setsockopt(3, SOL_SOCKET, 47, [2500], 4) = 0
+> 0.000 `tc qdisc add dev tun0 root fq initial_quantum 250 quantum 250`
+> 
+> // Use 200 credits: send four perfectly spaced 50 byte packets.
+> 0.000 write(3, ..., 22) = 22
+> 0.000 > udp (22)
+> 0.020 write(3, ..., 22) = 22
+> 0.020 > udp (22)
+> 0.040 write(3, ..., 22) = 22
+> 0.040 > udp (22)
+> 0.060 write(3, ..., 22) = 22
+> 0.060 > udp (22)
 
-Remove redundant refill, and warn possible users of the refill delay knob.
 
-Updates f52ed89971ad ("pkt_sched: fq: fix pacing for small frames").
-Inspired by 65c5189a2b57 ("pkt_sched: fq: warn users using defrate").
+We do not want to perfectly space packets, but have an efficient packet
+scheduler, allowing TCP pacing.
 
-Signed-off-by: Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
----
- include/uapi/linux/pkt_sched.h |  2 +-
- net/sched/sch_fq.c             | 20 ++++++--------------
- 2 files changed, 7 insertions(+), 15 deletions(-)
+I chose to not use ktime_get() in enqueue() when I wrote sch_fq.
 
-diff --git a/include/uapi/linux/pkt_sched.h b/include/uapi/linux/pkt_sched.h
-index d62316b..5a9afb4 100644
---- a/include/uapi/linux/pkt_sched.h
-+++ b/include/uapi/linux/pkt_sched.h
-@@ -772,7 +772,7 @@ enum {
- 
- 	TCA_FQ_BUCKETS_LOG,	/* log2(number of buckets) */
- 
--	TCA_FQ_FLOW_REFILL_DELAY,	/* flow credit refill delay in usec */
-+	TCA_FQ_FLOW_REFILL_DELAY,	/* obsolete, do not use */
- 
- 	__TCA_FQ_MAX
- };
-diff --git a/net/sched/sch_fq.c b/net/sched/sch_fq.c
-index 6f0c45e..81695ac 100644
---- a/net/sched/sch_fq.c
-+++ b/net/sched/sch_fq.c
-@@ -90,7 +90,6 @@ struct fq_sched_data {
- 	struct fq_flow	internal;	/* for non classified or high prio packets */
- 	u32		quantum;
- 	u32		initial_quantum;
--	u32		flow_refill_delay;
- 	u32		flow_max_rate;	/* optional max rate per flow */
- 	u32		flow_plimit;	/* max packets per flow */
- 	struct rb_root	*fq_root;
-@@ -377,10 +376,6 @@ static int fq_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- 	qdisc_qstats_backlog_inc(sch, skb);
- 	if (fq_flow_is_detached(f)) {
- 		fq_flow_add_tail(&q->new_flows, f);
--		if (time_after(jiffies, f->age + q->flow_refill_delay)) {
--			f->credit = max_t(u32, f->credit, q->quantum);
--			f->time_credit_filled = ktime_get_ns();
--		}
- 		q->inactive_flows--;
- 	}
- 
-@@ -701,11 +696,9 @@ static int fq_change(struct Qdisc *sch, struct nlattr *opt)
- 			err = -EINVAL;
- 	}
- 
--	if (tb[TCA_FQ_FLOW_REFILL_DELAY]) {
--		u32 usecs_delay = nla_get_u32(tb[TCA_FQ_FLOW_REFILL_DELAY]) ;
--
--		q->flow_refill_delay = usecs_to_jiffies(usecs_delay);
--	}
-+	if (tb[TCA_FQ_FLOW_REFILL_DELAY])
-+		pr_warn_ratelimited("sch_fq: refill delay %u ignored.\n",
-+				    nla_get_u32(tb[TCA_FQ_FLOW_REFILL_DELAY]));
- 
- 	if (!err) {
- 		sch_tree_unlock(sch);
-@@ -744,7 +737,6 @@ static int fq_init(struct Qdisc *sch, struct nlattr *opt)
- 	q->flow_plimit		= 100;
- 	q->quantum		= 2 * psched_mtu(qdisc_dev(sch));
- 	q->initial_quantum	= 10 * psched_mtu(qdisc_dev(sch));
--	q->flow_refill_delay	= msecs_to_jiffies(40);
- 	q->flow_max_rate	= ~0U;
- 	q->rate_enable		= 1;
- 	q->new_flows.first	= NULL;
-@@ -771,7 +763,9 @@ static int fq_dump(struct Qdisc *sch, struct sk_buff *skb)
- 	if (opts == NULL)
- 		goto nla_put_failure;
- 
--	/* TCA_FQ_FLOW_DEFAULT_RATE is not used anymore */
-+	/* TCA_FQ_FLOW_DEFAULT_RATE and TCA_FQ_FLOW_REFILL_DELAY
-+	 * is not used anymore.
-+	 */
- 
- 	if (nla_put_u32(skb, TCA_FQ_PLIMIT, sch->limit) ||
- 	    nla_put_u32(skb, TCA_FQ_FLOW_PLIMIT, q->flow_plimit) ||
-@@ -779,8 +773,6 @@ static int fq_dump(struct Qdisc *sch, struct sk_buff *skb)
- 	    nla_put_u32(skb, TCA_FQ_INITIAL_QUANTUM, q->initial_quantum) ||
- 	    nla_put_u32(skb, TCA_FQ_RATE_ENABLE, q->rate_enable) ||
- 	    nla_put_u32(skb, TCA_FQ_FLOW_MAX_RATE, q->flow_max_rate) ||
--	    nla_put_u32(skb, TCA_FQ_FLOW_REFILL_DELAY,
--			jiffies_to_usecs(q->flow_refill_delay)) ||
- 	    nla_put_u32(skb, TCA_FQ_BUCKETS_LOG, q->fq_trees_log))
- 		goto nla_put_failure;
- 
--- 
-1.9.1
+A Token Bucket Filter has the notion of quantum, meaning you configure
+the granularity given this quantum.
+
+At Google, we have a special handling for TCP ACK packets, so that they
+do not interfere with FQ/pacing.
+
+ACK packets are not paced, ever.
+
+This patch also allows skb->ooo_okay being set even if the DATA packet
+immediately follows a train of ACK packets (as in typical RPC patterns)
