@@ -1,62 +1,58 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 Subject: Re: [PATCHv3, ipsec-next] xfrm: Do not parse 32bits compiled xfrm
  netlink msg on 64bits host
-Date: Mon, 2 Feb 2015 09:44:43 +0100
-Message-ID: <20150202084443.GS13046@secunet.com>
-References: <1422349230-17394-1-git-send-email-fan.du@intel.com>
- <54CA0B9F.8080104@6wind.com>
+Date: Mon, 02 Feb 2015 10:02:50 +0100
+Message-ID: <54CF3D3A.5040607@6wind.com>
+References: <1422349230-17394-1-git-send-email-fan.du@intel.com> <54CA0B9F.8080104@6wind.com> <20150202084443.GS13046@secunet.com>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Fan Du <fan.du@intel.com>, <herbert@gondor.apana.org.au>,
-	<davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<fengyuleidian0615@gmail.com>
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Content-Type: text/plain; charset=windows-1252;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Fan Du <fan.du@intel.com>, herbert@gondor.apana.org.au,
+	davem@davemloft.net, netdev@vger.kernel.org,
+	fengyuleidian0615@gmail.com
+To: Steffen Klassert <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:49231 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751053AbbBBIoq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Feb 2015 03:44:46 -0500
-Content-Disposition: inline
-In-Reply-To: <54CA0B9F.8080104@6wind.com>
+Received: from mail-we0-f181.google.com ([74.125.82.181]:42432 "EHLO
+	mail-we0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932818AbbBBJCy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2015 04:02:54 -0500
+Received: by mail-we0-f181.google.com with SMTP id k48so37717229wev.12
+        for <netdev@vger.kernel.org>; Mon, 02 Feb 2015 01:02:52 -0800 (PST)
+In-Reply-To: <20150202084443.GS13046@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 29, 2015 at 11:29:51AM +0100, Nicolas Dichtel wrote:
-> A way to solve this problem was to provide to userland a xfrm compat header
-> file, which match the ABI of the kernel. Something like:
-> 
-> #include <linux/xfrm.h>
-> 
-> #define xfrm_usersa_info xfrm_usersa_info_64
-> #define xfrm_usersa_info_compat xfrm_usersa_info
-> struct xfrm_usersa_info_compat {
-> 	struct xfrm_selector		sel;
-> 	struct xfrm_id			id;
-> 	xfrm_address_t			saddr;
-> 	struct xfrm_lifetime_cfg	lft;
-> 	struct xfrm_lifetime_cur	curlft;
-> 	struct xfrm_stats		stats;
-> 	__u32				seq;
-> 	__u32				reqid;
-> 	__u16				family;
-> 	__u8				mode;
-> 	__u8				replay_window;
-> 	__u8				flags;
-> 	__u8				hole1;
-> 	__u32				hole2;
-> };
-> 
-> The point I try to make is that patching userland apps allows to use xfrm on a
-> 32bits userland / 64bits kernel.
+Le 02/02/2015 09:44, Steffen Klassert a =E9crit :
+> On Thu, Jan 29, 2015 at 11:29:51AM +0100, Nicolas Dichtel wrote:
+[snip]
+>>
+>> The point I try to make is that patching userland apps allows to use=
+ xfrm on a
+>> 32bits userland / 64bits kernel.
+>
+> Ugh, I did not know that this is used that way. Which applications do=
+ this?
+> So the situation is worse than I thought. What happens to such applic=
+ations
+> if we add a compat layer in the kernel? I'd guess they will break, ri=
+ght?
+A compat layer will be perfect. I just wanted to highlight the fact tha=
+t without
+this patch, it's possible to have a workaround to use netlink-xfrm and =
+after it,
+it will be impossible.
 
-Ugh, I did not know that this is used that way. Which applications do this?
-So the situation is worse than I thought. What happens to such applications
-if we add a compat layer in the kernel? I'd guess they will break, right?
-
-> 
-> If I understand well your patch, it will not be possible anymore, all messages
-> will be rejected. And this may break existing apps.
-
-This patch would have been a quick solution without the case you
-mentioned. Now I fear we can't fix all cases, something will remain
-broken.
+>
+>>
+>> If I understand well your patch, it will not be possible anymore, al=
+l messages
+>> will be rejected. And this may break existing apps.
+>
+> This patch would have been a quick solution without the case you
+> mentioned. Now I fear we can't fix all cases, something will remain
+> broken.
+>
+I think you're right, but having a proper solution is probably the best=
+=2E
