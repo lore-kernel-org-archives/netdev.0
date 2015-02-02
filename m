@@ -1,59 +1,115 @@
 From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: [PATCH v2 03/18] ipv6: rawv6_send_hdrinc(): pass msghdr
-Date: Mon,  2 Feb 2015 07:59:22 +0000
-Message-ID: <1422863977-17668-3-git-send-email-viro@ZenIV.linux.org.uk>
+Subject: [PATCH v2 18/18] vhost: vhost_scsi_handle_vq() should just use copy_from_user()
+Date: Mon,  2 Feb 2015 07:59:37 +0000
+Message-ID: <1422863977-17668-18-git-send-email-viro@ZenIV.linux.org.uk>
 References: <20150131035513.GK29656@ZenIV.linux.org.uk>
-Cc: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>,
+	"Nicholas A. Bellinger" <nab@linux-iscsi.org>, kvm@vger.kernel.org
 To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeniv.linux.org.uk ([195.92.253.2]:32956 "EHLO
-	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932659AbbBBH7i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2015 02:59:38 -0500
+Return-path: <kvm-owner@vger.kernel.org>
 In-Reply-To: <20150131035513.GK29656@ZenIV.linux.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Al Viro <viro@zeniv.linux.org.uk>
 
-Switch from passing msg->iov_iter.iov to passing msg itself
+it has just verified that it asks no more than the length of the
+first segment of iovec.
 
+And with that the last user of stuff in lib/iovec.c is gone.
+RIP.
+
+Cc: Michael S. Tsirkin <mst@redhat.com>
+Cc: Nicholas A. Bellinger <nab@linux-iscsi.org>
+Cc: kvm@vger.kernel.org
 Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
 ---
- net/ipv6/raw.c | 7 +++----
- 1 file changed, 3 insertions(+), 4 deletions(-)
+ drivers/vhost/scsi.c |  2 +-
+ include/linux/uio.h  |  2 --
+ lib/Makefile         |  2 +-
+ lib/iovec.c          | 36 ------------------------------------
+ 4 files changed, 2 insertions(+), 40 deletions(-)
+ delete mode 100644 lib/iovec.c
 
-diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
-index ee25631..0dbb328 100644
---- a/net/ipv6/raw.c
-+++ b/net/ipv6/raw.c
-@@ -609,7 +609,7 @@ out:
- 	return err;
- }
+diff --git a/drivers/vhost/scsi.c b/drivers/vhost/scsi.c
+index d695b16..dc78d87 100644
+--- a/drivers/vhost/scsi.c
++++ b/drivers/vhost/scsi.c
+@@ -1079,7 +1079,7 @@ vhost_scsi_handle_vq(struct vhost_scsi *vs, struct vhost_virtqueue *vq)
+ 			       req_size, vq->iov[0].iov_len);
+ 			break;
+ 		}
+-		ret = memcpy_fromiovecend(req, &vq->iov[0], 0, req_size);
++		ret = copy_from_user(req, vq->iov[0].iov_base, req_size);
+ 		if (unlikely(ret)) {
+ 			vq_err(vq, "Faulted on virtio_scsi_cmd_req\n");
+ 			break;
+diff --git a/include/linux/uio.h b/include/linux/uio.h
+index 02bd8a9..3e0cb4e 100644
+--- a/include/linux/uio.h
++++ b/include/linux/uio.h
+@@ -135,6 +135,4 @@ static inline void iov_iter_reexpand(struct iov_iter *i, size_t count)
+ size_t csum_and_copy_to_iter(void *addr, size_t bytes, __wsum *csum, struct iov_iter *i);
+ size_t csum_and_copy_from_iter(void *addr, size_t bytes, __wsum *csum, struct iov_iter *i);
  
--static int rawv6_send_hdrinc(struct sock *sk, void *from, int length,
-+static int rawv6_send_hdrinc(struct sock *sk, struct msghdr *msg, int length,
- 			struct flowi6 *fl6, struct dst_entry **dstp,
- 			unsigned int flags)
- {
-@@ -648,7 +648,7 @@ static int rawv6_send_hdrinc(struct sock *sk, void *from, int length,
- 	skb->ip_summed = CHECKSUM_NONE;
+-int memcpy_fromiovecend(unsigned char *kdata, const struct iovec *iov,
+-			int offset, int len);
+ #endif
+diff --git a/lib/Makefile b/lib/Makefile
+index 3c3b30b..1071d06 100644
+--- a/lib/Makefile
++++ b/lib/Makefile
+@@ -24,7 +24,7 @@ obj-y	+= lockref.o
  
- 	skb->transport_header = skb->network_header;
--	err = memcpy_fromiovecend((void *)iph, from, 0, length);
-+	err = memcpy_fromiovecend((void *)iph, msg->msg_iter.iov, 0, length);
- 	if (err)
- 		goto error_fault;
- 
-@@ -886,8 +886,7 @@ static int rawv6_sendmsg(struct kiocb *iocb, struct sock *sk,
- 
- back_from_confirm:
- 	if (inet->hdrincl)
--		/* XXX: stripping const */
--		err = rawv6_send_hdrinc(sk, (struct iovec *)msg->msg_iter.iov, len, &fl6, &dst, msg->msg_flags);
-+		err = rawv6_send_hdrinc(sk, msg, len, &fl6, &dst, msg->msg_flags);
- 	else {
- 		lock_sock(sk);
- 		err = ip6_append_data(sk, raw6_getfrag, &rfv,
+ obj-y += bcd.o div64.o sort.o parser.o halfmd4.o debug_locks.o random32.o \
+ 	 bust_spinlocks.o hexdump.o kasprintf.o bitmap.o scatterlist.o \
+-	 gcd.o lcm.o list_sort.o uuid.o flex_array.o iovec.o clz_ctz.o \
++	 gcd.o lcm.o list_sort.o uuid.o flex_array.o clz_ctz.o \
+ 	 bsearch.o find_last_bit.o find_next_bit.o llist.o memweight.o kfifo.o \
+ 	 percpu-refcount.o percpu_ida.o rhashtable.o reciprocal_div.o
+ obj-y += string_helpers.o
+diff --git a/lib/iovec.c b/lib/iovec.c
+deleted file mode 100644
+index d8f17a9..0000000
+--- a/lib/iovec.c
++++ /dev/null
+@@ -1,36 +0,0 @@
+-#include <linux/uaccess.h>
+-#include <linux/export.h>
+-#include <linux/uio.h>
+-
+-/*
+- *	Copy iovec to kernel. Returns -EFAULT on error.
+- */
+-
+-int memcpy_fromiovecend(unsigned char *kdata, const struct iovec *iov,
+-			int offset, int len)
+-{
+-	/* No data? Done! */
+-	if (len == 0)
+-		return 0;
+-
+-	/* Skip over the finished iovecs */
+-	while (offset >= iov->iov_len) {
+-		offset -= iov->iov_len;
+-		iov++;
+-	}
+-
+-	while (len > 0) {
+-		u8 __user *base = iov->iov_base + offset;
+-		int copy = min_t(unsigned int, len, iov->iov_len - offset);
+-
+-		offset = 0;
+-		if (copy_from_user(kdata, base, copy))
+-			return -EFAULT;
+-		len -= copy;
+-		kdata += copy;
+-		iov++;
+-	}
+-
+-	return 0;
+-}
+-EXPORT_SYMBOL(memcpy_fromiovecend);
 -- 
 2.1.4
+
