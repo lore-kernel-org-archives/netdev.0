@@ -1,97 +1,81 @@
-From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Subject: Re: [PATCHv2 net] net: restore lro after device detached from bridge
-Date: Mon, 02 Feb 2015 02:35:02 -0800
-Message-ID: <54CF52D6.90701@redhat.com>
-References: <1422621209-23222-1-git-send-email-fan.du@intel.com> <54CBEE24.8000603@redhat.com> <54CEDEDC.7060507@gmail.com>
-Reply-To: alexander.h.duyck@redhat.com
+From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Subject: Re: [PATCH v2 3/3] lib/string_helpers.c: Change semantics of
+ string_escape_mem
+Date: Mon, 02 Feb 2015 12:56:37 +0200
+Message-ID: <1422874597.31903.358.camel@linux.intel.com>
+References: <1422451543-12401-1-git-send-email-linux@rasmusvillemoes.dk>
+	 <1422525801-26560-1-git-send-email-linux@rasmusvillemoes.dk>
+	 <1422525801-26560-4-git-send-email-linux@rasmusvillemoes.dk>
+	 <1422538178.31903.325.camel@linux.intel.com>
+	 <87oaphbqym.fsf@rasmusvillemoes.dk>
+	 <1422613655.31903.351.camel@linux.intel.com>
+	 <87pp9vhm8l.fsf@rasmusvillemoes.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Fan Du <fan.du@intel.com>, bhutchings@solarflare.com,
-	davem@davemloft.net, netdev@vger.kernel.org
-To: Fan Du <fengyuleidian0615@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:37860 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933141AbbBBKfM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Feb 2015 05:35:12 -0500
-In-Reply-To: <54CEDEDC.7060507@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Trond Myklebust <trond.myklebust@primarydata.com>,
+	"J. Bruce Fields" <bfields@fieldses.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, linux-nfs@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Rasmus Villemoes <linux@rasmusvillemoes.dk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87pp9vhm8l.fsf@rasmusvillemoes.dk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 02/01/2015 06:20 PM, Fan Du wrote:
-> =E4=BA=8E 2015=E5=B9=B401=E6=9C=8831=E6=97=A5 04:48, Alexander Duyck =
-=E5=86=99=E9=81=93:
->> On 01/30/2015 04:33 AM, Fan Du wrote:
->>> Either detaching a device from bridge or switching a device
->>> out of FORWARDING state, the original lro feature should
->>> possibly be enabled for good reason, e.g. hw feature like
->>> receive side coalescing could come into play.
->>>
->>> BEFORE:
->>> echo 1 > /proc/sys/net/ipv4/conf/ens806f0/forwarding && ethtool -k=20
->>> ens806f0 | grep large
->>> large-receive-offload: off
->>>
->>> echo 0 > /proc/sys/net/ipv4/conf/ens806f0/forwarding && ethtool -k=20
->>> ens806f0 | grep large
->>> large-receive-offload: off
->>>
->>> AFTER:
->>> echo 1 > /proc/sys/net/ipv4/conf/ens806f0/forwarding && ethtool -k=20
->>> ens806f0 | grep large
->>> large-receive-offload: off
->>>
->>> echo 0 > /proc/sys/net/ipv4/conf/ens806f0/forwarding && ethtool -k=20
->>> ens806f0 | grep large
->>> large-receive-offload: on
->>>
->>> Signed-off-by: Fan Du <fan.du@intel.com>
->>> Fixes: 0187bdfb0567 ("net: Disable LRO on devices that are forwardi=
-ng")
->>
->
->> First off this isn't a "fix".  This is going to likely break more th=
-an
->> it fixes.  The main reason why LRO is disabled is because it can cau=
-se
->> more harm then it helps.  Since GRO is available we should err on th=
-e
->> side of caution since enabling LRO/RSC can have undesirable side eff=
-ects
->> in a number of cases.
->
-> I think you are talking about bad scenarios when net device is=20
-> attached to a bridge.
-> Then what's the good reason user has to pay extra cpu power for using=
-=20
-> GRO, instead
-> of using hw capable LRO/RSC when this net device is detached from=20
-> bridge acting as
-> a standalone NIC?
->
-> Note, SRC is defaulted to *ON* in practice for ALL ixgbe NICs, as sam=
-e=20
-> other RSC capable
-> NICs. Attaching net device to a bridge _once_ should not changed its=20
-> default configuration,
-> moreover it's a subtle change without any message that user won't=20
-> noticed at all.
+On Sat, 2015-01-31 at 00:39 +0100, Rasmus Villemoes wrote:
+> On Fri, Jan 30 2015, Andy Shevchenko <andriy.shevchenko@linux.intel.com> wrote:
+> >> >>   * Return:
+> >> >> - * The amount of the characters processed to the destination buffer, or
+> >> >> - * %-ENOMEM if the size of buffer is not enough to put an escaped character is
+> >> >> - * returned.
+> >> >> - *
+> >> >> - * Even in the case of error @dst pointer will be updated to point to the byte
+> >> >> - * after the last processed character.
+> >> >> + * The total size of the escaped output that would be generated for
+> >> >> + * the given input and flags. To check whether the output was
+> >> >> + * truncated, compare the return value to osz. There is room left in
+> >> >> + * dst for a '\0' terminator if and only if ret < osz.
+> >> >>   */
+> >> >> -int string_escape_mem(const char *src, size_t isz, char **dst, size_t osz,
+> >> >> -		      unsigned int flags, const char *esc)
+> >> >> +size_t string_escape_mem(const char *src, size_t isz, char *dst, size_t osz,
+> >> >> +			 unsigned int flags, const char *esc)
+> >> >
+> >> > I prefer to leave the prototype the same. int for return is okay. dst
+> >> > should be updated accordingly.
+> >> 
+> >> Please explain exactly what you think the return value should be, and
+> >> what *dst should be set to.
+> >
+> > Return value like you proposed, *dst is incremented by it.
+> 
+> The more I think about it, the less I like having dst being char**.
+> 
+> (1) It is unlike most other functions taking buffer+size arguments.
+> (2) It is inconvenient. Callers doing
+> 
+>   char escaped[SOME_SIZE];
+> 
+> or
+> 
+>   char *escaped = kmalloc(likely_big_enough);
+> 
+> can't just pass &escaped; they would need to use an extra dummy variable.
+> 
+> (3) With the return value telling the size of the would-be generated
+> output, it is redundant.
+> 
+> In fact, I dislike it so much that I'm not going to sign off on a patch
+> where dst is still char**.
 
-No, RSC only has benefits for IPv4/TCP large packets.  However=20
-historically there have been issues seen w/ small packet performance=20
-with RSC enabled.  Some have been addressed, however there are still=20
-other effects such as increasing latency for receive unless the push=20
-flag is set in the frame.
+Fair enough, though there usual case when temporary variable is already
+present (at least current users).
 
-I still say this patch is not valid, even with your changes.  Your=20
-performance gain doesn't trump the regressions you would be causing on=20
-other peoples platforms.
+Let's proceed with char *dst.
 
-I would suggest figuring out why you are seeing issues with routing or=20
-bridging being enabled and disabled and possibly cleaning up the issue=20
-via a script rather than trying to modify the kernel to make it take=20
-care of it for you.
-
-- Alex
+-- 
+Andy Shevchenko <andriy.shevchenko@intel.com>
+Intel Finland Oy
