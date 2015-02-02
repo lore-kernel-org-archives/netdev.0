@@ -1,210 +1,142 @@
 From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: [PATCH v2 17/18] vhost: don't bother copying iovecs in handle_rx(), kill memcpy_toiovecend()
-Date: Mon,  2 Feb 2015 07:59:36 +0000
-Message-ID: <1422863977-17668-17-git-send-email-viro@ZenIV.linux.org.uk>
+Subject: [PATCH v2 10/18] tipc: tipc ->sendmsg() conversion
+Date: Mon,  2 Feb 2015 07:59:29 +0000
+Message-ID: <1422863977-17668-10-git-send-email-viro@ZenIV.linux.org.uk>
 References: <20150131035513.GK29656@ZenIV.linux.org.uk>
-Cc: netdev@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>,
-	kvm@vger.kernel.org
+Cc: netdev@vger.kernel.org, Jon Maloy <jon.maloy@ericsson.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeniv.linux.org.uk ([195.92.253.2]:32981 "EHLO
+Received: from zeniv.linux.org.uk ([195.92.253.2]:32979 "EHLO
 	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932644AbbBBH7k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2015 02:59:40 -0500
+	with ESMTP id S932601AbbBBH7j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2015 02:59:39 -0500
 In-Reply-To: <20150131035513.GK29656@ZenIV.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Al Viro <viro@zeniv.linux.org.uk>
 
-Cc: Michael S. Tsirkin <mst@redhat.com>
-Cc: kvm@vger.kernel.org
+This one needs to copy the same data from user potentially more than
+once.  Sadly, MTU changes can trigger that ;-/
+
+Cc: Jon Maloy <jon.maloy@ericsson.com>
 Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
 ---
- drivers/vhost/net.c | 79 ++++++++++++++---------------------------------------
- include/linux/uio.h |  3 --
- lib/iovec.c         | 26 ------------------
- 3 files changed, 20 insertions(+), 88 deletions(-)
+ net/tipc/msg.c    |  7 ++-----
+ net/tipc/socket.c | 14 ++++++++++++--
+ 2 files changed, 14 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-index d86cc9b..73c0ebf 100644
---- a/drivers/vhost/net.c
-+++ b/drivers/vhost/net.c
-@@ -84,10 +84,6 @@ struct vhost_net_ubuf_ref {
+diff --git a/net/tipc/msg.c b/net/tipc/msg.c
+index 18aba9e..da67c8d 100644
+--- a/net/tipc/msg.c
++++ b/net/tipc/msg.c
+@@ -189,7 +189,6 @@ err:
+  * tipc_msg_build - create buffer chain containing specified header and data
+  * @mhdr: Message header, to be prepended to data
+  * @m: User message
+- * @offset: Posision in iov to start copying from
+  * @dsz: Total length of user data
+  * @pktmax: Max packet size that can be used
+  * @list: Buffer or chain of buffers to be returned to caller
+@@ -221,8 +220,7 @@ int tipc_msg_build(struct net *net, struct tipc_msg *mhdr, struct msghdr *m,
+ 		__skb_queue_tail(list, skb);
+ 		skb_copy_to_linear_data(skb, mhdr, mhsz);
+ 		pktpos = skb->data + mhsz;
+-		if (!dsz || !memcpy_fromiovecend(pktpos, m->msg_iter.iov, offset,
+-						 dsz))
++		if (copy_from_iter(pktpos, dsz, &m->msg_iter) == dsz)
+ 			return dsz;
+ 		rc = -EFAULT;
+ 		goto error;
+@@ -252,12 +250,11 @@ int tipc_msg_build(struct net *net, struct tipc_msg *mhdr, struct msghdr *m,
+ 		if (drem < pktrem)
+ 			pktrem = drem;
  
- struct vhost_net_virtqueue {
- 	struct vhost_virtqueue vq;
--	/* hdr is used to store the virtio header.
--	 * Since each iovec has >= 1 byte length, we never need more than
--	 * header length entries to store the header. */
--	struct iovec hdr[sizeof(struct virtio_net_hdr_mrg_rxbuf)];
- 	size_t vhost_hlen;
- 	size_t sock_hlen;
- 	/* vhost zerocopy support fields below: */
-@@ -235,44 +231,6 @@ static bool vhost_sock_zcopy(struct socket *sock)
- 		sock_flag(sock->sk, SOCK_ZEROCOPY);
- }
+-		if (memcpy_fromiovecend(pktpos, m->msg_iter.iov, offset, pktrem)) {
++		if (copy_from_iter(pktpos, pktrem, &m->msg_iter) != pktrem) {
+ 			rc = -EFAULT;
+ 			goto error;
+ 		}
+ 		drem -= pktrem;
+-		offset += pktrem;
  
--/* Pop first len bytes from iovec. Return number of segments used. */
--static int move_iovec_hdr(struct iovec *from, struct iovec *to,
--			  size_t len, int iov_count)
--{
--	int seg = 0;
--	size_t size;
--
--	while (len && seg < iov_count) {
--		size = min(from->iov_len, len);
--		to->iov_base = from->iov_base;
--		to->iov_len = size;
--		from->iov_len -= size;
--		from->iov_base += size;
--		len -= size;
--		++from;
--		++to;
--		++seg;
--	}
--	return seg;
--}
--/* Copy iovec entries for len bytes from iovec. */
--static void copy_iovec_hdr(const struct iovec *from, struct iovec *to,
--			   size_t len, int iovcount)
--{
--	int seg = 0;
--	size_t size;
--
--	while (len && seg < iovcount) {
--		size = min(from->iov_len, len);
--		to->iov_base = from->iov_base;
--		to->iov_len = size;
--		len -= size;
--		++from;
--		++to;
--		++seg;
--	}
--}
--
- /* In case of DMA done not in order in lower device driver for some reason.
-  * upend_idx is used to track end of used idx, done_idx is used to track head
-  * of used idx. Once lower device DMA done contiguously, we will signal KVM
-@@ -570,9 +528,9 @@ static void handle_rx(struct vhost_net *net)
- 		.msg_controllen = 0,
- 		.msg_flags = MSG_DONTWAIT,
- 	};
--	struct virtio_net_hdr_mrg_rxbuf hdr = {
--		.hdr.flags = 0,
--		.hdr.gso_type = VIRTIO_NET_HDR_GSO_NONE
-+	struct virtio_net_hdr hdr = {
-+		.flags = 0,
-+		.gso_type = VIRTIO_NET_HDR_GSO_NONE
- 	};
- 	size_t total_len = 0;
- 	int err, mergeable;
-@@ -580,6 +538,7 @@ static void handle_rx(struct vhost_net *net)
- 	size_t vhost_hlen, sock_hlen;
- 	size_t vhost_len, sock_len;
- 	struct socket *sock;
-+	struct iov_iter fixup;
+ 		if (!drem)
+ 			break;
+diff --git a/net/tipc/socket.c b/net/tipc/socket.c
+index 679a220..caa4d66 100644
+--- a/net/tipc/socket.c
++++ b/net/tipc/socket.c
+@@ -733,6 +733,7 @@ static int tipc_sendmcast(struct  socket *sock, struct tipc_name_seq *seq,
+ 	struct net *net = sock_net(sk);
+ 	struct tipc_msg *mhdr = &tipc_sk(sk)->phdr;
+ 	struct sk_buff_head head;
++	struct iov_iter save = msg->msg_iter;
+ 	uint mtu;
+ 	int rc;
  
- 	mutex_lock(&vq->mutex);
- 	sock = vq->private_data;
-@@ -624,14 +583,17 @@ static void handle_rx(struct vhost_net *net)
+@@ -758,8 +759,10 @@ new_mtu:
+ 			rc = dsz;
  			break;
  		}
- 		/* We don't need to be notified again. */
--		if (unlikely((vhost_hlen)))
--			/* Skip header. TODO: support TSO. */
--			move_iovec_hdr(vq->iov, nvq->hdr, vhost_hlen, in);
--		else
--			/* Copy the header for use in VIRTIO_NET_F_MRG_RXBUF:
--			 * needed because recvmsg can modify msg_iov. */
--			copy_iovec_hdr(vq->iov, nvq->hdr, sock_hlen, in);
--		iov_iter_init(&msg.msg_iter, READ, vq->iov, in, sock_len);
-+		iov_iter_init(&msg.msg_iter, READ, vq->iov, in, vhost_len);
-+		fixup = msg.msg_iter;
-+		if (unlikely((vhost_hlen))) {
-+			/* We will supply the header ourselves
-+			 * TODO: support TSO. */
-+			iov_iter_advance(&msg.msg_iter, vhost_hlen);
-+		} else {
-+			/* It'll come from socket; we'll need to patch
-+			 * ->num_buffers over if VIRTIO_NET_F_MRG_RXBUF */
-+			iov_iter_advance(&fixup, sizeof(hdr));
+-		if (rc == -EMSGSIZE)
++		if (rc == -EMSGSIZE) {
++			msg->msg_iter = save;
+ 			goto new_mtu;
 +		}
- 		err = sock->ops->recvmsg(NULL, sock, &msg,
- 					 sock_len, MSG_DONTWAIT | MSG_TRUNC);
- 		/* Userspace might have consumed the packet meanwhile:
-@@ -643,18 +605,17 @@ static void handle_rx(struct vhost_net *net)
- 			vhost_discard_vq_desc(vq, headcount);
- 			continue;
- 		}
-+		/* Supply virtio_net_hdr if VHOST_NET_F_VIRTIO_NET_HDR */
- 		if (unlikely(vhost_hlen) &&
--		    memcpy_toiovecend(nvq->hdr, (unsigned char *)&hdr, 0,
--				      vhost_hlen)) {
-+		    copy_to_iter(&hdr, sizeof(hdr), &fixup) != sizeof(hdr)) {
- 			vq_err(vq, "Unable to write vnet_hdr at addr %p\n",
- 			       vq->iov->iov_base);
+ 		if (rc != -ELINKCONG)
+ 			break;
+ 		tipc_sk(sk)->link_cong = 1;
+@@ -895,6 +898,7 @@ static int tipc_sendmsg(struct kiocb *iocb, struct socket *sock,
+ 	struct sk_buff_head head;
+ 	struct sk_buff *skb;
+ 	struct tipc_name_seq *seq = &dest->addr.nameseq;
++	struct iov_iter save;
+ 	u32 mtu;
+ 	long timeo;
+ 	int rc;
+@@ -963,6 +967,7 @@ static int tipc_sendmsg(struct kiocb *iocb, struct socket *sock,
+ 		msg_set_hdr_sz(mhdr, BASIC_H_SIZE);
+ 	}
+ 
++	save = m->msg_iter;
+ new_mtu:
+ 	mtu = tipc_node_get_mtu(net, dnode, tsk->portid);
+ 	__skb_queue_head_init(&head);
+@@ -980,8 +985,10 @@ new_mtu:
+ 			rc = dsz;
  			break;
  		}
--		/* TODO: Should check and handle checksum. */
-+		/* Supply (or replace) ->num_buffers if VIRTIO_NET_F_MRG_RXBUF
-+		 * TODO: Should check and handle checksum. */
- 		if (likely(mergeable) &&
--		    memcpy_toiovecend(nvq->hdr, (unsigned char *)&headcount,
--				      offsetof(typeof(hdr), num_buffers),
--				      sizeof hdr.num_buffers)) {
-+		    copy_to_iter(&headcount, 2, &fixup) != 2) {
- 			vq_err(vq, "Failed num_buffers write");
- 			vhost_discard_vq_desc(vq, headcount);
+-		if (rc == -EMSGSIZE)
++		if (rc == -EMSGSIZE) {
++			m->msg_iter = save;
+ 			goto new_mtu;
++		}
+ 		if (rc != -ELINKCONG)
  			break;
-diff --git a/include/linux/uio.h b/include/linux/uio.h
-index af3439f..02bd8a9 100644
---- a/include/linux/uio.h
-+++ b/include/linux/uio.h
-@@ -137,7 +137,4 @@ size_t csum_and_copy_from_iter(void *addr, size_t bytes, __wsum *csum, struct io
+ 		tsk->link_cong = 1;
+@@ -1052,6 +1059,7 @@ static int tipc_send_stream(struct kiocb *iocb, struct socket *sock,
+ 	long timeo;
+ 	u32 dnode;
+ 	uint mtu, send, sent = 0;
++	struct iov_iter save;
  
- int memcpy_fromiovecend(unsigned char *kdata, const struct iovec *iov,
- 			int offset, int len);
--int memcpy_toiovecend(const struct iovec *v, unsigned char *kdata,
--		      int offset, int len);
--
- #endif
-diff --git a/lib/iovec.c b/lib/iovec.c
-index 4a90875..d8f17a9 100644
---- a/lib/iovec.c
-+++ b/lib/iovec.c
-@@ -3,32 +3,6 @@
- #include <linux/uio.h>
+ 	/* Handle implied connection establishment */
+ 	if (unlikely(dest)) {
+@@ -1078,6 +1086,7 @@ static int tipc_send_stream(struct kiocb *iocb, struct socket *sock,
+ 	dnode = tsk_peer_node(tsk);
  
- /*
-- *	Copy kernel to iovec. Returns -EFAULT on error.
-- */
--
--int memcpy_toiovecend(const struct iovec *iov, unsigned char *kdata,
--		      int offset, int len)
--{
--	int copy;
--	for (; len > 0; ++iov) {
--		/* Skip over the finished iovecs */
--		if (unlikely(offset >= iov->iov_len)) {
--			offset -= iov->iov_len;
--			continue;
--		}
--		copy = min_t(unsigned int, iov->iov_len - offset, len);
--		if (copy_to_user(iov->iov_base + offset, kdata, copy))
--			return -EFAULT;
--		offset = 0;
--		kdata += copy;
--		len -= copy;
--	}
--
--	return 0;
--}
--EXPORT_SYMBOL(memcpy_toiovecend);
--
--/*
-  *	Copy iovec to kernel. Returns -EFAULT on error.
-  */
- 
+ next:
++	save = m->msg_iter;
+ 	mtu = tsk->max_pkt;
+ 	send = min_t(uint, dsz - sent, TIPC_MAX_USER_MSG_SIZE);
+ 	__skb_queue_head_init(&head);
+@@ -1097,6 +1106,7 @@ next:
+ 			if (rc == -EMSGSIZE) {
+ 				tsk->max_pkt = tipc_node_get_mtu(net, dnode,
+ 								 portid);
++				m->msg_iter = save;
+ 				goto next;
+ 			}
+ 			if (rc != -ELINKCONG)
 -- 
 2.1.4
