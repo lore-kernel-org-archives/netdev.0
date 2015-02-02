@@ -1,203 +1,56 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: [PATCH v3 3/3] netlabel: Less function calls in netlbl_mgmt_add_common()
- after error detection
-Date: Mon, 02 Feb 2015 12:06:39 +0100
-Message-ID: <54CF5A3F.6080600@users.sourceforge.net>
-References: <54CD4B5F.9010502@users.sourceforge.net>	<CAHC9VhQ5C32zRqG0emVUoMmuvBsV+TXvdNn+54iVyCPBNk9dDQ@mail.gmail.com>	<54CDFCDA.9010802@users.sourceforge.net> <20150201.123054.366525761630045391.davem@davemloft.net> <54CF4FEC.2010906@users.sourceforge.net>
+From: Michal Kubecek <mkubecek@suse.cz>
+Subject: Re: [PATCHv2 net] net: restore lro after device detached from bridge
+Date: Mon, 2 Feb 2015 12:15:56 +0100
+Message-ID: <20150202111556.GA8655@unicorn.suse.cz>
+References: <1422621209-23222-1-git-send-email-fan.du@intel.com>
+ <54CBEE24.8000603@redhat.com>
+ <54CEDEDC.7060507@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org,
-	Julia Lawall <julia.lawall@lip6.fr>
-To: "David S. Miller" <davem@davemloft.net>,
-	Paul Moore <paul@paul-moore.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Alexander Duyck <alexander.h.duyck@redhat.com>,
+	Fan Du <fan.du@intel.com>, bhutchings@solarflare.com,
+	davem@davemloft.net, netdev@vger.kernel.org
+To: Fan Du <fengyuleidian0615@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.web.de ([212.227.15.4]:54327 "EHLO mout.web.de"
+Received: from cantor2.suse.de ([195.135.220.15]:45006 "EHLO mx2.suse.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933041AbbBBLGs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Feb 2015 06:06:48 -0500
-In-Reply-To: <54CF4FEC.2010906@users.sourceforge.net>
+	id S1752463AbbBBLP7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Feb 2015 06:15:59 -0500
+Content-Disposition: inline
+In-Reply-To: <54CEDEDC.7060507@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Mon, 2 Feb 2015 11:00:24 +0100
+On Mon, Feb 02, 2015 at 10:20:12AM +0800, Fan Du wrote:
+> 
+> I think you are talking about bad scenarios when net device is
+> attached to a bridge.  Then what's the good reason user has to pay
+> extra cpu power for using GRO, instead of using hw capable LRO/RSC
+> when this net device is detached from bridge acting as a standalone
+> NIC?
 
-The functions "cipso_v4_doi_putdef" and "kfree" could be called in some cases
-by the netlbl_mgmt_add_common() function during error handling even if the
-passed variables contained still a null pointer.
+Being bridged is only one of the situations when LRO needs to be
+disabled. Does your patch make sure it doesn't enable LRO if there are
+other reasons for it to be disabled, e.g. if forwarding is enabled for
+it or any of its upper devices?
 
-* This implementation detail could be improved by adjustments for jump labels.
+I'm afraid the only way to make the automatic reenabling work correctly
+would be to keep track if LRO was disabled manually (e.g. by ethtool) or
+only automatically because the device is bridged, forwarding is enabled
+for it, LRO is disabled for any upper device etc. And to reenable LRO
+only in the second case and even then only if none of the possible
+reasons holds. I don't think it's worth the effort.
 
-* Let us return immediately after the first failed function call according to
-  the current Linux coding style convention.
+> Note, SRC is defaulted to *ON* in practice for ALL ixgbe NICs, as same
+> other RSC capable NICs.
 
-* Let us delete also an unnecessary check for the variable "entry" there.
+A very bad idea, IMHO. A lot of bug reports resulted from it.
 
-Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
-Acked-by: Paul Moore <paul@paul-moore.com>
----
- net/netlabel/netlabel_mgmt.c | 49 ++++++++++++++++++++++----------------------
- 1 file changed, 24 insertions(+), 25 deletions(-)
+> Attaching net device to a bridge _once_ should not changed its default
+> configuration, moreover it's a subtle change without any message that
+> user won't noticed at all.
 
-diff --git a/net/netlabel/netlabel_mgmt.c b/net/netlabel/netlabel_mgmt.c
-index f5807f5..7044074 100644
---- a/net/netlabel/netlabel_mgmt.c
-+++ b/net/netlabel/netlabel_mgmt.c
-@@ -93,23 +93,20 @@ static int netlbl_mgmt_add_common(struct genl_info *info,
- 				  struct netlbl_audit *audit_info)
- {
- 	int ret_val = -EINVAL;
--	struct netlbl_dom_map *entry = NULL;
- 	struct netlbl_domaddr_map *addrmap = NULL;
- 	struct cipso_v4_doi *cipsov4 = NULL;
- 	u32 tmp_val;
-+	struct netlbl_dom_map *entry = kzalloc(sizeof(*entry), GFP_KERNEL);
- 
--	entry = kzalloc(sizeof(*entry), GFP_KERNEL);
--	if (entry == NULL) {
--		ret_val = -ENOMEM;
--		goto add_failure;
--	}
-+	if (!entry)
-+		return -ENOMEM;
- 	entry->def.type = nla_get_u32(info->attrs[NLBL_MGMT_A_PROTOCOL]);
- 	if (info->attrs[NLBL_MGMT_A_DOMAIN]) {
- 		size_t tmp_size = nla_len(info->attrs[NLBL_MGMT_A_DOMAIN]);
- 		entry->domain = kmalloc(tmp_size, GFP_KERNEL);
- 		if (entry->domain == NULL) {
- 			ret_val = -ENOMEM;
--			goto add_failure;
-+			goto add_free_entry;
- 		}
- 		nla_strlcpy(entry->domain,
- 			    info->attrs[NLBL_MGMT_A_DOMAIN], tmp_size);
-@@ -125,16 +122,16 @@ static int netlbl_mgmt_add_common(struct genl_info *info,
- 		break;
- 	case NETLBL_NLTYPE_CIPSOV4:
- 		if (!info->attrs[NLBL_MGMT_A_CV4DOI])
--			goto add_failure;
-+			goto add_free_domain;
- 
- 		tmp_val = nla_get_u32(info->attrs[NLBL_MGMT_A_CV4DOI]);
- 		cipsov4 = cipso_v4_doi_getdef(tmp_val);
- 		if (cipsov4 == NULL)
--			goto add_failure;
-+			goto add_free_domain;
- 		entry->def.cipso = cipsov4;
- 		break;
- 	default:
--		goto add_failure;
-+		goto add_free_domain;
- 	}
- 
- 	if (info->attrs[NLBL_MGMT_A_IPV4ADDR]) {
-@@ -145,7 +142,7 @@ static int netlbl_mgmt_add_common(struct genl_info *info,
- 		addrmap = kzalloc(sizeof(*addrmap), GFP_KERNEL);
- 		if (addrmap == NULL) {
- 			ret_val = -ENOMEM;
--			goto add_failure;
-+			goto add_doi_put_def;
- 		}
- 		INIT_LIST_HEAD(&addrmap->list4);
- 		INIT_LIST_HEAD(&addrmap->list6);
-@@ -153,12 +150,12 @@ static int netlbl_mgmt_add_common(struct genl_info *info,
- 		if (nla_len(info->attrs[NLBL_MGMT_A_IPV4ADDR]) !=
- 		    sizeof(struct in_addr)) {
- 			ret_val = -EINVAL;
--			goto add_failure;
-+			goto add_free_addrmap;
- 		}
- 		if (nla_len(info->attrs[NLBL_MGMT_A_IPV4MASK]) !=
- 		    sizeof(struct in_addr)) {
- 			ret_val = -EINVAL;
--			goto add_failure;
-+			goto add_free_addrmap;
- 		}
- 		addr = nla_data(info->attrs[NLBL_MGMT_A_IPV4ADDR]);
- 		mask = nla_data(info->attrs[NLBL_MGMT_A_IPV4MASK]);
-@@ -166,7 +163,7 @@ static int netlbl_mgmt_add_common(struct genl_info *info,
- 		map = kzalloc(sizeof(*map), GFP_KERNEL);
- 		if (map == NULL) {
- 			ret_val = -ENOMEM;
--			goto add_failure;
-+			goto add_free_addrmap;
- 		}
- 		map->list.addr = addr->s_addr & mask->s_addr;
- 		map->list.mask = mask->s_addr;
-@@ -178,7 +175,7 @@ static int netlbl_mgmt_add_common(struct genl_info *info,
- 		ret_val = netlbl_af4list_add(&map->list, &addrmap->list4);
- 		if (ret_val != 0) {
- 			kfree(map);
--			goto add_failure;
-+			goto add_free_addrmap;
- 		}
- 
- 		entry->def.type = NETLBL_NLTYPE_ADDRSELECT;
-@@ -192,7 +189,7 @@ static int netlbl_mgmt_add_common(struct genl_info *info,
- 		addrmap = kzalloc(sizeof(*addrmap), GFP_KERNEL);
- 		if (addrmap == NULL) {
- 			ret_val = -ENOMEM;
--			goto add_failure;
-+			goto add_doi_put_def;
- 		}
- 		INIT_LIST_HEAD(&addrmap->list4);
- 		INIT_LIST_HEAD(&addrmap->list6);
-@@ -200,12 +197,12 @@ static int netlbl_mgmt_add_common(struct genl_info *info,
- 		if (nla_len(info->attrs[NLBL_MGMT_A_IPV6ADDR]) !=
- 		    sizeof(struct in6_addr)) {
- 			ret_val = -EINVAL;
--			goto add_failure;
-+			goto add_free_addrmap;
- 		}
- 		if (nla_len(info->attrs[NLBL_MGMT_A_IPV6MASK]) !=
- 		    sizeof(struct in6_addr)) {
- 			ret_val = -EINVAL;
--			goto add_failure;
-+			goto add_free_addrmap;
- 		}
- 		addr = nla_data(info->attrs[NLBL_MGMT_A_IPV6ADDR]);
- 		mask = nla_data(info->attrs[NLBL_MGMT_A_IPV6MASK]);
-@@ -213,7 +210,7 @@ static int netlbl_mgmt_add_common(struct genl_info *info,
- 		map = kzalloc(sizeof(*map), GFP_KERNEL);
- 		if (map == NULL) {
- 			ret_val = -ENOMEM;
--			goto add_failure;
-+			goto add_free_addrmap;
- 		}
- 		map->list.addr = *addr;
- 		map->list.addr.s6_addr32[0] &= mask->s6_addr32[0];
-@@ -227,7 +224,7 @@ static int netlbl_mgmt_add_common(struct genl_info *info,
- 		ret_val = netlbl_af6list_add(&map->list, &addrmap->list6);
- 		if (ret_val != 0) {
- 			kfree(map);
--			goto add_failure;
-+			goto add_free_addrmap;
- 		}
- 
- 		entry->def.type = NETLBL_NLTYPE_ADDRSELECT;
-@@ -237,15 +234,17 @@ static int netlbl_mgmt_add_common(struct genl_info *info,
- 
- 	ret_val = netlbl_domhsh_add(entry, audit_info);
- 	if (ret_val != 0)
--		goto add_failure;
-+		goto add_free_addrmap;
- 
- 	return 0;
- 
--add_failure:
--	cipso_v4_doi_putdef(cipsov4);
--	if (entry)
--		kfree(entry->domain);
-+add_free_addrmap:
- 	kfree(addrmap);
-+add_doi_put_def:
-+	cipso_v4_doi_putdef(cipsov4);
-+add_free_domain:
-+	kfree(entry->domain);
-+add_free_entry:
- 	kfree(entry);
- 	return ret_val;
- }
--- 
-2.2.2
+IMHO the key point here is that LRO enabled when it shouldn't is much
+more serious problem than LRO disabled when it could be enabled.
+
+                                                       Michal Kubecek
