@@ -1,345 +1,167 @@
-From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCH net-next 8/8] cxgb4: Add low latency socket busy_poll support
-Date: Mon,  2 Feb 2015 20:23:09 +0530
-Message-ID: <1422888789-12016-9-git-send-email-hariprasad@chelsio.com>
-References: <1422888789-12016-1-git-send-email-hariprasad@chelsio.com>
-Cc: davem@davemloft.net, leedom@chelsio.com, anish@chelsio.com,
-	nirranjan@chelsio.com, praveenm@chelsio.com,
-	Hariprasad Shenai <hariprasad@chelsio.com>
+From: Vladislav Yasevich <vyasevich@gmail.com>
+Subject: [PATCH net v3 1/3] ipv6: Select fragment id during UFO segmentation if not set.
+Date: Mon,  2 Feb 2015 10:01:07 -0500
+Message-ID: <1422889269-16007-2-git-send-email-vyasevic@redhat.com>
+References: <1422889269-16007-1-git-send-email-vyasevic@redhat.com>
+Cc: virtualization@lists.linux-foundation.org, mst@redhat.com,
+	ben@decadent.org.uk, eric.dumazet@gmail.com,
+	hannes@stressinduktion.org,
+	Vladislav Yasevich <vyasevic@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:14308 "EHLO
-	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751955AbbBBOr5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2015 09:47:57 -0500
-In-Reply-To: <1422888789-12016-1-git-send-email-hariprasad@chelsio.com>
+Received: from mail-qa0-f48.google.com ([209.85.216.48]:38284 "EHLO
+	mail-qa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751581AbbBBPBV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2015 10:01:21 -0500
+Received: by mail-qa0-f48.google.com with SMTP id v8so29308134qal.7
+        for <netdev@vger.kernel.org>; Mon, 02 Feb 2015 07:01:20 -0800 (PST)
+In-Reply-To: <1422889269-16007-1-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-cxgb_busy_poll, corresponding to ndo_busy_poll, gets called by the socket
-waiting for data.
+If the IPv6 fragment id has not been set and we perform
+fragmentation due to UFO, select a new fragment id.
+We now consider a fragment id of 0 as unset and if id selection
+process returns 0 (after all the pertrubations), we set it to
+0x80000000, thus giving us ample space not to create collisions
+with the next packet we may have to fragment.
 
-With busy_poll enabled, improvement is seen in latency numbers as observed by
-collecting netperf TCP_RR numbers.
+When doing UFO integrity checking, we also select the
+fragment id if it has not be set yet.   This is stored into
+the skb_shinfo() thus allowing UFO to function correclty.
 
-Based on original work by Kumar Sanghvi <kumaras@chelsio.com>
+This patch also removes duplicate fragment id generation code
+and moves ipv6_select_ident() into the header as it may be
+used during GSO.
 
-Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
+Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
 ---
- drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |  113 +++++++++++++++++++++++
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |   16 +++-
- drivers/net/ethernet/chelsio/cxgb4/sge.c        |   47 +++++++++-
- drivers/net/ethernet/chelsio/cxgb4/t4_values.h  |    1 +
- 4 files changed, 174 insertions(+), 3 deletions(-)
+ include/net/ipv6.h     |  3 +++
+ net/ipv6/ip6_output.c  | 10 ++++------
+ net/ipv6/output_core.c | 28 ++++++++++++++++++++++------
+ net/ipv6/udp_offload.c | 10 +++++++++-
+ 4 files changed, 38 insertions(+), 13 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-index 87fe265..63603f5 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-@@ -477,6 +477,22 @@ struct sge_rspq {                   /* state for an SGE response queue */
- 	struct adapter *adap;
- 	struct net_device *netdev;  /* associated net device */
- 	rspq_handler_t handler;
-+#ifdef CONFIG_NET_RX_BUSY_POLL
-+#define CXGB_POLL_STATE_IDLE		0
-+#define CXGB_POLL_STATE_NAPI		BIT(0) /* NAPI owns this poll */
-+#define CXGB_POLL_STATE_POLL		BIT(1) /* poll owns this poll */
-+#define CXGB_POLL_STATE_NAPI_YIELD	BIT(2) /* NAPI yielded this poll */
-+#define CXGB_POLL_STATE_POLL_YIELD	BIT(3) /* poll yielded this poll */
-+#define CXGB_POLL_YIELD			(CXGB_POLL_STATE_NAPI_YIELD |   \
-+					 CXGB_POLL_STATE_POLL_YIELD)
-+#define CXGB_POLL_LOCKED		(CXGB_POLL_STATE_NAPI |         \
-+					 CXGB_POLL_STATE_POLL)
-+#define CXGB_POLL_USER_PEND		(CXGB_POLL_STATE_POLL |         \
-+					 CXGB_POLL_STATE_POLL_YIELD)
-+	unsigned int bpoll_state;
-+	spinlock_t bpoll_lock;		/* lock for busy poll */
-+#endif /* CONFIG_NET_RX_BUSY_POLL */
-+
- };
- 
- struct sge_eth_stats {              /* Ethernet queue statistics */
-@@ -881,6 +897,102 @@ static inline struct adapter *netdev2adap(const struct net_device *dev)
- 	return netdev2pinfo(dev)->adapter;
+diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+index 4292929..9bf85d3 100644
+--- a/include/net/ipv6.h
++++ b/include/net/ipv6.h
+@@ -671,6 +671,9 @@ static inline int ipv6_addr_diff(const struct in6_addr *a1, const struct in6_add
+ 	return __ipv6_addr_diff(a1, a2, sizeof(struct in6_addr));
  }
  
-+#ifdef CONFIG_NET_RX_BUSY_POLL
-+static inline void cxgb_busy_poll_init_lock(struct sge_rspq *q)
-+{
-+	spin_lock_init(&q->bpoll_lock);
-+	q->bpoll_state = CXGB_POLL_STATE_IDLE;
-+}
-+
-+static inline bool cxgb_poll_lock_napi(struct sge_rspq *q)
-+{
-+	bool rc = true;
-+
-+	spin_lock(&q->bpoll_lock);
-+	if (q->bpoll_state & CXGB_POLL_LOCKED) {
-+		q->bpoll_state |= CXGB_POLL_STATE_NAPI_YIELD;
-+		rc = false;
-+	} else {
-+		q->bpoll_state = CXGB_POLL_STATE_NAPI;
-+	}
-+	spin_unlock(&q->bpoll_lock);
-+	return rc;
-+}
-+
-+static inline bool cxgb_poll_unlock_napi(struct sge_rspq *q)
-+{
-+	bool rc = false;
-+
-+	spin_lock(&q->bpoll_lock);
-+	if (q->bpoll_state & CXGB_POLL_STATE_POLL_YIELD)
-+		rc = true;
-+	q->bpoll_state = CXGB_POLL_STATE_IDLE;
-+	spin_unlock(&q->bpoll_lock);
-+	return rc;
-+}
-+
-+static inline bool cxgb_poll_lock_poll(struct sge_rspq *q)
-+{
-+	bool rc = true;
-+
-+	spin_lock_bh(&q->bpoll_lock);
-+	if (q->bpoll_state & CXGB_POLL_LOCKED) {
-+		q->bpoll_state |= CXGB_POLL_STATE_POLL_YIELD;
-+		rc = false;
-+	} else {
-+		q->bpoll_state |= CXGB_POLL_STATE_POLL;
-+	}
-+	spin_unlock_bh(&q->bpoll_lock);
-+	return rc;
-+}
-+
-+static inline bool cxgb_poll_unlock_poll(struct sge_rspq *q)
-+{
-+	bool rc = false;
-+
-+	spin_lock_bh(&q->bpoll_lock);
-+	if (q->bpoll_state & CXGB_POLL_STATE_POLL_YIELD)
-+		rc = true;
-+	q->bpoll_state = CXGB_POLL_STATE_IDLE;
-+	spin_unlock_bh(&q->bpoll_lock);
-+	return rc;
-+}
-+
-+static inline bool cxgb_poll_busy_polling(struct sge_rspq *q)
-+{
-+	return q->bpoll_state & CXGB_POLL_USER_PEND;
-+}
-+#else
-+static inline void cxgb_busy_poll_init_lock(struct sge_rspq *q)
-+{
-+}
-+
-+static inline bool cxgb_poll_lock_napi(struct sge_rspq *q)
-+{
-+	return true;
-+}
-+
-+static inline bool cxgb_poll_unlock_napi(struct sge_rspq *q)
-+{
-+	return false;
-+}
-+
-+static inline bool cxgb_poll_lock_poll(struct sge_rspq *q)
-+{
-+	return false;
-+}
-+
-+static inline bool cxgb_poll_unlock_poll(struct sge_rspq *q)
-+{
-+	return false;
-+}
-+
-+static inline bool cxgb_poll_busy_polling(struct sge_rspq *q)
-+{
-+	return false;
-+}
-+#endif /* CONFIG_NET_RX_BUSY_POLL */
-+
- void t4_os_portmod_changed(const struct adapter *adap, int port_id);
- void t4_os_link_changed(struct adapter *adap, int port_id, int link_stat);
++u32 __ipv6_select_ident(u32 hashrnd, struct in6_addr *dst,
++			struct in6_addr *src);
++void ipv6_select_ident(struct frag_hdr *fhdr, struct rt6_info *rt);
+ void ipv6_proxy_select_ident(struct sk_buff *skb);
  
-@@ -909,6 +1021,7 @@ irqreturn_t t4_sge_intr_msix(int irq, void *cookie);
- int t4_sge_init(struct adapter *adap);
- void t4_sge_start(struct adapter *adap);
- void t4_sge_stop(struct adapter *adap);
-+int cxgb_busy_poll(struct napi_struct *napi);
- extern int dbfifo_int_thresh;
- 
- #define for_each_port(adapter, iter) \
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index 5bf490a..041742b 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -923,8 +923,14 @@ static void quiesce_rx(struct adapter *adap)
- 	for (i = 0; i < ARRAY_SIZE(adap->sge.ingr_map); i++) {
- 		struct sge_rspq *q = adap->sge.ingr_map[i];
- 
--		if (q && q->handler)
-+		if (q && q->handler) {
- 			napi_disable(&q->napi);
-+			local_bh_disable();
-+			while (!cxgb_poll_lock_napi(q))
-+				mdelay(1);
-+			local_bh_enable();
-+		}
-+
- 	}
+ int ip6_dst_hoplimit(struct dst_entry *dst);
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index ce69a12..5dc91fe 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -537,17 +537,15 @@ static void ip6_copy_metadata(struct sk_buff *to, struct sk_buff *from)
+ 	skb_copy_secmark(to, from);
  }
  
-@@ -940,8 +946,10 @@ static void enable_rx(struct adapter *adap)
- 
- 		if (!q)
- 			continue;
--		if (q->handler)
-+		if (q->handler) {
-+			cxgb_busy_poll_init_lock(q);
- 			napi_enable(&q->napi);
-+		}
- 		/* 0-increment GTS to start the timer and enable interrupts */
- 		t4_write_reg(adap, MYPF_REG(SGE_PF_GTS_A),
- 			     SEINTARM_V(q->intr_params) |
-@@ -4563,6 +4571,10 @@ static const struct net_device_ops cxgb4_netdev_ops = {
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	.ndo_poll_controller  = cxgb_netpoll,
- #endif
-+#ifdef CONFIG_NET_RX_BUSY_POLL
-+	.ndo_busy_poll        = cxgb_busy_poll,
-+#endif
-+
- };
- 
- void t4_fatal_err(struct adapter *adap)
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-index 6191561..7b1a140 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-@@ -43,6 +43,9 @@
- #include <linux/export.h>
- #include <net/ipv6.h>
- #include <net/tcp.h>
-+#ifdef CONFIG_NET_RX_BUSY_POLL
-+#include <net/busy_poll.h>
-+#endif /* CONFIG_NET_RX_BUSY_POLL */
- #include "cxgb4.h"
- #include "t4_regs.h"
- #include "t4_values.h"
-@@ -1720,6 +1723,7 @@ static void do_gro(struct sge_eth_rxq *rxq, const struct pkt_gl *gl,
- 	skb->truesize += skb->data_len;
- 	skb->ip_summed = CHECKSUM_UNNECESSARY;
- 	skb_record_rx_queue(skb, rxq->rspq.idx);
-+	skb_mark_napi_id(skb, &rxq->rspq.napi);
- 	if (rxq->rspq.netdev->features & NETIF_F_RXHASH)
- 		skb_set_hash(skb, (__force u32)pkt->rsshdr.hash_val,
- 			     PKT_HASH_TYPE_L3);
-@@ -1763,6 +1767,7 @@ int t4_ethrx_handler(struct sge_rspq *q, const __be64 *rsp,
- 	csum_ok = pkt->csum_calc && !pkt->err_vec &&
- 		  (q->netdev->features & NETIF_F_RXCSUM);
- 	if ((pkt->l2info & htonl(RXF_TCP_F)) &&
-+	    !(cxgb_poll_busy_polling(q)) &&
- 	    (q->netdev->features & NETIF_F_GRO) && csum_ok && !pkt->ip_frag) {
- 		do_gro(rxq, si, pkt);
- 		return 0;
-@@ -1801,6 +1806,7 @@ int t4_ethrx_handler(struct sge_rspq *q, const __be64 *rsp,
- 		__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), ntohs(pkt->vlan));
- 		rxq->stats.vlan_ex++;
- 	}
-+	skb_mark_napi_id(skb, &q->napi);
- 	netif_receive_skb(skb);
- 	return 0;
- }
-@@ -1963,6 +1969,38 @@ static int process_responses(struct sge_rspq *q, int budget)
- 	return budget - budget_left;
- }
- 
-+#ifdef CONFIG_NET_RX_BUSY_POLL
-+int cxgb_busy_poll(struct napi_struct *napi)
-+{
-+	struct sge_rspq *q = container_of(napi, struct sge_rspq, napi);
-+	unsigned int params, work_done;
-+	u32 val;
-+
-+	if (!cxgb_poll_lock_poll(q))
-+		return LL_FLUSH_BUSY;
-+
-+	work_done = process_responses(q, 4);
-+	params = QINTR_TIMER_IDX(TIMERREG_COUNTER0_X) | QINTR_CNT_EN;
-+	q->next_intr_params = params;
-+	val = CIDXINC_V(work_done) | SEINTARM_V(params);
-+
-+	/* If we don't have access to the new User GTS (T5+), use the old
-+	 * doorbell mechanism; otherwise use the new BAR2 mechanism.
-+	 */
-+	if (unlikely(!q->bar2_addr))
-+		t4_write_reg(q->adap, MYPF_REG(SGE_PF_GTS_A),
-+			     val | INGRESSQID_V((u32)q->cntxt_id));
-+	else {
-+		writel(val | INGRESSQID_V(q->bar2_qid),
-+		       q->bar2_addr + SGE_UDB_GTS);
-+		wmb();
-+	}
-+
-+	cxgb_poll_unlock_poll(q);
-+	return work_done;
-+}
-+#endif /* CONFIG_NET_RX_BUSY_POLL */
-+
- /**
-  *	napi_rx_handler - the NAPI handler for Rx processing
-  *	@napi: the napi instance
-@@ -1978,9 +2016,13 @@ static int napi_rx_handler(struct napi_struct *napi, int budget)
+-static void ipv6_select_ident(struct frag_hdr *fhdr, struct rt6_info *rt)
++void ipv6_select_ident(struct frag_hdr *fhdr, struct rt6_info *rt)
  {
- 	unsigned int params;
- 	struct sge_rspq *q = container_of(napi, struct sge_rspq, napi);
--	int work_done = process_responses(q, budget);
-+	int work_done = 0;
- 	u32 val;
+ 	static u32 ip6_idents_hashrnd __read_mostly;
+-	u32 hash, id;
++	u32 id;
  
-+	if (!cxgb_poll_lock_napi(q))
-+		return work_done;
-+
-+	work_done = process_responses(q, budget);
- 	if (likely(work_done < budget)) {
- 		int timer_index;
+ 	net_get_random_once(&ip6_idents_hashrnd, sizeof(ip6_idents_hashrnd));
  
-@@ -2018,6 +2060,7 @@ static int napi_rx_handler(struct napi_struct *napi, int budget)
- 		       q->bar2_addr + SGE_UDB_GTS);
- 		wmb();
- 	}
-+	cxgb_poll_unlock_napi(q);
- 	return work_done;
+-	hash = __ipv6_addr_jhash(&rt->rt6i_dst.addr, ip6_idents_hashrnd);
+-	hash = __ipv6_addr_jhash(&rt->rt6i_src.addr, hash);
+-
+-	id = ip_idents_reserve(hash, 1);
++	id = __ipv6_select_ident(ip6_idents_hashrnd, &rt->rt6i_dst.addr,
++				 &rt->rt6i_src.addr);
+ 	fhdr->identification = htonl(id);
  }
  
-@@ -2341,6 +2384,7 @@ int t4_sge_alloc_rxq(struct adapter *adap, struct sge_rspq *iq, bool fwevtq,
- 		goto err;
+diff --git a/net/ipv6/output_core.c b/net/ipv6/output_core.c
+index 97f41a3..ceb857d 100644
+--- a/net/ipv6/output_core.c
++++ b/net/ipv6/output_core.c
+@@ -9,6 +9,24 @@
+ #include <net/addrconf.h>
+ #include <net/secure_seq.h>
  
- 	netif_napi_add(dev, &iq->napi, napi_rx_handler, 64);
-+	napi_hash_add(&iq->napi);
- 	iq->cur_desc = iq->desc;
- 	iq->cidx = 0;
- 	iq->gen = 1;
-@@ -2598,6 +2642,7 @@ static void free_rspq_fl(struct adapter *adap, struct sge_rspq *rq,
- 		   rq->cntxt_id, fl_id, 0xffff);
- 	dma_free_coherent(adap->pdev_dev, (rq->size + 1) * rq->iqe_len,
- 			  rq->desc, rq->phys_addr);
-+	napi_hash_del(&rq->napi);
- 	netif_napi_del(&rq->napi);
- 	rq->netdev = NULL;
- 	rq->cntxt_id = rq->abs_id = 0;
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_values.h b/drivers/net/ethernet/chelsio/cxgb4/t4_values.h
-index 01a31a5..19b2dcf 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4_values.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4_values.h
-@@ -59,6 +59,7 @@
++u32 __ipv6_select_ident(u32 hashrnd, struct in6_addr *dst, struct in6_addr *src)
++{
++	u32 hash, id;
++
++	hash = __ipv6_addr_jhash(dst, hashrnd);
++	hash = __ipv6_addr_jhash(src, hash);
++
++	/* Treat id of 0 as unset and if we get 0 back from ip_idents_reserve,
++	 * set the hight order instead thus minimizing possible future
++	 * collisions.      
++	*/
++	id = ip_idents_reserve(hash, 1);
++	if (unlikely(!id))
++		id = 1 << 31;
++
++	return id;
++}
++
+ /* This function exists only for tap drivers that must support broken
+  * clients requesting UFO without specifying an IPv6 fragment ID.
+  *
+@@ -22,7 +40,7 @@ void ipv6_proxy_select_ident(struct sk_buff *skb)
+ 	static u32 ip6_proxy_idents_hashrnd __read_mostly;
+ 	struct in6_addr buf[2];
+ 	struct in6_addr *addrs;
+-	u32 hash, id;
++	u32 id;
  
- /* GTS register */
- #define SGE_TIMERREGS			6
-+#define TIMERREG_COUNTER0_X		0
+ 	addrs = skb_header_pointer(skb,
+ 				   skb_network_offset(skb) +
+@@ -34,11 +52,9 @@ void ipv6_proxy_select_ident(struct sk_buff *skb)
+ 	net_get_random_once(&ip6_proxy_idents_hashrnd,
+ 			    sizeof(ip6_proxy_idents_hashrnd));
  
- /* T5 and later support a new BAR2-based doorbell mechanism for Egress Queues.
-  * The User Doorbells are each 128 bytes in length with a Simple Doorbell at
+-	hash = __ipv6_addr_jhash(&addrs[1], ip6_proxy_idents_hashrnd);
+-	hash = __ipv6_addr_jhash(&addrs[0], hash);
+-
+-	id = ip_idents_reserve(hash, 1);
+-	skb_shinfo(skb)->ip6_frag_id = htonl(id);
++	id = __ipv6_select_ident(ip6_proxy_idents_hashrnd,
++				 &addrs[1], &addrs[0]);
++	skb_shinfo(skb)->ip6_frag_id = id;
+ }
+ EXPORT_SYMBOL_GPL(ipv6_proxy_select_ident);
+ 
+diff --git a/net/ipv6/udp_offload.c b/net/ipv6/udp_offload.c
+index b6aa8ed..a562769 100644
+--- a/net/ipv6/udp_offload.c
++++ b/net/ipv6/udp_offload.c
+@@ -52,6 +52,10 @@ static struct sk_buff *udp6_ufo_fragment(struct sk_buff *skb,
+ 
+ 		skb_shinfo(skb)->gso_segs = DIV_ROUND_UP(skb->len, mss);
+ 
++		/* Set the IPv6 fragment id if not set yet */
++		if (!skb_shinfo(skb)->ip6_frag_id)
++			ipv6_proxy_select_ident(skb);
++
+ 		segs = NULL;
+ 		goto out;
+ 	}
+@@ -108,7 +112,11 @@ static struct sk_buff *udp6_ufo_fragment(struct sk_buff *skb,
+ 		fptr = (struct frag_hdr *)(skb_network_header(skb) + unfrag_ip6hlen);
+ 		fptr->nexthdr = nexthdr;
+ 		fptr->reserved = 0;
+-		fptr->identification = skb_shinfo(skb)->ip6_frag_id;
++		if (skb_shinfo(skb)->ip6_frag_id)
++			fptr->identification = skb_shinfo(skb)->ip6_frag_id;
++		else
++			ipv6_select_ident(fptr,
++					  (struct rt6_info *)skb_dst(skb));
+ 
+ 		/* Fragment the skb. ipv6 header and the remaining fields of the
+ 		 * fragment header are updated in ipv6_gso_segment()
 -- 
-1.7.1
+1.9.3
