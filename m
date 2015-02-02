@@ -1,38 +1,63 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [RFC] rhashtable: rhashtable_rehash
-Date: Mon, 2 Feb 2015 11:16:47 +0000
-Message-ID: <20150202111647.GA25964@casper.infradead.org>
-References: <20150131102150.GA29498@gondor.apana.org.au>
- <20150131102329.GA29520@gondor.apana.org.au>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH v2 01/18] netlink: make the check for "send from tx_ring"
+ deterministic
+Date: Mon, 02 Feb 2015 16:14:16 +0300
+Message-ID: <54CF7828.6040605@cogentembedded.com>
+References: <20150131035513.GK29656@ZenIV.linux.org.uk> <1422863977-17668-1-git-send-email-viro@ZenIV.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+To: Al Viro <viro@ZenIV.linux.org.uk>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:59144 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753172AbbBBLQs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2015 06:16:48 -0500
-Content-Disposition: inline
-In-Reply-To: <20150131102329.GA29520@gondor.apana.org.au>
+Received: from mail-la0-f44.google.com ([209.85.215.44]:62367 "EHLO
+	mail-la0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932156AbbBBNOR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2015 08:14:17 -0500
+Received: by mail-la0-f44.google.com with SMTP id s18so40683588lam.3
+        for <netdev@vger.kernel.org>; Mon, 02 Feb 2015 05:14:15 -0800 (PST)
+In-Reply-To: <1422863977-17668-1-git-send-email-viro@ZenIV.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/31/15 at 09:23pm, Herbert Xu wrote:
-> +	new_hash = head_hashfn(ht, new_tbl, entry);
-> +
-> +	new_bucket_lock = bucket_lock(new_tbl, new_hash);
-> +
-> +	spin_lock(new_bucket_lock);
+Hello.
 
-I realize this is WIP and not fully worked out yet, therefore just a
-thought:
+On 2/2/2015 10:59 AM, Al Viro wrote:
 
-Unless you change this fundamentally then locking just the new bucket
-lock based on the new hash is not sufficient when you rehash while growing
-as the old bucket will contain entries which will get distributed across
-2 buckets in the new table and if we change the seed it will map to
-even more buckets. I assume you have an idea how to handle that.
+> From: Al Viro <viro@zeniv.linux.org.uk>
 
-Let me know if any of the patches proposed in "rhashtable fixes" don't
-conflict with your intended changes and I will resubmit those separately.
+> As it is, zero msg_iovlen means that the first iovec in the kernel
+> array of iovecs is left uninitialized, so checking if its ->iov_base
+> is NULL is random.  Since the real users of that thing are doing
+> sendto(fd, NULL, 0, ...), they are getting msg_iovlen = 1 and
+> msg_iov[0] = {NULL, 0}, which is what this test is trying to catch.
+> As suggested by davem, let's just check that msg_iovlen was 1 and
+> msg_iov[0].iov_base was NULL - _that_ is well-defined and it catches
+> what we want to catch.
+
+> Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
+> ---
+>   net/netlink/af_netlink.c | 4 ++++
+>   1 file changed, 4 insertions(+)
+
+> diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+> index a36777b..af51d58 100644
+> --- a/net/netlink/af_netlink.c
+> +++ b/net/netlink/af_netlink.c
+> @@ -2298,7 +2298,11 @@ static int netlink_sendmsg(struct kiocb *kiocb, struct socket *sock,
+>   			goto out;
+>   	}
+>
+> +        /* It's a really convoluted way for userland to ask for mmaped
+> +	 * sendmsg(), but that's what we've got...  */
+
+    Hmm, not sure why DaveM hasn't commented on this broken comment formatting 
+(perhaps he was going to fix it while applying?). The preferred comment style 
+in the networking code is:
+
+/* bla
+  * bla
+  */
+
+WBR, Sergei
