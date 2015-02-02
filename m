@@ -1,54 +1,61 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [PATCH net-next v2 0/6] net: Add STT support.
-Date: Mon, 2 Feb 2015 10:44:47 -0800
-Message-ID: <CALnjE+qzpQiE=C0+vpOjmUHOEh-KZb1OLczV1XkrMCXyHkb9=w@mail.gmail.com>
-References: <1422574156-1831-1-git-send-email-pshelar@nicira.com>
-	<20150131.174037.1176748996497876060.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Throughput regression with `tcp: refine TSO autosizing`
+Date: Mon, 02 Feb 2015 10:52:16 -0800
+Message-ID: <1422903136.21689.114.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CA+BoTQkVu23P3EOmY_Q3E1GJnWsyF==Pawz4iPOS_Bq5dvfO5Q@mail.gmail.com>
+	 <1422537297.21689.15.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CA+BoTQk2xT-8DqPuiiKG+kHAjLPrj8F9dLTb-rcGhvMq0u_2Qw@mail.gmail.com>
+	 <1422628835.21689.95.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CA+BoTQkV+mOZfe_Niz5101sMQeaV6muKCsShptjGQ1AgOHqqoQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless <linux-wireless@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	eyalpe@dev.mellanox.co.il
+To: Michal Kazior <michal.kazior@tieto.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog117.obsmtp.com ([74.125.149.242]:39132 "HELO
-	na3sys009aog117.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S932629AbbBBSos (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2015 13:44:48 -0500
-Received: by mail-ie0-f177.google.com with SMTP id vy18so19537304iec.8
-        for <netdev@vger.kernel.org>; Mon, 02 Feb 2015 10:44:47 -0800 (PST)
-In-Reply-To: <20150131.174037.1176748996497876060.davem@davemloft.net>
+Received: from mail-ie0-f172.google.com ([209.85.223.172]:46093 "EHLO
+	mail-ie0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753123AbbBBSwS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2015 13:52:18 -0500
+In-Reply-To: <CA+BoTQkV+mOZfe_Niz5101sMQeaV6muKCsShptjGQ1AgOHqqoQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jan 31, 2015 at 5:40 PM, David Miller <davem@davemloft.net> wrote:
-> From: Pravin B Shelar <pshelar@nicira.com>
-> Date: Thu, 29 Jan 2015 15:29:16 -0800
->
->> Following patch series adds support for Stateless Transport
->> Tunneling protocol.
->> STT uses TCP segmentation offload available in most of NIC. On
->> packet xmit STT driver appends STT header along with TCP header
->> to the packet. For GSO packet GSO parameters are set according
->> to tunnel configuration and packet is handed over to networking
->> stack. This allows use of segmentation offload available in NICs
->
-> I don't like this at all.
->
-> Routers _absolutely_ depend upon the ability to make TCP flows back
-> off by dropping packets in various ways (tail drop, RED random drops,
-> etc.).  STT violates this completely.
->
-> It's _NOT_ TCP, you can't put lipstick on a pig and pretend it's not a
-> pig.  You need to use something that indicates it's flow properties,
-> a datagram protocol.  Either via an existing one or by creating a new
-> one.
->
-> I know you want to do this mass TCP behavioral violation because of
-> TSO.  But that's too bad.  The ends do not justify the means.
->
-> I also don't buy the argument that "people can put arbitrary changes
-> into their kernel to do stuff like that".
->
-> They can't do it to the stack I'm willing to maintain, and that's what
-> matters for %99 of systems out there.
+On Mon, 2015-02-02 at 11:27 +0100, Michal Kazior wrote:
 
-ok, I will drop patch series.
+> While testing I've had my internal GRO patch for ath10k and no stretch
+> ack patches.
+
+Thanks for the data, I took a look at it.
+
+I am afraid this GRO patch might be the problem.
+
+It seems to break ACK clocking badly (linux stack has a somewhat buggy
+tcp_tso_should_defer(), which relies on ACK being received smoothly, as
+no timer is setup to split the TSO packet.)
+
+I am seeing huge delays on ACK packets and bursts like that :
+
+05:01:53.413038 IP 192.168.1.2.5001 > 192.168.1.3.49669: Flags [.], ack 76745, win 4435, options [nop,nop,TS val 4294758508 ecr 4294757300], length 0
+05:01:53.413407 IP 192.168.1.2.5001 > 192.168.1.3.49669: Flags [.], ack 79641, win 4435, options [nop,nop,TS val 4294758508 ecr 4294757301], length 0
+05:01:53.413969 IP 192.168.1.2.5001 > 192.168.1.3.49669: Flags [.], ack 92673, win 4435, options [nop,nop,TS val 4294758510 ecr 4294757302], length 0
+05:01:53.413990 IP 192.168.1.2.5001 > 192.168.1.3.49669: Flags [.], ack 97017, win 4435, options [nop,nop,TS val 4294758510 ecr 4294757302], length 0
+05:01:53.414011 IP 192.168.1.2.5001 > 192.168.1.3.49669: Flags [.], ack 110049, win 4435, options [nop,nop,TS val 4294758510 ecr 4294757302], length 0
+...
+05:01:53.422663 IP 192.168.1.2.5001 > 192.168.1.3.49669: Flags [.], ack 189689, win 4435, options [nop,nop,TS val 4294758519 ecr 4294757310], length 0
+05:01:53.424354 IP 192.168.1.2.5001 > 192.168.1.3.49669: Flags [.], ack 198377, win 4435, options [nop,nop,TS val 4294758520 ecr 4294757311], length 0
+05:01:53.424400 IP 192.168.1.2.5001 > 192.168.1.3.49669: Flags [.], ack 202721, win 4435, options [nop,nop,TS val 4294758520 ecr 4294757313], length 0
+05:01:53.424409 IP 192.168.1.2.5001 > 192.168.1.3.49669: Flags [.], ack 205617, win 4435, options [nop,nop,TS val 4294758520 ecr 4294757313], length 0
+...
+05:01:53.450248 IP 192.168.1.2.5001 > 192.168.1.3.49669: Flags [.], ack 419921, win 4435, options [nop,nop,TS val 4294758547 ecr 4294757337], length 0
+05:01:53.450266 IP 192.168.1.2.5001 > 192.168.1.3.49669: Flags [.], ack 427161, win 4435, options [nop,nop,TS val 4294758547 ecr 4294757340], length 0
+05:01:53.450289 IP 192.168.1.2.5001 > 192.168.1.3.49669: Flags [.], ack 431505, win 4435, options [nop,nop,TS val 4294758547 ecr 4294757340], length 0
+
+Could you make again your experiments using upstream kernel (David
+Miller net tree) ?
+
+You also could post the GRO patch so that we can comment on it.
+
+Thanks
