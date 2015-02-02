@@ -1,14 +1,14 @@
 From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: [PATCH v2 02/18] ipv4: raw_send_hdrinc(): pass msghdr
-Date: Mon,  2 Feb 2015 07:59:21 +0000
-Message-ID: <1422863977-17668-2-git-send-email-viro@ZenIV.linux.org.uk>
+Subject: [PATCH v2 01/18] netlink: make the check for "send from tx_ring" deterministic
+Date: Mon,  2 Feb 2015 07:59:20 +0000
+Message-ID: <1422863977-17668-1-git-send-email-viro@ZenIV.linux.org.uk>
 References: <20150131035513.GK29656@ZenIV.linux.org.uk>
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeniv.linux.org.uk ([195.92.253.2]:32954 "EHLO
+Received: from zeniv.linux.org.uk ([195.92.253.2]:32957 "EHLO
 	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932644AbbBBH7i (ORCPT
+	with ESMTP id S932719AbbBBH7i (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2015 02:59:38 -0500
 In-Reply-To: <20150131035513.GK29656@ZenIV.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
@@ -16,44 +16,35 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Al Viro <viro@zeniv.linux.org.uk>
 
-Switch from passing msg->iov_iter.iov to passing msg itself
+As it is, zero msg_iovlen means that the first iovec in the kernel
+array of iovecs is left uninitialized, so checking if its ->iov_base
+is NULL is random.  Since the real users of that thing are doing
+sendto(fd, NULL, 0, ...), they are getting msg_iovlen = 1 and
+msg_iov[0] = {NULL, 0}, which is what this test is trying to catch.
+As suggested by davem, let's just check that msg_iovlen was 1 and
+msg_iov[0].iov_base was NULL - _that_ is well-defined and it catches
+what we want to catch.
 
 Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
 ---
- net/ipv4/raw.c | 7 +++----
- 1 file changed, 3 insertions(+), 4 deletions(-)
+ net/netlink/af_netlink.c | 4 ++++
+ 1 file changed, 4 insertions(+)
 
-diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
-index 0bb68df..2c9d252 100644
---- a/net/ipv4/raw.c
-+++ b/net/ipv4/raw.c
-@@ -337,7 +337,7 @@ int raw_rcv(struct sock *sk, struct sk_buff *skb)
- }
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index a36777b..af51d58 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -2298,7 +2298,11 @@ static int netlink_sendmsg(struct kiocb *kiocb, struct socket *sock,
+ 			goto out;
+ 	}
  
- static int raw_send_hdrinc(struct sock *sk, struct flowi4 *fl4,
--			   void *from, size_t length,
-+			   struct msghdr *msg, size_t length,
- 			   struct rtable **rtp,
- 			   unsigned int flags)
- {
-@@ -382,7 +382,7 @@ static int raw_send_hdrinc(struct sock *sk, struct flowi4 *fl4,
- 
- 	skb->transport_header = skb->network_header;
- 	err = -EFAULT;
--	if (memcpy_fromiovecend((void *)iph, from, 0, length))
-+	if (memcpy_fromiovecend((void *)iph, msg->msg_iter.iov, 0, length))
- 		goto error_free;
- 
- 	iphlen = iph->ihl * 4;
-@@ -625,8 +625,7 @@ static int raw_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
- back_from_confirm:
- 
- 	if (inet->hdrincl)
--		/* XXX: stripping const */
--		err = raw_send_hdrinc(sk, &fl4, (struct iovec *)msg->msg_iter.iov, len,
-+		err = raw_send_hdrinc(sk, &fl4, msg, len,
- 				      &rt, msg->msg_flags);
- 
- 	 else {
++        /* It's a really convoluted way for userland to ask for mmaped
++	 * sendmsg(), but that's what we've got...  */
+ 	if (netlink_tx_is_mmaped(sk) &&
++	    msg->msg_iter.type == ITER_IOVEC &&
++	    msg->msg_iter.nr_segs == 1 &&
+ 	    msg->msg_iter.iov->iov_base == NULL) {
+ 		err = netlink_mmap_sendmsg(sk, msg, dst_portid, dst_group,
+ 					   &scm);
 -- 
 2.1.4
