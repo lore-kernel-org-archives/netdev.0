@@ -1,82 +1,56 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH net-next 5/6] udpv6: Add lockless sendmsg() support
-Date: Mon, 02 Feb 2015 15:42:16 -0500
-Message-ID: <54CFE128.8000605@gmail.com>
-References: <1422718818-21093-1-git-send-email-vyasevic@redhat.com> <1422718818-21093-6-git-send-email-vyasevic@redhat.com> <54CD3FF4.1030007@cogentembedded.com>
+From: Chen Gang S <gang.chen@sunrus.com.cn>
+Subject: Re: [PATCH] bluetooth: hci_sock: Use type cast "(void *)" to avoid
+ building warnings
+Date: Tue, 03 Feb 2015 05:07:06 +0800
+Message-ID: <54CFE6FA.5020203@sunrus.com.cn>
+References: <54CFE01D.5090309@sunrus.com.cn> <1422909598.30476.20.camel@perches.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, hannes@stressinduktion.org,
-	Vladislav Yasevich <vyasevic@redhat.com>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	netdev@vger.kernel.org
+Cc: marcel@holtmann.org, gustavo@padovan.org, johan.hedberg@gmail.com,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-bluetooth@vger.kernel.org,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f176.google.com ([209.85.216.176]:63554 "EHLO
-	mail-qc0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753260AbbBBUmT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2015 15:42:19 -0500
-Received: by mail-qc0-f176.google.com with SMTP id c9so32314496qcz.7
-        for <netdev@vger.kernel.org>; Mon, 02 Feb 2015 12:42:19 -0800 (PST)
-In-Reply-To: <54CD3FF4.1030007@cogentembedded.com>
+Received: from out114-135.biz.mail.alibaba.com ([205.204.114.135]:59961 "EHLO
+	out11.biz.mail.alibaba.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S965172AbbBBU7x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2015 15:59:53 -0500
+In-Reply-To: <1422909598.30476.20.camel@perches.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/31/2015 03:49 PM, Sergei Shtylyov wrote:
-> Hello.
+On 2/3/15 04:39, Joe Perches wrote:
+> On Tue, 2015-02-03 at 04:37 +0800, Chen Gang S wrote:
+>> The related warning (with allmodconfig under xtensa):
+> []
+>> diff --git a/net/bluetooth/hci_sock.c b/net/bluetooth/hci_sock.c
+> []
+>> @@ -952,7 +952,7 @@ static int hci_sock_sendmsg(struct kiocb *iocb, struct socket *sock,
+>>  
+>>  		if (((ogf > HCI_SFLT_MAX_OGF) ||
+>>  		     !hci_test_bit(ocf & HCI_FLT_OCF_BITS,
+>> -				   &hci_sec_filter.ocf_mask[ogf])) &&
+>> +				   (void *)&hci_sec_filter.ocf_mask[ogf])) &&
+>>  		    !capable(CAP_NET_RAW)) {
+>>  			err = -EPERM;
+>>  			goto drop;
 > 
-> On 1/31/2015 6:40 PM, Vladislav Yasevich wrote:
+> Probably better to change the hci_test_bit to take const void *
 > 
->> This commit adds the same functionaliy to IPv6 that
->> commit 903ab86d195cca295379699299c5fc10beba31c7
->> Author: Herbert Xu <herbert@gondor.apana.org.au>
->> Date:   Tue Mar 1 02:36:48 2011 +0000
-> 
->>      udp: Add lockless transmit path
-> 
->> added to IPv4.
-> 
->> UDP transmit path can now run without a socket lock,
->> thus allowing multiple threads to send to a single socket
->> more efficiently.
->> This is only used when corking/MSG_MORE is not used.
-> 
->> Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
->> ---
->>   net/ipv6/udp.c | 24 ++++++++++++++++++++----
->>   1 file changed, 20 insertions(+), 4 deletions(-)
-> 
->> diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
->> index 67a3d70..d048d46 100644
->> --- a/net/ipv6/udp.c
->> +++ b/net/ipv6/udp.c
-> [...]
->> @@ -1307,6 +1308,20 @@ do_udp_sendmsg:
->>           goto do_confirm;
->>   back_from_confirm:
->>
->> +    /* Lockless fast path for the non-corking case */
->> +    if (!corkreq) {
->> +        struct sk_buff *skb;
->>
->> +        skb = ip6_make_skb(sk, getfrag, msg, ulen,
->> +                   sizeof(struct udphdr), hlimit, tclass, opt,
->> +                   &fl6, (struct rt6_info *)dst,
->> +                   msg->msg_flags, dontfrag);
->> +        err = PTR_ERR(skb);
-> 
->    You should use PTR_ERR_OR_ZERO() here, I think.
+> static inline int hci_test_bit(int nr, void *addr)
+> {
+> 	return *((__u32 *) addr + (nr >> 5)) & ((__u32) 1 << (nr & 31));
+> }
 > 
 
-That particular code was stolen from ipv4/udp.c.  You are
-right, we can use PTR_ERR_OR_ZERO() and simplify the following
-check as well.
+Yeah, thanks. It should be fixed like what you said above, I shall send
+patch v2 for it.
 
-Will fix.
 
-Thanks
--vlad
+Thanks.
+-- 
+Chen Gang
 
-> [...]
-> 
-> WBR, Sergei
-> 
+Open, share, and attitude like air, water, and life which God blessed
