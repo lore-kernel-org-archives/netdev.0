@@ -1,183 +1,259 @@
-From: David Woodhouse <dwmw2@infradead.org>
-Subject: Re: [PATCH] tun: orphan an skb on tx
-Date: Mon, 02 Feb 2015 15:30:25 +0000
-Message-ID: <1422891025.5293.262.camel@infradead.org>
-References: <1422797630.11044.32.camel@infradead.org>
-	 <20150201.121948.998046471405758397.davem@davemloft.net>
-	 <1422826183.11044.72.camel@infradead.org>
-	 <20150201.210716.588479604128207372.davem@davemloft.net>
-	 <1422862030.11044.86.camel@infradead.org>
-	 <20150202082446.GR13046@secunet.com>
+From: David Ahern <dsahern@gmail.com>
+Subject: Re: [PATCH] net: ipv6: Make address flushing on ifdown optional -
+ v2
+Date: Mon, 02 Feb 2015 08:33:51 -0700
+Message-ID: <54CF98DF.9090308@gmail.com>
+References: <1422504065-17445-1-git-send-email-dsahern@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="sha-1"; protocol="application/x-pkcs7-signature";
-	boundary="=-lnFOyJIGQviHU/0JU38H"
-Cc: David Miller <davem@davemloft.net>, mst@redhat.com,
-	herbert@gondor.apana.org.au, eric.dumazet@gmail.com,
-	jan.kiszka@siemens.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, qemu-devel@nongnu.org
-To: Steffen Klassert <steffen.klassert@secunet.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Hannes Frederic Sowa <hannes@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:60311 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754105AbbBBPaj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2015 10:30:39 -0500
-In-Reply-To: <20150202082446.GR13046@secunet.com>
+Received: from mail-ig0-f174.google.com ([209.85.213.174]:65042 "EHLO
+	mail-ig0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932066AbbBBPdw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2015 10:33:52 -0500
+Received: by mail-ig0-f174.google.com with SMTP id b16so19041993igk.1
+        for <netdev@vger.kernel.org>; Mon, 02 Feb 2015 07:33:52 -0800 (PST)
+In-Reply-To: <1422504065-17445-1-git-send-email-dsahern@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi Hannes:
 
---=-lnFOyJIGQviHU/0JU38H
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Any comments before I spin a v3 to address Dave's comments?
 
-On Mon, 2015-02-02 at 09:24 +0100, Steffen Klassert wrote:
->=20
-> Maybe you want to use a virtual tunnel interface (vti) what we have
-> already. Everything that is routed through such an interface is
-> guaranteed to be either encrypted if a matching xfrm state is present
-> or dropped. Same on the rceive side, everything that is received by
-> this interface is guaranteed to be IPsec processed. So you can do
-> a routing based decision about the IPsec processing.
->=20
-> While I'm sure it could handle the ESP in UDP encapsulation, I'm not that
-> sure about your TCP fallback because this requires a valid xfrm state
-> to allow packets to pass. Using the same interface for both is probably
-> not possible.
+David
 
-I'm trying to imagine how we could make it work in practice if we end up
-exposing two *different* interfaces and having to change the kernel's
-routing according to whether we have UDP connectivity at any given
-moment in time.
-
-Given how painful it already is to maintain vpnc-script and make it do
-the right thing for split-include and split-exclude routing, I'm not
-really sure I want to go there.
-
-Even if we could get such a scheme to work, it would probably also
-require retaining root privileges to make the changes =E2=80=94 and one of =
-the
-security benefits over the proprietary VPN clients is that we don't
-*need* to run as root. We can either drop privs after running
-vpnc-script to do the initial routing setup, or in the NetworkManager
-case we *never* run with elevated privileges; we just pass the
-IP/routing information back over DBus to NetworkManager.
-
-It occurs to me that for the approach I was thinking about, I wouldn't
-even need to touch the internals of the tun driver. It could be a
-separate driver which just uses tun_get_socket(). Userspace could hand
-it the file descriptors of the tun device and the connected UDP socket,
-along with the encryption parameters =E2=80=94 and then just stop reading
-packets from the tun device for itself.
-
---=20
-dwmw2
-
---=-lnFOyJIGQviHU/0JU38H
-Content-Type: application/x-pkcs7-signature; name="smime.p7s"
-Content-Disposition: attachment; filename="smime.p7s"
-Content-Transfer-Encoding: base64
-
-MIAGCSqGSIb3DQEHAqCAMIACAQExCzAJBgUrDgMCGgUAMIAGCSqGSIb3DQEHAQAAoIISxDCCBjQw
-ggQcoAMCAQICAR4wDQYJKoZIhvcNAQEFBQAwfTELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0
-Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcxKTAn
-BgNVBAMTIFN0YXJ0Q29tIENlcnRpZmljYXRpb24gQXV0aG9yaXR5MB4XDTA3MTAyNDIxMDE1NVoX
-DTE3MTAyNDIxMDE1NVowgYwxCzAJBgNVBAYTAklMMRYwFAYDVQQKEw1TdGFydENvbSBMdGQuMSsw
-KQYDVQQLEyJTZWN1cmUgRGlnaXRhbCBDZXJ0aWZpY2F0ZSBTaWduaW5nMTgwNgYDVQQDEy9TdGFy
-dENvbSBDbGFzcyAxIFByaW1hcnkgSW50ZXJtZWRpYXRlIENsaWVudCBDQTCCASIwDQYJKoZIhvcN
-AQEBBQADggEPADCCAQoCggEBAMcJg8zOLdgasSmkLhOrlr6KMoOMpohBllVHrdRvEg/q6r8jR+EK
-75xCGhR8ToREoqe7zM9/UnC6TS2y9UKTpT1v7RSMzR0t6ndl0TWBuUr/UXBhPk+Kmy7bI4yW4urC
-+y7P3/1/X7U8ocb8VpH/Clt+4iq7nirMcNh6qJR+xjOhV+VHzQMALuGYn5KZmc1NbJQYclsGkDxD
-z2UbFqE2+6vIZoL+jb9x4Pa5gNf1TwSDkOkikZB1xtB4ZqtXThaABSONdfmv/Z1pua3FYxnCFmdr
-/+N2JLKutIxMYqQOJebr/f/h5t95m4JgrM3Y/w7YX9d7YAL9jvN4SydHsU6n65cCAwEAAaOCAa0w
-ggGpMA8GA1UdEwEB/wQFMAMBAf8wDgYDVR0PAQH/BAQDAgEGMB0GA1UdDgQWBBRTcu2SnODaywFc
-fH6WNU7y1LhRgjAfBgNVHSMEGDAWgBROC+8apEBbpRdphzDKNGhD0EGu8jBmBggrBgEFBQcBAQRa
-MFgwJwYIKwYBBQUHMAGGG2h0dHA6Ly9vY3NwLnN0YXJ0c3NsLmNvbS9jYTAtBggrBgEFBQcwAoYh
-aHR0cDovL3d3dy5zdGFydHNzbC5jb20vc2ZzY2EuY3J0MFsGA1UdHwRUMFIwJ6AloCOGIWh0dHA6
-Ly93d3cuc3RhcnRzc2wuY29tL3Nmc2NhLmNybDAnoCWgI4YhaHR0cDovL2NybC5zdGFydHNzbC5j
-b20vc2ZzY2EuY3JsMIGABgNVHSAEeTB3MHUGCysGAQQBgbU3AQIBMGYwLgYIKwYBBQUHAgEWImh0
-dHA6Ly93d3cuc3RhcnRzc2wuY29tL3BvbGljeS5wZGYwNAYIKwYBBQUHAgEWKGh0dHA6Ly93d3cu
-c3RhcnRzc2wuY29tL2ludGVybWVkaWF0ZS5wZGYwDQYJKoZIhvcNAQEFBQADggIBAAqDCH14qywG
-XLhjjF6uHLkjd02hcdh9hrw+VUsv+q1eeQWB21jWj3kJ96AUlPCoEGZ/ynJNScWy6QMVQjbbMXlt
-UfO4n4bGGdKo3awPWp61tjAFgraLJgDk+DsSvUD6EowjMTNx25GQgyYJ5RPIzKKR9tQW8gGK+2+R
-HxkUCTbYFnL6kl8Ch507rUdPPipJ9CgJFws3kDS3gOS5WFMxcjO5DwKfKSETEPrHh7p5shuuNktv
-sv6hxHTLhiMKX893gxdT3XLS9OKmCv87vkINQcNEcIIoFWbP9HORz9v3vQwR4e3ksLc2JZOAFK+s
-sS5XMEoznzpihEP0PLc4dCBYjbvSD7kxgDwZ+Aj8Q9PkbvE9sIPP7ON0fz095HdThKjiVJe6vofq
-+n6b1NBc8XdrQvBmunwxD5nvtTW4vtN6VY7mUCmxsCieuoBJ9OlqmsVWQvifIYf40dJPZkk9YgGT
-zWLpXDSfLSplbY2LL9C9U0ptvjcDjefLTvqSFc7tw1sEhF0n/qpA2r0GpvkLRDmcSwVyPvmjFBGq
-Up/pNy8ZuPGQmHwFi2/14+xeSUDG2bwnsYJQG2EdJCB6luQ57GEnTA/yKZSTKI8dDQa8Sd3zfXb1
-9mOgSF0bBdXbuKhEpuP9wirslFe6fQ1t5j5R0xi72MZ8ikMu1RQZKCyDbMwazlHiMIIGQjCCBSqg
-AwIBAgIDCdkyMA0GCSqGSIb3DQEBBQUAMIGMMQswCQYDVQQGEwJJTDEWMBQGA1UEChMNU3RhcnRD
-b20gTHRkLjErMCkGA1UECxMiU2VjdXJlIERpZ2l0YWwgQ2VydGlmaWNhdGUgU2lnbmluZzE4MDYG
-A1UEAxMvU3RhcnRDb20gQ2xhc3MgMSBQcmltYXJ5IEludGVybWVkaWF0ZSBDbGllbnQgQ0EwHhcN
-MTQwNTA0MTczMDIyWhcNMTUwNTA0MjM0MTAxWjBdMRkwFwYDVQQNExAzODNCMTVkSHFQSUR0cDZO
-MRwwGgYDVQQDDBNkd213MkBpbmZyYWRlYWQub3JnMSIwIAYJKoZIhvcNAQkBFhNkd213MkBpbmZy
-YWRlYWQub3JnMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAy7K+t+REIdZGFUfgR8Io
-QrJ/VLZil9I00JcwqTo8BiGy1dqSIB2y923siya5SDKMh1YurtCPsX96cNzwPmmN2cs0MKeVPQWz
-iQhHk3uKcB6LvvS7pzTahRWMRmTyW3CH+RphRM9plvyClY23GEeEnpBnGz4GaJJiPcJjGgzyZ/tI
-q473pOlSrDPZnZk43vt/5CJN46nIZOZ2I+PzlgINI+EbiwsXVn3VohHB7nVTwGaRLk5oywGt8ZT7
-tDdxn3BQ3inO1sr5MtkV1o2cHlenIC8mlU8nL/mrqqVve7Vib1YQUycW+Pj4CBYm4FTeuctAvNzK
-U/daeBclOZ8ofgQe2wIDAQABo4IC2TCCAtUwCQYDVR0TBAIwADALBgNVHQ8EBAMCBLAwHQYDVR0l
-BBYwFAYIKwYBBQUHAwIGCCsGAQUFBwMEMB0GA1UdDgQWBBRAjCSCV70BpLBeXge5DXi+mPhHTTAf
-BgNVHSMEGDAWgBRTcu2SnODaywFcfH6WNU7y1LhRgjAeBgNVHREEFzAVgRNkd213MkBpbmZyYWRl
-YWQub3JnMIIBTAYDVR0gBIIBQzCCAT8wggE7BgsrBgEEAYG1NwECAzCCASowLgYIKwYBBQUHAgEW
-Imh0dHA6Ly93d3cuc3RhcnRzc2wuY29tL3BvbGljeS5wZGYwgfcGCCsGAQUFBwICMIHqMCcWIFN0
-YXJ0Q29tIENlcnRpZmljYXRpb24gQXV0aG9yaXR5MAMCAQEagb5UaGlzIGNlcnRpZmljYXRlIHdh
-cyBpc3N1ZWQgYWNjb3JkaW5nIHRvIHRoZSBDbGFzcyAxIFZhbGlkYXRpb24gcmVxdWlyZW1lbnRz
-IG9mIHRoZSBTdGFydENvbSBDQSBwb2xpY3ksIHJlbGlhbmNlIG9ubHkgZm9yIHRoZSBpbnRlbmRl
-ZCBwdXJwb3NlIGluIGNvbXBsaWFuY2Ugb2YgdGhlIHJlbHlpbmcgcGFydHkgb2JsaWdhdGlvbnMu
-MDYGA1UdHwQvMC0wK6ApoCeGJWh0dHA6Ly9jcmwuc3RhcnRzc2wuY29tL2NydHUxLWNybC5jcmww
-gY4GCCsGAQUFBwEBBIGBMH8wOQYIKwYBBQUHMAGGLWh0dHA6Ly9vY3NwLnN0YXJ0c3NsLmNvbS9z
-dWIvY2xhc3MxL2NsaWVudC9jYTBCBggrBgEFBQcwAoY2aHR0cDovL2FpYS5zdGFydHNzbC5jb20v
-Y2VydHMvc3ViLmNsYXNzMS5jbGllbnQuY2EuY3J0MCMGA1UdEgQcMBqGGGh0dHA6Ly93d3cuc3Rh
-cnRzc2wuY29tLzANBgkqhkiG9w0BAQUFAAOCAQEAWS2KNN7O3vZVtNHXVqgbmijeptKwt+8b6yiF
-wT3kJoywInPl5U+OeKRZfQKTHghM4Ohof6lF244ZMxhir/xp7l/zkZ/BUbxLwp6kIL27Gi5pgP4D
-KLnTZheQL9N5Yi/vMONxMWcpcW+ZNv5hnDCfEsfVcLXC8sNLPjx2ezfMIhSSPwBuJpmOun70te4E
-P0YBqjSalPfvc5fC5KgaYtqTDFwo9Mw25X5HHDC0r6BK5aNrF1nD/xYTX7cdvZZWl7cUApr4PCrn
-uI2DEn7OWQ/rY407ytV1c5pjvmuv/IT/ZUb/kXV6Q47UvrJp2Ifi2VhsBcnHHasKavjtRCmpDsGM
-rTCCBkIwggUqoAMCAQICAwnZMjANBgkqhkiG9w0BAQUFADCBjDELMAkGA1UEBhMCSUwxFjAUBgNV
-BAoTDVN0YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNp
-Z25pbmcxODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xp
-ZW50IENBMB4XDTE0MDUwNDE3MzAyMloXDTE1MDUwNDIzNDEwMVowXTEZMBcGA1UEDRMQMzgzQjE1
-ZEhxUElEdHA2TjEcMBoGA1UEAwwTZHdtdzJAaW5mcmFkZWFkLm9yZzEiMCAGCSqGSIb3DQEJARYT
-ZHdtdzJAaW5mcmFkZWFkLm9yZzCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAMuyvrfk
-RCHWRhVH4EfCKEKyf1S2YpfSNNCXMKk6PAYhstXakiAdsvdt7IsmuUgyjIdWLq7Qj7F/enDc8D5p
-jdnLNDCnlT0Fs4kIR5N7inAei770u6c02oUVjEZk8ltwh/kaYUTPaZb8gpWNtxhHhJ6QZxs+BmiS
-Yj3CYxoM8mf7SKuO96TpUqwz2Z2ZON77f+QiTeOpyGTmdiPj85YCDSPhG4sLF1Z91aIRwe51U8Bm
-kS5OaMsBrfGU+7Q3cZ9wUN4pztbK+TLZFdaNnB5XpyAvJpVPJy/5q6qlb3u1Ym9WEFMnFvj4+AgW
-JuBU3rnLQLzcylP3WngXJTmfKH4EHtsCAwEAAaOCAtkwggLVMAkGA1UdEwQCMAAwCwYDVR0PBAQD
-AgSwMB0GA1UdJQQWMBQGCCsGAQUFBwMCBggrBgEFBQcDBDAdBgNVHQ4EFgQUQIwkgle9AaSwXl4H
-uQ14vpj4R00wHwYDVR0jBBgwFoAUU3Ltkpzg2ssBXHx+ljVO8tS4UYIwHgYDVR0RBBcwFYETZHdt
-dzJAaW5mcmFkZWFkLm9yZzCCAUwGA1UdIASCAUMwggE/MIIBOwYLKwYBBAGBtTcBAgMwggEqMC4G
-CCsGAQUFBwIBFiJodHRwOi8vd3d3LnN0YXJ0c3NsLmNvbS9wb2xpY3kucGRmMIH3BggrBgEFBQcC
-AjCB6jAnFiBTdGFydENvbSBDZXJ0aWZpY2F0aW9uIEF1dGhvcml0eTADAgEBGoG+VGhpcyBjZXJ0
-aWZpY2F0ZSB3YXMgaXNzdWVkIGFjY29yZGluZyB0byB0aGUgQ2xhc3MgMSBWYWxpZGF0aW9uIHJl
-cXVpcmVtZW50cyBvZiB0aGUgU3RhcnRDb20gQ0EgcG9saWN5LCByZWxpYW5jZSBvbmx5IGZvciB0
-aGUgaW50ZW5kZWQgcHVycG9zZSBpbiBjb21wbGlhbmNlIG9mIHRoZSByZWx5aW5nIHBhcnR5IG9i
-bGlnYXRpb25zLjA2BgNVHR8ELzAtMCugKaAnhiVodHRwOi8vY3JsLnN0YXJ0c3NsLmNvbS9jcnR1
-MS1jcmwuY3JsMIGOBggrBgEFBQcBAQSBgTB/MDkGCCsGAQUFBzABhi1odHRwOi8vb2NzcC5zdGFy
-dHNzbC5jb20vc3ViL2NsYXNzMS9jbGllbnQvY2EwQgYIKwYBBQUHMAKGNmh0dHA6Ly9haWEuc3Rh
-cnRzc2wuY29tL2NlcnRzL3N1Yi5jbGFzczEuY2xpZW50LmNhLmNydDAjBgNVHRIEHDAahhhodHRw
-Oi8vd3d3LnN0YXJ0c3NsLmNvbS8wDQYJKoZIhvcNAQEFBQADggEBAFktijTezt72VbTR11aoG5oo
-3qbSsLfvG+sohcE95CaMsCJz5eVPjnikWX0Ckx4ITODoaH+pRduOGTMYYq/8ae5f85GfwVG8S8Ke
-pCC9uxouaYD+Ayi502YXkC/TeWIv7zDjcTFnKXFvmTb+YZwwnxLH1XC1wvLDSz48dns3zCIUkj8A
-biaZjrp+9LXuBD9GAao0mpT373OXwuSoGmLakwxcKPTMNuV+RxwwtK+gSuWjaxdZw/8WE1+3Hb2W
-Vpe3FAKa+Dwq57iNgxJ+zlkP62ONO8rVdXOaY75rr/yE/2VG/5F1ekOO1L6yadiH4tlYbAXJxx2r
-Cmr47UQpqQ7BjK0xggNvMIIDawIBATCBlDCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0
-Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcxODA2
-BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENBAgMJ
-2TIwCQYFKw4DAhoFAKCCAa8wGAYJKoZIhvcNAQkDMQsGCSqGSIb3DQEHATAcBgkqhkiG9w0BCQUx
-DxcNMTUwMjAyMTUzMDI1WjAjBgkqhkiG9w0BCQQxFgQUS1abxbrxnd9rWwkReWgxrbj9F3AwgaUG
-CSsGAQQBgjcQBDGBlzCBlDCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0ZC4x
-KzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcxODA2BgNVBAMTL1N0
-YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENBAgMJ2TIwgacGCyqG
-SIb3DQEJEAILMYGXoIGUMIGMMQswCQYDVQQGEwJJTDEWMBQGA1UEChMNU3RhcnRDb20gTHRkLjEr
-MCkGA1UECxMiU2VjdXJlIERpZ2l0YWwgQ2VydGlmaWNhdGUgU2lnbmluZzE4MDYGA1UEAxMvU3Rh
-cnRDb20gQ2xhc3MgMSBQcmltYXJ5IEludGVybWVkaWF0ZSBDbGllbnQgQ0ECAwnZMjANBgkqhkiG
-9w0BAQEFAASCAQCBPKsoONupjdZzx/PvKynKAz7Tz6oPrImFaOMDMfNM5Kd7GJbclnK9OyEQC5Vz
-S9QvPoSL5RuLvTQDvAwThIKW97DZy1CwWVa+ktiHyU4Yy6fJCkOTKCuLyxifmhbyYfnX429Sw4IC
-aBTO0w1qI1LjBp2LUuYtnQDqZG8LVqXdgnH//G0bV2EprSy1EUSbGIriqUOej5Tvqz3xGMCm9O8+
-BYCq1zo5wyrv2/apOEsC0ZgO+DZYCZ7rdbnfby9DCgGoJY29m3WaMsqxpsC3stGouBnKJNFRkbyy
-Z/hUFttTbigCYc3JSpUVIBZ2TUOiG7FPc40I/E5ELUpCdietW1z6AAAAAAAA
-
-
---=-lnFOyJIGQviHU/0JU38H--
+On 1/28/15 9:01 PM, David Ahern wrote:
+> Currently, all ipv6 addresses are flushed when the interface is configured
+> down, even static address:
+>
+> [root@f20 ~]# ip -6 addr add dev eth1 2000:11:1:1::1/64
+> [root@f20 ~]# ip addr show dev eth1
+> 3: eth1: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN group default qlen 1000
+>      link/ether 02:04:11:22:33:01 brd ff:ff:ff:ff:ff:ff
+>      inet6 2000:11:1:1::1/64 scope global tentative
+>         valid_lft forever preferred_lft forever
+> [root@f20 ~]# ip link set dev eth1 up
+> [root@f20 ~]# ip link set dev eth1 down
+> [root@f20 ~]# ip addr show dev eth1
+> 3: eth1: <BROADCAST,MULTICAST> mtu 1500 qdisc pfifo_fast state DOWN group default qlen 1000
+>      link/ether 02:04:11:22:33:01 brd ff:ff:ff:ff:ff:ff
+>
+> Add a new sysctl to make this behavior optional. The new setting defaults to
+> flush all addresses to maintain backwards compatibility. When the setting is
+> reset static addresses are not flushed:
+>
+> [root@f20 ~]# echo 0 > /proc/sys/net/ipv6/conf/eth1/flush_addr_on_down
+> [root@f20 ~]# ip -6 addr add dev eth1 2000:11:1:1::1/64
+> [root@f20 ~]# ip addr show dev eth1
+> 3: eth1: <BROADCAST,MULTICAST> mtu 1500 qdisc pfifo_fast state DOWN group default qlen 1000
+>      link/ether 02:04:11:22:33:01 brd ff:ff:ff:ff:ff:ff
+>      inet6 2000:11:1:1::1/64 scope global tentative
+>         valid_lft forever preferred_lft forever
+> [root@f20 ~]#  ip link set dev eth1 up
+> [root@f20 ~]#  ip link set dev eth1 down
+> [root@f20 ~]# ip addr show dev eth1
+> 3: eth1: <BROADCAST,MULTICAST> mtu 1500 qdisc pfifo_fast state DOWN group default qlen 1000
+>      link/ether 02:04:11:22:33:01 brd ff:ff:ff:ff:ff:ff
+>      inet6 2000:11:1:1::1/64 scope global
+>         valid_lft forever preferred_lft forever
+>      inet6 fe80::4:11ff:fe22:3301/64 scope link
+>         valid_lft forever preferred_lft forever
+>
+> v2:
+> - only keep static addresses as suggested by Hannes
+> - added new managed flag to track configured addresses
+> - on ifdown do not remove from configured address from inet6_addr_lst
+> - on ifdown reset the TENTATIVE flag and set state to DAD so that DAD is
+>    redone when link is brought up again
+>
+> Suggested-by: Hannes Frederic Sowa <hannes@redhat.com>
+> Signed-off-by: David Ahern <dsahern@gmail.com>
+> Cc: Hannes Frederic Sowa <hannes@redhat.com>
+>
+> Signed-off-by: David Ahern <dsahern@gmail.com>
+> ---
+>   include/linux/ipv6.h      |  1 +
+>   include/net/if_inet6.h    |  1 +
+>   include/uapi/linux/ipv6.h |  1 +
+>   net/ipv6/addrconf.c       | 55 ++++++++++++++++++++++++++++++++++++++---------
+>   4 files changed, 48 insertions(+), 10 deletions(-)
+>
+> diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
+> index 2805062c013f..b91b7c8be023 100644
+> --- a/include/linux/ipv6.h
+> +++ b/include/linux/ipv6.h
+> @@ -53,6 +53,7 @@ struct ipv6_devconf {
+>   	__s32           ndisc_notify;
+>   	__s32		suppress_frag_ndisc;
+>   	__s32		accept_ra_mtu;
+> +	__s32		flush_addr_on_down;
+>   	void		*sysctl;
+>   };
+>
+> diff --git a/include/net/if_inet6.h b/include/net/if_inet6.h
+> index 98e5f9578f86..3b6323111f77 100644
+> --- a/include/net/if_inet6.h
+> +++ b/include/net/if_inet6.h
+> @@ -72,6 +72,7 @@ struct inet6_ifaddr {
+>   	int			regen_count;
+>
+>   	bool			tokenized;
+> +	bool			managed;
+>
+>   	struct rcu_head		rcu;
+>   	struct in6_addr		peer_addr;
+> diff --git a/include/uapi/linux/ipv6.h b/include/uapi/linux/ipv6.h
+> index 437a6a4b125a..ed10d4ba8340 100644
+> --- a/include/uapi/linux/ipv6.h
+> +++ b/include/uapi/linux/ipv6.h
+> @@ -170,6 +170,7 @@ enum {
+>   	DEVCONF_ACCEPT_RA_FROM_LOCAL,
+>   	DEVCONF_USE_OPTIMISTIC,
+>   	DEVCONF_ACCEPT_RA_MTU,
+> +	DEVCONF_FLUSH_ON_DOWN,
+>   	DEVCONF_MAX
+>   };
+>
+> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+> index 7dcc065e2160..e0e82aad2116 100644
+> --- a/net/ipv6/addrconf.c
+> +++ b/net/ipv6/addrconf.c
+> @@ -202,6 +202,7 @@ static struct ipv6_devconf ipv6_devconf __read_mostly = {
+>   	.accept_dad		= 1,
+>   	.suppress_frag_ndisc	= 1,
+>   	.accept_ra_mtu		= 1,
+> +	.flush_addr_on_down	= 1,
+>   };
+>
+>   static struct ipv6_devconf ipv6_devconf_dflt __read_mostly = {
+> @@ -240,6 +241,7 @@ static struct ipv6_devconf ipv6_devconf_dflt __read_mostly = {
+>   	.accept_dad		= 1,
+>   	.suppress_frag_ndisc	= 1,
+>   	.accept_ra_mtu		= 1,
+> +	.flush_addr_on_down	= 1,
+>   };
+>
+>   /* Check if a valid qdisc is available */
+> @@ -870,6 +872,7 @@ ipv6_add_addr(struct inet6_dev *idev, const struct in6_addr *addr,
+>   	ifa->prefered_lft = prefered_lft;
+>   	ifa->cstamp = ifa->tstamp = jiffies;
+>   	ifa->tokenized = false;
+> +	ifa->managed = false;
+>
+>   	ifa->rt = rt;
+>
+> @@ -2510,6 +2513,8 @@ static int inet6_addr_add(struct net *net, int ifindex,
+>   			    valid_lft, prefered_lft);
+>
+>   	if (!IS_ERR(ifp)) {
+> +		ifp->managed = true;
+> +
+>   		if (!(ifa_flags & IFA_F_NOPREFIXROUTE)) {
+>   			addrconf_prefix_route(&ifp->addr, ifp->prefix_len, dev,
+>   					      expires, flags);
+> @@ -3032,8 +3037,9 @@ static int addrconf_ifdown(struct net_device *dev, int how)
+>   {
+>   	struct net *net = dev_net(dev);
+>   	struct inet6_dev *idev;
+> -	struct inet6_ifaddr *ifa;
+> +	struct inet6_ifaddr *ifa, *tmp;
+>   	int state, i;
+> +	struct list_head del_list;
+>
+>   	ASSERT_RTNL();
+>
+> @@ -3067,9 +3073,12 @@ static int addrconf_ifdown(struct net_device *dev, int how)
+>   restart:
+>   		hlist_for_each_entry_rcu(ifa, h, addr_lst) {
+>   			if (ifa->idev == idev) {
+> -				hlist_del_init_rcu(&ifa->addr_lst);
+>   				addrconf_del_dad_work(ifa);
+> -				goto restart;
+> +				if (how || idev->cnf.flush_addr_on_down ||
+> +				    !ifa->managed) {
+> +					hlist_del_init_rcu(&ifa->addr_lst);
+> +					goto restart;
+> +				}
+>   			}
+>   		}
+>   		spin_unlock_bh(&addrconf_hash_lock);
+> @@ -3103,14 +3112,35 @@ restart:
+>   		write_lock_bh(&idev->lock);
+>   	}
+>
+> -	while (!list_empty(&idev->addr_list)) {
+> -		ifa = list_first_entry(&idev->addr_list,
+> +	INIT_LIST_HEAD(&del_list);
+> +	list_for_each_entry_safe(ifa, tmp, &idev->addr_list, if_list) {
+> +		/*
+> +		 * on NETDEV_DOWN events do not flush managed (user configured)
+> +		 * addresses unless configured to do so. If the address is not
+> +		 * deleted reset flags and state such that DAD is re-done on a
+> + 		 * subsequent link up.
+> + 		 */
+> +		if (!how && !idev->cnf.flush_addr_on_down && ifa->managed) {
+> +	    		if (!(ifa->flags & IFA_F_NODAD)) {
+> +				ifa->flags |= IFA_F_TENTATIVE;
+> +				ifa->state = INET6_IFADDR_STATE_DAD;
+> +			}
+> +		} else {
+> +			list_del(&ifa->if_list);
+> +			list_add(&ifa->if_list, &del_list);
+> +		}
+> +	}
+> +
+> +	write_unlock_bh(&idev->lock);
+> +
+> +	while (!list_empty(&del_list)) {
+> +		ifa = list_first_entry(&del_list,
+>   				       struct inet6_ifaddr, if_list);
+> +
+>   		addrconf_del_dad_work(ifa);
+>
+>   		list_del(&ifa->if_list);
+>
+> -		write_unlock_bh(&idev->lock);
+>
+>   		spin_lock_bh(&ifa->state_lock);
+>   		state = ifa->state;
+> @@ -3122,12 +3152,8 @@ restart:
+>   			inet6addr_notifier_call_chain(NETDEV_DOWN, ifa);
+>   		}
+>   		in6_ifa_put(ifa);
+> -
+> -		write_lock_bh(&idev->lock);
+>   	}
+>
+> -	write_unlock_bh(&idev->lock);
+> -
+>   	/* Step 5: Discard anycast and multicast list */
+>   	if (how) {
+>   		ipv6_ac_destroy_dev(idev);
+> @@ -4383,6 +4409,7 @@ static inline void ipv6_store_devconf(struct ipv6_devconf *cnf,
+>   	array[DEVCONF_SUPPRESS_FRAG_NDISC] = cnf->suppress_frag_ndisc;
+>   	array[DEVCONF_ACCEPT_RA_FROM_LOCAL] = cnf->accept_ra_from_local;
+>   	array[DEVCONF_ACCEPT_RA_MTU] = cnf->accept_ra_mtu;
+> +	array[DEVCONF_FLUSH_ON_DOWN] = cnf->flush_addr_on_down;
+>   }
+>
+>   static inline size_t inet6_ifla6_size(void)
+> @@ -5269,6 +5296,14 @@ static struct addrconf_sysctl_table
+>   			.proc_handler	= proc_dointvec,
+>   		},
+>   		{
+> +			.procname       = "flush_addr_on_down",
+> +			.data           = &ipv6_devconf.flush_addr_on_down,
+> +			.maxlen         = sizeof(int),
+> +			.mode           = 0644,
+> +			.proc_handler   = proc_dointvec,
+> +
+> +		},
+> +		{
+>   			/* sentinel */
+>   		}
+>   	},
+>
