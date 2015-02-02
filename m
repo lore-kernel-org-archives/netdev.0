@@ -1,68 +1,64 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH] can: janz-ican3: fix type missmatch in assignment
-Date: Mon, 02 Feb 2015 10:25:08 +0100
-Message-ID: <54CF4274.1040600@pengutronix.de>
-References: <1422779674-27823-1-git-send-email-hofrat@osadl.org>
+From: Ying Xue <ying.xue@windriver.com>
+Subject: Re: rhashtable: Fix potential crash on destroy in rhashtable_shrink
+Date: Mon, 2 Feb 2015 17:34:40 +0800
+Message-ID: <54CF44B0.4040205@windriver.com>
+References: <20150131093637.GA29106@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="S1Xjeh9jebSpqPcPKhTKcQdPR1r5b24sv"
-Cc: linux-can@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Nicholas Mc Guire <der.herr@hofr.at>
-To: Nicholas Mc Guire <hofrat@osadl.org>,
-	Wolfgang Grandegger <wg@grandegger.com>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1422779674-27823-1-git-send-email-hofrat@osadl.org>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+To: Herbert Xu <herbert@gondor.apana.org.au>,
+	Thomas Graf <tgraf@suug.ch>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail1.windriver.com ([147.11.146.13]:52012 "EHLO
+	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753132AbbBBJf2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2015 04:35:28 -0500
+In-Reply-To: <20150131093637.GA29106@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---S1Xjeh9jebSpqPcPKhTKcQdPR1r5b24sv
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
+On 01/31/2015 05:36 PM, Herbert Xu wrote:
+> The current being_destroyed check in rhashtable_expand is not
+> enough since if we start a shrinking process after freeing all
+> elements in the table that's also going to crash.
+> 
 
-On 02/01/2015 09:34 AM, Nicholas Mc Guire wrote:
-> From: Nicholas Mc Guire <der.herr@hofr.at>
->=20
-> return type of wait_for_completion_timeout is unsigned long not int, th=
-is
-> patch removes the type missmatch by moving the call into the condition.=
+Sorry, I cannot understand the scenario.
 
->=20
-> Signed-off-by: Nicholas Mc Guire <der.herr@hofr.at>
+When we free the table in rhashtable_destroy(), we call
+cancel_work_sync() to synchronously cancel the work. So, why does your
+described crash still happen?
 
-Thanks, applied to can-next.
+Please give a more explanation.
 
-Marc
+Thanks,
+Ying
 
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---S1Xjeh9jebSpqPcPKhTKcQdPR1r5b24sv
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAEBCgAGBQJUz0J4AAoJECte4hHFiupUgIkQAJ+Eiupy7xI7fwmMo0YfFOwu
-OOYwpJo5+JZ1BayZ6LHHwiiGz0+o5Q4OYlw4XYdQJ7AnWTdP7ECEbCPUmX3Fm5eR
-NtYenJtXripb/Eogt6/W75Bo9G8N/S+uT1WvkW9hy3NtFBhjxhldoyVRnLHlJN/X
-ABIWB/Kw/6gAmkKDQMWj+BhUGg2P5T8tWugkHnbnasy9TN/fX6/1HvdPPYZ29Psm
-uESrPvfDDA2IfUtpxuDBOxpowqBWdlWouzsZ+9qRV7t32VAVC9Xq1YV+BsQMw8uU
-m8Hvx8LZcKoZNc08u0m1bT5JOm5mE+3SOnFucPnVzX0EtR1ekJbqsPGWqK50mkB7
-NTToMWu3xIKsINZhy1rVB28syn6yzHIG7dkNyYwXLblEgt1Q4v1m6GufSbcKbiSC
-WWDm0GxHNdpEkuJ1gywFtY+FbJXqUbNjNVaVb6BMdNtVXDGbWi/fIImQTGzMoGyS
-DCEXOBugkKNEbi0kkYnb0WrBGv7YE1kZsnVFHaYc2Arwjrz19jKmZS/lDVJuyOun
-Xx3j2IUtVoT5z0uXztuxxbhBcihGw+mbmV/BoMvO0NkEn/c9WF2QYC6O1aMFfoPX
-3C80vMD78LeBnoMuYlSYVUlwhg58RkPI2a1C8pSkMmoWlkBTg7UpFoGZpzRQaPh9
-mBOoM3WRBBUNuxXT/bYR
-=v4Aj
------END PGP SIGNATURE-----
-
---S1Xjeh9jebSpqPcPKhTKcQdPR1r5b24sv--
+> This patch adds a being_destroyed check to the deferred worker
+> thread so that we bail out as soon as we take the lock.
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> 
+> diff --git a/lib/rhashtable.c b/lib/rhashtable.c
+> index 69a4eb0..4c3da1f 100644
+> --- a/lib/rhashtable.c
+> +++ b/lib/rhashtable.c
+> @@ -489,6 +489,9 @@ static void rht_deferred_worker(struct work_struct *work)
+>  
+>  	ht = container_of(work, struct rhashtable, run_work);
+>  	mutex_lock(&ht->mutex);
+> +	if (ht->being_destroyed)
+> +		goto unlock;
+> +
+>  	tbl = rht_dereference(ht->tbl, ht);
+>  
+>  	list_for_each_entry(walker, &ht->walkers, list)
+> @@ -499,6 +502,7 @@ static void rht_deferred_worker(struct work_struct *work)
+>  	else if (ht->p.shrink_decision && ht->p.shrink_decision(ht, tbl->size))
+>  		rhashtable_shrink(ht);
+>  
+> +unlock:
+>  	mutex_unlock(&ht->mutex);
+>  }
+>  
+> 
