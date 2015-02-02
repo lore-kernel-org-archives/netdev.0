@@ -1,102 +1,82 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH net 0/2] netns: audit netdevice creation with IFLA_NET_NS_[PID|FD]
-Date: Mon, 02 Feb 2015 16:58:32 +0100
-Message-ID: <54CF9EA8.4080207@6wind.com>
-References: <1422307694-10079-1-git-send-email-nicolas.dichtel@6wind.com> <54CBE2EF.7050003@alten.se>
-Reply-To: nicolas.dichtel@6wind.com
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCH net-next 0/3] openvswitch: Add STT support.
+Date: Mon, 2 Feb 2015 08:15:34 -0800
+Message-ID: <CA+mtBx--x_BjWrvGrZBXKJDXkKKBsre7j7wqipSwXUvqcw6Cbw@mail.gmail.com>
+References: <1421785536-19793-1-git-send-email-pshelar@nicira.com>
+	<CA+mtBx_z3trTkK2qnVboXv7sJNjMHLr9V+4A=aFqyMo_0p1_Eg@mail.gmail.com>
+	<CAEP_g=-sVSwewV=7qAYQNtBRVSrUOAjNCpfwniNq_WPg2FVpFA@mail.gmail.com>
+	<CA+mtBx87bZBnY_9cgQ7k=xsD0VGZUt0rc9DjhSqhpeH3LZiuFw@mail.gmail.com>
+	<CAEP_g=-Yn849TmrN5xFLJVxuux0fBuYGFSM7K-psg=pdxgPR9w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, dmitry.tarnyagin@lockless.no,
-	alex.aring@gmail.com, linux-wpan@vger.kernel.org
-To: Arvid Brodin <arvid.brodin@alten.se>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Pravin B Shelar <pshelar@nicira.com>,
+	David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Jesse Gross <jesse@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f52.google.com ([74.125.82.52]:57574 "EHLO
-	mail-wg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932192AbbBBP6f (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2015 10:58:35 -0500
-Received: by mail-wg0-f52.google.com with SMTP id y19so39526475wgg.11
-        for <netdev@vger.kernel.org>; Mon, 02 Feb 2015 07:58:34 -0800 (PST)
-In-Reply-To: <54CBE2EF.7050003@alten.se>
+Received: from mail-ie0-f171.google.com ([209.85.223.171]:34777 "EHLO
+	mail-ie0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754654AbbBBQPf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2015 11:15:35 -0500
+Received: by mail-ie0-f171.google.com with SMTP id tr6so18529152ieb.2
+        for <netdev@vger.kernel.org>; Mon, 02 Feb 2015 08:15:34 -0800 (PST)
+In-Reply-To: <CAEP_g=-Yn849TmrN5xFLJVxuux0fBuYGFSM7K-psg=pdxgPR9w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 30/01/2015 21:00, Arvid Brodin a =C3=A9crit :
-> On 2015-01-26 22:28, Nicolas Dichtel wrote:
-> *snip*
->> - HSR subsystem uses src_net to parse IFLA_HSR_SLAVE[1|2], but the n=
-etdevice has
->>    the flag NETIF_F_NETNS_LOCAL, so the question is: does this netde=
-vice really
->>    supports x-netns? If not, the newlink handler should use the dest=
-_net instead
->>    of src_net, I can provide the patch.
-> *snip*
->
-> As the author of the HSR driver, I'd like to answer this question, bu=
-t unfortunately
-> I don't know what x-netns is. Neither Google nor Documentation/ has b=
-een particularly
-> helpful.
->
-> Care to elaborate? (Maybe this is a moot point now that the patch has=
- been accepted,
-> but I'd still like to understand, if you have the time to explain.)
-Basically, network namespaces (netns) allow you to run several independ=
-ant
-instances of the linux networking stack.
-Network interfaces are bound to one netns. By default, only one netns e=
-xists
-(named init_net) when you boot your kernel.
-=46or logical interfaces, they are usually bound to a link layer. For e=
-xample, if
-I understand well, hsr network interfaces receive and send their packet=
-s from
-two physical interfaces (IFLA_HSR_SLAVE[1|2]).
-Now imagine that these slaves are in a netns foo and the logical hsr in=
-terfaces
-in netns bar. You have a x-netns interface, the link layer part of the =
-interface
-is not in the same netns than the upper part. A user will see the hsr i=
-nterface
-in netns bar, but this interface will send a receive packet in netns fo=
-o.
-Usually, to configure an interface like this, you create it in netns fo=
-o and you
-move it later to netns bar (ip link set hsr1 netns bar). The flag
-NETIF_F_NETNS_LOCAL forbids this operation, you cannot move it to anoth=
-er netns.
-But you still can create a x-netns interface:
-ip netns add foo
-ip link add hsr1 netns foo type hsr slave1 eth0 slave2 eth1
-ip netns exec foo ip link ls hsr1
+Here is my data running STT and comparing against VXLAN, GUE, and
+native (no encapsulation). This is using bnx2x.
 
-=3D> eth0 and eth1 are took from the current netns (because in the code=
-, src_net
-is the current netns) but hsr1 is built in netns foo.
+TCP_STREAM IPv4 1 connection
+  STT
+    2.33% TX CPU utilization
+    3.63% RX CPU utilization
+    8790 Mbps
+  GRE/GUE (RCO, GSO, GRO)
+    5.55% TX CPU utilization
+    6.67% RX CPU utilization
+    9106 Mbps
+  VXLAN (RCO, GSO, GRO)
+    5.07% TX CPU utilization
+    5.95% RX CPU utilization
+    9061 Mbps
+  Native (no ecapsulation)
+    2.48% TX CPU utilization
+    3.96% RX CPU utilization
+    9411 Mbps
 
-Now, the question is: does HSR really work across netns? Why is the fla=
-g
-NETIF_F_NETNS_LOCAL set?
-dev_forward_skb() may be used to forward an skbuff to another netns.
+TCP_STREAM IPv4 200 connections
+  STT
+    8.36% TX CPU utilization
+    9.29% RX CPU utilization
+    9389 Mbps
+  GUE/GRE (RCO, GSO, GRO)
+    9.98% TX CPU utilization
+    13.69% RX CPU utilization
+    9132 Mbps
+  VXLAN (RCO, GSO, GRO)
+    11.79% TX CPU utilization
+    13.88% RX CPU utilization
+    9093 Mbps
+  Native (no ecapsulation)
+    6.05% TX CPU utilization
+    7.27% RX CPU utilization
+    9378 Mbps
 
-Note, that I got a panic when playing with hsr:
-ip link add hsr1 type hsr slave1 eth1 slave2 eth0
-ip link del hsr1
-=3D> panic
-
-I dig a bit:
-1/ hsr_netdev_notify() supposes that the port will always be available =
-when the
-notification is for an hsr interface. It's wrong. For example,
-netdev_wait_allrefs() may resend NETDEV_UNREGISTER.
-2/ with a patch that ignores the notification when the port is NULL, I =
-got a
-refcnt problem:
-[  327.372099] unregister_netdevice: waiting for hsr1 to become free. U=
-sage=20
-count =3D -1
-
-Regards,
-Nicolas
+TCP_RR IPv4 200 connections
+  STT
+    41.91% CPU utilization
+    345/406/594 90/95/99% latencies
+    562560 tps
+  GUE/GRE (RCO, GSO, GRO)
+    93.03% CPU utilization
+    160/255/467 90/95/99% latencies
+    1.1401e+06 tps
+  VXLAN (RCO, GSO, GRO)
+    93.73% CPU utilization
+    157/249/448 90/95/99% latencies
+    1.15655e+06 tps
+  Native (no ecapsulation)
+    87.46% CPU utilization
+    120/178/292 90/95/99% latencies
+    1.51747e+06 tps
