@@ -1,40 +1,49 @@
-From: John Eckersberg <jeckersb@redhat.com>
-Subject: Per-connection tcp_retries2 and RFC 1122 compliance
-Date: Mon, 02 Feb 2015 16:05:21 -0500
-Message-ID: <87a90w10tq.fsf@redhat.com>
+From: Chen Gang S <gang.chen-/B7AUNIrSHOPt1CcHtbs0g@public.gmane.org>
+Subject: [PATCH v2] net: bluetooth: hci_sock: Use 'const void *' instead of
+ 'void *' for 2nd parameter of hci_test_bit()
+Date: Tue, 03 Feb 2015 05:14:38 +0800
+Message-ID: <54CFE8BE.5030700@sunrus.com.cn>
 Mime-Version: 1.0
-Content-Type: text/plain
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:37362 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933412AbbBBVFZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Feb 2015 16:05:25 -0500
-Received: from int-mx11.intmail.prod.int.phx2.redhat.com (int-mx11.intmail.prod.int.phx2.redhat.com [10.5.11.24])
-	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id t12L5Pl8032494
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-GCM-SHA384 bits=256 verify=FAIL)
-	for <netdev@vger.kernel.org>; Mon, 2 Feb 2015 16:05:25 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org, gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org, johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Greetings,
+hci_test_bit() does not modify 2nd parameter, so it is better to let it
+be constant, or may cause build warning. The related warning (with
+allmodconfig under xtensa):
 
-RFC 1122, section 4.2.3.5 "TCP Connection Failures", states:
+  net/bluetooth/hci_sock.c: In function 'hci_sock_sendmsg':
+  net/bluetooth/hci_sock.c:955:8: warning: passing argument 2 of 'hci_test_bit' discards 'const' qualifier from pointer target type [-Wdiscarded-array-qualifiers]
+          &hci_sec_filter.ocf_mask[ogf])) &&
+          ^
+  net/bluetooth/hci_sock.c:49:19: note: expected 'void *' but argument is of type 'const __u32 (*)[4] {aka const unsigned int (*)[4]}'
+   static inline int hci_test_bit(int nr, void *addr)
+                     ^
 
-  (d)  An application MUST be able to set the value for R2 for
-       a particular connection.  For example, an interactive
-       application might set R2 to "infinity," giving the user
-       control over when to disconnect.
+Signed-off-by: Chen Gang <gang.chen.5i5j-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+---
+ net/bluetooth/hci_sock.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-The R2 value referenced above is implemented as the tcp_retries2 sysctl.
-However it seems that the only way to tune that value is via the global
-sysctl knob.  In other words, there is no provided way to set it only
-for a particular connection as RFC 1122 requires.
-
-Could someone confirm that this is a legitimate bug/deficiency?  Or am I
-just missing something?  If this is a real bug, I would be willing to
-put a patch together to fix it although I will probably require some
-handholding (this would be my first contribution to the kernel).
-
-Thanks,
-John
+diff --git a/net/bluetooth/hci_sock.c b/net/bluetooth/hci_sock.c
+index 80c5a79..858b53a 100644
+--- a/net/bluetooth/hci_sock.c
++++ b/net/bluetooth/hci_sock.c
+@@ -46,7 +46,7 @@ struct hci_pinfo {
+ 	unsigned short    channel;
+ };
+ 
+-static inline int hci_test_bit(int nr, void *addr)
++static inline int hci_test_bit(int nr, const void *addr)
+ {
+ 	return *((__u32 *) addr + (nr >> 5)) & ((__u32) 1 << (nr & 31));
+ }
+-- 
+1.9.3
