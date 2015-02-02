@@ -1,87 +1,62 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: RE: [PATCH net] hyperv: Fix the error processing in netvsc_send()
-Date: Mon, 02 Feb 2015 06:57:22 +0008
-Message-ID: <1422859762.7028.2@smtp.corp.redhat.com>
-References: <1422563689-31036-1-git-send-email-haiyangz@microsoft.com>
- <1422613519.8840.0@smtp.corp.redhat.com>
- <BN1PR0301MB0770FCDA58F3BC9E25382D95CA310@BN1PR0301MB0770.namprd03.prod.outlook.com>
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Subject: Re: [RFC][PATCHSET] more iov_iter conversion in net/*
+Date: Mon, 2 Feb 2015 06:53:39 +0000
+Message-ID: <20150202065339.GU29656@ZenIV.linux.org.uk>
+References: <20150131035513.GK29656@ZenIV.linux.org.uk>
+ <20150201.222646.1280320067605385223.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
-Content-Transfer-Encoding: 7bit
-Cc: "olaf@aepfle.de" <olaf@aepfle.de>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- "driverdev-devel@linuxdriverproject.org"
- <driverdev-devel@linuxdriverproject.org>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- "davem@davemloft.net" <davem@davemloft.net>
-To: Haiyang Zhang <haiyangz@microsoft.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <BN1PR0301MB0770FCDA58F3BC9E25382D95CA310@BN1PR0301MB0770.namprd03.prod.out
- look.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from zeniv.linux.org.uk ([195.92.253.2]:32827 "EHLO
+	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751257AbbBBGxl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2015 01:53:41 -0500
+Content-Disposition: inline
+In-Reply-To: <20150201.222646.1280320067605385223.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Sun, Feb 01, 2015 at 10:26:46PM -0800, David Miller wrote:
+> From: Al Viro <viro@ZenIV.linux.org.uk>
+> Date: Sat, 31 Jan 2015 03:55:13 +0000
+> 
+> > 	->sendmsg() side of that business, now.  By the end of it, we
+> > get all ->sendmsg() instances leaving iovec unchanged and ->msg_iter -
+> > drained.
+>  ...
+> > 	The pile after that one will be dealing with the kernel_sendmsg and
+> > kernel_recvmg callers - at that point we can start reaping benefits of
+> > consistent way ->msg_iter is handled.  Note that after these changes if
+> > iov_iter_kvec() is used to initialize ->msg_iter, we don't need the games
+> > with get_fs()/set_fs() anymore; just sock_sendmsg()/sock_recvmsg() will do,
+> > so quite a few of those kernel_{send,recv}msg() callers will turn into
+> > sock_{send,recv}msg() ones.
+> 
+> The content of this series looks fine, but I really would like you
+> to put proper "subsystem: " prefixes into the commit log header
+> lines of these commits.
+> 
+> Patch 2 and 3 should use "ipv6: ", patch #4 should use whatever the
+> name of that device driver "vmw_vmci: " or similar, etc.
 
+Point...  Are you OK with tcp_send_syn_data() change in 8/18?  Basically,
+tcp_sendmsg() treats short copy from userland as "send as much as we can,
+stop at the first point where copy_from_user() fails", same as write(),
+etc.; that much is unchanged, but the current mainline has a strange behaviour
+in case when short copy happens within what would be packed into SYN packet -
+if that happens, it still sends as much as possible, but it falls back to
+separate SYN.  With this patch it simply sends shorter SYN+data packet instead.
+The reason I went that way is that I wanted to avoid copying the same data
+from userland twice and it was easy to do; I can preserve the current mainline
+behaviour, but it'll cost making a backup copy of ->msg_iter in
+tcp_send_syn_data(), only to never use it in normal case *and* do piles
+of extra work (extra packet to send, repeated copying from userland) in case
+of short copy.  Is there any reason not to combine SYN+data in case of short
+copy?  Again, we do send exact same data, return the same value, etc. - you
+need tcpdump to see the difference.
 
-On Fri, Jan 30, 2015 at 11:05 PM, Haiyang Zhang 
-<haiyangz@microsoft.com> wrote:
-> 
-> 
->>  -----Original Message-----
->>  From: Jason Wang [mailto:jasowang@redhat.com]
->>  Sent: Friday, January 30, 2015 5:25 AM
->>  > +	if (ret != 0) {
->>  > +		if (section_index != NETVSC_INVALID_INDEX)
->>  > +			netvsc_free_send_slot(net_device, section_index);
->>  
->>  What if ret is -EINVAL or -ENOSPC? Looks like we need free the skb 
->> in
->>  this case also.
-> 
-> In these cases, skb is freed in netvsc_start_xmit().
-> 
-> 
->>  >
->>  > +	} else if (skb) {
->>  > +		dev_kfree_skb_any(skb);
->>  
->>  The caller - netvsc_start_xmit() do this also, may be handle this in
->>  caller is better since netvsc_start_xmit() is the only user that 
->> tries
->>  to send a skb?
-> 
-> When the packet is sent out normally, we frees it in netvsc_send() if 
-> it's
-> copied to send-buffer. The free is done in netvsc_send(), because the 
-> copy
-> is also in this function. If it's not copied, it will be freed in 
-> another
-> function -- netvsc_xmit_completion().
-> 
-> netvsc_start_xmit() only does free skb in error case.
-
-Ok.
-> 
-> 
->>  btw, I find during netvsc_start_xmit(), ret was change to -ENOSPC 
->> when
->>  queue_sends[q_idx] < 1. But non of the caller check -ENOSPC in fact?
-> 
-> In this case, we don't request re-send, so set ret to a value other 
-> than
-> -EAGAIN. 
-
-Why not? We have available slots for it to be sent now. Dropping the 
-packet in this case may cause out of order sending.
-> It's handled in the same way as errors != -EAGAIN, so we don't
-> need to check this value specifically.
-
-Thanks
+Al, off to figure out the proper Cc: for all those commits, so that
+git-send-email would DTRT - if I need to edit commit messages, might
+as well do that at the same time...
