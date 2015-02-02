@@ -1,115 +1,109 @@
 From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: [PATCH v2 18/18] vhost: vhost_scsi_handle_vq() should just use copy_from_user()
-Date: Mon,  2 Feb 2015 07:59:37 +0000
-Message-ID: <1422863977-17668-18-git-send-email-viro@ZenIV.linux.org.uk>
+Subject: [PATCH v2 15/18] vhost: switch vhost get_indirect() to iov_iter, kill memcpy_fromiovec()
+Date: Mon,  2 Feb 2015 07:59:34 +0000
+Message-ID: <1422863977-17668-15-git-send-email-viro@ZenIV.linux.org.uk>
 References: <20150131035513.GK29656@ZenIV.linux.org.uk>
 Cc: netdev@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>,
-	"Nicholas A. Bellinger" <nab@linux-iscsi.org>, kvm@vger.kernel.org
+	kvm@vger.kernel.org
 To: David Miller <davem@davemloft.net>
-Return-path: <kvm-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from zeniv.linux.org.uk ([195.92.253.2]:32986 "EHLO
+	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932857AbbBBH7k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2015 02:59:40 -0500
 In-Reply-To: <20150131035513.GK29656@ZenIV.linux.org.uk>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Al Viro <viro@zeniv.linux.org.uk>
 
-it has just verified that it asks no more than the length of the
-first segment of iovec.
-
-And with that the last user of stuff in lib/iovec.c is gone.
-RIP.
-
 Cc: Michael S. Tsirkin <mst@redhat.com>
-Cc: Nicholas A. Bellinger <nab@linux-iscsi.org>
 Cc: kvm@vger.kernel.org
 Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
 ---
- drivers/vhost/scsi.c |  2 +-
- include/linux/uio.h  |  2 --
- lib/Makefile         |  2 +-
- lib/iovec.c          | 36 ------------------------------------
- 4 files changed, 2 insertions(+), 40 deletions(-)
- delete mode 100644 lib/iovec.c
+ drivers/vhost/vhost.c |  6 ++++--
+ include/linux/uio.h   |  1 -
+ lib/iovec.c           | 25 -------------------------
+ 3 files changed, 4 insertions(+), 28 deletions(-)
 
-diff --git a/drivers/vhost/scsi.c b/drivers/vhost/scsi.c
-index d695b16..dc78d87 100644
---- a/drivers/vhost/scsi.c
-+++ b/drivers/vhost/scsi.c
-@@ -1079,7 +1079,7 @@ vhost_scsi_handle_vq(struct vhost_scsi *vs, struct vhost_virtqueue *vq)
- 			       req_size, vq->iov[0].iov_len);
- 			break;
+diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+index cb807d0..2ee2826 100644
+--- a/drivers/vhost/vhost.c
++++ b/drivers/vhost/vhost.c
+@@ -1125,6 +1125,7 @@ static int get_indirect(struct vhost_virtqueue *vq,
+ 	struct vring_desc desc;
+ 	unsigned int i = 0, count, found = 0;
+ 	u32 len = vhost32_to_cpu(vq, indirect->len);
++	struct iov_iter from;
+ 	int ret;
+ 
+ 	/* Sanity check */
+@@ -1142,6 +1143,7 @@ static int get_indirect(struct vhost_virtqueue *vq,
+ 		vq_err(vq, "Translation failure %d in indirect.\n", ret);
+ 		return ret;
+ 	}
++	iov_iter_init(&from, READ, vq->indirect, ret, len);
+ 
+ 	/* We will use the result as an address to read from, so most
+ 	 * architectures only need a compiler barrier here. */
+@@ -1164,8 +1166,8 @@ static int get_indirect(struct vhost_virtqueue *vq,
+ 			       i, count);
+ 			return -EINVAL;
  		}
--		ret = memcpy_fromiovecend(req, &vq->iov[0], 0, req_size);
-+		ret = copy_from_user(req, vq->iov[0].iov_base, req_size);
- 		if (unlikely(ret)) {
- 			vq_err(vq, "Faulted on virtio_scsi_cmd_req\n");
- 			break;
+-		if (unlikely(memcpy_fromiovec((unsigned char *)&desc,
+-					      vq->indirect, sizeof desc))) {
++		if (unlikely(copy_from_iter(&desc, sizeof(desc), &from) !=
++			     sizeof(desc))) {
+ 			vq_err(vq, "Failed indirect descriptor: idx %d, %zx\n",
+ 			       i, (size_t)vhost64_to_cpu(vq, indirect->addr) + i * sizeof desc);
+ 			return -EINVAL;
 diff --git a/include/linux/uio.h b/include/linux/uio.h
-index 02bd8a9..3e0cb4e 100644
+index 1c5e453..af3439f 100644
 --- a/include/linux/uio.h
 +++ b/include/linux/uio.h
-@@ -135,6 +135,4 @@ static inline void iov_iter_reexpand(struct iov_iter *i, size_t count)
+@@ -135,7 +135,6 @@ static inline void iov_iter_reexpand(struct iov_iter *i, size_t count)
  size_t csum_and_copy_to_iter(void *addr, size_t bytes, __wsum *csum, struct iov_iter *i);
  size_t csum_and_copy_from_iter(void *addr, size_t bytes, __wsum *csum, struct iov_iter *i);
  
--int memcpy_fromiovecend(unsigned char *kdata, const struct iovec *iov,
--			int offset, int len);
- #endif
-diff --git a/lib/Makefile b/lib/Makefile
-index 3c3b30b..1071d06 100644
---- a/lib/Makefile
-+++ b/lib/Makefile
-@@ -24,7 +24,7 @@ obj-y	+= lockref.o
- 
- obj-y += bcd.o div64.o sort.o parser.o halfmd4.o debug_locks.o random32.o \
- 	 bust_spinlocks.o hexdump.o kasprintf.o bitmap.o scatterlist.o \
--	 gcd.o lcm.o list_sort.o uuid.o flex_array.o iovec.o clz_ctz.o \
-+	 gcd.o lcm.o list_sort.o uuid.o flex_array.o clz_ctz.o \
- 	 bsearch.o find_last_bit.o find_next_bit.o llist.o memweight.o kfifo.o \
- 	 percpu-refcount.o percpu_ida.o rhashtable.o reciprocal_div.o
- obj-y += string_helpers.o
+-int memcpy_fromiovec(unsigned char *kdata, struct iovec *iov, int len);
+ int memcpy_fromiovecend(unsigned char *kdata, const struct iovec *iov,
+ 			int offset, int len);
+ int memcpy_toiovecend(const struct iovec *v, unsigned char *kdata,
 diff --git a/lib/iovec.c b/lib/iovec.c
-deleted file mode 100644
-index d8f17a9..0000000
+index 2d99cb4..4a90875 100644
 --- a/lib/iovec.c
-+++ /dev/null
-@@ -1,36 +0,0 @@
--#include <linux/uaccess.h>
--#include <linux/export.h>
--#include <linux/uio.h>
--
--/*
++++ b/lib/iovec.c
+@@ -3,31 +3,6 @@
+ #include <linux/uio.h>
+ 
+ /*
 - *	Copy iovec to kernel. Returns -EFAULT on error.
+- *
+- *	Note: this modifies the original iovec.
 - */
 -
--int memcpy_fromiovecend(unsigned char *kdata, const struct iovec *iov,
--			int offset, int len)
+-int memcpy_fromiovec(unsigned char *kdata, struct iovec *iov, int len)
 -{
--	/* No data? Done! */
--	if (len == 0)
--		return 0;
--
--	/* Skip over the finished iovecs */
--	while (offset >= iov->iov_len) {
--		offset -= iov->iov_len;
--		iov++;
--	}
--
 -	while (len > 0) {
--		u8 __user *base = iov->iov_base + offset;
--		int copy = min_t(unsigned int, len, iov->iov_len - offset);
--
--		offset = 0;
--		if (copy_from_user(kdata, base, copy))
--			return -EFAULT;
--		len -= copy;
--		kdata += copy;
+-		if (iov->iov_len) {
+-			int copy = min_t(unsigned int, len, iov->iov_len);
+-			if (copy_from_user(kdata, iov->iov_base, copy))
+-				return -EFAULT;
+-			len -= copy;
+-			kdata += copy;
+-			iov->iov_base += copy;
+-			iov->iov_len -= copy;
+-		}
 -		iov++;
 -	}
 -
 -	return 0;
 -}
--EXPORT_SYMBOL(memcpy_fromiovecend);
+-EXPORT_SYMBOL(memcpy_fromiovec);
+-
+-/*
+  *	Copy kernel to iovec. Returns -EFAULT on error.
+  */
+ 
 -- 
 2.1.4
-
