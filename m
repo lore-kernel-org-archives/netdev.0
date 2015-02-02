@@ -1,57 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv3, ipsec-next] xfrm: Do not parse 32bits compiled xfrm
- netlink msg on 64bits host
-Date: Mon, 02 Feb 2015 11:45:25 -0800 (PST)
-Message-ID: <20150202.114525.802784021121531832.davem@davemloft.net>
-References: <54CA0B9F.8080104@6wind.com>
-	<20150202084443.GS13046@secunet.com>
-	<54CF3D3A.5040607@6wind.com>
+From: Chen Gang S <gang.chen-/B7AUNIrSHOPt1CcHtbs0g@public.gmane.org>
+Subject: [PATCH] bluetooth: hci_sock: Use type cast "(void *)" to avoid building
+ warnings
+Date: Tue, 03 Feb 2015 04:37:49 +0800
+Message-ID: <54CFE01D.5090309@sunrus.com.cn>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: steffen.klassert@secunet.com, fan.du@intel.com,
-	herbert@gondor.apana.org.au, netdev@vger.kernel.org,
-	fengyuleidian0615@gmail.com
-To: nicolas.dichtel@6wind.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47800 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932946AbbBBTp2 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2015 14:45:28 -0500
-In-Reply-To: <54CF3D3A.5040607@6wind.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org, gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org, johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Date: Mon, 02 Feb 2015 10:02:50 +0100
+The related warning (with allmodconfig under xtensa):
 
-> Le 02/02/2015 09:44, Steffen Klassert a =E9crit :
->> On Thu, Jan 29, 2015 at 11:29:51AM +0100, Nicolas Dichtel wrote:
-> [snip]
->>>
->>> The point I try to make is that patching userland apps allows to us=
-e
->>> xfrm on a
->>> 32bits userland / 64bits kernel.
->>
->> Ugh, I did not know that this is used that way. Which applications d=
-o
->> this?
->> So the situation is worse than I thought. What happens to such
->> applications
->> if we add a compat layer in the kernel? I'd guess they will break,
->> right?
->
-> A compat layer will be perfect. I just wanted to highlight the fact
-> that without this patch, it's possible to have a workaround to use
-> netlink-xfrm and after it, it will be impossible.
+  net/bluetooth/hci_sock.c: In function 'hci_sock_sendmsg':
+  net/bluetooth/hci_sock.c:955:8: warning: passing argument 2 of 'hci_test_bit' discards 'const' qualifier from pointer target type [-Wdiscarded-array-qualifiers]
+          &hci_sec_filter.ocf_mask[ogf])) &&
+          ^
+  net/bluetooth/hci_sock.c:49:19: note: expected 'void *' but argument is of type 'const __u32 (*)[4] {aka const unsigned int (*)[4]}'
+   static inline int hci_test_bit(int nr, void *addr)
+                     ^
 
-Just a little history, there was a case where we tried to work around t=
-his
-in userspace by messing with the structure definitions when building
-the userland binaries, and that completely exploded.  This was with
-the wireless extensions about 15 years ago.
+Signed-off-by: Chen Gang <gang.chen.5i5j-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+---
+ net/bluetooth/hci_sock.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-If you work around it in userspace, then you can't fix the kernel to
-do the right thing without potentially breaking things again for
-the work around binaries that have been created.
+diff --git a/net/bluetooth/hci_sock.c b/net/bluetooth/hci_sock.c
+index 1d65c5b..80c5a79 100644
+--- a/net/bluetooth/hci_sock.c
++++ b/net/bluetooth/hci_sock.c
+@@ -952,7 +952,7 @@ static int hci_sock_sendmsg(struct kiocb *iocb, struct socket *sock,
+ 
+ 		if (((ogf > HCI_SFLT_MAX_OGF) ||
+ 		     !hci_test_bit(ocf & HCI_FLT_OCF_BITS,
+-				   &hci_sec_filter.ocf_mask[ogf])) &&
++				   (void *)&hci_sec_filter.ocf_mask[ogf])) &&
+ 		    !capable(CAP_NET_RAW)) {
+ 			err = -EPERM;
+ 			goto drop;
+-- 
+1.9.3
