@@ -1,39 +1,47 @@
-From: Erik Kline <ek@google.com>
-Subject: Re: [PATCH net v2] net: ipv6: allow explicitly choosing optimistic addresses
-Date: Mon, 2 Feb 2015 15:21:42 +0900
-Message-ID: <CAAedzxqsVBsDb6_xLDX_Ek-Rz_R2ZzUWMRyTPgm7M1mPkM1B6g@mail.gmail.com>
-References: <1422446619-9502-1-git-send-email-ek@google.com> <20150130.173151.820376779924109928.davem@davemloft.net>
+From: kbuild test robot <fengguang.wu@intel.com>
+Subject: [target:for-next 16/21] drivers/vhost/scsi.c:1081:5: sparse: symbol
+	'vhost_skip_iovec_bytes' was not declared. Should it be static?
+Date: Mon, 2 Feb 2015 14:25:21 +0800
+Message-ID: <201502021411.KBLYtCzS%fengguang.wu@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f173.google.com ([209.85.216.173]:47882 "EHLO
-	mail-qc0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932073AbbBBGWE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2015 01:22:04 -0500
-Received: by mail-qc0-f173.google.com with SMTP id m20so28617640qcx.4
-        for <netdev@vger.kernel.org>; Sun, 01 Feb 2015 22:22:03 -0800 (PST)
-In-Reply-To: <20150130.173151.820376779924109928.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: kvm@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, kbuild-all@01.org
+To: Nicholas Bellinger <nab@linux-iscsi.org>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Jan 31, 2015 at 10:31 AM, David Miller <davem@davemloft.net> wrote:
->
-> Erik, you have to address and respond to the feedback you received
-> from Lorenzo Colitti.
->
-> If you do not respond and handle that soon, I'm simply taking
-> your patch out of my queue and you'll have to resubmit even
-> if no changes are necessary.
->
-> Thanks.
+tree:   git://git.kernel.org/pub/scm/linux/kernel/git/nab/target-pending.git for-next
+head:   2936f1d4f3e8247bd519feba7892371d5e4c6603
+commit: 105acf608f25d5e0d9fef669299a5438b7b114ee [16/21] vhost/scsi: Add ANY_LAYOUT vhost_skip_iovec_bytes helper
+reproduce:
+  # apt-get install sparse
+  git checkout 105acf608f25d5e0d9fef669299a5438b7b114ee
+  make ARCH=x86_64 allmodconfig
+  make C=1 CF=-D__CHECK_ENDIAN__
 
-Ack.
 
-I didn't get to it on Friday, nor was I able to get to the office on
-the weekend, but I have coming in minutes.
+sparse warnings: (new ones prefixed by >>)
 
-Apologies,
--Erik
+>> drivers/vhost/scsi.c:1081:5: sparse: symbol 'vhost_skip_iovec_bytes' was not declared. Should it be static?
+   drivers/vhost/scsi.c:969:1: warning: 'vhost_scsi_mapal' defined but not used [-Wunused-function]
+    vhost_scsi_mapal(struct tcm_vhost_cmd *cmd, int max_niov,
+    ^
+
+Please review and possibly fold the followup patch.
+
+---
+0-DAY kernel test infrastructure                Open Source Technology Center
+http://lists.01.org/mailman/listinfo/kbuild                 Intel Corporation
