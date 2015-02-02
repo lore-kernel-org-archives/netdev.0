@@ -1,81 +1,203 @@
-From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-Subject: Re: [PATCH v2 3/3] lib/string_helpers.c: Change semantics of
- string_escape_mem
-Date: Mon, 02 Feb 2015 12:56:37 +0200
-Message-ID: <1422874597.31903.358.camel@linux.intel.com>
-References: <1422451543-12401-1-git-send-email-linux@rasmusvillemoes.dk>
-	 <1422525801-26560-1-git-send-email-linux@rasmusvillemoes.dk>
-	 <1422525801-26560-4-git-send-email-linux@rasmusvillemoes.dk>
-	 <1422538178.31903.325.camel@linux.intel.com>
-	 <87oaphbqym.fsf@rasmusvillemoes.dk>
-	 <1422613655.31903.351.camel@linux.intel.com>
-	 <87pp9vhm8l.fsf@rasmusvillemoes.dk>
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Subject: [PATCH v3 3/3] netlabel: Less function calls in netlbl_mgmt_add_common()
+ after error detection
+Date: Mon, 02 Feb 2015 12:06:39 +0100
+Message-ID: <54CF5A3F.6080600@users.sourceforge.net>
+References: <54CD4B5F.9010502@users.sourceforge.net>	<CAHC9VhQ5C32zRqG0emVUoMmuvBsV+TXvdNn+54iVyCPBNk9dDQ@mail.gmail.com>	<54CDFCDA.9010802@users.sourceforge.net> <20150201.123054.366525761630045391.davem@davemloft.net> <54CF4FEC.2010906@users.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Trond Myklebust <trond.myklebust@primarydata.com>,
-	"J. Bruce Fields" <bfields@fieldses.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, linux-nfs@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Rasmus Villemoes <linux@rasmusvillemoes.dk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87pp9vhm8l.fsf@rasmusvillemoes.dk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org,
+	Julia Lawall <julia.lawall@lip6.fr>
+To: "David S. Miller" <davem@davemloft.net>,
+	Paul Moore <paul@paul-moore.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.web.de ([212.227.15.4]:54327 "EHLO mout.web.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933041AbbBBLGs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Feb 2015 06:06:48 -0500
+In-Reply-To: <54CF4FEC.2010906@users.sourceforge.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2015-01-31 at 00:39 +0100, Rasmus Villemoes wrote:
-> On Fri, Jan 30 2015, Andy Shevchenko <andriy.shevchenko@linux.intel.com> wrote:
-> >> >>   * Return:
-> >> >> - * The amount of the characters processed to the destination buffer, or
-> >> >> - * %-ENOMEM if the size of buffer is not enough to put an escaped character is
-> >> >> - * returned.
-> >> >> - *
-> >> >> - * Even in the case of error @dst pointer will be updated to point to the byte
-> >> >> - * after the last processed character.
-> >> >> + * The total size of the escaped output that would be generated for
-> >> >> + * the given input and flags. To check whether the output was
-> >> >> + * truncated, compare the return value to osz. There is room left in
-> >> >> + * dst for a '\0' terminator if and only if ret < osz.
-> >> >>   */
-> >> >> -int string_escape_mem(const char *src, size_t isz, char **dst, size_t osz,
-> >> >> -		      unsigned int flags, const char *esc)
-> >> >> +size_t string_escape_mem(const char *src, size_t isz, char *dst, size_t osz,
-> >> >> +			 unsigned int flags, const char *esc)
-> >> >
-> >> > I prefer to leave the prototype the same. int for return is okay. dst
-> >> > should be updated accordingly.
-> >> 
-> >> Please explain exactly what you think the return value should be, and
-> >> what *dst should be set to.
-> >
-> > Return value like you proposed, *dst is incremented by it.
-> 
-> The more I think about it, the less I like having dst being char**.
-> 
-> (1) It is unlike most other functions taking buffer+size arguments.
-> (2) It is inconvenient. Callers doing
-> 
->   char escaped[SOME_SIZE];
-> 
-> or
-> 
->   char *escaped = kmalloc(likely_big_enough);
-> 
-> can't just pass &escaped; they would need to use an extra dummy variable.
-> 
-> (3) With the return value telling the size of the would-be generated
-> output, it is redundant.
-> 
-> In fact, I dislike it so much that I'm not going to sign off on a patch
-> where dst is still char**.
+From: Markus Elfring <elfring@users.sourceforge.net>
+Date: Mon, 2 Feb 2015 11:00:24 +0100
 
-Fair enough, though there usual case when temporary variable is already
-present (at least current users).
+The functions "cipso_v4_doi_putdef" and "kfree" could be called in some cases
+by the netlbl_mgmt_add_common() function during error handling even if the
+passed variables contained still a null pointer.
 
-Let's proceed with char *dst.
+* This implementation detail could be improved by adjustments for jump labels.
 
+* Let us return immediately after the first failed function call according to
+  the current Linux coding style convention.
+
+* Let us delete also an unnecessary check for the variable "entry" there.
+
+Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+Acked-by: Paul Moore <paul@paul-moore.com>
+---
+ net/netlabel/netlabel_mgmt.c | 49 ++++++++++++++++++++++----------------------
+ 1 file changed, 24 insertions(+), 25 deletions(-)
+
+diff --git a/net/netlabel/netlabel_mgmt.c b/net/netlabel/netlabel_mgmt.c
+index f5807f5..7044074 100644
+--- a/net/netlabel/netlabel_mgmt.c
++++ b/net/netlabel/netlabel_mgmt.c
+@@ -93,23 +93,20 @@ static int netlbl_mgmt_add_common(struct genl_info *info,
+ 				  struct netlbl_audit *audit_info)
+ {
+ 	int ret_val = -EINVAL;
+-	struct netlbl_dom_map *entry = NULL;
+ 	struct netlbl_domaddr_map *addrmap = NULL;
+ 	struct cipso_v4_doi *cipsov4 = NULL;
+ 	u32 tmp_val;
++	struct netlbl_dom_map *entry = kzalloc(sizeof(*entry), GFP_KERNEL);
+ 
+-	entry = kzalloc(sizeof(*entry), GFP_KERNEL);
+-	if (entry == NULL) {
+-		ret_val = -ENOMEM;
+-		goto add_failure;
+-	}
++	if (!entry)
++		return -ENOMEM;
+ 	entry->def.type = nla_get_u32(info->attrs[NLBL_MGMT_A_PROTOCOL]);
+ 	if (info->attrs[NLBL_MGMT_A_DOMAIN]) {
+ 		size_t tmp_size = nla_len(info->attrs[NLBL_MGMT_A_DOMAIN]);
+ 		entry->domain = kmalloc(tmp_size, GFP_KERNEL);
+ 		if (entry->domain == NULL) {
+ 			ret_val = -ENOMEM;
+-			goto add_failure;
++			goto add_free_entry;
+ 		}
+ 		nla_strlcpy(entry->domain,
+ 			    info->attrs[NLBL_MGMT_A_DOMAIN], tmp_size);
+@@ -125,16 +122,16 @@ static int netlbl_mgmt_add_common(struct genl_info *info,
+ 		break;
+ 	case NETLBL_NLTYPE_CIPSOV4:
+ 		if (!info->attrs[NLBL_MGMT_A_CV4DOI])
+-			goto add_failure;
++			goto add_free_domain;
+ 
+ 		tmp_val = nla_get_u32(info->attrs[NLBL_MGMT_A_CV4DOI]);
+ 		cipsov4 = cipso_v4_doi_getdef(tmp_val);
+ 		if (cipsov4 == NULL)
+-			goto add_failure;
++			goto add_free_domain;
+ 		entry->def.cipso = cipsov4;
+ 		break;
+ 	default:
+-		goto add_failure;
++		goto add_free_domain;
+ 	}
+ 
+ 	if (info->attrs[NLBL_MGMT_A_IPV4ADDR]) {
+@@ -145,7 +142,7 @@ static int netlbl_mgmt_add_common(struct genl_info *info,
+ 		addrmap = kzalloc(sizeof(*addrmap), GFP_KERNEL);
+ 		if (addrmap == NULL) {
+ 			ret_val = -ENOMEM;
+-			goto add_failure;
++			goto add_doi_put_def;
+ 		}
+ 		INIT_LIST_HEAD(&addrmap->list4);
+ 		INIT_LIST_HEAD(&addrmap->list6);
+@@ -153,12 +150,12 @@ static int netlbl_mgmt_add_common(struct genl_info *info,
+ 		if (nla_len(info->attrs[NLBL_MGMT_A_IPV4ADDR]) !=
+ 		    sizeof(struct in_addr)) {
+ 			ret_val = -EINVAL;
+-			goto add_failure;
++			goto add_free_addrmap;
+ 		}
+ 		if (nla_len(info->attrs[NLBL_MGMT_A_IPV4MASK]) !=
+ 		    sizeof(struct in_addr)) {
+ 			ret_val = -EINVAL;
+-			goto add_failure;
++			goto add_free_addrmap;
+ 		}
+ 		addr = nla_data(info->attrs[NLBL_MGMT_A_IPV4ADDR]);
+ 		mask = nla_data(info->attrs[NLBL_MGMT_A_IPV4MASK]);
+@@ -166,7 +163,7 @@ static int netlbl_mgmt_add_common(struct genl_info *info,
+ 		map = kzalloc(sizeof(*map), GFP_KERNEL);
+ 		if (map == NULL) {
+ 			ret_val = -ENOMEM;
+-			goto add_failure;
++			goto add_free_addrmap;
+ 		}
+ 		map->list.addr = addr->s_addr & mask->s_addr;
+ 		map->list.mask = mask->s_addr;
+@@ -178,7 +175,7 @@ static int netlbl_mgmt_add_common(struct genl_info *info,
+ 		ret_val = netlbl_af4list_add(&map->list, &addrmap->list4);
+ 		if (ret_val != 0) {
+ 			kfree(map);
+-			goto add_failure;
++			goto add_free_addrmap;
+ 		}
+ 
+ 		entry->def.type = NETLBL_NLTYPE_ADDRSELECT;
+@@ -192,7 +189,7 @@ static int netlbl_mgmt_add_common(struct genl_info *info,
+ 		addrmap = kzalloc(sizeof(*addrmap), GFP_KERNEL);
+ 		if (addrmap == NULL) {
+ 			ret_val = -ENOMEM;
+-			goto add_failure;
++			goto add_doi_put_def;
+ 		}
+ 		INIT_LIST_HEAD(&addrmap->list4);
+ 		INIT_LIST_HEAD(&addrmap->list6);
+@@ -200,12 +197,12 @@ static int netlbl_mgmt_add_common(struct genl_info *info,
+ 		if (nla_len(info->attrs[NLBL_MGMT_A_IPV6ADDR]) !=
+ 		    sizeof(struct in6_addr)) {
+ 			ret_val = -EINVAL;
+-			goto add_failure;
++			goto add_free_addrmap;
+ 		}
+ 		if (nla_len(info->attrs[NLBL_MGMT_A_IPV6MASK]) !=
+ 		    sizeof(struct in6_addr)) {
+ 			ret_val = -EINVAL;
+-			goto add_failure;
++			goto add_free_addrmap;
+ 		}
+ 		addr = nla_data(info->attrs[NLBL_MGMT_A_IPV6ADDR]);
+ 		mask = nla_data(info->attrs[NLBL_MGMT_A_IPV6MASK]);
+@@ -213,7 +210,7 @@ static int netlbl_mgmt_add_common(struct genl_info *info,
+ 		map = kzalloc(sizeof(*map), GFP_KERNEL);
+ 		if (map == NULL) {
+ 			ret_val = -ENOMEM;
+-			goto add_failure;
++			goto add_free_addrmap;
+ 		}
+ 		map->list.addr = *addr;
+ 		map->list.addr.s6_addr32[0] &= mask->s6_addr32[0];
+@@ -227,7 +224,7 @@ static int netlbl_mgmt_add_common(struct genl_info *info,
+ 		ret_val = netlbl_af6list_add(&map->list, &addrmap->list6);
+ 		if (ret_val != 0) {
+ 			kfree(map);
+-			goto add_failure;
++			goto add_free_addrmap;
+ 		}
+ 
+ 		entry->def.type = NETLBL_NLTYPE_ADDRSELECT;
+@@ -237,15 +234,17 @@ static int netlbl_mgmt_add_common(struct genl_info *info,
+ 
+ 	ret_val = netlbl_domhsh_add(entry, audit_info);
+ 	if (ret_val != 0)
+-		goto add_failure;
++		goto add_free_addrmap;
+ 
+ 	return 0;
+ 
+-add_failure:
+-	cipso_v4_doi_putdef(cipsov4);
+-	if (entry)
+-		kfree(entry->domain);
++add_free_addrmap:
+ 	kfree(addrmap);
++add_doi_put_def:
++	cipso_v4_doi_putdef(cipsov4);
++add_free_domain:
++	kfree(entry->domain);
++add_free_entry:
+ 	kfree(entry);
+ 	return ret_val;
+ }
 -- 
-Andy Shevchenko <andriy.shevchenko@intel.com>
-Intel Finland Oy
+2.2.2
