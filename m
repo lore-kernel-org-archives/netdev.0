@@ -1,44 +1,55 @@
-From: Siva Mannem <siva.mannem.lnx@gmail.com>
-Subject: [PATCH net-next] bridge: Let bridge not age 'externally' learnt FDB entries, they are removed when 'external' entity notifies the aging
-Date: Mon,  2 Feb 2015 22:51:54 +0530
-Message-ID: <1422897714-5956-1-git-send-email-siva.mannem.lnx@gmail.com>
-Cc: Siva Mannem <siva.mannem.lnx@gmail.com>
-To: netdev@vger.kernel.org
+From: Brian Haley <brian.haley@hp.com>
+Subject: Re: [PATCH] net: ipv6: Make address flushing on ifdown optional -
+ v2
+Date: Mon, 02 Feb 2015 12:38:19 -0500
+Message-ID: <54CFB60B.3060800@hp.com>
+References: <1422504065-17445-1-git-send-email-dsahern@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 8bit
+Cc: Hannes Frederic Sowa <hannes@redhat.com>
+To: David Ahern <dsahern@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:44736 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751663AbbBBRWL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2015 12:22:11 -0500
-Received: by mail-pa0-f48.google.com with SMTP id ey11so84857437pad.7
-        for <netdev@vger.kernel.org>; Mon, 02 Feb 2015 09:22:11 -0800 (PST)
+Received: from g2t1383g.austin.hp.com ([15.217.136.92]:44437 "EHLO
+	g2t1383g.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753287AbbBBRiW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2015 12:38:22 -0500
+Received: from g2t2353.austin.hp.com (g2t2353.austin.hp.com [15.217.128.52])
+	(using TLSv1.2 with cipher DHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by g2t1383g.austin.hp.com (Postfix) with ESMTPS id 38B286ECE
+	for <netdev@vger.kernel.org>; Mon,  2 Feb 2015 17:38:22 +0000 (UTC)
+In-Reply-To: <1422504065-17445-1-git-send-email-dsahern@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- When 'learned_sync' flag is turned on, the offloaded switch
- port syncs learned MAC addresses to bridge's FDB via switchdev notifier
- (NETDEV_SWITCH_FDB_ADD). Currently, FDB entries learnt via this mechanism are
- wrongly being deleted by bridge aging logic. This patch ensures that FDB
- entries synced from offloaded switch ports are not deleted by bridging logic.
- Such entries can only be deleted via switchdev notifier
- (NETDEV_SWITCH_FDB_DEL).
+On 01/28/2015 11:01 PM, David Ahern wrote:
+> Currently, all ipv6 addresses are flushed when the interface is configured
+> down, even static address:
+> 
+...
+> diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
+> index 2805062c013f..b91b7c8be023 100644
+> --- a/include/linux/ipv6.h
+> +++ b/include/linux/ipv6.h
+> @@ -53,6 +53,7 @@ struct ipv6_devconf {
+>  	__s32           ndisc_notify;
+>  	__s32		suppress_frag_ndisc;
+>  	__s32		accept_ra_mtu;
+> +	__s32		flush_addr_on_down;
+>  	void		*sysctl;
+>  };
+...
+> diff --git a/include/uapi/linux/ipv6.h b/include/uapi/linux/ipv6.h
+> index 437a6a4b125a..ed10d4ba8340 100644
+> --- a/include/uapi/linux/ipv6.h
+> +++ b/include/uapi/linux/ipv6.h
+> @@ -170,6 +170,7 @@ enum {
+>  	DEVCONF_ACCEPT_RA_FROM_LOCAL,
+>  	DEVCONF_USE_OPTIMISTIC,
+>  	DEVCONF_ACCEPT_RA_MTU,
+> +	DEVCONF_FLUSH_ON_DOWN,
 
-Signed-off-by: Siva Mannem <siva.mannem.lnx@gmail.com>
----
- net/bridge/br_fdb.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+nit: DEVCONF_FLUSH_ADDR_ON_DOWN to match the name added to ipv6_devconf.
 
-diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
-index 08bf04b..6eb94b5 100644
---- a/net/bridge/br_fdb.c
-+++ b/net/bridge/br_fdb.c
-@@ -280,7 +280,7 @@ void br_fdb_cleanup(unsigned long _data)
- 
- 		hlist_for_each_entry_safe(f, n, &br->hash[i], hlist) {
- 			unsigned long this_timer;
--			if (f->is_static)
-+			if (f->is_static || f->added_by_external_learn)
- 				continue;
- 			this_timer = f->updated + delay;
- 			if (time_before_eq(this_timer, jiffies))
--- 
-2.1.0
+-Brian
