@@ -1,62 +1,74 @@
-From: Tony Lindgren <tony@atomide.com>
-Subject: Re: [PATCH net-next] drivers: net: cpsw: make cpsw_ale.c a module to
- allow re-use on Keystone
-Date: Mon, 2 Feb 2015 08:40:33 -0800
-Message-ID: <20150202164032.GA9418@atomide.com>
-References: <1422573351-5603-1-git-send-email-m-karicheri2@ti.com>
- <1422573351-5603-2-git-send-email-m-karicheri2@ti.com>
- <1802322.NDR3d5ZRSA@wuerfel>
+From: David Vrabel <david.vrabel@citrix.com>
+Subject: [PATCHv1 net] xen-netback: stop the guest rx thread after a fatal error
+Date: Mon, 2 Feb 2015 16:57:51 +0000
+Message-ID: <1422896271-26551-1-git-send-email-david.vrabel@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Murali Karicheri <m-karicheri2@ti.com>, w-kwok2@ti.com,
-	davem@davemloft.net, mugunthanvnm@ti.com,
-	prabhakar.csengg@gmail.com, grygorii.strashko@ti.com,
-	lokeshvutla@ti.com, mpa@pengutronix.de,
-	lsorense@csclub.uwaterloo.ca, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1802322.NDR3d5ZRSA@wuerfel>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: David Vrabel <david.vrabel@citrix.com>,
+	<xen-devel@lists.xenproject.org>,
+	Ian Campbell <ian.campbell@citrix.com>,
+	Wei Liu <wei.liu2@citrix.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.citrix.com ([66.165.176.89]:29250 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932536AbbBBQ6D (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Feb 2015 11:58:03 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-* Arnd Bergmann <arnd@arndb.de> [150129 15:51]:
-> On Thursday 29 January 2015 18:15:51 Murali Karicheri wrote:
-> > NetCP on Keystone has cpsw ale function similar to other TI SoCs
-> > and this driver is re-used. To allow both ti cpsw and keystone netcp
-> > to re-use the driver, convert the cpsw ale to a module and configure
-> > it through Kconfig option CONFIG_TI_CPSW_ALE. Currently it is statically
-> > linked to both TI CPSW and NetCP and this causes issues when the above
-> > drivers are built as dynamic modules. This patch addresses this issue
-> > 
-> > While at it, fix the Makefile and code to build both netcp_core and
-> > netcp_ethss as dynamic modules. This is needed to support arm allmodconfig.
-> > This also requires exporting of API calls provided by netcp_core so that
-> > both the above can be dynamic modules.
-> > 
-> > Signed-off-by: Murali Karicheri <m-karicheri2@ti.com>
-> > ---
-> >  drivers/net/ethernet/ti/Kconfig       |   19 +++++++++++++++++--
-> >  drivers/net/ethernet/ti/Makefile      |    8 +++++---
-> >  drivers/net/ethernet/ti/cpsw_ale.c    |   26 ++++++++++++++++++++++++--
-> >  drivers/net/ethernet/ti/netcp_core.c  |    8 ++++++++
-> >  drivers/net/ethernet/ti/netcp_ethss.c |    5 +++++
-> >  5 files changed, 59 insertions(+), 7 deletions(-)
-> 
-> I was hoping there would be a way without exporting all those symbols, but
-> I also couldn't come up with a better solution. I'm putting this into the
-> randconfig build test for now, but I'm guessing it's fine.
+After commit e9d8b2c2968499c1f96563e6522c56958d5a1d0d (xen-netback:
+disable rogue vif in kthread context), a fatal (protocol) error would
+leave the guest Rx thread spinning, wasting CPU time.  Commit
+ecf08d2dbb96d5a4b4bcc53a39e8d29cc8fef02e (xen-netback: reintroduce
+guest Rx stall detection) made this even worse by removing a
+cond_resched() from this path.
 
-Probably the best way in the long run is to add a single exported
-function to cpsw-common.c I just added for the MAC address function.
+Since a fatal error is non-recoverable, just allow the guest Rx thread
+to exit.  This requires taking additional refs to the task so the
+thread exiting early is handled safely.
 
-Then all the cpsw like drivers can register with that instead of
-having tons of custom exported functions.
+Signed-off-by: David Vrabel <david.vrabel@citrix.com>
+Reported-by: Julien Grall <julien.grall@linaro.org>
+Tested-by: Julien Grall <julien.grall@linaro.org>
+---
+ drivers/net/xen-netback/interface.c |    2 ++
+ drivers/net/xen-netback/netback.c   |    3 +--
+ 2 files changed, 3 insertions(+), 2 deletions(-)
 
-But before doing that, we should have a clear idea what all can
-be shared. Murali, maybe you can take a look at that?
-
-Regards,
-
-Tony
+diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
+index 9259a73..037f74f 100644
+--- a/drivers/net/xen-netback/interface.c
++++ b/drivers/net/xen-netback/interface.c
+@@ -578,6 +578,7 @@ int xenvif_connect(struct xenvif_queue *queue, unsigned long tx_ring_ref,
+ 		goto err_rx_unbind;
+ 	}
+ 	queue->task = task;
++	get_task_struct(task);
+ 
+ 	task = kthread_create(xenvif_dealloc_kthread,
+ 			      (void *)queue, "%s-dealloc", queue->name);
+@@ -634,6 +635,7 @@ void xenvif_disconnect(struct xenvif *vif)
+ 
+ 		if (queue->task) {
+ 			kthread_stop(queue->task);
++			put_task_struct(queue->task);
+ 			queue->task = NULL;
+ 		}
+ 
+diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+index 908e65e..c8ce701 100644
+--- a/drivers/net/xen-netback/netback.c
++++ b/drivers/net/xen-netback/netback.c
+@@ -2109,8 +2109,7 @@ int xenvif_kthread_guest_rx(void *data)
+ 		 */
+ 		if (unlikely(vif->disabled && queue->id == 0)) {
+ 			xenvif_carrier_off(vif);
+-			xenvif_rx_queue_purge(queue);
+-			continue;
++			break;
+ 		}
+ 
+ 		if (!skb_queue_empty(&queue->rx_queue))
+-- 
+1.7.10.4
