@@ -1,138 +1,118 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: AF_NETDEV - device specific sockets
-Date: Mon, 02 Feb 2015 10:04:04 -0800
-Message-ID: <54CFBC14.9080908@gmail.com>
-References: <FC8E8D0ECC753F45808079B18C3203FE1CCA0C@G4W3293.americas.hpqcorp.net> <54CDAE61.60100@gmail.com> <FC8E8D0ECC753F45808079B18C3203FE1CCAF4@G4W3293.americas.hpqcorp.net>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [PATCH net-next v2 0/6] net: Add STT support.
+Date: Mon, 2 Feb 2015 10:44:33 -0800
+Message-ID: <CALnjE+qGjvTo0MdiNpS9v_ZjGJfLChV34ymojqYEz5A+UstXaA@mail.gmail.com>
+References: <1422574156-1831-1-git-send-email-pshelar@nicira.com>
+	<54CAFE89.4090509@gmail.com>
+	<CALnjE+pPh5nSvaLTnM-a0r2Gm6K8Hz5BU_CsiWzYmwijPCOgHg@mail.gmail.com>
+	<CA+mtBx_fFBY_FAsnAo8yu5bjoq5BqPY3Es_19oBdeqrjp4RdiA@mail.gmail.com>
+	<CALnjE+rjoRXnKsT9z2CK0BuYrxwqk+0FZq1=QwoPiysPN0gxZw@mail.gmail.com>
+	<20150130184446.GF13164@gospo.home.greyhouse.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	dborkman <dborkman@redhat.com>
-To: "Zayats, Michael" <michael.zayats@hp.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Tom Herbert <therbert@google.com>,
+	Alexander Duyck <alexander.duyck@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+To: Andy Gospodarek <gospo@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f176.google.com ([209.85.214.176]:61320 "EHLO
-	mail-ob0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753834AbbBBSEP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2015 13:04:15 -0500
-Received: by mail-ob0-f176.google.com with SMTP id wo20so9352540obc.7
-        for <netdev@vger.kernel.org>; Mon, 02 Feb 2015 10:04:14 -0800 (PST)
-In-Reply-To: <FC8E8D0ECC753F45808079B18C3203FE1CCAF4@G4W3293.americas.hpqcorp.net>
+Received: from na3sys009aog129.obsmtp.com ([74.125.149.142]:39502 "HELO
+	na3sys009aog129.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1753015AbbBBSoh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2015 13:44:37 -0500
+Received: by mail-ig0-f182.google.com with SMTP id h15so3875184igd.3
+        for <netdev@vger.kernel.org>; Mon, 02 Feb 2015 10:44:36 -0800 (PST)
+In-Reply-To: <20150130184446.GF13164@gospo.home.greyhouse.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/31/2015 09:04 PM, Zayats, Michael wrote:
-> More specific example would be when NIC performs certain fast path processing,
-> while punting to the CPU for a slow path.
-> Slow path would be interested to know the punt reason.
->
-> Another example would be if specific NIC strips S-tag in QinQ case and would like to communicate the stripped
-> Tag to the client.
->
-
-Right, maybe we need some sort of TLV scheme to pass up the relevant
-info. I'm not sure we want to necessarily bury it in the driver though.
-Perhaps passing auxdata in a TLV format is worth considering.
-
-Just curious do you have NICs that are stripping or inserting more then
-a single tag?
-
-For tagging my current scheme is to strip outer tags using this
-experimental Flow  API
-
-	http://www.spinics.net/lists/netdev/msg313071.html
-
-and then only report the inner tag to the stack. At the moment I haven't
-found any use cases this is not sufficient.
-
-> There might be many types of custom functionality, agreed between the NIC and the clients,
-> which is not generic or not practical enough for inclusion in the kernel.
->
-> That's why I am looking for a generic, socket like mechanism of device<->client, packet + metadata communication,
-> which wouldn't require core kernel modification.
-
-hmm the question is how do the NIC and client "agree" on the
-format of the data and its meaning? If you follow the thread
-above and also our af_packet direct DMA work we are struggling
-with similar questions,
-
-	http://www.spinics.net/lists/netdev/msg311862.html
-
-I think we need some way to "describe" the meta-data or we
-need to build some kernel/uapi standard that defines them.
-
-.John
-
->
-> Thanks,
->
-> Michael
->
->
->
->
->
-> -----Original Message-----
-> From: John Fastabend [mailto:john.fastabend@gmail.com]
-> Sent: Saturday, January 31, 2015 8:41 PM
-> To: Zayats, Michael
-> Cc: netdev@vger.kernel.org
-> Subject: Re: AF_NETDEV - device specific sockets
->
-> On 01/31/2015 08:20 PM, Zayats, Michael wrote:
->> Hi,
+On Fri, Jan 30, 2015 at 10:44 AM, Andy Gospodarek
+<gospo@cumulusnetworks.com> wrote:
+> On Thu, Jan 29, 2015 at 09:03:14PM -0800, Pravin Shelar wrote:
+>> On Thu, Jan 29, 2015 at 8:17 PM, Tom Herbert <therbert@google.com> wrote:
+>> > On Thu, Jan 29, 2015 at 8:04 PM, Pravin Shelar <pshelar@nicira.com> wrote:
+>> >> On Thu, Jan 29, 2015 at 7:46 PM, Alexander Duyck
+>> >> <alexander.duyck@gmail.com> wrote:
+>> >>> On 01/29/2015 03:29 PM, Pravin B Shelar wrote:
+>> >>>> Following patch series adds support for Stateless Transport
+>> >>>> Tunneling protocol.
+>> >>>> STT uses TCP segmentation offload available in most of NIC. On
+>> >>>> packet xmit STT driver appends STT header along with TCP header
+>> >>>> to the packet. For GSO packet GSO parameters are set according
+>> >>>> to tunnel configuration and packet is handed over to networking
+>> >>>> stack. This allows use of segmentation offload available in NICs
+>> >>>>
+>> >>>> The protocol is documented at
+>> >>>> http://www.ietf.org/archive/id/draft-davie-stt-06.txt
+>> >>>>
+>> >>>> I will send out OVS userspace patch on ovs-dev mailing list.
+>> >>>>
+>> >>>> Following are test results. All tests are done on net-next with
+>> >>>> STT and VXLAN kernel device without OVS.
+>> >>>>
+>> >>>> Single Netperf session:
+>> >>>> =======================
+>> >>>> VXLAN:
+>> >>>>     CPU utilization
+>> >>>>      - Send local: 1.26
+>> >>>>      - Recv remote: 8.62
+>> >>>>     Throughput: 4.9 Gbit/sec
+>> >>>> STT:
+>> >>>>     CPU utilization
+>> >>>>      - Send local: 1.01
+>> >>>>      - Recv remote: 1.8
+>> >>>>     Throughput: 9.45 Gbit/sec
+>> >>>>
+>> >>>> Five Netperf sessions:
+>> >>>> ======================
+>> >>>> VXLAN:
+>> >>>>     CPU utilization
+>> >>>>      - Send local: 9.7
+>> >>>>      - Recv remote: 70 (varies from 60 to 80)
+>> >>>>     Throughput: 9.05 Gbit/sec
+>> >>>> STT:
+>> >>>>     CPU utilization
+>> >>>>      - Send local: 5.85
+>> >>>>      - Recv remote: 14
+>> >>>>     Throughput: 9.47 Gbit/sec
+>> >>>>
+>> >>>
+>> >>> What does the small packet or non-TCP performance look like for STT vs
+>> >>> VXLAN?  My concern is that STT looks like it is a one trick pony since
+>> >>> all your numbers show is TCP TSO performance, and based on some of the
+>> >>> comments in your patches it seems like other protocols such as UDP are
+>> >>> going to suffer pretty badly due to things like the linearization overhead.
+>> >>>
+>> >>
+>> >> Current implementation is targeted for TCP workloads thats why I
+>> >> posted numbers with TCP, once UDP is optimized we can discuss UDP
+>> >> numbers. I am pretty sure the STT code can be optimized further
+>> >> specially for protocols other than TCP.
+>> >> --
+>> > There are many TCP workloads that use small packets, it is critical to
+>> > test for these also. E.g. "super_netperf 200 -H <addr> -l 120 -t
+>> > TCP_RR -- -r 1,1"
+>> >
+>> I have not tried it on STT device, I will collect those numbers.
 >>
->> I am looking for a generic mechanism that would allow network device
->> drivers to provide socket interface to user and kernel space clients.
+>> > Please provide the *exact* commands that you are using to configure
+>> > stt for optimal performance.
+>> >
+>> To create STT tunnel device.
+>> `ip link add stt1  type stt key 1 remote 1.1.2.128`
 >>
->> Such an interface might be used to provide access to important
->> sub-streams of packets, alongside with device specific packet
->> metadata, provided through msg_control fields of recv/sendmsg.
->>
->> RX Metadata might include device specific information, such as queuing
->> priorities applied, potential destination interface in case of
->> switching hardware etc.
->>
->> On the transmission, metadata might be used to indicate hardware
->> specific required optimizations, as well as any other transformation
->> or accounting required on the packet.
->>
->> AF_PACKET based mechanism doesn't allow metadata to be exchanged
->> between the client and the device driver. Extending it would require
->> extending of sk_buff and potentially additional per packet operations.
->> Generic Netlink is not intended to pass packets.
->>
->> As I am trying to validate generic applicability of such a mechanism,
->> I see that TUN driver is providing custom socket interface, in order
->> to deal with user information through msg_control. Only usable inside
->> the kernel, through custom interface.
+>> No other configuration is needed.
 >
->> Proposed interface
->> ------------------
->> Kernel side:
->> (struct proto *) should be added to struct net_device.
->> Device driver that is interested to support socket interface would populate the pointer.
->>
+> Thanks for posting some performance numbers with your patch.  I also
+> don't want to 'pile on' with additional complaints, but I do have one
+> request.
 >
->> User space: After creating AF_NETDEV socket, the only successful
->> operation would be setting SO_BINDTODEVICE option. Once set, all
->> socket operations would be implemented by calling functions, that are
->> registered at struct proto on the appropriate net_device.
->>
->> What do you think?
->> Would you see a better approach?
->> Some other mechanism that already exists for such a purpose?
->
-> It might help to come up with specific examples but an alternate proposal would be to use skb->priority field and then mqprio to steer the traffic to a specific queue and then bind attributes to the queue.
->
-> For example the NIC offloaded QOS can be mapped on to queues and then sockets mapped to the queues.
->
-> Another example would be to forward all traffic from one queue to a virtual fuction in SR-IOV use case. We don't have an interface to do this but I have been working on an API that could be used for this.
->
-> In this case you don't need to modify AF_PACKET interface but configure the device correctly. If you need per-packet control you could use 'tc' or 'nftables' to do the steering.
->
-> .John
+> Can you share any specs (including number of cores and NIC hardware
+> used) for the systems that gave you the above results?   If you do not
+> want to endorse a particular NIC that is fine --  I'm mostly curious how
+> many cores were used and if UDP and TCP RSS were both being used in this
+> configuration.
 >
 
-
--- 
-John Fastabend         Intel Corporation
+I used 16 core (Sandy bridge) machine with intel 10G NIC. I enabled
+both UDP and TCP RSS for all tests.
