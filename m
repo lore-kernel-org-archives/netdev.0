@@ -1,96 +1,74 @@
 From: Vladislav Yasevich <vyasevich@gmail.com>
-Subject: [PATCH net v3 2/3] Revert "drivers/net, ipv6: Select IPv6 fragment idents for virtio UFO packets"
-Date: Mon,  2 Feb 2015 10:01:08 -0500
-Message-ID: <1422889269-16007-3-git-send-email-vyasevic@redhat.com>
-References: <1422889269-16007-1-git-send-email-vyasevic@redhat.com>
-Cc: virtualization@lists.linux-foundation.org, mst@redhat.com,
-	ben@decadent.org.uk, eric.dumazet@gmail.com,
-	hannes@stressinduktion.org,
-	Vladislav Yasevich <vyasevic@redhat.com>
+Subject: [PATCH v3 0/3] Restore UFO support to virtio_net devices
+Date: Mon,  2 Feb 2015 10:01:06 -0500
+Message-ID: <1422889269-16007-1-git-send-email-vyasevic@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, mst@redhat.com,
+	virtualization@lists.linux-foundation.org,
+	hannes@stressinduktion.org, ben@decadent.org.uk
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f54.google.com ([209.85.216.54]:51414 "EHLO
-	mail-qa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751805AbbBBPBW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2015 10:01:22 -0500
-Received: by mail-qa0-f54.google.com with SMTP id w8so29418120qac.13
-        for <netdev@vger.kernel.org>; Mon, 02 Feb 2015 07:01:21 -0800 (PST)
-In-Reply-To: <1422889269-16007-1-git-send-email-vyasevic@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-This reverts commit 5188cd44c55db3e92cd9e77a40b5baa7ed4340f7.
+commit 3d0ad09412ffe00c9afa201d01effdb6023d09b4
+Author: Ben Hutchings <ben@decadent.org.uk>
+Date:   Thu Oct 30 18:27:12 2014 +0000
 
-Now that GSO layer can track if fragment id has been selected
-and can allocate one if necessary, we don't need to do this in
-tap and macvtap.  This reverts most of the code and only keeps
-the new ipv6 fragment id generation function that is still needed.
+    drivers/net: Disable UFO through virtio
 
-Fixes: 3d0ad09412ff (drivers/net: Disable UFO through virtio)
-Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
----
- drivers/net/macvtap.c | 3 ---
- drivers/net/tun.c     | 6 +-----
- 2 files changed, 1 insertion(+), 8 deletions(-)
+Turned off UFO support to virtio-net based devices due to issues
+with IPv6 fragment id generation for UFO packets.  The issue
+was that IPv6 UFO/GSO implementation expects the fragment id
+to be supplied in skb_shinfo().  However, for packets generated
+by the VMs, the fragment id is not supplied which causes all
+IPv6 fragments to have the id of 0.
 
-diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-index 7df2217..0b86e46 100644
---- a/drivers/net/macvtap.c
-+++ b/drivers/net/macvtap.c
-@@ -17,7 +17,6 @@
- #include <linux/fs.h>
- #include <linux/uio.h>
- 
--#include <net/ipv6.h>
- #include <net/net_namespace.h>
- #include <net/rtnetlink.h>
- #include <net/sock.h>
-@@ -589,8 +588,6 @@ static int macvtap_skb_from_vnet_hdr(struct macvtap_queue *q,
- 			pr_warn_once("macvtap: %s: using disabled UFO feature; please fix this program\n",
- 				     current->comm);
- 			gso_type = SKB_GSO_UDP;
--			if (skb->protocol == htons(ETH_P_IPV6))
--				ipv6_proxy_select_ident(skb);
- 			break;
- 		default:
- 			return -EINVAL;
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index 8c8dc16..5ca42b7 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -65,7 +65,6 @@
- #include <linux/nsproxy.h>
- #include <linux/virtio_net.h>
- #include <linux/rcupdate.h>
--#include <net/ipv6.h>
- #include <net/net_namespace.h>
- #include <net/netns/generic.h>
- #include <net/rtnetlink.h>
-@@ -1167,8 +1166,6 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
- 		break;
- 	}
- 
--	skb_reset_network_header(skb);
--
- 	if (gso.gso_type != VIRTIO_NET_HDR_GSO_NONE) {
- 		pr_debug("GSO!\n");
- 		switch (gso.gso_type & ~VIRTIO_NET_HDR_GSO_ECN) {
-@@ -1189,8 +1186,6 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
- 					    current->comm);
- 			}
- 			skb_shinfo(skb)->gso_type = SKB_GSO_UDP;
--			if (skb->protocol == htons(ETH_P_IPV6))
--				ipv6_proxy_select_ident(skb);
- 			break;
- 		}
- 		default:
-@@ -1221,6 +1216,7 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
- 		skb_shinfo(skb)->tx_flags |= SKBTX_SHARED_FRAG;
- 	}
- 
-+	skb_reset_network_header(skb);
- 	skb_probe_transport_header(skb, 0);
- 
- 	rxhash = skb_get_hash(skb);
+The problem is that turning off UFO support on tap/macvtap
+as well as virtio devices caused issues with migrations.  
+Migrations would fail when moving a vm from a kernel supporting
+expecting UFO to work to the newer kernels that disabled UFO.
+
+This series provides a partial solution to address the migration
+issue.  The series allows us to track whether skb_shinfo()->ip6_frag_id
+has been set by treating value of 0 as unset.
+This lets GSO code to generate fragment ids if they are necessary
+(ex: packet was generated by VM or packet socket).
+
+Since v2:
+  - Rebase and rebuild to make sure everything works.  No changes
+    to the patches were done.
+
+Since v1:
+  - Removed the skb bit and use value of 0 as tracker.
+  - Used Eric's suggestion to set fragment id as 0x80000000 if id
+    generation procedure yeilded a 0 result.
+  - Consolidated ipv6 id genration code.
+
+Vladislav Yasevich (3):
+  ipv6: Select fragment id during UFO segmentation if not set.
+  Revert "drivers/net, ipv6: Select IPv6 fragment idents for virtio UFO
+    packets"
+  Revert "drivers/net: Disable UFO through virtio"
+
+ drivers/net/macvtap.c    | 16 ++++++++--------
+ drivers/net/tun.c        | 25 +++++++++----------------
+ drivers/net/virtio_net.c | 24 ++++++++++--------------
+ include/net/ipv6.h       |  3 +++
+ net/ipv6/ip6_output.c    | 10 ++++------
+ net/ipv6/output_core.c   | 28 ++++++++++++++++++++++------
+ net/ipv6/udp_offload.c   | 10 +++++++++-
+ 7 files changed, 65 insertions(+), 51 deletions(-)
+
 -- 
 1.9.3
