@@ -1,55 +1,41 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: Re: [PATCH] net: ipv6: Make address flushing on ifdown optional -
- v2
-Date: Mon, 02 Feb 2015 12:38:19 -0500
-Message-ID: <54CFB60B.3060800@hp.com>
-References: <1422504065-17445-1-git-send-email-dsahern@gmail.com>
+From: Govindarajulu Varadarajan <_govind@gmx.com>
+Subject: RE: [PATCH net-next 0/4] enic: improve rq buff allocation and reduce
+ dma mapping
+Date: Mon, 2 Feb 2015 23:19:31 +0530 (IST)
+Message-ID: <alpine.LNX.2.03.1502022224220.23196@ws.cisco>
+References: <1422707290-939-1-git-send-email-_govind@gmx.com> <063D6719AE5E284EB5DD2968C1650D6D1CAD8FD1@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 8bit
-Cc: Hannes Frederic Sowa <hannes@redhat.com>
-To: David Ahern <dsahern@gmail.com>, netdev@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: 'Govindarajulu Varadarajan' <_govind@gmx.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"ssujith@cisco.com" <ssujith@cisco.com>,
+	"benve@cisco.com" <benve@cisco.com>,
+	"edumazet@google.com" <edumazet@google.com>,
+	"ben@decadent.org.uk" <ben@decadent.org.uk>
+To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g2t1383g.austin.hp.com ([15.217.136.92]:44437 "EHLO
-	g2t1383g.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753287AbbBBRiW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2015 12:38:22 -0500
-Received: from g2t2353.austin.hp.com (g2t2353.austin.hp.com [15.217.128.52])
-	(using TLSv1.2 with cipher DHE-RSA-AES256-GCM-SHA384 (256/256 bits))
-	(No client certificate requested)
-	by g2t1383g.austin.hp.com (Postfix) with ESMTPS id 38B286ECE
-	for <netdev@vger.kernel.org>; Mon,  2 Feb 2015 17:38:22 +0000 (UTC)
-In-Reply-To: <1422504065-17445-1-git-send-email-dsahern@gmail.com>
+Received: from mout.gmx.net ([212.227.15.18]:63995 "EHLO mout.gmx.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752972AbbBBRuA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Feb 2015 12:50:00 -0500
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CAD8FD1@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/28/2015 11:01 PM, David Ahern wrote:
-> Currently, all ipv6 addresses are flushed when the interface is configured
-> down, even static address:
-> 
-...
-> diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
-> index 2805062c013f..b91b7c8be023 100644
-> --- a/include/linux/ipv6.h
-> +++ b/include/linux/ipv6.h
-> @@ -53,6 +53,7 @@ struct ipv6_devconf {
->  	__s32           ndisc_notify;
->  	__s32		suppress_frag_ndisc;
->  	__s32		accept_ra_mtu;
-> +	__s32		flush_addr_on_down;
->  	void		*sysctl;
->  };
-...
-> diff --git a/include/uapi/linux/ipv6.h b/include/uapi/linux/ipv6.h
-> index 437a6a4b125a..ed10d4ba8340 100644
-> --- a/include/uapi/linux/ipv6.h
-> +++ b/include/uapi/linux/ipv6.h
-> @@ -170,6 +170,7 @@ enum {
->  	DEVCONF_ACCEPT_RA_FROM_LOCAL,
->  	DEVCONF_USE_OPTIMISTIC,
->  	DEVCONF_ACCEPT_RA_MTU,
-> +	DEVCONF_FLUSH_ON_DOWN,
+On Mon, 2 Feb 2015, David Laight wrote:
+> Two questions:
+> 1) How are you handling the skb's true_size ?
 
-nit: DEVCONF_FLUSH_ADDR_ON_DOWN to match the name added to ipv6_devconf.
+skb->true_size is set to ksize(data) for data allocated using alloc_page and
+kmalloc. For frags we set it to size of frag. Check the function build_skb()
 
--Brian
+> 2) Memory fragmentation could easily make the allocation of 32k fail.
+>
+
+With huge memory these days order-3 allocation failure is quite rare. In my
+testing on system with 8G memory I have never encountered order-3 failure.
+This is probably why __netdev_alloc_frag tries order-3 page allocation first.
+
+If order-3 page allocation fails, we drop to minimum order required for the
+given size.
