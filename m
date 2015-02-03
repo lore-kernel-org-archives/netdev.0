@@ -1,51 +1,80 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: [PATCH] IBM-EMAC: Delete an unnecessary check before the function
- call "of_dev_put"
-Date: Tue, 03 Feb 2015 19:51:38 +0100
-Message-ID: <54D118BA.3080001@users.sourceforge.net>
-References: <5307CAA2.8060406@users.sourceforge.net> <alpine.DEB.2.02.1402212321410.2043@localhost6.localdomain6> <530A086E.8010901@users.sourceforge.net> <alpine.DEB.2.02.1402231635510.1985@localhost6.localdomain6> <530A72AA.3000601@users.sourceforge.net> <alpine.DEB.2.02.1402240658210.2090@localhost6.localdomain6> <530B5FB6.6010207@users.sourceforge.net> <alpine.DEB.2.10.1402241710370.2074@hadrien> <530C5E18.1020800@users.sourceforge.net> <alpine.DEB.2.10.1402251014170.2080@hadrien> <530CD2C4.4050903@users.sourceforge.net> <alpine.DEB.2.10.1402251840450.7035@hadrien> <530CF8FF.8080600@users.sourceforge.net> <alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6> <530DD06F.4090703@users.sourceforge.net> <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6> <5317A59D.4@users.so
- urceforge.net>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: [PATCH] hyper-v: allow access to vmbus from userspace driver
+Date: Tue, 3 Feb 2015 11:03:45 -0800
+Message-ID: <20150203110345.15c38345@urahara>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	kernel-janitors@vger.kernel.org,
-	Julia Lawall <julia.lawall@lip6.fr>
-To: netdev@vger.kernel.org
+Cc: devel@linuxdriverproject.org, netdev@vger.kernel.org
+To: "K. Y. Srinivasan" <kys@microsoft.com>,
+	Haiyang Zhang <haiyangz@microsoft.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.web.de ([212.227.17.12]:63176 "EHLO mout.web.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753118AbbBCSvn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Feb 2015 13:51:43 -0500
-In-Reply-To: <5317A59D.4@users.sourceforge.net>
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:57741 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756010AbbBCTDr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Feb 2015 14:03:47 -0500
+Received: by mail-pa0-f45.google.com with SMTP id et14so99739863pad.4
+        for <netdev@vger.kernel.org>; Tue, 03 Feb 2015 11:03:46 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Tue, 3 Feb 2015 19:47:33 +0100
+Brocade is submitting a hyper-v driver for DPDK <dev@dpdk.org>
+but this driver needs a hook in the hyper-v bus layer
+to allow the additional hv_uio driver to access the shared vmbus
+pages. The hv_uio driver lives in DPDK (like igb_uio) and provides
+userspace access to raw network packets.
 
-The of_dev_put() function tests whether its argument is NULL and then
-returns immediately. Thus the test around the call is not needed.
+Signed-off-by: Stas Egorov <segorov@mirantis.com>
+Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
 
-This issue was detected by using the Coccinelle software.
-
-Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
 ---
- drivers/net/ethernet/ibm/emac/core.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/hv/connection.c |   20 +++++++++++++++++---
+ include/linux/hyperv.h  |    3 +++
+ 2 files changed, 20 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/ibm/emac/core.c b/drivers/net/ethernet/ibm/emac/core.c
-index 9388a83..162762d 100644
---- a/drivers/net/ethernet/ibm/emac/core.c
-+++ b/drivers/net/ethernet/ibm/emac/core.c
-@@ -2367,7 +2367,7 @@ static int emac_wait_deps(struct emac_instance *dev)
- 	err = emac_check_deps(dev, deps) ? 0 : -ENODEV;
- 	for (i = 0; i < EMAC_DEP_COUNT; i++) {
- 		of_node_put(deps[i].node);
--		if (err && deps[i].ofdev)
-+		if (err)
- 			of_dev_put(deps[i].ofdev);
+--- a/drivers/hv/connection.c	2015-02-03 10:58:51.751752450 -0800
++++ b/drivers/hv/connection.c	2015-02-03 10:58:51.751752450 -0800
+@@ -64,6 +64,21 @@ static __u32 vmbus_get_next_version(__u3
  	}
- 	if (err == 0) {
--- 
-2.2.2
+ }
+ 
++static const uuid_le HV_NET_GUID = {
++	.b = {
++		0x63, 0x51, 0x61, 0xf8, 0x3e, 0xdf, 0xc5, 0x46,
++		0x91, 0x3f, 0xf2, 0xd2, 0xf9, 0x65, 0xed, 0x0e
++	}
++};
++
++void vmbus_get_pages(unsigned long *int_page, unsigned long monitor_pages[2])
++{
++	*int_page = (unsigned long)vmbus_connection.int_page;
++	monitor_pages[0] = (unsigned long)vmbus_connection.monitor_pages[0];
++	monitor_pages[1] = (unsigned long)vmbus_connection.monitor_pages[1];
++}
++EXPORT_SYMBOL_GPL(vmbus_get_pages);
++
+ static int vmbus_negotiate_version(struct vmbus_channel_msginfo *msginfo,
+ 					__u32 version)
+ {
+@@ -347,7 +362,8 @@ static void process_chn_event(u32 relid)
+ 			else
+ 				bytes_to_read = 0;
+ 		} while (read_state && (bytes_to_read != 0));
+-	} else {
++	} else if (!memcmp(&channel->device_obj->dev_type, &HV_NET_GUID,
++			   sizeof(uuid_le))) {
+ 		pr_err("no channel callback for relid - %u\n", relid);
+ 	}
+ 
+--- a/include/linux/hyperv.h	2015-02-03 10:58:51.751752450 -0800
++++ b/include/linux/hyperv.h	2015-02-03 10:58:51.751752450 -0800
+@@ -868,6 +868,9 @@ extern int vmbus_recvpacket_raw(struct v
+ 
+ extern void vmbus_ontimer(unsigned long data);
+ 
++extern void vmbus_get_pages(unsigned long *int_page,
++			    unsigned long monitor_pages[2]);
++
+ /* Base driver object */
+ struct hv_driver {
+ 	const char *name;
