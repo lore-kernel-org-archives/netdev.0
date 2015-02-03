@@ -1,67 +1,136 @@
-From: Michal Kubecek <mkubecek@suse.cz>
+From: Fan Du <fengyuleidian0615@gmail.com>
 Subject: Re: [PATCHv2 net] net: restore lro after device detached from bridge
-Date: Tue, 3 Feb 2015 07:54:30 +0100
-Message-ID: <20150203065430.GB8655@unicorn.suse.cz>
-References: <1422621209-23222-1-git-send-email-fan.du@intel.com>
- <54CBEE24.8000603@redhat.com>
- <54CEDEDC.7060507@gmail.com>
- <20150202111556.GA8655@unicorn.suse.cz>
- <54D0326C.2050704@gmail.com>
+Date: Tue, 03 Feb 2015 15:08:58 +0800
+Message-ID: <54D0740A.6050701@gmail.com>
+References: <1422621209-23222-1-git-send-email-fan.du@intel.com> <54CBEE24.8000603@redhat.com> <54CEDEDC.7060507@gmail.com> <54CF52D6.90701@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Alexander Duyck <alexander.h.duyck@redhat.com>,
-	Fan Du <fan.du@intel.com>, bhutchings@solarflare.com,
+Cc: Fan Du <fan.du@intel.com>, bhutchings@solarflare.com,
 	davem@davemloft.net, netdev@vger.kernel.org
-To: Fan Du <fengyuleidian0615@gmail.com>
+To: alexander.h.duyck@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:60929 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933871AbbBCGyd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Feb 2015 01:54:33 -0500
-Content-Disposition: inline
-In-Reply-To: <54D0326C.2050704@gmail.com>
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:63230 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933559AbbBCHNM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Feb 2015 02:13:12 -0500
+Received: by mail-pa0-f48.google.com with SMTP id ey11so92812897pad.7
+        for <netdev@vger.kernel.org>; Mon, 02 Feb 2015 23:13:11 -0800 (PST)
+In-Reply-To: <54CF52D6.90701@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 03, 2015 at 10:29:00AM +0800, Fan Du wrote:
-> =E4=BA=8E 2015=E5=B9=B402=E6=9C=8802=E6=97=A5 19:15, Michal Kubecek =E5=
+=E4=BA=8E 2015=E5=B9=B402=E6=9C=8802=E6=97=A5 18:35, Alexander Duyck =E5=
 =86=99=E9=81=93:
-> >On Mon, Feb 02, 2015 at 10:20:12AM +0800, Fan Du wrote:
-> >
-> >>Note, SRC is defaulted to *ON* in practice for ALL ixgbe NICs, as s=
-ame
-> >>other RSC capable NICs.
-> >
-> >A very bad idea, IMHO. A lot of bug reports resulted from it.
->=20
-> Why are you saying this an idea?? this a fact for all RSC capable NIC
-> drivers.  search drivers/net/ethernet/ to find more.
+> On 02/01/2015 06:20 PM, Fan Du wrote:
+>> =E4=BA=8E 2015=E5=B9=B401=E6=9C=8831=E6=97=A5 04:48, Alexander Duyck=
+ =E5=86=99=E9=81=93:
+>>> On 01/30/2015 04:33 AM, Fan Du wrote:
+>>>> Either detaching a device from bridge or switching a device
+>>>> out of FORWARDING state, the original lro feature should
+>>>> possibly be enabled for good reason, e.g. hw feature like
+>>>> receive side coalescing could come into play.
+>>>>
+>>>> BEFORE:
+>>>> echo 1 > /proc/sys/net/ipv4/conf/ens806f0/forwarding && ethtool -k=
+ ens806f0 | grep large
+>>>> large-receive-offload: off
+>>>>
+>>>> echo 0 > /proc/sys/net/ipv4/conf/ens806f0/forwarding && ethtool -k=
+ ens806f0 | grep large
+>>>> large-receive-offload: off
+>>>>
+>>>> AFTER:
+>>>> echo 1 > /proc/sys/net/ipv4/conf/ens806f0/forwarding && ethtool -k=
+ ens806f0 | grep large
+>>>> large-receive-offload: off
+>>>>
+>>>> echo 0 > /proc/sys/net/ipv4/conf/ens806f0/forwarding && ethtool -k=
+ ens806f0 | grep large
+>>>> large-receive-offload: on
+>>>>
+>>>> Signed-off-by: Fan Du <fan.du@intel.com>
+>>>> Fixes: 0187bdfb0567 ("net: Disable LRO on devices that are forward=
+ing")
+>>>
+>>
+>>> First off this isn't a "fix".  This is going to likely break more t=
+han
+>>> it fixes.  The main reason why LRO is disabled is because it can ca=
+use
+>>> more harm then it helps.  Since GRO is available we should err on t=
+he
+>>> side of caution since enabling LRO/RSC can have undesirable side ef=
+fects
+>>> in a number of cases.
+>>
+>> I think you are talking about bad scenarios when net device is attac=
+hed to a bridge.
+>> Then what's the good reason user has to pay extra cpu power for usin=
+g GRO, instead
+>> of using hw capable LRO/RSC when this net device is detached from br=
+idge acting as
+>> a standalone NIC?
+>>
+>> Note, SRC is defaulted to *ON* in practice for ALL ixgbe NICs, as sa=
+me other RSC capable
+>> NICs. Attaching net device to a bridge _once_ should not changed its=
+ default configuration,
+>> moreover it's a subtle change without any message that user won't no=
+ticed at all.
 
-I didn't say it's not turned on by default, I just said I consider this
-a bad idea. Why? Because the feature is known to break network
-communication in common and frequently used scenarios (essentially
-whenever received packets may leave the host). When this happens, you
-observe strange networking malfunction and unless you know this may be
-the cause (or read release notes very carefully), it's very difficult t=
-o
-identify the cause. Personally, I handled four bug reports of this type
-in last three years.
+> No, RSC only has benefits for IPv4/TCP large packets.  However
+> historically there have been issues seen w/ small packet performance
+> with RSC enabled.
 
-On the other hand, having it turned off when it could be on is only a
-performance problem and the communication works. When you are tuning th=
+Only when parallel client exceeds 4, gro trumps lro performance on my t=
+estbed for small packets.
+The difference comes from the fact that TCP RSS hash flows from clients=
+ into different NIC queues
+for multiple cpu, while RSC engine inside NIC has limit resource compar=
+ed with that of cpu used by gro.
+
+NICs: 82599EB
+server:ipserf -s -B 192.168.5.1
+client:iperf  -c 192.168.5.1 -i 1 -M 100 -P x
+
+-P   Bandwidth/lro on        Bandwidth/lro off
+                gro off                 gro on
+
+1     2.31 Gbits/sec           947 Mbits/sec
+2     3.09 Gbits/sec          1.97 Gbits/sec
+3     3.19 Gbits/sec          2.70 Gbits/sec
+4     3.16 Gbits/sec          3.39 Gbits/sec
+5     3.23 Gbits/sec          3.33 Gbits/sec
+6     3.19 Gbits/sec          3.74 Gbits/sec
+7     3.18 Gbits/sec          3.88 Gbits/sec
+8     3.17 Gbits/sec          3.24 Gbits/sec
+9     3.16 Gbits/sec          3.70 Gbits/sec
+10    3.15 Gbits/sec          3.76 Gbits/sec
+11    3.10 Gbits/sec          4.03 Gbits/sec
+12    3.11 Gbits/sec          3.13 Gbits/sec
+13    3.12 Gbits/sec          4.12 Gbits/sec
+14    3.07 Gbits/sec          4.04 Gbits/sec
+15    3.03 Gbits/sec          3.14 Gbits/sec
+16    2.99 Gbits/sec          3.93 Gbits/sec
+
+
+
+
+Some have been addressed, however there are still
+> other effects such as increasing latency for receive unless the push
+> flag is set in the frame.
+>
+> I still say this patch is not valid, even with your changes.  Your
+> performance gain doesn't trump the regressions you would be causing o=
+n
+> other peoples platforms.
+>
+> I would suggest figuring out why you are seeing issues with routing o=
+r
+> bridging being enabled and disabled and possibly cleaning up the issu=
 e
-performance, you obviously look at the offloading features and check
-which could be turned on.
-
-This disbalance (broken communication on one side and slight performanc=
-e
-difference on the other) is why I believe feature like this should not
-be turned on by default. Unfortunately it is and we have to deal with
-it; that's why dev_disable_lro() is called in certain situations and wh=
-y
-it is propagated down lo lower devices. Turning it back on without
-carefully checking that _none_ of the reasons to have it off exists
-would do more harm than good.
-
-                                                        Michal Kubecek
+> via a script rather than trying to modify the kernel to make it take
+> care of it for you.
+> - Alex
