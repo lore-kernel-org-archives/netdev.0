@@ -1,7 +1,7 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next 01/10] net/core: Add event for a change in slave state
-Date: Tue,  3 Feb 2015 16:48:29 +0200
-Message-ID: <1422974919-28084-2-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net-next 02/10] net/bonding: Move slave state changes to a helper function
+Date: Tue,  3 Feb 2015 16:48:30 +0200
+Message-ID: <1422974919-28084-3-git-send-email-ogerlitz@mellanox.com>
 References: <1422974919-28084-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, Roland Dreier <roland@kernel.org>,
 	Amir Vadai <amirv@mellanox.com>, Tal Alon <talal@mellanox.com>,
@@ -9,111 +9,223 @@ Cc: netdev@vger.kernel.org, Roland Dreier <roland@kernel.org>,
 	Or Gerlitz <ogerlitz@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:60015 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:60021 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751725AbbBCOt2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Feb 2015 09:49:28 -0500
+	id S1751725AbbBCOtb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Feb 2015 09:49:31 -0500
 In-Reply-To: <1422974919-28084-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Moni Shoua <monis@mellanox.com>
 
-Add event which provides an indication on a change in the state
-of a bonding slave. The event handler should cast the pointer to the
-appropriate type (struct netdev_bonding_info) in order to get the
-full info about the slave.
+Move slave state changes to a helper function, this is a pre-step for adding
+functionality of dispatching an event when this helper is called.
+
+This commit doesn't add new functionality.
 
 Signed-off-by: Moni Shoua <monis@mellanox.com>
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 ---
- include/linux/netdevice.h |   15 +++++++++++++++
- net/core/dev.c            |   20 ++++++++++++++++++++
- net/core/rtnetlink.c      |    1 +
- 3 files changed, 36 insertions(+), 0 deletions(-)
+ drivers/net/bonding/bond_main.c |   64 +++++++++++++++++++++++----------------
+ include/net/bonding.h           |    5 +++
+ 2 files changed, 43 insertions(+), 26 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 3d37c6e..0b13915 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -51,6 +51,7 @@
- #include <linux/netdev_features.h>
- #include <linux/neighbour.h>
- #include <uapi/linux/netdevice.h>
-+#include <uapi/linux/if_bonding.h>
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index e229a86..0665608 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -789,7 +789,7 @@ void bond_change_active_slave(struct bonding *bond, struct slave *new_active)
+ 			}
  
- struct netpoll_info;
- struct device;
-@@ -2054,6 +2055,7 @@ struct pcpu_sw_netstats {
- #define NETDEV_RESEND_IGMP	0x0016
- #define NETDEV_PRECHANGEMTU	0x0017 /* notify before mtu change happened */
- #define NETDEV_CHANGEINFODATA	0x0018
-+#define NETDEV_BONDING_INFO	0x0019
+ 			new_active->delay = 0;
+-			new_active->link = BOND_LINK_UP;
++			bond_set_slave_link_state(new_active, BOND_LINK_UP);
  
- int register_netdevice_notifier(struct notifier_block *nb);
- int unregister_netdevice_notifier(struct notifier_block *nb);
-@@ -3477,6 +3479,19 @@ struct sk_buff *__skb_gso_segment(struct sk_buff *skb,
- struct sk_buff *skb_mac_gso_segment(struct sk_buff *skb,
- 				    netdev_features_t features);
- 
-+struct netdev_bonding_info {
-+	ifslave	slave;
-+	ifbond	master;
-+};
-+
-+struct netdev_notifier_bonding_info {
-+	struct netdev_notifier_info info; /* must be first */
-+	struct netdev_bonding_info  bonding_info;
-+};
-+
-+void netdev_bonding_info_change(struct net_device *dev,
-+				struct netdev_bonding_info *bonding_info);
-+
- static inline
- struct sk_buff *skb_gso_segment(struct sk_buff *skb, netdev_features_t features)
- {
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 1d564d6..ede0b16 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -5355,6 +5355,26 @@ void netdev_upper_dev_unlink(struct net_device *dev,
+ 			if (BOND_MODE(bond) == BOND_MODE_8023AD)
+ 				bond_3ad_handle_link_change(new_active, BOND_LINK_UP);
+@@ -1176,6 +1176,21 @@ static void bond_free_slave(struct slave *slave)
+ 	kfree(slave);
  }
- EXPORT_SYMBOL(netdev_upper_dev_unlink);
  
-+/**
-+ * netdev_bonding_info_change - Dispatch event about slave change
-+ * @dev: device
-+ * @netdev_bonding_info: info to dispatch
-+ *
-+ * Send NETDEV_BONDING_INFO to netdev notifiers with info.
-+ * The caller must hold the RTNL lock.
-+ */
-+void netdev_bonding_info_change(struct net_device *dev,
-+				struct netdev_bonding_info *bonding_info)
++static void bond_fill_ifbond(struct bonding *bond, struct ifbond *info)
 +{
-+	struct netdev_notifier_bonding_info	info;
-+
-+	memcpy(&info.bonding_info, bonding_info,
-+	       sizeof(struct netdev_bonding_info));
-+	call_netdevice_notifiers_info(NETDEV_BONDING_INFO, dev,
-+				      &info.info);
++	info->bond_mode = BOND_MODE(bond);
++	info->miimon = bond->params.miimon;
++	info->num_slaves = bond->slave_cnt;
 +}
-+EXPORT_SYMBOL(netdev_bonding_info_change);
 +
- void netdev_adjacent_add_links(struct net_device *dev)
++static void bond_fill_ifslave(struct slave *slave, struct ifslave *info)
++{
++	strcpy(info->slave_name, slave->dev->name);
++	info->link = slave->link;
++	info->state = bond_slave_state(slave);
++	info->link_failure_count = slave->link_failure_count;
++}
++
+ /* enslave device <slave> to bond device <master> */
+ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
  {
- 	struct netdev_adjacent *iter;
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index fedd7ab..0fb51f7 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -3178,6 +3178,7 @@ static int rtnetlink_event(struct notifier_block *this, unsigned long event, voi
- 	case NETDEV_UNREGISTER_FINAL:
- 	case NETDEV_RELEASE:
- 	case NETDEV_JOIN:
-+	case NETDEV_BONDING_INFO:
- 		break;
- 	default:
- 		rtmsg_ifinfo(RTM_NEWLINK, dev, 0, GFP_KERNEL);
+@@ -1439,19 +1454,22 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+ 	if (bond->params.miimon) {
+ 		if (bond_check_dev_link(bond, slave_dev, 0) == BMSR_LSTATUS) {
+ 			if (bond->params.updelay) {
+-				new_slave->link = BOND_LINK_BACK;
++				bond_set_slave_link_state(new_slave,
++							  BOND_LINK_BACK);
+ 				new_slave->delay = bond->params.updelay;
+ 			} else {
+-				new_slave->link = BOND_LINK_UP;
++				bond_set_slave_link_state(new_slave,
++							  BOND_LINK_UP);
+ 			}
+ 		} else {
+-			new_slave->link = BOND_LINK_DOWN;
++			bond_set_slave_link_state(new_slave, BOND_LINK_DOWN);
+ 		}
+ 	} else if (bond->params.arp_interval) {
+-		new_slave->link = (netif_carrier_ok(slave_dev) ?
+-			BOND_LINK_UP : BOND_LINK_DOWN);
++		bond_set_slave_link_state(new_slave,
++					  (netif_carrier_ok(slave_dev) ?
++					  BOND_LINK_UP : BOND_LINK_DOWN));
+ 	} else {
+-		new_slave->link = BOND_LINK_UP;
++		bond_set_slave_link_state(new_slave, BOND_LINK_UP);
+ 	}
+ 
+ 	if (new_slave->link != BOND_LINK_DOWN)
+@@ -1816,11 +1834,7 @@ static int  bond_release_and_destroy(struct net_device *bond_dev,
+ static int bond_info_query(struct net_device *bond_dev, struct ifbond *info)
+ {
+ 	struct bonding *bond = netdev_priv(bond_dev);
+-
+-	info->bond_mode = BOND_MODE(bond);
+-	info->miimon = bond->params.miimon;
+-	info->num_slaves = bond->slave_cnt;
+-
++	bond_fill_ifbond(bond, info);
+ 	return 0;
+ }
+ 
+@@ -1834,10 +1848,7 @@ static int bond_slave_info_query(struct net_device *bond_dev, struct ifslave *in
+ 	bond_for_each_slave(bond, slave, iter) {
+ 		if (i++ == (int)info->slave_id) {
+ 			res = 0;
+-			strcpy(info->slave_name, slave->dev->name);
+-			info->link = slave->link;
+-			info->state = bond_slave_state(slave);
+-			info->link_failure_count = slave->link_failure_count;
++			bond_fill_ifslave(slave, info);
+ 			break;
+ 		}
+ 	}
+@@ -1867,7 +1878,7 @@ static int bond_miimon_inspect(struct bonding *bond)
+ 			if (link_state)
+ 				continue;
+ 
+-			slave->link = BOND_LINK_FAIL;
++			bond_set_slave_link_state(slave, BOND_LINK_FAIL);
+ 			slave->delay = bond->params.downdelay;
+ 			if (slave->delay) {
+ 				netdev_info(bond->dev, "link status down for %sinterface %s, disabling it in %d ms\n",
+@@ -1882,7 +1893,7 @@ static int bond_miimon_inspect(struct bonding *bond)
+ 		case BOND_LINK_FAIL:
+ 			if (link_state) {
+ 				/* recovered before downdelay expired */
+-				slave->link = BOND_LINK_UP;
++				bond_set_slave_link_state(slave, BOND_LINK_UP);
+ 				slave->last_link_up = jiffies;
+ 				netdev_info(bond->dev, "link status up again after %d ms for interface %s\n",
+ 					    (bond->params.downdelay - slave->delay) *
+@@ -1904,7 +1915,7 @@ static int bond_miimon_inspect(struct bonding *bond)
+ 			if (!link_state)
+ 				continue;
+ 
+-			slave->link = BOND_LINK_BACK;
++			bond_set_slave_link_state(slave, BOND_LINK_BACK);
+ 			slave->delay = bond->params.updelay;
+ 
+ 			if (slave->delay) {
+@@ -1917,7 +1928,8 @@ static int bond_miimon_inspect(struct bonding *bond)
+ 			/*FALLTHRU*/
+ 		case BOND_LINK_BACK:
+ 			if (!link_state) {
+-				slave->link = BOND_LINK_DOWN;
++				bond_set_slave_link_state(slave,
++							  BOND_LINK_DOWN);
+ 				netdev_info(bond->dev, "link status down again after %d ms for interface %s\n",
+ 					    (bond->params.updelay - slave->delay) *
+ 					    bond->params.miimon,
+@@ -1955,7 +1967,7 @@ static void bond_miimon_commit(struct bonding *bond)
+ 			continue;
+ 
+ 		case BOND_LINK_UP:
+-			slave->link = BOND_LINK_UP;
++			bond_set_slave_link_state(slave, BOND_LINK_UP);
+ 			slave->last_link_up = jiffies;
+ 
+ 			primary = rtnl_dereference(bond->primary_slave);
+@@ -1995,7 +2007,7 @@ static void bond_miimon_commit(struct bonding *bond)
+ 			if (slave->link_failure_count < UINT_MAX)
+ 				slave->link_failure_count++;
+ 
+-			slave->link = BOND_LINK_DOWN;
++			bond_set_slave_link_state(slave, BOND_LINK_DOWN);
+ 
+ 			if (BOND_MODE(bond) == BOND_MODE_ACTIVEBACKUP ||
+ 			    BOND_MODE(bond) == BOND_MODE_8023AD)
+@@ -2578,7 +2590,7 @@ static void bond_ab_arp_commit(struct bonding *bond)
+ 				struct slave *current_arp_slave;
+ 
+ 				current_arp_slave = rtnl_dereference(bond->current_arp_slave);
+-				slave->link = BOND_LINK_UP;
++				bond_set_slave_link_state(slave, BOND_LINK_UP);
+ 				if (current_arp_slave) {
+ 					bond_set_slave_inactive_flags(
+ 						current_arp_slave,
+@@ -2601,7 +2613,7 @@ static void bond_ab_arp_commit(struct bonding *bond)
+ 			if (slave->link_failure_count < UINT_MAX)
+ 				slave->link_failure_count++;
+ 
+-			slave->link = BOND_LINK_DOWN;
++			bond_set_slave_link_state(slave, BOND_LINK_DOWN);
+ 			bond_set_slave_inactive_flags(slave,
+ 						      BOND_SLAVE_NOTIFY_NOW);
+ 
+@@ -2680,7 +2692,7 @@ static bool bond_ab_arp_probe(struct bonding *bond)
+ 		 * up when it is actually down
+ 		 */
+ 		if (!bond_slave_is_up(slave) && slave->link == BOND_LINK_UP) {
+-			slave->link = BOND_LINK_DOWN;
++			bond_set_slave_link_state(slave, BOND_LINK_DOWN);
+ 			if (slave->link_failure_count < UINT_MAX)
+ 				slave->link_failure_count++;
+ 
+@@ -2700,7 +2712,7 @@ static bool bond_ab_arp_probe(struct bonding *bond)
+ 	if (!new_slave)
+ 		goto check_state;
+ 
+-	new_slave->link = BOND_LINK_BACK;
++	bond_set_slave_link_state(new_slave, BOND_LINK_BACK);
+ 	bond_set_slave_active_flags(new_slave, BOND_SLAVE_NOTIFY_LATER);
+ 	bond_arp_send_all(bond, new_slave);
+ 	new_slave->last_link_up = jiffies;
+diff --git a/include/net/bonding.h b/include/net/bonding.h
+index 29f53ea..d1367ec 100644
+--- a/include/net/bonding.h
++++ b/include/net/bonding.h
+@@ -490,6 +490,11 @@ static inline bool bond_is_slave_inactive(struct slave *slave)
+ 	return slave->inactive;
+ }
+ 
++static inline void bond_set_slave_link_state(struct slave *slave, int state)
++{
++	slave->link = state;
++}
++
+ static inline __be32 bond_confirm_addr(struct net_device *dev, __be32 dst, __be32 local)
+ {
+ 	struct in_device *in_dev;
 -- 
 1.7.1
