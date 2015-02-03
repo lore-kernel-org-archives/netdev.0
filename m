@@ -1,81 +1,51 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: PROBLEM: Bnx2x Checksum/Length Error Over GRE Tunnel
-Date: Tue, 03 Feb 2015 10:46:36 -0800
-Message-ID: <1422989196.907.34.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <54D0A345.2030108@skyatlas.com> <54D10DFE.1070604@skyatlas.com>
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Subject: [PATCH] IBM-EMAC: Delete an unnecessary check before the function
+ call "of_dev_put"
+Date: Tue, 03 Feb 2015 19:51:38 +0100
+Message-ID: <54D118BA.3080001@users.sourceforge.net>
+References: <5307CAA2.8060406@users.sourceforge.net> <alpine.DEB.2.02.1402212321410.2043@localhost6.localdomain6> <530A086E.8010901@users.sourceforge.net> <alpine.DEB.2.02.1402231635510.1985@localhost6.localdomain6> <530A72AA.3000601@users.sourceforge.net> <alpine.DEB.2.02.1402240658210.2090@localhost6.localdomain6> <530B5FB6.6010207@users.sourceforge.net> <alpine.DEB.2.10.1402241710370.2074@hadrien> <530C5E18.1020800@users.sourceforge.net> <alpine.DEB.2.10.1402251014170.2080@hadrien> <530CD2C4.4050903@users.sourceforge.net> <alpine.DEB.2.10.1402251840450.7035@hadrien> <530CF8FF.8080600@users.sourceforge.net> <alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6> <530DD06F.4090703@users.sourceforge.net> <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6> <5317A59D.4@users.so
+ urceforge.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Network Development <netdev@vger.kernel.org>
-To: Eren =?ISO-8859-1?Q?T=FCrkay?= <erent@skyatlas.com>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	kernel-janitors@vger.kernel.org,
+	Julia Lawall <julia.lawall@lip6.fr>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f181.google.com ([209.85.213.181]:44220 "EHLO
-	mail-ig0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752040AbbBCSqi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Feb 2015 13:46:38 -0500
-Received: by mail-ig0-f181.google.com with SMTP id hn18so26490382igb.2
-        for <netdev@vger.kernel.org>; Tue, 03 Feb 2015 10:46:38 -0800 (PST)
-In-Reply-To: <54D10DFE.1070604@skyatlas.com>
+Received: from mout.web.de ([212.227.17.12]:63176 "EHLO mout.web.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753118AbbBCSvn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Feb 2015 13:51:43 -0500
+In-Reply-To: <5317A59D.4@users.sourceforge.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2015-02-03 at 20:05 +0200, Eren T=C3=BCrkay wrote:
-> Hello,
->=20
-> I am having incorrect checksum and length calculation error when usin=
-g
-> GRE tunnel and this leads to unstable/unreliable connections where ev=
-en
-> simple nc connection cannot be made correctly due to a lot of TCP
-> retransmissions. The reported iperf output becomes 23Kbit/s.
->=20
-> When I disable tx checksumming with "ethtool -K eth0 tx off", the
-> problem seems to be solved but then I lose tcp segmentation offloadin=
-g
-> support, without which adds an additional overhead on 10Gbit network
-> interface. With tx off, I get 4 to 7Gbit/s with parallel 40 connectio=
-ns
-> using iperf.
->=20
-> In tcpdump output (tcpdump -i em1 proto gre) when tx checksumming is
-> enabled, I see "checksum error" in every packet + "IP truncated-ip -
-> 63631 bytes missing!" messages, and a lot of TCP
-> retransmissions. When tx is off, checksums are correct but I get 4-7G=
-bit
-> output. With GSO generalization code in [0] it is reported that
-> 9.3Gbit/s is possible over GRE tunnel but I'm nowhere near these resu=
-lts.
+From: Markus Elfring <elfring@users.sourceforge.net>
+Date: Tue, 3 Feb 2015 19:47:33 +0100
 
-Strange, I am using bnx2x with no such problem.
+The of_dev_put() function tests whether its argument is NULL and then
+returns immediately. Thus the test around the call is not needed.
 
-Please note that tcpdump can display "checksum error" because it doesn'=
-t
-always know the NIC will generate the checksums.
+This issue was detected by using the Coccinelle software.
 
-Can you please send : ifconfig -a, as I suspect an MTU issue
+Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+---
+ drivers/net/ethernet/ibm/emac/core.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Here I easily reach line rate with a single flow.
-
-ip tunnel add gre1 mode gre remote 10.246.11.52 local 10.246.11.51
-ip link set gre1 up
-ip addr add 7.7.8.51/24 dev gre1
-
-
-lpk51:~# ip ro get 7.7.8.52
-7.7.8.52 dev gre1  src 7.7.8.51=20
-    cache  expires 557sec mtu 1476
-
-lpk51:~# ./netperf -H 7.7.8.52 -Cc
-MIGRATED TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 7.7.8=
-=2E52 () port 0 AF_INET
-Recv   Send    Send                          Utilization       Service =
-Demand
-Socket Socket  Message  Elapsed              Send     Recv     Send    =
-Recv
-Size   Size    Size     Time     Throughput  local    remote   local   =
-remote
-bytes  bytes   bytes    secs.    10^6bits/s  % S      % S      us/KB   =
-us/KB
-
- 87380  16384  16384    10.00      9227.94   2.52     3.96     0.715   =
-1.125 =20
+diff --git a/drivers/net/ethernet/ibm/emac/core.c b/drivers/net/ethernet/ibm/emac/core.c
+index 9388a83..162762d 100644
+--- a/drivers/net/ethernet/ibm/emac/core.c
++++ b/drivers/net/ethernet/ibm/emac/core.c
+@@ -2367,7 +2367,7 @@ static int emac_wait_deps(struct emac_instance *dev)
+ 	err = emac_check_deps(dev, deps) ? 0 : -ENODEV;
+ 	for (i = 0; i < EMAC_DEP_COUNT; i++) {
+ 		of_node_put(deps[i].node);
+-		if (err && deps[i].ofdev)
++		if (err)
+ 			of_dev_put(deps[i].ofdev);
+ 	}
+ 	if (err == 0) {
+-- 
+2.2.2
