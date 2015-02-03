@@ -1,46 +1,36 @@
-From: Tom Herbert <therbert@google.com>
+From: Rick Jones <rick.jones2@hp.com>
 Subject: Re: low vxlan throughput with tso enabled
-Date: Tue, 3 Feb 2015 08:26:27 -0800
-Message-ID: <CA+mtBx-7Q1O8KMgmcoKnHurj7DP-4jugkKuqt3b=XaMga2-NEg@mail.gmail.com>
+Date: Tue, 03 Feb 2015 08:36:15 -0800
+Message-ID: <54D0F8FF.1090204@hp.com>
 References: <bde634e5-3c57-4e80-9309-670cbd51c1b9@DE-WIE-EXCH3A.green.sophos>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Netdev List <netdev@vger.kernel.org>, svens@stackframe.org,
-	Vittorio Curcio <Vittorio.Curcio@sophos.com>
-To: Reiner Herrmann <reiner.herrmann@sophos.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: svens@stackframe.org, Vittorio Curcio <Vittorio.Curcio@Sophos.com>
+To: Reiner Herrmann <reiner.herrmann@sophos.com>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f182.google.com ([209.85.213.182]:51005 "EHLO
-	mail-ig0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965971AbbBCQ02 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Feb 2015 11:26:28 -0500
-Received: by mail-ig0-f182.google.com with SMTP id h15so10497319igd.3
-        for <netdev@vger.kernel.org>; Tue, 03 Feb 2015 08:26:28 -0800 (PST)
+Received: from g4t3426.houston.hp.com ([15.201.208.54]:34029 "EHLO
+	g4t3426.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965742AbbBCQgS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Feb 2015 11:36:18 -0500
 In-Reply-To: <bde634e5-3c57-4e80-9309-670cbd51c1b9@DE-WIE-EXCH3A.green.sophos>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 3, 2015 at 7:50 AM, Reiner Herrmann
-<reiner.herrmann@sophos.com> wrote:
-> Hi!
->
+On 02/03/2015 07:50 AM, Reiner Herrmann wrote:
 > I have a vxlan tunnel established between two network interfaces, which
 > both have a MTU of 1500. The vxlan interfaces have the same MTU.
-> With TSO enabled, I observe low throughput with TCP connections (<100 kB/s).
+> With TSO enabled, I observe low throughput with TCP connections (<100
+> kB/s).
 > Disabling TSO works around this issue and throughput is as expected.
 > Can someone please explain how TSO is influencing the tunnel to cause
 > such a difference?
->
-Please provide more information. What NIC? What is the link rate? What
-are you running to test. Also report 'ethtool -k' of both tunnel and
-Ethernet interfaces, and tcpdump on the interfaces (to see GSO
-packets).
 
-Thanks
+I've been under the impression that one generally wants the MTU of a 
+tunnel interface to be no more than the MTU of the physical interface 
+over which it runs, less the size of the encapsulation headers used by 
+the tunnel.  What happens when you make the MTU of the tunnel interface 
+1400 bytes instead of 1500?
 
-> Kind regards,
-> Reiner
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+rick jones
