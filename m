@@ -1,43 +1,44 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH] net: ipv6: Make address flushing on ifdown optional -
- v2
-Date: Tue, 3 Feb 2015 01:18:11 +0100
-Message-ID: <20150203011811.12d69803@uryu.home.lan>
-References: <1422504065-17445-1-git-send-email-dsahern@gmail.com>
-	<20150203001057.3e0e22b2@uryu.home.lan>
-	<54D0124C.70202@gmail.com>
+From: "Nicholas A. Bellinger" <nab@linux-iscsi.org>
+Subject: Re: [target:for-next 16/21] drivers/vhost/scsi.c:1081:5: sparse:
+ symbol 'vhost_skip_iovec_bytes' was not declared. Should it be static?
+Date: Mon, 02 Feb 2015 16:24:11 -0800
+Message-ID: <1422923051.24128.5.camel@haakon3.risingtidesystems.com>
+References: <201502021411.KBLYtCzS%fengguang.wu@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Hannes Frederic Sowa <hannes@redhat.com>
-To: David Ahern <dsahern@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f175.google.com ([209.85.223.175]:64971 "EHLO
-	mail-ie0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965178AbbBCASb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2015 19:18:31 -0500
-Received: by mail-ie0-f175.google.com with SMTP id ar1so21543624iec.6
-        for <netdev@vger.kernel.org>; Mon, 02 Feb 2015 16:18:30 -0800 (PST)
-In-Reply-To: <54D0124C.70202@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: kbuild-all@01.org, "Michael S. Tsirkin" <mst@redhat.com>,
+	kvm@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	target-devel <target-devel@vger.kernel.org>
+To: kbuild test robot <fengguang.wu@intel.com>
+Return-path: <target-devel-owner@vger.kernel.org>
+In-Reply-To: <201502021411.KBLYtCzS%fengguang.wu@intel.com>
+Sender: target-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 02 Feb 2015 17:11:56 -0700
-David Ahern <dsahern@gmail.com> wrote:
+On Mon, 2015-02-02 at 14:25 +0800, kbuild test robot wrote:
+> tree:   git://git.kernel.org/pub/scm/linux/kernel/git/nab/target-pending.git for-next
+> head:   2936f1d4f3e8247bd519feba7892371d5e4c6603
+> commit: 105acf608f25d5e0d9fef669299a5438b7b114ee [16/21] vhost/scsi: Add ANY_LAYOUT vhost_skip_iovec_bytes helper
+> reproduce:
+>   # apt-get install sparse
+>   git checkout 105acf608f25d5e0d9fef669299a5438b7b114ee
+>   make ARCH=x86_64 allmodconfig
+>   make C=1 CF=-D__CHECK_ENDIAN__
+> 
+> 
+> sparse warnings: (new ones prefixed by >>)
+> 
+> >> drivers/vhost/scsi.c:1081:5: sparse: symbol 'vhost_skip_iovec_bytes' was not declared. Should it be static?
+>    drivers/vhost/scsi.c:969:1: warning: 'vhost_scsi_mapal' defined but not used [-Wunused-function]
+>     vhost_scsi_mapal(struct tcm_vhost_cmd *cmd, int max_niov,
+>     ^
+> 
+> Please review and possibly fold the followup patch.
 
-> On 2/2/15 4:10 PM, Stephen Hemminger wrote:
-> > Checkpatch complains about space before tab, which could be your
-> > mailer mangling the patch.
-> 
-> Yes, found that a couple of days ago. I use 'git send-email' to send the 
-> patches, and I have a pre-commit hook to run checkpatch.pl. Perhaps I 
-> goofed something in the recent latptop transitions.
-> 
-> >
-> > This should probably go into the netconf netlink message as well.
-> >
-> 
-> Not sure I understand this point. Can you point me to a code reference 
-> to look up?
+Fixing up for -v3.
 
-Look at how forwarding flag is propagated already via NETCONFA_FORWARDING.
+Thanks Fengguang!
+
+--nab
