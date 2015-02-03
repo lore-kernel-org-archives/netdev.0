@@ -1,44 +1,66 @@
 From: "Nicholas A. Bellinger" <nab@linux-iscsi.org>
-Subject: Re: [target:for-next 16/21] drivers/vhost/scsi.c:1081:5: sparse:
- symbol 'vhost_skip_iovec_bytes' was not declared. Should it be static?
-Date: Mon, 02 Feb 2015 16:24:11 -0800
-Message-ID: <1422923051.24128.5.camel@haakon3.risingtidesystems.com>
-References: <201502021411.KBLYtCzS%fengguang.wu@intel.com>
+Subject: Re: [PATCH v2 18/18] vhost: vhost_scsi_handle_vq() should just use
+ copy_from_user()
+Date: Mon, 02 Feb 2015 16:42:56 -0800
+Message-ID: <1422924176.24128.9.camel@haakon3.risingtidesystems.com>
+References: <20150131035513.GK29656@ZenIV.linux.org.uk>
+	 <1422863977-17668-18-git-send-email-viro@ZenIV.linux.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: kbuild-all@01.org, "Michael S. Tsirkin" <mst@redhat.com>,
-	kvm@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	"Michael S. Tsirkin" <mst@redhat.com>, kvm@vger.kernel.org,
 	target-devel <target-devel@vger.kernel.org>
-To: kbuild test robot <fengguang.wu@intel.com>
-Return-path: <target-devel-owner@vger.kernel.org>
-In-Reply-To: <201502021411.KBLYtCzS%fengguang.wu@intel.com>
-Sender: target-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Al Viro <viro@ZenIV.linux.org.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.linux-iscsi.org ([67.23.28.174]:51807 "EHLO
+	linux-iscsi.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751307AbbBCAm5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2015 19:42:57 -0500
+In-Reply-To: <1422863977-17668-18-git-send-email-viro@ZenIV.linux.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2015-02-02 at 14:25 +0800, kbuild test robot wrote:
-> tree:   git://git.kernel.org/pub/scm/linux/kernel/git/nab/target-pending.git for-next
-> head:   2936f1d4f3e8247bd519feba7892371d5e4c6603
-> commit: 105acf608f25d5e0d9fef669299a5438b7b114ee [16/21] vhost/scsi: Add ANY_LAYOUT vhost_skip_iovec_bytes helper
-> reproduce:
->   # apt-get install sparse
->   git checkout 105acf608f25d5e0d9fef669299a5438b7b114ee
->   make ARCH=x86_64 allmodconfig
->   make C=1 CF=-D__CHECK_ENDIAN__
-> 
-> 
-> sparse warnings: (new ones prefixed by >>)
-> 
-> >> drivers/vhost/scsi.c:1081:5: sparse: symbol 'vhost_skip_iovec_bytes' was not declared. Should it be static?
->    drivers/vhost/scsi.c:969:1: warning: 'vhost_scsi_mapal' defined but not used [-Wunused-function]
->     vhost_scsi_mapal(struct tcm_vhost_cmd *cmd, int max_niov,
->     ^
-> 
-> Please review and possibly fold the followup patch.
+Hi Al,
 
-Fixing up for -v3.
+On Mon, 2015-02-02 at 07:59 +0000, Al Viro wrote:
+> From: Al Viro <viro@zeniv.linux.org.uk>
+> 
+> it has just verified that it asks no more than the length of the
+> first segment of iovec.
+> 
+> And with that the last user of stuff in lib/iovec.c is gone.
+> RIP.
+> 
+> Cc: Michael S. Tsirkin <mst@redhat.com>
+> Cc: Nicholas A. Bellinger <nab@linux-iscsi.org>
+> Cc: kvm@vger.kernel.org
+> Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
+> ---
+>  drivers/vhost/scsi.c |  2 +-
+>  include/linux/uio.h  |  2 --
+>  lib/Makefile         |  2 +-
+>  lib/iovec.c          | 36 ------------------------------------
+>  4 files changed, 2 insertions(+), 40 deletions(-)
+>  delete mode 100644 lib/iovec.c
+> 
+> diff --git a/drivers/vhost/scsi.c b/drivers/vhost/scsi.c
+> index d695b16..dc78d87 100644
+> --- a/drivers/vhost/scsi.c
+> +++ b/drivers/vhost/scsi.c
+> @@ -1079,7 +1079,7 @@ vhost_scsi_handle_vq(struct vhost_scsi *vs, struct vhost_virtqueue *vq)
+>  			       req_size, vq->iov[0].iov_len);
+>  			break;
+>  		}
+> -		ret = memcpy_fromiovecend(req, &vq->iov[0], 0, req_size);
+> +		ret = copy_from_user(req, vq->iov[0].iov_base, req_size);
+>  		if (unlikely(ret)) {
+>  			vq_err(vq, "Faulted on virtio_scsi_cmd_req\n");
+>  			break;
 
-Thanks Fengguang!
+Is this in for-next yet..?
+
+If not, please push out ASAP so SFR can hit the conflict between
+target-pending/for-next as a heads up for Linus..
 
 --nab
