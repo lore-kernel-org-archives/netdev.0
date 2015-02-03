@@ -1,41 +1,58 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH net-next] veth: set iflink to the peer veth
-Date: Tue,  3 Feb 2015 16:41:46 +0100
-Message-ID: <1422978106-4744-1-git-send-email-nicolas.dichtel@6wind.com>
-Cc: davem@davemloft.net, Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:49609 "EHLO
-	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965647AbbBCPly (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Feb 2015 10:41:54 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: RE: [PATCH net] hyperv: Fix the error processing in netvsc_send()
+Date: Tue, 3 Feb 2015 15:46:31 +0000
+Message-ID: <BN1PR0301MB077018D4A512E3AA9B8583E0CA3D0@BN1PR0301MB0770.namprd03.prod.outlook.com>
+References: <1422563689-31036-1-git-send-email-haiyangz@microsoft.com>
+ <1422613519.8840.0@smtp.corp.redhat.com>
+ <BN1PR0301MB0770FCDA58F3BC9E25382D95CA310@BN1PR0301MB0770.namprd03.prod.outlook.com>
+ <1422859762.7028.2@smtp.corp.redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "olaf@aepfle.de" <olaf@aepfle.de>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ "driverdev-devel@linuxdriverproject.org"
+ <driverdev-devel@linuxdriverproject.org>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ "davem@davemloft.net" <davem@davemloft.net>
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <1422859762.7028.2@smtp.corp.redhat.com>
+Content-Language: en-US
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-Now that the peer netns is advertised in rtnl messages, we can set this property
-so that IFLA_LINK will advertise the peer ifindex. It allows the userland to get
-the full veth configuration.
 
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
- drivers/net/veth.c | 2 ++
- 1 file changed, 2 insertions(+)
 
-diff --git a/drivers/net/veth.c b/drivers/net/veth.c
-index 4cca36ebc4fb..02d1f798a371 100644
---- a/drivers/net/veth.c
-+++ b/drivers/net/veth.c
-@@ -427,9 +427,11 @@ static int veth_newlink(struct net *src_net, struct net_device *dev,
- 
- 	priv = netdev_priv(dev);
- 	rcu_assign_pointer(priv->peer, peer);
-+	dev->iflink = peer->ifindex;
- 
- 	priv = netdev_priv(peer);
- 	rcu_assign_pointer(priv->peer, dev);
-+	peer->iflink = dev->ifindex;
- 	return 0;
- 
- err_register_dev:
--- 
-2.2.2
+> -----Original Message-----
+> From: Jason Wang [mailto:jasowang@redhat.com]
+> Sent: Monday, February 2, 2015 1:49 AM
+> >>  btw, I find during netvsc_start_xmit(), ret was change to -ENOSPC
+> >> when
+> >>  queue_sends[q_idx] < 1. But non of the caller check -ENOSPC in fact?
+> >
+> > In this case, we don't request re-send, so set ret to a value other
+> > than
+> > -EAGAIN.
+> 
+> Why not? We have available slots for it to be sent now. Dropping the
+> packet in this case may cause out of order sending.
+
+The EAGAIN error doesn't normally happen, because we set the hi water mark
+to stop send queue. If in really rare case, the ring buffer is full and there
+is no outstanding sends, we can't stop queue here because there will be no
+send-completion msg to wake it up. And, the ring buffer is likely to be 
+occupied by other special msg, e.g. receive-completion msg (not a normal case),
+so we can't assume there are available slots. We don't request retry from
+the upper layer in this case to avoid possible busy retry.
+
+Thanks,
+- Haiyang
