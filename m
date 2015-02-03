@@ -1,49 +1,50 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: Question: should local address be expired when updating PMTU?
-Date: Tue, 3 Feb 2015 10:28:46 +0100
-Message-ID: <20150203092845.GT13046@secunet.com>
-References: <54CF3348.40207@huawei.com>
+From: Govindarajulu Varadarajan <_govind@gmx.com>
+Subject: Re: [PATCH net-next 3/4] ethtool: add RX_ALLOC_ORDER to tunable
+Date: Tue, 3 Feb 2015 15:19:30 +0530 (IST)
+Message-ID: <alpine.LNX.2.03.1502031326260.22700@ws.cisco>
+References: <1422707290-939-1-git-send-email-_govind@gmx.com> <1422707290-939-4-git-send-email-_govind@gmx.com> <20150202.192159.66698996958688718.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<yangyingling@huawei.com>, <hannes@redhat.com>
-To: shengyong <shengyong1@huawei.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: _govind@gmx.com, netdev@vger.kernel.org, ssujith@cisco.com,
+	benve@cisco.com, edumazet@google.com, ben@decadent.org.uk
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:40769 "EHLO a.mx.secunet.com"
+Received: from mout.gmx.com ([74.208.4.201]:49964 "EHLO mout.gmx.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751202AbbBCJ2z (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Feb 2015 04:28:55 -0500
-Content-Disposition: inline
-In-Reply-To: <54CF3348.40207@huawei.com>
+	id S1751415AbbBCJts (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Feb 2015 04:49:48 -0500
+In-Reply-To: <20150202.192159.66698996958688718.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 02, 2015 at 04:20:24PM +0800, shengyong wrote:
-> Hi, David Miller
-> Since commit 81aded246 (ipv6: Handle PMTU in ICMP error handlers), the entries
-> in neigh table may get expired. But in the situation:
-> 
->           Host only
->     PC <------------> Virtual Machine
-> 
-> a packet is sent from PC to VM, and the packet looks like:
-> -----------------------------------
-> | IPv6 (src=PC-addr, dst=VM-addr) |
-> |---------------------------------|
-> |     ICMPv6 (Packet Too Big)     |
-> |---------------------------------|
-> | IPv6 (src=VM-addr, dst=VM-addr) |
-> |---------------------------------|
-> | ICMPv6 (Neighbor Advertisement) |
-> -----------------------------------
-> 
-> Then the local addr on VM will be updated with an expire value. After the
-> lifetime of the local addr is expired, the VM is unreachable from PC.
-> 
-> 	# ip -6 route list table local
-> 	local fe80::1 dev lo  metric 0 *expire 596*
+On Mon, 2 Feb 2015, David Miller wrote:
 
-We first need to find out why you receive this Packet Too Big message,
-can you capture this packet somehow? Then we have to see why this loopback
-route gets a pmtu update from that packet. Is the destination address
-of the Packet Too Big message really fe80::1?
+> From: Govindarajulu Varadarajan <_govind@gmx.com>
+> Date: Sat, 31 Jan 2015 17:58:09 +0530
+>
+>> Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
+>
+> This is terrible.
+>
+> You haven't explained what this means.
+>
+> And to tell you the truth, from what I can tell this tunable is
+> very specific to how you have implemented RX frags in the enic
+> driver in this series and won't necessarily translate to how
+> other drivers manage RX buffers.
+>
+
+Yes I agree that this is too specific to driver. From my knowledge mlx4 also
+uses similar frag allocation from large order page. Other that these two
+drivers, this facility may not make sense to other drivers.
+
+On systems with huge memory we can go higher than order-3, and if user sees that
+order-3 are failing, he should be able to reduce the order.
+
+Since this is very driver specific, are you fine if I move this to device sysfs?
+
+
+> You need to actually design this facility properly, understand
+> what the needs are of other drivers and how this facility
+> can be relevant for more drivers than your own.
+>
