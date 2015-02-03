@@ -1,36 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 0/3] Restore UFO support to virtio_net devices
-Date: Mon, 02 Feb 2015 17:49:18 -0800 (PST)
-Message-ID: <20150202.174918.1368082761533704490.davem@davemloft.net>
-References: <1422889269-16007-1-git-send-email-vyasevic@redhat.com>
-	<20150202.131158.2302675247156677150.davem@davemloft.net>
+Subject: Re: [PATCH net] qlge: Fix qlge_update_hw_vlan_features to handle
+ if interface is down
+Date: Mon, 02 Feb 2015 17:51:35 -0800 (PST)
+Message-ID: <20150202.175135.299745251563275368.davem@davemloft.net>
+References: <10e24de024f81e60ab64a6f0bf9647d27eb40be1.1422618157.git.mleitner@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	mst@redhat.com, ben@decadent.org.uk, eric.dumazet@gmail.com,
-	hannes@stressinduktion.org, vyasevic@redhat.com
-To: vyasevich@gmail.com
+Cc: netdev@vger.kernel.org, harish.patil@qlogic.com, cdupuis@redhat.com
+To: mleitner@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49726 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:49744 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932612AbbBCBtV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2015 20:49:21 -0500
-In-Reply-To: <20150202.131158.2302675247156677150.davem@davemloft.net>
+	with ESMTP id S933385AbbBCBvf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2015 20:51:35 -0500
+In-Reply-To: <10e24de024f81e60ab64a6f0bf9647d27eb40be1.1422618157.git.mleitner@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Mon, 02 Feb 2015 13:11:58 -0800 (PST)
+From: Marcelo Ricardo Leitner <mleitner@redhat.com>
+Date: Fri, 30 Jan 2015 09:56:01 -0200
 
-> Vlad, this still fails the same way.
- ...
-> Please build allmodconfig, that is the exact build I use to test your
-> and everyone else's changes.
+> Currently qlge_update_hw_vlan_features() will always first put the
+> interface down, then update features and then bring it up again. But it
+> is possible to hit this code while the adapter is down and this causes a
+> non-paired call to napi_disable(), which will get stuck.
+> 
+> This patch fixes it by skipping these down/up actions if the interface
+> is already down.
+> 
+> Fixes: a45adbe8d352 ("qlge: Enhance nested VLAN (Q-in-Q) handling.")
+> Cc: Harish Patil <harish.patil@qlogic.com>
+> Signed-off-by: Marcelo Ricardo Leitner <mleitner@redhat.com>
 
-Oh, also, there is trailing whitespace in one of the comments added
-by patch #1.  I've been silently fixing it up for you, but since you
-have to respin this one more time I'd appreciate it if you're fix
-it up in your copy this time. :)
-
-Thanks.
+Applied and queued up for -stable, thanks.
