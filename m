@@ -1,44 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: rhashtable: Move hash_rnd into bucket_table
-Date: Mon, 02 Feb 2015 19:26:34 -0800 (PST)
-Message-ID: <20150202.192634.1792206005008667377.davem@davemloft.net>
-References: <20150131102150.GA29498@gondor.apana.org.au>
-	<20150202.191956.404010205495035337.davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/6] ipv6: Add lockless UDP send path
+Date: Mon, 02 Feb 2015 19:28:45 -0800 (PST)
+Message-ID: <20150202.192845.885503646752052740.davem@davemloft.net>
+References: <1422718818-21093-1-git-send-email-vyasevic@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: tgraf@suug.ch, netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au,
+	hannes@stressinduktion.org, vyasevic@redhat.com
+To: vyasevich@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50220 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:50245 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752422AbbBCD0f (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2015 22:26:35 -0500
-In-Reply-To: <20150202.191956.404010205495035337.davem@davemloft.net>
+	with ESMTP id S932074AbbBCD2q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2015 22:28:46 -0500
+In-Reply-To: <1422718818-21093-1-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogTW9uLCAwMiBG
-ZWIgMjAxNSAxOToxOTo1NiAtMDgwMCAoUFNUKQ0KDQo+IEZyb206IEhlcmJlcnQgWHUgPGhlcmJl
-cnRAZ29uZG9yLmFwYW5hLm9yZy5hdT4NCj4gRGF0ZTogU2F0LCAzMSBKYW4gMjAxNSAyMToyMTo1
-MCArMTEwMA0KPiANCj4+IEN1cnJlbnRseSBoYXNoX3JuZCBpcyBhIHBhcmFtZXRlciB0aGF0IHVz
-ZXJzIGNhbiBzZXQuICBIb3dldmVyLA0KPj4gbm8gZXhpc3RpbmcgdXNlcnMgc2V0IHRoaXMgcGFy
-YW1ldGVyLiAgSXQgaXMgYWxzbyBzb21ldGhpbmcgdGhhdA0KPj4gcGVvcGxlIGFyZSB1bmxpa2Vs
-eSB0byB3YW50IHRvIHNldCBkaXJlY3RseSBzaW5jZSBpdCdzIGp1c3QgYQ0KPj4gcmFuZG9tIG51
-bWJlci4NCj4+ICAgICANCj4+IEluIHByZXBhcmF0aW9uIGZvciBhbGxvd2luZyB0aGUgcmVzZWVk
-aW5nL3JlaGFzaGluZyBvZiByaGFzaHRhYmxlLA0KPj4gdGhpcyBwYXRjaCBtb3ZlcyBoYXNoX3Ju
-ZCBpbnRvIGJ1Y2tldF90YWJsZSBzbyB0aGF0IGl0J3Mgbm93IGFuDQo+PiBpbnRlcm5hbCBzdGF0
-ZSByYXRoZXIgdGhhbiBhIHBhcmFtZXRlci4NCj4+ICAgICANCj4+IFNpZ25lZC1vZmYtYnk6IEhl
-cmJlcnQgWHUgPGhlcmJlcnRAZ29uZG9yLmFwYW5hLm9yZy5hdT4NCj4gDQo+IEFsc28gYXBwbGll
-ZCB0byBuZXQtbmV4dCwgdGhhbmtzIGEgbG90Lg0KDQpBY3R1YWxseSB0aGlzIGFuZCB0aGUgbmV0
-ZmlsdGVyIGNoYW5nZSBicmVhayB0aGUgYnVpbGQuDQoNCkknbSByZXZlcnRpbmcgYWxsIG9mIHRo
-ZXNlIHJoYXNodGFibGUgY2hhbmdlcywgcGxlYXNlIGZpeCB0aGlzIHN0dWZmDQp1cC4NCg0KRmly
-c3RseSwgdGhlIGhhc2hfcm5kIGNoYW5nZSByZXN1bHRzIGluIHRoaXM6DQoNCmxpYi9yaGFzaHRh
-YmxlLmM6IEluIGZ1bmN0aW9uIKFvYmpfcmF3X2hhc2hmbqI6DQpsaWIvcmhhc2h0YWJsZS5jOjg0
-Ojk6IHdhcm5pbmc6IHBhc3NpbmcgYXJndW1lbnQgMSBvZiChbG9ja2RlcF9yaHRfbXV0ZXhfaXNf
-aGVsZKIgZGlzY2FyZHMgoWNvbnN0oiBxdWFsaWZpZXIgZnJvbSBwb2ludGVyIHRhcmdldCB0eXBl
-IFtlbmFibGVkIGJ5IGRlZmF1bHRdDQpsaWIvcmhhc2h0YWJsZS5jOjU3OjU6IG5vdGU6IGV4cGVj
-dGVkIKFzdHJ1Y3Qgcmhhc2h0YWJsZSAqoiBidXQgYXJndW1lbnQgaXMgb2YgdHlwZSChY29uc3Qg
-c3RydWN0IHJoYXNodGFibGUgKqINCg0KTmV4dCwgdGhlIG5ldGZpbHRlciBjaGFuZ2UgcmVzdWx0
-cyBpbjoNCg0KRVJST1I6ICJyaGFzaHRhYmxlX3dhbGtfc3RhcnQiIFtuZXQvbmV0ZmlsdGVyL25m
-dF9oYXNoLmtvXSB1bmRlZmluZWQhDQo=
+From: Vladislav Yasevich <vyasevich@gmail.com>
+Date: Sat, 31 Jan 2015 10:40:12 -0500
+
+> This series introduces a lockless UDPv6 send path similar to
+> what Herbert Xu did for IPv4 a while ago.
+> 
+> There are some difference from IPv4.  IPv6 caching for flow
+> label is a bit different, as well as it requires another cork
+> cork structure that holds the IPv6 ancillary data.
+> 
+> Please take a look.
+
+This looks good to me, applied, thanks Vlad.
