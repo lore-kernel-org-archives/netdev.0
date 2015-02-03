@@ -1,25 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Documentation: Update netlink_mmap.txt
-Date: Mon, 02 Feb 2015 18:50:12 -0800 (PST)
-Message-ID: <20150202.185012.1458410090288245049.davem@davemloft.net>
-References: <1422647444-4004-1-git-send-email-richard@nod.at>
+Subject: Re: [PATCH] net: hip04: add missing MODULE_LICENSE
+Date: Mon, 02 Feb 2015 18:51:29 -0800 (PST)
+Message-ID: <20150202.185129.1647037878678890112.davem@davemloft.net>
+References: <4018099.9I7f6kd5jC@wuerfel>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: corbet@lwn.net, shemming@brocade.com, linux-doc@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: richard@nod.at
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <1422647444-4004-1-git-send-email-richard@nod.at>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, zhangfei.gao@linaro.org,
+	dingtianhong@huawei.com
+To: arnd@arndb.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:50021 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752386AbbBCCv3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2015 21:51:29 -0500
+In-Reply-To: <4018099.9I7f6kd5jC@wuerfel>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Richard Weinberger <richard@nod.at>
-Date: Fri, 30 Jan 2015 20:50:44 +0100
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Fri, 30 Jan 2015 22:57:01 +0100
 
-> Update netlink_mmap.txt wrt. commit 4682a0358639b29cf
-> ("netlink: Always copy on mmap TX.").
+> The hip04 ethernet driver causes a new compile-time warning
+> when built as a loadable module:
 > 
-> Signed-off-by: Richard Weinberger <richard@nod.at>
+> WARNING: modpost: missing MODULE_LICENSE() in drivers/net/ethernet/hisilicon/hip04_eth.o
+> see include/linux/module.h for more information
+> 
+> This adds the license as "GPL", which matches the header of the file.
+> 
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 
-Applied, thanks.
+Applied.
