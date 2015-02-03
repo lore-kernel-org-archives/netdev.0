@@ -1,142 +1,78 @@
-From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: Throughput regression with `tcp: refine TSO autosizing`
-Date: Tue, 03 Feb 2015 06:27:40 -0800
-Message-ID: <1422973660.907.10.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CA+BoTQkVu23P3EOmY_Q3E1GJnWsyF==Pawz4iPOS_Bq5dvfO5Q@mail.gmail.com>
-	 <1422537297.21689.15.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+BoTQk2xT-8DqPuiiKG+kHAjLPrj8F9dLTb-rcGhvMq0u_2Qw@mail.gmail.com>
-	 <1422628835.21689.95.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+BoTQkV+mOZfe_Niz5101sMQeaV6muKCsShptjGQ1AgOHqqoQ@mail.gmail.com>
-	 <1422903136.21689.114.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1422926330.21689.138.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+BoTQkMikA8wxm1ce2DkKhPB0HiKeAqT7f+sQ=91W40z=X0Rg@mail.gmail.com>
+From: Oleksij Rempel <linux-YEK0n+YFykbzxQdaRaTXBw@public.gmane.org>
+Subject: Re: [PATCH] ath9k_htc: add adaptive usb flow control to repair soft
+ lockup with monitor mode
+Date: Tue, 03 Feb 2015 15:35:25 +0100
+Message-ID: <54D0DCAD.8060409@rempel-privat.de>
+References: <1422957585-19736-1-git-send-email-yuweizheng@139.com> <87fvanxldu.fsf@kamboji.qca.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	eyalpe-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org
-To: Michal Kazior <michal.kazior-++hxYGjEMp0AvxtiuMwx3w@public.gmane.org>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ protocol="application/pgp-signature";
+ boundary="iUpB7LPx2HInfLWVkAtsumNpumKIEm6uj"
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ath9k-devel-xDcbHBWguxHbcTqmT+pZeQ@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ath9k-devel-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Yuwei Zheng <zhengyuwei-z+sInHIpZSw@public.gmane.org>
+To: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>, yuweizheng-7R9yAhoRP9E@public.gmane.org
 Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CA+BoTQkMikA8wxm1ce2DkKhPB0HiKeAqT7f+sQ=91W40z=X0Rg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+In-Reply-To: <87fvanxldu.fsf-HodKDYzPHsUD5k0oWYwrnHL1okKdlPRT@public.gmane.org>
 Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2015-02-03 at 12:50 +0100, Michal Kazior wrote:
-> On 3 February 2015 at 02:18, Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
-> > On Mon, 2015-02-02 at 10:52 -0800, Eric Dumazet wrote:
-> >
-> >> It seems to break ACK clocking badly (linux stack has a somewhat buggy
-> >> tcp_tso_should_defer(), which relies on ACK being received smoothly, as
-> >> no timer is setup to split the TSO packet.)
-> >
-> > Following patch might help the TSO split defer logic.
-> >
-> > It would avoid setting the TSO defer 'pseudo timer' twice, if/when TCP
-> > Small Queue logic prevented the xmit at the expiration of first 'timer'.
-> >
-> > This patch clears the tso_deferred variable only if we could really
-> > send something.
-> >
-> > Please try it, thanks !
-> [..patch..]
-> 
-> I've done a second round of tests. I've added the A-MSDU count
-> parameter I've mentioned in my other email into the mix.
-> 
->  net - net/master (includes stretch ack patches)
->  net-tso - net/master + your TSO defer patch
->  net-gro - net/master + my ath10k GRO patch
->  net-gro-tso - net/master + duh
-> 
-> Here's the best of amsdu count 1 and 3:
-> 
->  ; for (i in */output.txt) { echo $i; for (j in (1 3)) { cat $i | awk
-> 'x && /Mbits/ {y=$0}; x && y && !/Mbits/ {print y; x=0; y=""}; /set
-> amsdu cnt to '$j'/{x=1}' | awk '{ if (x < $(NF-1)) {x=$(NF-1)} }
-> END{print "A-MSDU limit='$j', " x " Mbits/sec"}' } }
->  net-gro-tso/output.txt
->  A-MSDU limit=1, 436 Mbits/sec
->  A-MSDU limit=3, 284 Mbits/sec
->  net-gro/output.txt
->  A-MSDU limit=1, 444 Mbits/sec
->  A-MSDU limit=3, 283 Mbits/sec
->  net-tso/output.txt
->  A-MSDU limit=1, 376 Mbits/sec
->  A-MSDU limit=3, 251 Mbits/sec
->  net/output.txt
->  A-MSDU limit=1, 387 Mbits/sec
->  A-MSDU limit=3, 260 Mbits/sec
-> 
-> IOW:
->  - stretch acks / TSO defer don't seem to help much (when compared to
-> throughput results from yesterday)
->  - GRO helps
->  - disabling A-MSDU on sender helps
->  - net/master+GRO still doesn't reach the performance from before the
-> regression (~600mbps w/ GRO)
-> 
-> You can grab logs and dumps here: http://www.filedropper.com/test2tar
-> 
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--iUpB7LPx2HInfLWVkAtsumNpumKIEm6uj
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
 
-Thanks for these traces.
+It seems to work without noticeable regressions.
 
-There is absolutely a problem at the sender, as we can see a big 2ms
-delay between reception of ACK and send of following packets.
-TCP stack should generate them immediately.
-Are you using some kind of netem qdisc ?
+Am 03.02.2015 um 12:52 schrieb Kalle Valo:
+> yuweizheng-7R9yAhoRP9E@public.gmane.org writes:
+>=20
+>> From: Yuwei Zheng <yuweizheng-7R9yAhoRP9E@public.gmane.org>
+>>
+>> In the environment with heavy wifi traffic, set the ar9271 into monito=
+r mode, will
+>> trigger a deadloop panic.
+>> =20
+>> The ath9k_hif_usb_rx_cb function excute on  the interrupt context, and=
+ ath9k_rx_tasklet excute
+>> on the soft irq context. In other words, the ath9k_hif_usb_rx_cb have =
+more chance to excute than
+>> ath9k_rx_tasklet.  So in the worst condition,  the rx.rxbuf receive li=
+st is always full,
+>> and the do {}while(true) loop will not be break. The kernel get a soft=
+ lockup panic.=20
+>=20
+> The word wrapping is still wrong, please limit the width to 72 chars or=
 
-These 2ms delays, in a flow with a 5ms RTT are terrible.
-
-06:54:57.408391 IP 192.168.1.2.5001 > 192.168.1.3.51645: Flags [.], ack 4294899240, win 11268, options [nop,nop,TS val 1053302 ecr 1052250], length 0
-06:54:57.408418 IP 192.168.1.2.5001 > 192.168.1.3.51645: Flags [.], ack 4294910824, win 11268, options [nop,nop,TS val 1053303 ecr 1052251], length 0
-06:54:57.408431 IP 192.168.1.2.5001 > 192.168.1.3.51645: Flags [.], ack 4294936888, win 11268, options [nop,nop,TS val 1053303 ecr 1052251], length 0
-06:54:57.408453 IP 192.168.1.2.5001 > 192.168.1.3.51645: Flags [.], ack 4294962952, win 11268, options [nop,nop,TS val 1053303 ecr 1052251], length 0
-06:54:57.408474 IP 192.168.1.2.5001 > 192.168.1.3.51645: Flags [.], ack 0, win 11268, options [nop,nop,TS val 1053303 ecr 1052251], length 0
-<this 2ms delay is not generated by TCP stack.>
-06:54:57.410243 IP 192.168.1.3.51645 > 192.168.1.2.5001: Flags [.], seq 82536:83984, ack 1, win 457, options [nop,nop,TS val 1052256 ecr 1053303], length 1448
-06:54:57.410271 IP 192.168.1.3.51645 > 192.168.1.2.5001: Flags [.], seq 83984:85432, ack 1, win 457, options [nop,nop,TS val 1052256 ecr 1053303], length 1448
-06:54:57.410289 IP 192.168.1.3.51645 > 192.168.1.2.5001: Flags [.], seq 85432:86880, ack 1, win 457, options [nop,nop,TS val 1052256 ecr 1053303], length 1448
-06:54:57.410310 IP 192.168.1.3.51645 > 192.168.1.2.5001: Flags [.], seq 86880:88328, ack 1, win 457, options [nop,nop,TS val 1052256 ecr 1053303], length 1448
-06:54:57.410326 IP 192.168.1.3.51645 > 192.168.1.2.5001: Flags [.], seq 88328:89776, ack 1, win 457, options [nop,nop,TS val 1052256 ecr 1053303], length 1448
-06:54:57.410339 IP 192.168.1.3.51645 > 192.168.1.2.5001: Flags [.], seq 89776:91224, ack 1, win 457, options [nop,nop,TS val 1052256 ecr 1053303], length 1448
-06:54:57.410353 IP 192.168.1.3.51645 > 192.168.1.2.5001: Flags [.], seq 91224:92672, ack 1, win 457, options [nop,nop,TS val 1052256 ecr 1053303], length 1448
-06:54:57.410370 IP 192.168.1.3.51645 > 192.168.1.2.5001: Flags [.], seq 92672:94120, ack 1, win 457, options [nop,nop,TS val 1052256 ecr 1053303], length 1448
-
-...
-06:54:57.411178 IP 192.168.1.2.5001 > 192.168.1.3.51645: Flags [.], ack 28960, win 11268, options [nop,nop,TS val 1053306 ecr 1052253], length 0
-06:54:57.411190 IP 192.168.1.2.5001 > 192.168.1.3.51645: Flags [.], ack 52128, win 11268, options [nop,nop,TS val 1053306 ecr 1052254], length 0
-06:54:57.411220 IP 192.168.1.2.5001 > 192.168.1.3.51645: Flags [.], ack 78192, win 11268, options [nop,nop,TS val 1053306 ecr 1052254], length 0
-06:54:57.411243 IP 192.168.1.2.5001 > 192.168.1.3.51645: Flags [.], ack 82536, win 11268, options [nop,nop,TS val 1053306 ecr 1052254], length 0
-< same 2ms unexplained gap here >
-06:54:57.412912 IP 192.168.1.3.51645 > 192.168.1.2.5001: Flags [.], seq 165072:166520, ack 1, win 457, options [nop,nop,TS val 1052259 ecr 1053306], length 1448
-06:54:57.412935 IP 192.168.1.3.51645 > 192.168.1.2.5001: Flags [.], seq 166520:167968, ack 1, win 457, options [nop,nop,TS val 1052259 ecr 1053306], length 1448
-06:54:57.412948 IP 192.168.1.3.51645 > 192.168.1.2.5001: Flags [.], seq 167968:169416, ack 1, win 457, options [nop,nop,TS val 1052259 ecr 1053306], length 1448
-...
-06:54:57.413650 IP 192.168.1.3.51645 > 192.168.1.2.5001: Flags [.], seq 244712:246160, ack 1, win 457, options [nop,nop,TS val 1052260 ecr 1053306], length 1448
-06:54:57.413662 IP 192.168.1.3.51645 > 192.168.1.2.5001: Flags [.], seq 246160:247608, ack 1, win 457, options [nop,nop,TS val 1052260 ecr 1053306], length 1448
-06:54:57.413712 IP 192.168.1.2.5001 > 192.168.1.3.51645: Flags [.], ack 112944, win 11268, options [nop,nop,TS val 1053308 ecr 1052256], length 0
-06:54:57.413730 IP 192.168.1.2.5001 > 192.168.1.3.51645: Flags [.], ack 130320, win 11268, options [nop,nop,TS val 1053308 ecr 1052257], length 0
-06:54:57.413754 IP 192.168.1.2.5001 > 192.168.1.3.51645: Flags [.], ack 160728, win 11268, options [nop,nop,TS val 1053309 ecr 1052257], length 0
-06:54:57.413779 IP 192.168.1.2.5001 > 192.168.1.3.51645: Flags [.], ack 165072, win 11268, options [nop,nop,TS val 1053309 ecr 1052257], length 0
-< same 2ms delay >
-06:54:57.415682 IP 192.168.1.3.51645 > 192.168.1.2.5001: Flags [.], seq 247608:249056, ack 1, win 457, options [nop,nop,TS val 1052262 ecr 1053309], length 1448
-06:54:57.415709 IP 192.168.1.3.51645 > 192.168.1.2.5001: Flags [.], seq 249056:250504, ack 1, win 457, options [nop,nop,TS val 1052262 ecr 1053309], length 1448
-
-Are packets TX completed after a timer or something ?
-
-Some very heavy stuff might run from tasklet (or other softirq triggered) event.
-
-BTW, traces tend to show that you 'receive' multiple ACK in the same burst,
-its not clear if they are delayed at one side or the other.
-
-GRO should delay only GRO candidates. ACK packets are not GRO candidates.
-
-Have you tried to disable GSO on sender ?
-
-(Or maybe wifi drivers should start to use skb->xmit_more as a signal to end aggregation)
+> so. But no need to wrap log snippets, they can exceed the limit.
+>=20
+>> Signed-off-by: Yuwei Zheng <zhengyuwei-z+sInHIpZSw@public.gmane.org>
+>> Signed-off-by: Yuwei Zheng <yuweizheng-7R9yAhoRP9E@public.gmane.org>
+>=20
+> Why two of these? Please use just one Signed-off-by line. Unless these
+> are two different persons with the same name :)
+>=20
 
 
+--=20
+Regards,
+Oleksij
+
+
+--iUpB7LPx2HInfLWVkAtsumNpumKIEm6uj
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iF4EAREIAAYFAlTQ3LIACgkQHwImuRkmbWlnBQD/UqYjFgmRJJN5eTPDzTkqtBgh
+1jOz1JyQN7UA3qOVSlwA/3fcKEeAExwgxbBjrCwv4YGxCffxeAYgPh8v1r6ICL//
+=8qX6
+-----END PGP SIGNATURE-----
+
+--iUpB7LPx2HInfLWVkAtsumNpumKIEm6uj--
 --
 To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
