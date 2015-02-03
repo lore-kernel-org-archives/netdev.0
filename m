@@ -1,49 +1,45 @@
 From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [PATCH] brcmfmac: avoid duplicated suspend/resume operation
-Date: Tue, 03 Feb 2015 15:08:07 +0200
-Message-ID: <87vbjjw3bc.fsf@kamboji.qca.qualcomm.com>
-References: <54C5AA8C.4010005@linux.intel.com>
+Subject: Re: [V2,for,3.19,3/7] rtlwifi: rtl8192ee: Fix adhoc fail
+Date: Tue,  3 Feb 2015 13:15:16 +0000 (UTC)
+Message-ID: <20150203131516.799471409D0@smtp.codeaurora.org>
+References: <1421773286-1039-4-git-send-email-Larry.Finger@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: brudley@broadcom.com, Arend van Spriel <arend@broadcom.com>,
-	Franky Lin <frankyl@broadcom.com>, meuleman@broadcom.com,
-	linville@tuxdriver.com, pieterpg@broadcom.com, hdegoede@redhat.com,
-	wens@csie.org, linux-wireless@vger.kernel.org,
-	brcm80211-dev-list@broadcom.com, netdev@vger.kernel.org,
-	"linux-kernel\@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: "Fu\, Zhonghui" <zhonghui.fu@linux.intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <54C5AA8C.4010005@linux.intel.com> (Zhonghui Fu's message of
-	"Mon, 26 Jan 2015 10:46:36 +0800")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless@vger.kernel.org, Troy Tan <troy_tan@realsil.com.cn>,
+	netdev@vger.kernel.org, Larry Finger <Larry.Finger@lwfinger.net>,
+	Stable <stable@vger.kernel.org>
+To: Larry Finger <Larry.Finger@lwfinger.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.codeaurora.org ([198.145.11.231]:33999 "EHLO
+	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932286AbbBCNPR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Feb 2015 08:15:17 -0500
+In-Reply-To: <1421773286-1039-4-git-send-email-Larry.Finger@lwfinger.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-"Fu, Zhonghui" <zhonghui.fu@linux.intel.com> writes:
 
->>From ff39ed4af9f1c50358fe92ec4c8eaac9db183e00 Mon Sep 17 00:00:00 2001
-> From: Zhonghui Fu <zhonghui.fu@linux.intel.com>
-> Date: Mon, 26 Jan 2015 10:13:21 +0800
-> Subject: [PATCH] brcmfmac: avoid duplicated suspend/resume operation
->
-> WiFi chip has 2 SDIO functions, and PM core will trigger
-> twice suspend/resume operations for one WiFi chip to do
-> the same things. This patch avoid this case.
->
-> Acked-by: Arend van Spriel<arend@broadcom.com>
-> Signed-off-by: Zhonghui Fu <zhonghui.fu@linux.intel.com>
+> From: Troy Tan <troy_tan@realsil.com.cn>
+> 
+> When the buffer descriptor index exceeds 2, then a TX HANG condition
+> will result.
+> 
+> Signed-off-by: Troy Tan <troy_tan@realsil.com.cn>
+> Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+> Cc: Stable <stable@vger.kernel.org> [V3.18]
 
-This doesn't apply:
+Thanks, 4 patches applied to wireless-drivers-next.git:
 
-Applying: brcmfmac: avoid duplicated suspend/resume operation
-Using index info to reconstruct a base tree...
-Falling back to patching base and 3-way merge...
-Auto-merging drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c
-CONFLICT (content): Merge conflict in drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c
-Failed to merge in the changes.
-Patch failed at 0001 brcmfmac: avoid duplicated suspend/resume operation
+b661a5da5776 rtlwifi: rtl8192ee: Fix adhoc fail
+6e5f44361628 rtlwifi: rtl8192ee: Fix TX hang due to failure to update TX write point
+92ff754240b8 rtlwifi: rtl8192ee: Fix parsing of received packet
+21b39ddb5bb2 rtlwifi: rtl8192ee: Fix DMA stalls
 
-BTW, when you resend a patch please use "[PATCH v2]" (or v3, v4...) in
-the Subject field.
+3 patches skipped:
 
--- 
+[V2,for,3.19,1/7] rtlwifi: Remove logging statement that is no longer needed
+[V2,for,3.19,2/7] rtlwifi: rtl8192ee: Fix handling of new style descriptors
+[V2,for,3.19,6/7] rtlwifi: rtl8192ee: Fix problems with calculating free space in FIFO
+
 Kalle Valo
