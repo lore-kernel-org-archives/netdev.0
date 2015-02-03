@@ -1,37 +1,38 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] pkt_sched: fq: better control of DDOS traffic
-Date: Mon, 02 Feb 2015 19:34:03 -0800
-Message-ID: <1422934443.21689.140.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1422626772.21689.90.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20150202.181834.2201965486446161539.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] net/mlx4_core: Fix kernel Oops (mem corruption)
+ when working with more than 80 VFs
+Date: Mon, 02 Feb 2015 19:38:16 -0800 (PST)
+Message-ID: <20150202.193816.1901787169522382523.davem@davemloft.net>
+References: <1422883122-29020-1-git-send-email-amirv@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, ogerlitz@mellanox.com,
+	yevgenyp@mellanox.com, jackm@dev.mellanox.co.il
+To: amirv@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:43411 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965802AbbBCDeH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2015 22:34:07 -0500
-Received: by mail-pa0-f52.google.com with SMTP id kx10so90433819pab.11
-        for <netdev@vger.kernel.org>; Mon, 02 Feb 2015 19:34:06 -0800 (PST)
-In-Reply-To: <20150202.181834.2201965486446161539.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:50302 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932825AbbBCDiR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2015 22:38:17 -0500
+In-Reply-To: <1422883122-29020-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2015-02-02 at 18:18 -0800, David Miller wrote:
+From: Amir Vadai <amirv@mellanox.com>
+Date: Mon,  2 Feb 2015 15:18:42 +0200
 
-> Can you document the mask value a little bit more?
+> From: Jack Morgenstein <jackm@dev.mellanox.co.il>
 > 
-> For example, I don't understand why "(1024 - 1) << 1" means 1024
-> slots just from looking at this change.
+> Commit de966c592802 (net/mlx4_core: Support more than 64 VFs) was meant to
+> allow up to 126 VFs.  However, due to leaving MLX4_MFUNC_MAX too low, using
+> more than 80 VFs resulted in memory corruptions (and Oopses) when more than
+> 80 VFs were requested. In addition, the number of slaves was left too high.
 > 
+> This commit fixes these issues.
+> 
+> Fixes: de966c592802 ("net/mlx4_core: Support more than 64 VFs")
+> Signed-off-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
+> Signed-off-by: Amir Vadai <amirv@mellanox.com>
 
-Sure , will do.
-
-Thats because we reserve low order bit of the sk/hash value,
-to make sure the stochastic hash is only applied on non locally
-generated traffic.
-
-Thanks
+Applied, thanks.
