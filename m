@@ -1,77 +1,117 @@
-From: Michal Kazior <michal.kazior-++hxYGjEMp0AvxtiuMwx3w@public.gmane.org>
-Subject: Re: Throughput regression with `tcp: refine TSO autosizing`
-Date: Tue, 3 Feb 2015 10:00:33 +0100
-Message-ID: <CA+BoTQko60aGP7QG+ELrgRmU=OFBZVc9n1X-ecGX2rLBnULSTA@mail.gmail.com>
-References: <CA+BoTQkVu23P3EOmY_Q3E1GJnWsyF==Pawz4iPOS_Bq5dvfO5Q@mail.gmail.com>
-	<1422537297.21689.15.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CA+BoTQk2xT-8DqPuiiKG+kHAjLPrj8F9dLTb-rcGhvMq0u_2Qw@mail.gmail.com>
-	<1422628835.21689.95.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CA+BoTQkV+mOZfe_Niz5101sMQeaV6muKCsShptjGQ1AgOHqqoQ@mail.gmail.com>
-	<1422903136.21689.114.camel@edumazet-glaptop2.roam.corp.google.com>
-	<54CFEB46.3050006@candelatech.com>
-	<1422918363.21689.132.camel@edumazet-glaptop2.roam.corp.google.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH v2 15/18] vhost: switch vhost get_indirect() to iov_iter,
+ kill memcpy_fromiovec()
+Date: Tue, 3 Feb 2015 11:01:06 +0200
+Message-ID: <20150203090106.GB2830@redhat.com>
+References: <20150131035513.GK29656@ZenIV.linux.org.uk>
+ <1422863977-17668-15-git-send-email-viro@ZenIV.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	eyalpe-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org
-To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1422918363.21689.132.camel-XN9IlZ5yJG9HTL0Zs8A6p/gx64E7kk8eUsxypvmhUTTZJqsBc5GL+g@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	kvm@vger.kernel.org
+To: Al Viro <viro@ZenIV.linux.org.uk>
+Return-path: <kvm-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1422863977-17668-15-git-send-email-viro@ZenIV.linux.org.uk>
+Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 3 February 2015 at 00:06, Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrot=
-e:
-> On Mon, 2015-02-02 at 13:25 -0800, Ben Greear wrote:
->
->> It is a big throughput win to have fewer TCP ack packets on
->> wireless since it is a half-duplex environment.  Is there anything
->> we could improve so that we can have fewer acks and still get
->> good tcp stack behaviour?
->
-> First apply TCP stretch ack fixes to the sender. There is no way to g=
-et
-> good performance if the sender does not handle stretch ack.
->
-> d6b1a8a92a14 tcp: fix timing issue in CUBIC slope calculation
-> 9cd981dcf174 tcp: fix stretch ACK bugs in CUBIC
-> c22bdca94782 tcp: fix stretch ACK bugs in Reno
-> 814d488c6126 tcp: fix the timid additive increase on stretch ACKs
-> e73ebb0881ea tcp: stretch ACK fixes prep
->
-> Then, make sure you do not throttle ACK too long, especially if you h=
-ope
-> to get Gbit line rate on a 4 ms RTT flow.
->
-> GRO does not mean : send one ACK every ms, or after 3ms delay...
+On Mon, Feb 02, 2015 at 07:59:34AM +0000, Al Viro wrote:
+> From: Al Viro <viro@zeniv.linux.org.uk>
+> 
+> Cc: Michael S. Tsirkin <mst@redhat.com>
+> Cc: kvm@vger.kernel.org
+> Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
 
-I think it's worth pointing out that If you assume 3-frame A-MSDU and
-64-frame A-MPDU you get 192 frames (as far as TCP/IP is concerned) per
-aggregation window. Assuming effective 600mbps throughput:
+Acked-by: Michael S. Tsirkin <mst@redhat.com>
 
- python> 1.0/((((600/8)*1024*1024)/1500)/(3*64))
- 0.003663003663003663
+But, can you pls copy virtualization@lists.linux-foundation.org ?
+I think some guys working on virtio might only hang out there.
 
-This is probably worst case, but still probably worth to keep in mind.
-
-ath10k has a knob to tune A-MSDU aggregation count. The default is "3"
-and it's what I've been testing so far.
-
-When I change it to "1" on sender I get 250->400mbps boost in TCP -P5
-but see no difference with -P1 (number of flows). Changing it to "1"
-on receiver yields no difference. I can try adding this configuration
-permutation to my future tests if you're interested.
-
-So that you have an idea - using "1" on sender degrades UDP throughput
-(even 690->500mbps in some cases).
-
-
-Micha=C5=82
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> ---
+>  drivers/vhost/vhost.c |  6 ++++--
+>  include/linux/uio.h   |  1 -
+>  lib/iovec.c           | 25 -------------------------
+>  3 files changed, 4 insertions(+), 28 deletions(-)
+> 
+> diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+> index cb807d0..2ee2826 100644
+> --- a/drivers/vhost/vhost.c
+> +++ b/drivers/vhost/vhost.c
+> @@ -1125,6 +1125,7 @@ static int get_indirect(struct vhost_virtqueue *vq,
+>  	struct vring_desc desc;
+>  	unsigned int i = 0, count, found = 0;
+>  	u32 len = vhost32_to_cpu(vq, indirect->len);
+> +	struct iov_iter from;
+>  	int ret;
+>  
+>  	/* Sanity check */
+> @@ -1142,6 +1143,7 @@ static int get_indirect(struct vhost_virtqueue *vq,
+>  		vq_err(vq, "Translation failure %d in indirect.\n", ret);
+>  		return ret;
+>  	}
+> +	iov_iter_init(&from, READ, vq->indirect, ret, len);
+>  
+>  	/* We will use the result as an address to read from, so most
+>  	 * architectures only need a compiler barrier here. */
+> @@ -1164,8 +1166,8 @@ static int get_indirect(struct vhost_virtqueue *vq,
+>  			       i, count);
+>  			return -EINVAL;
+>  		}
+> -		if (unlikely(memcpy_fromiovec((unsigned char *)&desc,
+> -					      vq->indirect, sizeof desc))) {
+> +		if (unlikely(copy_from_iter(&desc, sizeof(desc), &from) !=
+> +			     sizeof(desc))) {
+>  			vq_err(vq, "Failed indirect descriptor: idx %d, %zx\n",
+>  			       i, (size_t)vhost64_to_cpu(vq, indirect->addr) + i * sizeof desc);
+>  			return -EINVAL;
+> diff --git a/include/linux/uio.h b/include/linux/uio.h
+> index 1c5e453..af3439f 100644
+> --- a/include/linux/uio.h
+> +++ b/include/linux/uio.h
+> @@ -135,7 +135,6 @@ static inline void iov_iter_reexpand(struct iov_iter *i, size_t count)
+>  size_t csum_and_copy_to_iter(void *addr, size_t bytes, __wsum *csum, struct iov_iter *i);
+>  size_t csum_and_copy_from_iter(void *addr, size_t bytes, __wsum *csum, struct iov_iter *i);
+>  
+> -int memcpy_fromiovec(unsigned char *kdata, struct iovec *iov, int len);
+>  int memcpy_fromiovecend(unsigned char *kdata, const struct iovec *iov,
+>  			int offset, int len);
+>  int memcpy_toiovecend(const struct iovec *v, unsigned char *kdata,
+> diff --git a/lib/iovec.c b/lib/iovec.c
+> index 2d99cb4..4a90875 100644
+> --- a/lib/iovec.c
+> +++ b/lib/iovec.c
+> @@ -3,31 +3,6 @@
+>  #include <linux/uio.h>
+>  
+>  /*
+> - *	Copy iovec to kernel. Returns -EFAULT on error.
+> - *
+> - *	Note: this modifies the original iovec.
+> - */
+> -
+> -int memcpy_fromiovec(unsigned char *kdata, struct iovec *iov, int len)
+> -{
+> -	while (len > 0) {
+> -		if (iov->iov_len) {
+> -			int copy = min_t(unsigned int, len, iov->iov_len);
+> -			if (copy_from_user(kdata, iov->iov_base, copy))
+> -				return -EFAULT;
+> -			len -= copy;
+> -			kdata += copy;
+> -			iov->iov_base += copy;
+> -			iov->iov_len -= copy;
+> -		}
+> -		iov++;
+> -	}
+> -
+> -	return 0;
+> -}
+> -EXPORT_SYMBOL(memcpy_fromiovec);
+> -
+> -/*
+>   *	Copy kernel to iovec. Returns -EFAULT on error.
+>   */
+>  
+> -- 
+> 2.1.4
