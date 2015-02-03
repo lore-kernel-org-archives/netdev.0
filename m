@@ -1,33 +1,71 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3 0/3] net-timestamp: blinding
-Date: Mon, 02 Feb 2015 18:47:19 -0800 (PST)
-Message-ID: <20150202.184719.89281223998414188.davem@davemloft.net>
-References: <1422642573-6126-1-git-send-email-willemb@google.com>
-	<20150201112931.GA4323@localhost.localdomain>
+Subject: Re: [PATCH -next] net: dctcp: loosen requirement to assert ECT(0)
+ during 3WHS
+Date: Mon, 02 Feb 2015 18:49:31 -0800 (PST)
+Message-ID: <20150202.184931.1024091126990318037.davem@davemloft.net>
+References: <1422647120-27252-1-git-send-email-fw@strlen.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: willemb@google.com, netdev@vger.kernel.org, luto@amacapital.net
-To: richardcochran@gmail.com
+Cc: netdev@vger.kernel.org, daniel@iogearbox.net,
+	glenn.judd@morganstanley.com
+To: fw@strlen.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49989 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:50009 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933774AbbBCCrX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2015 21:47:23 -0500
-In-Reply-To: <20150201112931.GA4323@localhost.localdomain>
+	with ESMTP id S1755516AbbBCCtc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2015 21:49:32 -0500
+In-Reply-To: <1422647120-27252-1-git-send-email-fw@strlen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Richard Cochran <richardcochran@gmail.com>
-Date: Sun, 1 Feb 2015 12:29:31 +0100
+From: Florian Westphal <fw@strlen.de>
+Date: Fri, 30 Jan 2015 20:45:20 +0100
 
-> On Fri, Jan 30, 2015 at 01:29:30PM -0500, Willem de Bruijn wrote:
->> Two issues were raised during recent timestamping discussions:
->> 1. looping full packets on the error queue exposes packet headers
->> 2. TCP timestamping with retransmissions generates many timestamps
+> One deployment requirement of DCTCP is to be able to run
+> in a DC setting along with TCP traffic. As Glenn Judd's
+> NSDI'15 paper "Attaining the Promise and Avoiding the Pitfalls
+> of TCP in the Datacenter" [1] (tba) explains, one way to
+> solve this on switch side is to split DCTCP and TCP traffic
+> in two queues per switch port based on the DSCP: one queue
+> soley intended for DCTCP traffic and one for non-DCTCP traffic.
 > 
-> For the series,
+> For the DCTCP queue, there's the marking threshold K as
+> explained in commit e3118e8359bb ("net: tcp: add DCTCP congestion
+> control algorithm") for RED marking ECT(0) packets with CE.
+> For the non-DCTCP queue, there's f.e. a classic tail drop queue.
+> As already explained in e3118e8359bb, running DCTCP at scale
+> when not marking SYN/SYN-ACK packets with ECT(0) has severe
+> consequences as for non-ECT(0) packets, traversing the RED
+> marking DCTCP queue will result in a severe reduction of
+> connection probability.
 > 
-> Acked-by: Richard Cochran <richardcochran@gmail.com>
+> This is due to the DCTCP queue being dominated by ECT(0) traffic
+> and switches handle non-ECT traffic in the RED marking queue
+> after passing K as drops, where K is usually a low watermark
+> in order to leave enough tailroom for bursts. Splitting DCTCP
+> traffic among several queues (ECN and non-ECN queue) is being
+> considered a terrible idea in the network community as it
+> splits single flows across multiple network paths.
+> 
+> Therefore, commit e3118e8359bb implements this on Linux as
+> ECT(0) marked traffic, as we argue that marking all packets
+> of a DCTCP flow is the only viable solution and also doesn't
+> speak against the draft.
+> 
+> However, recently, a DCTCP implementation for FreeBSD hit also
+> their mainline kernel [2]. In order to let them play well
+> together with Linux' DCTCP, we would need to loosen the
+> requirement that ECT(0) has to be asserted during the 3WHS as
+> not implemented in FreeBSD. This simplifies the ECN test and
+> lets DCTCP work together with FreeBSD.
+> 
+> Joint work with Daniel Borkmann.
+> 
+>   [1] https://www.usenix.org/conference/nsdi15/technical-sessions/presentation/judd
+>   [2] https://github.com/freebsd/freebsd/commit/8ad879445281027858a7fa706d13e458095b595f
+> 
+> Signed-off-by: Florian Westphal <fw@strlen.de>
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
 
-Series applied, thanks everyone.
+Applied.
