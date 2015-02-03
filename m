@@ -1,50 +1,59 @@
-From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: Throughput regression with `tcp: refine TSO autosizing`
-Date: Tue, 03 Feb 2015 07:03:59 -0800
-Message-ID: <1422975839.907.17.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CA+BoTQkVu23P3EOmY_Q3E1GJnWsyF==Pawz4iPOS_Bq5dvfO5Q@mail.gmail.com>
-	 <1422537297.21689.15.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+BoTQk2xT-8DqPuiiKG+kHAjLPrj8F9dLTb-rcGhvMq0u_2Qw@mail.gmail.com>
-	 <1422628835.21689.95.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+BoTQkV+mOZfe_Niz5101sMQeaV6muKCsShptjGQ1AgOHqqoQ@mail.gmail.com>
-	 <1422903136.21689.114.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1422926330.21689.138.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+BoTQkMikA8wxm1ce2DkKhPB0HiKeAqT7f+sQ=91W40z=X0Rg@mail.gmail.com>
-	 <1422973660.907.10.camel@edumazet-glaptop2.roam.corp.google.com>
+From: roopa <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next] bridge: Let bridge not age 'externally' learnt
+ FDB entries, they are removed when 'external' entity notifies the aging
+Date: Tue, 03 Feb 2015 07:11:29 -0800
+Message-ID: <54D0E521.6070100@cumulusnetworks.com>
+References: <1422897714-5956-1-git-send-email-siva.mannem.lnx@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	eyalpe-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org
-To: Michal Kazior <michal.kazior-++hxYGjEMp0AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1422973660.907.10.camel-XN9IlZ5yJG9HTL0Zs8A6p/gx64E7kk8eUsxypvmhUTTZJqsBc5GL+g@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org,
+	Scott Feldman <sfeldma@cumulusnetworks.com>,
+	Jiri Pirko <jiri@resnulli.us>
+To: Siva Mannem <siva.mannem.lnx@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f179.google.com ([209.85.223.179]:50312 "EHLO
+	mail-ie0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752306AbbBCPLc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Feb 2015 10:11:32 -0500
+Received: by mail-ie0-f179.google.com with SMTP id x19so25716135ier.10
+        for <netdev@vger.kernel.org>; Tue, 03 Feb 2015 07:11:31 -0800 (PST)
+In-Reply-To: <1422897714-5956-1-git-send-email-siva.mannem.lnx@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2015-02-03 at 06:27 -0800, Eric Dumazet wrote:
+On 2/2/15, 9:21 AM, Siva Mannem wrote:
+>   When 'learned_sync' flag is turned on, the offloaded switch
+>   port syncs learned MAC addresses to bridge's FDB via switchdev notifier
+>   (NETDEV_SWITCH_FDB_ADD). Currently, FDB entries learnt via this mechanism are
+>   wrongly being deleted by bridge aging logic. This patch ensures that FDB
+>   entries synced from offloaded switch ports are not deleted by bridging logic.
+>   Such entries can only be deleted via switchdev notifier
+>   (NETDEV_SWITCH_FDB_DEL).
 
-> Are packets TX completed after a timer or something ?
-> 
-> Some very heavy stuff might run from tasklet (or other softirq triggered) event.
-> 
-
-Right, commit 6c5151a9ffa9f796f2d707617cecb6b6b241dff8
-("ath10k: batch htt tx/rx completions")
-is very suspicious.
-
-Please revert it.
-
-BTW, ath10k_htt_txrx_compl_task() runs from softirq context, so the 
-_bh() prefixes are not really needed.
-
-It seems lot of batching happens in wifi drivers, not necessarily at the
-right places.
-
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Your patch seems right and maintains symmetry for fdb add/del of 
+externally learnt entries.
+However, this could be made configurable. I think some drivers may rely 
+on bridge driver aging these entries (The default setting needs more 
+thought).
+I am not sure what rocker does (CC'ed rocker maintainers). But, our 
+driver does rely on the bridge driver aging these entries by default.
+>
+> Signed-off-by: Siva Mannem <siva.mannem.lnx@gmail.com>
+> ---
+>   net/bridge/br_fdb.c | 2 +-
+>   1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
+> index 08bf04b..6eb94b5 100644
+> --- a/net/bridge/br_fdb.c
+> +++ b/net/bridge/br_fdb.c
+> @@ -280,7 +280,7 @@ void br_fdb_cleanup(unsigned long _data)
+>   
+>   		hlist_for_each_entry_safe(f, n, &br->hash[i], hlist) {
+>   			unsigned long this_timer;
+> -			if (f->is_static)
+> +			if (f->is_static || f->added_by_external_learn)
+>   				continue;
+>   			this_timer = f->updated + delay;
+>   			if (time_before_eq(this_timer, jiffies))
