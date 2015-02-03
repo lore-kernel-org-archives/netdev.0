@@ -1,66 +1,90 @@
-From: "Nicholas A. Bellinger" <nab@linux-iscsi.org>
-Subject: Re: [PATCH v2 18/18] vhost: vhost_scsi_handle_vq() should just use
- copy_from_user()
-Date: Mon, 02 Feb 2015 16:42:56 -0800
-Message-ID: <1422924176.24128.9.camel@haakon3.risingtidesystems.com>
-References: <20150131035513.GK29656@ZenIV.linux.org.uk>
-	 <1422863977-17668-18-git-send-email-viro@ZenIV.linux.org.uk>
+From: Alex Gartrell <agartrell@fb.com>
+Subject: Re: Question: should local address be expired when updating PMTU?
+Date: Mon, 2 Feb 2015 16:52:58 -0800
+Message-ID: <54D01BEA.2070501@fb.com>
+References: <54CF3348.40207@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="utf-8"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	"Michael S. Tsirkin" <mst@redhat.com>, kvm@vger.kernel.org,
-	target-devel <target-devel@vger.kernel.org>
-To: Al Viro <viro@ZenIV.linux.org.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.linux-iscsi.org ([67.23.28.174]:51807 "EHLO
-	linux-iscsi.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751307AbbBCAm5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2015 19:42:57 -0500
-In-Reply-To: <1422863977-17668-18-git-send-email-viro@ZenIV.linux.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <netdev@vger.kernel.org>, <yangyingling@huawei.com>,
+	<steffen.klassert@secunet.com>, <hannes@redhat.com>,
+	<lvs-devel@vger.kernel.org>, Calvin Owens <calvinowens@fb.com>,
+	<kernel-team@fb.com>
+To: shengyong <shengyong1@huawei.com>, <davem@davemloft.net>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <54CF3348.40207@huawei.com>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Al,
+Hello Shengyong,
 
-On Mon, 2015-02-02 at 07:59 +0000, Al Viro wrote:
-> From: Al Viro <viro@zeniv.linux.org.uk>
-> 
-> it has just verified that it asks no more than the length of the
-> first segment of iovec.
-> 
-> And with that the last user of stuff in lib/iovec.c is gone.
-> RIP.
-> 
-> Cc: Michael S. Tsirkin <mst@redhat.com>
-> Cc: Nicholas A. Bellinger <nab@linux-iscsi.org>
-> Cc: kvm@vger.kernel.org
-> Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
-> ---
->  drivers/vhost/scsi.c |  2 +-
->  include/linux/uio.h  |  2 --
->  lib/Makefile         |  2 +-
->  lib/iovec.c          | 36 ------------------------------------
->  4 files changed, 2 insertions(+), 40 deletions(-)
->  delete mode 100644 lib/iovec.c
-> 
-> diff --git a/drivers/vhost/scsi.c b/drivers/vhost/scsi.c
-> index d695b16..dc78d87 100644
-> --- a/drivers/vhost/scsi.c
-> +++ b/drivers/vhost/scsi.c
-> @@ -1079,7 +1079,7 @@ vhost_scsi_handle_vq(struct vhost_scsi *vs, struct vhost_virtqueue *vq)
->  			       req_size, vq->iov[0].iov_len);
->  			break;
->  		}
-> -		ret = memcpy_fromiovecend(req, &vq->iov[0], 0, req_size);
-> +		ret = copy_from_user(req, vq->iov[0].iov_base, req_size);
->  		if (unlikely(ret)) {
->  			vq_err(vq, "Faulted on virtio_scsi_cmd_req\n");
->  			break;
+ > diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+ > index b2614b2..b80317a 100644
+ > --- a/net/ipv6/route.c
+ > +++ b/net/ipv6/route.c
+ > @@ -1136,6 +1136,9 @@ static void ip6_rt_update_pmtu(struct dst_entry 
+*dst, struct sock *sk,
+ >   {
+ >          struct rt6_info *rt6 = (struct rt6_info*)dst;
+ >
+ > +       if (rt6->rt6i_flags & RTF_LOCAL)
+ > +               return;
+ > +
+ >          dst_confirm(dst);
+ >          if (mtu < dst_mtu(dst) && rt6->rt6i_dst.plen == 128) {
+ >                  struct net *net = dev_net(dst->dev);
+ >
+ > So is this modification correct? Or how can we avoid such expiring?
 
-Is this in for-next yet..?
 
-If not, please push out ASAP so SFR can hit the conflict between
-target-pending/for-next as a heads up for Linus..
+FWIW, we encountered this problem with IPVS tunneling.  Here's a patch 
+done by Calvin (cc'ed) that fixes my attempted fix for this.  We're not 
+particularly proud of this...
 
---nab
+At a high level, I don't think the RTF_LOCAL check was sufficient, but I 
+didn't investigate deeply enough and hopefully Calvin can say why.
+
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index f14d49b..c607a42 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -1159,18 +1159,18 @@ static void ip6_rt_update_pmtu(struct dst_entry 
+*dst, struct sock *sk,
+                 }
+                 dst_metric_set(dst, RTAX_MTU, mtu);
+
+-               /* FACEBOOK HACK: We need to not expire local non-expiring
+-                * routes so that we don't accidentally start blackholing
+-                * ipvs traffic when we happen to use it locally for
+-                * healthchecking (see ip_vs_xmit.c --
+-                * __ip_vs_get_out_rt_v6 invokes update_pmtu if the rt is
+-                * associated with a socket)
+-                * Alex Gartrell <agartrell@fb.com>
++               /*
++                * FACEBOOK HACK: Only expire routes that aren't 
+destined for
++                * the loopback interface.
++                *
++                * This prevents the strange route coalescing that 
+happens when
++                * you add an address to the loopback that had a route 
+that had
++                * been used when the address didn't exist from getting 
+expired
++                * and causing packet loss in shiv.
+                  */
+-               if (!(rt6->rt6i_flags & RTF_LOCAL) ||
+-                   (rt6->rt6i_flags & (RTF_EXPIRES | RTF_CACHE)))
+-                       rt6_update_expires(
+-                               rt6, net->ipv6.sysctl.ip6_rt_mtu_expires);
++               if (!(dst->dev->flags & IFF_LOOPBACK))
++                       rt6_update_expires(rt6,
++ 
+net->ipv6.sysctl.ip6_rt_mtu_expires);
+         }
+  }
+
+
+Cheers,
+-- 
+Alex Gartrell <agartrell@fb.com>
