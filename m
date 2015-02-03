@@ -1,38 +1,86 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCHv3, ipsec-next] xfrm: Do not parse 32bits compiled xfrm
- netlink msg on 64bits host
-Date: Tue, 03 Feb 2015 15:02:07 +0100
-Message-ID: <54D0D4DF.7080906@6wind.com>
-References: <1422349230-17394-1-git-send-email-fan.du@intel.com> <54CA0B9F.8080104@6wind.com> <20150202084443.GS13046@secunet.com> <54CF3D3A.5040607@6wind.com> <20150203122432.GV13046@secunet.com>
-Reply-To: nicolas.dichtel@6wind.com
+From: Ignacy Gawedzki <ignacy.gawedzki@green-communications.fr>
+Subject: RFC: Fix "tc filter show" for basic filters
+Date: Tue, 3 Feb 2015 15:11:00 +0100
+Message-ID: <20150203141059.GA25454@zenon.in.qult.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252;
-	format=flowed
+Content-Type: text/plain; charset=iso-8859-2
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Fan Du <fan.du@intel.com>, herbert@gondor.apana.org.au,
-	davem@davemloft.net, netdev@vger.kernel.org,
-	fengyuleidian0615@gmail.com
-To: Steffen Klassert <steffen.klassert@secunet.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f175.google.com ([74.125.82.175]:44932 "EHLO
-	mail-we0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753210AbbBCOCM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Feb 2015 09:02:12 -0500
-Received: by mail-we0-f175.google.com with SMTP id p10so45207782wes.6
-        for <netdev@vger.kernel.org>; Tue, 03 Feb 2015 06:02:11 -0800 (PST)
-In-Reply-To: <20150203122432.GV13046@secunet.com>
+Received: from [78.193.33.39] ([78.193.33.39]:53376 "EHLO mail.qult.net"
+	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1755826AbbBCOLs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Feb 2015 09:11:48 -0500
+Received: from zenon.in.qult.net ([192.168.64.1] helo=zenon)
+	by mail.qult.net with esmtps (TLS1.2:RSA_AES_128_CBC_SHA1:128)
+	(Exim 4.82)
+	(envelope-from <ignacy.gawedzki@green-communications.fr>)
+	id 1YIeCL-0001XJ-DS
+	for netdev@vger.kernel.org; Tue, 03 Feb 2015 15:11:25 +0100
+Received: from ig by zenon with local (Exim 4.84_RC1)
+	(envelope-from <ignacy.gawedzki@green-communications.fr>)
+	id 1YIeBw-0006p0-48
+	for netdev@vger.kernel.org; Tue, 03 Feb 2015 15:11:00 +0100
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 03/02/2015 13:24, Steffen Klassert a =E9crit :
-> On Mon, Feb 02, 2015 at 10:02:50AM +0100, Nicolas Dichtel wrote:
->
-> I tend to apply this patch unless you can come up with a real world
-> application that will break if we do so.
-It's a custom patch made for strongswan (not included upstream).
+Hi everyone,
 
-My suggestion was to display an error message instead of rejecting the =
-message.
-But fair enough, let's apply this patch, it will force people to come u=
-p with a
-proper solution.
+I have a problem with tc filter and very simple "basic" filters with no
+associated action.
+
+The thing is I have an HTB qdisc with handle 1: with a single class 1:1
+attached to it.  When I add a basic filter that does nothing,
+
+  tc filter add dev eth0 prio 1 handle 1 parent 1: basic classid 1:1
+
+it doesn't completely appear when I type
+
+  tc filter show dev eth0
+
+When debugging basic_dump() in net/sched/cls_basic.c, I noticed that
+tcf_exts_dump_stats() returns -1, which triggers a jump to nla_put_fail=
+ure
+which ends up removing all the added attributes so far.  When looking a=
+t
+tcf_action_copy_stats() in net/sched/act_api.c, which is ultimately cal=
+led by
+tcf_exts_dump_stats(), I see that the returned error is triggered by a-=
+>priv
+being NULL.
+
+Although I confess I didn't make the effort of understanding all the wo=
+rkings
+of a->priv in this context, it seems to me that if that is NULL, this i=
+s
+probably not a good reason to return an error.  I made the change below=
+ and so
+far it works for me.
+
+Can anyone take a critical look at this?
+
+Thanks.
+
+Ignacy
+
+diff --git a/net/sched/act_api.c b/net/sched/act_api.c
+index 3d43e49..6dd46be 100644
+--- a/net/sched/act_api.c
++++ b/net/sched/act_api.c
+@@ -602,7 +602,7 @@ int tcf_action_copy_stats(struct sk_buff *skb, stru=
+ct
+tc_action *a,
+        struct tcf_common *p =3D a->priv;
+=20
+        if (p =3D=3D NULL)
+-               goto errout;
++               return 0;
+=20
+        /* compat_mode being true specifies a call that is supposed
+         * to add additional backward compatibility statistic TLVs.
+
+--=20
+Ignacy Gaw=EAdzki
+R&D Engineer
+Green Communications
