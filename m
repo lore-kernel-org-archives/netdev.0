@@ -1,65 +1,84 @@
-From: Chen Gang S <gang.chen-/B7AUNIrSHOPt1CcHtbs0g@public.gmane.org>
-Subject: Re: [PATCH v2] net: bluetooth: hci_sock: Use 'const void *' instead
- of 'void *' for 2nd parameter of hci_test_bit()
-Date: Tue, 03 Feb 2015 10:32:11 +0800
-Message-ID: <54D0332B.6050701@sunrus.com.cn>
-References: <54CFE8BE.5030700@sunrus.com.cn> <1422912017.30476.28.camel@perches.com>
+From: Fan Du <fengyuleidian0615@gmail.com>
+Subject: Re: [PATCHv2 net] net: restore lro after device detached from bridge
+Date: Tue, 03 Feb 2015 10:29:00 +0800
+Message-ID: <54D0326C.2050704@gmail.com>
+References: <1422621209-23222-1-git-send-email-fan.du@intel.com> <54CBEE24.8000603@redhat.com> <54CEDEDC.7060507@gmail.com> <20150202111556.GA8655@unicorn.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org, gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org, johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1422912017.30476.28.camel-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Alexander Duyck <alexander.h.duyck@redhat.com>,
+	Fan Du <fan.du@intel.com>, bhutchings@solarflare.com,
+	davem@davemloft.net, netdev@vger.kernel.org
+To: Michal Kubecek <mkubecek@suse.cz>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:43092 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932160AbbBCCdQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2015 21:33:16 -0500
+Received: by mail-pa0-f53.google.com with SMTP id kx10so89827860pab.12
+        for <netdev@vger.kernel.org>; Mon, 02 Feb 2015 18:33:15 -0800 (PST)
+In-Reply-To: <20150202111556.GA8655@unicorn.suse.cz>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2/3/15 05:20, Joe Perches wrote:
-> On Tue, 2015-02-03 at 05:14 +0800, Chen Gang S wrote:
->> hci_test_bit() does not modify 2nd parameter, so it is better to let it
->> be constant, or may cause build warning. The related warning (with
->> allmodconfig under xtensa):
-> []
->> diff --git a/net/bluetooth/hci_sock.c b/net/bluetooth/hci_sock.c
-> []
->> @@ -46,7 +46,7 @@ struct hci_pinfo {
->>  	unsigned short    channel;
->>  };
->>  
->> -static inline int hci_test_bit(int nr, void *addr)
->> +static inline int hci_test_bit(int nr, const void *addr)
->>  {
->>  	return *((__u32 *) addr + (nr >> 5)) & ((__u32) 1 << (nr & 31));
->>  }
-> 
-> It's probably better to use const __u32 * here too, but the
-> real thing I wonder is whether or not there's an issue with
-> one of the 2 uses of this function.
-> 
-> One of them passes a unsigned long *, the other a u32 *.
-> 
-> $ git grep -w hci_test_bit
-> net/bluetooth/hci_sock.c:static inline int hci_test_bit(int nr, void *addr)
-> net/bluetooth/hci_sock.c:       if (!hci_test_bit(flt_event, &flt->event_mask))
-> net/bluetooth/hci_sock.c:                    !hci_test_bit(ocf & HCI_FLT_OCF_BITS,
-> net/bluetooth/hci_sock.c-                                  &hci_sec_filter.ocf_mask[ogf])) &&
-> 
-> hci_sec_filter.ocf_mask is __u32
-> but flt->event_mask is unsigned long.
-> 
-> Any possible issue here on 64-bit systems?
-> 
+=E4=BA=8E 2015=E5=B9=B402=E6=9C=8802=E6=97=A5 19:15, Michal Kubecek =E5=
+=86=99=E9=81=93:
+> On Mon, Feb 02, 2015 at 10:20:12AM +0800, Fan Du wrote:
+>>
+>> I think you are talking about bad scenarios when net device is
+>> attached to a bridge.  Then what's the good reason user has to pay
+>> extra cpu power for using GRO, instead of using hw capable LRO/RSC
+>> when this net device is detached from bridge acting as a standalone
+>> NIC?
+>
+> Being bridged is only one of the situations when LRO needs to be
+> disabled. Does your patch make sure it doesn't enable LRO if there ar=
+e
+> other reasons for it to be disabled, e.g. if forwarding is enabled fo=
+r
+> it or any of its upper devices?
+>
+> I'm afraid the only way to make the automatic reenabling work correct=
+ly
+> would be to keep track if LRO was disabled manually (e.g. by ethtool)=
+ or
+> only automatically because the device is bridged, forwarding is enabl=
+ed
+> for it, LRO is disabled for any upper device etc. And to reenable LRO
+> only in the second case and even then only if none of the possible
+> reasons holds. I don't think it's worth the effort.
+>
+>> Note, SRC is defaulted to *ON* in practice for ALL ixgbe NICs, as sa=
+me
+>> other RSC capable NICs.
+>
+> A very bad idea, IMHO. A lot of bug reports resulted from it.
 
-For me, it can not cause issue on 64-bit systems. hci_test_bit() treats
-'addr' as "__u32 *", and has to use the pointer to do something.
+Why are you saying this an idea?? this a fact for all RSC capable NIC d=
+rivers.
+search drivers/net/ethernet/ to find more.
 
+>> Attaching net device to a bridge _once_ should not changed its defau=
+lt
+>> configuration, moreover it's a subtle change without any message tha=
+t
+>> user won't noticed at all.
+> IMHO the key point here is that LRO enabled when it shouldn't is much
+> more serious problem than LRO disabled when it could be enabled.
 
-Thanks.
--- 
-Chen Gang
+I agree with you here more than I disagree.
+btw, I see this subtle behaviour not because I "seeing issues with rout=
+ing or
+bridging being enabled and" as Alexander assuming, it's because I see m=
+y testbed
+82599EB supports LRO, and the driver enabled after probing from code re=
+view,
+but for no reason ethtool -k reports lro is off, it looks like this int=
+erface
+is bound to bridge by one of service.
 
-Open, share, and attitude like air, water, and life which God blessed
+>
+>                                                         Michal Kubece=
+k
+>
