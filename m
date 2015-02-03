@@ -1,35 +1,50 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH 0/6 net-next] rhashtable fixes
-Date: Tue, 3 Feb 2015 17:21:13 +0000
-Message-ID: <20150203172113.GC25410@casper.infradead.org>
-References: <cover.1422576760.git.tgraf@suug.ch>
- <54CB4A95.9060000@windriver.com>
- <20150130092911.GA2313@casper.infradead.org>
- <54CB5563.9080000@windriver.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH] net: ipv6: Make address flushing on ifdown optional -
+ v2
+Date: Tue, 3 Feb 2015 09:27:57 -0800
+Message-ID: <20150203092757.72b0ad66@urahara>
+References: <1422504065-17445-1-git-send-email-dsahern@gmail.com>
+	<20150203001057.3e0e22b2@uryu.home.lan>
+	<54D0124C.70202@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Ying Xue <ying.xue@windriver.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Hannes Frederic Sowa <hannes@redhat.com>
+To: David Ahern <dsahern@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:37971 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756087AbbBCRVQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Feb 2015 12:21:16 -0500
-Content-Disposition: inline
-In-Reply-To: <54CB5563.9080000@windriver.com>
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:56562 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965362AbbBCR2D (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Feb 2015 12:28:03 -0500
+Received: by mail-pa0-f45.google.com with SMTP id et14so98764486pad.4
+        for <netdev@vger.kernel.org>; Tue, 03 Feb 2015 09:28:02 -0800 (PST)
+In-Reply-To: <54D0124C.70202@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/30/15 at 05:56pm, Ying Xue wrote:
-> On 01/30/2015 05:29 PM, Thomas Graf wrote:
-> > Right, I see the same soft lockup. Interestingly I cannot trigger it
-> > with the rht test code. I can only trigger it with your Netlink socket
-> > creation stress test. It is definitely related to the deferred worker,
-> > when I disable growing, then the bug disappears.
+On Mon, 02 Feb 2015 17:11:56 -0700
+David Ahern <dsahern@gmail.com> wrote:
+
+> On 2/2/15 4:10 PM, Stephen Hemminger wrote:
+> > Checkpatch complains about space before tab, which could be your
+> > mailer mangling the patch.
 > 
-> Yes, when I disable expansion, the soft lockup also disappears too.
+> Yes, found that a couple of days ago. I use 'git send-email' to send the 
+> patches, and I have a pre-commit hook to run checkpatch.pl. Perhaps I 
+> goofed something in the recent latptop transitions.
+> 
+> >
+> > This should probably go into the netconf netlink message as well.
+> >
+> 
+> Not sure I understand this point. Can you point me to a code reference 
+> to look up?
+> 
+> Though that did remind me that I should add a blurb in 
+> Documentation/networking/ip-sysctl.txt.
+> 
+> David
 
-I have found the last remaining race and can now run your test
-program successfully in an endless loop.
-
-I will resubmit a v2 of this series.
+Never mind, actually NETCONFA stuff is mostly for case where
+listener needs to know how to handle offload, and this  doesn't
+impact that.
