@@ -1,50 +1,86 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [GIT PULL nf] IPVS Fixes for v3.19
-Date: Tue, 3 Feb 2015 12:47:17 +0100
-Message-ID: <20150203114717.GA4934@salvia>
-References: <1422580938-31520-1-git-send-email-horms@verge.net.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>
-To: Simon Horman <horms@verge.net.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:44801 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932169AbbBCLoR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Feb 2015 06:44:17 -0500
-Content-Disposition: inline
-In-Reply-To: <1422580938-31520-1-git-send-email-horms@verge.net.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Praveen Madhavan <praveenm@chelsio.com>
+Subject: [PATCH] csiostor:Use firmware version from cxgb4/t4fw_version.h
+Date: Tue,  3 Feb 2015 17:18:26 +0530
+Message-ID: <1422964106-4033-1-git-send-email-praveenm@chelsio.com>
+Cc: davem@davemloft.net, JBottomley@parallels.com, hch@infradead.org,
+	hariprasad@chelsio.com, praveenm@chelsio.com
+To: netdev@vger.kernel.org, linux-scsi@vger.kernel.org
+Return-path: <linux-scsi-owner@vger.kernel.org>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jan 30, 2015 at 10:22:17AM +0900, Simon Horman wrote:
-> Hi Pablo,
-> 
-> please consider this fix for v3.19.
-> 
-> It resolves a crash in xfrm reported by Florian Wiessner.
-> 
-> I believe this problem manifests since 0a5ebb8000c5 ("ipv4: Pass explicit
-> daddr arg to ip_send_reply().") which was included in v2.6.39.
-> 
-> Julian reports that the patch has been tested on net tree (Dec 7), 3.14.25,
-> 3.12.33, 3.10.61. 3.4.104 needs a modified fix that resolves rejects. It
-> applies with little fuzz on 3.2.64. Please let us know if we should post
-> separate 3.2 and 3.4 patches.
+This patch is to use firmware version macros from t4fw_version.h
+and also enables 40g T5 adapter.
 
-Regarding -stable. This seems to apply cleanly to:
+Signed-off-by: Praveen Madhavan <praveenm@chelsio.com>
+---
+ drivers/scsi/csiostor/csio_hw.c      | 6 ++++--
+ drivers/scsi/csiostor/csio_hw_chip.h | 6 +-----
+ drivers/scsi/csiostor/csio_mb.c      | 3 ++-
+ 3 files changed, 7 insertions(+), 8 deletions(-)
 
-3.10.x
-3.12.x
-3.14.x
-3.18.x
+diff --git a/drivers/scsi/csiostor/csio_hw.c b/drivers/scsi/csiostor/csio_hw.c
+index c81b06b..2e66f34 100644
+--- a/drivers/scsi/csiostor/csio_hw.c
++++ b/drivers/scsi/csiostor/csio_hw.c
+@@ -1372,7 +1372,8 @@ csio_config_device_caps(struct csio_hw *hw)
+ 	}
+ 
+ 	/* Validate device capabilities */
+-	if (csio_hw_validate_caps(hw, mbp))
++	rv = csio_hw_validate_caps(hw, mbp);
++	if (rv != 0)
+ 		goto out;
+ 
+ 	/* Don't config device capabilities if already configured */
+@@ -1776,7 +1777,8 @@ csio_hw_use_fwconfig(struct csio_hw *hw, int reset, u32 *fw_cfg_param)
+ 	}
+ 
+ 	/* Validate device capabilities */
+-	if (csio_hw_validate_caps(hw, mbp))
++	rv = csio_hw_validate_caps(hw, mbp);
++	if (rv != 0)
+ 		goto bye;
+ 	/*
+ 	 * Note that we're operating with parameters
+diff --git a/drivers/scsi/csiostor/csio_hw_chip.h b/drivers/scsi/csiostor/csio_hw_chip.h
+index a5f624f..b56a11d 100644
+--- a/drivers/scsi/csiostor/csio_hw_chip.h
++++ b/drivers/scsi/csiostor/csio_hw_chip.h
+@@ -45,11 +45,6 @@
+ #define FW_FNAME_T5				"cxgb4/t5fw.bin"
+ #define FW_CFG_NAME_T5				"cxgb4/t5-config.txt"
+ 
+-#define T5FW_VERSION_MAJOR 0x01
+-#define T5FW_VERSION_MINOR 0x0B
+-#define T5FW_VERSION_MICRO 0x1B
+-#define T5FW_VERSION_BUILD 0x00
+-
+ #define CHELSIO_CHIP_CODE(version, revision) (((version) << 4) | (revision))
+ #define CHELSIO_CHIP_FPGA          0x100
+ #define CHELSIO_CHIP_VERSION(code) (((code) >> 12) & 0xf)
+@@ -74,6 +69,7 @@ static inline int csio_is_t5(uint16_t chip)
+ 	{ PCI_VENDOR_ID_CHELSIO, (devid), PCI_ANY_ID, PCI_ANY_ID, 0, 0, (idx) }
+ 
+ #include "t4fw_api.h"
++#include "t4fw_version.h"
+ 
+ #define FW_VERSION(chip) ( \
+ 		FW_HDR_FW_VER_MAJOR_G(chip##FW_VERSION_MAJOR) | \
+diff --git a/drivers/scsi/csiostor/csio_mb.c b/drivers/scsi/csiostor/csio_mb.c
+index 1132c41..9451787 100644
+--- a/drivers/scsi/csiostor/csio_mb.c
++++ b/drivers/scsi/csiostor/csio_mb.c
+@@ -327,7 +327,8 @@ csio_mb_caps_config(struct csio_hw *hw, struct csio_mb *mbp, uint32_t tmo,
+ }
+ 
+ #define CSIO_ADVERT_MASK     (FW_PORT_CAP_SPEED_100M | FW_PORT_CAP_SPEED_1G |\
+-			      FW_PORT_CAP_SPEED_10G | FW_PORT_CAP_ANEG)
++			      FW_PORT_CAP_SPEED_10G | FW_PORT_CAP_SPEED_40G |\
++			      FW_PORT_CAP_ANEG)
+ 
+ /*
+  * csio_mb_port- FW PORT command helper
+-- 
+2.0.2
 
-Not compiled tested yet, just clean application.
-
-Lower versions need some backporting, I leave this to you to evaluate
-if it is worth the effort.
-
-Thanks!
