@@ -1,54 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] pkt_sched: fq: better control of DDOS traffic
-Date: Mon, 02 Feb 2015 18:18:34 -0800 (PST)
-Message-ID: <20150202.181834.2201965486446161539.davem@davemloft.net>
-References: <1422626772.21689.90.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [PATCH net] sunvnet: set queue mapping when doing packet copies
+Date: Mon, 02 Feb 2015 18:21:14 -0800 (PST)
+Message-ID: <20150202.182114.1495760209878504465.davem@davemloft.net>
+References: <54C90AED.7040404@oracle.com>
+	<54CBBF89.4070800@oracle.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org, sowmini.varadhan@oracle.com,
+	eric.dumazet@gmail.com
+To: david.stevens@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49885 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:49896 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754074AbbBCCSh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2015 21:18:37 -0500
-In-Reply-To: <1422626772.21689.90.camel@edumazet-glaptop2.roam.corp.google.com>
+	with ESMTP id S1754074AbbBCCVP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2015 21:21:15 -0500
+In-Reply-To: <54CBBF89.4070800@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 30 Jan 2015 06:06:12 -0800
+From: David L Stevens <david.stevens@oracle.com>
+Date: Fri, 30 Jan 2015 12:29:45 -0500
 
-> From: Eric Dumazet <edumazet@google.com>
 > 
-> FQ has a fast path for skb attached to a socket, as it does not
-> have to compute a flow hash. But for other packets, FQ being non
-> stochastic means that hosts exposed to random Internet traffic
-> can allocate million of flows structure (104 bytes each) pretty
-> easily. Not only host can OOM, but lookup in RB trees can take
-> too much cpu and memory resources.
 > 
-> This patch adds a new attribute, orphan_mask, that is adding
-> possibility of having a stochastic hash for orphaned skb.
+> This patch fixes a bug where vnet_skb_shape() didn't set the already-selected
+> queue mapping when a packet copy was required. This results in using the
+> wrong queue index for stops/starts, hung tx queues and watchdog timeouts
+> under heavy load.
 > 
-> Its default value is 1024 slots.
+> Signed-off-by: David L Stevens <david.stevens@oracle.com>
+> Acked-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
 > 
-> This patch also handles the specific case of SYNACK messages:
-> 
-> They are attached to the listener socket, and therefore all map
-> to a single hash bucket. If listener have set SO_MAX_PACING_RATE,
-> hoping to have new accepted socket inherit this rate, SYNACK
-> might be paced and even dropped.
-> 
-> This is very similar to an internal patch Google have used more
-> than one year.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> --
+> I'm resubmitting this in its original form. Since skb_segment() doesn't do
+> TCP flow control either, due to an incorrect destructor check, and those
+> issues raised by Eric are a matter of fairness, while this missing queue_mapping
+> assignment results in crashes, I'd like to get this piece fixed separately.
 
-Can you document the mask value a little bit more?
+Fair enough, applied.
 
-For example, I don't understand why "(1024 - 1) << 1" means 1024
-slots just from looking at this change.
-
-Thanks.
+Please sort out the callback issues with Eric, thanks.
