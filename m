@@ -1,90 +1,67 @@
-From: Alex Gartrell <agartrell@fb.com>
-Subject: Re: Question: should local address be expired when updating PMTU?
-Date: Mon, 2 Feb 2015 16:52:58 -0800
-Message-ID: <54D01BEA.2070501@fb.com>
-References: <54CF3348.40207@huawei.com>
+From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: Throughput regression with `tcp: refine TSO autosizing`
+Date: Mon, 02 Feb 2015 17:18:50 -0800
+Message-ID: <1422926330.21689.138.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CA+BoTQkVu23P3EOmY_Q3E1GJnWsyF==Pawz4iPOS_Bq5dvfO5Q@mail.gmail.com>
+	 <1422537297.21689.15.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CA+BoTQk2xT-8DqPuiiKG+kHAjLPrj8F9dLTb-rcGhvMq0u_2Qw@mail.gmail.com>
+	 <1422628835.21689.95.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CA+BoTQkV+mOZfe_Niz5101sMQeaV6muKCsShptjGQ1AgOHqqoQ@mail.gmail.com>
+	 <1422903136.21689.114.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <yangyingling@huawei.com>,
-	<steffen.klassert@secunet.com>, <hannes@redhat.com>,
-	<lvs-devel@vger.kernel.org>, Calvin Owens <calvinowens@fb.com>,
-	<kernel-team@fb.com>
-To: shengyong <shengyong1@huawei.com>, <davem@davemloft.net>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <54CF3348.40207@huawei.com>
-Sender: lvs-devel-owner@vger.kernel.org
+Cc: linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	eyalpe-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org
+To: Michal Kazior <michal.kazior-++hxYGjEMp0AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1422903136.21689.114.camel-XN9IlZ5yJG9HTL0Zs8A6p/gx64E7kk8eUsxypvmhUTTZJqsBc5GL+g@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hello Shengyong,
+On Mon, 2015-02-02 at 10:52 -0800, Eric Dumazet wrote:
 
- > diff --git a/net/ipv6/route.c b/net/ipv6/route.c
- > index b2614b2..b80317a 100644
- > --- a/net/ipv6/route.c
- > +++ b/net/ipv6/route.c
- > @@ -1136,6 +1136,9 @@ static void ip6_rt_update_pmtu(struct dst_entry 
-*dst, struct sock *sk,
- >   {
- >          struct rt6_info *rt6 = (struct rt6_info*)dst;
- >
- > +       if (rt6->rt6i_flags & RTF_LOCAL)
- > +               return;
- > +
- >          dst_confirm(dst);
- >          if (mtu < dst_mtu(dst) && rt6->rt6i_dst.plen == 128) {
- >                  struct net *net = dev_net(dst->dev);
- >
- > So is this modification correct? Or how can we avoid such expiring?
+> It seems to break ACK clocking badly (linux stack has a somewhat buggy
+> tcp_tso_should_defer(), which relies on ACK being received smoothly, as
+> no timer is setup to split the TSO packet.)
+
+Following patch might help the TSO split defer logic.
+
+It would avoid setting the TSO defer 'pseudo timer' twice, if/when TCP
+Small Queue logic prevented the xmit at the expiration of first 'timer'.
+
+This patch clears the tso_deferred variable only if we could really
+send something.
+
+Please try it, thanks !
 
 
-FWIW, we encountered this problem with IPVS tunneling.  Here's a patch 
-done by Calvin (cc'ed) that fixes my attempted fix for this.  We're not 
-particularly proud of this...
-
-At a high level, I don't think the RTF_LOCAL check was sufficient, but I 
-didn't investigate deeply enough and hopefully Calvin can say why.
-
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index f14d49b..c607a42 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -1159,18 +1159,18 @@ static void ip6_rt_update_pmtu(struct dst_entry 
-*dst, struct sock *sk,
-                 }
-                 dst_metric_set(dst, RTAX_MTU, mtu);
-
--               /* FACEBOOK HACK: We need to not expire local non-expiring
--                * routes so that we don't accidentally start blackholing
--                * ipvs traffic when we happen to use it locally for
--                * healthchecking (see ip_vs_xmit.c --
--                * __ip_vs_get_out_rt_v6 invokes update_pmtu if the rt is
--                * associated with a socket)
--                * Alex Gartrell <agartrell@fb.com>
-+               /*
-+                * FACEBOOK HACK: Only expire routes that aren't 
-destined for
-+                * the loopback interface.
-+                *
-+                * This prevents the strange route coalescing that 
-happens when
-+                * you add an address to the loopback that had a route 
-that had
-+                * been used when the address didn't exist from getting 
-expired
-+                * and causing packet loss in shiv.
-                  */
--               if (!(rt6->rt6i_flags & RTF_LOCAL) ||
--                   (rt6->rt6i_flags & (RTF_EXPIRES | RTF_CACHE)))
--                       rt6_update_expires(
--                               rt6, net->ipv6.sysctl.ip6_rt_mtu_expires);
-+               if (!(dst->dev->flags & IFF_LOOPBACK))
-+                       rt6_update_expires(rt6,
-+ 
-net->ipv6.sysctl.ip6_rt_mtu_expires);
-         }
-  }
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 65caf8b95e17..e735f38557db 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -1821,7 +1821,6 @@ static bool tcp_tso_should_defer(struct sock *sk,
+struct sk_buff *skb,
+ 	return true;
+ 
+ send_now:
+-	tp->tso_deferred = 0;
+ 	return false;
+ }
+ 
+@@ -2070,6 +2069,7 @@ static bool tcp_write_xmit(struct sock *sk,
+unsigned int mss_now, int nonagle,
+ 		if (unlikely(tcp_transmit_skb(sk, skb, 1, gfp)))
+ 			break;
+ 
++		tp->tso_deferred = 0;
+ repair:
+ 		/* Advance the send_head.  This one is sent out.
+ 		 * This call will increment packets_out.
 
 
-Cheers,
--- 
-Alex Gartrell <agartrell@fb.com>
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
