@@ -1,36 +1,143 @@
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: Re: [PATCH v2 08/17] {macvtap,tun}_get_user(): switch to iov_iter
-Date: Tue, 3 Feb 2015 14:27:28 +0000
-Message-ID: <20150203142728.GC29656@ZenIV.linux.org.uk>
-References: <20141125024018.GH7996@ZenIV.linux.org.uk>
- <1416924151-28698-8-git-send-email-viro@ZenIV.linux.org.uk>
- <20150203101044.GA5081@redhat.com>
+From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: Throughput regression with `tcp: refine TSO autosizing`
+Date: Tue, 03 Feb 2015 06:27:40 -0800
+Message-ID: <1422973660.907.10.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CA+BoTQkVu23P3EOmY_Q3E1GJnWsyF==Pawz4iPOS_Bq5dvfO5Q@mail.gmail.com>
+	 <1422537297.21689.15.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CA+BoTQk2xT-8DqPuiiKG+kHAjLPrj8F9dLTb-rcGhvMq0u_2Qw@mail.gmail.com>
+	 <1422628835.21689.95.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CA+BoTQkV+mOZfe_Niz5101sMQeaV6muKCsShptjGQ1AgOHqqoQ@mail.gmail.com>
+	 <1422903136.21689.114.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1422926330.21689.138.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CA+BoTQkMikA8wxm1ce2DkKhPB0HiKeAqT7f+sQ=91W40z=X0Rg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150203101044.GA5081@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	eyalpe-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org
+To: Michal Kazior <michal.kazior-++hxYGjEMp0AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CA+BoTQkMikA8wxm1ce2DkKhPB0HiKeAqT7f+sQ=91W40z=X0Rg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Feb 03, 2015 at 12:10:44PM +0200, Michael S. Tsirkin wrote:
-
-> Hmm does copy_from_iter actually modify the iovec?
-> If so, won't this break aio on tun/macvtap, by
-> reversing the effect of
-> commit 6f26c9a7555e5bcca3560919db9b852015077dae
->     tun: fix tun_chr_aio_write so that aio works
-> ?
+On Tue, 2015-02-03 at 12:50 +0100, Michal Kazior wrote:
+> On 3 February 2015 at 02:18, Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+> > On Mon, 2015-02-02 at 10:52 -0800, Eric Dumazet wrote:
+> >
+> >> It seems to break ACK clocking badly (linux stack has a somewhat buggy
+> >> tcp_tso_should_defer(), which relies on ACK being received smoothly, as
+> >> no timer is setup to split the TSO packet.)
+> >
+> > Following patch might help the TSO split defer logic.
+> >
+> > It would avoid setting the TSO defer 'pseudo timer' twice, if/when TCP
+> > Small Queue logic prevented the xmit at the expiration of first 'timer'.
+> >
+> > This patch clears the tso_deferred variable only if we could really
+> > send something.
+> >
+> > Please try it, thanks !
+> [..patch..]
 > 
+> I've done a second round of tests. I've added the A-MSDU count
+> parameter I've mentioned in my other email into the mix.
 > 
-> Maybe we should change iovec_iter to avoid modifying the
-> underlying iovec?
+>  net - net/master (includes stretch ack patches)
+>  net-tso - net/master + your TSO defer patch
+>  net-gro - net/master + my ath10k GRO patch
+>  net-gro-tso - net/master + duh
+> 
+> Here's the best of amsdu count 1 and 3:
+> 
+>  ; for (i in */output.txt) { echo $i; for (j in (1 3)) { cat $i | awk
+> 'x && /Mbits/ {y=$0}; x && y && !/Mbits/ {print y; x=0; y=""}; /set
+> amsdu cnt to '$j'/{x=1}' | awk '{ if (x < $(NF-1)) {x=$(NF-1)} }
+> END{print "A-MSDU limit='$j', " x " Mbits/sec"}' } }
+>  net-gro-tso/output.txt
+>  A-MSDU limit=1, 436 Mbits/sec
+>  A-MSDU limit=3, 284 Mbits/sec
+>  net-gro/output.txt
+>  A-MSDU limit=1, 444 Mbits/sec
+>  A-MSDU limit=3, 283 Mbits/sec
+>  net-tso/output.txt
+>  A-MSDU limit=1, 376 Mbits/sec
+>  A-MSDU limit=3, 251 Mbits/sec
+>  net/output.txt
+>  A-MSDU limit=1, 387 Mbits/sec
+>  A-MSDU limit=3, 260 Mbits/sec
+> 
+> IOW:
+>  - stretch acks / TSO defer don't seem to help much (when compared to
+> throughput results from yesterday)
+>  - GRO helps
+>  - disabling A-MSDU on sender helps
+>  - net/master+GRO still doesn't reach the performance from before the
+> regression (~600mbps w/ GRO)
+> 
+> You can grab logs and dumps here: http://www.filedropper.com/test2tar
+> 
 
-iov_iter never changes the underlying iovec (or kvec, or bvec).
-iter->iov_offset changes as you go and once you have consumed an
-entire iovec element ->iov is incremented to point to the next one
-(and ->iov_offset is reset to 0 at that point).  *Contents* of
-iter->iov is never modified.
+Thanks for these traces.
+
+There is absolutely a problem at the sender, as we can see a big 2ms
+delay between reception of ACK and send of following packets.
+TCP stack should generate them immediately.
+Are you using some kind of netem qdisc ?
+
+These 2ms delays, in a flow with a 5ms RTT are terrible.
+
+06:54:57.408391 IP 192.168.1.2.5001 > 192.168.1.3.51645: Flags [.], ack 4294899240, win 11268, options [nop,nop,TS val 1053302 ecr 1052250], length 0
+06:54:57.408418 IP 192.168.1.2.5001 > 192.168.1.3.51645: Flags [.], ack 4294910824, win 11268, options [nop,nop,TS val 1053303 ecr 1052251], length 0
+06:54:57.408431 IP 192.168.1.2.5001 > 192.168.1.3.51645: Flags [.], ack 4294936888, win 11268, options [nop,nop,TS val 1053303 ecr 1052251], length 0
+06:54:57.408453 IP 192.168.1.2.5001 > 192.168.1.3.51645: Flags [.], ack 4294962952, win 11268, options [nop,nop,TS val 1053303 ecr 1052251], length 0
+06:54:57.408474 IP 192.168.1.2.5001 > 192.168.1.3.51645: Flags [.], ack 0, win 11268, options [nop,nop,TS val 1053303 ecr 1052251], length 0
+<this 2ms delay is not generated by TCP stack.>
+06:54:57.410243 IP 192.168.1.3.51645 > 192.168.1.2.5001: Flags [.], seq 82536:83984, ack 1, win 457, options [nop,nop,TS val 1052256 ecr 1053303], length 1448
+06:54:57.410271 IP 192.168.1.3.51645 > 192.168.1.2.5001: Flags [.], seq 83984:85432, ack 1, win 457, options [nop,nop,TS val 1052256 ecr 1053303], length 1448
+06:54:57.410289 IP 192.168.1.3.51645 > 192.168.1.2.5001: Flags [.], seq 85432:86880, ack 1, win 457, options [nop,nop,TS val 1052256 ecr 1053303], length 1448
+06:54:57.410310 IP 192.168.1.3.51645 > 192.168.1.2.5001: Flags [.], seq 86880:88328, ack 1, win 457, options [nop,nop,TS val 1052256 ecr 1053303], length 1448
+06:54:57.410326 IP 192.168.1.3.51645 > 192.168.1.2.5001: Flags [.], seq 88328:89776, ack 1, win 457, options [nop,nop,TS val 1052256 ecr 1053303], length 1448
+06:54:57.410339 IP 192.168.1.3.51645 > 192.168.1.2.5001: Flags [.], seq 89776:91224, ack 1, win 457, options [nop,nop,TS val 1052256 ecr 1053303], length 1448
+06:54:57.410353 IP 192.168.1.3.51645 > 192.168.1.2.5001: Flags [.], seq 91224:92672, ack 1, win 457, options [nop,nop,TS val 1052256 ecr 1053303], length 1448
+06:54:57.410370 IP 192.168.1.3.51645 > 192.168.1.2.5001: Flags [.], seq 92672:94120, ack 1, win 457, options [nop,nop,TS val 1052256 ecr 1053303], length 1448
+
+...
+06:54:57.411178 IP 192.168.1.2.5001 > 192.168.1.3.51645: Flags [.], ack 28960, win 11268, options [nop,nop,TS val 1053306 ecr 1052253], length 0
+06:54:57.411190 IP 192.168.1.2.5001 > 192.168.1.3.51645: Flags [.], ack 52128, win 11268, options [nop,nop,TS val 1053306 ecr 1052254], length 0
+06:54:57.411220 IP 192.168.1.2.5001 > 192.168.1.3.51645: Flags [.], ack 78192, win 11268, options [nop,nop,TS val 1053306 ecr 1052254], length 0
+06:54:57.411243 IP 192.168.1.2.5001 > 192.168.1.3.51645: Flags [.], ack 82536, win 11268, options [nop,nop,TS val 1053306 ecr 1052254], length 0
+< same 2ms unexplained gap here >
+06:54:57.412912 IP 192.168.1.3.51645 > 192.168.1.2.5001: Flags [.], seq 165072:166520, ack 1, win 457, options [nop,nop,TS val 1052259 ecr 1053306], length 1448
+06:54:57.412935 IP 192.168.1.3.51645 > 192.168.1.2.5001: Flags [.], seq 166520:167968, ack 1, win 457, options [nop,nop,TS val 1052259 ecr 1053306], length 1448
+06:54:57.412948 IP 192.168.1.3.51645 > 192.168.1.2.5001: Flags [.], seq 167968:169416, ack 1, win 457, options [nop,nop,TS val 1052259 ecr 1053306], length 1448
+...
+06:54:57.413650 IP 192.168.1.3.51645 > 192.168.1.2.5001: Flags [.], seq 244712:246160, ack 1, win 457, options [nop,nop,TS val 1052260 ecr 1053306], length 1448
+06:54:57.413662 IP 192.168.1.3.51645 > 192.168.1.2.5001: Flags [.], seq 246160:247608, ack 1, win 457, options [nop,nop,TS val 1052260 ecr 1053306], length 1448
+06:54:57.413712 IP 192.168.1.2.5001 > 192.168.1.3.51645: Flags [.], ack 112944, win 11268, options [nop,nop,TS val 1053308 ecr 1052256], length 0
+06:54:57.413730 IP 192.168.1.2.5001 > 192.168.1.3.51645: Flags [.], ack 130320, win 11268, options [nop,nop,TS val 1053308 ecr 1052257], length 0
+06:54:57.413754 IP 192.168.1.2.5001 > 192.168.1.3.51645: Flags [.], ack 160728, win 11268, options [nop,nop,TS val 1053309 ecr 1052257], length 0
+06:54:57.413779 IP 192.168.1.2.5001 > 192.168.1.3.51645: Flags [.], ack 165072, win 11268, options [nop,nop,TS val 1053309 ecr 1052257], length 0
+< same 2ms delay >
+06:54:57.415682 IP 192.168.1.3.51645 > 192.168.1.2.5001: Flags [.], seq 247608:249056, ack 1, win 457, options [nop,nop,TS val 1052262 ecr 1053309], length 1448
+06:54:57.415709 IP 192.168.1.3.51645 > 192.168.1.2.5001: Flags [.], seq 249056:250504, ack 1, win 457, options [nop,nop,TS val 1052262 ecr 1053309], length 1448
+
+Are packets TX completed after a timer or something ?
+
+Some very heavy stuff might run from tasklet (or other softirq triggered) event.
+
+BTW, traces tend to show that you 'receive' multiple ACK in the same burst,
+its not clear if they are delayed at one side or the other.
+
+GRO should delay only GRO candidates. ACK packets are not GRO candidates.
+
+Have you tried to disable GSO on sender ?
+
+(Or maybe wifi drivers should start to use skb->xmit_more as a signal to end aggregation)
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
