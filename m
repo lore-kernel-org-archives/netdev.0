@@ -1,53 +1,48 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCHv3, ipsec-next] xfrm: Do not parse 32bits compiled xfrm
- netlink msg on 64bits host
-Date: Tue, 3 Feb 2015 13:24:32 +0100
-Message-ID: <20150203122432.GV13046@secunet.com>
-References: <1422349230-17394-1-git-send-email-fan.du@intel.com>
- <54CA0B9F.8080104@6wind.com>
- <20150202084443.GS13046@secunet.com>
- <54CF3D3A.5040607@6wind.com>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: btcoex subsystem
+Date: Tue, 03 Feb 2015 14:29:38 +0200
+Message-ID: <874mr3xjnx.fsf_-_@kamboji.qca.qualcomm.com>
+References: <1422304934-9239-1-git-send-email-Larry.Finger@lwfinger.net>
+	<1422304934-9239-6-git-send-email-Larry.Finger@lwfinger.net>
+	<87h9v8zkuh.fsf@kamboji.qca.qualcomm.com>
+	<EC423C22-AEA0-4232-A452-7A131C41780A@holtmann.org>
+	<54CBA0CE.8030800@lwfinger.net>
+	<B814EF26-CBC9-43E4-A6C9-761A013F85C1@holtmann.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Fan Du <fan.du@intel.com>, <herbert@gondor.apana.org.au>,
-	<davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<fengyuleidian0615@gmail.com>
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Larry Finger <Larry.Finger@lwfinger.net>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	Troy Tan <troy_tan@realsil.com.cn>, netdev@vger.kernel.org,
+	linux-bluetooth@vger.kernel.org
+To: Marcel Holtmann <marcel@holtmann.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:44808 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751068AbbBCMYg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Feb 2015 07:24:36 -0500
-Content-Disposition: inline
-In-Reply-To: <54CF3D3A.5040607@6wind.com>
+Received: from smtp.codeaurora.org ([198.145.11.231]:59415 "EHLO
+	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755745AbbBCM3q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Feb 2015 07:29:46 -0500
+In-Reply-To: <B814EF26-CBC9-43E4-A6C9-761A013F85C1@holtmann.org> (Marcel
+	Holtmann's message of "Fri, 30 Jan 2015 10:05:24 -0800")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 02, 2015 at 10:02:50AM +0100, Nicolas Dichtel wrote:
-> Le 02/02/2015 09:44, Steffen Klassert a =E9crit :
-> >On Thu, Jan 29, 2015 at 11:29:51AM +0100, Nicolas Dichtel wrote:
-> [snip]
-> >>
-> >>The point I try to make is that patching userland apps allows to us=
-e xfrm on a
-> >>32bits userland / 64bits kernel.
-> >
-> >Ugh, I did not know that this is used that way. Which applications d=
-o this?
-> >So the situation is worse than I thought. What happens to such appli=
-cations
-> >if we add a compat layer in the kernel? I'd guess they will break, r=
-ight?
-> A compat layer will be perfect. I just wanted to highlight the fact t=
-hat without
-> this patch, it's possible to have a workaround to use netlink-xfrm an=
-d after it,
-> it will be impossible.
+Marcel Holtmann <marcel@holtmann.org> writes:
 
-You did not answer my question about the applications that do this.
-If it is just possible, but there are no actual users, we should
-apply this patch as soon as possible to avoid any abuse of this ABI.
+>> I will work on combining the latest BT drivers from Realtek with
+>> btusb to see if I can achieve a patch that will both work with the
+>> Realtek hardware, and get approval from the reviewers.
+>> 
+>> What would be an approved method of communicating between two kernel
+>> modules? Is there some example in the kernel that I could study?
+>
+> We need a btcoex subsystem that both WiFi and Bluetooth can register
+> to and communicate with.
 
-I tend to apply this patch unless you can come up with a real world
-application that will break if we do so.
+The need for this seems to periodically come up, I remember needing
+something like that back in the Maemo wl1251 days and also ath6kl needed
+this. Are there any ideas for this subsystem? How would this btcoex
+subsystem work? What kind of information would it provide?
+
+Is this something we should discuss at Ottawa?
+
+-- 
+Kalle Valo
