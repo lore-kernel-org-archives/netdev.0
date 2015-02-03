@@ -1,7 +1,7 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next 02/10] net/bonding: Move slave state changes to a helper function
-Date: Tue,  3 Feb 2015 16:48:30 +0200
-Message-ID: <1422974919-28084-3-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net-next 03/10] net/bonding: Notify state change on slaves
+Date: Tue,  3 Feb 2015 16:48:31 +0200
+Message-ID: <1422974919-28084-4-git-send-email-ogerlitz@mellanox.com>
 References: <1422974919-28084-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, Roland Dreier <roland@kernel.org>,
 	Amir Vadai <amirv@mellanox.com>, Tal Alon <talal@mellanox.com>,
@@ -9,223 +9,143 @@ Cc: netdev@vger.kernel.org, Roland Dreier <roland@kernel.org>,
 	Or Gerlitz <ogerlitz@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:60021 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:60039 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751725AbbBCOtb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Feb 2015 09:49:31 -0500
+	id S1751725AbbBCOtl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Feb 2015 09:49:41 -0500
 In-Reply-To: <1422974919-28084-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Moni Shoua <monis@mellanox.com>
 
-Move slave state changes to a helper function, this is a pre-step for adding
-functionality of dispatching an event when this helper is called.
-
-This commit doesn't add new functionality.
+Use notifier chain to dispatch an event upon a change in slave state.
+Event is dispatched with slave specific info.
 
 Signed-off-by: Moni Shoua <monis@mellanox.com>
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 ---
- drivers/net/bonding/bond_main.c |   64 +++++++++++++++++++++++----------------
- include/net/bonding.h           |    5 +++
- 2 files changed, 43 insertions(+), 26 deletions(-)
+ drivers/net/bonding/bond_main.c |   42 +++++++++++++++++++++++++++++++++++++++
+ include/net/bonding.h           |   12 +++++++++++
+ 2 files changed, 54 insertions(+), 0 deletions(-)
 
 diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index e229a86..0665608 100644
+index 0665608..c9771f3 100644
 --- a/drivers/net/bonding/bond_main.c
 +++ b/drivers/net/bonding/bond_main.c
-@@ -789,7 +789,7 @@ void bond_change_active_slave(struct bonding *bond, struct slave *new_active)
- 			}
- 
- 			new_active->delay = 0;
--			new_active->link = BOND_LINK_UP;
-+			bond_set_slave_link_state(new_active, BOND_LINK_UP);
- 
- 			if (BOND_MODE(bond) == BOND_MODE_8023AD)
- 				bond_3ad_handle_link_change(new_active, BOND_LINK_UP);
-@@ -1176,6 +1176,21 @@ static void bond_free_slave(struct slave *slave)
- 	kfree(slave);
+@@ -1191,6 +1191,47 @@ static void bond_fill_ifslave(struct slave *slave, struct ifslave *info)
+ 	info->link_failure_count = slave->link_failure_count;
  }
  
-+static void bond_fill_ifbond(struct bonding *bond, struct ifbond *info)
++static void bond_netdev_notify(struct slave *slave, struct net_device *dev)
 +{
-+	info->bond_mode = BOND_MODE(bond);
-+	info->miimon = bond->params.miimon;
-+	info->num_slaves = bond->slave_cnt;
++	struct bonding *bond = slave->bond;
++	struct netdev_bonding_info bonding_info;
++
++	rtnl_lock();
++	/* make sure that slave is still valid */
++	if (dev->priv_flags & IFF_BONDING) {
++		bond_fill_ifslave(slave, &bonding_info.slave);
++		bond_fill_ifbond(bond, &bonding_info.master);
++		netdev_bonding_info_change(slave->dev, &bonding_info);
++	}
++	rtnl_unlock();
 +}
 +
-+static void bond_fill_ifslave(struct slave *slave, struct ifslave *info)
++static void bond_netdev_notify_work(struct work_struct *_work)
 +{
-+	strcpy(info->slave_name, slave->dev->name);
-+	info->link = slave->link;
-+	info->state = bond_slave_state(slave);
-+	info->link_failure_count = slave->link_failure_count;
++	struct netdev_notify_work *w =
++		container_of(_work, struct netdev_notify_work, work.work);
++
++	bond_netdev_notify(w->slave, w->dev);
++	dev_put(w->dev);
++}
++
++void bond_queue_slave_event(struct slave *slave)
++{
++	struct netdev_notify_work *nnw = kzalloc(sizeof(*nnw), GFP_ATOMIC);
++
++	if (!nnw)
++		return;
++
++	INIT_DELAYED_WORK(&nnw->work, bond_netdev_notify_work);
++	nnw->slave = slave;
++	nnw->dev = slave->dev;
++
++	if (queue_delayed_work(slave->bond->wq, &nnw->work, 0))
++		dev_hold(slave->dev);
++	else
++		kfree(nnw);
 +}
 +
  /* enslave device <slave> to bond device <master> */
  int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
  {
-@@ -1439,19 +1454,22 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
- 	if (bond->params.miimon) {
- 		if (bond_check_dev_link(bond, slave_dev, 0) == BMSR_LSTATUS) {
- 			if (bond->params.updelay) {
--				new_slave->link = BOND_LINK_BACK;
-+				bond_set_slave_link_state(new_slave,
-+							  BOND_LINK_BACK);
- 				new_slave->delay = bond->params.updelay;
- 			} else {
--				new_slave->link = BOND_LINK_UP;
-+				bond_set_slave_link_state(new_slave,
-+							  BOND_LINK_UP);
- 			}
- 		} else {
--			new_slave->link = BOND_LINK_DOWN;
-+			bond_set_slave_link_state(new_slave, BOND_LINK_DOWN);
- 		}
- 	} else if (bond->params.arp_interval) {
--		new_slave->link = (netif_carrier_ok(slave_dev) ?
--			BOND_LINK_UP : BOND_LINK_DOWN);
-+		bond_set_slave_link_state(new_slave,
-+					  (netif_carrier_ok(slave_dev) ?
-+					  BOND_LINK_UP : BOND_LINK_DOWN));
- 	} else {
--		new_slave->link = BOND_LINK_UP;
-+		bond_set_slave_link_state(new_slave, BOND_LINK_UP);
- 	}
+@@ -1585,6 +1626,7 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+ 		    new_slave->link != BOND_LINK_DOWN ? "an up" : "a down");
  
- 	if (new_slave->link != BOND_LINK_DOWN)
-@@ -1816,11 +1834,7 @@ static int  bond_release_and_destroy(struct net_device *bond_dev,
- static int bond_info_query(struct net_device *bond_dev, struct ifbond *info)
- {
- 	struct bonding *bond = netdev_priv(bond_dev);
--
--	info->bond_mode = BOND_MODE(bond);
--	info->miimon = bond->params.miimon;
--	info->num_slaves = bond->slave_cnt;
--
-+	bond_fill_ifbond(bond, info);
+ 	/* enslave is successful */
++	bond_queue_slave_event(new_slave);
  	return 0;
- }
  
-@@ -1834,10 +1848,7 @@ static int bond_slave_info_query(struct net_device *bond_dev, struct ifslave *in
- 	bond_for_each_slave(bond, slave, iter) {
- 		if (i++ == (int)info->slave_id) {
- 			res = 0;
--			strcpy(info->slave_name, slave->dev->name);
--			info->link = slave->link;
--			info->state = bond_slave_state(slave);
--			info->link_failure_count = slave->link_failure_count;
-+			bond_fill_ifslave(slave, info);
- 			break;
- 		}
- 	}
-@@ -1867,7 +1878,7 @@ static int bond_miimon_inspect(struct bonding *bond)
- 			if (link_state)
- 				continue;
- 
--			slave->link = BOND_LINK_FAIL;
-+			bond_set_slave_link_state(slave, BOND_LINK_FAIL);
- 			slave->delay = bond->params.downdelay;
- 			if (slave->delay) {
- 				netdev_info(bond->dev, "link status down for %sinterface %s, disabling it in %d ms\n",
-@@ -1882,7 +1893,7 @@ static int bond_miimon_inspect(struct bonding *bond)
- 		case BOND_LINK_FAIL:
- 			if (link_state) {
- 				/* recovered before downdelay expired */
--				slave->link = BOND_LINK_UP;
-+				bond_set_slave_link_state(slave, BOND_LINK_UP);
- 				slave->last_link_up = jiffies;
- 				netdev_info(bond->dev, "link status up again after %d ms for interface %s\n",
- 					    (bond->params.downdelay - slave->delay) *
-@@ -1904,7 +1915,7 @@ static int bond_miimon_inspect(struct bonding *bond)
- 			if (!link_state)
- 				continue;
- 
--			slave->link = BOND_LINK_BACK;
-+			bond_set_slave_link_state(slave, BOND_LINK_BACK);
- 			slave->delay = bond->params.updelay;
- 
- 			if (slave->delay) {
-@@ -1917,7 +1928,8 @@ static int bond_miimon_inspect(struct bonding *bond)
- 			/*FALLTHRU*/
- 		case BOND_LINK_BACK:
- 			if (!link_state) {
--				slave->link = BOND_LINK_DOWN;
-+				bond_set_slave_link_state(slave,
-+							  BOND_LINK_DOWN);
- 				netdev_info(bond->dev, "link status down again after %d ms for interface %s\n",
- 					    (bond->params.updelay - slave->delay) *
- 					    bond->params.miimon,
-@@ -1955,7 +1967,7 @@ static void bond_miimon_commit(struct bonding *bond)
- 			continue;
- 
- 		case BOND_LINK_UP:
--			slave->link = BOND_LINK_UP;
-+			bond_set_slave_link_state(slave, BOND_LINK_UP);
- 			slave->last_link_up = jiffies;
- 
- 			primary = rtnl_dereference(bond->primary_slave);
-@@ -1995,7 +2007,7 @@ static void bond_miimon_commit(struct bonding *bond)
- 			if (slave->link_failure_count < UINT_MAX)
- 				slave->link_failure_count++;
- 
--			slave->link = BOND_LINK_DOWN;
-+			bond_set_slave_link_state(slave, BOND_LINK_DOWN);
- 
- 			if (BOND_MODE(bond) == BOND_MODE_ACTIVEBACKUP ||
- 			    BOND_MODE(bond) == BOND_MODE_8023AD)
-@@ -2578,7 +2590,7 @@ static void bond_ab_arp_commit(struct bonding *bond)
- 				struct slave *current_arp_slave;
- 
- 				current_arp_slave = rtnl_dereference(bond->current_arp_slave);
--				slave->link = BOND_LINK_UP;
-+				bond_set_slave_link_state(slave, BOND_LINK_UP);
- 				if (current_arp_slave) {
- 					bond_set_slave_inactive_flags(
- 						current_arp_slave,
-@@ -2601,7 +2613,7 @@ static void bond_ab_arp_commit(struct bonding *bond)
- 			if (slave->link_failure_count < UINT_MAX)
- 				slave->link_failure_count++;
- 
--			slave->link = BOND_LINK_DOWN;
-+			bond_set_slave_link_state(slave, BOND_LINK_DOWN);
- 			bond_set_slave_inactive_flags(slave,
- 						      BOND_SLAVE_NOTIFY_NOW);
- 
-@@ -2680,7 +2692,7 @@ static bool bond_ab_arp_probe(struct bonding *bond)
- 		 * up when it is actually down
- 		 */
- 		if (!bond_slave_is_up(slave) && slave->link == BOND_LINK_UP) {
--			slave->link = BOND_LINK_DOWN;
-+			bond_set_slave_link_state(slave, BOND_LINK_DOWN);
- 			if (slave->link_failure_count < UINT_MAX)
- 				slave->link_failure_count++;
- 
-@@ -2700,7 +2712,7 @@ static bool bond_ab_arp_probe(struct bonding *bond)
- 	if (!new_slave)
- 		goto check_state;
- 
--	new_slave->link = BOND_LINK_BACK;
-+	bond_set_slave_link_state(new_slave, BOND_LINK_BACK);
- 	bond_set_slave_active_flags(new_slave, BOND_SLAVE_NOTIFY_LATER);
- 	bond_arp_send_all(bond, new_slave);
- 	new_slave->last_link_up = jiffies;
+ /* Undo stages on error */
 diff --git a/include/net/bonding.h b/include/net/bonding.h
-index 29f53ea..d1367ec 100644
+index d1367ec..4e17095 100644
 --- a/include/net/bonding.h
 +++ b/include/net/bonding.h
-@@ -490,6 +490,11 @@ static inline bool bond_is_slave_inactive(struct slave *slave)
- 	return slave->inactive;
+@@ -150,6 +150,12 @@ struct bond_parm_tbl {
+ 	int mode;
+ };
+ 
++struct netdev_notify_work {
++	struct delayed_work	work;
++	struct slave		*slave;
++	struct net_device	*dev;
++};
++
+ struct slave {
+ 	struct net_device *dev; /* first - useful for panic debug */
+ 	struct bonding *bond; /* our master */
+@@ -243,6 +249,8 @@ struct bonding {
+ #define bond_slave_get_rtnl(dev) \
+ 	((struct slave *) rtnl_dereference(dev->rx_handler_data))
+ 
++void bond_queue_slave_event(struct slave *slave);
++
+ struct bond_vlan_tag {
+ 	__be16		vlan_proto;
+ 	unsigned short	vlan_id;
+@@ -315,6 +323,7 @@ static inline void bond_set_active_slave(struct slave *slave)
+ {
+ 	if (slave->backup) {
+ 		slave->backup = 0;
++		bond_queue_slave_event(slave);
+ 		rtmsg_ifinfo(RTM_NEWLINK, slave->dev, 0, GFP_ATOMIC);
+ 	}
+ }
+@@ -323,6 +332,7 @@ static inline void bond_set_backup_slave(struct slave *slave)
+ {
+ 	if (!slave->backup) {
+ 		slave->backup = 1;
++		bond_queue_slave_event(slave);
+ 		rtmsg_ifinfo(RTM_NEWLINK, slave->dev, 0, GFP_ATOMIC);
+ 	}
+ }
+@@ -336,6 +346,7 @@ static inline void bond_set_slave_state(struct slave *slave,
+ 	slave->backup = slave_state;
+ 	if (notify) {
+ 		rtmsg_ifinfo(RTM_NEWLINK, slave->dev, 0, GFP_ATOMIC);
++		bond_queue_slave_event(slave);
+ 		slave->should_notify = 0;
+ 	} else {
+ 		if (slave->should_notify)
+@@ -493,6 +504,7 @@ static inline bool bond_is_slave_inactive(struct slave *slave)
+ static inline void bond_set_slave_link_state(struct slave *slave, int state)
+ {
+ 	slave->link = state;
++	bond_queue_slave_event(slave);
  }
  
-+static inline void bond_set_slave_link_state(struct slave *slave, int state)
-+{
-+	slave->link = state;
-+}
-+
  static inline __be32 bond_confirm_addr(struct net_device *dev, __be32 dst, __be32 local)
- {
- 	struct in_device *in_dev;
 -- 
 1.7.1
