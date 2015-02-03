@@ -1,310 +1,357 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH v2 08/17] {macvtap,tun}_get_user(): switch to iov_iter
-Date: Tue, 3 Feb 2015 12:10:44 +0200
-Message-ID: <20150203101044.GA5081@redhat.com>
-References: <20141125024018.GH7996@ZenIV.linux.org.uk>
- <1416924151-28698-8-git-send-email-viro@ZenIV.linux.org.uk>
+From: yuweizheng@139.com
+Subject: [PATCH] ath9k_htc: add adaptive rate control to
+	repair soft lockup with monitor mode
+Date: Tue,  3 Feb 2015 17:21:10 +0800
+Message-ID: <1422955270-19499-1-git-send-email-yuweizheng@139.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Al Viro <viro@ZenIV.linux.org.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1416924151-28698-8-git-send-email-viro@ZenIV.linux.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Yuwei Zheng <yuweizheng@139.com>
+To: linux-kernel@vger.kernel.org, ath9k-devel@lists.ath9k.org,
+	linux-wireless@vger.kernel.org, kvalo@codeaurora.org,
+	ath9k-devel@qca.qualcomm.com
+Return-path: <ath9k-devel-bounces@lists.ath9k.org>
+List-Unsubscribe: <https://lists.ath9k.org/mailman/listinfo/ath9k-devel>,
+	<mailto:ath9k-devel-request@lists.ath9k.org?subject=unsubscribe>
+List-Archive: <http://lists.ath9k.org/pipermail/ath9k-devel>
+List-Post: <mailto:ath9k-devel@lists.ath9k.org>
+List-Help: <mailto:ath9k-devel-request@lists.ath9k.org?subject=help>
+List-Subscribe: <https://lists.ath9k.org/mailman/listinfo/ath9k-devel>,
+	<mailto:ath9k-devel-request@lists.ath9k.org?subject=subscribe>
+Sender: ath9k-devel-bounces@lists.ath9k.org
+Errors-To: ath9k-devel-bounces@lists.ath9k.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 25, 2014 at 02:02:22PM +0000, Al Viro wrote:
-> From: Al Viro <viro@zeniv.linux.org.uk>
-> 
-> allows to switch macvtap and tun from ->aio_write() to ->write_iter()
-> 
-> Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
-> ---
->  drivers/net/macvtap.c |   44 +++++++++++++++++++++-----------------------
->  drivers/net/tun.c     |   44 ++++++++++++++++++++++++--------------------
->  2 files changed, 45 insertions(+), 43 deletions(-)
-> 
-> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-> index 8f80045..22b4cf2 100644
-> --- a/drivers/net/macvtap.c
-> +++ b/drivers/net/macvtap.c
-> @@ -640,12 +640,12 @@ static void macvtap_skb_to_vnet_hdr(const struct sk_buff *skb,
->  
->  /* Get packet from user space buffer */
->  static ssize_t macvtap_get_user(struct macvtap_queue *q, struct msghdr *m,
-> -				const struct iovec *iv, unsigned long total_len,
-> -				size_t count, int noblock)
-> +				struct iov_iter *from, int noblock)
->  {
->  	int good_linear = SKB_MAX_HEAD(NET_IP_ALIGN);
->  	struct sk_buff *skb;
->  	struct macvlan_dev *vlan;
-> +	unsigned long total_len = iov_iter_count(from);
->  	unsigned long len = total_len;
->  	int err;
->  	struct virtio_net_hdr vnet_hdr = { 0 };
-> @@ -653,6 +653,7 @@ static ssize_t macvtap_get_user(struct macvtap_queue *q, struct msghdr *m,
->  	int copylen = 0;
->  	bool zerocopy = false;
->  	size_t linear;
-> +	ssize_t n;
->  
->  	if (q->flags & IFF_VNET_HDR) {
->  		vnet_hdr_len = q->vnet_hdr_sz;
-> @@ -662,10 +663,11 @@ static ssize_t macvtap_get_user(struct macvtap_queue *q, struct msghdr *m,
->  			goto err;
->  		len -= vnet_hdr_len;
->  
-> -		err = memcpy_fromiovecend((void *)&vnet_hdr, iv, 0,
-> -					   sizeof(vnet_hdr));
-> -		if (err < 0)
-> +		err = -EFAULT;
-> +		n = copy_from_iter(&vnet_hdr, sizeof(vnet_hdr), from);
-> +		if (n != sizeof(vnet_hdr))
->  			goto err;
-> +		iov_iter_advance(from, vnet_hdr_len - sizeof(vnet_hdr));
->  		if ((vnet_hdr.flags & VIRTIO_NET_HDR_F_NEEDS_CSUM) &&
->  		     vnet_hdr.csum_start + vnet_hdr.csum_offset + 2 >
->  							vnet_hdr.hdr_len)
-> @@ -680,17 +682,16 @@ static ssize_t macvtap_get_user(struct macvtap_queue *q, struct msghdr *m,
->  	if (unlikely(len < ETH_HLEN))
->  		goto err;
->  
-> -	err = -EMSGSIZE;
-> -	if (unlikely(count > UIO_MAXIOV))
-> -		goto err;
-> -
->  	if (m && m->msg_control && sock_flag(&q->sk, SOCK_ZEROCOPY)) {
-> +		struct iov_iter i;
-> +
->  		copylen = vnet_hdr.hdr_len ? vnet_hdr.hdr_len : GOODCOPY_LEN;
->  		if (copylen > good_linear)
->  			copylen = good_linear;
->  		linear = copylen;
-> -		if (iov_pages(iv, vnet_hdr_len + copylen, count)
-> -		    <= MAX_SKB_FRAGS)
-> +		i = *from;
-> +		iov_iter_advance(&i, copylen);
-> +		if (iov_iter_npages(&i, INT_MAX) <= MAX_SKB_FRAGS)
->  			zerocopy = true;
->  	}
->  
-> @@ -708,10 +709,9 @@ static ssize_t macvtap_get_user(struct macvtap_queue *q, struct msghdr *m,
->  		goto err;
->  
->  	if (zerocopy)
-> -		err = zerocopy_sg_from_iovec(skb, iv, vnet_hdr_len, count);
-> +		err = zerocopy_sg_from_iter(skb, from);
->  	else {
-> -		err = skb_copy_datagram_from_iovec(skb, 0, iv, vnet_hdr_len,
-> -						   len);
-> +		err = skb_copy_datagram_from_iter(skb, 0, from, len);
->  		if (!err && m && m->msg_control) {
->  			struct ubuf_info *uarg = m->msg_control;
->  			uarg->callback(uarg, false);
-> @@ -764,16 +764,12 @@ err:
->  	return err;
->  }
->  
-> -static ssize_t macvtap_aio_write(struct kiocb *iocb, const struct iovec *iv,
-> -				 unsigned long count, loff_t pos)
-> +static ssize_t macvtap_write_iter(struct kiocb *iocb, struct iov_iter *from)
->  {
->  	struct file *file = iocb->ki_filp;
-> -	ssize_t result = -ENOLINK;
->  	struct macvtap_queue *q = file->private_data;
->  
-> -	result = macvtap_get_user(q, NULL, iv, iov_length(iv, count), count,
-> -				  file->f_flags & O_NONBLOCK);
-> -	return result;
-> +	return macvtap_get_user(q, NULL, from, file->f_flags & O_NONBLOCK);
->  }
->  
->  /* Put packet to the user space buffer */
-> @@ -1081,8 +1077,9 @@ static const struct file_operations macvtap_fops = {
->  	.open		= macvtap_open,
->  	.release	= macvtap_release,
->  	.read		= new_sync_read,
-> +	.write		= new_sync_write,
->  	.read_iter	= macvtap_read_iter,
-> -	.aio_write	= macvtap_aio_write,
-> +	.write_iter	= macvtap_write_iter,
->  	.poll		= macvtap_poll,
->  	.llseek		= no_llseek,
->  	.unlocked_ioctl	= macvtap_ioctl,
-> @@ -1095,8 +1092,9 @@ static int macvtap_sendmsg(struct kiocb *iocb, struct socket *sock,
->  			   struct msghdr *m, size_t total_len)
->  {
->  	struct macvtap_queue *q = container_of(sock, struct macvtap_queue, sock);
-> -	return macvtap_get_user(q, m, m->msg_iov, total_len, m->msg_iovlen,
-> -			    m->msg_flags & MSG_DONTWAIT);
-> +	struct iov_iter from;
-> +	iov_iter_init(&from, WRITE, m->msg_iov, m->msg_iovlen, total_len);
-> +	return macvtap_get_user(q, m, &from, m->msg_flags & MSG_DONTWAIT);
->  }
->  
->  static int macvtap_recvmsg(struct kiocb *iocb, struct socket *sock,
-> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-> index 405dfdf..4b743c6 100644
-> --- a/drivers/net/tun.c
-> +++ b/drivers/net/tun.c
-> @@ -1012,28 +1012,29 @@ static struct sk_buff *tun_alloc_skb(struct tun_file *tfile,
->  
->  /* Get packet from user space buffer */
->  static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
-> -			    void *msg_control, const struct iovec *iv,
-> -			    size_t total_len, size_t count, int noblock)
-> +			    void *msg_control, struct iov_iter *from,
-> +			    int noblock)
->  {
->  	struct tun_pi pi = { 0, cpu_to_be16(ETH_P_IP) };
->  	struct sk_buff *skb;
-> +	size_t total_len = iov_iter_count(from);
->  	size_t len = total_len, align = NET_SKB_PAD, linear;
->  	struct virtio_net_hdr gso = { 0 };
->  	int good_linear;
-> -	int offset = 0;
->  	int copylen;
->  	bool zerocopy = false;
->  	int err;
->  	u32 rxhash;
-> +	ssize_t n;
->  
->  	if (!(tun->flags & TUN_NO_PI)) {
->  		if (len < sizeof(pi))
->  			return -EINVAL;
->  		len -= sizeof(pi);
->  
-> -		if (memcpy_fromiovecend((void *)&pi, iv, 0, sizeof(pi)))
-> +		n = copy_from_iter(&pi, sizeof(pi), from);
-> +		if (n != sizeof(pi))
->  			return -EFAULT;
-> -		offset += sizeof(pi);
->  	}
->  
->  	if (tun->flags & TUN_VNET_HDR) {
-> @@ -1041,7 +1042,8 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
->  			return -EINVAL;
->  		len -= tun->vnet_hdr_sz;
->  
-> -		if (memcpy_fromiovecend((void *)&gso, iv, offset, sizeof(gso)))
-> +		n = copy_from_iter(&gso, sizeof(gso), from);
-> +		if (n != sizeof(gso))
->  			return -EFAULT;
->  
->  		if ((gso.flags & VIRTIO_NET_HDR_F_NEEDS_CSUM) &&
-> @@ -1050,7 +1052,7 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
->  
->  		if (gso.hdr_len > len)
->  			return -EINVAL;
-> -		offset += tun->vnet_hdr_sz;
-> +		iov_iter_advance(from, tun->vnet_hdr_sz);
->  	}
->  
->  	if ((tun->flags & TUN_TYPE_MASK) == TUN_TAP_DEV) {
+From: Yuwei Zheng <yuweizheng@139.com>
 
+In the environment with heavy wifi traffic, set the ar9271 into monitor mode, will
+trigger a deadloop panic.
+The ath9k_hif_usb_rx_cb function excute on  the interrupt context, and ath9k_rx_tasklet excute
+on the soft irq context. In other words, the ath9k_hif_usb_rx_cb have more chance to excute than
+ath9k_rx_tasklet.  So in the worst condition,  the rx.rxbuf receive list is always full,
+and the do {}while(true) loop will not be break. The kernel get a soft lockup panic.
+[59011.007210] BUG: soft lockup - CPU#0 stuck for 23s!
+[kworker/0:0:30609]
+[59011.030560] BUG: scheduling while atomic: kworker/0:0/30609/0x40010100
+[59013.804486] BUG: scheduling while atomic: kworker/0:0/30609/0x40010100
+[59013.858522] Kernel panic - not syncing: softlockup: hung tasks
+[59014.038891] Exception stack(0xdf4bbc38 to 0xdf4bbc80)
+[59014.046834] bc20:                                                       de57b950 60000113
+[59014.059579] bc40: 00000000 bb32bb32 60000113 de57b948 de57b500 dc7bb440 df4bbcd0 00000000
+[59014.072337] bc60: de57b950 60000113 df4bbcd0 df4bbc80 c04c259d c04c25a0 60000133 ffffffff
+[59014.085233] [<c04c28db>] (__irq_svc+0x3b/0x5c) from [<c04c25a0>] (_raw_spin_unlock_irqrestore+0xc/0x10)
+[59014.100437] [<c04c25a0>] (_raw_spin_unlock_irqrestore+0xc/0x10) from [<bf9c2089>] (ath9k_rx_tasklet+0x290/0x490 [ath9k_htc])
+[59014.118267] [<bf9c2089>] (ath9k_rx_tasklet+0x290/0x490 [ath9k_htc]) from [<c0036d23>] (tasklet_action+0x3b/0x98)
+[59014.134132] [<c0036d23>] (tasklet_action+0x3b/0x98) from [<c0036709>] (__do_softirq+0x99/0x16c)
+[59014.147784] [<c0036709>] (__do_softirq+0x99/0x16c) from [<c00369f7>] (irq_exit+0x5b/0x5c)
+[59014.160653] [<c00369f7>] (irq_exit+0x5b/0x5c) from [<c000cfc3>] (handle_IRQ+0x37/0x78)
+[59014.173124] [<c000cfc3>] (handle_IRQ+0x37/0x78) from [<c00085df>] (omap3_intc_handle_irq+0x5f/0x68)
+[59014.187225] [<c00085df>] (omap3_intc_handle_irq+0x5f/0x68) from [<c04c28db>](__irq_svc+0x3b/0x5c)
+This bug can be see with low performance board, such as uniprocessor beagle bone board.
+Signed-off-by: Yuwei Zheng <zhengyuwei@360.cn>
+Signed-off-by: Yuwei Zheng <yuweizheng@139.com>
 
-Hmm does copy_from_iter actually modify the iovec?
-If so, won't this break aio on tun/macvtap, by
-reversing the effect of
-commit 6f26c9a7555e5bcca3560919db9b852015077dae
-    tun: fix tun_chr_aio_write so that aio works
-?
+---
+ drivers/net/wireless/ath/ath9k/hif_usb.c       | 61 +++++++++++++++++++++++---
+ drivers/net/wireless/ath/ath9k/hif_usb.h       |  6 +++
+ drivers/net/wireless/ath/ath9k/htc.h           | 18 ++++++++
+ drivers/net/wireless/ath/ath9k/htc_drv_debug.c | 46 +++++++++++++++++++
+ drivers/net/wireless/ath/ath9k/htc_drv_txrx.c  | 25 +++++++++++
+ 5 files changed, 149 insertions(+), 7 deletions(-)
 
-
-Maybe we should change iovec_iter to avoid modifying the
-underlying iovec?
-
-
-
-> @@ -1063,6 +1065,8 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
->  	good_linear = SKB_MAX_HEAD(align);
->  
->  	if (msg_control) {
-> +		struct iov_iter i = *from;
-> +
->  		/* There are 256 bytes to be copied in skb, so there is
->  		 * enough room for skb expand head in case it is used.
->  		 * The rest of the buffer is mapped from userspace.
-> @@ -1071,7 +1075,8 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
->  		if (copylen > good_linear)
->  			copylen = good_linear;
->  		linear = copylen;
-> -		if (iov_pages(iv, offset + copylen, count) <= MAX_SKB_FRAGS)
-> +		iov_iter_advance(&i, copylen);
-> +		if (iov_iter_npages(&i, INT_MAX) <= MAX_SKB_FRAGS)
->  			zerocopy = true;
->  	}
->  
-> @@ -1091,9 +1096,9 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
->  	}
->  
->  	if (zerocopy)
-> -		err = zerocopy_sg_from_iovec(skb, iv, offset, count);
-> +		err = zerocopy_sg_from_iter(skb, from);
->  	else {
-> -		err = skb_copy_datagram_from_iovec(skb, 0, iv, offset, len);
-> +		err = skb_copy_datagram_from_iter(skb, 0, from, len);
->  		if (!err && msg_control) {
->  			struct ubuf_info *uarg = msg_control;
->  			uarg->callback(uarg, false);
-> @@ -1207,8 +1212,7 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
->  	return total_len;
->  }
->  
-> -static ssize_t tun_chr_aio_write(struct kiocb *iocb, const struct iovec *iv,
-> -			      unsigned long count, loff_t pos)
-> +static ssize_t tun_chr_write_iter(struct kiocb *iocb, struct iov_iter *from)
->  {
->  	struct file *file = iocb->ki_filp;
->  	struct tun_struct *tun = tun_get(file);
-> @@ -1218,10 +1222,7 @@ static ssize_t tun_chr_aio_write(struct kiocb *iocb, const struct iovec *iv,
->  	if (!tun)
->  		return -EBADFD;
->  
-> -	tun_debug(KERN_INFO, tun, "tun_chr_write %ld\n", count);
-> -
-> -	result = tun_get_user(tun, tfile, NULL, iv, iov_length(iv, count),
-> -			      count, file->f_flags & O_NONBLOCK);
-> +	result = tun_get_user(tun, tfile, NULL, from, file->f_flags & O_NONBLOCK);
->  
->  	tun_put(tun);
->  	return result;
-> @@ -1445,11 +1446,14 @@ static int tun_sendmsg(struct kiocb *iocb, struct socket *sock,
->  	int ret;
->  	struct tun_file *tfile = container_of(sock, struct tun_file, socket);
->  	struct tun_struct *tun = __tun_get(tfile);
-> +	struct iov_iter from;
->  
->  	if (!tun)
->  		return -EBADFD;
-> -	ret = tun_get_user(tun, tfile, m->msg_control, m->msg_iov, total_len,
-> -			   m->msg_iovlen, m->msg_flags & MSG_DONTWAIT);
-> +
-> +	iov_iter_init(&from, WRITE, m->msg_iov, m->msg_iovlen, total_len);
-> +	ret = tun_get_user(tun, tfile, m->msg_control, &from,
-> +			   m->msg_flags & MSG_DONTWAIT);
->  	tun_put(tun);
->  	return ret;
->  }
-> @@ -2233,9 +2237,9 @@ static const struct file_operations tun_fops = {
->  	.owner	= THIS_MODULE,
->  	.llseek = no_llseek,
->  	.read  = new_sync_read,
-> +	.write = new_sync_write,
->  	.read_iter  = tun_chr_read_iter,
-> -	.write = do_sync_write,
-> -	.aio_write = tun_chr_aio_write,
-> +	.write_iter = tun_chr_write_iter,
->  	.poll	= tun_chr_poll,
->  	.unlocked_ioctl	= tun_chr_ioctl,
->  #ifdef CONFIG_COMPAT
-> -- 
-> 1.7.10.4
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/wireless/ath/ath9k/hif_usb.c b/drivers/net/wireless/ath/ath9k/hif_usb.c
+index 8e7153b..9166f10 100644
+--- a/drivers/net/wireless/ath/ath9k/hif_usb.c
++++ b/drivers/net/wireless/ath/ath9k/hif_usb.c
+@@ -640,6 +640,7 @@ static void ath9k_hif_usb_rx_cb(struct urb *urb)
+ 	struct hif_device_usb *hif_dev =
+ 		usb_get_intfdata(usb_ifnum_to_if(urb->dev, 0));
+ 	int ret;
++	int delay;
+ 
+ 	if (!skb)
+ 		return;
+@@ -658,7 +659,6 @@ static void ath9k_hif_usb_rx_cb(struct urb *urb)
+ 	default:
+ 		goto resubmit;
+ 	}
+-
+ 	if (likely(urb->actual_length != 0)) {
+ 		skb_put(skb, urb->actual_length);
+ 		ath9k_hif_usb_rx_stream(hif_dev, skb);
+@@ -667,12 +667,18 @@ static void ath9k_hif_usb_rx_cb(struct urb *urb)
+ resubmit:
+ 	skb_reset_tail_pointer(skb);
+ 	skb_trim(skb, 0);
+-
+-	usb_anchor_urb(urb, &hif_dev->rx_submitted);
+-	ret = usb_submit_urb(urb, GFP_ATOMIC);
+-	if (ret) {
+-		usb_unanchor_urb(urb);
+-		goto free;
++	if (atomic_read(&hif_dev->rx_urb_submit_delay) > 0) {
++		usb_anchor_urb(urb, &hif_dev->rx_delayed_submitted);
++		delay = atomic_read(&hif_dev->rx_urb_submit_delay);
++		schedule_delayed_work(&hif_dev->rx_submit_delayed_work,
++				      usecs_to_jiffies(delay));
++	} else {
++		usb_anchor_urb(urb, &hif_dev->rx_submitted);
++		ret = usb_submit_urb(urb, GFP_ATOMIC);
++		if (ret) {
++			usb_unanchor_urb(urb);
++			goto free;
++		}
+ 	}
+ 
+ 	return;
+@@ -818,9 +824,43 @@ err:
+ 	return -ENOMEM;
+ }
+ 
++static void rx_urb_delayed_submit_handler(struct work_struct *work)
++{
++	struct hif_device_usb *hif_dev =
++		container_of(work,
++			     struct hif_device_usb,
++			     rx_submit_delayed_work.work);
++
++	struct urb *urb = NULL;
++	struct sk_buff *skb = NULL;
++	int ret;
++	int loop_times = 0;
++
++	while (true) {
++		loop_times++;
++		if (loop_times > (MAX_RX_URB_NUM))
++			atomic_add(ARC_RX_STEP, &hif_dev->rx_urb_submit_delay);
++
++		urb = usb_get_from_anchor(&hif_dev->rx_delayed_submitted);
++		if (urb) {
++			skb = (struct sk_buff *)urb->context;
++			ret = usb_submit_urb(urb, GFP_KERNEL);
++			if (ret != 0) {
++				usb_unanchor_urb(urb);
++				dev_kfree_skb_any(skb);
++				urb->context = NULL;
++			}
++		} else {
++			break;
++		}
++	}
++}
++
+ static void ath9k_hif_usb_dealloc_rx_urbs(struct hif_device_usb *hif_dev)
+ {
+ 	usb_kill_anchored_urbs(&hif_dev->rx_submitted);
++	usb_kill_anchored_urbs(&hif_dev->rx_delayed_submitted);
++	flush_delayed_work(&hif_dev->rx_submit_delayed_work);
+ }
+ 
+ static int ath9k_hif_usb_alloc_rx_urbs(struct hif_device_usb *hif_dev)
+@@ -830,6 +870,8 @@ static int ath9k_hif_usb_alloc_rx_urbs(struct hif_device_usb *hif_dev)
+ 	int i, ret;
+ 
+ 	init_usb_anchor(&hif_dev->rx_submitted);
++	init_usb_anchor(&hif_dev->rx_delayed_submitted);
++
+ 	spin_lock_init(&hif_dev->rx_lock);
+ 
+ 	for (i = 0; i < MAX_RX_URB_NUM; i++) {
+@@ -871,6 +913,11 @@ static int ath9k_hif_usb_alloc_rx_urbs(struct hif_device_usb *hif_dev)
+ 		usb_free_urb(urb);
+ 	}
+ 
++	/* add for adaptive rate control*/
++	atomic_set(&hif_dev->rx_urb_submit_delay, 0);
++	INIT_DELAYED_WORK(&hif_dev->rx_submit_delayed_work,
++			  rx_urb_delayed_submit_handler);
++
+ 	return 0;
+ 
+ err_submit:
+diff --git a/drivers/net/wireless/ath/ath9k/hif_usb.h b/drivers/net/wireless/ath/ath9k/hif_usb.h
+index 51496e7..2127e50 100644
+--- a/drivers/net/wireless/ath/ath9k/hif_usb.h
++++ b/drivers/net/wireless/ath/ath9k/hif_usb.h
+@@ -41,6 +41,7 @@
+ #define MAX_RX_URB_NUM  8
+ #define MAX_RX_BUF_SIZE 16384
+ #define MAX_PKT_NUM_IN_TRANSFER 10
++#define ARC_RX_STEP 100 /* 100us */
+ 
+ #define MAX_REG_OUT_URB_NUM  1
+ #define MAX_REG_IN_URB_NUM   64
+@@ -98,9 +99,14 @@ struct hif_device_usb {
+ 	struct hif_usb_tx tx;
+ 	struct usb_anchor regout_submitted;
+ 	struct usb_anchor rx_submitted;
++	struct usb_anchor rx_delayed_submitted; /* delayed submit anchor */
+ 	struct usb_anchor reg_in_submitted;
+ 	struct usb_anchor mgmt_submitted;
+ 	struct sk_buff *remain_skb;
++
++	struct delayed_work rx_submit_delayed_work;
++	atomic_t  rx_urb_submit_delay; /*us*/
++
+ 	const char *fw_name;
+ 	int rx_remain_len;
+ 	int rx_pkt_len;
+diff --git a/drivers/net/wireless/ath/ath9k/htc.h b/drivers/net/wireless/ath/ath9k/htc.h
+index 9dde265..3061dfa 100644
+--- a/drivers/net/wireless/ath/ath9k/htc.h
++++ b/drivers/net/wireless/ath/ath9k/htc.h
+@@ -331,6 +331,13 @@ static inline struct ath9k_htc_tx_ctl *HTC_SKB_CB(struct sk_buff *skb)
+ 
+ #define TX_QSTAT_INC(q) (priv->debug.tx_stats.queue_stats[q]++)
+ 
++#define ARCRX_STAT_INC(c) \
++	(hif_dev->htc_handle->drv_priv->debug.arcrx_stats.c++)
++#define ARCRX_STAT_ADD(c, a) \
++	(hif_dev->htc_handle->drv_priv->debug.arcrx_stats.c += a)
++#define ARCRX_STAT_SET(c, a) \
++	(hif_dev->htc_handle->drv_priv->debug.arcrx_stats.c = a)
++
+ void ath9k_htc_err_stat_rx(struct ath9k_htc_priv *priv,
+ 			   struct ath_rx_status *rs);
+ 
+@@ -352,11 +359,19 @@ struct ath_skbrx_stats {
+ 	u32 skb_dropped;
+ };
+ 
++struct ath_arcrx_stats {
++	u32 arcrx_highwater;
++	u32 arcrx_lowwater;
++	u32 arcrx_watermark_triggered;
++	u32 arcrx_urb_submit_delay;
++};
++
+ struct ath9k_debug {
+ 	struct dentry *debugfs_phy;
+ 	struct ath_tx_stats tx_stats;
+ 	struct ath_rx_stats rx_stats;
+ 	struct ath_skbrx_stats skbrx_stats;
++	struct ath_arcrx_stats arcrx_stats;
+ };
+ 
+ void ath9k_htc_get_et_strings(struct ieee80211_hw *hw,
+@@ -377,6 +392,9 @@ void ath9k_htc_get_et_stats(struct ieee80211_hw *hw,
+ 
+ #define TX_QSTAT_INC(c) do { } while (0)
+ 
++#define ARCRX_STAT_INC(c) do {} while (0)
++#define ARCRX_STAT_ADD(c, a) do {} while (0)
++#define ARCRX_STAT_SET(c, a) do {} while (0)
+ static inline void ath9k_htc_err_stat_rx(struct ath9k_htc_priv *priv,
+ 					 struct ath_rx_status *rs)
+ {
+diff --git a/drivers/net/wireless/ath/ath9k/htc_drv_debug.c b/drivers/net/wireless/ath/ath9k/htc_drv_debug.c
+index 8cef1ed..ddc8f4f 100644
+--- a/drivers/net/wireless/ath/ath9k/htc_drv_debug.c
++++ b/drivers/net/wireless/ath/ath9k/htc_drv_debug.c
+@@ -286,6 +286,48 @@ static const struct file_operations fops_skb_rx = {
+ 	.llseek = default_llseek,
+ };
+ 
++static ssize_t read_file_arc_rx(struct file *file, char __user *user_buf,
++				size_t count, loff_t *ppos)
++{
++	struct ath9k_htc_priv *priv = file->private_data;
++	char *buf;
++	unsigned int len = 0, size = 1500;
++	ssize_t retval = 0;
++
++	buf = kzalloc(size, GFP_KERNEL);
++	if (!buf)
++		return -ENOMEM;
++
++	len += scnprintf(buf + len, size - len,
++			"%20s : %10u\n", "High watermark",
++			priv->debug.arcrx_stats.arcrx_highwater);
++	len += scnprintf(buf + len, size - len,
++			"%20s : %10u\n", "Low watermark",
++			priv->debug.arcrx_stats.arcrx_lowwater);
++
++	len += scnprintf(buf + len, size - len,
++			"%20s : %10u\n", "WM triggered",
++			priv->debug.arcrx_stats.arcrx_watermark_triggered);
++
++	len += scnprintf(buf + len, size - len,
++			"%20s : %10u\n", "URB delay",
++			priv->debug.arcrx_stats.arcrx_urb_submit_delay);
++	if (len > size)
++		len = size;
++
++	retval = simple_read_from_buffer(user_buf, count, ppos, buf, len);
++	kfree(buf);
++
++	return retval;
++}
++
++static const struct file_operations fops_arc_rx = {
++	.read = read_file_arc_rx,
++	.open = simple_open,
++	.owner = THIS_MODULE,
++	.llseek = default_llseek,
++};
++
+ static ssize_t read_file_slot(struct file *file, char __user *user_buf,
+ 			      size_t count, loff_t *ppos)
+ {
+@@ -518,7 +560,11 @@ int ath9k_htc_init_debug(struct ath_hw *ah)
+ 	debugfs_create_file("skb_rx", S_IRUSR, priv->debug.debugfs_phy,
+ 			    priv, &fops_skb_rx);
+ 
++	debugfs_create_file("arc_rx", S_IRUSR, priv->debug.debugfs_phy,
++			    priv, &fops_arc_rx);
++
+ 	ath9k_cmn_debug_recv(priv->debug.debugfs_phy, &priv->debug.rx_stats);
++
+ 	ath9k_cmn_debug_phy_err(priv->debug.debugfs_phy, &priv->debug.rx_stats);
+ 
+ 	debugfs_create_file("slot", S_IRUSR, priv->debug.debugfs_phy,
+diff --git a/drivers/net/wireless/ath/ath9k/htc_drv_txrx.c b/drivers/net/wireless/ath/ath9k/htc_drv_txrx.c
+index a0f58e2..9d2dc33 100644
+--- a/drivers/net/wireless/ath/ath9k/htc_drv_txrx.c
++++ b/drivers/net/wireless/ath/ath9k/htc_drv_txrx.c
+@@ -1061,7 +1061,27 @@ void ath9k_rx_tasklet(unsigned long data)
+ 	unsigned long flags;
+ 	struct ieee80211_hdr *hdr;
+ 
++	/* add for adaptive flow control*/
++	int looptimes = 0;
++	int highwatermark = ATH9K_HTC_RXBUF*3/4;
++	int lowwatermark = ATH9K_HTC_RXBUF/32;
++	unsigned int delay = 0;
++
++	struct htc_target *htc = priv->htc;
++	struct hif_device_usb *hif_dev = htc->hif_dev;
++
++	ARCRX_STAT_SET(arcrx_highwater, highwatermark);
++	ARCRX_STAT_SET(arcrx_lowwater, lowwatermark);
++
+ 	do {
++		looptimes++;
++		if (looptimes > highwatermark) {
++			delay = looptimes*ARC_RX_STEP;
++			atomic_set(&hif_dev->rx_urb_submit_delay, delay);
++			ARCRX_STAT_INC(arcrx_watermark_triggered);
++			ARCRX_STAT_SET(arcrx_urb_submit_delay, delay);
++		}
++
+ 		spin_lock_irqsave(&priv->rx.rxbuflock, flags);
+ 		list_for_each_entry(tmp_buf, &priv->rx.rxbuf, list) {
+ 			if (tmp_buf->in_process) {
+@@ -1072,6 +1092,11 @@ void ath9k_rx_tasklet(unsigned long data)
+ 
+ 		if (rxbuf == NULL) {
+ 			spin_unlock_irqrestore(&priv->rx.rxbuflock, flags);
++			if (looptimes < lowwatermark) {
++				atomic_set(&hif_dev->rx_urb_submit_delay, 0);
++				ARCRX_STAT_SET(arcrx_urb_submit_delay, 0);
++			}
++
+ 			break;
+ 		}
+ 
+-- 
+1.9.1
