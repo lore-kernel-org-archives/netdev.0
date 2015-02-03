@@ -1,180 +1,94 @@
 From: Vladislav Yasevich <vyasevich@gmail.com>
-Subject: [PATCH v3 net 1/3] ipv6: Select fragment id during UFO segmentation if not set.
-Date: Tue,  3 Feb 2015 16:36:15 -0500
-Message-ID: <1422999377-18777-2-git-send-email-vyasevic@redhat.com>
+Subject: [PATCH v3 net 2/3] Revert "drivers/net, ipv6: Select IPv6 fragment idents for virtio UFO packets"
+Date: Tue,  3 Feb 2015 16:36:16 -0500
+Message-ID: <1422999377-18777-3-git-send-email-vyasevic@redhat.com>
 References: <1422999377-18777-1-git-send-email-vyasevic@redhat.com>
 Cc: virtualization@lists.linux-foundation.org,
 	Vladislav Yasevich <vyasevic@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f47.google.com ([209.85.216.47]:40021 "EHLO
-	mail-qa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1161173AbbBCVgb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Feb 2015 16:36:31 -0500
-Received: by mail-qa0-f47.google.com with SMTP id n8so35976195qaq.6
-        for <netdev@vger.kernel.org>; Tue, 03 Feb 2015 13:36:31 -0800 (PST)
+Received: from mail-qa0-f44.google.com ([209.85.216.44]:34341 "EHLO
+	mail-qa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1161209AbbBCVgc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Feb 2015 16:36:32 -0500
+Received: by mail-qa0-f44.google.com with SMTP id w8so35862501qac.3
+        for <netdev@vger.kernel.org>; Tue, 03 Feb 2015 13:36:32 -0800 (PST)
 In-Reply-To: <1422999377-18777-1-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If the IPv6 fragment id has not been set and we perform
-fragmentation due to UFO, select a new fragment id.
-We now consider a fragment id of 0 as unset and if id selection
-process returns 0 (after all the pertrubations), we set it to
-0x80000000, thus giving us ample space not to create collisions
-with the next packet we may have to fragment.
+This reverts commit 5188cd44c55db3e92cd9e77a40b5baa7ed4340f7.
 
-When doing UFO integrity checking, we also select the
-fragment id if it has not be set yet.   This is stored into
-the skb_shinfo() thus allowing UFO to function correclty.
+Now that GSO layer can track if fragment id has been selected
+and can allocate one if necessary, we don't need to do this in
+tap and macvtap.  This reverts most of the code and only keeps
+the new ipv6 fragment id generation function that is still needed.
 
-This patch also removes duplicate fragment id generation code
-and moves ipv6_select_ident() into the header as it may be
-used during GSO.
-
+Fixes: 3d0ad09412ff (drivers/net: Disable UFO through virtio)
 Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
 ---
- include/net/ipv6.h     |  3 +++
- net/ipv6/ip6_output.c  | 14 --------------
- net/ipv6/output_core.c | 41 +++++++++++++++++++++++++++++++++++------
- net/ipv6/udp_offload.c | 10 +++++++++-
- 4 files changed, 47 insertions(+), 21 deletions(-)
+ drivers/net/macvtap.c | 3 ---
+ drivers/net/tun.c     | 6 +-----
+ 2 files changed, 1 insertion(+), 8 deletions(-)
 
-diff --git a/include/net/ipv6.h b/include/net/ipv6.h
-index 4292929..9bf85d3 100644
---- a/include/net/ipv6.h
-+++ b/include/net/ipv6.h
-@@ -671,6 +671,9 @@ static inline int ipv6_addr_diff(const struct in6_addr *a1, const struct in6_add
- 	return __ipv6_addr_diff(a1, a2, sizeof(struct in6_addr));
- }
+diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+index 7df2217..0b86e46 100644
+--- a/drivers/net/macvtap.c
++++ b/drivers/net/macvtap.c
+@@ -17,7 +17,6 @@
+ #include <linux/fs.h>
+ #include <linux/uio.h>
  
-+u32 __ipv6_select_ident(u32 hashrnd, struct in6_addr *dst,
-+			struct in6_addr *src);
-+void ipv6_select_ident(struct frag_hdr *fhdr, struct rt6_info *rt);
- void ipv6_proxy_select_ident(struct sk_buff *skb);
- 
- int ip6_dst_hoplimit(struct dst_entry *dst);
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index ce69a12..d28f2a2 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -537,20 +537,6 @@ static void ip6_copy_metadata(struct sk_buff *to, struct sk_buff *from)
- 	skb_copy_secmark(to, from);
- }
- 
--static void ipv6_select_ident(struct frag_hdr *fhdr, struct rt6_info *rt)
--{
--	static u32 ip6_idents_hashrnd __read_mostly;
--	u32 hash, id;
--
--	net_get_random_once(&ip6_idents_hashrnd, sizeof(ip6_idents_hashrnd));
--
--	hash = __ipv6_addr_jhash(&rt->rt6i_dst.addr, ip6_idents_hashrnd);
--	hash = __ipv6_addr_jhash(&rt->rt6i_src.addr, hash);
--
--	id = ip_idents_reserve(hash, 1);
--	fhdr->identification = htonl(id);
--}
--
- int ip6_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *))
- {
- 	struct sk_buff *frag;
-diff --git a/net/ipv6/output_core.c b/net/ipv6/output_core.c
-index 97f41a3..54520a0 100644
---- a/net/ipv6/output_core.c
-+++ b/net/ipv6/output_core.c
-@@ -9,6 +9,24 @@
- #include <net/addrconf.h>
- #include <net/secure_seq.h>
- 
-+u32 __ipv6_select_ident(u32 hashrnd, struct in6_addr *dst, struct in6_addr *src)
-+{
-+	u32 hash, id;
-+
-+	hash = __ipv6_addr_jhash(dst, hashrnd);
-+	hash = __ipv6_addr_jhash(src, hash);
-+
-+	/* Treat id of 0 as unset and if we get 0 back from ip_idents_reserve,
-+	 * set the hight order instead thus minimizing possible future
-+	 * collisions.
-+	 */
-+	id = ip_idents_reserve(hash, 1);
-+	if (unlikely(!id))
-+		id = 1 << 31;
-+
-+	return id;
-+}
-+
- /* This function exists only for tap drivers that must support broken
-  * clients requesting UFO without specifying an IPv6 fragment ID.
-  *
-@@ -22,7 +40,7 @@ void ipv6_proxy_select_ident(struct sk_buff *skb)
- 	static u32 ip6_proxy_idents_hashrnd __read_mostly;
- 	struct in6_addr buf[2];
- 	struct in6_addr *addrs;
--	u32 hash, id;
-+	u32 id;
- 
- 	addrs = skb_header_pointer(skb,
- 				   skb_network_offset(skb) +
-@@ -34,14 +52,25 @@ void ipv6_proxy_select_ident(struct sk_buff *skb)
- 	net_get_random_once(&ip6_proxy_idents_hashrnd,
- 			    sizeof(ip6_proxy_idents_hashrnd));
- 
--	hash = __ipv6_addr_jhash(&addrs[1], ip6_proxy_idents_hashrnd);
--	hash = __ipv6_addr_jhash(&addrs[0], hash);
--
--	id = ip_idents_reserve(hash, 1);
--	skb_shinfo(skb)->ip6_frag_id = htonl(id);
-+	id = __ipv6_select_ident(ip6_proxy_idents_hashrnd,
-+				 &addrs[1], &addrs[0]);
-+	skb_shinfo(skb)->ip6_frag_id = id;
- }
- EXPORT_SYMBOL_GPL(ipv6_proxy_select_ident);
- 
-+void ipv6_select_ident(struct frag_hdr *fhdr, struct rt6_info *rt)
-+{
-+	static u32 ip6_idents_hashrnd __read_mostly;
-+	u32 id;
-+
-+	net_get_random_once(&ip6_idents_hashrnd, sizeof(ip6_idents_hashrnd));
-+
-+	id = __ipv6_select_ident(ip6_idents_hashrnd, &rt->rt6i_dst.addr,
-+				 &rt->rt6i_src.addr);
-+	fhdr->identification = htonl(id);
-+}
-+EXPORT_SYMBOL(ipv6_select_ident);
-+
- int ip6_find_1stfragopt(struct sk_buff *skb, u8 **nexthdr)
- {
- 	u16 offset = sizeof(struct ipv6hdr);
-diff --git a/net/ipv6/udp_offload.c b/net/ipv6/udp_offload.c
-index b6aa8ed..a562769 100644
---- a/net/ipv6/udp_offload.c
-+++ b/net/ipv6/udp_offload.c
-@@ -52,6 +52,10 @@ static struct sk_buff *udp6_ufo_fragment(struct sk_buff *skb,
- 
- 		skb_shinfo(skb)->gso_segs = DIV_ROUND_UP(skb->len, mss);
- 
-+		/* Set the IPv6 fragment id if not set yet */
-+		if (!skb_shinfo(skb)->ip6_frag_id)
-+			ipv6_proxy_select_ident(skb);
-+
- 		segs = NULL;
- 		goto out;
+-#include <net/ipv6.h>
+ #include <net/net_namespace.h>
+ #include <net/rtnetlink.h>
+ #include <net/sock.h>
+@@ -589,8 +588,6 @@ static int macvtap_skb_from_vnet_hdr(struct macvtap_queue *q,
+ 			pr_warn_once("macvtap: %s: using disabled UFO feature; please fix this program\n",
+ 				     current->comm);
+ 			gso_type = SKB_GSO_UDP;
+-			if (skb->protocol == htons(ETH_P_IPV6))
+-				ipv6_proxy_select_ident(skb);
+ 			break;
+ 		default:
+ 			return -EINVAL;
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index 8c8dc16..5ca42b7 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -65,7 +65,6 @@
+ #include <linux/nsproxy.h>
+ #include <linux/virtio_net.h>
+ #include <linux/rcupdate.h>
+-#include <net/ipv6.h>
+ #include <net/net_namespace.h>
+ #include <net/netns/generic.h>
+ #include <net/rtnetlink.h>
+@@ -1167,8 +1166,6 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
+ 		break;
  	}
-@@ -108,7 +112,11 @@ static struct sk_buff *udp6_ufo_fragment(struct sk_buff *skb,
- 		fptr = (struct frag_hdr *)(skb_network_header(skb) + unfrag_ip6hlen);
- 		fptr->nexthdr = nexthdr;
- 		fptr->reserved = 0;
--		fptr->identification = skb_shinfo(skb)->ip6_frag_id;
-+		if (skb_shinfo(skb)->ip6_frag_id)
-+			fptr->identification = skb_shinfo(skb)->ip6_frag_id;
-+		else
-+			ipv6_select_ident(fptr,
-+					  (struct rt6_info *)skb_dst(skb));
  
- 		/* Fragment the skb. ipv6 header and the remaining fields of the
- 		 * fragment header are updated in ipv6_gso_segment()
+-	skb_reset_network_header(skb);
+-
+ 	if (gso.gso_type != VIRTIO_NET_HDR_GSO_NONE) {
+ 		pr_debug("GSO!\n");
+ 		switch (gso.gso_type & ~VIRTIO_NET_HDR_GSO_ECN) {
+@@ -1189,8 +1186,6 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
+ 					    current->comm);
+ 			}
+ 			skb_shinfo(skb)->gso_type = SKB_GSO_UDP;
+-			if (skb->protocol == htons(ETH_P_IPV6))
+-				ipv6_proxy_select_ident(skb);
+ 			break;
+ 		}
+ 		default:
+@@ -1221,6 +1216,7 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
+ 		skb_shinfo(skb)->tx_flags |= SKBTX_SHARED_FRAG;
+ 	}
+ 
++	skb_reset_network_header(skb);
+ 	skb_probe_transport_header(skb, 0);
+ 
+ 	rxhash = skb_get_hash(skb);
 -- 
 1.9.3
