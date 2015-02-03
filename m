@@ -1,50 +1,77 @@
-From: Nicholas Mc Guire <hofrat@osadl.org>
-Subject: [PATCH 2/2] tlan: msecs_to_jiffies convrsion
-Date: Tue,  3 Feb 2015 03:45:11 -0500
-Message-ID: <1422953111-19840-1-git-send-email-hofrat@osadl.org>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Nicholas Mc Guire <hofrat@osadl.org>
-To: Samuel Chessman <chessman@tux.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Michal Kazior <michal.kazior-++hxYGjEMp0AvxtiuMwx3w@public.gmane.org>
+Subject: Re: Throughput regression with `tcp: refine TSO autosizing`
+Date: Tue, 3 Feb 2015 10:00:33 +0100
+Message-ID: <CA+BoTQko60aGP7QG+ELrgRmU=OFBZVc9n1X-ecGX2rLBnULSTA@mail.gmail.com>
+References: <CA+BoTQkVu23P3EOmY_Q3E1GJnWsyF==Pawz4iPOS_Bq5dvfO5Q@mail.gmail.com>
+	<1422537297.21689.15.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CA+BoTQk2xT-8DqPuiiKG+kHAjLPrj8F9dLTb-rcGhvMq0u_2Qw@mail.gmail.com>
+	<1422628835.21689.95.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CA+BoTQkV+mOZfe_Niz5101sMQeaV6muKCsShptjGQ1AgOHqqoQ@mail.gmail.com>
+	<1422903136.21689.114.camel@edumazet-glaptop2.roam.corp.google.com>
+	<54CFEB46.3050006@candelatech.com>
+	<1422918363.21689.132.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	eyalpe-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org
+To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1422918363.21689.132.camel-XN9IlZ5yJG9HTL0Zs8A6p/gx64E7kk8eUsxypvmhUTTZJqsBc5GL+g@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This is only an API consolidation and should make things more readable
-it replaces var * HZ / 1000 by msecs_to_jiffies(var).
+On 3 February 2015 at 00:06, Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrot=
+e:
+> On Mon, 2015-02-02 at 13:25 -0800, Ben Greear wrote:
+>
+>> It is a big throughput win to have fewer TCP ack packets on
+>> wireless since it is a half-duplex environment.  Is there anything
+>> we could improve so that we can have fewer acks and still get
+>> good tcp stack behaviour?
+>
+> First apply TCP stretch ack fixes to the sender. There is no way to g=
+et
+> good performance if the sender does not handle stretch ack.
+>
+> d6b1a8a92a14 tcp: fix timing issue in CUBIC slope calculation
+> 9cd981dcf174 tcp: fix stretch ACK bugs in CUBIC
+> c22bdca94782 tcp: fix stretch ACK bugs in Reno
+> 814d488c6126 tcp: fix the timid additive increase on stretch ACKs
+> e73ebb0881ea tcp: stretch ACK fixes prep
+>
+> Then, make sure you do not throttle ACK too long, especially if you h=
+ope
+> to get Gbit line rate on a 4 ms RTT flow.
+>
+> GRO does not mean : send one ACK every ms, or after 3ms delay...
 
-As there is a discrepancy between the code and the comments this is in
-a separate patch.
+I think it's worth pointing out that If you assume 3-frame A-MSDU and
+64-frame A-MPDU you get 192 frames (as far as TCP/IP is concerned) per
+aggregation window. Assuming effective 600mbps throughput:
 
-Signed-off-by: Nicholas Mc Guire <hofrat@osadl.org>
----
+ python> 1.0/((((600/8)*1024*1024)/1500)/(3*64))
+ 0.003663003663003663
 
-Converting milliseconds to jiffies by val * HZ / 1000 is technically
-not wrong but msecs_to_jiffies(val) is the cleaner solution and handles
-all corner cases correctly. This basically is a minor API cleanup only
-but the comment and the code do not match ! Comments states "do the
-longer, just in case" which would be 500 ms - the code though sets it
-to HZ/20 == 50ms. This needs a review by someone that knows the driver
-details to decide if it should be 50 or 500ms here.
+This is probably worst case, but still probably worth to keep in mind.
 
-Patch was only compile tested for x86_64_defconfig + CONFIG_TLAN=m
+ath10k has a knob to tune A-MSDU aggregation count. The default is "3"
+and it's what I've been testing so far.
 
-Patch is against 3.0.19-rc7 (localversion = -next-20150203)
+When I change it to "1" on sender I get 250->400mbps boost in TCP -P5
+but see no difference with -P1 (number of flows). Changing it to "1"
+on receiver yields no difference. I can try adding this configuration
+permutation to my future tests if you're interested.
 
- drivers/net/ethernet/ti/tlan.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+So that you have an idea - using "1" on sender degrades UDP throughput
+(even 690->500mbps in some cases).
 
-diff --git a/drivers/net/ethernet/ti/tlan.c b/drivers/net/ethernet/ti/tlan.c
-index 1f722c9..691ec93 100644
---- a/drivers/net/ethernet/ti/tlan.c
-+++ b/drivers/net/ethernet/ti/tlan.c
-@@ -2561,7 +2561,7 @@ static void tlan_phy_power_up(struct net_device *dev)
- 	 * transceiver.  The TLAN docs say both 50 ms and
- 	 * 500 ms, so do the longer, just in case.
- 	 */
--	tlan_set_timer(dev, (HZ/20), TLAN_TIMER_PHY_RESET);
-+	tlan_set_timer(dev, msecs_to_jiffies(500), TLAN_TIMER_PHY_RESET);
- 
- }
- 
--- 
-1.7.10.4
+
+Micha=C5=82
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireles=
+s" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
