@@ -1,48 +1,38 @@
-From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next 0/4] tipc: some small fixes
-Date: Tue,  3 Feb 2015 08:59:16 -0500
-Message-ID: <1422971960-9172-1-git-send-email-jon.maloy@ericsson.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCHv3, ipsec-next] xfrm: Do not parse 32bits compiled xfrm
+ netlink msg on 64bits host
+Date: Tue, 03 Feb 2015 15:02:07 +0100
+Message-ID: <54D0D4DF.7080906@6wind.com>
+References: <1422349230-17394-1-git-send-email-fan.du@intel.com> <54CA0B9F.8080104@6wind.com> <20150202084443.GS13046@secunet.com> <54CF3D3A.5040607@6wind.com> <20150203122432.GV13046@secunet.com>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Jon Maloy <jon.maloy@ericsson.com>, netdev@vger.kernel.org,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	tipc-discussion@lists.sourceforge.net
-To: davem@davemloft.net
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Fan Du <fan.du@intel.com>, herbert@gondor.apana.org.au,
+	davem@davemloft.net, netdev@vger.kernel.org,
+	fengyuleidian0615@gmail.com
+To: Steffen Klassert <steffen.klassert@secunet.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f175.google.com ([74.125.82.175]:44932 "EHLO
+	mail-we0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753210AbbBCOCM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Feb 2015 09:02:12 -0500
+Received: by mail-we0-f175.google.com with SMTP id p10so45207782wes.6
+        for <netdev@vger.kernel.org>; Tue, 03 Feb 2015 06:02:11 -0800 (PST)
+In-Reply-To: <20150203122432.GV13046@secunet.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-During extensive testing and analysis of running dual links between
-nodes, we have encountered some issues that potentially may cause
-problems. We choose to fix those proactively in this series. 
+Le 03/02/2015 13:24, Steffen Klassert a =E9crit :
+> On Mon, Feb 02, 2015 at 10:02:50AM +0100, Nicolas Dichtel wrote:
+>
+> I tend to apply this patch unless you can come up with a real world
+> application that will break if we do so.
+It's a custom patch made for strongswan (not included upstream).
 
-Jon Maloy (4):
-  tipc: add reference count to struct tipc_link
-  tipc: avoid stale link after aborted failover
-  tipc: eliminate race during node creation
-  tipc: separate link starting event from link timeout event
-
- net/tipc/discover.c |  9 ++----
- net/tipc/link.c     | 83 ++++++++++++++++++++++++++++++++---------------------
- net/tipc/link.h     |  3 ++
- net/tipc/node.c     | 15 ++++++----
- 4 files changed, 65 insertions(+), 45 deletions(-)
-
--- 
-1.9.1
-
-
-------------------------------------------------------------------------------
-Dive into the World of Parallel Programming. The Go Parallel Website,
-sponsored by Intel and developed in partnership with Slashdot Media, is your
-hub for all things parallel software development, from weekly thought
-leadership blogs to news, videos, case studies, tutorials and more. Take a
-look and join the conversation now. http://goparallel.sourceforge.net/
+My suggestion was to display an error message instead of rejecting the =
+message.
+But fair enough, let's apply this patch, it will force people to come u=
+p with a
+proper solution.
