@@ -1,43 +1,65 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] sunvnet: set queue mapping when doing packet copies
-Date: Mon, 02 Feb 2015 18:21:14 -0800 (PST)
-Message-ID: <20150202.182114.1495760209878504465.davem@davemloft.net>
-References: <54C90AED.7040404@oracle.com>
-	<54CBBF89.4070800@oracle.com>
+From: Chen Gang S <gang.chen-/B7AUNIrSHOPt1CcHtbs0g@public.gmane.org>
+Subject: Re: [PATCH v2] net: bluetooth: hci_sock: Use 'const void *' instead
+ of 'void *' for 2nd parameter of hci_test_bit()
+Date: Tue, 03 Feb 2015 10:32:11 +0800
+Message-ID: <54D0332B.6050701@sunrus.com.cn>
+References: <54CFE8BE.5030700@sunrus.com.cn> <1422912017.30476.28.camel@perches.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sowmini.varadhan@oracle.com,
-	eric.dumazet@gmail.com
-To: david.stevens@oracle.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49896 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754074AbbBCCVP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2015 21:21:15 -0500
-In-Reply-To: <54CBBF89.4070800@oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org, gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org, johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1422912017.30476.28.camel-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: David L Stevens <david.stevens@oracle.com>
-Date: Fri, 30 Jan 2015 12:29:45 -0500
+On 2/3/15 05:20, Joe Perches wrote:
+> On Tue, 2015-02-03 at 05:14 +0800, Chen Gang S wrote:
+>> hci_test_bit() does not modify 2nd parameter, so it is better to let it
+>> be constant, or may cause build warning. The related warning (with
+>> allmodconfig under xtensa):
+> []
+>> diff --git a/net/bluetooth/hci_sock.c b/net/bluetooth/hci_sock.c
+> []
+>> @@ -46,7 +46,7 @@ struct hci_pinfo {
+>>  	unsigned short    channel;
+>>  };
+>>  
+>> -static inline int hci_test_bit(int nr, void *addr)
+>> +static inline int hci_test_bit(int nr, const void *addr)
+>>  {
+>>  	return *((__u32 *) addr + (nr >> 5)) & ((__u32) 1 << (nr & 31));
+>>  }
+> 
+> It's probably better to use const __u32 * here too, but the
+> real thing I wonder is whether or not there's an issue with
+> one of the 2 uses of this function.
+> 
+> One of them passes a unsigned long *, the other a u32 *.
+> 
+> $ git grep -w hci_test_bit
+> net/bluetooth/hci_sock.c:static inline int hci_test_bit(int nr, void *addr)
+> net/bluetooth/hci_sock.c:       if (!hci_test_bit(flt_event, &flt->event_mask))
+> net/bluetooth/hci_sock.c:                    !hci_test_bit(ocf & HCI_FLT_OCF_BITS,
+> net/bluetooth/hci_sock.c-                                  &hci_sec_filter.ocf_mask[ogf])) &&
+> 
+> hci_sec_filter.ocf_mask is __u32
+> but flt->event_mask is unsigned long.
+> 
+> Any possible issue here on 64-bit systems?
+> 
 
-> 
-> 
-> This patch fixes a bug where vnet_skb_shape() didn't set the already-selected
-> queue mapping when a packet copy was required. This results in using the
-> wrong queue index for stops/starts, hung tx queues and watchdog timeouts
-> under heavy load.
-> 
-> Signed-off-by: David L Stevens <david.stevens@oracle.com>
-> Acked-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-> 
-> --
-> I'm resubmitting this in its original form. Since skb_segment() doesn't do
-> TCP flow control either, due to an incorrect destructor check, and those
-> issues raised by Eric are a matter of fairness, while this missing queue_mapping
-> assignment results in crashes, I'd like to get this piece fixed separately.
+For me, it can not cause issue on 64-bit systems. hci_test_bit() treats
+'addr' as "__u32 *", and has to use the pointer to do something.
 
-Fair enough, applied.
 
-Please sort out the callback issues with Eric, thanks.
+Thanks.
+-- 
+Chen Gang
+
+Open, share, and attitude like air, water, and life which God blessed
