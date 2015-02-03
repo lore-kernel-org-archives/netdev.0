@@ -1,50 +1,226 @@
-From: Govindarajulu Varadarajan <_govind@gmx.com>
-Subject: Re: [PATCH net-next 3/4] ethtool: add RX_ALLOC_ORDER to tunable
-Date: Tue, 3 Feb 2015 15:19:30 +0530 (IST)
-Message-ID: <alpine.LNX.2.03.1502031326260.22700@ws.cisco>
-References: <1422707290-939-1-git-send-email-_govind@gmx.com> <1422707290-939-4-git-send-email-_govind@gmx.com> <20150202.192159.66698996958688718.davem@davemloft.net>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH v2 17/18] vhost: don't bother copying iovecs in
+ handle_rx(), kill memcpy_toiovecend()
+Date: Tue, 3 Feb 2015 12:04:12 +0200
+Message-ID: <20150203100412.GA4896@redhat.com>
+References: <20150131035513.GK29656@ZenIV.linux.org.uk>
+ <1422863977-17668-17-git-send-email-viro@ZenIV.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: _govind@gmx.com, netdev@vger.kernel.org, ssujith@cisco.com,
-	benve@cisco.com, edumazet@google.com, ben@decadent.org.uk
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.com ([74.208.4.201]:49964 "EHLO mout.gmx.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751415AbbBCJts (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Feb 2015 04:49:48 -0500
-In-Reply-To: <20150202.192159.66698996958688718.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	kvm@vger.kernel.org
+To: Al Viro <viro@ZenIV.linux.org.uk>
+Return-path: <kvm-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1422863977-17668-17-git-send-email-viro@ZenIV.linux.org.uk>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2 Feb 2015, David Miller wrote:
+On Mon, Feb 02, 2015 at 07:59:36AM +0000, Al Viro wrote:
+> From: Al Viro <viro@zeniv.linux.org.uk>
+> 
+> Cc: Michael S. Tsirkin <mst@redhat.com>
+> Cc: kvm@vger.kernel.org
+> Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
+> ---
+>  drivers/vhost/net.c | 79 ++++++++++++++---------------------------------------
+>  include/linux/uio.h |  3 --
+>  lib/iovec.c         | 26 ------------------
+>  3 files changed, 20 insertions(+), 88 deletions(-)
+> 
+> diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+> index d86cc9b..73c0ebf 100644
+> --- a/drivers/vhost/net.c
+> +++ b/drivers/vhost/net.c
+> @@ -84,10 +84,6 @@ struct vhost_net_ubuf_ref {
+>  
+>  struct vhost_net_virtqueue {
+>  	struct vhost_virtqueue vq;
+> -	/* hdr is used to store the virtio header.
+> -	 * Since each iovec has >= 1 byte length, we never need more than
+> -	 * header length entries to store the header. */
+> -	struct iovec hdr[sizeof(struct virtio_net_hdr_mrg_rxbuf)];
+>  	size_t vhost_hlen;
+>  	size_t sock_hlen;
+>  	/* vhost zerocopy support fields below: */
+> @@ -235,44 +231,6 @@ static bool vhost_sock_zcopy(struct socket *sock)
+>  		sock_flag(sock->sk, SOCK_ZEROCOPY);
+>  }
+>  
+> -/* Pop first len bytes from iovec. Return number of segments used. */
+> -static int move_iovec_hdr(struct iovec *from, struct iovec *to,
+> -			  size_t len, int iov_count)
+> -{
+> -	int seg = 0;
+> -	size_t size;
+> -
+> -	while (len && seg < iov_count) {
+> -		size = min(from->iov_len, len);
+> -		to->iov_base = from->iov_base;
+> -		to->iov_len = size;
+> -		from->iov_len -= size;
+> -		from->iov_base += size;
+> -		len -= size;
+> -		++from;
+> -		++to;
+> -		++seg;
+> -	}
+> -	return seg;
+> -}
+> -/* Copy iovec entries for len bytes from iovec. */
+> -static void copy_iovec_hdr(const struct iovec *from, struct iovec *to,
+> -			   size_t len, int iovcount)
+> -{
+> -	int seg = 0;
+> -	size_t size;
+> -
+> -	while (len && seg < iovcount) {
+> -		size = min(from->iov_len, len);
+> -		to->iov_base = from->iov_base;
+> -		to->iov_len = size;
+> -		len -= size;
+> -		++from;
+> -		++to;
+> -		++seg;
+> -	}
+> -}
+> -
+>  /* In case of DMA done not in order in lower device driver for some reason.
+>   * upend_idx is used to track end of used idx, done_idx is used to track head
+>   * of used idx. Once lower device DMA done contiguously, we will signal KVM
+> @@ -570,9 +528,9 @@ static void handle_rx(struct vhost_net *net)
+>  		.msg_controllen = 0,
+>  		.msg_flags = MSG_DONTWAIT,
+>  	};
+> -	struct virtio_net_hdr_mrg_rxbuf hdr = {
+> -		.hdr.flags = 0,
+> -		.hdr.gso_type = VIRTIO_NET_HDR_GSO_NONE
+> +	struct virtio_net_hdr hdr = {
+> +		.flags = 0,
+> +		.gso_type = VIRTIO_NET_HDR_GSO_NONE
+>  	};
+>  	size_t total_len = 0;
+>  	int err, mergeable;
+> @@ -580,6 +538,7 @@ static void handle_rx(struct vhost_net *net)
+>  	size_t vhost_hlen, sock_hlen;
+>  	size_t vhost_len, sock_len;
+>  	struct socket *sock;
+> +	struct iov_iter fixup;
+>  
+>  	mutex_lock(&vq->mutex);
+>  	sock = vq->private_data;
+> @@ -624,14 +583,17 @@ static void handle_rx(struct vhost_net *net)
+>  			break;
+>  		}
+>  		/* We don't need to be notified again. */
+> -		if (unlikely((vhost_hlen)))
+> -			/* Skip header. TODO: support TSO. */
+> -			move_iovec_hdr(vq->iov, nvq->hdr, vhost_hlen, in);
+> -		else
+> -			/* Copy the header for use in VIRTIO_NET_F_MRG_RXBUF:
+> -			 * needed because recvmsg can modify msg_iov. */
+> -			copy_iovec_hdr(vq->iov, nvq->hdr, sock_hlen, in);
+> -		iov_iter_init(&msg.msg_iter, READ, vq->iov, in, sock_len);
+> +		iov_iter_init(&msg.msg_iter, READ, vq->iov, in, vhost_len);
+> +		fixup = msg.msg_iter;
+> +		if (unlikely((vhost_hlen))) {
+> +			/* We will supply the header ourselves
+> +			 * TODO: support TSO. */
+> +			iov_iter_advance(&msg.msg_iter, vhost_hlen);
+> +		} else {
+> +			/* It'll come from socket; we'll need to patch
+> +			 * ->num_buffers over if VIRTIO_NET_F_MRG_RXBUF */
+> +			iov_iter_advance(&fixup, sizeof(hdr));
+> +		}
+>  		err = sock->ops->recvmsg(NULL, sock, &msg,
+>  					 sock_len, MSG_DONTWAIT | MSG_TRUNC);
+>  		/* Userspace might have consumed the packet meanwhile:
 
-> From: Govindarajulu Varadarajan <_govind@gmx.com>
-> Date: Sat, 31 Jan 2015 17:58:09 +0530
->
->> Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
->
-> This is terrible.
->
-> You haven't explained what this means.
->
-> And to tell you the truth, from what I can tell this tunable is
-> very specific to how you have implemented RX frags in the enic
-> driver in this series and won't necessarily translate to how
-> other drivers manage RX buffers.
->
 
-Yes I agree that this is too specific to driver. From my knowledge mlx4 also
-uses similar frag allocation from large order page. Other that these two
-drivers, this facility may not make sense to other drivers.
-
-On systems with huge memory we can go higher than order-3, and if user sees that
-order-3 are failing, he should be able to reduce the order.
-
-Since this is very driver specific, are you fine if I move this to device sysfs?
+Hmm having second thoughts here.
+Will this modify the iov in vq->iov?
+If yes, how will recvmsg fill it?
 
 
-> You need to actually design this facility properly, understand
-> what the needs are of other drivers and how this facility
-> can be relevant for more drivers than your own.
->
+
+
+> @@ -643,18 +605,17 @@ static void handle_rx(struct vhost_net *net)
+>  			vhost_discard_vq_desc(vq, headcount);
+>  			continue;
+>  		}
+> +		/* Supply virtio_net_hdr if VHOST_NET_F_VIRTIO_NET_HDR */
+>  		if (unlikely(vhost_hlen) &&
+> -		    memcpy_toiovecend(nvq->hdr, (unsigned char *)&hdr, 0,
+> -				      vhost_hlen)) {
+> +		    copy_to_iter(&hdr, sizeof(hdr), &fixup) != sizeof(hdr)) {
+>  			vq_err(vq, "Unable to write vnet_hdr at addr %p\n",
+>  			       vq->iov->iov_base);
+>  			break;
+>  		}
+> -		/* TODO: Should check and handle checksum. */
+> +		/* Supply (or replace) ->num_buffers if VIRTIO_NET_F_MRG_RXBUF
+> +		 * TODO: Should check and handle checksum. */
+>  		if (likely(mergeable) &&
+> -		    memcpy_toiovecend(nvq->hdr, (unsigned char *)&headcount,
+> -				      offsetof(typeof(hdr), num_buffers),
+> -				      sizeof hdr.num_buffers)) {
+> +		    copy_to_iter(&headcount, 2, &fixup) != 2) {
+>  			vq_err(vq, "Failed num_buffers write");
+>  			vhost_discard_vq_desc(vq, headcount);
+>  			break;
+
+Here, if recvmsg modified the iov, how does copy_to_iter
+see the header?
+
+
+> diff --git a/include/linux/uio.h b/include/linux/uio.h
+> index af3439f..02bd8a9 100644
+> --- a/include/linux/uio.h
+> +++ b/include/linux/uio.h
+> @@ -137,7 +137,4 @@ size_t csum_and_copy_from_iter(void *addr, size_t bytes, __wsum *csum, struct io
+>  
+>  int memcpy_fromiovecend(unsigned char *kdata, const struct iovec *iov,
+>  			int offset, int len);
+> -int memcpy_toiovecend(const struct iovec *v, unsigned char *kdata,
+> -		      int offset, int len);
+> -
+>  #endif
+> diff --git a/lib/iovec.c b/lib/iovec.c
+> index 4a90875..d8f17a9 100644
+> --- a/lib/iovec.c
+> +++ b/lib/iovec.c
+> @@ -3,32 +3,6 @@
+>  #include <linux/uio.h>
+>  
+>  /*
+> - *	Copy kernel to iovec. Returns -EFAULT on error.
+> - */
+> -
+> -int memcpy_toiovecend(const struct iovec *iov, unsigned char *kdata,
+> -		      int offset, int len)
+> -{
+> -	int copy;
+> -	for (; len > 0; ++iov) {
+> -		/* Skip over the finished iovecs */
+> -		if (unlikely(offset >= iov->iov_len)) {
+> -			offset -= iov->iov_len;
+> -			continue;
+> -		}
+> -		copy = min_t(unsigned int, iov->iov_len - offset, len);
+> -		if (copy_to_user(iov->iov_base + offset, kdata, copy))
+> -			return -EFAULT;
+> -		offset = 0;
+> -		kdata += copy;
+> -		len -= copy;
+> -	}
+> -
+> -	return 0;
+> -}
+> -EXPORT_SYMBOL(memcpy_toiovecend);
+> -
+> -/*
+>   *	Copy iovec to kernel. Returns -EFAULT on error.
+>   */
+>  
+> -- 
+> 2.1.4
