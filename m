@@ -1,71 +1,64 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: [V2,for,3.19,3/7] rtlwifi: rtl8192ee: Fix adhoc fail
-Date: Tue, 03 Feb 2015 10:00:45 -0600
-Message-ID: <54D0F0AD.7070209@lwfinger.net>
-References: <20150203131516.799471409D0@smtp.codeaurora.org> <87r3u7w2l5.fsf@kamboji.qca.qualcomm.com>
+From: David Ahern <dsahern@gmail.com>
+Subject: Re: [PATCH] net: rocker: Change netdev names to include slot number
+Date: Tue, 03 Feb 2015 09:06:16 -0700
+Message-ID: <54D0F1F8.9050500@gmail.com>
+References: <1422856985-16530-1-git-send-email-dsahern@gmail.com>	<CAE4R7bA0Ea9zugm=OR0EN2qSeoiROEoMiYZ-5YMwd9UdS4L0Sg@mail.gmail.com>	<54CFEF20.8060300@gmail.com>	<54CFF420.3090603@gmail.com>	<54CFF5B3.7070509@gmail.com> <CAE4R7bArt7+C-kHJ7UXFo4w9feG0C_uZqQ7n8KC0brSXhqX3gg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, Troy Tan <troy_tan@realsil.com.cn>,
-	netdev@vger.kernel.org, Stable <stable@vger.kernel.org>
-To: Kalle Valo <kvalo@codeaurora.org>
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+	Netdev <netdev@vger.kernel.org>
+To: Scott Feldman <sfeldma@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f54.google.com ([209.85.218.54]:39241 "EHLO
-	mail-oi0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S966013AbbBCQAt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Feb 2015 11:00:49 -0500
-In-Reply-To: <87r3u7w2l5.fsf@kamboji.qca.qualcomm.com>
+Received: from mail-ig0-f169.google.com ([209.85.213.169]:40224 "EHLO
+	mail-ig0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965550AbbBCQGS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Feb 2015 11:06:18 -0500
+Received: by mail-ig0-f169.google.com with SMTP id hl2so25318869igb.0
+        for <netdev@vger.kernel.org>; Tue, 03 Feb 2015 08:06:17 -0800 (PST)
+In-Reply-To: <CAE4R7bArt7+C-kHJ7UXFo4w9feG0C_uZqQ7n8KC0brSXhqX3gg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/03/2015 07:23 AM, Kalle Valo wrote:
-> Kalle Valo <kvalo@codeaurora.org> writes:
+On 2/2/15 10:46 PM, Scott Feldman wrote:
+>> [root@f21 ~]# cat /sys/devices/virtual/net/sw5p0/phys_port_id
+>> cat: /sys/devices/virtual/net/sw5p0/phys_port_id: Operation not supported
 >
->>> From: Troy Tan <troy_tan@realsil.com.cn>
->>>
->>> When the buffer descriptor index exceeds 2, then a TX HANG condition
->>> will result.
->>>
->>> Signed-off-by: Troy Tan <troy_tan@realsil.com.cn>
->>> Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
->>> Cc: Stable <stable@vger.kernel.org> [V3.18]
->>
->> Thanks, 4 patches applied to wireless-drivers-next.git:
->>
->> b661a5da5776 rtlwifi: rtl8192ee: Fix adhoc fail
->> 6e5f44361628 rtlwifi: rtl8192ee: Fix TX hang due to failure to update TX write point
->> 92ff754240b8 rtlwifi: rtl8192ee: Fix parsing of received packet
->> 21b39ddb5bb2 rtlwifi: rtl8192ee: Fix DMA stalls
->>
->> 3 patches skipped:
->
-> I had to skip these three patches because of my mistake. So what I did
-> was that I had merged ("fast forwarded") the net tree into my
-> wireless-drivers tree and not realising I should not do that. So now I
-> can't merge wireless-drivers into wireless-drivers-next anymore, as it
-> will pull unnecessary net changes.
->
->> [V2,for,3.19,1/7] rtlwifi: Remove logging statement that is no longer
->> needed
->
-> I'll apply this after 3.20-rc1 is released, it should apply then without
-> problems (or the conflicts are easy for me to fix). Luckily this is just
-> a cosmetic error and can wait for 3.20-rc2, right?
+> We should implement .ndo_get_phys_port_id in rocker to return a unique
+> name for the port, which can then be used in udev script to name
+> interface.  When rocker device is instantiated, a unique switch name
+> is given on qemu cmd line, for example "sw1".  Rocker device could
+> return that string to the driver, or even combine that string with the
 
-That is correct. 3.20-rc2 will be OK. I'll probably get a bunch of "your **** 
-driver is spamming my logs, but I can ignore them".
+Right. That's what I went looking for at first and noticed that info is 
+not pushed to the driver. And then I know at least one vendor puts the 
+slot id in interface names which is the reason I went for the PCI slot id.
+
+> port index to have "sw1p1".  The second instantiated rocker device
+> would give up "sw2px" port names.
+
+And yes, adding the port index to the above name -- though ideally 
+starting at 1 and not 0.
 
 >
->> [V2,for,3.19,2/7] rtlwifi: rtl8192ee: Fix handling of new style descriptors
->> [V2,for,3.19,6/7] rtlwifi: rtl8192ee: Fix problems with calculating free space in FIFO
->
-> Not sure what to do with these one. Should you rebase and send them now?
+> A real switch with a physical port than can be split, or when multiple
+> ports are ganged to form one mega port, letting the device pick a
+> unique name is probably best.  For example, splitting a single
+> physical 40Gb port into 4 10Gb ports would present 4 kernel
+> interfaces, but we probably want to use the base port in the naming,
+> so we'd have something like "sw1p1s1" to mean switch 1, front panel
+> port 1, split port 1.  Letting the device name the ports on current
+> port configuration of the port will keep driver/kernel simple, and let
+> udev be the final name chooser.
 
-These two fix real bugs and need to be in the kernel ASAP. Unfortunately, I saw 
-you pass them off to DaveM and I deleted them from my "Submitted Patch" list. I 
-can recreate them from my working copy of wireless-drivers, and I will resubmit. 
-When I do, please process them as quickly as possible.
+Exactly. When you add in break out ports to the mix having sane, logical 
+default names (without udev) makes life easier. That was my ultimate 
+intent here - logical default names that udev or a user could then 
+modify if so desired.
 
-Thanks,
+But anyways, since the request is to have udev do the naming I need to 
+come back to it. A quick search on the systemd web site did not stumble 
+onto examples I could use, so I need to put this on the back burner 
+until I have time to dig through systemd docs.
 
-Larry
+David
