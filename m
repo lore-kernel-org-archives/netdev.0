@@ -1,38 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 3/4] ethtool: add RX_ALLOC_ORDER to tunable
-Date: Mon, 02 Feb 2015 19:21:59 -0800 (PST)
-Message-ID: <20150202.192159.66698996958688718.davem@davemloft.net>
-References: <1422707290-939-1-git-send-email-_govind@gmx.com>
-	<1422707290-939-4-git-send-email-_govind@gmx.com>
+Subject: Re: rhashtable: Move hash_rnd into bucket_table
+Date: Mon, 02 Feb 2015 19:26:34 -0800 (PST)
+Message-ID: <20150202.192634.1792206005008667377.davem@davemloft.net>
+References: <20150131102150.GA29498@gondor.apana.org.au>
+	<20150202.191956.404010205495035337.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ssujith@cisco.com, benve@cisco.com,
-	edumazet@google.com, ben@decadent.org.uk
-To: _govind@gmx.com
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: tgraf@suug.ch, netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50201 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:50220 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932126AbbBCDWA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2015 22:22:00 -0500
-In-Reply-To: <1422707290-939-4-git-send-email-_govind@gmx.com>
+	with ESMTP id S1752422AbbBCD0f (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2015 22:26:35 -0500
+In-Reply-To: <20150202.191956.404010205495035337.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Govindarajulu Varadarajan <_govind@gmx.com>
-Date: Sat, 31 Jan 2015 17:58:09 +0530
-
-> Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
-
-This is terrible.
-
-You haven't explained what this means.
-
-And to tell you the truth, from what I can tell this tunable is
-very specific to how you have implemented RX frags in the enic
-driver in this series and won't necessarily translate to how
-other drivers manage RX buffers.
-
-You need to actually design this facility properly, understand
-what the needs are of other drivers and how this facility
-can be relevant for more drivers than your own.
+RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogTW9uLCAwMiBG
+ZWIgMjAxNSAxOToxOTo1NiAtMDgwMCAoUFNUKQ0KDQo+IEZyb206IEhlcmJlcnQgWHUgPGhlcmJl
+cnRAZ29uZG9yLmFwYW5hLm9yZy5hdT4NCj4gRGF0ZTogU2F0LCAzMSBKYW4gMjAxNSAyMToyMTo1
+MCArMTEwMA0KPiANCj4+IEN1cnJlbnRseSBoYXNoX3JuZCBpcyBhIHBhcmFtZXRlciB0aGF0IHVz
+ZXJzIGNhbiBzZXQuICBIb3dldmVyLA0KPj4gbm8gZXhpc3RpbmcgdXNlcnMgc2V0IHRoaXMgcGFy
+YW1ldGVyLiAgSXQgaXMgYWxzbyBzb21ldGhpbmcgdGhhdA0KPj4gcGVvcGxlIGFyZSB1bmxpa2Vs
+eSB0byB3YW50IHRvIHNldCBkaXJlY3RseSBzaW5jZSBpdCdzIGp1c3QgYQ0KPj4gcmFuZG9tIG51
+bWJlci4NCj4+ICAgICANCj4+IEluIHByZXBhcmF0aW9uIGZvciBhbGxvd2luZyB0aGUgcmVzZWVk
+aW5nL3JlaGFzaGluZyBvZiByaGFzaHRhYmxlLA0KPj4gdGhpcyBwYXRjaCBtb3ZlcyBoYXNoX3Ju
+ZCBpbnRvIGJ1Y2tldF90YWJsZSBzbyB0aGF0IGl0J3Mgbm93IGFuDQo+PiBpbnRlcm5hbCBzdGF0
+ZSByYXRoZXIgdGhhbiBhIHBhcmFtZXRlci4NCj4+ICAgICANCj4+IFNpZ25lZC1vZmYtYnk6IEhl
+cmJlcnQgWHUgPGhlcmJlcnRAZ29uZG9yLmFwYW5hLm9yZy5hdT4NCj4gDQo+IEFsc28gYXBwbGll
+ZCB0byBuZXQtbmV4dCwgdGhhbmtzIGEgbG90Lg0KDQpBY3R1YWxseSB0aGlzIGFuZCB0aGUgbmV0
+ZmlsdGVyIGNoYW5nZSBicmVhayB0aGUgYnVpbGQuDQoNCkknbSByZXZlcnRpbmcgYWxsIG9mIHRo
+ZXNlIHJoYXNodGFibGUgY2hhbmdlcywgcGxlYXNlIGZpeCB0aGlzIHN0dWZmDQp1cC4NCg0KRmly
+c3RseSwgdGhlIGhhc2hfcm5kIGNoYW5nZSByZXN1bHRzIGluIHRoaXM6DQoNCmxpYi9yaGFzaHRh
+YmxlLmM6IEluIGZ1bmN0aW9uIKFvYmpfcmF3X2hhc2hmbqI6DQpsaWIvcmhhc2h0YWJsZS5jOjg0
+Ojk6IHdhcm5pbmc6IHBhc3NpbmcgYXJndW1lbnQgMSBvZiChbG9ja2RlcF9yaHRfbXV0ZXhfaXNf
+aGVsZKIgZGlzY2FyZHMgoWNvbnN0oiBxdWFsaWZpZXIgZnJvbSBwb2ludGVyIHRhcmdldCB0eXBl
+IFtlbmFibGVkIGJ5IGRlZmF1bHRdDQpsaWIvcmhhc2h0YWJsZS5jOjU3OjU6IG5vdGU6IGV4cGVj
+dGVkIKFzdHJ1Y3Qgcmhhc2h0YWJsZSAqoiBidXQgYXJndW1lbnQgaXMgb2YgdHlwZSChY29uc3Qg
+c3RydWN0IHJoYXNodGFibGUgKqINCg0KTmV4dCwgdGhlIG5ldGZpbHRlciBjaGFuZ2UgcmVzdWx0
+cyBpbjoNCg0KRVJST1I6ICJyaGFzaHRhYmxlX3dhbGtfc3RhcnQiIFtuZXQvbmV0ZmlsdGVyL25m
+dF9oYXNoLmtvXSB1bmRlZmluZWQhDQo=
