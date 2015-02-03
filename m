@@ -1,40 +1,76 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [PATCH] ath9k_htc: add adaptive usb flow control to repair soft lockup with monitor mode
-Date: Tue, 03 Feb 2015 13:52:29 +0200
-Message-ID: <87fvanxldu.fsf@kamboji.qca.qualcomm.com>
-References: <1422957585-19736-1-git-send-email-yuweizheng@139.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: Question: should local address be expired when updating PMTU?
+Date: Tue, 3 Feb 2015 13:01:41 +0100
+Message-ID: <20150203120140.GU13046@secunet.com>
+References: <54CF3348.40207@huawei.com>
+ <20150203092845.GT13046@secunet.com>
+ <54D0A8DB.4010106@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, ath9k-devel@lists.ath9k.org,
-	linux-wireless@vger.kernel.org, ath9k-devel@qca.qualcomm.com,
-	netdev@vger.kernel.org, Yuwei Zheng <zhengyuwei@360.cn>
-To: yuweizheng@139.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1422957585-19736-1-git-send-email-yuweizheng@139.com>
-	(yuweizheng@139.com's message of "Tue, 3 Feb 2015 17:59:45 +0800")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<yangyingliang@huawei.com>, <hannes@redhat.com>
+To: shengyong <shengyong1@huawei.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([195.81.216.161]:44322 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932933AbbBCMBu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Feb 2015 07:01:50 -0500
+Content-Disposition: inline
+In-Reply-To: <54D0A8DB.4010106@huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-yuweizheng@139.com writes:
+On Tue, Feb 03, 2015 at 06:54:19PM +0800, shengyong wrote:
+>=20
+>=20
+> =E5=9C=A8 2015/2/3 17:28, Steffen Klassert =E5=86=99=E9=81=93:
+> > On Mon, Feb 02, 2015 at 04:20:24PM +0800, shengyong wrote:
+> >=20
+> > We first need to find out why you receive this Packet Too Big messa=
+ge,
+> The packet is sent by a commercial-off-the-shelf testcase, and I can =
+reproduce the
+> situation by using scapy and creating a packet as the following:
+>=20
+> 	$ cat packet-too-big.py
+> 	#!/usr/bin/python
+> =09
+> 	from scapy.all import *
+>=20
+> 	# fe80::800:27ff:fe00:0 is linklocal addr of PC
+> 	# fe80::a00:27ff:fe1a:e2a0 is linklocal addr of VM
+> 	base=3DIPv6(src=3D'fe80::800:27ff:fe00:0',dst=3D'fe80::a00:27ff:fe1a=
+:e2a0')
+> 	pkt_too_big=3DICMPv6PacketTooBig(mtu=3D1024)
+> 	ext_base=3DIPv6(src=3D'fe80::a00:27ff:fe1a:e2a0',dst=3D'fe80::a00:27=
+ff:fe1a:e2a0',plen=3D24)
+> 	ext_nd_na=3DICMPv6ND_NA()
+> =09
+> 	packet=3Dbase/pkt_too_big/ext_base/ext_nd_na
+> 	send(packet)
 
-> From: Yuwei Zheng <yuweizheng@139.com>
->
-> In the environment with heavy wifi traffic, set the ar9271 into monitor mode, will
-> trigger a deadloop panic.
->  
-> The ath9k_hif_usb_rx_cb function excute on  the interrupt context, and ath9k_rx_tasklet excute
-> on the soft irq context. In other words, the ath9k_hif_usb_rx_cb have more chance to excute than
-> ath9k_rx_tasklet.  So in the worst condition,  the rx.rxbuf receive list is always full,
-> and the do {}while(true) loop will not be break. The kernel get a soft lockup panic. 
+So it is not a valid pmtu update, this make life easier.
 
-The word wrapping is still wrong, please limit the width to 72 chars or
-so. But no need to wrap log snippets, they can exceed the limit.
+Can you please test the patch below (compile tested only)?
 
-> Signed-off-by: Yuwei Zheng <zhengyuwei@360.cn>
-> Signed-off-by: Yuwei Zheng <yuweizheng@139.com>
+This should fix your problem, and in combination with the two patches I=
+ sent
+out last week, it should cure the whole 'expiring of uncached routes' p=
+roblem.
 
-Why two of these? Please use just one Signed-off-by line. Unless these
-are two different persons with the same name :)
-
--- 
-Kalle Valo
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 49596535..4ccfb9c 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -1156,7 +1156,8 @@ static void ip6_rt_update_pmtu(struct dst_entry *=
+dst, struct sock *sk,
+ 	struct rt6_info *rt6 =3D (struct rt6_info *)dst;
+=20
+ 	dst_confirm(dst);
+-	if (mtu < dst_mtu(dst) && rt6->rt6i_dst.plen =3D=3D 128) {
++	if (mtu < dst_mtu(dst) && rt6->rt6i_dst.plen =3D=3D 128 &&
++	    (rt6->rt6i_flags & RTF_CACHE)) {
+ 		struct net *net =3D dev_net(dst->dev);
+=20
+ 		rt6->rt6i_flags |=3D RTF_MODIFIED;
