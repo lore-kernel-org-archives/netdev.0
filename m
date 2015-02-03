@@ -1,78 +1,192 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH] net: ipv6: Make address flushing on ifdown optional -
- v2
-Date: Tue, 3 Feb 2015 00:10:57 +0100
-Message-ID: <20150203001057.3e0e22b2@uryu.home.lan>
-References: <1422504065-17445-1-git-send-email-dsahern@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Hannes Frederic Sowa <hannes@redhat.com>
-To: David Ahern <dsahern@gmail.com>
+From: Tom Herbert <therbert@google.com>
+Subject: [PATCH net-next] net: add skb functions to process remote checksum offload
+Date: Mon,  2 Feb 2015 16:07:34 -0800
+Message-ID: <1422922054-22996-1-git-send-email-therbert@google.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f171.google.com ([209.85.213.171]:49369 "EHLO
-	mail-ig0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751790AbbBBXLP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2015 18:11:15 -0500
-Received: by mail-ig0-f171.google.com with SMTP id h15so6068671igd.4
-        for <netdev@vger.kernel.org>; Mon, 02 Feb 2015 15:11:15 -0800 (PST)
-In-Reply-To: <1422504065-17445-1-git-send-email-dsahern@gmail.com>
+Received: from mail-ie0-f181.google.com ([209.85.223.181]:43106 "EHLO
+	mail-ie0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755489AbbBCAHn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2015 19:07:43 -0500
+Received: by mail-ie0-f181.google.com with SMTP id rd18so12271948iec.12
+        for <netdev@vger.kernel.org>; Mon, 02 Feb 2015 16:07:42 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 28 Jan 2015 21:01:05 -0700
-David Ahern <dsahern@gmail.com> wrote:
+This patch adds skb_remcsum_process and skb_gro_remcsum_process to
+perform the appropriate adjustments to the skb when receiving
+remote checksum offload.
 
-> Currently, all ipv6 addresses are flushed when the interface is configured
-> down, even static address:
-> 
-> [root@f20 ~]# ip -6 addr add dev eth1 2000:11:1:1::1/64
-> [root@f20 ~]# ip addr show dev eth1
-> 3: eth1: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN group default qlen 1000
->     link/ether 02:04:11:22:33:01 brd ff:ff:ff:ff:ff:ff
->     inet6 2000:11:1:1::1/64 scope global tentative
->        valid_lft forever preferred_lft forever
-> [root@f20 ~]# ip link set dev eth1 up
-> [root@f20 ~]# ip link set dev eth1 down
-> [root@f20 ~]# ip addr show dev eth1
-> 3: eth1: <BROADCAST,MULTICAST> mtu 1500 qdisc pfifo_fast state DOWN group default qlen 1000
->     link/ether 02:04:11:22:33:01 brd ff:ff:ff:ff:ff:ff
-> 
-> Add a new sysctl to make this behavior optional. The new setting defaults to
-> flush all addresses to maintain backwards compatibility. When the setting is
-> reset static addresses are not flushed:
-> 
-> [root@f20 ~]# echo 0 > /proc/sys/net/ipv6/conf/eth1/flush_addr_on_down
-> [root@f20 ~]# ip -6 addr add dev eth1 2000:11:1:1::1/64
-> [root@f20 ~]# ip addr show dev eth1
-> 3: eth1: <BROADCAST,MULTICAST> mtu 1500 qdisc pfifo_fast state DOWN group default qlen 1000
->     link/ether 02:04:11:22:33:01 brd ff:ff:ff:ff:ff:ff
->     inet6 2000:11:1:1::1/64 scope global tentative
->        valid_lft forever preferred_lft forever
-> [root@f20 ~]#  ip link set dev eth1 up
-> [root@f20 ~]#  ip link set dev eth1 down
-> [root@f20 ~]# ip addr show dev eth1
-> 3: eth1: <BROADCAST,MULTICAST> mtu 1500 qdisc pfifo_fast state DOWN group default qlen 1000
->     link/ether 02:04:11:22:33:01 brd ff:ff:ff:ff:ff:ff
->     inet6 2000:11:1:1::1/64 scope global
->        valid_lft forever preferred_lft forever
->     inet6 fe80::4:11ff:fe22:3301/64 scope link
->        valid_lft forever preferred_lft forever
-> 
-> v2:
-> - only keep static addresses as suggested by Hannes
-> - added new managed flag to track configured addresses
-> - on ifdown do not remove from configured address from inet6_addr_lst
-> - on ifdown reset the TENTATIVE flag and set state to DAD so that DAD is
->   redone when link is brought up again
-> 
-> Suggested-by: Hannes Frederic Sowa <hannes@redhat.com>
-> Signed-off-by: David Ahern <dsahern@gmail.com>
-> Cc: Hannes Frederic Sowa <hannes@redhat.com>
-> 
-> Signed-off-by: David Ahern <dsahern@gmail.com>
+Updated vxlan and gue to use these functions.
 
-Checkpatch complains about space before tab, which could be your
-mailer mangling the patch.
+Tested: Ran TCP_RR and TCP_STREAM netperf for VXLAN and GUE, did
+not see any change in performance.
 
-This should probably go into the netconf netlink message as well.
+Signed-off-by: Tom Herbert <therbert@google.com>
+---
+ drivers/net/vxlan.c       | 18 ++----------------
+ include/linux/netdevice.h | 15 +++++++++++++++
+ include/linux/skbuff.h    | 21 +++++++++++++++++++++
+ net/ipv4/fou.c            | 18 ++----------------
+ 4 files changed, 40 insertions(+), 32 deletions(-)
+
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index 19d3664..ffea961 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -556,7 +556,6 @@ static struct vxlanhdr *vxlan_gro_remcsum(struct sk_buff *skb,
+ 					  u32 data)
+ {
+ 	size_t start, offset, plen;
+-	__wsum delta;
+ 
+ 	if (skb->remcsum_offload)
+ 		return vh;
+@@ -578,12 +577,7 @@ static struct vxlanhdr *vxlan_gro_remcsum(struct sk_buff *skb,
+ 			return NULL;
+ 	}
+ 
+-	delta = remcsum_adjust((void *)vh + hdrlen,
+-			       NAPI_GRO_CB(skb)->csum, start, offset);
+-
+-	/* Adjust skb->csum since we changed the packet */
+-	skb->csum = csum_add(skb->csum, delta);
+-	NAPI_GRO_CB(skb)->csum = csum_add(NAPI_GRO_CB(skb)->csum, delta);
++	skb_gro_remcsum_process(skb, (void *)vh + hdrlen, start, offset);
+ 
+ 	skb->remcsum_offload = 1;
+ 
+@@ -1157,7 +1151,6 @@ static struct vxlanhdr *vxlan_remcsum(struct sk_buff *skb, struct vxlanhdr *vh,
+ 				      size_t hdrlen, u32 data)
+ {
+ 	size_t start, offset, plen;
+-	__wsum delta;
+ 
+ 	if (skb->remcsum_offload) {
+ 		/* Already processed in GRO path */
+@@ -1177,14 +1170,7 @@ static struct vxlanhdr *vxlan_remcsum(struct sk_buff *skb, struct vxlanhdr *vh,
+ 
+ 	vh = (struct vxlanhdr *)(udp_hdr(skb) + 1);
+ 
+-	if (unlikely(skb->ip_summed != CHECKSUM_COMPLETE))
+-		__skb_checksum_complete(skb);
+-
+-	delta = remcsum_adjust((void *)vh + hdrlen,
+-			       skb->csum, start, offset);
+-
+-	/* Adjust skb->csum since we changed the packet */
+-	skb->csum = csum_add(skb->csum, delta);
++	skb_remcsum_process(skb, (void *)vh + hdrlen, start, offset);
+ 
+ 	return vh;
+ }
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 642d426..38af7b3 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -2314,6 +2314,21 @@ do {									\
+ 					   compute_pseudo(skb, proto));	\
+ } while (0)
+ 
++static inline void skb_gro_remcsum_process(struct sk_buff *skb, void *ptr,
++					   int start, int offset)
++{
++	__wsum delta;
++
++	BUG_ON(!NAPI_GRO_CB(skb)->csum_valid);
++
++	delta = remcsum_adjust(ptr, NAPI_GRO_CB(skb)->csum, start, offset);
++
++	/* Adjust skb->csum since we changed the packet */
++	skb->csum = csum_add(skb->csum, delta);
++	NAPI_GRO_CB(skb)->csum = csum_add(NAPI_GRO_CB(skb)->csum, delta);
++}
++
++
+ static inline int dev_hard_header(struct sk_buff *skb, struct net_device *dev,
+ 				  unsigned short type,
+ 				  const void *daddr, const void *saddr,
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 85ab7d7..67f8b76 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -3096,6 +3096,27 @@ do {									\
+ 				       compute_pseudo(skb, proto));	\
+ } while (0)
+ 
++/* Update skbuf and packet to reflect the remote checksum offload operation.
++ * When called, ptr indicates the starting point for skb->csum when
++ * ip_summed is CHECKSUM_COMPLETE. If we need create checksum complete
++ * here, skb_postpull_rcsum is done so skb->csum start is ptr.
++ */
++static inline void skb_remcsum_process(struct sk_buff *skb, void *ptr,
++				       int start, int offset)
++{
++	__wsum delta;
++
++	 if (unlikely(skb->ip_summed != CHECKSUM_COMPLETE)) {
++		__skb_checksum_complete(skb);
++		skb_postpull_rcsum(skb, skb->data, ptr - (void *)skb->data);
++	}
++
++	delta = remcsum_adjust(ptr, skb->csum, start, offset);
++
++	/* Adjust skb->csum since we changed the packet */
++	skb->csum = csum_add(skb->csum, delta);
++}
++
+ #if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
+ void nf_conntrack_destroy(struct nf_conntrack *nfct);
+ static inline void nf_conntrack_put(struct nf_conntrack *nfct)
+diff --git a/net/ipv4/fou.c b/net/ipv4/fou.c
+index 3bc0cf0..92ddea1 100644
+--- a/net/ipv4/fou.c
++++ b/net/ipv4/fou.c
+@@ -70,7 +70,6 @@ static struct guehdr *gue_remcsum(struct sk_buff *skb, struct guehdr *guehdr,
+ 	size_t start = ntohs(pd[0]);
+ 	size_t offset = ntohs(pd[1]);
+ 	size_t plen = hdrlen + max_t(size_t, offset + sizeof(u16), start);
+-	__wsum delta;
+ 
+ 	if (skb->remcsum_offload) {
+ 		/* Already processed in GRO path */
+@@ -82,14 +81,7 @@ static struct guehdr *gue_remcsum(struct sk_buff *skb, struct guehdr *guehdr,
+ 		return NULL;
+ 	guehdr = (struct guehdr *)&udp_hdr(skb)[1];
+ 
+-	if (unlikely(skb->ip_summed != CHECKSUM_COMPLETE))
+-		__skb_checksum_complete(skb);
+-
+-	delta = remcsum_adjust((void *)guehdr + hdrlen,
+-			       skb->csum, start, offset);
+-
+-	/* Adjust skb->csum since we changed the packet */
+-	skb->csum = csum_add(skb->csum, delta);
++	skb_remcsum_process(skb, (void *)guehdr + hdrlen, start, offset);
+ 
+ 	return guehdr;
+ }
+@@ -228,7 +220,6 @@ static struct guehdr *gue_gro_remcsum(struct sk_buff *skb, unsigned int off,
+ 	size_t start = ntohs(pd[0]);
+ 	size_t offset = ntohs(pd[1]);
+ 	size_t plen = hdrlen + max_t(size_t, offset + sizeof(u16), start);
+-	__wsum delta;
+ 
+ 	if (skb->remcsum_offload)
+ 		return guehdr;
+@@ -243,12 +234,7 @@ static struct guehdr *gue_gro_remcsum(struct sk_buff *skb, unsigned int off,
+ 			return NULL;
+ 	}
+ 
+-	delta = remcsum_adjust((void *)guehdr + hdrlen,
+-			       NAPI_GRO_CB(skb)->csum, start, offset);
+-
+-	/* Adjust skb->csum since we changed the packet */
+-	skb->csum = csum_add(skb->csum, delta);
+-	NAPI_GRO_CB(skb)->csum = csum_add(NAPI_GRO_CB(skb)->csum, delta);
++	skb_gro_remcsum_process(skb, (void *)guehdr + hdrlen, start, offset);
+ 
+ 	skb->remcsum_offload = 1;
+ 
+-- 
+2.2.0.rc0.207.ga3a616c
