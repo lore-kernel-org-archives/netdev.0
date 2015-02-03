@@ -1,103 +1,36 @@
-From: shengyong <shengyong1@huawei.com>
-Subject: Re: Question: should local address be expired when updating PMTU?
-Date: Tue, 3 Feb 2015 09:28:44 +0800
-Message-ID: <54D0244C.40301@huawei.com>
-References: <54CF3348.40207@huawei.com> <54D01BEA.2070501@fb.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3 0/3] Restore UFO support to virtio_net devices
+Date: Mon, 02 Feb 2015 17:49:18 -0800 (PST)
+Message-ID: <20150202.174918.1368082761533704490.davem@davemloft.net>
+References: <1422889269-16007-1-git-send-email-vyasevic@redhat.com>
+	<20150202.131158.2302675247156677150.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<yangyingliang@huawei.com>, <steffen.klassert@secunet.com>,
-	<hannes@redhat.com>, <lvs-devel@vger.kernel.org>,
-	Calvin Owens <calvinowens@fb.com>, <kernel-team@fb.com>
-To: Alex Gartrell <agartrell@fb.com>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <54D01BEA.2070501@fb.com>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	mst@redhat.com, ben@decadent.org.uk, eric.dumazet@gmail.com,
+	hannes@stressinduktion.org, vyasevic@redhat.com
+To: vyasevich@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:49726 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932612AbbBCBtV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2015 20:49:21 -0500
+In-Reply-To: <20150202.131158.2302675247156677150.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: David Miller <davem@davemloft.net>
+Date: Mon, 02 Feb 2015 13:11:58 -0800 (PST)
 
+> Vlad, this still fails the same way.
+ ...
+> Please build allmodconfig, that is the exact build I use to test your
+> and everyone else's changes.
 
-=E5=9C=A8 2015/2/3 8:52, Alex Gartrell =E5=86=99=E9=81=93:
-> Hello Shengyong,
->=20
->> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
->> index b2614b2..b80317a 100644
->> --- a/net/ipv6/route.c
->> +++ b/net/ipv6/route.c
->> @@ -1136,6 +1136,9 @@ static void ip6_rt_update_pmtu(struct dst_entr=
-y *dst, struct sock *sk,
->>   {
->>          struct rt6_info *rt6 =3D (struct rt6_info*)dst;
->>
->> +       if (rt6->rt6i_flags & RTF_LOCAL)
->> +               return;
->> +
->>          dst_confirm(dst);
->>          if (mtu < dst_mtu(dst) && rt6->rt6i_dst.plen =3D=3D 128) {
->>                  struct net *net =3D dev_net(dst->dev);
->>
->> So is this modification correct? Or how can we avoid such expiring?
->=20
->=20
-> FWIW, we encountered this problem with IPVS tunneling.  Here's a patc=
-h done by Calvin (cc'ed) that fixes my attempted fix for this.  We're n=
-ot particularly proud of this...
->=20
-> At a high level, I don't think the RTF_LOCAL check was sufficient, bu=
-t I didn't investigate deeply enough and hopefully Calvin can say why.
->=20
-> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-> index f14d49b..c607a42 100644
-> --- a/net/ipv6/route.c
-> +++ b/net/ipv6/route.c
-> @@ -1159,18 +1159,18 @@ static void ip6_rt_update_pmtu(struct dst_ent=
-ry *dst, struct sock *sk,
->                 }
->                 dst_metric_set(dst, RTAX_MTU, mtu);
->=20
-> -               /* FACEBOOK HACK: We need to not expire local non-exp=
-iring
-> -                * routes so that we don't accidentally start blackho=
-ling
-> -                * ipvs traffic when we happen to use it locally for
-> -                * healthchecking (see ip_vs_xmit.c --
-> -                * __ip_vs_get_out_rt_v6 invokes update_pmtu if the r=
-t is
-> -                * associated with a socket)
-> -                * Alex Gartrell <agartrell@fb.com>
-> +               /*
-> +                * FACEBOOK HACK: Only expire routes that aren't dest=
-ined for
-> +                * the loopback interface.
-> +                *
-> +                * This prevents the strange route coalescing that ha=
-ppens when
-> +                * you add an address to the loopback that had a rout=
-e that had
-> +                * been used when the address didn't exist from getti=
-ng expired
-> +                * and causing packet loss in shiv.
->                  */
-> -               if (!(rt6->rt6i_flags & RTF_LOCAL) ||
-> -                   (rt6->rt6i_flags & (RTF_EXPIRES | RTF_CACHE)))
-> -                       rt6_update_expires(
-> -                               rt6, net->ipv6.sysctl.ip6_rt_mtu_expi=
-res);
-> +               if (!(dst->dev->flags & IFF_LOOPBACK))
-> +                       rt6_update_expires(rt6,
-> + net->ipv6.sysctl.ip6_rt_mtu_expires);
->         }
->  }
-Thanks, your approach can also solve the problem I met. I just a bit co=
-nfuse that
-is this kind of packets (like I sent in the first mail) normal?  and if=
- they are
-abnormal, I think we'd better drop them before update rt6i_flags.
+Oh, also, there is trailing whitespace in one of the comments added
+by patch #1.  I've been silently fixing it up for you, but since you
+have to respin this one more time I'd appreciate it if you're fix
+it up in your copy this time. :)
 
-thx,
-Sheng
->=20
->=20
-> Cheers,
-
+Thanks.
