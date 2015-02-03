@@ -1,38 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net/mlx4_core: Fix kernel Oops (mem corruption)
- when working with more than 80 VFs
-Date: Mon, 02 Feb 2015 19:38:16 -0800 (PST)
-Message-ID: <20150202.193816.1901787169522382523.davem@davemloft.net>
-References: <1422883122-29020-1-git-send-email-amirv@mellanox.com>
+Subject: Re: [PATCHv1 net] xen-netback: stop the guest rx thread after a
+ fatal error
+Date: Mon, 02 Feb 2015 19:39:22 -0800 (PST)
+Message-ID: <20150202.193922.1020681915054887138.davem@davemloft.net>
+References: <1422896271-26551-1-git-send-email-david.vrabel@citrix.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ogerlitz@mellanox.com,
-	yevgenyp@mellanox.com, jackm@dev.mellanox.co.il
-To: amirv@mellanox.com
+Cc: netdev@vger.kernel.org, xen-devel@lists.xenproject.org,
+	ian.campbell@citrix.com, wei.liu2@citrix.com
+To: david.vrabel@citrix.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50302 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:50308 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932825AbbBCDiR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2015 22:38:17 -0500
-In-Reply-To: <1422883122-29020-1-git-send-email-amirv@mellanox.com>
+	with ESMTP id S1753958AbbBCDjX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2015 22:39:23 -0500
+In-Reply-To: <1422896271-26551-1-git-send-email-david.vrabel@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Amir Vadai <amirv@mellanox.com>
-Date: Mon,  2 Feb 2015 15:18:42 +0200
+From: David Vrabel <david.vrabel@citrix.com>
+Date: Mon, 2 Feb 2015 16:57:51 +0000
 
-> From: Jack Morgenstein <jackm@dev.mellanox.co.il>
+> After commit e9d8b2c2968499c1f96563e6522c56958d5a1d0d (xen-netback:
+> disable rogue vif in kthread context), a fatal (protocol) error would
+> leave the guest Rx thread spinning, wasting CPU time.  Commit
+> ecf08d2dbb96d5a4b4bcc53a39e8d29cc8fef02e (xen-netback: reintroduce
+> guest Rx stall detection) made this even worse by removing a
+> cond_resched() from this path.
 > 
-> Commit de966c592802 (net/mlx4_core: Support more than 64 VFs) was meant to
-> allow up to 126 VFs.  However, due to leaving MLX4_MFUNC_MAX too low, using
-> more than 80 VFs resulted in memory corruptions (and Oopses) when more than
-> 80 VFs were requested. In addition, the number of slaves was left too high.
+> Since a fatal error is non-recoverable, just allow the guest Rx thread
+> to exit.  This requires taking additional refs to the task so the
+> thread exiting early is handled safely.
 > 
-> This commit fixes these issues.
-> 
-> Fixes: de966c592802 ("net/mlx4_core: Support more than 64 VFs")
-> Signed-off-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
-> Signed-off-by: Amir Vadai <amirv@mellanox.com>
+> Signed-off-by: David Vrabel <david.vrabel@citrix.com>
+> Reported-by: Julien Grall <julien.grall@linaro.org>
+> Tested-by: Julien Grall <julien.grall@linaro.org>
 
-Applied, thanks.
+Applied, thank you.
