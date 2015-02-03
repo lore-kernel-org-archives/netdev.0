@@ -1,86 +1,92 @@
-From: Praveen Madhavan <praveenm@chelsio.com>
-Subject: [PATCH] csiostor:Use firmware version from cxgb4/t4fw_version.h
-Date: Tue,  3 Feb 2015 17:18:26 +0530
-Message-ID: <1422964106-4033-1-git-send-email-praveenm@chelsio.com>
-Cc: davem@davemloft.net, JBottomley@parallels.com, hch@infradead.org,
-	hariprasad@chelsio.com, praveenm@chelsio.com
-To: netdev@vger.kernel.org, linux-scsi@vger.kernel.org
-Return-path: <linux-scsi-owner@vger.kernel.org>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Michal Kazior <michal.kazior@tieto.com>
+Subject: Re: Throughput regression with `tcp: refine TSO autosizing`
+Date: Tue, 3 Feb 2015 12:50:59 +0100
+Message-ID: <CA+BoTQkMikA8wxm1ce2DkKhPB0HiKeAqT7f+sQ=91W40z=X0Rg@mail.gmail.com>
+References: <CA+BoTQkVu23P3EOmY_Q3E1GJnWsyF==Pawz4iPOS_Bq5dvfO5Q@mail.gmail.com>
+	<1422537297.21689.15.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CA+BoTQk2xT-8DqPuiiKG+kHAjLPrj8F9dLTb-rcGhvMq0u_2Qw@mail.gmail.com>
+	<1422628835.21689.95.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CA+BoTQkV+mOZfe_Niz5101sMQeaV6muKCsShptjGQ1AgOHqqoQ@mail.gmail.com>
+	<1422903136.21689.114.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1422926330.21689.138.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-wireless <linux-wireless@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	eyalpe@dev.mellanox.co.il
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f175.google.com ([209.85.212.175]:46073 "EHLO
+	mail-wi0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932250AbbBCLvB convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Feb 2015 06:51:01 -0500
+Received: by mail-wi0-f175.google.com with SMTP id fb4so23671078wid.2
+        for <netdev@vger.kernel.org>; Tue, 03 Feb 2015 03:51:00 -0800 (PST)
+In-Reply-To: <1422926330.21689.138.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch is to use firmware version macros from t4fw_version.h
-and also enables 40g T5 adapter.
+On 3 February 2015 at 02:18, Eric Dumazet <eric.dumazet@gmail.com> wrot=
+e:
+> On Mon, 2015-02-02 at 10:52 -0800, Eric Dumazet wrote:
+>
+>> It seems to break ACK clocking badly (linux stack has a somewhat bug=
+gy
+>> tcp_tso_should_defer(), which relies on ACK being received smoothly,=
+ as
+>> no timer is setup to split the TSO packet.)
+>
+> Following patch might help the TSO split defer logic.
+>
+> It would avoid setting the TSO defer 'pseudo timer' twice, if/when TC=
+P
+> Small Queue logic prevented the xmit at the expiration of first 'time=
+r'.
+>
+> This patch clears the tso_deferred variable only if we could really
+> send something.
+>
+> Please try it, thanks !
+[..patch..]
 
-Signed-off-by: Praveen Madhavan <praveenm@chelsio.com>
----
- drivers/scsi/csiostor/csio_hw.c      | 6 ++++--
- drivers/scsi/csiostor/csio_hw_chip.h | 6 +-----
- drivers/scsi/csiostor/csio_mb.c      | 3 ++-
- 3 files changed, 7 insertions(+), 8 deletions(-)
+I've done a second round of tests. I've added the A-MSDU count
+parameter I've mentioned in my other email into the mix.
 
-diff --git a/drivers/scsi/csiostor/csio_hw.c b/drivers/scsi/csiostor/csio_hw.c
-index c81b06b..2e66f34 100644
---- a/drivers/scsi/csiostor/csio_hw.c
-+++ b/drivers/scsi/csiostor/csio_hw.c
-@@ -1372,7 +1372,8 @@ csio_config_device_caps(struct csio_hw *hw)
- 	}
- 
- 	/* Validate device capabilities */
--	if (csio_hw_validate_caps(hw, mbp))
-+	rv = csio_hw_validate_caps(hw, mbp);
-+	if (rv != 0)
- 		goto out;
- 
- 	/* Don't config device capabilities if already configured */
-@@ -1776,7 +1777,8 @@ csio_hw_use_fwconfig(struct csio_hw *hw, int reset, u32 *fw_cfg_param)
- 	}
- 
- 	/* Validate device capabilities */
--	if (csio_hw_validate_caps(hw, mbp))
-+	rv = csio_hw_validate_caps(hw, mbp);
-+	if (rv != 0)
- 		goto bye;
- 	/*
- 	 * Note that we're operating with parameters
-diff --git a/drivers/scsi/csiostor/csio_hw_chip.h b/drivers/scsi/csiostor/csio_hw_chip.h
-index a5f624f..b56a11d 100644
---- a/drivers/scsi/csiostor/csio_hw_chip.h
-+++ b/drivers/scsi/csiostor/csio_hw_chip.h
-@@ -45,11 +45,6 @@
- #define FW_FNAME_T5				"cxgb4/t5fw.bin"
- #define FW_CFG_NAME_T5				"cxgb4/t5-config.txt"
- 
--#define T5FW_VERSION_MAJOR 0x01
--#define T5FW_VERSION_MINOR 0x0B
--#define T5FW_VERSION_MICRO 0x1B
--#define T5FW_VERSION_BUILD 0x00
--
- #define CHELSIO_CHIP_CODE(version, revision) (((version) << 4) | (revision))
- #define CHELSIO_CHIP_FPGA          0x100
- #define CHELSIO_CHIP_VERSION(code) (((code) >> 12) & 0xf)
-@@ -74,6 +69,7 @@ static inline int csio_is_t5(uint16_t chip)
- 	{ PCI_VENDOR_ID_CHELSIO, (devid), PCI_ANY_ID, PCI_ANY_ID, 0, 0, (idx) }
- 
- #include "t4fw_api.h"
-+#include "t4fw_version.h"
- 
- #define FW_VERSION(chip) ( \
- 		FW_HDR_FW_VER_MAJOR_G(chip##FW_VERSION_MAJOR) | \
-diff --git a/drivers/scsi/csiostor/csio_mb.c b/drivers/scsi/csiostor/csio_mb.c
-index 1132c41..9451787 100644
---- a/drivers/scsi/csiostor/csio_mb.c
-+++ b/drivers/scsi/csiostor/csio_mb.c
-@@ -327,7 +327,8 @@ csio_mb_caps_config(struct csio_hw *hw, struct csio_mb *mbp, uint32_t tmo,
- }
- 
- #define CSIO_ADVERT_MASK     (FW_PORT_CAP_SPEED_100M | FW_PORT_CAP_SPEED_1G |\
--			      FW_PORT_CAP_SPEED_10G | FW_PORT_CAP_ANEG)
-+			      FW_PORT_CAP_SPEED_10G | FW_PORT_CAP_SPEED_40G |\
-+			      FW_PORT_CAP_ANEG)
- 
- /*
-  * csio_mb_port- FW PORT command helper
--- 
-2.0.2
+ net - net/master (includes stretch ack patches)
+ net-tso - net/master + your TSO defer patch
+ net-gro - net/master + my ath10k GRO patch
+ net-gro-tso - net/master + duh
 
+Here's the best of amsdu count 1 and 3:
+
+ ; for (i in */output.txt) { echo $i; for (j in (1 3)) { cat $i | awk
+'x && /Mbits/ {y=3D$0}; x && y && !/Mbits/ {print y; x=3D0; y=3D""}; /s=
+et
+amsdu cnt to '$j'/{x=3D1}' | awk '{ if (x < $(NF-1)) {x=3D$(NF-1)} }
+END{print "A-MSDU limit=3D'$j', " x " Mbits/sec"}' } }
+ net-gro-tso/output.txt
+ A-MSDU limit=3D1, 436 Mbits/sec
+ A-MSDU limit=3D3, 284 Mbits/sec
+ net-gro/output.txt
+ A-MSDU limit=3D1, 444 Mbits/sec
+ A-MSDU limit=3D3, 283 Mbits/sec
+ net-tso/output.txt
+ A-MSDU limit=3D1, 376 Mbits/sec
+ A-MSDU limit=3D3, 251 Mbits/sec
+ net/output.txt
+ A-MSDU limit=3D1, 387 Mbits/sec
+ A-MSDU limit=3D3, 260 Mbits/sec
+
+IOW:
+ - stretch acks / TSO defer don't seem to help much (when compared to
+throughput results from yesterday)
+ - GRO helps
+ - disabling A-MSDU on sender helps
+ - net/master+GRO still doesn't reach the performance from before the
+regression (~600mbps w/ GRO)
+
+You can grab logs and dumps here: http://www.filedropper.com/test2tar
+
+
+Micha=C5=82
