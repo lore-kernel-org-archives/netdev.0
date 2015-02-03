@@ -1,34 +1,54 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [PATCH net-next] cxgb4: Add low latency socket busy_poll support
-Date: Tue, 03 Feb 2015 08:45:53 -0800
-Message-ID: <54D0FB41.1030802@hp.com>
-References: <1422940816-27402-1-git-send-email-hariprasad@chelsio.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, leedom@chelsio.com, anish@chelsio.com,
-	nirranjan@chelsio.com, praveenm@chelsio.com, kumaras@chelsio.com
-To: Hariprasad Shenai <hariprasad@chelsio.com>, netdev@vger.kernel.org
+From: Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
+Subject: [PATCH net] pkt_sched: fq: avoid hang when quantum 0
+Date: Tue,  3 Feb 2015 17:49:18 +0100
+Message-ID: <1422982158-12530-1-git-send-email-kennetkl@ifi.uio.no>
+Cc: Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t3426.houston.hp.com ([15.201.208.54]:37626 "EHLO
-	g4t3426.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754570AbbBCQpz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Feb 2015 11:45:55 -0500
-In-Reply-To: <1422940816-27402-1-git-send-email-hariprasad@chelsio.com>
+Received: from mail-out4.uio.no ([129.240.10.15]:51551 "EHLO mail-out4.uio.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752494AbbBCQuQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Feb 2015 11:50:16 -0500
+Received: from mail-mx6.uio.no ([129.240.10.40])
+	by mail-out4.uio.no with esmtp (Exim 4.80.1)
+	(envelope-from <kennetkl@ifi.uio.no>)
+	id 1YIgg2-0001Ph-8r
+	for netdev@vger.kernel.org; Tue, 03 Feb 2015 17:50:14 +0100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/02/2015 09:20 PM, Hariprasad Shenai wrote:
-> cxgb_busy_poll, corresponding to ndo_busy_poll, gets called by the socket
-> waiting for data.
->
-> With busy_poll enabled, improvement is seen in latency numbers as observed by
-> collecting netperf TCP_RR numbers.
+Configuring fq with quantum 0 hangs the system, presumably because of a
+non-interruptible infinite loop. Either way quantum 0 does not make sense.
 
-Which, not surprisingly, leads to the question - how much improvement? 
-:)  Extra credit for including the change in netperf-reported service 
-demands.
+Reproduce with:
+sudo tc qdisc add dev lo root fq quantum 0 initial_quantum 0
+ping 127.0.0.1
 
-happy benchmarking,
+Signed-off-by: Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
+---
+ net/sched/sch_fq.c | 10 ++++++++--
+ 1 file changed, 8 insertions(+), 2 deletions(-)
 
-rick jones
+diff --git a/net/sched/sch_fq.c b/net/sched/sch_fq.c
+index 2a50f5c..313794b 100644
+--- a/net/sched/sch_fq.c
++++ b/net/sched/sch_fq.c
+@@ -670,8 +670,14 @@ static int fq_change(struct Qdisc *sch, struct nlattr *opt)
+ 	if (tb[TCA_FQ_FLOW_PLIMIT])
+ 		q->flow_plimit = nla_get_u32(tb[TCA_FQ_FLOW_PLIMIT]);
+ 
+-	if (tb[TCA_FQ_QUANTUM])
+-		q->quantum = nla_get_u32(tb[TCA_FQ_QUANTUM]);
++	if (tb[TCA_FQ_QUANTUM]) {
++		u32 quantum = nla_get_u32(tb[TCA_FQ_QUANTUM]);
++
++		if (quantum > 0)
++			q->quantum = quantum;
++		else
++			err = -EINVAL;
++	}
+ 
+ 	if (tb[TCA_FQ_INITIAL_QUANTUM])
+ 		q->initial_quantum = nla_get_u32(tb[TCA_FQ_INITIAL_QUANTUM]);
+-- 
+1.9.1
