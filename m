@@ -1,67 +1,103 @@
-From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: Throughput regression with `tcp: refine TSO autosizing`
-Date: Mon, 02 Feb 2015 17:18:50 -0800
-Message-ID: <1422926330.21689.138.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CA+BoTQkVu23P3EOmY_Q3E1GJnWsyF==Pawz4iPOS_Bq5dvfO5Q@mail.gmail.com>
-	 <1422537297.21689.15.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+BoTQk2xT-8DqPuiiKG+kHAjLPrj8F9dLTb-rcGhvMq0u_2Qw@mail.gmail.com>
-	 <1422628835.21689.95.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+BoTQkV+mOZfe_Niz5101sMQeaV6muKCsShptjGQ1AgOHqqoQ@mail.gmail.com>
-	 <1422903136.21689.114.camel@edumazet-glaptop2.roam.corp.google.com>
+From: shengyong <shengyong1@huawei.com>
+Subject: Re: Question: should local address be expired when updating PMTU?
+Date: Tue, 3 Feb 2015 09:28:44 +0800
+Message-ID: <54D0244C.40301@huawei.com>
+References: <54CF3348.40207@huawei.com> <54D01BEA.2070501@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	eyalpe-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org
-To: Michal Kazior <michal.kazior-++hxYGjEMp0AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1422903136.21689.114.camel-XN9IlZ5yJG9HTL0Zs8A6p/gx64E7kk8eUsxypvmhUTTZJqsBc5GL+g@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<yangyingliang@huawei.com>, <steffen.klassert@secunet.com>,
+	<hannes@redhat.com>, <lvs-devel@vger.kernel.org>,
+	Calvin Owens <calvinowens@fb.com>, <kernel-team@fb.com>
+To: Alex Gartrell <agartrell@fb.com>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <54D01BEA.2070501@fb.com>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2015-02-02 at 10:52 -0800, Eric Dumazet wrote:
-
-> It seems to break ACK clocking badly (linux stack has a somewhat buggy
-> tcp_tso_should_defer(), which relies on ACK being received smoothly, as
-> no timer is setup to split the TSO packet.)
-
-Following patch might help the TSO split defer logic.
-
-It would avoid setting the TSO defer 'pseudo timer' twice, if/when TCP
-Small Queue logic prevented the xmit at the expiration of first 'timer'.
-
-This patch clears the tso_deferred variable only if we could really
-send something.
-
-Please try it, thanks !
 
 
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 65caf8b95e17..e735f38557db 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -1821,7 +1821,6 @@ static bool tcp_tso_should_defer(struct sock *sk,
-struct sk_buff *skb,
- 	return true;
- 
- send_now:
--	tp->tso_deferred = 0;
- 	return false;
- }
- 
-@@ -2070,6 +2069,7 @@ static bool tcp_write_xmit(struct sock *sk,
-unsigned int mss_now, int nonagle,
- 		if (unlikely(tcp_transmit_skb(sk, skb, 1, gfp)))
- 			break;
- 
-+		tp->tso_deferred = 0;
- repair:
- 		/* Advance the send_head.  This one is sent out.
- 		 * This call will increment packets_out.
+=E5=9C=A8 2015/2/3 8:52, Alex Gartrell =E5=86=99=E9=81=93:
+> Hello Shengyong,
+>=20
+>> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+>> index b2614b2..b80317a 100644
+>> --- a/net/ipv6/route.c
+>> +++ b/net/ipv6/route.c
+>> @@ -1136,6 +1136,9 @@ static void ip6_rt_update_pmtu(struct dst_entr=
+y *dst, struct sock *sk,
+>>   {
+>>          struct rt6_info *rt6 =3D (struct rt6_info*)dst;
+>>
+>> +       if (rt6->rt6i_flags & RTF_LOCAL)
+>> +               return;
+>> +
+>>          dst_confirm(dst);
+>>          if (mtu < dst_mtu(dst) && rt6->rt6i_dst.plen =3D=3D 128) {
+>>                  struct net *net =3D dev_net(dst->dev);
+>>
+>> So is this modification correct? Or how can we avoid such expiring?
+>=20
+>=20
+> FWIW, we encountered this problem with IPVS tunneling.  Here's a patc=
+h done by Calvin (cc'ed) that fixes my attempted fix for this.  We're n=
+ot particularly proud of this...
+>=20
+> At a high level, I don't think the RTF_LOCAL check was sufficient, bu=
+t I didn't investigate deeply enough and hopefully Calvin can say why.
+>=20
+> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+> index f14d49b..c607a42 100644
+> --- a/net/ipv6/route.c
+> +++ b/net/ipv6/route.c
+> @@ -1159,18 +1159,18 @@ static void ip6_rt_update_pmtu(struct dst_ent=
+ry *dst, struct sock *sk,
+>                 }
+>                 dst_metric_set(dst, RTAX_MTU, mtu);
+>=20
+> -               /* FACEBOOK HACK: We need to not expire local non-exp=
+iring
+> -                * routes so that we don't accidentally start blackho=
+ling
+> -                * ipvs traffic when we happen to use it locally for
+> -                * healthchecking (see ip_vs_xmit.c --
+> -                * __ip_vs_get_out_rt_v6 invokes update_pmtu if the r=
+t is
+> -                * associated with a socket)
+> -                * Alex Gartrell <agartrell@fb.com>
+> +               /*
+> +                * FACEBOOK HACK: Only expire routes that aren't dest=
+ined for
+> +                * the loopback interface.
+> +                *
+> +                * This prevents the strange route coalescing that ha=
+ppens when
+> +                * you add an address to the loopback that had a rout=
+e that had
+> +                * been used when the address didn't exist from getti=
+ng expired
+> +                * and causing packet loss in shiv.
+>                  */
+> -               if (!(rt6->rt6i_flags & RTF_LOCAL) ||
+> -                   (rt6->rt6i_flags & (RTF_EXPIRES | RTF_CACHE)))
+> -                       rt6_update_expires(
+> -                               rt6, net->ipv6.sysctl.ip6_rt_mtu_expi=
+res);
+> +               if (!(dst->dev->flags & IFF_LOOPBACK))
+> +                       rt6_update_expires(rt6,
+> + net->ipv6.sysctl.ip6_rt_mtu_expires);
+>         }
+>  }
+Thanks, your approach can also solve the problem I met. I just a bit co=
+nfuse that
+is this kind of packets (like I sent in the first mail) normal?  and if=
+ they are
+abnormal, I think we'd better drop them before update rt6i_flags.
 
+thx,
+Sheng
+>=20
+>=20
+> Cheers,
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
