@@ -1,168 +1,148 @@
-From: Johan Hedberg <johan.hedberg@gmail.com>
-Subject: pull request: bluetooth-next 2015-02-03
-Date: Tue, 3 Feb 2015 10:21:23 +0200
-Message-ID: <20150203082123.GA13130@t440s.lan>
+From: Alexander Duyck <alexander.h.duyck@redhat.com>
+Subject: Re: [PATCHv2 net] net: restore lro after device detached from bridge
+Date: Tue, 03 Feb 2015 09:37:31 +0100
+Message-ID: <54D088CB.8090907@redhat.com>
+References: <1422621209-23222-1-git-send-email-fan.du@intel.com> <54CBEE24.8000603@redhat.com> <54CEDEDC.7060507@gmail.com> <54CF52D6.90701@redhat.com> <54D0740A.6050701@gmail.com>
+Reply-To: alexander.h.duyck@redhat.com
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="3V7upXqbjpZ4EhLz"
-Cc: netdev@vger.kernel.org, linux-bluetooth@vger.kernel.org
-To: davem@davemloft.net
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Fan Du <fan.du@intel.com>, bhutchings@solarflare.com,
+	davem@davemloft.net, netdev@vger.kernel.org
+To: Fan Du <fengyuleidian0615@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f51.google.com ([209.85.215.51]:64852 "EHLO
-	mail-la0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751295AbbBCIVd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Feb 2015 03:21:33 -0500
-Content-Disposition: inline
+Received: from mx1.redhat.com ([209.132.183.28]:53190 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933405AbbBCIhm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Feb 2015 03:37:42 -0500
+In-Reply-To: <54D0740A.6050701@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 02/03/2015 08:08 AM, Fan Du wrote:
+> =E4=BA=8E 2015=E5=B9=B402=E6=9C=8802=E6=97=A5 18:35, Alexander Duyck =
+=E5=86=99=E9=81=93:
+>> On 02/01/2015 06:20 PM, Fan Du wrote:
+>>> =E4=BA=8E 2015=E5=B9=B401=E6=9C=8831=E6=97=A5 04:48, Alexander Duyc=
+k =E5=86=99=E9=81=93:
+>>>> On 01/30/2015 04:33 AM, Fan Du wrote:
+>>>>> Either detaching a device from bridge or switching a device
+>>>>> out of FORWARDING state, the original lro feature should
+>>>>> possibly be enabled for good reason, e.g. hw feature like
+>>>>> receive side coalescing could come into play.
+>>>>>
+>>>>> BEFORE:
+>>>>> echo 1 > /proc/sys/net/ipv4/conf/ens806f0/forwarding && ethtool -=
+k=20
+>>>>> ens806f0 | grep large
+>>>>> large-receive-offload: off
+>>>>>
+>>>>> echo 0 > /proc/sys/net/ipv4/conf/ens806f0/forwarding && ethtool -=
+k=20
+>>>>> ens806f0 | grep large
+>>>>> large-receive-offload: off
+>>>>>
+>>>>> AFTER:
+>>>>> echo 1 > /proc/sys/net/ipv4/conf/ens806f0/forwarding && ethtool -=
+k=20
+>>>>> ens806f0 | grep large
+>>>>> large-receive-offload: off
+>>>>>
+>>>>> echo 0 > /proc/sys/net/ipv4/conf/ens806f0/forwarding && ethtool -=
+k=20
+>>>>> ens806f0 | grep large
+>>>>> large-receive-offload: on
+>>>>>
+>>>>> Signed-off-by: Fan Du <fan.du@intel.com>
+>>>>> Fixes: 0187bdfb0567 ("net: Disable LRO on devices that are=20
+>>>>> forwarding")
+>>>>
+>>>
+>>>> First off this isn't a "fix".  This is going to likely break more =
+than
+>>>> it fixes.  The main reason why LRO is disabled is because it can c=
+ause
+>>>> more harm then it helps.  Since GRO is available we should err on =
+the
+>>>> side of caution since enabling LRO/RSC can have undesirable side=20
+>>>> effects
+>>>> in a number of cases.
+>>>
+>>> I think you are talking about bad scenarios when net device is=20
+>>> attached to a bridge.
+>>> Then what's the good reason user has to pay extra cpu power for=20
+>>> using GRO, instead
+>>> of using hw capable LRO/RSC when this net device is detached from=20
+>>> bridge acting as
+>>> a standalone NIC?
+>>>
+>>> Note, SRC is defaulted to *ON* in practice for ALL ixgbe NICs, as=20
+>>> same other RSC capable
+>>> NICs. Attaching net device to a bridge _once_ should not changed it=
+s=20
+>>> default configuration,
+>>> moreover it's a subtle change without any message that user won't=20
+>>> noticed at all.
+>
+>> No, RSC only has benefits for IPv4/TCP large packets.  However
+>> historically there have been issues seen w/ small packet performance
+>> with RSC enabled.
+>
+> Only when parallel client exceeds 4, gro trumps lro performance on my=
+=20
+> testbed for small packets.
+> The difference comes from the fact that TCP RSS hash flows from=20
+> clients into different NIC queues
+> for multiple cpu, while RSC engine inside NIC has limit resource=20
+> compared with that of cpu used by gro.
+>
+> NICs: 82599EB
+> server:ipserf -s -B 192.168.5.1
+> client:iperf  -c 192.168.5.1 -i 1 -M 100 -P x
+>
+> -P   Bandwidth/lro on        Bandwidth/lro off
+>                gro off                 gro on
+>
+> 1     2.31 Gbits/sec           947 Mbits/sec
+> 2     3.09 Gbits/sec          1.97 Gbits/sec
+> 3     3.19 Gbits/sec          2.70 Gbits/sec
+> 4     3.16 Gbits/sec          3.39 Gbits/sec
+> 5     3.23 Gbits/sec          3.33 Gbits/sec
+> 6     3.19 Gbits/sec          3.74 Gbits/sec
+> 7     3.18 Gbits/sec          3.88 Gbits/sec
+> 8     3.17 Gbits/sec          3.24 Gbits/sec
+> 9     3.16 Gbits/sec          3.70 Gbits/sec
+> 10    3.15 Gbits/sec          3.76 Gbits/sec
+> 11    3.10 Gbits/sec          4.03 Gbits/sec
+> 12    3.11 Gbits/sec          3.13 Gbits/sec
+> 13    3.12 Gbits/sec          4.12 Gbits/sec
+> 14    3.07 Gbits/sec          4.04 Gbits/sec
+> 15    3.03 Gbits/sec          3.14 Gbits/sec
+> 16    2.99 Gbits/sec          3.93 Gbits/sec
+>
+>
+>
+>
+> Some have been addressed, however there are still
 
---3V7upXqbjpZ4EhLz
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+The point I think you are not getting is that bulk throughput=20
+performance does not justify enabling a feature that may impact=20
+stability or possibly harm small packet performance.
 
-Hi Dave,
+There are more reasons than routing and bridging to disable LRO. Those=20
+two reasons though were so bad that we couldn't allow end users to=20
+possibly encounter them so we disabled the feature for them.
 
-Here's what's likely the last bluetooth-next pull request for 3.20.
-Notable changes include:
+There are a number of other cases where LRO might be disabled as in the=
+=20
+possible latency case I reported.  As such you should not be enabling=20
+LRO just because only two of the possible issues have now been addresse=
+d.
 
- - xHCI workaround + a new id for the ath3k driver
- - Several new ids for the btusb driver
- - Support for new Intel Bluetooth controllers
- - Minor cleanups to ieee802154 code
- - Nested sleep warning fix in socket accept() code path
- - Fixes for Out of Band pairing handling
- - Support for LE scan restarting for HCI_QUIRK_STRICT_DUPLICATE_FILTER
- - Improvements to data we expose through debugfs
- - Proper handling of Hardware Error HCI events
+It is best to leave this up to the end-user to re-enable.  If you are=20
+seeing the feature disabled as a result of some init script on the=20
+system you may want to look at re-enabling it as a part of some other=20
+init script that you use when disabling routing or bridging.
 
-Please let me know if there are any issues pulling. Thanks.
-
-Johan
-
----
-The following changes since commit 0c49087462e8587c12ecfeaf1dd46fdc0ddc4532:
-
-  Merge tag 'mac80211-next-for-davem-2015-01-19' of git://git.kernel.org/pub/scm/linux/kernel/git/jberg/mac80211-next (2015-01-19 16:22:19 -0500)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/bluetooth/bluetooth-next.git for-upstream
-
-for you to fetch changes up to 88d9077c27d0c1a7c022d9dc987640beecf23560:
-
-  Bluetooth: Fix potential NULL dereference (2015-02-03 09:02:12 +0100)
-
-----------------------------------------------------------------
-Adam Lee (1):
-      Bluetooth: ath3k: workaround the compatibility issue with xHCI controller
-
-Dmitry Tunin (1):
-      Bluetooth: ath3k: Add support of AR3012 bluetooth 13d3:3423 device
-
-Jakub Pawlowski (4):
-      Bluetooth: Set HCI_QUIRK_STRICT_DUPLICATE_FILTER for BTUSB_ATH3012
-      Bluetooth: Set HCI_QUIRK_STRICT_DUPLICATE_FILTER for BTUSB_INTEL
-      Bluetooth: Add le_scan_restart work for LE scan restarting
-      Bluetooth: Add restarting to service discovery
-
-Johan Hedberg (12):
-      Bluetooth: Check for valid bdaddr in add_remote_oob_data
-      Bluetooth: Remove incorrect check for BDADDR_BREDR address type
-      Bluetooth: Convert Set SC to use HCI Request
-      Bluetooth: Enforce zero-valued hash/rand192 for LE OOB
-      Bluetooth: btusb: Remove redundant call to btusb_free_frags()
-      Bluetooth: Fix check for SSP when enabling SC
-      Bluetooth: Fix notifying discovery state upon reset
-      Bluetooth: Fix notifying discovery state when powering off
-      Bluetooth: btusb: Fix race when waiting for BTUSB_DOWNLOADING
-      Bluetooth: btusb: Use wait_on_bit_timeout() for BTUSB_BOOTING
-      Bluetooth: Remove mgmt_rp_read_local_oob_ext_data struct
-      Bluetooth: Fix potential NULL dereference
-
-Marcel Holtmann (28):
-      Bluetooth: Fix dependency for BR/EDR Secure Connections mode on SSP
-      Bluetooth: Limit BR/EDR switching for LE only with secure connections
-      Bluetooth: Require SSP enabling before BR/EDR Secure Connections
-      Bluetooth: btusb: Add support for Dynex/Insignia USB dongles
-      Bluetooth: btusb: Add firmware loading for Intel Snowfield Peak devices
-      Bluetooth: Clear P-192 values for OOB when in Secure Connections Only mode
-      Bluetooth: Use helper function to determine BR/EDR OOB data present
-      Bluetooth: Check for P-256 OOB values in Secure Connections Only mode
-      Bluetooth: btusb: Handle out of order firmware loading complete event
-      Bluetooth: Introduce hci_dev_do_reset helper function
-      Bluetooth: Perform a power cycle when receiving hardware error event
-      Bluetooth: btusb: Provide hardware error handler for Intel devices
-      Bluetooth: Move smp_unregister() into hci_dev_do_close() function
-      Bluetooth: btusb: Sort USB_DEVICE entries for Marvell by vendor id
-      Bluetooth: btusb: Ignore unknown Intel devices with generic descriptor
-      Bluetooth: btusb: Add support for USB based AMP controllers
-      Bluetooth: btusb: Limit hardware error handling to Intel Snowfield Peak
-      Bluetooth: Store OOB data present value for each set of remote OOB data
-      Bluetooth: Fix OOB data present value for BR/EDR Secure Connections
-      Bluetooth: Fix OOB data present value for SMP pairing
-      Bluetooth: Allow remote OOB data to only provide P-192 or P-256 values
-      Bluetooth: Expose Secure Simple Pairing debug mode setting in debugfs
-      Bluetooth: Track changes from HCI Write Simple Pairing Debug Mode command
-      Bluetooth: Expose debug keys usage setting via debugfs
-      Bluetooth: Expose hardware error code as debugfs entry
-      Bluetooth: Expose remote OOB information as debugfs entry
-      Bluetooth: Fix OOB data present for BR/EDR Secure Connections Only mode
-      Bluetooth: Set HCI_QUIRK_STRICT_DUPLICATE_FILTER for BTUSB_INTEL_NEW
-
-Matej Dubovy (1):
-      Bluetooth: btusb: Add support for Lite-On (04ca) Broadcom based, BCM43142
-
-Mohammad Jamal (2):
-      ieee802154: cc2520: Replace shift operations by BIT macro
-      ieee802154: cc2520: Fix space before , coding style issue
-
-Peter Hurley (1):
-      Bluetooth: Fix nested sleeps
-
-Rick Dunn (1):
-      Bluetooth: btusb: Add Broadcom patchram support for ASUSTek devices
-
-Szymon Janc (2):
-      Bluetooth: Fix reporting invalid RSSI for LE devices
-      Bluetooth: Fix sending Read Remote Extended Features command
-
- drivers/bluetooth/ath3k.c        |  10 +
- drivers/bluetooth/btusb.c        | 671 +++++++++++++++++++++++++++++++++++++-
- drivers/net/ieee802154/cc2520.c  |  10 +-
- include/net/bluetooth/hci_core.h |  11 +-
- include/net/bluetooth/mgmt.h     |   4 -
- net/bluetooth/bnep/core.c        |   7 +-
- net/bluetooth/hci_core.c         | 169 ++++++++--
- net/bluetooth/hci_debugfs.c      |  79 ++++-
- net/bluetooth/hci_event.c        | 135 ++++++--
- net/bluetooth/l2cap_sock.c       |   9 +-
- net/bluetooth/mgmt.c             | 279 +++++++++++-----
- net/bluetooth/rfcomm/sock.c      |   9 +-
- net/bluetooth/sco.c              |   8 +-
- net/bluetooth/smp.c              |   2 +-
- 14 files changed, 1214 insertions(+), 189 deletions(-)
-
-
---3V7upXqbjpZ4EhLz
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIcBAEBAgAGBQJU0IUDAAoJECQj9vv5qNQS6jAP/2k89+yWyCJCUArPhhbkv/+x
-bg48hXGOX78ejgSFgPhUSFM1rhwDtOnTx8/d3L4s6FF/tJeOB85qeHOeuDtkusAf
-11OUb4lroQLgGoxv4wYsiGsDWbUyH/bMK9Y0T+9pUVsv9Lj00vaT0QvqJMjL6AJQ
-LxKMqkAqnYlKfJxfVttMmRWe2Y8UI8UNE4UbCliRWYILcf6tk0uoa7Apu+wVyXvo
-1w8sqidIS2q2AJxdn12yKaytRGVnkvX8Az7hc3Vf3MRBZzd8txt1CPSqV5nPhLD2
-5ykudxmbuiRzo3rtEXsZ9MaFNi/NfXPHseIcHQln1V3Pkqljzob6A9O3iGexUO0G
-nX2FU8oBhDJX5zWQv4RVzzeYIsPSP00A2tb9yXQb4P6x7j/FjzYbl5O0vkzA5wK9
-gATA5KlYlUqDft0YeK9BjaapItE5xZoEpCraHsrQuLPOD2A1l/fLs0pDYrT8bQBu
-PxFN5RMDktoCw81oxwsVgzH7ZUQO72qg2ewJw4CEEdfwgYOsjS5JJ10v7Z9ozTJ7
-CH5qt80GC0ofF7biP1sUu6+sW4IOccPNTKkH4yqOieOFHvKxd+JQe/vJrL7KY8Xr
-r9TR9A7gKjtCvIUAiT0U06UnzT3hZFKd3jmnhL7YbDEbjXwY4DCCLrkYTo8PszAl
-ygz4v8aCz62hdWywLeCd
-=+TMI
------END PGP SIGNATURE-----
-
---3V7upXqbjpZ4EhLz--
+- Alex
