@@ -1,80 +1,47 @@
-From: Ignacy =?iso-8859-2?Q?Gaw=EAdzki?=
-	<ignacy.gawedzki@green-communications.fr>
-Subject: [PATCH net v2] cls_api.c: Fix dumping of non-existing actions' stats.
-Date: Tue, 3 Feb 2015 19:05:18 +0100
-Message-ID: <20150203180518.GA3806@zenon.in.qult.net>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: [PATCH net v2] cls_api.c: Fix dumping of non-existing actions' stats.
+Date: Tue, 3 Feb 2015 10:10:20 -0800
+Message-ID: <CAHA+R7Pnb1=rbhOTND6MygDM+oL7byMGFP5TmCxeNegb-o62zA@mail.gmail.com>
 References: <CAHA+R7Pq6aUyCzc2HE+b4RU0RfYnM_cLPfRcV3jLmAZ+dFCsxw@mail.gmail.com>
+	<20150203180518.GA3806@zenon.in.qult.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
+To: =?UTF-8?Q?Ignacy_Gaw=C4=99dzki?=
+	<ignacy.gawedzki@green-communications.fr>,
+	netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [78.193.33.39] ([78.193.33.39]:54071 "EHLO mail.qult.net"
-	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S965959AbbBCSFr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Feb 2015 13:05:47 -0500
-Received: from zenon.in.qult.net ([192.168.64.1] helo=zenon)
-	by mail.qult.net with esmtps (TLS1.2:RSA_AES_128_CBC_SHA1:128)
-	(Exim 4.82)
-	(envelope-from <ignacy.gawedzki@green-communications.fr>)
-	id 1YIhqh-0003Va-AA
-	for netdev@vger.kernel.org; Tue, 03 Feb 2015 19:05:19 +0100
-Received: from ig by zenon with local (Exim 4.84_RC1)
-	(envelope-from <ignacy.gawedzki@green-communications.fr>)
-	id 1YIhqg-0006sm-FE
-	for netdev@vger.kernel.org; Tue, 03 Feb 2015 19:05:18 +0100
-Content-Disposition: inline
-In-Reply-To: <CAHA+R7Pq6aUyCzc2HE+b4RU0RfYnM_cLPfRcV3jLmAZ+dFCsxw@mail.gmail.com>
+Received: from mail-ie0-f172.google.com ([209.85.223.172]:50858 "EHLO
+	mail-ie0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965998AbbBCSKV convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Feb 2015 13:10:21 -0500
+Received: by mail-ie0-f172.google.com with SMTP id at20so27130946iec.3
+        for <netdev@vger.kernel.org>; Tue, 03 Feb 2015 10:10:21 -0800 (PST)
+In-Reply-To: <20150203180518.GA3806@zenon.in.qult.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In tcf_exts_dump_stats(), ensure that exts->actions is not empty before
-accessing the first element of that list and calling tcf_action_copy_st=
-ats()
-on it.  This fixes some random segvs when adding filters of type "basic=
-" with
-no particular action.
+On Tue, Feb 3, 2015 at 10:05 AM, Ignacy Gaw=C4=99dzki
+<ignacy.gawedzki@green-communications.fr> wrote:
+> In tcf_exts_dump_stats(), ensure that exts->actions is not empty befo=
+re
+> accessing the first element of that list and calling tcf_action_copy_=
+stats()
+> on it.  This fixes some random segvs when adding filters of type "bas=
+ic" with
+> no particular action.
+>
+> This also fixes the dumping of those "no-action" filters, which more =
+often
+> than not made calls to tcf_action_copy_stats() fail and consequently =
+netlink
+> attributes added by the caller to be removed by a call to nla_nest_ca=
+ncel().
+>
+> Fixes: 33be62715991 ("net_sched: act: use standard struct list_head")
+> Signed-off-by: Ignacy Gaw=C4=99dzki <ignacy.gawedzki@green-communicat=
+ions.fr>
 
-This also fixes the dumping of those "no-action" filters, which more of=
-ten
-than not made calls to tcf_action_copy_stats() fail and consequently ne=
-tlink
-attributes added by the caller to be removed by a call to nla_nest_canc=
-el().
+Acked-by: Cong Wang <cwang@twopensource.com>
 
-=46ixes: 33be62715991 ("net_sched: act: use standard struct list_head")
-Signed-off-by: Ignacy Gaw=EAdzki <ignacy.gawedzki@green-communications.=
-fr>
----
- net/sched/cls_api.c | 7 ++++---
- 1 file changed, 4 insertions(+), 3 deletions(-)
-
-diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
-index aad6a67..baef987 100644
---- a/net/sched/cls_api.c
-+++ b/net/sched/cls_api.c
-@@ -556,8 +556,9 @@ void tcf_exts_change(struct tcf_proto *tp, struct t=
-cf_exts *dst,
- }
- EXPORT_SYMBOL(tcf_exts_change);
-=20
--#define tcf_exts_first_act(ext) \
--		list_first_entry(&(exts)->actions, struct tc_action, list)
-+#define tcf_exts_first_act(ext)					\
-+	list_first_entry_or_null(&(exts)->actions,		\
-+				 struct tc_action, list)
-=20
- int tcf_exts_dump(struct sk_buff *skb, struct tcf_exts *exts)
- {
-@@ -603,7 +604,7 @@ int tcf_exts_dump_stats(struct sk_buff *skb, struct=
- tcf_exts *exts)
- {
- #ifdef CONFIG_NET_CLS_ACT
- 	struct tc_action *a =3D tcf_exts_first_act(exts);
--	if (tcf_action_copy_stats(skb, a, 1) < 0)
-+	if (a !=3D NULL && tcf_action_copy_stats(skb, a, 1) < 0)
- 		return -1;
- #endif
- 	return 0;
---=20
-2.1.0
+Thanks!
