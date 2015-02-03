@@ -1,8 +1,8 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next 3/4] tipc: eliminate race during
-	node creation
-Date: Tue,  3 Feb 2015 08:59:19 -0500
-Message-ID: <1422971960-9172-4-git-send-email-jon.maloy@ericsson.com>
+Subject: [PATCH net-next 4/4] tipc: separate link starting
+	event from link timeout event
+Date: Tue,  3 Feb 2015 08:59:20 -0500
+Message-ID: <1422971960-9172-5-git-send-email-jon.maloy@ericsson.com>
 References: <1422971960-9172-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,99 +23,48 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
 Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Instances of struct node are created in the function tipc_disc_rcv()
-under the assumption that there is no race between received discovery
-messages arriving from the same node. This assumption is wrong.
-When we use more than one bearer, it is possible that discovery
-messages from the same node arrive at the same moment, resulting in
-creation of two instances of struct tipc_node. This may later cause
-confusion during link establishment, and may result in one of the links
-never becoming activated.
+When a new link instance is created, it is trigged to start by
+sending it a TIPC_STARTING_EVT, whereafter a regular link
+reset is applied to it.
 
-We fix this by making lookup and potential creation of nodes atomic.
-Instead of first looking up the node, and in case of failure, create it,
-we now start with looking up the node inside node_link_create(), and
-return a reference to that one if found. Otherwise, we go ahead and
-create the node as we did before.
+The starting event is codewise treated as a timeout event, and prompts
+a link RESET message to be sent to the peer node, carrying a link
+session identifier. The later link_reset() call nudges this session
+identifier, whereafter all subsequent RESET messages will be sent out
+with the new identifier. The latter session number overrides the former,
+causing the peer to unconditionally accept it irrespective of its
+current working state.
+
+We don't think that this causes any problem, but it is not in accordance
+with the protocol spec, and may cause confusion when debugging TIPC
+sessions.
+
+To avoid this, we make the starting event distinct from the
+subsequent timeout events, by not allowing the former to send
+out any RESET message. This eliminates the described problem.
 
 Reviewed-by: Erik Hugne <erik.hugne@ericsson.com>
 Reviewed-by: Ying Xue <ying.xue@windriver.com>
 Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 ---
- net/tipc/discover.c |  9 ++-------
- net/tipc/node.c     | 11 +++++------
- 2 files changed, 7 insertions(+), 13 deletions(-)
+ net/tipc/link.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-diff --git a/net/tipc/discover.c b/net/tipc/discover.c
-index 5b40cb8..a580a40 100644
---- a/net/tipc/discover.c
-+++ b/net/tipc/discover.c
-@@ -1,7 +1,7 @@
- /*
-  * net/tipc/discover.c
-  *
-- * Copyright (c) 2003-2006, 2014, Ericsson AB
-+ * Copyright (c) 2003-2006, 2014-2015, Ericsson AB
-  * Copyright (c) 2005-2006, 2010-2011, Wind River Systems
-  * All rights reserved.
-  *
-@@ -47,7 +47,6 @@
- /* indicates no timer in use */
- #define TIPC_LINK_REQ_INACTIVE	0xffffffff
- 
--
- /**
-  * struct tipc_link_req - information about an ongoing link setup request
-  * @bearer_id: identity of bearer issuing requests
-@@ -163,13 +162,9 @@ void tipc_disc_rcv(struct net *net, struct sk_buff *buf,
- 	if (!tipc_in_scope(bearer->domain, onode))
- 		return;
- 
--	/* Locate, or if necessary, create, node: */
--	node = tipc_node_find(net, onode);
--	if (!node)
--		node = tipc_node_create(net, onode);
-+	node = tipc_node_create(net, onode);
- 	if (!node)
- 		return;
--
- 	tipc_node_lock(node);
- 	link = node->links[bearer->identity];
- 
-diff --git a/net/tipc/node.c b/net/tipc/node.c
-index d4cb8c1..842bd7a 100644
---- a/net/tipc/node.c
-+++ b/net/tipc/node.c
-@@ -96,14 +96,14 @@ struct tipc_node *tipc_node_create(struct net *net, u32 addr)
- 	struct tipc_node *n_ptr, *temp_node;
- 
- 	spin_lock_bh(&tn->node_list_lock);
--
-+	n_ptr = tipc_node_find(net, addr);
-+	if (n_ptr)
-+		goto exit;
- 	n_ptr = kzalloc(sizeof(*n_ptr), GFP_ATOMIC);
- 	if (!n_ptr) {
--		spin_unlock_bh(&tn->node_list_lock);
- 		pr_warn("Node creation failed, no memory\n");
--		return NULL;
-+		goto exit;
- 	}
--
- 	n_ptr->addr = addr;
- 	n_ptr->net = net;
- 	spin_lock_init(&n_ptr->lock);
-@@ -123,9 +123,8 @@ struct tipc_node *tipc_node_create(struct net *net, u32 addr)
- 	list_add_tail_rcu(&n_ptr->list, &temp_node->list);
- 	n_ptr->action_flags = TIPC_WAIT_PEER_LINKS_DOWN;
- 	n_ptr->signature = INVALID_NODE_SIG;
--
- 	tn->num_nodes++;
--
-+exit:
- 	spin_unlock_bh(&tn->node_list_lock);
- 	return n_ptr;
- }
+diff --git a/net/tipc/link.c b/net/tipc/link.c
+index 46aa599..77c7ccd 100644
+--- a/net/tipc/link.c
++++ b/net/tipc/link.c
+@@ -649,7 +649,9 @@ static void link_state_event(struct tipc_link *l_ptr, unsigned int event)
+ 			break;
+ 		case STARTING_EVT:
+ 			l_ptr->flags |= LINK_STARTED;
+-			/* fall through */
++			l_ptr->fsm_msg_cnt++;
++			link_set_timer(l_ptr, cont_intv);
++			break;
+ 		case TIMEOUT_EVT:
+ 			tipc_link_proto_xmit(l_ptr, RESET_MSG, 0, 0, 0, 0, 0);
+ 			l_ptr->fsm_msg_cnt++;
 -- 
 1.9.1
 
