@@ -1,33 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/6] ipv6: Add lockless UDP send path
-Date: Mon, 02 Feb 2015 19:28:45 -0800 (PST)
-Message-ID: <20150202.192845.885503646752052740.davem@davemloft.net>
-References: <1422718818-21093-1-git-send-email-vyasevic@redhat.com>
+Subject: Re: [PATCH] net: sctp: Deletion of an unnecessary check before the
+ function call "kfree"
+Date: Mon, 02 Feb 2015 19:30:12 -0800 (PST)
+Message-ID: <20150202.193012.1930991920361082218.davem@davemloft.net>
+References: <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6>
+	<5317A59D.4@users.sourceforge.net>
+	<54CD0DCF.9020804@users.sourceforge.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au,
-	hannes@stressinduktion.org, vyasevic@redhat.com
-To: vyasevich@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50245 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932074AbbBCD2q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2015 22:28:46 -0500
-In-Reply-To: <1422718818-21093-1-git-send-email-vyasevic@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: nhorman@tuxdriver.com, vyasevich@gmail.com,
+	linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org,
+	julia.lawall@lip6.fr
+To: elfring@users.sourceforge.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <54CD0DCF.9020804@users.sourceforge.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Vladislav Yasevich <vyasevich@gmail.com>
-Date: Sat, 31 Jan 2015 10:40:12 -0500
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Date: Sat, 31 Jan 2015 18:15:59 +0100
 
-> This series introduces a lockless UDPv6 send path similar to
-> what Herbert Xu did for IPv4 a while ago.
+> From: Markus Elfring <elfring@users.sourceforge.net>
+> Date: Sat, 31 Jan 2015 18:10:03 +0100
 > 
-> There are some difference from IPv4.  IPv6 caching for flow
-> label is a bit different, as well as it requires another cork
-> cork structure that holds the IPv6 ancillary data.
+> The kfree() function tests whether its argument is NULL and then
+> returns immediately. Thus the test around the call is not needed.
 > 
-> Please take a look.
+> This issue was detected by using the Coccinelle software.
+> 
+> Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
 
-This looks good to me, applied, thanks Vlad.
+Applied to net-next, thanks.
