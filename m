@@ -1,40 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv1 net] xen-netback: stop the guest rx thread after a
- fatal error
-Date: Mon, 02 Feb 2015 19:39:22 -0800 (PST)
-Message-ID: <20150202.193922.1020681915054887138.davem@davemloft.net>
-References: <1422896271-26551-1-git-send-email-david.vrabel@citrix.com>
+From: Hariprasad S <hariprasad@chelsio.com>
+Subject: RE: [PATCH net-next 2/8] cxgb4: Added support in debugfs to display
+ tp_la stats
+Date: Tue, 3 Feb 2015 05:00:17 +0000
+Message-ID: <26E3F92EC670BD429DB5CB319D773C13C843C7@nice.asicdesigners.com>
+References: <1422888789-12016-1-git-send-email-hariprasad@chelsio.com>
+	<1422888789-12016-3-git-send-email-hariprasad@chelsio.com>,<20150202.131436.102902508236295371.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, xen-devel@lists.xenproject.org,
-	ian.campbell@citrix.com, wei.liu2@citrix.com
-To: david.vrabel@citrix.com
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Casey Leedom <leedom@chelsio.com>,
+	Anish Bhatt <anish@chelsio.com>,
+	Nirranjan Kirubaharan <nirranjan@chelsio.com>,
+	Praveen Madhavan <praveenm@chelsio.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50308 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753958AbbBCDjX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2015 22:39:23 -0500
-In-Reply-To: <1422896271-26551-1-git-send-email-david.vrabel@citrix.com>
+Received: from stargate.chelsio.com ([67.207.112.58]:26318 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750741AbbBCFAV convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Feb 2015 00:00:21 -0500
+In-Reply-To: <20150202.131436.102902508236295371.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Vrabel <david.vrabel@citrix.com>
-Date: Mon, 2 Feb 2015 16:57:51 +0000
+Hi David,
 
-> After commit e9d8b2c2968499c1f96563e6522c56958d5a1d0d (xen-netback:
-> disable rogue vif in kthread context), a fatal (protocol) error would
-> leave the guest Rx thread spinning, wasting CPU time.  Commit
-> ecf08d2dbb96d5a4b4bcc53a39e8d29cc8fef02e (xen-netback: reintroduce
-> guest Rx stall detection) made this even worse by removing a
-> cond_resched() from this path.
-> 
-> Since a fatal error is non-recoverable, just allow the guest Rx thread
-> to exit.  This requires taking additional refs to the task so the
-> thread exiting early is handled safely.
-> 
-> Signed-off-by: David Vrabel <david.vrabel@citrix.com>
-> Reported-by: Julien Grall <julien.grall@linaro.org>
-> Tested-by: Julien Grall <julien.grall@linaro.org>
+Will send a V2. For now will send only busy_poll.
 
-Applied, thank you.
+Thanks,
+Hari
+________________________________________
+From: David Miller [davem@davemloft.net]
+Sent: Tuesday, February 03, 2015 2:44 AM
+To: Hariprasad S
+Cc: netdev@vger.kernel.org; Casey Leedom; Anish Bhatt; Nirranjan Kirubaharan; Praveen Madhavan
+Subject: Re: [PATCH net-next 2/8] cxgb4: Added support in debugfs to display tp_la stats
+
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Date: Mon,  2 Feb 2015 20:23:03 +0530
+
+> Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
+
+Ok I've seen enough.
+
+You guys really, truly, abuse debugfs.  So I'm putting my foot down now.
+
+Stats like this can be exported through traditional means such as via
+ethtool.
