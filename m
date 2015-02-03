@@ -1,40 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/4] Netfilter/IPVS fixes for net
-Date: Mon, 02 Feb 2015 19:31:45 -0800 (PST)
-Message-ID: <20150202.193145.1304706351100754751.davem@davemloft.net>
-References: <1422737711-5169-1-git-send-email-pablo@netfilter.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] pkt_sched: fq: better control of DDOS traffic
+Date: Mon, 02 Feb 2015 19:34:03 -0800
+Message-ID: <1422934443.21689.140.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1422626772.21689.90.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20150202.181834.2201965486446161539.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: pablo@netfilter.org
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50269 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751753AbbBCDbq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2015 22:31:46 -0500
-In-Reply-To: <1422737711-5169-1-git-send-email-pablo@netfilter.org>
+Received: from mail-pa0-f52.google.com ([209.85.220.52]:43411 "EHLO
+	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965802AbbBCDeH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2015 22:34:07 -0500
+Received: by mail-pa0-f52.google.com with SMTP id kx10so90433819pab.11
+        for <netdev@vger.kernel.org>; Mon, 02 Feb 2015 19:34:06 -0800 (PST)
+In-Reply-To: <20150202.181834.2201965486446161539.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Sat, 31 Jan 2015 21:55:07 +0100
+On Mon, 2015-02-02 at 18:18 -0800, David Miller wrote:
 
-> The following patchset contains Netfilter/IPVS fixes for your net tree,
-> they are:
+> Can you document the mask value a little bit more?
 > 
-> 1) Validate hooks for nf_tables NAT expressions, otherwise users can
->    crash the kernel when using them from the wrong hook. We already
->    got one user trapped on this when configuring masquerading.
+> For example, I don't understand why "(1024 - 1) << 1" means 1024
+> slots just from looking at this change.
 > 
-> 2) Fix a BUG splat in nf_tables with CONFIG_DEBUG_PREEMPT=y. Reported
->    by Andreas Schultz.
-> 
-> 3) Avoid unnecessary reroute of traffic in the local input path
->    in IPVS that triggers a crash in in xfrm. Reported by Florian
->    Wiessner and fixes by Julian Anastasov.
-> 
-> 4) Fix memory and module refcount leak from the error path of
->    nf_tables_newchain().
 
-Pulled, thanks Pablo.
+Sure , will do.
+
+Thats because we reserve low order bit of the sk/hash value,
+to make sure the stochastic hash is only applied on non locally
+generated traffic.
+
+Thanks
