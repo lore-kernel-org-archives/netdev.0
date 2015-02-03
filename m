@@ -1,60 +1,67 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [PATCH] net: rocker: Change netdev names to include slot number
-Date: Mon, 2 Feb 2015 21:46:23 -0800
-Message-ID: <CAE4R7bArt7+C-kHJ7UXFo4w9feG0C_uZqQ7n8KC0brSXhqX3gg@mail.gmail.com>
-References: <1422856985-16530-1-git-send-email-dsahern@gmail.com>
-	<CAE4R7bA0Ea9zugm=OR0EN2qSeoiROEoMiYZ-5YMwd9UdS4L0Sg@mail.gmail.com>
-	<54CFEF20.8060300@gmail.com>
-	<54CFF420.3090603@gmail.com>
-	<54CFF5B3.7070509@gmail.com>
+From: Michal Kubecek <mkubecek@suse.cz>
+Subject: Re: [PATCHv2 net] net: restore lro after device detached from bridge
+Date: Tue, 3 Feb 2015 07:54:30 +0100
+Message-ID: <20150203065430.GB8655@unicorn.suse.cz>
+References: <1422621209-23222-1-git-send-email-fan.du@intel.com>
+ <54CBEE24.8000603@redhat.com>
+ <54CEDEDC.7060507@gmail.com>
+ <20150202111556.GA8655@unicorn.suse.cz>
+ <54D0326C.2050704@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-	Netdev <netdev@vger.kernel.org>
-To: David Ahern <dsahern@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Alexander Duyck <alexander.h.duyck@redhat.com>,
+	Fan Du <fan.du@intel.com>, bhutchings@solarflare.com,
+	davem@davemloft.net, netdev@vger.kernel.org
+To: Fan Du <fengyuleidian0615@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f173.google.com ([209.85.212.173]:46037 "EHLO
-	mail-wi0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751640AbbBCFqZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Feb 2015 00:46:25 -0500
-Received: by mail-wi0-f173.google.com with SMTP id r20so21594398wiv.0
-        for <netdev@vger.kernel.org>; Mon, 02 Feb 2015 21:46:24 -0800 (PST)
-In-Reply-To: <54CFF5B3.7070509@gmail.com>
+Received: from cantor2.suse.de ([195.135.220.15]:60929 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933871AbbBCGyd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Feb 2015 01:54:33 -0500
+Content-Disposition: inline
+In-Reply-To: <54D0326C.2050704@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 2, 2015 at 2:09 PM, David Ahern <dsahern@gmail.com> wrote:
-> On 2/2/15 3:03 PM, Florian Fainelli wrote:
->>
->> Why not? virtio and rocker interfaces are backed by different devices
->> drivers which should allow you to use that to name interfaces
->> differently. In the case of rocker, you would probably want to read the
->> phys_port_id sysfs attribute to name them after their parent switch id
->> too.
->
->
-> [root@f21 ~]# cat /sys/devices/virtual/net/sw5p0/phys_port_id
-> cat: /sys/devices/virtual/net/sw5p0/phys_port_id: Operation not supported
+On Tue, Feb 03, 2015 at 10:29:00AM +0800, Fan Du wrote:
+> =E4=BA=8E 2015=E5=B9=B402=E6=9C=8802=E6=97=A5 19:15, Michal Kubecek =E5=
+=86=99=E9=81=93:
+> >On Mon, Feb 02, 2015 at 10:20:12AM +0800, Fan Du wrote:
+> >
+> >>Note, SRC is defaulted to *ON* in practice for ALL ixgbe NICs, as s=
+ame
+> >>other RSC capable NICs.
+> >
+> >A very bad idea, IMHO. A lot of bug reports resulted from it.
+>=20
+> Why are you saying this an idea?? this a fact for all RSC capable NIC
+> drivers.  search drivers/net/ethernet/ to find more.
 
-We should implement .ndo_get_phys_port_id in rocker to return a unique
-name for the port, which can then be used in udev script to name
-interface.  When rocker device is instantiated, a unique switch name
-is given on qemu cmd line, for example "sw1".  Rocker device could
-return that string to the driver, or even combine that string with the
-port index to have "sw1p1".  The second instantiated rocker device
-would give up "sw2px" port names.
+I didn't say it's not turned on by default, I just said I consider this
+a bad idea. Why? Because the feature is known to break network
+communication in common and frequently used scenarios (essentially
+whenever received packets may leave the host). When this happens, you
+observe strange networking malfunction and unless you know this may be
+the cause (or read release notes very carefully), it's very difficult t=
+o
+identify the cause. Personally, I handled four bug reports of this type
+in last three years.
 
-A real switch with a physical port than can be split, or when multiple
-ports are ganged to form one mega port, letting the device pick a
-unique name is probably best.  For example, splitting a single
-physical 40Gb port into 4 10Gb ports would present 4 kernel
-interfaces, but we probably want to use the base port in the naming,
-so we'd have something like "sw1p1s1" to mean switch 1, front panel
-port 1, split port 1.  Letting the device name the ports on current
-port configuration of the port will keep driver/kernel simple, and let
-udev be the final name chooser.
+On the other hand, having it turned off when it could be on is only a
+performance problem and the communication works. When you are tuning th=
+e
+performance, you obviously look at the offloading features and check
+which could be turned on.
 
->
-> But in general I guess need to find time to figure out systemd-udev files.
->
-> David
+This disbalance (broken communication on one side and slight performanc=
+e
+difference on the other) is why I believe feature like this should not
+be turned on by default. Unfortunately it is and we have to deal with
+it; that's why dev_disable_lro() is called in certain situations and wh=
+y
+it is propagated down lo lower devices. Turning it back on without
+carefully checking that _none_ of the reasons to have it off exists
+would do more harm than good.
+
+                                                        Michal Kubecek
