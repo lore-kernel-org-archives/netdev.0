@@ -1,343 +1,60 @@
-From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCH net-next] cxgb4: Add low latency socket busy_poll support
-Date: Tue,  3 Feb 2015 10:50:16 +0530
-Message-ID: <1422940816-27402-1-git-send-email-hariprasad@chelsio.com>
-Cc: davem@davemloft.net, leedom@chelsio.com, anish@chelsio.com,
-	nirranjan@chelsio.com, praveenm@chelsio.com, kumaras@chelsio.com,
-	Hariprasad Shenai <hariprasad@chelsio.com>
-To: netdev@vger.kernel.org
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [PATCH] net: rocker: Change netdev names to include slot number
+Date: Mon, 2 Feb 2015 21:46:23 -0800
+Message-ID: <CAE4R7bArt7+C-kHJ7UXFo4w9feG0C_uZqQ7n8KC0brSXhqX3gg@mail.gmail.com>
+References: <1422856985-16530-1-git-send-email-dsahern@gmail.com>
+	<CAE4R7bA0Ea9zugm=OR0EN2qSeoiROEoMiYZ-5YMwd9UdS4L0Sg@mail.gmail.com>
+	<54CFEF20.8060300@gmail.com>
+	<54CFF420.3090603@gmail.com>
+	<54CFF5B3.7070509@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+	Netdev <netdev@vger.kernel.org>
+To: David Ahern <dsahern@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:18081 "EHLO
-	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1750983AbbBCFOk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Feb 2015 00:14:40 -0500
+Received: from mail-wi0-f173.google.com ([209.85.212.173]:46037 "EHLO
+	mail-wi0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751640AbbBCFqZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Feb 2015 00:46:25 -0500
+Received: by mail-wi0-f173.google.com with SMTP id r20so21594398wiv.0
+        for <netdev@vger.kernel.org>; Mon, 02 Feb 2015 21:46:24 -0800 (PST)
+In-Reply-To: <54CFF5B3.7070509@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-cxgb_busy_poll, corresponding to ndo_busy_poll, gets called by the socket
-waiting for data.
+On Mon, Feb 2, 2015 at 2:09 PM, David Ahern <dsahern@gmail.com> wrote:
+> On 2/2/15 3:03 PM, Florian Fainelli wrote:
+>>
+>> Why not? virtio and rocker interfaces are backed by different devices
+>> drivers which should allow you to use that to name interfaces
+>> differently. In the case of rocker, you would probably want to read the
+>> phys_port_id sysfs attribute to name them after their parent switch id
+>> too.
+>
+>
+> [root@f21 ~]# cat /sys/devices/virtual/net/sw5p0/phys_port_id
+> cat: /sys/devices/virtual/net/sw5p0/phys_port_id: Operation not supported
 
-With busy_poll enabled, improvement is seen in latency numbers as observed by
-collecting netperf TCP_RR numbers.
+We should implement .ndo_get_phys_port_id in rocker to return a unique
+name for the port, which can then be used in udev script to name
+interface.  When rocker device is instantiated, a unique switch name
+is given on qemu cmd line, for example "sw1".  Rocker device could
+return that string to the driver, or even combine that string with the
+port index to have "sw1p1".  The second instantiated rocker device
+would give up "sw2px" port names.
 
-Based on original work by Kumar Sanghvi <kumaras@chelsio.com>
+A real switch with a physical port than can be split, or when multiple
+ports are ganged to form one mega port, letting the device pick a
+unique name is probably best.  For example, splitting a single
+physical 40Gb port into 4 10Gb ports would present 4 kernel
+interfaces, but we probably want to use the base port in the naming,
+so we'd have something like "sw1p1s1" to mean switch 1, front panel
+port 1, split port 1.  Letting the device name the ports on current
+port configuration of the port will keep driver/kernel simple, and let
+udev be the final name chooser.
 
-Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
----
- drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |  113 +++++++++++++++++++++++
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |   16 +++-
- drivers/net/ethernet/chelsio/cxgb4/sge.c        |   47 +++++++++-
- drivers/net/ethernet/chelsio/cxgb4/t4_values.h  |    1 +
- 4 files changed, 174 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-index fb6980a..55019c9 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-@@ -476,6 +476,22 @@ struct sge_rspq {                   /* state for an SGE response queue */
- 	struct adapter *adap;
- 	struct net_device *netdev;  /* associated net device */
- 	rspq_handler_t handler;
-+#ifdef CONFIG_NET_RX_BUSY_POLL
-+#define CXGB_POLL_STATE_IDLE		0
-+#define CXGB_POLL_STATE_NAPI		BIT(0) /* NAPI owns this poll */
-+#define CXGB_POLL_STATE_POLL		BIT(1) /* poll owns this poll */
-+#define CXGB_POLL_STATE_NAPI_YIELD	BIT(2) /* NAPI yielded this poll */
-+#define CXGB_POLL_STATE_POLL_YIELD	BIT(3) /* poll yielded this poll */
-+#define CXGB_POLL_YIELD			(CXGB_POLL_STATE_NAPI_YIELD |   \
-+					 CXGB_POLL_STATE_POLL_YIELD)
-+#define CXGB_POLL_LOCKED		(CXGB_POLL_STATE_NAPI |         \
-+					 CXGB_POLL_STATE_POLL)
-+#define CXGB_POLL_USER_PEND		(CXGB_POLL_STATE_POLL |         \
-+					 CXGB_POLL_STATE_POLL_YIELD)
-+	unsigned int bpoll_state;
-+	spinlock_t bpoll_lock;		/* lock for busy poll */
-+#endif /* CONFIG_NET_RX_BUSY_POLL */
-+
- };
- 
- struct sge_eth_stats {              /* Ethernet queue statistics */
-@@ -880,6 +896,102 @@ static inline struct adapter *netdev2adap(const struct net_device *dev)
- 	return netdev2pinfo(dev)->adapter;
- }
- 
-+#ifdef CONFIG_NET_RX_BUSY_POLL
-+static inline void cxgb_busy_poll_init_lock(struct sge_rspq *q)
-+{
-+	spin_lock_init(&q->bpoll_lock);
-+	q->bpoll_state = CXGB_POLL_STATE_IDLE;
-+}
-+
-+static inline bool cxgb_poll_lock_napi(struct sge_rspq *q)
-+{
-+	bool rc = true;
-+
-+	spin_lock(&q->bpoll_lock);
-+	if (q->bpoll_state & CXGB_POLL_LOCKED) {
-+		q->bpoll_state |= CXGB_POLL_STATE_NAPI_YIELD;
-+		rc = false;
-+	} else {
-+		q->bpoll_state = CXGB_POLL_STATE_NAPI;
-+	}
-+	spin_unlock(&q->bpoll_lock);
-+	return rc;
-+}
-+
-+static inline bool cxgb_poll_unlock_napi(struct sge_rspq *q)
-+{
-+	bool rc = false;
-+
-+	spin_lock(&q->bpoll_lock);
-+	if (q->bpoll_state & CXGB_POLL_STATE_POLL_YIELD)
-+		rc = true;
-+	q->bpoll_state = CXGB_POLL_STATE_IDLE;
-+	spin_unlock(&q->bpoll_lock);
-+	return rc;
-+}
-+
-+static inline bool cxgb_poll_lock_poll(struct sge_rspq *q)
-+{
-+	bool rc = true;
-+
-+	spin_lock_bh(&q->bpoll_lock);
-+	if (q->bpoll_state & CXGB_POLL_LOCKED) {
-+		q->bpoll_state |= CXGB_POLL_STATE_POLL_YIELD;
-+		rc = false;
-+	} else {
-+		q->bpoll_state |= CXGB_POLL_STATE_POLL;
-+	}
-+	spin_unlock_bh(&q->bpoll_lock);
-+	return rc;
-+}
-+
-+static inline bool cxgb_poll_unlock_poll(struct sge_rspq *q)
-+{
-+	bool rc = false;
-+
-+	spin_lock_bh(&q->bpoll_lock);
-+	if (q->bpoll_state & CXGB_POLL_STATE_POLL_YIELD)
-+		rc = true;
-+	q->bpoll_state = CXGB_POLL_STATE_IDLE;
-+	spin_unlock_bh(&q->bpoll_lock);
-+	return rc;
-+}
-+
-+static inline bool cxgb_poll_busy_polling(struct sge_rspq *q)
-+{
-+	return q->bpoll_state & CXGB_POLL_USER_PEND;
-+}
-+#else
-+static inline void cxgb_busy_poll_init_lock(struct sge_rspq *q)
-+{
-+}
-+
-+static inline bool cxgb_poll_lock_napi(struct sge_rspq *q)
-+{
-+	return true;
-+}
-+
-+static inline bool cxgb_poll_unlock_napi(struct sge_rspq *q)
-+{
-+	return false;
-+}
-+
-+static inline bool cxgb_poll_lock_poll(struct sge_rspq *q)
-+{
-+	return false;
-+}
-+
-+static inline bool cxgb_poll_unlock_poll(struct sge_rspq *q)
-+{
-+	return false;
-+}
-+
-+static inline bool cxgb_poll_busy_polling(struct sge_rspq *q)
-+{
-+	return false;
-+}
-+#endif /* CONFIG_NET_RX_BUSY_POLL */
-+
- void t4_os_portmod_changed(const struct adapter *adap, int port_id);
- void t4_os_link_changed(struct adapter *adap, int port_id, int link_stat);
- 
-@@ -908,6 +1020,7 @@ irqreturn_t t4_sge_intr_msix(int irq, void *cookie);
- int t4_sge_init(struct adapter *adap);
- void t4_sge_start(struct adapter *adap);
- void t4_sge_stop(struct adapter *adap);
-+int cxgb_busy_poll(struct napi_struct *napi);
- extern int dbfifo_int_thresh;
- 
- #define for_each_port(adapter, iter) \
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index 5bf490a..041742b 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -923,8 +923,14 @@ static void quiesce_rx(struct adapter *adap)
- 	for (i = 0; i < ARRAY_SIZE(adap->sge.ingr_map); i++) {
- 		struct sge_rspq *q = adap->sge.ingr_map[i];
- 
--		if (q && q->handler)
-+		if (q && q->handler) {
- 			napi_disable(&q->napi);
-+			local_bh_disable();
-+			while (!cxgb_poll_lock_napi(q))
-+				mdelay(1);
-+			local_bh_enable();
-+		}
-+
- 	}
- }
- 
-@@ -940,8 +946,10 @@ static void enable_rx(struct adapter *adap)
- 
- 		if (!q)
- 			continue;
--		if (q->handler)
-+		if (q->handler) {
-+			cxgb_busy_poll_init_lock(q);
- 			napi_enable(&q->napi);
-+		}
- 		/* 0-increment GTS to start the timer and enable interrupts */
- 		t4_write_reg(adap, MYPF_REG(SGE_PF_GTS_A),
- 			     SEINTARM_V(q->intr_params) |
-@@ -4563,6 +4571,10 @@ static const struct net_device_ops cxgb4_netdev_ops = {
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	.ndo_poll_controller  = cxgb_netpoll,
- #endif
-+#ifdef CONFIG_NET_RX_BUSY_POLL
-+	.ndo_busy_poll        = cxgb_busy_poll,
-+#endif
-+
- };
- 
- void t4_fatal_err(struct adapter *adap)
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-index 6191561..7b1a140 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-@@ -43,6 +43,9 @@
- #include <linux/export.h>
- #include <net/ipv6.h>
- #include <net/tcp.h>
-+#ifdef CONFIG_NET_RX_BUSY_POLL
-+#include <net/busy_poll.h>
-+#endif /* CONFIG_NET_RX_BUSY_POLL */
- #include "cxgb4.h"
- #include "t4_regs.h"
- #include "t4_values.h"
-@@ -1720,6 +1723,7 @@ static void do_gro(struct sge_eth_rxq *rxq, const struct pkt_gl *gl,
- 	skb->truesize += skb->data_len;
- 	skb->ip_summed = CHECKSUM_UNNECESSARY;
- 	skb_record_rx_queue(skb, rxq->rspq.idx);
-+	skb_mark_napi_id(skb, &rxq->rspq.napi);
- 	if (rxq->rspq.netdev->features & NETIF_F_RXHASH)
- 		skb_set_hash(skb, (__force u32)pkt->rsshdr.hash_val,
- 			     PKT_HASH_TYPE_L3);
-@@ -1763,6 +1767,7 @@ int t4_ethrx_handler(struct sge_rspq *q, const __be64 *rsp,
- 	csum_ok = pkt->csum_calc && !pkt->err_vec &&
- 		  (q->netdev->features & NETIF_F_RXCSUM);
- 	if ((pkt->l2info & htonl(RXF_TCP_F)) &&
-+	    !(cxgb_poll_busy_polling(q)) &&
- 	    (q->netdev->features & NETIF_F_GRO) && csum_ok && !pkt->ip_frag) {
- 		do_gro(rxq, si, pkt);
- 		return 0;
-@@ -1801,6 +1806,7 @@ int t4_ethrx_handler(struct sge_rspq *q, const __be64 *rsp,
- 		__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), ntohs(pkt->vlan));
- 		rxq->stats.vlan_ex++;
- 	}
-+	skb_mark_napi_id(skb, &q->napi);
- 	netif_receive_skb(skb);
- 	return 0;
- }
-@@ -1963,6 +1969,38 @@ static int process_responses(struct sge_rspq *q, int budget)
- 	return budget - budget_left;
- }
- 
-+#ifdef CONFIG_NET_RX_BUSY_POLL
-+int cxgb_busy_poll(struct napi_struct *napi)
-+{
-+	struct sge_rspq *q = container_of(napi, struct sge_rspq, napi);
-+	unsigned int params, work_done;
-+	u32 val;
-+
-+	if (!cxgb_poll_lock_poll(q))
-+		return LL_FLUSH_BUSY;
-+
-+	work_done = process_responses(q, 4);
-+	params = QINTR_TIMER_IDX(TIMERREG_COUNTER0_X) | QINTR_CNT_EN;
-+	q->next_intr_params = params;
-+	val = CIDXINC_V(work_done) | SEINTARM_V(params);
-+
-+	/* If we don't have access to the new User GTS (T5+), use the old
-+	 * doorbell mechanism; otherwise use the new BAR2 mechanism.
-+	 */
-+	if (unlikely(!q->bar2_addr))
-+		t4_write_reg(q->adap, MYPF_REG(SGE_PF_GTS_A),
-+			     val | INGRESSQID_V((u32)q->cntxt_id));
-+	else {
-+		writel(val | INGRESSQID_V(q->bar2_qid),
-+		       q->bar2_addr + SGE_UDB_GTS);
-+		wmb();
-+	}
-+
-+	cxgb_poll_unlock_poll(q);
-+	return work_done;
-+}
-+#endif /* CONFIG_NET_RX_BUSY_POLL */
-+
- /**
-  *	napi_rx_handler - the NAPI handler for Rx processing
-  *	@napi: the napi instance
-@@ -1978,9 +2016,13 @@ static int napi_rx_handler(struct napi_struct *napi, int budget)
- {
- 	unsigned int params;
- 	struct sge_rspq *q = container_of(napi, struct sge_rspq, napi);
--	int work_done = process_responses(q, budget);
-+	int work_done = 0;
- 	u32 val;
- 
-+	if (!cxgb_poll_lock_napi(q))
-+		return work_done;
-+
-+	work_done = process_responses(q, budget);
- 	if (likely(work_done < budget)) {
- 		int timer_index;
- 
-@@ -2018,6 +2060,7 @@ static int napi_rx_handler(struct napi_struct *napi, int budget)
- 		       q->bar2_addr + SGE_UDB_GTS);
- 		wmb();
- 	}
-+	cxgb_poll_unlock_napi(q);
- 	return work_done;
- }
- 
-@@ -2341,6 +2384,7 @@ int t4_sge_alloc_rxq(struct adapter *adap, struct sge_rspq *iq, bool fwevtq,
- 		goto err;
- 
- 	netif_napi_add(dev, &iq->napi, napi_rx_handler, 64);
-+	napi_hash_add(&iq->napi);
- 	iq->cur_desc = iq->desc;
- 	iq->cidx = 0;
- 	iq->gen = 1;
-@@ -2598,6 +2642,7 @@ static void free_rspq_fl(struct adapter *adap, struct sge_rspq *rq,
- 		   rq->cntxt_id, fl_id, 0xffff);
- 	dma_free_coherent(adap->pdev_dev, (rq->size + 1) * rq->iqe_len,
- 			  rq->desc, rq->phys_addr);
-+	napi_hash_del(&rq->napi);
- 	netif_napi_del(&rq->napi);
- 	rq->netdev = NULL;
- 	rq->cntxt_id = rq->abs_id = 0;
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_values.h b/drivers/net/ethernet/chelsio/cxgb4/t4_values.h
-index a404844..997ec87 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4_values.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4_values.h
-@@ -59,6 +59,7 @@
- 
- /* GTS register */
- #define SGE_TIMERREGS			6
-+#define TIMERREG_COUNTER0_X		0
- 
- /* T5 and later support a new BAR2-based doorbell mechanism for Egress Queues.
-  * The User Doorbells are each 128 bytes in length with a Simple Doorbell at
--- 
-1.7.1
+>
+> But in general I guess need to find time to figure out systemd-udev files.
+>
+> David
