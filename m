@@ -1,29 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/tulip: don't warn about unknown ARM architecture
-Date: Mon, 02 Feb 2015 18:54:01 -0800 (PST)
-Message-ID: <20150202.185401.1529004777101807716.davem@davemloft.net>
-References: <1780413.LLpv9s01CB@wuerfel>
+Subject: Re: [PATCH net-next] cxgb4 : Improve IEEE DCBx support, other
+ minor open-lldp fixes
+Date: Mon, 02 Feb 2015 18:55:20 -0800 (PST)
+Message-ID: <20150202.185520.614829613850010571.davem@davemloft.net>
+References: <1422667217-2610-1-git-send-email-anish@chelsio.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linux-kernel@vger.kernel.org, grundler@parisc-linux.org
-To: arnd@arndb.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1780413.LLpv9s01CB@wuerfel>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, hariprasad@chelsio.com
+To: anish@chelsio.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:50043 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753143AbbBCCzV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Feb 2015 21:55:21 -0500
+In-Reply-To: <1422667217-2610-1-git-send-email-anish@chelsio.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Fri, 30 Jan 2015 22:58:19 +0100
+From: Anish Bhatt <anish@chelsio.com>
+Date: Fri, 30 Jan 2015 17:20:17 -0800
 
-> ARM has 32-byte cache lines, which according to the comment in
-> the init registers function seems to work best with the default
-> value of 0x4800 that is also used on sparc and parisc.
+> * Add support for IEEE ets & pfc api.
+> * Fix bug that resulted in incorrect bandwidth percentage being returned for
+>   CEE peers
+> * Convert pfc enabled info from firmware format to what dcbnl expects before
+>   returning
 > 
-> This adds ARM to the same list, to use that default but no
-> longer warn about it.
-> 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> Signed-off-by: Anish Bhatt <anish@chelsio.com>
 
-Applied, thanks a lot.
+Applied.
