@@ -1,47 +1,66 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next 2/7] net/mlx4: mlx4_config_dev_retrieval() - Initialize struct config_dev before using
-Date: Tue,  3 Feb 2015 17:57:16 +0200
-Message-ID: <1422979041-25208-3-git-send-email-amirv@mellanox.com>
+Subject: [PATCH net-next 6/7] net/mlx4_en: Adjust RX frag strides to frag sizes
+Date: Tue,  3 Feb 2015 17:57:20 +0200
+Message-ID: <1422979041-25208-7-git-send-email-amirv@mellanox.com>
 References: <1422979041-25208-1-git-send-email-amirv@mellanox.com>
 Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>,
 	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Maor Gottlieb <maorg@mellanox.com>
+	Ido Shamay <idos@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:40311 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:40322 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S966308AbbBCP6c (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Feb 2015 10:58:32 -0500
+	id S966308AbbBCP6h (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Feb 2015 10:58:37 -0500
 In-Reply-To: <1422979041-25208-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Maor Gottlieb <maorg@mellanox.com>
+From: Ido Shamay <idos@mellanox.com>
 
-Add Initialization to struct config_dev before filling and using it.
-Fix to warning:
+This patch improves memory utilization and therefore the packets rate
+for special MTU's. Instead of setting the frag_stride to the maximal
+hard coded frag_size, use the actual frag_size that is set according to
+the MTU, when setting the stride of the last frag.
+So, for example, for MTU 1600, where the frag_size of the 2nd frag is
+86, the frag_size is set to 128 instead of 4096. See below:
 
-warning: config_dev.rx_checksum_val may be used uninitialized in this function
+Before:
+ frag:0 - size:1536 prefix:0 stride:1536
+ frag:1 - size:86 prefix:1536 stride:4096
 
-Signed-off-by: Maor Gottlieb <maorg@mellanox.com>
+ frag 0 allocator: - size:32768 frags:21
+ frag 1 allocator: - size:32768 frags:8
+
+After:
+ frag:0 - size:1536 prefix:0 stride:1536
+ frag:1 - size:86 prefix:1536 stride:128
+
+ frag 0 allocator: - size:32768 frags:21
+ frag 1 allocator: - size:32768 frags:256
+
+Signed-off-by: Ido Shamay <idos@mellanox.com>
 Signed-off-by: Amir Vadai <amirv@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/fw.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/mellanox/mlx4/en_rx.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/fw.c b/drivers/net/ethernet/mellanox/mlx4/fw.c
-index dbabfae..241838f 100644
---- a/drivers/net/ethernet/mellanox/mlx4/fw.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/fw.c
-@@ -2162,7 +2162,7 @@ static const u8 config_dev_csum_flags[] = {
- int mlx4_config_dev_retrieval(struct mlx4_dev *dev,
- 			      struct mlx4_config_dev_params *params)
- {
--	struct mlx4_config_dev config_dev;
-+	struct mlx4_config_dev config_dev = {0};
- 	int err;
- 	u8 csum_mask;
- 
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+index 30a2203..698d60d 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+@@ -1063,8 +1063,9 @@ void mlx4_en_calc_rx_buf(struct net_device *dev)
+ 			(eff_mtu > buf_size + frag_sizes[i]) ?
+ 				frag_sizes[i] : eff_mtu - buf_size;
+ 		priv->frag_info[i].frag_prefix_size = buf_size;
+-		priv->frag_info[i].frag_stride = ALIGN(frag_sizes[i],
+-						       SMP_CACHE_BYTES);
++		priv->frag_info[i].frag_stride =
++				ALIGN(priv->frag_info[i].frag_size,
++				      SMP_CACHE_BYTES);
+ 		buf_size += priv->frag_info[i].frag_size;
+ 		i++;
+ 	}
 -- 
 1.9.3
