@@ -1,31 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: fs_enet: Implement NETIF_F_SG feature
-Date: Wed, 04 Feb 2015 13:13:20 -0800 (PST)
-Message-ID: <20150204.131320.2283837573385701111.davem@davemloft.net>
-References: <20150202170654.D5EE21A5E90@localhost.localdomain>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] flow_keys: n_proto type should be __be16
+Date: Wed, 04 Feb 2015 13:31:54 -0800
+Message-ID: <1423085514.31870.20.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: pantelis.antoniou@gmail.com, vbordug@ru.mvista.com,
-	linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
-	netdev@vger.kernel.org
-To: christophe.leroy@c-s.fr
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150202170654.D5EE21A5E90@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>,
+	Govindarajulu Varadarajan <_govind@gmx.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f171.google.com ([209.85.213.171]:41532 "EHLO
+	mail-ig0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932213AbbBDVb4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2015 16:31:56 -0500
+Received: by mail-ig0-f171.google.com with SMTP id h15so21652560igd.4
+        for <netdev@vger.kernel.org>; Wed, 04 Feb 2015 13:31:56 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Christophe Leroy <christophe.leroy@c-s.fr>
-Date: Mon,  2 Feb 2015 18:06:54 +0100 (CET)
+From: Eric Dumazet <edumazet@google.com>
 
-> Freescale ethernet controllers have the capability to re-assemble fragmented
-> data into a single ethernet frame. This patch uses this capability and
-> implements NETIP_F_SG feature into the fs_enet ethernet driver.
-> 
-> On a MPC885, I get 53% performance improvement on a ftp transfer of a 15Mb file:
->   * Without the patch : 2,8 Mbps
->   * With the patch : 4,3 Mbps
-> 
-> Signed-off-by: Christophe Leroy <christophe.leroy@c-s.fr>
+(struct flow_keys)->n_proto is in network order, use
+proper type for this.
 
-Applied, thanks.
+Fixes following sparse errors :
+
+net/core/flow_dissector.c:139:39: warning: incorrect type in assignment (different base types)
+net/core/flow_dissector.c:139:39:    expected unsigned short [unsigned] [usertype] n_proto
+net/core/flow_dissector.c:139:39:    got restricted __be16 [assigned] [usertype] proto
+net/core/flow_dissector.c:237:23: warning: incorrect type in assignment (different base types)
+net/core/flow_dissector.c:237:23:    expected unsigned short [unsigned] [usertype] n_proto
+net/core/flow_dissector.c:237:23:    got restricted __be16 [assigned] [usertype] proto
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Fixes: e0f31d849867 ("flow_keys: Record IP layer protocol in skb_flow_dissect()")
+---
+ include/net/flow_keys.h |    6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/include/net/flow_keys.h b/include/net/flow_keys.h
+index 7ee2df083542..dc8fd81412bf 100644
+--- a/include/net/flow_keys.h
++++ b/include/net/flow_keys.h
+@@ -22,9 +22,9 @@ struct flow_keys {
+ 		__be32 ports;
+ 		__be16 port16[2];
+ 	};
+-	u16 thoff;
+-	u16 n_proto;
+-	u8 ip_proto;
++	u16	thoff;
++	__be16	n_proto;
++	u8	ip_proto;
+ };
+ 
+ bool __skb_flow_dissect(const struct sk_buff *skb, struct flow_keys *flow,
