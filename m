@@ -1,43 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: usb: sr9700: Use 'SR_' prefix for the common
- register macros
-Date: Wed, 04 Feb 2015 13:53:27 -0800 (PST)
-Message-ID: <20150204.135327.2016424933291153633.davem@davemloft.net>
-References: <54CFE578.7030207@sunrus.com.cn>
+Subject: Re: [PATCH net-next] net: add skb functions to process remote
+ checksum offload
+Date: Wed, 04 Feb 2015 13:54:19 -0800 (PST)
+Message-ID: <20150204.135419.1287629592476254710.davem@davemloft.net>
+References: <1422922054-22996-1-git-send-email-therbert@google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: gang.chen@sunrus.com.cn
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <54CFE578.7030207@sunrus.com.cn>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: therbert@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38967 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933443AbbBDVyU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2015 16:54:20 -0500
+In-Reply-To: <1422922054-22996-1-git-send-email-therbert@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Chen Gang S <gang.chen@sunrus.com.cn>
-Date: Tue, 03 Feb 2015 05:00:40 +0800
+From: Tom Herbert <therbert@google.com>
+Date: Mon,  2 Feb 2015 16:07:34 -0800
 
-> The commone register macors (e.g. RSR) is too commont to drivers, it may
-> be conflict with the architectures (e.g. xtensa, sh).
+> This patch adds skb_remcsum_process and skb_gro_remcsum_process to
+> perform the appropriate adjustments to the skb when receiving
+> remote checksum offload.
 > 
-> The related warnings (with allmodconfig under xtensa):
+> Updated vxlan and gue to use these functions.
 > 
->     CC [M]  drivers/net/usb/sr9700.o
->   In file included from drivers/net/usb/sr9700.c:24:0:
->   drivers/net/usb/sr9700.h:65:0: warning: "RSR" redefined
->    #define RSR   0x06
->    ^
->   In file included from ./arch/xtensa/include/asm/bitops.h:22:0,
->                    from include/linux/bitops.h:36,
->                    from include/linux/kernel.h:10,
->                    from include/linux/list.h:8,
->                    from include/linux/module.h:9,
->                    from drivers/net/usb/sr9700.c:13:
->   ./arch/xtensa/include/asm/processor.h:190:0: note: this is the location of the previous definition
->    #define RSR(v,sr) __asm__ __volatile__ ("rsr %0,"__stringify(sr) : "=a"(v));
->    ^
+> Tested: Ran TCP_RR and TCP_STREAM netperf for VXLAN and GUE, did
+> not see any change in performance.
 > 
-> Signed-off-by: Chen Gang <gang.chen.5i5j@gmail.com>
+> Signed-off-by: Tom Herbert <therbert@google.com>
 
-Applied, thanks.
+Applied.
