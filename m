@@ -1,42 +1,64 @@
-From: Jouni Malinen <jouni@codeaurora.org>
-Subject: Re: [PATCH] bridge: Remove BR_PROXYARP flooding check code
-Date: Wed, 4 Feb 2015 19:36:14 +0200
-Message-ID: <20150204173614.GA17251@jouni.qca.qualcomm.com>
-References: <1418052460-30691-1-git-send-email-jouni@codeaurora.org>
- <20141209142158.7e513dbf@urahara>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH net-next] i40e: mark constant as ULL
+Date: Wed, 04 Feb 2015 09:49:37 -0800
+Message-ID: <1423072177.2589.66.camel@jtkirshe-mobl>
+References: <1423050064-25087-1-git-send-email-sassmann@kpanic.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Kyeyoon Park <kyeyoonp@codeaurora.org>
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-l7pSCQGAdUdnfF2Vp/vD"
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	e1000-devel@lists.sourceforge.net
+To: Stefan Assmann <sassmann@kpanic.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.11.231]:42423 "EHLO
-	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S966519AbbBDRgV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2015 12:36:21 -0500
-Content-Disposition: inline
-In-Reply-To: <20141209142158.7e513dbf@urahara>
+Received: from mga01.intel.com ([192.55.52.88]:65491 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1161186AbbBDRto (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Feb 2015 12:49:44 -0500
+In-Reply-To: <1423050064-25087-1-git-send-email-sassmann@kpanic.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 09, 2014 at 02:21:58PM -0800, Stephen Hemminger wrote:
-> On Mon,  8 Dec 2014 17:27:40 +0200
-> > From: Kyeyoon Park <kyeyoonp@codeaurora.org>
-> > Because dropping broadcast packets for IEEE 802.11 Proxy ARP is more
-> > selective than previously thought, it is better to remove the direct
-> > dropping logic in the bridge code in favor of using the netfilter
-> > infrastructure to provide more control on which frames get dropped. This
-> > code was added in commit 958501163ddd ("bridge: Add support for IEEE
-> > 802.11 Proxy ARP").
 
-> Aren't you at risk of duplicate ARP responses in some cases.
-> You can't assume user will run netfilter.
+--=-l7pSCQGAdUdnfF2Vp/vD
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-The 'bridge: Selectively prevent bridge port flooding for proxy ARP'
-patch that I posted earlier today addresses this by keeping record of
-whether the proxyarp functionality has replied to a packet and skipping
-flooding conditionally on that. In other words, this 'bridge: Remove
-BR_PROXYARP flooding check code' can be dropped.
+On Wed, 2015-02-04 at 12:41 +0100, Stefan Assmann wrote:
+> This avoids a compile error on 32bit.
+>=20
+> Signed-off-by: Stefan Assmann <sassmann@kpanic.de>
+> ---
+>  drivers/net/ethernet/intel/i40e/i40e_lan_hmc.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
 
--- 
-Jouni Malinen                                            PGP id EFC895FA
+Come to find out, I already have a fix in my queue for this.  So I will
+be dropping your patch.
+
+The patch in my queue fixes the issue by doing the folling change:
+-               mask =3D 0xFFFFFFFFFFFFFFFF;
++               mask =3D ~(u64)0;
+
+--=-l7pSCQGAdUdnfF2Vp/vD
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAABCgAGBQJU0luxAAoJEOVv75VaS+3OFSYP/A684FzmkVBCDgt8fhpZT/hr
+kEbV/toU2ibjbU3WvV3cYDddFMhHKt9lc7sKStmrOXHKHB8X1iPAUzMssmhbLfL8
+nGlwziTYV/J6rho1h8YO7UoYZA/Vy1+Dtql2ZK/ILG+vcWXZfghoVGF9yHw3rEOk
+8r05pije1cICJ4fw4RfkQ/kgfXj1wXApOXaXP++66TkWm3u5OPLcGqrevKhbNP+S
+9m65LkNxWZvALKCivb7QzTS1NksQ5F52ZZ9ui48xgky42L/Yzegpqe7mTNtVWqTc
+Eb4VxaJ+Q6F9bgV4J4luwxTvXQcT0gS5ihmpWHLZEA/HugnQ0iCMO1ztajrUsdSC
+sy3hSKnw/iEU3pvwnolosKa/2q8EEKQXd5UWGoAWogHAbL21+ebytAa3LVYcUzo2
+Y7ck2gt1n730N5oBSE2/1YR8E2D7wNzZbDk91ZW4vtVsaOhNoHDvBBl+FuFycgaS
+y1RqsqXR8R/u2VElR/xcPWTxJzeQ7panqKOtVeUxVG8M+v9JlV2su57zD2PK/D7a
+YmXO62uGoIhvMYGjVqDx80IgQGaADavb7STA1SSPWJJx67lGhVaF4QTFdf9PmjkK
+hRzytJ2p5xosa6RfijbNBCOCi2R3Ml+qy85AQDqDnuAHc5Pz2ewNNCM9gqJc9A0x
+NzZOnyHmwybjmSdubhSx
+=9QDG
+-----END PGP SIGNATURE-----
+
+--=-l7pSCQGAdUdnfF2Vp/vD--
