@@ -1,103 +1,156 @@
-From: shengyong <shengyong1@huawei.com>
-Subject: Re: Question: should local address be expired when updating PMTU?
-Date: Wed, 4 Feb 2015 09:59:54 +0800
-Message-ID: <54D17D1A.3020706@huawei.com>
-References: <54CF3348.40207@huawei.com> <20150203092845.GT13046@secunet.com> <54D0A8DB.4010106@huawei.com> <20150203120140.GU13046@secunet.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] tcp: do not pace pure ack packets
+Date: Tue, 03 Feb 2015 18:31:53 -0800
+Message-ID: <1423017113.907.76.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<yangyingliang@huawei.com>, <hannes@redhat.com>
-To: Steffen Klassert <steffen.klassert@secunet.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:45709 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750944AbbBDCBZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Feb 2015 21:01:25 -0500
-In-Reply-To: <20150203120140.GU13046@secunet.com>
+Received: from mail-ig0-f169.google.com ([209.85.213.169]:34011 "EHLO
+	mail-ig0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752743AbbBDCb5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Feb 2015 21:31:57 -0500
+Received: by mail-ig0-f169.google.com with SMTP id hl2so28853822igb.0
+        for <netdev@vger.kernel.org>; Tue, 03 Feb 2015 18:31:57 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Eric Dumazet <edumazet@google.com>
 
+When we added pacing to TCP, we decided to let sch_fq take care
+of actual pacing.
 
-=E5=9C=A8 2015/2/3 20:01, Steffen Klassert =E5=86=99=E9=81=93:
-> On Tue, Feb 03, 2015 at 06:54:19PM +0800, shengyong wrote:
->>
->>
->> =E5=9C=A8 2015/2/3 17:28, Steffen Klassert =E5=86=99=E9=81=93:
->>> On Mon, Feb 02, 2015 at 04:20:24PM +0800, shengyong wrote:
->>>
->>> We first need to find out why you receive this Packet Too Big messa=
-ge,
->> The packet is sent by a commercial-off-the-shelf testcase, and I can=
- reproduce the
->> situation by using scapy and creating a packet as the following:
->>
->> 	$ cat packet-too-big.py
->> 	#!/usr/bin/python
->> =09
->> 	from scapy.all import *
->>
->> 	# fe80::800:27ff:fe00:0 is linklocal addr of PC
->> 	# fe80::a00:27ff:fe1a:e2a0 is linklocal addr of VM
->> 	base=3DIPv6(src=3D'fe80::800:27ff:fe00:0',dst=3D'fe80::a00:27ff:fe1=
-a:e2a0')
->> 	pkt_too_big=3DICMPv6PacketTooBig(mtu=3D1024)
->> 	ext_base=3DIPv6(src=3D'fe80::a00:27ff:fe1a:e2a0',dst=3D'fe80::a00:2=
-7ff:fe1a:e2a0',plen=3D24)
->> 	ext_nd_na=3DICMPv6ND_NA()
->> =09
->> 	packet=3Dbase/pkt_too_big/ext_base/ext_nd_na
->> 	send(packet)
->=20
-> So it is not a valid pmtu update, this make life easier.
->=20
-> Can you please test the patch below (compile tested only)?
-Sorry, the later. I test it on 3.10-stable. It can fix this problem. So=
- maybe this is a bug?
-And the 3 approaches (different flags are used: RTF_LOCAL, IFF_LOOPBACK=
- and RTF_CACHE) in
-these mails can fix the expire of local address. I'm confused about the=
-se flags:
-* RTF_LOCAL: the entries of local address, like address binded to the n=
-ative NIC
-* RTF_CACHE: all cached entries
-* IFF_LOOPBACK: this is a device-related flag, which has the same meani=
-ng as RTF_LOCAL
+All TCP had to do was to compute sk->pacing_rate using simple formula:
 
-Am I right? If so, I think RTF_LOCAL is appropriate, because we just wa=
-nt entries of local
-addresses to be not expired and we don't care other entries (I think if=
- they get expired,
-a neigh discovery could find them back).
+sk->pacing_rate = 2 * cwnd * mss / rtt
 
-thx,
-Sheng
->=20
-> This should fix your problem, and in combination with the two patches=
- I sent
-> out last week, it should cure the whole 'expiring of uncached routes'=
- problem.
->=20
-> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-> index 49596535..4ccfb9c 100644
-> --- a/net/ipv6/route.c
-> +++ b/net/ipv6/route.c
-> @@ -1156,7 +1156,8 @@ static void ip6_rt_update_pmtu(struct dst_entry=
- *dst, struct sock *sk,
->  	struct rt6_info *rt6 =3D (struct rt6_info *)dst;
-> =20
->  	dst_confirm(dst);
-> -	if (mtu < dst_mtu(dst) && rt6->rt6i_dst.plen =3D=3D 128) {
-> +	if (mtu < dst_mtu(dst) && rt6->rt6i_dst.plen =3D=3D 128 &&
-> +	    (rt6->rt6i_flags & RTF_CACHE)) {
->  		struct net *net =3D dev_net(dst->dev);
-> =20
->  		rt6->rt6i_flags |=3D RTF_MODIFIED;
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->=20
-> .
->=20
+It works well for senders (bulk flows), but not very well for receivers
+or even RPC :
+
+cwnd on the receiver can be less than 10, rtt can be around 100ms, so we
+can end up pacing ACK packets, slowing down the sender.
+
+Really, only the sender should pace, according to its own logic.
+
+Instead of adding a new bit in skb, or call yet another flow
+dissection, we tweak skb->truesize to a small value (2), and
+we instruct sch_fq to use new helper and not pace pure ack.
+
+Note this also helps TCP small queue, as ack packets present
+in qdisc/NIC do not prevent sending a data packet (RPC workload)
+
+This helps to reduce tx completion overhead, ack packets can use regular
+sock_wfree() instead of tcp_wfree() which is a bit more expensive.
+
+This has no impact in the case packets are sent to loopback interface,
+as we do not coalesce ack packets (were we would detect skb->truesize
+lie)
+
+In case netem (with a delay) is used, skb_orphan_partial() also sets
+skb->truesize to 1.
+
+This patch is a combination of two patches we used for about one year at
+Google.
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ include/net/tcp.h     |   15 +++++++++++++++
+ net/ipv4/tcp_output.c |   10 +++++++++-
+ net/sched/sch_fq.c    |   10 ++++++++--
+ 3 files changed, 32 insertions(+), 3 deletions(-)
+
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index b8fdc6bab3f3..637ee490ec81 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -1713,4 +1713,19 @@ static inline struct ip_options_rcu *tcp_v4_save_options(struct sk_buff *skb)
+ 	return dopt;
+ }
+ 
++/* locally generated TCP pure ACKs have skb->truesize == 2
++ * (check tcp_send_ack() in net/ipv4/tcp_output.c )
++ * This is much faster than dissecting the packet to find out.
++ * (Think of GRE encapsulations, IPv4, IPv6, ...)
++ */
++static inline bool skb_is_tcp_pure_ack(const struct sk_buff *skb)
++{
++	return skb->truesize == 2;
++}
++
++static inline void skb_set_tcp_pure_ack(struct sk_buff *skb)
++{
++	skb->truesize = 2;
++}
++
+ #endif	/* _TCP_H */
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 20ab06b228ac..eae35c1ad0aa 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -948,7 +948,7 @@ static int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb, int clone_it,
+ 
+ 	skb_orphan(skb);
+ 	skb->sk = sk;
+-	skb->destructor = tcp_wfree;
++	skb->destructor = skb_is_tcp_pure_ack(skb) ? sock_wfree : tcp_wfree;
+ 	skb_set_hash_from_sk(skb, sk);
+ 	atomic_add(skb->truesize, &sk->sk_wmem_alloc);
+ 
+@@ -3265,6 +3265,14 @@ void tcp_send_ack(struct sock *sk)
+ 	skb_reserve(buff, MAX_TCP_HEADER);
+ 	tcp_init_nondata_skb(buff, tcp_acceptable_seq(sk), TCPHDR_ACK);
+ 
++	/* We do not want pure acks influencing TCP Small Queues or fq/pacing
++	 * too much.
++	 * SKB_TRUESIZE(max(1 .. 66, MAX_TCP_HEADER)) is unfortunately ~784
++	 * We also avoid tcp_wfree() overhead (cache line miss accessing
++	 * tp->tsq_flags) by using regular sock_wfree()
++	 */
++	skb_set_tcp_pure_ack(buff);
++
+ 	/* Send it off, this clears delayed acks for us. */
+ 	skb_mstamp_get(&buff->skb_mstamp);
+ 	tcp_transmit_skb(sk, buff, 0, sk_gfp_atomic(sk, GFP_ATOMIC));
+diff --git a/net/sched/sch_fq.c b/net/sched/sch_fq.c
+index 2a50f5c62070..69a3dbf55c60 100644
+--- a/net/sched/sch_fq.c
++++ b/net/sched/sch_fq.c
+@@ -52,6 +52,7 @@
+ #include <net/pkt_sched.h>
+ #include <net/sock.h>
+ #include <net/tcp_states.h>
++#include <net/tcp.h>
+ 
+ /*
+  * Per flow structure, dynamically allocated
+@@ -445,7 +446,9 @@ begin:
+ 		goto begin;
+ 	}
+ 
+-	if (unlikely(f->head && now < f->time_next_packet)) {
++	skb = f->head;
++	if (unlikely(skb && now < f->time_next_packet &&
++		     !skb_is_tcp_pure_ack(skb))) {
+ 		head->first = f->next;
+ 		fq_flow_set_throttled(q, f);
+ 		goto begin;
+@@ -464,12 +467,15 @@ begin:
+ 		goto begin;
+ 	}
+ 	prefetch(&skb->end);
+-	f->time_next_packet = now;
+ 	f->credit -= qdisc_pkt_len(skb);
+ 
+ 	if (f->credit > 0 || !q->rate_enable)
+ 		goto out;
+ 
++	/* Do not pace locally generated ack packets */
++	if (skb_is_tcp_pure_ack(skb))
++		goto out;
++
+ 	rate = q->flow_max_rate;
+ 	if (skb->sk)
+ 		rate = min(skb->sk->sk_pacing_rate, rate);
