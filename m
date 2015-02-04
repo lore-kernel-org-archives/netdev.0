@@ -1,117 +1,103 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC] Possible data stall with RPS and CPU hotplug
-Date: Tue, 03 Feb 2015 17:19:11 -0800
-Message-ID: <1423012751.907.49.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <90b4251bdb040907ea73f992e1bb96df.squirrel@www.codeaurora.org>
+From: shengyong <shengyong1@huawei.com>
+Subject: Re: Question: should local address be expired when updating PMTU?
+Date: Wed, 4 Feb 2015 09:59:54 +0800
+Message-ID: <54D17D1A.3020706@huawei.com>
+References: <54CF3348.40207@huawei.com> <20150203092845.GT13046@secunet.com> <54D0A8DB.4010106@huawei.com> <20150203120140.GU13046@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, therbert@google.com
-To: subashab@codeaurora.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<yangyingliang@huawei.com>, <hannes@redhat.com>
+To: Steffen Klassert <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f174.google.com ([209.85.223.174]:59935 "EHLO
-	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751260AbbBDBTN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Feb 2015 20:19:13 -0500
-Received: by mail-ie0-f174.google.com with SMTP id vy18so29738880iec.5
-        for <netdev@vger.kernel.org>; Tue, 03 Feb 2015 17:19:12 -0800 (PST)
-In-Reply-To: <90b4251bdb040907ea73f992e1bb96df.squirrel@www.codeaurora.org>
+Received: from szxga01-in.huawei.com ([119.145.14.64]:45709 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750944AbbBDCBZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Feb 2015 21:01:25 -0500
+In-Reply-To: <20150203120140.GU13046@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2015-02-04 at 00:52 +0000, subashab@codeaurora.org wrote:
-> We have an RPS configuration to process packets on Core3 while hardware
-> interrupts arrive on Core0. We see an occasional stall when Core3 is hot
-> plugged out and comes back up at a later point in time. At the time of
-> this stall, we notice that the maximum backlog queue size of 1000 is
-> reached and subsequent packets are dropped, NAPI is scheduled on Core3,
-> but softIRQ NET_RX is not raised on Core3.
-> 
-> This leads me to think that possibly the Core3 went offline just before
-> hitting this conditional cpu_online() check in
-> net_rps_action_and_irq_enable(), so the IPI was not delivered to Core3.
-> 
-> 	/* Send pending IPI's to kick RPS processing on remote cpus. */
-> 	while (remsd) {
-> 		struct softnet_data *next = remsd->rps_ipi_next;
-> 		if (cpu_online(remsd->cpu))
-> 			__smp_call_function_single(remsd->cpu,
-> 						   &remsd->csd, 0);
-> 		remsd = next;
-> 	}
-> 
-> Later when the Core3 comes back online packets start getting enqueued to
-> Core3 but IPI's are not delivered because NAPI_STATE_SCHED is never
-> cleared on sofnet_data for Core3.
-> 
-> enqueue_to_backlog()
-> 
-> 	/* Schedule NAPI for backlog device
-> 	 * We can use non atomic operation since we own the queue lock
-> 	 */
-> 	if (!__test_and_set_bit(NAPI_STATE_SCHED, &sd->backlog.state)) {
-> 		if (!rps_ipi_queued(sd))
-> 			____napi_schedule(sd, &sd->backlog);
-> 	}
-> 	goto enqueue;
-> }
-> 
-> Is this analysis correct and does the following patch makes sense?
-> 
-> Signed-off-by: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
-> ---
->  net/core/dev.c | 1 +
->  1 file changed, 1 insertion(+)
-> 
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index 171420e..57663c9 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -7101,6 +7101,7 @@ static int dev_cpu_callback(struct notifier_block *nfb,
->  		input_queue_head_incr(oldsd);
->  	}
-> 
-> +	clear_bit(NAPI_STATE_SCHED, oldsd->backlog.state);
->  	return NOTIFY_OK;
->  }
-> 
-
-Really, this should not be needed after commit
-ac64da0b83d82abe62f78b3d0e21cca31aea24fa
-("net: rps: fix cpu unplug")
-
-If NAPI_STATE_SCHED was set on oldsd->backlog.state, then we must have
-found the napi in oldsd->poll_list
-
-So we should have hit line 7125 :
-
-	if (napi->poll == process_backlog)
-7125:		napi->state = 0;
-	else
-		____napi_schedule(sd, napi);
-
-So if you find this bit set, there is another bug ?
 
 
-But it looks like we do not use proper netif_rx() variant in this path.
+=E5=9C=A8 2015/2/3 20:01, Steffen Klassert =E5=86=99=E9=81=93:
+> On Tue, Feb 03, 2015 at 06:54:19PM +0800, shengyong wrote:
+>>
+>>
+>> =E5=9C=A8 2015/2/3 17:28, Steffen Klassert =E5=86=99=E9=81=93:
+>>> On Mon, Feb 02, 2015 at 04:20:24PM +0800, shengyong wrote:
+>>>
+>>> We first need to find out why you receive this Packet Too Big messa=
+ge,
+>> The packet is sent by a commercial-off-the-shelf testcase, and I can=
+ reproduce the
+>> situation by using scapy and creating a packet as the following:
+>>
+>> 	$ cat packet-too-big.py
+>> 	#!/usr/bin/python
+>> =09
+>> 	from scapy.all import *
+>>
+>> 	# fe80::800:27ff:fe00:0 is linklocal addr of PC
+>> 	# fe80::a00:27ff:fe1a:e2a0 is linklocal addr of VM
+>> 	base=3DIPv6(src=3D'fe80::800:27ff:fe00:0',dst=3D'fe80::a00:27ff:fe1=
+a:e2a0')
+>> 	pkt_too_big=3DICMPv6PacketTooBig(mtu=3D1024)
+>> 	ext_base=3DIPv6(src=3D'fe80::a00:27ff:fe1a:e2a0',dst=3D'fe80::a00:2=
+7ff:fe1a:e2a0',plen=3D24)
+>> 	ext_nd_na=3DICMPv6ND_NA()
+>> =09
+>> 	packet=3Dbase/pkt_too_big/ext_base/ext_nd_na
+>> 	send(packet)
+>=20
+> So it is not a valid pmtu update, this make life easier.
+>=20
+> Can you please test the patch below (compile tested only)?
+Sorry, the later. I test it on 3.10-stable. It can fix this problem. So=
+ maybe this is a bug?
+And the 3 approaches (different flags are used: RTF_LOCAL, IFF_LOOPBACK=
+ and RTF_CACHE) in
+these mails can fix the expire of local address. I'm confused about the=
+se flags:
+* RTF_LOCAL: the entries of local address, like address binded to the n=
+ative NIC
+* RTF_CACHE: all cached entries
+* IFF_LOOPBACK: this is a device-related flag, which has the same meani=
+ng as RTF_LOCAL
 
-We run from process context, so we need (at least) following patch :
+Am I right? If so, I think RTF_LOCAL is appropriate, because we just wa=
+nt entries of local
+addresses to be not expired and we don't care other entries (I think if=
+ they get expired,
+a neigh discovery could find them back).
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 1d564d68e31a5f361fc233ae90a3a19e82915664..947a291223f5437bc004f7fcbb3a938ecba6ced0 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -7132,11 +7132,11 @@ static int dev_cpu_callback(struct notifier_block *nfb,
- 
- 	/* Process offline CPU's input_pkt_queue */
- 	while ((skb = __skb_dequeue(&oldsd->process_queue))) {
--		netif_rx_internal(skb);
-+		netif_rx_ni(skb);
- 		input_queue_head_incr(oldsd);
- 	}
- 	while ((skb = skb_dequeue(&oldsd->input_pkt_queue))) {
--		netif_rx_internal(skb);
-+		netif_rx_ni(skb);
- 		input_queue_head_incr(oldsd);
- 	}
- 
+thx,
+Sheng
+>=20
+> This should fix your problem, and in combination with the two patches=
+ I sent
+> out last week, it should cure the whole 'expiring of uncached routes'=
+ problem.
+>=20
+> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+> index 49596535..4ccfb9c 100644
+> --- a/net/ipv6/route.c
+> +++ b/net/ipv6/route.c
+> @@ -1156,7 +1156,8 @@ static void ip6_rt_update_pmtu(struct dst_entry=
+ *dst, struct sock *sk,
+>  	struct rt6_info *rt6 =3D (struct rt6_info *)dst;
+> =20
+>  	dst_confirm(dst);
+> -	if (mtu < dst_mtu(dst) && rt6->rt6i_dst.plen =3D=3D 128) {
+> +	if (mtu < dst_mtu(dst) && rt6->rt6i_dst.plen =3D=3D 128 &&
+> +	    (rt6->rt6i_flags & RTF_CACHE)) {
+>  		struct net *net =3D dev_net(dst->dev);
+> =20
+>  		rt6->rt6i_flags |=3D RTF_MODIFIED;
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>=20
+> .
+>=20
