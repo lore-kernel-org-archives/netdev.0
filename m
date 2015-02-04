@@ -1,14 +1,16 @@
 From: Takashi Iwai <tiwai@suse.de>
-Subject: [PATCH] tun: Use static attribute groups for sysfs entries
-Date: Wed,  4 Feb 2015 14:37:34 +0100
-Message-ID: <1423057054-6889-1-git-send-email-tiwai@suse.de>
-Cc: netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+Subject: [PATCH] xen-netfront: Use static attribute groups for sysfs entries
+Date: Wed,  4 Feb 2015 14:38:55 +0100
+Message-ID: <1423057135-6939-1-git-send-email-tiwai@suse.de>
+Cc: Boris Ostrovsky <boris.ostrovsky@oracle.com>,
+	David Vrabel <david.vrabel@citrix.com>,
+	xen-devel@lists.xenproject.org, netdev@vger.kernel.org
+To: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:43800 "EHLO mx2.suse.de"
+Received: from cantor2.suse.de ([195.135.220.15]:43892 "EHLO mx2.suse.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965247AbbBDNhq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Feb 2015 08:37:46 -0500
+	id S965000AbbBDNi7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Feb 2015 08:38:59 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -19,50 +21,110 @@ races.
 
 Signed-off-by: Takashi Iwai <tiwai@suse.de>
 ---
- drivers/net/tun.c | 17 ++++++++++++-----
- 1 file changed, 12 insertions(+), 5 deletions(-)
+ drivers/net/xen-netfront.c | 62 ++++++++++++----------------------------------
+ 1 file changed, 16 insertions(+), 46 deletions(-)
 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index 8c8dc16839a7..662516ed6104 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -1566,6 +1566,17 @@ static DEVICE_ATTR(tun_flags, 0444, tun_show_flags, NULL);
- static DEVICE_ATTR(owner, 0444, tun_show_owner, NULL);
- static DEVICE_ATTR(group, 0444, tun_show_group, NULL);
+diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+index d8c10764f130..1524d2ee1c21 100644
+--- a/drivers/net/xen-netfront.c
++++ b/drivers/net/xen-netfront.c
+@@ -223,11 +223,7 @@ static grant_ref_t xennet_get_rx_ref(struct netfront_queue *queue,
+ }
  
-+static struct attribute *tun_dev_attrs[] = {
-+	&dev_attr_tun_flags.attr,
-+	&dev_attr_owner.attr,
-+	&dev_attr_group.attr,
-+	NULL
-+};
-+
-+static const struct attribute_group tun_attr_group = {
-+	.attrs = tun_dev_attrs
-+};
-+
- static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
- {
- 	struct tun_struct *tun;
-@@ -1646,6 +1657,7 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
- 		dev_net_set(dev, net);
- 		dev->rtnl_link_ops = &tun_link_ops;
- 		dev->ifindex = tfile->ifindex;
-+		dev->sysfs_groups[0] = &tun_attr_group;
+ #ifdef CONFIG_SYSFS
+-static int xennet_sysfs_addif(struct net_device *netdev);
+-static void xennet_sysfs_delif(struct net_device *netdev);
+-#else /* !CONFIG_SYSFS */
+-#define xennet_sysfs_addif(dev) (0)
+-#define xennet_sysfs_delif(dev) do { } while (0)
++static const struct attribute_group xennet_dev_group;
+ #endif
  
- 		tun = netdev_priv(dev);
- 		tun->dev = dev;
-@@ -1681,11 +1693,6 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
- 		err = register_netdevice(tun->dev);
- 		if (err < 0)
- 			goto err_detach;
+ static bool xennet_can_sg(struct net_device *dev)
+@@ -1367,20 +1363,15 @@ static int netfront_probe(struct xenbus_device *dev,
+ 
+ 	info = netdev_priv(netdev);
+ 	dev_set_drvdata(&dev->dev, info);
 -
--		if (device_create_file(&tun->dev->dev, &dev_attr_tun_flags) ||
--		    device_create_file(&tun->dev->dev, &dev_attr_owner) ||
--		    device_create_file(&tun->dev->dev, &dev_attr_group))
--			pr_err("Failed to create tun sysfs files\n");
++#ifdef CONFIG_SYSFS
++	info->netdev->sysfs_groups[0] = &xennet_dev_group;
++#endif
+ 	err = register_netdev(info->netdev);
+ 	if (err) {
+ 		pr_warn("%s: register_netdev err=%d\n", __func__, err);
+ 		goto fail;
  	}
  
- 	netif_carrier_on(tun->dev);
+-	err = xennet_sysfs_addif(info->netdev);
+-	if (err) {
+-		unregister_netdev(info->netdev);
+-		pr_warn("%s: add sysfs failed err=%d\n", __func__, err);
+-		goto fail;
+-	}
+-
+ 	return 0;
+ 
+  fail:
+@@ -2144,39 +2135,20 @@ static ssize_t store_rxbuf(struct device *dev,
+ 	return len;
+ }
+ 
+-static struct device_attribute xennet_attrs[] = {
+-	__ATTR(rxbuf_min, S_IRUGO|S_IWUSR, show_rxbuf, store_rxbuf),
+-	__ATTR(rxbuf_max, S_IRUGO|S_IWUSR, show_rxbuf, store_rxbuf),
+-	__ATTR(rxbuf_cur, S_IRUGO, show_rxbuf, NULL),
+-};
++static DEVICE_ATTR(rxbuf_min, S_IRUGO|S_IWUSR, show_rxbuf, store_rxbuf);
++static DEVICE_ATTR(rxbuf_max, S_IRUGO|S_IWUSR, show_rxbuf, store_rxbuf);
++static DEVICE_ATTR(rxbuf_cur, S_IRUGO, show_rxbuf, NULL);
+ 
+-static int xennet_sysfs_addif(struct net_device *netdev)
+-{
+-	int i;
+-	int err;
+-
+-	for (i = 0; i < ARRAY_SIZE(xennet_attrs); i++) {
+-		err = device_create_file(&netdev->dev,
+-					   &xennet_attrs[i]);
+-		if (err)
+-			goto fail;
+-	}
+-	return 0;
+-
+- fail:
+-	while (--i >= 0)
+-		device_remove_file(&netdev->dev, &xennet_attrs[i]);
+-	return err;
+-}
+-
+-static void xennet_sysfs_delif(struct net_device *netdev)
+-{
+-	int i;
+-
+-	for (i = 0; i < ARRAY_SIZE(xennet_attrs); i++)
+-		device_remove_file(&netdev->dev, &xennet_attrs[i]);
+-}
++static struct attribute *xennet_dev_attrs[] = {
++	&dev_attr_rxbuf_min.attr,
++	&dev_attr_rxbuf_max.attr,
++	&dev_attr_rxbuf_cur.attr,
++	NULL
++};
+ 
++static const struct attribute_group xennet_dev_group = {
++	.attrs = xennet_dev_attrs
++};
+ #endif /* CONFIG_SYSFS */
+ 
+ static int xennet_remove(struct xenbus_device *dev)
+@@ -2190,8 +2162,6 @@ static int xennet_remove(struct xenbus_device *dev)
+ 
+ 	xennet_disconnect_backend(info);
+ 
+-	xennet_sysfs_delif(info->netdev);
+-
+ 	unregister_netdev(info->netdev);
+ 
+ 	for (i = 0; i < num_queues; ++i) {
 -- 
 2.2.2
