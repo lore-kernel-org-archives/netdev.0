@@ -1,51 +1,39 @@
-From: Jouni Malinen <jouni@codeaurora.org>
-Subject: [PATCH 1/3] bridge: Base the BR_PROXYARP decision on the target port flag
-Date: Wed,  4 Feb 2015 11:51:05 +0200
-Message-ID: <1423043467-11148-1-git-send-email-jouni@codeaurora.org>
-Cc: netdev@vger.kernel.org, Kyeyoon Park <kyeyoonp@codeaurora.org>,
-	Jouni Malinen <jouni@codeaurora.org>
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Subject: Re: [PATCH] net: sched: One function call less in em_meta_change()
+ after error detection
+Date: Wed, 04 Feb 2015 10:54:14 +0100
+Message-ID: <54D1EC46.1020201@users.sourceforge.net>
+References: <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6>	<5317A59D.4@users.sourceforge.net>	<54CD042E.6030606@users.sourceforge.net> <20150203.161054.379086029122558267.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org,
+	Julia Lawall <julia.lawall@lip6.fr>
 To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.11.231]:42395 "EHLO
-	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964916AbbBDJwE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2015 04:52:04 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <20150203.161054.379086029122558267.davem@davemloft.net>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Kyeyoon Park <kyeyoonp@codeaurora.org>
+>> The meta_delete() function could be called in four cases by the
+>> em_meta_change() function during error handling even if the passed
+>> variable "meta" contained still a null pointer.
+>>
+>> * This implementation detail could be improved by adjustments for jump labels.
+>>
+>> * Let us return immediately after the first failed function call according to
+>>   the current Linux coding style convention.
+>>
+>> * Let us delete also unnecessary checks for the variables "err" and
+>>   "meta" there.
+> 
+> I kind of like the way the code is now, branching to the end of the function
+> even when cleanups are not necessary.
 
-When doing proxy ARP, instead of checking the bridge port flag for
-BR_PROXYARP on the bridge port on which the frame was received, check
-the bridge port flag of the bridge port to which the target device
-belongs.
+I would appreciate if the affected exception handling can become also
+a bit more efficient.
 
-Signed-off-by: Kyeyoon Park <kyeyoonp@codeaurora.org>
-Signed-off-by: Jouni Malinen <jouni@codeaurora.org>
----
- net/bridge/br_input.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+Regards,
+Markus
 
-diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
-index e2aa7be..cfd46c6 100644
---- a/net/bridge/br_input.c
-+++ b/net/bridge/br_input.c
-@@ -105,7 +105,7 @@ static void br_do_proxy_arp(struct sk_buff *skb, struct net_bridge *br,
- 		}
- 
- 		f = __br_fdb_get(br, n->ha, vid);
--		if (f)
-+		if (f && f->dst->flags & BR_PROXYARP)
- 			arp_send(ARPOP_REPLY, ETH_P_ARP, sip, skb->dev, tip,
- 				 sha, n->ha, sha);
- 
-@@ -155,7 +155,6 @@ int br_handle_frame_finish(struct sk_buff *skb)
- 
- 	if (is_broadcast_ether_addr(dest)) {
- 		if (IS_ENABLED(CONFIG_INET) &&
--		    p->flags & BR_PROXYARP &&
- 		    skb->protocol == htons(ETH_P_ARP))
- 			br_do_proxy_arp(skb, br, vid);
- 
--- 
-1.9.1
