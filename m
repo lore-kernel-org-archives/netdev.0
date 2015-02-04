@@ -1,48 +1,30 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: [PATCH] cxgb4: Delete an unnecessary check before the function call
- "release_firmware"
-Date: Wed, 04 Feb 2015 11:38:39 +0100
-Message-ID: <54D1F6AF.2090408@users.sourceforge.net>
-References: <5307CAA2.8060406@users.sourceforge.net> <alpine.DEB.2.02.1402212321410.2043@localhost6.localdomain6> <530A086E.8010901@users.sourceforge.net> <alpine.DEB.2.02.1402231635510.1985@localhost6.localdomain6> <530A72AA.3000601@users.sourceforge.net> <alpine.DEB.2.02.1402240658210.2090@localhost6.localdomain6> <530B5FB6.6010207@users.sourceforge.net> <alpine.DEB.2.10.1402241710370.2074@hadrien> <530C5E18.1020800@users.sourceforge.net> <alpine.DEB.2.10.1402251014170.2080@hadrien> <530CD2C4.4050903@users.sourceforge.net> <alpine.DEB.2.10.1402251840450.7035@hadrien> <530CF8FF.8080600@users.sourceforge.net> <alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6> <530DD06F.4090703@users.sourceforge.net> <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6> <5317A59D.4@users.so
- urceforge.net>
+From: Lorenzo Colitti <lorenzo@google.com>
+Subject: Re: [PATCH net v3] net: ipv6: allow explicitly choosing optimistic addresses
+Date: Wed, 4 Feb 2015 19:47:19 +0900
+Message-ID: <CAKD1Yr18AvHChpSJau5O2GypDRZ39sGaDfnjV4f73C77gYCXVw@mail.gmail.com>
+References: <1422859156-30691-1-git-send-email-ek@google.com>
+ <CAKD1Yr0k44kwwtfWN-t9C1f7WKT0o=yimPwbfLtBnnvUvXrm=w@mail.gmail.com> <CAAedzxoF2gJit1e05UJSOWX2RJwbA1PSbdABK3zgta-XtajJyw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	kernel-janitors@vger.kernel.org,
-	Julia Lawall <julia.lawall@lip6.fr>
-To: Hariprasad S <hariprasad@chelsio.com>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5317A59D.4@users.sourceforge.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: Erik Kline <ek@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f169.google.com ([209.85.223.169]:61299 "EHLO
+	mail-ie0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965433AbbBDKrm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2015 05:47:42 -0500
+Received: by mail-ie0-f169.google.com with SMTP id rl12so1032922iec.0
+        for <netdev@vger.kernel.org>; Wed, 04 Feb 2015 02:47:41 -0800 (PST)
+In-Reply-To: <CAAedzxoF2gJit1e05UJSOWX2RJwbA1PSbdABK3zgta-XtajJyw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Wed, 4 Feb 2015 11:28:43 +0100
+On Wed, Feb 4, 2015 at 7:38 PM, Erik Kline <ek@google.com> wrote:
+> One more thing I just noticed, though: if the interface and the
+> address matches the supplied arguments but we don't like the flags we
+> keep on processing all other addresses on that interface I think.  Is
+> that right?  (Easy to fix in a follow on patch.)
 
-The release_firmware() function tests whether its argument is NULL and then
-returns immediately. Thus the test around the call is not needed.
-
-This issue was detected by using the Coccinelle software.
-
-Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
----
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index 1147e1e..6d08b8c 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -5129,8 +5129,7 @@ static int adap_init0(struct adapter *adap)
- 				 state, &reset);
- 
- 		/* Cleaning up */
--		if (fw != NULL)
--			release_firmware(fw);
-+		release_firmware(fw);
- 		t4_free_mem(card_fw);
- 
- 		if (ret < 0)
--- 
-2.2.2
+What else would the code do? It loops over all the addresses on the
+system in hash table order, not interface-by-interface.
