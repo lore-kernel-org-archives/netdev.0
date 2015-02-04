@@ -1,29 +1,44 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: core/dev: fix sparse warning
-Date: Wed, 04 Feb 2015 05:21:42 -0800
-Message-ID: <1423056102.907.126.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1423052746-3688-1-git-send-email-prabhakar.csengg@gmail.com>
-	 <1423053695.907.117.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+V-a8vSfY79pqOoSr=F-Am8g4jmhM_DfC2f-SNaiNt9qu7hEA@mail.gmail.com>
+From: Vladimir Kondratiev <QCA_vkondrat@QCA.qualcomm.com>
+Subject: [RFC] NAPI behavior when (work < weight)
+Date: Wed, 4 Feb 2015 15:22:38 +0200
+Message-ID: <2015045.8auvsRvBkK@lx-wigig-72>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
 Cc: "David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>
-To: "Lad, Prabhakar" <prabhakar.csengg@gmail.com>
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Eric Dumazet <edumazet@google.com>,
+	Tom Herbert <therbert@google.com>,
+	Vlad Yasevich <vyasevic@redhat.com>,
+	Jiri Pirko <jiri@resnulli.us>,
+	John Fastabend <john.fastabend@gmail.com>,
+	Joe Perches <joe@perches.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f172.google.com ([209.85.213.172]:58121 "EHLO
-	mail-ig0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932630AbbBDNVo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2015 08:21:44 -0500
-In-Reply-To: <CA+V-a8vSfY79pqOoSr=F-Am8g4jmhM_DfC2f-SNaiNt9qu7hEA@mail.gmail.com>
+Received: from wolverine02.qualcomm.com ([199.106.114.251]:44099 "EHLO
+	wolverine02.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751292AbbBDNWn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2015 08:22:43 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2015-02-04 at 12:50 +0000, Lad, Prabhakar wrote:
+Hi
 
-> I tried it on gcc 4.3.3 and sparse with 0.4.5-rc1 version.
+I am observing that if driver does not calls napi_complete() when
+less than full budget consumed, various strange things happen.
 
-gcc-4.3.3 is 6 years old...
+For example, if driver going to napi_disable(), it may wait forever
+in the loop:
+
+	while (test_and_set_bit(NAPI_STATE_SCHED, &n->state))
+		msleep(1);
+
+if last NAPI consumed less then full budget, because bit
+NAPI_STATE_SCHED never cleared.
+
+Is it expected that driver calls napi_complete() when less than full
+budget consumed? Documentation does not say so.
+
+What is intended behavior in case above?
+
+Thanks, Vladimir 
