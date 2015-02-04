@@ -1,78 +1,570 @@
-From: Andy Zhou <azhou-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: [RFC: add openvswitch actions using BPF 4/9] autoconf:
-	support -with-llc options
-Date: Wed,  4 Feb 2015 14:49:18 -0800
-Message-ID: <1423090163-19902-5-git-send-email-azhou@nicira.com>
+From: Andy Zhou <azhou@nicira.com>
+Subject: [RFC: add openvswitch actions using BPF 7/9] ofproto-dpif: Add eBPF program loader and runtime infrasturcure.
+Date: Wed,  4 Feb 2015 14:49:21 -0800
+Message-ID: <1423090163-19902-8-git-send-email-azhou@nicira.com>
 References: <1423090163-19902-1-git-send-email-azhou@nicira.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: dev-yBygre7rU0SM8Zsap4Y0gw@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1423090163-19902-1-git-send-email-azhou-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Andy Zhou <azhou@nicira.com>
+To: dev@openvswitch.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from na3sys009aog113.obsmtp.com ([74.125.149.209]:49277 "HELO
+	na3sys009aog113.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1755804AbbBDXS1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2015 18:18:27 -0500
+Received: by mail-pa0-f43.google.com with SMTP id eu11so5857260pac.2
+        for <netdev@vger.kernel.org>; Wed, 04 Feb 2015 15:18:26 -0800 (PST)
+In-Reply-To: <1423090163-19902-1-git-send-email-azhou@nicira.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-QWRkIGEgY29uZmlndXJhdGlvbiBvcHRpb24gdG8gYWxsb3cgc3BlY2lmaW5nIHRoZSBMTFZNIGJh
-Y2tlbmQgbW9kdWxlCmZvciBjb21waWxpbmcgQlBGIEMgc291cmNlIGNvZGUgaW50byBCUEYgaW5z
-dHJ1Y3Rpb24gc2V0cy4KClNlZSBJTlNUQUxMLkJQRi5tZCBmb3IgdXNnYWUgaW5mb3JtYXRpb24u
-CgpTaWduZWQtb2ZmLWJ5OiBKb2UgU3RyaW5nZXIgPGpvZXN0cmluZ2VyQG5pY2lyYS5jb20+ClNp
-Z25lZC1vZmYtYnk6IEFuZHkgWmhvdSA8YXpob3VAbmljaXJhLmNvbT4KLS0tCiBJTlNUQUxMLkJQ
-Ri5tZCB8IDQyICsrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKwogTWFr
-ZWZpbGUuYW0gICAgfCAgMSArCiBhY2luY2x1ZGUubTQgICB8IDE2ICsrKysrKysrKysrKysrKysK
-IGNvbmZpZ3VyZS5hYyAgIHwgIDIgKysKIDQgZmlsZXMgY2hhbmdlZCwgNjEgaW5zZXJ0aW9ucygr
-KQogY3JlYXRlIG1vZGUgMTAwNjQ0IElOU1RBTEwuQlBGLm1kCgpkaWZmIC0tZ2l0IGEvSU5TVEFM
-TC5CUEYubWQgYi9JTlNUQUxMLkJQRi5tZApuZXcgZmlsZSBtb2RlIDEwMDY0NAppbmRleCAwMDAw
-MDAwLi5iYzFmNWFkCi0tLSAvZGV2L251bGwKKysrIGIvSU5TVEFMTC5CUEYubWQKQEAgLTAsMCAr
-MSw0MiBAQAorIyBEZXBlbmRlbmNpZXMKKworLSBOZWVkIENsYW5nICsgbGx2bS1kZXYgdmVyc2lv
-biAzLlggZm9yIGFueSAoMiA8PSBYIDw9IDQpCistIGh0dHA6Ly9sbHZtLm9yZy9hcHQvCisKK2Fw
-dC1nZXQgaW5zdGFsbCBsaWJlbGYtZGV2IGNsYW5nLTMuNCBsbHZtLTMuNC1kZXYKKworIyBCdWls
-ZCBMTFZNIHBsdWdpbgorCisqW1Vwc3RyZWFtXSBnaXQ6Ly9naXQua2VybmVsLm9yZy9wdWIvc2Nt
-L2xpbnV4L2tlcm5lbC9naXQvYXN0L2JwZioKKworZ2l0IGNsb25lIGdpdDovL2dpdGh1Yi5jb20v
-am9lc3RyaW5nZXIvbGludXgKK05OPSRQV0QvbGludXgKKworY2QgJE5OL3Rvb2xzL2JwZi9sbHZt
-L2JsZAorbWFrZSBMTFZNX0NPTkZJRz1gd2hpY2ggbGx2bS1jb25maWctMy40YAorCisjIENvbmZp
-Z3VyZSBPVlMgdG8gdXNlIEJQRiBMTEMKKworT1ZTPS9wYXRoL3RvL29wZW52c3dpdGNoCitjZCAk
-T1ZTCisuL2NvbmZpZ3VyZSAtLXdpdGgtbGxjPSROTi90b29scy9icGYvbGx2bS9ibGQvRGVidWcr
-QXNzZXJ0cy9iaW4vbGxjCisKKyMgQnVpbGQgT1ZTIGFuZCBCUEYgbW9kdWxlCisKK21ha2UKK2Nk
-IGRhdGFwYXRoL2JwZgorbWFrZQorCisjIExvYWQgQlBGIG1vZHVsZQorCitjZCAkTk4vCittYWtl
-IE09c2FtcGxlcy9icGYKK3NhbXBsZXMvYnBmL3NpbXBsZV9sb2FkICRPVlMvZGF0YXBhdGgvYnBm
-L3NpbXBsZS5icGYKKworTm90ZSBkb3duIHdoaWNoIGZkIHdhcyB1c2VkIGZvciB0aGUgcHJvZ3Jh
-bS4gVGhpcyB3aWxsIGJlIHVzZWQgaW4gbmV4dCBzdGVwLgorCisjIEluc3RhbGwgZmxvdyB0byB1
-c2UgQlBGCisKKyRPVlMvdXRpbGl0aWVzL292cy1kcGN0bCBhZGQtZmxvdyAiZXRoKHNyYz0wMDow
-MDowMDowMDowMDowMCxkc3Q9MDA6MDA6MDA6MDA6MDA6MDApIiAiYnBmKDxGRD4sIDApIgorCitT
-dWNjZXNzPwpkaWZmIC0tZ2l0IGEvTWFrZWZpbGUuYW0gYi9NYWtlZmlsZS5hbQppbmRleCAxMzYz
-YWJlLi5lZThmZTAzIDEwMDY0NAotLS0gYS9NYWtlZmlsZS5hbQorKysgYi9NYWtlZmlsZS5hbQpA
-QCAtNzEsNiArNzEsNyBAQCBkb2NzID0gXAogCURFU0lHTi5tZCBcCiAJRkFRLm1kIFwKIAlJTlNU
-QUxMLm1kIFwKKwlJTlNUQUxMLkJQRi5tZCBcCiAJSU5TVEFMTC5EZWJpYW4ubWQgXAogCUlOU1RB
-TEwuRG9ja2VyLm1kIFwKIAlJTlNUQUxMLkRQREsubWQgXApkaWZmIC0tZ2l0IGEvYWNpbmNsdWRl
-Lm00IGIvYWNpbmNsdWRlLm00CmluZGV4IGY0MTkwNTYuLmUzYjUzNTYgMTAwNjQ0Ci0tLSBhL2Fj
-aW5jbHVkZS5tNAorKysgYi9hY2luY2x1ZGUubTQKQEAgLTE1Nyw2ICsxNTcsMjIgQEAgQUNfREVG
-VU4oW09WU19DSEVDS19MSU5VWF0sIFsKICAgQU1fQ09ORElUSU9OQUwoTElOVVhfRU5BQkxFRCwg
-dGVzdCAtbiAiJEtCVUlMRCIpCiBdKQogCitkbmwgT1ZTX0NIRUNLX0JQRgorZG5sCitkbmwgQ2hl
-Y2sgY2xhbmcgc2V0IHVwcyBmb3IgY29tcGlsaW5nIEJQRgorQUNfREVGVU4oW09WU19DSEVDS19M
-TENdLCBbCisgIEFDX0FSR19XSVRIKFtsbGNdLAorICAgICAgICAgICAgICBbQUNfSEVMUF9TVFJJ
-TkcoWy0td2l0aC1sbGM9L3BhdGgvdG8vbGxjXSwKKyAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgIFtTcGVjaWZ5IHRoZSBicGYgY2xhbmcgYmFja2VuZCBiaW5yYXJ5XSldKQorCisgIGlmICh0
-ZXN0IFgiJHdpdGhfbGxjIiAhPSBYKTsgdGhlbgorICAgIExMQz0kd2l0aF9sbGMKKyAgICAgIGlm
-ICh0ZXN0ICEgLXggJExMQyk7IHRoZW4KKyAgICAgICAgIEFDX01TR19FUlJPUihbQlBGIGxsYyBi
-YWNrZW5kIGlzIGNvbmZpZ3VyZWQgYnV0IG5vdCBmb3VuZCBdKQorICAgICAgZmkKKyAgZmkKK10p
-CisKIGRubCBPVlNfQ0hFQ0tfRFBESwogZG5sCiBkbmwgQ29uZmlndXJlIERQREsgc291cmNlIHRy
-ZWUKZGlmZiAtLWdpdCBhL2NvbmZpZ3VyZS5hYyBiL2NvbmZpZ3VyZS5hYwppbmRleCBkMmQwMmNh
-Li43NTEwZDU2IDEwMDY0NAotLS0gYS9jb25maWd1cmUuYWMKKysrIGIvY29uZmlndXJlLmFjCkBA
-IC0xNjAsOCArMTYwLDEwIEBAIE9WU19FTkFCTEVfU1BBUlNFCiAKIEFDX0FSR19WQVIoS0FSQ0gs
-IFtLZXJuZWwgQXJjaGl0ZWN0dXJlIFN0cmluZ10pCiBBQ19TVUJTVChLQVJDSCkKK0FDX0FSR19W
-QVIoTExDLCBbTExWTSBicGYgYmFja2VuZCBwcm9jZXNzb3JdKQogT1ZTX0NIRUNLX0xJTlVYCiBP
-VlNfQ0hFQ0tfRFBESworT1ZTX0NIRUNLX0xMQwogT1ZTX0NIRUNLX1BSQUdNQV9NRVNTQUdFCiBB
-Q19TVUJTVChbT1ZTX0NGTEFHU10pCiBBQ19TVUJTVChbT1ZTX0xERkxBR1NdKQotLSAKMS45LjEK
-Cl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmRldiBtYWls
-aW5nIGxpc3QKZGV2QG9wZW52c3dpdGNoLm9yZwpodHRwOi8vb3BlbnZzd2l0Y2gub3JnL21haWxt
-YW4vbGlzdGluZm8vZGV2Cg==
+Added a eBPF program loader in ofproto-dpif layer. It only loades
+the OVS programs.
+
+Signed-off-by: Andy Zhou <azhou@nicira.com>
+---
+ ofproto/automake.mk        |   2 +
+ ofproto/ofproto-dpif-bpf.c | 454 +++++++++++++++++++++++++++++++++++++++++++++
+ ofproto/ofproto-dpif-bpf.h |  42 +++++
+ vswitchd/automake.mk       |   5 +
+ 4 files changed, 503 insertions(+)
+ create mode 100644 ofproto/ofproto-dpif-bpf.c
+ create mode 100644 ofproto/ofproto-dpif-bpf.h
+
+diff --git a/ofproto/automake.mk b/ofproto/automake.mk
+index 0058ff3..86719de 100644
+--- a/ofproto/automake.mk
++++ b/ofproto/automake.mk
+@@ -28,6 +28,8 @@ ofproto_libofproto_la_SOURCES = \
+ 	ofproto/ofproto.h \
+ 	ofproto/ofproto-dpif.c \
+ 	ofproto/ofproto-dpif.h \
++	ofproto/ofproto-dpif-bpf.c \
++	ofproto/ofproto-dpif-bpf.h \
+ 	ofproto/ofproto-dpif-ipfix.c \
+ 	ofproto/ofproto-dpif-ipfix.h \
+ 	ofproto/ofproto-dpif-mirror.c \
+diff --git a/ofproto/ofproto-dpif-bpf.c b/ofproto/ofproto-dpif-bpf.c
+new file mode 100644
+index 0000000..12f6766
+--- /dev/null
++++ b/ofproto/ofproto-dpif-bpf.c
+@@ -0,0 +1,454 @@
++/*
++ * Copyright (c) 2015 Nicira, Inc.
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at:
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++#include <config.h>
++
++#include <stdio.h>
++#include <sys/types.h>
++#include <sys/stat.h>
++#include <fcntl.h>
++#include <libelf.h>
++#include <gelf.h>
++#include <errno.h>
++#include <unistd.h>
++#include <string.h>
++#include <stdbool.h>
++#include <linux/bpf.h>
++#include <linux/filter.h>
++#include <pthread.h>
++#include "simap.h"
++#include "util.h"
++#include "dirs.h"
++#include "unixctl.h"
++#include "dynamic-string.h"
++#include "ovs-atomic.h"
++#include "openvswitch/thread.h"
++#include "openvswitch/vlog.h"
++#include "ofproto-dpif-bpf.h"
++#include "libbpf.h"
++#include "bpf/bpf-shared.h"
++
++#define DEFAULT_BPF_ACTION_FILE "ovs-actions.bpf"
++#define BPF_MAP_STUB_SIZE 32
++
++VLOG_DEFINE_THIS_MODULE(bpf);
++
++struct bpf_info {
++    struct simap bpf_maps;
++    struct simap bpf_progs;
++};
++
++static struct bpf_info ovs_bpfs__ = {
++    SIMAP_INITIALIZER(&ovs_bpfs__.bpf_maps),
++    SIMAP_INITIALIZER(&ovs_bpfs__.bpf_progs),
++};
++
++static bool bpf_enable__ = false;
++static struct ovs_mutex mutex = OVS_MUTEX_INITIALIZER;
++static struct bpf_info *const ovs_bpfs OVS_GUARDED_BY(mutex) = &ovs_bpfs__;
++
++#define BPF_UNIXCTL_CHECK(conn) \
++    if (bpf_unixctl_check_enable(conn) == -1) return
++
++/*
++ * Get the default eBPF action file name.
++ *
++ * Returns the file name. Caller is responsible for free the memory.  */
++static char *
++bpf_default_path(void)
++{
++    return xasprintf("%s/%s", ovs_pkgdatadir(), DEFAULT_BPF_ACTION_FILE);
++}
++
++static int
++bpf_unixctl_check_enable(struct unixctl_conn *conn)
++{
++    if (!bpf_enable__) {
++        unixctl_command_reply(conn, "Current datapath doest not support eBPF actions.\n");
++        return -1;
++    }
++
++    return 0;
++}
++
++static void 
++add_map(char *map_name,  int fd)
++{
++    ovs_mutex_lock(&mutex);
++    simap_put(&ovs_bpfs->bpf_maps, map_name, fd);
++    ovs_mutex_unlock(&mutex);
++}
++
++static void
++add_prog(char *prog_name, int fd)
++{
++    ovs_mutex_lock(&mutex);
++    simap_put(&ovs_bpfs->bpf_progs, prog_name, fd);
++    ovs_mutex_unlock(&mutex);
++}
++
++static int
++is_ovs_section(const char *shname) {
++   return !memcmp(shname, "ovs", 3);
++}
++
++static int
++load_maps(struct bpf_map_def *maps, int len, int map_fds[])
++{
++    int i, fd;
++
++    for (i = 0; i < len / sizeof(struct bpf_map_def); i++) {
++        char *name;
++
++        fd = bpf_create_map(maps[i].type, maps[i].key_size,
++                            maps[i].value_size, maps[i].max_entries);
++
++        if (fd < 0) {
++            return fd;
++        }
++
++        name = xasprintf("map%d(type[%u],ks[%u],vs[%u],max[%u])",
++                         i, maps[i].type, maps[i].key_size,
++                         maps[i].value_size, maps[i].max_entries);
++
++        map_fds[i] = fd;
++        add_map(name, fd);
++        free(name);
++    }
++
++    return 0;
++}
++
++static int
++load_prog(int type, struct bpf_insn *prog, int size, char *license)
++{
++    return bpf_prog_load(type, prog, size, license);
++}
++
++static int
++parse_relo_and_apply(Elf_Data *data, Elf_Data *symbols,
++                     GElf_Shdr *shdr, struct bpf_insn *insn, int map_fds[])
++{
++    int i, nrels;
++
++    nrels = shdr->sh_size / shdr->sh_entsize;
++
++    for (i = 0; i < nrels; i++) {
++        GElf_Sym sym;
++        GElf_Rel rel;
++        unsigned int insn_idx;
++
++        gelf_getrel(data, i, &rel);
++
++        insn_idx = rel.r_offset / sizeof(struct bpf_insn);
++
++        gelf_getsym(symbols, GELF_R_SYM(rel.r_info), &sym);
++
++        if (insn[insn_idx].code != (BPF_LD | BPF_IMM | BPF_DW)) {
++            VLOG_ERR("invalid relo for insn[%d].code 0x%x\n",
++                     insn_idx, insn[insn_idx].code);
++            return 1;
++        }
++        insn[insn_idx].src_reg = BPF_PSEUDO_MAP_FD;
++        insn[insn_idx].imm = map_fds[sym.st_value / sizeof(struct bpf_map_def)];
++    }
++
++    return 0;
++}
++
++static int
++get_sec(Elf *elf, int i, GElf_Ehdr *ehdr, char **shname,
++        GElf_Shdr *shdr, Elf_Data **data)
++{
++    Elf_Scn *scn;
++
++    scn = elf_getscn(elf, i);
++    if (!scn) {
++        return -1;
++    }
++
++    if (gelf_getshdr(scn, shdr) != shdr) {
++        return -2;
++    }
++
++    *shname = elf_strptr(elf, ehdr->e_shstrndx, shdr->sh_name);
++    if (!*shname || !shdr->sh_size) {
++        return -3;
++    }
++
++    *data = elf_getdata(scn, 0);
++    if (!*data || elf_getdata(scn, *data) != NULL) {
++        return -4;
++    }
++
++    return 0;
++}
++
++static int
++ofproto_dpif_load_bpf(const char *bpf_file OVS_UNUSED)
++{
++    int fd, i;
++    Elf *elf;
++    GElf_Ehdr ehdr;
++    GElf_Shdr shdr, shdr_prog;
++    Elf_Data *data, *data_prog, *symbols;
++    char *shname, *shname_prog, *license, *err;
++    int *map_fds;
++
++    err = license = NULL;
++    symbols = NULL;
++
++    if (elf_version(EV_CURRENT) == EV_NONE) {
++        err = xasprintf("Elf library out of date");
++        goto error;
++    }
++
++    fd = open(bpf_file, O_RDONLY, 0);
++    if (fd < 0) {
++        err = xasprintf("Failed to read %s", bpf_file);
++        goto error;
++    }
++
++    elf = elf_begin(fd, ELF_C_READ, NULL);
++    if (!elf) {
++        err = xasprintf("Elf file %s has internal error", bpf_file);
++        goto error;
++    }
++
++    
++    if (gelf_getehdr(elf, &ehdr) != &ehdr) {
++        err = xasprintf("Elf file %s has internal error", bpf_file);
++        goto error;
++    }
++
++    map_fds = xmalloc(sizeof(int) * ehdr.e_shnum);
++    for (i = 1;  i < ehdr.e_shnum; i++) {
++        if (get_sec(elf, i, &ehdr, &shname, &shdr, &data)) {
++            continue;
++        }
++
++        if ((strcmp(shname, "license") == 0) && (license == NULL)) {
++            license = xmalloc(data->d_size);
++            memcpy(license, data->d_buf, data->d_size);
++        } else if (strcmp(shname, "maps") == 0) {
++            if (load_maps(data->d_buf, data->d_size, map_fds)) {
++                err = xasprintf("Failed to load maps");
++                goto error;
++            }
++        } else if (shdr.sh_type == SHT_SYMTAB) {
++            symbols = data;
++        }
++    }
++
++    /* Load programs that need map fixups (relocations).  */
++    for (i = 1;  i < ehdr.e_shnum; i++) {
++        if (get_sec(elf, i, &ehdr, &shname, &shdr, &data)) {
++            continue;
++        }
++
++        if (shdr.sh_type == SHT_REL) {
++            struct bpf_insn *insns;
++
++            if (get_sec(elf, shdr.sh_info, &ehdr, &shname_prog,
++                        &shdr_prog, &data_prog)) {
++                continue;
++            }
++
++            insns = (struct bpf_insn *) data_prog->d_buf;
++            
++            if (is_ovs_section(shname_prog)) {
++                int fd;
++                if (parse_relo_and_apply(data, symbols, &shdr, insns, map_fds)) {
++                    err = xasprintf("Failed to relocate ovs programs.");
++                    goto error;
++                }
++                fd = load_prog(BPF_PROG_TYPE_OPENVSWITCH, insns,
++                               data_prog->d_size, license);
++
++                if (fd) {
++                    add_prog(shname_prog, fd);
++                } else {
++                    err = xasprintf("Failed load ovs program %s", shname_prog);
++                    goto error;
++                }
++            }
++        }
++    }
++    free(map_fds);
++    map_fds = NULL;
++
++    /* Load OVS programs that don't use maps. */
++    for (i = 1;  i < ehdr.e_shnum; i++) {
++        if (get_sec(elf, i, &ehdr, &shname, &shdr, &data)) {
++            continue;
++        }
++
++        if (is_ovs_section(shname) && !ofproto_dpif_bpf_lookup(shname)) {
++            int fd;
++
++            fd = load_prog(BPF_PROG_TYPE_OPENVSWITCH, data->d_buf,
++                           data->d_size, license);
++
++            if (fd) {
++                add_prog(shname, fd);
++            } else {
++                err = xasprintf("Failed load ovs program %s", shname);
++                goto error;
++            }
++        }
++    }
++
++error:
++    if (fd) {
++        close(fd);
++    }
++
++    if (license) {
++        free(license);
++    }
++
++    if (map_fds) {
++        free(map_fds);
++    }
++
++    if (err) {
++        VLOG_ERR("%s", err); 
++        free(err);
++        return -1;
++    }
++
++    return 0;
++}
++
++void
++ofproto_dpif_bpf_close()
++{
++    struct simap_node *node;
++
++    ovs_mutex_lock(&mutex);
++
++    SIMAP_FOR_EACH(node, &ovs_bpfs->bpf_progs) {
++        //int fd = (int)node->data;
++
++        //fclose(fd);
++        simap_delete(&ovs_bpfs->bpf_progs, node);
++    }
++
++    SIMAP_FOR_EACH(node, &ovs_bpfs->bpf_maps) {
++        //int fd = (int)node->data;
++        //fclose(fd);
++        simap_delete(&ovs_bpfs->bpf_maps, node);
++    }
++
++    ovs_mutex_unlock(&mutex);
++}
++
++int
++ofproto_dpif_bpf_lookup(const char *bpf_prog_name)
++{
++    struct simap_node *node;
++    int fd = 0;
++
++    ovs_mutex_lock(&mutex);
++    node = simap_find(&ovs_bpfs->bpf_progs, bpf_prog_name);
++    if (node) {
++        fd =(int)node->data;
++    }
++    ovs_mutex_unlock(&mutex);
++
++    return fd;
++}
++
++static void
++bpf_unixctl_show(struct unixctl_conn *conn, int argc OVS_UNUSED,
++                 const char *argv[] OVS_UNUSED, void *aux OVS_UNUSED)
++{
++    struct ds ds = DS_EMPTY_INITIALIZER;
++    struct simap_node *node;
++    char *bpf_file;
++
++    BPF_UNIXCTL_CHECK(conn);
++
++    bpf_file = bpf_default_path();
++    ds_put_format(&ds, "eBPF file: %s \n", bpf_file);
++    free(bpf_file);
++
++    ovs_mutex_lock(&mutex);
++
++    ds_put_format(&ds, "eBPF maps:\n");
++    SIMAP_FOR_EACH(node, &ovs_bpfs->bpf_maps) {
++        ds_put_format(&ds, "\t%-40s%d\n", node->name, (int)node->data);
++    }
++
++    ds_put_format(&ds, "eBPF programs:\n");
++    SIMAP_FOR_EACH(node, &ovs_bpfs->bpf_progs) {
++        ds_put_format(&ds, "\t%-40s%d\n", node->name, (int)node->data);
++    }
++
++    ovs_mutex_unlock(&mutex);
++
++    unixctl_command_reply(conn, ds_cstr(&ds));
++    ds_destroy(&ds);
++}
++
++static void
++bpf_unixctl_clear(struct unixctl_conn *conn, int argc OVS_UNUSED,
++                 const char *argv[] OVS_UNUSED, void *aux OVS_UNUSED)
++{
++    BPF_UNIXCTL_CHECK(conn);
++
++    ofproto_dpif_bpf_close();
++    unixctl_command_reply(conn, "OK");
++}
++
++static void
++bpf_unixctl_reload(struct unixctl_conn *conn, int argc OVS_UNUSED,
++                 const char *argv[] OVS_UNUSED, void *aux OVS_UNUSED)
++{
++    char *bpf_fpath = NULL;
++    int err = 0;
++
++    BPF_UNIXCTL_CHECK(conn);
++
++    ofproto_dpif_bpf_close();
++
++    bpf_fpath = bpf_default_path();
++    err = ofproto_dpif_load_bpf(bpf_fpath);
++    free(bpf_fpath);
++    unixctl_command_reply(conn, err ? "Failed" : "OK");
++}
++
++int
++ofproto_dpif_bpf_init(bool enable)
++{
++    char *bpf_fpath = NULL;
++    int err = 0;
++
++    bpf_enable__ = enable;
++
++    unixctl_command_register("bpf/show",  "", 0, 0, bpf_unixctl_show, NULL);
++    unixctl_command_register("bpf/clear", "", 0, 0, bpf_unixctl_clear, NULL);
++    unixctl_command_register("bpf/reload","", 1, 1, bpf_unixctl_reload, NULL);
++
++    err = 0;
++    if (enable) {
++        bpf_fpath = bpf_default_path();
++        err = ofproto_dpif_load_bpf(bpf_fpath);
++        free(bpf_fpath);
++    }
++
++    return err;
++}
+diff --git a/ofproto/ofproto-dpif-bpf.h b/ofproto/ofproto-dpif-bpf.h
+new file mode 100644
+index 0000000..14acb88
+--- /dev/null
++++ b/ofproto/ofproto-dpif-bpf.h
+@@ -0,0 +1,42 @@
++/*
++ * Copyright (c) 2015 Nicira, Inc.
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at:
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++#ifndef OFPROTO_DPIF_BPF_H
++#define OFPROTO_DPIF_BPF_H
++
++#ifdef __linux__
++int ofproto_dpif_bpf_init(bool enable);
++void ofproto_dpif_bpf_close(void);
++int ofproto_dpif_bpf_lookup(const char *bpf_prog_name);
++#else
++static inline int
++ofproto_dpif_bpf_init(bool enable)
++{
++    return 0;
++}
++
++static void
++ofproto_dpif_bpf_close(void)
++{
++}
++
++static int
++ofproto_dpif_bpf_lookup(const char *bpf_prog_name)
++{
++    return -2;
++}
++#endif
++
++#endif
+diff --git a/vswitchd/automake.mk b/vswitchd/automake.mk
+index 80affe9..a94720b 100644
+--- a/vswitchd/automake.mk
++++ b/vswitchd/automake.mk
+@@ -19,6 +19,11 @@ vswitchd_ovs_vswitchd_LDFLAGS = $(AM_LDFLAGS) $(DPDK_vswitchd_LDFLAGS)
+ EXTRA_DIST += vswitchd/INTERNALS
+ MAN_ROOTS += vswitchd/ovs-vswitchd.8.in
+ 
++if LINUX
++vswitchd_ovs_vswitchd_LDADD += lib/libbpf.la
++vswitchd_ovs_vswitchd_LDADD += -lelf
++endif
++
+ # vswitch schema and IDL
+ EXTRA_DIST += vswitchd/vswitch.ovsschema
+ pkgdata_DATA += vswitchd/vswitch.ovsschema
+-- 
+1.9.1
