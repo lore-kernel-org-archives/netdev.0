@@ -1,80 +1,74 @@
-From: Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>
-Subject: [PATCH net-next v2] hyper-v: allow access to vmbus from
- userspace driver
-Date: Wed, 4 Feb 2015 15:20:29 -0800
-Message-ID: <20150204152029.65f02d64@urahara>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: dev-VfR2kkLFssw@public.gmane.org, devel-tBiZLqfeLfOHmIFyCCdPziST3g8Odh+X@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: KY Srinivasan <kys-0li6OtcxBFHby3iVrkZq2A@public.gmane.org>, Haiyang Zhang <haiyangz-0li6OtcxBFHby3iVrkZq2A@public.gmane.org>
-Return-path: <dev-bounces-VfR2kkLFssw@public.gmane.org>
-List-Unsubscribe: <http://dpdk.org/ml/options/dev>,
- <mailto:dev-request-VfR2kkLFssw@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://dpdk.org/ml/archives/dev/>
-List-Post: <mailto:dev-VfR2kkLFssw@public.gmane.org>
-List-Help: <mailto:dev-request-VfR2kkLFssw@public.gmane.org?subject=help>
-List-Subscribe: <http://dpdk.org/ml/listinfo/dev>,
- <mailto:dev-request-VfR2kkLFssw@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-VfR2kkLFssw@public.gmane.org
-Sender: "dev" <dev-bounces-VfR2kkLFssw@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+From: Andy Zhou <azhou@nicira.com>
+Subject: [RFC: add openvswitch actions using BPF 9/9] ofproto-dpif-xlate: generate BPF output action (Hack)
+Date: Wed,  4 Feb 2015 14:49:23 -0800
+Message-ID: <1423090163-19902-10-git-send-email-azhou@nicira.com>
+References: <1423090163-19902-1-git-send-email-azhou@nicira.com>
+Cc: netdev@vger.kernel.org, Andy Zhou <azhou@nicira.com>
+To: dev@openvswitch.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from na3sys009aog129.obsmtp.com ([74.125.149.142]:37012 "HELO
+	na3sys009aog129.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S965179AbbBDXUm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2015 18:20:42 -0500
+Received: by mail-pd0-f170.google.com with SMTP id v10so3682880pde.3
+        for <netdev@vger.kernel.org>; Wed, 04 Feb 2015 15:20:42 -0800 (PST)
+In-Reply-To: <1423090163-19902-1-git-send-email-azhou@nicira.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is enables the hyper-v driver for DPDK <dev-VfR2kkLFssw@public.gmane.org>.
-The hv_uio driver needs to access the shared vmbus monitor
-pages.
+This is a hack in xlate code to always generate both BPF output
+and the original output action. Since the currnet BPF output 'action'
+simply generate a kenrel log message about the output port number.
 
-I would also like to put hv_uio in upstream kernel like other
-uio drivers, but need to get API accepted with DPDK first.
+With this patch, Every time datapath output a packet, it also generate
+log about the port number in the kernel log.
 
-Signed-off-by: Stas Egorov <segorov-nYU0QVwCCFFWk0Htik3J/w@public.gmane.org>
-Signed-off-by: Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>
-
+Signed-off-by: Andy Zhou <azhou@nicira.com>
 ---
-v2 - simplify and rename to vmbus_get_monitor_pages
+ ofproto/ofproto-dpif-xlate.c | 18 ++++++++++++++++--
+ 1 file changed, 16 insertions(+), 2 deletions(-)
 
- drivers/hv/connection.c |   20 +++++++++++++++++---
- include/linux/hyperv.h  |    3 +++
- 2 files changed, 20 insertions(+), 3 deletions(-)
-
---- a/drivers/hv/connection.c	2015-02-03 10:58:51.751752450 -0800
-+++ b/drivers/hv/connection.c	2015-02-04 14:59:51.636194383 -0800
-@@ -64,6 +64,15 @@ static __u32 vmbus_get_next_version(__u3
- 	}
- }
+diff --git a/ofproto/ofproto-dpif-xlate.c b/ofproto/ofproto-dpif-xlate.c
+index 0786513..41a7502 100644
+--- a/ofproto/ofproto-dpif-xlate.c
++++ b/ofproto/ofproto-dpif-xlate.c
+@@ -15,6 +15,7 @@
+ #include <config.h>
  
-+void vmbus_get_monitor_pages(unsigned long *int_page,
-+			     unsigned long monitor_pages[2])
-+{
-+	*int_page = (unsigned long)vmbus_connection.int_page;
-+	monitor_pages[0] = (unsigned long)vmbus_connection.monitor_pages[0];
-+	monitor_pages[1] = (unsigned long)vmbus_connection.monitor_pages[1];
-+}
-+EXPORT_SYMBOL_GPL(vmbus_get_monitor_pages);
+ #include "ofproto/ofproto-dpif-xlate.h"
++#include "ofproto/ofproto-dpif-bpf.h"
+ 
+ #include <errno.h>
+ #include <arpa/inet.h>
+@@ -2833,14 +2834,27 @@ compose_output_action__(struct xlate_ctx *ctx, ofp_port_t ofp_port,
+                                         OVS_ACTION_ATTR_TUNNEL_POP,
+                                         odp_tnl_port);
+                 } else {
++                    int fd;
++                    struct ovs_action_bpf_prog bpf_output;
 +
- static int vmbus_negotiate_version(struct vmbus_channel_msginfo *msginfo,
- 					__u32 version)
- {
-@@ -347,10 +356,7 @@ static void process_chn_event(u32 relid)
- 			else
- 				bytes_to_read = 0;
- 		} while (read_state && (bytes_to_read != 0));
--	} else {
--		pr_err("no channel callback for relid - %u\n", relid);
- 	}
--
- }
- 
- /*
---- a/include/linux/hyperv.h	2015-02-03 10:58:51.751752450 -0800
-+++ b/include/linux/hyperv.h	2015-02-04 15:00:26.388355012 -0800
-@@ -868,6 +868,9 @@ extern int vmbus_recvpacket_raw(struct v
- 
- extern void vmbus_ontimer(unsigned long data);
- 
-+extern void vmbus_get_monitor_pages(unsigned long *int_page,
-+				    unsigned long monitor_pages[2]);
++                    fd = ofproto_dpif_bpf_lookup("ovs/output");
 +
- /* Base driver object */
- struct hv_driver {
- 	const char *name;
++                    if (fd > 0) {
++                        bpf_output.prog_fd = htonl(fd);
++                        bpf_output.arg0 = htonl(out_port);
++                        bpf_output.arg1 = htonl(0);
++                        nl_msg_push_unspec(ctx->xout->odp_actions,
++                                           OVS_ACTION_ATTR_BPF_PROG,
++                                           &bpf_output, sizeof(bpf_output));
++                    }
+                     /* Tunnel push-pop action is not compatible with
+                      * IPFIX action. */
+                     add_ipfix_output_action(ctx, out_port);
+                     nl_msg_put_odp_port(ctx->xout->odp_actions,
+                                         OVS_ACTION_ATTR_OUTPUT,
+                                         out_port);
+-               }
+-           }
++                }
++            }
+         }
+ 
+         ctx->sflow_odp_port = odp_port;
+-- 
+1.9.1
