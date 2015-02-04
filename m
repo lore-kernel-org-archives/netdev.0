@@ -1,50 +1,35 @@
-From: Erik Hugne <erik.hugne@ericsson.com>
-Subject: skb_try_coalesce and fraglists (bug?)
-Date: Wed, 4 Feb 2015 17:33:43 +0100
-Message-ID: <20150204163343.GA857@haze>
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Subject: [PATCH 0/2] CW1200: Deletion of an unnecessary check
+Date: Wed, 04 Feb 2015 17:45:55 +0100
+Message-ID: <54D24CC3.9010006@users.sourceforge.net>
+References: <5307CAA2.8060406@users.sourceforge.net> <alpine.DEB.2.02.1402212321410.2043@localhost6.localdomain6> <530A086E.8010901@users.sourceforge.net> <alpine.DEB.2.02.1402231635510.1985@localhost6.localdomain6> <530A72AA.3000601@users.sourceforge.net> <alpine.DEB.2.02.1402240658210.2090@localhost6.localdomain6> <530B5FB6.6010207@users.sourceforge.net> <alpine.DEB.2.10.1402241710370.2074@hadrien> <530C5E18.1020800@users.sourceforge.net> <alpine.DEB.2.10.1402251014170.2080@hadrien> <530CD2C4.4050903@users.sourceforge.net> <alpine.DEB.2.10.1402251840450.7035@hadrien> <530CF8FF.8080600@users.sourceforge.net> <alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6> <530DD06F.4090703@users.sourceforge.net> <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6> <5317A59D.4@users.so
+ urceforge.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <mkubecek@suse.cz>, <ying.xue@windriver.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sessmg23.ericsson.net ([193.180.251.45]:53054 "EHLO
-	sessmg23.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S966683AbbBDQfp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2015 11:35:45 -0500
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	kernel-janitors@vger.kernel.org,
+	Julia Lawall <julia.lawall@lip6.fr>
+To: Kalle Valo <kvalo@codeaurora.org>,
+	Solomon Peachy <pizza@shaftnet.org>, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5317A59D.4@users.sourceforge.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-skb_try_coalesce should bail out for a number of reasons, if the target skb is
-cloned, doesn't have enough room, or if either source or target skb have
-fraglists.
+From: Markus Elfring <elfring@users.sourceforge.net>
+Date: Wed, 4 Feb 2015 17:31:00 +0100
 
-However, it seems that the skb_has_frag_list check is done too late, and a small
-skb may be copied into the tailroom of the head, even if it has a fraglist.
+Another update suggestion was taken into account after a patch was applied
+from static source code analysis.
 
-Wouldn't this be more correct?
+Markus Elfring (2):
+  Delete an unnecessary check before the function call "release_firmware"
+  Less function calls in cw1200_load_firmware_cw1200() after error detection
 
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 56db472..8d02140 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -4056,6 +4056,9 @@ bool skb_try_coalesce(struct sk_buff *to, struct sk_buff *from,
-        if (skb_cloned(to))
-                return false;
- 
-+       if (skb_has_frag_list(to) || skb_has_frag_list(from))
-+               return false;
-+
-        if (len <= skb_tailroom(to)) {
-                if (len)
-                        BUG_ON(skb_copy_bits(from, 0, skb_put(to, len), len));
-@@ -4063,9 +4066,6 @@ bool skb_try_coalesce(struct sk_buff *to, struct sk_buff *from,
-                return true;
-        }
- 
--       if (skb_has_frag_list(to) || skb_has_frag_list(from))
--               return false;
--
-        if (skb_headlen(from) != 0) {
-                struct page *page;
-                unsigned int offset;
+ drivers/net/wireless/cw1200/fwio.c | 40 +++++++++++++++++++++++---------------
+ 1 file changed, 24 insertions(+), 16 deletions(-)
+
+-- 
+2.2.2
