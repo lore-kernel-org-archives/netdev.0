@@ -1,108 +1,106 @@
 From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: [PATCH v3 11/18] net: bury net/core/iovec.c - nothing in there is used anymore
-Date: Wed,  4 Feb 2015 06:40:02 +0000
-Message-ID: <1423032009-18367-11-git-send-email-viro@ZenIV.linux.org.uk>
+Subject: [PATCH v3 18/18] vhost: vhost_scsi_handle_vq() should just use
+	copy_from_user()
+Date: Wed,  4 Feb 2015 06:40:09 +0000
+Message-ID: <1423032009-18367-18-git-send-email-viro@ZenIV.linux.org.uk>
 References: <20150204063730.GG29656@ZenIV.linux.org.uk>
-Cc: netdev@vger.kernel.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	kvm@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>
 To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeniv.linux.org.uk ([195.92.253.2]:43093 "EHLO
-	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752736AbbBDGkM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2015 01:40:12 -0500
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
 In-Reply-To: <20150204063730.GG29656@ZenIV.linux.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
 From: Al Viro <viro@zeniv.linux.org.uk>
 
+it has just verified that it asks no more than the length of the
+first segment of iovec.
+
+And with that the last user of stuff in lib/iovec.c is gone.
+RIP.
+
+Cc: Michael S. Tsirkin <mst@redhat.com>
+Cc: Nicholas A. Bellinger <nab@linux-iscsi.org>
+Cc: kvm@vger.kernel.org
+Cc: virtualization@lists.linux-foundation.org
 Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
 ---
- include/linux/socket.h |   7 ---
- net/core/Makefile      |   2 +-
- net/core/iovec.c       | 137 -------------------------------------------------
- 3 files changed, 1 insertion(+), 145 deletions(-)
- delete mode 100644 net/core/iovec.c
+ drivers/vhost/scsi.c |  2 +-
+ include/linux/uio.h  |  2 --
+ lib/Makefile         |  2 +-
+ lib/iovec.c          | 36 ------------------------------------
+ 4 files changed, 2 insertions(+), 40 deletions(-)
+ delete mode 100644 lib/iovec.c
 
-diff --git a/include/linux/socket.h b/include/linux/socket.h
-index 6e49a14..5c19cba 100644
---- a/include/linux/socket.h
-+++ b/include/linux/socket.h
-@@ -318,13 +318,6 @@ struct ucred {
- /* IPX options */
- #define IPX_TYPE	1
+diff --git a/drivers/vhost/scsi.c b/drivers/vhost/scsi.c
+index d695b16..dc78d87 100644
+--- a/drivers/vhost/scsi.c
++++ b/drivers/vhost/scsi.c
+@@ -1079,7 +1079,7 @@ vhost_scsi_handle_vq(struct vhost_scsi *vs, struct vhost_virtqueue *vq)
+ 			       req_size, vq->iov[0].iov_len);
+ 			break;
+ 		}
+-		ret = memcpy_fromiovecend(req, &vq->iov[0], 0, req_size);
++		ret = copy_from_user(req, vq->iov[0].iov_base, req_size);
+ 		if (unlikely(ret)) {
+ 			vq_err(vq, "Faulted on virtio_scsi_cmd_req\n");
+ 			break;
+diff --git a/include/linux/uio.h b/include/linux/uio.h
+index 02bd8a9..3e0cb4e 100644
+--- a/include/linux/uio.h
++++ b/include/linux/uio.h
+@@ -135,6 +135,4 @@ static inline void iov_iter_reexpand(struct iov_iter *i, size_t count)
+ size_t csum_and_copy_to_iter(void *addr, size_t bytes, __wsum *csum, struct iov_iter *i);
+ size_t csum_and_copy_from_iter(void *addr, size_t bytes, __wsum *csum, struct iov_iter *i);
  
--extern int csum_partial_copy_fromiovecend(unsigned char *kdata, 
--					  struct iovec *iov, 
--					  int offset, 
--					  unsigned int len, __wsum *csump);
--extern unsigned long iov_pages(const struct iovec *iov, int offset,
--			       unsigned long nr_segs);
--
- extern int move_addr_to_kernel(void __user *uaddr, int ulen, struct sockaddr_storage *kaddr);
- extern int put_cmsg(struct msghdr*, int level, int type, int len, void *data);
+-int memcpy_fromiovecend(unsigned char *kdata, const struct iovec *iov,
+-			int offset, int len);
+ #endif
+diff --git a/lib/Makefile b/lib/Makefile
+index 3c3b30b..1071d06 100644
+--- a/lib/Makefile
++++ b/lib/Makefile
+@@ -24,7 +24,7 @@ obj-y	+= lockref.o
  
-diff --git a/net/core/Makefile b/net/core/Makefile
-index 235e6c5..fec0856 100644
---- a/net/core/Makefile
-+++ b/net/core/Makefile
-@@ -2,7 +2,7 @@
- # Makefile for the Linux networking core.
- #
- 
--obj-y := sock.o request_sock.o skbuff.o iovec.o datagram.o stream.o scm.o \
-+obj-y := sock.o request_sock.o skbuff.o datagram.o stream.o scm.o \
- 	 gen_stats.o gen_estimator.o net_namespace.o secure_seq.o flow_dissector.o
- 
- obj-$(CONFIG_SYSCTL) += sysctl_net_core.o
-diff --git a/net/core/iovec.c b/net/core/iovec.c
+ obj-y += bcd.o div64.o sort.o parser.o halfmd4.o debug_locks.o random32.o \
+ 	 bust_spinlocks.o hexdump.o kasprintf.o bitmap.o scatterlist.o \
+-	 gcd.o lcm.o list_sort.o uuid.o flex_array.o iovec.o clz_ctz.o \
++	 gcd.o lcm.o list_sort.o uuid.o flex_array.o clz_ctz.o \
+ 	 bsearch.o find_last_bit.o find_next_bit.o llist.o memweight.o kfifo.o \
+ 	 percpu-refcount.o percpu_ida.o rhashtable.o reciprocal_div.o
+ obj-y += string_helpers.o
+diff --git a/lib/iovec.c b/lib/iovec.c
 deleted file mode 100644
-index dcbe98b..0000000
---- a/net/core/iovec.c
+index d8f17a9..0000000
+--- a/lib/iovec.c
 +++ /dev/null
-@@ -1,137 +0,0 @@
--/*
-- *	iovec manipulation routines.
-- *
-- *
-- *		This program is free software; you can redistribute it and/or
-- *		modify it under the terms of the GNU General Public License
-- *		as published by the Free Software Foundation; either version
-- *		2 of the License, or (at your option) any later version.
-- *
-- *	Fixes:
-- *		Andrew Lunn	:	Errors in iovec copying.
-- *		Pedro Roque	:	Added memcpy_fromiovecend and
-- *					csum_..._fromiovecend.
-- *		Andi Kleen	:	fixed error handling for 2.1
-- *		Alexey Kuznetsov:	2.1 optimisations
-- *		Andi Kleen	:	Fix csum*fromiovecend for IPv6.
-- */
--
--#include <linux/errno.h>
--#include <linux/module.h>
--#include <linux/kernel.h>
--#include <linux/mm.h>
--#include <linux/net.h>
--#include <linux/in6.h>
--#include <asm/uaccess.h>
--#include <asm/byteorder.h>
--#include <net/checksum.h>
--#include <net/sock.h>
+@@ -1,36 +0,0 @@
+-#include <linux/uaccess.h>
+-#include <linux/export.h>
+-#include <linux/uio.h>
 -
 -/*
-- *	And now for the all-in-one: copy and checksum from a user iovec
-- *	directly to a datagram
-- *	Calls to csum_partial but the last must be in 32 bit chunks
-- *
-- *	ip_build_xmit must ensure that when fragmenting only the last
-- *	call to this function will be unaligned also.
+- *	Copy iovec to kernel. Returns -EFAULT on error.
 - */
--int csum_partial_copy_fromiovecend(unsigned char *kdata, struct iovec *iov,
--				 int offset, unsigned int len, __wsum *csump)
+-
+-int memcpy_fromiovecend(unsigned char *kdata, const struct iovec *iov,
+-			int offset, int len)
 -{
--	__wsum csum = *csump;
--	int partial_cnt = 0, err = 0;
+-	/* No data? Done! */
+-	if (len == 0)
+-		return 0;
 -
 -	/* Skip over the finished iovecs */
 -	while (offset >= iov->iov_len) {
@@ -115,88 +113,15 @@ index dcbe98b..0000000
 -		int copy = min_t(unsigned int, len, iov->iov_len - offset);
 -
 -		offset = 0;
--
--		/* There is a remnant from previous iov. */
--		if (partial_cnt) {
--			int par_len = 4 - partial_cnt;
--
--			/* iov component is too short ... */
--			if (par_len > copy) {
--				if (copy_from_user(kdata, base, copy))
--					goto out_fault;
--				kdata += copy;
--				base += copy;
--				partial_cnt += copy;
--				len -= copy;
--				iov++;
--				if (len)
--					continue;
--				*csump = csum_partial(kdata - partial_cnt,
--							 partial_cnt, csum);
--				goto out;
--			}
--			if (copy_from_user(kdata, base, par_len))
--				goto out_fault;
--			csum = csum_partial(kdata - partial_cnt, 4, csum);
--			kdata += par_len;
--			base  += par_len;
--			copy  -= par_len;
--			len   -= par_len;
--			partial_cnt = 0;
--		}
--
--		if (len > copy) {
--			partial_cnt = copy % 4;
--			if (partial_cnt) {
--				copy -= partial_cnt;
--				if (copy_from_user(kdata + copy, base + copy,
--						partial_cnt))
--					goto out_fault;
--			}
--		}
--
--		if (copy) {
--			csum = csum_and_copy_from_user(base, kdata, copy,
--							csum, &err);
--			if (err)
--				goto out;
--		}
--		len   -= copy + partial_cnt;
--		kdata += copy + partial_cnt;
+-		if (copy_from_user(kdata, base, copy))
+-			return -EFAULT;
+-		len -= copy;
+-		kdata += copy;
 -		iov++;
 -	}
--	*csump = csum;
--out:
--	return err;
 -
--out_fault:
--	err = -EFAULT;
--	goto out;
+-	return 0;
 -}
--EXPORT_SYMBOL(csum_partial_copy_fromiovecend);
--
--unsigned long iov_pages(const struct iovec *iov, int offset,
--			unsigned long nr_segs)
--{
--	unsigned long seg, base;
--	int pages = 0, len, size;
--
--	while (nr_segs && (offset >= iov->iov_len)) {
--		offset -= iov->iov_len;
--		++iov;
--		--nr_segs;
--	}
--
--	for (seg = 0; seg < nr_segs; seg++) {
--		base = (unsigned long)iov[seg].iov_base + offset;
--		len = iov[seg].iov_len - offset;
--		size = ((base & ~PAGE_MASK) + len + ~PAGE_MASK) >> PAGE_SHIFT;
--		pages += size;
--		offset = 0;
--	}
--
--	return pages;
--}
--EXPORT_SYMBOL(iov_pages);
+-EXPORT_SYMBOL(memcpy_fromiovecend);
 -- 
 2.1.4
