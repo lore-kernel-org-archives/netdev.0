@@ -1,40 +1,41 @@
 From: Lad Prabhakar <prabhakar.csengg@gmail.com>
-Subject: [PATCH] net: core/dev: fix sparse warning
-Date: Wed,  4 Feb 2015 12:25:46 +0000
-Message-ID: <1423052746-3688-1-git-send-email-prabhakar.csengg@gmail.com>
-Cc: linux-kernel@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
+Subject: [PATCH] net: ethernet: ti/cpsw-common.c: fix sparse warning
+Date: Wed,  4 Feb 2015 12:31:28 +0000
+Message-ID: <1423053088-6589-1-git-send-email-prabhakar.csengg@gmail.com>
+Cc: linux-kernel@vger.kernel.org, Tony Lindgren <tony@atomide.com>,
 	"Lad, Prabhakar" <prabhakar.csengg@gmail.com>
 To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f176.google.com ([209.85.212.176]:48575 "EHLO
+	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932316AbbBDMbm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2015 07:31:42 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: "Lad, Prabhakar" <prabhakar.csengg@gmail.com>
 
 this patch fixes following sparse warning:
-net/core/dev.c: In function 'validate_xmit_skb_list':
-net/core/dev.c:2720: warning: 'tail' may be used uninitialized in this function
 
-Although its a false positive, as head is assigned to NULL in the
-beginning, due which later in the loop tail is assigned to skb->prev.
+cpsw-common.c:23:5: warning: symbol 'cpsw_am33xx_cm_get_macid' was not declared. Should it be static?
 
 Signed-off-by: Lad, Prabhakar <prabhakar.csengg@gmail.com>
 ---
- net/core/dev.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/ti/cpsw-common.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 8ce0d1a..c736467 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2717,7 +2717,7 @@ out_null:
+diff --git a/drivers/net/ethernet/ti/cpsw-common.c b/drivers/net/ethernet/ti/cpsw-common.c
+index 763ada1..f595094 100644
+--- a/drivers/net/ethernet/ti/cpsw-common.c
++++ b/drivers/net/ethernet/ti/cpsw-common.c
+@@ -17,6 +17,8 @@
+ #include <linux/regmap.h>
+ #include <linux/mfd/syscon.h>
  
- struct sk_buff *validate_xmit_skb_list(struct sk_buff *skb, struct net_device *dev)
- {
--	struct sk_buff *next, *head = NULL, *tail;
-+	struct sk_buff *next, *head = NULL, *tail = NULL;
++#include "cpsw.h"
++
+ #define AM33XX_CTRL_MAC_LO_REG(offset, id) ((offset) + 0x8 * (id))
+ #define AM33XX_CTRL_MAC_HI_REG(offset, id) ((offset) + 0x8 * (id) + 0x4)
  
- 	for (; skb != NULL; skb = next) {
- 		next = skb->next;
 -- 
 1.9.1
