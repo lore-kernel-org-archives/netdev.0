@@ -1,104 +1,176 @@
-From: Shahed Shaikh <shahed.shaikh@qlogic.com>
-Subject: [PATCH net 1/1] qlcnic: Fix NAPI poll routine for Tx completion
-Date: Wed, 4 Feb 2015 05:41:25 -0500
-Message-ID: <1423046485-9526-1-git-send-email-shahed.shaikh@qlogic.com>
+From: Michal Kazior <michal.kazior@tieto.com>
+Subject: Re: Throughput regression with `tcp: refine TSO autosizing`
+Date: Wed, 4 Feb 2015 12:35:22 +0100
+Message-ID: <CA+BoTQmvUuFdfYF=wVMYxrf_nQZB5GCV=LvDZVvfs-3hAE4WKw@mail.gmail.com>
+References: <CA+BoTQkVu23P3EOmY_Q3E1GJnWsyF==Pawz4iPOS_Bq5dvfO5Q@mail.gmail.com>
+	<1422537297.21689.15.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CA+BoTQk2xT-8DqPuiiKG+kHAjLPrj8F9dLTb-rcGhvMq0u_2Qw@mail.gmail.com>
+	<1422628835.21689.95.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CA+BoTQkV+mOZfe_Niz5101sMQeaV6muKCsShptjGQ1AgOHqqoQ@mail.gmail.com>
+	<1422903136.21689.114.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1422926330.21689.138.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CA+BoTQkMikA8wxm1ce2DkKhPB0HiKeAqT7f+sQ=91W40z=X0Rg@mail.gmail.com>
+	<1422973660.907.10.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <Dept-GELinuxNICDev@qlogic.com>,
-	Shahed Shaikh <shahed.shaikh@qlogic.com>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-wireless <linux-wireless@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	eyalpe@dev.mellanox.co.il
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:2743 "EHLO
-	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932598AbbBDLUT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2015 06:20:19 -0500
+Received: from mail-we0-f181.google.com ([74.125.82.181]:44519 "EHLO
+	mail-we0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751114AbbBDLfY convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2015 06:35:24 -0500
+Received: by mail-we0-f181.google.com with SMTP id k48so1143789wev.12
+        for <netdev@vger.kernel.org>; Wed, 04 Feb 2015 03:35:22 -0800 (PST)
+In-Reply-To: <1422973660.907.10.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shahed Shaikh <shahed.shaikh@qlogic.com>
+On 3 February 2015 at 15:27, Eric Dumazet <eric.dumazet@gmail.com> wrot=
+e:
+> On Tue, 2015-02-03 at 12:50 +0100, Michal Kazior wrote:
+[...]
+>> IOW:
+>>  - stretch acks / TSO defer don't seem to help much (when compared t=
+o
+>> throughput results from yesterday)
+>>  - GRO helps
+>>  - disabling A-MSDU on sender helps
+>>  - net/master+GRO still doesn't reach the performance from before th=
+e
+>> regression (~600mbps w/ GRO)
+>>
+>> You can grab logs and dumps here: http://www.filedropper.com/test2ta=
+r
+>>
+>
+> Thanks for these traces.
+>
+> There is absolutely a problem at the sender, as we can see a big 2ms
+> delay between reception of ACK and send of following packets.
+> TCP stack should generate them immediately.
+> Are you using some kind of netem qdisc ?
 
-After d75b1ade567f ("net: less interrupt masking in NAPI")
-driver's NAPI poll routine is expected to return
-exact budget value if it wants to be re-called.
+Both systems have identical setup:
 
-Signed-off-by: Shahed Shaikh <shahed.shaikh@qlogic.com>
-Fixes: d75b1ade567f ("net: less interrupt masking in NAPI")
----
-Hi Dave,
+; tc qdisc
+qdisc pfifo_fast 0: dev eth0 root refcnt 2 bands 3 priomap  1 2 2 2 1
+2 0 0 1 1 1 1 1 1 1 1
+qdisc pfifo_fast 0: dev eth1 root refcnt 2 bands 3 priomap  1 2 2 2 1
+2 0 0 1 1 1 1 1 1 1 1
+qdisc mq 0: dev wlan1 root
+qdisc pfifo_fast 0: dev wlan1 parent :1 bands 3 priomap  1 2 2 2 1 2 0
+0 1 1 1 1 1 1 1 1
+qdisc pfifo_fast 0: dev wlan1 parent :2 bands 3 priomap  1 2 2 2 1 2 0
+0 1 1 1 1 1 1 1 1
+qdisc pfifo_fast 0: dev wlan1 parent :3 bands 3 priomap  1 2 2 2 1 2 0
+0 1 1 1 1 1 1 1 1
+qdisc pfifo_fast 0: dev wlan1 parent :4 bands 3 priomap  1 2 2 2 1 2 0
+0 1 1 1 1 1 1 1 1
 
-Please apply this patch to net
 
-Thanks,
-Shahed
----
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c |   27 +++++++++++++++++++++--
- 1 files changed, 24 insertions(+), 3 deletions(-)
+> These 2ms delays, in a flow with a 5ms RTT are terrible.
+>
+> 06:54:57.408391 IP 192.168.1.2.5001 > 192.168.1.3.51645: Flags [.], a=
+ck 4294899240, win 11268, options [nop,nop,TS val 1053302 ecr 1052250],=
+ length 0
+> 06:54:57.408418 IP 192.168.1.2.5001 > 192.168.1.3.51645: Flags [.], a=
+ck 4294910824, win 11268, options [nop,nop,TS val 1053303 ecr 1052251],=
+ length 0
+> 06:54:57.408431 IP 192.168.1.2.5001 > 192.168.1.3.51645: Flags [.], a=
+ck 4294936888, win 11268, options [nop,nop,TS val 1053303 ecr 1052251],=
+ length 0
+> 06:54:57.408453 IP 192.168.1.2.5001 > 192.168.1.3.51645: Flags [.], a=
+ck 4294962952, win 11268, options [nop,nop,TS val 1053303 ecr 1052251],=
+ length 0
+> 06:54:57.408474 IP 192.168.1.2.5001 > 192.168.1.3.51645: Flags [.], a=
+ck 0, win 11268, options [nop,nop,TS val 1053303 ecr 1052251], length 0
+> <this 2ms delay is not generated by TCP stack.>
+> 06:54:57.410243 IP 192.168.1.3.51645 > 192.168.1.2.5001: Flags [.], s=
+eq 82536:83984, ack 1, win 457, options [nop,nop,TS val 1052256 ecr 105=
+3303], length 1448
+[...]
+>
+> Are packets TX completed after a timer or something ?
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
-index 18e5de7..4e1f58c 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
-@@ -967,7 +967,12 @@ static int qlcnic_poll(struct napi_struct *napi, int budget)
- 	tx_complete = qlcnic_process_cmd_ring(adapter, tx_ring,
- 					      budget);
- 	work_done = qlcnic_process_rcv_ring(sds_ring, budget);
--	if ((work_done < budget) && tx_complete) {
-+
-+	/* Check if we need a repoll */
-+	if (!tx_complete)
-+		work_done = budget;
-+
-+	if (work_done < budget) {
- 		napi_complete(&sds_ring->napi);
- 		if (test_bit(__QLCNIC_DEV_UP, &adapter->state)) {
- 			qlcnic_enable_sds_intr(adapter, sds_ring);
-@@ -992,6 +997,9 @@ static int qlcnic_tx_poll(struct napi_struct *napi, int budget)
- 		napi_complete(&tx_ring->napi);
- 		if (test_bit(__QLCNIC_DEV_UP, &adapter->state))
- 			qlcnic_enable_tx_intr(adapter, tx_ring);
-+	} else {
-+		/* As qlcnic_process_cmd_ring() returned 0, we need a repoll*/
-+		work_done = budget;
- 	}
- 
- 	return work_done;
-@@ -1950,7 +1958,12 @@ static int qlcnic_83xx_msix_sriov_vf_poll(struct napi_struct *napi, int budget)
- 
- 	tx_complete = qlcnic_process_cmd_ring(adapter, tx_ring, budget);
- 	work_done = qlcnic_83xx_process_rcv_ring(sds_ring, budget);
--	if ((work_done < budget) && tx_complete) {
-+
-+	/* Check if we need a repoll */
-+	if (!tx_complete)
-+		work_done = budget;
-+
-+	if (work_done < budget) {
- 		napi_complete(&sds_ring->napi);
- 		qlcnic_enable_sds_intr(adapter, sds_ring);
- 	}
-@@ -1973,7 +1986,12 @@ static int qlcnic_83xx_poll(struct napi_struct *napi, int budget)
- 
- 	tx_complete = qlcnic_process_cmd_ring(adapter, tx_ring, budget);
- 	work_done = qlcnic_83xx_process_rcv_ring(sds_ring, budget);
--	if ((work_done < budget) && tx_complete) {
-+
-+	/* Check if we need a repoll */
-+	if (!tx_complete)
-+		work_done = budget;
-+
-+	if (work_done < budget) {
- 		napi_complete(&sds_ring->napi);
- 		qlcnic_enable_sds_intr(adapter, sds_ring);
- 	}
-@@ -1995,6 +2013,9 @@ static int qlcnic_83xx_msix_tx_poll(struct napi_struct *napi, int budget)
- 		napi_complete(&tx_ring->napi);
- 		if (test_bit(__QLCNIC_DEV_UP , &adapter->state))
- 			qlcnic_enable_tx_intr(adapter, tx_ring);
-+	} else {
-+		/* need a repoll */
-+		work_done = budget;
- 	}
- 
- 	return work_done;
--- 
-1.7.1
+As far as ath10k is concerned - no timers here. Not sure about
+firmware itself though.
+
+
+> Some very heavy stuff might run from tasklet (or other softirq trigge=
+red) event.
+>
+> BTW, traces tend to show that you 'receive' multiple ACK in the same =
+burst,
+> its not clear if they are delayed at one side or the other.
+>
+> GRO should delay only GRO candidates. ACK packets are not GRO candida=
+tes.
+>
+> Have you tried to disable GSO on sender ?
+
+I assume I do that via ethtool? This is my current setup on both system=
+s:
+
+; ethtool -k wlan1
+=46eatures for wlan1:
+rx-checksumming: off [fixed]
+tx-checksumming: on
+        tx-checksum-ipv4: off [fixed]
+        tx-checksum-ip-generic: on [fixed]
+        tx-checksum-ipv6: off [fixed]
+        tx-checksum-fcoe-crc: off [fixed]
+        tx-checksum-sctp: off [fixed]
+scatter-gather: off
+        tx-scatter-gather: off [fixed]
+        tx-scatter-gather-fraglist: off [fixed]
+tcp-segmentation-offload: off
+        tx-tcp-segmentation: off [fixed]
+        tx-tcp-ecn-segmentation: off [fixed]
+        tx-tcp6-segmentation: off [fixed]
+udp-fragmentation-offload: off [fixed]
+generic-segmentation-offload: off [requested on]
+generic-receive-offload: on
+large-receive-offload: off [fixed]
+rx-vlan-offload: off [fixed]
+tx-vlan-offload: off [fixed]
+ntuple-filters: off [fixed]
+receive-hashing: off [fixed]
+highdma: off [fixed]
+rx-vlan-filter: off [fixed]
+vlan-challenged: off [fixed]
+tx-lockless: off [fixed]
+netns-local: on [fixed]
+tx-gso-robust: off [fixed]
+tx-fcoe-segmentation: off [fixed]
+tx-gre-segmentation: off [fixed]
+tx-ipip-segmentation: off [fixed]
+tx-sit-segmentation: off [fixed]
+tx-udp_tnl-segmentation: off [fixed]
+fcoe-mtu: off [fixed]
+tx-nocache-copy: off
+loopback: off [fixed]
+rx-fcs: off [fixed]
+rx-all: off [fixed]
+tx-vlan-stag-hw-insert: off [fixed]
+rx-vlan-stag-hw-parse: off [fixed]
+rx-vlan-stag-filter: off [fixed]
+l2-fwd-offload: off [fixed]
+busy-poll: off [fixed]
+
+; ethtool -K wlan1 generic-segmentation-offload off
+ethtool: bad command line argument(s)
+=46or more information run ethtool -h
+
+
+> (Or maybe wifi drivers should start to use skb->xmit_more as a signal=
+ to end aggregation)
+
+This could work if your firmware/device supports this kind of thing.
+To my understanding ath10k firmware doesn't.
+
+
+Micha=C5=82
