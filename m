@@ -1,29 +1,94 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] csiostor:Use firmware version from cxgb4/t4fw_version.h
-Date: Wed, 04 Feb 2015 14:00:41 -0800 (PST)
-Message-ID: <20150204.140041.405365438093253038.davem@davemloft.net>
-References: <1422964106-4033-1-git-send-email-praveenm@chelsio.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-scsi@vger.kernel.org,
-	JBottomley@parallels.com, hch@infradead.org, hariprasad@chelsio.com
-To: praveenm@chelsio.com
+From: Sabrina Dubroca <sd@queasysnail.net>
+Subject: [PATCH net] pktgen: fix UDP checksum computation
+Date: Wed,  4 Feb 2015 23:08:50 +0100
+Message-ID: <1423087730-9201-1-git-send-email-sd@queasysnail.net>
+Cc: netdev@vger.kernel.org, tgraf@suug.ch,
+	Sabrina Dubroca <sd@queasysnail.net>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39021 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755905AbbBDWAm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2015 17:00:42 -0500
-In-Reply-To: <1422964106-4033-1-git-send-email-praveenm@chelsio.com>
+Received: from smtp4-g21.free.fr ([212.27.42.4]:25142 "EHLO smtp4-g21.free.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752975AbbBDWKo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Feb 2015 17:10:44 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Praveen Madhavan <praveenm@chelsio.com>
-Date: Tue,  3 Feb 2015 17:18:26 +0530
+This patch fixes two issues in UDP checksum computation in pktgen.
 
-> This patch is to use firmware version macros from t4fw_version.h
-> and also enables 40g T5 adapter.
-> 
-> Signed-off-by: Praveen Madhavan <praveenm@chelsio.com>
+First, the pseudo-header uses the source and destination IP
+addresses. Currently, the ports are used for IPv4.
 
-Applied.
+Second, the UDP checksum covers both header and data.  So we need to
+generate the data earlier (move pktgen_finalize_skb up), and compute
+the checksum for UDP header + data.
+
+Fixes: c26bf4a51308c ("pktgen: Add UDPCSUM flag to support UDP checksums")
+Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
+---
+ net/core/pktgen.c | 16 ++++++++--------
+ 1 file changed, 8 insertions(+), 8 deletions(-)
+
+diff --git a/net/core/pktgen.c b/net/core/pktgen.c
+index da934fc3faa8..9fa25b0ea145 100644
+--- a/net/core/pktgen.c
++++ b/net/core/pktgen.c
+@@ -2842,25 +2842,25 @@ static struct sk_buff *fill_packet_ipv4(struct net_device *odev,
+ 	skb->dev = odev;
+ 	skb->pkt_type = PACKET_HOST;
+ 
++	pktgen_finalize_skb(pkt_dev, skb, datalen);
++
+ 	if (!(pkt_dev->flags & F_UDPCSUM)) {
+ 		skb->ip_summed = CHECKSUM_NONE;
+ 	} else if (odev->features & NETIF_F_V4_CSUM) {
+ 		skb->ip_summed = CHECKSUM_PARTIAL;
+ 		skb->csum = 0;
+-		udp4_hwcsum(skb, udph->source, udph->dest);
++		udp4_hwcsum(skb, iph->saddr, iph->daddr);
+ 	} else {
+-		__wsum csum = udp_csum(skb);
++		__wsum csum = skb_checksum(skb, skb_transport_offset(skb), datalen + 8, 0);
+ 
+ 		/* add protocol-dependent pseudo-header */
+-		udph->check = csum_tcpudp_magic(udph->source, udph->dest,
++		udph->check = csum_tcpudp_magic(iph->saddr, iph->daddr,
+ 						datalen + 8, IPPROTO_UDP, csum);
+ 
+ 		if (udph->check == 0)
+ 			udph->check = CSUM_MANGLED_0;
+ 	}
+ 
+-	pktgen_finalize_skb(pkt_dev, skb, datalen);
+-
+ #ifdef CONFIG_XFRM
+ 	if (!process_ipsec(pkt_dev, skb, protocol))
+ 		return NULL;
+@@ -2976,6 +2976,8 @@ static struct sk_buff *fill_packet_ipv6(struct net_device *odev,
+ 	skb->dev = odev;
+ 	skb->pkt_type = PACKET_HOST;
+ 
++	pktgen_finalize_skb(pkt_dev, skb, datalen);
++
+ 	if (!(pkt_dev->flags & F_UDPCSUM)) {
+ 		skb->ip_summed = CHECKSUM_NONE;
+ 	} else if (odev->features & NETIF_F_V6_CSUM) {
+@@ -2984,7 +2986,7 @@ static struct sk_buff *fill_packet_ipv6(struct net_device *odev,
+ 		skb->csum_offset = offsetof(struct udphdr, check);
+ 		udph->check = ~csum_ipv6_magic(&iph->saddr, &iph->daddr, udplen, IPPROTO_UDP, 0);
+ 	} else {
+-		__wsum csum = udp_csum(skb);
++		__wsum csum = skb_checksum(skb, skb_transport_offset(skb), udplen, 0);
+ 
+ 		/* add protocol-dependent pseudo-header */
+ 		udph->check = csum_ipv6_magic(&iph->saddr, &iph->daddr, udplen, IPPROTO_UDP, csum);
+@@ -2993,8 +2995,6 @@ static struct sk_buff *fill_packet_ipv6(struct net_device *odev,
+ 			udph->check = CSUM_MANGLED_0;
+ 	}
+ 
+-	pktgen_finalize_skb(pkt_dev, skb, datalen);
+-
+ 	return skb;
+ }
+ 
+-- 
+2.2.2
