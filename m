@@ -1,80 +1,66 @@
-From: David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>
-Subject: RE: [PATCH v2] net: bluetooth: hci_sock: Use 'const void *' instead
- of 'void *' for 2nd parameter of hci_test_bit()
-Date: Wed, 4 Feb 2015 12:13:56 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CADA609@AcuExch.aculab.com>
-References: <54CFE8BE.5030700@sunrus.com.cn>
- <1422912017.30476.28.camel@perches.com> <54D0332B.6050701@sunrus.com.cn>
- <54D03996.1070503@sunrus.com.cn>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Invalid timestamp? causing tight ack loop (hundreds of
+ thousands of packets / sec)
+Date: Wed, 04 Feb 2015 04:20:31 -0800
+Message-ID: <1423052431.907.112.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CAO-X30uMA7=DTm5KqqvYC5RVTM0bg9pKBO1nX1+6x_2pF_fWfA@mail.gmail.com>
+	 <1423036986.907.105.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAO-X30shOhH7tN+msRvbLreeUvZesKARqyU0Lnm3_xoeea9uaQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org" <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
-	"gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org" <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>,
-	"johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	"linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: 'Chen Gang S' <gang.chen-/B7AUNIrSHOPt1CcHtbs0g@public.gmane.org>,
-	Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <54D03996.1070503-/B7AUNIrSHOPt1CcHtbs0g@public.gmane.org>
-Content-Language: en-US
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Neal Cardwell <ncardwell@google.com>
+To: Avery Fay <avery@mixpanel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f179.google.com ([209.85.223.179]:56882 "EHLO
+	mail-ie0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964947AbbBDMUc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2015 07:20:32 -0500
+Received: by mail-ie0-f179.google.com with SMTP id x19so1436443ier.10
+        for <netdev@vger.kernel.org>; Wed, 04 Feb 2015 04:20:32 -0800 (PST)
+In-Reply-To: <CAO-X30shOhH7tN+msRvbLreeUvZesKARqyU0Lnm3_xoeea9uaQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Gang S
-> On 2/3/15 10:32, Chen Gang S wrote:
-> > On 2/3/15 05:20, Joe Perches wrote:
-> >> On Tue, 2015-02-03 at 05:14 +0800, Chen Gang S wrote:
-> >>> hci_test_bit() does not modify 2nd parameter, so it is better to let it
-> >>> be constant, or may cause build warning. The related warning (with
-> >>> allmodconfig under xtensa):
-> >> []
-> >>> diff --git a/net/bluetooth/hci_sock.c b/net/bluetooth/hci_sock.c
-> >> []
-> >>> @@ -46,7 +46,7 @@ struct hci_pinfo {
-> >>>  	unsigned short    channel;
-> >>>  };
-> >>>
-> >>> -static inline int hci_test_bit(int nr, void *addr)
-> >>> +static inline int hci_test_bit(int nr, const void *addr)
-> >>>  {
-> >>>  	return *((__u32 *) addr + (nr >> 5)) & ((__u32) 1 << (nr & 31));
-> >>>  }
-> >>
-> >> It's probably better to use const __u32 * here too, but the
-> >> real thing I wonder is whether or not there's an issue with
-> >> one of the 2 uses of this function.
-> >>
-> >> One of them passes a unsigned long *, the other a u32 *.
-> >>
-> >> $ git grep -w hci_test_bit
-> >> net/bluetooth/hci_sock.c:static inline int hci_test_bit(int nr, void *addr)
-> >> net/bluetooth/hci_sock.c:       if (!hci_test_bit(flt_event, &flt->event_mask))
-> >> net/bluetooth/hci_sock.c:                    !hci_test_bit(ocf & HCI_FLT_OCF_BITS,
-> >> net/bluetooth/hci_sock.c-                                  &hci_sec_filter.ocf_mask[ogf])) &&
-> >>
-> >> hci_sec_filter.ocf_mask is __u32
-> >> but flt->event_mask is unsigned long.
-> >>
-> >> Any possible issue here on 64-bit systems?
-> >>
-> >
-> > For me, it can not cause issue on 64-bit systems. hci_test_bit() treats
-> > 'addr' as "__u32 *", and has to use the pointer to do something.
-> >
-> 
-> 'event_mask' is intended to type cast to "__u32 *" within 'hci_sock.c'.
-> So for me, "const __u32 *" is better than "const void *" for 2nd
-> parameter of hci_test_bit().
-> 
-> If what I said above is correct, and also if necessary, I shall patch v3
-> for it.
+On Wed, 2015-02-04 at 00:35 -0800, Avery Fay wrote:
+> Sure, https://dl.dropboxusercontent.com/u/9777748/loop.pcap.gz
 
-How are the bits set in the first place?
-If the array is ever indexed as long [] then the code above is unlikely
-to be testing the correct bits.
+Nice, something is really broken on this peer (not a linux one for
+sure), or some really buggy middlebox.
 
-	David
+The strange [P.] frame with no payload has a wrong sequence number
+anyway, so we send back a duplicate ack.
+
+  1   0.000000 128.61.57.205 -> 174.36.240.86 TCP 74 34574 > https [SYN] Seq=0 Win=65535 Len=0 MSS=1380 SACK_PERM=1 TSval=3985707 TSecr=0 WS=256
+  2   0.000008 174.36.240.86 -> 128.61.57.205 TCP 74 https > 34574 [SYN, ACK] Seq=0 Ack=1 Win=28960 Len=0 MSS=1460 SACK_PERM=1 TSval=3311875276 TSecr=3985707 WS=128
+  3   0.019057 128.61.57.205 -> 174.36.240.86 TCP 66 34574 > https [ACK] Seq=1 Ack=1 Win=87808 Len=0 TSval=3985710 TSecr=3311875276
+  4   0.019111 128.61.57.205 -> 174.36.240.86 TCP 66 [TCP Dup ACK 3#1] 34574 > https [ACK] Seq=1 Ack=1 Win=87808 Len=0 TSval=3985710 TSecr=3311875276
+  5   0.037637 128.61.57.205 -> 174.36.240.86 SSL 292 Client Hello
+  6   0.037644 174.36.240.86 -> 128.61.57.205 TCP 66 https > 34574 [ACK] Seq=1 Ack=227 Win=30080 Len=0 TSval=3311875285 TSecr=3985712
+  7   0.037699 174.36.240.86 -> 128.61.57.205 TLSv1.2 2802 Server Hello
+  8   0.037706 174.36.240.86 -> 128.61.57.205 TLSv1.2 585 Certificate
+  9   0.074710 174.36.240.86 -> 128.61.57.205 TCP 585 [TCP Retransmission] https > 34574 [PSH, ACK] Seq=2737 Ack=227 Win=30080 Len=519 TSval=3311875295 TSecr=3985712[Reassembly error, protocol TCP: New fragment overlaps ol
+d data (retransmission?)]
+ 10   0.294707 174.36.240.86 -> 128.61.57.205 TLSv1.2 1434 [TCP Retransmission] Server Hello
+ 11   0.734711 174.36.240.86 -> 128.61.57.205 TLSv1.2 1434 [TCP Retransmission] Server Hello
+ 12   1.614707 174.36.240.86 -> 128.61.57.205 TLSv1.2 1434 [TCP Retransmission] Server Hello
+ 13   3.378705 174.36.240.86 -> 128.61.57.205 TLSv1.2 1434 [TCP Retransmission] Server Hello
+ 14   6.910707 174.36.240.86 -> 128.61.57.205 TLSv1.2 1434 [TCP Retransmission] Server Hello
+ 15  10.097427 128.61.57.205 -> 174.36.240.86 TCP 66 34574 > https [FIN, ACK] Seq=227 Ack=1 Win=87808 Len=0 TSval=3986717 TSecr=3311875285
+ 16  10.097456 174.36.240.86 -> 128.61.57.205 TCP 66 https > 34574 [FIN, ACK] Seq=3256 Ack=228 Win=30080 Len=0 TSval=3311877800 TSecr=3986717
+ 17  10.111945 128.61.57.205 -> 174.36.240.86 TCP 78 [TCP Dup ACK 15#1] 34574 > https [PSH, ACK] Seq=228 Ack=1 Win=87808 Len=0 TSval=3985712 TSecr=3311875276 SLE=3256 SRE=3256
+ 18  10.111950 174.36.240.86 -> 128.61.57.205 TCP 66 [TCP Dup ACK 16#1] https > 34574 [ACK] Seq=3257 Ack=228 Win=30080 Len=0 TSval=3311877804 TSecr=3986717
+ 19  10.111952 128.61.57.205 -> 174.36.240.86 TCP 66 [TCP Dup ACK 15#2] 34574 > https [PSH, ACK] Seq=228 Ack=1 Win=87808 Len=0 TSval=3985712 TSecr=3311875276
+ 20  10.111955 174.36.240.86 -> 128.61.57.205 TCP 66 [TCP Dup ACK 16#2] https > 34574 [ACK] Seq=3257 Ack=228 Win=30080 Len=0 TSval=3311877804 TSecr=3986717
+ 21  10.126312 128.61.57.205 -> 174.36.240.86 TCP 86 [TCP Dup ACK 15#3] 34574 > https [PSH, ACK] Seq=228 Ack=1 Win=87808 Len=0 TSval=3985712 TSecr=3311875276 SLE=3257 SRE=3257 SLE=3256 SRE=3256
+ 22  10.126317 174.36.240.86 -> 128.61.57.205 TCP 66 [TCP Dup ACK 16#3] https > 34574 [ACK] Seq=3257 Ack=228 Win=30080 Len=0 TSval=3311877807 TSecr=3986717
+ 23  10.126360 128.61.57.205 -> 174.36.240.86 TCP 66 [TCP Dup ACK 15#4] 34574 > https [PSH, ACK] Seq=228 Ack=1 Win=87808 Len=0 TSval=3985712 TSecr=3311875276
+ 24  10.126362 174.36.240.86 -> 128.61.57.205 TCP 66 [TCP Dup ACK 16#4] https > 34574 [ACK] Seq=3257 Ack=228 Win=30080 Len=0 TSval=3311877807 TSecr=3986717
+ 25  10.126364 128.61.57.205 -> 174.36.240.86 TCP 66 [TCP Dup ACK 15#5] 34574 > https [PSH, ACK] Seq=228 Ack=1 Win=87808 Len=0 TSval=3985712 TSecr=3311875276
+ 26  10.126365 174.36.240.86 -> 128.61.57.205 TCP 66 [TCP Dup ACK 16#5] https > 34574 [ACK] Seq=3257 Ack=228 Win=30080 Len=0 TSval=3311877807 TSecr=3986717
+ 27  10.126366 128.61.57.205 -> 174.36.240.86 TCP 66 [TCP Dup ACK 15#6] 34574 > https [PSH, ACK] Seq=228 Ack=1 Win=87808 Len=0 TSval=3985712 TSecr=3311875276
+ 28  10.126367 174.36.240.86 -> 128.61.57.205 TCP 66 [TCP Dup ACK 16#6] https > 34574 [ACK] Seq=3257 Ack=228 Win=30080 Len=0 TSval=3311877807 TSecr=3986717
+ 29  10.140709 128.61.57.205 -> 174.36.240.86 TCP 66 [TCP Dup ACK 15#7] 34574 > https [PSH, ACK] Seq=228 Ack=1 Win=87808 Len=0 TSval=3985712 TSecr=3311875276
+ 30  10.140714 174.36.240.86 -> 128.61.57.205 TCP 66 [TCP Dup ACK 16#7] https > 34574 [ACK] Seq=3257 Ack=228 Win=30080 Len=0 TSval=3311877811 TSecr=3986717
+
+Neal patches definitely would solve this issue.
