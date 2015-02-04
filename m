@@ -1,36 +1,60 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH v3 2/3] genetlink: disallow subscribing to unknown mcast
- groups
-Date: Wed, 04 Feb 2015 17:16:04 +0100
-Message-ID: <1423066564.4741.7.camel@sipsolutions.net>
-References: <1421404634-8973-1-git-send-email-johannes@sipsolutions.net>
-	 <1421404634-8973-2-git-send-email-johannes@sipsolutions.net>
-	 <87egq5uc07.fsf@nemi.mork.no> <87d25pit90.fsf@nemi.mork.no>
-	 <1423064608.4741.6.camel@sipsolutions.net> <874mr1isch.fsf@nemi.mork.no>
+From: roopa <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next] bridge: Let bridge not age 'externally' learnt
+ FDB entries, they are removed when 'external' entity notifies the aging
+Date: Wed, 04 Feb 2015 08:19:51 -0800
+Message-ID: <54D246A7.2020502@cumulusnetworks.com>
+References: <1422897714-5956-1-git-send-email-siva.mannem.lnx@gmail.com> <54D0E521.6070100@cumulusnetworks.com> <CA+CtxLSziWmx94_V9S-uW9=6VYg4WXsU4CERx-uovvrFOtO1dA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Jeff Layton <jeff.layton@primarydata.com>,
-	Sedat Dilek <sedat.dilek@gmail.com>
-To: =?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Netdev <netdev@vger.kernel.org>,
+	Scott Feldman <sfeldma@cumulusnetworks.com>,
+	Jiri Pirko <jiri@resnulli.us>
+To: Siva Mannem <siva.mannem.lnx@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:55209 "EHLO sipsolutions.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755497AbbBDQQJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Feb 2015 11:16:09 -0500
-In-Reply-To: <874mr1isch.fsf@nemi.mork.no>
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:58562 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965937AbbBDQT4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2015 11:19:56 -0500
+Received: by mail-pa0-f49.google.com with SMTP id fa1so3651105pad.8
+        for <netdev@vger.kernel.org>; Wed, 04 Feb 2015 08:19:52 -0800 (PST)
+In-Reply-To: <CA+CtxLSziWmx94_V9S-uW9=6VYg4WXsU4CERx-uovvrFOtO1dA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2015-02-04 at 16:55 +0100, Bj=C3=B8rn Mork wrote:
-
-> This was never noticed before because there are only two users,
-> netfilter and generic netlink,  and both were willing to accept the
-> off-by-one values without much fuzz.
-
-Generic netlink didn't even have it until my patchset.
-
-I think audit also uses the callback, but only for permissions checks
-and doesn't care about the group at all.
-
-johannes
+On 2/4/15, 12:02 AM, Siva Mannem wrote:
+> On Tue, Feb 3, 2015 at 8:41 PM, roopa <roopa@cumulusnetworks.com> wrote:
+>> On 2/2/15, 9:21 AM, Siva Mannem wrote:
+>>>    When 'learned_sync' flag is turned on, the offloaded switch
+>>>    port syncs learned MAC addresses to bridge's FDB via switchdev notifier
+>>>    (NETDEV_SWITCH_FDB_ADD). Currently, FDB entries learnt via this
+>>> mechanism are
+>>>    wrongly being deleted by bridge aging logic. This patch ensures that FDB
+>>>    entries synced from offloaded switch ports are not deleted by bridging
+>>> logic.
+>>>    Such entries can only be deleted via switchdev notifier
+>>>    (NETDEV_SWITCH_FDB_DEL).
+>>
+>> Your patch seems right and maintains symmetry for fdb add/del of externally
+>> learnt entries.
+>> However, this could be made configurable. I think some drivers may rely on
+>> bridge driver aging these entries (The default setting needs more thought).
+>> I am not sure what rocker does (CC'ed rocker maintainers). But, our driver
+>> does rely on the bridge driver aging these entries by default.
+> added_by_external_learn flag is only set for entries learned via
+> switchdev notifier
+> (NETDEV_SWITCH_FDB_ADD) and rocker is the only driver using these notifiers.
+>   I see that rocker is deleting the entries via switchdev notifier
+> (NETDEV_SWITCH_FDB_DEL).
+> This mechanism is only used by drivers when learned_sync is turned on by user.
+>
+> $ sudo bridge link set dev swp1 learning_sync on self
+>
+> Am I missing something here?
+I know that its enabled by an external flag. I wasn't sure rocker was 
+doing a del
+or was relying on the bridge driver to age those entries (hence the CC 
+to rocker maintainers).
+And, my only point was its valid in some cases for the switch driver to 
+rely on bridge driver ageing those entries.
+For symmetry, your patch seems right.
