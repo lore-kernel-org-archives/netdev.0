@@ -1,14 +1,14 @@
 From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: [PATCH v3 14/18] net: switch sockets to ->read_iter/->write_iter
-Date: Wed,  4 Feb 2015 06:40:05 +0000
-Message-ID: <1423032009-18367-14-git-send-email-viro@ZenIV.linux.org.uk>
+Subject: [PATCH v3 13/18] net/socket.c: fold do_sock_{read,write} into callers
+Date: Wed,  4 Feb 2015 06:40:04 +0000
+Message-ID: <1423032009-18367-13-git-send-email-viro@ZenIV.linux.org.uk>
 References: <20150204063730.GG29656@ZenIV.linux.org.uk>
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeniv.linux.org.uk ([195.92.253.2]:43098 "EHLO
+Received: from zeniv.linux.org.uk ([195.92.253.2]:43096 "EHLO
 	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752863AbbBDGkM (ORCPT
+	with ESMTP id S1752830AbbBDGkM (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2015 01:40:12 -0500
 In-Reply-To: <20150204063730.GG29656@ZenIV.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
@@ -18,107 +18,94 @@ From: Al Viro <viro@zeniv.linux.org.uk>
 
 Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
 ---
- net/socket.c | 56 +++++++++++++++++++++++++++-----------------------------
- 1 file changed, 27 insertions(+), 29 deletions(-)
+ net/socket.c | 56 +++++++++++++++++++++-----------------------------------
+ 1 file changed, 21 insertions(+), 35 deletions(-)
 
 diff --git a/net/socket.c b/net/socket.c
-index 4d08b50..bbedbfc 100644
+index 3326d67..4d08b50 100644
 --- a/net/socket.c
 +++ b/net/socket.c
-@@ -113,10 +113,8 @@ unsigned int sysctl_net_busy_read __read_mostly;
- unsigned int sysctl_net_busy_poll __read_mostly;
- #endif
- 
--static ssize_t sock_aio_read(struct kiocb *iocb, const struct iovec *iov,
--			 unsigned long nr_segs, loff_t pos);
--static ssize_t sock_aio_write(struct kiocb *iocb, const struct iovec *iov,
--			  unsigned long nr_segs, loff_t pos);
-+static ssize_t sock_read_iter(struct kiocb *iocb, struct iov_iter *to);
-+static ssize_t sock_write_iter(struct kiocb *iocb, struct iov_iter *from);
- static int sock_mmap(struct file *file, struct vm_area_struct *vma);
- 
- static int sock_close(struct inode *inode, struct file *file);
-@@ -142,8 +140,10 @@ static ssize_t sock_splice_read(struct file *file, loff_t *ppos,
- static const struct file_operations socket_file_ops = {
- 	.owner =	THIS_MODULE,
- 	.llseek =	no_llseek,
--	.aio_read =	sock_aio_read,
--	.aio_write =	sock_aio_write,
-+	.read =		new_sync_read,
-+	.write =	new_sync_write,
-+	.read_iter =	sock_read_iter,
-+	.write_iter =	sock_write_iter,
- 	.poll =		sock_poll,
- 	.unlocked_ioctl = sock_ioctl,
- #ifdef CONFIG_COMPAT
-@@ -845,49 +845,47 @@ static ssize_t sock_splice_read(struct file *file, loff_t *ppos,
+@@ -845,25 +845,11 @@ static ssize_t sock_splice_read(struct file *file, loff_t *ppos,
  	return sock->ops->splice_read(sock, ppos, pipe, len, flags);
  }
  
--static ssize_t sock_aio_read(struct kiocb *iocb, const struct iovec *iov,
--				unsigned long nr_segs, loff_t pos)
-+static ssize_t sock_read_iter(struct kiocb *iocb, struct iov_iter *to)
+-static ssize_t do_sock_read(struct msghdr *msg, struct kiocb *iocb,
+-		struct file *file, const struct iovec *iov,
+-		unsigned long nr_segs)
+-{
+-	struct socket *sock = file->private_data;
+-
+-	msg->msg_name = NULL;
+-	msg->msg_namelen = 0;
+-	msg->msg_control = NULL;
+-	msg->msg_controllen = 0;
+-	iov_iter_init(&msg->msg_iter, READ, iov, nr_segs, iocb->ki_nbytes);
+-	msg->msg_flags = (file->f_flags & O_NONBLOCK) ? MSG_DONTWAIT : 0;
+-
+-	return __sock_recvmsg(iocb, sock, msg, iocb->ki_nbytes, msg->msg_flags);
+-}
+-
+ static ssize_t sock_aio_read(struct kiocb *iocb, const struct iovec *iov,
+ 				unsigned long nr_segs, loff_t pos)
  {
- 	struct file *file = iocb->ki_filp;
- 	struct socket *sock = file->private_data;
--	struct msghdr msg;
-+	struct msghdr msg = {.msg_iter = *to};
-+	ssize_t res;
-+
-+	if (file->f_flags & O_NONBLOCK)
-+		msg.msg_flags = MSG_DONTWAIT;
++	struct file *file = iocb->ki_filp;
++	struct socket *sock = file->private_data;
+ 	struct msghdr msg;
  
--	if (pos != 0)
-+	if (iocb->ki_pos != 0)
- 		return -ESPIPE;
- 
+ 	if (pos != 0)
+@@ -872,36 +858,36 @@ static ssize_t sock_aio_read(struct kiocb *iocb, const struct iovec *iov,
  	if (iocb->ki_nbytes == 0)	/* Match SYS5 behaviour */
  		return 0;
  
--	msg.msg_name = NULL;
--	msg.msg_namelen = 0;
--	msg.msg_control = NULL;
--	msg.msg_controllen = 0;
--	iov_iter_init(&msg.msg_iter, READ, iov, nr_segs, iocb->ki_nbytes);
--	msg.msg_flags = (file->f_flags & O_NONBLOCK) ? MSG_DONTWAIT : 0;
+-	return do_sock_read(&msg, iocb, iocb->ki_filp, iov, nr_segs);
+-}
 -
--	return __sock_recvmsg(iocb, sock, &msg, iocb->ki_nbytes, msg.msg_flags);
-+	res = __sock_recvmsg(iocb, sock, &msg,
-+			     iocb->ki_nbytes, msg.msg_flags);
-+	*to = msg.msg_iter;
-+	return res;
+-static ssize_t do_sock_write(struct msghdr *msg, struct kiocb *iocb,
+-			struct file *file, const struct iovec *iov,
+-			unsigned long nr_segs)
+-{
+-	struct socket *sock = file->private_data;
+-
+-	msg->msg_name = NULL;
+-	msg->msg_namelen = 0;
+-	msg->msg_control = NULL;
+-	msg->msg_controllen = 0;
+-	iov_iter_init(&msg->msg_iter, WRITE, iov, nr_segs, iocb->ki_nbytes);
+-	msg->msg_flags = (file->f_flags & O_NONBLOCK) ? MSG_DONTWAIT : 0;
+-	if (sock->type == SOCK_SEQPACKET)
+-		msg->msg_flags |= MSG_EOR;
++	msg.msg_name = NULL;
++	msg.msg_namelen = 0;
++	msg.msg_control = NULL;
++	msg.msg_controllen = 0;
++	iov_iter_init(&msg.msg_iter, READ, iov, nr_segs, iocb->ki_nbytes);
++	msg.msg_flags = (file->f_flags & O_NONBLOCK) ? MSG_DONTWAIT : 0;
+ 
+-	return __sock_sendmsg(iocb, sock, msg, iocb->ki_nbytes);
++	return __sock_recvmsg(iocb, sock, &msg, iocb->ki_nbytes, msg.msg_flags);
  }
  
--static ssize_t sock_aio_write(struct kiocb *iocb, const struct iovec *iov,
--			  unsigned long nr_segs, loff_t pos)
-+static ssize_t sock_write_iter(struct kiocb *iocb, struct iov_iter *from)
+ static ssize_t sock_aio_write(struct kiocb *iocb, const struct iovec *iov,
+ 			  unsigned long nr_segs, loff_t pos)
  {
- 	struct file *file = iocb->ki_filp;
- 	struct socket *sock = file->private_data;
--	struct msghdr msg;
-+	struct msghdr msg = {.msg_iter = *from};
-+	ssize_t res;
++	struct file *file = iocb->ki_filp;
++	struct socket *sock = file->private_data;
+ 	struct msghdr msg;
  
--	if (pos != 0)
-+	if (iocb->ki_pos != 0)
+ 	if (pos != 0)
  		return -ESPIPE;
  
--	msg.msg_name = NULL;
--	msg.msg_namelen = 0;
--	msg.msg_control = NULL;
--	msg.msg_controllen = 0;
--	iov_iter_init(&msg.msg_iter, WRITE, iov, nr_segs, iocb->ki_nbytes);
--	msg.msg_flags = (file->f_flags & O_NONBLOCK) ? MSG_DONTWAIT : 0;
-+	if (file->f_flags & O_NONBLOCK)
-+		msg.msg_flags = MSG_DONTWAIT;
+-	return do_sock_write(&msg, iocb, iocb->ki_filp, iov, nr_segs);
++	msg.msg_name = NULL;
++	msg.msg_namelen = 0;
++	msg.msg_control = NULL;
++	msg.msg_controllen = 0;
++	iov_iter_init(&msg.msg_iter, WRITE, iov, nr_segs, iocb->ki_nbytes);
++	msg.msg_flags = (file->f_flags & O_NONBLOCK) ? MSG_DONTWAIT : 0;
++	if (sock->type == SOCK_SEQPACKET)
++		msg.msg_flags |= MSG_EOR;
 +
- 	if (sock->type == SOCK_SEQPACKET)
- 		msg.msg_flags |= MSG_EOR;
- 
--	return __sock_sendmsg(iocb, sock, &msg, iocb->ki_nbytes);
-+	res = __sock_sendmsg(iocb, sock, &msg, iocb->ki_nbytes);
-+	*from = msg.msg_iter;
-+	return res;
++	return __sock_sendmsg(iocb, sock, &msg, iocb->ki_nbytes);
  }
  
  /*
