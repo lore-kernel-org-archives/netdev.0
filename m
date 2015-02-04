@@ -1,25 +1,49 @@
-From: Reiner Herrmann <reiner.herrmann@sophos.com>
-Subject: Re: low vxlan throughput with tso enabled
-Date: Wed, 4 Feb 2015 13:42:24 +0100
-Message-ID: <93bef28b-0983-48cc-bbd1-06d2c49dad1e@DE-WIE-EXCH3A.green.sophos>
-References: <bde634e5-3c57-4e80-9309-670cbd51c1b9@DE-WIE-EXCH3A.green.sophos> <54D0F8FF.1090204@hp.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <svens@stackframe.org>,
-	Vittorio Curcio <Vittorio.Curcio@Sophos.com>
-To: Rick Jones <rick.jones2@hp.com>, <netdev@vger.kernel.org>
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Subject: [PATCH net-next 1/3] ethtool: rename reserved1 memeber in ethtool_drvinfo for expansion ROM version
+Date: Wed,  4 Feb 2015 18:19:34 +0530
+Message-ID: <1423054176-26420-2-git-send-email-hariprasad@chelsio.com>
+References: <1423054176-26420-1-git-send-email-hariprasad@chelsio.com>
+Cc: davem@davemloft.net, ben@decadent.org.uk, leedom@chelsio.com,
+	anish@chelsio.com, nirranjan@chelsio.com, kumaras@chelsio.com,
+	Hariprasad Shenai <hariprasad@chelsio.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.sophos.com ([145.253.124.138]:49566 "EHLO mx2.sophos.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933264AbbBDMmb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Feb 2015 07:42:31 -0500
-In-Reply-To: <54D0F8FF.1090204@hp.com>
+Received: from stargate.chelsio.com ([67.207.112.58]:30038 "EHLO
+	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S933819AbbBDMoL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2015 07:44:11 -0500
+In-Reply-To: <1423054176-26420-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/03/2015 05:36 PM, Rick Jones wrote:
-> I've been under the impression that one generally wants the MTU of a tunnel interface to be no more than the MTU of the physical interface over which it runs, less the 
-> size of the encapsulation headers used by the tunnel.  What happens when you make the MTU of the tunnel interface 1400 bytes instead of 1500?
-Lowering the MTU also brings throughput back to normal, but I'm interested in
-why disabling TSO also seems to help (even with the same MTU).
+Renamed the reserved1 member of struct ethtool_drvinfo to erom_version to get
+expansion/option ROM version of the adapter if present.
+
+Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
+---
+ include/uapi/linux/ethtool.h |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
+
+diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
+index 5f66d9c..bd80f0f 100644
+--- a/include/uapi/linux/ethtool.h
++++ b/include/uapi/linux/ethtool.h
+@@ -148,6 +148,7 @@ static inline __u32 ethtool_cmd_speed(const struct ethtool_cmd *ep)
+  *	not be an empty string.
+  * @version: Driver version string; may be an empty string
+  * @fw_version: Firmware version string; may be an empty string
++ * @erom_version: Expansion ROM version string; may be an empty string
+  * @bus_info: Device bus address.  This should match the dev_name()
+  *	string for the underlying bus device, if there is one.  May be
+  *	an empty string.
+@@ -176,7 +177,7 @@ struct ethtool_drvinfo {
+ 	char	version[32];
+ 	char	fw_version[ETHTOOL_FWVERS_LEN];
+ 	char	bus_info[ETHTOOL_BUSINFO_LEN];
+-	char	reserved1[32];
++	char	erom_version[32];
+ 	char	reserved2[12];
+ 	__u32	n_priv_flags;
+ 	__u32	n_stats;
+-- 
+1.7.1
