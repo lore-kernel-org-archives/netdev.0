@@ -1,30 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3] gianfar: correct the bad expression while writing
- bit-pattern
-Date: Wed, 04 Feb 2015 13:55:52 -0800 (PST)
-Message-ID: <20150204.135552.872538804146042727.davem@davemloft.net>
-References: <54B3D899.5060204@freescale.com>
-	<1422948722-16864-1-git-send-email-sanjeev_sharma@mentor.com>
+Subject: Re: pull request: bluetooth-next 2015-02-03
+Date: Wed, 04 Feb 2015 13:56:57 -0800 (PST)
+Message-ID: <20150204.135657.922951850114728698.davem@davemloft.net>
+References: <20150203082123.GA13130@t440s.lan>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: claudiu.manoil@freescale.com, matei.pavaluca@freescale.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: sanjeev_sharma@mentor.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1422948722-16864-1-git-send-email-sanjeev_sharma@mentor.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-bluetooth@vger.kernel.org
+To: johan.hedberg@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38977 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932669AbbBDV46 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2015 16:56:58 -0500
+In-Reply-To: <20150203082123.GA13130@t440s.lan>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sanjeev Sharma <sanjeev_sharma@mentor.com>
-Date: Tue, 3 Feb 2015 13:02:02 +0530
+From: Johan Hedberg <johan.hedberg@gmail.com>
+Date: Tue, 3 Feb 2015 10:21:23 +0200
 
-> This patch correct the bad expression while writing the
-> bit-pattern from software's buffer to hardware registers.
+> Here's what's likely the last bluetooth-next pull request for 3.20.
+> Notable changes include:
 > 
-> Signed-off-by: Sanjeev Sharma <Sanjeev_Sharma@mentor.com>
-> ---
-> Changes in v3:
->   - corrected the expression by introducing tab->fe[i].prop.
+>  - xHCI workaround + a new id for the ath3k driver
+>  - Several new ids for the btusb driver
+>  - Support for new Intel Bluetooth controllers
+>  - Minor cleanups to ieee802154 code
+>  - Nested sleep warning fix in socket accept() code path
+>  - Fixes for Out of Band pairing handling
+>  - Support for LE scan restarting for HCI_QUIRK_STRICT_DUPLICATE_FILTER
+>  - Improvements to data we expose through debugfs
+>  - Proper handling of Hardware Error HCI events
+> 
+> Please let me know if there are any issues pulling. Thanks.
 
-Applied, thanks.
+Pulled, thanks Johan.
