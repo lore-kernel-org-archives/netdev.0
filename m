@@ -1,123 +1,73 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: [PATCH] qlogic: Deletion of unnecessary checks before two function
- calls
-Date: Wed, 04 Feb 2015 14:13:37 +0100
-Message-ID: <54D21B01.30802@users.sourceforge.net>
-References: <5307CAA2.8060406@users.sourceforge.net> <alpine.DEB.2.02.1402212321410.2043@localhost6.localdomain6> <530A086E.8010901@users.sourceforge.net> <alpine.DEB.2.02.1402231635510.1985@localhost6.localdomain6> <530A72AA.3000601@users.sourceforge.net> <alpine.DEB.2.02.1402240658210.2090@localhost6.localdomain6> <530B5FB6.6010207@users.sourceforge.net> <alpine.DEB.2.10.1402241710370.2074@hadrien> <530C5E18.1020800@users.sourceforge.net> <alpine.DEB.2.10.1402251014170.2080@hadrien> <530CD2C4.4050903@users.sourceforge.net> <alpine.DEB.2.10.1402251840450.7035@hadrien> <530CF8FF.8080600@users.sourceforge.net> <alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6> <530DD06F.4090703@users.sourceforge.net> <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6> <5317A59D.4@users.so
- urceforge.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Throughput regression with `tcp: refine TSO autosizing`
+Date: Wed, 04 Feb 2015 05:16:50 -0800
+Message-ID: <1423055810.907.125.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CA+BoTQkVu23P3EOmY_Q3E1GJnWsyF==Pawz4iPOS_Bq5dvfO5Q@mail.gmail.com>
+	 <1422537297.21689.15.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CA+BoTQk2xT-8DqPuiiKG+kHAjLPrj8F9dLTb-rcGhvMq0u_2Qw@mail.gmail.com>
+	 <1422628835.21689.95.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CA+BoTQkV+mOZfe_Niz5101sMQeaV6muKCsShptjGQ1AgOHqqoQ@mail.gmail.com>
+	 <1422903136.21689.114.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1422926330.21689.138.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CA+BoTQkMikA8wxm1ce2DkKhPB0HiKeAqT7f+sQ=91W40z=X0Rg@mail.gmail.com>
+	 <1422973660.907.10.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CA+BoTQmvUuFdfYF=wVMYxrf_nQZB5GCV=LvDZVvfs-3hAE4WKw@mail.gmail.com>
+	 <1423051045.907.108.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CA+BoTQ=BDcQ779uKCuX+f40=4npXVF4MTQnpjKimNYAxPsxBoQ@mail.gmail.com>
+	 <1423053531.907.115.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CA+BoTQ=qmCZz4CmSOvCOzMLowrDEG12XBffkTcYxjGqVD9604g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	kernel-janitors@vger.kernel.org,
-	Julia Lawall <julia.lawall@lip6.fr>
-To: Shahed Shaikh <shahed.shaikh@qlogic.com>,
-	Dept-GELinuxNICDev@qlogic.com, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5317A59D.4@users.sourceforge.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-wireless <linux-wireless@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	eyalpe@dev.mellanox.co.il
+To: Michal Kazior <michal.kazior@tieto.com>,
+	Neal Cardwell <ncardwell@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f180.google.com ([209.85.213.180]:55462 "EHLO
+	mail-ig0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965521AbbBDNQv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2015 08:16:51 -0500
+In-Reply-To: <CA+BoTQ=qmCZz4CmSOvCOzMLowrDEG12XBffkTcYxjGqVD9604g@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Wed, 4 Feb 2015 14:07:56 +0100
+OK guys
 
-The functions kfree() and vfree() perform also input parameter validation.
-Thus the test around their calls is not needed.
+Using a mlx4 testbed I can reproduce the problem by pushing coalescing
+settings and disabling SG (thus disabling GSO)
 
-This issue was detected by using the Coccinelle software.
+ethtool -K eth0 sg off
+Actual changes:
+scatter-gather: off
+	tx-scatter-gather: off
+generic-segmentation-offload: off [requested on]
 
-Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
----
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c   | 24 ++++++++--------------
- .../net/ethernet/qlogic/qlcnic/qlcnic_minidump.c   |  3 +--
- 2 files changed, 9 insertions(+), 18 deletions(-)
+ethtool -C eth0 tx-usecs 1024 tx-frames 64
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-index 2528c3f..a430a34a 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-@@ -294,9 +294,7 @@ int qlcnic_alloc_sds_rings(struct qlcnic_recv_context *recv_ctx, int count)
- 
- void qlcnic_free_sds_rings(struct qlcnic_recv_context *recv_ctx)
- {
--	if (recv_ctx->sds_rings != NULL)
--		kfree(recv_ctx->sds_rings);
--
-+	kfree(recv_ctx->sds_rings);
- 	recv_ctx->sds_rings = NULL;
- }
- 
-@@ -1257,8 +1255,7 @@ qlcnic_check_options(struct qlcnic_adapter *adapter)
- 	if (ahw->op_mode != QLCNIC_NON_PRIV_FUNC) {
- 		if (fw_dump->tmpl_hdr == NULL ||
- 				adapter->fw_version > prev_fw_version) {
--			if (fw_dump->tmpl_hdr)
--				vfree(fw_dump->tmpl_hdr);
-+			vfree(fw_dump->tmpl_hdr);
- 			if (!qlcnic_fw_cmd_get_minidump_temp(adapter))
- 				dev_info(&pdev->dev,
- 					"Supports FW dump capability\n");
-@@ -2374,13 +2371,12 @@ void qlcnic_free_tx_rings(struct qlcnic_adapter *adapter)
- 
- 	for (ring = 0; ring < adapter->drv_tx_rings; ring++) {
- 		tx_ring = &adapter->tx_ring[ring];
--		if (tx_ring && tx_ring->cmd_buf_arr != NULL) {
-+		if (tx_ring) {
- 			vfree(tx_ring->cmd_buf_arr);
- 			tx_ring->cmd_buf_arr = NULL;
- 		}
- 	}
--	if (adapter->tx_ring != NULL)
--		kfree(adapter->tx_ring);
-+	kfree(adapter->tx_ring);
- }
- 
- int qlcnic_alloc_tx_rings(struct qlcnic_adapter *adapter,
-@@ -2758,13 +2754,9 @@ static void qlcnic_remove(struct pci_dev *pdev)
- 	}
- 
- 	qlcnic_dcb_free(adapter->dcb);
--
- 	qlcnic_detach(adapter);
--
--	if (adapter->npars != NULL)
--		kfree(adapter->npars);
--	if (adapter->eswitch != NULL)
--		kfree(adapter->eswitch);
-+	kfree(adapter->npars);
-+	kfree(adapter->eswitch);
- 
- 	if (qlcnic_82xx_check(adapter))
- 		qlcnic_clr_all_drv_state(adapter, 0);
-@@ -2932,13 +2924,13 @@ void qlcnic_alloc_lb_filters_mem(struct qlcnic_adapter *adapter)
- 
- static void qlcnic_free_lb_filters_mem(struct qlcnic_adapter *adapter)
- {
--	if (adapter->fhash.fmax && adapter->fhash.fhead)
-+	if (adapter->fhash.fmax)
- 		kfree(adapter->fhash.fhead);
- 
- 	adapter->fhash.fhead = NULL;
- 	adapter->fhash.fmax = 0;
- 
--	if (adapter->rx_fhash.fmax && adapter->rx_fhash.fhead)
-+	if (adapter->rx_fhash.fmax)
- 		kfree(adapter->rx_fhash.fhead);
- 
- 	adapter->rx_fhash.fmax = 0;
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_minidump.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_minidump.c
-index c9f57fb..332bb8a 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_minidump.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_minidump.c
-@@ -1407,8 +1407,7 @@ void qlcnic_83xx_get_minidump_template(struct qlcnic_adapter *adapter)
- 	current_version = qlcnic_83xx_get_fw_version(adapter);
- 
- 	if (fw_dump->tmpl_hdr == NULL || current_version > prev_version) {
--		if (fw_dump->tmpl_hdr)
--			vfree(fw_dump->tmpl_hdr);
-+		vfree(fw_dump->tmpl_hdr);
- 		if (!qlcnic_fw_cmd_get_minidump_temp(adapter))
- 			dev_info(&pdev->dev, "Supports FW dump capability\n");
- 	}
--- 
-2.2.2
+Meaning that NIC waits one ms before sending the TX IRQ,
+and can accumulate 64 frames before forcing the interrupt.
+
+We probably have a bug in cwnd expansion logic :
+
+lpaa23:~# DUMP_TCP_INFO=1 ./netperf -H 10.246.7.152 -Cc
+MIGRATED TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 10.246.7.152 () port 0 AF_INET
+rto=201000 ato=0 pmtu=1500 rcv_ssthresh=29200 rtt=230 rttvar=30 snd_ssthresh=41 cwnd=59 reordering=3 total_retrans=1 ca_state=0 pacing_rate=5943.1 Mbits
+Recv   Send    Send                          Utilization       Service Demand
+Socket Socket  Message  Elapsed              Send     Recv     Send    Recv
+Size   Size    Size     Time     Throughput  local    remote   local   remote
+bytes  bytes   bytes    secs.    10^6bits/s  % S      % S      us/KB   us/KB
+
+ 87380  16384  16384    10.00       530.39   0.40     0.32     2.965   2.398  
+
+
+-> final cwnd=59 which is not enough to avoid the 1ms delay between each
+burst. 
+
+So sender sends ~60 packets, then has to wait 1ms (to get NIC TX IRQ)
+before sending the following burst.
+
+I am CCing Neal, he probably can help to root cause the problem.
+
+Thanks
