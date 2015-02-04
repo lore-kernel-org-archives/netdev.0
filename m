@@ -1,7 +1,7 @@
 From: David Decotigny <ddecotig@gmail.com>
-Subject: [PATCH net-next v2 13/17] net: bridge: use __ethtool_get_ksettings
-Date: Wed,  4 Feb 2015 11:53:37 -0800
-Message-ID: <1423079621-1374-14-git-send-email-ddecotig@gmail.com>
+Subject: [PATCH net-next v2 07/17] net: ipvlan: use __ethtool_get_ksettings
+Date: Wed,  4 Feb 2015 11:53:31 -0800
+Message-ID: <1423079621-1374-8-git-send-email-ddecotig@gmail.com>
 References: <1423079621-1374-1-git-send-email-ddecotig@gmail.com>
 Cc: Eric Dumazet <edumazet@google.com>,
 	Eugenia Emantayev <eugenia@mellanox.co.il>,
@@ -23,39 +23,46 @@ To: "David S. Miller" <davem@davemloft.net>,
 	Amir Vadai <amirv@mellanox.com>, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org, linux-api@vger.kernel.org,
 	linux-mips@linux-mips.org, fcoe-devel@open-fcoe.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f182.google.com ([209.85.213.182]:59621 "EHLO
-	mail-ig0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1161642AbbBDTyV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2015 14:54:21 -0500
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1423079621-1374-1-git-send-email-ddecotig@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: David Decotigny <decot@googlers.com>
 
 Signed-off-by: David Decotigny <decot@googlers.com>
 ---
- net/bridge/br_if.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ drivers/net/ipvlan/ipvlan_main.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
-index b087d27..57282a5 100644
---- a/net/bridge/br_if.c
-+++ b/net/bridge/br_if.c
-@@ -35,10 +35,10 @@
-  */
- static int port_cost(struct net_device *dev)
- {
--	struct ethtool_cmd ecmd;
-+	struct ethtool_ksettings ecmd;
+diff --git a/drivers/net/ipvlan/ipvlan_main.c b/drivers/net/ipvlan/ipvlan_main.c
+index 4f4099d..79e3516 100644
+--- a/drivers/net/ipvlan/ipvlan_main.c
++++ b/drivers/net/ipvlan/ipvlan_main.c
+@@ -342,12 +342,12 @@ static const struct header_ops ipvlan_header_ops = {
+ 	.cache_update	= eth_header_cache_update,
+ };
  
--	if (!__ethtool_get_settings(dev, &ecmd)) {
--		switch (ethtool_cmd_speed(&ecmd)) {
-+	if (!__ethtool_get_ksettings(dev, &ecmd)) {
-+		switch (ecmd.parent.speed) {
- 		case SPEED_10000:
- 			return 2;
- 		case SPEED_1000:
+-static int ipvlan_ethtool_get_settings(struct net_device *dev,
+-				       struct ethtool_cmd *cmd)
++static int ipvlan_ethtool_get_ksettings(struct net_device *dev,
++					struct ethtool_ksettings *cmd)
+ {
+ 	const struct ipvl_dev *ipvlan = netdev_priv(dev);
+ 
+-	return __ethtool_get_settings(ipvlan->phy_dev, cmd);
++	return __ethtool_get_ksettings(ipvlan->phy_dev, cmd);
+ }
+ 
+ static void ipvlan_ethtool_get_drvinfo(struct net_device *dev,
+@@ -373,7 +373,7 @@ static void ipvlan_ethtool_set_msglevel(struct net_device *dev, u32 value)
+ 
+ static const struct ethtool_ops ipvlan_ethtool_ops = {
+ 	.get_link	= ethtool_op_get_link,
+-	.get_settings	= ipvlan_ethtool_get_settings,
++	.get_ksettings	= ipvlan_ethtool_get_ksettings,
+ 	.get_drvinfo	= ipvlan_ethtool_get_drvinfo,
+ 	.get_msglevel	= ipvlan_ethtool_get_msglevel,
+ 	.set_msglevel	= ipvlan_ethtool_set_msglevel,
 -- 
 2.2.0.rc0.207.ga3a616c
