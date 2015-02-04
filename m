@@ -1,29 +1,53 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH 1/3] bridge: Base the BR_PROXYARP decision on the target
- port flag
-Date: Wed, 4 Feb 2015 15:13:59 -0800
-Message-ID: <20150204151359.5f979f88@urahara>
-References: <1423043467-11148-1-git-send-email-jouni@codeaurora.org>
+From: Andy Zhou <azhou-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Subject: [RFC: add openvswitch actions using BPF 1/9] hack: Do not
+	compile datapath
+Date: Wed,  4 Feb 2015 14:49:15 -0800
+Message-ID: <1423090163-19902-2-git-send-email-azhou@nicira.com>
+References: <1423090163-19902-1-git-send-email-azhou@nicira.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Kyeyoon Park <kyeyoonp@codeaurora.org>
-To: Jouni Malinen <jouni@codeaurora.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f172.google.com ([209.85.192.172]:41796 "EHLO
-	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932873AbbBDXOB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2015 18:14:01 -0500
-Received: by pdiy13 with SMTP id y13so3668529pdi.8
-        for <netdev@vger.kernel.org>; Wed, 04 Feb 2015 15:14:00 -0800 (PST)
-In-Reply-To: <1423043467-11148-1-git-send-email-jouni@codeaurora.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: dev-yBygre7rU0SM8Zsap4Y0gw@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1423090163-19902-1-git-send-email-azhou-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-On Wed,  4 Feb 2015 11:51:05 +0200
-Jouni Malinen <jouni@codeaurora.org> wrote:
-
-> +		if (f && f->dst->flags & BR_PROXYARP)
-
-Please add parens when mixing && and & in same if
+VGhlIE9WUyBlQlBGIHBhdGNoIHNldHMgYXJlIGRldmVsb3BlZCBhZ2FpbnN0IG1hc3RlciAnbmV0
+LW5leHQnIHRyZWUsCndoaWNoIGlzIGN1cnJlbnRseSB0YXJnZXRpbmcgZm9yIGtlcm5lbCB2ZXJz
+aW9uIDMuMTkuCgpUaGUgZGF0YXBhdGggaW4gT1ZTIG1hdGVyIGRvZXMgbm90IGN1cnJlbnRseSBz
+dXBwb3J0IDMuMTkga2VybmVsLgpCdXQgd2Ugc2hvdWxkIG5vdCByZWFsbHkgdXNpbmcgT1ZTIGRh
+dGFwYXRoLCBUaGUgY2hhbmdlcyBpbiB0aGUKZm9sbG93IHBhdGNoZXMgYXJlIG9ubHkgY2hhbmdl
+cyBpbiB1c2VyIHNwYWNlIHByb2dyYW1zLCB3aGljaCBzaG91bGQKd29yayB3aXRoIHRoZSBrZXJu
+ZWwgbW9kdWxlIGJ1aWx0IGZyb20gdGhlICduZXQtbmV4dCcgdHJlZS4KClRoaXMgcGF0Y2ggZGlz
+YWJsZXMgYnVpbGRpbmcgb2YgdGhlIGRhdGFwYXRoIGFuZCBkaXNhYmxlcyB0aGUKY29uZmlndXJh
+dGlvbiB0aW1lIGtlcm5lbCB2ZXJzaW9uIGNoZWNrLgoKU2lnbmVkLW9mZi1ieTogQW5keSBaaG91
+IDxhemhvdUBuaWNpcmEuY29tPgotLS0KIE1ha2VmaWxlLmFtICB8IDMgKystCiBhY2luY2x1ZGUu
+bTQgfCAyICstCiAyIGZpbGVzIGNoYW5nZWQsIDMgaW5zZXJ0aW9ucygrKSwgMiBkZWxldGlvbnMo
+LSkKCmRpZmYgLS1naXQgYS9NYWtlZmlsZS5hbSBiL01ha2VmaWxlLmFtCmluZGV4IDNlNWUwYjIu
+LjEzNjNhYmUgMTAwNjQ0Ci0tLSBhL01ha2VmaWxlLmFtCisrKyBiL01ha2VmaWxlLmFtCkBAIC03
+LDcgKzcsOCBAQAogCiBBVVRPTUFLRV9PUFRJT05TID0gZm9yZWlnbiBzdWJkaXItb2JqZWN0cwog
+QUNMT0NBTF9BTUZMQUdTID0gLUkgbTQKLVNVQkRJUlMgPSBkYXRhcGF0aAorIyBTVUJESVJTID0g
+ZGF0YXBhdGgKK1NVQkRJUlMgPQogCiBBTV9DUFBGTEFHUyA9ICQoU1NMX0NGTEFHUykKIEFNX0xE
+RkxBR1MgPSAkKFNTTF9MREZMQUdTKQpkaWZmIC0tZ2l0IGEvYWNpbmNsdWRlLm00IGIvYWNpbmNs
+dWRlLm00CmluZGV4IGNiM2UxNDguLmY0MTkwNTYgMTAwNjQ0Ci0tLSBhL2FjaW5jbHVkZS5tNAor
+KysgYi9hY2luY2x1ZGUubTQKQEAgLTEzNCw3ICsxMzQsNyBAQCBBQ19ERUZVTihbT1ZTX0NIRUNL
+X0xJTlVYXSwgWwogICAgIEFDX01TR19SRVNVTFQoWyRrdmVyc2lvbl0pCiAKICAgICBpZiB0ZXN0
+ICIkdmVyc2lvbiIgLWdlIDM7IHRoZW4KLSAgICAgICBpZiB0ZXN0ICIkdmVyc2lvbiIgPSAzICYm
+IHRlc3QgIiRwYXRjaGxldmVsIiAtbGUgMTg7IHRoZW4KKyAgICAgICBpZiB0ZXN0ICIkdmVyc2lv
+biIgPSAzICYmIHRlc3QgIiRwYXRjaGxldmVsIiAtbGUgMTk7IHRoZW4KICAgICAgICAgICA6ICMg
+TGludXggMy54CiAgICAgICAgZWxzZQogICAgICAgICAgQUNfRVJST1IoW0xpbnV4IGtlcm5lbCBp
+biAkS0JVSUxEIGlzIHZlcnNpb24gJGt2ZXJzaW9uLCBidXQgdmVyc2lvbiBuZXdlciB0aGFuIDMu
+MTgueCBpcyBub3Qgc3VwcG9ydGVkIChwbGVhc2UgcmVmZXIgdG8gdGhlIEZBUSBmb3IgYWR2aWNl
+KV0pCi0tIAoxLjkuMQoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX18KZGV2IG1haWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVudnN3
+aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
