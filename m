@@ -1,70 +1,46 @@
-From: Sabrina Dubroca <sd@queasysnail.net>
-Subject: Re: 3.19-rc7 netconsole locking bug.
-Date: Thu, 5 Feb 2015 00:41:32 +0100
-Message-ID: <20150204234132.GA13621@kria>
-References: <20150204193902.GB652@codemonkey.org.uk>
- <20150204195901.GA1682@codemonkey.org.uk>
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Subject: Re: [PATCH for-3.19] vhost/net: fix up num_buffers endian-ness
+Date: Wed, 4 Feb 2015 23:45:36 +0000
+Message-ID: <20150204234536.GL29656@ZenIV.linux.org.uk>
+References: <1422896842-19186-1-git-send-email-mst@redhat.com>
+	<20150204.135942.127858058517785730.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org
-To: Dave Jones <davej@codemonkey.org.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp4-g21.free.fr ([212.27.42.4]:37902 "EHLO smtp4-g21.free.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756083AbbBDXld (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Feb 2015 18:41:33 -0500
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: kvm@vger.kernel.org, mst@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org
+To: David Miller <davem@davemloft.net>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
 Content-Disposition: inline
-In-Reply-To: <20150204195901.GA1682@codemonkey.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20150204.135942.127858058517785730.davem@davemloft.net>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-2015-02-04, 14:59:01 -0500, Dave Jones wrote:
-> On Wed, Feb 04, 2015 at 02:39:02PM -0500, Dave Jones wrote:
->  > I set up netconsole this morning, and noticed when I rebooted the machine
->  > that this happens when it initializes..
->  > ... 
->  > 
->  > Despite the positive sounding last two lines, nothing actually gets logged
->  > over the netconsole.
+On Wed, Feb 04, 2015 at 01:59:42PM -0800, David Miller wrote:
+> From: "Michael S. Tsirkin" <mst@redhat.com>
+> Date: Tue, 3 Feb 2015 11:07:06 +0200
 > 
-> After changing the boot process to modprobe netconsole later, I still
-> see the same spew, but the console now works.
-> However, shortly afterwards, there's another locking warning..
+> > In virtio 1.0 mode, when mergeable buffers are enabled on a big-endian
+> > host, num_buffers wasn't byte-swapped correctly, so large incoming
+> > packets got corrupted.
+> > 
+> > To fix, fill it in within hdr - this also makes sure it gets
+> > the correct type.
+> > 
+> > Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 > 
-> BUG: sleeping function called from invalid context at kernel/irq/manage.c:104
-> in_atomic(): 1, irqs_disabled(): 1, pid: 0, name: swapper/1
-> 4 locks held by swapper/1/0:
->  #0:  (rcu_read_lock){......}, at: [<ffffffffa07c7e98>] __netif_receive_skb_core+0x78/0xc00
->  #1:  (rcu_read_lock_bh){......}, at: [<ffffffffa084676f>] ip_finish_output2+0x9f/0xaa0
->  #2:  (rcu_read_lock_bh){......}, at: [<ffffffffa07cd9a3>] __dev_queue_xmit+0x63/0xbe0
->  #3:  (_xmit_ETHER#2){+.-...}, at: [<ffffffffa0801b3f>] sch_direct_xmit+0x11f/0x330
-> irq event stamp: 136019
-> hardirqs last  enabled at (136018): [<ffffffffa09b26da>] _raw_spin_unlock_irqrestore+0x5a/0xb0
-> hardirqs last disabled at (136019): [<ffffffffa09b4cca>] irq_work_interrupt+0x6a/0x80
-> softirqs last  enabled at (135536): [<ffffffffa0093fd5>] _local_bh_enable+0x25/0x80
-> softirqs last disabled at (135537): [<ffffffffa00952ed>] irq_exit+0x27d/0x2e0
-> CPU: 1 PID: 0 Comm: swapper/1 Not tainted 3.19.0-rc7+ #13 
->  ffffffffa0d3d363 2097f77ab05a8c13 ffff88007ec03160 ffffffffa09a5efa
->  0000000000000000 0000000000000000 ffff88007ec03190 ffffffffa00ca277
->  ffff88007ec03190 ffffffffa0d3d363 0000000000000068 0000000000000000
-> Call Trace:
->  <IRQ>  [<ffffffffa09a5efa>] dump_stack+0x84/0xb9
->  [<ffffffffa00ca277>] ___might_sleep+0x2d7/0x390
->  [<ffffffffa00ca3b0>] __might_sleep+0x80/0x100
->  [<ffffffffa01123f7>] synchronize_irq+0x67/0x120
->  [<ffffffffa01125a9>] ? __disable_irq_nosync+0x69/0xc0
->  [<ffffffffa0112634>] disable_irq+0x34/0x50
->  [<ffffffffa06c93f5>] e1000_netpoll+0x55/0x1d0
->  [<ffffffffa07fc3f9>] netpoll_poll_dev+0x99/0x300
->  [<ffffffffa07fc83f>] netpoll_send_skb_on_dev+0x1df/0x470
->  [<ffffffffa07fcddc>] netpoll_send_udp+0x30c/0x5a0
+> Applied.
 
-This looks like the issue I started working on:
-
-https://lkml.org/lkml/2014/10/29/523
-https://marc.info/?l=linux-netdev&m=141813589016500&w=2
-
-I will continue.  Sorry I let this slide.
-
--- 
-Sabrina
+FWIW, conflict with iov_iter patches is trivial; once it shows up in
+your kernel.org tree I can either rebase the series or just push
+#merge-candidate - whichever you prefer.  Linus usually prefers the
+second variant, but then he seriously dislikes rebasing of any sort;
+I've no idea what your preferences are in that area...
