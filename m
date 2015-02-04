@@ -1,176 +1,48 @@
-From: Michal Kazior <michal.kazior@tieto.com>
-Subject: Re: Throughput regression with `tcp: refine TSO autosizing`
-Date: Wed, 4 Feb 2015 12:35:22 +0100
-Message-ID: <CA+BoTQmvUuFdfYF=wVMYxrf_nQZB5GCV=LvDZVvfs-3hAE4WKw@mail.gmail.com>
-References: <CA+BoTQkVu23P3EOmY_Q3E1GJnWsyF==Pawz4iPOS_Bq5dvfO5Q@mail.gmail.com>
-	<1422537297.21689.15.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CA+BoTQk2xT-8DqPuiiKG+kHAjLPrj8F9dLTb-rcGhvMq0u_2Qw@mail.gmail.com>
-	<1422628835.21689.95.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CA+BoTQkV+mOZfe_Niz5101sMQeaV6muKCsShptjGQ1AgOHqqoQ@mail.gmail.com>
-	<1422903136.21689.114.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1422926330.21689.138.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CA+BoTQkMikA8wxm1ce2DkKhPB0HiKeAqT7f+sQ=91W40z=X0Rg@mail.gmail.com>
-	<1422973660.907.10.camel@edumazet-glaptop2.roam.corp.google.com>
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Subject: [PATCH] myri10ge: Delete an unnecessary check before the function
+ call "kfree"
+Date: Wed, 04 Feb 2015 12:36:02 +0100
+Message-ID: <54D20422.5050703@users.sourceforge.net>
+References: <5307CAA2.8060406@users.sourceforge.net> <alpine.DEB.2.02.1402212321410.2043@localhost6.localdomain6> <530A086E.8010901@users.sourceforge.net> <alpine.DEB.2.02.1402231635510.1985@localhost6.localdomain6> <530A72AA.3000601@users.sourceforge.net> <alpine.DEB.2.02.1402240658210.2090@localhost6.localdomain6> <530B5FB6.6010207@users.sourceforge.net> <alpine.DEB.2.10.1402241710370.2074@hadrien> <530C5E18.1020800@users.sourceforge.net> <alpine.DEB.2.10.1402251014170.2080@hadrien> <530CD2C4.4050903@users.sourceforge.net> <alpine.DEB.2.10.1402251840450.7035@hadrien> <530CF8FF.8080600@users.sourceforge.net> <alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6> <530DD06F.4090703@users.sourceforge.net> <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6> <5317A59D.4@users.so
+ urceforge.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-wireless <linux-wireless@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	eyalpe@dev.mellanox.co.il
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f181.google.com ([74.125.82.181]:44519 "EHLO
-	mail-we0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751114AbbBDLfY convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2015 06:35:24 -0500
-Received: by mail-we0-f181.google.com with SMTP id k48so1143789wev.12
-        for <netdev@vger.kernel.org>; Wed, 04 Feb 2015 03:35:22 -0800 (PST)
-In-Reply-To: <1422973660.907.10.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	kernel-janitors@vger.kernel.org,
+	Julia Lawall <julia.lawall@lip6.fr>
+To: Hyong-Youb Kim <hykim@myri.com>, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5317A59D.4@users.sourceforge.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 3 February 2015 at 15:27, Eric Dumazet <eric.dumazet@gmail.com> wrot=
-e:
-> On Tue, 2015-02-03 at 12:50 +0100, Michal Kazior wrote:
-[...]
->> IOW:
->>  - stretch acks / TSO defer don't seem to help much (when compared t=
-o
->> throughput results from yesterday)
->>  - GRO helps
->>  - disabling A-MSDU on sender helps
->>  - net/master+GRO still doesn't reach the performance from before th=
-e
->> regression (~600mbps w/ GRO)
->>
->> You can grab logs and dumps here: http://www.filedropper.com/test2ta=
-r
->>
->
-> Thanks for these traces.
->
-> There is absolutely a problem at the sender, as we can see a big 2ms
-> delay between reception of ACK and send of following packets.
-> TCP stack should generate them immediately.
-> Are you using some kind of netem qdisc ?
+From: Markus Elfring <elfring@users.sourceforge.net>
+Date: Wed, 4 Feb 2015 12:32:14 +0100
 
-Both systems have identical setup:
+The kfree() function tests whether its argument is NULL and then
+returns immediately. Thus the test around the call is not needed.
 
-; tc qdisc
-qdisc pfifo_fast 0: dev eth0 root refcnt 2 bands 3 priomap  1 2 2 2 1
-2 0 0 1 1 1 1 1 1 1 1
-qdisc pfifo_fast 0: dev eth1 root refcnt 2 bands 3 priomap  1 2 2 2 1
-2 0 0 1 1 1 1 1 1 1 1
-qdisc mq 0: dev wlan1 root
-qdisc pfifo_fast 0: dev wlan1 parent :1 bands 3 priomap  1 2 2 2 1 2 0
-0 1 1 1 1 1 1 1 1
-qdisc pfifo_fast 0: dev wlan1 parent :2 bands 3 priomap  1 2 2 2 1 2 0
-0 1 1 1 1 1 1 1 1
-qdisc pfifo_fast 0: dev wlan1 parent :3 bands 3 priomap  1 2 2 2 1 2 0
-0 1 1 1 1 1 1 1 1
-qdisc pfifo_fast 0: dev wlan1 parent :4 bands 3 priomap  1 2 2 2 1 2 0
-0 1 1 1 1 1 1 1 1
+This issue was detected by using the Coccinelle software.
 
+Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+---
+ drivers/net/ethernet/myricom/myri10ge/myri10ge.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-> These 2ms delays, in a flow with a 5ms RTT are terrible.
->
-> 06:54:57.408391 IP 192.168.1.2.5001 > 192.168.1.3.51645: Flags [.], a=
-ck 4294899240, win 11268, options [nop,nop,TS val 1053302 ecr 1052250],=
- length 0
-> 06:54:57.408418 IP 192.168.1.2.5001 > 192.168.1.3.51645: Flags [.], a=
-ck 4294910824, win 11268, options [nop,nop,TS val 1053303 ecr 1052251],=
- length 0
-> 06:54:57.408431 IP 192.168.1.2.5001 > 192.168.1.3.51645: Flags [.], a=
-ck 4294936888, win 11268, options [nop,nop,TS val 1053303 ecr 1052251],=
- length 0
-> 06:54:57.408453 IP 192.168.1.2.5001 > 192.168.1.3.51645: Flags [.], a=
-ck 4294962952, win 11268, options [nop,nop,TS val 1053303 ecr 1052251],=
- length 0
-> 06:54:57.408474 IP 192.168.1.2.5001 > 192.168.1.3.51645: Flags [.], a=
-ck 0, win 11268, options [nop,nop,TS val 1053303 ecr 1052251], length 0
-> <this 2ms delay is not generated by TCP stack.>
-> 06:54:57.410243 IP 192.168.1.3.51645 > 192.168.1.2.5001: Flags [.], s=
-eq 82536:83984, ack 1, win 457, options [nop,nop,TS val 1052256 ecr 105=
-3303], length 1448
-[...]
->
-> Are packets TX completed after a timer or something ?
-
-As far as ath10k is concerned - no timers here. Not sure about
-firmware itself though.
-
-
-> Some very heavy stuff might run from tasklet (or other softirq trigge=
-red) event.
->
-> BTW, traces tend to show that you 'receive' multiple ACK in the same =
-burst,
-> its not clear if they are delayed at one side or the other.
->
-> GRO should delay only GRO candidates. ACK packets are not GRO candida=
-tes.
->
-> Have you tried to disable GSO on sender ?
-
-I assume I do that via ethtool? This is my current setup on both system=
-s:
-
-; ethtool -k wlan1
-=46eatures for wlan1:
-rx-checksumming: off [fixed]
-tx-checksumming: on
-        tx-checksum-ipv4: off [fixed]
-        tx-checksum-ip-generic: on [fixed]
-        tx-checksum-ipv6: off [fixed]
-        tx-checksum-fcoe-crc: off [fixed]
-        tx-checksum-sctp: off [fixed]
-scatter-gather: off
-        tx-scatter-gather: off [fixed]
-        tx-scatter-gather-fraglist: off [fixed]
-tcp-segmentation-offload: off
-        tx-tcp-segmentation: off [fixed]
-        tx-tcp-ecn-segmentation: off [fixed]
-        tx-tcp6-segmentation: off [fixed]
-udp-fragmentation-offload: off [fixed]
-generic-segmentation-offload: off [requested on]
-generic-receive-offload: on
-large-receive-offload: off [fixed]
-rx-vlan-offload: off [fixed]
-tx-vlan-offload: off [fixed]
-ntuple-filters: off [fixed]
-receive-hashing: off [fixed]
-highdma: off [fixed]
-rx-vlan-filter: off [fixed]
-vlan-challenged: off [fixed]
-tx-lockless: off [fixed]
-netns-local: on [fixed]
-tx-gso-robust: off [fixed]
-tx-fcoe-segmentation: off [fixed]
-tx-gre-segmentation: off [fixed]
-tx-ipip-segmentation: off [fixed]
-tx-sit-segmentation: off [fixed]
-tx-udp_tnl-segmentation: off [fixed]
-fcoe-mtu: off [fixed]
-tx-nocache-copy: off
-loopback: off [fixed]
-rx-fcs: off [fixed]
-rx-all: off [fixed]
-tx-vlan-stag-hw-insert: off [fixed]
-rx-vlan-stag-hw-parse: off [fixed]
-rx-vlan-stag-filter: off [fixed]
-l2-fwd-offload: off [fixed]
-busy-poll: off [fixed]
-
-; ethtool -K wlan1 generic-segmentation-offload off
-ethtool: bad command line argument(s)
-=46or more information run ethtool -h
-
-
-> (Or maybe wifi drivers should start to use skb->xmit_more as a signal=
- to end aggregation)
-
-This could work if your firmware/device supports this kind of thing.
-To my understanding ath10k firmware doesn't.
-
-
-Micha=C5=82
+diff --git a/drivers/net/ethernet/myricom/myri10ge/myri10ge.c b/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
+index 71af98b..1412f5a 100644
+--- a/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
++++ b/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
+@@ -4226,8 +4226,7 @@ static void myri10ge_remove(struct pci_dev *pdev)
+ 		mtrr_del(mgp->mtrr, mgp->iomem_base, mgp->board_span);
+ #endif
+ 	myri10ge_free_slices(mgp);
+-	if (mgp->msix_vectors != NULL)
+-		kfree(mgp->msix_vectors);
++	kfree(mgp->msix_vectors);
+ 	dma_free_coherent(&pdev->dev, sizeof(*mgp->cmd),
+ 			  mgp->cmd, mgp->cmd_bus);
+ 
+-- 
+2.2.2
