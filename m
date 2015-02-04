@@ -1,83 +1,78 @@
-From: Siva Mannem <siva.mannem.lnx@gmail.com>
-Subject: Re: [PATCH net-next] bridge: Let bridge not age 'externally' learnt
- FDB entries, they are removed when 'external' entity notifies the aging
-Date: Wed, 4 Feb 2015 13:32:53 +0530
-Message-ID: <CA+CtxLSziWmx94_V9S-uW9=6VYg4WXsU4CERx-uovvrFOtO1dA@mail.gmail.com>
-References: <1422897714-5956-1-git-send-email-siva.mannem.lnx@gmail.com>
-	<54D0E521.6070100@cumulusnetworks.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Invalid timestamp? causing tight ack loop (hundreds of
+ thousands of packets / sec)
+Date: Wed, 04 Feb 2015 00:03:06 -0800
+Message-ID: <1423036986.907.105.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CAO-X30uMA7=DTm5KqqvYC5RVTM0bg9pKBO1nX1+6x_2pF_fWfA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>,
-	Scott Feldman <sfeldma@cumulusnetworks.com>,
-	Jiri Pirko <jiri@resnulli.us>
-To: roopa <roopa@cumulusnetworks.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Neal Cardwell <ncardwell@google.com>
+To: Avery Fay <avery@mixpanel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f172.google.com ([209.85.212.172]:54820 "EHLO
-	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751716AbbBDICy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2015 03:02:54 -0500
-Received: by mail-wi0-f172.google.com with SMTP id h11so29804741wiw.5
-        for <netdev@vger.kernel.org>; Wed, 04 Feb 2015 00:02:53 -0800 (PST)
-In-Reply-To: <54D0E521.6070100@cumulusnetworks.com>
+Received: from mail-ie0-f169.google.com ([209.85.223.169]:45188 "EHLO
+	mail-ie0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932820AbbBDIDH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2015 03:03:07 -0500
+Received: by mail-ie0-f169.google.com with SMTP id rl12so236960iec.0
+        for <netdev@vger.kernel.org>; Wed, 04 Feb 2015 00:03:07 -0800 (PST)
+In-Reply-To: <CAO-X30uMA7=DTm5KqqvYC5RVTM0bg9pKBO1nX1+6x_2pF_fWfA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 3, 2015 at 8:41 PM, roopa <roopa@cumulusnetworks.com> wrote:
-> On 2/2/15, 9:21 AM, Siva Mannem wrote:
->>
->>   When 'learned_sync' flag is turned on, the offloaded switch
->>   port syncs learned MAC addresses to bridge's FDB via switchdev notifier
->>   (NETDEV_SWITCH_FDB_ADD). Currently, FDB entries learnt via this
->> mechanism are
->>   wrongly being deleted by bridge aging logic. This patch ensures that FDB
->>   entries synced from offloaded switch ports are not deleted by bridging
->> logic.
->>   Such entries can only be deleted via switchdev notifier
->>   (NETDEV_SWITCH_FDB_DEL).
->
->
-> Your patch seems right and maintains symmetry for fdb add/del of externally
-> learnt entries.
-> However, this could be made configurable. I think some drivers may rely on
-> bridge driver aging these entries (The default setting needs more thought).
-> I am not sure what rocker does (CC'ed rocker maintainers). But, our driver
-> does rely on the bridge driver aging these entries by default.
+On Tue, 2015-02-03 at 22:50 -0800, Avery Fay wrote:
+> Hello,
+> 
+> Let me say first: if there's a better place to ask this, please point
+> me in that direction.
+> 
+> We've been having huge packets / sec spikes in the past few days.
+> After some investigation, it looks like single connections are getting
+> stuck in a loop (see tcpdump below). Each "stuck" connection will
+> generate about 200kpps. It looks like our side is rejecting packets
+> with "packets rejects in established connections because of timestamp"
+> from netstat -s (internally PAWSEstab counter) and then generating an
+> additional packet that we send out. All of these connections originate
+> from georgia tech, but so far (not completely verified) it doesn't
+> seem like there's any pattern to the client/os other than the fact
+> that they're trying to make an https request to us.
+> 
+> As a temporary countermeasure, we've disabled net.ipv4.tcp_timestamps,
+> which solves the immediate problem.
+> 
+> Our server is 174.36.240.86 running Ubuntu 12.04 with kernel 3.13.0-35-generic
+> 
+> The client is 128.61.57.205 and in this case almost certainly has user
+> agent (we found successful requests 10 seconds before the tcpdump with
+> same ip): Dalvik/2.1.0 (Linux; U; Android 5.0; XT1095
+> Build/LXE22.46-11)
+> 
+> Beginning of tcpdump:
 
-added_by_external_learn flag is only set for entries learned via
-switchdev notifier
-(NETDEV_SWITCH_FDB_ADD) and rocker is the only driver using these notifiers.
- I see that rocker is deleting the entries via switchdev notifier
-(NETDEV_SWITCH_FDB_DEL).
-This mechanism is only used by drivers when learned_sync is turned on by user.
+...
 
-$ sudo bridge link set dev swp1 learning_sync on self
+> 
+> At this point, it just repeats until some timeout is hit. I haven't
+> timed it, but probably one or two minutes.
+> 
+> I guess I have a few questions:
+> 
+> 1.) What's going on here? It looks like maybe there's some packet loss
+> and then connection termination gets stuck in a loop because the
+> client timestamp went down?
+> 2.) Is there a better way to mitigate this other than disabling
+> tcp_timestamps or blocking gatech ips?
+> 3.) Is this our problem (ok, obviously our problem since we're
+> affected but...), a kernel problem, or a gatech problem?
+> 
+> I'd really appreciate any help on this,
 
-Am I missing something here?
+Would you have a pcap file instead ?
 
->
->>
->> Signed-off-by: Siva Mannem <siva.mannem.lnx@gmail.com>
->> ---
->>   net/bridge/br_fdb.c | 2 +-
->>   1 file changed, 1 insertion(+), 1 deletion(-)
->>
->> diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
->> index 08bf04b..6eb94b5 100644
->> --- a/net/bridge/br_fdb.c
->> +++ b/net/bridge/br_fdb.c
->> @@ -280,7 +280,7 @@ void br_fdb_cleanup(unsigned long _data)
->>                 hlist_for_each_entry_safe(f, n, &br->hash[i], hlist) {
->>                         unsigned long this_timer;
->> -                       if (f->is_static)
->> +                       if (f->is_static || f->added_by_external_learn)
->>                                 continue;
->>                         this_timer = f->updated + delay;
->>                         if (time_before_eq(this_timer, jiffies))
->
->
+It looks a middlebox is broken, I dont think Android could possibly send
+a frame with no payload, but with Push flag.
 
+Neal has some patches that add a rate limiting on DACKS, that we might
+upstream. (per socket rate limiting of 2 DACK per second)
 
-
--- 
-Regards,
-Siva Mannem.
+Thanks
