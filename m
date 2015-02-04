@@ -1,156 +1,40 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] tcp: do not pace pure ack packets
-Date: Tue, 03 Feb 2015 18:31:53 -0800
-Message-ID: <1423017113.907.76.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Ying Xue <ying.xue@windriver.com>
+Subject: Re: [PATCH 0/6 net-next] rhashtable fixes
+Date: Wed, 4 Feb 2015 10:32:36 +0800
+Message-ID: <54D184C4.4090501@windriver.com>
+References: <cover.1422576760.git.tgraf@suug.ch> <54CB4A95.9060000@windriver.com> <20150130092911.GA2313@casper.infradead.org> <54CB5563.9080000@windriver.com> <20150203172113.GC25410@casper.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="windows-1252"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
-To: David Miller <davem@davemloft.net>
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f169.google.com ([209.85.213.169]:34011 "EHLO
-	mail-ig0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752743AbbBDCb5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Feb 2015 21:31:57 -0500
-Received: by mail-ig0-f169.google.com with SMTP id hl2so28853822igb.0
-        for <netdev@vger.kernel.org>; Tue, 03 Feb 2015 18:31:57 -0800 (PST)
+Received: from mail1.windriver.com ([147.11.146.13]:40980 "EHLO
+	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754487AbbBDCdN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Feb 2015 21:33:13 -0500
+In-Reply-To: <20150203172113.GC25410@casper.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On 02/04/2015 01:21 AM, Thomas Graf wrote:
+> On 01/30/15 at 05:56pm, Ying Xue wrote:
+>> On 01/30/2015 05:29 PM, Thomas Graf wrote:
+>>> Right, I see the same soft lockup. Interestingly I cannot trigger it
+>>> with the rht test code. I can only trigger it with your Netlink socket
+>>> creation stress test. It is definitely related to the deferred worker,
+>>> when I disable growing, then the bug disappears.
+>>
+>> Yes, when I disable expansion, the soft lockup also disappears too.
+> 
+> I have found the last remaining race and can now run your test
+> program successfully in an endless loop.
+> 
+> I will resubmit a v2 of this series.
+> 
+> 
 
-When we added pacing to TCP, we decided to let sch_fq take care
-of actual pacing.
+Thanks! Once I receive your updates, I will test them again.
 
-All TCP had to do was to compute sk->pacing_rate using simple formula:
-
-sk->pacing_rate = 2 * cwnd * mss / rtt
-
-It works well for senders (bulk flows), but not very well for receivers
-or even RPC :
-
-cwnd on the receiver can be less than 10, rtt can be around 100ms, so we
-can end up pacing ACK packets, slowing down the sender.
-
-Really, only the sender should pace, according to its own logic.
-
-Instead of adding a new bit in skb, or call yet another flow
-dissection, we tweak skb->truesize to a small value (2), and
-we instruct sch_fq to use new helper and not pace pure ack.
-
-Note this also helps TCP small queue, as ack packets present
-in qdisc/NIC do not prevent sending a data packet (RPC workload)
-
-This helps to reduce tx completion overhead, ack packets can use regular
-sock_wfree() instead of tcp_wfree() which is a bit more expensive.
-
-This has no impact in the case packets are sent to loopback interface,
-as we do not coalesce ack packets (were we would detect skb->truesize
-lie)
-
-In case netem (with a delay) is used, skb_orphan_partial() also sets
-skb->truesize to 1.
-
-This patch is a combination of two patches we used for about one year at
-Google.
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- include/net/tcp.h     |   15 +++++++++++++++
- net/ipv4/tcp_output.c |   10 +++++++++-
- net/sched/sch_fq.c    |   10 ++++++++--
- 3 files changed, 32 insertions(+), 3 deletions(-)
-
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index b8fdc6bab3f3..637ee490ec81 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -1713,4 +1713,19 @@ static inline struct ip_options_rcu *tcp_v4_save_options(struct sk_buff *skb)
- 	return dopt;
- }
- 
-+/* locally generated TCP pure ACKs have skb->truesize == 2
-+ * (check tcp_send_ack() in net/ipv4/tcp_output.c )
-+ * This is much faster than dissecting the packet to find out.
-+ * (Think of GRE encapsulations, IPv4, IPv6, ...)
-+ */
-+static inline bool skb_is_tcp_pure_ack(const struct sk_buff *skb)
-+{
-+	return skb->truesize == 2;
-+}
-+
-+static inline void skb_set_tcp_pure_ack(struct sk_buff *skb)
-+{
-+	skb->truesize = 2;
-+}
-+
- #endif	/* _TCP_H */
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 20ab06b228ac..eae35c1ad0aa 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -948,7 +948,7 @@ static int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb, int clone_it,
- 
- 	skb_orphan(skb);
- 	skb->sk = sk;
--	skb->destructor = tcp_wfree;
-+	skb->destructor = skb_is_tcp_pure_ack(skb) ? sock_wfree : tcp_wfree;
- 	skb_set_hash_from_sk(skb, sk);
- 	atomic_add(skb->truesize, &sk->sk_wmem_alloc);
- 
-@@ -3265,6 +3265,14 @@ void tcp_send_ack(struct sock *sk)
- 	skb_reserve(buff, MAX_TCP_HEADER);
- 	tcp_init_nondata_skb(buff, tcp_acceptable_seq(sk), TCPHDR_ACK);
- 
-+	/* We do not want pure acks influencing TCP Small Queues or fq/pacing
-+	 * too much.
-+	 * SKB_TRUESIZE(max(1 .. 66, MAX_TCP_HEADER)) is unfortunately ~784
-+	 * We also avoid tcp_wfree() overhead (cache line miss accessing
-+	 * tp->tsq_flags) by using regular sock_wfree()
-+	 */
-+	skb_set_tcp_pure_ack(buff);
-+
- 	/* Send it off, this clears delayed acks for us. */
- 	skb_mstamp_get(&buff->skb_mstamp);
- 	tcp_transmit_skb(sk, buff, 0, sk_gfp_atomic(sk, GFP_ATOMIC));
-diff --git a/net/sched/sch_fq.c b/net/sched/sch_fq.c
-index 2a50f5c62070..69a3dbf55c60 100644
---- a/net/sched/sch_fq.c
-+++ b/net/sched/sch_fq.c
-@@ -52,6 +52,7 @@
- #include <net/pkt_sched.h>
- #include <net/sock.h>
- #include <net/tcp_states.h>
-+#include <net/tcp.h>
- 
- /*
-  * Per flow structure, dynamically allocated
-@@ -445,7 +446,9 @@ begin:
- 		goto begin;
- 	}
- 
--	if (unlikely(f->head && now < f->time_next_packet)) {
-+	skb = f->head;
-+	if (unlikely(skb && now < f->time_next_packet &&
-+		     !skb_is_tcp_pure_ack(skb))) {
- 		head->first = f->next;
- 		fq_flow_set_throttled(q, f);
- 		goto begin;
-@@ -464,12 +467,15 @@ begin:
- 		goto begin;
- 	}
- 	prefetch(&skb->end);
--	f->time_next_packet = now;
- 	f->credit -= qdisc_pkt_len(skb);
- 
- 	if (f->credit > 0 || !q->rate_enable)
- 		goto out;
- 
-+	/* Do not pace locally generated ack packets */
-+	if (skb_is_tcp_pure_ack(skb))
-+		goto out;
-+
- 	rate = q->flow_max_rate;
- 	if (skb->sk)
- 		rate = min(skb->sk->sk_pacing_rate, rate);
+Regards,
+Ying
