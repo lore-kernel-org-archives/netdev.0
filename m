@@ -1,137 +1,64 @@
-From: Arvid Brodin <arvid.brodin@alten.se>
-Subject: Re: [PATCH net 0/2] netns: audit netdevice creation with IFLA_NET_NS_[PID|FD]
-Date: Wed, 4 Feb 2015 21:33:59 +0100
-Message-ID: <54D28237.9060009@alten.se>
-References: <1422307694-10079-1-git-send-email-nicolas.dichtel@6wind.com> <54CBE2EF.7050003@alten.se> <54CF9EA8.4080207@6wind.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] xps: fix xps for stacked devices
+Date: Wed, 04 Feb 2015 13:03:08 -0800 (PST)
+Message-ID: <20150204.130308.1433096157491856856.davem@davemloft.net>
+References: <1423036104.907.99.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <davem@davemloft.net>, <dmitry.tarnyagin@lockless.no>,
-	<alex.aring@gmail.com>, <linux-wpan@vger.kernel.org>
-To: <nicolas.dichtel@6wind.com>, <netdev@vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, willemb@google.com, nanditad@google.com,
+	ycheng@google.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from spam1.webland.se ([91.207.112.90]:19512 "EHLO spam1.webland.se"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1161337AbbBDUk2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Feb 2015 15:40:28 -0500
-In-Reply-To: <54CF9EA8.4080207@6wind.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38594 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965378AbbBDVDM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2015 16:03:12 -0500
+In-Reply-To: <1423036104.907.99.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2015-02-02 16:58, Nicolas Dichtel wrote:
-> Le 30/01/2015 21:00, Arvid Brodin a =C3=A9crit :
->> On 2015-01-26 22:28, Nicolas Dichtel wrote:
->> *snip*
->>> - HSR subsystem uses src_net to parse IFLA_HSR_SLAVE[1|2], but the =
-netdevice has
->>>    the flag NETIF_F_NETNS_LOCAL, so the question is: does this netd=
-evice really
->>>    supports x-netns? If not, the newlink handler should use the des=
-t_net instead
->>>    of src_net, I can provide the patch.
->> *snip*
->>
->> As the author of the HSR driver, I'd like to answer this question, b=
-ut unfortunately
->> I don't know what x-netns is. Neither Google nor Documentation/ has =
-been particularly
->> helpful.
->>
->> Care to elaborate? (Maybe this is a moot point now that the patch ha=
-s been accepted,
->> but I'd still like to understand, if you have the time to explain.)
-> Basically, network namespaces (netns) allow you to run several indepe=
-ndant
-> instances of the linux networking stack.
-> Network interfaces are bound to one netns. By default, only one netns=
- exists
-> (named init_net) when you boot your kernel.
-> For logical interfaces, they are usually bound to a link layer. For e=
-xample, if
-> I understand well, hsr network interfaces receive and send their pack=
-ets from
-> two physical interfaces (IFLA_HSR_SLAVE[1|2]).
-> Now imagine that these slaves are in a netns foo and the logical hsr =
-interfaces
-> in netns bar. You have a x-netns interface, the link layer part of th=
-e interface
-> is not in the same netns than the upper part. A user will see the hsr=
- interface
-> in netns bar, but this interface will send a receive packet in netns =
-foo.
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 03 Feb 2015 23:48:24 -0800
 
-Ok, so x-netns simply means cross-netns?
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> A typical qdisc setup is the following :
+> 
+> bond0 : bonding device, using HTB hierarchy
+> eth1/eth2 : slaves, multiqueue NIC, using MQ + FQ qdisc
+> 
+> XPS allows to spread packets on specific tx queues, based on the cpu
+> doing the send.
+> 
+> Problem is that dequeues from bond0 qdisc can happen on random cpus,
+> due to the fact that qdisc_run() can dequeue a batch of packets.
+> 
+> CPUA -> queue packet P1 on bond0 qdisc, P1->ooo_okay=1
+> CPUA -> queue packet P2 on bond0 qdisc, P2->ooo_okay=0
+> 
+> CPUB -> dequeue packet P1 from bond0
+>         enqueue packet on eth1/eth2
+> CPUC -> dequeue packet P2 from bond0
+>         enqueue packet on eth1/eth2 using sk cache (ooo_okay is 0)
+> 
+> get_xps_queue() then might select wrong queue for P1, since current cpu
+> might be different than CPUA.
+> 
+> P2 might be sent on the old queue (stored in sk->sk_tx_queue_mapping),
+> if CPUC runs a bit faster (or CPUB spins a bit on qdisc lock)
+> 
+> Effect of this bug is TCP reorders, and more generally not optimal
+> TX queue placement. (A victim bulk flow can be migrated to the wrong TX
+> queue for a while)
+> 
+> To fix this, we have to record sender cpu number the first time
+> dev_queue_xmit() is called for one tx skb.
+> 
+> We can union napi_id (used on receive path) and sender_cpu,
+> granted we clear sender_cpu in skb_scrub_packet() (credit to Willem for
+> this union idea)
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-> Usually, to configure an interface like this, you create it in netns =
-foo and you
-> move it later to netns bar (ip link set hsr1 netns bar). The flag
-> NETIF_F_NETNS_LOCAL forbids this operation, you cannot move it to ano=
-ther netns.
-> But you still can create a x-netns interface:
-> ip netns add foo
-> ip link add hsr1 netns foo type hsr slave1 eth0 slave2 eth1
-> ip netns exec foo ip link ls hsr1
->=20
-> =3D> eth0 and eth1 are took from the current netns (because in the co=
-de, src_net
-> is the current netns) but hsr1 is built in netns foo.
->=20
-> Now, the question is: does HSR really work across netns? Why is the f=
-lag
-> NETIF_F_NETNS_LOCAL set?
-> dev_forward_skb() may be used to forward an skbuff to another netns.
-
-Here is the code snippet that sets NETIF_F_NETNS_LOCAL:
-	/* Not sure about this. Taken from bridge code. netdev_features.h says
-	 * it means "Does not change network namespaces".
-	 */
-	dev->features |=3D NETIF_F_NETNS_LOCAL;
-
-HSR is a bit like a bridge since it forwards packets between interfaces=
- on the=20
-same Ethernet network, and the bridge code sets NETIF_F_NETNS_LOCAL. An=
-d that's=20
-really all the reason for the inclusion of the flag - i.e. it should be=
- removed
-if it doesn't make sense.
-
-So, does it make sense? I'm not sure exactly, but I don't think it make=
-s sense
-to have slaves that are in different namespaces - they are supposed to =
-be part=20
-of the same ethernet network after all. But maybe having the HSR interf=
-ace in a=20
-different namespace than the two slaves could make sense - this way you=
- could=20
-force an application to only communicate using the HSR protocol, and no=
-t use any=20
-of the slave interfaces directly.
-
-If you agree with the above, then I guess that means NETIF_F_NETNS_LOCA=
-L should=20
-not be set?
-
-
-> Note, that I got a panic when playing with hsr:
-> ip link add hsr1 type hsr slave1 eth1 slave2 eth0
-> ip link del hsr1
-> =3D> panic
->=20
-> I dig a bit:
-> 1/ hsr_netdev_notify() supposes that the port will always be availabl=
-e when the
-> notification is for an hsr interface. It's wrong. For example,
-> netdev_wait_allrefs() may resend NETDEV_UNREGISTER.
-> 2/ with a patch that ignores the notification when the port is NULL, =
-I got a
-> refcnt problem:
-> [  327.372099] unregister_netdevice: waiting for hsr1 to become free.=
- Usage count =3D -1
-
-Thanks for the bug report! I'll take a look at it ASAP.
-
-
---=20
-Arvid Brodin | Consultant (Linux)
-ALTEN | Knarrarn=C3=A4sgatan 7 | SE-164 40 Kista | Sweden
-arvid.brodin@alten.se | www.alten.se/en/
+Applied, thanks everyone.
