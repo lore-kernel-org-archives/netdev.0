@@ -1,56 +1,48 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] ipv6: fix sparse errors in ip6_make_flowlabel()
-Date: Wed, 04 Feb 2015 15:03:25 -0800
-Message-ID: <1423091005.31870.26.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Andy Zhou <azhou-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Subject: [RFC: add openvswitch actions using BPF 0/2]
+Date: Wed,  4 Feb 2015 14:48:40 -0800
+Message-ID: <1423090122-19807-1-git-send-email-azhou@nicira.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f174.google.com ([209.85.223.174]:46710 "EHLO
-	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S966688AbbBDXD1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2015 18:03:27 -0500
-Received: by mail-ie0-f174.google.com with SMTP id vy18so6022718iec.5
-        for <netdev@vger.kernel.org>; Wed, 04 Feb 2015 15:03:27 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: dev-yBygre7rU0SM8Zsap4Y0gw@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
-
-include/net/ipv6.h:713:22: warning: incorrect type in assignment (different base types)
-include/net/ipv6.h:713:22:    expected restricted __be32 [usertype] hash
-include/net/ipv6.h:713:22:    got unsigned int
-include/net/ipv6.h:719:25: warning: restricted __be32 degrades to integer
-include/net/ipv6.h:719:22: warning: invalid assignment: ^=
-include/net/ipv6.h:719:22:    left side has type restricted __be32
-include/net/ipv6.h:719:22:    right side has type unsigned int
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- include/net/ipv6.h |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/include/net/ipv6.h b/include/net/ipv6.h
-index 8027ca53e31f5903e055c425fef097ca9ccaa173..a419d766e9b538ab5eda9f4c3ee5e6244de5cf7e 100644
---- a/include/net/ipv6.h
-+++ b/include/net/ipv6.h
-@@ -708,7 +708,7 @@ static inline __be32 ip6_make_flowlabel(struct net *net, struct sk_buff *skb,
- 					__be32 flowlabel, bool autolabel)
- {
- 	if (!flowlabel && (autolabel || net->ipv6.sysctl.auto_flowlabels)) {
--		__be32 hash;
-+		u32 hash;
- 
- 		hash = skb_get_hash(skb);
- 
-@@ -718,7 +718,7 @@ static inline __be32 ip6_make_flowlabel(struct net *net, struct sk_buff *skb,
- 		 */
- 		hash ^= hash >> 12;
- 
--		flowlabel = hash & IPV6_FLOWLABEL_MASK;
-+		flowlabel = (__force __be32)hash & IPV6_FLOWLABEL_MASK;
- 	}
- 
- 	return flowlabel;
+Sm9lIGFuZCBJIGhhdmUgYmVlbiBleHBlcmltZW50aW5nIHdpdGggQlBGIGFuZCBpdHMgYXBwbGlj
+YXRpb24gZm9yIE9WUy4KVGhpcyBwYXRjaCBzaG93cyBvdXIgYXR0ZW1wdCB0byBpbXBsZW1lbnQg
+b3ZzIGFjdGlvbnMgdXNpbmcgZUJQRi4KClRoZSBrZXJuZWwgY2hhbmdlcyBhcmUgYWdhaW5zdCB0
+aGUgJ25ldC1uZXh0Jy4gVGhlIGNvcnJlc3BvbmRpbmcKdXNlciBzcGFjZSBjaGFuZ2VzIHdpbGwg
+YmUgcG9zdCBuZXh0LgoKVGhpcyBwYXRjaCBzZXQgaW1wbGVtZW50cyBhbiBCUEYgYWN0aW9uLCB0
+aGF0IGhhcyB0aGUgc2FtZSBpbnRlcmZhY2UKYXMgY3VycmVudCBPVlMgb3V0cHV0IGFjdGlvbi4g
+SW5zdGVhZCBvZiBzZW5kaW5nIG91dCBhIHBhY2tldCwgaXQKb25seSBnZW5lcmF0ZXMgYSBrZXJu
+ZWwgbWVzc2FnZS4KClRoaXMgZmVhdHVyZSBpcyBuZWl0aGVyIGNvbXBsZXRlIG5vciB1c2VmdWwg
+YXMgaXMuICBXZSBhcmUgbW9zdGx5CmludGVyZXN0ZWQgaW4gY29tbWVudHMgb246IFRoZSBpbmZy
+YXN0cnVjdHVyZSBjaGFuZ2VzIHRvIHN1cHBvcnQKYW5kIHJ1bm5pbmcgQlBGIGZ1bmN0aW9ucywg
+YW5kIHN1Z2dlc3Rpb25zIG9uIGV4dGVuc2lvbnMgYmV5b25kCnRob3NlIHBhdGNoZXMuCgpBbmR5
+IFpob3UgKDIpOgogIEJQRjogYWRkIGEgbmV3IEJQRiBwcm9ncmFtIHR5cGUgQlBGX1BST0dfVFlQ
+RV9PUEVOVlNXSVRDSAogIG9wZW52c3dpdGNoOiBpbXBsZW1lbnRzIHRoZSBCUEZfUFJPRyBhY3Rp
+b24gaW4gZGF0YXBhdGgKCiBpbmNsdWRlL2xpbnV4L2JwZi5oICAgICAgICAgICAgICB8ICAyICst
+CiBpbmNsdWRlL3VhcGkvbGludXgvYnBmLmggICAgICAgICB8ICAxICsKIGluY2x1ZGUvdWFwaS9s
+aW51eC9vcGVudnN3aXRjaC5oIHwgMjkgKysrKysrKysrKysrLQogbmV0L01ha2VmaWxlICAgICAg
+ICAgICAgICAgICAgICAgfCAgNCArLQogbmV0L29wZW52c3dpdGNoL01ha2VmaWxlICAgICAgICAg
+fCAgMiArCiBuZXQvb3BlbnZzd2l0Y2gvYWN0aW9ucy5jICAgICAgICB8IDMwICsrKysrKysrKysr
+KysKIG5ldC9vcGVudnN3aXRjaC9icGYuYyAgICAgICAgICAgIHwgODcgKysrKysrKysrKysrKysr
+KysrKysrKysrKysrKysrKysrKysrKwogbmV0L29wZW52c3dpdGNoL2RhdGFwYXRoLmMgICAgICAg
+fCAgNiArKy0KIG5ldC9vcGVudnN3aXRjaC9mbG93X25ldGxpbmsuYyAgIHwgOTIgKysrKysrKysr
+KysrKysrKysrKysrKysrKysrKysrKysrKysrKysrLQogbmV0L29wZW52c3dpdGNoL2Zsb3dfbmV0
+bGluay5oICAgfCAgOCArKysrCiAxMCBmaWxlcyBjaGFuZ2VkLCAyNTQgaW5zZXJ0aW9ucygrKSwg
+NyBkZWxldGlvbnMoLSkKIGNyZWF0ZSBtb2RlIDEwMDY0NCBuZXQvb3BlbnZzd2l0Y2gvYnBmLmMK
+Ci0tIAoxLjkuMQoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X18KZGV2IG1haWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVudnN3aXRj
+aC5vcmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
