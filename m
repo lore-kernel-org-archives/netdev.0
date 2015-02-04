@@ -1,67 +1,51 @@
-From: SF Markus Elfring <elfring-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-Subject: [PATCH] net: Mellanox: Delete unnecessary checks before the function
- call "vunmap"
-Date: Wed, 04 Feb 2015 15:22:33 +0100
-Message-ID: <54D22B29.3020200@users.sourceforge.net>
-References: <5307CAA2.8060406@users.sourceforge.net> <alpine.DEB.2.02.1402212321410.2043@localhost6.localdomain6> <530A086E.8010901@users.sourceforge.net> <alpine.DEB.2.02.1402231635510.1985@localhost6.localdomain6> <530A72AA.3000601@users.sourceforge.net> <alpine.DEB.2.02.1402240658210.2090@localhost6.localdomain6> <530B5FB6.6010207@users.sourceforge.net> <alpine.DEB.2.10.1402241710370.2074@hadrien> <530C5E18.1020800@users.sourceforge.net> <alpine.DEB.2.10.1402251014170.2080@hadrien> <530CD2C4.4050903@users.sourceforge.net> <alpine.DEB.2.10.1402251840450.7035@hadrien> <530CF8FF.8080600@users.sourceforge.net> <alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6> <530DD06F.4090703@users.sourceforge.net> <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6> <5317A59D.4@users.so
- urceforge.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Julia Lawall <julia.lawall-L2FTfq7BK8M@public.gmane.org>
-To: Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <5317A59D.4-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Sabrina Dubroca <sd@queasysnail.net>
+Subject: [PATCH net] ip6_gre: fix endianness errors in ip6gre_err
+Date: Wed,  4 Feb 2015 15:25:09 +0100
+Message-ID: <1423059909-15606-1-git-send-email-sd@queasysnail.net>
+Cc: netdev@vger.kernel.org, Sabrina Dubroca <sd@queasysnail.net>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtpfb2-g21.free.fr ([212.27.42.10]:55313 "EHLO
+	smtpfb2-g21.free.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753296AbbBDOZx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2015 09:25:53 -0500
+Received: from smtp4-g21.free.fr (smtp4-g21.free.fr [212.27.42.4])
+	by smtpfb2-g21.free.fr (Postfix) with ESMTP id 7FA32CA9201
+	for <netdev@vger.kernel.org>; Wed,  4 Feb 2015 15:25:44 +0100 (CET)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Markus Elfring <elfring-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-Date: Wed, 4 Feb 2015 15:17:00 +0100
+info is in network byte order, change it back to host byte order
+before use. In particular, the current code sets the MTU of the tunnel
+to a wrong (too big) value.
 
-The vunmap() function performs also input parameter validation.
-Thus the test around the call is not needed.
-
-This issue was detected by using the Coccinelle software.
-
-Signed-off-by: Markus Elfring <elfring-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+Fixes: c12b395a4664 ("gre: Support GRE over IPv6")
+Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
 ---
- drivers/net/ethernet/mellanox/mlx4/alloc.c      | 2 +-
- drivers/net/ethernet/mellanox/mlx5/core/alloc.c | 2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+ net/ipv6/ip6_gre.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/alloc.c b/drivers/net/ethernet/mellanox/mlx4/alloc.c
-index 963dd7e..06faa51 100644
---- a/drivers/net/ethernet/mellanox/mlx4/alloc.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/alloc.c
-@@ -660,7 +660,7 @@ void mlx4_buf_free(struct mlx4_dev *dev, int size, struct mlx4_buf *buf)
- 		dma_free_coherent(&dev->pdev->dev, size, buf->direct.buf,
- 				  buf->direct.map);
- 	else {
--		if (BITS_PER_LONG == 64 && buf->direct.buf)
-+		if (BITS_PER_LONG == 64)
- 			vunmap(buf->direct.buf);
+diff --git a/net/ipv6/ip6_gre.c b/net/ipv6/ip6_gre.c
+index 13cda4c6313b..01ccc28a686f 100644
+--- a/net/ipv6/ip6_gre.c
++++ b/net/ipv6/ip6_gre.c
+@@ -417,7 +417,7 @@ static void ip6gre_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
+ 		if (code == ICMPV6_HDR_FIELD)
+ 			teli = ip6_tnl_parse_tlv_enc_lim(skb, skb->data);
  
- 		for (i = 0; i < buf->nbufs; ++i)
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/alloc.c b/drivers/net/ethernet/mellanox/mlx5/core/alloc.c
-index 56779c1..201ca6d 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/alloc.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/alloc.c
-@@ -121,7 +121,7 @@ void mlx5_buf_free(struct mlx5_core_dev *dev, struct mlx5_buf *buf)
- 		dma_free_coherent(&dev->pdev->dev, buf->size, buf->direct.buf,
- 				  buf->direct.map);
- 	else {
--		if (BITS_PER_LONG == 64 && buf->direct.buf)
-+		if (BITS_PER_LONG == 64)
- 			vunmap(buf->direct.buf);
- 
- 		for (i = 0; i < buf->nbufs; i++)
+-		if (teli && teli == info - 2) {
++		if (teli && teli == be32_to_cpu(info) - 2) {
+ 			tel = (struct ipv6_tlv_tnl_enc_lim *) &skb->data[teli];
+ 			if (tel->encap_limit == 0) {
+ 				net_warn_ratelimited("%s: Too small encapsulation limit or routing loop in tunnel!\n",
+@@ -429,7 +429,7 @@ static void ip6gre_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
+ 		}
+ 		break;
+ 	case ICMPV6_PKT_TOOBIG:
+-		mtu = info - offset;
++		mtu = be32_to_cpu(info) - offset;
+ 		if (mtu < IPV6_MIN_MTU)
+ 			mtu = IPV6_MIN_MTU;
+ 		t->dev->mtu = mtu;
 -- 
 2.2.2
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
