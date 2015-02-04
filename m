@@ -1,78 +1,51 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Invalid timestamp? causing tight ack loop (hundreds of
- thousands of packets / sec)
-Date: Wed, 04 Feb 2015 00:03:06 -0800
-Message-ID: <1423036986.907.105.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CAO-X30uMA7=DTm5KqqvYC5RVTM0bg9pKBO1nX1+6x_2pF_fWfA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Neal Cardwell <ncardwell@google.com>
-To: Avery Fay <avery@mixpanel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f169.google.com ([209.85.223.169]:45188 "EHLO
-	mail-ie0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932820AbbBDIDH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2015 03:03:07 -0500
-Received: by mail-ie0-f169.google.com with SMTP id rl12so236960iec.0
-        for <netdev@vger.kernel.org>; Wed, 04 Feb 2015 00:03:07 -0800 (PST)
-In-Reply-To: <CAO-X30uMA7=DTm5KqqvYC5RVTM0bg9pKBO1nX1+6x_2pF_fWfA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Nicholas Mc Guire <hofrat-Q945KHDl0DbYtjvyW6yDsg@public.gmane.org>
+Subject: [PATCH 1/3] wireless: orinoco: orinoco_plx use msecs_to_jiffies for conversion
+Date: Wed,  4 Feb 2015 03:07:39 -0500
+Message-ID: <1423037261-20193-1-git-send-email-hofrat@osadl.org>
+Cc: Benoit Taine <benoit.taine-L2FTfq7BK8M@public.gmane.org>,
+	Bjorn Helgaas <bhelgaas-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Nicholas Mc Guire <hofrat-Q945KHDl0DbYtjvyW6yDsg@public.gmane.org>
+To: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2015-02-03 at 22:50 -0800, Avery Fay wrote:
-> Hello,
-> 
-> Let me say first: if there's a better place to ask this, please point
-> me in that direction.
-> 
-> We've been having huge packets / sec spikes in the past few days.
-> After some investigation, it looks like single connections are getting
-> stuck in a loop (see tcpdump below). Each "stuck" connection will
-> generate about 200kpps. It looks like our side is rejecting packets
-> with "packets rejects in established connections because of timestamp"
-> from netstat -s (internally PAWSEstab counter) and then generating an
-> additional packet that we send out. All of these connections originate
-> from georgia tech, but so far (not completely verified) it doesn't
-> seem like there's any pattern to the client/os other than the fact
-> that they're trying to make an https request to us.
-> 
-> As a temporary countermeasure, we've disabled net.ipv4.tcp_timestamps,
-> which solves the immediate problem.
-> 
-> Our server is 174.36.240.86 running Ubuntu 12.04 with kernel 3.13.0-35-generic
-> 
-> The client is 128.61.57.205 and in this case almost certainly has user
-> agent (we found successful requests 10 seconds before the tcpdump with
-> same ip): Dalvik/2.1.0 (Linux; U; Android 5.0; XT1095
-> Build/LXE22.46-11)
-> 
-> Beginning of tcpdump:
+This is only an API consolidation and should make things more readable
+it replaces var * HZ / 1000 by msecs_to_jiffies(var).
 
-...
+Signed-off-by: Nicholas Mc Guire <hofrat-Q945KHDl0DbYtjvyW6yDsg@public.gmane.org>
+---
 
-> 
-> At this point, it just repeats until some timeout is hit. I haven't
-> timed it, but probably one or two minutes.
-> 
-> I guess I have a few questions:
-> 
-> 1.) What's going on here? It looks like maybe there's some packet loss
-> and then connection termination gets stuck in a loop because the
-> client timestamp went down?
-> 2.) Is there a better way to mitigate this other than disabling
-> tcp_timestamps or blocking gatech ips?
-> 3.) Is this our problem (ok, obviously our problem since we're
-> affected but...), a kernel problem, or a gatech problem?
-> 
-> I'd really appreciate any help on this,
+Converting milliseconds to jiffies by "val * HZ / 1000" is technically
+ok but msecs_to_jiffies(val) is the cleaner solution and handles all
+corner cases correctly. This is a minor API cleanup only.
 
-Would you have a pcap file instead ?
+Patch was compile-tested only for x86_64_defconfig + CONFIG_HERMES=m
+CONFIG_PLX_HERMES=m
 
-It looks a middlebox is broken, I dont think Android could possibly send
-a frame with no payload, but with Push flag.
+Patch is against 3.19.0-rc7 (localversion-next is -next-20150203)
 
-Neal has some patches that add a rate limiting on DACKS, that we might
-upstream. (per socket rate limiting of 2 DACK per second)
+ drivers/net/wireless/orinoco/orinoco_plx.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Thanks
+diff --git a/drivers/net/wireless/orinoco/orinoco_plx.c b/drivers/net/wireless/orinoco/orinoco_plx.c
+index b8f6e5c..8b04523 100644
+--- a/drivers/net/wireless/orinoco/orinoco_plx.c
++++ b/drivers/net/wireless/orinoco/orinoco_plx.c
+@@ -121,7 +121,7 @@ static int orinoco_plx_cor_reset(struct orinoco_private *priv)
+ 	mdelay(1);
+ 
+ 	/* Just in case, wait more until the card is no longer busy */
+-	timeout = jiffies + (PLX_RESET_TIME * HZ / 1000);
++	timeout = jiffies + msecs_to_jiffies(PLX_RESET_TIME);
+ 	reg = hermes_read_regn(hw, CMD);
+ 	while (time_before(jiffies, timeout) && (reg & HERMES_CMD_BUSY)) {
+ 		mdelay(1);
+-- 
+1.7.10.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
