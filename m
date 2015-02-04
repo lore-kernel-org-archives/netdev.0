@@ -1,82 +1,137 @@
-From: Dave Jones <davej@codemonkey.org.uk>
-Subject: 3.19-rc7 netconsole locking bug.
-Date: Wed, 4 Feb 2015 14:39:02 -0500
-Message-ID: <20150204193902.GB652@codemonkey.org.uk>
+From: Arvid Brodin <arvid.brodin@alten.se>
+Subject: Re: [PATCH net 0/2] netns: audit netdevice creation with IFLA_NET_NS_[PID|FD]
+Date: Wed, 4 Feb 2015 21:33:59 +0100
+Message-ID: <54D28237.9060009@alten.se>
+References: <1422307694-10079-1-git-send-email-nicolas.dichtel@6wind.com> <54CBE2EF.7050003@alten.se> <54CF9EA8.4080207@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <davem@davemloft.net>, <dmitry.tarnyagin@lockless.no>,
+	<alex.aring@gmail.com>, <linux-wpan@vger.kernel.org>
+To: <nicolas.dichtel@6wind.com>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from arcturus.aphlor.org ([188.246.204.175]:33115 "EHLO
-	arcturus.aphlor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1161475AbbBDUhh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2015 15:37:37 -0500
-Received: from arcturus.ipv6.aphlor.org ([2a03:9800:10:4a::2] helo=codemonkey.org.uk)
-	by arcturus.aphlor.org with esmtpsa (TLSv1.2:AES128-GCM-SHA256:128)
-	(Exim 4.80.1)
-	(envelope-from <davej@codemonkey.org.uk>)
-	id 1YJ5mx-0000H3-Pw
-	for netdev@vger.kernel.org; Wed, 04 Feb 2015 19:39:04 +0000
-Content-Disposition: inline
+Received: from spam1.webland.se ([91.207.112.90]:19512 "EHLO spam1.webland.se"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1161337AbbBDUk2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Feb 2015 15:40:28 -0500
+In-Reply-To: <54CF9EA8.4080207@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I set up netconsole this morning, and noticed when I rebooted the machine
-that this happens when it initializes..
+On 2015-02-02 16:58, Nicolas Dichtel wrote:
+> Le 30/01/2015 21:00, Arvid Brodin a =C3=A9crit :
+>> On 2015-01-26 22:28, Nicolas Dichtel wrote:
+>> *snip*
+>>> - HSR subsystem uses src_net to parse IFLA_HSR_SLAVE[1|2], but the =
+netdevice has
+>>>    the flag NETIF_F_NETNS_LOCAL, so the question is: does this netd=
+evice really
+>>>    supports x-netns? If not, the newlink handler should use the des=
+t_net instead
+>>>    of src_net, I can provide the patch.
+>> *snip*
+>>
+>> As the author of the HSR driver, I'd like to answer this question, b=
+ut unfortunately
+>> I don't know what x-netns is. Neither Google nor Documentation/ has =
+been particularly
+>> helpful.
+>>
+>> Care to elaborate? (Maybe this is a moot point now that the patch ha=
+s been accepted,
+>> but I'd still like to understand, if you have the time to explain.)
+> Basically, network namespaces (netns) allow you to run several indepe=
+ndant
+> instances of the linux networking stack.
+> Network interfaces are bound to one netns. By default, only one netns=
+ exists
+> (named init_net) when you boot your kernel.
+> For logical interfaces, they are usually bound to a link layer. For e=
+xample, if
+> I understand well, hsr network interfaces receive and send their pack=
+ets from
+> two physical interfaces (IFLA_HSR_SLAVE[1|2]).
+> Now imagine that these slaves are in a netns foo and the logical hsr =
+interfaces
+> in netns bar. You have a x-netns interface, the link layer part of th=
+e interface
+> is not in the same netns than the upper part. A user will see the hsr=
+ interface
+> in netns bar, but this interface will send a receive packet in netns =
+foo.
+
+Ok, so x-netns simply means cross-netns?
+
+> Usually, to configure an interface like this, you create it in netns =
+foo and you
+> move it later to netns bar (ip link set hsr1 netns bar). The flag
+> NETIF_F_NETNS_LOCAL forbids this operation, you cannot move it to ano=
+ther netns.
+> But you still can create a x-netns interface:
+> ip netns add foo
+> ip link add hsr1 netns foo type hsr slave1 eth0 slave2 eth1
+> ip netns exec foo ip link ls hsr1
+>=20
+> =3D> eth0 and eth1 are took from the current netns (because in the co=
+de, src_net
+> is the current netns) but hsr1 is built in netns foo.
+>=20
+> Now, the question is: does HSR really work across netns? Why is the f=
+lag
+> NETIF_F_NETNS_LOCAL set?
+> dev_forward_skb() may be used to forward an skbuff to another netns.
+
+Here is the code snippet that sets NETIF_F_NETNS_LOCAL:
+	/* Not sure about this. Taken from bridge code. netdev_features.h says
+	 * it means "Does not change network namespaces".
+	 */
+	dev->features |=3D NETIF_F_NETNS_LOCAL;
+
+HSR is a bit like a bridge since it forwards packets between interfaces=
+ on the=20
+same Ethernet network, and the bridge code sets NETIF_F_NETNS_LOCAL. An=
+d that's=20
+really all the reason for the inclusion of the flag - i.e. it should be=
+ removed
+if it doesn't make sense.
+
+So, does it make sense? I'm not sure exactly, but I don't think it make=
+s sense
+to have slaves that are in different namespaces - they are supposed to =
+be part=20
+of the same ethernet network after all. But maybe having the HSR interf=
+ace in a=20
+different namespace than the two slaves could make sense - this way you=
+ could=20
+force an application to only communicate using the HSR protocol, and no=
+t use any=20
+of the slave interfaces directly.
+
+If you agree with the above, then I guess that means NETIF_F_NETNS_LOCA=
+L should=20
+not be set?
 
 
-netpoll: netconsole: local port 6666
-netpoll: netconsole: local IPv4 address 192.168.42.1
-netpoll: netconsole: interface 'eth1'
-netpoll: netconsole: remote port 6666
-netpoll: netconsole: remote IPv4 address 192.168.42.35
-netpoll: netconsole: remote ethernet address 80:ee:73:83:57:4c
-netpoll: netconsole: device eth1 not up yet, forcing it
-IPv6: ADDRCONF(NETDEV_UP): eth1: link is not ready
-e1000e: eth1 NIC Link is Up 1000 Mbps Full Duplex, Flow Control: Rx/Tx
-IPv6: ADDRCONF(NETDEV_CHANGE): eth1: link becomes ready
+> Note, that I got a panic when playing with hsr:
+> ip link add hsr1 type hsr slave1 eth1 slave2 eth0
+> ip link del hsr1
+> =3D> panic
+>=20
+> I dig a bit:
+> 1/ hsr_netdev_notify() supposes that the port will always be availabl=
+e when the
+> notification is for an hsr interface. It's wrong. For example,
+> netdev_wait_allrefs() may resend NETDEV_UNREGISTER.
+> 2/ with a patch that ignores the notification when the port is NULL, =
+I got a
+> refcnt problem:
+> [  327.372099] unregister_netdevice: waiting for hsr1 to become free.=
+ Usage count =3D -1
 
-BUG: sleeping function called from invalid context at kernel/irq/manage.c:104
-in_atomic(): 1, irqs_disabled(): 1, pid: 157, name: exe
-2 locks held by exe/157:
- #0:  (console_lock){+.+.+.}, at: [<ffffffff9510f516>] register_console+0x2a6/0x640
- #1:  (target_list_lock){......}, at: [<ffffffffc017e1c5>] write_msg+0x65/0x1b0 [netconsole]
-irq event stamp: 13456
-hardirqs last  enabled at (13455): [<ffffffff9510ee3d>] console_unlock+0x57d/0x740
-hardirqs last disabled at (13456): [<ffffffff959b242a>] _raw_spin_lock_irqsave+0x3a/0x110
-softirqs last  enabled at (10536): [<ffffffff957d7975>] __dev_mc_add+0x95/0xb0
-softirqs last disabled at (10522): [<ffffffff957d7913>] __dev_mc_add+0x33/0xb0
-CPU: 1 PID: 157 Comm: exe Not tainted 3.19.0-rc7+ #13
- ffffffff95d3d363 0000000049b1ff09 ffff88007707f978 ffffffff959a5efa
- 0000000000000000 0000000000000000 ffff88007707f9a8 ffffffff950ca277
- ffff88007707f9a8 ffffffff95d3d363 0000000000000068 0000000000000000
-Call Trace:
- [<ffffffff959a5efa>] dump_stack+0x84/0xb9
- [<ffffffff950ca277>] ___might_sleep+0x2d7/0x390
- [<ffffffff950ca3b0>] __might_sleep+0x80/0x100
- [<ffffffff951123f7>] synchronize_irq+0x67/0x120
- [<ffffffff951125a9>] ? __disable_irq_nosync+0x69/0xc0
- [<ffffffff95112634>] disable_irq+0x34/0x50
- [<ffffffff956c93f5>] e1000_netpoll+0x55/0x1d0
- [<ffffffff957fc3f9>] netpoll_poll_dev+0x99/0x300
- [<ffffffff957fc83f>] netpoll_send_skb_on_dev+0x1df/0x470
- [<ffffffff957fcddc>] netpoll_send_udp+0x30c/0x5a0
- [<ffffffffc017e1c5>] ? write_msg+0x65/0x1b0 [netconsole]
- [<ffffffffc017e267>] write_msg+0x107/0x1b0 [netconsole]
- [<ffffffff9510dad9>] call_console_drivers.constprop.10+0x129/0x190
- [<ffffffff9510edf4>] console_unlock+0x534/0x740
- [<ffffffff9510f5c8>] register_console+0x358/0x640
- [<ffffffffc0186000>] ? 0xffffffffc0186000
- [<ffffffffc01862ea>] init_netconsole+0x2ea/0x1000 [netconsole]
- [<ffffffff9500038d>] do_one_initcall+0x13d/0x310
- [<ffffffff95103d4e>] ? trace_hardirqs_on+0x1e/0x30
- [<ffffffff95153895>] load_module+0x22f5/0x28d0
- [<ffffffff9514dcb0>] ? store_uevent+0x90/0x90
- [<ffffffff95153fc9>] SyS_init_module+0x159/0x200
- [<ffffffff959b3912>] system_call_fastpath+0x12/0x17
-console [netcon0] enabled
-netconsole: network logging started
+Thanks for the bug report! I'll take a look at it ASAP.
 
-Despite the positive sounding last two lines, nothing actually gets logged
-over the netconsole.
 
-	Dave
+--=20
+Arvid Brodin | Consultant (Linux)
+ALTEN | Knarrarn=C3=A4sgatan 7 | SE-164 40 Kista | Sweden
+arvid.brodin@alten.se | www.alten.se/en/
