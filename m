@@ -1,127 +1,287 @@
 From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: [PATCH v3 18/18] vhost: vhost_scsi_handle_vq() should just use
-	copy_from_user()
-Date: Wed,  4 Feb 2015 06:40:09 +0000
-Message-ID: <1423032009-18367-18-git-send-email-viro@ZenIV.linux.org.uk>
+Subject: [PATCH v3 12/18] crypto: switch af_alg_make_sg() to iov_iter
+Date: Wed,  4 Feb 2015 06:40:03 +0000
+Message-ID: <1423032009-18367-12-git-send-email-viro@ZenIV.linux.org.uk>
 References: <20150204063730.GG29656@ZenIV.linux.org.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	kvm@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>
+Cc: netdev@vger.kernel.org, linux-crypto@vger.kernel.org
 To: David Miller <davem@davemloft.net>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from zeniv.linux.org.uk ([195.92.253.2]:43095 "EHLO
+	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752756AbbBDGkM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2015 01:40:12 -0500
 In-Reply-To: <20150204063730.GG29656@ZenIV.linux.org.uk>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Al Viro <viro@zeniv.linux.org.uk>
 
-it has just verified that it asks no more than the length of the
-first segment of iovec.
+With that, all ->sendmsg() instances are converted to iov_iter primitives
+and are agnostic wrt the kind of iov_iter they are working with.
+So's the last remaining ->recvmsg() instance that wasn't kind-agnostic yet.
+All ->sendmsg() and ->recvmsg() advance ->msg_iter by the amount actually
+copied and none of them modifies the underlying iovec, etc.
 
-And with that the last user of stuff in lib/iovec.c is gone.
-RIP.
-
-Cc: Michael S. Tsirkin <mst@redhat.com>
-Cc: Nicholas A. Bellinger <nab@linux-iscsi.org>
-Cc: kvm@vger.kernel.org
-Cc: virtualization@lists.linux-foundation.org
+Cc: linux-crypto@vger.kernel.org
 Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
 ---
- drivers/vhost/scsi.c |  2 +-
- include/linux/uio.h  |  2 --
- lib/Makefile         |  2 +-
- lib/iovec.c          | 36 ------------------------------------
- 4 files changed, 2 insertions(+), 40 deletions(-)
- delete mode 100644 lib/iovec.c
+ crypto/af_alg.c         | 40 ++++++++------------------
+ crypto/algif_hash.c     | 45 ++++++++++++------------------
+ crypto/algif_skcipher.c | 74 ++++++++++++++++++++++---------------------------
+ include/crypto/if_alg.h |  3 +-
+ 4 files changed, 62 insertions(+), 100 deletions(-)
 
-diff --git a/drivers/vhost/scsi.c b/drivers/vhost/scsi.c
-index d695b16..dc78d87 100644
---- a/drivers/vhost/scsi.c
-+++ b/drivers/vhost/scsi.c
-@@ -1079,7 +1079,7 @@ vhost_scsi_handle_vq(struct vhost_scsi *vs, struct vhost_virtqueue *vq)
- 			       req_size, vq->iov[0].iov_len);
- 			break;
- 		}
--		ret = memcpy_fromiovecend(req, &vq->iov[0], 0, req_size);
-+		ret = copy_from_user(req, vq->iov[0].iov_base, req_size);
- 		if (unlikely(ret)) {
- 			vq_err(vq, "Faulted on virtio_scsi_cmd_req\n");
- 			break;
-diff --git a/include/linux/uio.h b/include/linux/uio.h
-index 02bd8a9..3e0cb4e 100644
---- a/include/linux/uio.h
-+++ b/include/linux/uio.h
-@@ -135,6 +135,4 @@ static inline void iov_iter_reexpand(struct iov_iter *i, size_t count)
- size_t csum_and_copy_to_iter(void *addr, size_t bytes, __wsum *csum, struct iov_iter *i);
- size_t csum_and_copy_from_iter(void *addr, size_t bytes, __wsum *csum, struct iov_iter *i);
+diff --git a/crypto/af_alg.c b/crypto/af_alg.c
+index 4665b79c..eb78fe8 100644
+--- a/crypto/af_alg.c
++++ b/crypto/af_alg.c
+@@ -338,49 +338,31 @@ static const struct net_proto_family alg_family = {
+ 	.owner	=	THIS_MODULE,
+ };
  
--int memcpy_fromiovecend(unsigned char *kdata, const struct iovec *iov,
--			int offset, int len);
- #endif
-diff --git a/lib/Makefile b/lib/Makefile
-index 3c3b30b..1071d06 100644
---- a/lib/Makefile
-+++ b/lib/Makefile
-@@ -24,7 +24,7 @@ obj-y	+= lockref.o
+-int af_alg_make_sg(struct af_alg_sgl *sgl, void __user *addr, int len,
+-		   int write)
++int af_alg_make_sg(struct af_alg_sgl *sgl, struct iov_iter *iter, int len)
+ {
+-	unsigned long from = (unsigned long)addr;
+-	unsigned long npages;
+-	unsigned off;
+-	int err;
+-	int i;
+-
+-	err = -EFAULT;
+-	if (!access_ok(write ? VERIFY_READ : VERIFY_WRITE, addr, len))
+-		goto out;
+-
+-	off = from & ~PAGE_MASK;
+-	npages = (off + len + PAGE_SIZE - 1) >> PAGE_SHIFT;
+-	if (npages > ALG_MAX_PAGES)
+-		npages = ALG_MAX_PAGES;
++	size_t off;
++	ssize_t n;
++	int npages, i;
  
- obj-y += bcd.o div64.o sort.o parser.o halfmd4.o debug_locks.o random32.o \
- 	 bust_spinlocks.o hexdump.o kasprintf.o bitmap.o scatterlist.o \
--	 gcd.o lcm.o list_sort.o uuid.o flex_array.o iovec.o clz_ctz.o \
-+	 gcd.o lcm.o list_sort.o uuid.o flex_array.o clz_ctz.o \
- 	 bsearch.o find_last_bit.o find_next_bit.o llist.o memweight.o kfifo.o \
- 	 percpu-refcount.o percpu_ida.o rhashtable.o reciprocal_div.o
- obj-y += string_helpers.o
-diff --git a/lib/iovec.c b/lib/iovec.c
-deleted file mode 100644
-index d8f17a9..0000000
---- a/lib/iovec.c
-+++ /dev/null
-@@ -1,36 +0,0 @@
--#include <linux/uaccess.h>
--#include <linux/export.h>
--#include <linux/uio.h>
+-	err = get_user_pages_fast(from, npages, write, sgl->pages);
+-	if (err < 0)
+-		goto out;
++	n = iov_iter_get_pages(iter, sgl->pages, len, ALG_MAX_PAGES, &off);
++	if (n < 0)
++		return n;
+ 
+-	npages = err;
+-	err = -EINVAL;
++	npages = PAGE_ALIGN(off + n);
+ 	if (WARN_ON(npages == 0))
+-		goto out;
 -
--/*
-- *	Copy iovec to kernel. Returns -EFAULT on error.
-- */
+-	err = 0;
++		return -EINVAL;
+ 
+ 	sg_init_table(sgl->sg, npages);
+ 
+-	for (i = 0; i < npages; i++) {
++	for (i = 0, len = n; i < npages; i++) {
+ 		int plen = min_t(int, len, PAGE_SIZE - off);
+ 
+ 		sg_set_page(sgl->sg + i, sgl->pages[i], plen, off);
+ 
+ 		off = 0;
+ 		len -= plen;
+-		err += plen;
+ 	}
 -
--int memcpy_fromiovecend(unsigned char *kdata, const struct iovec *iov,
--			int offset, int len)
--{
--	/* No data? Done! */
--	if (len == 0)
--		return 0;
+-out:
+-	return err;
++	return n;
+ }
+ EXPORT_SYMBOL_GPL(af_alg_make_sg);
+ 
+diff --git a/crypto/algif_hash.c b/crypto/algif_hash.c
+index 01f56eb..01da360 100644
+--- a/crypto/algif_hash.c
++++ b/crypto/algif_hash.c
+@@ -41,8 +41,6 @@ static int hash_sendmsg(struct kiocb *unused, struct socket *sock,
+ 	struct sock *sk = sock->sk;
+ 	struct alg_sock *ask = alg_sk(sk);
+ 	struct hash_ctx *ctx = ask->private;
+-	unsigned long iovlen;
+-	const struct iovec *iov;
+ 	long copied = 0;
+ 	int err;
+ 
+@@ -58,37 +56,28 @@ static int hash_sendmsg(struct kiocb *unused, struct socket *sock,
+ 
+ 	ctx->more = 0;
+ 
+-	for (iov = msg->msg_iter.iov, iovlen = msg->msg_iter.nr_segs; iovlen > 0;
+-	     iovlen--, iov++) {
+-		unsigned long seglen = iov->iov_len;
+-		char __user *from = iov->iov_base;
++	while (iov_iter_count(&msg->msg_iter)) {
++		int len = iov_iter_count(&msg->msg_iter);
+ 
+-		while (seglen) {
+-			int len = min_t(unsigned long, seglen, limit);
+-			int newlen;
++		if (len > limit)
++			len = limit;
+ 
+-			newlen = af_alg_make_sg(&ctx->sgl, from, len, 0);
+-			if (newlen < 0) {
+-				err = copied ? 0 : newlen;
+-				goto unlock;
+-			}
 -
--	/* Skip over the finished iovecs */
--	while (offset >= iov->iov_len) {
--		offset -= iov->iov_len;
--		iov++;
--	}
+-			ahash_request_set_crypt(&ctx->req, ctx->sgl.sg, NULL,
+-						newlen);
 -
--	while (len > 0) {
--		u8 __user *base = iov->iov_base + offset;
--		int copy = min_t(unsigned int, len, iov->iov_len - offset);
+-			err = af_alg_wait_for_completion(
+-				crypto_ahash_update(&ctx->req),
+-				&ctx->completion);
++		len = af_alg_make_sg(&ctx->sgl, &msg->msg_iter, len);
++		if (len < 0) {
++			err = copied ? 0 : len;
++			goto unlock;
++		}
+ 
+-			af_alg_free_sg(&ctx->sgl);
++		ahash_request_set_crypt(&ctx->req, ctx->sgl.sg, NULL, len);
+ 
+-			if (err)
+-				goto unlock;
++		err = af_alg_wait_for_completion(crypto_ahash_update(&ctx->req),
++						 &ctx->completion);
++		af_alg_free_sg(&ctx->sgl);
++		if (err)
++			goto unlock;
+ 
+-			seglen -= newlen;
+-			from += newlen;
+-			copied += newlen;
+-		}
++		copied += len;
++		iov_iter_advance(&msg->msg_iter, len);
+ 	}
+ 
+ 	err = 0;
+diff --git a/crypto/algif_skcipher.c b/crypto/algif_skcipher.c
+index c12207c..37110fd 100644
+--- a/crypto/algif_skcipher.c
++++ b/crypto/algif_skcipher.c
+@@ -426,67 +426,59 @@ static int skcipher_recvmsg(struct kiocb *unused, struct socket *sock,
+ 		&ctx->req));
+ 	struct skcipher_sg_list *sgl;
+ 	struct scatterlist *sg;
+-	unsigned long iovlen;
+-	const struct iovec *iov;
+ 	int err = -EAGAIN;
+ 	int used;
+ 	long copied = 0;
+ 
+ 	lock_sock(sk);
+-	for (iov = msg->msg_iter.iov, iovlen = msg->msg_iter.nr_segs; iovlen > 0;
+-	     iovlen--, iov++) {
+-		unsigned long seglen = iov->iov_len;
+-		char __user *from = iov->iov_base;
 -
--		offset = 0;
--		if (copy_from_user(kdata, base, copy))
--			return -EFAULT;
--		len -= copy;
--		kdata += copy;
--		iov++;
--	}
+-		while (seglen) {
+-			sgl = list_first_entry(&ctx->tsgl,
+-					       struct skcipher_sg_list, list);
+-			sg = sgl->sg;
 -
--	return 0;
--}
--EXPORT_SYMBOL(memcpy_fromiovecend);
+-			while (!sg->length)
+-				sg++;
+-
+-			if (!ctx->used) {
+-				err = skcipher_wait_for_data(sk, flags);
+-				if (err)
+-					goto unlock;
+-			}
++	while (iov_iter_count(&msg->msg_iter)) {
++		sgl = list_first_entry(&ctx->tsgl,
++				       struct skcipher_sg_list, list);
++		sg = sgl->sg;
+ 
+-			used = min_t(unsigned long, ctx->used, seglen);
++		while (!sg->length)
++			sg++;
+ 
+-			used = af_alg_make_sg(&ctx->rsgl, from, used, 1);
+-			err = used;
+-			if (err < 0)
++		used = ctx->used;
++		if (!used) {
++			err = skcipher_wait_for_data(sk, flags);
++			if (err)
+ 				goto unlock;
++		}
++
++		used = min_t(unsigned long, used, iov_iter_count(&msg->msg_iter));
++
++		used = af_alg_make_sg(&ctx->rsgl, &msg->msg_iter, used);
++		err = used;
++		if (err < 0)
++			goto unlock;
+ 
+-			if (ctx->more || used < ctx->used)
+-				used -= used % bs;
++		if (ctx->more || used < ctx->used)
++			used -= used % bs;
+ 
+-			err = -EINVAL;
+-			if (!used)
+-				goto free;
++		err = -EINVAL;
++		if (!used)
++			goto free;
+ 
+-			ablkcipher_request_set_crypt(&ctx->req, sg,
+-						     ctx->rsgl.sg, used,
+-						     ctx->iv);
++		ablkcipher_request_set_crypt(&ctx->req, sg,
++					     ctx->rsgl.sg, used,
++					     ctx->iv);
+ 
+-			err = af_alg_wait_for_completion(
++		err = af_alg_wait_for_completion(
+ 				ctx->enc ?
+ 					crypto_ablkcipher_encrypt(&ctx->req) :
+ 					crypto_ablkcipher_decrypt(&ctx->req),
+ 				&ctx->completion);
+ 
+ free:
+-			af_alg_free_sg(&ctx->rsgl);
++		af_alg_free_sg(&ctx->rsgl);
+ 
+-			if (err)
+-				goto unlock;
++		if (err)
++			goto unlock;
+ 
+-			copied += used;
+-			from += used;
+-			seglen -= used;
+-			skcipher_pull_sgl(sk, used);
+-		}
++		copied += used;
++		skcipher_pull_sgl(sk, used);
++		iov_iter_advance(&msg->msg_iter, used);
+ 	}
+ 
+ 	err = 0;
+diff --git a/include/crypto/if_alg.h b/include/crypto/if_alg.h
+index cd62bf4..88ea64e 100644
+--- a/include/crypto/if_alg.h
++++ b/include/crypto/if_alg.h
+@@ -67,8 +67,7 @@ int af_alg_unregister_type(const struct af_alg_type *type);
+ int af_alg_release(struct socket *sock);
+ int af_alg_accept(struct sock *sk, struct socket *newsock);
+ 
+-int af_alg_make_sg(struct af_alg_sgl *sgl, void __user *addr, int len,
+-		   int write);
++int af_alg_make_sg(struct af_alg_sgl *sgl, struct iov_iter *iter, int len);
+ void af_alg_free_sg(struct af_alg_sgl *sgl);
+ 
+ int af_alg_cmsg_send(struct msghdr *msg, struct af_alg_control *con);
 -- 
 2.1.4
