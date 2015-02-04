@@ -1,35 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: add skb functions to process remote
- checksum offload
-Date: Wed, 04 Feb 2015 13:54:19 -0800 (PST)
-Message-ID: <20150204.135419.1287629592476254710.davem@davemloft.net>
-References: <1422922054-22996-1-git-send-email-therbert@google.com>
+Subject: Re: [PATCH v3] gianfar: correct the bad expression while writing
+ bit-pattern
+Date: Wed, 04 Feb 2015 13:55:52 -0800 (PST)
+Message-ID: <20150204.135552.872538804146042727.davem@davemloft.net>
+References: <54B3D899.5060204@freescale.com>
+	<1422948722-16864-1-git-send-email-sanjeev_sharma@mentor.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: therbert@google.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38967 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933443AbbBDVyU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2015 16:54:20 -0500
-In-Reply-To: <1422922054-22996-1-git-send-email-therbert@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: claudiu.manoil@freescale.com, matei.pavaluca@freescale.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: sanjeev_sharma@mentor.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1422948722-16864-1-git-send-email-sanjeev_sharma@mentor.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Tom Herbert <therbert@google.com>
-Date: Mon,  2 Feb 2015 16:07:34 -0800
+From: Sanjeev Sharma <sanjeev_sharma@mentor.com>
+Date: Tue, 3 Feb 2015 13:02:02 +0530
 
-> This patch adds skb_remcsum_process and skb_gro_remcsum_process to
-> perform the appropriate adjustments to the skb when receiving
-> remote checksum offload.
+> This patch correct the bad expression while writing the
+> bit-pattern from software's buffer to hardware registers.
 > 
-> Updated vxlan and gue to use these functions.
-> 
-> Tested: Ran TCP_RR and TCP_STREAM netperf for VXLAN and GUE, did
-> not see any change in performance.
-> 
-> Signed-off-by: Tom Herbert <therbert@google.com>
+> Signed-off-by: Sanjeev Sharma <Sanjeev_Sharma@mentor.com>
+> ---
+> Changes in v3:
+>   - corrected the expression by introducing tab->fe[i].prop.
 
-Applied.
+Applied, thanks.
