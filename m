@@ -1,50 +1,40 @@
-From: Kumar Sanghvi <kumaras@chelsio.com>
-Subject: Re: [PATCH net-next] cxgb4: Add low latency socket busy_poll support
-Date: Wed, 4 Feb 2015 12:24:37 +0600
-Message-ID: <20150204062436.GE30631@kumar-pc.asicdesigners.com>
-References: <1422940816-27402-1-git-send-email-hariprasad@chelsio.com>
- <54D0FB41.1030802@hp.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3 net 1/3] ipv6: Select fragment id during UFO
+	segmentation if not set.
+Date: Tue, 03 Feb 2015 23:08:18 -0800 (PST)
+Message-ID: <20150203.230818.984435325973223729.davem@davemloft.net>
+References: <1422999377-18777-1-git-send-email-vyasevic@redhat.com>
+	<1422999377-18777-2-git-send-email-vyasevic@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Cc: Hariprasad Shenai <hariprasad@chelsio.com>,
-	<netdev@vger.kernel.org>, <davem@davemloft.net>,
-	<leedom@chelsio.com>, <anish@chelsio.com>, <nirranjan@chelsio.com>,
-	<praveenm@chelsio.com>
-To: Rick Jones <rick.jones2@hp.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:24300 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751321AbbBDGyp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2015 01:54:45 -0500
-Content-Disposition: inline
-In-Reply-To: <54D0FB41.1030802@hp.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org
+To: vyasevich@gmail.com
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1422999377-18777-2-git-send-email-vyasevic@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Hi Rick,
+From: Vladislav Yasevich <vyasevich@gmail.com>
+Date: Tue,  3 Feb 2015 16:36:15 -0500
 
-On Tuesday, February 02/03/15, 2015 at 08:45:53 -0800, Rick Jones wrote:
-> On 02/02/2015 09:20 PM, Hariprasad Shenai wrote:
-> >cxgb_busy_poll, corresponding to ndo_busy_poll, gets called by the socket
-> >waiting for data.
-> >
-> >With busy_poll enabled, improvement is seen in latency numbers as observed by
-> >collecting netperf TCP_RR numbers.
-> 
-> Which, not surprisingly, leads to the question - how much
-> improvement? :)  Extra credit for including the change in
-> netperf-reported service demands.
-> 
-> happy benchmarking,
-> 
-> rick jones
-> 
+> diff --git a/net/ipv6/output_core.c b/net/ipv6/output_core.c
+> index 97f41a3..54520a0 100644
+> --- a/net/ipv6/output_core.c
+> +++ b/net/ipv6/output_core.c
+> @@ -9,6 +9,24 @@
+>  #include <net/addrconf.h>
+>  #include <net/secure_seq.h>
+>  
+> +u32 __ipv6_select_ident(u32 hashrnd, struct in6_addr *dst, struct in6_addr *src)
 
-netperf was not changed in this case. Rather, busy-polling was enabled globally by
-setting sysctls busy_poll and busy_read.
-
-We will post the improvement numbers when submitting V2.
-
-
-Thanks,
-Kumar.
+__ipv6_select_ident() is not used anywhere outside of this file, please
+mark it static and remove the declaration for it from net/ipv6.h
