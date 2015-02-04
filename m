@@ -1,107 +1,94 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [E1000-devel] [PATCH 1/3] ixgbe, ixgbevf: Add new mbox API to
- enable MC promiscuous mode
-Date: Wed, 04 Feb 2015 04:57:21 -0800
-Message-ID: <1423054641.2589.59.camel@jtkirshe-mobl>
-References: <7F861DC0615E0C47A872E6F3C5FCDDBD05E1908D@BPXM14GP.gisp.nec.co.jp>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: pull-request: can-next 2015-02-04
+Date: Wed, 04 Feb 2015 14:09:29 +0100
+Message-ID: <54D21A09.70101@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-Hmgr7MoU8XHjGL/j+NTg"
-Cc: Alexander Duyck <alexander.duyck@gmail.com>,
-	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
-	=?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Choi, Sy Jong" <sy.jong.choi@intel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	David Laight <David.Laight@ACULAB.COM>,
-	Hayato Momma <h-momma@ce.jp.nec.com>
-To: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <7F861DC0615E0C47A872E6F3C5FCDDBD05E1908D@BPXM14GP.gisp.nec.co.jp>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha512;
+ protocol="application/pgp-signature";
+ boundary="bOBHrLTILhdApsJUfWlqHPC2jcUXEhn7M"
+Cc: David Miller <davem@davemloft.net>,
+	"kernel@pengutronix.de" <kernel@pengutronix.de>,
+	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>
+To: netdev@vger.kernel.org
+Return-path: <linux-can-owner@vger.kernel.org>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
---=-Hmgr7MoU8XHjGL/j+NTg
-Content-Type: text/plain; charset="UTF-8"
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--bOBHrLTILhdApsJUfWlqHPC2jcUXEhn7M
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: quoted-printable
 
-On Fri, 2015-01-30 at 11:37 +0000, Hiroshi Shimamoto wrote:
-> From: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
->=20
-> The limitation of the number of multicast address for VF is not enough
-> for the large scale server with SR-IOV feature.
-> IPv6 requires the multicast MAC address for each IP address to handle
-> the Neighbor Solicitation message.
-> We couldn't assign over 30 IPv6 addresses to a single VF interface.
->=20
-> The easy way to solve this is enabling multicast promiscuous mode.
-> It is good to have a functionality to enable multicast promiscuous
-> mode
-> for each VF from VF driver.
->=20
-> This patch introduces the new mbox API, IXGBE_VF_SET_MC_PROMISC, to
-> enable/disable multicast promiscuous mode in VF. If multicast
-> promiscuous
-> mode is enabled the VF can receive all multicast packets.
->=20
-> With this patch, the ixgbevf driver automatically enable multicast
-> promiscuous mode when the number of multicast addresses is over than
-> 30
-> if possible.
->=20
-> This also bump the API version up to 1.2 to check whether the API,
-> IXGBE_VF_SET_MC_PROMISC is available.
->=20
-> Signed-off-by: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
-> Reviewed-by: Hayato Momma <h-momma@ce.jp.nec.com>
-> CC: Choi, Sy Jong <sy.jong.choi@intel.com>
-> ---
->  drivers/net/ethernet/intel/ixgbe/ixgbe.h          |  1 +
->  drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h      |  4 +
->  drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c    | 89
-> ++++++++++++++++++++++-
->  drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 13 +++-
->  drivers/net/ethernet/intel/ixgbevf/mbx.h          |  4 +
->  drivers/net/ethernet/intel/ixgbevf/vf.c           | 29 +++++++-
->  drivers/net/ethernet/intel/ixgbevf/vf.h           |  1 +
->  7 files changed, 137 insertions(+), 4 deletions(-)
+Hello David,
 
-Hiroshi, I tried to apply your patches to my queue but they do not apply
-cleanly and they are in a DOS file format, not UNIX.  I also noted
-several checkpatch.pl issues with your patches, so please fix those up
-as well.
+this is a pull request of 2 patches for net-next/master.
 
-Can you please fix up your patches based on my tree:
-git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/queue.git
+Nicholas Mc Guire contributes a patch for the janz-ican3 driver to fix
+a mismatch in an assignment. Ahmed S. Darwish contributes a patch for
+the kvaser_usb driver, to make the driver more robust during the
+bus-off handling.
 
-This my queue of all community patches against the Intel LAN drivers and
-will be where I queue up your patches while they are under review and
-testing.
+Marc
 
---=-Hmgr7MoU8XHjGL/j+NTg
+---
+
+The following changes since commit 7e8acbb69ee2b855288afc61e3794a30e35829=
+77:
+
+  Merge branch 'netlabel-next' (2015-02-03 16:22:20 -0800)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/mkl/linux-can-next.git ta=
+gs/linux-can-next-for-3.20-20150204
+
+for you to fetch changes up to a9ca6e13d66042b3ac18d1352b88b7cd0da8fc21:
+
+  can: kvaser_usb: Ignore spurious error events after a busoff (2015-02-0=
+4 14:07:03 +0100)
+
+----------------------------------------------------------------
+linux-can-next-for-3.20-20150204
+
+----------------------------------------------------------------
+Ahmed S. Darwish (1):
+      can: kvaser_usb: Ignore spurious error events after a busoff
+
+Nicholas Mc Guire (1):
+      can: janz-ican3: fix type mismatch in assignment
+
+ drivers/net/can/janz-ican3.c     |  6 ++----
+ drivers/net/can/usb/kvaser_usb.c | 19 ++++++++++---------
+ 2 files changed, 12 insertions(+), 13 deletions(-)
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--bOBHrLTILhdApsJUfWlqHPC2jcUXEhn7M
 Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v2
 
-iQIcBAABCgAGBQJU0hcxAAoJEOVv75VaS+3O+XgQAIRPWeUehq3cOvlMcCE7EDnk
-Rsv7paICOu1JvSF8RNOFm7wnxPCqGqG3ED6zEDaoFnoFq8vOitYWWx+0rRz4WhK2
-EVvbedYLW8sYMp2qYSTMNQjlwe5mzRTi4bpWQnff1/EXjPd3gi8UjsK09G/jfO81
-o6oqAPmDD0XbdeqJUem61QSo41d/QaY6i1brvs/iQm3WdpFNsrnWSDju5LsUjBqj
-dpzyst060ZPnKPW+qtv+No0bxnqVpP5ik8xW2Hy+tEeUnrRjwsMnzRMbcy2PijOF
-6Is4O5sOHyfDfDdXlCzodLcF8BCD0mIBBvLRp20EyX3WP8tzv2pUrHhoB5x+SdIZ
-ejCmOjIudEa84xurhrh1LvH5Ge5+X6ockv2yW8AoF/5p7aRBlrbOs8bva2ybs1lV
-Q1m/ancJUJBxBts1IDDLrquE2nWujlNnwd+urKKfWsYSiDgoUIX2DYlhUIxJcfeK
-K6dN4uZP0dSVr0q1z4V+Mg/EuV16CbKVhoEsDiE2BofFC6BZWdhLdXsrBITpxZ+T
-4FLTgY2EcYi9GUXZlquQCj13l4pddptNy4N+GXmzHbKzkSncRqN8lUw9YmaBrKZJ
-tUIR63p64cMQwYetQKBxXjbOcT9AGstego4qYHOu6IkptAeITPAgR7u9KqnWyA/D
-l4sv+6m7MRc4qIgkVHwK
-=4beA
+iQIcBAEBCgAGBQJU0hoNAAoJECte4hHFiupUhY0P/1ulpEdgqnA/i38pY6wpUQXo
+m89B0KyoyQdjbjziqGMzZljWyHqoF9LAmCBZTB8UHQZXTeAHCaZTy39pBXfEopE6
++Ks4vhgLugmPPj3Q2v11WMj0mKprGltCPizCbDzajWwwLdrB/8ziYkCYOjhBVhZI
+QJWk9FE9AJtnHKbeMofG4cW0i9AsCsYRD+XsgRwNueJLKJ2HirA2yE6Z23IB93kT
+fbWcPYmwE2G3L2iDHuzMG5PgkATpEs+f/Mn+DtiR11JH1XjaAG/Ws1d7LUEiAHgT
+cY+f60HSNhbOIggrqk49g/Ippy5cajrxA7VgIc6wXspu0OtGNDW4HRdiavA/rmfN
++bdI8VPGS4PAvtnE2UmA12yB5rybtWQLLrVLVigCQcTJNFKLudu7h+BfmGXCzFbX
+CEByxRQuXUWcoOsED29E5Y6TpktFDDIVCk7d/LRgQ4ZJmooQ/Wn7cj0bgvNFOjbi
++eqMdNaRx5xIip8veTQ3u0PCC3qyMLMkgXtBOrPWAvKHUXWW75DLmdqboMduL45S
+XQ/b8gWa+OP399FqXL/xV8MO3v5LbOSM6djGo0wWBgiv0HtVc3IpvQ0Mgpj1EKAk
+XqOyuNBx216Xr+im/wZM8bWq4urfr512+XdAZbcMekZG7XdwVQ3bfFRPcvrD3Z/Y
+vOp71fL++tHoTaOzzTvR
+=i/hP
 -----END PGP SIGNATURE-----
 
---=-Hmgr7MoU8XHjGL/j+NTg--
+--bOBHrLTILhdApsJUfWlqHPC2jcUXEhn7M--
