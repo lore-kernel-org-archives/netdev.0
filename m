@@ -1,72 +1,116 @@
-From: Fan Du <fan.du@intel.com>
-Subject: [PATCH RFC] ipv4 tcp: Use fine granularity to increase probe_size for tcp pmtu
-Date: Wed,  4 Feb 2015 16:10:32 +0800
-Message-ID: <1423037432-13996-1-git-send-email-fan.du@intel.com>
-Cc: jesse@nicira.com, pshelar@nicira.com, dev@openvswitch.org,
-	fengyuleidian0615@gmail.com
-To: netdev@vger.kernel.org
+From: Avery Fay <avery@mixpanel.com>
+Subject: Re: Invalid timestamp? causing tight ack loop (hundreds of thousands
+ of packets / sec)
+Date: Wed, 4 Feb 2015 00:35:38 -0800
+Message-ID: <CAO-X30shOhH7tN+msRvbLreeUvZesKARqyU0Lnm3_xoeea9uaQ@mail.gmail.com>
+References: <CAO-X30uMA7=DTm5KqqvYC5RVTM0bg9pKBO1nX1+6x_2pF_fWfA@mail.gmail.com>
+	<1423036986.907.105.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, Neal Cardwell <ncardwell@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:7161 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753786AbbBDIOl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Feb 2015 03:14:41 -0500
+Received: from mail-qg0-f42.google.com ([209.85.192.42]:41901 "EHLO
+	mail-qg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932773AbbBDIfj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2015 03:35:39 -0500
+Received: by mail-qg0-f42.google.com with SMTP id q107so189626qgd.1
+        for <netdev@vger.kernel.org>; Wed, 04 Feb 2015 00:35:39 -0800 (PST)
+In-Reply-To: <1423036986.907.105.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-A couple of month ago, I proposed a fix for over-MTU-sized vxlan
-packet loss at link[1], neither by fragmenting the tunnelled vxlan
-packet, nor pushing back PMTU ICMP need fragmented message is 
-accepted by community. The upstream workaround is by adjusting
-guest mtu smaller or host mtu bigger, or by making virtio driver
-auto-tuned guest mtu(no consensus by now). Note, gre tunnel also
-suffer the over-MTU-sized packet loss.
+Sure, https://dl.dropboxusercontent.com/u/9777748/loop.pcap.gz
 
-While For TCPv4 case, this issue could be solved by using
-Packetization Layer Path MTU Discovery which is defined as [3] 
-from commit: 5d424d5a674f ("[TCP]: MTU probing").
+Also, no idea if it helps, but here's the traceroute:
 
-echo 1 > /proc/sys/net/ipv4/tcp_mtu_probing
+HOST: apibalancer-wdc-05                          Loss%   Snt   Last
+Avg  Best  Wrst StDev
+  1.|-- 184.173.130.1-static.reverse.softlayer.com   0.0%    10    0.2
+  1.9   0.2   9.6   3.1
+  2.|-- 208.43.118.164-static.reverse.softlayer.com  0.0%    10    0.2
+  0.2   0.2   0.3   0.0
+  3.|-- ae8.bbr02.eq01.wdc02.networklayer.com        0.0%    10    1.2
+  1.3   1.1   2.6   0.5
+  4.|-- ash-b1-link.telia.net                        0.0%    10    1.2
+  4.3   1.1  12.7   5.0
+  5.|-- ash-bb3-link.telia.net                       0.0%    10    1.2
+  2.6   1.1  15.0   4.4
+  6.|-- atl-bb1-link.telia.net                       0.0%    10   13.4
+ 13.3  13.3  13.4   0.0
+  7.|-- 213.248.94.220                               0.0%    10   14.2
+ 14.2  14.2  14.4   0.1
+  8.|-- 130.207.254.6                                0.0%    10   14.2
+ 14.2  14.1  14.3   0.1
+    |  `|-- 130.207.254.185
+  9.|-- gateway2-rtr.gatech.edu                      0.0%    10   14.2
+ 14.3  14.1  14.8   0.2
+    |  `|-- 143.215.254.97
+ 10.|-- 143.215.254.97                               0.0%    10   14.6
+ 14.6  14.4  14.7   0.1
+    |  `|-- 143.215.253.114
+ 11.|-- 143.215.253.114                              0.0%    10   15.1
+ 14.7  14.5  15.1   0.2
+ 12.|-- ???                                         100.0    10    0.0
+  0.0   0.0   0.0   0.0
 
-One drawback of tcp level mtu probing is:The original strategy is
-double mss_cache for each probe, this is way too aggressive for 
-over-MTU-sized vxlan packet loss issue from the performance result.
-Also, the probing is characterized by tcp retransmission, which usual
-taking 6 seconds from the first drop packet to normal connectivity
-recovery.
-
-By incrementing 25% of original mss_cache each time, performance
-boost from ~1.3Gbits/s(mss_cache 1024Bytes) to ~1.55Gbits/s(
-mss_cache 1250Bytes), more generic theme could be used there for
-other tunnel technology.
-
-No sure why tcp level mtu probing got disabled by default, any
-historic known issues or pitfalls?
-
-[1]: http://www.spinics.net/lists/netdev/msg306502.html
-[2]: http://www.ietf.org/rfc/rfc4821.txt
-
-Signed-off-by: Fan Du <fan.du@intel.com>
----
- net/ipv4/tcp_output.c |    6 ++++--
- 1 files changed, 4 insertions(+), 2 deletions(-)
-
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 20ab06b..ab7e46b 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -1856,9 +1856,11 @@ static int tcp_mtu_probe(struct sock *sk)
- 	    tp->rx_opt.num_sacks || tp->rx_opt.dsack)
- 		return -1;
- 
--	/* Very simple search strategy: just double the MSS. */
-+	/* Very simple search strategy:
-+	 * Increment 25% of orignal MSS forward
-+	 */
- 	mss_now = tcp_current_mss(sk);
--	probe_size = 2 * tp->mss_cache;
-+	probe_size = (tp->mss_cache + (tp->mss_cache >> 2));
- 	size_needed = probe_size + (tp->reordering + 1) * tp->mss_cache;
- 	if (probe_size > tcp_mtu_to_mss(sk, icsk->icsk_mtup.search_high)) {
- 		/* TODO: set timer for probe_converge_event */
--- 
-1.7.1
+On Wed, Feb 4, 2015 at 12:03 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Tue, 2015-02-03 at 22:50 -0800, Avery Fay wrote:
+>> Hello,
+>>
+>> Let me say first: if there's a better place to ask this, please point
+>> me in that direction.
+>>
+>> We've been having huge packets / sec spikes in the past few days.
+>> After some investigation, it looks like single connections are getting
+>> stuck in a loop (see tcpdump below). Each "stuck" connection will
+>> generate about 200kpps. It looks like our side is rejecting packets
+>> with "packets rejects in established connections because of timestamp"
+>> from netstat -s (internally PAWSEstab counter) and then generating an
+>> additional packet that we send out. All of these connections originate
+>> from georgia tech, but so far (not completely verified) it doesn't
+>> seem like there's any pattern to the client/os other than the fact
+>> that they're trying to make an https request to us.
+>>
+>> As a temporary countermeasure, we've disabled net.ipv4.tcp_timestamps,
+>> which solves the immediate problem.
+>>
+>> Our server is 174.36.240.86 running Ubuntu 12.04 with kernel 3.13.0-35-generic
+>>
+>> The client is 128.61.57.205 and in this case almost certainly has user
+>> agent (we found successful requests 10 seconds before the tcpdump with
+>> same ip): Dalvik/2.1.0 (Linux; U; Android 5.0; XT1095
+>> Build/LXE22.46-11)
+>>
+>> Beginning of tcpdump:
+>
+> ...
+>
+>>
+>> At this point, it just repeats until some timeout is hit. I haven't
+>> timed it, but probably one or two minutes.
+>>
+>> I guess I have a few questions:
+>>
+>> 1.) What's going on here? It looks like maybe there's some packet loss
+>> and then connection termination gets stuck in a loop because the
+>> client timestamp went down?
+>> 2.) Is there a better way to mitigate this other than disabling
+>> tcp_timestamps or blocking gatech ips?
+>> 3.) Is this our problem (ok, obviously our problem since we're
+>> affected but...), a kernel problem, or a gatech problem?
+>>
+>> I'd really appreciate any help on this,
+>
+> Would you have a pcap file instead ?
+>
+> It looks a middlebox is broken, I dont think Android could possibly send
+> a frame with no payload, but with Push flag.
+>
+> Neal has some patches that add a rate limiting on DACKS, that we might
+> upstream. (per socket rate limiting of 2 DACK per second)
+>
+> Thanks
+>
+>
+>
