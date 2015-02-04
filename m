@@ -1,64 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] xps: fix xps for stacked devices
-Date: Wed, 04 Feb 2015 13:03:08 -0800 (PST)
-Message-ID: <20150204.130308.1433096157491856856.davem@davemloft.net>
-References: <1423036104.907.99.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, willemb@google.com, nanditad@google.com,
-	ycheng@google.com
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38594 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965378AbbBDVDM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2015 16:03:12 -0500
-In-Reply-To: <1423036104.907.99.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
+Subject: Re: [PATCH v2] net: bluetooth: hci_sock: Use 'const void *' instead of 'void *' for 2nd parameter of hci_test_bit()
+Date: Wed, 4 Feb 2015 13:09:47 -0800
+Message-ID: <0AB99BEA-C379-439C-AD80-5F2122AE37E5@holtmann.org>
+References: <54CFE8BE.5030700@sunrus.com.cn> <063D6719AE5E284EB5DD2968C1650D6D1CADA5E1@AcuExch.aculab.com> <54D27D68.7040501@cogentembedded.com>
+Mime-Version: 1.0 (Mac OS X Mail 8.2 \(2070.6\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>,
+	Chen Gang S <gang.chen-/B7AUNIrSHOPt1CcHtbs0g@public.gmane.org>,
+	"Gustavo F. Padovan" <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>,
+	Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <54D27D68.7040501-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 03 Feb 2015 23:48:24 -0800
+Hi Sergei,
 
-> From: Eric Dumazet <edumazet@google.com>
+>>> -static inline int hci_test_bit(int nr, void *addr)
+>>> +static inline int hci_test_bit(int nr, const void *addr)
+>>>  {
+>>>  	return *((__u32 *) addr + (nr >> 5)) & ((__u32) 1 << (nr & 31));
+>>>  }
 > 
-> A typical qdisc setup is the following :
+>> Is there a 'standard' function lurking that will do the above.
+>> On x86 the cpus 'bit test' instruction will handle bit numbers
+>> greater than the word size - so it can be a single instruction.
 > 
-> bond0 : bonding device, using HTB hierarchy
-> eth1/eth2 : slaves, multiqueue NIC, using MQ + FQ qdisc
-> 
-> XPS allows to spread packets on specific tx queues, based on the cpu
-> doing the send.
-> 
-> Problem is that dequeues from bond0 qdisc can happen on random cpus,
-> due to the fact that qdisc_run() can dequeue a batch of packets.
-> 
-> CPUA -> queue packet P1 on bond0 qdisc, P1->ooo_okay=1
-> CPUA -> queue packet P2 on bond0 qdisc, P2->ooo_okay=0
-> 
-> CPUB -> dequeue packet P1 from bond0
->         enqueue packet on eth1/eth2
-> CPUC -> dequeue packet P2 from bond0
->         enqueue packet on eth1/eth2 using sk cache (ooo_okay is 0)
-> 
-> get_xps_queue() then might select wrong queue for P1, since current cpu
-> might be different than CPUA.
-> 
-> P2 might be sent on the old queue (stored in sk->sk_tx_queue_mapping),
-> if CPUC runs a bit faster (or CPUB spins a bit on qdisc lock)
-> 
-> Effect of this bug is TCP reorders, and more generally not optimal
-> TX queue placement. (A victim bulk flow can be migrated to the wrong TX
-> queue for a while)
-> 
-> To fix this, we have to record sender cpu number the first time
-> dev_queue_xmit() is called for one tx skb.
-> 
-> We can union napi_id (used on receive path) and sender_cpu,
-> granted we clear sender_cpu in skb_scrub_packet() (credit to Willem for
-> this union idea)
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+>   Of course, there's test_bit().
 
-Applied, thanks everyone.
+we did leave hci_test_bit in the code since there are some userspace facing API that we can not change. Remember that the origin of this code is from 2.4.6 kernel.
+
+So we can only change this if you can ensure not to break the userspace API. So might want to write unit tests to ensure working HCI filter before even considering touching this.
+
+Regards
+
+Marcel
