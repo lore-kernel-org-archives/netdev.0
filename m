@@ -1,351 +1,226 @@
-From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCHv2 net-next] cxgb4: Add low latency socket busy_poll support
-Date: Wed,  4 Feb 2015 15:32:52 +0530
-Message-ID: <1423044172-23586-1-git-send-email-hariprasad@chelsio.com>
-Cc: davem@davemloft.net, leedom@chelsio.com, anish@chelsio.com,
-	nirranjan@chelsio.com, kumaras@chelsio.com,
-	Hariprasad Shenai <hariprasad@chelsio.com>
-To: netdev@vger.kernel.org
+From: =?UTF-8?B?RXJlbiBUw7xya2F5?= <erent@skyatlas.com>
+Subject: Re: PROBLEM: Bnx2x Checksum/Length Error Over GRE Tunnel
+Date: Wed, 04 Feb 2015 12:00:46 +0200
+Message-ID: <54D1EDCE.3030602@skyatlas.com>
+References: <54D0A345.2030108@skyatlas.com> <54D10DFE.1070604@skyatlas.com> <1422989196.907.34.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: multipart/mixed;
+ boundary="------------030809010206010003050709"
+Cc: Network Development <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:6820 "EHLO
-	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S964793AbbBDJ5i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2015 04:57:38 -0500
+Received: from mailfw.csoftintl.com ([209.11.253.18]:36378 "EHLO
+	fmvm01.lax10.vpls.net" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
+	with ESMTP id S932605AbbBDKAw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2015 05:00:52 -0500
+In-Reply-To: <1422989196.907.34.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-cxgb_busy_poll, corresponding to ndo_busy_poll, gets called by the socket
-waiting for data.
+This is a multi-part message in MIME format.
+--------------030809010206010003050709
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
 
-With busy_poll enabled, improvement is seen in latency numbers as observed by
-collecting netperf TCP_RR numbers.
-Below are latency number, with and without busy-poll, in a switched environment
-for a particular msg size:
-netperf command: netperf -4 -H <ip> -l 30 -t TCP_RR -- -r1,1
-Latency without busy-poll: ~16.25 us
-Latency with busy-poll   : ~08.79 us
+On 03-02-2015 20:46, Eric Dumazet wrote:
+> Can you please send : ifconfig -a, as I suspect an MTU issue
 
-Based on original work by Kumar Sanghvi <kumaras@chelsio.com>
+You are right. Previously I set gre interface MTU to 1500 and NIC interface had 9000 MTU.
+I was able to get 3Gbit in a single flow, and 5-6Gbit in parallel. When I recreated the interfaces,
+the MTU of gre was set 8976 and I can get 9.5Gbit in a single flow. The reason why I set 1500 on
+gre interface was to mimic openvswitch setup as the main problem I have been investigating is VM
+network performance problem (they have 3Gbit throughput). I have OpenStack installation using OVS with GRE
+and those interfaces are set 1500 MTU by default. I tried to test iproute2 implementation with 1500.
 
-Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
----
-V2: fix napi poll return value for repoll, thanks to pointers by
-    Eric Dumazet <eric.dumazet@gmail.com>
+With correct MTU setting in gre interface, it seems to work without checksumming and offloading
+but I haven't tested my original OVS setting. I will tweak OVS bridge MTU settings and try to get
+it work. If baremetal-to-baremetal works, I suspect there is an issue with OVS setup.
+However, when I enable tx on, netperf cannot even connect.
 
- drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |  113 +++++++++++++++++++++++
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |   16 +++-
- drivers/net/ethernet/chelsio/cxgb4/sge.c        |   47 +++++++++-
- drivers/net/ethernet/chelsio/cxgb4/t4_values.h  |    1 +
- 4 files changed, 174 insertions(+), 3 deletions(-)
+"ifconfig -a" and "ovs-vsctl show" result is attached.
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-index fb6980a..55019c9 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-@@ -476,6 +476,22 @@ struct sge_rspq {                   /* state for an SGE response queue */
- 	struct adapter *adap;
- 	struct net_device *netdev;  /* associated net device */
- 	rspq_handler_t handler;
-+#ifdef CONFIG_NET_RX_BUSY_POLL
-+#define CXGB_POLL_STATE_IDLE		0
-+#define CXGB_POLL_STATE_NAPI		BIT(0) /* NAPI owns this poll */
-+#define CXGB_POLL_STATE_POLL		BIT(1) /* poll owns this poll */
-+#define CXGB_POLL_STATE_NAPI_YIELD	BIT(2) /* NAPI yielded this poll */
-+#define CXGB_POLL_STATE_POLL_YIELD	BIT(3) /* poll yielded this poll */
-+#define CXGB_POLL_YIELD			(CXGB_POLL_STATE_NAPI_YIELD |   \
-+					 CXGB_POLL_STATE_POLL_YIELD)
-+#define CXGB_POLL_LOCKED		(CXGB_POLL_STATE_NAPI |         \
-+					 CXGB_POLL_STATE_POLL)
-+#define CXGB_POLL_USER_PEND		(CXGB_POLL_STATE_POLL |         \
-+					 CXGB_POLL_STATE_POLL_YIELD)
-+	unsigned int bpoll_state;
-+	spinlock_t bpoll_lock;		/* lock for busy poll */
-+#endif /* CONFIG_NET_RX_BUSY_POLL */
-+
- };
- 
- struct sge_eth_stats {              /* Ethernet queue statistics */
-@@ -880,6 +896,102 @@ static inline struct adapter *netdev2adap(const struct net_device *dev)
- 	return netdev2pinfo(dev)->adapter;
- }
- 
-+#ifdef CONFIG_NET_RX_BUSY_POLL
-+static inline void cxgb_busy_poll_init_lock(struct sge_rspq *q)
-+{
-+	spin_lock_init(&q->bpoll_lock);
-+	q->bpoll_state = CXGB_POLL_STATE_IDLE;
-+}
-+
-+static inline bool cxgb_poll_lock_napi(struct sge_rspq *q)
-+{
-+	bool rc = true;
-+
-+	spin_lock(&q->bpoll_lock);
-+	if (q->bpoll_state & CXGB_POLL_LOCKED) {
-+		q->bpoll_state |= CXGB_POLL_STATE_NAPI_YIELD;
-+		rc = false;
-+	} else {
-+		q->bpoll_state = CXGB_POLL_STATE_NAPI;
-+	}
-+	spin_unlock(&q->bpoll_lock);
-+	return rc;
-+}
-+
-+static inline bool cxgb_poll_unlock_napi(struct sge_rspq *q)
-+{
-+	bool rc = false;
-+
-+	spin_lock(&q->bpoll_lock);
-+	if (q->bpoll_state & CXGB_POLL_STATE_POLL_YIELD)
-+		rc = true;
-+	q->bpoll_state = CXGB_POLL_STATE_IDLE;
-+	spin_unlock(&q->bpoll_lock);
-+	return rc;
-+}
-+
-+static inline bool cxgb_poll_lock_poll(struct sge_rspq *q)
-+{
-+	bool rc = true;
-+
-+	spin_lock_bh(&q->bpoll_lock);
-+	if (q->bpoll_state & CXGB_POLL_LOCKED) {
-+		q->bpoll_state |= CXGB_POLL_STATE_POLL_YIELD;
-+		rc = false;
-+	} else {
-+		q->bpoll_state |= CXGB_POLL_STATE_POLL;
-+	}
-+	spin_unlock_bh(&q->bpoll_lock);
-+	return rc;
-+}
-+
-+static inline bool cxgb_poll_unlock_poll(struct sge_rspq *q)
-+{
-+	bool rc = false;
-+
-+	spin_lock_bh(&q->bpoll_lock);
-+	if (q->bpoll_state & CXGB_POLL_STATE_POLL_YIELD)
-+		rc = true;
-+	q->bpoll_state = CXGB_POLL_STATE_IDLE;
-+	spin_unlock_bh(&q->bpoll_lock);
-+	return rc;
-+}
-+
-+static inline bool cxgb_poll_busy_polling(struct sge_rspq *q)
-+{
-+	return q->bpoll_state & CXGB_POLL_USER_PEND;
-+}
-+#else
-+static inline void cxgb_busy_poll_init_lock(struct sge_rspq *q)
-+{
-+}
-+
-+static inline bool cxgb_poll_lock_napi(struct sge_rspq *q)
-+{
-+	return true;
-+}
-+
-+static inline bool cxgb_poll_unlock_napi(struct sge_rspq *q)
-+{
-+	return false;
-+}
-+
-+static inline bool cxgb_poll_lock_poll(struct sge_rspq *q)
-+{
-+	return false;
-+}
-+
-+static inline bool cxgb_poll_unlock_poll(struct sge_rspq *q)
-+{
-+	return false;
-+}
-+
-+static inline bool cxgb_poll_busy_polling(struct sge_rspq *q)
-+{
-+	return false;
-+}
-+#endif /* CONFIG_NET_RX_BUSY_POLL */
-+
- void t4_os_portmod_changed(const struct adapter *adap, int port_id);
- void t4_os_link_changed(struct adapter *adap, int port_id, int link_stat);
- 
-@@ -908,6 +1020,7 @@ irqreturn_t t4_sge_intr_msix(int irq, void *cookie);
- int t4_sge_init(struct adapter *adap);
- void t4_sge_start(struct adapter *adap);
- void t4_sge_stop(struct adapter *adap);
-+int cxgb_busy_poll(struct napi_struct *napi);
- extern int dbfifo_int_thresh;
- 
- #define for_each_port(adapter, iter) \
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index 5bf490a..041742b 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -923,8 +923,14 @@ static void quiesce_rx(struct adapter *adap)
- 	for (i = 0; i < ARRAY_SIZE(adap->sge.ingr_map); i++) {
- 		struct sge_rspq *q = adap->sge.ingr_map[i];
- 
--		if (q && q->handler)
-+		if (q && q->handler) {
- 			napi_disable(&q->napi);
-+			local_bh_disable();
-+			while (!cxgb_poll_lock_napi(q))
-+				mdelay(1);
-+			local_bh_enable();
-+		}
-+
- 	}
- }
- 
-@@ -940,8 +946,10 @@ static void enable_rx(struct adapter *adap)
- 
- 		if (!q)
- 			continue;
--		if (q->handler)
-+		if (q->handler) {
-+			cxgb_busy_poll_init_lock(q);
- 			napi_enable(&q->napi);
-+		}
- 		/* 0-increment GTS to start the timer and enable interrupts */
- 		t4_write_reg(adap, MYPF_REG(SGE_PF_GTS_A),
- 			     SEINTARM_V(q->intr_params) |
-@@ -4563,6 +4571,10 @@ static const struct net_device_ops cxgb4_netdev_ops = {
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	.ndo_poll_controller  = cxgb_netpoll,
- #endif
-+#ifdef CONFIG_NET_RX_BUSY_POLL
-+	.ndo_busy_poll        = cxgb_busy_poll,
-+#endif
-+
- };
- 
- void t4_fatal_err(struct adapter *adap)
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-index 6191561..b4b9f60 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-@@ -43,6 +43,9 @@
- #include <linux/export.h>
- #include <net/ipv6.h>
- #include <net/tcp.h>
-+#ifdef CONFIG_NET_RX_BUSY_POLL
-+#include <net/busy_poll.h>
-+#endif /* CONFIG_NET_RX_BUSY_POLL */
- #include "cxgb4.h"
- #include "t4_regs.h"
- #include "t4_values.h"
-@@ -1720,6 +1723,7 @@ static void do_gro(struct sge_eth_rxq *rxq, const struct pkt_gl *gl,
- 	skb->truesize += skb->data_len;
- 	skb->ip_summed = CHECKSUM_UNNECESSARY;
- 	skb_record_rx_queue(skb, rxq->rspq.idx);
-+	skb_mark_napi_id(skb, &rxq->rspq.napi);
- 	if (rxq->rspq.netdev->features & NETIF_F_RXHASH)
- 		skb_set_hash(skb, (__force u32)pkt->rsshdr.hash_val,
- 			     PKT_HASH_TYPE_L3);
-@@ -1763,6 +1767,7 @@ int t4_ethrx_handler(struct sge_rspq *q, const __be64 *rsp,
- 	csum_ok = pkt->csum_calc && !pkt->err_vec &&
- 		  (q->netdev->features & NETIF_F_RXCSUM);
- 	if ((pkt->l2info & htonl(RXF_TCP_F)) &&
-+	    !(cxgb_poll_busy_polling(q)) &&
- 	    (q->netdev->features & NETIF_F_GRO) && csum_ok && !pkt->ip_frag) {
- 		do_gro(rxq, si, pkt);
- 		return 0;
-@@ -1801,6 +1806,7 @@ int t4_ethrx_handler(struct sge_rspq *q, const __be64 *rsp,
- 		__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), ntohs(pkt->vlan));
- 		rxq->stats.vlan_ex++;
- 	}
-+	skb_mark_napi_id(skb, &q->napi);
- 	netif_receive_skb(skb);
- 	return 0;
- }
-@@ -1963,6 +1969,38 @@ static int process_responses(struct sge_rspq *q, int budget)
- 	return budget - budget_left;
- }
- 
-+#ifdef CONFIG_NET_RX_BUSY_POLL
-+int cxgb_busy_poll(struct napi_struct *napi)
-+{
-+	struct sge_rspq *q = container_of(napi, struct sge_rspq, napi);
-+	unsigned int params, work_done;
-+	u32 val;
-+
-+	if (!cxgb_poll_lock_poll(q))
-+		return LL_FLUSH_BUSY;
-+
-+	work_done = process_responses(q, 4);
-+	params = QINTR_TIMER_IDX(TIMERREG_COUNTER0_X) | QINTR_CNT_EN;
-+	q->next_intr_params = params;
-+	val = CIDXINC_V(work_done) | SEINTARM_V(params);
-+
-+	/* If we don't have access to the new User GTS (T5+), use the old
-+	 * doorbell mechanism; otherwise use the new BAR2 mechanism.
-+	 */
-+	if (unlikely(!q->bar2_addr))
-+		t4_write_reg(q->adap, MYPF_REG(SGE_PF_GTS_A),
-+			     val | INGRESSQID_V((u32)q->cntxt_id));
-+	else {
-+		writel(val | INGRESSQID_V(q->bar2_qid),
-+		       q->bar2_addr + SGE_UDB_GTS);
-+		wmb();
-+	}
-+
-+	cxgb_poll_unlock_poll(q);
-+	return work_done;
-+}
-+#endif /* CONFIG_NET_RX_BUSY_POLL */
-+
- /**
-  *	napi_rx_handler - the NAPI handler for Rx processing
-  *	@napi: the napi instance
-@@ -1978,9 +2016,13 @@ static int napi_rx_handler(struct napi_struct *napi, int budget)
- {
- 	unsigned int params;
- 	struct sge_rspq *q = container_of(napi, struct sge_rspq, napi);
--	int work_done = process_responses(q, budget);
-+	int work_done;
- 	u32 val;
- 
-+	if (!cxgb_poll_lock_napi(q))
-+		return budget;
-+
-+	work_done = process_responses(q, budget);
- 	if (likely(work_done < budget)) {
- 		int timer_index;
- 
-@@ -2018,6 +2060,7 @@ static int napi_rx_handler(struct napi_struct *napi, int budget)
- 		       q->bar2_addr + SGE_UDB_GTS);
- 		wmb();
- 	}
-+	cxgb_poll_unlock_napi(q);
- 	return work_done;
- }
- 
-@@ -2341,6 +2384,7 @@ int t4_sge_alloc_rxq(struct adapter *adap, struct sge_rspq *iq, bool fwevtq,
- 		goto err;
- 
- 	netif_napi_add(dev, &iq->napi, napi_rx_handler, 64);
-+	napi_hash_add(&iq->napi);
- 	iq->cur_desc = iq->desc;
- 	iq->cidx = 0;
- 	iq->gen = 1;
-@@ -2598,6 +2642,7 @@ static void free_rspq_fl(struct adapter *adap, struct sge_rspq *rq,
- 		   rq->cntxt_id, fl_id, 0xffff);
- 	dma_free_coherent(adap->pdev_dev, (rq->size + 1) * rq->iqe_len,
- 			  rq->desc, rq->phys_addr);
-+	napi_hash_del(&rq->napi);
- 	netif_napi_del(&rq->napi);
- 	rq->netdev = NULL;
- 	rq->cntxt_id = rq->abs_id = 0;
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_values.h b/drivers/net/ethernet/chelsio/cxgb4/t4_values.h
-index a404844..997ec87 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4_values.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4_values.h
-@@ -59,6 +59,7 @@
- 
- /* GTS register */
- #define SGE_TIMERREGS			6
-+#define TIMERREG_COUNTER0_X		0
- 
- /* T5 and later support a new BAR2-based doorbell mechanism for Egress Queues.
-  * The User Doorbells are each 128 bytes in length with a Simple Doorbell at
+I am not sure if tx offloading will affect the VM performance. Regardless of OVS problem, there seems to be a
+bug with segmentation offloading as it's only possible to use the interface with "tx off". I have compiled the
+kernel with debugging on and I can enable debugging on related parts in the kernel for further information.
+
+> Here I easily reach line rate with a single flow.
+> 
+> ip tunnel add gre1 mode gre remote 10.246.11.52 local 10.246.11.51
+> ip link set gre1 up
+> ip addr add 7.7.8.51/24 dev gre1
+
+ip tunnel add gre1 mode gre remote 10.20.0.162 local 10.20.0.161
+ip l set gre1 up
+ip addr add 7.7.8.161/24 dev gre1
+
+root@compute1vx:~# ip r get 7.7.8.162
+7.7.8.162 dev gre1  src 7.7.8.161 
+    cache  expires 539sec mtu 8976
+
+
+root@compute1vx:~# ethtool -K em1 tx off
+Actual changes:
+tx-checksumming: off
+        tx-checksum-ipv4: off
+        tx-checksum-ipv6: off
+tcp-segmentation-offload: off
+        tx-tcp-segmentation: off [requested on]
+        tx-tcp-ecn-segmentation: off [requested on]
+        tx-tcp6-segmentation: off [requested on]
+
+root@compute1vx:~# netperf -H 7.7.8.162 -Cc                                                                                                                                                                                                   
+MIGRATED TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 7.7.8.162 () port 0 AF_INET : demo
+Recv   Send    Send                          Utilization       Service Demand
+Socket Socket  Message  Elapsed              Send     Recv     Send    Recv
+Size   Size    Size     Time     Throughput  local    remote   local   remote
+bytes  bytes   bytes    secs.    10^6bits/s  % S      % S      us/KB   us/KB
+
+ 87380  16384  16384    10.00      9534.00   4.05     4.39     0.835   0.906  
+
+
+root@compute1vx:~# ethtool -K em1 tx on
+Actual changes:
+tx-checksumming: on
+        tx-checksum-ipv4: on
+        tx-checksum-ipv6: on
+tcp-segmentation-offload: on
+        tx-tcp-segmentation: on
+        tx-tcp-ecn-segmentation: on
+        tx-tcp6-segmentation: on
+
+root@compute1vx:~# netperf -H 7.7.8.162 -Cc
+establish control: are you sure there is a netserver listening on 7.7.8.162 at port 12865?
+establish_control could not establish the control connection from 0.0.0.0 port 0 address family AF_UNSPEC to 7.7.8.162 port 12865 address family AF_INET
+
+Regards,
+Eren
+
 -- 
-1.7.1
+System Administrator
+https://skyatlas.com/
+
+--------------030809010206010003050709
+Content-Type: text/plain; charset=UTF-8;
+ name="ifconfig-and-ovs-result.txt"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment;
+ filename="ifconfig-and-ovs-result.txt"
+
+cm9vdEBjb21wdXRlMXZ4On4jIGlmY29uZmlnIC1hCmJyLWludCAgICBMaW5rIGVuY2FwOkV0
+aGVybmV0ICBIV2FkZHIgNjI6NmU6YTQ6NDU6NzY6NGQgIAogICAgICAgICAgaW5ldDYgYWRk
+cjogZmU4MDo6ZTg5NzpmMGZmOmZlZTM6NWEwZC82NCBTY29wZTpMaW5rCiAgICAgICAgICBV
+UCBCUk9BRENBU1QgUlVOTklORyAgTVRVOjE1MDAgIE1ldHJpYzoxCiAgICAgICAgICBSWCBw
+YWNrZXRzOjUwIGVycm9yczowIGRyb3BwZWQ6MCBvdmVycnVuczowIGZyYW1lOjAKICAgICAg
+ICAgIFRYIHBhY2tldHM6OCBlcnJvcnM6MCBkcm9wcGVkOjAgb3ZlcnJ1bnM6MCBjYXJyaWVy
+OjAKICAgICAgICAgIGNvbGxpc2lvbnM6MCB0eHF1ZXVlbGVuOjAgCiAgICAgICAgICBSWCBi
+eXRlczozODU2ICgzLjggS0IpICBUWCBieXRlczo2NDggKDY0OC4wIEIpCgpici10dW4gICAg
+TGluayBlbmNhcDpFdGhlcm5ldCAgSFdhZGRyIDcyOjUyOmY3OjYwOmJjOjRhICAKICAgICAg
+ICAgIGluZXQ2IGFkZHI6IGZlODA6OjcwZDg6MjdmZjpmZTU3OjM2ZmQvNjQgU2NvcGU6TGlu
+awogICAgICAgICAgVVAgQlJPQURDQVNUIFJVTk5JTkcgIE1UVToxNTAwICBNZXRyaWM6MQog
+ICAgICAgICAgUlggcGFja2V0czowIGVycm9yczowIGRyb3BwZWQ6MCBvdmVycnVuczowIGZy
+YW1lOjAKICAgICAgICAgIFRYIHBhY2tldHM6OCBlcnJvcnM6MCBkcm9wcGVkOjAgb3ZlcnJ1
+bnM6MCBjYXJyaWVyOjAKICAgICAgICAgIGNvbGxpc2lvbnM6MCB0eHF1ZXVlbGVuOjAgCiAg
+ICAgICAgICBSWCBieXRlczowICgwLjAgQikgIFRYIGJ5dGVzOjY0OCAoNjQ4LjAgQikKCmVt
+MSAgICAgICBMaW5rIGVuY2FwOkV0aGVybmV0ICBIV2FkZHIgMDA6MjY6NTU6MWY6OWQ6YTAg
+IAogICAgICAgICAgaW5ldCBhZGRyOjEwLjIwLjAuMTYxICBCY2FzdDoxMC4yMC4wLjI1NSAg
+TWFzazoyNTUuMjU1LjI1NS4wCiAgICAgICAgICBpbmV0NiBhZGRyOiBmZTgwOjoyMjY6NTVm
+ZjpmZTFmOjlkYTAvNjQgU2NvcGU6TGluawogICAgICAgICAgVVAgQlJPQURDQVNUIFJVTk5J
+TkcgTVVMVElDQVNUICBNVFU6OTAwMCAgTWV0cmljOjEKICAgICAgICAgIFJYIHBhY2tldHM6
+Mjc3NTk2NyBlcnJvcnM6MTIwNCBkcm9wcGVkOjAgb3ZlcnJ1bnM6MTIwNCBmcmFtZTowCiAg
+ICAgICAgICBUWCBwYWNrZXRzOjE5NTQ0NjA0IGVycm9yczowIGRyb3BwZWQ6MCBvdmVycnVu
+czowIGNhcnJpZXI6MAogICAgICAgICAgY29sbGlzaW9uczowIHR4cXVldWVsZW46MTAwMCAK
+ICAgICAgICAgIFJYIGJ5dGVzOjMwOTg3OTU1NCAoMzA5LjggTUIpICBUWCBieXRlczo4MDcw
+OTI1MTUwNSAoODAuNyBHQikKICAgICAgICAgIEludGVycnVwdDo0MiBNZW1vcnk6ZmIwMDAw
+MDAtZmI3ZmZmZmYgCgplbTIgICAgICAgTGluayBlbmNhcDpFdGhlcm5ldCAgSFdhZGRyIDAw
+OjI2OjU1OjFmOjlkOmE0ICAKICAgICAgICAgIGluZXQgYWRkcjoxOTIuMTY4Ljg4LjYxICBC
+Y2FzdDoxOTIuMTY4Ljg4LjI1NSAgTWFzazoyNTUuMjU1LjI1NS4wCiAgICAgICAgICBpbmV0
+NiBhZGRyOiBmZTgwOjoyMjY6NTVmZjpmZTFmOjlkYTQvNjQgU2NvcGU6TGluawogICAgICAg
+ICAgVVAgQlJPQURDQVNUIFJVTk5JTkcgTVVMVElDQVNUICBNVFU6MTUwMCAgTWV0cmljOjEK
+ICAgICAgICAgIFJYIHBhY2tldHM6OTgxOTk2IGVycm9yczowIGRyb3BwZWQ6MCBvdmVycnVu
+czowIGZyYW1lOjAKICAgICAgICAgIFRYIHBhY2tldHM6NTA0NDYzIGVycm9yczowIGRyb3Bw
+ZWQ6MCBvdmVycnVuczowIGNhcnJpZXI6MAogICAgICAgICAgY29sbGlzaW9uczowIHR4cXVl
+dWVsZW46MTAwMCAKICAgICAgICAgIFJYIGJ5dGVzOjE0MjM4OTcwNjEgKDEuNCBHQikgIFRY
+IGJ5dGVzOjM4ODI5MTc2ICgzOC44IE1CKQogICAgICAgICAgSW50ZXJydXB0OjUzIE1lbW9y
+eTpmYTAwMDAwMC1mYTdmZmZmZiAKCmdyZTAgICAgICBMaW5rIGVuY2FwOlVOU1BFQyAgSFdh
+ZGRyIDAwLTAwLTAwLTAwLTMyLTM2LTNBLTM1LTAwLTAwLTAwLTAwLTAwLTAwLTAwLTAwICAK
+ICAgICAgICAgIE5PQVJQICBNVFU6MTQ3NiAgTWV0cmljOjEKICAgICAgICAgIFJYIHBhY2tl
+dHM6MCBlcnJvcnM6MCBkcm9wcGVkOjAgb3ZlcnJ1bnM6MCBmcmFtZTowCiAgICAgICAgICBU
+WCBwYWNrZXRzOjAgZXJyb3JzOjAgZHJvcHBlZDowIG92ZXJydW5zOjAgY2FycmllcjowCiAg
+ICAgICAgICBjb2xsaXNpb25zOjAgdHhxdWV1ZWxlbjowIAogICAgICAgICAgUlggYnl0ZXM6
+MCAoMC4wIEIpICBUWCBieXRlczowICgwLjAgQikKCmdyZTEgICAgICBMaW5rIGVuY2FwOlVO
+U1BFQyAgSFdhZGRyIDBBLTE0LTAwLUExLTAwLTAwLTAwLTAwLTAwLTAwLTAwLTAwLTAwLTAw
+LTAwLTAwICAKICAgICAgICAgIGluZXQgYWRkcjo3LjcuOC4xNjEgIFAtdC1QOjcuNy44LjE2
+MSAgTWFzazoyNTUuMjU1LjI1NS4wCiAgICAgICAgICBpbmV0NiBhZGRyOiBmZTgwOjo1ZWZl
+OmExNDphMS82NCBTY29wZTpMaW5rCiAgICAgICAgICBVUCBQT0lOVE9QT0lOVCBSVU5OSU5H
+IE5PQVJQICBNVFU6ODk3NiAgTWV0cmljOjEKICAgICAgICAgIFJYIHBhY2tldHM6MjU0MTk4
+NCBlcnJvcnM6MCBkcm9wcGVkOjAgb3ZlcnJ1bnM6MCBmcmFtZTowCiAgICAgICAgICBUWCBw
+YWNrZXRzOjE3MDQyNTYgZXJyb3JzOjAgZHJvcHBlZDowIG92ZXJydW5zOjAgY2Fycmllcjow
+CiAgICAgICAgICBjb2xsaXNpb25zOjAgdHhxdWV1ZWxlbjowIAogICAgICAgICAgUlggYnl0
+ZXM6MTMzODc3NDk2ICgxMzMuOCBNQikgIFRYIGJ5dGVzOjc4OTQ0MTcyNTEyICg3OC45IEdC
+KQoKZ3JldGFwMCAgIExpbmsgZW5jYXA6RXRoZXJuZXQgIEhXYWRkciAwMDowMDowMDowMDow
+MDowMCAgCiAgICAgICAgICBCUk9BRENBU1QgTVVMVElDQVNUICBNVFU6MTQ2MiAgTWV0cmlj
+OjEKICAgICAgICAgIFJYIHBhY2tldHM6MCBlcnJvcnM6MCBkcm9wcGVkOjAgb3ZlcnJ1bnM6
+MCBmcmFtZTowCiAgICAgICAgICBUWCBwYWNrZXRzOjAgZXJyb3JzOjAgZHJvcHBlZDowIG92
+ZXJydW5zOjAgY2FycmllcjowCiAgICAgICAgICBjb2xsaXNpb25zOjAgdHhxdWV1ZWxlbjox
+MDAwIAogICAgICAgICAgUlggYnl0ZXM6MCAoMC4wIEIpICBUWCBieXRlczowICgwLjAgQikK
+CmxvICAgICAgICBMaW5rIGVuY2FwOkxvY2FsIExvb3BiYWNrICAKICAgICAgICAgIGluZXQg
+YWRkcjoxMjcuMC4wLjEgIE1hc2s6MjU1LjAuMC4wCiAgICAgICAgICBpbmV0NiBhZGRyOiA6
+OjEvMTI4IFNjb3BlOkhvc3QKICAgICAgICAgIFVQIExPT1BCQUNLIFJVTk5JTkcgIE1UVTo2
+NTUzNiAgTWV0cmljOjEKICAgICAgICAgIFJYIHBhY2tldHM6MTUgZXJyb3JzOjAgZHJvcHBl
+ZDowIG92ZXJydW5zOjAgZnJhbWU6MAogICAgICAgICAgVFggcGFja2V0czoxNSBlcnJvcnM6
+MCBkcm9wcGVkOjAgb3ZlcnJ1bnM6MCBjYXJyaWVyOjAKICAgICAgICAgIGNvbGxpc2lvbnM6
+MCB0eHF1ZXVlbGVuOjAgCiAgICAgICAgICBSWCBieXRlczoxODc4ICgxLjggS0IpICBUWCBi
+eXRlczoxODc4ICgxLjggS0IpCgpvdnMtc3lzdGVtIExpbmsgZW5jYXA6RXRoZXJuZXQgIEhX
+YWRkciBmYTo2OToxYTo1Mzo0Zjo3MyAgCiAgICAgICAgICBCUk9BRENBU1QgTVVMVElDQVNU
+ICBNVFU6MTUwMCAgTWV0cmljOjEKICAgICAgICAgIFJYIHBhY2tldHM6MCBlcnJvcnM6MCBk
+cm9wcGVkOjAgb3ZlcnJ1bnM6MCBmcmFtZTowCiAgICAgICAgICBUWCBwYWNrZXRzOjAgZXJy
+b3JzOjAgZHJvcHBlZDowIG92ZXJydW5zOjAgY2FycmllcjowCiAgICAgICAgICBjb2xsaXNp
+b25zOjAgdHhxdWV1ZWxlbjowIAogICAgICAgICAgUlggYnl0ZXM6MCAoMC4wIEIpICBUWCBi
+eXRlczowICgwLjAgQikKCnFicmU5MGFhNmJmLTM2IExpbmsgZW5jYXA6RXRoZXJuZXQgIEhX
+YWRkciAzYTpkNjoyYzpiYTowOTo1NyAgCiAgICAgICAgICBpbmV0NiBhZGRyOiBmZTgwOjoz
+ODdjOjRiZmY6ZmU2Nzo5MDRmLzY0IFNjb3BlOkxpbmsKICAgICAgICAgIFVQIEJST0FEQ0FT
+VCBSVU5OSU5HIE1VTFRJQ0FTVCAgTVRVOjE1MDAgIE1ldHJpYzoxCiAgICAgICAgICBSWCBw
+YWNrZXRzOjQ0IGVycm9yczowIGRyb3BwZWQ6MCBvdmVycnVuczowIGZyYW1lOjAKICAgICAg
+ICAgIFRYIHBhY2tldHM6OCBlcnJvcnM6MCBkcm9wcGVkOjAgb3ZlcnJ1bnM6MCBjYXJyaWVy
+OjAKICAgICAgICAgIGNvbGxpc2lvbnM6MCB0eHF1ZXVlbGVuOjAgCiAgICAgICAgICBSWCBi
+eXRlczoyNzYwICgyLjcgS0IpICBUWCBieXRlczo2NDggKDY0OC4wIEIpCgpxdmJlOTBhYTZi
+Zi0zNiBMaW5rIGVuY2FwOkV0aGVybmV0ICBIV2FkZHIgM2E6ZDY6MmM6YmE6MDk6NTcgIAog
+ICAgICAgICAgaW5ldDYgYWRkcjogZmU4MDo6MzhkNjoyY2ZmOmZlYmE6OTU3LzY0IFNjb3Bl
+OkxpbmsKICAgICAgICAgIFVQIEJST0FEQ0FTVCBSVU5OSU5HIFBST01JU0MgTVVMVElDQVNU
+ICBNVFU6MTUwMCAgTWV0cmljOjEKICAgICAgICAgIFJYIHBhY2tldHM6NDUgZXJyb3JzOjAg
+ZHJvcHBlZDowIG92ZXJydW5zOjAgZnJhbWU6MAogICAgICAgICAgVFggcGFja2V0czoxNSBl
+cnJvcnM6MCBkcm9wcGVkOjAgb3ZlcnJ1bnM6MCBjYXJyaWVyOjAKICAgICAgICAgIGNvbGxp
+c2lvbnM6MCB0eHF1ZXVlbGVuOjEwMDAgCiAgICAgICAgICBSWCBieXRlczozNDY2ICgzLjQg
+S0IpICBUWCBieXRlczoxMjA2ICgxLjIgS0IpCgpxdm9lOTBhYTZiZi0zNiBMaW5rIGVuY2Fw
+OkV0aGVybmV0ICBIV2FkZHIgZDI6ZDc6Nzc6OWE6ZDk6MWUgIAogICAgICAgICAgaW5ldDYg
+YWRkcjogZmU4MDo6ZDBkNzo3N2ZmOmZlOWE6ZDkxZS82NCBTY29wZTpMaW5rCiAgICAgICAg
+ICBVUCBCUk9BRENBU1QgUlVOTklORyBQUk9NSVNDIE1VTFRJQ0FTVCAgTVRVOjE1MDAgIE1l
+dHJpYzoxCiAgICAgICAgICBSWCBwYWNrZXRzOjE1IGVycm9yczowIGRyb3BwZWQ6MCBvdmVy
+cnVuczowIGZyYW1lOjAKICAgICAgICAgIFRYIHBhY2tldHM6NDUgZXJyb3JzOjAgZHJvcHBl
+ZDowIG92ZXJydW5zOjAgY2FycmllcjowCiAgICAgICAgICBjb2xsaXNpb25zOjAgdHhxdWV1
+ZWxlbjoxMDAwIAogICAgICAgICAgUlggYnl0ZXM6MTIwNiAoMS4yIEtCKSAgVFggYnl0ZXM6
+MzQ2NiAoMy40IEtCKQoKdmlyYnIwICAgIExpbmsgZW5jYXA6RXRoZXJuZXQgIEhXYWRkciA4
+ZTo1NDo3MDpjYjo4YTpmYyAgCiAgICAgICAgICBpbmV0IGFkZHI6MTkyLjE2OC4xMjIuMSAg
+QmNhc3Q6MTkyLjE2OC4xMjIuMjU1ICBNYXNrOjI1NS4yNTUuMjU1LjAKICAgICAgICAgIFVQ
+IEJST0FEQ0FTVCBNVUxUSUNBU1QgIE1UVToxNTAwICBNZXRyaWM6MQogICAgICAgICAgUlgg
+cGFja2V0czowIGVycm9yczowIGRyb3BwZWQ6MCBvdmVycnVuczowIGZyYW1lOjAKICAgICAg
+ICAgIFRYIHBhY2tldHM6MCBlcnJvcnM6MCBkcm9wcGVkOjAgb3ZlcnJ1bnM6MCBjYXJyaWVy
+OjAKICAgICAgICAgIGNvbGxpc2lvbnM6MCB0eHF1ZXVlbGVuOjAgCiAgICAgICAgICBSWCBi
+eXRlczowICgwLjAgQikgIFRYIGJ5dGVzOjAgKDAuMCBCKQoKCnJvb3RAY29tcHV0ZTF2eDp+
+IyBvdnMtdnNjdGwgc2hvdwpkYjM4NTZjNC0zYWY1LTQ1YWYtOTY3Ni1kZWJjMzc5YTNlOWEK
+ICAgIEJyaWRnZSBici1pbnQKICAgICAgICBmYWlsX21vZGU6IHNlY3VyZQogICAgICAgIFBv
+cnQgcGF0Y2gtdHVuCiAgICAgICAgICAgIEludGVyZmFjZSBwYXRjaC10dW4KICAgICAgICAg
+ICAgICAgIHR5cGU6IHBhdGNoCiAgICAgICAgICAgICAgICBvcHRpb25zOiB7cGVlcj1wYXRj
+aC1pbnR9CiAgICAgICAgUG9ydCBici1pbnQKICAgICAgICAgICAgSW50ZXJmYWNlIGJyLWlu
+dAogICAgICAgICAgICAgICAgdHlwZTogaW50ZXJuYWwKICAgICAgICBQb3J0ICJxdm9lOTBh
+YTZiZi0zNiIKICAgICAgICAgICAgdGFnOiAxCiAgICAgICAgICAgIEludGVyZmFjZSAicXZv
+ZTkwYWE2YmYtMzYiCiAgICBCcmlkZ2UgYnItdHVuCiAgICAgICAgUG9ydCBici10dW4KICAg
+ICAgICAgICAgSW50ZXJmYWNlIGJyLXR1bgogICAgICAgICAgICAgICAgdHlwZTogaW50ZXJu
+YWwKICAgICAgICBQb3J0IHBhdGNoLWludAogICAgICAgICAgICBJbnRlcmZhY2UgcGF0Y2gt
+aW50CiAgICAgICAgICAgICAgICB0eXBlOiBwYXRjaAogICAgICAgICAgICAgICAgb3B0aW9u
+czoge3BlZXI9cGF0Y2gtdHVufQogICAgICAgIFBvcnQgImdyZS0wYTE0MDBhMiIKICAgICAg
+ICAgICAgSW50ZXJmYWNlICJncmUtMGExNDAwYTIiCiAgICAgICAgICAgICAgICB0eXBlOiBn
+cmUKICAgICAgICAgICAgICAgIG9wdGlvbnM6IHtkZl9kZWZhdWx0PSJ0cnVlIiwgaW5fa2V5
+PWZsb3csIGxvY2FsX2lwPSIxMC4yMC4wLjE2MSIsIG91dF9rZXk9ZmxvdywgcmVtb3RlX2lw
+PSIxMC4yMC4wLjE2MiJ9CiAgICBvdnNfdmVyc2lvbjogIjIuMC4yIgoK
+--------------030809010206010003050709--
