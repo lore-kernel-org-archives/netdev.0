@@ -1,53 +1,68 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC] NAPI behavior when (work < weight)
-Date: Wed, 04 Feb 2015 05:37:09 -0800
-Message-ID: <1423057029.907.133.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <2015045.8auvsRvBkK@lx-wigig-72>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Eric Dumazet <edumazet@google.com>,
-	Tom Herbert <therbert@google.com>,
-	Vlad Yasevich <vyasevic@redhat.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	John Fastabend <john.fastabend@gmail.com>,
-	Joe Perches <joe@perches.com>
-To: Vladimir Kondratiev <QCA_vkondrat@QCA.qualcomm.com>
+From: Takashi Iwai <tiwai@suse.de>
+Subject: [PATCH] tun: Use static attribute groups for sysfs entries
+Date: Wed,  4 Feb 2015 14:37:34 +0100
+Message-ID: <1423057054-6889-1-git-send-email-tiwai@suse.de>
+Cc: netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f176.google.com ([209.85.223.176]:48434 "EHLO
-	mail-ie0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932734AbbBDNhP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2015 08:37:15 -0500
-Received: by mail-ie0-f176.google.com with SMTP id at20so1928686iec.7
-        for <netdev@vger.kernel.org>; Wed, 04 Feb 2015 05:37:14 -0800 (PST)
-In-Reply-To: <2015045.8auvsRvBkK@lx-wigig-72>
+Received: from cantor2.suse.de ([195.135.220.15]:43800 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965247AbbBDNhq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Feb 2015 08:37:46 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2015-02-04 at 15:22 +0200, Vladimir Kondratiev wrote:
-> Hi
-> 
-> I am observing that if driver does not calls napi_complete() when
-> less than full budget consumed, various strange things happen.
-> 
-> For example, if driver going to napi_disable(), it may wait forever
-> in the loop:
-> 
-> 	while (test_and_set_bit(NAPI_STATE_SCHED, &n->state))
-> 		msleep(1);
-> 
-> if last NAPI consumed less then full budget, because bit
-> NAPI_STATE_SCHED never cleared.
-> 
-> Is it expected that driver calls napi_complete() when less than full
-> budget consumed? Documentation does not say so.
-> 
-> What is intended behavior in case above?
+Instead of manual calls of device_create_file() and
+device_remove_files(), assign the static attribute groups to netdev
+groups array.  This simplifies the code and avoids the possible
+races.
 
-A driver must call napi_complete() (or better : napi_complete_done() )
-when/if returning work_done < budget
+Signed-off-by: Takashi Iwai <tiwai@suse.de>
+---
+ drivers/net/tun.c | 17 ++++++++++++-----
+ 1 file changed, 12 insertions(+), 5 deletions(-)
 
-Thats because of the way we have to rearm interrupts in the driver,
-_after_ calling napi_complete()
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index 8c8dc16839a7..662516ed6104 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -1566,6 +1566,17 @@ static DEVICE_ATTR(tun_flags, 0444, tun_show_flags, NULL);
+ static DEVICE_ATTR(owner, 0444, tun_show_owner, NULL);
+ static DEVICE_ATTR(group, 0444, tun_show_group, NULL);
+ 
++static struct attribute *tun_dev_attrs[] = {
++	&dev_attr_tun_flags.attr,
++	&dev_attr_owner.attr,
++	&dev_attr_group.attr,
++	NULL
++};
++
++static const struct attribute_group tun_attr_group = {
++	.attrs = tun_dev_attrs
++};
++
+ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
+ {
+ 	struct tun_struct *tun;
+@@ -1646,6 +1657,7 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
+ 		dev_net_set(dev, net);
+ 		dev->rtnl_link_ops = &tun_link_ops;
+ 		dev->ifindex = tfile->ifindex;
++		dev->sysfs_groups[0] = &tun_attr_group;
+ 
+ 		tun = netdev_priv(dev);
+ 		tun->dev = dev;
+@@ -1681,11 +1693,6 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
+ 		err = register_netdevice(tun->dev);
+ 		if (err < 0)
+ 			goto err_detach;
+-
+-		if (device_create_file(&tun->dev->dev, &dev_attr_tun_flags) ||
+-		    device_create_file(&tun->dev->dev, &dev_attr_owner) ||
+-		    device_create_file(&tun->dev->dev, &dev_attr_group))
+-			pr_err("Failed to create tun sysfs files\n");
+ 	}
+ 
+ 	netif_carrier_on(tun->dev);
+-- 
+2.2.2
