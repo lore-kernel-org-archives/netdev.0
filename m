@@ -1,72 +1,75 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH v3 2/3] genetlink: disallow subscribing to unknown mcast groups
-Date: Wed, 04 Feb 2015 16:55:42 +0100
-Message-ID: <874mr1isch.fsf@nemi.mork.no>
-References: <1421404634-8973-1-git-send-email-johannes@sipsolutions.net>
-	<1421404634-8973-2-git-send-email-johannes@sipsolutions.net>
-	<87egq5uc07.fsf@nemi.mork.no> <87d25pit90.fsf@nemi.mork.no>
-	<1423064608.4741.6.camel@sipsolutions.net>
+From: Hartley Sweeten <HartleyS@visionengravers.com>
+Subject: RE: [PATCH] net: ep93xx_eth: Delete unnecessary checks before the
+ function call "kfree"
+Date: Wed, 4 Feb 2015 15:59:32 +0000
+Message-ID: <DC148C5AA1CEBA4E87973D432B1C2D88261024FC@P3PWEX4MB008.ex4.secureserver.net>
+References: <5307CAA2.8060406@users.sourceforge.net>
+ <alpine.DEB.2.02.1402212321410.2043@localhost6.localdomain6>
+ <530A086E.8010901@users.sourceforge.net>
+ <alpine.DEB.2.02.1402231635510.1985@localhost6.localdomain6>
+ <530A72AA.3000601@users.sourceforge.net>
+ <alpine.DEB.2.02.1402240658210.2090@localhost6.localdomain6>
+ <530B5FB6.6010207@users.sourceforge.net>
+ <alpine.DEB.2.10.1402241710370.2074@hadrien>
+ <530C5E18.1020800@users.sourceforge.net>
+ <alpine.DEB.2.10.1402251014170.2080@hadrien>
+ <530CD2C4.4050903@users.sourceforge.net>
+ <alpine.DEB.2.10.1402251840450.7035@hadrien>
+ <530CF8FF.8080600@users.sourceforge.net>
+ <alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6>
+ <530DD06F.4090703@users.sourceforge.net>
+ <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6>
+ <5317A59D.4@users.sourceforge.net> <54D23415.6070005@users.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Jeff Layton <jeff.layton@primarydata.com>,
-	Sedat Dilek <sedat.dilek@gmail.com>
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:53214 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932451AbbBDP4B convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2015 10:56:01 -0500
-In-Reply-To: <1423064608.4741.6.camel@sipsolutions.net> (Johannes Berg's
-	message of "Wed, 04 Feb 2015 16:43:28 +0100")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>,
+	Julia Lawall <julia.lawall@lip6.fr>
+To: SF Markus Elfring <elfring@users.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <54D23415.6070005@users.sourceforge.net>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Johannes Berg <johannes@sipsolutions.net> writes:
-
-> On Wed, 2015-02-04 at 16:36 +0100, Bj=C3=B8rn Mork wrote:
+On Wednesday, February 04, 2015 8:01 AM, Markus Elfring wrote:
+> The kfree() function tests whether its argument is NULL and then
+> returns immediately. Thus the test around the call is not needed.
 >
->> >> -	int i, err =3D 0;
->> >> +	int i, err =3D -ENOENT;
->> >> =20
->> >>  	down_read(&cb_lock);
->> >>  	for (i =3D 0; i < GENL_FAM_TAB_SIZE; i++) {
->> >
->> > This change cause serious problems for acpid, as reported on
->> > https://bugzilla.kernel.org/show_bug.cgi?id=3D92121
->>=20
->> Ah, I see this bug is already fixed by commit 8b7c36d810c6 ("netlink=
-:
->> fix wrong subscription bitmask to group mapping in").  Your change w=
-as
->> obviously correct, and found the long standing off by one bug.  Than=
-ks.
->>=20
->> Sorry about the noise.  I should have checked the current "net" firs=
-t.
+> This issue was detected by using the Coccinelle software.
 >
-> Interesting. I was completely willing to entertain the notion that so=
-me
-> userspace might be broken and be attempting to subscribe to a (static
-> through the hacks we had to put in or "I think I know it already")
-> group.
+> Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+> ---
+>  drivers/net/ethernet/cirrus/ep93xx_eth.c | 6 ++----
+>  1 file changed, 2 insertions(+), 4 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/cirrus/ep93xx_eth.c b/drivers/net/ethernet/cirrus/ep93xx_eth.c
+> index 3a12c09..de9f7c9 100644
+> --- a/drivers/net/ethernet/cirrus/ep93xx_eth.c
+> +++ b/drivers/net/ethernet/cirrus/ep93xx_eth.c
+> @@ -475,8 +475,7 @@ static void ep93xx_free_buffers(struct ep93xx_priv *ep)
+>  		if (d)
+>  			dma_unmap_single(dev, d, PKT_BUF_SIZE, DMA_FROM_DEVICE);
+>  
+> -		if (ep->rx_buf[i] != NULL)
+> -			kfree(ep->rx_buf[i]);
+> +		kfree(ep->rx_buf[i]);
+>  	}
+>  
+>  	for (i = 0; i < TX_QUEUE_ENTRIES; i++) {
+> @@ -486,8 +485,7 @@ static void ep93xx_free_buffers(struct ep93xx_priv *ep)
+>  		if (d)
+>  			dma_unmap_single(dev, d, PKT_BUF_SIZE, DMA_TO_DEVICE);
+>  
+> -		if (ep->tx_buf[i] != NULL)
+> -			kfree(ep->tx_buf[i]);
+> +		kfree(ep->tx_buf[i]);
+>  	}
+>  
+>  	dma_free_coherent(dev, sizeof(struct ep93xx_descs), ep->descs,
 
-Me to.  So I went through the whole loop, checking that acpid did
-everything by the book, adding a debug message to genl_bind() only to
-see that it was called with '1' instead of the expected '2'.  Then
-looking at af_netlink.c and its history. Etc.
+Signed-off-by: H Hartley Sweeten <hsweeten@visionengravers.com>
 
-> Have you checked acpid with the bitmap fix?
-
-No, not yet. But I went down far enough into this that I actually wrote
-the exact same patch as Pablo. Had to scratch my head when I couldn't
-cherry-pick it into net because it was already there :-)
-
-So I am pretty sure Pablo's patch fixes the problem.
-
-This was never noticed before because there are only two users,
-netfilter and generic netlink,  and both were willing to accept the
-off-by-one values without much fuzz.
-
-
-Bj=C3=B8rn
+Thanks
