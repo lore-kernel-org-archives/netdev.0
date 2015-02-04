@@ -1,60 +1,50 @@
-From: roopa <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next] bridge: Let bridge not age 'externally' learnt
- FDB entries, they are removed when 'external' entity notifies the aging
-Date: Wed, 04 Feb 2015 08:19:51 -0800
-Message-ID: <54D246A7.2020502@cumulusnetworks.com>
-References: <1422897714-5956-1-git-send-email-siva.mannem.lnx@gmail.com> <54D0E521.6070100@cumulusnetworks.com> <CA+CtxLSziWmx94_V9S-uW9=6VYg4WXsU4CERx-uovvrFOtO1dA@mail.gmail.com>
+From: Erik Hugne <erik.hugne@ericsson.com>
+Subject: skb_try_coalesce and fraglists (bug?)
+Date: Wed, 4 Feb 2015 17:33:43 +0100
+Message-ID: <20150204163343.GA857@haze>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>,
-	Scott Feldman <sfeldma@cumulusnetworks.com>,
-	Jiri Pirko <jiri@resnulli.us>
-To: Siva Mannem <siva.mannem.lnx@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <mkubecek@suse.cz>, <ying.xue@windriver.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:58562 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965937AbbBDQT4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2015 11:19:56 -0500
-Received: by mail-pa0-f49.google.com with SMTP id fa1so3651105pad.8
-        for <netdev@vger.kernel.org>; Wed, 04 Feb 2015 08:19:52 -0800 (PST)
-In-Reply-To: <CA+CtxLSziWmx94_V9S-uW9=6VYg4WXsU4CERx-uovvrFOtO1dA@mail.gmail.com>
+Received: from sessmg23.ericsson.net ([193.180.251.45]:53054 "EHLO
+	sessmg23.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S966683AbbBDQfp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2015 11:35:45 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2/4/15, 12:02 AM, Siva Mannem wrote:
-> On Tue, Feb 3, 2015 at 8:41 PM, roopa <roopa@cumulusnetworks.com> wrote:
->> On 2/2/15, 9:21 AM, Siva Mannem wrote:
->>>    When 'learned_sync' flag is turned on, the offloaded switch
->>>    port syncs learned MAC addresses to bridge's FDB via switchdev notifier
->>>    (NETDEV_SWITCH_FDB_ADD). Currently, FDB entries learnt via this
->>> mechanism are
->>>    wrongly being deleted by bridge aging logic. This patch ensures that FDB
->>>    entries synced from offloaded switch ports are not deleted by bridging
->>> logic.
->>>    Such entries can only be deleted via switchdev notifier
->>>    (NETDEV_SWITCH_FDB_DEL).
->>
->> Your patch seems right and maintains symmetry for fdb add/del of externally
->> learnt entries.
->> However, this could be made configurable. I think some drivers may rely on
->> bridge driver aging these entries (The default setting needs more thought).
->> I am not sure what rocker does (CC'ed rocker maintainers). But, our driver
->> does rely on the bridge driver aging these entries by default.
-> added_by_external_learn flag is only set for entries learned via
-> switchdev notifier
-> (NETDEV_SWITCH_FDB_ADD) and rocker is the only driver using these notifiers.
->   I see that rocker is deleting the entries via switchdev notifier
-> (NETDEV_SWITCH_FDB_DEL).
-> This mechanism is only used by drivers when learned_sync is turned on by user.
->
-> $ sudo bridge link set dev swp1 learning_sync on self
->
-> Am I missing something here?
-I know that its enabled by an external flag. I wasn't sure rocker was 
-doing a del
-or was relying on the bridge driver to age those entries (hence the CC 
-to rocker maintainers).
-And, my only point was its valid in some cases for the switch driver to 
-rely on bridge driver ageing those entries.
-For symmetry, your patch seems right.
+skb_try_coalesce should bail out for a number of reasons, if the target skb is
+cloned, doesn't have enough room, or if either source or target skb have
+fraglists.
+
+However, it seems that the skb_has_frag_list check is done too late, and a small
+skb may be copied into the tailroom of the head, even if it has a fraglist.
+
+Wouldn't this be more correct?
+
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 56db472..8d02140 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -4056,6 +4056,9 @@ bool skb_try_coalesce(struct sk_buff *to, struct sk_buff *from,
+        if (skb_cloned(to))
+                return false;
+ 
++       if (skb_has_frag_list(to) || skb_has_frag_list(from))
++               return false;
++
+        if (len <= skb_tailroom(to)) {
+                if (len)
+                        BUG_ON(skb_copy_bits(from, 0, skb_put(to, len), len));
+@@ -4063,9 +4066,6 @@ bool skb_try_coalesce(struct sk_buff *to, struct sk_buff *from,
+                return true;
+        }
+ 
+-       if (skb_has_frag_list(to) || skb_has_frag_list(from))
+-               return false;
+-
+        if (skb_headlen(from) != 0) {
+                struct page *page;
+                unsigned int offset;
