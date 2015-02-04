@@ -1,60 +1,52 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next v2 1/2] pkt_sched: fq: avoid artificial bursts
- for clocked flows
-Date: Wed, 04 Feb 2015 10:47:34 -0800
-Message-ID: <1423075654.31870.4.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1422992932-9893-1-git-send-email-kennetkl@ifi.uio.no>
-	 <1423001164.907.43.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <2E34EE83-0F64-4CDE-BDE2-4AB59B4D5CF8@ifi.uio.no>
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Subject: [PATCH] orinoco: Delete an unnecessary check before the function
+ call "kfree"
+Date: Wed, 04 Feb 2015 19:56:51 +0100
+Message-ID: <54D26B73.1050804@users.sourceforge.net>
+References: <5307CAA2.8060406@users.sourceforge.net> <alpine.DEB.2.02.1402212321410.2043@localhost6.localdomain6> <530A086E.8010901@users.sourceforge.net> <alpine.DEB.2.02.1402231635510.1985@localhost6.localdomain6> <530A72AA.3000601@users.sourceforge.net> <alpine.DEB.2.02.1402240658210.2090@localhost6.localdomain6> <530B5FB6.6010207@users.sourceforge.net> <alpine.DEB.2.10.1402241710370.2074@hadrien> <530C5E18.1020800@users.sourceforge.net> <alpine.DEB.2.10.1402251014170.2080@hadrien> <530CD2C4.4050903@users.sourceforge.net> <alpine.DEB.2.10.1402251840450.7035@hadrien> <530CF8FF.8080600@users.sourceforge.net> <alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6> <530DD06F.4090703@users.sourceforge.net> <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6> <5317A59D.4@users.so
+ urceforge.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	kernel-janitors@vger.kernel.org,
+	Julia Lawall <julia.lawall@lip6.fr>
+To: Kalle Valo <kvalo@codeaurora.org>, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f171.google.com ([209.85.213.171]:56274 "EHLO
-	mail-ig0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1161466AbbBDSrg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2015 13:47:36 -0500
-Received: by mail-ig0-f171.google.com with SMTP id h15so20576378igd.4
-        for <netdev@vger.kernel.org>; Wed, 04 Feb 2015 10:47:35 -0800 (PST)
-In-Reply-To: <2E34EE83-0F64-4CDE-BDE2-4AB59B4D5CF8@ifi.uio.no>
+Received: from mout.web.de ([212.227.15.4]:57694 "EHLO mout.web.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1161480AbbBDS45 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Feb 2015 13:56:57 -0500
+In-Reply-To: <5317A59D.4@users.sourceforge.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2015-02-04 at 17:56 +0000, Kenneth Klette Jonassen wrote:
+From: Markus Elfring <elfring@users.sourceforge.net>
+Date: Wed, 4 Feb 2015 19:53:11 +0100
 
->=20
-> If it is a code issue, please refactor it or point out some specifics=
-=2E
->=20
-> Thanks for cc=E2=80=99ing me on your related patch (=E2=80=9Cdo not p=
-ace pure ack
-> packets=E2=80=9D). Note that your patch does not address the core iss=
-ue that
-> this patch attempts to fix: fq throttling is just broken for small,
-> clocked flows. This not only concerns TCP/SCTP/ARQ acks, but also
-> thin-streams like VoIP and gaming.
+The kfree() function tests whether its argument is NULL and then
+returns immediately. Thus the test around the call is not needed.
 
+This issue was detected by using the Coccinelle software.
 
-I already told you this patch was not wanted.
+Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+---
+ drivers/net/wireless/orinoco/main.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-We want a reasonably efficient packet scheduler, allowing TCP pacing,
-at the scale of million of flows.
-
-You can reduce quantum to whatever you need.
-
-We have an internal patch doing something really different,
-not adding 8 bytes overhead in the flow structure.
-
-We will upstream it when fully tested.
-
-commit 799735e5d08b3a7fc19176eee316ca647c9bad32
-Author: Eric Dumazet <edumazet@google.com>
-Date:   Mon Aug 11 14:35:36 2014 -0700
-
-    net-sched-fq: special case low rate flows
-   =20
-    Effort: net-sched-fq
-    Change-Id: Ibee17453702cccf729154f6b4db7aeb028fc555a
+diff --git a/drivers/net/wireless/orinoco/main.c b/drivers/net/wireless/orinoco/main.c
+index 38ec8d1..c410180 100644
+--- a/drivers/net/wireless/orinoco/main.c
++++ b/drivers/net/wireless/orinoco/main.c
+@@ -2342,7 +2342,7 @@ void free_orinocodev(struct orinoco_private *priv)
+ 	list_for_each_entry_safe(sd, sdtemp, &priv->scan_list, list) {
+ 		list_del(&sd->list);
+ 
+-		if ((sd->len > 0) && sd->buf)
++		if (sd->len > 0)
+ 			kfree(sd->buf);
+ 		kfree(sd);
+ 	}
+-- 
+2.2.2
