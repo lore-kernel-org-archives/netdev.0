@@ -1,74 +1,45 @@
-From: Andy Zhou <azhou@nicira.com>
-Subject: [RFC: add openvswitch actions using BPF 9/9] ofproto-dpif-xlate: generate BPF output action (Hack)
-Date: Wed,  4 Feb 2015 14:49:23 -0800
-Message-ID: <1423090163-19902-10-git-send-email-azhou@nicira.com>
-References: <1423090163-19902-1-git-send-email-azhou@nicira.com>
-Cc: netdev@vger.kernel.org, Andy Zhou <azhou@nicira.com>
-To: dev@openvswitch.com
+From: Sabrina Dubroca <sd@queasysnail.net>
+Subject: Re: [PATCH net] ip6_gre: fix endianness errors in ip6gre_err
+Date: Thu, 5 Feb 2015 00:38:30 +0100
+Message-ID: <20150204233830.GA10793@kria>
+References: <1423059909-15606-1-git-send-email-sd@queasysnail.net>
+ <1423064676.907.137.camel@edumazet-glaptop2.roam.corp.google.com>
+ <1423065012.907.138.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog129.obsmtp.com ([74.125.149.142]:37012 "HELO
-	na3sys009aog129.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S965179AbbBDXUm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2015 18:20:42 -0500
-Received: by mail-pd0-f170.google.com with SMTP id v10so3682880pde.3
-        for <netdev@vger.kernel.org>; Wed, 04 Feb 2015 15:20:42 -0800 (PST)
-In-Reply-To: <1423090163-19902-1-git-send-email-azhou@nicira.com>
+Received: from smtp4-g21.free.fr ([212.27.42.4]:34025 "EHLO smtp4-g21.free.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755890AbbBDXic (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Feb 2015 18:38:32 -0500
+Content-Disposition: inline
+In-Reply-To: <1423065012.907.138.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a hack in xlate code to always generate both BPF output
-and the original output action. Since the currnet BPF output 'action'
-simply generate a kenrel log message about the output port number.
+2015-02-04, 07:50:12 -0800, Eric Dumazet wrote:
+> On Wed, 2015-02-04 at 07:44 -0800, Eric Dumazet wrote:
+> > On Wed, 2015-02-04 at 15:25 +0100, Sabrina Dubroca wrote:
+> > > info is in network byte order, change it back to host byte order
+> > > before use. In particular, the current code sets the MTU of the tunnel
+> > > to a wrong (too big) value.
+> > > 
+> > > Fixes: c12b395a4664 ("gre: Support GRE over IPv6")
+> > > Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
+> > > ---
+> > 
+> > Acked-by: Eric Dumazet <edumazet@google.com>
+> > 
+> 
+> 
+> BTW, "fl6.flowi6_proto = skb->protocol; " in ip6gre_xmit_other()
+> looks suspicious...
 
-With this patch, Every time datapath output a packet, it also generate
-log about the port number in the kernel log.
+Yes, I know that sparse complains about it.  I don't know how to
+handle that for now.  ntohs would silence the sparse warning, but we
+would still have u8 vs u16.  I'll need to have a closer look.
 
-Signed-off-by: Andy Zhou <azhou@nicira.com>
----
- ofproto/ofproto-dpif-xlate.c | 18 ++++++++++++++++--
- 1 file changed, 16 insertions(+), 2 deletions(-)
-
-diff --git a/ofproto/ofproto-dpif-xlate.c b/ofproto/ofproto-dpif-xlate.c
-index 0786513..41a7502 100644
---- a/ofproto/ofproto-dpif-xlate.c
-+++ b/ofproto/ofproto-dpif-xlate.c
-@@ -15,6 +15,7 @@
- #include <config.h>
- 
- #include "ofproto/ofproto-dpif-xlate.h"
-+#include "ofproto/ofproto-dpif-bpf.h"
- 
- #include <errno.h>
- #include <arpa/inet.h>
-@@ -2833,14 +2834,27 @@ compose_output_action__(struct xlate_ctx *ctx, ofp_port_t ofp_port,
-                                         OVS_ACTION_ATTR_TUNNEL_POP,
-                                         odp_tnl_port);
-                 } else {
-+                    int fd;
-+                    struct ovs_action_bpf_prog bpf_output;
-+
-+                    fd = ofproto_dpif_bpf_lookup("ovs/output");
-+
-+                    if (fd > 0) {
-+                        bpf_output.prog_fd = htonl(fd);
-+                        bpf_output.arg0 = htonl(out_port);
-+                        bpf_output.arg1 = htonl(0);
-+                        nl_msg_push_unspec(ctx->xout->odp_actions,
-+                                           OVS_ACTION_ATTR_BPF_PROG,
-+                                           &bpf_output, sizeof(bpf_output));
-+                    }
-                     /* Tunnel push-pop action is not compatible with
-                      * IPFIX action. */
-                     add_ipfix_output_action(ctx, out_port);
-                     nl_msg_put_odp_port(ctx->xout->odp_actions,
-                                         OVS_ACTION_ATTR_OUTPUT,
-                                         out_port);
--               }
--           }
-+                }
-+            }
-         }
- 
-         ctx->sflow_odp_port = odp_port;
 -- 
-1.9.1
+Sabrina
