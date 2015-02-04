@@ -1,57 +1,81 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Throughput regression with `tcp: refine TSO autosizing`
-Date: Wed, 04 Feb 2015 04:38:51 -0800
-Message-ID: <1423053531.907.115.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CA+BoTQkVu23P3EOmY_Q3E1GJnWsyF==Pawz4iPOS_Bq5dvfO5Q@mail.gmail.com>
-	 <1422537297.21689.15.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+BoTQk2xT-8DqPuiiKG+kHAjLPrj8F9dLTb-rcGhvMq0u_2Qw@mail.gmail.com>
-	 <1422628835.21689.95.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+BoTQkV+mOZfe_Niz5101sMQeaV6muKCsShptjGQ1AgOHqqoQ@mail.gmail.com>
-	 <1422903136.21689.114.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1422926330.21689.138.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+BoTQkMikA8wxm1ce2DkKhPB0HiKeAqT7f+sQ=91W40z=X0Rg@mail.gmail.com>
-	 <1422973660.907.10.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+BoTQmvUuFdfYF=wVMYxrf_nQZB5GCV=LvDZVvfs-3hAE4WKw@mail.gmail.com>
-	 <1423051045.907.108.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+BoTQ=BDcQ779uKCuX+f40=4npXVF4MTQnpjKimNYAxPsxBoQ@mail.gmail.com>
+Subject: Re: [PATCH] net: core/dev: fix sparse warning
+Date: Wed, 04 Feb 2015 04:41:35 -0800
+Message-ID: <1423053695.907.117.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1423052746-3688-1-git-send-email-prabhakar.csengg@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless <linux-wireless@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	eyalpe@dev.mellanox.co.il
-To: Michal Kazior <michal.kazior@tieto.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f180.google.com ([209.85.223.180]:64031 "EHLO
-	mail-ie0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752241AbbBDMiw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2015 07:38:52 -0500
-In-Reply-To: <CA+BoTQ=BDcQ779uKCuX+f40=4npXVF4MTQnpjKimNYAxPsxBoQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Eric Dumazet <edumazet@google.com>
+To: Lad Prabhakar <prabhakar.csengg@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1423052746-3688-1-git-send-email-prabhakar.csengg@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2015-02-04 at 13:22 +0100, Michal Kazior wrote:
-> On 4 February 2015 at 12:57, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+On Wed, 2015-02-04 at 12:25 +0000, Lad Prabhakar wrote:
+> From: "Lad, Prabhakar" <prabhakar.csengg@gmail.com>
+> 
+> this patch fixes following sparse warning:
+> net/core/dev.c: In function 'validate_xmit_skb_list':
+> net/core/dev.c:2720: warning: 'tail' may be used uninitialized in this function
+> 
+> Although its a false positive, as head is assigned to NULL in the
+> beginning, due which later in the loop tail is assigned to skb->prev.
+> 
+> Signed-off-by: Lad, Prabhakar <prabhakar.csengg@gmail.com>
+> ---
+>  net/core/dev.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index 8ce0d1a..c736467 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -2717,7 +2717,7 @@ out_null:
+>  
+>  struct sk_buff *validate_xmit_skb_list(struct sk_buff *skb, struct net_device *dev)
+>  {
+> -	struct sk_buff *next, *head = NULL, *tail;
+> +	struct sk_buff *next, *head = NULL, *tail = NULL;
+>  
+>  	for (; skb != NULL; skb = next) {
+>  		next = skb->next;
 
-> 
-> > To disable gso you would have to use :
-> >
-> > ethtool -K wlan1 gso off
-> 
-> Oh, thanks! This works. However I can't turn it on:
-> 
-> ; ethtool -K wlan1 gso on
-> Could not change any device features
-> 
-> ..so I guess it makes no sense to re-run tests because:
-> 
-> ; ethtool -k wlan1 | grep generic
->         tx-checksum-ip-generic: on [fixed]
-> generic-segmentation-offload: off [requested on]
-> generic-receive-offload: on
-> 
-> And this seems to never change.
+Which gcc/sparse versions are you using ?
 
-GSO requires SG (Scatter Gather)
+I do not see this warning here.
 
-Are you sure this hardware has no SG support ?
+$ gcc -v
+Using built-in specs.
+COLLECT_GCC=gcc
+COLLECT_LTO_WRAPPER=/usr/lib/gcc/x86_64-linux-gnu/4.8/lto-wrapper
+Target: x86_64-linux-gnu
+Configured with: ../src/configure -v --with-pkgversion='Ubuntu
+4.8.2-19ubuntu1' --with-bugurl=file:///usr/share/doc/gcc-4.8/README.Bugs
+--enable-languages=c,c++,java,go,d,fortran,objc,obj-c++ --prefix=/usr
+--program-suffix=-4.8 --enable-shared --enable-linker-build-id
+--libexecdir=/usr/lib --without-included-gettext --enable-threads=posix
+--with-gxx-include-dir=/usr/include/c++/4.8 --libdir=/usr/lib
+--enable-nls --with-sysroot=/ --enable-clocale=gnu
+--enable-libstdcxx-debug --enable-libstdcxx-time=yes
+--enable-gnu-unique-object --disable-libmudflap --enable-plugin
+--with-system-zlib --disable-browser-plugin --enable-java-awt=gtk
+--enable-gtk-cairo
+--with-java-home=/usr/lib/jvm/java-1.5.0-gcj-4.8-amd64/jre
+--enable-java-home
+--with-jvm-root-dir=/usr/lib/jvm/java-1.5.0-gcj-4.8-amd64
+--with-jvm-jar-dir=/usr/lib/jvm-exports/java-1.5.0-gcj-4.8-amd64
+--with-arch-directory=amd64
+--with-ecj-jar=/usr/share/java/eclipse-ecj.jar --enable-objc-gc
+--enable-multiarch --disable-werror --with-arch-32=i686 --with-abi=m64
+--with-multilib-list=m32,m64,mx32 --with-tune=generic
+--enable-checking=release --build=x86_64-linux-gnu
+--host=x86_64-linux-gnu --target=x86_64-linux-gnu
+Thread model: posix
+gcc version 4.8.2 (Ubuntu 4.8.2-19ubuntu1) 
+
+$ sparse --version
+0.4.5-rc1
+ 
