@@ -1,117 +1,33 @@
-From: Erik Kline <ek@google.com>
-Subject: [PATCH net v4] net: ipv6: allow explicitly choosing optimistic addresses
-Date: Wed,  4 Feb 2015 20:01:23 +0900
-Message-ID: <1423047683-16267-1-git-send-email-ek@google.com>
-Cc: lorenzo@google.com, hannes@stressinduktion.org,
-	Erik Kline <ek@google.com>
-To: netdev@vger.kernel.org
+From: Lorenzo Colitti <lorenzo@google.com>
+Subject: Re: [PATCH net v3] net: ipv6: allow explicitly choosing optimistic addresses
+Date: Wed, 4 Feb 2015 20:05:32 +0900
+Message-ID: <CAKD1Yr0EaSzdoK7xicwSWaJzF6Rii76D_9YBugGMyUTcQdOGDg@mail.gmail.com>
+References: <1422859156-30691-1-git-send-email-ek@google.com>
+ <CAKD1Yr0k44kwwtfWN-t9C1f7WKT0o=yimPwbfLtBnnvUvXrm=w@mail.gmail.com>
+ <CAAedzxoF2gJit1e05UJSOWX2RJwbA1PSbdABK3zgta-XtajJyw@mail.gmail.com>
+ <CAKD1Yr18AvHChpSJau5O2GypDRZ39sGaDfnjV4f73C77gYCXVw@mail.gmail.com> <CAAedzxptQEX+c+khEmO7QvU+58+3W+iuOJ3O9zBfuWbWjFkakw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: Erik Kline <ek@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f169.google.com ([209.85.192.169]:45030 "EHLO
-	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753206AbbBDLBk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2015 06:01:40 -0500
-Received: by pdbft15 with SMTP id ft15so38181pdb.11
-        for <netdev@vger.kernel.org>; Wed, 04 Feb 2015 03:01:39 -0800 (PST)
+Received: from mail-ie0-f173.google.com ([209.85.223.173]:50320 "EHLO
+	mail-ie0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932892AbbBDLFy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2015 06:05:54 -0500
+Received: by mail-ie0-f173.google.com with SMTP id tr6so1097690ieb.4
+        for <netdev@vger.kernel.org>; Wed, 04 Feb 2015 03:05:54 -0800 (PST)
+In-Reply-To: <CAAedzxptQEX+c+khEmO7QvU+58+3W+iuOJ3O9zBfuWbWjFkakw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RFC 4429 ("Optimistic DAD") states that optimistic addresses
-should be treated as deprecated addresses.  From section 2.1:
+On Wed, Feb 4, 2015 at 7:54 PM, Erik Kline <ek@google.com> wrote:
+>                 if (flags_testing && etc) { unlock; return 1; }
+>                 else break;
 
-   Unless noted otherwise, components of the IPv6 protocol stack
-   should treat addresses in the Optimistic state equivalently to
-   those in the Deprecated state, indicating that the address is
-   available for use but should not be used if another suitable
-   address is available.
-
-Optimistic addresses are indeed avoided when other addresses are
-available (i.e. at source address selection time), but they have
-not heretofore been available for things like explicit bind() and
-sendmsg() with struct in6_pktinfo, etc.
-
-This change makes optimistic addresses treated more like
-deprecated addresses than tentative ones.
-
-Signed-off-by: Erik Kline <ek@google.com>
----
- include/net/addrconf.h |  3 +++
- net/ipv6/addrconf.c    | 19 +++++++++++++++++--
- net/ipv6/ndisc.c       |  4 +++-
- 3 files changed, 23 insertions(+), 3 deletions(-)
-
-diff --git a/include/net/addrconf.h b/include/net/addrconf.h
-index d13573b..80456f7 100644
---- a/include/net/addrconf.h
-+++ b/include/net/addrconf.h
-@@ -62,6 +62,9 @@ int addrconf_set_dstaddr(struct net *net, void __user *arg);
- 
- int ipv6_chk_addr(struct net *net, const struct in6_addr *addr,
- 		  const struct net_device *dev, int strict);
-+int ipv6_chk_addr_and_flags(struct net *net, const struct in6_addr *addr,
-+			    const struct net_device *dev, int strict,
-+			    u32 banned_flags);
- 
- #if defined(CONFIG_IPV6_MIP6) || defined(CONFIG_IPV6_MIP6_MODULE)
- int ipv6_chk_home_addr(struct net *net, const struct in6_addr *addr);
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index f7c8bbe..62900ae 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -1519,15 +1519,30 @@ static int ipv6_count_addresses(struct inet6_dev *idev)
- int ipv6_chk_addr(struct net *net, const struct in6_addr *addr,
- 		  const struct net_device *dev, int strict)
- {
-+	return ipv6_chk_addr_and_flags(net, addr, dev, strict, IFA_F_TENTATIVE);
-+}
-+EXPORT_SYMBOL(ipv6_chk_addr);
-+
-+int ipv6_chk_addr_and_flags(struct net *net, const struct in6_addr *addr,
-+			    const struct net_device *dev, int strict,
-+			    u32 banned_flags)
-+{
- 	struct inet6_ifaddr *ifp;
- 	unsigned int hash = inet6_addr_hash(addr);
-+	u32 ifp_flags;
- 
- 	rcu_read_lock_bh();
- 	hlist_for_each_entry_rcu(ifp, &inet6_addr_lst[hash], addr_lst) {
- 		if (!net_eq(dev_net(ifp->idev->dev), net))
- 			continue;
-+		/* Decouple optimistic from tentative for evaluation here.
-+		 * Ban optimistic addresses explicitly, when required.
-+		 */
-+		ifp_flags = (ifp->flags&IFA_F_OPTIMISTIC)
-+			    ? (ifp->flags&~IFA_F_TENTATIVE)
-+			    : ifp->flags;
- 		if (ipv6_addr_equal(&ifp->addr, addr) &&
--		    !(ifp->flags&IFA_F_TENTATIVE) &&
-+		    !(ifp_flags&banned_flags) &&
- 		    (dev == NULL || ifp->idev->dev == dev ||
- 		     !(ifp->scope&(IFA_LINK|IFA_HOST) || strict))) {
- 			rcu_read_unlock_bh();
-@@ -1538,7 +1553,7 @@ int ipv6_chk_addr(struct net *net, const struct in6_addr *addr,
- 	rcu_read_unlock_bh();
- 	return 0;
- }
--EXPORT_SYMBOL(ipv6_chk_addr);
-+EXPORT_SYMBOL(ipv6_chk_addr_and_flags);
- 
- static bool ipv6_chk_same_addr(struct net *net, const struct in6_addr *addr,
- 			       struct net_device *dev)
-diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
-index 6828667..113fc6c 100644
---- a/net/ipv6/ndisc.c
-+++ b/net/ipv6/ndisc.c
-@@ -655,7 +655,9 @@ static void ndisc_solicit(struct neighbour *neigh, struct sk_buff *skb)
- 	struct in6_addr *target = (struct in6_addr *)&neigh->primary_key;
- 	int probes = atomic_read(&neigh->probes);
- 
--	if (skb && ipv6_chk_addr(dev_net(dev), &ipv6_hdr(skb)->saddr, dev, 1))
-+	if (skb && ipv6_chk_addr_and_flags(dev_net(dev), &ipv6_hdr(skb)->saddr,
-+					   dev, 1,
-+					   IFA_F_TENTATIVE|IFA_F_OPTIMISTIC))
- 		saddr = &ipv6_hdr(skb)->saddr;
- 	probes -= NEIGH_VAR(neigh->parms, UCAST_PROBES);
- 	if (probes < 0) {
--- 
-2.2.0.rc0.207.ga3a616c
+Oh, I see. I suppose it's possible to fail early if strict == 1, yes.
+AIUI it's not possible for the same address to be assigned twice to
+the same interface with different prefix lengths (unlike IPv4, which
+allows this). But it's possible for the same address to be assigned to
+multiple interfaces, so you can't do it if strict == 0.
