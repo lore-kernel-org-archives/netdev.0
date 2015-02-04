@@ -1,153 +1,118 @@
 From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: [PATCH v3 09/18] net: switch memcpy_fromiovec()/memcpy_fromiovecend() users to copy_from_iter()
-Date: Wed,  4 Feb 2015 06:40:00 +0000
-Message-ID: <1423032009-18367-9-git-send-email-viro@ZenIV.linux.org.uk>
+Subject: [PATCH v3 15/18] vhost: switch vhost get_indirect() to iov_iter,
+	kill memcpy_fromiovec()
+Date: Wed,  4 Feb 2015 06:40:06 +0000
+Message-ID: <1423032009-18367-15-git-send-email-viro@ZenIV.linux.org.uk>
 References: <20150204063730.GG29656@ZenIV.linux.org.uk>
-Cc: netdev@vger.kernel.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	kvm@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>
 To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeniv.linux.org.uk ([195.92.253.2]:43090 "EHLO
-	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752665AbbBDGkM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2015 01:40:12 -0500
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
 In-Reply-To: <20150204063730.GG29656@ZenIV.linux.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
 From: Al Viro <viro@zeniv.linux.org.uk>
 
-That takes care of the majority of ->sendmsg() instances - most of them
-via memcpy_to_msg() or assorted getfrag() callbacks.  One place where we
-still keep memcpy_fromiovecend() is tipc - there we potentially read the
-same data over and over; separate patch, that...
-
+Cc: Michael S. Tsirkin <mst@redhat.com>
+Cc: kvm@vger.kernel.org
+Cc: virtualization@lists.linux-foundation.org
 Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
 ---
- include/linux/skbuff.h |  3 +--
- include/net/udplite.h  |  3 +--
- net/ipv4/ip_output.c   |  6 ++----
- net/ipv4/ping.c        | 14 +++++++-------
- net/ipv4/raw.c         |  2 +-
- net/ipv4/tcp_input.c   |  2 +-
- net/ipv6/raw.c         |  2 +-
- 7 files changed, 14 insertions(+), 18 deletions(-)
+ drivers/vhost/vhost.c |  6 ++++--
+ include/linux/uio.h   |  1 -
+ lib/iovec.c           | 25 -------------------------
+ 3 files changed, 4 insertions(+), 28 deletions(-)
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 9a8bafe..b349c96 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -2692,8 +2692,7 @@ int skb_vlan_push(struct sk_buff *skb, __be16 vlan_proto, u16 vlan_tci);
+diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+index cb807d0..2ee2826 100644
+--- a/drivers/vhost/vhost.c
++++ b/drivers/vhost/vhost.c
+@@ -1125,6 +1125,7 @@ static int get_indirect(struct vhost_virtqueue *vq,
+ 	struct vring_desc desc;
+ 	unsigned int i = 0, count, found = 0;
+ 	u32 len = vhost32_to_cpu(vq, indirect->len);
++	struct iov_iter from;
+ 	int ret;
  
- static inline int memcpy_from_msg(void *data, struct msghdr *msg, int len)
- {
--	/* XXX: stripping const */
--	return memcpy_fromiovec(data, (struct iovec *)msg->msg_iter.iov, len);
-+	return copy_from_iter(data, len, &msg->msg_iter) == len ? 0 : -EFAULT;
- }
- 
- static inline int memcpy_to_msg(struct msghdr *msg, void *data, int len)
-diff --git a/include/net/udplite.h b/include/net/udplite.h
-index ae7c8d1..8076193 100644
---- a/include/net/udplite.h
-+++ b/include/net/udplite.h
-@@ -20,8 +20,7 @@ static __inline__ int udplite_getfrag(void *from, char *to, int  offset,
- 				      int len, int odd, struct sk_buff *skb)
- {
- 	struct msghdr *msg = from;
--	/* XXX: stripping const */
--	return memcpy_fromiovecend(to, (struct iovec *)msg->msg_iter.iov, offset, len);
-+	return copy_from_iter(to, len, &msg->msg_iter) != len ? -EFAULT : 0;
- }
- 
- /* Designate sk as UDP-Lite socket */
-diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-index b50861b2..f998bc8 100644
---- a/net/ipv4/ip_output.c
-+++ b/net/ipv4/ip_output.c
-@@ -755,13 +755,11 @@ ip_generic_getfrag(void *from, char *to, int offset, int len, int odd, struct sk
- 	struct msghdr *msg = from;
- 
- 	if (skb->ip_summed == CHECKSUM_PARTIAL) {
--		/* XXX: stripping const */
--		if (memcpy_fromiovecend(to, (struct iovec *)msg->msg_iter.iov, offset, len) < 0)
-+		if (copy_from_iter(to, len, &msg->msg_iter) != len)
- 			return -EFAULT;
- 	} else {
- 		__wsum csum = 0;
--		/* XXX: stripping const */
--		if (csum_partial_copy_fromiovecend(to, (struct iovec *)msg->msg_iter.iov, offset, len, &csum) < 0)
-+		if (csum_and_copy_from_iter(to, len, &csum, &msg->msg_iter) != len)
- 			return -EFAULT;
- 		skb->csum = csum_block_add(skb->csum, csum, odd);
+ 	/* Sanity check */
+@@ -1142,6 +1143,7 @@ static int get_indirect(struct vhost_virtqueue *vq,
+ 		vq_err(vq, "Translation failure %d in indirect.\n", ret);
+ 		return ret;
  	}
-diff --git a/net/ipv4/ping.c b/net/ipv4/ping.c
-index 9e15ba7..e9f66e1 100644
---- a/net/ipv4/ping.c
-+++ b/net/ipv4/ping.c
-@@ -599,18 +599,18 @@ int ping_getfrag(void *from, char *to,
- 	struct pingfakehdr *pfh = (struct pingfakehdr *)from;
++	iov_iter_init(&from, READ, vq->indirect, ret, len);
  
- 	if (offset == 0) {
--		if (fraglen < sizeof(struct icmphdr))
-+		fraglen -= sizeof(struct icmphdr);
-+		if (fraglen < 0)
- 			BUG();
--		if (csum_partial_copy_fromiovecend(to + sizeof(struct icmphdr),
--			    pfh->msg->msg_iter.iov, 0, fraglen - sizeof(struct icmphdr),
--			    &pfh->wcheck))
-+		if (csum_and_copy_from_iter(to + sizeof(struct icmphdr),
-+			    fraglen, &pfh->wcheck,
-+			    &pfh->msg->msg_iter) != fraglen)
- 			return -EFAULT;
- 	} else if (offset < sizeof(struct icmphdr)) {
- 			BUG();
- 	} else {
--		if (csum_partial_copy_fromiovecend
--				(to, pfh->msg->msg_iter.iov, offset - sizeof(struct icmphdr),
--				 fraglen, &pfh->wcheck))
-+		if (csum_and_copy_from_iter(to, fraglen, &pfh->wcheck,
-+					    &pfh->msg->msg_iter) != fraglen)
- 			return -EFAULT;
- 	}
+ 	/* We will use the result as an address to read from, so most
+ 	 * architectures only need a compiler barrier here. */
+@@ -1164,8 +1166,8 @@ static int get_indirect(struct vhost_virtqueue *vq,
+ 			       i, count);
+ 			return -EINVAL;
+ 		}
+-		if (unlikely(memcpy_fromiovec((unsigned char *)&desc,
+-					      vq->indirect, sizeof desc))) {
++		if (unlikely(copy_from_iter(&desc, sizeof(desc), &from) !=
++			     sizeof(desc))) {
+ 			vq_err(vq, "Failed indirect descriptor: idx %d, %zx\n",
+ 			       i, (size_t)vhost64_to_cpu(vq, indirect->addr) + i * sizeof desc);
+ 			return -EINVAL;
+diff --git a/include/linux/uio.h b/include/linux/uio.h
+index 1c5e453..af3439f 100644
+--- a/include/linux/uio.h
++++ b/include/linux/uio.h
+@@ -135,7 +135,6 @@ static inline void iov_iter_reexpand(struct iov_iter *i, size_t count)
+ size_t csum_and_copy_to_iter(void *addr, size_t bytes, __wsum *csum, struct iov_iter *i);
+ size_t csum_and_copy_from_iter(void *addr, size_t bytes, __wsum *csum, struct iov_iter *i);
  
-diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
-index 2c9d252..f027a70 100644
---- a/net/ipv4/raw.c
-+++ b/net/ipv4/raw.c
-@@ -382,7 +382,7 @@ static int raw_send_hdrinc(struct sock *sk, struct flowi4 *fl4,
+-int memcpy_fromiovec(unsigned char *kdata, struct iovec *iov, int len);
+ int memcpy_fromiovecend(unsigned char *kdata, const struct iovec *iov,
+ 			int offset, int len);
+ int memcpy_toiovecend(const struct iovec *v, unsigned char *kdata,
+diff --git a/lib/iovec.c b/lib/iovec.c
+index 2d99cb4..4a90875 100644
+--- a/lib/iovec.c
++++ b/lib/iovec.c
+@@ -3,31 +3,6 @@
+ #include <linux/uio.h>
  
- 	skb->transport_header = skb->network_header;
- 	err = -EFAULT;
--	if (memcpy_fromiovecend((void *)iph, msg->msg_iter.iov, 0, length))
-+	if (memcpy_from_msg(iph, msg, length))
- 		goto error_free;
- 
- 	iphlen = iph->ihl * 4;
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 93c7482..71fb37c 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -4368,7 +4368,7 @@ int tcp_send_rcvq(struct sock *sk, struct msghdr *msg, size_t size)
- 	if (tcp_try_rmem_schedule(sk, skb, skb->truesize))
- 		goto err_free;
- 
--	if (copy_from_iter(skb_put(skb, size), size, &msg->msg_iter) != size)
-+	if (memcpy_from_msg(skb_put(skb, size), msg, size))
- 		goto err_free;
- 
- 	TCP_SKB_CB(skb)->seq = tcp_sk(sk)->rcv_nxt;
-diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
-index 0dbb328..dae7f1a 100644
---- a/net/ipv6/raw.c
-+++ b/net/ipv6/raw.c
-@@ -648,7 +648,7 @@ static int rawv6_send_hdrinc(struct sock *sk, struct msghdr *msg, int length,
- 	skb->ip_summed = CHECKSUM_NONE;
- 
- 	skb->transport_header = skb->network_header;
--	err = memcpy_fromiovecend((void *)iph, msg->msg_iter.iov, 0, length);
-+	err = memcpy_from_msg(iph, msg, length);
- 	if (err)
- 		goto error_fault;
+ /*
+- *	Copy iovec to kernel. Returns -EFAULT on error.
+- *
+- *	Note: this modifies the original iovec.
+- */
+-
+-int memcpy_fromiovec(unsigned char *kdata, struct iovec *iov, int len)
+-{
+-	while (len > 0) {
+-		if (iov->iov_len) {
+-			int copy = min_t(unsigned int, len, iov->iov_len);
+-			if (copy_from_user(kdata, iov->iov_base, copy))
+-				return -EFAULT;
+-			len -= copy;
+-			kdata += copy;
+-			iov->iov_base += copy;
+-			iov->iov_len -= copy;
+-		}
+-		iov++;
+-	}
+-
+-	return 0;
+-}
+-EXPORT_SYMBOL(memcpy_fromiovec);
+-
+-/*
+  *	Copy kernel to iovec. Returns -EFAULT on error.
+  */
  
 -- 
 2.1.4
