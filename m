@@ -1,7 +1,7 @@
 From: David Decotigny <ddecotig-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH net-next v2 01/17] net: usnic: remove unused call to ethtool_ops::get_settings
-Date: Wed,  4 Feb 2015 11:53:25 -0800
-Message-ID: <1423079621-1374-2-git-send-email-ddecotig@gmail.com>
+Subject: [PATCH net-next v2 02/17] net: usnic: use __ethtool_get_settings
+Date: Wed,  4 Feb 2015 11:53:26 -0800
+Message-ID: <1423079621-1374-3-git-send-email-ddecotig@gmail.com>
 References: <1423079621-1374-1-git-send-email-ddecotig@gmail.com>
 Cc: Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
 	Eugenia Emantayev <eugenia-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>,
@@ -32,26 +32,21 @@ From: David Decotigny <decot-Ypc/8FJVVoBWk0Htik3J/w@public.gmane.org>
 
 Signed-off-by: David Decotigny <decot-Ypc/8FJVVoBWk0Htik3J/w@public.gmane.org>
 ---
- drivers/infiniband/hw/usnic/usnic_ib_verbs.c | 2 --
- 1 file changed, 2 deletions(-)
+ drivers/infiniband/hw/usnic/usnic_ib_verbs.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/drivers/infiniband/hw/usnic/usnic_ib_verbs.c b/drivers/infiniband/hw/usnic/usnic_ib_verbs.c
-index 53bd6a2..61337c7c 100644
+index 61337c7c..d71ba62 100644
 --- a/drivers/infiniband/hw/usnic/usnic_ib_verbs.c
 +++ b/drivers/infiniband/hw/usnic/usnic_ib_verbs.c
-@@ -253,13 +253,11 @@ int usnic_ib_query_device(struct ib_device *ibdev,
- 	struct usnic_ib_dev *us_ibdev = to_usdev(ibdev);
- 	union ib_gid gid;
- 	struct ethtool_drvinfo info;
--	struct ethtool_cmd cmd;
- 	int qp_per_vf;
- 
+@@ -310,7 +310,7 @@ int usnic_ib_query_port(struct ib_device *ibdev, u8 port,
  	usnic_dbg("\n");
+ 
  	mutex_lock(&us_ibdev->usdev_lock);
- 	us_ibdev->netdev->ethtool_ops->get_drvinfo(us_ibdev->netdev, &info);
 -	us_ibdev->netdev->ethtool_ops->get_settings(us_ibdev->netdev, &cmd);
++	__ethtool_get_settings(us_ibdev->netdev, &cmd);
  	memset(props, 0, sizeof(*props));
- 	usnic_mac_ip_to_gid(us_ibdev->ufdev->mac, us_ibdev->ufdev->inaddr,
- 			&gid.raw[0]);
+ 
+ 	props->lid = 0;
 -- 
 2.2.0.rc0.207.ga3a616c
