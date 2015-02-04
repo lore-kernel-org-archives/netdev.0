@@ -1,570 +1,103 @@
-From: Andy Zhou <azhou@nicira.com>
-Subject: [RFC: add openvswitch actions using BPF 7/9] ofproto-dpif: Add eBPF program loader and runtime infrasturcure.
-Date: Wed,  4 Feb 2015 14:49:21 -0800
-Message-ID: <1423090163-19902-8-git-send-email-azhou@nicira.com>
+From: Andy Zhou <azhou-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Subject: [RFC: add openvswitch actions using BPF 5/9] bpf: add the
+	first BPF program.
+Date: Wed,  4 Feb 2015 14:49:19 -0800
+Message-ID: <1423090163-19902-6-git-send-email-azhou@nicira.com>
 References: <1423090163-19902-1-git-send-email-azhou@nicira.com>
-Cc: netdev@vger.kernel.org, Andy Zhou <azhou@nicira.com>
-To: dev@openvswitch.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog113.obsmtp.com ([74.125.149.209]:49277 "HELO
-	na3sys009aog113.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1755804AbbBDXS1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2015 18:18:27 -0500
-Received: by mail-pa0-f43.google.com with SMTP id eu11so5857260pac.2
-        for <netdev@vger.kernel.org>; Wed, 04 Feb 2015 15:18:26 -0800 (PST)
-In-Reply-To: <1423090163-19902-1-git-send-email-azhou@nicira.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: dev-yBygre7rU0SM8Zsap4Y0gw@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1423090163-19902-1-git-send-email-azhou-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-Added a eBPF program loader in ofproto-dpif layer. It only loades
-the OVS programs.
-
-Signed-off-by: Andy Zhou <azhou@nicira.com>
----
- ofproto/automake.mk        |   2 +
- ofproto/ofproto-dpif-bpf.c | 454 +++++++++++++++++++++++++++++++++++++++++++++
- ofproto/ofproto-dpif-bpf.h |  42 +++++
- vswitchd/automake.mk       |   5 +
- 4 files changed, 503 insertions(+)
- create mode 100644 ofproto/ofproto-dpif-bpf.c
- create mode 100644 ofproto/ofproto-dpif-bpf.h
-
-diff --git a/ofproto/automake.mk b/ofproto/automake.mk
-index 0058ff3..86719de 100644
---- a/ofproto/automake.mk
-+++ b/ofproto/automake.mk
-@@ -28,6 +28,8 @@ ofproto_libofproto_la_SOURCES = \
- 	ofproto/ofproto.h \
- 	ofproto/ofproto-dpif.c \
- 	ofproto/ofproto-dpif.h \
-+	ofproto/ofproto-dpif-bpf.c \
-+	ofproto/ofproto-dpif-bpf.h \
- 	ofproto/ofproto-dpif-ipfix.c \
- 	ofproto/ofproto-dpif-ipfix.h \
- 	ofproto/ofproto-dpif-mirror.c \
-diff --git a/ofproto/ofproto-dpif-bpf.c b/ofproto/ofproto-dpif-bpf.c
-new file mode 100644
-index 0000000..12f6766
---- /dev/null
-+++ b/ofproto/ofproto-dpif-bpf.c
-@@ -0,0 +1,454 @@
-+/*
-+ * Copyright (c) 2015 Nicira, Inc.
-+ *
-+ * Licensed under the Apache License, Version 2.0 (the "License");
-+ * you may not use this file except in compliance with the License.
-+ * You may obtain a copy of the License at:
-+ *
-+ *     http://www.apache.org/licenses/LICENSE-2.0
-+ *
-+ * Unless required by applicable law or agreed to in writing, software
-+ * distributed under the License is distributed on an "AS IS" BASIS,
-+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-+ * See the License for the specific language governing permissions and
-+ * limitations under the License.
-+ */
-+
-+#include <config.h>
-+
-+#include <stdio.h>
-+#include <sys/types.h>
-+#include <sys/stat.h>
-+#include <fcntl.h>
-+#include <libelf.h>
-+#include <gelf.h>
-+#include <errno.h>
-+#include <unistd.h>
-+#include <string.h>
-+#include <stdbool.h>
-+#include <linux/bpf.h>
-+#include <linux/filter.h>
-+#include <pthread.h>
-+#include "simap.h"
-+#include "util.h"
-+#include "dirs.h"
-+#include "unixctl.h"
-+#include "dynamic-string.h"
-+#include "ovs-atomic.h"
-+#include "openvswitch/thread.h"
-+#include "openvswitch/vlog.h"
-+#include "ofproto-dpif-bpf.h"
-+#include "libbpf.h"
-+#include "bpf/bpf-shared.h"
-+
-+#define DEFAULT_BPF_ACTION_FILE "ovs-actions.bpf"
-+#define BPF_MAP_STUB_SIZE 32
-+
-+VLOG_DEFINE_THIS_MODULE(bpf);
-+
-+struct bpf_info {
-+    struct simap bpf_maps;
-+    struct simap bpf_progs;
-+};
-+
-+static struct bpf_info ovs_bpfs__ = {
-+    SIMAP_INITIALIZER(&ovs_bpfs__.bpf_maps),
-+    SIMAP_INITIALIZER(&ovs_bpfs__.bpf_progs),
-+};
-+
-+static bool bpf_enable__ = false;
-+static struct ovs_mutex mutex = OVS_MUTEX_INITIALIZER;
-+static struct bpf_info *const ovs_bpfs OVS_GUARDED_BY(mutex) = &ovs_bpfs__;
-+
-+#define BPF_UNIXCTL_CHECK(conn) \
-+    if (bpf_unixctl_check_enable(conn) == -1) return
-+
-+/*
-+ * Get the default eBPF action file name.
-+ *
-+ * Returns the file name. Caller is responsible for free the memory.  */
-+static char *
-+bpf_default_path(void)
-+{
-+    return xasprintf("%s/%s", ovs_pkgdatadir(), DEFAULT_BPF_ACTION_FILE);
-+}
-+
-+static int
-+bpf_unixctl_check_enable(struct unixctl_conn *conn)
-+{
-+    if (!bpf_enable__) {
-+        unixctl_command_reply(conn, "Current datapath doest not support eBPF actions.\n");
-+        return -1;
-+    }
-+
-+    return 0;
-+}
-+
-+static void 
-+add_map(char *map_name,  int fd)
-+{
-+    ovs_mutex_lock(&mutex);
-+    simap_put(&ovs_bpfs->bpf_maps, map_name, fd);
-+    ovs_mutex_unlock(&mutex);
-+}
-+
-+static void
-+add_prog(char *prog_name, int fd)
-+{
-+    ovs_mutex_lock(&mutex);
-+    simap_put(&ovs_bpfs->bpf_progs, prog_name, fd);
-+    ovs_mutex_unlock(&mutex);
-+}
-+
-+static int
-+is_ovs_section(const char *shname) {
-+   return !memcmp(shname, "ovs", 3);
-+}
-+
-+static int
-+load_maps(struct bpf_map_def *maps, int len, int map_fds[])
-+{
-+    int i, fd;
-+
-+    for (i = 0; i < len / sizeof(struct bpf_map_def); i++) {
-+        char *name;
-+
-+        fd = bpf_create_map(maps[i].type, maps[i].key_size,
-+                            maps[i].value_size, maps[i].max_entries);
-+
-+        if (fd < 0) {
-+            return fd;
-+        }
-+
-+        name = xasprintf("map%d(type[%u],ks[%u],vs[%u],max[%u])",
-+                         i, maps[i].type, maps[i].key_size,
-+                         maps[i].value_size, maps[i].max_entries);
-+
-+        map_fds[i] = fd;
-+        add_map(name, fd);
-+        free(name);
-+    }
-+
-+    return 0;
-+}
-+
-+static int
-+load_prog(int type, struct bpf_insn *prog, int size, char *license)
-+{
-+    return bpf_prog_load(type, prog, size, license);
-+}
-+
-+static int
-+parse_relo_and_apply(Elf_Data *data, Elf_Data *symbols,
-+                     GElf_Shdr *shdr, struct bpf_insn *insn, int map_fds[])
-+{
-+    int i, nrels;
-+
-+    nrels = shdr->sh_size / shdr->sh_entsize;
-+
-+    for (i = 0; i < nrels; i++) {
-+        GElf_Sym sym;
-+        GElf_Rel rel;
-+        unsigned int insn_idx;
-+
-+        gelf_getrel(data, i, &rel);
-+
-+        insn_idx = rel.r_offset / sizeof(struct bpf_insn);
-+
-+        gelf_getsym(symbols, GELF_R_SYM(rel.r_info), &sym);
-+
-+        if (insn[insn_idx].code != (BPF_LD | BPF_IMM | BPF_DW)) {
-+            VLOG_ERR("invalid relo for insn[%d].code 0x%x\n",
-+                     insn_idx, insn[insn_idx].code);
-+            return 1;
-+        }
-+        insn[insn_idx].src_reg = BPF_PSEUDO_MAP_FD;
-+        insn[insn_idx].imm = map_fds[sym.st_value / sizeof(struct bpf_map_def)];
-+    }
-+
-+    return 0;
-+}
-+
-+static int
-+get_sec(Elf *elf, int i, GElf_Ehdr *ehdr, char **shname,
-+        GElf_Shdr *shdr, Elf_Data **data)
-+{
-+    Elf_Scn *scn;
-+
-+    scn = elf_getscn(elf, i);
-+    if (!scn) {
-+        return -1;
-+    }
-+
-+    if (gelf_getshdr(scn, shdr) != shdr) {
-+        return -2;
-+    }
-+
-+    *shname = elf_strptr(elf, ehdr->e_shstrndx, shdr->sh_name);
-+    if (!*shname || !shdr->sh_size) {
-+        return -3;
-+    }
-+
-+    *data = elf_getdata(scn, 0);
-+    if (!*data || elf_getdata(scn, *data) != NULL) {
-+        return -4;
-+    }
-+
-+    return 0;
-+}
-+
-+static int
-+ofproto_dpif_load_bpf(const char *bpf_file OVS_UNUSED)
-+{
-+    int fd, i;
-+    Elf *elf;
-+    GElf_Ehdr ehdr;
-+    GElf_Shdr shdr, shdr_prog;
-+    Elf_Data *data, *data_prog, *symbols;
-+    char *shname, *shname_prog, *license, *err;
-+    int *map_fds;
-+
-+    err = license = NULL;
-+    symbols = NULL;
-+
-+    if (elf_version(EV_CURRENT) == EV_NONE) {
-+        err = xasprintf("Elf library out of date");
-+        goto error;
-+    }
-+
-+    fd = open(bpf_file, O_RDONLY, 0);
-+    if (fd < 0) {
-+        err = xasprintf("Failed to read %s", bpf_file);
-+        goto error;
-+    }
-+
-+    elf = elf_begin(fd, ELF_C_READ, NULL);
-+    if (!elf) {
-+        err = xasprintf("Elf file %s has internal error", bpf_file);
-+        goto error;
-+    }
-+
-+    
-+    if (gelf_getehdr(elf, &ehdr) != &ehdr) {
-+        err = xasprintf("Elf file %s has internal error", bpf_file);
-+        goto error;
-+    }
-+
-+    map_fds = xmalloc(sizeof(int) * ehdr.e_shnum);
-+    for (i = 1;  i < ehdr.e_shnum; i++) {
-+        if (get_sec(elf, i, &ehdr, &shname, &shdr, &data)) {
-+            continue;
-+        }
-+
-+        if ((strcmp(shname, "license") == 0) && (license == NULL)) {
-+            license = xmalloc(data->d_size);
-+            memcpy(license, data->d_buf, data->d_size);
-+        } else if (strcmp(shname, "maps") == 0) {
-+            if (load_maps(data->d_buf, data->d_size, map_fds)) {
-+                err = xasprintf("Failed to load maps");
-+                goto error;
-+            }
-+        } else if (shdr.sh_type == SHT_SYMTAB) {
-+            symbols = data;
-+        }
-+    }
-+
-+    /* Load programs that need map fixups (relocations).  */
-+    for (i = 1;  i < ehdr.e_shnum; i++) {
-+        if (get_sec(elf, i, &ehdr, &shname, &shdr, &data)) {
-+            continue;
-+        }
-+
-+        if (shdr.sh_type == SHT_REL) {
-+            struct bpf_insn *insns;
-+
-+            if (get_sec(elf, shdr.sh_info, &ehdr, &shname_prog,
-+                        &shdr_prog, &data_prog)) {
-+                continue;
-+            }
-+
-+            insns = (struct bpf_insn *) data_prog->d_buf;
-+            
-+            if (is_ovs_section(shname_prog)) {
-+                int fd;
-+                if (parse_relo_and_apply(data, symbols, &shdr, insns, map_fds)) {
-+                    err = xasprintf("Failed to relocate ovs programs.");
-+                    goto error;
-+                }
-+                fd = load_prog(BPF_PROG_TYPE_OPENVSWITCH, insns,
-+                               data_prog->d_size, license);
-+
-+                if (fd) {
-+                    add_prog(shname_prog, fd);
-+                } else {
-+                    err = xasprintf("Failed load ovs program %s", shname_prog);
-+                    goto error;
-+                }
-+            }
-+        }
-+    }
-+    free(map_fds);
-+    map_fds = NULL;
-+
-+    /* Load OVS programs that don't use maps. */
-+    for (i = 1;  i < ehdr.e_shnum; i++) {
-+        if (get_sec(elf, i, &ehdr, &shname, &shdr, &data)) {
-+            continue;
-+        }
-+
-+        if (is_ovs_section(shname) && !ofproto_dpif_bpf_lookup(shname)) {
-+            int fd;
-+
-+            fd = load_prog(BPF_PROG_TYPE_OPENVSWITCH, data->d_buf,
-+                           data->d_size, license);
-+
-+            if (fd) {
-+                add_prog(shname, fd);
-+            } else {
-+                err = xasprintf("Failed load ovs program %s", shname);
-+                goto error;
-+            }
-+        }
-+    }
-+
-+error:
-+    if (fd) {
-+        close(fd);
-+    }
-+
-+    if (license) {
-+        free(license);
-+    }
-+
-+    if (map_fds) {
-+        free(map_fds);
-+    }
-+
-+    if (err) {
-+        VLOG_ERR("%s", err); 
-+        free(err);
-+        return -1;
-+    }
-+
-+    return 0;
-+}
-+
-+void
-+ofproto_dpif_bpf_close()
-+{
-+    struct simap_node *node;
-+
-+    ovs_mutex_lock(&mutex);
-+
-+    SIMAP_FOR_EACH(node, &ovs_bpfs->bpf_progs) {
-+        //int fd = (int)node->data;
-+
-+        //fclose(fd);
-+        simap_delete(&ovs_bpfs->bpf_progs, node);
-+    }
-+
-+    SIMAP_FOR_EACH(node, &ovs_bpfs->bpf_maps) {
-+        //int fd = (int)node->data;
-+        //fclose(fd);
-+        simap_delete(&ovs_bpfs->bpf_maps, node);
-+    }
-+
-+    ovs_mutex_unlock(&mutex);
-+}
-+
-+int
-+ofproto_dpif_bpf_lookup(const char *bpf_prog_name)
-+{
-+    struct simap_node *node;
-+    int fd = 0;
-+
-+    ovs_mutex_lock(&mutex);
-+    node = simap_find(&ovs_bpfs->bpf_progs, bpf_prog_name);
-+    if (node) {
-+        fd =(int)node->data;
-+    }
-+    ovs_mutex_unlock(&mutex);
-+
-+    return fd;
-+}
-+
-+static void
-+bpf_unixctl_show(struct unixctl_conn *conn, int argc OVS_UNUSED,
-+                 const char *argv[] OVS_UNUSED, void *aux OVS_UNUSED)
-+{
-+    struct ds ds = DS_EMPTY_INITIALIZER;
-+    struct simap_node *node;
-+    char *bpf_file;
-+
-+    BPF_UNIXCTL_CHECK(conn);
-+
-+    bpf_file = bpf_default_path();
-+    ds_put_format(&ds, "eBPF file: %s \n", bpf_file);
-+    free(bpf_file);
-+
-+    ovs_mutex_lock(&mutex);
-+
-+    ds_put_format(&ds, "eBPF maps:\n");
-+    SIMAP_FOR_EACH(node, &ovs_bpfs->bpf_maps) {
-+        ds_put_format(&ds, "\t%-40s%d\n", node->name, (int)node->data);
-+    }
-+
-+    ds_put_format(&ds, "eBPF programs:\n");
-+    SIMAP_FOR_EACH(node, &ovs_bpfs->bpf_progs) {
-+        ds_put_format(&ds, "\t%-40s%d\n", node->name, (int)node->data);
-+    }
-+
-+    ovs_mutex_unlock(&mutex);
-+
-+    unixctl_command_reply(conn, ds_cstr(&ds));
-+    ds_destroy(&ds);
-+}
-+
-+static void
-+bpf_unixctl_clear(struct unixctl_conn *conn, int argc OVS_UNUSED,
-+                 const char *argv[] OVS_UNUSED, void *aux OVS_UNUSED)
-+{
-+    BPF_UNIXCTL_CHECK(conn);
-+
-+    ofproto_dpif_bpf_close();
-+    unixctl_command_reply(conn, "OK");
-+}
-+
-+static void
-+bpf_unixctl_reload(struct unixctl_conn *conn, int argc OVS_UNUSED,
-+                 const char *argv[] OVS_UNUSED, void *aux OVS_UNUSED)
-+{
-+    char *bpf_fpath = NULL;
-+    int err = 0;
-+
-+    BPF_UNIXCTL_CHECK(conn);
-+
-+    ofproto_dpif_bpf_close();
-+
-+    bpf_fpath = bpf_default_path();
-+    err = ofproto_dpif_load_bpf(bpf_fpath);
-+    free(bpf_fpath);
-+    unixctl_command_reply(conn, err ? "Failed" : "OK");
-+}
-+
-+int
-+ofproto_dpif_bpf_init(bool enable)
-+{
-+    char *bpf_fpath = NULL;
-+    int err = 0;
-+
-+    bpf_enable__ = enable;
-+
-+    unixctl_command_register("bpf/show",  "", 0, 0, bpf_unixctl_show, NULL);
-+    unixctl_command_register("bpf/clear", "", 0, 0, bpf_unixctl_clear, NULL);
-+    unixctl_command_register("bpf/reload","", 1, 1, bpf_unixctl_reload, NULL);
-+
-+    err = 0;
-+    if (enable) {
-+        bpf_fpath = bpf_default_path();
-+        err = ofproto_dpif_load_bpf(bpf_fpath);
-+        free(bpf_fpath);
-+    }
-+
-+    return err;
-+}
-diff --git a/ofproto/ofproto-dpif-bpf.h b/ofproto/ofproto-dpif-bpf.h
-new file mode 100644
-index 0000000..14acb88
---- /dev/null
-+++ b/ofproto/ofproto-dpif-bpf.h
-@@ -0,0 +1,42 @@
-+/*
-+ * Copyright (c) 2015 Nicira, Inc.
-+ *
-+ * Licensed under the Apache License, Version 2.0 (the "License");
-+ * you may not use this file except in compliance with the License.
-+ * You may obtain a copy of the License at:
-+ *
-+ *     http://www.apache.org/licenses/LICENSE-2.0
-+ *
-+ * Unless required by applicable law or agreed to in writing, software
-+ * distributed under the License is distributed on an "AS IS" BASIS,
-+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-+ * See the License for the specific language governing permissions and
-+ * limitations under the License.
-+ */
-+#ifndef OFPROTO_DPIF_BPF_H
-+#define OFPROTO_DPIF_BPF_H
-+
-+#ifdef __linux__
-+int ofproto_dpif_bpf_init(bool enable);
-+void ofproto_dpif_bpf_close(void);
-+int ofproto_dpif_bpf_lookup(const char *bpf_prog_name);
-+#else
-+static inline int
-+ofproto_dpif_bpf_init(bool enable)
-+{
-+    return 0;
-+}
-+
-+static void
-+ofproto_dpif_bpf_close(void)
-+{
-+}
-+
-+static int
-+ofproto_dpif_bpf_lookup(const char *bpf_prog_name)
-+{
-+    return -2;
-+}
-+#endif
-+
-+#endif
-diff --git a/vswitchd/automake.mk b/vswitchd/automake.mk
-index 80affe9..a94720b 100644
---- a/vswitchd/automake.mk
-+++ b/vswitchd/automake.mk
-@@ -19,6 +19,11 @@ vswitchd_ovs_vswitchd_LDFLAGS = $(AM_LDFLAGS) $(DPDK_vswitchd_LDFLAGS)
- EXTRA_DIST += vswitchd/INTERNALS
- MAN_ROOTS += vswitchd/ovs-vswitchd.8.in
- 
-+if LINUX
-+vswitchd_ovs_vswitchd_LDADD += lib/libbpf.la
-+vswitchd_ovs_vswitchd_LDADD += -lelf
-+endif
-+
- # vswitch schema and IDL
- EXTRA_DIST += vswitchd/vswitch.ovsschema
- pkgdata_DATA += vswitchd/vswitch.ovsschema
--- 
-1.9.1
+QWRkZWQgYSBCUEYgaW1wbGVtZW50YXRpb24gb2Ygb3V0cHV0IGFjdGlvbi4gVGhlIGludGVudGlv
+biBpcyB0byBoYXZlCmFsbCBPVlMgcmVsYXRlZCBCUEYgcHJvZ3JhbXMgbGl2ZSB1bmRlciB0aGUg
+J2JwZicgZm9sZGVyLgoKU2lnbmVkLW9mZi1ieTogQW5keSBaaG91IDxhemhvdUBuaWNpcmEuY29t
+PgotLS0KIE1ha2VmaWxlLmFtICAgICAgICAgICB8ICAxICsKIGJwZi9hdXRvbWFrZS5tayAgICAg
+ICB8IDI3ICsrKysrKysrKysrKysrKysrKysrKysrKysrKwogYnBmL2JwZi1zaGFyZWQuaCAgICAg
+IHwgMTIgKysrKysrKysrKysrCiBicGYvb3ZzLWFjdGlvbnMuYyAgICAgfCAxMyArKysrKysrKysr
+KysrCiBicGYvb3ZzLWJwZi1oZWxwZXJzLmggfCAzNSArKysrKysrKysrKysrKysrKysrKysrKysr
+KysrKysrKysrKwogNSBmaWxlcyBjaGFuZ2VkLCA4OCBpbnNlcnRpb25zKCspCiBjcmVhdGUgbW9k
+ZSAxMDA2NDQgYnBmL2F1dG9tYWtlLm1rCiBjcmVhdGUgbW9kZSAxMDA2NDQgYnBmL2JwZi1zaGFy
+ZWQuaAogY3JlYXRlIG1vZGUgMTAwNjQ0IGJwZi9vdnMtYWN0aW9ucy5jCiBjcmVhdGUgbW9kZSAx
+MDA2NDQgYnBmL292cy1icGYtaGVscGVycy5oCgpkaWZmIC0tZ2l0IGEvTWFrZWZpbGUuYW0gYi9N
+YWtlZmlsZS5hbQppbmRleCBlZThmZTAzLi5kY2U5MDU2IDEwMDY0NAotLS0gYS9NYWtlZmlsZS5h
+bQorKysgYi9NYWtlZmlsZS5hbQpAQCAtMzU0LDYgKzM1NCw3IEBAIGRpc3QtZG9jczoKIAogaW5j
+bHVkZSBtNC9hdXRvbWFrZS5tawogaW5jbHVkZSBsaWIvYXV0b21ha2UubWsKK2luY2x1ZGUgYnBm
+L2F1dG9tYWtlLm1rCiBpbmNsdWRlIG9mcHJvdG8vYXV0b21ha2UubWsKIGluY2x1ZGUgdXRpbGl0
+aWVzL2F1dG9tYWtlLm1rCiBpbmNsdWRlIHRlc3RzL2F1dG9tYWtlLm1rCmRpZmYgLS1naXQgYS9i
+cGYvYXV0b21ha2UubWsgYi9icGYvYXV0b21ha2UubWsKbmV3IGZpbGUgbW9kZSAxMDA2NDQKaW5k
+ZXggMDAwMDAwMC4uMjBmYzc3NgotLS0gL2Rldi9udWxsCisrKyBiL2JwZi9hdXRvbWFrZS5tawpA
+QCAtMCwwICsxLDI3IEBACisjIENvcHlyaWdodCAoQykgMjAxNSBOaWNpcmEsIEluYy4KKyMKKyMg
+Q29weWluZyBhbmQgZGlzdHJpYnV0aW9uIG9mIHRoaXMgZmlsZSwgd2l0aCBvciB3aXRob3V0IG1v
+ZGlmaWNhdGlvbiwKKyMgYXJlIHBlcm1pdHRlZCBpbiBhbnkgbWVkaXVtIHdpdGhvdXQgcm95YWx0
+eSBwcm92aWRlZCB0aGUgY29weXJpZ2h0CisjIG5vdGljZSBhbmQgdGhpcyBub3RpY2UgYXJlIHBy
+ZXNlcnZlZC4gIFRoaXMgZmlsZSBpcyBvZmZlcmVkIGFzLWlzLAorIyB3aXRob3V0IHdhcnJhbnR5
+IG9mIGFueSBraW5kLgorCitpZiBMSU5VWAorc2Jpbl9QUk9HUkFNUyArPSBicGYvb3ZzLWFjdGlv
+bnMuYnBmCisKKworRVhUUkFfRElTVCArPSAkKHNyY2RpcikvYnBmL292cy1icGYtaGVscGVycy5o
+IFwKKwkgICAgICAkKHNyY2RpcikvYnBmL2JwZi1zaGFyZWQuaCBcCisJICAgICAgJChzcmNkaXIp
+L2JwZi9vdnMtYWN0aW9ucy5jCisKK0RFUF9GSUxFUyAgPSAkKHNyY2RpcikvYnBmL292cy1icGYt
+aGVscGVycy5oIFwKKwkgICAgICQoc3JjZGlyKS9icGYvYnBmLXNoYXJlZC5oIFwKKyAgICAgICAg
+ICAgICAkKHNyY2RpcikvZGF0YXBhdGgvbGludXgvY29tcGF0L2luY2x1ZGUvbGludXgvb3BlbnZz
+d2l0Y2guaAorCitCUEZfSU5DTFVERVM9LUkuIC1JJChzcmNkaXIpL2RhdGFwYXRoL2xpbnV4L2Nv
+bXBhdC9pbmNsdWRlIC1JL3Vzci9pbmNsdWRlCisKK2JwZi9vdnMtYWN0aW9ucy5icGY6ICQoc3Jj
+ZGlyKS9icGYvb3ZzLWFjdGlvbnMuYyAkKERFUF9GSUxFUykKKwkkKEFNX1ZfR0VOKWNsYW5nIC1E
+SEFWRV9DT05GSUdfSCAkKEJQRl9JTkNMVURFUykgJChOT1NURElOQ19GTEFHUykgXAorCQkkKEFN
+X0NGTEFHUykgJChFWFRSQV9DRkxBR1MpIC1Xbm8tdW51c2VkLXZhbHVlIC1Xbm8tcG9pbnRlci1z
+aWduIFwKKwkJLU8yIC1lbWl0LWxsdm0gLWMgJDwgLW8gLXwgJChMTEMpIC1maWxldHlwZT1vYmog
+LW8gJEAKKworZW5kaWYKZGlmZiAtLWdpdCBhL2JwZi9icGYtc2hhcmVkLmggYi9icGYvYnBmLXNo
+YXJlZC5oCm5ldyBmaWxlIG1vZGUgMTAwNjQ0CmluZGV4IDAwMDAwMDAuLmE3MTBjM2MKLS0tIC9k
+ZXYvbnVsbAorKysgYi9icGYvYnBmLXNoYXJlZC5oCkBAIC0wLDAgKzEsMTIgQEAKKworLyogU2hh
+cmVkIGRhdGEgc3RydWN0dXJlcyBiZXR3ZWVuIGJwZiBhbmQgQyBwcm9ncmFtcy4gKi8KKworLyog
+YSBoZWxwZXIgc3RydWN0dXJlIHVzZWQgYnkgZUJQRiBDIHByb2dyYW0KKyAqIHRvIGRlc2NyaWJl
+IG1hcCBhdHRyaWJ1dGVzIHRvIGVsZl9icGYgbG9hZGVyCisgKi8KK3N0cnVjdCBicGZfbWFwX2Rl
+ZiB7CisJdW5zaWduZWQgaW50IHR5cGU7CisJdW5zaWduZWQgaW50IGtleV9zaXplOworCXVuc2ln
+bmVkIGludCB2YWx1ZV9zaXplOworCXVuc2lnbmVkIGludCBtYXhfZW50cmllczsKK307CmRpZmYg
+LS1naXQgYS9icGYvb3ZzLWFjdGlvbnMuYyBiL2JwZi9vdnMtYWN0aW9ucy5jCm5ldyBmaWxlIG1v
+ZGUgMTAwNjQ0CmluZGV4IDAwMDAwMDAuLjA1YTBhNzEKLS0tIC9kZXYvbnVsbAorKysgYi9icGYv
+b3ZzLWFjdGlvbnMuYwpAQCAtMCwwICsxLDEzIEBACisjaW5jbHVkZSA8Y29uZmlnLmg+CisjaW5j
+bHVkZSAib3ZzLWJwZi1oZWxwZXJzLmgiCisKK2ludCBvdXRwdXRfYWN0aW9uKHN0cnVjdCBvdnNf
+YnBmX2FjdGlvbl9jdHh0ICpjdHh0KTsKKworU0VDKCJvdnMvb3V0cHV0IikKK2ludAorb3V0cHV0
+X2FjdGlvbihzdHJ1Y3Qgb3ZzX2JwZl9hY3Rpb25fY3R4dCAqY3R4dCkKK3sKKwlyZXR1cm4gb3Zz
+X2JwZl9oZWxwZXJfb3V0cHV0KGN0eHQtPnNrYiwgY3R4dC0+YXJnMCk7Cit9CisKK2NoYXIgX2xp
+Y2Vuc2VbXSBTRUMoImxpY2Vuc2UiKSA9ICJHUEwiOwpkaWZmIC0tZ2l0IGEvYnBmL292cy1icGYt
+aGVscGVycy5oIGIvYnBmL292cy1icGYtaGVscGVycy5oCm5ldyBmaWxlIG1vZGUgMTAwNjQ0Cmlu
+ZGV4IDAwMDAwMDAuLmJhMTAwODQKLS0tIC9kZXYvbnVsbAorKysgYi9icGYvb3ZzLWJwZi1oZWxw
+ZXJzLmgKQEAgLTAsMCArMSwzNSBAQAorI2lmbmRlZiBfX09WU19CUEZfSEVMUEVSU19ICisjZGVm
+aW5lIF9fT1ZTX0JQRl9IRUxQRVJTX0gKKworI2luY2x1ZGUgPHN0ZGludC5oPgorI2luY2x1ZGUg
+PGxpbnV4L29wZW52c3dpdGNoLmg+CitzdHJ1Y3Qgc2tfYnVmZjsKKworLyogaGVscGVyIG1hY3Jv
+IHRvIHBsYWNlIHByb2dyYW1zLCBtYXBzLCBsaWNlbnNlIGluCisgKiBkaWZmZXJlbnQgc2VjdGlv
+bnMgaW4gZWxmX2JwZiBmaWxlLiBTZWN0aW9uIG5hbWVzCisgKiBhcmUgaW50ZXJwcmV0ZWQgYnkg
+ZWxmX2JwZiBsb2FkZXIKKyAqLworI2RlZmluZSBTRUMoTkFNRSkgX19hdHRyaWJ1dGVfXygoc2Vj
+dGlvbihOQU1FKSwgdXNlZCkpCisKKy8qIGhlbHBlciBmdW5jdGlvbnMgY2FsbGVkIGZyb20gZUJQ
+RiBwcm9ncmFtcyB3cml0dGVuIGluIEMgKi8KK3N0YXRpYyB2b2lkICooKmJwZl9tYXBfbG9va3Vw
+X2VsZW0pKHZvaWQgKm1hcCwgdm9pZCAqa2V5KSA9CisJKHZvaWQgKikgT1ZTX0JQRl9GVU5DX21h
+cF9sb29rdXBfZWxlbTsKK3N0YXRpYyBpbnQgKCpicGZfbWFwX3VwZGF0ZV9lbGVtKSh2b2lkICpt
+YXAsIHZvaWQgKmtleSwgdm9pZCAqdmFsdWUsCisJCQkJICB1bnNpZ25lZCBsb25nIGxvbmcgZmxh
+Z3MpID0KKwkodm9pZCAqKSBPVlNfQlBGX0ZVTkNfbWFwX3VwZGF0ZV9lbGVtOworc3RhdGljIGlu
+dCAoKmJwZl9tYXBfZGVsZXRlX2VsZW0pKHZvaWQgKm1hcCwgdm9pZCAqa2V5KSA9CisJKHZvaWQg
+KikgT1ZTX0JQRl9GVU5DX21hcF9kZWxldGVfZWxlbTsKK3N0YXRpYyBpbnQgKCpvdnNfYnBmX2hl
+bHBlcl9vdXRwdXQpKHN0cnVjdCBza19idWZmICpza2IsIHVpbnQzMl90IG91dF9wb3J0KSA9CisJ
+KHZvaWQgKikgT1ZTX0JQRl9GVU5DX291dHB1dDsKKworLyogbGx2bSBidWlsdGluIGZ1bmN0aW9u
+cyB0aGF0IGVCUEYgQyBwcm9ncmFtIG1heSB1c2UgdG8KKyAqIGVtaXQgQlBGX0xEX0FCUyBhbmQg
+QlBGX0xEX0lORCBpbnN0cnVjdGlvbnMKKyAqLwordW5zaWduZWQgbG9uZyBsb25nIGxvYWRfYnl0
+ZSh2b2lkICpza2IsCisJCQkgICAgIHVuc2lnbmVkIGxvbmcgbG9uZyBvZmYpIGFzbSgibGx2bS5i
+cGYubG9hZC5ieXRlIik7Cit1bnNpZ25lZCBsb25nIGxvbmcgbG9hZF9oYWxmKHZvaWQgKnNrYiwK
+KwkJCSAgICAgdW5zaWduZWQgbG9uZyBsb25nIG9mZikgYXNtKCJsbHZtLmJwZi5sb2FkLmhhbGYi
+KTsKK3Vuc2lnbmVkIGxvbmcgbG9uZyBsb2FkX3dvcmQodm9pZCAqc2tiLAorCQkJICAgICB1bnNp
+Z25lZCBsb25nIGxvbmcgb2ZmKSBhc20oImxsdm0uYnBmLmxvYWQud29yZCIpOworCisjZW5kaWYK
+LS0gCjEuOS4xCgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+XwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0cDovL29wZW52c3dpdGNo
+Lm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
