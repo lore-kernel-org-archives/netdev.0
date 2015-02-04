@@ -1,28 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] tlan: msecs_to_jiffies convrsion
-Date: Wed, 04 Feb 2015 13:58:50 -0800 (PST)
-Message-ID: <20150204.135850.109188095612349631.davem@davemloft.net>
-References: <1422953111-19840-1-git-send-email-hofrat@osadl.org>
+Subject: Re: [PATCH for-3.19] vhost/net: fix up num_buffers endian-ness
+Date: Wed, 04 Feb 2015 13:59:42 -0800 (PST)
+Message-ID: <20150204.135942.127858058517785730.davem@davemloft.net>
+References: <1422896842-19186-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: chessman@tux.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: hofrat@osadl.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1422953111-19840-1-git-send-email-hofrat@osadl.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: kvm@vger.kernel.org, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, viro@ZenIV.linux.org.uk
+To: mst@redhat.com
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1422896842-19186-1-git-send-email-mst@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-From: Nicholas Mc Guire <hofrat@osadl.org>
-Date: Tue,  3 Feb 2015 03:45:11 -0500
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Date: Tue, 3 Feb 2015 11:07:06 +0200
 
-> This is only an API consolidation and should make things more readable
-> it replaces var * HZ / 1000 by msecs_to_jiffies(var).
+> In virtio 1.0 mode, when mergeable buffers are enabled on a big-endian
+> host, num_buffers wasn't byte-swapped correctly, so large incoming
+> packets got corrupted.
 > 
-> As there is a discrepancy between the code and the comments this is in
-> a separate patch.
+> To fix, fill it in within hdr - this also makes sure it gets
+> the correct type.
 > 
-> Signed-off-by: Nicholas Mc Guire <hofrat@osadl.org>
+> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 
 Applied.
