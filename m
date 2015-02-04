@@ -1,65 +1,29 @@
-From: Andy Zhou <azhou-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: [RFC: add openvswitch actions using BPF 0/9]
-Date: Wed,  4 Feb 2015 14:49:14 -0800
-Message-ID: <1423090163-19902-1-git-send-email-azhou@nicira.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH 1/3] bridge: Base the BR_PROXYARP decision on the target
+ port flag
+Date: Wed, 4 Feb 2015 15:13:59 -0800
+Message-ID: <20150204151359.5f979f88@urahara>
+References: <1423043467-11148-1-git-send-email-jouni@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: dev-yBygre7rU0SM8Zsap4Y0gw@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Kyeyoon Park <kyeyoonp@codeaurora.org>
+To: Jouni Malinen <jouni@codeaurora.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f172.google.com ([209.85.192.172]:41796 "EHLO
+	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932873AbbBDXOB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2015 18:14:01 -0500
+Received: by pdiy13 with SMTP id y13so3668529pdi.8
+        for <netdev@vger.kernel.org>; Wed, 04 Feb 2015 15:14:00 -0800 (PST)
+In-Reply-To: <1423043467-11148-1-git-send-email-jouni@codeaurora.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-VXNlciBzcGFjZSBjaGFuZ2VzIG9mIEJQRiBPVlMgYWN0aW9uIGFnYWlucyBjdXJyZXQgT1ZTIG1h
-c3Rlci4KCkFuZHkgWmhvdSAoOSk6CiAgaGFjazogRG8gbm90IGNvbXBpbGUgZGF0YXBhdGgKICBv
-ZHA6IGFkZCBhIG5ldyBPRFAgYWN0aW9uOiBPVlNfQUNUSU9OX0FUVFJfQlBGX1BST0cKICB0ZXN0
-czogYWRkIGEgT1ZTX0FDVElPTl9BVFRSX0JQRl9QUk9HIGF0aW9uIHVuaXQgdGVzdCBjYXNlCiAg
-YXV0b2NvbmY6IHN1cHBvcnQgLXdpdGgtbGxjIG9wdGlvbnMKICBicGY6IGFkZCB0aGUgZmlyc3Qg
-QlBGIHByb2dyYW0uCiAgbGliOiBpbXBvcnQgaW50byBsaWJicGYgdG8gb3ZzL2xpYgogIG9mcHJv
-dG8tZHBpZjogQWRkIGVCUEYgcHJvZ3JhbSBsb2FkZXIgYW5kIHJ1bnRpbWUgaW5mcmFzdHVyY3Vy
-ZS4KICBvZnByb3RvLWRwaWY6IEFkZCBkYXRhcGF0aCBlQlBGIHN1cHBvcnQgZGV0ZWN0aW9uCiAg
-b2Zwcm90by1kcGlmLXhsYXRlOiBnZW5lcmF0ZSBCUEYgb3V0cHV0IGFjdGlvbiAoSGFjaykKCiBJ
-TlNUQUxMLkJQRi5tZCAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHwgIDQyICsr
-CiBNYWtlZmlsZS5hbSAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHwgICA1
-ICstCiBhY2luY2x1ZGUubTQgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHwg
-IDE4ICstCiBicGYvYXV0b21ha2UubWsgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-IHwgIDI3ICsrCiBicGYvYnBmLXNoYXJlZC5oICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgIHwgIDEyICsKIGJwZi9vdnMtYWN0aW9ucy5jICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgfCAgMTMgKwogYnBmL292cy1icGYtaGVscGVycy5oICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICB8ICAzNSArKwogY29uZmlndXJlLmFjICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICB8ICAgMiArCiBkYXRhcGF0aC9saW51eC9jb21wYXQvaW5jbHVkZS9saW51eC9v
-cGVudnN3aXRjaC5oIHwgIDI5ICstCiBsaWIvYXV0b21ha2UubWsgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgIHwgIDIyICsrCiBsaWIvZHBpZi1uZXRkZXYuYyAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgIHwgICAxICsKIGxpYi9kcGlmLmMgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgfCAgIDEgKwogbGliL2xpYmJwZi5jICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICB8IDEwMCArKysrKwogbGliL2xpYmJwZi5oICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICB8IDE4NSArKysrKysrKysKIGxpYi9vZHAtZXhl
-Y3V0ZS5jICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgfCAgIDEgKwogbGliL29kcC11
-dGlsLmMgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICB8ICAzMyArKwogb2Zwcm90
-by9hdXRvbWFrZS5tayAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICB8ICAgMiArCiBvZnBy
-b3RvL29mcHJvdG8tZHBpZi1icGYuYyAgICAgICAgICAgICAgICAgICAgICAgIHwgNDU0ICsrKysr
-KysrKysrKysrKysrKysrKysKIG9mcHJvdG8vb2Zwcm90by1kcGlmLWJwZi5oICAgICAgICAgICAg
-ICAgICAgICAgICAgfCAgNDIgKysKIG9mcHJvdG8vb2Zwcm90by1kcGlmLXhsYXRlLmMgICAgICAg
-ICAgICAgICAgICAgICAgfCAgMTggKy0KIG9mcHJvdG8vb2Zwcm90by1kcGlmLmMgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgfCAgMjEgKwogdGVzdHMvb2RwLmF0ICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICB8ICAgMSArCiB2c3dpdGNoZC9hdXRvbWFrZS5tayAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgIHwgICA1ICsKIDIzIGZpbGVzIGNoYW5nZWQsIDEwNjQgaW5z
-ZXJ0aW9ucygrKSwgNSBkZWxldGlvbnMoLSkKIGNyZWF0ZSBtb2RlIDEwMDY0NCBJTlNUQUxMLkJQ
-Ri5tZAogY3JlYXRlIG1vZGUgMTAwNjQ0IGJwZi9hdXRvbWFrZS5tawogY3JlYXRlIG1vZGUgMTAw
-NjQ0IGJwZi9icGYtc2hhcmVkLmgKIGNyZWF0ZSBtb2RlIDEwMDY0NCBicGYvb3ZzLWFjdGlvbnMu
-YwogY3JlYXRlIG1vZGUgMTAwNjQ0IGJwZi9vdnMtYnBmLWhlbHBlcnMuaAogY3JlYXRlIG1vZGUg
-MTAwNjQ0IGxpYi9saWJicGYuYwogY3JlYXRlIG1vZGUgMTAwNjQ0IGxpYi9saWJicGYuaAogY3Jl
-YXRlIG1vZGUgMTAwNjQ0IG9mcHJvdG8vb2Zwcm90by1kcGlmLWJwZi5jCiBjcmVhdGUgbW9kZSAx
-MDA2NDQgb2Zwcm90by9vZnByb3RvLWRwaWYtYnBmLmgKCi0tIAoxLjkuMQoKX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KZGV2IG1haWxpbmcgbGlzdApkZXZA
-b3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVudnN3aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5mby9k
-ZXYK
+On Wed,  4 Feb 2015 11:51:05 +0200
+Jouni Malinen <jouni@codeaurora.org> wrote:
+
+> +		if (f && f->dst->flags & BR_PROXYARP)
+
+Please add parens when mixing && and & in same if
