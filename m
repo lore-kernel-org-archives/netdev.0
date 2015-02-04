@@ -1,48 +1,72 @@
-From: Andy Zhou <azhou-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: [RFC: add openvswitch actions using BPF 0/2]
-Date: Wed,  4 Feb 2015 14:48:40 -0800
-Message-ID: <1423090122-19807-1-git-send-email-azhou@nicira.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] sit: fix some __be16/u16 mismatches
+Date: Wed, 04 Feb 2015 15:12:04 -0800
+Message-ID: <1423091524.31870.29.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: dev-yBygre7rU0SM8Zsap4Y0gw@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f171.google.com ([209.85.213.171]:37652 "EHLO
+	mail-ig0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754475AbbBDXMG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2015 18:12:06 -0500
+Received: by mail-ig0-f171.google.com with SMTP id h15so22193242igd.4
+        for <netdev@vger.kernel.org>; Wed, 04 Feb 2015 15:12:06 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Sm9lIGFuZCBJIGhhdmUgYmVlbiBleHBlcmltZW50aW5nIHdpdGggQlBGIGFuZCBpdHMgYXBwbGlj
-YXRpb24gZm9yIE9WUy4KVGhpcyBwYXRjaCBzaG93cyBvdXIgYXR0ZW1wdCB0byBpbXBsZW1lbnQg
-b3ZzIGFjdGlvbnMgdXNpbmcgZUJQRi4KClRoZSBrZXJuZWwgY2hhbmdlcyBhcmUgYWdhaW5zdCB0
-aGUgJ25ldC1uZXh0Jy4gVGhlIGNvcnJlc3BvbmRpbmcKdXNlciBzcGFjZSBjaGFuZ2VzIHdpbGwg
-YmUgcG9zdCBuZXh0LgoKVGhpcyBwYXRjaCBzZXQgaW1wbGVtZW50cyBhbiBCUEYgYWN0aW9uLCB0
-aGF0IGhhcyB0aGUgc2FtZSBpbnRlcmZhY2UKYXMgY3VycmVudCBPVlMgb3V0cHV0IGFjdGlvbi4g
-SW5zdGVhZCBvZiBzZW5kaW5nIG91dCBhIHBhY2tldCwgaXQKb25seSBnZW5lcmF0ZXMgYSBrZXJu
-ZWwgbWVzc2FnZS4KClRoaXMgZmVhdHVyZSBpcyBuZWl0aGVyIGNvbXBsZXRlIG5vciB1c2VmdWwg
-YXMgaXMuICBXZSBhcmUgbW9zdGx5CmludGVyZXN0ZWQgaW4gY29tbWVudHMgb246IFRoZSBpbmZy
-YXN0cnVjdHVyZSBjaGFuZ2VzIHRvIHN1cHBvcnQKYW5kIHJ1bm5pbmcgQlBGIGZ1bmN0aW9ucywg
-YW5kIHN1Z2dlc3Rpb25zIG9uIGV4dGVuc2lvbnMgYmV5b25kCnRob3NlIHBhdGNoZXMuCgpBbmR5
-IFpob3UgKDIpOgogIEJQRjogYWRkIGEgbmV3IEJQRiBwcm9ncmFtIHR5cGUgQlBGX1BST0dfVFlQ
-RV9PUEVOVlNXSVRDSAogIG9wZW52c3dpdGNoOiBpbXBsZW1lbnRzIHRoZSBCUEZfUFJPRyBhY3Rp
-b24gaW4gZGF0YXBhdGgKCiBpbmNsdWRlL2xpbnV4L2JwZi5oICAgICAgICAgICAgICB8ICAyICst
-CiBpbmNsdWRlL3VhcGkvbGludXgvYnBmLmggICAgICAgICB8ICAxICsKIGluY2x1ZGUvdWFwaS9s
-aW51eC9vcGVudnN3aXRjaC5oIHwgMjkgKysrKysrKysrKysrLQogbmV0L01ha2VmaWxlICAgICAg
-ICAgICAgICAgICAgICAgfCAgNCArLQogbmV0L29wZW52c3dpdGNoL01ha2VmaWxlICAgICAgICAg
-fCAgMiArCiBuZXQvb3BlbnZzd2l0Y2gvYWN0aW9ucy5jICAgICAgICB8IDMwICsrKysrKysrKysr
-KysKIG5ldC9vcGVudnN3aXRjaC9icGYuYyAgICAgICAgICAgIHwgODcgKysrKysrKysrKysrKysr
-KysrKysrKysrKysrKysrKysrKysrKwogbmV0L29wZW52c3dpdGNoL2RhdGFwYXRoLmMgICAgICAg
-fCAgNiArKy0KIG5ldC9vcGVudnN3aXRjaC9mbG93X25ldGxpbmsuYyAgIHwgOTIgKysrKysrKysr
-KysrKysrKysrKysrKysrKysrKysrKysrKysrKysrLQogbmV0L29wZW52c3dpdGNoL2Zsb3dfbmV0
-bGluay5oICAgfCAgOCArKysrCiAxMCBmaWxlcyBjaGFuZ2VkLCAyNTQgaW5zZXJ0aW9ucygrKSwg
-NyBkZWxldGlvbnMoLSkKIGNyZWF0ZSBtb2RlIDEwMDY0NCBuZXQvb3BlbnZzd2l0Y2gvYnBmLmMK
-Ci0tIAoxLjkuMQoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X18KZGV2IG1haWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVudnN3aXRj
-aC5vcmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
+From: Eric Dumazet <edumazet@google.com>
+
+Fixes following sparse warnings :
+
+net/ipv6/sit.c:1509:32: warning: incorrect type in assignment (different base types)
+net/ipv6/sit.c:1509:32:    expected restricted __be16 [usertype] sport
+net/ipv6/sit.c:1509:32:    got unsigned short
+net/ipv6/sit.c:1514:32: warning: incorrect type in assignment (different base types)
+net/ipv6/sit.c:1514:32:    expected restricted __be16 [usertype] dport
+net/ipv6/sit.c:1514:32:    got unsigned short
+net/ipv6/sit.c:1711:38: warning: incorrect type in argument 3 (different base types)
+net/ipv6/sit.c:1711:38:    expected unsigned short [unsigned] [usertype] value
+net/ipv6/sit.c:1711:38:    got restricted __be16 [usertype] sport
+net/ipv6/sit.c:1713:38: warning: incorrect type in argument 3 (different base types)
+net/ipv6/sit.c:1713:38:    expected unsigned short [unsigned] [usertype] value
+net/ipv6/sit.c:1713:38:    got restricted __be16 [usertype] dport
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/ipv6/sit.c |    8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
+index 213546bd6d5d..cdbfe5af6187 100644
+--- a/net/ipv6/sit.c
++++ b/net/ipv6/sit.c
+@@ -1506,12 +1506,12 @@ static bool ipip6_netlink_encap_parms(struct nlattr *data[],
+ 
+ 	if (data[IFLA_IPTUN_ENCAP_SPORT]) {
+ 		ret = true;
+-		ipencap->sport = nla_get_u16(data[IFLA_IPTUN_ENCAP_SPORT]);
++		ipencap->sport = nla_get_be16(data[IFLA_IPTUN_ENCAP_SPORT]);
+ 	}
+ 
+ 	if (data[IFLA_IPTUN_ENCAP_DPORT]) {
+ 		ret = true;
+-		ipencap->dport = nla_get_u16(data[IFLA_IPTUN_ENCAP_DPORT]);
++		ipencap->dport = nla_get_be16(data[IFLA_IPTUN_ENCAP_DPORT]);
+ 	}
+ 
+ 	return ret;
+@@ -1707,9 +1707,9 @@ static int ipip6_fill_info(struct sk_buff *skb, const struct net_device *dev)
+ 
+ 	if (nla_put_u16(skb, IFLA_IPTUN_ENCAP_TYPE,
+ 			tunnel->encap.type) ||
+-	    nla_put_u16(skb, IFLA_IPTUN_ENCAP_SPORT,
++	    nla_put_be16(skb, IFLA_IPTUN_ENCAP_SPORT,
+ 			tunnel->encap.sport) ||
+-	    nla_put_u16(skb, IFLA_IPTUN_ENCAP_DPORT,
++	    nla_put_be16(skb, IFLA_IPTUN_ENCAP_DPORT,
+ 			tunnel->encap.dport) ||
+ 	    nla_put_u16(skb, IFLA_IPTUN_ENCAP_FLAGS,
+ 			tunnel->encap.flags))
