@@ -1,35 +1,30 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH v3] net/fsl_pq_mdio: Document supported compatibles
-Date: Tue, 03 Feb 2015 16:11:54 -0800 (PST)
-Message-ID: <20150203.161154.2192047603578577594.davem@davemloft.net>
-References: <1422827911-32629-1-git-send-email-Emilian.Medve@Freescale.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] tun: orphan an skb on tx
+Date: Tue, 03 Feb 2015 16:19:55 -0800 (PST)
+Message-ID: <20150203.161955.1916354877509427788.davem@davemloft.net>
+References: <1422826183.11044.72.camel@infradead.org>
+	<20150201.210716.588479604128207372.davem@davemloft.net>
+	<1422862030.11044.86.camel@infradead.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: scottwood-eDlz3WWmN0ll57MIdRCFDg@public.gmane.org, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
-	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Kanetkar.Shruti-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-To: Emilian.Medve-eDlz3WWmN0ll57MIdRCFDg@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1422827911-32629-1-git-send-email-Emilian.Medve-eDlz3WWmN0ll57MIdRCFDg@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: mst@redhat.com, herbert@gondor.apana.org.au,
+	eric.dumazet@gmail.com, jan.kiszka@siemens.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	qemu-devel@nongnu.org
+To: dwmw2@infradead.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1422862030.11044.86.camel@infradead.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Emil Medve <Emilian.Medve-eDlz3WWmN0ll57MIdRCFDg@public.gmane.org>
-Date: Sun, 1 Feb 2015 15:58:31 -0600
+From: David Woodhouse <dwmw2@infradead.org>
+Date: Mon, 02 Feb 2015 07:27:10 +0000
 
-> From: Shruti Kanetkar <Kanetkar.Shruti-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> 
-> The device tree binding(s) document has fallen out of sync with the
-> driver code. Update the list of supported devices to reflect current
-> driver capabilities
-> 
-> Change-Id: I440d8de2ee2d9c3b7b23e69b3da851cab18a4c9a
-> Signed-off-by: Shruti Kanetkar <Kanetkar.Shruti-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> Signed-off-by: Emil Medve <Emilian.Medve-eDlz3WWmN0ll57MIdRCFDg@public.gmane.org>
+> I'm guessing you don't want to push the *whole* management of the TLS
+> control connection *and* the UDP transport, and probing the latter with
+> keepalives, into the kernel? I certainly don't :)
 
-Applied to net-next, thanks.
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Whilst Herbert Xu and I have discussed in the past supporting
+automatic SSL handling of socket data during socket writes in the
+kernel, doing TLS stuff would be a bit of a stretch :-)
