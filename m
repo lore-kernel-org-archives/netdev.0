@@ -1,53 +1,35 @@
-From: Chen Gang S <gang.chen@sunrus.com.cn>
-Subject: Re: [PATCH v2] net: bluetooth: hci_sock: Use 'const void *' instead
- of 'void *' for 2nd parameter of hci_test_bit()
-Date: Thu, 05 Feb 2015 05:47:37 +0800
-Message-ID: <54D29379.8050104@sunrus.com.cn>
-References: <54CFE8BE.5030700@sunrus.com.cn> <063D6719AE5E284EB5DD2968C1650D6D1CADA5E1@AcuExch.aculab.com> <54D27D68.7040501@cogentembedded.com> <0AB99BEA-C379-439C-AD80-5F2122AE37E5@holtmann.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] bridge: Let bridge not age 'externally'
+ learnt FDB entries, they are removed when 'external' entity notifies the
+ aging
+Date: Wed, 04 Feb 2015 13:51:23 -0800 (PST)
+Message-ID: <20150204.135123.1758781944610556479.davem@davemloft.net>
+References: <1422897714-5956-1-git-send-email-siva.mannem.lnx@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Laight <David.Laight@ACULAB.COM>,
-	"Gustavo F. Padovan" <gustavo@padovan.org>,
-	Johan Hedberg <johan.hedberg@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"linux-bluetooth@vger.kernel.org" <linux-bluetooth@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Marcel Holtmann <marcel@holtmann.org>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <0AB99BEA-C379-439C-AD80-5F2122AE37E5@holtmann.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: siva.mannem.lnx@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38929 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932593AbbBDVvZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2015 16:51:25 -0500
+In-Reply-To: <1422897714-5956-1-git-send-email-siva.mannem.lnx@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2/5/15 05:09, Marcel Holtmann wrote:
-> Hi Sergei,
+From: Siva Mannem <siva.mannem.lnx@gmail.com>
+Date: Mon,  2 Feb 2015 22:51:54 +0530
+
+>  When 'learned_sync' flag is turned on, the offloaded switch
+>  port syncs learned MAC addresses to bridge's FDB via switchdev notifier
+>  (NETDEV_SWITCH_FDB_ADD). Currently, FDB entries learnt via this mechanism are
+>  wrongly being deleted by bridge aging logic. This patch ensures that FDB
+>  entries synced from offloaded switch ports are not deleted by bridging logic.
+>  Such entries can only be deleted via switchdev notifier
+>  (NETDEV_SWITCH_FDB_DEL).
 > 
->>>> -static inline int hci_test_bit(int nr, void *addr)
->>>> +static inline int hci_test_bit(int nr, const void *addr)
->>>>  {
->>>>  	return *((__u32 *) addr + (nr >> 5)) & ((__u32) 1 << (nr & 31));
->>>>  }
->>
->>> Is there a 'standard' function lurking that will do the above.
->>> On x86 the cpus 'bit test' instruction will handle bit numbers
->>> greater than the word size - so it can be a single instruction.
->>
->>   Of course, there's test_bit().
-> 
-> we did leave hci_test_bit in the code since there are some userspace facing API that we can not change. Remember that the origin of this code is from 2.4.6 kernel.
-> 
-> So we can only change this if you can ensure not to break the userspace API. So might want to write unit tests to ensure working HCI filter before even considering touching this.
-> 
+> Signed-off-by: Siva Mannem <siva.mannem.lnx@gmail.com>
 
-For me, we have to remain hci_test_bit(), it is for "__u32 *" (which we
-can not change). The common test_bit() is for "unsigned long *", in this
-case, I guess it may cause issue under 64-bit environments.
-
-
-Thanks.
--- 
-Chen Gang
-
-Open, share, and attitude like air, water, and life which God blessed
+Applied, thanks.
