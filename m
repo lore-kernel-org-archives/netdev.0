@@ -1,105 +1,131 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Throughput regression with `tcp: refine TSO autosizing`
-Date: Wed, 04 Feb 2015 05:29:51 -0800
-Message-ID: <1423056591.907.130.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CA+BoTQkVu23P3EOmY_Q3E1GJnWsyF==Pawz4iPOS_Bq5dvfO5Q@mail.gmail.com>
-	 <1422537297.21689.15.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+BoTQk2xT-8DqPuiiKG+kHAjLPrj8F9dLTb-rcGhvMq0u_2Qw@mail.gmail.com>
-	 <1422628835.21689.95.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+BoTQkV+mOZfe_Niz5101sMQeaV6muKCsShptjGQ1AgOHqqoQ@mail.gmail.com>
-	 <1422903136.21689.114.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1422926330.21689.138.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+BoTQkMikA8wxm1ce2DkKhPB0HiKeAqT7f+sQ=91W40z=X0Rg@mail.gmail.com>
-	 <1422973660.907.10.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+BoTQmvUuFdfYF=wVMYxrf_nQZB5GCV=LvDZVvfs-3hAE4WKw@mail.gmail.com>
-	 <1423051045.907.108.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+BoTQ=BDcQ779uKCuX+f40=4npXVF4MTQnpjKimNYAxPsxBoQ@mail.gmail.com>
-	 <1423053531.907.115.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+BoTQ=qmCZz4CmSOvCOzMLowrDEG12XBffkTcYxjGqVD9604g@mail.gmail.com>
-	 <1423055810.907.125.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Steve Hill <steve@opendium.com>
+Subject: MTU problems with GRE and IPv6
+Date: Wed, 04 Feb 2015 12:31:21 +0000
+Message-ID: <54D21119.6050609@opendium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Neal Cardwell <ncardwell@google.com>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	eyalpe@dev.mellanox.co.il
-To: Michal Kazior <michal.kazior@tieto.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f181.google.com ([209.85.213.181]:63624 "EHLO
-	mail-ig0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933853AbbBDN3w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2015 08:29:52 -0500
-In-Reply-To: <1423055810.907.125.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from persephone.nexusuk.org ([217.172.134.9]:37789 "EHLO nexusuk.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933347AbbBDNcJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Feb 2015 08:32:09 -0500
+Received: from [217.146.115.154] (helo=rivendell.nexusuk.org)
+	by nexusuk.org with esmtpsa (TLSv1:AES128-SHA:128)
+	(Exim 4.63)
+	(envelope-from <steve@opendium.com>)
+	id 1YIz74-0004KO-DD
+	for netdev@vger.kernel.org; Wed, 04 Feb 2015 12:31:22 +0000
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2015-02-04 at 05:16 -0800, Eric Dumazet wrote:
-> OK guys
-> 
-> Using a mlx4 testbed I can reproduce the problem by pushing coalescing
-> settings and disabling SG (thus disabling GSO)
-> 
-> ethtool -K eth0 sg off
-> Actual changes:
-> scatter-gather: off
-> 	tx-scatter-gather: off
-> generic-segmentation-offload: off [requested on]
-> 
-> ethtool -C eth0 tx-usecs 1024 tx-frames 64
-> 
-> Meaning that NIC waits one ms before sending the TX IRQ,
-> and can accumulate 64 frames before forcing the interrupt.
-> 
-> We probably have a bug in cwnd expansion logic :
-> 
-> lpaa23:~# DUMP_TCP_INFO=1 ./netperf -H 10.246.7.152 -Cc
-> MIGRATED TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 10.246.7.152 () port 0 AF_INET
-> rto=201000 ato=0 pmtu=1500 rcv_ssthresh=29200 rtt=230 rttvar=30 snd_ssthresh=41 cwnd=59 reordering=3 total_retrans=1 ca_state=0 pacing_rate=5943.1 Mbits
-> Recv   Send    Send                          Utilization       Service Demand
-> Socket Socket  Message  Elapsed              Send     Recv     Send    Recv
-> Size   Size    Size     Time     Throughput  local    remote   local   remote
-> bytes  bytes   bytes    secs.    10^6bits/s  % S      % S      us/KB   us/KB
-> 
->  87380  16384  16384    10.00       530.39   0.40     0.32     2.965   2.398  
-> 
-> 
-> -> final cwnd=59 which is not enough to avoid the 1ms delay between each
-> burst. 
-> 
-> So sender sends ~60 packets, then has to wait 1ms (to get NIC TX IRQ)
-> before sending the following burst.
-> 
-> I am CCing Neal, he probably can help to root cause the problem.
 
-Arg, this was with net-next, ie not including our recent stretch ack
-fixes.
+I'm having some problems related to oversized IPv6 packets on a GRE 
+tunnel under Scientific Linux 6.6 (Kernel 2.6.32-504.3.3.el6.x86_64).
 
-Using David Miller 'net' tree, cwnd seems OK.
-
-Speed is low because of 64 queued frames are exceeding
-tcp_limit_output_bytes
-
-lpaa23:~# cat /proc/sys/net/ipv4/tcp_limit_output_bytes
-131072
-lpaa23:~# DUMP_TCP_INFO=1 ./netperf -H 10.246.7.152 -Cc
-MIGRATED TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 10.246.7.152 () port 0 AF_INET
-rto=201000 ato=0 pmtu=1500 rcv_ssthresh=29200 rtt=166 rttvar=16 snd_ssthresh=26 cwnd=59 reordering=3 total_retrans=0 ca_state=0 pacing_rate=8203.52 Mbits
-Recv   Send    Send                          Utilization       Service Demand
-Socket Socket  Message  Elapsed              Send     Recv     Send    Recv
-Size   Size    Size     Time     Throughput  local    remote   local   remote
-bytes  bytes   bytes    secs.    10^6bits/s  % S      % S      us/KB   us/KB
-
- 87380  16384  16384    10.00       569.96   0.52     0.38     3.588   2.625  
+I have a set of machines set up as follows:
 
 
-lpaa23:~# echo 262144 >/proc/sys/net/ipv4/tcp_limit_output_bytes
-lpaa23:~# DUMP_TCP_INFO=1 ./netperf -H 10.246.7.152 -Cc
-MIGRATED TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 10.246.7.152 () port 0 AF_INET
-rto=201000 ato=0 pmtu=1500 rcv_ssthresh=29200 rtt=98 rttvar=18 snd_ssthresh=312 cwnd=313 reordering=3 total_retrans=23 ca_state=0
-Recv   Send    Send                          Utilization       Service Demand
-Socket Socket  Message  Elapsed              Send     Recv     Send    Recv
-Size   Size    Size     Time     Throughput  local    remote   local   remote
-bytes  bytes   bytes    secs.    10^6bits/s  % S      % S      us/KB   us/KB
+         Client
+            |
+         Router
+            |
+         (Internet)
+            |
+         Physical KVM Host
+            |
+         Server (KVM virtual machine)
 
- 87380  16384  16384    10.00      8518.40   2.60     1.57     1.200   0.727  
+All of these machines have both IPv4 and IPv6 connectivity.
+
+The Client<->Router connection is ethernet with a 1500 octet MTU and the 
+virtual NIC between the KVM host and the server also has a 1500 octet MTU.
+
+There is a GRE-over-IPv4 tunnel between Router and Server with an MTU of 
+1476.  On Server, normally traffic is routed via the virtual NIC, but 
+iptables/ip6tables sets a CONNMARK on any traffic arriving over the GRE 
+tunnel and that mark is used to select a different routing table for the 
+reply traffic so that it goes back over the GRE tunnel.
+
+ From Client, I connect to port 80 on Server (which is running Apache) 
+using IPv4 over the GRE tunnel and request a large object.  tcpdump 
+shows a TCP packet larger than the GRE tunnel's MTU being sent over GRE, 
+and with the GRE header this exceeds the virtual NIC's MTU too.  The KVM 
+host drops the oversized GRE packet and replies with a ICMP "need to 
+frag".  The TCP packet is resized and retransmitted and this gets 
+through, everything works:
+
+ethertype IPv4, length 1530: Server_ipv4 > Router_ipv4: GREv0, proto 
+IPv4, length 1496: Server_ipv4.http > Client_ipv4.44247: Flags [.], seq 
+1:1441, ack 51, win 114, options [nop,nop,TS val 607339847 ecr 
+30576811], length 1440
+
+ethertype IPv4, length 590: KVM_ipv4 > Server_ipv4: ICMP Router_ipv4 
+unreachable - need to frag (mtu 1500), length 556
+
+ethertype IPv4, length 1506: Server_ipv4 > Router_ipv4: GREv0, proto 
+IPv4, length 1472: Server_ipv4.http > Client_ipv4.44247: Flags [.], seq 
+1:1417, ack 51, win 114, options [nop,nop,TS val 607339867 ecr 
+30577336], length 1416
+
+
+But doing the same test using IPv6 over the GRE tunnel fails.  tcpdump 
+shows an oversized TCP packet again, and again that gets passed on to 
+the KVM host as an oversized GRE packet, which gets dropped and an ICMP 
+"need to frag" returned.  However, the TCP packet is never resized and 
+retransmitted, so the TCP session hangs:
+
+ethertype IPv4, length 1530: Server_ipv4 > Router_ipv4: GREv0, proto 
+IPv6, length 1496: Server_ipv6.http > Client_ipv6.35711: Flags [.], seq 
+1:1421, ack 51, win 112, options [nop,nop,TS val 607991929 ecr 
+31228911], length 1420
+ethertype IPv4, length 590: KVM_ipv4 > Server_ipv4: ICMP Router_ipv4 
+unreachable - need to frag (mtu 1500), length 556
+
+
+So, it seems to me that initially the TCP packets are sized according to 
+the virtual NIC's MTU, since that is where the default routing table 
+says it will go.  After being generated, the packets are then sent to 
+the GRE tunnel instead, which has a lower MTU.  My expectation is that:
+
+1. An IPv4 packet that exceeds the GRE tunnel's MTU should be dropped by 
+the GRE tunnel itself and an ICMP "need to frag" should be sent back to 
+the TCP stack, which should retransmit a smaller packet.
+
+2. The same should be true for IPv6 - an IPv6 packet that exceeds the 
+GRE tunnel's MTU should be dropped by the GRE tunnel itself and an 
+ICMPv6 "packet too big" should be sent up to the TCP stack, which should 
+retransmit a smaller packet.
+
+3. If a GRE packet causes an upstream router to return a "need to frag", 
+the GRE tunnel's MTU should be reduced accordingly and (1) or (2) should 
+happen.
+
+As far as I can see, (1) and (2) aren't happening - oversized GRE 
+packets containing oversized IP packets are ending up at the KVM host. 
+(3) only seems to be working for IPv4 - the IPv6 stack never retransmits 
+a resized TCP packet.
+
+
+Is this a bug, or am I missing something about how it should work?
+
+Many thanks.
+
+-- 
+  - Steve Hill
+    Technical Director
+    Opendium Limited     http://www.opendium.com
+
+Direct contacts:
+    Instant messager: xmpp:steve@opendium.com
+    Email:            steve@opendium.com
+    Phone:            sip:steve@opendium.com
+
+Sales / enquiries contacts:
+    Email:            sales@opendium.com
+    Phone:            +44-1792-824568 / sip:sales@opendium.com
+
+Support contacts:
+    Email:            support@opendium.com
+    Phone:            +44-1792-825748 / sip:support@opendium.com
