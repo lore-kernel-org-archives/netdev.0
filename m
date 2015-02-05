@@ -1,52 +1,65 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: [PATCH] rds: Make rds_message_copy_from_user() return 0 on success.
-Date: Thu, 5 Feb 2015 15:20:50 -0500
-Message-ID: <20150205202050.GH5811@oracle.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [ANNOUNCE] netdev0.1 netfilter BoF
+Date: Thu, 05 Feb 2015 21:20:46 +0100
+Message-ID: <38443B73-3871-4046-A2B1-3FA96E35D2CD@trash.net>
+References: <54D2B6B2.8070004@akamai.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: rds-devel@oss.oracle.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, viro@zeniv.linux.org.uk
-To: chien.yen@oracle.com, davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain;
+ charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+	"Bohman, Pete" <pbohman@akamai.com>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+To: Josh Hunt <johunt@akamai.com>, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <54D2B6B2.8070004@akamai.com>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Am 5. Februar 2015 01:17:54 MEZ, schrieb Josh Hunt <johunt@akamai.com>:
+>We will be leading a BoF discussing netfilter development and issues in
+>
+>iptables, ipset, and nftables at netdev0.1 in Ottawa coming up in a few
+>
+>weeks.
+>
+>Our timeslot is currently scheduled for Sunday, Feb 15 @ 9am, but
+>please 
+>refer to https://www.netdev01.org/schedule in case there are any 
+>schedule changes.
+>
+>The topics we intend to cover will be based around Akamai's usage, 
+>deployment, and the issues we've come across.
+>
+>Some examples of those topics are:
+>   * The need for supported interfaces from netfilter components.
+>   * The handling of large (1 million to 25 million entry) sets, both 
+>with ipsets and nft sets.
+>   * Limitations in existing iptables functionality.
+>     * For ex, issues with hashlimit implementation and proposals to 
+>extend it.
+>
+>We'll also look at the current standing of nftables and discuss some 
+>basic performance as it pertains to our environment, as well as, 
+>backwards compatibility, and possible new features in nftables.
+>
+>We hope to bring together interested stakeholders and interested
+>parties 
+>to discuss the above along with any other related netfilter topics you 
+>would like to discuss. The BoF is scheduled for two hours.
+>
+>If you have items you'd like to add to the agenda and/or present,
+>please 
+>contact me.
 
-Commit c310e72c8992 ("rds: switch ->inc_copy_to_user() to passing iov_iter")
-breaks rds_message_copy_from_user() semantics on success, and causes it
-to return nbytes copied, when it should return 0.  This commit fixes that bug.
+I'll be there.
 
-Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
----
- net/rds/message.c |    8 ++++----
- 1 files changed, 4 insertions(+), 4 deletions(-)
+Cheers,
+Patrick
 
-diff --git a/net/rds/message.c b/net/rds/message.c
-index 5a21e6f..756c737 100644
---- a/net/rds/message.c
-+++ b/net/rds/message.c
-@@ -266,7 +266,7 @@ struct rds_message *rds_message_map_pages(unsigned long *page_addrs, unsigned in
- 
- int rds_message_copy_from_user(struct rds_message *rm, struct iov_iter *from)
- {
--	unsigned long to_copy;
-+	unsigned long to_copy, nbytes;
- 	unsigned long sg_off;
- 	struct scatterlist *sg;
- 	int ret = 0;
-@@ -293,9 +293,9 @@ int rds_message_copy_from_user(struct rds_message *rm, struct iov_iter *from)
- 				sg->length - sg_off);
- 
- 		rds_stats_add(s_copy_from_user, to_copy);
--		ret = copy_page_from_iter(sg_page(sg), sg->offset + sg_off,
--					  to_copy, from);
--		if (ret != to_copy)
-+		nbytes = copy_page_from_iter(sg_page(sg), sg->offset + sg_off,
-+					     to_copy, from);
-+		if (nbytes != to_copy)
- 			return -EFAULT;
- 
- 		sg_off += to_copy;
--- 
-1.7.1
+>
+>Thanks
+>Josh & Pete
+
+
