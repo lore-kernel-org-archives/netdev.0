@@ -1,59 +1,61 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 03/16] ixgbe: cleanup sparse errors in new
- ixgbe_x550.c file
-Date: Thu, 05 Feb 2015 14:40:07 -0800 (PST)
-Message-ID: <20150205.144007.1425782923410995381.davem@davemloft.net>
-References: <1423128950-12388-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1423128950-12388-4-git-send-email-jeffrey.t.kirsher@intel.com>
-	<063D6719AE5E284EB5DD2968C1650D6D1CADC3FA@AcuExch.aculab.com>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: [PATCHv2] rds: Make rds_message_copy_from_user() return 0 on success.
+Date: Thu, 5 Feb 2015 17:41:43 -0500
+Message-ID: <20150205224143.GD28883@oracle.com>
+References: <20150205202050.GH5811@oracle.com>
+ <20150205215845.GT29656@ZenIV.linux.org.uk>
+ <20150205220734.GC28883@oracle.com>
+ <20150205222301.GU29656@ZenIV.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jeffrey.t.kirsher@intel.com, donald.c.skidmore@intel.com,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com
-To: David.Laight@ACULAB.COM
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48445 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751312AbbBEWkI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Feb 2015 17:40:08 -0500
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CADC3FA@AcuExch.aculab.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: rds-devel@oss.oracle.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, sowmini.varadhan@oracle.com,
+	viro@zeniv.linux.org.uk
+To: chien.yen@oracle.com, davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20150205222301.GU29656@ZenIV.linux.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: David Laight <David.Laight@ACULAB.COM>
-Date: Thu, 5 Feb 2015 09:48:24 +0000
 
-> From: Jeff Kirsher
->> This patch cleans up prototypes that should have been defined
->> as static.
->> 
->> Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
->> Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
->> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
->> ---
->>  drivers/net/ethernet/intel/ixgbe/ixgbe_type.h |  4 +-
->>  drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c | 65 ++++++++++++++-------------
->>  2 files changed, 37 insertions(+), 32 deletions(-)
->> 
->> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
->> b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
->> index d101b25..1f301ec 100644
->> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
->> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
->> @@ -2451,8 +2451,8 @@ struct ixgbe_hic_read_shadow_ram {
->> 
->>  struct ixgbe_hic_write_shadow_ram {
->>  	union ixgbe_hic_hdr2 hdr;
->> -	u32 address;
->> -	u16 length;
->> +	__be32 address;
->> +	__be16 length;
->>  	u16 pad2;
->>  	u16 data;
->>  	u16 pad3;
-> 
-> Not related to commit message
 
-Agreed, fix this up.
+Commit 083735f4b01b ("rds: switch rds_message_copy_from_user() to iov_iter")
+breaks rds_message_copy_from_user() semantics on success, and causes it
+to return nbytes copied, when it should return 0.  This commit fixes that bug.
+
+Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+---
+changes from v1: incorporate Al.Viro comment. 
+
+ net/rds/message.c |    8 ++++----
+ 1 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/net/rds/message.c b/net/rds/message.c
+index 5a21e6f..756c737 100644
+--- a/net/rds/message.c
++++ b/net/rds/message.c
+@@ -266,7 +266,7 @@ struct rds_message *rds_message_map_pages(unsigned long *page_addrs, unsigned in
+ 
+ int rds_message_copy_from_user(struct rds_message *rm, struct iov_iter *from)
+ {
+-	unsigned long to_copy;
++	unsigned long to_copy, nbytes;
+ 	unsigned long sg_off;
+ 	struct scatterlist *sg;
+ 	int ret = 0;
+@@ -293,9 +293,9 @@ int rds_message_copy_from_user(struct rds_message *rm, struct iov_iter *from)
+ 				sg->length - sg_off);
+ 
+ 		rds_stats_add(s_copy_from_user, to_copy);
+-		ret = copy_page_from_iter(sg_page(sg), sg->offset + sg_off,
+-					  to_copy, from);
+-		if (ret != to_copy)
++		nbytes = copy_page_from_iter(sg_page(sg), sg->offset + sg_off,
++					     to_copy, from);
++		if (nbytes != to_copy)
+ 			return -EFAULT;
+ 
+ 		sg_off += to_copy;
+-- 
+1.7.1
