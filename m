@@ -1,72 +1,79 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH net 0/2] netns: audit netdevice creation with IFLA_NET_NS_[PID|FD]
-Date: Thu, 05 Feb 2015 15:34:57 +0100
-Message-ID: <54D37F91.4010500@6wind.com>
-References: <1422307694-10079-1-git-send-email-nicolas.dichtel@6wind.com> <54CBE2EF.7050003@alten.se> <54CF9EA8.4080207@6wind.com> <54D28237.9060009@alten.se>
-Reply-To: nicolas.dichtel@6wind.com
+From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: Throughput regression with `tcp: refine TSO autosizing`
+Date: Thu, 05 Feb 2015 06:41:26 -0800
+Message-ID: <1423147286.31870.59.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CA+BoTQkVu23P3EOmY_Q3E1GJnWsyF==Pawz4iPOS_Bq5dvfO5Q@mail.gmail.com>
+	 <1422537297.21689.15.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CA+BoTQk2xT-8DqPuiiKG+kHAjLPrj8F9dLTb-rcGhvMq0u_2Qw@mail.gmail.com>
+	 <1422628835.21689.95.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CA+BoTQkV+mOZfe_Niz5101sMQeaV6muKCsShptjGQ1AgOHqqoQ@mail.gmail.com>
+	 <1422903136.21689.114.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1422926330.21689.138.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CA+BoTQkMikA8wxm1ce2DkKhPB0HiKeAqT7f+sQ=91W40z=X0Rg@mail.gmail.com>
+	 <1422973660.907.10.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CA+BoTQmvUuFdfYF=wVMYxrf_nQZB5GCV=LvDZVvfs-3hAE4WKw@mail.gmail.com>
+	 <1423051045.907.108.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CA+BoTQ=BDcQ779uKCuX+f40=4npXVF4MTQnpjKimNYAxPsxBoQ@mail.gmail.com>
+	 <1423053531.907.115.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CA+BoTQ=qmCZz4CmSOvCOzMLowrDEG12XBffkTcYxjGqVD9604g@mail.gmail.com>
+	 <1423055810.907.125.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1423056591.907.130.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1423084303.31870.15.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CA+BoTQnnwrv0nrKyGyQNvosz_E4e5fBa9iN8fpeqcd-iRfi17g@mail.gmail.com>
+	 <1423141038.31870.38.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1423142342.31870.49.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CA+BoTQmcShK0U_cXvEOLY_8y7LH8x3taTgjcyMzv0MLVn4UtCA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, dmitry.tarnyagin@lockless.no,
-	alex.aring@gmail.com, linux-wpan@vger.kernel.org
-To: Arvid Brodin <arvid.brodin@alten.se>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f176.google.com ([74.125.82.176]:48551 "EHLO
-	mail-we0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757595AbbBEOfA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Feb 2015 09:35:00 -0500
-Received: by mail-we0-f176.google.com with SMTP id w62so8023169wes.7
-        for <netdev@vger.kernel.org>; Thu, 05 Feb 2015 06:34:59 -0800 (PST)
-In-Reply-To: <54D28237.9060009@alten.se>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Neal Cardwell <ncardwell-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	eyalpe-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org
+To: Michal Kazior <michal.kazior-++hxYGjEMp0AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CA+BoTQmcShK0U_cXvEOLY_8y7LH8x3taTgjcyMzv0MLVn4UtCA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Le 04/02/2015 21:33, Arvid Brodin a =C3=A9crit :
-> On 2015-02-02 16:58, Nicolas Dichtel wrote:
->> Le 30/01/2015 21:00, Arvid Brodin a =C3=A9crit :
->>> On 2015-01-26 22:28, Nicolas Dichtel wrote:
-[snip]
-> Ok, so x-netns simply means cross-netns?
-Yes
->
-[snip]
->> Now, the question is: does HSR really work across netns? Why is the =
-flag
->> NETIF_F_NETNS_LOCAL set?
->> dev_forward_skb() may be used to forward an skbuff to another netns.
->
-> Here is the code snippet that sets NETIF_F_NETNS_LOCAL:
-> 	/* Not sure about this. Taken from bridge code. netdev_features.h sa=
-ys
-> 	 * it means "Does not change network namespaces".
-> 	 */
-> 	dev->features |=3D NETIF_F_NETNS_LOCAL;
->
-> HSR is a bit like a bridge since it forwards packets between interfac=
-es on the
-> same Ethernet network, and the bridge code sets NETIF_F_NETNS_LOCAL. =
-And that's
-> really all the reason for the inclusion of the flag - i.e. it should =
-be removed
-> if it doesn't make sense.
->
-> So, does it make sense? I'm not sure exactly, but I don't think it ma=
-kes sense
-> to have slaves that are in different namespaces - they are supposed t=
-o be part
-> of the same ethernet network after all. But maybe having the HSR inte=
-rface in a
-> different namespace than the two slaves could make sense - this way y=
-ou could
-> force an application to only communicate using the HSR protocol, and =
-not use any
-> of the slave interfaces directly.
->
-> If you agree with the above, then I guess that means NETIF_F_NETNS_LO=
-CAL should
-> not be set?
-It's ok for me. But I think some tests should be done. Usually,
-dev_forward_skb() or skb_scrub_packet() are called to clean structures =
-when a
-skb crosses netns.
+On Thu, 2015-02-05 at 14:44 +0100, Michal Kazior wrote:
+
+> Ok. I tried calling skb_orphan() right after I submit each Tx frame
+> (similar to niu which does this in start_xmit):
+> 
+> --- a/drivers/net/wireless/ath/ath10k/htt_tx.c
+> +++ b/drivers/net/wireless/ath/ath10k/htt_tx.c
+> @@ -564,6 +564,8 @@ int ath10k_htt_tx(struct ath10k_htt *htt, struct
+> sk_buff *msdu)
+>         if (res)
+>                 goto err_unmap_msdu;
+> 
+> +       skb_orphan(msdu);
+> +
+>         return 0;
+> 
+>  err_unmap_msdu:
+> 
+> 
+> Now, with {net/master + ath10k GRO + the above} I get 620mbps on a
+> single flow (even better then before). Wow.
+> 
+> Does this look ok/safe as a solution to you?
+
+Not at all. This basically removes backpressure.
+
+A single UDP socket can now blast packets regardless of SO_SNDBUF
+limits.
+
+This basically remove years of work trying to fix bufferbloat.
+
+I still do not understand why increasing tcp_limit_output_bytes is not
+working for you.
+
+
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
