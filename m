@@ -1,52 +1,72 @@
-From: "Fu, Zhonghui" <zhonghui.fu@linux.intel.com>
-Subject: Re: [PATCH] brcmfmac: avoid duplicated suspend/resume operation
-Date: Thu, 05 Feb 2015 19:56:38 +0800
-Message-ID: <54D35A76.4010801@linux.intel.com>
-References: <54C5AA8C.4010005@linux.intel.com> <87vbjjw3bc.fsf@kamboji.qca.qualcomm.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: Re: [PATCH] NetCP: Deletion of unnecessary checks before two
+ function calls
+Date: Thu, 5 Feb 2015 15:01:38 +0300
+Message-ID: <20150205120138.GD5336@mwanda>
+References: <530C5E18.1020800@users.sourceforge.net>
+ <alpine.DEB.2.10.1402251014170.2080@hadrien>
+ <530CD2C4.4050903@users.sourceforge.net>
+ <alpine.DEB.2.10.1402251840450.7035@hadrien>
+ <530CF8FF.8080600@users.sourceforge.net>
+ <alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6>
+ <530DD06F.4090703@users.sourceforge.net>
+ <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6>
+ <5317A59D.4@users.sourceforge.net>
+ <54D11FEF.10804@users.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: brudley@broadcom.com, Arend van Spriel <arend@broadcom.com>,
-	Franky Lin <frankyl@broadcom.com>, meuleman@broadcom.com,
-	linville@tuxdriver.com, pieterpg@broadcom.com, hdegoede@redhat.com,
-	wens@csie.org, linux-wireless@vger.kernel.org,
-	brcm80211-dev-list@broadcom.com, netdev@vger.kernel.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Kalle Valo <kvalo@codeaurora.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: SF Markus Elfring <elfring@users.sourceforge.net>,
+	Murali Karicheri <m-karicheri2@ti.com>,
+	Wingman Kwok <w-kwok2@ti.com>, netdev@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>,
+	kernel-janitors@vger.kernel.org,
+	Julia Lawall <julia.lawall@lip6.fr>
+To: Wingman Kwok <w-kwok2@ti.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87vbjjw3bc.fsf@kamboji.qca.qualcomm.com>
+Content-Disposition: inline
+In-Reply-To: <54D11FEF.10804@users.sourceforge.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hi Wingman,
 
-On 2015/2/3 21:08, Kalle Valo wrote:
-> "Fu, Zhonghui" <zhonghui.fu@linux.intel.com> writes:
->
->> >From ff39ed4af9f1c50358fe92ec4c8eaac9db183e00 Mon Sep 17 00:00:00 2001
->> From: Zhonghui Fu <zhonghui.fu@linux.intel.com>
->> Date: Mon, 26 Jan 2015 10:13:21 +0800
->> Subject: [PATCH] brcmfmac: avoid duplicated suspend/resume operation
->>
->> WiFi chip has 2 SDIO functions, and PM core will trigger
->> twice suspend/resume operations for one WiFi chip to do
->> the same things. This patch avoid this case.
->>
->> Acked-by: Arend van Spriel<arend@broadcom.com>
->> Signed-off-by: Zhonghui Fu <zhonghui.fu@linux.intel.com>
-> This doesn't apply:
->
-> Applying: brcmfmac: avoid duplicated suspend/resume operation
-> Using index info to reconstruct a base tree...
-> Falling back to patching base and 3-way merge...
-> Auto-merging drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c
-> CONFLICT (content): Merge conflict in drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c
-> Failed to merge in the changes.
-> Patch failed at 0001 brcmfmac: avoid duplicated suspend/resume operation
->
-> BTW, when you resend a patch please use "[PATCH v2]" (or v3, v4...) in
-> the Subject field.
-Just see your comments, so please ignore my inquiry in last mail. I will re-base this patch again.
+There are some bugs in this error handling.
 
+On Tue, Feb 03, 2015 at 08:22:23PM +0100, SF Markus Elfring wrote:
+> diff --git a/drivers/net/ethernet/ti/netcp_ethss.c b/drivers/net/ethernet/ti/netcp_ethss.c
+> index fa1041a..cbd6dde 100644
+> --- a/drivers/net/ethernet/ti/netcp_ethss.c
+> +++ b/drivers/net/ethernet/ti/netcp_ethss.c
+> @@ -2010,12 +2010,10 @@ static int gbe_probe(struct netcp_device *netcp_device, struct device *dev,
+>  quit:
+>  	if (gbe_dev->hw_stats)
+>  		devm_kfree(dev, gbe_dev->hw_stats);
+> -	if (gbe_dev->ale)
+> -		cpsw_ale_destroy(gbe_dev->ale);
+> +	cpsw_ale_destroy(gbe_dev->ale);
+>  	if (gbe_dev->ss_regs)
+>  		devm_iounmap(dev, gbe_dev->ss_regs);
+> -	if (interfaces)
+> -		of_node_put(interfaces);
+> +	of_node_put(interfaces);
+                    ^^^^^^^^^^
+"interfaces" is sometimes unintialized in this code.  I don't know why
+GCC doesn't catch this...  :(
 
-Thanks,
-Zhonghui
+This is a "one rrr bug", which is caused because you just have one error
+label "quit" which handles all the error handling.  Please read my
+Google+ comment on error handling.
+
+https://plus.google.com/106378716002406849458/posts/dnanfhQ4mHQ
+
+>  	devm_kfree(dev, gbe_dev);
+        ^^^^^^^^^^^^^^^^^^^^^^^^
+This is not the right way to use the devm_ interface.  These things are
+freed automatically on error or when we are done with them.  This driver
+is double freeing pretty much everything.  Grep for devm_kfree() and
+fix everything.
+
+I don't know why kbuild didn't catch this...
+
+regards
+dan carpenter
