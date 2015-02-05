@@ -1,35 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] NetCP: Deletion of unnecessary checks before two
- function calls
-Date: Wed, 04 Feb 2015 20:30:03 -0800 (PST)
-Message-ID: <20150204.203003.1536872523602316517.davem@davemloft.net>
-References: <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6>
-	<5317A59D.4@users.sourceforge.net>
-	<54D11FEF.10804@users.sourceforge.net>
+Subject: Re: [PATCH net] amd-xgbe: Set RSS enablement based on hardware
+ features
+Date: Wed, 04 Feb 2015 20:32:18 -0800 (PST)
+Message-ID: <20150204.203218.1739688392025415062.davem@davemloft.net>
+References: <20150203201432.18889.73945.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: m-karicheri2@ti.com, w-kwok2@ti.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org,
-	julia.lawall@lip6.fr
-To: elfring@users.sourceforge.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <54D11FEF.10804@users.sourceforge.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: thomas.lendacky@amd.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:41034 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753055AbbBEEcT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2015 23:32:19 -0500
+In-Reply-To: <20150203201432.18889.73945.stgit@tlendack-t1.amdoffice.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Date: Tue, 03 Feb 2015 20:22:23 +0100
+From: Tom Lendacky <thomas.lendacky@amd.com>
+Date: Tue, 3 Feb 2015 14:14:32 -0600
 
-> From: Markus Elfring <elfring@users.sourceforge.net>
-> Date: Tue, 3 Feb 2015 20:12:25 +0100
+> The RSS support requires enablement based on the features reported by
+> the hardware. The setting of this flag is missing. Add support to
+> set the RSS enablement flag based on the reported hardware features.
 > 
-> The functions cpsw_ale_destroy() and of_dev_put() test whether their argument
-> is NULL and then return immediately. Thus the test around the call
-> is not needed.
-> 
-> This issue was detected by using the Coccinelle software.
-> 
-> Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+> Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
 
-Applied.
+Applied, thanks Tom.
