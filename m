@@ -1,88 +1,52 @@
 From: Jouni Malinen <jouni@codeaurora.org>
-Subject: [PATCH v2 2/3] bridge: Selectively prevent bridge port flooding for proxy ARP
-Date: Thu,  5 Feb 2015 11:54:22 +0200
-Message-ID: <1423130063-18323-2-git-send-email-jouni@codeaurora.org>
+Subject: [PATCH v2 3/3] bridge: Allow proxy ARP for unicast ARP requests
+Date: Thu,  5 Feb 2015 11:54:23 +0200
+Message-ID: <1423130063-18323-3-git-send-email-jouni@codeaurora.org>
 References: <1423130063-18323-1-git-send-email-jouni@codeaurora.org>
 Cc: netdev@vger.kernel.org, Kyeyoon Park <kyeyoonp@codeaurora.org>,
 	Jouni Malinen <jouni@codeaurora.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.11.231]:54269 "EHLO
+Received: from smtp.codeaurora.org ([198.145.11.231]:54274 "EHLO
 	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753157AbbBEJzH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Feb 2015 04:55:07 -0500
+	with ESMTP id S1757097AbbBEJzL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Feb 2015 04:55:11 -0500
 In-Reply-To: <1423130063-18323-1-git-send-email-jouni@codeaurora.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Kyeyoon Park <kyeyoonp@codeaurora.org>
 
-Rather than completely blocking the bridge port flooding when
-BR_PROXYARP is enabled, selectively prevent bridge port flooding for the
-proxy ARP relevant frames. This is done by marking the "skb" with this
-info when proxy ARP code executes.
+It is possible for unicast ARP requests to be used and the same proxyarp
+mechanism should work for them as well as for the broadcast case.
 
 Signed-off-by: Kyeyoon Park <kyeyoonp@codeaurora.org>
 Signed-off-by: Jouni Malinen <jouni@codeaurora.org>
 ---
-v2: Address Stephen's comment on mixing && and & without parens
+v2: rebased, but identical to v1
 
- net/bridge/br_forward.c | 3 ++-
- net/bridge/br_input.c   | 6 +++++-
- net/bridge/br_private.h | 1 +
- 3 files changed, 8 insertions(+), 2 deletions(-)
+ net/bridge/br_input.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/net/bridge/br_forward.c b/net/bridge/br_forward.c
-index f96933a..0b156aa 100644
---- a/net/bridge/br_forward.c
-+++ b/net/bridge/br_forward.c
-@@ -186,7 +186,8 @@ static void br_flood(struct net_bridge *br, struct sk_buff *skb,
- 			continue;
- 
- 		/* Do not flood to ports that enable proxy ARP */
--		if (p->flags & BR_PROXYARP)
-+		if ((p->flags & BR_PROXYARP) &&
-+		    BR_INPUT_SKB_CB(skb)->proxyarp_replied)
- 			continue;
- 
- 		prev = maybe_deliver(prev, p, skb, __packet_hook);
 diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
-index b2afa17..c3640d8 100644
+index c3640d8..41d7cfa 100644
 --- a/net/bridge/br_input.c
 +++ b/net/bridge/br_input.c
-@@ -68,6 +68,8 @@ static void br_do_proxy_arp(struct sk_buff *skb, struct net_bridge *br,
- 	u8 *arpptr, *sha;
- 	__be32 sip, tip;
+@@ -157,11 +157,11 @@ int br_handle_frame_finish(struct sk_buff *skb)
  
-+	BR_INPUT_SKB_CB(skb)->proxyarp_replied = false;
-+
- 	if (dev->flags & IFF_NOARP)
- 		return;
+ 	dst = NULL;
  
-@@ -105,9 +107,11 @@ static void br_do_proxy_arp(struct sk_buff *skb, struct net_bridge *br,
- 		}
+-	if (is_broadcast_ether_addr(dest)) {
+-		if (IS_ENABLED(CONFIG_INET) &&
+-		    skb->protocol == htons(ETH_P_ARP))
+-			br_do_proxy_arp(skb, br, vid);
++	if (IS_ENABLED(CONFIG_INET) &&
++	    skb->protocol == htons(ETH_P_ARP))
++		br_do_proxy_arp(skb, br, vid);
  
- 		f = __br_fdb_get(br, n->ha, vid);
--		if (f && f->dst && (f->dst->flags & BR_PROXYARP))
-+		if (f && f->dst && (f->dst->flags & BR_PROXYARP)) {
- 			arp_send(ARPOP_REPLY, ETH_P_ARP, sip, skb->dev, tip,
- 				 sha, n->ha, sha);
-+			BR_INPUT_SKB_CB(skb)->proxyarp_replied = true;
-+		}
- 
- 		neigh_release(n);
- 	}
-diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-index de09199..c32e279 100644
---- a/net/bridge/br_private.h
-+++ b/net/bridge/br_private.h
-@@ -305,6 +305,7 @@ struct br_input_skb_cb {
- #endif
- 
- 	u16 frag_max_size;
-+	bool proxyarp_replied;
- 
- #ifdef CONFIG_BRIDGE_VLAN_FILTERING
- 	bool vlan_filtered;
++	if (is_broadcast_ether_addr(dest)) {
+ 		skb2 = skb;
+ 		unicast = false;
+ 	} else if (is_multicast_ether_addr(dest)) {
 -- 
 1.9.1
