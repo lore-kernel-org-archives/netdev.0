@@ -1,68 +1,45 @@
-From: "Kwok, WingMan" <w-kwok2@ti.com>
-Subject: RE: [PATCH] NetCP: Deletion of unnecessary checks before two
- function calls
-Date: Thu, 5 Feb 2015 15:50:49 +0000
-Message-ID: <230CBA6E4B6B6B418E8730AC28E6FC7E041CFA70@DFLE11.ent.ti.com>
-References: <530C5E18.1020800@users.sourceforge.net>
- <alpine.DEB.2.10.1402251014170.2080@hadrien>
- <530CD2C4.4050903@users.sourceforge.net>
- <alpine.DEB.2.10.1402251840450.7035@hadrien>
- <530CF8FF.8080600@users.sourceforge.net>
- <alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6>
- <530DD06F.4090703@users.sourceforge.net>
- <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6>
- <5317A59D.4@users.sourceforge.net> <54D11FEF.10804@users.sourceforge.net>
- <20150205120138.GD5336@mwanda>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: SF Markus Elfring <elfring@users.sourceforge.net>,
-	"Karicheri, Muralidharan" <m-karicheri2@ti.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>,
-	"Julia Lawall" <julia.lawall@lip6.fr>
-To: Dan Carpenter <dan.carpenter@oracle.com>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <20150205120138.GD5336@mwanda>
-Content-Language: en-US
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: [PATCH bluetooth-next v2] ieee802154: fix netns settings
+Date: Thu, 5 Feb 2015 08:03:25 -0800
+Message-ID: <1DEA1346-A348-434E-90F3-80E9EDC7E181@holtmann.org>
+References: <alex.aring@gmail.com> <1422457112-4377-1-git-send-email-nicolas.dichtel@6wind.com> <20150128203645.GB30188@omega> <20150205091016.GC12279@omega>
+Mime-Version: 1.0 (Mac OS X Mail 8.2 \(2070.6\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	Network Development <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>, linux-wpan@vger.kernel.org
+To: Alexander Aring <alex.aring@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from senator.holtmann.net ([87.106.208.187]:37199 "EHLO
+	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753854AbbBEQDf convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Feb 2015 11:03:35 -0500
+In-Reply-To: <20150205091016.GC12279@omega>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RGFuLA0KDQpUaGFua3MuICBXZSdsbCBsb29rIGludG8gaXQgYW5kIHNlbmQgYSBwYXRjaCBzb29u
-Lg0KDQpSZWdhcmRzLA0KV2luZ01hbg0KDQo+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+
-IEZyb206IERhbiBDYXJwZW50ZXIgW21haWx0bzpkYW4uY2FycGVudGVyQG9yYWNsZS5jb21dDQo+
-IFNlbnQ6IFRodXJzZGF5LCBGZWJydWFyeSAwNSwgMjAxNSA3OjAyIEFNDQo+IFRvOiBLd29rLCBX
-aW5nTWFuDQo+IENjOiBTRiBNYXJrdXMgRWxmcmluZzsgS2FyaWNoZXJpLCBNdXJhbGlkaGFyYW47
-IEt3b2ssIFdpbmdNYW47DQo+IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IExLTUw7IGtlcm5lbC1q
-YW5pdG9yc0B2Z2VyLmtlcm5lbC5vcmc7IEp1bGlhIExhd2FsbA0KPiBTdWJqZWN0OiBSZTogW1BB
-VENIXSBOZXRDUDogRGVsZXRpb24gb2YgdW5uZWNlc3NhcnkgY2hlY2tzIGJlZm9yZSB0d28NCj4g
-ZnVuY3Rpb24gY2FsbHMNCj4gDQo+IEhpIFdpbmdtYW4sDQo+IA0KPiBUaGVyZSBhcmUgc29tZSBi
-dWdzIGluIHRoaXMgZXJyb3IgaGFuZGxpbmcuDQo+IA0KPiBPbiBUdWUsIEZlYiAwMywgMjAxNSBh
-dCAwODoyMjoyM1BNICswMTAwLCBTRiBNYXJrdXMgRWxmcmluZyB3cm90ZToNCj4gPiBkaWZmIC0t
-Z2l0IGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvdGkvbmV0Y3BfZXRoc3MuYw0KPiBiL2RyaXZlcnMv
-bmV0L2V0aGVybmV0L3RpL25ldGNwX2V0aHNzLmMNCj4gPiBpbmRleCBmYTEwNDFhLi5jYmQ2ZGRl
-IDEwMDY0NA0KPiA+IC0tLSBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L3RpL25ldGNwX2V0aHNzLmMN
-Cj4gPiArKysgYi9kcml2ZXJzL25ldC9ldGhlcm5ldC90aS9uZXRjcF9ldGhzcy5jDQo+ID4gQEAg
-LTIwMTAsMTIgKzIwMTAsMTAgQEAgc3RhdGljIGludCBnYmVfcHJvYmUoc3RydWN0IG5ldGNwX2Rl
-dmljZQ0KPiAqbmV0Y3BfZGV2aWNlLCBzdHJ1Y3QgZGV2aWNlICpkZXYsDQo+ID4gIHF1aXQ6DQo+
-ID4gIAlpZiAoZ2JlX2Rldi0+aHdfc3RhdHMpDQo+ID4gIAkJZGV2bV9rZnJlZShkZXYsIGdiZV9k
-ZXYtPmh3X3N0YXRzKTsNCj4gPiAtCWlmIChnYmVfZGV2LT5hbGUpDQo+ID4gLQkJY3Bzd19hbGVf
-ZGVzdHJveShnYmVfZGV2LT5hbGUpOw0KPiA+ICsJY3Bzd19hbGVfZGVzdHJveShnYmVfZGV2LT5h
-bGUpOw0KPiA+ICAJaWYgKGdiZV9kZXYtPnNzX3JlZ3MpDQo+ID4gIAkJZGV2bV9pb3VubWFwKGRl
-diwgZ2JlX2Rldi0+c3NfcmVncyk7DQo+ID4gLQlpZiAoaW50ZXJmYWNlcykNCj4gPiAtCQlvZl9u
-b2RlX3B1dChpbnRlcmZhY2VzKTsNCj4gPiArCW9mX25vZGVfcHV0KGludGVyZmFjZXMpOw0KPiAg
-ICAgICAgICAgICAgICAgICAgIF5eXl5eXl5eXl4NCj4gImludGVyZmFjZXMiIGlzIHNvbWV0aW1l
-cyB1bmludGlhbGl6ZWQgaW4gdGhpcyBjb2RlLiAgSSBkb24ndCBrbm93IHdoeQ0KPiBHQ0MgZG9l
-c24ndCBjYXRjaCB0aGlzLi4uICA6KA0KPiANCj4gVGhpcyBpcyBhICJvbmUgcnJyIGJ1ZyIsIHdo
-aWNoIGlzIGNhdXNlZCBiZWNhdXNlIHlvdSBqdXN0IGhhdmUgb25lIGVycm9yDQo+IGxhYmVsICJx
-dWl0IiB3aGljaCBoYW5kbGVzIGFsbCB0aGUgZXJyb3IgaGFuZGxpbmcuICBQbGVhc2UgcmVhZCBt
-eQ0KPiBHb29nbGUrIGNvbW1lbnQgb24gZXJyb3IgaGFuZGxpbmcuDQo+IA0KPiBodHRwczovL3Bs
-dXMuZ29vZ2xlLmNvbS8xMDYzNzg3MTYwMDI0MDY4NDk0NTgvcG9zdHMvZG5hbmZoUTRtSFENCj4g
-DQo+ID4gIAlkZXZtX2tmcmVlKGRldiwgZ2JlX2Rldik7DQo+ICAgICAgICAgXl5eXl5eXl5eXl5e
-Xl5eXl5eXl5eXl5eDQo+IFRoaXMgaXMgbm90IHRoZSByaWdodCB3YXkgdG8gdXNlIHRoZSBkZXZt
-XyBpbnRlcmZhY2UuICBUaGVzZSB0aGluZ3MgYXJlDQo+IGZyZWVkIGF1dG9tYXRpY2FsbHkgb24g
-ZXJyb3Igb3Igd2hlbiB3ZSBhcmUgZG9uZSB3aXRoIHRoZW0uICBUaGlzIGRyaXZlcg0KPiBpcyBk
-b3VibGUgZnJlZWluZyBwcmV0dHkgbXVjaCBldmVyeXRoaW5nLiAgR3JlcCBmb3IgZGV2bV9rZnJl
-ZSgpIGFuZA0KPiBmaXggZXZlcnl0aGluZy4NCj4gDQo+IEkgZG9uJ3Qga25vdyB3aHkga2J1aWxk
-IGRpZG4ndCBjYXRjaCB0aGlzLi4uDQo+IA0KPiByZWdhcmRzDQo+IGRhbiBjYXJwZW50ZXINCg0K
+Hi Alex,
+
+>>> 6LoWPAN currently doesn't supports x-netns and works only in init_net.
+>>> 
+>>> With this patch, we ensure that:
+>>> - the wpan interface cannot be moved to another netns;
+>>> - the 6lowpan interface cannot be moved to another netns;
+>>> - the wpan interface is in the same netns than the 6lowpan interface;
+>>> - the 6lowpan interface is in init_net.
+>>> 
+>>> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+>> 
+>> Acked-by: Alexander Aring <alex.aring@gmail.com>
+>> 
+>> Marcel, can you please queue this for bluetooth-next?
+>> 
+> 
+> ping.
+
+I completely missed this one and it is not even showing up in my local archive. Care to resend it with your ack attached to it.
+
+Regards
+
+Marcel
