@@ -1,42 +1,88 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: Re: [PATCH] rds: Make rds_message_copy_from_user() return 0 on
- success.
-Date: Thu, 5 Feb 2015 17:07:34 -0500
-Message-ID: <20150205220734.GC28883@oracle.com>
-References: <20150205202050.GH5811@oracle.com>
- <20150205215845.GT29656@ZenIV.linux.org.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: chien.yen@oracle.com, davem@davemloft.net,
+From: Rasmus Villemoes <linux@rasmusvillemoes.dk>
+Subject: [PATCH] net: rds: Remove repeated function names from debug output
+Date: Thu,  5 Feb 2015 23:17:20 +0100
+Message-ID: <1423174641-11057-1-git-send-email-linux@rasmusvillemoes.dk>
+Cc: Rasmus Villemoes <linux@rasmusvillemoes.dk>,
 	rds-devel@oss.oracle.com, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: Al Viro <viro@ZenIV.linux.org.uk>
+To: Chien Yen <chien.yen@oracle.com>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150205215845.GT29656@ZenIV.linux.org.uk>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On (02/05/15 21:58), Al Viro wrote:
-> *blink*
-> 
-> Commit 083735f4b0 ("rds: switch rds_message_copy_from_user() to iov_iter"),
-> surely?  That's the one that touches copy-from side of things...
-> 
-> And unlike the previous commit (the one you'd mentioned) here the return value
-> of copy_page_....() ended up passed to caller of its caller.  Mea culpa.
-> 
-> So, modulo correction of the commit message,
-> 
-> Acked-by: Al Viro <viro@zeniv.linux.org.uk>
+The macro rdsdebug is defined as
 
-That was the one that git-bisect flagged for me.. I think this one
-had the iov_iter_init() in rds_sendmsg() itself? As I recall, this 
-change was already refactoring rds_message_copy_from_user() (and was the
-earliest version that was broken when I tested it)?
+  pr_debug("%s(): " fmt, __func__ , ##args)
 
-should it have been 'put iov_iter into msghdr'? I just wanted
-to make sure some innocent user would know how far back to go,
-if they wanted to not trip on this one.
+Hence it doesn't make sense to include the name of the calling
+function explicitly in the format string passed to rdsdebug.
 
---Sowmini
+Signed-off-by: Rasmus Villemoes <linux@rasmusvillemoes.dk>
+---
+ net/rds/ib_send.c | 4 ++--
+ net/rds/iw_cm.c   | 4 ++--
+ net/rds/iw_send.c | 4 ++--
+ 3 files changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/net/rds/ib_send.c b/net/rds/ib_send.c
+index 1dde91e3dc70..bd3825d38abc 100644
+--- a/net/rds/ib_send.c
++++ b/net/rds/ib_send.c
+@@ -409,7 +409,7 @@ try_again:
+ 	posted = IB_GET_POST_CREDITS(oldval);
+ 	avail = IB_GET_SEND_CREDITS(oldval);
+ 
+-	rdsdebug("rds_ib_send_grab_credits(%u): credits=%u posted=%u\n",
++	rdsdebug("wanted=%u credits=%u posted=%u\n",
+ 			wanted, avail, posted);
+ 
+ 	/* The last credit must be used to send a credit update. */
+@@ -453,7 +453,7 @@ void rds_ib_send_add_credits(struct rds_connection *conn, unsigned int credits)
+ 	if (credits == 0)
+ 		return;
+ 
+-	rdsdebug("rds_ib_send_add_credits(%u): current=%u%s\n",
++	rdsdebug("credits=%u current=%u%s\n",
+ 			credits,
+ 			IB_GET_SEND_CREDITS(atomic_read(&ic->i_credits)),
+ 			test_bit(RDS_LL_SEND_FULL, &conn->c_flags) ? ", ll_send_full" : "");
+diff --git a/net/rds/iw_cm.c b/net/rds/iw_cm.c
+index a91e1db62ee6..a6c2bea9f8f9 100644
+--- a/net/rds/iw_cm.c
++++ b/net/rds/iw_cm.c
+@@ -590,8 +590,8 @@ void rds_iw_conn_shutdown(struct rds_connection *conn)
+ 			/* Actually this may happen quite frequently, when
+ 			 * an outgoing connect raced with an incoming connect.
+ 			 */
+-			rdsdebug("rds_iw_conn_shutdown: failed to disconnect,"
+-				   " cm: %p err %d\n", ic->i_cm_id, err);
++			rdsdebug("failed to disconnect, cm: %p err %d\n",
++				 ic->i_cm_id, err);
+ 		}
+ 
+ 		if (ic->i_cm_id->qp) {
+diff --git a/net/rds/iw_send.c b/net/rds/iw_send.c
+index 9105ea03aec5..13834780a308 100644
+--- a/net/rds/iw_send.c
++++ b/net/rds/iw_send.c
+@@ -361,7 +361,7 @@ try_again:
+ 	posted = IB_GET_POST_CREDITS(oldval);
+ 	avail = IB_GET_SEND_CREDITS(oldval);
+ 
+-	rdsdebug("rds_iw_send_grab_credits(%u): credits=%u posted=%u\n",
++	rdsdebug("wanted=%u credits=%u posted=%u\n",
+ 			wanted, avail, posted);
+ 
+ 	/* The last credit must be used to send a credit update. */
+@@ -405,7 +405,7 @@ void rds_iw_send_add_credits(struct rds_connection *conn, unsigned int credits)
+ 	if (credits == 0)
+ 		return;
+ 
+-	rdsdebug("rds_iw_send_add_credits(%u): current=%u%s\n",
++	rdsdebug("credits=%u current=%u%s\n",
+ 			credits,
+ 			IB_GET_SEND_CREDITS(atomic_read(&ic->i_credits)),
+ 			test_bit(RDS_LL_SEND_FULL, &conn->c_flags) ? ", ll_send_full" : "");
+-- 
+2.1.3
