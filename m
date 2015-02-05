@@ -1,61 +1,68 @@
-From: Thomas Graf <tgraf@noironetworks.com>
-Subject: Re: [ovs-dev] [RFC: add openvswitch actions using BPF 1/2] BPF: add
- a new BPF program type BPF_PROG_TYPE_OPENVSWITCH
-Date: Thu, 5 Feb 2015 15:48:28 +0100
-Message-ID: <20150205144828.GF5546@pox.localdomain>
-References: <1423090122-19807-1-git-send-email-azhou@nicira.com>
- <1423090122-19807-2-git-send-email-azhou@nicira.com>
+From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: Throughput regression with `tcp: refine TSO autosizing`
+Date: Thu, 05 Feb 2015 06:48:42 -0800
+Message-ID: <1423147722.31870.65.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CA+BoTQkVu23P3EOmY_Q3E1GJnWsyF==Pawz4iPOS_Bq5dvfO5Q@mail.gmail.com>
+	 <1422537297.21689.15.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CA+BoTQk2xT-8DqPuiiKG+kHAjLPrj8F9dLTb-rcGhvMq0u_2Qw@mail.gmail.com>
+	 <1422628835.21689.95.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CA+BoTQkV+mOZfe_Niz5101sMQeaV6muKCsShptjGQ1AgOHqqoQ@mail.gmail.com>
+	 <1422903136.21689.114.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1422926330.21689.138.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CA+BoTQkMikA8wxm1ce2DkKhPB0HiKeAqT7f+sQ=91W40z=X0Rg@mail.gmail.com>
+	 <1422973660.907.10.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CA+BoTQmvUuFdfYF=wVMYxrf_nQZB5GCV=LvDZVvfs-3hAE4WKw@mail.gmail.com>
+	 <1423051045.907.108.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CA+BoTQ=BDcQ779uKCuX+f40=4npXVF4MTQnpjKimNYAxPsxBoQ@mail.gmail.com>
+	 <1423053531.907.115.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CA+BoTQ=qmCZz4CmSOvCOzMLowrDEG12XBffkTcYxjGqVD9604g@mail.gmail.com>
+	 <1423055810.907.125.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1423056591.907.130.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1423084303.31870.15.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CA+BoTQnnwrv0nrKyGyQNvosz_E4e5fBa9iN8fpeqcd-iRfi17g@mail.gmail.com>
+	 <1423141038.31870.38.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1423142342.31870.49.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CA+BoTQmcShK0U_cXvEOLY_8y7LH8x3taTgjcyMzv0MLVn4UtCA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: dev@openvswitch.com, netdev@vger.kernel.org
-To: Andy Zhou <azhou@nicira.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f180.google.com ([74.125.82.180]:37421 "EHLO
-	mail-we0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757281AbbBEOsc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Feb 2015 09:48:32 -0500
-Received: by mail-we0-f180.google.com with SMTP id m14so8067883wev.11
-        for <netdev@vger.kernel.org>; Thu, 05 Feb 2015 06:48:30 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1423090122-19807-2-git-send-email-azhou@nicira.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Neal Cardwell <ncardwell-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	eyalpe-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org
+To: Michal Kazior <michal.kazior-++hxYGjEMp0AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CA+BoTQmcShK0U_cXvEOLY_8y7LH8x3taTgjcyMzv0MLVn4UtCA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 02/04/15 at 02:48pm, Andy Zhou wrote:
->  struct bpf_verifier_ops {
->  	/* return eBPF function prototype for verification */
-> -	const struct bpf_func_proto *(*get_func_proto)(enum bpf_func_id func_id);
-> +	const struct bpf_func_proto *(*get_func_proto)(int func_id);
+On Thu, 2015-02-05 at 14:44 +0100, Michal Kazior wrote:
 
-This change should maybe go in a separate commit.
+> I do get your point. But 1.5ms is really tough on Wi-Fi.
+> 
+> Just look at this:
+> 
+> ; ping 192.168.1.2 -c 3
+> PING 192.168.1.2 (192.168.1.2) 56(84) bytes of data.
+> 64 bytes from 192.168.1.2: icmp_seq=1 ttl=64 time=1.83 ms
+> 64 bytes from 192.168.1.2: icmp_seq=2 ttl=64 time=2.02 ms
+> 64 bytes from 192.168.1.2: icmp_seq=3 ttl=64 time=1.98 ms
 
-> +static const struct bpf_func_proto *ovs_func_proto(int func_id)
-> +{
-> +	switch (func_id) {
-> +	case OVS_BPF_FUNC_output:
-> +		return &bpf_helper_output_proto;
-> +	default:
-> +		return NULL;
-> +	}
-> +}
+Thats a different point.
 
-You'd still want to use the map helpers so it seems like we should
-change the bpf verified to verify against both a global and type
-specific list unless we want to add all the map helpers to
-ovs_func_proto as well.
+I dont care about rtt but TX completions. (usually much much lower than
+rtt)
 
-> +static bool test_is_valid_access(int off, int size, enum bpf_access_type type)
-> +{
-> +	const struct bpf_context_access *access;
-> +
-> +	if (off < 0 || off >= ARRAY_SIZE(bpf_ctx_access))
-> +		return false;
-> +
-> +	access = &bpf_ctx_access[off];
-> +	if (access->size == size && (access->type & type))
-> +		return true;
-> +
-> +	return false;
-> +}
+I can have a 4 usec delay from the moment a NIC submits a packet to the
+wire and I get TX completion IRQ, free the packet.
 
-OK. I see why you kept ctxt simple at first ;-)
+Yet the pong reply can come 100 ms later.
+
+It does not mean the 4 usec delay is a problem.
+
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
