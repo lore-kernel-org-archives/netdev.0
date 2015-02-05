@@ -1,159 +1,145 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 16/16] ixgbe: add Tx anti spoofing support
-Date: Thu,  5 Feb 2015 01:35:50 -0800
-Message-ID: <1423128950-12388-17-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 12/16] ixgbevf: Fix ordering of shutdown to correctly disable Rx and Tx
+Date: Thu,  5 Feb 2015 01:35:46 -0800
+Message-ID: <1423128950-12388-13-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1423128950-12388-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
+Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Alexander Duyck <alexander.h.duyck@redhat.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:55155 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:55144 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756904AbbBEJgL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Feb 2015 04:36:11 -0500
+	id S1756856AbbBEJgI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Feb 2015 04:36:08 -0500
 In-Reply-To: <1423128950-12388-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Don Skidmore <donald.c.skidmore@intel.com>
+From: Emil Tantilov <emil.s.tantilov@intel.com>
 
-This patch enables the ethertype Anti-Spoofing feature for affected
-devices. It is configured such that LLDP packets sent by a VF will
-be dropped.
+This patch updates the ordering of the shutdown path so that we attempt to
+shutdown the rings more gracefully. Basically the big changes are that we
+shutdown the main Rx filter in the case of Rx and we set the carrier_off
+state in the case of Tx so that packets stop being delivered from outside
+the driver.  Then we shut down interrupts and NAPI.  Finally we stop the
+rings from performing DMA and clean them.  This is a bit more graceful than
+the previous path.
 
-Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
+CC: Alexander Duyck <alexander.h.duyck@redhat.com>
+Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
 Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe.h      |  2 ++
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 14 ++++++++++++++
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h |  7 +++++++
- drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c | 24 ++++++++++++++++++++++++
- 4 files changed, 47 insertions(+)
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 38 ++++++++++-------------
+ 1 file changed, 17 insertions(+), 21 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-index 699117af..7dcbbec 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-@@ -76,6 +76,8 @@
- #define IXGBE_MAX_RXD			   4096
- #define IXGBE_MIN_RXD			     64
+diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+index b1d25fd..9281685 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
++++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+@@ -1957,6 +1957,10 @@ static void ixgbevf_up_complete(struct ixgbevf_adapter *adapter)
+ 	clear_bit(__IXGBEVF_DOWN, &adapter->state);
+ 	ixgbevf_napi_enable_all(adapter);
  
-+#define IXGBE_ETH_P_LLDP		 0x88CC
++	/* clear any pending interrupts, may auto mask */
++	IXGBE_READ_REG(hw, IXGBE_VTEICR);
++	ixgbevf_irq_enable(adapter);
 +
- /* flow control */
- #define IXGBE_MIN_FCRTL			   0x40
- #define IXGBE_MAX_FCRTL			0x7FF80
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 065ff48..e05c846 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -3585,10 +3585,24 @@ static void ixgbe_configure_virtualization(struct ixgbe_adapter *adapter)
- 	/* Enable MAC Anti-Spoofing */
- 	hw->mac.ops.set_mac_anti_spoofing(hw, (adapter->num_vfs != 0),
- 					  adapter->num_vfs);
+ 	/* enable transmits */
+ 	netif_tx_start_all_queues(netdev);
+ 
+@@ -1969,16 +1973,9 @@ static void ixgbevf_up_complete(struct ixgbevf_adapter *adapter)
+ 
+ void ixgbevf_up(struct ixgbevf_adapter *adapter)
+ {
+-	struct ixgbe_hw *hw = &adapter->hw;
+-
+ 	ixgbevf_configure(adapter);
+ 
+ 	ixgbevf_up_complete(adapter);
+-
+-	/* clear any pending interrupts, may auto mask */
+-	IXGBE_READ_REG(hw, IXGBE_VTEICR);
+-
+-	ixgbevf_irq_enable(adapter);
+ }
+ 
+ /**
+@@ -2085,17 +2082,20 @@ void ixgbevf_down(struct ixgbevf_adapter *adapter)
+ 	for (i = 0; i < adapter->num_rx_queues; i++)
+ 		ixgbevf_disable_rx_queue(adapter, adapter->rx_ring[i]);
+ 
+-	netif_tx_disable(netdev);
+-
+-	msleep(10);
++	usleep_range(10000, 20000);
+ 
+ 	netif_tx_stop_all_queues(netdev);
+ 
++	/* call carrier off first to avoid false dev_watchdog timeouts */
++	netif_carrier_off(netdev);
++	netif_tx_disable(netdev);
 +
-+	/* Ensure LLDP is set for Ethertype Antispoofing if we will be
-+	 * calling set_ethertype_anti_spoofing for each VF in loop below
-+	 */
-+	if (hw->mac.ops.set_ethertype_anti_spoofing)
-+		IXGBE_WRITE_REG(hw, IXGBE_ETQF(IXGBE_ETQF_FILTER_LLDP),
-+				(IXGBE_ETQF_FILTER_EN    | /* enable filter */
-+				 IXGBE_ETQF_TX_ANTISPOOF | /* tx antispoof */
-+				 IXGBE_ETH_P_LLDP));	   /* LLDP eth type */
+ 	ixgbevf_irq_disable(adapter);
+ 
+ 	ixgbevf_napi_disable_all(adapter);
+ 
+ 	del_timer_sync(&adapter->watchdog_timer);
 +
- 	/* For VFs that have spoof checking turned off */
- 	for (i = 0; i < adapter->num_vfs; i++) {
- 		if (!adapter->vfinfo[i].spoofchk_enabled)
- 			ixgbe_ndo_set_vf_spoofchk(adapter->netdev, i, false);
-+
-+		/* enable ethertype anti spoofing if hw supports it */
-+		if (hw->mac.ops.set_ethertype_anti_spoofing)
-+			hw->mac.ops.set_ethertype_anti_spoofing(hw, true, i);
+ 	/* can't call flush scheduled work here because it can deadlock
+ 	 * if linkwatch_event tries to acquire the rtnl_lock which we are
+ 	 * holding */
+@@ -2110,8 +2110,6 @@ void ixgbevf_down(struct ixgbevf_adapter *adapter)
+ 				IXGBE_TXDCTL_SWFLSH);
  	}
- }
  
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-index 38a0e64..0ede315 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-@@ -378,6 +378,8 @@ struct ixgbe_thermal_sensor_data {
- #define IXGBE_SPOOF_MACAS_MASK          0xFF
- #define IXGBE_SPOOF_VLANAS_MASK         0xFF00
- #define IXGBE_SPOOF_VLANAS_SHIFT        8
-+#define IXGBE_SPOOF_ETHERTYPEAS		0xFF000000
-+#define IXGBE_SPOOF_ETHERTYPEAS_SHIFT	16
- #define IXGBE_PFVFSPOOF_REG_COUNT       8
+-	netif_carrier_off(netdev);
+-
+ 	if (!pci_channel_offline(adapter->pdev))
+ 		ixgbevf_reset(adapter);
  
- #define IXGBE_DCA_TXCTRL(_i)    (0x07200 + ((_i) * 4)) /* 16 of these (0-15) */
-@@ -1541,6 +1543,7 @@ enum {
- #define IXGBE_MAX_ETQF_FILTERS  8
- #define IXGBE_ETQF_FCOE         0x08000000 /* bit 27 */
- #define IXGBE_ETQF_BCN          0x10000000 /* bit 28 */
-+#define IXGBE_ETQF_TX_ANTISPOOF	0x20000000 /* bit 29 */
- #define IXGBE_ETQF_1588         0x40000000 /* bit 30 */
- #define IXGBE_ETQF_FILTER_EN    0x80000000 /* bit 31 */
- #define IXGBE_ETQF_POOL_ENABLE   (1 << 26) /* bit 26 */
-@@ -1566,6 +1569,9 @@ enum {
- #define IXGBE_ETQF_FILTER_FCOE           2
- #define IXGBE_ETQF_FILTER_1588           3
- #define IXGBE_ETQF_FILTER_FIP            4
-+#define IXGBE_ETQF_FILTER_LLDP		 5
-+#define IXGBE_ETQF_FILTER_LACP		 6
-+
- /* VLAN Control Bit Masks */
- #define IXGBE_VLNCTRL_VET       0x0000FFFF  /* bits 0-15 */
- #define IXGBE_VLNCTRL_CFI       0x10000000  /* bit 28 */
-@@ -3061,6 +3067,7 @@ struct ixgbe_mac_operations {
- 	s32 (*set_fw_drv_ver)(struct ixgbe_hw *, u8, u8, u8, u8);
- 	s32 (*get_thermal_sensor_data)(struct ixgbe_hw *);
- 	s32 (*init_thermal_sensor_thresh)(struct ixgbe_hw *hw);
-+	void (*set_ethertype_anti_spoofing)(struct ixgbe_hw *, bool, int);
+@@ -2995,10 +2993,6 @@ static int ixgbevf_open(struct net_device *netdev)
+ 	if (!adapter->num_msix_vectors)
+ 		return -ENOMEM;
  
- 	/* DMA Coalescing */
- 	s32 (*dmac_config)(struct ixgbe_hw *hw);
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-index 84affca..50bf819 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-@@ -1300,6 +1300,28 @@ mac_reset_top:
- 	return status;
- }
+-	/* disallow open during test */
+-	if (test_bit(__IXGBEVF_TESTING, &adapter->state))
+-		return -EBUSY;
+-
+ 	if (hw->adapter_stopped) {
+ 		ixgbevf_reset(adapter);
+ 		/* if adapter is still stopped then PF isn't up and
+@@ -3011,6 +3005,12 @@ static int ixgbevf_open(struct net_device *netdev)
+ 		}
+ 	}
  
-+/** ixgbe_set_ethertype_anti_spoofing_X550 - Enable/Disable Ethertype
-+ *	anti-spoofing
-+ *  @hw:  pointer to hardware structure
-+ *  @enable: enable or disable switch for Ethertype anti-spoofing
-+ *  @vf: Virtual Function pool - VF Pool to set for Ethertype anti-spoofing
-+ **/
-+void ixgbe_set_ethertype_anti_spoofing_X550(struct ixgbe_hw *hw, bool enable,
-+					    int vf)
-+{
-+	int vf_target_reg = vf >> 3;
-+	int vf_target_shift = vf % 8 + IXGBE_SPOOF_ETHERTYPEAS_SHIFT;
-+	u32 pfvfspoof;
++	/* disallow open during test */
++	if (test_bit(__IXGBEVF_TESTING, &adapter->state))
++		return -EBUSY;
 +
-+	pfvfspoof = IXGBE_READ_REG(hw, IXGBE_PFVFSPOOF(vf_target_reg));
-+	if (enable)
-+		pfvfspoof |= (1 << vf_target_shift);
-+	else
-+		pfvfspoof &= ~(1 << vf_target_shift);
++	netif_carrier_off(netdev);
 +
-+	IXGBE_WRITE_REG(hw, IXGBE_PFVFSPOOF(vf_target_reg), pfvfspoof);
-+}
-+
- #define X550_COMMON_MAC \
- 	.init_hw			= &ixgbe_init_hw_generic, \
- 	.start_hw			= &ixgbe_start_hw_X540, \
-@@ -1334,6 +1356,8 @@ mac_reset_top:
- 	.init_uta_tables		= &ixgbe_init_uta_tables_generic, \
- 	.set_mac_anti_spoofing		= &ixgbe_set_mac_anti_spoofing, \
- 	.set_vlan_anti_spoofing		= &ixgbe_set_vlan_anti_spoofing, \
-+	.set_ethertype_anti_spoofing	= \
-+				&ixgbe_set_ethertype_anti_spoofing_X550, \
- 	.acquire_swfw_sync		= &ixgbe_acquire_swfw_sync_X540, \
- 	.release_swfw_sync		= &ixgbe_release_swfw_sync_X540, \
- 	.disable_rx_buff		= &ixgbe_disable_rx_buff_generic, \
+ 	/* allocate transmit descriptors */
+ 	err = ixgbevf_setup_all_tx_resources(adapter);
+ 	if (err)
+@@ -3030,15 +3030,11 @@ static int ixgbevf_open(struct net_device *netdev)
+ 	 */
+ 	ixgbevf_map_rings_to_vectors(adapter);
+ 
+-	ixgbevf_up_complete(adapter);
+-
+-	/* clear any pending interrupts, may auto mask */
+-	IXGBE_READ_REG(hw, IXGBE_VTEICR);
+ 	err = ixgbevf_request_irq(adapter);
+ 	if (err)
+ 		goto err_req_irq;
+ 
+-	ixgbevf_irq_enable(adapter);
++	ixgbevf_up_complete(adapter);
+ 
+ 	return 0;
+ 
 -- 
 1.9.3
