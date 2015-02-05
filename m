@@ -1,69 +1,59 @@
-From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: Throughput regression with `tcp: refine TSO autosizing`
-Date: Thu, 05 Feb 2015 05:33:30 -0800
-Message-ID: <1423143210.31870.51.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CA+BoTQkVu23P3EOmY_Q3E1GJnWsyF==Pawz4iPOS_Bq5dvfO5Q@mail.gmail.com>
-	 <1422537297.21689.15.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+BoTQk2xT-8DqPuiiKG+kHAjLPrj8F9dLTb-rcGhvMq0u_2Qw@mail.gmail.com>
-	 <1422628835.21689.95.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+BoTQkV+mOZfe_Niz5101sMQeaV6muKCsShptjGQ1AgOHqqoQ@mail.gmail.com>
-	 <1422903136.21689.114.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1422926330.21689.138.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+BoTQkMikA8wxm1ce2DkKhPB0HiKeAqT7f+sQ=91W40z=X0Rg@mail.gmail.com>
-	 <1422973660.907.10.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+BoTQmvUuFdfYF=wVMYxrf_nQZB5GCV=LvDZVvfs-3hAE4WKw@mail.gmail.com>
-	 <1423051045.907.108.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+BoTQ=BDcQ779uKCuX+f40=4npXVF4MTQnpjKimNYAxPsxBoQ@mail.gmail.com>
-	 <1423053531.907.115.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+BoTQ=qmCZz4CmSOvCOzMLowrDEG12XBffkTcYxjGqVD9604g@mail.gmail.com>
-	 <1423055810.907.125.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1423056591.907.130.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1423084303.31870.15.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+BoTQnnwrv0nrKyGyQNvosz_E4e5fBa9iN8fpeqcd-iRfi17g@mail.gmail.com>
-	 <1423141038.31870.38.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1423142342.31870.49.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Neal Cardwell <ncardwell-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	eyalpe-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org
-To: Michal Kazior <michal.kazior-++hxYGjEMp0AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1423142342.31870.49.camel-XN9IlZ5yJG9HTL0Zs8A6p/gx64E7kk8eUsxypvmhUTTZJqsBc5GL+g@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Jon Maloy <jon.maloy@ericsson.com>
+Subject: [PATCH net-next 0/9] tipc: resolve message disordering problem
+Date: Thu,  5 Feb 2015 08:36:35 -0500
+Message-ID: <1423143404-23322-1-git-send-email-jon.maloy@ericsson.com>
+Cc: netdev@vger.kernel.org,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	erik.hugne@ericsson.com, ying.xue@windriver.com, maloy@donjonn.com,
+	tipc-discussion@lists.sourceforge.net,
+	Jon Maloy <jon.maloy@ericsson.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp103.biz.mail.bf1.yahoo.com ([98.139.221.62]:46154 "EHLO
+	smtp103.biz.mail.bf1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752947AbbBENhV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Feb 2015 08:37:21 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2015-02-05 at 05:19 -0800, Eric Dumazet wrote:
+When TIPC receives messages from multi-threaded device drivers it may
+occasionally deliver messages to their destination sockets in the wrong
+order. This happens despite correct resequencing at the link layer,
+because the upcall path from link to socket is not protected by any
+locks.
 
-> 
-> TCP could  eventually dynamically adjust the tcp_limit_output_bytes,
-> using a per flow dynamic value, but I would rather not add a kludge in
-> TCP stack only to deal with a possible bug in ath10k driver.
-> 
-> niu has a similar issue and simply had to call skb_orphan() :
-> 
-> drivers/net/ethernet/sun/niu.c:6669:            skb_orphan(skb);
-
-In your case that might be the place :
-
-diff --git a/drivers/net/wireless/ath/ath10k/htt_tx.c b/drivers/net/wireless/ath/ath10k/htt_tx.c
-index 4bc51d8a14a3..cbda7a87d5a1 100644
---- a/drivers/net/wireless/ath/ath10k/htt_tx.c
-+++ b/drivers/net/wireless/ath/ath10k/htt_tx.c
-@@ -468,6 +468,7 @@ int ath10k_htt_tx(struct ath10k_htt *htt, struct sk_buff *msdu)
- 	msdu_id = res;
- 	htt->pending_tx[msdu_id] = msdu;
- 	spin_unlock_bh(&htt->tx_lock);
-+	skb_orphan(msdu);
- 
- 	prefetch_len = min(htt->prefetch_len, msdu->len);
- 	prefetch_len = roundup(prefetch_len, 4);
+These commits solve this problem by introducing an 'input' message
+queue in each link, through which messages must be delivered to the
+upper layers.
 
 
+Jon Maloy (9):
+  tipc: reduce usage of context info in socket and link
+  tipc: simplify message forwarding and rejection in socket layer
+  tipc: enqueue arrived buffers in socket in separate function
+  tipc: split up function tipc_msg_eval()
+  tipc: use existing sk_write_queue for outgoing packet chain
+  tipc: resolve race problem at unicast message reception
+  tipc: simplify connection abort notifications when links break
+  tipc: simplify socket multicast reception
+  tipc: eliminate race condition at multicast reception
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+ net/tipc/bcast.c      | 121 ++++++----------
+ net/tipc/bcast.h      |  29 ++--
+ net/tipc/discover.c   |   3 +-
+ net/tipc/link.c       | 301 +++++++++++++++++----------------------
+ net/tipc/link.h       |  14 +-
+ net/tipc/msg.c        | 109 ++++++++------
+ net/tipc/msg.h        | 107 ++++++++++++--
+ net/tipc/name_distr.c |  38 +++--
+ net/tipc/name_distr.h |   2 +-
+ net/tipc/name_table.c |  44 +++++-
+ net/tipc/name_table.h |  20 ++-
+ net/tipc/node.c       | 103 +++++++-------
+ net/tipc/node.h       |  22 ++-
+ net/tipc/socket.c     | 382 +++++++++++++++++++++++++++++---------------------
+ net/tipc/socket.h     |   8 +-
+ 15 files changed, 740 insertions(+), 563 deletions(-)
+
+-- 
+1.9.1
