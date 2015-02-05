@@ -1,177 +1,200 @@
 From: David Ahern <dsahern@gmail.com>
-Subject: [RFC PATCH 18/29] net: vrf: Plumbing for vrf context on a socket
-Date: Wed,  4 Feb 2015 18:34:19 -0700
-Message-ID: <1423100070-31848-19-git-send-email-dsahern@gmail.com>
+Subject: [RFC PATCH 17/29] net: vrf: Add vrf context to task struct
+Date: Wed,  4 Feb 2015 18:34:18 -0700
+Message-ID: <1423100070-31848-18-git-send-email-dsahern@gmail.com>
 References: <1423100070-31848-1-git-send-email-dsahern@gmail.com>
 Cc: ebiederm@xmission.com, David Ahern <dsahern@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f181.google.com ([209.85.223.181]:47946 "EHLO
-	mail-ie0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S966747AbbBEBgJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2015 20:36:09 -0500
-Received: by mail-ie0-f181.google.com with SMTP id rd18so6677850iec.12
-        for <netdev@vger.kernel.org>; Wed, 04 Feb 2015 17:36:08 -0800 (PST)
+Received: from mail-ig0-f180.google.com ([209.85.213.180]:44317 "EHLO
+	mail-ig0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756325AbbBEBgI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2015 20:36:08 -0500
+Received: by mail-ig0-f180.google.com with SMTP id b16so8428500igk.1
+        for <netdev@vger.kernel.org>; Wed, 04 Feb 2015 17:36:07 -0800 (PST)
 In-Reply-To: <1423100070-31848-1-git-send-email-dsahern@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sockets inherit the vrf context of the task opening it. The context can
-be read/changed via a socket option (IP_VRF_CONTEXT).
+vrf context is passed parent to child. Defaults to 1 and can be read
+and changed via /proc/<pid>/vrf. In time the /proc write option can be
+removed in favor of a prctl; writing to a proc file is a lot simpler
+at this point.
+
+A tasks' vrf context is the default used for sockets created by the
+task. This is addressed in the next patch.
 
 Signed-off-by: David Ahern <dsahern@gmail.com>
 ---
- include/uapi/linux/in.h         |  1 +
- net/core/sock.c                 |  2 ++
- net/ipv4/inet_connection_sock.c |  5 +++--
- net/ipv4/inet_hashtables.c      |  1 +
- net/ipv4/inet_timewait_sock.c   |  1 +
- net/ipv4/ip_output.c            |  1 +
- net/ipv4/ip_sockglue.c          | 14 ++++++++++++++
- net/ipv4/tcp_minisocks.c        |  1 +
- 8 files changed, 24 insertions(+), 2 deletions(-)
+ fs/proc/base.c            | 94 +++++++++++++++++++++++++++++++++++++++++++++++
+ include/linux/init_task.h |  1 +
+ include/linux/sched.h     |  2 +
+ kernel/fork.c             |  2 +
+ 4 files changed, 99 insertions(+)
 
-diff --git a/include/uapi/linux/in.h b/include/uapi/linux/in.h
-index 589ced069e8a..77ac6fce6493 100644
---- a/include/uapi/linux/in.h
-+++ b/include/uapi/linux/in.h
-@@ -145,6 +145,7 @@ struct in_addr {
- #define MCAST_MSFILTER			48
- #define IP_MULTICAST_ALL		49
- #define IP_UNICAST_IF			50
-+#define IP_VRF_CONTEXT			51
+diff --git a/fs/proc/base.c b/fs/proc/base.c
+index 3f3d7aeb0712..9e538075f7e5 100644
+--- a/fs/proc/base.c
++++ b/fs/proc/base.c
+@@ -90,6 +90,7 @@
+ #ifdef CONFIG_HARDWALL
+ #include <asm/hardwall.h>
+ #endif
++#include <net/vrf.h>
+ #include <trace/events/oom.h>
+ #include "internal.h"
+ #include "fd.h"
+@@ -456,6 +457,97 @@ static int proc_pid_limits(struct seq_file *m, struct pid_namespace *ns,
+ 	return 0;
+ }
  
- #define MCAST_EXCLUDE	0
- #define MCAST_INCLUDE	1
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 93c8b20c91e4..8a4ef8540e50 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -1392,6 +1392,8 @@ struct sock *sk_alloc(struct net *net, int family, gfp_t priority,
- 		sk->sk_prot = sk->sk_prot_creator = prot;
- 		sock_lock_init(sk);
- 		sock_net_set(sk, get_net(net));
-+		/* by default socket takes on vrf of task */
-+		sk->sk_vrf = current->vrf;
- 		atomic_set(&sk->sk_wmem_alloc, 1);
- 
- 		sock_update_classid(sk);
-diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
-index b3580594d08a..3b8df03c69db 100644
---- a/net/ipv4/inet_connection_sock.c
-+++ b/net/ipv4/inet_connection_sock.c
-@@ -404,7 +404,7 @@ struct dst_entry *inet_csk_route_req(struct sock *sk,
- 	const struct inet_request_sock *ireq = inet_rsk(req);
- 	struct ip_options_rcu *opt = inet_rsk(req)->opt;
- 	struct net *net = sock_net(sk);
--	struct net_ctx ctx = { .net = net };
-+	struct net_ctx ctx = { .net = net, .vrf = ireq->ir_vrf };
- 	int flags = inet_sk_flowi_flags(sk);
- 
- 	flowi4_init_output(fl4, sk->sk_bound_dev_if, ireq->ir_mark,
-@@ -437,7 +437,7 @@ struct dst_entry *inet_csk_route_child_sock(struct sock *sk,
- 	struct inet_sock *newinet = inet_sk(newsk);
- 	struct ip_options_rcu *opt;
- 	struct net *net = sock_net(sk);
--	struct net_ctx ctx = { .net = net };
-+	struct net_ctx ctx = { .net = net, .vrf = ireq->ir_vrf };
- 	struct flowi4 *fl4;
- 	struct rtable *rt;
- 
-@@ -681,6 +681,7 @@ struct sock *inet_csk_clone_lock(const struct sock *sk,
- 		newsk->sk_write_space = sk_stream_write_space;
- 
- 		newsk->sk_mark = inet_rsk(req)->ir_mark;
-+		newsk->sk_vrf  = inet_rsk(req)->ir_vrf;
- 
- 		newicsk->icsk_retransmits = 0;
- 		newicsk->icsk_backoff	  = 0;
-diff --git a/net/ipv4/inet_hashtables.c b/net/ipv4/inet_hashtables.c
-index 8b3d94ca634c..71c31c81aea1 100644
---- a/net/ipv4/inet_hashtables.c
-+++ b/net/ipv4/inet_hashtables.c
-@@ -62,6 +62,7 @@ struct inet_bind_bucket *inet_bind_bucket_create(struct kmem_cache *cachep,
- 
- 	if (tb != NULL) {
- 		write_pnet(&tb->ib_net_ctx.net, hold_net(ctx->net));
-+		tb->ib_net_ctx.vrf = ctx->vrf;
- 		tb->port      = snum;
- 		tb->fastreuse = 0;
- 		tb->fastreuseport = 0;
-diff --git a/net/ipv4/inet_timewait_sock.c b/net/ipv4/inet_timewait_sock.c
-index 6d592f8555fb..faec08993a46 100644
---- a/net/ipv4/inet_timewait_sock.c
-+++ b/net/ipv4/inet_timewait_sock.c
-@@ -196,6 +196,7 @@ struct inet_timewait_sock *inet_twsk_alloc(const struct sock *sk, const int stat
- 		tw->tw_transparent  = inet->transparent;
- 		tw->tw_prot	    = sk->sk_prot_creator;
- 		twsk_net_set(tw, hold_net(sock_net(sk)));
-+		tw->tw_vrf	    = sk->sk_vrf;
- 		/*
- 		 * Because we use RCU lookups, we should not set tw_refcnt
- 		 * to a non null value before everything is setup for this
-diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-index 855e003e43d8..126d6edea34e 100644
---- a/net/ipv4/ip_output.c
-+++ b/net/ipv4/ip_output.c
-@@ -1574,6 +1574,7 @@ void ip_send_unicast_reply(struct net_ctx *ctx, struct sk_buff *skb,
- 	sk->sk_protocol = ip_hdr(skb)->protocol;
- 	sk->sk_bound_dev_if = arg->bound_dev_if;
- 	sock_net_set(sk, ctx->net);
-+	sk->sk_vrf = ctx->vrf;
- 	__skb_queue_head_init(&sk->sk_write_queue);
- 	sk->sk_sndbuf = sysctl_wmem_default;
- 	err = ip_append_data(sk, &fl4, ip_reply_glue_bits, arg->iov->iov_base,
-diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
-index 8ab03f0431f5..eeb51e935379 100644
---- a/net/ipv4/ip_sockglue.c
-+++ b/net/ipv4/ip_sockglue.c
-@@ -555,6 +555,7 @@ static int do_ip_setsockopt(struct sock *sk, int level,
- 	case IP_MULTICAST_LOOP:
- 	case IP_RECVORIGDSTADDR:
- 	case IP_CHECKSUM:
-+	case IP_VRF_CONTEXT:
- 		if (optlen >= sizeof(int)) {
- 			if (get_user(val, (int __user *) optval))
- 				return -EFAULT;
-@@ -1104,6 +1105,16 @@ static int do_ip_setsockopt(struct sock *sk, int level,
- 		inet->min_ttl = val;
- 		break;
- 
-+	case IP_VRF_CONTEXT:
-+		/* VRF context can only be set on unconnected sockets */
-+		if (inet->inet_sport || inet->inet_dport) {
-+			err = -EINVAL;
-+			break;
-+		}
-+		sk->sk_vrf = val;
-+		err = 0;
-+		break;
++static ssize_t vrf_read(struct file *file, char __user *buf,
++				size_t count, loff_t *ppos)
++{
++	struct task_struct *task = get_proc_task(file->f_path.dentry->d_inode);
++	char buffer[16];
++	size_t len;
++	__u32 vrf = 0;
++	unsigned long flags;
 +
- 	default:
- 		err = -ENOPROTOOPT;
- 		break;
-@@ -1411,6 +1422,9 @@ static int do_ip_getsockopt(struct sock *sk, int level, int optname,
- 	case IP_MINTTL:
- 		val = inet->min_ttl;
- 		break;
-+	case IP_VRF_CONTEXT:
-+		val = sk->sk_vrf;
-+		break;
- 	default:
- 		release_sock(sk);
- 		return -ENOPROTOOPT;
-diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
-index bc9216dc9de1..f5b869799b14 100644
---- a/net/ipv4/tcp_minisocks.c
-+++ b/net/ipv4/tcp_minisocks.c
-@@ -283,6 +283,7 @@ void tcp_time_wait(struct sock *sk, int state, int timeo)
++	if (!task)
++		return -ESRCH;
++
++	if (lock_task_sighand(task, &flags)) {
++		vrf = task->vrf;
++		unlock_task_sighand(task, &flags);
++	}
++
++	put_task_struct(task);
++
++	if (vrf == VRF_ANY)
++		len = snprintf(buffer, sizeof(buffer), "any\n");
++	else
++		len = snprintf(buffer, sizeof(buffer), "%i\n", vrf);
++
++	return simple_read_from_buffer(buf, count, ppos, buffer, len);
++}
++
++static ssize_t vrf_write(struct file *file, const char __user *buf,
++				size_t count, loff_t *ppos)
++{
++	struct task_struct *task;
++	char buffer[16], *pbuf;
++	__u32 vrf;
++	unsigned long flags;
++	int err;
++
++	memset(buffer, 0, sizeof(buffer));
++	if (count > sizeof(buffer) - 1)
++		count = sizeof(buffer) - 1;
++	if (copy_from_user(buffer, buf, count)) {
++		err = -EFAULT;
++		goto out;
++	}
++
++	pbuf = strstrip(buffer);
++	if (strcmp(pbuf, "any") == 0)
++		vrf = VRF_ANY;
++	else {
++		err = kstrtouint(strstrip(buffer), 0, &vrf);
++		if (err)
++			goto out;
++
++		if (!vrf_is_valid(vrf)) {
++			err = -EINVAL;
++			goto out;
++		}
++	}
++
++	task = get_proc_task(file_inode(file));
++	if (!task) {
++		err = -ESRCH;
++		goto out;
++	}
++
++	task_lock(task);
++	if (!task->mm) {
++		err = -EINVAL;
++		goto err_task_lock;
++	}
++
++	if (!lock_task_sighand(task, &flags)) {
++		err = -ESRCH;
++		goto err_task_lock;
++	}
++
++	task->vrf = vrf;
++
++	unlock_task_sighand(task, &flags);
++err_task_lock:
++	task_unlock(task);
++	put_task_struct(task);
++out:
++	return err < 0 ? err : count;
++}
++
++static const struct file_operations proc_vrf_operations = {
++	.read		= vrf_read,
++	.write		= vrf_write,
++	.llseek		= generic_file_llseek,
++};
++
+ #ifdef CONFIG_HAVE_ARCH_TRACEHOOK
+ static int proc_pid_syscall(struct seq_file *m, struct pid_namespace *ns,
+ 			    struct pid *pid, struct task_struct *task)
+@@ -2628,6 +2720,7 @@ static const struct pid_entry tgid_base_stuff[] = {
+ #ifdef CONFIG_CHECKPOINT_RESTORE
+ 	REG("timers",	  S_IRUGO, proc_timers_operations),
+ #endif
++	REG("vrf",   S_IRUGO|S_IWUSR, proc_vrf_operations),
+ };
  
- 		tw->tw_transparent	= inet->transparent;
- 		tw->tw_rcv_wscale	= tp->rx_opt.rcv_wscale;
-+		tw->tw_vrf		= sk->sk_vrf;
- 		tcptw->tw_rcv_nxt	= tp->rcv_nxt;
- 		tcptw->tw_snd_nxt	= tp->snd_nxt;
- 		tcptw->tw_rcv_wnd	= tcp_receive_window(tp);
+ static int proc_tgid_base_readdir(struct file *file, struct dir_context *ctx)
+@@ -2970,6 +3063,7 @@ static const struct pid_entry tid_base_stuff[] = {
+ 	REG("projid_map", S_IRUGO|S_IWUSR, proc_projid_map_operations),
+ 	REG("setgroups",  S_IRUGO|S_IWUSR, proc_setgroups_operations),
+ #endif
++	REG("vrf",   S_IRUGO|S_IWUSR, proc_vrf_operations),
+ };
+ 
+ static int proc_tid_base_readdir(struct file *file, struct dir_context *ctx)
+diff --git a/include/linux/init_task.h b/include/linux/init_task.h
+index 3037fc085e8e..3ae3a93d42ce 100644
+--- a/include/linux/init_task.h
++++ b/include/linux/init_task.h
+@@ -247,6 +247,7 @@ extern struct task_group root_task_group;
+ 	INIT_RT_MUTEXES(tsk)						\
+ 	INIT_VTIME(tsk)							\
+ 	INIT_NUMA_BALANCING(tsk)					\
++	.vrf = VRF_DEFAULT,						\
+ }
+ 
+ 
+diff --git a/include/linux/sched.h b/include/linux/sched.h
+index 8db31ef98d2f..8b40ba202906 100644
+--- a/include/linux/sched.h
++++ b/include/linux/sched.h
+@@ -1459,6 +1459,8 @@ struct task_struct {
+ 	struct files_struct *files;
+ /* namespaces */
+ 	struct nsproxy *nsproxy;
++/* vrf context within a namespace */
++	__u32 vrf;
+ /* signal handlers */
+ 	struct signal_struct *signal;
+ 	struct sighand_struct *sighand;
+diff --git a/kernel/fork.c b/kernel/fork.c
+index 4dc2ddade9f1..a6f412da1378 100644
+--- a/kernel/fork.c
++++ b/kernel/fork.c
+@@ -352,6 +352,8 @@ static struct task_struct *dup_task_struct(struct task_struct *orig)
+ 	tsk->splice_pipe = NULL;
+ 	tsk->task_frag.page = NULL;
+ 
++	tsk->vrf = orig->vrf;
++
+ 	account_kernel_stack(ti, 1);
+ 
+ 	return tsk;
 -- 
 1.9.3 (Apple Git-50)
