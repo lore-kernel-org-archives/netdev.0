@@ -1,216 +1,392 @@
 From: David Ahern <dsahern@gmail.com>
-Subject: [RFC PATCH 21/29] net: vrf: Add vrf context to genid's
-Date: Wed,  4 Feb 2015 18:34:22 -0700
-Message-ID: <1423100070-31848-22-git-send-email-dsahern@gmail.com>
+Subject: [RFC PATCH 23/29] net: vrf: Enable vrf checks
+Date: Wed,  4 Feb 2015 18:34:24 -0700
+Message-ID: <1423100070-31848-24-git-send-email-dsahern@gmail.com>
 References: <1423100070-31848-1-git-send-email-dsahern@gmail.com>
 Cc: ebiederm@xmission.com, David Ahern <dsahern@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f180.google.com ([209.85.223.180]:48053 "EHLO
-	mail-ie0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756278AbbBEBgL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2015 20:36:11 -0500
-Received: by mail-ie0-f180.google.com with SMTP id rl12so6706889iec.11
-        for <netdev@vger.kernel.org>; Wed, 04 Feb 2015 17:36:11 -0800 (PST)
+Received: from mail-ig0-f170.google.com ([209.85.213.170]:58535 "EHLO
+	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756371AbbBEBgN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2015 20:36:13 -0500
+Received: by mail-ig0-f170.google.com with SMTP id l13so35416246iga.1
+        for <netdev@vger.kernel.org>; Wed, 04 Feb 2015 17:36:13 -0800 (PST)
 In-Reply-To: <1423100070-31848-1-git-send-email-dsahern@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Bottom 12 bits (VRF_BITS) are the VRF id.
+Add vrf comparison to all of the net_ctx_eq functions and a few other
+places needed to enable vrf awareness.
 
 Signed-off-by: David Ahern <dsahern@gmail.com>
 ---
- include/net/ip_fib.h        |  2 +-
- include/net/net_namespace.h | 12 ++++++++----
- net/ipv4/devinet.c          | 12 ++++++++----
- net/ipv4/fib_frontend.c     |  8 +++++---
- net/ipv4/fib_semantics.c    |  2 +-
- net/ipv4/route.c            | 13 +++++++++++--
- 6 files changed, 34 insertions(+), 15 deletions(-)
+ include/linux/netdevice.h     |  3 ++-
+ include/net/inet_hashtables.h |  3 ++-
+ include/net/ip_fib.h          |  3 ++-
+ include/net/ipv6.h            |  2 +-
+ include/net/neighbour.h       |  6 ++++--
+ include/net/net_namespace.h   |  2 +-
+ include/net/sock.h            |  2 +-
+ net/core/dev.c                |  9 +++++++++
+ net/core/fib_rules.c          |  4 ++--
+ net/core/neighbour.c          |  6 ++++--
+ net/ipv4/arp.c                |  4 +++-
+ net/ipv4/devinet.c            | 11 ++++++++++-
+ net/ipv4/fib_frontend.c       |  2 +-
+ net/ipv4/fib_semantics.c      |  5 +++++
+ net/ipv4/igmp.c               |  7 +++++++
+ net/ipv4/inet_hashtables.c    |  2 ++
+ net/ipv4/ip_sockglue.c        |  4 ++++
+ 17 files changed, 60 insertions(+), 15 deletions(-)
 
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index b6de06eda683..f4a707263446 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1857,7 +1857,8 @@ __u32 dev_vrf(const struct net_device *dev)
+ static inline
+ int dev_net_ctx_eq(const struct net_device *dev, struct net_ctx *ctx)
+ {
+-	if (net_eq(dev_net(dev), ctx->net))
++	if (net_eq(dev_net(dev), ctx->net) &&
++	    vrf_eq(dev_vrf(dev), ctx->vrf))
+ 		return 1;
+ 
+ 	return 0;
+diff --git a/include/net/inet_hashtables.h b/include/net/inet_hashtables.h
+index eec177ef0798..199809e46133 100644
+--- a/include/net/inet_hashtables.h
++++ b/include/net/inet_hashtables.h
+@@ -101,7 +101,8 @@ void ib_net_ctx_set(struct inet_bind_bucket *ib, struct net_ctx *ctx)
+ static inline
+ int ib_net_ctx_eq(struct inet_bind_bucket *ib, struct net_ctx *ctx)
+ {
+-	if (net_eq(ib_net(ib), ctx->net))
++	if (net_eq(ib_net(ib), ctx->net) &&
++	    vrf_eq(ib->ib_net_ctx.vrf, ctx->vrf))
+ 		return 1;
+ 
+ 	return 0;
 diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
-index 577479d7f268..e6b823c0305e 100644
+index e6b823c0305e..d49358bc342c 100644
 --- a/include/net/ip_fib.h
 +++ b/include/net/ip_fib.h
-@@ -180,7 +180,7 @@ __be32 fib_info_update_nh_saddr(struct net_ctx *ctx, struct fib_nh *nh);
+@@ -127,7 +127,8 @@ struct fib_info {
+ static inline
+ int fib_net_ctx_eq(const struct fib_info *fi, const struct net_ctx *ctx)
+ {
+-	if (net_eq(fi->fib_net_ctx.net, ctx->net))
++	if (net_eq(fi->fib_net_ctx.net, ctx->net) &&
++	    vrf_eq(fi->fib_net_ctx.vrf, ctx->vrf))
+ 		return 1;
  
- #define FIB_RES_SADDR(ctx, res)				\
- 	((FIB_RES_NH(res).nh_saddr_genid ==		\
--	  atomic_read(&(ctx)->net->ipv4.dev_addr_genid)) ? \
-+	  (atomic_read(&(ctx)->net->ipv4.dev_addr_genid) + (ctx)->vrf)) ? \
- 	 FIB_RES_NH(res).nh_saddr :			\
- 	 fib_info_update_nh_saddr((ctx), &FIB_RES_NH(res)))
- #define FIB_RES_GW(res)			(FIB_RES_NH(res).nh_gw)
+ 	return 0;
+diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+index 61f8b6df8bb9..ba1d145d67fd 100644
+--- a/include/net/ipv6.h
++++ b/include/net/ipv6.h
+@@ -247,7 +247,7 @@ static inline
+ int fl_net_ctx_eq(struct ip6_flowlabel *fl, struct net_ctx *ctx)
+ {
+ #ifdef CONFIG_NET_NS
+-	return net_eq(fl->fl_net, ctx->net);
++	return net_eq(fl->fl_net, ctx->net) && vrf_eq(fl->fl_vrf, ctx->vrf);
+ #else
+ 	return 1;
+ #endif
+diff --git a/include/net/neighbour.h b/include/net/neighbour.h
+index d9e2328ad60a..f3527b25d612 100644
+--- a/include/net/neighbour.h
++++ b/include/net/neighbour.h
+@@ -294,7 +294,8 @@ int neigh_parms_net_ctx_eq(const struct neigh_parms *parms,
+ 			   const struct net_ctx *net_ctx)
+ {
+ #ifdef CONFIG_NET_NS
+-	if (net_eq(neigh_parms_net(parms), net_ctx->net))
++	if (net_eq(neigh_parms_net(parms), net_ctx->net) &&
++	    vrf_eq(neigh_parms_vrf(parms), net_ctx->vrf))
+ 		return 1;
+ 
+ 	return 0;
+@@ -330,7 +331,8 @@ int pneigh_net_ctx_eq(const struct pneigh_entry *pneigh,
+ 		      const struct net_ctx *net_ctx)
+ {
+ #ifdef CONFIG_NET_NS
+-	if (net_eq(pneigh_net(pneigh), net_ctx->net))
++	if (net_eq(pneigh_net(pneigh), net_ctx->net) &&
++	    vrf_eq(pneigh->net_ctx.vrf, net_ctx->vrf))
+ 		return 1;
+ 
+ 	return 0;
 diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
-index 7cc7b0a1a20b..d0a3414758f8 100644
+index d0a3414758f8..7ae98b85cd21 100644
 --- a/include/net/net_namespace.h
 +++ b/include/net/net_namespace.h
-@@ -372,12 +372,14 @@ static inline void unregister_net_sysctl_table(struct ctl_table_header *header)
- 
- static inline int rt_genid_ipv4(struct net_ctx *ctx)
+@@ -215,7 +215,7 @@ int net_eq(const struct net *net1, const struct net *net2)
+ static inline
+ int net_ctx_eq(struct net_ctx *ctx1, struct net_ctx *ctx2)
  {
--	return atomic_read(&ctx->net->ipv4.rt_genid);
-+	return atomic_read(&ctx->net->ipv4.rt_genid) + ctx->vrf;
+-	return net_eq(ctx1->net, ctx2->net);
++	return net_eq(ctx1->net, ctx2->net) && vrf_eq(ctx1->vrf, ctx2->vrf);
  }
  
- static inline void rt_genid_bump_ipv4(struct net *net)
+ 
+diff --git a/include/net/sock.h b/include/net/sock.h
+index d3668b691f82..a9b45fca4605 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -2205,7 +2205,7 @@ void sock_net_set(struct sock *sk, struct net *net)
+ static inline
+ int sock_net_ctx_eq(struct sock *sk, struct net_ctx *ctx)
  {
--	atomic_inc(&net->ipv4.rt_genid);
-+	int inc = 1 << VRF_BITS;
+-	return net_eq(sock_net(sk), ctx->net);
++	return net_eq(sock_net(sk), ctx->net) && vrf_eq(sk->sk_vrf, ctx->vrf);
+ }
+ 
+ /*
+diff --git a/net/core/dev.c b/net/core/dev.c
+index d64f5b107dba..adf575d6d267 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -688,6 +688,9 @@ struct net_device *__dev_get_by_name_ctx(struct net_ctx *ctx, const char *name)
+ {
+ 	struct net_device *dev = __dev_get_by_name(ctx->net, name);
+ 
++	if (dev && !vrf_eq(dev_vrf(dev), ctx->vrf))
++		dev = NULL;
 +
-+	atomic_add(inc, &net->ipv4.rt_genid);
+ 	return dev;
  }
- 
- extern void (*__fib6_flush_trees)(struct net *net);
-@@ -404,12 +406,14 @@ static inline void rt_genid_bump_all(struct net *net)
- 
- static inline int fnhe_genid(struct net_ctx *ctx)
+ EXPORT_SYMBOL(__dev_get_by_name_ctx);
+@@ -771,6 +774,9 @@ struct net_device *__dev_get_by_index_ctx(struct net_ctx *ctx, int ifindex)
  {
--	return atomic_read(&ctx->net->fnhe_genid);
-+	return atomic_read(&ctx->net->fnhe_genid) + ctx->vrf;
- }
+ 	struct net_device *dev = __dev_get_by_index(ctx->net, ifindex);
  
- static inline void fnhe_genid_bump(struct net *net)
- {
--	atomic_inc(&net->fnhe_genid);
-+	int inc = 1 << VRF_BITS;
++	if (dev && !vrf_eq(dev_vrf(dev), ctx->vrf))
++		dev = NULL;
 +
-+	atomic_add(inc, &net->fnhe_genid);
+ 	return dev;
  }
+ EXPORT_SYMBOL(__dev_get_by_index_ctx);
+@@ -814,6 +820,9 @@ struct net_device *dev_get_by_index_rcu_ctx(struct net_ctx *ctx, int ifindex)
+ {
+ 	struct net_device *dev = dev_get_by_index_rcu(ctx->net, ifindex);
  
- #endif /* __NET_NET_NAMESPACE_H */
++	if (dev && !vrf_eq(dev_vrf(dev), ctx->vrf))
++		dev = NULL;
++
+ 	return dev;
+ }
+ EXPORT_SYMBOL(dev_get_by_index_rcu_ctx);
+diff --git a/net/core/fib_rules.c b/net/core/fib_rules.c
+index 223a4004bdd0..aea74e16360c 100644
+--- a/net/core/fib_rules.c
++++ b/net/core/fib_rules.c
+@@ -317,7 +317,7 @@ static int fib_nl_newrule(struct sk_buff *skb, struct nlmsghdr* nlh)
+ 
+ 		rule->iifindex = -1;
+ 		nla_strlcpy(rule->iifname, tb[FRA_IIFNAME], IFNAMSIZ);
+-		dev = __dev_get_by_name(net, rule->iifname);
++		dev = __dev_get_by_name_ctx(&sk_ctx, rule->iifname);
+ 		if (dev)
+ 			rule->iifindex = dev->ifindex;
+ 	}
+@@ -327,7 +327,7 @@ static int fib_nl_newrule(struct sk_buff *skb, struct nlmsghdr* nlh)
+ 
+ 		rule->oifindex = -1;
+ 		nla_strlcpy(rule->oifname, tb[FRA_OIFNAME], IFNAMSIZ);
+-		dev = __dev_get_by_name(net, rule->oifname);
++		dev = __dev_get_by_name_ctx(&sk_ctx, rule->oifname);
+ 		if (dev)
+ 			rule->oifindex = dev->ifindex;
+ 	}
+diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+index e6c03d367f56..46b7e8cc7c70 100644
+--- a/net/core/neighbour.c
++++ b/net/core/neighbour.c
+@@ -2846,9 +2846,11 @@ static void neigh_copy_dflt_parms(struct net_ctx *ctx, struct neigh_parms *p,
+ 
+ 	rcu_read_lock();
+ 	for_each_netdev_rcu(ctx->net, dev) {
+-		struct neigh_parms *dst_p =
+-				neigh_get_dev_parms_rcu(dev, family);
++		struct neigh_parms *dst_p;
+ 
++		if (!vrf_eq(dev_vrf(dev), ctx->vrf))
++			continue;
++		dst_p = neigh_get_dev_parms_rcu(dev, family);
+ 		if (dst_p && !test_bit(index, dst_p->data_state))
+ 			dst_p->data[index] = p->data[index];
+ 	}
+diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
+index b24773b275a9..ed1453b9eeab 100644
+--- a/net/ipv4/arp.c
++++ b/net/ipv4/arp.c
+@@ -1021,6 +1021,8 @@ static int arp_req_set_public(struct net_ctx *ctx, struct arpreq *r,
+ 	if (!dev && (r->arp_flags & ATF_COM)) {
+ 		dev = dev_getbyhwaddr_rcu(net, r->arp_ha.sa_family,
+ 				      r->arp_ha.sa_data);
++		if (dev && !vrf_eq(dev_vrf(dev), ctx->vrf))
++			dev = NULL;
+ 		if (!dev)
+ 			return -ENODEV;
+ 	}
+@@ -1214,7 +1216,7 @@ int arp_ioctl(struct net_ctx *ctx, unsigned int cmd, void __user *arg)
+ 	rtnl_lock();
+ 	if (r.arp_dev[0]) {
+ 		err = -ENODEV;
+-		dev = __dev_get_by_name(net, r.arp_dev);
++		dev = __dev_get_by_name_ctx(ctx, r.arp_dev);
+ 		if (dev == NULL)
+ 			goto out;
+ 
 diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-index 02ffbfb8bfee..7c0c3bc17599 100644
+index 7c0c3bc17599..54afa816ff66 100644
 --- a/net/ipv4/devinet.c
 +++ b/net/ipv4/devinet.c
-@@ -1536,6 +1536,7 @@ static int inet_dump_ifaddr(struct sk_buff *skb, struct netlink_callback *cb)
- {
- 	struct net_ctx sk_ctx = SOCK_NET_CTX(skb->sk);
- 	struct net *net = sk_ctx.net;
-+	__u32 vrf = sk_ctx.vrf;
- 	int h, s_h;
- 	int idx, s_idx;
- 	int ip_idx, s_ip_idx;
-@@ -1549,11 +1550,12 @@ static int inet_dump_ifaddr(struct sk_buff *skb, struct netlink_callback *cb)
- 	s_ip_idx = ip_idx = cb->args[2];
+@@ -951,7 +951,7 @@ int devinet_ioctl(struct net_ctx *net_ctx, unsigned int cmd, void __user *arg)
+ 	rtnl_lock();
  
- 	for (h = s_h; h < NETDEV_HASHENTRIES; h++, s_idx = 0) {
-+		int genid;
- 		idx = 0;
- 		head = &net->dev_index_head[h];
- 		rcu_read_lock();
--		cb->seq = atomic_read(&net->ipv4.dev_addr_genid) ^
--			  net->dev_base_seq;
-+		genid = atomic_read(&net->ipv4.dev_addr_genid) + vrf;
-+		cb->seq = genid ^ net->dev_base_seq;
- 		hlist_for_each_entry_rcu(dev, head, index_hlist) {
- 			if (idx < s_idx)
- 				goto cont;
-@@ -1861,6 +1863,7 @@ static int inet_netconf_dump_devconf(struct sk_buff *skb,
- {
- 	struct net_ctx sk_ctx = SOCK_NET_CTX(skb->sk);
- 	struct net *net = sk_ctx.net;
-+	__u32 vrf = sk_ctx.vrf;
- 	int h, s_h;
- 	int idx, s_idx;
- 	struct net_device *dev;
-@@ -1871,11 +1874,12 @@ static int inet_netconf_dump_devconf(struct sk_buff *skb,
- 	s_idx = idx = cb->args[1];
+ 	ret = -ENODEV;
+-	dev = __dev_get_by_name(net, ifr.ifr_name);
++	dev = __dev_get_by_name_ctx(net_ctx, ifr.ifr_name);
+ 	if (!dev)
+ 		goto done;
  
- 	for (h = s_h; h < NETDEV_HASHENTRIES; h++, s_idx = 0) {
-+		int genid;
- 		idx = 0;
- 		head = &net->dev_index_head[h];
- 		rcu_read_lock();
--		cb->seq = atomic_read(&net->ipv4.dev_addr_genid) ^
--			  net->dev_base_seq;
-+		genid = atomic_read(&net->ipv4.dev_addr_genid) + vrf;
-+		cb->seq = genid ^ net->dev_base_seq;
- 		hlist_for_each_entry_rcu(dev, head, index_hlist) {
- 			if (idx < s_idx)
- 				goto cont;
-diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
-index f2a8a557a3d8..cba1e2c9c2ec 100644
---- a/net/ipv4/fib_frontend.c
-+++ b/net/ipv4/fib_frontend.c
-@@ -1021,6 +1021,7 @@ static int fib_inetaddr_event(struct notifier_block *this, unsigned long event,
- 	struct in_ifaddr *ifa = (struct in_ifaddr *)ptr;
- 	struct net_device *dev = ifa->ifa_dev->dev;
- 	struct net *net = dev_net(dev);
-+	int inc = 1 << VRF_BITS;
- 
- 	switch (event) {
- 	case NETDEV_UP:
-@@ -1028,12 +1029,12 @@ static int fib_inetaddr_event(struct notifier_block *this, unsigned long event,
- #ifdef CONFIG_IP_ROUTE_MULTIPATH
- 		fib_sync_up(dev);
- #endif
--		atomic_inc(&net->ipv4.dev_addr_genid);
-+		atomic_add(inc, &net->ipv4.dev_addr_genid);
- 		rt_cache_flush(dev_net(dev));
- 		break;
- 	case NETDEV_DOWN:
- 		fib_del_ifaddr(ifa, NULL);
--		atomic_inc(&net->ipv4.dev_addr_genid);
-+		atomic_add(inc, &net->ipv4.dev_addr_genid);
- 		if (ifa->ifa_dev->ifa_list == NULL) {
- 			/* Last address was deleted from this interface.
- 			 * Disable IP.
-@@ -1052,6 +1053,7 @@ static int fib_netdev_event(struct notifier_block *this, unsigned long event, vo
- 	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
+@@ -1166,6 +1166,7 @@ __be32 inet_select_addr(const struct net_device *dev, __be32 dst, int scope)
+ 	__be32 addr = 0;
  	struct in_device *in_dev;
  	struct net *net = dev_net(dev);
-+	int inc = 1 << VRF_BITS;
++	__u32 vrf = dev_vrf(dev);
  
- 	if (event == NETDEV_UNREGISTER) {
- 		fib_disable_ip(dev, 2);
-@@ -1071,7 +1073,7 @@ static int fib_netdev_event(struct notifier_block *this, unsigned long event, vo
- #ifdef CONFIG_IP_ROUTE_MULTIPATH
- 		fib_sync_up(dev);
- #endif
--		atomic_inc(&net->ipv4.dev_addr_genid);
-+		atomic_add(inc, &net->ipv4.dev_addr_genid);
- 		rt_cache_flush(net);
- 		break;
- 	case NETDEV_DOWN:
+ 	rcu_read_lock();
+ 	in_dev = __in_dev_get_rcu(dev);
+@@ -1192,6 +1193,8 @@ __be32 inet_select_addr(const struct net_device *dev, __be32 dst, int scope)
+ 	   in dev_base list.
+ 	 */
+ 	for_each_netdev_rcu(net, dev) {
++		if (!vrf_eq(dev_vrf(dev), vrf))
++			continue;
+ 		in_dev = __in_dev_get_rcu(dev);
+ 		if (!in_dev)
+ 			continue;
+@@ -1266,6 +1269,8 @@ __be32 inet_confirm_addr(struct net_ctx *ctx, struct in_device *in_dev,
+ 
+ 	rcu_read_lock();
+ 	for_each_netdev_rcu(ctx->net, dev) {
++		if (!vrf_eq(dev_vrf(dev), ctx->vrf))
++			continue;
+ 		in_dev = __in_dev_get_rcu(dev);
+ 		if (in_dev) {
+ 			addr = confirm_addr_indev(in_dev, dst, local, scope);
+@@ -1561,6 +1566,8 @@ static int inet_dump_ifaddr(struct sk_buff *skb, struct netlink_callback *cb)
+ 				goto cont;
+ 			if (h > s_h || idx > s_idx)
+ 				s_ip_idx = 0;
++			if (!vrf_eq(dev_vrf(dev), vrf))
++				goto cont;
+ 			in_dev = __in_dev_get_rcu(dev);
+ 			if (!in_dev)
+ 				goto cont;
+@@ -1883,6 +1890,8 @@ static int inet_netconf_dump_devconf(struct sk_buff *skb,
+ 		hlist_for_each_entry_rcu(dev, head, index_hlist) {
+ 			if (idx < s_idx)
+ 				goto cont;
++			if (!vrf_eq(dev_vrf(dev), vrf))
++				goto cont;
+ 			in_dev = __in_dev_get_rcu(dev);
+ 			if (!in_dev)
+ 				goto cont;
+diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
+index 2f06b71bed53..8713618e2835 100644
+--- a/net/ipv4/fib_frontend.c
++++ b/net/ipv4/fib_frontend.c
+@@ -418,7 +418,7 @@ static int rtentry_to_fib_config(struct net_ctx *ctx, int cmd,
+ 		colon = strchr(devname, ':');
+ 		if (colon)
+ 			*colon = 0;
+-		dev = __dev_get_by_name(net, devname);
++		dev = __dev_get_by_name_ctx(ctx, devname);
+ 		if (!dev)
+ 			return -ENODEV;
+ 		cfg->fc_oif = dev->ifindex;
 diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
-index 9fc5487e66fe..a7d810cafada 100644
+index 65d01c5b747e..0aa5990b1c02 100644
 --- a/net/ipv4/fib_semantics.c
 +++ b/net/ipv4/fib_semantics.c
-@@ -756,7 +756,7 @@ __be32 fib_info_update_nh_saddr(struct net_ctx *net_ctx, struct fib_nh *nh)
- 	nh->nh_saddr = inet_select_addr(nh->nh_dev,
- 					nh->nh_gw,
- 					nh->nh_parent->fib_scope);
--	nh->nh_saddr_genid = atomic_read(&net->ipv4.dev_addr_genid);
-+	nh->nh_saddr_genid = atomic_read(&net->ipv4.dev_addr_genid) + net_ctx->vrf;
+@@ -929,6 +929,11 @@ struct fib_info *fib_create_info(struct fib_config *cfg)
+ 		err = -ENODEV;
+ 		if (nh->nh_dev == NULL)
+ 			goto failure;
++		if (!vrf_eq(dev_vrf(nh->nh_dev), net_ctx->vrf)) {
++			dev_put(nh->nh_dev);
++			nh->nh_dev = NULL;
++			goto failure;
++		}
+ 	} else {
+ 		change_nexthops(fi) {
+ 			err = fib_check_nh(cfg, fi, nexthop_nh);
+diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
+index 86aa303a1cf7..fddc3bbf6b8b 100644
+--- a/net/ipv4/igmp.c
++++ b/net/ipv4/igmp.c
+@@ -2451,6 +2451,9 @@ static inline struct ip_mc_list *igmp_mc_get_first(struct seq_file *seq)
+ 	for_each_netdev_rcu(net, state->dev) {
+ 		struct in_device *in_dev;
  
- 	return nh->nh_saddr;
- }
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 8271c5b30322..f980a42a995f 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -2706,10 +2706,19 @@ static __net_initdata struct pernet_operations sysctl_route_ops = {
++		if (!vrf_eq(dev_vrf(state->dev), ctx->vrf))
++			continue;
++
+ 		in_dev = __in_dev_get_rcu(state->dev);
+ 		if (!in_dev)
+ 			continue;
+@@ -2596,6 +2599,10 @@ static inline struct ip_sf_list *igmp_mcf_get_first(struct seq_file *seq)
+ 	state->im = NULL;
+ 	for_each_netdev_rcu(net, state->dev) {
+ 		struct in_device *idev;
++
++		if (!vrf_eq(dev_vrf(state->dev), ctx->vrf))
++			continue;
++
+ 		idev = __in_dev_get_rcu(state->dev);
+ 		if (unlikely(idev == NULL))
+ 			continue;
+diff --git a/net/ipv4/inet_hashtables.c b/net/ipv4/inet_hashtables.c
+index 71c31c81aea1..0dcde9839d66 100644
+--- a/net/ipv4/inet_hashtables.c
++++ b/net/ipv4/inet_hashtables.c
+@@ -220,6 +220,8 @@ struct sock *__inet_lookup_listener(struct net_ctx *ctx,
+ 	result = NULL;
+ 	hiscore = 0;
+ 	sk_nulls_for_each_rcu(sk, node, &ilb->head) {
++		if (!vrf_eq(sk->sk_vrf, ctx->vrf) && !vrf_is_any(sk->sk_vrf))
++			continue;
+ 		score = compute_score(sk, ctx, hnum, daddr, dif);
+ 		if (score > hiscore) {
+ 			result = sk;
+diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
+index eeb51e935379..b5521f7b36b1 100644
+--- a/net/ipv4/ip_sockglue.c
++++ b/net/ipv4/ip_sockglue.c
+@@ -728,6 +728,7 @@ static int do_ip_setsockopt(struct sock *sk, int level,
+ 	{
+ 		struct net_device *dev = NULL;
+ 		int ifindex;
++		__u32 vrf;
  
- static __net_init int rt_genid_init(struct net *net)
- {
-+	int genid;
-+
- 	atomic_set(&net->ipv4.rt_genid, 0);
- 	atomic_set(&net->fnhe_genid, 0);
--	get_random_bytes(&net->ipv4.dev_addr_genid,
--			 sizeof(net->ipv4.dev_addr_genid));
-+
-+again:
-+	get_random_bytes(&genid, sizeof(genid));
-+	genid &= ~VRF_MASK;
-+	if (genid == 0)
-+		goto again;
-+
-+	atomic_set(&net->ipv4.dev_addr_genid, genid);
-+
- 	return 0;
- }
+ 		if (optlen != sizeof(int))
+ 			goto e_inval;
+@@ -743,7 +744,10 @@ static int do_ip_setsockopt(struct sock *sk, int level,
+ 		err = -EADDRNOTAVAIL;
+ 		if (!dev)
+ 			break;
++		vrf = dev_vrf(dev);
+ 		dev_put(dev);
++		if (!vrf_eq(vrf, sk_ctx.vrf))
++			break;
  
+ 		err = -EINVAL;
+ 		if (sk->sk_bound_dev_if)
 -- 
 1.9.3 (Apple Git-50)
