@@ -1,47 +1,66 @@
-From: Miroslav Urbanek <mu@miroslavurbanek.com>
-Subject: Re: [PATCH] flowcache: Fix kernel panic in flow_cache_flush_task
-Date: Thu, 5 Feb 2015 18:40:51 +0100
-Message-ID: <20150205174026.GC3350@miroslavurbanek.com>
-References: <20150205153649.GA3278@miroslavurbanek.com>
- <1423154648.31870.81.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Steffen Klassert <steffen.klassert@secunet.com>,
-	Netdev <netdev@vger.kernel.org>,
-	=?utf-8?B?VG9tw6HFoSBDaGFydsOhdA==?= <tc@excello.cz>,
-	Jan Hejl <jh@excello.cz>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH net] rtnetlink: ifla_vf_policy: fix misuses of NLA_BINARY
+Date: Thu,  5 Feb 2015 18:44:04 +0100
+Message-ID: <ceaf2a9c514600d14c9f6a89a8c38e553a85e9fe.1423158127.git.daniel@iogearbox.net>
+Cc: netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>,
+	Mitch Williams <mitch.a.williams@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from antirelay20.smtp.cz ([81.95.105.150]:51594 "EHLO
-	antirelay20.smtp.cz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750884AbbBERlD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Feb 2015 12:41:03 -0500
-Content-Disposition: inline
-In-Reply-To: <1423154648.31870.81.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from www62.your-server.de ([213.133.104.62]:60802 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752266AbbBERoR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Feb 2015 12:44:17 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thanks for the tip. It's my first kernel patch, so I wanted to make
-sure it won't get lost :-)
+ifla_vf_policy[] is wrong in advertising its individual member types as
+NLA_BINARY since .type = NLA_BINARY in combination with .len declares the
+len member as *max* attribute length [0, len].
 
-Anyway, I also looked into the function flow_cache_fini. Isn't it
-necessary to flush/cancel scheduled works here? Something like:
+The issue is that when do_setvfinfo() is being called to set up a VF
+through ndo handler, we could set corrupted data if the attribute length
+is less than the size of the related structure itself.
 
-flush_work(&net->xfrm.flow_cache_flush_work);
-flush_work(&net->xfrm.flow_cache_gc_work);
+The intent is exactly the opposite, namely to make sure to pass at least
+data of minimum size of len.
 
-I'm not sure if it is a bug or not. Could it happen that there is a
-scheduled work while the kernel calls flow_cache_fini?
+Fixes: ebc08a6f47ee ("rtnetlink: Add VF config code to rtnetlink")
+Cc: Mitch Williams <mitch.a.williams@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+---
+ net/core/rtnetlink.c | 18 ++++++------------
+ 1 file changed, 6 insertions(+), 12 deletions(-)
 
-I originally suspected this was the real bug we hit, but we don't use
-net namespaces, so our kernels never call flow_cache_fini.
-
-> 
-> Nice catch !
-> 
-> Ok, but you do not need to cc so many people/lists
-> 
-> netdev is fine, and we usually CC patch author, just in case.
-> 
-> Acked-by: Eric Dumazet <edumazet@google.com>
-> 
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index 446cbaf..5daabfd 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -1237,18 +1237,12 @@ static const struct nla_policy ifla_vfinfo_policy[IFLA_VF_INFO_MAX+1] = {
+ };
+ 
+ static const struct nla_policy ifla_vf_policy[IFLA_VF_MAX+1] = {
+-	[IFLA_VF_MAC]		= { .type = NLA_BINARY,
+-				    .len = sizeof(struct ifla_vf_mac) },
+-	[IFLA_VF_VLAN]		= { .type = NLA_BINARY,
+-				    .len = sizeof(struct ifla_vf_vlan) },
+-	[IFLA_VF_TX_RATE]	= { .type = NLA_BINARY,
+-				    .len = sizeof(struct ifla_vf_tx_rate) },
+-	[IFLA_VF_SPOOFCHK]	= { .type = NLA_BINARY,
+-				    .len = sizeof(struct ifla_vf_spoofchk) },
+-	[IFLA_VF_RATE]		= { .type = NLA_BINARY,
+-				    .len = sizeof(struct ifla_vf_rate) },
+-	[IFLA_VF_LINK_STATE]	= { .type = NLA_BINARY,
+-				    .len = sizeof(struct ifla_vf_link_state) },
++	[IFLA_VF_MAC]		= { .len = sizeof(struct ifla_vf_mac) },
++	[IFLA_VF_VLAN]		= { .len = sizeof(struct ifla_vf_vlan) },
++	[IFLA_VF_TX_RATE]	= { .len = sizeof(struct ifla_vf_tx_rate) },
++	[IFLA_VF_SPOOFCHK]	= { .len = sizeof(struct ifla_vf_spoofchk) },
++	[IFLA_VF_RATE]		= { .len = sizeof(struct ifla_vf_rate) },
++	[IFLA_VF_LINK_STATE]	= { .len = sizeof(struct ifla_vf_link_state) },
+ };
+ 
+ static const struct nla_policy ifla_port_policy[IFLA_PORT_MAX+1] = {
+-- 
+1.9.3
