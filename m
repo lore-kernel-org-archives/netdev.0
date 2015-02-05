@@ -1,73 +1,38 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [ovs-dev] [RFC: add openvswitch actions using BPF 1/2] BPF: add a
- new BPF program type BPF_PROG_TYPE_OPENVSWITCH
-Date: Thu, 5 Feb 2015 12:30:34 -0800
-Message-ID: <CAADnVQ+KY2kWtpwYJn1049YNfy9ZVsdVZRDLyQfZwhvD2P3DJQ@mail.gmail.com>
+From: Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [RFC: add openvswitch actions using BPF 5/9] bpf: add
+ the first BPF program.
+Date: Thu, 5 Feb 2015 12:34:07 -0800
+Message-ID: <CAADnVQLSK6384Ljx0DtUgYmVBUwz1DC5Kwt=x_uGgHM31_YS4Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Thomas Graf <tgraf@noironetworks.com>,
-	"dev@openvswitch.com" <dev@openvswitch.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Andy Zhou <azhou@nicira.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f53.google.com ([209.85.192.53]:63502 "EHLO
-	mail-qg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751202AbbBEUaz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Feb 2015 15:30:55 -0500
-Received: by mail-qg0-f53.google.com with SMTP id f51so7988595qge.12
-        for <netdev@vger.kernel.org>; Thu, 05 Feb 2015 12:30:54 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "dev-yBygre7rU0SM8Zsap4Y0gw@public.gmane.org" <dev-yBygre7rU0SM8Zsap4Y0gw@public.gmane.org>,
+ "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Andy Zhou <azhou-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-On Thu, Feb 5, 2015 at 11:47 AM, Andy Zhou <azhou@nicira.com> wrote:
-> On Thu, Feb 5, 2015 at 6:48 AM, Thomas Graf <tgraf@noironetworks.com> wrote:
->> On 02/04/15 at 02:48pm, Andy Zhou wrote:
->>>  struct bpf_verifier_ops {
->>>       /* return eBPF function prototype for verification */
->>> -     const struct bpf_func_proto *(*get_func_proto)(enum bpf_func_id func_id);
->>> +     const struct bpf_func_proto *(*get_func_proto)(int func_id);
->>
->> This change should maybe go in a separate commit.
-> Agreed.  Ideally, each program type should have its own func_id space. Current
-> registration does not allow this. Should this be added?
->
-> In the interest of reusing common helper functions, should we also consider
-> partition the func_id space into common ones and program type specific ones?
-> For example, the prink like function can be specified the common func_id space.
-
-I don't like per-program_type func_ids, since overlapping ids is
-a debugging headache and it encourages hiding ids instead of
-clearly adding them to uapi's enum bpf_func_id.
-per-program type ids also make it impossible to share common helper ids
-which is already the case between socket and tracing prog types.
-Having one place and one enum for all ids helps to keep
-exposed user helpers under control.
-
->>> +static const struct bpf_func_proto *ovs_func_proto(int func_id)
->>> +{
->>> +     switch (func_id) {
->>> +     case OVS_BPF_FUNC_output:
->>> +             return &bpf_helper_output_proto;
->>> +     default:
->>> +             return NULL;
->>> +     }
->>> +}
->>
->> You'd still want to use the map helpers so it seems like we should
->> change the bpf verified to verify against both a global and type
->> specific list unless we want to add all the map helpers to
->> ovs_func_proto as well.
->
-> It is not clear what OVS can benefit from the map helpers.  Map provides
-> a fixed sized array.  OVS data structure, such as flow, are more
-> dynamic and non-contiguous in memory.
-
-that's a misunderstanding.
-maps can be different types including rhashtable type.
-Actually I was waiting for rhashtable to stabilize
-before adding it as new map type ;)
-There is 'max_entries' limit that must be there for safety reasons,
-but it doesn't mean that all entries are always allocated at
-init time and never change.
-contiguous vs non-contiguous is also internal detail of map
-implementation.
+T24gVGh1LCBGZWIgNSwgMjAxNSBhdCAxMToxNiBBTSwgQW5keSBaaG91IDxhemhvdUBuaWNpcmEu
+Y29tPiB3cm90ZToKCj4+PiArYnBmL292cy1hY3Rpb25zLmJwZjogJChzcmNkaXIpL2JwZi9vdnMt
+YWN0aW9ucy5jICQoREVQX0ZJTEVTKQo+Pj4gKyAgICAgJChBTV9WX0dFTiljbGFuZyAtREhBVkVf
+Q09ORklHX0ggJChCUEZfSU5DTFVERVMpICQoTk9TVERJTkNfRkxBR1MpIFwKPj4+ICsgICAgICAg
+ICAgICAgJChBTV9DRkxBR1MpICQoRVhUUkFfQ0ZMQUdTKSAtV25vLXVudXNlZC12YWx1ZSAtV25v
+LXBvaW50ZXItc2lnbiBcCj4+PiArICAgICAgICAgICAgIC1PMiAtZW1pdC1sbHZtIC1jICQ8IC1v
+IC18ICQoTExDKSAtZmlsZXR5cGU9b2JqIC1vICRACj4+Cj4+IEkgYXNzdW1lIHlvdSB3aWxsIGNv
+bnZlcnQgdGhpcyB0byBhIE1ha2VmaWxlIHRlbXBsYXRlCj4gWWVzLiBJdCBuZWVkcyB0byBiZSBh
+ZGRyZXNzZWQuICBOb3Qgc3VyZSBpZiBhZGRpdGlvbmFsIGNoYW5nZXMgYXJlCj4gcmVxdWlyZWQg
+bm93IHRoYXQKPiBCUEYgYmFja2VuZCBpcyBtZXJnZWQgaW50byBMTFZNIHVwc3RyZWFtLAoKT25j
+ZSBsbHZtIDMuNyBpcyByZWxlYXNlZCB0aGUgY29tbWFuZCBsaW5lIHdpbGwgYmUgc2hvcnRlciwK
+c2luY2Ugc2luZ2xlIGNvbW1hbmQgJ2NsYW5nIC0tdGFyZ2V0PWJwZiBmaWxlLmMnIHdpbGwgZG8g
+dGhlIGpvYi4KYnV0IHRoYXQncyBtaW5vci4KX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX18KZGV2IG1haWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0Y2gub3JnCmh0
+dHA6Ly9vcGVudnN3aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
