@@ -1,79 +1,45 @@
-From: "Skidmore, Donald C" <donald.c.skidmore@intel.com>
-Subject: RE: [net-next 03/16] ixgbe: cleanup sparse errors in new
- ixgbe_x550.c file
-Date: Thu, 5 Feb 2015 23:19:02 +0000
-Message-ID: <F6FB0E698C9B3143BDF729DF222866469129F556@ORSMSX110.amr.corp.intel.com>
-References: <1423128950-12388-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1423128950-12388-4-git-send-email-jeffrey.t.kirsher@intel.com>
-	<063D6719AE5E284EB5DD2968C1650D6D1CADC3FA@AcuExch.aculab.com>
- <20150205.144007.1425782923410995381.davem@davemloft.net>
+From: Avery Fay <avery@mixpanel.com>
+Subject: Re: Invalid timestamp? causing tight ack loop (hundreds of thousands
+ of packets / sec)
+Date: Thu, 5 Feb 2015 15:25:05 -0800
+Message-ID: <CAO-X30umnbpQG9mwj67ZUkxQpVcGgMMsP8SqY=_3ZeoTczjbmQ@mail.gmail.com>
+References: <CAO-X30uMA7=DTm5KqqvYC5RVTM0bg9pKBO1nX1+6x_2pF_fWfA@mail.gmail.com>
+	<1423036986.907.105.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CAO-X30shOhH7tN+msRvbLreeUvZesKARqyU0Lnm3_xoeea9uaQ@mail.gmail.com>
+	<1423052431.907.112.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"nhorman@redhat.com" <nhorman@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>,
-	"jogreene@redhat.com" <jogreene@redhat.com>
-To: David Miller <davem@davemloft.net>,
-	"David.Laight@ACULAB.COM" <David.Laight@ACULAB.COM>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, Neal Cardwell <ncardwell@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:57169 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751091AbbBEXTF convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Feb 2015 18:19:05 -0500
-In-Reply-To: <20150205.144007.1425782923410995381.davem@davemloft.net>
-Content-Language: en-US
+Received: from mail-qc0-f173.google.com ([209.85.216.173]:39972 "EHLO
+	mail-qc0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751804AbbBEXZH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Feb 2015 18:25:07 -0500
+Received: by mail-qc0-f173.google.com with SMTP id m20so9092309qcx.4
+        for <netdev@vger.kernel.org>; Thu, 05 Feb 2015 15:25:06 -0800 (PST)
+In-Reply-To: <1423052431.907.112.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Thursday, February 05, 2015 2:40 PM
-> To: David.Laight@ACULAB.COM
-> Cc: Kirsher, Jeffrey T; Skidmore, Donald C; netdev@vger.kernel.org;
-> nhorman@redhat.com; sassmann@redhat.com; jogreene@redhat.com
-> Subject: Re: [net-next 03/16] ixgbe: cleanup sparse errors in new
-> ixgbe_x550.c file
-> 
-> From: David Laight <David.Laight@ACULAB.COM>
-> Date: Thu, 5 Feb 2015 09:48:24 +0000
-> 
-> > From: Jeff Kirsher
-> >> This patch cleans up prototypes that should have been defined as
-> >> static.
-> >>
-> >> Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
-> >> Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
-> >> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> >> ---
-> >>  drivers/net/ethernet/intel/ixgbe/ixgbe_type.h |  4 +-
-> >> drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c | 65
-> >> ++++++++++++++-------------
-> >>  2 files changed, 37 insertions(+), 32 deletions(-)
-> >>
-> >> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-> >> b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-> >> index d101b25..1f301ec 100644
-> >> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-> >> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-> >> @@ -2451,8 +2451,8 @@ struct ixgbe_hic_read_shadow_ram {
-> >>
-> >>  struct ixgbe_hic_write_shadow_ram {
-> >>  	union ixgbe_hic_hdr2 hdr;
-> >> -	u32 address;
-> >> -	u16 length;
-> >> +	__be32 address;
-> >> +	__be16 length;
-> >>  	u16 pad2;
-> >>  	u16 data;
-> >>  	u16 pad3;
-> >
-> > Not related to commit message
-> 
-> Agreed, fix this up.
+On Wed, Feb 4, 2015 at 4:20 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> Nice, something is really broken on this peer (not a linux one for
+> sure), or some really buggy middlebox.
+>
+> The strange [P.] frame with no payload has a wrong sequence number
+> anyway, so we send back a duplicate ack.
 
-I'll get a cleaned up patch to Jeff.
+Thanks for this analysis. I've tried to reach out to the gatech NOC to
+identify the device, but I haven't been able to get a response from
+anyone (except general support, but they don't want to put me in touch
+with someone who can help).
 
-Thanks,
--Don Skidmore <donald.c.skidmore@intel.com>
+>
+> Neal patches definitely would solve this issue.
+>
+>
+
+Are these available anywhere? Or could they be made available? This
+seems like a much better solution than disabling timestamps.
+
+Avery
