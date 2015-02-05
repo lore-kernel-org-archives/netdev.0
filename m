@@ -1,61 +1,69 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: [PATCHv2] rds: Make rds_message_copy_from_user() return 0 on success.
-Date: Thu, 5 Feb 2015 17:41:43 -0500
-Message-ID: <20150205224143.GD28883@oracle.com>
-References: <20150205202050.GH5811@oracle.com>
- <20150205215845.GT29656@ZenIV.linux.org.uk>
- <20150205220734.GC28883@oracle.com>
- <20150205222301.GU29656@ZenIV.linux.org.uk>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: Ethernet: how to disable gigabit support
+Date: Thu, 05 Feb 2015 14:44:55 -0800
+Message-ID: <54D3F267.3000908@gmail.com>
+References: <20150205202527.GA7917@amd>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: rds-devel@oss.oracle.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, sowmini.varadhan@oracle.com,
-	viro@zeniv.linux.org.uk
-To: chien.yen@oracle.com, davem@davemloft.net
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+To: Pavel Machek <pavel@ucw.cz>,
+	kernel list <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150205222301.GU29656@ZenIV.linux.org.uk>
+In-Reply-To: <20150205202527.GA7917@amd>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On 05/02/15 12:25, Pavel Machek wrote:
+> Hi!
+> 
+> This happened on more than one project: there's gigabit-capable chip,
+> but the connector is not designed for gigabit speed.
+> 
+> I'd like to have speed autonegotiation, but not offer gigabit (as it
+> will not work).
+> 
+> Is there way to do that without hacking the kernel? Should mii-tool do
+> that?
+
+Since you use the PHY library, you should be able to do something like
+this in your PHY driver prior to starting the PHY state machine:
+
+phydev->supported &= PHY_BASIC_FEATURES (effectively masking Gigabit
+capability)
+
+See drivers/net/ethernet/broadcom/genet/bcmmii.c for instance where this
+is done based on the type of interface (RevMII, MII) we are connected to.
+
+> 
+> Thanks,
+> 								Pavel
+> 
+> root@ib8315:~# mii-tool.net-tools  -A 100baseTx,10baseT eth1
+> restarting autonegotiation...
+> root@ib8315:~# [32432.443883] libphy: mdio@e0024520:01 - Link is Down
+> 
+> root@ib8315:~# [32435.447863] libphy: mdio@e0024520:01 - Link is Up - 1000/Full
+> 
+> root@ib8315:~# mii-tool.net-tools -v eth1
+> eth1: negotiated 1000baseT-FD flow-control, link ok
+> product info: vendor 00:01:c1, model 3 rev 1
+> basic mode:   autonegotiation enabled
+>  basic status: autonegotiation complete, link ok
+>  capabilities: 1000baseT-FD 100baseTx-FD 100baseTx-HD
+>  10baseT-FD 10baseT-HD
+>  advertising:  1000baseT-FD 100baseTx-FD 100baseTx-HD
+>  10baseT-FD 10baseT-HD
+>  link partner: 1000baseT-FD 100baseTx-FD 100baseTx-HD
+>  10baseT-FD 10baseT-HD flow-control
+>  root@ib8315:~# mii-tool.net-tools -V
+>  $Id: mii-tool.c,v 1.9 2006/09/27 20:59:18 ecki Exp $
+>  (Author: David Hinds based on Donald Becker's mii-diag)
+>  net-tools 1.60
+>  root@ib8315:~#
+> 	    
+> 
 
 
-Commit 083735f4b01b ("rds: switch rds_message_copy_from_user() to iov_iter")
-breaks rds_message_copy_from_user() semantics on success, and causes it
-to return nbytes copied, when it should return 0.  This commit fixes that bug.
-
-Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
----
-changes from v1: incorporate Al.Viro comment. 
-
- net/rds/message.c |    8 ++++----
- 1 files changed, 4 insertions(+), 4 deletions(-)
-
-diff --git a/net/rds/message.c b/net/rds/message.c
-index 5a21e6f..756c737 100644
---- a/net/rds/message.c
-+++ b/net/rds/message.c
-@@ -266,7 +266,7 @@ struct rds_message *rds_message_map_pages(unsigned long *page_addrs, unsigned in
- 
- int rds_message_copy_from_user(struct rds_message *rm, struct iov_iter *from)
- {
--	unsigned long to_copy;
-+	unsigned long to_copy, nbytes;
- 	unsigned long sg_off;
- 	struct scatterlist *sg;
- 	int ret = 0;
-@@ -293,9 +293,9 @@ int rds_message_copy_from_user(struct rds_message *rm, struct iov_iter *from)
- 				sg->length - sg_off);
- 
- 		rds_stats_add(s_copy_from_user, to_copy);
--		ret = copy_page_from_iter(sg_page(sg), sg->offset + sg_off,
--					  to_copy, from);
--		if (ret != to_copy)
-+		nbytes = copy_page_from_iter(sg_page(sg), sg->offset + sg_off,
-+					     to_copy, from);
-+		if (nbytes != to_copy)
- 			return -EFAULT;
- 
- 		sg_off += to_copy;
 -- 
-1.7.1
+Florian
