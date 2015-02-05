@@ -1,43 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 1/1] cls_api.c: Fix dumping of non-existing
- actions' stats.
-Date: Wed, 04 Feb 2015 20:26:39 -0800 (PST)
-Message-ID: <20150204.202639.1658647887362952988.davem@davemloft.net>
-References: <20150203141059.GA25454@zenon.in.qult.net>
-	<20150203173251.GB6246@zenon.in.qult.net>
+Subject: Re: [PATCH net] amd-xgbe: Adjust for zero-based traffic class count
+Date: Wed, 04 Feb 2015 20:28:42 -0800 (PST)
+Message-ID: <20150204.202842.569864294109995352.davem@davemloft.net>
+References: <20150203184955.14713.98160.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: ignacy.gawedzki@green-communications.fr
+To: thomas.lendacky@amd.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41004 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:41015 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965090AbbBEE0k convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2015 23:26:40 -0500
-In-Reply-To: <20150203173251.GB6246@zenon.in.qult.net>
+	with ESMTP id S1752721AbbBEE2n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2015 23:28:43 -0500
+In-Reply-To: <20150203184955.14713.98160.stgit@tlendack-t1.amdoffice.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Ignacy Gaw=EAdzki <ignacy.gawedzki@green-communications.fr>
-Date: Tue, 3 Feb 2015 18:32:51 +0100
+From: Tom Lendacky <thomas.lendacky@amd.com>
+Date: Tue, 3 Feb 2015 12:49:55 -0600
 
-> In tcf_exts_dump_stats(), ensure that exts->actions is not empty befo=
-re
-> accessing the first element of that list and calling tcf_action_copy_=
-stats()
-> on it.  This fixes some random segvs when adding filters of type "bas=
-ic" with
-> no particular action.
->=20
-> This also fixes the dumping of those "no-action" filters, which more =
-often
-> than not made calls to tcf_action_copy_stats() fail and consequently =
-netlink
-> attributes added by the caller to be removed by a call to nla_nest_ca=
-ncel().
->=20
-> Signed-off-by: Ignacy Gaw=EAdzki <ignacy.gawedzki@green-communication=
-s.fr>
+> The number of traffic classes reported by the hardware is zero-based
+> so increment the value returned to get an actual count.
+> 
+> Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
 
-Applied, thanks.
+Applied, thanks Tom.
