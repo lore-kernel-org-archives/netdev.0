@@ -1,52 +1,39 @@
-From: Govindarajulu Varadarajan <_govind@gmx.com>
-Subject: Re: [PATCH net-next 3/4] ethtool: add RX_ALLOC_ORDER to tunable
-Date: Thu, 5 Feb 2015 22:58:26 +0530 (IST)
-Message-ID: <alpine.LNX.2.03.1502052215490.11051@ws.cisco>
-References: <1422707290-939-1-git-send-email-_govind@gmx.com> <1422707290-939-4-git-send-email-_govind@gmx.com> <20150202.192159.66698996958688718.davem@davemloft.net> <alpine.LNX.2.03.1502031326260.22700@ws.cisco>
+From: Alexander Aring <alex.aring@gmail.com>
+Subject: Re: [PATCH bluetooth-next v3] ieee802154: fix netns settings
+Date: Thu, 5 Feb 2015 18:31:14 +0100
+Message-ID: <20150205173111.GA14300@omega>
+References: <1DEA1346-A348-434E-90F3-80E9EDC7E181@holtmann.org>
+ <1423156890-13382-1-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: _govind@gmx.com, netdev@vger.kernel.org, ssujith@cisco.com,
-	benve@cisco.com, edumazet@google.com, ben@decadent.org.uk
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Cc: marcel@holtmann.org, netdev@vger.kernel.org, davem@davemloft.net
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.com ([74.208.4.201]:64883 "EHLO mout.gmx.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757828AbbBER3U (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Feb 2015 12:29:20 -0500
-In-Reply-To: <alpine.LNX.2.03.1502031326260.22700@ws.cisco>
+Received: from mail-we0-f176.google.com ([74.125.82.176]:48526 "EHLO
+	mail-we0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753953AbbBERbW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Feb 2015 12:31:22 -0500
+Received: by mail-we0-f176.google.com with SMTP id w62so8998509wes.7
+        for <netdev@vger.kernel.org>; Thu, 05 Feb 2015 09:31:20 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1423156890-13382-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 3 Feb 2015, Govindarajulu Varadarajan wrote:
+Hi Nicolas,
 
-> On Mon, 2 Feb 2015, David Miller wrote:
->
->> From: Govindarajulu Varadarajan <_govind@gmx.com>
->> Date: Sat, 31 Jan 2015 17:58:09 +0530
->> 
->>> Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
->> 
->> This is terrible.
->> 
->> You haven't explained what this means.
->> 
->> And to tell you the truth, from what I can tell this tunable is
->> very specific to how you have implemented RX frags in the enic
->> driver in this series and won't necessarily translate to how
->> other drivers manage RX buffers.
->> 
->
-> Yes I agree that this is too specific to driver. From my knowledge mlx4 also
-> uses similar frag allocation from large order page. Other that these two
-> drivers, this facility may not make sense to other drivers.
->
-> On systems with huge memory we can go higher than order-3, and if user sees 
-> that
-> order-3 are failing, he should be able to reduce the order.
->
-> Since this is very driver specific, are you fine if I move this to device 
-> sysfs?
->
+On Thu, Feb 05, 2015 at 06:21:30PM +0100, Nicolas Dichtel wrote:
+> 6LoWPAN currently doesn't supports x-netns and works only in init_net.
+> 
+> With this patch, we ensure that:
+>  - the wpan interface cannot be moved to another netns;
+>  - the 6lowpan interface cannot be moved to another netns;
+>  - the wpan interface is in the same netns than the 6lowpan interface;
+>  - the 6lowpan interface is in init_net.
+> 
+> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> Acked-by: Alexander Aring <alex.aring@gmail.com>
 
-I hope there are no issues with the patch 1 & 2. Should I drop the
-'changing order' patches and resend patch 1 & 2 alone?
+thanks for resend this patch and added my ack, thanks.
+
+- Alex
