@@ -1,45 +1,58 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: [PATCH bluetooth-next v2] ieee802154: fix netns settings
-Date: Thu, 5 Feb 2015 08:03:25 -0800
-Message-ID: <1DEA1346-A348-434E-90F3-80E9EDC7E181@holtmann.org>
-References: <alex.aring@gmail.com> <1422457112-4377-1-git-send-email-nicolas.dichtel@6wind.com> <20150128203645.GB30188@omega> <20150205091016.GC12279@omega>
-Mime-Version: 1.0 (Mac OS X Mail 8.2 \(2070.6\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	Network Development <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>, linux-wpan@vger.kernel.org
-To: Alexander Aring <alex.aring@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:37199 "EHLO
-	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753854AbbBEQDf convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Feb 2015 11:03:35 -0500
-In-Reply-To: <20150205091016.GC12279@omega>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Nicolas Ferre <nicolas.ferre@atmel.com>
+Subject: Re: [PATCH] net/macb: fix sparse warning
+Date: Thu, 5 Feb 2015 17:06:52 +0100
+Message-ID: <54D3951C.1080200@atmel.com>
+References: <1423150846-7027-1-git-send-email-prabhakar.csengg@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <linux-kernel@vger.kernel.org>
+To: Lad Prabhakar <prabhakar.csengg@gmail.com>,
+	<netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1423150846-7027-1-git-send-email-prabhakar.csengg@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Alex,
+Le 05/02/2015 16:40, Lad Prabhakar a =E9crit :
+> From: "Lad, Prabhakar" <prabhakar.csengg@gmail.com>
+>=20
+> this patch fixes following sparse warning:
+>=20
+> macb.c:2038:26: warning: symbol 'gem_ethtool_ops' was not declared. S=
+hould it be static?
 
->>> 6LoWPAN currently doesn't supports x-netns and works only in init_net.
->>> 
->>> With this patch, we ensure that:
->>> - the wpan interface cannot be moved to another netns;
->>> - the 6lowpan interface cannot be moved to another netns;
->>> - the wpan interface is in the same netns than the 6lowpan interface;
->>> - the 6lowpan interface is in init_net.
->>> 
->>> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
->> 
->> Acked-by: Alexander Aring <alex.aring@gmail.com>
->> 
->> Marcel, can you please queue this for bluetooth-next?
->> 
-> 
-> ping.
+Well, actually this function doesn't need to be exported and indeed
+should be marked as static.
 
-I completely missed this one and it is not even showing up in my local archive. Care to resend it with your ack attached to it.
+I'm not against this patch, but removing the export macro and making it
+as static should do the trick even better.
 
-Regards
+Bye,
 
-Marcel
+> Signed-off-by: Lad, Prabhakar <prabhakar.csengg@gmail.com>
+> ---
+>  Found this issue on linux-next (gcc  version 4.8.2,
+>  sparse version  0.4.5-rc1)and applies on top linux-next.
+>=20
+>  drivers/net/ethernet/cadence/macb.h | 1 +
+>  1 file changed, 1 insertion(+)
+>=20
+> diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethern=
+et/cadence/macb.h
+> index 31dc080..e6ad68a 100644
+> --- a/drivers/net/ethernet/cadence/macb.h
+> +++ b/drivers/net/ethernet/cadence/macb.h
+> @@ -821,6 +821,7 @@ struct macb {
+>  };
+> =20
+>  extern const struct ethtool_ops macb_ethtool_ops;
+> +extern const struct ethtool_ops gem_ethtool_ops;
+> =20
+>  int macb_mii_init(struct macb *bp);
+>  int macb_ioctl(struct net_device *dev, struct ifreq *rq, int cmd);
+>=20
+
+
+--=20
+Nicolas Ferre
