@@ -1,7 +1,7 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next 1/3] net/bonding: Fix potential bad memory access during bonding events
-Date: Thu,  5 Feb 2015 15:52:44 +0200
-Message-ID: <1423144366-11814-2-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net-next 2/3] IB/mlx4: Always use the correct port for mirrored multicast attachments
+Date: Thu,  5 Feb 2015 15:52:45 +0200
+Message-ID: <1423144366-11814-3-git-send-email-ogerlitz@mellanox.com>
 References: <1423144366-11814-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, Roland Dreier <roland@kernel.org>,
 	Amir Vadai <amirv@mellanox.com>, Tal Alon <talal@mellanox.com>,
@@ -9,106 +9,61 @@ Cc: netdev@vger.kernel.org, Roland Dreier <roland@kernel.org>,
 	Or Gerlitz <ogerlitz@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:39711 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:39727 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753253AbbBENwu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Feb 2015 08:52:50 -0500
+	id S1757068AbbBENwz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Feb 2015 08:52:55 -0500
 In-Reply-To: <1423144366-11814-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Moni Shoua <monis@mellanox.com>
 
-When queuing work to send the NETDEV_BONDING_INFO netdev event, it's
-possible that when the work is executed, the pointer to the slave
-becomes invalid. This can happen if between queuing the event and the
-execution of the work, the net-device was un-ensvaled and re-enslaved.
+When attaching a QP to a multicast address in bonded mode, there was an
+assumption that the port of the QP must be #1. This assumption isn't the
+case under the flow which enables maximal usage of the physical ports.
 
-Fix that by queuing a work with the data of the slave instead of the
-slave structure.
+Fix it by always checking the port of the original flow and create the
+mirrored flow on the other port.
 
-Fixes: 69e6113343cf ('net/bonding: Notify state change on slaves')
-Reported-by: Nikolay Aleksandrov <nikolay@redhat.com>
+Fixes: c6215745b66a ("IB/mlx4: Load balance ports in port aggregation mode")
 Signed-off-by: Moni Shoua <monis@mellanox.com>
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 ---
- drivers/net/bonding/bond_main.c |   28 +++++++++++-----------------
- include/net/bonding.h           |    2 +-
- 2 files changed, 12 insertions(+), 18 deletions(-)
+ drivers/infiniband/hw/mlx4/main.c |    8 ++++++--
+ 1 files changed, 6 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 679ef00..b979c26 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -1196,18 +1196,11 @@ static void bond_fill_ifslave(struct slave *slave, struct ifslave *info)
- 	info->link_failure_count = slave->link_failure_count;
- }
+diff --git a/drivers/infiniband/hw/mlx4/main.c b/drivers/infiniband/hw/mlx4/main.c
+index 2ed5b99..271d3f1 100644
+--- a/drivers/infiniband/hw/mlx4/main.c
++++ b/drivers/infiniband/hw/mlx4/main.c
+@@ -1186,6 +1186,9 @@ static struct ib_flow *mlx4_ib_create_flow(struct ib_qp *qp,
+ 			goto err_create_flow;
+ 		i++;
+ 		if (is_bonded) {
++			/* Application always sees one port so the mirror rule
++			 * must be on port #2
++			 */
+ 			flow_attr->port = 2;
+ 			err = __mlx4_ib_create_flow(qp, flow_attr,
+ 						    domain, type[j],
+@@ -1279,14 +1282,15 @@ static int mlx4_ib_mcg_attach(struct ib_qp *ibqp, union ib_gid *gid, u16 lid)
  
--static void bond_netdev_notify(struct slave *slave, struct net_device *dev)
-+static void bond_netdev_notify(struct net_device *dev,
-+			       struct netdev_bonding_info *info)
- {
--	struct bonding *bond = slave->bond;
--	struct netdev_bonding_info bonding_info;
--
- 	rtnl_lock();
--	/* make sure that slave is still valid */
--	if (dev->priv_flags & IFF_BONDING) {
--		bond_fill_ifslave(slave, &bonding_info.slave);
--		bond_fill_ifbond(bond, &bonding_info.master);
--		netdev_bonding_info_change(slave->dev, &bonding_info);
--	}
-+	netdev_bonding_info_change(dev, info);
- 	rtnl_unlock();
- }
+ 	err = mlx4_multicast_attach(mdev->dev, &mqp->mqp, gid->raw, mqp->port,
+ 				    !!(mqp->flags &
+-				       MLX4_IB_QP_BLOCK_MULTICAST_LOOPBACK),
++				    MLX4_IB_QP_BLOCK_MULTICAST_LOOPBACK),
+ 				    prot, &reg_id.id);
+ 	if (err)
+ 		goto err_malloc;
  
-@@ -1216,25 +1209,26 @@ static void bond_netdev_notify_work(struct work_struct *_work)
- 	struct netdev_notify_work *w =
- 		container_of(_work, struct netdev_notify_work, work.work);
- 
--	bond_netdev_notify(w->slave, w->dev);
-+	bond_netdev_notify(w->dev, &w->bonding_info);
- 	dev_put(w->dev);
-+	kfree(w);
- }
- 
- void bond_queue_slave_event(struct slave *slave)
- {
-+	struct bonding *bond = slave->bond;
- 	struct netdev_notify_work *nnw = kzalloc(sizeof(*nnw), GFP_ATOMIC);
- 
- 	if (!nnw)
- 		return;
- 
--	INIT_DELAYED_WORK(&nnw->work, bond_netdev_notify_work);
--	nnw->slave = slave;
-+	dev_hold(slave->dev);
- 	nnw->dev = slave->dev;
-+	bond_fill_ifslave(slave, &nnw->bonding_info.slave);
-+	bond_fill_ifbond(bond, &nnw->bonding_info.master);
-+	INIT_DELAYED_WORK(&nnw->work, bond_netdev_notify_work);
- 
--	if (queue_delayed_work(slave->bond->wq, &nnw->work, 0))
--		dev_hold(slave->dev);
--	else
--		kfree(nnw);
-+	queue_delayed_work(slave->bond->wq, &nnw->work, 0);
- }
- 
- /* enslave device <slave> to bond device <master> */
-diff --git a/include/net/bonding.h b/include/net/bonding.h
-index 4e17095..fda6fee 100644
---- a/include/net/bonding.h
-+++ b/include/net/bonding.h
-@@ -152,8 +152,8 @@ struct bond_parm_tbl {
- 
- struct netdev_notify_work {
- 	struct delayed_work	work;
--	struct slave		*slave;
- 	struct net_device	*dev;
-+	struct netdev_bonding_info bonding_info;
- };
- 
- struct slave {
+ 	reg_id.mirror = 0;
+ 	if (mlx4_is_bonded(dev)) {
+-		err = mlx4_multicast_attach(mdev->dev, &mqp->mqp, gid->raw, 2,
++		err = mlx4_multicast_attach(mdev->dev, &mqp->mqp, gid->raw,
++					    (mqp->port == 1) ? 2 : 1,
+ 					    !!(mqp->flags &
+ 					    MLX4_IB_QP_BLOCK_MULTICAST_LOOPBACK),
+ 					    prot, &reg_id.mirror);
 -- 
 1.7.1
