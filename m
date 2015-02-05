@@ -1,65 +1,52 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [ANNOUNCE] netdev0.1 netfilter BoF
-Date: Thu, 05 Feb 2015 21:20:46 +0100
-Message-ID: <38443B73-3871-4046-A2B1-3FA96E35D2CD@trash.net>
-References: <54D2B6B2.8070004@akamai.com>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: Ethernet: how to disable gigabit support
+Date: Thu, 5 Feb 2015 21:25:27 +0100
+Message-ID: <20150205202527.GA7917@amd>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-	"Bohman, Pete" <pbohman@akamai.com>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-To: Josh Hunt <johunt@akamai.com>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <54D2B6B2.8070004@akamai.com>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: kernel list <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Am 5. Februar 2015 01:17:54 MEZ, schrieb Josh Hunt <johunt@akamai.com>:
->We will be leading a BoF discussing netfilter development and issues in
->
->iptables, ipset, and nftables at netdev0.1 in Ottawa coming up in a few
->
->weeks.
->
->Our timeslot is currently scheduled for Sunday, Feb 15 @ 9am, but
->please 
->refer to https://www.netdev01.org/schedule in case there are any 
->schedule changes.
->
->The topics we intend to cover will be based around Akamai's usage, 
->deployment, and the issues we've come across.
->
->Some examples of those topics are:
->   * The need for supported interfaces from netfilter components.
->   * The handling of large (1 million to 25 million entry) sets, both 
->with ipsets and nft sets.
->   * Limitations in existing iptables functionality.
->     * For ex, issues with hashlimit implementation and proposals to 
->extend it.
->
->We'll also look at the current standing of nftables and discuss some 
->basic performance as it pertains to our environment, as well as, 
->backwards compatibility, and possible new features in nftables.
->
->We hope to bring together interested stakeholders and interested
->parties 
->to discuss the above along with any other related netfilter topics you 
->would like to discuss. The BoF is scheduled for two hours.
->
->If you have items you'd like to add to the agenda and/or present,
->please 
->contact me.
+Hi!
 
-I'll be there.
+This happened on more than one project: there's gigabit-capable chip,
+but the connector is not designed for gigabit speed.
 
-Cheers,
-Patrick
+I'd like to have speed autonegotiation, but not offer gigabit (as it
+will not work).
 
->
->Thanks
->Josh & Pete
+Is there way to do that without hacking the kernel? Should mii-tool do
+that?
 
+Thanks,
+								Pavel
 
+root@ib8315:~# mii-tool.net-tools  -A 100baseTx,10baseT eth1
+restarting autonegotiation...
+root@ib8315:~# [32432.443883] libphy: mdio@e0024520:01 - Link is Down
+
+root@ib8315:~# [32435.447863] libphy: mdio@e0024520:01 - Link is Up - 1000/Full
+
+root@ib8315:~# mii-tool.net-tools -v eth1
+eth1: negotiated 1000baseT-FD flow-control, link ok
+product info: vendor 00:01:c1, model 3 rev 1
+basic mode:   autonegotiation enabled
+ basic status: autonegotiation complete, link ok
+ capabilities: 1000baseT-FD 100baseTx-FD 100baseTx-HD
+ 10baseT-FD 10baseT-HD
+ advertising:  1000baseT-FD 100baseTx-FD 100baseTx-HD
+ 10baseT-FD 10baseT-HD
+ link partner: 1000baseT-FD 100baseTx-FD 100baseTx-HD
+ 10baseT-FD 10baseT-HD flow-control
+ root@ib8315:~# mii-tool.net-tools -V
+ $Id: mii-tool.c,v 1.9 2006/09/27 20:59:18 ecki Exp $
+ (Author: David Hinds based on Donald Becker's mii-diag)
+ net-tools 1.60
+ root@ib8315:~#
+	    
+-- 
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
