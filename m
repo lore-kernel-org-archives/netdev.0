@@ -1,34 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: ep93xx_eth: Delete unnecessary checks before the
- function call "kfree"
-Date: Thu, 05 Feb 2015 00:37:30 -0800 (PST)
-Message-ID: <20150205.003730.1411687823089677821.davem@davemloft.net>
-References: <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6>
-	<5317A59D.4@users.sourceforge.net>
-	<54D23415.6070005@users.sourceforge.net>
+Subject: Re: [PATCH net-next] vxlan: Only set has-GBP bit in header if any
+ other bits would be set
+Date: Thu, 05 Feb 2015 00:38:13 -0800 (PST)
+Message-ID: <20150205.003813.957201457920099234.davem@davemloft.net>
+References: <776a985ae0db9e2c24aefe6d7d6cef1794eb685a.1423065534.git.tgraf@suug.ch>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: hsweeten@visionengravers.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org,
-	julia.lawall@lip6.fr
-To: elfring@users.sourceforge.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <54D23415.6070005@users.sourceforge.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemlof.net, netdev@vger.kernel.org
+To: tgraf@suug.ch
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:42288 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755960AbbBEIiO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Feb 2015 03:38:14 -0500
+In-Reply-To: <776a985ae0db9e2c24aefe6d7d6cef1794eb685a.1423065534.git.tgraf@suug.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Date: Wed, 04 Feb 2015 16:00:37 +0100
+From: Thomas Graf <tgraf@suug.ch>
+Date: Wed,  4 Feb 2015 17:00:04 +0100
 
-> From: Markus Elfring <elfring@users.sourceforge.net>
-> Date: Wed, 4 Feb 2015 15:56:58 +0100
+> This allows for a VXLAN-GBP socket to talk to a Linux VXLAN socket by
+> not setting any of the bits.
 > 
-> The kfree() function tests whether its argument is NULL and then
-> returns immediately. Thus the test around the call is not needed.
-> 
-> This issue was detected by using the Coccinelle software.
-> 
-> Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+> Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
 Applied.
