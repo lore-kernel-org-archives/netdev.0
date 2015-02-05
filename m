@@ -1,8 +1,8 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next 8/9] tipc: simplify socket
-	multicast reception
-Date: Thu,  5 Feb 2015 08:36:43 -0500
-Message-ID: <1423143404-23322-9-git-send-email-jon.maloy@ericsson.com>
+Subject: [PATCH net-next 2/9] tipc: simplify message
+	forwarding and rejection in socket layer
+Date: Thu,  5 Feb 2015 08:36:37 -0500
+Message-ID: <1423143404-23322-3-git-send-email-jon.maloy@ericsson.com>
 References: <1423143404-23322-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,358 +23,270 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
 Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-The structure 'tipc_port_list' is used to collect port numbers
-representing multicast destination socket on a receiving node.
-The list is not based on a standard linked list, and is in reality
-optimized for the uncommon case that there are more than one
-multicast destinations per node. This makes the list handling
-unecessarily complex, and as a consequence, even the socket
-multicast reception becomes more complex.
+Despite recent improvements, the handling of error codes and return
+values at reception of messages in the socket layer is still confusing.
 
-In this commit, we replace 'tipc_port_list' with a new 'struct
-tipc_plist', which is based on a standard list. We give the new
-list stack (push/pop) semantics, someting that simplifies
-the implementation of the function tipc_sk_mcast_rcv().
+In this commit, we try to make it more comprehensible. First, we
+separate between the return values coming from the functions called
+by tipc_sk_rcv(), -those are TIPC specific error codes, and the
+return values returned by tipc_sk_rcv() itself. Second, we don't
+use the returned TIPC error code as indication for whether a buffer
+should be forwarded/rejected or not; instead we use the buffer pointer
+passed along with filter_msg(). This separation is necessary because
+we sometimes want to forward messages even when there is no error
+(i.e., protocol messages and successfully secondary looked up data
+messages).
 
 Reviewed-by: Ying Xue <ying.xue@windriver.com>
 Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 ---
- net/tipc/bcast.c      | 49 +------------------------------------------------
- net/tipc/bcast.h      | 24 ++++--------------------
- net/tipc/name_table.c | 44 +++++++++++++++++++++++++++++++++++++++++---
- net/tipc/name_table.h | 18 ++++++++++++++++--
- net/tipc/socket.c     | 48 +++++++++++++++++++++---------------------------
- net/tipc/socket.h     |  2 +-
- 6 files changed, 84 insertions(+), 101 deletions(-)
+ net/tipc/socket.c | 120 ++++++++++++++++++++++++++----------------------------
+ 1 file changed, 58 insertions(+), 62 deletions(-)
 
-diff --git a/net/tipc/bcast.c b/net/tipc/bcast.c
-index 2dfaf27..3eaa931 100644
---- a/net/tipc/bcast.c
-+++ b/net/tipc/bcast.c
-@@ -1,7 +1,7 @@
- /*
-  * net/tipc/bcast.c: TIPC broadcast code
-  *
-- * Copyright (c) 2004-2006, 2014, Ericsson AB
-+ * Copyright (c) 2004-2006, 2014-2015, Ericsson AB
-  * Copyright (c) 2004, Intel Corporation.
-  * Copyright (c) 2005, 2010-2011, Wind River Systems
-  * All rights reserved.
-@@ -1037,50 +1037,3 @@ static void tipc_nmap_diff(struct tipc_node_map *nm_a,
- 		}
- 	}
- }
--
--/**
-- * tipc_port_list_add - add a port to a port list, ensuring no duplicates
-- */
--void tipc_port_list_add(struct tipc_port_list *pl_ptr, u32 port)
--{
--	struct tipc_port_list *item = pl_ptr;
--	int i;
--	int item_sz = PLSIZE;
--	int cnt = pl_ptr->count;
--
--	for (; ; cnt -= item_sz, item = item->next) {
--		if (cnt < PLSIZE)
--			item_sz = cnt;
--		for (i = 0; i < item_sz; i++)
--			if (item->ports[i] == port)
--				return;
--		if (i < PLSIZE) {
--			item->ports[i] = port;
--			pl_ptr->count++;
--			return;
--		}
--		if (!item->next) {
--			item->next = kmalloc(sizeof(*item), GFP_ATOMIC);
--			if (!item->next) {
--				pr_warn("Incomplete multicast delivery, no memory\n");
--				return;
--			}
--			item->next->next = NULL;
--		}
--	}
--}
--
--/**
-- * tipc_port_list_free - free dynamically created entries in port_list chain
-- *
-- */
--void tipc_port_list_free(struct tipc_port_list *pl_ptr)
--{
--	struct tipc_port_list *item;
--	struct tipc_port_list *next;
--
--	for (item = pl_ptr->next; item; item = next) {
--		next = item->next;
--		kfree(item);
--	}
--}
-diff --git a/net/tipc/bcast.h b/net/tipc/bcast.h
-index 6ea190d..8f4d4dc 100644
---- a/net/tipc/bcast.h
-+++ b/net/tipc/bcast.h
-@@ -1,7 +1,7 @@
- /*
-  * net/tipc/bcast.h: Include file for TIPC broadcast code
-  *
-- * Copyright (c) 2003-2006, 2014, Ericsson AB
-+ * Copyright (c) 2003-2006, 2014-2015, Ericsson AB
-  * Copyright (c) 2005, 2010-2011, Wind River Systems
-  * All rights reserved.
-  *
-@@ -41,22 +41,6 @@
- #include "link.h"
- #include "node.h"
- 
--#define TIPC_BCLINK_RESET	1
--#define PLSIZE			32
--#define	BCBEARER		MAX_BEARERS
--
--/**
-- * struct tipc_port_list - set of node local destination ports
-- * @count: # of ports in set (only valid for first entry in list)
-- * @next: pointer to next entry in list
-- * @ports: array of port references
-- */
--struct tipc_port_list {
--	int count;
--	struct tipc_port_list *next;
--	u32 ports[PLSIZE];
--};
--
- /**
-  * struct tipc_bcbearer_pair - a pair of bearers used by broadcast link
-  * @primary: pointer to primary bearer
-@@ -71,6 +55,9 @@ struct tipc_bcbearer_pair {
- 	struct tipc_bearer *secondary;
- };
- 
-+#define TIPC_BCLINK_RESET	1
-+#define	BCBEARER		MAX_BEARERS
-+
- /**
-  * struct tipc_bcbearer - bearer used by broadcast link
-  * @bearer: (non-standard) broadcast bearer structure
-@@ -126,9 +113,6 @@ static inline int tipc_nmap_equal(struct tipc_node_map *nm_a,
- 	return !memcmp(nm_a, nm_b, sizeof(*nm_a));
- }
- 
--void tipc_port_list_add(struct tipc_port_list *pl_ptr, u32 port);
--void tipc_port_list_free(struct tipc_port_list *pl_ptr);
--
- int tipc_bclink_init(struct net *net);
- void tipc_bclink_stop(struct net *net);
- void tipc_bclink_set_flags(struct net *tn, unsigned int flags);
-diff --git a/net/tipc/name_table.c b/net/tipc/name_table.c
-index ce09b86..18a3d44 100644
---- a/net/tipc/name_table.c
-+++ b/net/tipc/name_table.c
-@@ -1,7 +1,7 @@
- /*
-  * net/tipc/name_table.c: TIPC name table code
-  *
-- * Copyright (c) 2000-2006, 2014, Ericsson AB
-+ * Copyright (c) 2000-2006, 2014-2015, Ericsson AB
-  * Copyright (c) 2004-2008, 2010-2014, Wind River Systems
-  * All rights reserved.
-  *
-@@ -618,7 +618,7 @@ not_found:
-  * Returns non-zero if any off-node ports overlap
-  */
- int tipc_nametbl_mc_translate(struct net *net, u32 type, u32 lower, u32 upper,
--			      u32 limit, struct tipc_port_list *dports)
-+			      u32 limit, struct tipc_plist *dports)
- {
- 	struct name_seq *seq;
- 	struct sub_seq *sseq;
-@@ -643,7 +643,7 @@ int tipc_nametbl_mc_translate(struct net *net, u32 type, u32 lower, u32 upper,
- 		info = sseq->info;
- 		list_for_each_entry(publ, &info->node_list, node_list) {
- 			if (publ->scope <= limit)
--				tipc_port_list_add(dports, publ->ref);
-+				tipc_plist_push(dports, publ->ref);
- 		}
- 
- 		if (info->cluster_list_size != info->node_list_size)
-@@ -1212,3 +1212,41 @@ int tipc_nl_name_table_dump(struct sk_buff *skb, struct netlink_callback *cb)
- 
- 	return skb->len;
- }
-+
-+void tipc_plist_push(struct tipc_plist *pl, u32 port)
-+{
-+	struct tipc_plist *nl;
-+
-+	if (likely(!pl->port)) {
-+		pl->port = port;
-+		return;
-+	}
-+	if (pl->port == port)
-+		return;
-+	list_for_each_entry(nl, &pl->list, list) {
-+		if (nl->port == port)
-+			return;
-+	}
-+	nl = kmalloc(sizeof(*nl), GFP_ATOMIC);
-+	if (nl) {
-+		nl->port = port;
-+		list_add(&nl->list, &pl->list);
-+	}
-+}
-+
-+u32 tipc_plist_pop(struct tipc_plist *pl)
-+{
-+	struct tipc_plist *nl;
-+	u32 port = 0;
-+
-+	if (likely(list_empty(&pl->list))) {
-+		port = pl->port;
-+		pl->port = 0;
-+		return port;
-+	}
-+	nl = list_first_entry(&pl->list, typeof(*nl), list);
-+	port = nl->port;
-+	list_del(&nl->list);
-+	kfree(nl);
-+	return port;
-+}
-diff --git a/net/tipc/name_table.h b/net/tipc/name_table.h
-index f67b3d8..52501fd 100644
---- a/net/tipc/name_table.h
-+++ b/net/tipc/name_table.h
-@@ -38,7 +38,7 @@
- #define _TIPC_NAME_TABLE_H
- 
- struct tipc_subscription;
--struct tipc_port_list;
-+struct tipc_plist;
- 
- /*
-  * TIPC name types reserved for internal TIPC use (both current and planned)
-@@ -101,7 +101,7 @@ struct sk_buff *tipc_nametbl_get(struct net *net, const void *req_tlv_area,
- 				 int req_tlv_space);
- u32 tipc_nametbl_translate(struct net *net, u32 type, u32 instance, u32 *node);
- int tipc_nametbl_mc_translate(struct net *net, u32 type, u32 lower, u32 upper,
--			      u32 limit, struct tipc_port_list *dports);
-+			      u32 limit, struct tipc_plist *dports);
- struct publication *tipc_nametbl_publish(struct net *net, u32 type, u32 lower,
- 					 u32 upper, u32 scope, u32 port_ref,
- 					 u32 key);
-@@ -118,4 +118,18 @@ void tipc_nametbl_unsubscribe(struct tipc_subscription *s);
- int tipc_nametbl_init(struct net *net);
- void tipc_nametbl_stop(struct net *net);
- 
-+struct tipc_plist {
-+	struct list_head list;
-+	u32 port;
-+};
-+
-+static inline void tipc_plist_init(struct tipc_plist *pl)
-+{
-+	INIT_LIST_HEAD(&pl->list);
-+	pl->port = 0;
-+}
-+
-+void tipc_plist_push(struct tipc_plist *pl, u32 port);
-+u32 tipc_plist_pop(struct tipc_plist *pl);
-+
- #endif
 diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index c1a4611..26aec84 100644
+index b384e65..f9cd587 100644
 --- a/net/tipc/socket.c
 +++ b/net/tipc/socket.c
-@@ -1,7 +1,7 @@
- /*
-  * net/tipc/socket.c: TIPC socket API
-  *
-- * Copyright (c) 2001-2007, 2012-2014, Ericsson AB
-+ * Copyright (c) 2001-2007, 2012-2015, Ericsson AB
-  * Copyright (c) 2004-2008, 2010-2013, Wind River Systems
-  * All rights reserved.
-  *
-@@ -778,48 +778,42 @@ new_mtu:
- 
- /* tipc_sk_mcast_rcv - Deliver multicast message to all destination sockets
+@@ -818,17 +818,14 @@ void tipc_sk_mcast_rcv(struct net *net, struct sk_buff *buf)
+ /**
+  * tipc_sk_proto_rcv - receive a connection mng protocol message
+  * @tsk: receiving socket
+- * @dnode: node to send response message to, if any
+- * @buf: buffer containing protocol message
+- * Returns 0 (TIPC_OK) if message was consumed, 1 (TIPC_FWD_MSG) if
+- * (CONN_PROBE_REPLY) message should be forwarded.
++ * @skb: pointer to message buffer. Set to NULL if buffer is consumed.
   */
--void tipc_sk_mcast_rcv(struct net *net, struct sk_buff *buf)
-+void tipc_sk_mcast_rcv(struct net *net, struct sk_buff *skb)
+-static int tipc_sk_proto_rcv(struct tipc_sock *tsk, u32 *dnode,
+-			     struct sk_buff *buf)
++static void tipc_sk_proto_rcv(struct tipc_sock *tsk, struct sk_buff **skb)
  {
 -	struct tipc_msg *msg = buf_msg(buf);
--	struct tipc_port_list dports = {0, NULL, };
--	struct tipc_port_list *item;
--	struct sk_buff *b;
--	uint i, last, dst = 0;
-+	struct tipc_msg *msg = buf_msg(skb);
-+	struct tipc_plist dports;
-+	struct sk_buff *cskb;
-+	u32 portid;
- 	u32 scope = TIPC_CLUSTER_SCOPE;
--	struct sk_buff_head msgs;
-+	struct sk_buff_head msgq;
-+	uint hsz = skb_headroom(skb) + msg_hdr_sz(msg);
-+
-+	skb_queue_head_init(&msgq);
-+	tipc_plist_init(&dports);
- 
- 	if (in_own_node(net, msg_orignode(msg)))
- 		scope = TIPC_NODE_SCOPE;
- 
- 	if (unlikely(!msg_mcast(msg))) {
- 		pr_warn("Received non-multicast msg in multicast\n");
--		kfree_skb(buf);
- 		goto exit;
- 	}
- 	/* Create destination port list: */
- 	tipc_nametbl_mc_translate(net, msg_nametype(msg), msg_namelower(msg),
- 				  msg_nameupper(msg), scope, &dports);
--	last = dports.count;
--	if (!last) {
--		kfree_skb(buf);
--		return;
--	}
++	struct tipc_msg *msg = buf_msg(*skb);
+ 	int conn_cong;
 -
--	for (item = &dports; item; item = item->next) {
--		for (i = 0; i < PLSIZE && ++dst <= last; i++) {
--			b = (dst != last) ? skb_clone(buf, GFP_ATOMIC) : buf;
--			if (!b) {
--				pr_warn("Failed do clone mcast rcv buffer\n");
--				continue;
--			}
--			msg_set_destport(msg, item->ports[i]);
--			skb_queue_head_init(&msgs);
--			skb_queue_tail(&msgs, b);
--			tipc_sk_rcv(net, &msgs);
-+	portid = tipc_plist_pop(&dports);
-+	for (; portid; portid = tipc_plist_pop(&dports)) {
-+		cskb = __pskb_copy(skb, hsz, GFP_ATOMIC);
-+		if (!cskb) {
-+			pr_warn("Failed do clone mcast rcv buffer\n");
-+			continue;
- 		}
-+		msg_set_destport(buf_msg(cskb), portid);
-+		skb_queue_tail(&msgq, cskb);
++	u32 dnode;
++	u32 own_node = tsk_own_node(tsk);
+ 	/* Ignore if connection cannot be validated: */
+ 	if (!tsk_peer_msg(tsk, msg))
+ 		goto exit;
+@@ -841,15 +838,15 @@ static int tipc_sk_proto_rcv(struct tipc_sock *tsk, u32 *dnode,
+ 		if (conn_cong)
+ 			tsk->sk.sk_write_space(&tsk->sk);
+ 	} else if (msg_type(msg) == CONN_PROBE) {
+-		if (!tipc_msg_reverse(tsk_own_node(tsk), buf, dnode, TIPC_OK))
+-			return TIPC_OK;
+-		msg_set_type(msg, CONN_PROBE_REPLY);
+-		return TIPC_FWD_MSG;
++		if (tipc_msg_reverse(own_node, *skb, &dnode, TIPC_OK)) {
++			msg_set_type(msg, CONN_PROBE_REPLY);
++			return;
++		}
  	}
-+	tipc_sk_rcv(net, &msgq);
+ 	/* Do nothing if msg_type() == CONN_PROBE_REPLY */
  exit:
--	tipc_port_list_free(&dports);
-+	kfree_skb(skb);
+-	kfree_skb(buf);
+-	return TIPC_OK;
++	kfree_skb(*skb);
++	*skb = NULL;
  }
  
+ static int tipc_wait_for_sndmsg(struct socket *sock, long *timeo_p)
+@@ -1568,16 +1565,16 @@ static void tipc_data_ready(struct sock *sk)
  /**
-diff --git a/net/tipc/socket.h b/net/tipc/socket.h
-index e3dbdc0..95b0159 100644
---- a/net/tipc/socket.h
-+++ b/net/tipc/socket.h
-@@ -1,6 +1,6 @@
- /* net/tipc/socket.h: Include file for TIPC socket code
+  * filter_connect - Handle all incoming messages for a connection-based socket
+  * @tsk: TIPC socket
+- * @msg: message
++ * @skb: pointer to message buffer. Set to NULL if buffer is consumed
   *
-- * Copyright (c) 2014, Ericsson AB
-+ * Copyright (c) 2014-2015, Ericsson AB
-  * All rights reserved.
+  * Returns 0 (TIPC_OK) if everything ok, -TIPC_ERR_NO_PORT otherwise
+  */
+-static int filter_connect(struct tipc_sock *tsk, struct sk_buff **buf)
++static int filter_connect(struct tipc_sock *tsk, struct sk_buff **skb)
+ {
+ 	struct sock *sk = &tsk->sk;
+ 	struct net *net = sock_net(sk);
+ 	struct socket *sock = sk->sk_socket;
+-	struct tipc_msg *msg = buf_msg(*buf);
++	struct tipc_msg *msg = buf_msg(*skb);
+ 	int retval = -TIPC_ERR_NO_PORT;
+ 
+ 	if (msg_mcast(msg))
+@@ -1627,8 +1624,8 @@ static int filter_connect(struct tipc_sock *tsk, struct sk_buff **buf)
+ 		 * connect() routine if sleeping.
+ 		 */
+ 		if (msg_data_sz(msg) == 0) {
+-			kfree_skb(*buf);
+-			*buf = NULL;
++			kfree_skb(*skb);
++			*skb = NULL;
+ 			if (waitqueue_active(sk_sleep(sk)))
+ 				wake_up_interruptible(sk_sleep(sk));
+ 		}
+@@ -1680,32 +1677,33 @@ static unsigned int rcvbuf_limit(struct sock *sk, struct sk_buff *buf)
+ /**
+  * filter_rcv - validate incoming message
+  * @sk: socket
+- * @buf: message
++ * @skb: pointer to message. Set to NULL if buffer is consumed.
   *
-  * Redistribution and use in source and binary forms, with or without
+  * Enqueues message on receive queue if acceptable; optionally handles
+  * disconnect indication for a connected socket.
+  *
+- * Called with socket lock already taken; port lock may also be taken.
++ * Called with socket lock already taken
+  *
+- * Returns 0 (TIPC_OK) if message was consumed, -TIPC error code if message
+- * to be rejected, 1 (TIPC_FWD_MSG) if (CONN_MANAGER) message to be forwarded
++ * Returns 0 (TIPC_OK) if message was ok, -TIPC error code if rejected
+  */
+-static int filter_rcv(struct sock *sk, struct sk_buff *buf)
++static int filter_rcv(struct sock *sk, struct sk_buff **skb)
+ {
+ 	struct socket *sock = sk->sk_socket;
+ 	struct tipc_sock *tsk = tipc_sk(sk);
+-	struct tipc_msg *msg = buf_msg(buf);
+-	unsigned int limit = rcvbuf_limit(sk, buf);
+-	u32 onode;
++	struct tipc_msg *msg = buf_msg(*skb);
++	unsigned int limit = rcvbuf_limit(sk, *skb);
+ 	int rc = TIPC_OK;
+ 
+-	if (unlikely(msg_user(msg) == CONN_MANAGER))
+-		return tipc_sk_proto_rcv(tsk, &onode, buf);
++	if (unlikely(msg_user(msg) == CONN_MANAGER)) {
++		tipc_sk_proto_rcv(tsk, skb);
++		return TIPC_OK;
++	}
+ 
+ 	if (unlikely(msg_user(msg) == SOCK_WAKEUP)) {
+-		kfree_skb(buf);
++		kfree_skb(*skb);
+ 		tsk->link_cong = 0;
+ 		sk->sk_write_space(sk);
++		*skb = NULL;
+ 		return TIPC_OK;
+ 	}
+ 
+@@ -1717,21 +1715,22 @@ static int filter_rcv(struct sock *sk, struct sk_buff *buf)
+ 		if (msg_connected(msg))
+ 			return -TIPC_ERR_NO_PORT;
+ 	} else {
+-		rc = filter_connect(tsk, &buf);
+-		if (rc != TIPC_OK || buf == NULL)
++		rc = filter_connect(tsk, skb);
++		if (rc != TIPC_OK || !*skb)
+ 			return rc;
+ 	}
+ 
+ 	/* Reject message if there isn't room to queue it */
+-	if (sk_rmem_alloc_get(sk) + buf->truesize >= limit)
++	if (sk_rmem_alloc_get(sk) + (*skb)->truesize >= limit)
+ 		return -TIPC_ERR_OVERLOAD;
+ 
+ 	/* Enqueue message */
+-	TIPC_SKB_CB(buf)->handle = NULL;
+-	__skb_queue_tail(&sk->sk_receive_queue, buf);
+-	skb_set_owner_r(buf, sk);
++	TIPC_SKB_CB(*skb)->handle = NULL;
++	__skb_queue_tail(&sk->sk_receive_queue, *skb);
++	skb_set_owner_r(*skb, sk);
+ 
+ 	sk->sk_data_ready(sk);
++	*skb = NULL;
+ 	return TIPC_OK;
+ }
+ 
+@@ -1746,25 +1745,22 @@ static int filter_rcv(struct sock *sk, struct sk_buff *buf)
+  */
+ static int tipc_backlog_rcv(struct sock *sk, struct sk_buff *skb)
+ {
+-	int rc;
+-	u32 onode;
++	int err;
++	atomic_t *dcnt;
++	u32 dnode;
+ 	struct tipc_sock *tsk = tipc_sk(sk);
+ 	struct net *net = sock_net(sk);
+ 	uint truesize = skb->truesize;
+ 
+-	rc = filter_rcv(sk, skb);
+-
+-	if (likely(!rc)) {
+-		if (atomic_read(&tsk->dupl_rcvcnt) < TIPC_CONN_OVERLOAD_LIMIT)
+-			atomic_add(truesize, &tsk->dupl_rcvcnt);
++	err = filter_rcv(sk, &skb);
++	if (likely(!skb)) {
++		dcnt = &tsk->dupl_rcvcnt;
++		if (atomic_read(dcnt) < TIPC_CONN_OVERLOAD_LIMIT)
++			atomic_add(truesize, dcnt);
+ 		return 0;
+ 	}
+-
+-	if ((rc < 0) && !tipc_msg_reverse(tsk_own_node(tsk), skb, &onode, -rc))
+-		return 0;
+-
+-	tipc_link_xmit_skb(net, skb, onode, 0);
+-
++	if (!err || tipc_msg_reverse(tsk_own_node(tsk), skb, &dnode, -err))
++		tipc_link_xmit_skb(net, skb, dnode, tsk->portid);
+ 	return 0;
+ }
+ 
+@@ -1780,14 +1776,14 @@ int tipc_sk_rcv(struct net *net, struct sk_buff *skb)
+ 	struct tipc_net *tn;
+ 	struct sock *sk;
+ 	u32 dport = msg_destport(buf_msg(skb));
+-	int rc = TIPC_OK;
++	int err = TIPC_OK;
+ 	uint limit;
+ 	u32 dnode;
+ 
+ 	/* Validate destination and message */
+ 	tsk = tipc_sk_lookup(net, dport);
+ 	if (unlikely(!tsk)) {
+-		rc = tipc_msg_eval(net, skb, &dnode);
++		err = tipc_msg_eval(net, skb, &dnode);
+ 		goto exit;
+ 	}
+ 	sk = &tsk->sk;
+@@ -1796,25 +1792,25 @@ int tipc_sk_rcv(struct net *net, struct sk_buff *skb)
+ 	spin_lock_bh(&sk->sk_lock.slock);
+ 
+ 	if (!sock_owned_by_user(sk)) {
+-		rc = filter_rcv(sk, skb);
++		err = filter_rcv(sk, &skb);
+ 	} else {
+ 		if (sk->sk_backlog.len == 0)
+ 			atomic_set(&tsk->dupl_rcvcnt, 0);
+ 		limit = rcvbuf_limit(sk, skb) + atomic_read(&tsk->dupl_rcvcnt);
+-		if (sk_add_backlog(sk, skb, limit))
+-			rc = -TIPC_ERR_OVERLOAD;
++		if (likely(!sk_add_backlog(sk, skb, limit)))
++			skb = NULL;
++		else
++			err = -TIPC_ERR_OVERLOAD;
+ 	}
+ 	spin_unlock_bh(&sk->sk_lock.slock);
+ 	sock_put(sk);
+-	if (likely(!rc))
+-		return 0;
+ exit:
+-	tn = net_generic(net, tipc_net_id);
+-	if ((rc < 0) && !tipc_msg_reverse(tn->own_addr, skb, &dnode, -rc))
+-		return -EHOSTUNREACH;
+-
+-	tipc_link_xmit_skb(net, skb, dnode, 0);
+-	return (rc < 0) ? -EHOSTUNREACH : 0;
++	if (unlikely(skb)) {
++		tn = net_generic(net, tipc_net_id);
++		if (!err || tipc_msg_reverse(tn->own_addr, skb, &dnode, -err))
++			tipc_link_xmit_skb(net, skb, dnode, 0);
++	}
++	return err ? -EHOSTUNREACH : 0;
+ }
+ 
+ static int tipc_wait_for_connect(struct socket *sock, long *timeo_p)
 -- 
 1.9.1
 
