@@ -1,88 +1,88 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [PATCH net-next] bridge: Let bridge not age 'externally' learnt
- FDB entries, they are removed when 'external' entity notifies the aging
-Date: Thu, 5 Feb 2015 09:10:00 -0800
-Message-ID: <CAE4R7bBKXHfbOz-BT1jW2=+hTi=6hZZHRUVpYUvOj1yF+XEtUw@mail.gmail.com>
-References: <CA+CtxLSziWmx94_V9S-uW9=6VYg4WXsU4CERx-uovvrFOtO1dA@mail.gmail.com>
-	<54D246A7.2020502@cumulusnetworks.com>
-	<CAE4R7bCASKHmZD+tiu=ZWM9dzvTrSLsaXxgtOYLpsmOR87kcTQ@mail.gmail.com>
-	<20150204.235308.71797582017426266.davem@davemloft.net>
-	<CA+CtxLRaJ+p=y1LCgap48vqH3b4VjxKQO55Yy5cyazng4WtxPw@mail.gmail.com>
-	<CAN+pFwJQQMFmmm1f7tSPCmaSr2GE_L8Pua+Rz7tvK9CFnr63Tg@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Throughput regression with `tcp: refine TSO autosizing`
+Date: Thu, 05 Feb 2015 09:10:05 -0800
+Message-ID: <1423156205.31870.86.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CA+BoTQkVu23P3EOmY_Q3E1GJnWsyF==Pawz4iPOS_Bq5dvfO5Q@mail.gmail.com>
+	 <1422537297.21689.15.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CA+BoTQk2xT-8DqPuiiKG+kHAjLPrj8F9dLTb-rcGhvMq0u_2Qw@mail.gmail.com>
+	 <1422628835.21689.95.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CA+BoTQkV+mOZfe_Niz5101sMQeaV6muKCsShptjGQ1AgOHqqoQ@mail.gmail.com>
+	 <1422903136.21689.114.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1422926330.21689.138.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CA+BoTQkMikA8wxm1ce2DkKhPB0HiKeAqT7f+sQ=91W40z=X0Rg@mail.gmail.com>
+	 <1422973660.907.10.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CA+BoTQmvUuFdfYF=wVMYxrf_nQZB5GCV=LvDZVvfs-3hAE4WKw@mail.gmail.com>
+	 <1423051045.907.108.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CA+BoTQ=BDcQ779uKCuX+f40=4npXVF4MTQnpjKimNYAxPsxBoQ@mail.gmail.com>
+	 <1423053531.907.115.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CA+BoTQ=qmCZz4CmSOvCOzMLowrDEG12XBffkTcYxjGqVD9604g@mail.gmail.com>
+	 <1423055810.907.125.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1423056591.907.130.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1423084303.31870.15.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CA+BoTQnnwrv0nrKyGyQNvosz_E4e5fBa9iN8fpeqcd-iRfi17g@mail.gmail.com>
+	 <1423141038.31870.38.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1423142342.31870.49.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CA+BoTQmcShK0U_cXvEOLY_8y7LH8x3taTgjcyMzv0MLVn4UtCA@mail.gmail.com>
+	 <1423147286.31870.59.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Siva Mannem <siva.mannem.lnx@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	Netdev <netdev@vger.kernel.org>,
-	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>
-To: B Viswanath <marichika4@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Neal Cardwell <ncardwell@google.com>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	eyalpe@dev.mellanox.co.il
+To: Michal Kazior <michal.kazior@tieto.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:39219 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754169AbbBERKC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Feb 2015 12:10:02 -0500
-Received: by mail-we0-f174.google.com with SMTP id k11so28355wes.5
-        for <netdev@vger.kernel.org>; Thu, 05 Feb 2015 09:10:00 -0800 (PST)
-In-Reply-To: <CAN+pFwJQQMFmmm1f7tSPCmaSr2GE_L8Pua+Rz7tvK9CFnr63Tg@mail.gmail.com>
+Received: from mail-ig0-f181.google.com ([209.85.213.181]:62516 "EHLO
+	mail-ig0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754169AbbBERKQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Feb 2015 12:10:16 -0500
+In-Reply-To: <1423147286.31870.59.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 5, 2015 at 3:05 AM, B Viswanath <marichika4@gmail.com> wrote:
-> On 5 February 2015 at 15:56, Siva Mannem <siva.mannem.lnx@gmail.com> wrote:
->> On Thu, Feb 5, 2015 at 1:23 PM, David Miller <davem@davemloft.net> wrote:
->>> From: Scott Feldman <sfeldma@gmail.com>
->>> Date: Wed, 4 Feb 2015 23:13:07 -0800
->>>
->>>> I'd like to see this patch reverted so we can have a more
->>>> comprehensive discussion/solution.  With this patch applied, the only
->>>> user (rocker) of NETDEV_SWITCH_FDB_ADD is broken.  So please undo this
->>>> patch so rocker isn't broken and let's work on a knob to suit both
->>>> modes: 1) let bridge manage aging, 2) let device manage aging.
->>>
->>> Patch reverted.
->>
->> I now see why rocker is broken. Sorry for the churn.
->> As Scott/Roopa suggested, a new flag IFLA_BRPORT_AGING_SYNC (similar
->> to IFLA_BRPORT_LEARNING_SYNC) can be defined and stored in
->> net_bridge_port->flags when user configures it. Some thing like below.
->>
->> $ sudo bridge link set dev swp1 ageing_sync on self
->>
->> And bridge ageing logic does not age externally learnt entry *only* if
->> IFLA_BRPORT_AGING_SYNC flag on fdb entry's net_bridge_port is set.
->> This ensures that existing behavior continues to be default behavior
->> and is of no harm to rocker.
->>
->> Please let me know your comments on above approach.
->
-> I am not sure you really want to pass on this burden of deciding who
-> should age to the end user.  I think user should  not be forced to be
-> aware of all the device and driver properties.
->
-> May be a different way would be that -
->
-> 1. driver specifies whether it can supporting ageing by itself (the
-> chip) during registration.
-> 2. driver also allows that kernel turn off the driver/device ageing.
-> 3. when a bridge is created with all ports from same device which
-> supports ageing (and which is currently enabled), then bridge defers
-> ageing to driver. Otherwise bridge disables ageing on all
-> participating devices and takes care of ageing by itself.
-> 4. When ageing is disabled on a device, all other bridges that use any
-> ports from that device start ageing themselves.
->
-> I guess this sounds complicated, but it can ensure that user gets the
-> best default behaviour based on the device. Any alternate suggestions
-> ?
->
-> Thanks
-> vissu
->
->> --
->> Regards,
->> Siva Mannem.
->> --
->> To unsubscribe from this list: send the line "unsubscribe netdev" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+On Thu, 2015-02-05 at 06:41 -0800, Eric Dumazet wrote:
+
+> Not at all. This basically removes backpressure.
+> 
+> A single UDP socket can now blast packets regardless of SO_SNDBUF
+> limits.
+> 
+> This basically remove years of work trying to fix bufferbloat.
+> 
+> I still do not understand why increasing tcp_limit_output_bytes is not
+> working for you.
+
+Oh well, tcp_limit_output_bytes might be ok.
+
+In fact, the problem comes from GSO assumption. Maybe Herbert was right,
+when he suggested TCP would be simpler if we enforced GSO...
+
+When GSO is used, the thing works because 2*skb->truesize is roughly 2
+ms worth of traffic.
+
+Because you do not use GSO, and tx completions are slow, we need this :
+
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 65caf8b95e17..ac01b4cd0035 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -2044,7 +2044,8 @@ static bool tcp_write_xmit(struct sock *sk, unsigned int mss_now, int nonagle,
+ 			break;
+ 
+ 		/* TCP Small Queues :
+-		 * Control number of packets in qdisc/devices to two packets / or ~1 ms.
++		 * Control number of packets in qdisc/devices to two packets /
++		 * or ~2 ms (sk->sk_pacing_rate >> 9) in case GSO is off.
+ 		 * This allows for :
+ 		 *  - better RTT estimation and ACK scheduling
+ 		 *  - faster recovery
+@@ -2053,7 +2054,7 @@ static bool tcp_write_xmit(struct sock *sk, unsigned int mss_now, int nonagle,
+ 		 * of queued bytes to ensure line rate.
+ 		 * One example is wifi aggregation (802.11 AMPDU)
+ 		 */
+-		limit = max(2 * skb->truesize, sk->sk_pacing_rate >> 10);
++		limit = max(2 * skb->truesize, sk->sk_pacing_rate >> 9);
+ 		limit = min_t(u32, limit, sysctl_tcp_limit_output_bytes);
+ 
+ 		if (atomic_read(&sk->sk_wmem_alloc) > limit) {
