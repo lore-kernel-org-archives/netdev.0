@@ -1,102 +1,86 @@
-From: Vitaly Kuznetsov <vkuznets@redhat.com>
-Subject: Re: [PATCH net-next v2] hyper-v: allow access to vmbus from userspace
- driver
-Date: Thu, 05 Feb 2015 12:01:03 +0100
-Message-ID: <87egq4r5ao.fsf@vitty.brq.redhat.com>
-References: <20150204152029.65f02d64@urahara>
+From: B Viswanath <marichika4@gmail.com>
+Subject: Re: [PATCH net-next] bridge: Let bridge not age 'externally' learnt
+ FDB entries, they are removed when 'external' entity notifies the aging
+Date: Thu, 5 Feb 2015 16:35:27 +0530
+Message-ID: <CAN+pFwJQQMFmmm1f7tSPCmaSr2GE_L8Pua+Rz7tvK9CFnr63Tg@mail.gmail.com>
+References: <CA+CtxLSziWmx94_V9S-uW9=6VYg4WXsU4CERx-uovvrFOtO1dA@mail.gmail.com>
+	<54D246A7.2020502@cumulusnetworks.com>
+	<CAE4R7bCASKHmZD+tiu=ZWM9dzvTrSLsaXxgtOYLpsmOR87kcTQ@mail.gmail.com>
+	<20150204.235308.71797582017426266.davem@davemloft.net>
+	<CA+CtxLRaJ+p=y1LCgap48vqH3b4VjxKQO55Yy5cyazng4WtxPw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: dev@dpdk.org, devel@linuxdriverproject.org,
- Haiyang Zhang <haiyangz@microsoft.com>, netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <20150204152029.65f02d64@urahara> (Stephen Hemminger's message of
- "Wed, 4 Feb 2015 15:20:29 -0800")
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Scott Feldman <sfeldma@gmail.com>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>,
+	Netdev <netdev@vger.kernel.org>,
+	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>
+To: Siva Mannem <siva.mannem.lnx@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qg0-f46.google.com ([209.85.192.46]:36004 "EHLO
+	mail-qg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757170AbbBELF2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Feb 2015 06:05:28 -0500
+Received: by mail-qg0-f46.google.com with SMTP id j5so5542294qga.5
+        for <netdev@vger.kernel.org>; Thu, 05 Feb 2015 03:05:27 -0800 (PST)
+In-Reply-To: <CA+CtxLRaJ+p=y1LCgap48vqH3b4VjxKQO55Yy5cyazng4WtxPw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger <stephen@networkplumber.org> writes:
+On 5 February 2015 at 15:56, Siva Mannem <siva.mannem.lnx@gmail.com> wrote:
+> On Thu, Feb 5, 2015 at 1:23 PM, David Miller <davem@davemloft.net> wrote:
+>> From: Scott Feldman <sfeldma@gmail.com>
+>> Date: Wed, 4 Feb 2015 23:13:07 -0800
+>>
+>>> I'd like to see this patch reverted so we can have a more
+>>> comprehensive discussion/solution.  With this patch applied, the only
+>>> user (rocker) of NETDEV_SWITCH_FDB_ADD is broken.  So please undo this
+>>> patch so rocker isn't broken and let's work on a knob to suit both
+>>> modes: 1) let bridge manage aging, 2) let device manage aging.
+>>
+>> Patch reverted.
+>
+> I now see why rocker is broken. Sorry for the churn.
+> As Scott/Roopa suggested, a new flag IFLA_BRPORT_AGING_SYNC (similar
+> to IFLA_BRPORT_LEARNING_SYNC) can be defined and stored in
+> net_bridge_port->flags when user configures it. Some thing like below.
+>
+> $ sudo bridge link set dev swp1 ageing_sync on self
+>
+> And bridge ageing logic does not age externally learnt entry *only* if
+> IFLA_BRPORT_AGING_SYNC flag on fdb entry's net_bridge_port is set.
+> This ensures that existing behavior continues to be default behavior
+> and is of no harm to rocker.
+>
+> Please let me know your comments on above approach.
 
-> This is enables the hyper-v driver for DPDK <dev@dpdk.org>.
-> The hv_uio driver needs to access the shared vmbus monitor
-> pages.
+I am not sure you really want to pass on this burden of deciding who
+should age to the end user.  I think user should  not be forced to be
+aware of all the device and driver properties.
 
-Why can't we just make vmbus_connection struct public?
+May be a different way would be that -
 
->
-> I would also like to put hv_uio in upstream kernel like other
-> uio drivers, but need to get API accepted with DPDK first.
->
-> Signed-off-by: Stas Egorov <segorov@mirantis.com>
-> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
->
-> ---
-> v2 - simplify and rename to vmbus_get_monitor_pages
->
->  drivers/hv/connection.c |   20 +++++++++++++++++---
->  include/linux/hyperv.h  |    3 +++
->  2 files changed, 20 insertions(+), 3 deletions(-)
->
-> --- a/drivers/hv/connection.c	2015-02-03 10:58:51.751752450 -0800
-> +++ b/drivers/hv/connection.c	2015-02-04 14:59:51.636194383 -0800
-> @@ -64,6 +64,15 @@ static __u32 vmbus_get_next_version(__u3
->  	}
->  }
->
-> +void vmbus_get_monitor_pages(unsigned long *int_page,
-> +			     unsigned long monitor_pages[2])
-> +{
+1. driver specifies whether it can supporting ageing by itself (the
+chip) during registration.
+2. driver also allows that kernel turn off the driver/device ageing.
+3. when a bridge is created with all ports from same device which
+supports ageing (and which is currently enabled), then bridge defers
+ageing to driver. Otherwise bridge disables ageing on all
+participating devices and takes care of ageing by itself.
+4. When ageing is disabled on a device, all other bridges that use any
+ports from that device start ageing themselves.
 
-Too weird to be a public interface in my opinion.
+I guess this sounds complicated, but it can ensure that user gets the
+best default behaviour based on the device. Any alternate suggestions
+?
 
-> +	*int_page = (unsigned long)vmbus_connection.int_page;
-> +	monitor_pages[0] = (unsigned long)vmbus_connection.monitor_pages[0];
-> +	monitor_pages[1] = (unsigned long)vmbus_connection.monitor_pages[1];
-> +}
-> +EXPORT_SYMBOL_GPL(vmbus_get_monitor_pages);
-> +
->  static int vmbus_negotiate_version(struct vmbus_channel_msginfo *msginfo,
->  					__u32 version)
->  {
-> @@ -347,10 +356,7 @@ static void process_chn_event(u32 relid)
->  			else
->  				bytes_to_read = 0;
->  		} while (read_state && (bytes_to_read != 0));
-> -	} else {
-> -		pr_err("no channel callback for relid - %u\n", relid);
->  	}
-> -
->  }
+Thanks
+vissu
 
-This change wasn't mentioned in your commit msg.
-
->
->  /*
-> --- a/include/linux/hyperv.h	2015-02-03 10:58:51.751752450 -0800
-> +++ b/include/linux/hyperv.h	2015-02-04 15:00:26.388355012 -0800
-> @@ -868,6 +868,9 @@ extern int vmbus_recvpacket_raw(struct v
->
->  extern void vmbus_ontimer(unsigned long data);
->
-> +extern void vmbus_get_monitor_pages(unsigned long *int_page,
-> +				    unsigned long monitor_pages[2]);
-> +
->  /* Base driver object */
->  struct hv_driver {
->  	const char *name;
-> _______________________________________________
-> devel mailing list
-> devel@linuxdriverproject.org
-> http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel
-
--- 
-  Vitaly
+> --
+> Regards,
+> Siva Mannem.
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
