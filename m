@@ -1,175 +1,142 @@
 From: David Ahern <dsahern@gmail.com>
-Subject: [RFC PATCH 22/29] net: vrf: Set VRF id in various network structs
-Date: Wed,  4 Feb 2015 18:34:23 -0700
-Message-ID: <1423100070-31848-23-git-send-email-dsahern@gmail.com>
+Subject: [RFC PATCH 24/29] net: vrf: Add support to get/set vrf context on a device
+Date: Wed,  4 Feb 2015 18:34:25 -0700
+Message-ID: <1423100070-31848-25-git-send-email-dsahern@gmail.com>
 References: <1423100070-31848-1-git-send-email-dsahern@gmail.com>
 Cc: ebiederm@xmission.com, David Ahern <dsahern@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f181.google.com ([209.85.223.181]:40161 "EHLO
-	mail-ie0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756348AbbBEBgM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2015 20:36:12 -0500
-Received: by mail-ie0-f181.google.com with SMTP id rd18so6678101iec.12
-        for <netdev@vger.kernel.org>; Wed, 04 Feb 2015 17:36:12 -0800 (PST)
+Received: from mail-ig0-f177.google.com ([209.85.213.177]:56189 "EHLO
+	mail-ig0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756373AbbBEBgO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2015 20:36:14 -0500
+Received: by mail-ig0-f177.google.com with SMTP id z20so8375917igj.4
+        for <netdev@vger.kernel.org>; Wed, 04 Feb 2015 17:36:13 -0800 (PST)
 In-Reply-To: <1423100070-31848-1-git-send-email-dsahern@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-VRF id comes from passed in network context similar to namespace.
-
 Signed-off-by: David Ahern <dsahern@gmail.com>
 ---
- include/net/inet_hashtables.h | 1 +
- include/net/neighbour.h       | 1 +
- net/core/fib_rules.c          | 3 +++
- net/core/neighbour.c          | 1 +
- net/ipv4/fib_frontend.c       | 3 +++
- net/ipv4/fib_semantics.c      | 1 +
- net/ipv4/icmp.c               | 1 +
- net/ipv4/ipmr.c               | 1 +
- net/ipv4/route.c              | 1 +
- 9 files changed, 13 insertions(+)
+ include/linux/netdevice.h    |  1 +
+ include/uapi/linux/if_link.h |  1 +
+ net/core/dev.c               | 28 ++++++++++++++++++++++++++++
+ net/core/rtnetlink.c         | 12 ++++++++++++
+ 4 files changed, 42 insertions(+)
 
-diff --git a/include/net/inet_hashtables.h b/include/net/inet_hashtables.h
-index 9ddc1b2309ce..eec177ef0798 100644
---- a/include/net/inet_hashtables.h
-+++ b/include/net/inet_hashtables.h
-@@ -95,6 +95,7 @@ static inline
- void ib_net_ctx_set(struct inet_bind_bucket *ib, struct net_ctx *ctx)
- {
- 	write_pnet(&ib->ib_net_ctx.net, hold_net(ctx->net));
-+	ib->ib_net_ctx.vrf = ctx->vrf;
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index f4a707263446..7d983f005622 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -2922,6 +2922,7 @@ int dev_change_name(struct net_device *, const char *);
+ int dev_set_alias(struct net_device *, const char *, size_t);
+ int dev_change_net_namespace(struct net_device *, struct net *, const char *);
+ int dev_set_mtu(struct net_device *, int);
++int dev_set_vrf(struct net_device *, __u32);
+ void dev_set_group(struct net_device *, int);
+ int dev_set_mac_address(struct net_device *, struct sockaddr *);
+ int dev_change_carrier(struct net_device *, bool new_carrier);
+diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
+index 0deee3eeddbf..0afdb50ee75c 100644
+--- a/include/uapi/linux/if_link.h
++++ b/include/uapi/linux/if_link.h
+@@ -147,6 +147,7 @@ enum {
+ 	IFLA_CARRIER_CHANGES,
+ 	IFLA_PHYS_SWITCH_ID,
+ 	IFLA_LINK_NETNSID,
++	IFLA_VRF,
+ 	__IFLA_MAX
+ };
+ 
+diff --git a/net/core/dev.c b/net/core/dev.c
+index adf575d6d267..d96d0d46dc6e 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -5882,6 +5882,34 @@ int dev_set_mtu(struct net_device *dev, int new_mtu)
  }
+ EXPORT_SYMBOL(dev_set_mtu);
  
- static inline
-diff --git a/include/net/neighbour.h b/include/net/neighbour.h
-index 73d0938b085c..d9e2328ad60a 100644
---- a/include/net/neighbour.h
-+++ b/include/net/neighbour.h
-@@ -323,6 +323,7 @@ void pneigh_net_ctx_set(struct pneigh_entry *pneigh,
- 			const struct net_ctx *net_ctx)
- {
- 	write_pnet(&pneigh->net_ctx.net, hold_net(net_ctx->net));
-+	pneigh->net_ctx.vrf = net_ctx->vrf;
- }
- static inline
- int pneigh_net_ctx_eq(const struct pneigh_entry *pneigh,
-diff --git a/net/core/fib_rules.c b/net/core/fib_rules.c
-index 9a1a4a23b6f6..223a4004bdd0 100644
---- a/net/core/fib_rules.c
-+++ b/net/core/fib_rules.c
-@@ -32,6 +32,7 @@ int fib_default_rule_add(struct fib_rules_ops *ops,
- 	r->table = table;
- 	r->flags = flags;
- 	r->fr_net = hold_net(ops->fro_net);
-+	r->fr_vrf = ops->fro_vrf;
++ /**
++  *     dev_set_vrf - Change VRF
++  *     @dev: device
++  *     @new_vrf: new VRF
++  *
++  *     Change the VRF association for the network device.
++  */
++int dev_set_vrf(struct net_device *dev, __u32 new_vrf)
++{
++	if (!netif_device_present(dev))
++		return -ENODEV;
++
++	/* device needs to be taken down to drop routes */
++	if (dev->flags & IFF_UP)
++		return -EINVAL;
++
++	if (!vrf_is_valid(new_vrf))
++		return -EINVAL;
++
++	if (new_vrf == dev->nd_vrf)
++		return 0;
++
++	dev->nd_vrf = new_vrf;
++
++	return 0;
++}
++EXPORT_SYMBOL(dev_set_vrf);
++
+ /**
+  *	dev_set_group - Change group this device belongs to
+  *	@dev: device
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index 673cb4c6f391..bf41e63f87ae 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -866,6 +866,7 @@ static noinline size_t if_nlmsg_size(const struct net_device *dev,
+ 	       + nla_total_size(4) /* IFLA_TXQLEN */
+ 	       + nla_total_size(4) /* IFLA_WEIGHT */
+ 	       + nla_total_size(4) /* IFLA_MTU */
++	       + nla_total_size(4) /* IFLA_VRF */
+ 	       + nla_total_size(4) /* IFLA_LINK */
+ 	       + nla_total_size(4) /* IFLA_MASTER */
+ 	       + nla_total_size(1) /* IFLA_CARRIER */
+@@ -1031,6 +1032,7 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
+ 		       netif_running(dev) ? dev->operstate : IF_OPER_DOWN) ||
+ 	    nla_put_u8(skb, IFLA_LINKMODE, dev->link_mode) ||
+ 	    nla_put_u32(skb, IFLA_MTU, dev->mtu) ||
++	    nla_put_u32(skb, IFLA_VRF, dev->nd_vrf) ||
+ 	    nla_put_u32(skb, IFLA_GROUP, dev->group) ||
+ 	    nla_put_u32(skb, IFLA_PROMISCUITY, dev->promiscuity) ||
+ 	    nla_put_u32(skb, IFLA_NUM_TX_QUEUES, dev->num_tx_queues) ||
+@@ -1249,6 +1251,7 @@ static const struct nla_policy ifla_policy[IFLA_MAX+1] = {
+ 	[IFLA_CARRIER_CHANGES]	= { .type = NLA_U32 },  /* ignored */
+ 	[IFLA_PHYS_SWITCH_ID]	= { .type = NLA_BINARY, .len = MAX_PHYS_ITEM_ID_LEN },
+ 	[IFLA_LINK_NETNSID]	= { .type = NLA_S32 },
++	[IFLA_VRF]		= { .type = NLA_U32 },
+ };
  
- 	r->suppress_prefixlen = -1;
- 	r->suppress_ifgroup = -1;
-@@ -137,6 +138,7 @@ fib_rules_register(const struct fib_rules_ops *tmpl, struct net_ctx *ctx)
- 
- 	INIT_LIST_HEAD(&ops->rules_list);
- 	ops->fro_net = ctx->net;
-+	ops->fro_vrf = ctx->vrf;
- 
- 	err = __fib_rules_register(ops);
- 	if (err) {
-@@ -305,6 +307,7 @@ static int fib_nl_newrule(struct sk_buff *skb, struct nlmsghdr* nlh)
- 		goto errout;
- 	}
- 	rule->fr_net = hold_net(net);
-+	rule->fr_vrf = sk_ctx.vrf;
- 
- 	if (tb[FRA_PRIORITY])
- 		rule->pref = nla_get_u32(tb[FRA_PRIORITY]);
-diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-index 0fbbe70be170..e6c03d367f56 100644
---- a/net/core/neighbour.c
-+++ b/net/core/neighbour.c
-@@ -1467,6 +1467,7 @@ struct neigh_parms *neigh_parms_alloc(struct net_device *dev,
- 		dev_hold(dev);
- 		p->dev = dev;
- 		write_pnet(&p->net_ctx.net, hold_net(dev_ctx.net));
-+		p->net_ctx.vrf = dev_ctx.vrf;
- 		p->sysctl_table = NULL;
- 
- 		if (ops->ndo_neigh_setup && ops->ndo_neigh_setup(dev, p)) {
-diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
-index cba1e2c9c2ec..2f06b71bed53 100644
---- a/net/ipv4/fib_frontend.c
-+++ b/net/ipv4/fib_frontend.c
-@@ -357,6 +357,7 @@ static int rtentry_to_fib_config(struct net_ctx *ctx, int cmd,
- 
- 	memset(cfg, 0, sizeof(*cfg));
- 	cfg->fc_nlinfo.nl_net = net;
-+	cfg->fc_nlinfo.nl_vrf = ctx->vrf;
- 
- 	if (rt->rt_dst.sa_family != AF_INET)
- 		return -EAFNOSUPPORT;
-@@ -564,6 +565,7 @@ static int rtm_to_fib_config(struct net_ctx *ctx, struct sk_buff *skb,
- 	cfg->fc_nlinfo.portid = NETLINK_CB(skb).portid;
- 	cfg->fc_nlinfo.nlh = nlh;
- 	cfg->fc_nlinfo.nl_net = ctx->net;
-+	cfg->fc_nlinfo.nl_vrf = ctx->vrf;
- 
- 	if (cfg->fc_type > RTN_MAX) {
- 		err = -EINVAL;
-@@ -714,6 +716,7 @@ static void fib_magic(int cmd, int type, __be32 dst, int dst_len, struct in_ifad
- 		.fc_nlflags = NLM_F_CREATE | NLM_F_APPEND,
- 		.fc_nlinfo = {
- 			.nl_net = net,
-+			.nl_vrf = dev_vrf(ifa->ifa_dev->dev),
- 		},
- 	};
- 
-diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
-index a7d810cafada..65d01c5b747e 100644
---- a/net/ipv4/fib_semantics.c
-+++ b/net/ipv4/fib_semantics.c
-@@ -819,6 +819,7 @@ struct fib_info *fib_create_info(struct fib_config *cfg)
- 		fi->fib_metrics = (u32 *) dst_default_metrics;
- 
- 	fi->fib_net = hold_net(net);
-+	fi->fib_vrf = net_ctx->vrf;
- 	fi->fib_protocol = cfg->fc_protocol;
- 	fi->fib_scope = cfg->fc_scope;
- 	fi->fib_flags = cfg->fc_flags;
-diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
-index 9d4c38292fee..b7766a73e46d 100644
---- a/net/ipv4/icmp.c
-+++ b/net/ipv4/icmp.c
-@@ -564,6 +564,7 @@ void icmp_send(struct sk_buff *skb_in, int type, int code, __be32 info)
- 		goto out;
- 	net = dev_net(rt->dst.dev);
- 	dev_ctx.net = net;
-+	dev_ctx.vrf = dev_vrf(rt->dst.dev);
- 
- 	/*
- 	 *	Find the original header. It is expected to be valid, of course.
-diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
-index a9e438c7aaa4..d00ba199a012 100644
---- a/net/ipv4/ipmr.c
-+++ b/net/ipv4/ipmr.c
-@@ -2081,6 +2081,7 @@ static int __pim_rcv(struct mr_table *mrt, struct sk_buff *skb,
- 	skb->ip_summed = CHECKSUM_NONE;
- 
- 	dev_ctx.net = dev_net(reg_dev);
-+	dev_ctx.vrf = dev_vrf(reg_dev);
- 	skb_tunnel_rx(skb, reg_dev, &dev_ctx);
- 
- 	netif_rx(skb);
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index f980a42a995f..d6c5f0a8ab17 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -1621,6 +1621,7 @@ static int __mkroute_input(struct sk_buff *skb,
+ static const struct nla_policy ifla_info_policy[IFLA_INFO_MAX+1] = {
+@@ -1616,6 +1619,13 @@ static int do_setlink(const struct sk_buff *skb,
+ 		status |= DO_SETLINK_MODIFIED;
  	}
  
- 	dev_ctx.net = dev_net(rth->dst.dev);
-+	dev_ctx.vrf = dev_vrf(rth->dst.dev);
- 	rth->rt_genid = rt_genid_ipv4(&dev_ctx);
- 	rth->rt_flags = flags;
- 	rth->rt_type = res->type;
++	if (tb[IFLA_VRF]) {
++		err = dev_set_vrf(dev, nla_get_u32(tb[IFLA_VRF]));
++		if (err < 0)
++			goto errout;
++		status |= DO_SETLINK_MODIFIED;
++	}
++
+ 	if (tb[IFLA_GROUP]) {
+ 		dev_set_group(dev, nla_get_u32(tb[IFLA_GROUP]));
+ 		status |= DO_SETLINK_NOTIFY;
+@@ -1911,6 +1921,8 @@ struct net_device *rtnl_create_link(struct net *net,
+ 
+ 	if (tb[IFLA_MTU])
+ 		dev->mtu = nla_get_u32(tb[IFLA_MTU]);
++	if (tb[IFLA_VRF])
++		dev->nd_vrf = nla_get_u32(tb[IFLA_VRF]);
+ 	if (tb[IFLA_ADDRESS]) {
+ 		memcpy(dev->dev_addr, nla_data(tb[IFLA_ADDRESS]),
+ 				nla_len(tb[IFLA_ADDRESS]));
 -- 
 1.9.3 (Apple Git-50)
