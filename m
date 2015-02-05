@@ -1,54 +1,59 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] flowcache: Fix kernel panic in flow_cache_flush_task
-Date: Thu, 05 Feb 2015 14:39:06 -0800 (PST)
-Message-ID: <20150205.143906.2233107149659287418.davem@davemloft.net>
-References: <20150205153649.GA3278@miroslavurbanek.com>
-	<1423154648.31870.81.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [net-next 03/16] ixgbe: cleanup sparse errors in new
+ ixgbe_x550.c file
+Date: Thu, 05 Feb 2015 14:40:07 -0800 (PST)
+Message-ID: <20150205.144007.1425782923410995381.davem@davemloft.net>
+References: <1423128950-12388-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1423128950-12388-4-git-send-email-jeffrey.t.kirsher@intel.com>
+	<063D6719AE5E284EB5DD2968C1650D6D1CADC3FA@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: mu@miroslavurbanek.com, steffen.klassert@secunet.com,
-	herbert@gondor.apana.org.au, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, torvalds@linux-foundation.org,
-	tc@excello.cz, jh@excello.cz, fan.du@windriver.com
-To: eric.dumazet@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1423154648.31870.81.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jeffrey.t.kirsher@intel.com, donald.c.skidmore@intel.com,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com
+To: David.Laight@ACULAB.COM
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:48445 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751312AbbBEWkI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Feb 2015 17:40:08 -0500
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CADC3FA@AcuExch.aculab.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 05 Feb 2015 08:44:08 -0800
+From: David Laight <David.Laight@ACULAB.COM>
+Date: Thu, 5 Feb 2015 09:48:24 +0000
 
-> On Thu, 2015-02-05 at 16:36 +0100, Miroslav Urbanek wrote:
->> flow_cache_flush_task references a structure member flow_cache_gc_wo=
-rk
->> where it should reference flow_cache_flush_task instead.
->>=20
->> Kernel panic occurs on kernels using IPsec during XFRM garbage
->> collection. The garbage collection interval can be shortened using t=
-he
->> following sysctl settings:
->>=20
->> net.ipv4.xfrm4_gc_thresh=3D4
->> net.ipv6.xfrm6_gc_thresh=3D4
->>=20
->> With the default settings, our productions servers crash approximate=
-ly
->> once a week. With the settings above, they crash immediately.
->>=20
->> Fixes: ca925cf1534e ("flowcache: Make flow cache name space aware")
->> Reported-by: Tom=E1=A8 Charv=E1t <tc@excello.cz>
->> Tested-by: Jan Hejl <jh@excello.cz>
->> Signed-off-by: Miroslav Urbanek <mu@miroslavurbanek.com>
+> From: Jeff Kirsher
+>> This patch cleans up prototypes that should have been defined
+>> as static.
+>> 
+>> Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
+>> Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+>> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 >> ---
->=20
-> Nice catch !
->=20
-> Ok, but you do not need to cc so many people/lists
->=20
-> netdev is fine, and we usually CC patch author, just in case.
->=20
-> Acked-by: Eric Dumazet <edumazet@google.com>
+>>  drivers/net/ethernet/intel/ixgbe/ixgbe_type.h |  4 +-
+>>  drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c | 65 ++++++++++++++-------------
+>>  2 files changed, 37 insertions(+), 32 deletions(-)
+>> 
+>> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+>> b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+>> index d101b25..1f301ec 100644
+>> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+>> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+>> @@ -2451,8 +2451,8 @@ struct ixgbe_hic_read_shadow_ram {
+>> 
+>>  struct ixgbe_hic_write_shadow_ram {
+>>  	union ixgbe_hic_hdr2 hdr;
+>> -	u32 address;
+>> -	u16 length;
+>> +	__be32 address;
+>> +	__be16 length;
+>>  	u16 pad2;
+>>  	u16 data;
+>>  	u16 pad3;
+> 
+> Not related to commit message
 
-Applied, thanks.
+Agreed, fix this up.
