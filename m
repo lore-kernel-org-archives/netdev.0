@@ -1,71 +1,64 @@
-From: Takashi Iwai <tiwai@suse.de>
-Subject: [PATCH v2] hso: Use static attribute groups for sysfs entry
-Date: Thu,  5 Feb 2015 11:15:24 +0100
-Message-ID: <1423131324-7379-1-git-send-email-tiwai@suse.de>
-Cc: Jan Dumon <j.dumon@option.com>, linux-usb@vger.kernel.org,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:39672 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756669AbbBEKPa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Feb 2015 05:15:30 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH v2] net: bluetooth: hci_sock: Use 'const void *' instead
+ of 'void *' for 2nd parameter of hci_test_bit()
+Date: Thu, 5 Feb 2015 10:14:51 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CADC42B@AcuExch.aculab.com>
+References: <54CFE8BE.5030700@sunrus.com.cn>
+ <063D6719AE5E284EB5DD2968C1650D6D1CADA5E1@AcuExch.aculab.com>
+ <54D27D68.7040501@cogentembedded.com>
+ <0AB99BEA-C379-439C-AD80-5F2122AE37E5@holtmann.org>
+ <54D29379.8050104@sunrus.com.cn>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "Gustavo F. Padovan" <gustavo@padovan.org>,
+	Johan Hedberg <johan.hedberg@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"linux-bluetooth@vger.kernel.org" <linux-bluetooth@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: 'Chen Gang S' <gang.chen@sunrus.com.cn>,
+	Marcel Holtmann <marcel@holtmann.org>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <54D29379.8050104@sunrus.com.cn>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Pass the static attribute groups and the driver data via
-tty_port_register_device_attr() instead of manual device_create_file()
-and device_remove_file() calls.
+From: Chen Gang S [mailto:gang.chen@sunrus.com.cn]
+> On 2/5/15 05:09, Marcel Holtmann wrote:
+> > Hi Sergei,
+> >
+> >>>> -static inline int hci_test_bit(int nr, void *addr)
+> >>>> +static inline int hci_test_bit(int nr, const void *addr)
+> >>>>  {
+> >>>>  	return *((__u32 *) addr + (nr >> 5)) & ((__u32) 1 << (nr & 31));
+> >>>>  }
+> >>
+> >>> Is there a 'standard' function lurking that will do the above.
+> >>> On x86 the cpus 'bit test' instruction will handle bit numbers
+> >>> greater than the word size - so it can be a single instruction.
+> >>
+> >>   Of course, there's test_bit().
+> >
+> > we did leave hci_test_bit in the code since there are some userspace facing
+> > API that we can not change. Remember that the origin of this code is
+> > from 2.4.6 kernel.
+> >
+> > So we can only change this if you can ensure not to break the userspace API.
+> > So might want to write unit tests to ensure working HCI filter before even
+> > considering touching this.
+> >
+> 
+> For me, we have to remain hci_test_bit(), it is for "__u32 *" (which we
+> can not change). The common test_bit() is for "unsigned long *", in this
+> case, I guess it may cause issue under 64-bit environments.
 
-Signed-off-by: Takashi Iwai <tiwai@suse.de>
----
-v1->v2: rebased to linux-next
+Except that half the time you are passing a 'long *' and you haven't
+explained why this isn't broken on 64bit architectures.
 
- drivers/net/usb/hso.c | 17 ++++++++++-------
- 1 file changed, 10 insertions(+), 7 deletions(-)
+Note that on LE systems the size of the accesses used to access a dense
+bit array don't matter. This is not true of BE systems.
 
-diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
-index 7833bd1d9791..6b8efcabb816 100644
---- a/drivers/net/usb/hso.c
-+++ b/drivers/net/usb/hso.c
-@@ -531,6 +531,13 @@ static ssize_t hso_sysfs_show_porttype(struct device *dev,
- }
- static DEVICE_ATTR(hsotype, S_IRUGO, hso_sysfs_show_porttype, NULL);
- 
-+static struct attribute *hso_serial_dev_attrs[] = {
-+	&dev_attr_hsotype.attr,
-+	NULL
-+};
-+
-+ATTRIBUTE_GROUPS(hso_serial_dev);
-+
- static int hso_urb_to_index(struct hso_serial *serial, struct urb *urb)
- {
- 	int idx;
-@@ -2236,9 +2243,6 @@ static int hso_stop_serial_device(struct hso_device *hso_dev)
- 
- static void hso_serial_tty_unregister(struct hso_serial *serial)
- {
--	if (serial->parent->dev)
--		device_remove_file(serial->parent->dev, &dev_attr_hsotype);
--
- 	tty_unregister_device(tty_drv, serial->minor);
- }
- 
-@@ -2274,11 +2278,10 @@ static int hso_serial_common_create(struct hso_serial *serial, int num_urbs,
- 		goto exit;
- 
- 	/* register our minor number */
--	serial->parent->dev = tty_port_register_device(&serial->port, tty_drv,
--			minor, &serial->parent->interface->dev);
-+	serial->parent->dev = tty_port_register_device_attr(&serial->port,
-+			tty_drv, minor, &serial->parent->interface->dev,
-+			serial->parent, hso_serial_dev_groups);
- 	dev = serial->parent->dev;
--	dev_set_drvdata(dev, serial->parent);
--	i = device_create_file(dev, &dev_attr_hsotype);
- 
- 	/* fill in specific data for later use */
- 	serial->minor = minor;
--- 
-2.2.2
+	David
