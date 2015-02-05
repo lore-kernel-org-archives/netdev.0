@@ -1,166 +1,63 @@
-From: Sabrina Dubroca <sd@queasysnail.net>
-Subject: Re: [RFC PATCH net-next 00/11] net: remove disable_irq() from
- ->ndo_poll_controller
-Date: Thu, 5 Feb 2015 16:33:00 +0100
-Message-ID: <20150205153300.GA23903@kria>
-References: <1418135842-21389-1-git-send-email-sd@queasysnail.net>
- <20141209.214433.7463087833083181.davem@davemloft.net>
- <20141211214537.GA4159@kria>
- <alpine.DEB.2.11.1412122242180.16494@nanos>
- <20150105143126.GA22122@kria>
- <20150205002059.GA28282@kria>
- <20150205130623.GH5029@twins.programming.kicks-ass.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Thomas Gleixner <tglx@linutronix.de>, netdev@vger.kernel.org
-To: Peter Zijlstra <peterz@infradead.org>,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp4-g21.free.fr ([212.27.42.4]:25599 "EHLO smtp4-g21.free.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753601AbbBEPdG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Feb 2015 10:33:06 -0500
-Content-Disposition: inline
-In-Reply-To: <20150205130623.GH5029@twins.programming.kicks-ass.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Lad Prabhakar <prabhakar.csengg@gmail.com>
+Subject: [PATCH] enic: enic_main: fix sparse warnings
+Date: Thu,  5 Feb 2015 15:34:13 +0000
+Message-ID: <1423150453-26417-1-git-send-email-prabhakar.csengg@gmail.com>
+Cc: linux-kernel@vger.kernel.org,
+	"Lad, Prabhakar" <prabhakar.csengg@gmail.com>
+To: Christian Benvenuti <benve@cisco.com>,
+	Sujith Sankar <ssujith@cisco.com>,
+	Govindarajulu Varadarajan <_govind@gmx.com>,
+	Neel Patel <neepatel@cisco.com>, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-2015-02-05, 14:06:23 +0100, Peter Zijlstra wrote:
-> On Thu, Feb 05, 2015 at 01:20:59AM +0100, Sabrina Dubroca wrote:
-> > Thomas, ping?
-> > 
-> > thread is over there if you need it:
-> > https://marc.info/?l=linux-netdev&m=141833435000554&w=2
-> 
-> It appears to me you have addressed most his issues and since it appears
-> to me the existing synchronze_hardirq() seems to be mostly what we need
-> I'll propose (and merge) the below and will take flames from tglx when
-> he returns :-)
+From: "Lad, Prabhakar" <prabhakar.csengg@gmail.com>
 
-Great, thanks a lot Peter!
+this patch fixes following sparse warnings:
 
-I will prepare the drivers patches based on this.
+enic_main.c:92:28: warning: symbol 'mod_table' was not declared. Should it be static?
+enic_main.c:109:28: warning: symbol 'mod_range' was not declared. Should it be static?
+enic_main.c:1306:5: warning: symbol 'enic_busy_poll' was not declared. Should it be static?
 
-David, do you want one patch for each driver, or do you want me to group the changes?
-There are 60+ drivers to patch, and almost all the patches are just:
+Signed-off-by: Lad, Prabhakar <prabhakar.csengg@gmail.com>
+---
+ Found this issue on linux-next (gcc  version 4.8.2,
+ sparse version  0.4.5-rc1)and applies on top linux-next.
 
--	disable_irq(irq);
--	handler(a, b);
-+	if (disable_hardirq(irq))
-+		handler(a,b);
+ drivers/net/ethernet/cisco/enic/enic_main.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-> ---
-> Subject: genirq: Provide disable_hardirq()
-> 
-> For things like netpoll there is a need to disable an interrupt from
-> atomic context. Currently netpoll uses disable_irq() which will
-> sleep-wait on threaded handlers and thus forced_irqthreads breaks
-> things.
-> 
-> Provide disable_hardirq(), which uses synchronize_hardirq() to only wait
-> for active hardirq handlers; also change synchronize_hardirq() to
-> return the status of threaded handlers.
-> 
-> This will allow one to try-disable an interrupt from atomic context, or
-> in case of request_threaded_irq() to only wait for the hardirq part.
-> 
-> Suggested-by: Sabrina Dubroca <sd@queasysnail.net>
-> Signed-off-by: Peter Zijlstra (Intel) <peterz@infradead.org>
-> ---
->  include/linux/hardirq.h   |  2 +-
->  include/linux/interrupt.h |  1 +
->  kernel/irq/manage.c       | 36 ++++++++++++++++++++++++++++++++++--
->  3 files changed, 36 insertions(+), 3 deletions(-)
-> 
-> diff --git a/include/linux/hardirq.h b/include/linux/hardirq.h
-> index cba442ec3c66..f4af03404b97 100644
-> --- a/include/linux/hardirq.h
-> +++ b/include/linux/hardirq.h
-> @@ -9,7 +9,7 @@
->  
->  
->  extern void synchronize_irq(unsigned int irq);
-> -extern void synchronize_hardirq(unsigned int irq);
-> +extern bool synchronize_hardirq(unsigned int irq);
->  
->  #if defined(CONFIG_TINY_RCU)
->  
-> diff --git a/include/linux/interrupt.h b/include/linux/interrupt.h
-> index d9b05b5bf8c7..3bb01b9a379c 100644
-> --- a/include/linux/interrupt.h
-> +++ b/include/linux/interrupt.h
-> @@ -184,6 +184,7 @@ extern void devm_free_irq(struct device *dev, unsigned int irq, void *dev_id);
->  #endif
->  
->  extern void disable_irq_nosync(unsigned int irq);
-> +extern bool disable_hardirq(unsigned int irq);
->  extern void disable_irq(unsigned int irq);
->  extern void disable_percpu_irq(unsigned int irq);
->  extern void enable_irq(unsigned int irq);
-> diff --git a/kernel/irq/manage.c b/kernel/irq/manage.c
-> index f038e586a4b9..1309cccd714f 100644
-> --- a/kernel/irq/manage.c
-> +++ b/kernel/irq/manage.c
-> @@ -68,14 +68,20 @@ static void __synchronize_hardirq(struct irq_desc *desc)
->   *	Do not use this for shutdown scenarios where you must be sure
->   *	that all parts (hardirq and threaded handler) have completed.
->   *
-> + *	Returns: false if a theaded handler is active.
-> + *
->   *	This function may be called - with care - from IRQ context.
->   */
-> -void synchronize_hardirq(unsigned int irq)
-> +bool synchronize_hardirq(unsigned int irq)
->  {
->  	struct irq_desc *desc = irq_to_desc(irq);
->  
-> -	if (desc)
-> +	if (desc) {
->  		__synchronize_hardirq(desc);
-> +		return !atomic_read(&desc->threads_active);
-> +	}
-> +
-> +	return true;
->  }
->  EXPORT_SYMBOL(synchronize_hardirq);
->  
-> @@ -439,6 +445,32 @@ void disable_irq(unsigned int irq)
->  }
->  EXPORT_SYMBOL(disable_irq);
->  
-> +/**
-> + *	disable_hardirq - disables an irq and waits for hardirq completion
-> + *	@irq: Interrupt to disable
-> + *
-> + *	Disable the selected interrupt line.  Enables and Disables are
-> + *	nested.
-> + *	This function waits for any pending hard IRQ handlers for this
-> + *	interrupt to complete before returning. If you use this function while
-> + *	holding a resource the hard IRQ handler may need you will deadlock.
-> + *
-> + *	When used to optimistically disable an interrupt from atomic context
-> + *	the return value must be checked.
-> + *
-> + *	Returns: false if a theaded handler is active.
-> + *
-> + *	This function may be called - with care - from IRQ context.
-> + */
-> +bool disable_hardirq(unsigned int irq)
-> +{
-> +	if (!__disable_irq_nosync(irq))
-> +		return synchronize_hardirq(irq);
-> +
-> +	return false;
-> +}
-> +EXPORT_SYMBOL(disable_hardirq);
-> +
->  void __enable_irq(struct irq_desc *desc, unsigned int irq)
->  {
->  	switch (desc->depth) {
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
+diff --git a/drivers/net/ethernet/cisco/enic/enic_main.c b/drivers/net/ethernet/cisco/enic/enic_main.c
+index ee44c82..9cbe038 100644
+--- a/drivers/net/ethernet/cisco/enic/enic_main.c
++++ b/drivers/net/ethernet/cisco/enic/enic_main.c
+@@ -89,7 +89,7 @@ MODULE_DEVICE_TABLE(pci, enic_id_table);
+  *  coalescing timer values
+  *  {rx_rate in Mbps, mapping percentage of the range}
+  */
+-struct enic_intr_mod_table mod_table[ENIC_MAX_COALESCE_TIMERS + 1] = {
++static struct enic_intr_mod_table mod_table[ENIC_MAX_COALESCE_TIMERS + 1] = {
+ 	{4000,  0},
+ 	{4400, 10},
+ 	{5060, 20},
+@@ -106,7 +106,7 @@ struct enic_intr_mod_table mod_table[ENIC_MAX_COALESCE_TIMERS + 1] = {
+ /* This table helps the driver to pick different ranges for rx coalescing
+  * timer depending on the link speed.
+  */
+-struct enic_intr_mod_range mod_range[ENIC_MAX_LINK_SPEEDS] = {
++static struct enic_intr_mod_range mod_range[ENIC_MAX_LINK_SPEEDS] = {
+ 	{0,  0}, /* 0  - 4  Gbps */
+ 	{0,  3}, /* 4  - 10 Gbps */
+ 	{3,  6}, /* 10 - 40 Gbps */
+@@ -1303,7 +1303,7 @@ static void enic_set_rx_cpu_rmap(struct enic *enic)
+ #endif /* CONFIG_RFS_ACCEL */
+ 
+ #ifdef CONFIG_NET_RX_BUSY_POLL
+-int enic_busy_poll(struct napi_struct *napi)
++static int enic_busy_poll(struct napi_struct *napi)
+ {
+ 	struct net_device *netdev = napi->dev;
+ 	struct enic *enic = netdev_priv(netdev);
 -- 
-Sabrina
+1.9.1
