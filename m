@@ -1,39 +1,56 @@
-From: Lad Prabhakar <prabhakar.csengg@gmail.com>
-Subject: [PATCH] net/macb: fix sparse warning
-Date: Thu,  5 Feb 2015 15:40:46 +0000
-Message-ID: <1423150846-7027-1-git-send-email-prabhakar.csengg@gmail.com>
-Cc: linux-kernel@vger.kernel.org,
-	"Lad, Prabhakar" <prabhakar.csengg@gmail.com>
-To: Nicolas Ferre <nicolas.ferre@atmel.com>, netdev@vger.kernel.org
+From: Miroslav Urbanek <mu@miroslavurbanek.com>
+Subject: [PATCH] flowcache: Fix kernel panic in flow_cache_flush_task
+Date: Thu, 5 Feb 2015 16:36:50 +0100
+Message-ID: <20150205153649.GA3278@miroslavurbanek.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	"David S. Miller" <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>,
+	Linux Kernel <linux-kernel@vger.kernel.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	=?utf-8?B?VG9tw6HFoSBDaGFydsOhdA==?= <tc@excello.cz>,
+	Jan Hejl <jh@excello.cz>
+To: Steffen Klassert <steffen.klassert@secunet.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Lad, Prabhakar" <prabhakar.csengg@gmail.com>
+flow_cache_flush_task references a structure member flow_cache_gc_work
+where it should reference flow_cache_flush_task instead.
 
-this patch fixes following sparse warning:
+Kernel panic occurs on kernels using IPsec during XFRM garbage
+collection. The garbage collection interval can be shortened using the
+following sysctl settings:
 
-macb.c:2038:26: warning: symbol 'gem_ethtool_ops' was not declared. Should it be static?
+net.ipv4.xfrm4_gc_thresh=3D4
+net.ipv6.xfrm6_gc_thresh=3D4
 
-Signed-off-by: Lad, Prabhakar <prabhakar.csengg@gmail.com>
+With the default settings, our productions servers crash approximately
+once a week. With the settings above, they crash immediately.
+
+=46ixes: ca925cf1534e ("flowcache: Make flow cache name space aware")
+Reported-by: Tom=C3=A1=C5=A1 Charv=C3=A1t <tc@excello.cz>
+Tested-by: Jan Hejl <jh@excello.cz>
+Signed-off-by: Miroslav Urbanek <mu@miroslavurbanek.com>
 ---
- Found this issue on linux-next (gcc  version 4.8.2,
- sparse version  0.4.5-rc1)and applies on top linux-next.
+ net/core/flow.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
- drivers/net/ethernet/cadence/macb.h | 1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethernet/cadence/macb.h
-index 31dc080..e6ad68a 100644
---- a/drivers/net/ethernet/cadence/macb.h
-+++ b/drivers/net/ethernet/cadence/macb.h
-@@ -821,6 +821,7 @@ struct macb {
- };
- 
- extern const struct ethtool_ops macb_ethtool_ops;
-+extern const struct ethtool_ops gem_ethtool_ops;
- 
- int macb_mii_init(struct macb *bp);
- int macb_ioctl(struct net_device *dev, struct ifreq *rq, int cmd);
--- 
-1.9.1
+diff --git a/net/core/flow.c b/net/core/flow.c
+index a0348fd..1033725 100644
+--- a/net/core/flow.c
++++ b/net/core/flow.c
+@@ -379,7 +379,7 @@ done:
+ static void flow_cache_flush_task(struct work_struct *work)
+ {
+ 	struct netns_xfrm *xfrm =3D container_of(work, struct netns_xfrm,
+-						flow_cache_gc_work);
++						flow_cache_flush_work);
+ 	struct net *net =3D container_of(xfrm, struct net, xfrm);
+=20
+ 	flow_cache_flush(net);
+--=20
+2.0.4
