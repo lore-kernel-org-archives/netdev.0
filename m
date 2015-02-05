@@ -1,47 +1,53 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH v2 iproute2-next 1/4] include: update headers
-Date: Thu, 5 Feb 2015 10:26:59 -0800
-Message-ID: <20150205102659.7b4a3ebb@urahara>
-References: <54C8E3EB.8050904@6wind.com>
-	<1422454550-32222-1-git-send-email-nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH iproute2 v2 0/3] ip netns: Run over all netns
+Date: Thu, 5 Feb 2015 10:29:16 -0800
+Message-ID: <20150205102916.1b99849e@urahara>
+References: <1421590219-19365-1-git-send-email-vadim4j@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, netdev@vger.kernel.org
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Cc: netdev@vger.kernel.org
+To: Vadim Kochan <vadim4j@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f171.google.com ([209.85.192.171]:42911 "EHLO
-	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750763AbbBES1B (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Feb 2015 13:27:01 -0500
-Received: by pdjy10 with SMTP id y10so9256295pdj.9
-        for <netdev@vger.kernel.org>; Thu, 05 Feb 2015 10:27:00 -0800 (PST)
-In-Reply-To: <1422454550-32222-1-git-send-email-nicolas.dichtel@6wind.com>
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:56023 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750825AbbBES3R (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Feb 2015 13:29:17 -0500
+Received: by mail-pa0-f51.google.com with SMTP id hz1so6901359pad.10
+        for <netdev@vger.kernel.org>; Thu, 05 Feb 2015 10:29:17 -0800 (PST)
+In-Reply-To: <1421590219-19365-1-git-send-email-vadim4j@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 28 Jan 2015 15:15:47 +0100
-Nicolas Dichtel <nicolas.dichtel@6wind.com> wrote:
+On Sun, 18 Jan 2015 16:10:16 +0200
+Vadim Kochan <vadim4j@gmail.com> wrote:
 
-> Copy from sanitized headers.
+> From: Vadim Kochan <vadim4j@gmail.com>
 > 
-> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-> ---
+> Allow 'ip netns del' and 'ip netns exec' run over each network namespace names.
 > 
-> v2: took last headers from net-next
+> 'ip netns exec' executes command forcely on eacn nsname.
 > 
->  include/linux/if_link.h       |  4 ++++
->  include/linux/neighbour.h     |  1 +
->  include/linux/net_namespace.h | 23 +++++++++++++++++++++++
->  include/linux/rtnetlink.h     |  5 +++++
->  4 files changed, 33 insertions(+)
->  create mode 100644 include/linux/net_namespace.h
+> Added new '-all' 'ip' option to run over each netns,
+> it can be used for other utils as generic option.
+> 
+> v2:
+>    Use '-all' option instead of netns name 'all'.
+> 
+> Vadim Kochan (3):
+>   lib: Exec func on each netns
+>   ip netns: Allow exec on each netns
+>   ip netns: Delete all netns
+> 
+>  include/namespace.h |  6 ++++
+>  include/utils.h     |  5 +++
+>  ip/ip.c             |  5 ++-
+>  ip/ipnetns.c        | 98 ++++++++++++++++++++++++++++++++---------------------
+>  lib/namespace.c     | 22 ++++++++++++
+>  lib/utils.c         | 28 +++++++++++++++
+>  man/man8/ip-netns.8 | 28 ++++++++++++---
+>  man/man8/ip.8       |  7 +++-
+>  8 files changed, 153 insertions(+), 46 deletions(-)
+> 
 
-All kernel headers for iproute2 must come from the result of:
-  $ make headers_install
-
-Please submit a patch to net-next which makes net_namespace.h
-(from include/uapi/linux/net_namespace.h) get correctly installed into
-usr/include/linux/net_namespace.h
-
-The file is missing from include/uapi/linux/Kbuild
+Accepted
