@@ -1,83 +1,73 @@
 From: David Ahern <dsahern@gmail.com>
-Subject: [RFC PATCH 03/29] net: Flip sock_common to net_ctx
-Date: Wed,  4 Feb 2015 18:34:04 -0700
-Message-ID: <1423100070-31848-4-git-send-email-dsahern@gmail.com>
+Subject: [RFC PATCH 05/29] net: Flip seq_net_private to net_ctx
+Date: Wed,  4 Feb 2015 18:34:06 -0700
+Message-ID: <1423100070-31848-6-git-send-email-dsahern@gmail.com>
 References: <1423100070-31848-1-git-send-email-dsahern@gmail.com>
 Cc: ebiederm@xmission.com, David Ahern <dsahern@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f173.google.com ([209.85.213.173]:57595 "EHLO
-	mail-ig0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756049AbbBEBf4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2015 20:35:56 -0500
-Received: by mail-ig0-f173.google.com with SMTP id a13so38990987igq.0
-        for <netdev@vger.kernel.org>; Wed, 04 Feb 2015 17:35:56 -0800 (PST)
+Received: from mail-ie0-f180.google.com ([209.85.223.180]:39517 "EHLO
+	mail-ie0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756049AbbBEBf6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2015 20:35:58 -0500
+Received: by mail-ie0-f180.google.com with SMTP id rl12so6705921iec.11
+        for <netdev@vger.kernel.org>; Wed, 04 Feb 2015 17:35:57 -0800 (PST)
 In-Reply-To: <1423100070-31848-1-git-send-email-dsahern@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Enhances sockets from the current namespace only assignment to a
-network context.
-
-Define skc_net macro to handle existing code references.
-
-Add macros for retrieving net_ctx struct given a sock struct (needed
-because of the way net references are done) and for comparing a
-given net_ctx struct to the context of a sock struct.
+Enhances seq files for networking to have a network context from the
+current namespace only.
 
 Signed-off-by: David Ahern <dsahern@gmail.com>
 ---
- include/net/sock.h | 17 ++++++++++++-----
- 1 file changed, 12 insertions(+), 5 deletions(-)
+ fs/proc/proc_net.c           |  2 +-
+ include/linux/seq_file_net.h | 10 ++++++----
+ 2 files changed, 7 insertions(+), 5 deletions(-)
 
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 511ef7c8889b..e67347ed1555 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -146,7 +146,7 @@ typedef __u64 __bitwise __addrpair;
-  *	@skc_bind_node: bind hash linkage for various protocol lookup tables
-  *	@skc_portaddr_node: second hash linkage for UDP/UDP-Lite protocol
-  *	@skc_prot: protocol handlers inside a network family
-- *	@skc_net: reference to the network namespace of this socket
-+ *	@skc_net_ctx: reference to network context of this socket
-  *	@skc_node: main hash linkage for various protocol lookup tables
-  *	@skc_nulls_node: main hash linkage for TCP/UDP/UDP-Lite protocol
-  *	@skc_tx_queue_mapping: tx queue number for this connection
-@@ -190,9 +190,8 @@ struct sock_common {
- 		struct hlist_nulls_node skc_portaddr_node;
- 	};
- 	struct proto		*skc_prot;
--#ifdef CONFIG_NET_NS
--	struct net	 	*skc_net;
--#endif
-+	struct net_ctx		skc_net_ctx;
-+#define skc_net  skc_net_ctx.net
- 
- #if IS_ENABLED(CONFIG_IPV6)
- 	struct in6_addr		skc_v6_daddr;
-@@ -326,7 +325,7 @@ struct sock {
- #define sk_bound_dev_if		__sk_common.skc_bound_dev_if
- #define sk_bind_node		__sk_common.skc_bind_node
- #define sk_prot			__sk_common.skc_prot
--#define sk_net			__sk_common.skc_net
-+#define sk_net			__sk_common.skc_net_ctx.net
- #define sk_v6_daddr		__sk_common.skc_v6_daddr
- #define sk_v6_rcv_saddr	__sk_common.skc_v6_rcv_saddr
- 
-@@ -2197,6 +2196,14 @@ void sock_net_set(struct sock *sk, struct net *net)
- 	write_pnet(&sk->sk_net, net);
+diff --git a/fs/proc/proc_net.c b/fs/proc/proc_net.c
+index 1bde894bc624..4996f5e91a90 100644
+--- a/fs/proc/proc_net.c
++++ b/fs/proc/proc_net.c
+@@ -54,7 +54,7 @@ int seq_open_net(struct inode *ino, struct file *f,
+ 		return -ENOMEM;
+ 	}
+ #ifdef CONFIG_NET_NS
+-	p->net = net;
++	p->net_ctx.net = net;
+ #endif
+ 	return 0;
  }
+diff --git a/include/linux/seq_file_net.h b/include/linux/seq_file_net.h
+index 32c89bbe24a2..b860d053a65e 100644
+--- a/include/linux/seq_file_net.h
++++ b/include/linux/seq_file_net.h
+@@ -7,9 +7,7 @@ struct net;
+ extern struct net init_net;
  
-+#define SOCK_NET_CTX(sk)  { .net = sock_net((sk)) }
-+
-+static inline
-+int sock_net_ctx_eq(struct sock *sk, struct net_ctx *ctx)
+ struct seq_net_private {
+-#ifdef CONFIG_NET_NS
+-	struct net *net;
+-#endif
++	struct net_ctx net_ctx;
+ };
+ 
+ int seq_open_net(struct inode *, struct file *,
+@@ -21,10 +19,14 @@ int single_release_net(struct inode *, struct file *);
+ static inline struct net *seq_file_net(struct seq_file *seq)
+ {
+ #ifdef CONFIG_NET_NS
+-	return ((struct seq_net_private *)seq->private)->net;
++	return ((struct seq_net_private *)seq->private)->net_ctx.net;
+ #else
+ 	return &init_net;
+ #endif
+ }
++static inline struct net_ctx *seq_file_net_ctx(struct seq_file *seq)
 +{
-+	return net_eq(sock_net(sk), ctx->net);
++	return &((struct seq_net_private *)seq->private)->net_ctx;
 +}
-+
- /*
-  * Kernel sockets, f.e. rtnl or icmp_socket, are a part of a namespace.
-  * They should not hold a reference to a namespace in order to allow
+ 
+ #endif
 -- 
 1.9.3 (Apple Git-50)
