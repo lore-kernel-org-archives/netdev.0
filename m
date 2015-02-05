@@ -1,94 +1,64 @@
-From: zhuyj <zyjzyj2000@gmail.com>
-Subject: [PATCH 1/1] neighbour: Support broadcast ARP in neighbor PROPE state
-Date: Thu,  5 Feb 2015 02:20:37 -0500
-Message-ID: <1423120837-28102-1-git-send-email-zyjzyj2000@gmail.com>
-Cc: eulfsam <ulf.samuelsson@ericsson.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	WANG Cong <xiyou.wangcong@gmail.com>,
-	zhuyj <zyjzyj2000@gmail.com>
-To: netdev@vger.kernel.org, stefan.costandache@windriver.com,
-	alexandre.dietsch@windriver.com, yue.tao@windriver.com,
-	clinton.slabbert@windriver.com
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: Question: should local address be expired when updating PMTU?
+Date: Thu, 5 Feb 2015 08:21:25 +0100
+Message-ID: <20150205072125.GY13046@secunet.com>
+References: <54CF3348.40207@huawei.com>
+ <20150203092845.GT13046@secunet.com>
+ <54D0A8DB.4010106@huawei.com>
+ <20150203120140.GU13046@secunet.com>
+ <54D17D1A.3020706@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<yangyingliang@huawei.com>, <hannes@redhat.com>
+To: shengyong <shengyong1@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f179.google.com ([209.85.213.179]:38368 "EHLO
-	mail-ig0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751945AbbBEHUR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Feb 2015 02:20:17 -0500
-Received: by mail-ig0-f179.google.com with SMTP id l13so9773346iga.0
-        for <netdev@vger.kernel.org>; Wed, 04 Feb 2015 23:20:16 -0800 (PST)
+Received: from a.mx.secunet.com ([195.81.216.161]:45895 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750710AbbBEHV3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Feb 2015 02:21:29 -0500
+Content-Disposition: inline
+In-Reply-To: <54D17D1A.3020706@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: eulfsam <ulf.samuelsson@ericsson.com> 
+On Wed, Feb 04, 2015 at 09:59:54AM +0800, shengyong wrote:
+> 
+> Sorry, the later. I test it on 3.10-stable. It can fix this problem. So maybe this is a bug?
 
-When the neighbor statemachine is in PROBE state, it will normally send
-a number of unicast ARP requests (number defined in "ucast_probes" entry
-in the proc file system, default=3) and if no reply is received, it will
-change state to FAILED.
+Yes, it's a bug.
 
-Enabling CONFIG_ARP_PROBE_BCAST, will make the statemachine try to send
-broadcast ARP requests, and only enter FAILED state if the broadcast ARP
-requests did not receive a reply.
+> And the 3 approaches (different flags are used: RTF_LOCAL, IFF_LOOPBACK and RTF_CACHE) in
+> these mails can fix the expire of local address. I'm confused about these flags:
+> * RTF_LOCAL: the entries of local address, like address binded to the native NIC
+> * RTF_CACHE: all cached entries
+> * IFF_LOOPBACK: this is a device-related flag, which has the same meaning as RTF_LOCAL
+> 
+> Am I right? If so, I think RTF_LOCAL is appropriate, because we just want entries of local
+> addresses to be not expired and we don't care other entries (I think if they get expired,
+> a neigh discovery could find them back).
 
-Enabling CONFIG_ARP_PROBE_BCAST, makes the IPv4 ARP behaviour more
-similar to the IPv6 Neighbor Discovery protocol, and is neccessary,
-if the other end only responds to broadcast ARPs.
+It is not the address that expires, it is the learned PMTU value that
+expires. If we delete an uncached route, nothing will bring it back
+unless you readd it manually.
 
-CC: David S. Miller <davem@davemloft.net>
-CC: WANG Cong <xiyou.wangcong@gmail.com>
-Signed-off-by: eulfsam <ulf.samuelsson@ericsson.com>
-Signed-off-by: zhuyj <zyjzyj2000@gmail.com>
----
- net/core/neighbour.c |  4 ++++
- net/ipv4/Kconfig     | 17 +++++++++++++++++
- 2 files changed, 21 insertions(+)
+We need to ensure that all routes that can learn something what
+expires are cached. This means that we clone the inserted route
+when it is used for the first time. The learned values are stored
+at this cloned route. If the learned value expires, the clone is
+deleted. The original route remains in the fib tree and can be
+still looked up.
 
-diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-index 8d614c9..50f5ee2 100644
---- a/net/core/neighbour.c
-+++ b/net/core/neighbour.c
-@@ -830,10 +830,14 @@ out:
- static __inline__ int neigh_max_probes(struct neighbour *n)
- {
- 	struct neigh_parms *p = n->parms;
-+#ifdef CONFIG_ARP_PROBE_BCAST
-+	return p->ucast_probes + p->app_probes + p->mcast_probes;
-+#else
- 	int max_probes = NEIGH_VAR(p, UCAST_PROBES) + NEIGH_VAR(p, APP_PROBES);
- 	if (!(n->nud_state & NUD_PROBE))
- 		max_probes += NEIGH_VAR(p, MCAST_PROBES);
- 	return max_probes;
-+#endif
- }
- 
- static void neigh_invalidate(struct neighbour *neigh)
-diff --git a/net/ipv4/Kconfig b/net/ipv4/Kconfig
-index bd29016..4d13edb 100644
---- a/net/ipv4/Kconfig
-+++ b/net/ipv4/Kconfig
-@@ -259,6 +259,23 @@ config IP_PIMSM_V2
- 	  gated-5). This routing protocol is not used widely, so say N unless
- 	  you want to play with it.
- 
-+config ARP_PROBE_BCAST
-+	bool "IP: ARP send broadcast ARP, if probing using unicast fails"
-+	default	y
-+	---help---
-+	  When the neighbor statemachine is in PROBE state, it will
-+	  normally send a number of unicast ARP requests
-+	  (number defined in "ucast_probes" entry in the proc file system, default=3)
-+	  and if no reply is received, it will change state to FAILED.
-+  
-+	  Saying Y here, will make the statemachine try to send broadcast ARP
-+	  requests, and only enter FAILED state if the broadcast ARP requests did not
-+	  receive a reply.
-+
-+	  Enabling this, makes the IPv4 ARP behaviour more similar to the IPv6
-+	  Neighbor Discovery protocol, and is neccessary, if the other end
-+	  only responds to broadcast ARPs.
-+
- config SYN_COOKIES
- 	bool "IP: TCP syncookie support"
- 	---help---
--- 
-1.9.1
+The problem is, that we currently don't cache/clone host routes.
+So if a host route learns something that expires, the original
+route is removed from the fib tree and we loose connectivity
+to that host. We don't cache host routes because some of them
+(the local ones) are automatically added with metric 0.
+If we try to cache such a route, the clone will be identical
+to the original route and we fail to insert it to the fib tree.
+
+So we need to adjust the caching to all routes that actually can
+learn something and leave out only those that can not.
+
+I'll send a patchset that should fix this at the beginning of the
+next week.
