@@ -1,58 +1,40 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH 0/6 v2 net-next] rhashtable fixes
-Date: Thu, 5 Feb 2015 10:19:54 +0000
-Message-ID: <20150205101954.GA24388@casper.infradead.org>
-References: <cover.1423097592.git.tgraf@suug.ch>
- <54D2D656.8060709@windriver.com>
- <20150205084737.GA15549@casper.infradead.org>
- <54D3346E.4040302@windriver.com>
+From: Stefan Assmann <sassmann@kpanic.de>
+Subject: Re: [PATCH net-next] i40e: mark constant as ULL
+Date: Thu, 05 Feb 2015 11:15:26 +0100
+Message-ID: <54D342BE.1080704@kpanic.de>
+References: <1423050064-25087-1-git-send-email-sassmann@kpanic.de> <1423072177.2589.66.camel@jtkirshe-mobl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	herbert@gondor.apana.org.au
-To: Ying Xue <ying.xue@windriver.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	e1000-devel@lists.sourceforge.net
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:54740 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754014AbbBEKT5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Feb 2015 05:19:57 -0500
-Content-Disposition: inline
-In-Reply-To: <54D3346E.4040302@windriver.com>
+Received: from app1b.xlhost.de ([84.200.252.162]:34290 "EHLO app1b.xlhost.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756992AbbBEKWu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Feb 2015 05:22:50 -0500
+In-Reply-To: <1423072177.2589.66.camel@jtkirshe-mobl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/05/15 at 05:14pm, Ying Xue wrote:
-> On 02/05/2015 04:47 PM, Thomas Graf wrote:
-> > On 02/05/15 at 10:32am, Ying Xue wrote:
-> >> After I applied the sires, it sounds like panic doesn't occur any more. But soft
-> >> lockup still happens although the frequency of its reproduction is much lower
-> >> than before. Please take a look at its relevant log:
-> > 
-> > Thanks for testing and the report. I had run your bind_netlink test
-> > overnight on a 4 CPU VM. Anything particular that might help trigger it?
+On 04.02.2015 18:49, Jeff Kirsher wrote:
+> On Wed, 2015-02-04 at 12:41 +0100, Stefan Assmann wrote:
+>> This avoids a compile error on 32bit.
+>>
+>> Signed-off-by: Stefan Assmann <sassmann@kpanic.de>
+>> ---
+>>  drivers/net/ethernet/intel/i40e/i40e_lan_hmc.c | 2 +-
+>>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> Come to find out, I already have a fix in my queue for this.  So I will
+> be dropping your patch.
+> 
+> The patch in my queue fixes the issue by doing the folling change:
+> -               mask = 0xFFFFFFFFFFFFFFFF;
+> +               mask = ~(u64)0;
+> 
 
-Thanks. I will keep trying to reproduce. Can you try the following
-patch in the meantime?
+OK.
 
-diff --git a/lib/rhashtable.c b/lib/rhashtable.c
-index 5919d63..1c65be2 100644
---- a/lib/rhashtable.c
-+++ b/lib/rhashtable.c
-@@ -593,7 +593,7 @@ void rhashtable_insert(struct rhashtable *ht, struct rhash_head *obj)
- 
- 	tbl = rht_dereference_rcu(ht->future_tbl, ht);
- 	old_tbl = rht_dereference_rcu(ht->tbl, ht);
--	hash = head_hashfn(ht, tbl, obj);
-+	hash = obj_raw_hashfn(ht, rht_obj(ht, obj));
- 
- 	lock_buckets(tbl, old_tbl, hash);
- 	__rhashtable_insert(ht, obj, tbl, hash);
-@@ -835,7 +835,7 @@ bool rhashtable_lookup_compare_insert(struct rhashtable *ht,
- 	rcu_read_lock();
- 	old_tbl = rht_dereference_rcu(ht->tbl, ht);
- 	new_tbl = rht_dereference_rcu(ht->future_tbl, ht);
--	new_hash = head_hashfn(ht, new_tbl, obj);
-+	new_hash = obj_raw_hashfn(ht, rht_obj(ht, obj));
- 
- 	lock_buckets(new_tbl, old_tbl, new_hash);
- 
+  Stefan
