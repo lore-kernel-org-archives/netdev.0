@@ -1,49 +1,38 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [RFC PATCH 14/29] net: vrf: Introduce vrf header file
-Date: Thu, 05 Feb 2015 14:44:48 +0100
-Message-ID: <54D373D0.40405@6wind.com>
-References: <1423100070-31848-1-git-send-email-dsahern@gmail.com> <1423100070-31848-15-git-send-email-dsahern@gmail.com>
-Reply-To: nicolas.dichtel@6wind.com
+From: Thomas Graf <tgraf@noironetworks.com>
+Subject: Re: [ovs-dev] [RFC: add openvswitch actions using BPF 1/9] hack: Do
+ not compile datapath
+Date: Thu, 5 Feb 2015 14:44:54 +0100
+Message-ID: <20150205134454.GA5546@pox.localdomain>
+References: <1423090163-19902-1-git-send-email-azhou@nicira.com>
+ <1423090163-19902-2-git-send-email-azhou@nicira.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: ebiederm@xmission.com
-To: David Ahern <dsahern@gmail.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: dev@openvswitch.com, netdev@vger.kernel.org
+To: Andy Zhou <azhou@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f46.google.com ([74.125.82.46]:65115 "EHLO
-	mail-wg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757710AbbBENou (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Feb 2015 08:44:50 -0500
-Received: by mail-wg0-f46.google.com with SMTP id l2so7654125wgh.5
-        for <netdev@vger.kernel.org>; Thu, 05 Feb 2015 05:44:49 -0800 (PST)
-In-Reply-To: <1423100070-31848-15-git-send-email-dsahern@gmail.com>
+Received: from mail-wi0-f171.google.com ([209.85.212.171]:49108 "EHLO
+	mail-wi0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757717AbbBENo6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Feb 2015 08:44:58 -0500
+Received: by mail-wi0-f171.google.com with SMTP id l15so38926063wiw.4
+        for <netdev@vger.kernel.org>; Thu, 05 Feb 2015 05:44:56 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1423090163-19902-2-git-send-email-azhou@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 05/02/2015 02:34, David Ahern a =C3=A9crit :
-> Defines for min and max vrf id and helpers for examining
->
-> Signed-off-by: David Ahern <dsahern@gmail.com>
-> ---
->   include/net/vrf.h | 36 ++++++++++++++++++++++++++++++++++++
->   1 file changed, 36 insertions(+)
->   create mode 100644 include/net/vrf.h
->
-> diff --git a/include/net/vrf.h b/include/net/vrf.h
-> new file mode 100644
-> index 000000000000..67bc2e465661
-> --- /dev/null
-> +++ b/include/net/vrf.h
-> @@ -0,0 +1,36 @@
-> +#ifndef _VRF_H_
-> +#define _VRF_H_
-> +
-> +#define VRF_BITS	12
-> +#define VRF_MIN		1
-> +#define VRF_MAX		((1 << VRF_BITS) - 1)
-> +#define VRF_MASK	VRF_MAX
-> +
-> +#define VRF_DEFAULT	1
-> +#define VRF_ANY		0xffff
-It could be useful to expose this value to userland.
+On 02/04/15 at 02:49pm, Andy Zhou wrote:
+> The OVS eBPF patch sets are developed against master 'net-next' tree,
+> which is currently targeting for kernel version 3.19.
+> 
+> The datapath in OVS mater does not currently support 3.19 kernel.
+> But we should not really using OVS datapath, The changes in the
+> follow patches are only changes in user space programs, which should
+> work with the kernel module built from the 'net-next' tree.
+> 
+> This patch disables building of the datapath and disables the
+> configuration time kernel version check.
+> 
+> Signed-off-by: Andy Zhou <azhou@nicira.com>
+
+You can drop this when the datapath sync series is fully merged.
