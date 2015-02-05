@@ -1,69 +1,53 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: Ethernet: how to disable gigabit support
-Date: Thu, 05 Feb 2015 14:44:55 -0800
-Message-ID: <54D3F267.3000908@gmail.com>
-References: <20150205202527.GA7917@amd>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] net: use netif_rx_ni() from process context
+Date: Thu, 05 Feb 2015 14:58:14 -0800
+Message-ID: <1423177094.31870.93.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: Pavel Machek <pavel@ucw.cz>,
-	kernel list <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150205202527.GA7917@amd>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f177.google.com ([209.85.213.177]:50476 "EHLO
+	mail-ig0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751296AbbBEW6Q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Feb 2015 17:58:16 -0500
+Received: by mail-ig0-f177.google.com with SMTP id z20so2562375igj.4
+        for <netdev@vger.kernel.org>; Thu, 05 Feb 2015 14:58:15 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 05/02/15 12:25, Pavel Machek wrote:
-> Hi!
-> 
-> This happened on more than one project: there's gigabit-capable chip,
-> but the connector is not designed for gigabit speed.
-> 
-> I'd like to have speed autonegotiation, but not offer gigabit (as it
-> will not work).
-> 
-> Is there way to do that without hacking the kernel? Should mii-tool do
-> that?
+From: Eric Dumazet <edumazet@google.com>
 
-Since you use the PHY library, you should be able to do something like
-this in your PHY driver prior to starting the PHY state machine:
+Hotpluging a cpu might be rare, yet we have to use proper
+handlers when taking over packets found in backlog queues.
 
-phydev->supported &= PHY_BASIC_FEATURES (effectively masking Gigabit
-capability)
+dev_cpu_callback() runs from process context, thus we should
+call netif_rx_ni() to properly invoke softirq handler.
 
-See drivers/net/ethernet/broadcom/genet/bcmmii.c for instance where this
-is done based on the type of interface (RevMII, MII) we are connected to.
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+I never saw real operational issues, but I suspect this patch cannot
+hurt.
 
-> 
-> Thanks,
-> 								Pavel
-> 
-> root@ib8315:~# mii-tool.net-tools  -A 100baseTx,10baseT eth1
-> restarting autonegotiation...
-> root@ib8315:~# [32432.443883] libphy: mdio@e0024520:01 - Link is Down
-> 
-> root@ib8315:~# [32435.447863] libphy: mdio@e0024520:01 - Link is Up - 1000/Full
-> 
-> root@ib8315:~# mii-tool.net-tools -v eth1
-> eth1: negotiated 1000baseT-FD flow-control, link ok
-> product info: vendor 00:01:c1, model 3 rev 1
-> basic mode:   autonegotiation enabled
->  basic status: autonegotiation complete, link ok
->  capabilities: 1000baseT-FD 100baseTx-FD 100baseTx-HD
->  10baseT-FD 10baseT-HD
->  advertising:  1000baseT-FD 100baseTx-FD 100baseTx-HD
->  10baseT-FD 10baseT-HD
->  link partner: 1000baseT-FD 100baseTx-FD 100baseTx-HD
->  10baseT-FD 10baseT-HD flow-control
->  root@ib8315:~# mii-tool.net-tools -V
->  $Id: mii-tool.c,v 1.9 2006/09/27 20:59:18 ecki Exp $
->  (Author: David Hinds based on Donald Becker's mii-diag)
->  net-tools 1.60
->  root@ib8315:~#
-> 	    
-> 
+ net/core/dev.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-
--- 
-Florian
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 7fe82929f509..6c1556aeec29 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -7064,11 +7064,11 @@ static int dev_cpu_callback(struct notifier_block *nfb,
+ 
+ 	/* Process offline CPU's input_pkt_queue */
+ 	while ((skb = __skb_dequeue(&oldsd->process_queue))) {
+-		netif_rx_internal(skb);
++		netif_rx_ni(skb);
+ 		input_queue_head_incr(oldsd);
+ 	}
+ 	while ((skb = skb_dequeue(&oldsd->input_pkt_queue))) {
+-		netif_rx_internal(skb);
++		netif_rx_ni(skb);
+ 		input_queue_head_incr(oldsd);
+ 	}
+ 
