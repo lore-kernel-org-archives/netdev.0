@@ -1,47 +1,114 @@
-From: Tobias Waldekranz <tobias@waldekranz.com>
-Subject: [PATCH] dsa: do not dereference non-existing routing table
-Date: Thu, 5 Feb 2015 14:52:06 +0100
-Message-ID: <20150205135206.GA29383@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH net-next 1/3] net/bonding: Fix potential bad memory access during bonding events
+Date: Thu,  5 Feb 2015 15:52:44 +0200
+Message-ID: <1423144366-11814-2-git-send-email-ogerlitz@mellanox.com>
+References: <1423144366-11814-1-git-send-email-ogerlitz@mellanox.com>
+Cc: netdev@vger.kernel.org, Roland Dreier <roland@kernel.org>,
+	Amir Vadai <amirv@mellanox.com>, Tal Alon <talal@mellanox.com>,
+	Moni Shoua <monis@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f177.google.com ([209.85.217.177]:39789 "EHLO
-	mail-lb0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752019AbbBENwS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Feb 2015 08:52:18 -0500
-Received: by mail-lb0-f177.google.com with SMTP id p9so7314463lbv.8
-        for <netdev@vger.kernel.org>; Thu, 05 Feb 2015 05:52:16 -0800 (PST)
-Received: from gmail.com ([213.132.98.41])
-        by mx.google.com with ESMTPSA id f9sm975440laa.20.2015.02.05.05.52.16
-        for <netdev@vger.kernel.org>
-        (version=TLSv1.2 cipher=RC4-SHA bits=128/128);
-        Thu, 05 Feb 2015 05:52:16 -0800 (PST)
-Content-Disposition: inline
+Received: from mailp.voltaire.com ([193.47.165.129]:39711 "EHLO mellanox.co.il"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753253AbbBENwu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Feb 2015 08:52:50 -0500
+In-Reply-To: <1423144366-11814-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In the case where there is only one switch, no routing table will have
-been allocated, so do not dereference it in this case.
+From: Moni Shoua <monis@mellanox.com>
 
-Signed-off-by: Tobias Waldekranz <tobias@waldekranz.com>
+When queuing work to send the NETDEV_BONDING_INFO netdev event, it's
+possible that when the work is executed, the pointer to the slave
+becomes invalid. This can happen if between queuing the event and the
+execution of the work, the net-device was un-ensvaled and re-enslaved.
+
+Fix that by queuing a work with the data of the slave instead of the
+slave structure.
+
+Fixes: 69e6113343cf ('net/bonding: Notify state change on slaves')
+Reported-by: Nikolay Aleksandrov <nikolay@redhat.com>
+Signed-off-by: Moni Shoua <monis@mellanox.com>
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 ---
- drivers/net/dsa/mv88e6131.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ drivers/net/bonding/bond_main.c |   28 +++++++++++-----------------
+ include/net/bonding.h           |    2 +-
+ 2 files changed, 12 insertions(+), 18 deletions(-)
 
-diff --git a/drivers/net/dsa/mv88e6131.c b/drivers/net/dsa/mv88e6131.c
-index 1fc98e7..eadb27c 100644
---- a/drivers/net/dsa/mv88e6131.c
-+++ b/drivers/net/dsa/mv88e6131.c
-@@ -142,7 +142,8 @@ static int mv88e6131_setup_global(struct dsa_switch *ds)
- 		int nexthop;
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 679ef00..b979c26 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -1196,18 +1196,11 @@ static void bond_fill_ifslave(struct slave *slave, struct ifslave *info)
+ 	info->link_failure_count = slave->link_failure_count;
+ }
  
- 		nexthop = 0x1f;
--		if (i != ds->index && i < ds->dst->pd->nr_chips)
-+		if (ds->pd->rtable &&
-+		    i != ds->index && i < ds->dst->pd->nr_chips)
- 			nexthop = ds->pd->rtable[i] & 0x1f;
+-static void bond_netdev_notify(struct slave *slave, struct net_device *dev)
++static void bond_netdev_notify(struct net_device *dev,
++			       struct netdev_bonding_info *info)
+ {
+-	struct bonding *bond = slave->bond;
+-	struct netdev_bonding_info bonding_info;
+-
+ 	rtnl_lock();
+-	/* make sure that slave is still valid */
+-	if (dev->priv_flags & IFF_BONDING) {
+-		bond_fill_ifslave(slave, &bonding_info.slave);
+-		bond_fill_ifbond(bond, &bonding_info.master);
+-		netdev_bonding_info_change(slave->dev, &bonding_info);
+-	}
++	netdev_bonding_info_change(dev, info);
+ 	rtnl_unlock();
+ }
  
- 		REG_WRITE(REG_GLOBAL2, 0x06, 0x8000 | (i << 8) | nexthop);
+@@ -1216,25 +1209,26 @@ static void bond_netdev_notify_work(struct work_struct *_work)
+ 	struct netdev_notify_work *w =
+ 		container_of(_work, struct netdev_notify_work, work.work);
+ 
+-	bond_netdev_notify(w->slave, w->dev);
++	bond_netdev_notify(w->dev, &w->bonding_info);
+ 	dev_put(w->dev);
++	kfree(w);
+ }
+ 
+ void bond_queue_slave_event(struct slave *slave)
+ {
++	struct bonding *bond = slave->bond;
+ 	struct netdev_notify_work *nnw = kzalloc(sizeof(*nnw), GFP_ATOMIC);
+ 
+ 	if (!nnw)
+ 		return;
+ 
+-	INIT_DELAYED_WORK(&nnw->work, bond_netdev_notify_work);
+-	nnw->slave = slave;
++	dev_hold(slave->dev);
+ 	nnw->dev = slave->dev;
++	bond_fill_ifslave(slave, &nnw->bonding_info.slave);
++	bond_fill_ifbond(bond, &nnw->bonding_info.master);
++	INIT_DELAYED_WORK(&nnw->work, bond_netdev_notify_work);
+ 
+-	if (queue_delayed_work(slave->bond->wq, &nnw->work, 0))
+-		dev_hold(slave->dev);
+-	else
+-		kfree(nnw);
++	queue_delayed_work(slave->bond->wq, &nnw->work, 0);
+ }
+ 
+ /* enslave device <slave> to bond device <master> */
+diff --git a/include/net/bonding.h b/include/net/bonding.h
+index 4e17095..fda6fee 100644
+--- a/include/net/bonding.h
++++ b/include/net/bonding.h
+@@ -152,8 +152,8 @@ struct bond_parm_tbl {
+ 
+ struct netdev_notify_work {
+ 	struct delayed_work	work;
+-	struct slave		*slave;
+ 	struct net_device	*dev;
++	struct netdev_bonding_info bonding_info;
+ };
+ 
+ struct slave {
 -- 
-1.8.4.357.g8d83871.dirty
+1.7.1
