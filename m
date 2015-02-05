@@ -1,35 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] pktgen: fix UDP checksum computation
-Date: Thu, 05 Feb 2015 15:42:10 -0800 (PST)
-Message-ID: <20150205.154210.440621170776055430.davem@davemloft.net>
-References: <1423087730-9201-1-git-send-email-sd@queasysnail.net>
+Subject: Re: [PATCH 0/6 v2 net-next] rhashtable fixes
+Date: Thu, 05 Feb 2015 15:43:47 -0800 (PST)
+Message-ID: <20150205.154347.278756054254294508.davem@davemloft.net>
+References: <cover.1423097592.git.tgraf@suug.ch>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tgraf@suug.ch
-To: sd@queasysnail.net
+Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au,
+	ying.xue@windriver.com
+To: tgraf@suug.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48870 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:48892 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751942AbbBEXmL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Feb 2015 18:42:11 -0500
-In-Reply-To: <1423087730-9201-1-git-send-email-sd@queasysnail.net>
+	with ESMTP id S1751486AbbBEXns (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Feb 2015 18:43:48 -0500
+In-Reply-To: <cover.1423097592.git.tgraf@suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sabrina Dubroca <sd@queasysnail.net>
-Date: Wed,  4 Feb 2015 23:08:50 +0100
+From: Thomas Graf <tgraf@suug.ch>
+Date: Thu,  5 Feb 2015 02:03:30 +0100
 
-> This patch fixes two issues in UDP checksum computation in pktgen.
+> This series fixes all remaining known issues with rhashtable that
+> have been reported. In particular the race condition reported by
+> Ying Xue.
 > 
-> First, the pseudo-header uses the source and destination IP
-> addresses. Currently, the ports are used for IPv4.
-> 
-> Second, the UDP checksum covers both header and data.  So we need to
-> generate the data earlier (move pktgen_finalize_skb up), and compute
-> the checksum for UDP header + data.
-> 
-> Fixes: c26bf4a51308c ("pktgen: Add UDPCSUM flag to support UDP checksums")
-> Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
+> ---
+> Dave/Herbert: I'm posting this now as it fixes real issues. I'm
+> fine with taking Herbert's rehash patches instead if they resolve
+> all the reported issues as well.
 
-Applied and queued up for -stable, thanks.
+Herbert, please tell me what you'd like me to do.
