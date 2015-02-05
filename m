@@ -1,60 +1,68 @@
-From: Lad Prabhakar <prabhakar.csengg@gmail.com>
-Subject: [PATCH] net: bnx2x: fix sparse warnings
-Date: Thu,  5 Feb 2015 15:47:17 +0000
-Message-ID: <1423151237-20746-1-git-send-email-prabhakar.csengg@gmail.com>
-Cc: linux-kernel@vger.kernel.org,
-	"Lad, Prabhakar" <prabhakar.csengg@gmail.com>
-To: Ariel Elior <ariel.elior@qlogic.com>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: "Kwok, WingMan" <w-kwok2@ti.com>
+Subject: RE: [PATCH] NetCP: Deletion of unnecessary checks before two
+ function calls
+Date: Thu, 5 Feb 2015 15:50:49 +0000
+Message-ID: <230CBA6E4B6B6B418E8730AC28E6FC7E041CFA70@DFLE11.ent.ti.com>
+References: <530C5E18.1020800@users.sourceforge.net>
+ <alpine.DEB.2.10.1402251014170.2080@hadrien>
+ <530CD2C4.4050903@users.sourceforge.net>
+ <alpine.DEB.2.10.1402251840450.7035@hadrien>
+ <530CF8FF.8080600@users.sourceforge.net>
+ <alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6>
+ <530DD06F.4090703@users.sourceforge.net>
+ <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6>
+ <5317A59D.4@users.sourceforge.net> <54D11FEF.10804@users.sourceforge.net>
+ <20150205120138.GD5336@mwanda>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: SF Markus Elfring <elfring@users.sourceforge.net>,
+	"Karicheri, Muralidharan" <m-karicheri2@ti.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>,
+	"Julia Lawall" <julia.lawall@lip6.fr>
+To: Dan Carpenter <dan.carpenter@oracle.com>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <20150205120138.GD5336@mwanda>
+Content-Language: en-US
+Sender: kernel-janitors-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Lad, Prabhakar" <prabhakar.csengg@gmail.com>
-
-this patch fixes following sparse warnings:
-
-bnx2x_main.c:9172:6: warning: symbol 'bnx2x_stop_ptp' was not declared. Should it be static?
-bnx2x_main.c:13321:6: warning: symbol 'bnx2x_register_phc' was not declared. Should it be static?
-bnx2x_main.c:14638:5: warning: symbol 'bnx2x_enable_ptp_packets' was not declared. Should it be static?
-
-Signed-off-by: Lad, Prabhakar <prabhakar.csengg@gmail.com>
----
- Found this issue on linux-next (gcc  version 4.8.2,
- sparse version  0.4.5-rc1)and applies on top linux-next.
-
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index 0758c8b..7155e1d 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -9169,7 +9169,7 @@ static void bnx2x_disable_ptp(struct bnx2x *bp)
- }
- 
- /* Called during unload, to stop PTP-related stuff */
--void bnx2x_stop_ptp(struct bnx2x *bp)
-+static void bnx2x_stop_ptp(struct bnx2x *bp)
- {
- 	/* Cancel PTP work queue. Should be done after the Tx queues are
- 	 * drained to prevent additional scheduling.
-@@ -13318,7 +13318,7 @@ static int bnx2x_ptp_enable(struct ptp_clock_info *ptp,
- 	return -ENOTSUPP;
- }
- 
--void bnx2x_register_phc(struct bnx2x *bp)
-+static void bnx2x_register_phc(struct bnx2x *bp)
- {
- 	/* Fill the ptp_clock_info struct and register PTP clock*/
- 	bp->ptp_clock_info.owner = THIS_MODULE;
-@@ -14635,7 +14635,7 @@ static int bnx2x_send_reset_timesync_ramrod(struct bnx2x *bp)
- 	return bnx2x_func_state_change(bp, &func_params);
- }
- 
--int bnx2x_enable_ptp_packets(struct bnx2x *bp)
-+static int bnx2x_enable_ptp_packets(struct bnx2x *bp)
- {
- 	struct bnx2x_queue_state_params q_params;
- 	int rc, i;
--- 
-1.9.1
+RGFuLA0KDQpUaGFua3MuICBXZSdsbCBsb29rIGludG8gaXQgYW5kIHNlbmQgYSBwYXRjaCBzb29u
+Lg0KDQpSZWdhcmRzLA0KV2luZ01hbg0KDQo+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+
+IEZyb206IERhbiBDYXJwZW50ZXIgW21haWx0bzpkYW4uY2FycGVudGVyQG9yYWNsZS5jb21dDQo+
+IFNlbnQ6IFRodXJzZGF5LCBGZWJydWFyeSAwNSwgMjAxNSA3OjAyIEFNDQo+IFRvOiBLd29rLCBX
+aW5nTWFuDQo+IENjOiBTRiBNYXJrdXMgRWxmcmluZzsgS2FyaWNoZXJpLCBNdXJhbGlkaGFyYW47
+IEt3b2ssIFdpbmdNYW47DQo+IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IExLTUw7IGtlcm5lbC1q
+YW5pdG9yc0B2Z2VyLmtlcm5lbC5vcmc7IEp1bGlhIExhd2FsbA0KPiBTdWJqZWN0OiBSZTogW1BB
+VENIXSBOZXRDUDogRGVsZXRpb24gb2YgdW5uZWNlc3NhcnkgY2hlY2tzIGJlZm9yZSB0d28NCj4g
+ZnVuY3Rpb24gY2FsbHMNCj4gDQo+IEhpIFdpbmdtYW4sDQo+IA0KPiBUaGVyZSBhcmUgc29tZSBi
+dWdzIGluIHRoaXMgZXJyb3IgaGFuZGxpbmcuDQo+IA0KPiBPbiBUdWUsIEZlYiAwMywgMjAxNSBh
+dCAwODoyMjoyM1BNICswMTAwLCBTRiBNYXJrdXMgRWxmcmluZyB3cm90ZToNCj4gPiBkaWZmIC0t
+Z2l0IGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvdGkvbmV0Y3BfZXRoc3MuYw0KPiBiL2RyaXZlcnMv
+bmV0L2V0aGVybmV0L3RpL25ldGNwX2V0aHNzLmMNCj4gPiBpbmRleCBmYTEwNDFhLi5jYmQ2ZGRl
+IDEwMDY0NA0KPiA+IC0tLSBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L3RpL25ldGNwX2V0aHNzLmMN
+Cj4gPiArKysgYi9kcml2ZXJzL25ldC9ldGhlcm5ldC90aS9uZXRjcF9ldGhzcy5jDQo+ID4gQEAg
+LTIwMTAsMTIgKzIwMTAsMTAgQEAgc3RhdGljIGludCBnYmVfcHJvYmUoc3RydWN0IG5ldGNwX2Rl
+dmljZQ0KPiAqbmV0Y3BfZGV2aWNlLCBzdHJ1Y3QgZGV2aWNlICpkZXYsDQo+ID4gIHF1aXQ6DQo+
+ID4gIAlpZiAoZ2JlX2Rldi0+aHdfc3RhdHMpDQo+ID4gIAkJZGV2bV9rZnJlZShkZXYsIGdiZV9k
+ZXYtPmh3X3N0YXRzKTsNCj4gPiAtCWlmIChnYmVfZGV2LT5hbGUpDQo+ID4gLQkJY3Bzd19hbGVf
+ZGVzdHJveShnYmVfZGV2LT5hbGUpOw0KPiA+ICsJY3Bzd19hbGVfZGVzdHJveShnYmVfZGV2LT5h
+bGUpOw0KPiA+ICAJaWYgKGdiZV9kZXYtPnNzX3JlZ3MpDQo+ID4gIAkJZGV2bV9pb3VubWFwKGRl
+diwgZ2JlX2Rldi0+c3NfcmVncyk7DQo+ID4gLQlpZiAoaW50ZXJmYWNlcykNCj4gPiAtCQlvZl9u
+b2RlX3B1dChpbnRlcmZhY2VzKTsNCj4gPiArCW9mX25vZGVfcHV0KGludGVyZmFjZXMpOw0KPiAg
+ICAgICAgICAgICAgICAgICAgIF5eXl5eXl5eXl4NCj4gImludGVyZmFjZXMiIGlzIHNvbWV0aW1l
+cyB1bmludGlhbGl6ZWQgaW4gdGhpcyBjb2RlLiAgSSBkb24ndCBrbm93IHdoeQ0KPiBHQ0MgZG9l
+c24ndCBjYXRjaCB0aGlzLi4uICA6KA0KPiANCj4gVGhpcyBpcyBhICJvbmUgcnJyIGJ1ZyIsIHdo
+aWNoIGlzIGNhdXNlZCBiZWNhdXNlIHlvdSBqdXN0IGhhdmUgb25lIGVycm9yDQo+IGxhYmVsICJx
+dWl0IiB3aGljaCBoYW5kbGVzIGFsbCB0aGUgZXJyb3IgaGFuZGxpbmcuICBQbGVhc2UgcmVhZCBt
+eQ0KPiBHb29nbGUrIGNvbW1lbnQgb24gZXJyb3IgaGFuZGxpbmcuDQo+IA0KPiBodHRwczovL3Bs
+dXMuZ29vZ2xlLmNvbS8xMDYzNzg3MTYwMDI0MDY4NDk0NTgvcG9zdHMvZG5hbmZoUTRtSFENCj4g
+DQo+ID4gIAlkZXZtX2tmcmVlKGRldiwgZ2JlX2Rldik7DQo+ICAgICAgICAgXl5eXl5eXl5eXl5e
+Xl5eXl5eXl5eXl5eDQo+IFRoaXMgaXMgbm90IHRoZSByaWdodCB3YXkgdG8gdXNlIHRoZSBkZXZt
+XyBpbnRlcmZhY2UuICBUaGVzZSB0aGluZ3MgYXJlDQo+IGZyZWVkIGF1dG9tYXRpY2FsbHkgb24g
+ZXJyb3Igb3Igd2hlbiB3ZSBhcmUgZG9uZSB3aXRoIHRoZW0uICBUaGlzIGRyaXZlcg0KPiBpcyBk
+b3VibGUgZnJlZWluZyBwcmV0dHkgbXVjaCBldmVyeXRoaW5nLiAgR3JlcCBmb3IgZGV2bV9rZnJl
+ZSgpIGFuZA0KPiBmaXggZXZlcnl0aGluZy4NCj4gDQo+IEkgZG9uJ3Qga25vdyB3aHkga2J1aWxk
+IGRpZG4ndCBjYXRjaCB0aGlzLi4uDQo+IA0KPiByZWdhcmRzDQo+IGRhbiBjYXJwZW50ZXINCg0K
