@@ -1,86 +1,37 @@
-From: B Viswanath <marichika4@gmail.com>
-Subject: Re: [PATCH net-next] bridge: Let bridge not age 'externally' learnt
- FDB entries, they are removed when 'external' entity notifies the aging
-Date: Thu, 5 Feb 2015 16:35:27 +0530
-Message-ID: <CAN+pFwJQQMFmmm1f7tSPCmaSr2GE_L8Pua+Rz7tvK9CFnr63Tg@mail.gmail.com>
-References: <CA+CtxLSziWmx94_V9S-uW9=6VYg4WXsU4CERx-uovvrFOtO1dA@mail.gmail.com>
-	<54D246A7.2020502@cumulusnetworks.com>
-	<CAE4R7bCASKHmZD+tiu=ZWM9dzvTrSLsaXxgtOYLpsmOR87kcTQ@mail.gmail.com>
-	<20150204.235308.71797582017426266.davem@davemloft.net>
-	<CA+CtxLRaJ+p=y1LCgap48vqH3b4VjxKQO55Yy5cyazng4WtxPw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Scott Feldman <sfeldma@gmail.com>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	Netdev <netdev@vger.kernel.org>,
-	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>
-To: Siva Mannem <siva.mannem.lnx@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f46.google.com ([209.85.192.46]:36004 "EHLO
-	mail-qg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757170AbbBELF2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Feb 2015 06:05:28 -0500
-Received: by mail-qg0-f46.google.com with SMTP id j5so5542294qga.5
-        for <netdev@vger.kernel.org>; Thu, 05 Feb 2015 03:05:27 -0800 (PST)
-In-Reply-To: <CA+CtxLRaJ+p=y1LCgap48vqH3b4VjxKQO55Yy5cyazng4WtxPw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Kiran Padwal <kiran.padwal@smartplayin.com>
+Subject: [PATCH] ARCNET: Add missing error check for devm_kzalloc
+Date: Thu,  5 Feb 2015 17:01:37 +0530
+Message-ID: <1423135897-20448-1-git-send-email-kiran.padwal@smartplayin.com>
+Cc: Michael Grzeschik <m.grzeschik@pengutronix.de>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Kiran Padwal <kiran.padwal21@gmail.com>,
+	Kiran Padwal <kiran.padwal@smartplayin.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 5 February 2015 at 15:56, Siva Mannem <siva.mannem.lnx@gmail.com> wrote:
-> On Thu, Feb 5, 2015 at 1:23 PM, David Miller <davem@davemloft.net> wrote:
->> From: Scott Feldman <sfeldma@gmail.com>
->> Date: Wed, 4 Feb 2015 23:13:07 -0800
->>
->>> I'd like to see this patch reverted so we can have a more
->>> comprehensive discussion/solution.  With this patch applied, the only
->>> user (rocker) of NETDEV_SWITCH_FDB_ADD is broken.  So please undo this
->>> patch so rocker isn't broken and let's work on a knob to suit both
->>> modes: 1) let bridge manage aging, 2) let device manage aging.
->>
->> Patch reverted.
->
-> I now see why rocker is broken. Sorry for the churn.
-> As Scott/Roopa suggested, a new flag IFLA_BRPORT_AGING_SYNC (similar
-> to IFLA_BRPORT_LEARNING_SYNC) can be defined and stored in
-> net_bridge_port->flags when user configures it. Some thing like below.
->
-> $ sudo bridge link set dev swp1 ageing_sync on self
->
-> And bridge ageing logic does not age externally learnt entry *only* if
-> IFLA_BRPORT_AGING_SYNC flag on fdb entry's net_bridge_port is set.
-> This ensures that existing behavior continues to be default behavior
-> and is of no harm to rocker.
->
-> Please let me know your comments on above approach.
+This patch add a missing check on the return value of devm_kzalloc,
+which would cause a NULL pointer dereference in a OOM situation.
 
-I am not sure you really want to pass on this burden of deciding who
-should age to the end user.  I think user should  not be forced to be
-aware of all the device and driver properties.
+Signed-off-by: Kiran Padwal <kiran.padwal@smartplayin.com>
+---
+ drivers/net/arcnet/com20020-pci.c |    3 +++
+ 1 file changed, 3 insertions(+)
 
-May be a different way would be that -
-
-1. driver specifies whether it can supporting ageing by itself (the
-chip) during registration.
-2. driver also allows that kernel turn off the driver/device ageing.
-3. when a bridge is created with all ports from same device which
-supports ageing (and which is currently enabled), then bridge defers
-ageing to driver. Otherwise bridge disables ageing on all
-participating devices and takes care of ageing by itself.
-4. When ageing is disabled on a device, all other bridges that use any
-ports from that device start ageing themselves.
-
-I guess this sounds complicated, but it can ensure that user gets the
-best default behaviour based on the device. Any alternate suggestions
-?
-
-Thanks
-vissu
-
-> --
-> Regards,
-> Siva Mannem.
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/arcnet/com20020-pci.c b/drivers/net/arcnet/com20020-pci.c
+index 6c99ff0..945f532 100644
+--- a/drivers/net/arcnet/com20020-pci.c
++++ b/drivers/net/arcnet/com20020-pci.c
+@@ -78,6 +78,9 @@ static int com20020pci_probe(struct pci_dev *pdev, const struct pci_device_id *i
+ 
+ 	priv = devm_kzalloc(&pdev->dev, sizeof(struct com20020_priv),
+ 			    GFP_KERNEL);
++	if (!priv)
++		return -ENOMEM;
++
+ 	ci = (struct com20020_pci_card_info *)id->driver_data;
+ 	priv->ci = ci;
+ 
+-- 
+1.7.9.5
