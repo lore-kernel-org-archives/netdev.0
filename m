@@ -1,55 +1,52 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 01/16] fm10k: Validate VLAN ID in fm10k_update_xc_addr_pf
-Date: Thu,  5 Feb 2015 01:35:35 -0800
-Message-ID: <1423128950-12388-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 11/16] ixgbevf: set vlan_features in a single write instead of several ORs
+Date: Thu,  5 Feb 2015 01:35:45 -0800
+Message-ID: <1423128950-12388-12-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1423128950-12388-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Matthew Vick <matthew.vick@intel.com>, netdev@vger.kernel.org,
+Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:55144 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:55122 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752911AbbBEJgD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Feb 2015 04:36:03 -0500
+	id S1756838AbbBEJgH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Feb 2015 04:36:07 -0500
 In-Reply-To: <1423128950-12388-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Matthew Vick <matthew.vick@intel.com>
+From: Emil Tantilov <emil.s.tantilov@intel.com>
 
-Currently, fm10k_update_xc_addr_pf has an issue where it does not
-properly drop the upper-most four bits of the VLAN ID due to type
-promotion. Resolve the issue not by masking off the bits, but by
-throwing an error if the VLAN ID is out-of-bounds.
+Clean up the setting of vlan_features by enabling all features at once.
 
-Reported-by: Rasmus Villemoes <linux@rasmusvillemoes.dk>
-Signed-off-by: Matthew Vick <matthew.vick@intel.com>
-Tested-by: Krishneil Singh <Krishneil.k.singh@intel.com>
+Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/fm10k/fm10k_pf.c | 7 ++-----
- 1 file changed, 2 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_pf.c b/drivers/net/ethernet/intel/fm10k/fm10k_pf.c
-index 275423d..7e47119 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_pf.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_pf.c
-@@ -330,13 +330,10 @@ static s32 fm10k_update_xc_addr_pf(struct fm10k_hw *hw, u16 glort,
- 	struct fm10k_mac_update mac_update;
- 	u32 msg[5];
+diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+index 41fca1b..b1d25fd 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
++++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+@@ -3873,11 +3873,11 @@ static int ixgbevf_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 			   NETIF_F_HW_VLAN_CTAG_RX |
+ 			   NETIF_F_HW_VLAN_CTAG_FILTER;
  
--	/* if glort is not valid return error */
--	if (!fm10k_glort_valid_pf(hw, glort))
-+	/* if glort or vlan are not valid return error */
-+	if (!fm10k_glort_valid_pf(hw, glort) || vid >= FM10K_VLAN_TABLE_VID_MAX)
- 		return FM10K_ERR_PARAM;
+-	netdev->vlan_features |= NETIF_F_TSO;
+-	netdev->vlan_features |= NETIF_F_TSO6;
+-	netdev->vlan_features |= NETIF_F_IP_CSUM;
+-	netdev->vlan_features |= NETIF_F_IPV6_CSUM;
+-	netdev->vlan_features |= NETIF_F_SG;
++	netdev->vlan_features |= NETIF_F_TSO |
++				 NETIF_F_TSO6 |
++				 NETIF_F_IP_CSUM |
++				 NETIF_F_IPV6_CSUM |
++				 NETIF_F_SG;
  
--	/* drop upper 4 bits of VLAN ID */
--	vid = (vid << 4) >> 4;
--
- 	/* record fields */
- 	mac_update.mac_lower = cpu_to_le32(((u32)mac[2] << 24) |
- 						 ((u32)mac[3] << 16) |
+ 	if (pci_using_dac)
+ 		netdev->features |= NETIF_F_HIGHDMA;
 -- 
 1.9.3
