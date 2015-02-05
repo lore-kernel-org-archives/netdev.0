@@ -1,61 +1,32 @@
-From: Alexander Drozdov <al.drozdov@gmail.com>
-Subject: [PATCH] af_packet: don't pass empty blocks for PACKET_V3
-Date: Thu,  5 Feb 2015 08:58:11 +0300
-Message-ID: <1423115891-3578-1-git-send-email-al.drozdov@gmail.com>
-Cc: Daniel Borkmann <dborkman@redhat.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Al Viro <viro@zeniv.linux.org.uk>,
-	Willem de Bruijn <willemb@google.com>,
-	"Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Alexander Drozdov <al.drozdov@gmail.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3 net-next] pkt_sched: fq: better control of DDOS
+ traffic
+Date: Wed, 04 Feb 2015 22:17:13 -0800 (PST)
+Message-ID: <20150204.221713.2034671818243525224.davem@davemloft.net>
+References: <1422626772.21689.90.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1422984739.907.25.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1423114240.31870.33.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:41526 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751061AbbBEGRQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Feb 2015 01:17:16 -0500
+In-Reply-To: <1423114240.31870.33.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Don't close an empty block on timeout. Its meaningless to
-pass it to the user. Moreover, passing empty blocks wastes
-CPU & buffer space increasing probability of packets
-dropping on small timeouts.
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 04 Feb 2015 21:30:40 -0800
 
-Side effect of this patch is indefinite user-space wait
-in poll on idle links. But, I believe its better to set
-timeout for poll(2) when needed than to get empty blocks
-every millisecond when not needed.
+> This patch adds a new attribute, orphan_mask, that is adding
+> possibility of having a stochastic hash for orphaned skb.
+ ...
+> v3: adding the missing include file change
+> v2: make the left shift in fq_classify.
 
-Signed-off-by: Alexander Drozdov <al.drozdov@gmail.com>
----
- net/packet/af_packet.c | 10 +++++++++-
- 1 file changed, 9 insertions(+), 1 deletion(-)
-
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 9cfe2e1..9a2f70a 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -698,6 +698,10 @@ static void prb_retire_rx_blk_timer_expired(unsigned long data)
- 
- 	if (pkc->last_kactive_blk_num == pkc->kactive_blk_num) {
- 		if (!frozen) {
-+			if (!BLOCK_NUM_PKTS(pbd)) {
-+				/* An empty block. Just refresh the timer. */
-+				goto refresh_timer;
-+			}
- 			prb_retire_current_block(pkc, po, TP_STATUS_BLK_TMO);
- 			if (!prb_dispatch_next_block(pkc, po))
- 				goto refresh_timer;
-@@ -798,7 +802,11 @@ static void prb_close_block(struct tpacket_kbdq_core *pkc1,
- 		h1->ts_last_pkt.ts_sec = last_pkt->tp_sec;
- 		h1->ts_last_pkt.ts_nsec	= last_pkt->tp_nsec;
- 	} else {
--		/* Ok, we tmo'd - so get the current time */
-+		/* Ok, we tmo'd - so get the current time.
-+		 *
-+		 * It shouldn't really happen as we don't close empty
-+		 * blocks. See prb_retire_rx_blk_timer_expired().
-+		 */
- 		struct timespec ts;
- 		getnstimeofday(&ts);
- 		h1->ts_last_pkt.ts_sec = ts.tv_sec;
--- 
-1.9.1
+Applied, thanks Eric.
