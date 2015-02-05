@@ -1,8 +1,8 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next 5/9] tipc: use existing
-	sk_write_queue for outgoing packet chain
-Date: Thu,  5 Feb 2015 08:36:40 -0500
-Message-ID: <1423143404-23322-6-git-send-email-jon.maloy@ericsson.com>
+Subject: [PATCH net-next 4/9] tipc: split up function
+	tipc_msg_eval()
+Date: Thu,  5 Feb 2015 08:36:39 -0500
+Message-ID: <1423143404-23322-5-git-send-email-jon.maloy@ericsson.com>
 References: <1423143404-23322-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,142 +23,187 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
 Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-The list for outgoing traffic buffers from a socket is currently
-allocated on the stack. This forces us to initialize the queue for
-each sent message, something costing extra CPU cycles in the most
-critical data path. Later in this series we will introduce a new
-safe input buffer queue, something that would force us to initialize
-even the spinlock of the outgoing queue. A closer analysis reveals
-that the queue always is filled and emptied within the same lock_sock()
-session. It is therefore safe to use a queue aggregated in the socket
-itself for this purpose. Since there already exists a queue for this
-in struct sock, sk_write_queue, we introduce use of that queue in
-this commit.
+The function tipc_msg_eval() is in reality doing two related, but
+different tasks. First it tries to find a new destination for named
+messages, in case there was no first lookup, or if the first lookup
+failed. Second, it does what its name suggests, evaluating the validity
+of the message and its destination, and returning an appropriate error
+code depending on the result.
+
+This is confusing, and in this commit we choose to break it up into two
+functions. A new function, tipc_msg_lookup_dest(), first attempts to find
+a new destination, if the message is of the right type. If this lookup
+fails, or if the message should not be subject to a second lookup, the
+already existing tipc_msg_reverse() is called. This function performs
+prepares the message for rejection, if applicable.
 
 Reviewed-by: Ying Xue <ying.xue@windriver.com>
 Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 ---
- net/tipc/socket.c | 31 +++++++++++++------------------
- 1 file changed, 13 insertions(+), 18 deletions(-)
+ net/tipc/msg.c    | 42 +++++++++++++++++++++---------------------
+ net/tipc/msg.h    |  9 +++++----
+ net/tipc/socket.c | 40 ++++++++++++++++++++++------------------
+ 3 files changed, 48 insertions(+), 43 deletions(-)
 
+diff --git a/net/tipc/msg.c b/net/tipc/msg.c
+index 940d741..697223a 100644
+--- a/net/tipc/msg.c
++++ b/net/tipc/msg.c
+@@ -411,43 +411,43 @@ bool tipc_msg_reverse(u32 own_addr,  struct sk_buff *buf, u32 *dnode,
+ 	return true;
+ exit:
+ 	kfree_skb(buf);
++	*dnode = 0;
+ 	return false;
+ }
+ 
+ /**
+- * tipc_msg_eval: determine fate of message that found no destination
+- * @buf: the buffer containing the message.
+- * @dnode: return value: next-hop node, if message to be forwarded
+- * @err: error code to use, if message to be rejected
+- *
++ * tipc_msg_lookup_dest(): try to find new destination for named message
++ * @skb: the buffer containing the message.
++ * @dnode: return value: next-hop node, if destination found
++ * @err: return value: error code to use, if message to be rejected
+  * Does not consume buffer
+- * Returns 0 (TIPC_OK) if message ok and we can try again, -TIPC error
+- * code if message to be rejected
++ * Returns true if a destination is found, false otherwise
+  */
+-int tipc_msg_eval(struct net *net, struct sk_buff *buf, u32 *dnode)
++bool tipc_msg_lookup_dest(struct net *net, struct sk_buff *skb,
++			  u32 *dnode, int *err)
+ {
+-	struct tipc_msg *msg = buf_msg(buf);
++	struct tipc_msg *msg = buf_msg(skb);
+ 	u32 dport;
+ 
+-	if (msg_type(msg) != TIPC_NAMED_MSG)
+-		return -TIPC_ERR_NO_PORT;
+-	if (skb_linearize(buf))
+-		return -TIPC_ERR_NO_NAME;
+-	if (msg_data_sz(msg) > MAX_FORWARD_SIZE)
+-		return -TIPC_ERR_NO_NAME;
++	if (!msg_isdata(msg))
++		return false;
++	if (!msg_named(msg))
++		return false;
++	*err = -TIPC_ERR_NO_NAME;
++	if (skb_linearize(skb))
++		return false;
+ 	if (msg_reroute_cnt(msg) > 0)
+-		return -TIPC_ERR_NO_NAME;
+-
++		return false;
+ 	*dnode = addr_domain(net, msg_lookup_scope(msg));
+ 	dport = tipc_nametbl_translate(net, msg_nametype(msg),
+-				       msg_nameinst(msg),
+-				       dnode);
++				       msg_nameinst(msg), dnode);
+ 	if (!dport)
+-		return -TIPC_ERR_NO_NAME;
++		return false;
+ 	msg_incr_reroute_cnt(msg);
+ 	msg_set_destnode(msg, *dnode);
+ 	msg_set_destport(msg, dport);
+-	return TIPC_OK;
++	*err = TIPC_OK;
++	return true;
+ }
+ 
+ /* tipc_msg_reassemble() - clone a buffer chain of fragments and
+diff --git a/net/tipc/msg.h b/net/tipc/msg.h
+index f7ea954..6070299 100644
+--- a/net/tipc/msg.h
++++ b/net/tipc/msg.h
+@@ -750,18 +750,19 @@ static inline u32 msg_tot_origport(struct tipc_msg *m)
+ struct sk_buff *tipc_buf_acquire(u32 size);
+ bool tipc_msg_reverse(u32 own_addr, struct sk_buff *buf, u32 *dnode,
+ 		      int err);
+-int tipc_msg_eval(struct net *net, struct sk_buff *buf, u32 *dnode);
+ void tipc_msg_init(u32 own_addr, struct tipc_msg *m, u32 user, u32 type,
+ 		   u32 hsize, u32 destnode);
+-struct sk_buff *tipc_msg_create(uint user, uint type,
+-				uint hdr_sz, uint data_sz, u32 dnode,
+-				u32 onode, u32 dport, u32 oport, int errcode);
++struct sk_buff *tipc_msg_create(uint user, uint type, uint hdr_sz,
++				uint data_sz, u32 dnode, u32 onode,
++				u32 dport, u32 oport, int errcode);
+ int tipc_buf_append(struct sk_buff **headbuf, struct sk_buff **buf);
+ bool tipc_msg_bundle(struct sk_buff_head *list, struct sk_buff *skb, u32 mtu);
+ bool tipc_msg_make_bundle(struct sk_buff_head *list,
+ 			  struct sk_buff *skb, u32 mtu, u32 dnode);
+ int tipc_msg_build(struct tipc_msg *mhdr, struct msghdr *m,
+ 		   int offset, int dsz, int mtu, struct sk_buff_head *list);
++bool tipc_msg_lookup_dest(struct net *net, struct sk_buff *skb, u32 *dnode,
++			  int *err);
+ struct sk_buff *tipc_msg_reassemble(struct sk_buff_head *list);
+ 
+ #endif
 diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index e14b2ae..611a04f 100644
+index 1d98bfc..e14b2ae 100644
 --- a/net/tipc/socket.c
 +++ b/net/tipc/socket.c
-@@ -69,8 +69,6 @@
-  * @pub_count: total # of publications port has made during its lifetime
-  * @probing_state:
-  * @probing_intv:
-- * @port: port - interacts with 'sk' and with the rest of the TIPC stack
-- * @peer_name: the peer of the connection, if any
-  * @conn_timeout: the time we can wait for an unresponded setup request
-  * @dupl_rcvcnt: number of bytes counted twice, in both backlog and rcv queue
-  * @link_cong: non-zero if owner must sleep because of link congestion
-@@ -737,7 +735,7 @@ static int tipc_sendmcast(struct  socket *sock, struct tipc_name_seq *seq,
- 	struct tipc_sock *tsk = tipc_sk(sk);
- 	struct net *net = sock_net(sk);
- 	struct tipc_msg *mhdr = &tsk->phdr;
--	struct sk_buff_head head;
-+	struct sk_buff_head *pktchain = &sk->sk_write_queue;
- 	struct iov_iter save = msg->msg_iter;
- 	uint mtu;
- 	int rc;
-@@ -753,13 +751,12 @@ static int tipc_sendmcast(struct  socket *sock, struct tipc_name_seq *seq,
+@@ -1739,7 +1739,7 @@ static int filter_rcv(struct sock *sk, struct sk_buff **skb)
+  * @sk: socket
+  * @skb: message
+  *
+- * Caller must hold socket lock, but not port lock.
++ * Caller must hold socket lock
+  *
+  * Returns 0
+  */
+@@ -1805,27 +1805,31 @@ int tipc_sk_rcv(struct net *net, struct sk_buff *skb)
+ 	struct tipc_net *tn;
+ 	struct sock *sk;
+ 	u32 dport = msg_destport(buf_msg(skb));
+-	int err;
++	int err = -TIPC_ERR_NO_PORT;
+ 	u32 dnode;
  
- new_mtu:
- 	mtu = tipc_bclink_get_mtu();
--	__skb_queue_head_init(&head);
--	rc = tipc_msg_build(mhdr, msg, 0, dsz, mtu, &head);
-+	rc = tipc_msg_build(mhdr, msg, 0, dsz, mtu, pktchain);
- 	if (unlikely(rc < 0))
- 		return rc;
- 
- 	do {
--		rc = tipc_bclink_xmit(net, &head);
-+		rc = tipc_bclink_xmit(net, pktchain);
- 		if (likely(rc >= 0)) {
- 			rc = dsz;
- 			break;
-@@ -773,7 +770,7 @@ new_mtu:
- 		tipc_sk(sk)->link_cong = 1;
- 		rc = tipc_wait_for_sndmsg(sock, &timeo);
- 		if (rc)
--			__skb_queue_purge(&head);
-+			__skb_queue_purge(pktchain);
- 	} while (!rc);
- 	return rc;
+-	/* Validate destination and message */
++	/* Find destination */
+ 	tsk = tipc_sk_lookup(net, dport);
+-	if (unlikely(!tsk)) {
+-		err = tipc_msg_eval(net, skb, &dnode);
+-		goto exit;
+-	}
+-	sk = &tsk->sk;
+-
+-	spin_lock_bh(&sk->sk_lock.slock);
+-	err = tipc_sk_enqueue_skb(sk, &skb);
+-	spin_unlock_bh(&sk->sk_lock.slock);
+-	sock_put(sk);
+-exit:
+-	if (unlikely(skb)) {
+-		tn = net_generic(net, tipc_net_id);
+-		if (!err || tipc_msg_reverse(tn->own_addr, skb, &dnode, -err))
+-			tipc_link_xmit_skb(net, skb, dnode, 0);
++	if (likely(tsk)) {
++		sk = &tsk->sk;
++		spin_lock_bh(&sk->sk_lock.slock);
++		err = tipc_sk_enqueue_skb(sk, &skb);
++		spin_unlock_bh(&sk->sk_lock.slock);
++		sock_put(sk);
+ 	}
++	if (likely(!skb))
++		return 0;
++	if (tipc_msg_lookup_dest(net, skb, &dnode, &err))
++		goto xmit;
++	if (!err) {
++		dnode = msg_destnode(buf_msg(skb));
++		goto xmit;
++	}
++	tn = net_generic(net, tipc_net_id);
++	if (!tipc_msg_reverse(tn->own_addr, skb, &dnode, -err))
++		return -EHOSTUNREACH;
++xmit:
++	tipc_link_xmit_skb(net, skb, dnode, dport);
+ 	return err ? -EHOSTUNREACH : 0;
  }
-@@ -897,7 +894,7 @@ static int tipc_sendmsg(struct kiocb *iocb, struct socket *sock,
- 	struct net *net = sock_net(sk);
- 	struct tipc_msg *mhdr = &tsk->phdr;
- 	u32 dnode, dport;
--	struct sk_buff_head head;
-+	struct sk_buff_head *pktchain = &sk->sk_write_queue;
- 	struct sk_buff *skb;
- 	struct tipc_name_seq *seq = &dest->addr.nameseq;
- 	struct iov_iter save;
-@@ -972,15 +969,14 @@ static int tipc_sendmsg(struct kiocb *iocb, struct socket *sock,
- 	save = m->msg_iter;
- new_mtu:
- 	mtu = tipc_node_get_mtu(net, dnode, tsk->portid);
--	__skb_queue_head_init(&head);
--	rc = tipc_msg_build(mhdr, m, 0, dsz, mtu, &head);
-+	rc = tipc_msg_build(mhdr, m, 0, dsz, mtu, pktchain);
- 	if (rc < 0)
- 		goto exit;
  
- 	do {
--		skb = skb_peek(&head);
-+		skb = skb_peek(pktchain);
- 		TIPC_SKB_CB(skb)->wakeup_pending = tsk->link_cong;
--		rc = tipc_link_xmit(net, &head, dnode, tsk->portid);
-+		rc = tipc_link_xmit(net, pktchain, dnode, tsk->portid);
- 		if (likely(rc >= 0)) {
- 			if (sock->state != SS_READY)
- 				sock->state = SS_CONNECTING;
-@@ -996,7 +992,7 @@ new_mtu:
- 		tsk->link_cong = 1;
- 		rc = tipc_wait_for_sndmsg(sock, &timeo);
- 		if (rc)
--			__skb_queue_purge(&head);
-+			__skb_queue_purge(pktchain);
- 	} while (!rc);
- exit:
- 	if (iocb)
-@@ -1054,7 +1050,7 @@ static int tipc_send_stream(struct kiocb *iocb, struct socket *sock,
- 	struct net *net = sock_net(sk);
- 	struct tipc_sock *tsk = tipc_sk(sk);
- 	struct tipc_msg *mhdr = &tsk->phdr;
--	struct sk_buff_head head;
-+	struct sk_buff_head *pktchain = &sk->sk_write_queue;
- 	DECLARE_SOCKADDR(struct sockaddr_tipc *, dest, m->msg_name);
- 	u32 portid = tsk->portid;
- 	int rc = -EINVAL;
-@@ -1091,13 +1087,12 @@ next:
- 	save = m->msg_iter;
- 	mtu = tsk->max_pkt;
- 	send = min_t(uint, dsz - sent, TIPC_MAX_USER_MSG_SIZE);
--	__skb_queue_head_init(&head);
--	rc = tipc_msg_build(mhdr, m, sent, send, mtu, &head);
-+	rc = tipc_msg_build(mhdr, m, sent, send, mtu, pktchain);
- 	if (unlikely(rc < 0))
- 		goto exit;
- 	do {
- 		if (likely(!tsk_conn_cong(tsk))) {
--			rc = tipc_link_xmit(net, &head, dnode, portid);
-+			rc = tipc_link_xmit(net, pktchain, dnode, portid);
- 			if (likely(!rc)) {
- 				tsk->sent_unacked++;
- 				sent += send;
-@@ -1117,7 +1112,7 @@ next:
- 		}
- 		rc = tipc_wait_for_sndpkt(sock, &timeo);
- 		if (rc)
--			__skb_queue_purge(&head);
-+			__skb_queue_purge(pktchain);
- 	} while (!rc);
- exit:
- 	if (iocb)
 -- 
 1.9.1
 
