@@ -1,107 +1,93 @@
-From: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
-Subject: Re: [PATCH 1/3] ixgbe,
- ixgbevf: Add new mbox API to enable MC promiscuous mode
-Date: Thu, 5 Feb 2015 06:10:34 +0000
-Message-ID: <7F861DC0615E0C47A872E6F3C5FCDDBD05E21852@BPXM14GP.gisp.nec.co.jp>
-References: <7F861DC0615E0C47A872E6F3C5FCDDBD05E1908D@BPXM14GP.gisp.nec.co.jp>
-	<1423054641.2589.59.camel@jtkirshe-mobl>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [PATCH net-next] bridge: Let bridge not age 'externally' learnt
+ FDB entries, they are removed when 'external' entity notifies the aging
+Date: Wed, 4 Feb 2015 23:13:07 -0800
+Message-ID: <CAE4R7bCASKHmZD+tiu=ZWM9dzvTrSLsaXxgtOYLpsmOR87kcTQ@mail.gmail.com>
+References: <1422897714-5956-1-git-send-email-siva.mannem.lnx@gmail.com>
+	<54D0E521.6070100@cumulusnetworks.com>
+	<CA+CtxLSziWmx94_V9S-uW9=6VYg4WXsU4CERx-uovvrFOtO1dA@mail.gmail.com>
+	<54D246A7.2020502@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
-	"Choi, Sy Jong" <sy.jong.choi@intel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	David Laight <David.Laight@ACULAB.COM>,
-	Hayato Momma <h-momma@ce.jp.nec.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	=?utf-8?B?QmrDuHJuIE1vcms=?= <bjorn@mork.no>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <1423054641.2589.59.camel@jtkirshe-mobl>
-Content-Language: ja-JP
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Siva Mannem <siva.mannem.lnx@gmail.com>,
+	Netdev <netdev@vger.kernel.org>,
+	Scott Feldman <sfeldma@cumulusnetworks.com>,
+	Jiri Pirko <jiri@resnulli.us>
+To: roopa <roopa@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f182.google.com ([209.85.212.182]:33881 "EHLO
+	mail-wi0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753819AbbBEHNI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Feb 2015 02:13:08 -0500
+Received: by mail-wi0-f182.google.com with SMTP id n3so8440776wiv.3
+        for <netdev@vger.kernel.org>; Wed, 04 Feb 2015 23:13:07 -0800 (PST)
+In-Reply-To: <54D246A7.2020502@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> Subject: Re: [E1000-devel] [PATCH 1/3] ixgbe, ixgbevf: Add new mbox API to enable MC promiscuous mode
-> 
-> On Fri, 2015-01-30 at 11:37 +0000, Hiroshi Shimamoto wrote:
-> > From: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
-> >
-> > The limitation of the number of multicast address for VF is not enough
-> > for the large scale server with SR-IOV feature.
-> > IPv6 requires the multicast MAC address for each IP address to handle
-> > the Neighbor Solicitation message.
-> > We couldn't assign over 30 IPv6 addresses to a single VF interface.
-> >
-> > The easy way to solve this is enabling multicast promiscuous mode.
-> > It is good to have a functionality to enable multicast promiscuous
-> > mode
-> > for each VF from VF driver.
-> >
-> > This patch introduces the new mbox API, IXGBE_VF_SET_MC_PROMISC, to
-> > enable/disable multicast promiscuous mode in VF. If multicast
-> > promiscuous
-> > mode is enabled the VF can receive all multicast packets.
-> >
-> > With this patch, the ixgbevf driver automatically enable multicast
-> > promiscuous mode when the number of multicast addresses is over than
-> > 30
-> > if possible.
-> >
-> > This also bump the API version up to 1.2 to check whether the API,
-> > IXGBE_VF_SET_MC_PROMISC is available.
-> >
-> > Signed-off-by: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
-> > Reviewed-by: Hayato Momma <h-momma@ce.jp.nec.com>
-> > CC: Choi, Sy Jong <sy.jong.choi@intel.com>
-> > ---
-> >  drivers/net/ethernet/intel/ixgbe/ixgbe.h          |  1 +
-> >  drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h      |  4 +
-> >  drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c    | 89
-> > ++++++++++++++++++++++-
-> >  drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 13 +++-
-> >  drivers/net/ethernet/intel/ixgbevf/mbx.h          |  4 +
-> >  drivers/net/ethernet/intel/ixgbevf/vf.c           | 29 +++++++-
-> >  drivers/net/ethernet/intel/ixgbevf/vf.h           |  1 +
-> >  7 files changed, 137 insertions(+), 4 deletions(-)
-> 
-> Hiroshi, I tried to apply your patches to my queue but they do not apply
-> cleanly and they are in a DOS file format, not UNIX.  I also noted
-> several checkpatch.pl issues with your patches, so please fix those up
-> as well.
+On Wed, Feb 4, 2015 at 8:19 AM, roopa <roopa@cumulusnetworks.com> wrote:
+> On 2/4/15, 12:02 AM, Siva Mannem wrote:
+>>
+>> On Tue, Feb 3, 2015 at 8:41 PM, roopa <roopa@cumulusnetworks.com> wrote:
+>>>
+>>> On 2/2/15, 9:21 AM, Siva Mannem wrote:
+>>>>
+>>>>    When 'learned_sync' flag is turned on, the offloaded switch
+>>>>    port syncs learned MAC addresses to bridge's FDB via switchdev
+>>>> notifier
+>>>>    (NETDEV_SWITCH_FDB_ADD). Currently, FDB entries learnt via this
+>>>> mechanism are
+>>>>    wrongly being deleted by bridge aging logic. This patch ensures that
+>>>> FDB
+>>>>    entries synced from offloaded switch ports are not deleted by
+>>>> bridging
+>>>> logic.
+>>>>    Such entries can only be deleted via switchdev notifier
+>>>>    (NETDEV_SWITCH_FDB_DEL).
+>>>
+>>>
+>>> Your patch seems right and maintains symmetry for fdb add/del of
+>>> externally
+>>> learnt entries.
+>>> However, this could be made configurable. I think some drivers may rely
+>>> on
+>>> bridge driver aging these entries (The default setting needs more
+>>> thought).
+>>> I am not sure what rocker does (CC'ed rocker maintainers). But, our
+>>> driver
+>>> does rely on the bridge driver aging these entries by default.
+>>
+>> added_by_external_learn flag is only set for entries learned via
+>> switchdev notifier
+>> (NETDEV_SWITCH_FDB_ADD) and rocker is the only driver using these
+>> notifiers.
+>>   I see that rocker is deleting the entries via switchdev notifier
+>> (NETDEV_SWITCH_FDB_DEL).
+>> This mechanism is only used by drivers when learned_sync is turned on by
+>> user.
+>>
+>> $ sudo bridge link set dev swp1 learning_sync on self
+>>
+>> Am I missing something here?
+>
+> I know that its enabled by an external flag. I wasn't sure rocker was doing
+> a del
+> or was relying on the bridge driver to age those entries (hence the CC to
+> rocker maintainers).
+> And, my only point was its valid in some cases for the switch driver to rely
+> on bridge driver ageing those entries.
+> For symmetry, your patch seems right.
 
-I'm sorry to bother you.
-Will fix.
+No, not right.  Drats, email was sent to the wrong address for me.
+Thanks Roopa for trying to keep me in the loop.
 
-> 
-> Can you please fix up your patches based on my tree:
-> git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/queue.git
+We want the bridge's aging logic to age out these externally learned
+entries, just like it would age out internally learned entries.
 
-Yes. I haven't noticed your tree.
-Will resend patches against it.
+I'd like to see this patch reverted so we can have a more
+comprehensive discussion/solution.  With this patch applied, the only
+user (rocker) of NETDEV_SWITCH_FDB_ADD is broken.  So please undo this
+patch so rocker isn't broken and let's work on a knob to suit both
+modes: 1) let bridge manage aging, 2) let device manage aging.
 
-thanks,
-Hiroshi
-
-> 
-> This my queue of all community patches against the Intel LAN drivers and
-> will be where I queue up your patches while they are under review and
-> testing.
-------------------------------------------------------------------------------
-Dive into the World of Parallel Programming. The Go Parallel Website,
-sponsored by Intel and developed in partnership with Slashdot Media, is your
-hub for all things parallel software development, from weekly thought
-leadership blogs to news, videos, case studies, tutorials and more. Take a
-look and join the conversation now. http://goparallel.sourceforge.net/
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+-scott
