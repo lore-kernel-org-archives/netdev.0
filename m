@@ -1,46 +1,50 @@
-From: Thomas Graf <tgraf@noironetworks.com>
-Subject: Re: [ovs-dev] [RFC: add openvswitch actions using BPF 2/2]
- openvswitch: implements the BPF_PROG action in datapath
-Date: Thu, 5 Feb 2015 16:07:33 +0100
-Message-ID: <20150205150733.GG5546@pox.localdomain>
-References: <1423090122-19807-1-git-send-email-azhou@nicira.com>
- <1423090122-19807-3-git-send-email-azhou@nicira.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: dev@openvswitch.com, netdev@vger.kernel.org
-To: Andy Zhou <azhou@nicira.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f53.google.com ([74.125.82.53]:48757 "EHLO
-	mail-wg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757790AbbBEPHg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Feb 2015 10:07:36 -0500
-Received: by mail-wg0-f53.google.com with SMTP id a1so8059976wgh.12
-        for <netdev@vger.kernel.org>; Thu, 05 Feb 2015 07:07:35 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1423090122-19807-3-git-send-email-azhou@nicira.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Lad Prabhakar <prabhakar.csengg@gmail.com>
+Subject: [PATCH] i40e: fix sparse warning
+Date: Thu,  5 Feb 2015 15:13:15 +0000
+Message-ID: <1423149195-32142-1-git-send-email-prabhakar.csengg@gmail.com>
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	"Lad, Prabhakar" <prabhakar.csengg@gmail.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Bruce Allan <bruce.w.allan@intel.com>,
+	Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	Greg Rose <gregory.v.rose@intel.com>,
+	Matthew Vick <matthew.vick@intel.com>,
+	John Ronciak <john.ronciak@intel.com>,
+	Mitch Williams <mitch.a.williams@intel.com>,
+	Linux NICS <linux.nics@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 02/04/15 at 02:48pm, Andy Zhou wrote:
-> BPF_PROG action allows an action to be implemented in eBPF language and
-> downloaded by the userspace at runtime.
-> 
-> Signed-off-by: Andy Zhou <azhou@nicira.com>
+From: "Lad, Prabhakar" <prabhakar.csengg@gmail.com>
 
-Thanks a lot for putting this together Andy and Joe and everybody else
-who was involved. This is much further than what I expected as a first
-step.
+this patch fixes following sparse warning:
 
-One slight open from my side is the avoidance of versioning help of
-helpers. We want to avoid v2, v3, ... helpers if the need should arise
-to extend an existing helper.
+i40e_lan_hmc.c:911:24: warning: constant 0xFFFFFFFFFFFFFFFF is so big it is unsigned long
 
-I think it should be doable with BPF to have the verifier accept if
-a helper is called with less args than expected, to initialize those
-to 0. This would allow for helpers to support additional arguments.
+Signed-off-by: Lad, Prabhakar <prabhakar.csengg@gmail.com>
+---
+ Found this issue on linux-next (gcc  version 4.8.2,
+ sparse version  0.4.5-rc1)and applies on top linux-next.
 
-I think this needs to be documented and expectations should be clear.
-Other than that I'm very very happy with where this is going.
+ drivers/net/ethernet/intel/i40e/i40e_lan_hmc.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-It seems very doable to also allow for a BPF prog to be registered
-upon flow table miss.
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_lan_hmc.c b/drivers/net/ethernet/intel/i40e/i40e_lan_hmc.c
+index 4627588..f221ace 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_lan_hmc.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_lan_hmc.c
+@@ -908,7 +908,7 @@ static void i40e_write_qword(u8 *hmc_bits,
+ 	if (ce_info->width < 64)
+ 		mask = ((u64)1 << ce_info->width) - 1;
+ 	else
+-		mask = 0xFFFFFFFFFFFFFFFF;
++		mask = 0xFFFFFFFFFFFFFFFFULL;
+ 
+ 	/* don't swizzle the bits until after the mask because the mask bits
+ 	 * will be in a different bit position on big endian machines
+-- 
+1.9.1
