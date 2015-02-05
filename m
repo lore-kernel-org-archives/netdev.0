@@ -1,82 +1,46 @@
-From: Lad Prabhakar <prabhakar.csengg@gmail.com>
-Subject: [PATCH] hyperv: fix sparse warnings
-Date: Thu,  5 Feb 2015 15:06:33 +0000
-Message-ID: <1423148793-19610-1-git-send-email-prabhakar.csengg@gmail.com>
+From: Thomas Graf <tgraf@noironetworks.com>
+Subject: Re: [ovs-dev] [RFC: add openvswitch actions using BPF 2/2]
+ openvswitch: implements the BPF_PROG action in datapath
+Date: Thu, 5 Feb 2015 16:07:33 +0100
+Message-ID: <20150205150733.GG5546@pox.localdomain>
+References: <1423090122-19807-1-git-send-email-azhou@nicira.com>
+ <1423090122-19807-3-git-send-email-azhou@nicira.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "Lad, Prabhakar" <prabhakar.csengg@gmail.com>,
- linux-kernel@vger.kernel.org
-To: "K. Y. Srinivasan" <kys@microsoft.com>,
- Haiyang Zhang <haiyangz@microsoft.com>, devel@linuxdriverproject.org
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: dev@openvswitch.com, netdev@vger.kernel.org
+To: Andy Zhou <azhou@nicira.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f53.google.com ([74.125.82.53]:48757 "EHLO
+	mail-wg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757790AbbBEPHg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Feb 2015 10:07:36 -0500
+Received: by mail-wg0-f53.google.com with SMTP id a1so8059976wgh.12
+        for <netdev@vger.kernel.org>; Thu, 05 Feb 2015 07:07:35 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1423090122-19807-3-git-send-email-azhou@nicira.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Lad, Prabhakar" <prabhakar.csengg@gmail.com>
+On 02/04/15 at 02:48pm, Andy Zhou wrote:
+> BPF_PROG action allows an action to be implemented in eBPF language and
+> downloaded by the userspace at runtime.
+> 
+> Signed-off-by: Andy Zhou <azhou@nicira.com>
 
-this patch fixes following sparse warnings:
+Thanks a lot for putting this together Andy and Joe and everybody else
+who was involved. This is much further than what I expected as a first
+step.
 
-netvsc.c:688:5: warning: symbol 'netvsc_copy_to_send_buf' was not declared. Should it be static?
-rndis_filter.c:627:5: warning: symbol 'rndis_filter_set_offload_params' was not declared. Should it be static?
-rndis_filter.c:702:5: warning: symbol 'rndis_filter_set_rss_param' was not declared. Should it be static?
+One slight open from my side is the avoidance of versioning help of
+helpers. We want to avoid v2, v3, ... helpers if the need should arise
+to extend an existing helper.
 
-Signed-off-by: Lad, Prabhakar <prabhakar.csengg@gmail.com>
----
- Found this issue on linux-next (gcc  version 4.9.2,
- sparse version  0.4.5-rc1) and applies on top linux-next.
+I think it should be doable with BPF to have the verifier accept if
+a helper is called with less args than expected, to initialize those
+to 0. This would allow for helpers to support additional arguments.
 
- drivers/net/hyperv/netvsc.c       | 6 +++---
- drivers/net/hyperv/rndis_filter.c | 5 +++--
- 2 files changed, 6 insertions(+), 5 deletions(-)
+I think this needs to be documented and expectations should be clear.
+Other than that I'm very very happy with where this is going.
 
-diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
-index 58bb410..208eb05 100644
---- a/drivers/net/hyperv/netvsc.c
-+++ b/drivers/net/hyperv/netvsc.c
-@@ -685,9 +685,9 @@ static u32 netvsc_get_next_send_section(struct netvsc_device *net_device)
- 	return ret_val;
- }
- 
--u32 netvsc_copy_to_send_buf(struct netvsc_device *net_device,
--			    unsigned int section_index,
--			    struct hv_netvsc_packet *packet)
-+static u32 netvsc_copy_to_send_buf(struct netvsc_device *net_device,
-+				   unsigned int section_index,
-+				   struct hv_netvsc_packet *packet)
- {
- 	char *start = net_device->send_buf;
- 	char *dest = (start + (section_index * net_device->send_section_size));
-diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
-index 7bd8387..7816d98 100644
---- a/drivers/net/hyperv/rndis_filter.c
-+++ b/drivers/net/hyperv/rndis_filter.c
-@@ -624,7 +624,8 @@ cleanup:
- 	return ret;
- }
- 
--int rndis_filter_set_offload_params(struct hv_device *hdev,
-+static int
-+rndis_filter_set_offload_params(struct hv_device *hdev,
- 				struct ndis_offload_params *req_offloads)
- {
- 	struct netvsc_device *nvdev = hv_get_drvdata(hdev);
-@@ -699,7 +700,7 @@ u8 netvsc_hash_key[HASH_KEYLEN] = {
- 	0x6a, 0x42, 0xb7, 0x3b, 0xbe, 0xac, 0x01, 0xfa
- };
- 
--int rndis_filter_set_rss_param(struct rndis_device *rdev, int num_queue)
-+static int rndis_filter_set_rss_param(struct rndis_device *rdev, int num_queue)
- {
- 	struct net_device *ndev = rdev->net_dev->ndev;
- 	struct rndis_request *request;
--- 
-1.9.1
+It seems very doable to also allow for a BPF prog to be registered
+upon flow table miss.
