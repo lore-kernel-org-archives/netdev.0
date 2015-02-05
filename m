@@ -1,64 +1,58 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH v2] net: bluetooth: hci_sock: Use 'const void *' instead
- of 'void *' for 2nd parameter of hci_test_bit()
-Date: Thu, 5 Feb 2015 10:14:51 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CADC42B@AcuExch.aculab.com>
-References: <54CFE8BE.5030700@sunrus.com.cn>
- <063D6719AE5E284EB5DD2968C1650D6D1CADA5E1@AcuExch.aculab.com>
- <54D27D68.7040501@cogentembedded.com>
- <0AB99BEA-C379-439C-AD80-5F2122AE37E5@holtmann.org>
- <54D29379.8050104@sunrus.com.cn>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH 0/6 v2 net-next] rhashtable fixes
+Date: Thu, 5 Feb 2015 10:19:54 +0000
+Message-ID: <20150205101954.GA24388@casper.infradead.org>
+References: <cover.1423097592.git.tgraf@suug.ch>
+ <54D2D656.8060709@windriver.com>
+ <20150205084737.GA15549@casper.infradead.org>
+ <54D3346E.4040302@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "Gustavo F. Padovan" <gustavo@padovan.org>,
-	Johan Hedberg <johan.hedberg@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"linux-bluetooth@vger.kernel.org" <linux-bluetooth@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: 'Chen Gang S' <gang.chen@sunrus.com.cn>,
-	Marcel Holtmann <marcel@holtmann.org>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <54D29379.8050104@sunrus.com.cn>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	herbert@gondor.apana.org.au
+To: Ying Xue <ying.xue@windriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from casper.infradead.org ([85.118.1.10]:54740 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754014AbbBEKT5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Feb 2015 05:19:57 -0500
+Content-Disposition: inline
+In-Reply-To: <54D3346E.4040302@windriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Chen Gang S [mailto:gang.chen@sunrus.com.cn]
-> On 2/5/15 05:09, Marcel Holtmann wrote:
-> > Hi Sergei,
-> >
-> >>>> -static inline int hci_test_bit(int nr, void *addr)
-> >>>> +static inline int hci_test_bit(int nr, const void *addr)
-> >>>>  {
-> >>>>  	return *((__u32 *) addr + (nr >> 5)) & ((__u32) 1 << (nr & 31));
-> >>>>  }
-> >>
-> >>> Is there a 'standard' function lurking that will do the above.
-> >>> On x86 the cpus 'bit test' instruction will handle bit numbers
-> >>> greater than the word size - so it can be a single instruction.
-> >>
-> >>   Of course, there's test_bit().
-> >
-> > we did leave hci_test_bit in the code since there are some userspace facing
-> > API that we can not change. Remember that the origin of this code is
-> > from 2.4.6 kernel.
-> >
-> > So we can only change this if you can ensure not to break the userspace API.
-> > So might want to write unit tests to ensure working HCI filter before even
-> > considering touching this.
-> >
-> 
-> For me, we have to remain hci_test_bit(), it is for "__u32 *" (which we
-> can not change). The common test_bit() is for "unsigned long *", in this
-> case, I guess it may cause issue under 64-bit environments.
+On 02/05/15 at 05:14pm, Ying Xue wrote:
+> On 02/05/2015 04:47 PM, Thomas Graf wrote:
+> > On 02/05/15 at 10:32am, Ying Xue wrote:
+> >> After I applied the sires, it sounds like panic doesn't occur any more. But soft
+> >> lockup still happens although the frequency of its reproduction is much lower
+> >> than before. Please take a look at its relevant log:
+> > 
+> > Thanks for testing and the report. I had run your bind_netlink test
+> > overnight on a 4 CPU VM. Anything particular that might help trigger it?
 
-Except that half the time you are passing a 'long *' and you haven't
-explained why this isn't broken on 64bit architectures.
+Thanks. I will keep trying to reproduce. Can you try the following
+patch in the meantime?
 
-Note that on LE systems the size of the accesses used to access a dense
-bit array don't matter. This is not true of BE systems.
-
-	David
+diff --git a/lib/rhashtable.c b/lib/rhashtable.c
+index 5919d63..1c65be2 100644
+--- a/lib/rhashtable.c
++++ b/lib/rhashtable.c
+@@ -593,7 +593,7 @@ void rhashtable_insert(struct rhashtable *ht, struct rhash_head *obj)
+ 
+ 	tbl = rht_dereference_rcu(ht->future_tbl, ht);
+ 	old_tbl = rht_dereference_rcu(ht->tbl, ht);
+-	hash = head_hashfn(ht, tbl, obj);
++	hash = obj_raw_hashfn(ht, rht_obj(ht, obj));
+ 
+ 	lock_buckets(tbl, old_tbl, hash);
+ 	__rhashtable_insert(ht, obj, tbl, hash);
+@@ -835,7 +835,7 @@ bool rhashtable_lookup_compare_insert(struct rhashtable *ht,
+ 	rcu_read_lock();
+ 	old_tbl = rht_dereference_rcu(ht->tbl, ht);
+ 	new_tbl = rht_dereference_rcu(ht->future_tbl, ht);
+-	new_hash = head_hashfn(ht, new_tbl, obj);
++	new_hash = obj_raw_hashfn(ht, rht_obj(ht, obj));
+ 
+ 	lock_buckets(new_tbl, old_tbl, new_hash);
+ 
