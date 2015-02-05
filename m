@@ -1,63 +1,74 @@
-From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: Throughput regression with `tcp: refine TSO autosizing`
-Date: Thu, 05 Feb 2015 05:03:03 -0800
-Message-ID: <1423141383.31870.39.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CA+BoTQkVu23P3EOmY_Q3E1GJnWsyF==Pawz4iPOS_Bq5dvfO5Q@mail.gmail.com>
-	 <1422537297.21689.15.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+BoTQk2xT-8DqPuiiKG+kHAjLPrj8F9dLTb-rcGhvMq0u_2Qw@mail.gmail.com>
-	 <1422628835.21689.95.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+BoTQkV+mOZfe_Niz5101sMQeaV6muKCsShptjGQ1AgOHqqoQ@mail.gmail.com>
-	 <1422903136.21689.114.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1422926330.21689.138.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+BoTQkMikA8wxm1ce2DkKhPB0HiKeAqT7f+sQ=91W40z=X0Rg@mail.gmail.com>
-	 <1422973660.907.10.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+BoTQmvUuFdfYF=wVMYxrf_nQZB5GCV=LvDZVvfs-3hAE4WKw@mail.gmail.com>
-	 <1423051045.907.108.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+BoTQ=BDcQ779uKCuX+f40=4npXVF4MTQnpjKimNYAxPsxBoQ@mail.gmail.com>
-	 <1423053531.907.115.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+BoTQ=qmCZz4CmSOvCOzMLowrDEG12XBffkTcYxjGqVD9604g@mail.gmail.com>
-	 <1423055810.907.125.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1423056591.907.130.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1423084303.31870.15.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+BoTQnwcmu=YbKB17JQb7ZPwGZoQS7zQ6nT-WEJHjnBX34QKA@mail.gmail.com>
+From: Richard Guy Briggs <rgb@tricolour.ca>
+Subject: NetDev 0.1 final schedule and new sponsor update
+Date: Thu, 5 Feb 2015 08:05:18 -0500
+Message-ID: <20150205130518.GK4239@toccata2.tricolour.ca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Neal Cardwell <ncardwell-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	eyalpe-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org
-To: Michal Kazior <michal.kazior-++hxYGjEMp0AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CA+BoTQnwcmu=YbKB17JQb7ZPwGZoQS7zQ6nT-WEJHjnBX34QKA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: info@netdev01.org, speakers@netdev01.org, attendees@netdev01.org
+To: netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
+	lwn@lwn.net, netdev01@lists.netfilter.org, lartc@vger.kernel.org,
+	netfilter@vger.kernel.org, netfilter-devel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from toccata2.tricolour.ca ([204.225.221.17]:55451 "EHLO
+	toccata2.tricolour.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752752AbbBENFY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Feb 2015 08:05:24 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2015-02-05 at 07:46 +0100, Michal Kazior wrote:
-> On 4 February 2015 at 22:11, Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
-
-> > Most conservative patch would be :
-> >
-> > diff --git a/drivers/net/wireless/ath/ath10k/htt_rx.c b/drivers/net/wireless/ath/ath10k/htt_rx.c
-> > index 9c782a42665e1aaf43bfbca441631ee58da50c09..6a36317d6bb0447202dee15528130bd5e21248c4 100644
-> > --- a/drivers/net/wireless/ath/ath10k/htt_rx.c
-> > +++ b/drivers/net/wireless/ath/ath10k/htt_rx.c
-> > @@ -1642,6 +1642,7 @@ void ath10k_htt_t2h_msg_handler(struct ath10k *ar, struct sk_buff *skb)
-> >                 break;
-> >         }
-> >         case HTT_T2H_MSG_TYPE_TX_COMPL_IND:
-> > +               skb_orphan(skb);
-> >                 spin_lock_bh(&htt->tx_lock);
-> >                 __skb_queue_tail(&htt->tx_compl_q, skb);
-> >                 spin_unlock_bh(&htt->tx_lock);
-> 
-> I suppose you want to call skb_orphan() on actual data packets, right?
-> This skb is just a host-firmware communication buffer.
-
-Right. I have no idea how you find the actual data packet at this stage.
+Fellow netheads:
 
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+New Sponsor:
+==========================
+We thank Intel for supporting Netdev01. Intel is well known in its
+tradition for supporting open source projects.  http://www.intel.com/
+
+
+Schedule:
+==========================
+The final schedule is out coded with session links.
+	https://www.netdev01.org/schedule
+
+
+Registration:
+==========================
+https://onlineregistrations.ca/netdev01/
+$100/day, or $350 for 4 days (Cdn dollars). (online reg closes Feb 12th)
+Please register as early as practical.  Registering helps us plan properly for
+numbers of attendees, ensuring venue sizes and supplies are appropriate without
+wasting resources.
+
+
+Hotel discount rates deadline extended
+==========================
+The Westin Hotel may still have rooms for Netdev01 available.
+There are lots of big and small hotels in Ottawa, but they will fill up
+fast as Winterlude approaches, so book something soon.  There may be
+some possibilities to billet locally, but don't leave it last minute.
+Make your reservations at:
+https://www.starwoodmeeting.com/StarGroupsWeb/res?id=1412035802&key=1AC9C1F8
+
+
+Sponsors:
+=========
+NetDev 0.1 would like to gratefully acknowledge all our sponsors: 
+https://netdev01.org/sponsors
+CENGN			http://www.cengn.ca/
+Google			https://www.google.ca
+Qualcomm		https://www.qualcomm.com/
+Verizon			http://www.verizon.com/
+Cumulus Networks	http://cumulusnetworks.com/
+Mojatatu Networks	http://mojatatu.com/
+
+
+-------------------------------------------------------------------------------
+THE Technical Conference on Linux Networking, February 14-17, 2015, Ottawa, Canada
+https://netdev01.org/
+
+Contact:			info@netdev01.info
+Main site:			https://www.netdev01.org/
+Travel/hotel/weather/clothing:	https://www.netdev01.org/travel
+RSS feed:			https://netdev01.org/atom
+Follow us on Twitter: @netdev01	https://twitter.com/netdev01
