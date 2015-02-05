@@ -1,47 +1,59 @@
-From: Tobias Waldekranz <tobias@waldekranz.com>
-Subject: [PATCH] dsa: correctly determine the number of switches in a system
-Date: Thu, 5 Feb 2015 14:54:09 +0100
-Message-ID: <20150205135409.GB29383@gmail.com>
+From: Thomas Graf <tgraf@noironetworks.com>
+Subject: Re: [ovs-dev] [RFC: add openvswitch actions using BPF 2/9] odp: add
+ a new ODP action: OVS_ACTION_ATTR_BPF_PROG
+Date: Thu, 5 Feb 2015 14:56:16 +0100
+Message-ID: <20150205135616.GB5546@pox.localdomain>
+References: <1423090163-19902-1-git-send-email-azhou@nicira.com>
+ <1423090163-19902-3-git-send-email-azhou@nicira.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Cc: dev@openvswitch.com, netdev@vger.kernel.org
+To: Andy Zhou <azhou@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f179.google.com ([209.85.217.179]:48212 "EHLO
-	mail-lb0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753146AbbBENyP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Feb 2015 08:54:15 -0500
-Received: by mail-lb0-f179.google.com with SMTP id z11so6416044lbi.10
-        for <netdev@vger.kernel.org>; Thu, 05 Feb 2015 05:54:14 -0800 (PST)
-Received: from gmail.com ([213.132.98.41])
-        by mx.google.com with ESMTPSA id b6sm977351laa.14.2015.02.05.05.54.13
-        for <netdev@vger.kernel.org>
-        (version=TLSv1.2 cipher=RC4-SHA bits=128/128);
-        Thu, 05 Feb 2015 05:54:13 -0800 (PST)
+Received: from mail-wi0-f182.google.com ([209.85.212.182]:55651 "EHLO
+	mail-wi0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753137AbbBEN4T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Feb 2015 08:56:19 -0500
+Received: by mail-wi0-f182.google.com with SMTP id n3so10682570wiv.3
+        for <netdev@vger.kernel.org>; Thu, 05 Feb 2015 05:56:18 -0800 (PST)
 Content-Disposition: inline
+In-Reply-To: <1423090163-19902-3-git-send-email-azhou@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The number of connected switches was sourced from the number of
-children to the DSA node, change it to the number of available
-children, skipping any disabled switches.
+On 02/04/15 at 02:49pm, Andy Zhou wrote:
+>  /**
+> + * struct ovs_action_bpf_prog - %OVS_ACTION_ATTR_BPF_PROG action argument.
+> + *
+> + *  XXX provides bpf program id and execution context.
+> + *
+> + */
+> +struct ovs_action_bpf_prog {
+> +	__be32 prog_fd;
+> +	__be32 arg0;
+> +	__be32 arg1;
+> +};
 
-Signed-off-by: Tobias Waldekranz <tobias@waldekranz.com>
----
- net/dsa/dsa.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+I assume you intend to replace this with a nested Netlink attribute with a
+series of U32 attributes to carry args in the future?
 
-diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-index 3731714..2173402 100644
---- a/net/dsa/dsa.c
-+++ b/net/dsa/dsa.c
-@@ -603,7 +603,7 @@ static int dsa_of_probe(struct platform_device *pdev)
- 
- 	pdev->dev.platform_data = pd;
- 	pd->netdev = &ethernet_dev->dev;
--	pd->nr_chips = of_get_child_count(np);
-+	pd->nr_chips = of_get_available_child_count(np);
- 	if (pd->nr_chips > DSA_MAX_SWITCHES)
- 		pd->nr_chips = DSA_MAX_SWITCHES;
- 
--- 
-1.8.4.357.g8d83871.dirty
+> +enum ovs_bpf_func_id {
+> +	OVS_BPF_FUNC_unspec,
+> +	OVS_BPF_FUNC_output,          /* int ovs_bpf_output(ctxt) */
+> +	__OVS_BPF_FUNC_MAX_ID,
+> +};
+
+The mix of cap / no-cap looks a bit weird.
+
+> +static void
+> +format_bpf_prog_action(struct ds *ds, const struct nlattr *a)
+> +{
+> +    struct ovs_action_bpf_prog *bpf_act = (struct ovs_action_bpf_prog *)
+> +                                          nl_attr_get(a);
+> +
+> +    ds_put_cstr(ds, "bpf");
+> +    ds_put_format(ds, "(%u,%u,%u)", ntohl(bpf_act->prog_fd),
+> +                  ntohl(bpf_act->arg0), ntohl(bpf_act->arg1));
+> +}
+
+Maybe ds_put_format(ds, "bpf(... ?
