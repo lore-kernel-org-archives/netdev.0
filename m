@@ -1,35 +1,102 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH net] pktgen: fix UDP checksum computation
-Date: Thu, 5 Feb 2015 10:52:16 +0000
-Message-ID: <20150205105216.GB24388@casper.infradead.org>
-References: <1423087730-9201-1-git-send-email-sd@queasysnail.net>
+From: Vitaly Kuznetsov <vkuznets@redhat.com>
+Subject: Re: [PATCH net-next v2] hyper-v: allow access to vmbus from userspace
+ driver
+Date: Thu, 05 Feb 2015 12:01:03 +0100
+Message-ID: <87egq4r5ao.fsf@vitty.brq.redhat.com>
+References: <20150204152029.65f02d64@urahara>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Sabrina Dubroca <sd@queasysnail.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:54877 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756928AbbBEKwT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Feb 2015 05:52:19 -0500
-Content-Disposition: inline
-In-Reply-To: <1423087730-9201-1-git-send-email-sd@queasysnail.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: dev@dpdk.org, devel@linuxdriverproject.org,
+ Haiyang Zhang <haiyangz@microsoft.com>, netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <20150204152029.65f02d64@urahara> (Stephen Hemminger's message of
+ "Wed, 4 Feb 2015 15:20:29 -0800")
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-On 02/04/15 at 11:08pm, Sabrina Dubroca wrote:
-> This patch fixes two issues in UDP checksum computation in pktgen.
-> 
-> First, the pseudo-header uses the source and destination IP
-> addresses. Currently, the ports are used for IPv4.
-> 
-> Second, the UDP checksum covers both header and data.  So we need to
-> generate the data earlier (move pktgen_finalize_skb up), and compute
-> the checksum for UDP header + data.
-> 
-> Fixes: c26bf4a51308c ("pktgen: Add UDPCSUM flag to support UDP checksums")
-> Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
+Stephen Hemminger <stephen@networkplumber.org> writes:
 
-Acked-by: Thomas Graf <tgraf@suug.ch>
+> This is enables the hyper-v driver for DPDK <dev@dpdk.org>.
+> The hv_uio driver needs to access the shared vmbus monitor
+> pages.
 
-Thanks for fixing this.
+Why can't we just make vmbus_connection struct public?
+
+>
+> I would also like to put hv_uio in upstream kernel like other
+> uio drivers, but need to get API accepted with DPDK first.
+>
+> Signed-off-by: Stas Egorov <segorov@mirantis.com>
+> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+>
+> ---
+> v2 - simplify and rename to vmbus_get_monitor_pages
+>
+>  drivers/hv/connection.c |   20 +++++++++++++++++---
+>  include/linux/hyperv.h  |    3 +++
+>  2 files changed, 20 insertions(+), 3 deletions(-)
+>
+> --- a/drivers/hv/connection.c	2015-02-03 10:58:51.751752450 -0800
+> +++ b/drivers/hv/connection.c	2015-02-04 14:59:51.636194383 -0800
+> @@ -64,6 +64,15 @@ static __u32 vmbus_get_next_version(__u3
+>  	}
+>  }
+>
+> +void vmbus_get_monitor_pages(unsigned long *int_page,
+> +			     unsigned long monitor_pages[2])
+> +{
+
+Too weird to be a public interface in my opinion.
+
+> +	*int_page = (unsigned long)vmbus_connection.int_page;
+> +	monitor_pages[0] = (unsigned long)vmbus_connection.monitor_pages[0];
+> +	monitor_pages[1] = (unsigned long)vmbus_connection.monitor_pages[1];
+> +}
+> +EXPORT_SYMBOL_GPL(vmbus_get_monitor_pages);
+> +
+>  static int vmbus_negotiate_version(struct vmbus_channel_msginfo *msginfo,
+>  					__u32 version)
+>  {
+> @@ -347,10 +356,7 @@ static void process_chn_event(u32 relid)
+>  			else
+>  				bytes_to_read = 0;
+>  		} while (read_state && (bytes_to_read != 0));
+> -	} else {
+> -		pr_err("no channel callback for relid - %u\n", relid);
+>  	}
+> -
+>  }
+
+This change wasn't mentioned in your commit msg.
+
+>
+>  /*
+> --- a/include/linux/hyperv.h	2015-02-03 10:58:51.751752450 -0800
+> +++ b/include/linux/hyperv.h	2015-02-04 15:00:26.388355012 -0800
+> @@ -868,6 +868,9 @@ extern int vmbus_recvpacket_raw(struct v
+>
+>  extern void vmbus_ontimer(unsigned long data);
+>
+> +extern void vmbus_get_monitor_pages(unsigned long *int_page,
+> +				    unsigned long monitor_pages[2]);
+> +
+>  /* Base driver object */
+>  struct hv_driver {
+>  	const char *name;
+> _______________________________________________
+> devel mailing list
+> devel@linuxdriverproject.org
+> http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel
+
+-- 
+  Vitaly
