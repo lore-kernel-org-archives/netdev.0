@@ -1,7 +1,7 @@
-From: Pravin Shelar <pshelar@nicira.com>
+From: Jesse Gross <jesse@nicira.com>
 Subject: Re: [ovs-dev] [PATCH v2] net: openvswitch: Support masked set actions.
-Date: Wed, 4 Feb 2015 19:57:37 -0800
-Message-ID: <CALnjE+pMiaR4ArLMG=W83Ws6K=PuZeTqJk=xFa9VgyxFWcgATA@mail.gmail.com>
+Date: Wed, 4 Feb 2015 20:01:46 -0800
+Message-ID: <CAEP_g=8+Zs3FXLg5oEQcUaYkNUi44Jnn5_UEjVwos-_ihu=1qw@mail.gmail.com>
 References: <1423095381-12243-1-git-send-email-jrajahalme@nicira.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -9,12 +9,12 @@ Cc: netdev <netdev@vger.kernel.org>,
 	"dev@openvswitch.org" <dev@openvswitch.org>
 To: Jarno Rajahalme <jrajahalme@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog109.obsmtp.com ([74.125.149.201]:37650 "HELO
-	na3sys009aog109.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752756AbbBED5i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2015 22:57:38 -0500
-Received: by mail-ig0-f176.google.com with SMTP id hl2so39683376igb.3
-        for <netdev@vger.kernel.org>; Wed, 04 Feb 2015 19:57:37 -0800 (PST)
+Received: from na3sys009aog123.obsmtp.com ([74.125.149.149]:51797 "HELO
+	na3sys009aog123.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751979AbbBEECI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2015 23:02:08 -0500
+Received: by mail-qc0-f176.google.com with SMTP id c9so4804629qcz.7
+        for <netdev@vger.kernel.org>; Wed, 04 Feb 2015 20:02:07 -0800 (PST)
 In-Reply-To: <1423095381-12243-1-git-send-email-jrajahalme@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -47,7 +47,5 @@ On Wed, Feb 4, 2015 at 4:16 PM, Jarno Rajahalme <jrajahalme@nicira.com> wrote:
 > Signed-off-by: Jarno Rajahalme <jrajahalme@nicira.com>
 > ---
 > v2: Fixed checkpatch warnigns and errors, rebase.
->
-Looks good.
 
-Acked-by: Pravin B Shelar <pshelar@nicira.com>
+I had a few minor comments in my review from December 10th, can you take a look?
