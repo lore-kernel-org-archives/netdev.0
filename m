@@ -1,59 +1,54 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [net-next 03/16] ixgbe: cleanup sparse errors in new
- ixgbe_x550.c file
-Date: Thu, 5 Feb 2015 09:48:24 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CADC3FA@AcuExch.aculab.com>
-References: <1423128950-12388-1-git-send-email-jeffrey.t.kirsher@intel.com>
- <1423128950-12388-4-git-send-email-jeffrey.t.kirsher@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: Don Skidmore <donald.c.skidmore@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"nhorman@redhat.com" <nhorman@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>,
-	"jogreene@redhat.com" <jogreene@redhat.com>
-To: 'Jeff Kirsher' <jeffrey.t.kirsher@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>
+From: Jouni Malinen <jouni@codeaurora.org>
+Subject: [PATCH v2 1/3] bridge: Base the BR_PROXYARP decision on the target port flag
+Date: Thu,  5 Feb 2015 11:54:21 +0200
+Message-ID: <1423130063-18323-1-git-send-email-jouni@codeaurora.org>
+Cc: netdev@vger.kernel.org, Kyeyoon Park <kyeyoonp@codeaurora.org>,
+	Jouni Malinen <jouni@codeaurora.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out6.electric.net ([192.162.217.187]:63612 "EHLO
-	smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757016AbbBEJtJ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Feb 2015 04:49:09 -0500
-In-Reply-To: <1423128950-12388-4-git-send-email-jeffrey.t.kirsher@intel.com>
-Content-Language: en-US
+Received: from smtp.codeaurora.org ([198.145.11.231]:54260 "EHLO
+	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753157AbbBEJy6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Feb 2015 04:54:58 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher
-> This patch cleans up prototypes that should have been defined
-> as static.
-> 
-> Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
-> Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> ---
->  drivers/net/ethernet/intel/ixgbe/ixgbe_type.h |  4 +-
->  drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c | 65 ++++++++++++++-------------
->  2 files changed, 37 insertions(+), 32 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-> b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-> index d101b25..1f301ec 100644
-> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-> @@ -2451,8 +2451,8 @@ struct ixgbe_hic_read_shadow_ram {
-> 
->  struct ixgbe_hic_write_shadow_ram {
->  	union ixgbe_hic_hdr2 hdr;
-> -	u32 address;
-> -	u16 length;
-> +	__be32 address;
-> +	__be16 length;
->  	u16 pad2;
->  	u16 data;
->  	u16 pad3;
+From: Kyeyoon Park <kyeyoonp@codeaurora.org>
 
-Not related to commit message
+When doing proxy ARP, instead of checking the bridge port flag for
+BR_PROXYARP on the bridge port on which the frame was received, check
+the bridge port flag of the bridge port to which the target device
+belongs.
 
-	David
+Signed-off-by: Kyeyoon Park <kyeyoonp@codeaurora.org>
+Signed-off-by: Jouni Malinen <jouni@codeaurora.org>
+---
+v2: Address Stephen's comment on mixing && and & without parens
+    and check for f->dst != NULL before dereferencing it
+
+ net/bridge/br_input.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
+index e2aa7be..b2afa17 100644
+--- a/net/bridge/br_input.c
++++ b/net/bridge/br_input.c
+@@ -105,7 +105,7 @@ static void br_do_proxy_arp(struct sk_buff *skb, struct net_bridge *br,
+ 		}
+ 
+ 		f = __br_fdb_get(br, n->ha, vid);
+-		if (f)
++		if (f && f->dst && (f->dst->flags & BR_PROXYARP))
+ 			arp_send(ARPOP_REPLY, ETH_P_ARP, sip, skb->dev, tip,
+ 				 sha, n->ha, sha);
+ 
+@@ -155,7 +155,6 @@ int br_handle_frame_finish(struct sk_buff *skb)
+ 
+ 	if (is_broadcast_ether_addr(dest)) {
+ 		if (IS_ENABLED(CONFIG_INET) &&
+-		    p->flags & BR_PROXYARP &&
+ 		    skb->protocol == htons(ETH_P_ARP))
+ 			br_do_proxy_arp(skb, br, vid);
+ 
+-- 
+1.9.1
