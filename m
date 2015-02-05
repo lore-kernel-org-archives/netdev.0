@@ -1,52 +1,87 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] flowcache: Fix kernel panic in flow_cache_flush_task
-Date: Thu, 05 Feb 2015 08:44:08 -0800
-Message-ID: <1423154648.31870.81.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20150205153649.GA3278@miroslavurbanek.com>
+From: Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>
+Subject: Re: [PATCH net-next v2] hyper-v: allow access to vmbus
+ from userspace driver
+Date: Thu, 5 Feb 2015 08:50:18 -0800
+Message-ID: <20150205085018.06e8a691@urahara>
+References: <20150204152029.65f02d64@urahara>
+ <87egq4r5ao.fsf@vitty.brq.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Steffen Klassert <steffen.klassert@secunet.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	"David S. Miller" <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>,
-	Linux Kernel <linux-kernel@vger.kernel.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	=?UTF-8?Q?Tom=C3=A1=C5=A1_Charv=C3=A1t?= <tc@excello.cz>,
-	Jan Hejl <jh@excello.cz>, Fan Du <fan.du@windriver.com>
-To: Miroslav Urbanek <mu@miroslavurbanek.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150205153649.GA3278@miroslavurbanek.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: dev-VfR2kkLFssw@public.gmane.org, devel-tBiZLqfeLfOHmIFyCCdPziST3g8Odh+X@public.gmane.org,
+ Haiyang Zhang <haiyangz-0li6OtcxBFHby3iVrkZq2A@public.gmane.org>, KY Srinivasan <kys-0li6OtcxBFHby3iVrkZq2A@public.gmane.org>,
+ netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Vitaly Kuznetsov <vkuznets-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <dev-bounces-VfR2kkLFssw@public.gmane.org>
+In-Reply-To: <87egq4r5ao.fsf-hpI3/L/TUU23oHxwIazZmlaTQe2KTcn/@public.gmane.org>
+List-Unsubscribe: <http://dpdk.org/ml/options/dev>,
+ <mailto:dev-request-VfR2kkLFssw@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://dpdk.org/ml/archives/dev/>
+List-Post: <mailto:dev-VfR2kkLFssw@public.gmane.org>
+List-Help: <mailto:dev-request-VfR2kkLFssw@public.gmane.org?subject=help>
+List-Subscribe: <http://dpdk.org/ml/listinfo/dev>,
+ <mailto:dev-request-VfR2kkLFssw@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-VfR2kkLFssw@public.gmane.org
+Sender: "dev" <dev-bounces-VfR2kkLFssw@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2015-02-05 at 16:36 +0100, Miroslav Urbanek wrote:
-> flow_cache_flush_task references a structure member flow_cache_gc_wor=
-k
-> where it should reference flow_cache_flush_task instead.
->=20
-> Kernel panic occurs on kernels using IPsec during XFRM garbage
-> collection. The garbage collection interval can be shortened using th=
-e
-> following sysctl settings:
->=20
-> net.ipv4.xfrm4_gc_thresh=3D4
-> net.ipv6.xfrm6_gc_thresh=3D4
->=20
-> With the default settings, our productions servers crash approximatel=
-y
-> once a week. With the settings above, they crash immediately.
->=20
-> Fixes: ca925cf1534e ("flowcache: Make flow cache name space aware")
-> Reported-by: Tom=C3=A1=C5=A1 Charv=C3=A1t <tc@excello.cz>
-> Tested-by: Jan Hejl <jh@excello.cz>
-> Signed-off-by: Miroslav Urbanek <mu@miroslavurbanek.com>
-> ---
+On Thu, 05 Feb 2015 12:01:03 +0100
+Vitaly Kuznetsov <vkuznets-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
 
-Nice catch !
+> Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org> writes:
+> 
+> > This is enables the hyper-v driver for DPDK <dev-VfR2kkLFssw@public.gmane.org>.
+> > The hv_uio driver needs to access the shared vmbus monitor
+> > pages.
+> 
+> Why can't we just make vmbus_connection struct public?
+> 
+> >
+> > I would also like to put hv_uio in upstream kernel like other
+> > uio drivers, but need to get API accepted with DPDK first.
+> >
+> > Signed-off-by: Stas Egorov <segorov-nYU0QVwCCFFWk0Htik3J/w@public.gmane.org>
+> > Signed-off-by: Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>
+> >
+> > ---
+> > v2 - simplify and rename to vmbus_get_monitor_pages
+> >
+> >  drivers/hv/connection.c |   20 +++++++++++++++++---
+> >  include/linux/hyperv.h  |    3 +++
+> >  2 files changed, 20 insertions(+), 3 deletions(-)
+> >
+> > --- a/drivers/hv/connection.c	2015-02-03 10:58:51.751752450 -0800
+> > +++ b/drivers/hv/connection.c	2015-02-04 14:59:51.636194383 -0800
+> > @@ -64,6 +64,15 @@ static __u32 vmbus_get_next_version(__u3
+> >  	}
+> >  }
+> >
+> > +void vmbus_get_monitor_pages(unsigned long *int_page,
+> > +			     unsigned long monitor_pages[2])
+> > +{
+> 
+> Too weird to be a public interface in my opinion.
+> 
+> > +	*int_page = (unsigned long)vmbus_connection.int_page;
+> > +	monitor_pages[0] = (unsigned long)vmbus_connection.monitor_pages[0];
+> > +	monitor_pages[1] = (unsigned long)vmbus_connection.monitor_pages[1];
+> > +}
+> > +EXPORT_SYMBOL_GPL(vmbus_get_monitor_pages);
+> > +
+> >  static int vmbus_negotiate_version(struct vmbus_channel_msginfo *msginfo,
+> >  					__u32 version)
+> >  {
+> > @@ -347,10 +356,7 @@ static void process_chn_event(u32 relid)
+> >  			else
+> >  				bytes_to_read = 0;
+> >  		} while (read_state && (bytes_to_read != 0));
+> > -	} else {
+> > -		pr_err("no channel callback for relid - %u\n", relid);
+> >  	}
+> > -
+> >  }
+> 
+> This change wasn't mentioned in your commit msg.
 
-Ok, but you do not need to cc so many people/lists
-
-netdev is fine, and we usually CC patch author, just in case.
-
-Acked-by: Eric Dumazet <edumazet@google.com>
+Was in earlier commit. Need to prevent driver from logging error
+when device is not claimed directly by existing kernel devices.
