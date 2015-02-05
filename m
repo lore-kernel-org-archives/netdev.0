@@ -1,33 +1,32 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/6 v2 net-next] rhashtable fixes
-Date: Thu, 05 Feb 2015 15:43:47 -0800 (PST)
-Message-ID: <20150205.154347.278756054254294508.davem@davemloft.net>
-References: <cover.1423097592.git.tgraf@suug.ch>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH v2] hso: Use static attribute groups for sysfs entry
+Date: Thu, 05 Feb 2015 15:52:01 -0800 (PST)
+Message-ID: <20150205.155201.1794305921895194040.davem@davemloft.net>
+References: <1423131324-7379-1-git-send-email-tiwai@suse.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au,
-	ying.xue@windriver.com
-To: tgraf@suug.ch
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48892 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751486AbbBEXns (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Feb 2015 18:43:48 -0500
-In-Reply-To: <cover.1423097592.git.tgraf@suug.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: j.dumon-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: tiwai-l3A5Bk7waGM@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1423131324-7379-1-git-send-email-tiwai-l3A5Bk7waGM@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Thomas Graf <tgraf@suug.ch>
-Date: Thu,  5 Feb 2015 02:03:30 +0100
+From: Takashi Iwai <tiwai-l3A5Bk7waGM@public.gmane.org>
+Date: Thu,  5 Feb 2015 11:15:24 +0100
 
-> This series fixes all remaining known issues with rhashtable that
-> have been reported. In particular the race condition reported by
-> Ying Xue.
+> Pass the static attribute groups and the driver data via
+> tty_port_register_device_attr() instead of manual device_create_file()
+> and device_remove_file() calls.
 > 
+> Signed-off-by: Takashi Iwai <tiwai-l3A5Bk7waGM@public.gmane.org>
 > ---
-> Dave/Herbert: I'm posting this now as it fixes real issues. I'm
-> fine with taking Herbert's rehash patches instead if they resolve
-> all the reported issues as well.
+> v1->v2: rebased to linux-next
 
-Herbert, please tell me what you'd like me to do.
+Applied, thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
