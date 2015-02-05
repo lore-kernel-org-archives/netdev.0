@@ -1,56 +1,60 @@
-From: Miroslav Urbanek <mu@miroslavurbanek.com>
-Subject: [PATCH] flowcache: Fix kernel panic in flow_cache_flush_task
-Date: Thu, 5 Feb 2015 16:36:50 +0100
-Message-ID: <20150205153649.GA3278@miroslavurbanek.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	"David S. Miller" <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>,
-	Linux Kernel <linux-kernel@vger.kernel.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	=?utf-8?B?VG9tw6HFoSBDaGFydsOhdA==?= <tc@excello.cz>,
-	Jan Hejl <jh@excello.cz>
-To: Steffen Klassert <steffen.klassert@secunet.com>
+From: Lad Prabhakar <prabhakar.csengg@gmail.com>
+Subject: [PATCH] net: bnx2x: fix sparse warnings
+Date: Thu,  5 Feb 2015 15:47:17 +0000
+Message-ID: <1423151237-20746-1-git-send-email-prabhakar.csengg@gmail.com>
+Cc: linux-kernel@vger.kernel.org,
+	"Lad, Prabhakar" <prabhakar.csengg@gmail.com>
+To: Ariel Elior <ariel.elior@qlogic.com>, netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-flow_cache_flush_task references a structure member flow_cache_gc_work
-where it should reference flow_cache_flush_task instead.
+From: "Lad, Prabhakar" <prabhakar.csengg@gmail.com>
 
-Kernel panic occurs on kernels using IPsec during XFRM garbage
-collection. The garbage collection interval can be shortened using the
-following sysctl settings:
+this patch fixes following sparse warnings:
 
-net.ipv4.xfrm4_gc_thresh=3D4
-net.ipv6.xfrm6_gc_thresh=3D4
+bnx2x_main.c:9172:6: warning: symbol 'bnx2x_stop_ptp' was not declared. Should it be static?
+bnx2x_main.c:13321:6: warning: symbol 'bnx2x_register_phc' was not declared. Should it be static?
+bnx2x_main.c:14638:5: warning: symbol 'bnx2x_enable_ptp_packets' was not declared. Should it be static?
 
-With the default settings, our productions servers crash approximately
-once a week. With the settings above, they crash immediately.
-
-=46ixes: ca925cf1534e ("flowcache: Make flow cache name space aware")
-Reported-by: Tom=C3=A1=C5=A1 Charv=C3=A1t <tc@excello.cz>
-Tested-by: Jan Hejl <jh@excello.cz>
-Signed-off-by: Miroslav Urbanek <mu@miroslavurbanek.com>
+Signed-off-by: Lad, Prabhakar <prabhakar.csengg@gmail.com>
 ---
- net/core/flow.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ Found this issue on linux-next (gcc  version 4.8.2,
+ sparse version  0.4.5-rc1)and applies on top linux-next.
 
-diff --git a/net/core/flow.c b/net/core/flow.c
-index a0348fd..1033725 100644
---- a/net/core/flow.c
-+++ b/net/core/flow.c
-@@ -379,7 +379,7 @@ done:
- static void flow_cache_flush_task(struct work_struct *work)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index 0758c8b..7155e1d 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@ -9169,7 +9169,7 @@ static void bnx2x_disable_ptp(struct bnx2x *bp)
+ }
+ 
+ /* Called during unload, to stop PTP-related stuff */
+-void bnx2x_stop_ptp(struct bnx2x *bp)
++static void bnx2x_stop_ptp(struct bnx2x *bp)
  {
- 	struct netns_xfrm *xfrm =3D container_of(work, struct netns_xfrm,
--						flow_cache_gc_work);
-+						flow_cache_flush_work);
- 	struct net *net =3D container_of(xfrm, struct net, xfrm);
-=20
- 	flow_cache_flush(net);
---=20
-2.0.4
+ 	/* Cancel PTP work queue. Should be done after the Tx queues are
+ 	 * drained to prevent additional scheduling.
+@@ -13318,7 +13318,7 @@ static int bnx2x_ptp_enable(struct ptp_clock_info *ptp,
+ 	return -ENOTSUPP;
+ }
+ 
+-void bnx2x_register_phc(struct bnx2x *bp)
++static void bnx2x_register_phc(struct bnx2x *bp)
+ {
+ 	/* Fill the ptp_clock_info struct and register PTP clock*/
+ 	bp->ptp_clock_info.owner = THIS_MODULE;
+@@ -14635,7 +14635,7 @@ static int bnx2x_send_reset_timesync_ramrod(struct bnx2x *bp)
+ 	return bnx2x_func_state_change(bp, &func_params);
+ }
+ 
+-int bnx2x_enable_ptp_packets(struct bnx2x *bp)
++static int bnx2x_enable_ptp_packets(struct bnx2x *bp)
+ {
+ 	struct bnx2x_queue_state_params q_params;
+ 	int rc, i;
+-- 
+1.9.1
