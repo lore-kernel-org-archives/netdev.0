@@ -1,28 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] amd-xgbe: Adjust for zero-based traffic class count
-Date: Wed, 04 Feb 2015 20:28:42 -0800 (PST)
-Message-ID: <20150204.202842.569864294109995352.davem@davemloft.net>
-References: <20150203184955.14713.98160.stgit@tlendack-t1.amdoffice.net>
+Subject: Re: [PATCH] IBM-EMAC: Delete an unnecessary check before the
+ function call "of_dev_put"
+Date: Wed, 04 Feb 2015 20:29:58 -0800 (PST)
+Message-ID: <20150204.202958.1260717828060513191.davem@davemloft.net>
+References: <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6>
+	<5317A59D.4@users.sourceforge.net>
+	<54D118BA.3080001@users.sourceforge.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: thomas.lendacky@amd.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41015 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752721AbbBEE2n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2015 23:28:43 -0500
-In-Reply-To: <20150203184955.14713.98160.stgit@tlendack-t1.amdoffice.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel-janitors@vger.kernel.org, julia.lawall@lip6.fr
+To: elfring@users.sourceforge.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <54D118BA.3080001@users.sourceforge.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Tom Lendacky <thomas.lendacky@amd.com>
-Date: Tue, 3 Feb 2015 12:49:55 -0600
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Date: Tue, 03 Feb 2015 19:51:38 +0100
 
-> The number of traffic classes reported by the hardware is zero-based
-> so increment the value returned to get an actual count.
+> From: Markus Elfring <elfring@users.sourceforge.net>
+> Date: Tue, 3 Feb 2015 19:47:33 +0100
 > 
-> Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
+> The of_dev_put() function tests whether its argument is NULL and then
+> returns immediately. Thus the test around the call is not needed.
+> 
+> This issue was detected by using the Coccinelle software.
+> 
+> Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
 
-Applied, thanks Tom.
+Applied.
