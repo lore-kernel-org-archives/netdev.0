@@ -1,50 +1,39 @@
-From: Lad Prabhakar <prabhakar.csengg@gmail.com>
-Subject: [PATCH v2] net/macb: fix sparse warning
-Date: Thu,  5 Feb 2015 16:21:07 +0000
-Message-ID: <1423153267-1768-1-git-send-email-prabhakar.csengg@gmail.com>
-Cc: linux-kernel@vger.kernel.org,
-	"Lad, Prabhakar" <prabhakar.csengg@gmail.com>
-To: Nicolas Ferre <nicolas.ferre@atmel.com>, netdev@vger.kernel.org
+From: "Lad, Prabhakar" <prabhakar.csengg@gmail.com>
+Subject: Re: [PATCH] net/macb: fix sparse warning
+Date: Thu, 5 Feb 2015 16:22:39 +0000
+Message-ID: <CA+V-a8t+p70mjOY0cCnQ=JOPAFpRLxy9vjLQCT1N99iYNxsdSg@mail.gmail.com>
+References: <1423150846-7027-1-git-send-email-prabhakar.csengg@gmail.com> <54D3951C.1080200@atmel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Nicolas Ferre <nicolas.ferre@atmel.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <54D3951C.1080200@atmel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Lad, Prabhakar" <prabhakar.csengg@gmail.com>
+On Thu, Feb 5, 2015 at 4:06 PM, Nicolas Ferre <nicolas.ferre@atmel.com>=
+ wrote:
+> Le 05/02/2015 16:40, Lad Prabhakar a =C3=A9crit :
+>> From: "Lad, Prabhakar" <prabhakar.csengg@gmail.com>
+>>
+>> this patch fixes following sparse warning:
+>>
+>> macb.c:2038:26: warning: symbol 'gem_ethtool_ops' was not declared. =
+Should it be static?
+>
+> Well, actually this function doesn't need to be exported and indeed
+> should be marked as static.
+>
+> I'm not against this patch, but removing the export macro and making =
+it
+> as static should do the trick even better.
+>
+Done!
 
-this patch fixes following sparse warning:
+[1] https://patchwork.kernel.org/patch/5785511/
 
-macb.c:2038:26: warning: symbol 'gem_ethtool_ops' was not declared. Should it be static?
-
-Alongside drops exporting of gem_ethtool_ops as there is no need.
-
-Signed-off-by: Lad, Prabhakar <prabhakar.csengg@gmail.com>
----
- Found this issue on linux-next (gcc  version 4.8.2,
- sparse version  0.4.5-rc1)and applies on top linux-next.
-
- drivers/net/ethernet/cadence/macb.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index 4f7bd13..ad76b8e 100644
---- a/drivers/net/ethernet/cadence/macb.c
-+++ b/drivers/net/ethernet/cadence/macb.c
-@@ -2035,7 +2035,7 @@ const struct ethtool_ops macb_ethtool_ops = {
- };
- EXPORT_SYMBOL_GPL(macb_ethtool_ops);
- 
--const struct ethtool_ops gem_ethtool_ops = {
-+static const struct ethtool_ops gem_ethtool_ops = {
- 	.get_settings		= macb_get_settings,
- 	.set_settings		= macb_set_settings,
- 	.get_regs_len		= macb_get_regs_len,
-@@ -2046,7 +2046,6 @@ const struct ethtool_ops gem_ethtool_ops = {
- 	.get_strings		= gem_get_ethtool_strings,
- 	.get_sset_count		= gem_get_sset_count,
- };
--EXPORT_SYMBOL_GPL(gem_ethtool_ops);
- 
- int macb_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
- {
--- 
-1.9.1
+Cheers,
+--Prabhakar Lad
