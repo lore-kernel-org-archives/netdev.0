@@ -1,94 +1,285 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 00/16][pull request] Intel Wired LAN Driver Updates 2015-02-05
-Date: Thu,  5 Feb 2015 01:35:34 -0800
-Message-ID: <1423128950-12388-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
+Subject: [net-next 03/16] ixgbe: cleanup sparse errors in new ixgbe_x550.c file
+Date: Thu,  5 Feb 2015 01:35:37 -0800
+Message-ID: <1423128950-12388-4-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1423128950-12388-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:55122 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:55144 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750838AbbBEJgB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Feb 2015 04:36:01 -0500
+	id S1755970AbbBEJgE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Feb 2015 04:36:04 -0500
+In-Reply-To: <1423128950-12388-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to fm10k, ixgbe and ixgbevf.
+From: Don Skidmore <donald.c.skidmore@intel.com>
 
-Matthew fixes an issue where fm10k does not properly drop the upper-most four
-bits on of the VLAN ID due to type promotion, so resolve the issue by not
-masking off the bits, but by throwing an error if the VLAN ID is out-of-bounds.
-Then cleans up two cases where variables were not being used, but were
-being set, so just remove the unused variables.
+This patch cleans up prototypes that should have been defined
+as static.
 
-Don cleans up sparse errors in the x550 family file for ixgbe.  Fixed up
-a redundant setting of the default value for set_rxpba, which was done
-twice accidentally.  Cleaned up the probe routine to remove a redundant
-attempt to identify the PHY, which could lead to a panic on x550.  Added
-support for VXLAN receive checksum offload in x550 hardware.  Added the
-Ethertype Anti-spoofing feature for affected devices.
+Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_type.h |  4 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c | 65 ++++++++++++++-------------
+ 2 files changed, 37 insertions(+), 32 deletions(-)
 
-Emil enables ixgbe and ixgbevf to allow multiple queues in SRIOV mode.
-Adds RSS support for x550 per VF.  Fixed up a couple of issues introduced
-in commit 2b509c0cd292 ("ixgbe: cleanup ixgbe_ndo_set_vf_vlan"), fixed
-setting of the VLAN inside ixgbe_enable_port_vlan() and disable the
-"hide VLAN" bit in PFQDE when port VLAN is disabled.  Cleaned up the
-setting of vlan_features by enabling all features at once.  Fixed the
-ordering of the shutdown patch so that we attempt to shutdown the rings
-more gracefully.  We shutdown the main Rx filter in the case of Rx and we
-set the carrier_off state in the case of Tx so that packets stop being
-delivered from outside the driver.  Then we shutdown interrupts and NAPI,
-then finally stop the rings from performing DMA and clean them.  Added
-code to allow for Tx hang checking to provide more robust debug info in
-the event of a transmit unit hang in ixgbevf.  Cleaned up ixgbevf logic
-dealing with link up/down by breaking down the link detection and up/down
-events into separate functions, similar to how these events are handled
-in other drivers.  Combined the ixgbevf reset and watchdog tasks into a
-single task so that we can avoid multiple schedules of the reset task when
-we have a reset event needed due to either the mailbox going down or
-transmit packets being present on a link down.
-
-The following are changes since commit db79a621835ee91d3e10177abd97f48e0a4dcf9b:
-  vxlan: Only set has-GBP bit in header if any other bits would be set
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
-
-Don Skidmore (5):
-  ixgbe: cleanup sparse errors in new ixgbe_x550.c file
-  ixgbe: cleanup redundant default method set_rxpba
-  ixgbe: Cleanup probe to remove redundant attempt to ID PHY
-  ixgbe: add VXLAN offload support for X550 devices
-  ixgbe: add Tx anti spoofing support
-
-Emil Tantilov (9):
-  ixgbe: allow multiple queues in SRIOV mode
-  ixgbevf: enable multiple queue support
-  ixgbevf: add RSS support for X550
-  ixgbe: fix setting port VLAN
-  ixgbevf: set vlan_features in a single write instead of several ORs
-  ixgbevf: Fix ordering of shutdown to correctly disable Rx and Tx
-  ixgbevf: Add code to check for Tx hang
-  ixgbevf: rewrite watchdog task to function similar to igbvf
-  ixgbevf: combine all of the tasks into a single service task
-
-Matthew Vick (2):
-  fm10k: Validate VLAN ID in fm10k_update_xc_addr_pf
-  fm10k: Resolve compile warnings with W=1
-
- drivers/net/ethernet/intel/Kconfig                |  11 +
- drivers/net/ethernet/intel/fm10k/fm10k_mbx.c      |   5 +-
- drivers/net/ethernet/intel/fm10k/fm10k_pf.c       |   7 +-
- drivers/net/ethernet/intel/fm10k/fm10k_ptp.c      |   3 -
- drivers/net/ethernet/intel/ixgbe/ixgbe.h          |   3 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c     | 112 ++++-
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c    |  16 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h     |  16 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c     |   3 -
- drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c     |  90 ++--
- drivers/net/ethernet/intel/ixgbevf/ixgbevf.h      |  36 +-
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 495 +++++++++++++++-------
- drivers/net/ethernet/intel/ixgbevf/regs.h         |  10 +
- 13 files changed, 586 insertions(+), 221 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+index d101b25..1f301ec 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+@@ -2451,8 +2451,8 @@ struct ixgbe_hic_read_shadow_ram {
+ 
+ struct ixgbe_hic_write_shadow_ram {
+ 	union ixgbe_hic_hdr2 hdr;
+-	u32 address;
+-	u16 length;
++	__be32 address;
++	__be16 length;
+ 	u16 pad2;
+ 	u16 data;
+ 	u16 pad3;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
+index ffdd123..fcba952 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
+@@ -80,7 +80,7 @@ static s32 ixgbe_write_phy_reg_x550em(struct ixgbe_hw *hw, u32 reg_addr,
+  *  Initializes the EEPROM parameters ixgbe_eeprom_info within the
+  *  ixgbe_hw struct in order to set up EEPROM access.
+  **/
+-s32 ixgbe_init_eeprom_params_X550(struct ixgbe_hw *hw)
++static s32 ixgbe_init_eeprom_params_X550(struct ixgbe_hw *hw)
+ {
+ 	struct ixgbe_eeprom_info *eeprom = &hw->eeprom;
+ 	u32 eec;
+@@ -110,8 +110,8 @@ s32 ixgbe_init_eeprom_params_X550(struct ixgbe_hw *hw)
+  *  @device_type: 3 bit device type
+  *  @phy_data: Pointer to read data from the register
+  **/
+-s32 ixgbe_read_iosf_sb_reg_x550(struct ixgbe_hw *hw, u32 reg_addr,
+-				u32 device_type, u32 *data)
++static s32 ixgbe_read_iosf_sb_reg_x550(struct ixgbe_hw *hw, u32 reg_addr,
++				       u32 device_type, u32 *data)
+ {
+ 	u32 i, command, error;
+ 
+@@ -158,7 +158,8 @@ s32 ixgbe_read_iosf_sb_reg_x550(struct ixgbe_hw *hw, u32 reg_addr,
+  *
+  *  Reads a 16 bit word from the EEPROM using the hostif.
+  **/
+-s32 ixgbe_read_ee_hostif_data_X550(struct ixgbe_hw *hw, u16 offset, u16 *data)
++static s32 ixgbe_read_ee_hostif_data_X550(struct ixgbe_hw *hw, u16 offset,
++					  u16 *data)
+ {
+ 	s32 status;
+ 	struct ixgbe_hic_read_shadow_ram buffer;
+@@ -193,8 +194,8 @@ s32 ixgbe_read_ee_hostif_data_X550(struct ixgbe_hw *hw, u16 offset, u16 *data)
+  *
+  *  Reads a 16 bit word(s) from the EEPROM using the hostif.
+  **/
+-s32 ixgbe_read_ee_hostif_buffer_X550(struct ixgbe_hw *hw,
+-				     u16 offset, u16 words, u16 *data)
++static s32 ixgbe_read_ee_hostif_buffer_X550(struct ixgbe_hw *hw,
++					    u16 offset, u16 words, u16 *data)
+ {
+ 	struct ixgbe_hic_read_shadow_ram buffer;
+ 	u32 current_word = 0;
+@@ -331,7 +332,8 @@ static s32 ixgbe_checksum_ptr_x550(struct ixgbe_hw *hw, u16 ptr,
+  *
+  *  Returns a negative error code on error, or the 16-bit checksum
+  **/
+-s32 ixgbe_calc_checksum_X550(struct ixgbe_hw *hw, u16 *buffer, u32 buffer_size)
++static s32 ixgbe_calc_checksum_X550(struct ixgbe_hw *hw, u16 *buffer,
++				    u32 buffer_size)
+ {
+ 	u16 eeprom_ptrs[IXGBE_EEPROM_LAST_WORD + 1];
+ 	u16 *local_buffer;
+@@ -407,7 +409,7 @@ s32 ixgbe_calc_checksum_X550(struct ixgbe_hw *hw, u16 *buffer, u32 buffer_size)
+  *
+  *  Returns a negative error code on error, or the 16-bit checksum
+  **/
+-s32 ixgbe_calc_eeprom_checksum_X550(struct ixgbe_hw *hw)
++static s32 ixgbe_calc_eeprom_checksum_X550(struct ixgbe_hw *hw)
+ {
+ 	return ixgbe_calc_checksum_X550(hw, NULL, 0);
+ }
+@@ -419,7 +421,7 @@ s32 ixgbe_calc_eeprom_checksum_X550(struct ixgbe_hw *hw)
+  *
+  *   Reads a 16 bit word from the EEPROM using the hostif.
+  **/
+-s32 ixgbe_read_ee_hostif_X550(struct ixgbe_hw *hw, u16 offset, u16 *data)
++static s32 ixgbe_read_ee_hostif_X550(struct ixgbe_hw *hw, u16 offset, u16 *data)
+ {
+ 	s32 status = 0;
+ 
+@@ -440,7 +442,8 @@ s32 ixgbe_read_ee_hostif_X550(struct ixgbe_hw *hw, u16 offset, u16 *data)
+  *  Performs checksum calculation and validates the EEPROM checksum.  If the
+  *  caller does not need checksum_val, the value can be NULL.
+  **/
+-s32 ixgbe_validate_eeprom_checksum_X550(struct ixgbe_hw *hw, u16 *checksum_val)
++static s32 ixgbe_validate_eeprom_checksum_X550(struct ixgbe_hw *hw,
++					       u16 *checksum_val)
+ {
+ 	s32 status;
+ 	u16 checksum;
+@@ -489,7 +492,8 @@ s32 ixgbe_validate_eeprom_checksum_X550(struct ixgbe_hw *hw, u16 *checksum_val)
+  *
+  *  Write a 16 bit word to the EEPROM using the hostif.
+  **/
+-s32 ixgbe_write_ee_hostif_data_X550(struct ixgbe_hw *hw, u16 offset, u16 data)
++static s32 ixgbe_write_ee_hostif_data_X550(struct ixgbe_hw *hw, u16 offset,
++					   u16 data)
+ {
+ 	s32 status;
+ 	struct ixgbe_hic_write_shadow_ram buffer;
+@@ -517,7 +521,7 @@ s32 ixgbe_write_ee_hostif_data_X550(struct ixgbe_hw *hw, u16 offset, u16 data)
+  *
+  *  Write a 16 bit word to the EEPROM using the hostif.
+  **/
+-s32 ixgbe_write_ee_hostif_X550(struct ixgbe_hw *hw, u16 offset, u16 data)
++static s32 ixgbe_write_ee_hostif_X550(struct ixgbe_hw *hw, u16 offset, u16 data)
+ {
+ 	s32 status = 0;
+ 
+@@ -537,7 +541,7 @@ s32 ixgbe_write_ee_hostif_X550(struct ixgbe_hw *hw, u16 offset, u16 data)
+  *
+  *  Issue a shadow RAM dump to FW to copy EEPROM from shadow RAM to the flash.
+  **/
+-s32 ixgbe_update_flash_X550(struct ixgbe_hw *hw)
++static s32 ixgbe_update_flash_X550(struct ixgbe_hw *hw)
+ {
+ 	s32 status = 0;
+ 	union ixgbe_hic_hdr2 buffer;
+@@ -560,7 +564,7 @@ s32 ixgbe_update_flash_X550(struct ixgbe_hw *hw)
+  *  checksum and updates the EEPROM and instructs the hardware to update
+  *  the flash.
+  **/
+-s32 ixgbe_update_eeprom_checksum_X550(struct ixgbe_hw *hw)
++static s32 ixgbe_update_eeprom_checksum_X550(struct ixgbe_hw *hw)
+ {
+ 	s32 status;
+ 	u16 checksum = 0;
+@@ -600,8 +604,9 @@ s32 ixgbe_update_eeprom_checksum_X550(struct ixgbe_hw *hw)
+  *
+  *  Write a 16 bit word(s) to the EEPROM using the hostif.
+  **/
+-s32 ixgbe_write_ee_hostif_buffer_X550(struct ixgbe_hw *hw,
+-				      u16 offset, u16 words, u16 *data)
++static s32 ixgbe_write_ee_hostif_buffer_X550(struct ixgbe_hw *hw,
++					     u16 offset, u16 words,
++					     u16 *data)
+ {
+ 	s32 status = 0;
+ 	u32 i = 0;
+@@ -630,7 +635,7 @@ s32 ixgbe_write_ee_hostif_buffer_X550(struct ixgbe_hw *hw,
+ /** ixgbe_init_mac_link_ops_X550em - init mac link function pointers
+  *  @hw: pointer to hardware structure
+  **/
+-void ixgbe_init_mac_link_ops_X550em(struct ixgbe_hw *hw)
++static void ixgbe_init_mac_link_ops_X550em(struct ixgbe_hw *hw)
+ {
+ 	struct ixgbe_mac_info *mac = &hw->mac;
+ 
+@@ -647,7 +652,7 @@ void ixgbe_init_mac_link_ops_X550em(struct ixgbe_hw *hw)
+ /** ixgbe_setup_sfp_modules_X550em - Setup SFP module
+  * @hw: pointer to hardware structure
+  */
+-s32 ixgbe_setup_sfp_modules_X550em(struct ixgbe_hw *hw)
++static s32 ixgbe_setup_sfp_modules_X550em(struct ixgbe_hw *hw)
+ {
+ 	bool setup_linear;
+ 	u16 reg_slice, edc_mode;
+@@ -703,9 +708,9 @@ s32 ixgbe_setup_sfp_modules_X550em(struct ixgbe_hw *hw)
+  * @speed: pointer to link speed
+  * @autoneg: true when autoneg or autotry is enabled
+  **/
+-s32 ixgbe_get_link_capabilities_X550em(struct ixgbe_hw *hw,
+-				       ixgbe_link_speed *speed,
+-				       bool *autoneg)
++static s32 ixgbe_get_link_capabilities_X550em(struct ixgbe_hw *hw,
++					      ixgbe_link_speed *speed,
++					      bool *autoneg)
+ {
+ 	/* SFP */
+ 	if (hw->phy.media_type == ixgbe_media_type_fiber) {
+@@ -740,8 +745,8 @@ s32 ixgbe_get_link_capabilities_X550em(struct ixgbe_hw *hw,
+  *  @device_type: 3 bit device type
+  *  @data: Data to write to the register
+  **/
+-s32 ixgbe_write_iosf_sb_reg_x550(struct ixgbe_hw *hw, u32 reg_addr,
+-				 u32 device_type, u32 data)
++static s32 ixgbe_write_iosf_sb_reg_x550(struct ixgbe_hw *hw, u32 reg_addr,
++					u32 device_type, u32 data)
+ {
+ 	u32 i, command, error;
+ 
+@@ -904,7 +909,7 @@ static s32 ixgbe_setup_ixfi_x550em(struct ixgbe_hw *hw, ixgbe_link_speed *speed)
+  *
+  *   Configures the integrated KX4 PHY.
+  **/
+-s32 ixgbe_setup_kx4_x550em(struct ixgbe_hw *hw)
++static s32 ixgbe_setup_kx4_x550em(struct ixgbe_hw *hw)
+ {
+ 	s32 status;
+ 	u32 reg_val;
+@@ -942,7 +947,7 @@ s32 ixgbe_setup_kx4_x550em(struct ixgbe_hw *hw)
+  *
+  *   Configures the integrated KR PHY.
+  **/
+-s32 ixgbe_setup_kr_x550em(struct ixgbe_hw *hw)
++static s32 ixgbe_setup_kr_x550em(struct ixgbe_hw *hw)
+ {
+ 	s32 status;
+ 	u32 reg_val;
+@@ -987,7 +992,7 @@ s32 ixgbe_setup_kr_x550em(struct ixgbe_hw *hw)
+  *  A return of a non-zero value indicates an error, and the base driver should
+  *  not report link up.
+  **/
+-s32 ixgbe_setup_internal_phy_x550em(struct ixgbe_hw *hw)
++static s32 ixgbe_setup_internal_phy_x550em(struct ixgbe_hw *hw)
+ {
+ 	u32 status;
+ 	u16 lasi, autoneg_status, speed;
+@@ -1049,7 +1054,7 @@ s32 ixgbe_setup_internal_phy_x550em(struct ixgbe_hw *hw)
+  *  set during init_shared_code because the PHY/SFP type was
+  *  not known.  Perform the SFP init if necessary.
+  **/
+-s32 ixgbe_init_phy_ops_X550em(struct ixgbe_hw *hw)
++static s32 ixgbe_init_phy_ops_X550em(struct ixgbe_hw *hw)
+ {
+ 	struct ixgbe_phy_info *phy = &hw->phy;
+ 	s32 ret_val;
+@@ -1102,7 +1107,7 @@ s32 ixgbe_init_phy_ops_X550em(struct ixgbe_hw *hw)
+  *  Returns the media type (fiber, copper, backplane)
+  *
+  */
+-enum ixgbe_media_type ixgbe_get_media_type_X550em(struct ixgbe_hw *hw)
++static enum ixgbe_media_type ixgbe_get_media_type_X550em(struct ixgbe_hw *hw)
+ {
+ 	enum ixgbe_media_type media_type;
+ 
+@@ -1129,7 +1134,7 @@ enum ixgbe_media_type ixgbe_get_media_type_X550em(struct ixgbe_hw *hw)
+ /** ixgbe_init_ext_t_x550em - Start (unstall) the external Base T PHY.
+  ** @hw: pointer to hardware structure
+  **/
+-s32 ixgbe_init_ext_t_x550em(struct ixgbe_hw *hw)
++static s32 ixgbe_init_ext_t_x550em(struct ixgbe_hw *hw)
+ {
+ 	u32 status;
+ 	u16 reg;
+@@ -1202,7 +1207,7 @@ s32 ixgbe_init_ext_t_x550em(struct ixgbe_hw *hw)
+  **  and clears all interrupts, perform a PHY reset, and perform a link (MAC)
+  **  reset.
+  **/
+-s32 ixgbe_reset_hw_X550em(struct ixgbe_hw *hw)
++static s32 ixgbe_reset_hw_X550em(struct ixgbe_hw *hw)
+ {
+ 	ixgbe_link_speed link_speed;
+ 	s32 status;
 -- 
 1.9.3
