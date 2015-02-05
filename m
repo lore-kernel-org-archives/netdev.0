@@ -1,28 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: ethernet: ti/cpsw-common.c: fix sparse warning
-Date: Thu, 05 Feb 2015 00:28:00 -0800 (PST)
-Message-ID: <20150205.002800.2141037681825709908.davem@davemloft.net>
-References: <1423053088-6589-1-git-send-email-prabhakar.csengg@gmail.com>
+Subject: Re: pull-request: can-next 2015-02-04
+Date: Thu, 05 Feb 2015 00:29:33 -0800 (PST)
+Message-ID: <20150205.002933.844485990453014577.davem@davemloft.net>
+References: <54D21A09.70101@pengutronix.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	tony@atomide.com
-To: prabhakar.csengg@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1423053088-6589-1-git-send-email-prabhakar.csengg@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, kernel@pengutronix.de,
+	linux-can@vger.kernel.org
+To: mkl@pengutronix.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:42200 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751168AbbBEI3d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Feb 2015 03:29:33 -0500
+In-Reply-To: <54D21A09.70101@pengutronix.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Lad Prabhakar <prabhakar.csengg@gmail.com>
-Date: Wed,  4 Feb 2015 12:31:28 +0000
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Date: Wed, 04 Feb 2015 14:09:29 +0100
 
-> From: "Lad, Prabhakar" <prabhakar.csengg@gmail.com>
+> this is a pull request of 2 patches for net-next/master.
 > 
-> this patch fixes following sparse warning:
-> 
-> cpsw-common.c:23:5: warning: symbol 'cpsw_am33xx_cm_get_macid' was not declared. Should it be static?
-> 
-> Signed-off-by: Lad, Prabhakar <prabhakar.csengg@gmail.com>
+> Nicholas Mc Guire contributes a patch for the janz-ican3 driver to fix
+> a mismatch in an assignment. Ahmed S. Darwish contributes a patch for
+> the kvaser_usb driver, to make the driver more robust during the
+> bus-off handling.
 
 Applied.
