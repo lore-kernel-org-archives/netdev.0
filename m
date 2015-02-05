@@ -1,43 +1,78 @@
-From: Andy Zhou <azhou-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [RFC: add openvswitch actions using BPF 1/9] hack: Do
- not compile datapath
-Date: Thu, 5 Feb 2015 11:11:09 -0800
-Message-ID: <CACzMAJL9CE08Qs3BAujUZaT_XDWG_2RJi6QuGLMY0r7y3wMJjQ@mail.gmail.com>
-References: <1423090163-19902-1-git-send-email-azhou@nicira.com>
- <1423090163-19902-2-git-send-email-azhou@nicira.com>
- <20150205134454.GA5546@pox.localdomain>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net] ipv6: addrconf: add missing validate_link_af handler
+Date: Thu, 5 Feb 2015 20:11:52 +0100
+Message-ID: <20150205191152.GA1965@nanopsycho.orion>
+References: <0f0921b794041725c882546a614defde18fba7ea.1423143235.git.daniel@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "dev-yBygre7rU0SM8Zsap4Y0gw@public.gmane.org" <dev-yBygre7rU0SM8Zsap4Y0gw@public.gmane.org>,
- "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Thomas Graf <tgraf-aqu+mcpWfvtqO0yjgLDq5wC/G2K4zDHf@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <20150205134454.GA5546-4EA/1caXOu0mYvmMESoHnA@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f173.google.com ([209.85.212.173]:50533 "EHLO
+	mail-wi0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752007AbbBETL4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Feb 2015 14:11:56 -0500
+Received: by mail-wi0-f173.google.com with SMTP id r20so41143072wiv.0
+        for <netdev@vger.kernel.org>; Thu, 05 Feb 2015 11:11:55 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <0f0921b794041725c882546a614defde18fba7ea.1423143235.git.daniel@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-WWVzLiBUaGF0J3MgdGhlIHBsYW4uCgpPbiBUaHUsIEZlYiA1LCAyMDE1IGF0IDU6NDQgQU0sIFRo
-b21hcyBHcmFmIDx0Z3JhZkBub2lyb25ldHdvcmtzLmNvbT4gd3JvdGU6Cj4gT24gMDIvMDQvMTUg
-YXQgMDI6NDlwbSwgQW5keSBaaG91IHdyb3RlOgo+PiBUaGUgT1ZTIGVCUEYgcGF0Y2ggc2V0cyBh
-cmUgZGV2ZWxvcGVkIGFnYWluc3QgbWFzdGVyICduZXQtbmV4dCcgdHJlZSwKPj4gd2hpY2ggaXMg
-Y3VycmVudGx5IHRhcmdldGluZyBmb3Iga2VybmVsIHZlcnNpb24gMy4xOS4KPj4KPj4gVGhlIGRh
-dGFwYXRoIGluIE9WUyBtYXRlciBkb2VzIG5vdCBjdXJyZW50bHkgc3VwcG9ydCAzLjE5IGtlcm5l
-bC4KPj4gQnV0IHdlIHNob3VsZCBub3QgcmVhbGx5IHVzaW5nIE9WUyBkYXRhcGF0aCwgVGhlIGNo
-YW5nZXMgaW4gdGhlCj4+IGZvbGxvdyBwYXRjaGVzIGFyZSBvbmx5IGNoYW5nZXMgaW4gdXNlciBz
-cGFjZSBwcm9ncmFtcywgd2hpY2ggc2hvdWxkCj4+IHdvcmsgd2l0aCB0aGUga2VybmVsIG1vZHVs
-ZSBidWlsdCBmcm9tIHRoZSAnbmV0LW5leHQnIHRyZWUuCj4+Cj4+IFRoaXMgcGF0Y2ggZGlzYWJs
-ZXMgYnVpbGRpbmcgb2YgdGhlIGRhdGFwYXRoIGFuZCBkaXNhYmxlcyB0aGUKPj4gY29uZmlndXJh
-dGlvbiB0aW1lIGtlcm5lbCB2ZXJzaW9uIGNoZWNrLgo+Pgo+PiBTaWduZWQtb2ZmLWJ5OiBBbmR5
-IFpob3UgPGF6aG91QG5pY2lyYS5jb20+Cj4KPiBZb3UgY2FuIGRyb3AgdGhpcyB3aGVuIHRoZSBk
-YXRhcGF0aCBzeW5jIHNlcmllcyBpcyBmdWxseSBtZXJnZWQuCl9fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fCmRldiBtYWlsaW5nIGxpc3QKZGV2QG9wZW52c3dp
-dGNoLm9yZwpodHRwOi8vb3BlbnZzd2l0Y2gub3JnL21haWxtYW4vbGlzdGluZm8vZGV2Cg==
+Thu, Feb 05, 2015 at 02:39:11PM CET, daniel@iogearbox.net wrote:
+>We still need a validate_link_af() handler with an appropriate nla policy,
+>similarly as we have in IPv4 case, otherwise size validations are not being
+>done properly in that case.
+>
+>Fixes: f53adae4eae5 ("net: ipv6: add tokenized interface identifier support")
+>Fixes: bc91b0f07ada ("ipv6: addrconf: implement address generation modes")
+>Cc: Jiri Pirko <jiri@resnulli.us>
+>Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+
+Acked-by: Jiri Pirko <jiri@resnulli.us>
+
+Thanks Daniel.
+
+
+>---
+> net/ipv6/addrconf.c | 17 +++++++++++++++++
+> 1 file changed, 17 insertions(+)
+>
+>diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+>index f7c8bbe..dac9419 100644
+>--- a/net/ipv6/addrconf.c
+>+++ b/net/ipv6/addrconf.c
+>@@ -4572,6 +4572,22 @@ static int inet6_set_iftoken(struct inet6_dev *idev, struct in6_addr *token)
+> 	return 0;
+> }
+> 
+>+static const struct nla_policy inet6_af_policy[IFLA_INET6_MAX + 1] = {
+>+	[IFLA_INET6_ADDR_GEN_MODE]	= { .type = NLA_U8 },
+>+	[IFLA_INET6_TOKEN]		= { .len = sizeof(struct in6_addr) },
+>+};
+>+
+>+static int inet6_validate_link_af(const struct net_device *dev,
+>+				  const struct nlattr *nla)
+>+{
+>+	struct nlattr *tb[IFLA_INET6_MAX + 1];
+>+
+>+	if (dev && !__in6_dev_get(dev))
+>+		return -EAFNOSUPPORT;
+>+
+>+	return nla_parse_nested(tb, IFLA_INET6_MAX, nla, inet6_af_policy);
+>+}
+>+
+> static int inet6_set_link_af(struct net_device *dev, const struct nlattr *nla)
+> {
+> 	int err = -EINVAL;
+>@@ -5393,6 +5409,7 @@ static struct rtnl_af_ops inet6_ops = {
+> 	.family		  = AF_INET6,
+> 	.fill_link_af	  = inet6_fill_link_af,
+> 	.get_link_af_size = inet6_get_link_af_size,
+>+	.validate_link_af = inet6_validate_link_af,
+> 	.set_link_af	  = inet6_set_link_af,
+> };
+> 
+>-- 
+>1.9.3
+>
