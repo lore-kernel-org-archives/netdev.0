@@ -1,53 +1,39 @@
-From: Eliezer Tamir <eliezer.tamir-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Subject: Re: [PATCH v2] socket.7: add description for SO_BUSY_POLL
-Date: Thu, 05 Feb 2015 19:48:14 +0200
-Message-ID: <54D3ACDE.5070301@linux.intel.com>
-References: <20130710141835.15799.61657.stgit@ladj378.jer.intel.com> <52DD4EC6.7080208@gmail.com> <52DD5CC4.3010708@linux.intel.com> <CAKgNAki16GXAs5J5cXPzftxxrvaugOvQSamVsGe4jFQF9V=fAQ@mail.gmail.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH net] rtnetlink: ifla_vf_policy: fix misuses of NLA_BINARY
+Date: Thu, 5 Feb 2015 17:52:36 +0000
+Message-ID: <20150205175236.GA2712@casper.infradead.org>
+References: <ceaf2a9c514600d14c9f6a89a8c38e553a85e9fe.1423158127.git.daniel@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: linux-man <linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	lkml <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Eliezer Tamir <eliezer-rsSRdLmRgNEQhDRD3CWCHA@public.gmane.org>
-To: mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAKgNAki16GXAs5J5cXPzftxxrvaugOvQSamVsGe4jFQF9V=fAQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Mitch Williams <mitch.a.williams@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from casper.infradead.org ([85.118.1.10]:56977 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751178AbbBERwi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Feb 2015 12:52:38 -0500
+Content-Disposition: inline
+In-Reply-To: <ceaf2a9c514600d14c9f6a89a8c38e553a85e9fe.1423158127.git.daniel@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 05/02/2015 15:17, Michael Kerrisk (man-pages) wrote:
-> On 20 January 2014 at 18:28, Eliezer Tamir
-> <eliezer.tamir-VuQAYsv1563Yd54FQh9/CA@public.gmane.org> wrote:
->> On 20/01/2014 18:28, Michael Kerrisk (man-pages) wrote:
->>> On 07/10/2013 04:18 PM, Eliezer Tamir wrote:
->>>> Add description for the SO_BUSY_POLL socket option to the socket(7) manpage.
->>>
->>> Long after the fact, I've applied this. Thanks, Eliezer.
->>>
->>> Would you be willing also to write a patch for the POLL_BUSY_LOOP flag of
->>> poll()?
->>
->> Yes, Me or someone from our team will do that.
+On 02/05/15 at 06:44pm, Daniel Borkmann wrote:
+> ifla_vf_policy[] is wrong in advertising its individual member types as
+> NLA_BINARY since .type = NLA_BINARY in combination with .len declares the
+> len member as *max* attribute length [0, len].
 > 
-> Hi Eliezer,
+> The issue is that when do_setvfinfo() is being called to set up a VF
+> through ndo handler, we could set corrupted data if the attribute length
+> is less than the size of the related structure itself.
 > 
-> Could you or someone from your team send me a POLL_BUSY_LOOP doc patch?
+> The intent is exactly the opposite, namely to make sure to pass at least
+> data of minimum size of len.
+> 
+> Fixes: ebc08a6f47ee ("rtnetlink: Add VF config code to rtnetlink")
+> Cc: Mitch Williams <mitch.a.williams@intel.com>
+> Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
 
-Hi Michael,
-
-Right now POLL_BUSY_LOOP is only used internally to control busylooping,
-as a signal between sock_poll() and do_poll().
-Our original intention was to expose that to the users of epoll().
-The work on epoll() support is not finished yet.
-
-I think we should not document this until we finalize epoll() support.
-
-Thanks,
-Eliezer
---
-To unsubscribe from this list: send the line "unsubscribe linux-man" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Acked-by: Thomas Graf <tgraf@suug.ch>
