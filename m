@@ -1,106 +1,174 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH 6/6] rhashtable: Avoid bucket cross reference after removal
-Date: Thu,  5 Feb 2015 02:03:36 +0100
-Message-ID: <8c89650946cf271ffef266e1abcfe8eff298eed6.1423097592.git.tgraf@suug.ch>
+Subject: [PATCH 4/6] rhashtable: Dump bucket tables on locking violation under PROVE_LOCKING
+Date: Thu,  5 Feb 2015 02:03:34 +0100
+Message-ID: <c7a91b188461ac3c235517033454a258012b3443.1423097592.git.tgraf@suug.ch>
 References: <cover.1423097592.git.tgraf@suug.ch>
 Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au,
 	ying.xue@windriver.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([198.137.202.9]:41114 "EHLO
+Received: from bombadil.infradead.org ([198.137.202.9]:41075 "EHLO
 	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756295AbbBEBDu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2015 20:03:50 -0500
+	with ESMTP id S1756249AbbBEBDr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Feb 2015 20:03:47 -0500
 In-Reply-To: <cover.1423097592.git.tgraf@suug.ch>
 In-Reply-To: <cover.1423097592.git.tgraf@suug.ch>
 References: <cover.1423097592.git.tgraf@suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-During a resize, when two buckets in the larger table map to
-a single bucket in the smaller table and the new table has already
-been (partially) linked to the old table. Removal of an element
-may result the bucket in the larger table to point to entries
-which all hash to a different value than the bucket index. Thus
-causing two buckets to point to the same sub chain after unzipping.
-This is not illegal *during* the resize phase but after it has
-completed.
+This simplifies debugging of locking violations if compiled with
+CONFIG_PROVE_LOCKING.
 
-Keep the old table around until all of the unzipping is done to
-allow the removal code to only search for matching hashed entries
-during this special period.
-
-Reported-by: Ying Xue <ying.xue@windriver.com>
-Fixes: 97defe1ecf86 ("rhashtable: Per bucket locks & deferred expansion/shrinking")
 Signed-off-by: Thomas Graf <tgraf@suug.ch>
 ---
- lib/rhashtable.c | 26 +++++++++++++++++---------
- 1 file changed, 17 insertions(+), 9 deletions(-)
+ lib/rhashtable.c | 99 ++++++++++++++++++++++++++++++++++++++++++--------------
+ 1 file changed, 75 insertions(+), 24 deletions(-)
 
 diff --git a/lib/rhashtable.c b/lib/rhashtable.c
-index ef0816b..5919d63 100644
+index fd1033d..c2c3949 100644
 --- a/lib/rhashtable.c
 +++ b/lib/rhashtable.c
-@@ -415,12 +415,6 @@ int rhashtable_expand(struct rhashtable *ht)
- 		unlock_buckets(new_tbl, old_tbl, new_hash);
- 	}
+@@ -54,26 +54,6 @@ static spinlock_t *bucket_lock(const struct bucket_table *tbl, u32 hash)
+ 	return &tbl->locks[hash & tbl->locks_mask];
+ }
  
--	/* Publish the new table pointer. Lookups may now traverse
--	 * the new table, but they will not benefit from any
--	 * additional efficiency until later steps unzip the buckets.
--	 */
--	rcu_assign_pointer(ht->tbl, new_tbl);
+-#define ASSERT_RHT_MUTEX(HT) BUG_ON(!lockdep_rht_mutex_is_held(HT))
+-#define ASSERT_BUCKET_LOCK(TBL, HASH) \
+-	BUG_ON(!lockdep_rht_bucket_is_held(TBL, HASH))
 -
- 	/* Unzip interleaved hash chains */
- 	while (!complete && !ht->being_destroyed) {
- 		/* Wait for readers. All new readers will see the new
-@@ -445,6 +439,7 @@ int rhashtable_expand(struct rhashtable *ht)
- 		}
- 	}
- 
-+	rcu_assign_pointer(ht->tbl, new_tbl);
- 	synchronize_rcu();
- 
- 	bucket_table_free(old_tbl);
-@@ -627,14 +622,14 @@ bool rhashtable_remove(struct rhashtable *ht, struct rhash_head *obj)
+-#ifdef CONFIG_PROVE_LOCKING
+-int lockdep_rht_mutex_is_held(struct rhashtable *ht)
+-{
+-	return (debug_locks) ? lockdep_is_held(&ht->mutex) : 1;
+-}
+-EXPORT_SYMBOL_GPL(lockdep_rht_mutex_is_held);
+-
+-int lockdep_rht_bucket_is_held(const struct bucket_table *tbl, u32 hash)
+-{
+-	spinlock_t *lock = bucket_lock(tbl, hash);
+-
+-	return (debug_locks) ? lockdep_is_held(lock) : 1;
+-}
+-EXPORT_SYMBOL_GPL(lockdep_rht_bucket_is_held);
+-#endif
+-
+ static void *rht_obj(const struct rhashtable *ht, const struct rhash_head *he)
  {
- 	struct bucket_table *tbl, *new_tbl, *old_tbl;
- 	struct rhash_head __rcu **pprev;
--	struct rhash_head *he;
-+	struct rhash_head *he, *he2;
- 	unsigned int hash, new_hash;
- 	bool ret = false;
+ 	return (void *) he - ht->p.head_offset;
+@@ -109,6 +89,77 @@ static u32 head_hashfn(const struct rhashtable *ht,
+ 	return rht_bucket_index(tbl, obj_raw_hashfn(ht, rht_obj(ht, he)));
+ }
  
- 	rcu_read_lock();
- 	tbl = old_tbl = rht_dereference_rcu(ht->tbl, ht);
- 	new_tbl = rht_dereference_rcu(ht->future_tbl, ht);
--	new_hash = head_hashfn(ht, new_tbl, obj);
-+	new_hash = obj_raw_hashfn(ht, rht_obj(ht, obj));
- 
- 	lock_buckets(new_tbl, old_tbl, new_hash);
- restart:
-@@ -647,8 +642,21 @@ restart:
- 		}
- 
- 		ASSERT_BUCKET_LOCK(ht, tbl, hash);
--		rcu_assign_pointer(*pprev, obj->next);
- 
-+		if (unlikely(new_tbl != tbl)) {
-+			rht_for_each_continue(he2, he->next, tbl, hash) {
-+				if (head_hashfn(ht, tbl, he2) == hash) {
-+					rcu_assign_pointer(*pprev, he2);
-+					goto found;
-+				}
-+			}
++#ifdef CONFIG_PROVE_LOCKING
++static void debug_dump_buckets(const struct rhashtable *ht,
++			       const struct bucket_table *tbl)
++{
++	struct rhash_head *he;
++	unsigned int i, hash;
 +
-+			INIT_RHT_NULLS_HEAD(*pprev, ht, hash);
-+		} else {
-+			rcu_assign_pointer(*pprev, obj->next);
++	for (i = 0; i < tbl->size; i++) {
++		pr_warn(" [Bucket %d] ", i);
++		rht_for_each_rcu(he, tbl, i) {
++			hash = head_hashfn(ht, tbl, he);
++			pr_cont("[hash = %#x, lock = %p] ",
++				hash, bucket_lock(tbl, hash));
 +		}
++		pr_cont("\n");
++	}
 +
-+found:
- 		ret = true;
- 		break;
- 	}
++}
++
++static void debug_dump_table(struct rhashtable *ht,
++			     const struct bucket_table *tbl,
++			     unsigned int hash)
++{
++	struct bucket_table *old_tbl, *future_tbl;
++
++	pr_emerg("BUG: lock for hash %#x in table %p not held\n",
++		 hash, tbl);
++
++	rcu_read_lock();
++	future_tbl = rht_dereference_rcu(ht->future_tbl, ht);
++	old_tbl = rht_dereference_rcu(ht->tbl, ht);
++	if (future_tbl != old_tbl) {
++		pr_warn("Future table %p (size: %zd)\n",
++			future_tbl, future_tbl->size);
++		debug_dump_buckets(ht, future_tbl);
++	}
++
++	pr_warn("Table %p (size: %zd)\n", old_tbl, old_tbl->size);
++	debug_dump_buckets(ht, old_tbl);
++
++	rcu_read_unlock();
++}
++
++#define ASSERT_RHT_MUTEX(HT) BUG_ON(!lockdep_rht_mutex_is_held(HT))
++#define ASSERT_BUCKET_LOCK(HT, TBL, HASH)				\
++	do {								\
++		if (unlikely(!lockdep_rht_bucket_is_held(TBL, HASH))) {	\
++			debug_dump_table(HT, TBL, HASH);		\
++			BUG();						\
++		}							\
++	} while (0)
++
++int lockdep_rht_mutex_is_held(struct rhashtable *ht)
++{
++	return (debug_locks) ? lockdep_is_held(&ht->mutex) : 1;
++}
++EXPORT_SYMBOL_GPL(lockdep_rht_mutex_is_held);
++
++int lockdep_rht_bucket_is_held(const struct bucket_table *tbl, u32 hash)
++{
++	spinlock_t *lock = bucket_lock(tbl, hash);
++
++	return (debug_locks) ? lockdep_is_held(lock) : 1;
++}
++EXPORT_SYMBOL_GPL(lockdep_rht_bucket_is_held);
++#else
++#define ASSERT_RHT_MUTEX(HT)
++#define ASSERT_BUCKET_LOCK(HT, TBL, HASH)
++#endif
++
++
+ static struct rhash_head __rcu **bucket_tail(struct bucket_table *tbl, u32 n)
+ {
+ 	struct rhash_head __rcu **pprev;
+@@ -240,7 +291,7 @@ static void unlock_buckets(struct bucket_table *new_tbl,
+  *
+  * Returns true if no more work needs to be performed on the bucket.
+  */
+-static bool hashtable_chain_unzip(const struct rhashtable *ht,
++static bool hashtable_chain_unzip(struct rhashtable *ht,
+ 				  const struct bucket_table *new_tbl,
+ 				  struct bucket_table *old_tbl,
+ 				  size_t old_hash)
+@@ -248,7 +299,7 @@ static bool hashtable_chain_unzip(const struct rhashtable *ht,
+ 	struct rhash_head *he, *p, *next;
+ 	unsigned int new_hash, new_hash2;
+ 
+-	ASSERT_BUCKET_LOCK(old_tbl, old_hash);
++	ASSERT_BUCKET_LOCK(ht, old_tbl, old_hash);
+ 
+ 	/* Old bucket empty, no work needed. */
+ 	p = rht_dereference_bucket(old_tbl->buckets[old_hash], old_tbl,
+@@ -257,7 +308,7 @@ static bool hashtable_chain_unzip(const struct rhashtable *ht,
+ 		return false;
+ 
+ 	new_hash = head_hashfn(ht, new_tbl, p);
+-	ASSERT_BUCKET_LOCK(new_tbl, new_hash);
++	ASSERT_BUCKET_LOCK(ht, new_tbl, new_hash);
+ 
+ 	/* Advance the old bucket pointer one or more times until it
+ 	 * reaches a node that doesn't hash to the same bucket as the
+@@ -265,7 +316,7 @@ static bool hashtable_chain_unzip(const struct rhashtable *ht,
+ 	 */
+ 	rht_for_each_continue(he, p->next, old_tbl, old_hash) {
+ 		new_hash2 = head_hashfn(ht, new_tbl, he);
+-		ASSERT_BUCKET_LOCK(new_tbl, new_hash2);
++		ASSERT_BUCKET_LOCK(ht, new_tbl, new_hash2);
+ 
+ 		if (new_hash != new_hash2)
+ 			break;
 -- 
 1.9.3
