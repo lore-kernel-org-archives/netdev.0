@@ -1,80 +1,108 @@
-From: Alexander Drozdov <al.drozdov@gmail.com>
-Subject: Re: [PATCH] af_packet: don't pass empty blocks for PACKET_V3
-Date: Fri, 06 Feb 2015 09:54:21 +0300
-Message-ID: <54D4651D.6060300@gmail.com>
-References: <1423115891-3578-1-git-send-email-al.drozdov@gmail.com> <CA+FuTScA_2W+MHsZdYfoOKS==1XyogmyF_d+qUy66A5MdyO-5Q@mail.gmail.com>
+From: Chris Ruehl <chris.ruehl@gtsys.com.hk>
+Subject: Re: ipv6: oops in datagram.c line 260
+Date: Fri, 06 Feb 2015 15:37:52 +0800
+Message-ID: <54D46F50.7020104@gtsys.com.hk>
+References: <5487DD65.60800@gtsys.com.hk> <549AC2B4.8070203@gtsys.com.hk> <1420560073.32369.60.camel@redhat.com> <20150126083512.GI13046@secunet.com> <54C71AFB.40300@gtsys.com.hk> <20150127115814.GL13046@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Al Viro <viro@zeniv.linux.org.uk>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	Network Development <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	Guy Harris <guy@alum.mit.edu>, Dan Collins <dan@dcollins.co.nz>
-To: Willem de Bruijn <willemb@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CA+FuTScA_2W+MHsZdYfoOKS==1XyogmyF_d+qUy66A5MdyO-5Q@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Hannes Frederic Sowa <hannes@redhat.com>, netdev@vger.kernel.org,
+	davem@davemloft.net
+To: Steffen Klassert <steffen.klassert@secunet.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.fpasia.hk ([202.130.89.98]:38012 "EHLO fpa01n0.fpasia.hk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751404AbbBFHiD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Feb 2015 02:38:03 -0500
+In-Reply-To: <20150127115814.GL13046@secunet.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 05.02.2015 23:01:38 +0300 Willem de Bruijn wrote:
-> On Wed, Feb 4, 2015 at 9:58 PM, Alexander Drozdov <al.drozdov@gmail.com> wrote:
->> Don't close an empty block on timeout. Its meaningless to
->> pass it to the user. Moreover, passing empty blocks wastes
->> CPU & buffer space increasing probability of packets
->> dropping on small timeouts.
+On Tuesday, January 27, 2015 07:58 PM, Steffen Klassert wrote:
+> On Tue, Jan 27, 2015 at 12:58:35PM +0800, Chris Ruehl wrote:
+>>     Steffen,
 >>
->> Side effect of this patch is indefinite user-space wait
->> in poll on idle links. But, I believe its better to set
->> timeout for poll(2) when needed than to get empty blocks
->> every millisecond when not needed.
-> This change would break existing applications that have come
-> to depend on the periodic signal.
+>>     your patch can't apply to the vanilla v3.14.29 can you cross check please.
+> Sorry, this patch was based on the net tree.
 >
-> I don't disagree with the argument that the data ready signal
-> should be sent only when a block is full or a timer expires and
-> at least some data is waiting, but that is moot at this point.
-I missed something. As pointed by Guy Harris <guy@alum.mit.edu>,
-before the previous patch periodic signal was not delivered. The previous patch
-(da413eec729dae5dc by Dan Collins <dan@dcollins.co.nz>) is for 3.19 kernel only.
-Should we care about existing 3.19-only applications?
+>>     I'm sorry but we running a productive system and I can't make to much
+>>     noise here!
+>>     Your patch is partly in the 3.14.29 and
+>>     skb->protocol = htons(ETH_P_IP)
+>>     from the xfrm4/6_output_finish() no removed. I do then
+>>
+>>     --- linux-3.14.x/net/ipv4/xfrm4_output.c.orig    2015-01-27
+>>     12:50:01.830651344 +0800
+>>     +++ linux-3.14.x/net/ipv4/xfrm4_output.c    2015-01-27 12:51:13.280386355
+>>     +0800
+>>     @@ -82,7 +82,6 @@
+>>          IPCB(skb)->flags |= IPSKB_XFRM_TRANSFORMED;
+>>      #endif
+>>      
+>>     -    skb->protocol = htons(ETH_P_IP);
+>>          return xfrm_output(skb);
+>>      }
+>>      
+>>     --- linux-3.14.x/net/ipv6/xfrm6_output.c.orig    2015-01-27
+>>     12:49:39.260735321 +0800
+>>     +++ linux-3.14.x/net/ipv6/xfrm6_output.c    2015-01-27 12:50:47.280482636
+>>     +0800
+>>     @@ -132,7 +132,6 @@
+>>          IP6CB(skb)->flags |= IP6SKB_XFRM_TRANSFORMED;
+>>      #endif
+>>      
+>>     -    skb->protocol = htons(ETH_P_IPV6);
+>>          return xfrm_output(skb);
+>>      }
+> Yes, that should be ok. Here is the complete patch for v3.14.29:
 >
->> Signed-off-by: Alexander Drozdov <al.drozdov@gmail.com>
->> ---
->>   net/packet/af_packet.c | 10 +++++++++-
->>   1 file changed, 9 insertions(+), 1 deletion(-)
->>
->> diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
->> index 9cfe2e1..9a2f70a 100644
->> --- a/net/packet/af_packet.c
->> +++ b/net/packet/af_packet.c
->> @@ -698,6 +698,10 @@ static void prb_retire_rx_blk_timer_expired(unsigned long data)
->>
->>          if (pkc->last_kactive_blk_num == pkc->kactive_blk_num) {
->>                  if (!frozen) {
->> +                       if (!BLOCK_NUM_PKTS(pbd)) {
->> +                               /* An empty block. Just refresh the timer. */
->> +                               goto refresh_timer;
->> +                       }
->>                          prb_retire_current_block(pkc, po, TP_STATUS_BLK_TMO);
->>                          if (!prb_dispatch_next_block(pkc, po))
->>                                  goto refresh_timer;
->> @@ -798,7 +802,11 @@ static void prb_close_block(struct tpacket_kbdq_core *pkc1,
->>                  h1->ts_last_pkt.ts_sec = last_pkt->tp_sec;
->>                  h1->ts_last_pkt.ts_nsec = last_pkt->tp_nsec;
->>          } else {
->> -               /* Ok, we tmo'd - so get the current time */
->> +               /* Ok, we tmo'd - so get the current time.
->> +                *
->> +                * It shouldn't really happen as we don't close empty
->> +                * blocks. See prb_retire_rx_blk_timer_expired().
->> +                */
->>                  struct timespec ts;
->>                  getnstimeofday(&ts);
->>                  h1->ts_last_pkt.ts_sec = ts.tv_sec;
->> --
->> 1.9.1
->>
+> Subject: [PATCH RFC v3.14.29] xfrm: Fix local error reporting crash with interfamily tunnels
+>
+> We set the outer mode protocol too early. As a result, the
+> local error handler might dispatch to the wrong address family
+> and report the error to a wrong socket type. We fix this by
+> seting the outer protocol to the skb only after we accessed the
+> inner mode for the last time, right before we do the atcual
+> encapsulation where we switch finally to the outer mode.
+> The settings in xfrm{4,6}_output_finish() are removed.
+>
+> Reported-by: Chris Ruehl <chris.ruehl@gtsys.com.hk>
+> Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+> ---
+>   net/ipv4/xfrm4_output.c |    1 -
+>   net/ipv6/xfrm6_output.c |    1 -
+>   2 files changed, 0 insertions(+), 2 deletions(-)
+>
+> diff --git a/net/ipv4/xfrm4_output.c b/net/ipv4/xfrm4_output.c
+> index baa0f63..0cb9606 100644
+> --- a/net/ipv4/xfrm4_output.c
+> +++ b/net/ipv4/xfrm4_output.c
+> @@ -82,7 +82,6 @@ int xfrm4_output_finish(struct sk_buff *skb)
+>   	IPCB(skb)->flags |= IPSKB_XFRM_TRANSFORMED;
+>   #endif
+>   
+> -	skb->protocol = htons(ETH_P_IP);
+>   	return xfrm_output(skb);
+>   }
+>   
+> diff --git a/net/ipv6/xfrm6_output.c b/net/ipv6/xfrm6_output.c
+> index 6cd625e..98396cf 100644
+> --- a/net/ipv6/xfrm6_output.c
+> +++ b/net/ipv6/xfrm6_output.c
+> @@ -132,7 +132,6 @@ int xfrm6_output_finish(struct sk_buff *skb)
+>   	IP6CB(skb)->flags |= IP6SKB_XFRM_TRANSFORMED;
+>   #endif
+>   
+> -	skb->protocol = htons(ETH_P_IPV6);
+>   	return xfrm_output(skb);
+>   }
+>   
+Hi Steffen,
+
+server is up for 6 days no problems any more.
+Please apply the patch!
+
+Thank you very much
+Chris
+
+Tested-by: Chris Ruehl <chris.ruehl@gtsys.com.hk>
