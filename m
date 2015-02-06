@@ -1,52 +1,72 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 11/16] ixgbevf: set vlan_features in a single write instead of several ORs
-Date: Thu,  5 Feb 2015 20:31:20 -0800
-Message-ID: <1423197085-32270-12-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 02/16] fm10k: Resolve compile warnings with W=1
+Date: Thu,  5 Feb 2015 20:31:11 -0800
+Message-ID: <1423197085-32270-3-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1423197085-32270-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
+Cc: Matthew Vick <matthew.vick@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	kernel-team@fb.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:39322 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:31696 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753317AbbBFEbl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Feb 2015 23:31:41 -0500
+	id S1754594AbbBFEbi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Feb 2015 23:31:38 -0500
 In-Reply-To: <1423197085-32270-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Emil Tantilov <emil.s.tantilov@intel.com>
+From: Matthew Vick <matthew.vick@intel.com>
 
-Clean up the setting of vlan_features by enabling all features at once.
+Fix two cases where variables are being set but not used.
 
-Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
-Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+Signed-off-by: Matthew Vick <matthew.vick@intel.com>
+Tested-by: Krishneil Singh<Krishneil.k.singh@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/intel/fm10k/fm10k_mbx.c | 5 ++---
+ drivers/net/ethernet/intel/fm10k/fm10k_ptp.c | 3 ---
+ 2 files changed, 2 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-index a573526..6d24aa5 100644
---- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-+++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-@@ -3873,11 +3873,11 @@ static int ixgbevf_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 			   NETIF_F_HW_VLAN_CTAG_RX |
- 			   NETIF_F_HW_VLAN_CTAG_FILTER;
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_mbx.c b/drivers/net/ethernet/intel/fm10k/fm10k_mbx.c
+index 14a4ea7..9f5457c 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_mbx.c
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_mbx.c
+@@ -1194,12 +1194,11 @@ static s32 fm10k_mbx_process_disconnect(struct fm10k_hw *hw,
+ {
+ 	const enum fm10k_mbx_state state = mbx->state;
+ 	const u32 *hdr = &mbx->mbx_hdr;
+-	u16 head, tail;
++	u16 head;
+ 	s32 err;
  
--	netdev->vlan_features |= NETIF_F_TSO;
--	netdev->vlan_features |= NETIF_F_TSO6;
--	netdev->vlan_features |= NETIF_F_IP_CSUM;
--	netdev->vlan_features |= NETIF_F_IPV6_CSUM;
--	netdev->vlan_features |= NETIF_F_SG;
-+	netdev->vlan_features |= NETIF_F_TSO |
-+				 NETIF_F_TSO6 |
-+				 NETIF_F_IP_CSUM |
-+				 NETIF_F_IPV6_CSUM |
-+				 NETIF_F_SG;
+-	/* we will need to pull all of the fields for verification */
++	/* we will need to pull the header field for verification */
+ 	head = FM10K_MSG_HDR_FIELD_GET(*hdr, HEAD);
+-	tail = FM10K_MSG_HDR_FIELD_GET(*hdr, TAIL);
  
- 	if (pci_using_dac)
- 		netdev->features |= NETIF_F_HIGHDMA;
+ 	/* We should not be receiving disconnect if Rx is incomplete */
+ 	if (mbx->pushed)
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_ptp.c b/drivers/net/ethernet/intel/fm10k/fm10k_ptp.c
+index 7822809..d966044 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_ptp.c
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_ptp.c
+@@ -57,7 +57,6 @@ void fm10k_ts_tx_enqueue(struct fm10k_intfc *interface, struct sk_buff *skb)
+ 	struct sk_buff_head *list = &interface->ts_tx_skb_queue;
+ 	struct sk_buff *clone;
+ 	unsigned long flags;
+-	__le16 dglort;
+ 
+ 	/* create clone for us to return on the Tx path */
+ 	clone = skb_clone_sk(skb);
+@@ -65,8 +64,6 @@ void fm10k_ts_tx_enqueue(struct fm10k_intfc *interface, struct sk_buff *skb)
+ 		return;
+ 
+ 	FM10K_CB(clone)->ts_tx_timeout = jiffies + FM10K_TS_TX_TIMEOUT;
+-	dglort = FM10K_CB(clone)->fi.w.dglort;
+-
+ 	spin_lock_irqsave(&list->lock, flags);
+ 
+ 	/* attempt to locate any buffers with the same dglort,
 -- 
 1.9.3
