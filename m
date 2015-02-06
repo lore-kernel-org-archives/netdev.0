@@ -1,7 +1,7 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Throughput regression with `tcp: refine TSO autosizing`
-Date: Fri, 06 Feb 2015 06:10:41 -0800
-Message-ID: <1423231841.31870.133.camel@edumazet-glaptop2.roam.corp.google.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: Throughput regression with `tcp: refine TSO autosizing`
+Date: Fri, 6 Feb 2015 14:31:10 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CADF4EC@AcuExch.aculab.com>
 References: <CA+BoTQkVu23P3EOmY_Q3E1GJnWsyF==Pawz4iPOS_Bq5dvfO5Q@mail.gmail.com>
 	 <1422537297.21689.15.camel@edumazet-glaptop2.roam.corp.google.com>
 	 <CA+BoTQk2xT-8DqPuiiKG+kHAjLPrj8F9dLTb-rcGhvMq0u_2Qw@mail.gmail.com>
@@ -28,31 +28,36 @@ References: <CA+BoTQkVu23P3EOmY_Q3E1GJnWsyF==Pawz4iPOS_Bq5dvfO5Q@mail.gmail.com>
 	 <CA+BoTQ=WaKLV=r6qWaWAEfyDr2pqMWpm4NDmnek92TEVndnxRQ@mail.gmail.com>
 	 <1423230001.31870.128.camel@edumazet-glaptop2.roam.corp.google.com>
 	 <1423230785.31870.131.camel@edumazet-glaptop2.roam.corp.google.com>
+ <1423231841.31870.133.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
 Cc: Neal Cardwell <ncardwell@google.com>,
 	linux-wireless <linux-wireless@vger.kernel.org>,
 	Network Development <netdev@vger.kernel.org>,
-	eyalpe@dev.mellanox.co.il
-To: Michal Kazior <michal.kazior@tieto.com>
+	"eyalpe@dev.mellanox.co.il" <eyalpe@dev.mellanox.co.il>
+To: 'Eric Dumazet' <eric.dumazet@gmail.com>,
+	Michal Kazior <michal.kazior@tieto.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f176.google.com ([209.85.223.176]:43136 "EHLO
-	mail-ie0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754379AbbBFOKo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Feb 2015 09:10:44 -0500
-In-Reply-To: <1423230785.31870.131.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from smtp-out4.electric.net ([192.162.216.181]:60273 "EHLO
+	smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753990AbbBFOb7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Feb 2015 09:31:59 -0500
+In-Reply-To: <1423231841.31870.133.camel@edumazet-glaptop2.roam.corp.google.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2015-02-06 at 05:53 -0800, Eric Dumazet wrote:
-
-
-> wifi could eventually do that, providing in skb->tx_completion_delay_us
-> the time spent in wifi driver.
-> 
-> This way, we would have no penalty for network devices doing normal skb
-> orphaning (loopback interface, ethernet, ...)
-
-Another way would be that wifi does an automatic orphaning after 1 or
-2ms.
+RnJvbTogRXJpYyBEdW1hemV0DQo+IE9uIEZyaSwgMjAxNS0wMi0wNiBhdCAwNTo1MyAtMDgwMCwg
+RXJpYyBEdW1hemV0IHdyb3RlOg0KPiANCj4gDQo+ID4gd2lmaSBjb3VsZCBldmVudHVhbGx5IGRv
+IHRoYXQsIHByb3ZpZGluZyBpbiBza2ItPnR4X2NvbXBsZXRpb25fZGVsYXlfdXMNCj4gPiB0aGUg
+dGltZSBzcGVudCBpbiB3aWZpIGRyaXZlci4NCj4gPg0KPiA+IFRoaXMgd2F5LCB3ZSB3b3VsZCBo
+YXZlIG5vIHBlbmFsdHkgZm9yIG5ldHdvcmsgZGV2aWNlcyBkb2luZyBub3JtYWwgc2tiDQo+ID4g
+b3JwaGFuaW5nIChsb29wYmFjayBpbnRlcmZhY2UsIGV0aGVybmV0LCAuLi4pDQo+IA0KPiBBbm90
+aGVyIHdheSB3b3VsZCBiZSB0aGF0IHdpZmkgZG9lcyBhbiBhdXRvbWF0aWMgb3JwaGFuaW5nIGFm
+dGVyIDEgb3INCj4gMm1zLg0KDQpDb3VsZG4ndCB5b3UgZG8gYnl0ZSBjb3VudGluZz8NClNvIG9y
+cGhhbiBlbm91Z2ggcGFja2V0cyB0byBrZWVwIGEgZmV3IG1zIG9mIHR4IHRyYWZmaWMgKGF0IHRo
+ZSBjdXJyZW50DQp0eCByYXRlKSBvcnBoYW5lZC4NCllvdSBtaWdodCBuZWVkIHRvIGdpdmUgdGhl
+IGhhcmR3YXJlIGJvdGggb3JwaGFuZWQgYW5kIG5vbi1vcnBoYW5lZCAocGFyZW50ZWQ/KQ0KcGFj
+a2V0cyBhbmQgb3JwaGFuIHNvbWUgd2hlbiB5b3UgZ2V0IGEgdHggY29tcGxldGUgZm9yIGFuIG9y
+cGhhbmVkIHBhY2tldC4NCg0KCURhdmlkDQoNCg==
