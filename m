@@ -1,108 +1,57 @@
-From: Chris Ruehl <chris.ruehl@gtsys.com.hk>
-Subject: Re: ipv6: oops in datagram.c line 260
-Date: Fri, 06 Feb 2015 15:37:52 +0800
-Message-ID: <54D46F50.7020104@gtsys.com.hk>
-References: <5487DD65.60800@gtsys.com.hk> <549AC2B4.8070203@gtsys.com.hk> <1420560073.32369.60.camel@redhat.com> <20150126083512.GI13046@secunet.com> <54C71AFB.40300@gtsys.com.hk> <20150127115814.GL13046@secunet.com>
+From: =?UTF-8?B?RXJlbiBUw7xya2F5?= <erent@skyatlas.com>
+Subject: Re: PROBLEM: Bnx2x Checksum/Length Error Over GRE Tunnel
+Date: Fri, 06 Feb 2015 09:51:17 +0200
+Message-ID: <54D47275.6070707@skyatlas.com>
+References: <54D0A345.2030108@skyatlas.com> <54D10DFE.1070604@skyatlas.com> <1422989196.907.34.camel@edumazet-glaptop2.roam.corp.google.com> <54D1EDCE.3030602@skyatlas.com> <B5657A6538887040AD3A81F1008BEC63BE78AC@avmb3.qlogic.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: Hannes Frederic Sowa <hannes@redhat.com>, netdev@vger.kernel.org,
-	davem@davemloft.net
-To: Steffen Klassert <steffen.klassert@secunet.com>
+Cc: netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Yuval Mintz <Yuval.Mintz@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.fpasia.hk ([202.130.89.98]:38012 "EHLO fpa01n0.fpasia.hk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751404AbbBFHiD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Feb 2015 02:38:03 -0500
-In-Reply-To: <20150127115814.GL13046@secunet.com>
+Received: from mailfw.csoftintl.com ([209.11.253.18]:37374 "EHLO
+	fmvm01.lax10.vpls.net" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
+	with ESMTP id S1754457AbbBFHv0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Feb 2015 02:51:26 -0500
+In-Reply-To: <B5657A6538887040AD3A81F1008BEC63BE78AC@avmb3.qlogic.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tuesday, January 27, 2015 07:58 PM, Steffen Klassert wrote:
-> On Tue, Jan 27, 2015 at 12:58:35PM +0800, Chris Ruehl wrote:
->>     Steffen,
->>
->>     your patch can't apply to the vanilla v3.14.29 can you cross check please.
-> Sorry, this patch was based on the net tree.
->
->>     I'm sorry but we running a productive system and I can't make to much
->>     noise here!
->>     Your patch is partly in the 3.14.29 and
->>     skb->protocol = htons(ETH_P_IP)
->>     from the xfrm4/6_output_finish() no removed. I do then
->>
->>     --- linux-3.14.x/net/ipv4/xfrm4_output.c.orig    2015-01-27
->>     12:50:01.830651344 +0800
->>     +++ linux-3.14.x/net/ipv4/xfrm4_output.c    2015-01-27 12:51:13.280386355
->>     +0800
->>     @@ -82,7 +82,6 @@
->>          IPCB(skb)->flags |= IPSKB_XFRM_TRANSFORMED;
->>      #endif
->>      
->>     -    skb->protocol = htons(ETH_P_IP);
->>          return xfrm_output(skb);
->>      }
->>      
->>     --- linux-3.14.x/net/ipv6/xfrm6_output.c.orig    2015-01-27
->>     12:49:39.260735321 +0800
->>     +++ linux-3.14.x/net/ipv6/xfrm6_output.c    2015-01-27 12:50:47.280482636
->>     +0800
->>     @@ -132,7 +132,6 @@
->>          IP6CB(skb)->flags |= IP6SKB_XFRM_TRANSFORMED;
->>      #endif
->>      
->>     -    skb->protocol = htons(ETH_P_IPV6);
->>          return xfrm_output(skb);
->>      }
-> Yes, that should be ok. Here is the complete patch for v3.14.29:
->
-> Subject: [PATCH RFC v3.14.29] xfrm: Fix local error reporting crash with interfamily tunnels
->
-> We set the outer mode protocol too early. As a result, the
-> local error handler might dispatch to the wrong address family
-> and report the error to a wrong socket type. We fix this by
-> seting the outer protocol to the skb only after we accessed the
-> inner mode for the last time, right before we do the atcual
-> encapsulation where we switch finally to the outer mode.
-> The settings in xfrm{4,6}_output_finish() are removed.
->
-> Reported-by: Chris Ruehl <chris.ruehl@gtsys.com.hk>
-> Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
-> ---
->   net/ipv4/xfrm4_output.c |    1 -
->   net/ipv6/xfrm6_output.c |    1 -
->   2 files changed, 0 insertions(+), 2 deletions(-)
->
-> diff --git a/net/ipv4/xfrm4_output.c b/net/ipv4/xfrm4_output.c
-> index baa0f63..0cb9606 100644
-> --- a/net/ipv4/xfrm4_output.c
-> +++ b/net/ipv4/xfrm4_output.c
-> @@ -82,7 +82,6 @@ int xfrm4_output_finish(struct sk_buff *skb)
->   	IPCB(skb)->flags |= IPSKB_XFRM_TRANSFORMED;
->   #endif
->   
-> -	skb->protocol = htons(ETH_P_IP);
->   	return xfrm_output(skb);
->   }
->   
-> diff --git a/net/ipv6/xfrm6_output.c b/net/ipv6/xfrm6_output.c
-> index 6cd625e..98396cf 100644
-> --- a/net/ipv6/xfrm6_output.c
-> +++ b/net/ipv6/xfrm6_output.c
-> @@ -132,7 +132,6 @@ int xfrm6_output_finish(struct sk_buff *skb)
->   	IP6CB(skb)->flags |= IP6SKB_XFRM_TRANSFORMED;
->   #endif
->   
-> -	skb->protocol = htons(ETH_P_IPV6);
->   	return xfrm_output(skb);
->   }
->   
-Hi Steffen,
+On 05-02-2015 18:13, Yuval Mintz wrote:
+> Tried this on latest net-next [using iproute2] and I didn't manage to hit the
+> issue you've indicated.
+> I.e., traffic seemed to work fine on gre tunnels using both mtu sizes and
+> regardless of whether Tx-checksum-offload was enabled or disabled.
 
-server is up for 6 days no problems any more.
-Please apply the patch!
+Interesting. Could it be a firmware issue?
 
-Thank you very much
-Chris
+To summarize my current situation, I cannot get the network work with tx on so I
+need to disable tx. Using iproute2, tunnels with MTU 8976 works OK (getting
+9.7Gbit/s in a single flow). When MTU is decreased to 1500, I can only get
+3-4Gbit/s.
 
-Tested-by: Chris Ruehl <chris.ruehl@gtsys.com.hk>
+Being unable to use tx offloading is strange.
+
+> Is there anything else which is worth mentioning in your setup?
+
+For iproute2, I don't have anything special. I just create a tunnel bridge and
+test it. For OVS part, I have openstack installation using neutron openvswitch
+plugin, which is irrelevant for now. Openvswitch kernel module is loaded but
+does it have an effect on iproute2? Please inform me if you need anything else.
+
+Just to inform other people having the same issue, by increasing the MTU of OVS
+bridges (br-int, tap, qvo, qbr, etc.) to 8950, setting br-tun ovs bridge to
+8976, and instructing VMs to use 8950 MTU, I can now get 7.5Gbit from
+VM-to-network node using GRE tunnel in a single flow, and 9.5Gbit using 2 flows.
+I should add that I needed to enable MQ in libvirt.xml (using 4 queues).
+
+> Thanks,
+> Yuval
+
+Regards,
+Eren
+
+-- 
+System Administrator
+https://skyatlas.com/
