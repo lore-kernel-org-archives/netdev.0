@@ -1,54 +1,27 @@
-From: "Chickles, Derek" <Derek.Chickles@caviumnetworks.com>
-Subject: RE: [PATCH net-next v4] Add support of Cavium Liquidio ethernet
- adapters
-Date: Fri, 6 Feb 2015 20:28:20 +0000
-Message-ID: <BY2PR07MB4869D030A180D0147F3580AFE380@BY2PR07MB486.namprd07.prod.outlook.com>
-References: <BY2PR07MB486D1ABE6E149FC2FE06217FE680@BY2PR07MB486.namprd07.prod.outlook.com>
-	<1422671378-1300-1-git-send-email-rvatsavayi@caviumnetworks.com>
- <20150202.190049.1051229698764700160.davem@davemloft.net>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: panic on boot with latest net-next
+Date: Fri, 6 Feb 2015 22:10:28 +0000
+Message-ID: <20150206221028.GA13706@casper.infradead.org>
+References: <54D52BD6.2080109@akamai.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Burla, Satananda" <Satananda.Burla@caviumnetworks.com>,
-	"Manlunas, Felix" <Felix.Manlunas@caviumnetworks.com>,
-	"Vatsavayi, Raghu" <Raghu.Vatsavayi@caviumnetworks.com>
-To: David Miller <davem@davemloft.net>,
-	"Vatsavayi, Raghu" <Raghu.Vatsavayi@caviumnetworks.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
+To: Josh Hunt <johunt@akamai.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1bon0094.outbound.protection.outlook.com ([157.56.111.94]:14592
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751116AbbBFWAh convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Feb 2015 17:00:37 -0500
-In-Reply-To: <20150202.190049.1051229698764700160.davem@davemloft.net>
-Content-Language: en-US
+Received: from casper.infradead.org ([85.118.1.10]:36375 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751469AbbBFWKc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Feb 2015 17:10:32 -0500
+Content-Disposition: inline
+In-Reply-To: <54D52BD6.2080109@akamai.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Monday, February 02, 2015 7:01 PM
-> >  create mode 100644
-> drivers/net/ethernet/cavium/liquidio/cn66xx_device.c
->  ...
-> >  create mode 100644
-> drivers/net/ethernet/cavium/liquidio/cn68xx_device.c
-> 
-> These two file have several functions which are nearly identical.
-> 
-> Especially the device init register programming sequence.
-> 
-> Please consolidate the common code some more.
-> 
-> THanks.
+On 02/06/15 at 03:02pm, Josh Hunt wrote:
+> I'm hitting the following crash on boot with the latest net-next
+> (2ca292d968ef20cb04f31192d1f626bd8d782960):
 
-Hi,
+Thanks for the report.
 
-We've now consolidated 66xx and 68xx device init and access functions as
-well as ethtool-related redundant stuff. This will come in a new patch
-coming shortly.
-
-Is there anything else you'd like to see us address?
-
-Thanks,
-Derek
+This should be fixed by the patches posted in the thread:
+[PATCH 0/6 v2 net-next] rhashtable fixes
