@@ -1,97 +1,46 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 00/16][pull request] Intel Wired LAN Driver Updates 2015-02-05
-Date: Thu,  5 Feb 2015 20:31:09 -0800
-Message-ID: <1423197085-32270-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
+Subject: [net-next v2 04/16] ixgbe: allow multiple queues in SRIOV mode
+Date: Thu,  5 Feb 2015 20:31:13 -0800
+Message-ID: <1423197085-32270-5-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1423197085-32270-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	kernel-team@fb.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:63300 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:31696 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753317AbbBFEbh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Feb 2015 23:31:37 -0500
+	id S1754595AbbBFEbi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Feb 2015 23:31:38 -0500
+In-Reply-To: <1423197085-32270-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to fm10k, ixgbe and ixgbevf.
+From: Emil Tantilov <emil.s.tantilov@intel.com>
 
-Matthew fixes an issue where fm10k does not properly drop the upper-most four
-bits on of the VLAN ID due to type promotion, so resolve the issue by not
-masking off the bits, but by throwing an error if the VLAN ID is out-of-bounds.
-Then cleans up two cases where variables were not being used, but were
-being set, so just remove the unused variables.
+ixgbe_set_sriov_queues() has the logic to allow multiple queues, this patch
+just removes the limitation.
 
-Don cleans up sparse errors in the x550 family file for ixgbe.  Fixed up
-a redundant setting of the default value for set_rxpba, which was done
-twice accidentally.  Cleaned up the probe routine to remove a redundant
-attempt to identify the PHY, which could lead to a panic on x550.  Added
-support for VXLAN receive checksum offload in x550 hardware.  Added the
-Ethertype Anti-spoofing feature for affected devices.
+Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
+Tested-by: Krishneil Singh <Krishneil.k.singh@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c | 3 ---
+ 1 file changed, 3 deletions(-)
 
-Emil enables ixgbe and ixgbevf to allow multiple queues in SRIOV mode.
-Adds RSS support for x550 per VF.  Fixed up a couple of issues introduced
-in commit 2b509c0cd292 ("ixgbe: cleanup ixgbe_ndo_set_vf_vlan"), fixed
-setting of the VLAN inside ixgbe_enable_port_vlan() and disable the
-"hide VLAN" bit in PFQDE when port VLAN is disabled.  Cleaned up the
-setting of vlan_features by enabling all features at once.  Fixed the
-ordering of the shutdown patch so that we attempt to shutdown the rings
-more gracefully.  We shutdown the main Rx filter in the case of Rx and we
-set the carrier_off state in the case of Tx so that packets stop being
-delivered from outside the driver.  Then we shutdown interrupts and NAPI,
-then finally stop the rings from performing DMA and clean them.  Added
-code to allow for Tx hang checking to provide more robust debug info in
-the event of a transmit unit hang in ixgbevf.  Cleaned up ixgbevf logic
-dealing with link up/down by breaking down the link detection and up/down
-events into separate functions, similar to how these events are handled
-in other drivers.  Combined the ixgbevf reset and watchdog tasks into a
-single task so that we can avoid multiple schedules of the reset task when
-we have a reset event needed due to either the mailbox going down or
-transmit packets being present on a link down.
-
-v2: Fixed up patch #03 of the series to remove the variable type change
-    based on feedback from David Laight
-
-The following are changes since commit 2ca292d968ef20cb04f31192d1f626bd8d782960:
-  vxge: fix sparse warning
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
-
-Don Skidmore (5):
-  ixgbe: cleanup sparse errors in new ixgbe_x550.c file
-  ixgbe: cleanup redundant default method set_rxpba
-  ixgbe: Cleanup probe to remove redundant attempt to ID PHY
-  ixgbe: add VXLAN offload support for X550 devices
-  ixgbe: add Tx anti spoofing support
-
-Emil Tantilov (9):
-  ixgbe: allow multiple queues in SRIOV mode
-  ixgbevf: enable multiple queue support
-  ixgbevf: add RSS support for X550
-  ixgbe: fix setting port VLAN
-  ixgbevf: set vlan_features in a single write instead of several ORs
-  ixgbevf: Fix ordering of shutdown to correctly disable Rx and Tx
-  ixgbevf: Add code to check for Tx hang
-  ixgbevf: rewrite watchdog task to function similar to igbvf
-  ixgbevf: combine all of the tasks into a single service task
-
-Matthew Vick (2):
-  fm10k: Validate VLAN ID in fm10k_update_xc_addr_pf
-  fm10k: Resolve compile warnings with W=1
-
- drivers/net/ethernet/intel/Kconfig                |  11 +
- drivers/net/ethernet/intel/fm10k/fm10k_mbx.c      |   5 +-
- drivers/net/ethernet/intel/fm10k/fm10k_pf.c       |   7 +-
- drivers/net/ethernet/intel/fm10k/fm10k_ptp.c      |   3 -
- drivers/net/ethernet/intel/ixgbe/ixgbe.h          |   3 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c     | 112 ++++-
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c    |  16 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h     |  12 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c     |   3 -
- drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c     |  90 ++--
- drivers/net/ethernet/intel/ixgbevf/ixgbevf.h      |  36 +-
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 495 +++++++++++++++-------
- drivers/net/ethernet/intel/ixgbevf/regs.h         |  10 +
- 13 files changed, 584 insertions(+), 219 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+index c76ba90..a82a36b 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+@@ -101,9 +101,6 @@ static int __ixgbe_enable_sriov(struct ixgbe_adapter *adapter)
+ 			adapter->dcb_cfg.num_tcs.pfc_tcs = 1;
+ 		}
+ 
+-		/* We do not support RSS w/ SR-IOV */
+-		adapter->ring_feature[RING_F_RSS].limit = 1;
+-
+ 		/* Disable RSC when in SR-IOV mode */
+ 		adapter->flags2 &= ~(IXGBE_FLAG2_RSC_CAPABLE |
+ 				     IXGBE_FLAG2_RSC_ENABLED);
 -- 
 1.9.3
