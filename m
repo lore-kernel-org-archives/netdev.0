@@ -1,54 +1,243 @@
-From: David Ahern <dsahern@gmail.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
 Subject: Re: [RFC PATCH 00/29] net: VRF support
-Date: Thu, 05 Feb 2015 18:32:22 -0700
-Message-ID: <54D419A6.1030902@gmail.com>
-References: <1423100070-31848-1-git-send-email-dsahern@gmail.com> <54D373B4.3050603@6wind.com>
+Date: Thu, 5 Feb 2015 17:33:34 -0800
+Message-ID: <20150205173334.08248382@uryu.home.lan>
+References: <1423100070-31848-1-git-send-email-dsahern@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: ebiederm@xmission.com
-To: nicolas.dichtel@6wind.com, netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, ebiederm@xmission.com
+To: David Ahern <dsahern@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f180.google.com ([209.85.213.180]:50217 "EHLO
-	mail-ig0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752782AbbBFBcd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Feb 2015 20:32:33 -0500
-Received: by mail-ig0-f180.google.com with SMTP id b16so4025210igk.1
-        for <netdev@vger.kernel.org>; Thu, 05 Feb 2015 17:32:32 -0800 (PST)
-In-Reply-To: <54D373B4.3050603@6wind.com>
+Received: from mail-pd0-f171.google.com ([209.85.192.171]:46293 "EHLO
+	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753747AbbBFBdh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Feb 2015 20:33:37 -0500
+Received: by pdjz10 with SMTP id z10so11295258pdj.13
+        for <netdev@vger.kernel.org>; Thu, 05 Feb 2015 17:33:37 -0800 (PST)
+In-Reply-To: <1423100070-31848-1-git-send-email-dsahern@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2/5/15 6:44 AM, Nicolas Dichtel wrote:
-> Le 05/02/2015 02:34, David Ahern a =C3=A9crit :
-> [snip]
->> This is accomplished by enhancing the current namespace checks to a
->> broader network context that is both a namepsace and a VRF id. The V=
-RF
->> id is a tag applied to relevant structures, an integer between 1 and=
- 4095
->> which allows for 4095 VRFs (could have 0 be the default VRF and then=
- the
->> range is 0-4095 =3D 4096s VRFs). (The limitation is arguably artific=
-ial. It
->> is based on the genid scheme for versioning networking data which is=
- a
->> 32-bit integer. The VRF id is the lower 12 bits of the genid's.)
-> Would it be possible to avoid this artificial limit?
-> There could be scenarii with more than 4096 vrf.
+On Wed,  4 Feb 2015 18:34:01 -0700
+David Ahern <dsahern@gmail.com> wrote:
 
-As I recall the genid was the only reason to put a limit on it. I know=20
-of one product with a higher limit (16k I believe), but I figured this=20
-was a reasonable start point for the discussion.
+> Kernel patches are also available here:
+>     https://github.com/dsahern/linux.git vrf-3.19
+> 
+> iproute2 patches are also available here:
+>     https://github.com/dsahern/iproute2 vrf-3.19
+> 
+> 
+> Background
+> ----------
+> The concept of VRFs (Virtual Routing and Forwarding) has been around for over
+> 15 years. Support for VRFs in the Linux kernel has been an often requested
+> feature for almost as long. For a while support was available via an out of
+> tree patch [1]. Since network namespaces came along, the response to queries
+> about VRF support for Linux was 'use namespaces'. But as mentioned previously
+> [2] network namespaces are not a good match for VRFs. Of the list of problems
+> noted the big one is that namespaces do not scale efficiently to the number
+> of VRFs supported by networking gear (> 1000 VRFs). Networking vendors that
+> want to use Linux as the OS have to carry custom solutions to this problem --
+> be it userspace networking stacks, extensive kernel patches (to add VRF
+> support or bend the implementation of namespaces), and/or patches to many
+> open source components. The recent addition of switchdev support in the
+> kernel suggests that people expect the use of Linux as a switch networking
+> OS to increase. Hopefully the time is right to re-open the discussion on a
+> salable VRF implementation for the Linux kernel.
+> 
+> The intent of this RFC is to get feedback on the overall idea - namely VRFs
+> as integer id and the nesting of VRFs within a namespace. This set includes
+> changes only to core IPv4 code which shows the concept; changes to the rest
+> of the network stack are fairly repetitive.
+> 
+> This patch set has a number of similarities to the original VRF patch - most
+> notably VRF ids as an integer index and plumbing through iproute2 and
+> netlink. But this set is really a complete re-implementation of the feature,
+> integrating VRF within a namespace and leveraging existing support for
+> network namespaces.
+> 
+> Design
+> ------
+> Namespaces provide excellent separation of the networking stack from the
+> netdevices and up. The intent of VRFs is to provide an additional,
+> logical separation at the L3 layer within a namespace.
+> 
+>    +----------------------------------------------------------+
+>    | Namespace foo                                            |
+>    |                         +---------------+                |
+>    |          +------+       | L3/L4 service |                |
+>    |          | lldp |       |   (VRF any)   |                |
+>    |          +------+       +---------------+                |
+>    |                                                          |
+>    |                             +-------------------------+  |
+>    |                             | VRF M                   |  |
+>    |  +---------------------+  +-------------------------+ |  |
+>    |  | VRF 1 (default)     |  | VRF N                   | |  |
+>    |  |  +---------------+  |  |    +---------------+    | |  |
+>    |  |  | L3/L4 service |  |  |    | L3/L4 service |    | |  |
+>    |  |  | (VRF unaware) |  |  |    | (VRF unaware) |    | |  |
+>    |  |  +---------------+  |  |    +---------------+    | |  |
+>    |  |                     |  |                         | |  |
+>    |  |+-----+ +----------+ |  |  +-----+ +----------+   | |  |
+>    |  || FIB | | neighbor | |  |  | FIB | | neighbor |   | |  |
+>    |  |+-----+ +----------+ |  |  +-----+ +----------+   | |  |
+>    |  |                     |  |                         |-+  |
+>    |  | {dev 1}  {dev 2}    |  | {dev 3} {dev 4} {dev 5} |    |
+>    |  +---------------------+  +-------------------------+    |
+>    +----------------------------------------------------------+
+> 
+> This is accomplished by enhancing the current namespace checks to a
+> broader network context that is both a namepsace and a VRF id. The VRF
+> id is a tag applied to relevant structures, an integer between 1 and 4095
+> which allows for 4095 VRFs (could have 0 be the default VRF and then the
+> range is 0-4095 = 4096s VRFs). (The limitation is arguably artificial. It
+> is based on the genid scheme for versioning networking data which is a
+> 32-bit integer. The VRF id is the lower 12 bits of the genid's.)
+> 
+> Netdevices, sk_buffs, sockets, and tasks are all tagged with a VRF id.
+> Network lookups (devices, sockets, addresses, routes, neighbors) require a
+> match of both network namespace and VRF id (or the special 'vrf any' tag;
+> more on that later).
+> 
+> Beyond the 4-byte tag in various data structures, there are no resources
+> allocated to a VRF so there is no need to create or destroy a VRF which is
+> in-line with the concept of keeping it lightweight for scalability. The
+> trade-off is that VRFs use the the same sysctl settings as the namespace
+> they are part of and, for example, MIB counters.
+> 
+> The VRF id of tasks defaults to 1 and is inherited parent to child. It can
+> be read via the file '/proc/<pid>/vrf' and can be changed anytime by writing
+> to this file (if preferred this can be made a prctl to change the VRF id).
+> This allows services to be launched in a VRF context using ip, similar to
+> what is done for network namespaces.
+>     e.g., ip vrf exec 99 /usr/sbin/sshd
+> 
+> (or a simpler chvrf alias/command can be used to just write the VRF id
+> to the proc file.)
+> 
+> The task's VRF id also affects viewing and modifying network configuration.
+> For example, 'ip addr show', 'ip route ls', 'ifconfig', 'arp -n', etc, only
+> show network data for the VRF associated with the task's VRF id; devices
+> are at the L2 layer so a command listing devices is not impacted by VRF id.
+> 
+> When a socket is created the VRF id is taken from the task. Socket-vrf
+> association for non-connected sockets can be changed using a setsockopt
+> (e.g., create a socket then change VRF id prior to calling bind or connect).
+> 
+> Network devices belong to a single VRF context which defaults to VRF 1.
+> They can be assigned to another VRF using IFLA_VRF attribute in link
+> messages. Similarly the VRF assignment is returned in the IFLA_VRF
+> attribute. The ip command has been modified to display the VRF id of a
+> device. L2 applications like lldp are not VRF aware and still work through
+> through all network devices within the namespace.
+> 
+> On RX skbs get their VRF context from the netdevice the packet is received
+> on. For TX the VRF context for an skb is taken from the socket. The
+> intention is for L3/raw sockets to be able to set the VRF context for a
+> packet TX using cmsg (not coded in this patch set).
+> 
+> VRF aware apps (e.g., L3 VPNs) can have sockets in multiple VRFs for
+> forwarding packets.
+> 
+> The special 'ANY VRF' context allows a single instance of a daemon to
+> provide a service across all VRFs.
+>     e.g., ip vrf exec any /usr/sbin/sshd 
+> 
+> The 'any' context applies to listen sockets only; connected sockets are in
+> a VRF context. Child sockets accepted by the daemon acquire the VRF context
+> of the network device the connection originated on.
+> 
+> The 'ANY VRF' context can also be used to display all addresses, routes
+> or neighbors in the kernel cache. That is, 'ip addr show', 'ip route ls',
+> 'ifconfig', 'arp -n', etc, show all network data for the namespace.
+> 
+> 
+> About this Patch Set
+> --------------------
+> This is not a complete conversion of the networking stack, only a small
+> sampling to test the waters. Only changes are to core IPv4 code [2] which
+> is sufficient to illustrate the fundamental concept. Changes from 
+> struct net to net_ctx are very repetitive.
+> 
+> I'm sure there are a lot of oversights and bugs, but the intent here is
+> to solicit feedback on the overall idea.
+> 
+> 
+> Examples
+> --------
+> To illustrate the VRF patches consider a system with 18 NICs:
+> - eth0, eth17 are in default namespace (e.g., management namespace)
+> 
+> - eth1 - eth8 are in group1 namespace
+>   - eth1 - eth4 are in VRF 11
+>   - eth5 - eth8 are in VRF 13
+> 
+> - eth9 - eth16 are in group2 namespace
+>   - eth9 - eth12 are in VRF 21
+>   - eth13 - eth16 are in VRF 23
+> 
+> - Addresses assigned to each interface:
+>   - eth1: 1.1.1.1/24
+>   - eth2: 2.2.2.1/24
+>   - eth3: 3.3.3.1/24
+>   - eth4: 4.4.4.1/24
+>   - eth5: 1.1.1.1/24 (not a typo, duplicate address in different vrfs)
+>   - eth6: 6.6.6.1/24
+>   - eth7: 7.7.7.1/24
+>   - eth8: 8.8.8.1/24
+> 
+> - openlldpd is started in each namespace
+> 
+> 1. device list is VRF agnostic
+>    - ifconfig -a, ip link show, /proc/net/dev
+>      --> default namespace shows only eth0 and eth17
+>      --> group1 namespace shows only eth1 - eth8
+>      --> group2 namespace shows only eth9 - eth16
+>          - ip shows vrf assignment of each link
+> 
+>     3: eth1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 vrf 11 qdisc pfifo_fast state UP mode DEFAULT group default qlen 1000
+>         link/ether 02:ab:cd:02:00:01 brd ff:ff:ff:ff:ff:ff
+> 
+> 2. address, route, neighbor list is VRF aware
+>    - ifconfig, ip addr show, ip route ls, /proc/net/route
+>      --> shows only addresses for VRF id of task unless id is 'any'
+> 
+>    in VRF 1:
+>    ifconfig eth1
+>    eth1: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+>         ether 02:ab:cd:02:00:01  txqueuelen 1000  (Ethernet)
+>    ...
+> 
+>    No addresses are shown. But if the command is run in VRF 11 or VRF 'any' 
+>      ip vrf exec 11 ip addr show dev eth1
+>      3: eth1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 vrf 11 qdisc pfifo_fast state UP group default qlen 1000
+>         link/ether 02:ab:cd:02:00:01 brd ff:ff:ff:ff:ff:ff
+>         inet 1.1.1.1/24 brd 1.1.1.255 scope global eth1
+>            valid_lft forever preferred_lft forever
+> 
+> 3. start ssh in group1 namespace
+>    ip netns exec group1 ip vrf exec 11 /usr/sbin/sshd -d
+>    ssh to 1.1.1.1 via eth1
+> 
+>    ip netns exec group1 ip vrf exec 13 /usr/sbin/sshd -d
+>    ssh to 1.1.1.1 via eth5
+>    --> same namespace but different VRFs
+> 
+> 4. One ssh instance handles VRFs in group1 namespace
+>    ip netns exec group1 ip vrf exec any /usr/sbin/sshd
+> 
+>    --> ssh to any address in the namespace works
+> 
+> References
+> ----------
+> [1] http://sourceforge.net/projects/linux-vrf
+> 
+> [2] http://www.spinics.net/lists/netdev/msg298368.html
+> 
+> [3] To build only enable core ipv4 code. Disable IPv6, netfilter, ipsec, etc.
 
->
-> Do you plan to have a way to dump or monitor VRF via netlink?
-
-What do you mean? There is no creation / deletion event. Are you=20
-referring to monitoring device changes -- device moved from one network=
-=20
-context (namespace, vrf) to another?
-
-The VRF id can be added as an attribute to all relevant netlink=20
-notifications.
+It is still not clear how adding another level of abstraction
+solves the scaling problem. Is it just because you can have one application
+connect to multiple VRF's? so you don't need  N routing daemons?
