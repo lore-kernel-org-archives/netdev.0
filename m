@@ -1,53 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] rhashtable: Fix remove logic to avoid cross
- references between buckets
-Date: Fri, 06 Feb 2015 15:20:18 -0800 (PST)
-Message-ID: <20150206.152018.832752279014053975.davem@davemloft.net>
-References: <20150205101954.GA24388@casper.infradead.org>
-	<54D42892.3030808@windriver.com>
-	<20150206160843.GA31371@casper.infradead.org>
+From: Josh Hunt <johunt@akamai.com>
+Subject: Re: panic on boot with latest net-next
+Date: Fri, 06 Feb 2015 17:42:05 -0600
+Message-ID: <54D5514D.4010204@akamai.com>
+References: <54D52BD6.2080109@akamai.com> <20150206221028.GA13706@casper.infradead.org> <54D53C11.1000208@akamai.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: ying.xue@windriver.com, netdev@vger.kernel.org,
-	herbert@gondor.apana.org.au
-To: tgraf@suug.ch
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58245 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752644AbbBFXUT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Feb 2015 18:20:19 -0500
-In-Reply-To: <20150206160843.GA31371@casper.infradead.org>
+Received: from prod-mail-xrelay07.akamai.com ([72.246.2.115]:46230 "EHLO
+	prod-mail-xrelay07.akamai.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751566AbbBFXmG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Feb 2015 18:42:06 -0500
+In-Reply-To: <54D53C11.1000208@akamai.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Thomas Graf <tgraf@suug.ch>
-Date: Fri, 6 Feb 2015 16:08:43 +0000
+On 02/06/2015 04:11 PM, Josh Hunt wrote:
+> On 02/06/2015 04:10 PM, Thomas Graf wrote:
+>> On 02/06/15 at 03:02pm, Josh Hunt wrote:
+>>> I'm hitting the following crash on boot with the latest net-next
+>>> (2ca292d968ef20cb04f31192d1f626bd8d782960):
+>>
+>> Thanks for the report.
+>>
+>> This should be fixed by the patches posted in the thread:
+>> [PATCH 0/6 v2 net-next] rhashtable fixes
+>
+> Thanks. I will apply those and see if it resolves my issue.
 
-> The remove logic properly searched the remaining chain for a matching
-> entry with an identical hash but it did this while searching from both
-> the old and new table. Instead in order to not leave stale references
-> behind we need to:
-> 
->  1. When growing and searching from the new table:
->     Search remaining chain for entry with same hash to avoid having
->     the new table directly point to a entry with a different hash.
-> 
->  2. When shrinking and searching from the old table:
->     Check if the element after the removed would create a cross
->     reference and avoid it if so.
-> 
-> These bugs were present from the beginning in nft_hash.
-> 
-> Also, both insert functions calculated the hash based on the mask of
-> the new table. This worked while growing. Wwhile shrinking, the mask
-> of the inew table is smaller than the mask of the old table. This lead
-> to a bit not being taken into account when selecting the bucket lock
-> and thus caused the wrong bucket to be locked eventually.
-> 
-> Fixes: 7e1e77636e36 ("lib: Resizable, Scalable, Concurrent Hash Table")
-> Fixes: 97defe1ecf86 ("rhashtable: Per bucket locks & deferred expansion/shrinking")
-> Reported-by: Ying Xue <ying.xue@windriver.com>
-> Signed-off-by: Thomas Graf <tgraf@suug.ch>
+Applying those fixed my problem. I also just pulled the latest net-next 
+with this series applied and that works as well.
 
-Applied.
+Thanks
+Josh
