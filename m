@@ -1,67 +1,124 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: Re: [RFC PATCH 25/29] net: vrf: Handle VRF any context
-Date: Thu, 05 Feb 2015 18:23:18 -0700
-Message-ID: <54D41786.6060507@gmail.com>
-References: <1423100070-31848-1-git-send-email-dsahern@gmail.com> <1423100070-31848-26-git-send-email-dsahern@gmail.com> <54D3742E.9020607@6wind.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH] ixgbe: fix sparse warnings
+Date: Thu, 05 Feb 2015 17:30:44 -0800
+Message-ID: <1423186244.2589.89.camel@jtkirshe-mobl>
+References: <1423146452-9379-1-git-send-email-prabhakar.csengg@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: ebiederm@xmission.com
-To: nicolas.dichtel@6wind.com, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f171.google.com ([209.85.213.171]:63429 "EHLO
-	mail-ig0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752782AbbBFBXU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Feb 2015 20:23:20 -0500
-Received: by mail-ig0-f171.google.com with SMTP id h15so3793808igd.4
-        for <netdev@vger.kernel.org>; Thu, 05 Feb 2015 17:23:19 -0800 (PST)
-In-Reply-To: <54D3742E.9020607@6wind.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-FnpGAGPnQXc4+J3GZEUF"
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Bruce Allan <bruce.w.allan@intel.com>,
+	Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	Greg Rose <gregory.v.rose@intel.com>,
+	Matthew Vick <matthew.vick@intel.com>,
+	John Ronciak <john.ronciak@intel.com>,
+	Mitch Williams <mitch.a.williams@intel.com>,
+	Linux NICS <linux.nics@intel.com>,
+	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Lad Prabhakar <prabhakar.csengg@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1423146452-9379-1-git-send-email-prabhakar.csengg@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 2/5/15 6:46 AM, Nicolas Dichtel wrote:
-> Le 05/02/2015 02:34, David Ahern a =C3=A9crit :
->> VRF any context applies only to tasks to and sockets. Devices are
->> associated with a single VRF, and skb's by extension are connected t=
-o
->> a single VRF.
->>
->> Listen sockets and unconnected sockets can be opened in a "VRF any"
->> context allowing a single daemon to provide service across all VRFs
->> in a namespace. Connected sockets must be in a specific vrf context.
->> Accepted sockets acquire the VRF context from the device the packet
->> enters (via the skb).
->>
->> "VRF any" context is also useful for tasks wanting to view L3/L4
->> data for all VRFs.
->>
->> Signed-off-by: David Ahern <dsahern@gmail.com>
->> ---
-> [snip]
->> +static inline int neigh_parms_net_ctx_eq_any(const struct neigh_par=
-ms
->> *parms,
->> +                         const struct net_ctx *net_ctx)
->> +{
->> +#ifdef CONFIG_NET_NS
->> +    if (net_eq(neigh_parms_net(parms), net_ctx->net) &&
->> +        (vrf_eq(neigh_parms_vrf(parms), net_ctx->vrf) ||
->> +         vrf_is_any(net_ctx->vrf))) {
->> +        return 1;
->> +    }
->> +
->> +    return 0;
->> +#else
->> +    return 1;
->> +#endif
-> If I understand well, the way the patch is done, VRF can be used only=
- if
-> CONFIG_NET_NS is enabled.
-> But if I'm not wrong, it could be independent. Am I right?
->
 
-Yes. VRF can exist without namespace. It became tedious to keep trackin=
-g=20
-the CONFIG_NET_NS for the RFC set. Would certainly do that for later=20
-versions.
+--=-FnpGAGPnQXc4+J3GZEUF
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+On Thu, 2015-02-05 at 14:27 +0000, Lad Prabhakar wrote:
+> From: "Lad, Prabhakar" <prabhakar.csengg@gmail.com>
+>=20
+> this patch fixes following sparse warnings:
+>=20
+> ixgbe_x550.c:83:5: warning: symbol 'ixgbe_init_eeprom_params_X550' was
+> not declared. Should it be static?
+> ixgbe_x550.c:113:5: warning: symbol 'ixgbe_read_iosf_sb_reg_x550' was
+> not declared. Should it be static?
+> ixgbe_x550.c:161:5: warning: symbol 'ixgbe_read_ee_hostif_data_X550'
+> was not declared. Should it be static?
+> ixgbe_x550.c:196:5: warning: symbol 'ixgbe_read_ee_hostif_buffer_X550'
+> was not declared. Should it be static?
+> ixgbe_x550.c:334:5: warning: symbol 'ixgbe_calc_checksum_X550' was not
+> declared. Should it be static?
+> ixgbe_x550.c:410:5: warning: symbol 'ixgbe_calc_eeprom_checksum_X550'
+> was not declared. Should it be static?
+> ixgbe_x550.c:422:5: warning: symbol 'ixgbe_read_ee_hostif_X550' was
+> not declared. Should it be static?
+> ixgbe_x550.c:443:5: warning: symbol
+> 'ixgbe_validate_eeprom_checksum_X550' was not declared. Should it be
+> static?
+> ixgbe_x550.c:492:5: warning: symbol 'ixgbe_write_ee_hostif_data_X550'
+> was not declared. Should it be static?
+> ixgbe_x550.c:520:5: warning: symbol 'ixgbe_write_ee_hostif_X550' was
+> not declared. Should it be static?
+> ixgbe_x550.c:540:5: warning: symbol 'ixgbe_update_flash_X550' was not
+> declared. Should it be static?
+> ixgbe_x550.c:563:5: warning: symbol
+> 'ixgbe_update_eeprom_checksum_X550' was not declared. Should it be
+> static?
+> ixgbe_x550.c:603:5: warning: symbol
+> 'ixgbe_write_ee_hostif_buffer_X550' was not declared. Should it be
+> static?
+> ixgbe_x550.c:633:6: warning: symbol 'ixgbe_init_mac_link_ops_X550em'
+> was not declared. Should it be static?
+> ixgbe_x550.c:650:5: warning: symbol 'ixgbe_setup_sfp_modules_X550em'
+> was not declared. Should it be static?
+> ixgbe_x550.c:706:5: warning: symbol
+> 'ixgbe_get_link_capabilities_X550em' was not declared. Should it be
+> static?
+> ixgbe_x550.c:743:5: warning: symbol 'ixgbe_write_iosf_sb_reg_x550' was
+> not declared. Should it be static?
+> ixgbe_x550.c:907:5: warning: symbol 'ixgbe_setup_kx4_x550em' was not
+> declared. Should it be static?
+> ixgbe_x550.c:945:5: warning: symbol 'ixgbe_setup_kr_x550em' was not
+> declared. Should it be static?
+> ixgbe_x550.c:990:5: warning: symbol 'ixgbe_setup_internal_phy_x550em'
+> was not declared. Should it be static?
+> ixgbe_x550.c:1052:5: warning: symbol 'ixgbe_init_phy_ops_X550em' was
+> not declared. Should it be static?
+> ixgbe_x550.c:1105:23: warning: symbol 'ixgbe_get_media_type_X550em'
+> was not declared. Should it be static?
+> ixgbe_x550.c:1132:5: warning: symbol 'ixgbe_init_ext_t_x550em' was not
+> declared. Should it be static?
+> ixgbe_x550.c:1205:5: warning: symbol 'ixgbe_reset_hw_X550em' was not
+> declared. Should it be static?
+>=20
+> Signed-off-by: Lad, Prabhakar <prabhakar.csengg@gmail.com>
+> ---
+>  Found this issue on linux-next (gcc  version 4.9.2,
+>  sparse version  0.4.5-rc1)and applies on top linux-next.
+>=20
+>  drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c | 64
+> ++++++++++++++-------------
+>  1 file changed, 34 insertions(+), 30 deletions(-)
+
+Don Skidmore already has a patch to resolve these warnings in my queue.
+So I will be dropping this patch.
+
+--=-FnpGAGPnQXc4+J3GZEUF
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAABCgAGBQJU1BlEAAoJEOVv75VaS+3OpMEP/A4bclr/I2Htiu+XPRC8ywiD
+U64BGjReTK5JR8yhX9KqH3Bl3zlxMp6C/H9sXkfsiNRwR9c4jHaFAE05QxFGru2z
+AaA0xSWqQ7F2SJMRhmB3kGqj3DPIKYipHl2PyuIMV/Y3mZu9xf9OxudMoJIC2KH2
+cpWJfUM2jGBYrQFedFIix8SsMUXjwT/ew8mOSnwnXETjvoaN5tP2x21ImveVV0d9
+LcllEtaVUp+ZX02jKqZi+DXQQzETvtzHZ83g47okJWnTm42x9/UUZZQOBnzrTk8r
+dEKM6AhV9VtuOLGpt0+//FjvhHVNJ2U4xkGHh/TKj5xddLITZS8/kkD91dmyd9Kz
+P6IeTC7By8NC4vFyKUipvgo+yITbKxq/7XihfQ/CiBjKtx3ZxQ5BVBpsiuHbhihD
+LJOiTPpocG6gMrKNP3gEDCN713jB3qnBqBgoBt28LguRDSFljTNA9/8/xvRPf701
+UV6fXO0Tc/1CO3sGBp6+fJTJCpsMFaKjHgDaYs85ke6CgS0C4TzWsWcavitax+rz
+XslH8Lv1Cr8IRN9ipfL0P0R6P0dug2W9clQloPalU8Pp7RAvRTDGYC3FcujYkQE8
+7HFtMYlrh4qW3zyWT6KzJTyCflI/TVC7PD4c7IdYE0DuGPVXH4g6X3ey/4wUUtjd
+tH2t5FMozFfbq4bYMi6x
+=tX4a
+-----END PGP SIGNATURE-----
+
+--=-FnpGAGPnQXc4+J3GZEUF--
