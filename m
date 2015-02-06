@@ -1,100 +1,50 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 05/16] ixgbevf: enable multiple queue support
-Date: Thu,  5 Feb 2015 20:31:14 -0800
-Message-ID: <1423197085-32270-6-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1423197085-32270-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	kernel-team@fb.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:63300 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754606AbbBFEbj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Feb 2015 23:31:39 -0500
-In-Reply-To: <1423197085-32270-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alexander Drozdov <al.drozdov@gmail.com>
+Subject: Re: [PATCH] af_packet: don't pass empty blocks for PACKET_V3
+Date: Fri, 06 Feb 2015 07:49:36 +0300
+Message-ID: <54D447E0.6040702@gmail.com>
+References: <1423115891-3578-1-git-send-email-al.drozdov@gmail.com> <CA+FuTScA_2W+MHsZdYfoOKS==1XyogmyF_d+qUy66A5MdyO-5Q@mail.gmail.com> <474D8071-4AEC-48F4-B0DC-02D9091CF3DB@alum.mit.edu>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Al Viro <viro@zeniv.linux.org.uk>,
+	"Michael S. Tsirkin" <mst@redhat.com>,
+	Network Development <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	Dan Collins <dan@dcollins.co.nz>
+To: Guy Harris <guy@alum.mit.edu>,
+	Willem de Bruijn <willemb@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <474D8071-4AEC-48F4-B0DC-02D9091CF3DB@alum.mit.edu>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Emil Tantilov <emil.s.tantilov@intel.com>
-
-This patch enables multiple queues and RSS support for the VF.
-Maximum of 2 queues are supported due to available vectors.
-
-Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
-Tested-by: Krishneil Singh <Krishneil.k.singh@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/ixgbevf/ixgbevf.h      |  1 +
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 22 +++++++++++++++++++---
- 2 files changed, 20 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
-index 8c44ab2..65cda34 100644
---- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
-+++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
-@@ -124,6 +124,7 @@ struct ixgbevf_ring {
- 
- #define MAX_RX_QUEUES IXGBE_VF_MAX_RX_QUEUES
- #define MAX_TX_QUEUES IXGBE_VF_MAX_TX_QUEUES
-+#define IXGBEVF_MAX_RSS_QUEUES 2
- 
- #define IXGBEVF_DEFAULT_TXD   1024
- #define IXGBEVF_DEFAULT_RXD   512
-diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-index fe2e10f..92154ee 100644
---- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-+++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-@@ -1794,7 +1794,8 @@ static int ixgbevf_configure_dcb(struct ixgbevf_adapter *adapter)
- 	struct ixgbe_hw *hw = &adapter->hw;
- 	unsigned int def_q = 0;
- 	unsigned int num_tcs = 0;
--	unsigned int num_rx_queues = 1;
-+	unsigned int num_rx_queues = adapter->num_rx_queues;
-+	unsigned int num_tx_queues = adapter->num_tx_queues;
- 	int err;
- 
- 	spin_lock_bh(&adapter->mbx_lock);
-@@ -1808,6 +1809,9 @@ static int ixgbevf_configure_dcb(struct ixgbevf_adapter *adapter)
- 		return err;
- 
- 	if (num_tcs > 1) {
-+		/* we need only one Tx queue */
-+		num_tx_queues = 1;
-+
- 		/* update default Tx ring register index */
- 		adapter->tx_ring[0]->reg_idx = def_q;
- 
-@@ -1816,7 +1820,8 @@ static int ixgbevf_configure_dcb(struct ixgbevf_adapter *adapter)
- 	}
- 
- 	/* if we have a bad config abort request queue reset */
--	if (adapter->num_rx_queues != num_rx_queues) {
-+	if ((adapter->num_rx_queues != num_rx_queues) ||
-+	    (adapter->num_tx_queues != num_tx_queues)) {
- 		/* force mailbox timeout to prevent further messages */
- 		hw->mbx.timeout = 0;
- 
-@@ -2181,8 +2186,19 @@ static void ixgbevf_set_num_queues(struct ixgbevf_adapter *adapter)
- 		return;
- 
- 	/* we need as many queues as traffic classes */
--	if (num_tcs > 1)
-+	if (num_tcs > 1) {
- 		adapter->num_rx_queues = num_tcs;
-+	} else {
-+		u16 rss = min_t(u16, num_online_cpus(), IXGBEVF_MAX_RSS_QUEUES);
-+
-+		switch (hw->api_version) {
-+		case ixgbe_mbox_api_11:
-+			adapter->num_rx_queues = rss;
-+			adapter->num_tx_queues = rss;
-+		default:
-+			break;
-+		}
-+	}
- }
- 
- /**
--- 
-1.9.3
+On 06.02.2015 00:16:30 +0300 Guy Harris <guy@alum.mit.edu> wrote:
+> On Feb 5, 2015, at 12:01 PM, Willem de Bruijn <willemb@google.com> wrote:
+>
+>> On Wed, Feb 4, 2015 at 9:58 PM, Alexander Drozdov <al.drozdov@gmail.com> wrote:
+>>> Don't close an empty block on timeout. Its meaningless to
+>>> pass it to the user. Moreover, passing empty blocks wastes
+>>> CPU & buffer space increasing probability of packets
+>>> dropping on small timeouts.
+>>>
+>>> Side effect of this patch is indefinite user-space wait
+>>> in poll on idle links. But, I believe its better to set
+>>> timeout for poll(2) when needed than to get empty blocks
+>>> every millisecond when not needed.
+>> This change would break existing applications that have come
+>> to depend on the periodic signal.
+>>
+>> I don't disagree with the argument that the data ready signal
+>> should be sent only when a block is full or a timer expires and
+>> at least some data is waiting, but that is moot at this point.
+> For what it's worth, the BPF packet capture mechanism (which really needs a new name, to distinguish itself from the BPF packet filter language and its implementation(s), but I digress) has the same issue - when the timer expires, a wakeup is delivered even if there are no packets to read.
+>
+> *However*, if there are no packets available, the buffers aren't rotated, so the empty buffer is left around to be filled up with packets, rather than being made the hold buffer.
+>
+> Given that before the previous TPACKET_V3 change, wakeups were delivered when packets arrived rather than when a block was closed, presumably code using TPACKET_V3 was capable of dealing with wakeups being delivered when no new blocks had been made available to userland; could TPACKET_V3 work a bit more like BPF and deliver a wakeup when the timer expires *without* closing the empty block?
+Thank you all for your comments! I'll try to create two patches:
+1. Wakeup by timeout without closing the empty block
+2. Allow to not wakeup by timeout (the feature should be explicitly requested by a user)
