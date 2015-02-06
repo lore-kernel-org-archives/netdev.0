@@ -1,38 +1,40 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: Re: [RFC PATCH 19/29] net: vrf: Add vrf context to skb
-Date: Thu, 05 Feb 2015 23:00:29 -0700
-Message-ID: <54D4587D.5090408@gmail.com>
-References: <1423100070-31848-1-git-send-email-dsahern@gmail.com>	<1423100070-31848-20-git-send-email-dsahern@gmail.com> <878ugbwv7t.fsf@x220.int.ebiederm.org>
+From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+Subject: Re: [RFC PATCH 00/29] net: VRF support
+Date: Fri, 6 Feb 2015 08:10:46 +0200
+Message-ID: <20150206081046.415c3d50@halley>
+References: <1423100070-31848-1-git-send-email-dsahern@gmail.com>
+	<54D3F8F9.2060500@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Cc: David Ahern <dsahern@gmail.com>, netdev@vger.kernel.org,
+	ebiederm@xmission.com, Dinesh Dutt <ddutt@cumulusnetworks.com>,
+	Vipin Kumar <vipin@cumulusnetworks.com>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	hannes@stressinduktion.org, Eyal Birger <eyal.birger@gmail.com>
+To: roopa <roopa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f173.google.com ([209.85.213.173]:51542 "EHLO
-	mail-ig0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754560AbbBFGAg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Feb 2015 01:00:36 -0500
-Received: by mail-ig0-f173.google.com with SMTP id a13so5923144igq.0
-        for <netdev@vger.kernel.org>; Thu, 05 Feb 2015 22:00:35 -0800 (PST)
-In-Reply-To: <878ugbwv7t.fsf@x220.int.ebiederm.org>
+Received: from mail-we0-f180.google.com ([74.125.82.180]:53886 "EHLO
+	mail-we0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751522AbbBFGK5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Feb 2015 01:10:57 -0500
+Received: by mail-we0-f180.google.com with SMTP id m14so11677161wev.11
+        for <netdev@vger.kernel.org>; Thu, 05 Feb 2015 22:10:56 -0800 (PST)
+In-Reply-To: <54D3F8F9.2060500@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2/5/15 8:54 PM, Eric W. Biederman wrote:
-> David Ahern<dsahern@gmail.com>  writes:
->
->> >On ingress skb's inherit vrf context from the net_device. For TX skb's
->> >inherit the vrf context from the socket originating the packet. Update
->> >SKB related net_ctx macros to set vrf.
-> Nacked-by: "Eric W. Biederman"<ebiederm@xmission.com>
->
-> As I recall we had the conversation about modifying  struct sk_buff when
-> implementing network namespaces and it turns out it is a no go.  It adds
-> too much overhead.  As I recall skbs as they are on the fastpath are
-> things we want to make smaller.
->
+On Thu, 05 Feb 2015 15:12:57 -0800 roopa <roopa@cumulusnetworks.com> wrote:
+> We have been playing with ip rules to implement vrfs. And the blocker 
+> today is that we cannot bind a socket to a vrf (routing tables in this 
+> case).
 
-Ok, I will look into removing the need for this change.
+Hi Roopa,
 
-David
+One option would be using SO_MARK sockopt on that socket, and have an ip
+rule which matches this mark to point to your table.
+I don't know your exact use-cases, but you can play around with that
+idea.
+
+Regards,
+Shmulik
