@@ -1,73 +1,61 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH] i40e: fix sparse warning
-Date: Thu, 05 Feb 2015 17:52:47 -0800
-Message-ID: <1423187567.2589.90.camel@jtkirshe-mobl>
-References: <1423149195-32142-1-git-send-email-prabhakar.csengg@gmail.com>
+From: David Ahern <dsahern@gmail.com>
+Subject: Re: [RFC PATCH 00/29] net: VRF support
+Date: Thu, 05 Feb 2015 19:10:03 -0700
+Message-ID: <54D4227B.6080709@gmail.com>
+References: <1423100070-31848-1-git-send-email-dsahern@gmail.com> <20150205173334.08248382@uryu.home.lan>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-J6Z4Dl34yxPsIYbgbqYk"
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	Greg Rose <gregory.v.rose@intel.com>,
-	Matthew Vick <matthew.vick@intel.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	Mitch Williams <mitch.a.williams@intel.com>,
-	Linux NICS <linux.nics@intel.com>,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Lad Prabhakar <prabhakar.csengg@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1423149195-32142-1-git-send-email-prabhakar.csengg@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-
---=-J6Z4Dl34yxPsIYbgbqYk
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Thu, 2015-02-05 at 15:13 +0000, Lad Prabhakar wrote:
-> From: "Lad, Prabhakar" <prabhakar.csengg@gmail.com>
->=20
-> this patch fixes following sparse warning:
->=20
-> i40e_lan_hmc.c:911:24: warning: constant 0xFFFFFFFFFFFFFFFF is so big
-> it is unsigned long
->=20
-> Signed-off-by: Lad, Prabhakar <prabhakar.csengg@gmail.com>
-> ---
->  Found this issue on linux-next (gcc  version 4.8.2,
->  sparse version  0.4.5-rc1)and applies on top linux-next.
->=20
->  drivers/net/ethernet/intel/i40e/i40e_lan_hmc.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-
-I already have a fix in my queue to resolve this issue, so I am dropping
-your patch.
-
---=-J6Z4Dl34yxPsIYbgbqYk
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, ebiederm@xmission.com
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f176.google.com ([209.85.213.176]:47209 "EHLO
+	mail-ig0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751283AbbBFCKF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Feb 2015 21:10:05 -0500
+Received: by mail-ig0-f176.google.com with SMTP id hl2so4206172igb.3
+        for <netdev@vger.kernel.org>; Thu, 05 Feb 2015 18:10:04 -0800 (PST)
+In-Reply-To: <20150205173334.08248382@uryu.home.lan>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
+On 2/5/15 6:33 PM, Stephen Hemminger wrote:
+> It is still not clear how adding another level of abstraction
+> solves the scaling problem. Is it just because you can have one application
+> connect to multiple VRF's? so you don't need  N routing daemons?
+>
+>
 
-iQIcBAABCgAGBQJU1B5vAAoJEOVv75VaS+3OCyQQAItNEOETSD2OQ43IV8raMerS
-yP9WtAOdVBRPrm+g+0WCbDnp2z8jX3r2xNShZYCS48/xr3H5Ay197m7C9TFbhleG
-+cyqy+4p6X052nIGKTCGNLo9GVRlpAKR1JXbkSKDNS90lTywMKmdh622J9oCNQMw
-moqMSKtDi79nqmaGBT3NsfdOQOPNJG6TUmtYr+4rjN9MNle0No0GhcFvyQ3HtHBX
-fRYb2JquXF7quQ+ti+Q9iK2lS6qlrXeh5T2k/BEHsJ/z0M+GttEQ/KWljozMx9ES
-elOOBjh1maFt0IM3ktrRfZXAG4u3ZO7COpaL2P9v9LRW7a4+zeW2rbdiRWlitV6E
-JjjaBMrYizzL3UCo/TbTHKhzbzxMcpqoxlK/H0t+vsTnpmrQALFJVKJ/SVaK6Lt6
-60XWDUPqFTBY8PNu9SJ5vyJeS5i0xONxGvxR4TqeWR3I27SQK6m7GyA4deyz7XEG
-ucIQ3atJ4dOz1klzJDJonAC+FsU2KfPpnO2zODmZwHdmanrm1ji14AX8QTvg3VH8
-fMi/u4iGRIDyuxPxaJ/1h78Urigooqp+Qr4wQrtgL+0qMOksTJ+ts5A0npzYfJLP
-2x3vB6J/whw0CiiZR8uh4wGcEWEnyGsWRvONgdgdSrWORHD2m9JGWGwY+brR50dM
-HbSiWhMvRiDtcPWpn0U9
-=Abuh
------END PGP SIGNATURE-----
+How do you provide a service in N VRFs? "Service" can be a daemon with a 
+listen socket (e.g., bgpd, sshd) or a monitoring app (e.g., collectd, 
+snmpd). For the current namespace only paradigm the options are:
+1. replicate the process for each namespace (e.g., N instances of sshd, 
+bgpd, collectd, snmpd, etc.)
 
---=-J6Z4Dl34yxPsIYbgbqYk--
+2. a single process spawns a thread for each namespace
+
+3. a single process opens a socket in each namespace
+
+All of those options are rather heavyweight and the number of 'things' 
+is linear with the number of VRFs. When multiplied by the number of 
+services needed for a full-featured product the end result is a lot of 
+wasted resources.
+
+The idea here is to simplify things by allowing a single process to have 
+a presence / provide a service in all VRFs within a namespace without 
+the need to spawn a thread, socket or another process.
+
+For example, 1 instance of a monitoring app can still see all of the 
+netdevices in the namespace and in the VRF_ANY context can still report 
+network configuration data. VRF unaware/agnostic L3/L4 apps (e.g., sshd) 
+do not need to be modified and will be able to provide service through 
+any interface. VRF aware apps (e.g., bgpd) might require modifications 
+per the implementation of the VRF construct but they would able to 
+provide service with a single instance.
+
+Nesting VRFs within namespaces provides 2 synergistic constructs for 
+building separation within a switch -- namespaces at the device layer 
+(e.g., multiple virtual switches from a single physical switch) with 
+VRFs at the L3 layer.
+
+David
