@@ -1,69 +1,65 @@
-From: Joe Stringer <joestringer@nicira.com>
-Subject: Re: [RFC: add openvswitch actions using BPF 4/9] autoconf: support
- -with-llc options
-Date: Fri, 6 Feb 2015 10:12:49 -0800
-Message-ID: <CANr6G5x9KK-Cm1tnXW0uX-bw+4+p-sxe4=t7aSZwvs8iUGQfQQ@mail.gmail.com>
-References: <1423090163-19902-1-git-send-email-azhou@nicira.com> <1423090163-19902-5-git-send-email-azhou@nicira.com>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [PATCH net-next] openvswitch: Initialize unmasked key and uid len
+Date: Fri, 6 Feb 2015 10:21:37 -0800
+Message-ID: <CALnjE+rQALWbr+a0+d9r0RbD17Z0HYa-esYJjce=AWmXDZdESQ@mail.gmail.com>
+References: <1423158984-1674-1-git-send-email-pshelar@nicira.com>
+	<1423161437.31870.88.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: "dev@openvswitch.com" <dev@openvswitch.com>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Andy Zhou <azhou@nicira.com>
+Cc: netdev <netdev@vger.kernel.org>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Joe Stringer <joestringer@nicira.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog118.obsmtp.com ([74.125.149.244]:60214 "HELO
-	na3sys009aog118.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1758105AbbBFSNK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Feb 2015 13:13:10 -0500
-Received: by mail-we0-f173.google.com with SMTP id w55so3705073wes.4
-        for <netdev@vger.kernel.org>; Fri, 06 Feb 2015 10:13:09 -0800 (PST)
-In-Reply-To: <1423090163-19902-5-git-send-email-azhou@nicira.com>
+Received: from na3sys009aog119.obsmtp.com ([74.125.149.246]:55543 "HELO
+	na3sys009aog119.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1754002AbbBFSVi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Feb 2015 13:21:38 -0500
+Received: by mail-ig0-f175.google.com with SMTP id hn18so4556363igb.2
+        for <netdev@vger.kernel.org>; Fri, 06 Feb 2015 10:21:37 -0800 (PST)
+In-Reply-To: <1423161437.31870.88.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 4 February 2015 at 14:49, Andy Zhou <azhou@nicira.com> wrote:
-> Add a configuration option to allow specifing the LLVM backend module
-> for compiling BPF C source code into BPF instruction sets.
+On Thu, Feb 5, 2015 at 10:37 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Thu, 2015-02-05 at 09:56 -0800, Pravin B Shelar wrote:
+>> Flow alloc needs to initialize unmasked key pointer. Otherwise
+>> it can crash kernel trying to free random unmasked-key pointer.
 >
-> See INSTALL.BPF.md for usgae information.
+>> CC: Joe Stringer <joestringer@nicira.com>
+>> Reported-by: Or Gerlitz <ogerlitz@mellanox.com>
+>> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+>> ---
+>>  net/openvswitch/flow_table.c |    2 ++
+>>  1 files changed, 2 insertions(+), 0 deletions(-)
+>>
+>> diff --git a/net/openvswitch/flow_table.c b/net/openvswitch/flow_table.c
+>> index 5e57628..d58447d 100644
+>> --- a/net/openvswitch/flow_table.c
+>> +++ b/net/openvswitch/flow_table.c
+>> @@ -85,6 +85,8 @@ struct sw_flow *ovs_flow_alloc(void)
+>>
+>>       flow->sf_acts = NULL;
+>>       flow->mask = NULL;
+>> +     flow->id.unmasked_key = NULL;
+>> +     flow->id.ufid_len = 0;
+>>       flow->stats_last_writer = NUMA_NO_NODE;
 >
-> Signed-off-by: Joe Stringer <joestringer@nicira.com>
-> Signed-off-by: Andy Zhou <azhou@nicira.com>
-> ---
->  INSTALL.BPF.md | 42 ++++++++++++++++++++++++++++++++++++++++++
->  Makefile.am    |  1 +
->  acinclude.m4   | 16 ++++++++++++++++
->  configure.ac   |  2 ++
->  4 files changed, 61 insertions(+)
->  create mode 100644 INSTALL.BPF.md
+> At this stage, one has to wonder why not using kmem_cache_zalloc()
+> and reduce icache pressure right ?
 >
-> diff --git a/INSTALL.BPF.md b/INSTALL.BPF.md
-> new file mode 100644
-> index 0000000..bc1f5ad
-> --- /dev/null
-> +++ b/INSTALL.BPF.md
-> @@ -0,0 +1,42 @@
-> +# Dependencies
-> +
-> +- Need Clang + llvm-dev version 3.X for any (2 <= X <= 4)
-> +- http://llvm.org/apt/
-> +
-> +apt-get install libelf-dev clang-3.4 llvm-3.4-dev
-> +
-> +# Build LLVM plugin
-> +
-> +*[Upstream] git://git.kernel.org/pub/scm/linux/kernel/git/ast/bpf*
-> +
-> +git clone git://github.com/joestringer/linux
-> +NN=$PWD/linux
-> +
-> +cd $NN/tools/bpf/llvm/bld
-> +make LLVM_CONFIG=`which llvm-config-3.4`
-> +
-> +# Configure OVS to use BPF LLC
-> +
-> +OVS=/path/to/openvswitch
-> +cd $OVS
-> +./configure --with-llc=$NN/tools/bpf/llvm/bld/Debug+Asserts/bin/llc
+struct flow is still big struct, about 536 bytes. Most of the struct
+is still not cleared. I do not want to clear it then initialize it
+again. This helps in OVS flow setup performance.
 
-Naturally we'd need to update these instructions, this becomes much
-simpler if we just require clang-3.7.
+> And please please add :
+>
+> Fixes: e64457191a259 ("openvswitch: Restructure datapath.c and flow.c")
+>
+> or whatever commit was the bug origin.
+>
+ok, I will send updated patch.
+
+> Thanks
+>
+>
