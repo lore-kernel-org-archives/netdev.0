@@ -1,31 +1,37 @@
 From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [1/3] orinoco: orinoco_plx use msecs_to_jiffies for conversion
-Date: Fri,  6 Feb 2015 06:46:50 +0000 (UTC)
-Message-ID: <20150206064650.46D22140C91@smtp.codeaurora.org>
-References: <1423037261-20193-1-git-send-email-hofrat@osadl.org>
+Subject: Re: [1/2] cw1200: Delete an unnecessary check before the function
+ call "release_firmware"
+Date: Fri,  6 Feb 2015 06:49:01 +0000 (UTC)
+Message-ID: <20150206064901.1EFAE140CB9@smtp.codeaurora.org>
+References: <54D24D1F.50001@users.sourceforge.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Benoit Taine <benoit.taine@lip6.fr>,
-	Bjorn Helgaas <bhelgaas@google.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Nicholas Mc Guire <hofrat@osadl.org>
-To: Nicholas Mc Guire <hofrat@osadl.org>
+Cc: Solomon Peachy <pizza@shaftnet.org>, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>,
+	kernel-janitors@vger.kernel.org,
+	Julia Lawall <julia.lawall@lip6.fr>
+To: SF Markus Elfring <elfring@users.sourceforge.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1423037261-20193-1-git-send-email-hofrat@osadl.org>
+In-Reply-To: <54D24D1F.50001@users.sourceforge.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-> This is only an API consolidation and should make things more readable
-> it replaces var * HZ / 1000 by msecs_to_jiffies(var).
+> From: Markus Elfring <elfring@users.sourceforge.net>
+> Date: Wed, 4 Feb 2015 16:32:15 +0100
 > 
-> Signed-off-by: Nicholas Mc Guire <hofrat@osadl.org>
+> The release_firmware() function tests whether its argument is NULL and then
+> returns immediately. Thus the test around the call is not needed.
+> 
+> This issue was detected by using the Coccinelle software.
+> 
+> Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
 
-Thanks, 3 patches applied to wireless-drivers-next.git:
+Thanks, 2 patches applied to wireless-drivers-next.git:
 
-ab458cc85fa2 orinoco: orinoco_plx use msecs_to_jiffies for conversion
-3427da4597ae orinoco: orinoco_pci use msecs_to_jiffies for conversion
-c1f1f6663b3c orinoco: orinoco_tmd use msecs_to_jiffies for conversion
+df970d39b90e cw1200: Delete an unnecessary check before the function call "release_firmware"
+ee4ddad82356 cw1200: Less function calls in cw1200_load_firmware_cw1200() after error detection
 
 Kalle Valo
