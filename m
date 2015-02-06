@@ -1,301 +1,179 @@
-From: Aaron Wu <Aaron.wu@analog.com>
-Subject: [PATCH V7 1/3] bfin_can: rewrite the blackfin style of read/write to common ones
-Date: Fri, 6 Feb 2015 18:14:17 +0800
-Message-ID: <1423217659-27820-1-git-send-email-Aaron.wu@analog.com>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH V7 3/3] bfin_can: Merge header file from arch dependent
+ location
+Date: Fri, 06 Feb 2015 11:26:47 +0100
+Message-ID: <54D496E7.2000307@pengutronix.de>
+References: <1423217659-27820-1-git-send-email-Aaron.wu@analog.com> <1423217659-27820-3-git-send-email-Aaron.wu@analog.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Aaron Wu <Aaron.wu@analog.com>
-To: <wg@grandegger.com>, <mkl@pengutronix.de>,
-	<linux-can@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <linux-devel@analog.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha512;
+ protocol="application/pgp-signature";
+ boundary="gwEmSjnWAnPcQpBfaedkGchIdpvpbNDkT"
+To: Aaron Wu <Aaron.wu@analog.com>, wg@grandegger.com,
+	linux-can@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-devel@analog.com
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <1423217659-27820-3-git-send-email-Aaron.wu@analog.com>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Replace the blackfin arch dependent style of bfin_read/bfin_write with
-common readw/writew
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--gwEmSjnWAnPcQpBfaedkGchIdpvpbNDkT
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
 
-Signed-off-by: Aaron Wu <Aaron.wu@analog.com>
----
- drivers/net/can/bfin_can.c |  126 +++++++++++++++++++++-----------------------
- 1 file changed, 60 insertions(+), 66 deletions(-)
+On 02/06/2015 11:14 AM, Aaron Wu wrote:
+> Header file was in arch dependent location arch/blackfin/include/asm/bf=
+in_can.h,
+> Now move and merge the useful contents of header file into driver code,=
+ note
+> the original header file is reserved for full registers set access test=
+ by other
+> code so it survives.
+>=20
+> Signed-off-by: Aaron Wu <Aaron.wu@analog.com>
+> ---
+>  drivers/net/can/bfin_can.c |  110 ++++++++++++++++++++++++++++++++++++=
++++++++-
+>  1 file changed, 109 insertions(+), 1 deletion(-)
+>=20
+> diff --git a/drivers/net/can/bfin_can.c b/drivers/net/can/bfin_can.c
+> index 259d09a..bb1d480 100644
+> --- a/drivers/net/can/bfin_can.c
+> +++ b/drivers/net/can/bfin_can.c
+> @@ -20,13 +20,121 @@
+>  #include <linux/can/dev.h>
+>  #include <linux/can/error.h>
+> =20
+> -#include <asm/bfin_can.h>
+>  #include <asm/portmux.h>
+> =20
+>  #define DRV_NAME "bfin_can"
+>  #define BFIN_CAN_TIMEOUT 100
+>  #define TX_ECHO_SKB_MAX  1
+> =20
+> +/* transmit and receive channels */
+> +#define TRANSMIT_CHL 24
+> +#define RECEIVE_STD_CHL 0
+> +#define RECEIVE_EXT_CHL 4
+> +#define RECEIVE_RTR_CHL 8
+> +#define RECEIVE_EXT_RTR_CHL 12
+> +#define MAX_CHL_NUMBER 32
+> +
+> +/* All Blackfin system MMRs are padded to 32bits even if the register
+> + * itself is only 16bits.  So use a helper macro to streamline this
+> +*/
+> +#define __BFP(m) u16 m; u16 __pad_##m
+> +
+> +/* bfin can registers layout */
+> +struct bfin_can_mask_regs {
+> +	__BFP(aml);
+> +	__BFP(amh);
+> +};
+> +
+> +struct bfin_can_channel_regs {
+> +	/* data[0,2,4,6] -> data{0,1,2,3} while data[1,3,5,7] is padding */
+> +	u16 data[8];
+> +	__BFP(dlc);
+> +	__BFP(tsv);
+> +	__BFP(id0);
+> +	__BFP(id1);
+> +};
+> +
+> +struct bfin_can_regs {
+> +	/* global control and status registers */
+> +	__BFP(mc1);		/* offset 0x00 */
+> +	__BFP(md1);		/* offset 0x04 */
+> +	__BFP(trs1);		/* offset 0x08 */
+> +	__BFP(trr1);		/* offset 0x0c */
+> +	__BFP(ta1);		/* offset 0x10 */
+> +	__BFP(aa1);		/* offset 0x14 */
+> +	__BFP(rmp1);		/* offset 0x18 */
+> +	__BFP(rml1);		/* offset 0x1c */
+> +	__BFP(mbtif1);		/* offset 0x20 */
+> +	__BFP(mbrif1);		/* offset 0x24 */
+> +	__BFP(mbim1);		/* offset 0x28 */
+> +	__BFP(rfh1);		/* offset 0x2c */
+> +	__BFP(opss1);		/* offset 0x30 */
+> +	u32 __pad1[3];
+> +	__BFP(mc2);		/* offset 0x40 */
+> +	__BFP(md2);		/* offset 0x44 */
+> +	__BFP(trs2);		/* offset 0x48 */
+> +	__BFP(trr2);		/* offset 0x4c */
+> +	__BFP(ta2);		/* offset 0x50 */
+> +	__BFP(aa2);		/* offset 0x54 */
+> +	__BFP(rmp2);		/* offset 0x58 */
+> +	__BFP(rml2);		/* offset 0x5c */
+> +	__BFP(mbtif2);		/* offset 0x60 */
+> +	__BFP(mbrif2);		/* offset 0x64 */
+> +	__BFP(mbim2);		/* offset 0x68 */
+> +	__BFP(rfh2);		/* offset 0x6c */
+> +	__BFP(opss2);		/* offset 0x70 */
+> +	u32 __pad2[3];
+> +	__BFP(clock);		/* offset 0x80 */
+> +	__BFP(timing);		/* offset 0x84 */
+> +	__BFP(debug);		/* offset 0x88 */
+> +	__BFP(status);		/* offset 0x8c */
+> +	__BFP(cec);		/* offset 0x90 */
+> +	__BFP(gis);		/* offset 0x94 */
+> +	__BFP(gim);		/* offset 0x98 */
+> +	__BFP(gif);		/* offset 0x9c */
+> +	__BFP(control);		/* offset 0xa0 */
+> +	__BFP(intr);		/* offset 0xa4 */
+> +	__BFP(version);		/* offset 0xa8 */
+> +	__BFP(mbtd);		/* offset 0xac */
+> +	__BFP(ewr);		/* offset 0xb0 */
+> +	__BFP(esr);		/* offset 0xb4 */
+> +	u32 __pad3[2];
+> +	__BFP(ucreg);		/* offset 0xc0 */
+> +	__BFP(uccnt);		/* offset 0xc4 */
+> +	__BFP(ucrc);		/* offset 0xc8 */
+> +	__BFP(uccnf);		/* offset 0xcc */
+> +	u32 __pad4[1];
+> +	__BFP(version2);	/* offset 0xd4 */
+> +	u32 __pad5[10];
+> +
+> +	/* channel(mailbox) mask and message registers */
+> +	struct bfin_can_mask_regs msk[MAX_CHL_NUMBER];    /* offset 0x100 */
+> +	struct bfin_can_channel_regs chl[MAX_CHL_NUMBER]; /* offset 0x200 */
+> +};
+> +
+> +#undef __BFP
+> +
+> +#define SRS	0x0001  /* Software Reset */
+              ^^
 
-diff --git a/drivers/net/can/bfin_can.c b/drivers/net/can/bfin_can.c
-index 417d5099..0a5eff4 100644
---- a/drivers/net/can/bfin_can.c
-+++ b/drivers/net/can/bfin_can.c
-@@ -78,8 +78,8 @@ static int bfin_can_set_bittiming(struct net_device *dev)
- 	if (priv->can.ctrlmode & CAN_CTRLMODE_3_SAMPLES)
- 		timing |= SAM;
- 
--	bfin_write(&reg->clock, clk);
--	bfin_write(&reg->timing, timing);
-+	writew(clk, &reg->clock);
-+	writew(timing, &reg->timing);
- 
- 	netdev_info(dev, "setting CLOCK=0x%04x TIMING=0x%04x\n", clk, timing);
- 
-@@ -94,16 +94,14 @@ static void bfin_can_set_reset_mode(struct net_device *dev)
- 	int i;
- 
- 	/* disable interrupts */
--	bfin_write(&reg->mbim1, 0);
--	bfin_write(&reg->mbim2, 0);
--	bfin_write(&reg->gim, 0);
-+	writew(0, &reg->mbim1);
-+	writew(0, &reg->mbim2);
-+	writew(0, &reg->gim);
- 
- 	/* reset can and enter configuration mode */
--	bfin_write(&reg->control, SRS | CCR);
--	SSYNC();
--	bfin_write(&reg->control, CCR);
--	SSYNC();
--	while (!(bfin_read(&reg->control) & CCA)) {
-+	writew(SRS | CCR, &reg->control);
-+	writew(CCR, &reg->control);
-+	while (!(readw(&reg->control) & CCA)) {
- 		udelay(10);
- 		if (--timeout == 0) {
- 			netdev_err(dev, "fail to enter configuration mode\n");
-@@ -116,34 +114,33 @@ static void bfin_can_set_reset_mode(struct net_device *dev)
- 	 * by writing to CAN Mailbox Configuration Registers 1 and 2
- 	 * For all bits: 0 - Mailbox disabled, 1 - Mailbox enabled
- 	 */
--	bfin_write(&reg->mc1, 0);
--	bfin_write(&reg->mc2, 0);
-+	writew(0, &reg->mc1);
-+	writew(0, &reg->mc2);
- 
- 	/* Set Mailbox Direction */
--	bfin_write(&reg->md1, 0xFFFF);   /* mailbox 1-16 are RX */
--	bfin_write(&reg->md2, 0);   /* mailbox 17-32 are TX */
-+	writew(0xFFFF, &reg->md1);   /* mailbox 1-16 are RX */
-+	writew(0, &reg->md2);   /* mailbox 17-32 are TX */
- 
- 	/* RECEIVE_STD_CHL */
- 	for (i = 0; i < 2; i++) {
--		bfin_write(&reg->chl[RECEIVE_STD_CHL + i].id0, 0);
--		bfin_write(&reg->chl[RECEIVE_STD_CHL + i].id1, AME);
--		bfin_write(&reg->chl[RECEIVE_STD_CHL + i].dlc, 0);
--		bfin_write(&reg->msk[RECEIVE_STD_CHL + i].amh, 0x1FFF);
--		bfin_write(&reg->msk[RECEIVE_STD_CHL + i].aml, 0xFFFF);
-+		writew(0, &reg->chl[RECEIVE_STD_CHL + i].id0);
-+		writew(AME, &reg->chl[RECEIVE_STD_CHL + i].id1);
-+		writew(0, &reg->chl[RECEIVE_STD_CHL + i].dlc);
-+		writew(0x1FFF, &reg->msk[RECEIVE_STD_CHL + i].amh);
-+		writew(0xFFFF, &reg->msk[RECEIVE_STD_CHL + i].aml);
- 	}
- 
- 	/* RECEIVE_EXT_CHL */
- 	for (i = 0; i < 2; i++) {
--		bfin_write(&reg->chl[RECEIVE_EXT_CHL + i].id0, 0);
--		bfin_write(&reg->chl[RECEIVE_EXT_CHL + i].id1, AME | IDE);
--		bfin_write(&reg->chl[RECEIVE_EXT_CHL + i].dlc, 0);
--		bfin_write(&reg->msk[RECEIVE_EXT_CHL + i].amh, 0x1FFF);
--		bfin_write(&reg->msk[RECEIVE_EXT_CHL + i].aml, 0xFFFF);
-+		writew(0, &reg->chl[RECEIVE_EXT_CHL + i].id0);
-+		writew(AME | IDE, &reg->chl[RECEIVE_EXT_CHL + i].id1);
-+		writew(0, &reg->chl[RECEIVE_EXT_CHL + i].dlc);
-+		writew(0x1FFF, &reg->msk[RECEIVE_EXT_CHL + i].amh);
-+		writew(0xFFFF, &reg->msk[RECEIVE_EXT_CHL + i].aml);
- 	}
- 
--	bfin_write(&reg->mc2, BIT(TRANSMIT_CHL - 16));
--	bfin_write(&reg->mc1, BIT(RECEIVE_STD_CHL) + BIT(RECEIVE_EXT_CHL));
--	SSYNC();
-+	writew(BIT(TRANSMIT_CHL - 16), &reg->mc2);
-+	writew(BIT(RECEIVE_STD_CHL) + BIT(RECEIVE_EXT_CHL), &reg->mc1);
- 
- 	priv->can.state = CAN_STATE_STOPPED;
- }
-@@ -157,9 +154,9 @@ static void bfin_can_set_normal_mode(struct net_device *dev)
- 	/*
- 	 * leave configuration mode
- 	 */
--	bfin_write(&reg->control, bfin_read(&reg->control) & ~CCR);
-+	writew(readw(&reg->control) & ~CCR, &reg->control);
- 
--	while (bfin_read(&reg->status) & CCA) {
-+	while (readw(&reg->status) & CCA) {
- 		udelay(10);
- 		if (--timeout == 0) {
- 			netdev_err(dev, "fail to leave configuration mode\n");
-@@ -170,26 +167,25 @@ static void bfin_can_set_normal_mode(struct net_device *dev)
- 	/*
- 	 * clear _All_  tx and rx interrupts
- 	 */
--	bfin_write(&reg->mbtif1, 0xFFFF);
--	bfin_write(&reg->mbtif2, 0xFFFF);
--	bfin_write(&reg->mbrif1, 0xFFFF);
--	bfin_write(&reg->mbrif2, 0xFFFF);
-+	writew(0xFFFF, &reg->mbtif1);
-+	writew(0xFFFF, &reg->mbtif2);
-+	writew(0xFFFF, &reg->mbrif1);
-+	writew(0xFFFF, &reg->mbrif2);
- 
- 	/*
- 	 * clear global interrupt status register
- 	 */
--	bfin_write(&reg->gis, 0x7FF); /* overwrites with '1' */
-+	writew(0x7FF, &reg->gis); /* overwrites with '1' */
- 
- 	/*
- 	 * Initialize Interrupts
- 	 * - set bits in the mailbox interrupt mask register
- 	 * - global interrupt mask
- 	 */
--	bfin_write(&reg->mbim1, BIT(RECEIVE_STD_CHL) + BIT(RECEIVE_EXT_CHL));
--	bfin_write(&reg->mbim2, BIT(TRANSMIT_CHL - 16));
-+	writew(BIT(RECEIVE_STD_CHL) + BIT(RECEIVE_EXT_CHL), &reg->mbim1);
-+	writew(BIT(TRANSMIT_CHL - 16), &reg->mbim2);
- 
--	bfin_write(&reg->gim, EPIM | BOIM | RMLIM);
--	SSYNC();
-+	writew(EPIM | BOIM | RMLIM, &reg->gim);
- }
- 
- static void bfin_can_start(struct net_device *dev)
-@@ -226,7 +222,7 @@ static int bfin_can_get_berr_counter(const struct net_device *dev,
- 	struct bfin_can_priv *priv = netdev_priv(dev);
- 	struct bfin_can_regs __iomem *reg = priv->membase;
- 
--	u16 cec = bfin_read(&reg->cec);
-+	u16 cec = readw(&reg->cec);
- 
- 	bec->txerr = cec >> 8;
- 	bec->rxerr = cec;
-@@ -252,28 +248,28 @@ static int bfin_can_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 
- 	/* fill id */
- 	if (id & CAN_EFF_FLAG) {
--		bfin_write(&reg->chl[TRANSMIT_CHL].id0, id);
-+		writew(id, &reg->chl[TRANSMIT_CHL].id0);
- 		val = ((id & 0x1FFF0000) >> 16) | IDE;
- 	} else
- 		val = (id << 2);
- 	if (id & CAN_RTR_FLAG)
- 		val |= RTR;
--	bfin_write(&reg->chl[TRANSMIT_CHL].id1, val | AME);
-+	writew(val | AME, &reg->chl[TRANSMIT_CHL].id1);
- 
- 	/* fill payload */
- 	for (i = 0; i < 8; i += 2) {
- 		val = ((7 - i) < dlc ? (data[7 - i]) : 0) +
- 			((6 - i) < dlc ? (data[6 - i] << 8) : 0);
--		bfin_write(&reg->chl[TRANSMIT_CHL].data[i], val);
-+		writew(val, &reg->chl[TRANSMIT_CHL].data[i]);
- 	}
- 
- 	/* fill data length code */
--	bfin_write(&reg->chl[TRANSMIT_CHL].dlc, dlc);
-+	writew(dlc, &reg->chl[TRANSMIT_CHL].dlc);
- 
- 	can_put_echo_skb(skb, dev, 0);
- 
- 	/* set transmit request */
--	bfin_write(&reg->trs2, BIT(TRANSMIT_CHL - 16));
-+	writew(BIT(TRANSMIT_CHL - 16), &reg->trs2);
- 
- 	return 0;
- }
-@@ -296,26 +292,26 @@ static void bfin_can_rx(struct net_device *dev, u16 isrc)
- 	/* get id */
- 	if (isrc & BIT(RECEIVE_EXT_CHL)) {
- 		/* extended frame format (EFF) */
--		cf->can_id = ((bfin_read(&reg->chl[RECEIVE_EXT_CHL].id1)
-+		cf->can_id = ((readw(&reg->chl[RECEIVE_EXT_CHL].id1)
- 			     & 0x1FFF) << 16)
--			     + bfin_read(&reg->chl[RECEIVE_EXT_CHL].id0);
-+			     + readw(&reg->chl[RECEIVE_EXT_CHL].id0);
- 		cf->can_id |= CAN_EFF_FLAG;
- 		obj = RECEIVE_EXT_CHL;
- 	} else {
- 		/* standard frame format (SFF) */
--		cf->can_id = (bfin_read(&reg->chl[RECEIVE_STD_CHL].id1)
-+		cf->can_id = (readw(&reg->chl[RECEIVE_STD_CHL].id1)
- 			     & 0x1ffc) >> 2;
- 		obj = RECEIVE_STD_CHL;
- 	}
--	if (bfin_read(&reg->chl[obj].id1) & RTR)
-+	if (readw(&reg->chl[obj].id1) & RTR)
- 		cf->can_id |= CAN_RTR_FLAG;
- 
- 	/* get data length code */
--	cf->can_dlc = get_can_dlc(bfin_read(&reg->chl[obj].dlc) & 0xF);
-+	cf->can_dlc = get_can_dlc(readw(&reg->chl[obj].dlc) & 0xF);
- 
- 	/* get payload */
- 	for (i = 0; i < 8; i += 2) {
--		val = bfin_read(&reg->chl[obj].data[i]);
-+		val = readw(&reg->chl[obj].data[i]);
- 		cf->data[7 - i] = (7 - i) < cf->can_dlc ? val : 0;
- 		cf->data[6 - i] = (6 - i) < cf->can_dlc ? (val >> 8) : 0;
- 	}
-@@ -368,7 +364,7 @@ static int bfin_can_err(struct net_device *dev, u16 isrc, u16 status)
- 
- 	if (state != priv->can.state && (state == CAN_STATE_ERROR_WARNING ||
- 				state == CAN_STATE_ERROR_PASSIVE)) {
--		u16 cec = bfin_read(&reg->cec);
-+		u16 cec = readw(&reg->cec);
- 		u8 rxerr = cec;
- 		u8 txerr = cec >> 8;
- 
-@@ -419,23 +415,23 @@ static irqreturn_t bfin_can_interrupt(int irq, void *dev_id)
- 	struct net_device_stats *stats = &dev->stats;
- 	u16 status, isrc;
- 
--	if ((irq == priv->tx_irq) && bfin_read(&reg->mbtif2)) {
-+	if ((irq == priv->tx_irq) && readw(&reg->mbtif2)) {
- 		/* transmission complete interrupt */
--		bfin_write(&reg->mbtif2, 0xFFFF);
-+		writew(0xFFFF, &reg->mbtif2);
- 		stats->tx_packets++;
--		stats->tx_bytes += bfin_read(&reg->chl[TRANSMIT_CHL].dlc);
-+		stats->tx_bytes += readw(&reg->chl[TRANSMIT_CHL].dlc);
- 		can_get_echo_skb(dev, 0);
- 		netif_wake_queue(dev);
--	} else if ((irq == priv->rx_irq) && bfin_read(&reg->mbrif1)) {
-+	} else if ((irq == priv->rx_irq) && readw(&reg->mbrif1)) {
- 		/* receive interrupt */
--		isrc = bfin_read(&reg->mbrif1);
--		bfin_write(&reg->mbrif1, 0xFFFF);
-+		isrc = readw(&reg->mbrif1);
-+		writew(0xFFFF, &reg->mbrif1);
- 		bfin_can_rx(dev, isrc);
--	} else if ((irq == priv->err_irq) && bfin_read(&reg->gis)) {
-+	} else if ((irq == priv->err_irq) && readw(&reg->gis)) {
- 		/* error interrupt */
--		isrc = bfin_read(&reg->gis);
--		status = bfin_read(&reg->esr);
--		bfin_write(&reg->gis, 0x7FF);
-+		isrc = readw(&reg->gis);
-+		status = readw(&reg->esr);
-+		writew(0x7FF, &reg->gis);
- 		bfin_can_err(dev, isrc, status);
- 	} else {
- 		return IRQ_NONE;
-@@ -640,9 +636,8 @@ static int bfin_can_suspend(struct platform_device *pdev, pm_message_t mesg)
- 
- 	if (netif_running(dev)) {
- 		/* enter sleep mode */
--		bfin_write(&reg->control, bfin_read(&reg->control) | SMR);
--		SSYNC();
--		while (!(bfin_read(&reg->intr) & SMACK)) {
-+		writew(readw(&reg->control) | SMR, &reg->control);
-+		while (!(readw(&reg->intr) & SMACK)) {
- 			udelay(10);
- 			if (--timeout == 0) {
- 				netdev_err(dev, "fail to enter sleep mode\n");
-@@ -662,8 +657,7 @@ static int bfin_can_resume(struct platform_device *pdev)
- 
- 	if (netif_running(dev)) {
- 		/* leave sleep mode */
--		bfin_write(&reg->intr, 0);
--		SSYNC();
-+		writew(0, &reg->intr);
- 	}
- 
- 	return 0;
--- 
-1.7.9.5
+please use a single space here (and below), as in the rest of the file.
+
+Marc
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--gwEmSjnWAnPcQpBfaedkGchIdpvpbNDkT
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAEBCgAGBQJU1JbqAAoJECte4hHFiupU5p0QAKc7sr827kYDotzNLIEkgWD5
+SlYnZTH+yuBOp4SbjeylZmYo+V7Jw4LmLgZ60TAR8bFmR0tmN4BHzhY0yxQazMK9
+TAzjcecT91o/QQqEk7qQLhPOXXOlVhPCqo46Tb9VK56KaiQftKVbJ59YtWemBUyP
+3mpOlIj03g+ci7dxpbwYm+lefijGAKfrXpb3k9TJ1mRaYFpsitCQh4DOYpiT5zZK
+GuZIybggx8+fCbce1E1q+GaJDkX+pnTdMKPHAGehDxl9u4z8L/K6b2qOaZ7fpM4Y
+wUMrJdvqxk3571bgyu6yW1ParUz1PKXNnx3R5AIPnCklvWYVTUcuEYAJIbRnjcr8
+kclUoZD60pHZR5DIVj9ELiawjygaaUwUGoI1h+trBnwLCJ45rrO2XWpZ8AuZDkU6
+SErQ5USt7s9XCwzPfREelCaIKMhmFU9cMsCG4EK3CEQukl+a2gG60FljphGCN9D/
+h3Ovb4gaLyyfS0/Ci9vNmWAnBXrh1voKShC6gOl5NZB+/XHc5IBumITxZZjRl1CW
+rtKZFYEkXCCORezi7tT4pa/fDmprlR8hJcXvO0gzhZiQfYv2IjgTMWoEL63wsucO
+eF8qyQtdonLfS9fpWn2IbbgJgKiwlH6wdYr5Ot3EaJUlPTuVNjc5mWmvlbbXwd1P
+o8X1cYvgHBedhtf1iYjh
+=tJGK
+-----END PGP SIGNATURE-----
+
+--gwEmSjnWAnPcQpBfaedkGchIdpvpbNDkT--
