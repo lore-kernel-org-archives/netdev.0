@@ -1,54 +1,41 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: Re: [RFC PATCH 14/29] net: vrf: Introduce vrf header file
-Date: Thu, 05 Feb 2015 17:52:24 -0700
-Message-ID: <54D41048.4050608@gmail.com>
-References: <1423100070-31848-1-git-send-email-dsahern@gmail.com> <1423100070-31848-15-git-send-email-dsahern@gmail.com> <54D373D0.40405@6wind.com>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: [PATCH net] tcp: don't include Fast Open option in SYN-ACK on
+ pure SYN-data
+Date: Thu, 5 Feb 2015 19:58:27 -0500
+Message-ID: <CADVnQy=aOGWn2CA07KYLkbcsLB6_8-bncnLaJ+BNcQ516b0c8g@mail.gmail.com>
+References: <1423183446-15280-1-git-send-email-ycheng@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: ebiederm@xmission.com
-To: nicolas.dichtel@6wind.com, netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Netdev <netdev@vger.kernel.org>
+To: Yuchung Cheng <ycheng@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f171.google.com ([209.85.213.171]:47253 "EHLO
-	mail-ig0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751093AbbBFAwa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Feb 2015 19:52:30 -0500
-Received: by mail-ig0-f171.google.com with SMTP id h15so3514975igd.4
-        for <netdev@vger.kernel.org>; Thu, 05 Feb 2015 16:52:29 -0800 (PST)
-In-Reply-To: <54D373D0.40405@6wind.com>
+Received: from mail-qa0-f41.google.com ([209.85.216.41]:37759 "EHLO
+	mail-qa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753530AbbBFA61 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Feb 2015 19:58:27 -0500
+Received: by mail-qa0-f41.google.com with SMTP id bm13so8641091qab.0
+        for <netdev@vger.kernel.org>; Thu, 05 Feb 2015 16:58:27 -0800 (PST)
+In-Reply-To: <1423183446-15280-1-git-send-email-ycheng@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2/5/15 6:44 AM, Nicolas Dichtel wrote:
-> Le 05/02/2015 02:34, David Ahern a =C3=A9crit :
->> Defines for min and max vrf id and helpers for examining
->>
->> Signed-off-by: David Ahern <dsahern@gmail.com>
->> ---
->>   include/net/vrf.h | 36 ++++++++++++++++++++++++++++++++++++
->>   1 file changed, 36 insertions(+)
->>   create mode 100644 include/net/vrf.h
->>
->> diff --git a/include/net/vrf.h b/include/net/vrf.h
->> new file mode 100644
->> index 000000000000..67bc2e465661
->> --- /dev/null
->> +++ b/include/net/vrf.h
->> @@ -0,0 +1,36 @@
->> +#ifndef _VRF_H_
->> +#define _VRF_H_
->> +
->> +#define VRF_BITS    12
->> +#define VRF_MIN        1
->> +#define VRF_MAX        ((1 << VRF_BITS) - 1)
->> +#define VRF_MASK    VRF_MAX
->> +
->> +#define VRF_DEFAULT    1
->> +#define VRF_ANY        0xffff
-> It could be useful to expose this value to userland.
+On Thu, Feb 5, 2015 at 7:44 PM, Yuchung Cheng <ycheng@google.com> wrote:
+> If a server has enabled Fast Open and it receives a pure SYN-data
+> packet (without a Fast Open option), it won't accept the data but it
+> incorrectly returns a SYN-ACK with a Fast Open cookie and also
+> increments the SNMP stat LINUX_MIB_TCPFASTOPENPASSIVEFAIL.
+>
+> This patch makes the server include a Fast Open cookie in SYN-ACK
+> only if the SYN has some Fast Open option (i.e., when client
+> requests or presents a cookie).
+>
+> Signed-off-by: Yuchung Cheng <ycheng@google.com>
+> ---
+>  net/ipv4/tcp_fastopen.c | 13 ++++++++-----
+>  1 file changed, 8 insertions(+), 5 deletions(-)
 
-Maybe. I was thinking VRF_ANY should stay kernel side only and have a=20
-sockopt value of -1 mean VRF_ANY.
+Acked-by: Neal Cardwell <ncardwell@google.com>
 
-David
+neal
