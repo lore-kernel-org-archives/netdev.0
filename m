@@ -1,88 +1,60 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: [PATCH 3/5] virtio: Don't expose legacy net features when VIRTIO_NET_NO_LEGACY defined.
-Date: Fri,  6 Feb 2015 15:36:54 +1030
-Message-ID: <1423199216-2094-4-git-send-email-rusty@rustcorp.com.au>
-References: <1423199216-2094-1-git-send-email-rusty@rustcorp.com.au>
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "lkml" <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1423199216-2094-1-git-send-email-rusty@rustcorp.com.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: "Carlos O'Donell" <carlos@redhat.com>
+Subject: Re: [Patch net-next] ipv6: fix redefinition of in6_pktinfo and ip6_mtuinfo
+Date: Fri, 06 Feb 2015 00:29:14 -0500
+Message-ID: <54D4512A.5080809@redhat.com>
+References: <1420587932-8733-1-git-send-email-xiyou.wangcong@gmail.com> <20150108.193819.258816805892789860.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-7
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, vlee@twopensource.com
+To: David Miller <davem@davemloft.net>, xiyou.wangcong@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:56415 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750766AbbBFF3U (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Feb 2015 00:29:20 -0500
+In-Reply-To: <20150108.193819.258816805892789860.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In particular, the virtio header always has the u16 num_buffers field.
-We define a new 'struct virtio_net_modern_hdr' for this (rather than
-simply calling it 'struct virtio_net_hdr', to avoid nasty type errors
-if some parts of a project define VIRTIO_NET_NO_LEGACY and some don't.
+On 01/08/2015 10:38 PM, David Miller wrote:
+> From: Cong Wang <xiyou.wangcong@gmail.com>
+> Date: Tue,  6 Jan 2015 15:45:31 -0800
+>=20
+>> Both netinet/in.h and linux/ipv6.h define these two structs,
+>> if we include both of them, we got:
+>>
+>> 	/usr/include/linux/ipv6.h:19:8: error: redefinition of =A1struct in=
+6_pktinfo=A2
+>> 	 struct in6_pktinfo {
+>> 		^
+>> 	In file included from /usr/include/arpa/inet.h:22:0,
+>> 			 from txtimestamp.c:33:
+>> 	/usr/include/netinet/in.h:524:8: note: originally defined here
+>> 	 struct in6_pktinfo
+>> 		^
+>> 	In file included from txtimestamp.c:40:0:
+>> 	/usr/include/linux/ipv6.h:24:8: error: redefinition of =A1struct ip=
+6_mtuinfo=A2
+>> 	 struct ip6_mtuinfo {
+>> 		^
+>> 	In file included from /usr/include/arpa/inet.h:22:0,
+>> 			 from txtimestamp.c:33:
+>> 	/usr/include/netinet/in.h:531:8: note: originally defined here
+>> 	 struct ip6_mtuinfo
+>> 		^
+>> So similarly to what we did for in6_addr, we need to sync with
+>> libc header on their definitions.
+>>
+>> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+>=20
+> Applied.
+>=20
 
-Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
----
- include/uapi/linux/virtio_net.h | 30 ++++++++++++++++++++++++++++--
- 1 file changed, 28 insertions(+), 2 deletions(-)
+When does this hit mainline? I've got Cong's patch ready for glibc, but
+the usual procedure is to commit after mainline has the matching patch.
+Not that it really matters, but it's just a useful thing to be able to
+say the trickle down is linux->glibc.
 
-diff --git a/include/uapi/linux/virtio_net.h b/include/uapi/linux/virtio_net.h
-index b5f1677b291c..32754f3000e8 100644
---- a/include/uapi/linux/virtio_net.h
-+++ b/include/uapi/linux/virtio_net.h
-@@ -35,7 +35,6 @@
- #define VIRTIO_NET_F_CSUM	0	/* Host handles pkts w/ partial csum */
- #define VIRTIO_NET_F_GUEST_CSUM	1	/* Guest handles pkts w/ partial csum */
- #define VIRTIO_NET_F_MAC	5	/* Host has given MAC address. */
--#define VIRTIO_NET_F_GSO	6	/* Host handles pkts w/ any GSO type */
- #define VIRTIO_NET_F_GUEST_TSO4	7	/* Guest can handle TSOv4 in. */
- #define VIRTIO_NET_F_GUEST_TSO6	8	/* Guest can handle TSOv6 in. */
- #define VIRTIO_NET_F_GUEST_ECN	9	/* Guest can handle TSO[6] w/ ECN in. */
-@@ -56,6 +55,10 @@
- 					 * Steering */
- #define VIRTIO_NET_F_CTRL_MAC_ADDR 23	/* Set MAC address */
- 
-+#ifndef VIRTIO_NET_NO_LEGACY
-+#define VIRTIO_NET_F_GSO	6	/* Host handles pkts w/ any GSO type */
-+#endif /* VIRTIO_NET_NO_LEGACY */
-+
- #define VIRTIO_NET_S_LINK_UP	1	/* Link is up */
- #define VIRTIO_NET_S_ANNOUNCE	2	/* Announcement is needed */
- 
-@@ -71,8 +74,9 @@ struct virtio_net_config {
- 	__u16 max_virtqueue_pairs;
- } __attribute__((packed));
- 
-+#ifndef VIRTIO_NET_NO_LEGACY
- /* This header comes first in the scatter-gather list.
-- * If VIRTIO_F_ANY_LAYOUT is not negotiated, it must
-+ * For legacy virtio, if VIRTIO_F_ANY_LAYOUT is not negotiated, it must
-  * be the first element of the scatter-gather list.  If you don't
-  * specify GSO or CSUM features, you can simply ignore the header. */
- struct virtio_net_hdr {
-@@ -97,6 +101,28 @@ struct virtio_net_hdr_mrg_rxbuf {
- 	struct virtio_net_hdr hdr;
- 	__virtio16 num_buffers;	/* Number of merged rx buffers */
- };
-+#else /* ... VIRTIO_NET_NO_LEGACY */
-+/*
-+ * This header comes first in the scatter-gather list.  If you don't
-+ * specify GSO or CSUM features, you can simply ignore the header.
-+ */
-+struct virtio_net_modern_hdr {
-+#define VIRTIO_NET_HDR_F_NEEDS_CSUM	1	/* Use csum_start, csum_offset */
-+#define VIRTIO_NET_HDR_F_DATA_VALID	2	/* Csum is valid */
-+	__u8 flags;
-+#define VIRTIO_NET_HDR_GSO_NONE		0	/* Not a GSO frame */
-+#define VIRTIO_NET_HDR_GSO_TCPV4	1	/* GSO frame, IPv4 TCP (TSO) */
-+#define VIRTIO_NET_HDR_GSO_UDP		3	/* GSO frame, IPv4 UDP (UFO) */
-+#define VIRTIO_NET_HDR_GSO_TCPV6	4	/* GSO frame, IPv6 TCP */
-+#define VIRTIO_NET_HDR_GSO_ECN		0x80	/* TCP has ECN set */
-+	__u8 gso_type;
-+	__virtio16 hdr_len;	/* Ethernet + IP + tcp/udp hdrs */
-+	__virtio16 gso_size;	/* Bytes to append to hdr_len per frame */
-+	__virtio16 csum_start;	/* Position to start checksumming from */
-+	__virtio16 csum_offset;	/* Offset after that to place checksum */
-+	__virtio16 num_buffers;	/* Number of merged rx buffers */
-+};
-+#endif /* ...VIRTIO_NET_NO_LEGACY */
- 
- /*
-  * Control virtqueue data structures
--- 
-2.1.0
+Cheers,
+Carlos.
