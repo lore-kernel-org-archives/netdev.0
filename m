@@ -1,52 +1,95 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [PATCH v3] net: openvswitch: Support masked set actions.
-Date: Thu, 5 Feb 2015 19:21:36 -0800
-Message-ID: <CAEP_g=8GTWczvtC0BdnAssLZ29F5+CuAJjgyxagXmCBpnASFcQ@mail.gmail.com>
-References: <1423172449-3654-1-git-send-email-jrajahalme@nicira.com>
+From: Siva Mannem <siva.mannem.lnx@gmail.com>
+Subject: Re: [PATCH net-next] bridge: Let bridge not age 'externally' learnt
+ FDB entries, they are removed when 'external' entity notifies the aging
+Date: Fri, 6 Feb 2015 08:57:22 +0530
+Message-ID: <CA+CtxLTewFxJNH0OTCqcGb31Ov=TZMwDtz=H11My1NKY=tb9Jg@mail.gmail.com>
+References: <CA+CtxLSziWmx94_V9S-uW9=6VYg4WXsU4CERx-uovvrFOtO1dA@mail.gmail.com>
+	<54D246A7.2020502@cumulusnetworks.com>
+	<CAE4R7bCASKHmZD+tiu=ZWM9dzvTrSLsaXxgtOYLpsmOR87kcTQ@mail.gmail.com>
+	<20150204.235308.71797582017426266.davem@davemloft.net>
+	<CA+CtxLRaJ+p=y1LCgap48vqH3b4VjxKQO55Yy5cyazng4WtxPw@mail.gmail.com>
+	<CAN+pFwJQQMFmmm1f7tSPCmaSr2GE_L8Pua+Rz7tvK9CFnr63Tg@mail.gmail.com>
+	<CAE4R7bBKXHfbOz-BT1jW2=+hTi=6hZZHRUVpYUvOj1yF+XEtUw@mail.gmail.com>
+	<CAE4R7bDRHwUnt7jzPw_CzwsZfou2B2mRgZ_9t4AfRWe2Z_EtYg@mail.gmail.com>
+	<CAN+pFwKAWX+En6zK3Q94q9ejdpqz6WBvnkH=Rp3HBEAeOyNbNw@mail.gmail.com>
+	<CAE4R7bDypUjrSAned55XRpcp+iEHNkF7H_8JJy63jt+5Hd3Pzg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	"dev@openvswitch.org" <dev@openvswitch.org>
-To: Jarno Rajahalme <jrajahalme@nicira.com>
+Cc: B Viswanath <marichika4@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>,
+	Netdev <netdev@vger.kernel.org>,
+	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>
+To: Scott Feldman <sfeldma@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog113.obsmtp.com ([74.125.149.209]:54636 "HELO
-	na3sys009aog113.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752428AbbBFDV5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Feb 2015 22:21:57 -0500
-Received: by mail-qg0-f42.google.com with SMTP id z107so3549159qgd.1
-        for <netdev@vger.kernel.org>; Thu, 05 Feb 2015 19:21:57 -0800 (PST)
-In-Reply-To: <1423172449-3654-1-git-send-email-jrajahalme@nicira.com>
+Received: from mail-wg0-f46.google.com ([74.125.82.46]:40029 "EHLO
+	mail-wg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752469AbbBFD1Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Feb 2015 22:27:24 -0500
+Received: by mail-wg0-f46.google.com with SMTP id l2so11106550wgh.5
+        for <netdev@vger.kernel.org>; Thu, 05 Feb 2015 19:27:23 -0800 (PST)
+In-Reply-To: <CAE4R7bDypUjrSAned55XRpcp+iEHNkF7H_8JJy63jt+5Hd3Pzg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 5, 2015 at 1:40 PM, Jarno Rajahalme <jrajahalme@nicira.com> wrote:
-> OVS userspace already probes the openvswitch kernel module for
-> OVS_ACTION_ATTR_SET_MASKED support.  This patch adds the kernel module
-> implementation of masked set actions.
+On Fri, Feb 6, 2015 at 7:15 AM, Scott Feldman <sfeldma@gmail.com> wrote:
+> On Thu, Feb 5, 2015 at 10:31 AM, B Viswanath <marichika4@gmail.com> wrote:
+>> On 5 February 2015 at 23:25, Scott Feldman <sfeldma@gmail.com> wrote:
+>> <snip>
+>>>
+>>> CONs
+>>>
+>>> 1) Scale-ability.  The bridge driver can't keep up with ageing many
+>>> (10^5, for example) entries.
+>>> 2) Scale-ability.  Keeping the entries periodically refreshed requires
+>>> a refresh sync from
+>>> the device to the bridge driver, and the bridge driver/kernel can't keep up.
+>>> 3) With the bridge driver, the ageing settings are per-bridge, not per-port.
+>>>
+>>> Did I miss any points?
+>>
+>> There is one more
+>>
+>> 4. On links with wirespeed traffic, software ageing FDB entries
+>> independently without having the knowledge of the traffic means that
+>> CPU will ageout entries it should not. I don't know if this breaks
+>> some RFC, but it can certainly cause big packet loss.
 >
-> The existing set action sets many fields at once.  When only a subset
-> of the IP header fields, for example, should be modified, all the IP
-> fields need to be exact matched so that the other field values can be
-> copied to the set action.  A masked set action allows modification of
-> an arbitrary subset of the supported header bits without requiring the
-> rest to be matched.
->
-> Masked set action is now supported for all writeable key types, except
-> for the tunnel key.  The set tunnel action is an exception as any
-> input tunnel info is cleared before action processing starts, so there
-> is no tunnel info to mask.
->
-> The kernel module converts all (non-tunnel) set actions to masked set
-> actions.  This makes action processing more uniform, and results in
-> less branching and duplicating the action processing code.  When
-> returning actions to userspace, the fully masked set actions are
-> converted back to normal set actions.  We use a kernel internal action
-> code to be able to tell the userspace provided and converted masked
-> set actions apart.
->
-> Signed-off-by: Jarno Rajahalme <jrajahalme@nicira.com>
-> ---
-> v3: Clean up code and remove flow key transport port checks from
->     validate_set(), as suggested by Jesse Gross.
+> SW would only age out expired entries.  An entry not refreshed by HW
+> will expire.  But HW will refresh (to SW) active entries based on
+> traffic seen.  So I'm not seeing how SW will age out entries
+> prematurely.  I'm missing something.
 
-Looks good to me now.
+Hardware does not refresh(to SW) active entries based on the traffic
+seen, at least on the switches that I worked on. Even if it were to
+refresh, if the traffic is flowing at line rate(say x packets per
+sec), the refresh rate to SW is equal to x, which is very huge for cpu
+to handle.
+
+There are only two notifications to SW.
+
+1)learn notification(when packet arrives that has smac which is not in
+hardware's FDB)
+2)When the hardware ages the entry, it sends a age notification.
+
+>
+> Is there a race perhaps?  Maybe that's your point.  I think I see the
+> race.  SW has decided entry is expired and sends signal to remove
+> entry, while in the meantime HW got a hit on entry and wants to
+> refresh it.  So this would cause a service disruption if the entry was
+> removed and then re-added.  But this is a boundary condition on the
+> hairy edge of the ageing timeout window.  Does it matter in practice?
+>
+> I really want to understand your case 4, but I'm not getting
+> something.  Is there another way to explain it, by example perhaps?
+>
+>> Such a packet loss is considered bad, and is a primary reason why
+>> hardware supports ageing. Otherwise there is no reason hw needs to
+>> support it. Based on experience, I can say that it is a necessity, now
+>> even more with 10G and 40G links.
+
+
+
+-- 
+Regards,
+Siva Mannem.
