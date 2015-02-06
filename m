@@ -1,30 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] hyperv: fix sparse warnings
-Date: Thu, 05 Feb 2015 16:05:17 -0800 (PST)
-Message-ID: <20150205.160517.2179324348333657027.davem@davemloft.net>
-References: <1423148793-19610-1-git-send-email-prabhakar.csengg@gmail.com>
+Subject: Re: [PATCH] be2net: fix sparse warning
+Date: Thu, 05 Feb 2015 16:05:28 -0800 (PST)
+Message-ID: <20150205.160528.29888642619325830.davem@davemloft.net>
+References: <1423149883-4717-1-git-send-email-prabhakar.csengg@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kys@microsoft.com, haiyangz@microsoft.com,
-	devel@linuxdriverproject.org, netdev@vger.kernel.org,
+Cc: sathya.perla@emulex.com, subbu.seetharaman@emulex.com,
+	ajit.khaparde@emulex.com, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
 To: prabhakar.csengg@gmail.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1423148793-19610-1-git-send-email-prabhakar.csengg@gmail.com>
+In-Reply-To: <1423149883-4717-1-git-send-email-prabhakar.csengg@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Lad Prabhakar <prabhakar.csengg@gmail.com>
-Date: Thu,  5 Feb 2015 15:06:33 +0000
+Date: Thu,  5 Feb 2015 15:24:43 +0000
 
 > From: "Lad, Prabhakar" <prabhakar.csengg@gmail.com>
 > 
-> this patch fixes following sparse warnings:
+> this patch fixes following sparse warning:
 > 
-> netvsc.c:688:5: warning: symbol 'netvsc_copy_to_send_buf' was not declared. Should it be static?
-> rndis_filter.c:627:5: warning: symbol 'rndis_filter_set_offload_params' was not declared. Should it be static?
-> rndis_filter.c:702:5: warning: symbol 'rndis_filter_set_rss_param' was not declared. Should it be static?
+> be_cmds.c:2750:5: warning: symbol 'be_cmd_set_qos' was not declared. Should it be static?
 > 
 > Signed-off-by: Lad, Prabhakar <prabhakar.csengg@gmail.com>
 
