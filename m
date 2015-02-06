@@ -1,103 +1,150 @@
 From: Neal Cardwell <ncardwell@google.com>
-Subject: [PATCH net-next 0/4] tcp: mitigate TCP ACK loops due to out-of-window validation dupacks
-Date: Fri,  6 Feb 2015 16:04:37 -0500
-Message-ID: <1423256681-31716-1-git-send-email-ncardwell@google.com>
-Cc: netdev@vger.kernel.org, Neal Cardwell <ncardwell@google.com>
+Subject: [PATCH net-next 3/4] tcp: mitigate ACK loops for connections as tcp_sock
+Date: Fri,  6 Feb 2015 16:04:40 -0500
+Message-ID: <1423256681-31716-4-git-send-email-ncardwell@google.com>
+References: <1423256681-31716-1-git-send-email-ncardwell@google.com>
+Cc: netdev@vger.kernel.org, Neal Cardwell <ncardwell@google.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	Eric Dumazet <edumazet@google.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f177.google.com ([209.85.160.177]:54334 "EHLO
-	mail-yk0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755225AbbBFVEw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Feb 2015 16:04:52 -0500
-Received: by mail-yk0-f177.google.com with SMTP id 19so6981964ykq.8
-        for <netdev@vger.kernel.org>; Fri, 06 Feb 2015 13:04:52 -0800 (PST)
+Received: from mail-yk0-f171.google.com ([209.85.160.171]:43481 "EHLO
+	mail-yk0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754558AbbBFVFw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Feb 2015 16:05:52 -0500
+Received: by mail-yk0-f171.google.com with SMTP id 10so6993043ykt.2
+        for <netdev@vger.kernel.org>; Fri, 06 Feb 2015 13:05:52 -0800 (PST)
+In-Reply-To: <1423256681-31716-1-git-send-email-ncardwell@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch series mitigates "ack loop" DoS scenarios by rate-limiting
-outgoing duplicate ACKs sent in response to incoming "out of window"
-segments.
+Ensure that in state ESTABLISHED, where the connection is represented
+by a tcp_sock, we rate limit dupacks in response to incoming packets
+(a) with TCP timestamps that fail PAWS checks, or (b) with sequence
+numbers or ACK numbers that are out of the acceptable window.
 
-Background
------------
+We do not send a dupack in response to out-of-window packets if it has
+been less than sysctl_tcp_invalid_ratelimit (default 500ms) since we
+last sent a dupack in response to an out-of-window packet.
 
-There are several cases in which the TCP RFCs specify that a TCP
-endpoint should send a pure duplicate ACK in response to a pure
-duplicate ACK that appears to be invalid due to being "out of window":
+There is already a similar (although global) rate-limiting mechanism
+for "challenge ACKs". When deciding whether to send a challence ACK,
+we first consult the new per-connection rate limit, and then the
+global rate limit.
 
-(1) RFC 793 (section 3.9, page 69) specifies that endpoints should
-    send a duplicate ACK in response to an ACK when the incoming
-    sequence number is invalid due to being outside the receive
-    window: "If an incoming segment is not acceptable, an
-    acknowledgment should be sent in reply".
+Reported-by: Avery Fay <avery@mixpanel.com>
+Signed-off-by: Neal Cardwell <ncardwell@google.com>
+Signed-off-by: Yuchung Cheng <ycheng@google.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ include/linux/tcp.h      |  1 +
+ net/ipv4/tcp_input.c     | 29 ++++++++++++++++++++++-------
+ net/ipv4/tcp_minisocks.c |  1 +
+ 3 files changed, 24 insertions(+), 7 deletions(-)
 
-(2) RFC 793 (section 3.9, page 72) says: "If the ACK acknowledges
-    something not yet sent (SEG.ACK > SND.NXT) then send an ACK".
-
-(3) RFC 1323 (section 4.2.1, page 18) specifies that endpoints should
-    send a duplicate ACK in response to an ACK when the PAWS check for
-    the incoming timestamp value fails: "If .... SEG.TSval < TS.Recent
-    and if TS.Recent is valid ... Send an acknowledgement in reply"
-
-The problem
-------------
-
-Normally, this is not a problem. However, a buggy middlebox or
-malicious man-in-the-middle can inject a few packets into the
-conversation that advance each endpoint's notion of the current window
-(sequence, ACK, or timestamp), without either side noticing. In this
-case, from then on each side can think the other is sending invalid
-segments. Thus an infinite feedback loop of duplicate ACKs can ensue,
-as each endpoint receives a duplicate ACK, decides that it is invalid
-(due to sequence number, ACK number, or timestamp), and then sends a
-dupack in reply, which the other side decides is invalid, responding
-with a dupack... ad infinitum. This ping-pong feedback loop can happen
-at a very high rate.
-
-This phenomenon can and does happen in practice. It has been seen in
-datacenter and Internet contexts at Google, and has been documented by
-Anil Agarwal in the Nov 2013 tcpm thread "TCP mismatched sequence
-numbers issue", and Avery Fay in the Feb 2015 Linux netdev thread
-"Invalid timestamp? causing tight ack loop (hundreds of thousands of
-packets / sec)".
-
-This patch series
-------------------
-
-This patch series mitigates such ack loops by rate-limiting outgoing
-duplicate ACKs sent in response to incoming TCP packets that are for
-an existing connection but that are invalid due to any of the reasons
-mentioned above: sequence number (1), ACK field (2), or timestamp
-value (3). The rate limit for such duplicate ACKs is specified by a
-new sysctl, tcp_invalid_ratelimit, which specifies the minimal space
-between such outbound duplicate ACKs, in milliseconds. The default is
-500 (500ms), and 0 disables the mechanism.
-
-We rate-limit these duplicate ACK responses rather than blocking them
-entirely or resetting the connection, because legitimate connections
-can rely on dupacks in response to some out-of-window segments. For
-example, zero window probes are typically sent with a sequence number
-that is below the current window, and ZWPs thus expect to thus elicit
-a dupack in response.
-
-Testing: this approach has been in use at Google for a while.
-
-Neal Cardwell (4):
-  tcp: helpers to mitigate ACK loops by rate-limiting out-of-window
-    dupacks
-  tcp: mitigate ACK loops for connections as tcp_request_sock
-  tcp: mitigate ACK loops for connections as tcp_sock
-  tcp: mitigate ACK loops for connections as tcp_timewait_sock
-
- Documentation/networking/ip-sysctl.txt | 22 +++++++++++++++++++++
- include/linux/tcp.h                    |  6 ++++++
- include/net/tcp.h                      | 33 +++++++++++++++++++++++++++++++
- include/uapi/linux/snmp.h              |  6 ++++++
- net/ipv4/proc.c                        |  6 ++++++
- net/ipv4/sysctl_net_ipv4.c             |  7 +++++++
- net/ipv4/tcp_input.c                   | 30 +++++++++++++++++++++-------
- net/ipv4/tcp_minisocks.c               | 36 ++++++++++++++++++++++++++++------
- 8 files changed, 133 insertions(+), 13 deletions(-)
-
+diff --git a/include/linux/tcp.h b/include/linux/tcp.h
+index bcc828d..66d85a8 100644
+--- a/include/linux/tcp.h
++++ b/include/linux/tcp.h
+@@ -153,6 +153,7 @@ struct tcp_sock {
+  	u32	snd_sml;	/* Last byte of the most recently transmitted small packet */
+ 	u32	rcv_tstamp;	/* timestamp of last received ACK (for keepalives) */
+ 	u32	lsndtime;	/* timestamp of last sent data packet (for restart window) */
++	u32	last_oow_ack_time;  /* timestamp of last out-of-window ACK */
+ 
+ 	u32	tsoffset;	/* timestamp offset */
+ 
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 9401aa4..8fdd27b 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -3322,13 +3322,22 @@ static int tcp_ack_update_window(struct sock *sk, const struct sk_buff *skb, u32
+ }
+ 
+ /* RFC 5961 7 [ACK Throttling] */
+-static void tcp_send_challenge_ack(struct sock *sk)
++static void tcp_send_challenge_ack(struct sock *sk, const struct sk_buff *skb)
+ {
+ 	/* unprotected vars, we dont care of overwrites */
+ 	static u32 challenge_timestamp;
+ 	static unsigned int challenge_count;
+-	u32 now = jiffies / HZ;
++	struct tcp_sock *tp = tcp_sk(sk);
++	u32 now;
++
++	/* First check our per-socket dupack rate limit. */
++	if (tcp_oow_rate_limited(sock_net(sk), skb,
++				 LINUX_MIB_TCPACKSKIPPEDCHALLENGE,
++				 &tp->last_oow_ack_time))
++		return;
+ 
++	/* Then check the check host-wide RFC 5961 rate limit. */
++	now = jiffies / HZ;
+ 	if (now != challenge_timestamp) {
+ 		challenge_timestamp = now;
+ 		challenge_count = 0;
+@@ -3424,7 +3433,7 @@ static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)
+ 	if (before(ack, prior_snd_una)) {
+ 		/* RFC 5961 5.2 [Blind Data Injection Attack].[Mitigation] */
+ 		if (before(ack, prior_snd_una - tp->max_window)) {
+-			tcp_send_challenge_ack(sk);
++			tcp_send_challenge_ack(sk, skb);
+ 			return -1;
+ 		}
+ 		goto old_ack;
+@@ -4993,7 +5002,10 @@ static bool tcp_validate_incoming(struct sock *sk, struct sk_buff *skb,
+ 	    tcp_paws_discard(sk, skb)) {
+ 		if (!th->rst) {
+ 			NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_PAWSESTABREJECTED);
+-			tcp_send_dupack(sk, skb);
++			if (!tcp_oow_rate_limited(sock_net(sk), skb,
++						  LINUX_MIB_TCPACKSKIPPEDPAWS,
++						  &tp->last_oow_ack_time))
++				tcp_send_dupack(sk, skb);
+ 			goto discard;
+ 		}
+ 		/* Reset is accepted even if it did not pass PAWS. */
+@@ -5010,7 +5022,10 @@ static bool tcp_validate_incoming(struct sock *sk, struct sk_buff *skb,
+ 		if (!th->rst) {
+ 			if (th->syn)
+ 				goto syn_challenge;
+-			tcp_send_dupack(sk, skb);
++			if (!tcp_oow_rate_limited(sock_net(sk), skb,
++						  LINUX_MIB_TCPACKSKIPPEDSEQ,
++						  &tp->last_oow_ack_time))
++				tcp_send_dupack(sk, skb);
+ 		}
+ 		goto discard;
+ 	}
+@@ -5026,7 +5041,7 @@ static bool tcp_validate_incoming(struct sock *sk, struct sk_buff *skb,
+ 		if (TCP_SKB_CB(skb)->seq == tp->rcv_nxt)
+ 			tcp_reset(sk);
+ 		else
+-			tcp_send_challenge_ack(sk);
++			tcp_send_challenge_ack(sk, skb);
+ 		goto discard;
+ 	}
+ 
+@@ -5040,7 +5055,7 @@ syn_challenge:
+ 		if (syn_inerr)
+ 			TCP_INC_STATS_BH(sock_net(sk), TCP_MIB_INERRS);
+ 		NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_TCPSYNCHALLENGE);
+-		tcp_send_challenge_ack(sk);
++		tcp_send_challenge_ack(sk, skb);
+ 		goto discard;
+ 	}
+ 
+diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
+index 131aa49..98a8405 100644
+--- a/net/ipv4/tcp_minisocks.c
++++ b/net/ipv4/tcp_minisocks.c
+@@ -467,6 +467,7 @@ struct sock *tcp_create_openreq_child(struct sock *sk, struct request_sock *req,
+ 		tcp_enable_early_retrans(newtp);
+ 		newtp->tlp_high_seq = 0;
+ 		newtp->lsndtime = treq->snt_synack;
++		newtp->last_oow_ack_time = 0;
+ 		newtp->total_retrans = req->num_retrans;
+ 
+ 		/* So many TCP implementations out there (incorrectly) count the
 -- 
 2.2.0.rc0.207.ga3a616c
