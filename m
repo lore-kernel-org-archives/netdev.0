@@ -1,74 +1,73 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [PATCH net-next] bridge: Let bridge not age 'externally' learnt
- FDB entries, they are removed when 'external' entity notifies the aging
-Date: Thu, 5 Feb 2015 17:45:32 -0800
-Message-ID: <CAE4R7bDypUjrSAned55XRpcp+iEHNkF7H_8JJy63jt+5Hd3Pzg@mail.gmail.com>
-References: <CA+CtxLSziWmx94_V9S-uW9=6VYg4WXsU4CERx-uovvrFOtO1dA@mail.gmail.com>
-	<54D246A7.2020502@cumulusnetworks.com>
-	<CAE4R7bCASKHmZD+tiu=ZWM9dzvTrSLsaXxgtOYLpsmOR87kcTQ@mail.gmail.com>
-	<20150204.235308.71797582017426266.davem@davemloft.net>
-	<CA+CtxLRaJ+p=y1LCgap48vqH3b4VjxKQO55Yy5cyazng4WtxPw@mail.gmail.com>
-	<CAN+pFwJQQMFmmm1f7tSPCmaSr2GE_L8Pua+Rz7tvK9CFnr63Tg@mail.gmail.com>
-	<CAE4R7bBKXHfbOz-BT1jW2=+hTi=6hZZHRUVpYUvOj1yF+XEtUw@mail.gmail.com>
-	<CAE4R7bDRHwUnt7jzPw_CzwsZfou2B2mRgZ_9t4AfRWe2Z_EtYg@mail.gmail.com>
-	<CAN+pFwKAWX+En6zK3Q94q9ejdpqz6WBvnkH=Rp3HBEAeOyNbNw@mail.gmail.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH] i40e: fix sparse warning
+Date: Thu, 05 Feb 2015 17:52:47 -0800
+Message-ID: <1423187567.2589.90.camel@jtkirshe-mobl>
+References: <1423149195-32142-1-git-send-email-prabhakar.csengg@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Siva Mannem <siva.mannem.lnx@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	Netdev <netdev@vger.kernel.org>,
-	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>
-To: B Viswanath <marichika4@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f179.google.com ([74.125.82.179]:38932 "EHLO
-	mail-we0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753030AbbBFBpg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Feb 2015 20:45:36 -0500
-Received: by mail-we0-f179.google.com with SMTP id u56so5421580wes.10
-        for <netdev@vger.kernel.org>; Thu, 05 Feb 2015 17:45:35 -0800 (PST)
-In-Reply-To: <CAN+pFwKAWX+En6zK3Q94q9ejdpqz6WBvnkH=Rp3HBEAeOyNbNw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-J6Z4Dl34yxPsIYbgbqYk"
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Bruce Allan <bruce.w.allan@intel.com>,
+	Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	Greg Rose <gregory.v.rose@intel.com>,
+	Matthew Vick <matthew.vick@intel.com>,
+	John Ronciak <john.ronciak@intel.com>,
+	Mitch Williams <mitch.a.williams@intel.com>,
+	Linux NICS <linux.nics@intel.com>,
+	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Lad Prabhakar <prabhakar.csengg@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1423149195-32142-1-git-send-email-prabhakar.csengg@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Feb 5, 2015 at 10:31 AM, B Viswanath <marichika4@gmail.com> wrote:
-> On 5 February 2015 at 23:25, Scott Feldman <sfeldma@gmail.com> wrote:
-> <snip>
->>
->> CONs
->>
->> 1) Scale-ability.  The bridge driver can't keep up with ageing many
->> (10^5, for example) entries.
->> 2) Scale-ability.  Keeping the entries periodically refreshed requires
->> a refresh sync from
->> the device to the bridge driver, and the bridge driver/kernel can't keep up.
->> 3) With the bridge driver, the ageing settings are per-bridge, not per-port.
->>
->> Did I miss any points?
->
-> There is one more
->
-> 4. On links with wirespeed traffic, software ageing FDB entries
-> independently without having the knowledge of the traffic means that
-> CPU will ageout entries it should not. I don't know if this breaks
-> some RFC, but it can certainly cause big packet loss.
 
-SW would only age out expired entries.  An entry not refreshed by HW
-will expire.  But HW will refresh (to SW) active entries based on
-traffic seen.  So I'm not seeing how SW will age out entries
-prematurely.  I'm missing something.
+--=-J6Z4Dl34yxPsIYbgbqYk
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Is there a race perhaps?  Maybe that's your point.  I think I see the
-race.  SW has decided entry is expired and sends signal to remove
-entry, while in the meantime HW got a hit on entry and wants to
-refresh it.  So this would cause a service disruption if the entry was
-removed and then re-added.  But this is a boundary condition on the
-hairy edge of the ageing timeout window.  Does it matter in practice?
+On Thu, 2015-02-05 at 15:13 +0000, Lad Prabhakar wrote:
+> From: "Lad, Prabhakar" <prabhakar.csengg@gmail.com>
+>=20
+> this patch fixes following sparse warning:
+>=20
+> i40e_lan_hmc.c:911:24: warning: constant 0xFFFFFFFFFFFFFFFF is so big
+> it is unsigned long
+>=20
+> Signed-off-by: Lad, Prabhakar <prabhakar.csengg@gmail.com>
+> ---
+>  Found this issue on linux-next (gcc  version 4.8.2,
+>  sparse version  0.4.5-rc1)and applies on top linux-next.
+>=20
+>  drivers/net/ethernet/intel/i40e/i40e_lan_hmc.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
 
-I really want to understand your case 4, but I'm not getting
-something.  Is there another way to explain it, by example perhaps?
+I already have a fix in my queue to resolve this issue, so I am dropping
+your patch.
 
-> Such a packet loss is considered bad, and is a primary reason why
-> hardware supports ageing. Otherwise there is no reason hw needs to
-> support it. Based on experience, I can say that it is a necessity, now
-> even more with 10G and 40G links.
+--=-J6Z4Dl34yxPsIYbgbqYk
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAABCgAGBQJU1B5vAAoJEOVv75VaS+3OCyQQAItNEOETSD2OQ43IV8raMerS
+yP9WtAOdVBRPrm+g+0WCbDnp2z8jX3r2xNShZYCS48/xr3H5Ay197m7C9TFbhleG
++cyqy+4p6X052nIGKTCGNLo9GVRlpAKR1JXbkSKDNS90lTywMKmdh622J9oCNQMw
+moqMSKtDi79nqmaGBT3NsfdOQOPNJG6TUmtYr+4rjN9MNle0No0GhcFvyQ3HtHBX
+fRYb2JquXF7quQ+ti+Q9iK2lS6qlrXeh5T2k/BEHsJ/z0M+GttEQ/KWljozMx9ES
+elOOBjh1maFt0IM3ktrRfZXAG4u3ZO7COpaL2P9v9LRW7a4+zeW2rbdiRWlitV6E
+JjjaBMrYizzL3UCo/TbTHKhzbzxMcpqoxlK/H0t+vsTnpmrQALFJVKJ/SVaK6Lt6
+60XWDUPqFTBY8PNu9SJ5vyJeS5i0xONxGvxR4TqeWR3I27SQK6m7GyA4deyz7XEG
+ucIQ3atJ4dOz1klzJDJonAC+FsU2KfPpnO2zODmZwHdmanrm1ji14AX8QTvg3VH8
+fMi/u4iGRIDyuxPxaJ/1h78Urigooqp+Qr4wQrtgL+0qMOksTJ+ts5A0npzYfJLP
+2x3vB6J/whw0CiiZR8uh4wGcEWEnyGsWRvONgdgdSrWORHD2m9JGWGwY+brR50dM
+HbSiWhMvRiDtcPWpn0U9
+=Abuh
+-----END PGP SIGNATURE-----
+
+--=-J6Z4Dl34yxPsIYbgbqYk--
