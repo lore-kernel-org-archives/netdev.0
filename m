@@ -1,137 +1,111 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH net-next] rhashtable: Fix remove logic to avoid cross
- references between buckets
-Date: Fri, 6 Feb 2015 16:08:43 +0000
-Message-ID: <20150206160843.GA31371@casper.infradead.org>
-References: <cover.1423097592.git.tgraf@suug.ch>
- <54D2D656.8060709@windriver.com>
- <20150205084737.GA15549@casper.infradead.org>
- <54D3346E.4040302@windriver.com>
- <20150205101954.GA24388@casper.infradead.org>
- <54D42892.3030808@windriver.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	herbert@gondor.apana.org.au
-To: Ying Xue <ying.xue@windriver.com>
+From: Sabrina Dubroca <sd@queasysnail.net>
+Subject: [PATCH net-next] gre/ipip: use be16 variants of netlink functions
+Date: Fri,  6 Feb 2015 17:22:22 +0100
+Message-ID: <1423239742-30865-1-git-send-email-sd@queasysnail.net>
+Cc: netdev@vger.kernel.org, Sabrina Dubroca <sd@queasysnail.net>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:34770 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751486AbbBFQIq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Feb 2015 11:08:46 -0500
-Content-Disposition: inline
-In-Reply-To: <54D42892.3030808@windriver.com>
+Received: from smtp4-g21.free.fr ([212.27.42.4]:25862 "EHLO smtp4-g21.free.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751388AbbBFQWh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Feb 2015 11:22:37 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The remove logic properly searched the remaining chain for a matching
-entry with an identical hash but it did this while searching from both
-the old and new table. Instead in order to not leave stale references
-behind we need to:
+encap.sport and encap.dport are __be16, use nla_{get,put}_be16 instead
+of nla_{get,put}_u16.
 
- 1. When growing and searching from the new table:
-    Search remaining chain for entry with same hash to avoid having
-    the new table directly point to a entry with a different hash.
+Fixes the sparse warnings:
 
- 2. When shrinking and searching from the old table:
-    Check if the element after the removed would create a cross
-    reference and avoid it if so.
+warning: incorrect type in assignment (different base types)
+   expected restricted __be32 [addressable] [usertype] o_key
+   got restricted __be16 [addressable] [usertype] i_flags
+warning: incorrect type in assignment (different base types)
+   expected restricted __be16 [usertype] sport
+   got unsigned short
+warning: incorrect type in assignment (different base types)
+   expected restricted __be16 [usertype] dport
+   got unsigned short
+warning: incorrect type in argument 3 (different base types)
+   expected unsigned short [unsigned] [usertype] value
+   got restricted __be16 [usertype] sport
+warning: incorrect type in argument 3 (different base types)
+   expected unsigned short [unsigned] [usertype] value
+   got restricted __be16 [usertype] dport
 
-These bugs were present from the beginning in nft_hash.
-
-Also, both insert functions calculated the hash based on the mask of
-the new table. This worked while growing. Wwhile shrinking, the mask
-of the inew table is smaller than the mask of the old table. This lead
-to a bit not being taken into account when selecting the bucket lock
-and thus caused the wrong bucket to be locked eventually.
-
-Fixes: 7e1e77636e36 ("lib: Resizable, Scalable, Concurrent Hash Table")
-Fixes: 97defe1ecf86 ("rhashtable: Per bucket locks & deferred expansion/shrinking")
-Reported-by: Ying Xue <ying.xue@windriver.com>
-Signed-off-by: Thomas Graf <tgraf@suug.ch>
+Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
 ---
- lib/rhashtable.c | 28 +++++++++++++++++-----------
- 1 file changed, 17 insertions(+), 11 deletions(-)
+ net/ipv4/ip_gre.c | 12 ++++++------
+ net/ipv4/ipip.c   | 12 ++++++------
+ 2 files changed, 12 insertions(+), 12 deletions(-)
 
-diff --git a/lib/rhashtable.c b/lib/rhashtable.c
-index 5919d63..e96fc00 100644
---- a/lib/rhashtable.c
-+++ b/lib/rhashtable.c
-@@ -552,8 +552,10 @@ static void rhashtable_wakeup_worker(struct rhashtable *ht)
- static void __rhashtable_insert(struct rhashtable *ht, struct rhash_head *obj,
- 				struct bucket_table *tbl, u32 hash)
- {
--	struct rhash_head *head = rht_dereference_bucket(tbl->buckets[hash],
--							 tbl, hash);
-+	struct rhash_head *head;
-+
-+	hash = rht_bucket_index(tbl, hash);
-+	head = rht_dereference_bucket(tbl->buckets[hash], tbl, hash);
+diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
+index 6e7727f27393..6207275fc749 100644
+--- a/net/ipv4/ip_gre.c
++++ b/net/ipv4/ip_gre.c
+@@ -659,12 +659,12 @@ static bool ipgre_netlink_encap_parms(struct nlattr *data[],
  
- 	ASSERT_BUCKET_LOCK(ht, tbl, hash);
- 
-@@ -593,7 +595,7 @@ void rhashtable_insert(struct rhashtable *ht, struct rhash_head *obj)
- 
- 	tbl = rht_dereference_rcu(ht->future_tbl, ht);
- 	old_tbl = rht_dereference_rcu(ht->tbl, ht);
--	hash = head_hashfn(ht, tbl, obj);
-+	hash = obj_raw_hashfn(ht, rht_obj(ht, obj));
- 
- 	lock_buckets(tbl, old_tbl, hash);
- 	__rhashtable_insert(ht, obj, tbl, hash);
-@@ -627,8 +629,8 @@ bool rhashtable_remove(struct rhashtable *ht, struct rhash_head *obj)
- 	bool ret = false;
- 
- 	rcu_read_lock();
--	tbl = old_tbl = rht_dereference_rcu(ht->tbl, ht);
--	new_tbl = rht_dereference_rcu(ht->future_tbl, ht);
-+	old_tbl = rht_dereference_rcu(ht->tbl, ht);
-+	tbl = new_tbl = rht_dereference_rcu(ht->future_tbl, ht);
- 	new_hash = obj_raw_hashfn(ht, rht_obj(ht, obj));
- 
- 	lock_buckets(new_tbl, old_tbl, new_hash);
-@@ -643,15 +645,19 @@ restart:
- 
- 		ASSERT_BUCKET_LOCK(ht, tbl, hash);
- 
--		if (unlikely(new_tbl != tbl)) {
--			rht_for_each_continue(he2, he->next, tbl, hash) {
-+		if (old_tbl->size > new_tbl->size && tbl == old_tbl &&
-+		    !rht_is_a_nulls(obj->next) &&
-+		    head_hashfn(ht, tbl, obj->next) != hash) {
-+			rcu_assign_pointer(*pprev, (struct rhash_head *) rht_marker(ht, hash));
-+		} else if (unlikely(old_tbl->size < new_tbl->size && tbl == new_tbl)) {
-+			rht_for_each_continue(he2, obj->next, tbl, hash) {
- 				if (head_hashfn(ht, tbl, he2) == hash) {
- 					rcu_assign_pointer(*pprev, he2);
- 					goto found;
- 				}
- 			}
- 
--			INIT_RHT_NULLS_HEAD(*pprev, ht, hash);
-+			rcu_assign_pointer(*pprev, (struct rhash_head *) rht_marker(ht, hash));
- 		} else {
- 			rcu_assign_pointer(*pprev, obj->next);
- 		}
-@@ -666,8 +672,8 @@ found:
- 	 * resizing. Thus traversing both is fine and the added cost is
- 	 * very rare.
- 	 */
--	if (tbl != new_tbl) {
--		tbl = new_tbl;
-+	if (tbl != old_tbl) {
-+		tbl = old_tbl;
- 		goto restart;
+ 	if (data[IFLA_GRE_ENCAP_SPORT]) {
+ 		ret = true;
+-		ipencap->sport = nla_get_u16(data[IFLA_GRE_ENCAP_SPORT]);
++		ipencap->sport = nla_get_be16(data[IFLA_GRE_ENCAP_SPORT]);
  	}
  
-@@ -835,7 +841,7 @@ bool rhashtable_lookup_compare_insert(struct rhashtable *ht,
- 	rcu_read_lock();
- 	old_tbl = rht_dereference_rcu(ht->tbl, ht);
- 	new_tbl = rht_dereference_rcu(ht->future_tbl, ht);
--	new_hash = head_hashfn(ht, new_tbl, obj);
-+	new_hash = obj_raw_hashfn(ht, rht_obj(ht, obj));
+ 	if (data[IFLA_GRE_ENCAP_DPORT]) {
+ 		ret = true;
+-		ipencap->dport = nla_get_u16(data[IFLA_GRE_ENCAP_DPORT]);
++		ipencap->dport = nla_get_be16(data[IFLA_GRE_ENCAP_DPORT]);
+ 	}
  
- 	lock_buckets(new_tbl, old_tbl, new_hash);
+ 	return ret;
+@@ -786,10 +786,10 @@ static int ipgre_fill_info(struct sk_buff *skb, const struct net_device *dev)
  
+ 	if (nla_put_u16(skb, IFLA_GRE_ENCAP_TYPE,
+ 			t->encap.type) ||
+-	    nla_put_u16(skb, IFLA_GRE_ENCAP_SPORT,
+-			t->encap.sport) ||
+-	    nla_put_u16(skb, IFLA_GRE_ENCAP_DPORT,
+-			t->encap.dport) ||
++	    nla_put_be16(skb, IFLA_GRE_ENCAP_SPORT,
++			 t->encap.sport) ||
++	    nla_put_be16(skb, IFLA_GRE_ENCAP_DPORT,
++			 t->encap.dport) ||
+ 	    nla_put_u16(skb, IFLA_GRE_ENCAP_FLAGS,
+ 			t->encap.flags))
+ 		goto nla_put_failure;
+diff --git a/net/ipv4/ipip.c b/net/ipv4/ipip.c
+index b58d6689874c..915d215a7d14 100644
+--- a/net/ipv4/ipip.c
++++ b/net/ipv4/ipip.c
+@@ -366,12 +366,12 @@ static bool ipip_netlink_encap_parms(struct nlattr *data[],
+ 
+ 	if (data[IFLA_IPTUN_ENCAP_SPORT]) {
+ 		ret = true;
+-		ipencap->sport = nla_get_u16(data[IFLA_IPTUN_ENCAP_SPORT]);
++		ipencap->sport = nla_get_be16(data[IFLA_IPTUN_ENCAP_SPORT]);
+ 	}
+ 
+ 	if (data[IFLA_IPTUN_ENCAP_DPORT]) {
+ 		ret = true;
+-		ipencap->dport = nla_get_u16(data[IFLA_IPTUN_ENCAP_DPORT]);
++		ipencap->dport = nla_get_be16(data[IFLA_IPTUN_ENCAP_DPORT]);
+ 	}
+ 
+ 	return ret;
+@@ -460,10 +460,10 @@ static int ipip_fill_info(struct sk_buff *skb, const struct net_device *dev)
+ 
+ 	if (nla_put_u16(skb, IFLA_IPTUN_ENCAP_TYPE,
+ 			tunnel->encap.type) ||
+-	    nla_put_u16(skb, IFLA_IPTUN_ENCAP_SPORT,
+-			tunnel->encap.sport) ||
+-	    nla_put_u16(skb, IFLA_IPTUN_ENCAP_DPORT,
+-			tunnel->encap.dport) ||
++	    nla_put_be16(skb, IFLA_IPTUN_ENCAP_SPORT,
++			 tunnel->encap.sport) ||
++	    nla_put_be16(skb, IFLA_IPTUN_ENCAP_DPORT,
++			 tunnel->encap.dport) ||
+ 	    nla_put_u16(skb, IFLA_IPTUN_ENCAP_FLAGS,
+ 			tunnel->encap.flags))
+ 		goto nla_put_failure;
 -- 
-1.9.3
+2.3.0
