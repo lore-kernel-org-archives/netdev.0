@@ -1,34 +1,59 @@
 From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [RFC PATCH 14/29] net: vrf: Introduce vrf header file
-Date: Fri, 06 Feb 2015 09:53:07 +0100
-Message-ID: <54D480F3.8090105@6wind.com>
-References: <1423100070-31848-1-git-send-email-dsahern@gmail.com> <1423100070-31848-15-git-send-email-dsahern@gmail.com> <54D373D0.40405@6wind.com> <54D41048.4050608@gmail.com>
+Subject: Re: [PATCH v2 iproute2-next 1/4] include: update headers
+Date: Fri, 06 Feb 2015 10:02:00 +0100
+Message-ID: <54D48308.60509@6wind.com>
+References: <54C8E3EB.8050904@6wind.com>	<1422454550-32222-1-git-send-email-nicolas.dichtel@6wind.com> <20150205102659.7b4a3ebb@urahara>
 Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
+Content-Type: text/plain; charset=windows-1252;
 	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: ebiederm@xmission.com
-To: David Ahern <dsahern@gmail.com>, netdev@vger.kernel.org
+Cc: shemminger@vyatta.com, netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f177.google.com ([209.85.212.177]:50991 "EHLO
-	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753446AbbBFIxK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Feb 2015 03:53:10 -0500
-Received: by mail-wi0-f177.google.com with SMTP id r20so713033wiv.4
-        for <netdev@vger.kernel.org>; Fri, 06 Feb 2015 00:53:08 -0800 (PST)
-In-Reply-To: <54D41048.4050608@gmail.com>
+Received: from mail-wi0-f175.google.com ([209.85.212.175]:58628 "EHLO
+	mail-wi0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753446AbbBFJCC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Feb 2015 04:02:02 -0500
+Received: by mail-wi0-f175.google.com with SMTP id fb4so786358wid.2
+        for <netdev@vger.kernel.org>; Fri, 06 Feb 2015 01:02:01 -0800 (PST)
+In-Reply-To: <20150205102659.7b4a3ebb@urahara>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 06/02/2015 01:52, David Ahern a =C3=A9crit :
-> On 2/5/15 6:44 AM, Nicolas Dichtel wrote:
->> Le 05/02/2015 02:34, David Ahern a =C3=A9crit :
-[snip]
->>> +#define VRF_ANY        0xffff
->> It could be useful to expose this value to userland.
+Le 05/02/2015 19:26, Stephen Hemminger a =E9crit :
+> On Wed, 28 Jan 2015 15:15:47 +0100
+> Nicolas Dichtel <nicolas.dichtel@6wind.com> wrote:
 >
-> Maybe. I was thinking VRF_ANY should stay kernel side only and have a=
- sockopt
-> value of -1 mean VRF_ANY.
-Better to have a define instead of a magic value (-1) ;-)
+>> Copy from sanitized headers.
+>>
+>> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+>> ---
+>>
+>> v2: took last headers from net-next
+>>
+>>   include/linux/if_link.h       |  4 ++++
+>>   include/linux/neighbour.h     |  1 +
+>>   include/linux/net_namespace.h | 23 +++++++++++++++++++++++
+>>   include/linux/rtnetlink.h     |  5 +++++
+>>   4 files changed, 33 insertions(+)
+>>   create mode 100644 include/linux/net_namespace.h
+>
+> All kernel headers for iproute2 must come from the result of:
+>    $ make headers_install
+I've done this.
+
+>
+> Please submit a patch to net-next which makes net_namespace.h
+> (from include/uapi/linux/net_namespace.h) get correctly installed int=
+o
+> usr/include/linux/net_namespace.h
+>
+> The file is missing from include/uapi/linux/Kbuild
+Hmm, I'm probably missing something (with net-next):
+$ git grep net_namespace.h include/uapi/linux/Kbuild
+include/uapi/linux/Kbuild:header-y +=3D net_namespace.h
+$ rm -rf usr/include/
+$ make headers_install
+$ find usr/include/ -name net_namespace.h
+usr/include/linux/net_namespace.h
