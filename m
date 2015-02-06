@@ -1,91 +1,82 @@
-From: Sabrina Dubroca <sd@queasysnail.net>
-Subject: [PATCH net-next] net: silence sparse endianness warnings in checksums
-Date: Fri,  6 Feb 2015 15:43:52 +0100
-Message-ID: <1423233832-8229-1-git-send-email-sd@queasysnail.net>
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
-	therbert@google.com, Sabrina Dubroca <sd@queasysnail.net>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp4-g21.free.fr ([212.27.42.4]:42006 "EHLO smtp4-g21.free.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754590AbbBFOoX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Feb 2015 09:44:23 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: Throughput regression with `tcp: refine TSO autosizing`
+Date: Fri, 06 Feb 2015 07:02:13 -0800
+Message-ID: <1423234933.31870.140.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CA+BoTQkVu23P3EOmY_Q3E1GJnWsyF==Pawz4iPOS_Bq5dvfO5Q@mail.gmail.com>
+	 <1422537297.21689.15.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CA+BoTQk2xT-8DqPuiiKG+kHAjLPrj8F9dLTb-rcGhvMq0u_2Qw@mail.gmail.com>
+	 <1422628835.21689.95.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CA+BoTQkV+mOZfe_Niz5101sMQeaV6muKCsShptjGQ1AgOHqqoQ@mail.gmail.com>
+	 <1422903136.21689.114.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1422926330.21689.138.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CA+BoTQkMikA8wxm1ce2DkKhPB0HiKeAqT7f+sQ=91W40z=X0Rg@mail.gmail.com>
+	 <1422973660.907.10.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CA+BoTQmvUuFdfYF=wVMYxrf_nQZB5GCV=LvDZVvfs-3hAE4WKw@mail.gmail.com>
+	 <1423051045.907.108.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CA+BoTQ=BDcQ779uKCuX+f40=4npXVF4MTQnpjKimNYAxPsxBoQ@mail.gmail.com>
+	 <1423053531.907.115.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CA+BoTQ=qmCZz4CmSOvCOzMLowrDEG12XBffkTcYxjGqVD9604g@mail.gmail.com>
+	 <1423055810.907.125.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1423056591.907.130.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1423084303.31870.15.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CA+BoTQnnwrv0nrKyGyQNvosz_E4e5fBa9iN8fpeqcd-iRfi17g@mail.gmail.com>
+	 <1423141038.31870.38.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1423142342.31870.49.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CA+BoTQmcShK0U_cXvEOLY_8y7LH8x3taTgjcyMzv0MLVn4UtCA@mail.gmail.com>
+	 <1423147286.31870.59.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1423156205.31870.86.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CA+BoTQ=WaKLV=r6qWaWAEfyDr2pqMWpm4NDmnek92TEVndnxRQ@mail.gmail.com>
+	  <1423230001.31870.128.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1423230785.31870.131.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1423231841.31870.133.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <063D6719AE5E284EB5DD2968C1650D6D1CADF4EC@AcuExch.aculab.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Michal Kazior <michal.kazior-++hxYGjEMp0AvxtiuMwx3w@public.gmane.org>,
+	Neal Cardwell <ncardwell-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"eyalpe-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org" <eyalpe-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
+To: David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CADF4EC-VkEWCZq2GCInGFn1LkZF6NBPR1lH4CV8@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-In __skb_checksum_validate_complete and its callers, we only test that
-the return value is non-zero, so it's safe to __force the type.
+On Fri, 2015-02-06 at 14:31 +0000, David Laight wrote:
+> From: Eric Dumazet
+> > On Fri, 2015-02-06 at 05:53 -0800, Eric Dumazet wrote:
+> > 
+> > 
+> > > wifi could eventually do that, providing in skb->tx_completion_delay_us
+> > > the time spent in wifi driver.
+> > >
+> > > This way, we would have no penalty for network devices doing normal skb
+> > > orphaning (loopback interface, ethernet, ...)
+> > 
+> > Another way would be that wifi does an automatic orphaning after 1 or
+> > 2ms.
+> 
+> Couldn't you do byte counting?
+> So orphan enough packets to keep a few ms of tx traffic (at the current
+> tx rate) orphaned.
+> You might need to give the hardware both orphaned and non-orphaned (parented?)
+> packets and orphan some when you get a tx complete for an orphaned packet.
 
-Callers of gso_make_checksum pass a __sum16, use that.
+We already have byte counting.
 
-Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
----
- include/linux/skbuff.h  | 8 ++++----
- net/ipv4/udp.c          | 4 ++--
- net/ipv6/ip6_checksum.c | 4 ++--
- 3 files changed, 8 insertions(+), 8 deletions(-)
+The thing is : A driver can keep an skb for itself, but calling
+skb_orphan() in time to allow a socket to send more packets.
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 111e665455c3..7b35b4884f58 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -3019,7 +3019,7 @@ static inline __sum16 __skb_checksum_validate_complete(struct sk_buff *skb,
- 		}
- 	} else if (skb->csum_bad) {
- 		/* ip_summed == CHECKSUM_NONE in this case */
--		return 1;
-+		return (__force __sum16) 1;
- 	}
- 
- 	skb->csum = psum;
-@@ -3308,15 +3308,15 @@ static inline int gso_pskb_expand_head(struct sk_buff *skb, int extra)
-  * is in the res argument (i.e. normally zero or ~ of checksum of a pseudo
-  * header.
-  */
--static inline __sum16 gso_make_checksum(struct sk_buff *skb, __wsum res)
-+static inline __sum16 gso_make_checksum(struct sk_buff *skb, __sum16 res)
- {
- 	int plen = SKB_GSO_CB(skb)->csum_start - skb_headroom(skb) -
- 	    skb_transport_offset(skb);
--	__u16 csum;
-+	__sum16 csum;
- 
- 	csum = csum_fold(csum_partial(skb_transport_header(skb),
- 				      plen, skb->csum));
--	skb->csum = res;
-+	skb->csum = (__force __wsum) res;
- 	SKB_GSO_CB(skb)->csum_start -= plen;
- 
- 	return csum;
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index 97ef1f8b7be8..1f1ff4eaa34b 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -1738,8 +1738,8 @@ static inline int udp4_csum_init(struct sk_buff *skb, struct udphdr *uh,
- 			return err;
- 	}
- 
--	return skb_checksum_init_zero_check(skb, proto, uh->check,
--					    inet_compute_pseudo);
-+	return (__force int)skb_checksum_init_zero_check(skb, proto, uh->check,
-+							 inet_compute_pseudo);
- }
- 
- /*
-diff --git a/net/ipv6/ip6_checksum.c b/net/ipv6/ip6_checksum.c
-index 9a4d7322fb22..9a1c766a84f0 100644
---- a/net/ipv6/ip6_checksum.c
-+++ b/net/ipv6/ip6_checksum.c
-@@ -80,8 +80,8 @@ int udp6_csum_init(struct sk_buff *skb, struct udphdr *uh, int proto)
- 	 * for the UDP packet we'll check if that socket allows zero checksum
- 	 * for IPv6 (set by socket option).
- 	 */
--	return skb_checksum_init_zero_check(skb, proto, uh->check,
--					   ip6_compute_pseudo);
-+	return (__force int)skb_checksum_init_zero_check(skb, proto, uh->check,
-+							 ip6_compute_pseudo);
- }
- EXPORT_SYMBOL(udp6_csum_init);
- 
--- 
-2.3.0
+For say a UDP server, it would be quite mandatory, as it usually uses a
+single UDP socket to receive and send messages.
+
+
+
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
