@@ -1,111 +1,73 @@
-From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: Throughput regression with `tcp: refine TSO autosizing`
-Date: Fri, 06 Feb 2015 05:40:01 -0800
-Message-ID: <1423230001.31870.128.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CA+BoTQkVu23P3EOmY_Q3E1GJnWsyF==Pawz4iPOS_Bq5dvfO5Q@mail.gmail.com>
-	 <1422537297.21689.15.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+BoTQk2xT-8DqPuiiKG+kHAjLPrj8F9dLTb-rcGhvMq0u_2Qw@mail.gmail.com>
-	 <1422628835.21689.95.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+BoTQkV+mOZfe_Niz5101sMQeaV6muKCsShptjGQ1AgOHqqoQ@mail.gmail.com>
-	 <1422903136.21689.114.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1422926330.21689.138.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+BoTQkMikA8wxm1ce2DkKhPB0HiKeAqT7f+sQ=91W40z=X0Rg@mail.gmail.com>
-	 <1422973660.907.10.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+BoTQmvUuFdfYF=wVMYxrf_nQZB5GCV=LvDZVvfs-3hAE4WKw@mail.gmail.com>
-	 <1423051045.907.108.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+BoTQ=BDcQ779uKCuX+f40=4npXVF4MTQnpjKimNYAxPsxBoQ@mail.gmail.com>
-	 <1423053531.907.115.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+BoTQ=qmCZz4CmSOvCOzMLowrDEG12XBffkTcYxjGqVD9604g@mail.gmail.com>
-	 <1423055810.907.125.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1423056591.907.130.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1423084303.31870.15.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+BoTQnnwrv0nrKyGyQNvosz_E4e5fBa9iN8fpeqcd-iRfi17g@mail.gmail.com>
-	 <1423141038.31870.38.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1423142342.31870.49.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+BoTQmcShK0U_cXvEOLY_8y7LH8x3taTgjcyMzv0MLVn4UtCA@mail.gmail.com>
-	 <1423147286.31870.59.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1423156205.31870.86.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+BoTQ=WaKLV=r6qWaWAEfyDr2pqMWpm4NDmnek92TEVndnxRQ@mail.gmail.com>
+From: Sabrina Dubroca <sd@queasysnail.net>
+Subject: Re: [PATCH net] pktgen: fix UDP checksum computation
+Date: Fri, 6 Feb 2015 14:46:46 +0100
+Message-ID: <20150206134646.GA30471@kria>
+References: <1423087730-9201-1-git-send-email-sd@queasysnail.net>
+ <CA+mtBx9dT5JkDzj8AYojZBrm5-fd0GN0ZxY47t-43sZoqZmGsg@mail.gmail.com>
+ <1423182482.31870.99.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Neal Cardwell <ncardwell-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	eyalpe-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org
-To: Michal Kazior <michal.kazior-++hxYGjEMp0AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CA+BoTQ=WaKLV=r6qWaWAEfyDr2pqMWpm4NDmnek92TEVndnxRQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: Tom Herbert <therbert@google.com>,
+	David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Thomas Graf <tgraf@suug.ch>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp4-g21.free.fr ([212.27.42.4]:2782 "EHLO smtp4-g21.free.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755282AbbBFNqu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Feb 2015 08:46:50 -0500
+Content-Disposition: inline
+In-Reply-To: <1423182482.31870.99.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2015-02-06 at 10:42 +0100, Michal Kazior wrote:
-
-> The above brings back previous behaviour, i.e. I can get 600mbps TCP
-> on 5 flows again. Single flow is still (as it was before TSO
-> autosizing) limited to roughly ~280mbps.
+2015-02-05, 16:28:02 -0800, Eric Dumazet wrote:
+> On Thu, 2015-02-05 at 15:57 -0800, Tom Herbert wrote:
 > 
-> I never really bothered before to understand why I need to push a few
-> flows through ath10k to max it out, i.e. if I run a single UDP flow I
-> get ~300mbps while with, e.g. 5 I get 670mbps easily.
+> > Would it be possible to use udp_set_csum to handle all of this?
+
+I will look.
+
+
+> This reminds me we have following sparse errors with checksum code,
+> could you take a look Tom ?
 > 
-
-For single UDP flow, tweaking /proc/sys/net/core/wmem_default might be
-enough : UDP has no callback from TX completion to feed following frames
-(No write queue like TCP)
-
-# cat /proc/sys/net/core/wmem_default
-212992
-# ethtool -C eth1 tx-usecs 1024 tx-frames 120
-# ./netperf -H remote -t UDP_STREAM -- -m 1450
-Socket  Message  Elapsed      Messages                
-Size    Size     Time         Okay Errors   Throughput
-bytes   bytes    secs            #      #   10^6bits/sec
-
-212992    1450   10.00      697705      0     809.27
-212992           10.00      673412            781.09
-
-# echo 800000 >/proc/sys/net/core/wmem_default
-# ./netperf -H remote -t UDP_STREAM -- -m 1450
-Socket  Message  Elapsed      Messages                
-Size    Size     Time         Okay Errors   Throughput
-bytes   bytes    secs            #      #   10^6bits/sec
-
-800000    1450   10.00     7329221      0    8501.84
-212992           10.00     7284051           8449.44
-
-
-> I guess it was the tx completion latency all along.
+> make C=2 CF=-D__CHECK_ENDIAN__  ...
 > 
-> I just put an extra debug to ath10k to see the latency between
-> submission and completion. Here's a log
-> (http://www.filedropper.com/complete-log) of 2s run of UDP iperf
-> trying to push 1gbps but managing only 300mbps.
+> include/linux/skbuff.h:3022:24: warning: incorrect type in return expression (different base types)
+> include/linux/skbuff.h:3022:24:    expected restricted __sum16
+> include/linux/skbuff.h:3022:24:    got int
 > 
-> I've made sure to not hold any locks nor introduce internal to ath10k
-> delays. Frames get completed between 2-4ms in avarage during load.
+> net/ipv6/ip6_checksum.c:83:16: warning: incorrect type in return expression (different base types)
+> net/ipv6/ip6_checksum.c:83:16:    expected int
+> net/ipv6/ip6_checksum.c:83:16:    got restricted __sum16 [assigned] [usertype] __ret
+> 
+>   CHECK   net/ipv4/tcp_offload.c
+> net/ipv4/tcp_offload.c:139:60: warning: incorrect type in argument 2 (different base types)
+> net/ipv4/tcp_offload.c:139:60:    expected restricted __wsum [usertype] res
+> net/ipv4/tcp_offload.c:139:60:    got fouled restricted __sum16
+> include/linux/skbuff.h:3317:14: warning: incorrect type in assignment (different base types)
+> include/linux/skbuff.h:3317:14:    expected unsigned short [unsigned] [usertype] csum
+> include/linux/skbuff.h:3317:14:    got restricted __sum16
+> include/linux/skbuff.h:3322:16: warning: incorrect type in return expression (different base types)
+> include/linux/skbuff.h:3322:16:    expected restricted __sum16
+> include/linux/skbuff.h:3322:16:    got unsigned short [unsigned] [usertype] csum
+> net/ipv4/tcp_offload.c:173:52: warning: incorrect type in argument 2 (different base types)
+> net/ipv4/tcp_offload.c:173:52:    expected restricted __wsum [usertype] res
+> net/ipv4/tcp_offload.c:173:52:    got fouled restricted __sum16
+> include/linux/skbuff.h:3317:14: warning: incorrect type in assignment (different base types)
+> include/linux/skbuff.h:3317:14:    expected unsigned short [unsigned] [usertype] csum
+> include/linux/skbuff.h:3317:14:    got restricted __sum16
+> include/linux/skbuff.h:3322:16: warning: incorrect type in return expression (different base types)
+> include/linux/skbuff.h:3322:16:    expected restricted __sum16
+> include/linux/skbuff.h:3322:16:    got unsigned short [unsigned] [usertype] csum
+
+I have patches ready for that and other sparse warnings, I just need
+to check and send them.
 
 
-tcp_wfree() could maintain in tp->tx_completion_delay_ms an EWMA
-of TX completion delay. But this would require yet another expensive
-call to ktime_get() if HZ < 1000.
+Thanks
 
-Then tcp_write_xmit() could use it to adjust :
-
-   limit = max(2 * skb->truesize, sk->sk_pacing_rate >> 9);
-
-to
-
-   amount = (2 + tp->tx_completion_delay_ms) * sk->sk_pacing_rate 
-
-   limit = max(2 * skb->truesize, amount / 1000);
-
-I'll cook a patch.
-
-Thanks.
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-- 
+Sabrina
