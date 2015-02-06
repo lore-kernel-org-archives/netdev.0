@@ -1,32 +1,55 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: Re: [RFC PATCH 18/29] net: vrf: Plumbing for vrf context on a socket
-Date: Thu, 05 Feb 2015 18:18:12 -0700
-Message-ID: <54D41654.3090903@gmail.com>
-References: <1423100070-31848-1-git-send-email-dsahern@gmail.com> <1423100070-31848-19-git-send-email-dsahern@gmail.com> <54D373CA.20008@6wind.com>
+From: Tom Lendacky <thomas.lendacky@amd.com>
+Subject: [PATCH net] amd-xgbe: Check per channel DMA interrupt use in main
+ ISR
+Date: Thu, 5 Feb 2015 19:17:14 -0600
+Message-ID: <20150206011714.2507.45712.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: ebiederm@xmission.com
-To: nicolas.dichtel@6wind.com, netdev@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f179.google.com ([209.85.213.179]:47178 "EHLO
-	mail-ig0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752364AbbBFBSO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Feb 2015 20:18:14 -0500
-Received: by mail-ig0-f179.google.com with SMTP id l13so3860637iga.0
-        for <netdev@vger.kernel.org>; Thu, 05 Feb 2015 17:18:13 -0800 (PST)
-In-Reply-To: <54D373CA.20008@6wind.com>
+Received: from mail-bl2on0113.outbound.protection.outlook.com ([65.55.169.113]:50688
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751407AbbBFBRU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Feb 2015 20:17:20 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2/5/15 6:44 AM, Nicolas Dichtel wrote:
-> Le 05/02/2015 02:34, David Ahern a =C3=A9crit :
->> Sockets inherit the vrf context of the task opening it. The context =
-can
->> be read/changed via a socket option (IP_VRF_CONTEXT).
-> What about using a common socket option (SO_VRF_CONTEXT) instead of a=
-n ipv4
-> specific option?
+When using per channel DMA interrupts the transmit interrupt (TI) and the
+receive interrupt (RI) are masked off so as to not generate an interrupt
+to the main ISR. However, should another interrupt fire for the DMA channel
+that is handled by the main ISR the TI/RI bits can still be set. This
+will cause the wrong and uninitialized napi structure to be used causing a
+panic. Add a check to be sure per channel DMA interrupts are not enabled
+before acting on those bit flags.
 
-Makes sense.
+Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
+---
+ drivers/net/ethernet/amd/xgbe/xgbe-drv.c |   11 ++++++-----
+ 1 file changed, 6 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
+index e5ffb2c..477a7e3 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
+@@ -337,12 +337,13 @@ static irqreturn_t xgbe_isr(int irq, void *data)
+ 		dma_ch_isr = XGMAC_DMA_IOREAD(channel, DMA_CH_SR);
+ 		DBGPR("  DMA_CH%u_ISR = %08x\n", i, dma_ch_isr);
+ 
+-		/* If we get a TI or RI interrupt that means per channel DMA
+-		 * interrupts are not enabled, so we use the private data napi
+-		 * structure, not the per channel napi structure
++		/* The TI or RI interrupt bits may still be set even if using
++		 * per channel DMA interrupts. Check to be sure those are not
++		 * enabled before using the private data napi structure.
+ 		 */
+-		if (XGMAC_GET_BITS(dma_ch_isr, DMA_CH_SR, TI) ||
+-		    XGMAC_GET_BITS(dma_ch_isr, DMA_CH_SR, RI)) {
++		if (!pdata->per_channel_irq &&
++		    (XGMAC_GET_BITS(dma_ch_isr, DMA_CH_SR, TI) ||
++		     XGMAC_GET_BITS(dma_ch_isr, DMA_CH_SR, RI))) {
+ 			if (napi_schedule_prep(&pdata->napi)) {
+ 				/* Disable Tx and Rx interrupts */
+ 				xgbe_disable_rx_tx_ints(pdata);
