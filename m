@@ -1,43 +1,48 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 08/16] ixgbe: cleanup redundant default method set_rxpba
-Date: Thu,  5 Feb 2015 20:31:17 -0800
-Message-ID: <1423197085-32270-9-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 09/16] ixgbe: Cleanup probe to remove redundant attempt to ID PHY
+Date: Thu,  5 Feb 2015 20:31:18 -0800
+Message-ID: <1423197085-32270-10-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1423197085-32270-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	kernel-team@fb.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:63300 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:31696 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754630AbbBFEbj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Feb 2015 23:31:39 -0500
+	id S1754660AbbBFEbk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Feb 2015 23:31:40 -0500
 In-Reply-To: <1423197085-32270-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Don Skidmore <donald.c.skidmore@intel.com>
 
-My original patch 6a14ee0cfb19 "ixgbe: Add X550 support function pointers"
-accidental set a default value for this structure member twice.
+We always identify the PHY in our reset_hw path anyway so there is
+no need to do it in get_invariants().  The reason I even noticed this
+is that for new hardware (X550em) we don't assign some methods until
+later in probe and calling phy.ops.read_reg could lead to a panic.
 
 Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c | 1 -
- 1 file changed, 1 deletion(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c | 3 ---
+ 1 file changed, 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-index fcba952..84affca 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-@@ -1350,7 +1350,6 @@ static struct ixgbe_mac_operations mac_ops_X550 = {
- 	.get_san_mac_addr	= &ixgbe_get_san_mac_addr_generic,
- 	.get_wwn_prefix		= &ixgbe_get_wwn_prefix_generic,
- 	.setup_link		= &ixgbe_setup_mac_link_X540,
--	.set_rxpba		= &ixgbe_set_rxpba_generic,
- 	.get_link_capabilities	= &ixgbe_get_copper_link_capabilities_generic,
- 	.setup_sfp		= NULL,
- };
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
+index ba54ff0..4939542 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
+@@ -55,9 +55,6 @@ s32 ixgbe_get_invariants_X540(struct ixgbe_hw *hw)
+ {
+ 	struct ixgbe_mac_info *mac = &hw->mac;
+ 
+-	/* Call PHY identify routine to get the phy type */
+-	ixgbe_identify_phy_generic(hw);
+-
+ 	mac->mcft_size = IXGBE_X540_MC_TBL_SIZE;
+ 	mac->vft_size = IXGBE_X540_VFT_TBL_SIZE;
+ 	mac->num_rar_entries = IXGBE_X540_RAR_ENTRIES;
 -- 
 1.9.3
