@@ -1,7 +1,7 @@
-From: Michal Kazior <michal.kazior-++hxYGjEMp0AvxtiuMwx3w@public.gmane.org>
+From: Michal Kazior <michal.kazior@tieto.com>
 Subject: Re: Throughput regression with `tcp: refine TSO autosizing`
-Date: Fri, 6 Feb 2015 15:08:19 +0100
-Message-ID: <CA+BoTQnEvF_mi68gyFns67oKC=8jEYdi3tLuW5dNj20KwUNs9A@mail.gmail.com>
+Date: Fri, 6 Feb 2015 15:09:36 +0100
+Message-ID: <CA+BoTQkazCOin7VWLfrHUjtgKDPV6T+sFsk5FPS7D-morr4FZQ@mail.gmail.com>
 References: <CA+BoTQkVu23P3EOmY_Q3E1GJnWsyF==Pawz4iPOS_Bq5dvfO5Q@mail.gmail.com>
 	<1422537297.21689.15.camel@edumazet-glaptop2.roam.corp.google.com>
 	<CA+BoTQk2xT-8DqPuiiKG+kHAjLPrj8F9dLTb-rcGhvMq0u_2Qw@mail.gmail.com>
@@ -27,71 +27,58 @@ References: <CA+BoTQkVu23P3EOmY_Q3E1GJnWsyF==Pawz4iPOS_Bq5dvfO5Q@mail.gmail.com>
 	<1423156205.31870.86.camel@edumazet-glaptop2.roam.corp.google.com>
 	<CA+BoTQ=WaKLV=r6qWaWAEfyDr2pqMWpm4NDmnek92TEVndnxRQ@mail.gmail.com>
 	<1423230001.31870.128.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1423230785.31870.131.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Neal Cardwell <ncardwell-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Eyal Perry <eyalpe-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
-To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1423230001.31870.128.camel-XN9IlZ5yJG9HTL0Zs8A6p/gx64E7kk8eUsxypvmhUTTZJqsBc5GL+g@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Neal Cardwell <ncardwell@google.com>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Eyal Perry <eyalpe@dev.mellanox.co.il>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f178.google.com ([209.85.212.178]:49719 "EHLO
+	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752509AbbBFOJi convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Feb 2015 09:09:38 -0500
+Received: by mail-wi0-f178.google.com with SMTP id bs8so2681364wib.5
+        for <netdev@vger.kernel.org>; Fri, 06 Feb 2015 06:09:36 -0800 (PST)
+In-Reply-To: <1423230785.31870.131.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 6 February 2015 at 14:40, Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrot=
+On 6 February 2015 at 14:53, Eric Dumazet <eric.dumazet@gmail.com> wrot=
 e:
-> On Fri, 2015-02-06 at 10:42 +0100, Michal Kazior wrote:
+> On Fri, 2015-02-06 at 05:40 -0800, Eric Dumazet wrote:
 >
->> The above brings back previous behaviour, i.e. I can get 600mbps TCP
->> on 5 flows again. Single flow is still (as it was before TSO
->> autosizing) limited to roughly ~280mbps.
+>> tcp_wfree() could maintain in tp->tx_completion_delay_ms an EWMA
+>> of TX completion delay. But this would require yet another expensive
+>> call to ktime_get() if HZ < 1000.
 >>
->> I never really bothered before to understand why I need to push a fe=
-w
->> flows through ath10k to max it out, i.e. if I run a single UDP flow =
-I
->> get ~300mbps while with, e.g. 5 I get 670mbps easily.
+>> Then tcp_write_xmit() could use it to adjust :
 >>
+>>    limit =3D max(2 * skb->truesize, sk->sk_pacing_rate >> 9);
+>>
+>> to
+>>
+>>    amount =3D (2 + tp->tx_completion_delay_ms) * sk->sk_pacing_rate
+>>
+>>    limit =3D max(2 * skb->truesize, amount / 1000);
+>>
+>> I'll cook a patch.
 >
-> For single UDP flow, tweaking /proc/sys/net/core/wmem_default might b=
-e
-> enough : UDP has no callback from TX completion to feed following fra=
-mes
-> (No write queue like TCP)
+> Hmm... doing this in all protocols would be too expensive,
+> and we do not want to include time spent in qdiscs.
 >
-> # cat /proc/sys/net/core/wmem_default
-> 212992
-> # ethtool -C eth1 tx-usecs 1024 tx-frames 120
-> # ./netperf -H remote -t UDP_STREAM -- -m 1450
-> Socket  Message  Elapsed      Messages
-> Size    Size     Time         Okay Errors   Throughput
-> bytes   bytes    secs            #      #   10^6bits/sec
+> wifi could eventually do that, providing in skb->tx_completion_delay_=
+us
+> the time spent in wifi driver.
 >
-> 212992    1450   10.00      697705      0     809.27
-> 212992           10.00      673412            781.09
->
-> # echo 800000 >/proc/sys/net/core/wmem_default
-> # ./netperf -H remote -t UDP_STREAM -- -m 1450
-> Socket  Message  Elapsed      Messages
-> Size    Size     Time         Okay Errors   Throughput
-> bytes   bytes    secs            #      #   10^6bits/sec
->
-> 800000    1450   10.00     7329221      0    8501.84
-> 212992           10.00     7284051           8449.44
+> This way, we would have no penalty for network devices doing normal s=
+kb
+> orphaning (loopback interface, ethernet, ...)
 
-Hmm.. I confirm it works. However the value at which I get full rate
-on a single flow is more than 2048K. Also using non-default
-wmem_default seems to introduce packet loss as per iperf reports at
-the receiver. I suppose this is kind of expected but on the other hand
-wmem_default=3D262992 and 5 flows of UDP max the device out with 0
-packet loss.
+I'll play around with this idea and report back later.
 
 
 Micha=C5=82
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
