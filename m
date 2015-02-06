@@ -1,340 +1,481 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [PATCH net-next] net: rfs: add hash collision detection
-Date: Fri, 6 Feb 2015 14:21:29 -0800
-Message-ID: <CA+mtBx-N1bQW8vscQf1-h=C0cmtTc2gG3ka+ixs1AMt7cP-Z_Q@mail.gmail.com>
-References: <1423256341.31870.160.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Oleksij Rempel <linux@rempel-privat.de>
+Subject: Re: [PATCH] ath9k_htc: add adaptive usb receive flow control to repair
+ soft lockup with monitor mode
+Date: Fri, 06 Feb 2015 23:24:21 +0100
+Message-ID: <54D53F15.8000507@rempel-privat.de>
+References: <1423219598-17982-1-git-send-email-yuweizheng@139.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, Ying Cai <ycai@google.com>,
-	Willem de Bruijn <willemb@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f170.google.com ([209.85.213.170]:33037 "EHLO
-	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752833AbbBFWVa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Feb 2015 17:21:30 -0500
-Received: by mail-ig0-f170.google.com with SMTP id l13so5510642iga.1
-        for <netdev@vger.kernel.org>; Fri, 06 Feb 2015 14:21:30 -0800 (PST)
-In-Reply-To: <1423256341.31870.160.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ protocol="application/pgp-signature";
+ boundary="Af5tBqDphnTDWcX3BeSHA3wtAlVNMQxhv"
+Cc: netdev@vger.kernel.org, zhengyuwei@360.cn
+To: yuweizheng@139.com, linux-kernel@vger.kernel.org,
+	ath9k-devel@lists.ath9k.org, linux-wireless@vger.kernel.org,
+	kvalo@codeaurora.org, ath9k-devel@qca.qualcomm.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1423219598-17982-1-git-send-email-yuweizheng@139.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Feb 6, 2015 at 12:59 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> From: Eric Dumazet <edumazet@google.com>
->
-> Receive Flow Steering is a nice solution but suffers from
-> hash collisions when a mix of connected and unconnected traffic
-> is received on the host, when flow hash table is populated.
->
-> Also, clearing flow in inet_release() makes RFS not very good
-> for short lived flows, as many packets can follow close().
-> (FIN , ACK packets, ...)
->
-> This patch extends the information stored into global hash table
-> to not only include cpu number, but upper part of the hash value.
->
-> I use a 32bit value, and dynamically split it in two parts.
->
-> For host with less than 64 possible cpus, this gives 6 bits for the
-> cpu number, and 26 (32-6) bits for the upper part of the hash.
->
-> Since hash bucket selection use low order bits of the hash, we have
-> a full hash match, if /proc/sys/net/core/rps_sock_flow_entries is big
-> enough.
->
-> If the hash found in flow table does not match, we fallback to RPS (if
-> it is enabled for the rxqueue).
->
-> This means that a packet for an non connected flow can avoid the
-> IPI through a unrelated/victim CPU.
->
-> This also means we no longer have to clear the table at socket
-> close time, and this helps short lived flows performance.
->
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--Af5tBqDphnTDWcX3BeSHA3wtAlVNMQxhv
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
 
-Acked-by: Tom Herbert <therbert@google.com>
+formatting of this patch is still badly broken.
+=2E/scripts/checkpatch.pl ~/Downloads/patch.eml
+=2E...
+ERROR: DOS line endings
+#442: FILE: drivers/net/wireless/ath/ath9k/htc_drv_txrx.c:1170:
++^I^IAURFC_STAT_SET(aurfc_submit_delay, delay);^M$
 
-Eric, looks awesome! Can you share any performance numbers?
+total: 195 errors, 6 warnings, 1 checks, 310 lines checked
 
-Thanks,
-Tom
 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+Am 06.02.2015 um 11:46 schrieb yuweizheng@139.com:
+> From: Yuwei Zheng <yuweizheng@139.com>
+>=20
+> In the environment with heavy wifi traffic, set the ar9271 into monitor=
+ mode, will
+> trigger a deadloop panic.
+> =20
+> The ath9k_hif_usb_rx_cb function excute on  the interrupt context, and =
+ath9k_rx_tasklet excute
+> on the soft irq context. In other words, the ath9k_hif_usb_rx_cb have m=
+ore chance to excute than
+> ath9k_rx_tasklet.  So in the worst condition,  the rx.rxbuf receive lis=
+t is always full,
+> and the do {}while(true) loop will not be break. The kernel get a soft =
+lockup panic.=20
+> =20
+> [59011.007210] BUG: soft lockup - CPU#0 stuck for 23s!
+> [kworker/0:0:30609]
+> [59011.030560] BUG: scheduling while atomic: kworker/0:0/30609/0x400101=
+00
+> [59013.804486] BUG: scheduling while atomic: kworker/0:0/30609/0x400101=
+00
+> [59013.858522] Kernel panic - not syncing: softlockup: hung tasks
+> =20
+> [59014.038891] Exception stack(0xdf4bbc38 to 0xdf4bbc80)
+> [59014.046834] bc20:                                                   =
+    de57b950 60000113
+> [59014.059579] bc40: 00000000 bb32bb32 60000113 de57b948 de57b500 dc7bb=
+440 df4bbcd0 00000000
+> [59014.072337] bc60: de57b950 60000113 df4bbcd0 df4bbc80 c04c259d c04c2=
+5a0 60000133 ffffffff
+> [59014.085233] [<c04c28db>] (__irq_svc+0x3b/0x5c) from [<c04c25a0>] (_r=
+aw_spin_unlock_irqrestore+0xc/0x10)
+> [59014.100437] [<c04c25a0>] (_raw_spin_unlock_irqrestore+0xc/0x10) from=
+ [<bf9c2089>] (ath9k_rx_tasklet+0x290/0x490 [ath9k_htc])
+> [59014.118267] [<bf9c2089>] (ath9k_rx_tasklet+0x290/0x490 [ath9k_htc]) =
+from [<c0036d23>] (tasklet_action+0x3b/0x98)
+> [59014.134132] [<c0036d23>] (tasklet_action+0x3b/0x98) from [<c0036709>=
+] (__do_softirq+0x99/0x16c)
+> [59014.147784] [<c0036709>] (__do_softirq+0x99/0x16c) from [<c00369f7>]=
+ (irq_exit+0x5b/0x5c)
+> [59014.160653] [<c00369f7>] (irq_exit+0x5b/0x5c) from [<c000cfc3>] (han=
+dle_IRQ+0x37/0x78)
+> [59014.173124] [<c000cfc3>] (handle_IRQ+0x37/0x78) from [<c00085df>] (o=
+map3_intc_handle_irq+0x5f/0x68)
+> [59014.187225] [<c00085df>] (omap3_intc_handle_irq+0x5f/0x68) from [<c0=
+4c28db>](__irq_svc+0x3b/0x5c)
+> =20
+> This bug can be see with low performance board, such as uniprocessor be=
+agle bone board.=20
+> =20
+> Signed-off-by: Yuwei Zheng <yuweizheng@139.com>
+>=20
 > ---
->  drivers/net/tun.c          |    5 ---
->  include/linux/netdevice.h  |   34 ++++++++++++------------
->  include/net/sock.h         |   24 -----------------
->  net/core/dev.c             |   48 +++++++++++++++++++----------------
->  net/core/sysctl_net_core.c |    2 -
->  net/ipv4/af_inet.c         |    2 -
->  6 files changed, 47 insertions(+), 68 deletions(-)
->
-> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-> index ad7d3d5f3ee5..857dca47bf80 100644
-> --- a/drivers/net/tun.c
-> +++ b/drivers/net/tun.c
-> @@ -256,7 +256,6 @@ static void tun_flow_delete(struct tun_struct *tun, struct tun_flow_entry *e)
->  {
->         tun_debug(KERN_INFO, tun, "delete flow: hash %u index %u\n",
->                   e->rxhash, e->queue_index);
-> -       sock_rps_reset_flow_hash(e->rps_rxhash);
->         hlist_del_rcu(&e->hash_link);
->         kfree_rcu(e, rcu);
->         --tun->flow_count;
-> @@ -373,10 +372,8 @@ unlock:
->   */
->  static inline void tun_flow_save_rps_rxhash(struct tun_flow_entry *e, u32 hash)
->  {
-> -       if (unlikely(e->rps_rxhash != hash)) {
-> -               sock_rps_reset_flow_hash(e->rps_rxhash);
-> +       if (unlikely(e->rps_rxhash != hash))
->                 e->rps_rxhash = hash;
-> -       }
+>  drivers/net/wireless/ath/ath9k/hif_usb.c       | 74 ++++++++++++++++++=
++++++---
+>  drivers/net/wireless/ath/ath9k/hif_usb.h       |  9 ++++
+>  drivers/net/wireless/ath/ath9k/htc.h           | 19 +++++++
+>  drivers/net/wireless/ath/ath9k/htc_drv_debug.c | 53 ++++++++++++++++++=
+
+>  drivers/net/wireless/ath/ath9k/htc_drv_txrx.c  | 44 +++++++++++++++
+>  5 files changed, 192 insertions(+), 7 deletions(-)
+>=20
+> diff --git a/drivers/net/wireless/ath/ath9k/hif_usb.c b/drivers/net/wir=
+eless/ath/ath9k/hif_usb.c
+> index 8e7153b..90ee568 100644
+> --- a/drivers/net/wireless/ath/ath9k/hif_usb.c
+> +++ b/drivers/net/wireless/ath/ath9k/hif_usb.c
+> @@ -640,6 +640,7 @@ static void ath9k_hif_usb_rx_cb(struct urb *urb)
+>  	struct hif_device_usb *hif_dev =3D
+>  		usb_get_intfdata(usb_ifnum_to_if(urb->dev, 0));
+>  	int ret;
+> +	int delay;
+> =20
+>  	if (!skb)
+>  		return;
+> @@ -658,7 +659,6 @@ static void ath9k_hif_usb_rx_cb(struct urb *urb)
+>  	default:
+>  		goto resubmit;
+>  	}
+> -
+>  	if (likely(urb->actual_length !=3D 0)) {
+>  		skb_put(skb, urb->actual_length);
+>  		ath9k_hif_usb_rx_stream(hif_dev, skb);
+> @@ -667,12 +667,22 @@ static void ath9k_hif_usb_rx_cb(struct urb *urb)
+>  resubmit:
+>  	skb_reset_tail_pointer(skb);
+>  	skb_trim(skb, 0);
+> -
+> -	usb_anchor_urb(urb, &hif_dev->rx_submitted);
+> -	ret =3D usb_submit_urb(urb, GFP_ATOMIC);
+> -	if (ret) {
+> -		usb_unanchor_urb(urb);
+> -		goto free;
+> +	spin_lock(&hif_dev->aurfc_lock);
+> +	if (atomic_read(&hif_dev->aurfc_submit_delay) > 0 &&
+> +	    hif_dev->aurfc_active =3D=3D 1) {
+> +		usb_anchor_urb(urb, &hif_dev->rx_delayed_submitted);
+> +		delay =3D atomic_read(&hif_dev->aurfc_submit_delay);
+> +		schedule_delayed_work(&hif_dev->aurfc_delayed_work,
+> +				      msecs_to_jiffies(delay));
+> +		spin_unlock(&hif_dev->aurfc_lock);
+> +	} else {
+> +		spin_unlock(&hif_dev->aurfc_lock);
+> +		usb_anchor_urb(urb, &hif_dev->rx_submitted);
+> +		ret =3D usb_submit_urb(urb, GFP_ATOMIC);
+> +		if (ret) {
+> +			usb_unanchor_urb(urb);
+> +			goto free;
+> +		}
+>  	}
+> =20
+>  	return;
+> @@ -818,9 +828,50 @@ err:
+>  	return -ENOMEM;
 >  }
->
->  /* We try to identify a flow through its rxhash first. The reason that
-> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-> index ce784d5018e0..ab3b7cef4638 100644
-> --- a/include/linux/netdevice.h
-> +++ b/include/linux/netdevice.h
-> @@ -644,39 +644,39 @@ struct rps_dev_flow_table {
->  /*
->   * The rps_sock_flow_table contains mappings of flows to the last CPU
->   * on which they were processed by the application (set in recvmsg).
-> + * Each entry is a 32bit value. Upper part is the high order bits
-> + * of flow hash, lower part is cpu number.
-> + * rps_cpu_mask is used to partition the space, depending on number of
-> + * possible cpus : rps_cpu_mask = roundup_pow_of_two(nr_cpu_ids) - 1
-> + * For example, if 64 cpus are possible, rps_cpu_mask = 0x3f,
-> + * meaning we use 32-6=26 bits for the hash.
->   */
->  struct rps_sock_flow_table {
-> -       unsigned int mask;
-> -       u16 ents[0];
-> +       u32     mask;
-> +       u32     ents[0];
+> =20
+> +static void aurfc_submit_handler(struct work_struct *work)
+> +{
+> +	struct hif_device_usb *hif_dev =3D
+> +		container_of(work,
+> +			     struct hif_device_usb,
+> +			     aurfc_delayed_work.work);
+> +
+> +	struct urb *urb =3D NULL;
+> +	struct sk_buff *skb =3D NULL;
+> +	int ret;
+> +	int loop_times =3D 0;
+> +
+> +	while (true) {
+> +		loop_times++;
+> +		if (loop_times > MAX_RX_URB_NUM)
+> +			atomic_add(AURFC_STEP,
+> +				   &hif_dev->aurfc_submit_delay);
+> +
+> +		urb =3D usb_get_from_anchor(
+> +				&hif_dev->rx_delayed_submitted);
+> +		if (urb) {
+> +			skb =3D (struct sk_buff *)urb->context;
+> +			ret =3D usb_submit_urb(urb, GFP_KERNEL);
+> +			if (ret !=3D 0) {
+> +				usb_unanchor_urb(urb);
+> +				dev_kfree_skb_any(skb);
+> +				urb->context =3D NULL;
+> +			}
+> +		} else {
+> +			break;
+> +		}
+> +	}
+> +}
+> +
+>  static void ath9k_hif_usb_dealloc_rx_urbs(struct hif_device_usb *hif_d=
+ev)
+>  {
+> +	unsigned long flags;
+> +
+> +	spin_lock_irqsave(&hif_dev->aurfc_lock, flags);
+> +	hif_dev->aurfc_active =3D 0;
+> +	mod_delayed_work(system_wq, &hif_dev->aurfc_delayed_work, 0);
+> +	spin_unlock_irqrestore(&hif_dev->aurfc_lock, flags);
+>  	usb_kill_anchored_urbs(&hif_dev->rx_submitted);
+> +	usb_kill_anchored_urbs(&hif_dev->rx_delayed_submitted);
+>  }
+> =20
+>  static int ath9k_hif_usb_alloc_rx_urbs(struct hif_device_usb *hif_dev)=
+
+> @@ -830,8 +881,17 @@ static int ath9k_hif_usb_alloc_rx_urbs(struct hif_=
+device_usb *hif_dev)
+>  	int i, ret;
+> =20
+>  	init_usb_anchor(&hif_dev->rx_submitted);
+> +	init_usb_anchor(&hif_dev->rx_delayed_submitted);
+> +
+>  	spin_lock_init(&hif_dev->rx_lock);
+> =20
+> +	/* add for adaptive usb receive control*/
+> +	atomic_set(&hif_dev->aurfc_submit_delay, 0);
+> +	INIT_DELAYED_WORK(&hif_dev->aurfc_delayed_work,
+> +			  aurfc_submit_handler);
+> +	spin_lock_init(&hif_dev->aurfc_lock);
+> +	hif_dev->aurfc_active =3D 1;
+> +
+>  	for (i =3D 0; i < MAX_RX_URB_NUM; i++) {
+> =20
+>  		/* Allocate URB */
+> diff --git a/drivers/net/wireless/ath/ath9k/hif_usb.h b/drivers/net/wir=
+eless/ath/ath9k/hif_usb.h
+> index 51496e7..2050a74 100644
+> --- a/drivers/net/wireless/ath/ath9k/hif_usb.h
+> +++ b/drivers/net/wireless/ath/ath9k/hif_usb.h
+> @@ -41,6 +41,7 @@
+>  #define MAX_RX_URB_NUM  8
+>  #define MAX_RX_BUF_SIZE 16384
+>  #define MAX_PKT_NUM_IN_TRANSFER 10
+> +#define AURFC_STEP 10  /* ms */
+> =20
+>  #define MAX_REG_OUT_URB_NUM  1
+>  #define MAX_REG_IN_URB_NUM   64
+> @@ -98,9 +99,17 @@ struct hif_device_usb {
+>  	struct hif_usb_tx tx;
+>  	struct usb_anchor regout_submitted;
+>  	struct usb_anchor rx_submitted;
+> +	struct usb_anchor rx_delayed_submitted;
+>  	struct usb_anchor reg_in_submitted;
+>  	struct usb_anchor mgmt_submitted;
+>  	struct sk_buff *remain_skb;
+> +
+> +	/* adaptive usb receive flow control */
+> +	struct delayed_work aurfc_delayed_work;
+> +	spinlock_t aurfc_lock; /* to protect work */
+> +	atomic_t  aurfc_submit_delay; /* ms */
+> +	int aurfc_active;
+> +
+>  	const char *fw_name;
+>  	int rx_remain_len;
+>  	int rx_pkt_len;
+> diff --git a/drivers/net/wireless/ath/ath9k/htc.h b/drivers/net/wireles=
+s/ath/ath9k/htc.h
+> index 9dde265..1586bd2 100644
+> --- a/drivers/net/wireless/ath/ath9k/htc.h
+> +++ b/drivers/net/wireless/ath/ath9k/htc.h
+> @@ -331,6 +331,13 @@ static inline struct ath9k_htc_tx_ctl *HTC_SKB_CB(=
+struct sk_buff *skb)
+> =20
+>  #define TX_QSTAT_INC(q) (priv->debug.tx_stats.queue_stats[q]++)
+> =20
+> +#define AURFC_STAT_INC(c) \
+> +	(hif_dev->htc_handle->drv_priv->debug.aurfc_stats.c++)
+> +#define AURFC_STAT_ADD(c, a) \
+> +	(hif_dev->htc_handle->drv_priv->debug.aurfc_stats.c +=3D a)
+> +#define AURFC_STAT_SET(c, a) \
+> +	(hif_dev->htc_handle->drv_priv->debug.aurfc_stats.c =3D a)
+> +
+>  void ath9k_htc_err_stat_rx(struct ath9k_htc_priv *priv,
+>  			   struct ath_rx_status *rs);
+> =20
+> @@ -352,11 +359,20 @@ struct ath_skbrx_stats {
+>  	u32 skb_dropped;
 >  };
-> -#define        RPS_SOCK_FLOW_TABLE_SIZE(_num) (sizeof(struct rps_sock_flow_table) + \
-> -    ((_num) * sizeof(u16)))
-> +#define        RPS_SOCK_FLOW_TABLE_SIZE(_num) (offsetof(struct rps_sock_flow_table, ents[_num]))
->
->  #define RPS_NO_CPU 0xffff
->
-> +extern u32 rps_cpu_mask;
-> +extern struct rps_sock_flow_table __rcu *rps_sock_flow_table;
+> =20
+> +struct ath_aurfc_stats {
+> +	u32 aurfc_highwater;
+> +	u32 aurfc_lowwater;
+> +	u32 aurfc_wm_triggered;
+> +	u32 aurfc_submit_delay;
+> +	u32 aurfc_called;
+> +};
 > +
->  static inline void rps_record_sock_flow(struct rps_sock_flow_table *table,
->                                         u32 hash)
+>  struct ath9k_debug {
+>  	struct dentry *debugfs_phy;
+>  	struct ath_tx_stats tx_stats;
+>  	struct ath_rx_stats rx_stats;
+>  	struct ath_skbrx_stats skbrx_stats;
+> +	struct ath_aurfc_stats aurfc_stats;
+>  };
+> =20
+>  void ath9k_htc_get_et_strings(struct ieee80211_hw *hw,
+> @@ -377,6 +393,9 @@ void ath9k_htc_get_et_stats(struct ieee80211_hw *hw=
+,
+> =20
+>  #define TX_QSTAT_INC(c) do { } while (0)
+> =20
+> +#define AURFC_STAT_INC(c) do {} while (0)
+> +#define AURFC_STAT_ADD(c, a) do {} while (0)
+> +#define AURFC_STAT_SET(c, a) do {} while (0)
+>  static inline void ath9k_htc_err_stat_rx(struct ath9k_htc_priv *priv,
+>  					 struct ath_rx_status *rs)
 >  {
->         if (table && hash) {
-> -               unsigned int cpu, index = hash & table->mask;
-> +               unsigned int index = hash & table->mask;
-> +               u32 val = hash & ~rps_cpu_mask;
->
->                 /* We only give a hint, preemption can change cpu under us */
-> -               cpu = raw_smp_processor_id();
-> +               val |= raw_smp_processor_id();
->
-> -               if (table->ents[index] != cpu)
-> -                       table->ents[index] = cpu;
-> +               if (table->ents[index] != val)
-> +                       table->ents[index] = val;
->         }
->  }
->
-> -static inline void rps_reset_sock_flow(struct rps_sock_flow_table *table,
-> -                                      u32 hash)
-> -{
-> -       if (table && hash)
-> -               table->ents[hash & table->mask] = RPS_NO_CPU;
-> -}
-> -
-> -extern struct rps_sock_flow_table __rcu *rps_sock_flow_table;
-> -
->  #ifdef CONFIG_RFS_ACCEL
->  bool rps_may_expire_flow(struct net_device *dev, u16 rxq_index, u32 flow_id,
->                          u16 filter_id);
-> diff --git a/include/net/sock.h b/include/net/sock.h
-> index d28b8fededd6..e13824570b0f 100644
-> --- a/include/net/sock.h
-> +++ b/include/net/sock.h
-> @@ -857,18 +857,6 @@ static inline void sock_rps_record_flow_hash(__u32 hash)
->  #endif
->  }
->
-> -static inline void sock_rps_reset_flow_hash(__u32 hash)
-> -{
-> -#ifdef CONFIG_RPS
-> -       struct rps_sock_flow_table *sock_flow_table;
-> -
-> -       rcu_read_lock();
-> -       sock_flow_table = rcu_dereference(rps_sock_flow_table);
-> -       rps_reset_sock_flow(sock_flow_table, hash);
-> -       rcu_read_unlock();
-> -#endif
-> -}
-> -
->  static inline void sock_rps_record_flow(const struct sock *sk)
+> diff --git a/drivers/net/wireless/ath/ath9k/htc_drv_debug.c b/drivers/n=
+et/wireless/ath/ath9k/htc_drv_debug.c
+> index 8cef1ed..a6be9be 100644
+> --- a/drivers/net/wireless/ath/ath9k/htc_drv_debug.c
+> +++ b/drivers/net/wireless/ath/ath9k/htc_drv_debug.c
+> @@ -286,6 +286,54 @@ static const struct file_operations fops_skb_rx =3D=
+ {
+>  	.llseek =3D default_llseek,
+>  };
+> =20
+> +static ssize_t read_file_aurfc(struct file *file,
+> +			       char __user *user_buf,
+> +			       size_t count, loff_t *ppos)
+> +{
+> +	struct ath9k_htc_priv *priv =3D file->private_data;
+> +	char *buf;
+> +	unsigned int len =3D 0, size =3D 1500;
+> +	ssize_t retval =3D 0;
+> +
+> +	buf =3D kzalloc(size, GFP_KERNEL);
+> +	if (!buf)
+> +		return -ENOMEM;
+> +
+> +	len +=3D scnprintf(buf + len, size - len,
+> +			"%20s : %10u\n", "High watermark",
+> +			priv->debug.aurfc_stats.aurfc_highwater);
+> +	len +=3D scnprintf(buf + len, size - len,
+> +			"%20s : %10u\n", "Low watermark",
+> +			priv->debug.aurfc_stats.aurfc_lowwater);
+> +
+> +	len +=3D scnprintf(buf + len, size - len,
+> +			"%20s : %10u\n", "WM triggered",
+> +			priv->debug.aurfc_stats.aurfc_wm_triggered);
+> +
+> +	len +=3D scnprintf(buf + len, size - len,
+> +			"%20s : %10u\n", "Handler called",
+> +			priv->debug.aurfc_stats.aurfc_called);
+> +
+> +	len +=3D scnprintf(buf + len, size - len,
+> +			"%20s : %10u\n", "Submit delay",
+> +			priv->debug.aurfc_stats.aurfc_submit_delay);
+> +	if (len > size)
+> +		len =3D size;
+> +
+> +	retval =3D simple_read_from_buffer(user_buf, count,
+> +					 ppos, buf, len);
+> +	kfree(buf);
+> +
+> +	return retval;
+> +}
+> +
+> +static const struct file_operations fops_aurfc =3D {
+> +	.read =3D read_file_aurfc,
+> +	.open =3D simple_open,
+> +	.owner =3D THIS_MODULE,
+> +	.llseek =3D default_llseek,
+> +};
+> +
+>  static ssize_t read_file_slot(struct file *file, char __user *user_buf=
+,
+>  			      size_t count, loff_t *ppos)
 >  {
->  #ifdef CONFIG_RPS
-> @@ -876,28 +864,18 @@ static inline void sock_rps_record_flow(const struct sock *sk)
->  #endif
->  }
->
-> -static inline void sock_rps_reset_flow(const struct sock *sk)
-> -{
-> -#ifdef CONFIG_RPS
-> -       sock_rps_reset_flow_hash(sk->sk_rxhash);
-> -#endif
-> -}
-> -
->  static inline void sock_rps_save_rxhash(struct sock *sk,
->                                         const struct sk_buff *skb)
->  {
->  #ifdef CONFIG_RPS
-> -       if (unlikely(sk->sk_rxhash != skb->hash)) {
-> -               sock_rps_reset_flow(sk);
-> +       if (unlikely(sk->sk_rxhash != skb->hash))
->                 sk->sk_rxhash = skb->hash;
-> -       }
->  #endif
->  }
->
->  static inline void sock_rps_reset_rxhash(struct sock *sk)
->  {
->  #ifdef CONFIG_RPS
-> -       sock_rps_reset_flow(sk);
->         sk->sk_rxhash = 0;
->  #endif
->  }
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index a3a96ffc67f4..8be38675e1a8 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -3030,6 +3030,8 @@ static inline void ____napi_schedule(struct softnet_data *sd,
->  /* One global table that all flow-based protocols share. */
->  struct rps_sock_flow_table __rcu *rps_sock_flow_table __read_mostly;
->  EXPORT_SYMBOL(rps_sock_flow_table);
-> +u32 rps_cpu_mask __read_mostly;
-> +EXPORT_SYMBOL(rps_cpu_mask);
->
->  struct static_key rps_needed __read_mostly;
->
-> @@ -3086,16 +3088,17 @@ set_rps_cpu(struct net_device *dev, struct sk_buff *skb,
->  static int get_rps_cpu(struct net_device *dev, struct sk_buff *skb,
->                        struct rps_dev_flow **rflowp)
->  {
-> -       struct netdev_rx_queue *rxqueue;
-> -       struct rps_map *map;
-> +       const struct rps_sock_flow_table *sock_flow_table;
-> +       struct netdev_rx_queue *rxqueue = dev->_rx;
->         struct rps_dev_flow_table *flow_table;
-> -       struct rps_sock_flow_table *sock_flow_table;
-> +       struct rps_map *map;
->         int cpu = -1;
-> -       u16 tcpu;
-> +       u32 tcpu;
->         u32 hash;
->
->         if (skb_rx_queue_recorded(skb)) {
->                 u16 index = skb_get_rx_queue(skb);
+> @@ -518,7 +566,12 @@ int ath9k_htc_init_debug(struct ath_hw *ah)
+>  	debugfs_create_file("skb_rx", S_IRUSR, priv->debug.debugfs_phy,
+>  			    priv, &fops_skb_rx);
+> =20
+> +	debugfs_create_file("aurfc_stats", S_IRUSR,
+> +			    priv->debug.debugfs_phy,
+> +			    priv, &fops_aurfc);
 > +
->                 if (unlikely(index >= dev->real_num_rx_queues)) {
->                         WARN_ONCE(dev->real_num_rx_queues > 1,
->                                   "%s received packet on queue %u, but number "
-> @@ -3103,39 +3106,40 @@ static int get_rps_cpu(struct net_device *dev, struct sk_buff *skb,
->                                   dev->name, index, dev->real_num_rx_queues);
->                         goto done;
->                 }
-> -               rxqueue = dev->_rx + index;
-> -       } else
-> -               rxqueue = dev->_rx;
-> +               rxqueue += index;
-> +       }
->
-> +       /* Avoid computing hash if RFS/RPS is not active for this rxqueue */
+>  	ath9k_cmn_debug_recv(priv->debug.debugfs_phy, &priv->debug.rx_stats);=
+
 > +
-> +       flow_table = rcu_dereference(rxqueue->rps_flow_table);
->         map = rcu_dereference(rxqueue->rps_map);
-> -       if (map) {
-> -               if (map->len == 1 &&
-> -                   !rcu_access_pointer(rxqueue->rps_flow_table)) {
-> -                       tcpu = map->cpus[0];
-> -                       if (cpu_online(tcpu))
-> -                               cpu = tcpu;
-> -                       goto done;
-> -               }
-> -       } else if (!rcu_access_pointer(rxqueue->rps_flow_table)) {
-> +       if (!flow_table && !map)
->                 goto done;
-> -       }
->
->         skb_reset_network_header(skb);
->         hash = skb_get_hash(skb);
->         if (!hash)
->                 goto done;
->
-> -       flow_table = rcu_dereference(rxqueue->rps_flow_table);
->         sock_flow_table = rcu_dereference(rps_sock_flow_table);
->         if (flow_table && sock_flow_table) {
-> -               u16 next_cpu;
->                 struct rps_dev_flow *rflow;
-> +               u32 next_cpu;
-> +               u32 ident;
+>  	ath9k_cmn_debug_phy_err(priv->debug.debugfs_phy, &priv->debug.rx_stat=
+s);
+> =20
+>  	debugfs_create_file("slot", S_IRUSR, priv->debug.debugfs_phy,
+> diff --git a/drivers/net/wireless/ath/ath9k/htc_drv_txrx.c b/drivers/ne=
+t/wireless/ath/ath9k/htc_drv_txrx.c
+> index a0f58e2..939d008 100644
+> --- a/drivers/net/wireless/ath/ath9k/htc_drv_txrx.c
+> +++ b/drivers/net/wireless/ath/ath9k/htc_drv_txrx.c
+> @@ -1061,7 +1061,28 @@ void ath9k_rx_tasklet(unsigned long data)
+>  	unsigned long flags;
+>  	struct ieee80211_hdr *hdr;
+> =20
+> +	/* add for adaptive usb receive flow control*/
+> +	int looptimes =3D 0;
+> +	int highwatermark =3D ATH9K_HTC_RXBUF*3/4;
+> +	int lowwatermark =3D ATH9K_HTC_RXBUF/32;
+> +	unsigned int delay =3D 0;
 > +
-> +               /* First check into global flow table if there is a match */
-> +               ident = sock_flow_table->ents[hash & sock_flow_table->mask];
-> +               if ((ident ^ hash) & ~rps_cpu_mask)
-> +                       goto try_rps;
->
-> +               next_cpu = ident & rps_cpu_mask;
+> +	struct htc_target *htc =3D priv->htc;
+> +	struct hif_device_usb *hif_dev =3D htc->hif_dev;
 > +
-> +               /* OK, now we know there is a match,
-> +                * we can look at the local (per receive queue) flow table
-> +                */
->                 rflow = &flow_table->flows[hash & flow_table->mask];
->                 tcpu = rflow->cpu;
->
-> -               next_cpu = sock_flow_table->ents[hash & sock_flow_table->mask];
-> -
->                 /*
->                  * If the desired CPU (where last recvmsg was done) is
->                  * different from current CPU (one in the rx-queue flow
-> @@ -3162,6 +3166,8 @@ static int get_rps_cpu(struct net_device *dev, struct sk_buff *skb,
->                 }
->         }
->
-> +try_rps:
+> +	AURFC_STAT_SET(aurfc_highwater, highwatermark);
+> +	AURFC_STAT_SET(aurfc_lowwater, lowwatermark);
 > +
->         if (map) {
->                 tcpu = map->cpus[reciprocal_scale(hash, map->len)];
->                 if (cpu_online(tcpu)) {
-> diff --git a/net/core/sysctl_net_core.c b/net/core/sysctl_net_core.c
-> index fde21d19e61b..7a31be5e361f 100644
-> --- a/net/core/sysctl_net_core.c
-> +++ b/net/core/sysctl_net_core.c
-> @@ -65,7 +65,7 @@ static int rps_sock_flow_sysctl(struct ctl_table *table, int write,
->                                         mutex_unlock(&sock_flow_mutex);
->                                         return -ENOMEM;
->                                 }
-> -
-> +                               rps_cpu_mask = roundup_pow_of_two(nr_cpu_ids) - 1;
->                                 sock_table->mask = size - 1;
->                         } else
->                                 sock_table = orig_sock_table;
-> diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-> index a44773c8346c..d2e49baaff63 100644
-> --- a/net/ipv4/af_inet.c
-> +++ b/net/ipv4/af_inet.c
-> @@ -395,8 +395,6 @@ int inet_release(struct socket *sock)
->         if (sk) {
->                 long timeout;
->
-> -               sock_rps_reset_flow(sk);
-> -
->                 /* Applications forget to leave groups before exiting */
->                 ip_mc_drop_socket(sk);
->
->
->
+>  	do {
+> +		looptimes++;
+> +		if (looptimes > highwatermark) {
+> +			delay =3D looptimes*AURFC_STEP;
+> +			atomic_set(&hif_dev->aurfc_submit_delay,
+> +				   delay);
+> +			AURFC_STAT_INC(aurfc_wm_triggered);
+> +			AURFC_STAT_SET(aurfc_submit_delay, delay);
+> +		}
+> +
+>  		spin_lock_irqsave(&priv->rx.rxbuflock, flags);
+>  		list_for_each_entry(tmp_buf, &priv->rx.rxbuf, list) {
+>  			if (tmp_buf->in_process) {
+> @@ -1072,6 +1093,22 @@ void ath9k_rx_tasklet(unsigned long data)
+> =20
+>  		if (rxbuf =3D=3D NULL) {
+>  			spin_unlock_irqrestore(&priv->rx.rxbuflock, flags);
+> +			spin_lock_irqsave(&hif_dev->aurfc_lock,
+> +					  flags);
+> +			if (atomic_read(
+> +				&hif_dev->aurfc_submit_delay) > 0 &&
+> +			    hif_dev->aurfc_active > 0)
+> +				mod_delayed_work(system_wq,
+> +					&hif_dev->aurfc_delayed_work,
+> +						 0);
+> +			spin_unlock_irqrestore(&hif_dev->aurfc_lock,
+> +					       flags);
+> +			if (looptimes < lowwatermark) {
+> +				atomic_set(&hif_dev->aurfc_submit_delay
+> +					   , 0);
+> +				AURFC_STAT_SET(aurfc_submit_delay,
+> +					       0);
+> +			}
+>  			break;
+>  		}
+> =20
+> @@ -1114,6 +1151,10 @@ void ath9k_htc_rxep(void *drv_priv, struct sk_bu=
+ff *skb,
+>  	struct ath_common *common =3D ath9k_hw_common(ah);
+>  	struct ath9k_htc_rxbuf *rxbuf =3D NULL, *tmp_buf =3D NULL;
+> =20
+> +	struct htc_target *htc =3D priv->htc;
+> +	struct hif_device_usb *hif_dev =3D htc->hif_dev;
+> +	int delay =3D ATH9K_HTC_RXBUF * AURFC_STEP;
+> +
+>  	spin_lock(&priv->rx.rxbuflock);
+>  	list_for_each_entry(tmp_buf, &priv->rx.rxbuf, list) {
+>  		if (!tmp_buf->in_process) {
+> @@ -1124,6 +1165,9 @@ void ath9k_htc_rxep(void *drv_priv, struct sk_buf=
+f *skb,
+>  	spin_unlock(&priv->rx.rxbuflock);
+> =20
+>  	if (rxbuf =3D=3D NULL) {
+> +		atomic_set(&hif_dev->aurfc_submit_delay, delay);
+> +		AURFC_STAT_INC(aurfc_wm_triggered);
+> +		AURFC_STAT_SET(aurfc_submit_delay, delay);
+>  		ath_dbg(common, ANY, "No free RX buffer\n");
+>  		goto err;
+>  	}
+>=20
+
+
+--=20
+Regards,
+Oleksij
+
+
+--Af5tBqDphnTDWcX3BeSHA3wtAlVNMQxhv
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iF4EAREIAAYFAlTVPxoACgkQHwImuRkmbWkevwEAhGrNFfGtc7amNOWtLa/ITztk
+z134VWfWiECyyLWoGxAA/jeSMS1WWlbXlLZTDBA4gY4x3z9Yg0fDbs2MYuh6DQV6
+=PLqT
+-----END PGP SIGNATURE-----
+
+--Af5tBqDphnTDWcX3BeSHA3wtAlVNMQxhv--
