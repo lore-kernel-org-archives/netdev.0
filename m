@@ -1,69 +1,90 @@
-From: Michal Kazior <michal.kazior-++hxYGjEMp0AvxtiuMwx3w@public.gmane.org>
-Subject: Re: Throughput regression with `tcp: refine TSO autosizing`
-Date: Fri, 6 Feb 2015 10:57:59 +0100
-Message-ID: <CA+BoTQmU4VXw7yD9bLAvrr6mqSbkYcNHZ1o-CcLUtb+kbQa7DQ@mail.gmail.com>
-References: <CA+BoTQkVu23P3EOmY_Q3E1GJnWsyF==Pawz4iPOS_Bq5dvfO5Q@mail.gmail.com>
-	<1422537297.21689.15.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CA+BoTQk2xT-8DqPuiiKG+kHAjLPrj8F9dLTb-rcGhvMq0u_2Qw@mail.gmail.com>
-	<1422628835.21689.95.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CA+BoTQkV+mOZfe_Niz5101sMQeaV6muKCsShptjGQ1AgOHqqoQ@mail.gmail.com>
-	<1422903136.21689.114.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1422926330.21689.138.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CA+BoTQkMikA8wxm1ce2DkKhPB0HiKeAqT7f+sQ=91W40z=X0Rg@mail.gmail.com>
-	<1422973660.907.10.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CA+BoTQmvUuFdfYF=wVMYxrf_nQZB5GCV=LvDZVvfs-3hAE4WKw@mail.gmail.com>
-	<1423051045.907.108.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CA+BoTQ=BDcQ779uKCuX+f40=4npXVF4MTQnpjKimNYAxPsxBoQ@mail.gmail.com>
-	<1423053531.907.115.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CA+BoTQ=qmCZz4CmSOvCOzMLowrDEG12XBffkTcYxjGqVD9604g@mail.gmail.com>
-	<1423055810.907.125.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1423056591.907.130.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1423084303.31870.15.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CA+BoTQnnwrv0nrKyGyQNvosz_E4e5fBa9iN8fpeqcd-iRfi17g@mail.gmail.com>
-	<1423141038.31870.38.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1423142342.31870.49.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CA+BoTQmcShK0U_cXvEOLY_8y7LH8x3taTgjcyMzv0MLVn4UtCA@mail.gmail.com>
-	<CAA93jw45o-Tnt4hEYgc-wHJ26J11dDZLptO9ZONy0Jxp350S3A@mail.gmail.com>
+From: Aaron Wu <Aaron.wu@analog.com>
+Subject: [PATCH V7 2/3] bfin_can: introduce ioremap to comply to archs with MMU
+Date: Fri, 6 Feb 2015 18:14:18 +0800
+Message-ID: <1423217659-27820-2-git-send-email-Aaron.wu@analog.com>
+References: <1423217659-27820-1-git-send-email-Aaron.wu@analog.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Neal Cardwell <ncardwell-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Eyal Perry <eyalpe-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Dave Taht <dave.taht-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAA93jw45o-Tnt4hEYgc-wHJ26J11dDZLptO9ZONy0Jxp350S3A-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain
+Cc: Aaron Wu <Aaron.wu@analog.com>
+To: <wg@grandegger.com>, <mkl@pengutronix.de>,
+	<linux-can@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <linux-devel@analog.com>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <1423217659-27820-1-git-send-email-Aaron.wu@analog.com>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 5 February 2015 at 20:50, Dave Taht <dave.taht-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
-[...]
-> And I really, really, really wish, that just once during this thread,
-> someone had bothered to try running a test
-> at a real world MCS rate - say MCS1, or MCS4, and measured the latenc=
-y
-> under load of that...
+Blackfin was built without MMU, old driver code access the IO space by
+physical address, introduce the ioremap approach to be compitable with
+the common style supporting MMU enabled arch.
 
-Time between frame submission to firmware and tx-completion on one of
-my ath10k machines:
+Signed-off-by: Aaron Wu <Aaron.wu@analog.com>
+---
+ drivers/net/can/bfin_can.c |   22 ++++++++--------------
+ 1 file changed, 8 insertions(+), 14 deletions(-)
 
-Legacy 54mbps: ~18ms
-Legacy 6mbps: ~37ms
-11n MCS 3 (nss=3D0): ~13ms
-11n MCS 8 (nss=3D1): ~6-8ms
-11ac NSS=3D1 MCS=3D2: ~4-6ms
-11ac NSS=3D2 MCS=3D0: ~5-8ms
+diff --git a/drivers/net/can/bfin_can.c b/drivers/net/can/bfin_can.c
+index 0a5eff4..259d09a 100644
+--- a/drivers/net/can/bfin_can.c
++++ b/drivers/net/can/bfin_can.c
+@@ -551,16 +551,10 @@ static int bfin_can_probe(struct platform_device *pdev)
+ 		goto exit;
+ 	}
+ 
+-	if (!request_mem_region(res_mem->start, resource_size(res_mem),
+-				dev_name(&pdev->dev))) {
+-		err = -EBUSY;
+-		goto exit;
+-	}
+-
+ 	/* request peripheral pins */
+ 	err = peripheral_request_list(pdata, dev_name(&pdev->dev));
+ 	if (err)
+-		goto exit_mem_release;
++		goto exit;
+ 
+ 	dev = alloc_bfin_candev();
+ 	if (!dev) {
+@@ -569,7 +563,13 @@ static int bfin_can_probe(struct platform_device *pdev)
+ 	}
+ 
+ 	priv = netdev_priv(dev);
+-	priv->membase = (void __iomem *)res_mem->start;
++
++	priv->membase = devm_ioremap_resource(&pdev->dev, res_mem);
++	if (IS_ERR(priv->membase)) {
++		err = PTR_ERR(priv->membase);
++		goto exit_peri_pin_free;
++	}
++
+ 	priv->rx_irq = rx_irq->start;
+ 	priv->tx_irq = tx_irq->start;
+ 	priv->err_irq = err_irq->start;
+@@ -601,8 +601,6 @@ exit_candev_free:
+ 	free_candev(dev);
+ exit_peri_pin_free:
+ 	peripheral_free_list(pdata);
+-exit_mem_release:
+-	release_mem_region(res_mem->start, resource_size(res_mem));
+ exit:
+ 	return err;
+ }
+@@ -611,15 +609,11 @@ static int bfin_can_remove(struct platform_device *pdev)
+ {
+ 	struct net_device *dev = platform_get_drvdata(pdev);
+ 	struct bfin_can_priv *priv = netdev_priv(dev);
+-	struct resource *res;
+ 
+ 	bfin_can_set_reset_mode(dev);
+ 
+ 	unregister_candev(dev);
+ 
+-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+-	release_mem_region(res->start, resource_size(res));
+-
+ 	peripheral_free_list(priv->pin_list);
+ 
+ 	free_candev(dev);
+-- 
+1.7.9.5
 
-Keep in mind this is a clean room environment so retransmissions are
-kept at minimum. Obviously with a noisy environment you'll get retries
-at different rates and higher latency.
-
-
-Micha=C5=82
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
