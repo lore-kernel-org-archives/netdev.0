@@ -1,16 +1,16 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 06/16] ixgbevf: add RSS support for X550
-Date: Thu,  5 Feb 2015 20:31:15 -0800
-Message-ID: <1423197085-32270-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 05/16] ixgbevf: enable multiple queue support
+Date: Thu,  5 Feb 2015 20:31:14 -0800
+Message-ID: <1423197085-32270-6-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1423197085-32270-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	kernel-team@fb.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:31696 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:63300 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754619AbbBFEbj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1754606AbbBFEbj (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 5 Feb 2015 23:31:39 -0500
 In-Reply-To: <1423197085-32270-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
@@ -18,92 +18,83 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Emil Tantilov <emil.s.tantilov@intel.com>
 
-X550 provides RSS registers for configuring RSS per VF.
-
-This patch introduces ixgbevf_setup_vfmrqc() which uses the VFRETA,
-VFRSSRK and VFMRQC registers to configure RSS on X550.
+This patch enables multiple queues and RSS support for the VF.
+Maximum of 2 queues are supported due to available vectors.
 
 Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
 Tested-by: Krishneil Singh <Krishneil.k.singh@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 35 +++++++++++++++++++++++
- drivers/net/ethernet/intel/ixgbevf/regs.h         | 10 +++++++
- 2 files changed, 45 insertions(+)
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf.h      |  1 +
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 22 +++++++++++++++++++---
+ 2 files changed, 20 insertions(+), 3 deletions(-)
 
+diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
+index 8c44ab2..65cda34 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
++++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
+@@ -124,6 +124,7 @@ struct ixgbevf_ring {
+ 
+ #define MAX_RX_QUEUES IXGBE_VF_MAX_RX_QUEUES
+ #define MAX_TX_QUEUES IXGBE_VF_MAX_TX_QUEUES
++#define IXGBEVF_MAX_RSS_QUEUES 2
+ 
+ #define IXGBEVF_DEFAULT_TXD   1024
+ #define IXGBEVF_DEFAULT_RXD   512
 diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-index 92154ee..a573526 100644
+index fe2e10f..92154ee 100644
 --- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
 +++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-@@ -1584,6 +1584,39 @@ static void ixgbevf_rx_desc_queue_enable(struct ixgbevf_adapter *adapter,
- 		       reg_idx);
+@@ -1794,7 +1794,8 @@ static int ixgbevf_configure_dcb(struct ixgbevf_adapter *adapter)
+ 	struct ixgbe_hw *hw = &adapter->hw;
+ 	unsigned int def_q = 0;
+ 	unsigned int num_tcs = 0;
+-	unsigned int num_rx_queues = 1;
++	unsigned int num_rx_queues = adapter->num_rx_queues;
++	unsigned int num_tx_queues = adapter->num_tx_queues;
+ 	int err;
+ 
+ 	spin_lock_bh(&adapter->mbx_lock);
+@@ -1808,6 +1809,9 @@ static int ixgbevf_configure_dcb(struct ixgbevf_adapter *adapter)
+ 		return err;
+ 
+ 	if (num_tcs > 1) {
++		/* we need only one Tx queue */
++		num_tx_queues = 1;
++
+ 		/* update default Tx ring register index */
+ 		adapter->tx_ring[0]->reg_idx = def_q;
+ 
+@@ -1816,7 +1820,8 @@ static int ixgbevf_configure_dcb(struct ixgbevf_adapter *adapter)
+ 	}
+ 
+ 	/* if we have a bad config abort request queue reset */
+-	if (adapter->num_rx_queues != num_rx_queues) {
++	if ((adapter->num_rx_queues != num_rx_queues) ||
++	    (adapter->num_tx_queues != num_tx_queues)) {
+ 		/* force mailbox timeout to prevent further messages */
+ 		hw->mbx.timeout = 0;
+ 
+@@ -2181,8 +2186,19 @@ static void ixgbevf_set_num_queues(struct ixgbevf_adapter *adapter)
+ 		return;
+ 
+ 	/* we need as many queues as traffic classes */
+-	if (num_tcs > 1)
++	if (num_tcs > 1) {
+ 		adapter->num_rx_queues = num_tcs;
++	} else {
++		u16 rss = min_t(u16, num_online_cpus(), IXGBEVF_MAX_RSS_QUEUES);
++
++		switch (hw->api_version) {
++		case ixgbe_mbox_api_11:
++			adapter->num_rx_queues = rss;
++			adapter->num_tx_queues = rss;
++		default:
++			break;
++		}
++	}
  }
  
-+static void ixgbevf_setup_vfmrqc(struct ixgbevf_adapter *adapter)
-+{
-+	struct ixgbe_hw *hw = &adapter->hw;
-+	u32 vfmrqc = 0, vfreta = 0;
-+	u32 rss_key[10];
-+	u16 rss_i = adapter->num_rx_queues;
-+	int i, j;
-+
-+	/* Fill out hash function seeds */
-+	netdev_rss_key_fill(rss_key, sizeof(rss_key));
-+	for (i = 0; i < 10; i++)
-+		IXGBE_WRITE_REG(hw, IXGBE_VFRSSRK(i), rss_key[i]);
-+
-+	/* Fill out redirection table */
-+	for (i = 0, j = 0; i < 64; i++, j++) {
-+		if (j == rss_i)
-+			j = 0;
-+		vfreta = (vfreta << 8) | (j * 0x1);
-+		if ((i & 3) == 3)
-+			IXGBE_WRITE_REG(hw, IXGBE_VFRETA(i >> 2), vfreta);
-+	}
-+
-+	/* Perform hash on these packet types */
-+	vfmrqc |= IXGBE_VFMRQC_RSS_FIELD_IPV4 |
-+		IXGBE_VFMRQC_RSS_FIELD_IPV4_TCP |
-+		IXGBE_VFMRQC_RSS_FIELD_IPV6 |
-+		IXGBE_VFMRQC_RSS_FIELD_IPV6_TCP;
-+
-+	vfmrqc |= IXGBE_VFMRQC_RSSEN;
-+
-+	IXGBE_WRITE_REG(hw, IXGBE_VFMRQC, vfmrqc);
-+}
-+
- static void ixgbevf_configure_rx_ring(struct ixgbevf_adapter *adapter,
- 				      struct ixgbevf_ring *ring)
- {
-@@ -1640,6 +1673,8 @@ static void ixgbevf_configure_rx(struct ixgbevf_adapter *adapter)
- 	struct net_device *netdev = adapter->netdev;
- 
- 	ixgbevf_setup_psrtype(adapter);
-+	if (hw->mac.type >= ixgbe_mac_X550_vf)
-+		ixgbevf_setup_vfmrqc(adapter);
- 
- 	/* notify the PF of our intent to use this size of frame */
- 	ixgbevf_rlpml_set_vf(hw, netdev->mtu + ETH_HLEN + ETH_FCS_LEN);
-diff --git a/drivers/net/ethernet/intel/ixgbevf/regs.h b/drivers/net/ethernet/intel/ixgbevf/regs.h
-index 09dd8f6..3e712fd 100644
---- a/drivers/net/ethernet/intel/ixgbevf/regs.h
-+++ b/drivers/net/ethernet/intel/ixgbevf/regs.h
-@@ -69,6 +69,16 @@
- #define IXGBE_VFGOTC_LSB       0x02020
- #define IXGBE_VFGOTC_MSB       0x02024
- #define IXGBE_VFMPRC           0x01034
-+#define IXGBE_VFMRQC           0x3000
-+#define IXGBE_VFRSSRK(x)       (0x3100 + ((x) * 4))
-+#define IXGBE_VFRETA(x)        (0x3200 + ((x) * 4))
-+
-+/* VFMRQC bits */
-+#define IXGBE_VFMRQC_RSSEN              0x00000001  /* RSS Enable */
-+#define IXGBE_VFMRQC_RSS_FIELD_IPV4_TCP 0x00010000
-+#define IXGBE_VFMRQC_RSS_FIELD_IPV4     0x00020000
-+#define IXGBE_VFMRQC_RSS_FIELD_IPV6     0x00100000
-+#define IXGBE_VFMRQC_RSS_FIELD_IPV6_TCP 0x00200000
- 
- #define IXGBE_WRITE_FLUSH(a) (IXGBE_READ_REG(a, IXGBE_VFSTATUS))
- 
+ /**
 -- 
 1.9.3
