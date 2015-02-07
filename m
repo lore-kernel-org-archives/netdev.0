@@ -1,284 +1,240 @@
 From: Mahesh Bandewar <maheshb@google.com>
-Subject: Re: [PATCH next 4/6] bonding: Allow userspace to set system_priority
-Date: Sat, 7 Feb 2015 11:26:23 -0800
-Message-ID: <CAF2d9ji-m6Suw_Rw6dBqs=Ky41h786rCrPh-J7tv7JA+4L84zw@mail.gmail.com>
-References: <1423270314-9271-1-git-send-email-maheshb@google.com>
- <20150207033847.GD34197@gospo.home.greyhouse.net> <6873.1423289974@famine>
+Subject: Re: [PATCH next 6/6] bonding: Implement user key part of port_key in
+ an AD system.
+Date: Sat, 7 Feb 2015 11:29:24 -0800
+Message-ID: <CAF2d9jjqUTTeOVwh3S0v=nak_a5JFyuubmcbouB40HXNiA+XuA@mail.gmail.com>
+References: <1423270317-9352-1-git-send-email-maheshb@google.com> <20150207034029.GE34197@gospo.home.greyhouse.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: Andy Gospodarek <gospo@cumulusnetworks.com>,
+Cc: Jay Vosburgh <j.vosburgh@gmail.com>,
 	Andy Gospodarek <andy@greyhouse.net>,
 	Veaceslav Falico <vfalico@gmail.com>,
 	Nikolay Aleksandrov <nikolay@redhat.com>,
 	David Miller <davem@davemloft.net>,
 	netdev <netdev@vger.kernel.org>,
 	Eric Dumazet <edumazet@google.com>
-To: Jay Vosburgh <jay.vosburgh@canonical.com>
+To: Andy Gospodarek <gospo@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f173.google.com ([209.85.214.173]:54543 "EHLO
-	mail-ob0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755782AbbBGT0o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 Feb 2015 14:26:44 -0500
-Received: by mail-ob0-f173.google.com with SMTP id uy5so19060735obc.4
-        for <netdev@vger.kernel.org>; Sat, 07 Feb 2015 11:26:44 -0800 (PST)
-In-Reply-To: <6873.1423289974@famine>
+Received: from mail-oi0-f42.google.com ([209.85.218.42]:38070 "EHLO
+	mail-oi0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755782AbbBGT3p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 Feb 2015 14:29:45 -0500
+Received: by mail-oi0-f42.google.com with SMTP id i138so16935995oig.1
+        for <netdev@vger.kernel.org>; Sat, 07 Feb 2015 11:29:44 -0800 (PST)
+In-Reply-To: <20150207034029.GE34197@gospo.home.greyhouse.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 6, 2015 at 10:19 PM, Jay Vosburgh
-<jay.vosburgh@canonical.com> wrote:
-> Andy Gospodarek <gospo@cumulusnetworks.com> wrote:
->
->>On Fri, Feb 06, 2015 at 04:51:54PM -0800, Mahesh Bandewar wrote:
->>> This patch allows user to randomize the system-priority in an ad-system.
->>> The allowed range is 1 - 0xFFFF while default value is 0xFFFF. If user
->>> does not specify this value, the system defaults to 0xFFFF, which is
->>> what it was before this patch.
->>>
->>> Following example code could set the value -
->>>     # modprobe bonding mode=4
->>>     # sys_prio=$(( 1 + RANDOM + RANDOM ))
->>>     # echo $sys_prio > /sys/class/net/bond0/bonding/ad_actor_system_priority
+On Fri, Feb 6, 2015 at 7:40 PM, Andy Gospodarek
+<gospo@cumulusnetworks.com> wrote:
+> On Fri, Feb 06, 2015 at 04:51:57PM -0800, Mahesh Bandewar wrote:
+>> The port key has three components - user-key, speed-part, and duplex-part.
+>> The LSBit is for the duplex-part, next 5 bits are for the speed while the
+>> remaining 10 bits are the user defined key bits. Get these 10 bits
+>> from the user-space (through the SysFs interface) and use it to form the
+>> admin port-key. Allowed range for the user-key is 0 - 1023 (10 bits). If
+>> it is not provided then use zero for the user-key-bits (default).
 >>
->>If I can convince you to change 'ad_actor_system_macaddr' to something
->>different can I also convince you to change this to something shorter,
->>too?  :)
+>> It can set using following example code -
 >>
->>Maybe 'ad_sys_priority' or something?
+>>    # modprobe bonding mode=4
+>>    # usr_port_key=$(( RANDOM & 0x3FF ))
+>>    # echo $usr_port_key > /sys/class/net/bond0/bonding/ad_actor_user_port_key
+>>    # echo +eth1 > /sys/class/net/bond0/bonding/slaves
 >
->         The name, verbose as it is, is from the 802.1AX standard, and
-> there's also a "partner_system_priority" (which is not a user-settable
-> thing, it's a field in the LACPDUs).  My suggestion would therefore be
-> "ad_actor_sys_prio" for this one, as I think there's some value in
-> continuity with the names from the standard.
+> If the other ones don't have 'actor' maybe drop it here too.
 >
->         The MAC address one in the standard is just "actor_system";
-> there's a "partner_system" here, too, which is also a field in the
-> LACPDU.  I'm ok with calling that one just "actor_system," as presumably
-> anyone changing it will know what it means.
+> (Sorry to be picky about these, but as someone who has typed many of
+> these options a bunch it would be great to have shorter names in config
+> files.)
 >
-Thank you guys for the suggestions. I didn't like those very long
-names either but when there is something that already has name
-similar, I defaulted to being verbose. I will have the name changed to
--
+Thanks for the suggestions Andy. Now I don't have to battle with
+myself for the correct names :) I wanted to move the naming discussion
+in the other thread where I have proposed this to be changed to
+'ad_user_portkey'.
 
-ad_actor_system_priority            - ad_actor_sys_prio
-ad_actor_system_mac_address - ad_actor_system
-ad_actor_user_port_key             - ad_user_portkey
-
-Is this reasonable enough?
-
->         -J
->
->>Thanks!
+>>    ...
+>>    # ip link set bond0 up
 >>
->>>     # echo +eth1 > /sys/class/net/bond0/bonding/slaves
->>>     ...
->>>     # ip link set bond0 up
->>>
->>> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
->>> ---
->>>  drivers/net/bonding/bond_3ad.c     |  5 ++++-
->>>  drivers/net/bonding/bond_main.c    | 14 ++++++++++++++
->>>  drivers/net/bonding/bond_options.c | 29 ++++++++++++++++++++++++++++-
->>>  drivers/net/bonding/bond_procfs.c  |  2 ++
->>>  drivers/net/bonding/bond_sysfs.c   | 15 +++++++++++++++
->>>  include/net/bond_options.h         |  1 +
->>>  include/net/bonding.h              |  1 +
->>>  7 files changed, 65 insertions(+), 2 deletions(-)
->>>
->>> diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
->>> index 2a69095266c1..1177f96194dd 100644
->>> --- a/drivers/net/bonding/bond_3ad.c
->>> +++ b/drivers/net/bonding/bond_3ad.c
->>> @@ -1912,7 +1912,8 @@ void bond_3ad_initialize(struct bonding *bond, u16 tick_resolution)
->>>
->>>              BOND_AD_INFO(bond).aggregator_identifier = 0;
->>>
->>> -            BOND_AD_INFO(bond).system.sys_priority = 0xFFFF;
->>> +            BOND_AD_INFO(bond).system.sys_priority =
->>> +                    bond->params.ad_actor_sysprio;
->>>              BOND_AD_INFO(bond).system.sys_mac_addr = *((struct mac_addr *)bond->dev->dev_addr);
->>>
->>>              /* initialize how many times this module is called in one
->>> @@ -1963,6 +1964,8 @@ void bond_3ad_bind_slave(struct slave *slave)
->>>                      port->sm_vars &= ~AD_PORT_LACP_ENABLED;
->>>              /* actor system is the bond's system */
->>>              port->actor_system = BOND_AD_INFO(bond).system.sys_mac_addr;
->>> +            port->actor_system_priority =
->>> +                BOND_AD_INFO(bond).system.sys_priority;
->>>              /* tx timer(to verify that no more than MAX_TX_IN_SECOND
->>>               * lacpdu's are sent in one second)
->>>               */
->>> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
->>> index a50ec87486f3..561b2bde5aeb 100644
->>> --- a/drivers/net/bonding/bond_main.c
->>> +++ b/drivers/net/bonding/bond_main.c
->>> @@ -4104,6 +4104,7 @@ static int bond_check_params(struct bond_params *params)
->>>      struct bond_opt_value newval;
->>>      const struct bond_opt_value *valptr;
->>>      int arp_all_targets_value;
->>> +    u16 ad_actor_sysprio = 0;
->>>
->>>      /* Convert string parameters. */
->>>      if (mode) {
->>> @@ -4398,6 +4399,18 @@ static int bond_check_params(struct bond_params *params)
->>>              fail_over_mac_value = BOND_FOM_NONE;
->>>      }
->>>
->>> +    if (bond_mode == BOND_MODE_8023AD) {
->>> +            bond_opt_initstr(&newval, "default");
->>> +            valptr = bond_opt_parse(
->>> +                            bond_opt_get(BOND_OPT_AD_ACTOR_SYSPRIO),
->>> +                                         &newval);
->>> +            if (!valptr) {
->>> +                    pr_err("Error: No ad_actor_sysprio default value");
->>> +                    return -EINVAL;
->>> +            }
->>> +            ad_actor_sysprio = valptr->value;
->>> +    }
->>> +
->>>      if (lp_interval == 0) {
->>>              pr_warn("Warning: ip_interval must be between 1 and %d, so it was reset to %d\n",
->>>                      INT_MAX, BOND_ALB_DEFAULT_LP_INTERVAL);
->>> @@ -4426,6 +4439,7 @@ static int bond_check_params(struct bond_params *params)
->>>      params->lp_interval = lp_interval;
->>>      params->packets_per_slave = packets_per_slave;
->>>      params->tlb_dynamic_lb = 1; /* Default value */
->>> +    params->ad_actor_sysprio = ad_actor_sysprio;
->>>      if (packets_per_slave > 0) {
->>>              params->reciprocal_packets_per_slave =
->>>                      reciprocal_value(packets_per_slave);
->>> diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
->>> index 4df28943d222..d8f6760143ae 100644
->>> --- a/drivers/net/bonding/bond_options.c
->>> +++ b/drivers/net/bonding/bond_options.c
->>> @@ -70,6 +70,8 @@ static int bond_option_slaves_set(struct bonding *bond,
->>>                                const struct bond_opt_value *newval);
->>>  static int bond_option_tlb_dynamic_lb_set(struct bonding *bond,
->>>                                const struct bond_opt_value *newval);
->>> +static int bond_option_ad_actor_sysprio_set(struct bonding *bond,
->>> +                              const struct bond_opt_value *newval);
->>>
->>>
->>>  static const struct bond_opt_value bond_mode_tbl[] = {
->>> @@ -186,6 +188,12 @@ static const struct bond_opt_value bond_tlb_dynamic_lb_tbl[] = {
->>>      { NULL,  -1, 0}
->>>  };
->>>
->>> +static const struct bond_opt_value bond_ad_actor_sysprio_tbl[] = {
->>> +    { "minval",  1,     BOND_VALFLAG_MIN},
->>> +    { "maxval",  65535, BOND_VALFLAG_MAX | BOND_VALFLAG_DEFAULT},
->>> +    { NULL,      -1,    0},
->>> +};
->>> +
->>>  static const struct bond_option bond_opts[BOND_OPT_LAST] = {
->>>      [BOND_OPT_MODE] = {
->>>              .id = BOND_OPT_MODE,
->>> @@ -379,7 +387,15 @@ static const struct bond_option bond_opts[BOND_OPT_LAST] = {
->>>              .values = bond_tlb_dynamic_lb_tbl,
->>>              .flags = BOND_OPTFLAG_IFDOWN,
->>>              .set = bond_option_tlb_dynamic_lb_set,
->>> -    }
->>> +    },
->>> +    [BOND_OPT_AD_ACTOR_SYSPRIO] = {
->>> +            .id = BOND_OPT_AD_ACTOR_SYSPRIO,
->>> +            .name = "ad_actor_system_priority",
->>> +            .unsuppmodes = BOND_MODE_ALL_EX(BIT(BOND_MODE_8023AD)),
->>> +            .flags = BOND_OPTFLAG_IFDOWN,
->>> +            .values = bond_ad_actor_sysprio_tbl,
->>> +            .set = bond_option_ad_actor_sysprio_set,
->>> +    },
->>>  };
->>>
->>>  /* Searches for an option by name */
->>> @@ -1349,3 +1365,14 @@ static int bond_option_tlb_dynamic_lb_set(struct bonding *bond,
->>>
->>>      return 0;
->>>  }
->>> +
->>> +
->>> +static int bond_option_ad_actor_sysprio_set(struct bonding *bond,
->>> +                                        const struct bond_opt_value *newval)
->>> +{
->>> +    netdev_info(bond->dev, "Setting ad_actor_sysprio to (%llu)\n",
->>> +                newval->value);
->>> +
->>> +    bond->params.ad_actor_sysprio = newval->value;
->>> +    return 0;
->>> +}
->>> diff --git a/drivers/net/bonding/bond_procfs.c b/drivers/net/bonding/bond_procfs.c
->>> index 83095a0b4b90..9e33c48886ef 100644
->>> --- a/drivers/net/bonding/bond_procfs.c
->>> +++ b/drivers/net/bonding/bond_procfs.c
->>> @@ -134,6 +134,8 @@ static void bond_info_show_master(struct seq_file *seq)
->>>                                        bond->params.ad_select);
->>>              seq_printf(seq, "Aggregator selection policy (ad_select): %s\n",
->>>                         optval->string);
->>> +            seq_printf(seq, "System priority: %d\n",
->>> +                            BOND_AD_INFO(bond).system.sys_priority);
->>>
->>>              if (__bond_3ad_get_active_agg_info(bond, &ad_info)) {
->>>                      seq_printf(seq, "bond %s has no active aggregator\n",
->>> diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
->>> index 7e9e151d4d61..4350aa06f867 100644
->>> --- a/drivers/net/bonding/bond_sysfs.c
->>> +++ b/drivers/net/bonding/bond_sysfs.c
->>> @@ -692,6 +692,20 @@ static ssize_t bonding_show_packets_per_slave(struct device *d,
->>>  static DEVICE_ATTR(packets_per_slave, S_IRUGO | S_IWUSR,
->>>                 bonding_show_packets_per_slave, bonding_sysfs_store_option);
->>>
->>> +static ssize_t bonding_show_ad_actor_sysprio(struct device *d,
->>> +                                         struct device_attribute *attr,
->>> +                                         char *buf)
->>> +{
->>> +    struct bonding *bond = to_bond(d);
->>> +
->>> +    if (BOND_MODE(bond) == BOND_MODE_8023AD)
->>> +            return sprintf(buf, "%hu\n", bond->params.ad_actor_sysprio);
->>> +
->>> +    return 0;
->>> +}
->>> +static DEVICE_ATTR(ad_actor_system_priority, S_IRUGO | S_IWUSR,
->>> +               bonding_show_ad_actor_sysprio, bonding_sysfs_store_option);
->>> +
->>>  static struct attribute *per_bond_attrs[] = {
->>>      &dev_attr_slaves.attr,
->>>      &dev_attr_mode.attr,
->>> @@ -725,6 +739,7 @@ static struct attribute *per_bond_attrs[] = {
->>>      &dev_attr_lp_interval.attr,
->>>      &dev_attr_packets_per_slave.attr,
->>>      &dev_attr_tlb_dynamic_lb.attr,
->>> +    &dev_attr_ad_actor_system_priority.attr,
->>>      NULL,
->>>  };
->>>
->>> diff --git a/include/net/bond_options.h b/include/net/bond_options.h
->>> index ea6546d2c946..c2af1db37354 100644
->>> --- a/include/net/bond_options.h
->>> +++ b/include/net/bond_options.h
->>> @@ -63,6 +63,7 @@ enum {
->>>      BOND_OPT_LP_INTERVAL,
->>>      BOND_OPT_SLAVES,
->>>      BOND_OPT_TLB_DYNAMIC_LB,
->>> +    BOND_OPT_AD_ACTOR_SYSPRIO,
->>>      BOND_OPT_LAST
->>>  };
->>>
->>> diff --git a/include/net/bonding.h b/include/net/bonding.h
->>> index 29f53eacac0a..7a5c79fcf866 100644
->>> --- a/include/net/bonding.h
->>> +++ b/include/net/bonding.h
->>> @@ -143,6 +143,7 @@ struct bond_params {
->>>      int packets_per_slave;
->>>      int tlb_dynamic_lb;
->>>      struct reciprocal_value reciprocal_packets_per_slave;
->>> +    u16 ad_actor_sysprio;
->>>  };
->>>
->>>  struct bond_parm_tbl {
->>> --
->>> 2.2.0.rc0.207.ga3a616c
->
-> ---
->         -Jay Vosburgh, jay.vosburgh@canonical.com
+>> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+>> ---
+>>  drivers/net/bonding/bond_3ad.c     |  6 +++---
+>>  drivers/net/bonding/bond_main.c    | 10 ++++++++++
+>>  drivers/net/bonding/bond_options.c | 26 ++++++++++++++++++++++++++
+>>  drivers/net/bonding/bond_sysfs.c   | 15 +++++++++++++++
+>>  include/net/bond_options.h         |  1 +
+>>  include/net/bonding.h              |  1 +
+>>  6 files changed, 56 insertions(+), 3 deletions(-)
+>>
+>> diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
+>> index 373d3db3809f..c69c393ba8c5 100644
+>> --- a/drivers/net/bonding/bond_3ad.c
+>> +++ b/drivers/net/bonding/bond_3ad.c
+>> @@ -1955,10 +1955,10 @@ void bond_3ad_bind_slave(struct slave *slave)
+>>
+>>               port->slave = slave;
+>>               port->actor_port_number = SLAVE_AD_INFO(slave)->id;
+>> -             /* key is determined according to the link speed, duplex and user key(which
+>> -              * is yet not supported)
+>> +             /* key is determined according to the link speed, duplex and
+>> +              * user key
+>>                */
+>> -             port->actor_admin_port_key = 0;
+>> +             port->actor_admin_port_key = bond->params.ad_actor_portkey << 6;
+>>               port->actor_admin_port_key |= __get_duplex(port);
+>>               port->actor_admin_port_key |= (__get_link_speed(port) << 1);
+>>               port->actor_oper_port_key = port->actor_admin_port_key;
+>> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+>> index 1a6735ef2ea7..f9f001f35a91 100644
+>> --- a/drivers/net/bonding/bond_main.c
+>> +++ b/drivers/net/bonding/bond_main.c
+>> @@ -4105,6 +4105,7 @@ static int bond_check_params(struct bond_params *params)
+>>       const struct bond_opt_value *valptr;
+>>       int arp_all_targets_value;
+>>       u16 ad_actor_sysprio = 0;
+>> +     u16 ad_actor_portkey = 0;
+>>
+>>       /* Convert string parameters. */
+>>       if (mode) {
+>> @@ -4409,6 +4410,14 @@ static int bond_check_params(struct bond_params *params)
+>>                       return -EINVAL;
+>>               }
+>>               ad_actor_sysprio = valptr->value;
+>> +
+>> +             valptr = bond_opt_parse(bond_opt_get(BOND_OPT_AD_ACTOR_PORTKEY),
+>> +                                     &newval);
+>> +             if (!valptr) {
+>> +                     pr_err("Error: No ad_actor_portkey default value");
+>> +                     return -EINVAL;
+>> +             }
+>> +             ad_actor_portkey = valptr->value;
+>>       }
+>>
+>>       if (lp_interval == 0) {
+>> @@ -4441,6 +4450,7 @@ static int bond_check_params(struct bond_params *params)
+>>       params->tlb_dynamic_lb = 1; /* Default value */
+>>       params->ad_actor_sysprio = ad_actor_sysprio;
+>>       eth_zero_addr(params->ad_actor_sys_macaddr);
+>> +     params->ad_actor_portkey = ad_actor_portkey;
+>>       if (packets_per_slave > 0) {
+>>               params->reciprocal_packets_per_slave =
+>>                       reciprocal_value(packets_per_slave);
+>> diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
+>> index 330d48b6a1e6..c3f77c6d0d2e 100644
+>> --- a/drivers/net/bonding/bond_options.c
+>> +++ b/drivers/net/bonding/bond_options.c
+>> @@ -74,6 +74,8 @@ static int bond_option_ad_actor_sysprio_set(struct bonding *bond,
+>>                                 const struct bond_opt_value *newval);
+>>  static int bond_option_ad_actor_sys_macaddr_set(struct bonding *bond,
+>>                                 const struct bond_opt_value *newval);
+>> +static int bond_option_ad_actor_portkey_set(struct bonding *bond,
+>> +                               const struct bond_opt_value *newval);
+>>
+>>
+>>  static const struct bond_opt_value bond_mode_tbl[] = {
+>> @@ -196,6 +198,12 @@ static const struct bond_opt_value bond_ad_actor_sysprio_tbl[] = {
+>>       { NULL,      -1,    0},
+>>  };
+>>
+>> +static const struct bond_opt_value bond_ad_actor_portkey_tbl[] = {
+>> +     { "minval",  0,     BOND_VALFLAG_MIN | BOND_VALFLAG_DEFAULT},
+>> +     { "maxval",  1023,  BOND_VALFLAG_MAX},
+>> +     { NULL,      -1,    0},
+>> +};
+>> +
+>>  static const struct bond_option bond_opts[BOND_OPT_LAST] = {
+>>       [BOND_OPT_MODE] = {
+>>               .id = BOND_OPT_MODE,
+>> @@ -405,6 +413,14 @@ static const struct bond_option bond_opts[BOND_OPT_LAST] = {
+>>               .flags = BOND_OPTFLAG_RAWVAL | BOND_OPTFLAG_IFDOWN,
+>>               .set = bond_option_ad_actor_sys_macaddr_set,
+>>       },
+>> +     [BOND_OPT_AD_ACTOR_PORTKEY] = {
+>> +             .id = BOND_OPT_AD_ACTOR_PORTKEY,
+>> +             .name = "ad_actor_user_port_key",
+>> +             .unsuppmodes = BOND_MODE_ALL_EX(BIT(BOND_MODE_8023AD)),
+>> +             .flags = BOND_OPTFLAG_IFDOWN,
+>> +             .values = bond_ad_actor_portkey_tbl,
+>> +             .set = bond_option_ad_actor_portkey_set,
+>> +     }
+>>  };
+>>
+>>  /* Searches for an option by name */
+>> @@ -1405,3 +1421,13 @@ static int bond_option_ad_actor_sys_macaddr_set(struct bonding *bond,
+>>
+>>       return 0;
+>>  }
+>> +
+>> +static int bond_option_ad_actor_portkey_set(struct bonding *bond,
+>> +                                         const struct bond_opt_value *newval)
+>> +{
+>> +     netdev_info(bond->dev, "Setting ad_actor_portkey to (%llu)\n",
+>> +                 newval->value);
+>> +
+>> +     bond->params.ad_actor_portkey = newval->value;
+>> +     return 0;
+>> +}
+>> diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
+>> index 91713d0b6685..17d84d5a1608 100644
+>> --- a/drivers/net/bonding/bond_sysfs.c
+>> +++ b/drivers/net/bonding/bond_sysfs.c
+>> @@ -721,6 +721,20 @@ static DEVICE_ATTR(ad_actor_system_mac_address, S_IRUGO | S_IWUSR,
+>>                  bonding_show_ad_actor_sys_macaddr,
+>>                  bonding_sysfs_store_option);
+>>
+>> +static ssize_t bonding_show_ad_actor_portkey(struct device *d,
+>> +                                          struct device_attribute *attr,
+>> +                                          char *buf)
+>> +{
+>> +     struct bonding *bond = to_bond(d);
+>> +
+>> +     if (BOND_MODE(bond) == BOND_MODE_8023AD)
+>> +             return sprintf(buf, "%hu\n", bond->params.ad_actor_portkey);
+>> +
+>> +     return 0;
+>> +}
+>> +static DEVICE_ATTR(ad_actor_user_port_key, S_IRUGO | S_IWUSR,
+>> +                bonding_show_ad_actor_portkey, bonding_sysfs_store_option);
+>> +
+>>  static struct attribute *per_bond_attrs[] = {
+>>       &dev_attr_slaves.attr,
+>>       &dev_attr_mode.attr,
+>> @@ -756,6 +770,7 @@ static struct attribute *per_bond_attrs[] = {
+>>       &dev_attr_tlb_dynamic_lb.attr,
+>>       &dev_attr_ad_actor_system_priority.attr,
+>>       &dev_attr_ad_actor_system_mac_address.attr,
+>> +     &dev_attr_ad_actor_user_port_key.attr,
+>>       NULL,
+>>  };
+>>
+>> diff --git a/include/net/bond_options.h b/include/net/bond_options.h
+>> index 993ef73cd050..4c36455aacb4 100644
+>> --- a/include/net/bond_options.h
+>> +++ b/include/net/bond_options.h
+>> @@ -65,6 +65,7 @@ enum {
+>>       BOND_OPT_TLB_DYNAMIC_LB,
+>>       BOND_OPT_AD_ACTOR_SYSPRIO,
+>>       BOND_OPT_AD_ACTOR_SYS_MACADDR,
+>> +     BOND_OPT_AD_ACTOR_PORTKEY,
+>>       BOND_OPT_LAST
+>>  };
+>>
+>> diff --git a/include/net/bonding.h b/include/net/bonding.h
+>> index cd2092e6bc71..e91db2566437 100644
+>> --- a/include/net/bonding.h
+>> +++ b/include/net/bonding.h
+>> @@ -144,6 +144,7 @@ struct bond_params {
+>>       int tlb_dynamic_lb;
+>>       struct reciprocal_value reciprocal_packets_per_slave;
+>>       u16 ad_actor_sysprio;
+>> +     u16 ad_actor_portkey;
+>>       u8 ad_actor_sys_macaddr[ETH_ALEN];
+>>  };
+>>
+>> --
+>> 2.2.0.rc0.207.ga3a616c
+>>
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
