@@ -1,84 +1,62 @@
-From: Chen Gang S <gang.chen@sunrus.com.cn>
-Subject: [PATCH v3] net: bluetooth: hci_sock: Use 'const u32 *' instead of
- 'void *' for 2nd parameter of hci_test_bit()
-Date: Sat, 07 Feb 2015 21:24:57 +0800
-Message-ID: <54D61229.9010904@sunrus.com.cn>
+From: Bruno =?UTF-8?B?UHLDqW1vbnQ=?= <bonbons@linux-vserver.org>
+Subject: Re: Ethernet: how to disable gigabit support
+Date: Sat, 7 Feb 2015 15:35:45 +0100
+Message-ID: <20150207153545.6530fce6@neptune.home>
+References: <20150205202527.GA7917@amd>
+	<54D3F267.3000908@gmail.com>
+	<20150206135706.GB25683@amd>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "Gustavo F. Padovan" <gustavo@padovan.org>,
-	Johan Hedberg <johan.hedberg@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"linux-bluetooth@vger.kernel.org" <linux-bluetooth@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Laight <David.Laight@ACULAB.COM>,
-	Marcel Holtmann <marcel@holtmann.org>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Joe Perches <joe@perches.com>
+Cc: linux-kernel@vger.kernel.org,
+	Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
+To: Pavel Machek <pavel@ucw.cz>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150206135706.GB25683@amd>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-hci_test_bit() does not modify 2nd parameter, so it is better to let it
-be constant, or may cause build warning. The related warning (with
-allmodconfig under xtensa):
+On Fri, 06 February 2015 Pavel Machek wrote:
+> On Thu 2015-02-05 14:44:55, Florian Fainelli wrote:
+> > On 05/02/15 12:25, Pavel Machek wrote:
+> > > This happened on more than one project: there's gigabit-capable chip,
+> > > but the connector is not designed for gigabit speed.
+> > > 
+> > > I'd like to have speed autonegotiation, but not offer gigabit (as it
+> > > will not work).
+> > > 
+> > > Is there way to do that without hacking the kernel? Should mii-tool do
+> > > that?
+> > 
+> > Since you use the PHY library, you should be able to do something like
+> > this in your PHY driver prior to starting the PHY state machine:
+> > 
+> > phydev->supported &= PHY_BASIC_FEATURES (effectively masking Gigabit
+> > capability)
+> 
+> Thanks, that did the trick.
+> 								Pavel
+> (But still it would be nice to have a generic way of doing this,
+> using something like mii-tool.)
 
-  net/bluetooth/hci_sock.c: In function 'hci_sock_sendmsg':
-  net/bluetooth/hci_sock.c:955:8: warning: passing argument 2 of 'hci_test_bit' discards 'const' qualifier from pointer target type [-Wdiscarded-array-qualifiers]
-          &hci_sec_filter.ocf_mask[ogf])) &&
-          ^
-  net/bluetooth/hci_sock.c:49:19: note: expected 'void *' but argument is of type 'const __u32 (*)[4] {aka const unsigned int (*)[4]}'
-   static inline int hci_test_bit(int nr, void *addr)
-                     ^
+You can use ethtool to do so:
 
-hci_test_bit() always treats 2nd parameter is u32, and all callers also
-know about it, so 2nd parameter of hci_test_bit() need use 'const u32 *'
-instead of 'void *'.
+  ethtool -s ethX advertise 0x0f
 
-C language treats the array function parameter as a pointer, so the
-caller need not use '&' for the 2 demotion array, or it reports warning:
-'const unsigned int (*)[4]' is different with 'const unsigned int *'.
+c.f. man ethtool:
+  advertise N
+    Sets the speed and duplex advertised by autonegotiation. The argument is
+    a hexadecimal value using one or a combination of the following values:
 
+      0x001     10 Half
+      0x002     10 Full
+      0x004     100 Half
+      0x008     100 Full
+      0x010     1000 Half        (not supported by IEEE standards)
+      0x020     1000 Full
+      0x8000    2500 Full        (not supported by IEEE standards)
+      0x1000    10000 Full
+      0x20000   20000MLD2 Full   (not supported by IEEE standards)
+      0x40000   20000KR2 Full    (not supported by IEEE standards)
 
-Signed-off-by: Chen Gang <gang.chen.5i5j@gmail.com>
----
- net/bluetooth/hci_sock.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
-
-diff --git a/net/bluetooth/hci_sock.c b/net/bluetooth/hci_sock.c
-index 1d65c5b..04124ec 100644
---- a/net/bluetooth/hci_sock.c
-+++ b/net/bluetooth/hci_sock.c
-@@ -46,9 +46,9 @@ struct hci_pinfo {
- 	unsigned short    channel;
- };
- 
--static inline int hci_test_bit(int nr, void *addr)
-+static inline int hci_test_bit(int nr, const u32 *addr)
- {
--	return *((__u32 *) addr + (nr >> 5)) & ((__u32) 1 << (nr & 31));
-+	return *(addr + (nr >> 5)) & ((u32) 1 << (nr & 31));
- }
- 
- /* Security filter */
-@@ -107,7 +107,7 @@ static bool is_filtered_packet(struct sock *sk, struct sk_buff *skb)
- 
- 	flt_event = (*(__u8 *)skb->data & HCI_FLT_EVENT_BITS);
- 
--	if (!hci_test_bit(flt_event, &flt->event_mask))
-+	if (!hci_test_bit(flt_event, (u32 *)&flt->event_mask))
- 		return true;
- 
- 	/* Check filter only when opcode is set */
-@@ -952,7 +952,7 @@ static int hci_sock_sendmsg(struct kiocb *iocb, struct socket *sock,
- 
- 		if (((ogf > HCI_SFLT_MAX_OGF) ||
- 		     !hci_test_bit(ocf & HCI_FLT_OCF_BITS,
--				   &hci_sec_filter.ocf_mask[ogf])) &&
-+				   hci_sec_filter.ocf_mask[ogf])) &&
- 		    !capable(CAP_NET_RAW)) {
- 			err = -EPERM;
- 			goto drop;
--- 
-1.9.3
+Bruno
