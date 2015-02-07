@@ -1,47 +1,33 @@
-From: Bas Peters <baspeters93@gmail.com>
-Subject: [PATCH 2/2] drivers: isdn: icn: icn.h Clean up trivial checkpatch errors.
-Date: Sat,  7 Feb 2015 16:56:06 +0100
-Message-ID: <1423324566-5538-3-git-send-email-baspeters93@gmail.com>
-References: <1423324566-5538-1-git-send-email-baspeters93@gmail.com>
+From: Varka Bhadram <varkabhadram@gmail.com>
+Subject: Re: [PATCH 1/2] drivers: isdn: icn: icn.c: clean up all checkpatch
+ errors
+Date: Sat, 07 Feb 2015 21:37:39 +0530
+Message-ID: <54D6384B.1050208@gmail.com>
+References: <1423324566-5538-1-git-send-email-baspeters93@gmail.com> <1423324566-5538-2-git-send-email-baspeters93@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
 Cc: dan.carpenter@oracle.com, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Bas Peters <baspeters93@gmail.com>
-To: isdn@linux-pingi.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f180.google.com ([209.85.212.180]:45680 "EHLO
-	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755855AbbBGP4Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 Feb 2015 10:56:16 -0500
-In-Reply-To: <1423324566-5538-1-git-send-email-baspeters93@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Bas Peters <baspeters93@gmail.com>, isdn@linux-pingi.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1423324566-5538-2-git-send-email-baspeters93@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
----
- drivers/isdn/icn/icn.h | 5 ++---
- 1 file changed, 2 insertions(+), 3 deletions(-)
+Hi,
 
-diff --git a/drivers/isdn/icn/icn.h b/drivers/isdn/icn/icn.h
-index b713466..05daed2 100644
---- a/drivers/isdn/icn/icn.h
-+++ b/drivers/isdn/icn/icn.h
-@@ -54,7 +54,7 @@ typedef struct icn_cdef {
- 
- /* some useful macros for debugging */
- #ifdef ICN_DEBUG_PORT
--#define OUTB_P(v, p) {printk(KERN_DEBUG "icn: outb_p(0x%02x,0x%03x)\n", v, p); outb_p(v, p);}
-+#define OUTB_P(v, p) {printk(KERN_DEBUG "icn: outb_p(0x%02x,0x%03x)\n", v, p); outb_p(v, p); }
- #else
- #define OUTB_P outb
- #endif
-@@ -186,8 +186,7 @@ typedef icn_dev *icn_devptr;
- #ifdef __KERNEL__
- 
- static icn_card *cards = (icn_card *) 0;
--static u_char chan2bank[] =
--{0, 4, 8, 12};                  /* for icn_map_channel() */
-+static u_char chan2bank[] = {0, 4, 8, 12}; /* for icn_map_channel() */
- 
- static icn_dev dev;
- 
+On Saturday 07 February 2015 09:26 PM, Bas Peters wrote:
+> This patch cleans up various trivial checkpatch errors such as variable
+> declarations in if statements, return values in parenthesis and a
+> wrongly placed brace.
+
+Missed Signed-off-by line.
+
+> ---
+>   drivers/isdn/icn/icn.c | 52 ++++++++++++++++++++++++++++++--------------------
+>   1 file changed, 31 insertions(+), 21 deletions(-)
+
 -- 
-2.1.0
+Thanks,
+Varka Bhadram.
