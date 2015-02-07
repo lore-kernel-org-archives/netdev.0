@@ -1,641 +1,269 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] net: rfs: add hash collision detection
-Date: Fri, 06 Feb 2015 18:24:02 -0800
-Message-ID: <1423275842.31870.170.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1423256341.31870.160.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+mtBx-N1bQW8vscQf1-h=C0cmtTc2gG3ka+ixs1AMt7cP-Z_Q@mail.gmail.com>
+From: Mahesh Bandewar <maheshb@google.com>
+Subject: Re: [PATCH next 5/6] bonding: Allow userspace to set macaddr on bonding-dev
+Date: Fri, 6 Feb 2015 18:41:05 -0800
+Message-ID: <CAF2d9ji=Z+wVz7AdpSeNmOwys0jqWsx6TYsCML_+Hw=u+QMt_A@mail.gmail.com>
+References: <1423270316-9311-1-git-send-email-maheshb@google.com>
+ <4192.1423272023@famine> <CAF2d9jgV5adAjydN18Ct7BVJJcc=FRc+5icNMS=pRQMRX=83+w@mail.gmail.com>
+ <4653.1423274042@famine>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, Ying Cai <ycai@google.com>,
-	Willem de Bruijn <willemb@google.com>
-To: Tom Herbert <therbert@google.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Andy Gospodarek <andy@greyhouse.net>,
+	Veaceslav Falico <vfalico@gmail.com>,
+	Nikolay Aleksandrov <nikolay@redhat.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	=?ISO-8859-2?Q?Maciej_=AFenczykowski?= <maze@google.com>
+To: Jay Vosburgh <jay.vosburgh@canonical.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f180.google.com ([209.85.223.180]:45993 "EHLO
-	mail-ie0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753915AbbBGCYG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Feb 2015 21:24:06 -0500
-Received: by iecrd18 with SMTP id rd18so5708511iec.12
-        for <netdev@vger.kernel.org>; Fri, 06 Feb 2015 18:24:04 -0800 (PST)
-In-Reply-To: <CA+mtBx-N1bQW8vscQf1-h=C0cmtTc2gG3ka+ixs1AMt7cP-Z_Q@mail.gmail.com>
+Received: from mail-ob0-f171.google.com ([209.85.214.171]:50868 "EHLO
+	mail-ob0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755304AbbBGCl0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Feb 2015 21:41:26 -0500
+Received: by mail-ob0-f171.google.com with SMTP id gq1so16820591obb.2
+        for <netdev@vger.kernel.org>; Fri, 06 Feb 2015 18:41:26 -0800 (PST)
+In-Reply-To: <4653.1423274042@famine>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2015-02-06 at 14:21 -0800, Tom Herbert wrote:
+On Fri, Feb 6, 2015 at 5:54 PM, Jay Vosburgh <jay.vosburgh@canonical.com> wrote:
+> Mahesh Bandewar <maheshb@google.com> wrote:
+>
+>>On Fri, Feb 6, 2015 at 5:20 PM, Jay Vosburgh <jay.vosburgh@canonical.com> wrote:
+>>> Mahesh Bandewar <maheshb@google.com> wrote:
+>>>
+>>>>This patch allows user-space to set the mac-address on the bonding device.
+>>>>This mac-address can not be NULL or a Multicast. If the mac-address is set
+>>>>from user-space; kernel will honor it and will not overwrite it. In the
+>>>>absense (value from user space); the logic will default to using the
+>>>>masters' mac as the mac address for the bonding device.
+>>>>
+>>>>It can be set using example code below -
+>>>>
+>>>>   # modprobe bonding mode=4
+>>>>   # sys_mac_addr=$(printf '%02x:%02x:%02x:%02x:%02x:%02x' \
+>>>>                    $(( (RANDOM & 0xFE) | 0x02 )) \
+>>>>                    $(( RANDOM & 0xFF )) \
+>>>>                    $(( RANDOM & 0xFF )) \
+>>>>                    $(( RANDOM & 0xFF )) \
+>>>>                    $(( RANDOM & 0xFF )) \
+>>>>                    $(( RANDOM & 0xFF )))
+>>>>   # echo $sys_mac_addr > /sys/class/net/bond0/bonding/ad_actor_system_mac_address
+>>>>   # echo +eth1 > /sys/class/net/bond0/bonding/slaves
+>>>>   ...
+>>>>   # ip link set bond0 up
+>>>
+>>>         How is this patch functionally different from setting the
+>>> bonding master's MAC address to a particular value prior to adding any
+>>> slaves?
+>>>
+>>
+>>Maciej is correct but I think I was bit ambiguous about it in the
+>>commit message which might have made you think this way. I'll reword
+>>the commit message.
+>
+>         Thanks; presumably there is some administrative reason for this.
+>
+The idea is that in an AD system the actor-partner communication is a
+business between them two only and no one in the L2 domain should
+care. These enhancements should obscure that should anyone try to
+sniff it. Probably I assumed too much and should add this idea behind
+the implementation in the commit log.
 
-> Acked-by: Tom Herbert <therbert@google.com>
-> 
-> Eric, looks awesome! Can you share any performance numbers?
+>         Also, for patches 4, 5 and 6, I believe current practice is to
+> provide a netlink / iproute2 facility for options.
+>
+OK. I'll add them (netlink enhancements) in a separate set of patch(s).
 
-Right, numbers are awesome.
-
-I flood one target with ~2.3 Mpps UDP packets coming from random IP
-addresses.
-
-UDP server uses SO_REUSEPORT with 8 sockets (I have 8 rx queues on the
-host)
-
-
-I force a small RFS table to show that hash collisions no longer
-matter :
-
-echo 512 >/proc/sys/net/core/rps_sock_flow_entries
-
-
-softnettop tool (displaying /proc/net/softnet_stat in realtime)
-shows that before starting the TCP flows, only 8 cpus are receiving and
-process NIC irqs.
-
-cpu:    recv     drop     time      rps 
-26:   586720        0        0        0 
-29:   586982        0        0        0 
-32:   588582        0        0        0 
-35:   589266        0        0        0 
-38:   587796        0        0        0 
-41:   588146        0        0        0 
-44:   588158        0        0        0 
-47:   587548        0        0        0 
- *:  4703282        0        0        5 
-
-
-Then I start 200 netperf -t TCP_RR 
-
-When the 200 TCP_RR flows start, we can see load nicely shifting,
-but the UDP packets still not use RFS. TCP fl
-
-cpu:    recv     drop     time      rps 
- 0:     4254        0        0     1427 
- 1:     4472        0        0     1460 
- 2:     3070        0        0     1132 
- 3:     4210        0        0     1417 
- 4:     4472        0        0     1488 
- 5:     2146        0        0      869 
- 6:     4163        0        0     1456 
- 7:     4354        0        0     1468 
- 8:     3254        0        0     1170 
- 9:     4468        0        0     1479 
-10:     4449        0        0     1521 
-11:     2788        0        0     1070 
-12:     5902        0        0     1665 
-13:     6160        0        0     1692 
-14:     2319        0        0      945 
-15:     5850        0        0     1686 
-16:     5716        0        0     1643 
-17:     3388        0        0     1224 
-18:     5936        0        0     1724 
-19:     6040        0        0     1691 
-20:     2962        0        0     1076 
-21:     5784        0        0     1696 
-22:     6094        0        0     1717 
-23:     2748        0        0      999 
-24:     1392        0        0      638 
-25:     1158        0        0      524 
-26:   577970        0        0       77 
-27:     1410        0        0      644 
-28:     1166        0        0      544 
-29:   575270        0        0        5 
-30:     1158        0        0      523 
-31:      972        0        0      444 
-32:   574306        0        0      181 
-33:     1248        0        0      575 
-34:     1094        0        0      502 
-35:   577116        0        0       69 
-36:     2142        0        0      893 
-37:     1384        0        0      587 
-38:   577470        0        0        7 
-39:     2029        0        0      856 
-40:     1858        0        0      780 
-41:   574744        0        0       46 
-42:     1946        0        0      806 
-43:     1711        0        0      719 
-44:   570190        0        0       81 
-45:     2210        0        0      872 
-46:     1670        0        0      702 
-47:   572758        0        0       68 
- *:  4729371        0        0    44858 
-
-cpu:    recv     drop     time      rps 
- 0:    48770        0        0    13778 
- 1:    49198        0        0    13979 
- 2:    24580        0        0     8631 
- 3:    48272        0        0    13642 
- 4:    48578        0        0    13831 
- 5:    23716        0        0     8631 
- 6:    48034        0        0    13648 
- 7:    49408        0        0    13848 
- 8:    26147        0        0     9068 
- 9:    48678        0        0    13843 
-10:    49515        0        0    13931 
-11:    29836        0        0    10079 
-12:    45828        0        0    13331 
-13:    46654        0        0    13553 
-14:    19850        0        0     7452 
-15:    44382        0        0    13083 
-16:    44667        0        0    13072 
-17:    27196        0        0     9429 
-18:    44574        0        0    13069 
-19:    45076        0        0    13193 
-20:    27352        0        0     9329 
-21:    45468        0        0    13183 
-22:    46264        0        0    13435 
-23:    23598        0        0     8485 
-24:    14248        0        0     6061 
-25:    13624        0        0     5851 
-26:   508738        0        0      828 
-27:    14516        0        0     6214 
-28:    13354        0        0     5700 
-29:   512006        0        0      604 
-30:    14686        0        0     6249 
-31:    13866        0        0     5944 
-32:   491190        0        0     1101 
-33:    14628        0        0     6237 
-34:    14164        0        0     6025 
-35:   499178        0        0     1513 
-36:    13138        0        0     5687 
-37:    11964        0        0     5220 
-38:   523120        0        0      413 
-39:    13565        0        0     5808 
-40:    12742        0        0     5500 
-41:   485162        0        0     1343 
-42:    13254        0        0     5686 
-43:    12096        0        0     5254 
-44:   464680        0        0     1615 
-45:    13450        0        0     5781 
-46:    12400        0        0     5346 
-47:   493070        0        0      935 
- *:  5148480        0        0   388438 
-
-cpu:    recv     drop     time      rps 
- 0:    46596        0        0    13977 
- 1:    48633        0        0    14331 
- 2:    24006        0        0     8909 
- 3:    47844        0        0    14080 
- 4:    47742        0        0    14067 
- 5:    26642        0        0     9605 
- 6:    47796        0        0    14117 
- 7:    48806        0        0    14432 
- 8:    27936        0        0     9934 
- 9:    48034        0        0    14233 
-10:    48892        0        0    14377 
-11:    30650        0        0    10512 
-12:    45651        0        0    13614 
-13:    45439        0        0    13536 
-14:    24337        0        0     8877 
-15:    45379        0        0    13666 
-16:    45695        0        0    13643 
-17:    26552        0        0     9452 
-18:    45513        0        0    13608 
-19:    46588        0        0    13930 
-20:    26242        0        0     9273 
-21:    45521        0        0    13670 
-22:    46255        0        0    13729 
-23:    28166        0        0     9842 
-24:    13998        0        0     6086 
-25:    12518        0        0     5512 
-26:   503796        0        0      621 
-27:    13732        0        0     6002 
-28:    12802        0        0     5611 
-29:   507766        0        0      689 
-30:    13968        0        0     6044 
-31:    13012        0        0     5648 
-32:   488760        0        0      938 
-33:    13969        0        0     6044 
-34:    12666        0        0     5545 
-35:   497482        0        0     1497 
-36:    13074        0        0     5715 
-37:    12187        0        0     5338 
-38:   520414        0        0      496 
-39:    13752        0        0     5988 
-40:    12046        0        0     5297 
-41:   480412        0        0      904 
-42:    13436        0        0     5845 
-43:    11978        0        0     5286 
-44:   461146        0        0     1288 
-45:    12982        0        0     5655 
-46:    12872        0        0     5643 
-47:   488788        0        0     1066 
- *:  5122471        0        0   398172 
-
-cpu:    recv     drop     time      rps 
- 0:    46970        0        0    13467 
- 1:    48129        0        0    13914 
- 2:    25876        0        0     9206 
- 3:    47672        0        0    13723 
- 4:    48566        0        0    13875 
- 5:    25575        0        0     9009 
- 6:    47342        0        0    13673 
- 7:    48636        0        0    13889 
- 8:    28038        0        0     9722 
- 9:    48298        0        0    13875 
-10:    48662        0        0    13911 
-11:    28412        0        0     9777 
-12:    45025        0        0    13323 
-13:    45620        0        0    13422 
-14:    20808        0        0     7800 
-15:    44481        0        0    13271 
-16:    45032        0        0    13324 
-17:    25698        0        0     9155 
-18:    45125        0        0    13483 
-19:    46371        0        0    13627 
-20:    27234        0        0     9437 
-21:    44899        0        0    13234 
-22:    46065        0        0    13530 
-23:    24118        0        0     8629 
-24:    14416        0        0     6137 
-25:    13690        0        0     5863 
-26:   508418        0        0      905 
-27:    14780        0        0     6295 
-28:    13288        0        0     5716 
-29:   509010        0        0     1136 
-30:    15080        0        0     6443 
-31:    13378        0        0     5771 
-32:   489950        0        0     1302 
-33:    14410        0        0     6157 
-34:    13712        0        0     5894 
-35:   496760        0        0     1153 
-36:    13906        0        0     5978 
-37:    12198        0        0     5326 
-38:   520846        0        0      444 
-39:    13206        0        0     5709 
-40:    13020        0        0     5636 
-41:   482136        0        0     1029 
-42:    13068        0        0     5616 
-43:    12982        0        0     5636 
-44:   462626        0        0     1378 
-45:    13342        0        0     5765 
-46:    12784        0        0     5608 
-47:   491690        0        0      717 
- *:  5131348        0        0   391890 
-
-cpu:    recv     drop     time      rps 
- 0:    45472        0        0    13241 
- 1:    46628        0        0    13471 
- 2:    25556        0        0     8988 
- 3:    46082        0        0    13369 
- 4:    45573        0        0    13263 
- 5:    28061        0        0     9506 
- 6:    45806        0        0    13329 
- 7:    46890        0        0    13631 
- 8:    28321        0        0     9711 
- 9:    45826        0        0    13339 
-10:    46522        0        0    13569 
-11:    27168        0        0     9467 
-12:    47750        0        0    13717 
-13:    47630        0        0    13619 
-14:    20660        0        0     7846 
-15:    47224        0        0    13707 
-16:    48439        0        0    13884 
-17:    23894        0        0     8646 
-18:    47019        0        0    13666 
-19:    47532        0        0    13811 
-20:    26957        0        0     9465 
-21:    47380        0        0    13703 
-22:    48520        0        0    14014 
-23:    24379        0        0     8775 
-24:    13100        0        0     5633 
-25:    13210        0        0     5696 
-26:   506252        0        0      887 
-27:    13564        0        0     5865 
-28:    12258        0        0     5294 
-29:   510674        0        0     1436 
-30:    12892        0        0     5551 
-31:    13112        0        0     5668 
-32:   492734        0        0     1633 
-33:    13480        0        0     5775 
-34:    12400        0        0     5367 
-35:   497366        0        0     1371 
-36:    14236        0        0     6109 
-37:    12728        0        0     5552 
-38:   519158        0        0      365 
-39:    14322        0        0     6096 
-40:    13432        0        0     5801 
-41:   481236        0        0      832 
-42:    14584        0        0     6242 
-43:    14200        0        0     6099 
-44:   463266        0        0     1242 
-45:    14130        0        0     6056 
-46:    13574        0        0     5824 
-47:   490142        0        0      778 
- *:  5131339        0        0   390909 
-
-cpu:    recv     drop     time      rps 
- 0:    46704        0        0    13515 
- 1:    46175        0        0    13421 
- 2:    22761        0        0     8388 
- 3:    47142        0        0    13758 
- 4:    46908        0        0    13532 
- 5:    27770        0        0     9681 
- 6:    47210        0        0    13638 
- 7:    47645        0        0    13657 
- 8:    28668        0        0     9829 
- 9:    47806        0        0    13763 
-10:    47638        0        0    13621 
-11:    30896        0        0    10260 
-12:    47778        0        0    13721 
-13:    48396        0        0    13753 
-14:    18130        0        0     7339 
-15:    46427        0        0    13522 
-16:    47578        0        0    13659 
-17:    25465        0        0     8996 
-18:    47052        0        0    13537 
-19:    48184        0        0    13839 
-20:    27105        0        0     9526 
-21:    48230        0        0    13697 
-22:    49176        0        0    13919 
-23:    20728        0        0     7863 
-24:    13626        0        0     5844 
-25:    11770        0        0     5112 
-26:   532288        0        0      549 
-27:    13960        0        0     6030 
-28:    13534        0        0     5863 
-29:   537130        0        0     1374 
-30:    14702        0        0     6259 
-31:    13776        0        0     5923 
-32:   520046        0        0     1242 
-33:    14292        0        0     6095 
-34:    13684        0        0     5868 
-35:   524026        0        0     1466 
-36:    14931        0        0     6375 
-37:    10918        0        0     4738 
-38:   545740        0        0      119 
-39:    15372        0        0     6580 
-40:    13984        0        0     5992 
-41:   507908        0        0     1185 
-42:    15540        0        0     6595 
-43:    14538        0        0     6243 
-44:   486684        0        0     1202 
-45:    15100        0        0     6417 
-46:    13423        0        0     5781 
-47:   515604        0        0      333 
- *:  5354148        0        0   393619 
-
-cpu:    recv     drop     time      rps 
- 0:    49981        0        0    14007 
- 1:    51769        0        0    14362 
- 2:    21066        0        0     7982 
- 3:    51477        0        0    14326 
- 4:    50566        0        0    14090 
- 5:    21334        0        0     8299 
- 6:    50853        0        0    14238 
- 7:    52091        0        0    14379 
- 8:    22447        0        0     8502 
- 9:    51318        0        0    14373 
-10:    52682        0        0    14605 
-11:    31434        0        0    10542 
-12:    45672        0        0    13385 
-13:    46592        0        0    13574 
-14:    19514        0        0     7595 
-15:    45765        0        0    13409 
-16:    45518        0        0    13260 
-17:    22627        0        0     8526 
-18:    45697        0        0    13382 
-19:    46958        0        0    13667 
-20:    25211        0        0     9039 
-21:    46581        0        0    13685 
-22:    46623        0        0    13493 
-23:    22625        0        0     8326 
-24:    15724        0        0     6612 
-25:    13978        0        0     5959 
-26:   555430        0        0      296 
-27:    16266        0        0     6831 
-28:    14319        0        0     6139 
-29:   557434        0        0      232 
-30:    17372        0        0     7232 
-31:    14600        0        0     6244 
-32:   541476        0        0      601 
-33:    17265        0        0     7225 
-34:    15755        0        0     6693 
-35:   550066        0        0     1764 
-36:    14554        0        0     6240 
-37:    12873        0        0     5575 
-38:   569992        0        0      323 
-39:    14685        0        0     6306 
-40:    13202        0        0     5755 
-41:   531414        0        0      571 
-42:    15002        0        0     6467 
-43:    13336        0        0     5746 
-44:   512364        0        0     1019 
-45:    14469        0        0     6158 
-46:    13390        0        0     5813 
-47:   541256        0        0      644 
- *:  5562623        0        0   397491 
-
-cpu:    recv     drop     time      rps 
- 0:    49230        0        0    13561 
- 1:    48356        0        0    13262 
- 2:    25240        0        0     8872 
- 3:    48772        0        0    13475 
- 4:    49256        0        0    13579 
- 5:    26330        0        0     9117 
- 6:    49474        0        0    13638 
- 7:    50230        0        0    13808 
- 8:    27763        0        0     9450 
- 9:    49538        0        0    13641 
-10:    50428        0        0    13888 
-11:    26006        0        0     9110 
-12:    46391        0        0    13273 
-13:    46546        0        0    13354 
-14:    18240        0        0     7144 
-15:    45833        0        0    13084 
-16:    46194        0        0    13148 
-17:    26255        0        0     9218 
-18:    46387        0        0    13280 
-19:    47606        0        0    13546 
-20:    22683        0        0     8411 
-21:    47091        0        0    13458 
-22:    47880        0        0    13577 
-23:    22779        0        0     8252 
-24:    15551        0        0     6458 
-25:    14146        0        0     5986 
-26:   558688        0        0      779 
-27:    15856        0        0     6559 
-28:    13980        0        0     5886 
-29:   562008        0        0     1002 
-30:    16178        0        0     6766 
-31:    14736        0        0     6213 
-32:   542428        0        0     1121 
-33:    15828        0        0     6541 
-34:    14944        0        0     6336 
-35:   547546        0        0      829 
-36:    13882        0        0     5942 
-37:    11804        0        0     5165 
-38:   571056        0        0      227 
-39:    15422        0        0     6529 
-40:    12786        0        0     5514 
-41:   532399        0        0     1073 
-42:    14810        0        0     6316 
-43:    13254        0        0     5721 
-44:   509890        0        0      649 
-45:    14717        0        0     6280 
-46:    12160        0        0     5294 
-47:   538686        0        0      547 
- *:  5557263        0        0   388879 
-
-cpu:    recv     drop     time      rps 
- 0:    48494        0        0    13610 
- 1:    48450        0        0    13667 
- 2:    18908        0        0     7389 
- 3:    47301        0        0    13496 
- 4:    48212        0        0    13626 
- 5:    24524        0        0     8817 
- 6:    48055        0        0    13477 
- 7:    50226        0        0    13908 
- 8:    26093        0        0     9198 
- 9:    49130        0        0    13734 
-10:    50252        0        0    14079 
-11:    30880        0        0    10275 
-12:    46759        0        0    13098 
-13:    48464        0        0    13494 
-14:    21192        0        0     7887 
-15:    47295        0        0    13352 
-16:    48224        0        0    13641 
-17:    27363        0        0     9500 
-18:    46990        0        0    13353 
-19:    48559        0        0    13695 
-20:    24237        0        0     8670 
-21:    48024        0        0    13583 
-22:    49013        0        0    13651 
-23:    22739        0        0     8365 
-24:    14664        0        0     6240 
-25:    10190        0        0     4505 
-26:   556422        0        0      301 
-27:    14702        0        0     6260 
-28:    13725        0        0     5924 
-29:   560214        0        0      826 
-30:    15144        0        0     6412 
-31:    14250        0        0     6075 
-32:   540102        0        0      972 
-33:    15122        0        0     6408 
-34:    14358        0        0     6157 
-35:   549364        0        0     1676 
-36:    14894        0        0     6302 
-37:    13023        0        0     5569 
-38:   571308        0        0      496 
-39:    15154        0        0     6391 
-40:    14430        0        0     6116 
-41:   530950        0        0      945 
-42:    15478        0        0     6571 
-43:    13633        0        0     5849 
-44:   511994        0        0     1052 
-45:    14892        0        0     6327 
-46:    13216        0        0     5686 
-47:   541362        0        0      559 
- *:  5557975        0        0   391184 
-
-cpu:    recv     drop     time      rps 
- 0:    49414        0        0    13841 
- 1:    50425        0        0    14087 
- 2:    19888        0        0     7699 
- 3:    49729        0        0    14059 
- 4:    49847        0        0    13937 
- 5:    20906        0        0     7860 
- 6:    49566        0        0    13901 
- 7:    49948        0        0    13943 
- 8:    26602        0        0     9373 
- 9:    50721        0        0    14104 
-10:    50977        0        0    14123 
-11:    31706        0        0    10511 
-12:    47948        0        0    13746 
-13:    48042        0        0    13843 
-14:    17106        0        0     7039 
-15:    47788        0        0    13749 
-16:    47675        0        0    13651 
-17:    22882        0        0     8337 
-18:    47063        0        0    13544 
-19:    48308        0        0    13791 
-20:    23578        0        0     8637 
-21:    48128        0        0    13847 
-22:    48846        0        0    13843 
-23:    20482        0        0     7744 
-24:    15436        0        0     6517 
-25:    12962        0        0     5592 
-26:   555592        0        0      216 
-27:    16100        0        0     6811 
-28:    13358        0        0     5712 
-29:   558520        0        0      572 
-30:    15792        0        0     6618 
-31:    14698        0        0     6277 
-32:   540146        0        0     1166 
-33:    15970        0        0     6711 
-34:    15034        0        0     6345 
-35:   548184        0        0     2099 
-36:    15194        0        0     6493 
-37:    12204        0        0     5338 
-38:   570088        0        0       77 
-39:    15828        0        0     6732 
-40:    13156        0        0     5694 
-41:   528860        0        0      906 
-42:    15874        0        0     6783 
-43:    13476        0        0     5795 
-44:   510034        0        0      973 
-45:    15476        0        0     6624 
-46:    13382        0        0     5816 
-47:   538046        0        0      551 
- *:  5550985        0        0   395627 
-
-cpu:    recv     drop     time      rps 
- 0:    42896        0        0    12157 
- 1:    43502        0        0    12338 
- 2:    24072        0        0     8449 
- 3:    42853        0        0    12258 
- 4:    43146        0        0    12331 
- 5:    21194        0        0     7741 
- 6:    42003        0        0    12066 
- 7:    43034        0        0    12182 
- 8:    22830        0        0     7946 
- 9:    43633        0        0    12347 
-10:    43731        0        0    12329 
-11:    24231        0        0     8449 
-12:    43542        0        0    12251 
-13:    44341        0        0    12409 
-14:    19231        0        0     7209 
-15:    43392        0        0    12284 
-16:    43544        0        0    12189 
-17:    24620        0        0     8463 
-18:    42781        0        0    12012 
-19:    44263        0        0    12439 
-20:    22462        0        0     8016 
-21:    43984        0        0    12512 
-22:    44554        0        0    12435 
-23:    19194        0        0     7287 
-24:    13028        0        0     5565 
-25:    11452        0        0     4959 
-26:   558724        0        0      850 
-27:    13408        0        0     5708 
-28:    11022        0        0     4745 
-29:   559438        0        0      645 
-30:    13428        0        0     5695 
-31:    12946        0        0     5524 
-32:   543112        0        0     1045 
-33:    13006        0        0     5520 
-34:    12110        0        0     5191 
-35:   547556        0        0      838 
-36:    13546        0        0     5723 
-37:    12582        0        0     5456 
-38:   571372        0        0      424 
-39:    14040        0        0     5898 
-40:    12936        0        0     5525 
-41:   536642        0        0      978 
-42:    14164        0        0     5957 
-43:    13158        0        0     5671 
-44:   518283        0        0      975 
-45:    13834        0        0     5860 
-46:    11914        0        0     5093 
-47:   542846        0        0      489 
- *:  5457580        0        0   354433 
-
-TCP_RR workload ends....
-
-cpu:    recv     drop     time      rps 
-26:   588684        0        0        0 
-29:   589572        0        0        0 
-32:   589626        0        0        0 
-35:   588128        0        0        0 
-38:   589176        0        0        0 
-41:   589258        0        0        0 
-44:   589546        0        0        0 
-47:   587540        0        0        0 
- *:  4711633        0        0       12 
-
-Thanks
+>         -J
+>
+>
+>>>         -J
+>>>
+>>>>Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+>>>>---
+>>>> drivers/net/bonding/bond_3ad.c     |  7 ++++++-
+>>>> drivers/net/bonding/bond_main.c    |  1 +
+>>>> drivers/net/bonding/bond_options.c | 29 +++++++++++++++++++++++++++++
+>>>> drivers/net/bonding/bond_procfs.c  |  6 ++++++
+>>>> drivers/net/bonding/bond_sysfs.c   | 16 ++++++++++++++++
+>>>> include/net/bond_options.h         |  1 +
+>>>> include/net/bonding.h              |  1 +
+>>>> 7 files changed, 60 insertions(+), 1 deletion(-)
+>>>>
+>>>>diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
+>>>>index 1177f96194dd..373d3db3809f 100644
+>>>>--- a/drivers/net/bonding/bond_3ad.c
+>>>>+++ b/drivers/net/bonding/bond_3ad.c
+>>>>@@ -1914,7 +1914,12 @@ void bond_3ad_initialize(struct bonding *bond, u16 tick_resolution)
+>>>>
+>>>>               BOND_AD_INFO(bond).system.sys_priority =
+>>>>                       bond->params.ad_actor_sysprio;
+>>>>-              BOND_AD_INFO(bond).system.sys_mac_addr = *((struct mac_addr *)bond->dev->dev_addr);
+>>>>+              if (is_zero_ether_addr(bond->params.ad_actor_sys_macaddr))
+>>>>+                      BOND_AD_INFO(bond).system.sys_mac_addr =
+>>>>+                          *((struct mac_addr *)bond->dev->dev_addr);
+>>>>+              else
+>>>>+                      BOND_AD_INFO(bond).system.sys_mac_addr =
+>>>>+                          *((struct mac_addr *)bond->params.ad_actor_sys_macaddr);
+>>>>
+>>>>               /* initialize how many times this module is called in one
+>>>>                * second (should be about every 100ms)
+>>>>diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+>>>>index 561b2bde5aeb..1a6735ef2ea7 100644
+>>>>--- a/drivers/net/bonding/bond_main.c
+>>>>+++ b/drivers/net/bonding/bond_main.c
+>>>>@@ -4440,6 +4440,7 @@ static int bond_check_params(struct bond_params *params)
+>>>>       params->packets_per_slave = packets_per_slave;
+>>>>       params->tlb_dynamic_lb = 1; /* Default value */
+>>>>       params->ad_actor_sysprio = ad_actor_sysprio;
+>>>>+      eth_zero_addr(params->ad_actor_sys_macaddr);
+>>>>       if (packets_per_slave > 0) {
+>>>>               params->reciprocal_packets_per_slave =
+>>>>                       reciprocal_value(packets_per_slave);
+>>>>diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
+>>>>index d8f6760143ae..330d48b6a1e6 100644
+>>>>--- a/drivers/net/bonding/bond_options.c
+>>>>+++ b/drivers/net/bonding/bond_options.c
+>>>>@@ -72,6 +72,8 @@ static int bond_option_tlb_dynamic_lb_set(struct bonding *bond,
+>>>>                                 const struct bond_opt_value *newval);
+>>>> static int bond_option_ad_actor_sysprio_set(struct bonding *bond,
+>>>>                                 const struct bond_opt_value *newval);
+>>>>+static int bond_option_ad_actor_sys_macaddr_set(struct bonding *bond,
+>>>>+                                const struct bond_opt_value *newval);
+>>>>
+>>>>
+>>>> static const struct bond_opt_value bond_mode_tbl[] = {
+>>>>@@ -396,6 +398,13 @@ static const struct bond_option bond_opts[BOND_OPT_LAST] = {
+>>>>               .values = bond_ad_actor_sysprio_tbl,
+>>>>               .set = bond_option_ad_actor_sysprio_set,
+>>>>       },
+>>>>+      [BOND_OPT_AD_ACTOR_SYS_MACADDR] = {
+>>>>+              .id = BOND_OPT_AD_ACTOR_SYS_MACADDR,
+>>>>+              .name = "ad_actor_system_mac_address",
+>>>>+              .unsuppmodes = BOND_MODE_ALL_EX(BIT(BOND_MODE_8023AD)),
+>>>>+              .flags = BOND_OPTFLAG_RAWVAL | BOND_OPTFLAG_IFDOWN,
+>>>>+              .set = bond_option_ad_actor_sys_macaddr_set,
+>>>>+      },
+>>>> };
+>>>>
+>>>> /* Searches for an option by name */
+>>>>@@ -1376,3 +1385,23 @@ static int bond_option_ad_actor_sysprio_set(struct bonding *bond,
+>>>>       bond->params.ad_actor_sysprio = newval->value;
+>>>>       return 0;
+>>>> }
+>>>>+
+>>>>+static int bond_option_ad_actor_sys_macaddr_set(struct bonding *bond,
+>>>>+                                          const struct bond_opt_value *newval)
+>>>>+{
+>>>>+      u8 macaddr[ETH_ALEN];
+>>>>+      int i;
+>>>>+
+>>>>+      i = sscanf(newval->string, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
+>>>>+                 &macaddr[0], &macaddr[1], &macaddr[2],
+>>>>+                 &macaddr[3], &macaddr[4], &macaddr[5]);
+>>>>+
+>>>>+      if (i != ETH_ALEN || !is_valid_ether_addr(macaddr)) {
+>>>>+              netdev_err(bond->dev, "Invalid MAC address.\n");
+>>>>+              return -EINVAL;
+>>>>+      }
+>>>>+
+>>>>+      ether_addr_copy(bond->params.ad_actor_sys_macaddr, macaddr);
+>>>>+
+>>>>+      return 0;
+>>>>+}
+>>>>diff --git a/drivers/net/bonding/bond_procfs.c b/drivers/net/bonding/bond_procfs.c
+>>>>index 9e33c48886ef..81452ced852f 100644
+>>>>--- a/drivers/net/bonding/bond_procfs.c
+>>>>+++ b/drivers/net/bonding/bond_procfs.c
+>>>>@@ -136,6 +136,8 @@ static void bond_info_show_master(struct seq_file *seq)
+>>>>                          optval->string);
+>>>>               seq_printf(seq, "System priority: %d\n",
+>>>>                               BOND_AD_INFO(bond).system.sys_priority);
+>>>>+              seq_printf(seq, "System MAC address: %pM\n",
+>>>>+                              &BOND_AD_INFO(bond).system.sys_mac_addr);
+>>>>
+>>>>               if (__bond_3ad_get_active_agg_info(bond, &ad_info)) {
+>>>>                       seq_printf(seq, "bond %s has no active aggregator\n",
+>>>>@@ -198,6 +200,8 @@ static void bond_info_show_slave(struct seq_file *seq,
+>>>>                       seq_puts(seq, "details actor lacp pdu:\n");
+>>>>                       seq_printf(seq, "    system priority: %d\n",
+>>>>                                  port->actor_system_priority);
+>>>>+                      seq_printf(seq, "    system mac address: %pM\n",
+>>>>+                                 &port->actor_system);
+>>>>                       seq_printf(seq, "    port key: %d\n",
+>>>>                                  port->actor_oper_port_key);
+>>>>                       seq_printf(seq, "    port priority: %d\n",
+>>>>@@ -210,6 +214,8 @@ static void bond_info_show_slave(struct seq_file *seq,
+>>>>                       seq_puts(seq, "details partner lacp pdu:\n");
+>>>>                       seq_printf(seq, "    system priority: %d\n",
+>>>>                                  port->partner_oper.system_priority);
+>>>>+                      seq_printf(seq, "    system mac address: %pM\n",
+>>>>+                                 &port->partner_oper.system);
+>>>>                       seq_printf(seq, "    oper key: %d\n",
+>>>>                                  port->partner_oper.key);
+>>>>                       seq_printf(seq, "    port priority: %d\n",
+>>>>diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
+>>>>index 4350aa06f867..91713d0b6685 100644
+>>>>--- a/drivers/net/bonding/bond_sysfs.c
+>>>>+++ b/drivers/net/bonding/bond_sysfs.c
+>>>>@@ -706,6 +706,21 @@ static ssize_t bonding_show_ad_actor_sysprio(struct device *d,
+>>>> static DEVICE_ATTR(ad_actor_system_priority, S_IRUGO | S_IWUSR,
+>>>>                  bonding_show_ad_actor_sysprio, bonding_sysfs_store_option);
+>>>>
+>>>>+static ssize_t bonding_show_ad_actor_sys_macaddr(struct device *d,
+>>>>+                                               struct device_attribute *attr,
+>>>>+                                               char *buf)
+>>>>+{
+>>>>+      struct bonding *bond = to_bond(d);
+>>>>+
+>>>>+      if (BOND_MODE(bond) == BOND_MODE_8023AD)
+>>>>+              return sprintf(buf, "%pM\n", bond->params.ad_actor_sys_macaddr);
+>>>>+
+>>>>+      return 0;
+>>>>+}
+>>>>+static DEVICE_ATTR(ad_actor_system_mac_address, S_IRUGO | S_IWUSR,
+>>>>+                 bonding_show_ad_actor_sys_macaddr,
+>>>>+                 bonding_sysfs_store_option);
+>>>>+
+>>>> static struct attribute *per_bond_attrs[] = {
+>>>>       &dev_attr_slaves.attr,
+>>>>       &dev_attr_mode.attr,
+>>>>@@ -740,6 +755,7 @@ static struct attribute *per_bond_attrs[] = {
+>>>>       &dev_attr_packets_per_slave.attr,
+>>>>       &dev_attr_tlb_dynamic_lb.attr,
+>>>>       &dev_attr_ad_actor_system_priority.attr,
+>>>>+      &dev_attr_ad_actor_system_mac_address.attr,
+>>>>       NULL,
+>>>> };
+>>>>
+>>>>diff --git a/include/net/bond_options.h b/include/net/bond_options.h
+>>>>index c2af1db37354..993ef73cd050 100644
+>>>>--- a/include/net/bond_options.h
+>>>>+++ b/include/net/bond_options.h
+>>>>@@ -64,6 +64,7 @@ enum {
+>>>>       BOND_OPT_SLAVES,
+>>>>       BOND_OPT_TLB_DYNAMIC_LB,
+>>>>       BOND_OPT_AD_ACTOR_SYSPRIO,
+>>>>+      BOND_OPT_AD_ACTOR_SYS_MACADDR,
+>>>>       BOND_OPT_LAST
+>>>> };
+>>>>
+>>>>diff --git a/include/net/bonding.h b/include/net/bonding.h
+>>>>index 7a5c79fcf866..cd2092e6bc71 100644
+>>>>--- a/include/net/bonding.h
+>>>>+++ b/include/net/bonding.h
+>>>>@@ -144,6 +144,7 @@ struct bond_params {
+>>>>       int tlb_dynamic_lb;
+>>>>       struct reciprocal_value reciprocal_packets_per_slave;
+>>>>       u16 ad_actor_sysprio;
+>>>>+      u8 ad_actor_sys_macaddr[ETH_ALEN];
+>>>> };
+>>>>
+>>>> struct bond_parm_tbl {
+>>>>--
+>>>>2.2.0.rc0.207.ga3a616c
+>>>>
+>
+> ---
+>         -Jay Vosburgh, jay.vosburgh@canonical.com
