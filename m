@@ -1,7 +1,7 @@
 From: Bas Peters <baspeters93@gmail.com>
-Subject: [PATCH 2/7] drivers: isdn: act2000: capi.c: fix checkpatch errors
-Date: Sat,  7 Feb 2015 20:05:24 +0100
-Message-ID: <1423335929-24926-3-git-send-email-baspeters93@gmail.com>
+Subject: [PATCH 1/7] drivers: isdn: act2000: act2000_isa.c: Fix checkpatch errors
+Date: Sat,  7 Feb 2015 20:05:23 +0100
+Message-ID: <1423335929-24926-2-git-send-email-baspeters93@gmail.com>
 References: <1423335929-24926-1-git-send-email-baspeters93@gmail.com>
 Cc: julia.lawall@lip6.fr, davem@davemloft.net, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org, sergei.shtylyov@cogentembedded.com,
@@ -12,49 +12,55 @@ In-Reply-To: <1423335929-24926-1-git-send-email-baspeters93@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch fixes the following checkpatch errors:
-	1. trailing statement
-	1. assignment of variable in if condition
-	1. incorrectly placed brace after function definition
+This patch adresses various checkpatch errors:
+	3 assignments in if conditions
+	1 return value enclosed in parenthesis
 
 Signed-off-by: Bas Peters <baspeters93@gmail.com>
 ---
- drivers/isdn/act2000/capi.c | 9 ++++++---
- 1 file changed, 6 insertions(+), 3 deletions(-)
+ drivers/isdn/act2000/act2000_isa.c | 11 +++++++----
+ 1 file changed, 7 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/isdn/act2000/capi.c b/drivers/isdn/act2000/capi.c
-index 3f66ca2..5d677e6 100644
---- a/drivers/isdn/act2000/capi.c
-+++ b/drivers/isdn/act2000/capi.c
-@@ -113,7 +113,8 @@ actcapi_chkhdr(act2000_card *card, actcapi_msghdr *hdr)
- 			m->hdr.cmd.cmd = c;			\
- 			m->hdr.cmd.subcmd = s;			\
- 			m->hdr.msgnum = actcapi_nextsmsg(card); \
--		} else m = NULL;				\
-+		} else
-+			m = NULL;				\
- 	}
+diff --git a/drivers/isdn/act2000/act2000_isa.c b/drivers/isdn/act2000/act2000_isa.c
+index b5fad29..048507e 100644
+--- a/drivers/isdn/act2000/act2000_isa.c
++++ b/drivers/isdn/act2000/act2000_isa.c
+@@ -31,7 +31,8 @@ act2000_isa_reset(unsigned short portbase)
+ 	int serial = 0;
  
- #define ACTCAPI_CHKSKB if (!skb) {					\
-@@ -563,7 +564,8 @@ actcapi_data_b3_ind(act2000_card *card, struct sk_buff *skb) {
- 	blocknr = msg->msg.data_b3_ind.blocknr;
- 	skb_pull(skb, 19);
- 	card->interface.rcvcallb_skb(card->myid, chan, skb);
--	if (!(skb = alloc_skb(11, GFP_ATOMIC))) {
-+	skb = alloc_skb(11, GFP_ATOMIC);
-+	if (!skb) {
- 		printk(KERN_WARNING "actcapi: alloc_skb failed\n");
- 		return 1;
+ 	found = 0;
+-	if ((reg = inb(portbase + ISA_COR)) != 0xff) {
++	reg = inb(portbase + ISA_COR);
++	if (reg != 0xff) {
+ 		outb(reg | ISA_COR_RESET, portbase + ISA_COR);
+ 		mdelay(10);
+ 		outb(reg, portbase + ISA_COR);
+@@ -303,7 +304,8 @@ act2000_isa_send(act2000_card *card)
+ 	while (1) {
+ 		spin_lock_irqsave(&card->lock, flags);
+ 		if (!(card->sbuf)) {
+-			if ((card->sbuf = skb_dequeue(&card->sndq))) {
++			card->sbuf = skb_dequeue(&card->sndq);
++			if (card->sbuf) {
+ 				card->ack_msg = card->sbuf->data;
+ 				msg = (actcapi_msg *)card->sbuf->data;
+ 				if ((msg->hdr.cmd.cmd == 0x86) &&
+@@ -378,7 +380,8 @@ act2000_isa_getid(act2000_card *card)
+ 		printk(KERN_WARNING "act2000: Wrong Firmware-ID!\n");
+ 		return -EPROTO;
  	}
-@@ -990,7 +992,8 @@ actcapi_debug_dlpd(actcapi_dlpd *dlpd)
+-	if ((p = strchr(fid.revision, '\n')))
++	p = strchr(fid.revision, '\n');
++	if (p)
+ 		*p = '\0';
+ 	printk(KERN_INFO "act2000: Firmware-ID: %s\n", fid.revision);
+ 	if (card->flags & ACT2000_FLAGS_IVALID) {
+@@ -439,5 +442,5 @@ act2000_isa_download(act2000_card *card, act2000_ddef __user *cb)
+ 	}
+ 	kfree(buf);
+ 	msleep_interruptible(500);
+-	return (act2000_isa_getid(card));
++	return act2000_isa_getid(card);
  }
- 
- #ifdef DEBUG_DUMP_SKB
--static void dump_skb(struct sk_buff *skb) {
-+static void dump_skb(struct sk_buff *skb)
-+{
- 	char tmp[80];
- 	char *p = skb->data;
- 	char *t = tmp;
 -- 
 2.1.0
