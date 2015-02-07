@@ -1,32 +1,60 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 2/6] drivers: isdn: act2000: capi.c: fix checkpatch errors
-Date: Sat, 07 Feb 2015 21:25:57 +0300
-Message-ID: <54D658B5.9030800@cogentembedded.com>
-References: <1423328797-17865-1-git-send-email-baspeters93@gmail.com>	<1423328797-17865-3-git-send-email-baspeters93@gmail.com>	<54D650BF.5000400@cogentembedded.com>	<alpine.DEB.2.02.1502071902060.2050@localhost6.localdomain6> <CAOgR63dhGA4ULSACOSCBnU+uG_bMbegYY62o1etmRjo31BO9wQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "isdn@linux-pingi.de" <isdn@linux-pingi.de>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Bas Peters <baspeters93@gmail.com>,
-	Julia Lawall <julia.lawall@lip6.fr>
+From: Bas Peters <baspeters93@gmail.com>
+Subject: [PATCH 2/7] drivers: isdn: act2000: capi.c: fix checkpatch errors
+Date: Sat,  7 Feb 2015 20:05:24 +0100
+Message-ID: <1423335929-24926-3-git-send-email-baspeters93@gmail.com>
+References: <1423335929-24926-1-git-send-email-baspeters93@gmail.com>
+Cc: julia.lawall@lip6.fr, davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, sergei.shtylyov@cogentembedded.com,
+	Bas Peters <baspeters93@gmail.com>
+To: isdn@linux-pingi.de
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAOgR63dhGA4ULSACOSCBnU+uG_bMbegYY62o1etmRjo31BO9wQ@mail.gmail.com>
+In-Reply-To: <1423335929-24926-1-git-send-email-baspeters93@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 02/07/2015 09:08 PM, Bas Peters wrote:
+This patch fixes the following checkpatch errors:
+	1. trailing statement
+	1. assignment of variable in if condition
+	1. incorrectly placed brace after function definition
 
-    Please don't top-post.
+Signed-off-by: Bas Peters <baspeters93@gmail.com>
+---
+ drivers/isdn/act2000/capi.c | 9 ++++++---
+ 1 file changed, 6 insertions(+), 3 deletions(-)
 
-> I must have missed something. I fixed it on my end. Do I now resend
-> the entire patchset or just this particular patch?
-
-    The entire patch set, at least DaveM wants it this way.
-
-> regards,
-
-> Bas
-
-WBR, Sergei
+diff --git a/drivers/isdn/act2000/capi.c b/drivers/isdn/act2000/capi.c
+index 3f66ca2..5d677e6 100644
+--- a/drivers/isdn/act2000/capi.c
++++ b/drivers/isdn/act2000/capi.c
+@@ -113,7 +113,8 @@ actcapi_chkhdr(act2000_card *card, actcapi_msghdr *hdr)
+ 			m->hdr.cmd.cmd = c;			\
+ 			m->hdr.cmd.subcmd = s;			\
+ 			m->hdr.msgnum = actcapi_nextsmsg(card); \
+-		} else m = NULL;				\
++		} else
++			m = NULL;				\
+ 	}
+ 
+ #define ACTCAPI_CHKSKB if (!skb) {					\
+@@ -563,7 +564,8 @@ actcapi_data_b3_ind(act2000_card *card, struct sk_buff *skb) {
+ 	blocknr = msg->msg.data_b3_ind.blocknr;
+ 	skb_pull(skb, 19);
+ 	card->interface.rcvcallb_skb(card->myid, chan, skb);
+-	if (!(skb = alloc_skb(11, GFP_ATOMIC))) {
++	skb = alloc_skb(11, GFP_ATOMIC);
++	if (!skb) {
+ 		printk(KERN_WARNING "actcapi: alloc_skb failed\n");
+ 		return 1;
+ 	}
+@@ -990,7 +992,8 @@ actcapi_debug_dlpd(actcapi_dlpd *dlpd)
+ }
+ 
+ #ifdef DEBUG_DUMP_SKB
+-static void dump_skb(struct sk_buff *skb) {
++static void dump_skb(struct sk_buff *skb)
++{
+ 	char tmp[80];
+ 	char *p = skb->data;
+ 	char *t = tmp;
+-- 
+2.1.0
