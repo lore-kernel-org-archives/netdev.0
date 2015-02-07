@@ -1,7 +1,7 @@
 From: Mahesh Bandewar <maheshb@google.com>
-Subject: [PATCH next 6/6] bonding: Implement user key part of port_key in an AD system.
-Date: Fri,  6 Feb 2015 16:51:57 -0800
-Message-ID: <1423270317-9352-1-git-send-email-maheshb@google.com>
+Subject: [PATCH next 5/6] bonding: Allow userspace to set macaddr on bonding-dev
+Date: Fri,  6 Feb 2015 16:51:56 -0800
+Message-ID: <1423270316-9311-1-git-send-email-maheshb@google.com>
 Cc: Mahesh Bandewar <maheshb@google.com>,
 	netdev <netdev@vger.kernel.org>,
 	Eric Dumazet <edumazet@google.com>
@@ -11,205 +11,216 @@ To: Jay Vosburgh <j.vosburgh@gmail.com>,
 	Nikolay Aleksandrov <nikolay@redhat.com>,
 	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f201.google.com ([209.85.213.201]:39451 "EHLO
-	mail-ig0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753454AbbBGAwA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Feb 2015 19:52:00 -0500
-Received: by mail-ig0-f201.google.com with SMTP id b16so1522835igk.0
-        for <netdev@vger.kernel.org>; Fri, 06 Feb 2015 16:51:59 -0800 (PST)
+Received: from mail-ig0-f202.google.com ([209.85.213.202]:41976 "EHLO
+	mail-ig0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753124AbbBGAv7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Feb 2015 19:51:59 -0500
+Received: by mail-ig0-f202.google.com with SMTP id a13so1524442igq.1
+        for <netdev@vger.kernel.org>; Fri, 06 Feb 2015 16:51:58 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The port key has three components - user-key, speed-part, and duplex-part.
-The LSBit is for the duplex-part, next 5 bits are for the speed while the
-remaining 10 bits are the user defined key bits. Get these 10 bits
-from the user-space (through the SysFs interface) and use it to form the
-admin port-key. Allowed range for the user-key is 0 - 1023 (10 bits). If
-it is not provided then use zero for the user-key-bits (default).
+This patch allows user-space to set the mac-address on the bonding device.
+This mac-address can not be NULL or a Multicast. If the mac-address is set
+from user-space; kernel will honor it and will not overwrite it. In the
+absense (value from user space); the logic will default to using the
+masters' mac as the mac address for the bonding device.
 
-It can set using following example code -
+It can be set using example code below -
 
    # modprobe bonding mode=4
-   # usr_port_key=$(( RANDOM & 0x3FF ))
-   # echo $usr_port_key > /sys/class/net/bond0/bonding/ad_actor_user_port_key
+   # sys_mac_addr=$(printf '%02x:%02x:%02x:%02x:%02x:%02x' \
+                    $(( (RANDOM & 0xFE) | 0x02 )) \
+                    $(( RANDOM & 0xFF )) \
+                    $(( RANDOM & 0xFF )) \
+                    $(( RANDOM & 0xFF )) \
+                    $(( RANDOM & 0xFF )) \
+                    $(( RANDOM & 0xFF )))
+   # echo $sys_mac_addr > /sys/class/net/bond0/bonding/ad_actor_system_mac_address
    # echo +eth1 > /sys/class/net/bond0/bonding/slaves
    ...
    # ip link set bond0 up
 
 Signed-off-by: Mahesh Bandewar <maheshb@google.com>
 ---
- drivers/net/bonding/bond_3ad.c     |  6 +++---
- drivers/net/bonding/bond_main.c    | 10 ++++++++++
- drivers/net/bonding/bond_options.c | 26 ++++++++++++++++++++++++++
- drivers/net/bonding/bond_sysfs.c   | 15 +++++++++++++++
+ drivers/net/bonding/bond_3ad.c     |  7 ++++++-
+ drivers/net/bonding/bond_main.c    |  1 +
+ drivers/net/bonding/bond_options.c | 29 +++++++++++++++++++++++++++++
+ drivers/net/bonding/bond_procfs.c  |  6 ++++++
+ drivers/net/bonding/bond_sysfs.c   | 16 ++++++++++++++++
  include/net/bond_options.h         |  1 +
  include/net/bonding.h              |  1 +
- 6 files changed, 56 insertions(+), 3 deletions(-)
+ 7 files changed, 60 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
-index 373d3db3809f..c69c393ba8c5 100644
+index 1177f96194dd..373d3db3809f 100644
 --- a/drivers/net/bonding/bond_3ad.c
 +++ b/drivers/net/bonding/bond_3ad.c
-@@ -1955,10 +1955,10 @@ void bond_3ad_bind_slave(struct slave *slave)
+@@ -1914,7 +1914,12 @@ void bond_3ad_initialize(struct bonding *bond, u16 tick_resolution)
  
- 		port->slave = slave;
- 		port->actor_port_number = SLAVE_AD_INFO(slave)->id;
--		/* key is determined according to the link speed, duplex and user key(which
--		 * is yet not supported)
-+		/* key is determined according to the link speed, duplex and
-+		 * user key
- 		 */
--		port->actor_admin_port_key = 0;
-+		port->actor_admin_port_key = bond->params.ad_actor_portkey << 6;
- 		port->actor_admin_port_key |= __get_duplex(port);
- 		port->actor_admin_port_key |= (__get_link_speed(port) << 1);
- 		port->actor_oper_port_key = port->actor_admin_port_key;
+ 		BOND_AD_INFO(bond).system.sys_priority =
+ 			bond->params.ad_actor_sysprio;
+-		BOND_AD_INFO(bond).system.sys_mac_addr = *((struct mac_addr *)bond->dev->dev_addr);
++		if (is_zero_ether_addr(bond->params.ad_actor_sys_macaddr))
++			BOND_AD_INFO(bond).system.sys_mac_addr =
++			    *((struct mac_addr *)bond->dev->dev_addr);
++		else
++			BOND_AD_INFO(bond).system.sys_mac_addr =
++			    *((struct mac_addr *)bond->params.ad_actor_sys_macaddr);
+ 
+ 		/* initialize how many times this module is called in one
+ 		 * second (should be about every 100ms)
 diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 1a6735ef2ea7..f9f001f35a91 100644
+index 561b2bde5aeb..1a6735ef2ea7 100644
 --- a/drivers/net/bonding/bond_main.c
 +++ b/drivers/net/bonding/bond_main.c
-@@ -4105,6 +4105,7 @@ static int bond_check_params(struct bond_params *params)
- 	const struct bond_opt_value *valptr;
- 	int arp_all_targets_value;
- 	u16 ad_actor_sysprio = 0;
-+	u16 ad_actor_portkey = 0;
- 
- 	/* Convert string parameters. */
- 	if (mode) {
-@@ -4409,6 +4410,14 @@ static int bond_check_params(struct bond_params *params)
- 			return -EINVAL;
- 		}
- 		ad_actor_sysprio = valptr->value;
-+
-+		valptr = bond_opt_parse(bond_opt_get(BOND_OPT_AD_ACTOR_PORTKEY),
-+					&newval);
-+		if (!valptr) {
-+			pr_err("Error: No ad_actor_portkey default value");
-+			return -EINVAL;
-+		}
-+		ad_actor_portkey = valptr->value;
- 	}
- 
- 	if (lp_interval == 0) {
-@@ -4441,6 +4450,7 @@ static int bond_check_params(struct bond_params *params)
+@@ -4440,6 +4440,7 @@ static int bond_check_params(struct bond_params *params)
+ 	params->packets_per_slave = packets_per_slave;
  	params->tlb_dynamic_lb = 1; /* Default value */
  	params->ad_actor_sysprio = ad_actor_sysprio;
- 	eth_zero_addr(params->ad_actor_sys_macaddr);
-+	params->ad_actor_portkey = ad_actor_portkey;
++	eth_zero_addr(params->ad_actor_sys_macaddr);
  	if (packets_per_slave > 0) {
  		params->reciprocal_packets_per_slave =
  			reciprocal_value(packets_per_slave);
 diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
-index 330d48b6a1e6..c3f77c6d0d2e 100644
+index d8f6760143ae..330d48b6a1e6 100644
 --- a/drivers/net/bonding/bond_options.c
 +++ b/drivers/net/bonding/bond_options.c
-@@ -74,6 +74,8 @@ static int bond_option_ad_actor_sysprio_set(struct bonding *bond,
+@@ -72,6 +72,8 @@ static int bond_option_tlb_dynamic_lb_set(struct bonding *bond,
  				  const struct bond_opt_value *newval);
- static int bond_option_ad_actor_sys_macaddr_set(struct bonding *bond,
+ static int bond_option_ad_actor_sysprio_set(struct bonding *bond,
  				  const struct bond_opt_value *newval);
-+static int bond_option_ad_actor_portkey_set(struct bonding *bond,
++static int bond_option_ad_actor_sys_macaddr_set(struct bonding *bond,
 +				  const struct bond_opt_value *newval);
  
  
  static const struct bond_opt_value bond_mode_tbl[] = {
-@@ -196,6 +198,12 @@ static const struct bond_opt_value bond_ad_actor_sysprio_tbl[] = {
- 	{ NULL,      -1,    0},
- };
- 
-+static const struct bond_opt_value bond_ad_actor_portkey_tbl[] = {
-+	{ "minval",  0,     BOND_VALFLAG_MIN | BOND_VALFLAG_DEFAULT},
-+	{ "maxval",  1023,  BOND_VALFLAG_MAX},
-+	{ NULL,      -1,    0},
-+};
-+
- static const struct bond_option bond_opts[BOND_OPT_LAST] = {
- 	[BOND_OPT_MODE] = {
- 		.id = BOND_OPT_MODE,
-@@ -405,6 +413,14 @@ static const struct bond_option bond_opts[BOND_OPT_LAST] = {
- 		.flags = BOND_OPTFLAG_RAWVAL | BOND_OPTFLAG_IFDOWN,
- 		.set = bond_option_ad_actor_sys_macaddr_set,
+@@ -396,6 +398,13 @@ static const struct bond_option bond_opts[BOND_OPT_LAST] = {
+ 		.values = bond_ad_actor_sysprio_tbl,
+ 		.set = bond_option_ad_actor_sysprio_set,
  	},
-+	[BOND_OPT_AD_ACTOR_PORTKEY] = {
-+		.id = BOND_OPT_AD_ACTOR_PORTKEY,
-+		.name = "ad_actor_user_port_key",
++	[BOND_OPT_AD_ACTOR_SYS_MACADDR] = {
++		.id = BOND_OPT_AD_ACTOR_SYS_MACADDR,
++		.name = "ad_actor_system_mac_address",
 +		.unsuppmodes = BOND_MODE_ALL_EX(BIT(BOND_MODE_8023AD)),
-+		.flags = BOND_OPTFLAG_IFDOWN,
-+		.values = bond_ad_actor_portkey_tbl,
-+		.set = bond_option_ad_actor_portkey_set,
-+	}
++		.flags = BOND_OPTFLAG_RAWVAL | BOND_OPTFLAG_IFDOWN,
++		.set = bond_option_ad_actor_sys_macaddr_set,
++	},
  };
  
  /* Searches for an option by name */
-@@ -1405,3 +1421,13 @@ static int bond_option_ad_actor_sys_macaddr_set(struct bonding *bond,
- 
+@@ -1376,3 +1385,23 @@ static int bond_option_ad_actor_sysprio_set(struct bonding *bond,
+ 	bond->params.ad_actor_sysprio = newval->value;
  	return 0;
  }
 +
-+static int bond_option_ad_actor_portkey_set(struct bonding *bond,
++static int bond_option_ad_actor_sys_macaddr_set(struct bonding *bond,
 +					    const struct bond_opt_value *newval)
 +{
-+	netdev_info(bond->dev, "Setting ad_actor_portkey to (%llu)\n",
-+		    newval->value);
++	u8 macaddr[ETH_ALEN];
++	int i;
 +
-+	bond->params.ad_actor_portkey = newval->value;
++	i = sscanf(newval->string, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
++		   &macaddr[0], &macaddr[1], &macaddr[2],
++		   &macaddr[3], &macaddr[4], &macaddr[5]);
++
++	if (i != ETH_ALEN || !is_valid_ether_addr(macaddr)) {
++		netdev_err(bond->dev, "Invalid MAC address.\n");
++		return -EINVAL;
++	}
++
++	ether_addr_copy(bond->params.ad_actor_sys_macaddr, macaddr);
++
 +	return 0;
 +}
+diff --git a/drivers/net/bonding/bond_procfs.c b/drivers/net/bonding/bond_procfs.c
+index 9e33c48886ef..81452ced852f 100644
+--- a/drivers/net/bonding/bond_procfs.c
++++ b/drivers/net/bonding/bond_procfs.c
+@@ -136,6 +136,8 @@ static void bond_info_show_master(struct seq_file *seq)
+ 			   optval->string);
+ 		seq_printf(seq, "System priority: %d\n",
+ 				BOND_AD_INFO(bond).system.sys_priority);
++		seq_printf(seq, "System MAC address: %pM\n",
++				&BOND_AD_INFO(bond).system.sys_mac_addr);
+ 
+ 		if (__bond_3ad_get_active_agg_info(bond, &ad_info)) {
+ 			seq_printf(seq, "bond %s has no active aggregator\n",
+@@ -198,6 +200,8 @@ static void bond_info_show_slave(struct seq_file *seq,
+ 			seq_puts(seq, "details actor lacp pdu:\n");
+ 			seq_printf(seq, "    system priority: %d\n",
+ 				   port->actor_system_priority);
++			seq_printf(seq, "    system mac address: %pM\n",
++				   &port->actor_system);
+ 			seq_printf(seq, "    port key: %d\n",
+ 				   port->actor_oper_port_key);
+ 			seq_printf(seq, "    port priority: %d\n",
+@@ -210,6 +214,8 @@ static void bond_info_show_slave(struct seq_file *seq,
+ 			seq_puts(seq, "details partner lacp pdu:\n");
+ 			seq_printf(seq, "    system priority: %d\n",
+ 				   port->partner_oper.system_priority);
++			seq_printf(seq, "    system mac address: %pM\n",
++				   &port->partner_oper.system);
+ 			seq_printf(seq, "    oper key: %d\n",
+ 				   port->partner_oper.key);
+ 			seq_printf(seq, "    port priority: %d\n",
 diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
-index 91713d0b6685..17d84d5a1608 100644
+index 4350aa06f867..91713d0b6685 100644
 --- a/drivers/net/bonding/bond_sysfs.c
 +++ b/drivers/net/bonding/bond_sysfs.c
-@@ -721,6 +721,20 @@ static DEVICE_ATTR(ad_actor_system_mac_address, S_IRUGO | S_IWUSR,
- 		   bonding_show_ad_actor_sys_macaddr,
- 		   bonding_sysfs_store_option);
+@@ -706,6 +706,21 @@ static ssize_t bonding_show_ad_actor_sysprio(struct device *d,
+ static DEVICE_ATTR(ad_actor_system_priority, S_IRUGO | S_IWUSR,
+ 		   bonding_show_ad_actor_sysprio, bonding_sysfs_store_option);
  
-+static ssize_t bonding_show_ad_actor_portkey(struct device *d,
-+					     struct device_attribute *attr,
-+					     char *buf)
++static ssize_t bonding_show_ad_actor_sys_macaddr(struct device *d,
++						 struct device_attribute *attr,
++						 char *buf)
 +{
 +	struct bonding *bond = to_bond(d);
 +
 +	if (BOND_MODE(bond) == BOND_MODE_8023AD)
-+		return sprintf(buf, "%hu\n", bond->params.ad_actor_portkey);
++		return sprintf(buf, "%pM\n", bond->params.ad_actor_sys_macaddr);
 +
 +	return 0;
 +}
-+static DEVICE_ATTR(ad_actor_user_port_key, S_IRUGO | S_IWUSR,
-+		   bonding_show_ad_actor_portkey, bonding_sysfs_store_option);
++static DEVICE_ATTR(ad_actor_system_mac_address, S_IRUGO | S_IWUSR,
++		   bonding_show_ad_actor_sys_macaddr,
++		   bonding_sysfs_store_option);
 +
  static struct attribute *per_bond_attrs[] = {
  	&dev_attr_slaves.attr,
  	&dev_attr_mode.attr,
-@@ -756,6 +770,7 @@ static struct attribute *per_bond_attrs[] = {
+@@ -740,6 +755,7 @@ static struct attribute *per_bond_attrs[] = {
+ 	&dev_attr_packets_per_slave.attr,
  	&dev_attr_tlb_dynamic_lb.attr,
  	&dev_attr_ad_actor_system_priority.attr,
- 	&dev_attr_ad_actor_system_mac_address.attr,
-+	&dev_attr_ad_actor_user_port_key.attr,
++	&dev_attr_ad_actor_system_mac_address.attr,
  	NULL,
  };
  
 diff --git a/include/net/bond_options.h b/include/net/bond_options.h
-index 993ef73cd050..4c36455aacb4 100644
+index c2af1db37354..993ef73cd050 100644
 --- a/include/net/bond_options.h
 +++ b/include/net/bond_options.h
-@@ -65,6 +65,7 @@ enum {
+@@ -64,6 +64,7 @@ enum {
+ 	BOND_OPT_SLAVES,
  	BOND_OPT_TLB_DYNAMIC_LB,
  	BOND_OPT_AD_ACTOR_SYSPRIO,
- 	BOND_OPT_AD_ACTOR_SYS_MACADDR,
-+	BOND_OPT_AD_ACTOR_PORTKEY,
++	BOND_OPT_AD_ACTOR_SYS_MACADDR,
  	BOND_OPT_LAST
  };
  
 diff --git a/include/net/bonding.h b/include/net/bonding.h
-index cd2092e6bc71..e91db2566437 100644
+index 7a5c79fcf866..cd2092e6bc71 100644
 --- a/include/net/bonding.h
 +++ b/include/net/bonding.h
 @@ -144,6 +144,7 @@ struct bond_params {
  	int tlb_dynamic_lb;
  	struct reciprocal_value reciprocal_packets_per_slave;
  	u16 ad_actor_sysprio;
-+	u16 ad_actor_portkey;
- 	u8 ad_actor_sys_macaddr[ETH_ALEN];
++	u8 ad_actor_sys_macaddr[ETH_ALEN];
  };
  
+ struct bond_parm_tbl {
 -- 
 2.2.0.rc0.207.ga3a616c
