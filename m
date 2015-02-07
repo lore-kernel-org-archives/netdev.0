@@ -1,31 +1,24 @@
-From: Varka Bhadram <varkabhadram@gmail.com>
-Subject: Re: [PATCH 2/2] drivers: isdn: icn: icn.h Clean up trivial checkpatch
- errors.
-Date: Sat, 07 Feb 2015 21:39:06 +0530
-Message-ID: <54D638A2.4040808@gmail.com>
-References: <1423324566-5538-1-git-send-email-baspeters93@gmail.com> <1423324566-5538-3-git-send-email-baspeters93@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
+From: Bas Peters <baspeters93@gmail.com>
+Subject: [PATCH 0/2] drivers: isdn: icn: fix checkpatch errors
+Date: Sat,  7 Feb 2015 17:12:41 +0100
+Message-ID: <1423325563-11412-1-git-send-email-baspeters93@gmail.com>
 Cc: dan.carpenter@oracle.com, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Bas Peters <baspeters93@gmail.com>, isdn@linux-pingi.de
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Bas Peters <baspeters93@gmail.com>
+To: isdn@linux-pingi.de
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1423324566-5538-3-git-send-email-baspeters93@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+This patch cleans up all checkpatch errors in the icn directory.
 
-On Saturday 07 February 2015 09:26 PM, Bas Peters wrote:
+Bas Peters (2):
+  drivers: isdn: icn: icn.c: clean up all checkpatch errors
+  drivers: isdn: icn: icn.h Clean up trivial checkpatch errors.
 
-Missed Signed-off-by line...
-
-> ---
->   drivers/isdn/icn/icn.h | 5 ++---
->   1 file changed, 2 insertions(+), 3 deletions(-)
->   
+ drivers/isdn/icn/icn.c | 52 ++++++++++++++++++++++++++++++--------------------
+ drivers/isdn/icn/icn.h |  5 ++---
+ 2 files changed, 33 insertions(+), 24 deletions(-)
 
 -- 
-Thanks,
-Varka Bhadram.
+2.1.0
