@@ -1,520 +1,284 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 2/6] drivers: isdn: act2000: capi.c: fix checkpatch
- errors
-Date: Sat, 07 Feb 2015 11:19:21 -0800
-Message-ID: <1423336761.2933.7.camel@perches.com>
-References: <1423328797-17865-1-git-send-email-baspeters93@gmail.com>
-	 <1423328797-17865-3-git-send-email-baspeters93@gmail.com>
-	 <54D650BF.5000400@cogentembedded.com>
+From: Mahesh Bandewar <maheshb@google.com>
+Subject: Re: [PATCH next 4/6] bonding: Allow userspace to set system_priority
+Date: Sat, 7 Feb 2015 11:26:23 -0800
+Message-ID: <CAF2d9ji-m6Suw_Rw6dBqs=Ky41h786rCrPh-J7tv7JA+4L84zw@mail.gmail.com>
+References: <1423270314-9271-1-git-send-email-maheshb@google.com>
+ <20150207033847.GD34197@gospo.home.greyhouse.net> <6873.1423289974@famine>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Bas Peters <baspeters93@gmail.com>, isdn@linux-pingi.de,
-	julia.lawall@lip6.fr, davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <54D650BF.5000400@cogentembedded.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Andy Gospodarek <gospo@cumulusnetworks.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Veaceslav Falico <vfalico@gmail.com>,
+	Nikolay Aleksandrov <nikolay@redhat.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>
+To: Jay Vosburgh <jay.vosburgh@canonical.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f173.google.com ([209.85.214.173]:54543 "EHLO
+	mail-ob0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755782AbbBGT0o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 Feb 2015 14:26:44 -0500
+Received: by mail-ob0-f173.google.com with SMTP id uy5so19060735obc.4
+        for <netdev@vger.kernel.org>; Sat, 07 Feb 2015 11:26:44 -0800 (PST)
+In-Reply-To: <6873.1423289974@famine>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2015-02-07 at 20:51 +0300, Sergei Shtylyov wrote:
-> On 02/07/2015 08:06 PM, Bas Peters wrote:
-> 
-> > This patch fixes the following checkpatch errors:
-> > 	1. trailing statement
-> > 	1. assignment of variable in if condition
-> > 	1. incorrectly placed brace after function definition
-
-I wonder about the usefulness of these changes.
-
-Does anyone still use these cards?
-
-> > diff --git a/drivers/isdn/act2000/capi.c b/drivers/isdn/act2000/capi.c
-[]
-> > @@ -113,7 +113,8 @@ actcapi_chkhdr(act2000_card *card, actcapi_msghdr *hdr)
-> >   			m->hdr.cmd.cmd = c;			\
-> >   			m->hdr.cmd.subcmd = s;			\
-> >   			m->hdr.msgnum = actcapi_nextsmsg(card); \
-> > -		} else m = NULL;				\
-> > +		} else
-> > +			m = NULL;				\
-> 
->     Documentation/CodingStyle has an extra rule for such case: *else* branch 
-> should also have {} since *if* branch has {}.
-
-The macro itself is already poor form.
------
-#define ACTCAPI_MKHDR(l, c, s) {				\
-		skb = alloc_skb(l + 8, GFP_ATOMIC);		\
-		if (skb) {					\
-			m = (actcapi_msg *)skb_put(skb, l + 8); \
-			m->hdr.len = l + 8;			\
-			m->hdr.applicationID = 1;		\
-			m->hdr.cmd.cmd = c;			\
-			m->hdr.cmd.subcmd = s;			\
-			m->hdr.msgnum = actcapi_nextsmsg(card); \
-		} else m = NULL;				\
-	}
------
-
-o hidden arguments skb, m and card
-o missing do {} while around multi-statement macro
-
-It'd probably be nicer to change the macro to a function
-and pass m and card.
-
-This would reduce the object size too.
-
-But maybe any change here is not necessary.
-
-If anything is done, I suggest something like:
----
- drivers/isdn/act2000/capi.c | 204 +++++++++++++++++++++++++-------------------
- 1 file changed, 115 insertions(+), 89 deletions(-)
-
-diff --git a/drivers/isdn/act2000/capi.c b/drivers/isdn/act2000/capi.c
-index 3f66ca2..a7ecf51 100644
---- a/drivers/isdn/act2000/capi.c
-+++ b/drivers/isdn/act2000/capi.c
-@@ -104,29 +104,36 @@ actcapi_chkhdr(act2000_card *card, actcapi_msghdr *hdr)
- 	return 0;
- }
- 
--#define ACTCAPI_MKHDR(l, c, s) {				\
--		skb = alloc_skb(l + 8, GFP_ATOMIC);		\
--		if (skb) {					\
--			m = (actcapi_msg *)skb_put(skb, l + 8); \
--			m->hdr.len = l + 8;			\
--			m->hdr.applicationID = 1;		\
--			m->hdr.cmd.cmd = c;			\
--			m->hdr.cmd.subcmd = s;			\
--			m->hdr.msgnum = actcapi_nextsmsg(card); \
--		} else m = NULL;				\
--	}
-+static struct sk_buff *actcapi_mkhdr(act2000_card *card, actcapi_msg **m,
-+				     int len, int cmd, int subcmd)
-+{
-+	struct sk_buff *skb;
- 
--#define ACTCAPI_CHKSKB if (!skb) {					\
--		printk(KERN_WARNING "actcapi: alloc_skb failed\n");	\
--		return;							\
--	}
-+	len += 8;
- 
--#define ACTCAPI_QUEUE_TX {				\
--		actcapi_debug_msg(skb, 1);		\
--		skb_queue_tail(&card->sndq, skb);	\
--		act2000_schedule_tx(card);		\
-+	skb = alloc_skb(len, GFP_ATOMIC);
-+	if (!skb) {
-+		*m = NULL;
-+		return NULL;
- 	}
- 
-+	*m = (actcapi_msg *)skb_put(skb, len);
-+	(*m)->hdr.len = len;
-+	(*m)->hdr.applicationID = 1;
-+	(*m)->hdr.cmd.cmd = cmd;
-+	(*m)->hdr.cmd.subcmd = subcmd;
-+	(*m)->hdr.msgnum = actcapi_nextsmsg(card);
-+
-+	return skb;
-+}
-+
-+static void actcapi_queue_tx(act2000_card *card, struct sk_buff *skb)
-+{
-+	actcapi_debug_msg(skb, 1);
-+	skb_queue_tail(&card->sndq, skb);
-+	act2000_schedule_tx(card);
-+}
-+
- int
- actcapi_listen_req(act2000_card *card)
- {
-@@ -137,16 +144,15 @@ actcapi_listen_req(act2000_card *card)
- 
- 	for (i = 0; i < ACT2000_BCH; i++)
- 		eazmask |= card->bch[i].eazmask;
--	ACTCAPI_MKHDR(9, 0x05, 0x00);
--	if (!skb) {
--		printk(KERN_WARNING "actcapi: alloc_skb failed\n");
-+	skb = actcapi_mkhdr(card, &m, 9, 0x05, 0x00);
-+	if (!skb)
- 		return -ENOMEM;
--	}
-+
- 	m->msg.listen_req.controller = 0;
- 	m->msg.listen_req.infomask = 0x3f; /* All information */
- 	m->msg.listen_req.eazmask = eazmask;
- 	m->msg.listen_req.simask = (eazmask) ? 0x86 : 0; /* All SI's  */
--	ACTCAPI_QUEUE_TX;
-+	actcapi_queue_tx(card, skb);
- 	return 0;
- }
- 
-@@ -157,12 +163,12 @@ actcapi_connect_req(act2000_card *card, act2000_chan *chan, char *phone,
- 	actcapi_msg *m;
- 	struct sk_buff *skb;
- 
--	ACTCAPI_MKHDR((11 + strlen(phone)), 0x02, 0x00);
-+	skb = actcapi_mkhdr(card, &m, 11 + strlen(phone), 0x02, 0x00);
- 	if (!skb) {
--		printk(KERN_WARNING "actcapi: alloc_skb failed\n");
- 		chan->fsm_state = ACT2000_STATE_NULL;
- 		return -ENOMEM;
- 	}
-+
- 	m->msg.connect_req.controller = 0;
- 	m->msg.connect_req.bchan = 0x83;
- 	m->msg.connect_req.infomask = 0x3f;
-@@ -173,7 +179,7 @@ actcapi_connect_req(act2000_card *card, act2000_chan *chan, char *phone,
- 	m->msg.connect_req.addr.tnp = 0x81;
- 	memcpy(m->msg.connect_req.addr.num, phone, strlen(phone));
- 	chan->callref = m->hdr.msgnum;
--	ACTCAPI_QUEUE_TX;
-+	actcapi_queue_tx(card, skb);
- 	return 0;
- }
- 
-@@ -183,14 +189,16 @@ actcapi_connect_b3_req(act2000_card *card, act2000_chan *chan)
- 	actcapi_msg *m;
- 	struct sk_buff *skb;
- 
--	ACTCAPI_MKHDR(17, 0x82, 0x00);
--	ACTCAPI_CHKSKB;
-+	skb = actcapi_mkhdr(card, &m, 17, 0x82, 0x00);
-+	if (!skb)
-+		return;
-+
- 	m->msg.connect_b3_req.plci = chan->plci;
- 	memset(&m->msg.connect_b3_req.ncpi, 0,
- 	       sizeof(m->msg.connect_b3_req.ncpi));
- 	m->msg.connect_b3_req.ncpi.len = 13;
- 	m->msg.connect_b3_req.ncpi.modulo = 8;
--	ACTCAPI_QUEUE_TX;
-+	actcapi_queue_tx(card, skb);
- }
- 
- /*
-@@ -202,15 +210,14 @@ actcapi_manufacturer_req_net(act2000_card *card)
- 	actcapi_msg *m;
- 	struct sk_buff *skb;
- 
--	ACTCAPI_MKHDR(5, 0xff, 0x00);
--	if (!skb) {
--		printk(KERN_WARNING "actcapi: alloc_skb failed\n");
-+	skb = actcapi_mkhdr(card, &m, 5, 0xff, 0x00);
-+	if (!skb)
- 		return -ENOMEM;
--	}
-+
- 	m->msg.manufacturer_req_net.manuf_msg = 0x11;
- 	m->msg.manufacturer_req_net.controller = 1;
- 	m->msg.manufacturer_req_net.nettype = (card->ptype == ISDN_PTYPE_EURO) ? 1 : 0;
--	ACTCAPI_QUEUE_TX;
-+	actcapi_queue_tx(card, skb);
- 	printk(KERN_INFO "act2000 %s: D-channel protocol now %s\n",
- 	       card->interface.id, (card->ptype == ISDN_PTYPE_EURO) ? "euro" : "1tr6");
- 	card->interface.features &=
-@@ -230,16 +237,14 @@ actcapi_manufacturer_req_v42(act2000_card *card, ulong arg)
- 	actcapi_msg *m;
- 	struct sk_buff *skb;
- 
--	ACTCAPI_MKHDR(8, 0xff, 0x00);
--	if (!skb) {
+On Fri, Feb 6, 2015 at 10:19 PM, Jay Vosburgh
+<jay.vosburgh@canonical.com> wrote:
+> Andy Gospodarek <gospo@cumulusnetworks.com> wrote:
+>
+>>On Fri, Feb 06, 2015 at 04:51:54PM -0800, Mahesh Bandewar wrote:
+>>> This patch allows user to randomize the system-priority in an ad-system.
+>>> The allowed range is 1 - 0xFFFF while default value is 0xFFFF. If user
+>>> does not specify this value, the system defaults to 0xFFFF, which is
+>>> what it was before this patch.
+>>>
+>>> Following example code could set the value -
+>>>     # modprobe bonding mode=4
+>>>     # sys_prio=$(( 1 + RANDOM + RANDOM ))
+>>>     # echo $sys_prio > /sys/class/net/bond0/bonding/ad_actor_system_priority
+>>
+>>If I can convince you to change 'ad_actor_system_macaddr' to something
+>>different can I also convince you to change this to something shorter,
+>>too?  :)
+>>
+>>Maybe 'ad_sys_priority' or something?
+>
+>         The name, verbose as it is, is from the 802.1AX standard, and
+> there's also a "partner_system_priority" (which is not a user-settable
+> thing, it's a field in the LACPDUs).  My suggestion would therefore be
+> "ad_actor_sys_prio" for this one, as I think there's some value in
+> continuity with the names from the standard.
+>
+>         The MAC address one in the standard is just "actor_system";
+> there's a "partner_system" here, too, which is also a field in the
+> LACPDU.  I'm ok with calling that one just "actor_system," as presumably
+> anyone changing it will know what it means.
+>
+Thank you guys for the suggestions. I didn't like those very long
+names either but when there is something that already has name
+similar, I defaulted to being verbose. I will have the name changed to
 -
--		printk(KERN_WARNING "actcapi: alloc_skb failed\n");
-+	skb = actcapi_mkhdr(card, &m, 8, 0xff, 0x00);
-+	if (!skb)
- 		return -ENOMEM;
--	}
-+
- 	m->msg.manufacturer_req_v42.manuf_msg = 0x10;
- 	m->msg.manufacturer_req_v42.controller = 0;
- 	m->msg.manufacturer_req_v42.v42control = (arg ? 1 : 0);
--	ACTCAPI_QUEUE_TX;
-+	actcapi_queue_tx(card, skb);
- 	return 0;
- }
- #endif  /*  0  */
-@@ -253,15 +258,13 @@ actcapi_manufacturer_req_errh(act2000_card *card)
- 	actcapi_msg *m;
- 	struct sk_buff *skb;
- 
--	ACTCAPI_MKHDR(4, 0xff, 0x00);
--	if (!skb) {
--
--		printk(KERN_WARNING "actcapi: alloc_skb failed\n");
-+	skb = actcapi_mkhdr(card, &m, 4, 0xff, 0x00);
-+	if (!skb)
- 		return -ENOMEM;
--	}
-+
- 	m->msg.manufacturer_req_err.manuf_msg = 0x03;
- 	m->msg.manufacturer_req_err.controller = 0;
--	ACTCAPI_QUEUE_TX;
-+	actcapi_queue_tx(card, skb);
- 	return 0;
- }
- 
-@@ -281,17 +284,16 @@ actcapi_manufacturer_req_msn(act2000_card *card)
- 
- 		len = strlen(p->msn);
- 		for (i = 0; i < 2; i++) {
--			ACTCAPI_MKHDR(6 + len, 0xff, 0x00);
--			if (!skb) {
--				printk(KERN_WARNING "actcapi: alloc_skb failed\n");
-+			skb = actcapi_mkhdr(card, &m, 6 + len, 0xff, 0x00);
-+			if (!skb)
- 				return -ENOMEM;
--			}
-+
- 			m->msg.manufacturer_req_msn.manuf_msg = 0x13 + i;
- 			m->msg.manufacturer_req_msn.controller = 0;
- 			m->msg.manufacturer_req_msn.msnmap.eaz = p->eaz;
- 			m->msg.manufacturer_req_msn.msnmap.len = len;
- 			memcpy(m->msg.manufacturer_req_msn.msnmap.msn, p->msn, len);
--			ACTCAPI_QUEUE_TX;
-+			actcapi_queue_tx(card, skb);
- 		}
- 		p = p->next;
- 	}
-@@ -304,8 +306,10 @@ actcapi_select_b2_protocol_req(act2000_card *card, act2000_chan *chan)
- 	actcapi_msg *m;
- 	struct sk_buff *skb;
- 
--	ACTCAPI_MKHDR(10, 0x40, 0x00);
--	ACTCAPI_CHKSKB;
-+	skb = actcapi_mkhdr(card, &m, 10, 0x40, 0x00);
-+	if (!skb)
-+		return;
-+
- 	m->msg.select_b2_protocol_req.plci = chan->plci;
- 	memset(&m->msg.select_b2_protocol_req.dlpd, 0,
- 	       sizeof(m->msg.select_b2_protocol_req.dlpd));
-@@ -330,7 +334,7 @@ actcapi_select_b2_protocol_req(act2000_card *card, act2000_chan *chan)
- 		m->msg.select_b2_protocol_req.dlpd.modulo = 8;
- 		break;
- 	}
--	ACTCAPI_QUEUE_TX;
-+	actcapi_queue_tx(card, skb);
- }
- 
- static void
-@@ -339,8 +343,10 @@ actcapi_select_b3_protocol_req(act2000_card *card, act2000_chan *chan)
- 	actcapi_msg *m;
- 	struct sk_buff *skb;
- 
--	ACTCAPI_MKHDR(17, 0x80, 0x00);
--	ACTCAPI_CHKSKB;
-+	skb = actcapi_mkhdr(card, &m, 17, 0x80, 0x00);
-+	if (!skb)
-+		return;
-+
- 	m->msg.select_b3_protocol_req.plci = chan->plci;
- 	memset(&m->msg.select_b3_protocol_req.ncpd, 0,
- 	       sizeof(m->msg.select_b3_protocol_req.ncpd));
-@@ -351,7 +357,7 @@ actcapi_select_b3_protocol_req(act2000_card *card, act2000_chan *chan)
- 		m->msg.select_b3_protocol_req.ncpd.modulo = 8;
- 		break;
- 	}
--	ACTCAPI_QUEUE_TX;
-+	actcapi_queue_tx(card, skb);
- }
- 
- static void
-@@ -360,10 +366,12 @@ actcapi_listen_b3_req(act2000_card *card, act2000_chan *chan)
- 	actcapi_msg *m;
- 	struct sk_buff *skb;
- 
--	ACTCAPI_MKHDR(2, 0x81, 0x00);
--	ACTCAPI_CHKSKB;
-+	skb = actcapi_mkhdr(card, &m, 2, 0x81, 0x00);
-+	if (!skb)
-+		return;
-+
- 	m->msg.listen_b3_req.plci = chan->plci;
--	ACTCAPI_QUEUE_TX;
-+	actcapi_queue_tx(card, skb);
- }
- 
- static void
-@@ -372,11 +380,13 @@ actcapi_disconnect_req(act2000_card *card, act2000_chan *chan)
- 	actcapi_msg *m;
- 	struct sk_buff *skb;
- 
--	ACTCAPI_MKHDR(3, 0x04, 0x00);
--	ACTCAPI_CHKSKB;
-+	skb = actcapi_mkhdr(card, &m, 3, 0x04, 0x00);
-+	if (!skb)
-+		return;
-+
- 	m->msg.disconnect_req.plci = chan->plci;
- 	m->msg.disconnect_req.cause = 0;
--	ACTCAPI_QUEUE_TX;
-+	actcapi_queue_tx(card, skb);
- }
- 
- void
-@@ -385,15 +395,17 @@ actcapi_disconnect_b3_req(act2000_card *card, act2000_chan *chan)
- 	actcapi_msg *m;
- 	struct sk_buff *skb;
- 
--	ACTCAPI_MKHDR(17, 0x84, 0x00);
--	ACTCAPI_CHKSKB;
-+	skb = actcapi_mkhdr(card, &m, 17, 0x84, 0x00);
-+	if (!skb)
-+		return;
-+
- 	m->msg.disconnect_b3_req.ncci = chan->ncci;
- 	memset(&m->msg.disconnect_b3_req.ncpi, 0,
- 	       sizeof(m->msg.disconnect_b3_req.ncpi));
- 	m->msg.disconnect_b3_req.ncpi.len = 13;
- 	m->msg.disconnect_b3_req.ncpi.modulo = 8;
- 	chan->fsm_state = ACT2000_STATE_BHWAIT;
--	ACTCAPI_QUEUE_TX;
-+	actcapi_queue_tx(card, skb);
- }
- 
- void
-@@ -402,8 +414,10 @@ actcapi_connect_resp(act2000_card *card, act2000_chan *chan, __u8 cause)
- 	actcapi_msg *m;
- 	struct sk_buff *skb;
- 
--	ACTCAPI_MKHDR(3, 0x02, 0x03);
--	ACTCAPI_CHKSKB;
-+	skb = actcapi_mkhdr(card, &m, 3, 0x02, 0x03);
-+	if (!skb)
-+		return;
-+
- 	m->msg.connect_resp.plci = chan->plci;
- 	m->msg.connect_resp.rejectcause = cause;
- 	if (cause) {
-@@ -411,7 +425,7 @@ actcapi_connect_resp(act2000_card *card, act2000_chan *chan, __u8 cause)
- 		chan->plci = 0x8000;
- 	} else
- 		chan->fsm_state = ACT2000_STATE_IWAIT;
--	ACTCAPI_QUEUE_TX;
-+	actcapi_queue_tx(card, skb);
- }
- 
- static void
-@@ -420,12 +434,14 @@ actcapi_connect_active_resp(act2000_card *card, act2000_chan *chan)
- 	actcapi_msg *m;
- 	struct sk_buff *skb;
- 
--	ACTCAPI_MKHDR(2, 0x03, 0x03);
--	ACTCAPI_CHKSKB;
-+	skb = actcapi_mkhdr(card, &m, 2, 0x03, 0x03);
-+	if (!skb)
-+		return;
-+
- 	m->msg.connect_resp.plci = chan->plci;
- 	if (chan->fsm_state == ACT2000_STATE_IWAIT)
- 		chan->fsm_state = ACT2000_STATE_IBWAIT;
--	ACTCAPI_QUEUE_TX;
-+	actcapi_queue_tx(card, skb);
- }
- 
- static void
-@@ -434,8 +450,10 @@ actcapi_connect_b3_resp(act2000_card *card, act2000_chan *chan, __u8 rejectcause
- 	actcapi_msg *m;
- 	struct sk_buff *skb;
- 
--	ACTCAPI_MKHDR((rejectcause ? 3 : 17), 0x82, 0x03);
--	ACTCAPI_CHKSKB;
-+	skb = actcapi_mkhdr(card, &m, rejectcause ? 3 : 17, 0x82, 0x03);
-+	if (!skb)
-+		return;
-+
- 	m->msg.connect_b3_resp.ncci = chan->ncci;
- 	m->msg.connect_b3_resp.rejectcause = rejectcause;
- 	if (!rejectcause) {
-@@ -445,7 +463,7 @@ actcapi_connect_b3_resp(act2000_card *card, act2000_chan *chan, __u8 rejectcause
- 		m->msg.connect_b3_resp.ncpi.modulo = 8;
- 		chan->fsm_state = ACT2000_STATE_BWAIT;
- 	}
--	ACTCAPI_QUEUE_TX;
-+	actcapi_queue_tx(card, skb);
- }
- 
- static void
-@@ -454,11 +472,13 @@ actcapi_connect_b3_active_resp(act2000_card *card, act2000_chan *chan)
- 	actcapi_msg *m;
- 	struct sk_buff *skb;
- 
--	ACTCAPI_MKHDR(2, 0x83, 0x03);
--	ACTCAPI_CHKSKB;
-+	skb = actcapi_mkhdr(card, &m, 2, 0x83, 0x03);
-+	if (!skb)
-+		return;
-+
- 	m->msg.connect_b3_active_resp.ncci = chan->ncci;
- 	chan->fsm_state = ACT2000_STATE_ACTIVE;
--	ACTCAPI_QUEUE_TX;
-+	actcapi_queue_tx(card, skb);
- }
- 
- static void
-@@ -467,10 +487,12 @@ actcapi_info_resp(act2000_card *card, act2000_chan *chan)
- 	actcapi_msg *m;
- 	struct sk_buff *skb;
- 
--	ACTCAPI_MKHDR(2, 0x07, 0x03);
--	ACTCAPI_CHKSKB;
-+	skb = actcapi_mkhdr(card, &m, 2, 0x07, 0x03);
-+	if (!skb)
-+		return;
-+
- 	m->msg.info_resp.plci = chan->plci;
--	ACTCAPI_QUEUE_TX;
-+	actcapi_queue_tx(card, skb);
- }
- 
- static void
-@@ -479,12 +501,14 @@ actcapi_disconnect_b3_resp(act2000_card *card, act2000_chan *chan)
- 	actcapi_msg *m;
- 	struct sk_buff *skb;
- 
--	ACTCAPI_MKHDR(2, 0x84, 0x03);
--	ACTCAPI_CHKSKB;
-+	skb = actcapi_mkhdr(card, &m, 2, 0x84, 0x03);
-+	if (!skb)
-+		return;
-+
- 	m->msg.disconnect_b3_resp.ncci = chan->ncci;
- 	chan->ncci = 0x8000;
- 	chan->queued = 0;
--	ACTCAPI_QUEUE_TX;
-+	actcapi_queue_tx(card, skb);
- }
- 
- static void
-@@ -493,11 +517,13 @@ actcapi_disconnect_resp(act2000_card *card, act2000_chan *chan)
- 	actcapi_msg *m;
- 	struct sk_buff *skb;
- 
--	ACTCAPI_MKHDR(2, 0x04, 0x03);
--	ACTCAPI_CHKSKB;
-+	skb = actcapi_mkhdr(card, &m, 2, 0x04, 0x03);
-+	if (!skb)
-+		return;
-+
- 	m->msg.disconnect_resp.plci = chan->plci;
- 	chan->plci = 0x8000;
--	ACTCAPI_QUEUE_TX;
-+	actcapi_queue_tx(card, skb);
- }
- 
- static int
-@@ -575,7 +601,7 @@ actcapi_data_b3_ind(act2000_card *card, struct sk_buff *skb) {
- 	msg->hdr.msgnum = actcapi_nextsmsg(card);
- 	msg->msg.data_b3_resp.ncci = ncci;
- 	msg->msg.data_b3_resp.blocknr = blocknr;
--	ACTCAPI_QUEUE_TX;
-+	actcapi_queue_tx(card, skb);
- 	return 1;
- }
- 
+
+ad_actor_system_priority            - ad_actor_sys_prio
+ad_actor_system_mac_address - ad_actor_system
+ad_actor_user_port_key             - ad_user_portkey
+
+Is this reasonable enough?
+
+>         -J
+>
+>>Thanks!
+>>
+>>>     # echo +eth1 > /sys/class/net/bond0/bonding/slaves
+>>>     ...
+>>>     # ip link set bond0 up
+>>>
+>>> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+>>> ---
+>>>  drivers/net/bonding/bond_3ad.c     |  5 ++++-
+>>>  drivers/net/bonding/bond_main.c    | 14 ++++++++++++++
+>>>  drivers/net/bonding/bond_options.c | 29 ++++++++++++++++++++++++++++-
+>>>  drivers/net/bonding/bond_procfs.c  |  2 ++
+>>>  drivers/net/bonding/bond_sysfs.c   | 15 +++++++++++++++
+>>>  include/net/bond_options.h         |  1 +
+>>>  include/net/bonding.h              |  1 +
+>>>  7 files changed, 65 insertions(+), 2 deletions(-)
+>>>
+>>> diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
+>>> index 2a69095266c1..1177f96194dd 100644
+>>> --- a/drivers/net/bonding/bond_3ad.c
+>>> +++ b/drivers/net/bonding/bond_3ad.c
+>>> @@ -1912,7 +1912,8 @@ void bond_3ad_initialize(struct bonding *bond, u16 tick_resolution)
+>>>
+>>>              BOND_AD_INFO(bond).aggregator_identifier = 0;
+>>>
+>>> -            BOND_AD_INFO(bond).system.sys_priority = 0xFFFF;
+>>> +            BOND_AD_INFO(bond).system.sys_priority =
+>>> +                    bond->params.ad_actor_sysprio;
+>>>              BOND_AD_INFO(bond).system.sys_mac_addr = *((struct mac_addr *)bond->dev->dev_addr);
+>>>
+>>>              /* initialize how many times this module is called in one
+>>> @@ -1963,6 +1964,8 @@ void bond_3ad_bind_slave(struct slave *slave)
+>>>                      port->sm_vars &= ~AD_PORT_LACP_ENABLED;
+>>>              /* actor system is the bond's system */
+>>>              port->actor_system = BOND_AD_INFO(bond).system.sys_mac_addr;
+>>> +            port->actor_system_priority =
+>>> +                BOND_AD_INFO(bond).system.sys_priority;
+>>>              /* tx timer(to verify that no more than MAX_TX_IN_SECOND
+>>>               * lacpdu's are sent in one second)
+>>>               */
+>>> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+>>> index a50ec87486f3..561b2bde5aeb 100644
+>>> --- a/drivers/net/bonding/bond_main.c
+>>> +++ b/drivers/net/bonding/bond_main.c
+>>> @@ -4104,6 +4104,7 @@ static int bond_check_params(struct bond_params *params)
+>>>      struct bond_opt_value newval;
+>>>      const struct bond_opt_value *valptr;
+>>>      int arp_all_targets_value;
+>>> +    u16 ad_actor_sysprio = 0;
+>>>
+>>>      /* Convert string parameters. */
+>>>      if (mode) {
+>>> @@ -4398,6 +4399,18 @@ static int bond_check_params(struct bond_params *params)
+>>>              fail_over_mac_value = BOND_FOM_NONE;
+>>>      }
+>>>
+>>> +    if (bond_mode == BOND_MODE_8023AD) {
+>>> +            bond_opt_initstr(&newval, "default");
+>>> +            valptr = bond_opt_parse(
+>>> +                            bond_opt_get(BOND_OPT_AD_ACTOR_SYSPRIO),
+>>> +                                         &newval);
+>>> +            if (!valptr) {
+>>> +                    pr_err("Error: No ad_actor_sysprio default value");
+>>> +                    return -EINVAL;
+>>> +            }
+>>> +            ad_actor_sysprio = valptr->value;
+>>> +    }
+>>> +
+>>>      if (lp_interval == 0) {
+>>>              pr_warn("Warning: ip_interval must be between 1 and %d, so it was reset to %d\n",
+>>>                      INT_MAX, BOND_ALB_DEFAULT_LP_INTERVAL);
+>>> @@ -4426,6 +4439,7 @@ static int bond_check_params(struct bond_params *params)
+>>>      params->lp_interval = lp_interval;
+>>>      params->packets_per_slave = packets_per_slave;
+>>>      params->tlb_dynamic_lb = 1; /* Default value */
+>>> +    params->ad_actor_sysprio = ad_actor_sysprio;
+>>>      if (packets_per_slave > 0) {
+>>>              params->reciprocal_packets_per_slave =
+>>>                      reciprocal_value(packets_per_slave);
+>>> diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
+>>> index 4df28943d222..d8f6760143ae 100644
+>>> --- a/drivers/net/bonding/bond_options.c
+>>> +++ b/drivers/net/bonding/bond_options.c
+>>> @@ -70,6 +70,8 @@ static int bond_option_slaves_set(struct bonding *bond,
+>>>                                const struct bond_opt_value *newval);
+>>>  static int bond_option_tlb_dynamic_lb_set(struct bonding *bond,
+>>>                                const struct bond_opt_value *newval);
+>>> +static int bond_option_ad_actor_sysprio_set(struct bonding *bond,
+>>> +                              const struct bond_opt_value *newval);
+>>>
+>>>
+>>>  static const struct bond_opt_value bond_mode_tbl[] = {
+>>> @@ -186,6 +188,12 @@ static const struct bond_opt_value bond_tlb_dynamic_lb_tbl[] = {
+>>>      { NULL,  -1, 0}
+>>>  };
+>>>
+>>> +static const struct bond_opt_value bond_ad_actor_sysprio_tbl[] = {
+>>> +    { "minval",  1,     BOND_VALFLAG_MIN},
+>>> +    { "maxval",  65535, BOND_VALFLAG_MAX | BOND_VALFLAG_DEFAULT},
+>>> +    { NULL,      -1,    0},
+>>> +};
+>>> +
+>>>  static const struct bond_option bond_opts[BOND_OPT_LAST] = {
+>>>      [BOND_OPT_MODE] = {
+>>>              .id = BOND_OPT_MODE,
+>>> @@ -379,7 +387,15 @@ static const struct bond_option bond_opts[BOND_OPT_LAST] = {
+>>>              .values = bond_tlb_dynamic_lb_tbl,
+>>>              .flags = BOND_OPTFLAG_IFDOWN,
+>>>              .set = bond_option_tlb_dynamic_lb_set,
+>>> -    }
+>>> +    },
+>>> +    [BOND_OPT_AD_ACTOR_SYSPRIO] = {
+>>> +            .id = BOND_OPT_AD_ACTOR_SYSPRIO,
+>>> +            .name = "ad_actor_system_priority",
+>>> +            .unsuppmodes = BOND_MODE_ALL_EX(BIT(BOND_MODE_8023AD)),
+>>> +            .flags = BOND_OPTFLAG_IFDOWN,
+>>> +            .values = bond_ad_actor_sysprio_tbl,
+>>> +            .set = bond_option_ad_actor_sysprio_set,
+>>> +    },
+>>>  };
+>>>
+>>>  /* Searches for an option by name */
+>>> @@ -1349,3 +1365,14 @@ static int bond_option_tlb_dynamic_lb_set(struct bonding *bond,
+>>>
+>>>      return 0;
+>>>  }
+>>> +
+>>> +
+>>> +static int bond_option_ad_actor_sysprio_set(struct bonding *bond,
+>>> +                                        const struct bond_opt_value *newval)
+>>> +{
+>>> +    netdev_info(bond->dev, "Setting ad_actor_sysprio to (%llu)\n",
+>>> +                newval->value);
+>>> +
+>>> +    bond->params.ad_actor_sysprio = newval->value;
+>>> +    return 0;
+>>> +}
+>>> diff --git a/drivers/net/bonding/bond_procfs.c b/drivers/net/bonding/bond_procfs.c
+>>> index 83095a0b4b90..9e33c48886ef 100644
+>>> --- a/drivers/net/bonding/bond_procfs.c
+>>> +++ b/drivers/net/bonding/bond_procfs.c
+>>> @@ -134,6 +134,8 @@ static void bond_info_show_master(struct seq_file *seq)
+>>>                                        bond->params.ad_select);
+>>>              seq_printf(seq, "Aggregator selection policy (ad_select): %s\n",
+>>>                         optval->string);
+>>> +            seq_printf(seq, "System priority: %d\n",
+>>> +                            BOND_AD_INFO(bond).system.sys_priority);
+>>>
+>>>              if (__bond_3ad_get_active_agg_info(bond, &ad_info)) {
+>>>                      seq_printf(seq, "bond %s has no active aggregator\n",
+>>> diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
+>>> index 7e9e151d4d61..4350aa06f867 100644
+>>> --- a/drivers/net/bonding/bond_sysfs.c
+>>> +++ b/drivers/net/bonding/bond_sysfs.c
+>>> @@ -692,6 +692,20 @@ static ssize_t bonding_show_packets_per_slave(struct device *d,
+>>>  static DEVICE_ATTR(packets_per_slave, S_IRUGO | S_IWUSR,
+>>>                 bonding_show_packets_per_slave, bonding_sysfs_store_option);
+>>>
+>>> +static ssize_t bonding_show_ad_actor_sysprio(struct device *d,
+>>> +                                         struct device_attribute *attr,
+>>> +                                         char *buf)
+>>> +{
+>>> +    struct bonding *bond = to_bond(d);
+>>> +
+>>> +    if (BOND_MODE(bond) == BOND_MODE_8023AD)
+>>> +            return sprintf(buf, "%hu\n", bond->params.ad_actor_sysprio);
+>>> +
+>>> +    return 0;
+>>> +}
+>>> +static DEVICE_ATTR(ad_actor_system_priority, S_IRUGO | S_IWUSR,
+>>> +               bonding_show_ad_actor_sysprio, bonding_sysfs_store_option);
+>>> +
+>>>  static struct attribute *per_bond_attrs[] = {
+>>>      &dev_attr_slaves.attr,
+>>>      &dev_attr_mode.attr,
+>>> @@ -725,6 +739,7 @@ static struct attribute *per_bond_attrs[] = {
+>>>      &dev_attr_lp_interval.attr,
+>>>      &dev_attr_packets_per_slave.attr,
+>>>      &dev_attr_tlb_dynamic_lb.attr,
+>>> +    &dev_attr_ad_actor_system_priority.attr,
+>>>      NULL,
+>>>  };
+>>>
+>>> diff --git a/include/net/bond_options.h b/include/net/bond_options.h
+>>> index ea6546d2c946..c2af1db37354 100644
+>>> --- a/include/net/bond_options.h
+>>> +++ b/include/net/bond_options.h
+>>> @@ -63,6 +63,7 @@ enum {
+>>>      BOND_OPT_LP_INTERVAL,
+>>>      BOND_OPT_SLAVES,
+>>>      BOND_OPT_TLB_DYNAMIC_LB,
+>>> +    BOND_OPT_AD_ACTOR_SYSPRIO,
+>>>      BOND_OPT_LAST
+>>>  };
+>>>
+>>> diff --git a/include/net/bonding.h b/include/net/bonding.h
+>>> index 29f53eacac0a..7a5c79fcf866 100644
+>>> --- a/include/net/bonding.h
+>>> +++ b/include/net/bonding.h
+>>> @@ -143,6 +143,7 @@ struct bond_params {
+>>>      int packets_per_slave;
+>>>      int tlb_dynamic_lb;
+>>>      struct reciprocal_value reciprocal_packets_per_slave;
+>>> +    u16 ad_actor_sysprio;
+>>>  };
+>>>
+>>>  struct bond_parm_tbl {
+>>> --
+>>> 2.2.0.rc0.207.ga3a616c
+>
+> ---
+>         -Jay Vosburgh, jay.vosburgh@canonical.com
