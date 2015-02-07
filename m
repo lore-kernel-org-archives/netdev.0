@@ -1,7 +1,7 @@
 From: Bas Peters <baspeters93@gmail.com>
-Subject: [PATCH 6/6] drivers: isdn: act2000: fix wrongly positioned brace.
-Date: Sat,  7 Feb 2015 18:06:37 +0100
-Message-ID: <1423328797-17865-7-git-send-email-baspeters93@gmail.com>
+Subject: [PATCH 5/6] drivers: isdn: act2000: module.c: remove parenthesres around return values.
+Date: Sat,  7 Feb 2015 18:06:36 +0100
+Message-ID: <1423328797-17865-6-git-send-email-baspeters93@gmail.com>
 References: <1423328797-17865-1-git-send-email-baspeters93@gmail.com>
 Cc: julia.lawall@lip6.fr, davem@davemloft.net, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org, Bas Peters <baspeters93@gmail.com>
@@ -11,26 +11,70 @@ In-Reply-To: <1423328797-17865-1-git-send-email-baspeters93@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Trivial, but why not? :)
+return is not a function, therefore parentheses are not needed.
 
 Signed-off-by: Bas Peters <baspeters93@gmail.com>
 ---
- drivers/isdn/act2000/module.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+ drivers/isdn/act2000/module.c | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
 
 diff --git a/drivers/isdn/act2000/module.c b/drivers/isdn/act2000/module.c
-index 889ffcb..9ba98ce 100644
+index 9359b36..889ffcb 100644
 --- a/drivers/isdn/act2000/module.c
 +++ b/drivers/isdn/act2000/module.c
-@@ -19,8 +19,7 @@
- #include <linux/slab.h>
- #include <linux/init.h>
+@@ -111,7 +111,7 @@ act2000_find_eaz(act2000_card *card, char eaz)
  
--static unsigned short act2000_isa_ports[] =
--{
-+static unsigned short act2000_isa_ports[] = {
- 	0x0200, 0x0240, 0x0280, 0x02c0, 0x0300, 0x0340, 0x0380,
- 	0xcfe0, 0xcfa0, 0xcf60, 0xcf20, 0xcee0, 0xcea0, 0xce60,
- };
+ 	while (p) {
+ 		if (p->eaz == eaz)
+-			return (p->msn);
++			return p->msn;
+ 		p = p->next;
+ 	}
+ 	return ("\0");
+@@ -293,7 +293,7 @@ act2000_command(act2000_card *card, isdn_ctrl *c)
+ 			if (ret)
+ 				return ret;
+ 			if (card->flags & ACT2000_FLAGS_RUNNING)
+-				return (actcapi_manufacturer_req_msn(card));
++				return actcapi_manufacturer_req_msn(card);
+ 			return 0;
+ 		case ACT2000_IOCTL_ADDCARD:
+ 			if (copy_from_user(&cdef, arg,
+@@ -520,7 +520,7 @@ if_command(isdn_ctrl *c)
+ 	act2000_card *card = act2000_findcard(c->driver);
+ 
+ 	if (card)
+-		return (act2000_command(card, c));
++		return act2000_command(card, c);
+ 	printk(KERN_ERR
+ 	       "act2000: if_command %d called with invalid driverId %d!\n",
+ 	       c->command, c->driver);
+@@ -535,7 +535,7 @@ if_writecmd(const u_char __user *buf, int len, int id, int channel)
+ 	if (card) {
+ 		if (!(card->flags & ACT2000_FLAGS_RUNNING))
+ 			return -ENODEV;
+-		return (len);
++		return len;
+ 	}
+ 	printk(KERN_ERR
+ 	       "act2000: if_writecmd called with invalid driverId!\n");
+@@ -550,7 +550,7 @@ if_readstatus(u_char __user *buf, int len, int id, int channel)
+ 	if (card) {
+ 		if (!(card->flags & ACT2000_FLAGS_RUNNING))
+ 			return -ENODEV;
+-		return (act2000_readstatus(buf, len, card));
++		return act2000_readstatus(buf, len, card);
+ 	}
+ 	printk(KERN_ERR
+ 	       "act2000: if_readstatus called with invalid driverId!\n");
+@@ -565,7 +565,7 @@ if_sendbuf(int id, int channel, int ack, struct sk_buff *skb)
+ 	if (card) {
+ 		if (!(card->flags & ACT2000_FLAGS_RUNNING))
+ 			return -ENODEV;
+-		return (act2000_sendbuf(card, channel, ack, skb));
++		return act2000_sendbuf(card, channel, ack, skb);
+ 	}
+ 	printk(KERN_ERR
+ 	       "act2000: if_sendbuf called with invalid driverId!\n");
 -- 
 2.1.0
