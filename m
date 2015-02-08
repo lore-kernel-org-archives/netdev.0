@@ -1,196 +1,66 @@
-From: Mahesh Bandewar <maheshb@google.com>
-Subject: Re: [PATCH next 2/6] bonding: implement bond_poll_controller()
-Date: Sat, 7 Feb 2015 20:19:23 -0800
-Message-ID: <CAF2d9jhVAqDCyNP7De4cpqOTAoLpsar=T2i7S3sKCmOF2yukJw@mail.gmail.com>
-References: <1423270311-9181-1-git-send-email-maheshb@google.com> <20150207090400.GA11343@vps.falico.eu>
+From: Nicholas Krause <xerofoify@gmail.com>
+Subject: [PATCH] net:ethernet:intel:Remove outdated fix me
+	comment in the function, gb_acquire_swfw_sync_i210
+Date: Sun,  8 Feb 2015 00:21:50 -0500
+Message-ID: <1423372910-29183-1-git-send-email-xerofoify@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Jay Vosburgh <j.vosburgh@gmail.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Nikolay Aleksandrov <nikolay@redhat.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>
-To: Veaceslav Falico <vfalico@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f46.google.com ([209.85.218.46]:34127 "EHLO
-	mail-oi0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751836AbbBHETo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 Feb 2015 23:19:44 -0500
-Received: by mail-oi0-f46.google.com with SMTP id a141so17905657oig.5
-        for <netdev@vger.kernel.org>; Sat, 07 Feb 2015 20:19:43 -0800 (PST)
-In-Reply-To: <20150207090400.GA11343@vps.falico.eu>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: linux.nics@intel.com, e1000-devel@lists.sourceforge.net,
+	bruce.w.allan@intel.com, jesse.brandeburg@intel.com,
+	linux-kernel@vger.kernel.org, john.ronciak@intel.com,
+	netdev@vger.kernel.org
+To: jeffrey.t.kirsher@intel.com
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On Sat, Feb 7, 2015 at 1:04 AM, Veaceslav Falico <vfalico@gmail.com> wrote:
-> On Fri, Feb 06, 2015 at 04:51:51PM -0800, Mahesh Bandewar wrote:
->>
->> This patches implements the poll_controller support for all
->> bonding driver. If the slaves have poll_controller net_op defined,
->> this implementation calls them. This is mode agnostic implementation
->> and iterates through all slaves (based on mode) and calls respective
->> handler.
->>
->> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
->
->
-> Really good patchset, thank you. Two nitpicks below, nothing serious. Also,
-> please, add Doc/bonding.txt changes for every user-visible
-> change/enhancement, this doc is a go-to for a lot of users.
->
-> Otherwise, with the doc and other issues, pointed by Jay and Andy, fixed, I
-> guess it's good to go. The 0/ patch would be welcome too, btw.
->
->
->> ---
->> drivers/net/bonding/bond_3ad.c  | 24 +++++++++++++++++++++
->> drivers/net/bonding/bond_main.c | 47
->> +++++++++++++++++++++++++++++++++++++++++
->> include/net/bond_3ad.h          |  1 +
->> 3 files changed, 72 insertions(+)
->>
->> diff --git a/drivers/net/bonding/bond_3ad.c
->> b/drivers/net/bonding/bond_3ad.c
->> index 9b436696b95e..14f2ebe786c5 100644
->> --- a/drivers/net/bonding/bond_3ad.c
->> +++ b/drivers/net/bonding/bond_3ad.c
->> @@ -2477,6 +2477,30 @@ int bond_3ad_get_active_agg_info(struct bonding
->> *bond, struct ad_info *ad_info)
->>         return ret;
->> }
->>
->> +#define BOND_3AD_PORT_OPERATIONAL \
->> +               (AD_STATE_DISTRIBUTING | AD_STATE_COLLECTING | \
->> +                AD_STATE_SYNCHRONIZATION | AD_STATE_AGGREGATION)
->> +
->> +static int bond_3ad_port_operational(struct slave *slave)
->> +{
->> +       port_t *port = &SLAVE_AD_INFO(slave)->port;
->> +
->> +       return bond_slave_can_tx(slave) &&
->> +              (port->actor_oper_port_state &
->> port->partner_oper.port_state &
->> +               BOND_3AD_PORT_OPERATIONAL) == BOND_3AD_PORT_OPERATIONAL;
->> +}
->> +
->> +/* bond_3ad_port_is_active - check if a slave port is active or not. A
->> port
->> + * is active when it can forward traffic.
->> + *
->> + * @slave: slave port to check state for.
->> + * Returns: 0 if not active else is active.
->> + */
->> +int bond_3ad_port_is_active(struct slave *slave)
->> +{
->> +       return bond_3ad_port_operational(slave);
->> +}
->> +
->> int bond_3ad_lacpdu_recv(const struct sk_buff *skb, struct bonding *bond,
->>                          struct slave *slave)
->> {
->> diff --git a/drivers/net/bonding/bond_main.c
->> b/drivers/net/bonding/bond_main.c
->> index c9e519cb9214..a50ec87486f3 100644
->> --- a/drivers/net/bonding/bond_main.c
->> +++ b/drivers/net/bonding/bond_main.c
->> @@ -928,6 +928,53 @@ static inline void slave_disable_netpoll(struct slave
->> *slave)
->>
->> static void bond_poll_controller(struct net_device *bond_dev)
->> {
->> +       struct bonding *bond = netdev_priv(bond_dev);
->> +       struct slave *slave = NULL;
->> +       struct list_head *iter;
->> +       struct ad_info ad_info;
->> +       struct aggregator *agg;
->> +       const struct net_device_ops *ops;
->> +       bool call_slave_netpoll;
->> +
->> +       if (BOND_MODE(bond) == BOND_MODE_8023AD)
->> +               if (bond_3ad_get_active_agg_info(bond, &ad_info))
->> +                       return;
->> +
->> +       bond_for_each_slave(bond, slave, iter) {
->> +               call_slave_netpoll = false;
->> +               switch (BOND_MODE(bond)) {
->> +               case BOND_MODE_8023AD:
->> +                       agg = SLAVE_AD_INFO(slave)->port.aggregator;
->> +                       if (!bond_slave_is_up(slave))
->
->
-> bond_3ad_port_is_active() already contains the check for being up.
->
->> +                               break;
->> +                       if (agg && agg->aggregator_identifier !=
->
->
-> Hm, should we poll it without an aggregator?
->
->> +                               ad_info.aggregator_id)
->> +                               break;
->> +                       if (!bond_3ad_port_is_active(slave) &&
->> +                           ad_info.ports != 1)
->> +                               break;
->> +
->> +                       call_slave_netpoll = true;
->> +                       break;
->> +               default:
->> +                       if (bond_slave_is_up(slave))
->> +                               call_slave_netpoll = true;
->> +                       break;
->> +               }
->> +
->> +               if (call_slave_netpoll) {
->> +                       ops = slave->dev->netdev_ops;
->> +                       if (ops->ndo_poll_controller) {
->
->
-> It's weird to see this check so down the road. Maybe reorg the logic to
-> something like:
->
-> bond_for_each_slave() {
->         if (!bond_slave_is_up() || !bond_slave_has_ndo_poll())
->                 continue;
->
->         if (BOND_MODE(bond) == 3AD && !bond_3ad_port_is_active())
->                 continue;
->
->         slave-do_ndo_poll_stuff();
-> }
->
-> Just as a thought, might be easier to read/shorter.
->
->
-OK, I'll try that. thanks
+Removes the outdated fix me comment in the function,gb_acquire_swfw_sync_i210
+for setting the variables, i and timeout to the intended correct values for
+the function,gb_acquire_swfw_sync_i210 to function correctly. This comment is
+no longer due to these values having been no changed in the last few years and
+no known issues have been found for these variables being set to their current
+values. Due to this the comment can now be removed as the values set for these
+variables are known to be correct after years of no known issues or bugs related
+to their current values.
 
->> +                               struct netpoll_info *ni =
->> +
->> rcu_dereference_bh(slave->dev->npinfo);
->> +
->> +                               if (down_trylock(&ni->dev_lock))
->> +                                       continue;
->> +                               ops->ndo_poll_controller(slave->dev);
->> +                               up(&ni->dev_lock);
->> +                       }
->> +               }
->> +       }
->> }
->>
->> static void bond_netpoll_cleanup(struct net_device *bond_dev)
->> diff --git a/include/net/bond_3ad.h b/include/net/bond_3ad.h
->> index f04cdbb7848e..6c455c646d61 100644
->> --- a/include/net/bond_3ad.h
->> +++ b/include/net/bond_3ad.h
->> @@ -278,5 +278,6 @@ int bond_3ad_lacpdu_recv(const struct sk_buff *skb,
->> struct bonding *bond,
->>                          struct slave *slave);
->> int bond_3ad_set_carrier(struct bonding *bond);
->> void bond_3ad_update_lacp_rate(struct bonding *bond);
->> +int bond_3ad_port_is_active(struct slave *slave);
->> #endif /* _NET_BOND_3AD_H */
->>
->> --
->> 2.2.0.rc0.207.ga3a616c
->>
->
+Signed-off-by: Nicholas Krause <xerofoify@gmail.com>
+---
+ drivers/net/ethernet/intel/igb/e1000_i210.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/intel/igb/e1000_i210.c b/drivers/net/ethernet/intel/igb/e1000_i210.c
+index 65d9316..0c169e5 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_i210.c
++++ b/drivers/net/ethernet/intel/igb/e1000_i210.c
+@@ -140,7 +140,7 @@ s32 igb_acquire_swfw_sync_i210(struct e1000_hw *hw, u16 mask)
+ 	u32 swmask = mask;
+ 	u32 fwmask = mask << 16;
+ 	s32 ret_val = 0;
+-	s32 i = 0, timeout = 200; /* FIXME: find real value to use here */
++	s32 i = 0, timeout = 200;
+ 
+ 	while (i < timeout) {
+ 		if (igb_get_hw_semaphore_i210(hw)) {
+-- 
+2.1.0
+
+
+------------------------------------------------------------------------------
+Dive into the World of Parallel Programming. The Go Parallel Website,
+sponsored by Intel and developed in partnership with Slashdot Media, is your
+hub for all things parallel software development, from weekly thought
+leadership blogs to news, videos, case studies, tutorials and more. Take a
+look and join the conversation now. http://goparallel.sourceforge.net/
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
