@@ -1,61 +1,43 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH V1 net-next 2/3] IB/mlx4: Always use the correct port for mirrored multicast attachments
-Date: Sun,  8 Feb 2015 11:49:33 +0200
-Message-ID: <1423388974-9635-3-git-send-email-ogerlitz@mellanox.com>
-References: <1423388974-9635-1-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH V1 net-next 0/3] bonding and mlx4 fixes for the HA/LAG support and mlx4 reset flow
+Date: Sun,  8 Feb 2015 11:49:31 +0200
+Message-ID: <1423388974-9635-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, Roland Dreier <roland@kernel.org>,
 	Amir Vadai <amirv@mellanox.com>, Tal Alon <talal@mellanox.com>,
-	Moni Shoua <monis@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:44267 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:44250 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755503AbbBHJts (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1755475AbbBHJts (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Sun, 8 Feb 2015 04:49:48 -0500
-In-Reply-To: <1423388974-9635-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Moni Shoua <monis@mellanox.com>
+Hi Dave,
 
-When attaching a QP to a multicast address in bonded mode, there was an
-assumption that the port of the QP must be #1. This assumption isn't the
-case under the flow which enables maximal usage of the physical ports.
+There are two fixes to the boding + mlx4 HA/LAG support from Moni and a patch from Yishai
+which does further hardening of the mlx4 reset support for IB kernel ULPs.
 
-Fix it by always checking the port of the original flow and create the
-mirrored flow on the other port.
+Or.
 
-Fixes: c6215745b66a ('IB/mlx4: Load balance ports in port aggregation mode')
-Signed-off-by: Moni Shoua <monis@mellanox.com>
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
----
- drivers/infiniband/hw/mlx4/main.c |    6 +++++-
- 1 files changed, 5 insertions(+), 1 deletions(-)
+changes from V0:
+ - addressed feedback from Sergei Shtylyov and removed un-related tabbing change
 
-diff --git a/drivers/infiniband/hw/mlx4/main.c b/drivers/infiniband/hw/mlx4/main.c
-index 2ed5b99..3140da5 100644
---- a/drivers/infiniband/hw/mlx4/main.c
-+++ b/drivers/infiniband/hw/mlx4/main.c
-@@ -1186,6 +1186,9 @@ static struct ib_flow *mlx4_ib_create_flow(struct ib_qp *qp,
- 			goto err_create_flow;
- 		i++;
- 		if (is_bonded) {
-+			/* Application always sees one port so the mirror rule
-+			 * must be on port #2
-+			 */
- 			flow_attr->port = 2;
- 			err = __mlx4_ib_create_flow(qp, flow_attr,
- 						    domain, type[j],
-@@ -1286,7 +1289,8 @@ static int mlx4_ib_mcg_attach(struct ib_qp *ibqp, union ib_gid *gid, u16 lid)
- 
- 	reg_id.mirror = 0;
- 	if (mlx4_is_bonded(dev)) {
--		err = mlx4_multicast_attach(mdev->dev, &mqp->mqp, gid->raw, 2,
-+		err = mlx4_multicast_attach(mdev->dev, &mqp->mqp, gid->raw,
-+					    (mqp->port == 1) ? 2 : 1,
- 					    !!(mqp->flags &
- 					    MLX4_IB_QP_BLOCK_MULTICAST_LOOPBACK),
- 					    prot, &reg_id.mirror);
--- 
-1.7.1
+
+Moni Shoua (2):
+  net/bonding: Fix potential bad memory access during bonding events
+  IB/mlx4: Always use the correct port for mirrored multicast attachments
+
+Yishai Hadas (1):
+  IB/mlx4: Reset flow support for IB kernel ULPs
+
+ drivers/infiniband/hw/mlx4/cq.c      |   57 +++++++++++++++++++++++++++
+ drivers/infiniband/hw/mlx4/main.c    |   70 +++++++++++++++++++++++++++++++++-
+ drivers/infiniband/hw/mlx4/mlx4_ib.h |    9 ++++
+ drivers/infiniband/hw/mlx4/qp.c      |   59 +++++++++++++++++++++++++---
+ drivers/infiniband/hw/mlx4/srq.c     |    8 ++++
+ drivers/net/bonding/bond_main.c      |   28 +++++--------
+ include/linux/mlx4/device.h          |    2 +
+ include/net/bonding.h                |    2 +-
+ 8 files changed, 210 insertions(+), 25 deletions(-)
