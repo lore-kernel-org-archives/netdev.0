@@ -1,28 +1,30 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/4] tcp: mitigate TCP ACK loops due to
- out-of-window validation dupacks
-Date: Sun, 08 Feb 2015 01:03:44 -0800 (PST)
-Message-ID: <20150208.010344.1335512084515113979.davem@davemloft.net>
-References: <1423256681-31716-1-git-send-email-ncardwell@google.com>
+From: Alexander Aring <alex.aring@gmail.com>
+Subject: Re: [PATCH] at86rf230: assign wait_for_completion_timeout to
+ appropriately typed var
+Date: Sun, 8 Feb 2015 10:34:35 +0100
+Message-ID: <20150208093428.GA10594@omega>
+References: <1423385700-11125-1-git-send-email-hofrat@osadl.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: ncardwell@google.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49045 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755762AbbBHJDp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 Feb 2015 04:03:45 -0500
-In-Reply-To: <1423256681-31716-1-git-send-email-ncardwell@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Cc: linux-wpan@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, marcel@holtmann.org
+To: Nicholas Mc Guire <hofrat@osadl.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1423385700-11125-1-git-send-email-hofrat@osadl.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Neal Cardwell <ncardwell@google.com>
-Date: Fri,  6 Feb 2015 16:04:37 -0500
+On Sun, Feb 08, 2015 at 03:55:00AM -0500, Nicholas Mc Guire wrote:
+> return type of wait_for_completion_timeout is unsigned long not int.
+> As rc is used here only for wait_for_completion_timeout the type is simply
+> changed to unsigned long.
+> 
+> Signed-off-by: Nicholas Mc Guire <hofrat@osadl.org>
 
-> This patch series mitigates "ack loop" DoS scenarios by rate-limiting
-> outgoing duplicate ACKs sent in response to incoming "out of window"
-> segments.
+Acked-by: Alexander Aring <alex.aring@gmail.com>
 
-Series applied, thanks a lot Neal.
+Marcel, can you please queue this for bluetooth-next. Should be able to
+apply against bluetooth-next. Thanks.
+
+- Alex
