@@ -1,50 +1,72 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: Kill I4L? (was: [PATCH 2/6] drivers: isdn: act2000: capi.c: fix
- checkpatch errors)
-Date: Sun, 08 Feb 2015 12:04:06 -0800
-Message-ID: <1423425846.2933.15.camel@perches.com>
-References: <1423328797-17865-1-git-send-email-baspeters93@gmail.com>
-	 <1423328797-17865-3-git-send-email-baspeters93@gmail.com>
-	 <54D650BF.5000400@cogentembedded.com> <1423336761.2933.7.camel@perches.com>
-	 <1423341800.2246.68.camel@x220> <54D7BD4A.4090101@imap.cc>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Paul Bolle <pebolle@tiscali.nl>,
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: [PATCH v3] net: bluetooth: hci_sock: Use 'const u32 *' instead of 'void *' for 2nd parameter of hci_test_bit()
+Date: Sun, 8 Feb 2015 12:17:14 -0800
+Message-ID: <BD721CC9-DD4D-480D-98E6-89CA868BA285@holtmann.org>
+References: <54D61229.9010904@sunrus.com.cn> <1423338774.2933.9.camel@perches.com> <54D6A729.1070905@sunrus.com.cn> <54D75698.7010808@sunrus.com.cn>
+Mime-Version: 1.0 (Mac OS X Mail 8.2 \(2070.6\))
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 8BIT
+Cc: Joe Perches <joe@perches.com>,
+	David Laight <David.Laight@ACULAB.COM>,
 	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Bas Peters <baspeters93@gmail.com>, isdn@linux-pingi.de,
-	julia.lawall@lip6.fr, davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Tilman Schmidt <tilman@imap.cc>
+	"Gustavo F. Padovan" <gustavo@padovan.org>,
+	Johan Hedberg <johan.hedberg@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"linux-bluetooth@vger.kernel.org" <linux-bluetooth@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Chen Gang S <gang.chen@sunrus.com.cn>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <54D7BD4A.4090101@imap.cc>
+In-Reply-To: <54D75698.7010808@sunrus.com.cn>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 2015-02-08 at 20:47 +0100, Tilman Schmidt wrote:
-> Am 07.02.2015 um 21:43 schrieb Paul Bolle:
-> > On Sat, 2015-02-07 at 11:19 -0800, Joe Perches wrote:
-> >> Does anyone still use these cards?
-> > 0) Good question.
-> I very much doubt it. It was an ISA card, not even PnP. I'd imagine
-> any systems of that kind would be retired by now.
-[]
-> I guess
-> somebody could just submit a patch series starting with:
-> +++ b/drivers/isdn/Kconfig
-> @@ -20,25 +20,6 @@ menuconfig ISDN
-> 
->  if ISDN
-> 
-> -menuconfig ISDN_I4L
-> -       tristate "Old ISDN4Linux (deprecated)"
-> -       depends on TTY
-[]
-> Shall I?
+Hi Chen,
 
-I think removing code for completely unused,
-no longer sold or supported devices could be
-a good thing.
+>>>> hci_test_bit() does not modify 2nd parameter, so it is better to let it
+>>>> be constant, or may cause build warning. The related warning (with
+>>>> allmodconfig under xtensa):
+>>>> 
+>>>>  net/bluetooth/hci_sock.c: In function 'hci_sock_sendmsg':
+>>>>  net/bluetooth/hci_sock.c:955:8: warning: passing argument 2 of 'hci_test_bit' discards 'const' qualifier from pointer target type [-Wdiscarded-array-qualifiers]
+>>>>          &hci_sec_filter.ocf_mask[ogf])) &&
+>>>>          ^
+>>>>  net/bluetooth/hci_sock.c:49:19: note: expected 'void *' but argument is of type 'const __u32 (*)[4] {aka const unsigned int (*)[4]}'
+>>>>   static inline int hci_test_bit(int nr, void *addr)
+>>>>                     ^
+>>>> 
+>>>> hci_test_bit() always treats 2nd parameter is u32, and all callers also
+>>>> know about it, so 2nd parameter of hci_test_bit() need use 'const u32 *'
+>>>> instead of 'void *'.
+>>>> 
+>>>> C language treats the array function parameter as a pointer, so the
+>>>> caller need not use '&' for the 2 demotion array, or it reports warning:
+>>>> 'const unsigned int (*)[4]' is different with 'const unsigned int *'.
+>>> 
+>>> I still think you are possibly papering over potential bugs
+>>> on big-endian 64 bit systems.
+>>> 
+>>> unsigned long vs u32.
+>>> 
+>>> How are the bits actually set?
+>>> 
+>> 
+>>> From current usage of event_mask, "(u32 *) f->event_mask" is only for
+>> event_mask data storage, not for calculation (always as "u32 *" for
+>> calculation).
+>> 
+>>  [root@localhost linux-next]# grep -rn "\<event_mask\>" include/net/bluetooth net/bluetooth
+>>  include/net/bluetooth/hci_sock.h:51:	unsigned long event_mask[2];
+> 
+> e.g. use "unsigned char event_mask[2 * sizeof(unsigned long)]" instead
+> of "unsigned long event_mask[2]".
+> 
+> There is still no any issue within "hci_sock.c" (although I am not sure
+> whether this modification may cause issues in another modules outside
+> kernel).
 
-If someone pipes up saying "I use that" within
-some shortish time-frame, it's easy to undo.
+what about writing a test case for userspace that ensures that things are working correctly. As I said before, we left it this way since it is part of the API.
+
+Regards
+
+Marcel
