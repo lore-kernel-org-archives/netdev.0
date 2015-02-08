@@ -1,130 +1,50 @@
-From: Tilman Schmidt <tilman@imap.cc>
-Subject: Kill I4L? (was: [PATCH 2/6] drivers: isdn: act2000: capi.c: fix checkpatch
- errors)
-Date: Sun, 08 Feb 2015 20:47:22 +0100
-Message-ID: <54D7BD4A.4090101@imap.cc>
-References: <1423328797-17865-1-git-send-email-baspeters93@gmail.com>	 <1423328797-17865-3-git-send-email-baspeters93@gmail.com>	 <54D650BF.5000400@cogentembedded.com> <1423336761.2933.7.camel@perches.com> <1423341800.2246.68.camel@x220>
+From: Joe Perches <joe@perches.com>
+Subject: Re: Kill I4L? (was: [PATCH 2/6] drivers: isdn: act2000: capi.c: fix
+ checkpatch errors)
+Date: Sun, 08 Feb 2015 12:04:06 -0800
+Message-ID: <1423425846.2933.15.camel@perches.com>
+References: <1423328797-17865-1-git-send-email-baspeters93@gmail.com>
+	 <1423328797-17865-3-git-send-email-baspeters93@gmail.com>
+	 <54D650BF.5000400@cogentembedded.com> <1423336761.2933.7.camel@perches.com>
+	 <1423341800.2246.68.camel@x220> <54D7BD4A.4090101@imap.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Paul Bolle <pebolle@tiscali.nl>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
 	Bas Peters <baspeters93@gmail.com>, isdn@linux-pingi.de,
 	julia.lawall@lip6.fr, davem@davemloft.net, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: Paul Bolle <pebolle@tiscali.nl>, Joe Perches <joe@perches.com>
+To: Tilman Schmidt <tilman@imap.cc>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1423341800.2246.68.camel@x220>
+In-Reply-To: <54D7BD4A.4090101@imap.cc>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
+On Sun, 2015-02-08 at 20:47 +0100, Tilman Schmidt wrote:
+> Am 07.02.2015 um 21:43 schrieb Paul Bolle:
+> > On Sat, 2015-02-07 at 11:19 -0800, Joe Perches wrote:
+> >> Does anyone still use these cards?
+> > 0) Good question.
+> I very much doubt it. It was an ISA card, not even PnP. I'd imagine
+> any systems of that kind would be retired by now.
+[]
+> I guess
+> somebody could just submit a patch series starting with:
+> +++ b/drivers/isdn/Kconfig
+> @@ -20,25 +20,6 @@ menuconfig ISDN
+> 
+>  if ISDN
+> 
+> -menuconfig ISDN_I4L
+> -       tristate "Old ISDN4Linux (deprecated)"
+> -       depends on TTY
+[]
+> Shall I?
 
-Am 07.02.2015 um 21:43 schrieb Paul Bolle:
-> On Sat, 2015-02-07 at 11:19 -0800, Joe Perches wrote:
->> Does anyone still use these cards?
->=20
-> 0) Good question.
+I think removing code for completely unused,
+no longer sold or supported devices could be
+a good thing.
 
-I very much doubt it. It was an ISA card, not even PnP. I'd imagine
-any systems of that kind would be retired by now.
-
-> 2) Broader picture: if I remember correctly there are now four
-> different flavors of ISDN in the kernel: - really old: pre-i4l
-
-I don't think any traces of that are still present in current kernel
-releases. It should all have been left behind on the switch to 2.6.
-
-> - very old: i4l - just old: CAPI - not so old: mISDN
-
-Those are the in-tree ones. To make matters worse, the Asterisk people
-invented three more (Zaptel, DAHDI and vISDN) which are maintained
-out-of-tree. Apparently they weren't satisfied with any the in-tree
-ones and didn't feel like helping to improve one of them to match
-their needs.
-
-> [snip] So the current ISDN situation is a bit messy.
-
-That's putting it mildly.
-
-> Tilman might be able to provide a clearer, and maybe less grumpy,=20
-> summary of the current situation.
-
-Don't know about either. ;-)
-
-> [M]aybe we should consider, say, removing i4l and pre i4l and see
-> who complains. That might be a rude thing to do. So perhaps the=20
-> various ISDN flavors should be left alone until ... what exactly?
-
-I'd support that step. I don't think it'll hurt anyone because the
-cards supported by i4l are mostly ISA cards anyway. The only exceptions
-are the HiSax family which is now supported by mISDN, and the Hypercope
-family which is supported by CAPI.
-
-In the past we had Documentation/feature-removal-schedule.txt for
-announcing removals like that but Linus shot that down on 2012-10-01
-(commit 9c0ece069b32e8e122aea71aa47181c10eb85ba7) so I guess
-somebody could just submit a patch series starting with
-
-- --- a/drivers/isdn/Kconfig
-+++ b/drivers/isdn/Kconfig
-@@ -20,25 +20,6 @@ menuconfig ISDN
-
- if ISDN
-
-- -menuconfig ISDN_I4L
-- -       tristate "Old ISDN4Linux (deprecated)"
-- -       depends on TTY
-- -       ---help---
-- -         This driver allows you to use an ISDN adapter for networkin=
-g
-- -         connections and as dialin/out device.  The isdn-tty's have =
-a
-built
-- -         in AT-compatible modem emulator.  Network devices support
-autodial,
-- -         channel-bundling, callback and caller-authentication withou=
-t
-having
-- -         a daemon running.  A reduced T.70 protocol is supported wit=
-h
-tty's
-- -         suitable for German BTX.  On D-Channel, the protocols EDSS1
-- -         (Euro-ISDN) and 1TR6 (German style) are supported.  See
-- -         <file:Documentation/isdn/README> for more information.
-- -
-- -         ISDN support in the linux kernel is moving towards a new AP=
-I,
-- -         called CAPI (Common ISDN Application Programming Interface)=
-=2E
-- -         Therefore the old ISDN4Linux layer will eventually become
-obsolete.
-- -         It is still available, though, for use with adapters that
-are not
-- -         supported by the new CAPI subsystem yet.
-- -
- source "drivers/isdn/i4l/Kconfig"
-
- menuconfig ISDN_CAPI
-
-and working its way from that to remove anything that's become
-unreachable.
-
-Shall I?
-
-- --=20
-Tilman Schmidt                              E-Mail: tilman@imap.cc
-Bonn, Germany
-Diese Nachricht besteht zu 100% aus wiederverwerteten Bits.
-Unge=C3=B6ffnet mindestens haltbar bis: (siehe R=C3=BCckseite)
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQEcBAEBAgAGBQJU171KAAoJEFPuqx0v+F+qnqgH/3KCC6wnXWKOxfuWZ13lwqa2
-GuFy+DMYZbXi5e5IHIYnTO9LvA7uzg4ryokP4iMWazhIpx5Cx0Riil59LJExE59p
-jsLizpDeZ+z+wwrEZHimc8lYEFO70abvgKL5NdkF8luc+QPIJAmDyLA+8c6J0rKo
-VcIb+vq3hW06L7FeKD3Y03NU1xZDtG6HxhnCQRV5b8Ve6sfeu4Oz/83yLyvvfNbK
-mnRWbUisO2TmBWcTbZ0QB889iPBRrR1HD4TLA9WZ38fQs7YbuKNbz4jxMKDDSh2i
-JHDK8tzn5P+73CPHkvRfELODn+V5uzUWh6QHJFD+4sMOKvNZfbxlEmt1GANmto0=3D
-=3DPtE1
------END PGP SIGNATURE-----
+If someone pipes up saying "I use that" within
+some shortish time-frame, it's easy to undo.
