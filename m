@@ -1,110 +1,104 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH 3/5] virtio: Don't expose legacy net features when
- VIRTIO_NET_NO_LEGACY defined.
-Date: Sun, 8 Feb 2015 11:59:08 +0100
-Message-ID: <20150208105908.GI3185@redhat.com>
-References: <1423199216-2094-1-git-send-email-rusty@rustcorp.com.au>
- <1423199216-2094-4-git-send-email-rusty@rustcorp.com.au>
+From: Chen Gang S <gang.chen@sunrus.com.cn>
+Subject: Re: [PATCH v3] net: bluetooth: hci_sock: Use 'const u32 *' instead
+ of 'void *' for 2nd parameter of hci_test_bit()
+Date: Sun, 08 Feb 2015 20:29:12 +0800
+Message-ID: <54D75698.7010808@sunrus.com.cn>
+References: <54D61229.9010904@sunrus.com.cn> <1423338774.2933.9.camel@perches.com> <54D6A729.1070905@sunrus.com.cn>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: lkml <linux-kernel@vger.kernel.org>,
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: David Laight <David.Laight@ACULAB.COM>,
+	Marcel Holtmann <marcel@holtmann.org>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	"Gustavo F. Padovan" <gustavo@padovan.org>,
+	Johan Hedberg <johan.hedberg@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"linux-bluetooth@vger.kernel.org" <linux-bluetooth@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Rusty Russell <rusty@rustcorp.com.au>
+To: Joe Perches <joe@perches.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1423199216-2094-4-git-send-email-rusty@rustcorp.com.au>
+In-Reply-To: <54D6A729.1070905@sunrus.com.cn>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Feb 06, 2015 at 03:36:54PM +1030, Rusty Russell wrote:
-> In particular, the virtio header always has the u16 num_buffers field.
-> We define a new 'struct virtio_net_modern_hdr' for this (rather than
-> simply calling it 'struct virtio_net_hdr', to avoid nasty type errors
-> if some parts of a project define VIRTIO_NET_NO_LEGACY and some don't.
+On 2/8/15 08:00, Chen Gang S wrote:
+> On 2/8/15 03:52, Joe Perches wrote:
+>> On Sat, 2015-02-07 at 21:24 +0800, Chen Gang S wrote:
+>>> hci_test_bit() does not modify 2nd parameter, so it is better to let it
+>>> be constant, or may cause build warning. The related warning (with
+>>> allmodconfig under xtensa):
+>>>
+>>>   net/bluetooth/hci_sock.c: In function 'hci_sock_sendmsg':
+>>>   net/bluetooth/hci_sock.c:955:8: warning: passing argument 2 of 'hci_test_bit' discards 'const' qualifier from pointer target type [-Wdiscarded-array-qualifiers]
+>>>           &hci_sec_filter.ocf_mask[ogf])) &&
+>>>           ^
+>>>   net/bluetooth/hci_sock.c:49:19: note: expected 'void *' but argument is of type 'const __u32 (*)[4] {aka const unsigned int (*)[4]}'
+>>>    static inline int hci_test_bit(int nr, void *addr)
+>>>                      ^
+>>>
+>>> hci_test_bit() always treats 2nd parameter is u32, and all callers also
+>>> know about it, so 2nd parameter of hci_test_bit() need use 'const u32 *'
+>>> instead of 'void *'.
+>>>
+>>> C language treats the array function parameter as a pointer, so the
+>>> caller need not use '&' for the 2 demotion array, or it reports warning:
+>>> 'const unsigned int (*)[4]' is different with 'const unsigned int *'.
+>>
+>> I still think you are possibly papering over potential bugs
+>> on big-endian 64 bit systems.
+>>
+>> unsigned long vs u32.
+>>
+>> How are the bits actually set?
+>>
 > 
-> Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
-> ---
->  include/uapi/linux/virtio_net.h | 30 ++++++++++++++++++++++++++++--
->  1 file changed, 28 insertions(+), 2 deletions(-)
+>>From current usage of event_mask, "(u32 *) f->event_mask" is only for
+> event_mask data storage, not for calculation (always as "u32 *" for
+> calculation).
 > 
-> diff --git a/include/uapi/linux/virtio_net.h b/include/uapi/linux/virtio_net.h
-> index b5f1677b291c..32754f3000e8 100644
-> --- a/include/uapi/linux/virtio_net.h
-> +++ b/include/uapi/linux/virtio_net.h
-> @@ -35,7 +35,6 @@
->  #define VIRTIO_NET_F_CSUM	0	/* Host handles pkts w/ partial csum */
->  #define VIRTIO_NET_F_GUEST_CSUM	1	/* Guest handles pkts w/ partial csum */
->  #define VIRTIO_NET_F_MAC	5	/* Host has given MAC address. */
-> -#define VIRTIO_NET_F_GSO	6	/* Host handles pkts w/ any GSO type */
->  #define VIRTIO_NET_F_GUEST_TSO4	7	/* Guest can handle TSOv4 in. */
->  #define VIRTIO_NET_F_GUEST_TSO6	8	/* Guest can handle TSOv6 in. */
->  #define VIRTIO_NET_F_GUEST_ECN	9	/* Guest can handle TSO[6] w/ ECN in. */
-> @@ -56,6 +55,10 @@
->  					 * Steering */
->  #define VIRTIO_NET_F_CTRL_MAC_ADDR 23	/* Set MAC address */
->  
-> +#ifndef VIRTIO_NET_NO_LEGACY
-> +#define VIRTIO_NET_F_GSO	6	/* Host handles pkts w/ any GSO type */
-> +#endif /* VIRTIO_NET_NO_LEGACY */
-> +
->  #define VIRTIO_NET_S_LINK_UP	1	/* Link is up */
->  #define VIRTIO_NET_S_ANNOUNCE	2	/* Announcement is needed */
->  
-> @@ -71,8 +74,9 @@ struct virtio_net_config {
->  	__u16 max_virtqueue_pairs;
->  } __attribute__((packed));
->  
-> +#ifndef VIRTIO_NET_NO_LEGACY
->  /* This header comes first in the scatter-gather list.
-> - * If VIRTIO_F_ANY_LAYOUT is not negotiated, it must
-> + * For legacy virtio, if VIRTIO_F_ANY_LAYOUT is not negotiated, it must
->   * be the first element of the scatter-gather list.  If you don't
->   * specify GSO or CSUM features, you can simply ignore the header. */
->  struct virtio_net_hdr {
-> @@ -97,6 +101,28 @@ struct virtio_net_hdr_mrg_rxbuf {
->  	struct virtio_net_hdr hdr;
->  	__virtio16 num_buffers;	/* Number of merged rx buffers */
->  };
-> +#else /* ... VIRTIO_NET_NO_LEGACY */
-> +/*
-> + * This header comes first in the scatter-gather list.  If you don't
-> + * specify GSO or CSUM features, you can simply ignore the header.
-> + */
-> +struct virtio_net_modern_hdr {
-> +#define VIRTIO_NET_HDR_F_NEEDS_CSUM	1	/* Use csum_start, csum_offset */
-> +#define VIRTIO_NET_HDR_F_DATA_VALID	2	/* Csum is valid */
-> +	__u8 flags;
-> +#define VIRTIO_NET_HDR_GSO_NONE		0	/* Not a GSO frame */
-> +#define VIRTIO_NET_HDR_GSO_TCPV4	1	/* GSO frame, IPv4 TCP (TSO) */
-> +#define VIRTIO_NET_HDR_GSO_UDP		3	/* GSO frame, IPv4 UDP (UFO) */
-> +#define VIRTIO_NET_HDR_GSO_TCPV6	4	/* GSO frame, IPv6 TCP */
-> +#define VIRTIO_NET_HDR_GSO_ECN		0x80	/* TCP has ECN set */
-> +	__u8 gso_type;
-> +	__virtio16 hdr_len;	/* Ethernet + IP + tcp/udp hdrs */
-> +	__virtio16 gso_size;	/* Bytes to append to hdr_len per frame */
-> +	__virtio16 csum_start;	/* Position to start checksumming from */
-> +	__virtio16 csum_offset;	/* Offset after that to place checksum */
-> +	__virtio16 num_buffers;	/* Number of merged rx buffers */
-> +};
-> +#endif /* ...VIRTIO_NET_NO_LEGACY */
+>   [root@localhost linux-next]# grep -rn "\<event_mask\>" include/net/bluetooth net/bluetooth
+>   include/net/bluetooth/hci_sock.h:51:	unsigned long event_mask[2];
 
-This kind of masks the fact that it's the same as
-virtio_net_hdr_mrg_rxbuf. So it's forcing people to duplicate
-code for transitional devices.
+e.g. use "unsigned char event_mask[2 * sizeof(unsigned long)]" instead
+of "unsigned long event_mask[2]".
 
-How about
-struct virtio_net_modern_hdr {
-	struct virtio_net_hdr_mrg_rxbuf hdr;
-}
+There is still no any issue within "hci_sock.c" (although I am not sure
+whether this modification may cause issues in another modules outside
+kernel).
 
 
-This will also make it look nicer when we start
-adding stuff in the header, the main header
-is separated in a struct by its own, so it's
-easy to apply operations such as sizeof.
+Thanks.
 
+>   include/net/bluetooth/hci_sock.h:57:	__u32  event_mask[2];
+>   net/bluetooth/hci_sock.c:59:	__u32 event_mask[2];
+>   net/bluetooth/hci_sock.c:110:	if (!hci_test_bit(flt_event, (u32 *)&flt->event_mask))
+>   net/bluetooth/hci_sock.c:1041:			uf.event_mask[0] = *((u32 *) f->event_mask + 0);
+>   net/bluetooth/hci_sock.c:1042:			uf.event_mask[1] = *((u32 *) f->event_mask + 1);
+>   net/bluetooth/hci_sock.c:1053:			uf.event_mask[0] &= *((u32 *) hci_sec_filter.event_mask + 0);
+>   net/bluetooth/hci_sock.c:1054:			uf.event_mask[1] &= *((u32 *) hci_sec_filter.event_mask + 1);
+>   net/bluetooth/hci_sock.c:1062:			*((u32 *) f->event_mask + 0) = uf.event_mask[0];
+>   net/bluetooth/hci_sock.c:1063:			*((u32 *) f->event_mask + 1) = uf.event_mask[1];
+>   net/bluetooth/hci_sock.c:1124:			uf.event_mask[0] = *((u32 *) f->event_mask + 0);
+>   net/bluetooth/hci_sock.c:1125:			uf.event_mask[1] = *((u32 *) f->event_mask + 1);
+> 
+> Calculation is machine endian dependency, but event_mask is always as
+> "u32 *" for calculation, so there is no any type cast for calculation,
+> it is OK.
+> 
+> Storage is independent from machine endian, but it depends on machine
+> bits. In our case, 'unsigned long' array has enough space to accept u32
+> array, so there is no any data overwritten, it is OK.
+> 
+> 
+> By the way, I intended to remain event_mask as 'unsigned long' type,
+> because I am not quite sure whether it is also used by another modules
+> in kernel (or any other systems). May we change it to u32?
+> 
+> Thanks.
+> 
 
->  /*
->   * Control virtqueue data structures
-> -- 
-> 2.1.0
+-- 
+Chen Gang
+
+Open, share, and attitude like air, water, and life which God blessed
