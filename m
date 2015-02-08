@@ -1,80 +1,238 @@
 From: Jay Vosburgh <jay.vosburgh@canonical.com>
-Subject: Re: [PATCH next 4/6] bonding: Allow userspace to set system_priority
-Date: Sat, 07 Feb 2015 23:46:24 -0800
-Message-ID: <13353.1423381584@famine>
-References: <1423270314-9271-1-git-send-email-maheshb@google.com> <20150207033847.GD34197@gospo.home.greyhouse.net> <6873.1423289974@famine> <CAF2d9ji-m6Suw_Rw6dBqs=Ky41h786rCrPh-J7tv7JA+4L84zw@mail.gmail.com>
-Cc: Andy Gospodarek <gospo@cumulusnetworks.com>,
+Subject: Re: [PATCH next 2/6] bonding: implement bond_poll_controller()
+Date: Sat, 07 Feb 2015 23:31:05 -0800
+Message-ID: <13218.1423380665@famine>
+References: <1423270311-9181-1-git-send-email-maheshb@google.com> <20150207090400.GA11343@vps.falico.eu> <CAF2d9jj_P5PA2Op-MD5+i0gZj2GW_nnbcMVsxu93kMvtwBNkYA@mail.gmail.com>
+Cc: Veaceslav Falico <vfalico@gmail.com>,
 	Andy Gospodarek <andy@greyhouse.net>,
-	Veaceslav Falico <vfalico@gmail.com>,
 	Nikolay Aleksandrov <nikolay@redhat.com>,
 	David Miller <davem@davemloft.net>,
 	netdev <netdev@vger.kernel.org>,
 	Eric Dumazet <edumazet@google.com>
 To: Mahesh Bandewar <maheshb@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:55745 "EHLO
+Received: from youngberry.canonical.com ([91.189.89.112]:55746 "EHLO
 	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759065AbbBICpx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 Feb 2015 21:45:53 -0500
-In-reply-to: <CAF2d9ji-m6Suw_Rw6dBqs=Ky41h786rCrPh-J7tv7JA+4L84zw@mail.gmail.com>
+	with ESMTP id S1759065AbbBICpz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 Feb 2015 21:45:55 -0500
+In-reply-to: <CAF2d9jj_P5PA2Op-MD5+i0gZj2GW_nnbcMVsxu93kMvtwBNkYA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Mahesh Bandewar <maheshb@google.com> wrote:
 
->On Fri, Feb 6, 2015 at 10:19 PM, Jay Vosburgh
-><jay.vosburgh@canonical.com> wrote:
->> Andy Gospodarek <gospo@cumulusnetworks.com> wrote:
->>
->>>On Fri, Feb 06, 2015 at 04:51:54PM -0800, Mahesh Bandewar wrote:
->>>> This patch allows user to randomize the system-priority in an ad-system.
->>>> The allowed range is 1 - 0xFFFF while default value is 0xFFFF. If user
->>>> does not specify this value, the system defaults to 0xFFFF, which is
->>>> what it was before this patch.
->>>>
->>>> Following example code could set the value -
->>>>     # modprobe bonding mode=4
->>>>     # sys_prio=$(( 1 + RANDOM + RANDOM ))
->>>>     # echo $sys_prio > /sys/class/net/bond0/bonding/ad_actor_system_priority
+>On Sat, Feb 7, 2015 at 1:04 AM, Veaceslav Falico <vfalico@gmail.com> wrote:
+>> On Fri, Feb 06, 2015 at 04:51:51PM -0800, Mahesh Bandewar wrote:
 >>>
->>>If I can convince you to change 'ad_actor_system_macaddr' to something
->>>different can I also convince you to change this to something shorter,
->>>too?  :)
+>>> This patches implements the poll_controller support for all
+>>> bonding driver. If the slaves have poll_controller net_op defined,
+>>> this implementation calls them. This is mode agnostic implementation
+>>> and iterates through all slaves (based on mode) and calls respective
+>>> handler.
 >>>
->>>Maybe 'ad_sys_priority' or something?
+>>> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
 >>
->>         The name, verbose as it is, is from the 802.1AX standard, and
->> there's also a "partner_system_priority" (which is not a user-settable
->> thing, it's a field in the LACPDUs).  My suggestion would therefore be
->> "ad_actor_sys_prio" for this one, as I think there's some value in
->> continuity with the names from the standard.
 >>
->>         The MAC address one in the standard is just "actor_system";
->> there's a "partner_system" here, too, which is also a field in the
->> LACPDU.  I'm ok with calling that one just "actor_system," as presumably
->> anyone changing it will know what it means.
+>> Really good patchset, thank you. Two nitpicks below, nothing serious. Also,
+>> please, add Doc/bonding.txt changes for every user-visible
+>> change/enhancement, this doc is a go-to for a lot of users.
 >>
->Thank you guys for the suggestions. I didn't like those very long
->names either but when there is something that already has name
->similar, I defaulted to being verbose. I will have the name changed to
->-
->
->ad_actor_system_priority            - ad_actor_sys_prio
->ad_actor_system_mac_address - ad_actor_system
->ad_actor_user_port_key             - ad_user_portkey
->
->Is this reasonable enough?
+>> Otherwise, with the doc and other issues, pointed by Jay and Andy, fixed, I
+>> guess it's good to go. The 0/ patch would be welcome too, btw.
+>>
+>>
+>>> ---
+>>> drivers/net/bonding/bond_3ad.c  | 24 +++++++++++++++++++++
+>>> drivers/net/bonding/bond_main.c | 47
+>>> +++++++++++++++++++++++++++++++++++++++++
+>>> include/net/bond_3ad.h          |  1 +
+>>> 3 files changed, 72 insertions(+)
+>>>
+>>> diff --git a/drivers/net/bonding/bond_3ad.c
+>>> b/drivers/net/bonding/bond_3ad.c
+>>> index 9b436696b95e..14f2ebe786c5 100644
+>>> --- a/drivers/net/bonding/bond_3ad.c
+>>> +++ b/drivers/net/bonding/bond_3ad.c
+>>> @@ -2477,6 +2477,30 @@ int bond_3ad_get_active_agg_info(struct bonding
+>>> *bond, struct ad_info *ad_info)
+>>>         return ret;
+>>> }
+>>>
+>>> +#define BOND_3AD_PORT_OPERATIONAL \
+>>> +               (AD_STATE_DISTRIBUTING | AD_STATE_COLLECTING | \
+>>> +                AD_STATE_SYNCHRONIZATION | AD_STATE_AGGREGATION)
+>>> +
+>>> +static int bond_3ad_port_operational(struct slave *slave)
+>>> +{
+>>> +       port_t *port = &SLAVE_AD_INFO(slave)->port;
+>>> +
+>>> +       return bond_slave_can_tx(slave) &&
+>>> +              (port->actor_oper_port_state &
+>>> port->partner_oper.port_state &
+>>> +               BOND_3AD_PORT_OPERATIONAL) == BOND_3AD_PORT_OPERATIONAL;
+>>> +}
+>>> +
+>>> +/* bond_3ad_port_is_active - check if a slave port is active or not. A
+>>> port
+>>> + * is active when it can forward traffic.
+>>> + *
+>>> + * @slave: slave port to check state for.
+>>> + * Returns: 0 if not active else is active.
+>>> + */
+>>> +int bond_3ad_port_is_active(struct slave *slave)
+>>> +{
+>>> +       return bond_3ad_port_operational(slave);
+>>> +}
+>>> +
+>>> int bond_3ad_lacpdu_recv(const struct sk_buff *skb, struct bonding *bond,
+>>>                          struct slave *slave)
+>>> {
+>>> diff --git a/drivers/net/bonding/bond_main.c
+>>> b/drivers/net/bonding/bond_main.c
+>>> index c9e519cb9214..a50ec87486f3 100644
+>>> --- a/drivers/net/bonding/bond_main.c
+>>> +++ b/drivers/net/bonding/bond_main.c
+>>> @@ -928,6 +928,53 @@ static inline void slave_disable_netpoll(struct slave
+>>> *slave)
+>>>
+>>> static void bond_poll_controller(struct net_device *bond_dev)
+>>> {
+>>> +       struct bonding *bond = netdev_priv(bond_dev);
+>>> +       struct slave *slave = NULL;
+>>> +       struct list_head *iter;
+>>> +       struct ad_info ad_info;
+>>> +       struct aggregator *agg;
+>>> +       const struct net_device_ops *ops;
+>>> +       bool call_slave_netpoll;
+>>> +
+>>> +       if (BOND_MODE(bond) == BOND_MODE_8023AD)
+>>> +               if (bond_3ad_get_active_agg_info(bond, &ad_info))
+>>> +                       return;
+>>> +
+>>> +       bond_for_each_slave(bond, slave, iter) {
+>>> +               call_slave_netpoll = false;
+>>> +               switch (BOND_MODE(bond)) {
+>>> +               case BOND_MODE_8023AD:
+>>> +                       agg = SLAVE_AD_INFO(slave)->port.aggregator;
+>>> +                       if (!bond_slave_is_up(slave))
+>>
+>>
+>> bond_3ad_port_is_active() already contains the check for being up.
+>>
+>>> +                               break;
+>>> +                       if (agg && agg->aggregator_identifier !=
+>>
+>>
+>> Hm, should we poll it without an aggregator?
+>>
+>I think I missed this comment earlier, but it would be wrong. I mean
+>we have to perform this check otherwise it would be wrong.
 
-	Perhaps nitpicking, but I'd call it ad_user_port_key.
+	This looks to be a check to determine if the slave is a member
+of the active aggregator.  I don't believe we'll want to transmit on a
+slave that's not a member of the active agg.  FWIW, bond_3ad_xmit_xor
+has similar logic.
 
-	I agree that this one should not have "actor" in it, as this
-particular value is an invention of bonding and isn't directly part of
-the standard.  In bonding, the "user key" (always 0 prior to this
-patch), speed, and duplex are used to generate the actor_admin_port_key
-and actor_oper_port_key.  Those latter two are part of the standard, but
-have no required format.
+	Slaves will generally be a member of some aggregator (active or
+otherwise), except for short periods of time immediately after
+enslavement (before the next run of the state machine) and during port
+selection logic during transit from one agg to another.  Since the
+port.aggregator can be NULL, I believe the test as-is is necessary.
 
 	-J
 
----
-	-Jay Vosburgh, jay.vosburgh@canonical.com
+>>> +                               ad_info.aggregator_id)
+>>> +                               break;
+>>> +                       if (!bond_3ad_port_is_active(slave) &&
+>>> +                           ad_info.ports != 1)
+>>> +                               break;
+>>> +
+>>> +                       call_slave_netpoll = true;
+>>> +                       break;
+>>> +               default:
+>>> +                       if (bond_slave_is_up(slave))
+>>> +                               call_slave_netpoll = true;
+>>> +                       break;
+>>> +               }
+>>> +
+>>> +               if (call_slave_netpoll) {
+>>> +                       ops = slave->dev->netdev_ops;
+>>> +                       if (ops->ndo_poll_controller) {
+>>
+>>
+>> It's weird to see this check so down the road. Maybe reorg the logic to
+>> something like:
+>>
+>> bond_for_each_slave() {
+>>         if (!bond_slave_is_up() || !bond_slave_has_ndo_poll())
+>>                 continue;
+>>
+>>         if (BOND_MODE(bond) == 3AD && !bond_3ad_port_is_active())
+>>                 continue;
+>>
+>>         slave-do_ndo_poll_stuff();
+>> }
+>>
+>> Just as a thought, might be easier to read/shorter.
+>>
+>I tried this and it does save one bool variable but not much
+>different. Here it is -
+>
+>     bond_for_each_slave(bond, slave, iter) {
+>        ops = slave->dev->netdev_ops;
+>        if (!bond_slave_is_up(slave) || !ops->ndo_poll_controller)
+>            continue;
+>
+>        if (BOND_MODE(bond) == BOND_MODE_8023AD) {
+>            struct aggregator *agg =
+>                SLAVE_AD_INFO(slave)->port.aggregator;
+>
+>            if (agg && agg->aggregator_identifier !=
+>                   ad_info.aggregator_id)
+>                continue;
+>            if (!bond_3ad_port_is_active(slave) || ad_info.ports != 1)
+>                continue;
+>        }
+>
+>        ni = rcu_dereference_bh(slave->dev->npinfo);
+>        if (down_trylock(&ni->dev_lock))
+>            continue;
+>        ops->ndo_poll_controller(slave->dev);
+>        up(&ni->dev_lock);
+>    }
+>
+>I'm not sure if it's any different! BTW I did keep the aggregator
+>check since I'm not convinced that it's OK to eliminate the check.
+>
+>
+>>
+>>> +                               struct netpoll_info *ni =
+>>> +
+>>> rcu_dereference_bh(slave->dev->npinfo);
+>>> +
+>>> +                               if (down_trylock(&ni->dev_lock))
+>>> +                                       continue;
+>>> +                               ops->ndo_poll_controller(slave->dev);
+>>> +                               up(&ni->dev_lock);
+>>> +                       }
+>>> +               }
+>>> +       }
+>>> }
+>>>
+>>> static void bond_netpoll_cleanup(struct net_device *bond_dev)
+>>> diff --git a/include/net/bond_3ad.h b/include/net/bond_3ad.h
+>>> index f04cdbb7848e..6c455c646d61 100644
+>>> --- a/include/net/bond_3ad.h
+>>> +++ b/include/net/bond_3ad.h
+>>> @@ -278,5 +278,6 @@ int bond_3ad_lacpdu_recv(const struct sk_buff *skb,
+>>> struct bonding *bond,
+>>>                          struct slave *slave);
+>>> int bond_3ad_set_carrier(struct bonding *bond);
+>>> void bond_3ad_update_lacp_rate(struct bonding *bond);
+>>> +int bond_3ad_port_is_active(struct slave *slave);
+>>> #endif /* _NET_BOND_3AD_H */
+>>>
+>>> --
+>>> 2.2.0.rc0.207.ga3a616c
+>>>
+>>
