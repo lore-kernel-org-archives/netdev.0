@@ -1,139 +1,80 @@
-From: Ying Xue <ying.xue@windriver.com>
-Subject: Re: [PATCH net-next] rhashtable: Fix remove logic to avoid cross
- references between buckets
-Date: Mon, 9 Feb 2015 10:44:50 +0800
-Message-ID: <54D81F22.7070900@windriver.com>
-References: <cover.1423097592.git.tgraf@suug.ch> <54D2D656.8060709@windriver.com> <20150205084737.GA15549@casper.infradead.org> <54D3346E.4040302@windriver.com> <20150205101954.GA24388@casper.infradead.org> <54D42892.3030808@windriver.com> <20150206160843.GA31371@casper.infradead.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<herbert@gondor.apana.org.au>
-To: Thomas Graf <tgraf@suug.ch>
+From: Jay Vosburgh <jay.vosburgh@canonical.com>
+Subject: Re: [PATCH next 4/6] bonding: Allow userspace to set system_priority
+Date: Sat, 07 Feb 2015 23:46:24 -0800
+Message-ID: <13353.1423381584@famine>
+References: <1423270314-9271-1-git-send-email-maheshb@google.com> <20150207033847.GD34197@gospo.home.greyhouse.net> <6873.1423289974@famine> <CAF2d9ji-m6Suw_Rw6dBqs=Ky41h786rCrPh-J7tv7JA+4L84zw@mail.gmail.com>
+Cc: Andy Gospodarek <gospo@cumulusnetworks.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Veaceslav Falico <vfalico@gmail.com>,
+	Nikolay Aleksandrov <nikolay@redhat.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>
+To: Mahesh Bandewar <maheshb@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:61133 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750831AbbBICpc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 Feb 2015 21:45:32 -0500
-In-Reply-To: <20150206160843.GA31371@casper.infradead.org>
+Received: from youngberry.canonical.com ([91.189.89.112]:55745 "EHLO
+	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759065AbbBICpx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 Feb 2015 21:45:53 -0500
+In-reply-to: <CAF2d9ji-m6Suw_Rw6dBqs=Ky41h786rCrPh-J7tv7JA+4L84zw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/07/2015 12:08 AM, Thomas Graf wrote:
-> The remove logic properly searched the remaining chain for a matching
-> entry with an identical hash but it did this while searching from both
-> the old and new table. Instead in order to not leave stale references
-> behind we need to:
-> 
->  1. When growing and searching from the new table:
->     Search remaining chain for entry with same hash to avoid having
->     the new table directly point to a entry with a different hash.
-> 
->  2. When shrinking and searching from the old table:
->     Check if the element after the removed would create a cross
->     reference and avoid it if so.
-> 
-> These bugs were present from the beginning in nft_hash.
-> 
-> Also, both insert functions calculated the hash based on the mask of
-> the new table. This worked while growing. Wwhile shrinking, the mask
-> of the inew table is smaller than the mask of the old table. This lead
-> to a bit not being taken into account when selecting the bucket lock
-> and thus caused the wrong bucket to be locked eventually.
-> 
+Mahesh Bandewar <maheshb@google.com> wrote:
 
-Good Job!
-My previously reported issue has been gone, thanks for your hard work!
+>On Fri, Feb 6, 2015 at 10:19 PM, Jay Vosburgh
+><jay.vosburgh@canonical.com> wrote:
+>> Andy Gospodarek <gospo@cumulusnetworks.com> wrote:
+>>
+>>>On Fri, Feb 06, 2015 at 04:51:54PM -0800, Mahesh Bandewar wrote:
+>>>> This patch allows user to randomize the system-priority in an ad-system.
+>>>> The allowed range is 1 - 0xFFFF while default value is 0xFFFF. If user
+>>>> does not specify this value, the system defaults to 0xFFFF, which is
+>>>> what it was before this patch.
+>>>>
+>>>> Following example code could set the value -
+>>>>     # modprobe bonding mode=4
+>>>>     # sys_prio=$(( 1 + RANDOM + RANDOM ))
+>>>>     # echo $sys_prio > /sys/class/net/bond0/bonding/ad_actor_system_priority
+>>>
+>>>If I can convince you to change 'ad_actor_system_macaddr' to something
+>>>different can I also convince you to change this to something shorter,
+>>>too?  :)
+>>>
+>>>Maybe 'ad_sys_priority' or something?
+>>
+>>         The name, verbose as it is, is from the 802.1AX standard, and
+>> there's also a "partner_system_priority" (which is not a user-settable
+>> thing, it's a field in the LACPDUs).  My suggestion would therefore be
+>> "ad_actor_sys_prio" for this one, as I think there's some value in
+>> continuity with the names from the standard.
+>>
+>>         The MAC address one in the standard is just "actor_system";
+>> there's a "partner_system" here, too, which is also a field in the
+>> LACPDU.  I'm ok with calling that one just "actor_system," as presumably
+>> anyone changing it will know what it means.
+>>
+>Thank you guys for the suggestions. I didn't like those very long
+>names either but when there is something that already has name
+>similar, I defaulted to being verbose. I will have the name changed to
+>-
+>
+>ad_actor_system_priority            - ad_actor_sys_prio
+>ad_actor_system_mac_address - ad_actor_system
+>ad_actor_user_port_key             - ad_user_portkey
+>
+>Is this reasonable enough?
 
-Regards,
-Ying
+	Perhaps nitpicking, but I'd call it ad_user_port_key.
 
-> Fixes: 7e1e77636e36 ("lib: Resizable, Scalable, Concurrent Hash Table")
-> Fixes: 97defe1ecf86 ("rhashtable: Per bucket locks & deferred expansion/shrinking")
-> Reported-by: Ying Xue <ying.xue@windriver.com>
-> Signed-off-by: Thomas Graf <tgraf@suug.ch>
-> ---
->  lib/rhashtable.c | 28 +++++++++++++++++-----------
->  1 file changed, 17 insertions(+), 11 deletions(-)
-> 
-> diff --git a/lib/rhashtable.c b/lib/rhashtable.c
-> index 5919d63..e96fc00 100644
-> --- a/lib/rhashtable.c
-> +++ b/lib/rhashtable.c
-> @@ -552,8 +552,10 @@ static void rhashtable_wakeup_worker(struct rhashtable *ht)
->  static void __rhashtable_insert(struct rhashtable *ht, struct rhash_head *obj,
->  				struct bucket_table *tbl, u32 hash)
->  {
-> -	struct rhash_head *head = rht_dereference_bucket(tbl->buckets[hash],
-> -							 tbl, hash);
-> +	struct rhash_head *head;
-> +
-> +	hash = rht_bucket_index(tbl, hash);
-> +	head = rht_dereference_bucket(tbl->buckets[hash], tbl, hash);
->  
->  	ASSERT_BUCKET_LOCK(ht, tbl, hash);
->  
-> @@ -593,7 +595,7 @@ void rhashtable_insert(struct rhashtable *ht, struct rhash_head *obj)
->  
->  	tbl = rht_dereference_rcu(ht->future_tbl, ht);
->  	old_tbl = rht_dereference_rcu(ht->tbl, ht);
-> -	hash = head_hashfn(ht, tbl, obj);
-> +	hash = obj_raw_hashfn(ht, rht_obj(ht, obj));
->  
->  	lock_buckets(tbl, old_tbl, hash);
->  	__rhashtable_insert(ht, obj, tbl, hash);
-> @@ -627,8 +629,8 @@ bool rhashtable_remove(struct rhashtable *ht, struct rhash_head *obj)
->  	bool ret = false;
->  
->  	rcu_read_lock();
-> -	tbl = old_tbl = rht_dereference_rcu(ht->tbl, ht);
-> -	new_tbl = rht_dereference_rcu(ht->future_tbl, ht);
-> +	old_tbl = rht_dereference_rcu(ht->tbl, ht);
-> +	tbl = new_tbl = rht_dereference_rcu(ht->future_tbl, ht);
->  	new_hash = obj_raw_hashfn(ht, rht_obj(ht, obj));
->  
->  	lock_buckets(new_tbl, old_tbl, new_hash);
-> @@ -643,15 +645,19 @@ restart:
->  
->  		ASSERT_BUCKET_LOCK(ht, tbl, hash);
->  
-> -		if (unlikely(new_tbl != tbl)) {
-> -			rht_for_each_continue(he2, he->next, tbl, hash) {
-> +		if (old_tbl->size > new_tbl->size && tbl == old_tbl &&
-> +		    !rht_is_a_nulls(obj->next) &&
-> +		    head_hashfn(ht, tbl, obj->next) != hash) {
-> +			rcu_assign_pointer(*pprev, (struct rhash_head *) rht_marker(ht, hash));
-> +		} else if (unlikely(old_tbl->size < new_tbl->size && tbl == new_tbl)) {
-> +			rht_for_each_continue(he2, obj->next, tbl, hash) {
->  				if (head_hashfn(ht, tbl, he2) == hash) {
->  					rcu_assign_pointer(*pprev, he2);
->  					goto found;
->  				}
->  			}
->  
-> -			INIT_RHT_NULLS_HEAD(*pprev, ht, hash);
-> +			rcu_assign_pointer(*pprev, (struct rhash_head *) rht_marker(ht, hash));
->  		} else {
->  			rcu_assign_pointer(*pprev, obj->next);
->  		}
-> @@ -666,8 +672,8 @@ found:
->  	 * resizing. Thus traversing both is fine and the added cost is
->  	 * very rare.
->  	 */
-> -	if (tbl != new_tbl) {
-> -		tbl = new_tbl;
-> +	if (tbl != old_tbl) {
-> +		tbl = old_tbl;
->  		goto restart;
->  	}
->  
-> @@ -835,7 +841,7 @@ bool rhashtable_lookup_compare_insert(struct rhashtable *ht,
->  	rcu_read_lock();
->  	old_tbl = rht_dereference_rcu(ht->tbl, ht);
->  	new_tbl = rht_dereference_rcu(ht->future_tbl, ht);
-> -	new_hash = head_hashfn(ht, new_tbl, obj);
-> +	new_hash = obj_raw_hashfn(ht, rht_obj(ht, obj));
->  
->  	lock_buckets(new_tbl, old_tbl, new_hash);
->  
-> 
+	I agree that this one should not have "actor" in it, as this
+particular value is an invention of bonding and isn't directly part of
+the standard.  In bonding, the "user key" (always 0 prior to this
+patch), speed, and duplex are used to generate the actor_admin_port_key
+and actor_oper_port_key.  Those latter two are part of the standard, but
+have no required format.
+
+	-J
+
+---
+	-Jay Vosburgh, jay.vosburgh@canonical.com
