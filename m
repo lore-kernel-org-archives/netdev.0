@@ -1,53 +1,51 @@
-From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next 1/1] tipc: fix bug in socket reception function
-Date: Sun,  8 Feb 2015 11:10:50 -0500
-Message-ID: <1423411850-2594-1-git-send-email-jon.maloy@ericsson.com>
-Cc: netdev@vger.kernel.org,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	erik.hugne@ericsson.com, ying.xue@windriver.com, maloy@donjonn.com,
-	tipc-discussion@lists.sourceforge.net,
-	Jon Maloy <jon.maloy@ericsson.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp101.biz.mail.bf1.yahoo.com ([98.139.221.60]:47190 "EHLO
-	smtp101.biz.mail.bf1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752218AbbBHQL0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 Feb 2015 11:11:26 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Josh Hunt <johunt@akamai.com>
+Subject: nft hash set expansion problem
+Date: Sun, 08 Feb 2015 13:38:59 -0600
+Message-ID: <54D7BB53.2050203@akamai.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>, kaber@trash.net,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: Thomas Graf <tgraf@suug.ch>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-In commit c637c1035534867b85b78b453c38c495b58e2c5a ("tipc: resolve race
-problem at unicast message reception") we introduced a time limit
-for how long the function tipc_sk_eneque() would be allowed to execute
-its loop. Unfortunately, the test for when this limit is passed was put
-in the wrong place, resulting in a lost message when the test is true.
+Nft hash sets are unable to expand past the initial # of buckets. This 
+is b/c nft hash sets don't define the max_shift parameter and so 
+rht_grow_above_75():
 
-We fix this by moving the test to before we dequeue the next buffer
-from the input queue.
+         return atomic_read(&ht->nelems) > (new_size / 4 * 3) &&
+                (ht->p.max_shift && atomic_read(&ht->shift) < 
+ht->p.max_shift);
 
-Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
----
- net/tipc/socket.c | 5 ++---
- 1 file changed, 2 insertions(+), 3 deletions(-)
+can't return true.
 
-diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index 6666680..4a98d15 100644
---- a/net/tipc/socket.c
-+++ b/net/tipc/socket.c
-@@ -1802,12 +1802,11 @@ static int tipc_sk_enqueue(struct sk_buff_head *inputq, struct sock *sk,
- 	unsigned long time_limit = jiffies + 2;
- 
- 	while (skb_queue_len(inputq)) {
-+		if (unlikely(time_after_eq(jiffies, time_limit)))
-+			return TIPC_OK;
- 		skb = tipc_skb_dequeue(inputq, dport);
- 		if (unlikely(!skb))
- 			return TIPC_OK;
--		/* Return if softirq window exhausted */
--		if (unlikely(time_after_eq(jiffies, time_limit)))
--			return TIPC_OK;
- 		if (!sock_owned_by_user(sk)) {
- 			err = filter_rcv(sk, &skb);
- 			if (likely(!skb))
--- 
-1.9.1
+It's not clear to me if this is intentional; requiring users of 
+rhashtables define a max_shift in order to support expansion, or a bug 
+in the grow decision function?
+
+Here's a possible fix if it's the latter. Let me know and I can submit 
+something formal if that's the case.
+
+diff --git a/lib/rhashtable.c b/lib/rhashtable.c
+index e96fc00..2c51617 100644
+--- a/lib/rhashtable.c
++++ b/lib/rhashtable.c
+@@ -250,7 +250,7 @@ bool rht_grow_above_75(const struct rhashtable *ht, 
+size_t new_size)
+  {
+         /* Expand table when exceeding 75% load */
+         return atomic_read(&ht->nelems) > (new_size / 4 * 3) &&
+-              (ht->p.max_shift && atomic_read(&ht->shift) < 
+ht->p.max_shift);
++              (ht->p.max_shift ? atomic_read(&ht->shift) < 
+ht->p.max_shift : 1);
+  }
+  EXPORT_SYMBOL_GPL(rht_grow_above_75);
+
+Thanks
+Josh
+
+
