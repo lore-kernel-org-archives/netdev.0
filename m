@@ -1,60 +1,38 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: DSA: Attaching phy twice?
-Date: Sun, 8 Feb 2015 21:32:11 +0100
-Message-ID: <20150208203211.GB23581@lunn.ch>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] rt6_probe_deferred: Do not depend on struct ordering
+Date: Sun, 08 Feb 2015 13:03:10 -0800 (PST)
+Message-ID: <20150208.130310.111499727183236845.davem@davemloft.net>
+References: <20150208101407.517bcfa7@wiggum>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: f.fainelli@gmail.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, hannes@stressinduktion.org
+To: m@bues.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:39991 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758873AbbBHUer (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 8 Feb 2015 15:34:47 -0500
-Content-Disposition: inline
+Received: from shards.monkeyblade.net ([149.20.54.216]:60941 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751352AbbBHVDS convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 Feb 2015 16:03:18 -0500
+In-Reply-To: <20150208101407.517bcfa7@wiggum>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Florian
+=46rom: Michael B=FCsch <m@bues.ch>
+Date: Sun, 8 Feb 2015 10:14:07 +0100
 
-Have you seen messages like this before?
+> rt6_probe allocates a struct __rt6_probe_work and schedules a work ha=
+ndler rt6_probe_deferred.
+> But rt6_probe_deferred kfree's the struct work_struct instead of stru=
+ct __rt6_probe_work.
+> This works, because struct work_struct is the first element of struct=
+ __rt6_probe_work.
+>=20
+> Change it to kfree struct __rt6_probe_work to not implicitly depend o=
+n
+> struct work_struct being the first element.
+>=20
+> This does not affect the generated code.
+>=20
+> Signed-off-by: Michael Buesch <m@bues.ch>
 
-[    2.495126] Distributed Switch Architecture driver version 0.1
-[    2.501358] mvneta f1070000.ethernet eth0: [0]: detected a Marvell 88E6172 switch
-[    2.556441] libphy: dsa slave smi: probed
-[    2.638292] net lan4: PHY already attached
-[    2.733285] net lan3: PHY already attached
-[    2.820749] net lan2: PHY already attached
-[    2.910749] net lan1: PHY already attached
-[    3.000772] net internet: PHY already attached
-
-What appears to be happening is that dsa_slave_phy_setup() is finding
-the phy for the port via device tree and using of_phy_connect(), or it
-uses the fall back of taking a phy from the switch internal mdio bus
-and calling phy_connect_direct(). So if a phy is found,
-phy_attach_direct() gets called to attach the phy to the device.
-
-Then in dsa_slave_create(), a second call to phy_attach() is
-made. This is when we get the warning "PHY already attached", and it
-returns EBUSY, which is ignored.
-
-Is this code at the end of dsa_slave_create() doing anything useful?
-
-	if (p->phy != NULL) {
-		if (ds->drv->get_phy_flags)
-			p->phy->dev_flags |= ds->drv->get_phy_flags(ds, port);
-
-		phy_attach(slave_dev, dev_name(&p->phy->dev),
-			   PHY_INTERFACE_MODE_GMII);
-
-		p->phy->autoneg = AUTONEG_ENABLE;
-		p->phy->speed = 0;
-		p->phy->duplex = 0;
-		p->phy->advertising = p->phy->supported | ADVERTISED_Autoneg;
-	}
-
-My quick testing suggests its not useful, so if you agree, i will
-submit a patch removing it. Or am i missing something?
-
-Thanks
-	Andrew
+Applied.
