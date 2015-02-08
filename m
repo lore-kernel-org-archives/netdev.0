@@ -1,27 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 0/7] r8152: adjust the code
-Date: Sat, 07 Feb 2015 22:46:54 -0800 (PST)
-Message-ID: <20150207.224654.468377185540897471.davem@davemloft.net>
-References: <1394712342-15778-118-Taiwan-albertk@realtek.com>
-	<1394712342-15778-129-Taiwan-albertk@realtek.com>
+Subject: Re: [net-next v2 00/16][pull request] Intel Wired LAN Driver
+ Updates 2015-02-05
+Date: Sat, 07 Feb 2015 22:49:04 -0800 (PST)
+Message-ID: <20150207.224904.2035469612973406625.davem@davemloft.net>
+References: <1423197085-32270-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
-	linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org
-To: hayeswang@realtek.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1394712342-15778-129-Taiwan-albertk@realtek.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com
+To: jeffrey.t.kirsher@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:47266 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751552AbbBHGtF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 Feb 2015 01:49:05 -0500
+In-Reply-To: <1423197085-32270-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Hayes Wang <hayeswang@realtek.com>
-Date: Fri, 6 Feb 2015 11:30:44 +0800
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Thu,  5 Feb 2015 20:31:09 -0800
 
-> V2:
-> Correct the subject of patch #5. Replace "link feed" with "line feed".
-> 
-> v1:
-> Code adjustment.
+> This series contains updates to fm10k, ixgbe and ixgbevf.
 
-Series applied, thanks.
+Pulled, thanks Jeff.
