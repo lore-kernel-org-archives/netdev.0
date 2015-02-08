@@ -1,36 +1,60 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/1] tipc: fix bug in socket reception function
-Date: Sun, 08 Feb 2015 13:09:50 -0800 (PST)
-Message-ID: <20150208.130950.2302140482089254354.davem@davemloft.net>
-References: <1423411850-2594-1-git-send-email-jon.maloy@ericsson.com>
+From: Ronald Pina <pinaronald@gmail.com>
+Subject: Re: Implementing Deficit Round Robin for different irtual interfaces
+Date: Sun, 8 Feb 2015 22:14:41 +0100
+Message-ID: <CAONBAadkef3UhU8Zhb04v11U58Di43e6XK3O8D=z3FTM0mmYCw@mail.gmail.com>
+References: <CAONBAaeKZNCv42a+HY4TtXtYxnAr6-fX1GXEndKJ=r3nZ-1LhQ@mail.gmail.com>
+	<CAA93jw5W+WwnWUWddksYSiuoVFkDvMCo3Vw6aiLK2Z3L4QTkGw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, paul.gortmaker@windriver.com,
-	erik.hugne@ericsson.com, ying.xue@windriver.com, maloy@donjonn.com,
-	tipc-discussion@lists.sourceforge.net
-To: jon.maloy@ericsson.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>
+To: Dave Taht <dave.taht@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:32773 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758966AbbBHVJv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 Feb 2015 16:09:51 -0500
-In-Reply-To: <1423411850-2594-1-git-send-email-jon.maloy@ericsson.com>
+Received: from mail-ig0-f179.google.com ([209.85.213.179]:34084 "EHLO
+	mail-ig0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753143AbbBHVOm convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 Feb 2015 16:14:42 -0500
+Received: by mail-ig0-f179.google.com with SMTP id l13so12733316iga.0
+        for <netdev@vger.kernel.org>; Sun, 08 Feb 2015 13:14:42 -0800 (PST)
+In-Reply-To: <CAA93jw5W+WwnWUWddksYSiuoVFkDvMCo3Vw6aiLK2Z3L4QTkGw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jon Maloy <jon.maloy@ericsson.com>
-Date: Sun,  8 Feb 2015 11:10:50 -0500
+Hi Dave
+It is done a great work especially on bufferbload problem . On my work
+i am trying to use this scheduling algorithm to schedule the virtual
+network interfaces on Xen Hypervisor Dom0, maybe there are better
+algorithm than DRR like DRR++ or the algorithm that you referenced,
+but since it is a study work i would like to test the performance of
+DRR and later can chose a better scheduling algorithm. The question is
+that since tc tools in Linux are only for one device while on Xen the
+traffic must be scheduled from different domains netif devices what is
+the function or the module responsible for making scheduling
+decisions?
+ A similar idea is like using a qdisc to represent an netif network
+virtual interface of guest on dom0.
 
-> In commit c637c1035534867b85b78b453c38c495b58e2c5a ("tipc: resolve race
-> problem at unicast message reception") we introduced a time limit
-> for how long the function tipc_sk_eneque() would be allowed to execute
-> its loop. Unfortunately, the test for when this limit is passed was put
-> in the wrong place, resulting in a lost message when the test is true.
-> 
-> We fix this by moving the test to before we dequeue the next buffer
-> from the input queue.
-> 
-> Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 
-Applied, thanks Jon.
+
+On Sat, Feb 7, 2015 at 1:24 PM, Dave Taht <dave.taht@gmail.com> wrote:
+> we have something better than drr already in the kernel.
+>
+> https://tools.ietf.org/html/draft-hoeiland-joergensen-aqm-fq-codel-01
+>
+> see also sch_fq
+>
+> as for fq over virtual devices....
+>
+> see recent posts on improving RPS steering.
+>
+> and regrettably FQ ignores cache locality and the cost of a context
+> switch when taken too far. some batching (tso/gro/gso) is indeed
+> required for a good compromise between latency and throughput.
+>
+> http://www.bufferbloat.net/projects/cerowrt/wiki/Bloat-videos#Dave-Ta=
+umlhts-Water-Videos-November-2012
+
+> --
+> Dave T=C3=A4ht
+>
+> http://www.bufferbloat.net/projects/bloat/wiki/Upcoming_Talks
