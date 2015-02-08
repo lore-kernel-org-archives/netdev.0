@@ -1,72 +1,60 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: [PATCH v3] net: bluetooth: hci_sock: Use 'const u32 *' instead of 'void *' for 2nd parameter of hci_test_bit()
-Date: Sun, 8 Feb 2015 12:17:14 -0800
-Message-ID: <BD721CC9-DD4D-480D-98E6-89CA868BA285@holtmann.org>
-References: <54D61229.9010904@sunrus.com.cn> <1423338774.2933.9.camel@perches.com> <54D6A729.1070905@sunrus.com.cn> <54D75698.7010808@sunrus.com.cn>
-Mime-Version: 1.0 (Mac OS X Mail 8.2 \(2070.6\))
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 8BIT
-Cc: Joe Perches <joe@perches.com>,
-	David Laight <David.Laight@ACULAB.COM>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	"Gustavo F. Padovan" <gustavo@padovan.org>,
-	Johan Hedberg <johan.hedberg@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"linux-bluetooth@vger.kernel.org" <linux-bluetooth@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Chen Gang S <gang.chen@sunrus.com.cn>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <54D75698.7010808@sunrus.com.cn>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: DSA: Attaching phy twice?
+Date: Sun, 8 Feb 2015 21:32:11 +0100
+Message-ID: <20150208203211.GB23581@lunn.ch>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: f.fainelli@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:39991 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758873AbbBHUer (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 8 Feb 2015 15:34:47 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Chen,
+Hi Florian
 
->>>> hci_test_bit() does not modify 2nd parameter, so it is better to let it
->>>> be constant, or may cause build warning. The related warning (with
->>>> allmodconfig under xtensa):
->>>> 
->>>>  net/bluetooth/hci_sock.c: In function 'hci_sock_sendmsg':
->>>>  net/bluetooth/hci_sock.c:955:8: warning: passing argument 2 of 'hci_test_bit' discards 'const' qualifier from pointer target type [-Wdiscarded-array-qualifiers]
->>>>          &hci_sec_filter.ocf_mask[ogf])) &&
->>>>          ^
->>>>  net/bluetooth/hci_sock.c:49:19: note: expected 'void *' but argument is of type 'const __u32 (*)[4] {aka const unsigned int (*)[4]}'
->>>>   static inline int hci_test_bit(int nr, void *addr)
->>>>                     ^
->>>> 
->>>> hci_test_bit() always treats 2nd parameter is u32, and all callers also
->>>> know about it, so 2nd parameter of hci_test_bit() need use 'const u32 *'
->>>> instead of 'void *'.
->>>> 
->>>> C language treats the array function parameter as a pointer, so the
->>>> caller need not use '&' for the 2 demotion array, or it reports warning:
->>>> 'const unsigned int (*)[4]' is different with 'const unsigned int *'.
->>> 
->>> I still think you are possibly papering over potential bugs
->>> on big-endian 64 bit systems.
->>> 
->>> unsigned long vs u32.
->>> 
->>> How are the bits actually set?
->>> 
->> 
->>> From current usage of event_mask, "(u32 *) f->event_mask" is only for
->> event_mask data storage, not for calculation (always as "u32 *" for
->> calculation).
->> 
->>  [root@localhost linux-next]# grep -rn "\<event_mask\>" include/net/bluetooth net/bluetooth
->>  include/net/bluetooth/hci_sock.h:51:	unsigned long event_mask[2];
-> 
-> e.g. use "unsigned char event_mask[2 * sizeof(unsigned long)]" instead
-> of "unsigned long event_mask[2]".
-> 
-> There is still no any issue within "hci_sock.c" (although I am not sure
-> whether this modification may cause issues in another modules outside
-> kernel).
+Have you seen messages like this before?
 
-what about writing a test case for userspace that ensures that things are working correctly. As I said before, we left it this way since it is part of the API.
+[    2.495126] Distributed Switch Architecture driver version 0.1
+[    2.501358] mvneta f1070000.ethernet eth0: [0]: detected a Marvell 88E6172 switch
+[    2.556441] libphy: dsa slave smi: probed
+[    2.638292] net lan4: PHY already attached
+[    2.733285] net lan3: PHY already attached
+[    2.820749] net lan2: PHY already attached
+[    2.910749] net lan1: PHY already attached
+[    3.000772] net internet: PHY already attached
 
-Regards
+What appears to be happening is that dsa_slave_phy_setup() is finding
+the phy for the port via device tree and using of_phy_connect(), or it
+uses the fall back of taking a phy from the switch internal mdio bus
+and calling phy_connect_direct(). So if a phy is found,
+phy_attach_direct() gets called to attach the phy to the device.
 
-Marcel
+Then in dsa_slave_create(), a second call to phy_attach() is
+made. This is when we get the warning "PHY already attached", and it
+returns EBUSY, which is ignored.
+
+Is this code at the end of dsa_slave_create() doing anything useful?
+
+	if (p->phy != NULL) {
+		if (ds->drv->get_phy_flags)
+			p->phy->dev_flags |= ds->drv->get_phy_flags(ds, port);
+
+		phy_attach(slave_dev, dev_name(&p->phy->dev),
+			   PHY_INTERFACE_MODE_GMII);
+
+		p->phy->autoneg = AUTONEG_ENABLE;
+		p->phy->speed = 0;
+		p->phy->duplex = 0;
+		p->phy->advertising = p->phy->supported | ADVERTISED_Autoneg;
+	}
+
+My quick testing suggests its not useful, so if you agree, i will
+submit a patch removing it. Or am i missing something?
+
+Thanks
+	Andrew
