@@ -1,51 +1,130 @@
-From: Josh Hunt <johunt@akamai.com>
-Subject: nft hash set expansion problem
-Date: Sun, 08 Feb 2015 13:38:59 -0600
-Message-ID: <54D7BB53.2050203@akamai.com>
+From: Tilman Schmidt <tilman@imap.cc>
+Subject: Kill I4L? (was: [PATCH 2/6] drivers: isdn: act2000: capi.c: fix checkpatch
+ errors)
+Date: Sun, 08 Feb 2015 20:47:22 +0100
+Message-ID: <54D7BD4A.4090101@imap.cc>
+References: <1423328797-17865-1-git-send-email-baspeters93@gmail.com>	 <1423328797-17865-3-git-send-email-baspeters93@gmail.com>	 <54D650BF.5000400@cogentembedded.com> <1423336761.2933.7.camel@perches.com> <1423341800.2246.68.camel@x220>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>, kaber@trash.net,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Thomas Graf <tgraf@suug.ch>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	Bas Peters <baspeters93@gmail.com>, isdn@linux-pingi.de,
+	julia.lawall@lip6.fr, davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Paul Bolle <pebolle@tiscali.nl>, Joe Perches <joe@perches.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1423341800.2246.68.camel@x220>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Nft hash sets are unable to expand past the initial # of buckets. This 
-is b/c nft hash sets don't define the max_shift parameter and so 
-rht_grow_above_75():
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
 
-         return atomic_read(&ht->nelems) > (new_size / 4 * 3) &&
-                (ht->p.max_shift && atomic_read(&ht->shift) < 
-ht->p.max_shift);
+Am 07.02.2015 um 21:43 schrieb Paul Bolle:
+> On Sat, 2015-02-07 at 11:19 -0800, Joe Perches wrote:
+>> Does anyone still use these cards?
+>=20
+> 0) Good question.
 
-can't return true.
+I very much doubt it. It was an ISA card, not even PnP. I'd imagine
+any systems of that kind would be retired by now.
 
-It's not clear to me if this is intentional; requiring users of 
-rhashtables define a max_shift in order to support expansion, or a bug 
-in the grow decision function?
+> 2) Broader picture: if I remember correctly there are now four
+> different flavors of ISDN in the kernel: - really old: pre-i4l
 
-Here's a possible fix if it's the latter. Let me know and I can submit 
-something formal if that's the case.
+I don't think any traces of that are still present in current kernel
+releases. It should all have been left behind on the switch to 2.6.
 
-diff --git a/lib/rhashtable.c b/lib/rhashtable.c
-index e96fc00..2c51617 100644
---- a/lib/rhashtable.c
-+++ b/lib/rhashtable.c
-@@ -250,7 +250,7 @@ bool rht_grow_above_75(const struct rhashtable *ht, 
-size_t new_size)
-  {
-         /* Expand table when exceeding 75% load */
-         return atomic_read(&ht->nelems) > (new_size / 4 * 3) &&
--              (ht->p.max_shift && atomic_read(&ht->shift) < 
-ht->p.max_shift);
-+              (ht->p.max_shift ? atomic_read(&ht->shift) < 
-ht->p.max_shift : 1);
-  }
-  EXPORT_SYMBOL_GPL(rht_grow_above_75);
+> - very old: i4l - just old: CAPI - not so old: mISDN
 
-Thanks
-Josh
+Those are the in-tree ones. To make matters worse, the Asterisk people
+invented three more (Zaptel, DAHDI and vISDN) which are maintained
+out-of-tree. Apparently they weren't satisfied with any the in-tree
+ones and didn't feel like helping to improve one of them to match
+their needs.
 
+> [snip] So the current ISDN situation is a bit messy.
 
+That's putting it mildly.
+
+> Tilman might be able to provide a clearer, and maybe less grumpy,=20
+> summary of the current situation.
+
+Don't know about either. ;-)
+
+> [M]aybe we should consider, say, removing i4l and pre i4l and see
+> who complains. That might be a rude thing to do. So perhaps the=20
+> various ISDN flavors should be left alone until ... what exactly?
+
+I'd support that step. I don't think it'll hurt anyone because the
+cards supported by i4l are mostly ISA cards anyway. The only exceptions
+are the HiSax family which is now supported by mISDN, and the Hypercope
+family which is supported by CAPI.
+
+In the past we had Documentation/feature-removal-schedule.txt for
+announcing removals like that but Linus shot that down on 2012-10-01
+(commit 9c0ece069b32e8e122aea71aa47181c10eb85ba7) so I guess
+somebody could just submit a patch series starting with
+
+- --- a/drivers/isdn/Kconfig
++++ b/drivers/isdn/Kconfig
+@@ -20,25 +20,6 @@ menuconfig ISDN
+
+ if ISDN
+
+- -menuconfig ISDN_I4L
+- -       tristate "Old ISDN4Linux (deprecated)"
+- -       depends on TTY
+- -       ---help---
+- -         This driver allows you to use an ISDN adapter for networkin=
+g
+- -         connections and as dialin/out device.  The isdn-tty's have =
+a
+built
+- -         in AT-compatible modem emulator.  Network devices support
+autodial,
+- -         channel-bundling, callback and caller-authentication withou=
+t
+having
+- -         a daemon running.  A reduced T.70 protocol is supported wit=
+h
+tty's
+- -         suitable for German BTX.  On D-Channel, the protocols EDSS1
+- -         (Euro-ISDN) and 1TR6 (German style) are supported.  See
+- -         <file:Documentation/isdn/README> for more information.
+- -
+- -         ISDN support in the linux kernel is moving towards a new AP=
+I,
+- -         called CAPI (Common ISDN Application Programming Interface)=
+=2E
+- -         Therefore the old ISDN4Linux layer will eventually become
+obsolete.
+- -         It is still available, though, for use with adapters that
+are not
+- -         supported by the new CAPI subsystem yet.
+- -
+ source "drivers/isdn/i4l/Kconfig"
+
+ menuconfig ISDN_CAPI
+
+and working its way from that to remove anything that's become
+unreachable.
+
+Shall I?
+
+- --=20
+Tilman Schmidt                              E-Mail: tilman@imap.cc
+Bonn, Germany
+Diese Nachricht besteht zu 100% aus wiederverwerteten Bits.
+Unge=C3=B6ffnet mindestens haltbar bis: (siehe R=C3=BCckseite)
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQEcBAEBAgAGBQJU171KAAoJEFPuqx0v+F+qnqgH/3KCC6wnXWKOxfuWZ13lwqa2
+GuFy+DMYZbXi5e5IHIYnTO9LvA7uzg4ryokP4iMWazhIpx5Cx0Riil59LJExE59p
+jsLizpDeZ+z+wwrEZHimc8lYEFO70abvgKL5NdkF8luc+QPIJAmDyLA+8c6J0rKo
+VcIb+vq3hW06L7FeKD3Y03NU1xZDtG6HxhnCQRV5b8Ve6sfeu4Oz/83yLyvvfNbK
+mnRWbUisO2TmBWcTbZ0QB889iPBRrR1HD4TLA9WZ38fQs7YbuKNbz4jxMKDDSh2i
+JHDK8tzn5P+73CPHkvRfELODn+V5uzUWh6QHJFD+4sMOKvNZfbxlEmt1GANmto0=3D
+=3DPtE1
+-----END PGP SIGNATURE-----
