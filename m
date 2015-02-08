@@ -1,104 +1,53 @@
-From: Chen Gang S <gang.chen@sunrus.com.cn>
-Subject: Re: [PATCH v3] net: bluetooth: hci_sock: Use 'const u32 *' instead
- of 'void *' for 2nd parameter of hci_test_bit()
-Date: Sun, 08 Feb 2015 20:29:12 +0800
-Message-ID: <54D75698.7010808@sunrus.com.cn>
-References: <54D61229.9010904@sunrus.com.cn> <1423338774.2933.9.camel@perches.com> <54D6A729.1070905@sunrus.com.cn>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: David Laight <David.Laight@ACULAB.COM>,
-	Marcel Holtmann <marcel@holtmann.org>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	"Gustavo F. Padovan" <gustavo@padovan.org>,
-	Johan Hedberg <johan.hedberg@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"linux-bluetooth@vger.kernel.org" <linux-bluetooth@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <54D6A729.1070905@sunrus.com.cn>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jon Maloy <jon.maloy@ericsson.com>
+Subject: [PATCH net-next 1/1] tipc: fix bug in socket reception function
+Date: Sun,  8 Feb 2015 11:10:50 -0500
+Message-ID: <1423411850-2594-1-git-send-email-jon.maloy@ericsson.com>
+Cc: netdev@vger.kernel.org,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	erik.hugne@ericsson.com, ying.xue@windriver.com, maloy@donjonn.com,
+	tipc-discussion@lists.sourceforge.net,
+	Jon Maloy <jon.maloy@ericsson.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp101.biz.mail.bf1.yahoo.com ([98.139.221.60]:47190 "EHLO
+	smtp101.biz.mail.bf1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752218AbbBHQL0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 Feb 2015 11:11:26 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2/8/15 08:00, Chen Gang S wrote:
-> On 2/8/15 03:52, Joe Perches wrote:
->> On Sat, 2015-02-07 at 21:24 +0800, Chen Gang S wrote:
->>> hci_test_bit() does not modify 2nd parameter, so it is better to let it
->>> be constant, or may cause build warning. The related warning (with
->>> allmodconfig under xtensa):
->>>
->>>   net/bluetooth/hci_sock.c: In function 'hci_sock_sendmsg':
->>>   net/bluetooth/hci_sock.c:955:8: warning: passing argument 2 of 'hci_test_bit' discards 'const' qualifier from pointer target type [-Wdiscarded-array-qualifiers]
->>>           &hci_sec_filter.ocf_mask[ogf])) &&
->>>           ^
->>>   net/bluetooth/hci_sock.c:49:19: note: expected 'void *' but argument is of type 'const __u32 (*)[4] {aka const unsigned int (*)[4]}'
->>>    static inline int hci_test_bit(int nr, void *addr)
->>>                      ^
->>>
->>> hci_test_bit() always treats 2nd parameter is u32, and all callers also
->>> know about it, so 2nd parameter of hci_test_bit() need use 'const u32 *'
->>> instead of 'void *'.
->>>
->>> C language treats the array function parameter as a pointer, so the
->>> caller need not use '&' for the 2 demotion array, or it reports warning:
->>> 'const unsigned int (*)[4]' is different with 'const unsigned int *'.
->>
->> I still think you are possibly papering over potential bugs
->> on big-endian 64 bit systems.
->>
->> unsigned long vs u32.
->>
->> How are the bits actually set?
->>
-> 
->>From current usage of event_mask, "(u32 *) f->event_mask" is only for
-> event_mask data storage, not for calculation (always as "u32 *" for
-> calculation).
-> 
->   [root@localhost linux-next]# grep -rn "\<event_mask\>" include/net/bluetooth net/bluetooth
->   include/net/bluetooth/hci_sock.h:51:	unsigned long event_mask[2];
+In commit c637c1035534867b85b78b453c38c495b58e2c5a ("tipc: resolve race
+problem at unicast message reception") we introduced a time limit
+for how long the function tipc_sk_eneque() would be allowed to execute
+its loop. Unfortunately, the test for when this limit is passed was put
+in the wrong place, resulting in a lost message when the test is true.
 
-e.g. use "unsigned char event_mask[2 * sizeof(unsigned long)]" instead
-of "unsigned long event_mask[2]".
+We fix this by moving the test to before we dequeue the next buffer
+from the input queue.
 
-There is still no any issue within "hci_sock.c" (although I am not sure
-whether this modification may cause issues in another modules outside
-kernel).
+Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+---
+ net/tipc/socket.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
 
-
-Thanks.
-
->   include/net/bluetooth/hci_sock.h:57:	__u32  event_mask[2];
->   net/bluetooth/hci_sock.c:59:	__u32 event_mask[2];
->   net/bluetooth/hci_sock.c:110:	if (!hci_test_bit(flt_event, (u32 *)&flt->event_mask))
->   net/bluetooth/hci_sock.c:1041:			uf.event_mask[0] = *((u32 *) f->event_mask + 0);
->   net/bluetooth/hci_sock.c:1042:			uf.event_mask[1] = *((u32 *) f->event_mask + 1);
->   net/bluetooth/hci_sock.c:1053:			uf.event_mask[0] &= *((u32 *) hci_sec_filter.event_mask + 0);
->   net/bluetooth/hci_sock.c:1054:			uf.event_mask[1] &= *((u32 *) hci_sec_filter.event_mask + 1);
->   net/bluetooth/hci_sock.c:1062:			*((u32 *) f->event_mask + 0) = uf.event_mask[0];
->   net/bluetooth/hci_sock.c:1063:			*((u32 *) f->event_mask + 1) = uf.event_mask[1];
->   net/bluetooth/hci_sock.c:1124:			uf.event_mask[0] = *((u32 *) f->event_mask + 0);
->   net/bluetooth/hci_sock.c:1125:			uf.event_mask[1] = *((u32 *) f->event_mask + 1);
-> 
-> Calculation is machine endian dependency, but event_mask is always as
-> "u32 *" for calculation, so there is no any type cast for calculation,
-> it is OK.
-> 
-> Storage is independent from machine endian, but it depends on machine
-> bits. In our case, 'unsigned long' array has enough space to accept u32
-> array, so there is no any data overwritten, it is OK.
-> 
-> 
-> By the way, I intended to remain event_mask as 'unsigned long' type,
-> because I am not quite sure whether it is also used by another modules
-> in kernel (or any other systems). May we change it to u32?
-> 
-> Thanks.
-> 
-
+diff --git a/net/tipc/socket.c b/net/tipc/socket.c
+index 6666680..4a98d15 100644
+--- a/net/tipc/socket.c
++++ b/net/tipc/socket.c
+@@ -1802,12 +1802,11 @@ static int tipc_sk_enqueue(struct sk_buff_head *inputq, struct sock *sk,
+ 	unsigned long time_limit = jiffies + 2;
+ 
+ 	while (skb_queue_len(inputq)) {
++		if (unlikely(time_after_eq(jiffies, time_limit)))
++			return TIPC_OK;
+ 		skb = tipc_skb_dequeue(inputq, dport);
+ 		if (unlikely(!skb))
+ 			return TIPC_OK;
+-		/* Return if softirq window exhausted */
+-		if (unlikely(time_after_eq(jiffies, time_limit)))
+-			return TIPC_OK;
+ 		if (!sock_owned_by_user(sk)) {
+ 			err = filter_rcv(sk, &skb);
+ 			if (likely(!skb))
 -- 
-Chen Gang
-
-Open, share, and attitude like air, water, and life which God blessed
+1.9.1
