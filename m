@@ -1,34 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] amd-xgbe: Check per channel DMA interrupt use in
- main ISR
-Date: Sat, 07 Feb 2015 22:45:45 -0800 (PST)
-Message-ID: <20150207.224545.2294450094908030704.davem@davemloft.net>
-References: <20150206011714.2507.45712.stgit@tlendack-t1.amdoffice.net>
+Subject: Re: [PATCH net-next v2 0/7] r8152: adjust the code
+Date: Sat, 07 Feb 2015 22:46:54 -0800 (PST)
+Message-ID: <20150207.224654.468377185540897471.davem@davemloft.net>
+References: <1394712342-15778-118-Taiwan-albertk@realtek.com>
+	<1394712342-15778-129-Taiwan-albertk@realtek.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: thomas.lendacky@amd.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47225 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751526AbbBHGpq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 Feb 2015 01:45:46 -0500
-In-Reply-To: <20150206011714.2507.45712.stgit@tlendack-t1.amdoffice.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
+	linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org
+To: hayeswang@realtek.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1394712342-15778-129-Taiwan-albertk@realtek.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Tom Lendacky <thomas.lendacky@amd.com>
-Date: Thu, 5 Feb 2015 19:17:14 -0600
+From: Hayes Wang <hayeswang@realtek.com>
+Date: Fri, 6 Feb 2015 11:30:44 +0800
 
-> When using per channel DMA interrupts the transmit interrupt (TI) and the
-> receive interrupt (RI) are masked off so as to not generate an interrupt
-> to the main ISR. However, should another interrupt fire for the DMA channel
-> that is handled by the main ISR the TI/RI bits can still be set. This
-> will cause the wrong and uninitialized napi structure to be used causing a
-> panic. Add a check to be sure per channel DMA interrupts are not enabled
-> before acting on those bit flags.
+> V2:
+> Correct the subject of patch #5. Replace "link feed" with "line feed".
 > 
-> Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
+> v1:
+> Code adjustment.
 
-Applied.
+Series applied, thanks.
