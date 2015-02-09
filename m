@@ -1,57 +1,51 @@
-From: Vladislav Yasevich <vyasevich@gmail.com>
-Subject: [PATCH v2 2/2] ipv6: Make __ipv6_select_ident static
-Date: Mon,  9 Feb 2015 09:38:21 -0500
-Message-ID: <1423492701-21429-3-git-send-email-vyasevic@redhat.com>
-References: <1423492701-21429-1-git-send-email-vyasevic@redhat.com>
-Cc: eric.dumazet@gmail.com, Vladislav Yasevich <vyasevic@redhat.com>
-To: netdev@vger.kernel.org
+From: Josh Hunt <johunt@akamai.com>
+Subject: Re: nft hash set expansion problem
+Date: Mon, 09 Feb 2015 08:44:32 -0600
+Message-ID: <54D8C7D0.9030803@akamai.com>
+References: <54D7BB53.2050203@akamai.com> <54D7E677.5050708@iogearbox.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Thomas Graf <tgraf@suug.ch>,
+	Pablo Neira Ayuso <pablo@netfilter.org>, kaber@trash.net,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f169.google.com ([209.85.216.169]:58945 "EHLO
-	mail-qc0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932902AbbBIOid (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Feb 2015 09:38:33 -0500
-Received: by mail-qc0-f169.google.com with SMTP id b13so22853535qcw.0
-        for <netdev@vger.kernel.org>; Mon, 09 Feb 2015 06:38:32 -0800 (PST)
-In-Reply-To: <1423492701-21429-1-git-send-email-vyasevic@redhat.com>
+Received: from prod-mail-xrelay02.akamai.com ([72.246.2.14]:60159 "EHLO
+	prod-mail-xrelay02.akamai.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750928AbbBIOoe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Feb 2015 09:44:34 -0500
+In-Reply-To: <54D7E677.5050708@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Make __ipv6_select_ident() static as it isn't used outside
-the file.
+On 02/08/2015 04:43 PM, Daniel Borkmann wrote:
+> On 02/08/2015 08:38 PM, Josh Hunt wrote:
+>> Nft hash sets are unable to expand past the initial # of buckets. This
+>> is b/c nft hash sets don't define the max_shift parameter and so
+>> rht_grow_above_75():
+> ...
+>> diff --git a/lib/rhashtable.c b/lib/rhashtable.c
+>> index e96fc00..2c51617 100644
+>> --- a/lib/rhashtable.c
+>> +++ b/lib/rhashtable.c
+>> @@ -250,7 +250,7 @@ bool rht_grow_above_75(const struct rhashtable
+>> *ht, size_t new_size)
+>>   {
+>>          /* Expand table when exceeding 75% load */
+>>          return atomic_read(&ht->nelems) > (new_size / 4 * 3) &&
+>> -              (ht->p.max_shift && atomic_read(&ht->shift) <
+>> ht->p.max_shift);
+>> +              (ht->p.max_shift ? atomic_read(&ht->shift) <
+>> ht->p.max_shift : 1);
+>>   }
+>>   EXPORT_SYMBOL_GPL(rht_grow_above_75);
+>
+> This seems not correct as we want to have an upper limit for
+> rhashtable expansions. It's better to define a max_shift for
+> nftables, instead.
 
-Fixes: 0508c07f5e0c9 (ipv6: Select fragment id during UFO segmentation if not set.)
-Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
----
- include/net/ipv6.h     | 2 --
- net/ipv6/output_core.c | 3 ++-
- 2 files changed, 2 insertions(+), 3 deletions(-)
+Thanks Daniel that's what I wanted to know. I'll fix this on the 
+nft_hash side.
 
-diff --git a/include/net/ipv6.h b/include/net/ipv6.h
-index 6e416f6..fde3b59 100644
---- a/include/net/ipv6.h
-+++ b/include/net/ipv6.h
-@@ -671,8 +671,6 @@ static inline int ipv6_addr_diff(const struct in6_addr *a1, const struct in6_add
- 	return __ipv6_addr_diff(a1, a2, sizeof(struct in6_addr));
- }
- 
--u32 __ipv6_select_ident(u32 hashrnd, struct in6_addr *dst,
--			struct in6_addr *src);
- void ipv6_select_ident(struct frag_hdr *fhdr, struct rt6_info *rt);
- void ipv6_proxy_select_ident(struct sk_buff *skb);
- 
-diff --git a/net/ipv6/output_core.c b/net/ipv6/output_core.c
-index a86cf60..74581f7 100644
---- a/net/ipv6/output_core.c
-+++ b/net/ipv6/output_core.c
-@@ -9,7 +9,8 @@
- #include <net/addrconf.h>
- #include <net/secure_seq.h>
- 
--u32 __ipv6_select_ident(u32 hashrnd, struct in6_addr *dst, struct in6_addr *src)
-+static u32 __ipv6_select_ident(u32 hashrnd, struct in6_addr *dst,
-+			       struct in6_addr *src)
- {
- 	u32 hash, id;
- 
--- 
-1.9.3
+Josh
