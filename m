@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 08/15] i40evf: stop the watchdog for shutdown
-Date: Mon,  9 Feb 2015 02:43:54 -0800
-Message-ID: <1423478641-3138-9-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 05/15] i40e: add locking around VF reset
+Date: Mon,  9 Feb 2015 02:43:51 -0800
+Message-ID: <1423478641-3138-6-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1423478641-3138-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Mitch Williams <mitch.a.williams@intel.com>,
 	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
@@ -10,48 +10,98 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga11.intel.com ([192.55.52.93]:38701 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760568AbbBIKoG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 Feb 2015 05:44:06 -0500
+	id S1760275AbbBIKoF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 Feb 2015 05:44:05 -0500
 In-Reply-To: <1423478641-3138-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Mitch Williams <mitch.a.williams@intel.com>
 
-Stop the watchdog during shutdown. Failing to do this causes a log full
-of admin queue errors and the occasional hang when the system is shut
-down.
+During VF deallocation, we need to lock out the VF reset code. However,
+we cannot depend on simply masking the interrupt, as this does not lock
+out the service task, which can still call the reset routine. Instead,
+leave the interrupt enabled, but add locking around the VF disable and
+reset routines.
 
-Change-ID: Ib2fd11213cca2fa589eb68577e86b1000c23c250
+For the disable code, we wait to get the lock, as the reset code will
+take a finite amount of time to run. For the reset code, we just return
+if we fail to get the lock. Since we know that the VFs are being
+disabled, we don't need to handle the reset.
+This fixes a panic when disabling SR-IOV.
+
+Change-ID: Iea0a6cdef35c331f48c6d5b2f8e6f0e86322e7d8
 Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
 Tested-by: Jim Young <james.m.young@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40evf/i40evf_main.c | 6 ++++++
- 1 file changed, 6 insertions(+)
+ drivers/net/ethernet/intel/i40e/i40e.h             |  1 +
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 13 +++++++------
+ 2 files changed, 8 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-index 38126f5..8d8c201 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-@@ -2213,12 +2213,18 @@ err:
- static void i40evf_shutdown(struct pci_dev *pdev)
- {
- 	struct net_device *netdev = pci_get_drvdata(pdev);
-+	struct i40evf_adapter *adapter = netdev_priv(netdev);
+diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
+index b35413d..2b65cdc 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e.h
++++ b/drivers/net/ethernet/intel/i40e/i40e.h
+@@ -148,6 +148,7 @@ enum i40e_state_t {
+ 	__I40E_FD_FLUSH_REQUESTED,
+ 	__I40E_RESET_FAILED,
+ 	__I40E_PORT_TX_SUSPENDED,
++	__I40E_VF_DISABLE,
+ };
  
- 	netif_device_detach(netdev);
+ enum i40e_interrupt_policy {
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+index 4e4232a..40f042a 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+@@ -647,6 +647,9 @@ void i40e_reset_vf(struct i40e_vf *vf, bool flr)
+ 	int i;
+ 	u32 reg;
  
- 	if (netif_running(netdev))
- 		i40evf_close(netdev);
- 
-+	/* Prevent the watchdog from running. */
-+	adapter->state = __I40EVF_REMOVE;
-+	adapter->aq_required = 0;
-+	adapter->aq_pending = 0;
++	if (test_and_set_bit(__I40E_VF_DISABLE, &pf->state))
++		return;
 +
- #ifdef CONFIG_PM
- 	pci_save_state(pdev);
+ 	/* warn the VF */
+ 	clear_bit(I40E_VF_STAT_ACTIVE, &vf->vf_states);
  
+@@ -706,6 +709,7 @@ complete_reset:
+ 	/* tell the VF the reset is done */
+ 	wr32(hw, I40E_VFGEN_RSTAT1(vf->vf_id), I40E_VFR_VFACTIVE);
+ 	i40e_flush(hw);
++	clear_bit(__I40E_VF_DISABLE, &pf->state);
+ }
+ 
+ /**
+@@ -790,6 +794,8 @@ void i40e_free_vfs(struct i40e_pf *pf)
+ 
+ 	if (!pf->vf)
+ 		return;
++	while (test_and_set_bit(__I40E_VF_DISABLE, &pf->state))
++		usleep_range(1000, 2000);
+ 
+ 	/* Disable IOV before freeing resources. This lets any VF drivers
+ 	 * running in the host get themselves cleaned up before we yank
+@@ -800,9 +806,6 @@ void i40e_free_vfs(struct i40e_pf *pf)
+ 
+ 	msleep(20); /* let any messages in transit get finished up */
+ 
+-	/* Disable interrupt 0 so we don't try to handle the VFLR. */
+-	i40e_irq_dynamic_disable_icr0(pf);
+-
+ 	/* free up vf resources */
+ 	tmp = pf->num_alloc_vfs;
+ 	pf->num_alloc_vfs = 0;
+@@ -834,9 +837,7 @@ void i40e_free_vfs(struct i40e_pf *pf)
+ 		dev_warn(&pf->pdev->dev,
+ 			 "unable to disable SR-IOV because VFs are assigned.\n");
+ 	}
+-
+-	/* Re-enable interrupt 0. */
+-	i40e_irq_dynamic_enable_icr0(pf);
++	clear_bit(__I40E_VF_DISABLE, &pf->state);
+ }
+ 
+ #ifdef CONFIG_PCI_IOV
 -- 
 1.9.3
