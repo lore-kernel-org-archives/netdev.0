@@ -1,16 +1,16 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 05/15] i40e: add locking around VF reset
-Date: Mon,  9 Feb 2015 02:43:51 -0800
-Message-ID: <1423478641-3138-6-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 06/15] i40evf: reset on module unload
+Date: Mon,  9 Feb 2015 02:43:52 -0800
+Message-ID: <1423478641-3138-7-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1423478641-3138-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Mitch Williams <mitch.a.williams@intel.com>,
 	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
 	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:38701 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:35313 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760275AbbBIKoF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1760276AbbBIKoF (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Mon, 9 Feb 2015 05:44:05 -0500
 In-Reply-To: <1423478641-3138-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
@@ -18,90 +18,60 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Mitch Williams <mitch.a.williams@intel.com>
 
-During VF deallocation, we need to lock out the VF reset code. However,
-we cannot depend on simply masking the interrupt, as this does not lock
-out the service task, which can still call the reset routine. Instead,
-leave the interrupt enabled, but add locking around the VF disable and
-reset routines.
+When the module is being unloaded, don't wait for the PF to politely
+handle all of our admin queue requests, as that might take forever with
+a lot of VFs enabled. Instead, just stop everything and request a VF
+reset.
 
-For the disable code, we wait to get the lock, as the reset code will
-take a finite amount of time to run. For the reset code, we just return
-if we fail to get the lock. Since we know that the VFs are being
-disabled, we don't need to handle the reset.
-This fixes a panic when disabling SR-IOV.
+When the original shutdown code was written, VF resets were unreliable,
+so we avoided them. But with production hardware and firmware, and the
+1.x PF driver, this is no longer the case.
 
-Change-ID: Iea0a6cdef35c331f48c6d5b2f8e6f0e86322e7d8
+This fixes a potential multi-minute delay on driver unload, VF disable,
+or system shutdown.
+
+Change-ID: Ib43d6d860ef6b9b8f26e8dce0615a0302608c7d9
 Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
 Tested-by: Jim Young <james.m.young@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e.h             |  1 +
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 13 +++++++------
- 2 files changed, 8 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c | 15 ++++++++++-----
+ 1 file changed, 10 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-index b35413d..2b65cdc 100644
---- a/drivers/net/ethernet/intel/i40e/i40e.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e.h
-@@ -148,6 +148,7 @@ enum i40e_state_t {
- 	__I40E_FD_FLUSH_REQUESTED,
- 	__I40E_RESET_FAILED,
- 	__I40E_PORT_TX_SUSPENDED,
-+	__I40E_VF_DISABLE,
- };
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+index f946aac..cd71c47 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+@@ -2423,7 +2423,6 @@ static void i40evf_remove(struct pci_dev *pdev)
+ 	struct i40evf_adapter *adapter = netdev_priv(netdev);
+ 	struct i40evf_mac_filter *f, *ftmp;
+ 	struct i40e_hw *hw = &adapter->hw;
+-	int count = 50;
  
- enum i40e_interrupt_policy {
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-index 4e4232a..40f042a 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-@@ -647,6 +647,9 @@ void i40e_reset_vf(struct i40e_vf *vf, bool flr)
- 	int i;
- 	u32 reg;
- 
-+	if (test_and_set_bit(__I40E_VF_DISABLE, &pf->state))
-+		return;
-+
- 	/* warn the VF */
- 	clear_bit(I40E_VF_STAT_ACTIVE, &vf->vf_states);
- 
-@@ -706,6 +709,7 @@ complete_reset:
- 	/* tell the VF the reset is done */
- 	wr32(hw, I40E_VFGEN_RSTAT1(vf->vf_id), I40E_VFR_VFACTIVE);
- 	i40e_flush(hw);
-+	clear_bit(__I40E_VF_DISABLE, &pf->state);
- }
- 
- /**
-@@ -790,6 +794,8 @@ void i40e_free_vfs(struct i40e_pf *pf)
- 
- 	if (!pf->vf)
- 		return;
-+	while (test_and_set_bit(__I40E_VF_DISABLE, &pf->state))
-+		usleep_range(1000, 2000);
- 
- 	/* Disable IOV before freeing resources. This lets any VF drivers
- 	 * running in the host get themselves cleaned up before we yank
-@@ -800,9 +806,6 @@ void i40e_free_vfs(struct i40e_pf *pf)
- 
- 	msleep(20); /* let any messages in transit get finished up */
- 
--	/* Disable interrupt 0 so we don't try to handle the VFLR. */
--	i40e_irq_dynamic_disable_icr0(pf);
--
- 	/* free up vf resources */
- 	tmp = pf->num_alloc_vfs;
- 	pf->num_alloc_vfs = 0;
-@@ -834,9 +837,7 @@ void i40e_free_vfs(struct i40e_pf *pf)
- 		dev_warn(&pf->pdev->dev,
- 			 "unable to disable SR-IOV because VFs are assigned.\n");
+ 	cancel_delayed_work_sync(&adapter->init_task);
+ 	cancel_work_sync(&adapter->reset_task);
+@@ -2432,12 +2431,18 @@ static void i40evf_remove(struct pci_dev *pdev)
+ 		unregister_netdev(netdev);
+ 		adapter->netdev_registered = false;
  	}
--
--	/* Re-enable interrupt 0. */
--	i40e_irq_dynamic_enable_icr0(pf);
-+	clear_bit(__I40E_VF_DISABLE, &pf->state);
- }
+-	while (count-- && adapter->aq_required)
+-		msleep(50);
  
- #ifdef CONFIG_PCI_IOV
+-	if (count < 0)
+-		dev_err(&pdev->dev, "Timed out waiting for PF driver.\n");
++	/* Shut down all the garbage mashers on the detention level */
+ 	adapter->state = __I40EVF_REMOVE;
++	adapter->aq_required = 0;
++	adapter->aq_pending = 0;
++	i40evf_request_reset(adapter);
++	msleep(20);
++	/* If the FW isn't responding, kick it once, but only once. */
++	if (!i40evf_asq_done(hw)) {
++		i40evf_request_reset(adapter);
++		msleep(20);
++	}
+ 
+ 	if (adapter->msix_entries) {
+ 		i40evf_misc_irq_disable(adapter);
 -- 
 1.9.3
