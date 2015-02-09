@@ -1,67 +1,65 @@
-From: SF Markus Elfring <elfring-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-Subject: [PATCH v2] net: Mellanox: Delete unnecessary checks before the function
- call "vunmap"
-Date: Mon, 09 Feb 2015 11:21:26 +0100
-Message-ID: <54D88A26.2060307@users.sourceforge.net>
-References: <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6>	<5317A59D.4@users.sourceforge.net>	<54D22B29.3020200@users.sourceforge.net> <20150205.003404.261962007607296519.davem@davemloft.net>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH RFC 1/2] ipv6: Fix after pmtu events dissapearing host
+ routes
+Date: Mon, 9 Feb 2015 11:26:21 +0100
+Message-ID: <20150209102620.GC13046@secunet.com>
+References: <54C78B8D.1070104@huawei.com>
+ <20150128121026.GM13046@secunet.com>
+ <20150128121150.GN13046@secunet.com>
+ <20150205235628.GA1916791@devbig242.prn2.facebook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Julia Lawall <julia.lawall-L2FTfq7BK8M@public.gmane.org>
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20150205.003404.261962007607296519.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: Yang Yingliang <yangyingliang@huawei.com>,
+	netdev <netdev@vger.kernel.org>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Martin Lau <kafai@fb.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([195.81.216.161]:60123 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759491AbbBIK02 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 Feb 2015 05:26:28 -0500
+Content-Disposition: inline
+In-Reply-To: <20150205235628.GA1916791@devbig242.prn2.facebook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Markus Elfring <elfring-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-Date: Mon, 9 Feb 2015 11:10:41 +0100
+On Thu, Feb 05, 2015 at 03:56:29PM -0800, Martin Lau wrote:
+> On Wed, Jan 28, 2015 at 01:11:51PM +0100, Steffen Klassert wrote:
+> > We currently don't clone host routes before we use them.
+> > If a pmtu event is received on such a route, it gets
+> > an expires value. As soon as the expiration time is
+> > elapsed, the route is deleted. As a result, the host
+> > is not reachable any more.
+> > 
+> > We fix this by cloning host routes if they are gatewayed,
+> > i.e. if pmtu events can happen.
+> > 
+> > Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+> > ---
+> >  net/ipv6/route.c | 2 +-
+> >  1 file changed, 1 insertion(+), 1 deletion(-)
+> > 
+> > diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+> > index c910831..3e864e7 100644
+> > --- a/net/ipv6/route.c
+> > +++ b/net/ipv6/route.c
+> > @@ -961,7 +961,7 @@ redo_rt6_select:
+> >  
+> >  	if (!(rt->rt6i_flags & (RTF_NONEXTHOP | RTF_GATEWAY)))
+> >  		nrt = rt6_alloc_cow(rt, &fl6->daddr, &fl6->saddr);
+> > -	else if (!(rt->dst.flags & DST_HOST))
+> > +	else if (!(rt->dst.flags & DST_HOST) || (rt->rt6i_flags & RTF_GATEWAY))
+> >  		nrt = rt6_alloc_clone(rt, &fl6->daddr);
+> The del path may also require changes.  I am thinking:
+> 1. Create a /128 via gateway route
+> 2. Send some traffic and RTF_CACHE rt is created
+> 3. Delete the /128 route by ip route del.  I suspect the RTF_CACHE route may be
+>    deleted and the route added in (1) stays.
 
-The vunmap() function performs also input parameter validation.
-Thus the test around the call is not needed.
+Good point.
 
-This issue was detected by using the Coccinelle software.
+Both routes are on the same fib node. The cached one has the better
+metric, so I guess this one will be found and deleted.
 
-Signed-off-by: Markus Elfring <elfring-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-Acked-by: Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
----
- drivers/net/ethernet/mellanox/mlx4/alloc.c      | 2 +-
- drivers/net/ethernet/mellanox/mlx5/core/alloc.c | 2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/mellanox/mlx4/alloc.c b/drivers/net/ethernet/mellanox/mlx4/alloc.c
-index a716c26..0c51c69 100644
---- a/drivers/net/ethernet/mellanox/mlx4/alloc.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/alloc.c
-@@ -662,7 +662,7 @@ void mlx4_buf_free(struct mlx4_dev *dev, int size, struct mlx4_buf *buf)
- 				  buf->direct.buf,
- 				  buf->direct.map);
- 	else {
--		if (BITS_PER_LONG == 64 && buf->direct.buf)
-+		if (BITS_PER_LONG == 64)
- 			vunmap(buf->direct.buf);
- 
- 		for (i = 0; i < buf->nbufs; ++i)
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/alloc.c b/drivers/net/ethernet/mellanox/mlx5/core/alloc.c
-index 56779c1..201ca6d 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/alloc.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/alloc.c
-@@ -121,7 +121,7 @@ void mlx5_buf_free(struct mlx5_core_dev *dev, struct mlx5_buf *buf)
- 		dma_free_coherent(&dev->pdev->dev, buf->size, buf->direct.buf,
- 				  buf->direct.map);
- 	else {
--		if (BITS_PER_LONG == 64 && buf->direct.buf)
-+		if (BITS_PER_LONG == 64)
- 			vunmap(buf->direct.buf);
- 
- 		for (i = 0; i < buf->nbufs; i++)
--- 
-2.2.2
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I'll check this. Thanks for the hint!
