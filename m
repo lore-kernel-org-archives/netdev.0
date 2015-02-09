@@ -1,76 +1,32 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [ANNOUNCE] ipvsadm release v1.28
-Date: Mon, 9 Feb 2015 18:55:02 +1300
-Message-ID: <20150209185502.693488a1@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] cxgb4: Fix trace observed while dumping
+ clip_tbl
+Date: Sun, 08 Feb 2015 21:56:09 -0800 (PST)
+Message-ID: <20150208.215609.641497778778736327.davem@davemloft.net>
+References: <1423455430-13444-1-git-send-email-hariprasad@chelsio.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: brouer@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, "Ryan O'Hara" <rohara@redhat.com>,
-	Julian Anastasov <ja@ssi.bg>, overcastsky.zhao@gmail.com,
-	formorer@debian.org, mt@suse.de, logan@ubuntu.com,
-	support@remsnet.de, Daniel Borkmann <dborkman@redhat.com>,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Simon Horman <horms@verge.net.au>,
-	Alex Gartrell <agartrell@fb.com>
-To: lvs-devel@vger.kernel.org, lvs-users@linuxvirtualserver.org
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, leedom@chelsio.com, anish@chelsio.com,
+	nirranjan@chelsio.com, kumaras@chelsio.com
+To: hariprasad@chelsio.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37373 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751822AbbBIF4K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Feb 2015 00:56:10 -0500
+In-Reply-To: <1423455430-13444-1-git-send-email-hariprasad@chelsio.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Date: Mon,  9 Feb 2015 09:47:10 +0530
 
-We are happy to announce the release of ipvsadm v1.28.
+> Handle clip_tbl debugfs entry, when clip_tbl isn't allocated.
+> In commit b5a02f503caa0837 ("cxgb4: Update ipv6 address handling api") wrong
+> argument was passed for single_open for clip_tbl debugfs entry, which led to
+> below trace. Fixing it.
+ ...
+> Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
 
- ipvsadm is a utility to administer the kernels IPVS/LVS load-balancer service
-
-It has been quite a while since the previous release, v1.27. A number of
-fixes and improvements have been made; most noticeably in the area of IPv6.
-
-One big addition is the support for heterogeneous pools (v4 and v6
-mixed pools in 3.18), by Alex Gartrell (facebook).
-
-Feature wise the SCTP protocol has been added which is available via the
-cmdline parameter "--sctp-service". The kernel has supported SCTP since
-kernel 2.6.34 but up until now ipvsadm users have been restricted to using
-fwmark-based virtual services for SCTP.
-
-This release is based on the kernel.org git tree:
-  https://git.kernel.org/cgit/utils/kernel/ipvsadm/ipvsadm.git/
-
-You can download the tarballs from:
- https://kernel.org/pub/linux/utils/kernel/ipvsadm/
-
-Git tree:
- git://git.kernel.org/pub/scm/utils/kernel/ipvsadm/ipvsadm.git
-
-Shortlog:
- Alex Gartrell (2):
-      ipvsadm: specify real server address family to netlink socket
-      ipvsadm: do not truncate ipv6 members of v4 services
-
- Daniel Borkmann (2):
-      ipvsadm: fix compile warning in print_largenum
-      ipvsadm: fix compile warning in modprobe_ipvs
-
- Hibari Michiro (1):
-      ipvsadm: enable displaying of IPv6 hostnames in listing
-
- Jesper Dangaard Brouer (1):
-      Release: Version 1.28
-
- Julian Anastasov (3):
-      ipvsadm: restrict different address family
-      ipvsadm: allow different address family in connection listing
-      ipvsadm: add SCTP support
-
- Ryan O'Hara (2):
-      libipvs: Initialize ipvs_service_t variable
-      ipvsadm: Fix list daemon to show backup daemon
-
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Sr. Network Kernel Developer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+Applied.
