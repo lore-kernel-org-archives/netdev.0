@@ -1,89 +1,81 @@
-From: Tilman Schmidt <tilman@imap.cc>
-Subject: Re: Kill I4L?
-Date: Mon, 09 Feb 2015 11:53:52 +0100
-Message-ID: <54D891C0.2010303@imap.cc>
-References: <1423328797-17865-1-git-send-email-baspeters93@gmail.com>	<1423328797-17865-3-git-send-email-baspeters93@gmail.com>	<54D650BF.5000400@cogentembedded.com>	<1423336761.2933.7.camel@perches.com>	<1423341800.2246.68.camel@x220>	<54D7BD4A.4090101@imap.cc>	<54D7F87E.4050506@linux-pingi.de> <CAOgR63f702_QTHpnAB-G9-o3DPEuyiESLeNTz4saOTHB4SnBdg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Paul Bolle <pebolle@tiscali.nl>, Joe Perches <joe@perches.com>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	"isdn@linux-pingi.de" <isdn@linux-pingi.de>,
-	Julia Lawall <julia.lawall@lip6.fr>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Bas Peters <baspeters93@gmail.com>,
-	Karsten Keil <kkeil@linux-pingi.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAOgR63f702_QTHpnAB-G9-o3DPEuyiESLeNTz4saOTHB4SnBdg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Subject: [PATCH net] bridge: Fix inability to add non-vlan fdb entry
+Date: Mon,  9 Feb 2015 20:16:17 +0900
+Message-ID: <1423480577-9473-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+Cc: Vlad Yasevich <vyasevic@redhat.com>, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org
+To: "David S . Miller" <davem@davemloft.net>,
+	Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
+Bridge's default_pvid adds a vid by default, by which we cannot add a
+non-vlan fdb entry by default, because br_fdb_add() adds fdb entries for
+all vlans instead of a non-vlan one when any vlan is configured.
 
-Am 09.02.2015 um 11:07 schrieb Bas Peters:
-> 2015-02-09 0:59 GMT+01:00 Karsten Keil <kkeil@linux-pingi.de>:
->> Am 08.02.2015 um 20:47 schrieb Tilman Schmidt:
->>> Am 07.02.2015 um 21:43 schrieb Paul Bolle:
+ # ip link add br0 type bridge
+ # ip link set eth0 master br0
+ # bridge fdb add 12:34:56:78:90:ab dev eth0 master temp
+ # bridge fdb show brport eth0 | grep 12:34:56:78:90:ab
+ 12:34:56:78:90:ab dev eth0 vlan 1 static
 
->>>> [M]aybe we should consider, say, removing i4l and pre i4l and
->>>> see who complains. That might be a rude thing to do. So
->>>> perhaps the various ISDN flavors should be left alone until
->>>> ... what exactly?
->>>=20
->>> I'd support that step. I don't think it'll hurt anyone because
->>> the cards supported by i4l are mostly ISA cards anyway. The
->>> only exceptions are the HiSax family which is now supported by
->>> mISDN, and the Hypercope family which is supported by CAPI.
-[...]
->>=20
->> But I4L is still the default in some Distros, so we should allow
->> a warning period. But again, I'm fine with this to do it.
->=20
-> Is there any explicit reason why 'dead' drivers that might still
-> have some users ought to be removed?
+We expect a non-vlan fdb entry as well as vlan 1:
+ 12:34:56:78:90:ab dev eth0 static
 
-The reason is the maintenance load it produces. There's a continuous,
-annoying trickle of patch  proposals, discussions, conflicts with
-development in other, still actively maintained areas of the kernel,
-and so on. The present discussion being a point in case.
+To fix this, we need to insert a non-vlan fdb entry if vlan is not
+specified, even when any vlan is configured.
 
-> Does it hurt anyone to leave the code in there, despite it barely=20
-> being used?
+Fixes: 5be5a2df40f0 ("bridge: Add filtering support for default_pvid")
+Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+---
+ net/bridge/br_fdb.c | 12 +++++-------
+ 1 file changed, 5 insertions(+), 7 deletions(-)
 
-Yes it does. Not much, but the pain is increasing over the years.
-Every time someone tries to touch that code there's the problem
-that no one can actually answer for it, much less test anything.
-Theoretically a patch for a driver should not be accepted without
-testing it on the actual hardware, but in the isdn tree that rule
-has long been abandoned because nobody has the hardware and can do
-the test. Consequently it isn't even clear whether all of it still
-actually works.
-It also hurts the few remaining Linux ISDN developers, distros and
-users that Linux ISDN support is so fragmented. For example, the
-Gigaset ISDN driver which I maintain can be built with either CAPI
-or I4L support, so each time I touch it I have to build and test
-two variants.
-
-> We're not talking about a particularly huge driver here, either.
-
-But one that's particularly difficult to maintain, without
-providing any noticeable benefit in return.
-
-- --=20
-Tilman Schmidt                              E-Mail: tilman@imap.cc
-Bonn, Germany
-Diese Nachricht besteht zu 100% aus wiederverwerteten Bits.
-Unge=C3=B6ffnet mindestens haltbar bis: (siehe R=C3=BCckseite)
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQEcBAEBAgAGBQJU2JHAAAoJEFPuqx0v+F+qn5EH/0iXrzTWChbu/0W8nDz4/qtC
-=46WQYbeIxTutzsEtVAhOYM7mz+9mqgaqNkVpmrz4lLg3FY4q2kzG1GjSihqP0GsT+
-rLWJ+7gTnNxjNOk6OOZo+GaOjcvtVAro/2N5NXhHxTseumbH4I371a2rw0HBls97
-iCPB2g6mJvNnsLjb612qcgsGahxMWVE/3q+6O1IKujPCTNQsJNaeqQMPT3YFJwq+
-4YMs55RpVbpP5GPdRsaW/Zkwx8Se/4cK1MFaqX9xEePgZDUYMCPT2BPEa7E3yUwF
-kjJU5LnBTKAjI8IzXDPTzznAyrMnH6IAjtJSmwpnyNintv2dtCK0VPhjhh0TA/M=3D
-=3Dd5Or
------END PGP SIGNATURE-----
+diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
+index cc36e59..c041f99 100644
+--- a/net/bridge/br_fdb.c
++++ b/net/bridge/br_fdb.c
+@@ -840,10 +840,9 @@ int br_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
+ 		/* VID was specified, so use it. */
+ 		err = __br_fdb_add(ndm, p, addr, nlh_flags, vid);
+ 	} else {
+-		if (!pv || bitmap_empty(pv->vlan_bitmap, VLAN_N_VID)) {
+-			err = __br_fdb_add(ndm, p, addr, nlh_flags, 0);
++		err = __br_fdb_add(ndm, p, addr, nlh_flags, 0);
++		if (err || !pv)
+ 			goto out;
+-		}
+ 
+ 		/* We have vlans configured on this port and user didn't
+ 		 * specify a VLAN.  To be nice, add/update entry for every
+@@ -911,16 +910,15 @@ int br_fdb_delete(struct ndmsg *ndm, struct nlattr *tb[],
+ 
+ 		err = __br_fdb_delete(p, addr, vid);
+ 	} else {
+-		if (!pv || bitmap_empty(pv->vlan_bitmap, VLAN_N_VID)) {
+-			err = __br_fdb_delete(p, addr, 0);
++		err = -ENOENT;
++		err &= __br_fdb_delete(p, addr, 0);
++		if (!pv)
+ 			goto out;
+-		}
+ 
+ 		/* We have vlans configured on this port and user didn't
+ 		 * specify a VLAN.  To be nice, add/update entry for every
+ 		 * vlan on this port.
+ 		 */
+-		err = -ENOENT;
+ 		for_each_set_bit(vid, pv->vlan_bitmap, VLAN_N_VID) {
+ 			err &= __br_fdb_delete(p, addr, vid);
+ 		}
+-- 
+1.8.1.2
