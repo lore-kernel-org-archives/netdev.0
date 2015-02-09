@@ -1,76 +1,52 @@
-From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Subject: [PATCH 3.10 07/17] lib/checksum.c: fix carry in csum_tcpudp_nofold
-Date: Mon,  9 Feb 2015 16:33:34 +0800
-Message-ID: <20150209083040.052922946@linuxfoundation.org>
-References: <20150209083039.240170510@linuxfoundation.org>
+From: Rojhalat Ibrahim <imr@rtschenk.de>
+Subject: Re: [PATCH 3/3][v2] mdio-mux-gpio: use new gpiod_get_array and gpiod_put_array functions
+Date: Mon, 09 Feb 2015 10:14:47 +0100
+Message-ID: <2302857.SIRJpJWX1o@pcimr>
+References: <2017147.PF4WHTmJS4@pcimr> <CAAVeFu+bfTbvbaZ0EVrZzH_zNWDJjfM4oi13g8D+aH_8x6BqaQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	stable@vger.kernel.org, Karl Beldan <karl.beldan@rivierawaves.com>,
-	Al Viro <viro@ZenIV.linux.org.uk>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Arnd Bergmann <arnd@arndb.de>,
-	Mike Frysinger <vapier@gentoo.org>, netdev@vger.kernel.org,
-	Eric Dumazet <edumazet@google.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150209083039.240170510@linuxfoundation.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: "linux-gpio@vger.kernel.org" <linux-gpio@vger.kernel.org>,
+	Alexandre Courbot <acourbot@nvidia.com>,
+	Linus Walleij <linus.walleij@linaro.org>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+To: Alexandre Courbot <gnurou@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-out.m-online.net ([212.18.0.10]:59041 "EHLO
+	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932469AbbBIJOv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Feb 2015 04:14:51 -0500
+In-Reply-To: <CAAVeFu+bfTbvbaZ0EVrZzH_zNWDJjfM4oi13g8D+aH_8x6BqaQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-3.10-stable review patch.  If anyone has any objections, please let me know.
+On Monday 09 February 2015 14:18:14 Alexandre Courbot wrote:
+> On Thu, Jan 22, 2015 at 1:46 AM, Rojhalat Ibrahim <imr@rtschenk.de> wrote:
+> > Use the new gpiod_get_array and gpiod_put_array functions for obtaining and
+> > disposing of GPIO descriptors.
+> >
+> > Cc: David Miller <davem@davemloft.net>
+> > Signed-off-by: Rojhalat Ibrahim <imr@rtschenk.de>
+> > ---
+> > This patch depends on my previous patch "gpiolib: add gpiod_get_array and
+> > gpiod_put_array functions".
+> >
+> > v2: use the new interface
+> >
+> > Only compile-tested.
+> >
+> >  drivers/net/phy/mdio-mux-gpio.c |   61 +++++++++++-----------------------------
+> >  1 file changed, 18 insertions(+), 43 deletions(-)
+> 
+> Oh yeah.
+> 
+> It would be great to have a tested-by for the next revision though.
+> 
+> Rojhalat, have you been able to test these new interfaces outside of
+> this driver?
+> 
 
-------------------
-
-From: karl beldan <karl.beldan@gmail.com>
-
-commit 150ae0e94634714b23919f0c333fee28a5b199d5 upstream.
-
-The carry from the 64->32bits folding was dropped, e.g with:
-saddr=0xFFFFFFFF daddr=0xFF0000FF len=0xFFFF proto=0 sum=1,
-csum_tcpudp_nofold returned 0 instead of 1.
-
-Signed-off-by: Karl Beldan <karl.beldan@rivierawaves.com>
-Cc: Al Viro <viro@ZenIV.linux.org.uk>
-Cc: Eric Dumazet <eric.dumazet@gmail.com>
-Cc: Arnd Bergmann <arnd@arndb.de>
-Cc: Mike Frysinger <vapier@gentoo.org>
-Cc: netdev@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Signed-off-by: David S. Miller <davem@davemloft.net>
-Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-
----
- lib/checksum.c |   12 ++++++++++--
- 1 file changed, 10 insertions(+), 2 deletions(-)
-
---- a/lib/checksum.c
-+++ b/lib/checksum.c
-@@ -47,6 +47,15 @@ static inline unsigned short from32to16(
- 	return x;
- }
- 
-+static inline u32 from64to32(u64 x)
-+{
-+	/* add up 32-bit and 32-bit for 32+c bit */
-+	x = (x & 0xffffffff) + (x >> 32);
-+	/* add up carry.. */
-+	x = (x & 0xffffffff) + (x >> 32);
-+	return (u32)x;
-+}
-+
- static unsigned int do_csum(const unsigned char *buff, int len)
- {
- 	int odd;
-@@ -195,8 +204,7 @@ __wsum csum_tcpudp_nofold(__be32 saddr,
- #else
- 	s += (proto + len) << 8;
- #endif
--	s += (s >> 32);
--	return (__force __wsum)s;
-+	return (__force __wsum)from64to32(s);
- }
- EXPORT_SYMBOL(csum_tcpudp_nofold);
- #endif
+I have tested the new interface with my FPGA configuration driver (which I
+plan to submit eventually). I cannot test the mdio-mux-gpio driver because
+I lack the necessary hardware.
