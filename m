@@ -1,37 +1,29 @@
 From: David Miller <davem@redhat.com>
-Subject: Re: [PATCH net] tcp: don't include Fast Open option in SYN-ACK on
- pure SYN-data
-Date: Mon, 09 Feb 2015 14:27:32 -0800 (PST)
-Message-ID: <20150209.142732.243638519161010259.davem@redhat.com>
-References: <1423514123-6825-1-git-send-email-ycheng@google.com>
+Subject: Re: [PATCH net-next] openvswitch: Only set TUNNEL_VXLAN_OPT if
+ VXLAN-GBP metadata is set
+Date: Mon, 09 Feb 2015 14:27:20 -0800 (PST)
+Message-ID: <20150209.142720.1523386523328652970.davem@redhat.com>
+References: <27de6976a7a40d1da2875b93138353724cbfa24b.1423497309.git.tgraf@suug.ch>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: edumazet@google.com, ncardwell@google.com, netdev@vger.kernel.org
-To: ycheng@google.com
+Cc: netdev@vger.kernel.org, pshelar@nicira.com
+To: tgraf@suug.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:44145 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:46035 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1761222AbbBIW1f (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 Feb 2015 17:27:35 -0500
-In-Reply-To: <1423514123-6825-1-git-send-email-ycheng@google.com>
+	id S1761222AbbBIW1q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 Feb 2015 17:27:46 -0500
+In-Reply-To: <27de6976a7a40d1da2875b93138353724cbfa24b.1423497309.git.tgraf@suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yuchung Cheng <ycheng@google.com>
-Date: Mon,  9 Feb 2015 12:35:23 -0800
+From: Thomas Graf <tgraf@suug.ch>
+Date: Mon,  9 Feb 2015 16:56:37 +0100
 
-> If a server has enabled Fast Open and it receives a pure SYN-data
-> packet (without a Fast Open option), it won't accept the data but it
-> incorrectly returns a SYN-ACK with a Fast Open cookie and also
-> increments the SNMP stat LINUX_MIB_TCPFASTOPENPASSIVEFAIL.
+> This avoids setting TUNNEL_VXLAN_OPT for VXLAN frames which don't
+> have any GBP metadata set. It is not invalid to set it but unnecessary.
 > 
-> This patch makes the server include a Fast Open cookie in SYN-ACK
-> only if the SYN has some Fast Open option (i.e., when client
-> requests or presents a cookie).
-> 
-> Signed-off-by: Yuchung Cheng <ycheng@google.com>
-> Acked-by: Neal Cardwell <ncardwell@google.com>
-> Acked-by: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
 Applied.
