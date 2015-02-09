@@ -1,59 +1,51 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 15/15] i40e/i40evf: Add call to u64_stats_init to init
-Date: Mon,  9 Feb 2015 02:44:01 -0800
-Message-ID: <1423478641-3138-16-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 13/15] i40e: use dev_port for fcoe netdev
+Date: Mon,  9 Feb 2015 02:43:59 -0800
+Message-ID: <1423478641-3138-14-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1423478641-3138-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Vasu Dev <vasu.dev@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:35313 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:16331 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760656AbbBIKoH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1759974AbbBIKoH (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Mon, 9 Feb 2015 05:44:07 -0500
 In-Reply-To: <1423478641-3138-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Carolyn Wyborny <carolyn.wyborny@intel.com>
+From: Vasu Dev <vasu.dev@intel.com>
 
-This patch adds a call to u64_stats_init to Rx setup.
-This done in order to avoid lockdep errors with seqcount on newer kernels.
+Set different dev_port value 1 for FCoE netdev than the default zero
+dev_port value for PF netdev, this helps biosdevname user tool to
+differentiate them correctly while both attached to the same PCI
+function.
 
-Change-ID: Ia8ba8f0bcbd1c0e926f97d70aeee4ce4fd055e93
-Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
+Change-ID: I8fb90e4ef52a1242f7580e49a3f0918735aee8ef
+Signed-off-by: Vasu Dev <vasu.dev@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_txrx.c   | 2 ++
- drivers/net/ethernet/intel/i40evf/i40e_txrx.c | 2 ++
- 2 files changed, 4 insertions(+)
+ drivers/net/ethernet/intel/i40e/i40e_fcoe.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-index 5aa6ef1..f4d6d90 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-@@ -1098,6 +1098,8 @@ int i40e_setup_rx_descriptors(struct i40e_ring *rx_ring)
- 	if (!rx_ring->rx_bi)
- 		goto err;
- 
-+		u64_stats_init(rx_ring->syncp);
-+
- 	/* Round up to nearest 4K */
- 	rx_ring->size = ring_is_16byte_desc_enabled(rx_ring)
- 		? rx_ring->count * sizeof(union i40e_16byte_rx_desc)
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-index 4bf15da..459499a 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-@@ -596,6 +596,8 @@ int i40evf_setup_rx_descriptors(struct i40e_ring *rx_ring)
- 	if (!rx_ring->rx_bi)
- 		goto err;
- 
-+		u64_stats_init(rx_ring->syncp);
-+
- 	/* Round up to nearest 4K */
- 	rx_ring->size = ring_is_16byte_desc_enabled(rx_ring)
- 		? rx_ring->count * sizeof(union i40e_16byte_rx_desc)
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_fcoe.c b/drivers/net/ethernet/intel/i40e/i40e_fcoe.c
+index dc8cbdd..401f7ed 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_fcoe.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_fcoe.c
+@@ -1502,6 +1502,12 @@ void i40e_fcoe_config_netdev(struct net_device *netdev, struct i40e_vsi *vsi)
+ 	strlcpy(netdev->name, "fcoe%d", IFNAMSIZ-1);
+ 	netdev->mtu = FCOE_MTU;
+ 	SET_NETDEV_DEV(netdev, &pf->pdev->dev);
++	/* set different dev_port value 1 for FCoE netdev than the default
++	 * zero dev_port value for PF netdev, this helps biosdevname user
++	 * tool to differentiate them correctly while both attached to the
++	 * same PCI function.
++	 */
++	netdev->dev_port = 1;
+ 	i40e_add_filter(vsi, hw->mac.san_addr, 0, false, false);
+ 	i40e_add_filter(vsi, (u8[6]) FC_FCOE_FLOGI_MAC, 0, false, false);
+ 	i40e_add_filter(vsi, FIP_ALL_FCOE_MACS, 0, false, false);
 -- 
 1.9.3
