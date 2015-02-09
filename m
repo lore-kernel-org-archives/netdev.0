@@ -1,62 +1,59 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 02/15] i40e: avoid use of uninitialized v_budget in i40e_init_msix
-Date: Mon,  9 Feb 2015 02:43:48 -0800
-Message-ID: <1423478641-3138-3-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 15/15] i40e/i40evf: Add call to u64_stats_init to init
+Date: Mon,  9 Feb 2015 02:44:01 -0800
+Message-ID: <1423478641-3138-16-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1423478641-3138-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: John W Linville <linville@tuxdriver.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:16331 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:35313 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759985AbbBIKoF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 Feb 2015 05:44:05 -0500
+	id S1760656AbbBIKoH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 Feb 2015 05:44:07 -0500
 In-Reply-To: <1423478641-3138-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: John W Linville <linville@tuxdriver.com>
+From: Carolyn Wyborny <carolyn.wyborny@intel.com>
 
-This I40E_FCOE block increments v_budget before it has been initialized,
-then v_budget gets overwritten a few lines later.  This patch just
-reorders the code hunks in what I believe was the intended sequence.
+This patch adds a call to u64_stats_init to Rx setup.
+This done in order to avoid lockdep errors with seqcount on newer kernels.
 
-Coverity: CID 1260099
-
-Signed-off-by: John W Linville <linville@tuxdriver.com>
-Tested-by: Jim Young <james.m.young@intel.com>
+Change-ID: Ia8ba8f0bcbd1c0e926f97d70aeee4ce4fd055e93
+Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c   | 2 ++
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.c | 2 ++
+ 2 files changed, 4 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index e774a23..9efb69a 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -6933,17 +6933,17 @@ static int i40e_init_msix(struct i40e_pf *pf)
- 	if (pf->flags & I40E_FLAG_FD_SB_ENABLED)
- 		other_vecs++;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+index 5aa6ef1..f4d6d90 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+@@ -1098,6 +1098,8 @@ int i40e_setup_rx_descriptors(struct i40e_ring *rx_ring)
+ 	if (!rx_ring->rx_bi)
+ 		goto err;
  
-+	/* Scale down if necessary, and the rings will share vectors */
-+	pf->num_lan_msix = min_t(int, pf->num_lan_msix,
-+			(hw->func_caps.num_msix_vectors - other_vecs));
-+	v_budget = pf->num_lan_msix + other_vecs;
++		u64_stats_init(rx_ring->syncp);
 +
- #ifdef I40E_FCOE
- 	if (pf->flags & I40E_FLAG_FCOE_ENABLED) {
- 		pf->num_fcoe_msix = pf->num_fcoe_qps;
- 		v_budget += pf->num_fcoe_msix;
- 	}
--
- #endif
--	/* Scale down if necessary, and the rings will share vectors */
--	pf->num_lan_msix = min_t(int, pf->num_lan_msix,
--			(hw->func_caps.num_msix_vectors - other_vecs));
--	v_budget = pf->num_lan_msix + other_vecs;
+ 	/* Round up to nearest 4K */
+ 	rx_ring->size = ring_is_16byte_desc_enabled(rx_ring)
+ 		? rx_ring->count * sizeof(union i40e_16byte_rx_desc)
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+index 4bf15da..459499a 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+@@ -596,6 +596,8 @@ int i40evf_setup_rx_descriptors(struct i40e_ring *rx_ring)
+ 	if (!rx_ring->rx_bi)
+ 		goto err;
  
- 	pf->msix_entries = kcalloc(v_budget, sizeof(struct msix_entry),
- 				   GFP_KERNEL);
++		u64_stats_init(rx_ring->syncp);
++
+ 	/* Round up to nearest 4K */
+ 	rx_ring->size = ring_is_16byte_desc_enabled(rx_ring)
+ 		? rx_ring->count * sizeof(union i40e_16byte_rx_desc)
 -- 
 1.9.3
