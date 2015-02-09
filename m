@@ -1,40 +1,39 @@
 From: David Miller <davem@redhat.com>
-Subject: Re: [PATCH] net: dsa: Remove redundant phy_attach()
-Date: Mon, 09 Feb 2015 14:06:05 -0800 (PST)
-Message-ID: <20150209.140605.383021111937070414.davem@redhat.com>
-References: <1423445395-412-1-git-send-email-andrew@lunn.ch>
-	<54D908B6.9020101@gmail.com>
+Subject: Re: [PATCHv2 net-next 0/3] Add support in ethtool to get expansion
+ ROM version
+Date: Mon, 09 Feb 2015 14:08:24 -0800 (PST)
+Message-ID: <20150209.140824.1105029746035917676.davem@redhat.com>
+References: <1423463851-19073-1-git-send-email-hariprasad@chelsio.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: andrew@lunn.ch, netdev@vger.kernel.org
-To: f.fainelli@gmail.com
+Cc: netdev@vger.kernel.org, leedom@chelsio.com, anish@chelsio.com,
+	nirranjan@chelsio.com, kumaras@chelsio.com
+To: hariprasad@chelsio.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:36891 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:40111 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755371AbbBIWGQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 Feb 2015 17:06:16 -0500
-In-Reply-To: <54D908B6.9020101@gmail.com>
+	id S1755371AbbBIWIa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 Feb 2015 17:08:30 -0500
+In-Reply-To: <1423463851-19073-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Mon, 09 Feb 2015 11:21:26 -0800
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Date: Mon,  9 Feb 2015 12:07:28 +0530
 
-> On 08/02/15 17:29, Andrew Lunn wrote:
->> dsa_slave_phy_setup() finds the phy for the port via device tree and
->> using of_phy_connect(), or it uses the fall back of taking a phy from
->> the switch internal mdio bus and calling phy_connect_direct(). Either
->> way, if a phy is found, phy_attach_direct() is called to attach the
->> phy to the slave device.
->> 
->> In dsa_slave_create(), a second call to phy_attach() is made. This
->> results in the warning "PHY already attached". Remove this second,
->> redundant attaching of the phy.
->> 
->> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+> This series adds support to get expansion ROM version via ethtool getdrvinfo.
+> PATCH 1/3 ("ethtool: rename reserved1 memeber in ethtool_drvinfo for expansion
+>     ROM version") is created against net-next tree.
+> PATCH 2/3 ("cxgb4: Add support in cxgb4 to get expansion rom version via
+> ethtool") is created against net-next tree.
+> PATCH 3/3 ("ethtool: Add support to get expansion ROM version in ethtool
+> getdrvinfo") is created against ethtool tree.
 > 
-> Acked-by: Florian Fainelli <f.fainelli@gmail.com>
-> Tested-by: Florian Fainelli <f.fainelli@gmail.com>
+> We have included all the maintainers of respective trees. Kindly review the
+> change and let us know in case of any review comments.
+ ...
+> V2: Use MACRO instead of hardcoded value for EROM version string len. Based on
+> review comment by David Miller.
 
-Applied, thanks.
+Patch 1 and 2 applied to net-next, thanks.
