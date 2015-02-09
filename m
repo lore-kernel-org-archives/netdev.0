@@ -1,39 +1,37 @@
 From: David Miller <davem@redhat.com>
-Subject: Re: [PATCHv2 net-next 0/3] Add support in ethtool to get expansion
- ROM version
-Date: Mon, 09 Feb 2015 14:08:24 -0800 (PST)
-Message-ID: <20150209.140824.1105029746035917676.davem@redhat.com>
-References: <1423463851-19073-1-git-send-email-hariprasad@chelsio.com>
+Subject: Re: [PATCH net-next] ipv4: Namespecify TCP PMTU mechanism
+Date: Mon, 09 Feb 2015 14:09:11 -0800 (PST)
+Message-ID: <20150209.140911.1096080668059319311.davem@redhat.com>
+References: <1423471498-22442-1-git-send-email-fan.du@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, leedom@chelsio.com, anish@chelsio.com,
-	nirranjan@chelsio.com, kumaras@chelsio.com
-To: hariprasad@chelsio.com
+Cc: jheffner@psc.edu, netdev@vger.kernel.org,
+	fengyuleidian0615@gmail.com
+To: fan.du@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:40111 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:47892 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755371AbbBIWIa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 Feb 2015 17:08:30 -0500
-In-Reply-To: <1423463851-19073-1-git-send-email-hariprasad@chelsio.com>
+	id S1756140AbbBIWJX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 Feb 2015 17:09:23 -0500
+In-Reply-To: <1423471498-22442-1-git-send-email-fan.du@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hariprasad Shenai <hariprasad@chelsio.com>
-Date: Mon,  9 Feb 2015 12:07:28 +0530
+From: Fan Du <fan.du@intel.com>
+Date: Mon,  9 Feb 2015 16:44:58 +0800
 
-> This series adds support to get expansion ROM version via ethtool getdrvinfo.
-> PATCH 1/3 ("ethtool: rename reserved1 memeber in ethtool_drvinfo for expansion
->     ROM version") is created against net-next tree.
-> PATCH 2/3 ("cxgb4: Add support in cxgb4 to get expansion rom version via
-> ethtool") is created against net-next tree.
-> PATCH 3/3 ("ethtool: Add support to get expansion ROM version in ethtool
-> getdrvinfo") is created against ethtool tree.
+> Packetization Layer Path MTU Discovery works separately beside
+> Path MTU Discovery at IP level, different net namespace has
+> various requirements on which one to chose, e.g., a virutalized
+> container instance would require TCP PMTU to probe an usable
+> effective mtu for underlying tunnel, while the host would
+> employ classical ICMP based pmtu to function.
 > 
-> We have included all the maintainers of respective trees. Kindly review the
-> change and let us know in case of any review comments.
- ...
-> V2: Use MACRO instead of hardcoded value for EROM version string len. Based on
-> review comment by David Miller.
+> Hence making TCP PMTU mechanism per net namespace to decouple
+> two functionality. Furthermore the probe base MSS should also
+> be configured separately for each namespace.
+> 
+> Signed-off-by: Fan Du <fan.du@intel.com>
 
-Patch 1 and 2 applied to net-next, thanks.
+This does not apply cleanly to net-next, please respin.
