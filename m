@@ -1,91 +1,325 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH] net: qmi_wwan: MC73xx interface 10 is not QMI
-Date: Mon, 09 Feb 2015 14:33:32 +0100
-Message-ID: <8761bbqker.fsf@nemi.mork.no>
-References: <1423477027-10869-1-git-send-email-kristian.evensen@gmail.com>
-	<87a90nqp45.fsf@nemi.mork.no>
-	<CAKfDRXhW-izhes0qq2qJA0ojm37Eg=dybYSdzo8u-VzhT15EGw@mail.gmail.com>
-	<CAKfDRXjwsQRA+CxaUpZVoDW3TmrUd6edSf_gi1EkPMcTFv0F5A@mail.gmail.com>
+From: Stephan Mueller <smueller@chronox.de>
+Subject: Re: [PATCH v3 12/18] crypto: switch af_alg_make_sg() to iov_iter
+Date: Mon, 09 Feb 2015 14:33:48 +0100
+Message-ID: <2856206.EMAskHcVAC@tachyon.chronox.de>
+References: <20150204063730.GG29656@ZenIV.linux.org.uk> <1423032009-18367-12-git-send-email-viro@ZenIV.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Network Development <netdev@vger.kernel.org>,
-	Aleksander Morgado <aleksander@aleksander.es>
-To: Kristian Evensen <kristian.evensen@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:49514 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759438AbbBINdp convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Feb 2015 08:33:45 -0500
-In-Reply-To: <CAKfDRXjwsQRA+CxaUpZVoDW3TmrUd6edSf_gi1EkPMcTFv0F5A@mail.gmail.com>
-	(Kristian Evensen's message of "Mon, 9 Feb 2015 13:26:53 +0100")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-crypto@vger.kernel.org
+To: Al Viro <viro@zeniv.linux.org.uk>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <1423032009-18367-12-git-send-email-viro@ZenIV.linux.org.uk>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Kristian Evensen <kristian.evensen@gmail.com> writes:
-> On Mon, Feb 9, 2015 at 12:55 PM, Kristian Evensen
-> <kristian.evensen@gmail.com> wrote:
->> Hi,
->>
->> On Mon, Feb 9, 2015 at 12:51 PM, Bj=C3=B8rn Mork <bjorn@mork.no> wro=
-te:
->>> Just to be sure: You do have a configuration where interfaces #10 a=
-nd
->>> #11 are visible, but none of them respond to any QMI at all?  Not e=
-ven
->>> CTL SYNC?  Could you get a minimal usbmon trace of that?
->
-> Here is a minial usbmon where I send SYNC to interface 10. After I
-> made the trace, I tried interface 8 (to make sure that there was
-> nothing wrong with modem) and it worked fine. ModemManager or any
-> similar tool is not running.
+Am Mittwoch, 4. Februar 2015, 06:40:03 schrieb Al Viro:
 
-Thanks.
+Hi Al,
 
-> The firmware is SWI9X15C_05.05.02.00 r19147 carmd-fwbuild1 2013/11/15=
- 13:54:28
+> From: Al Viro <viro@zeniv.linux.org.uk>
+> 
+> With that, all ->sendmsg() instances are converted to iov_iter primitives
+> and are agnostic wrt the kind of iov_iter they are working with.
+> So's the last remaining ->recvmsg() instance that wasn't kind-agnostic yet.
+> All ->sendmsg() and ->recvmsg() advance ->msg_iter by the amount actually
+> copied and none of them modifies the underlying iovec, etc.
+> 
+> Cc: linux-crypto@vger.kernel.org
+> Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
+> ---
+>  crypto/af_alg.c         | 40 ++++++++------------------
+>  crypto/algif_hash.c     | 45 ++++++++++++------------------
+>  crypto/algif_skcipher.c | 74
+> ++++++++++++++++++++++--------------------------- include/crypto/if_alg.h |
+>  3 +-
+>  4 files changed, 62 insertions(+), 100 deletions(-)
+> 
+> diff --git a/crypto/af_alg.c b/crypto/af_alg.c
+> index 4665b79c..eb78fe8 100644
+> --- a/crypto/af_alg.c
+> +++ b/crypto/af_alg.c
+> @@ -338,49 +338,31 @@ static const struct net_proto_family alg_family = {
+>  	.owner	=	THIS_MODULE,
+>  };
+> 
+> -int af_alg_make_sg(struct af_alg_sgl *sgl, void __user *addr, int len,
+> -		   int write)
+> +int af_alg_make_sg(struct af_alg_sgl *sgl, struct iov_iter *iter, int len)
 
-That is pretty old relative to this hardware. First commercial release?
-I don't really want to push you to do an upgrade, but it would sure be
-nice to have this test repeated on a recent firmware version.  Not that
-I can spot anything particularily promising in the release notes.
+Shouldn't len be size_t? iov_iter_get_pages wants a size_t. Also, the 
+invocation of af_alg_make_sg uses an unsigned variable that is provided by 
+userspace.
+>  {
+> -	unsigned long from = (unsigned long)addr;
+> -	unsigned long npages;
+> -	unsigned off;
+> -	int err;
+> -	int i;
+> -
+> -	err = -EFAULT;
+> -	if (!access_ok(write ? VERIFY_READ : VERIFY_WRITE, addr, len))
+> -		goto out;
+> -
+> -	off = from & ~PAGE_MASK;
+> -	npages = (off + len + PAGE_SIZE - 1) >> PAGE_SHIFT;
+> -	if (npages > ALG_MAX_PAGES)
+> -		npages = ALG_MAX_PAGES;
+> +	size_t off;
+> +	ssize_t n;
+> +	int npages, i;
+> 
+> -	err = get_user_pages_fast(from, npages, write, sgl->pages);
+> -	if (err < 0)
+> -		goto out;
+> +	n = iov_iter_get_pages(iter, sgl->pages, len, ALG_MAX_PAGES, &off);
+> +	if (n < 0)
+> +		return n;
+> 
+> -	npages = err;
+> -	err = -EINVAL;
+> +	npages = PAGE_ALIGN(off + n);
+>  	if (WARN_ON(npages == 0))
+> -		goto out;
+> -
+> -	err = 0;
+> +		return -EINVAL;
+> 
+>  	sg_init_table(sgl->sg, npages);
+> 
+> -	for (i = 0; i < npages; i++) {
+> +	for (i = 0, len = n; i < npages; i++) {
+>  		int plen = min_t(int, len, PAGE_SIZE - off);
+> 
+>  		sg_set_page(sgl->sg + i, sgl->pages[i], plen, off);
+> 
+>  		off = 0;
+>  		len -= plen;
+> -		err += plen;
+>  	}
+> -
+> -out:
+> -	return err;
+> +	return n;
+>  }
+>  EXPORT_SYMBOL_GPL(af_alg_make_sg);
+> 
+> diff --git a/crypto/algif_hash.c b/crypto/algif_hash.c
+> index 01f56eb..01da360 100644
+> --- a/crypto/algif_hash.c
+> +++ b/crypto/algif_hash.c
+> @@ -41,8 +41,6 @@ static int hash_sendmsg(struct kiocb *unused, struct
+> socket *sock, struct sock *sk = sock->sk;
+>  	struct alg_sock *ask = alg_sk(sk);
+>  	struct hash_ctx *ctx = ask->private;
+> -	unsigned long iovlen;
+> -	const struct iovec *iov;
+>  	long copied = 0;
+>  	int err;
+> 
+> @@ -58,37 +56,28 @@ static int hash_sendmsg(struct kiocb *unused, struct
+> socket *sock,
+> 
+>  	ctx->more = 0;
+> 
+> -	for (iov = msg->msg_iter.iov, iovlen = msg->msg_iter.nr_segs; iovlen > 
+0;
+> -	     iovlen--, iov++) {
+> -		unsigned long seglen = iov->iov_len;
+> -		char __user *from = iov->iov_base;
+> +	while (iov_iter_count(&msg->msg_iter)) {
+> +		int len = iov_iter_count(&msg->msg_iter);
 
-Did you have one of these 9x15 modems, Aleksander?  Did you ever verify
-whether the additional QMI interface(s) worked?
+size_t for len?
 
-I did find our previous discussions about these two RMNET1 and RMNET2
-functions, e.g:
-http://lists.freedesktop.org/archives/libqmi-devel/2014-July/000875.htm=
-l
-and it seems to indicate that both work as long as you configure them
-for 802.3 framing. But that could just be an information feedback
-loop...=20
+> 
+> -		while (seglen) {
+> -			int len = min_t(unsigned long, seglen, limit);
+> -			int newlen;
+> +		if (len > limit)
+> +			len = limit;
+
+If we leave int, do we have a wrap problem here?
+> 
+> -			newlen = af_alg_make_sg(&ctx->sgl, from, len, 0);
+> -			if (newlen < 0) {
+> -				err = copied ? 0 : newlen;
+> -				goto unlock;
+> -			}
+> -
+> -			ahash_request_set_crypt(&ctx->req, ctx->sgl.sg, NULL,
+> -						newlen);
+> -
+> -			err = af_alg_wait_for_completion(
+> -				crypto_ahash_update(&ctx->req),
+> -				&ctx->completion);
+> +		len = af_alg_make_sg(&ctx->sgl, &msg->msg_iter, len);
+> +		if (len < 0) {
+> +			err = copied ? 0 : len;
+> +			goto unlock;
+> +		}
+> 
+> -			af_alg_free_sg(&ctx->sgl);
+> +		ahash_request_set_crypt(&ctx->req, ctx->sgl.sg, NULL, len);
+> 
+> -			if (err)
+> -				goto unlock;
+> +		err = af_alg_wait_for_completion(crypto_ahash_update(&ctx-
+>req),
+> +						 &ctx->completion);
+> +		af_alg_free_sg(&ctx->sgl);
+> +		if (err)
+> +			goto unlock;
+> 
+> -			seglen -= newlen;
+> -			from += newlen;
+> -			copied += newlen;
+> -		}
+> +		copied += len;
+> +		iov_iter_advance(&msg->msg_iter, len);
+>  	}
+> 
+>  	err = 0;
+> diff --git a/crypto/algif_skcipher.c b/crypto/algif_skcipher.c
+> index c12207c..37110fd 100644
+> --- a/crypto/algif_skcipher.c
+> +++ b/crypto/algif_skcipher.c
+> @@ -426,67 +426,59 @@ static int skcipher_recvmsg(struct kiocb *unused,
+> struct socket *sock, &ctx->req));
+>  	struct skcipher_sg_list *sgl;
+>  	struct scatterlist *sg;
+> -	unsigned long iovlen;
+> -	const struct iovec *iov;
+>  	int err = -EAGAIN;
+>  	int used;
+>  	long copied = 0;
+> 
+>  	lock_sock(sk);
+> -	for (iov = msg->msg_iter.iov, iovlen = msg->msg_iter.nr_segs; iovlen > 
+0;
+> -	     iovlen--, iov++) {
+> -		unsigned long seglen = iov->iov_len;
+> -		char __user *from = iov->iov_base;
+> -
+> -		while (seglen) {
+> -			sgl = list_first_entry(&ctx->tsgl,
+> -					       struct skcipher_sg_list, list);
+> -			sg = sgl->sg;
+> -
+> -			while (!sg->length)
+> -				sg++;
+> -
+> -			if (!ctx->used) {
+> -				err = skcipher_wait_for_data(sk, flags);
+> -				if (err)
+> -					goto unlock;
+> -			}
+> +	while (iov_iter_count(&msg->msg_iter)) {
+> +		sgl = list_first_entry(&ctx->tsgl,
+> +				       struct skcipher_sg_list, list);
+> +		sg = sgl->sg;
+> 
+> -			used = min_t(unsigned long, ctx->used, seglen);
+> +		while (!sg->length)
+> +			sg++;
+> 
+> -			used = af_alg_make_sg(&ctx->rsgl, from, used, 1);
+> -			err = used;
+> -			if (err < 0)
+> +		used = ctx->used;
+> +		if (!used) {
+
+I do not think that this change is correct. The following 
+skcipher_wait_for_data puts the recvmsg to sleep. That means, ctx->used may 
+change due to a new sendmsg() while sleeping.
+
+Hence, I would think that we should leave the code as it was:
+
+if (!ctx->used)
+
+and then in the following
+
+> +			err = skcipher_wait_for_data(sk, flags);
+> +			if (err)
+>  				goto unlock;
+> +		}
+> +
+> +		used = min_t(unsigned long, used, iov_iter_count(&msg-
+>msg_iter));
+
+we use ctx->used here.
+
+And shouldn't we use size_t here instead of unsigned long?
+
+> +
+> +		used = af_alg_make_sg(&ctx->rsgl, &msg->msg_iter, used);
+> +		err = used;
+> +		if (err < 0)
+> +			goto unlock;
+> 
+> -			if (ctx->more || used < ctx->used)
+> -				used -= used % bs;
+> +		if (ctx->more || used < ctx->used)
+> +			used -= used % bs;
+> 
+> -			err = -EINVAL;
+> -			if (!used)
+> -				goto free;
+> +		err = -EINVAL;
+> +		if (!used)
+> +			goto free;
+> 
+> -			ablkcipher_request_set_crypt(&ctx->req, sg,
+> -						     ctx->rsgl.sg, used,
+> -						     ctx->iv);
+> +		ablkcipher_request_set_crypt(&ctx->req, sg,
+> +					     ctx->rsgl.sg, used,
+> +					     ctx->iv);
+> 
+> -			err = af_alg_wait_for_completion(
+> +		err = af_alg_wait_for_completion(
+>  				ctx->enc ?
+>  					crypto_ablkcipher_encrypt(&ctx->req) :
+>  					crypto_ablkcipher_decrypt(&ctx->req),
+>  				&ctx->completion);
+> 
+>  free:
+> -			af_alg_free_sg(&ctx->rsgl);
+> +		af_alg_free_sg(&ctx->rsgl);
+> 
+> -			if (err)
+> -				goto unlock;
+> +		if (err)
+> +			goto unlock;
+> 
+> -			copied += used;
+> -			from += used;
+> -			seglen -= used;
+> -			skcipher_pull_sgl(sk, used);
+> -		}
+> +		copied += used;
+> +		skcipher_pull_sgl(sk, used);
+> +		iov_iter_advance(&msg->msg_iter, used);
+>  	}
+> 
+>  	err = 0;
+> diff --git a/include/crypto/if_alg.h b/include/crypto/if_alg.h
+> index cd62bf4..88ea64e 100644
+> --- a/include/crypto/if_alg.h
+> +++ b/include/crypto/if_alg.h
+> @@ -67,8 +67,7 @@ int af_alg_unregister_type(const struct af_alg_type
+> *type); int af_alg_release(struct socket *sock);
+>  int af_alg_accept(struct sock *sk, struct socket *newsock);
+> 
+> -int af_alg_make_sg(struct af_alg_sgl *sgl, void __user *addr, int len,
+> -		   int write);
+> +int af_alg_make_sg(struct af_alg_sgl *sgl, struct iov_iter *iter, int len);
+> void af_alg_free_sg(struct af_alg_sgl *sgl);
+> 
+>  int af_alg_cmsg_send(struct msghdr *msg, struct af_alg_control *con);
 
 
-> -Kristian
-> ffff8800cbbad240 1429569304 S Ii:3:050:7 -115:256 10 <
-> ffff8800cbbadb40 1429569566 S Co:3:050:0 s 21 00 0000 000a 000c 12 =3D=
- 010b0000 00000001 27000000
-> ffff8800cbbadb40 1429570337 C Co:3:050:0 0 12 >
-> ffff8800cbbad240 1434576966 C Ii:3:050:7 -2:256 0
-> ffff8800cbbad240 1434577061 S Ii:3:050:7 -115:256 10 <
-> ffff8800cbbadb40 1434577154 S Co:3:050:0 s 21 00 0000 000a 000c 12 =3D=
- 010b0000 00000001 27000000
-> ffff8800cbbadb40 1434577968 C Co:3:050:0 0 12 >
-> ffff8800cbbad240 1439584564 C Ii:3:050:7 -2:256 0
-> ffff8800cbbad240 1439584687 S Ii:3:050:7 -115:256 10 <
-> ffff8800cbbadb40 1439584829 S Co:3:050:0 s 21 00 0000 000a 000c 12 =3D=
- 010b0000 00000001 27000000
-> ffff8800cbbadb40 1439585699 C Co:3:050:0 0 12 >
-> ffff8800cbbad240 1440477055 C Ii:3:050:7 -2:256 0
-
-
-
-
-Hmm, it's been a long time since I've looked at one of these so I might
-be wrong, but I must admit that it looks pretty dead.  I assume the
-ENOENT Ii callback status indicates a timeout?
-
-
-
-Bj=C3=B8rn
+-- 
+Ciao
+Stephan
