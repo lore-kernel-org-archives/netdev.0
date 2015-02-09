@@ -1,69 +1,95 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] net: dsa: Remove redundant phy_attach()
-Date: Mon, 09 Feb 2015 11:21:26 -0800
-Message-ID: <54D908B6.9020101@gmail.com>
-References: <1423445395-412-1-git-send-email-andrew@lunn.ch>
+From: Nick Krause <xerofoify@gmail.com>
+Subject: Re: [PATCH] net:ethernet:intel:Remove outdated fix me
+ comment in the function, gb_acquire_swfw_sync_i210
+Date: Mon, 9 Feb 2015 14:35:02 -0500
+Message-ID: <CAPDOMVhF-NWbER+hgC6piJWWVgSPE3Wv1oMYSpFeLydqALfxiw@mail.gmail.com>
+References: <1423372910-29183-1-git-send-email-xerofoify@gmail.com>
+	<1423444889.2589.165.camel@jtkirshe-mobl>
+	<54D85EFA.3020501@gmail.com>
+	<1423470722.27854.11.camel@jtkirshe-mobl>
+	<87egpzqvpc.fsf@nemi.mork.no>
+	<alpine.NEB.2.11.1502090901440.395@chris.i8u.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Andrew Lunn <andrew@lunn.ch>, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f177.google.com ([209.85.192.177]:42573 "EHLO
-	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933468AbbBITVb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Feb 2015 14:21:31 -0500
-Received: by pdbfp1 with SMTP id fp1so2593570pdb.9
-        for <netdev@vger.kernel.org>; Mon, 09 Feb 2015 11:21:30 -0800 (PST)
-In-Reply-To: <1423445395-412-1-git-send-email-andrew@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux.nics@intel.com,
+	"e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>, bruce.w.allan@intel.com,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	jesse.brandeburg@intel.com, john.ronciak@intel.com,
+	Andrej Manduch <amanduch@gmail.com>,
+	=?UTF-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+To: Hisashi T Fujinaka <htodd@twofifty.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <alpine.NEB.2.11.1502090901440.395@chris.i8u.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On 08/02/15 17:29, Andrew Lunn wrote:
-> dsa_slave_phy_setup() finds the phy for the port via device tree and
-> using of_phy_connect(), or it uses the fall back of taking a phy from
-> the switch internal mdio bus and calling phy_connect_direct(). Either
-> way, if a phy is found, phy_attach_direct() is called to attach the
-> phy to the slave device.
-> 
-> In dsa_slave_create(), a second call to phy_attach() is made. This
-> results in the warning "PHY already attached". Remove this second,
-> redundant attaching of the phy.
-> 
-> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+On Mon, Feb 9, 2015 at 12:03 PM, Hisashi T Fujinaka <htodd@twofifty.com> wrote:
+> On Mon, 9 Feb 2015, Bj?rn Mork wrote:
+>
+>> Jeff Kirsher <jeffrey.t.kirsher@intel.com> writes:
+>>
+>>> If you want to see Nick's patch, feel free to view his patch on
+>>> my queue tree:
+>>> https://git.kernel.org/cgit/linux/kernel/git/jkirsher/queue.git/
+>>
+>> which said:
+>>  - s32 i = 0, timeout = 200; /* FIXME: find real value to use here */
+>>  + s32 i = 0, timeout = 200;
+>>
+>>
+>> Comments like the one deleted by that patch do have some value in my
+>> opinion: They document that the constant is chosen arbitrarily and is
+>> not taken from some datasheet.
+>>
+>> Not a big deal, but leaving such comments, even if the value never ever
+>> changes, could save someone from trying to figure out where the heck you
+>> got that constant.  And there's noone actually misinterpreting this
+>> comment as "something needs to be fixed here", is there? So the cost of
+>> leaving the comment is exactly zero.
+>>
+>> Just my .02 ?.  I'm not going to tell you how to maintain your driver,
+>> of course.  At least I try not to :-)
+>
+> I think, for now, we should NAK this. It's a short comment and you don't
+> want me to replace it with a philosophical statement on how you could
+> tune the timeout. That's what the data sheet is for.
+>
+> (Replying from my home account and not my work account -
+> todd.fujinaka@intel.com)
+>
+> ------------------------------------------------------------------------------
+> Dive into the World of Parallel Programming. The Go Parallel Website,
+> sponsored by Intel and developed in partnership with Slashdot Media, is your
+> hub for all things parallel software development, from weekly thought
+> leadership blogs to news, videos, case studies, tutorials and more. Take a
+> look and join the conversation now. http://goparallel.sourceforge.net/
+> _______________________________________________
+> E1000-devel mailing list
+> E1000-devel@lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/e1000-devel
+> To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+That's fine, however if that is the case why not just explain the
+reasons for these values in
+another patch with a added comment rather then just removing the FIXME.
+ Nick
 
-Acked-by: Florian Fainelli <f.fainelli@gmail.com>
-Tested-by: Florian Fainelli <f.fainelli@gmail.com>
-
-> ---
->  net/dsa/slave.c | 13 -------------
->  1 file changed, 13 deletions(-)
-> 
-> diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-> index 589aafd01fc5..d104ae15836f 100644
-> --- a/net/dsa/slave.c
-> +++ b/net/dsa/slave.c
-> @@ -676,18 +676,5 @@ dsa_slave_create(struct dsa_switch *ds, struct device *parent,
->  
->  	netif_carrier_off(slave_dev);
->  
-> -	if (p->phy != NULL) {
-> -		if (ds->drv->get_phy_flags)
-> -			p->phy->dev_flags |= ds->drv->get_phy_flags(ds, port);
-> -
-> -		phy_attach(slave_dev, dev_name(&p->phy->dev),
-> -			   PHY_INTERFACE_MODE_GMII);
-> -
-> -		p->phy->autoneg = AUTONEG_ENABLE;
-> -		p->phy->speed = 0;
-> -		p->phy->duplex = 0;
-> -		p->phy->advertising = p->phy->supported | ADVERTISED_Autoneg;
-> -	}
-> -
->  	return slave_dev;
->  }
-> 
-
-
--- 
-Florian
+------------------------------------------------------------------------------
+Dive into the World of Parallel Programming. The Go Parallel Website,
+sponsored by Intel and developed in partnership with Slashdot Media, is your
+hub for all things parallel software development, from weekly thought
+leadership blogs to news, videos, case studies, tutorials and more. Take a
+look and join the conversation now. http://goparallel.sourceforge.net/
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
