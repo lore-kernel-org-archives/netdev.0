@@ -1,53 +1,39 @@
-From: Alexandre Courbot <gnurou@gmail.com>
-Subject: Re: [PATCH 3/3][v2] mdio-mux-gpio: use new gpiod_get_array and
- gpiod_put_array functions
-Date: Mon, 9 Feb 2015 22:53:32 +0900
-Message-ID: <CAAVeFuLqwL9VWMComyVj0odMfQnJvEVOwDMb672iUXRfjRoJtg@mail.gmail.com>
-References: <2017147.PF4WHTmJS4@pcimr> <CAAVeFu+bfTbvbaZ0EVrZzH_zNWDJjfM4oi13g8D+aH_8x6BqaQ@mail.gmail.com>
- <2302857.SIRJpJWX1o@pcimr>
+From: Stephan Mueller <smueller@chronox.de>
+Subject: Re: [PATCH v3 12/18] crypto: switch af_alg_make_sg() to iov_iter
+Date: Mon, 09 Feb 2015 14:59:40 +0100
+Message-ID: <1830853.QH0ahQU9zL@tachyon.chronox.de>
+References: <20150204063730.GG29656@ZenIV.linux.org.uk> <1423032009-18367-12-git-send-email-viro@ZenIV.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "linux-gpio@vger.kernel.org" <linux-gpio@vger.kernel.org>,
-	Alexandre Courbot <acourbot@nvidia.com>,
-	Linus Walleij <linus.walleij@linaro.org>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Rojhalat Ibrahim <imr@rtschenk.de>
-Return-path: <linux-gpio-owner@vger.kernel.org>
-In-Reply-To: <2302857.SIRJpJWX1o@pcimr>
-Sender: linux-gpio-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-crypto@vger.kernel.org
+To: Al Viro <viro@zeniv.linux.org.uk>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <1423032009-18367-12-git-send-email-viro@ZenIV.linux.org.uk>
+Sender: linux-crypto-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Feb 9, 2015 at 6:14 PM, Rojhalat Ibrahim <imr@rtschenk.de> wrote:
-> On Monday 09 February 2015 14:18:14 Alexandre Courbot wrote:
->> On Thu, Jan 22, 2015 at 1:46 AM, Rojhalat Ibrahim <imr@rtschenk.de> wrote:
->> > Use the new gpiod_get_array and gpiod_put_array functions for obtaining and
->> > disposing of GPIO descriptors.
->> >
->> > Cc: David Miller <davem@davemloft.net>
->> > Signed-off-by: Rojhalat Ibrahim <imr@rtschenk.de>
->> > ---
->> > This patch depends on my previous patch "gpiolib: add gpiod_get_array and
->> > gpiod_put_array functions".
->> >
->> > v2: use the new interface
->> >
->> > Only compile-tested.
->> >
->> >  drivers/net/phy/mdio-mux-gpio.c |   61 +++++++++++-----------------------------
->> >  1 file changed, 18 insertions(+), 43 deletions(-)
->>
->> Oh yeah.
->>
->> It would be great to have a tested-by for the next revision though.
->>
->> Rojhalat, have you been able to test these new interfaces outside of
->> this driver?
->>
->
-> I have tested the new interface with my FPGA configuration driver (which I
-> plan to submit eventually). I cannot test the mdio-mux-gpio driver because
-> I lack the necessary hardware.
+Am Mittwoch, 4. Februar 2015, 06:40:03 schrieb Al Viro:
 
-That's good enough - I just want to make sure the interface has
-undergone some testing. :P
+Hi Al,
+
+> From: Al Viro <viro@zeniv.linux.org.uk>
+> 
+> With that, all ->sendmsg() instances are converted to iov_iter primitives
+> and are agnostic wrt the kind of iov_iter they are working with.
+> So's the last remaining ->recvmsg() instance that wasn't kind-agnostic yet.
+> All ->sendmsg() and ->recvmsg() advance ->msg_iter by the amount actually
+> copied and none of them modifies the underlying iovec, etc.
+
+After testing this patch with the test application by simply executing 
+[1]/test/test.sh, the hash and skcipher interface invocation hang in kernel 
+space. Though, I am not sure where the problem is.
+
+For individual invocations of the tests, you may look into [1]/test/kcapi-
+main.c in the comments above cavs_sym or cavs_hash.
+
+[1] http://www.chronox.de/libkcapi.html
+-- 
+Ciao
+Stephan
