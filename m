@@ -1,8 +1,8 @@
 From: <richard.alpe@ericsson.com>
-Subject: [PATCH net-next v1 03/17] tipc: convert legacy nl
-	bearer enable/disable to nl compat
-Date: Mon, 9 Feb 2015 09:50:05 +0100
-Message-ID: <1423471819-23112-4-git-send-email-richard.alpe@ericsson.com>
+Subject: [PATCH net-next v1 11/17] tipc: convert legacy nl
+	node dump to nl compat
+Date: Mon, 9 Feb 2015 09:50:13 +0100
+Message-ID: <1423471819-23112-12-git-send-email-richard.alpe@ericsson.com>
 References: <1423471819-23112-1-git-send-email-richard.alpe@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,365 +23,181 @@ List-Id: netdev.vger.kernel.org
 
 From: Richard Alpe <richard.alpe@ericsson.com>
 
-Introduce a framework for transcoding legacy nl action into actions
-(.doit) calls from the new nl API. This is done by converting the
-incoming TLV data into netlink data with nested netlink attributes.
-Unfortunately due to the randomness of the legacy API we can't do this
-generically so each legacy netlink command requires a specific
-transcoding recipe. In this case for bearer enable and bearer disable.
-
-Convert TIPC_CMD_ENABLE_BEARER and TIPC_CMD_DISABLE_BEARER into doit
-compat calls.
+Convert TIPC_CMD_GET_NODES to compat dumpit and remove global node
+counter solely used by the legacy API.
 
 Signed-off-by: Richard Alpe <richard.alpe@ericsson.com>
 Reviewed-by: Erik Hugne <erik.hugne@ericsson.com>
 Reviewed-by: Ying Xue <ying.xue@windriver.com>
 Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
 ---
- include/uapi/linux/tipc_config.h |   5 ++
- net/tipc/bearer.c                |  26 ++-----
- net/tipc/bearer.h                |   3 -
- net/tipc/config.c                |  33 ---------
- net/tipc/netlink_compat.c        | 144 +++++++++++++++++++++++++++++++++++++++
- 5 files changed, 154 insertions(+), 57 deletions(-)
+ net/tipc/config.c         |  4 ----
+ net/tipc/netlink_compat.c | 22 +++++++++++++++++++
+ net/tipc/node.c           | 54 -----------------------------------------------
+ net/tipc/node.h           |  2 --
+ 4 files changed, 22 insertions(+), 60 deletions(-)
 
-diff --git a/include/uapi/linux/tipc_config.h b/include/uapi/linux/tipc_config.h
-index e1f4f05..f922656 100644
---- a/include/uapi/linux/tipc_config.h
-+++ b/include/uapi/linux/tipc_config.h
-@@ -277,6 +277,11 @@ static inline int TLV_GET_LEN(struct tlv_desc *tlv)
- 	return ntohs(tlv->tlv_len);
- }
- 
-+static inline int TLV_CHECK_TYPE(struct tlv_desc *tlv,  __u16 type)
-+{
-+	return (ntohs(tlv->tlv_type) == type);
-+}
-+
- static inline int TLV_SET(void *tlv, __u16 type, void *data, __u16 len)
- {
- 	struct tlv_desc *tlv_ptr;
-diff --git a/net/tipc/bearer.c b/net/tipc/bearer.c
-index 7a9e296..de1c800 100644
---- a/net/tipc/bearer.c
-+++ b/net/tipc/bearer.c
-@@ -236,8 +236,8 @@ void tipc_bearer_remove_dest(struct net *net, u32 bearer_id, u32 dest)
- /**
-  * tipc_enable_bearer - enable bearer with the given name
-  */
--int tipc_enable_bearer(struct net *net, const char *name, u32 disc_domain,
--		       u32 priority)
-+static int tipc_enable_bearer(struct net *net, const char *name,
-+			      u32 disc_domain, u32 priority)
- {
- 	struct tipc_net *tn = net_generic(net, tipc_net_id);
- 	struct tipc_bearer *b_ptr;
-@@ -393,22 +393,6 @@ static void bearer_disable(struct net *net, struct tipc_bearer *b_ptr,
- 	kfree_rcu(b_ptr, rcu);
- }
- 
--int tipc_disable_bearer(struct net *net, const char *name)
--{
--	struct tipc_bearer *b_ptr;
--	int res;
--
--	b_ptr = tipc_bearer_find(net, name);
--	if (b_ptr == NULL) {
--		pr_warn("Attempt to disable unknown bearer <%s>\n", name);
--		res = -EINVAL;
--	} else {
--		bearer_disable(net, b_ptr, false);
--		res = 0;
--	}
--	return res;
--}
--
- int tipc_enable_l2_media(struct net *net, struct tipc_bearer *b)
- {
- 	struct net_device *dev;
-@@ -756,7 +740,7 @@ int tipc_nl_bearer_disable(struct sk_buff *skb, struct genl_info *info)
- 	char *name;
- 	struct tipc_bearer *bearer;
- 	struct nlattr *attrs[TIPC_NLA_BEARER_MAX + 1];
--	struct net *net = genl_info_net(info);
-+	struct net *net = sock_net(skb->sk);
- 
- 	if (!info->attrs[TIPC_NLA_BEARER])
- 		return -EINVAL;
-@@ -787,11 +771,11 @@ int tipc_nl_bearer_disable(struct sk_buff *skb, struct genl_info *info)
- 
- int tipc_nl_bearer_enable(struct sk_buff *skb, struct genl_info *info)
- {
--	struct net *net = genl_info_net(info);
--	struct tipc_net *tn = net_generic(net, tipc_net_id);
- 	int err;
- 	char *bearer;
- 	struct nlattr *attrs[TIPC_NLA_BEARER_MAX + 1];
-+	struct net *net = sock_net(skb->sk);
-+	struct tipc_net *tn = net_generic(net, tipc_net_id);
- 	u32 domain;
- 	u32 prio;
- 
-diff --git a/net/tipc/bearer.h b/net/tipc/bearer.h
-index 9568582..06f25d1 100644
---- a/net/tipc/bearer.h
-+++ b/net/tipc/bearer.h
-@@ -173,9 +173,6 @@ struct tipc_bearer_names {
-  */
- 
- void tipc_rcv(struct net *net, struct sk_buff *skb, struct tipc_bearer *b_ptr);
--int tipc_enable_bearer(struct net *net, const char *bearer_name,
--		       u32 disc_domain, u32 priority);
--int tipc_disable_bearer(struct net *net, const char *name);
- 
- /*
-  * Routines made available to TIPC by supported media types
 diff --git a/net/tipc/config.c b/net/tipc/config.c
-index 52e84b0..f8cd5e1 100644
+index df41082..74babd7 100644
 --- a/net/tipc/config.c
 +++ b/net/tipc/config.c
-@@ -134,33 +134,6 @@ static struct sk_buff *tipc_show_stats(void)
- 	return buf;
- }
- 
--static struct sk_buff *cfg_enable_bearer(struct net *net)
--{
--	struct tipc_bearer_config *args;
--
--	if (!TLV_CHECK(req_tlv_area, req_tlv_space, TIPC_TLV_BEARER_CONFIG))
--		return tipc_cfg_reply_error_string(TIPC_CFG_TLV_ERROR);
--
--	args = (struct tipc_bearer_config *)TLV_DATA(req_tlv_area);
--	if (tipc_enable_bearer(net, args->name,
--			       ntohl(args->disc_domain),
--			       ntohl(args->priority)))
--		return tipc_cfg_reply_error_string("unable to enable bearer");
--
--	return tipc_cfg_reply_none();
--}
--
--static struct sk_buff *cfg_disable_bearer(struct net *net)
--{
--	if (!TLV_CHECK(req_tlv_area, req_tlv_space, TIPC_TLV_BEARER_NAME))
--		return tipc_cfg_reply_error_string(TIPC_CFG_TLV_ERROR);
--
--	if (tipc_disable_bearer(net, (char *)TLV_DATA(req_tlv_area)))
--		return tipc_cfg_reply_error_string("unable to disable bearer");
--
--	return tipc_cfg_reply_none();
--}
--
- static struct sk_buff *cfg_set_own_addr(struct net *net)
- {
- 	struct tipc_net *tn = net_generic(net, tipc_net_id);
-@@ -267,12 +240,6 @@ struct sk_buff *tipc_cfg_do_cmd(struct net *net, u32 orig_node, u16 cmd,
- 		rep_tlv_buf = tipc_link_cmd_config(net, req_tlv_area,
- 						   req_tlv_space, cmd);
+@@ -205,10 +205,6 @@ struct sk_buff *tipc_cfg_do_cmd(struct net *net, u32 orig_node, u16 cmd,
+ 	case TIPC_CMD_NOOP:
+ 		rep_tlv_buf = tipc_cfg_reply_none();
  		break;
--	case TIPC_CMD_ENABLE_BEARER:
--		rep_tlv_buf = cfg_enable_bearer(net);
+-	case TIPC_CMD_GET_NODES:
+-		rep_tlv_buf = tipc_node_get_nodes(net, req_tlv_area,
+-						  req_tlv_space);
 -		break;
--	case TIPC_CMD_DISABLE_BEARER:
--		rep_tlv_buf = cfg_disable_bearer(net);
--		break;
- 	case TIPC_CMD_SET_NODE_ADDR:
- 		rep_tlv_buf = cfg_set_own_addr(net);
+ 	case TIPC_CMD_SHOW_STATS:
+ 		rep_tlv_buf = tipc_show_stats();
  		break;
 diff --git a/net/tipc/netlink_compat.c b/net/tipc/netlink_compat.c
-index bd75ea2..12b0f44 100644
+index d23075e..0dc448e 100644
 --- a/net/tipc/netlink_compat.c
 +++ b/net/tipc/netlink_compat.c
-@@ -49,6 +49,7 @@
- struct tipc_nl_compat_msg {
- 	u16 cmd;
- 	int rep_size;
-+	int req_type;
- 	struct sk_buff *rep;
- 	struct tlv_desc *req;
- 	struct sock *dst_sk;
-@@ -59,6 +60,11 @@ struct tipc_nl_compat_cmd_dump {
- 	int (*format)(struct tipc_nl_compat_msg *msg, struct nlattr **attrs);
- };
+@@ -37,6 +37,7 @@
+ #include "link.h"
+ #include "name_table.h"
+ #include "socket.h"
++#include "node.h"
+ #include <net/genetlink.h>
+ #include <linux/tipc_config.h>
  
-+struct tipc_nl_compat_cmd_doit {
-+	int (*doit)(struct sk_buff *skb, struct genl_info *info);
-+	int (*transcode)(struct sk_buff *skb, struct tipc_nl_compat_msg *msg);
-+};
-+
- static int tipc_skb_tailroom(struct sk_buff *skb)
- {
- 	int tailroom;
-@@ -213,6 +219,78 @@ static int tipc_nl_compat_dumpit(struct tipc_nl_compat_cmd_dump *cmd,
- 	return err;
+@@ -835,6 +836,21 @@ static int tipc_nl_compat_media_dump(struct tipc_nl_compat_msg *msg,
+ 			    nla_len(media[TIPC_NLA_MEDIA_NAME]));
  }
  
-+static int __tipc_nl_compat_doit(struct tipc_nl_compat_cmd_doit *cmd,
-+				 struct tipc_nl_compat_msg *msg)
++static int tipc_nl_compat_node_dump(struct tipc_nl_compat_msg *msg,
++				    struct nlattr **attrs)
 +{
-+	int err;
-+	struct sk_buff *doit_buf;
-+	struct sk_buff *trans_buf;
-+	struct nlattr **attrbuf;
-+	struct genl_info info;
++	struct tipc_node_info node_info;
++	struct nlattr *node[TIPC_NLA_NODE_MAX + 1];
 +
-+	trans_buf = alloc_skb(NLMSG_GOODSIZE, GFP_KERNEL);
-+	if (!trans_buf)
-+		return -ENOMEM;
++	nla_parse_nested(node, TIPC_NLA_NODE_MAX, attrs[TIPC_NLA_NODE], NULL);
 +
-+	err = (*cmd->transcode)(trans_buf, msg);
-+	if (err)
-+		goto trans_out;
++	node_info.addr = htonl(nla_get_u32(node[TIPC_NLA_NODE_ADDR]));
++	node_info.up = htonl(nla_get_flag(node[TIPC_NLA_NODE_UP]));
 +
-+	attrbuf = kmalloc((tipc_genl_family.maxattr + 1) *
-+			sizeof(struct nlattr *), GFP_KERNEL);
-+	if (!attrbuf) {
-+		err = -ENOMEM;
-+		goto trans_out;
-+	}
-+
-+	err = nla_parse(attrbuf, tipc_genl_family.maxattr,
-+			(const struct nlattr *)trans_buf->data,
-+			trans_buf->len, NULL);
-+	if (err)
-+		goto parse_out;
-+
-+	doit_buf = alloc_skb(NLMSG_GOODSIZE, GFP_KERNEL);
-+	if (!doit_buf) {
-+		err = -ENOMEM;
-+		goto parse_out;
-+	}
-+
-+	doit_buf->sk = msg->dst_sk;
-+
-+	memset(&info, 0, sizeof(info));
-+	info.attrs = attrbuf;
-+
-+	err = (*cmd->doit)(doit_buf, &info);
-+
-+	kfree_skb(doit_buf);
-+parse_out:
-+	kfree(attrbuf);
-+trans_out:
-+	kfree_skb(trans_buf);
-+
-+	return err;
-+}
-+
-+static int tipc_nl_compat_doit(struct tipc_nl_compat_cmd_doit *cmd,
-+			       struct tipc_nl_compat_msg *msg)
-+{
-+	int err;
-+
-+	if (msg->req_type && !TLV_CHECK_TYPE(msg->req, msg->req_type))
-+		return -EINVAL;
-+
-+	err = __tipc_nl_compat_doit(cmd, msg);
-+	if (err)
-+		return err;
-+
-+	/* The legacy API considered an empty message a success message */
-+	msg->rep = tipc_tlv_alloc(0);
-+	if (!msg->rep)
-+		return -ENOMEM;
-+
-+	return 0;
-+}
-+
- static int tipc_nl_compat_bearer_dump(struct tipc_nl_compat_msg *msg,
- 				      struct nlattr **attrs)
- {
-@@ -226,11 +304,65 @@ static int tipc_nl_compat_bearer_dump(struct tipc_nl_compat_msg *msg,
- 			    nla_len(bearer[TIPC_NLA_BEARER_NAME]));
- }
- 
-+static int tipc_nl_compat_bearer_enable(struct sk_buff *skb,
-+					struct tipc_nl_compat_msg *msg)
-+{
-+	struct nlattr *prop;
-+	struct nlattr *bearer;
-+	struct tipc_bearer_config *b;
-+
-+	b = (struct tipc_bearer_config *)TLV_DATA(msg->req);
-+
-+	bearer = nla_nest_start(skb, TIPC_NLA_BEARER);
-+	if (!bearer)
-+		return -EMSGSIZE;
-+
-+	if (nla_put_string(skb, TIPC_NLA_BEARER_NAME, b->name))
-+		return -EMSGSIZE;
-+
-+	if (nla_put_u32(skb, TIPC_NLA_BEARER_DOMAIN, ntohl(b->disc_domain)))
-+		return -EMSGSIZE;
-+
-+	if (ntohl(b->priority) <= TIPC_MAX_LINK_PRI) {
-+		prop = nla_nest_start(skb, TIPC_NLA_BEARER_PROP);
-+		if (!prop)
-+			return -EMSGSIZE;
-+		if (nla_put_u32(skb, TIPC_NLA_PROP_PRIO, ntohl(b->priority)))
-+			return -EMSGSIZE;
-+		nla_nest_end(skb, prop);
-+	}
-+	nla_nest_end(skb, bearer);
-+
-+	return 0;
-+}
-+
-+static int tipc_nl_compat_bearer_disable(struct sk_buff *skb,
-+					 struct tipc_nl_compat_msg *msg)
-+{
-+	char *name;
-+	struct nlattr *bearer;
-+
-+	name = (char *)TLV_DATA(msg->req);
-+
-+	bearer = nla_nest_start(skb, TIPC_NLA_BEARER);
-+	if (!bearer)
-+		return -EMSGSIZE;
-+
-+	if (nla_put_string(skb, TIPC_NLA_BEARER_NAME, name))
-+		return -EMSGSIZE;
-+
-+	nla_nest_end(skb, bearer);
-+
-+	return 0;
++	return tipc_add_tlv(msg->rep, TIPC_TLV_NODE_INFO, &node_info,
++			    sizeof(node_info));
 +}
 +
  static int tipc_nl_compat_handle(struct tipc_nl_compat_msg *msg)
  {
  	struct tipc_nl_compat_cmd_dump dump;
-+	struct tipc_nl_compat_cmd_doit doit;
- 
- 	memset(&dump, 0, sizeof(dump));
-+	memset(&doit, 0, sizeof(doit));
- 
- 	switch (msg->cmd) {
- 	case TIPC_CMD_GET_BEARER_NAMES:
-@@ -238,6 +370,16 @@ static int tipc_nl_compat_handle(struct tipc_nl_compat_msg *msg)
- 		dump.dumpit = tipc_nl_bearer_dump;
- 		dump.format = tipc_nl_compat_bearer_dump;
+@@ -903,6 +919,11 @@ static int tipc_nl_compat_handle(struct tipc_nl_compat_msg *msg)
+ 		dump.dumpit = tipc_nl_media_dump;
+ 		dump.format = tipc_nl_compat_media_dump;
  		return tipc_nl_compat_dumpit(&dump, msg);
-+	case TIPC_CMD_ENABLE_BEARER:
-+		msg->req_type = TIPC_TLV_BEARER_CONFIG;
-+		doit.doit = tipc_nl_bearer_enable;
-+		doit.transcode = tipc_nl_compat_bearer_enable;
-+		return tipc_nl_compat_doit(&doit, msg);
-+	case TIPC_CMD_DISABLE_BEARER:
-+		msg->req_type = TIPC_TLV_BEARER_NAME;
-+		doit.doit = tipc_nl_bearer_disable;
-+		doit.transcode = tipc_nl_compat_bearer_disable;
-+		return tipc_nl_compat_doit(&doit, msg);
++	case TIPC_CMD_GET_NODES:
++		msg->rep_size = ULTRA_STRING_MAX_LEN;
++		dump.dumpit = tipc_nl_node_dump;
++		dump.format = tipc_nl_compat_node_dump;
++		return tipc_nl_compat_dumpit(&dump, msg);
  	}
  
  	return -EOPNOTSUPP;
-@@ -335,6 +477,8 @@ static int tipc_nl_compat_tmp_wrap(struct sk_buff *skb, struct genl_info *info)
- 
- 	switch (req->cmd) {
- 	case TIPC_CMD_GET_BEARER_NAMES:
-+	case TIPC_CMD_ENABLE_BEARER:
-+	case TIPC_CMD_DISABLE_BEARER:
+@@ -1011,6 +1032,7 @@ static int tipc_nl_compat_tmp_wrap(struct sk_buff *skb, struct genl_info *info)
+ 	case TIPC_CMD_SHOW_NAME_TABLE:
+ 	case TIPC_CMD_SHOW_PORTS:
+ 	case TIPC_CMD_GET_MEDIA_NAMES:
++	case TIPC_CMD_GET_NODES:
  		return tipc_nl_compat_recv(skb, info);
  	}
  
+diff --git a/net/tipc/node.c b/net/tipc/node.c
+index 46b87f7..ddaa2bb 100644
+--- a/net/tipc/node.c
++++ b/net/tipc/node.c
+@@ -120,7 +120,6 @@ struct tipc_node *tipc_node_create(struct net *net, u32 addr)
+ 	list_add_tail_rcu(&n_ptr->list, &temp_node->list);
+ 	n_ptr->action_flags = TIPC_WAIT_PEER_LINKS_DOWN;
+ 	n_ptr->signature = INVALID_NODE_SIG;
+-	tn->num_nodes++;
+ exit:
+ 	spin_unlock_bh(&tn->node_list_lock);
+ 	return n_ptr;
+@@ -131,8 +130,6 @@ static void tipc_node_delete(struct tipc_net *tn, struct tipc_node *n_ptr)
+ 	list_del_rcu(&n_ptr->list);
+ 	hlist_del_rcu(&n_ptr->hash);
+ 	kfree_rcu(n_ptr, rcu);
+-
+-	tn->num_nodes--;
+ }
+ 
+ void tipc_node_stop(struct net *net)
+@@ -407,57 +404,6 @@ static void node_lost_contact(struct tipc_node *n_ptr)
+ 	}
+ }
+ 
+-struct sk_buff *tipc_node_get_nodes(struct net *net, const void *req_tlv_area,
+-				    int req_tlv_space)
+-{
+-	struct tipc_net *tn = net_generic(net, tipc_net_id);
+-	u32 domain;
+-	struct sk_buff *buf;
+-	struct tipc_node *n_ptr;
+-	struct tipc_node_info node_info;
+-	u32 payload_size;
+-
+-	if (!TLV_CHECK(req_tlv_area, req_tlv_space, TIPC_TLV_NET_ADDR))
+-		return tipc_cfg_reply_error_string(TIPC_CFG_TLV_ERROR);
+-
+-	domain = ntohl(*(__be32 *)TLV_DATA(req_tlv_area));
+-	if (!tipc_addr_domain_valid(domain))
+-		return tipc_cfg_reply_error_string(TIPC_CFG_INVALID_VALUE
+-						   " (network address)");
+-
+-	spin_lock_bh(&tn->node_list_lock);
+-	if (!tn->num_nodes) {
+-		spin_unlock_bh(&tn->node_list_lock);
+-		return tipc_cfg_reply_none();
+-	}
+-
+-	/* For now, get space for all other nodes */
+-	payload_size = TLV_SPACE(sizeof(node_info)) * tn->num_nodes;
+-	if (payload_size > 32768u) {
+-		spin_unlock_bh(&tn->node_list_lock);
+-		return tipc_cfg_reply_error_string(TIPC_CFG_NOT_SUPPORTED
+-						   " (too many nodes)");
+-	}
+-	spin_unlock_bh(&tn->node_list_lock);
+-
+-	buf = tipc_cfg_reply_alloc(payload_size);
+-	if (!buf)
+-		return NULL;
+-
+-	/* Add TLVs for all nodes in scope */
+-	rcu_read_lock();
+-	list_for_each_entry_rcu(n_ptr, &tn->node_list, list) {
+-		if (!tipc_in_scope(domain, n_ptr->addr))
+-			continue;
+-		node_info.addr = htonl(n_ptr->addr);
+-		node_info.up = htonl(tipc_node_is_up(n_ptr));
+-		tipc_cfg_append_tlv(buf, TIPC_TLV_NODE_INFO,
+-				    &node_info, sizeof(node_info));
+-	}
+-	rcu_read_unlock();
+-	return buf;
+-}
+-
+ /**
+  * tipc_node_get_linkname - get the name of a link
+  *
+diff --git a/net/tipc/node.h b/net/tipc/node.h
+index 59dafee..3d18c66 100644
+--- a/net/tipc/node.h
++++ b/net/tipc/node.h
+@@ -142,8 +142,6 @@ void tipc_node_link_down(struct tipc_node *n_ptr, struct tipc_link *l_ptr);
+ void tipc_node_link_up(struct tipc_node *n_ptr, struct tipc_link *l_ptr);
+ int tipc_node_active_links(struct tipc_node *n_ptr);
+ int tipc_node_is_up(struct tipc_node *n_ptr);
+-struct sk_buff *tipc_node_get_nodes(struct net *net, const void *req_tlv_area,
+-				    int req_tlv_space);
+ int tipc_node_get_linkname(struct net *net, u32 bearer_id, u32 node,
+ 			   char *linkname, size_t len);
+ void tipc_node_unlock(struct tipc_node *node);
 -- 
 2.1.4
 
