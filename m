@@ -1,149 +1,44 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 10/15] i40evf: Force Tx writeback on ITR
-Date: Mon,  9 Feb 2015 02:43:56 -0800
-Message-ID: <1423478641-3138-11-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 12/15] i40e: Fix function header
+Date: Mon,  9 Feb 2015 02:43:58 -0800
+Message-ID: <1423478641-3138-13-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1423478641-3138-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:16331 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:35313 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760569AbbBIKoG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1760623AbbBIKoG (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Mon, 9 Feb 2015 05:44:06 -0500
 In-Reply-To: <1423478641-3138-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Anjali Singhai Jain <anjali.singhai@intel.com>
+From: Greg Rose <gregory.v.rose@intel.com>
 
-This patch forces Tx descriptor writebacks on ITR by kicking
-off the SWINT interrupt when we notice that there are non-cache-aligned
-Tx descriptors waiting in the ring while interrupts are disabled
-under NAPI.
+s/enable/disable
 
-Change-ID: dd6d9675629bf266c7515ad7a201394618c35444
-Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
+Change-ID: Ic0572a6c59d03e05a0a35d2e2e9d532e0512638d
+Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_txrx.c   |  4 +--
- drivers/net/ethernet/intel/i40evf/i40e_txrx.c | 38 +++++++++++++++++++++++++--
- drivers/net/ethernet/intel/i40evf/i40e_txrx.h |  1 +
- 3 files changed, 39 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-index 420d662..5aa6ef1 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-@@ -836,8 +836,8 @@ static void i40e_force_wb(struct i40e_vsi *vsi, struct i40e_q_vector *q_vector)
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 1923a0b..cbe281b 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -2940,7 +2940,7 @@ void i40e_irq_dynamic_enable(struct i40e_vsi *vsi, int vector)
+ /**
+  * i40e_irq_dynamic_disable - Disable default interrupt generation settings
+  * @vsi: pointer to a vsi
+- * @vector: enable a particular Hw Interrupt vector
++ * @vector: disable a particular Hw Interrupt vector
+  **/
+ void i40e_irq_dynamic_disable(struct i40e_vsi *vsi, int vector)
  {
- 	u32 val = I40E_PFINT_DYN_CTLN_INTENA_MASK |
- 		  I40E_PFINT_DYN_CTLN_SWINT_TRIG_MASK |
--		  I40E_PFINT_DYN_CTLN_SW_ITR_INDX_ENA_MASK
--		  /* allow 00 to be written to the index */;
-+		  I40E_PFINT_DYN_CTLN_SW_ITR_INDX_ENA_MASK;
-+		  /* allow 00 to be written to the index */
- 
- 	wr32(&vsi->back->hw,
- 	     I40E_PFINT_DYN_CTLN(q_vector->v_idx + vsi->base_vector - 1),
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-index 82c3798..4bf15da 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-@@ -192,6 +192,8 @@ static inline u32 i40e_get_head(struct i40e_ring *tx_ring)
- 	return le32_to_cpu(*(volatile __le32 *)head);
- }
- 
-+#define WB_STRIDE 0x3
-+
- /**
-  * i40e_clean_tx_irq - Reclaim resources after transmit completes
-  * @tx_ring:  tx ring to clean
-@@ -293,6 +295,14 @@ static bool i40e_clean_tx_irq(struct i40e_ring *tx_ring, int budget)
- 	tx_ring->q_vector->tx.total_bytes += total_bytes;
- 	tx_ring->q_vector->tx.total_packets += total_packets;
- 
-+	if (budget &&
-+	    !((i & WB_STRIDE) == WB_STRIDE) &&
-+	    !test_bit(__I40E_DOWN, &tx_ring->vsi->state) &&
-+	    (I40E_DESC_UNUSED(tx_ring) != tx_ring->count))
-+		tx_ring->arm_wb = true;
-+	else
-+		tx_ring->arm_wb = false;
-+
- 	if (check_for_tx_hang(tx_ring) && i40e_check_tx_hang(tx_ring)) {
- 		/* schedule immediate reset if we believe we hung */
- 		dev_info(tx_ring->dev, "Detected Tx Unit Hang\n"
-@@ -344,6 +354,24 @@ static bool i40e_clean_tx_irq(struct i40e_ring *tx_ring, int budget)
- }
- 
- /**
-+ * i40e_force_wb -Arm hardware to do a wb on noncache aligned descriptors
-+ * @vsi: the VSI we care about
-+ * @q_vector: the vector  on which to force writeback
-+ *
-+ **/
-+static void i40e_force_wb(struct i40e_vsi *vsi, struct i40e_q_vector *q_vector)
-+{
-+	u32 val = I40E_VFINT_DYN_CTLN_INTENA_MASK |
-+		  I40E_VFINT_DYN_CTLN_SWINT_TRIG_MASK |
-+		  I40E_VFINT_DYN_CTLN_SW_ITR_INDX_ENA_MASK;
-+		  /* allow 00 to be written to the index */
-+
-+	wr32(&vsi->back->hw,
-+	     I40E_VFINT_DYN_CTLN1(q_vector->v_idx + vsi->base_vector - 1),
-+	     val);
-+}
-+
-+/**
-  * i40e_set_new_dynamic_itr - Find new ITR level
-  * @rc: structure containing ring performance data
-  *
-@@ -1065,6 +1093,7 @@ int i40evf_napi_poll(struct napi_struct *napi, int budget)
- 	struct i40e_vsi *vsi = q_vector->vsi;
- 	struct i40e_ring *ring;
- 	bool clean_complete = true;
-+	bool arm_wb = false;
- 	int budget_per_ring;
- 
- 	if (test_bit(__I40E_DOWN, &vsi->state)) {
-@@ -1075,8 +1104,10 @@ int i40evf_napi_poll(struct napi_struct *napi, int budget)
- 	/* Since the actual Tx work is minimal, we can give the Tx a larger
- 	 * budget and be more aggressive about cleaning up the Tx descriptors.
- 	 */
--	i40e_for_each_ring(ring, q_vector->tx)
-+	i40e_for_each_ring(ring, q_vector->tx) {
- 		clean_complete &= i40e_clean_tx_irq(ring, vsi->work_limit);
-+		arm_wb |= ring->arm_wb;
-+	}
- 
- 	/* We attempt to distribute budget to each Rx queue fairly, but don't
- 	 * allow the budget to go below 1 because that would exit polling early.
-@@ -1087,8 +1118,11 @@ int i40evf_napi_poll(struct napi_struct *napi, int budget)
- 		clean_complete &= i40e_clean_rx_irq(ring, budget_per_ring);
- 
- 	/* If work not completed, return budget and polling will return */
--	if (!clean_complete)
-+	if (!clean_complete) {
-+		if (arm_wb)
-+			i40e_force_wb(vsi, q_vector);
- 		return budget;
-+	}
- 
- 	/* Work is done so exit the polling mode and re-enable the interrupt */
- 	napi_complete(napi);
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.h b/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
-index c7f2962..4e15903 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
-@@ -238,6 +238,7 @@ struct i40e_ring {
- 	u8 atr_count;
- 
- 	bool ring_active;		/* is ring online or not */
-+	bool arm_wb;		/* do something to arm write back */
- 
- 	/* stats structs */
- 	struct i40e_queue_stats	stats;
 -- 
 1.9.3
