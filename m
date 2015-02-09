@@ -1,57 +1,72 @@
-From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Subject: Re: pull-request: wireless-drivers-next 2015-02-07
-Date: Mon, 09 Feb 2015 14:49:42 -0600
-Message-ID: <54D91D66.2060108@lwfinger.net>
-References: <87a90qosos.fsf@kamboji.qca.qualcomm.com> <20150209.121342.1535841700027616341.davem@davemloft.net> <20150209203741.GG3566@tuxdriver.com>
+From: Andy Green <andy.green-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH 6/7] net: wireless: wcn36xx: remove powersaving for wcn3620
+Date: Tue, 10 Feb 2015 05:07:28 +0800
+Message-ID: <CAAfg0W6dPupGLgwDF5FtNqEFvC4Y+GvFBAmXWcUQwXr2y6KugQ@mail.gmail.com>
+References: <20150118050741.31866.36490.stgit@114-36-241-182.dynamic.hinet.net>
+	<20150118051111.31866.39208.stgit@114-36-241-182.dynamic.hinet.net>
+	<CAJAp7OhcFTuYfc7JOKW1SrVRbucuSWg5jcFaoVnSDgBxsyo2ng@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>, kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	Eugene Krasnikov <k.eugene.e-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	wcn36xx <wcn36xx-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Bjorn Andersson <bjorn-UYDU3/A3LUY@public.gmane.org>
 Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20150209203741.GG3566-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+In-Reply-To: <CAJAp7OhcFTuYfc7JOKW1SrVRbucuSWg5jcFaoVnSDgBxsyo2ng-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
 Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 02/09/2015 02:37 PM, John W. Linville wrote:
-> On Mon, Feb 09, 2015 at 12:13:42PM -0800, David Miller wrote:
->> From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
->> Date: Sat, 07 Feb 2015 13:40:51 +0200
+On 10 February 2015 at 01:54, Bjorn Andersson <bjorn-UYDU3/A3LUY@public.gmane.org> wrote:
+> On Sat, Jan 17, 2015 at 9:11 PM, Andy Green <andy.green-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org> wrote:
+>> WCN3620 powersaving mode is not stable.  Disable it if we're
+>> on a wcn3620 chip type.
 >>
->>> There's a small conflict in drivers/net/wireless/rtlwifi/pci.c, the=
- fix
->>> is to leave the two labels like this:
->>>
->>> 			schedule_work(&rtlpriv->works.lps_change_work);
->>> 		}
->>> end:
->>> 		skb =3D new_skb;
->>> no_new:
->>> 		if (rtlpriv->use_new_trx_flow) {
->>>
->>>
+>> Signed-off-by: Andy Green <andy.green-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+>> ---
+>>  drivers/net/wireless/ath/wcn36xx/main.c |    4 ++++
+>>  1 file changed, 4 insertions(+)
 >>
->> That can't be the correct resolution:
+>> diff --git a/drivers/net/wireless/ath/wcn36xx/main.c b/drivers/net/wireless/ath/wcn36xx/main.c
+>> index c4178c7..569d45b 100644
+>> --- a/drivers/net/wireless/ath/wcn36xx/main.c
+>> +++ b/drivers/net/wireless/ath/wcn36xx/main.c
+>> @@ -924,6 +924,10 @@ static int wcn36xx_init_ieee80211(struct wcn36xx *wcn)
+>>                 IEEE80211_HW_AMPDU_AGGREGATION |
+>>                 IEEE80211_HW_TIMING_BEACON_ONLY;
 >>
->> drivers/net/wireless/rtlwifi/pci.c: In function =E2=80=98_rtl_pci_rx=
-_interrupt=E2=80=99:
->> drivers/net/wireless/rtlwifi/pci.c:934:1: warning: label =E2=80=98en=
-d=E2=80=99 defined but not used [-Wunused-label]
->>
->> So I've removed that label in the merge commit.
+>> +       /* 3620 powersaving currently unstable */
+>> +       if (wcn->chip_version == WCN36XX_CHIP_3620)
+>> +               wcn->hw->flags &= ~IEEE80211_HW_SUPPORTS_PS;
+>> +
 >
-> FWIW, that's the way I have it in wireless-testing as well..
+> Hi Andy,
+>
+> I have the same problem (Data Abort Exception in wcnss) on 3680, this
+> with my wip smd code and a hacked up remoteproc-pil. I haven't spent
+> any effort on debugging this, but it looks like it's something related
+> to what we have ported to mainline (or lack thereof) rather than a
+> 3620 specific issue.
 
-I must have missed the pull request. Removal of the label "end" is corr=
-ect.
+Makes sense since I only have 3620, I assumed it's related to that.
 
-Larry
+However he can work for a while with powersaving on, but ping
+latencies are +600-800ms and he's shaky.
 
+Later I found something mac80211 generic scan preparation or post-scan
+code (for scan initiated by wpa_supplicant) is able to stop wlan
+traffic after a few goes even if the actual scan mode smd is not sent.
 
+At that point I think a nice solution would be a donation of time from
+guys who specialize in wcn for a living to come and hand out a pony or
+two...
+
+-Andy
+
+> Regards,
+> Bjorn
 --
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 More majordomo info at  http://vger.kernel.org/majordomo-info.html
