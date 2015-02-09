@@ -1,402 +1,194 @@
-From: yuweizheng@139.com
-Subject: [PATCH] ath9k_htc: add adaptive usb receive flow control to repair soft lockup with monitor mode
-Date: Mon,  9 Feb 2015 15:13:40 +0800
-Message-ID: <1423466020-15795-1-git-send-email-yuweizheng@139.com>
-Cc: netdev@vger.kernel.org, Yuwei Zheng <yuweizheng@139.com>
-To: linux-kernel@vger.kernel.org, ath9k-devel@lists.ath9k.org,
-	linux-wireless@vger.kernel.org, kvalo@codeaurora.org,
-	ath9k-devel@qca.qualcomm.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Fan Du <fan.du@intel.com>
+Subject: [PATCH net-next] ipv4: Namespecify TCP PMTU mechanism
+Date: Mon,  9 Feb 2015 16:44:58 +0800
+Message-ID: <1423471498-22442-1-git-send-email-fan.du@intel.com>
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	fengyuleidian0615@gmail.com
+To: jheffner@psc.edu
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga11.intel.com ([192.55.52.93]:44576 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932628AbbBIItO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 Feb 2015 03:49:14 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Yuwei Zheng <yuweizheng@139.com>
+Packetization Layer Path MTU Discovery works separately beside
+Path MTU Discovery at IP level, different net namespace has
+various requirements on which one to chose, e.g., a virutalized
+container instance would require TCP PMTU to probe an usable
+effective mtu for underlying tunnel, while the host would
+employ classical ICMP based pmtu to function.
 
-In the environment with heavy wifi traffic, set the ar9271 into monitor mode, will
-trigger a deadloop panic.
- 
-The ath9k_hif_usb_rx_cb function excute on  the interrupt context, and ath9k_rx_tasklet excute
-on the soft irq context. In other words, the ath9k_hif_usb_rx_cb have more chance to excute than
-ath9k_rx_tasklet.  So in the worst condition,  the rx.rxbuf receive list is always full,
-and the do {}while(true) loop will not be break. The kernel get a soft lockup panic. 
- 
-[59011.007210] BUG: soft lockup - CPU#0 stuck for 23s!
-[kworker/0:0:30609]
-[59011.030560] BUG: scheduling while atomic: kworker/0:0/30609/0x40010100
-[59013.804486] BUG: scheduling while atomic: kworker/0:0/30609/0x40010100
-[59013.858522] Kernel panic - not syncing: softlockup: hung tasks
- 
-[59014.038891] Exception stack(0xdf4bbc38 to 0xdf4bbc80)
-[59014.046834] bc20:                                                       de57b950 60000113
-[59014.059579] bc40: 00000000 bb32bb32 60000113 de57b948 de57b500 dc7bb440 df4bbcd0 00000000
-[59014.072337] bc60: de57b950 60000113 df4bbcd0 df4bbc80 c04c259d c04c25a0 60000133 ffffffff
-[59014.085233] [<c04c28db>] (__irq_svc+0x3b/0x5c) from [<c04c25a0>] (_raw_spin_unlock_irqrestore+0xc/0x10)
-[59014.100437] [<c04c25a0>] (_raw_spin_unlock_irqrestore+0xc/0x10) from [<bf9c2089>] (ath9k_rx_tasklet+0x290/0x490 [ath9k_htc])
-[59014.118267] [<bf9c2089>] (ath9k_rx_tasklet+0x290/0x490 [ath9k_htc]) from [<c0036d23>] (tasklet_action+0x3b/0x98)
-[59014.134132] [<c0036d23>] (tasklet_action+0x3b/0x98) from [<c0036709>] (__do_softirq+0x99/0x16c)
-[59014.147784] [<c0036709>] (__do_softirq+0x99/0x16c) from [<c00369f7>] (irq_exit+0x5b/0x5c)
-[59014.160653] [<c00369f7>] (irq_exit+0x5b/0x5c) from [<c000cfc3>] (handle_IRQ+0x37/0x78)
-[59014.173124] [<c000cfc3>] (handle_IRQ+0x37/0x78) from [<c00085df>] (omap3_intc_handle_irq+0x5f/0x68)
-[59014.187225] [<c00085df>] (omap3_intc_handle_irq+0x5f/0x68) from [<c04c28db>](__irq_svc+0x3b/0x5c)
- 
-This bug can be see with low performance board, such as uniprocessor beagle bone board. 
- 
-Signed-off-by: Yuwei Zheng <yuweizheng@139.com>
+Hence making TCP PMTU mechanism per net namespace to decouple
+two functionality. Furthermore the probe base MSS should also
+be configured separately for each namespace.
 
+Signed-off-by: Fan Du <fan.du@intel.com>
 ---
- drivers/net/wireless/ath/ath9k/hif_usb.c       | 75 +++++++++++++++++++++++---
- drivers/net/wireless/ath/ath9k/hif_usb.h       |  9 ++++
- drivers/net/wireless/ath/ath9k/htc.h           | 19 +++++++
- drivers/net/wireless/ath/ath9k/htc_drv_debug.c | 53 ++++++++++++++++++
- drivers/net/wireless/ath/ath9k/htc_drv_txrx.c  | 44 +++++++++++++++
- 5 files changed, 193 insertions(+), 7 deletions(-)
+ include/net/netns/ipv4.h   |    2 ++
+ include/net/tcp.h          |    2 --
+ net/ipv4/sysctl_net_ipv4.c |   28 ++++++++++++++--------------
+ net/ipv4/tcp_ipv4.c        |    1 +
+ net/ipv4/tcp_output.c      |    9 ++++-----
+ net/ipv4/tcp_timer.c       |    8 ++++++--
+ 6 files changed, 27 insertions(+), 23 deletions(-)
 
-diff --git a/drivers/net/wireless/ath/ath9k/hif_usb.c b/drivers/net/wireless/ath/ath9k/hif_usb.c
-index 8e7153b..d05cc0b 100644
---- a/drivers/net/wireless/ath/ath9k/hif_usb.c
-+++ b/drivers/net/wireless/ath/ath9k/hif_usb.c
-@@ -640,6 +640,7 @@ static void ath9k_hif_usb_rx_cb(struct urb *urb)
- 	struct hif_device_usb *hif_dev =
- 		usb_get_intfdata(usb_ifnum_to_if(urb->dev, 0));
- 	int ret;
-+	int delay;
+diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
+index 24945ce..3e7cdb6 100644
+--- a/include/net/netns/ipv4.h
++++ b/include/net/netns/ipv4.h
+@@ -80,6 +80,8 @@ struct netns_ipv4 {
  
- 	if (!skb)
- 		return;
-@@ -658,7 +659,6 @@ static void ath9k_hif_usb_rx_cb(struct urb *urb)
- 	default:
- 		goto resubmit;
- 	}
--
- 	if (likely(urb->actual_length != 0)) {
- 		skb_put(skb, urb->actual_length);
- 		ath9k_hif_usb_rx_stream(hif_dev, skb);
-@@ -667,12 +667,22 @@ static void ath9k_hif_usb_rx_cb(struct urb *urb)
- resubmit:
- 	skb_reset_tail_pointer(skb);
- 	skb_trim(skb, 0);
--
--	usb_anchor_urb(urb, &hif_dev->rx_submitted);
--	ret = usb_submit_urb(urb, GFP_ATOMIC);
--	if (ret) {
--		usb_unanchor_urb(urb);
--		goto free;
-+	spin_lock(&hif_dev->aurfc_lock);
-+	if (atomic_read(&hif_dev->aurfc_submit_delay) > 0 &&
-+	    hif_dev->aurfc_active == 1) {
-+		usb_anchor_urb(urb, &hif_dev->rx_delayed_submitted);
-+		delay = atomic_read(&hif_dev->aurfc_submit_delay);
-+		schedule_delayed_work(&hif_dev->aurfc_delayed_work,
-+				      msecs_to_jiffies(delay));
-+		spin_unlock(&hif_dev->aurfc_lock);
-+	} else {
-+		spin_unlock(&hif_dev->aurfc_lock);
-+		usb_anchor_urb(urb, &hif_dev->rx_submitted);
-+		ret = usb_submit_urb(urb, GFP_ATOMIC);
-+		if (ret) {
-+			usb_unanchor_urb(urb);
-+			goto free;
-+		}
- 	}
+ 	int sysctl_fwmark_reflect;
+ 	int sysctl_tcp_fwmark_accept;
++	int sysctl_tcp_mtu_probing;
++	int sysctl_tcp_base_mss;
  
- 	return;
-@@ -818,9 +828,51 @@ err:
- 	return -ENOMEM;
- }
+ 	struct ping_group_range ping_group_range;
  
-+static void aurfc_submit_handler(struct work_struct *work)
-+{
-+	struct hif_device_usb *hif_dev =
-+		container_of(work,
-+			     struct hif_device_usb,
-+			     aurfc_delayed_work.work);
-+	struct urb *urb = NULL;
-+	struct sk_buff *skb = NULL;
-+	int ret;
-+	int loop_times = 0;
-+
-+	AURFC_STAT_INC(aurfc_called);
-+	while (true) {
-+		loop_times++;
-+		if (loop_times > MAX_RX_URB_NUM)
-+			atomic_add(AURFC_STEP,
-+				   &hif_dev->aurfc_submit_delay);
-+
-+		urb = usb_get_from_anchor(
-+				&hif_dev->rx_delayed_submitted);
-+		if (urb) {
-+			skb = (struct sk_buff *)urb->context;
-+			ret = usb_submit_urb(urb, GFP_KERNEL);
-+			if (ret != 0) {
-+				usb_unanchor_urb(urb);
-+				dev_kfree_skb_any(skb);
-+				urb->context = NULL;
-+			}
-+		} else {
-+			break;
-+		}
-+	}
-+}
-+
- static void ath9k_hif_usb_dealloc_rx_urbs(struct hif_device_usb *hif_dev)
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index b8fdc6b..8bb3cf6 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -262,8 +262,6 @@ extern int sysctl_tcp_low_latency;
+ extern int sysctl_tcp_nometrics_save;
+ extern int sysctl_tcp_moderate_rcvbuf;
+ extern int sysctl_tcp_tso_win_divisor;
+-extern int sysctl_tcp_mtu_probing;
+-extern int sysctl_tcp_base_mss;
+ extern int sysctl_tcp_workaround_signed_windows;
+ extern int sysctl_tcp_slow_start_after_idle;
+ extern int sysctl_tcp_thin_linear_timeouts;
+diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
+index e0ee384..d0b6c98 100644
+--- a/net/ipv4/sysctl_net_ipv4.c
++++ b/net/ipv4/sysctl_net_ipv4.c
+@@ -604,20 +604,6 @@ static struct ctl_table ipv4_table[] = {
+ 		.proc_handler	= proc_tcp_congestion_control,
+ 	},
+ 	{
+-		.procname	= "tcp_mtu_probing",
+-		.data		= &sysctl_tcp_mtu_probing,
+-		.maxlen		= sizeof(int),
+-		.mode		= 0644,
+-		.proc_handler	= proc_dointvec,
+-	},
+-	{
+-		.procname	= "tcp_base_mss",
+-		.data		= &sysctl_tcp_base_mss,
+-		.maxlen		= sizeof(int),
+-		.mode		= 0644,
+-		.proc_handler	= proc_dointvec,
+-	},
+-	{
+ 		.procname	= "tcp_workaround_signed_windows",
+ 		.data		= &sysctl_tcp_workaround_signed_windows,
+ 		.maxlen		= sizeof(int),
+@@ -876,6 +862,20 @@ static struct ctl_table ipv4_net_table[] = {
+ 		.mode		= 0644,
+ 		.proc_handler	= proc_dointvec,
+ 	},
++	{
++		.procname	= "tcp_mtu_probing",
++		.data		= &init_net.ipv4.sysctl_tcp_mtu_probing,
++		.maxlen		= sizeof(int),
++		.mode		= 0644,
++		.proc_handler	= proc_dointvec,
++	},
++	{
++		.procname	= "tcp_base_mss",
++		.data		= &init_net.ipv4.sysctl_tcp_base_mss,
++		.maxlen		= sizeof(int),
++		.mode		= 0644,
++		.proc_handler	= proc_dointvec,
++	},
+ 	{ }
+ };
+ 
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index ad3e65b..a6ac70c 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -2433,6 +2433,7 @@ EXPORT_SYMBOL(tcp_prot);
+ static int __net_init tcp_sk_init(struct net *net)
  {
-+	unsigned long flags;
-+
-+	spin_lock_irqsave(&hif_dev->aurfc_lock, flags);
-+	hif_dev->aurfc_active = 0;
-+	mod_delayed_work(system_wq, &hif_dev->aurfc_delayed_work, 0);
-+	spin_unlock_irqrestore(&hif_dev->aurfc_lock, flags);
-+	flush_delayed_work(&hif_dev->aurfc_delayed_work);
- 	usb_kill_anchored_urbs(&hif_dev->rx_submitted);
-+	usb_kill_anchored_urbs(&hif_dev->rx_delayed_submitted);
+ 	net->ipv4.sysctl_tcp_ecn = 2;
++	net->ipv4.sysctl_tcp_base_mss = TCP_BASE_MSS;
+ 	return 0;
  }
  
- static int ath9k_hif_usb_alloc_rx_urbs(struct hif_device_usb *hif_dev)
-@@ -830,8 +882,17 @@ static int ath9k_hif_usb_alloc_rx_urbs(struct hif_device_usb *hif_dev)
- 	int i, ret;
- 
- 	init_usb_anchor(&hif_dev->rx_submitted);
-+	init_usb_anchor(&hif_dev->rx_delayed_submitted);
-+
- 	spin_lock_init(&hif_dev->rx_lock);
- 
-+	/* add for adaptive usb receive control*/
-+	atomic_set(&hif_dev->aurfc_submit_delay, 0);
-+	INIT_DELAYED_WORK(&hif_dev->aurfc_delayed_work,
-+			  aurfc_submit_handler);
-+	spin_lock_init(&hif_dev->aurfc_lock);
-+	hif_dev->aurfc_active = 1;
-+
- 	for (i = 0; i < MAX_RX_URB_NUM; i++) {
- 
- 		/* Allocate URB */
-diff --git a/drivers/net/wireless/ath/ath9k/hif_usb.h b/drivers/net/wireless/ath/ath9k/hif_usb.h
-index 51496e7..8e7b67e 100644
---- a/drivers/net/wireless/ath/ath9k/hif_usb.h
-+++ b/drivers/net/wireless/ath/ath9k/hif_usb.h
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 20ab06b..7ee2a69 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
 @@ -41,6 +41,7 @@
- #define MAX_RX_URB_NUM  8
- #define MAX_RX_BUF_SIZE 16384
- #define MAX_PKT_NUM_IN_TRANSFER 10
-+#define AURFC_STEP 70  /* ms */
+ #include <linux/compiler.h>
+ #include <linux/gfp.h>
+ #include <linux/module.h>
++#include <net/sock.h>
  
- #define MAX_REG_OUT_URB_NUM  1
- #define MAX_REG_IN_URB_NUM   64
-@@ -98,9 +99,17 @@ struct hif_device_usb {
- 	struct hif_usb_tx tx;
- 	struct usb_anchor regout_submitted;
- 	struct usb_anchor rx_submitted;
-+	struct usb_anchor rx_delayed_submitted;
- 	struct usb_anchor reg_in_submitted;
- 	struct usb_anchor mgmt_submitted;
- 	struct sk_buff *remain_skb;
-+
-+	/* adaptive usb receive flow control */
-+	struct delayed_work aurfc_delayed_work;
-+	spinlock_t aurfc_lock; /* to protect work */
-+	atomic_t  aurfc_submit_delay; /* ms */
-+	int aurfc_active;
-+
- 	const char *fw_name;
- 	int rx_remain_len;
- 	int rx_pkt_len;
-diff --git a/drivers/net/wireless/ath/ath9k/htc.h b/drivers/net/wireless/ath/ath9k/htc.h
-index 9dde265..1586bd2 100644
---- a/drivers/net/wireless/ath/ath9k/htc.h
-+++ b/drivers/net/wireless/ath/ath9k/htc.h
-@@ -331,6 +331,13 @@ static inline struct ath9k_htc_tx_ctl *HTC_SKB_CB(struct sk_buff *skb)
+ /* People can turn this off for buggy TCP's found in printers etc. */
+ int sysctl_tcp_retrans_collapse __read_mostly = 1;
+@@ -59,9 +60,6 @@ int sysctl_tcp_limit_output_bytes __read_mostly = 131072;
+  */
+ int sysctl_tcp_tso_win_divisor __read_mostly = 3;
  
- #define TX_QSTAT_INC(q) (priv->debug.tx_stats.queue_stats[q]++)
+-int sysctl_tcp_mtu_probing __read_mostly = 0;
+-int sysctl_tcp_base_mss __read_mostly = TCP_BASE_MSS;
+-
+ /* By default, RFC2861 behavior.  */
+ int sysctl_tcp_slow_start_after_idle __read_mostly = 1;
  
-+#define AURFC_STAT_INC(c) \
-+	(hif_dev->htc_handle->drv_priv->debug.aurfc_stats.c++)
-+#define AURFC_STAT_ADD(c, a) \
-+	(hif_dev->htc_handle->drv_priv->debug.aurfc_stats.c += a)
-+#define AURFC_STAT_SET(c, a) \
-+	(hif_dev->htc_handle->drv_priv->debug.aurfc_stats.c = a)
-+
- void ath9k_htc_err_stat_rx(struct ath9k_htc_priv *priv,
- 			   struct ath_rx_status *rs);
- 
-@@ -352,11 +359,20 @@ struct ath_skbrx_stats {
- 	u32 skb_dropped;
- };
- 
-+struct ath_aurfc_stats {
-+	u32 aurfc_highwater;
-+	u32 aurfc_lowwater;
-+	u32 aurfc_wm_triggered;
-+	u32 aurfc_submit_delay;
-+	u32 aurfc_called;
-+};
-+
- struct ath9k_debug {
- 	struct dentry *debugfs_phy;
- 	struct ath_tx_stats tx_stats;
- 	struct ath_rx_stats rx_stats;
- 	struct ath_skbrx_stats skbrx_stats;
-+	struct ath_aurfc_stats aurfc_stats;
- };
- 
- void ath9k_htc_get_et_strings(struct ieee80211_hw *hw,
-@@ -377,6 +393,9 @@ void ath9k_htc_get_et_stats(struct ieee80211_hw *hw,
- 
- #define TX_QSTAT_INC(c) do { } while (0)
- 
-+#define AURFC_STAT_INC(c) do {} while (0)
-+#define AURFC_STAT_ADD(c, a) do {} while (0)
-+#define AURFC_STAT_SET(c, a) do {} while (0)
- static inline void ath9k_htc_err_stat_rx(struct ath9k_htc_priv *priv,
- 					 struct ath_rx_status *rs)
+@@ -1350,11 +1348,12 @@ void tcp_mtup_init(struct sock *sk)
  {
-diff --git a/drivers/net/wireless/ath/ath9k/htc_drv_debug.c b/drivers/net/wireless/ath/ath9k/htc_drv_debug.c
-index 8cef1ed..a6be9be 100644
---- a/drivers/net/wireless/ath/ath9k/htc_drv_debug.c
-+++ b/drivers/net/wireless/ath/ath9k/htc_drv_debug.c
-@@ -286,6 +286,54 @@ static const struct file_operations fops_skb_rx = {
- 	.llseek = default_llseek,
- };
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 	struct inet_connection_sock *icsk = inet_csk(sk);
++	struct net *net = sock_net(sk);
  
-+static ssize_t read_file_aurfc(struct file *file,
-+			       char __user *user_buf,
-+			       size_t count, loff_t *ppos)
-+{
-+	struct ath9k_htc_priv *priv = file->private_data;
-+	char *buf;
-+	unsigned int len = 0, size = 1500;
-+	ssize_t retval = 0;
-+
-+	buf = kzalloc(size, GFP_KERNEL);
-+	if (!buf)
-+		return -ENOMEM;
-+
-+	len += scnprintf(buf + len, size - len,
-+			"%20s : %10u\n", "High watermark",
-+			priv->debug.aurfc_stats.aurfc_highwater);
-+	len += scnprintf(buf + len, size - len,
-+			"%20s : %10u\n", "Low watermark",
-+			priv->debug.aurfc_stats.aurfc_lowwater);
-+
-+	len += scnprintf(buf + len, size - len,
-+			"%20s : %10u\n", "WM triggered",
-+			priv->debug.aurfc_stats.aurfc_wm_triggered);
-+
-+	len += scnprintf(buf + len, size - len,
-+			"%20s : %10u\n", "Handler called",
-+			priv->debug.aurfc_stats.aurfc_called);
-+
-+	len += scnprintf(buf + len, size - len,
-+			"%20s : %10u\n", "Submit delay",
-+			priv->debug.aurfc_stats.aurfc_submit_delay);
-+	if (len > size)
-+		len = size;
-+
-+	retval = simple_read_from_buffer(user_buf, count,
-+					 ppos, buf, len);
-+	kfree(buf);
-+
-+	return retval;
-+}
-+
-+static const struct file_operations fops_aurfc = {
-+	.read = read_file_aurfc,
-+	.open = simple_open,
-+	.owner = THIS_MODULE,
-+	.llseek = default_llseek,
-+};
-+
- static ssize_t read_file_slot(struct file *file, char __user *user_buf,
- 			      size_t count, loff_t *ppos)
+-	icsk->icsk_mtup.enabled = sysctl_tcp_mtu_probing > 1;
++	icsk->icsk_mtup.enabled = net->ipv4.sysctl_tcp_mtu_probing > 1;
+ 	icsk->icsk_mtup.search_high = tp->rx_opt.mss_clamp + sizeof(struct tcphdr) +
+ 			       icsk->icsk_af_ops->net_header_len;
+-	icsk->icsk_mtup.search_low = tcp_mss_to_mtu(sk, sysctl_tcp_base_mss);
++	icsk->icsk_mtup.search_low = tcp_mss_to_mtu(sk, net->ipv4.sysctl_tcp_base_mss);
+ 	icsk->icsk_mtup.probe_size = 0;
+ }
+ EXPORT_SYMBOL(tcp_mtup_init);
+diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
+index 1829c7f..02292ca 100644
+--- a/net/ipv4/tcp_timer.c
++++ b/net/ipv4/tcp_timer.c
+@@ -21,6 +21,7 @@
+ #include <linux/module.h>
+ #include <linux/gfp.h>
+ #include <net/tcp.h>
++#include <net/sock.h>
+ 
+ int sysctl_tcp_syn_retries __read_mostly = TCP_SYN_RETRIES;
+ int sysctl_tcp_synack_retries __read_mostly = TCP_SYNACK_RETRIES;
+@@ -101,17 +102,20 @@ static int tcp_orphan_retries(struct sock *sk, int alive)
+ 
+ static void tcp_mtu_probing(struct inet_connection_sock *icsk, struct sock *sk)
  {
-@@ -518,7 +566,12 @@ int ath9k_htc_init_debug(struct ath_hw *ah)
- 	debugfs_create_file("skb_rx", S_IRUSR, priv->debug.debugfs_phy,
- 			    priv, &fops_skb_rx);
- 
-+	debugfs_create_file("aurfc_stats", S_IRUSR,
-+			    priv->debug.debugfs_phy,
-+			    priv, &fops_aurfc);
++	struct net *net = sock_net(sk);
 +
- 	ath9k_cmn_debug_recv(priv->debug.debugfs_phy, &priv->debug.rx_stats);
-+
- 	ath9k_cmn_debug_phy_err(priv->debug.debugfs_phy, &priv->debug.rx_stats);
+ 	/* Black hole detection */
+-	if (sysctl_tcp_mtu_probing) {
++	if (net->ipv4.sysctl_tcp_mtu_probing) {
+ 		if (!icsk->icsk_mtup.enabled) {
+ 			icsk->icsk_mtup.enabled = 1;
+ 			tcp_sync_mss(sk, icsk->icsk_pmtu_cookie);
+ 		} else {
++			struct net *net = sock_net(sk);
+ 			struct tcp_sock *tp = tcp_sk(sk);
+ 			int mss;
  
- 	debugfs_create_file("slot", S_IRUSR, priv->debug.debugfs_phy,
-diff --git a/drivers/net/wireless/ath/ath9k/htc_drv_txrx.c b/drivers/net/wireless/ath/ath9k/htc_drv_txrx.c
-index a0f58e2..939d008 100644
---- a/drivers/net/wireless/ath/ath9k/htc_drv_txrx.c
-+++ b/drivers/net/wireless/ath/ath9k/htc_drv_txrx.c
-@@ -1061,7 +1061,28 @@ void ath9k_rx_tasklet(unsigned long data)
- 	unsigned long flags;
- 	struct ieee80211_hdr *hdr;
- 
-+	/* add for adaptive usb receive flow control*/
-+	int looptimes = 0;
-+	int highwatermark = ATH9K_HTC_RXBUF*3/4;
-+	int lowwatermark = ATH9K_HTC_RXBUF/32;
-+	unsigned int delay = 0;
-+
-+	struct htc_target *htc = priv->htc;
-+	struct hif_device_usb *hif_dev = htc->hif_dev;
-+
-+	AURFC_STAT_SET(aurfc_highwater, highwatermark);
-+	AURFC_STAT_SET(aurfc_lowwater, lowwatermark);
-+
- 	do {
-+		looptimes++;
-+		if (looptimes > highwatermark) {
-+			delay = looptimes*AURFC_STEP;
-+			atomic_set(&hif_dev->aurfc_submit_delay,
-+				   delay);
-+			AURFC_STAT_INC(aurfc_wm_triggered);
-+			AURFC_STAT_SET(aurfc_submit_delay, delay);
-+		}
-+
- 		spin_lock_irqsave(&priv->rx.rxbuflock, flags);
- 		list_for_each_entry(tmp_buf, &priv->rx.rxbuf, list) {
- 			if (tmp_buf->in_process) {
-@@ -1072,6 +1093,22 @@ void ath9k_rx_tasklet(unsigned long data)
- 
- 		if (rxbuf == NULL) {
- 			spin_unlock_irqrestore(&priv->rx.rxbuflock, flags);
-+			spin_lock_irqsave(&hif_dev->aurfc_lock,
-+					  flags);
-+			if (atomic_read(
-+				&hif_dev->aurfc_submit_delay) > 0 &&
-+			    hif_dev->aurfc_active > 0)
-+				mod_delayed_work(system_wq,
-+					&hif_dev->aurfc_delayed_work,
-+						 0);
-+			spin_unlock_irqrestore(&hif_dev->aurfc_lock,
-+					       flags);
-+			if (looptimes < lowwatermark) {
-+				atomic_set(&hif_dev->aurfc_submit_delay
-+					   , 0);
-+				AURFC_STAT_SET(aurfc_submit_delay,
-+					       0);
-+			}
- 			break;
- 		}
- 
-@@ -1114,6 +1151,10 @@ void ath9k_htc_rxep(void *drv_priv, struct sk_buff *skb,
- 	struct ath_common *common = ath9k_hw_common(ah);
- 	struct ath9k_htc_rxbuf *rxbuf = NULL, *tmp_buf = NULL;
- 
-+	struct htc_target *htc = priv->htc;
-+	struct hif_device_usb *hif_dev = htc->hif_dev;
-+	int delay = ATH9K_HTC_RXBUF * AURFC_STEP;
-+
- 	spin_lock(&priv->rx.rxbuflock);
- 	list_for_each_entry(tmp_buf, &priv->rx.rxbuf, list) {
- 		if (!tmp_buf->in_process) {
-@@ -1124,6 +1165,9 @@ void ath9k_htc_rxep(void *drv_priv, struct sk_buff *skb,
- 	spin_unlock(&priv->rx.rxbuflock);
- 
- 	if (rxbuf == NULL) {
-+		atomic_set(&hif_dev->aurfc_submit_delay, delay);
-+		AURFC_STAT_INC(aurfc_wm_triggered);
-+		AURFC_STAT_SET(aurfc_submit_delay, delay);
- 		ath_dbg(common, ANY, "No free RX buffer\n");
- 		goto err;
- 	}
+ 			mss = tcp_mtu_to_mss(sk, icsk->icsk_mtup.search_low) >> 1;
+-			mss = min(sysctl_tcp_base_mss, mss);
++			mss = min(net->ipv4.sysctl_tcp_base_mss, mss);
+ 			mss = max(mss, 68 - tp->tcp_header_len);
+ 			icsk->icsk_mtup.search_low = tcp_mss_to_mtu(sk, mss);
+ 			tcp_sync_mss(sk, icsk->icsk_pmtu_cookie);
 -- 
-1.9.1
+1.7.1
