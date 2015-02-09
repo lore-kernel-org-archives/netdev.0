@@ -1,37 +1,44 @@
-From: Josh Hunt <johunt@akamai.com>
-Subject: Re: nft hash set expansion problem
-Date: Mon, 09 Feb 2015 09:28:35 -0600
-Message-ID: <54D8D223.8040502@akamai.com>
-References: <54D7BB53.2050203@akamai.com> <54D7E677.5050708@iogearbox.net> <54D8C7D0.9030803@akamai.com> <20150209152127.GA29739@casper.infradead.org>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: Invalid timestamp? causing tight ack loop (hundreds of thousands
+ of packets / sec)
+Date: Mon, 9 Feb 2015 10:42:24 -0500
+Message-ID: <CADVnQym7kQ-NutJrKHJ=upmfXUAg1+NTkSh4tSsi2EsbyeQNyw@mail.gmail.com>
+References: <CAO-X30uMA7=DTm5KqqvYC5RVTM0bg9pKBO1nX1+6x_2pF_fWfA@mail.gmail.com>
+	<1423036986.907.105.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CAO-X30shOhH7tN+msRvbLreeUvZesKARqyU0Lnm3_xoeea9uaQ@mail.gmail.com>
+	<1423052431.907.112.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CAO-X30umnbpQG9mwj67ZUkxQpVcGgMMsP8SqY=_3ZeoTczjbmQ@mail.gmail.com>
+	<1423181871.31870.94.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CADVnQyn20vWgfujSRRc+thud75hz0c1HG+vFEPhAu24c4-KivA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-	Pablo Neira Ayuso <pablo@netfilter.org>, kaber@trash.net,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Thomas Graf <tgraf@suug.ch>
+Content-Type: text/plain; charset=UTF-8
+Cc: Avery Fay <avery@mixpanel.com>, Netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from prod-mail-xrelay07.akamai.com ([72.246.2.115]:41726 "EHLO
-	prod-mail-xrelay07.akamai.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932490AbbBIP2h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Feb 2015 10:28:37 -0500
-In-Reply-To: <20150209152127.GA29739@casper.infradead.org>
+Received: from mail-qa0-f42.google.com ([209.85.216.42]:43136 "EHLO
+	mail-qa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933101AbbBIPmZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Feb 2015 10:42:25 -0500
+Received: by mail-qa0-f42.google.com with SMTP id dc16so21570485qab.1
+        for <netdev@vger.kernel.org>; Mon, 09 Feb 2015 07:42:24 -0800 (PST)
+In-Reply-To: <CADVnQyn20vWgfujSRRc+thud75hz0c1HG+vFEPhAu24c4-KivA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/09/2015 09:21 AM, Thomas Graf wrote:
-> On 02/09/15 at 08:44am, Josh Hunt wrote:
->> On 02/08/2015 04:43 PM, Daniel Borkmann wrote:
->>> This seems not correct as we want to have an upper limit for
->>> rhashtable expansions. It's better to define a max_shift for
->>> nftables, instead.
+On Fri, Feb 6, 2015 at 4:16 PM, Neal Cardwell <ncardwell@google.com> wrote:
+> On Thu, Feb 5, 2015 at 7:17 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>> On Thu, 2015-02-05 at 15:25 -0800, Avery Fay wrote:
 >>
->> Thanks Daniel that's what I wanted to know. I'll fix this on the nft_hash
->> side.
->
-> I agree it does not make sense to allow unlimited growth.
-> Can you enforce a max_shift > 0 in rhashtable_init() while you
-> are at it?
->
+>>> Are these available anywhere? Or could they be made available? This
+>>> seems like a much better solution than disabling timestamps.
 
-Yeah I'll do that as well.
+These are now in the "net-next" tree:
+
+f06535c Merge branch 'tcp_ack_loops'
+4fb17a6 tcp: mitigate ACK loops for connections as tcp_timewait_sock
+f2b2c58 tcp: mitigate ACK loops for connections as tcp_sock
+a9b2c06 tcp: mitigate ACK loops for connections as tcp_request_sock
+032ee42 tcp: helpers to mitigate ACK loops by rate-limiting
+out-of-window dupacks
+
+neal
