@@ -1,8 +1,8 @@
 From: <richard.alpe@ericsson.com>
-Subject: [PATCH net-next v1 14/17] tipc: convert legacy nl
-	net id get to nl compat
-Date: Mon, 9 Feb 2015 09:50:16 +0100
-Message-ID: <1423471819-23112-15-git-send-email-richard.alpe@ericsson.com>
+Subject: [PATCH net-next v1 12/17] tipc: convert legacy nl
+	node addr set to nl compat
+Date: Mon, 9 Feb 2015 09:50:14 +0100
+Message-ID: <1423471819-23112-13-git-send-email-richard.alpe@ericsson.com>
 References: <1423471819-23112-1-git-send-email-richard.alpe@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,105 +23,123 @@ List-Id: netdev.vger.kernel.org
 
 From: Richard Alpe <richard.alpe@ericsson.com>
 
-Convert TIPC_CMD_GET_NETID to compat dumpit.
+Convert TIPC_CMD_SET_NODE_ADDR to compat doit.
 
 Signed-off-by: Richard Alpe <richard.alpe@ericsson.com>
 Reviewed-by: Erik Hugne <erik.hugne@ericsson.com>
 Reviewed-by: Ying Xue <ying.xue@windriver.com>
 Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
 ---
- net/tipc/config.c         | 23 -----------------------
- net/tipc/netlink_compat.c | 18 ++++++++++++++++++
- 2 files changed, 18 insertions(+), 23 deletions(-)
+ net/tipc/config.c         | 26 --------------------------
+ net/tipc/net.c            |  2 +-
+ net/tipc/netlink_compat.c | 26 ++++++++++++++++++++++++++
+ 3 files changed, 27 insertions(+), 27 deletions(-)
 
 diff --git a/net/tipc/config.c b/net/tipc/config.c
-index 080cc92..019f46c 100644
+index 74babd7..2a2d05b 100644
 --- a/net/tipc/config.c
 +++ b/net/tipc/config.c
-@@ -72,25 +72,6 @@ int tipc_cfg_append_tlv(struct sk_buff *buf, int tlv_type,
- 	return 1;
+@@ -134,29 +134,6 @@ static struct sk_buff *tipc_show_stats(void)
+ 	return buf;
  }
  
--static struct sk_buff *tipc_cfg_reply_unsigned_type(u16 tlv_type, u32 value)
+-static struct sk_buff *cfg_set_own_addr(struct net *net)
 -{
--	struct sk_buff *buf;
--	__be32 value_net;
--
--	buf = tipc_cfg_reply_alloc(TLV_SPACE(sizeof(value)));
--	if (buf) {
--		value_net = htonl(value);
--		tipc_cfg_append_tlv(buf, tlv_type, &value_net,
--				    sizeof(value_net));
--	}
--	return buf;
--}
--
--static struct sk_buff *tipc_cfg_reply_unsigned(u32 value)
--{
--	return tipc_cfg_reply_unsigned_type(TIPC_TLV_UNSIGNED, value);
--}
--
- struct sk_buff *tipc_cfg_reply_string_type(u16 tlv_type, char *string)
- {
- 	struct sk_buff *buf;
-@@ -139,7 +120,6 @@ struct sk_buff *tipc_cfg_do_cmd(struct net *net, u32 orig_node, u16 cmd,
- 				int reply_headroom)
- {
- 	struct sk_buff *rep_tlv_buf;
 -	struct tipc_net *tn = net_generic(net, tipc_net_id);
- 
- 	rtnl_lock();
- 
-@@ -165,9 +145,6 @@ struct sk_buff *tipc_cfg_do_cmd(struct net *net, u32 orig_node, u16 cmd,
+-	u32 addr;
+-
+-	if (!TLV_CHECK(req_tlv_area, req_tlv_space, TIPC_TLV_NET_ADDR))
+-		return tipc_cfg_reply_error_string(TIPC_CFG_TLV_ERROR);
+-
+-	addr = ntohl(*(__be32 *)TLV_DATA(req_tlv_area));
+-	if (addr == tn->own_addr)
+-		return tipc_cfg_reply_none();
+-	if (!tipc_addr_node_valid(addr))
+-		return tipc_cfg_reply_error_string(TIPC_CFG_INVALID_VALUE
+-						   " (node address)");
+-	if (tn->own_addr)
+-		return tipc_cfg_reply_error_string(TIPC_CFG_NOT_SUPPORTED
+-						   " (cannot change node address once assigned)");
+-	if (!tipc_net_start(net, addr))
+-		return tipc_cfg_reply_none();
+-
+-	return tipc_cfg_reply_error_string("cannot change to network mode");
+-}
+-
+ static struct sk_buff *cfg_set_netid(struct net *net)
+ {
+ 	struct tipc_net *tn = net_generic(net, tipc_net_id);
+@@ -208,9 +185,6 @@ struct sk_buff *tipc_cfg_do_cmd(struct net *net, u32 orig_node, u16 cmd,
  	case TIPC_CMD_SHOW_STATS:
  		rep_tlv_buf = tipc_show_stats();
  		break;
--	case TIPC_CMD_GET_NETID:
--		rep_tlv_buf = tipc_cfg_reply_unsigned(tn->net_id);
+-	case TIPC_CMD_SET_NODE_ADDR:
+-		rep_tlv_buf = cfg_set_own_addr(net);
 -		break;
- 	case TIPC_CMD_NOT_NET_ADMIN:
- 		rep_tlv_buf =
- 			tipc_cfg_reply_error_string(TIPC_CFG_NOT_NET_ADMIN);
+ 	case TIPC_CMD_SET_NETID:
+ 		rep_tlv_buf = cfg_set_netid(net);
+ 		break;
+diff --git a/net/tipc/net.c b/net/tipc/net.c
+index 8b0fb09..e4028f9 100644
+--- a/net/tipc/net.c
++++ b/net/tipc/net.c
+@@ -208,7 +208,7 @@ out:
+ 
+ int tipc_nl_net_set(struct sk_buff *skb, struct genl_info *info)
+ {
+-	struct net *net = genl_info_net(info);
++	struct net *net = sock_net(skb->sk);
+ 	struct tipc_net *tn = net_generic(net, tipc_net_id);
+ 	struct nlattr *attrs[TIPC_NLA_NET_MAX + 1];
+ 	int err;
 diff --git a/net/tipc/netlink_compat.c b/net/tipc/netlink_compat.c
-index c355476..4159090 100644
+index 0dc448e..aa0e325 100644
 --- a/net/tipc/netlink_compat.c
 +++ b/net/tipc/netlink_compat.c
-@@ -876,6 +876,18 @@ static int tipc_nl_compat_net_set(struct sk_buff *skb,
- 	return 0;
+@@ -851,6 +851,26 @@ static int tipc_nl_compat_node_dump(struct tipc_nl_compat_msg *msg,
+ 			    sizeof(node_info));
  }
  
-+static int tipc_nl_compat_net_dump(struct tipc_nl_compat_msg *msg,
-+				   struct nlattr **attrs)
++static int tipc_nl_compat_net_set(struct sk_buff *skb,
++				  struct tipc_nl_compat_msg *msg)
 +{
-+	__be32 id;
-+	struct nlattr *net[TIPC_NLA_NET_MAX + 1];
++	u32 val;
++	struct nlattr *net;
 +
-+	nla_parse_nested(net, TIPC_NLA_NET_MAX, attrs[TIPC_NLA_NET], NULL);
-+	id = htonl(nla_get_u32(net[TIPC_NLA_NET_ID]));
++	val = ntohl(*(__be32 *)TLV_DATA(msg->req));
 +
-+	return tipc_add_tlv(msg->rep, TIPC_TLV_UNSIGNED, &id, sizeof(id));
++	net = nla_nest_start(skb, TIPC_NLA_NET);
++	if (!net)
++		return -EMSGSIZE;
++
++	if (nla_put_u32(skb, TIPC_NLA_NET_ADDR, val))
++		return -EMSGSIZE;
++
++	nla_nest_end(skb, net);
++
++	return 0;
 +}
 +
  static int tipc_nl_compat_handle(struct tipc_nl_compat_msg *msg)
  {
  	struct tipc_nl_compat_cmd_dump dump;
-@@ -959,6 +971,11 @@ static int tipc_nl_compat_handle(struct tipc_nl_compat_msg *msg)
- 		doit.doit = tipc_nl_net_set;
- 		doit.transcode = tipc_nl_compat_net_set;
- 		return tipc_nl_compat_doit(&doit, msg);
-+	case TIPC_CMD_GET_NETID:
-+		msg->rep_size = sizeof(u32);
-+		dump.dumpit = tipc_nl_net_dump;
-+		dump.format = tipc_nl_compat_net_dump;
-+		return tipc_nl_compat_dumpit(&dump, msg);
+@@ -924,6 +944,11 @@ static int tipc_nl_compat_handle(struct tipc_nl_compat_msg *msg)
+ 		dump.dumpit = tipc_nl_node_dump;
+ 		dump.format = tipc_nl_compat_node_dump;
+ 		return tipc_nl_compat_dumpit(&dump, msg);
++	case TIPC_CMD_SET_NODE_ADDR:
++		msg->req_type = TIPC_TLV_NET_ADDR;
++		doit.doit = tipc_nl_net_set;
++		doit.transcode = tipc_nl_compat_net_set;
++		return tipc_nl_compat_doit(&doit, msg);
  	}
  
  	return -EOPNOTSUPP;
-@@ -1070,6 +1087,7 @@ static int tipc_nl_compat_tmp_wrap(struct sk_buff *skb, struct genl_info *info)
+@@ -1033,6 +1058,7 @@ static int tipc_nl_compat_tmp_wrap(struct sk_buff *skb, struct genl_info *info)
+ 	case TIPC_CMD_SHOW_PORTS:
+ 	case TIPC_CMD_GET_MEDIA_NAMES:
  	case TIPC_CMD_GET_NODES:
- 	case TIPC_CMD_SET_NODE_ADDR:
- 	case TIPC_CMD_SET_NETID:
-+	case TIPC_CMD_GET_NETID:
++	case TIPC_CMD_SET_NODE_ADDR:
  		return tipc_nl_compat_recv(skb, info);
  	}
  
