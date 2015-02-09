@@ -1,54 +1,30 @@
-From: Bjorn Andersson <bjorn-UYDU3/A3LUY@public.gmane.org>
-Subject: Re: [PATCH 6/7] net: wireless: wcn36xx: remove powersaving for wcn3620
-Date: Mon, 9 Feb 2015 09:54:23 -0800
-Message-ID: <CAJAp7OhcFTuYfc7JOKW1SrVRbucuSWg5jcFaoVnSDgBxsyo2ng@mail.gmail.com>
-References: <20150118050741.31866.36490.stgit@114-36-241-182.dynamic.hinet.net>
-	<20150118051111.31866.39208.stgit@114-36-241-182.dynamic.hinet.net>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [PATCH net-next] openvswitch: Only set TUNNEL_VXLAN_OPT if
+ VXLAN-GBP metadata is set
+Date: Mon, 9 Feb 2015 09:59:40 -0800
+Message-ID: <CALnjE+q-LG__puApG9_1ywrUgo-Kpaove8TZwZoti7ztChpe+w@mail.gmail.com>
+References: <27de6976a7a40d1da2875b93138353724cbfa24b.1423497309.git.tgraf@suug.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	Eugene Krasnikov <k.eugene.e-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	wcn36xx <wcn36xx-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Andy Green <andy.green-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20150118051111.31866.39208.stgit-FDDIDLfWL9/T9rR/E2HzMujRB4CPm7EUkgzjau31qRg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Thomas Graf <tgraf@suug.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from na3sys009aob139.obsmtp.com ([74.125.149.251]:51452 "HELO
+	psmtp.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+	id S933546AbbBIR7k (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 Feb 2015 12:59:40 -0500
+Received: by mail-ie0-f180.google.com with SMTP id rl12so18383817iec.11
+        for <netdev@vger.kernel.org>; Mon, 09 Feb 2015 09:59:40 -0800 (PST)
+In-Reply-To: <27de6976a7a40d1da2875b93138353724cbfa24b.1423497309.git.tgraf@suug.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jan 17, 2015 at 9:11 PM, Andy Green <andy.green-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org> wrote:
-> WCN3620 powersaving mode is not stable.  Disable it if we're
-> on a wcn3620 chip type.
+On Mon, Feb 9, 2015 at 7:56 AM, Thomas Graf <tgraf@suug.ch> wrote:
+> This avoids setting TUNNEL_VXLAN_OPT for VXLAN frames which don't
+> have any GBP metadata set. It is not invalid to set it but unnecessary.
 >
-> Signed-off-by: Andy Green <andy.green-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-> ---
->  drivers/net/wireless/ath/wcn36xx/main.c |    4 ++++
->  1 file changed, 4 insertions(+)
->
-> diff --git a/drivers/net/wireless/ath/wcn36xx/main.c b/drivers/net/wireless/ath/wcn36xx/main.c
-> index c4178c7..569d45b 100644
-> --- a/drivers/net/wireless/ath/wcn36xx/main.c
-> +++ b/drivers/net/wireless/ath/wcn36xx/main.c
-> @@ -924,6 +924,10 @@ static int wcn36xx_init_ieee80211(struct wcn36xx *wcn)
->                 IEEE80211_HW_AMPDU_AGGREGATION |
->                 IEEE80211_HW_TIMING_BEACON_ONLY;
->
-> +       /* 3620 powersaving currently unstable */
-> +       if (wcn->chip_version == WCN36XX_CHIP_3620)
-> +               wcn->hw->flags &= ~IEEE80211_HW_SUPPORTS_PS;
-> +
+> Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
-Hi Andy,
+Acked-by: Pravin B Shelar <pshelar@nicira.com>
 
-I have the same problem (Data Abort Exception in wcnss) on 3680, this
-with my wip smd code and a hacked up remoteproc-pil. I haven't spent
-any effort on debugging this, but it looks like it's something related
-to what we have ported to mainline (or lack thereof) rather than a
-3620 specific issue.
-
-Regards,
-Bjorn
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks.
