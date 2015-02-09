@@ -1,76 +1,74 @@
-From: Mark Rutland <mark.rutland@arm.com>
-Subject: Re: [PATCH 3/3] stmmac: Add AXI burst length support to platform
- device.
-Date: Mon, 9 Feb 2015 12:04:43 +0000
-Message-ID: <20150209120443.GF4250@leverpostej>
-References: <1423285636-8623-1-git-send-email-cbz@baozis.org>
- <1423285636-8623-4-git-send-email-cbz@baozis.org>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [net-next 15/15] i40e/i40evf: Add call to u64_stats_init to init
+Date: Mon, 09 Feb 2015 15:09:15 +0300
+Message-ID: <54D8A36B.8040401@cogentembedded.com>
+References: <1423478641-3138-1-git-send-email-jeffrey.t.kirsher@intel.com> <1423478641-3138-16-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Chen Baozi <cbz@baozis.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1423285636-8623-4-git-send-email-cbz@baozis.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f53.google.com ([209.85.215.53]:33563 "EHLO
+	mail-la0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759439AbbBIMJT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Feb 2015 07:09:19 -0500
+Received: by labhz20 with SMTP id hz20so12826729lab.0
+        for <netdev@vger.kernel.org>; Mon, 09 Feb 2015 04:09:17 -0800 (PST)
+In-Reply-To: <1423478641-3138-16-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Feb 07, 2015 at 05:07:16AM +0000, Chen Baozi wrote:
-> The AXI Bus Mode Register controls the AXI master behavior. It is mainly
-> used to control the burst splitting and the number of outstanding requests.
-> This register is present and valid only in GMAC-AXI configuration. The old
-> driver only supports this feature on PCI devices. This patch adds an
-> 'snps,apl' properties in DT to enable it on platform devices.
-> 
-> Signed-off-by: Chen Baozi <chenbaozi@kylinos.com.cn>
+Hello.
+
+On 2/9/2015 1:44 PM, Jeff Kirsher wrote:
+
+> From: Carolyn Wyborny <carolyn.wyborny@intel.com>
+
+> This patch adds a call to u64_stats_init to Rx setup.
+> This done in order to avoid lockdep errors with seqcount on newer kernels.
+
+> Change-ID: Ia8ba8f0bcbd1c0e926f97d70aeee4ce4fd055e93
+> Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 > ---
->  Documentation/devicetree/bindings/net/stmmac.txt      | 1 +
->  drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c | 1 +
->  2 files changed, 2 insertions(+)
-> 
-> diff --git a/Documentation/devicetree/bindings/net/stmmac.txt b/Documentation/devicetree/bindings/net/stmmac.txt
-> index c41afd9..8f3c834 100644
-> --- a/Documentation/devicetree/bindings/net/stmmac.txt
-> +++ b/Documentation/devicetree/bindings/net/stmmac.txt
-> @@ -43,6 +43,7 @@ Optional properties:
->    available this clock is used for programming the Timestamp Addend Register.
->    If not passed then the system clock will be used and this is fine on some
->    platforms.
-> +- snps,abl: AXI Burst Length
+>   drivers/net/ethernet/intel/i40e/i40e_txrx.c   | 2 ++
+>   drivers/net/ethernet/intel/i40evf/i40e_txrx.c | 2 ++
+>   2 files changed, 4 insertions(+)
 
-This is not a good name (though I see it follows "snps,pbl", which is
-also not a good name)...
+> diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+> index 5aa6ef1..f4d6d90 100644
+> --- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+> +++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+> @@ -1098,6 +1098,8 @@ int i40e_setup_rx_descriptors(struct i40e_ring *rx_ring)
+>   	if (!rx_ring->rx_bi)
+>   		goto err;
+>
+> +		u64_stats_init(rx_ring->syncp);
 
-Why does this need to be in the DT? Is this required for correctness? Or
-performance?
+    This is over-indented.
 
-Thanks,
-Mark.
+> +
+>   	/* Round up to nearest 4K */
+>   	rx_ring->size = ring_is_16byte_desc_enabled(rx_ring)
+>   		? rx_ring->count * sizeof(union i40e_16byte_rx_desc)
+> diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+> index 4bf15da..459499a 100644
+> --- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+> +++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+> @@ -596,6 +596,8 @@ int i40evf_setup_rx_descriptors(struct i40e_ring *rx_ring)
+>   	if (!rx_ring->rx_bi)
+>   		goto err;
+>
+> +		u64_stats_init(rx_ring->syncp);
 
->  
->  Examples:
->  
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-> index 3039de2..abbc897 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-> @@ -230,6 +230,7 @@ static int stmmac_probe_config_dt(struct platform_device *pdev,
->  			return -ENOMEM;
->  		plat->dma_cfg = dma_cfg;
->  		of_property_read_u32(np, "snps,pbl", &dma_cfg->pbl);
-> +		of_property_read_u32(np, "snps,abl", &dma_cfg->burst_len);
->  		dma_cfg->fixed_burst =
->  			of_property_read_bool(np, "snps,fixed-burst");
->  		dma_cfg->mixed_burst =
-> -- 
-> 2.1.4
-> 
-> 
-> _______________________________________________
-> linux-arm-kernel mailing list
-> linux-arm-kernel@lists.infradead.org
-> http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
-> 
+    Likewise.
+
+> +
+>   	/* Round up to nearest 4K */
+>   	rx_ring->size = ring_is_16byte_desc_enabled(rx_ring)
+>   		? rx_ring->count * sizeof(union i40e_16byte_rx_desc)
+
+WBR, Sergei
