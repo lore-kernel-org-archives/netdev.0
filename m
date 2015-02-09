@@ -1,7 +1,8 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH RFC v5 net-next 3/6] virtio_net: enable tx interrupt
-Date: Mon,  9 Feb 2015 03:39:22 -0500
-Message-ID: <1423471165-34243-4-git-send-email-jasowang@redhat.com>
+Subject: [PATCH RFC v5 net-next 4/6] virtio-net: add basic interrupt
+	coalescing support
+Date: Mon,  9 Feb 2015 03:39:23 -0500
+Message-ID: <1423471165-34243-5-git-send-email-jasowang@redhat.com>
 References: <1423471165-34243-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -22,295 +23,141 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On newer hosts that support delayed tx interrupts,
-we probably don't have much to gain from orphaning
-packets early.
+This patch enables the interrupt coalescing setting through ethtool.
 
-Note: this might degrade performance for
-hosts without event idx support.
-Should be addressed by the next patch.
-
+Cc: Rusty Russell <rusty@rustcorp.com.au>
+Cc: Michael S. Tsirkin <mst@redhat.com>
 Signed-off-by: Jason Wang <jasowang@redhat.com>
 ---
-Changes from RFCv4:
-- change:
-        virtqueue_disable_cb(sq->vq);
-        napi_schedule(&sq->napi);
-
-  in skb_xmit_done() to:
-
-  if (__napi_schedule_prep(&sq->napi)) {
-     virtqueue_diable_cb(sq->vq);
-     __napi_schedule(&sq->napi);
-  }
-
-  to solve the race on architectures that atomic operations were not
-  serialized. And do solve a similar issue in virtnet_poll_tx().
-- use netif_wake_subqueue() instead of netif_start_subqueue() in
-  free_old_xmit_skbs(), since it may be called in tx napi.
-- in start_xmit(), try to enable the callback only when current skb is
-  the last in the list or tx has already been stopped. This avoid the
-  callbacks enabling in heavy load.
----
- drivers/net/virtio_net.c | 136 +++++++++++++++++++++++++++++++----------------
- 1 file changed, 90 insertions(+), 46 deletions(-)
+ drivers/net/virtio_net.c        | 67 +++++++++++++++++++++++++++++++++++++++++
+ include/uapi/linux/virtio_net.h | 12 ++++++++
+ 2 files changed, 79 insertions(+)
 
 diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index 11e2e81..cc5f5de 100644
+index cc5f5de..2b958fb 100644
 --- a/drivers/net/virtio_net.c
 +++ b/drivers/net/virtio_net.c
-@@ -72,6 +72,8 @@ struct send_queue {
+@@ -145,6 +145,11 @@ struct virtnet_info {
  
- 	/* Name of the send queue: output.$index */
- 	char name[40];
+ 	/* Budget for polling tx completion */
+ 	u32 tx_work_limit;
 +
-+	struct napi_struct napi;
- };
- 
- /* Internal representation of a receive virtqueue */
-@@ -140,6 +142,9 @@ struct virtnet_info {
- 
- 	/* CPU hot plug notifier */
- 	struct notifier_block nb;
-+
-+	/* Budget for polling tx completion */
-+	u32 tx_work_limit;
++	__u32 rx_coalesce_usecs;
++	__u32 rx_max_coalesced_frames;
++	__u32 tx_coalesce_usecs;
++	__u32 tx_max_coalesced_frames;
  };
  
  struct padded_vnet_hdr {
-@@ -207,15 +212,43 @@ static struct page *get_a_page(struct receive_queue *rq, gfp_t gfp_mask)
- 	return p;
+@@ -1404,12 +1409,73 @@ static void virtnet_get_channels(struct net_device *dev,
+ 	channels->other_count = 0;
  }
  
-+static unsigned int free_old_xmit_skbs(struct netdev_queue *txq,
-+				       struct send_queue *sq, int budget)
++static int virtnet_set_coalesce(struct net_device *dev,
++				struct ethtool_coalesce *ec)
 +{
-+	struct sk_buff *skb;
-+	unsigned int len;
-+	struct virtnet_info *vi = sq->vq->vdev->priv;
-+	struct virtnet_stats *stats = this_cpu_ptr(vi->stats);
-+	unsigned int packets = 0;
++	struct virtnet_info *vi = netdev_priv(dev);
++	struct scatterlist sg;
++	struct virtio_net_ctrl_coalesce c;
 +
-+	while (packets < budget &&
-+	       (skb = virtqueue_get_buf(sq->vq, &len)) != NULL) {
-+		pr_debug("Sent skb %p\n", skb);
-+
-+		u64_stats_update_begin(&stats->tx_syncp);
-+		stats->tx_bytes += skb->len;
-+		stats->tx_packets++;
-+		u64_stats_update_end(&stats->tx_syncp);
-+
-+		dev_kfree_skb_any(skb);
-+		packets++;
++	if (!vi->has_cvq ||
++	    !virtio_has_feature(vi->vdev, VIRTIO_NET_F_CTRL_COALESCE))
++		return -EOPNOTSUPP;
++	if (vi->rx_coalesce_usecs != ec->rx_coalesce_usecs ||
++	    vi->rx_max_coalesced_frames != ec->rx_max_coalesced_frames) {
++		c.coalesce_usecs = ec->rx_coalesce_usecs;
++		c.max_coalesced_frames = ec->rx_max_coalesced_frames;
++		sg_init_one(&sg, &c, sizeof(c));
++		if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_COALESCE,
++					  VIRTIO_NET_CTRL_COALESCE_RX_SET,
++					  &sg)) {
++			dev_warn(&dev->dev, "Fail to set rx coalescing\n");
++			return -EINVAL;
++		}
++		vi->rx_coalesce_usecs = ec->rx_coalesce_usecs;
++		vi->rx_max_coalesced_frames = ec->rx_max_coalesced_frames;
 +	}
 +
-+	if (sq->vq->num_free >= 2 + MAX_SKB_FRAGS)
-+		netif_wake_subqueue(vi->dev, vq2txq(sq->vq));
++	if (vi->tx_coalesce_usecs != ec->tx_coalesce_usecs ||
++	    vi->tx_max_coalesced_frames != ec->tx_max_coalesced_frames) {
++		c.coalesce_usecs = ec->tx_coalesce_usecs;
++		c.max_coalesced_frames = ec->tx_max_coalesced_frames;
++		sg_init_one(&sg, &c, sizeof(c));
++		if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_COALESCE,
++					  VIRTIO_NET_CTRL_COALESCE_TX_SET,
++					  &sg)) {
++			dev_warn(&dev->dev, "Fail to set tx coalescing\n");
++			return -EINVAL;
++		}
++		vi->tx_coalesce_usecs = ec->tx_coalesce_usecs;
++		vi->tx_max_coalesced_frames = ec->tx_max_coalesced_frames;
++	}
 +
-+	return packets;
++	vi->tx_work_limit = ec->tx_max_coalesced_frames_irq;
++
++	return 0;
 +}
 +
- static void skb_xmit_done(struct virtqueue *vq)
- {
- 	struct virtnet_info *vi = vq->vdev->priv;
-+	struct send_queue *sq = &vi->sq[vq2txq(vq)];
- 
--	/* Suppress further interrupts. */
--	virtqueue_disable_cb(vq);
--
--	/* We were probably waiting for more output buffers. */
--	netif_wake_subqueue(vi->dev, vq2txq(vq));
-+	if (napi_schedule_prep(&sq->napi)) {
-+		virtqueue_disable_cb(sq->vq);
-+		__napi_schedule(&sq->napi);
-+	}
- }
- 
- static unsigned int mergeable_ctx_to_buf_truesize(unsigned long mrg_ctx)
-@@ -776,6 +809,30 @@ static int virtnet_poll(struct napi_struct *napi, int budget)
- 	return received;
- }
- 
-+static int virtnet_poll_tx(struct napi_struct *napi, int budget)
++static int virtnet_get_coalesce(struct net_device *dev,
++				struct ethtool_coalesce *ec)
 +{
-+	struct send_queue *sq =
-+		container_of(napi, struct send_queue, napi);
-+	struct virtnet_info *vi = sq->vq->vdev->priv;
-+	struct netdev_queue *txq = netdev_get_tx_queue(vi->dev, vq2txq(sq->vq));
-+	u32 limit = vi->tx_work_limit;
-+	unsigned int r, sent;
++	struct virtnet_info *vi = netdev_priv(dev);
 +
-+	__netif_tx_lock(txq, smp_processor_id());
-+	sent = free_old_xmit_skbs(txq, sq, limit);
-+	if (sent < limit) {
-+		r = virtqueue_enable_cb_prepare(sq->vq);
-+		napi_complete(napi);
-+		if (unlikely(virtqueue_poll(sq->vq, r)) &&
-+		    napi_schedule_prep(napi)) {
-+			virtqueue_disable_cb(sq->vq);
-+			__napi_schedule(napi);
-+		}
-+	}
-+	__netif_tx_unlock(txq);
-+	return sent < limit ? 0 : budget;
++	ec->rx_coalesce_usecs = vi->rx_coalesce_usecs;
++	ec->rx_max_coalesced_frames = vi->rx_max_coalesced_frames;
++	ec->tx_coalesce_usecs = vi->tx_coalesce_usecs;
++	ec->tx_max_coalesced_frames = vi->tx_max_coalesced_frames;
++	ec->tx_max_coalesced_frames_irq = vi->tx_work_limit;
++
++	return 0;
 +}
 +
- #ifdef CONFIG_NET_RX_BUSY_POLL
- /* must be called with local_bh_disable()d */
- static int virtnet_busy_poll(struct napi_struct *napi)
-@@ -824,30 +881,12 @@ static int virtnet_open(struct net_device *dev)
- 			if (!try_fill_recv(vi, &vi->rq[i], GFP_KERNEL))
- 				schedule_delayed_work(&vi->refill, 0);
- 		virtnet_napi_enable(&vi->rq[i]);
-+		napi_enable(&vi->sq[i].napi);
- 	}
+ static const struct ethtool_ops virtnet_ethtool_ops = {
+ 	.get_drvinfo = virtnet_get_drvinfo,
+ 	.get_link = ethtool_op_get_link,
+ 	.get_ringparam = virtnet_get_ringparam,
+ 	.set_channels = virtnet_set_channels,
+ 	.get_channels = virtnet_get_channels,
++	.set_coalesce = virtnet_set_coalesce,
++	.get_coalesce = virtnet_get_coalesce,
+ };
  
- 	return 0;
- }
+ #define MIN_MTU 68
+@@ -2048,6 +2114,7 @@ static unsigned int features[] = {
+ 	VIRTIO_NET_F_GUEST_ANNOUNCE, VIRTIO_NET_F_MQ,
+ 	VIRTIO_NET_F_CTRL_MAC_ADDR,
+ 	VIRTIO_F_ANY_LAYOUT,
++	VIRTIO_NET_F_CTRL_COALESCE,
+ };
  
--static void free_old_xmit_skbs(struct send_queue *sq)
--{
--	struct sk_buff *skb;
--	unsigned int len;
--	struct virtnet_info *vi = sq->vq->vdev->priv;
--	struct virtnet_stats *stats = this_cpu_ptr(vi->stats);
--
--	while ((skb = virtqueue_get_buf(sq->vq, &len)) != NULL) {
--		pr_debug("Sent skb %p\n", skb);
--
--		u64_stats_update_begin(&stats->tx_syncp);
--		stats->tx_bytes += skb->len;
--		stats->tx_packets++;
--		u64_stats_update_end(&stats->tx_syncp);
--
--		dev_kfree_skb_any(skb);
--	}
--}
--
- static int xmit_skb(struct send_queue *sq, struct sk_buff *skb)
- {
- 	struct virtio_net_hdr_mrg_rxbuf *hdr;
-@@ -910,7 +949,9 @@ static int xmit_skb(struct send_queue *sq, struct sk_buff *skb)
- 		sg_set_buf(sq->sg, hdr, hdr_len);
- 		num_sg = skb_to_sgvec(skb, sq->sg + 1, 0, skb->len) + 1;
- 	}
--	return virtqueue_add_outbuf(sq->vq, sq->sg, num_sg, skb, GFP_ATOMIC);
+ static struct virtio_driver virtio_net_driver = {
+diff --git a/include/uapi/linux/virtio_net.h b/include/uapi/linux/virtio_net.h
+index b5f1677..332009d 100644
+--- a/include/uapi/linux/virtio_net.h
++++ b/include/uapi/linux/virtio_net.h
+@@ -34,6 +34,7 @@
+ /* The feature bitmap for virtio net */
+ #define VIRTIO_NET_F_CSUM	0	/* Host handles pkts w/ partial csum */
+ #define VIRTIO_NET_F_GUEST_CSUM	1	/* Guest handles pkts w/ partial csum */
++#define VIRTIO_NET_F_CTRL_COALESCE 3	/* Set coalescing */
+ #define VIRTIO_NET_F_MAC	5	/* Host has given MAC address. */
+ #define VIRTIO_NET_F_GSO	6	/* Host handles pkts w/ any GSO type */
+ #define VIRTIO_NET_F_GUEST_TSO4	7	/* Guest can handle TSOv4 in. */
+@@ -202,4 +203,15 @@ struct virtio_net_ctrl_mq {
+  #define VIRTIO_NET_CTRL_MQ_VQ_PAIRS_MIN        1
+  #define VIRTIO_NET_CTRL_MQ_VQ_PAIRS_MAX        0x8000
+ 
++struct virtio_net_ctrl_coalesce {
++	__u32 coalesce_usecs;
++	__u32 max_coalesced_frames;
++};
 +
-+	return virtqueue_add_outbuf(sq->vq, sq->sg, num_sg, skb,
-+				    GFP_ATOMIC);
- }
- 
- static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
-@@ -922,8 +963,7 @@ static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	struct netdev_queue *txq = netdev_get_tx_queue(dev, qnum);
- 	bool kick = !skb->xmit_more;
- 
--	/* Free up any pending old buffers before queueing new ones. */
--	free_old_xmit_skbs(sq);
-+	virtqueue_disable_cb(sq->vq);
- 
- 	/* Try to transmit */
- 	err = xmit_skb(sq, skb);
-@@ -939,27 +979,19 @@ static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
- 		return NETDEV_TX_OK;
- 	}
- 
--	/* Don't wait up for transmitted skbs to be freed. */
--	skb_orphan(skb);
--	nf_reset(skb);
--
- 	/* Apparently nice girls don't return TX_BUSY; stop the queue
- 	 * before it gets out of hand.  Naturally, this wastes entries. */
--	if (sq->vq->num_free < 2+MAX_SKB_FRAGS) {
-+	if (sq->vq->num_free < 2+MAX_SKB_FRAGS)
- 		netif_stop_subqueue(dev, qnum);
--		if (unlikely(!virtqueue_enable_cb_delayed(sq->vq))) {
--			/* More just got used, free them then recheck. */
--			free_old_xmit_skbs(sq);
--			if (sq->vq->num_free >= 2+MAX_SKB_FRAGS) {
--				netif_start_subqueue(dev, qnum);
--				virtqueue_disable_cb(sq->vq);
--			}
--		}
--	}
- 
--	if (kick || netif_xmit_stopped(txq))
-+	if (kick || netif_xmit_stopped(txq)) {
- 		virtqueue_kick(sq->vq);
--
-+		if (!virtqueue_enable_cb_delayed(sq->vq) &&
-+		    napi_schedule_prep(&sq->napi)) {
-+			virtqueue_disable_cb(sq->vq);
-+			__napi_schedule(&sq->napi);
-+		}
-+	}
- 	return NETDEV_TX_OK;
- }
- 
-@@ -1137,8 +1169,10 @@ static int virtnet_close(struct net_device *dev)
- 	/* Make sure refill_work doesn't re-enable napi! */
- 	cancel_delayed_work_sync(&vi->refill);
- 
--	for (i = 0; i < vi->max_queue_pairs; i++)
-+	for (i = 0; i < vi->max_queue_pairs; i++) {
- 		napi_disable(&vi->rq[i].napi);
-+		napi_disable(&vi->sq[i].napi);
-+	}
- 
- 	return 0;
- }
-@@ -1451,8 +1485,10 @@ static void virtnet_free_queues(struct virtnet_info *vi)
- {
- 	int i;
- 
--	for (i = 0; i < vi->max_queue_pairs; i++)
-+	for (i = 0; i < vi->max_queue_pairs; i++) {
- 		netif_napi_del(&vi->rq[i].napi);
-+		netif_napi_del(&vi->sq[i].napi);
-+	}
- 
- 	kfree(vi->rq);
- 	kfree(vi->sq);
-@@ -1606,6 +1642,8 @@ static int virtnet_alloc_queues(struct virtnet_info *vi)
- 		netif_napi_add(vi->dev, &vi->rq[i].napi, virtnet_poll,
- 			       napi_weight);
- 		napi_hash_add(&vi->rq[i].napi);
-+		netif_napi_add(vi->dev, &vi->sq[i].napi, virtnet_poll_tx,
-+			       napi_weight);
- 
- 		sg_init_table(vi->rq[i].sg, ARRAY_SIZE(vi->rq[i].sg));
- 		ewma_init(&vi->rq[i].mrg_avg_pkt_len, 1, RECEIVE_AVG_WEIGHT);
-@@ -1830,6 +1868,8 @@ static int virtnet_probe(struct virtio_device *vdev)
- 	if (err)
- 		goto free_stats;
- 
-+	vi->tx_work_limit = napi_weight;
++#define VIRTIO_NET_CTRL_COALESCE 6
++ #define VIRTIO_NET_CTRL_COALESCE_TX_SET 0
++ #define VIRTIO_NET_CTRL_COALESCE_TX_GET 1
++ #define VIRTIO_NET_CTRL_COALESCE_RX_SET 2
++ #define VIRTIO_NET_CTRL_COALESCE_RX_GET 3
 +
- #ifdef CONFIG_SYSFS
- 	if (vi->mergeable_rx_bufs)
- 		dev->sysfs_rx_queue_group = &virtio_net_mrg_rx_group;
-@@ -1944,8 +1984,10 @@ static int virtnet_freeze(struct virtio_device *vdev)
- 	if (netif_running(vi->dev)) {
- 		for (i = 0; i < vi->max_queue_pairs; i++) {
- 			napi_disable(&vi->rq[i].napi);
-+			napi_disable(&vi->sq[i].napi);
- 			napi_hash_del(&vi->rq[i].napi);
- 			netif_napi_del(&vi->rq[i].napi);
-+			netif_napi_del(&vi->sq[i].napi);
- 		}
- 	}
- 
-@@ -1970,8 +2012,10 @@ static int virtnet_restore(struct virtio_device *vdev)
- 			if (!try_fill_recv(vi, &vi->rq[i], GFP_KERNEL))
- 				schedule_delayed_work(&vi->refill, 0);
- 
--		for (i = 0; i < vi->max_queue_pairs; i++)
-+		for (i = 0; i < vi->max_queue_pairs; i++) {
- 			virtnet_napi_enable(&vi->rq[i]);
-+			napi_enable(&vi->sq[i].napi);
-+		}
- 	}
- 
- 	netif_device_attach(vi->dev);
+ #endif /* _LINUX_VIRTIO_NET_H */
 -- 
 1.8.3.1
