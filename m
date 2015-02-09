@@ -1,42 +1,55 @@
-From: Alexandre Courbot <gnurou@gmail.com>
-Subject: Re: [PATCH 3/3][v2] mdio-mux-gpio: use new gpiod_get_array and
- gpiod_put_array functions
-Date: Mon, 9 Feb 2015 14:18:14 +0900
-Message-ID: <CAAVeFu+bfTbvbaZ0EVrZzH_zNWDJjfM4oi13g8D+aH_8x6BqaQ@mail.gmail.com>
-References: <2017147.PF4WHTmJS4@pcimr>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "linux-gpio@vger.kernel.org" <linux-gpio@vger.kernel.org>,
-	Alexandre Courbot <acourbot@nvidia.com>,
-	Linus Walleij <linus.walleij@linaro.org>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Rojhalat Ibrahim <imr@rtschenk.de>
-Return-path: <linux-gpio-owner@vger.kernel.org>
-In-Reply-To: <2017147.PF4WHTmJS4@pcimr>
-Sender: linux-gpio-owner@vger.kernel.org
+From: Simon Horman <horms@verge.net.au>
+Subject: [PATCH nf] ipvs: fix inability to remove a mixed-family RS
+Date: Mon,  9 Feb 2015 14:25:08 +0900
+Message-ID: <1423459508-15517-2-git-send-email-horms@verge.net.au>
+References: <1423459508-15517-1-git-send-email-horms@verge.net.au>
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>,
+	Alexey Andriyanov <alan@al-an.info>,
+	Simon Horman <horms@verge.net.au>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <1423459508-15517-1-git-send-email-horms@verge.net.au>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 22, 2015 at 1:46 AM, Rojhalat Ibrahim <imr@rtschenk.de> wrote:
-> Use the new gpiod_get_array and gpiod_put_array functions for obtaining and
-> disposing of GPIO descriptors.
->
-> Cc: David Miller <davem@davemloft.net>
-> Signed-off-by: Rojhalat Ibrahim <imr@rtschenk.de>
-> ---
-> This patch depends on my previous patch "gpiolib: add gpiod_get_array and
-> gpiod_put_array functions".
->
-> v2: use the new interface
->
-> Only compile-tested.
->
->  drivers/net/phy/mdio-mux-gpio.c |   61 +++++++++++-----------------------------
->  1 file changed, 18 insertions(+), 43 deletions(-)
+From: Alexey Andriyanov <alan@al-an.info>
 
-Oh yeah.
+The current code prevents any operation with a mixed-family dest
+unless IP_VS_CONN_F_TUNNEL flag is set. The problem is that it's impossible
+for the client to follow this rule, because ip_vs_genl_parse_dest does
+not even read the destination conn_flags when cmd = IPVS_CMD_DEL_DEST
+(need_full_dest = 0).
 
-It would be great to have a tested-by for the next revision though.
+Also, not every client can pass this flag when removing a dest. ipvsadm,
+for example, does not support the "-i" command line option together with
+the "-d" option.
 
-Rojhalat, have you been able to test these new interfaces outside of
-this driver?
+This change disables any checks for mixed-family on IPVS_CMD_DEL_DEST command.
+
+Signed-off-by: Alexey Andriyanov <alan@al-an.info>
+Fixes: bc18d37f676f ("ipvs: Allow heterogeneous pools now that we support them")
+Acked-by: Julian Anastasov <ja@ssi.bg>
+Signed-off-by: Simon Horman <horms@verge.net.au>
+---
+ net/netfilter/ipvs/ip_vs_ctl.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
+index b8295a4..fdcda8b 100644
+--- a/net/netfilter/ipvs/ip_vs_ctl.c
++++ b/net/netfilter/ipvs/ip_vs_ctl.c
+@@ -3399,7 +3399,7 @@ static int ip_vs_genl_set_cmd(struct sk_buff *skb, struct genl_info *info)
+ 		if (udest.af == 0)
+ 			udest.af = svc->af;
+ 
+-		if (udest.af != svc->af) {
++		if (udest.af != svc->af && cmd != IPVS_CMD_DEL_DEST) {
+ 			/* The synchronization protocol is incompatible
+ 			 * with mixed family services
+ 			 */
+-- 
+2.1.4
+
