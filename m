@@ -1,57 +1,32 @@
-From: Jouni Malinen <jouni@codeaurora.org>
-Subject: Re: [PATCH v2 1/3] bridge: Base the BR_PROXYARP decision on the
- target port flag
-Date: Mon, 9 Feb 2015 21:54:01 +0200
-Message-ID: <20150209195401.GA18065@jouni.qca.qualcomm.com>
-References: <1423130063-18323-1-git-send-email-jouni@codeaurora.org>
- <20150207.215922.1914777712701024499.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: pull-request: wireless-drivers-next 2015-02-07
+Date: Mon, 09 Feb 2015 12:13:42 -0800 (PST)
+Message-ID: <20150209.121342.1535841700027616341.davem@davemloft.net>
+References: <87a90qosos.fsf@kamboji.qca.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, kyeyoonp@codeaurora.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: kvalo@codeaurora.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:53953 "EHLO
-	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759087AbbBIUDe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Feb 2015 15:03:34 -0500
-Content-Disposition: inline
-In-Reply-To: <20150207.215922.1914777712701024499.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:49131 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755151AbbBIUNp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Feb 2015 15:13:45 -0500
+In-Reply-To: <87a90qosos.fsf@kamboji.qca.qualcomm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Feb 07, 2015 at 09:59:22PM -0800, David Miller wrote:
-> From: Jouni Malinen <jouni@codeaurora.org>
-> > When doing proxy ARP, instead of checking the bridge port flag for
-> > BR_PROXYARP on the bridge port on which the frame was received, check
-> > the bridge port flag of the bridge port to which the target device
-> > belongs.
-> 
-> This is a semantic change, what if the administrator wanted the
-> current behavior?
-> 
-> I'm not applying this.  If you want the new behavior, it will have
-> to be at a minimum turned on via a sysctl that defaults to OFF.
-
-Agreed, this does change the semantics of the commit 958501163ddd
-("bridge: Add support for IEEE 802.11 Proxy ARP"). However, I see this
-as a bug fix rather than new behavior. In other words, this set of three
-patches came up from extended testing coverage and issues found during
-implementation of automated protocol tests. Taken into account that this
-BR_PROXYARP functionality was added recently and I'm not aware of a use
-case that would use the current design, I was hoping to avoid the added
-complexity of configuration parameters for something that I do not
-expect to be needed.
-
-This IEEE 802.11 Proxy ARP functionality is still work in progress in
-the sense that the IPv6 patch has not yet been contributed (RFC version
-would be ready, but I'm waiting for the IPv4 side to get fully
-completed).
-
-
-If a configuration parameter is required for this, what would the
-preferred way of adding it in net/bridge? It looks like only
-br_netfilter.c is currently using sysctl. Would netlink with another
-BRPORT_ATTR_FLAG similarly to BR_PROXYARP be a suitable alternative?
-
--- 
-Jouni Malinen                                            PGP id EFC895FA
+RnJvbTogS2FsbGUgVmFsbyA8a3ZhbG9AY29kZWF1cm9yYS5vcmc+DQpEYXRlOiBTYXQsIDA3IEZl
+YiAyMDE1IDEzOjQwOjUxICswMjAwDQoNCj4gVGhlcmUncyBhIHNtYWxsIGNvbmZsaWN0IGluIGRy
+aXZlcnMvbmV0L3dpcmVsZXNzL3J0bHdpZmkvcGNpLmMsIHRoZSBmaXgNCj4gaXMgdG8gbGVhdmUg
+dGhlIHR3byBsYWJlbHMgbGlrZSB0aGlzOg0KPiANCj4gCQkJc2NoZWR1bGVfd29yaygmcnRscHJp
+di0+d29ya3MubHBzX2NoYW5nZV93b3JrKTsNCj4gCQl9DQo+IGVuZDoNCj4gCQlza2IgPSBuZXdf
+c2tiOw0KPiBub19uZXc6DQo+IAkJaWYgKHJ0bHByaXYtPnVzZV9uZXdfdHJ4X2Zsb3cpIHsNCj4g
+DQo+IA0KDQpUaGF0IGNhbid0IGJlIHRoZSBjb3JyZWN0IHJlc29sdXRpb246DQoNCmRyaXZlcnMv
+bmV0L3dpcmVsZXNzL3J0bHdpZmkvcGNpLmM6IEluIGZ1bmN0aW9uIKFfcnRsX3BjaV9yeF9pbnRl
+cnJ1cHSiOg0KZHJpdmVycy9uZXQvd2lyZWxlc3MvcnRsd2lmaS9wY2kuYzo5MzQ6MTogd2Fybmlu
+ZzogbGFiZWwgoWVuZKIgZGVmaW5lZCBidXQgbm90IHVzZWQgWy1XdW51c2VkLWxhYmVsXQ0KDQpT
+byBJJ3ZlIHJlbW92ZWQgdGhhdCBsYWJlbCBpbiB0aGUgbWVyZ2UgY29tbWl0Lg0KDQo+IFBsZWFz
+ZSBsZXQgbWUga25vdyBpZiB0aGVyZSBhcmUgYW55IGlzc3VlcyBhbmQgc29ycnkgZm9yIGJlaW5n
+IGxhdGUuDQoNClB1bGxlZCwgdGhhbmtzIGEgbG90Lg0K
