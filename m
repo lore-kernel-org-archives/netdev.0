@@ -1,81 +1,72 @@
-From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Subject: [PATCH net] bridge: Fix inability to add non-vlan fdb entry
-Date: Mon,  9 Feb 2015 20:16:17 +0900
-Message-ID: <1423480577-9473-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
-Cc: Vlad Yasevich <vyasevic@redhat.com>, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org
-To: "David S . Miller" <davem@davemloft.net>,
-	Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: Bryton Lee <brytonlee01@gmail.com>
+Subject: [PATCH] prevent the read ahead of /proc/slabinfo in ss
+Date: Mon,  9 Feb 2015 19:37:10 +0800
+Message-ID: <1423481830-9599-1-git-send-email-brytonlee01@gmail.com>
+Cc: brytonlee01@gmail.com
+To: stephen@networkplumber.org, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f175.google.com ([209.85.192.175]:34313 "EHLO
+	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759670AbbBILiJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Feb 2015 06:38:09 -0500
+Received: by pdjg10 with SMTP id g10so24439879pdj.1
+        for <netdev@vger.kernel.org>; Mon, 09 Feb 2015 03:38:08 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Bridge's default_pvid adds a vid by default, by which we cannot add a
-non-vlan fdb entry by default, because br_fdb_add() adds fdb entries for
-all vlans instead of a non-vlan one when any vlan is configured.
+ss reads ahead of /proc/slabinfo whatever slabstat will be used or not in future.
+this will cause huge system delay when the kernel hires SLAB allocator(SLUB allocator is ok). when program reads
+/proc/slabinfo, it will call s_show() in SLAB allocator level, and s_show() calls spin_lock_irq(&l3->list_lock) 
+then iterate on whole three lists. if one slab has about 900 million objects (for example dentry),
+it will cause more than 1000ms delay. 
 
- # ip link add br0 type bridge
- # ip link set eth0 master br0
- # bridge fdb add 12:34:56:78:90:ab dev eth0 master temp
- # bridge fdb show brport eth0 | grep 12:34:56:78:90:ab
- 12:34:56:78:90:ab dev eth0 vlan 1 static
+so this patch prevents the read ahead of /proc/slabinfo, ss runs with most parameters not using slabstat at all.
 
-We expect a non-vlan fdb entry as well as vlan 1:
- 12:34:56:78:90:ab dev eth0 static
-
-To fix this, we need to insert a non-vlan fdb entry if vlan is not
-specified, even when any vlan is configured.
-
-Fixes: 5be5a2df40f0 ("bridge: Add filtering support for default_pvid")
-Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Signed-off-by: Bryton Lee <brytonlee01@gmail.com>
 ---
- net/bridge/br_fdb.c | 12 +++++-------
- 1 file changed, 5 insertions(+), 7 deletions(-)
+ misc/ss.c | 9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
 
-diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
-index cc36e59..c041f99 100644
---- a/net/bridge/br_fdb.c
-+++ b/net/bridge/br_fdb.c
-@@ -840,10 +840,9 @@ int br_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
- 		/* VID was specified, so use it. */
- 		err = __br_fdb_add(ndm, p, addr, nlh_flags, vid);
- 	} else {
--		if (!pv || bitmap_empty(pv->vlan_bitmap, VLAN_N_VID)) {
--			err = __br_fdb_add(ndm, p, addr, nlh_flags, 0);
-+		err = __br_fdb_add(ndm, p, addr, nlh_flags, 0);
-+		if (err || !pv)
- 			goto out;
--		}
+diff --git a/misc/ss.c b/misc/ss.c
+index f434f57..987dd70 100644
+--- a/misc/ss.c
++++ b/misc/ss.c
+@@ -617,6 +617,7 @@ struct slabstat
+ };
  
- 		/* We have vlans configured on this port and user didn't
- 		 * specify a VLAN.  To be nice, add/update entry for every
-@@ -911,16 +910,15 @@ int br_fdb_delete(struct ndmsg *ndm, struct nlattr *tb[],
+ struct slabstat slabstat;
++int slabstat_valid = 0;
  
- 		err = __br_fdb_delete(p, addr, vid);
- 	} else {
--		if (!pv || bitmap_empty(pv->vlan_bitmap, VLAN_N_VID)) {
--			err = __br_fdb_delete(p, addr, 0);
-+		err = -ENOENT;
-+		err &= __br_fdb_delete(p, addr, 0);
-+		if (!pv)
- 			goto out;
--		}
+ static const char *slabstat_ids[] =
+ {
+@@ -2128,6 +2129,9 @@ static int tcp_show(struct filter *f, int socktype)
+ 	 * it is able to give us some memory for snapshot.
+ 	 */
+ 	if (1) {
++		if (!slabstat_valid)
++			get_slabstat(&slabstat);
++
+ 		int guess = slabstat.socks+slabstat.tcp_syns;
+ 		if (f->states&(1<<SS_TIME_WAIT))
+ 			guess += slabstat.tcp_tws;
+@@ -3157,6 +3161,9 @@ static int print_summary(void)
+ 	if (get_snmp_int("Tcp:", "CurrEstab", &sn.tcp_estab) < 0)
+ 		perror("ss: get_snmpstat");
  
- 		/* We have vlans configured on this port and user didn't
- 		 * specify a VLAN.  To be nice, add/update entry for every
- 		 * vlan on this port.
- 		 */
--		err = -ENOENT;
- 		for_each_set_bit(vid, pv->vlan_bitmap, VLAN_N_VID) {
- 			err &= __br_fdb_delete(p, addr, vid);
- 		}
++	if (!slabstat_valid)
++		get_slabstat(&slabstat);
++
+ 	printf("Total: %d (kernel %d)\n", s.socks, slabstat.socks);
+ 
+ 	printf("TCP:   %d (estab %d, closed %d, orphaned %d, synrecv %d, timewait %d/%d), ports %d\n",
+@@ -3504,8 +3511,6 @@ int main(int argc, char *argv[])
+ 	argc -= optind;
+ 	argv += optind;
+ 
+-	get_slabstat(&slabstat);
+-
+ 	if (do_summary) {
+ 		print_summary();
+ 		if (do_default && argc == 0)
 -- 
-1.8.1.2
+2.0.5
