@@ -1,44 +1,44 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: Invalid timestamp? causing tight ack loop (hundreds of thousands
- of packets / sec)
-Date: Mon, 9 Feb 2015 10:42:24 -0500
-Message-ID: <CADVnQym7kQ-NutJrKHJ=upmfXUAg1+NTkSh4tSsi2EsbyeQNyw@mail.gmail.com>
-References: <CAO-X30uMA7=DTm5KqqvYC5RVTM0bg9pKBO1nX1+6x_2pF_fWfA@mail.gmail.com>
-	<1423036986.907.105.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CAO-X30shOhH7tN+msRvbLreeUvZesKARqyU0Lnm3_xoeea9uaQ@mail.gmail.com>
-	<1423052431.907.112.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CAO-X30umnbpQG9mwj67ZUkxQpVcGgMMsP8SqY=_3ZeoTczjbmQ@mail.gmail.com>
-	<1423181871.31870.94.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CADVnQyn20vWgfujSRRc+thud75hz0c1HG+vFEPhAu24c4-KivA@mail.gmail.com>
+From: roopa <roopa@cumulusnetworks.com>
+Subject: Re: [RFC PATCH 00/29] net: VRF support
+Date: Mon, 09 Feb 2015 07:54:50 -0800
+Message-ID: <54D8D84A.2080203@cumulusnetworks.com>
+References: <1423100070-31848-1-git-send-email-dsahern@gmail.com> <54D3F8F9.2060500@cumulusnetworks.com> <20150206081046.415c3d50@halley>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Avery Fay <avery@mixpanel.com>, Netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Ahern <dsahern@gmail.com>, netdev@vger.kernel.org,
+	ebiederm@xmission.com, Dinesh Dutt <ddutt@cumulusnetworks.com>,
+	Vipin Kumar <vipin@cumulusnetworks.com>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	hannes@stressinduktion.org, Eyal Birger <eyal.birger@gmail.com>
+To: Shmulik Ladkani <shmulik.ladkani@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f42.google.com ([209.85.216.42]:43136 "EHLO
-	mail-qa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933101AbbBIPmZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Feb 2015 10:42:25 -0500
-Received: by mail-qa0-f42.google.com with SMTP id dc16so21570485qab.1
-        for <netdev@vger.kernel.org>; Mon, 09 Feb 2015 07:42:24 -0800 (PST)
-In-Reply-To: <CADVnQyn20vWgfujSRRc+thud75hz0c1HG+vFEPhAu24c4-KivA@mail.gmail.com>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:53720 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933209AbbBIPyw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Feb 2015 10:54:52 -0500
+Received: by mail-pa0-f46.google.com with SMTP id lj1so34670870pab.5
+        for <netdev@vger.kernel.org>; Mon, 09 Feb 2015 07:54:51 -0800 (PST)
+In-Reply-To: <20150206081046.415c3d50@halley>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 6, 2015 at 4:16 PM, Neal Cardwell <ncardwell@google.com> wrote:
-> On Thu, Feb 5, 2015 at 7:17 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->> On Thu, 2015-02-05 at 15:25 -0800, Avery Fay wrote:
->>
->>> Are these available anywhere? Or could they be made available? This
->>> seems like a much better solution than disabling timestamps.
+On 2/5/15, 10:10 PM, Shmulik Ladkani wrote:
+> On Thu, 05 Feb 2015 15:12:57 -0800 roopa <roopa@cumulusnetworks.com> wrote:
+>> We have been playing with ip rules to implement vrfs. And the blocker
+>> today is that we cannot bind a socket to a vrf (routing tables in this
+>> case).
+> Hi Roopa,
+>
+> One option would be using SO_MARK sockopt on that socket, and have an ip
+> rule which matches this mark to point to your table.
+> I don't know your exact use-cases, but you can play around with that
+> idea.
+sorry for getting back late on this,
+  yes, SO_MARK and 'ip rule fwmark'  is an option to bind tx from a socket
+to a table. But, There are more things that will be needed on the rx side.
+and at this point we are not considering netfilter marking of the 
+ingress packets so
+haven't been following this option
 
-These are now in the "net-next" tree:
-
-f06535c Merge branch 'tcp_ack_loops'
-4fb17a6 tcp: mitigate ACK loops for connections as tcp_timewait_sock
-f2b2c58 tcp: mitigate ACK loops for connections as tcp_sock
-a9b2c06 tcp: mitigate ACK loops for connections as tcp_request_sock
-032ee42 tcp: helpers to mitigate ACK loops by rate-limiting
-out-of-window dupacks
-
-neal
+Thanks.
