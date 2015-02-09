@@ -1,61 +1,78 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] net:rfs: adjust table size checking
-Date: Sun, 08 Feb 2015 20:39:13 -0800
-Message-ID: <1423456753.31870.175.camel@edumazet-glaptop2.roam.corp.google.com>
+From: "Fu, Zhonghui" <zhonghui.fu@linux.intel.com>
+Subject: [PATCH v2] brcmfmac: avoid duplicated suspend/resume operation
+Date: Mon, 09 Feb 2015 12:43:29 +0800
+Message-ID: <54D83AF1.2020501@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f177.google.com ([209.85.213.177]:54852 "EHLO
-	mail-ig0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755360AbbBIEjP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 Feb 2015 23:39:15 -0500
-Received: by mail-ig0-f177.google.com with SMTP id z20so13931980igj.4
-        for <netdev@vger.kernel.org>; Sun, 08 Feb 2015 20:39:15 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Kalle Valo <kvalo@codeaurora.org>, brudley@broadcom.com,
+	Arend van Spriel <arend@broadcom.com>,
+	Franky Lin <frankyl@broadcom.com>, meuleman@broadcom.com,
+	linville@tuxdriver.com, pieterpg@broadcom.com, hdegoede@redhat.com,
+	wens@csie.org, linux-wireless@vger.kernel.org,
+	brcm80211-dev-list@broadcom.com, netdev@vger.kernel.org,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+>From ff39ed4af9f1c50358fe92ec4c8eaac9db183e00 Mon Sep 17 00:00:00 2001
+From: Zhonghui Fu <zhonghui.fu@linux.intel.com>
+Date: Mon, 26 Jan 2015 10:13:21 +0800
+Subject: [PATCH v2] brcmfmac: avoid duplicated suspend/resume operation
 
-Make sure root user does not try something stupid.
+WiFi chip has 2 SDIO functions, and PM core will trigger
+twice suspend/resume operations for one WiFi chip to do
+the same things. This patch avoid this case.
 
-Also make sure mask field in struct rps_sock_flow_table
-does not share a cache line with the potentially often dirtied
-flow table.
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Fixes: 567e4b79731c ("net: rfs: add hash collision detection")
+Acked-by: Arend van Spriel<arend@broadcom.com>
+Signed-off-by: Zhonghui Fu <zhonghui.fu@linux.intel.com>
 ---
- include/linux/netdevice.h  |    3 ++-
- net/core/sysctl_net_core.c |    2 +-
- 2 files changed, 3 insertions(+), 2 deletions(-)
+Changes in v2:
+ - Remove two "Acked-by" lines
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index ab3b7cef4638ceba92b749bc35564a60b0ff2a75..d115256ed5a209fe28ce971bdbde7ca421d048aa 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -653,7 +653,8 @@ struct rps_dev_flow_table {
-  */
- struct rps_sock_flow_table {
- 	u32	mask;
--	u32	ents[0];
+ drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c |   17 +++++++++++++++--
+ 1 files changed, 15 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c b/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c
+index 9880dae..618b545 100644
+--- a/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c
++++ b/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c
+@@ -1139,11 +1139,17 @@ void brcmf_sdio_wowl_config(struct device *dev, bool enabled)
+ static int brcmf_ops_sdio_suspend(struct device *dev)
+ {
+ 	struct brcmf_bus *bus_if = dev_get_drvdata(dev);
+-	struct brcmf_sdio_dev *sdiodev = bus_if->bus_priv.sdio;
++	struct brcmf_sdio_dev *sdiodev;
+ 	mmc_pm_flag_t sdio_flags;
++	struct sdio_func *func = dev_to_sdio_func(dev);
+ 
+ 	brcmf_dbg(SDIO, "Enter\n");
+ 
++	if (func->num == 2)
++		return 0;
 +
-+	u32	ents[0] ____cacheline_aligned_in_smp;
- };
- #define	RPS_SOCK_FLOW_TABLE_SIZE(_num) (offsetof(struct rps_sock_flow_table, ents[_num]))
++	sdiodev = bus_if->bus_priv.sdio;
++
+ 	atomic_set(&sdiodev->suspend, true);
  
-diff --git a/net/core/sysctl_net_core.c b/net/core/sysctl_net_core.c
-index 7a31be5e361fbb06d4a5063bf68da507bab3e8ec..eaa51ddf2368747c21399bf44f5a1993c0a0e39b 100644
---- a/net/core/sysctl_net_core.c
-+++ b/net/core/sysctl_net_core.c
-@@ -52,7 +52,7 @@ static int rps_sock_flow_sysctl(struct ctl_table *table, int write,
+ 	if (sdiodev->wowl_enabled) {
+@@ -1164,9 +1170,16 @@ static int brcmf_ops_sdio_suspend(struct device *dev)
+ static int brcmf_ops_sdio_resume(struct device *dev)
+ {
+ 	struct brcmf_bus *bus_if = dev_get_drvdata(dev);
+-	struct brcmf_sdio_dev *sdiodev = bus_if->bus_priv.sdio;
++	struct brcmf_sdio_dev *sdiodev;
++	struct sdio_func *func = dev_to_sdio_func(dev);
  
- 	if (write) {
- 		if (size) {
--			if (size > 1<<30) {
-+			if (size > 1<<29) {
- 				/* Enforce limit to prevent overflow */
- 				mutex_unlock(&sock_flow_mutex);
- 				return -EINVAL;
+ 	brcmf_dbg(SDIO, "Enter\n");
++
++	if (func->num == 2)
++		return 0;
++
++	sdiodev = bus_if->bus_priv.sdio;
++
+ 	if (sdiodev->pdata && sdiodev->pdata->oob_irq_supported)
+ 		disable_irq_wake(sdiodev->pdata->oob_irq_nr);
+ 	brcmf_sdio_wd_timer(sdiodev->bus, BRCMF_WD_POLL_MS);
+-- 1.7.1
