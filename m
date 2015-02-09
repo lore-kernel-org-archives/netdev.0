@@ -1,91 +1,54 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [E1000-devel] [PATCH] net:ethernet:intel:Remove outdated fix me
- comment in the function, gb_acquire_swfw_sync_i210
-Date: Sun, 08 Feb 2015 17:29:19 -0800
-Message-ID: <1423445359.2589.171.camel@jtkirshe-mobl>
-References: <1423372910-29183-1-git-send-email-xerofoify@gmail.com>
-		 <1423444889.2589.165.camel@jtkirshe-mobl>
-	 <1423445167.2589.167.camel@jtkirshe-mobl> <54D80D38.3080708@gmail.com>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-iP+lLc053bLZskikhMy1"
-Cc: linux.nics@intel.com, e1000-devel@lists.sourceforge.net,
-	bruce.w.allan@intel.com, jesse.brandeburg@intel.com,
-	linux-kernel@vger.kernel.org, john.ronciak@intel.com,
-	netdev@vger.kernel.org
-To: nick <xerofoify@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <54D80D38.3080708@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: [PATCH] net: dsa: Remove redundant phy_attach()
+Date: Mon,  9 Feb 2015 02:29:55 +0100
+Message-ID: <1423445395-412-1-git-send-email-andrew@lunn.ch>
+Cc: netdev@vger.kernel.org, Andrew Lunn <andrew@lunn.ch>
+To: davem@davemloft.net, f.fainelli@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:40028 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754359AbbBIBcn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 8 Feb 2015 20:32:43 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+dsa_slave_phy_setup() finds the phy for the port via device tree and
+using of_phy_connect(), or it uses the fall back of taking a phy from
+the switch internal mdio bus and calling phy_connect_direct(). Either
+way, if a phy is found, phy_attach_direct() is called to attach the
+phy to the slave device.
 
---=-iP+lLc053bLZskikhMy1
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+In dsa_slave_create(), a second call to phy_attach() is made. This
+results in the warning "PHY already attached". Remove this second,
+redundant attaching of the phy.
 
-On Sun, 2015-02-08 at 20:28 -0500, nick wrote:
->=20
-> On 2015-02-08 08:26 PM, Jeff Kirsher wrote:
-> > On Sun, 2015-02-08 at 17:21 -0800, Jeff Kirsher wrote:
-> >> On Sun, 2015-02-08 at 00:21 -0500, Nicholas Krause wrote:
-> >>> Removes the outdated fix me comment in the
-> >>> function,gb_acquire_swfw_sync_i210
-> >>> for setting the variables, i and timeout to the intended correct
-> >>> values for
-> >>> the function,gb_acquire_swfw_sync_i210 to function correctly. This
-> >>> comment is
-> >>> no longer due to these values having been no changed in the last few
-> >>> years and
-> >>> no known issues have been found for these variables being set to thei=
-r
-> >>> current
-> >>> values. Due to this the comment can now be removed as the values set
-> >>> for these
-> >>> variables are known to be correct after years of no known issues or
-> >>> bugs related
-> >>> to their current values.
-> >>>
-> >>> Signed-off-by: Nicholas Krause <xerofoify@gmail.com>
-> >>> ---
-> >>>  drivers/net/ethernet/intel/igb/e1000_i210.c | 2 +-
-> >>>  1 file changed, 1 insertion(+), 1 deletion(-)
-> >>
-> >> Thank Nick, I will add your patch to my queue.
-> >=20
-> > Oh and the title should be "igb: Remove outdated ...", not
-> > "net:ethernet:intel: Remove ..."
-> >=20
-> Jeff,
-> Sorry about the title. Good to known for next time. Should I resend or=
-=20
-> will you fix the title for me?
-> Cheers,
-> Nick
+Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+---
+ net/dsa/slave.c | 13 -------------
+ 1 file changed, 13 deletions(-)
 
-I will fix the title.
-
---=-iP+lLc053bLZskikhMy1
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAABCgAGBQJU2A1wAAoJEOVv75VaS+3O67UP/ie64R5kWUOMZDj3SO/2XJjf
-RAVSLqyFYD2vplRuVQ5w92aAZ051tuc2A6rv9ik9btMBvmg94ADLtx8DdlL79Jmy
-QbpMUWKTDgA2gB12DFv1l/0JCvgVqu6PMQvwdHaRh1+uTTW3AIJjXSOHENFZuOG4
-m7FywNh+R1zahGohGgIhkLgpqQr8J5+8wtTK7iBPfgrwtxcMxT+vRUvHFET5m17t
-StwFxWdOVDFK7iSWcKTUvljJ8taZz/JdBRj6LWIsSAujR/zvCKv3pbsqpj9E9IW5
-8m/R9wiYD6vUliXgV2O9J5qTReSxJQGLKg25gaqX6IPvx3hTNf4IA6h+bcX4vDQV
-orZKLxcm2B6XUou1hBG6Rv603I51eN1g2a18LM2Mcz7tMvaYk+A5VQnJMYQQpF/w
-8m97oooENBY5n0AwAi+FggH7ORyEnpPabeFzA3YE5UuQZ4ZRX3IKnpoluhnMvtoB
-hovDslDpDhizLX2nvAkUU5gjAKkrAl5MmTLFe2wWXbzsLfDABoguyWsEImodXw1n
-ajXhX10KOUzXXhrBlCRL9aCi42EDr4ppxhjFxydi8VR4VpmPcoA8b0J3liPaZmK1
-/6F9/Ez2JoKTe+6Ecn2RB22OJxebewQftBWjXxCMlEoTKQGl3BMIwrPhF0eloooM
-m86mMAVf6IMvvNWfN+gB
-=d7S0
------END PGP SIGNATURE-----
-
---=-iP+lLc053bLZskikhMy1--
+diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+index 589aafd01fc5..d104ae15836f 100644
+--- a/net/dsa/slave.c
++++ b/net/dsa/slave.c
+@@ -676,18 +676,5 @@ dsa_slave_create(struct dsa_switch *ds, struct device *parent,
+ 
+ 	netif_carrier_off(slave_dev);
+ 
+-	if (p->phy != NULL) {
+-		if (ds->drv->get_phy_flags)
+-			p->phy->dev_flags |= ds->drv->get_phy_flags(ds, port);
+-
+-		phy_attach(slave_dev, dev_name(&p->phy->dev),
+-			   PHY_INTERFACE_MODE_GMII);
+-
+-		p->phy->autoneg = AUTONEG_ENABLE;
+-		p->phy->speed = 0;
+-		p->phy->duplex = 0;
+-		p->phy->advertising = p->phy->supported | ADVERTISED_Autoneg;
+-	}
+-
+ 	return slave_dev;
+ }
+-- 
+2.1.4
