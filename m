@@ -1,42 +1,54 @@
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: Re: [PATCH v3 12/18] crypto: switch af_alg_make_sg() to iov_iter
-Date: Mon, 9 Feb 2015 17:30:31 +0000
-Message-ID: <20150209173031.GA29656@ZenIV.linux.org.uk>
-References: <20150204063730.GG29656@ZenIV.linux.org.uk>
- <1423032009-18367-12-git-send-email-viro@ZenIV.linux.org.uk>
- <1830853.QH0ahQU9zL@tachyon.chronox.de>
+From: Bjorn Andersson <bjorn-UYDU3/A3LUY@public.gmane.org>
+Subject: Re: [PATCH 6/7] net: wireless: wcn36xx: remove powersaving for wcn3620
+Date: Mon, 9 Feb 2015 09:54:23 -0800
+Message-ID: <CAJAp7OhcFTuYfc7JOKW1SrVRbucuSWg5jcFaoVnSDgBxsyo2ng@mail.gmail.com>
+References: <20150118050741.31866.36490.stgit@114-36-241-182.dynamic.hinet.net>
+	<20150118051111.31866.39208.stgit@114-36-241-182.dynamic.hinet.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-crypto@vger.kernel.org
-To: Stephan Mueller <smueller@chronox.de>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1830853.QH0ahQU9zL@tachyon.chronox.de>
-Sender: linux-crypto-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	Eugene Krasnikov <k.eugene.e-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	wcn36xx <wcn36xx-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Andy Green <andy.green-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20150118051111.31866.39208.stgit-FDDIDLfWL9/T9rR/E2HzMujRB4CPm7EUkgzjau31qRg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Feb 09, 2015 at 02:59:40PM +0100, Stephan Mueller wrote:
-> Am Mittwoch, 4. Februar 2015, 06:40:03 schrieb Al Viro:
-> 
-> Hi Al,
-> 
-> > From: Al Viro <viro@zeniv.linux.org.uk>
-> > 
-> > With that, all ->sendmsg() instances are converted to iov_iter primitives
-> > and are agnostic wrt the kind of iov_iter they are working with.
-> > So's the last remaining ->recvmsg() instance that wasn't kind-agnostic yet.
-> > All ->sendmsg() and ->recvmsg() advance ->msg_iter by the amount actually
-> > copied and none of them modifies the underlying iovec, etc.
-> 
-> After testing this patch with the test application by simply executing 
-> [1]/test/test.sh, the hash and skcipher interface invocation hang in kernel 
-> space. Though, I am not sure where the problem is.
-> 
-> For individual invocations of the tests, you may look into [1]/test/kcapi-
-> main.c in the comments above cavs_sym or cavs_hash.
-> 
-> [1] http://www.chronox.de/libkcapi.html
+On Sat, Jan 17, 2015 at 9:11 PM, Andy Green <andy.green-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org> wrote:
+> WCN3620 powersaving mode is not stable.  Disable it if we're
+> on a wcn3620 chip type.
+>
+> Signed-off-by: Andy Green <andy.green-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+> ---
+>  drivers/net/wireless/ath/wcn36xx/main.c |    4 ++++
+>  1 file changed, 4 insertions(+)
+>
+> diff --git a/drivers/net/wireless/ath/wcn36xx/main.c b/drivers/net/wireless/ath/wcn36xx/main.c
+> index c4178c7..569d45b 100644
+> --- a/drivers/net/wireless/ath/wcn36xx/main.c
+> +++ b/drivers/net/wireless/ath/wcn36xx/main.c
+> @@ -924,6 +924,10 @@ static int wcn36xx_init_ieee80211(struct wcn36xx *wcn)
+>                 IEEE80211_HW_AMPDU_AGGREGATION |
+>                 IEEE80211_HW_TIMING_BEACON_ONLY;
+>
+> +       /* 3620 powersaving currently unstable */
+> +       if (wcn->chip_version == WCN36XX_CHIP_3620)
+> +               wcn->hw->flags &= ~IEEE80211_HW_SUPPORTS_PS;
+> +
 
-Very interesting; I'll try to reproduce it once I get some sleep (up since
-yesterday, and it's past noon here ;-/)
+Hi Andy,
+
+I have the same problem (Data Abort Exception in wcnss) on 3680, this
+with my wip smd code and a hacked up remoteproc-pil. I haven't spent
+any effort on debugging this, but it looks like it's something related
+to what we have ported to mainline (or lack thereof) rather than a
+3620 specific issue.
+
+Regards,
+Bjorn
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
