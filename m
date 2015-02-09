@@ -1,54 +1,74 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH v3] net: bluetooth: hci_sock: Use 'const u32 *' instead
- of 'void *' for 2nd parameter of hci_test_bit()
-Date: Mon, 9 Feb 2015 16:57:54 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CAE0B02@AcuExch.aculab.com>
-References: <54D61229.9010904@sunrus.com.cn>
- <1423338774.2933.9.camel@perches.com> <54D6A729.1070905@sunrus.com.cn>
- <54D75698.7010808@sunrus.com.cn>
- <BD721CC9-DD4D-480D-98E6-89CA868BA285@holtmann.org>
- <54D82D7D.3000308@sunrus.com.cn>
- <063D6719AE5E284EB5DD2968C1650D6D1CAE0823@AcuExch.aculab.com>
- <DECB4016-B7D2-4C0B-A055-ED3282F727EE@holtmann.org>
+From: Hisashi T Fujinaka <htodd@twofifty.com>
+Subject: Re: [PATCH] net:ethernet:intel:Remove outdated fix me
+ comment in the function, gb_acquire_swfw_sync_i210
+Date: Mon, 9 Feb 2015 09:03:54 -0800 (PST)
+Message-ID: <alpine.NEB.2.11.1502090901440.395@chris.i8u.org>
+References: <1423372910-29183-1-git-send-email-xerofoify@gmail.com>
+	<1423444889.2589.165.camel@jtkirshe-mobl>
+	<54D85EFA.3020501@gmail.com>
+	<1423470722.27854.11.camel@jtkirshe-mobl>
+	<87egpzqvpc.fsf@nemi.mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: Chen Gang S <gang.chen@sunrus.com.cn>,
-	Joe Perches <joe@perches.com>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	"Gustavo F. Padovan" <gustavo@padovan.org>,
-	Johan Hedberg <johan.hedberg@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"linux-bluetooth@vger.kernel.org" <linux-bluetooth@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: 'Marcel Holtmann' <marcel@holtmann.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <DECB4016-B7D2-4C0B-A055-ED3282F727EE@holtmann.org>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: linux.nics@intel.com, e1000-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org, bruce.w.allan@intel.com,
+	linux-kernel@vger.kernel.org, jesse.brandeburg@intel.com,
+	john.ronciak@intel.com, Andrej Manduch <amanduch@gmail.com>
+To: =?ISO-8859-15?Q?Bj=F8rn_Mork?= <bjorn@mork.no>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <87egpzqvpc.fsf@nemi.mork.no>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-From: Marcel Holtmann
-> Hi David,
-> 
-> >> So at present, in kernel part, we can only say the original authors
-> >> intended to do like this. And only within kernel part, it can not cause
-> >> issue. I guess, original authors originally knew what we talk about.
-> >
-> > I've just searched for hci_u*filter it is all horrid.
-> > Look at the code for get/set_sockopt of HCI_FILTER.
-> > Someone seems to have done a complete 'bodge job' of fixing the user interface
-> > for apps (32bit and 64bit) on 64bit kernels.
-> 
-> we are actually fully aware of that. Just keep in mind that this code is from 2.4.6 kernel and with
-> that most likely 14 years old by now. Unfortunately it ended up as userspace API.
+On Mon, 9 Feb 2015, Bj?rn Mork wrote:
 
-AFAICT the userspace API is always __u32[2] the long[2] is never exposed
-to userspace (certainly not through the socket option code).
+> Jeff Kirsher <jeffrey.t.kirsher@intel.com> writes:
+>
+>> If you want to see Nick's patch, feel free to view his patch on
+>> my queue tree:
+>> https://git.kernel.org/cgit/linux/kernel/git/jkirsher/queue.git/
+>
+> which said:
+>  - s32 i = 0, timeout = 200; /* FIXME: find real value to use here */
+>  + s32 i = 0, timeout = 200;
+>
+>
+> Comments like the one deleted by that patch do have some value in my
+> opinion: They document that the constant is chosen arbitrarily and is
+> not taken from some datasheet.
+>
+> Not a big deal, but leaving such comments, even if the value never ever
+> changes, could save someone from trying to figure out where the heck you
+> got that constant.  And there's noone actually misinterpreting this
+> comment as "something needs to be fixed here", is there? So the cost of
+> leaving the comment is exactly zero.
+>
+> Just my .02 ?.  I'm not going to tell you how to maintain your driver,
+> of course.  At least I try not to :-)
 
-Quite why all the casts were added - instead of changing the type
-is probably hidden in the annals of the source repo.
-Some serious archaeology might be in order.
+I think, for now, we should NAK this. It's a short comment and you don't
+want me to replace it with a philosophical statement on how you could
+tune the timeout. That's what the data sheet is for.
 
-	David
+(Replying from my home account and not my work account -
+todd.fujinaka@intel.com)
+
+------------------------------------------------------------------------------
+Dive into the World of Parallel Programming. The Go Parallel Website,
+sponsored by Intel and developed in partnership with Slashdot Media, is your
+hub for all things parallel software development, from weekly thought
+leadership blogs to news, videos, case studies, tutorials and more. Take a
+look and join the conversation now. http://goparallel.sourceforge.net/
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
