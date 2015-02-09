@@ -1,57 +1,57 @@
-From: One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>
-Subject: Re: Kill I4L?
-Date: Mon, 9 Feb 2015 19:48:13 +0000
-Message-ID: <20150209194813.180e54ae@lxorguk.ukuu.org.uk>
-References: <1423328797-17865-1-git-send-email-baspeters93@gmail.com>
-	<1423328797-17865-3-git-send-email-baspeters93@gmail.com>
-	<54D650BF.5000400@cogentembedded.com>
-	<1423336761.2933.7.camel@perches.com>
-	<1423341800.2246.68.camel@x220>
-	<54D7BD4A.4090101@imap.cc>
-	<54D7F87E.4050506@linux-pingi.de>
-	<CAOgR63f702_QTHpnAB-G9-o3DPEuyiESLeNTz4saOTHB4SnBdg@mail.gmail.com>
-	<54D891C0.2010303@imap.cc>
+From: Jouni Malinen <jouni@codeaurora.org>
+Subject: Re: [PATCH v2 1/3] bridge: Base the BR_PROXYARP decision on the
+ target port flag
+Date: Mon, 9 Feb 2015 21:54:01 +0200
+Message-ID: <20150209195401.GA18065@jouni.qca.qualcomm.com>
+References: <1423130063-18323-1-git-send-email-jouni@codeaurora.org>
+ <20150207.215922.1914777712701024499.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Bas Peters <baspeters93@gmail.com>,
-	Karsten Keil <kkeil@linux-pingi.de>,
-	Paul Bolle <pebolle@tiscali.nl>, Joe Perches <joe@perches.com>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	"isdn@linux-pingi.de" <isdn@linux-pingi.de>,
-	Julia Lawall <julia.lawall@lip6.fr>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Tilman Schmidt <tilman@imap.cc>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <54D891C0.2010303@imap.cc>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, kyeyoonp@codeaurora.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.codeaurora.org ([198.145.29.96]:53953 "EHLO
+	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759087AbbBIUDe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Feb 2015 15:03:34 -0500
+Content-Disposition: inline
+In-Reply-To: <20150207.215922.1914777712701024499.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> The reason is the maintenance load it produces. There's a continuous,
-> annoying trickle of patch  proposals, discussions, conflicts with
-> development in other, still actively maintained areas of the kernel,
-> and so on. The present discussion being a point in case.
+On Sat, Feb 07, 2015 at 09:59:22PM -0800, David Miller wrote:
+> From: Jouni Malinen <jouni@codeaurora.org>
+> > When doing proxy ARP, instead of checking the bridge port flag for
+> > BR_PROXYARP on the bridge port on which the frame was received, check
+> > the bridge port flag of the bridge port to which the target device
+> > belongs.
 > 
-> > Does it hurt anyone to leave the code in there, despite it barely 
-> > being used?
+> This is a semantic change, what if the administrator wanted the
+> current behavior?
 > 
-> Yes it does. Not much, but the pain is increasing over the years.
-> Every time someone tries to touch that code there's the problem
-> that no one can actually answer for it, much less test anything.
+> I'm not applying this.  If you want the new behavior, it will have
+> to be at a minimum turned on via a sysctl that defaults to OFF.
 
-The same has been happening with a lot of other code. For i2o I've
-followed the pattern a few other drivers have used. I sent GregKH a patch
-to move it into staging, and if nobody steps up then it will vanish in a
-few releases.
+Agreed, this does change the semantics of the commit 958501163ddd
+("bridge: Add support for IEEE 802.11 Proxy ARP"). However, I see this
+as a bug fix rather than new behavior. In other words, this set of three
+patches came up from extended testing coverage and issues found during
+implementation of automated protocol tests. Taken into account that this
+BR_PROXYARP functionality was added recently and I'm not aware of a use
+case that would use the current design, I was hoping to avoid the added
+complexity of configuration parameters for something that I do not
+expect to be needed.
 
-> > We're not talking about a particularly huge driver here, either.
-> 
-> But one that's particularly difficult to maintain, without
-> providing any noticeable benefit in return.
+This IEEE 802.11 Proxy ARP functionality is still work in progress in
+the sense that the IPv6 patch has not yet been contributed (RFC version
+would be ready, but I'm waiting for the IPv4 side to get fully
+completed).
 
-I'm also not sure a pretty, polished and untested driver is actually
-better than someone who needs it going back to an old tree and a known
-working driver to forward port.
 
-Alan
+If a configuration parameter is required for this, what would the
+preferred way of adding it in net/bridge? It looks like only
+br_netfilter.c is currently using sysctl. Would netlink with another
+BRPORT_ATTR_FLAG similarly to BR_PROXYARP be a suitable alternative?
+
+-- 
+Jouni Malinen                                            PGP id EFC895FA
