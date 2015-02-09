@@ -1,87 +1,101 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: build failure after merge of the net-next tree
-Date: Mon, 9 Feb 2015 14:07:45 +1100
-Message-ID: <20150209140745.24859389@canb.auug.org.au>
+From: Chen Gang S <gang.chen@sunrus.com.cn>
+Subject: Re: [PATCH v3] net: bluetooth: hci_sock: Use 'const u32 *' instead
+ of 'void *' for 2nd parameter of hci_test_bit()
+Date: Mon, 09 Feb 2015 11:46:05 +0800
+Message-ID: <54D82D7D.3000308@sunrus.com.cn>
+References: <54D61229.9010904@sunrus.com.cn> <1423338774.2933.9.camel@perches.com> <54D6A729.1070905@sunrus.com.cn> <54D75698.7010808@sunrus.com.cn> <BD721CC9-DD4D-480D-98E6-89CA868BA285@holtmann.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
- boundary="Sig_/ADFK9_qy718Hu0MStAXZsTG"; protocol="application/pgp-signature"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Joe Perches <joe@perches.com>,
+	David Laight <David.Laight@ACULAB.COM>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	"Gustavo F. Padovan" <gustavo@padovan.org>,
+	Johan Hedberg <johan.hedberg@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"linux-bluetooth@vger.kernel.org" <linux-bluetooth@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Marcel Holtmann <marcel@holtmann.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <BD721CC9-DD4D-480D-98E6-89CA868BA285@holtmann.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---Sig_/ADFK9_qy718Hu0MStAXZsTG
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: quoted-printable
+On 2/9/15 04:17, Marcel Holtmann wrote:
+> Hi Chen,
+> 
+>>>>> hci_test_bit() does not modify 2nd parameter, so it is better to let it
+>>>>> be constant, or may cause build warning. The related warning (with
+>>>>> allmodconfig under xtensa):
+>>>>>
+>>>>>  net/bluetooth/hci_sock.c: In function 'hci_sock_sendmsg':
+>>>>>  net/bluetooth/hci_sock.c:955:8: warning: passing argument 2 of 'hci_test_bit' discards 'const' qualifier from pointer target type [-Wdiscarded-array-qualifiers]
+>>>>>          &hci_sec_filter.ocf_mask[ogf])) &&
+>>>>>          ^
+>>>>>  net/bluetooth/hci_sock.c:49:19: note: expected 'void *' but argument is of type 'const __u32 (*)[4] {aka const unsigned int (*)[4]}'
+>>>>>   static inline int hci_test_bit(int nr, void *addr)
+>>>>>                     ^
+>>>>>
+>>>>> hci_test_bit() always treats 2nd parameter is u32, and all callers also
+>>>>> know about it, so 2nd parameter of hci_test_bit() need use 'const u32 *'
+>>>>> instead of 'void *'.
+>>>>>
+>>>>> C language treats the array function parameter as a pointer, so the
+>>>>> caller need not use '&' for the 2 demotion array, or it reports warning:
+>>>>> 'const unsigned int (*)[4]' is different with 'const unsigned int *'.
+>>>>
+>>>> I still think you are possibly papering over potential bugs
+>>>> on big-endian 64 bit systems.
+>>>>
+>>>> unsigned long vs u32.
+>>>>
+>>>> How are the bits actually set?
+>>>>
+>>>
+>>>> From current usage of event_mask, "(u32 *) f->event_mask" is only for
+>>> event_mask data storage, not for calculation (always as "u32 *" for
+>>> calculation).
+>>>
+>>>  [root@localhost linux-next]# grep -rn "\<event_mask\>" include/net/bluetooth net/bluetooth
+>>>  include/net/bluetooth/hci_sock.h:51:	unsigned long event_mask[2];
+>>
+>> e.g. use "unsigned char event_mask[2 * sizeof(unsigned long)]" instead
+>> of "unsigned long event_mask[2]".
+>>
+>> There is still no any issue within "hci_sock.c" (although I am not sure
+>> whether this modification may cause issues in another modules outside
+>> kernel).
+> 
+> what about writing a test case for userspace that ensures that things are working correctly. As I said before, we left it this way since it is part of the API.
+>
 
-Hi all,
+If it is really the API which can be used outside kernel, what you said
+sounds reasonable to me. But I guess, except the related orgnizations/
+company/members, most of kernel members can not give a suitable test:
 
-After merging the net-next tree, today's linux-next build (arm
-multi_v7_defconfig) failed like this:
+ - It is an API, but we only know kernel part implementation, and we
+   also know that the kernel part implementation intends to use
+   "unsigned long event_mask[2]" and "u32 *" type cast.
 
-lib/rhashtable.c: In function 'rhashtable_walk_next':
-lib/rhashtable.c:1002:3: error: implicit declaration of function 'ERR_PTR' =
-[-Werror=3Dimplicit-function-declaration]
-   return ERR_PTR(-EAGAIN);
-   ^
-lib/rhashtable.c:1002:3: warning: return makes pointer from integer without=
- a cast
+ - We don't know the other part implementation (we event don't know
+   whether it is open source). And also it is out of most of kernel
+   members' current border (e.g. me).
 
-Caused by commit f2dba9c6ff0d ("rhashtable: Introduce
-rhashtable_walk_*"). See Rule 1 in Documentation/SubmitChecklist.
+ - If the other part implementation match what kernel part has done, it
+   is OK, else it should cause issue.
 
-I have added the following fix patch for today:
+So at present, in kernel part, we can only say the original authors
+intended to do like this. And only within kernel part, it can not cause
+issue. I guess, original authors originally knew what we talk about.
 
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Mon, 9 Feb 2015 14:04:03 +1100
-Subject: [PATCH] rhashtable: using ERR_PTR requires linux/err.h
+This patch is for fixing building warnings without any negative effect.
+And most of us are not the suitable members to continue analyzing. So
+at present, for me, we can accept this patch.
 
-Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
----
- lib/rhashtable.c | 1 +
- 1 file changed, 1 insertion(+)
 
-diff --git a/lib/rhashtable.c b/lib/rhashtable.c
-index e96fc00208bc..9cc4c4a90d00 100644
---- a/lib/rhashtable.c
-+++ b/lib/rhashtable.c
-@@ -23,6 +23,7 @@
- #include <linux/jhash.h>
- #include <linux/random.h>
- #include <linux/rhashtable.h>
-+#include <linux/err.h>
-=20
- #define HASH_DEFAULT_SIZE	64UL
- #define HASH_MIN_SIZE		4UL
---=20
-2.1.4
+Thanks.
+-- 
+Chen Gang
 
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-
---Sig_/ADFK9_qy718Hu0MStAXZsTG
-Content-Type: application/pgp-signature
-Content-Description: OpenPGP digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAEBCAAGBQJU2CSFAAoJEMDTa8Ir7ZwVhVYP/ip0KrzOI2/6Av1S6GtKhTW4
-qaOTwtPuCWXOHQr3O1Cng3KZmPHytU+SHocllOBU58aaRsuUgIybJGhCSJcoOj4m
-M27cYNIQ8eKgmvckJ/k50dXlTz269vBeMvrwq5DXTeQc4SIelpTBAyMLvAfYuXPY
-BImVatrUAJ7FRYBM2LL8ezXX+g0/Y1whXKQIxDplldex1qVlh0DlBN8cvd8NCSwU
-Zlhv7nMj2Vma9h/IhwV3DDJ93yzTNQXebbpvU6CpnzZzdIIeJV6G1d95GcxaPQDh
-8hl/8cZas18eKa9DJ9gmCjYK7scVG7V1Z5CdZi3mzYdO3SbDpvNk+iM4sKlq1caw
-GLSzqnRJotQALh392i9c1sW/QUROAD+KIM2JDzMK5KThwM1ceJcMrNqPACCApvXJ
-wVYupp3XYBeIMsOUAMuNjoHnDUuDJPwQpXRX13vicDi4vPAbO0/df0D0L06mnHEN
-6JgTOXpeiqKXnD4obeVaHyI2UDPmCfCajcb+EXLuNgZVLFx/gaL8tmpuiZjueEEt
-OFP9aLEqQPIkduWdK3tOCw+achE6Z1G6qlWp5kqkeDpnzxkPGppL2vFR/Im0C5m5
-3ixLvw/rgaqzz3JHydikyVOEhQLTsmBrPVntCmbD1FajDe2WE+tp4k/gRTapv59X
-i/fwmGK7l3SXW1M+ANK5
-=/5bR
------END PGP SIGNATURE-----
-
---Sig_/ADFK9_qy718Hu0MStAXZsTG--
+Open, share, and attitude like air, water, and life which God blessed
