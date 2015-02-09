@@ -1,95 +1,57 @@
-From: Nick Krause <xerofoify@gmail.com>
-Subject: Re: [PATCH] net:ethernet:intel:Remove outdated fix me
- comment in the function, gb_acquire_swfw_sync_i210
-Date: Mon, 9 Feb 2015 14:35:02 -0500
-Message-ID: <CAPDOMVhF-NWbER+hgC6piJWWVgSPE3Wv1oMYSpFeLydqALfxiw@mail.gmail.com>
-References: <1423372910-29183-1-git-send-email-xerofoify@gmail.com>
-	<1423444889.2589.165.camel@jtkirshe-mobl>
-	<54D85EFA.3020501@gmail.com>
-	<1423470722.27854.11.camel@jtkirshe-mobl>
-	<87egpzqvpc.fsf@nemi.mork.no>
-	<alpine.NEB.2.11.1502090901440.395@chris.i8u.org>
+From: One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>
+Subject: Re: Kill I4L?
+Date: Mon, 9 Feb 2015 19:48:13 +0000
+Message-ID: <20150209194813.180e54ae@lxorguk.ukuu.org.uk>
+References: <1423328797-17865-1-git-send-email-baspeters93@gmail.com>
+	<1423328797-17865-3-git-send-email-baspeters93@gmail.com>
+	<54D650BF.5000400@cogentembedded.com>
+	<1423336761.2933.7.camel@perches.com>
+	<1423341800.2246.68.camel@x220>
+	<54D7BD4A.4090101@imap.cc>
+	<54D7F87E.4050506@linux-pingi.de>
+	<CAOgR63f702_QTHpnAB-G9-o3DPEuyiESLeNTz4saOTHB4SnBdg@mail.gmail.com>
+	<54D891C0.2010303@imap.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux.nics@intel.com,
-	"e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>, bruce.w.allan@intel.com,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	jesse.brandeburg@intel.com, john.ronciak@intel.com,
-	Andrej Manduch <amanduch@gmail.com>,
-	=?UTF-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-To: Hisashi T Fujinaka <htodd@twofifty.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <alpine.NEB.2.11.1502090901440.395@chris.i8u.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Cc: Bas Peters <baspeters93@gmail.com>,
+	Karsten Keil <kkeil@linux-pingi.de>,
+	Paul Bolle <pebolle@tiscali.nl>, Joe Perches <joe@perches.com>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	"isdn@linux-pingi.de" <isdn@linux-pingi.de>,
+	Julia Lawall <julia.lawall@lip6.fr>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Tilman Schmidt <tilman@imap.cc>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <54D891C0.2010303@imap.cc>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Feb 9, 2015 at 12:03 PM, Hisashi T Fujinaka <htodd@twofifty.com> wrote:
-> On Mon, 9 Feb 2015, Bj?rn Mork wrote:
->
->> Jeff Kirsher <jeffrey.t.kirsher@intel.com> writes:
->>
->>> If you want to see Nick's patch, feel free to view his patch on
->>> my queue tree:
->>> https://git.kernel.org/cgit/linux/kernel/git/jkirsher/queue.git/
->>
->> which said:
->>  - s32 i = 0, timeout = 200; /* FIXME: find real value to use here */
->>  + s32 i = 0, timeout = 200;
->>
->>
->> Comments like the one deleted by that patch do have some value in my
->> opinion: They document that the constant is chosen arbitrarily and is
->> not taken from some datasheet.
->>
->> Not a big deal, but leaving such comments, even if the value never ever
->> changes, could save someone from trying to figure out where the heck you
->> got that constant.  And there's noone actually misinterpreting this
->> comment as "something needs to be fixed here", is there? So the cost of
->> leaving the comment is exactly zero.
->>
->> Just my .02 ?.  I'm not going to tell you how to maintain your driver,
->> of course.  At least I try not to :-)
->
-> I think, for now, we should NAK this. It's a short comment and you don't
-> want me to replace it with a philosophical statement on how you could
-> tune the timeout. That's what the data sheet is for.
->
-> (Replying from my home account and not my work account -
-> todd.fujinaka@intel.com)
->
-> ------------------------------------------------------------------------------
-> Dive into the World of Parallel Programming. The Go Parallel Website,
-> sponsored by Intel and developed in partnership with Slashdot Media, is your
-> hub for all things parallel software development, from weekly thought
-> leadership blogs to news, videos, case studies, tutorials and more. Take a
-> look and join the conversation now. http://goparallel.sourceforge.net/
-> _______________________________________________
-> E1000-devel mailing list
-> E1000-devel@lists.sourceforge.net
-> https://lists.sourceforge.net/lists/listinfo/e1000-devel
-> To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
-That's fine, however if that is the case why not just explain the
-reasons for these values in
-another patch with a added comment rather then just removing the FIXME.
- Nick
+> The reason is the maintenance load it produces. There's a continuous,
+> annoying trickle of patch  proposals, discussions, conflicts with
+> development in other, still actively maintained areas of the kernel,
+> and so on. The present discussion being a point in case.
+> 
+> > Does it hurt anyone to leave the code in there, despite it barely 
+> > being used?
+> 
+> Yes it does. Not much, but the pain is increasing over the years.
+> Every time someone tries to touch that code there's the problem
+> that no one can actually answer for it, much less test anything.
 
-------------------------------------------------------------------------------
-Dive into the World of Parallel Programming. The Go Parallel Website,
-sponsored by Intel and developed in partnership with Slashdot Media, is your
-hub for all things parallel software development, from weekly thought
-leadership blogs to news, videos, case studies, tutorials and more. Take a
-look and join the conversation now. http://goparallel.sourceforge.net/
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+The same has been happening with a lot of other code. For i2o I've
+followed the pattern a few other drivers have used. I sent GregKH a patch
+to move it into staging, and if nobody steps up then it will vanish in a
+few releases.
+
+> > We're not talking about a particularly huge driver here, either.
+> 
+> But one that's particularly difficult to maintain, without
+> providing any noticeable benefit in return.
+
+I'm also not sure a pretty, polished and untested driver is actually
+better than someone who needs it going back to an old tree and a known
+working driver to forward port.
+
+Alan
