@@ -1,319 +1,479 @@
-From: <richard.alpe@ericsson.com>
-Subject: [PATCH net-next v1 06/17] tipc: convert legacy nl
-	link prop set to nl compat
-Date: Mon, 9 Feb 2015 09:50:08 +0100
-Message-ID: <1423471819-23112-7-git-send-email-richard.alpe@ericsson.com>
-References: <1423471819-23112-1-git-send-email-richard.alpe@ericsson.com>
+From: Yuwei Zheng <yuweizheng@139.com>
+Subject: Re: [PATCH] ath9k_htc: add adaptive usb receive flow control to
+ repair soft lockup with monitor mode
+Date: Mon, 09 Feb 2015 15:20:29 +0800
+Message-ID: <1423466429.3162.8.camel@am335x>
+References: <1423219598-17982-1-git-send-email-yuweizheng@139.com>
+	 <54D53F15.8000507@rempel-privat.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: tipc-discussion@lists.sourceforge.net
-To: <netdev@vger.kernel.org>
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-In-Reply-To: <1423471819-23112-1-git-send-email-richard.alpe@ericsson.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, ath9k-devel@lists.ath9k.org,
+	linux-wireless@vger.kernel.org, kvalo@codeaurora.org,
+	ath9k-devel@qca.qualcomm.com, netdev@vger.kernel.org,
+	zhengyuwei@360.cn
+To: Oleksij Rempel <linux@rempel-privat.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <54D53F15.8000507@rempel-privat.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Richard Alpe <richard.alpe@ericsson.com>
 
-Convert setting of link proprieties to compat doit calls.
-
-Commands converted in this patch:
-TIPC_CMD_SET_LINK_TOL
-TIPC_CMD_SET_LINK_PRI
-TIPC_CMD_SET_LINK_WINDOW
-
-Signed-off-by: Richard Alpe <richard.alpe@ericsson.com>
-Reviewed-by: Erik Hugne <erik.hugne@ericsson.com>
-Reviewed-by: Ying Xue <ying.xue@windriver.com>
-Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
----
- net/tipc/config.c         |   6 --
- net/tipc/link.c           | 146 +---------------------------------------------
- net/tipc/link.h           |   2 -
- net/tipc/netlink_compat.c |  47 +++++++++++++++
- 4 files changed, 48 insertions(+), 153 deletions(-)
-
-diff --git a/net/tipc/config.c b/net/tipc/config.c
-index 1b17f58..75a130e 100644
---- a/net/tipc/config.c
-+++ b/net/tipc/config.c
-@@ -226,12 +226,6 @@ struct sk_buff *tipc_cfg_do_cmd(struct net *net, u32 orig_node, u16 cmd,
- 	case TIPC_CMD_SHOW_STATS:
- 		rep_tlv_buf = tipc_show_stats();
- 		break;
--	case TIPC_CMD_SET_LINK_TOL:
--	case TIPC_CMD_SET_LINK_PRI:
--	case TIPC_CMD_SET_LINK_WINDOW:
--		rep_tlv_buf = tipc_link_cmd_config(net, req_tlv_area,
--						   req_tlv_space, cmd);
--		break;
- 	case TIPC_CMD_SET_NODE_ADDR:
- 		rep_tlv_buf = cfg_set_own_addr(net);
- 		break;
-diff --git a/net/tipc/link.c b/net/tipc/link.c
-index 2622fb9..ec136b5 100644
---- a/net/tipc/link.c
-+++ b/net/tipc/link.c
-@@ -1959,150 +1959,6 @@ static struct tipc_node *tipc_link_find_owner(struct net *net,
- }
- 
- /**
-- * link_value_is_valid -- validate proposed link tolerance/priority/window
-- *
-- * @cmd: value type (TIPC_CMD_SET_LINK_*)
-- * @new_value: the new value
-- *
-- * Returns 1 if value is within range, 0 if not.
-- */
--static int link_value_is_valid(u16 cmd, u32 new_value)
--{
--	switch (cmd) {
--	case TIPC_CMD_SET_LINK_TOL:
--		return (new_value >= TIPC_MIN_LINK_TOL) &&
--			(new_value <= TIPC_MAX_LINK_TOL);
--	case TIPC_CMD_SET_LINK_PRI:
--		return (new_value <= TIPC_MAX_LINK_PRI);
--	case TIPC_CMD_SET_LINK_WINDOW:
--		return (new_value >= TIPC_MIN_LINK_WIN) &&
--			(new_value <= TIPC_MAX_LINK_WIN);
--	}
--	return 0;
--}
--
--/**
-- * link_cmd_set_value - change priority/tolerance/window for link/bearer/media
-- * @net: the applicable net namespace
-- * @name: ptr to link, bearer, or media name
-- * @new_value: new value of link, bearer, or media setting
-- * @cmd: which link, bearer, or media attribute to set (TIPC_CMD_SET_LINK_*)
-- *
-- * Caller must hold RTNL lock to ensure link/bearer/media is not deleted.
-- *
-- * Returns 0 if value updated and negative value on error.
-- */
--static int link_cmd_set_value(struct net *net, const char *name, u32 new_value,
--			      u16 cmd)
--{
--	struct tipc_node *node;
--	struct tipc_link *l_ptr;
--	struct tipc_bearer *b_ptr;
--	struct tipc_media *m_ptr;
--	int bearer_id;
--	int res = 0;
--
--	node = tipc_link_find_owner(net, name, &bearer_id);
--	if (node) {
--		tipc_node_lock(node);
--		l_ptr = node->links[bearer_id];
--
--		if (l_ptr) {
--			switch (cmd) {
--			case TIPC_CMD_SET_LINK_TOL:
--				link_set_supervision_props(l_ptr, new_value);
--				tipc_link_proto_xmit(l_ptr, STATE_MSG, 0, 0,
--						     new_value, 0, 0);
--				break;
--			case TIPC_CMD_SET_LINK_PRI:
--				l_ptr->priority = new_value;
--				tipc_link_proto_xmit(l_ptr, STATE_MSG, 0, 0,
--						     0, new_value, 0);
--				break;
--			case TIPC_CMD_SET_LINK_WINDOW:
--				tipc_link_set_queue_limits(l_ptr, new_value);
--				break;
--			default:
--				res = -EINVAL;
--				break;
--			}
--		}
--		tipc_node_unlock(node);
--		return res;
--	}
--
--	b_ptr = tipc_bearer_find(net, name);
--	if (b_ptr) {
--		switch (cmd) {
--		case TIPC_CMD_SET_LINK_TOL:
--			b_ptr->tolerance = new_value;
--			break;
--		case TIPC_CMD_SET_LINK_PRI:
--			b_ptr->priority = new_value;
--			break;
--		case TIPC_CMD_SET_LINK_WINDOW:
--			b_ptr->window = new_value;
--			break;
--		default:
--			res = -EINVAL;
--			break;
--		}
--		return res;
--	}
--
--	m_ptr = tipc_media_find(name);
--	if (!m_ptr)
--		return -ENODEV;
--	switch (cmd) {
--	case TIPC_CMD_SET_LINK_TOL:
--		m_ptr->tolerance = new_value;
--		break;
--	case TIPC_CMD_SET_LINK_PRI:
--		m_ptr->priority = new_value;
--		break;
--	case TIPC_CMD_SET_LINK_WINDOW:
--		m_ptr->window = new_value;
--		break;
--	default:
--		res = -EINVAL;
--		break;
--	}
--	return res;
--}
--
--struct sk_buff *tipc_link_cmd_config(struct net *net, const void *req_tlv_area,
--				     int req_tlv_space, u16 cmd)
--{
--	struct tipc_link_config *args;
--	u32 new_value;
--	int res;
--
--	if (!TLV_CHECK(req_tlv_area, req_tlv_space, TIPC_TLV_LINK_CONFIG))
--		return tipc_cfg_reply_error_string(TIPC_CFG_TLV_ERROR);
--
--	args = (struct tipc_link_config *)TLV_DATA(req_tlv_area);
--	new_value = ntohl(args->value);
--
--	if (!link_value_is_valid(cmd, new_value))
--		return tipc_cfg_reply_error_string(
--			"cannot change, value invalid");
--
--	if (!strcmp(args->name, tipc_bclink_name)) {
--		if ((cmd == TIPC_CMD_SET_LINK_WINDOW) &&
--		    (tipc_bclink_set_queue_limits(net, new_value) == 0))
--			return tipc_cfg_reply_none();
--		return tipc_cfg_reply_error_string(TIPC_CFG_NOT_SUPPORTED
--						   " (cannot change setting on broadcast link)");
--	}
--
--	res = link_cmd_set_value(net, args->name, new_value, cmd);
--	if (res)
--		return tipc_cfg_reply_error_string("cannot change link setting");
--
--	return tipc_cfg_reply_none();
--}
--
--/**
-  * link_reset_statistics - reset link statistics
-  * @l_ptr: pointer to link
-  */
-@@ -2216,7 +2072,7 @@ int tipc_nl_link_set(struct sk_buff *skb, struct genl_info *info)
- 	struct tipc_link *link;
- 	struct tipc_node *node;
- 	struct nlattr *attrs[TIPC_NLA_LINK_MAX + 1];
--	struct net *net = genl_info_net(info);
-+	struct net *net = sock_net(skb->sk);
- 
- 	if (!info->attrs[TIPC_NLA_LINK])
- 		return -EINVAL;
-diff --git a/net/tipc/link.h b/net/tipc/link.h
-index 8c8340c..6eb9d60 100644
---- a/net/tipc/link.h
-+++ b/net/tipc/link.h
-@@ -215,8 +215,6 @@ void tipc_link_reset_fragments(struct tipc_link *l_ptr);
- int tipc_link_is_up(struct tipc_link *l_ptr);
- int tipc_link_is_active(struct tipc_link *l_ptr);
- void tipc_link_purge_queues(struct tipc_link *l_ptr);
--struct sk_buff *tipc_link_cmd_config(struct net *net, const void *req_tlv_area,
--				     int req_tlv_space, u16 cmd);
- struct sk_buff *tipc_link_cmd_reset_stats(struct net *net,
- 					  const void *req_tlv_area,
- 					  int req_tlv_space);
-diff --git a/net/tipc/netlink_compat.c b/net/tipc/netlink_compat.c
-index bff9403..056532b 100644
---- a/net/tipc/netlink_compat.c
-+++ b/net/tipc/netlink_compat.c
-@@ -569,6 +569,43 @@ static int tipc_nl_compat_link_dump(struct tipc_nl_compat_msg *msg,
- 			    &link_info, sizeof(link_info));
- }
- 
-+static int tipc_nl_compat_link_set(struct sk_buff *skb,
-+				   struct tipc_nl_compat_msg *msg)
-+{
-+	struct nlattr *link;
-+	struct nlattr *prop;
-+	struct tipc_link_config *lc;
-+
-+	lc = (struct tipc_link_config *)TLV_DATA(msg->req);
-+
-+	link = nla_nest_start(skb, TIPC_NLA_LINK);
-+	if (!link)
-+		return -EMSGSIZE;
-+
-+	if (nla_put_string(skb, TIPC_NLA_LINK_NAME, lc->name))
-+		return -EMSGSIZE;
-+
-+	prop = nla_nest_start(skb, TIPC_NLA_LINK_PROP);
-+	if (!prop)
-+		return -EMSGSIZE;
-+
-+	if (msg->cmd == TIPC_CMD_SET_LINK_PRI) {
-+		if (nla_put_u32(skb, TIPC_NLA_PROP_PRIO, ntohl(lc->value)))
-+			return -EMSGSIZE;
-+	} else if (msg->cmd == TIPC_CMD_SET_LINK_TOL) {
-+		if (nla_put_u32(skb, TIPC_NLA_PROP_TOL, ntohl(lc->value)))
-+			return -EMSGSIZE;
-+	} else if (msg->cmd == TIPC_CMD_SET_LINK_WINDOW) {
-+		if (nla_put_u32(skb, TIPC_NLA_PROP_WIN, ntohl(lc->value)))
-+			return -EMSGSIZE;
-+	}
-+
-+	nla_nest_end(skb, prop);
-+	nla_nest_end(skb, link);
-+
-+	return 0;
-+}
-+
- static int tipc_nl_compat_handle(struct tipc_nl_compat_msg *msg)
- {
- 	struct tipc_nl_compat_cmd_dump dump;
-@@ -606,6 +643,13 @@ static int tipc_nl_compat_handle(struct tipc_nl_compat_msg *msg)
- 		dump.dumpit = tipc_nl_link_dump;
- 		dump.format = tipc_nl_compat_link_dump;
- 		return tipc_nl_compat_dumpit(&dump, msg);
-+	case TIPC_CMD_SET_LINK_TOL:
-+	case TIPC_CMD_SET_LINK_PRI:
-+	case TIPC_CMD_SET_LINK_WINDOW:
-+		msg->req_type =  TIPC_TLV_LINK_CONFIG;
-+		doit.doit = tipc_nl_link_set;
-+		doit.transcode = tipc_nl_compat_link_set;
-+		return tipc_nl_compat_doit(&doit, msg);
- 	}
- 
- 	return -EOPNOTSUPP;
-@@ -707,6 +751,9 @@ static int tipc_nl_compat_tmp_wrap(struct sk_buff *skb, struct genl_info *info)
- 	case TIPC_CMD_DISABLE_BEARER:
- 	case TIPC_CMD_SHOW_LINK_STATS:
- 	case TIPC_CMD_GET_LINKS:
-+	case TIPC_CMD_SET_LINK_TOL:
-+	case TIPC_CMD_SET_LINK_PRI:
-+	case TIPC_CMD_SET_LINK_WINDOW:
- 		return tipc_nl_compat_recv(skb, info);
- 	}
- 
--- 
-2.1.4
+On =E4=BA=94, 2015-02-06 at 23:24 +0100, Oleksij Rempel wrote:
+> formatting of this patch is still badly broken.
+> ./scripts/checkpatch.pl ~/Downloads/patch.eml
+> ....
+> ERROR: DOS line endings
+> #442: FILE: drivers/net/wireless/ath/ath9k/htc_drv_txrx.c:1170:
+> +^I^IAURFC_STAT_SET(aurfc_submit_delay, delay);^M$
+>=20
+> total: 195 errors, 6 warnings, 1 checks, 310 lines checked
 
 
-------------------------------------------------------------------------------
-Dive into the World of Parallel Programming. The Go Parallel Website,
-sponsored by Intel and developed in partnership with Slashdot Media, is your
-hub for all things parallel software development, from weekly thought
-leadership blogs to news, videos, case studies, tutorials and more. Take a
-look and join the conversation now. http://goparallel.sourceforge.net/
+Don't save the email as microsoft eml format.  The mail tool may=20
+translate it to DOS line endings if you save it as eml format.=20
+
+I have tested the patch and save it with Evolution as mobox format.=20
+The check result is=20
+
+total: 0 errors, 0 warnings, 1 checks, 310 lines checked
+
+
+
+
+
+>=20
+>=20
+> Am 06.02.2015 um 11:46 schrieb yuweizheng@139.com:
+> > From: Yuwei Zheng <yuweizheng@139.com>
+> >=20
+> > In the environment with heavy wifi traffic, set the ar9271 into mon=
+itor mode, will
+> > trigger a deadloop panic.
+> > =20
+> > The ath9k_hif_usb_rx_cb function excute on  the interrupt context, =
+and ath9k_rx_tasklet excute
+> > on the soft irq context. In other words, the ath9k_hif_usb_rx_cb ha=
+ve more chance to excute than
+> > ath9k_rx_tasklet.  So in the worst condition,  the rx.rxbuf receive=
+ list is always full,
+> > and the do {}while(true) loop will not be break. The kernel get a s=
+oft lockup panic.=20
+> > =20
+> > [59011.007210] BUG: soft lockup - CPU#0 stuck for 23s!
+> > [kworker/0:0:30609]
+> > [59011.030560] BUG: scheduling while atomic: kworker/0:0/30609/0x40=
+010100
+> > [59013.804486] BUG: scheduling while atomic: kworker/0:0/30609/0x40=
+010100
+> > [59013.858522] Kernel panic - not syncing: softlockup: hung tasks
+> > =20
+> > [59014.038891] Exception stack(0xdf4bbc38 to 0xdf4bbc80)
+> > [59014.046834] bc20:                                               =
+        de57b950 60000113
+> > [59014.059579] bc40: 00000000 bb32bb32 60000113 de57b948 de57b500 d=
+c7bb440 df4bbcd0 00000000
+> > [59014.072337] bc60: de57b950 60000113 df4bbcd0 df4bbc80 c04c259d c=
+04c25a0 60000133 ffffffff
+> > [59014.085233] [<c04c28db>] (__irq_svc+0x3b/0x5c) from [<c04c25a0>]=
+ (_raw_spin_unlock_irqrestore+0xc/0x10)
+> > [59014.100437] [<c04c25a0>] (_raw_spin_unlock_irqrestore+0xc/0x10) =
+from [<bf9c2089>] (ath9k_rx_tasklet+0x290/0x490 [ath9k_htc])
+> > [59014.118267] [<bf9c2089>] (ath9k_rx_tasklet+0x290/0x490 [ath9k_ht=
+c]) from [<c0036d23>] (tasklet_action+0x3b/0x98)
+> > [59014.134132] [<c0036d23>] (tasklet_action+0x3b/0x98) from [<c0036=
+709>] (__do_softirq+0x99/0x16c)
+> > [59014.147784] [<c0036709>] (__do_softirq+0x99/0x16c) from [<c00369=
+f7>] (irq_exit+0x5b/0x5c)
+> > [59014.160653] [<c00369f7>] (irq_exit+0x5b/0x5c) from [<c000cfc3>] =
+(handle_IRQ+0x37/0x78)
+> > [59014.173124] [<c000cfc3>] (handle_IRQ+0x37/0x78) from [<c00085df>=
+] (omap3_intc_handle_irq+0x5f/0x68)
+> > [59014.187225] [<c00085df>] (omap3_intc_handle_irq+0x5f/0x68) from =
+[<c04c28db>](__irq_svc+0x3b/0x5c)
+> > =20
+> > This bug can be see with low performance board, such as uniprocesso=
+r beagle bone board.=20
+> > =20
+> > Signed-off-by: Yuwei Zheng <yuweizheng@139.com>
+> >=20
+> > ---
+> >  drivers/net/wireless/ath/ath9k/hif_usb.c       | 74 ++++++++++++++=
++++++++++---
+> >  drivers/net/wireless/ath/ath9k/hif_usb.h       |  9 ++++
+> >  drivers/net/wireless/ath/ath9k/htc.h           | 19 +++++++
+> >  drivers/net/wireless/ath/ath9k/htc_drv_debug.c | 53 ++++++++++++++=
+++++
+> >  drivers/net/wireless/ath/ath9k/htc_drv_txrx.c  | 44 ++++++++++++++=
++
+> >  5 files changed, 192 insertions(+), 7 deletions(-)
+> >=20
+> > diff --git a/drivers/net/wireless/ath/ath9k/hif_usb.c b/drivers/net=
+/wireless/ath/ath9k/hif_usb.c
+> > index 8e7153b..90ee568 100644
+> > --- a/drivers/net/wireless/ath/ath9k/hif_usb.c
+> > +++ b/drivers/net/wireless/ath/ath9k/hif_usb.c
+> > @@ -640,6 +640,7 @@ static void ath9k_hif_usb_rx_cb(struct urb *urb=
+)
+> >  	struct hif_device_usb *hif_dev =3D
+> >  		usb_get_intfdata(usb_ifnum_to_if(urb->dev, 0));
+> >  	int ret;
+> > +	int delay;
+> > =20
+> >  	if (!skb)
+> >  		return;
+> > @@ -658,7 +659,6 @@ static void ath9k_hif_usb_rx_cb(struct urb *urb=
+)
+> >  	default:
+> >  		goto resubmit;
+> >  	}
+> > -
+> >  	if (likely(urb->actual_length !=3D 0)) {
+> >  		skb_put(skb, urb->actual_length);
+> >  		ath9k_hif_usb_rx_stream(hif_dev, skb);
+> > @@ -667,12 +667,22 @@ static void ath9k_hif_usb_rx_cb(struct urb *u=
+rb)
+> >  resubmit:
+> >  	skb_reset_tail_pointer(skb);
+> >  	skb_trim(skb, 0);
+> > -
+> > -	usb_anchor_urb(urb, &hif_dev->rx_submitted);
+> > -	ret =3D usb_submit_urb(urb, GFP_ATOMIC);
+> > -	if (ret) {
+> > -		usb_unanchor_urb(urb);
+> > -		goto free;
+> > +	spin_lock(&hif_dev->aurfc_lock);
+> > +	if (atomic_read(&hif_dev->aurfc_submit_delay) > 0 &&
+> > +	    hif_dev->aurfc_active =3D=3D 1) {
+> > +		usb_anchor_urb(urb, &hif_dev->rx_delayed_submitted);
+> > +		delay =3D atomic_read(&hif_dev->aurfc_submit_delay);
+> > +		schedule_delayed_work(&hif_dev->aurfc_delayed_work,
+> > +				      msecs_to_jiffies(delay));
+> > +		spin_unlock(&hif_dev->aurfc_lock);
+> > +	} else {
+> > +		spin_unlock(&hif_dev->aurfc_lock);
+> > +		usb_anchor_urb(urb, &hif_dev->rx_submitted);
+> > +		ret =3D usb_submit_urb(urb, GFP_ATOMIC);
+> > +		if (ret) {
+> > +			usb_unanchor_urb(urb);
+> > +			goto free;
+> > +		}
+> >  	}
+> > =20
+> >  	return;
+> > @@ -818,9 +828,50 @@ err:
+> >  	return -ENOMEM;
+> >  }
+> > =20
+> > +static void aurfc_submit_handler(struct work_struct *work)
+> > +{
+> > +	struct hif_device_usb *hif_dev =3D
+> > +		container_of(work,
+> > +			     struct hif_device_usb,
+> > +			     aurfc_delayed_work.work);
+> > +
+> > +	struct urb *urb =3D NULL;
+> > +	struct sk_buff *skb =3D NULL;
+> > +	int ret;
+> > +	int loop_times =3D 0;
+> > +
+> > +	while (true) {
+> > +		loop_times++;
+> > +		if (loop_times > MAX_RX_URB_NUM)
+> > +			atomic_add(AURFC_STEP,
+> > +				   &hif_dev->aurfc_submit_delay);
+> > +
+> > +		urb =3D usb_get_from_anchor(
+> > +				&hif_dev->rx_delayed_submitted);
+> > +		if (urb) {
+> > +			skb =3D (struct sk_buff *)urb->context;
+> > +			ret =3D usb_submit_urb(urb, GFP_KERNEL);
+> > +			if (ret !=3D 0) {
+> > +				usb_unanchor_urb(urb);
+> > +				dev_kfree_skb_any(skb);
+> > +				urb->context =3D NULL;
+> > +			}
+> > +		} else {
+> > +			break;
+> > +		}
+> > +	}
+> > +}
+> > +
+> >  static void ath9k_hif_usb_dealloc_rx_urbs(struct hif_device_usb *h=
+if_dev)
+> >  {
+> > +	unsigned long flags;
+> > +
+> > +	spin_lock_irqsave(&hif_dev->aurfc_lock, flags);
+> > +	hif_dev->aurfc_active =3D 0;
+> > +	mod_delayed_work(system_wq, &hif_dev->aurfc_delayed_work, 0);
+> > +	spin_unlock_irqrestore(&hif_dev->aurfc_lock, flags);
+> >  	usb_kill_anchored_urbs(&hif_dev->rx_submitted);
+> > +	usb_kill_anchored_urbs(&hif_dev->rx_delayed_submitted);
+> >  }
+> > =20
+> >  static int ath9k_hif_usb_alloc_rx_urbs(struct hif_device_usb *hif_=
+dev)
+> > @@ -830,8 +881,17 @@ static int ath9k_hif_usb_alloc_rx_urbs(struct =
+hif_device_usb *hif_dev)
+> >  	int i, ret;
+> > =20
+> >  	init_usb_anchor(&hif_dev->rx_submitted);
+> > +	init_usb_anchor(&hif_dev->rx_delayed_submitted);
+> > +
+> >  	spin_lock_init(&hif_dev->rx_lock);
+> > =20
+> > +	/* add for adaptive usb receive control*/
+> > +	atomic_set(&hif_dev->aurfc_submit_delay, 0);
+> > +	INIT_DELAYED_WORK(&hif_dev->aurfc_delayed_work,
+> > +			  aurfc_submit_handler);
+> > +	spin_lock_init(&hif_dev->aurfc_lock);
+> > +	hif_dev->aurfc_active =3D 1;
+> > +
+> >  	for (i =3D 0; i < MAX_RX_URB_NUM; i++) {
+> > =20
+> >  		/* Allocate URB */
+> > diff --git a/drivers/net/wireless/ath/ath9k/hif_usb.h b/drivers/net=
+/wireless/ath/ath9k/hif_usb.h
+> > index 51496e7..2050a74 100644
+> > --- a/drivers/net/wireless/ath/ath9k/hif_usb.h
+> > +++ b/drivers/net/wireless/ath/ath9k/hif_usb.h
+> > @@ -41,6 +41,7 @@
+> >  #define MAX_RX_URB_NUM  8
+> >  #define MAX_RX_BUF_SIZE 16384
+> >  #define MAX_PKT_NUM_IN_TRANSFER 10
+> > +#define AURFC_STEP 10  /* ms */
+> > =20
+> >  #define MAX_REG_OUT_URB_NUM  1
+> >  #define MAX_REG_IN_URB_NUM   64
+> > @@ -98,9 +99,17 @@ struct hif_device_usb {
+> >  	struct hif_usb_tx tx;
+> >  	struct usb_anchor regout_submitted;
+> >  	struct usb_anchor rx_submitted;
+> > +	struct usb_anchor rx_delayed_submitted;
+> >  	struct usb_anchor reg_in_submitted;
+> >  	struct usb_anchor mgmt_submitted;
+> >  	struct sk_buff *remain_skb;
+> > +
+> > +	/* adaptive usb receive flow control */
+> > +	struct delayed_work aurfc_delayed_work;
+> > +	spinlock_t aurfc_lock; /* to protect work */
+> > +	atomic_t  aurfc_submit_delay; /* ms */
+> > +	int aurfc_active;
+> > +
+> >  	const char *fw_name;
+> >  	int rx_remain_len;
+> >  	int rx_pkt_len;
+> > diff --git a/drivers/net/wireless/ath/ath9k/htc.h b/drivers/net/wir=
+eless/ath/ath9k/htc.h
+> > index 9dde265..1586bd2 100644
+> > --- a/drivers/net/wireless/ath/ath9k/htc.h
+> > +++ b/drivers/net/wireless/ath/ath9k/htc.h
+> > @@ -331,6 +331,13 @@ static inline struct ath9k_htc_tx_ctl *HTC_SKB=
+_CB(struct sk_buff *skb)
+> > =20
+> >  #define TX_QSTAT_INC(q) (priv->debug.tx_stats.queue_stats[q]++)
+> > =20
+> > +#define AURFC_STAT_INC(c) \
+> > +	(hif_dev->htc_handle->drv_priv->debug.aurfc_stats.c++)
+> > +#define AURFC_STAT_ADD(c, a) \
+> > +	(hif_dev->htc_handle->drv_priv->debug.aurfc_stats.c +=3D a)
+> > +#define AURFC_STAT_SET(c, a) \
+> > +	(hif_dev->htc_handle->drv_priv->debug.aurfc_stats.c =3D a)
+> > +
+> >  void ath9k_htc_err_stat_rx(struct ath9k_htc_priv *priv,
+> >  			   struct ath_rx_status *rs);
+> > =20
+> > @@ -352,11 +359,20 @@ struct ath_skbrx_stats {
+> >  	u32 skb_dropped;
+> >  };
+> > =20
+> > +struct ath_aurfc_stats {
+> > +	u32 aurfc_highwater;
+> > +	u32 aurfc_lowwater;
+> > +	u32 aurfc_wm_triggered;
+> > +	u32 aurfc_submit_delay;
+> > +	u32 aurfc_called;
+> > +};
+> > +
+> >  struct ath9k_debug {
+> >  	struct dentry *debugfs_phy;
+> >  	struct ath_tx_stats tx_stats;
+> >  	struct ath_rx_stats rx_stats;
+> >  	struct ath_skbrx_stats skbrx_stats;
+> > +	struct ath_aurfc_stats aurfc_stats;
+> >  };
+> > =20
+> >  void ath9k_htc_get_et_strings(struct ieee80211_hw *hw,
+> > @@ -377,6 +393,9 @@ void ath9k_htc_get_et_stats(struct ieee80211_hw=
+ *hw,
+> > =20
+> >  #define TX_QSTAT_INC(c) do { } while (0)
+> > =20
+> > +#define AURFC_STAT_INC(c) do {} while (0)
+> > +#define AURFC_STAT_ADD(c, a) do {} while (0)
+> > +#define AURFC_STAT_SET(c, a) do {} while (0)
+> >  static inline void ath9k_htc_err_stat_rx(struct ath9k_htc_priv *pr=
+iv,
+> >  					 struct ath_rx_status *rs)
+> >  {
+> > diff --git a/drivers/net/wireless/ath/ath9k/htc_drv_debug.c b/drive=
+rs/net/wireless/ath/ath9k/htc_drv_debug.c
+> > index 8cef1ed..a6be9be 100644
+> > --- a/drivers/net/wireless/ath/ath9k/htc_drv_debug.c
+> > +++ b/drivers/net/wireless/ath/ath9k/htc_drv_debug.c
+> > @@ -286,6 +286,54 @@ static const struct file_operations fops_skb_r=
+x =3D {
+> >  	.llseek =3D default_llseek,
+> >  };
+> > =20
+> > +static ssize_t read_file_aurfc(struct file *file,
+> > +			       char __user *user_buf,
+> > +			       size_t count, loff_t *ppos)
+> > +{
+> > +	struct ath9k_htc_priv *priv =3D file->private_data;
+> > +	char *buf;
+> > +	unsigned int len =3D 0, size =3D 1500;
+> > +	ssize_t retval =3D 0;
+> > +
+> > +	buf =3D kzalloc(size, GFP_KERNEL);
+> > +	if (!buf)
+> > +		return -ENOMEM;
+> > +
+> > +	len +=3D scnprintf(buf + len, size - len,
+> > +			"%20s : %10u\n", "High watermark",
+> > +			priv->debug.aurfc_stats.aurfc_highwater);
+> > +	len +=3D scnprintf(buf + len, size - len,
+> > +			"%20s : %10u\n", "Low watermark",
+> > +			priv->debug.aurfc_stats.aurfc_lowwater);
+> > +
+> > +	len +=3D scnprintf(buf + len, size - len,
+> > +			"%20s : %10u\n", "WM triggered",
+> > +			priv->debug.aurfc_stats.aurfc_wm_triggered);
+> > +
+> > +	len +=3D scnprintf(buf + len, size - len,
+> > +			"%20s : %10u\n", "Handler called",
+> > +			priv->debug.aurfc_stats.aurfc_called);
+> > +
+> > +	len +=3D scnprintf(buf + len, size - len,
+> > +			"%20s : %10u\n", "Submit delay",
+> > +			priv->debug.aurfc_stats.aurfc_submit_delay);
+> > +	if (len > size)
+> > +		len =3D size;
+> > +
+> > +	retval =3D simple_read_from_buffer(user_buf, count,
+> > +					 ppos, buf, len);
+> > +	kfree(buf);
+> > +
+> > +	return retval;
+> > +}
+> > +
+> > +static const struct file_operations fops_aurfc =3D {
+> > +	.read =3D read_file_aurfc,
+> > +	.open =3D simple_open,
+> > +	.owner =3D THIS_MODULE,
+> > +	.llseek =3D default_llseek,
+> > +};
+> > +
+> >  static ssize_t read_file_slot(struct file *file, char __user *user=
+_buf,
+> >  			      size_t count, loff_t *ppos)
+> >  {
+> > @@ -518,7 +566,12 @@ int ath9k_htc_init_debug(struct ath_hw *ah)
+> >  	debugfs_create_file("skb_rx", S_IRUSR, priv->debug.debugfs_phy,
+> >  			    priv, &fops_skb_rx);
+> > =20
+> > +	debugfs_create_file("aurfc_stats", S_IRUSR,
+> > +			    priv->debug.debugfs_phy,
+> > +			    priv, &fops_aurfc);
+> > +
+> >  	ath9k_cmn_debug_recv(priv->debug.debugfs_phy, &priv->debug.rx_sta=
+ts);
+> > +
+> >  	ath9k_cmn_debug_phy_err(priv->debug.debugfs_phy, &priv->debug.rx_=
+stats);
+> > =20
+> >  	debugfs_create_file("slot", S_IRUSR, priv->debug.debugfs_phy,
+> > diff --git a/drivers/net/wireless/ath/ath9k/htc_drv_txrx.c b/driver=
+s/net/wireless/ath/ath9k/htc_drv_txrx.c
+> > index a0f58e2..939d008 100644
+> > --- a/drivers/net/wireless/ath/ath9k/htc_drv_txrx.c
+> > +++ b/drivers/net/wireless/ath/ath9k/htc_drv_txrx.c
+> > @@ -1061,7 +1061,28 @@ void ath9k_rx_tasklet(unsigned long data)
+> >  	unsigned long flags;
+> >  	struct ieee80211_hdr *hdr;
+> > =20
+> > +	/* add for adaptive usb receive flow control*/
+> > +	int looptimes =3D 0;
+> > +	int highwatermark =3D ATH9K_HTC_RXBUF*3/4;
+> > +	int lowwatermark =3D ATH9K_HTC_RXBUF/32;
+> > +	unsigned int delay =3D 0;
+> > +
+> > +	struct htc_target *htc =3D priv->htc;
+> > +	struct hif_device_usb *hif_dev =3D htc->hif_dev;
+> > +
+> > +	AURFC_STAT_SET(aurfc_highwater, highwatermark);
+> > +	AURFC_STAT_SET(aurfc_lowwater, lowwatermark);
+> > +
+> >  	do {
+> > +		looptimes++;
+> > +		if (looptimes > highwatermark) {
+> > +			delay =3D looptimes*AURFC_STEP;
+> > +			atomic_set(&hif_dev->aurfc_submit_delay,
+> > +				   delay);
+> > +			AURFC_STAT_INC(aurfc_wm_triggered);
+> > +			AURFC_STAT_SET(aurfc_submit_delay, delay);
+> > +		}
+> > +
+> >  		spin_lock_irqsave(&priv->rx.rxbuflock, flags);
+> >  		list_for_each_entry(tmp_buf, &priv->rx.rxbuf, list) {
+> >  			if (tmp_buf->in_process) {
+> > @@ -1072,6 +1093,22 @@ void ath9k_rx_tasklet(unsigned long data)
+> > =20
+> >  		if (rxbuf =3D=3D NULL) {
+> >  			spin_unlock_irqrestore(&priv->rx.rxbuflock, flags);
+> > +			spin_lock_irqsave(&hif_dev->aurfc_lock,
+> > +					  flags);
+> > +			if (atomic_read(
+> > +				&hif_dev->aurfc_submit_delay) > 0 &&
+> > +			    hif_dev->aurfc_active > 0)
+> > +				mod_delayed_work(system_wq,
+> > +					&hif_dev->aurfc_delayed_work,
+> > +						 0);
+> > +			spin_unlock_irqrestore(&hif_dev->aurfc_lock,
+> > +					       flags);
+> > +			if (looptimes < lowwatermark) {
+> > +				atomic_set(&hif_dev->aurfc_submit_delay
+> > +					   , 0);
+> > +				AURFC_STAT_SET(aurfc_submit_delay,
+> > +					       0);
+> > +			}
+> >  			break;
+> >  		}
+> > =20
+> > @@ -1114,6 +1151,10 @@ void ath9k_htc_rxep(void *drv_priv, struct s=
+k_buff *skb,
+> >  	struct ath_common *common =3D ath9k_hw_common(ah);
+> >  	struct ath9k_htc_rxbuf *rxbuf =3D NULL, *tmp_buf =3D NULL;
+> > =20
+> > +	struct htc_target *htc =3D priv->htc;
+> > +	struct hif_device_usb *hif_dev =3D htc->hif_dev;
+> > +	int delay =3D ATH9K_HTC_RXBUF * AURFC_STEP;
+> > +
+> >  	spin_lock(&priv->rx.rxbuflock);
+> >  	list_for_each_entry(tmp_buf, &priv->rx.rxbuf, list) {
+> >  		if (!tmp_buf->in_process) {
+> > @@ -1124,6 +1165,9 @@ void ath9k_htc_rxep(void *drv_priv, struct sk=
+_buff *skb,
+> >  	spin_unlock(&priv->rx.rxbuflock);
+> > =20
+> >  	if (rxbuf =3D=3D NULL) {
+> > +		atomic_set(&hif_dev->aurfc_submit_delay, delay);
+> > +		AURFC_STAT_INC(aurfc_wm_triggered);
+> > +		AURFC_STAT_SET(aurfc_submit_delay, delay);
+> >  		ath_dbg(common, ANY, "No free RX buffer\n");
+> >  		goto err;
+> >  	}
+> >=20
+>=20
+>=20
