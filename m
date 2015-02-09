@@ -1,146 +1,37 @@
-From: Rojhalat Ibrahim <imr@rtschenk.de>
-Subject: [PATCH v3 4/4] mdio-mux-gpio: use new gpiod_get_array and gpiod_put_array functions
-Date: Mon, 09 Feb 2015 18:07:18 +0100
-Message-ID: <2799887.8ZynysBVJj@pcimr>
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Subject: Re: [PATCH v3 12/18] crypto: switch af_alg_make_sg() to iov_iter
+Date: Mon, 9 Feb 2015 17:28:11 +0000
+Message-ID: <20150209172811.GZ29656@ZenIV.linux.org.uk>
+References: <20150204063730.GG29656@ZenIV.linux.org.uk>
+ <1423032009-18367-12-git-send-email-viro@ZenIV.linux.org.uk>
+ <2856206.EMAskHcVAC@tachyon.chronox.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Alexandre Courbot <gnurou@gmail.com>,
-	Alexandre Courbot <acourbot@nvidia.com>,
-	Linus Walleij <linus.walleij@linaro.org>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: "linux-gpio@vger.kernel.org" <linux-gpio@vger.kernel.org>
-Return-path: <linux-gpio-owner@vger.kernel.org>
-Sender: linux-gpio-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-crypto@vger.kernel.org
+To: Stephan Mueller <smueller@chronox.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from zeniv.linux.org.uk ([195.92.253.2]:49258 "EHLO
+	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932308AbbBIR2O (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Feb 2015 12:28:14 -0500
+Content-Disposition: inline
+In-Reply-To: <2856206.EMAskHcVAC@tachyon.chronox.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Use the new gpiod_get_array and gpiod_put_array functions for obtaining and
-disposing of GPIO descriptors.
+On Mon, Feb 09, 2015 at 02:33:48PM +0100, Stephan Mueller wrote:
+> > 
+> > -int af_alg_make_sg(struct af_alg_sgl *sgl, void __user *addr, int len,
+> > -		   int write)
+> > +int af_alg_make_sg(struct af_alg_sgl *sgl, struct iov_iter *iter, int len)
+> 
+> Shouldn't len be size_t? iov_iter_get_pages wants a size_t. Also, the 
+> invocation of af_alg_make_sg uses an unsigned variable that is provided by 
+> userspace.
 
-Cc: David Miller <davem@davemloft.net>
-Signed-off-by: Rojhalat Ibrahim <imr@rtschenk.de>
----
-Change log:
-  v3: no change
-  v2: use the new interface
-
- drivers/net/phy/mdio-mux-gpio.c | 61 ++++++++++++-----------------------------
- 1 file changed, 18 insertions(+), 43 deletions(-)
-
-diff --git a/drivers/net/phy/mdio-mux-gpio.c b/drivers/net/phy/mdio-mux-gpio.c
-index 320eb15..3f6929c 100644
---- a/drivers/net/phy/mdio-mux-gpio.c
-+++ b/drivers/net/phy/mdio-mux-gpio.c
-@@ -12,33 +12,31 @@
- #include <linux/module.h>
- #include <linux/phy.h>
- #include <linux/mdio-mux.h>
--#include <linux/of_gpio.h>
-+#include <linux/gpio/consumer.h>
- 
- #define DRV_VERSION "1.1"
- #define DRV_DESCRIPTION "GPIO controlled MDIO bus multiplexer driver"
- 
--#define MDIO_MUX_GPIO_MAX_BITS 8
--
- struct mdio_mux_gpio_state {
--	struct gpio_desc *gpio[MDIO_MUX_GPIO_MAX_BITS];
--	unsigned int num_gpios;
-+	struct gpio_descs *gpios;
- 	void *mux_handle;
- };
- 
- static int mdio_mux_gpio_switch_fn(int current_child, int desired_child,
- 				   void *data)
- {
--	int values[MDIO_MUX_GPIO_MAX_BITS];
--	unsigned int n;
- 	struct mdio_mux_gpio_state *s = data;
-+	int values[s->gpios->array_size];
-+	unsigned int n;
- 
- 	if (current_child == desired_child)
- 		return 0;
- 
--	for (n = 0; n < s->num_gpios; n++) {
-+	for (n = 0; n < s->gpios->array_size; n++)
- 		values[n] = (desired_child >> n) & 1;
--	}
--	gpiod_set_array_cansleep(s->num_gpios, s->gpio, values);
-+
-+	gpiod_set_array_cansleep(s->gpios->array_size, s->gpios->desc_array,
-+				 values);
- 
- 	return 0;
- }
-@@ -46,56 +44,33 @@ static int mdio_mux_gpio_switch_fn(int current_child, int desired_child,
- static int mdio_mux_gpio_probe(struct platform_device *pdev)
- {
- 	struct mdio_mux_gpio_state *s;
--	int num_gpios;
--	unsigned int n;
- 	int r;
- 
--	if (!pdev->dev.of_node)
--		return -ENODEV;
--
--	num_gpios = of_gpio_count(pdev->dev.of_node);
--	if (num_gpios <= 0 || num_gpios > MDIO_MUX_GPIO_MAX_BITS)
--		return -ENODEV;
--
- 	s = devm_kzalloc(&pdev->dev, sizeof(*s), GFP_KERNEL);
- 	if (!s)
- 		return -ENOMEM;
- 
--	s->num_gpios = num_gpios;
--
--	for (n = 0; n < num_gpios; ) {
--		struct gpio_desc *gpio = gpiod_get_index(&pdev->dev, NULL, n,
--							 GPIOD_OUT_LOW);
--		if (IS_ERR(gpio)) {
--			r = PTR_ERR(gpio);
--			goto err;
--		}
--		s->gpio[n] = gpio;
--		n++;
--	}
-+	s->gpios = gpiod_get_array(&pdev->dev, NULL, GPIOD_OUT_LOW);
-+	if (IS_ERR(s->gpios))
-+		return PTR_ERR(s->gpios);
- 
- 	r = mdio_mux_init(&pdev->dev,
- 			  mdio_mux_gpio_switch_fn, &s->mux_handle, s);
- 
--	if (r == 0) {
--		pdev->dev.platform_data = s;
--		return 0;
--	}
--err:
--	while (n) {
--		n--;
--		gpiod_put(s->gpio[n]);
-+	if (r != 0) {
-+		gpiod_put_array(s->gpios);
-+		return r;
- 	}
--	return r;
-+
-+	pdev->dev.platform_data = s;
-+	return 0;
- }
- 
- static int mdio_mux_gpio_remove(struct platform_device *pdev)
- {
--	unsigned int n;
- 	struct mdio_mux_gpio_state *s = dev_get_platdata(&pdev->dev);
- 	mdio_mux_uninit(s->mux_handle);
--	for (n = 0; n < s->num_gpios; n++)
--		gpiod_put(s->gpio[n]);
-+	gpiod_put_array(s->gpios);
- 	return 0;
- }
- 
--- 
-2.0.5
-
-
+Keepo in mind that rw_copy_check_uvector() does, among other things,
+verify that total length is less than 2^31.  So this code doesn't
+suffer from wraparounds; it might make sense to switch to size_t here,
+but that's a separate patch, IMO.  For this conversion I just kept
+the type that used to be there.
