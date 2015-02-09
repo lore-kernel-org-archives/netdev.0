@@ -1,101 +1,80 @@
-From: Chen Gang S <gang.chen@sunrus.com.cn>
-Subject: Re: [PATCH v3] net: bluetooth: hci_sock: Use 'const u32 *' instead
- of 'void *' for 2nd parameter of hci_test_bit()
-Date: Mon, 09 Feb 2015 11:46:05 +0800
-Message-ID: <54D82D7D.3000308@sunrus.com.cn>
-References: <54D61229.9010904@sunrus.com.cn> <1423338774.2933.9.camel@perches.com> <54D6A729.1070905@sunrus.com.cn> <54D75698.7010808@sunrus.com.cn> <BD721CC9-DD4D-480D-98E6-89CA868BA285@holtmann.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Joe Perches <joe@perches.com>,
-	David Laight <David.Laight@ACULAB.COM>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	"Gustavo F. Padovan" <gustavo@padovan.org>,
-	Johan Hedberg <johan.hedberg@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"linux-bluetooth@vger.kernel.org" <linux-bluetooth@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Marcel Holtmann <marcel@holtmann.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <BD721CC9-DD4D-480D-98E6-89CA868BA285@holtmann.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Subject: [PATCH net-next] cxgb4: Fix trace observed while dumping clip_tbl
+Date: Mon,  9 Feb 2015 09:47:10 +0530
+Message-ID: <1423455430-13444-1-git-send-email-hariprasad@chelsio.com>
+Cc: davem@davemloft.net, leedom@chelsio.com, anish@chelsio.com,
+	nirranjan@chelsio.com, kumaras@chelsio.com,
+	Hariprasad Shenai <hariprasad@chelsio.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stargate.chelsio.com ([67.207.112.58]:12489 "EHLO
+	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751552AbbBIELd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 Feb 2015 23:11:33 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2/9/15 04:17, Marcel Holtmann wrote:
-> Hi Chen,
-> 
->>>>> hci_test_bit() does not modify 2nd parameter, so it is better to let it
->>>>> be constant, or may cause build warning. The related warning (with
->>>>> allmodconfig under xtensa):
->>>>>
->>>>>  net/bluetooth/hci_sock.c: In function 'hci_sock_sendmsg':
->>>>>  net/bluetooth/hci_sock.c:955:8: warning: passing argument 2 of 'hci_test_bit' discards 'const' qualifier from pointer target type [-Wdiscarded-array-qualifiers]
->>>>>          &hci_sec_filter.ocf_mask[ogf])) &&
->>>>>          ^
->>>>>  net/bluetooth/hci_sock.c:49:19: note: expected 'void *' but argument is of type 'const __u32 (*)[4] {aka const unsigned int (*)[4]}'
->>>>>   static inline int hci_test_bit(int nr, void *addr)
->>>>>                     ^
->>>>>
->>>>> hci_test_bit() always treats 2nd parameter is u32, and all callers also
->>>>> know about it, so 2nd parameter of hci_test_bit() need use 'const u32 *'
->>>>> instead of 'void *'.
->>>>>
->>>>> C language treats the array function parameter as a pointer, so the
->>>>> caller need not use '&' for the 2 demotion array, or it reports warning:
->>>>> 'const unsigned int (*)[4]' is different with 'const unsigned int *'.
->>>>
->>>> I still think you are possibly papering over potential bugs
->>>> on big-endian 64 bit systems.
->>>>
->>>> unsigned long vs u32.
->>>>
->>>> How are the bits actually set?
->>>>
->>>
->>>> From current usage of event_mask, "(u32 *) f->event_mask" is only for
->>> event_mask data storage, not for calculation (always as "u32 *" for
->>> calculation).
->>>
->>>  [root@localhost linux-next]# grep -rn "\<event_mask\>" include/net/bluetooth net/bluetooth
->>>  include/net/bluetooth/hci_sock.h:51:	unsigned long event_mask[2];
->>
->> e.g. use "unsigned char event_mask[2 * sizeof(unsigned long)]" instead
->> of "unsigned long event_mask[2]".
->>
->> There is still no any issue within "hci_sock.c" (although I am not sure
->> whether this modification may cause issues in another modules outside
->> kernel).
-> 
-> what about writing a test case for userspace that ensures that things are working correctly. As I said before, we left it this way since it is part of the API.
->
+Handle clip_tbl debugfs entry, when clip_tbl isn't allocated.
+In commit b5a02f503caa0837 ("cxgb4: Update ipv6 address handling api") wrong
+argument was passed for single_open for clip_tbl debugfs entry, which led to
+below trace. Fixing it.
 
-If it is really the API which can be used outside kernel, what you said
-sounds reasonable to me. But I guess, except the related orgnizations/
-company/members, most of kernel members can not give a suitable test:
+======
+call Trace:
+ [<ffffffffa073c606>] clip_tbl_open+0x16/0x30 [cxgb4]
+ [<ffffffff8119e2fa>] do_dentry_open+0x21a/0x370
+ [<ffffffff8119e499>] vfs_open+0x49/0x50
+ [<ffffffff811b0d0e>] do_last+0x21e/0x800
+ [<ffffffff811b1382>] path_openat+0x92/0x470
+ [<ffffffff8110569f>] ? rb_reserve_next_event+0xaf/0x380
+ [<ffffffff8110569f>] ? rb_reserve_next_event+0xaf/0x380
+ [<ffffffff811b189a>] do_filp_open+0x4a/0xa0
+ [<ffffffff811bdc5d>] ? __alloc_fd+0xcd/0x140
+ [<ffffffff8119fa4a>] do_sys_open+0x11a/0x230
+ [<ffffffff8101219f>] ? syscall_trace_enter_phase2+0xaf/0x1b0
+ [<ffffffff8119fb9e>] SyS_open+0x1e/0x20
+ [<ffffffff815bf6f0>] tracesys_phase2+0xd4/0xd9
+Code: 89 e5 66 66 66 66 90 48 8b 47 e0 48 8b 40 30 48 8b 40 58 c9 c3 66 0f 1f
+84 00 00 00 00 00 55 48 89 e5 66 66 66 66 90 48 8b 47 e0 <48> 8b 40 58 c9 c3 66
+66 66 66 2e 0f 1f 84 00 00 00 00 00 55 48
+RIP  [<ffffffff8120898d>] PDE_DATA+0xd/0x20
+ RSP <ffff8800b08c3c48>
+CR2: 0000000000000058
 
- - It is an API, but we only know kernel part implementation, and we
-   also know that the kernel part implementation intends to use
-   "unsigned long event_mask[2]" and "u32 *" type cast.
+=====
 
- - We don't know the other part implementation (we event don't know
-   whether it is open source). And also it is out of most of kernel
-   members' current border (e.g. me).
+Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
+---
+ drivers/net/ethernet/chelsio/cxgb4/clip_tbl.c      |    3 +++
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c |    2 +-
+ 2 files changed, 4 insertions(+), 1 deletions(-)
 
- - If the other part implementation match what kernel part has done, it
-   is OK, else it should cause issue.
-
-So at present, in kernel part, we can only say the original authors
-intended to do like this. And only within kernel part, it can not cause
-issue. I guess, original authors originally knew what we talk about.
-
-This patch is for fixing building warnings without any negative effect.
-And most of us are not the suitable members to continue analyzing. So
-at present, for me, we can accept this patch.
-
-
-Thanks.
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/clip_tbl.c b/drivers/net/ethernet/chelsio/cxgb4/clip_tbl.c
+index 2b407b6..9062a84 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/clip_tbl.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/clip_tbl.c
+@@ -81,6 +81,9 @@ int cxgb4_clip_get(const struct net_device *dev, const u32 *lip, u8 v6)
+ 	int addr_len;
+ 	int ret = 0;
+ 
++	if (!ctbl)
++		return 0;
++
+ 	if (v6)
+ 		addr_len = 16;
+ 	else
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
+index a1029ee..d221f6b 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
+@@ -1237,7 +1237,7 @@ DEFINE_SIMPLE_DEBUGFS_FILE(sensors);
+ #if IS_ENABLED(CONFIG_IPV6)
+ static int clip_tbl_open(struct inode *inode, struct file *file)
+ {
+-	return single_open(file, clip_tbl_show, PDE_DATA(inode));
++	return single_open(file, clip_tbl_show, inode->i_private);
+ }
+ 
+ static const struct file_operations clip_tbl_debugfs_fops = {
 -- 
-Chen Gang
-
-Open, share, and attitude like air, water, and life which God blessed
+1.7.1
