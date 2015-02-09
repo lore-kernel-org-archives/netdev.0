@@ -1,41 +1,67 @@
-From: Kristian Evensen <kristian.evensen@gmail.com>
-Subject: [PATCH] net: qmi_wwan: MC73xx interface 10 is not QMI
-Date: Mon,  9 Feb 2015 11:17:07 +0100
-Message-ID: <1423477027-10869-1-git-send-email-kristian.evensen@gmail.com>
-Cc: Kristian Evensen <kristian.evensen@gmail.com>
-To: netdev@vger.kernel.org, bjorn@mork.no
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f171.google.com ([209.85.217.171]:58456 "EHLO
-	mail-lb0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759233AbbBIKRU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Feb 2015 05:17:20 -0500
-Received: by mail-lb0-f171.google.com with SMTP id b6so6164541lbj.2
-        for <netdev@vger.kernel.org>; Mon, 09 Feb 2015 02:17:18 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: SF Markus Elfring <elfring-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+Subject: [PATCH v2] net: Mellanox: Delete unnecessary checks before the function
+ call "vunmap"
+Date: Mon, 09 Feb 2015 11:21:26 +0100
+Message-ID: <54D88A26.2060307@users.sourceforge.net>
+References: <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6>	<5317A59D.4@users.sourceforge.net>	<54D22B29.3020200@users.sourceforge.net> <20150205.003404.261962007607296519.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Julia Lawall <julia.lawall-L2FTfq7BK8M@public.gmane.org>
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20150205.003404.261962007607296519.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Kristian Evensen <kristian.evensen@gmail.com>
+From: Markus Elfring <elfring-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+Date: Mon, 9 Feb 2015 11:10:41 +0100
 
-Sierra Wireless MC73xx interface 10 is not usable with QMI, as the interface
-does not respond to any QMI messages. We are now left with interface 8 for the
-MC73xx, which is consistent with most other Sierra Wireless QMI-devices.
+The vunmap() function performs also input parameter validation.
+Thus the test around the call is not needed.
 
-Signed-off-by: Kristian Evensen <kristian.evensen@gmail.com>
+This issue was detected by using the Coccinelle software.
+
+Signed-off-by: Markus Elfring <elfring-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+Acked-by: Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
 ---
- drivers/net/usb/qmi_wwan.c | 1 -
- 1 file changed, 1 deletion(-)
+ drivers/net/ethernet/mellanox/mlx4/alloc.c      | 2 +-
+ drivers/net/ethernet/mellanox/mlx5/core/alloc.c | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
-index 602dc66..197c012 100644
---- a/drivers/net/usb/qmi_wwan.c
-+++ b/drivers/net/usb/qmi_wwan.c
-@@ -753,7 +753,6 @@ static const struct usb_device_id products[] = {
- 	{QMI_FIXED_INTF(0x1199, 0x68a2, 8)},	/* Sierra Wireless MC7710 in QMI mode */
- 	{QMI_FIXED_INTF(0x1199, 0x68a2, 19)},	/* Sierra Wireless MC7710 in QMI mode */
- 	{QMI_FIXED_INTF(0x1199, 0x68c0, 8)},	/* Sierra Wireless MC73xx */
--	{QMI_FIXED_INTF(0x1199, 0x68c0, 10)},	/* Sierra Wireless MC73xx */
- 	{QMI_FIXED_INTF(0x1199, 0x901c, 8)},    /* Sierra Wireless EM7700 */
- 	{QMI_FIXED_INTF(0x1199, 0x901f, 8)},    /* Sierra Wireless EM7355 */
- 	{QMI_FIXED_INTF(0x1199, 0x9041, 8)},	/* Sierra Wireless MC7305/MC7355 */
+diff --git a/drivers/net/ethernet/mellanox/mlx4/alloc.c b/drivers/net/ethernet/mellanox/mlx4/alloc.c
+index a716c26..0c51c69 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/alloc.c
++++ b/drivers/net/ethernet/mellanox/mlx4/alloc.c
+@@ -662,7 +662,7 @@ void mlx4_buf_free(struct mlx4_dev *dev, int size, struct mlx4_buf *buf)
+ 				  buf->direct.buf,
+ 				  buf->direct.map);
+ 	else {
+-		if (BITS_PER_LONG == 64 && buf->direct.buf)
++		if (BITS_PER_LONG == 64)
+ 			vunmap(buf->direct.buf);
+ 
+ 		for (i = 0; i < buf->nbufs; ++i)
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/alloc.c b/drivers/net/ethernet/mellanox/mlx5/core/alloc.c
+index 56779c1..201ca6d 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/alloc.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/alloc.c
+@@ -121,7 +121,7 @@ void mlx5_buf_free(struct mlx5_core_dev *dev, struct mlx5_buf *buf)
+ 		dma_free_coherent(&dev->pdev->dev, buf->size, buf->direct.buf,
+ 				  buf->direct.map);
+ 	else {
+-		if (BITS_PER_LONG == 64 && buf->direct.buf)
++		if (BITS_PER_LONG == 64)
+ 			vunmap(buf->direct.buf);
+ 
+ 		for (i = 0; i < buf->nbufs; i++)
 -- 
-1.9.1
+2.2.2
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
