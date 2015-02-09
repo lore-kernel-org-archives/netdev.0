@@ -1,74 +1,146 @@
-From: Hisashi T Fujinaka <htodd@twofifty.com>
-Subject: Re: [PATCH] net:ethernet:intel:Remove outdated fix me
- comment in the function, gb_acquire_swfw_sync_i210
-Date: Mon, 9 Feb 2015 09:03:54 -0800 (PST)
-Message-ID: <alpine.NEB.2.11.1502090901440.395@chris.i8u.org>
-References: <1423372910-29183-1-git-send-email-xerofoify@gmail.com>
-	<1423444889.2589.165.camel@jtkirshe-mobl>
-	<54D85EFA.3020501@gmail.com>
-	<1423470722.27854.11.camel@jtkirshe-mobl>
-	<87egpzqvpc.fsf@nemi.mork.no>
+From: Rojhalat Ibrahim <imr@rtschenk.de>
+Subject: [PATCH v3 4/4] mdio-mux-gpio: use new gpiod_get_array and gpiod_put_array functions
+Date: Mon, 09 Feb 2015 18:07:18 +0100
+Message-ID: <2799887.8ZynysBVJj@pcimr>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: linux.nics@intel.com, e1000-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org, bruce.w.allan@intel.com,
-	linux-kernel@vger.kernel.org, jesse.brandeburg@intel.com,
-	john.ronciak@intel.com, Andrej Manduch <amanduch@gmail.com>
-To: =?ISO-8859-15?Q?Bj=F8rn_Mork?= <bjorn@mork.no>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <87egpzqvpc.fsf@nemi.mork.no>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Content-Transfer-Encoding: 7Bit
+Cc: Alexandre Courbot <gnurou@gmail.com>,
+	Alexandre Courbot <acourbot@nvidia.com>,
+	Linus Walleij <linus.walleij@linaro.org>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: "linux-gpio@vger.kernel.org" <linux-gpio@vger.kernel.org>
+Return-path: <linux-gpio-owner@vger.kernel.org>
+Sender: linux-gpio-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 9 Feb 2015, Bj?rn Mork wrote:
+Use the new gpiod_get_array and gpiod_put_array functions for obtaining and
+disposing of GPIO descriptors.
 
-> Jeff Kirsher <jeffrey.t.kirsher@intel.com> writes:
->
->> If you want to see Nick's patch, feel free to view his patch on
->> my queue tree:
->> https://git.kernel.org/cgit/linux/kernel/git/jkirsher/queue.git/
->
-> which said:
->  - s32 i = 0, timeout = 200; /* FIXME: find real value to use here */
->  + s32 i = 0, timeout = 200;
->
->
-> Comments like the one deleted by that patch do have some value in my
-> opinion: They document that the constant is chosen arbitrarily and is
-> not taken from some datasheet.
->
-> Not a big deal, but leaving such comments, even if the value never ever
-> changes, could save someone from trying to figure out where the heck you
-> got that constant.  And there's noone actually misinterpreting this
-> comment as "something needs to be fixed here", is there? So the cost of
-> leaving the comment is exactly zero.
->
-> Just my .02 ?.  I'm not going to tell you how to maintain your driver,
-> of course.  At least I try not to :-)
+Cc: David Miller <davem@davemloft.net>
+Signed-off-by: Rojhalat Ibrahim <imr@rtschenk.de>
+---
+Change log:
+  v3: no change
+  v2: use the new interface
 
-I think, for now, we should NAK this. It's a short comment and you don't
-want me to replace it with a philosophical statement on how you could
-tune the timeout. That's what the data sheet is for.
+ drivers/net/phy/mdio-mux-gpio.c | 61 ++++++++++++-----------------------------
+ 1 file changed, 18 insertions(+), 43 deletions(-)
 
-(Replying from my home account and not my work account -
-todd.fujinaka@intel.com)
+diff --git a/drivers/net/phy/mdio-mux-gpio.c b/drivers/net/phy/mdio-mux-gpio.c
+index 320eb15..3f6929c 100644
+--- a/drivers/net/phy/mdio-mux-gpio.c
++++ b/drivers/net/phy/mdio-mux-gpio.c
+@@ -12,33 +12,31 @@
+ #include <linux/module.h>
+ #include <linux/phy.h>
+ #include <linux/mdio-mux.h>
+-#include <linux/of_gpio.h>
++#include <linux/gpio/consumer.h>
+ 
+ #define DRV_VERSION "1.1"
+ #define DRV_DESCRIPTION "GPIO controlled MDIO bus multiplexer driver"
+ 
+-#define MDIO_MUX_GPIO_MAX_BITS 8
+-
+ struct mdio_mux_gpio_state {
+-	struct gpio_desc *gpio[MDIO_MUX_GPIO_MAX_BITS];
+-	unsigned int num_gpios;
++	struct gpio_descs *gpios;
+ 	void *mux_handle;
+ };
+ 
+ static int mdio_mux_gpio_switch_fn(int current_child, int desired_child,
+ 				   void *data)
+ {
+-	int values[MDIO_MUX_GPIO_MAX_BITS];
+-	unsigned int n;
+ 	struct mdio_mux_gpio_state *s = data;
++	int values[s->gpios->array_size];
++	unsigned int n;
+ 
+ 	if (current_child == desired_child)
+ 		return 0;
+ 
+-	for (n = 0; n < s->num_gpios; n++) {
++	for (n = 0; n < s->gpios->array_size; n++)
+ 		values[n] = (desired_child >> n) & 1;
+-	}
+-	gpiod_set_array_cansleep(s->num_gpios, s->gpio, values);
++
++	gpiod_set_array_cansleep(s->gpios->array_size, s->gpios->desc_array,
++				 values);
+ 
+ 	return 0;
+ }
+@@ -46,56 +44,33 @@ static int mdio_mux_gpio_switch_fn(int current_child, int desired_child,
+ static int mdio_mux_gpio_probe(struct platform_device *pdev)
+ {
+ 	struct mdio_mux_gpio_state *s;
+-	int num_gpios;
+-	unsigned int n;
+ 	int r;
+ 
+-	if (!pdev->dev.of_node)
+-		return -ENODEV;
+-
+-	num_gpios = of_gpio_count(pdev->dev.of_node);
+-	if (num_gpios <= 0 || num_gpios > MDIO_MUX_GPIO_MAX_BITS)
+-		return -ENODEV;
+-
+ 	s = devm_kzalloc(&pdev->dev, sizeof(*s), GFP_KERNEL);
+ 	if (!s)
+ 		return -ENOMEM;
+ 
+-	s->num_gpios = num_gpios;
+-
+-	for (n = 0; n < num_gpios; ) {
+-		struct gpio_desc *gpio = gpiod_get_index(&pdev->dev, NULL, n,
+-							 GPIOD_OUT_LOW);
+-		if (IS_ERR(gpio)) {
+-			r = PTR_ERR(gpio);
+-			goto err;
+-		}
+-		s->gpio[n] = gpio;
+-		n++;
+-	}
++	s->gpios = gpiod_get_array(&pdev->dev, NULL, GPIOD_OUT_LOW);
++	if (IS_ERR(s->gpios))
++		return PTR_ERR(s->gpios);
+ 
+ 	r = mdio_mux_init(&pdev->dev,
+ 			  mdio_mux_gpio_switch_fn, &s->mux_handle, s);
+ 
+-	if (r == 0) {
+-		pdev->dev.platform_data = s;
+-		return 0;
+-	}
+-err:
+-	while (n) {
+-		n--;
+-		gpiod_put(s->gpio[n]);
++	if (r != 0) {
++		gpiod_put_array(s->gpios);
++		return r;
+ 	}
+-	return r;
++
++	pdev->dev.platform_data = s;
++	return 0;
+ }
+ 
+ static int mdio_mux_gpio_remove(struct platform_device *pdev)
+ {
+-	unsigned int n;
+ 	struct mdio_mux_gpio_state *s = dev_get_platdata(&pdev->dev);
+ 	mdio_mux_uninit(s->mux_handle);
+-	for (n = 0; n < s->num_gpios; n++)
+-		gpiod_put(s->gpio[n]);
++	gpiod_put_array(s->gpios);
+ 	return 0;
+ }
+ 
+-- 
+2.0.5
 
-------------------------------------------------------------------------------
-Dive into the World of Parallel Programming. The Go Parallel Website,
-sponsored by Intel and developed in partnership with Slashdot Media, is your
-hub for all things parallel software development, from weekly thought
-leadership blogs to news, videos, case studies, tutorials and more. Take a
-look and join the conversation now. http://goparallel.sourceforge.net/
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+
