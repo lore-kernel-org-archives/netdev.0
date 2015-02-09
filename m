@@ -1,8 +1,8 @@
 From: <richard.alpe@ericsson.com>
-Subject: [PATCH net-next v1 09/17] tipc: convert legacy nl
-	socket dump to nl compat
-Date: Mon, 9 Feb 2015 09:50:11 +0100
-Message-ID: <1423471819-23112-10-git-send-email-richard.alpe@ericsson.com>
+Subject: [PATCH net-next v1 01/17] tipc: move and rename
+	the legacy nl api to "nl compat"
+Date: Mon, 9 Feb 2015 09:50:03 +0100
+Message-ID: <1423471819-23112-2-git-send-email-richard.alpe@ericsson.com>
 References: <1423471819-23112-1-git-send-email-richard.alpe@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,290 +23,446 @@ List-Id: netdev.vger.kernel.org
 
 From: Richard Alpe <richard.alpe@ericsson.com>
 
-Convert socket (port) listing to compat dumpit call. If a socket
-(port) has publications a second dumpit call is issued to collect them
-and format then into the legacy buffer before continuing to process
-the sockets (ports).
-
-Command converted in this patch:
-TIPC_CMD_SHOW_PORTS
+The new netlink API is no longer "v2" but rather the standard API and
+the legacy API is now "nl compat". We split them into separate
+start/stop and put them in different files in order to further
+distinguish them.
 
 Signed-off-by: Richard Alpe <richard.alpe@ericsson.com>
 Reviewed-by: Erik Hugne <erik.hugne@ericsson.com>
 Reviewed-by: Ying Xue <ying.xue@windriver.com>
 Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
 ---
- net/tipc/config.c         |   3 --
- net/tipc/netlink_compat.c | 111 ++++++++++++++++++++++++++++++++++++++++++++++
- net/tipc/socket.c         |  85 -----------------------------------
- net/tipc/socket.h         |   1 -
- 4 files changed, 111 insertions(+), 89 deletions(-)
+ net/tipc/Makefile         |   4 +-
+ net/tipc/bcast.c          |   2 +-
+ net/tipc/bearer.c         |   4 +-
+ net/tipc/core.c           |   7 ++++
+ net/tipc/core.h           |   1 -
+ net/tipc/link.c           |   2 +-
+ net/tipc/name_table.c     |   2 +-
+ net/tipc/net.c            |   2 +-
+ net/tipc/netlink.c        |  67 ++---------------------------
+ net/tipc/netlink.h        |   4 +-
+ net/tipc/netlink_compat.c | 105 ++++++++++++++++++++++++++++++++++++++++++++++
+ net/tipc/node.c           |   2 +-
+ net/tipc/socket.c         |   4 +-
+ 13 files changed, 130 insertions(+), 76 deletions(-)
+ create mode 100644 net/tipc/netlink_compat.c
 
-diff --git a/net/tipc/config.c b/net/tipc/config.c
-index 7b053fc..6e4c215 100644
---- a/net/tipc/config.c
-+++ b/net/tipc/config.c
-@@ -212,9 +212,6 @@ struct sk_buff *tipc_cfg_do_cmd(struct net *net, u32 orig_node, u16 cmd,
- 	case TIPC_CMD_GET_MEDIA_NAMES:
- 		rep_tlv_buf = tipc_media_get_names();
- 		break;
--	case TIPC_CMD_SHOW_PORTS:
--		rep_tlv_buf = tipc_sk_socks_show(net);
--		break;
- 	case TIPC_CMD_SHOW_STATS:
- 		rep_tlv_buf = tipc_show_stats();
- 		break;
-diff --git a/net/tipc/netlink_compat.c b/net/tipc/netlink_compat.c
-index 40c24ea..48e15a4 100644
---- a/net/tipc/netlink_compat.c
-+++ b/net/tipc/netlink_compat.c
-@@ -36,6 +36,7 @@
- #include "bearer.h"
- #include "link.h"
- #include "name_table.h"
-+#include "socket.h"
- #include <net/genetlink.h>
- #include <linux/tipc_config.h>
+diff --git a/net/tipc/Makefile b/net/tipc/Makefile
+index 333e459..69b82bb 100644
+--- a/net/tipc/Makefile
++++ b/net/tipc/Makefile
+@@ -7,8 +7,8 @@ obj-$(CONFIG_TIPC) := tipc.o
+ tipc-y	+= addr.o bcast.o bearer.o config.o \
+ 	   core.o link.o discover.o msg.o  \
+ 	   name_distr.o  subscr.o name_table.o net.o  \
+-	   netlink.o node.o socket.o log.o eth_media.o \
+-	   server.o
++	   netlink.o netlink_compat.o node.o socket.o log.o eth_media.o \
++	   server.o socket.o
  
-@@ -718,6 +719,109 @@ out:
- 	return 0;
- }
+ tipc-$(CONFIG_TIPC_MEDIA_IB)	+= ib_media.o
+ tipc-$(CONFIG_SYSCTL)		+= sysctl.o
+diff --git a/net/tipc/bcast.c b/net/tipc/bcast.c
+index 81b1fef..e96fd6a 100644
+--- a/net/tipc/bcast.c
++++ b/net/tipc/bcast.c
+@@ -810,7 +810,7 @@ int tipc_nl_add_bc_link(struct net *net, struct tipc_nl_msg *msg)
  
-+static int __tipc_nl_compat_publ_dump(struct tipc_nl_compat_msg *msg,
-+				      struct nlattr **attrs)
-+{
-+	u32 type, lower, upper;
-+	struct nlattr *publ[TIPC_NLA_PUBL_MAX + 1];
+ 	tipc_bclink_lock(net);
+ 
+-	hdr = genlmsg_put(msg->skb, msg->portid, msg->seq, &tipc_genl_v2_family,
++	hdr = genlmsg_put(msg->skb, msg->portid, msg->seq, &tipc_genl_family,
+ 			  NLM_F_MULTI, TIPC_NL_LINK_GET);
+ 	if (!hdr)
+ 		return -EMSGSIZE;
+diff --git a/net/tipc/bearer.c b/net/tipc/bearer.c
+index 33dc348..35d400e 100644
+--- a/net/tipc/bearer.c
++++ b/net/tipc/bearer.c
+@@ -658,7 +658,7 @@ static int __tipc_nl_add_bearer(struct tipc_nl_msg *msg,
+ 	struct nlattr *attrs;
+ 	struct nlattr *prop;
+ 
+-	hdr = genlmsg_put(msg->skb, msg->portid, msg->seq, &tipc_genl_v2_family,
++	hdr = genlmsg_put(msg->skb, msg->portid, msg->seq, &tipc_genl_family,
+ 			  NLM_F_MULTI, TIPC_NL_BEARER_GET);
+ 	if (!hdr)
+ 		return -EMSGSIZE;
+@@ -924,7 +924,7 @@ static int __tipc_nl_add_media(struct tipc_nl_msg *msg,
+ 	struct nlattr *attrs;
+ 	struct nlattr *prop;
+ 
+-	hdr = genlmsg_put(msg->skb, msg->portid, msg->seq, &tipc_genl_v2_family,
++	hdr = genlmsg_put(msg->skb, msg->portid, msg->seq, &tipc_genl_family,
+ 			  NLM_F_MULTI, TIPC_NL_MEDIA_GET);
+ 	if (!hdr)
+ 		return -EMSGSIZE;
+diff --git a/net/tipc/core.c b/net/tipc/core.c
+index 674bd26..2d06d1f 100644
+--- a/net/tipc/core.c
++++ b/net/tipc/core.c
+@@ -111,6 +111,10 @@ static int __init tipc_init(void)
+ 	if (err)
+ 		goto out_netlink;
+ 
++	err = tipc_netlink_compat_start();
++	if (err)
++		goto out_netlink_compat;
 +
-+	nla_parse_nested(publ, TIPC_NLA_PUBL_MAX, attrs[TIPC_NLA_PUBL], NULL);
-+
-+	type = nla_get_u32(publ[TIPC_NLA_PUBL_TYPE]);
-+	lower = nla_get_u32(publ[TIPC_NLA_PUBL_LOWER]);
-+	upper = nla_get_u32(publ[TIPC_NLA_PUBL_UPPER]);
-+
-+	if (lower == upper)
-+		tipc_tlv_sprintf(msg->rep, " {%u,%u}", type, lower);
-+	else
-+		tipc_tlv_sprintf(msg->rep, " {%u,%u,%u}", type, lower, upper);
-+
-+	return 0;
-+}
-+
-+static int tipc_nl_compat_publ_dump(struct tipc_nl_compat_msg *msg, u32 sock)
-+{
-+	int err;
-+	void *hdr;
-+	struct nlattr *nest;
-+	struct sk_buff *args;
-+	struct tipc_nl_compat_cmd_dump dump;
-+
-+	args = nlmsg_new(NLMSG_GOODSIZE, GFP_KERNEL);
-+	if (!args)
-+		return -ENOMEM;
-+
-+	hdr = genlmsg_put(args, 0, 0, &tipc_genl_family, NLM_F_MULTI,
-+			  TIPC_NL_PUBL_GET);
-+
-+	nest = nla_nest_start(args, TIPC_NLA_SOCK);
-+	if (!nest) {
-+		kfree_skb(args);
-+		return -EMSGSIZE;
-+	}
-+
-+	if (nla_put_u32(args, TIPC_NLA_SOCK_REF, sock)) {
-+		kfree_skb(args);
-+		return -EMSGSIZE;
-+	}
-+
-+	nla_nest_end(args, nest);
-+	genlmsg_end(args, hdr);
-+
-+	dump.dumpit = tipc_nl_publ_dump;
-+	dump.format = __tipc_nl_compat_publ_dump;
-+
-+	err = __tipc_nl_compat_dumpit(&dump, msg, args);
-+
-+	kfree_skb(args);
-+
-+	return err;
-+}
-+
-+static int tipc_nl_compat_sk_dump(struct tipc_nl_compat_msg *msg,
-+				  struct nlattr **attrs)
-+{
-+	int err;
-+	u32 sock_ref;
-+	struct nlattr *sock[TIPC_NLA_SOCK_MAX + 1];
-+
-+	nla_parse_nested(sock, TIPC_NLA_SOCK_MAX, attrs[TIPC_NLA_SOCK], NULL);
-+
-+	sock_ref = nla_get_u32(sock[TIPC_NLA_SOCK_REF]);
-+	tipc_tlv_sprintf(msg->rep, "%u:", sock_ref);
-+
-+	if (sock[TIPC_NLA_SOCK_CON]) {
-+		u32 node;
-+		struct nlattr *con[TIPC_NLA_CON_MAX + 1];
-+
-+		nla_parse_nested(con, TIPC_NLA_CON_MAX, sock[TIPC_NLA_SOCK_CON],
-+				 NULL);
-+
-+		node = nla_get_u32(con[TIPC_NLA_CON_NODE]);
-+		tipc_tlv_sprintf(msg->rep, "  connected to <%u.%u.%u:%u>",
-+				 tipc_zone(node),
-+				 tipc_cluster(node),
-+				 tipc_node(node),
-+				 nla_get_u32(con[TIPC_NLA_CON_SOCK]));
-+
-+		if (con[TIPC_NLA_CON_FLAG])
-+			tipc_tlv_sprintf(msg->rep, " via {%u,%u}\n",
-+					 nla_get_u32(con[TIPC_NLA_CON_TYPE]),
-+					 nla_get_u32(con[TIPC_NLA_CON_INST]));
-+		else
-+			tipc_tlv_sprintf(msg->rep, "\n");
-+	} else if (sock[TIPC_NLA_SOCK_HAS_PUBL]) {
-+		tipc_tlv_sprintf(msg->rep, " bound to");
-+
-+		err = tipc_nl_compat_publ_dump(msg, sock_ref);
-+		if (err)
-+			return err;
-+	}
-+	tipc_tlv_sprintf(msg->rep, "\n");
-+
-+	return 0;
-+}
-+
- static int tipc_nl_compat_handle(struct tipc_nl_compat_msg *msg)
+ 	err = tipc_socket_init();
+ 	if (err)
+ 		goto out_socket;
+@@ -136,6 +140,8 @@ out_pernet:
+ out_sysctl:
+ 	tipc_socket_stop();
+ out_socket:
++	tipc_netlink_compat_stop();
++out_netlink_compat:
+ 	tipc_netlink_stop();
+ out_netlink:
+ 	pr_err("Unable to start in single node mode\n");
+@@ -146,6 +152,7 @@ static void __exit tipc_exit(void)
  {
- 	struct tipc_nl_compat_cmd_dump dump;
-@@ -775,6 +879,12 @@ static int tipc_nl_compat_handle(struct tipc_nl_compat_msg *msg)
- 		dump.dumpit = tipc_nl_name_table_dump;
- 		dump.format = tipc_nl_compat_name_table_dump;
- 		return tipc_nl_compat_dumpit(&dump, msg);
-+	case TIPC_CMD_SHOW_PORTS:
-+		msg->rep_size = ULTRA_STRING_MAX_LEN;
-+		msg->rep_type = TIPC_TLV_ULTRA_STRING;
-+		dump.dumpit = tipc_nl_sk_dump;
-+		dump.format = tipc_nl_compat_sk_dump;
-+		return tipc_nl_compat_dumpit(&dump, msg);
- 	}
+ 	tipc_bearer_cleanup();
+ 	tipc_netlink_stop();
++	tipc_netlink_compat_stop();
+ 	tipc_socket_stop();
+ 	tipc_unregister_sysctl();
+ 	unregister_pernet_subsys(&tipc_net_ops);
+diff --git a/net/tipc/core.h b/net/tipc/core.h
+index 817b2e9..451c346 100644
+--- a/net/tipc/core.h
++++ b/net/tipc/core.h
+@@ -115,5 +115,4 @@ void tipc_unregister_sysctl(void);
+ #define tipc_register_sysctl() 0
+ #define tipc_unregister_sysctl()
+ #endif
+-
+ #endif
+diff --git a/net/tipc/link.c b/net/tipc/link.c
+index 9424912..466f28f 100644
+--- a/net/tipc/link.c
++++ b/net/tipc/link.c
+@@ -2498,7 +2498,7 @@ static int __tipc_nl_add_link(struct net *net, struct tipc_nl_msg *msg,
+ 	struct nlattr *prop;
+ 	struct tipc_net *tn = net_generic(net, tipc_net_id);
  
- 	return -EOPNOTSUPP;
-@@ -881,6 +991,7 @@ static int tipc_nl_compat_tmp_wrap(struct sk_buff *skb, struct genl_info *info)
- 	case TIPC_CMD_SET_LINK_WINDOW:
- 	case TIPC_CMD_RESET_LINK_STATS:
- 	case TIPC_CMD_SHOW_NAME_TABLE:
-+	case TIPC_CMD_SHOW_PORTS:
- 		return tipc_nl_compat_recv(skb, info);
- 	}
+-	hdr = genlmsg_put(msg->skb, msg->portid, msg->seq, &tipc_genl_v2_family,
++	hdr = genlmsg_put(msg->skb, msg->portid, msg->seq, &tipc_genl_family,
+ 			  NLM_F_MULTI, TIPC_NL_LINK_GET);
+ 	if (!hdr)
+ 		return -EMSGSIZE;
+diff --git a/net/tipc/name_table.c b/net/tipc/name_table.c
+index 18a3d44..2251912 100644
+--- a/net/tipc/name_table.c
++++ b/net/tipc/name_table.c
+@@ -1055,7 +1055,7 @@ static int __tipc_nl_add_nametable_publ(struct tipc_nl_msg *msg,
+ 		*last_publ = p->key;
  
+ 		hdr = genlmsg_put(msg->skb, msg->portid, msg->seq,
+-				  &tipc_genl_v2_family, NLM_F_MULTI,
++				  &tipc_genl_family, NLM_F_MULTI,
+ 				  TIPC_NL_NAME_TABLE_GET);
+ 		if (!hdr)
+ 			return -EMSGSIZE;
+diff --git a/net/tipc/net.c b/net/tipc/net.c
+index 263267e..8b0fb09 100644
+--- a/net/tipc/net.c
++++ b/net/tipc/net.c
+@@ -156,7 +156,7 @@ static int __tipc_nl_add_net(struct net *net, struct tipc_nl_msg *msg)
+ 	void *hdr;
+ 	struct nlattr *attrs;
+ 
+-	hdr = genlmsg_put(msg->skb, msg->portid, msg->seq, &tipc_genl_v2_family,
++	hdr = genlmsg_put(msg->skb, msg->portid, msg->seq, &tipc_genl_family,
+ 			  NLM_F_MULTI, TIPC_NL_NET_GET);
+ 	if (!hdr)
+ 		return -EMSGSIZE;
+diff --git a/net/tipc/netlink.c b/net/tipc/netlink.c
+index fe0f513..7f6475e 100644
+--- a/net/tipc/netlink.c
++++ b/net/tipc/netlink.c
+@@ -35,7 +35,6 @@
+  */
+ 
+ #include "core.h"
+-#include "config.h"
+ #include "socket.h"
+ #include "name_table.h"
+ #include "bearer.h"
+@@ -44,39 +43,6 @@
+ #include "net.h"
+ #include <net/genetlink.h>
+ 
+-static int handle_cmd(struct sk_buff *skb, struct genl_info *info)
+-{
+-	struct net *net = genl_info_net(info);
+-	struct sk_buff *rep_buf;
+-	struct nlmsghdr *rep_nlh;
+-	struct nlmsghdr *req_nlh = info->nlhdr;
+-	struct tipc_genlmsghdr *req_userhdr = info->userhdr;
+-	int hdr_space = nlmsg_total_size(GENL_HDRLEN + TIPC_GENL_HDRLEN);
+-	u16 cmd;
+-
+-	if ((req_userhdr->cmd & 0xC000) &&
+-	    (!netlink_net_capable(skb, CAP_NET_ADMIN)))
+-		cmd = TIPC_CMD_NOT_NET_ADMIN;
+-	else
+-		cmd = req_userhdr->cmd;
+-
+-	rep_buf = tipc_cfg_do_cmd(net, req_userhdr->dest, cmd,
+-				  nlmsg_data(req_nlh) + GENL_HDRLEN +
+-				  TIPC_GENL_HDRLEN,
+-				  nlmsg_attrlen(req_nlh, GENL_HDRLEN +
+-				  TIPC_GENL_HDRLEN), hdr_space);
+-
+-	if (rep_buf) {
+-		skb_push(rep_buf, hdr_space);
+-		rep_nlh = nlmsg_hdr(rep_buf);
+-		memcpy(rep_nlh, req_nlh, hdr_space);
+-		rep_nlh->nlmsg_len = rep_buf->len;
+-		genlmsg_unicast(net, rep_buf, NETLINK_CB(skb).portid);
+-	}
+-
+-	return 0;
+-}
+-
+ static const struct nla_policy tipc_nl_policy[TIPC_NLA_MAX + 1] = {
+ 	[TIPC_NLA_UNSPEC]	= { .type = NLA_UNSPEC, },
+ 	[TIPC_NLA_BEARER]	= { .type = NLA_NESTED, },
+@@ -89,28 +55,10 @@ static const struct nla_policy tipc_nl_policy[TIPC_NLA_MAX + 1] = {
+ 	[TIPC_NLA_NAME_TABLE]	= { .type = NLA_NESTED, }
+ };
+ 
+-/* Legacy ASCII API */
+-static struct genl_family tipc_genl_family = {
+-	.id		= GENL_ID_GENERATE,
+-	.name		= TIPC_GENL_NAME,
+-	.version	= TIPC_GENL_VERSION,
+-	.hdrsize	= TIPC_GENL_HDRLEN,
+-	.maxattr	= 0,
+-	.netnsok	= true,
+-};
+-
+-/* Legacy ASCII API */
+-static struct genl_ops tipc_genl_ops[] = {
+-	{
+-		.cmd		= TIPC_GENL_CMD,
+-		.doit		= handle_cmd,
+-	},
+-};
+-
+ /* Users of the legacy API (tipc-config) can't handle that we add operations,
+  * so we have a separate genl handling for the new API.
+  */
+-struct genl_family tipc_genl_v2_family = {
++struct genl_family tipc_genl_family = {
+ 	.id		= GENL_ID_GENERATE,
+ 	.name		= TIPC_GENL_V2_NAME,
+ 	.version	= TIPC_GENL_V2_VERSION,
+@@ -202,9 +150,9 @@ static const struct genl_ops tipc_genl_v2_ops[] = {
+ 
+ int tipc_nlmsg_parse(const struct nlmsghdr *nlh, struct nlattr ***attr)
+ {
+-	u32 maxattr = tipc_genl_v2_family.maxattr;
++	u32 maxattr = tipc_genl_family.maxattr;
+ 
+-	*attr = tipc_genl_v2_family.attrbuf;
++	*attr = tipc_genl_family.attrbuf;
+ 	if (!*attr)
+ 		return -EOPNOTSUPP;
+ 
+@@ -215,13 +163,7 @@ int tipc_netlink_start(void)
+ {
+ 	int res;
+ 
+-	res = genl_register_family_with_ops(&tipc_genl_family, tipc_genl_ops);
+-	if (res) {
+-		pr_err("Failed to register legacy interface\n");
+-		return res;
+-	}
+-
+-	res = genl_register_family_with_ops(&tipc_genl_v2_family,
++	res = genl_register_family_with_ops(&tipc_genl_family,
+ 					    tipc_genl_v2_ops);
+ 	if (res) {
+ 		pr_err("Failed to register netlink interface\n");
+@@ -233,5 +175,4 @@ int tipc_netlink_start(void)
+ void tipc_netlink_stop(void)
+ {
+ 	genl_unregister_family(&tipc_genl_family);
+-	genl_unregister_family(&tipc_genl_v2_family);
+ }
+diff --git a/net/tipc/netlink.h b/net/tipc/netlink.h
+index ae2f2d9..08a1db6 100644
+--- a/net/tipc/netlink.h
++++ b/net/tipc/netlink.h
+@@ -36,7 +36,7 @@
+ #ifndef _TIPC_NETLINK_H
+ #define _TIPC_NETLINK_H
+ 
+-extern struct genl_family tipc_genl_v2_family;
++extern struct genl_family tipc_genl_family;
+ int tipc_nlmsg_parse(const struct nlmsghdr *nlh, struct nlattr ***buf);
+ 
+ struct tipc_nl_msg {
+@@ -46,6 +46,8 @@ struct tipc_nl_msg {
+ };
+ 
+ int tipc_netlink_start(void);
++int tipc_netlink_compat_start(void);
+ void tipc_netlink_stop(void);
++void tipc_netlink_compat_stop(void);
+ 
+ #endif
+diff --git a/net/tipc/netlink_compat.c b/net/tipc/netlink_compat.c
+new file mode 100644
+index 0000000..f752854
+--- /dev/null
++++ b/net/tipc/netlink_compat.c
+@@ -0,0 +1,105 @@
++/*
++ * Copyright (c) 2014, Ericsson AB
++ * All rights reserved.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions are met:
++ *
++ * 1. Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ * 2. Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in the
++ *    documentation and/or other materials provided with the distribution.
++ * 3. Neither the names of the copyright holders nor the names of its
++ *    contributors may be used to endorse or promote products derived from
++ *    this software without specific prior written permission.
++ *
++ * Alternatively, this software may be distributed under the terms of the
++ * GNU General Public License ("GPL") version 2 as published by the Free
++ * Software Foundation.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
++ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
++ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
++ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
++ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
++ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
++ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
++ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
++ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
++ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
++ * POSSIBILITY OF SUCH DAMAGE.
++ */
++
++#include "core.h"
++#include "config.h"
++#include <net/genetlink.h>
++#include <linux/tipc_config.h>
++
++static int handle_cmd(struct sk_buff *skb, struct genl_info *info)
++{
++	struct net *net = genl_info_net(info);
++	struct sk_buff *rep_buf;
++	struct nlmsghdr *rep_nlh;
++	struct nlmsghdr *req_nlh = info->nlhdr;
++	struct tipc_genlmsghdr *req_userhdr = info->userhdr;
++	int hdr_space = nlmsg_total_size(GENL_HDRLEN + TIPC_GENL_HDRLEN);
++	u16 cmd;
++
++	if ((req_userhdr->cmd & 0xC000) &&
++	    (!netlink_net_capable(skb, CAP_NET_ADMIN)))
++		cmd = TIPC_CMD_NOT_NET_ADMIN;
++	else
++		cmd = req_userhdr->cmd;
++
++	rep_buf = tipc_cfg_do_cmd(net, req_userhdr->dest, cmd,
++				  nlmsg_data(req_nlh) + GENL_HDRLEN +
++				  TIPC_GENL_HDRLEN,
++				  nlmsg_attrlen(req_nlh, GENL_HDRLEN +
++				  TIPC_GENL_HDRLEN), hdr_space);
++
++	if (rep_buf) {
++		skb_push(rep_buf, hdr_space);
++		rep_nlh = nlmsg_hdr(rep_buf);
++		memcpy(rep_nlh, req_nlh, hdr_space);
++		rep_nlh->nlmsg_len = rep_buf->len;
++		genlmsg_unicast(net, rep_buf, NETLINK_CB(skb).portid);
++	}
++
++	return 0;
++}
++
++static struct genl_family tipc_genl_compat_family = {
++	.id		= GENL_ID_GENERATE,
++	.name		= TIPC_GENL_NAME,
++	.version	= TIPC_GENL_VERSION,
++	.hdrsize	= TIPC_GENL_HDRLEN,
++	.maxattr	= 0,
++	.netnsok	= true,
++};
++
++static struct genl_ops tipc_genl_compat_ops[] = {
++	{
++		.cmd		= TIPC_GENL_CMD,
++		.doit		= handle_cmd,
++	},
++};
++
++int tipc_netlink_compat_start(void)
++{
++	int res;
++
++	res = genl_register_family_with_ops(&tipc_genl_compat_family,
++					    tipc_genl_compat_ops);
++	if (res) {
++		pr_err("Failed to register legacy compat interface\n");
++		return res;
++	}
++
++	return 0;
++}
++
++void tipc_netlink_compat_stop(void)
++{
++	genl_unregister_family(&tipc_genl_compat_family);
++}
+diff --git a/net/tipc/node.c b/net/tipc/node.c
+index 5230849..995618d 100644
+--- a/net/tipc/node.c
++++ b/net/tipc/node.c
+@@ -623,7 +623,7 @@ static int __tipc_nl_add_node(struct tipc_nl_msg *msg, struct tipc_node *node)
+ 	void *hdr;
+ 	struct nlattr *attrs;
+ 
+-	hdr = genlmsg_put(msg->skb, msg->portid, msg->seq, &tipc_genl_v2_family,
++	hdr = genlmsg_put(msg->skb, msg->portid, msg->seq, &tipc_genl_family,
+ 			  NLM_F_MULTI, TIPC_NL_NODE_GET);
+ 	if (!hdr)
+ 		return -EMSGSIZE;
 diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index d76c171..e77d738 100644
+index 4a98d15..d76c171 100644
 --- a/net/tipc/socket.c
 +++ b/net/tipc/socket.c
-@@ -2281,91 +2281,6 @@ static int tipc_sk_withdraw(struct tipc_sock *tsk, uint scope,
- 	return rc;
- }
+@@ -2783,7 +2783,7 @@ static int __tipc_nl_add_sk(struct sk_buff *skb, struct netlink_callback *cb,
+ 	struct tipc_net *tn = net_generic(net, tipc_net_id);
  
--static int tipc_sk_show(struct tipc_sock *tsk, char *buf,
--			int len, int full_id)
--{
--	struct net *net = sock_net(&tsk->sk);
--	struct tipc_net *tn = net_generic(net, tipc_net_id);
--	struct publication *publ;
--	int ret;
--
--	if (full_id)
--		ret = tipc_snprintf(buf, len, "<%u.%u.%u:%u>:",
--				    tipc_zone(tn->own_addr),
--				    tipc_cluster(tn->own_addr),
--				    tipc_node(tn->own_addr), tsk->portid);
--	else
--		ret = tipc_snprintf(buf, len, "%-10u:", tsk->portid);
--
--	if (tsk->connected) {
--		u32 dport = tsk_peer_port(tsk);
--		u32 destnode = tsk_peer_node(tsk);
--
--		ret += tipc_snprintf(buf + ret, len - ret,
--				     " connected to <%u.%u.%u:%u>",
--				     tipc_zone(destnode),
--				     tipc_cluster(destnode),
--				     tipc_node(destnode), dport);
--		if (tsk->conn_type != 0)
--			ret += tipc_snprintf(buf + ret, len - ret,
--					     " via {%u,%u}", tsk->conn_type,
--					     tsk->conn_instance);
--	} else if (tsk->published) {
--		ret += tipc_snprintf(buf + ret, len - ret, " bound to");
--		list_for_each_entry(publ, &tsk->publications, pport_list) {
--			if (publ->lower == publ->upper)
--				ret += tipc_snprintf(buf + ret, len - ret,
--						     " {%u,%u}", publ->type,
--						     publ->lower);
--			else
--				ret += tipc_snprintf(buf + ret, len - ret,
--						     " {%u,%u,%u}", publ->type,
--						     publ->lower, publ->upper);
--		}
--	}
--	ret += tipc_snprintf(buf + ret, len - ret, "\n");
--	return ret;
--}
--
--struct sk_buff *tipc_sk_socks_show(struct net *net)
--{
--	struct tipc_net *tn = net_generic(net, tipc_net_id);
--	const struct bucket_table *tbl;
--	struct rhash_head *pos;
--	struct sk_buff *buf;
--	struct tlv_desc *rep_tlv;
--	char *pb;
--	int pb_len;
--	struct tipc_sock *tsk;
--	int str_len = 0;
--	int i;
--
--	buf = tipc_cfg_reply_alloc(TLV_SPACE(ULTRA_STRING_MAX_LEN));
--	if (!buf)
--		return NULL;
--	rep_tlv = (struct tlv_desc *)buf->data;
--	pb = TLV_DATA(rep_tlv);
--	pb_len = ULTRA_STRING_MAX_LEN;
--
--	rcu_read_lock();
--	tbl = rht_dereference_rcu((&tn->sk_rht)->tbl, &tn->sk_rht);
--	for (i = 0; i < tbl->size; i++) {
--		rht_for_each_entry_rcu(tsk, pos, tbl, i, node) {
--			spin_lock_bh(&tsk->sk.sk_lock.slock);
--			str_len += tipc_sk_show(tsk, pb + str_len,
--						pb_len - str_len, 0);
--			spin_unlock_bh(&tsk->sk.sk_lock.slock);
--		}
--	}
--	rcu_read_unlock();
--
--	str_len += 1;	/* for "\0" */
--	skb_put(buf, TLV_SPACE(str_len));
--	TLV_SET(rep_tlv, TIPC_TLV_ULTRA_STRING, NULL, str_len);
--
--	return buf;
--}
--
- /* tipc_sk_reinit: set non-zero address in all existing sockets
-  *                 when we go from standalone to network mode.
-  */
-diff --git a/net/tipc/socket.h b/net/tipc/socket.h
-index 8be0da7..238f1b7 100644
---- a/net/tipc/socket.h
-+++ b/net/tipc/socket.h
-@@ -49,7 +49,6 @@ void tipc_sock_release_local(struct socket *sock);
- int tipc_sock_accept_local(struct socket *sock, struct socket **newsock,
- 			   int flags);
- int tipc_sk_rcv(struct net *net, struct sk_buff_head *inputq);
--struct sk_buff *tipc_sk_socks_show(struct net *net);
- void tipc_sk_mcast_rcv(struct net *net, struct sk_buff_head *arrvq,
- 		       struct sk_buff_head *inputq);
- void tipc_sk_reinit(struct net *net);
+ 	hdr = genlmsg_put(skb, NETLINK_CB(cb->skb).portid, cb->nlh->nlmsg_seq,
+-			  &tipc_genl_v2_family, NLM_F_MULTI, TIPC_NL_SOCK_GET);
++			  &tipc_genl_family, NLM_F_MULTI, TIPC_NL_SOCK_GET);
+ 	if (!hdr)
+ 		goto msg_cancel;
+ 
+@@ -2864,7 +2864,7 @@ static int __tipc_nl_add_sk_publ(struct sk_buff *skb,
+ 	struct nlattr *attrs;
+ 
+ 	hdr = genlmsg_put(skb, NETLINK_CB(cb->skb).portid, cb->nlh->nlmsg_seq,
+-			  &tipc_genl_v2_family, NLM_F_MULTI, TIPC_NL_PUBL_GET);
++			  &tipc_genl_family, NLM_F_MULTI, TIPC_NL_PUBL_GET);
+ 	if (!hdr)
+ 		goto msg_cancel;
+ 
 -- 
 2.1.4
 
