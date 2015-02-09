@@ -1,33 +1,76 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: linux-next: build failure after merge of the net-next tree
-Date: Sun, 08 Feb 2015 21:52:46 -0800 (PST)
-Message-ID: <20150208.215246.2043422740922842311.davem@davemloft.net>
-References: <20150209140745.24859389@canb.auug.org.au>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: [ANNOUNCE] ipvsadm release v1.28
+Date: Mon, 9 Feb 2015 18:55:02 +1300
+Message-ID: <20150209185502.693488a1@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, herbert@gondor.apana.org.au
-To: sfr@canb.auug.org.au
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20150209140745.24859389@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
+Cc: brouer@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, "Ryan O'Hara" <rohara@redhat.com>,
+	Julian Anastasov <ja@ssi.bg>, overcastsky.zhao@gmail.com,
+	formorer@debian.org, mt@suse.de, logan@ubuntu.com,
+	support@remsnet.de, Daniel Borkmann <dborkman@redhat.com>,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Simon Horman <horms@verge.net.au>,
+	Alex Gartrell <agartrell@fb.com>
+To: lvs-devel@vger.kernel.org, lvs-users@linuxvirtualserver.org
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Mon, 9 Feb 2015 14:07:45 +1100
 
-> diff --git a/lib/rhashtable.c b/lib/rhashtable.c
-> index e96fc00208bc..9cc4c4a90d00 100644
-> --- a/lib/rhashtable.c
-> +++ b/lib/rhashtable.c
-> @@ -23,6 +23,7 @@
->  #include <linux/jhash.h>
->  #include <linux/random.h>
->  #include <linux/rhashtable.h>
-> +#include <linux/err.h>
->  
->  #define HASH_DEFAULT_SIZE	64UL
->  #define HASH_MIN_SIZE		4UL
+We are happy to announce the release of ipvsadm v1.28.
 
-Applied, thanks Stephen.
+ ipvsadm is a utility to administer the kernels IPVS/LVS load-balancer service
+
+It has been quite a while since the previous release, v1.27. A number of
+fixes and improvements have been made; most noticeably in the area of IPv6.
+
+One big addition is the support for heterogeneous pools (v4 and v6
+mixed pools in 3.18), by Alex Gartrell (facebook).
+
+Feature wise the SCTP protocol has been added which is available via the
+cmdline parameter "--sctp-service". The kernel has supported SCTP since
+kernel 2.6.34 but up until now ipvsadm users have been restricted to using
+fwmark-based virtual services for SCTP.
+
+This release is based on the kernel.org git tree:
+  https://git.kernel.org/cgit/utils/kernel/ipvsadm/ipvsadm.git/
+
+You can download the tarballs from:
+ https://kernel.org/pub/linux/utils/kernel/ipvsadm/
+
+Git tree:
+ git://git.kernel.org/pub/scm/utils/kernel/ipvsadm/ipvsadm.git
+
+Shortlog:
+ Alex Gartrell (2):
+      ipvsadm: specify real server address family to netlink socket
+      ipvsadm: do not truncate ipv6 members of v4 services
+
+ Daniel Borkmann (2):
+      ipvsadm: fix compile warning in print_largenum
+      ipvsadm: fix compile warning in modprobe_ipvs
+
+ Hibari Michiro (1):
+      ipvsadm: enable displaying of IPv6 hostnames in listing
+
+ Jesper Dangaard Brouer (1):
+      Release: Version 1.28
+
+ Julian Anastasov (3):
+      ipvsadm: restrict different address family
+      ipvsadm: allow different address family in connection listing
+      ipvsadm: add SCTP support
+
+ Ryan O'Hara (2):
+      libipvs: Initialize ipvs_service_t variable
+      ipvsadm: Fix list daemon to show backup daemon
+
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Sr. Network Kernel Developer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
