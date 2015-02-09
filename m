@@ -1,39 +1,50 @@
-From: Stephan Mueller <smueller@chronox.de>
-Subject: Re: [PATCH v3 12/18] crypto: switch af_alg_make_sg() to iov_iter
-Date: Mon, 09 Feb 2015 14:59:40 +0100
-Message-ID: <1830853.QH0ahQU9zL@tachyon.chronox.de>
-References: <20150204063730.GG29656@ZenIV.linux.org.uk> <1423032009-18367-12-git-send-email-viro@ZenIV.linux.org.uk>
+From: Kristian Evensen <kristian.evensen@gmail.com>
+Subject: Re: [PATCH] net: qmi_wwan: MC73xx interface 10 is not QMI
+Date: Mon, 9 Feb 2015 15:30:02 +0100
+Message-ID: <CAKfDRXjhN7q98PKeddgoHhx8rFx+bf8YweTE62AbCfbi7v8E3w@mail.gmail.com>
+References: <1423477027-10869-1-git-send-email-kristian.evensen@gmail.com>
+	<87a90nqp45.fsf@nemi.mork.no>
+	<CAKfDRXhW-izhes0qq2qJA0ojm37Eg=dybYSdzo8u-VzhT15EGw@mail.gmail.com>
+	<CAKfDRXjwsQRA+CxaUpZVoDW3TmrUd6edSf_gi1EkPMcTFv0F5A@mail.gmail.com>
+	<8761bbqker.fsf@nemi.mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-crypto@vger.kernel.org
-To: Al Viro <viro@zeniv.linux.org.uk>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-In-Reply-To: <1423032009-18367-12-git-send-email-viro@ZenIV.linux.org.uk>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Network Development <netdev@vger.kernel.org>,
+	Aleksander Morgado <aleksander@aleksander.es>
+To: =?UTF-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yh0-f46.google.com ([209.85.213.46]:46723 "EHLO
+	mail-yh0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932375AbbBIOaD convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Feb 2015 09:30:03 -0500
+Received: by mail-yh0-f46.google.com with SMTP id z6so1529948yhz.5
+        for <netdev@vger.kernel.org>; Mon, 09 Feb 2015 06:30:02 -0800 (PST)
+In-Reply-To: <8761bbqker.fsf@nemi.mork.no>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Am Mittwoch, 4. Februar 2015, 06:40:03 schrieb Al Viro:
+On Mon, Feb 9, 2015 at 2:33 PM, Bj=C3=B8rn Mork <bjorn@mork.no> wrote:
+> That is pretty old relative to this hardware. First commercial releas=
+e?
+> I don't really want to push you to do an upgrade, but it would sure b=
+e
+> nice to have this test repeated on a recent firmware version.  Not th=
+at
+> I can spot anything particularily promising in the release notes.
 
-Hi Al,
+I updated firmware now, but still see the same behavior.
 
-> From: Al Viro <viro@zeniv.linux.org.uk>
-> 
-> With that, all ->sendmsg() instances are converted to iov_iter primitives
-> and are agnostic wrt the kind of iov_iter they are working with.
-> So's the last remaining ->recvmsg() instance that wasn't kind-agnostic yet.
-> All ->sendmsg() and ->recvmsg() advance ->msg_iter by the amount actually
-> copied and none of them modifies the underlying iovec, etc.
+> I did find our previous discussions about these two RMNET1 and RMNET2
+> functions, e.g:
+> http://lists.freedesktop.org/archives/libqmi-devel/2014-July/000875.h=
+tml
+> and it seems to indicate that both work as long as you configure them
+> for 802.3 framing. But that could just be an information feedback
+> loop...
 
-After testing this patch with the test application by simply executing 
-[1]/test/test.sh, the hash and skcipher interface invocation hang in kernel 
-space. Though, I am not sure where the problem is.
+That is correct. In order for this device to accept network traffic
+(or driver to accept packets from device), I have to set the transfer
+mode to 802.3.
 
-For individual invocations of the tests, you may look into [1]/test/kcapi-
-main.c in the comments above cavs_sym or cavs_hash.
-
-[1] http://www.chronox.de/libkcapi.html
--- 
-Ciao
-Stephan
+-Kristian
