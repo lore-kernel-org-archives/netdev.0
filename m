@@ -1,52 +1,69 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [GIT PULL nf] IPVS Fixes for v3.20
-Date: Tue, 10 Feb 2015 14:44:32 +0900
-Message-ID: <20150210054432.GC10139@verge.net.au>
-References: <1423459508-15517-1-git-send-email-horms@verge.net.au>
- <20150210053141.GA3248@salvia>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH v3 linux-trace 4/8] samples: bpf: simple tracing example
+ in C
+Date: Mon, 9 Feb 2015 21:45:21 -0800
+Message-ID: <CAMEtUuzon5LfG7PS9YmuW+0GzYMKehz1Ddk+6tXogZOZYdpb3g@mail.gmail.com>
+References: <1423539961-21792-1-git-send-email-ast@plumgrid.com>
+ <1423539961-21792-5-git-send-email-ast@plumgrid.com> <20150209230836.7f913c60@grimm.local.home>
+ <20150210001608.157a9190@grimm.local.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:47639 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750801AbbBJFog (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Feb 2015 00:44:36 -0500
-Content-Disposition: inline
-In-Reply-To: <20150210053141.GA3248@salvia>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Ingo Molnar <mingo@kernel.org>, Namhyung Kim <namhyung@kernel.org>,
+	Arnaldo Carvalho de Melo <acme@infradead.org>,
+	Jiri Olsa <jolsa@redhat.com>,
+	Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>,
+	Linux API <linux-api@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Steven Rostedt <rostedt@goodmis.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150210001608.157a9190@grimm.local.home>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Feb 10, 2015 at 06:31:41AM +0100, Pablo Neira Ayuso wrote:
-> On Mon, Feb 09, 2015 at 02:25:07PM +0900, Simon Horman wrote:
-> > Hi Pablo,
-> > 
-> > please consider this fix for v3.20
-> > 
-> > This patch prevents the kernel getting into a situation whereby a
-> > real-server may not be removed from a heterogeneous IPVS virtual server.
-> > 
-> > This problem was introduced by  bc18d37f676f ("ipvs: Allow heterogeneous
-> > pools now that we support them") in v3.18. This patch seems appropriate
-> > for stable and I have checked that it applies cleanly to both v3.19 and
-> > v3.18.6.
-> > 
-> > 
-> > The following changes since commit 42b5212fee4f57907e9415b18fe19c13e65574bc:
-> > 
-> >   xen-netback: stop the guest rx thread after a fatal error (2015-02-02 19:39:04 -0800)
-> > 
-> > are available in the git repository at:
-> > 
-> >   https://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs.git tags/ipvs-fixes-for-v3.20
-> 
-> Pulled, thanks Simon.
+On Mon, Feb 9, 2015 at 9:16 PM, Steven Rostedt <rostedt@goodmis.org> wrote:
+> On Mon, 9 Feb 2015 23:08:36 -0500
+> Steven Rostedt <rostedt@goodmis.org> wrote:
+>
+>> I don't want to get stuck with pinned kernel data structures again. We
+>> had 4 blank bytes of data for every event, because latency top hard
+>> coded the field. Luckily, the 64 bit / 32 bit interface caused latency
+>> top to have to use the event_parse code to work, and we were able to
+>> remove that field after it was converted.
 
-Thanks Pablo.
+I think your main point boils down to:
 
-I have an unrelated feature patch for v3.20 queued up.
-I'll send a pull request for that shortly.
+> But I still do not want any hard coded event structures. All access to
+> data from the binary code must be parsed by looking at the event/format
+> files. Otherwise you will lock internals of the kernel as userspace
+> ABI, because eBPF programs will break if those internals change, and
+> that could severely limit progress in the future.
+
+and I completely agree.
+
+the patch 4 is an example. It doesn't mean in any way
+that structs defined here is an ABI.
+To be compatible across kernels the user space must read
+format file as you mentioned in your other reply.
+
+> I'm wondering if we should label eBPF programs as "modules". That is,
+> they have no guarantee of working from one kernel to the next. They
+> execute in the kernel, thus they are very similar to modules.
+>
+> If we can get Linus to say that eBPF programs are not user space, and
+> that they are treated the same as modules (no internal ABI), then I
+> think we can be a bit more free at what we allow.
+
+I thought we already stated that.
+Here is the quote from perf_event.h:
+         *      # The RAW record below is opaque data wrt the ABI
+         *      #
+         *      # That is, the ABI doesn't make any promises wrt to
+         *      # the stability of its content, it may vary depending
+         *      # on event, hardware, kernel version and phase of
+         *      # the moon.
+         *      #
+         *      # In other words, PERF_SAMPLE_RAW contents are not an ABI.
+
+and this example is reading PERF_SAMPLE_RAW events and
+uses locally defined structs to print them for simplicity.
