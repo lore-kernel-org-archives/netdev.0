@@ -1,95 +1,103 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: [PATCH v3 linux-trace 6/8] samples: bpf: IO latency analysis (iosnoop/heatmap)
-Date: Mon,  9 Feb 2015 19:45:59 -0800
-Message-ID: <1423539961-21792-7-git-send-email-ast@plumgrid.com>
+From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Subject: [PATCH v3 linux-trace 5/8] samples: bpf: counting example for kfree_skb tracepoint and write syscall
+Date: Mon,  9 Feb 2015 19:45:58 -0800
+Message-ID: <1423539961-21792-6-git-send-email-ast@plumgrid.com>
 References: <1423539961-21792-1-git-send-email-ast@plumgrid.com>
-Cc: Ingo Molnar <mingo@kernel.org>, Namhyung Kim <namhyung@kernel.org>,
-	Arnaldo Carvalho de Melo <acme@infradead.org>,
-	Jiri Olsa <jolsa@redhat.com>,
-	Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>,
-	linux-api@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Steven Rostedt <rostedt@goodmis.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1423539961-21792-1-git-send-email-ast@plumgrid.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Namhyung Kim <namhyung-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Arnaldo Carvalho de Melo <acme-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	Jiri Olsa <jolsa-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Masami Hiramatsu <masami.hiramatsu.pt-FCd8Q96Dh0JBDgjK7y7TUQ@public.gmane.org>,
+	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1423539961-21792-1-git-send-email-ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-eBPF C program attaches to block_rq_issue/block_rq_complete events to calculate
-IO latency. Then it waits for the first 100 events to compute average latency
-and uses range [0 .. ave_lat * 2] to record histogram of events in this latency
-range.
-User space reads this histogram map every 2 seconds and prints it as a 'heatmap'
-using gray shades of text terminal. Black spaces have many events and white
-spaces have very few events. Left most space is the smallest latency, right most
-space is the largest latency in the range.
-If kernel sees too many events that fall out of histogram range, user space
-adjusts the range up, so heatmap for next 2 seconds will be more accurate.
+this example has two probes in one C file that attach to different tracepoints
+and use two different maps.
+
+1st probe is the similar to dropmon.c. It attaches to kfree_skb tracepoint and
+count number of packet drops at different locations
+
+2nd probe attaches to syscalls/sys_enter_write and computes a histogram of different
+write sizes
 
 Usage:
-$ sudo ./tracex3
-and do 'sudo dd if=/dev/sda of=/dev/null' in other terminal.
-Observe IO latencies and how different activity (like 'make kernel') affects it.
+$ sudo tracex2
+location 0xffffffff816959a5 count 1
 
-Similar experiments can be done for network transmit latencies, syscalls, etc
+location 0xffffffff816959a5 count 2
 
-Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+557145+0 records in
+557145+0 records out
+285258240 bytes (285 MB) copied, 1.02379 s, 279 MB/s
+           syscall write() stats
+     byte_size       : count     distribution
+       1 -> 1        : 3        |                                      |
+       2 -> 3        : 0        |                                      |
+       4 -> 7        : 0        |                                      |
+       8 -> 15       : 0        |                                      |
+      16 -> 31       : 2        |                                      |
+      32 -> 63       : 3        |                                      |
+      64 -> 127      : 1        |                                      |
+     128 -> 255      : 1        |                                      |
+     256 -> 511      : 0        |                                      |
+     512 -> 1023     : 1118968  |************************************* |
+
+Ctrl-C at any time. Kernel will auto cleanup maps and programs
+
+Signed-off-by: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
 ---
  samples/bpf/Makefile       |    4 ++
- samples/bpf/tracex3_kern.c |   98 ++++++++++++++++++++++++++++
- samples/bpf/tracex3_user.c |  152 ++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 254 insertions(+)
- create mode 100644 samples/bpf/tracex3_kern.c
- create mode 100644 samples/bpf/tracex3_user.c
+ samples/bpf/tracex2_kern.c |   71 +++++++++++++++++++++++++++++++++
+ samples/bpf/tracex2_user.c |   95 ++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 170 insertions(+)
+ create mode 100644 samples/bpf/tracex2_kern.c
+ create mode 100644 samples/bpf/tracex2_user.c
 
 diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
-index 416af24b01fd..da0efd8032ab 100644
+index da28e1b6d3a6..416af24b01fd 100644
 --- a/samples/bpf/Makefile
 +++ b/samples/bpf/Makefile
-@@ -9,6 +9,7 @@ hostprogs-y += sockex2
+@@ -8,6 +8,7 @@ hostprogs-y += sockex1
+ hostprogs-y += sockex2
  hostprogs-y += dropmon
  hostprogs-y += tracex1
- hostprogs-y += tracex2
-+hostprogs-y += tracex3
++hostprogs-y += tracex2
  
  dropmon-objs := dropmon.o libbpf.o
  test_verifier-objs := test_verifier.o libbpf.o
-@@ -18,6 +19,7 @@ sockex1-objs := bpf_load.o libbpf.o sockex1_user.o
+@@ -16,12 +17,14 @@ sock_example-objs := sock_example.o libbpf.o
+ sockex1-objs := bpf_load.o libbpf.o sockex1_user.o
  sockex2-objs := bpf_load.o libbpf.o sockex2_user.o
  tracex1-objs := bpf_load.o libbpf.o tracex1_user.o
- tracex2-objs := bpf_load.o libbpf.o tracex2_user.o
-+tracex3-objs := bpf_load.o libbpf.o tracex3_user.o
++tracex2-objs := bpf_load.o libbpf.o tracex2_user.o
  
  # Tell kbuild to always build the programs
  always := $(hostprogs-y)
-@@ -25,6 +27,7 @@ always += sockex1_kern.o
+ always += sockex1_kern.o
  always += sockex2_kern.o
  always += tracex1_kern.o
- always += tracex2_kern.o
-+always += tracex3_kern.o
++always += tracex2_kern.o
  
  HOSTCFLAGS += -I$(objtree)/usr/include
  
-@@ -33,6 +36,7 @@ HOSTLOADLIBES_sockex1 += -lelf
+@@ -29,6 +32,7 @@ HOSTCFLAGS_bpf_load.o += -I$(objtree)/usr/include -Wno-unused-variable
+ HOSTLOADLIBES_sockex1 += -lelf
  HOSTLOADLIBES_sockex2 += -lelf
  HOSTLOADLIBES_tracex1 += -lelf
- HOSTLOADLIBES_tracex2 += -lelf
-+HOSTLOADLIBES_tracex3 += -lelf
++HOSTLOADLIBES_tracex2 += -lelf
  
  # point this to your LLVM backend with bpf support
  LLC=$(srctree)/tools/bpf/llvm/bld/Debug+Asserts/bin/llc
-diff --git a/samples/bpf/tracex3_kern.c b/samples/bpf/tracex3_kern.c
+diff --git a/samples/bpf/tracex2_kern.c b/samples/bpf/tracex2_kern.c
 new file mode 100644
-index 000000000000..961f3f373270
+index 000000000000..a789c456c1b4
 --- /dev/null
-+++ b/samples/bpf/tracex3_kern.c
-@@ -0,0 +1,98 @@
-+/* Copyright (c) 2013-2015 PLUMgrid, http://plumgrid.com
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of version 2 of the GNU General Public
-+ * License as published by the Free Software Foundation.
-+ */
++++ b/samples/bpf/tracex2_kern.c
+@@ -0,0 +1,71 @@
 +#include <linux/skbuff.h>
 +#include <linux/netdevice.h>
 +#include <uapi/linux/bpf.h>
@@ -99,244 +107,166 @@ index 000000000000..961f3f373270
 +struct bpf_map_def SEC("maps") my_map = {
 +	.type = BPF_MAP_TYPE_HASH,
 +	.key_size = sizeof(long),
-+	.value_size = sizeof(u64),
-+	.max_entries = 4096,
++	.value_size = sizeof(long),
++	.max_entries = 1024,
 +};
 +
-+SEC("events/block/block_rq_issue")
-+int bpf_prog1(struct bpf_context *ctx)
++SEC("events/skb/kfree_skb")
++int bpf_prog2(struct bpf_context *ctx)
 +{
-+	long rq = ctx->arg2;
-+	u64 val = bpf_ktime_get_ns();
++	long loc = ctx->arg2;
++	long init_val = 1;
++	long *value;
 +
-+	bpf_map_update_elem(&my_map, &rq, &val, BPF_ANY);
++	value = bpf_map_lookup_elem(&my_map, &loc);
++	if (value)
++		*value += 1;
++	else
++		bpf_map_update_elem(&my_map, &loc, &init_val, BPF_ANY);
 +	return 0;
 +}
 +
-+struct globals {
-+	u64 lat_ave;
-+	u64 lat_sum;
-+	u64 missed;
-+	u64 max_lat;
-+	int num_samples;
-+};
-+
-+struct bpf_map_def SEC("maps") global_map = {
-+	.type = BPF_MAP_TYPE_ARRAY,
-+	.key_size = sizeof(int),
-+	.value_size = sizeof(struct globals),
-+	.max_entries = 1,
-+};
-+
-+#define MAX_SLOT 32
-+
-+struct bpf_map_def SEC("maps") lat_map = {
-+	.type = BPF_MAP_TYPE_ARRAY,
-+	.key_size = sizeof(int),
-+	.value_size = sizeof(u64),
-+	.max_entries = MAX_SLOT,
-+};
-+
-+SEC("events/block/block_rq_complete")
-+int bpf_prog2(struct bpf_context *ctx)
++static unsigned int log2(unsigned int v)
 +{
-+	long rq = ctx->arg2;
-+	void *value;
++	unsigned int r;
++	unsigned int shift;
 +
-+	value = bpf_map_lookup_elem(&my_map, &rq);
-+	if (!value)
-+		return 0;
++	r = (v > 0xFFFF) << 4; v >>= r;
++	shift = (v > 0xFF) << 3; v >>= shift; r |= shift;
++	shift = (v > 0xF) << 2; v >>= shift; r |= shift;
++	shift = (v > 0x3) << 1; v >>= shift; r |= shift;
++	r |= (v >> 1);
++	return r;
++}
 +
-+	u64 cur_time = bpf_ktime_get_ns();
-+	u64 delta = (cur_time - *(u64 *)value) / 1000;
++static unsigned int log2l(unsigned long v)
++{
++	unsigned int hi = v >> 32;
++	if (hi)
++		return log2(hi) + 32;
++	else
++		return log2(v);
++}
 +
-+	bpf_map_delete_elem(&my_map, &rq);
++struct bpf_map_def SEC("maps") my_hist_map = {
++	.type = BPF_MAP_TYPE_ARRAY,
++	.key_size = sizeof(u32),
++	.value_size = sizeof(long),
++	.max_entries = 64,
++};
 +
-+	int ind = 0;
-+	struct globals *g = bpf_map_lookup_elem(&global_map, &ind);
++SEC("events/syscalls/sys_enter_write")
++int bpf_prog3(struct bpf_context *ctx)
++{
++	long write_size = ctx->arg3;
++	long init_val = 1;
++	long *value;
++	u32 index = log2l(write_size);
 +
-+	if (!g)
-+		return 0;
-+	if (g->lat_ave == 0) {
-+		g->num_samples++;
-+		g->lat_sum += delta;
-+		if (g->num_samples >= 100)
-+			g->lat_ave = g->lat_sum / g->num_samples;
-+	} else {
-+		u64 max_lat = g->lat_ave * 2;
-+
-+		if (delta > max_lat) {
-+			g->missed++;
-+			if (delta > g->max_lat)
-+				g->max_lat = delta;
-+			return 0;
-+		}
-+
-+		ind = delta * MAX_SLOT / max_lat;
-+		value = bpf_map_lookup_elem(&lat_map, &ind);
-+		if (!value)
-+			return 0;
-+		(*(u64 *)value)++;
-+	}
-+
++	value = bpf_map_lookup_elem(&my_hist_map, &index);
++	if (value)
++		__sync_fetch_and_add(value, 1);
 +	return 0;
 +}
 +char _license[] SEC("license") = "GPL";
-diff --git a/samples/bpf/tracex3_user.c b/samples/bpf/tracex3_user.c
+diff --git a/samples/bpf/tracex2_user.c b/samples/bpf/tracex2_user.c
 new file mode 100644
-index 000000000000..c49f41f28cba
+index 000000000000..91b8d0896fbb
 --- /dev/null
-+++ b/samples/bpf/tracex3_user.c
-@@ -0,0 +1,152 @@
-+/* Copyright (c) 2013-2015 PLUMgrid, http://plumgrid.com
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of version 2 of the GNU General Public
-+ * License as published by the Free Software Foundation.
-+ */
++++ b/samples/bpf/tracex2_user.c
+@@ -0,0 +1,95 @@
 +#include <stdio.h>
++#include <unistd.h>
 +#include <stdlib.h>
 +#include <signal.h>
-+#include <unistd.h>
 +#include <linux/bpf.h>
 +#include "libbpf.h"
 +#include "bpf_load.h"
 +
-+#define ARRAY_SIZE(x) (sizeof(x) / sizeof(*(x)))
++#define MAX_INDEX	64
++#define MAX_STARS	38
 +
-+struct globals {
-+	__u64 lat_ave;
-+	__u64 lat_sum;
-+	__u64 missed;
-+	__u64 max_lat;
-+	int num_samples;
-+};
-+
-+static void clear_stats(int fd)
++static void stars(char *str, long val, long max, int width)
 +{
-+	int key;
-+	__u64 value = 0;
++	int i;
 +
-+	for (key = 0; key < 32; key++)
-+		bpf_update_elem(fd, &key, &value, BPF_ANY);
-+}
-+
-+const char *color[] = {
-+	"\033[48;5;255m",
-+	"\033[48;5;252m",
-+	"\033[48;5;250m",
-+	"\033[48;5;248m",
-+	"\033[48;5;246m",
-+	"\033[48;5;244m",
-+	"\033[48;5;242m",
-+	"\033[48;5;240m",
-+	"\033[48;5;238m",
-+	"\033[48;5;236m",
-+	"\033[48;5;234m",
-+	"\033[48;5;232m",
-+};
-+const int num_colors = ARRAY_SIZE(color);
-+
-+const char nocolor[] = "\033[00m";
-+
-+static void print_banner(__u64 max_lat)
-+{
-+	printf("0 usec     ...          %lld usec\n", max_lat);
++	for (i = 0; i < (width * val / max) - 1 && i < width - 1; i++)
++		str[i] = '*';
++	if (val > max)
++		str[i - 1] = '+';
++	str[i] = '\0';
 +}
 +
 +static void print_hist(int fd)
 +{
 +	int key;
-+	__u64 value;
-+	__u64 cnt[32];
-+	__u64 max_cnt = 0;
-+	__u64 total_events = 0;
-+	int max_bucket = 0;
++	long value;
++	long data[MAX_INDEX] = {};
++	char starstr[MAX_STARS];
++	int i;
++	int max_ind = -1;
++	long max_value = 0;
 +
-+	for (key = 0; key < 32; key++) {
-+		value = 0;
++	for (key = 0; key < MAX_INDEX; key++) {
 +		bpf_lookup_elem(fd, &key, &value);
-+		if (value > 0)
-+			max_bucket = key;
-+		cnt[key] = value;
-+		total_events += value;
-+		if (value > max_cnt)
-+			max_cnt = value;
++		data[key] = value;
++		if (value && key > max_ind)
++			max_ind = key;
++		if (value > max_value)
++			max_value = value;
 +	}
-+	clear_stats(fd);
-+	for (key = 0; key < 32; key++) {
-+		int c = num_colors * cnt[key] / (max_cnt + 1);
 +
-+		printf("%s %s", color[c], nocolor);
++	printf("           syscall write() stats\n");
++	printf("     byte_size       : count     distribution\n");
++	for (i = 1; i <= max_ind + 1; i++) {
++		stars(starstr, data[i - 1], max_value, MAX_STARS);
++		printf("%8ld -> %-8ld : %-8ld |%-*s|\n",
++		       (1l << i) >> 1, (1l << i) - 1, data[i - 1],
++		       MAX_STARS, starstr);
 +	}
-+	printf(" captured=%lld", total_events);
-+
-+	key = 0;
-+	struct globals g = {};
-+
-+	bpf_lookup_elem(map_fd[1], &key, &g);
-+
-+	printf(" missed=%lld max_lat=%lld usec\n",
-+	       g.missed, g.max_lat);
-+
-+	if (g.missed > 10 && g.missed > total_events / 10) {
-+		printf("adjusting range UP...\n");
-+		g.lat_ave = g.max_lat / 2;
-+		print_banner(g.lat_ave * 2);
-+	} else if (max_bucket < 4 && total_events > 100) {
-+		printf("adjusting range DOWN...\n");
-+		g.lat_ave = g.lat_ave / 4;
-+		print_banner(g.lat_ave * 2);
-+	}
-+	/* clear some globals */
-+	g.missed = 0;
-+	g.max_lat = 0;
-+	bpf_update_elem(map_fd[1], &key, &g, BPF_ANY);
 +}
-+
 +static void int_exit(int sig)
 +{
-+	print_hist(map_fd[2]);
++	print_hist(map_fd[1]);
 +	exit(0);
 +}
 +
 +int main(int ac, char **argv)
 +{
 +	char filename[256];
++	long key, next_key, value;
++	FILE *f;
++	int i;
 +
 +	snprintf(filename, sizeof(filename), "%s_kern.o", argv[0]);
++
++	signal(SIGINT, int_exit);
++
++	/* start 'ping' in the background to have some kfree_skb events */
++	f = popen("ping -c5 localhost", "r");
++	(void) f;
++
++	/* start 'dd' in the background to have plenty of 'write' syscalls */
++	f = popen("dd if=/dev/zero of=/dev/null count=5000000", "r");
++	(void) f;
 +
 +	if (load_bpf_file(filename)) {
 +		printf("%s", bpf_log_buf);
 +		return 1;
 +	}
 +
-+	clear_stats(map_fd[2]);
-+
-+	signal(SIGINT, int_exit);
-+
-+	struct globals g;
-+
-+	printf("waiting for events to determine average latency...\n");
-+	for (;;) {
-+		int key = 0;
-+
-+		bpf_lookup_elem(map_fd[1], &key, &g);
-+		if (g.lat_ave)
-+			break;
++	for (i = 0; i < 5; i++) {
++		key = 0;
++		while (bpf_get_next_key(map_fd[0], &key, &next_key) == 0) {
++			bpf_lookup_elem(map_fd[0], &next_key, &value);
++			printf("location 0x%lx count %ld\n", next_key, value);
++			key = next_key;
++		}
++		if (key)
++			printf("\n");
 +		sleep(1);
 +	}
-+
-+	printf("  IO latency in usec\n"
-+	       "  %s %s - many events with this latency\n"
-+	       "  %s %s - few events\n",
-+	       color[num_colors - 1], nocolor,
-+	       color[0], nocolor);
-+	print_banner(g.lat_ave * 2);
-+	for (;;) {
-+		print_hist(map_fd[2]);
-+		sleep(2);
-+	}
++	print_hist(map_fd[1]);
 +
 +	return 0;
 +}
