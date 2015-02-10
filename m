@@ -1,99 +1,42 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH RFC v5 net-next 1/6] virtio_ring: fix
-	virtqueue_enable_cb() when only 1 buffers were pending
-Date: Tue, 10 Feb 2015 06:34:02 +0008
-Message-ID: <1423549562.897.0@smtp.corp.redhat.com>
-References: <1423471165-34243-1-git-send-email-jasowang@redhat.com>
-	<1423471165-34243-2-git-send-email-jasowang@redhat.com>
-	<878ug6y3uv.fsf@rustcorp.com.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
-Content-Transfer-Encoding: 7bit
-Cc: pagupta@redhat.com, netdev@vger.kernel.org, mst@redhat.com,
-	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org
-To: Rusty Russell <rusty@rustcorp.com.au>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <878ug6y3uv.fsf@rustcorp.com.au>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+From: Simon Horman <horms@verge.net.au>
+Subject: [GIT PULL nf-next] IPVS Enhancements for v3.20
+Date: Tue, 10 Feb 2015 15:32:08 +0900
+Message-ID: <1423549929-25064-1-git-send-email-horms@verge.net.au>
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>, Simon Horman <horms@verge.net.au>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hi Pablo,
+
+please consider this enhancement for v3.20.
+
+It adds support for 64-bit rates in IPVS statistics.
 
 
-On Tue, Feb 10, 2015 at 9:03 AM, Rusty Russell <rusty@rustcorp.com.au> 
-wrote:
-> Jason Wang <jasowang@redhat.com> writes:
->>  We currently does:
->> 
->>  bufs = (avail->idx - last_used_idx) * 3 / 4;
->> 
->>  This is ok now since we only try to enable the delayed callbacks 
->> when
->>  the queue is about to be full. This may not work well when there is
->>  only one pending buffer in the virtqueue (this may be the case after
->>  tx interrupt was enabled). Since virtqueue_enable_cb() will return
->>  false which may cause unnecessary triggering of napis. This patch
->>  correct this by only calculate the four thirds when bufs is not one.
-> 
-> I mildly prefer to avoid the branch, by changing the calculation like
-> so:
-> 
->         /* Set bufs >= 1, even if there's only one pending buffer */
->         bufs = (bufs + 1) * 3 / 4;
+The following changes since commit 4c1017aa80c95a74703139bb95c4ce0d130efe4d:
 
-Ok.
-> 
-> But it's not clear to me how much this happens. 
+  netfilter: nft_lookup: add missing attribute validation for NFTA_LOOKUP_SET_ID (2015-01-30 19:08:20 +0100)
 
-Depends on the traffic type. In some case e.g one session TCP_RR test 
-(which has at most 1 pending packet), it may happen very often.
->  I'm happy with the
-> patch though, as currently virtqueue_enable_cb_delayed() is the same
-> as virtqueue_enable_cb() if there's only been one buffer added.
+are available in the git repository at:
 
-Yes. Thanks.
-> 
-> Cheers,
-> Rusty.
-> 
->>  Signed-off-by: Jason Wang <jasowang@redhat.com>
->>  ---
->>   drivers/virtio/virtio_ring.c | 5 ++++-
->>   1 file changed, 4 insertions(+), 1 deletion(-)
->> 
->>  diff --git a/drivers/virtio/virtio_ring.c 
->> b/drivers/virtio/virtio_ring.c
->>  index 00ec6b3..545fed5 100644
->>  --- a/drivers/virtio/virtio_ring.c
->>  +++ b/drivers/virtio/virtio_ring.c
->>  @@ -636,7 +636,10 @@ bool virtqueue_enable_cb_delayed(struct 
->> virtqueue *_vq)
->>   	 * entry. Always do both to keep code simple. */
->>   	vq->vring.avail->flags &= cpu_to_virtio16(_vq->vdev, 
->> ~VRING_AVAIL_F_NO_INTERRUPT);
->>   	/* TODO: tune this threshold */
->>  -	bufs = (u16)(virtio16_to_cpu(_vq->vdev, vq->vring.avail->idx) - 
->> vq->last_used_idx) * 3 / 4;
->>  +	bufs = (u16)(virtio16_to_cpu(_vq->vdev, vq->vring.avail->idx) -
->>  +		                     vq->last_used_idx);
->>  +	if (bufs != 1)
->>  +		bufs = bufs * 3 / 4;
->>   	vring_used_event(&vq->vring) = cpu_to_virtio16(_vq->vdev, 
->> vq->last_used_idx + bufs);
->>   	virtio_mb(vq->weak_barriers);
->>   	if (unlikely((u16)(virtio16_to_cpu(_vq->vdev, 
->> vq->vring.used->idx) - vq->last_used_idx) > bufs)) {
->>  -- 
->>  1.8.3.1
->> 
->>  _______________________________________________
->>  Virtualization mailing list
->>  Virtualization@lists.linux-foundation.org
->>  https://lists.linuxfoundation.org/mailman/listinfo/virtualization
+  https://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs-next.git tags/ipvs-for-v3.20
+
+for you to fetch changes up to cd67cd5eb25ae9a7bafbfd3d52d4c05e1d80af3b:
+
+  ipvs: use 64-bit rates in stats (2015-02-09 16:59:03 +0900)
+
+----------------------------------------------------------------
+Julian Anastasov (1):
+      ipvs: use 64-bit rates in stats
+
+ include/net/ip_vs.h             |  50 ++++++++----
+ include/uapi/linux/ip_vs.h      |   7 +-
+ net/netfilter/ipvs/ip_vs_core.c |  36 +++++----
+ net/netfilter/ipvs/ip_vs_ctl.c  | 174 ++++++++++++++++++++++++++--------------
+ net/netfilter/ipvs/ip_vs_est.c  | 102 ++++++++++++-----------
+ 5 files changed, 226 insertions(+), 143 deletions(-)
