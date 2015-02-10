@@ -1,33 +1,50 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: Re: [PATCH] rds: rds_cong_queue_updates needs to defer the
- congestion update transmission
-Date: Tue, 10 Feb 2015 11:56:38 -0500
-Message-ID: <20150210165638.GR337@oracle.com>
-References: <20150210142214.GO337@oracle.com>
- <E0CB7D17-5ACB-4860-847E-BB0C01CBB65A@oracle.com>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [GIT] Networking
+Date: Tue, 10 Feb 2015 08:58:55 -0800
+Message-ID: <CA+55aFwxuMcNPU-C5p2hSWuNhJW+DOi3Py0NQ--Rw9_bv3md2w@mail.gmail.com>
+References: <20150209.191601.1373941323785500419.davem@davemloft.net>
+	<CA+55aFxskyQ2CkLJ8c_LDkjTY+kKSJ5N6JPjhewGYXsXcHg7nw@mail.gmail.com>
+	<20150209.205209.1524645061817000265.davem@davemloft.net>
+	<CA+55aFxrGRjL_d=aCZQ0sNC+pfW8nYDLb4KkUVAme5oHmjBjTw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Chien Yen <chien.yen@oracle.com>, davem@davemloft.net,
-	rds-devel@oss.oracle.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Chuck Lever <chuck.lever@oracle.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Al Viro <viro@zeniv.linux.org.uk>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <E0CB7D17-5ACB-4860-847E-BB0C01CBB65A@oracle.com>
+In-Reply-To: <CA+55aFxrGRjL_d=aCZQ0sNC+pfW8nYDLb4KkUVAme5oHmjBjTw@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On (02/10/15 11:50), Chuck Lever wrote:
-> > 
-> > This patch fixes a sock_lock deadlock in the rds_cong_queue_update path.
-> 
-> Note that the deadlock appears to exist only with TCP transports.
-> 
+On Tue, Feb 10, 2015 at 8:33 AM, Linus Torvalds
+<torvalds@linux-foundation.org> wrote:
+>
+> Will try your suggestion,
 
-True, but the patch does no harm to IB: this actually only reverts 
-the change from commit 2fa57129d.
+Nope, that wasn't it. It still hangs in the same place (I forgot to
+get rid of the red hat graphical boot screen so I didn't see the oops,
+but ..)
 
-I could update the comment to note that this is only true for TCP
-transports. Do you think that would help?
+Looking more closely at the generated code, and the fact that the oops
+was an access at offset 0x18 from a NULL pointer, it would *look* like
+it's this instruction:
 
---Sowmini
+        call    *24(%rax)       # MEM[(struct ablkcipher_tfm *)_48 + 8B].decrypt
+
+in the asm. Very odd. That part doesn't seem to have changed at all
+(it's the crypto_ablkcipher_decrypt() part inside the
+af_alg_wait_for_completion call).
+
+Ignoring whitespace changes and doing a
+
+    git show -w 1d10eb2f156f crypto/algif_skcipher.c
+
+does make it clear that apart from the "iter" changes, the only real
+difference seems to be to the usage of "used". But I can't judge the
+iter changes. And maybe something else changed elsewhere.
+
+Any other ideas? Al?
+
+                       Linus
