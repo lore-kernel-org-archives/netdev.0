@@ -1,64 +1,54 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH] net: qmi_wwan: MC73xx interface 10 is not QMI
-Date: Tue, 10 Feb 2015 12:39:32 +0100
-Message-ID: <87h9uuatcb.fsf@nemi.mork.no>
-References: <CAKfDRXjwsQRA+CxaUpZVoDW3TmrUd6edSf_gi1EkPMcTFv0F5A@mail.gmail.com>
-	<8761bbqker.fsf@nemi.mork.no>
-	<CAKfDRXjhN7q98PKeddgoHhx8rFx+bf8YweTE62AbCfbi7v8E3w@mail.gmail.com>
-	<20150209.141947.1972128292278697717.davem@redhat.com>
-	<874mqucije.fsf@nemi.mork.no>
-	<CAAP7uc+UdthRu49NjKCm+7tZNf+hx0LFFn9Vspq3+OQsd4MDRg@mail.gmail.com>
-	<CAAP7ucJo3CMwAZqkJ8jPHZgP0Sdh5_twdgPRu87p69nPXmGMpw@mail.gmail.com>
-	<CAKfDRXhyS0fdonKryTLtr8PcJ60XbaxxZbynR3kfFKcfioB2tQ@mail.gmail.com>
-	<CAAP7ucJMDcbvCw_1B33NOpWOoj4-or86MDQM9rw14Zs8KRUdxQ@mail.gmail.com>
-	<CAKfDRXhQ5vDUw_0X-N8v9NhTwxo_Osc-JZtAorm0wjw9W5r+LA@mail.gmail.com>
+From: Linus =?utf-8?Q?L=C3=BCssing?= <linus.luessing@c0d3.blue>
+Subject: Re: bride: IPv6 multicast snooping enhancements
+Date: Tue, 10 Feb 2015 12:44:28 +0100
+Message-ID: <20150210114428.GK2489@odroid>
+References: <1378253619-23918-1-git-send-email-linus.luessing@web.de>
+	<54D9C4ED.6040601@parallels.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Aleksander Morgado <aleksander@aleksander.es>,
-	David Miller <davem@redhat.com>,
-	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>
-To: Kristian Evensen <kristian.evensen@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:39780 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750885AbbBJLjy convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Feb 2015 06:39:54 -0500
-In-Reply-To: <CAKfDRXhQ5vDUw_0X-N8v9NhTwxo_Osc-JZtAorm0wjw9W5r+LA@mail.gmail.com>
-	(Kristian Evensen's message of "Tue, 10 Feb 2015 11:53:03 +0100")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>, Cong Wang <amwang@redhat.com>
+To: Vasily Averin <vvs@parallels.com>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <54D9C4ED.6040601@parallels.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Kristian Evensen <kristian.evensen@gmail.com> writes:
-> On Tue, Feb 10, 2015 at 11:37 AM, Aleksander Morgado
-> <aleksander@aleksander.es> wrote:
->> With ModemManager you can use both WWAN interfaces by creating
->> independent Bearer objects and getting them connected independently
->> (e.g. to different APNs). Not sure if anyone will ever do that, but
->> well.
->
-> Thanks for reminding me of this use case. One scenario where it makes
-> sense is how IPv4/IPv6 is handled by some mobile broadband operators.
-> I know of at least one Norwegian ISP that at least used different APN=
-s
-> for IPv4 and IPv6.
+Hi Vasily,
 
-Sure, very useful for testing, although I don't think that they meant i=
-t
-that way.  I believe the assumption is that you get full Internet acces=
-s
-using either APN, with DNS64/NAT64/464XLAT for the IPv6 only one.
+On Tue, Feb 10, 2015 at 11:44:29AM +0300, Vasily Averin wrote:
+> This patch prevent forwarding of ICMPv6 in bridges,
+> so containers/VMs with virtual eth adapters connected in local bridge cannot ping each other via ipv6 (but can do it via ipv4)
 
-Other use cases I can think of:
- - dedicated MMS APN
- - dedicated voice APN
- - VPN APN(s)
+If a host wants to receive packets, then it needs to signalize
+that via MLD. If your host does not do that, then it is expected
+to not receive ICMPv6 echo requests to multicast addresses. An
+exception is ff02::1, that should always work.
 
-all in combination with an Internet access APN.  So yes, two independen=
-t
-bearers are certainly useful.  I expect many modems will support more
-than one bearer in the near future.  The Intel XMM7160 based modems,
-like for example the Sierra Wireless EM7345, already support 8(!)
+> 
+> Could you please clarify, is it expected behavior?
+> Do we need to enable multicast routing or multicast_snooping on all local ports on such bridges to enable just ICMPv6?
+
+Nope, you shouldn't. You'd need multicast listeners. You shouldn't
+need to play with the bridge settings to fix protocols.
+
+> I believe ICMPv6 is an exception and should not be filtered by multicast spoofing.
+
+Signaling multicast joins is mandatory by the IPv6 standard. If
+your protocol/application does not do that, then it seems to me
+that the application might be broken.
 
 
-Bj=C3=B8rn
+By the way, which kernel version(s) are you using?
+
+Cheers, Linus
