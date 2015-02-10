@@ -1,103 +1,91 @@
-From: Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>
-Subject: Re: [PATCH v3 linux-trace 1/8] tracing: attach eBPF programs to
- tracepoints and syscalls
-Date: Mon, 9 Feb 2015 23:46:05 -0500
-Message-ID: <20150209234605.26a8295c@grimm.local.home>
-References: <1423539961-21792-1-git-send-email-ast@plumgrid.com>
-	<1423539961-21792-2-git-send-email-ast@plumgrid.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] prevent the read ahead of /proc/slabinfo in ss take 2
+Date: Mon, 09 Feb 2015 20:49:29 -0800
+Message-ID: <1423543769.28434.2.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1423536360-5298-1-git-send-email-brytonlee01@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Namhyung Kim <namhyung-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Arnaldo Carvalho de Melo <acme-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	Jiri Olsa <jolsa-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Masami Hiramatsu <masami.hiramatsu.pt-FCd8Q96Dh0JBDgjK7y7TUQ@public.gmane.org>,
-	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1423539961-21792-2-git-send-email-ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: stephen@networkplumber.org, netdev@vger.kernel.org,
+	davem@davemloft.net
+To: Bryton Lee <brytonlee01@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f175.google.com ([209.85.192.175]:46343 "EHLO
+	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750860AbbBJEte (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Feb 2015 23:49:34 -0500
+Received: by pdjy10 with SMTP id y10so5749946pdj.13
+        for <netdev@vger.kernel.org>; Mon, 09 Feb 2015 20:49:34 -0800 (PST)
+In-Reply-To: <1423536360-5298-1-git-send-email-brytonlee01@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon,  9 Feb 2015 19:45:54 -0800
-Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org> wrote:
+On Tue, 2015-02-10 at 10:46 +0800, Bryton Lee wrote:
+> ss reads ahead of /proc/slabinfo whatever slabstat will be used or not in future.
+> this will cause huge system delay when the kernel hires SLAB allocator(SLUB allocator is ok). when program reads
+> /proc/slabinfo, it will call s_show() in SLAB allocator level, and s_show() calls spin_lock_irq(&l3->list_lock)
+> then iterate on whole three lists. if one slab has about 900 million objects (for example dentry),
+> it will cause more than 1000ms delay.
+> 
 
-> +#endif /* _LINUX_KERNEL_BPF_TRACE_H */
-> diff --git a/include/trace/ftrace.h b/include/trace/ftrace.h
-> index 139b5067345b..4c275ce2dcf0 100644
-> --- a/include/trace/ftrace.h
-> +++ b/include/trace/ftrace.h
-> @@ -17,6 +17,7 @@
->   */
+Please keep lengths < 70 chars in changelog.
+
+> so this patch prevents the read ahead of /proc/slabinfo, ss runs with most parameters not using slabstat at all.
+> and this patch also change slabstat and slabstat_valid to static.
+> 
+> Signed-off-by: Bryton Lee <brytonlee01@gmail.com>
+> ---
+>  misc/ss.c | 11 ++++++++---
+>  1 file changed, 8 insertions(+), 3 deletions(-)
+> 
+> diff --git a/misc/ss.c b/misc/ss.c
+> index 7fc0a99..5fa6259 100644
+> --- a/misc/ss.c
+> +++ b/misc/ss.c
+> @@ -616,7 +616,8 @@ struct slabstat
+>  	int skbs;
+>  };
 >  
->  #include <linux/ftrace_event.h>
-> +#include <trace/bpf_trace.h>
+> -struct slabstat slabstat;
+> +static struct slabstat slabstat;
+> +static int slabstat_valid = 0;
+
+David pointed that you never set this variable to 1 or any value...
+
+Why is this variable needed, if its content is known/constant ?
+
+
+I presume you wanted to set it in get_slabstat(), right ?
+
 >  
->  /*
->   * DECLARE_EVENT_CLASS can be used to add a generic function
-> @@ -755,12 +756,32 @@ __attribute__((section("_ftrace_events"))) *__event_##call = &event_##call
->  #undef __perf_task
->  #define __perf_task(t)	(__task = (t))
->  
-> +/* zero extend integer, pointer or aggregate type to u64 without warnings */
-> +#define __CAST_TO_U64(EXPR) ({ \
-> +	u64 ret = 0; \
-> +	typeof(EXPR) expr = EXPR; \
-> +	switch (sizeof(expr)) { \
-> +	case 8: ret = *(u64 *) &expr; break; \
-> +	case 4: ret = *(u32 *) &expr; break; \
-> +	case 2: ret = *(u16 *) &expr; break; \
-> +	case 1: ret = *(u8 *) &expr; break; \
-> +	} \
-> +	ret; })
+>  static const char *slabstat_ids[] =
+>  {
+> @@ -2230,6 +2231,9 @@ static int tcp_show(struct filter *f, int socktype)
+>  	 * it is able to give us some memory for snapshot.
+>  	 */
+>  	if (1) {
+> +		if (!slabstat_valid)
+> +			get_slabstat(&slabstat);
 > +
-> +#define __BPF_CAST1(a,...) __CAST_TO_U64(a)
-> +#define __BPF_CAST2(a,...) __CAST_TO_U64(a), __BPF_CAST1(__VA_ARGS__)
-> +#define __BPF_CAST3(a,...) __CAST_TO_U64(a), __BPF_CAST2(__VA_ARGS__)
-> +#define __BPF_CAST4(a,...) __CAST_TO_U64(a), __BPF_CAST3(__VA_ARGS__)
-> +#define __BPF_CAST5(a,...) __CAST_TO_U64(a), __BPF_CAST4(__VA_ARGS__)
-> +#define __BPF_CAST6(a,...) __CAST_TO_U64(a), __BPF_CAST5(__VA_ARGS__)
+>  		int guess = slabstat.socks+slabstat.tcp_syns;
+>  		if (f->states&(1<<SS_TIME_WAIT))
+>  			guess += slabstat.tcp_tws;
+> @@ -3196,6 +3200,9 @@ static int print_summary(void)
+>  	if (get_snmp_int("Tcp:", "CurrEstab", &sn.tcp_estab) < 0)
+>  		perror("ss: get_snmpstat");
+>  
+> +	if (!slabstat_valid)
+> +		get_slabstat(&slabstat);
 > +
->  #undef DECLARE_EVENT_CLASS
->  #define DECLARE_EVENT_CLASS(call, proto, args, tstruct, assign, print)	\
->  static notrace void							\
->  perf_trace_##call(void *__data, proto)					\
->  {									\
->  	struct ftrace_event_call *event_call = __data;			\
-> +	struct bpf_prog *prog = event_call->prog;			\
-
-
-Looks like this is entirely perf based and does not interact with
-ftrace at all. In other words, it's perf not tracing.
-
-It makes more sense to go through tip than the tracing tree.
-
-But I still do not want any hard coded event structures. All access to
-data from the binary code must be parsed by looking at the event/format
-files. Otherwise you will lock internals of the kernel as userspace
-ABI, because eBPF programs will break if those internals change, and
-that could severely limit progress in the future.
-
--- Steve
-
->  	struct ftrace_data_offsets_##call __maybe_unused __data_offsets;\
->  	struct ftrace_raw_##call *entry;				\
->  	struct pt_regs __regs;						\
-> @@ -771,6 +792,16 @@ perf_trace_##call(void *__data, proto)					\
->  	int __data_size;						\
->  	int rctx;							\
->  									\
-> +	if (prog) {							\
-> +		__maybe_unused const u64 z = 0;				\
-> +		struct bpf_context __ctx = ((struct bpf_context) {	\
-> +				__BPF_CAST6(args, z, z, z, z, z)	\
-> +			});						\
-> +									\
-> +		if (!trace_call_bpf(prog, &__ctx))			\
-> +			return;						\
-> +	}								\
-> +									\
->  	__data_size = ftrace_get_offsets_##call(&__data_offsets, args); \
->  									\
->  	head = this_cpu_ptr(event_call->perf_events);			\
+>  	printf("Total: %d (kernel %d)\n", s.socks, slabstat.socks);
+>  
+>  	printf("TCP:   %d (estab %d, closed %d, orphaned %d, synrecv %d, timewait %d/%d), ports %d\n",
+> @@ -3543,8 +3550,6 @@ int main(int argc, char *argv[])
+>  	argc -= optind;
+>  	argv += optind;
+>  
+> -	get_slabstat(&slabstat);
+> -
+>  	if (do_summary) {
+>  		print_summary();
+>  		if (do_default && argc == 0)
