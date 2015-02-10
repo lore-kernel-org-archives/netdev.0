@@ -1,7 +1,7 @@
 From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: [PATCH v3 linux-trace 7/8] tracing: attach eBPF programs to kprobe/kretprobe
-Date: Mon,  9 Feb 2015 19:46:00 -0800
-Message-ID: <1423539961-21792-8-git-send-email-ast@plumgrid.com>
+Subject: [PATCH v3 linux-trace 8/8] samples: bpf: simple kprobe example
+Date: Mon,  9 Feb 2015 19:46:01 -0800
+Message-ID: <1423539961-21792-9-git-send-email-ast@plumgrid.com>
 References: <1423539961-21792-1-git-send-email-ast@plumgrid.com>
 Cc: Ingo Molnar <mingo@kernel.org>, Namhyung Kim <namhyung@kernel.org>,
 	Arnaldo Carvalho de Melo <acme@infradead.org>,
@@ -15,168 +15,232 @@ In-Reply-To: <1423539961-21792-1-git-send-email-ast@plumgrid.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-introduce new type of eBPF programs BPF_PROG_TYPE_KPROBE.
-Such programs are allowed to call the same helper functions
-as tracing filters, but bpf_context is different:
-For tracing filters bpf_context is 6 arguments of tracepoints or syscalls
-For kprobe filters bpf_context == pt_regs
+the logic of the example is similar to tracex2, but syscall 'write' statistics
+is capturead from kprobe placed at sys_write function instead of through
+syscall instrumentation.
+Also tracex4_kern.c has a different way of doing log2 in C.
+Note, unlike tracepoint and syscall programs, kprobe programs receive
+'struct pt_regs' as an input. It's responsibility of the program author
+or higher level dynamic tracing tool to match registers to function arguments.
+Since pt_regs are architecture dependent, programs are also arch dependent,
+unlike tracepoint/syscalls programs which are universal.
+
+Usage:
+$ sudo tracex4
+2216443+0 records in
+2216442+0 records out
+1134818304 bytes (1.1 GB) copied, 2.00746 s, 565 MB/s
+
+           kprobe sys_write() stats
+     byte_size       : count     distribution
+       1 -> 1        : 0        |                                      |
+       2 -> 3        : 0        |                                      |
+       4 -> 7        : 0        |                                      |
+       8 -> 15       : 0        |                                      |
+      16 -> 31       : 0        |                                      |
+      32 -> 63       : 0        |                                      |
+      64 -> 127      : 1        |                                      |
+     128 -> 255      : 0        |                                      |
+     256 -> 511      : 0        |                                      |
+     512 -> 1023     : 2214734  |************************************* |
 
 Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
 ---
- include/linux/ftrace_event.h |    3 +++
- include/uapi/linux/bpf.h     |    1 +
- kernel/events/core.c         |    5 ++++-
- kernel/trace/bpf_trace.c     |   39 +++++++++++++++++++++++++++++++++++++++
- kernel/trace/trace_kprobe.c  |   10 +++++++++-
- 5 files changed, 56 insertions(+), 2 deletions(-)
+ samples/bpf/Makefile       |    4 +++
+ samples/bpf/bpf_load.c     |    3 ++
+ samples/bpf/tracex4_kern.c |   36 +++++++++++++++++++
+ samples/bpf/tracex4_user.c |   83 ++++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 126 insertions(+)
+ create mode 100644 samples/bpf/tracex4_kern.c
+ create mode 100644 samples/bpf/tracex4_user.c
 
-diff --git a/include/linux/ftrace_event.h b/include/linux/ftrace_event.h
-index 479d0a4a42b3..cd6efd23bfae 100644
---- a/include/linux/ftrace_event.h
-+++ b/include/linux/ftrace_event.h
-@@ -249,6 +249,7 @@ enum {
- 	TRACE_EVENT_FL_WAS_ENABLED_BIT,
- 	TRACE_EVENT_FL_USE_CALL_FILTER_BIT,
- 	TRACE_EVENT_FL_TRACEPOINT_BIT,
-+	TRACE_EVENT_FL_KPROBE_BIT,
- };
+diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
+index da0efd8032ab..22c7a38f3f95 100644
+--- a/samples/bpf/Makefile
++++ b/samples/bpf/Makefile
+@@ -10,6 +10,7 @@ hostprogs-y += dropmon
+ hostprogs-y += tracex1
+ hostprogs-y += tracex2
+ hostprogs-y += tracex3
++hostprogs-y += tracex4
  
- /*
-@@ -262,6 +263,7 @@ enum {
-  *                     it is best to clear the buffers that used it).
-  *  USE_CALL_FILTER - For ftrace internal events, don't use file filter
-  *  TRACEPOINT    - Event is a tracepoint
-+ *  KPROBE        - Event is a kprobe
-  */
- enum {
- 	TRACE_EVENT_FL_FILTERED		= (1 << TRACE_EVENT_FL_FILTERED_BIT),
-@@ -271,6 +273,7 @@ enum {
- 	TRACE_EVENT_FL_WAS_ENABLED	= (1 << TRACE_EVENT_FL_WAS_ENABLED_BIT),
- 	TRACE_EVENT_FL_USE_CALL_FILTER	= (1 << TRACE_EVENT_FL_USE_CALL_FILTER_BIT),
- 	TRACE_EVENT_FL_TRACEPOINT	= (1 << TRACE_EVENT_FL_TRACEPOINT_BIT),
-+	TRACE_EVENT_FL_KPROBE		= (1 << TRACE_EVENT_FL_KPROBE_BIT),
- };
+ dropmon-objs := dropmon.o libbpf.o
+ test_verifier-objs := test_verifier.o libbpf.o
+@@ -20,6 +21,7 @@ sockex2-objs := bpf_load.o libbpf.o sockex2_user.o
+ tracex1-objs := bpf_load.o libbpf.o tracex1_user.o
+ tracex2-objs := bpf_load.o libbpf.o tracex2_user.o
+ tracex3-objs := bpf_load.o libbpf.o tracex3_user.o
++tracex4-objs := bpf_load.o libbpf.o tracex4_user.o
  
- struct ftrace_event_call {
-diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-index ecae21e58ba3..cf443900318d 100644
---- a/include/uapi/linux/bpf.h
-+++ b/include/uapi/linux/bpf.h
-@@ -119,6 +119,7 @@ enum bpf_prog_type {
- 	BPF_PROG_TYPE_UNSPEC,
- 	BPF_PROG_TYPE_SOCKET_FILTER,
- 	BPF_PROG_TYPE_TRACEPOINT,
-+	BPF_PROG_TYPE_KPROBE,
- };
+ # Tell kbuild to always build the programs
+ always := $(hostprogs-y)
+@@ -28,6 +30,7 @@ always += sockex2_kern.o
+ always += tracex1_kern.o
+ always += tracex2_kern.o
+ always += tracex3_kern.o
++always += tracex4_kern.o
  
- /* flags for BPF_MAP_UPDATE_ELEM command */
-diff --git a/kernel/events/core.c b/kernel/events/core.c
-index 674a8ca17190..94de727a8c0c 100644
---- a/kernel/events/core.c
-+++ b/kernel/events/core.c
-@@ -6288,7 +6288,10 @@ static int perf_event_set_bpf_prog(struct perf_event *event, u32 prog_fd)
- 	if (IS_ERR(prog))
- 		return PTR_ERR(prog);
+ HOSTCFLAGS += -I$(objtree)/usr/include
  
--	if (prog->aux->prog_type != BPF_PROG_TYPE_TRACEPOINT) {
-+	if (((event->tp_event->flags & TRACE_EVENT_FL_KPROBE) &&
-+	     prog->aux->prog_type != BPF_PROG_TYPE_KPROBE) ||
-+	    (!(event->tp_event->flags & TRACE_EVENT_FL_KPROBE) &&
-+	     prog->aux->prog_type != BPF_PROG_TYPE_TRACEPOINT)) {
- 		/* valid fd, but invalid bpf program type */
- 		bpf_prog_put(prog);
- 		return -EINVAL;
-diff --git a/kernel/trace/bpf_trace.c b/kernel/trace/bpf_trace.c
-index e3196266b72f..52dbd1e7dc28 100644
---- a/kernel/trace/bpf_trace.c
-+++ b/kernel/trace/bpf_trace.c
-@@ -153,3 +153,42 @@ static int __init register_tp_prog_ops(void)
- 	return 0;
- }
- late_initcall(register_tp_prog_ops);
+@@ -37,6 +40,7 @@ HOSTLOADLIBES_sockex2 += -lelf
+ HOSTLOADLIBES_tracex1 += -lelf
+ HOSTLOADLIBES_tracex2 += -lelf
+ HOSTLOADLIBES_tracex3 += -lelf
++HOSTLOADLIBES_tracex4 += -lelf
+ 
+ # point this to your LLVM backend with bpf support
+ LLC=$(srctree)/tools/bpf/llvm/bld/Debug+Asserts/bin/llc
+diff --git a/samples/bpf/bpf_load.c b/samples/bpf/bpf_load.c
+index 2aece65963e4..2206b49df625 100644
+--- a/samples/bpf/bpf_load.c
++++ b/samples/bpf/bpf_load.c
+@@ -32,6 +32,7 @@ int prog_cnt;
+ static int load_and_attach(const char *event, struct bpf_insn *prog, int size)
+ {
+ 	bool is_socket = strncmp(event, "socket", 6) == 0;
++	bool is_kprobe = strncmp(event, "events/kprobes/", 15) == 0;
+ 	enum bpf_prog_type prog_type;
+ 	char path[256] = DEBUGFS;
+ 	char buf[32];
+@@ -45,6 +46,8 @@ static int load_and_attach(const char *event, struct bpf_insn *prog, int size)
+ 
+ 	if (is_socket)
+ 		prog_type = BPF_PROG_TYPE_SOCKET_FILTER;
++	else if (is_kprobe)
++		prog_type = BPF_PROG_TYPE_KPROBE;
+ 	else
+ 		prog_type = BPF_PROG_TYPE_TRACEPOINT;
+ 
+diff --git a/samples/bpf/tracex4_kern.c b/samples/bpf/tracex4_kern.c
+new file mode 100644
+index 000000000000..9646f9e43417
+--- /dev/null
++++ b/samples/bpf/tracex4_kern.c
+@@ -0,0 +1,36 @@
++#include <linux/skbuff.h>
++#include <linux/netdevice.h>
++#include <uapi/linux/bpf.h>
++#include <trace/bpf_trace.h>
++#include "bpf_helpers.h"
 +
-+/* check access to fields of 'struct pt_regs' from BPF program */
-+static bool kprobe_prog_is_valid_access(int off, int size, enum bpf_access_type type)
++static unsigned int log2l(unsigned long long n)
 +{
-+	/* check bounds */
-+	if (off < 0 || off >= sizeof(struct pt_regs))
-+		return false;
-+
-+	/* only read is allowed */
-+	if (type != BPF_READ)
-+		return false;
-+
-+	/* disallow misaligned access */
-+	if (off % size != 0)
-+		return false;
-+
-+	return true;
++#define S(k) if (n >= (1ull << k)) { i += k; n >>= k; }
++	int i = -(n == 0);
++	S(32); S(16); S(8); S(4); S(2); S(1);
++	return i;
++#undef S
 +}
-+/* kprobe filter programs are allowed to call the same helper functions
-+ * as tracing filters, but bpf_context is different:
-+ * For tracing filters bpf_context is 6 arguments of tracepoints or syscalls
-+ * For kprobe filters bpf_context == pt_regs
-+ */
-+static struct bpf_verifier_ops kprobe_prog_ops = {
-+	.get_func_proto = tp_prog_func_proto,
-+	.is_valid_access = kprobe_prog_is_valid_access,
++
++struct bpf_map_def SEC("maps") my_hist_map = {
++	.type = BPF_MAP_TYPE_ARRAY,
++	.key_size = sizeof(u32),
++	.value_size = sizeof(long),
++	.max_entries = 64,
 +};
 +
-+static struct bpf_prog_type_list kprobe_tl = {
-+	.ops = &kprobe_prog_ops,
-+	.type = BPF_PROG_TYPE_KPROBE,
-+};
-+
-+static int __init register_kprobe_prog_ops(void)
++SEC("events/kprobes/sys_write")
++int bpf_prog4(struct pt_regs *regs)
 +{
-+	bpf_register_prog_type(&kprobe_tl);
++	long write_size = regs->dx; /* $rdx contains 3rd argument to a function */
++	long init_val = 1;
++	void *value;
++	u32 index = log2l(write_size);
++
++	value = bpf_map_lookup_elem(&my_hist_map, &index);
++	if (value)
++		__sync_fetch_and_add((long *)value, 1);
 +	return 0;
 +}
-+late_initcall(register_kprobe_prog_ops);
-diff --git a/kernel/trace/trace_kprobe.c b/kernel/trace/trace_kprobe.c
-index 5edb518be345..d503ac43b85b 100644
---- a/kernel/trace/trace_kprobe.c
-+++ b/kernel/trace/trace_kprobe.c
-@@ -1134,11 +1134,15 @@ static void
- kprobe_perf_func(struct trace_kprobe *tk, struct pt_regs *regs)
- {
- 	struct ftrace_event_call *call = &tk->tp.call;
-+	struct bpf_prog *prog = call->prog;
- 	struct kprobe_trace_entry_head *entry;
- 	struct hlist_head *head;
- 	int size, __size, dsize;
- 	int rctx;
- 
-+	if (prog && !trace_call_bpf(prog, regs))
-+		return;
++char _license[] SEC("license") = "GPL";
+diff --git a/samples/bpf/tracex4_user.c b/samples/bpf/tracex4_user.c
+new file mode 100644
+index 000000000000..741206127768
+--- /dev/null
++++ b/samples/bpf/tracex4_user.c
+@@ -0,0 +1,83 @@
++#include <stdio.h>
++#include <unistd.h>
++#include <stdlib.h>
++#include <signal.h>
++#include <linux/bpf.h>
++#include "libbpf.h"
++#include "bpf_load.h"
 +
- 	head = this_cpu_ptr(call->perf_events);
- 	if (hlist_empty(head))
- 		return;
-@@ -1165,11 +1169,15 @@ kretprobe_perf_func(struct trace_kprobe *tk, struct kretprobe_instance *ri,
- 		    struct pt_regs *regs)
- {
- 	struct ftrace_event_call *call = &tk->tp.call;
-+	struct bpf_prog *prog = call->prog;
- 	struct kretprobe_trace_entry_head *entry;
- 	struct hlist_head *head;
- 	int size, __size, dsize;
- 	int rctx;
- 
-+	if (prog && !trace_call_bpf(prog, regs))
-+		return;
++#define MAX_INDEX	64
++#define MAX_STARS	38
 +
- 	head = this_cpu_ptr(call->perf_events);
- 	if (hlist_empty(head))
- 		return;
-@@ -1286,7 +1294,7 @@ static int register_kprobe_event(struct trace_kprobe *tk)
- 		kfree(call->print_fmt);
- 		return -ENODEV;
- 	}
--	call->flags = 0;
-+	call->flags = TRACE_EVENT_FL_KPROBE;
- 	call->class->reg = kprobe_register;
- 	call->data = tk;
- 	ret = trace_add_event_call(call);
++static void stars(char *str, long val, long max, int width)
++{
++	int i;
++
++	for (i = 0; i < (width * val / max) - 1 && i < width - 1; i++)
++		str[i] = '*';
++	if (val > max)
++		str[i - 1] = '+';
++	str[i] = '\0';
++}
++
++static void print_hist(int fd)
++{
++	int key;
++	long value;
++	long data[MAX_INDEX] = {};
++	char starstr[MAX_STARS];
++	int i;
++	int max_ind = -1;
++	long max_value = 0;
++
++	for (key = 0; key < MAX_INDEX; key++) {
++		bpf_lookup_elem(fd, &key, &value);
++		data[key] = value;
++		if (value && key > max_ind)
++			max_ind = key;
++		if (value > max_value)
++			max_value = value;
++	}
++
++	printf("\n           kprobe sys_write() stats\n");
++	printf("     byte_size       : count     distribution\n");
++	for (i = 1; i <= max_ind + 1; i++) {
++		stars(starstr, data[i - 1], max_value, MAX_STARS);
++		printf("%8ld -> %-8ld : %-8ld |%-*s|\n",
++		       (1l << i) >> 1, (1l << i) - 1, data[i - 1],
++		       MAX_STARS, starstr);
++	}
++}
++static void int_exit(int sig)
++{
++	print_hist(map_fd[0]);
++	exit(0);
++}
++
++int main(int ac, char **argv)
++{
++	char filename[256];
++	FILE *f;
++	int i;
++
++	snprintf(filename, sizeof(filename), "%s_kern.o", argv[0]);
++
++	signal(SIGINT, int_exit);
++
++	i = system("echo 'p:sys_write sys_write' > /sys/kernel/debug/tracing/kprobe_events");
++	(void) i;
++
++	/* start 'dd' in the background to have plenty of 'write' syscalls */
++	f = popen("dd if=/dev/zero of=/dev/null count=5000000", "r");
++	(void) f;
++
++	if (load_bpf_file(filename)) {
++		printf("%s", bpf_log_buf);
++		return 1;
++	}
++
++	sleep(2);
++	kill(0, SIGINT); /* send Ctrl-C to self and to 'dd' */
++
++	return 0;
++}
 -- 
 1.7.9.5
