@@ -1,245 +1,170 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH v3 linux-trace 1/8] tracing: attach eBPF programs to
- tracepoints and syscalls
-Date: Tue, 10 Feb 2015 11:53:22 -0800
-Message-ID: <CAMEtUuwAf4AFeWVEdJB4VQz_=2fWY=q8=rbkFg38rtVtNVCHxg@mail.gmail.com>
+From: David Ahern <dsahern@gmail.com>
+Subject: Re: [RFC PATCH 00/29] net: VRF support
+Date: Tue, 10 Feb 2015 13:54:05 -0700
+Message-ID: <54DA6FED.5020907@gmail.com>
+References: <1423100070-31848-1-git-send-email-dsahern@gmail.com> <20150210005344.GA6293@casper.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Ingo Molnar <mingo@kernel.org>, Namhyung Kim <namhyung@kernel.org>,
-	Arnaldo Carvalho de Melo <acme@infradead.org>,
-	Jiri Olsa <jolsa@redhat.com>,
-	Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>,
-	Linux API <linux-api@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>
-To: Steven Rostedt <rostedt@goodmis.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, ebiederm@xmission.com
+To: Thomas Graf <tgraf@suug.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f172.google.com ([209.85.213.172]:64296 "EHLO
+	mail-ig0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750763AbbBJUyH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Feb 2015 15:54:07 -0500
+Received: by mail-ig0-f172.google.com with SMTP id l13so26412107iga.5
+        for <netdev@vger.kernel.org>; Tue, 10 Feb 2015 12:54:07 -0800 (PST)
+In-Reply-To: <20150210005344.GA6293@casper.infradead.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 10, 2015 at 5:05 AM, Steven Rostedt <rostedt@goodmis.org> wrote:
-> On Mon, 9 Feb 2015 22:10:45 -0800
-> Alexei Starovoitov <ast@plumgrid.com> wrote:
+On 2/9/15 5:53 PM, Thomas Graf wrote:
+> On 02/04/15 at 06:34pm, David Ahern wrote:
+>> Namespaces provide excellent separation of the networking stack from=
+ the
+>> netdevices and up. The intent of VRFs is to provide an additional,
+>> logical separation at the L3 layer within a namespace.
 >
->> One can argue that current TP_printk format is already an ABI,
->> because somebody might be parsing the text output.
+> What you ask for seems to be L3 micro segmentation inside netns. I
+
+I would not label it 'micro' but yes a L3 separation within a L1 separa=
+tion.
+
+> would argue that we already support this through multiple routing
+> tables. I would prefer improving the existing architecture to cover
+> your use cases: Increase the number of supported tables, extend
+> routing rules as needed, ...
+
+I've seen that response for VRFs as well. I have not personally tried=20
+it, but from what I have read it does not work well. I think Roopa=20
+responded that Cumulus has spent time on that path and has hit some=20
+roadblocks.
+
 >
-> If somebody does, then it is an ABI. Luckily, it's not that useful to
-> parse, thus it hasn't been an issue. As Linus has stated in the past,
-> it's not that we can't change ABI interfaces, its just that we can not
-> change them if there's a user space application that depends on it.
-
-there are already tools that parse trace_pipe:
-https://github.com/brendangregg/perf-tools
-
-> and expect some events to have specific fields. Now we can add new
-> fields, or even remove fields that no user space tool is using. This is
-> because today, tools use libtraceevent to parse the event data.
-
-not all tools use libtraceevent.
-gdb calls perf_event_open directly:
-https://sourceware.org/git/gitweb.cgi?p=binutils-gdb.git;a=blob;f=gdb/nat/linux-btrace.c
-and parses PERF_RECORD_SAMPLE as a binary.
-In this case it's branch records, but I think we never said anywhere
-that PERF_SAMPLE_IP | PERF_SAMPLE_ADDR should come
-in this particular order.
-
-> This is why I'm nervous about exporting the parameters of the trace
-> event call. Right now, those parameters can always change, because the
-> only way to know they exist is by looking at the code. And currently,
-> there's no way to interact with those parameters. Once we have eBPF in
-> mainline, we now have a way to interact with the parameters and if
-> those parameters change, then the eBPF program will break, and if eBPF
-> can be part of a user space tool, that will break that tool and
-> whatever change in the trace point that caused this breakage would have
-> to be reverted. IOW, this can limit development in the kernel.
-
-it can limit development unless we say that bpf programs
-that attach to tracepoints are not part of ABI.
-Easy enough to add large comment similar to perf_event.h
-
-> Al Viro currently does not let any tracepoint in VFS because he doesn't
-> want the internals of that code locked to an ABI. He's right to be
-> worried.
-
-Same with networking bits. We don't want tracepoints to limit
-kernel development, but we want debuggability and kernel
-analytics.
-All existing tracepoints defined via DEFINE_EVENT should
-not be an ABI.
-But some maintainers think of them as ABI, whereas others
-are using them freely. imo it's time to remove ambiguity.
-
-The idea for new style of tracepoints is the following:
-introduce new macro: DEFINE_EVENT_USER
-and let programs attach to them.
-These tracepoint will receive one or two pointers to important
-structs only. They will not have TP_printk, assign and fields.
-The placement and arguments to these new tracepoints
-will be an ABI.
-All existing tracepoints are not.
-
-The main reason to attach to tracepoint is that they are
-accessible without debug info (unlike kprobe)
-Another reason is speed. tracepoints are much faster than
-optimized kprobes and for real-time analytics the speed
-is critical.
-
-The position of new tracepoints and their arguments
-will be an ABI and the programs can be both.
-If program is using bpf_fetch*() helpers it obviously
-wants to access internal data structures, so
-it's really nothing more, but 'safe kernel module'
-and kernel layout specific.
-Both old and new tracepoints + programs will be used
-for live kernel debugging.
-
-If program is accessing user-ized data structures then
-it is portable and will run on any kernel.
-In uapi header we can define:
-struct task_struct_user {
-  int pid;
-  int prio;
-};
-and let bpf programs access it via real 'struct task_struct *'
-pointer passed into tracepoint.
-bpf loader will translate offsets and sizes used inside
-the program into real task_struct's offsets and loads.
-(all structs are read-only of course)
-programs will be fast and kernel independent.
-They will be used for analytics (latency, etc)
-
->> so in some cases we cannot change tracepoints without
->> somebody complaining that his tool broke.
->> In other cases tracepoints are used for debugging only
->> and no one will notice when they change...
->> It was and still a grey area.
+>> The VRF id of tasks defaults to 1 and is inherited parent to child. =
+It can
+>> be read via the file '/proc/<pid>/vrf' and can be changed anytime by=
+ writing
+>> to this file (if preferred this can be made a prctl to change the VR=
+=46 id).
+>> This allows services to be launched in a VRF context using ip, simil=
+ar to
+>> what is done for network namespaces.
+>>      e.g., ip vrf exec 99 /usr/sbin/sshd
 >
-> Not really. If a tool uses the tracepoint, it can lock that tracepoint
-> down. This is exactly what latencytop did. It happened, it's not a
-> hypothetical situation.
+> I think such as classification should occur through cgroups instead
+> of touching PIDs directly.
 
-correct.
+That is an interesting idea -- using cgroups for task labeling. It=20
+presents a creation / deletion event for VRFs which I was trying to=20
+avoid, and there will be some amount of overhead with a cgroup. I'll=20
+take a look at that option when I get some time.
 
->> bpf doesn't change any of that.
->> It actually makes addition of new tracepoints easier.
+As for as the current proposal I am treating VRF as part of a network=20
+context. Today 'ip netns' is used to run a command in a specific networ=
+k=20
+namespace; the proposal with the VRF layering is to add a vrf context=20
+within a namespace so in keeping with how 'ip netns' works the above=20
+syntax allows a user to supply both a network namespace + VRF for=20
+running a command.
+
 >
-> I totally disagree. It adds more ways to see inside the kernel, and if
-> user space depends on this, it adds more ways the kernel can not change.
+>> Network devices belong to a single VRF context which defaults to VRF=
+ 1.
+>> They can be assigned to another VRF using IFLA_VRF attribute in link
+>> messages. Similarly the VRF assignment is returned in the IFLA_VRF
+>> attribute. The ip command has been modified to display the VRF id of=
+ a
+>> device. L2 applications like lldp are not VRF aware and still work t=
+hrough
+>> through all network devices within the namespace.
 >
-> It comes down to how robust eBPF is with the internals of the kernel
-> changing. If we limit eBPF to system call tracepoints only, that's
-> fine because those have the same ABI as the system call itself. I'm
-> worried about the internal tracepoints for scheduling, irqs, file
-> systems, etc.
+> I believe that binding net_devices to VRFs is misleading and the
+> concept by itself is non-scalable. You do not want to create 10k
+> net_devices for your overlay of choice just to tie them to a
+> particular VRF. You want to store the VRF identifier as metadata and
+> have a stateless classifier included it in the VRF decision. See the
+> recent VXLAN-GBP work.
 
-agree. we need to make it clear that existing tracepoints
-+ programs is not ABI.
+I'll take a look when I get time.
 
->> In the future we might add a tracepoint and pass a single
->> pointer to interesting data struct to it. bpf programs will walk
->> data structures 'as safe modules' via bpf_fetch*() methods
->> without exposing it as ABI.
+I have not seen scalability issues creating 1,000+ net_devices.=20
+Certainly the 40k'ish memory per net_device is noticeable but I believe=
+=20
+that can be improved (e.g., a number of entries can be moved under=20
+proper CONFIG_ checks). I do need to repeat the tests on newer kernels.
+
 >
-> Will this work if that structure changes? When the field we are looking
-> for no longer exists?
-
-bpf_fetch*() is the same mechanism as perf probe.
-If there is a mistake by user space tools, the program
-will be reading some junk, but it won't be crashing.
-To be able to debug live kernel we need to see everywhere.
-Same way as systemtap loads kernel modules to walk
-things inside kernel, bpf programs walk pointers with
-bpf_fetch*().
-I'm saying that if program is using bpf_fetch*()
-it wants to see kernel internals and obviously depends
-on particular kernel layout.
-
->> whereas today we pass a lot of fields to tracepoints and
->> make all of these fields immutable.
+> You could either map whatever selects the VRF to the mark or support =
+it
+> natively in the routing rules classifier.
 >
-> The parameters passed to the tracepoint are not shown to userspace and
-> can change at will. Now, we present the final parsing of the parameters
-> that convert to fields. As all currently known tools uses
-> libtraceevent.a, and parse the format files, those fields can move
-> around and even change in size. The structures are not immutable. The
-> fields are locked down if user space relies on them. But they can move
-> about within the tracepoint, because the parsing allows for it.
+> An obvious alternative is OVS. What you describe can be implemented i=
+n
+> a scalable matter using OVS and mark. I understand that OVS is not fo=
+r
+> everybody but it gets a fundamental principle right: Scalability
+> demands for programmability.
 >
-> Remember, these are processed fields. The result of TP_fast_assign()
-> and what gets put into the ring buffer. Now what is passed to the
-> actual tracepoint is not visible by userspace, and in lots of cases, it
-> is just a pointer to some structure. What eBPF brings to the table is a
-> way to access this structure from user space. What keeps a structured
-> passed to a tracepoint from becoming immutable if there's a eBPF
-> program that expects it to have a specific field?
-
-agree. that's fair.
-I'm proposing to treat bpf programs that attach to existing
-tracepoints as kernel modules that carry no ABI claims.
-
->> and bpf programs like live debugger that examine things.
+> I don=E2=80=99t think we should be adding a new single purpose metada=
+ta field
+> to arbitrary structures for every new use case that comes up. We
+> should work on programmability which increases flexibility and allows
+> decoupling application interest from networking details.
 >
-> If bpf programs only dealt with kprobes, I may agree. But tracepoints
-> have already been proven to be a type of ABI. If we open another window
-> into the kernel, this can screw us later. It's better to solve this now
-> than when we are fighting with Linus over user space breakage.
-
-I'm not sure what's more needed other than adding
-large comments into documentation, man pages and sample
-code that bpf+existing tracepoint is not an ABI.
-
-> What we need is to know if eBPF programs are modules or a user space
-> interface. If they are a user interface then we need to be extremely
-> careful here. If they are treated the same as modules, then it would
-> not add any API. But that hasn't been settled yet, even if we have a
-> comment in the kernel.
+>> On RX skbs get their VRF context from the netdevice the packet is re=
+ceived
+>> on. For TX the VRF context for an skb is taken from the socket. The
+>> intention is for L3/raw sockets to be able to set the VRF context fo=
+r a
+>> packet TX using cmsg (not coded in this patch set).
 >
-> Maybe what we should do is to make eBPF pass the kernel version it was
-> made for (with all the mod version checks). If it doesn't match, fail
-> to load it. Perhaps the more eBPF is limited like modules are, the
-> better chance we have that no eBPF program creates a new ABI.
+> Specyfing L3 context in cmsg seems very broken to me. We do not want
+> to bind applications any closer to underlying networking infrastructu=
+re.
+> In fact, we should do the opposite and decouple this completely.
 
-it's easy to add kernel version check and it will be equally
-easy for user space to hack it.
-imo comments in documentation and samples is good enough.
+That suggestion is inline with what is done today for other L3=20
+parameters -- TOS, TTL, and a few others.
 
-also not all bpf programs are equal.
-bpf+existing tracepoint is not ABI
-bpf+new tracepoint is ABI if programs are not using bpf_fetch
-bpf+syscall is ABI if programs are not using bpf_fetch
-bpf+kprobe is not ABI
-bpf+sockets is ABI
-At the end we want most of the programs to be written
-without assuming anything about kernel internals.
-But for live kernel debugging we will write programs
-very specific to given kernel layout.
+>
+>> The 'any' context applies to listen sockets only; connected sockets =
+are in
+>> a VRF context. Child sockets accepted by the daemon acquire the VRF =
+context
+>> of the network device the connection originated on.
+>
+> Linux considers an address local regardless of the interface the pack=
+et
+> was received on.  So you would accept the packet on any interface and
+> then bind it to the VRF of that interface even though the route for i=
+t
+> might be on a different interface.
+>
+> This really belongs into routing rules from my perspective which take=
+s
+> mark and the cgroup context into account.
 
-We can categorize the above in non-ambigous via
-bpf program type.
-Programs with:
-BPF_PROG_TYPE_TRACEPOINT - not ABI
-BPF_PROG_TYPE_KPROBE - not ABI
-BPF_PROG_TYPE_SOCKET_FILTER - ABI
+Expanding the current network namespace checks to a networking context=20
+is a very simple and clean way of implementing VRFs versus cobbling=20
+together a 'VRF like' capability using marks, multiple tables, etc (ie.=
+,=20
+the existing capabilities). Further, the VRF tagging of net_devices=20
+seems to readily fit into the hardware offload and switchdev=20
+capabilities (e.g., add a ndo operation for setting the VRF tag on a=20
+device which passes it to the driver).
 
-for my proposed 'new tracepoints' we can add type:
-BPF_PROG_TYPE_TRACEPOINT_USER - ABI
-and disallow calls to bpf_fetch*() for them.
-To make it more strict we can do kernel version check
-for all prog types that are 'not ABI', but is it really necessary?
+Big picture wise where is OCP and switchdev headed? Top-of-rack switche=
+s=20
+seem to be the first target, but after that? Will the kernel ever=20
+support MPLS? Will the kernel attain the richer feature set of high-end=
+=20
+routers? If so, how does VRF support fit into the design? As I=20
+understand it a scalable VRF solution is a fundamental building block.=20
+Will a cobbled together solution of cgroups, marks, rules, multiple=20
+tables really work versus the simplicity of an expanded network context=
+?
 
-To summarize and consolidate other threads:
-- I will remove reading of PERF_SAMPLE_RAW in tracex1 example.
-it's really orthogonal to this whole discussion.
-- will add more comments through out that just because
-programs can read tracepoint arguments, they shouldn't
-make any assumptions that args stays as-is from version to version
-- will work on a patch to demonstrate how few in-kernel
-structures can be user-ized and how programs can access
-them in version-indepedent way
-
-btw the concept of user-ized data structures already exists
-with classic bpf, since 'A = load -0x1000' is translated into
-'A = skb->protocol'. I'm thinking of something similar
-but more generic and less obscure.
+David
