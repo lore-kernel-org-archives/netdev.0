@@ -1,43 +1,62 @@
-From: Kristian Evensen <kristian.evensen@gmail.com>
-Subject: Re: [PATCH] net: qmi_wwan: MC73xx interface 10 is not QMI
-Date: Tue, 10 Feb 2015 07:04:11 +0100
-Message-ID: <CAKfDRXhoTWXqf6QrvFiyMeDp6dyDDAoPOLkdKdXfj46E5q+hog@mail.gmail.com>
-References: <CAKfDRXjwsQRA+CxaUpZVoDW3TmrUd6edSf_gi1EkPMcTFv0F5A@mail.gmail.com>
-	<8761bbqker.fsf@nemi.mork.no>
-	<CAKfDRXjhN7q98PKeddgoHhx8rFx+bf8YweTE62AbCfbi7v8E3w@mail.gmail.com>
-	<20150209.141947.1972128292278697717.davem@redhat.com>
+From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH v3 linux-trace 1/8] tracing: attach eBPF programs to
+ tracepoints and syscalls
+Date: Mon, 9 Feb 2015 22:10:45 -0800
+Message-ID: <CAMEtUuztTca2jC9Su0YkTHEUHsD4p2PBRyukabrjGO0WfFzdfA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?UTF-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>,
-	Network Development <netdev@vger.kernel.org>,
-	Aleksander Morgado <aleksander@aleksander.es>
-To: David Miller <davem@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f41.google.com ([209.85.213.41]:53018 "EHLO
-	mail-yh0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751088AbbBJGEM convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Feb 2015 01:04:12 -0500
-Received: by mail-yh0-f41.google.com with SMTP id 29so449591yhl.0
-        for <netdev@vger.kernel.org>; Mon, 09 Feb 2015 22:04:11 -0800 (PST)
-In-Reply-To: <20150209.141947.1972128292278697717.davem@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Namhyung Kim <namhyung-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Arnaldo Carvalho de Melo <acme-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	Jiri Olsa <jolsa-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Masami Hiramatsu <masami.hiramatsu.pt-FCd8Q96Dh0JBDgjK7y7TUQ@public.gmane.org>,
+	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Feb 9, 2015 at 11:19 PM, David Miller <davem@redhat.com> wrote:
-> So what are we going to do with this patch?
+On Mon, Feb 9, 2015 at 9:13 PM, Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org> wrote:
+>>                                                                       \
+>> +     if (prog) {                                                     \
+>> +             __maybe_unused const u64 z = 0;                         \
+>> +             struct bpf_context __ctx = ((struct bpf_context) {      \
+>> +                             __BPF_CAST6(args, z, z, z, z, z)        \
+>
+> Note, there is no guarantee that args is at most 6. For example, in
+> drivers/net/wireless/brcm80211/brcmsmac/brcms_trace_events.h, the
+> trace_event brcms_txstatus has 8 args.
+>
+> But I guess that's OK if you do not need those last args, right?
 
-I spent some more time yesterday reading through the references
-provided by Bj=C3=B8rn, as well as doing some more searching. The devic=
-es
-exported by interface 8 and 10 offers the same functionality, and
-interface 8 seems to work for all MC73xx-devices (there is no
-reference of anyone not getting a connection through it). Interface
-10, on the other hand, only seems to work on some MC73xx-devices. I
-see no point in carrying around a reference in the driver to an
-interface that might work in some cases, when there is one that always
-works. However, there might be a modem or a particular firmware
-revision I am not aware of. Bj=C3=B8rn/Aleksander knows more about
-available QMI-devices than me, so I think they should decide.
+yeah, some tracepoints pass a lot of things.
+That's rare and in most of the cases they can be fetched
+from parent structure.
 
--Kristian
+> I'm nervous about showing args of tracepoints too, because we don't want
+> that to become a strict ABI either.
+
+One can argue that current TP_printk format is already an ABI,
+because somebody might be parsing the text output.
+so in some cases we cannot change tracepoints without
+somebody complaining that his tool broke.
+In other cases tracepoints are used for debugging only
+and no one will notice when they change...
+It was and still a grey area.
+bpf doesn't change any of that.
+It actually makes addition of new tracepoints easier.
+In the future we might add a tracepoint and pass a single
+pointer to interesting data struct to it. bpf programs will walk
+data structures 'as safe modules' via bpf_fetch*() methods
+without exposing it as ABI.
+whereas today we pass a lot of fields to tracepoints and
+make all of these fields immutable.
+
+To me tracepoints are like gdb breakpoints.
+and bpf programs like live debugger that examine things.
+
+the next step is to be able to write bpf scripts on the fly
+without leaving debugger. Something like perf probe +
+editor + live execution. Truly like gdb for kernel.
+while kernel is running.
