@@ -1,73 +1,33 @@
-From: Chuck Lever <chuck.lever@oracle.com>
-Subject: Re: [PATCH] rds: rds_cong_queue_updates needs to defer the congestion update transmission
-Date: Tue, 10 Feb 2015 11:50:39 -0500
-Message-ID: <E0CB7D17-5ACB-4860-847E-BB0C01CBB65A@oracle.com>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: Re: [PATCH] rds: rds_cong_queue_updates needs to defer the
+ congestion update transmission
+Date: Tue, 10 Feb 2015 11:56:38 -0500
+Message-ID: <20150210165638.GR337@oracle.com>
 References: <20150210142214.GO337@oracle.com>
-Mime-Version: 1.0 (Mac OS X Mail 7.3 \(1878.6\))
+ <E0CB7D17-5ACB-4860-847E-BB0C01CBB65A@oracle.com>
+Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
 Cc: Chien Yen <chien.yen@oracle.com>, davem@davemloft.net,
 	rds-devel@oss.oracle.com, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+To: Chuck Lever <chuck.lever@oracle.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150210142214.GO337@oracle.com>
+Content-Disposition: inline
+In-Reply-To: <E0CB7D17-5ACB-4860-847E-BB0C01CBB65A@oracle.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-On Feb 10, 2015, at 9:22 AM, Sowmini Varadhan <sowmini.varadhan@oracle.com> wrote:
-
+On (02/10/15 11:50), Chuck Lever wrote:
+> > 
+> > This patch fixes a sock_lock deadlock in the rds_cong_queue_update path.
 > 
-> This patch fixes a sock_lock deadlock in the rds_cong_queue_update path.
-
-Note that the deadlock appears to exist only with TCP transports.
-
-> We cannot inline the call to rds_send_xmit from rds_cong_queue_update
-> because
-> (a) we are already holding the sock_lock in the recv path, and
->    will deadlock when tcp_setsockopt/tcp_sendmsg try to get the sock
->    lock
-> (b) cong_queue_update does an irqsave on the rds_cong_lock, and this
->    will trigger warnings (for a good reason) from functions called
->    out of sock_lock.
-> 
-> Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-> ---
-> net/rds/cong.c |   16 +++++++++++++++-
-> 1 files changed, 15 insertions(+), 1 deletions(-)
-> 
-> diff --git a/net/rds/cong.c b/net/rds/cong.c
-> index e5b65ac..765d18f 100644
-> --- a/net/rds/cong.c
-> +++ b/net/rds/cong.c
-> @@ -221,7 +221,21 @@ void rds_cong_queue_updates(struct rds_cong_map *map)
-> 	list_for_each_entry(conn, &map->m_conn_list, c_map_item) {
-> 		if (!test_and_set_bit(0, &conn->c_map_queued)) {
-> 			rds_stats_inc(s_cong_update_queued);
-> -			rds_send_xmit(conn);
-> +			/* We cannot inline the call to rds_send_xmit() here
-> +			 * for two reasons:
-> +			 * 1. When we get here from the receive path, we
-> +			 *    are already holding the sock_lock (held by
-> +			 *    tcp_v4_rcv()). So inlining calls to
-> +			 *    tcp_setsockopt and/or tcp_sendmsg will deadlock
-> +			 *    when it tries to get the sock_lock())
-> +			 * 2. Interrupts are masked so that we can mark the
-> +			 *    the port congested from both send and recv paths.
-> +			 *    (See comment around declaration of rds_cong_lock).
-> +			 *    An attempt to get the sock_lock() here will
-> +			 *    therefore trigger warnings.
-> +			 * Defer the xmit to rds_send_worker() instead.
-> +			 */
-> +			queue_delayed_work(rds_wq, &conn->c_send_w, 0);
-> 		}
-> 	}
-> 
-> -- 
-> 1.7.1
+> Note that the deadlock appears to exist only with TCP transports.
 > 
 
---
-Chuck Lever
-chuck[dot]lever[at]oracle[dot]com
+True, but the patch does no harm to IB: this actually only reverts 
+the change from commit 2fa57129d.
+
+I could update the comment to note that this is only true for TCP
+transports. Do you think that would help?
+
+--Sowmini
