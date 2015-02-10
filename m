@@ -1,82 +1,46 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Throughput regression with `tcp: refine TSO autosizing`
-Date: Tue, 10 Feb 2015 04:54:56 -0800
-Message-ID: <1423572896.28434.13.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CA+BoTQkVu23P3EOmY_Q3E1GJnWsyF==Pawz4iPOS_Bq5dvfO5Q@mail.gmail.com>
-	 <1422537297.21689.15.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+BoTQk2xT-8DqPuiiKG+kHAjLPrj8F9dLTb-rcGhvMq0u_2Qw@mail.gmail.com>
-	 <1422628835.21689.95.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+BoTQkV+mOZfe_Niz5101sMQeaV6muKCsShptjGQ1AgOHqqoQ@mail.gmail.com>
-	 <1422903136.21689.114.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1422926330.21689.138.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+BoTQkMikA8wxm1ce2DkKhPB0HiKeAqT7f+sQ=91W40z=X0Rg@mail.gmail.com>
-	 <1422973660.907.10.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+BoTQmvUuFdfYF=wVMYxrf_nQZB5GCV=LvDZVvfs-3hAE4WKw@mail.gmail.com>
-	 <1423051045.907.108.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+BoTQ=BDcQ779uKCuX+f40=4npXVF4MTQnpjKimNYAxPsxBoQ@mail.gmail.com>
-	 <1423053531.907.115.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+BoTQ=qmCZz4CmSOvCOzMLowrDEG12XBffkTcYxjGqVD9604g@mail.gmail.com>
-	 <1423055810.907.125.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1423056591.907.130.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1423084303.31870.15.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+BoTQ=u_xPuqTVOVaFTQNRrJ+UTXe89SY+=+7Y1LpxxrkRDfg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Neal Cardwell <ncardwell@google.com>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Eyal Perry <eyalpe@dev.mellanox.co.il>
-To: Michal Kazior <michal.kazior@tieto.com>
+From: Eyal Birger <eyal.birger@gmail.com>
+Subject: Re: [PATCH net-next 1/3] net: Rename sock_recv_ts_and_drops() to sock_cmsg_recv()
+Date: Tue, 10 Feb 2015 14:57:11 +0200
+Message-ID: <75B13C03-8E9F-4E70-9DAD-FFE187A3DF15@gmail.com>
+References: <1423505723-2281-1-git-send-email-eyal.birger@gmail.com> <1423505723-2281-2-git-send-email-eyal.birger@gmail.com> <20150209.185535.1300672977479433508.davem@davemloft.net>
+Mime-Version: 1.0 (Mac OS X Mail 8.2 \(2070.6\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: edumazet@google.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:42420 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751973AbbBJMzB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Feb 2015 07:55:01 -0500
-In-Reply-To: <CA+BoTQ=u_xPuqTVOVaFTQNRrJ+UTXe89SY+=+7Y1LpxxrkRDfg@mail.gmail.com>
+Received: from mail-wi0-f172.google.com ([209.85.212.172]:62590 "EHLO
+	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752581AbbBJM5M convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Feb 2015 07:57:12 -0500
+Received: by mail-wi0-f172.google.com with SMTP id z2so14237906wiv.5
+        for <netdev@vger.kernel.org>; Tue, 10 Feb 2015 04:57:11 -0800 (PST)
+In-Reply-To: <20150209.185535.1300672977479433508.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2015-02-10 at 11:33 +0100, Michal Kazior wrote:
+Hi,
 
-> +       if (msdu->sk) {
-> +               ewma_add(&ar->tx_delay_us,
-> +                        ktime_to_ns(ktime_sub(ktime_get(), skb_cb->stamp)) /
-> +                        NSEC_PER_USEC);
-> +
-> +               ACCESS_ONCE(msdu->sk->sk_tx_completion_delay_cushion) =
-> +                               (ewma_read(&ar->tx_delay_us) *
-> +                                msdu->sk->sk_pacing_rate) >> 20;
-> +       }
-> +
+> On Feb 10, 2015, at 4:55 AM, David Miller <davem@davemloft.net> wrote:
+> 
+> From: Eyal Birger <eyal.birger@gmail.com>
+> Date: Mon,  9 Feb 2015 20:15:21 +0200
+> 
+>> -void __sock_recv_ts_and_drops(struct msghdr *msg, struct sock *sk,
+>> +void __sock_cmsg_recv(struct msghdr *msg, struct sock *sk,
+>> 			      struct sk_buff *skb);
+> 
+> If you change the column where the openning parenthesis of a function
+> declaration appears, you have to reindent the subsequent lines,
+> if any, so that the arguments still begin at the first column after
+> that openning parenthesis.
 
-Hi Michal
+Sorry about that, thanks! Will fix.
 
-This is almost it ;)
+> Also, this new feature is too late for this merge window, so there is
+> no rush for resubmitting this.
 
-As I said you must do this using u64 arithmetics, we still support 32bit
-kernels.
+Thanks. Should I wait for the next merge window or may I resubmit at this point?
 
-Also, >> 20 instead of / 1000000 introduces a 5% error, I would use a
-plain divide, as the compiler will use a reciprocal divide (ie : a
-multiply)
-
-We use >> 10 instead of /1000 because a 2.4 % error is probably okay.
-
-        ewma_add(&ar->tx_delay_us,
-                 ktime_to_ns(ktime_sub(ktime_get(),
-skb_cb->stamp)) /
-	                        NSEC_PER_USEC);
-	u64 val = (u64)ewma_read(&ar->tx_delay_us) *
-                   msdu->sk->sk_pacing_rate;
-
-	do_div(val, USEC_PER_SEC);
-		
-        ACCESS_ONCE(msdu->sk->sk_tx_completion_delay_cushion) =
-                    (u32)val;
-                 
-(WRITE_ONCE() would be better for new kernels, but ACCESS_ONCE() is ok
-since we probably want to backport to stable kernels)
-
-
-Thanks
+Regards,
+Eyal.
