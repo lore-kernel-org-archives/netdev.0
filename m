@@ -1,83 +1,57 @@
-From: Jiri Slaby <jslaby@suse.cz>
-Subject: [patch added to the 3.12 stable tree] lib/checksum.c: fix carry in csum_tcpudp_nofold
-Date: Tue, 10 Feb 2015 11:17:24 +0100
-Message-ID: <1423563470-21303-6-git-send-email-jslaby@suse.cz>
-References: <1423563470-21303-1-git-send-email-jslaby@suse.cz>
-Cc: karl beldan <karl.beldan@gmail.com>,
-	Karl Beldan <karl.beldan@rivierawaves.com>,
-	Al Viro <viro@ZenIV.linux.org.uk>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Arnd Bergmann <arnd@arndb.de>,
-	Mike Frysinger <vapier@gentoo.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jiri Slaby <jslaby@suse.cz>
-To: stable@vger.kernel.org
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] prevent the read ahead of /proc/slabinfo in ss take 2
+Date: Tue, 10 Feb 2015 15:37:42 +0300
+Message-ID: <54D9FB96.6080401@cogentembedded.com>
+References: <1423536360-5298-1-git-send-email-brytonlee01@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com
+To: Bryton Lee <brytonlee01@gmail.com>, stephen@networkplumber.org,
+	netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ip4-83-240-67-251.cust.nbox.cz ([83.240.67.251]:55899 "EHLO
-	ip4-83-240-18-248.cust.nbox.cz" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1755374AbbBJMhl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Feb 2015 07:37:41 -0500
-In-Reply-To: <1423563470-21303-1-git-send-email-jslaby@suse.cz>
+Received: from mail-la0-f52.google.com ([209.85.215.52]:38255 "EHLO
+	mail-la0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755374AbbBJMhp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Feb 2015 07:37:45 -0500
+Received: by lamq1 with SMTP id q1so19872023lam.5
+        for <netdev@vger.kernel.org>; Tue, 10 Feb 2015 04:37:44 -0800 (PST)
+In-Reply-To: <1423536360-5298-1-git-send-email-brytonlee01@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: karl beldan <karl.beldan@gmail.com>
+Hello.
 
-This patch has been added to the 3.12 stable tree. If you have any
-objections, please let us know.
+On 2/10/2015 5:46 AM, Bryton Lee wrote:
 
-===============
+> ss reads ahead of /proc/slabinfo whatever slabstat will be used or not in future.
+> this will cause huge system delay when the kernel hires SLAB allocator(SLUB allocator is ok). when program reads
+> /proc/slabinfo, it will call s_show() in SLAB allocator level, and s_show() calls spin_lock_irq(&l3->list_lock)
+> then iterate on whole three lists. if one slab has about 900 million objects (for example dentry),
+> it will cause more than 1000ms delay.
 
-commit 150ae0e94634714b23919f0c333fee28a5b199d5 upstream.
+> so this patch prevents the read ahead of /proc/slabinfo, ss runs with most parameters not using slabstat at all.
+> and this patch also change slabstat and slabstat_valid to static.
 
-The carry from the 64->32bits folding was dropped, e.g with:
-saddr=0xFFFFFFFF daddr=0xFF0000FF len=0xFFFF proto=0 sum=1,
-csum_tcpudp_nofold returned 0 instead of 1.
+> Signed-off-by: Bryton Lee <brytonlee01@gmail.com>
+> ---
+>   misc/ss.c | 11 ++++++++---
+>   1 file changed, 8 insertions(+), 3 deletions(-)
 
-Signed-off-by: Karl Beldan <karl.beldan@rivierawaves.com>
-Cc: Al Viro <viro@ZenIV.linux.org.uk>
-Cc: Eric Dumazet <eric.dumazet@gmail.com>
-Cc: Arnd Bergmann <arnd@arndb.de>
-Cc: Mike Frysinger <vapier@gentoo.org>
-Cc: netdev@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Signed-off-by: David S. Miller <davem@davemloft.net>
-Signed-off-by: Jiri Slaby <jslaby@suse.cz>
----
- lib/checksum.c | 12 ++++++++++--
- 1 file changed, 10 insertions(+), 2 deletions(-)
+> diff --git a/misc/ss.c b/misc/ss.c
+> index 7fc0a99..5fa6259 100644
+> --- a/misc/ss.c
+> +++ b/misc/ss.c
+> @@ -616,7 +616,8 @@ struct slabstat
+>   	int skbs;
+>   };
+>
+> -struct slabstat slabstat;
+> +static struct slabstat slabstat;
+> +static int slabstat_valid = 0;
 
-diff --git a/lib/checksum.c b/lib/checksum.c
-index 129775eb6de6..fcf38943132c 100644
---- a/lib/checksum.c
-+++ b/lib/checksum.c
-@@ -47,6 +47,15 @@ static inline unsigned short from32to16(unsigned int x)
- 	return x;
- }
- 
-+static inline u32 from64to32(u64 x)
-+{
-+	/* add up 32-bit and 32-bit for 32+c bit */
-+	x = (x & 0xffffffff) + (x >> 32);
-+	/* add up carry.. */
-+	x = (x & 0xffffffff) + (x >> 32);
-+	return (u32)x;
-+}
-+
- static unsigned int do_csum(const unsigned char *buff, int len)
- {
- 	int odd;
-@@ -195,8 +204,7 @@ __wsum csum_tcpudp_nofold(__be32 saddr, __be32 daddr,
- #else
- 	s += (proto + len) << 8;
- #endif
--	s += (s >> 32);
--	return (__force __wsum)s;
-+	return (__force __wsum)from64to32(s);
- }
- EXPORT_SYMBOL(csum_tcpudp_nofold);
- #endif
--- 
-2.2.2
+    No need to initialize to 0.
+
+[...]
+
+WBR, Sergei
