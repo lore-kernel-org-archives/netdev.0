@@ -1,35 +1,52 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 2/2] netfilter: nft_lookup: add missing attribute validation for NFTA_LOOKUP_SET_ID
-Date: Tue, 10 Feb 2015 06:34:34 +0100
-Message-ID: <1423546474-3539-3-git-send-email-pablo@netfilter.org>
-References: <1423546474-3539-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1423546474-3539-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [GIT PULL nf] IPVS Fixes for v3.20
+Date: Tue, 10 Feb 2015 14:44:32 +0900
+Message-ID: <20150210054432.GC10139@verge.net.au>
+References: <1423459508-15517-1-git-send-email-horms@verge.net.au>
+ <20150210053141.GA3248@salvia>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from kirsty.vergenet.net ([202.4.237.240]:47639 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750801AbbBJFog (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Feb 2015 00:44:36 -0500
+Content-Disposition: inline
+In-Reply-To: <20150210053141.GA3248@salvia>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Patrick McHardy <kaber@trash.net>
+On Tue, Feb 10, 2015 at 06:31:41AM +0100, Pablo Neira Ayuso wrote:
+> On Mon, Feb 09, 2015 at 02:25:07PM +0900, Simon Horman wrote:
+> > Hi Pablo,
+> > 
+> > please consider this fix for v3.20
+> > 
+> > This patch prevents the kernel getting into a situation whereby a
+> > real-server may not be removed from a heterogeneous IPVS virtual server.
+> > 
+> > This problem was introduced by  bc18d37f676f ("ipvs: Allow heterogeneous
+> > pools now that we support them") in v3.18. This patch seems appropriate
+> > for stable and I have checked that it applies cleanly to both v3.19 and
+> > v3.18.6.
+> > 
+> > 
+> > The following changes since commit 42b5212fee4f57907e9415b18fe19c13e65574bc:
+> > 
+> >   xen-netback: stop the guest rx thread after a fatal error (2015-02-02 19:39:04 -0800)
+> > 
+> > are available in the git repository at:
+> > 
+> >   https://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs.git tags/ipvs-fixes-for-v3.20
+> 
+> Pulled, thanks Simon.
 
-Signed-off-by: Patrick McHardy <kaber@trash.net>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- net/netfilter/nft_lookup.c |    1 +
- 1 file changed, 1 insertion(+)
+Thanks Pablo.
 
-diff --git a/net/netfilter/nft_lookup.c b/net/netfilter/nft_lookup.c
-index 6404a72..9615b8b 100644
---- a/net/netfilter/nft_lookup.c
-+++ b/net/netfilter/nft_lookup.c
-@@ -39,6 +39,7 @@ static void nft_lookup_eval(const struct nft_expr *expr,
- 
- static const struct nla_policy nft_lookup_policy[NFTA_LOOKUP_MAX + 1] = {
- 	[NFTA_LOOKUP_SET]	= { .type = NLA_STRING },
-+	[NFTA_LOOKUP_SET_ID]	= { .type = NLA_U32 },
- 	[NFTA_LOOKUP_SREG]	= { .type = NLA_U32 },
- 	[NFTA_LOOKUP_DREG]	= { .type = NLA_U32 },
- };
--- 
-1.7.10.4
-
+I have an unrelated feature patch for v3.20 queued up.
+I'll send a pull request for that shortly.
