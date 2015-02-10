@@ -1,62 +1,72 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Kernel sends ICMP unreachable for GRE packets even if there is
- a listening socket
-Date: Tue, 10 Feb 2015 08:18:03 -0800
-Message-ID: <1423585083.28434.31.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20150210152410.GA9225@sesse.net>
-	 <1423584596.28434.30.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Sabrina Dubroca <sd@queasysnail.net>
+Subject: Re: [PATCH] ipv6: Partial checksum only UDP packets
+Date: Tue, 10 Feb 2015 17:23:12 +0100
+Message-ID: <20150210162312.GB3372@kria>
+References: <20150210140704.GA3372@kria>
+ <1423583752-31932-1-git-send-email-vyasevic@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "Steinar H. Gunderson" <sgunderson@bigfoot.com>
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org, Vladislav Yasevich <vyasevic@redhat.com>
+To: Vladislav Yasevich <vyasevich@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:61716 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750738AbbBJQSH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Feb 2015 11:18:07 -0500
-Received: by mail-pa0-f41.google.com with SMTP id kx10so17973099pab.0
-        for <netdev@vger.kernel.org>; Tue, 10 Feb 2015 08:18:07 -0800 (PST)
-In-Reply-To: <1423584596.28434.30.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from smtp3-g21.free.fr ([212.27.42.3]:58212 "EHLO smtp3-g21.free.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751012AbbBJQXS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Feb 2015 11:23:18 -0500
+Content-Disposition: inline
+In-Reply-To: <1423583752-31932-1-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2015-02-10 at 08:09 -0800, Eric Dumazet wrote:
-> On Tue, 2015-02-10 at 16:24 +0100, Steinar H. Gunderson wrote:
-> > [Resent from Bugzilla]
-> > 
-> > Hi,
-> > 
-> > I have a userspace GRE listener, which opens a raw socket (error handling removed):
-> > 
-> >         int gresock = socket(AF_INET6, SOCK_RAW, IPPROTO_GRE);
-> >         bind(gresock, (sockaddr *)&my_addr, sizeof(my_addr));
-> > 
-> > and then select()s and recvfrom()s on it, as well as sendto().
-> > 
-> > This works great. I can send and receive GRE packets. However, Linux _also_
-> > sends ICMPv6 unreachables when the other end sends to me. I assume this is
-> > because I don't have a corresponding kernel GRE tunnel interface. (I don't use
-> > the kernel GRE because I want, among others, stronger reordering functionality
-> > and possibly error correction, which is not in any standard.)
-> > 
-> > Can this be suppressed when I have such a socket giong? ip6tables -A OUTPUT can
-> > stop them, but it seems very hacky and kludgy.
+2015-02-10, 10:55:52 -0500, Vladislav Yasevich wrote:
+> ip6_append_data is used by other protocols and some of them can't
+> be partially checksummed.  Only partially checksum UDP protocol.
 > 
-> Thats because you loaded ip6_gre maybe ?
+> Fixes: 32dce968dd987a (ipv6: Allow for partial checksums on non-ufo packets)
+> Reported-by: Sabrian Dubroca <sd@queasysnail.net>
 
-Not clear why we even bother sending ICMP in ipv6, while we do nothing
-in ipv4 similar case
+not a big deal, but since there's a small problem with this version
+(see below):
 
-diff --git a/net/ipv6/ip6_gre.c b/net/ipv6/ip6_gre.c
-index bc28b7d42a6dab05abee80d4fa84c102d92ca91f..8ff364b93bc2909253a6a0ef7268fc2dfb92c77c 100644
---- a/net/ipv6/ip6_gre.c
-+++ b/net/ipv6/ip6_gre.c
-@@ -572,7 +572,6 @@ static int ip6gre_rcv(struct sk_buff *skb)
- 
- 		return 0;
- 	}
--	icmpv6_send(skb, ICMPV6_DEST_UNREACH, ICMPV6_PORT_UNREACH, 0);
- 
- drop:
- 	kfree_skb(skb);
+s/Sabrian/Sabrina/
+
+> Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
+> ---
+> Hi Sabrina
+> 
+> Can you try this patch.  Thanks.
+> 
+>  net/ipv6/ip6_output.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+> index d33df4c..8f2d558 100644
+> --- a/net/ipv6/ip6_output.c
+> +++ b/net/ipv6/ip6_output.c
+> @@ -1273,7 +1273,7 @@ emsgsize:
+>  	/* If this is the first and only packet and device
+>  	 * supports checksum offloading, let's use it.
+>  	 */
+> -	if (!skb &&
+> +	if (!skb && sk->protocol == IPPROTO_UDP &&
+                        ^^^
+
+should be  sk->sk_protocol
+
+
+And you can add:
+
+Tested-by: Sabrina Dubroca <sd@queasysnail.net>
+
+
+Thanks Vlad!
+
+>  	    length + fragheaderlen < mtu &&
+>  	    rt->dst.dev->features & NETIF_F_V6_CSUM &&
+>  	    !exthdrlen)
+> -- 
+> 1.9.3
+
+
+-- 
+Sabrina
