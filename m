@@ -1,94 +1,62 @@
-From: Chen Baozi <cbz@baozis.org>
-Subject: Re: [PATCH 3/3] stmmac: Add AXI burst length support to platform
- device.
-Date: Tue, 10 Feb 2015 08:02:58 +0800
-Message-ID: <20150210000258.GD7920@cbz-thinkpad>
-References: <1423285636-8623-1-git-send-email-cbz@baozis.org>
- <1423285636-8623-4-git-send-email-cbz@baozis.org>
- <20150209120443.GF4250@leverpostej>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [net-next 00/15][pull request] Intel Wired LAN Driver Updates
+ 2015-02-09
+Date: Mon, 09 Feb 2015 16:25:59 -0800
+Message-ID: <1423527959.27854.42.camel@jtkirshe-mobl>
+References: <1423478641-3138-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <20150209.141830.1222222887300293567.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>
-To: Mark Rutland <mark.rutland@arm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150209120443.GF4250@leverpostej>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-YIIS634jo6d39H3fAPcN"
+Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com
+To: David Miller <davem@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga11.intel.com ([192.55.52.93]:44421 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752734AbbBJA0K (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 Feb 2015 19:26:10 -0500
+In-Reply-To: <20150209.141830.1222222887300293567.davem@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 09, 2015 at 12:04:43PM +0000, Mark Rutland wrote:
-> On Sat, Feb 07, 2015 at 05:07:16AM +0000, Chen Baozi wrote:
-> > The AXI Bus Mode Register controls the AXI master behavior. It is mainly
-> > used to control the burst splitting and the number of outstanding requests.
-> > This register is present and valid only in GMAC-AXI configuration. The old
-> > driver only supports this feature on PCI devices. This patch adds an
-> > 'snps,apl' properties in DT to enable it on platform devices.
-> > 
-> > Signed-off-by: Chen Baozi <chenbaozi@kylinos.com.cn>
-> > ---
-> >  Documentation/devicetree/bindings/net/stmmac.txt      | 1 +
-> >  drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c | 1 +
-> >  2 files changed, 2 insertions(+)
-> > 
-> > diff --git a/Documentation/devicetree/bindings/net/stmmac.txt b/Documentation/devicetree/bindings/net/stmmac.txt
-> > index c41afd9..8f3c834 100644
-> > --- a/Documentation/devicetree/bindings/net/stmmac.txt
-> > +++ b/Documentation/devicetree/bindings/net/stmmac.txt
-> > @@ -43,6 +43,7 @@ Optional properties:
-> >    available this clock is used for programming the Timestamp Addend Register.
-> >    If not passed then the system clock will be used and this is fine on some
-> >    platforms.
-> > +- snps,abl: AXI Burst Length
-> 
-> This is not a good name (though I see it follows "snps,pbl", which is
-> also not a good name)...
 
-Any idea for a better name?
+--=-YIIS634jo6d39H3fAPcN
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-> 
-> Why does this need to be in the DT? Is this required for correctness? Or
-> performance?
+On Mon, 2015-02-09 at 14:18 -0800, David Miller wrote:
+> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Date: Mon,  9 Feb 2015 02:43:46 -0800
+>=20
+> > This series contains updates to i40e and i40evf only.
+>=20
+> Pulled, please send me a fixup patch for the over indented lines in
+> patch #15.
 
-This is required for correctness. Otherwise, the driver would write
-'0' to the register by default, which makes the driver not work.
+Working on it now.
 
-Cheers,
+--=-YIIS634jo6d39H3fAPcN
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
 
-Baozi.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
 
-> 
-> Thanks,
-> Mark.
-> 
-> >  
-> >  Examples:
-> >  
-> > diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-> > index 3039de2..abbc897 100644
-> > --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-> > +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-> > @@ -230,6 +230,7 @@ static int stmmac_probe_config_dt(struct platform_device *pdev,
-> >  			return -ENOMEM;
-> >  		plat->dma_cfg = dma_cfg;
-> >  		of_property_read_u32(np, "snps,pbl", &dma_cfg->pbl);
-> > +		of_property_read_u32(np, "snps,abl", &dma_cfg->burst_len);
-> >  		dma_cfg->fixed_burst =
-> >  			of_property_read_bool(np, "snps,fixed-burst");
-> >  		dma_cfg->mixed_burst =
-> > -- 
-> > 2.1.4
-> > 
-> > 
-> > _______________________________________________
-> > linux-arm-kernel mailing list
-> > linux-arm-kernel@lists.infradead.org
-> > http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
-> > 
-> 
-> _______________________________________________
-> linux-arm-kernel mailing list
-> linux-arm-kernel@lists.infradead.org
-> http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
+iQIcBAABCgAGBQJU2VAXAAoJEOVv75VaS+3O1xgP/3r3jYg128pYeFuZc0JnKFXs
+FlOXdI1B5XTAPCIEe9GrmNkbtHJi3f48TPMXTvySdCilDMXeM0ii2JtesGkh6bCw
+DiJoea8VxVoOVt6mp/tolgicmir4sSN9MV9bvLax65ENRgDhmOf3P557ZgWDwX41
+2fjsDLklwPVVyIv5VtQe1Hvm2mrznzDnG7U9omQk2/nd1GipyQ05MGxIkoRV8e7L
+okJ7WZtSBYYPTCq2zgbTsNTN+xAns0a9LmGKeeVYLg17YQYYYth1K3cLz/OKcLn6
+yk+NDbgzoX4b/kIFp+/sr21yuejF5e48jDkoiNHFTEKkn9bSKM/4HhvkqrRdEClg
+bxMIFvCUdBxnOi757ne1sMuJ/hUa75zTTHgKBWoQgsUoW8NGO+nWAjPCy5ixSCpd
+KrZUqECGxaHDy+xwQpHhUNUn/OP4969lLk/4FHH1BI1+cxxzWsbFzk3qs/8VNsH4
+y1gqSaiqsDiUcRlemhLo1ezHmvt2oSfTuZZ4Ie2WVH2Ssr7vJtmljHUteO5xs7wc
+o7eo8qaNlQf9xhQAacRVBrgy4iFIjEMN2mwKrOW1/RG3yOuOh/aOnzqmuZbKZpGS
+MTXkiWxUj/Czq8lg2bafiQZAT6g2V2enNpzUqijOfsVW8y+lMIaRQpu2s1vHQYPg
+T5Q1zh99fK6fCM7DV6aB
+=Z3hH
+-----END PGP SIGNATURE-----
+
+--=-YIIS634jo6d39H3fAPcN--
