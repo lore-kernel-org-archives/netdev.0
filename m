@@ -1,27 +1,37 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: udp v6 early demux?
-Date: Tue, 10 Feb 2015 12:14:12 -0500
-Message-ID: <54DA3C64.1060309@gmail.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH 1/3] rhashtable: require max_shift definition
+Date: Tue, 10 Feb 2015 17:22:41 +0000
+Message-ID: <20150210172241.GB9301@casper.infradead.org>
+References: <1423529311-26050-1-git-send-email-johunt@akamai.com>
+ <1423529311-26050-2-git-send-email-johunt@akamai.com>
+ <20150210005801.GA8951@casper.infradead.org>
+ <54D9C18B.5090208@iogearbox.net>
+ <54DA2A13.5010204@akamai.com>
+ <54DA3A9F.9090608@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f47.google.com ([209.85.192.47]:42120 "EHLO
-	mail-qg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752777AbbBJROR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Feb 2015 12:14:17 -0500
-Received: by mail-qg0-f47.google.com with SMTP id q107so12561823qgd.6
-        for <netdev@vger.kernel.org>; Tue, 10 Feb 2015 09:14:16 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Josh Hunt <johunt@akamai.com>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <54DA3A9F.9090608@iogearbox.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi
+On 02/10/15 at 06:06pm, Daniel Borkmann wrote:
+> Hm, given that min_shift/max_shift are parameters that directly
+> concern internals of rhashtable i.e. are tightly coupled to expand
+> and shrink functionality, I'd say that depending on the use case,
+> a maxelem limit should rather be handled outside of it, if it's
+> truly an issue/concern.
 
-While testing udpv6 lockless path, I noticed that there is no
-support for udpv6 early demux?  Is there a technical reason why,
-or was this just something that got forgotten (kind of like
-lockeless sendmsg)?
+Agreed, Netlink already uses the atomic counter of rhashtable to
+enforce  upper limit of table entries:
 
-Thanks
--vlad
+        err = -ENOMEM;
+        if (BITS_PER_LONG > 32 &&
+            unlikely(atomic_read(&table->hash.nelems) >= UINT_MAX))
+                goto err;
