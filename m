@@ -1,72 +1,34 @@
-From: Sabrina Dubroca <sd@queasysnail.net>
-Subject: Re: [PATCH] ipv6: Partial checksum only UDP packets
-Date: Tue, 10 Feb 2015 17:23:12 +0100
-Message-ID: <20150210162312.GB3372@kria>
-References: <20150210140704.GA3372@kria>
- <1423583752-31932-1-git-send-email-vyasevic@redhat.com>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [GIT] Networking
+Date: Tue, 10 Feb 2015 08:33:27 -0800
+Message-ID: <CA+55aFxrGRjL_d=aCZQ0sNC+pfW8nYDLb4KkUVAme5oHmjBjTw@mail.gmail.com>
+References: <20150209.191601.1373941323785500419.davem@davemloft.net>
+	<CA+55aFxskyQ2CkLJ8c_LDkjTY+kKSJ5N6JPjhewGYXsXcHg7nw@mail.gmail.com>
+	<20150209.205209.1524645061817000265.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, Vladislav Yasevich <vyasevic@redhat.com>
-To: Vladislav Yasevich <vyasevich@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Al Viro <viro@zeniv.linux.org.uk>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp3-g21.free.fr ([212.27.42.3]:58212 "EHLO smtp3-g21.free.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751012AbbBJQXS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Feb 2015 11:23:18 -0500
-Content-Disposition: inline
-In-Reply-To: <1423583752-31932-1-git-send-email-vyasevic@redhat.com>
+Received: from mail-ie0-f169.google.com ([209.85.223.169]:46356 "EHLO
+	mail-ie0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751168AbbBJQd2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Feb 2015 11:33:28 -0500
+In-Reply-To: <20150209.205209.1524645061817000265.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2015-02-10, 10:55:52 -0500, Vladislav Yasevich wrote:
-> ip6_append_data is used by other protocols and some of them can't
-> be partially checksummed.  Only partially checksum UDP protocol.
-> 
-> Fixes: 32dce968dd987a (ipv6: Allow for partial checksums on non-ufo packets)
-> Reported-by: Sabrian Dubroca <sd@queasysnail.net>
+On Mon, Feb 9, 2015 at 8:52 PM, David Miller <davem@davemloft.net> wrote:
+>
+> I think the handling of the 'used' local variable for function
+> skcipher_recvmsg() in that commit is suspect.
 
-not a big deal, but since there's a small problem with this version
-(see below):
+Yeah, skcipher_wait_for_data() waits for it to be non-zero, but it's
+not reloaded.
 
-s/Sabrian/Sabrina/
+Will try your suggestion,
 
-> Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
-> ---
-> Hi Sabrina
-> 
-> Can you try this patch.  Thanks.
-> 
->  net/ipv6/ip6_output.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-> index d33df4c..8f2d558 100644
-> --- a/net/ipv6/ip6_output.c
-> +++ b/net/ipv6/ip6_output.c
-> @@ -1273,7 +1273,7 @@ emsgsize:
->  	/* If this is the first and only packet and device
->  	 * supports checksum offloading, let's use it.
->  	 */
-> -	if (!skb &&
-> +	if (!skb && sk->protocol == IPPROTO_UDP &&
-                        ^^^
-
-should be  sk->sk_protocol
-
-
-And you can add:
-
-Tested-by: Sabrina Dubroca <sd@queasysnail.net>
-
-
-Thanks Vlad!
-
->  	    length + fragheaderlen < mtu &&
->  	    rt->dst.dev->features & NETIF_F_V6_CSUM &&
->  	    !exthdrlen)
-> -- 
-> 1.9.3
-
-
--- 
-Sabrina
+                        Linus
