@@ -1,39 +1,39 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: udp v6 early demux?
-Date: Tue, 10 Feb 2015 09:32:35 -0800
-Message-ID: <1423589555.28434.36.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <54DA3C64.1060309@gmail.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 1/3] rhashtable: require max_shift definition
+Date: Tue, 10 Feb 2015 18:44:32 +0100
+Message-ID: <FB9AAD93-7F9C-440E-8EB2-44D50B8AA22A@trash.net>
+References: <1423529311-26050-1-git-send-email-johunt@akamai.com> <1423529311-26050-2-git-send-email-johunt@akamai.com> <20150210005801.GA8951@casper.infradead.org> <54D9C18B.5090208@iogearbox.net> <54DA2A13.5010204@akamai.com> <54DA3A9F.9090608@iogearbox.net> <20150210172241.GB9301@casper.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Vlad Yasevich <vyasevich@gmail.com>
+Content-Type: text/plain;
+ charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: Josh Hunt <johunt@akamai.com>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Thomas Graf <tgraf@suug.ch>, Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:59937 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751421AbbBJRcl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Feb 2015 12:32:41 -0500
-Received: by mail-pa0-f43.google.com with SMTP id fa1so27566130pad.2
-        for <netdev@vger.kernel.org>; Tue, 10 Feb 2015 09:32:40 -0800 (PST)
-In-Reply-To: <54DA3C64.1060309@gmail.com>
+Received: from stinky.trash.net ([213.144.137.162]:46355 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751658AbbBJRp0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Feb 2015 12:45:26 -0500
+In-Reply-To: <20150210172241.GB9301@casper.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2015-02-10 at 12:14 -0500, Vlad Yasevich wrote:
-> Hi
-> 
-> While testing udpv6 lockless path, I noticed that there is no
-> support for udpv6 early demux?  Is there a technical reason why,
-> or was this just something that got forgotten (kind of like
-> lockeless sendmsg)?
+Am 10. Februar 2015 18:22:41 MEZ, schrieb Thomas Graf <tgraf@suug.ch>:
+>On 02/10/15 at 06:06pm, Daniel Borkmann wrote:
+>> Hm, given that min_shift/max_shift are parameters that directly
+>> concern internals of rhashtable i.e. are tightly coupled to expand
+>> and shrink functionality, I'd say that depending on the use case,
+>> a maxelem limit should rather be handled outside of it, if it's
+>> truly an issue/concern.
+>
+>Agreed, Netlink already uses the atomic counter of rhashtable to
+>enforce  upper limit of table entries:
+>
+>        err = -ENOMEM;
+>        if (BITS_PER_LONG > 32 &&
+>            unlikely(atomic_read(&table->hash.nelems) >= UINT_MAX))
+>                goto err;
 
-If you have a use case for connected UDP ipv6 flows with performance
-issues, then you might add early demux I guess.
-
-IPv4 udp early demux has been a bit of a hack actually,
-as Shawn main usage was multicast AFAIK
-
-63c6f81cdde5 udp: ipv4: do not waste time in __udp4_lib_mcast_demux_lookup
-610438b74496 udp: ipv4: fix potential use after free in udp_v4_early_demux()
-f69b923a758f udp: fix a typo in __udp4_lib_mcast_demux_lookup
-421b3885bf6d udp: ipv4: Add udp early demux
+I would tend to agree with Pablo, now we're handling half (shift) internally and half (max) externally, using internal values.
