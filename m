@@ -1,7 +1,7 @@
 From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: [PATCH v3 linux-trace 8/8] samples: bpf: simple kprobe example
-Date: Mon,  9 Feb 2015 19:46:01 -0800
-Message-ID: <1423539961-21792-9-git-send-email-ast@plumgrid.com>
+Subject: [PATCH v3 linux-trace 4/8] samples: bpf: simple tracing example in C
+Date: Mon,  9 Feb 2015 19:45:57 -0800
+Message-ID: <1423539961-21792-5-git-send-email-ast@plumgrid.com>
 References: <1423539961-21792-1-git-send-email-ast@plumgrid.com>
 Cc: Ingo Molnar <mingo@kernel.org>, Namhyung Kim <namhyung@kernel.org>,
 	Arnaldo Carvalho de Melo <acme@infradead.org>,
@@ -15,230 +15,378 @@ In-Reply-To: <1423539961-21792-1-git-send-email-ast@plumgrid.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-the logic of the example is similar to tracex2, but syscall 'write' statistics
-is capturead from kprobe placed at sys_write function instead of through
-syscall instrumentation.
-Also tracex4_kern.c has a different way of doing log2 in C.
-Note, unlike tracepoint and syscall programs, kprobe programs receive
-'struct pt_regs' as an input. It's responsibility of the program author
-or higher level dynamic tracing tool to match registers to function arguments.
-Since pt_regs are architecture dependent, programs are also arch dependent,
-unlike tracepoint/syscalls programs which are universal.
+tracex1_kern.c - C program which will be compiled into eBPF
+to filter netif_receive_skb events on skb->dev->name == "lo"
+The programs returns 1 to store an event into ring_buffer
+and returns 0 - to discard an event.
+
+tracex1_user.c - corresponding user space component that:
+- loads bpf program via bpf() syscall
+- opens net:netif_receive_skb event via perf_event_open() syscall
+- attaches the program to event via ioctl(event_fd, PERF_EVENT_IOC_SET_BPF, prog_fd);
+- mmaps event_fd
+- polls event_fd, walks ring_buffer and prints events
 
 Usage:
-$ sudo tracex4
-2216443+0 records in
-2216442+0 records out
-1134818304 bytes (1.1 GB) copied, 2.00746 s, 565 MB/s
-
-           kprobe sys_write() stats
-     byte_size       : count     distribution
-       1 -> 1        : 0        |                                      |
-       2 -> 3        : 0        |                                      |
-       4 -> 7        : 0        |                                      |
-       8 -> 15       : 0        |                                      |
-      16 -> 31       : 0        |                                      |
-      32 -> 63       : 0        |                                      |
-      64 -> 127      : 1        |                                      |
-     128 -> 255      : 0        |                                      |
-     256 -> 511      : 0        |                                      |
-     512 -> 1023     : 2214734  |************************************* |
+$ sudo tracex1
+pid 29241 skb 0xffff88045e58c500 len 84 dev lo
+pid 29241 skb 0xffff88045e58cd00 len 84 dev lo
+pid 29241 skb 0xffff880074c35000 len 84 dev lo
+pid 29241 skb 0xffff880074c35200 len 84 dev lo
 
 Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
 ---
- samples/bpf/Makefile       |    4 +++
- samples/bpf/bpf_load.c     |    3 ++
- samples/bpf/tracex4_kern.c |   36 +++++++++++++++++++
- samples/bpf/tracex4_user.c |   83 ++++++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 126 insertions(+)
- create mode 100644 samples/bpf/tracex4_kern.c
- create mode 100644 samples/bpf/tracex4_user.c
+ samples/bpf/Makefile       |    4 ++
+ samples/bpf/bpf_helpers.h  |   14 +++++
+ samples/bpf/bpf_load.c     |  129 +++++++++++++++++++++++++++++++++++++++++---
+ samples/bpf/bpf_load.h     |   12 +++++
+ samples/bpf/tracex1_kern.c |   28 ++++++++++
+ samples/bpf/tracex1_user.c |   50 +++++++++++++++++
+ 6 files changed, 231 insertions(+), 6 deletions(-)
+ create mode 100644 samples/bpf/tracex1_kern.c
+ create mode 100644 samples/bpf/tracex1_user.c
 
 diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
-index da0efd8032ab..22c7a38f3f95 100644
+index 789691374562..da28e1b6d3a6 100644
 --- a/samples/bpf/Makefile
 +++ b/samples/bpf/Makefile
-@@ -10,6 +10,7 @@ hostprogs-y += dropmon
- hostprogs-y += tracex1
- hostprogs-y += tracex2
- hostprogs-y += tracex3
-+hostprogs-y += tracex4
+@@ -7,6 +7,7 @@ hostprogs-y += sock_example
+ hostprogs-y += sockex1
+ hostprogs-y += sockex2
+ hostprogs-y += dropmon
++hostprogs-y += tracex1
  
  dropmon-objs := dropmon.o libbpf.o
  test_verifier-objs := test_verifier.o libbpf.o
-@@ -20,6 +21,7 @@ sockex2-objs := bpf_load.o libbpf.o sockex2_user.o
- tracex1-objs := bpf_load.o libbpf.o tracex1_user.o
- tracex2-objs := bpf_load.o libbpf.o tracex2_user.o
- tracex3-objs := bpf_load.o libbpf.o tracex3_user.o
-+tracex4-objs := bpf_load.o libbpf.o tracex4_user.o
+@@ -14,17 +15,20 @@ test_maps-objs := test_maps.o libbpf.o
+ sock_example-objs := sock_example.o libbpf.o
+ sockex1-objs := bpf_load.o libbpf.o sockex1_user.o
+ sockex2-objs := bpf_load.o libbpf.o sockex2_user.o
++tracex1-objs := bpf_load.o libbpf.o tracex1_user.o
  
  # Tell kbuild to always build the programs
  always := $(hostprogs-y)
-@@ -28,6 +30,7 @@ always += sockex2_kern.o
- always += tracex1_kern.o
- always += tracex2_kern.o
- always += tracex3_kern.o
-+always += tracex4_kern.o
+ always += sockex1_kern.o
+ always += sockex2_kern.o
++always += tracex1_kern.o
  
  HOSTCFLAGS += -I$(objtree)/usr/include
  
-@@ -37,6 +40,7 @@ HOSTLOADLIBES_sockex2 += -lelf
- HOSTLOADLIBES_tracex1 += -lelf
- HOSTLOADLIBES_tracex2 += -lelf
- HOSTLOADLIBES_tracex3 += -lelf
-+HOSTLOADLIBES_tracex4 += -lelf
+ HOSTCFLAGS_bpf_load.o += -I$(objtree)/usr/include -Wno-unused-variable
+ HOSTLOADLIBES_sockex1 += -lelf
+ HOSTLOADLIBES_sockex2 += -lelf
++HOSTLOADLIBES_tracex1 += -lelf
  
  # point this to your LLVM backend with bpf support
  LLC=$(srctree)/tools/bpf/llvm/bld/Debug+Asserts/bin/llc
+diff --git a/samples/bpf/bpf_helpers.h b/samples/bpf/bpf_helpers.h
+index ca0333146006..406e9705d99e 100644
+--- a/samples/bpf/bpf_helpers.h
++++ b/samples/bpf/bpf_helpers.h
+@@ -15,6 +15,20 @@ static int (*bpf_map_update_elem)(void *map, void *key, void *value,
+ 	(void *) BPF_FUNC_map_update_elem;
+ static int (*bpf_map_delete_elem)(void *map, void *key) =
+ 	(void *) BPF_FUNC_map_delete_elem;
++static void *(*bpf_fetch_ptr)(void *unsafe_ptr) =
++	(void *) BPF_FUNC_fetch_ptr;
++static unsigned long long (*bpf_fetch_u64)(void *unsafe_ptr) =
++	(void *) BPF_FUNC_fetch_u64;
++static unsigned int (*bpf_fetch_u32)(void *unsafe_ptr) =
++	(void *) BPF_FUNC_fetch_u32;
++static unsigned short (*bpf_fetch_u16)(void *unsafe_ptr) =
++	(void *) BPF_FUNC_fetch_u16;
++static unsigned char (*bpf_fetch_u8)(void *unsafe_ptr) =
++	(void *) BPF_FUNC_fetch_u8;
++static int (*bpf_probe_memcmp)(void *unsafe_ptr, void *safe_ptr, int size) =
++	(void *) BPF_FUNC_probe_memcmp;
++static unsigned long long (*bpf_ktime_get_ns)(void) =
++	(void *) BPF_FUNC_ktime_get_ns;
+ 
+ /* llvm builtin functions that eBPF C program may use to
+  * emit BPF_LD_ABS and BPF_LD_IND instructions
 diff --git a/samples/bpf/bpf_load.c b/samples/bpf/bpf_load.c
-index 2aece65963e4..2206b49df625 100644
+index 1831d236382b..2aece65963e4 100644
 --- a/samples/bpf/bpf_load.c
 +++ b/samples/bpf/bpf_load.c
-@@ -32,6 +32,7 @@ int prog_cnt;
+@@ -8,29 +8,47 @@
+ #include <unistd.h>
+ #include <string.h>
+ #include <stdbool.h>
++#include <stdlib.h>
+ #include <linux/bpf.h>
+ #include <linux/filter.h>
++#include <linux/perf_event.h>
++#include <sys/syscall.h>
++#include <sys/ioctl.h>
++#include <sys/mman.h>
++#include <poll.h>
+ #include "libbpf.h"
+ #include "bpf_helpers.h"
+ #include "bpf_load.h"
+ 
++#define DEBUGFS "/sys/kernel/debug/tracing/"
++
+ static char license[128];
+ static bool processed_sec[128];
+ int map_fd[MAX_MAPS];
+ int prog_fd[MAX_PROGS];
++int event_fd[MAX_PROGS];
+ int prog_cnt;
+ 
  static int load_and_attach(const char *event, struct bpf_insn *prog, int size)
  {
+-	int fd;
  	bool is_socket = strncmp(event, "socket", 6) == 0;
-+	bool is_kprobe = strncmp(event, "events/kprobes/", 15) == 0;
- 	enum bpf_prog_type prog_type;
- 	char path[256] = DEBUGFS;
- 	char buf[32];
-@@ -45,6 +46,8 @@ static int load_and_attach(const char *event, struct bpf_insn *prog, int size)
++	enum bpf_prog_type prog_type;
++	char path[256] = DEBUGFS;
++	char buf[32];
++	int fd, efd, err, id;
++	struct perf_event_attr attr;
  
- 	if (is_socket)
- 		prog_type = BPF_PROG_TYPE_SOCKET_FILTER;
-+	else if (is_kprobe)
-+		prog_type = BPF_PROG_TYPE_KPROBE;
- 	else
- 		prog_type = BPF_PROG_TYPE_TRACEPOINT;
+-	if (!is_socket)
+-		/* tracing events tbd */
+-		return -1;
++	attr.type = PERF_TYPE_TRACEPOINT;
++	attr.sample_type = PERF_SAMPLE_RAW;
++	attr.sample_period = 1;
++	attr.wakeup_events = 1;
++
++	if (is_socket)
++		prog_type = BPF_PROG_TYPE_SOCKET_FILTER;
++	else
++		prog_type = BPF_PROG_TYPE_TRACEPOINT;
  
-diff --git a/samples/bpf/tracex4_kern.c b/samples/bpf/tracex4_kern.c
+-	fd = bpf_prog_load(BPF_PROG_TYPE_SOCKET_FILTER,
+-			   prog, size, license);
++	fd = bpf_prog_load(prog_type, prog, size, license);
+ 
+ 	if (fd < 0) {
+ 		printf("bpf_prog_load() err=%d\n%s", errno, bpf_log_buf);
+@@ -39,6 +57,39 @@ static int load_and_attach(const char *event, struct bpf_insn *prog, int size)
+ 
+ 	prog_fd[prog_cnt++] = fd;
+ 
++	if (is_socket)
++		return 0;
++
++	strcat(path, event);
++	strcat(path, "/id");
++
++	efd = open(path, O_RDONLY, 0);
++	if (efd < 0) {
++		printf("failed to open event %s\n", event);
++		return -1;
++	}
++
++	err = read(efd, buf, sizeof(buf));
++	if (err < 0 || err >= sizeof(buf)) {
++		printf("read from '%s' failed '%s'\n", event, strerror(errno));
++		return -1;
++	}
++
++	close(efd);
++
++	buf[err] = 0;
++	id = atoi(buf);
++	attr.config = id;
++
++	efd = perf_event_open(&attr, -1/*pid*/, 0/*cpu*/, -1/*group_fd*/, 0);
++	if (efd < 0) {
++		printf("event %d fd %d err %s\n", id, efd, strerror(errno));
++		return -1;
++	}
++	event_fd[prog_cnt - 1] = efd;
++	ioctl(efd, PERF_EVENT_IOC_ENABLE, 0);
++	ioctl(efd, PERF_EVENT_IOC_SET_BPF, fd);
++
+ 	return 0;
+ }
+ 
+@@ -201,3 +252,69 @@ int load_bpf_file(char *path)
+ 	close(fd);
+ 	return 0;
+ }
++
++int page_size;
++int page_cnt = 8;
++volatile struct perf_event_mmap_page *header;
++
++int perf_event_mmap(int fd)
++{
++	void *base;
++	int mmap_size;
++
++	page_size = getpagesize();
++	mmap_size = page_size * (page_cnt + 1);
++
++	base = mmap(NULL, mmap_size, PROT_READ, MAP_SHARED, fd, 0);
++	if (base == MAP_FAILED) {
++		printf("mmap err\n");
++		return -1;
++	}
++
++	header = base;
++	return 0;
++}
++
++int perf_event_poll(int fd)
++{
++	struct pollfd pfd = {.fd = fd, .events = POLLIN};
++	return poll(&pfd, 1, -1);
++}
++
++struct perf_event_sample {
++	  struct perf_event_header header;
++	  __u32 size;
++	  char data[];
++};
++
++void perf_event_read(print_fn fn)
++{
++	static __u64 old_data_head = 0;
++	__u64 data_head = header->data_head;
++	__u64 buffer_size = page_cnt * page_size;
++	void *base, *begin, *end;
++
++	if (data_head == old_data_head)
++		return;
++
++	base = ((char *)header) + page_size;
++
++	begin = base + old_data_head % buffer_size;
++	end = base + data_head % buffer_size;
++
++	while (begin < end) {
++		struct perf_event_sample *e;
++
++		e = begin;
++
++		if (e->header.type != PERF_RECORD_SAMPLE) {
++			printf("event is not a sample type %d\n", e->header.type);
++		}
++
++		begin += sizeof(*e) + e->size;
++		fn(e->data, e->size);
++	}
++	/* else when end > begin - the events had wrapped. ignored for now */
++
++	old_data_head = data_head;
++}
+diff --git a/samples/bpf/bpf_load.h b/samples/bpf/bpf_load.h
+index 27789a34f5e6..cf55663405da 100644
+--- a/samples/bpf/bpf_load.h
++++ b/samples/bpf/bpf_load.h
+@@ -6,6 +6,7 @@
+ 
+ extern int map_fd[MAX_MAPS];
+ extern int prog_fd[MAX_PROGS];
++extern int event_fd[MAX_PROGS];
+ 
+ /* parses elf file compiled by llvm .c->.o
+  * . parses 'maps' section and creates maps via BPF syscall
+@@ -21,4 +22,15 @@ extern int prog_fd[MAX_PROGS];
+  */
+ int load_bpf_file(char *path);
+ 
++int perf_event_mmap(int fd);
++int perf_event_poll(int fd);
++typedef void (*print_fn)(void *data, int size);
++void perf_event_read(print_fn fn);
++struct trace_entry {
++	unsigned short          type;
++	unsigned char           flags;
++	unsigned char           preempt_count;
++	int                     pid;
++};
++
+ #endif
+diff --git a/samples/bpf/tracex1_kern.c b/samples/bpf/tracex1_kern.c
 new file mode 100644
-index 000000000000..9646f9e43417
+index 000000000000..449db961c642
 --- /dev/null
-+++ b/samples/bpf/tracex4_kern.c
-@@ -0,0 +1,36 @@
++++ b/samples/bpf/tracex1_kern.c
+@@ -0,0 +1,28 @@
 +#include <linux/skbuff.h>
 +#include <linux/netdevice.h>
 +#include <uapi/linux/bpf.h>
 +#include <trace/bpf_trace.h>
 +#include "bpf_helpers.h"
 +
-+static unsigned int log2l(unsigned long long n)
++SEC("events/net/netif_receive_skb")
++int bpf_prog1(struct bpf_context *ctx)
 +{
-+#define S(k) if (n >= (1ull << k)) { i += k; n >>= k; }
-+	int i = -(n == 0);
-+	S(32); S(16); S(8); S(4); S(2); S(1);
-+	return i;
-+#undef S
-+}
++	/*
++	 * attaches to net:netif_receive_skb
++	 * and filters events for loobpack device only
++	 */
++	char devname[] = "lo";
++	struct net_device *dev;
++	struct sk_buff *skb = 0;
 +
-+struct bpf_map_def SEC("maps") my_hist_map = {
-+	.type = BPF_MAP_TYPE_ARRAY,
-+	.key_size = sizeof(u32),
-+	.value_size = sizeof(long),
-+	.max_entries = 64,
-+};
++	skb = (struct sk_buff *) ctx->arg1;
++	dev = bpf_fetch_ptr(&skb->dev);
++	if (bpf_probe_memcmp(dev->name, devname, 2) == 0)
++		/* pass event to userspace via perf ring_buffer */
++		return 1;
 +
-+SEC("events/kprobes/sys_write")
-+int bpf_prog4(struct pt_regs *regs)
-+{
-+	long write_size = regs->dx; /* $rdx contains 3rd argument to a function */
-+	long init_val = 1;
-+	void *value;
-+	u32 index = log2l(write_size);
-+
-+	value = bpf_map_lookup_elem(&my_hist_map, &index);
-+	if (value)
-+		__sync_fetch_and_add((long *)value, 1);
++	/* drop event */
 +	return 0;
 +}
++
 +char _license[] SEC("license") = "GPL";
-diff --git a/samples/bpf/tracex4_user.c b/samples/bpf/tracex4_user.c
+diff --git a/samples/bpf/tracex1_user.c b/samples/bpf/tracex1_user.c
 new file mode 100644
-index 000000000000..741206127768
+index 000000000000..a49de23eb30b
 --- /dev/null
-+++ b/samples/bpf/tracex4_user.c
-@@ -0,0 +1,83 @@
++++ b/samples/bpf/tracex1_user.c
+@@ -0,0 +1,50 @@
 +#include <stdio.h>
-+#include <unistd.h>
-+#include <stdlib.h>
-+#include <signal.h>
 +#include <linux/bpf.h>
++#include <unistd.h>
 +#include "libbpf.h"
 +#include "bpf_load.h"
 +
-+#define MAX_INDEX	64
-+#define MAX_STARS	38
-+
-+static void stars(char *str, long val, long max, int width)
++static char *get_str(void *entry, __u32 arrloc)
 +{
-+	int i;
-+
-+	for (i = 0; i < (width * val / max) - 1 && i < width - 1; i++)
-+		str[i] = '*';
-+	if (val > max)
-+		str[i - 1] = '+';
-+	str[i] = '\0';
++	int off = arrloc & 0xffff;
++	return entry + off;
 +}
 +
-+static void print_hist(int fd)
++static void print_netif_receive_skb(void *data, int size)
 +{
-+	int key;
-+	long value;
-+	long data[MAX_INDEX] = {};
-+	char starstr[MAX_STARS];
-+	int i;
-+	int max_ind = -1;
-+	long max_value = 0;
++	struct ftrace_raw_netif_receive_skb {
++		struct trace_entry t;
++		void *skb;
++		__u32 len;
++		__u32 name;
++	} *e = data;
 +
-+	for (key = 0; key < MAX_INDEX; key++) {
-+		bpf_lookup_elem(fd, &key, &value);
-+		data[key] = value;
-+		if (value && key > max_ind)
-+			max_ind = key;
-+		if (value > max_value)
-+			max_value = value;
-+	}
-+
-+	printf("\n           kprobe sys_write() stats\n");
-+	printf("     byte_size       : count     distribution\n");
-+	for (i = 1; i <= max_ind + 1; i++) {
-+		stars(starstr, data[i - 1], max_value, MAX_STARS);
-+		printf("%8ld -> %-8ld : %-8ld |%-*s|\n",
-+		       (1l << i) >> 1, (1l << i) - 1, data[i - 1],
-+		       MAX_STARS, starstr);
-+	}
-+}
-+static void int_exit(int sig)
-+{
-+	print_hist(map_fd[0]);
-+	exit(0);
++	printf("pid %d skb %p len %d dev %s\n",
++	       e->t.pid, e->skb, e->len, get_str(e, e->name));
 +}
 +
 +int main(int ac, char **argv)
 +{
-+	char filename[256];
 +	FILE *f;
-+	int i;
++	char filename[256];
 +
 +	snprintf(filename, sizeof(filename), "%s_kern.o", argv[0]);
-+
-+	signal(SIGINT, int_exit);
-+
-+	i = system("echo 'p:sys_write sys_write' > /sys/kernel/debug/tracing/kprobe_events");
-+	(void) i;
-+
-+	/* start 'dd' in the background to have plenty of 'write' syscalls */
-+	f = popen("dd if=/dev/zero of=/dev/null count=5000000", "r");
-+	(void) f;
 +
 +	if (load_bpf_file(filename)) {
 +		printf("%s", bpf_log_buf);
 +		return 1;
 +	}
 +
-+	sleep(2);
-+	kill(0, SIGINT); /* send Ctrl-C to self and to 'dd' */
++	if (perf_event_mmap(event_fd[0]) < 0)
++		return 1;
++
++	f = popen("taskset 1 ping -c5 localhost", "r");
++	(void) f;
++
++	for (;;) {
++		perf_event_poll(event_fd[0]);
++		perf_event_read(print_netif_receive_skb);
++	}
 +
 +	return 0;
 +}
