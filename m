@@ -1,52 +1,61 @@
-From: Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>
-Subject: Re: [PATCH v3 linux-trace 4/8] samples: bpf: simple tracing example
- in C
-Date: Mon, 9 Feb 2015 23:12:16 -0500
-Message-ID: <20150209231216.1b60f0cd@grimm.local.home>
-References: <1423539961-21792-1-git-send-email-ast@plumgrid.com>
-	<1423539961-21792-5-git-send-email-ast@plumgrid.com>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [GIT] Networking
+Date: Mon, 9 Feb 2015 20:37:13 -0800
+Message-ID: <CA+55aFxskyQ2CkLJ8c_LDkjTY+kKSJ5N6JPjhewGYXsXcHg7nw@mail.gmail.com>
+References: <20150209.191601.1373941323785500419.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Namhyung Kim <namhyung-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Arnaldo Carvalho de Melo <acme-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	Jiri Olsa <jolsa-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Masami Hiramatsu <masami.hiramatsu.pt-FCd8Q96Dh0JBDgjK7y7TUQ@public.gmane.org>,
-	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1423539961-21792-5-git-send-email-ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: David Miller <davem@davemloft.net>,
+	Al Viro <viro@zeniv.linux.org.uk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150209.191601.1373941323785500419.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon,  9 Feb 2015 19:45:57 -0800
-Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org> wrote:
+On Mon, Feb 9, 2015 at 7:16 PM, David Miller <davem@davemloft.net> wrote:
+>
+> 1) More iov_iter conversion work from Al Viro.
+> ...
+>
+> are available in the git repository at:
+>
+>   git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next
 
-> +static void print_netif_receive_skb(void *data, int size)
-> +{
-> +	struct ftrace_raw_netif_receive_skb {
-> +		struct trace_entry t;
-> +		void *skb;
-> +		__u32 len;
-> +		__u32 name;
-> +	} *e = data;
+I pulled, but had to unpull.
 
-Same here, there's no guarantee that this structure will always match.
+This doesn't work for me AT ALL.
 
-cat /sys/kernel/debug/tracing/events/net/netif_receive_skb/format 
-name: netif_receive_skb
-ID: 975
-format:
-	field:unsigned short common_type;	offset:0;	size:2;	signed:0;
-	field:unsigned char common_flags;	offset:2;	size:1;	signed:0;
-	field:unsigned char common_preempt_count;	offset:3;	size:1;	signed:0;
-	field:int common_pid;	offset:4;	size:4;	signed:1;
+I get an oops early during boot (in "systemd-cryptse.." - it happens
+immediately after typing in my disk encryption key so it's
+possible/likely that you need an md-crypt setup to see this).
 
-	field:void * skbaddr;	offset:8;	size:8;	signed:0;
-	field:unsigned int len;	offset:16;	size:4;	signed:0;
-	field:__data_loc char[] name;	offset:20;	size:4;	signed:1;
+It's a NULL pointer derefernce (at offset 0x18) where the callchain
+looks like this:
 
-print fmt: "dev=%s skbaddr=%p len=%u", __get_str(name), REC->skbaddr, REC->len
+  RIP: skcipher_recvmsg+0x360/0x410
+  Call Trace:
+     sock_read_iter+0xd0/0x120
+     new_sync_read+0x79/0xb0
+     __vfs_read+0x13/0x50
+     SyS_read+0x41/0x0b0
+     system_call_fastpath
 
--- Steve
+which I assume is related to the iov_iter conversion.
+
+That oops then is followed immediately by another that is a NULL
+pointer dereference in skcipher_sock_destruct, but the callchain for
+that is just the exit as part of killing of the original oops, so that
+second oops seems to be just a result of the first one.
+
+I'm assuming the culrpit is 1d10eb2f156f ("crypto: switch
+af_alg_make_sg() to iov_iter") but haven't tested.
+
+Sorry for the lack of full dmesg, but the oops happens before the
+system is actually usable, so I just have a camera screenshot of it.
+
+Any ideas?
+
+                              Linus
