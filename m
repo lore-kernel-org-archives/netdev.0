@@ -1,53 +1,53 @@
-From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Subject: Re: pull-request: wireless-drivers-next 2015-02-07
-Date: Tue, 10 Feb 2015 15:49:24 +0200
-Message-ID: <8761b9op0b.fsf@kamboji.qca.qualcomm.com>
-References: <87a90qosos.fsf@kamboji.qca.qualcomm.com>
-	<20150209.121342.1535841700027616341.davem@davemloft.net>
+From: Colin Ian King <colin.king@canonical.com>
+Subject: Re: [PATCH] rtlwifi: ratelimit skb allocation failure message
+Date: Tue, 10 Feb 2015 13:52:23 +0000
+Message-ID: <54DA0D17.7070403@canonical.com>
+References: <1423558471-27278-1-git-send-email-colin.king@canonical.com>	<1423574228.28434.22.camel@edumazet-glaptop2.roam.corp.google.com> <87a90lop1x.fsf@kamboji.qca.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20150209.121342.1535841700027616341.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> (David
-	Miller's message of "Mon, 09 Feb 2015 12:13:42 -0800 (PST)")
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Larry Finger <Larry.Finger@lwfinger.net>,
+	Chaoming Li <chaoming_li@realsil.com.cn>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Kalle Valo <kvalo@codeaurora.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87a90lop1x.fsf@kamboji.qca.qualcomm.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> writes:
-
-> From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-> Date: Sat, 07 Feb 2015 13:40:51 +0200
->
->> There's a small conflict in drivers/net/wireless/rtlwifi/pci.c, the =
-fix
->> is to leave the two labels like this:
->>=20
->> 			schedule_work(&rtlpriv->works.lps_change_work);
->> 		}
->> end:
->> 		skb =3D new_skb;
->> no_new:
->> 		if (rtlpriv->use_new_trx_flow) {
->>=20
->>=20
->
-> That can't be the correct resolution:
->
-> drivers/net/wireless/rtlwifi/pci.c: In function =E2=80=98_rtl_pci_rx_=
-interrupt=E2=80=99:
-> drivers/net/wireless/rtlwifi/pci.c:934:1: warning: label =E2=80=98end=
-=E2=80=99 defined but not used [-Wunused-label]
->
-> So I've removed that label in the merge commit.
-
-Sorry about that, but great that you catched my mistake.
-
---=20
-Kalle Valo
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+On 10/02/15 13:48, Kalle Valo wrote:
+> Eric Dumazet <eric.dumazet@gmail.com> writes:
+> 
+>> On Tue, 2015-02-10 at 08:54 +0000, Colin King wrote:
+>>> From: Colin Ian King <colin.king@canonical.com>
+>>>
+>>> when running low on memory I noticed rtlwifi was producing a large
+>>> quantity of repeated skb allocation failures messages.  This should
+>>> be ratelimited to reduce the noise.
+>>>
+>>> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+>>> ---
+>>>  drivers/net/wireless/rtlwifi/pci.c | 2 +-
+>>>  1 file changed, 1 insertion(+), 1 deletion(-)
+>>>
+>>> diff --git a/drivers/net/wireless/rtlwifi/pci.c b/drivers/net/wireless/rtlwifi/pci.c
+>>> index c70efb9..ca0fd50 100644
+>>> --- a/drivers/net/wireless/rtlwifi/pci.c
+>>> +++ b/drivers/net/wireless/rtlwifi/pci.c
+>>> @@ -817,7 +817,7 @@ static void _rtl_pci_rx_interrupt(struct ieee80211_hw *hw)
+>>>  		/* get a new skb - if fail, old one will be reused */
+>>>  		new_skb = dev_alloc_skb(rtlpci->rxbuffersize);
+>>>  		if (unlikely(!new_skb)) {
+>>> -			pr_err("Allocation of new skb failed in %s\n",
+>>> +			pr_err_ratelimited("Allocation of new skb failed in %s\n",
+>>>  			       __func__);
+>>
+>> Or even better, remove the message.
+> 
+> There's actually a pending patch for that, I'll send it to Dave ASAP:
+> 
+> https://patchwork.kernel.org/patch/5671121/
+> 
+Thanks!
