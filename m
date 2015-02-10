@@ -1,69 +1,62 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: Throughput regression with `tcp: refine TSO autosizing`
-Date: Tue, 10 Feb 2015 15:19:22 +0100
-Message-ID: <1423577962.2215.2.camel@sipsolutions.net>
-References: <CA+BoTQkVu23P3EOmY_Q3E1GJnWsyF==Pawz4iPOS_Bq5dvfO5Q@mail.gmail.com>
-	 <1422537297.21689.15.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+BoTQk2xT-8DqPuiiKG+kHAjLPrj8F9dLTb-rcGhvMq0u_2Qw@mail.gmail.com>
-	 <1422628835.21689.95.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+BoTQkV+mOZfe_Niz5101sMQeaV6muKCsShptjGQ1AgOHqqoQ@mail.gmail.com>
-	 <1422903136.21689.114.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1422926330.21689.138.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+BoTQkMikA8wxm1ce2DkKhPB0HiKeAqT7f+sQ=91W40z=X0Rg@mail.gmail.com>
-	 <1422973660.907.10.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+BoTQmvUuFdfYF=wVMYxrf_nQZB5GCV=LvDZVvfs-3hAE4WKw@mail.gmail.com>
-	 <1423051045.907.108.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+BoTQ=BDcQ779uKCuX+f40=4npXVF4MTQnpjKimNYAxPsxBoQ@mail.gmail.com>
-	 <1423053531.907.115.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+BoTQ=qmCZz4CmSOvCOzMLowrDEG12XBffkTcYxjGqVD9604g@mail.gmail.com>
-	 <1423055810.907.125.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1423056591.907.130.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1423084303.31870.15.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+BoTQnnwrv0nrKyGyQNvosz_E4e5fBa9iN8fpeqcd-iRfi17g@mail.gmail.com>
-	 <1423141038.31870.38.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1423142342.31870.49.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+BoTQmcShK0U_cXvEOLY_8y7LH8x3taTgjcyMzv0MLVn4UtCA@mail.gmail.com>
-	 <1423147286.31870.59.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1423156205.31870.86.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+BoTQ=WaKLV=r6qWaWAEfyDr2pqMWpm4NDmnek92TEVndnxRQ@mail.gmail.com>
-	 <1423230001.31870.128.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1423230785.31870.131.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+BoTQkazCOin7VWLfrHUjtgKDPV6T+sFsk5FPS7D-morr4FZQ@mail.gmail.com>
-	 <CA+BoTQn3KRym0qCJ+fLav5LQgjfiN_-Eqz0xPSc2eXJ-ijNjQw@mail.gmail.com>
-	 <1423494690.31870.189.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+BoTQ=u_xPuqTVOVaFTQNRrJ+UTXe89SY+=+7Y1LpxxrkRDfg@mail.gmail.com>
-	 (sfid-20150210_113400_003683_520989B4)
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: [PATCH] rds: rds_cong_queue_updates needs to defer the congestion
+ update transmission
+Date: Tue, 10 Feb 2015 09:22:14 -0500
+Message-ID: <20150210142214.GO337@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Neal Cardwell <ncardwell@google.com>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Eyal Perry <eyalpe@dev.mellanox.co.il>
-To: Michal Kazior <michal.kazior@tieto.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:41018 "EHLO sipsolutions.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754628AbbBJOT1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Feb 2015 09:19:27 -0500
-In-Reply-To: <CA+BoTQ=u_xPuqTVOVaFTQNRrJ+UTXe89SY+=+7Y1LpxxrkRDfg@mail.gmail.com> (sfid-20150210_113400_003683_520989B4)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: rds-devel@oss.oracle.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, sowmini.varadhan@oracle.com,
+	chuck.lever@oracle.com
+To: chien.yen@oracle.com, davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2015-02-10 at 11:33 +0100, Michal Kazior wrote:
 
-> +       if (msdu->sk) {
-> +               ewma_add(&ar->tx_delay_us,
-> +                        ktime_to_ns(ktime_sub(ktime_get(), skb_cb->stamp)) /
-> +                        NSEC_PER_USEC);
-> +
-> +               ACCESS_ONCE(msdu->sk->sk_tx_completion_delay_cushion) =
-> +                               (ewma_read(&ar->tx_delay_us) *
-> +                                msdu->sk->sk_pacing_rate) >> 20;
-> +       }
+This patch fixes a sock_lock deadlock in the rds_cong_queue_update path.
 
-To some extent, every wifi driver is going to have this problem. Perhaps
-we should do this in mac80211?
+We cannot inline the call to rds_send_xmit from rds_cong_queue_update
+because
+(a) we are already holding the sock_lock in the recv path, and
+    will deadlock when tcp_setsockopt/tcp_sendmsg try to get the sock
+    lock
+(b) cong_queue_update does an irqsave on the rds_cong_lock, and this
+    will trigger warnings (for a good reason) from functions called
+    out of sock_lock.
 
-johannes
+Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+---
+ net/rds/cong.c |   16 +++++++++++++++-
+ 1 files changed, 15 insertions(+), 1 deletions(-)
+
+diff --git a/net/rds/cong.c b/net/rds/cong.c
+index e5b65ac..765d18f 100644
+--- a/net/rds/cong.c
++++ b/net/rds/cong.c
+@@ -221,7 +221,21 @@ void rds_cong_queue_updates(struct rds_cong_map *map)
+ 	list_for_each_entry(conn, &map->m_conn_list, c_map_item) {
+ 		if (!test_and_set_bit(0, &conn->c_map_queued)) {
+ 			rds_stats_inc(s_cong_update_queued);
+-			rds_send_xmit(conn);
++			/* We cannot inline the call to rds_send_xmit() here
++			 * for two reasons:
++			 * 1. When we get here from the receive path, we
++			 *    are already holding the sock_lock (held by
++			 *    tcp_v4_rcv()). So inlining calls to
++			 *    tcp_setsockopt and/or tcp_sendmsg will deadlock
++			 *    when it tries to get the sock_lock())
++			 * 2. Interrupts are masked so that we can mark the
++			 *    the port congested from both send and recv paths.
++			 *    (See comment around declaration of rds_cong_lock).
++			 *    An attempt to get the sock_lock() here will
++			 *    therefore trigger warnings.
++			 * Defer the xmit to rds_send_worker() instead.
++			 */
++			queue_delayed_work(rds_wq, &conn->c_send_w, 0);
+ 		}
+ 	}
+ 
+-- 
+1.7.1
