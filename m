@@ -1,47 +1,42 @@
-From: Vladislav Yasevich <vyasevich@gmail.com>
-Subject: [PATCH] ipv6: Partial checksum only UDP packets
-Date: Tue, 10 Feb 2015 10:55:52 -0500
-Message-ID: <1423583752-31932-1-git-send-email-vyasevic@redhat.com>
-References: <20150210140704.GA3372@kria>
-Cc: netdev@vger.kernel.org, Vladislav Yasevich <vyasevic@redhat.com>
-To: sd@queasysnail.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f173.google.com ([209.85.216.173]:37292 "EHLO
-	mail-qc0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751892AbbBJP4E (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Feb 2015 10:56:04 -0500
-Received: by mail-qc0-f173.google.com with SMTP id w7so3500517qcr.4
-        for <netdev@vger.kernel.org>; Tue, 10 Feb 2015 07:56:03 -0800 (PST)
-In-Reply-To: <20150210140704.GA3372@kria>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Josh Hunt <johunt@akamai.com>
+Subject: Re: [PATCH 1/3] rhashtable: require max_shift definition
+Date: Tue, 10 Feb 2015 09:56:03 -0600
+Message-ID: <54DA2A13.5010204@akamai.com>
+References: <1423529311-26050-1-git-send-email-johunt@akamai.com> <1423529311-26050-2-git-send-email-johunt@akamai.com> <20150210005801.GA8951@casper.infradead.org> <54D9C18B.5090208@iogearbox.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>, Thomas Graf <tgraf@suug.ch>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <54D9C18B.5090208@iogearbox.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-ip6_append_data is used by other protocols and some of them can't
-be partially checksummed.  Only partially checksum UDP protocol.
+On 02/10/2015 02:30 AM, Daniel Borkmann wrote:
+> On 02/10/2015 01:58 AM, Thomas Graf wrote:
+>> On 02/09/15 at 07:48pm, Josh Hunt wrote:
+>>>       if ((params->key_len && !params->hashfn) ||
+>>> -        (!params->key_len && !params->obj_hashfn))
+>>> +        (!params->key_len && !params->obj_hashfn) ||
+>>> +        (!params->max_shift))
+>>>           return -EINVAL;
+>>
+>> You can drop the parenthesis around the new max_shift check.
+>
+> Also, I think the test should be expanded to check if there's
+> a grow_decision given and only in that case require max_shift
+> to be non-zero, otherwise we would require users who don't
+> want to expand their table to give a upper expansion limit.
 
-Fixes: 32dce968dd987a (ipv6: Allow for partial checksums on non-ufo packets)
-Reported-by: Sabrian Dubroca <sd@queasysnail.net>
-Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
----
-Hi Sabrina
+This is a good point. I'll make this change.
 
-Can you try this patch.  Thanks.
+max_shift restricts the # of buckets, but should there be an optional 
+parameter, maxelems, to set a ceiling on the # of elements in a table 
+also? If not, I believe users will be able to add an "unlimited" # of 
+entries to the existing buckets, whether or not a grow_decision fn is 
+defined.
 
- net/ipv6/ip6_output.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index d33df4c..8f2d558 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -1273,7 +1273,7 @@ emsgsize:
- 	/* If this is the first and only packet and device
- 	 * supports checksum offloading, let's use it.
- 	 */
--	if (!skb &&
-+	if (!skb && sk->protocol == IPPROTO_UDP &&
- 	    length + fragheaderlen < mtu &&
- 	    rt->dst.dev->features & NETIF_F_V6_CSUM &&
- 	    !exthdrlen)
--- 
-1.9.3
+Josh
