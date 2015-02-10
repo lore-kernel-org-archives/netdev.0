@@ -1,83 +1,85 @@
-From: Vasily Averin <vvs@parallels.com>
-Subject: Re: bride: IPv6 multicast snooping enhancements
-Date: Tue, 10 Feb 2015 11:44:29 +0300
-Message-ID: <54D9C4ED.6040601@parallels.com>
-References: <1378253619-23918-1-git-send-email-linus.luessing@web.de>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: [PATCH] net: qmi_wwan: MC73xx interface 10 is not QMI
+Date: Tue, 10 Feb 2015 10:10:40 +0100
+Message-ID: <87r3tyb08f.fsf@nemi.mork.no>
+References: <CAKfDRXjwsQRA+CxaUpZVoDW3TmrUd6edSf_gi1EkPMcTFv0F5A@mail.gmail.com>
+	<8761bbqker.fsf@nemi.mork.no>
+	<CAKfDRXjhN7q98PKeddgoHhx8rFx+bf8YweTE62AbCfbi7v8E3w@mail.gmail.com>
+	<20150209.141947.1972128292278697717.davem@redhat.com>
+	<874mqucije.fsf@nemi.mork.no>
+	<CAAP7uc+UdthRu49NjKCm+7tZNf+hx0LFFn9Vspq3+OQsd4MDRg@mail.gmail.com>
+	<CAAP7ucJo3CMwAZqkJ8jPHZgP0Sdh5_twdgPRu87p69nPXmGMpw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	bridge@lists.linux-foundation.org,
-	Adam Baker <linux@baker-net.linuxfoundation.org>,
-	linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Cong Wang <amwang@redhat.com>
-To: =?UTF-8?B?TGludXMgTMO8c3Npbmc=?= <linus.luessing@web.de>,
-	netdev@vger.kernel.org
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1378253619-23918-1-git-send-email-linus.luessing@web.de>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@redhat.com>,
+	Kristian Evensen <kristian.evensen@gmail.com>,
+	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>
+To: Aleksander Morgado <aleksander@aleksander.es>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from canardo.mork.no ([148.122.252.1]:37853 "EHLO canardo.mork.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753731AbbBJJKz convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Feb 2015 04:10:55 -0500
+In-Reply-To: <CAAP7ucJo3CMwAZqkJ8jPHZgP0Sdh5_twdgPRu87p69nPXmGMpw@mail.gmail.com>
+	(Aleksander Morgado's message of "Tue, 10 Feb 2015 09:51:31 +0100")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch prevent forwarding of ICMPv6 in bridges,
-so containers/VMs with virtual eth adapters connected in local bridge can=
-not ping each other via ipv6 (but can do it via ipv4)
-
-Could you please clarify, is it expected behavior?
-Do we need to enable multicast routing or multicast_snooping on all local=
- ports on such bridges to enable just ICMPv6?
-I believe ICMPv6 is an exception and should not be filtered by multicast =
-spoofing.
-
-Thank you,
-	Vasily Averin
-
-On 04.09.2013 04:13, Linus L=C3=BCssing wrote:
-> Hi,
->=20
-> Here are two, small feature changes I would like to submit to increase
-> the usefulness of the multicast snooping of the bridge code.
->=20
-> The first patch is an unaltered one I had submitted before, but since i=
-t
-> got no feedback I'm resubmitting it here for net-next. With the recentl=
+Aleksander Morgado <aleksander@aleksander.es> writes:
+> On Tue, Feb 10, 2015 at 9:43 AM, Aleksander Morgado
+> <aleksander@aleksander.es> wrote:
+>> On Tue, Feb 10, 2015 at 8:49 AM, Bj=C3=B8rn Mork <bjorn@mork.no> wro=
+te:
+>>
+>>> I am hoping to get a second opinion from Aleksander.
+>>
+>> I have a MC7304 and a MC7354 and both work with interfaces #8 and #1=
+0,
+>> the only difference being that #10 ends up being raw-ip by default
+>> instead of 802.3. I previously had old firmware in both, from early
+>> last year IIRC, but last week I upgraded both to the latest firmware
+>> available.
+>>
+>> The only case in which I've seen such a modem (a MC7304) with 1 sing=
+le
+>> valid QMI interface (actually being #8) is when the modem is put in
+>> "single-qmi" interface mode, which you can do forcing it to get the
+>> MC7710 PID, e.g. AT!UDPID=3D68A2. But otherwise, if the modem was
+>> exposed as 0x68c0, if#10 always worked for me...
+>
+>
+> BTW, regarding the patch... if interface #10 ends up being usable onl=
 y
-> added patch to disable snooping if there is no querier (b00589af + 248b=
-a8ec05
-> + 8d50af4fb), it should be a safe choice now (without these, patch 1/2 =
-would
-> have introduced another potential for lost IPv6 multicast packets).
->=20
-> Both conceptually and also with some testing and fuzzing, I couldn't sp=
-ot
-> any more causes for potential packet loss. And since the multicast snoo=
-ping
-> code has now been tried by various people, I think it should be a safe
-> choice to apply the multicast snooping not only for IPv6 multicast pack=
-ets
-> with a scope greater than link-local, but also for packets of exactly t=
-his
-> scope. The IPv6 standard mandates MLD reports for link-local multicast,=
- too,
-> so we can safely snoop them as well (in contrast to IPv4 link-local).
->=20
-> Cheers, Linus
->=20
->=20
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel"=
- in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
->=20
->=20
->=20
+> in some 73xx models, I would still leave it available anyway in the
+> kernel driver. Userspace can always figure out whether the interface
+> is usable or not (e.g. MM does some QMI probing on the interface
+> before flagging it as usable).
+
+Yes, agreed.  Thanks for the testing.  Sorry Kristian, but if interface=
+ #10
+is usable on some modems with this device ID, then the driver should
+support those modems.
+
+So this is a NAK on the patch.
+
+> A similar issue we had with if#11 IIRC, which the sierra driver marke=
+d
+> it as being QMI but we never made it work once, so we ended up
+> removing it from qmi_wwan (see commit fc0d6e9cd0a). Now I wonder if w=
+e
+> should have done that only by testing it once with my hw.
+
+Yes, it would be nice if you could revisit that just to be 103% sure.
+
+I believe the driver will bind to any unbound QMI interfaces if you add
+the device ID using the "new_id" sysfs file, so it should be testable
+without rebuilding the kernel. At least on newer kernels, where the
+dynamic USB ids override the built-in ones.
+
+But contrary to the interface #10 situation, we have no indications tha=
+t
+#11 has ever worked for anyone.
+
+
+Bj=C3=B8rn
