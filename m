@@ -1,64 +1,97 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH V8 1/3] bfin_can: rewrite the blackfin style of read/write
- to common ones
-Date: Tue, 10 Feb 2015 11:05:24 +0100
-Message-ID: <54D9D7E4.2010203@pengutronix.de>
-References: <1423561237-11043-1-git-send-email-Aaron.wu@analog.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH RFC v5 net-next 1/6] virtio_ring: fix
+	virtqueue_enable_cb() when only 1 buffers were pending
+Date: Tue, 10 Feb 2015 11:18:39 +0100
+Message-ID: <20150210101839.GA9505@redhat.com>
+References: <1423471165-34243-1-git-send-email-jasowang@redhat.com>
+	<1423471165-34243-2-git-send-email-jasowang@redhat.com>
+	<878ug6y3uv.fsf@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="nqqSe7kbnP6p3TE6Cgxqn7uRu43XLU80N"
-To: Aaron Wu <Aaron.wu@analog.com>, wg@grandegger.com,
-	linux-can@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	adi-buildroot-devel@lists.sourceforge.net
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1423561237-11043-1-git-send-email-Aaron.wu@analog.com>
-Sender: linux-can-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: pagupta@redhat.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: Rusty Russell <rusty@rustcorp.com.au>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <878ug6y3uv.fsf@rustcorp.com.au>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---nqqSe7kbnP6p3TE6Cgxqn7uRu43XLU80N
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
+On Tue, Feb 10, 2015 at 11:33:52AM +1030, Rusty Russell wrote:
+> Jason Wang <jasowang@redhat.com> writes:
+> > We currently does:
+> >
+> > bufs = (avail->idx - last_used_idx) * 3 / 4;
+> >
+> > This is ok now since we only try to enable the delayed callbacks when
+> > the queue is about to be full. This may not work well when there is
+> > only one pending buffer in the virtqueue (this may be the case after
+> > tx interrupt was enabled). Since virtqueue_enable_cb() will return
+> > false which may cause unnecessary triggering of napis. This patch
+> > correct this by only calculate the four thirds when bufs is not one.
+> 
+> I mildly prefer to avoid the branch, by changing the calculation like
+> so:
+> 
+>         /* Set bufs >= 1, even if there's only one pending buffer */
+>         bufs = (bufs + 1) * 3 / 4;
 
-On 02/10/2015 10:40 AM, Aaron Wu wrote:
-> Replace the blackfin arch dependent style of bfin_read/bfin_write with
-> common readw/writew
+Or bus * 3/4 + 1
 
-Applied to can-next.
+> But it's not clear to me how much this happens.  I'm happy with the
+> patch though, as currently virtqueue_enable_cb_delayed() is the same
+> as virtqueue_enable_cb() if there's only been one buffer added.
+> 
+> Cheers,
+> Rusty.
 
-Thanks,
-Marc
+But isn't this by design?
+The documentation says:
 
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+ * This re-enables callbacks but hints to the other side to delay
+ * interrupts until most of the available buffers have been processed;
+
+Clearly, this implies that when there's one buffer it must behave
+exactly the same.
+
+So I'm not very happy - this changes the meaning of the API without
+updating the documentation.
 
 
---nqqSe7kbnP6p3TE6Cgxqn7uRu43XLU80N
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAEBCgAGBQJU2dfqAAoJECte4hHFiupUsGAP/RQPL1sOcSKuZ5/B8UhG51uJ
-S8EJmYOutxQgxQlHdepk/0MwR8C+M1RWwN0FeJJnx3Y7Cfr3GSaTGU4MwxHnEMpO
-xsaXcv2yc8uBSlb4fVqy+u5CwIXAsbjnTaXOZhS9Z+gcicXCG+nDLzZEpB8UCIM5
-5scuALaI1MIB+Xy84knEANbuKJ3kH9475cuBpnxlTduP7Eql5nvAFBF7RqFu5WNh
-3mtOZtvjodXicdqt6QFQOdLnYcNiYhg/FFgiuULDEXuj/tjFArtgED+NvvAWzKWv
-H+cmnI9BpM9hou7d3TLZclF7B6Z4+pmMz3/mahL355Zcp1MzrMQRxDTOnmqOOtgd
-zgqjdUa/fYIM5r0d9bhvEiGWyfnRhvB2oc/VdOKokadXe0xmZAP75B7YTJxohELB
-glFa7VJjoiGX1tGNkP+qVhyfvtrR7oti9wVdTwtGT7+kYy47CN4pkH/CAc8Als55
-uYWM+S1yQfdOVs1J0eB4M0Qq6XqxqZ3kgZ5THp3RvpY+GlUer6aKh3YgYt6/e2T0
-Wdmv6u5tj3WYnCNhfnrGgHOuU29GPuJpWxoauLgpCkrOhEfYntBIA5yIZrI5NoC/
-jJ3kBtixiKXj3JM8jPz0/jcEnFKuFiIk3vYVnp1oOh9LXWRsdNNLkKBa1dp/mZpT
-FpjmLTsQ0CiRWWmk7uxj
-=1SSL
------END PGP SIGNATURE-----
-
---nqqSe7kbnP6p3TE6Cgxqn7uRu43XLU80N--
+> > Signed-off-by: Jason Wang <jasowang@redhat.com>
+> > ---
+> >  drivers/virtio/virtio_ring.c | 5 ++++-
+> >  1 file changed, 4 insertions(+), 1 deletion(-)
+> >
+> > diff --git a/drivers/virtio/virtio_ring.c b/drivers/virtio/virtio_ring.c
+> > index 00ec6b3..545fed5 100644
+> > --- a/drivers/virtio/virtio_ring.c
+> > +++ b/drivers/virtio/virtio_ring.c
+> > @@ -636,7 +636,10 @@ bool virtqueue_enable_cb_delayed(struct virtqueue *_vq)
+> >  	 * entry. Always do both to keep code simple. */
+> >  	vq->vring.avail->flags &= cpu_to_virtio16(_vq->vdev, ~VRING_AVAIL_F_NO_INTERRUPT);
+> >  	/* TODO: tune this threshold */
+> > -	bufs = (u16)(virtio16_to_cpu(_vq->vdev, vq->vring.avail->idx) - vq->last_used_idx) * 3 / 4;
+> > +	bufs = (u16)(virtio16_to_cpu(_vq->vdev, vq->vring.avail->idx) -
+> > +		                     vq->last_used_idx);
+> > +	if (bufs != 1)
+> > +		bufs = bufs * 3 / 4;
+> >  	vring_used_event(&vq->vring) = cpu_to_virtio16(_vq->vdev, vq->last_used_idx + bufs);
+> >  	virtio_mb(vq->weak_barriers);
+> >  	if (unlikely((u16)(virtio16_to_cpu(_vq->vdev, vq->vring.used->idx) - vq->last_used_idx) > bufs)) {
+> > -- 
+> > 1.8.3.1
+> >
+> > _______________________________________________
+> > Virtualization mailing list
+> > Virtualization@lists.linux-foundation.org
+> > https://lists.linuxfoundation.org/mailman/listinfo/virtualization
