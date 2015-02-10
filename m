@@ -1,50 +1,94 @@
-From: Vasily Averin <vvs@parallels.com>
-Subject: Re: bride: IPv6 multicast snooping enhancements
-Date: Tue, 10 Feb 2015 16:59:09 +0300
-Message-ID: <54DA0EAD.60002@parallels.com>
-References: <1378253619-23918-1-git-send-email-linus.luessing@web.de>
-	<54D9C4ED.6040601@parallels.com> <20150210114428.GK2489@odroid>
+From: Sabrina Dubroca <sd@queasysnail.net>
+Subject: Re: [PATCH net-next 6/6] ipv6: Allow for partial checksums on
+ non-ufo packets
+Date: Tue, 10 Feb 2015 15:07:04 +0100
+Message-ID: <20150210140704.GA3372@kria>
+References: <1422718818-21093-1-git-send-email-vyasevic@redhat.com>
+ <1422718818-21093-7-git-send-email-vyasevic@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
-Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>, Cong Wang <amwang@redhat.com>
-To: =?UTF-8?B?TGludXMgTMO8c3Npbmc=?= <linus.luessing@c0d3.blue>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <20150210114428.GK2489@odroid>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au,
+	hannes@stressinduktion.org,
+	Vladislav Yasevich <vyasevic@redhat.com>
+To: Vladislav Yasevich <vyasevich@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp3-g21.free.fr ([212.27.42.3]:49130 "EHLO smtp3-g21.free.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753223AbbBJOHN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Feb 2015 09:07:13 -0500
+Content-Disposition: inline
+In-Reply-To: <1422718818-21093-7-git-send-email-vyasevic@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10.02.2015 14:44, Linus L=C3=BCssing wrote:
-> Hi Vasily,
->=20
-> On Tue, Feb 10, 2015 at 11:44:29AM +0300, Vasily Averin wrote:
->> This patch prevent forwarding of ICMPv6 in bridges,
->> so containers/VMs with virtual eth adapters connected in local bridge =
-cannot ping each other via ipv6 (but can do it via ipv4)
->=20
-> If a host wants to receive packets, then it needs to signalize
-> that via MLD. If your host does not do that, then it is expected
-> to not receive ICMPv6 echo requests to multicast addresses. An
-> exception is ff02::1, that should always work.
+2015-01-31, 10:40:18 -0500, Vladislav Yasevich wrote:
+> Currntly, if we are not doing UFO on the packet, all UDP
+> packets will start with CHECKSUM_NONE and thus perform full
+> checksum computations in software even if device support
+> IPv6 checksum offloading.
+> 
+> Let's start start with CHECKSUM_PARTIAL if the device
+> supports it and we are sending only a single packet at
+> or below mtu size.
+> 
+> Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
+> ---
 
-Thank you for explanation, seems now I understand finally how it should w=
-ork.
+This patch causes ICMPv6 checksumming issues for me.
 
-I'm trying to fix ICMPv6 processing broken in OpenVZ after rebase to last=
- RHEL6u6 kernel.
-After some unclear manipulation bridge begins to forward icmp6 NS (fe02::=
-1) into wrong port,
-and at present I do not found the reason of this failure.
+On my tg3 device and on a qemu VM with e1000 emulation, outgoing pings
+have a bad checksum.  Router solicitations also have a bad checksum,
+so autoconf fails.  When I revert this patch, or when I disable
+tx-checksumming with ethtool, everything looks okay again.
 
-Thank you,
-	Vasily Averin
+On tg3, replies to ping seem always good.
+
+On e1000, replies to ping work (more or less).  Sometimes the checksum
+is bad, sometimes it's good.
+
+
+% ping6 fec0::3456
+PING fec0::3456(fec0::3456) 56 data bytes
+64 bytes from fec0::3456: icmp_seq=1 ttl=64 time=0.433 ms
+64 bytes from fec0::3456: icmp_seq=2 ttl=64 time=0.457 ms
+64 bytes from fec0::3456: icmp_seq=10 ttl=64 time=0.448 ms
+64 bytes from fec0::3456: icmp_seq=11 ttl=64 time=0.451 ms
+64 bytes from fec0::3456: icmp_seq=18 ttl=64 time=0.485 ms
+64 bytes from fec0::3456: icmp_seq=20 ttl=64 time=0.476 ms
+64 bytes from fec0::3456: icmp_seq=22 ttl=64 time=0.448 ms
+64 bytes from fec0::3456: icmp_seq=26 ttl=64 time=0.438 ms
+64 bytes from fec0::3456: icmp_seq=27 ttl=64 time=0.413 ms
+64 bytes from fec0::3456: icmp_seq=28 ttl=64 time=0.452 ms
+64 bytes from fec0::3456: icmp_seq=29 ttl=64 time=0.440 ms
+64 bytes from fec0::3456: icmp_seq=30 ttl=64 time=0.485 ms
+64 bytes from fec0::3456: icmp_seq=32 ttl=64 time=0.473 ms
+64 bytes from fec0::3456: icmp_seq=33 ttl=64 time=0.472 ms
+64 bytes from fec0::3456: icmp_seq=34 ttl=64 time=0.395 ms
+64 bytes from fec0::3456: icmp_seq=35 ttl=64 time=0.456 ms
+64 bytes from fec0::3456: icmp_seq=36 ttl=64 time=0.409 ms
+^C
+--- fec0::3456 ping statistics ---
+36 packets transmitted, 17 received, 52% packet loss, time 34998ms
+rtt min/avg/max/mdev = 0.395/0.448/0.485/0.037 ms
+
+
+I've seen a few strange source addresses, but I don't know if it's
+related.
+
+% ping6 fec0::3456
+PING fec0::3456(fec0::3456) 56 data bytes
+64 bytes from fec0::ff:ff00:0:3456: icmp_seq=1 ttl=64 time=0.423 ms   <---
+64 bytes from fec0::3456: icmp_seq=4 ttl=64 time=0.396 ms
+64 bytes from fec0::3456: icmp_seq=5 ttl=64 time=0.400 ms
+
+
+This could be a driver issue, or just exposing another problem
+somewhere else, I don't know.
+
+Any idea?
+
+
+Thanks
+
+-- 
+Sabrina
