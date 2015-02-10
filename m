@@ -1,49 +1,64 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [PATCH 1/2] net wireless wcn36xx add wcnss platform code
-Date: Tue, 10 Feb 2015 08:41:03 +0200
-Message-ID: <87iofanu9s.fsf@kamboji.qca.qualcomm.com>
-References: <20150118051222.32019.32719.stgit@114-36-241-182.dynamic.hinet.net>
-	<20150118051644.32019.65489.stgit@114-36-241-182.dynamic.hinet.net>
-	<CAJAp7Oik5zavEKpWV4BikHu1a1QDibS0KqPr+492ZaRAHJ2Cbw@mail.gmail.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Fw: [Bug 93011] New: boilerplate IPVLAN Kconfig
+Date: Mon, 9 Feb 2015 22:49:13 -0800
+Message-ID: <20150209224913.24e48ffa@uryu.home.lan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andy Green <andy.green@linaro.org>,
-	Eugene Krasnikov <k.eugene.e@gmail.com>,
-	wcn36xx <wcn36xx@lists.infradead.org>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: Bjorn Andersson <bjorn@kryo.se>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:53107 "EHLO
-	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751197AbbBJGsg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Feb 2015 01:48:36 -0500
-In-Reply-To: <CAJAp7Oik5zavEKpWV4BikHu1a1QDibS0KqPr+492ZaRAHJ2Cbw@mail.gmail.com>
-	(Bjorn Andersson's message of "Mon, 9 Feb 2015 10:00:11 -0800")
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:60759 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751429AbbBJGtQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Feb 2015 01:49:16 -0500
+Received: by mail-pa0-f51.google.com with SMTP id eu11so17440574pac.10
+        for <netdev@vger.kernel.org>; Mon, 09 Feb 2015 22:49:16 -0800 (PST)
+Received: from uryu.home.lan ([209.37.255.2])
+        by mx.google.com with ESMTPSA id o3sm18292967pde.7.2015.02.09.22.49.15
+        for <netdev@vger.kernel.org>
+        (version=TLSv1.2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
+        Mon, 09 Feb 2015 22:49:16 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Bjorn Andersson <bjorn@kryo.se> writes:
 
-> On Sat, Jan 17, 2015 at 9:16 PM, Andy Green <andy.green@linaro.org> wrote:
->> From: Eugene Krasnikov <k.eugene.e@gmail.com>
->>
->> AG modified to remove regulator handling not needed on msm8916-qrd
->>
->> Signed-off-by: Eugene Krasnikov <k.eugene.e@gmail.com>
->> Signed-off-by: Andy Green <andy.green@linaro.org>
->> ---
->>  drivers/net/wireless/ath/wcn36xx/Makefile      |    2
->>  drivers/net/wireless/ath/wcn36xx/wcn36xx-msm.c |  357 ++++++++++++++++++++++++
->
-> It seems like we're finally getting somewhere with the hwspinlock
-> devicetree binding, which will allow us to go ahead with the work on
-> getting smem, smd, smsm and smp2p into mainline.
->
-> With that in place we have fixed apis that this driver will run upon,
-> so I would like to suggest that we at that point fold this logic into
-> the driver itself rather than having this skim.
 
-Yeah, this approach would be much better.
+Begin forwarded message:
+
+Date: Mon, 9 Feb 2015 22:06:03 +0000
+From: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla.kernel.org>
+To: "shemminger@linux-foundation.org" <shemminger@linux-foundation.org>
+Subject: [Bug 93011] New: boilerplate IPVLAN Kconfig
+
+
+https://bugzilla.kernel.org/show_bug.cgi?id=93011
+
+            Bug ID: 93011
+           Summary: boilerplate IPVLAN Kconfig
+           Product: Networking
+           Version: 2.5
+    Kernel Version: 3.19
+          Hardware: All
+                OS: Linux
+              Tree: Mainline
+            Status: NEW
+          Severity: low
+          Priority: P1
+         Component: Other
+          Assignee: shemminger@linux-foundation.org
+          Reporter: bugzilla.kernel.bpeb@manchmal.in-ulm.de
+        Regression: No
+
+Hi there,
+
+3.19 introduced a new option IPVLAN, however the text in
+drivers/net/Kconfig still contains a template:
+
+|      Ipvlan devices can be added using the "ip" command from the
+|      iproute2 package starting with the iproute2-X.Y.ZZ release:
+
+Please update to the appropriate version number.
 
 -- 
-Kalle Valo
+You are receiving this mail because:
+You are the assignee for the bug.
