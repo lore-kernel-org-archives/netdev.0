@@ -1,78 +1,43 @@
-From: Bryton Lee <brytonlee01@gmail.com>
-Subject: [PATCH] prevent the read ahead of /proc/slabinfo in ss - take 3
-Date: Tue, 10 Feb 2015 13:52:13 +0800
-Message-ID: <1423547533-6727-1-git-send-email-brytonlee01@gmail.com>
-Cc: eric.dumazet@gmail.com, brytonlee01@gmail.com
-To: stephen@networkplumber.org, netdev@vger.kernel.org,
-	davem@davemloft.net
+From: Kristian Evensen <kristian.evensen@gmail.com>
+Subject: Re: [PATCH] net: qmi_wwan: MC73xx interface 10 is not QMI
+Date: Tue, 10 Feb 2015 07:04:11 +0100
+Message-ID: <CAKfDRXhoTWXqf6QrvFiyMeDp6dyDDAoPOLkdKdXfj46E5q+hog@mail.gmail.com>
+References: <CAKfDRXjwsQRA+CxaUpZVoDW3TmrUd6edSf_gi1EkPMcTFv0F5A@mail.gmail.com>
+	<8761bbqker.fsf@nemi.mork.no>
+	<CAKfDRXjhN7q98PKeddgoHhx8rFx+bf8YweTE62AbCfbi7v8E3w@mail.gmail.com>
+	<20150209.141947.1972128292278697717.davem@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?UTF-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>,
+	Network Development <netdev@vger.kernel.org>,
+	Aleksander Morgado <aleksander@aleksander.es>
+To: David Miller <davem@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:54980 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756533AbbBJFwn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Feb 2015 00:52:43 -0500
-Received: by mail-pa0-f45.google.com with SMTP id et14so38899092pad.4
-        for <netdev@vger.kernel.org>; Mon, 09 Feb 2015 21:52:42 -0800 (PST)
+Received: from mail-yh0-f41.google.com ([209.85.213.41]:53018 "EHLO
+	mail-yh0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751088AbbBJGEM convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Feb 2015 01:04:12 -0500
+Received: by mail-yh0-f41.google.com with SMTP id 29so449591yhl.0
+        for <netdev@vger.kernel.org>; Mon, 09 Feb 2015 22:04:11 -0800 (PST)
+In-Reply-To: <20150209.141947.1972128292278697717.davem@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-prevent the read ahead of /proc/slabinfo in ss.
+On Mon, Feb 9, 2015 at 11:19 PM, David Miller <davem@redhat.com> wrote:
+> So what are we going to do with this patch?
 
-Signed-off-by: Bryton Lee <brytonlee01@gmail.com>
----
- misc/ss.c | 13 ++++++++++---
- 1 file changed, 10 insertions(+), 3 deletions(-)
+I spent some more time yesterday reading through the references
+provided by Bj=C3=B8rn, as well as doing some more searching. The devic=
+es
+exported by interface 8 and 10 offers the same functionality, and
+interface 8 seems to work for all MC73xx-devices (there is no
+reference of anyone not getting a connection through it). Interface
+10, on the other hand, only seems to work on some MC73xx-devices. I
+see no point in carrying around a reference in the driver to an
+interface that might work in some cases, when there is one that always
+works. However, there might be a modem or a particular firmware
+revision I am not aware of. Bj=C3=B8rn/Aleksander knows more about
+available QMI-devices than me, so I think they should decide.
 
-diff --git a/misc/ss.c b/misc/ss.c
-index 7fc0a99..74721b5 100644
---- a/misc/ss.c
-+++ b/misc/ss.c
-@@ -616,7 +616,8 @@ struct slabstat
- 	int skbs;
- };
- 
--struct slabstat slabstat;
-+static struct slabstat slabstat;
-+static int slabstat_valid = 0;
- 
- static const char *slabstat_ids[] =
- {
-@@ -655,6 +656,8 @@ static int get_slabstat(struct slabstat *s)
- 			break;
- 	}
- 
-+    slabstat_valid = 1;
-+
- 	fclose(fp);
- 	return 0;
- }
-@@ -2230,6 +2233,9 @@ static int tcp_show(struct filter *f, int socktype)
- 	 * it is able to give us some memory for snapshot.
- 	 */
- 	if (1) {
-+		if (!slabstat_valid)
-+			get_slabstat(&slabstat);
-+
- 		int guess = slabstat.socks+slabstat.tcp_syns;
- 		if (f->states&(1<<SS_TIME_WAIT))
- 			guess += slabstat.tcp_tws;
-@@ -3196,6 +3202,9 @@ static int print_summary(void)
- 	if (get_snmp_int("Tcp:", "CurrEstab", &sn.tcp_estab) < 0)
- 		perror("ss: get_snmpstat");
- 
-+	if (!slabstat_valid)
-+		get_slabstat(&slabstat);
-+
- 	printf("Total: %d (kernel %d)\n", s.socks, slabstat.socks);
- 
- 	printf("TCP:   %d (estab %d, closed %d, orphaned %d, synrecv %d, timewait %d/%d), ports %d\n",
-@@ -3543,8 +3552,6 @@ int main(int argc, char *argv[])
- 	argc -= optind;
- 	argv += optind;
- 
--	get_slabstat(&slabstat);
--
- 	if (do_summary) {
- 		print_summary();
- 		if (do_default && argc == 0)
--- 
-2.0.5
+-Kristian
