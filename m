@@ -1,41 +1,41 @@
-From: Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>
-Subject: Re: [PATCH v3 linux-trace 4/8] samples: bpf: simple tracing example
- in C
-Date: Tue, 10 Feb 2015 00:16:08 -0500
-Message-ID: <20150210001608.157a9190@grimm.local.home>
-References: <1423539961-21792-1-git-send-email-ast@plumgrid.com>
-	<1423539961-21792-5-git-send-email-ast@plumgrid.com>
-	<20150209230836.7f913c60@grimm.local.home>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [GIT PULL nf] IPVS Fixes for v3.20
+Date: Tue, 10 Feb 2015 06:31:41 +0100
+Message-ID: <20150210053141.GA3248@salvia>
+References: <1423459508-15517-1-git-send-email-horms@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Namhyung Kim <namhyung-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Arnaldo Carvalho de Melo <acme-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	Jiri Olsa <jolsa-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Masami Hiramatsu <masami.hiramatsu.pt-FCd8Q96Dh0JBDgjK7y7TUQ@public.gmane.org>,
-	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20150209230836.7f913c60-2kNGR76GQU9OHLTnHDQRgA@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>
+To: Simon Horman <horms@verge.net.au>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1423459508-15517-1-git-send-email-horms@verge.net.au>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 9 Feb 2015 23:08:36 -0500
-Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org> wrote:
- 
-> I don't want to get stuck with pinned kernel data structures again. We
-> had 4 blank bytes of data for every event, because latency top hard
-> coded the field. Luckily, the 64 bit / 32 bit interface caused latency
-> top to have to use the event_parse code to work, and we were able to
-> remove that field after it was converted.
+On Mon, Feb 09, 2015 at 02:25:07PM +0900, Simon Horman wrote:
+> Hi Pablo,
+> 
+> please consider this fix for v3.20
+> 
+> This patch prevents the kernel getting into a situation whereby a
+> real-server may not be removed from a heterogeneous IPVS virtual server.
+> 
+> This problem was introduced by  bc18d37f676f ("ipvs: Allow heterogeneous
+> pools now that we support them") in v3.18. This patch seems appropriate
+> for stable and I have checked that it applies cleanly to both v3.19 and
+> v3.18.6.
+> 
+> 
+> The following changes since commit 42b5212fee4f57907e9415b18fe19c13e65574bc:
+> 
+>   xen-netback: stop the guest rx thread after a fatal error (2015-02-02 19:39:04 -0800)
+> 
+> are available in the git repository at:
+> 
+>   https://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs.git tags/ipvs-fixes-for-v3.20
 
-I'm wondering if we should label eBPF programs as "modules". That is,
-they have no guarantee of working from one kernel to the next. They
-execute in the kernel, thus they are very similar to modules.
-
-If we can get Linus to say that eBPF programs are not user space, and
-that they are treated the same as modules (no internal ABI), then I
-think we can be a bit more free at what we allow.
-
--- Steve
+Pulled, thanks Simon.
