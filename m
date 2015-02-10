@@ -1,46 +1,107 @@
-From: Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
-Subject: Re: [PATCH v3 linux-trace 1/8] tracing: attach eBPF programs to
- tracepoints and syscalls
-Date: Wed, 11 Feb 2015 10:45:41 +0100
-Message-ID: <20150211094541.GO23123@twins.programming.kicks-ass.net>
-References: <CAMEtUuzY_Po=WtFEFg1aqzJ8dEF4rHGcWDsaS44KYgACMNPPgA@mail.gmail.com>
+From: "overcastsky.zhao@gmail.com" <overcastsky.zhao@gmail.com>
+Subject: Re: [ANNOUNCE] ipvsadm release v1.28
+Date: Tue, 10 Feb 2015 10:42:58 +0800
+Message-ID: <201502101042541489680@gmail.com>
+References: <20150209185502.693488a1@redhat.com>
+Reply-To: "LinuxVirtualServer.org users mailing list."
+	<lvs-users@linuxvirtualserver.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
-	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Namhyung Kim <namhyung-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Arnaldo Carvalho de Melo <acme-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	Jiri Olsa <jolsa-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Masami Hiramatsu <masami.hiramatsu.pt-FCd8Q96Dh0JBDgjK7y7TUQ@public.gmane.org>,
-	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	"Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
-To: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <CAMEtUuzY_Po=WtFEFg1aqzJ8dEF4rHGcWDsaS44KYgACMNPPgA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: Wensong Zhang <wensong@linux-vs.org>, logan <logan@ubuntu.com>,
+	netdev <netdev@vger.kernel.org>, brouer <brouer@redhat.com>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	formorer <formorer@debian.org>, dborkman <dborkman@redhat.com>,
+	Julian Anastasov <ja@ssi.bg>, Simon Horman <horms@verge.net.au>,
+	Ryan O'Hara <rohara@redhat.com>, support <support@remsnet.de>,
+	Alex Gartrell <agartrell@fb.com>, mt <mt@suse.de>
+To: "Jesper Dangaard Brouer" <brouer@redhat.com>,
+	lvs-devel <lvs-devel@vger.kernel.org>,
+	lvs-users <lvs-users@linuxvirtualserver.org>
+Return-path: <lvs-users-bounces+gcll-lvs-users=m.gmane.org@linuxvirtualserver.org>
+List-Unsubscribe: <http://lists.graemef.net/mailman/listinfo/lvs-users>,
+	<mailto:lvs-users-request@linuxvirtualserver.org?subject=unsubscribe>
+List-Archive: <http://lists.graemef.net/pipermail/lvs-users>
+List-Post: <mailto:lvs-users@linuxvirtualserver.org>
+List-Help: <mailto:lvs-users-request@linuxvirtualserver.org?subject=help>
+List-Subscribe: <http://lists.graemef.net/mailman/listinfo/lvs-users>,
+	<mailto:lvs-users-request@linuxvirtualserver.org?subject=subscribe>
+Sender: lvs-users-bounces@linuxvirtualserver.org
+Errors-To: lvs-users-bounces+gcll-lvs-users=m.gmane.org@linuxvirtualserver.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Feb 10, 2015 at 04:22:50PM -0800, Alexei Starovoitov wrote:
-> well, ->prio and ->pid are already printed by sched tracepoints
-> and their meaning depends on scheduler. So users taking that
-> into account.
 
-Right, so trace_events were/are root only, and root 'should' be in the
-root pid namespace, and therefore pid magically works.
 
-And I'm not sure, but I don't think the 'nested' root available from
-containers should have access to ftrace, so that should not be an issue.
 
-Perf tries real hard to present PERF_SAMPLE_PID data in the pid
-namespace of the task that created the event.
 
-As to prio; yes this is a prime example of suck, I would love to change
-that but cannot :-(. The only solace I have is that everybody who is
-relying on it is broken.
 
-There is a very good reason I'm against adding more tracepoints to the
-scheduler, its a nightmare.
+
+Thank=A0you=A0for=A0your=A0help.I=A0will=A0download=A0and=A0test.Welcome=A0=
+to=A0Nanjing,China.=A0I=A0will=A0your=A0guide.=A0
+
+
+overcastsky.zhao@gmail.com
+=A0From:=A0Jesper Dangaard BrouerDate:=A02015-02-09=A013:55To:=A0lvs-devel;=
+ lvs-usersCC:=A0brouer; netdev; linux-kernel; Ryan O'Hara; Julian Anastasov=
+; overcastsky.zhao; formorer; mt; logan; support; Daniel Borkmann; Wensong =
+Zhang; Simon Horman; Alex GartrellSubject:=A0[ANNOUNCE] ipvsadm release v1.=
+28=A0
+We are happy to announce the release of ipvsadm v1.28.
+=A0
+ ipvsadm is a utility to administer the kernels IPVS/LVS load-balancer serv=
+ice
+=A0
+It has been quite a while since the previous release, v1.27. A number of
+fixes and improvements have been made; most noticeably in the area of IPv6.
+=A0
+One big addition is the support for heterogeneous pools (v4 and v6
+mixed pools in 3.18), by Alex Gartrell (facebook).
+=A0
+Feature wise the SCTP protocol has been added which is available via the
+cmdline parameter "--sctp-service". The kernel has supported SCTP since
+kernel 2.6.34 but up until now ipvsadm users have been restricted to using
+fwmark-based virtual services for SCTP.
+=A0
+This release is based on the kernel.org git tree:
+=A0 https://git.kernel.org/cgit/utils/kernel/ipvsadm/ipvsadm.git/
+=A0
+You can download the tarballs from:
+ https://kernel.org/pub/linux/utils/kernel/ipvsadm/
+=A0
+Git tree:
+ git://git.kernel.org/pub/scm/utils/kernel/ipvsadm/ipvsadm.git
+=A0
+Shortlog:
+ Alex Gartrell (2):
+=A0=A0=A0=A0=A0 ipvsadm: specify real server address family to netlink sock=
+et
+=A0=A0=A0=A0=A0 ipvsadm: do not truncate ipv6 members of v4 services
+=A0
+ Daniel Borkmann (2):
+=A0=A0=A0=A0=A0 ipvsadm: fix compile warning in print_largenum
+=A0=A0=A0=A0=A0 ipvsadm: fix compile warning in modprobe_ipvs
+=A0
+ Hibari Michiro (1):
+=A0=A0=A0=A0=A0 ipvsadm: enable displaying of IPv6 hostnames in listing
+=A0
+ Jesper Dangaard Brouer (1):
+=A0=A0=A0=A0=A0 Release: Version 1.28
+=A0
+ Julian Anastasov (3):
+=A0=A0=A0=A0=A0 ipvsadm: restrict different address family
+=A0=A0=A0=A0=A0 ipvsadm: allow different address family in connection listi=
+ng
+=A0=A0=A0=A0=A0 ipvsadm: add SCTP support
+=A0
+ Ryan O'Hara (2):
+=A0=A0=A0=A0=A0 libipvs: Initialize ipvs_service_t variable
+=A0=A0=A0=A0=A0 ipvsadm: Fix list daemon to show backup daemon
+=A0
+=A0
+-- =
+
+Best regards,
+=A0 Jesper Dangaard Brouer
+=A0 MSc.CS, Sr. Network Kernel Developer at Red Hat
+=A0 Author of http://www.iptv-analyzer.org
+=A0 LinkedIn: http://www.linkedin.com/in/brouer
