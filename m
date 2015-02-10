@@ -1,45 +1,109 @@
-From: Josh Hunt <johunt@akamai.com>
-Subject: Re: [PATCH 1/3] rhashtable: require max_shift definition
-Date: Tue, 10 Feb 2015 15:18:16 -0600
-Message-ID: <54DA7598.6090201@akamai.com>
-References: <1423529311-26050-1-git-send-email-johunt@akamai.com> <1423529311-26050-2-git-send-email-johunt@akamai.com> <20150210005801.GA8951@casper.infradead.org> <54D9C18B.5090208@iogearbox.net> <54DA2A13.5010204@akamai.com> <54DA3A9F.9090608@iogearbox.net> <20150210172241.GB9301@casper.infradead.org> <FB9AAD93-7F9C-440E-8EB2-44D50B8AA22A@trash.net>
+From: Joe Perches <joe@perches.com>
+Subject: [trivial PATCH] treewide: Remove unnecessary SSB_DEVTABLE_END macro
+Date: Tue, 10 Feb 2015 13:19:24 -0800
+Message-ID: <1423603164.15343.5.camel@perches.com>
+References: <1423601703.15343.3.camel@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>, Thomas Graf <tgraf@suug.ch>,
-	Daniel Borkmann <daniel@iogearbox.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from prod-mail-xrelay07.akamai.com ([72.246.2.115]:41203 "EHLO
-	prod-mail-xrelay07.akamai.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753696AbbBJVSR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Feb 2015 16:18:17 -0500
-In-Reply-To: <FB9AAD93-7F9C-440E-8EB2-44D50B8AA22A@trash.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	netdev <netdev@vger.kernel.org>, b43-dev@lists.infradead.org,
+	linux-usb <linux-usb@vger.kernel.org>
+To: LKML <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1423601703.15343.3.camel@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 02/10/2015 11:44 AM, Patrick McHardy wrote:
-> Am 10. Februar 2015 18:22:41 MEZ, schrieb Thomas Graf <tgraf@suug.ch>:
->> On 02/10/15 at 06:06pm, Daniel Borkmann wrote:
->>> Hm, given that min_shift/max_shift are parameters that directly
->>> concern internals of rhashtable i.e. are tightly coupled to expand
->>> and shrink functionality, I'd say that depending on the use case,
->>> a maxelem limit should rather be handled outside of it, if it's
->>> truly an issue/concern.
->>
->> Agreed, Netlink already uses the atomic counter of rhashtable to
->> enforce  upper limit of table entries:
->>
->>         err = -ENOMEM;
->>         if (BITS_PER_LONG > 32 &&
->>             unlikely(atomic_read(&table->hash.nelems) >= UINT_MAX))
->>                 goto err;
->
-> I would tend to agree with Pablo, now we're handling half (shift) internally and half (max) externally, using internal values.
+Use the normal {} instead of a macro to terminate an array.
 
-OK. Thanks for all the feedback. I will send a v2 once the other 2 
-patches get reviewed.
+Remove the macro too.
 
-Thanks
-Josh
+Signed-off-by: Joe Perches <joe@perches.com>
+---
+ drivers/net/ethernet/broadcom/b44.c   | 2 +-
+ drivers/net/wireless/b43/main.c       | 2 +-
+ drivers/net/wireless/b43legacy/main.c | 2 +-
+ drivers/ssb/driver_gige.c             | 2 +-
+ drivers/usb/host/ssb-hcd.c            | 2 +-
+ include/linux/mod_devicetable.h       | 2 --
+ 6 files changed, 5 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/net/ethernet/broadcom/b44.c b/drivers/net/ethernet/broadcom/b44.c
+index d86d6ba..bd5916a 100644
+--- a/drivers/net/ethernet/broadcom/b44.c
++++ b/drivers/net/ethernet/broadcom/b44.c
+@@ -121,7 +121,7 @@ static struct pci_driver b44_pci_driver = {
+ 
+ static const struct ssb_device_id b44_ssb_tbl[] = {
+ 	SSB_DEVICE(SSB_VENDOR_BROADCOM, SSB_DEV_ETHERNET, SSB_ANY_REV),
+-	SSB_DEVTABLE_END
++	{},
+ };
+ MODULE_DEVICE_TABLE(ssb, b44_ssb_tbl);
+ 
+diff --git a/drivers/net/wireless/b43/main.c b/drivers/net/wireless/b43/main.c
+index 6acb2b5..ccbdb05 100644
+--- a/drivers/net/wireless/b43/main.c
++++ b/drivers/net/wireless/b43/main.c
+@@ -144,7 +144,7 @@ static const struct ssb_device_id b43_ssb_tbl[] = {
+ 	SSB_DEVICE(SSB_VENDOR_BROADCOM, SSB_DEV_80211, 13),
+ 	SSB_DEVICE(SSB_VENDOR_BROADCOM, SSB_DEV_80211, 15),
+ 	SSB_DEVICE(SSB_VENDOR_BROADCOM, SSB_DEV_80211, 16),
+-	SSB_DEVTABLE_END
++	{},
+ };
+ MODULE_DEVICE_TABLE(ssb, b43_ssb_tbl);
+ #endif
+diff --git a/drivers/net/wireless/b43legacy/main.c b/drivers/net/wireless/b43legacy/main.c
+index 1aec214..4e58c00 100644
+--- a/drivers/net/wireless/b43legacy/main.c
++++ b/drivers/net/wireless/b43legacy/main.c
+@@ -86,7 +86,7 @@ MODULE_PARM_DESC(fwpostfix, "Postfix for the firmware files to load.");
+ static const struct ssb_device_id b43legacy_ssb_tbl[] = {
+ 	SSB_DEVICE(SSB_VENDOR_BROADCOM, SSB_DEV_80211, 2),
+ 	SSB_DEVICE(SSB_VENDOR_BROADCOM, SSB_DEV_80211, 4),
+-	SSB_DEVTABLE_END
++	{},
+ };
+ MODULE_DEVICE_TABLE(ssb, b43legacy_ssb_tbl);
+ 
+diff --git a/drivers/ssb/driver_gige.c b/drivers/ssb/driver_gige.c
+index 21f71a1..e973405 100644
+--- a/drivers/ssb/driver_gige.c
++++ b/drivers/ssb/driver_gige.c
+@@ -24,7 +24,7 @@ MODULE_LICENSE("GPL");
+ 
+ static const struct ssb_device_id ssb_gige_tbl[] = {
+ 	SSB_DEVICE(SSB_VENDOR_BROADCOM, SSB_DEV_ETHERNET_GBIT, SSB_ANY_REV),
+-	SSB_DEVTABLE_END
++	{},
+ };
+ /* MODULE_DEVICE_TABLE(ssb, ssb_gige_tbl); */
+ 
+diff --git a/drivers/usb/host/ssb-hcd.c b/drivers/usb/host/ssb-hcd.c
+index 0196f76..ffc32f4 100644
+--- a/drivers/usb/host/ssb-hcd.c
++++ b/drivers/usb/host/ssb-hcd.c
+@@ -251,7 +251,7 @@ static const struct ssb_device_id ssb_hcd_table[] = {
+ 	SSB_DEVICE(SSB_VENDOR_BROADCOM, SSB_DEV_USB11_HOSTDEV, SSB_ANY_REV),
+ 	SSB_DEVICE(SSB_VENDOR_BROADCOM, SSB_DEV_USB11_HOST, SSB_ANY_REV),
+ 	SSB_DEVICE(SSB_VENDOR_BROADCOM, SSB_DEV_USB20_HOST, SSB_ANY_REV),
+-	SSB_DEVTABLE_END
++	{},
+ };
+ MODULE_DEVICE_TABLE(ssb, ssb_hcd_table);
+ 
+diff --git a/include/linux/mod_devicetable.h b/include/linux/mod_devicetable.h
+index 72f24b6..e530533 100644
+--- a/include/linux/mod_devicetable.h
++++ b/include/linux/mod_devicetable.h
+@@ -364,8 +364,6 @@ struct ssb_device_id {
+ } __attribute__((packed, aligned(2)));
+ #define SSB_DEVICE(_vendor, _coreid, _revision)  \
+ 	{ .vendor = _vendor, .coreid = _coreid, .revision = _revision, }
+-#define SSB_DEVTABLE_END  \
+-	{ 0, },
+ 
+ #define SSB_ANY_VENDOR		0xFFFF
+ #define SSB_ANY_ID		0xFFFF
