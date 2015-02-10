@@ -1,7 +1,7 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: Throughput regression with `tcp: refine TSO autosizing`
-Date: Tue, 10 Feb 2015 05:05:13 -0800
-Message-ID: <1423573513.28434.16.camel@edumazet-glaptop2.roam.corp.google.com>
+Date: Tue, 10 Feb 2015 05:14:39 -0800
+Message-ID: <1423574079.28434.21.camel@edumazet-glaptop2.roam.corp.google.com>
 References: <CA+BoTQkVu23P3EOmY_Q3E1GJnWsyF==Pawz4iPOS_Bq5dvfO5Q@mail.gmail.com>
 	 <1422537297.21689.15.camel@edumazet-glaptop2.roam.corp.google.com>
 	 <CA+BoTQk2xT-8DqPuiiKG+kHAjLPrj8F9dLTb-rcGhvMq0u_2Qw@mail.gmail.com>
@@ -20,7 +20,6 @@ References: <CA+BoTQkVu23P3EOmY_Q3E1GJnWsyF==Pawz4iPOS_Bq5dvfO5Q@mail.gmail.com>
 	 <1423056591.907.130.camel@edumazet-glaptop2.roam.corp.google.com>
 	 <1423084303.31870.15.camel@edumazet-glaptop2.roam.corp.google.com>
 	 <CA+BoTQ=u_xPuqTVOVaFTQNRrJ+UTXe89SY+=+7Y1LpxxrkRDfg@mail.gmail.com>
-	 <1423572896.28434.13.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -30,41 +29,24 @@ Cc: Neal Cardwell <ncardwell@google.com>,
 	Eyal Perry <eyalpe@dev.mellanox.co.il>
 To: Michal Kazior <michal.kazior@tieto.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:33103 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932447AbbBJNFS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Feb 2015 08:05:18 -0500
-In-Reply-To: <1423572896.28434.13.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-pd0-f171.google.com ([209.85.192.171]:42329 "EHLO
+	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755677AbbBJNOo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Feb 2015 08:14:44 -0500
+In-Reply-To: <CA+BoTQ=u_xPuqTVOVaFTQNRrJ+UTXe89SY+=+7Y1LpxxrkRDfg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2015-02-10 at 04:54 -0800, Eric Dumazet wrote:
+On Tue, 2015-02-10 at 11:33 +0100, Michal Kazior wrote:
+>                            ath10k_core_napi_dummy_poll, 64);
+> +       ewma_init(&ar->tx_delay_us, 16384, 8);
 
-> Hi Michal
-> 
-> This is almost it ;)
-> 
-> As I said you must do this using u64 arithmetics, we still support 32bit
-> kernels.
-> 
-> Also, >> 20 instead of / 1000000 introduces a 5% error, I would use a
-> plain divide, as the compiler will use a reciprocal divide (ie : a
-> multiply)
-> 
-> We use >> 10 instead of /1000 because a 2.4 % error is probably okay.
-> 
->         ewma_add(&ar->tx_delay_us,
->                  ktime_to_ns(ktime_sub(ktime_get(),
-> skb_cb->stamp)) /
-> 	                        NSEC_PER_USEC);
 
-btw I suspect this wont compile on 32 bit kernel
+1) 16384 factor might be too big.
 
-You need to use do_div() as well :
+2) a weight of 8 seems too low given aggregation values used in wifi.
 
-u64 val = ktime_to_ns(ktime_sub(ktime_get(),
-				skb_cb->stamp));
+On 32bit arches, the max range for ewma value would be 262144 usec,
+a quarter of a second...
 
-do_div(val, NSEC_PER_USEC);
-
-ewma_add(&ar->tx_delay_us, val);
+You could use a factor of 64 instead, and a weight of 16.
