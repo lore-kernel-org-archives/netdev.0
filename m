@@ -1,53 +1,50 @@
-From: Colin Ian King <colin.king@canonical.com>
-Subject: Re: [PATCH] rtlwifi: ratelimit skb allocation failure message
-Date: Tue, 10 Feb 2015 13:52:23 +0000
-Message-ID: <54DA0D17.7070403@canonical.com>
-References: <1423558471-27278-1-git-send-email-colin.king@canonical.com>	<1423574228.28434.22.camel@edumazet-glaptop2.roam.corp.google.com> <87a90lop1x.fsf@kamboji.qca.qualcomm.com>
+From: Vasily Averin <vvs@parallels.com>
+Subject: Re: bride: IPv6 multicast snooping enhancements
+Date: Tue, 10 Feb 2015 16:59:09 +0300
+Message-ID: <54DA0EAD.60002@parallels.com>
+References: <1378253619-23918-1-git-send-email-linus.luessing@web.de>
+	<54D9C4ED.6040601@parallels.com> <20150210114428.GK2489@odroid>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Larry Finger <Larry.Finger@lwfinger.net>,
-	Chaoming Li <chaoming_li@realsil.com.cn>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Kalle Valo <kvalo@codeaurora.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87a90lop1x.fsf@kamboji.qca.qualcomm.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>, Cong Wang <amwang@redhat.com>
+To: =?UTF-8?B?TGludXMgTMO8c3Npbmc=?= <linus.luessing@c0d3.blue>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <20150210114428.GK2489@odroid>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On 10/02/15 13:48, Kalle Valo wrote:
-> Eric Dumazet <eric.dumazet@gmail.com> writes:
-> 
->> On Tue, 2015-02-10 at 08:54 +0000, Colin King wrote:
->>> From: Colin Ian King <colin.king@canonical.com>
->>>
->>> when running low on memory I noticed rtlwifi was producing a large
->>> quantity of repeated skb allocation failures messages.  This should
->>> be ratelimited to reduce the noise.
->>>
->>> Signed-off-by: Colin Ian King <colin.king@canonical.com>
->>> ---
->>>  drivers/net/wireless/rtlwifi/pci.c | 2 +-
->>>  1 file changed, 1 insertion(+), 1 deletion(-)
->>>
->>> diff --git a/drivers/net/wireless/rtlwifi/pci.c b/drivers/net/wireless/rtlwifi/pci.c
->>> index c70efb9..ca0fd50 100644
->>> --- a/drivers/net/wireless/rtlwifi/pci.c
->>> +++ b/drivers/net/wireless/rtlwifi/pci.c
->>> @@ -817,7 +817,7 @@ static void _rtl_pci_rx_interrupt(struct ieee80211_hw *hw)
->>>  		/* get a new skb - if fail, old one will be reused */
->>>  		new_skb = dev_alloc_skb(rtlpci->rxbuffersize);
->>>  		if (unlikely(!new_skb)) {
->>> -			pr_err("Allocation of new skb failed in %s\n",
->>> +			pr_err_ratelimited("Allocation of new skb failed in %s\n",
->>>  			       __func__);
->>
->> Or even better, remove the message.
-> 
-> There's actually a pending patch for that, I'll send it to Dave ASAP:
-> 
-> https://patchwork.kernel.org/patch/5671121/
-> 
-Thanks!
+On 10.02.2015 14:44, Linus L=C3=BCssing wrote:
+> Hi Vasily,
+>=20
+> On Tue, Feb 10, 2015 at 11:44:29AM +0300, Vasily Averin wrote:
+>> This patch prevent forwarding of ICMPv6 in bridges,
+>> so containers/VMs with virtual eth adapters connected in local bridge =
+cannot ping each other via ipv6 (but can do it via ipv4)
+>=20
+> If a host wants to receive packets, then it needs to signalize
+> that via MLD. If your host does not do that, then it is expected
+> to not receive ICMPv6 echo requests to multicast addresses. An
+> exception is ff02::1, that should always work.
+
+Thank you for explanation, seems now I understand finally how it should w=
+ork.
+
+I'm trying to fix ICMPv6 processing broken in OpenVZ after rebase to last=
+ RHEL6u6 kernel.
+After some unclear manipulation bridge begins to forward icmp6 NS (fe02::=
+1) into wrong port,
+and at present I do not found the reason of this failure.
+
+Thank you,
+	Vasily Averin
