@@ -1,87 +1,50 @@
-From: Richard Guy Briggs <rgb@tricolour.ca>
-Subject: NetDev 0.1 online registration deadline Feb 12 (Thursday)
-Date: Tue, 10 Feb 2015 10:21:21 -0500
-Message-ID: <20150210152121.GN27821@toccata2.tricolour.ca>
+From: "Steinar H. Gunderson" <sgunderson@bigfoot.com>
+Subject: Kernel sends ICMP unreachable for GRE packets even if there is a
+ listening socket
+Date: Tue, 10 Feb 2015 16:24:10 +0100
+Message-ID: <20150210152410.GA9225@sesse.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: info@netdev01.org, speakers@netdev01.org, attendees@netdev01.org
-To: netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
-	lwn@lwn.net, netdev01@lists.netfilter.org, lartc@vger.kernel.org,
-	netfilter@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	swan-dev@lists.libreswan.org, swan@lists.libreswan.org,
-	users@lists.openswan.org, dev@lists.openswan.org
+Content-Type: text/plain; charset=utf-8
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from toccata2.tricolour.ca ([204.225.221.17]:43000 "EHLO
-	toccata2.tricolour.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750735AbbBJPVY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Feb 2015 10:21:24 -0500
+Received: from cassarossa.samfundet.no ([193.35.52.29]:39352 "EHLO
+	cassarossa.samfundet.no" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750729AbbBJPYQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Feb 2015 10:24:16 -0500
+Received: from pannekake.samfundet.no ([2001:67c:29f4::50] ident=unknown)
+	by cassarossa.samfundet.no with esmtps (TLS1.2:DHE_RSA_AES_128_CBC_SHA1:128)
+	(Exim 4.80)
+	(envelope-from <sesse@samfundet.no>)
+	id 1YLCfb-000267-1v
+	for netdev@vger.kernel.org; Tue, 10 Feb 2015 16:24:11 +0100
+Received: from sesse by pannekake.samfundet.no with local (Exim 4.80)
+	(envelope-from <sesse@samfundet.no>)
+	id 1YLCfa-0003k8-R1
+	for netdev@vger.kernel.org; Tue, 10 Feb 2015 16:24:10 +0100
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fellow netheads:
+[Resent from Bugzilla]
 
+Hi,
 
-NetDev 0.1 starts in 4 days.
+I have a userspace GRE listener, which opens a raw socket (error handling removed):
 
+        int gresock = socket(AF_INET6, SOCK_RAW, IPPROTO_GRE);
+        bind(gresock, (sockaddr *)&my_addr, sizeof(my_addr));
 
-Registration:
-==========================
-Online registration ends Thursday the 12th at midnight.  Registration is
-possible on site, but may incur a late registration fee.
-https://onlineregistrations.ca/netdev01/
-$100/day, or $350 for 4 days (Cdn dollars).
+and then select()s and recvfrom()s on it, as well as sendto().
 
+This works great. I can send and receive GRE packets. However, Linux _also_
+sends ICMPv6 unreachables when the other end sends to me. I assume this is
+because I don't have a corresponding kernel GRE tunnel interface. (I don't use
+the kernel GRE because I want, among others, stronger reordering functionality
+and possibly error correction, which is not in any standard.)
 
-There have been additions made to the "travel" section of the web site
-concerning local transit details, weather and clothing.  Please check it
-before travelling so you know what to expect.
-Travel/hotel/weather/clothing:	https://www.netdev01.org/travel
+Can this be suppressed when I have such a socket giong? ip6tables -A OUTPUT can
+stop them, but it seems very hacky and kludgy.
 
-
-Hotel:
-==========================
-The Westin Hotel may still have rooms for Netdev01 available.
-There are lots of big and small hotels in Ottawa, but they will fill up
-fast as Winterlude approaches, so book something soon.  There may be
-some possibilities to billet locally, but don't leave it last minute.
-Make your reservations at:
-https://www.starwoodmeeting.com/StarGroupsWeb/res?id=1412035802&key=1AC9C1F8
-
-
-Schedule:
-==========================
-The final schedule is out coded with session links.
-	https://www.netdev01.org/schedule
-
-
-Sponsors:
-=========
-NetDev 0.1 would like to gratefully acknowledge all our sponsors: 
-https://netdev01.org/sponsors
-Intel			http://www.intel.com/
-CENGN			http://www.cengn.ca/
-Google			https://www.google.ca
-Qualcomm		https://www.qualcomm.com/
-Verizon			http://www.verizon.com/
-Cumulus Networks	http://cumulusnetworks.com/
-Mojatatu Networks	http://mojatatu.com/
-
-
--------------------------------------------------------------------------------
-THE Technical Conference on Linux Networking, February 14-17, 2015, Ottawa, Canada
-https://netdev01.org/
-
-Contact:			info@netdev01.info
-Main site:			https://www.netdev01.org/
-Travel/hotel/weather/clothing:	https://www.netdev01.org/travel
-RSS feed:			https://netdev01.org/atom
-Follow us on Twitter: @netdev01	https://twitter.com/netdev01
-
-	slainte mhath, RGB
-
---
-Richard Guy Briggs               --  ~\    -- ~\             <hpv.tricolour.ca>
-<www.TriColour.ca>                 --  \___   o \@      @        Ride yer bike!
-Ottawa, ON, CANADA                  --  Lo_>__M__\\/\%__\\/\%
-Vote! -- <greenparty.ca>_____GTVS6#790__(*)__(*)________(*)(*)_________________
+/* Steinar */
+-- 
+Homepage: http://www.sesse.net/
