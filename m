@@ -1,7 +1,7 @@
-From: Michal Kazior <michal.kazior@tieto.com>
+From: Michal Kazior <michal.kazior-++hxYGjEMp0AvxtiuMwx3w@public.gmane.org>
 Subject: Re: Throughput regression with `tcp: refine TSO autosizing`
-Date: Wed, 11 Feb 2015 09:33:34 +0100
-Message-ID: <CA+BoTQkRp38nttSJgKs4dzQrn-TXpPbh4i-01YCF0BJQWrFi=Q@mail.gmail.com>
+Date: Wed, 11 Feb 2015 09:57:33 +0100
+Message-ID: <CA+BoTQn=YQQ_yUHvpAG3MMAw+=jxgLDiUMWxiTC3B3vkksTw9g@mail.gmail.com>
 References: <CA+BoTQkVu23P3EOmY_Q3E1GJnWsyF==Pawz4iPOS_Bq5dvfO5Q@mail.gmail.com>
 	<1422537297.21689.15.camel@edumazet-glaptop2.roam.corp.google.com>
 	<CA+BoTQk2xT-8DqPuiiKG+kHAjLPrj8F9dLTb-rcGhvMq0u_2Qw@mail.gmail.com>
@@ -19,67 +19,61 @@ References: <CA+BoTQkVu23P3EOmY_Q3E1GJnWsyF==Pawz4iPOS_Bq5dvfO5Q@mail.gmail.com>
 	<1423055810.907.125.camel@edumazet-glaptop2.roam.corp.google.com>
 	<1423056591.907.130.camel@edumazet-glaptop2.roam.corp.google.com>
 	<1423084303.31870.15.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CA+BoTQnnwrv0nrKyGyQNvosz_E4e5fBa9iN8fpeqcd-iRfi17g@mail.gmail.com>
+	<1423141038.31870.38.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1423142342.31870.49.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CA+BoTQmcShK0U_cXvEOLY_8y7LH8x3taTgjcyMzv0MLVn4UtCA@mail.gmail.com>
+	<1423147286.31870.59.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1423156205.31870.86.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CA+BoTQ=WaKLV=r6qWaWAEfyDr2pqMWpm4NDmnek92TEVndnxRQ@mail.gmail.com>
+	<1423230001.31870.128.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1423230785.31870.131.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CA+BoTQkazCOin7VWLfrHUjtgKDPV6T+sFsk5FPS7D-morr4FZQ@mail.gmail.com>
+	<CA+BoTQn3KRym0qCJ+fLav5LQgjfiN_-Eqz0xPSc2eXJ-ijNjQw@mail.gmail.com>
+	<1423494690.31870.189.camel@edumazet-glaptop2.roam.corp.google.com>
 	<CA+BoTQ=u_xPuqTVOVaFTQNRrJ+UTXe89SY+=+7Y1LpxxrkRDfg@mail.gmail.com>
-	<1423574079.28434.21.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1423577962.2215.2.camel@sipsolutions.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Neal Cardwell <ncardwell@google.com>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Eyal Perry <eyalpe@dev.mellanox.co.il>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f44.google.com ([74.125.82.44]:46086 "EHLO
-	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752051AbbBKIdp convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Feb 2015 03:33:45 -0500
-Received: by mail-wg0-f44.google.com with SMTP id z12so1880403wgg.3
-        for <netdev@vger.kernel.org>; Wed, 11 Feb 2015 00:33:43 -0800 (PST)
-In-Reply-To: <1423574079.28434.21.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Neal Cardwell <ncardwell-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Eyal Perry <eyalpe-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
+To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1423577962.2215.2.camel-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 10 February 2015 at 14:14, Eric Dumazet <eric.dumazet@gmail.com> wro=
-te:
+On 10 February 2015 at 15:19, Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>=
+ wrote:
 > On Tue, 2015-02-10 at 11:33 +0100, Michal Kazior wrote:
->>                            ath10k_core_napi_dummy_poll, 64);
->> +       ewma_init(&ar->tx_delay_us, 16384, 8);
 >
+>> +       if (msdu->sk) {
+>> +               ewma_add(&ar->tx_delay_us,
+>> +                        ktime_to_ns(ktime_sub(ktime_get(), skb_cb->=
+stamp)) /
+>> +                        NSEC_PER_USEC);
+>> +
+>> +               ACCESS_ONCE(msdu->sk->sk_tx_completion_delay_cushion=
+) =3D
+>> +                               (ewma_read(&ar->tx_delay_us) *
+>> +                                msdu->sk->sk_pacing_rate) >> 20;
+>> +       }
 >
-> 1) 16384 factor might be too big.
->
-> 2) a weight of 8 seems too low given aggregation values used in wifi.
->
-> On 32bit arches, the max range for ewma value would be 262144 usec,
-> a quarter of a second...
->
-> You could use a factor of 64 instead, and a weight of 16.
+> To some extent, every wifi driver is going to have this problem. Perh=
+aps
+> we should do this in mac80211?
 
-64/16 seems to work fine as well.
-
-On a related note: I still wonder how to get single TCP flow to reach
-line rate with ath10k (it still doesn't; I reach line rate with
-multiple flows only). Isn't the tcp_limit_output_bytes just too small
-for devices like Wi-Fi where you can send aggregates of even 64*3*1500
-bytes long in a single shot and you can't expect even a single
-tx-completion of it to come in before its transmitted entirely? You
-effectively operate with bursts of traffic.
-
-Some numbers:
- ath10k w/o cushion w/o aggregation 1 flow: UDP 65mbps, TCP 30mbps
- ath10k w/ cushion w/o aggregation 1 flow: UDP 65mbps, TCP 59mbps
- ath10k w/o cushion w/ aggregation 1 flow: UDP 650mbps, TCP 250mbps
- ath10k w/ cushion w/ aggregation 1 flow: UDP 650mbps, TCP 250mbps
- ath10k w/o cushion w/ aggregation 5 flows: UDP 650mbps, TCP 250mbps
- ath10k w/ cushion w/ aggregation 5 flows: UDP 650mbps, TCP 600mbps
-
-"w/o aggregation" means forcing ath10k to use 1 A-MSDU and 1 A-MPDU
-per aggregate so latencies due to aggregation itself should be pretty
-much nil.
-
-If I set tcp_limit_output_bytes to 700K+ I can get ath10k w/ cushion
-w/ aggregation to reach 600mbps on a single flow.
+Good point. I was actually thinking about it. I can try cooking a
+patch unless you want to do it yourself :-)
 
 
 Micha=C5=82
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireles=
+s" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
