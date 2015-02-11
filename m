@@ -1,249 +1,58 @@
-From: Rojhalat Ibrahim <imr@rtschenk.de>
-Subject: [PATCH v5 3/4] gpiolib: add devm_gpiod_get_array and devm_gpiod_put_array functions
-Date: Wed, 11 Feb 2015 17:28:02 +0100
-Message-ID: <71195660.CBS4fRPfXg@pcimr>
+From: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>
+Subject: [PATCH FIX] bgmac: fix device initialization on Northstar SoCs (condition typo)
+Date: Wed, 11 Feb 2015 18:06:34 +0100
+Message-ID: <1423674394-8578-1-git-send-email-zajec5@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Alexandre Courbot <gnurou@gmail.com>,
-	Alexandre Courbot <acourbot@nvidia.com>,
-	Linus Walleij <linus.walleij@linaro.org>,
-	Mika Westerberg <mika.westerberg@linux.intel.com>,
-	"Rafael J. Wysocki" <rafael.j.wysocki@intel.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: "linux-gpio@vger.kernel.org" <linux-gpio@vger.kernel.org>
-Return-path: <linux-gpio-owner@vger.kernel.org>
-Sender: linux-gpio-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Hauke Mehrtens <hauke@hauke-m.de>,
+	=?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f171.google.com ([209.85.212.171]:62502 "EHLO
+	mail-wi0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753056AbbBKRGr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Feb 2015 12:06:47 -0500
+Received: by mail-wi0-f171.google.com with SMTP id hi2so13726763wib.4
+        for <netdev@vger.kernel.org>; Wed, 11 Feb 2015 09:06:46 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add device managed variants of gpiod_get_array() / gpiod_put_array()
-functions for conveniently obtaining and disposing of an entire array
-of GPIOs with one function call.
+On Northstar (Broadcom's ARM architecture) we need to manually enable
+all cores. Code for that is already in place, but the condition for it
+was wrong.
 
-Signed-off-by: Rojhalat Ibrahim <imr@rtschenk.de>
-Reviewed-by: Alexandre Courbot <acourbot@nvidia.com>
+Signed-off-by: Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>
 ---
-Change log:
-  v5: no change
-  v4: no change
-  v3: make the flags argument mandatory for the new functions
-  v2: add this patch to the set
+Can we have it for 3.20, please?
+---
+ drivers/net/ethernet/broadcom/bgmac.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
- Documentation/gpio/consumer.txt | 14 ++++++-
- drivers/gpio/devres.c           | 89 +++++++++++++++++++++++++++++++++++++++++
- include/linux/gpio/consumer.h   | 30 ++++++++++++++
- 3 files changed, 131 insertions(+), 2 deletions(-)
-
-diff --git a/Documentation/gpio/consumer.txt b/Documentation/gpio/consumer.txt
-index 2924f2f..d29a972 100644
---- a/Documentation/gpio/consumer.txt
-+++ b/Documentation/gpio/consumer.txt
-@@ -102,11 +102,19 @@ Device-managed variants of these functions are also defined:
- 						  const char *con_id,
- 						  enum gpiod_flags flags)
- 
--	struct gpio_desc * devm_gpiod_get_index_optional(struct device *dev,
-+	struct gpio_desc *devm_gpiod_get_index_optional(struct device *dev,
- 							const char *con_id,
- 							unsigned int index,
- 							enum gpiod_flags flags)
- 
-+	struct gpio_descs *devm_gpiod_get_array(struct device *dev,
-+						const char *con_id,
-+						enum gpiod_flags flags)
-+
-+	struct gpio_descs *devm_gpiod_get_array_optional(struct device *dev,
-+							 const char *con_id,
-+							 enum gpiod_flags flags)
-+
- A GPIO descriptor can be disposed of using the gpiod_put() function:
- 
- 	void gpiod_put(struct gpio_desc *desc)
-@@ -119,10 +127,12 @@ It is strictly forbidden to use a descriptor after calling these functions.
- It is also not allowed to individually release descriptors (using gpiod_put())
- from an array acquired with gpiod_get_array().
- 
--The device-managed variant is, unsurprisingly:
-+The device-managed variants are, unsurprisingly:
- 
- 	void devm_gpiod_put(struct device *dev, struct gpio_desc *desc)
- 
-+	void devm_gpiod_put_array(struct device *dev, struct gpio_descs *descs)
-+
- 
- Using GPIOs
- ===========
-diff --git a/drivers/gpio/devres.c b/drivers/gpio/devres.c
-index 13dbd3d..fbc5cb8 100644
---- a/drivers/gpio/devres.c
-+++ b/drivers/gpio/devres.c
-@@ -35,6 +35,20 @@ static int devm_gpiod_match(struct device *dev, void *res, void *data)
- 	return *this == *gpio;
- }
- 
-+static void devm_gpiod_release_array(struct device *dev, void *res)
-+{
-+	struct gpio_descs **descs = res;
-+
-+	gpiod_put_array(*descs);
-+}
-+
-+static int devm_gpiod_match_array(struct device *dev, void *res, void *data)
-+{
-+	struct gpio_descs **this = res, **gpios = data;
-+
-+	return *this == *gpios;
-+}
-+
- /**
-  * devm_gpiod_get - Resource-managed gpiod_get()
-  * @dev:	GPIO consumer
-@@ -170,6 +184,66 @@ struct gpio_desc *__must_check __devm_gpiod_get_index_optional(struct device *de
- EXPORT_SYMBOL(__devm_gpiod_get_index_optional);
- 
- /**
-+ * devm_gpiod_get_array - Resource-managed gpiod_get_array()
-+ * @dev:	GPIO consumer
-+ * @con_id:	function within the GPIO consumer
-+ * @flags:	optional GPIO initialization flags
-+ *
-+ * Managed gpiod_get_array(). GPIO descriptors returned from this function are
-+ * automatically disposed on driver detach. See gpiod_get_array() for detailed
-+ * information about behavior and return values.
-+ */
-+struct gpio_descs *__must_check devm_gpiod_get_array(struct device *dev,
-+						     const char *con_id,
-+						     enum gpiod_flags flags)
-+{
-+	struct gpio_descs **dr;
-+	struct gpio_descs *descs;
-+
-+	dr = devres_alloc(devm_gpiod_release_array,
-+			  sizeof(struct gpio_descs *), GFP_KERNEL);
-+	if (!dr)
-+		return ERR_PTR(-ENOMEM);
-+
-+	descs = gpiod_get_array(dev, con_id, flags);
-+	if (IS_ERR(descs)) {
-+		devres_free(dr);
-+		return descs;
-+	}
-+
-+	*dr = descs;
-+	devres_add(dev, dr);
-+
-+	return descs;
-+}
-+EXPORT_SYMBOL(devm_gpiod_get_array);
-+
-+/**
-+ * devm_gpiod_get_array_optional - Resource-managed gpiod_get_array_optional()
-+ * @dev:	GPIO consumer
-+ * @con_id:	function within the GPIO consumer
-+ * @flags:	optional GPIO initialization flags
-+ *
-+ * Managed gpiod_get_array_optional(). GPIO descriptors returned from this
-+ * function are automatically disposed on driver detach.
-+ * See gpiod_get_array_optional() for detailed information about behavior and
-+ * return values.
-+ */
-+struct gpio_descs *__must_check
-+devm_gpiod_get_array_optional(struct device *dev, const char *con_id,
-+			      enum gpiod_flags flags)
-+{
-+	struct gpio_descs *descs;
-+
-+	descs = devm_gpiod_get_array(dev, con_id, flags);
-+	if (IS_ERR(descs) && (PTR_ERR(descs) == -ENOENT))
-+		return NULL;
-+
-+	return descs;
-+}
-+EXPORT_SYMBOL(devm_gpiod_get_array_optional);
-+
-+/**
-  * devm_gpiod_put - Resource-managed gpiod_put()
-  * @desc:	GPIO descriptor to dispose of
-  *
-@@ -184,6 +258,21 @@ void devm_gpiod_put(struct device *dev, struct gpio_desc *desc)
- }
- EXPORT_SYMBOL(devm_gpiod_put);
- 
-+/**
-+ * devm_gpiod_put_array - Resource-managed gpiod_put_array()
-+ * @descs:	GPIO descriptor array to dispose of
-+ *
-+ * Dispose of an array of GPIO descriptors obtained with devm_gpiod_get_array().
-+ * Normally this function will not be called as the GPIOs will be disposed of
-+ * by the resource management code.
-+ */
-+void devm_gpiod_put_array(struct device *dev, struct gpio_descs *descs)
-+{
-+	WARN_ON(devres_release(dev, devm_gpiod_release_array,
-+			       devm_gpiod_match_array, &descs));
-+}
-+EXPORT_SYMBOL(devm_gpiod_put_array);
-+
- 
- 
- 
-diff --git a/include/linux/gpio/consumer.h b/include/linux/gpio/consumer.h
-index f71cad6..6611a53 100644
---- a/include/linux/gpio/consumer.h
-+++ b/include/linux/gpio/consumer.h
-@@ -83,7 +83,14 @@ struct gpio_desc *__must_check __devm_gpiod_get_optional(struct device *dev,
- struct gpio_desc *__must_check
- __devm_gpiod_get_index_optional(struct device *dev, const char *con_id,
- 			      unsigned int index, enum gpiod_flags flags);
-+struct gpio_descs *__must_check devm_gpiod_get_array(struct device *dev,
-+						     const char *con_id,
-+						     enum gpiod_flags flags);
-+struct gpio_descs *__must_check
-+devm_gpiod_get_array_optional(struct device *dev, const char *con_id,
-+			      enum gpiod_flags flags);
- void devm_gpiod_put(struct device *dev, struct gpio_desc *desc);
-+void devm_gpiod_put_array(struct device *dev, struct gpio_descs *descs);
- 
- int gpiod_get_direction(struct gpio_desc *desc);
- int gpiod_direction_input(struct gpio_desc *desc);
-@@ -227,6 +234,20 @@ __devm_gpiod_get_index_optional(struct device *dev, const char *con_id,
- 	return ERR_PTR(-ENOSYS);
- }
- 
-+static inline struct gpio_descs *__must_check
-+devm_gpiod_get_array(struct device *dev, const char *con_id,
-+		     enum gpiod_flags flags)
-+{
-+	return ERR_PTR(-ENOSYS);
-+}
-+
-+static inline struct gpio_descs *__must_check
-+devm_gpiod_get_array_optional(struct device *dev, const char *con_id,
-+			      enum gpiod_flags flags)
-+{
-+	return ERR_PTR(-ENOSYS);
-+}
-+
- static inline void devm_gpiod_put(struct device *dev, struct gpio_desc *desc)
+diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethern=
+et/broadcom/bgmac.c
+index 3007d95..728373b 100644
+--- a/drivers/net/ethernet/broadcom/bgmac.c
++++ b/drivers/net/ethernet/broadcom/bgmac.c
+@@ -1412,6 +1412,7 @@ static void bgmac_mii_unregister(struct bgmac *bg=
+mac)
+ /* http://bcm-v4.sipsolutions.net/mac-gbit/gmac/chipattach */
+ static int bgmac_probe(struct bcma_device *core)
  {
- 	might_sleep();
-@@ -235,6 +256,15 @@ static inline void devm_gpiod_put(struct device *dev, struct gpio_desc *desc)
- 	WARN_ON(1);
- }
- 
-+static inline void devm_gpiod_put_array(struct device *dev,
-+					struct gpio_descs *descs)
-+{
-+	might_sleep();
-+
-+	/* GPIO can never have been requested */
-+	WARN_ON(1);
-+}
-+
- 
- static inline int gpiod_get_direction(const struct gpio_desc *desc)
- {
--- 
-2.0.5
-
-
++	struct bcma_chipinfo *ci =3D &core->bus->chipinfo;
+ 	struct net_device *net_dev;
+ 	struct bgmac *bgmac;
+ 	struct ssb_sprom *sprom =3D &core->bus->sprom;
+@@ -1474,8 +1475,8 @@ static int bgmac_probe(struct bcma_device *core)
+ 	bgmac_chip_reset(bgmac);
+=20
+ 	/* For Northstar, we have to take all GMAC core out of reset */
+-	if (core->id.id =3D=3D BCMA_CHIP_ID_BCM4707 ||
+-	    core->id.id =3D=3D BCMA_CHIP_ID_BCM53018) {
++	if (ci->id =3D=3D BCMA_CHIP_ID_BCM4707 ||
++	    ci->id =3D=3D BCMA_CHIP_ID_BCM53018) {
+ 		struct bcma_device *ns_core;
+ 		int ns_gmac;
+=20
+--=20
+1.8.4.5
