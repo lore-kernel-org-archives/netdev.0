@@ -1,99 +1,70 @@
-From: Radu Benea <radu.benea@evozon.com>
-Subject: under certain conditions netlink will not report adding a new ipv6
- address
-Date: Wed, 11 Feb 2015 12:50:33 +0200 (EET)
-Message-ID: <1143006151.25025.1423651833494.JavaMail.zimbra@evozon.com>
+From: Chen Baozi <baozich@gmail.com>
+Subject: Re: [PATCH 3/3] stmmac: Add AXI burst length support to platform
+ device.
+Date: Wed, 11 Feb 2015 19:11:00 +0800
+Message-ID: <20150211111100.GA23290@cbz-thinkpad>
+References: <20150210020734.GE7920@cbz-thinkpad>
+ <20150210114837.GC6659@leverpostej>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.evozon.com ([91.195.44.4]:59668 "EHLO mail.evozon.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751914AbbBKK6R (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Feb 2015 05:58:17 -0500
-Received: from localhost (localhost [127.0.0.1])
-	by mail.evozon.com (Postfix) with ESMTP id EF7A0408419
-	for <netdev@vger.kernel.org>; Wed, 11 Feb 2015 12:50:33 +0200 (EET)
-Received: from mail.evozon.com ([127.0.0.1])
-	by localhost (mail.evozon.com [127.0.0.1]) (amavisd-new, port 10032)
-	with ESMTP id WUgB_NUejSF3 for <netdev@vger.kernel.org>;
-	Wed, 11 Feb 2015 12:50:33 +0200 (EET)
-Received: from localhost (localhost [127.0.0.1])
-	by mail.evozon.com (Postfix) with ESMTP id B722A4084B6
-	for <netdev@vger.kernel.org>; Wed, 11 Feb 2015 12:50:33 +0200 (EET)
-Received: from mail.evozon.com ([127.0.0.1])
-	by localhost (mail.evozon.com [127.0.0.1]) (amavisd-new, port 10026)
-	with ESMTP id pJY3EyymoeTL for <netdev@vger.kernel.org>;
-	Wed, 11 Feb 2015 12:50:33 +0200 (EET)
-Received: from mail.evozon.com (localhost [127.0.0.1])
-	by mail.evozon.com (Postfix) with ESMTP id 93355408419
-	for <netdev@vger.kernel.org>; Wed, 11 Feb 2015 12:50:33 +0200 (EET)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>
+To: Mark Rutland <mark.rutland@arm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20150210114837.GC6659@leverpostej>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello.
+On Tue, Feb 10, 2015 at 11:48:37AM +0000, Mark Rutland wrote:
+> > On Mon, Feb 09, 2015 at 12:04:43PM +0000, Mark Rutland wrote:
+> > > On Sat, Feb 07, 2015 at 05:07:16AM +0000, Chen Baozi wrote:
+> > > > The AXI Bus Mode Register controls the AXI master behavior. It is mainly
+> > > > used to control the burst splitting and the number of outstanding requests.
+> > > > This register is present and valid only in GMAC-AXI configuration. The old
+> > > > driver only supports this feature on PCI devices. This patch adds an
+> > > > 'snps,apl' properties in DT to enable it on platform devices.
+> > > > 
+> > > > Signed-off-by: Chen Baozi <chenbaozi@kylinos.com.cn>
+> > > > ---
+> > > >  Documentation/devicetree/bindings/net/stmmac.txt      | 1 +
+> > > >  drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c | 1 +
+> > > >  2 files changed, 2 insertions(+)
+> > > > 
+> > > > diff --git a/Documentation/devicetree/bindings/net/stmmac.txt b/Documentation/devicetree/bindings/net/stmmac.txt
+> > > > index c41afd9..8f3c834 100644
+> > > > --- a/Documentation/devicetree/bindings/net/stmmac.txt
+> > > > +++ b/Documentation/devicetree/bindings/net/stmmac.txt
+> > > > @@ -43,6 +43,7 @@ Optional properties:
+> > > >    available this clock is used for programming the Timestamp Addend Register.
+> > > >    If not passed then the system clock will be used and this is fine on some
+> > > >    platforms.
+> > > > +- snps,abl: AXI Burst Length
+> > > 
+> > > This is not a good name (though I see it follows "snps,pbl", which is
+> > > also not a good name)...
+> > 
+> > Any idea for a better name?
+> 
+> Perhaps snps,axi-burst-length ?
+> 
+> > > Why does this need to be in the DT? Is this required for correctness? Or
+> > > performance?
+> > 
+> > This is required for correctness. Otherwise, the driver would write
+> > '0' to the register by default, which makes the driver not work.
+> 
+> What does that mean at the HW level? If that won't work in all cases
+> why does the driver do that?
 
-I found that the netlink monitoring interface does not report adding a new ipv6 address unless:
- - the interface is up
- - the network cable is plugged in
+According to the manual, this is used to select the burst length on AXI
+master interface. The register is optional and valid only in GMAC-AXI
+configuration. IMHO, not all cases require the driver to set this
+register. So I just put it in the 'optional properties', in case some
+devices depend on that.
 
-Deleting the ipv6 address is reported even in these conditions.
+Cheers,
 
-Only tested this with e1000e since it's the only network adapter I have.
-
-To test this just turn the network interface down, add an ipv6 address, then remove it... you will only see the deladdr message.
-
-Example test commands:
-ip link set dev devname down
-ip -6 addr add 2001::5 dev devname
-ip -6 addr del 2001::5 dev devname
-
-Sample test code below.
-#include <string.h>
-#include <sys/socket.h>
-#include <linux/netlink.h>
-#include <linux/rtnetlink.h>
-
-#include <stdio.h>
-#include <unistd.h>
-
-int main(int, char * [])
-{
-	struct sockaddr_nl sa;
-	int fd;
-	int len;
-	char buf[4096];
-	struct iovec iov = { buf, sizeof(buf) };
-	struct msghdr msg;
-	struct nlmsghdr *nh;
-
-	memset(&sa, 0, sizeof(sa));
-	sa.nl_family = AF_NETLINK;
-	sa.nl_pid = getpid();
-	sa.nl_groups = RTMGRP_IPV6_IFADDR;
-
-	fd = socket(AF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
-	bind(fd, (struct sockaddr *)&sa, sizeof(sa));
-
-
-	while (1) {
-		msg = {&sa, sizeof(sa), &iov, 1, NULL, 0, 0};
-		len = recvmsg(fd, &msg, 0);
-
-		for (nh = (struct nlmsghdr *)buf; NLMSG_OK(nh, len); nh = NLMSG_NEXT(nh, len)) {
-			/* The end of multipart message. */
-			switch (nh->nlmsg_type) {
-				case RTM_NEWADDR:
-					printf("Received newaddr from netlink monitor\n");
-					break;
-				case RTM_DELADDR:
-					printf("Received deladdr from netlink monitor\n");
-					break;
-				default:
-					printf("Received unexpected message type %d from netlink monitor\n", nh->nlmsg_type);
-					break;
-			}
-		}
-	}
-}
+Baozi.
