@@ -1,79 +1,58 @@
-From: Michal Kazior <michal.kazior-++hxYGjEMp0AvxtiuMwx3w@public.gmane.org>
-Subject: Re: Throughput regression with `tcp: refine TSO autosizing`
-Date: Wed, 11 Feb 2015 09:57:33 +0100
-Message-ID: <CA+BoTQn=YQQ_yUHvpAG3MMAw+=jxgLDiUMWxiTC3B3vkksTw9g@mail.gmail.com>
-References: <CA+BoTQkVu23P3EOmY_Q3E1GJnWsyF==Pawz4iPOS_Bq5dvfO5Q@mail.gmail.com>
-	<1422537297.21689.15.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CA+BoTQk2xT-8DqPuiiKG+kHAjLPrj8F9dLTb-rcGhvMq0u_2Qw@mail.gmail.com>
-	<1422628835.21689.95.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CA+BoTQkV+mOZfe_Niz5101sMQeaV6muKCsShptjGQ1AgOHqqoQ@mail.gmail.com>
-	<1422903136.21689.114.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1422926330.21689.138.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CA+BoTQkMikA8wxm1ce2DkKhPB0HiKeAqT7f+sQ=91W40z=X0Rg@mail.gmail.com>
-	<1422973660.907.10.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CA+BoTQmvUuFdfYF=wVMYxrf_nQZB5GCV=LvDZVvfs-3hAE4WKw@mail.gmail.com>
-	<1423051045.907.108.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CA+BoTQ=BDcQ779uKCuX+f40=4npXVF4MTQnpjKimNYAxPsxBoQ@mail.gmail.com>
-	<1423053531.907.115.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CA+BoTQ=qmCZz4CmSOvCOzMLowrDEG12XBffkTcYxjGqVD9604g@mail.gmail.com>
-	<1423055810.907.125.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1423056591.907.130.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1423084303.31870.15.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CA+BoTQnnwrv0nrKyGyQNvosz_E4e5fBa9iN8fpeqcd-iRfi17g@mail.gmail.com>
-	<1423141038.31870.38.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1423142342.31870.49.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CA+BoTQmcShK0U_cXvEOLY_8y7LH8x3taTgjcyMzv0MLVn4UtCA@mail.gmail.com>
-	<1423147286.31870.59.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1423156205.31870.86.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CA+BoTQ=WaKLV=r6qWaWAEfyDr2pqMWpm4NDmnek92TEVndnxRQ@mail.gmail.com>
-	<1423230001.31870.128.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1423230785.31870.131.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CA+BoTQkazCOin7VWLfrHUjtgKDPV6T+sFsk5FPS7D-morr4FZQ@mail.gmail.com>
-	<CA+BoTQn3KRym0qCJ+fLav5LQgjfiN_-Eqz0xPSc2eXJ-ijNjQw@mail.gmail.com>
-	<1423494690.31870.189.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CA+BoTQ=u_xPuqTVOVaFTQNRrJ+UTXe89SY+=+7Y1LpxxrkRDfg@mail.gmail.com>
-	<1423577962.2215.2.camel@sipsolutions.net>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: [PATCH] ath9k_htc: add adaptive usb receive flow control to repair soft lockup with monitor mode
+Date: Wed, 11 Feb 2015 11:20:52 +0200
+Message-ID: <87oap0n6rv.fsf@kamboji.qca.qualcomm.com>
+References: <1423506672-6686-1-git-send-email-yuweizheng@139.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Neal Cardwell <ncardwell-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Eyal Perry <eyalpe-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
-To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1423577962.2215.2.camel-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, ath9k-devel@lists.ath9k.org,
+	linux-wireless@vger.kernel.org, ath9k-devel@qca.qualcomm.com,
+	netdev@vger.kernel.org, zhengyuwei@360.cn
+To: Yuwei Zheng <yuweizheng@139.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1423506672-6686-1-git-send-email-yuweizheng@139.com> (Yuwei
+	Zheng's message of "Tue, 10 Feb 2015 02:31:12 +0800")
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 10 February 2015 at 15:19, Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>=
- wrote:
-> On Tue, 2015-02-10 at 11:33 +0100, Michal Kazior wrote:
->
->> +       if (msdu->sk) {
->> +               ewma_add(&ar->tx_delay_us,
->> +                        ktime_to_ns(ktime_sub(ktime_get(), skb_cb->=
-stamp)) /
->> +                        NSEC_PER_USEC);
->> +
->> +               ACCESS_ONCE(msdu->sk->sk_tx_completion_delay_cushion=
-) =3D
->> +                               (ewma_read(&ar->tx_delay_us) *
->> +                                msdu->sk->sk_pacing_rate) >> 20;
->> +       }
->
-> To some extent, every wifi driver is going to have this problem. Perh=
-aps
-> we should do this in mac80211?
+Yuwei Zheng <yuweizheng@139.com> writes:
 
-Good point. I was actually thinking about it. I can try cooking a
-patch unless you want to do it yourself :-)
+> The ath9k_hif_usb_rx_cb function excute on  the interrupt context, and ath9k_rx_tasklet excute
+> on the soft irq context. In other words, the ath9k_hif_usb_rx_cb have more chance to excute than
+> ath9k_rx_tasklet.  So in the worst condition,  the rx.rxbuf receive list is always full,
+> and the do {}while(true) loop will not be break. The kernel get a soft lockup panic. 
+>  
+> [59011.007210] BUG: soft lockup - CPU#0 stuck for 23s!
+> [kworker/0:0:30609]
+> [59011.030560] BUG: scheduling while atomic: kworker/0:0/30609/0x40010100
+> [59013.804486] BUG: scheduling while atomic: kworker/0:0/30609/0x40010100
+> [59013.858522] Kernel panic - not syncing: softlockup: hung tasks
+>  
+> [59014.038891] Exception stack(0xdf4bbc38 to 0xdf4bbc80)
+> [59014.046834] bc20:                                                       de57b950 60000113
+> [59014.059579] bc40: 00000000 bb32bb32 60000113 de57b948 de57b500 dc7bb440 df4bbcd0 00000000
+> [59014.072337] bc60: de57b950 60000113 df4bbcd0 df4bbc80 c04c259d c04c25a0 60000133 ffffffff
+> [59014.085233] [<c04c28db>] (__irq_svc+0x3b/0x5c) from [<c04c25a0>] (_raw_spin_unlock_irqrestore+0xc/0x10)
+> [59014.100437] [<c04c25a0>] (_raw_spin_unlock_irqrestore+0xc/0x10) from [<bf9c2089>] (ath9k_rx_tasklet+0x290/0x490 [ath9k_htc])
+> [59014.118267] [<bf9c2089>] (ath9k_rx_tasklet+0x290/0x490 [ath9k_htc]) from [<c0036d23>] (tasklet_action+0x3b/0x98)
+> [59014.134132] [<c0036d23>] (tasklet_action+0x3b/0x98) from [<c0036709>] (__do_softirq+0x99/0x16c)
+> [59014.147784] [<c0036709>] (__do_softirq+0x99/0x16c) from [<c00369f7>] (irq_exit+0x5b/0x5c)
+> [59014.160653] [<c00369f7>] (irq_exit+0x5b/0x5c) from [<c000cfc3>] (handle_IRQ+0x37/0x78)
+> [59014.173124] [<c000cfc3>] (handle_IRQ+0x37/0x78) from [<c00085df>] (omap3_intc_handle_irq+0x5f/0x68)
+> [59014.187225] [<c00085df>] (omap3_intc_handle_irq+0x5f/0x68) from [<c04c28db>](__irq_svc+0x3b/0x5c)
+>  
+> This bug can be see with low performance board, such as uniprocessor beagle bone board. Add some debug message in the ath9k_hif_usb_rx_cb
+> function may trigger this bug quickly.
+>  
+> Signed-off-by: Yuwei Zheng <yuweizheng@139.com>
 
+The word wrapping is still wrong, please limit the line length to 72
+chars or so. This is the second time I'm mentioning that. Also add v2,
+v3 and so on when you send new versions of the patch, otherwise I will
+not know what version I should use. And even better if you add a
+changelog after "---" line.
 
-Micha=C5=82
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Documentation/SubmittingPatches should tell you all this.
+
+-- 
+Kalle Valo
