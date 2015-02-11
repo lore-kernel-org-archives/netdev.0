@@ -1,133 +1,31 @@
-From: Mahesh Bandewar <maheshb@google.com>
-Subject: [PATCH next v2 2/6] bonding: implement bond_poll_controller()
-Date: Wed, 11 Feb 2015 14:05:22 -0800
-Message-ID: <1423692322-26132-1-git-send-email-maheshb@google.com>
-Cc: Mahesh Bandewar <maheshb@google.com>,
-	Maciej Zenczykowski <maze@google.com>,
-	netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>
-To: Jay Vosburgh <j.vosburgh@gmail.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Veaceslav Falico <vfalico@gmail.com>,
-	Nikolay Aleksandrov <nikolay@redhat.com>,
-	David Miller <davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/2] Netfilter updates for net-next
+Date: Wed, 11 Feb 2015 14:27:43 -0800 (PST)
+Message-ID: <20150211.142743.273756036745467725.davem@davemloft.net>
+References: <1423546474-3539-1-git-send-email-pablo@netfilter.org>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: pablo@netfilter.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f202.google.com ([74.125.82.202]:36278 "EHLO
-	mail-we0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754724AbbBKWM4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Feb 2015 17:12:56 -0500
-Received: by mail-we0-f202.google.com with SMTP id w62so822418wes.1
-        for <netdev@vger.kernel.org>; Wed, 11 Feb 2015 14:12:54 -0800 (PST)
+Received: from shards.monkeyblade.net ([149.20.54.216]:51696 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753283AbbBKWUq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Feb 2015 17:20:46 -0500
+In-Reply-To: <1423546474-3539-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patches implements the poll_controller support for all
-bonding driver. If the slaves have poll_controller net_op defined,
-this implementation calls them. This is mode agnostic implementation
-and iterates through all slaves (based on mode) and calls respective
-handler.
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Date: Tue, 10 Feb 2015 06:34:32 +0100
 
-Signed-off-by: Mahesh Bandewar <maheshb@google.com>
----
-v1:
-   Initial version
-v2:
-   Eliminate bool variable.
+> The following patchset contains two small Netfilter updates for your
+> net-next tree, they are:
+> 
+> 1) Add ebtables support to nft_compat, from Arturo Borrero.
+> 
+> 2) Fix missing validation of the SET_ID attribute in the lookup
+>    expressions, from Patrick McHardy.
 
- drivers/net/bonding/bond_3ad.c  | 24 ++++++++++++++++++++++++
- drivers/net/bonding/bond_main.c | 33 +++++++++++++++++++++++++++++++++
- include/net/bond_3ad.h          |  1 +
- 3 files changed, 58 insertions(+)
-
-diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
-index 9b436696b95e..14f2ebe786c5 100644
---- a/drivers/net/bonding/bond_3ad.c
-+++ b/drivers/net/bonding/bond_3ad.c
-@@ -2477,6 +2477,30 @@ int bond_3ad_get_active_agg_info(struct bonding *bond, struct ad_info *ad_info)
- 	return ret;
- }
- 
-+#define BOND_3AD_PORT_OPERATIONAL \
-+		(AD_STATE_DISTRIBUTING | AD_STATE_COLLECTING | \
-+		 AD_STATE_SYNCHRONIZATION | AD_STATE_AGGREGATION)
-+
-+static int bond_3ad_port_operational(struct slave *slave)
-+{
-+	port_t *port = &SLAVE_AD_INFO(slave)->port;
-+
-+	return bond_slave_can_tx(slave) &&
-+	       (port->actor_oper_port_state & port->partner_oper.port_state &
-+		BOND_3AD_PORT_OPERATIONAL) == BOND_3AD_PORT_OPERATIONAL;
-+}
-+
-+/* bond_3ad_port_is_active - check if a slave port is active or not. A port
-+ * is active when it can forward traffic.
-+ *
-+ * @slave: slave port to check state for.
-+ * Returns: 0 if not active else is active.
-+ */
-+int bond_3ad_port_is_active(struct slave *slave)
-+{
-+	return bond_3ad_port_operational(slave);
-+}
-+
- int bond_3ad_lacpdu_recv(const struct sk_buff *skb, struct bonding *bond,
- 			 struct slave *slave)
- {
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index b979c265fc51..8433fe464f95 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -928,6 +928,39 @@ static inline void slave_disable_netpoll(struct slave *slave)
- 
- static void bond_poll_controller(struct net_device *bond_dev)
- {
-+	struct bonding *bond = netdev_priv(bond_dev);
-+	struct slave *slave = NULL;
-+	struct list_head *iter;
-+	struct ad_info ad_info;
-+	struct netpoll_info *ni;
-+	const struct net_device_ops *ops;
-+
-+	if (BOND_MODE(bond) == BOND_MODE_8023AD)
-+		if (bond_3ad_get_active_agg_info(bond, &ad_info))
-+			return;
-+
-+	bond_for_each_slave(bond, slave, iter) {
-+		ops = slave->dev->netdev_ops;
-+		if (!bond_slave_is_up(slave) || !ops->ndo_poll_controller)
-+			continue;
-+
-+		if (BOND_MODE(bond) == BOND_MODE_8023AD) {
-+			struct aggregator *agg =
-+			    SLAVE_AD_INFO(slave)->port.aggregator;
-+
-+			if (agg && agg->aggregator_identifier !=
-+				   ad_info.aggregator_id)
-+				continue;
-+		    if (!bond_3ad_port_is_active(slave) || ad_info.ports != 1)
-+				continue;
-+		}
-+
-+		ni = rcu_dereference_bh(slave->dev->npinfo);
-+		if (down_trylock(&ni->dev_lock))
-+			continue;
-+		ops->ndo_poll_controller(slave->dev);
-+		up(&ni->dev_lock);
-+	}
- }
- 
- static void bond_netpoll_cleanup(struct net_device *bond_dev)
-diff --git a/include/net/bond_3ad.h b/include/net/bond_3ad.h
-index f04cdbb7848e..6c455c646d61 100644
---- a/include/net/bond_3ad.h
-+++ b/include/net/bond_3ad.h
-@@ -278,5 +278,6 @@ int bond_3ad_lacpdu_recv(const struct sk_buff *skb, struct bonding *bond,
- 			 struct slave *slave);
- int bond_3ad_set_carrier(struct bonding *bond);
- void bond_3ad_update_lacp_rate(struct bonding *bond);
-+int bond_3ad_port_is_active(struct slave *slave);
- #endif /* _NET_BOND_3AD_H */
- 
--- 
-2.2.0.rc0.207.ga3a616c
+Pulled, thanks Pablo.
