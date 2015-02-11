@@ -1,73 +1,91 @@
-From: David L Stevens <david.stevens@oracle.com>
-Subject: [PATCH net-next] sunvnet: don't change gso data on clones
-Date: Wed, 11 Feb 2015 08:20:17 -0500
-Message-ID: <54DB5711.3040705@oracle.com>
+From: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
+Subject: Re: [PATCH net-next 1/3] r8152: separate USB_RX_EARLY_AGG
+Date: Wed, 11 Feb 2015 16:52:20 +0300
+Message-ID: <54DB5E94.6010101@cogentembedded.com>
+References: <1394712342-15778-137-Taiwan-albertk@realtek.com> <1394712342-15778-138-Taiwan-albertk@realtek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:42421 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751738AbbBKNUV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Feb 2015 08:20:21 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: nic_swsd-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1394712342-15778-138-Taiwan-albertk-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-This patch unclones an skb for the case where the sunvnet driver needs to
-change the segmentation size so that it doesn't interfere with TCP SACK's
-use of them.
+Hello.
 
-Signed-off-by: David L Stevens <david.stevens@oracle.com>
----
- drivers/net/ethernet/sun/sunvnet.c |   23 ++++++++++-------------
- 1 files changed, 10 insertions(+), 13 deletions(-)
+On 2/11/2015 9:46 AM, Hayes Wang wrote:
 
-diff --git a/drivers/net/ethernet/sun/sunvnet.c b/drivers/net/ethernet/sun/sunvnet.c
-index 2b10b85..22e0cad 100644
---- a/drivers/net/ethernet/sun/sunvnet.c
-+++ b/drivers/net/ethernet/sun/sunvnet.c
-@@ -1192,23 +1192,16 @@ static int vnet_handle_offloads(struct vnet_port *port, struct sk_buff *skb)
- 	skb_pull(skb, maclen);
- 
- 	if (port->tso && gso_size < datalen) {
-+		if (skb_unclone(skb, GFP_ATOMIC))
-+			goto out_dropped;
-+
- 		/* segment to TSO size */
- 		skb_shinfo(skb)->gso_size = datalen;
- 		skb_shinfo(skb)->gso_segs = gso_segs;
--
--		segs = skb_gso_segment(skb, dev->features & ~NETIF_F_TSO);
--
--		/* restore gso_size & gso_segs */
--		skb_shinfo(skb)->gso_size = gso_size;
--		skb_shinfo(skb)->gso_segs = DIV_ROUND_UP(skb->len - hlen,
--							 gso_size);
--	} else
--		segs = skb_gso_segment(skb, dev->features & ~NETIF_F_TSO);
--	if (IS_ERR(segs)) {
--		dev->stats.tx_dropped++;
--		dev_kfree_skb_any(skb);
--		return NETDEV_TX_OK;
- 	}
-+	segs = skb_gso_segment(skb, dev->features & ~NETIF_F_TSO);
-+	if (IS_ERR(segs))
-+		goto out_dropped;
- 
- 	skb_push(skb, maclen);
- 	skb_reset_mac_header(skb);
-@@ -1246,6 +1239,10 @@ static int vnet_handle_offloads(struct vnet_port *port, struct sk_buff *skb)
- 	if (!(status & NETDEV_TX_MASK))
- 		dev_kfree_skb_any(skb);
- 	return status;
-+out_dropped:
-+	dev->stats.tx_dropped++;
-+	dev_kfree_skb_any(skb);
-+	return NETDEV_TX_OK;
- }
- 
- static int vnet_start_xmit(struct sk_buff *skb, struct net_device *dev)
--- 
-1.7.1
+> Separate USB_RX_EARLY_AGG into USB_RX_EARLY_TIMEOUT and USB_RX_EARLY_SIZE.
+
+> Replace r8153_set_rx_agg() with r8153_set_rx_early_timeout() and
+> r8153_set_rx_early_size().
+
+> Set the default timeout value according to the USB speed.
+
+> Signed-off-by: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
+> ---
+>   drivers/net/usb/r8152.c | 55 ++++++++++++++++++++++++++-----------------------
+>   1 file changed, 29 insertions(+), 26 deletions(-)
+
+> diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
+> index 5980ac6..b043c7f 100644
+> --- a/drivers/net/usb/r8152.c
+> +++ b/drivers/net/usb/r8152.c
+[...]
+> @@ -2114,28 +2116,21 @@ static int rtl8152_enable(struct r8152 *tp)
+>   	return rtl_enable(tp);
+>   }
+>
+> -static void r8153_set_rx_agg(struct r8152 *tp)
+> +static void r8153_set_rx_early_timeout(struct r8152 *tp)
+>   {
+> -	u8 speed;
+> +	u32 ocp_data;
+>
+[...]
+> +	ocp_data = tp->coalesce / 8;
+
+    Why not do it in the initializer?
+
+> +	ocp_write_word(tp, MCU_TYPE_USB, USB_RX_EARLY_TIMEOUT, ocp_data);
+> +}
+> +
+> +static void r8153_set_rx_early_size(struct r8152 *tp)
+> +{
+> +	struct net_device *dev = tp->netdev;
+
+    Not sure you actually need this variable.
+
+> +	u32 ocp_data;
+> +
+> +	ocp_data = (agg_buf_sz - dev->mtu - VLAN_ETH_HLEN - VLAN_HLEN) / 4;
+
+    Why not in initializer?
+
+> +	ocp_write_word(tp, MCU_TYPE_USB, USB_RX_EARLY_SIZE, ocp_data);
+>   }
+[...]
+> @@ -3911,6 +3907,13 @@ static int rtl8152_probe(struct usb_interface *intf,
+>   	tp->mii.reg_num_mask = 0x1f;
+>   	tp->mii.phy_id = R8152_PHY_ID;
+>
+> +	if (udev->speed == USB_SPEED_SUPER)
+> +		tp->coalesce = COALESCE_SUPER;
+> +	else if (udev->speed == USB_SPEED_HIGH)
+> +		tp->coalesce = COALESCE_HIGH;
+> +	else
+> +		tp->coalesce = COALESCE_SLOW;
+
+    This is asking to be a *switch* statement.
+
+[...]
+
+WBR, Sergei
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
