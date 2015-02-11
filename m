@@ -1,63 +1,60 @@
-From: Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>
-Subject: Re: [PATCH v3 linux-trace 1/8] tracing: attach eBPF programs to
- tracepoints and syscalls
-Date: Wed, 11 Feb 2015 07:51:42 -0500
-Message-ID: <20150211075142.7d0f8ca1@gandalf.local.home>
-References: <CAMEtUuxizvHF09y_vU-c+L=n16tqWDqJPTybGB1a_OqN7p+jsA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Namhyung Kim <namhyung-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Arnaldo Carvalho de Melo <acme-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	Jiri Olsa <jolsa-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Masami Hiramatsu <masami.hiramatsu.pt-FCd8Q96Dh0JBDgjK7y7TUQ@public.gmane.org>,
-	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	"Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
-To: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAMEtUuxizvHF09y_vU-c+L=n16tqWDqJPTybGB1a_OqN7p+jsA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Govindarajulu Varadarajan <_govind@gmx.com>
+Subject: [PATCH net-next v2 0/2] improve rq buff allocation and reduce dma mapping
+Date: Wed, 11 Feb 2015 18:29:16 +0530
+Message-ID: <1423659558-32523-1-git-send-email-_govind@gmx.com>
+Cc: benve@cisco.com, ssujith@cisco.com,
+	Govindarajulu Varadarajan <_govind@gmx.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.gmx.net ([212.227.15.18]:57756 "EHLO mout.gmx.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752148AbbBKM7v (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Feb 2015 07:59:51 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 10 Feb 2015 22:33:05 -0800
-Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org> wrote:
+The following series tries to address these two problem in rq buff allocation.
 
+* Memory wastage because of large 9k allocation using kmalloc:
+  For 9k mtu buffer, netdev_alloc_skb_ip_align internally calls kmalloc for
+  size > 4096. In case of 9k buff, kmalloc returns pages for order 2, 16k.
+  And we use only ~9k of 16k. 7k memory wasted. Using the frag the frag
+  allocator in patch 1/2, we can allocate three 9k buffs in a 32k page size.
+  Typical enic configuration has 8 rq, and desc ring of size 4096.
+  Thats 8 * 4096 * (16*1024) = 512 MB. Using this frag allocator:
+  8 * 4096 * (32*1024/3) = 341 MB. Thats 171 MB of memory save.
 
-> fair enough.
-> Something like TRACE_MARKER(arg1, arg2) that prints
-> it was hit without accessing the args would be enough.
-> Without any args it is indeed a 'fast kprobe' only.
-> Debug info would still be needed to access
-> function arguments.
-> On x64 function entry point and x64 abi make it easy
-> to access args, but i386 or kprobe in the middle
-> lose visibility when debug info is not available.
-> TRACE_MARKER (with few key args that function
-> is operating on) is enough to achieve roughly the same
-> as kprobe without debug info.
+* frequent dma_map() calls:
+  we call dma_map() for every buff we allocate. When iommu is on, This is very
+  cpu time consuming. From my testing, most of the cpu cycles are wasted
+  spinning on spin_lock_irqsave(&iovad->iova_rbtree_lock, flags) in
+  intel_map_page() .. -> ..__alloc_and_insert_iova_range()
 
-Actually, what about a TRACE_EVENT_DEBUG(), that has a few args and
-possibly a full trace event layout.
+  With this patch, we call dma_map() once for 32k page. i.e once for every three
+  9k desc, and once every twenty 1500 bytes desc.
 
-The difference would be that the trace events do not show up unless you
-have "trace_debug" on the command line. This should prevent
-applications from depending on them.
+Here are testing result with 8 rq, 4096 ring size and 9k mtu. irq of each rq
+is affinitized with different CPU. Ran iperf with 32 threads. Link is 10G.
+iommu is on.
 
-I could even do the nasty dmesg output like I do with trace_printk()s,
-that would definitely keep a production kernel from adding it by
-default.
+		CPU utilization		throughput
+without patch	100%			1.8 Gbps                                
+with patch	13%			9.8 Gbps 
 
-When trace_debug is not there, the trace points could still be accessed
-but perhaps only via bpf, or act like a simple trace marker.
+v2:
+Remove changing order facility
 
-Note, if you need ids, I rather have them in another directory than
-tracefs. Make a eventfs perhaps that holds these. I rather keep tracefs
-simple.
+Govindarajulu Varadarajan (2):
+  enic: implement frag allocator
+  enic: Add rq allocation failure stats
 
-This is something that needs to probably be discussed at bit.
+ drivers/net/ethernet/cisco/enic/enic.h         |  15 +++
+ drivers/net/ethernet/cisco/enic/enic_ethtool.c |   2 +
+ drivers/net/ethernet/cisco/enic/enic_main.c    | 158 +++++++++++++++++++++----
+ drivers/net/ethernet/cisco/enic/vnic_rq.c      |  13 ++
+ drivers/net/ethernet/cisco/enic/vnic_rq.h      |   2 +
+ drivers/net/ethernet/cisco/enic/vnic_stats.h   |   2 +
+ 6 files changed, 168 insertions(+), 24 deletions(-)
 
--- Steve
+-- 
+2.3.0
