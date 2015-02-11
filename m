@@ -1,63 +1,51 @@
-From: Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
-Subject: Re: [PATCH v3 linux-trace 1/8] tracing: attach eBPF programs to
- tracepoints and syscalls
-Date: Wed, 11 Feb 2015 11:15:21 +0100
-Message-ID: <20150211101521.GP23123@twins.programming.kicks-ass.net>
-References: <CAMEtUuzY_Po=WtFEFg1aqzJ8dEF4rHGcWDsaS44KYgACMNPPgA@mail.gmail.com>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: [PATCH] openvswitch: Add missing initialization in validate_and_copy_set_tun()
+Date: Wed, 11 Feb 2015 11:23:38 +0100
+Message-ID: <1423650218-24666-1-git-send-email-geert@linux-m68k.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
-	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Namhyung Kim <namhyung-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Arnaldo Carvalho de Melo <acme-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	Jiri Olsa <jolsa-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Masami Hiramatsu <masami.hiramatsu.pt-FCd8Q96Dh0JBDgjK7y7TUQ@public.gmane.org>,
-	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	"Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
-To: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <CAMEtUuzY_Po=WtFEFg1aqzJ8dEF4rHGcWDsaS44KYgACMNPPgA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, dev@openvswitch.org,
+	linux-kernel@vger.kernel.org,
+	Geert Uytterhoeven <geert@linux-m68k.org>
+To: "David S. Miller" <davem@davemloft.net>,
+	Pravin Shelar <pshelar@nicira.com>, Thomas Graf <tgraf@suug.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Feb 10, 2015 at 04:22:50PM -0800, Alexei Starovoitov wrote:
-> > It would need to do more that that. It may have to calculate the value
-> > that it returns, as the internal value may be different with different
-> > kernels.
-> 
-> back to 'prio'... the 'prio' accessible from the program
-> should be the same 'prio' that we're storing inside task_struct.
+net/openvswitch/flow_netlink.c: In function =E2=80=98validate_and_copy_=
+set_tun=E2=80=99:
+net/openvswitch/flow_netlink.c:1749: warning: =E2=80=98err=E2=80=99 may=
+ be used uninitialized in this function
 
-Its not, task_struct::prio is an entirely different value than the one
-used in sched_param::sched_priority / sched_attr::sched_priority.
+If ipv4_tun_from_nlattr() returns a different positive value than
+OVS_TUNNEL_KEY_ATTR_GENEVE_OPTS, err will be uninitialized, and
+validate_and_copy_set_tun() may return an undefined value instead of a
+zero success indicator. Initialize err to zero to fix this.
 
-And the 'problem' is, prio is only relevant to SCHED_RR/SCHED_FIFO
-tasks, we have more classes.
+=46ixes: 1dd144cf5b4b47e1 ("openvswitch: Support VXLAN Group Policy ext=
+ension")
+Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
+---
+ net/openvswitch/flow_netlink.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-> No extra conversions.
-
-We're not going to add runtime/space overhead to the kernel just because
-someone might maybe someday trace the kernel.
-
-That leaves the option of either tracing the kernel internal value and
-userspace will just have to deal with it, or making the tracepoint more
-expensive by having it do the conversion.
-
-Now the big question is, what do we do when we add/extend a scheduling
-class and have more parameters? We cannot change the tracepoint because
-userspace assumes format. And I simply refuse to add a second -- because
-that will end up being a third and fourth etc.. -- tracepoint right next
-to it with a different layout.
-
-Note that we just did add a class, we grew SCHED_DEADLINE a few releases
-ago, and that has 3 parameters (or 6 depending on how you look at it).
-You currently cannot 'debug' that with the existing tracepoints.
-
-In short, I loathe traceevents, they're more trouble than they're worth.
-
-Now I do love the infrastructure, its very useful debugging, but that's
-all with local hacks that will never see the light of day.
+diff --git a/net/openvswitch/flow_netlink.c b/net/openvswitch/flow_netl=
+ink.c
+index 993281e6278dc829..3829328c5a7648bf 100644
+--- a/net/openvswitch/flow_netlink.c
++++ b/net/openvswitch/flow_netlink.c
+@@ -1746,7 +1746,7 @@ static int validate_and_copy_set_tun(const struct=
+ nlattr *attr,
+ 	struct sw_flow_key key;
+ 	struct ovs_tunnel_info *tun_info;
+ 	struct nlattr *a;
+-	int err, start, opts_type;
++	int err =3D 0, start, opts_type;
+=20
+ 	ovs_match_init(&match, &key, NULL);
+ 	opts_type =3D ipv4_tun_from_nlattr(nla_data(attr), &match, false, log=
+);
+--=20
+1.9.1
