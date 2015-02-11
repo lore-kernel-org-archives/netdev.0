@@ -1,55 +1,46 @@
-From: Peter Zijlstra <peterz@infradead.org>
+From: Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
 Subject: Re: [PATCH v3 linux-trace 1/8] tracing: attach eBPF programs to
  tracepoints and syscalls
-Date: Wed, 11 Feb 2015 10:33:08 +0100
-Message-ID: <20150211093308.GN23123@twins.programming.kicks-ass.net>
+Date: Wed, 11 Feb 2015 10:45:41 +0100
+Message-ID: <20150211094541.GO23123@twins.programming.kicks-ass.net>
 References: <CAMEtUuzY_Po=WtFEFg1aqzJ8dEF4rHGcWDsaS44KYgACMNPPgA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Steven Rostedt <rostedt@goodmis.org>,
-	Ingo Molnar <mingo@kernel.org>,
-	Namhyung Kim <namhyung@kernel.org>,
-	Arnaldo Carvalho de Melo <acme@infradead.org>,
-	Jiri Olsa <jolsa@redhat.com>,
-	Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>,
-	Linux API <linux-api@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>
-To: Alexei Starovoitov <ast@plumgrid.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
+	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Namhyung Kim <namhyung-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Arnaldo Carvalho de Melo <acme-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	Jiri Olsa <jolsa-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Masami Hiramatsu <masami.hiramatsu.pt-FCd8Q96Dh0JBDgjK7y7TUQ@public.gmane.org>,
+	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	"Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
+To: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <CAMEtUuzY_Po=WtFEFg1aqzJ8dEF4rHGcWDsaS44KYgACMNPPgA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <CAMEtUuzY_Po=WtFEFg1aqzJ8dEF4rHGcWDsaS44KYgACMNPPgA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
 On Tue, Feb 10, 2015 at 04:22:50PM -0800, Alexei Starovoitov wrote:
-> >> not all tools use libtraceevent.
-> >> gdb calls perf_event_open directly:
-> >> https://sourceware.org/git/gitweb.cgi?p=binutils-gdb.git;a=blob;f=gdb/nat/linux-btrace.c
-> >> and parses PERF_RECORD_SAMPLE as a binary.
-> >> In this case it's branch records, but I think we never said anywhere
-> >> that PERF_SAMPLE_IP | PERF_SAMPLE_ADDR should come
-> >> in this particular order.
-> >
-> > What particular order? Note, that's a hardware event, not a software
-> > one.
-> 
-> yes, but gdb assumes that 'u64 ip' precedes, 'u64 addr'
-> when attr.sample_type = IP | ADDR whereas this is an
-> internal order of 'if' statements inside perf_output_sample()...
+> well, ->prio and ->pid are already printed by sched tracepoints
+> and their meaning depends on scheduler. So users taking that
+> into account.
 
-This is indeed promised in the data layout description in
-include/uapi/linux/perf_event.h.
+Right, so trace_events were/are root only, and root 'should' be in the
+root pid namespace, and therefore pid magically works.
 
-There is no other way to find where fields are; perf relies on
-predetermined order of fields coupled with the requested field bitmask.
+And I'm not sure, but I don't think the 'nested' root available from
+containers should have access to ftrace, so that should not be an issue.
 
-So we promise the order: id, ip, pid, tid, time, addr,.. etc.
+Perf tries real hard to present PERF_SAMPLE_PID data in the pid
+namespace of the task that created the event.
 
-So if you request IP and ADDR but none of the other fields, then you
-know your sample will start with IP and then contain ADDR.
+As to prio; yes this is a prime example of suck, I would love to change
+that but cannot :-(. The only solace I have is that everybody who is
+relying on it is broken.
 
-The traceevent thing has a debug/trace-fs format description of fields
-that is supposed to be used.
+There is a very good reason I'm against adding more tracepoints to the
+scheduler, its a nightmare.
