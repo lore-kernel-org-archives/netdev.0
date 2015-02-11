@@ -1,189 +1,140 @@
 From: Shachar Raindel <raindel@mellanox.com>
-Subject: [PATCH v1 04/10] IB/ipoib: Return IPoIB devices as possible matches to get_net_device_by_port_pkey_ip
-Date: Wed, 11 Feb 2015 17:06:38 +0200
-Message-ID: <1423667204-8807-5-git-send-email-raindel@mellanox.com>
-References: <1423667204-8807-1-git-send-email-raindel@mellanox.com>
+Subject: [PATCH v1 00/10] Add network namespace support in the RDMA-CM
+Date: Wed, 11 Feb 2015 17:06:34 +0200
+Message-ID: <1423667204-8807-1-git-send-email-raindel@mellanox.com>
 Cc: linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
 	liranl@mellanox.com, guysh@mellanox.com, haggaie@mellanox.com,
 	yotamke@mellanox.com, raindel@mellanox.com
 To: roland@kernel.org, sean.hefty@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:53622 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:53633 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753723AbbBKPLE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Feb 2015 10:11:04 -0500
-In-Reply-To: <1423667204-8807-1-git-send-email-raindel@mellanox.com>
+	id S1753731AbbBKPLH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Feb 2015 10:11:07 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Guy Shapiro <guysh@mellanox.com>
+RDMA-CM uses IP based addressing and routing to setup RDMA connections between
+hosts. Currently, all of the IP interfaces and addresses used by the RDMA-CM
+must reside in the init_net namespace. This restricts the usage of containers
+with RDMA to only work with host network namespace (aka the kernel init_net NS
+instance).
 
-Implement callback that returns network device to ib_core according to
-connection parameters. Check the ipoib device and iterate over all child
-devices to look for a match.
+This patchset allows using network namespaces with the RDMA-CM.
 
-For each ipoib device we iterate through all upper devices when searching for
-a matching IP, in order to support bonding.
+Each RDMA-CM and CM id is keeping a reference to a network namespace.
 
-Signed-off-by: Guy Shapiro <guysh@mellanox.com>
-Signed-off-by: Haggai Eran <haggaie@mellanox.com>
-Signed-off-by: Yotam Kenneth <yotamke@mellanox.com>
-Signed-off-by: Shachar Raindel <raindel@mellanox.com>
+This reference is based on the process network namespace at the time of the
+creation of the object or inherited from the listener.
 
----
- drivers/infiniband/ulp/ipoib/ipoib_main.c | 122 +++++++++++++++++++++++++++++-
- 1 file changed, 121 insertions(+), 1 deletion(-)
+This network namespace is used to perform all IP and network related
+operations. Specifically, the local device lookup, as well as the remote GID
+address resolution are done in the context of the RDMA-CM object's namespace.
+This allows outgoing connections to reach the right target, even if the same
+IP address exists in multiple network namespaces. This can happen if each
+network namespace resides on a different pkey.
 
-diff --git a/drivers/infiniband/ulp/ipoib/ipoib_main.c b/drivers/infiniband/ulp/ipoib/ipoib_main.c
-index 58b5aa3..63119ff 100644
---- a/drivers/infiniband/ulp/ipoib/ipoib_main.c
-+++ b/drivers/infiniband/ulp/ipoib/ipoib_main.c
-@@ -48,6 +48,9 @@
- 
- #include <linux/jhash.h>
- #include <net/arp.h>
-+#include <net/addrconf.h>
-+#include <linux/inetdevice.h>
-+#include <rdma/ib_cache.h>
- 
- #define DRV_VERSION "1.0.0"
- 
-@@ -91,11 +94,15 @@ struct ib_sa_client ipoib_sa_client;
- static void ipoib_add_one(struct ib_device *device);
- static void ipoib_remove_one(struct ib_device *device);
- static void ipoib_neigh_reclaim(struct rcu_head *rp);
-+static struct net_device *ipoib_get_net_device_by_port_pkey_ip(
-+		struct ib_device *dev, u8 port, u16 pkey,
-+		struct sockaddr *addr);
- 
- static struct ib_client ipoib_client = {
- 	.name   = "ipoib",
- 	.add    = ipoib_add_one,
--	.remove = ipoib_remove_one
-+	.remove = ipoib_remove_one,
-+	.get_net_device_by_port_pkey_ip = ipoib_get_net_device_by_port_pkey_ip,
- };
- 
- int ipoib_open(struct net_device *dev)
-@@ -222,6 +229,119 @@ static int ipoib_change_mtu(struct net_device *dev, int new_mtu)
- 	return 0;
- }
- 
-+static bool ipoib_is_dev_match_addr(struct sockaddr *addr,
-+				    struct net_device *dev)
-+{
-+	struct net *net = dev_net(dev);
-+
-+	if (addr->sa_family == AF_INET) {
-+		struct in_device *in_dev = in_dev_get(dev);
-+		struct sockaddr_in *addr_in = (struct sockaddr_in *)addr;
-+		__be32 ret_addr;
-+
-+		if (!in_dev)
-+			return false;
-+
-+		ret_addr = inet_confirm_addr(net, in_dev, 0,
-+					     addr_in->sin_addr.s_addr,
-+					     RT_SCOPE_HOST);
-+		in_dev_put(in_dev);
-+		if (ret_addr)
-+			return true;
-+	}
-+#if IS_ENABLED(CONFIG_IPV6)
-+	else if (addr->sa_family == AF_INET6) {
-+		struct sockaddr_in6 *addr_in6 = (struct sockaddr_in6 *)addr;
-+
-+		if (ipv6_chk_addr(net, &addr_in6->sin6_addr, dev, 1))
-+			return true;
-+	}
-+#endif
-+	return false;
-+}
-+
-+/**
-+ * Find a net_device matching the given address, which is an upper device of
-+ * the given net_device.
-+ * @addr: IP address to look for.
-+ * @dev: base IPoIB net_device
-+ *
-+ * If found, returns the net_device with a reference held. Otherwise return
-+ * NULL.
-+ */
-+static struct net_device *ipoib_get_net_dev_match_addr(struct sockaddr *addr,
-+						       struct net_device *dev)
-+{
-+	struct net_device *upper,
-+			  *result = NULL;
-+	struct list_head *iter;
-+
-+	if (ipoib_is_dev_match_addr(addr, dev)) {
-+		dev_hold(dev);
-+		return dev;
-+	}
-+
-+	rcu_read_lock();
-+	netdev_for_each_all_upper_dev_rcu(dev, upper, iter) {
-+		if (ipoib_is_dev_match_addr(addr, upper)) {
-+			dev_hold(upper);
-+			result = upper;
-+			break;
-+		}
-+	}
-+	rcu_read_unlock();
-+	return result;
-+}
-+
-+static struct net_device *ipoib_get_net_device_by_port_pkey_ip(
-+		struct ib_device *dev, u8 port, u16 pkey, struct sockaddr *addr)
-+{
-+	struct ipoib_dev_priv *priv;
-+	struct list_head *dev_list;
-+	u16 pkey_index;
-+
-+	ib_find_cached_pkey(dev, port, pkey, &pkey_index);
-+	if (pkey_index == (u16)-1)
-+		return NULL;
-+
-+	if (rdma_node_get_transport(dev->node_type) != RDMA_TRANSPORT_IB)
-+		return NULL;
-+
-+	dev_list = ib_get_client_data(dev, &ipoib_client);
-+	if (!dev_list)
-+		return NULL;
-+
-+	list_for_each_entry(priv, dev_list, list) {
-+		struct net_device *net_dev = NULL;
-+		struct ipoib_dev_priv *child_priv;
-+
-+		if (priv->port != port)
-+			continue;
-+
-+		if (priv->pkey_index == pkey_index) {
-+			net_dev = ipoib_get_net_dev_match_addr(addr, priv->dev);
-+			if (net_dev)
-+				return net_dev;
-+		}
-+
-+		down_read(&priv->vlan_rwsem);
-+		list_for_each_entry(child_priv,
-+				    &priv->child_intfs, list) {
-+			if (child_priv->pkey_index != pkey_index)
-+				continue;
-+
-+			net_dev = ipoib_get_net_dev_match_addr(
-+					addr, child_priv->dev);
-+			if (net_dev)
-+				break;
-+		}
-+		up_read(&priv->vlan_rwsem);
-+		if (net_dev)
-+			return net_dev;
-+	}
-+	return NULL;
-+}
-+
- int ipoib_set_mode(struct net_device *dev, const char *buf)
- {
- 	struct ipoib_dev_priv *priv = netdev_priv(dev);
+Additionally, the network namespace is used to split the listener service ID
+table. From the user point of view, each network namespace has a unique,
+completely independent table of service IDs. This allows running multiple
+instances of a single service on the same machine, using containers. To
+implement this, the CM layer now parses the IP address from the CM connect
+requests, and searches for the matching networking device. The namespace of
+the device found is used when looking up the service ID in the listener table.
+
+The functionnality introduced by this series would come into play when the
+transport is InfiniBand and IPoIB interfaces are assigned to each namespace.
+Multiple IPoIB interfaces can be created and assigned to different RDMA-CM
+capable containers, for example using pipework [1].
+
+Full support for RoCE will be introduced in a later stage.
+
+The patches apply against kernel v3.19-rc5, with the patch "RDMA/CMA: Mark
+IPv4 addresses correctly when the listener is IPv6" [2] applied.
+
+The patchset is structured as follows:
+
+Patches 1 and 2 are relatively trivial API extensions, requiring the callers
+of certain ib_addr and ib_core functions to provide a network namespace, as
+needed.
+
+Patches 3 and 4 adds the ability to lookup a network namespace according to
+the IP address, device and pkey. It finds the matching IPoIB interfaces, and
+safely takes a reference on the network namespace before returning to the
+caller.
+
+Patch 5 moves the logic that extracts the IP address from a connect request
+into the CM layer. This is needed for the upcoming listener lookup by
+namespace.
+
+Patch 6 adds support for network namespaces in the CM layer. All callers are
+still passing init_net as the namespace, to maintain backward compatibility.
+For incoming requests, the namespace of the relevant IPoIB device is used.
+
+Patches 7 and 8 add proper namespace support to the RDMA-CM module.
+
+Patches 9 and 10 add namespace support to the relevant user facing modules in
+the IB stack.
+
+
+[1] https://github.com/jpetazzo/pipework/pull/108
+[2] https://patchwork.kernel.org/patch/5298971/
+
+Change-log:
+
+V0 -> V1:
+ - Fix code review comments by Yann
+ - Rebase on top of linux-3.19
+
+Guy Shapiro (7):
+  IB/addr: Pass network namespace as a parameter
+  IB/core: Pass network namespace as a parameter to relevant functions
+  IB/ipoib: Return IPoIB devices as possible matches to
+    get_net_device_by_port_pkey_ip
+  IB/cm,cma: Move RDMA IP CM private-data parsing code from ib_cma to
+    ib_cm
+  IB/cm: Add network namespace support
+  IB/cma: Add support for network namespaces
+  IB/ucma: Take the network namespace from the process
+
+Shachar Raindel (1):
+  IB/ucm: Add partial support for network namespaces
+
+Yotam Kenneth (2):
+  IB/core: Find the network namespace matching connection parameters
+  IB/cma: Separate port allocation to network namespaces
+
+ drivers/infiniband/core/addr.c                     |  31 +-
+ drivers/infiniband/core/agent.c                    |   4 +-
+ drivers/infiniband/core/cm.c                       | 287 ++++++++++++++++--
+ drivers/infiniband/core/cma.c                      | 332 +++++++++------------
+ drivers/infiniband/core/device.c                   |  57 ++++
+ drivers/infiniband/core/mad_rmpp.c                 |  10 +-
+ drivers/infiniband/core/ucm.c                      |   4 +-
+ drivers/infiniband/core/ucma.c                     |   4 +-
+ drivers/infiniband/core/user_mad.c                 |   4 +-
+ drivers/infiniband/core/verbs.c                    |  22 +-
+ drivers/infiniband/hw/ocrdma/ocrdma_ah.c           |   3 +-
+ drivers/infiniband/ulp/ipoib/ipoib_cm.c            |  21 +-
+ drivers/infiniband/ulp/ipoib/ipoib_main.c          | 122 +++++++-
+ drivers/infiniband/ulp/iser/iser_verbs.c           |   2 +-
+ drivers/infiniband/ulp/isert/ib_isert.c            |   2 +-
+ drivers/infiniband/ulp/srp/ib_srp.c                |   2 +-
+ drivers/infiniband/ulp/srpt/ib_srpt.c              |   5 +-
+ .../staging/lustre/lnet/klnds/o2iblnd/o2iblnd.h    |   4 +-
+ include/rdma/ib_addr.h                             |  44 ++-
+ include/rdma/ib_cm.h                               |  63 +++-
+ include/rdma/ib_verbs.h                            |  44 ++-
+ include/rdma/rdma_cm.h                             |   6 +-
+ net/9p/trans_rdma.c                                |   2 +-
+ net/rds/ib.c                                       |   2 +-
+ net/rds/ib_cm.c                                    |   2 +-
+ net/rds/iw.c                                       |   2 +-
+ net/rds/iw_cm.c                                    |   2 +-
+ net/rds/rdma_transport.c                           |   2 +-
+ net/sunrpc/xprtrdma/svc_rdma_transport.c           |   2 +-
+ net/sunrpc/xprtrdma/verbs.c                        |   3 +-
+ 30 files changed, 822 insertions(+), 268 deletions(-)
+
 -- 
 1.7.11.2
