@@ -1,60 +1,62 @@
-From: Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
-Subject: Re: [PATCH v3 linux-trace 1/8] tracing: attach eBPF programs to
- tracepoints and syscalls
-Date: Wed, 11 Feb 2015 11:28:52 +0100
-Message-ID: <20150211102852.GQ23123@twins.programming.kicks-ass.net>
-References: <CAMEtUuwAf4AFeWVEdJB4VQz_=2fWY=q8=rbkFg38rtVtNVCHxg@mail.gmail.com>
- <20150210165359.34cc53d9@gandalf.local.home>
+From: Vaishali Thakkar <vthakkar1994@gmail.com>
+Subject: [PATCH] drivers/net: Use setup_timer and mod_timer
+Date: Wed, 11 Feb 2015 15:59:50 +0530
+Message-ID: <20150211102950.GA23755@vaishali-Ideapad-Z570>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>,
-	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Namhyung Kim <namhyung-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Arnaldo Carvalho de Melo <acme-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	Jiri Olsa <jolsa-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Masami Hiramatsu <masami.hiramatsu.pt-FCd8Q96Dh0JBDgjK7y7TUQ@public.gmane.org>,
-	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org
-To: Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: Wilfried Klaebe <w-lkml@lebenslange-mailadresse.de>,
+	Felipe Balbi <balbi@ti.com>,
+	Justin van Wijngaarden <justinvanwijngaarden@gmail.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20150210165359.34cc53d9-f9ZlEuEWxVcJvu8Pb33WZ0EMvNT87kid@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Feb 10, 2015 at 04:53:59PM -0500, Steven Rostedt wrote:
-> > >> In the future we might add a tracepoint and pass a single
-> > >> pointer to interesting data struct to it. bpf programs will walk
-> > >> data structures 'as safe modules' via bpf_fetch*() methods
-> > >> without exposing it as ABI.
-> > >
-> > > Will this work if that structure changes? When the field we are looking
-> > > for no longer exists?
-> > 
-> > bpf_fetch*() is the same mechanism as perf probe.
-> > If there is a mistake by user space tools, the program
-> > will be reading some junk, but it won't be crashing.
-> 
-> But what if the userspace tool depends on that value returning
-> something meaningful. If it was meaningful in the past, it will have to
-> be meaningful in the future, even if the internals of the kernel make
-> it otherwise.
+This patch introduces the use of functions setup_timer
+and mod_timer.
 
-We're compiling the BPF stuff against the 'current' kernel headers
-right? So would enforcing module versioning not be sufficient?
+This is done using Coccinelle and semantic patch used
+for this as follows:
 
-We already break out-of-tree modules without a second thought, the
-module interface is not guaranteed. They just need to cope with it.
+// <smpl>
+@@
+expression x,y,z,a,b;
+@@
 
-Anything using the kernel headers to look into the kernel guts should be
-bound to the same rules.
+-init_timer (&x);
++setup_timer (&x, y, z);
++mod_timer (&a, b);
+-x.function = y;
+-x.data = z;
+-x.expires = b;
+-add_timer(&a);
 
-So if we think of BFP stuff as out-of-tree modules, and treat them the
-same, I see no problem.
+// </smpl>
 
-I'm sure some BFP 'scripts' will turn in the same right mess that
-out-of-tree modules are, with endless #ifdef version checks, but hey,
-not my problem ;-)
+Signed-off-by: Vaishali Thakkar <vthakkar1994@gmail.com>
+---
+ drivers/net/ethernet/3com/3c589_cs.c | 7 ++-----
+ 1 file changed, 2 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/ethernet/3com/3c589_cs.c b/drivers/net/ethernet/3com/3c589_cs.c
+index f18647c..c5a3205 100644
+--- a/drivers/net/ethernet/3com/3c589_cs.c
++++ b/drivers/net/ethernet/3com/3c589_cs.c
+@@ -518,11 +518,8 @@ static int el3_open(struct net_device *dev)
+ 	netif_start_queue(dev);
+ 
+ 	tc589_reset(dev);
+-	init_timer(&lp->media);
+-	lp->media.function = media_check;
+-	lp->media.data = (unsigned long) dev;
+-	lp->media.expires = jiffies + HZ;
+-	add_timer(&lp->media);
++	setup_timer(&lp->media, media_check, (unsigned long)dev);
++	mod_timer(&lp->media, jiffies + HZ);
+ 
+ 	dev_dbg(&link->dev, "%s: opened, status %4.4x.\n",
+ 	  dev->name, inw(dev->base_addr + EL3_STATUS));
+-- 
+1.9.1
