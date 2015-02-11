@@ -1,36 +1,38 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [PATCH net-next 0/7] net: Fixes to remote checksum offload and CHECKSUM_PARTIAL
-Date: Tue, 10 Feb 2015 23:04:51 -0500
-Message-ID: <CAJ3xEMg112cOhwfBS1PX84J7XvOEukNXqGDP5w5H8oZS0EKDfA@mail.gmail.com>
-References: <1423614633-25042-1-git-send-email-therbert@google.com>
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Subject: Re: [GIT] Networking
+Date: Wed, 11 Feb 2015 04:10:39 +0000
+Message-ID: <20150211041039.GE29656@ZenIV.linux.org.uk>
+References: <20150209.191601.1373941323785500419.davem@davemloft.net>
+ <CA+55aFxskyQ2CkLJ8c_LDkjTY+kKSJ5N6JPjhewGYXsXcHg7nw@mail.gmail.com>
+ <20150209.205209.1524645061817000265.davem@davemloft.net>
+ <CA+55aFxrGRjL_d=aCZQ0sNC+pfW8nYDLb4KkUVAme5oHmjBjTw@mail.gmail.com>
+ <CA+55aFwxuMcNPU-C5p2hSWuNhJW+DOi3Py0NQ--Rw9_bv3md2w@mail.gmail.com>
+ <CA+55aFzJNNDi0YKXnNYF=ccYvXALRxzngiV1tARd6CdCimVRYg@mail.gmail.com>
+ <CA+55aFyqFrf9cRQ7wDSDLNraR+meZ-=dwWdDThtpPtrFFqrcGw@mail.gmail.com>
+ <20150211014502.GB29656@ZenIV.linux.org.uk>
+ <CA+55aFwdXNYMWGGNsAzyRiZ60HE_G=CJesLShPHGxtADJd2TPQ@mail.gmail.com>
+ <20150211040113.GC29656@ZenIV.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=us-ascii
 Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Tom Herbert <therbert@google.com>
+	Andrew Morton <akpm@linux-foundation.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Linus Torvalds <torvalds@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f179.google.com ([209.85.214.179]:60922 "EHLO
-	mail-ob0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751690AbbBKEEw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Feb 2015 23:04:52 -0500
-Received: by mail-ob0-f179.google.com with SMTP id wp4so1054517obc.10
-        for <netdev@vger.kernel.org>; Tue, 10 Feb 2015 20:04:51 -0800 (PST)
-In-Reply-To: <1423614633-25042-1-git-send-email-therbert@google.com>
+Received: from zeniv.linux.org.uk ([195.92.253.2]:55566 "EHLO
+	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751624AbbBKEKm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Feb 2015 23:10:42 -0500
+Content-Disposition: inline
+In-Reply-To: <20150211040113.GC29656@ZenIV.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 10, 2015 at 7:30 PM, Tom Herbert <therbert@google.com> wrote:
-> This patch set fixes a correctness problem with remote checksum
-> offload, clarifies the meaning of CHECKSUM_PARTIAL, and allows
-> remote checksum offload to set CHECKSUM_PARTIAL instead of
-> calling csum_partial and modifying the checksum.
+On Wed, Feb 11, 2015 at 04:01:13AM +0000, Al Viro wrote:
+> I hoped LTP would have them, but it doesn't ;-/  The best I'd been able to
+> find had been in libkcapi, modulo bunch of
+> 	let result=($result + 1)
+> (in a bash script;
 
-Hi Tom,
-
-Does this series change elements in the RCO basic architecture as you
-described it in your LKS [1] slides and/or the IETF draft [2]?
-
-Or.
-
-[1] http://vger.kernel.org/encapsulation_offloads.pdf
-[2] https://tools.ietf.org/html/draft-herbert-remotecsumoffload-01
+... which I'd been running with sh test.sh ;-/  I really need more coffee...
