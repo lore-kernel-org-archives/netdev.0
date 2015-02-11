@@ -1,58 +1,59 @@
-From: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>
-Subject: [PATCH FIX] bgmac: fix device initialization on Northstar SoCs (condition typo)
-Date: Wed, 11 Feb 2015 18:06:34 +0100
-Message-ID: <1423674394-8578-1-git-send-email-zajec5@gmail.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: network namespace bloat
+Date: Wed, 11 Feb 2015 18:09:44 +0100
+Message-ID: <54DB8CD8.8080102@6wind.com>
+References: <1423100070-31848-1-git-send-email-dsahern@gmail.com>	<87k2zubw7l.fsf@x220.int.ebiederm.org> <871tlxtbhd.fsf_-_@x220.int.ebiederm.org>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Hauke Mehrtens <hauke@hauke-m.de>,
-	=?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	roopa <roopa@cumulusnetworks.com>, hannes@stressinduktion.org,
+	Dinesh Dutt <ddutt@cumulusnetworks.com>,
+	Vipin Kumar <vipin@cumulusnetworks.com>,
+	Shmulik Ladkani <shmulik.ladkani@gmail.com>,
+	David Ahern <dsahern@gmail.com>,
+	Eric Dumazet <edumazet@google.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: "Eric W. Biederman" <ebiederm@xmission.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f171.google.com ([209.85.212.171]:62502 "EHLO
-	mail-wi0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753056AbbBKRGr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Feb 2015 12:06:47 -0500
-Received: by mail-wi0-f171.google.com with SMTP id hi2so13726763wib.4
-        for <netdev@vger.kernel.org>; Wed, 11 Feb 2015 09:06:46 -0800 (PST)
+Received: from mail-wg0-f46.google.com ([74.125.82.46]:38020 "EHLO
+	mail-wg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752982AbbBKRJr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Feb 2015 12:09:47 -0500
+Received: by mail-wg0-f46.google.com with SMTP id a1so4830947wgh.5
+        for <netdev@vger.kernel.org>; Wed, 11 Feb 2015 09:09:46 -0800 (PST)
+In-Reply-To: <871tlxtbhd.fsf_-_@x220.int.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Northstar (Broadcom's ARM architecture) we need to manually enable
-all cores. Code for that is already in place, but the condition for it
-was wrong.
+Le 11/02/2015 03:42, Eric W. Biederman a =C3=A9crit :
+[snip]
+>
+> The next largest component appears to be all of the tunnel network
+> devices that we allocate for compatibility reasons so that the old io=
+ctl
+> interfaces still work.
+>
+[snip]
+>
+>
+> A knob (sysctl?) that controls the creation of the backwards
+> compabitilty tunnel network devices seems desirable.  As in many
+> instances those are just overhead today.
+Note that these interfaces are also used as fallback devices, they catc=
+h
+packets that don't match any configured tunnels.
 
-Signed-off-by: Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>
----
-Can we have it for 3.20, please?
----
- drivers/net/ethernet/broadcom/bgmac.c | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+See: http://thread.gmane.org/gmane.linux.network/249634/focus=3D249634
 
-diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethern=
-et/broadcom/bgmac.c
-index 3007d95..728373b 100644
---- a/drivers/net/ethernet/broadcom/bgmac.c
-+++ b/drivers/net/ethernet/broadcom/bgmac.c
-@@ -1412,6 +1412,7 @@ static void bgmac_mii_unregister(struct bgmac *bg=
-mac)
- /* http://bcm-v4.sipsolutions.net/mac-gbit/gmac/chipattach */
- static int bgmac_probe(struct bcma_device *core)
- {
-+	struct bcma_chipinfo *ci =3D &core->bus->chipinfo;
- 	struct net_device *net_dev;
- 	struct bgmac *bgmac;
- 	struct ssb_sprom *sprom =3D &core->bus->sprom;
-@@ -1474,8 +1475,8 @@ static int bgmac_probe(struct bcma_device *core)
- 	bgmac_chip_reset(bgmac);
-=20
- 	/* For Northstar, we have to take all GMAC core out of reset */
--	if (core->id.id =3D=3D BCMA_CHIP_ID_BCM4707 ||
--	    core->id.id =3D=3D BCMA_CHIP_ID_BCM53018) {
-+	if (ci->id =3D=3D BCMA_CHIP_ID_BCM4707 ||
-+	    ci->id =3D=3D BCMA_CHIP_ID_BCM53018) {
- 		struct bcma_device *ns_core;
- 		int ns_gmac;
-=20
---=20
-1.8.4.5
+[snip]
+>
+> In my ideal world enough of these issues would be fixed that a
+> new empty network namespace would consume less than 100KiB of memory.
++1
+
+
+Regards,
+Nicolas
