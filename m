@@ -1,79 +1,42 @@
-From: "Skidmore, Donald C" <donald.c.skidmore@intel.com>
-Subject: RE: [E1000-devel] [PATCH 1/3] ixgbe, ixgbevf: Add new mbox API to
- enable MC promiscuous mode
-Date: Wed, 11 Feb 2015 22:59:34 +0000
-Message-ID: <F6FB0E698C9B3143BDF729DF22286646912A1339@ORSMSX110.amr.corp.intel.com>
-References: <7F861DC0615E0C47A872E6F3C5FCDDBD05E1908D@BPXM14GP.gisp.nec.co.jp>
-	 <1423054641.2589.59.camel@jtkirshe-mobl>
-	  <7F861DC0615E0C47A872E6F3C5FCDDBD05E26E45@BPXM14GP.gisp.nec.co.jp>
- <1423470046.27854.7.camel@jtkirshe-mobl>
- <7F861DC0615E0C47A872E6F3C5FCDDBD05E29F43@BPXM14GP.gisp.nec.co.jp>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [GIT PULL nf-next] IPVS Enhancements for v3.20
+Date: Thu, 12 Feb 2015 08:02:30 +0900
+Message-ID: <20150211230229.GD2096@verge.net.au>
+References: <1423549929-25064-1-git-send-email-horms@verge.net.au>
+ <20150211151053.GA4698@salvia>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Alexander Duyck <alexander.duyck@gmail.com>,
-	=?utf-8?B?QmrDuHJuIE1vcms=?= <bjorn@mork.no>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Choi, Sy Jong" <sy.jong.choi@intel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	David Laight <David.Laight@ACULAB.COM>,
-	Hayato Momma <h-momma@ce.jp.nec.com>
-To: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <7F861DC0615E0C47A872E6F3C5FCDDBD05E29F43@BPXM14GP.gisp.nec.co.jp>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20150211151053.GA4698@salvia>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBIaXJvc2hpIFNoaW1hbW90byBb
-bWFpbHRvOmgtc2hpbWFtb3RvQGN0LmpwLm5lYy5jb21dDQo+IFNlbnQ6IE1vbmRheSwgRmVicnVh
-cnkgMDksIDIwMTUgNjoyOSBQTQ0KPiBUbzogS2lyc2hlciwgSmVmZnJleSBUDQo+IENjOiBBbGV4
-YW5kZXIgRHV5Y2s7IFNraWRtb3JlLCBEb25hbGQgQzsgQmrDuHJuIE1vcms7IGUxMDAwLQ0KPiBk
-ZXZlbEBsaXN0cy5zb3VyY2Vmb3JnZS5uZXQ7IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IENob2ks
-IFN5IEpvbmc7IGxpbnV4LQ0KPiBrZXJuZWxAdmdlci5rZXJuZWwub3JnOyBEYXZpZCBMYWlnaHQ7
-IEhheWF0byBNb21tYQ0KPiBTdWJqZWN0OiBSRTogW0UxMDAwLWRldmVsXSBbUEFUQ0ggMS8zXSBp
-eGdiZSwgaXhnYmV2ZjogQWRkIG5ldyBtYm94IEFQSSB0bw0KPiBlbmFibGUgTUMgcHJvbWlzY3Vv
-dXMgbW9kZQ0KPiANCj4gPiA+ID4gPiBDYW4geW91IHBsZWFzZSBmaXggdXAgeW91ciBwYXRjaGVz
-IGJhc2VkIG9uIG15IHRyZWU6DQo+ID4gPiA+ID4gZ2l0Oi8vZ2l0Lmtlcm5lbC5vcmcvcHViL3Nj
-bS9saW51eC9rZXJuZWwvZ2l0L2praXJzaGVyL3F1ZXVlLmdpdA0KPiA+ID4gPg0KPiA+ID4gPiBZ
-ZXMuIEkgaGF2ZW4ndCBub3RpY2VkIHlvdXIgdHJlZS4NCj4gPiA+ID4gV2lsbCByZXNlbmQgcGF0
-Y2hlcyBhZ2FpbnN0IGl0Lg0KPiA+ID4gPg0KPiA+ID4NCj4gPiA+IEkgZW5jb3VudGVyZWQgYW4g
-aXNzdWUgd2l0aCB5b3VyIHRyZWUsIHRoZSBjb21taXQgaWQgaXMgYmVsb3cuDQo+ID4gPg0KPiA+
-ID4gJCBnaXQgbG9nIHwgaGVhZA0KPiA+ID4gY29tbWl0IGU2ZjE2NDk3ODBmOGY1YTg3Mjk5YmY2
-YWYwNDQ1M2Y5M2QxZTNkNWUNCj4gPiA+IEF1dGhvcjogUmFzbXVzIFZpbGxlbW9lcyA8bGludXhA
-cmFzbXVzdmlsbGVtb2VzLmRrPg0KPiA+ID4gRGF0ZTogICBGcmkgSmFuIDIzIDIwOjQzOjE0IDIw
-MTUgLTA4MDANCj4gPiA+DQo+ID4gPiAgICAgZXRoZXJuZXQ6IGZtMTBrOiBBY3R1YWxseSBkcm9w
-IDQgYml0cw0KPiA+ID4NCj4gPiA+ICAgICBUaGUgY29tbWVudCBleHBsYWlucyB0aGUgaW50ZW50
-aW9uLCBidXQgdmlkIGhhcyB0eXBlIHUxNi4gQmVmb3JlIHRoZQ0KPiA+ID4gICAgIGlubmVyIHNo
-aWZ0LCBpdCBpcyBwcm9tb3RlZCB0byBpbnQsIHdoaWNoIGhhcyBwbGVudHkgb2Ygc3BhY2UgZm9y
-IGFsbA0KPiA+ID4gICAgIHZpZCdzIGJpdHMsIHNvIG5vdGhpbmcgaXMgZHJvcHBlZC4gVXNlIGEg
-c2ltcGxlIG1hc2sgaW5zdGVhZC4NCj4gPiA+DQo+ID4gPg0KPiA+ID4gSSB1c2UgdGhlIGtlcm5l
-bCBmcm9tIHlvdXIgdHJlZSBpbiBib3RoIGhvc3QgYW5kIGd1ZXN0Lg0KPiA+ID4NCj4gPiA+IEFz
-c2lnbiBhbiBJUHY2IGZvciBWRiBpbiBndWVzdC4NCj4gPiA+ICMgaXAgLTYgYWRkciBhZGQgMjAw
-MTpkYjg6OjE4OjEvNjQgZGV2IGVuczANCj4gPiA+DQo+ID4gPiBTZW5kIHBpbmcgcGFja2V0IGZy
-b20gb3RoZXIgc2VydmVyIHRvIHRoZSBWTS4NCj4gPiA+ICMgcGluZzYgIDIwMDE6ZGI4OjoxODox
-IC1JIGV0aDANCj4gPiA+DQo+ID4gPiBUaGUgZm9sbG93aW5nIG1lc3NhZ2Ugd2FzIHNob3duLg0K
-PiA+ID4gaXhnYmV2ZiAwMDAwOjAwOjA4LjA6IHBhcnRpYWwgY2hlY2tzdW0gYnV0IGw0IHByb3Rv
-PTNhIQ0KPiA+ID4NCj4gPiA+IElmIEkgZGlkIHRoZSBzYW1lIG9wZXJhdGlvbiBpbiB0aGUgaG9z
-dCwgSSBzYXcgdGhlIHNhbWUgZXJyb3IgbWVzc2FnZSBpbg0KPiBob3N0IHRvby4NCj4gPiA+IGl4
-Z2JlIDAwMDA6MmQ6MDAuMDogcGFydGlhbCBjaGVja3N1bSBidXQgbDQgcHJvdG89M2EhDQo+ID4g
-Pg0KPiA+ID4gRG8geW91IGhhdmUgYW55IGlkZWEgYWJvdXQgdGhhdD8NCj4gPg0KPiA+IEFoLCBz
-b3JyeSBhYm91dCB0aGF0LCB0cnkgdGhpcyB0cmVlIGFnYWluOg0KPiA+IGdpdDovL2dpdC5rZXJu
-ZWwub3JnL3B1Yi9zY20vbGludXgva2VybmVsL2dpdC9qa2lyc2hlci9xdWV1ZS5naXQNCj4gPg0K
-PiA+IFRoYXQgcGF0Y2ggd2FzIGRyb3BwZWQgZm9yIGZhdm9yIG9mIGEgcGF0Y2ggdGhhdCBNYXR0
-aGV3IFZpY2sgcHV0DQo+ID4gdG9nZXRoZXIgKGFuZCByZWNlbnRseSBnb3QgcHVzaGVkIHVwc3Ry
-ZWFtKS4gIFNvIG15IHF1ZXVlIG5vIGxvbmdlcg0KPiA+IGhhcyB0aGF0IHBhdGNoIGluIHRoZSBx
-dWV1ZSwgc2luY2UgaXQgZ290IGRyb3BwZWQuDQo+IA0KPiBJIHN0aWxsIHNlZSB0aGUgc2FtZSBl
-cnJvciwgdGhlIGhlYWQgaWQgaXMgdGhlIGJlbG93DQo+IA0KPiAkIGdpdCBsb2cgfCBoZWFkDQo+
-IGNvbW1pdCBhMDcyYWZiMGI0NTkwNDAyMmI3NmRlZWYzYjc3MGVlOWE5M2NiMTNhDQo+IEF1dGhv
-cjogTmljaG9sYXMgS3JhdXNlIDx4ZXJvZm9pZnlAZ21haWwuY29tPg0KPiBEYXRlOiAgIE1vbiBG
-ZWIgOSAwMDoyNzowMCAyMDE1IC0wODAwDQo+IA0KPiAgICAgaWdiOiBSZW1vdmUgb3V0ZGF0ZWQg
-Zml4IG1lIGNvbW1lbnQgaW4gdGhlDQo+IGZ1bmN0aW9uLGdiX2FjcXVpcmVfc3dmd19zeW5jX2ky
-MTANCj4gDQo+IA0KPiB0aGFua3MsDQo+IEhpcm9zaGkNCg0KSSdtIGhhdmluZyBvdXIgdmFsaWRh
-dGlvbiBzZWUgaWYgdGhleSBjYW4gcmVjcmVhdGUgdGhlIHNhbWUgaXNzdWUgaW50ZXJuYWxseS4g
-IFdoZW4gdGhleSBnZXQgYmFjayB0byBtZSBJJ2xsIGxldCB5b3Uga25vdyB3aGF0IHdlIGZvdW5k
-Lg0KDQpUaGFua3MsDQotRG9uIFNraWRtb3JlIDxkb25hbGQuYy5za2lkbW9yZUBpbnRlbC5jb20+
-DQoNCg==
+On Wed, Feb 11, 2015 at 04:10:53PM +0100, Pablo Neira Ayuso wrote:
+> On Tue, Feb 10, 2015 at 03:32:08PM +0900, Simon Horman wrote:
+> > Hi Pablo,
+> > 
+> > please consider this enhancement for v3.20.
+> > 
+> > It adds support for 64-bit rates in IPVS statistics.
+> > 
+> > 
+> > The following changes since commit 4c1017aa80c95a74703139bb95c4ce0d130efe4d:
+> > 
+> >   netfilter: nft_lookup: add missing attribute validation for NFTA_LOOKUP_SET_ID (2015-01-30 19:08:20 +0100)
+> > 
+> > are available in the git repository at:
+> > 
+> >   https://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs-next.git tags/ipvs-for-v3.20
+> 
+> Pulled, thanks.
+> 
+> If merge window closes (I still have a little pending request), I'll
+> keep this in nf-next until it reopens again for the next round.
+
+Thanks, there is no urgency for this change AFIC.
