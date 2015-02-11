@@ -1,182 +1,27 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH 3/5] virtio: Don't expose legacy net features when VIRTIO_NET_NO_LEGACY defined.
-Date: Wed, 11 Feb 2015 10:36:25 +1030
-Message-ID: <87twytb9by.fsf@rustcorp.com.au>
-References: <1423199216-2094-1-git-send-email-rusty@rustcorp.com.au> <1423199216-2094-4-git-send-email-rusty@rustcorp.com.au> <20150208105908.GI3185@redhat.com> <87fvag3qv3.fsf@rustcorp.com.au>
+From: Hayes Wang <hayeswang@realtek.com>
+Subject: [PATCH net-next 0/3] Adjust the settings about USB_RX_EARLY_AGG
+Date: Wed, 11 Feb 2015 14:46:56 +0800
+Message-ID: <1394712342-15778-137-Taiwan-albertk@realtek.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: lkml <linux-kernel@vger.kernel.org>,
-	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
+	<linux-usb@vger.kernel.org>, Hayes Wang <hayeswang@realtek.com>
+To: <netdev@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87fvag3qv3.fsf@rustcorp.com.au>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Rusty Russell <rusty@rustcorp.com.au> writes:
-> "Michael S. Tsirkin" <mst@redhat.com> writes:
->> On Fri, Feb 06, 2015 at 03:36:54PM +1030, Rusty Russell wrote:
->>> In particular, the virtio header always has the u16 num_buffers field.
->>> We define a new 'struct virtio_net_modern_hdr' for this (rather than
->>> simply calling it 'struct virtio_net_hdr', to avoid nasty type errors
->>> if some parts of a project define VIRTIO_NET_NO_LEGACY and some don't.
->>> 
->>> Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
->>> ---
->>>  include/uapi/linux/virtio_net.h | 30 ++++++++++++++++++++++++++++--
->>>  1 file changed, 28 insertions(+), 2 deletions(-)
->>> 
->>> diff --git a/include/uapi/linux/virtio_net.h b/include/uapi/linux/virtio_net.h
->>> index b5f1677b291c..32754f3000e8 100644
->>> --- a/include/uapi/linux/virtio_net.h
->>> +++ b/include/uapi/linux/virtio_net.h
->>> @@ -35,7 +35,6 @@
->>>  #define VIRTIO_NET_F_CSUM	0	/* Host handles pkts w/ partial csum */
->>>  #define VIRTIO_NET_F_GUEST_CSUM	1	/* Guest handles pkts w/ partial csum */
->>>  #define VIRTIO_NET_F_MAC	5	/* Host has given MAC address. */
->>> -#define VIRTIO_NET_F_GSO	6	/* Host handles pkts w/ any GSO type */
->>>  #define VIRTIO_NET_F_GUEST_TSO4	7	/* Guest can handle TSOv4 in. */
->>>  #define VIRTIO_NET_F_GUEST_TSO6	8	/* Guest can handle TSOv6 in. */
->>>  #define VIRTIO_NET_F_GUEST_ECN	9	/* Guest can handle TSO[6] w/ ECN in. */
->>> @@ -56,6 +55,10 @@
->>>  					 * Steering */
->>>  #define VIRTIO_NET_F_CTRL_MAC_ADDR 23	/* Set MAC address */
->>>  
->>> +#ifndef VIRTIO_NET_NO_LEGACY
->>> +#define VIRTIO_NET_F_GSO	6	/* Host handles pkts w/ any GSO type */
->>> +#endif /* VIRTIO_NET_NO_LEGACY */
->>> +
->>>  #define VIRTIO_NET_S_LINK_UP	1	/* Link is up */
->>>  #define VIRTIO_NET_S_ANNOUNCE	2	/* Announcement is needed */
->>>  
->>> @@ -71,8 +74,9 @@ struct virtio_net_config {
->>>  	__u16 max_virtqueue_pairs;
->>>  } __attribute__((packed));
->>>  
->>> +#ifndef VIRTIO_NET_NO_LEGACY
->>>  /* This header comes first in the scatter-gather list.
->>> - * If VIRTIO_F_ANY_LAYOUT is not negotiated, it must
->>> + * For legacy virtio, if VIRTIO_F_ANY_LAYOUT is not negotiated, it must
->>>   * be the first element of the scatter-gather list.  If you don't
->>>   * specify GSO or CSUM features, you can simply ignore the header. */
->>>  struct virtio_net_hdr {
->>> @@ -97,6 +101,28 @@ struct virtio_net_hdr_mrg_rxbuf {
->>>  	struct virtio_net_hdr hdr;
->>>  	__virtio16 num_buffers;	/* Number of merged rx buffers */
->>>  };
->>> +#else /* ... VIRTIO_NET_NO_LEGACY */
->>> +/*
->>> + * This header comes first in the scatter-gather list.  If you don't
->>> + * specify GSO or CSUM features, you can simply ignore the header.
->>> + */
->>> +struct virtio_net_modern_hdr {
->>> +#define VIRTIO_NET_HDR_F_NEEDS_CSUM	1	/* Use csum_start, csum_offset */
->>> +#define VIRTIO_NET_HDR_F_DATA_VALID	2	/* Csum is valid */
->>> +	__u8 flags;
->>> +#define VIRTIO_NET_HDR_GSO_NONE		0	/* Not a GSO frame */
->>> +#define VIRTIO_NET_HDR_GSO_TCPV4	1	/* GSO frame, IPv4 TCP (TSO) */
->>> +#define VIRTIO_NET_HDR_GSO_UDP		3	/* GSO frame, IPv4 UDP (UFO) */
->>> +#define VIRTIO_NET_HDR_GSO_TCPV6	4	/* GSO frame, IPv6 TCP */
->>> +#define VIRTIO_NET_HDR_GSO_ECN		0x80	/* TCP has ECN set */
->>> +	__u8 gso_type;
->>> +	__virtio16 hdr_len;	/* Ethernet + IP + tcp/udp hdrs */
->>> +	__virtio16 gso_size;	/* Bytes to append to hdr_len per frame */
->>> +	__virtio16 csum_start;	/* Position to start checksumming from */
->>> +	__virtio16 csum_offset;	/* Offset after that to place checksum */
->>> +	__virtio16 num_buffers;	/* Number of merged rx buffers */
->>> +};
->>> +#endif /* ...VIRTIO_NET_NO_LEGACY */
->>
->> This kind of masks the fact that it's the same as
->> virtio_net_hdr_mrg_rxbuf. So it's forcing people to duplicate
->> code for transitional devices.
->
-> It's a hard problem to solve; someone suffers.  My preference is to make
-> non-legacy implementations as "clean" as possible, even if transitional
-> devices suffer (since their suffering should be shorter-lived).
->
-> Transitional devices can't define VIRTIO_NET_NO_LEGACY, so they'll
-> have to use virtio_net_hdr_mrg_rxbuf anyway.
+The USB_RX_EARLY_AGG contains timeout and size. Separate them, and
+they could be set independently. Then, the ethtool could be used to
+change the timeout according to situation of the platform.
 
-Here's what I ended up with.  In effect, it's just the name change
-and a comment that it's the same as the legacy virtio_net_hdr_mrg_rxbuf:
+Hayes Wang (3):
+  r8152: separate USB_RX_EARLY_AGG
+  r8152: change rx early size when the mtu is changed
+  r8152: support setting rx coalesce
 
+ drivers/net/usb/r8152.c | 128 ++++++++++++++++++++++++++++++++++++++----------
+ 1 file changed, 101 insertions(+), 27 deletions(-)
 
-Subject: virtio: Don't expose legacy net features when VIRTIO_NET_NO_LEGACY defined.
-
-In particular, the virtio header always has the u16 num_buffers field.
-We define a new 'struct virtio_net_hdr_v1' for this (rather than
-simply calling it 'struct virtio_net_hdr', to avoid nasty type errors
-if some parts of a project define VIRTIO_NET_NO_LEGACY and some don't.
-
-Transitional devices (which can't define VIRTIO_NET_NO_LEGACY) will
-have to keep using struct virtio_net_hdr_mrg_rxbuf, which has the same
-byte layout as struct virtio_net_hdr_v1.
-
-Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
-
-diff --git a/include/uapi/linux/virtio_net.h b/include/uapi/linux/virtio_net.h
-index b5f1677b291c..4a9b58113d6e 100644
---- a/include/uapi/linux/virtio_net.h
-+++ b/include/uapi/linux/virtio_net.h
-@@ -35,7 +35,6 @@
- #define VIRTIO_NET_F_CSUM	0	/* Host handles pkts w/ partial csum */
- #define VIRTIO_NET_F_GUEST_CSUM	1	/* Guest handles pkts w/ partial csum */
- #define VIRTIO_NET_F_MAC	5	/* Host has given MAC address. */
--#define VIRTIO_NET_F_GSO	6	/* Host handles pkts w/ any GSO type */
- #define VIRTIO_NET_F_GUEST_TSO4	7	/* Guest can handle TSOv4 in. */
- #define VIRTIO_NET_F_GUEST_TSO6	8	/* Guest can handle TSOv6 in. */
- #define VIRTIO_NET_F_GUEST_ECN	9	/* Guest can handle TSO[6] w/ ECN in. */
-@@ -56,6 +55,10 @@
- 					 * Steering */
- #define VIRTIO_NET_F_CTRL_MAC_ADDR 23	/* Set MAC address */
- 
-+#ifndef VIRTIO_NET_NO_LEGACY
-+#define VIRTIO_NET_F_GSO	6	/* Host handles pkts w/ any GSO type */
-+#endif /* VIRTIO_NET_NO_LEGACY */
-+
- #define VIRTIO_NET_S_LINK_UP	1	/* Link is up */
- #define VIRTIO_NET_S_ANNOUNCE	2	/* Announcement is needed */
- 
-@@ -71,8 +74,9 @@ struct virtio_net_config {
- 	__u16 max_virtqueue_pairs;
- } __attribute__((packed));
- 
-+#ifndef VIRTIO_NET_NO_LEGACY
- /* This header comes first in the scatter-gather list.
-- * If VIRTIO_F_ANY_LAYOUT is not negotiated, it must
-+ * For legacy virtio, if VIRTIO_F_ANY_LAYOUT is not negotiated, it must
-  * be the first element of the scatter-gather list.  If you don't
-  * specify GSO or CSUM features, you can simply ignore the header. */
- struct virtio_net_hdr {
-@@ -97,6 +101,30 @@ struct virtio_net_hdr_mrg_rxbuf {
- 	struct virtio_net_hdr hdr;
- 	__virtio16 num_buffers;	/* Number of merged rx buffers */
- };
-+#else /* ... VIRTIO_NET_NO_LEGACY */
-+/*
-+ * This header comes first in the scatter-gather list.  If you don't
-+ * specify GSO or CSUM features, you can simply ignore the header.
-+ *
-+ * This is bitwise-equivalent to the legacy struct virtio_net_hdr_mrg_rxbuf.
-+ */
-+struct virtio_net_hdr_v1 {
-+#define VIRTIO_NET_HDR_F_NEEDS_CSUM	1	/* Use csum_start, csum_offset */
-+#define VIRTIO_NET_HDR_F_DATA_VALID	2	/* Csum is valid */
-+	__u8 flags;
-+#define VIRTIO_NET_HDR_GSO_NONE		0	/* Not a GSO frame */
-+#define VIRTIO_NET_HDR_GSO_TCPV4	1	/* GSO frame, IPv4 TCP (TSO) */
-+#define VIRTIO_NET_HDR_GSO_UDP		3	/* GSO frame, IPv4 UDP (UFO) */
-+#define VIRTIO_NET_HDR_GSO_TCPV6	4	/* GSO frame, IPv6 TCP */
-+#define VIRTIO_NET_HDR_GSO_ECN		0x80	/* TCP has ECN set */
-+	__u8 gso_type;
-+	__virtio16 hdr_len;	/* Ethernet + IP + tcp/udp hdrs */
-+	__virtio16 gso_size;	/* Bytes to append to hdr_len per frame */
-+	__virtio16 csum_start;	/* Position to start checksumming from */
-+	__virtio16 csum_offset;	/* Offset after that to place checksum */
-+	__virtio16 num_buffers;	/* Number of merged rx buffers */
-+};
-+#endif /* ...VIRTIO_NET_NO_LEGACY */
- 
- /*
-  * Control virtqueue data structures
+-- 
+2.1.0
