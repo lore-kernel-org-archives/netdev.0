@@ -1,70 +1,106 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: [GIT] Networking
-Date: Tue, 10 Feb 2015 18:01:32 -0800
-Message-ID: <CA+55aFwdXNYMWGGNsAzyRiZ60HE_G=CJesLShPHGxtADJd2TPQ@mail.gmail.com>
-References: <20150209.191601.1373941323785500419.davem@davemloft.net>
-	<CA+55aFxskyQ2CkLJ8c_LDkjTY+kKSJ5N6JPjhewGYXsXcHg7nw@mail.gmail.com>
-	<20150209.205209.1524645061817000265.davem@davemloft.net>
-	<CA+55aFxrGRjL_d=aCZQ0sNC+pfW8nYDLb4KkUVAme5oHmjBjTw@mail.gmail.com>
-	<CA+55aFwxuMcNPU-C5p2hSWuNhJW+DOi3Py0NQ--Rw9_bv3md2w@mail.gmail.com>
-	<CA+55aFzJNNDi0YKXnNYF=ccYvXALRxzngiV1tARd6CdCimVRYg@mail.gmail.com>
-	<CA+55aFyqFrf9cRQ7wDSDLNraR+meZ-=dwWdDThtpPtrFFqrcGw@mail.gmail.com>
-	<20150211014502.GB29656@ZenIV.linux.org.uk>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH net-next 7/7] cls_bpf: add initial eBPF support for
+ programmable classifiers
+Date: Tue, 10 Feb 2015 18:16:29 -0800
+Message-ID: <CAMEtUuzAeukNAynQtMbjLYQcB+kxM+XaFFsB1tvrHjxUskJdZw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Al Viro <viro@zeniv.linux.org.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150211014502.GB29656@ZenIV.linux.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: =?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
+	Network Development <netdev@vger.kernel.org>
+To: Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qc0-f173.google.com ([209.85.216.173]:41589 "EHLO
+	mail-qc0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751238AbbBKCQu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Feb 2015 21:16:50 -0500
+Received: by mail-qc0-f173.google.com with SMTP id w7so692732qcr.4
+        for <netdev@vger.kernel.org>; Tue, 10 Feb 2015 18:16:49 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 10, 2015 at 5:45 PM, Al Viro <viro@zeniv.linux.org.uk> wrote:
+ On Tue, Feb 10, 2015 at 4:15 PM, Daniel Borkmann <daniel@iogearbox.net> wrote:
+> This work extends the classic BPF programmable classifier by extending
+> its scope also to native eBPF code. This allows for implementing
+> custom C-like classifiers, compiling them with the LLVM eBPF backend
+> and loading the resulting object file via tc into the kernel.
 >
-> Could you check if
+> Simple, minimal toy example:
 >
-> diff --git a/crypto/af_alg.c b/crypto/af_alg.c
-> index eb78fe8..5b11d64 100644
-> --- a/crypto/af_alg.c
-> +++ b/crypto/af_alg.c
-> @@ -348,7 +348,7 @@ int af_alg_make_sg(struct af_alg_sgl *sgl, struct iov_iter *iter, int len)
->         if (n < 0)
->                 return n;
+>   #include <linux/ip.h>
+>   #include <linux/if_ether.h>
+>   #include <linux/bpf.h>
 >
-> -       npages = PAGE_ALIGN(off + n);
-> +       npages = DIV_ROUND_UP(off + n, PAGE_SIZE);
->         if (WARN_ON(npages == 0))
->                 return -EINVAL;
+>   #include "tc_bpf_api.h"
 >
-> on top of what went into Dave's tree is enough to fix what you are seeing?
+>   __section("classify")
+>   int cls_main(struct sk_buff *skb)
+>   {
+>     return (0x800 << 16) | load_byte(skb, ETH_HLEN + __builtin_offsetof(struct iphdr, tos));
+>   }
+>
+>   char __license[] __section("license") = "GPL";
+>
+> The classifier can then be compiled into eBPF opcodes and loaded via
+> tc, f.e.:
+>
+>   clang -O2 -emit-llvm -c cls.c -o - | llc -march=bpf -filetype=obj -o cls.o
+>   tc filter add dev em1 parent 1: bpf run object-file cls.o [...]
+>
+> As it has been demonstrated, the scope can even reach up to a fully
+> fledged flow dissector (similarly as in samples/bpf/sockex2_kern.c).
+> For tc, maps are allowed to be used, but from kernel context only,
+> in other words eBPF code can keep state across filter invocations.
+> Similarly as in socket filters, we may extend functionality for eBPF
+> classifiers over time depending on the use cases. For that purpose,
+> I have added the BPF_PROG_TYPE_SCHED_CLS program type for the cls_bpf
+> classifier module, so we can allow additional functions/accessors.
+>
+> I was wondering whether cls_bpf and act_bpf may share C programs, I
+> can imagine that at some point, we may introduce i) some common
+> handlers for both (or even beyond their scope), and/or ii) some
+> restricted function space for each of them. Both can be abstracted
+> through struct bpf_verifier_ops in future. The context of a cls_bpf
+> versus act_bpf is slightly different though: a cls_bpf program will
+> return a specific classid whereas act_bpf a drop/non-drop return
+> code. That said, we can surely have a "classify" and "action" section
+> in a single object file, or considered mentioned constraint add a
+> possibility of a shared section.
+>
+> The workflow for getting native eBPF running from tc [1] is as
+> follows: for f_bpf, I've added a slightly modified ELF parser code
+> from Alexei's kernel sample, which reads out the LLVM compiled
+> object, sets up maps (and dynamically fixes up map fds) if any,
+> and loads the eBPF instructions all centrally through the bpf
+> syscall. The resulting fd from the loaded program itself is being
+> passed down to cls_bpf, which looks up struct bpf_prog from the
+> fd store, and holds reference, so that it stays available also
+> after tc program lifetime. On tc filter destruction, it will then
+> drop its reference.
+>
+>   [1] http://git.breakpoint.cc/cgit/dborkman/iproute2.git/log/?h=ebpf
+>
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
 
-So quite frankly, considering that we already know that 'used' was
-also calculated wrong (it stays at zero) and that the one-liner above
-is not sufficient on its own, by now I'd like somebody with an actual
-test-case to check this thing out., and send me a proper tested patch.
-That somebody preferably being you.
+nice. really nice :)
+everything looks simple and straightforward.
 
-Are there no tests for that crypto interface?
+The only question, do we need new BPF_PROG_TYPE_SCHED_CLS for it ?
+Potential alternatives:
+1.
+inside 'enum bpf_prog_type {' do
+BPF_PROG_TYPE_SCHED_CLS = BPF_PROG_TYPE_SOCKET_FILTER,
 
-Also, I'm unhappy that you made these unrelated and broken changes at
-all. Both wrt 'used' and this 'npages' thing, the original code wasn't
-wrong, and the pointless changes to correct code not only broke
-things, but had nothing to do with the iovec conversion that was the
-stated reason for the commit.
+2.
+in core/filter.c do:
+bpf_register_prog_type(&sock_type);
+bpf_register_prog_type(&cls_type);
+static struct bpf_prog_type_list cls_type = {
+        .ops = &sock_filter_ops,
+        .type = BPF_PROG_TYPE_SCHED_CLS,
+};
 
-Grr. I really hate it when I find bugs during the merge window. My
-test environment is *not* odd. If _I_ end up being the one finding the
-bugs, that means that things must have gotten basically no testing at
-all.
+this way, initially, cls and sockets will have the same set
+of helpers and later we can diverge them if necessary,
+since BPF_PROG_TYPE_SCHED_CLS will be reserved.
 
-I spend a *lot* of time during the merge window doing "make
-allmodconfig" builds and trying to actually also boot the resulting
-kernel before pushing things out. But it does mean that when I *do*
-catch it, I'd like the cost of fixing it be on the person who
-introduced the problem, rather than me spending even *more* time on
-this.
-
-                           Linus
+Also avoids all module related problems I mentioned in the other thread.
