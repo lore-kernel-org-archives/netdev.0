@@ -1,106 +1,85 @@
-From: Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>
-Subject: Re: [PATCH v3 linux-trace 1/8] tracing: attach eBPF programs to
- tracepoints and syscalls
-Date: Tue, 10 Feb 2015 23:31:59 -0500
-Message-ID: <20150210233159.748f44ad@grimm.local.home>
-References: <CAMEtUuy+B9aXP-8m7tA6aNxnS4SKRhMpfGEdWMcbxbj7ggOATw@mail.gmail.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: linux-next: build failure after merge of the net-next tree
+Date: Tue, 10 Feb 2015 20:51:33 -0800
+Message-ID: <1423630293.27854.65.camel@jtkirshe-mobl>
+References: <20150210220215.5f87a13c@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Namhyung Kim <namhyung-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Arnaldo Carvalho de Melo <acme-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	Jiri Olsa <jolsa-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Masami Hiramatsu <masami.hiramatsu.pt-FCd8Q96Dh0JBDgjK7y7TUQ@public.gmane.org>,
-	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	"Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
-To: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAMEtUuy+B9aXP-8m7tA6aNxnS4SKRhMpfGEdWMcbxbj7ggOATw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-sGfNBIEU6RqhAvr6oSVp"
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Carolyn Wyborny <carolyn.wyborny@intel.com>
+To: Stephen Rothwell <sfr@canb.auug.org.au>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20150210220215.5f87a13c@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 10 Feb 2015 19:04:55 -0800
-Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org> wrote:
 
+--=-sGfNBIEU6RqhAvr6oSVp
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-> > You mean to be completely invisible to ftrace? And the debugfs/tracefs
-> > directory?
-> 
-> I mean it will be seen in tracefs to get 'id', but without enable/format/filter
+On Tue, 2015-02-10 at 22:02 +1100, Stephen Rothwell wrote:
+> Hi all,
+>=20
+> After merging the net-next tree, today's linux-next build (i386
+> allmodconfig and a few others) failed like this:
+>=20
+> drivers/net/ethernet/intel/i40e/i40e_txrx.c: In function
+> 'i40e_setup_rx_descriptors':
+> drivers/net/ethernet/intel/i40e/i40e_txrx.c:1101:3: error:
+> incompatible type for argument 1 of '__seqcount_init'
+> include/linux/seqlock.h:53:20: note: expected 'struct seqcount_t *'
+> but argument is of type 'seqcount_t'
+>=20
+> Caused by commit 638702bd59a3 ("i40e/i40evf: Add call to
+> u64_stats_init
+> to init").
+>=20
+> Discovered after the release, so no fix done.
+>=20
+> The indentation of the lines added by that patch is also a bit
+> strange.
 
-In other words, invisible to ftrace. I'm not sure I'll be on board to
-work with that.
+Yeah, this was fixed with the follow on patch:
 
+commit c07a213db1437a8fd40c328e6a2c426723caec65
+Author: Carolyn Wyborny <carolyn.wyborny@intel.com>
+Date:   Tue Feb 10 07:33:15 2015 +0000
 
-> > Again, this would mean they become invisible to ftrace, and even
-> > ftrace_dump_on_oops.
-> 
-> yes, since these new tracepoints have no meat inside them.
-> They're placeholders sitting idle and waiting for bpf to do
-> something useful with them.
+    i40e: Fix for stats init function call in Rx setup
+   =20
+    This patch fixes indentation issue and error found in argument
+    reported by static analysis.  Without this patch, sparse and other
+    static analysis errors will be found.
+   =20
+    Reported-by: Fengguang Wu <fengguang.wu@intel.com>
+    Reported-by: Julia Lawall <julia.lawall@lip6.fr>
+    Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
+    Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-Hmm, I have a patch somewhere (never posted it), that add
-TRACE_MARKER(), which basically would just print that it was hit. But
-no data was passed to it. Something like that I would be more inclined
-to take. Then the question is, what can bpf access there? Could just be
-a place holder to add a "fast kprobe". This way, it can show up in
-trace events with enable and and all that, it just wont have any data
-to print out besides the normal pid, flags, etc.
+--=-sGfNBIEU6RqhAvr6oSVp
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
 
-But because it will inject a nop, that could be converted to a jump, it
-will give you the power of kprobes but with the speed of a tracepoint.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
 
-> 
-> > I'm not fully understanding what is to be exported by this new ABI. If
-> > the fields available, will always be available, then why can't the
-> > appear in a TP_printk()?
-> 
-> say, we define trace_netif_rx_entry() as this new tracepoint_bpf.
-> It will have only one argument 'skb'.
-> bpf program will read and print skb fields the way it likes
-> for particular tracing scenario.
-> So instead of making
-> TP_printk("dev=%s napi_id=%#x queue_mapping=%u skbaddr=%p
-> vlan_tagged=%d vlan_proto=0x%04x vlan_tci=0x%04x protocol=0x%04x
-> ip_summed=%d hash=0x%08x l4_hash=%d len=%u data_len=%u truesize=%u
-> mac_header_valid=%d mac_header=%d nr_frags=%d gso_size=%d
-> gso_type=%#x",...
-> the abi exposed via trace_pipe (as it is today),
-> the new tracepoint_bpf abi is presence of 'skb' pointer as one
-> and only argument to bpf program.
-> Future refactoring of netif_rx would need to guarantee
-> that trace_netif_rx_entry(skb) is called. that's it.
-> imo such tracepoints are much easier to deal with during
-> code changes.
+iQIcBAABCgAGBQJU2t/VAAoJEOVv75VaS+3OwpAP/AiL8DGfrGnO7y9rrlliDe12
+LYuS4Qrindu2IE8+jHvM8OJXDDqpaQd8VeaXUWM4DtTnLA55zQO/ZUtP98UgaZN0
+WFkZTwQJyk7qj/MWcQqGRYGsT62hmDW9+Lv6uq778qVPHjFEtdbynN6R5545IAKZ
+qoa/URk6kJkPT5M4FMPTa7gM2U/GXwDQWkd1zeXy5Fr/+L26wGjpBKz3H0nFIXFO
+rn+m54s1w0Y3AsziM6npcBOvDDUeBVT/lE9F3Oiy4QUah73P4vE6rX6wttOZz1/r
+Ish2aeABQV42/H3+RlYorMebP8NG2BDF9B8b12v/R4no65l+fIc4EcTDktvwaEoq
+BC+Y/UY2xF18w71XKREl8bRbWuauDLgRBAkNP8gKEcDmeMT1vIBc0EFUX64D62vI
+NaC0lrf4FRvf7vxcQphlJZeyZMvMLu22SQg+YFIWt9UrmrU9ooXbpYn72Vm6NQdq
+1x3oOusmbvN+nyawItrDe3H/s5k8VqmNgJ+ltfB11Nb/+DIQadIYUF1FxVkdHcMu
+KeTsnMoDX4H0UOYrt7lGbXLTLA/VUQopkDFEJlt9ou44kGqgWc/tkzxzbnbLaJKS
++dwTsM7nVQJ8QNlcNy+UtqqDUf2unlhQOd1derbrwusU/fJCqakkaDE+pveAMylg
+IwEKKb4BQlxJoNXGAnOM
+=G++5
+-----END PGP SIGNATURE-----
 
-But what can you access from that skb that is guaranteed to be there?
-If you say anything, then there's no reason it can't be added to the
-printk as well.
-
-> 
-> May be some of the existing tracepoints like this one that
-> takes one argument can be marked 'bpf-ready', so that
-> programs can attach to them only.
-
-I really hate the idea of adding tracepoints that ftrace can't use. It
-basically kills the entire busy box usage scenario, as boards that have
-extremely limited userspace still make full use of ftrace via the
-existing tracepoints.
-
-I still don't see the argument that adding data via the bpf functions
-is any different than adding those same items to fields in an event.
-Once you add a bpf function, then you must maintain those fields.
-
-Look, you can always add more to a TP_printk(), as that is standard
-with all text file kernel parsing. Like stat in /proc. Fields can not
-be removed, but more can always be appended to the end.
-
-Any tool that parses trace_pipe is broken if it can't handle extended
-fields. The api can be extended, and for text files, that is by
-appending to them.
-
--- Steve
+--=-sGfNBIEU6RqhAvr6oSVp--
