@@ -1,81 +1,56 @@
-From: Jan Stancek <jstancek@redhat.com>
-Subject: [PATCH] ipv6: fix possible deadlock in ip6_fl_purge / ip6_fl_gc
-Date: Wed, 11 Feb 2015 14:06:23 +0100
-Message-ID: <a26e3a5267c2a8816655018c5d46adcf52e71948.1423659369.git.jstancek@redhat.com>
-Cc: linux-kernel@vger.kernel.org, jstancek@redhat.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:41772 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752746AbbBKNGa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Feb 2015 08:06:30 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: Throughput regression with `tcp: refine TSO autosizing`
+Date: Wed, 11 Feb 2015 05:17:52 -0800
+Message-ID: <1423660672.4847.15.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CA+BoTQkVu23P3EOmY_Q3E1GJnWsyF==Pawz4iPOS_Bq5dvfO5Q@mail.gmail.com>
+	 <1422537297.21689.15.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CA+BoTQk2xT-8DqPuiiKG+kHAjLPrj8F9dLTb-rcGhvMq0u_2Qw@mail.gmail.com>
+	 <1422628835.21689.95.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CA+BoTQkV+mOZfe_Niz5101sMQeaV6muKCsShptjGQ1AgOHqqoQ@mail.gmail.com>
+	 <1422903136.21689.114.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1422926330.21689.138.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CA+BoTQkMikA8wxm1ce2DkKhPB0HiKeAqT7f+sQ=91W40z=X0Rg@mail.gmail.com>
+	 <1422973660.907.10.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CA+BoTQmvUuFdfYF=wVMYxrf_nQZB5GCV=LvDZVvfs-3hAE4WKw@mail.gmail.com>
+	 <1423051045.907.108.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CA+BoTQ=BDcQ779uKCuX+f40=4npXVF4MTQnpjKimNYAxPsxBoQ@mail.gmail.com>
+	 <1423053531.907.115.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CA+BoTQ=qmCZz4CmSOvCOzMLowrDEG12XBffkTcYxjGqVD9604g@mail.gmail.com>
+	 <1423055810.907.125.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1423056591.907.130.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1423084303.31870.15.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CA+BoTQ=u_xPuqTVOVaFTQNRrJ+UTXe89SY+=+7Y1LpxxrkRDfg@mail.gmail.com>
+	 <1423574079.28434.21.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CA+BoTQkRp38nttSJgKs4dzQrn-TXpPbh4i-01YCF0BJQWrFi=Q@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Neal Cardwell <ncardwell-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Eyal Perry <eyalpe-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
+To: Michal Kazior <michal.kazior-++hxYGjEMp0AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CA+BoTQkRp38nttSJgKs4dzQrn-TXpPbh4i-01YCF0BJQWrFi=Q@mail.gmail.com>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Use spin_lock_bh in ip6_fl_purge() to prevent following potentially
-deadlock scenario between ip6_fl_purge() and ip6_fl_gc() timer.
+On Wed, 2015-02-11 at 09:33 +0100, Michal Kazior wrote:
 
-  =================================
-  [ INFO: inconsistent lock state ]
-  3.19.0 #1 Not tainted
-  ---------------------------------
-  inconsistent {SOFTIRQ-ON-W} -> {IN-SOFTIRQ-W} usage.
-  swapper/5/0 [HC0[0]:SC1[1]:HE1:SE0] takes:
-   (ip6_fl_lock){+.?...}, at: [<ffffffff8171155d>] ip6_fl_gc+0x2d/0x180
-  {SOFTIRQ-ON-W} state was registered at:
-    [<ffffffff810ee9a0>] __lock_acquire+0x4a0/0x10b0
-    [<ffffffff810efd54>] lock_acquire+0xc4/0x2b0
-    [<ffffffff81751d2d>] _raw_spin_lock+0x3d/0x80
-    [<ffffffff81711798>] ip6_flowlabel_net_exit+0x28/0x110
-    [<ffffffff815f9759>] ops_exit_list.isra.1+0x39/0x60
-    [<ffffffff815fa320>] cleanup_net+0x100/0x1e0
-    [<ffffffff810ad80a>] process_one_work+0x20a/0x830
-    [<ffffffff810adf4b>] worker_thread+0x11b/0x460
-    [<ffffffff810b42f4>] kthread+0x104/0x120
-    [<ffffffff81752bfc>] ret_from_fork+0x7c/0xb0
-  irq event stamp: 84640
-  hardirqs last  enabled at (84640): [<ffffffff81752080>] _raw_spin_unlock_irq+0x30/0x50
-  hardirqs last disabled at (84639): [<ffffffff81751eff>] _raw_spin_lock_irq+0x1f/0x80
-  softirqs last  enabled at (84628): [<ffffffff81091ad1>] _local_bh_enable+0x21/0x50
-  softirqs last disabled at (84629): [<ffffffff81093b7d>] irq_exit+0x12d/0x150
+> If I set tcp_limit_output_bytes to 700K+ I can get ath10k w/ cushion
+> w/ aggregation to reach 600mbps on a single flow.
 
-  other info that might help us debug this:
-   Possible unsafe locking scenario:
+You know, there is a reason this sysctl exists in the first place ;)
 
-         CPU0
-         ----
-    lock(ip6_fl_lock);
-    <Interrupt>
-      lock(ip6_fl_lock);
+The first suggestion I made to you was to raise it.
 
-   *** DEADLOCK ***
+The default setting must stay as is as long default Qdisc is pfifo_fast.
 
-Signed-off-by: Jan Stancek <jstancek@redhat.com>
----
- net/ipv6/ip6_flowlabel.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+I believe I already mentioned skb->truesize tricks for drivers willing
+to adjust the TSQ given their constraints.
 
-diff --git a/net/ipv6/ip6_flowlabel.c b/net/ipv6/ip6_flowlabel.c
-index 2f780cb..f45d6db 100644
---- a/net/ipv6/ip6_flowlabel.c
-+++ b/net/ipv6/ip6_flowlabel.c
-@@ -172,7 +172,7 @@ static void __net_exit ip6_fl_purge(struct net *net)
- {
- 	int i;
- 
--	spin_lock(&ip6_fl_lock);
-+	spin_lock_bh(&ip6_fl_lock);
- 	for (i = 0; i <= FL_HASH_MASK; i++) {
- 		struct ip6_flowlabel *fl;
- 		struct ip6_flowlabel __rcu **flp;
-@@ -190,7 +190,7 @@ static void __net_exit ip6_fl_purge(struct net *net)
- 			flp = &fl->next;
- 		}
- 	}
--	spin_unlock(&ip6_fl_lock);
-+	spin_unlock_bh(&ip6_fl_lock);
- }
- 
- static struct ip6_flowlabel *fl_intern(struct net *net,
--- 
-1.7.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
