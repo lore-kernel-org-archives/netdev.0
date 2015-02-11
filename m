@@ -1,100 +1,44 @@
-From: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
-Subject: Re: [PATCH 1/3] ixgbe,
- ixgbevf: Add new mbox API to enable MC promiscuous mode
-Date: Tue, 10 Feb 2015 02:28:49 +0000
-Message-ID: <7F861DC0615E0C47A872E6F3C5FCDDBD05E29F43@BPXM14GP.gisp.nec.co.jp>
-References: <7F861DC0615E0C47A872E6F3C5FCDDBD05E1908D@BPXM14GP.gisp.nec.co.jp>
-	<1423054641.2589.59.camel@jtkirshe-mobl>
-	<7F861DC0615E0C47A872E6F3C5FCDDBD05E26E45@BPXM14GP.gisp.nec.co.jp>
-	<1423470046.27854.7.camel@jtkirshe-mobl>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [PATCH net] openvswitch: Reset key metadata for packet execution.
+Date: Wed, 11 Feb 2015 14:57:14 -0800
+Message-ID: <CALnjE+qY4SzqujSrXOtpW6PxLD+7uj7fSara3ND0w+6w3vVHug@mail.gmail.com>
+References: <1423604116-1438-1-git-send-email-pshelar@nicira.com>
+	<20150211.144056.991311291193384410.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
-	"Choi, Sy Jong" <sy.jong.choi@intel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	David Laight <David.Laight@ACULAB.COM>,
-	Hayato Momma <h-momma@ce.jp.nec.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	=?utf-8?B?QmrDuHJuIE1vcms=?= <bjorn@mork.no>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <1423470046.27854.7.camel@jtkirshe-mobl>
-Content-Language: ja-JP
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from na3sys009aog130.obsmtp.com ([74.125.149.143]:52887 "HELO
+	na3sys009aog130.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752282AbbBKW5P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Feb 2015 17:57:15 -0500
+Received: by mail-ie0-f178.google.com with SMTP id rd18so7804649iec.5
+        for <netdev@vger.kernel.org>; Wed, 11 Feb 2015 14:57:14 -0800 (PST)
+In-Reply-To: <20150211.144056.991311291193384410.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> > > > Can you please fix up your patches based on my tree:
-> > > > git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/queue.git
-> > >
-> > > Yes. I haven't noticed your tree.
-> > > Will resend patches against it.
-> > >
-> >
-> > I encountered an issue with your tree, the commit id is below.
-> >
-> > $ git log | head
-> > commit e6f1649780f8f5a87299bf6af04453f93d1e3d5e
-> > Author: Rasmus Villemoes <linux@rasmusvillemoes.dk>
-> > Date:   Fri Jan 23 20:43:14 2015 -0800
-> >
-> >     ethernet: fm10k: Actually drop 4 bits
-> >
-> >     The comment explains the intention, but vid has type u16. Before the
-> >     inner shift, it is promoted to int, which has plenty of space for all
-> >     vid's bits, so nothing is dropped. Use a simple mask instead.
-> >
-> >
-> > I use the kernel from your tree in both host and guest.
-> >
-> > Assign an IPv6 for VF in guest.
-> > # ip -6 addr add 2001:db8::18:1/64 dev ens0
-> >
-> > Send ping packet from other server to the VM.
-> > # ping6  2001:db8::18:1 -I eth0
-> >
-> > The following message was shown.
-> > ixgbevf 0000:00:08.0: partial checksum but l4 proto=3a!
-> >
-> > If I did the same operation in the host, I saw the same error message in host too.
-> > ixgbe 0000:2d:00.0: partial checksum but l4 proto=3a!
-> >
-> > Do you have any idea about that?
-> 
-> Ah, sorry about that, try this tree again:
-> git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/queue.git
-> 
-> That patch was dropped for favor of a patch that Matthew Vick put
-> together (and recently got pushed upstream).  So my queue no longer has
-> that patch in the queue, since it got dropped.
+On Wed, Feb 11, 2015 at 2:40 PM, David Miller <davem@davemloft.net> wrote:
+> From: Pravin B Shelar <pshelar@nicira.com>
+> Date: Tue, 10 Feb 2015 13:35:16 -0800
+>
+>> Userspace packet execute command pass down flow key for given
+>> packet. But userspace can skip some parameter with zero value.
+>> Therefore kernel needs to initialize key metadata to zero.
+>>
+>> Fixes: 0714812134 ("openvswitch: Eliminate memset() from flow_extract.")
+>> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+>
+> Applied, but...
+>
+>> +     memset(key, 0, OVS_SW_FLOW_KEY_METADATA_SIZE);
+>
+> There's a space before the TAB in that indentation, and git even
+> warns about this when applying patches.
+>
+> I fixed it up, but this is one of the basic things you should be
+> dealing with before submitting your changes.
+>
 
-I still see the same error, the head id is the below
-
-$ git log | head
-commit a072afb0b45904022b76deef3b770ee9a93cb13a
-Author: Nicholas Krause <xerofoify@gmail.com>
-Date:   Mon Feb 9 00:27:00 2015 -0800
-
-    igb: Remove outdated fix me comment in the function,gb_acquire_swfw_sync_i210
-
-
-thanks,
-Hiroshi
-------------------------------------------------------------------------------
-Dive into the World of Parallel Programming. The Go Parallel Website,
-sponsored by Intel and developed in partnership with Slashdot Media, is your
-hub for all things parallel software development, from weekly thought
-leadership blogs to news, videos, case studies, tutorials and more. Take a
-look and join the conversation now. http://goparallel.sourceforge.net/
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+Thanks for fixing the patch.
