@@ -1,84 +1,106 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: Re: [RFC PATCH 00/29] net: VRF support
-Date: Tue, 10 Feb 2015 21:14:21 -0700
-Message-ID: <54DAD71D.1060400@gmail.com>
-References: <1423100070-31848-1-git-send-email-dsahern@gmail.com>	<20150205173334.08248382@uryu.home.lan> <54D4227B.6080709@gmail.com>	<87r3u3vfpr.fsf@x220.int.ebiederm.org> <54D45C15.7090602@gmail.com> <87iofe7n1x.fsf@x220.int.ebiederm.org>
+From: Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>
+Subject: Re: [PATCH v3 linux-trace 1/8] tracing: attach eBPF programs to
+ tracepoints and syscalls
+Date: Tue, 10 Feb 2015 23:31:59 -0500
+Message-ID: <20150210233159.748f44ad@grimm.local.home>
+References: <CAMEtUuy+B9aXP-8m7tA6aNxnS4SKRhMpfGEdWMcbxbj7ggOATw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	netdev@vger.kernel.org,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	roopa <roopa@cumulusnetworks.com>, hannes@stressinduktion.org,
-	Dinesh Dutt <ddutt@cumulusnetworks.com>,
-	Vipin Kumar <vipin@cumulusnetworks.com>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f176.google.com ([209.85.213.176]:58677 "EHLO
-	mail-ig0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750840AbbBKEOX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Feb 2015 23:14:23 -0500
-Received: by mail-ig0-f176.google.com with SMTP id hl2so28428890igb.3
-        for <netdev@vger.kernel.org>; Tue, 10 Feb 2015 20:14:22 -0800 (PST)
-In-Reply-To: <87iofe7n1x.fsf@x220.int.ebiederm.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Namhyung Kim <namhyung-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Arnaldo Carvalho de Melo <acme-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	Jiri Olsa <jolsa-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Masami Hiramatsu <masami.hiramatsu.pt-FCd8Q96Dh0JBDgjK7y7TUQ@public.gmane.org>,
+	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	"Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
+To: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAMEtUuy+B9aXP-8m7tA6aNxnS4SKRhMpfGEdWMcbxbj7ggOATw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 2/6/15 2:22 PM, Eric W. Biederman wrote:
-> I think you have also introduced a second layer of indirection and thus
-> an extra cache-line miss with net_ctx.  At 60ns-100ns per cache line
-> miss that could be significant.
->
-> Overall the standard should be that there is no measurable performance
-> overhead with something like this enabled.  At least at 1Gbps we were
-> able to demonstrate there was not measuable performance impact with
-> network namespaces before they were merged.
->
-> Eric
->
+On Tue, 10 Feb 2015 19:04:55 -0800
+Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org> wrote:
 
-Here's a quick look at performance impacts of this patch set.
 
-Host:
-     Fedora 21
-     Intel(R) Core(TM) i7-4770 CPU @ 3.40GHz
-     1 socket, 4 cores, 8 threads
+> > You mean to be completely invisible to ftrace? And the debugfs/tracefs
+> > directory?
+> 
+> I mean it will be seen in tracefs to get 'id', but without enable/format/filter
 
-VM:
-     Fedora 21
-     2 vcpus, cpu model is 'host,x2apic'
-     1G RAM
-     network: virtio + vhost with tap device connected to a bridge
+In other words, invisible to ftrace. I'm not sure I'll be on board to
+work with that.
 
-Tests are between host OS and VM (RX: netperf in host; TX: netperf in 
-guest; netserver is the reverse).
 
-No tweaks have been done to the default Fedora settings. In particular 
-all of the offloads that default to enabled on tap devices and virtio 
-devices are left enabled. Specifically, these offloads are what 
-accelerate the stream tests to the 40,000 Mbps range and hence really 
-stress the overhead. Nor has any cpu pinning been done or any other 
-attempts at optimizations.
+> > Again, this would mean they become invisible to ftrace, and even
+> > ftrace_dump_on_oops.
+> 
+> yes, since these new tracepoints have no meat inside them.
+> They're placeholders sitting idle and waiting for bpf to do
+> something useful with them.
 
-Commands:
-     netperf -l 10 -t TCP_STREAM -H <ip>
-     netperf -l 10 -t TCP_RR -H <ip>
+Hmm, I have a patch somewhere (never posted it), that add
+TRACE_MARKER(), which basically would just print that it was hit. But
+no data was passed to it. Something like that I would be more inclined
+to take. Then the question is, what can bpf access there? Could just be
+a place holder to add a "fast kprobe". This way, it can show up in
+trace events with enable and and all that, it just wont have any data
+to print out besides the normal pid, flags, etc.
 
-Results are the average of 3 runs:
+But because it will inject a nop, that could be converted to a jump, it
+will give you the power of kprobes but with the speed of a tracepoint.
 
-                       pre-VRF          with VRF
-                       TX      RX       TX     RX
-TCP Stream (Mbps)   39503    40325    39856  38211
-TCP RR (trans/sec)  46047    46512    47619  43032
+> 
+> > I'm not fully understanding what is to be exported by this new ABI. If
+> > the fields available, will always be available, then why can't the
+> > appear in a TP_printk()?
+> 
+> say, we define trace_netif_rx_entry() as this new tracepoint_bpf.
+> It will have only one argument 'skb'.
+> bpf program will read and print skb fields the way it likes
+> for particular tracing scenario.
+> So instead of making
+> TP_printk("dev=%s napi_id=%#x queue_mapping=%u skbaddr=%p
+> vlan_tagged=%d vlan_proto=0x%04x vlan_tci=0x%04x protocol=0x%04x
+> ip_summed=%d hash=0x%08x l4_hash=%d len=%u data_len=%u truesize=%u
+> mac_header_valid=%d mac_header=%d nr_frags=%d gso_size=%d
+> gso_type=%#x",...
+> the abi exposed via trace_pipe (as it is today),
+> the new tracepoint_bpf abi is presence of 'skb' pointer as one
+> and only argument to bpf program.
+> Future refactoring of netif_rx would need to guarantee
+> that trace_netif_rx_entry(skb) is called. that's it.
+> imo such tracepoints are much easier to deal with during
+> code changes.
 
-* pre-VRF means commit id 7e8acbb69ee2 which is the commit id before 
-this patch st
-* with VRF = patches posted in this thread
+But what can you access from that skb that is guaranteed to be there?
+If you say anything, then there's no reason it can't be added to the
+printk as well.
 
-The VM setup definitely pushes some limits and represents an extreme in 
-performance comparisons. While the VRF patches do show a degradation in 
-RX performance the delta is fairly small. As I mentioned before I can 
-remove the vrf tagging to skbs which should help. Overall I have focused 
-more on concept than the performance; I'm sure that delta can be reduced.
+> 
+> May be some of the existing tracepoints like this one that
+> takes one argument can be marked 'bpf-ready', so that
+> programs can attach to them only.
 
-David
+I really hate the idea of adding tracepoints that ftrace can't use. It
+basically kills the entire busy box usage scenario, as boards that have
+extremely limited userspace still make full use of ftrace via the
+existing tracepoints.
+
+I still don't see the argument that adding data via the bpf functions
+is any different than adding those same items to fields in an event.
+Once you add a bpf function, then you must maintain those fields.
+
+Look, you can always add more to a TP_printk(), as that is standard
+with all text file kernel parsing. Like stat in /proc. Fields can not
+be removed, but more can always be appended to the end.
+
+Any tool that parses trace_pipe is broken if it can't handle extended
+fields. The api can be extended, and for text files, that is by
+appending to them.
+
+-- Steve
