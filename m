@@ -1,155 +1,185 @@
 From: Tom Herbert <therbert@google.com>
-Subject: [PATCH net-next 6/7] vxlan: Use checksum partial with remote checksum offload
-Date: Tue, 10 Feb 2015 16:30:32 -0800
-Message-ID: <1423614633-25042-7-git-send-email-therbert@google.com>
+Subject: [PATCH net-next 5/7] net: Infrastructure for CHECKSUM_PARTIAL with remote checsum offload
+Date: Tue, 10 Feb 2015 16:30:31 -0800
+Message-ID: <1423614633-25042-6-git-send-email-therbert@google.com>
 References: <1423614633-25042-1-git-send-email-therbert@google.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f169.google.com ([209.85.213.169]:51692 "EHLO
-	mail-ig0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752086AbbBKAa5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Feb 2015 19:30:57 -0500
-Received: by mail-ig0-f169.google.com with SMTP id hl2so25000911igb.0
-        for <netdev@vger.kernel.org>; Tue, 10 Feb 2015 16:30:56 -0800 (PST)
+Received: from mail-ie0-f173.google.com ([209.85.223.173]:33568 "EHLO
+	mail-ie0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752323AbbBKAax (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Feb 2015 19:30:53 -0500
+Received: by iecar1 with SMTP id ar1so515914iec.0
+        for <netdev@vger.kernel.org>; Tue, 10 Feb 2015 16:30:53 -0800 (PST)
 In-Reply-To: <1423614633-25042-1-git-send-email-therbert@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Change remote checksum handling to set checksum partial as default
-behavior. Added an iflink parameter to configure not using
-checksum partial (calling csum_partial to update checksum).
+This patch adds infrastructure so that remote checksum offload can
+set CHECKSUM_PARTIAL instead of calling csum_partial and writing
+the modfied checksum field.
+
+Add skb_remcsum_adjust_partial function to set an skb for using
+CHECKSUM_PARTIAL with remote checksum offload.  Changed
+skb_remcsum_process and skb_gro_remcsum_process to take a boolean
+argument to indicate if checksum partial can be set or the
+checksum needs to be modified using the normal algorithm.
 
 Signed-off-by: Tom Herbert <therbert@google.com>
 ---
- drivers/net/vxlan.c          | 25 +++++++++++++++++++------
- include/net/vxlan.h          |  4 +++-
- include/uapi/linux/if_link.h |  1 +
- 3 files changed, 23 insertions(+), 7 deletions(-)
+ drivers/net/vxlan.c       |  4 ++--
+ include/linux/netdevice.h | 19 ++++++++++++++++++-
+ include/linux/skbuff.h    | 15 ++++++++++++++-
+ net/core/dev.c            |  1 +
+ net/ipv4/fou.c            |  4 ++--
+ 5 files changed, 37 insertions(+), 6 deletions(-)
 
 diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 4f04443..1e0a775 100644
+index 30310a6..4f04443 100644
 --- a/drivers/net/vxlan.c
 +++ b/drivers/net/vxlan.c
-@@ -555,7 +555,8 @@ static int vxlan_fdb_append(struct vxlan_fdb *f,
- static struct vxlanhdr *vxlan_gro_remcsum(struct sk_buff *skb,
- 					  unsigned int off,
- 					  struct vxlanhdr *vh, size_t hdrlen,
--					  u32 data, struct gro_remcsum *grc)
-+					  u32 data, struct gro_remcsum *grc,
-+					  bool nopartial)
- {
- 	size_t start, offset, plen;
- 
-@@ -580,7 +581,7 @@ static struct vxlanhdr *vxlan_gro_remcsum(struct sk_buff *skb,
+@@ -580,7 +580,7 @@ static struct vxlanhdr *vxlan_gro_remcsum(struct sk_buff *skb,
  	}
  
  	skb_gro_remcsum_process(skb, (void *)vh + hdrlen,
--				start, offset, grc, true);
-+				start, offset, grc, nopartial);
+-				start, offset, grc);
++				start, offset, grc, true);
  
  	skb->remcsum_offload = 1;
  
-@@ -618,7 +619,9 @@ static struct sk_buff **vxlan_gro_receive(struct sk_buff **head,
- 
- 	if ((flags & VXLAN_HF_RCO) && (vs->flags & VXLAN_F_REMCSUM_RX)) {
- 		vh = vxlan_gro_remcsum(skb, off_vx, vh, sizeof(struct vxlanhdr),
--				       ntohl(vh->vx_vni), &grc);
-+				       ntohl(vh->vx_vni), &grc,
-+				       !!(vs->flags &
-+					  VXLAN_F_REMCSUM_NOPARTIAL));
- 
- 		if (!vh)
- 			goto out;
-@@ -1155,7 +1158,7 @@ static void vxlan_igmp_leave(struct work_struct *work)
- }
- 
- static struct vxlanhdr *vxlan_remcsum(struct sk_buff *skb, struct vxlanhdr *vh,
--				      size_t hdrlen, u32 data)
-+				      size_t hdrlen, u32 data, bool nopartial)
- {
- 	size_t start, offset, plen;
- 
-@@ -1171,7 +1174,8 @@ static struct vxlanhdr *vxlan_remcsum(struct sk_buff *skb, struct vxlanhdr *vh,
+@@ -1171,7 +1171,7 @@ static struct vxlanhdr *vxlan_remcsum(struct sk_buff *skb, struct vxlanhdr *vh,
  
  	vh = (struct vxlanhdr *)(udp_hdr(skb) + 1);
  
--	skb_remcsum_process(skb, (void *)vh + hdrlen, start, offset, true);
-+	skb_remcsum_process(skb, (void *)vh + hdrlen, start, offset,
-+			    nopartial);
+-	skb_remcsum_process(skb, (void *)vh + hdrlen, start, offset);
++	skb_remcsum_process(skb, (void *)vh + hdrlen, start, offset, true);
  
  	return vh;
  }
-@@ -1208,7 +1212,8 @@ static int vxlan_udp_encap_recv(struct sock *sk, struct sk_buff *skb)
- 		goto drop;
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 43fd0a4..5897b4e 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1923,6 +1923,9 @@ struct napi_gro_cb {
+ 	/* Number of segments aggregated. */
+ 	u16	count;
  
- 	if ((flags & VXLAN_HF_RCO) && (vs->flags & VXLAN_F_REMCSUM_RX)) {
--		vxh = vxlan_remcsum(skb, vxh, sizeof(struct vxlanhdr), vni);
-+		vxh = vxlan_remcsum(skb, vxh, sizeof(struct vxlanhdr), vni,
-+				    !!(vs->flags & VXLAN_F_REMCSUM_NOPARTIAL));
- 		if (!vxh)
- 			goto drop;
- 
-@@ -2437,6 +2442,7 @@ static const struct nla_policy vxlan_policy[IFLA_VXLAN_MAX + 1] = {
- 	[IFLA_VXLAN_REMCSUM_TX]	= { .type = NLA_U8 },
- 	[IFLA_VXLAN_REMCSUM_RX]	= { .type = NLA_U8 },
- 	[IFLA_VXLAN_GBP]	= { .type = NLA_FLAG, },
-+	[IFLA_VXLAN_REMCSUM_NOPARTIAL]	= { .type = NLA_FLAG },
- };
- 
- static int vxlan_validate(struct nlattr *tb[], struct nlattr *data[])
-@@ -2760,6 +2766,9 @@ static int vxlan_newlink(struct net *src_net, struct net_device *dev,
- 	if (data[IFLA_VXLAN_GBP])
- 		vxlan->flags |= VXLAN_F_GBP;
- 
-+	if (data[IFLA_VXLAN_REMCSUM_NOPARTIAL])
-+		vxlan->flags |= VXLAN_F_REMCSUM_NOPARTIAL;
++	/* Start offset for remote checksum offload */
++	u16	gro_remcsum_start;
 +
- 	if (vxlan_find_vni(src_net, vni, use_ipv6 ? AF_INET6 : AF_INET,
- 			   vxlan->dst_port, vxlan->flags)) {
- 		pr_info("duplicate VNI %u\n", vni);
-@@ -2909,6 +2918,10 @@ static int vxlan_fill_info(struct sk_buff *skb, const struct net_device *dev)
- 	    nla_put_flag(skb, IFLA_VXLAN_GBP))
- 		goto nla_put_failure;
+ 	/* jiffies when first packet was created/queued */
+ 	unsigned long age;
  
-+	if (vxlan->flags & VXLAN_F_REMCSUM_NOPARTIAL &&
-+	    nla_put_flag(skb, IFLA_VXLAN_REMCSUM_NOPARTIAL))
-+		goto nla_put_failure;
+@@ -2244,6 +2247,12 @@ static inline void skb_gro_postpull_rcsum(struct sk_buff *skb,
+ 
+ __sum16 __skb_gro_checksum_complete(struct sk_buff *skb);
+ 
++static inline bool skb_at_gro_remcsum_start(struct sk_buff *skb)
++{
++	return (NAPI_GRO_CB(skb)->gro_remcsum_start - skb_headroom(skb) ==
++		skb_gro_offset(skb));
++}
 +
- 	return 0;
+ static inline bool __skb_gro_checksum_validate_needed(struct sk_buff *skb,
+ 						      bool zero_okay,
+ 						      __sum16 check)
+@@ -2251,6 +2260,7 @@ static inline bool __skb_gro_checksum_validate_needed(struct sk_buff *skb,
+ 	return ((skb->ip_summed != CHECKSUM_PARTIAL ||
+ 		skb_checksum_start_offset(skb) <
+ 		 skb_gro_offset(skb)) &&
++		!skb_at_gro_remcsum_start(skb) &&
+ 		NAPI_GRO_CB(skb)->csum_cnt == 0 &&
+ 		(!zero_okay || check));
+ }
+@@ -2337,12 +2347,19 @@ static inline void skb_gro_remcsum_init(struct gro_remcsum *grc)
  
- nla_put_failure:
-diff --git a/include/net/vxlan.h b/include/net/vxlan.h
-index 2927d62..eabd3a0 100644
---- a/include/net/vxlan.h
-+++ b/include/net/vxlan.h
-@@ -128,13 +128,15 @@ struct vxlan_sock {
- #define VXLAN_F_REMCSUM_TX		0x200
- #define VXLAN_F_REMCSUM_RX		0x400
- #define VXLAN_F_GBP			0x800
-+#define VXLAN_F_REMCSUM_NOPARTIAL	0x1000
+ static inline void skb_gro_remcsum_process(struct sk_buff *skb, void *ptr,
+ 					   int start, int offset,
+-					   struct gro_remcsum *grc)
++					   struct gro_remcsum *grc,
++					   bool nopartial)
+ {
+ 	__wsum delta;
  
- /* Flags that are used in the receive patch. These flags must match in
-  * order for a socket to be shareable
+ 	BUG_ON(!NAPI_GRO_CB(skb)->csum_valid);
+ 
++	if (!nopartial) {
++		NAPI_GRO_CB(skb)->gro_remcsum_start =
++		    ((unsigned char *)ptr + start) - skb->head;
++		return;
++	}
++
+ 	delta = remcsum_adjust(ptr, NAPI_GRO_CB(skb)->csum, start, offset);
+ 
+ 	/* Adjust skb->csum since we changed the packet */
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index da6028a..30007af 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -3104,16 +3104,29 @@ do {									\
+ 				       compute_pseudo(skb, proto));	\
+ } while (0)
+ 
++static inline void skb_remcsum_adjust_partial(struct sk_buff *skb, void *ptr,
++					      u16 start, u16 offset)
++{
++	skb->ip_summed = CHECKSUM_PARTIAL;
++	skb->csum_start = ((unsigned char *)ptr + start) - skb->head;
++	skb->csum_offset = offset - start;
++}
++
+ /* Update skbuf and packet to reflect the remote checksum offload operation.
+  * When called, ptr indicates the starting point for skb->csum when
+  * ip_summed is CHECKSUM_COMPLETE. If we need create checksum complete
+  * here, skb_postpull_rcsum is done so skb->csum start is ptr.
   */
- #define VXLAN_F_RCV_FLAGS		(VXLAN_F_GBP |			\
- 					 VXLAN_F_UDP_ZERO_CSUM6_RX |	\
--					 VXLAN_F_REMCSUM_RX)
-+					 VXLAN_F_REMCSUM_RX |		\
-+					 VXLAN_F_REMCSUM_NOPARTIAL)
+ static inline void skb_remcsum_process(struct sk_buff *skb, void *ptr,
+-				       int start, int offset)
++				       int start, int offset, bool nopartial)
+ {
+ 	__wsum delta;
  
- struct vxlan_sock *vxlan_sock_add(struct net *net, __be16 port,
- 				  vxlan_rcv_t *rcv, void *data,
-diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
-index 0deee3e..dfd0bb2 100644
---- a/include/uapi/linux/if_link.h
-+++ b/include/uapi/linux/if_link.h
-@@ -374,6 +374,7 @@ enum {
- 	IFLA_VXLAN_REMCSUM_TX,
- 	IFLA_VXLAN_REMCSUM_RX,
- 	IFLA_VXLAN_GBP,
-+	IFLA_VXLAN_REMCSUM_NOPARTIAL,
- 	__IFLA_VXLAN_MAX
- };
- #define IFLA_VXLAN_MAX	(__IFLA_VXLAN_MAX - 1)
++	if (!nopartial) {
++		skb_remcsum_adjust_partial(skb, ptr, start, offset);
++		return;
++	}
++
+ 	 if (unlikely(skb->ip_summed != CHECKSUM_COMPLETE)) {
+ 		__skb_checksum_complete(skb);
+ 		skb_postpull_rcsum(skb, skb->data, ptr - (void *)skb->data);
+diff --git a/net/core/dev.c b/net/core/dev.c
+index d030575..48c6ecb 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -4024,6 +4024,7 @@ static enum gro_result dev_gro_receive(struct napi_struct *napi, struct sk_buff
+ 		NAPI_GRO_CB(skb)->flush = 0;
+ 		NAPI_GRO_CB(skb)->free = 0;
+ 		NAPI_GRO_CB(skb)->udp_mark = 0;
++		NAPI_GRO_CB(skb)->gro_remcsum_start = 0;
+ 
+ 		/* Setup for GRO checksum validation */
+ 		switch (skb->ip_summed) {
+diff --git a/net/ipv4/fou.c b/net/ipv4/fou.c
+index 7fa8d36..d320f57 100644
+--- a/net/ipv4/fou.c
++++ b/net/ipv4/fou.c
+@@ -75,7 +75,7 @@ static struct guehdr *gue_remcsum(struct sk_buff *skb, struct guehdr *guehdr,
+ 		return NULL;
+ 	guehdr = (struct guehdr *)&udp_hdr(skb)[1];
+ 
+-	skb_remcsum_process(skb, (void *)guehdr + hdrlen, start, offset);
++	skb_remcsum_process(skb, (void *)guehdr + hdrlen, start, offset, true);
+ 
+ 	return guehdr;
+ }
+@@ -230,7 +230,7 @@ static struct guehdr *gue_gro_remcsum(struct sk_buff *skb, unsigned int off,
+ 	}
+ 
+ 	skb_gro_remcsum_process(skb, (void *)guehdr + hdrlen,
+-				start, offset, grc);
++				start, offset, grc, true);
+ 
+ 	skb->remcsum_offload = 1;
+ 
 -- 
 2.2.0.rc0.207.ga3a616c
