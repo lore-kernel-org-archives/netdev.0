@@ -1,70 +1,182 @@
 From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH RFC v5 net-next 1/6] virtio_ring: fix
-	virtqueue_enable_cb() when only 1 buffers were pending
-Date: Wed, 11 Feb 2015 10:28:38 +1030
-Message-ID: <87zj8lb9ox.fsf@rustcorp.com.au>
-References: <1423471165-34243-1-git-send-email-jasowang@redhat.com>
-	<1423471165-34243-2-git-send-email-jasowang@redhat.com>
-	<878ug6y3uv.fsf@rustcorp.com.au> <20150210101839.GA9505@redhat.com>
+Subject: Re: [PATCH 3/5] virtio: Don't expose legacy net features when VIRTIO_NET_NO_LEGACY defined.
+Date: Wed, 11 Feb 2015 10:36:25 +1030
+Message-ID: <87twytb9by.fsf@rustcorp.com.au>
+References: <1423199216-2094-1-git-send-email-rusty@rustcorp.com.au> <1423199216-2094-4-git-send-email-rusty@rustcorp.com.au> <20150208105908.GI3185@redhat.com> <87fvag3qv3.fsf@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: pagupta@redhat.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
+Content-Type: text/plain
+Cc: lkml <linux-kernel@vger.kernel.org>,
+	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>
 To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20150210101839.GA9505@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87fvag3qv3.fsf@rustcorp.com.au>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-"Michael S. Tsirkin" <mst@redhat.com> writes:
-> On Tue, Feb 10, 2015 at 11:33:52AM +1030, Rusty Russell wrote:
->> Jason Wang <jasowang@redhat.com> writes:
->> > We currently does:
->> >
->> > bufs = (avail->idx - last_used_idx) * 3 / 4;
->> >
->> > This is ok now since we only try to enable the delayed callbacks when
->> > the queue is about to be full. This may not work well when there is
->> > only one pending buffer in the virtqueue (this may be the case after
->> > tx interrupt was enabled). Since virtqueue_enable_cb() will return
->> > false which may cause unnecessary triggering of napis. This patch
->> > correct this by only calculate the four thirds when bufs is not one.
->> 
->> I mildly prefer to avoid the branch, by changing the calculation like
->> so:
->> 
->>         /* Set bufs >= 1, even if there's only one pending buffer */
->>         bufs = (bufs + 1) * 3 / 4;
+Rusty Russell <rusty@rustcorp.com.au> writes:
+> "Michael S. Tsirkin" <mst@redhat.com> writes:
+>> On Fri, Feb 06, 2015 at 03:36:54PM +1030, Rusty Russell wrote:
+>>> In particular, the virtio header always has the u16 num_buffers field.
+>>> We define a new 'struct virtio_net_modern_hdr' for this (rather than
+>>> simply calling it 'struct virtio_net_hdr', to avoid nasty type errors
+>>> if some parts of a project define VIRTIO_NET_NO_LEGACY and some don't.
+>>> 
+>>> Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
+>>> ---
+>>>  include/uapi/linux/virtio_net.h | 30 ++++++++++++++++++++++++++++--
+>>>  1 file changed, 28 insertions(+), 2 deletions(-)
+>>> 
+>>> diff --git a/include/uapi/linux/virtio_net.h b/include/uapi/linux/virtio_net.h
+>>> index b5f1677b291c..32754f3000e8 100644
+>>> --- a/include/uapi/linux/virtio_net.h
+>>> +++ b/include/uapi/linux/virtio_net.h
+>>> @@ -35,7 +35,6 @@
+>>>  #define VIRTIO_NET_F_CSUM	0	/* Host handles pkts w/ partial csum */
+>>>  #define VIRTIO_NET_F_GUEST_CSUM	1	/* Guest handles pkts w/ partial csum */
+>>>  #define VIRTIO_NET_F_MAC	5	/* Host has given MAC address. */
+>>> -#define VIRTIO_NET_F_GSO	6	/* Host handles pkts w/ any GSO type */
+>>>  #define VIRTIO_NET_F_GUEST_TSO4	7	/* Guest can handle TSOv4 in. */
+>>>  #define VIRTIO_NET_F_GUEST_TSO6	8	/* Guest can handle TSOv6 in. */
+>>>  #define VIRTIO_NET_F_GUEST_ECN	9	/* Guest can handle TSO[6] w/ ECN in. */
+>>> @@ -56,6 +55,10 @@
+>>>  					 * Steering */
+>>>  #define VIRTIO_NET_F_CTRL_MAC_ADDR 23	/* Set MAC address */
+>>>  
+>>> +#ifndef VIRTIO_NET_NO_LEGACY
+>>> +#define VIRTIO_NET_F_GSO	6	/* Host handles pkts w/ any GSO type */
+>>> +#endif /* VIRTIO_NET_NO_LEGACY */
+>>> +
+>>>  #define VIRTIO_NET_S_LINK_UP	1	/* Link is up */
+>>>  #define VIRTIO_NET_S_ANNOUNCE	2	/* Announcement is needed */
+>>>  
+>>> @@ -71,8 +74,9 @@ struct virtio_net_config {
+>>>  	__u16 max_virtqueue_pairs;
+>>>  } __attribute__((packed));
+>>>  
+>>> +#ifndef VIRTIO_NET_NO_LEGACY
+>>>  /* This header comes first in the scatter-gather list.
+>>> - * If VIRTIO_F_ANY_LAYOUT is not negotiated, it must
+>>> + * For legacy virtio, if VIRTIO_F_ANY_LAYOUT is not negotiated, it must
+>>>   * be the first element of the scatter-gather list.  If you don't
+>>>   * specify GSO or CSUM features, you can simply ignore the header. */
+>>>  struct virtio_net_hdr {
+>>> @@ -97,6 +101,28 @@ struct virtio_net_hdr_mrg_rxbuf {
+>>>  	struct virtio_net_hdr hdr;
+>>>  	__virtio16 num_buffers;	/* Number of merged rx buffers */
+>>>  };
+>>> +#else /* ... VIRTIO_NET_NO_LEGACY */
+>>> +/*
+>>> + * This header comes first in the scatter-gather list.  If you don't
+>>> + * specify GSO or CSUM features, you can simply ignore the header.
+>>> + */
+>>> +struct virtio_net_modern_hdr {
+>>> +#define VIRTIO_NET_HDR_F_NEEDS_CSUM	1	/* Use csum_start, csum_offset */
+>>> +#define VIRTIO_NET_HDR_F_DATA_VALID	2	/* Csum is valid */
+>>> +	__u8 flags;
+>>> +#define VIRTIO_NET_HDR_GSO_NONE		0	/* Not a GSO frame */
+>>> +#define VIRTIO_NET_HDR_GSO_TCPV4	1	/* GSO frame, IPv4 TCP (TSO) */
+>>> +#define VIRTIO_NET_HDR_GSO_UDP		3	/* GSO frame, IPv4 UDP (UFO) */
+>>> +#define VIRTIO_NET_HDR_GSO_TCPV6	4	/* GSO frame, IPv6 TCP */
+>>> +#define VIRTIO_NET_HDR_GSO_ECN		0x80	/* TCP has ECN set */
+>>> +	__u8 gso_type;
+>>> +	__virtio16 hdr_len;	/* Ethernet + IP + tcp/udp hdrs */
+>>> +	__virtio16 gso_size;	/* Bytes to append to hdr_len per frame */
+>>> +	__virtio16 csum_start;	/* Position to start checksumming from */
+>>> +	__virtio16 csum_offset;	/* Offset after that to place checksum */
+>>> +	__virtio16 num_buffers;	/* Number of merged rx buffers */
+>>> +};
+>>> +#endif /* ...VIRTIO_NET_NO_LEGACY */
+>>
+>> This kind of masks the fact that it's the same as
+>> virtio_net_hdr_mrg_rxbuf. So it's forcing people to duplicate
+>> code for transitional devices.
 >
-> Or bus * 3/4 + 1
+> It's a hard problem to solve; someone suffers.  My preference is to make
+> non-legacy implementations as "clean" as possible, even if transitional
+> devices suffer (since their suffering should be shorter-lived).
 >
->> But it's not clear to me how much this happens.  I'm happy with the
->> patch though, as currently virtqueue_enable_cb_delayed() is the same
->> as virtqueue_enable_cb() if there's only been one buffer added.
->> 
->> Cheers,
->> Rusty.
->
-> But isn't this by design?
-> The documentation says:
->
->  * This re-enables callbacks but hints to the other side to delay
->  * interrupts until most of the available buffers have been processed;
->
-> Clearly, this implies that when there's one buffer it must behave
-> exactly the same.
+> Transitional devices can't define VIRTIO_NET_NO_LEGACY, so they'll
+> have to use virtio_net_hdr_mrg_rxbuf anyway.
 
-Yes, my mistake.  We could hit the "never gets notified" case with this
-change, and that's a much bigger problem.
+Here's what I ended up with.  In effect, it's just the name change
+and a comment that it's the same as the legacy virtio_net_hdr_mrg_rxbuf:
 
-So I don't think we can accept this patch...
-Rusty.
+
+Subject: virtio: Don't expose legacy net features when VIRTIO_NET_NO_LEGACY defined.
+
+In particular, the virtio header always has the u16 num_buffers field.
+We define a new 'struct virtio_net_hdr_v1' for this (rather than
+simply calling it 'struct virtio_net_hdr', to avoid nasty type errors
+if some parts of a project define VIRTIO_NET_NO_LEGACY and some don't.
+
+Transitional devices (which can't define VIRTIO_NET_NO_LEGACY) will
+have to keep using struct virtio_net_hdr_mrg_rxbuf, which has the same
+byte layout as struct virtio_net_hdr_v1.
+
+Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
+
+diff --git a/include/uapi/linux/virtio_net.h b/include/uapi/linux/virtio_net.h
+index b5f1677b291c..4a9b58113d6e 100644
+--- a/include/uapi/linux/virtio_net.h
++++ b/include/uapi/linux/virtio_net.h
+@@ -35,7 +35,6 @@
+ #define VIRTIO_NET_F_CSUM	0	/* Host handles pkts w/ partial csum */
+ #define VIRTIO_NET_F_GUEST_CSUM	1	/* Guest handles pkts w/ partial csum */
+ #define VIRTIO_NET_F_MAC	5	/* Host has given MAC address. */
+-#define VIRTIO_NET_F_GSO	6	/* Host handles pkts w/ any GSO type */
+ #define VIRTIO_NET_F_GUEST_TSO4	7	/* Guest can handle TSOv4 in. */
+ #define VIRTIO_NET_F_GUEST_TSO6	8	/* Guest can handle TSOv6 in. */
+ #define VIRTIO_NET_F_GUEST_ECN	9	/* Guest can handle TSO[6] w/ ECN in. */
+@@ -56,6 +55,10 @@
+ 					 * Steering */
+ #define VIRTIO_NET_F_CTRL_MAC_ADDR 23	/* Set MAC address */
+ 
++#ifndef VIRTIO_NET_NO_LEGACY
++#define VIRTIO_NET_F_GSO	6	/* Host handles pkts w/ any GSO type */
++#endif /* VIRTIO_NET_NO_LEGACY */
++
+ #define VIRTIO_NET_S_LINK_UP	1	/* Link is up */
+ #define VIRTIO_NET_S_ANNOUNCE	2	/* Announcement is needed */
+ 
+@@ -71,8 +74,9 @@ struct virtio_net_config {
+ 	__u16 max_virtqueue_pairs;
+ } __attribute__((packed));
+ 
++#ifndef VIRTIO_NET_NO_LEGACY
+ /* This header comes first in the scatter-gather list.
+- * If VIRTIO_F_ANY_LAYOUT is not negotiated, it must
++ * For legacy virtio, if VIRTIO_F_ANY_LAYOUT is not negotiated, it must
+  * be the first element of the scatter-gather list.  If you don't
+  * specify GSO or CSUM features, you can simply ignore the header. */
+ struct virtio_net_hdr {
+@@ -97,6 +101,30 @@ struct virtio_net_hdr_mrg_rxbuf {
+ 	struct virtio_net_hdr hdr;
+ 	__virtio16 num_buffers;	/* Number of merged rx buffers */
+ };
++#else /* ... VIRTIO_NET_NO_LEGACY */
++/*
++ * This header comes first in the scatter-gather list.  If you don't
++ * specify GSO or CSUM features, you can simply ignore the header.
++ *
++ * This is bitwise-equivalent to the legacy struct virtio_net_hdr_mrg_rxbuf.
++ */
++struct virtio_net_hdr_v1 {
++#define VIRTIO_NET_HDR_F_NEEDS_CSUM	1	/* Use csum_start, csum_offset */
++#define VIRTIO_NET_HDR_F_DATA_VALID	2	/* Csum is valid */
++	__u8 flags;
++#define VIRTIO_NET_HDR_GSO_NONE		0	/* Not a GSO frame */
++#define VIRTIO_NET_HDR_GSO_TCPV4	1	/* GSO frame, IPv4 TCP (TSO) */
++#define VIRTIO_NET_HDR_GSO_UDP		3	/* GSO frame, IPv4 UDP (UFO) */
++#define VIRTIO_NET_HDR_GSO_TCPV6	4	/* GSO frame, IPv6 TCP */
++#define VIRTIO_NET_HDR_GSO_ECN		0x80	/* TCP has ECN set */
++	__u8 gso_type;
++	__virtio16 hdr_len;	/* Ethernet + IP + tcp/udp hdrs */
++	__virtio16 gso_size;	/* Bytes to append to hdr_len per frame */
++	__virtio16 csum_start;	/* Position to start checksumming from */
++	__virtio16 csum_offset;	/* Offset after that to place checksum */
++	__virtio16 num_buffers;	/* Number of merged rx buffers */
++};
++#endif /* ...VIRTIO_NET_NO_LEGACY */
+ 
+ /*
+  * Control virtqueue data structures
