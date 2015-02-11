@@ -1,158 +1,83 @@
 From: Tom Herbert <therbert@google.com>
-Subject: [PATCH net-next 7/7] gue: Use checksum partial with remote checksum offload
-Date: Tue, 10 Feb 2015 16:30:33 -0800
-Message-ID: <1423614633-25042-8-git-send-email-therbert@google.com>
+Subject: [PATCH net-next 3/7] udp: Set SKB_GSO_UDP_TUNNEL* in UDP GRO path
+Date: Tue, 10 Feb 2015 16:30:29 -0800
+Message-ID: <1423614633-25042-4-git-send-email-therbert@google.com>
 References: <1423614633-25042-1-git-send-email-therbert@google.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f177.google.com ([209.85.223.177]:41486 "EHLO
-	mail-ie0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752350AbbBKAa6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Feb 2015 19:30:58 -0500
-Received: by iecrd18 with SMTP id rd18so435958iec.8
-        for <netdev@vger.kernel.org>; Tue, 10 Feb 2015 16:30:58 -0800 (PST)
+Received: from mail-ig0-f178.google.com ([209.85.213.178]:56800 "EHLO
+	mail-ig0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752071AbbBKAau (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Feb 2015 19:30:50 -0500
+Received: by mail-ig0-f178.google.com with SMTP id hl2so1267306igb.5
+        for <netdev@vger.kernel.org>; Tue, 10 Feb 2015 16:30:49 -0800 (PST)
 In-Reply-To: <1423614633-25042-1-git-send-email-therbert@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Change remote checksum handling to set checksum partial as default
-behavior. Added an iflink parameter to configure not using
-checksum partial (calling csum_partial to update checksum).
+Properly set GSO types and skb->encapsulation in the UDP tunnel GRO
+complete so that packets are properly represented for GSO. This sets
+SKB_GSO_UDP_TUNNEL or SKB_GSO_UDP_TUNNEL_CSUM depending on whether
+non-zero checksums were received, and sets SKB_GSO_TUNNEL_REMCSUM if
+the remote checksum option was processed.
 
 Signed-off-by: Tom Herbert <therbert@google.com>
 ---
- include/uapi/linux/fou.h |  1 +
- net/ipv4/fou.c           | 28 ++++++++++++++++++++++------
- 2 files changed, 23 insertions(+), 6 deletions(-)
+ net/ipv4/udp_offload.c | 13 ++++++++++++-
+ net/ipv6/udp_offload.c |  6 +++++-
+ 2 files changed, 17 insertions(+), 2 deletions(-)
 
-diff --git a/include/uapi/linux/fou.h b/include/uapi/linux/fou.h
-index 8df0689..c303588 100644
---- a/include/uapi/linux/fou.h
-+++ b/include/uapi/linux/fou.h
-@@ -14,6 +14,7 @@ enum {
- 	FOU_ATTR_AF,				/* u8 */
- 	FOU_ATTR_IPPROTO,			/* u8 */
- 	FOU_ATTR_TYPE,				/* u8 */
-+	FOU_ATTR_REMCSUM_NOPARTIAL,		/* flag */
- 
- 	__FOU_ATTR_MAX,
- };
-diff --git a/net/ipv4/fou.c b/net/ipv4/fou.c
-index d320f57..ff069f6 100644
---- a/net/ipv4/fou.c
-+++ b/net/ipv4/fou.c
-@@ -22,14 +22,18 @@ static LIST_HEAD(fou_list);
- struct fou {
- 	struct socket *sock;
- 	u8 protocol;
-+	u8 flags;
- 	u16 port;
- 	struct udp_offload udp_offloads;
- 	struct list_head list;
- };
- 
-+#define FOU_F_REMCSUM_NOPARTIAL BIT(0)
-+
- struct fou_cfg {
- 	u16 type;
- 	u8 protocol;
-+	u8 flags;
- 	struct udp_port_cfg udp_config;
- };
- 
-@@ -64,7 +68,8 @@ static int fou_udp_recv(struct sock *sk, struct sk_buff *skb)
- }
- 
- static struct guehdr *gue_remcsum(struct sk_buff *skb, struct guehdr *guehdr,
--				  void *data, size_t hdrlen, u8 ipproto)
-+				  void *data, size_t hdrlen, u8 ipproto,
-+				  bool nopartial)
- {
- 	__be16 *pd = data;
- 	size_t start = ntohs(pd[0]);
-@@ -75,7 +80,8 @@ static struct guehdr *gue_remcsum(struct sk_buff *skb, struct guehdr *guehdr,
- 		return NULL;
- 	guehdr = (struct guehdr *)&udp_hdr(skb)[1];
- 
--	skb_remcsum_process(skb, (void *)guehdr + hdrlen, start, offset, true);
-+	skb_remcsum_process(skb, (void *)guehdr + hdrlen,
-+			    start, offset, nopartial);
- 
- 	return guehdr;
- }
-@@ -136,7 +142,9 @@ static int gue_udp_recv(struct sock *sk, struct sk_buff *skb)
- 
- 		if (flags & GUE_PFLAG_REMCSUM) {
- 			guehdr = gue_remcsum(skb, guehdr, data + doffset,
--					     hdrlen, guehdr->proto_ctype);
-+					     hdrlen, guehdr->proto_ctype,
-+					     !!(fou->flags &
-+						FOU_F_REMCSUM_NOPARTIAL));
- 			if (!guehdr)
- 				goto drop;
- 
-@@ -209,7 +217,7 @@ out_unlock:
- static struct guehdr *gue_gro_remcsum(struct sk_buff *skb, unsigned int off,
- 				      struct guehdr *guehdr, void *data,
- 				      size_t hdrlen, u8 ipproto,
--				      struct gro_remcsum *grc)
-+				      struct gro_remcsum *grc, bool nopartial)
- {
- 	__be16 *pd = data;
- 	size_t start = ntohs(pd[0]);
-@@ -230,7 +238,7 @@ static struct guehdr *gue_gro_remcsum(struct sk_buff *skb, unsigned int off,
+diff --git a/net/ipv4/udp_offload.c b/net/ipv4/udp_offload.c
+index d10f6f4..4915d82 100644
+--- a/net/ipv4/udp_offload.c
++++ b/net/ipv4/udp_offload.c
+@@ -402,6 +402,13 @@ int udp_gro_complete(struct sk_buff *skb, int nhoff)
  	}
  
- 	skb_gro_remcsum_process(skb, (void *)guehdr + hdrlen,
--				start, offset, grc, true);
-+				start, offset, grc, nopartial);
- 
- 	skb->remcsum_offload = 1;
- 
-@@ -250,6 +258,7 @@ static struct sk_buff **gue_gro_receive(struct sk_buff **head,
- 	void *data;
- 	u16 doffset = 0;
- 	int flush = 1;
-+	struct fou *fou = container_of(uoff, struct fou, udp_offloads);
- 	struct gro_remcsum grc;
- 
- 	skb_gro_remcsum_init(&grc);
-@@ -294,7 +303,9 @@ static struct sk_buff **gue_gro_receive(struct sk_buff **head,
- 		if (flags & GUE_PFLAG_REMCSUM) {
- 			guehdr = gue_gro_remcsum(skb, off, guehdr,
- 						 data + doffset, hdrlen,
--						 guehdr->proto_ctype, &grc);
-+						 guehdr->proto_ctype, &grc,
-+						 !!(fou->flags &
-+						    FOU_F_REMCSUM_NOPARTIAL));
- 			if (!guehdr)
- 				goto out;
- 
-@@ -455,6 +466,7 @@ static int fou_create(struct net *net, struct fou_cfg *cfg,
- 
- 	sk = sock->sk;
- 
-+	fou->flags = cfg->flags;
- 	fou->port = cfg->udp_config.local_udp_port;
- 
- 	/* Initial for fou type */
-@@ -541,6 +553,7 @@ static struct nla_policy fou_nl_policy[FOU_ATTR_MAX + 1] = {
- 	[FOU_ATTR_AF] = { .type = NLA_U8, },
- 	[FOU_ATTR_IPPROTO] = { .type = NLA_U8, },
- 	[FOU_ATTR_TYPE] = { .type = NLA_U8, },
-+	[FOU_ATTR_REMCSUM_NOPARTIAL] = { .type = NLA_FLAG, },
- };
- 
- static int parse_nl_config(struct genl_info *info,
-@@ -571,6 +584,9 @@ static int parse_nl_config(struct genl_info *info,
- 	if (info->attrs[FOU_ATTR_TYPE])
- 		cfg->type = nla_get_u8(info->attrs[FOU_ATTR_TYPE]);
- 
-+	if (info->attrs[FOU_ATTR_REMCSUM_NOPARTIAL])
-+		cfg->flags |= FOU_F_REMCSUM_NOPARTIAL;
+ 	rcu_read_unlock();
 +
- 	return 0;
++	if (skb->remcsum_offload)
++		skb_shinfo(skb)->gso_type |= SKB_GSO_TUNNEL_REMCSUM;
++
++	skb->encapsulation = 1;
++	skb_set_inner_mac_header(skb, nhoff + sizeof(struct udphdr));
++
+ 	return err;
  }
  
+@@ -410,9 +417,13 @@ static int udp4_gro_complete(struct sk_buff *skb, int nhoff)
+ 	const struct iphdr *iph = ip_hdr(skb);
+ 	struct udphdr *uh = (struct udphdr *)(skb->data + nhoff);
+ 
+-	if (uh->check)
++	if (uh->check) {
++		skb_shinfo(skb)->gso_type |= SKB_GSO_UDP_TUNNEL_CSUM;
+ 		uh->check = ~udp_v4_check(skb->len - nhoff, iph->saddr,
+ 					  iph->daddr, 0);
++	} else {
++		skb_shinfo(skb)->gso_type |= SKB_GSO_UDP_TUNNEL;
++	}
+ 
+ 	return udp_gro_complete(skb, nhoff);
+ }
+diff --git a/net/ipv6/udp_offload.c b/net/ipv6/udp_offload.c
+index a562769..ab889bb 100644
+--- a/net/ipv6/udp_offload.c
++++ b/net/ipv6/udp_offload.c
+@@ -161,9 +161,13 @@ static int udp6_gro_complete(struct sk_buff *skb, int nhoff)
+ 	const struct ipv6hdr *ipv6h = ipv6_hdr(skb);
+ 	struct udphdr *uh = (struct udphdr *)(skb->data + nhoff);
+ 
+-	if (uh->check)
++	if (uh->check) {
++		skb_shinfo(skb)->gso_type |= SKB_GSO_UDP_TUNNEL_CSUM;
+ 		uh->check = ~udp_v6_check(skb->len - nhoff, &ipv6h->saddr,
+ 					  &ipv6h->daddr, 0);
++	} else {
++		skb_shinfo(skb)->gso_type |= SKB_GSO_UDP_TUNNEL;
++	}
+ 
+ 	return udp_gro_complete(skb, nhoff);
+ }
 -- 
 2.2.0.rc0.207.ga3a616c
