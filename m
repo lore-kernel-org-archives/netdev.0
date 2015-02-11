@@ -1,59 +1,85 @@
 From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: network namespace bloat
-Date: Wed, 11 Feb 2015 18:09:44 +0100
-Message-ID: <54DB8CD8.8080102@6wind.com>
-References: <1423100070-31848-1-git-send-email-dsahern@gmail.com>	<87k2zubw7l.fsf@x220.int.ebiederm.org> <871tlxtbhd.fsf_-_@x220.int.ebiederm.org>
-Reply-To: nicolas.dichtel@6wind.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	roopa <roopa@cumulusnetworks.com>, hannes@stressinduktion.org,
-	Dinesh Dutt <ddutt@cumulusnetworks.com>,
-	Vipin Kumar <vipin@cumulusnetworks.com>,
-	Shmulik Ladkani <shmulik.ladkani@gmail.com>,
-	David Ahern <dsahern@gmail.com>,
-	Eric Dumazet <edumazet@google.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: "Eric W. Biederman" <ebiederm@xmission.com>, netdev@vger.kernel.org
+Subject: [PATCH ipsec] xfrm: release dst_orig in case of error in xfrm_lookup()
+Date: Wed, 11 Feb 2015 18:10:36 +0100
+Message-ID: <1423674636-4227-1-git-send-email-nicolas.dichtel@6wind.com>
+Cc: netdev@vger.kernel.org, huaibin Wang <huaibin.wang@6wind.com>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: steffen.klassert@secunet.com, herbert@gondor.apana.org.au,
+	davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f46.google.com ([74.125.82.46]:38020 "EHLO
-	mail-wg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752982AbbBKRJr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Feb 2015 12:09:47 -0500
-Received: by mail-wg0-f46.google.com with SMTP id a1so4830947wgh.5
-        for <netdev@vger.kernel.org>; Wed, 11 Feb 2015 09:09:46 -0800 (PST)
-In-Reply-To: <871tlxtbhd.fsf_-_@x220.int.ebiederm.org>
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:56931 "EHLO
+	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752429AbbBKRKo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Feb 2015 12:10:44 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 11/02/2015 03:42, Eric W. Biederman a =C3=A9crit :
-[snip]
->
-> The next largest component appears to be all of the tunnel network
-> devices that we allocate for compatibility reasons so that the old io=
-ctl
-> interfaces still work.
->
-[snip]
->
->
-> A knob (sysctl?) that controls the creation of the backwards
-> compabitilty tunnel network devices seems desirable.  As in many
-> instances those are just overhead today.
-Note that these interfaces are also used as fallback devices, they catc=
-h
-packets that don't match any configured tunnels.
+From: huaibin Wang <huaibin.wang@6wind.com>
 
-See: http://thread.gmane.org/gmane.linux.network/249634/focus=3D249634
+dst_orig should be released on error. Function like __xfrm_route_forward()
+expects that behavior.
+Since a recent commit, xfrm_lookup() may also be called by xfrm_lookup_route(),
+which expects the opposite.
+Let's introduce a new flag (XFRM_LOOKUP_KEEP_DST_REF) to tell what should be
+done in case of error.
 
-[snip]
->
-> In my ideal world enough of these issues would be fixed that a
-> new empty network namespace would consume less than 100KiB of memory.
-+1
+Fixes: f92ee61982d("xfrm: Generate blackhole routes only from route lookup functions")
+Signed-off-by: huaibin Wang <huaibin.wang@6wind.com>
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+---
+ include/net/dst.h      |  1 +
+ net/xfrm/xfrm_policy.c | 12 ++++++------
+ 2 files changed, 7 insertions(+), 6 deletions(-)
 
-
-Regards,
-Nicolas
+diff --git a/include/net/dst.h b/include/net/dst.h
+index a8ae4e760778..0fb99a26e973 100644
+--- a/include/net/dst.h
++++ b/include/net/dst.h
+@@ -481,6 +481,7 @@ void dst_init(void);
+ enum {
+ 	XFRM_LOOKUP_ICMP = 1 << 0,
+ 	XFRM_LOOKUP_QUEUE = 1 << 1,
++	XFRM_LOOKUP_KEEP_DST_REF = 1 << 2,
+ };
+ 
+ struct flowi;
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index cee479bc655c..638af0655aaf 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -2269,11 +2269,9 @@ struct dst_entry *xfrm_lookup(struct net *net, struct dst_entry *dst_orig,
+ 		 * have the xfrm_state's. We need to wait for KM to
+ 		 * negotiate new SA's or bail out with error.*/
+ 		if (net->xfrm.sysctl_larval_drop) {
+-			dst_release(dst);
+-			xfrm_pols_put(pols, drop_pols);
+ 			XFRM_INC_STATS(net, LINUX_MIB_XFRMOUTNOSTATES);
+-
+-			return ERR_PTR(-EREMOTE);
++			err = -EREMOTE;
++			goto error;
+ 		}
+ 
+ 		err = -EAGAIN;
+@@ -2324,7 +2322,8 @@ nopol:
+ error:
+ 	dst_release(dst);
+ dropdst:
+-	dst_release(dst_orig);
++	if (!(flags & XFRM_LOOKUP_KEEP_DST_REF))
++		dst_release(dst_orig);
+ 	xfrm_pols_put(pols, drop_pols);
+ 	return ERR_PTR(err);
+ }
+@@ -2338,7 +2337,8 @@ struct dst_entry *xfrm_lookup_route(struct net *net, struct dst_entry *dst_orig,
+ 				    struct sock *sk, int flags)
+ {
+ 	struct dst_entry *dst = xfrm_lookup(net, dst_orig, fl, sk,
+-					    flags | XFRM_LOOKUP_QUEUE);
++					    flags | XFRM_LOOKUP_QUEUE |
++					    XFRM_LOOKUP_KEEP_DST_REF);
+ 
+ 	if (IS_ERR(dst) && PTR_ERR(dst) == -EREMOTE)
+ 		return make_blackhole(net, dst_orig->ops->family, dst_orig);
+-- 
+2.2.2
