@@ -1,42 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bridge: make it possible for packets to traverse the
- bridge withour hitting netfilter
-Date: Wed, 11 Feb 2015 14:29:36 -0800 (PST)
-Message-ID: <20150211.142936.951620487173949333.davem@davemloft.net>
-References: <1423560744-19011-1-git-send-email-imrep.amz@gmail.com>
+Subject: Re: [PATCH v2 net-next] ipv6: Partial checksum only UDP packets
+Date: Wed, 11 Feb 2015 14:32:53 -0800 (PST)
+Message-ID: <20150211.143253.1012085447903167405.davem@davemloft.net>
+References: <1423586249-5950-1-git-send-email-vyasevic@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: bridge@lists.linux-foundation.org, stephen@networkplumber.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	imrep@amazon.de, aliguori@amazon.com
-To: imrep.amz@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1423560744-19011-1-git-send-email-imrep.amz@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, sd@queasysnail.net, vyasevic@redhat.com
+To: vyasevich@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:51774 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754308AbbBKWZw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Feb 2015 17:25:52 -0500
+In-Reply-To: <1423586249-5950-1-git-send-email-vyasevic@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Imre Palik <imrep.amz@gmail.com>
-Date: Tue, 10 Feb 2015 10:32:24 +0100
+From: Vladislav Yasevich <vyasevich@gmail.com>
+Date: Tue, 10 Feb 2015 11:37:29 -0500
 
-> From: "Palik, Imre" <imrep@amazon.de>
+> ip6_append_data is used by other protocols and some of them can't
+> be partially checksummed.  Only partially checksum UDP protocol.
 > 
-> The netfilter code is made with flexibility instead of performance in mind.
-> So when all we want is to pass packets between different interfaces, the
-> performance penalty of hitting netfilter code can be considerable, even when
-> all the firewalling is disabled for the bridge.
-> 
-> This change makes it possible to disable netfilter both on a per bridge basis,
-> or for the whole bridging subsystem.  In the case interesting to us, this can
-> lead to more than 10% speedup compared to the case when only bridge-iptables
-> are disabled.
-> 
-> Cc: Anthony Liguori <aliguori@amazon.com>
-> Signed-off-by: Imre Palik <imrep@amazon.de>
+> Fixes: 32dce968dd987a (ipv6: Allow for partial checksums on non-ufo packets)
+> Reported-by: Sabrina Dubroca <sd@queasysnail.net>
+> Tested-by: Sabrina Dubroca <sd@queasysnail.net>
+> Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
+> ---
+> v2:  added tested-by tag and fixed compile issue with prior patch.
 
-Sorry, no.
-
-If I apply this, someone is going to try to submit a patch for every
-damn protocol layer to add a stupid hack like this.
-
-Makw NF_HOOK() faster instead.
+Applied, thanks.
