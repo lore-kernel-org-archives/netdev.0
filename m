@@ -1,69 +1,46 @@
-From: Arend van Spriel <arend@broadcom.com>
-Subject: Re: [PATCH] brcmfmac: use msecs_to_jiffies for time conversion
-Date: Wed, 11 Feb 2015 19:18:25 +0100
-Message-ID: <54DB9CF1.7050606@broadcom.com>
-References: <1423218405-17624-1-git-send-email-hofrat@osadl.org>
+From: Kalle Valo <kvalo@qca.qualcomm.com>
+Subject: pull-request: wireless-drivers 2015-02-11
+Date: Wed, 11 Feb 2015 20:43:53 +0200
+Message-ID: <87iof8l252.fsf@kamboji.qca.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Brett Rudley <brudley@broadcom.com>,
-	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
-	Hante Meuleman <meuleman@broadcom.com>,
-	Kalle Valo <kvalo@codeaurora.org>,
-	Pieter-Paul Giesberts <pieterpg@broadcom.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Daniel Kim <dekim@broadcom.com>,
-	<linux-wireless@vger.kernel.org>,
-	<brcm80211-dev-list@broadcom.com>, <netdev@vger.kernel.org>,
+Content-Type: text/plain; charset="us-ascii"
+Cc: <linux-wireless@vger.kernel.org>, <netdev@vger.kernel.org>,
 	<linux-kernel@vger.kernel.org>
-To: Nicholas Mc Guire <hofrat@osadl.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1423218405-17624-1-git-send-email-hofrat@osadl.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 02/06/15 11:26, Nicholas Mc Guire wrote:
-> This is only an API consolidation and should make things more readable
-> it replaces var * HZ / 1000 by msecs_to_jiffies(var).
+Hi Dave,
 
-Acked-by: Arend van Spriel <arend@broadcom.com>
-> Signed-off-by: Nicholas Mc Guire<hofrat@osadl.org>
-> ---
->
-> Patch was only compile tested with x86_64_defconfig + CONFIG_BRCMFMAC=m,
-> CONFIG_MMC=m, CONFIG_BRCMFMAC_SDIO=y
->
-> Patch is against 3.19.0-rc7 (localversion-next is -next-20150204)
->
->   drivers/net/wireless/brcm80211/brcmfmac/sdio.c |    6 +++---
->   1 file changed, 3 insertions(+), 3 deletions(-)
->
-> diff --git a/drivers/net/wireless/brcm80211/brcmfmac/sdio.c b/drivers/net/wireless/brcm80211/brcmfmac/sdio.c
-> index 5e9d208..4f9469b 100644
-> --- a/drivers/net/wireless/brcm80211/brcmfmac/sdio.c
-> +++ b/drivers/net/wireless/brcm80211/brcmfmac/sdio.c
-> @@ -3972,7 +3972,7 @@ brcmf_sdio_watchdog(unsigned long data)
->   		/* Reschedule the watchdog */
->   		if (bus->wd_timer_valid)
->   			mod_timer(&bus->timer,
-> -				  jiffies + BRCMF_WD_POLL_MS * HZ / 1000);
-> +				  jiffies + msecs_to_jiffies(BRCMF_WD_POLL_MS));
->   	}
->   }
->
-> @@ -4291,13 +4291,13 @@ void brcmf_sdio_wd_timer(struct brcmf_sdio *bus, uint wdtick)
->   			   dynamically changed or in the first instance
->   			 */
->   			bus->timer.expires =
-> -				jiffies + BRCMF_WD_POLL_MS * HZ / 1000;
-> +				jiffies + msecs_to_jiffies(BRCMF_WD_POLL_MS);
->   			add_timer(&bus->timer);
->
->   		} else {
->   			/* Re arm the timer, at last watchdog period */
->   			mod_timer(&bus->timer,
-> -				jiffies + BRCMF_WD_POLL_MS * HZ / 1000);
-> +				jiffies + msecs_to_jiffies(BRCMF_WD_POLL_MS));
->   		}
->
->   		bus->wd_timer_valid = true;
+here's one rtlwifi fix for 3.20. We have had two reports of this issue
+already, so it would be good to get this to -rc1 or -rc2.
+
+I rebased wireless-drivers on top of net-next, so this patch applies to
+net-next. I hope that's ok.
+
+Kalle
+
+The following changes since commit b0f9ca53cbb103e9240a29a974e0b6085e58f9f7:
+
+  ipv4: Namespecify TCP PMTU mechanism (2015-02-09 18:45:00 -0800)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/kvalo/wireless-drivers.git tags/wireless-drivers-for-davem-2015-02-11
+
+for you to fetch changes up to aeb2d2a4c0ae1739a6e1782bd8c1c96aee8db4e1:
+
+  rtlwifi: Remove logging statement that is no longer needed (2015-02-10 16:09:11 +0200)
+
+----------------------------------------------------------------
+rtlwifi:
+
+* remove superfluous warning message which is not needed anymore
+
+----------------------------------------------------------------
+Larry Finger (1):
+      rtlwifi: Remove logging statement that is no longer needed
+
+ drivers/net/wireless/rtlwifi/pci.c |    5 +----
+ 1 file changed, 1 insertion(+), 4 deletions(-)
