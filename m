@@ -1,42 +1,29 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [GIT PULL nf-next] IPVS Enhancements for v3.20
-Date: Thu, 12 Feb 2015 08:02:30 +0900
-Message-ID: <20150211230229.GD2096@verge.net.au>
-References: <1423549929-25064-1-git-send-email-horms@verge.net.au>
- <20150211151053.GA4698@salvia>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/7] net: Fixes to remote checksum offload and
+ CHECKSUM_PARTIAL
+Date: Wed, 11 Feb 2015 15:18:09 -0800 (PST)
+Message-ID: <20150211.151809.2198174178164809226.davem@davemloft.net>
+References: <1423614633-25042-1-git-send-email-therbert@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150211151053.GA4698@salvia>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: therbert@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:52210 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753530AbbBKXLO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Feb 2015 18:11:14 -0500
+In-Reply-To: <1423614633-25042-1-git-send-email-therbert@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 11, 2015 at 04:10:53PM +0100, Pablo Neira Ayuso wrote:
-> On Tue, Feb 10, 2015 at 03:32:08PM +0900, Simon Horman wrote:
-> > Hi Pablo,
-> > 
-> > please consider this enhancement for v3.20.
-> > 
-> > It adds support for 64-bit rates in IPVS statistics.
-> > 
-> > 
-> > The following changes since commit 4c1017aa80c95a74703139bb95c4ce0d130efe4d:
-> > 
-> >   netfilter: nft_lookup: add missing attribute validation for NFTA_LOOKUP_SET_ID (2015-01-30 19:08:20 +0100)
-> > 
-> > are available in the git repository at:
-> > 
-> >   https://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs-next.git tags/ipvs-for-v3.20
-> 
-> Pulled, thanks.
-> 
-> If merge window closes (I still have a little pending request), I'll
-> keep this in nf-next until it reopens again for the next round.
+From: Tom Herbert <therbert@google.com>
+Date: Tue, 10 Feb 2015 16:30:26 -0800
 
-Thanks, there is no urgency for this change AFIC.
+> This patch set fixes a correctness problem with remote checksum
+> offload, clarifies the meaning of CHECKSUM_PARTIAL, and allows
+> remote checksum offload to set CHECKSUM_PARTIAL instead of
+> calling csum_partial and modifying the checksum.
+
+Series applied, thanks Tom.
