@@ -1,83 +1,34 @@
-From: Tom Herbert <therbert@google.com>
-Subject: [PATCH net-next 3/7] udp: Set SKB_GSO_UDP_TUNNEL* in UDP GRO path
-Date: Tue, 10 Feb 2015 16:30:29 -0800
-Message-ID: <1423614633-25042-4-git-send-email-therbert@google.com>
-References: <1423614633-25042-1-git-send-email-therbert@google.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH net-next 1/7] ebpf: remove kernel test stubs
+Date: Tue, 10 Feb 2015 16:42:13 -0800
+Message-ID: <CAMEtUuwPNZdDaAZb67Sev2XmnwsdAyO4O5r7hWwaPsONoTYu6Q@mail.gmail.com>
+References: <cover.1423610452.git.daniel@iogearbox.net> <0772f0348f40e517e19a838877f417b8932b95a9.1423610452.git.daniel@iogearbox.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: =?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
+	Network Development <netdev@vger.kernel.org>
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f178.google.com ([209.85.213.178]:56800 "EHLO
-	mail-ig0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752071AbbBKAau (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Feb 2015 19:30:50 -0500
-Received: by mail-ig0-f178.google.com with SMTP id hl2so1267306igb.5
-        for <netdev@vger.kernel.org>; Tue, 10 Feb 2015 16:30:49 -0800 (PST)
-In-Reply-To: <1423614633-25042-1-git-send-email-therbert@google.com>
+Received: from mail-qa0-f43.google.com ([209.85.216.43]:52069 "EHLO
+	mail-qa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751519AbbBKAme (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Feb 2015 19:42:34 -0500
+Received: by mail-qa0-f43.google.com with SMTP id bm13so374146qab.2
+        for <netdev@vger.kernel.org>; Tue, 10 Feb 2015 16:42:33 -0800 (PST)
+In-Reply-To: <0772f0348f40e517e19a838877f417b8932b95a9.1423610452.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Properly set GSO types and skb->encapsulation in the UDP tunnel GRO
-complete so that packets are properly represented for GSO. This sets
-SKB_GSO_UDP_TUNNEL or SKB_GSO_UDP_TUNNEL_CSUM depending on whether
-non-zero checksums were received, and sets SKB_GSO_TUNNEL_REMCSUM if
-the remote checksum option was processed.
+On Tue, Feb 10, 2015 at 4:15 PM, Daniel Borkmann <daniel@iogearbox.net> wrote:
+> Now that we have BPF_PROG_TYPE_SOCKET_FILTER up and running,
+> we can remove the test stubs which were added to get the
+> verifier suite up. We can just let the test cases probe under
+> socket filter type instead. In the fill/spill test case, we
+> cannot (yet) access fields from the context (skb), but we may
+> adapt that test case in future.
+>
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
 
-Signed-off-by: Tom Herbert <therbert@google.com>
----
- net/ipv4/udp_offload.c | 13 ++++++++++++-
- net/ipv6/udp_offload.c |  6 +++++-
- 2 files changed, 17 insertions(+), 2 deletions(-)
+Acked-by: Alexei Starovoitov <ast@plumgrid.com>
 
-diff --git a/net/ipv4/udp_offload.c b/net/ipv4/udp_offload.c
-index d10f6f4..4915d82 100644
---- a/net/ipv4/udp_offload.c
-+++ b/net/ipv4/udp_offload.c
-@@ -402,6 +402,13 @@ int udp_gro_complete(struct sk_buff *skb, int nhoff)
- 	}
- 
- 	rcu_read_unlock();
-+
-+	if (skb->remcsum_offload)
-+		skb_shinfo(skb)->gso_type |= SKB_GSO_TUNNEL_REMCSUM;
-+
-+	skb->encapsulation = 1;
-+	skb_set_inner_mac_header(skb, nhoff + sizeof(struct udphdr));
-+
- 	return err;
- }
- 
-@@ -410,9 +417,13 @@ static int udp4_gro_complete(struct sk_buff *skb, int nhoff)
- 	const struct iphdr *iph = ip_hdr(skb);
- 	struct udphdr *uh = (struct udphdr *)(skb->data + nhoff);
- 
--	if (uh->check)
-+	if (uh->check) {
-+		skb_shinfo(skb)->gso_type |= SKB_GSO_UDP_TUNNEL_CSUM;
- 		uh->check = ~udp_v4_check(skb->len - nhoff, iph->saddr,
- 					  iph->daddr, 0);
-+	} else {
-+		skb_shinfo(skb)->gso_type |= SKB_GSO_UDP_TUNNEL;
-+	}
- 
- 	return udp_gro_complete(skb, nhoff);
- }
-diff --git a/net/ipv6/udp_offload.c b/net/ipv6/udp_offload.c
-index a562769..ab889bb 100644
---- a/net/ipv6/udp_offload.c
-+++ b/net/ipv6/udp_offload.c
-@@ -161,9 +161,13 @@ static int udp6_gro_complete(struct sk_buff *skb, int nhoff)
- 	const struct ipv6hdr *ipv6h = ipv6_hdr(skb);
- 	struct udphdr *uh = (struct udphdr *)(skb->data + nhoff);
- 
--	if (uh->check)
-+	if (uh->check) {
-+		skb_shinfo(skb)->gso_type |= SKB_GSO_UDP_TUNNEL_CSUM;
- 		uh->check = ~udp_v6_check(skb->len - nhoff, &ipv6h->saddr,
- 					  &ipv6h->daddr, 0);
-+	} else {
-+		skb_shinfo(skb)->gso_type |= SKB_GSO_UDP_TUNNEL;
-+	}
- 
- 	return udp_gro_complete(skb, nhoff);
- }
--- 
-2.2.0.rc0.207.ga3a616c
+has been on my todo list for a while. Thanks a bunch!
