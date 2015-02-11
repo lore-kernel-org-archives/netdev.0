@@ -1,60 +1,90 @@
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: Re: [GIT] Networking
-Date: Wed, 11 Feb 2015 01:45:02 +0000
-Message-ID: <20150211014502.GB29656@ZenIV.linux.org.uk>
-References: <20150209.191601.1373941323785500419.davem@davemloft.net>
- <CA+55aFxskyQ2CkLJ8c_LDkjTY+kKSJ5N6JPjhewGYXsXcHg7nw@mail.gmail.com>
- <20150209.205209.1524645061817000265.davem@davemloft.net>
- <CA+55aFxrGRjL_d=aCZQ0sNC+pfW8nYDLb4KkUVAme5oHmjBjTw@mail.gmail.com>
- <CA+55aFwxuMcNPU-C5p2hSWuNhJW+DOi3Py0NQ--Rw9_bv3md2w@mail.gmail.com>
- <CA+55aFzJNNDi0YKXnNYF=ccYvXALRxzngiV1tARd6CdCimVRYg@mail.gmail.com>
- <CA+55aFyqFrf9cRQ7wDSDLNraR+meZ-=dwWdDThtpPtrFFqrcGw@mail.gmail.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH net-next 6/7] ebpf: remove CONFIG_BPF_SYSCALL ifdefs in
+ socket filter code
+Date: Tue, 10 Feb 2015 17:51:14 -0800
+Message-ID: <CAMEtUuzruMSO7zwhYLfVdO0=YN_dJ+pLAoEg_pCVT8FT=DRz_Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CA+55aFyqFrf9cRQ7wDSDLNraR+meZ-=dwWdDThtpPtrFFqrcGw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: =?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
+	Network Development <netdev@vger.kernel.org>
+To: Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qa0-f51.google.com ([209.85.216.51]:49158 "EHLO
+	mail-qa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750986AbbBKBvg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Feb 2015 20:51:36 -0500
+Received: by mail-qa0-f51.google.com with SMTP id i13so525271qae.10
+        for <netdev@vger.kernel.org>; Tue, 10 Feb 2015 17:51:36 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 10, 2015 at 01:50:16PM -0800, Linus Torvalds wrote:
-> On Tue, Feb 10, 2015 at 1:26 PM, Linus Torvalds
-> <torvalds@linux-foundation.org> wrote:
-> >
-> > Just to confirm that yes, it's that particular commit 1d10eb2f156f.
-> >
-> > I reverted it and things work again. So it's not the miscalculation of
-> > "used" , but it's certainly *something* in that commit.
-> 
-> How about this?
-> 
-> -       npages = (off + len + PAGE_SIZE - 1) >> PAGE_SHIFT;
-> +       npages = PAGE_ALIGN(off + n);
-> 
-> The two are not even *remotely* the same thing.
+On Tue, Feb 10, 2015 at 4:15 PM, Daniel Borkmann <daniel@iogearbox.net> wrote:
+> Socket filter code and other subsystems with upcoming eBPF support
+> should not need to deal with the fact that we have CONFIG_BPF_SYSCALL
+> defined or not. Having the bpf syscall as a config option is a nice
+> thing and I'd expect it to stay that way for expert users (I presume
+> one day the default setting of it might change, though), but code
+> making use of it should not care if it's actually enabled or not.
+> Instead, hide this via header files and let the rest deal with it.
+>
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+> ---
+>  include/linux/bpf.h |  27 +++++++--
+>  net/core/filter.c   | 166 ++++++++++++++++++++++++----------------------------
+>  2 files changed, 100 insertions(+), 93 deletions(-)
+>
+> diff --git a/include/linux/bpf.h b/include/linux/bpf.h
+> index 4fe1bd3..def0103 100644
+> --- a/include/linux/bpf.h
+> +++ b/include/linux/bpf.h
+> @@ -114,9 +114,6 @@ struct bpf_prog_type_list {
+>         enum bpf_prog_type type;
+>  };
+>
+> -int bpf_register_prog_type(struct bpf_prog_type_list *tl);
+> -void bpf_unregister_prog_type(struct bpf_prog_type_list *tl);
+> -
+>  struct bpf_prog;
+>
+>  struct bpf_prog_aux {
+> @@ -130,11 +127,31 @@ struct bpf_prog_aux {
+>  };
+>
+>  #ifdef CONFIG_BPF_SYSCALL
+> +int bpf_register_prog_type(struct bpf_prog_type_list *tl);
+> +void bpf_unregister_prog_type(struct bpf_prog_type_list *tl);
+> +
+>  void bpf_prog_put(struct bpf_prog *prog);
+> +struct bpf_prog *bpf_prog_get(u32 ufd);
+>  #else
+> -static inline void bpf_prog_put(struct bpf_prog *prog) {}
+> +static inline int bpf_register_prog_type(struct bpf_prog_type_list *tl)
+> +{
+> +       return 0;
+> +}
+> +
+> +static inline void bpf_unregister_prog_type(struct bpf_prog_type_list *tl)
+> +{
+> +}
+> +
+> +static inline struct bpf_prog *bpf_prog_get(u32 ufd)
+> +{
+> +       return ERR_PTR(-EOPNOTSUPP);
+> +}
+> +
+> +static inline void bpf_prog_put(struct bpf_prog *prog)
+> +{
+> +}
+>  #endif
+> -struct bpf_prog *bpf_prog_get(u32 ufd);
 
-The latter isn't a replacement for the former, but yes, it is bogus - bytes
-instead of pages.  
+makes sense. I have similar change for bpf+tracing.
 
-Could you check if
+> -#ifdef CONFIG_BPF_SYSCALL
+> -int sk_attach_bpf(u32 ufd, struct sock *sk)
+> -{
+> -       struct sk_filter *fp, *old_fp;
+> -       struct bpf_prog *prog;
 
-diff --git a/crypto/af_alg.c b/crypto/af_alg.c
-index eb78fe8..5b11d64 100644
---- a/crypto/af_alg.c
-+++ b/crypto/af_alg.c
-@@ -348,7 +348,7 @@ int af_alg_make_sg(struct af_alg_sgl *sgl, struct iov_iter *iter, int len)
- 	if (n < 0)
- 		return n;
- 
--	npages = PAGE_ALIGN(off + n);
-+	npages = DIV_ROUND_UP(off + n, PAGE_SIZE);
- 	if (WARN_ON(npages == 0))
- 		return -EINVAL;
- 
-
-on top of what went into Dave's tree is enough to fix what you are seeing?
+why move the functions inside filter.c ?
+couldn't we just remove two lines with #ifdef/endif ?
