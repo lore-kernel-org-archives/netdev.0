@@ -1,381 +1,342 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net-next 4/7] ebpf: extend program type/subsystem registration
-Date: Wed, 11 Feb 2015 01:15:15 +0100
-Message-ID: <baa683b81a4d4e69ba5a4f841f40daa84258011f.1423610452.git.daniel@iogearbox.net>
-References: <cover.1423610452.git.daniel@iogearbox.net>
-Cc: ast@plumgrid.com, netdev@vger.kernel.org,
-	Daniel Borkmann <daniel@iogearbox.net>
-To: jiri@resnulli.us
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:56172 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751421AbbBKAPf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Feb 2015 19:15:35 -0500
-In-Reply-To: <cover.1423610452.git.daniel@iogearbox.net>
-In-Reply-To: <cover.1423610452.git.daniel@iogearbox.net>
-References: <cover.1423610452.git.daniel@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH v3 linux-trace 1/8] tracing: attach eBPF programs to
+ tracepoints and syscalls
+Date: Tue, 10 Feb 2015 16:22:50 -0800
+Message-ID: <CAMEtUuzY_Po=WtFEFg1aqzJ8dEF4rHGcWDsaS44KYgACMNPPgA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Ingo Molnar <mingo@kernel.org>, Namhyung Kim <namhyung@kernel.org>,
+	Arnaldo Carvalho de Melo <acme@infradead.org>,
+	Jiri Olsa <jolsa@redhat.com>,
+	Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>,
+	Linux API <linux-api@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Peter Zijlstra <peterz@infradead.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>
+To: Steven Rostedt <rostedt@goodmis.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-When various subsystems/modules start to make use of ebpf
-e.g. cls_bpf, act_bpf, ovs, ... we need to make sure, they
-can register their program types only once.
+On Tue, Feb 10, 2015 at 1:53 PM, Steven Rostedt <rostedt@goodmis.org> wrote:
+> On Tue, 10 Feb 2015 11:53:22 -0800
+> Alexei Starovoitov <ast@plumgrid.com> wrote:
+>
+>> On Tue, Feb 10, 2015 at 5:05 AM, Steven Rostedt <rostedt@goodmis.org> wrote:
+>> > On Mon, 9 Feb 2015 22:10:45 -0800
+>> > Alexei Starovoitov <ast@plumgrid.com> wrote:
+>> >
+>> >> One can argue that current TP_printk format is already an ABI,
+>> >> because somebody might be parsing the text output.
+>> >
+>> > If somebody does, then it is an ABI. Luckily, it's not that useful to
+>> > parse, thus it hasn't been an issue. As Linus has stated in the past,
+>> > it's not that we can't change ABI interfaces, its just that we can not
+>> > change them if there's a user space application that depends on it.
+>>
+>> there are already tools that parse trace_pipe:
+>> https://github.com/brendangregg/perf-tools
+>
+> Yep, and if this becomes a standard, then any change that makes
+> trace_pipe different will be reverted.
 
-Moreover, we also need to serialize various registrations,
-currently program type registration is being done without
-locks. (We should make sure to not race in future when we
-allow registration from modules.)
+I think reading of trace_pipe is widespread.
 
-Last but not least, we need to be able to register subsystems
-from module context as it's not sufficient to have them only
-as built-in at all time. Built-in subsystems don't need to
-provide an owner though.
+>> > and expect some events to have specific fields. Now we can add new
+>> > fields, or even remove fields that no user space tool is using. This is
+>> > because today, tools use libtraceevent to parse the event data.
+>>
+>> not all tools use libtraceevent.
+>> gdb calls perf_event_open directly:
+>> https://sourceware.org/git/gitweb.cgi?p=binutils-gdb.git;a=blob;f=gdb/nat/linux-btrace.c
+>> and parses PERF_RECORD_SAMPLE as a binary.
+>> In this case it's branch records, but I think we never said anywhere
+>> that PERF_SAMPLE_IP | PERF_SAMPLE_ADDR should come
+>> in this particular order.
+>
+> What particular order? Note, that's a hardware event, not a software
+> one.
 
-Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
----
- include/linux/bpf.h   | 11 +++----
- kernel/bpf/helpers.c  |  3 ++
- kernel/bpf/syscall.c  | 79 +++++++++++++++++++++++++++++++++++++++------------
- kernel/bpf/verifier.c | 15 +++++-----
- net/core/filter.c     |  9 +++---
- 5 files changed, 83 insertions(+), 34 deletions(-)
+yes, but gdb assumes that 'u64 ip' precedes, 'u64 addr'
+when attr.sample_type = IP | ADDR whereas this is an
+internal order of 'if' statements inside perf_output_sample()...
 
-diff --git a/include/linux/bpf.h b/include/linux/bpf.h
-index 7844686..4fe1bd3 100644
---- a/include/linux/bpf.h
-+++ b/include/linux/bpf.h
-@@ -110,21 +110,22 @@ struct bpf_verifier_ops {
- struct bpf_prog_type_list {
- 	struct list_head list_node;
- 	const struct bpf_verifier_ops *ops;
-+	struct module *owner;
- 	enum bpf_prog_type type;
- };
- 
--void bpf_register_prog_type(struct bpf_prog_type_list *tl);
-+int bpf_register_prog_type(struct bpf_prog_type_list *tl);
-+void bpf_unregister_prog_type(struct bpf_prog_type_list *tl);
- 
- struct bpf_prog;
- 
- struct bpf_prog_aux {
- 	atomic_t refcnt;
--	bool is_gpl_compatible;
--	enum bpf_prog_type prog_type;
--	const struct bpf_verifier_ops *ops;
-+	bool gpl_compatible;
-+	const struct bpf_prog_type_list *tl;
-+	struct bpf_prog *prog;
- 	struct bpf_map **used_maps;
- 	u32 used_map_cnt;
--	struct bpf_prog *prog;
- 	struct work_struct work;
- };
- 
-diff --git a/kernel/bpf/helpers.c b/kernel/bpf/helpers.c
-index a3c7701..58efb27 100644
---- a/kernel/bpf/helpers.c
-+++ b/kernel/bpf/helpers.c
-@@ -48,6 +48,7 @@ const struct bpf_func_proto bpf_map_lookup_elem_proto = {
- 	.arg1_type = ARG_CONST_MAP_PTR,
- 	.arg2_type = ARG_PTR_TO_MAP_KEY,
- };
-+EXPORT_SYMBOL_GPL(bpf_map_lookup_elem_proto);
- 
- static u64 bpf_map_update_elem(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
- {
-@@ -69,6 +70,7 @@ const struct bpf_func_proto bpf_map_update_elem_proto = {
- 	.arg3_type = ARG_PTR_TO_MAP_VALUE,
- 	.arg4_type = ARG_ANYTHING,
- };
-+EXPORT_SYMBOL_GPL(bpf_map_update_elem_proto);
- 
- static u64 bpf_map_delete_elem(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
- {
-@@ -87,3 +89,4 @@ const struct bpf_func_proto bpf_map_delete_elem_proto = {
- 	.arg1_type = ARG_CONST_MAP_PTR,
- 	.arg2_type = ARG_PTR_TO_MAP_KEY,
- };
-+EXPORT_SYMBOL_GPL(bpf_map_delete_elem_proto);
-diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
-index 73b105c..bacec89 100644
---- a/kernel/bpf/syscall.c
-+++ b/kernel/bpf/syscall.c
-@@ -15,6 +15,7 @@
- #include <linux/anon_inodes.h>
- #include <linux/file.h>
- #include <linux/license.h>
-+#include <linux/module.h>
- #include <linux/filter.h>
- 
- static LIST_HEAD(bpf_map_types);
-@@ -102,7 +103,6 @@ static int map_create(union bpf_attr *attr)
- 	atomic_set(&map->refcnt, 1);
- 
- 	err = anon_inode_getfd("bpf-map", &bpf_map_fops, map, O_RDWR | O_CLOEXEC);
--
- 	if (err < 0)
- 		/* failed to allocate fd */
- 		goto free_map;
-@@ -345,26 +345,61 @@ err_put:
- 	return err;
- }
- 
-+static DEFINE_SPINLOCK(bpf_prog_types_lock);
- static LIST_HEAD(bpf_prog_types);
- 
--static int find_prog_type(enum bpf_prog_type type, struct bpf_prog *prog)
-+static void bpf_put_prog_type(const struct bpf_prog_type_list *tl)
-+{
-+	module_put(tl->owner);
-+}
-+
-+static const struct bpf_prog_type_list *find_prog_type(enum bpf_prog_type type,
-+						       bool get_ref)
- {
--	struct bpf_prog_type_list *tl;
-+	struct bpf_prog_type_list *tl, *ret = NULL;
- 
--	list_for_each_entry(tl, &bpf_prog_types, list_node) {
-+	rcu_read_lock();
-+	list_for_each_entry_rcu(tl, &bpf_prog_types, list_node) {
- 		if (tl->type == type) {
--			prog->aux->ops = tl->ops;
--			prog->aux->prog_type = type;
--			return 0;
-+			if (!get_ref || try_module_get(tl->owner))
-+				ret = tl;
-+			break;
- 		}
- 	}
--	return -EINVAL;
-+	rcu_read_unlock();
-+
-+	return ret;
-+}
-+
-+int bpf_register_prog_type(struct bpf_prog_type_list *tl)
-+{
-+	if (find_prog_type(tl->type, false))
-+		return -EBUSY;
-+
-+	spin_lock(&bpf_prog_types_lock);
-+	list_add_tail_rcu(&tl->list_node, &bpf_prog_types);
-+	spin_unlock(&bpf_prog_types_lock);
-+
-+	return 0;
- }
-+EXPORT_SYMBOL_GPL(bpf_register_prog_type);
- 
--void bpf_register_prog_type(struct bpf_prog_type_list *tl)
-+void bpf_unregister_prog_type(struct bpf_prog_type_list *tl)
- {
--	list_add(&tl->list_node, &bpf_prog_types);
-+	spin_lock(&bpf_prog_types_lock);
-+	list_del_rcu(&tl->list_node);
-+	spin_unlock(&bpf_prog_types_lock);
-+
-+	/* Wait for outstanding readers to complete before a prog
-+	 * type from a module gets removed entirely.
-+	 *
-+	 * A try_module_get() should fail by now as our module is
-+	 * in "going" state since no refs are held anymore and
-+	 * module_exit() handler being called.
-+	 */
-+	synchronize_rcu();
- }
-+EXPORT_SYMBOL_GPL(bpf_unregister_prog_type);
- 
- /* fixup insn->imm field of bpf_call instructions:
-  * if (insn->imm == BPF_FUNC_map_lookup_elem)
-@@ -384,13 +419,15 @@ static void fixup_bpf_calls(struct bpf_prog *prog)
- 		struct bpf_insn *insn = &prog->insnsi[i];
- 
- 		if (insn->code == (BPF_JMP | BPF_CALL)) {
-+			const struct bpf_verifier_ops *ops = prog->aux->tl->ops;
-+
- 			/* we reach here when program has bpf_call instructions
- 			 * and it passed bpf_check(), means that
- 			 * ops->get_func_proto must have been supplied, check it
- 			 */
--			BUG_ON(!prog->aux->ops->get_func_proto);
-+			BUG_ON(!ops->get_func_proto);
- 
--			fn = prog->aux->ops->get_func_proto(insn->imm);
-+			fn = ops->get_func_proto(insn->imm);
- 			/* all functions that have prototype and verifier allowed
- 			 * programs to call them, must be real in-kernel functions
- 			 */
-@@ -414,10 +451,12 @@ static void free_used_maps(struct bpf_prog_aux *aux)
- void bpf_prog_put(struct bpf_prog *prog)
- {
- 	if (atomic_dec_and_test(&prog->aux->refcnt)) {
-+		bpf_put_prog_type(prog->aux->tl);
- 		free_used_maps(prog->aux);
- 		bpf_prog_free(prog);
- 	}
- }
-+EXPORT_SYMBOL_GPL(bpf_prog_put);
- 
- static int bpf_prog_release(struct inode *inode, struct file *filp)
- {
-@@ -457,7 +496,6 @@ struct bpf_prog *bpf_prog_get(u32 ufd)
- 	struct bpf_prog *prog;
- 
- 	prog = get_prog(f);
--
- 	if (IS_ERR(prog))
- 		return prog;
- 
-@@ -465,6 +503,7 @@ struct bpf_prog *bpf_prog_get(u32 ufd)
- 	fdput(f);
- 	return prog;
- }
-+EXPORT_SYMBOL_GPL(bpf_prog_get);
- 
- /* last field in 'union bpf_attr' used by this command */
- #define	BPF_PROG_LOAD_LAST_FIELD log_buf
-@@ -472,6 +511,7 @@ struct bpf_prog *bpf_prog_get(u32 ufd)
- static int bpf_prog_load(union bpf_attr *attr)
- {
- 	enum bpf_prog_type type = attr->prog_type;
-+	const struct bpf_prog_type_list *tl;
- 	struct bpf_prog *prog;
- 	char license[128];
- 	bool is_gpl;
-@@ -509,16 +549,19 @@ static int bpf_prog_load(union bpf_attr *attr)
- 	prog->jited = false;
- 
- 	atomic_set(&prog->aux->refcnt, 1);
--	prog->aux->is_gpl_compatible = is_gpl;
-+	prog->aux->gpl_compatible = is_gpl;
- 
- 	/* find program type: socket_filter vs tracing_filter */
--	err = find_prog_type(type, prog);
--	if (err < 0)
-+	tl = find_prog_type(type, true);
-+	if (!tl) {
-+		err = -EINVAL;
- 		goto free_prog;
-+	}
-+
-+	prog->aux->tl = tl;
- 
- 	/* run eBPF verifier */
- 	err = bpf_check(prog, attr);
--
- 	if (err < 0)
- 		goto free_used_maps;
- 
-@@ -529,7 +572,6 @@ static int bpf_prog_load(union bpf_attr *attr)
- 	bpf_prog_select_runtime(prog);
- 
- 	err = anon_inode_getfd("bpf-prog", &bpf_prog_fops, prog, O_RDWR | O_CLOEXEC);
--
- 	if (err < 0)
- 		/* failed to allocate fd */
- 		goto free_used_maps;
-@@ -537,6 +579,7 @@ static int bpf_prog_load(union bpf_attr *attr)
- 	return err;
- 
- free_used_maps:
-+	bpf_put_prog_type(prog->aux->tl);
- 	free_used_maps(prog->aux);
- free_prog:
- 	bpf_prog_free(prog);
-diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
-index a28e09c..857e2fc 100644
---- a/kernel/bpf/verifier.c
-+++ b/kernel/bpf/verifier.c
-@@ -627,8 +627,9 @@ static int check_map_access(struct verifier_env *env, u32 regno, int off,
- static int check_ctx_access(struct verifier_env *env, int off, int size,
- 			    enum bpf_access_type t)
- {
--	if (env->prog->aux->ops->is_valid_access &&
--	    env->prog->aux->ops->is_valid_access(off, size, t))
-+	const struct bpf_verifier_ops *ops = env->prog->aux->tl->ops;
-+
-+	if (ops->is_valid_access && ops->is_valid_access(off, size, t))
- 		return 0;
- 
- 	verbose("invalid bpf_context access off=%d size=%d\n", off, size);
-@@ -831,6 +832,7 @@ static int check_func_arg(struct verifier_env *env, u32 regno,
- static int check_call(struct verifier_env *env, int func_id)
- {
- 	struct verifier_state *state = &env->cur_state;
-+	const struct bpf_verifier_ops *ops = env->prog->aux->tl->ops;
- 	const struct bpf_func_proto *fn = NULL;
- 	struct reg_state *regs = state->regs;
- 	struct bpf_map *map = NULL;
-@@ -843,16 +845,15 @@ static int check_call(struct verifier_env *env, int func_id)
- 		return -EINVAL;
- 	}
- 
--	if (env->prog->aux->ops->get_func_proto)
--		fn = env->prog->aux->ops->get_func_proto(func_id);
--
-+	if (ops->get_func_proto)
-+		fn = ops->get_func_proto(func_id);
- 	if (!fn) {
- 		verbose("unknown func %d\n", func_id);
- 		return -EINVAL;
- 	}
- 
- 	/* eBPF programs must be GPL compatible to use GPL-ed functions */
--	if (!env->prog->aux->is_gpl_compatible && fn->gpl_only) {
-+	if (!env->prog->aux->gpl_compatible && fn->gpl_only) {
- 		verbose("cannot call GPL only function from proprietary program\n");
- 		return -EINVAL;
- 	}
-@@ -1194,7 +1195,7 @@ static int check_ld_abs(struct verifier_env *env, struct bpf_insn *insn)
- 	struct reg_state *reg;
- 	int i, err;
- 
--	if (env->prog->aux->prog_type != BPF_PROG_TYPE_SOCKET_FILTER) {
-+	if (env->prog->aux->tl->type != BPF_PROG_TYPE_SOCKET_FILTER) {
- 		verbose("BPF_LD_ABS|IND instructions are only allowed in socket filters\n");
- 		return -EINVAL;
- 	}
-diff --git a/net/core/filter.c b/net/core/filter.c
-index e823da5..d76560f 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -814,7 +814,8 @@ static void bpf_release_orig_filter(struct bpf_prog *fp)
- 
- static void __bpf_prog_release(struct bpf_prog *prog)
- {
--	if (prog->aux->prog_type == BPF_PROG_TYPE_SOCKET_FILTER) {
-+	if (prog->aux->tl &&
-+	    prog->aux->tl->type == BPF_PROG_TYPE_SOCKET_FILTER) {
- 		bpf_prog_put(prog);
- 	} else {
- 		bpf_release_orig_filter(prog);
-@@ -1106,7 +1107,7 @@ int sk_attach_bpf(u32 ufd, struct sock *sk)
- 	if (IS_ERR(prog))
- 		return PTR_ERR(prog);
- 
--	if (prog->aux->prog_type != BPF_PROG_TYPE_SOCKET_FILTER) {
-+	if (prog->aux->tl->type != BPF_PROG_TYPE_SOCKET_FILTER) {
- 		/* valid fd, but invalid program type */
- 		bpf_prog_put(prog);
- 		return -EINVAL;
-@@ -1171,8 +1172,7 @@ static struct bpf_prog_type_list sock_filter_type __read_mostly = {
- 
- static int __init register_sock_filter_ops(void)
- {
--	bpf_register_prog_type(&sock_filter_type);
--	return 0;
-+	return bpf_register_prog_type(&sock_filter_type);
- }
- late_initcall(register_sock_filter_ops);
- #else
-@@ -1181,6 +1181,7 @@ int sk_attach_bpf(u32 ufd, struct sock *sk)
- 	return -EOPNOTSUPP;
- }
- #endif
-+
- int sk_detach_filter(struct sock *sk)
- {
- 	int ret = -ENOENT;
--- 
-1.9.3
+>> But some maintainers think of them as ABI, whereas others
+>> are using them freely. imo it's time to remove ambiguity.
+>
+> I would love to, and have brought this up at Kernel Summit more than
+> once with no solution out of it.
+
+let's try it again at plumbers in august?
+
+For now I'm going to drop bpf+tracepoints, since it's so controversial
+and go with bpf+syscall and bpf+kprobe only.
+
+Hopefully by august it will be clear what bpf+kprobes can do
+and why I'm excited about bpf+tracepoints in the future.
+
+>> The idea for new style of tracepoints is the following:
+>> introduce new macro: DEFINE_EVENT_USER
+>> and let programs attach to them.
+>
+> We actually have that today. But it's TRACE_EVENT_FLAGS(), although
+> that should be cleaned up a bit. Frederic added it to label events that
+> are safe for perf non root. It seems to be used currently only for
+> syscalls.
+
+I didn't mean to let unprivileged apps to use.
+Better name probably would be: DEFINE_EVENT_BPF
+and only let bpf programs use it.
+
+>> These tracepoint will receive one or two pointers to important
+>> structs only. They will not have TP_printk, assign and fields.
+>> The placement and arguments to these new tracepoints
+>> will be an ABI.
+>> All existing tracepoints are not.
+>
+> TP_printk() is not really an issue.
+
+I think it is. The way things are printed is the most
+visible part of tracepoints and I suspect maintainers don't
+want to add new ones, because internal fields are printed
+and users do parse trace_pipe.
+Recent discussion about tcp instrumentation was
+about adding new tracepoints and a module to print them.
+As soon as something like this is in, the next question
+'what we're going to do when more arguments need
+to be printed'...
+
+imo the solution is DEFINE_EVENT_BPF that doesn't
+print anything and a bpf program to process it.
+Then programs decide what they like to pass to
+user space and in what format.
+The kernel/user ABI is the position of this new tracepoint
+and arguments that are passed in.
+bpf program takes care of walking pointers, extracting
+interesting fields, aggregating and passing them to
+user in the format specific to this particular program.
+Then when user wants to collect more fields it just
+changes the program and corresponding userland side.
+
+>> The position of new tracepoints and their arguments
+>> will be an ABI and the programs can be both.
+>
+> You means "special tracepoints" one that does export the arguments?
+>
+> Question is, how many maintainers will add these, knowing that they
+> will have to be forever maintained as is.
+
+Obviously we would need to prove usefulness of
+tracepoint_bpf before they're accepted.
+Hopefully bpf+kprobe will make an impression on its own
+and users would want similar but without debug info.
+
+>> If program is using bpf_fetch*() helpers it obviously
+>> wants to access internal data structures, so
+>> it's really nothing more, but 'safe kernel module'
+>> and kernel layout specific.
+>> Both old and new tracepoints + programs will be used
+>> for live kernel debugging.
+>>
+>> If program is accessing user-ized data structures then
+>
+> Technically, the TP_struct__entry is a user-ized structure.
+>
+>> it is portable and will run on any kernel.
+>> In uapi header we can define:
+>> struct task_struct_user {
+>>   int pid;
+>>   int prio;
+>
+> Here's a perfect example of something that looks stable to show to
+> user space, but is really a pimple that is hiding cancer.
+>
+> Lets start with pid. We have name spaces. What pid will be put there?
+> We have to show the pid of the name space it is under.
+>
+> Then we have prio. What is prio in the DEADLINE scheduler. It is rather
+> meaningless. Also, it is meaningless in SCHED_OTHER.
+>
+> Also note that even for SCHED_FIFO, the prio is used differently in the
+> kernel than it is in userspace. For the kernel, lower is higher.
+
+well, ->prio and ->pid are already printed by sched tracepoints
+and their meaning depends on scheduler. So users taking that
+into account.
+I'm not suggesting to preserve the meaning of 'pid' semantically
+in all cases. That's not what users would want anyway.
+I want to allow programs to access important fields and print
+them in more generic way than current TP_printk does.
+Then exposed ABI of such tracepoint_bpf is smaller than
+with current tracepoints.
+
+>> };
+>> and let bpf programs access it via real 'struct task_struct *'
+>> pointer passed into tracepoint.
+>> bpf loader will translate offsets and sizes used inside
+>> the program into real task_struct's offsets and loads.
+>
+> It would need to do more that that. It may have to calculate the value
+> that it returns, as the internal value may be different with different
+> kernels.
+
+back to 'prio'... the 'prio' accessible from the program
+should be the same 'prio' that we're storing inside task_struct.
+No extra conversions.
+The bpf-script for sched analytics would want to see
+the actual value to make sense of it.
+
+> But what if the userspace tool depends on that value returning
+> something meaningful. If it was meaningful in the past, it will have to
+> be meaningful in the future, even if the internals of the kernel make
+> it otherwise.
+
+in some cases... yes. if we make a poor choice of
+selecting fields for this 'task_struct_user' then some fields
+may disappear from real task_struct, and placeholders
+will be left in _user version.
+so exposed fields need to be thought through.
+
+In case of networking some of these choices were
+already made by classic bpf. Fields:
+protocol, pkttype, ifindex, hatype, mark, hash, queue_mapping
+have to be reference-able from 'skb' pointer.
+They can move from skb to some other struct, change
+their sizes, location within sk_buff, etc
+They can even disappear, but user visible
+struct sk_buff_user will still contain the above.
+
+> eBPF is very flexible, which means it is bound to have someone use it
+> in a way you never dreamed of, and that will be what bites you in the
+> end (pun intended).
+
+understood :)
+let's start slow then with bpf+syscall and bpf+kprobe only.
+
+>> also not all bpf programs are equal.
+>> bpf+existing tracepoint is not ABI
+>
+> Why not?
+
+well, because we want to see more tracepoints in the kernel.
+We're already struggling to add more.
+
+>> bpf+new tracepoint is ABI if programs are not using bpf_fetch
+>
+> How is this different?
+
+the new ones will be explicit by definition.
+
+>> bpf+syscall is ABI if programs are not using bpf_fetch
+>
+> Well, this is easy. As syscalls are ABI, and the tracepoints for them
+> match the ABI, it by default becomes an ABI.
+>
+>> bpf+kprobe is not ABI
+>
+> Right.
+>
+>> bpf+sockets is ABI
+>
+> Right, because sockets themselves are ABI.
+>
+>> At the end we want most of the programs to be written
+>> without assuming anything about kernel internals.
+>> But for live kernel debugging we will write programs
+>> very specific to given kernel layout.
+>
+> And here lies the trick. How do we differentiate applications for
+> everyday use from debugging tools? There's been times when debugging
+> tools have shown themselves as being so useful they become everyday
+> use tools.
+>
+>>
+>> We can categorize the above in non-ambigous via
+>> bpf program type.
+>> Programs with:
+>> BPF_PROG_TYPE_TRACEPOINT - not ABI
+>> BPF_PROG_TYPE_KPROBE - not ABI
+>> BPF_PROG_TYPE_SOCKET_FILTER - ABI
+>
+> Again, what enforces this? (hint, it's Linus)
+>
+>
+>>
+>> for my proposed 'new tracepoints' we can add type:
+>> BPF_PROG_TYPE_TRACEPOINT_USER - ABI
+>> and disallow calls to bpf_fetch*() for them.
+>> To make it more strict we can do kernel version check
+>> for all prog types that are 'not ABI', but is it really necessary?
+>
+> If we have something that makes it difficult for a tool to work from
+> one kernel to the next, or ever with different configs, where that tool
+> will never become a standard, then that should be good enough to keep
+> it from dictating user ABI.
+>
+> To give you an example, we thought about scrambling the trace event
+> field locations from boot to boot to keep tools from hard coding the
+> event layout. This may sound crazy, but developers out there are crazy.
+> And if you want to keep them from abusing interfaces, you just need to
+> be a bit more crazy than they are.
+
+that is indeed crazy. the point is understood.
+
+right now I cannot think of a solid way to prevent abuse
+of bpf+tracepoint, so just going to drop it for now.
+Cool things can be done with bpf+kprobe/syscall already.
+
+>> To summarize and consolidate other threads:
+>> - I will remove reading of PERF_SAMPLE_RAW in tracex1 example.
+>> it's really orthogonal to this whole discussion.
+>
+> Or yous libtraceevent ;-) We really need to finish that and package it
+> up for distros.
+
+sure. some sophisticated example can use it too.
+
+>> - will add more comments through out that just because
+>> programs can read tracepoint arguments, they shouldn't
+>> make any assumptions that args stays as-is from version to version
+>
+> We may need to find a way to actually keep it from being as is from
+> version to version even if the users do not change.
+>
+>> - will work on a patch to demonstrate how few in-kernel
+>> structures can be user-ized and how programs can access
+>> them in version-indepedent way
+>
+> It will be interesting to see what kernel structures can be user-ized
+> that are not already used by system calls.
+
+well, for networking, few fields I mentioned above would
+be enough for most of the programs.
+
+>> btw the concept of user-ized data structures already exists
+>> with classic bpf, since 'A = load -0x1000' is translated into
+>> 'A = skb->protocol'. I'm thinking of something similar
+>> but more generic and less obscure.
+>
+> I have to try to wrap my head around understanding the classic bpf, and
+> how "load -0x1000" translates to "skb->protocol". Is that documented
+> somewhere?
+
+well, the magic constants are in uapi/linux/filter.h
+load -0x1000 = skb->protocol
+load -0x1000 + 4 = skb->pkt_type
+load -0x1000 + 8 = skb->dev->ifindex
+for eBPF I want to clean it up in a way that user program
+will see:
+struct sk_buff_user {
+  int protocol;
+  int pkt_type;
+  int ifindex;
+ ...
+};
+and C code of bpf program will look normal: skb->ifindex.
+bpf loader will do verification and translation of
+'load skb_ptr+12' into sequence of loads with correct
+internal offsets.
+So struct sk_buff_user is only an interface. It won't exist
+in such layout in memory.
