@@ -1,28 +1,28 @@
 From: Families Need Support <infroact@gmail.com>
 Subject: (unknown)
-Date: Wed, 11 Feb 2015 14:04:20 +0000 (UTC)
-Message-ID: <2057673639.1948303.1423663460620.JavaMail.yahoo__40279.4474539862$1423664101$gmane$org@mail.yahoo.com>
+Date: Wed, 11 Feb 2015 14:05:09 +0000 (UTC)
+Message-ID: <964305373.1940728.1423663509165.JavaMail.yahoo@mail.yahoo.com>
 References: <30621137.1884641.1423647833492.JavaMail.yahoo@mail.yahoo.com> <1109740054.1864893.1423647909174.JavaMail.yahoo@mail.yahoo.com> <1249406237.1877387.1423647961694.JavaMail.yahoo@mail.yahoo.com> <1667746086.1875024.1423647982545.JavaMail.yahoo@mail.yahoo.com> <863580834.1871360.1423648003942.JavaMail.yahoo@mail.yahoo.com> <1296654407.1895857.1423648026481.JavaMail.yahoo@mail.yahoo.com> <851720584.1875236.1423648045506.JavaMail.yahoo@mail.yahoo.com> <445184285.1879800.1423648062670.JavaMail.yahoo@mail.yahoo.com> <1004449793.1876746.1423648096498.JavaMail.yahoo@mail.yahoo.com> <1337709823.1876984.1423648190399.JavaMail.yahoo@mail.yahoo.com> <667740828.1876158.1423648414775.JavaMail.yahoo@mail.yahoo.com> <1403720942.1869140.1423648449123.JavaMail.yahoo@mail.yahoo.com> <764438504.186
  1825.1423648476599.JavaMail.yahoo@mail.yahoo.com> <1839965261.1876025.1423648535845.JavaMail.yahoo@mail.yahoo.com> <2073976317.1885442.1423648650365.JavaMail.yahoo@mail.yahoo.com> <1282612537.1885451.1423648736538.JavaMail.yahoo@mail.yahoo.com> <1294366783.1872219.1423648797388.JavaMail.yahoo@mail.yahoo.com> <1090003485.1885723.1423648836928.JavaMail.yahoo@mail.yahoo.com> <1883106910.1868953.1423648883634.JavaMail.yahoo@mail.yahoo.com> <358080433.1859281.1423648932209.JavaMail.yahoo@mail.yahoo.com> <1789728049.1869278.1423648983048.JavaMail.yahoo@mail.yahoo.com> <79202601.1877806.1423649043724.JavaMail.yahoo@mail.yahoo.com> <1932565340.1879671.1423649106132.JavaMail.yahoo@mail.yahoo.com> <999703293.1876472.1423649152256.JavaMail.yahoo@mail.yahoo.com> <1785531808.1873454.1423649195471.Jav
  aMail.yahoo@mail.yahoo.com> <320920908.1873583.1423649242645.JavaMail.yahoo@mail.yahoo.com> <1480255761.1892794.1423649313534.JavaMail.yahoo@mail.yahoo.com> <717950724.1883801.1423649348341.JavaMail.yahoo@mail.yahoo.com> <1149337335.1887876.1423649374472.JavaMail.yahoo@mail.yahoo.com> <884429791.1880143.1423649432509.JavaMail.yahoo@mail.yahoo.com> <1153684619.1873276.1423649469930.JavaMail.yahoo@mail.yahoo.com> <591398253.1881945.1423649530670.JavaMail.yahoo@mail.yahoo.com> <1655904396.1863095.1423649577676.JavaMail.yahoo@mail.yahoo.com> <264674727.1887855.1423649606466.JavaMail.yahoo@mail.yahoo.com> <783718720.1890011.1423649816747.JavaMail.yahoo@mail.yahoo.com> <1833810928.1882872.1423649848791.JavaMail.yahoo@mail.yahoo.com> <1026071772.1865874.1423649880314.JavaMail.yahoo@mail.yahoo.c
  om> <1774136326.1884700.1423649914910.JavaMail.yahoo@mail.yahoo.com> <1081878933.1866087.1423649957509.JavaMail.yahoo@mail.yahoo.com> <98543979.1880977.1423650000547.JavaMail.yahoo@mail.yahoo.com> <397130580.1874363.1423650044457.JavaMail.yahoo@mail.yahoo.com> <1251494950.1881933.1423650081221.JavaMail.yahoo@mail.yahoo.com> <407345035.1872615.1423650126694.JavaMail.yahoo@mail.yahoo.com> <1551908488.1892801.1423650184851.JavaMail.yahoo@mail.yahoo.com> <751999654.1877888.1423650232345.JavaMail.yahoo@mail.yahoo.com> <895858585.1884039.1423650319768.JavaMail.yahoo@mail.yahoo.com> <2099448042.1878759.1423650370095.JavaMail.yahoo@mail.yahoo.com> <293236516.1888609.1423650872431.JavaMail.yahoo@mail.yahoo.com> <381667721.1892620.1423650932626.JavaMail.yahoo@mail.yahoo.com> <104022344.1881054.142
  3650994137.JavaMail.yahoo@mail.yahoo.com> <221932891.1867437.1423651067573.JavaMail.yahoo@mail.yahoo.com> <562303550.1879216.1423651106154.JavaMail.yahoo@mail.yahoo.com> <1607478433.1887429.1423651144586.JavaMail.yahoo@mail.yahoo.com> <1186216740.1898628.1423651183240.JavaMail.yahoo@mail.yahoo.com> <1789489223.1891033.1423651246940.JavaMail.yahoo@mail.yahoo.com> <1330425676.1879045.1423651306061.JavaMail.yahoo@mail.yahoo.com> <791892904.1866622.1423651366042.JavaMail.yahoo@mail.yahoo.com> <1623547921.1890725.1423651411872.JavaMail.yahoo@mail.yahoo.com> <7259691.1882729.1423651560207.JavaMail.yahoo@mail.yahoo.com> <1879232798.1883489.1423651612717.JavaMail.yahoo@mail.yahoo.com> <686394778.1879539.1423651659578.JavaMail.yahoo@mail.yahoo.com> <2065224882.1895140.1423651693538.JavaMail.yahoo
- @mail.ySubject:  Please volunteer for assistance view attached
+ @mail.ySubject:   Please volunteer for assistance view attached
 Reply-To: Families Need Support <maureen.m.staker@gmail.com>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
-	boundary="----=_Part_1948302_1482569624.1423663460620"
+	boundary="----=_Part_1940727_832044582.1423663509165"
 To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm39-vm6.bullet.mail.ne1.yahoo.com ([98.138.229.166]:53848 "EHLO
-	nm39-vm6.bullet.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752742AbbBKOOI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Feb 2015 09:14:08 -0500
-In-Reply-To: <105649434.1938158.1423663368208.JavaMail.yahoo@mail.yahoo.com>
+Received: from nm46-vm2.bullet.mail.ne1.yahoo.com ([98.138.121.82]:40785 "EHLO
+	nm46-vm2.bullet.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752915AbbBKOPY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Feb 2015 09:15:24 -0500
+In-Reply-To: <227571021.1933835.1423663444450.JavaMail.yahoo@mail.yahoo.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-------=_Part_1948302_1482569624.1423663460620
+------=_Part_1940727_832044582.1423663509165
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
 
@@ -32,7 +32,7 @@ Plz this is my family help is very urgent i need your quick response.
 Regards 
 Mrs. Maureen M Staker 
 dannystaker@gmail.com 
-------=_Part_1948302_1482569624.1423663460620
+------=_Part_1940727_832044582.1423663509165
 Content-Type: application/msword
 Content-Transfer-Encoding: base64
 Content-Disposition: attachment; filename="Maureen Mwanawasa Staker.doc"
@@ -6417,4 +6417,4 @@ AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==
 
-------=_Part_1948302_1482569624.1423663460620--
+------=_Part_1940727_832044582.1423663509165--
