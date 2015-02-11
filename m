@@ -1,40 +1,84 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: [GIT] Networking
-Date: Tue, 10 Feb 2015 20:09:29 -0800
-Message-ID: <CA+55aFyyMXWH1cfyB+fUX8jwngjzemiAgoZdKJogs_Pae9m+Xw@mail.gmail.com>
-References: <20150209.191601.1373941323785500419.davem@davemloft.net>
-	<CA+55aFxskyQ2CkLJ8c_LDkjTY+kKSJ5N6JPjhewGYXsXcHg7nw@mail.gmail.com>
-	<20150209.205209.1524645061817000265.davem@davemloft.net>
-	<CA+55aFxrGRjL_d=aCZQ0sNC+pfW8nYDLb4KkUVAme5oHmjBjTw@mail.gmail.com>
-	<CA+55aFwxuMcNPU-C5p2hSWuNhJW+DOi3Py0NQ--Rw9_bv3md2w@mail.gmail.com>
-	<CA+55aFzJNNDi0YKXnNYF=ccYvXALRxzngiV1tARd6CdCimVRYg@mail.gmail.com>
-	<CA+55aFyqFrf9cRQ7wDSDLNraR+meZ-=dwWdDThtpPtrFFqrcGw@mail.gmail.com>
-	<20150211014502.GB29656@ZenIV.linux.org.uk>
-	<CA+55aFwdXNYMWGGNsAzyRiZ60HE_G=CJesLShPHGxtADJd2TPQ@mail.gmail.com>
-	<CA+55aFxgNOdXonyKXRnKfyLM57_e4EpP+VYr6taUf2Bh5gCg9w@mail.gmail.com>
-	<20150211040245.GD29656@ZenIV.linux.org.uk>
+From: David Ahern <dsahern@gmail.com>
+Subject: Re: [RFC PATCH 00/29] net: VRF support
+Date: Tue, 10 Feb 2015 21:14:21 -0700
+Message-ID: <54DAD71D.1060400@gmail.com>
+References: <1423100070-31848-1-git-send-email-dsahern@gmail.com>	<20150205173334.08248382@uryu.home.lan> <54D4227B.6080709@gmail.com>	<87r3u3vfpr.fsf@x220.int.ebiederm.org> <54D45C15.7090602@gmail.com> <87iofe7n1x.fsf@x220.int.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Al Viro <viro@zeniv.linux.org.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150211040245.GD29656@ZenIV.linux.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	netdev@vger.kernel.org,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	roopa <roopa@cumulusnetworks.com>, hannes@stressinduktion.org,
+	Dinesh Dutt <ddutt@cumulusnetworks.com>,
+	Vipin Kumar <vipin@cumulusnetworks.com>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f176.google.com ([209.85.213.176]:58677 "EHLO
+	mail-ig0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750840AbbBKEOX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Feb 2015 23:14:23 -0500
+Received: by mail-ig0-f176.google.com with SMTP id hl2so28428890igb.3
+        for <netdev@vger.kernel.org>; Tue, 10 Feb 2015 20:14:22 -0800 (PST)
+In-Reply-To: <87iofe7n1x.fsf@x220.int.ebiederm.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 10, 2015 at 8:02 PM, Al Viro <viro@zeniv.linux.org.uk> wrote:
+On 2/6/15 2:22 PM, Eric W. Biederman wrote:
+> I think you have also introduced a second layer of indirection and thus
+> an extra cache-line miss with net_ctx.  At 60ns-100ns per cache line
+> miss that could be significant.
 >
-> Anyway, what userland do you have?
+> Overall the standard should be that there is no measurable performance
+> overhead with something like this enabled.  At least at 1Gbps we were
+> able to demonstrate there was not measuable performance impact with
+> network namespaces before they were merged.
+>
+> Eric
+>
 
-I have regular Fedora 21, nothing special.
+Here's a quick look at performance impacts of this patch set.
 
-I'm *assuming* that the thing that triggers this is that I use disk
-encryption on this machine, as that's the only even remotely unusual
-thing that isn't just a bog-standard "default install"). The kernel
-oops happens basically immediately after I've typed in my decryption
-key.
+Host:
+     Fedora 21
+     Intel(R) Core(TM) i7-4770 CPU @ 3.40GHz
+     1 socket, 4 cores, 8 threads
 
-                     Linus
+VM:
+     Fedora 21
+     2 vcpus, cpu model is 'host,x2apic'
+     1G RAM
+     network: virtio + vhost with tap device connected to a bridge
+
+Tests are between host OS and VM (RX: netperf in host; TX: netperf in 
+guest; netserver is the reverse).
+
+No tweaks have been done to the default Fedora settings. In particular 
+all of the offloads that default to enabled on tap devices and virtio 
+devices are left enabled. Specifically, these offloads are what 
+accelerate the stream tests to the 40,000 Mbps range and hence really 
+stress the overhead. Nor has any cpu pinning been done or any other 
+attempts at optimizations.
+
+Commands:
+     netperf -l 10 -t TCP_STREAM -H <ip>
+     netperf -l 10 -t TCP_RR -H <ip>
+
+Results are the average of 3 runs:
+
+                       pre-VRF          with VRF
+                       TX      RX       TX     RX
+TCP Stream (Mbps)   39503    40325    39856  38211
+TCP RR (trans/sec)  46047    46512    47619  43032
+
+* pre-VRF means commit id 7e8acbb69ee2 which is the commit id before 
+this patch st
+* with VRF = patches posted in this thread
+
+The VM setup definitely pushes some limits and represents an extreme in 
+performance comparisons. While the VRF patches do show a degradation in 
+RX performance the delta is fairly small. As I mentioned before I can 
+remove the vrf tagging to skbs which should help. Overall I have focused 
+more on concept than the performance; I'm sure that delta can be reduced.
+
+David
