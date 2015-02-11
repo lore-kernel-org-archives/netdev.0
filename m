@@ -1,28 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [trivial PATCH] treewide: Remove unnecessary
- BCMA_CORETABLE_END macro
-Date: Wed, 11 Feb 2015 14:38:51 -0800 (PST)
-Message-ID: <20150211.143851.1061242792059886308.davem@davemloft.net>
-References: <1423601703.15343.3.camel@perches.com>
+Subject: Re: [PATCH net] openvswitch: Reset key metadata for packet
+ execution.
+Date: Wed, 11 Feb 2015 14:40:56 -0800 (PST)
+Message-ID: <20150211.144056.991311291193384410.davem@davemloft.net>
+References: <1423604116-1438-1-git-send-email-pshelar@nicira.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, brcm80211-dev-list@broadcom.com,
-	linux-spi@vger.kernel.org, linux-usb@vger.kernel.org
-To: joe@perches.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1423601703.15343.3.camel@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: pshelar@nicira.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:51852 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754460AbbBKWdz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Feb 2015 17:33:55 -0500
+In-Reply-To: <1423604116-1438-1-git-send-email-pshelar@nicira.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
-Date: Tue, 10 Feb 2015 12:55:03 -0800
+From: Pravin B Shelar <pshelar@nicira.com>
+Date: Tue, 10 Feb 2015 13:35:16 -0800
 
-> Use the normal {} instead of a macro to terminate an array.
+> Userspace packet execute command pass down flow key for given
+> packet. But userspace can skip some parameter with zero value.
+> Therefore kernel needs to initialize key metadata to zero.
 > 
-> Remove the macro too.
-> 
-> Signed-off-by: Joe Perches <joe@perches.com>
+> Fixes: 0714812134 ("openvswitch: Eliminate memset() from flow_extract.")
+> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
 
-I've applied both of your FOO_END removal patches, thanks Joe.
+Applied, but...
+
+> + 	memset(key, 0, OVS_SW_FLOW_KEY_METADATA_SIZE);
+
+There's a space before the TAB in that indentation, and git even
+warns about this when applying patches.
+
+I fixed it up, but this is one of the basic things you should be
+dealing with before submitting your changes.
+
+Thanks.
