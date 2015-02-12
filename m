@@ -1,34 +1,48 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] net: ip: Do not allow connection to remote port zero
-Date: Thu, 12 Feb 2015 16:54:10 +0300
-Message-ID: <54DCB082.2040207@cogentembedded.com>
-References: <20150212005844.GB3829@nwwn.com> <1423713974.4942.9.camel@edumazet-glaptop2.roam.corp.google.com> <20150212052428.GB10785@eden.sea.cyngn.com> <20150212062335.GA12626@eden.sea.cyngn.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: Ethernet: how to disable gigabit support
+Date: Thu, 12 Feb 2015 06:12:26 -0800
+Message-ID: <CAGVrzcY-euCPuU6QkpV=dYVk0CALPjngDVMbRrOt16+9AP81Lg@mail.gmail.com>
+References: <20150205202527.GA7917@amd> <54D3F267.3000908@gmail.com> <20150206135706.GB25683@amd>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Tom Marshall <tom@cyngn.com>, Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f178.google.com ([209.85.217.178]:38853 "EHLO
-	mail-lb0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932238AbbBLNyM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Feb 2015 08:54:12 -0500
-Received: by mail-lb0-f178.google.com with SMTP id w7so9572565lbi.9
-        for <netdev@vger.kernel.org>; Thu, 12 Feb 2015 05:54:10 -0800 (PST)
-In-Reply-To: <20150212062335.GA12626@eden.sea.cyngn.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: kernel list <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Pavel Machek <pavel@ucw.cz>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150206135706.GB25683@amd>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello.
+2015-02-06 5:57 GMT-08:00 Pavel Machek <pavel@ucw.cz>:
+> On Thu 2015-02-05 14:44:55, Florian Fainelli wrote:
+>> On 05/02/15 12:25, Pavel Machek wrote:
+>> > Hi!
+>> >
+>> > This happened on more than one project: there's gigabit-capable chip,
+>> > but the connector is not designed for gigabit speed.
+>> >
+>> > I'd like to have speed autonegotiation, but not offer gigabit (as it
+>> > will not work).
+>> >
+>> > Is there way to do that without hacking the kernel? Should mii-tool do
+>> > that?
+>>
+>> Since you use the PHY library, you should be able to do something like
+>> this in your PHY driver prior to starting the PHY state machine:
+>>
+>> phydev->supported &= PHY_BASIC_FEATURES (effectively masking Gigabit
+>> capability)
+>
+> Thanks, that did the trick.
+>                                                                 Pavel
+> (But still it would be nice to have a generic way of doing this,
+> using something like mii-tool.)
 
-On 2/12/2015 9:23 AM, Tom Marshall wrote:
+You can also force that by setting the "max-speed" property in the
+Ethernet PHY node, the PHY library will populate the supported bitmask
+accordingly and remove speeds which are not supposed to be supported.
 
->> * UDP packets with dport=0 are already prevented from being sent.
-
-> FYI, I tried to trace where this code (disallowing udp packets with dport=0)
-> came from.  It predates git history, and I don't have any way to access
-> anything prior.
-
-    Tried https://git.kernel.org/cgit/linux/kernel/git/tglx/history.git/?
-
-WBR, Sergei
+I have to admit it has been a while since I used mii-tool, so the
+ioctl() side on the PHY library might be off.
+--
+Florian
