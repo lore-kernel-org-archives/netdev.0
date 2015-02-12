@@ -1,27 +1,23 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] et131x: use msecs_to_jiffies for conversions
-Date: Wed, 11 Feb 2015 19:38:09 -0800 (PST)
-Message-ID: <20150211.193809.875269045307730921.davem@davemloft.net>
-References: <1423646874-24403-1-git-send-email-hofrat@osadl.org>
+Subject: Re: [PATCH] drivers: net: xgene: Make xgene_enet_of_match depend
+ on CONFIG_OF
+Date: Wed, 11 Feb 2015 19:39:31 -0800 (PST)
+Message-ID: <20150211.193931.97146521477768148.davem@davemloft.net>
+References: <1423650340-24800-1-git-send-email-geert@linux-m68k.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: mark.einon@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: hofrat@osadl.org
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: isubramanian@apm.com, kchudgar@apm.com, fkan@apm.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: geert@linux-m68k.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1423646874-24403-1-git-send-email-hofrat@osadl.org>
+In-Reply-To: <1423650340-24800-1-git-send-email-geert@linux-m68k.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Nicholas Mc Guire <hofrat@osadl.org>
-Date: Wed, 11 Feb 2015 04:27:54 -0500
-
-> This is only an API consolidation and should make things more readable.
-> Converting milliseconds to jiffies by "val * HZ / 1000" is technically
-> OK but msecs_to_jiffies(val) is the cleaner solution and handles all
-> corner cases correctly. This is a minor API cleanup only.
-> 
-> Signed-off-by: Nicholas Mc Guire <hofrat@osadl.org>
-
-Applied, thanks.
+RnJvbTogR2VlcnQgVXl0dGVyaG9ldmVuIDxnZWVydEBsaW51eC1tNjhrLm9yZz4NCkRhdGU6IFdl
+ZCwgMTEgRmViIDIwMTUgMTE6MjU6NDAgKzAxMDANCg0KPiBJZiBDT05GSUdfTkVUX1hHRU5FPXkg
+YnV0IENPTkZJR19PRj1uOg0KPiANCj4gZHJpdmVycy9uZXQvZXRoZXJuZXQvYXBtL3hnZW5lL3hn
+ZW5lX2VuZXRfbWFpbi5jOjEwMzM6IHdhcm5pbmc6IKF4Z2VuZV9lbmV0X29mX21hdGNooiBkZWZp
+bmVkIGJ1dCBub3QgdXNlZA0KPiANCj4gU2lnbmVkLW9mZi1ieTogR2VlcnQgVXl0dGVyaG9ldmVu
+IDxnZWVydEBsaW51eC1tNjhrLm9yZz4NCg0KQXBwbGllZC4NCg==
