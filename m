@@ -1,7 +1,7 @@
 From: Mahesh Bandewar <maheshb@google.com>
-Subject: [PATCH next v3 3/6] bonding: Implement port churn-machine (AD standard 43.4.17).
-Date: Wed, 11 Feb 2015 20:24:26 -0800
-Message-ID: <1423715066-9345-1-git-send-email-maheshb@google.com>
+Subject: [PATCH next v3 4/6] bonding: Allow userspace to set actors' system_priority in AD system
+Date: Wed, 11 Feb 2015 20:24:27 -0800
+Message-ID: <1423715067-9384-1-git-send-email-maheshb@google.com>
 Cc: Mahesh Bandewar <maheshb@google.com>,
 	Maciej Zenczykowski <maze@google.com>,
 	netdev <netdev@vger.kernel.org>,
@@ -12,282 +12,256 @@ To: Jay Vosburgh <j.vosburgh@gmail.com>,
 	Nikolay Aleksandrov <nikolay@redhat.com>,
 	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f74.google.com ([209.85.215.74]:32906 "EHLO
-	mail-la0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753447AbbBLEYc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Feb 2015 23:24:32 -0500
-Received: by labgq15 with SMTP id gq15so950161lab.0
-        for <netdev@vger.kernel.org>; Wed, 11 Feb 2015 20:24:31 -0800 (PST)
+Received: from mail-ee0-f73.google.com ([74.125.83.73]:45238 "EHLO
+	mail-ee0-f73.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753447AbbBLEYj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Feb 2015 23:24:39 -0500
+Received: by mail-ee0-f73.google.com with SMTP id c13so987123eek.0
+        for <netdev@vger.kernel.org>; Wed, 11 Feb 2015 20:24:37 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The Chrun Detection machines detect the situation where a port is operable,
-but the Actor and Partner have not attached the link to an Aggregator and
-brought the link into operation within a bound time period. Under normal
-operation of the LACP, aggrement between Actor and Partner should be reached
-very rapidly. Continued failure to reach aggrement can be symptomatic of
-device failure.
+This patch allows user to randomize the system-priority in an ad-system.
+The allowed range is 1 - 0xFFFF while default value is 0xFFFF. If user
+does not specify this value, the system defaults to 0xFFFF, which is
+what it was before this patch.
 
-Actor-churn-dection state-machine
-=================================
-
-BEGIN=True + PortEnable=False
-           |
-           v
- +------------------------+   ActorPort.Sync=True  +------------------+
- |   ACTOR_CHURN_MONITOR  | ---------------------> |  NO_ACTOR_CHURN  |
- |========================|                        |==================|
- |    ActorChurn=False    |  ActorPort.Sync=False  | ActorChurn=False |
- | ActorChurn.Timer=Start | <--------------------- |                  |
- +------------------------+                        +------------------+
-           |                                                ^
-           |                                                |
-  ActorChurn.Timer=Expired                                  |
-           |                                       ActorPort.Sync=True
-           |                                                |
-           |                +-----------------+             |
-           |                |   ACTOR_CHURN   |             |
-           |                |=================|             |
-           +--------------> | ActorChurn=True | ------------+
-                            |                 |
-                            +-----------------+
-
-Similar for the Partner-churn-detection.
+Following example code could set the value -
+    # modprobe bonding mode=4
+    # sys_prio=$(( 1 + RANDOM + RANDOM ))
+    # echo $sys_prio > /sys/class/net/bond0/bonding/ad_actor_sys_prio
+    # echo +eth1 > /sys/class/net/bond0/bonding/slaves
+    ...
+    # ip link set bond0 up
 
 Signed-off-by: Mahesh Bandewar <maheshb@google.com>
 ---
 v1:
   Initial version
 v2:
-  Rebase
+  Rename ad_actor_system_priority to ad_actor_sys_prio
 v3:
   Rebase
 
- drivers/net/bonding/bond_3ad.c    | 56 +++++++++++++++++++++++++++++++++++++--
- drivers/net/bonding/bond_procfs.c | 40 +++++++++++++++++++++++++---
- include/net/bond_3ad.h            | 29 ++++++++++++++++++++
- 3 files changed, 119 insertions(+), 6 deletions(-)
+ Documentation/networking/bonding.txt |  9 +++++++++
+ drivers/net/bonding/bond_3ad.c       |  5 ++++-
+ drivers/net/bonding/bond_main.c      | 14 ++++++++++++++
+ drivers/net/bonding/bond_options.c   | 29 ++++++++++++++++++++++++++++-
+ drivers/net/bonding/bond_procfs.c    |  2 ++
+ drivers/net/bonding/bond_sysfs.c     | 15 +++++++++++++++
+ include/net/bond_options.h           |  1 +
+ include/net/bonding.h                |  1 +
+ 8 files changed, 74 insertions(+), 2 deletions(-)
 
+diff --git a/Documentation/networking/bonding.txt b/Documentation/networking/bonding.txt
+index 83bf4986baea..f19d888651b8 100644
+--- a/Documentation/networking/bonding.txt
++++ b/Documentation/networking/bonding.txt
+@@ -178,6 +178,15 @@ active_slave
+ 	active slave, or the empty string if there is no active slave or
+ 	the current mode does not use an active slave.
+ 
++ad_actor_sys_prio
++
++	In an AD system, this specifies the system priority. The allowed range
++	is 1 - 65535. If the value is not specified, it takes 65535 as the
++	default value.
++
++	This paramter has effect only in 802.3ad mode and is available through
++	SysFs interface.
++
+ ad_select
+ 
+ 	Specifies the 802.3ad aggregation selection logic to use.  The
 diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
-index 14f2ebe786c5..2a69095266c1 100644
+index 2a69095266c1..46aa847a0132 100644
 --- a/drivers/net/bonding/bond_3ad.c
 +++ b/drivers/net/bonding/bond_3ad.c
-@@ -38,6 +38,7 @@
- #define AD_STANDBY                 0x2
- #define AD_MAX_TX_IN_SECOND        3
- #define AD_COLLECTOR_MAX_DELAY     0
-+#define AD_MONITOR_CHURNED         0x1000
+@@ -1912,7 +1912,8 @@ void bond_3ad_initialize(struct bonding *bond, u16 tick_resolution)
  
- /* Timer definitions (43.4.4 in the 802.3ad standard) */
- #define AD_FAST_PERIODIC_TIME      1
-@@ -1013,16 +1014,19 @@ static void ad_rx_machine(struct lacpdu *lacpdu, struct port *port)
- 	/* check if state machine should change state */
+ 		BOND_AD_INFO(bond).aggregator_identifier = 0;
  
- 	/* first, check if port was reinitialized */
--	if (port->sm_vars & AD_PORT_BEGIN)
-+	if (port->sm_vars & AD_PORT_BEGIN) {
- 		port->sm_rx_state = AD_RX_INITIALIZE;
-+		port->sm_vars |= AD_MONITOR_CHURNED;
- 	/* check if port is not enabled */
--	else if (!(port->sm_vars & AD_PORT_BEGIN)
-+	} else if (!(port->sm_vars & AD_PORT_BEGIN)
- 		 && !port->is_enabled && !(port->sm_vars & AD_PORT_MOVED))
- 		port->sm_rx_state = AD_RX_PORT_DISABLED;
- 	/* check if new lacpdu arrived */
- 	else if (lacpdu && ((port->sm_rx_state == AD_RX_EXPIRED) ||
- 		 (port->sm_rx_state == AD_RX_DEFAULTED) ||
- 		 (port->sm_rx_state == AD_RX_CURRENT))) {
-+		if (port->sm_rx_state != AD_RX_CURRENT)
-+			port->sm_vars |= AD_MONITOR_CHURNED;
- 		port->sm_rx_timer_counter = 0;
- 		port->sm_rx_state = AD_RX_CURRENT;
- 	} else {
-@@ -1100,9 +1104,11 @@ static void ad_rx_machine(struct lacpdu *lacpdu, struct port *port)
- 			 */
- 			port->partner_oper.port_state &= ~AD_STATE_SYNCHRONIZATION;
- 			port->sm_vars &= ~AD_PORT_MATCHED;
-+			port->partner_oper.port_state |= AD_STATE_LACP_TIMEOUT;
- 			port->partner_oper.port_state |= AD_STATE_LACP_ACTIVITY;
- 			port->sm_rx_timer_counter = __ad_timer_to_ticks(AD_CURRENT_WHILE_TIMER, (u16)(AD_SHORT_TIMEOUT));
- 			port->actor_oper_port_state |= AD_STATE_EXPIRED;
-+			port->sm_vars |= AD_MONITOR_CHURNED;
- 			break;
- 		case AD_RX_DEFAULTED:
- 			__update_default_selected(port);
-@@ -1131,6 +1137,44 @@ static void ad_rx_machine(struct lacpdu *lacpdu, struct port *port)
+-		BOND_AD_INFO(bond).system.sys_priority = 0xFFFF;
++		BOND_AD_INFO(bond).system.sys_priority =
++			bond->params.ad_actor_sys_prio;
+ 		BOND_AD_INFO(bond).system.sys_mac_addr = *((struct mac_addr *)bond->dev->dev_addr);
+ 
+ 		/* initialize how many times this module is called in one
+@@ -1963,6 +1964,8 @@ void bond_3ad_bind_slave(struct slave *slave)
+ 			port->sm_vars &= ~AD_PORT_LACP_ENABLED;
+ 		/* actor system is the bond's system */
+ 		port->actor_system = BOND_AD_INFO(bond).system.sys_mac_addr;
++		port->actor_system_priority =
++		    BOND_AD_INFO(bond).system.sys_priority;
+ 		/* tx timer(to verify that no more than MAX_TX_IN_SECOND
+ 		 * lacpdu's are sent in one second)
+ 		 */
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 8433fe464f95..f8f6a80231b6 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -4138,6 +4138,7 @@ static int bond_check_params(struct bond_params *params)
+ 	struct bond_opt_value newval;
+ 	const struct bond_opt_value *valptr;
+ 	int arp_all_targets_value;
++	u16 ad_actor_sys_prio = 0;
+ 
+ 	/* Convert string parameters. */
+ 	if (mode) {
+@@ -4432,6 +4433,18 @@ static int bond_check_params(struct bond_params *params)
+ 		fail_over_mac_value = BOND_FOM_NONE;
  	}
- }
  
-+/* ad_churn_machine - handle port churn's state machine
-+ * @port: the port we're looking at
-+ *
-+ */
-+static void ad_churn_machine(struct port *port)
-+{
-+	if (port->sm_vars & AD_MONITOR_CHURNED) {
-+		port->sm_vars &= ~AD_MONITOR_CHURNED;
-+		port->sm_churn_actor_state = AD_CHURN_MONITOR;
-+		port->sm_churn_partner_state = AD_CHURN_MONITOR;
-+		port->sm_churn_actor_timer_counter =
-+			__ad_timer_to_ticks(AD_ACTOR_CHURN_TIMER, 0);
-+		 port->sm_churn_partner_timer_counter =
-+			 __ad_timer_to_ticks(AD_PARTNER_CHURN_TIMER, 0);
-+		return;
-+	}
-+	if (port->sm_churn_actor_timer_counter &&
-+		!(--port->sm_churn_actor_timer_counter) &&
-+		(port->sm_churn_actor_state == AD_CHURN_MONITOR)) {
-+		if (port->actor_oper_port_state & AD_STATE_SYNCHRONIZATION) {
-+			port->sm_churn_actor_state = AD_NO_CHURN;
-+		} else {
-+			port->churn_actor_count++;
-+			port->sm_churn_actor_state = AD_CHURN;
++	if (bond_mode == BOND_MODE_8023AD) {
++		bond_opt_initstr(&newval, "default");
++		valptr = bond_opt_parse(
++				bond_opt_get(BOND_OPT_AD_ACTOR_SYS_PRIO),
++					     &newval);
++		if (!valptr) {
++			pr_err("Error: No ad_actor_sys_prio default value");
++			return -EINVAL;
 +		}
++		ad_actor_sys_prio = valptr->value;
 +	}
-+	if (port->sm_churn_partner_timer_counter &&
-+		!(--port->sm_churn_partner_timer_counter) &&
-+		(port->sm_churn_partner_state == AD_CHURN_MONITOR)) {
-+		if (port->partner_oper.port_state & AD_STATE_SYNCHRONIZATION) {
-+			port->sm_churn_partner_state = AD_NO_CHURN;
-+		} else {
-+			port->churn_partner_count++;
-+			port->sm_churn_partner_state = AD_CHURN;
-+		}
-+	}
-+}
 +
- /**
-  * ad_tx_machine - handle a port's tx state machine
-  * @port: the port we're looking at
-@@ -1745,6 +1789,13 @@ static void ad_initialize_port(struct port *port, int lacp_fast)
- 		port->next_port_in_aggregator = NULL;
- 		port->transaction_id = 0;
+ 	if (lp_interval == 0) {
+ 		pr_warn("Warning: ip_interval must be between 1 and %d, so it was reset to %d\n",
+ 			INT_MAX, BOND_ALB_DEFAULT_LP_INTERVAL);
+@@ -4460,6 +4473,7 @@ static int bond_check_params(struct bond_params *params)
+ 	params->lp_interval = lp_interval;
+ 	params->packets_per_slave = packets_per_slave;
+ 	params->tlb_dynamic_lb = 1; /* Default value */
++	params->ad_actor_sys_prio = ad_actor_sys_prio;
+ 	if (packets_per_slave > 0) {
+ 		params->reciprocal_packets_per_slave =
+ 			reciprocal_value(packets_per_slave);
+diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
+index 4df28943d222..05d5e735eaec 100644
+--- a/drivers/net/bonding/bond_options.c
++++ b/drivers/net/bonding/bond_options.c
+@@ -70,6 +70,8 @@ static int bond_option_slaves_set(struct bonding *bond,
+ 				  const struct bond_opt_value *newval);
+ static int bond_option_tlb_dynamic_lb_set(struct bonding *bond,
+ 				  const struct bond_opt_value *newval);
++static int bond_option_ad_actor_sys_prio_set(struct bonding *bond,
++				  const struct bond_opt_value *newval);
  
-+		port->sm_churn_actor_timer_counter = 0;
-+		port->sm_churn_actor_state = 0;
-+		port->churn_actor_count = 0;
-+		port->sm_churn_partner_timer_counter = 0;
-+		port->sm_churn_partner_state = 0;
-+		port->churn_partner_count = 0;
-+
- 		memcpy(&port->lacpdu, &lacpdu, sizeof(lacpdu));
- 	}
- }
-@@ -2164,6 +2215,7 @@ void bond_3ad_state_machine_handler(struct work_struct *work)
- 		ad_port_selection_logic(port, &update_slave_arr);
- 		ad_mux_machine(port, &update_slave_arr);
- 		ad_tx_machine(port);
-+		ad_churn_machine(port);
  
- 		/* turn off the BEGIN bit, since we already handled it */
- 		if (port->sm_vars & AD_PORT_BEGIN)
-diff --git a/drivers/net/bonding/bond_procfs.c b/drivers/net/bonding/bond_procfs.c
-index 976f5ad2a0f2..83095a0b4b90 100644
---- a/drivers/net/bonding/bond_procfs.c
-+++ b/drivers/net/bonding/bond_procfs.c
-@@ -178,13 +178,45 @@ static void bond_info_show_slave(struct seq_file *seq,
- 	seq_printf(seq, "Permanent HW addr: %pM\n", slave->perm_hwaddr);
- 
- 	if (BOND_MODE(bond) == BOND_MODE_8023AD) {
--		const struct aggregator *agg
--			= SLAVE_AD_INFO(slave)->port.aggregator;
-+		const struct port *port = &SLAVE_AD_INFO(slave)->port;
-+		const struct aggregator *agg = port->aggregator;
- 
--		if (agg)
-+		if (agg) {
- 			seq_printf(seq, "Aggregator ID: %d\n",
- 				   agg->aggregator_identifier);
--		else
-+			seq_printf(seq, "Actor Churn State: %s\n",
-+				   bond_3ad_churn_desc(port->sm_churn_actor_state));
-+			seq_printf(seq, "Partner Churn State: %s\n",
-+				   bond_3ad_churn_desc(port->sm_churn_partner_state));
-+			seq_printf(seq, "Actor Churned Count: %d\n",
-+				   port->churn_actor_count);
-+			seq_printf(seq, "Partner Churned Count: %d\n",
-+				   port->churn_partner_count);
-+
-+			seq_puts(seq, "details actor lacp pdu:\n");
-+			seq_printf(seq, "    system priority: %d\n",
-+				   port->actor_system_priority);
-+			seq_printf(seq, "    port key: %d\n",
-+				   port->actor_oper_port_key);
-+			seq_printf(seq, "    port priority: %d\n",
-+				   port->actor_port_priority);
-+			seq_printf(seq, "    port number: %d\n",
-+				   port->actor_port_number);
-+			seq_printf(seq, "    port state: %d\n",
-+				   port->actor_oper_port_state);
-+
-+			seq_puts(seq, "details partner lacp pdu:\n");
-+			seq_printf(seq, "    system priority: %d\n",
-+				   port->partner_oper.system_priority);
-+			seq_printf(seq, "    oper key: %d\n",
-+				   port->partner_oper.key);
-+			seq_printf(seq, "    port priority: %d\n",
-+				   port->partner_oper.port_priority);
-+			seq_printf(seq, "    port number: %d\n",
-+				   port->partner_oper.port_number);
-+			seq_printf(seq, "    port state: %d\n",
-+				   port->partner_oper.port_state);
-+		} else
- 			seq_puts(seq, "Aggregator ID: N/A\n");
- 	}
- 	seq_printf(seq, "Slave queue ID: %d\n", slave->queue_id);
-diff --git a/include/net/bond_3ad.h b/include/net/bond_3ad.h
-index 6c455c646d61..170f8926ff66 100644
---- a/include/net/bond_3ad.h
-+++ b/include/net/bond_3ad.h
-@@ -82,6 +82,13 @@ typedef enum {
- 	AD_TRANSMIT		/* tx Machine */
- } tx_states_t;
- 
-+/* churn machine states(43.4.17 in the 802.3ad standard) */
-+typedef enum {
-+	 AD_CHURN_MONITOR, /* monitoring for churn */
-+	 AD_CHURN,         /* churn detected (error) */
-+	 AD_NO_CHURN       /* no churn (no error) */
-+} churn_state_t;
-+
- /* rx indication types */
- typedef enum {
- 	AD_TYPE_LACPDU = 1,	/* type lacpdu */
-@@ -229,6 +236,12 @@ typedef struct port {
- 	u16 sm_mux_timer_counter;	/* state machine mux timer counter */
- 	tx_states_t sm_tx_state;	/* state machine tx state */
- 	u16 sm_tx_timer_counter;	/* state machine tx timer counter(allways on - enter to transmit state 3 time per second) */
-+	u16 sm_churn_actor_timer_counter;
-+	u16 sm_churn_partner_timer_counter;
-+	u32 churn_actor_count;
-+	u32 churn_partner_count;
-+	churn_state_t sm_churn_actor_state;
-+	churn_state_t sm_churn_partner_state;
- 	struct slave *slave;		/* pointer to the bond slave that this port belongs to */
- 	struct aggregator *aggregator;	/* pointer to an aggregator that this port related to */
- 	struct port *next_port_in_aggregator;	/* Next port on the linked list of the parent aggregator */
-@@ -262,6 +275,22 @@ struct ad_slave_info {
- 	u16 id;
+ static const struct bond_opt_value bond_mode_tbl[] = {
+@@ -186,6 +188,12 @@ static const struct bond_opt_value bond_tlb_dynamic_lb_tbl[] = {
+ 	{ NULL,  -1, 0}
  };
  
-+static inline const char *bond_3ad_churn_desc(churn_state_t state)
++static const struct bond_opt_value bond_ad_actor_sys_prio_tbl[] = {
++	{ "minval",  1,     BOND_VALFLAG_MIN},
++	{ "maxval",  65535, BOND_VALFLAG_MAX | BOND_VALFLAG_DEFAULT},
++	{ NULL,      -1,    0},
++};
++
+ static const struct bond_option bond_opts[BOND_OPT_LAST] = {
+ 	[BOND_OPT_MODE] = {
+ 		.id = BOND_OPT_MODE,
+@@ -379,7 +387,15 @@ static const struct bond_option bond_opts[BOND_OPT_LAST] = {
+ 		.values = bond_tlb_dynamic_lb_tbl,
+ 		.flags = BOND_OPTFLAG_IFDOWN,
+ 		.set = bond_option_tlb_dynamic_lb_set,
+-	}
++	},
++	[BOND_OPT_AD_ACTOR_SYS_PRIO] = {
++		.id = BOND_OPT_AD_ACTOR_SYS_PRIO,
++		.name = "ad_actor_sys_prio",
++		.unsuppmodes = BOND_MODE_ALL_EX(BIT(BOND_MODE_8023AD)),
++		.flags = BOND_OPTFLAG_IFDOWN,
++		.values = bond_ad_actor_sys_prio_tbl,
++		.set = bond_option_ad_actor_sys_prio_set,
++	},
+ };
+ 
+ /* Searches for an option by name */
+@@ -1349,3 +1365,14 @@ static int bond_option_tlb_dynamic_lb_set(struct bonding *bond,
+ 
+ 	return 0;
+ }
++
++
++static int bond_option_ad_actor_sys_prio_set(struct bonding *bond,
++					    const struct bond_opt_value *newval)
 +{
-+	static const char *const churn_description[] =
-+		{ "monitoring",
-+		  "churned",
-+		  "none",
-+		  "unknown"
-+		};
-+	int max_size = sizeof(churn_description) / sizeof(churn_description[0]);
++	netdev_info(bond->dev, "Setting ad_actor_sys_prio to (%llu)\n",
++		    newval->value);
 +
-+	if (state >= max_size)
-+		state = max_size - 1;
-+
-+	return churn_description[state];
++	bond->params.ad_actor_sys_prio = newval->value;
++	return 0;
 +}
+diff --git a/drivers/net/bonding/bond_procfs.c b/drivers/net/bonding/bond_procfs.c
+index 83095a0b4b90..9e33c48886ef 100644
+--- a/drivers/net/bonding/bond_procfs.c
++++ b/drivers/net/bonding/bond_procfs.c
+@@ -134,6 +134,8 @@ static void bond_info_show_master(struct seq_file *seq)
+ 					  bond->params.ad_select);
+ 		seq_printf(seq, "Aggregator selection policy (ad_select): %s\n",
+ 			   optval->string);
++		seq_printf(seq, "System priority: %d\n",
++				BOND_AD_INFO(bond).system.sys_priority);
+ 
+ 		if (__bond_3ad_get_active_agg_info(bond, &ad_info)) {
+ 			seq_printf(seq, "bond %s has no active aggregator\n",
+diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
+index 7e9e151d4d61..1a4a591a58c9 100644
+--- a/drivers/net/bonding/bond_sysfs.c
++++ b/drivers/net/bonding/bond_sysfs.c
+@@ -692,6 +692,20 @@ static ssize_t bonding_show_packets_per_slave(struct device *d,
+ static DEVICE_ATTR(packets_per_slave, S_IRUGO | S_IWUSR,
+ 		   bonding_show_packets_per_slave, bonding_sysfs_store_option);
+ 
++static ssize_t bonding_show_ad_actor_sys_prio(struct device *d,
++					     struct device_attribute *attr,
++					     char *buf)
++{
++	struct bonding *bond = to_bond(d);
 +
- /* ========== AD Exported functions to the main bonding code ========== */
- void bond_3ad_initialize(struct bonding *bond, u16 tick_resolution);
- void bond_3ad_bind_slave(struct slave *slave);
++	if (BOND_MODE(bond) == BOND_MODE_8023AD)
++		return sprintf(buf, "%hu\n", bond->params.ad_actor_sys_prio);
++
++	return 0;
++}
++static DEVICE_ATTR(ad_actor_sys_prio, S_IRUGO | S_IWUSR,
++		   bonding_show_ad_actor_sys_prio, bonding_sysfs_store_option);
++
+ static struct attribute *per_bond_attrs[] = {
+ 	&dev_attr_slaves.attr,
+ 	&dev_attr_mode.attr,
+@@ -725,6 +739,7 @@ static struct attribute *per_bond_attrs[] = {
+ 	&dev_attr_lp_interval.attr,
+ 	&dev_attr_packets_per_slave.attr,
+ 	&dev_attr_tlb_dynamic_lb.attr,
++	&dev_attr_ad_actor_sys_prio.attr,
+ 	NULL,
+ };
+ 
+diff --git a/include/net/bond_options.h b/include/net/bond_options.h
+index ea6546d2c946..894002a2620f 100644
+--- a/include/net/bond_options.h
++++ b/include/net/bond_options.h
+@@ -63,6 +63,7 @@ enum {
+ 	BOND_OPT_LP_INTERVAL,
+ 	BOND_OPT_SLAVES,
+ 	BOND_OPT_TLB_DYNAMIC_LB,
++	BOND_OPT_AD_ACTOR_SYS_PRIO,
+ 	BOND_OPT_LAST
+ };
+ 
+diff --git a/include/net/bonding.h b/include/net/bonding.h
+index fda6feeb6c1f..cb4587f6516e 100644
+--- a/include/net/bonding.h
++++ b/include/net/bonding.h
+@@ -143,6 +143,7 @@ struct bond_params {
+ 	int packets_per_slave;
+ 	int tlb_dynamic_lb;
+ 	struct reciprocal_value reciprocal_packets_per_slave;
++	u16 ad_actor_sys_prio;
+ };
+ 
+ struct bond_parm_tbl {
 -- 
 2.2.0.rc0.207.ga3a616c
