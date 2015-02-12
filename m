@@ -1,93 +1,57 @@
-From: Tom Marshall <tom@cyngn.com>
-Subject: [PATCH] net: ip: Do not allow connection to remote port zero
-Date: Wed, 11 Feb 2015 16:58:45 -0800
-Message-ID: <20150212005844.GB3829@nwwn.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with Linus'  tree
+Date: Thu, 12 Feb 2015 12:05:41 +1100
+Message-ID: <20150212120541.679651ff@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:55440 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752185AbbBLA6s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Feb 2015 19:58:48 -0500
-Received: by mail-pa0-f43.google.com with SMTP id fa1so7589382pad.2
-        for <netdev@vger.kernel.org>; Wed, 11 Feb 2015 16:58:48 -0800 (PST)
-Received: from localhost (70-90-190-81-WA.hfc.comcastbusiness.net. [70.90.190.81])
-        by mx.google.com with ESMTPSA id n4sm2030573pdl.12.2015.02.11.16.58.46
-        for <netdev@vger.kernel.org>
-        (version=TLSv1.2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
-        Wed, 11 Feb 2015 16:58:47 -0800 (PST)
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ boundary="Sig_/dhaht6_H=DqWYvBs.srb5/r"; protocol="application/pgp-signature"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Al Viro <viro@zeniv.linux.org.uk>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Port zero is reserved according to IANA.
+--Sig_/dhaht6_H=DqWYvBs.srb5/r
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
 
-Note UDP sendto is already disallowed if dport is zero.
+Hi all,
 
-Signed-off-by: Tom Marshall <tom@cyngn.com>
----
- net/ipv4/datagram.c | 3 +++
- net/ipv4/tcp_ipv4.c | 3 +++
- net/ipv6/datagram.c | 3 +++
- net/ipv6/tcp_ipv6.c | 3 +++
- 4 files changed, 12 insertions(+)
+Today's linux-next merge of the net-next tree got a conflict in
+crypto/af_alg.c between commit 9399f0c51489 ("crypto: fix
+af_alg_make_sg() conversion to iov_iter") from Linus' tree and commit
+750d8065d88b ("crypto: Fix regressions caused by iov_iter changes")
+from the net-next tree.
 
-diff --git a/net/ipv4/datagram.c b/net/ipv4/datagram.c
-index 90c0e83..e732382 100644
---- a/net/ipv4/datagram.c
-+++ b/net/ipv4/datagram.c
-@@ -37,6 +37,9 @@ int ip4_datagram_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
- 	if (usin->sin_family != AF_INET)
- 		return -EAFNOSUPPORT;
- 
-+	if (!usin->sin_port)
-+		return -EINVAL;
-+
- 	sk_dst_reset(sk);
- 
- 	lock_sock(sk);
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index d22f544..fef2f9f 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -156,6 +156,9 @@ int tcp_v4_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
- 	if (usin->sin_family != AF_INET)
- 		return -EAFNOSUPPORT;
- 
-+	if (!usin->sin_port)
-+		return -EINVAL;
-+
- 	nexthop = daddr = usin->sin_addr.s_addr;
- 	inet_opt = rcu_dereference_protected(inet->inet_opt,
- 					     sock_owned_by_user(sk));
-diff --git a/net/ipv6/datagram.c b/net/ipv6/datagram.c
-index 49f5e73..fb6934e 100644
---- a/net/ipv6/datagram.c
-+++ b/net/ipv6/datagram.c
-@@ -66,6 +66,9 @@ int ip6_datagram_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
- 	if (usin->sin6_family != AF_INET6)
- 		return -EAFNOSUPPORT;
- 
-+	if (!usin->sin6_port)
-+		return -EINVAL;
-+
- 	memset(&fl6, 0, sizeof(fl6));
- 	if (np->sndflow) {
- 		fl6.flowlabel = usin->sin6_flowinfo&IPV6_FLOWINFO_MASK;
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 9c0b54e..1ae8bf1 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -146,6 +146,9 @@ static int tcp_v6_connect(struct sock *sk, struct sockaddr *uaddr,
- 	if (usin->sin6_family != AF_INET6)
- 		return -EAFNOSUPPORT;
- 
-+	if (!usin->sin6_port)
-+		return -EINVAL;
-+
- 	memset(&fl6, 0, sizeof(fl6));
- 
- 	if (np->sndflow) {
--- 
-2.1.4
+I fixed it up (I used the net-next tree version (for no particular
+reason)) and can carry the fix as necessary (no action is required).
+
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+--Sig_/dhaht6_H=DqWYvBs.srb5/r
+Content-Type: application/pgp-signature
+Content-Description: OpenPGP digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAEBCAAGBQJU2/xqAAoJEMDTa8Ir7ZwVLpMQAJB5wt0CT8tyGi405w0i/UIY
++tzqaHqBJ6mU31dX4HHRyB8pxUaw2i3bW4bVn0FXRLAUcHreHuMSTdYU2gKF01Al
+UuyJL5K/j46B72+62d76mf1tKSF8Vy0F3Z0Y9kmRiPL2Q+KntsSjqxIs/+ecBG7s
+s+AI+UmW15mis0JNpCC/AXsqftbgQpzAcvQ9vIVYzxqmIz0ONvx4IHrNxpjvcmup
+dxKdpIRmdJnDTWqVpY07IlZRXVrCpz7yetgd9HlX1GFDrE+rgrh1zPSI76AbrgZl
+mYiw4Ns+BWX2GTxX9nAfFuReDqYfXwN5ZuvBfUI0R49VSARvw+GcUj0R2fEhIBcb
+Wn0FtMFsTsFmH/s7szt24wd8i/BRdd5W7sHyAtTnrU1usd8iGpDr2/+k83THiyyG
+g11UxOMOVvZNYVqIwDW3xVeFWoJkYwMGrBQdS+vjKMGtA5EJay73uYcg92pfvE0o
+vp+79G/MCxV/+y8LpFGc53nDIaG6wFza9tVpTpRsHYN2xDPKUKFCBJRRm+YcGTeW
++JonYCQWdBMo4+LRnVPinocI3Mp/sKyOsz7TiAnO9q6trSIFWHCyeuFzHX+Yc+FL
+KE9vnVUaO4sG7I9ti79WFQpJNpsPvU3QzkmAxWi5TF5xR0rjHBMlwyZpnxSHKgkt
+lw1NFtdKIJyATdwyNjO9
+=kqrv
+-----END PGP SIGNATURE-----
+
+--Sig_/dhaht6_H=DqWYvBs.srb5/r--
