@@ -1,42 +1,36 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: xt_recent broken in kernel 3.19.0 + PATCH
-Date: Thu, 12 Feb 2015 09:35:33 +0100
-Message-ID: <20150212083533.GC22887@breakpoint.cc>
-References: <20150211092834.65f8ae80@bother.homenet>
- <20150211183121.6688aec8@bother.homenet>
- <CAM_iQpVmxw_XfzP7yaPWbhu8UBujebm1vjumgPPH1TUdHgs0rA@mail.gmail.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH ipsec] xfrm: release dst_orig in case of error in
+ xfrm_lookup()
+Date: Thu, 12 Feb 2015 10:50:04 +0100
+Message-ID: <20150212095004.GI13046@secunet.com>
+References: <1423674636-4227-1-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Chris Vine <chris@cvine.freeserve.co.uk>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netfilter-devel@vger.kernel.org,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <herbert@gondor.apana.org.au>, <davem@davemloft.net>,
+	<netdev@vger.kernel.org>, huaibin Wang <huaibin.wang@6wind.com>
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([195.81.216.161]:53223 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755219AbbBLJuK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Feb 2015 04:50:10 -0500
 Content-Disposition: inline
-In-Reply-To: <CAM_iQpVmxw_XfzP7yaPWbhu8UBujebm1vjumgPPH1TUdHgs0rA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1423674636-4227-1-git-send-email-nicolas.dichtel@6wind.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Cong Wang <xiyou.wangcong@gmail.com> wrote:
-> (Cc'ing netdev and netfilter-devel lists)
+On Wed, Feb 11, 2015 at 06:10:36PM +0100, Nicolas Dichtel wrote:
+> From: huaibin Wang <huaibin.wang@6wind.com>
+> 
+> dst_orig should be released on error. Function like __xfrm_route_forward()
+> expects that behavior.
+> Since a recent commit, xfrm_lookup() may also be called by xfrm_lookup_route(),
+> which expects the opposite.
+> Let's introduce a new flag (XFRM_LOOKUP_KEEP_DST_REF) to tell what should be
+> done in case of error.
+> 
+> Fixes: f92ee61982d("xfrm: Generate blackhole routes only from route lookup functions")
+> Signed-off-by: huaibin Wang <huaibin.wang@6wind.com>
+> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 
-Thanks for forwarding.
-
-> > Chris Vine <chris@cvine.freeserve.co.uk> wrote:
-> >>   iptables -D SSH_CHAIN -m conntrack --ctstate NEW \
-> >>     -m recent --update --seconds $SSH_LOGIN_PERIOD --hitcount
-> >> $SSH_TRIES -j DROP
-> > --- linux-3.19.0/net/netfilter/xt_recent.c~     2015-02-10 09:18:44.657376355 +0000
-> > +++ linux-3.19.0/net/netfilter/xt_recent.c      2015-02-11 17:58:33.311608835 +0000
-> > @@ -378,7 +378,7 @@
-> >         mutex_lock(&recent_mutex);
-> >         t = recent_table_lookup(recent_net, info->name);
-> >         if (t != NULL) {
-> > -               if (info->hit_count > t->nstamps_max_mask) {
-> > +               if (info->hit_count > t->nstamps_max_mask + 1) {
-
-Looks good. Chris, could you formally submit this patch to
-netfilter-devel@vger.kernel.org?
-
-Thanks!
+Applied, thanks everyone!
