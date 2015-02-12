@@ -1,184 +1,55 @@
-From: Dave Taht <dave.taht@gmail.com>
-Subject: Wifi outside the faraday cage (was: Throughput regression with `tcp:
- refine TSO autosizing`)
-Date: Thu, 12 Feb 2015 14:14:14 -0800
-Message-ID: <CAA93jw7W-gOJOgByeoN+Kn3yAznQ8XTcSm0biTx+dogHmMkDnA@mail.gmail.com>
+From: "Brown, Aaron F" <aaron.f.brown@intel.com>
+Subject: RE: [bisected regression] e1000e: "Detected Hardware Unit Hang"
+Date: Thu, 12 Feb 2015 23:28:27 +0000
+Message-ID: <309B89C4C689E141A5FF6A0C5FB2118B783AC840@ORSMSX101.amr.corp.intel.com>
+References: <1719052.SGOfRAJhfQ@storm>
+	 <1421333009.11734.53.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1421333953.2632.22.camel@jtkirshe-mobl> <2609782.Mryft1leMQ@storm>
+ <1423654440.27854.83.camel@jtkirshe-mobl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Neal Cardwell <ncardwell@google.com>,
-	Eyal Perry <eyalpe@dev.mellanox.co.il>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	David Lang <david@lang.hm>,
-	Andrew McGregor <andrewmcgr@gmail.com>
-To: Michal Kazior <michal.kazior@tieto.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: 'Linux Netdev List' <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	e1000-devel <e1000-devel@lists.sourceforge.net>
+To: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	Thomas Jarosch <thomas.jarosch@intra2net.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f172.google.com ([209.85.214.172]:48851 "EHLO
-	mail-ob0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751541AbbBLWOP convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Feb 2015 17:14:15 -0500
+Received: from mga11.intel.com ([192.55.52.93]:1524 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750810AbbBLX23 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Feb 2015 18:28:29 -0500
+In-Reply-To: <1423654440.27854.83.camel@jtkirshe-mobl>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 6, 2015 at 1:57 AM, Michal Kazior <michal.kazior@tieto.com>=
- wrote:
-> On 5 February 2015 at 20:50, Dave Taht <dave.taht@gmail.com> wrote:
-> [...]
->> And I really, really, really wish, that just once during this thread=
-,
->> someone had bothered to try running a test
->> at a real world MCS rate - say MCS1, or MCS4, and measured the laten=
-cy
->> under load of that...
->
-> Time between frame submission to firmware and tx-completion on one of
-> my ath10k machines:
-
-THANK YOU for running these tests!
-
->
-> Legacy 54mbps: ~18ms
-> Legacy 6mbps: ~37ms
-
-"legacy rates" are what many people actually achieve, given the
-limited market penetration ac has on clients and APs.
-
-> 11n MCS 3 (nss=3D0): ~13ms
-> 11n MCS 8 (nss=3D1): ~6-8ms
-> 11ac NSS=3D1 MCS=3D2: ~4-6ms
-> 11ac NSS=3D2 MCS=3D0: ~5-8ms
->
-> Keep in mind this is a clean room environment so retransmissions are
-> kept at minimum. Obviously with a noisy environment you'll get retrie=
-s
-> at different rates and higher latency.
-
-It is difficult to reconcile the results you get in the clean room
-with the results I get from measurements in the real wold. I encourage
-you to go test your code in coffee shops, in offices with wifi, and in
-hotels and apartment buildings in preference to testing in the lab.
-
-I typically measure induced delays in the 3 to 6 second range in your
-typical conference scenario, which I measure at every conference I go
-to. The latest talk, including data on that, is friday morning,
-starting at 2:15 or so, at nznog:
-
-http://new.livestream.com/i-filmservices/NZNOG2015/videos/75358960
-
-1) In the real world, I rarely see the maximum *rates*.
-
-I am personally quite fond of designing stuff with gears out of the
-middle of the Boston Gear Catalog. [1]. In looking over my largely
-outdoor wifi network, I see a cluster of values around mcs11,
-followed\by mcs4,3, 7 and 0, and *nothing* with MCS15. David lang is
-planning on doing some measurements at the SCALE conference next week,
-and I expect heaps of data from that, but I strongly suspect that the
-vast majority of connections in every circumstance except the
-test-bench are not even coming close to the maximum MCS rate in the
-standard(s).
-
-I would have thought that the lessons of the chromecast, where *every*
-attempt at reviewing it in an office environment failed, might have
-supplied industry clue that even 20Mbit to a given station is
-impossible in many cases due to airtime contention.
-
-Aggregates should be sized to have a maximum of 2 full ones stacked up
-at the rate being achieved for the destination, and the rest
-backlogged in the qdisc layer, if possible. 37ms backed up in the
-firmware is a lot, considering that the test above had no airtime
-contention in it, and no multicast.
-
-Drivers need to be aware that every TXOP is precious. I could see
-having a watchdog timer set on getting one packet into a wifi driver
-to wait a few hundred usec longer to fire off the write to the
-hardware in order to maximize aggregation by accumulating more packets
-to aggregate.
-
-I have hopes for xmit_more also being useful, but I am really not sure
-how well that works on single cores, interactions with napi, and with
-other wifi aggregates. It looks like adding xmit_more to the ag71xx
-driver will be easy...
-
-2) In the real world I see media acquisition times *far* greater than 1=
-ms.
-
-Please feel free to test your drivers in coffee shops, in the office,
-at hotels, in apartments...
-
-And retries... let's not talk about retries...
-
-
-3) Longer AMPDUs lead to more tail loss and retries
-
-I have a paper around here somewhere that shows AMPDU loss and retries
-go up disproportionately as the length of transmission approaches 4ms.
-I hate drawing a conclusion from a paper I can't find, but my overall
-take on it is that as media acquisition time and retransmits go up,
-reducing AMPDU size from the maximum down to about 1ms at the current
-rate would lead to more fair, responsive, and fast-feeling wifi for
-everyone, improve ack clocking, flow mixing for web traffic, etc, etc.
-
-4) There is some fairly decent academic work on other aspects of
-excessive buffering at lower rates
-
-http://hph16.uwaterloo.ca/~bshihada/publications/buffer-AMPDU.pdf
-
-(there are problems with this paper, but at least it tests n)
-
-and see google scholar for bufferbloat related papers in 2014 and
-later on wifi and LTE.
-
-5) As for rate control, Minstrel was designed in an era when there
-wasn't one AP for every 4 people in the USA. Other people's rate
-controllers are even dumber, and minstrel-ht itself needs a hard look
-at n speeds, much less ac speeds.
-
-6) Everything I say above applies to both stations and APs.
-
-APs have FAR worse problems, where per-tid (station) queuing is really
-needed in order to effectively aggregate when two or more stations are
-in use. Statistically, with two or more stations using traffic,
-aggregation possibilities will go down rapidly on a FIFO, (and go down
-even faster with FQ in place without per sta queuing!),  and with the
-usual fixed buffersize underneath that, without per-tid queuing, this
-grows the delays enormously, and wastes space in txops.
-
-(please try the netperf-wrapper RTT_Fair tests on 2 or more stations.
-Add in some multicast traffic while you are at it.
-
-Some early tests I did of the ath10k showed it going from 600mbit to
-20mbit - at full rate in a lab with the stations located 2m away - on
-a 4-station test. Somewhere around there I gave up on wifi and worked
-on refining "cake" instead.)
-
-There are a zillion other things that can be improved in wifi, some of
-which I've already pointed to in the ieee talk, and the original
-thread forked with andrew mcgregor pitching in as to what can be
-improved in minstrel. [2]
-
-Wifi does not need to suck as bad as it does at mid to low rates and
-under contention. I find it really depressing that a technology that
-has billions of users, has so few people working on making it better.
-I hope to be able to spend some time on it myself, finally, starting
-in april.
-
-[1] https://books.google.com/books?id=3D7papZR4oVssC&pg=3DPA101&lpg=3DP=
-A101&dq=3Dfeynman+gears&source=3Dbl&ots=3DetPYearM00&sig=3D9R0R88rOfAxm=
-_U21mMLOwxO6Mfg&hl=3Den&sa=3DX&ei=3DcjfcVM2VDY_XoASYiYCwDg&ved=3D0CDYQ6=
-AEwBg#v=3Donepage&q=3Dfeynman%20gears&f=3Dfalse
-
-[2] Other fork of this thread:
-https://lists.bufferbloat.net/pipermail/cerowrt-devel/2015-February/004=
-001.html
-
->
-> Micha=C5=82
-
-
-
---=20
-Dave T=C3=A4ht
-
-thttp://www.bufferbloat.net/projects/bloat/wiki/Upcoming_Talks
+PiBGcm9tOiBLaXJzaGVyLCBKZWZmcmV5IFQNCj4gU2VudDogV2VkbmVzZGF5LCBGZWJydWFyeSAx
+MSwgMjAxNSAzOjM0IEFNDQo+IFRvOiBUaG9tYXMgSmFyb3NjaDsgQnJvd24sIEFhcm9uIEYNCj4g
+Q2M6ICdMaW51eCBOZXRkZXYgTGlzdCc7IEVyaWMgRHVtYXpldDsgZTEwMDAtZGV2ZWwNCj4gU3Vi
+amVjdDogUmU6IFtiaXNlY3RlZCByZWdyZXNzaW9uXSBlMTAwMGU6ICJEZXRlY3RlZCBIYXJkd2Fy
+ZSBVbml0IEhhbmciDQo+IA0KPiBPbiBXZWQsIDIwMTUtMDItMTEgYXQgMTI6MjMgKzAxMDAsIFRo
+b21hcyBKYXJvc2NoIHdyb3RlOg0KPiA+IEhpIEplZmYsDQo+ID4NCj4gPiBPbiBUaHVyc2RheSwg
+MTUuIEphbnVhcnkgMjAxNSAwNjo1OToxMyBKZWZmIEtpcnNoZXIgd3JvdGU6DQo+ID4gPiA+IFN1
+cmUsIHlvdSBiYXNpY2FsbHkgcmV2ZXJ0ZWQgbXkgcGF0Y2guDQo+ID4gPiA+DQo+ID4gPiA+IFlv
+dSBhcmUgbm90IHRoZSBmaXJzdCB0byByZXBvcnQgYSBwcm9ibGVtIGNhdXNlZCBieSB0aGlzIHBh
+dGNoLg0KPiA+ID4gPg0KPiA+ID4gPiBUaGlzIHBhdGNoIGlzIGtub3duIHRvIGhhdmUgdW5jb3Zl
+cmVkIHNvbWUgZHJpdmVyIGJ1Z3MuDQo+ID4gPiA+DQo+ID4gPiA+IFdlIGFyZSBub3QgZ29pbmcg
+dG8gcmV2ZXJ0IGl0LiBXZSBhcmUgZ29pbmcgdG8gZml4IHRoZSByZWFsIGJ1Z3MuDQo+ID4gPiA+
+DQo+ID4gPiA+IFRoYW5rcw0KPiA+ID4NCj4gPiA+IEFncmVlZCwgd2UgYXJlIGxvb2tpbmcgaW50
+byBpc3N1ZSBUaG9tYXMuDQo+ID4NCj4gPiBhbnkgbmV3cyBmcm9tIHRoZSBJbnRlbCBsYWJzIHdo
+YXQgbWlnaHQgYmUgZ29pbmcgb24gaGVyZT8NCj4gPg0KPiA+IFdlIHN0YXJ0ZWQgc2VlaW5nIHRo
+b3NlIGhhbmdzIG9uICJNU0kgQjg1TSBFQ08iIGJvYXJkcywgdG9vLA0KPiA+IHRob3VnaCBpdCdz
+IHdheSBtb3JlIHNwb3JhZGljIHRoZXJlLg0KPiANCj4gSSBoYXZlIG5vdCBoZWFyZCBhbnl0aGlu
+Zywgc28gSSBoYXZlIGFkZGVkIEFhcm9uIEJyb3duIHRvIHNlZSBpZiBoZSBoYXMNCj4gYW55IGFk
+ZGl0aW9uYWwgaW5mb3JtYXRpb24uDQoNCkkgZG8gbm90IGhhdmUgYW55IHJlYWwgaW5mby4gIEkg
+aGFkIGJlZW4gYXNrZWQgdG8gdHJ5IGFuZCByZXByb2R1Y2Ugc29tZSB1bml0IGhhbmdzIChtYXli
+ZSBmb3IgdGhpcykgcmVjZW50bHkgYW5kIGRpZCBub3Qgc3VjY2VlZCBpbiBwcm9kdWNpbmcgdGhl
+bSBvbiB0aGUgcGFydHMgSSBoYXZlLiAgUmVhZGluZyB0aHJvdWdoIHRoZSB0aHJlYWQgSSBzZWUg
+dGhpcyBpcyBzaG93aW5nIHVwIGluIGEgTkFUIGVudmlyb25tZW50LiAgVGhlIHBvcnQgdGhhdCBp
+cyBnZXR0aW5nIHRoZSB1bml0IGhhbmcgaW4gdGhlIE5BVCBzeXN0ZW0/DQoNCkkgd2lsbCBtYWtl
+IHNvbWUgYXR0ZW1wdHMgYXQgcmVwbGljYXRpbmcgdGhpcyB3aXRoIHRoZSBwb3J0IGluIGEgTkFU
+IGFuZCBvciBmb3J3YXJkaW5nIHJvbGUuICBIYXMgYSBidWcgYmVlbiBvcGVuZWQgZm9yIHRoaXM/
+ICBPciBoYXMgaW5mb3JtYXRpb24gZm9yIHRoaXMgc3BlY2lmaWMgdW5pdCBoYW5nIGJlZW4gZW50
+ZXJlZCBpbnRvIG9uZSBvZiB0aGUgb3RoZXIgdW5pdCBoYW5nIGJ1Z3Mgb3BlbmVkIGFnYWluc3Qg
+ZTEwMDBlPw0K
