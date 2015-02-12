@@ -1,52 +1,84 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH] net: ipv6: Make address flushing on ifdown optional -
- v3
-Date: Thu, 12 Feb 2015 17:57:36 +0100
-Message-ID: <54DCDB80.9090601@6wind.com>
-References: <1423715261-53131-1-git-send-email-dsahern@gmail.com>
-Reply-To: nicolas.dichtel@6wind.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Hannes Frederic Sowa <hannes@redhat.com>
-To: David Ahern <dsahern@gmail.com>, netdev@vger.kernel.org
+From: Robert Jarzmik <robert.jarzmik@free.fr>
+Subject: [PATCH] Revert "smc91x: retrieve IRQ and trigger flags in a modern way"
+Date: Thu, 12 Feb 2015 17:59:10 +0100
+Message-ID: <1423760350-20149-1-git-send-email-robert.jarzmik@free.fr>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Robert Jarzmik <robert.jarzmik@free.fr>
+To: Nicolas Pitre <nico@fluxnic.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Linus Walleij <linus.walleij@linaro.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f178.google.com ([209.85.212.178]:36660 "EHLO
-	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750935AbbBLQ5j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Feb 2015 11:57:39 -0500
-Received: by mail-wi0-f178.google.com with SMTP id em10so5895459wid.5
-        for <netdev@vger.kernel.org>; Thu, 12 Feb 2015 08:57:38 -0800 (PST)
-In-Reply-To: <1423715261-53131-1-git-send-email-dsahern@gmail.com>
+Received: from smtp09.smtpout.orange.fr ([80.12.242.131]:41628 "EHLO
+	smtp.smtpout.orange.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751467AbbBLQ7h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Feb 2015 11:59:37 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 12/02/2015 05:27, David Ahern a =C3=A9crit :
-> Currently, all ipv6 addresses are flushed when the interface is confi=
-gured
-> down, even static address:
->
-[snip]
->
-> [root@f20 ~]# echo 0 > /proc/sys/net/ipv6/conf/eth1/flush_addr_on_dow=
-n
-> [root@f20 ~]# ip -6 addr add dev eth1 2000:11:1:1::1/64
-> [root@f20 ~]# ip addr show dev eth1
-> 3: eth1: <BROADCAST,MULTICAST> mtu 1500 qdisc pfifo_fast state DOWN g=
-roup default qlen 1000
->      link/ether 02:04:11:22:33:01 brd ff:ff:ff:ff:ff:ff
->      inet6 2000:11:1:1::1/64 scope global tentative
->         valid_lft forever preferred_lft forever
-> [root@f20 ~]#  ip link set dev eth1 up
-> [root@f20 ~]#  ip link set dev eth1 down
-> [root@f20 ~]# ip addr show dev eth1
-> 3: eth1: <BROADCAST,MULTICAST> mtu 1500 qdisc pfifo_fast state DOWN g=
-roup default qlen 1000
->      link/ether 02:04:11:22:33:01 brd ff:ff:ff:ff:ff:ff
->      inet6 2000:11:1:1::1/64 scope global
->         valid_lft forever preferred_lft forever
->      inet6 fe80::4:11ff:fe22:3301/64 scope link
->         valid_lft forever preferred_lft forever
-Can you show an output of 'ip -6 route list table local' and 'ip -6 rou=
-te' ?
+The commit breaks the legacy platforms, ie. these not using device-tree,
+and setting up the interrupt resources with a flag to activate edge
+detection. The issue was found on the zylonite platform.
+
+The reason is that zylonite uses platform resources to pass the interrupt number
+and the irq flags (here IORESOURCE_IRQ_HIGHEDGE). It expects the driver to
+request the irq with these flags, which in turn setups the irq as high edge
+triggered.
+
+After the patch, this was supposed to be taken care of with :
+  irq_resflags = irqd_get_trigger_type(irq_get_irq_data(ndev->irq));
+
+But irq_resflags is 0 for legacy platforms, while for example in
+arch/arm/mach-pxa/zylonite.c, in struct resource smc91x_resources[] the
+irq flag is specified. This breaks zylonite because the interrupt is not
+setup as triggered, and hardware doesn't provide interrupts.
+
+Signed-off-by: Robert Jarzmik <robert.jarzmik@free.fr>
+---
+ drivers/net/ethernet/smsc/smc91x.c | 20 ++++++++------------
+ 1 file changed, 8 insertions(+), 12 deletions(-)
+
+diff --git a/drivers/net/ethernet/smsc/smc91x.c b/drivers/net/ethernet/smsc/smc91x.c
+index 88a55f9..5d77e6f 100644
+--- a/drivers/net/ethernet/smsc/smc91x.c
++++ b/drivers/net/ethernet/smsc/smc91x.c
+@@ -2243,10 +2243,9 @@ static int smc_drv_probe(struct platform_device *pdev)
+ 	const struct of_device_id *match = NULL;
+ 	struct smc_local *lp;
+ 	struct net_device *ndev;
+-	struct resource *res;
++	struct resource *res, *ires;
+ 	unsigned int __iomem *addr;
+ 	unsigned long irq_flags = SMC_IRQ_FLAGS;
+-	unsigned long irq_resflags;
+ 	int ret;
+ 
+ 	ndev = alloc_etherdev(sizeof(struct smc_local));
+@@ -2338,19 +2337,16 @@ static int smc_drv_probe(struct platform_device *pdev)
+ 		goto out_free_netdev;
+ 	}
+ 
+-	ndev->irq = platform_get_irq(pdev, 0);
+-	if (ndev->irq <= 0) {
++	ires = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
++	if (!ires) {
+ 		ret = -ENODEV;
+ 		goto out_release_io;
+ 	}
+-	/*
+-	 * If this platform does not specify any special irqflags, or if
+-	 * the resource supplies a trigger, override the irqflags with
+-	 * the trigger flags from the resource.
+-	 */
+-	irq_resflags = irqd_get_trigger_type(irq_get_irq_data(ndev->irq));
+-	if (irq_flags == -1 || irq_resflags & IRQF_TRIGGER_MASK)
+-		irq_flags = irq_resflags & IRQF_TRIGGER_MASK;
++
++	ndev->irq = ires->start;
++
++	if (irq_flags == -1 || ires->flags & IRQF_TRIGGER_MASK)
++		irq_flags = ires->flags & IRQF_TRIGGER_MASK;
+ 
+ 	ret = smc_request_attrib(pdev, ndev);
+ 	if (ret)
+-- 
+2.1.0
