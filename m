@@ -1,62 +1,38 @@
-From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH net-next v2 2/3] r8152: change rx early size when the mtu is changed
-Date: Thu, 12 Feb 2015 14:33:47 +0800
-Message-ID: <1394712342-15778-143-Taiwan-albertk@realtek.com>
-References: <1394712342-15778-137-Taiwan-albertk@realtek.com>
- <1394712342-15778-141-Taiwan-albertk@realtek.com>
+From: =?UTF-8?B?5a6J55CGIOadjuWJkQ==?= <dovelijian@163.com>
+Subject: Fw:Some question about 802.1Q VLAN
+Date: Thu, 12 Feb 2015 14:39:07 +0800 (CST)
+Message-ID: <3e9819c8.d4fd.14b7c832fe3.Coremail.dovelijian@163.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
-	<linux-usb@vger.kernel.org>, Hayes Wang <hayeswang@realtek.com>
-To: <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1394712342-15778-141-Taiwan-albertk@realtek.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: base64
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from m13-132.163.com ([220.181.13.132]:52204 "EHLO m13-132.163.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750839AbbBLGyT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Feb 2015 01:54:19 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The rx early size is calculated with the mtu, so it has to be
-re-calculated when the mtu is changed.
-
-Signed-off-by: Hayes Wang <hayeswang@realtek.com>
----
- drivers/net/usb/r8152.c | 16 +++++++++++++++-
- 1 file changed, 15 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index b2e6566..46b99c6 100644
---- a/drivers/net/usb/r8152.c
-+++ b/drivers/net/usb/r8152.c
-@@ -3722,6 +3722,7 @@ out:
- static int rtl8152_change_mtu(struct net_device *dev, int new_mtu)
- {
- 	struct r8152 *tp = netdev_priv(dev);
-+	int ret;
- 
- 	switch (tp->version) {
- 	case RTL_VER_01:
-@@ -3734,9 +3735,22 @@ static int rtl8152_change_mtu(struct net_device *dev, int new_mtu)
- 	if (new_mtu < 68 || new_mtu > RTL8153_MAX_MTU)
- 		return -EINVAL;
- 
-+	ret = usb_autopm_get_interface(tp->intf);
-+	if (ret < 0)
-+		return ret;
-+
-+	mutex_lock(&tp->control);
-+
- 	dev->mtu = new_mtu;
- 
--	return 0;
-+	if (netif_running(dev) && netif_carrier_ok(dev))
-+		r8153_set_rx_early_size(tp);
-+
-+	mutex_unlock(&tp->control);
-+
-+	usb_autopm_put_interface(tp->intf);
-+
-+	return ret;
- }
- 
- static const struct net_device_ops rtl8152_netdev_ops = {
--- 
-2.1.0
+CgoKCkhJ4oCmSSBhbSBhIExpbnV4IFZMQU4gdXNlci4gTm93LCBJIGVuY291bnRlciBzb21lIHF1
+ZXN0aW9uIGFib3V0IDgwMi4xUSBWTEFOIGluIG15IHdpcmVsZXNzIEFQLiBNeSBMaW51eCBrZXJu
+ZWwgdmVyc2lvbiBpcyAyLjYuMzEuCsKgClBsZXNlIHNlZSBteSBzZXR0aW5nOgrCoMKgwqDCoMKg
+wqDCoMKgwqDCoCB2Y29uZmlnIGFkZCBldGgwIDEwCsKgwqDCoMKgwqDCoMKgwqDCoMKgIHZjb25m
+aWcgYWRkIGF0aDAgMTAKwqDCoMKgwqDCoMKgwqDCoMKgwqAgaWZjb25maWcgZXRoMC4xMCB1cArC
+oMKgwqDCoMKgwqDCoMKgwqDCoCBpZmNvbmZpZyBhdGgwLjEwIHVwCsKgwqDCoMKgwqDCoMKgwqDC
+oMKgIGJyY3RsIGFkZGJyIGJyMAogICAgICAgICAgYnJjdGwgYWRkYnIgYnIxCiAgICAgICAgICBi
+cmN0bCBhZGRpZiBicjAgYXRoMAogICAgICAgICAgYnJjdGwgYWRkaWYgYnIwIGV0aDAKICAgICAg
+ICAgIGJyY3RsIGFkZGlmIGJyMSBhdGgwLjEwCiAgICAgICAgICBicmN0bCBhZGRpZiBicjEgZXRo
+MC4xMAogICAgICAgICAgaWZjb25maWcgYnIwIHVwCiAgICAgICAgICBpZmNvbmZpZyBicjEgdXAK
+wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoCDCoMKgwqDCoMKgwqAgwqAKVGhlIGV0
+aDAgYW5kIGF0aDAgaXMgcmVhbCBuZXR3b3JrIGNhcmQgaW4gbXkgQVAsYW5kIHRoZSBhdGgwIGlz
+IHRoZSB3aXJlbGVzcyBjYXJkLgrCoApRdWVzdGlvbjoKwqDCoCDCoCBUd28gc3RhdGlvbiBhc3Nv
+Y2lhdGUgQVAgYnkgd2lyZWxlc3MsdGhlIHR3byBzdGF0aW9uIGFuZCBBUCB1c2Ugc2FtZSBWTEFO
+IHNldHRpbmcgbGlrZSBteSBkZXNjcmliZS5PbmUgc3RhdGlvbiBicjAgSXAgYWRkcmVzcyBpcyAx
+OTIuMTY4LjEuMTAvMjQsYnIxIGlwIGFkZHJlc3MgaXMgMTkyLjE2OC4yLjEwLzI0O290aGVyIHN0
+YXRpb24gYnIwIGlwIGFkZHJlc3MgaXMgMTkyLjE2OS4xLjExLzI0LCBicjEgaXAgYWRkcmVzcyBp
+cyAxOTIuMTY4LjIuMTIvMjQuVGhlIEFQIGlzIHVzZWQgYnJpZGdlIHRoZSBkYXRhIGZyb20gc3Rh
+dGlvbi4KwqAgQnV0IG5vdyB1c2Ugc3RhdGlvbjEgcGluZyBzdGF0aW9uMjogcGluZyAxOTIuMTY4
+LjEuMTEsaXQgaXMgc3VjY2Vzc2VkOyBwaW5nIDE5Mi4xNjguMi4xMixpdCBpcyBmYWlsZWQhISEK
+wqAgSSBkb27igJl0IGtub3cgdGhlIHJlYXNvbiBhYm91dCB0aGUgZmFpbCBzaXR1YXRpb24gLEkg
+bmVlZCBzb21lIGhlbHAuCsKgIFRoYW5rIHlvdSEKwqAKCg==
