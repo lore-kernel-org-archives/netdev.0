@@ -1,61 +1,31 @@
-From: Tom Marshall <tom@cyngn.com>
-Subject: Re: [PATCH] net: ip: Do not allow connection to remote port zero
-Date: Wed, 11 Feb 2015 21:24:28 -0800
-Message-ID: <20150212052428.GB10785@eden.sea.cyngn.com>
-References: <20150212005844.GB3829@nwwn.com>
- <1423713974.4942.9.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Zhu Yanjun <Yanjun.Zhu@windriver.com>
+Subject: [PATCH 0/1] tun: dynamically set speed of tun
+Date: Thu, 12 Feb 2015 13:35:22 +0800
+Message-ID: <1423719323-4667-1-git-send-email-Yanjun.Zhu@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain
+To: <netdev@vger.kernel.org>, <mst@redhat.com>, <jasowang@redhat.com>,
+	<viro@zeniv.linux.org.uk>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:46992 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750834AbbBLFYc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Feb 2015 00:24:32 -0500
-Received: by mail-pa0-f53.google.com with SMTP id lf10so8872067pab.12
-        for <netdev@vger.kernel.org>; Wed, 11 Feb 2015 21:24:31 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1423713974.4942.9.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail.windriver.com ([147.11.1.11]:64957 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750911AbbBLFfN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Feb 2015 00:35:13 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 11, 2015 at 08:06:14PM -0800, Eric Dumazet wrote:
-> On Wed, 2015-02-11 at 16:58 -0800, Tom Marshall wrote:
-> > Port zero is reserved according to IANA.
-> > 
-> > Note UDP sendto is already disallowed if dport is zero.
-> 
-> I have no idea why we should prevent such thing.
+The default speed of tun is 10M while the normal nic speed is 1000M. 
+When the speed of tun is accessed by the userspace application, the
+default 10M is not proper. In this case, the default tun speed is 
+changed to 1000M. And this speed can be dynamically configured by
+the command "ethtool -s tunX speed 10/100/1000".
 
-* It is marked "reserved" by IANA.
+Zhu Yanjun (1):
+  tun: change speed from 10M to dynamically configured
 
-* UDP packets with dport=0 are already prevented from being sent.
+ drivers/net/tun.c           | 36 +++++++++++++++++++++++++++++++++++-
+ include/uapi/linux/if_tun.h |  5 +++++
+ 2 files changed, 40 insertions(+), 1 deletion(-)
 
-* Many routers will either drop the packets or, worse, send back a RST to a
-  SYN destined for port 0.
-
-> There is nothing wrong sending a TCP frame with dport=0, even if
-> practically it is not possible to setup a listener on such port using
-> BSD API.
-
-Then why not allow UDP packets with dport=0?
-
-
-
-For background, I encountered this via a test fail in Google's Android CTS. 
-Their test suite tries to ensure that a Java level connect with a specified
-timeout functions properly by establishing a TCPv4 connection to a verified
-unreachable address on the internet.  It happens to use port 0 as a
-destination port.  I observed that sometimes this test succeeds and
-sometimes it fails.  When it fails, tcpdump shows a RST coming back.  And
-that RST is coming from a local router on one of the networks that I am
-frequently on.
-
-After doing some research and seeing the UDP sendto behavior, I figured it
-would be good to have consistency between sendto() and connect(), and also
-make it obvious to userspace that dport=0 is not permitted in any form.
-
-Note that the latest CTS code does have a "fix" for this ... which was not
-to switch ports, but to handle the case where ECONNREFUSED is returned
-before the connect timeout expires... :/
+-- 
+1.9.1
