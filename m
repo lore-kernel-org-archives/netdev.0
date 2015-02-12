@@ -1,51 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: compat: Ignore MSG_CMSG_COMPAT in
- compat_sys_{send,recv}msg
-Date: Thu, 12 Feb 2015 08:41:24 -0800 (PST)
-Message-ID: <20150212.084124.1966135201655814270.davem@davemloft.net>
-References: <1423744087-21317-1-git-send-email-catalin.marinas@arm.com>
+Subject: Re: [PATCH] bridge: netfilter: Move sysctl-specific error
+ code inside #ifdef
+Date: Thu, 12 Feb 2015 08:45:11 -0800 (PST)
+Message-ID: <20150212.084511.1589856092812725449.davem@davemloft.net>
+References: <1423750647-30389-1-git-send-email-geert@linux-m68k.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	will.deacon@arm.com, luto@amacapital.net
-To: catalin.marinas@arm.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1423744087-21317-1-git-send-email-catalin.marinas@arm.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
+	linux-kernel@vger.kernel.org
+To: geert@linux-m68k.org
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1423750647-30389-1-git-send-email-geert@linux-m68k.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-From: Catalin Marinas <catalin.marinas@arm.com>
-Date: Thu, 12 Feb 2015 12:28:07 +0000
-
-> With commit a7526eb5d06b (net: Unbreak compat_sys_{send,recv}msg), the
-> MSG_CMSG_COMPAT flag is blocked at the compat syscall entry points,
-> changing the kernel compat behaviour from the one before the commit it
-> was trying to fix (1be374a0518a, net: Block MSG_CMSG_COMPAT in
-> send(m)msg and recv(m)msg).
-> 
-> On 32-bit kernels (!CONFIG_COMPAT), MSG_CMSG_COMPAT is 0 and the native
-> 32-bit sys_sendmsg() allows flag 0x80000000 to be set (it is ignored by
-> the kernel). However, on a 64-bit kernel, the compat ABI is different
-> with commit a7526eb5d06b.
-> 
-> This patch changes the compat_sys_{send,recv}msg behaviour to the one
-> prior to commit 1be374a0518a.
-> 
-> The problem was found running 32-bit LTP (sendmsg01) binary on an arm64
-> kernel. Arguably, LTP should not pass 0xffffffff as flags to sendmsg()
-> but the general rule is not to break user ABI (even when the user
-> behaviour is not entirely sane).
-> 
-> Fixes: a7526eb5d06b (net: Unbreak compat_sys_{send,recv}msg)
-> Cc: Andy Lutomirski <luto@amacapital.net>
-> Cc: David S. Miller <davem@davemloft.net>
-> Signed-off-by: Catalin Marinas <catalin.marinas@arm.com>
-
-I think this is a very poor LTP test.
-
-Setting MSG_* bits that aren't supported by the protocol in any way
-gives undefined semantics.  You may get an error, it may be silently
-ignored, etc.
-
-I'm not applying this, sorry.
+RnJvbTogR2VlcnQgVXl0dGVyaG9ldmVuIDxnZWVydEBsaW51eC1tNjhrLm9yZz4NCkRhdGU6IFRo
+dSwgMTIgRmViIDIwMTUgMTU6MTc6MjcgKzAxMDANCg0KPiBJZiBDT05GSUdfU1lTQ1RMPW46DQo+
+IA0KPiAgICAgbmV0L2JyaWRnZS9icl9uZXRmaWx0ZXIuYzogSW4gZnVuY3Rpb24goWJyX25ldGZp
+bHRlcl9pbml0ojoNCj4gICAgIG5ldC9icmlkZ2UvYnJfbmV0ZmlsdGVyLmM6OTk2OiB3YXJuaW5n
+OiBsYWJlbCChZXJyMaIgZGVmaW5lZCBidXQgbm90IHVzZWQNCj4gDQo+IE1vdmUgdGhlIGxhYmVs
+IGFuZCB0aGUgY29kZSBhZnRlciBpdCBpbnNpZGUgdGhlIGV4aXN0aW5nICNpZmRlZiB0byBnZXQN
+Cj4gcmlkIG9mIHRoZSB3YXJuaW5nLg0KPiANCj4gU2lnbmVkLW9mZi1ieTogR2VlcnQgVXl0dGVy
+aG9ldmVuIDxnZWVydEBsaW51eC1tNjhrLm9yZz4NCg0KQXBwbGllZCwgdGhhbmtzLg0K
