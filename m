@@ -1,45 +1,51 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: ip: Do not allow connection to remote port zero
-Date: Thu, 12 Feb 2015 08:21:58 -0800
-Message-ID: <1423758118.4942.14.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20150212005844.GB3829@nwwn.com>
-	 <1423713974.4942.9.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20150212052428.GB10785@eden.sea.cyngn.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: compat: Ignore MSG_CMSG_COMPAT in
+ compat_sys_{send,recv}msg
+Date: Thu, 12 Feb 2015 08:41:24 -0800 (PST)
+Message-ID: <20150212.084124.1966135201655814270.davem@davemloft.net>
+References: <1423744087-21317-1-git-send-email-catalin.marinas@arm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Tom Marshall <tom@cyngn.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f173.google.com ([209.85.212.173]:58921 "EHLO
-	mail-wi0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755857AbbBLQWE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Feb 2015 11:22:04 -0500
-Received: by mail-wi0-f173.google.com with SMTP id bs8so5601821wib.0
-        for <netdev@vger.kernel.org>; Thu, 12 Feb 2015 08:22:02 -0800 (PST)
-In-Reply-To: <20150212052428.GB10785@eden.sea.cyngn.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	will.deacon@arm.com, luto@amacapital.net
+To: catalin.marinas@arm.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1423744087-21317-1-git-send-email-catalin.marinas@arm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2015-02-11 at 21:24 -0800, Tom Marshall wrote:
-> On Wed, Feb 11, 2015 at 08:06:14PM -0800, Eric Dumazet wrote:
-> > On Wed, 2015-02-11 at 16:58 -0800, Tom Marshall wrote:
-> > > Port zero is reserved according to IANA.
-> > > 
-> > > Note UDP sendto is already disallowed if dport is zero.
-> > 
-> > I have no idea why we should prevent such thing.
-> 
-> * It is marked "reserved" by IANA.
-> 
-> * UDP packets with dport=0 are already prevented from being sent.
-> 
-> * Many routers will either drop the packets or, worse, send back a RST to a
->   SYN destined for port 0.
+From: Catalin Marinas <catalin.marinas@arm.com>
+Date: Thu, 12 Feb 2015 12:28:07 +0000
 
-Some networking/supervision applications might use this knowledge to
-send TCP probes with dport=0, expecting to get an RST, knowing no
-listener could possibly answer with a SYNACK.
+> With commit a7526eb5d06b (net: Unbreak compat_sys_{send,recv}msg), the
+> MSG_CMSG_COMPAT flag is blocked at the compat syscall entry points,
+> changing the kernel compat behaviour from the one before the commit it
+> was trying to fix (1be374a0518a, net: Block MSG_CMSG_COMPAT in
+> send(m)msg and recv(m)msg).
+> 
+> On 32-bit kernels (!CONFIG_COMPAT), MSG_CMSG_COMPAT is 0 and the native
+> 32-bit sys_sendmsg() allows flag 0x80000000 to be set (it is ignored by
+> the kernel). However, on a 64-bit kernel, the compat ABI is different
+> with commit a7526eb5d06b.
+> 
+> This patch changes the compat_sys_{send,recv}msg behaviour to the one
+> prior to commit 1be374a0518a.
+> 
+> The problem was found running 32-bit LTP (sendmsg01) binary on an arm64
+> kernel. Arguably, LTP should not pass 0xffffffff as flags to sendmsg()
+> but the general rule is not to break user ABI (even when the user
+> behaviour is not entirely sane).
+> 
+> Fixes: a7526eb5d06b (net: Unbreak compat_sys_{send,recv}msg)
+> Cc: Andy Lutomirski <luto@amacapital.net>
+> Cc: David S. Miller <davem@davemloft.net>
+> Signed-off-by: Catalin Marinas <catalin.marinas@arm.com>
 
-If you take a look at traceroute -p TCP, you'll be shocked that it sends
-malformed TCP packets. IANA never complained about this, so far.
+I think this is a very poor LTP test.
+
+Setting MSG_* bits that aren't supported by the protocol in any way
+gives undefined semantics.  You may get an error, it may be silently
+ignored, etc.
+
+I'm not applying this, sorry.
