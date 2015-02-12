@@ -1,140 +1,84 @@
-From: Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
-	<u.kleine-koenig@pengutronix.de>
-Subject: Re: [PATCH v2 2/2] NFC: Add ACPI support for NXP PN544
-Date: Thu, 12 Feb 2015 20:26:16 +0100
-Message-ID: <20150212192616.GH10842@pengutronix.de>
-References: <1422270817-10950-1-git-send-email-robert.dolca@intel.com>
- <1422270817-10950-3-git-send-email-robert.dolca@intel.com>
- <20150212081459.GA28954@pengutronix.de>
- <20150212174843.GA4007@rdolca-desk.ger.corp.intel.com>
+From: Martin KaFai Lau <kafai@fb.com>
+Subject: [RFC PATCH net-next] ipv6: fix ipv6_cow_metrics for non DST_HOST case
+Date: Thu, 12 Feb 2015 12:07:30 -0800
+Message-ID: <1423771650-870555-1-git-send-email-kafai@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-nfc@ml01.01.org,
-	Lauro Ramos Venancio <lauro.venancio@openbossa.org>,
-	Aloisio Almeida Jr <aloisio.almeida@openbossa.org>,
-	Samuel Ortiz <sameo@linux.intel.com>,
-	linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Berg Johannes <johannes.berg@intel.com>,
-	Clement Perrochaud <clement.perrochaud@nxp.com>
-To: Robert Dolca <robert.dolca@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150212174843.GA4007@rdolca-desk.ger.corp.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	<davem@davemloft.net>, Kernel Team <kernel-team@fb.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:34273 "EHLO
+	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750878AbbBLUHe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Feb 2015 15:07:34 -0500
+Received: from pps.filterd (m0004347 [127.0.0.1])
+	by m0004347.ppops.net (8.14.5/8.14.5) with SMTP id t1CK7B8e004628
+	for <netdev@vger.kernel.org>; Thu, 12 Feb 2015 12:07:33 -0800
+Received: from mail.thefacebook.com ([199.201.64.23])
+	by m0004347.ppops.net with ESMTP id 1sh1k2g56q-2
+	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Thu, 12 Feb 2015 12:07:33 -0800
+Received: from facebook.com (2401:db00:20:7029:face:0:33:0)	by
+ mx-out.facebook.com (10.212.232.63) with ESMTP	id
+ c6891820b2f211e4ac310002c992ebde-ce6d1390 for <netdev@vger.kernel.org>;	Thu,
+ 12 Feb 2015 12:07:31 -0800
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello Robert,
+ipv6_cow_metrics() currently assumes only DST_HOST routes require
+dynamic metrics allocation from inetpeer.  The assumption breaks
+when ndisc discovered router with RTAX_MTU and RTAX_HOPLIMIT metric.
+Refer to ndisc_router_discovery() in ndisc.c and note that dst_metric_set()
+is called after the route is created.
 
-On Thu, Feb 12, 2015 at 07:48:43PM +0200, Robert Dolca wrote:
-> On Thu, Feb 12, 2015 at 09:14:59AM +0100, Uwe Kleine-K=F6nig wrote:
-> > On Mon, Jan 26, 2015 at 01:13:37PM +0200, Robert Dolca wrote:
-> > > +	/* Get EN GPIO from ACPI */
-> > > +	gpiod_en =3D devm_gpiod_get_index(dev, PN544_GPIO_NAME_EN, 1);
-> > Actually devm_gpiod_get_index takes 4 arguments. In your case you s=
-hould
-> > also pass GPIOD_OUT_LOW, then you can skip the gpiod_direction_outp=
-ut
-> > part below.
-> >=20
-> > > +	if (IS_ERR(gpiod_en)) {
-> > > +		nfc_err(dev,
-> > > +			"Unable to get EN GPIO\n");
-> > > +		return -ENODEV;
-> > > +	}
-> > > +
-> > > +	phy->gpio_en  =3D desc_to_gpio(gpiod_en);
-> > Why don't you save a reference to the gpiod instead? Mixing usage o=
-f raw
-> > and gpiod might result in surprising results. For example
-> >=20
-> > 	gpiod_direction_output(gpiod_en, 0);
-> >=20
-> > might actually have the same result as
-> >=20
-> > 	gpio_direction_output(gpio_en, 1);
-> >=20
-> > if the matching gpio is marked as active low.
-> >=20
-> > > +
-> > > +	/* Configuration EN GPIO */
-> > > +	ret =3D gpiod_direction_output(gpiod_en, 0);
-> > > +	if (ret) {
-> > > +		nfc_err(dev, "Fail EN pin direction\n");
-> > > +		return ret;
-> > > +	}
-> > > +
-> > > +	/* Get FW GPIO from ACPI */
-> > > +	gpiod_fw =3D devm_gpiod_get_index(dev, PN544_GPIO_NAME_FW, 2);
-> > > +	if (IS_ERR(gpiod_fw)) {
-> > > +		nfc_err(dev,
-> > > +			"Unable to get FW GPIO\n");
-> > > +		return -ENODEV;
-> > > +	}
-> > > +
-> > > +	phy->gpio_fw  =3D desc_to_gpio(gpiod_fw);
-> > > +
-> > > +	/* Configuration FW GPIO */
-> > > +	ret =3D gpiod_direction_output(gpiod_fw, 0);
-> > > +	if (ret) {
-> > > +		nfc_err(dev, "Fail FW pin direction\n");
-> > > +		return ret;
-> > > +	}
-> > The same comments apply here.
-> >=20
-> > > +
-> > > +	/* Get IRQ GPIO */
-> > > +	gpiod_irq =3D devm_gpiod_get_index(dev, PN544_GPIO_NAME_IRQ, 0)=
-;
-> > > +	if (IS_ERR(gpiod_irq)) {
-> > > +		nfc_err(dev,
-> > > +			"Unable to get IRQ GPIO\n");
-> > > +		return -ENODEV;
-> > > +	}
-> > > +
-> > > +	phy->gpio_irq =3D desc_to_gpio(gpiod_irq);
-> > > +
-> > > +	/* Configure IRQ GPIO */
-> > > +	ret =3D gpiod_direction_input(gpiod_irq);
-> > > +	if (ret) {
-> > > +		nfc_err(dev, "Fail IRQ pin direction\n");
-> > > +		return ret;
-> > > +	}
-> > > +
-> > > +	/* Map the pin to an IRQ */
-> > > +	ret =3D gpiod_to_irq(gpiod_irq);
-> > > +	if (ret < 0) {
-> > > +		nfc_err(dev, "Fail pin IRQ mapping\n");
-> > > +		return ret;
-> > > +	}
-> > and here.
-=20
-> Also as far as I know the device tree implementation will not give yo=
-u the
-> gpiod data structure. It gives you only the gpio index.
-What is "the device tree implementation"? If devm_gpiod_get_index gets
-the information which gpio to use from a device tree that doesn't chang=
-e
-the return type, you still get a struct gpio_desc pointer. And it can
-very well return a descriptor with GPIO_ACTIVE_LOW set, see the
-implementation of of_find_gpio.
-=20
-> Keeping both gpiod and gpio depending on the enumeration method is un=
-scallable
-> so I didn't choose that.
-And if the descriptor has GPIO_ACTIVE_LOW set, you should better not
-ignore it. The best thing to do here AFAIUI is to first convert the
-driver to gpiod and then add your ACPI support in an additional patch.
+This patch creates the metrics array (by calling dst_cow_metrics_generic) in
+ipv6_cow_metrics().
 
-And then please (this was the main motivation for my reply) your the
-4-parameter version of devm_gpiod_get_index.
+Test:
+radvd.conf:
+interface qemubr0
+{
+	AdvLinkMTU 1300;
+	AdvCurHopLimit 30;
 
-Best regards
-Uwe
+	prefix fd00:face:face:face::/64
+	{
+		AdvOnLink on;
+		AdvAutonomous on;
+		AdvRouterAddr off;
+	};
+};
 
---=20
-Pengutronix e.K.                           | Uwe Kleine-K=F6nig        =
-    |
-Industrial Linux Solutions                 | http://www.pengutronix.de/=
-  |
+Before:
+[root@qemu1 ~]# ip -6 r show | egrep -v unreachable
+fd00:face:face:face::/64 dev eth0  proto kernel  metric 256  expires 27sec
+fe80::/64 dev eth0  proto kernel  metric 256
+default via fe80::74df:d0ff:fe23:8ef2 dev eth0  proto ra  metric 1024  expires 27sec
+
+After:
+[root@qemu1 ~]# ip -6 r show | egrep -v unreachable
+fd00:face:face:face::/64 dev eth0  proto kernel  metric 256  expires 27sec mtu 1300
+fe80::/64 dev eth0  proto kernel  metric 256  mtu 1300
+default via fe80::74df:d0ff:fe23:8ef2 dev eth0  proto ra  metric 1024  expires 27sec mtu 1300 hoplimit 30
+
+Signed-off-by: Martin KaFai Lau <kafai@fb.com>
+---
+ net/ipv6/route.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 98565ce..4688bd4 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -141,7 +141,7 @@ static u32 *ipv6_cow_metrics(struct dst_entry *dst, unsigned long old)
+ 	u32 *p = NULL;
+ 
+ 	if (!(rt->dst.flags & DST_HOST))
+-		return NULL;
++		return dst_cow_metrics_generic(dst, old);
+ 
+ 	peer = rt6_get_peer_create(rt);
+ 	if (peer) {
+-- 
+1.8.1
