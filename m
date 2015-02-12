@@ -1,49 +1,61 @@
-From: Hekuang <hekuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH v3 linux-trace 1/8] tracing: attach eBPF programs to tracepoints
- and syscalls
-Date: Thu, 12 Feb 2015 12:58:27 +0800
-Message-ID: <54DC32F3.7040403@huawei.com>
-References: <CAMEtUuzY_Po=WtFEFg1aqzJ8dEF4rHGcWDsaS44KYgACMNPPgA@mail.gmail.com>
+From: Tom Marshall <tom@cyngn.com>
+Subject: Re: [PATCH] net: ip: Do not allow connection to remote port zero
+Date: Wed, 11 Feb 2015 21:24:28 -0800
+Message-ID: <20150212052428.GB10785@eden.sea.cyngn.com>
+References: <20150212005844.GB3829@nwwn.com>
+ <1423713974.4942.9.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Namhyung Kim <namhyung-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Arnaldo Carvalho de Melo <acme-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	Jiri Olsa <jolsa-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Masami Hiramatsu <masami.hiramatsu.pt-FCd8Q96Dh0JBDgjK7y7TUQ@public.gmane.org>,
-	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	"Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>, <wangnan0-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-To: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>,
-	Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAMEtUuzY_Po=WtFEFg1aqzJ8dEF4rHGcWDsaS44KYgACMNPPgA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:46992 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750834AbbBLFYc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Feb 2015 00:24:32 -0500
+Received: by mail-pa0-f53.google.com with SMTP id lf10so8872067pab.12
+        for <netdev@vger.kernel.org>; Wed, 11 Feb 2015 21:24:31 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1423713974.4942.9.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+On Wed, Feb 11, 2015 at 08:06:14PM -0800, Eric Dumazet wrote:
+> On Wed, 2015-02-11 at 16:58 -0800, Tom Marshall wrote:
+> > Port zero is reserved according to IANA.
+> > 
+> > Note UDP sendto is already disallowed if dport is zero.
+> 
+> I have no idea why we should prevent such thing.
+
+* It is marked "reserved" by IANA.
+
+* UDP packets with dport=0 are already prevented from being sent.
+
+* Many routers will either drop the packets or, worse, send back a RST to a
+  SYN destined for port 0.
+
+> There is nothing wrong sending a TCP frame with dport=0, even if
+> practically it is not possible to setup a listener on such port using
+> BSD API.
+
+Then why not allow UDP packets with dport=0?
 
 
->> eBPF is very flexible, which means it is bound to have someone use it
->> in a way you never dreamed of, and that will be what bites you in the
->> end (pun intended).
-> understood :)
-> let's start slow then with bpf+syscall and bpf+kprobe only.
 
+For background, I encountered this via a test fail in Google's Android CTS. 
+Their test suite tries to ensure that a Java level connect with a specified
+timeout functions properly by establishing a TCPv4 connection to a verified
+unreachable address on the internet.  It happens to use port 0 as a
+destination port.  I observed that sometimes this test succeeds and
+sometimes it fails.  When it fails, tcpdump shows a RST coming back.  And
+that RST is coming from a local router on one of the networks that I am
+frequently on.
 
-I think BPF + system calls/kprobes can meet our use case
-(https://lkml.org/lkml/2015/2/6/44), but there're some issues to be
-improved.
+After doing some research and seeing the UDP sendto behavior, I figured it
+would be good to have consistency between sendto() and connect(), and also
+make it obvious to userspace that dport=0 is not permitted in any form.
 
-I suggest that you can improve bpf+kprobes when attached to function
-headers(or TRACE_MARKERS), make it converts pt-regs to bpf_ctx->arg1,
-arg2.., then top models and architectures can be separated by bpf.
-
-BPF bytecode is cross-platform, but what we can get by using bpf+kprobes
-is a 'regs->rdx' kind of information, such information is both
-architecture and kernel version related.
-
-We hope to establish some models for describing kernel procedures such
-as IO and network, which requires that it does not rely on architecture
-and does not rely to a specific kernel version as much as possible.
+Note that the latest CTS code does have a "fix" for this ... which was not
+to switch ports, but to handle the case where ECONNREFUSED is returned
+before the connect timeout expires... :/
