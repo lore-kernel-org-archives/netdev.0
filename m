@@ -1,67 +1,65 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] sunvnet: don't change gso data on clones
-Date: Wed, 11 Feb 2015 18:52:50 -0800
-Message-ID: <1423709570.4847.21.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <54DB5711.3040705@oracle.com>
-	 <1423662993.4847.19.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <54DB92CD.1070309@oracle.com>
+From: Junichi Nomura <j-nomura@ce.jp.nec.com>
+Subject: [PATCH net] tg3: Hold tp->lock before calling tg3_halt() from
+ tg3_init_one()
+Date: Thu, 12 Feb 2015 01:26:24 +0000
+Message-ID: <54DC0140.6000406@ce.jp.nec.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: David L Stevens <david.stevens@oracle.com>
+Content-Type: text/plain; charset="iso-2022-jp"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "prashant@broadcom.com" <prashant@broadcom.com>,
+	"mchan@broadcom.com" <mchan@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f44.google.com ([209.85.192.44]:34894 "EHLO
-	mail-qg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753030AbbBLCww (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Feb 2015 21:52:52 -0500
-Received: by mail-qg0-f44.google.com with SMTP id j5so6018868qga.3
-        for <netdev@vger.kernel.org>; Wed, 11 Feb 2015 18:52:52 -0800 (PST)
-In-Reply-To: <54DB92CD.1070309@oracle.com>
+Received: from TYO200.gate.nec.co.jp ([210.143.35.50]:36979 "EHLO
+	tyo200.gate.nec.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751887AbbBLDAY convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Feb 2015 22:00:24 -0500
+Received: from tyo202.gate.nec.co.jp ([10.7.69.202])
+	by tyo200.gate.nec.co.jp (8.13.8/8.13.4) with ESMTP id t1C1RiEc019524
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Thu, 12 Feb 2015 10:27:44 +0900 (JST)
+Content-Language: ja-JP
+Content-ID: <9FEB00FAAA8C034EA478A888D998E87C@gisp.nec.co.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2015-02-11 at 12:35 -0500, David L Stevens wrote:
+tg3_init_one() calls tg3_halt() without tp->lock despite its assumption
+and causes deadlock.
+If lockdep is enabled, a warning like this shows up before the stall:
 
-> I don't think I understand your concern. This problem can result in a
-> panic using sunvnet because the sunvnet driver is changing the original
-> skb, which is always, or at least almost always, a clone. TCP uses gso_segs
-> to track packet counts, so changing it in the driver can result in bad math--
-> TCP assumes its copy of the clone's data shouldn't change (of course).
-> 
-> A driver that doesn't change the segmentation or original data doesn't
-> need to care whether it's a clone or not-- it'll free it and drop a
-> reference. Since sunvnet is changing the gso_size and gso_segs, it needs
-> to unclone first.
+  [ BUG: bad unlock balance detected! ]
+  3.19.0test #3 Tainted: G            E
+  -------------------------------------
+  insmod/369 is trying to release lock (&(&tp->lock)->rlock) at:
+  [<ffffffffa02d5a1d>] tg3_chip_reset+0x14d/0x780 [tg3]
+  but there are no more locks to release!
 
-Well, we had a very hard to find bug in TCP stack, I want to make sure
-we fixed all relevant points.
+tg3_init_one() doesn't call tg3_halt() under normal situation but
+during kexec kdump I hit this problem.
 
-commit c52e2421f7368fd36cbe330d2cf41b10452e39a9
-Author: Eric Dumazet <edumazet@google.com>
-Date:   Tue Oct 15 11:54:30 2013 -0700
+Fixes: 932f19de ("tg3: Release tp->lock before invoking synchronize_irq()")
+Signed-off-by: Jun'ichi Nomura <j-nomura@ce.jp.nec.com>
+---
+ drivers/net/ethernet/broadcom/tg3.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-    tcp: must unclone packets before mangling them
-    
-    TCP stack should make sure it owns skbs before mangling them.
-    
-    We had various crashes using bnx2x, and it turned out gso_size
-    was cleared right before bnx2x driver was populating TC descriptor
-    of the _previous_ packet send. TCP stack can sometime retransmit
-    packets that are still in Qdisc.
-    
-    Of course we could make bnx2x driver more robust (using
-    ACCESS_ONCE(shinfo->gso_size) for example), but the bug is TCP stack.
-    
-    We have identified two points where skb_unclone() was needed.
-    
-    This patch adds a WARN_ON_ONCE() to warn us if we missed another
-    fix of this kind.
-    
-    Kudos to Neal for finding the root cause of this bug. Its visible
-    using small MSS.
-    
-    Signed-off-by: Eric Dumazet <edumazet@google.com>
-    Signed-off-by: Neal Cardwell <ncardwell@google.com>
-    Cc: Yuchung Cheng <ycheng@google.com>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
+diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+index 615a6db..23a019c 100644
+--- a/drivers/net/ethernet/broadcom/tg3.c
++++ b/drivers/net/ethernet/broadcom/tg3.c
+@@ -17855,8 +17855,10 @@ static int tg3_init_one(struct pci_dev *pdev,
+ 	 */
+ 	if ((tr32(HOSTCC_MODE) & HOSTCC_MODE_ENABLE) ||
+ 	    (tr32(WDMAC_MODE) & WDMAC_MODE_ENABLE)) {
++		tg3_full_lock(tp, 0);
+ 		tw32(MEMARB_MODE, MEMARB_MODE_ENABLE);
+ 		tg3_halt(tp, RESET_KIND_SHUTDOWN, 1);
++		tg3_full_unlock(tp);
+ 	}
+ 
+ 	err = tg3_test_dma(tp);
+-- 
+1.9.3
+
+-- 
+Jun'ichi Nomura, NEC Corporation
