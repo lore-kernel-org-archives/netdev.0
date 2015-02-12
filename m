@@ -1,29 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] sunvnet: don't change gso data on clones
-Date: Wed, 11 Feb 2015 19:41:55 -0800 (PST)
-Message-ID: <20150211.194155.1823377665028874866.davem@davemloft.net>
-References: <54DB5711.3040705@oracle.com>
+Subject: Re: [PATCH net] net/mlx5_core: Fix configuration of log_uar_page_sz
+Date: Wed, 11 Feb 2015 19:42:43 -0800 (PST)
+Message-ID: <20150211.194243.2126950967947808936.davem@davemloft.net>
+References: <20150211144038.GA18543@mtldesk30>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: david.stevens@oracle.com
+Cc: netdev@vger.kernel.org, clsoto@us.ibm.com, ogerlitz@mellanox.com
+To: eli@dev.mellanox.co.il
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54445 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:54477 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754204AbbBLDex (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Feb 2015 22:34:53 -0500
-In-Reply-To: <54DB5711.3040705@oracle.com>
+	with ESMTP id S932184AbbBLDfl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Feb 2015 22:35:41 -0500
+In-Reply-To: <20150211144038.GA18543@mtldesk30>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David L Stevens <david.stevens@oracle.com>
-Date: Wed, 11 Feb 2015 08:20:17 -0500
+From: Eli Cohen <eli@dev.mellanox.co.il>
+Date: Wed, 11 Feb 2015 16:40:38 +0200
 
-> This patch unclones an skb for the case where the sunvnet driver needs to
-> change the segmentation size so that it doesn't interfere with TCP SACK's
-> use of them.
+> The current code failed to configure the page size for architectures with page
+> size different than 4K - PPC for example.
 > 
-> Signed-off-by: David L Stevens <david.stevens@oracle.com>
+> Signed-off-by: Carol L Soto <clsoto@us.ibm.com>
+> Signed-off-by: Eli Cohen <eli@mellanox.com>
 
-Applied, thanks.
+Applied.
