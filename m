@@ -1,114 +1,161 @@
-From: Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
-	<u.kleine-koenig@pengutronix.de>
-Subject: Re: [PATCH v2 2/2] NFC: Add ACPI support for NXP PN544
-Date: Thu, 12 Feb 2015 09:14:59 +0100
-Message-ID: <20150212081459.GA28954@pengutronix.de>
-References: <1422270817-10950-1-git-send-email-robert.dolca@intel.com>
- <1422270817-10950-3-git-send-email-robert.dolca@intel.com>
+From: Hayes Wang <hayeswang@realtek.com>
+Subject: [PATCH net] r8152: restore hw settings
+Date: Thu, 12 Feb 2015 16:20:46 +0800
+Message-ID: <1394712342-15778-145-Taiwan-albertk@realtek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-nfc@ml01.01.org,
-	Lauro Ramos Venancio <lauro.venancio@openbossa.org>,
-	Aloisio Almeida Jr <aloisio.almeida@openbossa.org>,
-	Samuel Ortiz <sameo@linux.intel.com>,
-	linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Berg Johannes <johannes.berg@intel.com>,
-	Clement Perrochaud <clement.perrochaud@nxp.com>
-To: Robert Dolca <robert.dolca@intel.com>
+Content-Type: text/plain
+Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
+	<linux-usb@vger.kernel.org>, Hayes Wang <hayeswang@realtek.com>
+To: <netdev@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1422270817-10950-3-git-send-email-robert.dolca@intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
+There is a capability which let the hw could change the settings
+automatically when the power change to ON. However, the USB reset
+would reset the settings to the hw default, so the driver has to
+restore the relative settings. Otherwise, it would influence the
+functions of the hw, and the compatibility for the USB hub and
+USB host controller.
 
-On Mon, Jan 26, 2015 at 01:13:37PM +0200, Robert Dolca wrote:
-> +	/* Get EN GPIO from ACPI */
-> +	gpiod_en =3D devm_gpiod_get_index(dev, PN544_GPIO_NAME_EN, 1);
-Actually devm_gpiod_get_index takes 4 arguments. In your case you shoul=
-d
-also pass GPIOD_OUT_LOW, then you can skip the gpiod_direction_output
-part below.
+The relative settings are as following.
+ - set the power down scale to 96.
+ - enable the power saving function of USB 2.0.
+ - disable the ALDPS of ECM mode.
+ - set burst mode depending on the burst size.
+ - enable the flow control of endpoint full.
+ - set fifo empty boundary to 32448 bytes.
+ - enable the function of exiting LPM when Rx OK occurs.
+ - set the connect timer to 1.
 
-> +	if (IS_ERR(gpiod_en)) {
-> +		nfc_err(dev,
-> +			"Unable to get EN GPIO\n");
-> +		return -ENODEV;
-> +	}
-> +
-> +	phy->gpio_en  =3D desc_to_gpio(gpiod_en);
-Why don't you save a reference to the gpiod instead? Mixing usage of ra=
-w
-and gpiod might result in surprising results. For example
+Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+---
+ drivers/net/usb/r8152.c | 59 +++++++++++++++++++++++++++++++++++++++++++++++--
+ 1 file changed, 57 insertions(+), 2 deletions(-)
 
-	gpiod_direction_output(gpiod_en, 0);
-
-might actually have the same result as
-
-	gpio_direction_output(gpio_en, 1);
-
-if the matching gpio is marked as active low.
-
-> +
-> +	/* Configuration EN GPIO */
-> +	ret =3D gpiod_direction_output(gpiod_en, 0);
-> +	if (ret) {
-> +		nfc_err(dev, "Fail EN pin direction\n");
-> +		return ret;
-> +	}
-> +
-> +	/* Get FW GPIO from ACPI */
-> +	gpiod_fw =3D devm_gpiod_get_index(dev, PN544_GPIO_NAME_FW, 2);
-> +	if (IS_ERR(gpiod_fw)) {
-> +		nfc_err(dev,
-> +			"Unable to get FW GPIO\n");
-> +		return -ENODEV;
-> +	}
-> +
-> +	phy->gpio_fw  =3D desc_to_gpio(gpiod_fw);
-> +
-> +	/* Configuration FW GPIO */
-> +	ret =3D gpiod_direction_output(gpiod_fw, 0);
-> +	if (ret) {
-> +		nfc_err(dev, "Fail FW pin direction\n");
-> +		return ret;
-> +	}
-The same comments apply here.
-
-> +
-> +	/* Get IRQ GPIO */
-> +	gpiod_irq =3D devm_gpiod_get_index(dev, PN544_GPIO_NAME_IRQ, 0);
-> +	if (IS_ERR(gpiod_irq)) {
-> +		nfc_err(dev,
-> +			"Unable to get IRQ GPIO\n");
-> +		return -ENODEV;
-> +	}
-> +
-> +	phy->gpio_irq =3D desc_to_gpio(gpiod_irq);
-> +
-> +	/* Configure IRQ GPIO */
-> +	ret =3D gpiod_direction_input(gpiod_irq);
-> +	if (ret) {
-> +		nfc_err(dev, "Fail IRQ pin direction\n");
-> +		return ret;
-> +	}
-> +
-> +	/* Map the pin to an IRQ */
-> +	ret =3D gpiod_to_irq(gpiod_irq);
-> +	if (ret < 0) {
-> +		nfc_err(dev, "Fail pin IRQ mapping\n");
-> +		return ret;
-> +	}
-and here.
-
-Best regards
-Uwe
-
---=20
-Pengutronix e.K.                           | Uwe Kleine-K=F6nig        =
-    |
-Industrial Linux Solutions                 | http://www.pengutronix.de/=
-  |
+diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
+index 5980ac6..438fc6b 100644
+--- a/drivers/net/usb/r8152.c
++++ b/drivers/net/usb/r8152.c
+@@ -40,6 +40,7 @@
+ #define PLA_RXFIFO_CTRL0	0xc0a0
+ #define PLA_RXFIFO_CTRL1	0xc0a4
+ #define PLA_RXFIFO_CTRL2	0xc0a8
++#define PLA_DMY_REG0		0xc0b0
+ #define PLA_FMC			0xc0b4
+ #define PLA_CFG_WOL		0xc0b6
+ #define PLA_TEREDO_CFG		0xc0bc
+@@ -90,8 +91,14 @@
+ #define PLA_BP_7		0xfc36
+ #define PLA_BP_EN		0xfc38
+ 
++#define USB_USB2PHY		0xb41e
++#define USB_SSPHYLINK2		0xb428
+ #define USB_U2P3_CTRL		0xb460
++#define USB_CSR_DUMMY1		0xb464
++#define USB_CSR_DUMMY2		0xb466
+ #define USB_DEV_STAT		0xb808
++#define USB_CONNECT_TIMER	0xcbf8
++#define USB_BURST_SIZE		0xcfc0
+ #define USB_USB_CTRL		0xd406
+ #define USB_PHY_CTRL		0xd408
+ #define USB_TX_AGG		0xd40a
+@@ -170,6 +177,9 @@
+ #define TXFIFO_THR_NORMAL	0x00400008
+ #define TXFIFO_THR_NORMAL2	0x01000008
+ 
++/* PLA_DMY_REG0 */
++#define ECM_ALDPS		0x0002
++
+ /* PLA_FMC */
+ #define FMC_FCR_MCU_EN		0x0001
+ 
+@@ -289,6 +299,20 @@
+ /* PLA_BOOT_CTRL */
+ #define AUTOLOAD_DONE		0x0002
+ 
++/* USB_USB2PHY */
++#define USB2PHY_SUSPEND		0x0001
++#define USB2PHY_L1		0x0002
++
++/* USB_SSPHYLINK2 */
++#define pwd_dn_scale_mask	0x3ffe
++#define pwd_dn_scale(x)		((x) << 1)
++
++/* USB_CSR_DUMMY1 */
++#define DYNAMIC_BURST		0x0001
++
++/* USB_CSR_DUMMY2 */
++#define EP4_FULL_FC		0x0001
++
+ /* USB_DEV_STAT */
+ #define STAT_SPEED_MASK		0x0006
+ #define STAT_SPEED_HIGH		0x0000
+@@ -334,9 +358,13 @@
+ #define TIMER11_EN		0x0001
+ 
+ /* USB_LPM_CTRL */
++/* bit 4 ~ 5: fifo empty boundary */
++#define FIFO_EMPTY_1FB		0x30	/* 0x1fb * 64 = 32448 bytes */
++/* bit 2 ~ 3: LMP timer */
+ #define LPM_TIMER_MASK		0x0c
+ #define LPM_TIMER_500MS		0x04	/* 500 ms */
+ #define LPM_TIMER_500US		0x0c	/* 500 us */
++#define ROK_EXIT_LPM		0x02
+ 
+ /* USB_AFE_CTRL2 */
+ #define SEN_VAL_MASK		0xf800
+@@ -3230,6 +3258,32 @@ static void r8153_init(struct r8152 *tp)
+ 
+ 	r8153_u2p3en(tp, false);
+ 
++	if (tp->version == RTL_VER_04) {
++		ocp_data = ocp_read_word(tp, MCU_TYPE_USB, USB_SSPHYLINK2);
++		ocp_data &= ~pwd_dn_scale_mask;
++		ocp_data |= pwd_dn_scale(96);
++		ocp_write_word(tp, MCU_TYPE_USB, USB_SSPHYLINK2, ocp_data);
++
++		ocp_data = ocp_read_byte(tp, MCU_TYPE_USB, USB_USB2PHY);
++		ocp_data |= USB2PHY_L1 | USB2PHY_SUSPEND;
++		ocp_write_byte(tp, MCU_TYPE_USB, USB_USB2PHY, ocp_data);
++	} else if (tp->version == RTL_VER_05) {
++		ocp_data = ocp_read_byte(tp, MCU_TYPE_PLA, PLA_DMY_REG0);
++		ocp_data &= ~ECM_ALDPS;
++		ocp_write_byte(tp, MCU_TYPE_PLA, PLA_DMY_REG0, ocp_data);
++
++		ocp_data = ocp_read_byte(tp, MCU_TYPE_USB, USB_CSR_DUMMY1);
++		if (ocp_read_word(tp, MCU_TYPE_USB, USB_BURST_SIZE) == 0)
++			ocp_data &= ~DYNAMIC_BURST;
++		else
++			ocp_data |= DYNAMIC_BURST;
++		ocp_write_byte(tp, MCU_TYPE_USB, USB_CSR_DUMMY1, ocp_data);
++	}
++
++	ocp_data = ocp_read_byte(tp, MCU_TYPE_USB, USB_CSR_DUMMY2);
++	ocp_data |= EP4_FULL_FC;
++	ocp_write_byte(tp, MCU_TYPE_USB, USB_CSR_DUMMY2, ocp_data);
++
+ 	ocp_data = ocp_read_word(tp, MCU_TYPE_USB, USB_WDT11_CTRL);
+ 	ocp_data &= ~TIMER11_EN;
+ 	ocp_write_word(tp, MCU_TYPE_USB, USB_WDT11_CTRL, ocp_data);
+@@ -3238,8 +3292,7 @@ static void r8153_init(struct r8152 *tp)
+ 	ocp_data &= ~LED_MODE_MASK;
+ 	ocp_write_word(tp, MCU_TYPE_PLA, PLA_LED_FEATURE, ocp_data);
+ 
+-	ocp_data = ocp_read_byte(tp, MCU_TYPE_USB, USB_LPM_CTRL);
+-	ocp_data &= ~LPM_TIMER_MASK;
++	ocp_data = FIFO_EMPTY_1FB | ROK_EXIT_LPM;
+ 	if (tp->version == RTL_VER_04 && tp->udev->speed != USB_SPEED_SUPER)
+ 		ocp_data |= LPM_TIMER_500MS;
+ 	else
+@@ -3251,6 +3304,8 @@ static void r8153_init(struct r8152 *tp)
+ 	ocp_data |= SEN_VAL_NORMAL | SEL_RXIDLE;
+ 	ocp_write_word(tp, MCU_TYPE_USB, USB_AFE_CTRL2, ocp_data);
+ 
++	ocp_write_word(tp, MCU_TYPE_USB, USB_CONNECT_TIMER, 0x0001);
++
+ 	r8153_power_cut_en(tp, false);
+ 	r8153_u1u2en(tp, true);
+ 
+-- 
+2.1.0
