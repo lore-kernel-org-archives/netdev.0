@@ -1,161 +1,112 @@
-From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH net] r8152: restore hw settings
-Date: Thu, 12 Feb 2015 16:20:46 +0800
-Message-ID: <1394712342-15778-145-Taiwan-albertk@realtek.com>
+From: Dave Taht <dave.taht@gmail.com>
+Subject: Re: Throughput regression with `tcp: refine TSO autosizing`
+Date: Thu, 12 Feb 2015 00:33:53 -0800
+Message-ID: <CAA93jw7YmnHYXpEitm+Fjm=wP2NaioBs1kotFj5fO-vB_Eu_1g@mail.gmail.com>
+References: <CA+BoTQkVu23P3EOmY_Q3E1GJnWsyF==Pawz4iPOS_Bq5dvfO5Q@mail.gmail.com>
+	<1422537297.21689.15.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CA+BoTQk2xT-8DqPuiiKG+kHAjLPrj8F9dLTb-rcGhvMq0u_2Qw@mail.gmail.com>
+	<1422628835.21689.95.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CA+BoTQkV+mOZfe_Niz5101sMQeaV6muKCsShptjGQ1AgOHqqoQ@mail.gmail.com>
+	<1422903136.21689.114.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1422926330.21689.138.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CA+BoTQkMikA8wxm1ce2DkKhPB0HiKeAqT7f+sQ=91W40z=X0Rg@mail.gmail.com>
+	<1422973660.907.10.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CA+BoTQmvUuFdfYF=wVMYxrf_nQZB5GCV=LvDZVvfs-3hAE4WKw@mail.gmail.com>
+	<1423051045.907.108.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CA+BoTQ=BDcQ779uKCuX+f40=4npXVF4MTQnpjKimNYAxPsxBoQ@mail.gmail.com>
+	<1423053531.907.115.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CA+BoTQ=qmCZz4CmSOvCOzMLowrDEG12XBffkTcYxjGqVD9604g@mail.gmail.com>
+	<1423055810.907.125.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1423056591.907.130.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1423084303.31870.15.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CA+BoTQnnwrv0nrKyGyQNvosz_E4e5fBa9iN8fpeqcd-iRfi17g@mail.gmail.com>
+	<1423141038.31870.38.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1423142342.31870.49.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CA+BoTQmcShK0U_cXvEOLY_8y7LH8x3taTgjcyMzv0MLVn4UtCA@mail.gmail.com>
+	<1423147286.31870.59.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1423156205.31870.86.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CA+BoTQ=WaKLV=r6qWaWAEfyDr2pqMWpm4NDmnek92TEVndnxRQ@mail.gmail.com>
+	<1423230001.31870.128.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1423230785.31870.131.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CA+BoTQkazCOin7VWLfrHUjtgKDPV6T+sFsk5FPS7D-morr4FZQ@mail.gmail.com>
+	<CA+BoTQn3KRym0qCJ+fLav5LQgjfiN_-Eqz0xPSc2eXJ-ijNjQw@mail.gmail.com>
+	<1423494690.31870.189.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CA+BoTQ=u_xPuqTVOVaFTQNRrJ+UTXe89SY+=+7Y1LpxxrkRDfg@mail.gmail.com>
+	<1423577962.2215.2.camel@sipsolutions.net>
+	<CA+BoTQn=YQQ_yUHvpAG3MMAw+=jxgLDiUMWxiTC3B3vkksTw9g@mail.gmail.com>
+	<CA+BoTQnxo-x94uVfErZO43jTowVcEMEt+7xDzoAGiR8fRDv=ug@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
-	<linux-usb@vger.kernel.org>, Hayes Wang <hayeswang@realtek.com>
-To: <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Johannes Berg <johannes@sipsolutions.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Eyal Perry <eyalpe@dev.mellanox.co.il>
+To: Michal Kazior <michal.kazior@tieto.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f178.google.com ([209.85.214.178]:36494 "EHLO
+	mail-ob0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751846AbbBLIdy convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Feb 2015 03:33:54 -0500
+In-Reply-To: <CA+BoTQnxo-x94uVfErZO43jTowVcEMEt+7xDzoAGiR8fRDv=ug@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-There is a capability which let the hw could change the settings
-automatically when the power change to ON. However, the USB reset
-would reset the settings to the hw default, so the driver has to
-restore the relative settings. Otherwise, it would influence the
-functions of the hw, and the compatibility for the USB hub and
-USB host controller.
+On Wed, Feb 11, 2015 at 11:48 PM, Michal Kazior <michal.kazior@tieto.co=
+m> wrote:
+> On 11 February 2015 at 09:57, Michal Kazior <michal.kazior@tieto.com>=
+ wrote:
+>> On 10 February 2015 at 15:19, Johannes Berg <johannes@sipsolutions.n=
+et> wrote:
+>>> On Tue, 2015-02-10 at 11:33 +0100, Michal Kazior wrote:
+>>>
+>>>> +       if (msdu->sk) {
+>>>> +               ewma_add(&ar->tx_delay_us,
+>>>> +                        ktime_to_ns(ktime_sub(ktime_get(), skb_cb=
+->stamp)) /
+>>>> +                        NSEC_PER_USEC);
+>>>> +
+>>>> +               ACCESS_ONCE(msdu->sk->sk_tx_completion_delay_cushi=
+on) =3D
+>>>> +                               (ewma_read(&ar->tx_delay_us) *
+>>>> +                                msdu->sk->sk_pacing_rate) >> 20;
+>>>> +       }
+>>>
+>>> To some extent, every wifi driver is going to have this problem. Pe=
+rhaps
+>>> we should do this in mac80211?
+>>
+>> Good point. I was actually thinking about it. I can try cooking a
+>> patch unless you want to do it yourself :-)
+>
+> I've taken a look into this. The most obvious place to add the
+> timestamp for each packet would be ieee80211_tx_info (i.e. the
+> skb->cb[48]). The problem is it's very tight there. Even squeezing 2
+> bytes (allowing up to 64ms of tx completion delay which I'm worried
 
-The relative settings are as following.
- - set the power down scale to 96.
- - enable the power saving function of USB 2.0.
- - disable the ALDPS of ECM mode.
- - set burst mode depending on the burst size.
- - enable the flow control of endpoint full.
- - set fifo empty boundary to 32448 bytes.
- - enable the function of exiting LPM when Rx OK occurs.
- - set the connect timer to 1.
+I will argue strongly in favor of never allowing more than 4ms packets
+to accumulate in the firmware.
 
-Signed-off-by: Hayes Wang <hayeswang@realtek.com>
----
- drivers/net/usb/r8152.c | 59 +++++++++++++++++++++++++++++++++++++++++++++++--
- 1 file changed, 57 insertions(+), 2 deletions(-)
+> won't be enough) will be troublesome. Some drivers already use every
+> last byte of their allowance on 64bit archs (e.g. ar5523 uses entire
+> 40 bytes of driver_data).
+>
+> I wonder if it's okay to bump skb->cb to 56 bytes to avoid the cascad=
+e
+> of changes required to implement the tx completion delay accounting?
+>
+>
+> Micha=C5=82
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index 5980ac6..438fc6b 100644
---- a/drivers/net/usb/r8152.c
-+++ b/drivers/net/usb/r8152.c
-@@ -40,6 +40,7 @@
- #define PLA_RXFIFO_CTRL0	0xc0a0
- #define PLA_RXFIFO_CTRL1	0xc0a4
- #define PLA_RXFIFO_CTRL2	0xc0a8
-+#define PLA_DMY_REG0		0xc0b0
- #define PLA_FMC			0xc0b4
- #define PLA_CFG_WOL		0xc0b6
- #define PLA_TEREDO_CFG		0xc0bc
-@@ -90,8 +91,14 @@
- #define PLA_BP_7		0xfc36
- #define PLA_BP_EN		0xfc38
- 
-+#define USB_USB2PHY		0xb41e
-+#define USB_SSPHYLINK2		0xb428
- #define USB_U2P3_CTRL		0xb460
-+#define USB_CSR_DUMMY1		0xb464
-+#define USB_CSR_DUMMY2		0xb466
- #define USB_DEV_STAT		0xb808
-+#define USB_CONNECT_TIMER	0xcbf8
-+#define USB_BURST_SIZE		0xcfc0
- #define USB_USB_CTRL		0xd406
- #define USB_PHY_CTRL		0xd408
- #define USB_TX_AGG		0xd40a
-@@ -170,6 +177,9 @@
- #define TXFIFO_THR_NORMAL	0x00400008
- #define TXFIFO_THR_NORMAL2	0x01000008
- 
-+/* PLA_DMY_REG0 */
-+#define ECM_ALDPS		0x0002
-+
- /* PLA_FMC */
- #define FMC_FCR_MCU_EN		0x0001
- 
-@@ -289,6 +299,20 @@
- /* PLA_BOOT_CTRL */
- #define AUTOLOAD_DONE		0x0002
- 
-+/* USB_USB2PHY */
-+#define USB2PHY_SUSPEND		0x0001
-+#define USB2PHY_L1		0x0002
-+
-+/* USB_SSPHYLINK2 */
-+#define pwd_dn_scale_mask	0x3ffe
-+#define pwd_dn_scale(x)		((x) << 1)
-+
-+/* USB_CSR_DUMMY1 */
-+#define DYNAMIC_BURST		0x0001
-+
-+/* USB_CSR_DUMMY2 */
-+#define EP4_FULL_FC		0x0001
-+
- /* USB_DEV_STAT */
- #define STAT_SPEED_MASK		0x0006
- #define STAT_SPEED_HIGH		0x0000
-@@ -334,9 +358,13 @@
- #define TIMER11_EN		0x0001
- 
- /* USB_LPM_CTRL */
-+/* bit 4 ~ 5: fifo empty boundary */
-+#define FIFO_EMPTY_1FB		0x30	/* 0x1fb * 64 = 32448 bytes */
-+/* bit 2 ~ 3: LMP timer */
- #define LPM_TIMER_MASK		0x0c
- #define LPM_TIMER_500MS		0x04	/* 500 ms */
- #define LPM_TIMER_500US		0x0c	/* 500 us */
-+#define ROK_EXIT_LPM		0x02
- 
- /* USB_AFE_CTRL2 */
- #define SEN_VAL_MASK		0xf800
-@@ -3230,6 +3258,32 @@ static void r8153_init(struct r8152 *tp)
- 
- 	r8153_u2p3en(tp, false);
- 
-+	if (tp->version == RTL_VER_04) {
-+		ocp_data = ocp_read_word(tp, MCU_TYPE_USB, USB_SSPHYLINK2);
-+		ocp_data &= ~pwd_dn_scale_mask;
-+		ocp_data |= pwd_dn_scale(96);
-+		ocp_write_word(tp, MCU_TYPE_USB, USB_SSPHYLINK2, ocp_data);
-+
-+		ocp_data = ocp_read_byte(tp, MCU_TYPE_USB, USB_USB2PHY);
-+		ocp_data |= USB2PHY_L1 | USB2PHY_SUSPEND;
-+		ocp_write_byte(tp, MCU_TYPE_USB, USB_USB2PHY, ocp_data);
-+	} else if (tp->version == RTL_VER_05) {
-+		ocp_data = ocp_read_byte(tp, MCU_TYPE_PLA, PLA_DMY_REG0);
-+		ocp_data &= ~ECM_ALDPS;
-+		ocp_write_byte(tp, MCU_TYPE_PLA, PLA_DMY_REG0, ocp_data);
-+
-+		ocp_data = ocp_read_byte(tp, MCU_TYPE_USB, USB_CSR_DUMMY1);
-+		if (ocp_read_word(tp, MCU_TYPE_USB, USB_BURST_SIZE) == 0)
-+			ocp_data &= ~DYNAMIC_BURST;
-+		else
-+			ocp_data |= DYNAMIC_BURST;
-+		ocp_write_byte(tp, MCU_TYPE_USB, USB_CSR_DUMMY1, ocp_data);
-+	}
-+
-+	ocp_data = ocp_read_byte(tp, MCU_TYPE_USB, USB_CSR_DUMMY2);
-+	ocp_data |= EP4_FULL_FC;
-+	ocp_write_byte(tp, MCU_TYPE_USB, USB_CSR_DUMMY2, ocp_data);
-+
- 	ocp_data = ocp_read_word(tp, MCU_TYPE_USB, USB_WDT11_CTRL);
- 	ocp_data &= ~TIMER11_EN;
- 	ocp_write_word(tp, MCU_TYPE_USB, USB_WDT11_CTRL, ocp_data);
-@@ -3238,8 +3292,7 @@ static void r8153_init(struct r8152 *tp)
- 	ocp_data &= ~LED_MODE_MASK;
- 	ocp_write_word(tp, MCU_TYPE_PLA, PLA_LED_FEATURE, ocp_data);
- 
--	ocp_data = ocp_read_byte(tp, MCU_TYPE_USB, USB_LPM_CTRL);
--	ocp_data &= ~LPM_TIMER_MASK;
-+	ocp_data = FIFO_EMPTY_1FB | ROK_EXIT_LPM;
- 	if (tp->version == RTL_VER_04 && tp->udev->speed != USB_SPEED_SUPER)
- 		ocp_data |= LPM_TIMER_500MS;
- 	else
-@@ -3251,6 +3304,8 @@ static void r8153_init(struct r8152 *tp)
- 	ocp_data |= SEN_VAL_NORMAL | SEL_RXIDLE;
- 	ocp_write_word(tp, MCU_TYPE_USB, USB_AFE_CTRL2, ocp_data);
- 
-+	ocp_write_word(tp, MCU_TYPE_USB, USB_CONNECT_TIMER, 0x0001);
-+
- 	r8153_power_cut_en(tp, false);
- 	r8153_u1u2en(tp, true);
- 
--- 
-2.1.0
+
+
+--=20
+Dave T=C3=A4ht
+
+thttp://www.bufferbloat.net/projects/bloat/wiki/Upcoming_Talks
