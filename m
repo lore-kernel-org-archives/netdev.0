@@ -1,118 +1,96 @@
-From: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
-Subject: Re: [PATCH 1/3] ixgbe,
- ixgbevf: Add new mbox API to enable MC promiscuous mode
-Date: Wed, 11 Feb 2015 23:33:15 +0000
-Message-ID: <7F861DC0615E0C47A872E6F3C5FCDDBD05E2BC45@BPXM14GP.gisp.nec.co.jp>
-References: <7F861DC0615E0C47A872E6F3C5FCDDBD05E1908D@BPXM14GP.gisp.nec.co.jp>
-	<1423054641.2589.59.camel@jtkirshe-mobl>
-	<7F861DC0615E0C47A872E6F3C5FCDDBD05E26E45@BPXM14GP.gisp.nec.co.jp>
-	<1423470046.27854.7.camel@jtkirshe-mobl>
-	<7F861DC0615E0C47A872E6F3C5FCDDBD05E29F43@BPXM14GP.gisp.nec.co.jp>
-	<F6FB0E698C9B3143BDF729DF22286646912A1339@ORSMSX110.amr.corp.intel.com>
+From: "Rustad, Mark D" <mark.d.rustad@intel.com>
+Subject: Re: [PATCH] iwl4965: Enable checking of format strings
+Date: Thu, 12 Feb 2015 00:41:39 +0000
+Message-ID: <60178C37-F104-430E-92EB-B6DDFAEB2F99@intel.com>
+References: <1423695069-23436-1-git-send-email-linux@rasmusvillemoes.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>, "Choi,
-	Sy Jong" <sy.jong.choi@intel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	David Laight <David.Laight@ACULAB.COM>,
-	Hayato Momma <h-momma@ce.jp.nec.com>,
-	=?utf-8?B?QmrDuHJuIE1vcms=?= <bjorn@mork.no>
-To: "Skidmore, Donald C" <donald.c.skidmore@intel.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <F6FB0E698C9B3143BDF729DF22286646912A1339@ORSMSX110.amr.corp.intel.com>
-Content-Language: ja-JP
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Content-Type: multipart/signed;
+	boundary="Apple-Mail=_39763AEA-1C12-4996-997C-C584EEB22D7C";
+	protocol="application/pgp-signature"; micalg=pgp-sha1
+Cc: Stanislaw Gruszka <sgruszka@redhat.com>,
+	Kalle Valo <kvalo@codeaurora.org>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Rasmus Villemoes <linux@rasmusvillemoes.dk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1423695069-23436-1-git-send-email-linux@rasmusvillemoes.dk>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-PiBTdWJqZWN0OiBSRTogW0UxMDAwLWRldmVsXSBbUEFUQ0ggMS8zXSBpeGdiZSwgaXhnYmV2Zjog
-QWRkIG5ldyBtYm94IEFQSSB0byBlbmFibGUgTUMgcHJvbWlzY3VvdXMgbW9kZQ0KPiANCj4gPiAt
-LS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiA+IEZyb206IEhpcm9zaGkgU2hpbWFtb3RvIFtt
-YWlsdG86aC1zaGltYW1vdG9AY3QuanAubmVjLmNvbV0NCj4gPiBTZW50OiBNb25kYXksIEZlYnJ1
-YXJ5IDA5LCAyMDE1IDY6MjkgUE0NCj4gPiBUbzogS2lyc2hlciwgSmVmZnJleSBUDQo+ID4gQ2M6
-IEFsZXhhbmRlciBEdXljazsgU2tpZG1vcmUsIERvbmFsZCBDOyBCasO4cm4gTW9yazsgZTEwMDAt
-DQo+ID4gZGV2ZWxAbGlzdHMuc291cmNlZm9yZ2UubmV0OyBuZXRkZXZAdmdlci5rZXJuZWwub3Jn
-OyBDaG9pLCBTeSBKb25nOyBsaW51eC0NCj4gPiBrZXJuZWxAdmdlci5rZXJuZWwub3JnOyBEYXZp
-ZCBMYWlnaHQ7IEhheWF0byBNb21tYQ0KPiA+IFN1YmplY3Q6IFJFOiBbRTEwMDAtZGV2ZWxdIFtQ
-QVRDSCAxLzNdIGl4Z2JlLCBpeGdiZXZmOiBBZGQgbmV3IG1ib3ggQVBJIHRvDQo+ID4gZW5hYmxl
-IE1DIHByb21pc2N1b3VzIG1vZGUNCj4gPg0KPiA+ID4gPiA+ID4gQ2FuIHlvdSBwbGVhc2UgZml4
-IHVwIHlvdXIgcGF0Y2hlcyBiYXNlZCBvbiBteSB0cmVlOg0KPiA+ID4gPiA+ID4gZ2l0Oi8vZ2l0
-Lmtlcm5lbC5vcmcvcHViL3NjbS9saW51eC9rZXJuZWwvZ2l0L2praXJzaGVyL3F1ZXVlLmdpdA0K
-PiA+ID4gPiA+DQo+ID4gPiA+ID4gWWVzLiBJIGhhdmVuJ3Qgbm90aWNlZCB5b3VyIHRyZWUuDQo+
-ID4gPiA+ID4gV2lsbCByZXNlbmQgcGF0Y2hlcyBhZ2FpbnN0IGl0Lg0KPiA+ID4gPiA+DQo+ID4g
-PiA+DQo+ID4gPiA+IEkgZW5jb3VudGVyZWQgYW4gaXNzdWUgd2l0aCB5b3VyIHRyZWUsIHRoZSBj
-b21taXQgaWQgaXMgYmVsb3cuDQo+ID4gPiA+DQo+ID4gPiA+ICQgZ2l0IGxvZyB8IGhlYWQNCj4g
-PiA+ID4gY29tbWl0IGU2ZjE2NDk3ODBmOGY1YTg3Mjk5YmY2YWYwNDQ1M2Y5M2QxZTNkNWUNCj4g
-PiA+ID4gQXV0aG9yOiBSYXNtdXMgVmlsbGVtb2VzIDxsaW51eEByYXNtdXN2aWxsZW1vZXMuZGs+
-DQo+ID4gPiA+IERhdGU6ICAgRnJpIEphbiAyMyAyMDo0MzoxNCAyMDE1IC0wODAwDQo+ID4gPiA+
-DQo+ID4gPiA+ICAgICBldGhlcm5ldDogZm0xMGs6IEFjdHVhbGx5IGRyb3AgNCBiaXRzDQo+ID4g
-PiA+DQo+ID4gPiA+ICAgICBUaGUgY29tbWVudCBleHBsYWlucyB0aGUgaW50ZW50aW9uLCBidXQg
-dmlkIGhhcyB0eXBlIHUxNi4gQmVmb3JlIHRoZQ0KPiA+ID4gPiAgICAgaW5uZXIgc2hpZnQsIGl0
-IGlzIHByb21vdGVkIHRvIGludCwgd2hpY2ggaGFzIHBsZW50eSBvZiBzcGFjZSBmb3IgYWxsDQo+
-ID4gPiA+ICAgICB2aWQncyBiaXRzLCBzbyBub3RoaW5nIGlzIGRyb3BwZWQuIFVzZSBhIHNpbXBs
-ZSBtYXNrIGluc3RlYWQuDQo+ID4gPiA+DQo+ID4gPiA+DQo+ID4gPiA+IEkgdXNlIHRoZSBrZXJu
-ZWwgZnJvbSB5b3VyIHRyZWUgaW4gYm90aCBob3N0IGFuZCBndWVzdC4NCj4gPiA+ID4NCj4gPiA+
-ID4gQXNzaWduIGFuIElQdjYgZm9yIFZGIGluIGd1ZXN0Lg0KPiA+ID4gPiAjIGlwIC02IGFkZHIg
-YWRkIDIwMDE6ZGI4OjoxODoxLzY0IGRldiBlbnMwDQo+ID4gPiA+DQo+ID4gPiA+IFNlbmQgcGlu
-ZyBwYWNrZXQgZnJvbSBvdGhlciBzZXJ2ZXIgdG8gdGhlIFZNLg0KPiA+ID4gPiAjIHBpbmc2ICAy
-MDAxOmRiODo6MTg6MSAtSSBldGgwDQo+ID4gPiA+DQo+ID4gPiA+IFRoZSBmb2xsb3dpbmcgbWVz
-c2FnZSB3YXMgc2hvd24uDQo+ID4gPiA+IGl4Z2JldmYgMDAwMDowMDowOC4wOiBwYXJ0aWFsIGNo
-ZWNrc3VtIGJ1dCBsNCBwcm90bz0zYSENCj4gPiA+ID4NCj4gPiA+ID4gSWYgSSBkaWQgdGhlIHNh
-bWUgb3BlcmF0aW9uIGluIHRoZSBob3N0LCBJIHNhdyB0aGUgc2FtZSBlcnJvciBtZXNzYWdlIGlu
-DQo+ID4gaG9zdCB0b28uDQo+ID4gPiA+IGl4Z2JlIDAwMDA6MmQ6MDAuMDogcGFydGlhbCBjaGVj
-a3N1bSBidXQgbDQgcHJvdG89M2EhDQo+ID4gPiA+DQo+ID4gPiA+IERvIHlvdSBoYXZlIGFueSBp
-ZGVhIGFib3V0IHRoYXQ/DQo+ID4gPg0KPiA+ID4gQWgsIHNvcnJ5IGFib3V0IHRoYXQsIHRyeSB0
-aGlzIHRyZWUgYWdhaW46DQo+ID4gPiBnaXQ6Ly9naXQua2VybmVsLm9yZy9wdWIvc2NtL2xpbnV4
-L2tlcm5lbC9naXQvamtpcnNoZXIvcXVldWUuZ2l0DQo+ID4gPg0KPiA+ID4gVGhhdCBwYXRjaCB3
-YXMgZHJvcHBlZCBmb3IgZmF2b3Igb2YgYSBwYXRjaCB0aGF0IE1hdHRoZXcgVmljayBwdXQNCj4g
-PiA+IHRvZ2V0aGVyIChhbmQgcmVjZW50bHkgZ290IHB1c2hlZCB1cHN0cmVhbSkuICBTbyBteSBx
-dWV1ZSBubyBsb25nZXINCj4gPiA+IGhhcyB0aGF0IHBhdGNoIGluIHRoZSBxdWV1ZSwgc2luY2Ug
-aXQgZ290IGRyb3BwZWQuDQo+ID4NCj4gPiBJIHN0aWxsIHNlZSB0aGUgc2FtZSBlcnJvciwgdGhl
-IGhlYWQgaWQgaXMgdGhlIGJlbG93DQo+ID4NCj4gPiAkIGdpdCBsb2cgfCBoZWFkDQo+ID4gY29t
-bWl0IGEwNzJhZmIwYjQ1OTA0MDIyYjc2ZGVlZjNiNzcwZWU5YTkzY2IxM2ENCj4gPiBBdXRob3I6
-IE5pY2hvbGFzIEtyYXVzZSA8eGVyb2ZvaWZ5QGdtYWlsLmNvbT4NCj4gPiBEYXRlOiAgIE1vbiBG
-ZWIgOSAwMDoyNzowMCAyMDE1IC0wODAwDQo+ID4NCj4gPiAgICAgaWdiOiBSZW1vdmUgb3V0ZGF0
-ZWQgZml4IG1lIGNvbW1lbnQgaW4gdGhlDQo+ID4gZnVuY3Rpb24sZ2JfYWNxdWlyZV9zd2Z3X3N5
-bmNfaTIxMA0KPiA+DQo+ID4NCj4gPiB0aGFua3MsDQo+ID4gSGlyb3NoaQ0KPiANCj4gSSdtIGhh
-dmluZyBvdXIgdmFsaWRhdGlvbiBzZWUgaWYgdGhleSBjYW4gcmVjcmVhdGUgdGhlIHNhbWUgaXNz
-dWUgaW50ZXJuYWxseS4gIFdoZW4gdGhleSBnZXQgYmFjayB0byBtZSBJJ2xsIGxldCB5b3Uga25v
-dw0KPiB3aGF0IHdlIGZvdW5kLg0KDQpXZSBkaWQgYmlzZWN0LCBhbmQgdGhlIGJlbG93IGxvb2tz
-IHRoZSBjdWxwcml0Ow0KDQozMmRjZTk2OGRkOTg3YWRmYjBjMDA5NDZkNzhkYWQ5MTU0ZjY0NzU5
-IGlzIHRoZSBmaXJzdCBiYWQgY29tbWl0DQpjb21taXQgMzJkY2U5NjhkZDk4N2FkZmIwYzAwOTQ2
-ZDc4ZGFkOTE1NGY2NDc1OQ0KQXV0aG9yOiBWbGFkIFlhc2V2aWNoIDx2eWFzZXZpY2hAZ21haWwu
-Y29tPg0KRGF0ZTogICBTYXQgSmFuIDMxIDEwOjQwOjE4IDIwMTUgLTA1MDANCg0KICAgIGlwdjY6
-IEFsbG93IGZvciBwYXJ0aWFsIGNoZWNrc3VtcyBvbiBub24tdWZvIHBhY2tldHMNCg0KICAgIEN1
-cnJudGx5LCBpZiB3ZSBhcmUgbm90IGRvaW5nIFVGTyBvbiB0aGUgcGFja2V0LCBhbGwgVURQDQog
-ICAgcGFja2V0cyB3aWxsIHN0YXJ0IHdpdGggQ0hFQ0tTVU1fTk9ORSBhbmQgdGh1cyBwZXJmb3Jt
-IGZ1bGwNCiAgICBjaGVja3N1bSBjb21wdXRhdGlvbnMgaW4gc29mdHdhcmUgZXZlbiBpZiBkZXZp
-Y2Ugc3VwcG9ydA0KICAgIElQdjYgY2hlY2tzdW0gb2ZmbG9hZGluZy4NCg0KICAgIExldCdzIHN0
-YXJ0IHN0YXJ0IHdpdGggQ0hFQ0tTVU1fUEFSVElBTCBpZiB0aGUgZGV2aWNlDQogICAgc3VwcG9y
-dHMgaXQgYW5kIHdlIGFyZSBzZW5kaW5nIG9ubHkgYSBzaW5nbGUgcGFja2V0IGF0DQogICAgb3Ig
-YmVsb3cgbXR1IHNpemUuDQoNCiAgICBTaWduZWQtb2ZmLWJ5OiBWbGFkaXNsYXYgWWFzZXZpY2gg
-PHZ5YXNldmljQHJlZGhhdC5jb20+DQogICAgU2lnbmVkLW9mZi1ieTogRGF2aWQgUy4gTWlsbGVy
-IDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KDQo6MDQwMDAwIDA0MDAwMCA0NDM3ZWFmN2U5NDRmNWE2
-MTM2ZWJmNjY4YTI1NmZlZTY4OGZkYTNkIGZhZGU4ZGE5OThkMzVjOGRhOTdhMTVmMDU1Njk0OWFk
-MzcxZTUzNDcgTSAgICAgIG5ldA0KDQp0aGFua3MsDQpIaXJvc2hpDQoNCj4gDQo+IFRoYW5rcywN
-Cj4gLURvbiBTa2lkbW9yZSA8ZG9uYWxkLmMuc2tpZG1vcmVAaW50ZWwuY29tPg0KDQotLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0KRGl2ZSBpbnRvIHRoZSBXb3JsZCBvZiBQYXJhbGxlbCBQcm9ncmFtbWlu
-Zy4gVGhlIEdvIFBhcmFsbGVsIFdlYnNpdGUsCnNwb25zb3JlZCBieSBJbnRlbCBhbmQgZGV2ZWxv
-cGVkIGluIHBhcnRuZXJzaGlwIHdpdGggU2xhc2hkb3QgTWVkaWEsIGlzIHlvdXIKaHViIGZvciBh
-bGwgdGhpbmdzIHBhcmFsbGVsIHNvZnR3YXJlIGRldmVsb3BtZW50LCBmcm9tIHdlZWtseSB0aG91
-Z2h0CmxlYWRlcnNoaXAgYmxvZ3MgdG8gbmV3cywgdmlkZW9zLCBjYXNlIHN0dWRpZXMsIHR1dG9y
-aWFscyBhbmQgbW9yZS4gVGFrZSBhCmxvb2sgYW5kIGpvaW4gdGhlIGNvbnZlcnNhdGlvbiBub3cu
-IGh0dHA6Ly9nb3BhcmFsbGVsLnNvdXJjZWZvcmdlLm5ldC8KX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX18KRTEwMDAtZGV2ZWwgbWFpbGluZyBsaXN0CkUxMDAw
-LWRldmVsQGxpc3RzLnNvdXJjZWZvcmdlLm5ldApodHRwczovL2xpc3RzLnNvdXJjZWZvcmdlLm5l
-dC9saXN0cy9saXN0aW5mby9lMTAwMC1kZXZlbApUbyBsZWFybiBtb3JlIGFib3V0IEludGVsJiMx
-NzQ7IEV0aGVybmV0LCB2aXNpdCBodHRwOi8vY29tbXVuaXRpZXMuaW50ZWwuY29tL2NvbW11bml0
-eS93aXJlZAo=
+--Apple-Mail=_39763AEA-1C12-4996-997C-C584EEB22D7C
+Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain;
+	charset=us-ascii
+
+On Feb 11, 2015, at 2:51 PM, Rasmus Villemoes <linux@rasmusvillemoes.dk> =
+wrote:
+
+> Since these fmt_* variables are just const char*, and not const
+> char[], gcc (and smatch) doesn't to type checking of the arguments to
+> the printf functions. Since the linker knows perfectly well to merge
+> identical string constants, there's no point in having three static
+> pointers waste memory and give an extra level of indirection.
+>=20
+> This removes over 100 "non-constant format argument" warnings from
+> smatch, accounting for about 20% of all such warnings in an
+> allmodconfig.
+>=20
+> Signed-off-by: Rasmus Villemoes <linux@rasmusvillemoes.dk>
+> ---
+> drivers/net/wireless/iwlegacy/4965-debug.c | 7 +++----
+> 1 file changed, 3 insertions(+), 4 deletions(-)
+>=20
+> diff --git a/drivers/net/wireless/iwlegacy/4965-debug.c =
+b/drivers/net/wireless/iwlegacy/4965-debug.c
+> index e0597bfdddb8..18855325cc1c 100644
+> --- a/drivers/net/wireless/iwlegacy/4965-debug.c
+> +++ b/drivers/net/wireless/iwlegacy/4965-debug.c
+> @@ -28,10 +28,9 @@
+> #include "common.h"
+> #include "4965.h"
+>=20
+> -static const char *fmt_value =3D "  %-30s %10u\n";
+> -static const char *fmt_table =3D "  %-30s %10u  %10u  %10u  %10u\n";
+> -static const char *fmt_header =3D
+> -    "%-32s    current  cumulative       delta         max\n";
+
+Why not change these to:
+static const char fmt_value[] =3D "  %-30s %10u\n";
+static const char fmt_table[] =3D "  %-30s %10u  %10u  %10u  %10u\n";
+static const char fmt_header[] =3D
+    "%-32s    current  cumulative       delta         max\n";
+
+I think that is better than the macros and avoids the extra pointers =
+that I agree are useless.
+
+--=20
+Mark Rustad, Networking Division, Intel Corporation
+
+
+--Apple-Mail=_39763AEA-1C12-4996-997C-C584EEB22D7C
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment; filename="signature.asc"
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Message signed with OpenPGP using GPGMail
+
+-----BEGIN PGP SIGNATURE-----
+Comment: GPGTools - http://gpgtools.org
+
+iQIcBAEBAgAGBQJU2/bCAAoJEDwO/+eO4+5uAFkP/A0FhqR0STl6uCwwaKu/Ro0P
+4qx6gcM7995VyuBcXNMgqTGpRcQIachnS+7xULon8/bCPy5xYAoqVGm1XTwDLDvp
+1ENK2Lpn87FPltBOVW/tA4HQFSdWP+OAplLkaaqAUwd676eKCe3YD5QPtjfYJrx3
+d8jIipNUrxdW5zpqkDjCe1yUFgKzfivQRV4Spc37CLfkxf2opM5YVLerQdJn86dq
+6n9IuogcNCUXuQzEZPKt7Abv760GpqpNQfNoF2YnChEvfjzdOVSXlX2VW/GQ6Iwo
+9S6pLaLPrem04lOFpg1b+qNq58JCEuCcTi0KZr81RLqn8hHt2hyBpqffjSPwL3On
+wCk7pXkpz1B60IY2XANGYFhQaNZBAMcgItUgnBXFYcaZJsgzVmS/QQ97H0NL9cVJ
+fPeSZ7b7TzAv/XeJCnsBlcDORghDMQLsqbfq6meZfy25Lv7f4O11l4bvIoS07SQu
+nXnL+5M9u2J9jEqbmRdgX67I3XI0ROsq6sP6eBx9OZ1Z8tHu9idqsIXs6x8WtF/k
+v5CyoSSDjvZjOhMlZWuoJNuZxZLdcePangUBX5/sFnb+oRdyklFAR2cQJjJC21vH
+W3W0bNGAVIVe6F7S76aACxDYn4VphqOm4+KaOkvppVOHhuEwLMRdSYqh2V90szWT
+LZw+4Y9gE0/UNtiaujvT
+=GQJq
+-----END PGP SIGNATURE-----
+
+--Apple-Mail=_39763AEA-1C12-4996-997C-C584EEB22D7C--
