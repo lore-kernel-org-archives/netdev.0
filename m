@@ -1,57 +1,38 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net-next tree with Linus'  tree
-Date: Thu, 12 Feb 2015 12:05:41 +1100
-Message-ID: <20150212120541.679651ff@canb.auug.org.au>
+From: =?UTF-8?B?5a6J55CGIOadjuWJkQ==?= <dovelijian@163.com>
+Subject: Fw:Some question about 802.1Q VLAN
+Date: Thu, 12 Feb 2015 08:58:42 +0800 (CST)
+Message-ID: <42e60bff.c3fe.14b7b4b85e6.Coremail.dovelijian@163.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
- boundary="Sig_/dhaht6_H=DqWYvBs.srb5/r"; protocol="application/pgp-signature"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Al Viro <viro@zeniv.linux.org.uk>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: base64
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from m13-31.163.com ([220.181.13.31]:49410 "EHLO m13-31.163.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752614AbbBLBNz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Feb 2015 20:13:55 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Sig_/dhaht6_H=DqWYvBs.srb5/r
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: quoted-printable
-
-Hi all,
-
-Today's linux-next merge of the net-next tree got a conflict in
-crypto/af_alg.c between commit 9399f0c51489 ("crypto: fix
-af_alg_make_sg() conversion to iov_iter") from Linus' tree and commit
-750d8065d88b ("crypto: Fix regressions caused by iov_iter changes")
-from the net-next tree.
-
-I fixed it up (I used the net-next tree version (for no particular
-reason)) and can carry the fix as necessary (no action is required).
-
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-
---Sig_/dhaht6_H=DqWYvBs.srb5/r
-Content-Type: application/pgp-signature
-Content-Description: OpenPGP digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAEBCAAGBQJU2/xqAAoJEMDTa8Ir7ZwVLpMQAJB5wt0CT8tyGi405w0i/UIY
-+tzqaHqBJ6mU31dX4HHRyB8pxUaw2i3bW4bVn0FXRLAUcHreHuMSTdYU2gKF01Al
-UuyJL5K/j46B72+62d76mf1tKSF8Vy0F3Z0Y9kmRiPL2Q+KntsSjqxIs/+ecBG7s
-s+AI+UmW15mis0JNpCC/AXsqftbgQpzAcvQ9vIVYzxqmIz0ONvx4IHrNxpjvcmup
-dxKdpIRmdJnDTWqVpY07IlZRXVrCpz7yetgd9HlX1GFDrE+rgrh1zPSI76AbrgZl
-mYiw4Ns+BWX2GTxX9nAfFuReDqYfXwN5ZuvBfUI0R49VSARvw+GcUj0R2fEhIBcb
-Wn0FtMFsTsFmH/s7szt24wd8i/BRdd5W7sHyAtTnrU1usd8iGpDr2/+k83THiyyG
-g11UxOMOVvZNYVqIwDW3xVeFWoJkYwMGrBQdS+vjKMGtA5EJay73uYcg92pfvE0o
-vp+79G/MCxV/+y8LpFGc53nDIaG6wFza9tVpTpRsHYN2xDPKUKFCBJRRm+YcGTeW
-+JonYCQWdBMo4+LRnVPinocI3Mp/sKyOsz7TiAnO9q6trSIFWHCyeuFzHX+Yc+FL
-KE9vnVUaO4sG7I9ti79WFQpJNpsPvU3QzkmAxWi5TF5xR0rjHBMlwyZpnxSHKgkt
-lw1NFtdKIJyATdwyNjO9
-=kqrv
------END PGP SIGNATURE-----
-
---Sig_/dhaht6_H=DqWYvBs.srb5/r--
+CgoKCkhJ4oCmSSBhbSBhIExpbnV4IFZMQU4gdXNlci4gTm93LCBJIGVuY291bnRlciBzb21lIHF1
+ZXN0aW9uIGFib3V0IDgwMi4xUSBWTEFOIGluIG15IHdpcmVsZXNzIEFQLiBNeSBMaW51eCBrZXJu
+ZWwgdmVyc2lvbiBpcyAyLjYuMzEuCsKgClBsZXNlIHNlZSBteSBzZXR0aW5nOgrCoMKgwqDCoMKg
+wqDCoMKgwqDCoCB2Y29uZmlnIGFkZCBldGgwIDEwCsKgwqDCoMKgwqDCoMKgwqDCoMKgIHZjb25m
+aWcgYWRkIGF0aDAgMTAKwqDCoMKgwqDCoMKgwqDCoMKgwqAgaWZjb25maWcgZXRoMC4xMCB1cArC
+oMKgwqDCoMKgwqDCoMKgwqDCoCBpZmNvbmZpZyBhdGgwLjEwIHVwCsKgwqDCoMKgwqDCoMKgwqDC
+oMKgIGJyY3RsIGFkZGJyIGJyMAogICAgICAgICAgYnJjdGwgYWRkYnIgYnIxCiAgICAgICAgICBi
+cmN0bCBhZGRpZiBicjAgYXRoMAogICAgICAgICAgYnJjdGwgYWRkaWYgYnIwIGV0aDAKICAgICAg
+ICAgIGJyY3RsIGFkZGlmIGJyMSBhdGgwLjEwCiAgICAgICAgICBicmN0bCBhZGRpZiBicjEgZXRo
+MC4xMAogICAgICAgICAgaWZjb25maWcgYnIwIHVwCiAgICAgICAgICBpZmNvbmZpZyBicjEgdXAK
+wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoCDCoMKgwqDCoMKgwqAgwqAKVGhlIGV0
+aDAgYW5kIGF0aDAgaXMgcmVhbCBuZXR3b3JrIGNhcmQgaW4gbXkgQVAsYW5kIHRoZSBhdGgwIGlz
+IHRoZSB3aXJlbGVzcyBjYXJkLgrCoApRdWVzdGlvbjoKwqDCoCDCoCBUd28gc3RhdGlvbiBhc3Nv
+Y2lhdGUgQVAgYnkgd2lyZWxlc3MsdGhlIHR3byBzdGF0aW9uIGFuZCBBUCB1c2Ugc2FtZSBWTEFO
+IHNldHRpbmcgbGlrZSBteSBkZXNjcmliZS5PbmUgc3RhdGlvbiBicjAgSXAgYWRkcmVzcyBpcyAx
+OTIuMTY4LjEuMTAvMjQsYnIxIGlwIGFkZHJlc3MgaXMgMTkyLjE2OC4yLjEwLzI0O290aGVyIHN0
+YXRpb24gYnIwIGlwIGFkZHJlc3MgaXMgMTkyLjE2OS4xLjExLzI0LCBicjEgaXAgYWRkcmVzcyBp
+cyAxOTIuMTY4LjIuMTIvMjQuVGhlIEFQIGlzIHVzZWQgYnJpZGdlIHRoZSBkYXRhIGZyb20gc3Rh
+dGlvbi4KwqAgQnV0IG5vdyB1c2Ugc3RhdGlvbjEgcGluZyBzdGF0aW9uMjogcGluZyAxOTIuMTY4
+LjEuMTEsaXQgaXMgc3VjY2Vzc2VkOyBwaW5nIDE5Mi4xNjguMi4xMixpdCBpcyBmYWlsZWQhISEK
+wqAgSSBkb27igJl0IGtub3cgdGhlIHJlYXNvbiBhYm91dCB0aGUgZmFpbCBzaXR1YXRpb24gLEkg
+bmVlZCBzb21lIGhlbHAuCsKgIFRoYW5rIHlvdSEKwqAKCg==
