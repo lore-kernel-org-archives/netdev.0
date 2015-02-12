@@ -1,135 +1,75 @@
-From: Mahesh Bandewar <maheshb@google.com>
-Subject: [PATCH next v3 2/6] bonding: implement bond_poll_controller()
-Date: Wed, 11 Feb 2015 20:24:25 -0800
-Message-ID: <1423715065-9304-1-git-send-email-maheshb@google.com>
-Cc: Mahesh Bandewar <maheshb@google.com>,
-	Maciej Zenczykowski <maze@google.com>,
-	netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>
-To: Jay Vosburgh <j.vosburgh@gmail.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Veaceslav Falico <vfalico@gmail.com>,
-	Nikolay Aleksandrov <nikolay@redhat.com>,
-	David Miller <davem@davemloft.net>
+From: Eyal Birger <eyal.birger@gmail.com>
+Subject: [PATCH net-next v2 0/3] net: Introducing socket mark receive socket option
+Date: Thu, 12 Feb 2015 06:32:12 +0200
+Message-ID: <1423715535-884-1-git-send-email-eyal.birger@gmail.com>
+Cc: netdev@vger.kernel.org, edumazet@google.com,
+	shmulik.ladkani@gmail.com, Eyal Birger <eyal.birger@gmail.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f201.google.com ([74.125.82.201]:33451 "EHLO
-	mail-we0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754688AbbBLEaa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Feb 2015 23:30:30 -0500
-Received: by mail-we0-f201.google.com with SMTP id k11so954210wes.0
-        for <netdev@vger.kernel.org>; Wed, 11 Feb 2015 20:30:29 -0800 (PST)
+Received: from mail-we0-f180.google.com ([74.125.82.180]:50460 "EHLO
+	mail-we0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753289AbbBLEc3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Feb 2015 23:32:29 -0500
+Received: by mail-we0-f180.google.com with SMTP id k11so7574510wes.11
+        for <netdev@vger.kernel.org>; Wed, 11 Feb 2015 20:32:27 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patches implements the poll_controller support for all
-bonding driver. If the slaves have poll_controller net_op defined,
-this implementation calls them. This is mode agnostic implementation
-and iterates through all slaves (based on mode) and calls respective
-handler.
+This patch set introduces a new socket option for fetching the mark
+of skbs passed to sockets as ancillary data.
 
-Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+A userspace program may wish to receive the mark of packets it
+receives, for example for distinguishing between different TPROXY
+diversion rules to the same userspace proxy socket.
+
+The patch set includes a minor function renaming, as well as a
+change in struct sk_buff for allowing skb->mark to persist after
+being queued to the socket queue.
+
 ---
-v1:
-   Initial version
-v2:
-   Eliminate bool variable.
-v3:
-   Rebase
+Changes in v2:
+- Function parameter indentation
+- Commit message formatting
+---
 
- drivers/net/bonding/bond_3ad.c  | 24 ++++++++++++++++++++++++
- drivers/net/bonding/bond_main.c | 33 +++++++++++++++++++++++++++++++++
- include/net/bond_3ad.h          |  1 +
- 3 files changed, 58 insertions(+)
+Eyal Birger (3):
+  net: Rename sock_recv_ts_and_drops() to sock_cmsg_recv()
+  net: use skb->priority for overloading skb->dropcount and
+    skb->reserved_tailroom instead of skb->mark
+  net: Introducing socket mark receive socket option
 
-diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
-index 9b436696b95e..14f2ebe786c5 100644
---- a/drivers/net/bonding/bond_3ad.c
-+++ b/drivers/net/bonding/bond_3ad.c
-@@ -2477,6 +2477,30 @@ int bond_3ad_get_active_agg_info(struct bonding *bond, struct ad_info *ad_info)
- 	return ret;
- }
- 
-+#define BOND_3AD_PORT_OPERATIONAL \
-+		(AD_STATE_DISTRIBUTING | AD_STATE_COLLECTING | \
-+		 AD_STATE_SYNCHRONIZATION | AD_STATE_AGGREGATION)
-+
-+static int bond_3ad_port_operational(struct slave *slave)
-+{
-+	port_t *port = &SLAVE_AD_INFO(slave)->port;
-+
-+	return bond_slave_can_tx(slave) &&
-+	       (port->actor_oper_port_state & port->partner_oper.port_state &
-+		BOND_3AD_PORT_OPERATIONAL) == BOND_3AD_PORT_OPERATIONAL;
-+}
-+
-+/* bond_3ad_port_is_active - check if a slave port is active or not. A port
-+ * is active when it can forward traffic.
-+ *
-+ * @slave: slave port to check state for.
-+ * Returns: 0 if not active else is active.
-+ */
-+int bond_3ad_port_is_active(struct slave *slave)
-+{
-+	return bond_3ad_port_operational(slave);
-+}
-+
- int bond_3ad_lacpdu_recv(const struct sk_buff *skb, struct bonding *bond,
- 			 struct slave *slave)
- {
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index b979c265fc51..8433fe464f95 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -928,6 +928,39 @@ static inline void slave_disable_netpoll(struct slave *slave)
- 
- static void bond_poll_controller(struct net_device *bond_dev)
- {
-+	struct bonding *bond = netdev_priv(bond_dev);
-+	struct slave *slave = NULL;
-+	struct list_head *iter;
-+	struct ad_info ad_info;
-+	struct netpoll_info *ni;
-+	const struct net_device_ops *ops;
-+
-+	if (BOND_MODE(bond) == BOND_MODE_8023AD)
-+		if (bond_3ad_get_active_agg_info(bond, &ad_info))
-+			return;
-+
-+	bond_for_each_slave(bond, slave, iter) {
-+		ops = slave->dev->netdev_ops;
-+		if (!bond_slave_is_up(slave) || !ops->ndo_poll_controller)
-+			continue;
-+
-+		if (BOND_MODE(bond) == BOND_MODE_8023AD) {
-+			struct aggregator *agg =
-+			    SLAVE_AD_INFO(slave)->port.aggregator;
-+
-+			if (agg && agg->aggregator_identifier !=
-+				   ad_info.aggregator_id)
-+				continue;
-+		    if (!bond_3ad_port_is_active(slave) || ad_info.ports != 1)
-+				continue;
-+		}
-+
-+		ni = rcu_dereference_bh(slave->dev->npinfo);
-+		if (down_trylock(&ni->dev_lock))
-+			continue;
-+		ops->ndo_poll_controller(slave->dev);
-+		up(&ni->dev_lock);
-+	}
- }
- 
- static void bond_netpoll_cleanup(struct net_device *bond_dev)
-diff --git a/include/net/bond_3ad.h b/include/net/bond_3ad.h
-index f04cdbb7848e..6c455c646d61 100644
---- a/include/net/bond_3ad.h
-+++ b/include/net/bond_3ad.h
-@@ -278,5 +278,6 @@ int bond_3ad_lacpdu_recv(const struct sk_buff *skb, struct bonding *bond,
- 			 struct slave *slave);
- int bond_3ad_set_carrier(struct bonding *bond);
- void bond_3ad_update_lacp_rate(struct bonding *bond);
-+int bond_3ad_port_is_active(struct slave *slave);
- #endif /* _NET_BOND_3AD_H */
- 
+ arch/alpha/include/uapi/asm/socket.h   |  2 ++
+ arch/avr32/include/uapi/asm/socket.h   |  2 ++
+ arch/cris/include/uapi/asm/socket.h    |  2 ++
+ arch/frv/include/uapi/asm/socket.h     |  2 ++
+ arch/ia64/include/uapi/asm/socket.h    |  2 ++
+ arch/m32r/include/uapi/asm/socket.h    |  2 ++
+ arch/mips/include/uapi/asm/socket.h    |  2 ++
+ arch/mn10300/include/uapi/asm/socket.h |  2 ++
+ arch/parisc/include/uapi/asm/socket.h  |  2 ++
+ arch/powerpc/include/uapi/asm/socket.h |  2 ++
+ arch/s390/include/uapi/asm/socket.h    |  2 ++
+ arch/sparc/include/uapi/asm/socket.h   |  2 ++
+ arch/xtensa/include/uapi/asm/socket.h  |  2 ++
+ include/linux/skbuff.h                 |  4 ++--
+ include/net/sock.h                     | 18 ++++++++++--------
+ include/uapi/asm-generic/socket.h      |  2 ++
+ net/atm/common.c                       |  2 +-
+ net/bluetooth/af_bluetooth.c           |  4 ++--
+ net/can/bcm.c                          |  2 +-
+ net/can/raw.c                          |  2 +-
+ net/core/sock.c                        |  8 ++++++++
+ net/ieee802154/socket.c                |  4 ++--
+ net/ipv4/raw.c                         |  2 +-
+ net/ipv4/udp.c                         |  2 +-
+ net/ipv6/raw.c                         |  2 +-
+ net/ipv6/udp.c                         |  2 +-
+ net/key/af_key.c                       |  2 +-
+ net/packet/af_packet.c                 |  2 +-
+ net/rxrpc/ar-recvmsg.c                 |  2 +-
+ net/sctp/socket.c                      |  2 +-
+ net/socket.c                           | 15 ++++++++++++---
+ 31 files changed, 75 insertions(+), 28 deletions(-)
+
 -- 
-2.2.0.rc0.207.ga3a616c
+2.1.4
