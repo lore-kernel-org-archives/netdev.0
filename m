@@ -1,32 +1,60 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next 4/7] ebpf: extend program type/subsystem registration
-Date: Thu, 12 Feb 2015 22:06:05 +0100
-Message-ID: <54DD15BD.7040306@iogearbox.net>
-References: <CAMEtUuxwdk8RDbUbo8SO9zMU2ELgf-xZynEeT5i5JBNLc2Y_Hw@mail.gmail.com>
+From: Vince Bridgers <vbridger@opensource.altera.com>
+Subject: [PATCH net] net: eth: altera: Change access ports to mdio for all xMII applications
+Date: Thu, 12 Feb 2015 10:47:33 -0600
+Message-ID: <1423759653-5023-1-git-send-email-vbridger@opensource.altera.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: =?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
-	Network Development <netdev@vger.kernel.org>
-To: Alexei Starovoitov <ast@plumgrid.com>, Thomas Graf <tgraf@suug.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:43885 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751685AbbBLVGp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Feb 2015 16:06:45 -0500
-In-Reply-To: <CAMEtUuxwdk8RDbUbo8SO9zMU2ELgf-xZynEeT5i5JBNLc2Y_Hw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <vbridger@altera.com>, <vbridger@opensource.altera.com>,
+	<kailng@altera.com>, <dwesterg@gmail.com>
+To: <netdev@vger.kernel.org>, <nios2-dev@lists.rocketboards.org>,
+	<linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 02/11/2015 02:37 AM, Alexei Starovoitov wrote:
-...
-> My concern that if we allow modules to register new program
-> types we allow bypass of gpl and all safety checks we've
-> put in place.
+Change use of Altera TSE's MDIO access from phy 0 registers to phy 1
+registers. This allows support for GMII, MII, RGMII, and SGMII
+designs where the external PHY is always accesible through
+Altera TSE's MDIO phy 1 registers and Altera's PCS is accessible
+through MDIO phy 0 registers for SGMII applications.
 
-Right, I share this concern. That requires to make helper functions
-generic enough and shareable among various ebpf users, but that should
-be possible, so as mentioned in the other mail, the cls program type
-reusing sock_filter_ops is a good way forward.
+Signed-off-by: Vince Bridgers <vbridger@opensource.altera.com>
+Tested-by: Kai Lin Ng <kailng@altera.com>
+Tested-by: Dalon Westergreen <dwesterg@gmail.com>
+---
+ drivers/net/ethernet/altera/altera_tse_main.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-Thanks for the review!
+diff --git a/drivers/net/ethernet/altera/altera_tse_main.c b/drivers/net/ethernet/altera/altera_tse_main.c
+index 996bdf1..a1ee261 100644
+--- a/drivers/net/ethernet/altera/altera_tse_main.c
++++ b/drivers/net/ethernet/altera/altera_tse_main.c
+@@ -105,11 +105,11 @@ static int altera_tse_mdio_read(struct mii_bus *bus, int mii_id, int regnum)
+ 
+ 	/* set MDIO address */
+ 	csrwr32((mii_id & 0x1f), priv->mac_dev,
+-		tse_csroffs(mdio_phy0_addr));
++		tse_csroffs(mdio_phy1_addr));
+ 
+ 	/* get the data */
+ 	return csrrd32(priv->mac_dev,
+-		       tse_csroffs(mdio_phy0) + regnum * 4) & 0xffff;
++		       tse_csroffs(mdio_phy1) + regnum * 4) & 0xffff;
+ }
+ 
+ static int altera_tse_mdio_write(struct mii_bus *bus, int mii_id, int regnum,
+@@ -120,10 +120,10 @@ static int altera_tse_mdio_write(struct mii_bus *bus, int mii_id, int regnum,
+ 
+ 	/* set MDIO address */
+ 	csrwr32((mii_id & 0x1f), priv->mac_dev,
+-		tse_csroffs(mdio_phy0_addr));
++		tse_csroffs(mdio_phy1_addr));
+ 
+ 	/* write the data */
+-	csrwr32(value, priv->mac_dev, tse_csroffs(mdio_phy0) + regnum * 4);
++	csrwr32(value, priv->mac_dev, tse_csroffs(mdio_phy1) + regnum * 4);
+ 	return 0;
+ }
+ 
+-- 
+1.9.1
