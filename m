@@ -1,54 +1,78 @@
-From: Vasily Averin <vvs@parallels.com>
-Subject: Re: bride: IPv6 multicast snooping enhancements
-Date: Thu, 12 Feb 2015 15:01:24 +0300
-Message-ID: <54DC9614.9060502@parallels.com>
-References: <1378253619-23918-1-git-send-email-linus.luessing@web.de> <54D9C4ED.6040601@parallels.com> <20150210114428.GK2489@odroid> <54DA0EAD.60002@parallels.com> <20150212114117.GC3665@odroid>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Cong Wang <amwang@redhat.com>
-To: =?UTF-8?B?TGludXMgTMO8c3Npbmc=?= <linus.luessing@c0d3.blue>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:23115 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755288AbbBLMDU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Feb 2015 07:03:20 -0500
-In-Reply-To: <20150212114117.GC3665@odroid>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Catalin Marinas <catalin.marinas@arm.com>
+Subject: [PATCH] net: compat: Ignore MSG_CMSG_COMPAT in compat_sys_{send,recv}msg
+Date: Thu, 12 Feb 2015 12:28:07 +0000
+Message-ID: <1423744087-21317-1-git-send-email-catalin.marinas@arm.com>
+Cc: linux-kernel@vger.kernel.org, Will Deacon <will.deacon@arm.com>,
+	Andy Lutomirski <luto@amacapital.net>,
+	"David S. Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 12.02.2015 14:41, Linus L=C3=BCssing wrote:
-> On Tue, Feb 10, 2015 at 04:59:09PM +0300, Vasily Averin wrote:
->> I'm trying to fix ICMPv6 processing broken in OpenVZ after rebase to=
- last RHEL6u6 kernel.
->> After some unclear manipulation bridge begins to forward icmp6 NS (f=
-e02::1) into wrong port,
->> and at present I do not found the reason of this failure.
->=20
-> fe02::1 seems uncommon for ICMPv6 NS messages. Would you mind
-> making some dumps for ~10 minutes with tcpdump on all bridge ports
-> and the bridge interface itself with a filter "icmp6" and uploading t=
-he
-> result somewhere?
->=20
-> Also provide a dump from "bridge mdb show dev $bridge" please (if
-> possible - not sure whether that's available on the ancient 2.6.32
-> kernel as used on RHEL6u6).
+With commit a7526eb5d06b (net: Unbreak compat_sys_{send,recv}msg), the
+MSG_CMSG_COMPAT flag is blocked at the compat syscall entry points,
+changing the kernel compat behaviour from the one before the commit it
+was trying to fix (1be374a0518a, net: Block MSG_CMSG_COMPAT in
+send(m)msg and recv(m)msg).
 
-Thank you, "bridge mdb show" helps me to find an external router.
+On 32-bit kernels (!CONFIG_COMPAT), MSG_CMSG_COMPAT is 0 and the native
+32-bit sys_sendmsg() allows flag 0x80000000 to be set (it is ignored by
+the kernel). However, on a 64-bit kernel, the compat ABI is different
+with commit a7526eb5d06b.
 
-Therefore bridge forwarded all locally generated multicasts to external=
- port.
-Then forwarded messages was lost or was filtered or=20
-just incorrectly processed, but in any case they never returned back.
+This patch changes the compat_sys_{send,recv}msg behaviour to the one
+prior to commit 1be374a0518a.
 
-So as far as I understand bridge itself works correctly,=20
-it isn't responsible for external troubles.
+The problem was found running 32-bit LTP (sendmsg01) binary on an arm64
+kernel. Arguably, LTP should not pass 0xffffffff as flags to sendmsg()
+but the general rule is not to break user ABI (even when the user
+behaviour is not entirely sane).
 
-Thank you,
-	Vasily Averin
+Fixes: a7526eb5d06b (net: Unbreak compat_sys_{send,recv}msg)
+Cc: Andy Lutomirski <luto@amacapital.net>
+Cc: David S. Miller <davem@davemloft.net>
+Signed-off-by: Catalin Marinas <catalin.marinas@arm.com>
+---
+ net/compat.c | 9 ---------
+ 1 file changed, 9 deletions(-)
+
+diff --git a/net/compat.c b/net/compat.c
+index 3236b4167a32..94d3d5e97883 100644
+--- a/net/compat.c
++++ b/net/compat.c
+@@ -711,24 +711,18 @@ static unsigned char nas[21] = {
+ 
+ COMPAT_SYSCALL_DEFINE3(sendmsg, int, fd, struct compat_msghdr __user *, msg, unsigned int, flags)
+ {
+-	if (flags & MSG_CMSG_COMPAT)
+-		return -EINVAL;
+ 	return __sys_sendmsg(fd, (struct user_msghdr __user *)msg, flags | MSG_CMSG_COMPAT);
+ }
+ 
+ COMPAT_SYSCALL_DEFINE4(sendmmsg, int, fd, struct compat_mmsghdr __user *, mmsg,
+ 		       unsigned int, vlen, unsigned int, flags)
+ {
+-	if (flags & MSG_CMSG_COMPAT)
+-		return -EINVAL;
+ 	return __sys_sendmmsg(fd, (struct mmsghdr __user *)mmsg, vlen,
+ 			      flags | MSG_CMSG_COMPAT);
+ }
+ 
+ COMPAT_SYSCALL_DEFINE3(recvmsg, int, fd, struct compat_msghdr __user *, msg, unsigned int, flags)
+ {
+-	if (flags & MSG_CMSG_COMPAT)
+-		return -EINVAL;
+ 	return __sys_recvmsg(fd, (struct user_msghdr __user *)msg, flags | MSG_CMSG_COMPAT);
+ }
+ 
+@@ -751,9 +745,6 @@ COMPAT_SYSCALL_DEFINE5(recvmmsg, int, fd, struct compat_mmsghdr __user *, mmsg,
+ 	int datagrams;
+ 	struct timespec ktspec;
+ 
+-	if (flags & MSG_CMSG_COMPAT)
+-		return -EINVAL;
+-
+ 	if (timeout == NULL)
+ 		return __sys_recvmmsg(fd, (struct mmsghdr __user *)mmsg, vlen,
+ 				      flags | MSG_CMSG_COMPAT, NULL);
