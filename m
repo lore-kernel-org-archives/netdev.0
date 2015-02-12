@@ -1,115 +1,84 @@
-From: Hayes Wang <hayeswang@realtek.com>
-Subject: RE: [PATCH net-next 1/3] r8152: separate USB_RX_EARLY_AGG
-Date: Thu, 12 Feb 2015 06:04:06 +0000
-Message-ID: <0835B3720019904CB8F7AA43166CEEB2EE9373@RTITMBSV03.realtek.com.tw>
-References: <1394712342-15778-137-Taiwan-albertk@realtek.com>
- <1394712342-15778-138-Taiwan-albertk@realtek.com>
- <54DB5E94.6010101@cogentembedded.com>
- <0835B3720019904CB8F7AA43166CEEB2EE92DB@RTITMBSV03.realtek.com.tw>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: nic_swsd <nic_swsd@realtek.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>
-To: Hayes Wang <hayeswang@realtek.com>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <0835B3720019904CB8F7AA43166CEEB2EE92DB@RTITMBSV03.realtek.com.tw>
-Content-Language: zh-TW
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Bryton Lee <brytonlee01@gmail.com>
+Subject: [PATCH] prevent the read ahead of /proc/slabinfo in ss - take 4
+Date: Thu, 12 Feb 2015 14:16:04 +0800
+Message-ID: <1423721764-6778-1-git-send-email-brytonlee01@gmail.com>
+Cc: eric.dumazet@gmail.com, brytonlee01@gmail.com
+To: stephen@networkplumber.org, netdev@vger.kernel.org,
+	davem@davemloft.net, sergei.shtylyov@cogentembedded.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f178.google.com ([209.85.192.178]:42292 "EHLO
+	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932211AbbBLGQ1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Feb 2015 01:16:27 -0500
+Received: by pdbfp1 with SMTP id fp1so9732724pdb.9
+        for <netdev@vger.kernel.org>; Wed, 11 Feb 2015 22:16:27 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
- Sergei Shtylyov; netdev@vger.kernel.org
-[...]
-> > > +	ocp_data = tp->coalesce / 8;
-> >
-> >     Why not do it in the initializer?
->
-> This is for patch #3. The patch #3 would use this function.
-> The unit of the relative setting from the ethtool is 1 us.
-> However, the unit for the hw is 8 us. Therefore, I save the
-> value with the unit of 1 us, and transfer it to the unit of
-> the hw when setting.
+Signed-off-by: Bryton Lee <brytonlee01@gmail.com>
+---
+ misc/ss.c | 14 +++++++++++---
+ 1 file changed, 11 insertions(+), 3 deletions(-)
 
-I think I misunderstand what you mean. I think you mean I
-have to combine
-
-	u32 ocp_data;
-	ocp_data = tp->coalesce / 8;
-
-into
-
-	u32 ocp_data = tp->coalesce / 8;
-
-I would correct it.
-
-> > > +	ocp_write_word(tp, MCU_TYPE_USB, USB_RX_EARLY_TIMEOUT, ocp_data);
-> > > +}
-> > > +
-> > > +static void r8153_set_rx_early_size(struct r8152 *tp)
-> > > +{
-> > > +	struct net_device *dev = tp->netdev;
-> >
-> >     Not sure you actually need this variable.
->
-> If I replace dev->mtu with tp->netdev->mtu, the line would
-> more than 80 characters. This is used to avoid it. Should
-> I remove it?
->
-> > > +	u32 ocp_data;
-> > > +
-> > > +	ocp_data = (agg_buf_sz - dev->mtu - VLAN_ETH_HLEN - VLAN_HLEN) / 4;
-> >
-> >     Why not in initializer?
->
-> This is for patch #2. The patch #2 would use this function.
-> It has to be re-calculated when the mtu is changed, or the
-> function is called when the linking status changes to ON.
-
-I think you mean I have to combine
-
-	u32 ocp_data;
-	ocp_data = (agg_buf_sz - dev->mtu - VLAN_ETH_HLEN - VLAN_HLEN) / 4;
-
-into
-
-	u32 ocp_data = (agg_buf_sz - dev->mtu - VLAN_ETH_HLEN - VLAN_HLEN) / 4;
-
-I would correct it.
-
-> > > +	ocp_write_word(tp, MCU_TYPE_USB, USB_RX_EARLY_SIZE, ocp_data);
-> > >   }
-> > [...]
-> > > @@ -3911,6 +3907,13 @@ static int rtl8152_probe(struct
-> > usb_interface *intf,
-> > >   	tp->mii.reg_num_mask = 0x1f;
-> > >   	tp->mii.phy_id = R8152_PHY_ID;
-> > >
-> > > +	if (udev->speed == USB_SPEED_SUPER)
-> > > +		tp->coalesce = COALESCE_SUPER;
-> > > +	else if (udev->speed == USB_SPEED_HIGH)
-> > > +		tp->coalesce = COALESCE_HIGH;
-> > > +	else
-> > > +		tp->coalesce = COALESCE_SLOW;
-> >
-> >     This is asking to be a *switch* statement.
->
-> Excuse me. I don't understand what you mean.
-> The usb speed is determined when the device is plugged on
-> the usb host controller or usb hub. The usb speed wouldn't
-> chage unless you unplug the device and plug it to another
-> port with different usb speed. Therefore, I provide different
-> default values for different usb speed.
-
-I think you mean
-
-	switch (udev->speed) {
-	case USB_SPEED_SUPER:
-		...
-
-I would correct it.
+diff --git a/misc/ss.c b/misc/ss.c
+index 0a6a65e..e86fa5f 100644
+--- a/misc/ss.c
++++ b/misc/ss.c
+@@ -617,7 +617,7 @@ struct slabstat
+ 	int skbs;
+ };
  
-Best Regards,
-Hayes
+-struct slabstat slabstat;
++static struct slabstat slabstat;
+ 
+ static const char *slabstat_ids[] =
+ {
+@@ -633,6 +633,10 @@ static int get_slabstat(struct slabstat *s)
+ 	char buf[256];
+ 	FILE *fp;
+ 	int cnt;
++	static int slabstat_valid;
++
++	if (slabstat_valid)
++		return 0;
+ 
+ 	memset(s, 0, sizeof(*s));
+ 
+@@ -656,6 +660,8 @@ static int get_slabstat(struct slabstat *s)
+ 			break;
+ 	}
+ 
++	slabstat_valid = 1;
++
+ 	fclose(fp);
+ 	return 0;
+ }
+@@ -2231,6 +2237,8 @@ static int tcp_show(struct filter *f, int socktype)
+ 	 * it is able to give us some memory for snapshot.
+ 	 */
+ 	if (1) {
++		get_slabstat(&slabstat);
++
+ 		int guess = slabstat.socks+slabstat.tcp_syns;
+ 		if (f->states&(1<<SS_TIME_WAIT))
+ 			guess += slabstat.tcp_tws;
+@@ -3197,6 +3205,8 @@ static int print_summary(void)
+ 	if (get_snmp_int("Tcp:", "CurrEstab", &sn.tcp_estab) < 0)
+ 		perror("ss: get_snmpstat");
+ 
++	get_slabstat(&slabstat);
++
+ 	printf("Total: %d (kernel %d)\n", s.socks, slabstat.socks);
+ 
+ 	printf("TCP:   %d (estab %d, closed %d, orphaned %d, synrecv %d, timewait %d/%d), ports %d\n",
+@@ -3550,8 +3560,6 @@ int main(int argc, char *argv[])
+ 	argc -= optind;
+ 	argv += optind;
+ 
+-	get_slabstat(&slabstat);
+-
+ 	if (do_summary) {
+ 		print_summary();
+ 		if (do_default && argc == 0)
+-- 
+2.0.5
