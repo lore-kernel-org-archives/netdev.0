@@ -1,34 +1,57 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next 7/7] cls_bpf: add initial eBPF support for programmable
- classifiers
-Date: Thu, 12 Feb 2015 21:46:20 +0100
-Message-ID: <54DD111C.8000304@iogearbox.net>
-References: <CAMEtUuzAeukNAynQtMbjLYQcB+kxM+XaFFsB1tvrHjxUskJdZw@mail.gmail.com>
+From: Vince Bridgers <vbridger@opensource.altera.com>
+Subject: [PATCH net] net: eth: altera: Change reset_mac failure message masks from err to dbg
+Date: Thu, 12 Feb 2015 10:47:45 -0600
+Message-ID: <1423759665-5062-1-git-send-email-vbridger@opensource.altera.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: =?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
-	Network Development <netdev@vger.kernel.org>
-To: Alexei Starovoitov <ast@plumgrid.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:41325 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751198AbbBLUqc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Feb 2015 15:46:32 -0500
-In-Reply-To: <CAMEtUuzAeukNAynQtMbjLYQcB+kxM+XaFFsB1tvrHjxUskJdZw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <vbridger@altera.com>, <vbridger@opensource.altera.com>
+To: <netdev@vger.kernel.org>, <nios2-dev@lists.rocketboards.org>,
+	<linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 02/11/2015 03:16 AM, Alexei Starovoitov wrote:
-...
-> 2.
-> in core/filter.c do:
-> bpf_register_prog_type(&sock_type);
-> bpf_register_prog_type(&cls_type);
-> static struct bpf_prog_type_list cls_type = {
->          .ops = &sock_filter_ops,
->          .type = BPF_PROG_TYPE_SCHED_CLS,
-> };
+This debug output is not really an error message since mac reset can fail
+if the phy clocks are gated, specifically when the phy has been placed in
+a powered down or isolation mode. The netdev output masks were changed from
+err to dbg, and comments added in the code.
 
-Yes, that's fine by me. That way, we'll also preserve ABI compatibility when
-we decide to diverge from the current socket filter functionality.
+Signed-off-by: Vince Bridgers <vbridger@opensource.altera.com>
+---
+ drivers/net/ethernet/altera/altera_tse_main.c | 12 ++++++++++--
+ 1 file changed, 10 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/altera/altera_tse_main.c b/drivers/net/ethernet/altera/altera_tse_main.c
+index 760c72c..996bdf1 100644
+--- a/drivers/net/ethernet/altera/altera_tse_main.c
++++ b/drivers/net/ethernet/altera/altera_tse_main.c
+@@ -1099,8 +1099,12 @@ static int tse_open(struct net_device *dev)
+ 
+ 	spin_lock(&priv->mac_cfg_lock);
+ 	ret = reset_mac(priv);
++	/* Note that reset_mac will fail if the clocks are gated by the PHY
++	 * due to the PHY being put into isolation or power down mode.
++	 * This is not an error if reset fails due to no clock.
++	 */
+ 	if (ret)
+-		netdev_err(dev, "Cannot reset MAC core (error: %d)\n", ret);
++		netdev_dbg(dev, "Cannot reset MAC core (error: %d)\n", ret);
+ 
+ 	ret = init_mac(priv);
+ 	spin_unlock(&priv->mac_cfg_lock);
+@@ -1204,8 +1208,12 @@ static int tse_shutdown(struct net_device *dev)
+ 	spin_lock(&priv->tx_lock);
+ 
+ 	ret = reset_mac(priv);
++	/* Note that reset_mac will fail if the clocks are gated by the PHY
++	 * due to the PHY being put into isolation or power down mode.
++	 * This is not an error if reset fails due to no clock.
++	 */
+ 	if (ret)
+-		netdev_err(dev, "Cannot reset MAC core (error: %d)\n", ret);
++		netdev_dbg(dev, "Cannot reset MAC core (error: %d)\n", ret);
+ 	priv->dmaops->reset_dma(priv);
+ 	free_skbufs(dev);
+ 
+-- 
+1.9.1
