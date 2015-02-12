@@ -1,124 +1,115 @@
-From: Zhu Yanjun <Yanjun.Zhu@windriver.com>
-Subject: [PATCH 1/1] tun: change speed from 10M to dynamically configured
-Date: Thu, 12 Feb 2015 13:35:23 +0800
-Message-ID: <1423719323-4667-2-git-send-email-Yanjun.Zhu@windriver.com>
-References: <1423719323-4667-1-git-send-email-Yanjun.Zhu@windriver.com>
+From: Hayes Wang <hayeswang@realtek.com>
+Subject: RE: [PATCH net-next 1/3] r8152: separate USB_RX_EARLY_AGG
+Date: Thu, 12 Feb 2015 06:04:06 +0000
+Message-ID: <0835B3720019904CB8F7AA43166CEEB2EE9373@RTITMBSV03.realtek.com.tw>
+References: <1394712342-15778-137-Taiwan-albertk@realtek.com>
+ <1394712342-15778-138-Taiwan-albertk@realtek.com>
+ <54DB5E94.6010101@cogentembedded.com>
+ <0835B3720019904CB8F7AA43166CEEB2EE92DB@RTITMBSV03.realtek.com.tw>
 Mime-Version: 1.0
-Content-Type: text/plain
-To: <netdev@vger.kernel.org>, <mst@redhat.com>, <jasowang@redhat.com>,
-	<viro@zeniv.linux.org.uk>, <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:39721 "EHLO
-	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750839AbbBLFgi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Feb 2015 00:36:38 -0500
-In-Reply-To: <1423719323-4667-1-git-send-email-Yanjun.Zhu@windriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: nic_swsd <nic_swsd@realtek.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>
+To: Hayes Wang <hayeswang@realtek.com>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <0835B3720019904CB8F7AA43166CEEB2EE92DB@RTITMBSV03.realtek.com.tw>
+Content-Language: zh-TW
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Zhu Yanjun <yanjun.zhu@windriver.com>
+ Sergei Shtylyov; netdev@vger.kernel.org
+[...]
+> > > +	ocp_data = tp->coalesce / 8;
+> >
+> >     Why not do it in the initializer?
+>
+> This is for patch #3. The patch #3 would use this function.
+> The unit of the relative setting from the ethtool is 1 us.
+> However, the unit for the hw is 8 us. Therefore, I save the
+> value with the unit of 1 us, and transfer it to the unit of
+> the hw when setting.
 
-The default speed of normal nic is 1000M while the default speed
-of tun is 10M. Now the default speed of tun is changed to 1000M.
-And there are 3 options: 10M, 100M and 1000M to the speed of tun.
-The command "ethtool -s tun0 speed 10/100/1000" can configure the
-speed of tun dynamically.
+I think I misunderstand what you mean. I think you mean I
+have to combine
 
-CC: Michael S. Tsirkin <mst@redhat.com>
-CC: Jason Wang <jasowang@redhat.com>
-CC: Al Viro <viro@zeniv.linux.org.uk>
-Signed-off-by: Zhu Yanjun <yanjun.zhu@windriver.com>
-Signed-off-by: Zhu Yanjun <Yanjun.Zhu@windriver.com>
----
- drivers/net/tun.c           | 36 +++++++++++++++++++++++++++++++++++-
- include/uapi/linux/if_tun.h |  5 +++++
- 2 files changed, 40 insertions(+), 1 deletion(-)
+	u32 ocp_data;
+	ocp_data = tp->coalesce / 8;
 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index 8c8dc16..64f4dcc 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -950,6 +950,9 @@ static void tun_net_init(struct net_device *dev)
- 		dev->addr_len = 0;
- 		dev->mtu = 1500;
+into
+
+	u32 ocp_data = tp->coalesce / 8;
+
+I would correct it.
+
+> > > +	ocp_write_word(tp, MCU_TYPE_USB, USB_RX_EARLY_TIMEOUT, ocp_data);
+> > > +}
+> > > +
+> > > +static void r8153_set_rx_early_size(struct r8152 *tp)
+> > > +{
+> > > +	struct net_device *dev = tp->netdev;
+> >
+> >     Not sure you actually need this variable.
+>
+> If I replace dev->mtu with tp->netdev->mtu, the line would
+> more than 80 characters. This is used to avoid it. Should
+> I remove it?
+>
+> > > +	u32 ocp_data;
+> > > +
+> > > +	ocp_data = (agg_buf_sz - dev->mtu - VLAN_ETH_HLEN - VLAN_HLEN) / 4;
+> >
+> >     Why not in initializer?
+>
+> This is for patch #2. The patch #2 would use this function.
+> It has to be re-calculated when the mtu is changed, or the
+> function is called when the linking status changes to ON.
+
+I think you mean I have to combine
+
+	u32 ocp_data;
+	ocp_data = (agg_buf_sz - dev->mtu - VLAN_ETH_HLEN - VLAN_HLEN) / 4;
+
+into
+
+	u32 ocp_data = (agg_buf_sz - dev->mtu - VLAN_ETH_HLEN - VLAN_HLEN) / 4;
+
+I would correct it.
+
+> > > +	ocp_write_word(tp, MCU_TYPE_USB, USB_RX_EARLY_SIZE, ocp_data);
+> > >   }
+> > [...]
+> > > @@ -3911,6 +3907,13 @@ static int rtl8152_probe(struct
+> > usb_interface *intf,
+> > >   	tp->mii.reg_num_mask = 0x1f;
+> > >   	tp->mii.phy_id = R8152_PHY_ID;
+> > >
+> > > +	if (udev->speed == USB_SPEED_SUPER)
+> > > +		tp->coalesce = COALESCE_SUPER;
+> > > +	else if (udev->speed == USB_SPEED_HIGH)
+> > > +		tp->coalesce = COALESCE_HIGH;
+> > > +	else
+> > > +		tp->coalesce = COALESCE_SLOW;
+> >
+> >     This is asking to be a *switch* statement.
+>
+> Excuse me. I don't understand what you mean.
+> The usb speed is determined when the device is plugged on
+> the usb host controller or usb hub. The usb speed wouldn't
+> chage unless you unplug the device and plug it to another
+> port with different usb speed. Therefore, I provide different
+> default values for different usb speed.
+
+I think you mean
+
+	switch (udev->speed) {
+	case USB_SPEED_SUPER:
+		...
+
+I would correct it.
  
-+		/* Set default speed 1000M */
-+		tun->flags |= TUN_CTRL_SPD_1000;
-+
- 		/* Zero header length */
- 		dev->type = ARPHRD_NONE;
- 		dev->flags = IFF_POINTOPOINT | IFF_NOARP | IFF_MULTICAST;
-@@ -2257,9 +2260,18 @@ static struct miscdevice tun_miscdev = {
- 
- static int tun_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- {
-+	struct tun_struct *tun = netdev_priv(dev);
-+
-+	/*Get the speed of tun*/
-+	if (tun->flags & TUN_CTRL_SPD_1000) {
-+		ethtool_cmd_speed_set(cmd, SPEED_1000);
-+	} else if (tun->flags & TUN_CTRL_SPD_100) {
-+		ethtool_cmd_speed_set(cmd, SPEED_100);
-+	} else
-+		ethtool_cmd_speed_set(cmd, SPEED_10);
-+
- 	cmd->supported		= 0;
- 	cmd->advertising	= 0;
--	ethtool_cmd_speed_set(cmd, SPEED_10);
- 	cmd->duplex		= DUPLEX_FULL;
- 	cmd->port		= PORT_TP;
- 	cmd->phy_address	= 0;
-@@ -2287,6 +2299,27 @@ static void tun_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *info
- 	}
- }
- 
-+static int tun_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
-+{
-+	struct tun_struct *tun = netdev_priv(dev);
-+	u32 speed = ethtool_cmd_speed(cmd);
-+
-+	if (10 == speed) {
-+		tun->flags &= ~TUN_CTRL_SPD_100;
-+		tun->flags &= ~TUN_CTRL_SPD_1000;
-+		tun->flags |= TUN_CTRL_SPD_10;
-+	} else if (100 == speed) {
-+		tun->flags &= ~TUN_CTRL_SPD_10;
-+		tun->flags &= ~TUN_CTRL_SPD_1000;
-+		tun->flags |= TUN_CTRL_SPD_100;
-+	} else {
-+		tun->flags &= ~TUN_CTRL_SPD_10;
-+		tun->flags &= ~TUN_CTRL_SPD_100;
-+		tun->flags |= TUN_CTRL_SPD_1000;
-+	}
-+	return 0;
-+}
-+
- static u32 tun_get_msglevel(struct net_device *dev)
- {
- #ifdef TUN_DEBUG
-@@ -2307,6 +2340,7 @@ static void tun_set_msglevel(struct net_device *dev, u32 value)
- 
- static const struct ethtool_ops tun_ethtool_ops = {
- 	.get_settings	= tun_get_settings,
-+	.set_settings	= tun_set_settings,
- 	.get_drvinfo	= tun_get_drvinfo,
- 	.get_msglevel	= tun_get_msglevel,
- 	.set_msglevel	= tun_set_msglevel,
-diff --git a/include/uapi/linux/if_tun.h b/include/uapi/linux/if_tun.h
-index 50ae243..78a09a7 100644
---- a/include/uapi/linux/if_tun.h
-+++ b/include/uapi/linux/if_tun.h
-@@ -66,6 +66,11 @@
- #define IFF_PERSIST	0x0800
- #define IFF_NOFILTER	0x1000
- 
-+/*add speed control, default 1000M*/
-+#define TUN_CTRL_SPD_10         0x0020
-+#define TUN_CTRL_SPD_100        0x0040
-+#define TUN_CTRL_SPD_1000       0x0080
-+
- /* Socket options */
- #define TUN_TX_TIMESTAMP 1
- 
--- 
-1.9.1
+Best Regards,
+Hayes
