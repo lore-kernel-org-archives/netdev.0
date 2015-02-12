@@ -1,268 +1,264 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: [PATCH] net: ipv6: Make address flushing on ifdown optional - v3
-Date: Wed, 11 Feb 2015 21:27:41 -0700
-Message-ID: <1423715261-53131-1-git-send-email-dsahern@gmail.com>
-Cc: David Ahern <dsahern@gmail.com>,
-	Hannes Frederic Sowa <hannes@redhat.com>
-To: netdev@vger.kernel.org
+From: Mahesh Bandewar <maheshb@google.com>
+Subject: [PATCH next v3 5/6] bonding: Allow userspace to set actors' macaddr in an AD-system.
+Date: Wed, 11 Feb 2015 20:28:48 -0800
+Message-ID: <1423715328-9924-1-git-send-email-maheshb@google.com>
+Cc: Mahesh Bandewar <maheshb@google.com>,
+	Maciej Zenczykowski <maze@google.com>,
+	netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>
+To: Jay Vosburgh <j.vosburgh@gmail.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Veaceslav Falico <vfalico@gmail.com>,
+	Nikolay Aleksandrov <nikolay@redhat.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f170.google.com ([209.85.213.170]:49919 "EHLO
-	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753030AbbBLE2i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Feb 2015 23:28:38 -0500
-Received: by mail-ig0-f170.google.com with SMTP id l13so1594905iga.1
-        for <netdev@vger.kernel.org>; Wed, 11 Feb 2015 20:28:38 -0800 (PST)
+Received: from mail-we0-f201.google.com ([74.125.82.201]:35359 "EHLO
+	mail-we0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754532AbbBLE3A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Feb 2015 23:29:00 -0500
+Received: by mail-we0-f201.google.com with SMTP id k11so951597wes.0
+        for <netdev@vger.kernel.org>; Wed, 11 Feb 2015 20:28:59 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently, all ipv6 addresses are flushed when the interface is configured
-down, even static address:
+In an AD system, the communication between actor and partner is the
+business between these two entiries. In the current setup anyone on the
+same L2 can "guess" the LACPDU contents and then possibly send the
+spoofed LACPDUs and trick the partner causing connectivity issues for
+the AD system. This patch allows to use a random mac-address obscuring
+it's identity making it harder for someone in the L2 is do the same thing.
 
-[root@f20 ~]# ip -6 addr add dev eth1 2000:11:1:1::1/64
-[root@f20 ~]# ip addr show dev eth1
-3: eth1: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN group default qlen 1000
-    link/ether 02:04:11:22:33:01 brd ff:ff:ff:ff:ff:ff
-    inet6 2000:11:1:1::1/64 scope global tentative
-       valid_lft forever preferred_lft forever
-[root@f20 ~]# ip link set dev eth1 up
-[root@f20 ~]# ip link set dev eth1 down
-[root@f20 ~]# ip addr show dev eth1
-3: eth1: <BROADCAST,MULTICAST> mtu 1500 qdisc pfifo_fast state DOWN group default qlen 1000
-    link/ether 02:04:11:22:33:01 brd ff:ff:ff:ff:ff:ff
+This patch allows user-space to choose the mac-address for the AD-system.
+This mac-address can not be NULL or a Multicast. If the mac-address is set
+from user-space; kernel will honor it and will not overwrite it. In the
+absense (value from user space); the logic will default to using the
+masters' mac as the mac-address for the AD-system.
 
-Add a new sysctl to make this behavior optional. The new setting defaults to
-flush all addresses to maintain backwards compatibility. When the setting is
-reset static addresses are not flushed:
+It can be set using example code below -
 
-[root@f20 ~]# echo 0 > /proc/sys/net/ipv6/conf/eth1/flush_addr_on_down
-[root@f20 ~]# ip -6 addr add dev eth1 2000:11:1:1::1/64
-[root@f20 ~]# ip addr show dev eth1
-3: eth1: <BROADCAST,MULTICAST> mtu 1500 qdisc pfifo_fast state DOWN group default qlen 1000
-    link/ether 02:04:11:22:33:01 brd ff:ff:ff:ff:ff:ff
-    inet6 2000:11:1:1::1/64 scope global tentative
-       valid_lft forever preferred_lft forever
-[root@f20 ~]#  ip link set dev eth1 up
-[root@f20 ~]#  ip link set dev eth1 down
-[root@f20 ~]# ip addr show dev eth1
-3: eth1: <BROADCAST,MULTICAST> mtu 1500 qdisc pfifo_fast state DOWN group default qlen 1000
-    link/ether 02:04:11:22:33:01 brd ff:ff:ff:ff:ff:ff
-    inet6 2000:11:1:1::1/64 scope global
-       valid_lft forever preferred_lft forever
-    inet6 fe80::4:11ff:fe22:3301/64 scope link
-       valid_lft forever preferred_lft forever
+   # modprobe bonding mode=4
+   # sys_mac_addr=$(printf '%02x:%02x:%02x:%02x:%02x:%02x' \
+                    $(( (RANDOM & 0xFE) | 0x02 )) \
+                    $(( RANDOM & 0xFF )) \
+                    $(( RANDOM & 0xFF )) \
+                    $(( RANDOM & 0xFF )) \
+                    $(( RANDOM & 0xFF )) \
+                    $(( RANDOM & 0xFF )))
+   # echo $sys_mac_addr > /sys/class/net/bond0/bonding/ad_actor_system
+   # echo +eth1 > /sys/class/net/bond0/bonding/slaves
+   ...
+   # ip link set bond0 up
 
-v3:
-- fix local variable ordering and comment style per Dave's comment
-- consistency in DEVCONF naming per Brian Haley's comment
-- added entry to Documentation/networking/ip-sysctl.txt
-
-v2:
-- only keep static addresses as suggested by Hannes
-- added new managed flag to track configured addresses
-- on ifdown do not remove from configured address from inet6_addr_lst
-- on ifdown reset the TENTATIVE flag and set state to DAD so that DAD is
-  redone when link is brought up again
-
-Suggested-by: Hannes Frederic Sowa <hannes@redhat.com>
-Signed-off-by: David Ahern <dsahern@gmail.com>
-Cc: Hannes Frederic Sowa <hannes@redhat.com>
+Signed-off-by: Mahesh Bandewar <maheshb@google.com>
 ---
- Documentation/networking/ip-sysctl.txt |  6 ++++
- include/linux/ipv6.h                   |  1 +
- include/net/if_inet6.h                 |  1 +
- include/uapi/linux/ipv6.h              |  1 +
- net/ipv6/addrconf.c                    | 54 +++++++++++++++++++++++++++-------
- 5 files changed, 53 insertions(+), 10 deletions(-)
+v1:
+  Initial version
+v2:
+  Renamed ad_actor_system_mac_address to ad_actor_system
+v3:
+  Fixed commit message.
 
-diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-index 1b8c964b0d17..a9e06c6ccfa4 100644
---- a/Documentation/networking/ip-sysctl.txt
-+++ b/Documentation/networking/ip-sysctl.txt
-@@ -1341,6 +1341,12 @@ dad_transmits - INTEGER
- 	The amount of Duplicate Address Detection probes to send.
- 	Default: 1
+ Documentation/networking/bonding.txt | 12 ++++++++++++
+ drivers/net/bonding/bond_3ad.c       |  7 ++++++-
+ drivers/net/bonding/bond_main.c      |  1 +
+ drivers/net/bonding/bond_options.c   | 29 +++++++++++++++++++++++++++++
+ drivers/net/bonding/bond_procfs.c    |  6 ++++++
+ drivers/net/bonding/bond_sysfs.c     | 15 +++++++++++++++
+ include/net/bond_options.h           |  1 +
+ include/net/bonding.h                |  1 +
+ 8 files changed, 71 insertions(+), 1 deletion(-)
+
+diff --git a/Documentation/networking/bonding.txt b/Documentation/networking/bonding.txt
+index f19d888651b8..f0d93c58cdb0 100644
+--- a/Documentation/networking/bonding.txt
++++ b/Documentation/networking/bonding.txt
+@@ -187,6 +187,18 @@ ad_actor_sys_prio
+ 	This paramter has effect only in 802.3ad mode and is available through
+ 	SysFs interface.
  
-+flush_addr_on_down - BOOLEAN
-+	Flush all IPv6 addresses on an interface down event. If disabled
-+	static addresses are not flushed.
++ad_actor_system
 +
-+	Default: enabled
++	In an AD system, this specifies the mac-address for the actor in
++	protocol packet exchanges (LACPDUs). The value cannot be NULL or
++	multicast. It is preferred to have the local-admin bit set for this
++	mac but driver does not enforce it. If the value is not given then
++	system defaults to using the masters' mac address as actors' system
++	address.
 +
- forwarding - INTEGER
- 	Configure interface-specific Host/Router behaviour.
- 
-diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
-index 4d5169f5d7d1..92973b587be0 100644
---- a/include/linux/ipv6.h
-+++ b/include/linux/ipv6.h
-@@ -53,6 +53,7 @@ struct ipv6_devconf {
- 	__s32           ndisc_notify;
- 	__s32		suppress_frag_ndisc;
- 	__s32		accept_ra_mtu;
-+	__s32		flush_addr_on_down;
- 	void		*sysctl;
- };
- 
-diff --git a/include/net/if_inet6.h b/include/net/if_inet6.h
-index 98e5f9578f86..3b6323111f77 100644
---- a/include/net/if_inet6.h
-+++ b/include/net/if_inet6.h
-@@ -72,6 +72,7 @@ struct inet6_ifaddr {
- 	int			regen_count;
- 
- 	bool			tokenized;
-+	bool			managed;
- 
- 	struct rcu_head		rcu;
- 	struct in6_addr		peer_addr;
-diff --git a/include/uapi/linux/ipv6.h b/include/uapi/linux/ipv6.h
-index 437a6a4b125a..9c31b90db187 100644
---- a/include/uapi/linux/ipv6.h
-+++ b/include/uapi/linux/ipv6.h
-@@ -170,6 +170,7 @@ enum {
- 	DEVCONF_ACCEPT_RA_FROM_LOCAL,
- 	DEVCONF_USE_OPTIMISTIC,
- 	DEVCONF_ACCEPT_RA_MTU,
-+	DEVCONF_FLUSH_ADDR_ON_DOWN,
- 	DEVCONF_MAX
- };
- 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 98e4a63d72bb..939a1b37578a 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -202,6 +202,7 @@ static struct ipv6_devconf ipv6_devconf __read_mostly = {
- 	.accept_dad		= 1,
- 	.suppress_frag_ndisc	= 1,
- 	.accept_ra_mtu		= 1,
-+	.flush_addr_on_down	= 1,
- };
- 
- static struct ipv6_devconf ipv6_devconf_dflt __read_mostly = {
-@@ -240,6 +241,7 @@ static struct ipv6_devconf ipv6_devconf_dflt __read_mostly = {
- 	.accept_dad		= 1,
- 	.suppress_frag_ndisc	= 1,
- 	.accept_ra_mtu		= 1,
-+	.flush_addr_on_down	= 1,
- };
- 
- /* Check if a valid qdisc is available */
-@@ -870,6 +872,7 @@ ipv6_add_addr(struct inet6_dev *idev, const struct in6_addr *addr,
- 	ifa->prefered_lft = prefered_lft;
- 	ifa->cstamp = ifa->tstamp = jiffies;
- 	ifa->tokenized = false;
-+	ifa->managed = false;
- 
- 	ifa->rt = rt;
- 
-@@ -2525,6 +2528,8 @@ static int inet6_addr_add(struct net *net, int ifindex,
- 			    valid_lft, prefered_lft);
- 
- 	if (!IS_ERR(ifp)) {
-+		ifp->managed = true;
++	This paramter has effect only in 802.3ad mode and is available through
++	SysFs interface.
 +
- 		if (!(ifa_flags & IFA_F_NOPREFIXROUTE)) {
- 			addrconf_prefix_route(&ifp->addr, ifp->prefix_len, dev,
- 					      expires, flags);
-@@ -3046,8 +3051,9 @@ static void addrconf_type_change(struct net_device *dev, unsigned long event)
- static int addrconf_ifdown(struct net_device *dev, int how)
- {
- 	struct net *net = dev_net(dev);
-+	struct inet6_ifaddr *ifa, *tmp;
-+	struct list_head del_list;
- 	struct inet6_dev *idev;
--	struct inet6_ifaddr *ifa;
- 	int state, i;
+ ad_select
  
- 	ASSERT_RTNL();
-@@ -3082,9 +3088,12 @@ static int addrconf_ifdown(struct net_device *dev, int how)
- restart:
- 		hlist_for_each_entry_rcu(ifa, h, addr_lst) {
- 			if (ifa->idev == idev) {
--				hlist_del_init_rcu(&ifa->addr_lst);
- 				addrconf_del_dad_work(ifa);
--				goto restart;
-+				if (how || idev->cnf.flush_addr_on_down ||
-+				    !ifa->managed) {
-+					hlist_del_init_rcu(&ifa->addr_lst);
-+					goto restart;
-+				}
- 			}
- 		}
- 		spin_unlock_bh(&addrconf_hash_lock);
-@@ -3118,14 +3127,34 @@ static int addrconf_ifdown(struct net_device *dev, int how)
- 		write_lock_bh(&idev->lock);
- 	}
+ 	Specifies the 802.3ad aggregation selection logic to use.  The
+diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
+index 46aa847a0132..4b28d8cc0e84 100644
+--- a/drivers/net/bonding/bond_3ad.c
++++ b/drivers/net/bonding/bond_3ad.c
+@@ -1914,7 +1914,12 @@ void bond_3ad_initialize(struct bonding *bond, u16 tick_resolution)
  
--	while (!list_empty(&idev->addr_list)) {
--		ifa = list_first_entry(&idev->addr_list,
-+	INIT_LIST_HEAD(&del_list);
-+	list_for_each_entry_safe(ifa, tmp, &idev->addr_list, if_list) {
-+		/* on NETDEV_DOWN events do not flush managed (user configured)
-+		 * addresses unless configured to do so. If the address is not
-+		 * deleted reset flags and state such that DAD is re-done on a
-+		 * subsequent link up.
-+		 */
-+		if (!how && !idev->cnf.flush_addr_on_down && ifa->managed) {
-+			if (!(ifa->flags & IFA_F_NODAD)) {
-+				ifa->flags |= IFA_F_TENTATIVE;
-+				ifa->state = INET6_IFADDR_STATE_DAD;
-+			}
-+		} else {
-+			list_del(&ifa->if_list);
-+			list_add(&ifa->if_list, &del_list);
-+		}
+ 		BOND_AD_INFO(bond).system.sys_priority =
+ 			bond->params.ad_actor_sys_prio;
+-		BOND_AD_INFO(bond).system.sys_mac_addr = *((struct mac_addr *)bond->dev->dev_addr);
++		if (is_zero_ether_addr(bond->params.ad_actor_system))
++			BOND_AD_INFO(bond).system.sys_mac_addr =
++			    *((struct mac_addr *)bond->dev->dev_addr);
++		else
++			BOND_AD_INFO(bond).system.sys_mac_addr =
++			    *((struct mac_addr *)bond->params.ad_actor_system);
+ 
+ 		/* initialize how many times this module is called in one
+ 		 * second (should be about every 100ms)
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index f8f6a80231b6..f899f3053e82 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -4474,6 +4474,7 @@ static int bond_check_params(struct bond_params *params)
+ 	params->packets_per_slave = packets_per_slave;
+ 	params->tlb_dynamic_lb = 1; /* Default value */
+ 	params->ad_actor_sys_prio = ad_actor_sys_prio;
++	eth_zero_addr(params->ad_actor_system);
+ 	if (packets_per_slave > 0) {
+ 		params->reciprocal_packets_per_slave =
+ 			reciprocal_value(packets_per_slave);
+diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
+index 05d5e735eaec..f2c011b3ea33 100644
+--- a/drivers/net/bonding/bond_options.c
++++ b/drivers/net/bonding/bond_options.c
+@@ -72,6 +72,8 @@ static int bond_option_tlb_dynamic_lb_set(struct bonding *bond,
+ 				  const struct bond_opt_value *newval);
+ static int bond_option_ad_actor_sys_prio_set(struct bonding *bond,
+ 				  const struct bond_opt_value *newval);
++static int bond_option_ad_actor_system_set(struct bonding *bond,
++				  const struct bond_opt_value *newval);
+ 
+ 
+ static const struct bond_opt_value bond_mode_tbl[] = {
+@@ -396,6 +398,13 @@ static const struct bond_option bond_opts[BOND_OPT_LAST] = {
+ 		.values = bond_ad_actor_sys_prio_tbl,
+ 		.set = bond_option_ad_actor_sys_prio_set,
+ 	},
++	[BOND_OPT_AD_ACTOR_SYSTEM] = {
++		.id = BOND_OPT_AD_ACTOR_SYSTEM,
++		.name = "ad_actor_system",
++		.unsuppmodes = BOND_MODE_ALL_EX(BIT(BOND_MODE_8023AD)),
++		.flags = BOND_OPTFLAG_RAWVAL | BOND_OPTFLAG_IFDOWN,
++		.set = bond_option_ad_actor_system_set,
++	},
+ };
+ 
+ /* Searches for an option by name */
+@@ -1376,3 +1385,23 @@ static int bond_option_ad_actor_sys_prio_set(struct bonding *bond,
+ 	bond->params.ad_actor_sys_prio = newval->value;
+ 	return 0;
+ }
++
++static int bond_option_ad_actor_system_set(struct bonding *bond,
++					    const struct bond_opt_value *newval)
++{
++	u8 macaddr[ETH_ALEN];
++	int i;
++
++	i = sscanf(newval->string, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
++		   &macaddr[0], &macaddr[1], &macaddr[2],
++		   &macaddr[3], &macaddr[4], &macaddr[5]);
++
++	if (i != ETH_ALEN || !is_valid_ether_addr(macaddr)) {
++		netdev_err(bond->dev, "Invalid MAC address.\n");
++		return -EINVAL;
 +	}
 +
-+	write_unlock_bh(&idev->lock);
++	ether_addr_copy(bond->params.ad_actor_system, macaddr);
 +
-+	while (!list_empty(&del_list)) {
-+		ifa = list_first_entry(&del_list,
- 				       struct inet6_ifaddr, if_list);
++	return 0;
++}
+diff --git a/drivers/net/bonding/bond_procfs.c b/drivers/net/bonding/bond_procfs.c
+index 9e33c48886ef..81452ced852f 100644
+--- a/drivers/net/bonding/bond_procfs.c
++++ b/drivers/net/bonding/bond_procfs.c
+@@ -136,6 +136,8 @@ static void bond_info_show_master(struct seq_file *seq)
+ 			   optval->string);
+ 		seq_printf(seq, "System priority: %d\n",
+ 				BOND_AD_INFO(bond).system.sys_priority);
++		seq_printf(seq, "System MAC address: %pM\n",
++				&BOND_AD_INFO(bond).system.sys_mac_addr);
+ 
+ 		if (__bond_3ad_get_active_agg_info(bond, &ad_info)) {
+ 			seq_printf(seq, "bond %s has no active aggregator\n",
+@@ -198,6 +200,8 @@ static void bond_info_show_slave(struct seq_file *seq,
+ 			seq_puts(seq, "details actor lacp pdu:\n");
+ 			seq_printf(seq, "    system priority: %d\n",
+ 				   port->actor_system_priority);
++			seq_printf(seq, "    system mac address: %pM\n",
++				   &port->actor_system);
+ 			seq_printf(seq, "    port key: %d\n",
+ 				   port->actor_oper_port_key);
+ 			seq_printf(seq, "    port priority: %d\n",
+@@ -210,6 +214,8 @@ static void bond_info_show_slave(struct seq_file *seq,
+ 			seq_puts(seq, "details partner lacp pdu:\n");
+ 			seq_printf(seq, "    system priority: %d\n",
+ 				   port->partner_oper.system_priority);
++			seq_printf(seq, "    system mac address: %pM\n",
++				   &port->partner_oper.system);
+ 			seq_printf(seq, "    oper key: %d\n",
+ 				   port->partner_oper.key);
+ 			seq_printf(seq, "    port priority: %d\n",
+diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
+index 1a4a591a58c9..efa994243a2d 100644
+--- a/drivers/net/bonding/bond_sysfs.c
++++ b/drivers/net/bonding/bond_sysfs.c
+@@ -706,6 +706,20 @@ static ssize_t bonding_show_ad_actor_sys_prio(struct device *d,
+ static DEVICE_ATTR(ad_actor_sys_prio, S_IRUGO | S_IWUSR,
+ 		   bonding_show_ad_actor_sys_prio, bonding_sysfs_store_option);
+ 
++static ssize_t bonding_show_ad_actor_system(struct device *d,
++						 struct device_attribute *attr,
++						 char *buf)
++{
++	struct bonding *bond = to_bond(d);
 +
- 		addrconf_del_dad_work(ifa);
- 
- 		list_del(&ifa->if_list);
- 
--		write_unlock_bh(&idev->lock);
- 
- 		spin_lock_bh(&ifa->state_lock);
- 		state = ifa->state;
-@@ -3137,12 +3166,8 @@ static int addrconf_ifdown(struct net_device *dev, int how)
- 			inet6addr_notifier_call_chain(NETDEV_DOWN, ifa);
- 		}
- 		in6_ifa_put(ifa);
--
--		write_lock_bh(&idev->lock);
- 	}
- 
--	write_unlock_bh(&idev->lock);
--
- 	/* Step 5: Discard anycast and multicast list */
- 	if (how) {
- 		ipv6_ac_destroy_dev(idev);
-@@ -4398,6 +4423,7 @@ static inline void ipv6_store_devconf(struct ipv6_devconf *cnf,
- 	array[DEVCONF_SUPPRESS_FRAG_NDISC] = cnf->suppress_frag_ndisc;
- 	array[DEVCONF_ACCEPT_RA_FROM_LOCAL] = cnf->accept_ra_from_local;
- 	array[DEVCONF_ACCEPT_RA_MTU] = cnf->accept_ra_mtu;
-+	array[DEVCONF_FLUSH_ADDR_ON_DOWN] = cnf->flush_addr_on_down;
- }
- 
- static inline size_t inet6_ifla6_size(void)
-@@ -5300,6 +5326,14 @@ static struct addrconf_sysctl_table
- 			.proc_handler	= proc_dointvec,
- 		},
- 		{
-+			.procname       = "flush_addr_on_down",
-+			.data           = &ipv6_devconf.flush_addr_on_down,
-+			.maxlen         = sizeof(int),
-+			.mode           = 0644,
-+			.proc_handler   = proc_dointvec,
++	if (BOND_MODE(bond) == BOND_MODE_8023AD)
++		return sprintf(buf, "%pM\n", bond->params.ad_actor_system);
 +
-+		},
-+		{
- 			/* sentinel */
- 		}
- 	},
++	return 0;
++}
++static DEVICE_ATTR(ad_actor_system, S_IRUGO | S_IWUSR,
++		   bonding_show_ad_actor_system, bonding_sysfs_store_option);
++
+ static struct attribute *per_bond_attrs[] = {
+ 	&dev_attr_slaves.attr,
+ 	&dev_attr_mode.attr,
+@@ -740,6 +754,7 @@ static struct attribute *per_bond_attrs[] = {
+ 	&dev_attr_packets_per_slave.attr,
+ 	&dev_attr_tlb_dynamic_lb.attr,
+ 	&dev_attr_ad_actor_sys_prio.attr,
++	&dev_attr_ad_actor_system.attr,
+ 	NULL,
+ };
+ 
+diff --git a/include/net/bond_options.h b/include/net/bond_options.h
+index 894002a2620f..eeeefa1d3cd8 100644
+--- a/include/net/bond_options.h
++++ b/include/net/bond_options.h
+@@ -64,6 +64,7 @@ enum {
+ 	BOND_OPT_SLAVES,
+ 	BOND_OPT_TLB_DYNAMIC_LB,
+ 	BOND_OPT_AD_ACTOR_SYS_PRIO,
++	BOND_OPT_AD_ACTOR_SYSTEM,
+ 	BOND_OPT_LAST
+ };
+ 
+diff --git a/include/net/bonding.h b/include/net/bonding.h
+index cb4587f6516e..f24f9862cea9 100644
+--- a/include/net/bonding.h
++++ b/include/net/bonding.h
+@@ -144,6 +144,7 @@ struct bond_params {
+ 	int tlb_dynamic_lb;
+ 	struct reciprocal_value reciprocal_packets_per_slave;
+ 	u16 ad_actor_sys_prio;
++	u8 ad_actor_system[ETH_ALEN];
+ };
+ 
+ struct bond_parm_tbl {
 -- 
-1.9.3 (Apple Git-50)
+2.2.0.rc0.207.ga3a616c
