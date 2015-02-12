@@ -1,83 +1,91 @@
-From: nick <xerofoify@gmail.com>
-Subject: Re: [bisected regression] e1000e: "Detected Hardware
- Unit Hang"
-Date: Wed, 11 Feb 2015 20:18:46 -0500
-Message-ID: <54DBFF76.9070100@gmail.com>
-References: <1719052.SGOfRAJhfQ@storm>	<1421333009.11734.53.camel@edumazet-glaptop2.roam.corp.google.com>	<1421333953.2632.22.camel@jtkirshe-mobl>
-	<2609782.Mryft1leMQ@storm>
+From: Bryton Lee <brytonlee01@gmail.com>
+Subject: Re: [PATCH] prevent the read ahead of /proc/slabinfo in ss - take 3
+Date: Thu, 12 Feb 2015 09:21:44 +0800
+Message-ID: <CAC2pzGdS4UuniF5cFpvgjbfvtX7q9JGDe0WAvYGBQNXxhNy18w@mail.gmail.com>
+References: <1423547533-6727-1-git-send-email-brytonlee01@gmail.com>
+	<54D9FED1.9030903@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: e1000-devel <e1000-devel@lists.sourceforge.net>,
-	Eric Dumazet <edumazet@google.com>
-To: Thomas Jarosch <thomas.jarosch@intra2net.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	'Linux Netdev List' <netdev@vger.kernel.org>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <2609782.Mryft1leMQ@storm>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: stephen@networkplumber.org, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vc0-f175.google.com ([209.85.220.175]:43082 "EHLO
+	mail-vc0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752796AbbBLBVp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Feb 2015 20:21:45 -0500
+Received: by mail-vc0-f175.google.com with SMTP id hq12so2595431vcb.6
+        for <netdev@vger.kernel.org>; Wed, 11 Feb 2015 17:21:44 -0800 (PST)
+In-Reply-To: <54D9FED1.9030903@cogentembedded.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-
-On 2015-02-11 06:23 AM, Thomas Jarosch wrote:
-> Hi Jeff,
-> 
-> On Thursday, 15. January 2015 06:59:13 Jeff Kirsher wrote:
->>> Sure, you basically reverted my patch.
->>>
->>> You are not the first to report a problem caused by this patch.
->>>
->>> This patch is known to have uncovered some driver bugs.
->>>
->>> We are not going to revert it. We are going to fix the real bugs.
->>>
->>> Thanks
+On Tue, Feb 10, 2015 at 8:51 PM, Sergei Shtylyov
+<sergei.shtylyov@cogentembedded.com> wrote:
+> On 2/10/2015 8:52 AM, Bryton Lee wrote:
+>
+>> prevent the read ahead of /proc/slabinfo in ss.
+>
+>
+>> Signed-off-by: Bryton Lee <brytonlee01@gmail.com>
+>> ---
+>>   misc/ss.c | 13 ++++++++++---
+>>   1 file changed, 10 insertions(+), 3 deletions(-)
+>
+>
+>> diff --git a/misc/ss.c b/misc/ss.c
+>> index 7fc0a99..74721b5 100644
+>> --- a/misc/ss.c
+>> +++ b/misc/ss.c
+>
+> [...]
 >>
->> Agreed, we are looking into issue Thomas.
-> 
-> any news from the Intel labs what might be going on here?
-> 
-> We started seeing those hangs on "MSI B85M ECO" boards, too,
-> though it's way more sporadic there.
-> 
-> Thanks,
-> Thomas
-> 
-> 
-> ------------------------------------------------------------------------------
-> Dive into the World of Parallel Programming. The Go Parallel Website,
-> sponsored by Intel and developed in partnership with Slashdot Media, is your
-> hub for all things parallel software development, from weekly thought
-> leadership blogs to news, videos, case studies, tutorials and more. Take a
-> look and join the conversation now. http://goparallel.sourceforge.net/
-> _______________________________________________
-> E1000-devel mailing list
-> E1000-devel@lists.sourceforge.net
-> https://lists.sourceforge.net/lists/listinfo/e1000-devel
-> To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
-> 
-Jeff and Thomas,
-I am unable to find the commit id in my email box for the git bisected commit. Would someone send me the commit id so I can look into starting to solve the bugs 
-the commit discussed here as uncovered in the driver supported by Intel.
-Thanks A lot,
-Nick 
+>> @@ -655,6 +656,8 @@ static int get_slabstat(struct slabstat *s)
+>>                         break;
+>>         }
+>>
+>> +    slabstat_valid = 1;
+>
+>
+>    This is indented incorrectly. Use one TAB please.
+>
+>> +
+>>         fclose(fp);
+>>         return 0;
+>>   }
+>> @@ -2230,6 +2233,9 @@ static int tcp_show(struct filter *f, int socktype)
+>>          * it is able to give us some memory for snapshot.
+>>          */
+>>         if (1) {
+>> +               if (!slabstat_valid)
+>> +                       get_slabstat(&slabstat);
+>> +
+>>                 int guess = slabstat.socks+slabstat.tcp_syns;
+>>                 if (f->states&(1<<SS_TIME_WAIT))
+>>                         guess += slabstat.tcp_tws;
+>> @@ -3196,6 +3202,9 @@ static int print_summary(void)
+>>         if (get_snmp_int("Tcp:", "CurrEstab", &sn.tcp_estab) < 0)
+>>                 perror("ss: get_snmpstat");
+>>
+>> +       if (!slabstat_valid)
+>> +               get_slabstat(&slabstat);
+>> +
+>
+>
+>    Can't you perform this check inside get_slabstat()?
+>
 
-------------------------------------------------------------------------------
-Dive into the World of Parallel Programming. The Go Parallel Website,
-sponsored by Intel and developed in partnership with Slashdot Media, is your
-hub for all things parallel software development, from weekly thought
-leadership blogs to news, videos, case studies, tutorials and more. Take a
-look and join the conversation now. http://goparallel.sourceforge.net/
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+OK, I can submit it in another mail, coming soon.
+
+> [...]
+>
+> WBR, Sergei
+>
+
+
+
+-- 
+Best Regards
+
+Bryton.Lee
