@@ -1,82 +1,59 @@
-From: Rasmus Villemoes <linux@rasmusvillemoes.dk>
-Subject: Re: [PATCH] iwl4965: Enable checking of format strings
-Date: Fri, 13 Feb 2015 11:39:40 +0100
-Message-ID: <87y4o2xfgz.fsf@rasmusvillemoes.dk>
-References: <1423695069-23436-1-git-send-email-linux@rasmusvillemoes.dk>
-	<60178C37-F104-430E-92EB-B6DDFAEB2F99@intel.com>
-	<87vbj7zb0e.fsf@rasmusvillemoes.dk> <54DDAE03.4000502@gmail.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 1/1] tun: change speed from 10M to dynamically configured
+Date: Fri, 13 Feb 2015 13:45:09 +0300
+Message-ID: <54DDD5B5.2050605@cogentembedded.com>
+References: <1423808353-8722-1-git-send-email-Yanjun.Zhu@windriver.com> <1423808353-8722-2-git-send-email-Yanjun.Zhu@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: "Rustad\, Mark D" <mark.d.rustad@intel.com>,
-	Stanislaw Gruszka <sgruszka@redhat.com>,
-	Kalle Valo <kvalo@codeaurora.org>,
-	"linux-wireless\@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel\@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Mark Rustad <mrustad@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <54DDAE03.4000502@gmail.com> (Mark Rustad's message of "Thu, 12
-	Feb 2015 23:55:47 -0800")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Zhu Yanjun <Yanjun.Zhu@windriver.com>, netdev@vger.kernel.org,
+	mst@redhat.com, jasowang@redhat.com, viro@zeniv.linux.org.uk,
+	davem@davemloft.net, jonathon.reinhart@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f174.google.com ([209.85.217.174]:62557 "EHLO
+	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752562AbbBMKpM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Feb 2015 05:45:12 -0500
+Received: by mail-lb0-f174.google.com with SMTP id z11so14737924lbi.5
+        for <netdev@vger.kernel.org>; Fri, 13 Feb 2015 02:45:10 -0800 (PST)
+In-Reply-To: <1423808353-8722-2-git-send-email-Yanjun.Zhu@windriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 13 2015, Mark Rustad <mrustad@gmail.com> wrote:
+On 2/13/2015 9:19 AM, Zhu Yanjun wrote:
 
-> On 2/12/15 2:20 AM, Rasmus Villemoes wrote:
->> Rather weak arguments, but I have three of them :-)
+> The default speed of normal nic is 1000M while the default speed
+> of tun is 10M. Now the default speed of tun is changed to 1000M.
+> And there are 3 options: 10M, 100M and 1000M to the speed of tun.
+> The command "ethtool -s tun0 speed 10/100/1000" can configure the
+> speed of tun dynamically.
+
+> CC: Michael S. Tsirkin <mst@redhat.com>
+> CC: Jason Wang <jasowang@redhat.com>
+> CC: Al Viro <viro@zeniv.linux.org.uk>
+> Reviewed-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+> Reviewed-by: Jonathon Reinhart <jonathon.reinhart@gmail.com>
+> Signed-off-by: Zhu Yanjun <Yanjun.Zhu@windriver.com>
+
+[...]
+
+> diff --git a/include/uapi/linux/if_tun.h b/include/uapi/linux/if_tun.h
+> index 50ae243..78a09a7 100644
+> --- a/include/uapi/linux/if_tun.h
+> +++ b/include/uapi/linux/if_tun.h
+> @@ -66,6 +66,11 @@
+>   #define IFF_PERSIST	0x0800
+>   #define IFF_NOFILTER	0x1000
 >
-> Yes, weak. All three.
->
->> (1) If I'm reading some code and spot a non-constant format
->> argument, I sometimes track back to see how e.g. fmt_value is
->> defined. If I then see it's a macro, I immediately think "ok, the
->> compiler is doing type-checking". If it is a const char[], I have
->> to remember that gcc also does it in that case (as opposed to for
->> example const char*const).
->
-> GCC should check in both cases. The case you are replacing was not
-> const char * const, but only const char *. Still, the compiler really
-> should check either form, even though theoretically the pointer in the
-> latter case could be changed, but the initial const value should be a
-> good indication of what the parameters are expected to be. No real
-> reason for the compiler not to check it.
+> +/*add speed control, default 1000M*/
 
-I agree with all of that - just wanted to point out what gcc currently
-does and doesn't, and changing to const char[] would indeed enable
-checking.
+    Please do add spaces after /* and before */.
 
->> (2) The names of these variables themselves may end up wasting a
->> few bytes in the image.
->
-> Maybe in a debug image, but they should be stripped from any normal
-> image. Really not a factor.
+> +#define TUN_CTRL_SPD_10         0x0020
+> +#define TUN_CTRL_SPD_100        0x0040
+> +#define TUN_CTRL_SPD_1000       0x0080
+> +
+>   /* Socket options */
+>   #define TUN_TX_TIMESTAMP 1
 
-Sure, that was by far the weakest, and let's ignore that.
-
->> (3) gcc/the linker doesn't merge identical const char[] arrays
->> across translation units. It also doesn't consider their tails for
->> merging with string literals. So although these specific strings
->> are unlikely to appear elsewhere, a string such as "%10u\n" or
->> "max\n" couldn't be merged with one of the above.
->
-> I haven't checked, but there is no theoretical reason that const char
-> [] items could not be merged exactly as the literals are. Considering
-> the boundaries the compiler guys push on optimization, doing such
-> merging would be tame by comparison (speculative stores make me crazy).
-
-Well, probably the linker is allowed to overlap "anonymous" objects
-(string literals) with whatever const char[] (or indeed any const)
-object it finds containing the appropriate byte sequence. But I think
-language lawyers would insist that for
-
-const char foo[] = "a string";
-const char bar[] = "a string";
-
-foo and bar have different addresses, whether they are defined in the
-same or different TUs. One could then argue that if their address is
-never taken explicitly it should be ok, but since passing foo to a printf
-function effectively makes the address of foo escape the TU (even though
-one is formally passing pointer to first element), I can certainly see
-why compiler people would be reluctant to do merging of such objects.
-
-Rasmus
+WBR, Sergei
