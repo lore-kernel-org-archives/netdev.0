@@ -1,136 +1,118 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: Re: [PATCH] net: ipv6: Make address flushing on ifdown optional -
- v3
-Date: Thu, 12 Feb 2015 20:47:58 -0700
-Message-ID: <54DD73EE.8040807@gmail.com>
-References: <1423715261-53131-1-git-send-email-dsahern@gmail.com> <54DCDB80.9090601@6wind.com>
+From: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
+Subject: Re: [PATCH 1/3] ixgbe,
+ ixgbevf: Add new mbox API to enable MC promiscuous mode
+Date: Fri, 13 Feb 2015 04:44:39 +0000
+Message-ID: <7F861DC0615E0C47A872E6F3C5FCDDBD05E2E9CE@BPXM14GP.gisp.nec.co.jp>
+References: <7F861DC0615E0C47A872E6F3C5FCDDBD05E1908D@BPXM14GP.gisp.nec.co.jp>
+	<1423054641.2589.59.camel@jtkirshe-mobl>
+	<7F861DC0615E0C47A872E6F3C5FCDDBD05E26E45@BPXM14GP.gisp.nec.co.jp>
+	<1423470046.27854.7.camel@jtkirshe-mobl>
+	<7F861DC0615E0C47A872E6F3C5FCDDBD05E29F43@BPXM14GP.gisp.nec.co.jp>
+	<F6FB0E698C9B3143BDF729DF22286646912A1339@ORSMSX110.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Hannes Frederic Sowa <hannes@redhat.com>
-To: nicolas.dichtel@6wind.com, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f177.google.com ([209.85.213.177]:49155 "EHLO
-	mail-ig0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751669AbbBMDsA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Feb 2015 22:48:00 -0500
-Received: by mail-ig0-f177.google.com with SMTP id z20so8213442igj.4
-        for <netdev@vger.kernel.org>; Thu, 12 Feb 2015 19:47:59 -0800 (PST)
-In-Reply-To: <54DCDB80.9090601@6wind.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>, "Choi,
+	Sy Jong" <sy.jong.choi@intel.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	David Laight <David.Laight@ACULAB.COM>,
+	Hayato Momma <h-momma@ce.jp.nec.com>,
+	=?utf-8?B?QmrDuHJuIE1vcms=?= <bjorn@mork.no>
+To: "Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+Content-Language: ja-JP
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On 2/12/15 9:57 AM, Nicolas Dichtel wrote:
-> Le 12/02/2015 05:27, David Ahern a =C3=A9crit :
->> Currently, all ipv6 addresses are flushed when the interface is
->> configured
->> down, even static address:
->>
-> [snip]
->>
->> [root@f20 ~]# echo 0 > /proc/sys/net/ipv6/conf/eth1/flush_addr_on_do=
-wn
->> [root@f20 ~]# ip -6 addr add dev eth1 2000:11:1:1::1/64
->> [root@f20 ~]# ip addr show dev eth1
->> 3: eth1: <BROADCAST,MULTICAST> mtu 1500 qdisc pfifo_fast state DOWN
->> group default qlen 1000
->>      link/ether 02:04:11:22:33:01 brd ff:ff:ff:ff:ff:ff
->>      inet6 2000:11:1:1::1/64 scope global tentative
->>         valid_lft forever preferred_lft forever
->> [root@f20 ~]#  ip link set dev eth1 up
->> [root@f20 ~]#  ip link set dev eth1 down
->> [root@f20 ~]# ip addr show dev eth1
->> 3: eth1: <BROADCAST,MULTICAST> mtu 1500 qdisc pfifo_fast state DOWN
->> group default qlen 1000
->>      link/ether 02:04:11:22:33:01 brd ff:ff:ff:ff:ff:ff
->>      inet6 2000:11:1:1::1/64 scope global
->>         valid_lft forever preferred_lft forever
->>      inet6 fe80::4:11ff:fe22:3301/64 scope link
->>         valid_lft forever preferred_lft forever
-> Can you show an output of 'ip -6 route list table local' and 'ip -6
-> route' ?
-
-hmmmm.... interesting. once again ipv6 behavior is radically different=20
-from ipv4.
-
-This is *after* a configure, up, down cycle:
-
-[root@f21 ~]# ip -6 route list table local
-local ::1 dev lo  proto none  metric 0
-local 2000:11:1:1::1 dev lo  proto none  metric 0
-local fe80::11:22ff:fe33:4402 dev lo  proto none  metric 0
-ff00::/8 dev eth0  metric 256
-
-[root@f21 ~]# ip -6 route ls
-unreachable ::/96 dev lo  metric 1024  error -101
-unreachable ::ffff:0.0.0.0/96 dev lo  metric 1024  error -101
-unreachable 2002:a00::/24 dev lo  metric 1024  error -101
-unreachable 2002:7f00::/24 dev lo  metric 1024  error -101
-unreachable 2002:a9fe::/32 dev lo  metric 1024  error -101
-unreachable 2002:ac10::/28 dev lo  metric 1024  error -101
-unreachable 2002:c0a8::/32 dev lo  metric 1024  error -101
-unreachable 2002:e000::/19 dev lo  metric 1024  error -101
-unreachable 3ffe:ffff::/32 dev lo  metric 1024  error -101
-fe80::/64 dev eth0  proto kernel  metric 256
-
-(the ipv6 addresses on lo show up on stock 3.18.3-201.fc21.x86_64; no=20
-idea why)
-
-But on a subsequent ifconfig up the route is not inserted:
-
-[root@f21 ~]# ifconfig eth1 up
-
-[root@f21 ~]# ip -6 route ls
-unreachable ::/96 dev lo  metric 1024  error -101
-unreachable ::ffff:0.0.0.0/96 dev lo  metric 1024  error -101
-unreachable 2002:a00::/24 dev lo  metric 1024  error -101
-unreachable 2002:7f00::/24 dev lo  metric 1024  error -101
-unreachable 2002:a9fe::/32 dev lo  metric 1024  error -101
-unreachable 2002:ac10::/28 dev lo  metric 1024  error -101
-unreachable 2002:c0a8::/32 dev lo  metric 1024  error -101
-unreachable 2002:e000::/19 dev lo  metric 1024  error -101
-unreachable 3ffe:ffff::/32 dev lo  metric 1024  error -101
-fe80::/64 dev eth0  proto kernel  metric 256
-fe80::/64 dev eth1  proto kernel  metric 256
-
-So I need to look into why.
-
-
-This is what happens on that stock kernel:
-
-[root@f21 ~]#  ip -6 addr add dev eth1 2000:11:1:1::1/64
-[root@f21 ~]# ifconfig eth1
-eth1: flags=3D4098<BROADCAST,MULTICAST>  mtu 1500
-         inet6 2000:11:1:1::1  prefixlen 64  scopeid 0x0<global>
-         ether 02:01:02:03:04:02  txqueuelen 1000  (Ethernet)
-         RX packets 0  bytes 0 (0.0 B)
-         RX errors 0  dropped 0  overruns 0  frame 0
-         TX packets 0  bytes 0 (0.0 B)
-         TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
-
-Interface in down state and address configured.
-
-[root@f21 ~]# ip -6 route list table local
-local ::1 dev lo  proto none  metric 0
-local fe80::11:22ff:fe33:4402 dev lo  proto none  metric 0
-ff00::/8 dev eth0  metric 256
-ff00::/8 dev eth1  metric 256
-
-[root@f21 ~]# ip -6 route ls
-unreachable ::/96 dev lo  metric 1024  error -101
-unreachable ::ffff:0.0.0.0/96 dev lo  metric 1024  error -101
-2000:11:1:1::/64 dev eth1  proto kernel  metric 256
-unreachable 2002:a00::/24 dev lo  metric 1024  error -101
-unreachable 2002:7f00::/24 dev lo  metric 1024  error -101
-unreachable 2002:a9fe::/32 dev lo  metric 1024  error -101
-unreachable 2002:ac10::/28 dev lo  metric 1024  error -101
-unreachable 2002:c0a8::/32 dev lo  metric 1024  error -101
-unreachable 2002:e000::/19 dev lo  metric 1024  error -101
-unreachable 3ffe:ffff::/32 dev lo  metric 1024  error -101
-fe80::/64 dev eth0  proto kernel  metric 256
-
-And there is an entry in the FIB which just seems wrong. It's cleaned=20
-out on an up/down cycle.
-
-David
+PiA+ID4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gPiA+IEZyb206IEhpcm9zaGkgU2hp
+bWFtb3RvIFttYWlsdG86aC1zaGltYW1vdG9AY3QuanAubmVjLmNvbV0NCj4gPiA+IFNlbnQ6IE1v
+bmRheSwgRmVicnVhcnkgMDksIDIwMTUgNjoyOSBQTQ0KPiA+ID4gVG86IEtpcnNoZXIsIEplZmZy
+ZXkgVA0KPiA+ID4gQ2M6IEFsZXhhbmRlciBEdXljazsgU2tpZG1vcmUsIERvbmFsZCBDOyBCasO4
+cm4gTW9yazsgZTEwMDAtDQo+ID4gPiBkZXZlbEBsaXN0cy5zb3VyY2Vmb3JnZS5uZXQ7IG5ldGRl
+dkB2Z2VyLmtlcm5lbC5vcmc7IENob2ksIFN5IEpvbmc7IGxpbnV4LQ0KPiA+ID4ga2VybmVsQHZn
+ZXIua2VybmVsLm9yZzsgRGF2aWQgTGFpZ2h0OyBIYXlhdG8gTW9tbWENCj4gPiA+IFN1YmplY3Q6
+IFJFOiBbRTEwMDAtZGV2ZWxdIFtQQVRDSCAxLzNdIGl4Z2JlLCBpeGdiZXZmOiBBZGQgbmV3IG1i
+b3ggQVBJIHRvDQo+ID4gPiBlbmFibGUgTUMgcHJvbWlzY3VvdXMgbW9kZQ0KPiA+ID4NCj4gPiA+
+ID4gPiA+ID4gQ2FuIHlvdSBwbGVhc2UgZml4IHVwIHlvdXIgcGF0Y2hlcyBiYXNlZCBvbiBteSB0
+cmVlOg0KPiA+ID4gPiA+ID4gPiBnaXQ6Ly9naXQua2VybmVsLm9yZy9wdWIvc2NtL2xpbnV4L2tl
+cm5lbC9naXQvamtpcnNoZXIvcXVldWUuZ2l0DQo+ID4gPiA+ID4gPg0KPiA+ID4gPiA+ID4gWWVz
+LiBJIGhhdmVuJ3Qgbm90aWNlZCB5b3VyIHRyZWUuDQo+ID4gPiA+ID4gPiBXaWxsIHJlc2VuZCBw
+YXRjaGVzIGFnYWluc3QgaXQuDQo+ID4gPiA+ID4gPg0KPiA+ID4gPiA+DQo+ID4gPiA+ID4gSSBl
+bmNvdW50ZXJlZCBhbiBpc3N1ZSB3aXRoIHlvdXIgdHJlZSwgdGhlIGNvbW1pdCBpZCBpcyBiZWxv
+dy4NCj4gPiA+ID4gPg0KPiA+ID4gPiA+ICQgZ2l0IGxvZyB8IGhlYWQNCj4gPiA+ID4gPiBjb21t
+aXQgZTZmMTY0OTc4MGY4ZjVhODcyOTliZjZhZjA0NDUzZjkzZDFlM2Q1ZQ0KPiA+ID4gPiA+IEF1
+dGhvcjogUmFzbXVzIFZpbGxlbW9lcyA8bGludXhAcmFzbXVzdmlsbGVtb2VzLmRrPg0KPiA+ID4g
+PiA+IERhdGU6ICAgRnJpIEphbiAyMyAyMDo0MzoxNCAyMDE1IC0wODAwDQo+ID4gPiA+ID4NCj4g
+PiA+ID4gPiAgICAgZXRoZXJuZXQ6IGZtMTBrOiBBY3R1YWxseSBkcm9wIDQgYml0cw0KPiA+ID4g
+PiA+DQo+ID4gPiA+ID4gICAgIFRoZSBjb21tZW50IGV4cGxhaW5zIHRoZSBpbnRlbnRpb24sIGJ1
+dCB2aWQgaGFzIHR5cGUgdTE2LiBCZWZvcmUgdGhlDQo+ID4gPiA+ID4gICAgIGlubmVyIHNoaWZ0
+LCBpdCBpcyBwcm9tb3RlZCB0byBpbnQsIHdoaWNoIGhhcyBwbGVudHkgb2Ygc3BhY2UgZm9yIGFs
+bA0KPiA+ID4gPiA+ICAgICB2aWQncyBiaXRzLCBzbyBub3RoaW5nIGlzIGRyb3BwZWQuIFVzZSBh
+IHNpbXBsZSBtYXNrIGluc3RlYWQuDQo+ID4gPiA+ID4NCj4gPiA+ID4gPg0KPiA+ID4gPiA+IEkg
+dXNlIHRoZSBrZXJuZWwgZnJvbSB5b3VyIHRyZWUgaW4gYm90aCBob3N0IGFuZCBndWVzdC4NCj4g
+PiA+ID4gPg0KPiA+ID4gPiA+IEFzc2lnbiBhbiBJUHY2IGZvciBWRiBpbiBndWVzdC4NCj4gPiA+
+ID4gPiAjIGlwIC02IGFkZHIgYWRkIDIwMDE6ZGI4OjoxODoxLzY0IGRldiBlbnMwDQo+ID4gPiA+
+ID4NCj4gPiA+ID4gPiBTZW5kIHBpbmcgcGFja2V0IGZyb20gb3RoZXIgc2VydmVyIHRvIHRoZSBW
+TS4NCj4gPiA+ID4gPiAjIHBpbmc2ICAyMDAxOmRiODo6MTg6MSAtSSBldGgwDQo+ID4gPiA+ID4N
+Cj4gPiA+ID4gPiBUaGUgZm9sbG93aW5nIG1lc3NhZ2Ugd2FzIHNob3duLg0KPiA+ID4gPiA+IGl4
+Z2JldmYgMDAwMDowMDowOC4wOiBwYXJ0aWFsIGNoZWNrc3VtIGJ1dCBsNCBwcm90bz0zYSENCj4g
+PiA+ID4gPg0KPiA+ID4gPiA+IElmIEkgZGlkIHRoZSBzYW1lIG9wZXJhdGlvbiBpbiB0aGUgaG9z
+dCwgSSBzYXcgdGhlIHNhbWUgZXJyb3IgbWVzc2FnZSBpbg0KPiA+ID4gaG9zdCB0b28uDQo+ID4g
+PiA+ID4gaXhnYmUgMDAwMDoyZDowMC4wOiBwYXJ0aWFsIGNoZWNrc3VtIGJ1dCBsNCBwcm90bz0z
+YSENCj4gPiA+ID4gPg0KPiA+ID4gPiA+IERvIHlvdSBoYXZlIGFueSBpZGVhIGFib3V0IHRoYXQ/
+DQo+ID4gPiA+DQo+ID4gPiA+IEFoLCBzb3JyeSBhYm91dCB0aGF0LCB0cnkgdGhpcyB0cmVlIGFn
+YWluOg0KPiA+ID4gPiBnaXQ6Ly9naXQua2VybmVsLm9yZy9wdWIvc2NtL2xpbnV4L2tlcm5lbC9n
+aXQvamtpcnNoZXIvcXVldWUuZ2l0DQo+ID4gPiA+DQo+ID4gPiA+IFRoYXQgcGF0Y2ggd2FzIGRy
+b3BwZWQgZm9yIGZhdm9yIG9mIGEgcGF0Y2ggdGhhdCBNYXR0aGV3IFZpY2sgcHV0DQo+ID4gPiA+
+IHRvZ2V0aGVyIChhbmQgcmVjZW50bHkgZ290IHB1c2hlZCB1cHN0cmVhbSkuICBTbyBteSBxdWV1
+ZSBubyBsb25nZXINCj4gPiA+ID4gaGFzIHRoYXQgcGF0Y2ggaW4gdGhlIHF1ZXVlLCBzaW5jZSBp
+dCBnb3QgZHJvcHBlZC4NCj4gPiA+DQo+ID4gPiBJIHN0aWxsIHNlZSB0aGUgc2FtZSBlcnJvciwg
+dGhlIGhlYWQgaWQgaXMgdGhlIGJlbG93DQo+ID4gPg0KPiA+ID4gJCBnaXQgbG9nIHwgaGVhZA0K
+PiA+ID4gY29tbWl0IGEwNzJhZmIwYjQ1OTA0MDIyYjc2ZGVlZjNiNzcwZWU5YTkzY2IxM2ENCj4g
+PiA+IEF1dGhvcjogTmljaG9sYXMgS3JhdXNlIDx4ZXJvZm9pZnlAZ21haWwuY29tPg0KPiA+ID4g
+RGF0ZTogICBNb24gRmViIDkgMDA6Mjc6MDAgMjAxNSAtMDgwMA0KPiA+ID4NCj4gPiA+ICAgICBp
+Z2I6IFJlbW92ZSBvdXRkYXRlZCBmaXggbWUgY29tbWVudCBpbiB0aGUNCj4gPiA+IGZ1bmN0aW9u
+LGdiX2FjcXVpcmVfc3dmd19zeW5jX2kyMTANCj4gPiA+DQo+ID4gPg0KPiA+ID4gdGhhbmtzLA0K
+PiA+ID4gSGlyb3NoaQ0KPiA+DQo+ID4gSSdtIGhhdmluZyBvdXIgdmFsaWRhdGlvbiBzZWUgaWYg
+dGhleSBjYW4gcmVjcmVhdGUgdGhlIHNhbWUgaXNzdWUgaW50ZXJuYWxseS4gIFdoZW4gdGhleSBn
+ZXQgYmFjayB0byBtZSBJJ2xsIGxldCB5b3UNCj4ga25vdw0KPiA+IHdoYXQgd2UgZm91bmQuDQo+
+IA0KPiBXZSBkaWQgYmlzZWN0LCBhbmQgdGhlIGJlbG93IGxvb2tzIHRoZSBjdWxwcml0Ow0KPiAN
+Cj4gMzJkY2U5NjhkZDk4N2FkZmIwYzAwOTQ2ZDc4ZGFkOTE1NGY2NDc1OSBpcyB0aGUgZmlyc3Qg
+YmFkIGNvbW1pdA0KPiBjb21taXQgMzJkY2U5NjhkZDk4N2FkZmIwYzAwOTQ2ZDc4ZGFkOTE1NGY2
+NDc1OQ0KPiBBdXRob3I6IFZsYWQgWWFzZXZpY2ggPHZ5YXNldmljaEBnbWFpbC5jb20+DQo+IERh
+dGU6ICAgU2F0IEphbiAzMSAxMDo0MDoxOCAyMDE1IC0wNTAwDQo+IA0KPiAgICAgaXB2NjogQWxs
+b3cgZm9yIHBhcnRpYWwgY2hlY2tzdW1zIG9uIG5vbi11Zm8gcGFja2V0cw0KPiANCj4gICAgIEN1
+cnJudGx5LCBpZiB3ZSBhcmUgbm90IGRvaW5nIFVGTyBvbiB0aGUgcGFja2V0LCBhbGwgVURQDQo+
+ICAgICBwYWNrZXRzIHdpbGwgc3RhcnQgd2l0aCBDSEVDS1NVTV9OT05FIGFuZCB0aHVzIHBlcmZv
+cm0gZnVsbA0KPiAgICAgY2hlY2tzdW0gY29tcHV0YXRpb25zIGluIHNvZnR3YXJlIGV2ZW4gaWYg
+ZGV2aWNlIHN1cHBvcnQNCj4gICAgIElQdjYgY2hlY2tzdW0gb2ZmbG9hZGluZy4NCj4gDQo+ICAg
+ICBMZXQncyBzdGFydCBzdGFydCB3aXRoIENIRUNLU1VNX1BBUlRJQUwgaWYgdGhlIGRldmljZQ0K
+PiAgICAgc3VwcG9ydHMgaXQgYW5kIHdlIGFyZSBzZW5kaW5nIG9ubHkgYSBzaW5nbGUgcGFja2V0
+IGF0DQo+ICAgICBvciBiZWxvdyBtdHUgc2l6ZS4NCj4gDQo+ICAgICBTaWduZWQtb2ZmLWJ5OiBW
+bGFkaXNsYXYgWWFzZXZpY2ggPHZ5YXNldmljQHJlZGhhdC5jb20+DQo+ICAgICBTaWduZWQtb2Zm
+LWJ5OiBEYXZpZCBTLiBNaWxsZXIgPGRhdmVtQGRhdmVtbG9mdC5uZXQ+DQo+IA0KPiA6MDQwMDAw
+IDA0MDAwMCA0NDM3ZWFmN2U5NDRmNWE2MTM2ZWJmNjY4YTI1NmZlZTY4OGZkYTNkIGZhZGU4ZGE5
+OThkMzVjOGRhOTdhMTVmMDU1Njk0OWFkMzcxZTUzNDcgTSAgICAgIG5ldA0KDQpXaGVuIEkgcmV2
+ZXJ0ZWQgdGhlIGNvbW1pdCwgdGhlIGlzc3VlIHdhcyBzb2x2ZWQuDQoNCnRoYW5rcywNCkhpcm9z
+aGkNCg0KLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tCkRpdmUgaW50byB0aGUgV29ybGQgb2YgUGFyYWxs
+ZWwgUHJvZ3JhbW1pbmcuIFRoZSBHbyBQYXJhbGxlbCBXZWJzaXRlLApzcG9uc29yZWQgYnkgSW50
+ZWwgYW5kIGRldmVsb3BlZCBpbiBwYXJ0bmVyc2hpcCB3aXRoIFNsYXNoZG90IE1lZGlhLCBpcyB5
+b3VyCmh1YiBmb3IgYWxsIHRoaW5ncyBwYXJhbGxlbCBzb2Z0d2FyZSBkZXZlbG9wbWVudCwgZnJv
+bSB3ZWVrbHkgdGhvdWdodApsZWFkZXJzaGlwIGJsb2dzIHRvIG5ld3MsIHZpZGVvcywgY2FzZSBz
+dHVkaWVzLCB0dXRvcmlhbHMgYW5kIG1vcmUuIFRha2UgYQpsb29rIGFuZCBqb2luIHRoZSBjb252
+ZXJzYXRpb24gbm93LiBodHRwOi8vZ29wYXJhbGxlbC5zb3VyY2Vmb3JnZS5uZXQvCl9fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCkUxMDAwLWRldmVsIG1haWxp
+bmcgbGlzdApFMTAwMC1kZXZlbEBsaXN0cy5zb3VyY2Vmb3JnZS5uZXQKaHR0cHM6Ly9saXN0cy5z
+b3VyY2Vmb3JnZS5uZXQvbGlzdHMvbGlzdGluZm8vZTEwMDAtZGV2ZWwKVG8gbGVhcm4gbW9yZSBh
+Ym91dCBJbnRlbCYjMTc0OyBFdGhlcm5ldCwgdmlzaXQgaHR0cDovL2NvbW11bml0aWVzLmludGVs
+LmNvbS9jb21tdW5pdHkvd2lyZWQK
