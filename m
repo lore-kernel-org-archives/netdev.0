@@ -1,76 +1,92 @@
-From: Pawel Moll <pawel.moll@arm.com>
-Subject: Re: [PATCH RFC v5 net-next 4/6] virtio-net: add basic interrupt
- coalescing support
-Date: Fri, 13 Feb 2015 12:41:06 +0000
-Message-ID: <1423831266.21394.1.camel@arm.com>
-References: <1423471165-34243-1-git-send-email-jasowang@redhat.com>
-	 <1423471165-34243-5-git-send-email-jasowang@redhat.com>
-	 <87386ey2iy.fsf@rustcorp.com.au> <20150210104019.GD9505@redhat.com>
-	 <874mqqbk12.fsf@rustcorp.com.au>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] tcp: make sure skb is not shared before using skb_get()
+Date: Fri, 13 Feb 2015 04:47:12 -0800
+Message-ID: <1423831632.4942.25.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-	Jason Wang <jasowang@redhat.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"virtualization@lists.linux-foundation.org"
-	<virtualization@lists.linux-foundation.org>,
-	"pagupta@redhat.com" <pagupta@redhat.com>,
-	Cornelia Huck <cornelia.huck@de.ibm.com>
-To: Rusty Russell <rusty@rustcorp.com.au>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <874mqqbk12.fsf@rustcorp.com.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, Yuchung Cheng <ycheng@google.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qa0-f45.google.com ([209.85.216.45]:61607 "EHLO
+	mail-qa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752068AbbBMMrP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Feb 2015 07:47:15 -0500
+Received: by mail-qa0-f45.google.com with SMTP id j7so12211631qaq.4
+        for <netdev@vger.kernel.org>; Fri, 13 Feb 2015 04:47:15 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2015-02-13 at 02:52 +0000, Rusty Russell wrote:
-> "Michael S. Tsirkin" <mst@redhat.com> writes:
-> > On Tue, Feb 10, 2015 at 12:02:37PM +1030, Rusty Russell wrote:
-> >> Jason Wang <jasowang@redhat.com> writes:
-> >> > This patch enables the interrupt coalescing setting through etht=
-ool.
-> >>=20
-> >> The problem is that there's nothing network specific about interru=
-pt
-> >> coalescing.  I can see other devices wanting exactly the same thin=
-g,
-> >> which means we'd deprecate this in the next virtio standard.
-> >>=20
-> >> I think the right answer is to extend like we did with
-> >> vring_used_event(), eg:
-> >>=20
-> >> 1) Add a new feature VIRTIO_F_RING_COALESCE.
-> >> 2) Add another a 32-bit field after vring_used_event(), eg:
-> >>         #define vring_used_delay(vr) (*(u32 *)((vr)->avail->ring[(=
-vr)->num + 2]))
-> >>=20
-> >> This loses the ability to coalesce by number of frames, but we can=
- still
-> >> do number of sg entries, as we do now with used_event, and we coul=
-d
-> >> change virtqueue_enable_cb_delayed() to take a precise number if w=
-e
-> >> wanted.
-> >
-> > But do we expect delay to be update dynamically?
-> > If not, why not stick it in config space?
->=20
-> Hmm, we could update it dynamically (and will, in the case of ethtool=
-).
-> But it won't be common, so we could append a field to
-> virtio_pci_common_cfg for PCI.
->=20
-> I think MMIO and CCW would be easy to extend too, but CC'd to check.
+From: Eric Dumazet <edumazet@google.com>
 
-As far as I understand the virtio_pci_common_cfg principle (just had a
-look, for the first time ;-), it's now an equivalent of the MMIO contro=
-l
-registers block. I see no major problem with adding another one.
+IPv6 can keep a copy of SYN message using skb_get() in
+tcp_v6_conn_request() so that caller wont free the skb when calling
+kfree_skb() later.
+    
+Therefore TCP fast open has to clone the skb it is queuing in
+child->sk_receive_queue, as all skbs consumed from receive_queue are
+freed using __kfree_skb() (ie assuming skb->users == 1)
+    
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Signed-off-by: Yuchung Cheng <ycheng@google.com>
+Fixes: 5b7ed0892f2af ("tcp: move fastopen functions to tcp_fastopen.c")
+---
+ net/ipv4/tcp_fastopen.c |   32 ++++++++++++++++++++++++--------
+ 1 file changed, 24 insertions(+), 8 deletions(-)
 
-Or were you thinking about introducing some standard for the "real"
-config space? (fine with me as well - the transport will have nothing t=
-o
-do :-)
-
-Pawe=C5=82
+diff --git a/net/ipv4/tcp_fastopen.c b/net/ipv4/tcp_fastopen.c
+index 53db2c309572..ea82fd492c1b 100644
+--- a/net/ipv4/tcp_fastopen.c
++++ b/net/ipv4/tcp_fastopen.c
+@@ -134,6 +134,7 @@ static bool tcp_fastopen_create_child(struct sock *sk,
+ 	struct tcp_sock *tp;
+ 	struct request_sock_queue *queue = &inet_csk(sk)->icsk_accept_queue;
+ 	struct sock *child;
++	u32 end_seq;
+ 
+ 	req->num_retrans = 0;
+ 	req->num_timeout = 0;
+@@ -185,20 +186,35 @@ static bool tcp_fastopen_create_child(struct sock *sk,
+ 
+ 	/* Queue the data carried in the SYN packet. We need to first
+ 	 * bump skb's refcnt because the caller will attempt to free it.
++	 * Note that IPv6 might also have used skb_get() trick
++	 * in tcp_v6_conn_request() to keep this SYN around (treq->pktopts)
++	 * So we need to eventually get a clone of the packet,
++	 * before inserting it in sk_receive_queue.
+ 	 *
+ 	 * XXX (TFO) - we honor a zero-payload TFO request for now,
+ 	 * (any reason not to?) but no need to queue the skb since
+ 	 * there is no data. How about SYN+FIN?
+ 	 */
+-	if (TCP_SKB_CB(skb)->end_seq != TCP_SKB_CB(skb)->seq + 1) {
+-		skb = skb_get(skb);
+-		skb_dst_drop(skb);
+-		__skb_pull(skb, tcp_hdr(skb)->doff * 4);
+-		skb_set_owner_r(skb, child);
+-		__skb_queue_tail(&child->sk_receive_queue, skb);
+-		tp->syn_data_acked = 1;
++	end_seq = TCP_SKB_CB(skb)->end_seq;
++	if (end_seq != TCP_SKB_CB(skb)->seq + 1) {
++		struct sk_buff *skb2;
++
++		if (unlikely(skb_shared(skb)))
++			skb2 = skb_clone(skb, GFP_ATOMIC);
++		else
++			skb2 = skb_get(skb);
++
++		if (likely(skb2)) {
++			skb_dst_drop(skb2);
++			__skb_pull(skb2, tcp_hdrlen(skb));
++			skb_set_owner_r(skb2, child);
++			__skb_queue_tail(&child->sk_receive_queue, skb2);
++			tp->syn_data_acked = 1;
++		} else {
++			end_seq = TCP_SKB_CB(skb)->seq + 1;
++		}
+ 	}
+-	tcp_rsk(req)->rcv_nxt = tp->rcv_nxt = TCP_SKB_CB(skb)->end_seq;
++	tcp_rsk(req)->rcv_nxt = tp->rcv_nxt = end_seq;
+ 	sk->sk_data_ready(sk);
+ 	bh_unlock_sock(child);
+ 	sock_put(child);
