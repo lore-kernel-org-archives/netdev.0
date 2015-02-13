@@ -1,60 +1,63 @@
-From: Ignacy Gawedzki <ignacy.gawedzki@green-communications.fr>
-Subject: VLAN creation may lead to deadlock.
-Date: Fri, 13 Feb 2015 13:02:17 +0100
-Message-ID: <20150213120217.GA6198@zenon.in.qult.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+From: Michael Grzeschik <m.grzeschik@pengutronix.de>
+Subject: [PATCH] com20020-pci: add support for eae single card
+Date: Fri, 13 Feb 2015 13:03:50 +0100
+Message-ID: <1423829030-20682-1-git-send-email-m.grzeschik@pengutronix.de>
+Cc: linux-kernel@vger.kernel.org, davem@davemloft.net,
+	kernel@pengutronix.de
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [78.193.33.39] ([78.193.33.39]:47772 "EHLO mail.qult.net"
-	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1752362AbbBMMDG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 13 Feb 2015 07:03:06 -0500
-Received: from zenon.in.qult.net ([192.168.64.1] helo=zenon)
-	by mail.qult.net with esmtps (TLS1.2:RSA_AES_128_CBC_SHA1:128)
-	(Exim 4.82)
-	(envelope-from <ignacy.gawedzki@green-communications.fr>)
-	id 1YMExF-0002g3-V1
-	for netdev@vger.kernel.org; Fri, 13 Feb 2015 13:02:42 +0100
-Received: from ig by zenon with local (Exim 4.84_RC1)
-	(envelope-from <ignacy.gawedzki@green-communications.fr>)
-	id 1YMEwr-00024U-9I
-	for netdev@vger.kernel.org; Fri, 13 Feb 2015 13:02:17 +0100
-Content-Disposition: inline
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:45426 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753013AbbBMMD6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Feb 2015 07:03:58 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Signed-off-by: Michael Grzeschik <m.grzeschik@pengutronix.de>
+---
+ drivers/net/arcnet/com20020-pci.c | 21 ++++++++++++++++++---
+ 1 file changed, 18 insertions(+), 3 deletions(-)
 
-I stumbled upon the following annoying situation: supposing eth0 is som=
-e
-interface that is currently DOWN, the following command
-
-  ip link add link eth0 name eth0.1 up type vlan id 1
-
-never returns and the kernel printks the following lines every few seco=
-nds
-
-  unregister_netdevice: waiting for eth0.1 to become free. Usage count =
-=3D 2
-
-I understand that the kernel should prevent me from creating a VLAN int=
-erface
-that's initially up when loose-binding is off and the master interface =
-is down
-(and indeed there is absolutely no problem when loose-binding is on), b=
-ut the
-unregistering of the currently-being-registered device should not block=
- like
-that.  It appears there are too few dev_puts compared to dev_holds in t=
-here.
-
-Regards,
-
-Ignacy
-
---=20
-Ignacy Gaw=EAdzki
-R&D Engineer
-Green Communications
+diff --git a/drivers/net/arcnet/com20020-pci.c b/drivers/net/arcnet/com20020-pci.c
+index 945f532..96edc13 100644
+--- a/drivers/net/arcnet/com20020-pci.c
++++ b/drivers/net/arcnet/com20020-pci.c
+@@ -214,8 +214,17 @@ static struct com20020_pci_card_info card_info_sohard = {
+ 	.flags = ARC_CAN_10MBIT,
+ };
+ 
+-static struct com20020_pci_card_info card_info_eae = {
+-	.name = "EAE PLX-PCI",
++static struct com20020_pci_card_info card_info_eae_arc1 = {
++	.name = "EAE PLX-PCI ARC1",
++	.devcount = 1,
++	.chan_map_tbl = {
++		{ 2, 0x00, 0x08 },
++	},
++	.flags = ARC_CAN_10MBIT,
++};
++
++static struct com20020_pci_card_info card_info_eae_ma1 = {
++	.name = "EAE PLX-PCI MA1",
+ 	.devcount = 2,
+ 	.chan_map_tbl = {
+ 		{ 2, 0x00, 0x08 },
+@@ -359,9 +368,15 @@ static const struct pci_device_id com20020pci_id_table[] = {
+ 	},
+ 	{
+ 		0x10B5, 0x9050,
++		0x10B5, 0x3263,
++		0, 0,
++		(kernel_ulong_t)&card_info_eae_arc1
++	},
++	{
++		0x10B5, 0x9050,
+ 		0x10B5, 0x3292,
+ 		0, 0,
+-		(kernel_ulong_t)&card_info_eae
++		(kernel_ulong_t)&card_info_eae_ma1
+ 	},
+ 	{
+ 		0x14BA, 0x6000,
+-- 
+2.1.4
