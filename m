@@ -1,182 +1,115 @@
-From: Vadim Kochan <vadim4j@gmail.com>
-Subject: [PATCH iproute2 5/7] ss: Unify details info output:ino,uid,sk
-Date: Fri, 13 Feb 2015 22:14:02 +0200
-Message-ID: <1423858444-10158-6-git-send-email-vadim4j@gmail.com>
-References: <1423858444-10158-1-git-send-email-vadim4j@gmail.com>
-Cc: Vadim Kochan <vadim4j@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f54.google.com ([209.85.215.54]:43337 "EHLO
-	mail-la0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752737AbbBMUZR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Feb 2015 15:25:17 -0500
-Received: by labms9 with SMTP id ms9so12754558lab.10
-        for <netdev@vger.kernel.org>; Fri, 13 Feb 2015 12:25:15 -0800 (PST)
-In-Reply-To: <1423858444-10158-1-git-send-email-vadim4j@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sylvain Rochet <sylvain.rochet@finsecur.com>
+Subject: [PATCH] net: phy: micrel: disable NAND-tree for KSZ8021,KSZ8031,KSZ8051,KSZ8081
+Date: Fri, 13 Feb 2015 21:35:33 +0100
+Message-ID: <1423859733-21456-1-git-send-email-sylvain.rochet@finsecur.com>
+Cc: Sylvain Rochet <sylvain.rochet@finsecur.com>
+To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Nicolas Ferre <nicolas.ferre@atmel.com>,
+	Alexandre Belloni <alexandre.belloni@free-electrons.com>,
+	voice.shen@atmel.com, josh.wu@atmel.com,
+	ludovic.desroches@atmel.com,
+	Boris Brezillon <boris.brezillon@free-electrons.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Vadim Kochan <vadim4j@gmail.com>
+NAND-tree is used to check wiring between MAC and PHY using NAND gates
+on the PHY side, hence the name.
 
-Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
+NAND-tree initial status is latched at reset by probing the IRQ pin.
+However some devices are sharing the PHY IRQ pin with other peripherals
+such as Atmel SAMA5D[34]x-EK boards when using the optional TM7000
+display module, therefore they are switching the PHY in NAND-tree test
+mode depending on the current IRQ line status at reset.
+
+This patch ensure PHY is not in NAND-tree test mode for all Micrel PHYs
+using IRQ line as a NAND-tree toggle mode at reset.
+
+Signed-off-by: Sylvain Rochet <sylvain.rochet@finsecur.com>
+Signed-off-by: Boris Brezillon <boris.brezillon@free-electrons.com>
 ---
- misc/ss.c | 78 ++++++++++++++++++++++++++++-----------------------------------
- 1 file changed, 35 insertions(+), 43 deletions(-)
+ drivers/net/phy/micrel.c | 28 ++++++++++++++++++++++++++++
+ 1 file changed, 28 insertions(+)
 
-diff --git a/misc/ss.c b/misc/ss.c
-index 305ab38..905cec9 100644
---- a/misc/ss.c
-+++ b/misc/ss.c
-@@ -672,6 +672,11 @@ static inline char *sock_addr_get_str(const inet_prefix *prefix)
-     return tmp;
+diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
+index 3ad8ca7..1190fd8 100644
+--- a/drivers/net/phy/micrel.c
++++ b/drivers/net/phy/micrel.c
+@@ -32,6 +32,7 @@
+ /* Operation Mode Strap Override */
+ #define MII_KSZPHY_OMSO				0x16
+ #define KSZPHY_OMSO_B_CAST_OFF			BIT(9)
++#define KSZPHY_OMSO_NAND_TREE_ON		BIT(5)
+ #define KSZPHY_OMSO_RMII_OVERRIDE		BIT(1)
+ #define KSZPHY_OMSO_MII_OVERRIDE		BIT(0)
+ 
+@@ -76,6 +77,7 @@ struct kszphy_type {
+ 	u32 led_mode_reg;
+ 	u16 interrupt_level_mask;
+ 	bool has_broadcast_disable;
++	bool has_nand_tree_disable;
+ 	bool has_rmii_ref_clk_sel;
+ };
+ 
+@@ -89,6 +91,7 @@ struct kszphy_priv {
+ static const struct kszphy_type ksz8021_type = {
+ 	.led_mode_reg		= MII_KSZPHY_CTRL_2,
+ 	.has_broadcast_disable	= true,
++	.has_nand_tree_disable	= true,
+ 	.has_rmii_ref_clk_sel	= true,
+ };
+ 
+@@ -98,11 +101,13 @@ static const struct kszphy_type ksz8041_type = {
+ 
+ static const struct kszphy_type ksz8051_type = {
+ 	.led_mode_reg		= MII_KSZPHY_CTRL_2,
++	.has_nand_tree_disable	= true,
+ };
+ 
+ static const struct kszphy_type ksz8081_type = {
+ 	.led_mode_reg		= MII_KSZPHY_CTRL_2,
+ 	.has_broadcast_disable	= true,
++	.has_nand_tree_disable	= true,
+ 	.has_rmii_ref_clk_sel	= true,
+ };
+ 
+@@ -231,6 +236,26 @@ out:
+ 	return ret;
  }
  
-+static unsigned long cookie_sk_get(uint32_t *cookie)
++static int kszphy_nand_tree_disable(struct phy_device *phydev)
 +{
-+	return (((unsigned long)cookie[1] << 31) << 1) | cookie[0];
++	int ret;
++
++	ret = phy_read(phydev, MII_KSZPHY_OMSO);
++	if (ret < 0)
++		goto out;
++
++	if (!(ret & KSZPHY_OMSO_NAND_TREE_ON))
++		return 0;
++
++	ret = phy_write(phydev, MII_KSZPHY_OMSO,
++			ret & ~KSZPHY_OMSO_NAND_TREE_ON);
++out:
++	if (ret)
++		dev_err(&phydev->dev, "failed to disable NAND tree mode\n");
++
++	return ret;
 +}
 +
- static const char *sstate_name[] = {
- 	"UNKNOWN",
- 	[SS_ESTABLISHED] = "ESTAB",
-@@ -775,6 +780,15 @@ static void sock_state_print(struct sockstat *s, const char *sock_name)
- 	printf("%-6d %-6d ", s->rq, s->wq);
- }
+ static int kszphy_config_init(struct phy_device *phydev)
+ {
+ 	struct kszphy_priv *priv = phydev->priv;
+@@ -245,6 +270,9 @@ static int kszphy_config_init(struct phy_device *phydev)
+ 	if (type->has_broadcast_disable)
+ 		kszphy_broadcast_disable(phydev);
  
-+static void sock_details_print(struct sockstat *s)
-+{
-+	if (s->uid)
-+		printf(" uid:%u", s->uid);
++	if (type->has_nand_tree_disable)
++		kszphy_nand_tree_disable(phydev);
 +
-+	printf(" ino:%u", s->ino);
-+	printf(" sk:%llx", s->sk);
-+}
-+
- static const char *tmr_name[] = {
- 	"off",
- 	"on",
-@@ -1745,10 +1759,7 @@ static int tcp_show_line(char *line, const struct filter *f, int family)
- 		tcp_timer_print(&s);
- 
- 	if (show_details) {
--		if (s.ss.uid)
--			printf(" uid:%u", (unsigned)s.ss.uid);
--		printf(" ino:%u", s.ss.ino);
--		printf(" sk:%llx", s.ss.sk);
-+		sock_details_print(&s.ss);
- 		if (opt[0])
- 			printf(" opt:\"%s\"", opt);
- 	}
-@@ -1949,15 +1960,16 @@ static int inet_show_sock(struct nlmsghdr *nlh, struct filter *f, int protocol)
- 	parse_rtattr(tb, INET_DIAG_MAX, (struct rtattr*)(r+1),
- 		     nlh->nlmsg_len - NLMSG_LENGTH(sizeof(*r)));
- 
--	s.state = r->idiag_state;
--	s.local.family = s.remote.family = r->idiag_family;
--	s.lport = ntohs(r->id.idiag_sport);
--	s.rport = ntohs(r->id.idiag_dport);
--	s.wq = r->idiag_wqueue;
--	s.rq = r->idiag_rqueue;
--	s.ino = r->idiag_inode;
--	s.uid = r->idiag_uid;
--	s.iface = r->id.idiag_if;
-+	s.state		= r->idiag_state;
-+	s.local.family  = s.remote.family = r->idiag_family;
-+	s.lport		= ntohs(r->id.idiag_sport);
-+	s.rport		= ntohs(r->id.idiag_dport);
-+	s.wq		= r->idiag_wqueue;
-+	s.rq		= r->idiag_rqueue;
-+	s.ino		= r->idiag_inode;
-+	s.uid		= r->idiag_uid;
-+	s.iface		= r->id.idiag_if;
-+	s.sk		= cookie_sk_get(&r->id.idiag_cookie[0]);
- 
- 	if (s.local.family == AF_INET) {
- 		s.local.bytelen = s.remote.bytelen = 4;
-@@ -1983,13 +1995,7 @@ static int inet_show_sock(struct nlmsghdr *nlh, struct filter *f, int protocol)
- 	}
- 
- 	if (show_details) {
--		if (r->idiag_uid)
--			printf(" uid:%u", (unsigned)r->idiag_uid);
--		printf(" ino:%u", r->idiag_inode);
--		printf(" sk:");
--		if (r->id.idiag_cookie[1] != 0)
--			printf("%08x", r->id.idiag_cookie[1]);
--		printf("%08x", r->id.idiag_cookie[0]);
-+		sock_details_print(&s);
- 		if (tb[INET_DIAG_SHUTDOWN]) {
- 			unsigned char mask;
- 			mask = *(__u8 *)RTA_DATA(tb[INET_DIAG_SHUTDOWN]);
-@@ -2351,14 +2357,8 @@ static int dgram_show_line(char *line, const struct filter *f, int family)
- 
- 	inet_stats_print(&s, IPPROTO_UDP);
- 
--	if (show_details) {
--		if (s.uid)
--			printf(" uid=%u", (unsigned)s.uid);
--		printf(" ino=%u", s.ino);
--		printf(" sk=%llx", s.sk);
--		if (opt[0])
--			printf(" opt:\"%s\"", opt);
--	}
-+	if (show_details && opt[0])
-+		printf(" opt:\"%s\"", opt);
- 
- 	printf("\n");
- 	return 0;
-@@ -2774,6 +2774,9 @@ static int packet_stats_print(struct sockstat *s, const struct filter *f)
- 		}
- 	}
- 
-+	if (show_details)
-+		sock_details_print(s);
-+
- 	return 0;
- }
- 
-@@ -2796,6 +2799,7 @@ static int packet_show_sock(const struct sockaddr_nl *addr,
- 	stat.prot   = r->pdiag_num;
- 	stat.ino    = r->pdiag_ino;
- 	stat.state  = SS_CLOSE;
-+	stat.sk	    = cookie_sk_get(&r->pdiag_cookie[0]);
- 
- 	if (tb[PACKET_DIAG_MEMINFO]) {
- 		__u32 *skmeminfo = RTA_DATA(tb[PACKET_DIAG_MEMINFO]);
-@@ -2807,21 +2811,12 @@ static int packet_show_sock(const struct sockaddr_nl *addr,
- 		stat.lport = stat.iface = pinfo->pdi_index;
- 	}
- 
-+	if (tb[PACKET_DIAG_UID])
-+		stat.uid = *(__u32 *)RTA_DATA(tb[PACKET_DIAG_UID]);
-+
- 	if (packet_stats_print(&stat, f))
- 		return 0;
- 
--	if (show_details) {
--		__u32 uid = 0;
--
--		if (tb[PACKET_DIAG_UID])
--			uid = *(__u32 *)RTA_DATA(tb[PACKET_DIAG_UID]);
--
--		printf(" ino=%u uid=%u sk=", r->pdiag_ino, uid);
--		if (r->pdiag_cookie[1] != 0)
--			printf("%08x", r->pdiag_cookie[1]);
--		printf("%08x", r->pdiag_cookie[0]);
--	}
--
- 	if (show_bpf && tb[PACKET_DIAG_FILTER]) {
- 		struct sock_filter *fil =
- 		       RTA_DATA(tb[PACKET_DIAG_FILTER]);
-@@ -2878,9 +2873,6 @@ static int packet_show_line(char *buf, const struct filter *f, int fam)
- 	if (packet_stats_print(&stat, f))
- 		return 0;
- 
--	if (show_details) {
--		printf(" ino=%u uid=%u sk=%llx", ino, uid, sk);
--	}
- 	printf("\n");
- 	return 0;
- }
+ 	if (priv->rmii_ref_clk_sel) {
+ 		ret = kszphy_rmii_clk_sel(phydev, priv->rmii_ref_clk_sel_val);
+ 		if (ret) {
 -- 
-2.2.2
+2.1.4
