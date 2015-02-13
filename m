@@ -1,57 +1,91 @@
-From: Rasesh Mody <rasesh.mody@qlogic.com>
-Subject: [PATCH net-next 2/2] bna: Update the Driver and Firmware Version
-Date: Fri, 13 Feb 2015 17:06:06 -0500
-Message-ID: <1423865166-13469-3-git-send-email-rasesh.mody@qlogic.com>
-References: <1423865166-13469-1-git-send-email-rasesh.mody@qlogic.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: [Patch] gen_stats.c: Duplicate xstats buffer for later use
+Date: Fri, 13 Feb 2015 14:47:05 -0800
+Message-ID: <1423867625-1509-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, ignacy.gawedzki@green-communications.fr,
+	David.Laight@aculab.com, Cong Wang <xiyou.wangcong@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:11127 "EHLO
-	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752919AbbBMWpb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Feb 2015 17:45:31 -0500
-In-Reply-To: <1423865166-13469-1-git-send-email-rasesh.mody@qlogic.com>
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:48744 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752919AbbBMWrR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Feb 2015 17:47:17 -0500
+Received: by mail-pa0-f51.google.com with SMTP id eu11so21698289pac.10
+        for <netdev@vger.kernel.org>; Fri, 13 Feb 2015 14:47:17 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch updates the BNA driver version to 3.2.25.1 and the firmware version
-to 3.2.5.1
+=46rom: Ignacy Gaw=C4=99dzki <ignacy.gawedzki@green-communications.fr>
 
-Signed-off-by: Rasesh Mody <rasesh.mody@qlogic.com>
+The gnet_stats_copy_app() function gets called, more often than not, wi=
+th its
+second argument a pointer to an automatic variable in the caller's stac=
+k.
+Therefore, to avoid copying garbage afterwards when calling
+gnet_stats_finish_copy(), this data is better copied to a dynamically a=
+llocated
+memory that gets freed after use.
+
+[xiyou.wangcong@gmail.com: remove a useless kfree()]
+
+Signed-off-by: Ignacy Gaw=C4=99dzki <ignacy.gawedzki@green-communicatio=
+ns.fr>
+Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 ---
- drivers/net/ethernet/brocade/bna/bnad.h | 2 +-
- drivers/net/ethernet/brocade/bna/cna.h  | 4 ++--
- 2 files changed, 3 insertions(+), 3 deletions(-)
+ net/core/gen_stats.c | 15 ++++++++++++++-
+ 1 file changed, 14 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/brocade/bna/bnad.h b/drivers/net/ethernet/brocade/bna/bnad.h
-index e6c285c..7ead6c2 100644
---- a/drivers/net/ethernet/brocade/bna/bnad.h
-+++ b/drivers/net/ethernet/brocade/bna/bnad.h
-@@ -72,7 +72,7 @@ struct bnad_rx_ctrl {
- #define BNAD_NAME			"bna"
- #define BNAD_NAME_LEN			64
- 
--#define BNAD_VERSION			"3.2.23.0"
-+#define BNAD_VERSION			"3.2.25.1"
- 
- #define BNAD_MAILBOX_MSIX_INDEX		0
- #define BNAD_MAILBOX_MSIX_VECTORS	1
-diff --git a/drivers/net/ethernet/brocade/bna/cna.h b/drivers/net/ethernet/brocade/bna/cna.h
-index 3be5d98..28e7d0f 100644
---- a/drivers/net/ethernet/brocade/bna/cna.h
-+++ b/drivers/net/ethernet/brocade/bna/cna.h
-@@ -38,8 +38,8 @@
- 
- extern char bfa_version[];
- 
--#define CNA_FW_FILE_CT	"ctfw-3.2.3.0.bin"
--#define CNA_FW_FILE_CT2	"ct2fw-3.2.3.0.bin"
-+#define CNA_FW_FILE_CT	"ctfw-3.2.5.1.bin"
-+#define CNA_FW_FILE_CT2	"ct2fw-3.2.5.1.bin"
- #define FC_SYMNAME_MAX	256	/*!< max name server symbolic name size */
- 
- #pragma pack(1)
--- 
-1.8.2.3
+diff --git a/net/core/gen_stats.c b/net/core/gen_stats.c
+index 0c08062..1e2f46a 100644
+--- a/net/core/gen_stats.c
++++ b/net/core/gen_stats.c
+@@ -32,6 +32,9 @@ gnet_stats_copy(struct gnet_dump *d, int type, void *=
+buf, int size)
+ 	return 0;
+=20
+ nla_put_failure:
++	kfree(d->xstats);
++	d->xstats =3D NULL;
++	d->xstats_len =3D 0;
+ 	spin_unlock_bh(d->lock);
+ 	return -1;
+ }
+@@ -305,7 +308,9 @@ int
+ gnet_stats_copy_app(struct gnet_dump *d, void *st, int len)
+ {
+ 	if (d->compat_xstats) {
+-		d->xstats =3D st;
++		d->xstats =3D kmemdup(st, len, GFP_ATOMIC);
++		if (!d->xstats)
++			goto err_out;
+ 		d->xstats_len =3D len;
+ 	}
+=20
+@@ -313,6 +318,11 @@ gnet_stats_copy_app(struct gnet_dump *d, void *st,=
+ int len)
+ 		return gnet_stats_copy(d, TCA_STATS_APP, st, len);
+=20
+ 	return 0;
++
++err_out:
++	d->xstats_len =3D 0;
++	spin_unlock_bh(d->lock);
++	return -1;
+ }
+ EXPORT_SYMBOL(gnet_stats_copy_app);
+=20
+@@ -345,6 +355,9 @@ gnet_stats_finish_copy(struct gnet_dump *d)
+ 			return -1;
+ 	}
+=20
++	kfree(d->xstats);
++	d->xstats =3D NULL;
++	d->xstats_len =3D 0;
+ 	spin_unlock_bh(d->lock);
+ 	return 0;
+ }
+--=20
+1.8.3.1
