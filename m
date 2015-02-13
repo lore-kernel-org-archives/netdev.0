@@ -1,61 +1,57 @@
-From: Rasmus Villemoes <linux@rasmusvillemoes.dk>
-Subject: Re: [PATCH] iwl4965: Enable checking of format strings
-Date: Fri, 13 Feb 2015 13:04:47 +0100
-Message-ID: <87twyqxbj4.fsf@rasmusvillemoes.dk>
-References: <1423695069-23436-1-git-send-email-linux@rasmusvillemoes.dk>
-	<60178C37-F104-430E-92EB-B6DDFAEB2F99@intel.com>
-	<87vbj7zb0e.fsf@rasmusvillemoes.dk> <54DDAE03.4000502@gmail.com>
-	<87y4o2xfgz.fsf@rasmusvillemoes.dk>
-	<063D6719AE5E284EB5DD2968C1650D6D1CAE3325@AcuExch.aculab.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 3/3] ipv4: Create probe timer for tcp PMTU as
+ per RFC4821
+Date: Fri, 13 Feb 2015 04:31:49 -0800
+Message-ID: <1423830709.4942.17.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1423815405-32644-1-git-send-email-fan.du@intel.com>
+	 <1423815405-32644-4-git-send-email-fan.du@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Mark Rustad <mrustad@gmail.com>,
-	"Rustad\, Mark D" <mark.d.rustad@intel.com>,
-	Stanislaw Gruszka <sgruszka@redhat.com>,
-	Kalle Valo <kvalo@codeaurora.org>,
-	"linux-wireless\@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel\@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: David Laight <David.Laight@ACULAB.COM>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	fengyuleidian0615@gmail.com
+To: Fan Du <fan.du@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f176.google.com ([209.85.217.176]:49476 "EHLO
-	mail-lb0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752753AbbBMMEv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Feb 2015 07:04:51 -0500
-Received: by mail-lb0-f176.google.com with SMTP id u10so15095820lbd.7
-        for <netdev@vger.kernel.org>; Fri, 13 Feb 2015 04:04:50 -0800 (PST)
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CAE3325@AcuExch.aculab.com>
-	(David Laight's message of "Fri, 13 Feb 2015 11:20:47 +0000")
+Received: from mail-qc0-f180.google.com ([209.85.216.180]:46665 "EHLO
+	mail-qc0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752520AbbBMMbw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Feb 2015 07:31:52 -0500
+Received: by mail-qc0-f180.google.com with SMTP id s11so13467325qcv.11
+        for <netdev@vger.kernel.org>; Fri, 13 Feb 2015 04:31:51 -0800 (PST)
+In-Reply-To: <1423815405-32644-4-git-send-email-fan.du@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 13 2015, David Laight <David.Laight@ACULAB.COM> wrote:
+On Fri, 2015-02-13 at 16:16 +0800, Fan Du wrote:
+> As per RFC4821 7.3.  Selecting Probe Size, a probe timer should
+> be armed once probing has converged. Once this timer expired,
+> probing again to take advantage of any path PMTU change. The
+> recommended probing interval is 10 minutes per RFC1981.
+> 
+> Signed-off-by: Fan Du <fan.du@intel.com>
+> ---
+>  include/net/inet_connection_sock.h |    2 ++
+>  include/net/netns/ipv4.h           |    1 +
+>  include/net/tcp.h                  |    3 +++
+>  net/ipv4/sysctl_net_ipv4.c         |    7 +++++++
+>  net/ipv4/tcp.c                     |    2 ++
+>  net/ipv4/tcp_ipv4.c                |    1 +
+>  net/ipv4/tcp_output.c              |   23 ++++++++++++++++++++++-
+>  7 files changed, 38 insertions(+), 1 deletions(-)
+> 
+> diff --git a/include/net/inet_connection_sock.h b/include/net/inet_connection_sock.h
+> index 3d0932e..e78e5ab 100644
+> --- a/include/net/inet_connection_sock.h
+> +++ b/include/net/inet_connection_sock.h
+> @@ -126,6 +126,8 @@ struct inet_connection_sock {
+>  
+>  		int		  search_high_sav;
+>  		int		  search_low_sav;
+> +
+> +		struct timer_list probe_timer;
+>  
 
-> From: Rasmus Villemoes
->> Well, probably the linker is allowed to overlap "anonymous" objects
->> (string literals) with whatever const char[] (or indeed any const)
->> object it finds containing the appropriate byte sequence. But I think
->> language lawyers would insist that for
->> 
->> const char foo[] = "a string";
->> const char bar[] = "a string";
->
-> A quick test shows those are separate strings.
-> But 'const char *foo = "xxx";' will share.
+We certainly wont add yet another timer in tcp socket for such usage.
 
-Yes, of course, because in that case you are actually creating two
-objects, "xxx" which the linker will find some place to put, and foo
-which is initialized to the address of whereever "xxx" was/will be
-put. So one is wasting sizeof(const char*). Also, passing foo to a
-function means the compiler has to load the value of foo and use that,
-instead of simply passing the compile-time (well, link-time) constant
-address of "xxx".
-
-> You also need -O1 to get the strings into .rodata.str.n so that the linker
-> can merge them.
-
-Sure, optimization has to be turned on, but isn't the kernel always
-compiled with -O2? ISTR that there are some things which won't even
-work/compile with -O0.
-
-Rasmus
+And a buggy one, since you forgot all the refcounting associated with
+such timers.
