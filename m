@@ -1,92 +1,45 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] tcp: make sure skb is not shared before using skb_get()
-Date: Fri, 13 Feb 2015 04:47:12 -0800
-Message-ID: <1423831632.4942.25.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Yuchung Cheng <ycheng@google.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f45.google.com ([209.85.216.45]:61607 "EHLO
-	mail-qa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752068AbbBMMrP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Feb 2015 07:47:15 -0500
-Received: by mail-qa0-f45.google.com with SMTP id j7so12211631qaq.4
-        for <netdev@vger.kernel.org>; Fri, 13 Feb 2015 04:47:15 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Aleksander Morgado <aleksander-Dvg4H30XQSRVIjRurl1/8g@public.gmane.org>
+Subject: [PATCH] hso: fix rx parsing logic when skb allocation fails
+Date: Fri, 13 Feb 2015 14:51:02 +0100
+Message-ID: <1423835462-3454-1-git-send-email-aleksander@aleksander.es>
+Cc: j.dumon-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org, Aleksander Morgado <aleksander-Dvg4H30XQSRVIjRurl1/8g@public.gmane.org>
+To: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+If skb allocation fails once the IP header has been received, the rx state is
+being set to WAIT_SYNC. The logic, though, shouldn't directly return, as the
+buffer may contain a full packet, and therefore the WAIT_SYNC state needs to be
+processed (resetting state to WAIT_IP, clearing rx_buf_size and re-initializing
+rx_buf_missing).
 
-IPv6 can keep a copy of SYN message using skb_get() in
-tcp_v6_conn_request() so that caller wont free the skb when calling
-kfree_skb() later.
-    
-Therefore TCP fast open has to clone the skb it is queuing in
-child->sk_receive_queue, as all skbs consumed from receive_queue are
-freed using __kfree_skb() (ie assuming skb->users == 1)
-    
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Signed-off-by: Yuchung Cheng <ycheng@google.com>
-Fixes: 5b7ed0892f2af ("tcp: move fastopen functions to tcp_fastopen.c")
+So, just let the while loop continue so that in the next iteration the WAIT_SYNC
+state cleanly stops the loop. The WAIT_SYNC processing will be done just after
+that, only if the end of packet is flagged.
+
+Signed-off-by: Aleksander Morgado <aleksander-Dvg4H30XQSRVIjRurl1/8g@public.gmane.org>
 ---
- net/ipv4/tcp_fastopen.c |   32 ++++++++++++++++++++++++--------
- 1 file changed, 24 insertions(+), 8 deletions(-)
+ drivers/net/usb/hso.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/ipv4/tcp_fastopen.c b/net/ipv4/tcp_fastopen.c
-index 53db2c309572..ea82fd492c1b 100644
---- a/net/ipv4/tcp_fastopen.c
-+++ b/net/ipv4/tcp_fastopen.c
-@@ -134,6 +134,7 @@ static bool tcp_fastopen_create_child(struct sock *sk,
- 	struct tcp_sock *tp;
- 	struct request_sock_queue *queue = &inet_csk(sk)->icsk_accept_queue;
- 	struct sock *child;
-+	u32 end_seq;
+diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
+index 6b8efca..9cdfb3f 100644
+--- a/drivers/net/usb/hso.c
++++ b/drivers/net/usb/hso.c
+@@ -914,7 +914,7 @@ static void packetizeRx(struct hso_net *odev, unsigned char *ip_pkt,
+ 					/* We got no receive buffer. */
+ 					D1("could not allocate memory");
+ 					odev->rx_parse_state = WAIT_SYNC;
+-					return;
++					continue;
+ 				}
  
- 	req->num_retrans = 0;
- 	req->num_timeout = 0;
-@@ -185,20 +186,35 @@ static bool tcp_fastopen_create_child(struct sock *sk,
- 
- 	/* Queue the data carried in the SYN packet. We need to first
- 	 * bump skb's refcnt because the caller will attempt to free it.
-+	 * Note that IPv6 might also have used skb_get() trick
-+	 * in tcp_v6_conn_request() to keep this SYN around (treq->pktopts)
-+	 * So we need to eventually get a clone of the packet,
-+	 * before inserting it in sk_receive_queue.
- 	 *
- 	 * XXX (TFO) - we honor a zero-payload TFO request for now,
- 	 * (any reason not to?) but no need to queue the skb since
- 	 * there is no data. How about SYN+FIN?
- 	 */
--	if (TCP_SKB_CB(skb)->end_seq != TCP_SKB_CB(skb)->seq + 1) {
--		skb = skb_get(skb);
--		skb_dst_drop(skb);
--		__skb_pull(skb, tcp_hdr(skb)->doff * 4);
--		skb_set_owner_r(skb, child);
--		__skb_queue_tail(&child->sk_receive_queue, skb);
--		tp->syn_data_acked = 1;
-+	end_seq = TCP_SKB_CB(skb)->end_seq;
-+	if (end_seq != TCP_SKB_CB(skb)->seq + 1) {
-+		struct sk_buff *skb2;
-+
-+		if (unlikely(skb_shared(skb)))
-+			skb2 = skb_clone(skb, GFP_ATOMIC);
-+		else
-+			skb2 = skb_get(skb);
-+
-+		if (likely(skb2)) {
-+			skb_dst_drop(skb2);
-+			__skb_pull(skb2, tcp_hdrlen(skb));
-+			skb_set_owner_r(skb2, child);
-+			__skb_queue_tail(&child->sk_receive_queue, skb2);
-+			tp->syn_data_acked = 1;
-+		} else {
-+			end_seq = TCP_SKB_CB(skb)->seq + 1;
-+		}
- 	}
--	tcp_rsk(req)->rcv_nxt = tp->rcv_nxt = TCP_SKB_CB(skb)->end_seq;
-+	tcp_rsk(req)->rcv_nxt = tp->rcv_nxt = end_seq;
- 	sk->sk_data_ready(sk);
- 	bh_unlock_sock(child);
- 	sock_put(child);
+ 				/* Copy what we got so far. make room for iphdr
+-- 
+2.3.0
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
