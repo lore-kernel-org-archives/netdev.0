@@ -1,88 +1,55 @@
-From: Madalin Bucur <madalin.bucur@freescale.com>
-Subject: [PATCH] ipv6: address issue in __ip6_append_data
-Date: Fri, 13 Feb 2015 17:30:59 +0200
-Message-ID: <1423841459-21880-1-git-send-email-madalin.bucur@freescale.com>
-Reply-To: <madalin.bucur@freescale.com>
+From: Murali Karicheri <m-karicheri2@ti.com>
+Subject: Question on Bonding driver
+Date: Fri, 13 Feb 2015 12:11:50 -0500
+Message-ID: <54DE3056.6020606@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, Madalin Bucur <madalin.bucur@freescale.com>
-To: <netdev@vger.kernel.org>, <vyasevich@gmail.com>
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev <netdev@vger.kernel.org>, WingMan Kwok <w-kwok2@ti.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1on0137.outbound.protection.outlook.com ([157.56.110.137]:55284
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752023AbbBMREE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 13 Feb 2015 12:04:04 -0500
+Received: from bear.ext.ti.com ([192.94.94.41]:47324 "EHLO bear.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753455AbbBMRLp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 13 Feb 2015 12:11:45 -0500
+Received: from dlelxv90.itg.ti.com ([172.17.2.17])
+	by bear.ext.ti.com (8.13.7/8.13.7) with ESMTP id t1DHBivr024208
+	for <netdev@vger.kernel.org>; Fri, 13 Feb 2015 11:11:44 -0600
+Received: from DLEE71.ent.ti.com (dlee71.ent.ti.com [157.170.170.114])
+	by dlelxv90.itg.ti.com (8.14.3/8.13.8) with ESMTP id t1DHBhn9016598
+	for <netdev@vger.kernel.org>; Fri, 13 Feb 2015 11:11:43 -0600
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+Hi,
 
-I think I've found a problem that allows generic IPv6 traffic to be
-sent by the stack with CHECKSUM_PARTIAL to a netdevice that declares
-NETIF_F_IPV6_CSUM. The NETIF_F_IPV6_CSUM flag is based on the
-NETIF_F_IPV6_CSUM_BIT that is described as referring only to TCP and
-UDP but in my test ICMPv6 frames with CHECKSUM_PARTIAL are seen:
+I am working to enable bonding driver on my hardware and trying to 
+understand this.
 
-NETIF_F_IPV6_CSUM_BIT,          /* Can checksum TCP/UDP over IPV6 */
+I am using the alb mode. I create a bond interface with 2 ethernet 
+interfaces. First one is the basic question about net driver itself and 
+second is about bonding.
 
-I've traced the issue to a recent commit that includes this check:
+1. Each ethernet interface has a MAC address. The hardware has MAC 
+filter and the driver fills the net_device's dev_addr with its MAC 
+address before calling register_netdev() API. When the net core calls 
+ndo_start(), is the low level driver responsible for setting up its MAC 
+address in the MAC filter of the hardware or low level driver will be 
+told to do so by upper layer. Or is it required to set it up as part of 
+ndo_set_rx_mode() or ndo_set_mac_address()?
 
-	rt->dst.dev->features & NETIF_F_V6_CSUM
+2. In the case of bonding, the bond interface MAC address is copied from 
+the active slave's MAC address. Also it updates the dev_addr in the 
+netdev struct of each of the slave with its own MAC address. So I 
+assume, the device/NIC now needs to accept packets to its original MAC 
+address as well the bond's MAC address. This is especially more 
+important for the slave's that are not active slave as it can be target 
+of packets from Peers as part of rlb. So for the slave that is not 
+active slave, MAC filter needs to include its original hw address as 
+well unless the slave is put to promiscuous mode. So I am trying to 
+figure out how this is expected to work? All slaves put to promiscuous 
+mode or MAC filter updated by slave driver to include MAC addresses it 
+is expected to filter on (bond MAC address and its own MAC address)
 
-The problem with this is that NETIF_F_V6_CSUM is more than one bit:
-
-#define NETIF_F_V6_CSUM         (NETIF_F_GEN_CSUM | NETIF_F_IPV6_CSUM)
-
-Thus the above check should be either:
-
-	(rt->dst.dev->features & NETIF_F_V6_CSUM) == NETIF_F_V6_CSUM
-
-or probably should use NETIF_F_HW_CSUM only:
-
-	rt->dst.dev->features & NETIF_F_HW_CSUM
-
-The mentioned commit is 32dce968dd987adfb0c00946d78dad9154f64759
-
-> Author: Vlad Yasevich <vyasevich@gmail.com>
-> Date:   Sat Jan 31 10:40:18 2015 -0500
->
->	ipv6: Allow for partial checksums on non-ufo packets
->
->	Currntly, if we are not doing UFO on the packet, all UDP
->	packets will start with CHECKSUM_NONE and thus perform full
->	checksum computations in software even if device support
->	IPv6 checksum offloading.
-
->	Let's start start with CHECKSUM_PARTIAL if the device
->	supports it and we are sending only a single packet at
->	or below mtu size.
-
->	Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
->	Signed-off-by: David S. Miller <davem@davemloft.net>
-
-Reverting this commit solved the issue, then the changes below were
-validated as well. The problem was evidentiated by running ping6
-but it should be visible with any IPv6 payload that it is not UDP
-nor TCP.
-
-Signed-off-by: Madalin Bucur <madalin.bucur@freescale.com>
----
- net/ipv6/ip6_output.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index d33df4c..7177f63 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -1275,7 +1275,7 @@ emsgsize:
- 	 */
- 	if (!skb &&
- 	    length + fragheaderlen < mtu &&
--	    rt->dst.dev->features & NETIF_F_V6_CSUM &&
-+	    (rt->dst.dev->features & NETIF_F_V6_CSUM) == NETIF_F_V6_CSUM &&
- 	    !exthdrlen)
- 		csummode = CHECKSUM_PARTIAL;
- 	/*
 -- 
-1.7.11.7
+Murali Karicheri
+Linux Kernel, Texas Instruments
