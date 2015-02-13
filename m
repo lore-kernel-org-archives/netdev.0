@@ -1,51 +1,63 @@
-From: Robert Jarzmik <robert.jarzmik@free.fr>
-Subject: Re: [PATCH] Revert "smc91x: retrieve IRQ and trigger flags in a modern way"
-Date: Fri, 13 Feb 2015 17:08:40 +0100
-Message-ID: <87a90h6bg7.fsf@free.fr>
-References: <1423760350-20149-1-git-send-email-robert.jarzmik@free.fr>
-	<CACRpkdZGze_2=hWe414Eum_9hpNXgog5vmu6Y4R_zhg0x2z0SQ@mail.gmail.com>
+From: Thomas Jarosch <thomas.jarosch@intra2net.com>
+Subject: Re: [bisected regression] e1000e: "Detected Hardware Unit Hang"
+Date: Fri, 13 Feb 2015 17:14:55 +0100
+Message-ID: <2370189.uakqRR7OLn@storm>
+References: <1719052.SGOfRAJhfQ@storm> <1423654440.27854.83.camel@jtkirshe-mobl> <309B89C4C689E141A5FF6A0C5FB2118B783AC840@ORSMSX101.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Nicolas Pitre <nico@fluxnic.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel\@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Linus Walleij <linus.walleij@linaro.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CACRpkdZGze_2=hWe414Eum_9hpNXgog5vmu6Y4R_zhg0x2z0SQ@mail.gmail.com>
-	(Linus Walleij's message of "Fri, 13 Feb 2015 10:16:09 +0800")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7Bit
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	'Linux Netdev List' <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	e1000-devel <e1000-devel@lists.sourceforge.net>
+To: "Brown, Aaron F" <aaron.f.brown@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rs04.intra2net.com ([85.214.66.2]:46465 "EHLO
+	rs04.intra2net.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753113AbbBMQO7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Feb 2015 11:14:59 -0500
+In-Reply-To: <309B89C4C689E141A5FF6A0C5FB2118B783AC840@ORSMSX101.amr.corp.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Linus Walleij <linus.walleij@linaro.org> writes:
+Hi Aaron,
 
-> On Fri, Feb 13, 2015 at 12:59 AM, Robert Jarzmik <robert.jarzmik@free.fr> wrote:
->
-> But isn't the real problem that in the device tree case,
-> irq_get_irq_data(ndev->irq) will work becaus parsing an interrupt
-> from the device tree populates it correctly in platform_get_irq()
-> whereas for the legacy lookup it just fetches the number.
->
-> So to me it seems like a weakness in the platform_get_irq()
-> helper altogether.
->
-> Does the following work? (I can send as a separate patch for
-> testing if you like).
+On Thursday, 12. February 2015 23:28:27 Brown, Aaron F wrote:
+> I do not have any real info.  I had been asked to try and reproduce some
+> unit hangs (maybe for this) recently and did not succeed in producing
+> them on the parts I have.  Reading through the thread I see this is
+> showing up in a NAT environment.  The port that is getting the unit hang
+> in the NAT system?
 
-Almost. If you replace :
-> +    if (r->flags & IORESOURCE_BITS)
-with:
-> +    if (r && (r->flags & IORESOURCE_BITS))
+yes, the e1000e NIC is serving the NATed Windows client.
 
-Then you can push a patch with my:
-Tested-by: Robert Jarzmik <robert.jarzmik@free.fr>
+The setup was outlined here:
 
-Now if you can make it in -rc2 or -rc3, this revert should be forgotten. But if
-you can't make it for 3.20, I'll push for the revert.
+    http://marc.info/?l=linux-netdev&m=142133691713824&w=2
 
-So I think it's up to you now, and let's see what Gregh says about it.
+> I will make some attempts at replicating this with the port in a NAT and
+> or forwarding role.  Has a bug been opened for this?  Or has information
+> for this specific unit hang been entered into one of the other unit hang
+> bugs opened against e1000e?
 
-Cheers.
+I didn't do anything(tm). This report sounds like the same issue:
 
---
-Robert
+    http://ehc.ac/p/e1000/bugs/378/
+
+Oliver Wagner wrote the problem started to appear
+after updating from kernel 3.5 to 3.8.0.35 (new frag size code).
+
+I just noticed now he wrote he has two identical boxes:
+
+---------------------------------------------------
+- Box with symptoms: Router/Firewall, packet forwarding
+  between different VLANs on eth0 and eth1
+- Box without symptoms: Fileserver, eth0/eth1 bonded
+  (VLANs used, but no forwarding)
+---------------------------------------------------
+
+So it looks like it's related to forwarding somehow,
+I've made the same experience IIRC.
+
+Cheers,
+Thomas
