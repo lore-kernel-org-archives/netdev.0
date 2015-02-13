@@ -1,115 +1,50 @@
-From: Sylvain Rochet <sylvain.rochet@finsecur.com>
-Subject: [PATCH] net: phy: micrel: disable NAND-tree for KSZ8021,KSZ8031,KSZ8051,KSZ8081
-Date: Fri, 13 Feb 2015 21:35:33 +0100
-Message-ID: <1423859733-21456-1-git-send-email-sylvain.rochet@finsecur.com>
-Cc: Sylvain Rochet <sylvain.rochet@finsecur.com>
-To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Nicolas Ferre <nicolas.ferre@atmel.com>,
-	Alexandre Belloni <alexandre.belloni@free-electrons.com>,
-	voice.shen@atmel.com, josh.wu@atmel.com,
-	ludovic.desroches@atmel.com,
-	Boris Brezillon <boris.brezillon@free-electrons.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: [PATCH] rhashtable: use rht_obj() consistently
+Date: Fri, 13 Feb 2015 21:42:41 +0100
+Message-ID: <1423860161-20875-1-git-send-email-johannes@sipsolutions.net>
+Cc: Thomas Graf <tgraf@suug.ch>,
+	Johannes Berg <johannes.berg@intel.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from s3.sipsolutions.net ([5.9.151.49]:33165 "EHLO sipsolutions.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753337AbbBMUmu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 13 Feb 2015 15:42:50 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-NAND-tree is used to check wiring between MAC and PHY using NAND gates
-on the PHY side, hence the name.
+From: Johannes Berg <johannes.berg@intel.com>
 
-NAND-tree initial status is latched at reset by probing the IRQ pin.
-However some devices are sharing the PHY IRQ pin with other peripherals
-such as Atmel SAMA5D[34]x-EK boards when using the optional TM7000
-display module, therefore they are switching the PHY in NAND-tree test
-mode depending on the current IRQ line status at reset.
+Looking at the RHT code I found two places where this was
+done manually rather than using the rht_obj() helper, use
+that instead.
 
-This patch ensure PHY is not in NAND-tree test mode for all Micrel PHYs
-using IRQ line as a NAND-tree toggle mode at reset.
-
-Signed-off-by: Sylvain Rochet <sylvain.rochet@finsecur.com>
-Signed-off-by: Boris Brezillon <boris.brezillon@free-electrons.com>
+Signed-off-by: Johannes Berg <johannes.berg@intel.com>
 ---
- drivers/net/phy/micrel.c | 28 ++++++++++++++++++++++++++++
- 1 file changed, 28 insertions(+)
+ lib/rhashtable.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
-index 3ad8ca7..1190fd8 100644
---- a/drivers/net/phy/micrel.c
-+++ b/drivers/net/phy/micrel.c
-@@ -32,6 +32,7 @@
- /* Operation Mode Strap Override */
- #define MII_KSZPHY_OMSO				0x16
- #define KSZPHY_OMSO_B_CAST_OFF			BIT(9)
-+#define KSZPHY_OMSO_NAND_TREE_ON		BIT(5)
- #define KSZPHY_OMSO_RMII_OVERRIDE		BIT(1)
- #define KSZPHY_OMSO_MII_OVERRIDE		BIT(0)
+diff --git a/lib/rhashtable.c b/lib/rhashtable.c
+index 6c3c723e902b..a8ea16093839 100644
+--- a/lib/rhashtable.c
++++ b/lib/rhashtable.c
+@@ -457,7 +457,7 @@ void *rhashtable_lookup(const struct rhashtable *ht, const void *key)
+ 		if (memcmp(rht_obj(ht, he) + ht->p.key_offset, key,
+ 			   ht->p.key_len))
+ 			continue;
+-		return (void *) he - ht->p.head_offset;
++		return rht_obj(ht, he);
+ 	}
  
-@@ -76,6 +77,7 @@ struct kszphy_type {
- 	u32 led_mode_reg;
- 	u16 interrupt_level_mask;
- 	bool has_broadcast_disable;
-+	bool has_nand_tree_disable;
- 	bool has_rmii_ref_clk_sel;
- };
+ 	return NULL;
+@@ -491,7 +491,7 @@ void *rhashtable_lookup_compare(const struct rhashtable *ht, u32 hash,
+ 	rht_for_each_rcu(he, tbl->buckets[hash], ht) {
+ 		if (!compare(rht_obj(ht, he), arg))
+ 			continue;
+-		return (void *) he - ht->p.head_offset;
++		return rht_obj(ht, he);
+ 	}
  
-@@ -89,6 +91,7 @@ struct kszphy_priv {
- static const struct kszphy_type ksz8021_type = {
- 	.led_mode_reg		= MII_KSZPHY_CTRL_2,
- 	.has_broadcast_disable	= true,
-+	.has_nand_tree_disable	= true,
- 	.has_rmii_ref_clk_sel	= true,
- };
- 
-@@ -98,11 +101,13 @@ static const struct kszphy_type ksz8041_type = {
- 
- static const struct kszphy_type ksz8051_type = {
- 	.led_mode_reg		= MII_KSZPHY_CTRL_2,
-+	.has_nand_tree_disable	= true,
- };
- 
- static const struct kszphy_type ksz8081_type = {
- 	.led_mode_reg		= MII_KSZPHY_CTRL_2,
- 	.has_broadcast_disable	= true,
-+	.has_nand_tree_disable	= true,
- 	.has_rmii_ref_clk_sel	= true,
- };
- 
-@@ -231,6 +236,26 @@ out:
- 	return ret;
- }
- 
-+static int kszphy_nand_tree_disable(struct phy_device *phydev)
-+{
-+	int ret;
-+
-+	ret = phy_read(phydev, MII_KSZPHY_OMSO);
-+	if (ret < 0)
-+		goto out;
-+
-+	if (!(ret & KSZPHY_OMSO_NAND_TREE_ON))
-+		return 0;
-+
-+	ret = phy_write(phydev, MII_KSZPHY_OMSO,
-+			ret & ~KSZPHY_OMSO_NAND_TREE_ON);
-+out:
-+	if (ret)
-+		dev_err(&phydev->dev, "failed to disable NAND tree mode\n");
-+
-+	return ret;
-+}
-+
- static int kszphy_config_init(struct phy_device *phydev)
- {
- 	struct kszphy_priv *priv = phydev->priv;
-@@ -245,6 +270,9 @@ static int kszphy_config_init(struct phy_device *phydev)
- 	if (type->has_broadcast_disable)
- 		kszphy_broadcast_disable(phydev);
- 
-+	if (type->has_nand_tree_disable)
-+		kszphy_nand_tree_disable(phydev);
-+
- 	if (priv->rmii_ref_clk_sel) {
- 		ret = kszphy_rmii_clk_sel(phydev, priv->rmii_ref_clk_sel_val);
- 		if (ret) {
+ 	return NULL;
 -- 
 2.1.4
