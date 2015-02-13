@@ -1,17 +1,17 @@
 From: Vadim Kochan <vadim4j@gmail.com>
-Subject: [PATCH iproute2 6/7] ss: Unify socket address output by one generic func
-Date: Fri, 13 Feb 2015 22:14:03 +0200
-Message-ID: <1423858444-10158-7-git-send-email-vadim4j@gmail.com>
+Subject: [PATCH iproute2 1/7] ss: Split tcpstap struct to sockstat & tcpstat
+Date: Fri, 13 Feb 2015 22:13:58 +0200
+Message-ID: <1423858444-10158-2-git-send-email-vadim4j@gmail.com>
 References: <1423858444-10158-1-git-send-email-vadim4j@gmail.com>
 Cc: Vadim Kochan <vadim4j@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f182.google.com ([209.85.217.182]:33035 "EHLO
-	mail-lb0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753281AbbBMUZS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Feb 2015 15:25:18 -0500
-Received: by mail-lb0-f182.google.com with SMTP id f15so16817383lbj.13
-        for <netdev@vger.kernel.org>; Fri, 13 Feb 2015 12:25:16 -0800 (PST)
+Received: from mail-la0-f47.google.com ([209.85.215.47]:36776 "EHLO
+	mail-la0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752737AbbBMUZM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Feb 2015 15:25:12 -0500
+Received: by labgq15 with SMTP id gq15so18747457lab.3
+        for <netdev@vger.kernel.org>; Fri, 13 Feb 2015 12:25:10 -0800 (PST)
 In-Reply-To: <1423858444-10158-1-git-send-email-vadim4j@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -20,270 +20,329 @@ From: Vadim Kochan <vadim4j@gmail.com>
 
 Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
 ---
- include/utils.h |   2 +
- lib/utils.c     |   6 +++
- misc/ss.c       | 124 ++++++++++++++++++++++++++++++++------------------------
- 3 files changed, 80 insertions(+), 52 deletions(-)
+ misc/ss.c | 154 +++++++++++++++++++++++++++++++++++---------------------------
+ 1 file changed, 86 insertions(+), 68 deletions(-)
 
-diff --git a/include/utils.h b/include/utils.h
-index 3da2283..fec9ef4 100644
---- a/include/utils.h
-+++ b/include/utils.h
-@@ -167,4 +167,6 @@ int iplink_parse(int argc, char **argv, struct iplink_req *req,
- extern int do_each_netns(int (*func)(char *nsname, void *arg), void *arg,
- 		bool show_label);
- 
-+char *int_to_str(int val, char *buf);
-+
- #endif /* __UTILS_H__ */
-diff --git a/lib/utils.c b/lib/utils.c
-index efebe18..e2b05bc 100644
---- a/lib/utils.c
-+++ b/lib/utils.c
-@@ -906,3 +906,9 @@ int do_each_netns(int (*func)(char *nsname, void *arg), void *arg,
- 
- 	return netns_foreach(on_netns, &nsf);
- }
-+
-+char *int_to_str(int val, char *buf)
-+{
-+	sprintf(buf, "%d", val);
-+	return buf;
-+}
 diff --git a/misc/ss.c b/misc/ss.c
-index 905cec9..9cf0055 100644
+index 0a6a65e..7e11fc0 100644
 --- a/misc/ss.c
 +++ b/misc/ss.c
-@@ -789,6 +789,24 @@ static void sock_details_print(struct sockstat *s)
- 	printf(" sk:%llx", s->sk);
- }
+@@ -690,16 +690,7 @@ static const char *sstate_namel[] = {
+ 	[SS_CLOSING] = "closing",
+ };
  
-+static void sock_addr_print_width(int addr_len, const char *addr, char *delim,
-+		int port_len, const char *port, const char *ifname)
-+{
-+	if (ifname) {
-+		printf("%*s%%%s%s%-*s ", addr_len, addr, ifname, delim,
-+				port_len, port);
-+	}
-+	else {
-+		printf("%*s%s%-*s ", addr_len, addr, delim, port_len, port);
-+	}
-+}
-+
-+static void sock_addr_print(const char *addr, char *delim, const char *port,
-+		const char *ifname)
-+{
-+	sock_addr_print_width(addr_width, addr, delim, serv_width, port, ifname);
-+}
-+
- static const char *tmr_name[] = {
- 	"off",
- 	"on",
-@@ -971,13 +989,12 @@ static const char *resolve_service(int port)
- 	return buf;
- }
- 
--static void formatted_print(const inet_prefix *a, int port, unsigned int ifindex)
-+static void inet_addr_print(const inet_prefix *a, int port, unsigned int ifindex)
- {
- 	char buf[1024];
- 	const char *ap = buf;
--	int est_len;
+-struct dctcpstat
+-{
+-	unsigned int	ce_state;
+-	unsigned int	alpha;
+-	unsigned int	ab_ecn;
+-	unsigned int	ab_tot;
+-	bool		enabled;
+-};
 -
--	est_len = addr_width;
-+	int est_len = addr_width;
-+	const char *ifname = NULL;
- 
- 	if (a->family == AF_INET) {
- 		if (a->data[0] == 0) {
-@@ -994,14 +1011,14 @@ static void formatted_print(const inet_prefix *a, int port, unsigned int ifindex
- 		else
- 			est_len = addr_width + ((est_len-addr_width+3)/4)*4;
- 	}
+-struct tcpstat
++struct sockstat
+ {
+ 	inet_prefix	    local;
+ 	inet_prefix	    remote;
+@@ -712,6 +703,20 @@ struct tcpstat
+ 	int		    refcnt;
+ 	unsigned int	    iface;
+ 	unsigned long long  sk;
++};
 +
- 	if (ifindex) {
--		const char *ifname = ll_index_to_name(ifindex);
--		const int len = strlen(ifname) + 1;  /* +1 for percent char */
-+		ifname   = ll_index_to_name(ifindex);
-+		est_len -= strlen(ifname) + 1;  /* +1 for percent char */
-+	}
- 
--		printf("%*s%%%s:%-*s ", est_len - len, ap, ifname, serv_width,
--		       resolve_service(port));
--	} else
--		printf("%*s:%-*s ", est_len, ap, serv_width, resolve_service(port));
-+	sock_addr_print_width(est_len, ap, ":", serv_width, resolve_service(port),
-+			ifname);
++struct dctcpstat
++{
++	unsigned int	ce_state;
++	unsigned int	alpha;
++	unsigned int	ab_ecn;
++	unsigned int	ab_tot;
++	bool		enabled;
++};
++
++struct tcpstat
++{
++	struct sockstat	    ss;
+ 	int		    timer;
+ 	int		    timeout;
+ 	int		    probes;
+@@ -999,7 +1004,7 @@ static int unix_match(const inet_prefix *a, const inet_prefix *p)
+ 	return !fnmatch(pattern, addr, 0);
  }
  
- struct aafilter
-@@ -1533,8 +1550,8 @@ static void inet_stats_print(struct sockstat *s, int protocol)
- 
- 	sock_state_print(s, proto_name(protocol));
- 
--	formatted_print(&s->local, s->lport, s->iface);
--	formatted_print(&s->remote, s->rport, 0);
-+	inet_addr_print(&s->local, s->lport, s->iface);
-+	inet_addr_print(&s->remote, s->rport, 0);
- 
- 	if (show_proc_ctx || show_sock_ctx) {
- 		if (find_entry(s->ino, &buf,
-@@ -2490,7 +2507,9 @@ static void unix_stats_print(struct sockstat *list, struct filter *f)
+-static int run_ssfilter(struct ssfilter *f, struct tcpstat *s)
++static int run_ssfilter(struct ssfilter *f, struct sockstat *s)
  {
- 	struct sockstat *s;
- 	char *local, *peer;
-+	char *ctx_buf = NULL;
- 	bool use_proc = unix_use_proc();
-+	char port_name[30] = {};
+ 	switch (f->type) {
+ 		case SSF_S_AUTO:
+@@ -1484,7 +1489,7 @@ static char *proto_name(int protocol)
+ 	return "???";
+ }
  
- 	for (s = list; s; s = s->next) {
- 		if (!(f->states & (1 << s->state)))
-@@ -2529,22 +2548,22 @@ static void unix_stats_print(struct sockstat *list, struct filter *f)
- 
- 		sock_state_print(s, unix_netid_name(s->type));
- 
--		printf("%*s %-*d %*s %-*d",
--		       addr_width, local ? : "*", serv_width,
--		       s->lport, addr_width, peer, serv_width, s->rport);
--		char *buf = NULL;
-+		sock_addr_print(local ?: "*", " ",
-+				int_to_str(s->lport, port_name), NULL);
-+		sock_addr_print(peer, " ", int_to_str(s->rport, port_name),
-+				NULL);
- 
- 		if (show_proc_ctx || show_sock_ctx) {
--			if (find_entry(s->ino, &buf,
-+			if (find_entry(s->ino, &ctx_buf,
- 					(show_proc_ctx & show_sock_ctx) ?
- 					PROC_SOCK_CTX : PROC_CTX) > 0) {
--				printf(" users:(%s)", buf);
--				free(buf);
-+				printf(" users:(%s)", ctx_buf);
-+				free(ctx_buf);
- 			}
- 		} else if (show_users) {
--			if (find_entry(s->ino, &buf, USERS) > 0) {
--				printf(" users:(%s)", buf);
--				free(buf);
-+			if (find_entry(s->ino, &ctx_buf, USERS) > 0) {
-+				printf(" users:(%s)", ctx_buf);
-+				free(ctx_buf);
- 			}
- 		}
- 		printf("\n");
-@@ -2734,6 +2753,8 @@ static int unix_show(struct filter *f)
- static int packet_stats_print(struct sockstat *s, const struct filter *f)
+-static void inet_stats_print(struct tcpstat *s, int protocol)
++static void inet_stats_print(struct sockstat *s, int protocol)
  {
  	char *buf = NULL;
-+	const char *addr, *port;
-+	char ll_name[16];
  
- 	if (f->f) {
- 		s->local.family = AF_PACKET;
-@@ -2745,20 +2766,18 @@ static int packet_stats_print(struct sockstat *s, const struct filter *f)
+@@ -1498,17 +1503,6 @@ static void inet_stats_print(struct tcpstat *s, int protocol)
+ 	formatted_print(&s->local, s->lport, s->iface);
+ 	formatted_print(&s->remote, s->rport, 0);
  
- 	sock_state_print(s, s->type == SOCK_RAW ? "p_raw" : "p_dgr");
- 
--	if (s->prot == 3) {
--		printf("%*s:", addr_width, "*");
--	} else {
--		char tb[16];
--		printf("%*s:", addr_width,
--				ll_proto_n2a(htons(s->prot), tb, sizeof(tb)));
+-	if (show_options) {
+-		if (s->timer) {
+-			if (s->timer > 4)
+-				s->timer = 5;
+-			printf(" timer:(%s,%s,%d)",
+-			       tmr_name[s->timer],
+-			       print_ms_timer(s->timeout),
+-			       s->retrans);
+-		}
 -	}
--	if (s->iface == 0) {
--		printf("%-*s ", serv_width, "*");
--	} else {
--		printf("%-*s ", serv_width, xll_index_to_name(s->iface));
--	}
-+	if (s->prot == 3)
-+		addr = "*";
-+	else
-+		addr = ll_proto_n2a(htons(s->prot), ll_name, sizeof(ll_name));
-+
-+	if (s->iface == 0)
-+		port = "*";
-+	else
-+		port = xll_index_to_name(s->iface);
- 
--	printf("%*s*%-*s", addr_width, "", serv_width, "");
-+	sock_addr_print(addr, ":", port, NULL);
-+	sock_addr_print("", "*", "", NULL);
- 
+-
  	if (show_proc_ctx || show_sock_ctx) {
  		if (find_entry(s->ino, &buf,
-@@ -2903,7 +2922,9 @@ static void netlink_show_one(struct filter *f,
- 				unsigned long long sk, unsigned long long cb)
+ 				(show_proc_ctx & show_sock_ctx) ?
+@@ -1524,7 +1518,8 @@ static void inet_stats_print(struct tcpstat *s, int protocol)
+ 	}
+ }
+ 
+-static int proc_parse_inet_addr(char *loc, char *rem, int family, struct tcpstat *s)
++static int proc_parse_inet_addr(char *loc, char *rem, int family, struct
++		sockstat *s)
  {
- 	struct sockstat st;
--	SPRINT_BUF(prot_name);
-+	SPRINT_BUF(prot_buf) = {};
-+	const char *prot_name;
-+	char procname[64] = {};
+ 	s->local.family = s->remote.family = family;
+ 	if (family == AF_INET) {
+@@ -1655,7 +1650,7 @@ static void tcp_stats_print(struct tcpstat *s)
+ 		printf(" retrans:%u/%u", s->retrans, s->retrans_total);
+ 	if (s->lost)
+ 		printf(" lost:%u", s->lost);
+-	if (s->sacked && s->state != SS_LISTEN)
++	if (s->sacked && s->ss.state != SS_LISTEN)
+ 		printf(" sacked:%u", s->sacked);
+ 	if (s->fackets)
+ 		printf(" fackets:%u", s->fackets);
+@@ -1667,6 +1662,18 @@ static void tcp_stats_print(struct tcpstat *s)
+ 		printf(" rcv_space:%d", s->rcv_space);
+ }
  
- 	st.state = SS_CLOSE;
- 	st.rq	 = rq;
-@@ -2921,46 +2942,45 @@ static void netlink_show_one(struct filter *f,
- 
- 	sock_state_print(&st, "nl");
- 
--	if (resolve_services) {
--		printf("%*s:", addr_width, nl_proto_n2a(prot, prot_name,
--					sizeof(prot_name)));
--	} else {
--		printf("%*d:", addr_width, prot);
--	}
-+	if (resolve_services)
-+		prot_name = nl_proto_n2a(prot, prot_buf, sizeof(prot_buf));
-+	else
-+		prot_name = int_to_str(prot, prot_buf);
- 
- 	if (pid == -1) {
--		printf("%-*s ", serv_width, "*");
-+		procname[0] = '*';
- 	} else if (resolve_services) {
- 		int done = 0;
- 		if (!pid) {
- 			done = 1;
--			printf("%-*s ", serv_width, "kernel");
-+			strncpy(procname, "kernel", 6);
- 		} else if (pid > 0) {
--			char procname[64];
- 			FILE *fp;
- 			sprintf(procname, "%s/%d/stat",
- 				getenv("PROC_ROOT") ? : "/proc", pid);
- 			if ((fp = fopen(procname, "r")) != NULL) {
- 				if (fscanf(fp, "%*d (%[^)])", procname) == 1) {
- 					sprintf(procname+strlen(procname), "/%d", pid);
--					printf("%-*s ", serv_width, procname);
- 					done = 1;
- 				}
- 				fclose(fp);
- 			}
- 		}
- 		if (!done)
--			printf("%-*d ", serv_width, pid);
-+			int_to_str(pid, procname);
- 	} else {
--		printf("%-*d ", serv_width, pid);
-+		int_to_str(pid, procname);
- 	}
- 
-+	sock_addr_print(prot_name, ":", procname, NULL);
++static void tcp_timer_print(struct tcpstat *s)
++{
++	if (s->timer) {
++		if (s->timer > 4)
++			s->timer = 5;
++		printf(" timer:(%s,%s,%d)",
++				tmr_name[s->timer],
++				print_ms_timer(s->timeout),
++				s->retrans);
++	}
++}
 +
- 	if (state == NETLINK_CONNECTED) {
--		printf("%*d:%-*d",
--		       addr_width, dst_group, serv_width, dst_pid);
-+		char dst_group_buf[30];
-+		char dst_pid_buf[30];
-+		sock_addr_print(int_to_str(dst_group, dst_group_buf), ":",
-+				int_to_str(dst_pid, dst_pid_buf), NULL);
- 	} else {
--		printf("%*s*%-*s",
--		       addr_width, "", serv_width, "");
-+		sock_addr_print("", "*", "", NULL);
+ static int tcp_show_line(char *line, const struct filter *f, int family)
+ {
+ 	int rto = 0, ato = 0;
+@@ -1683,17 +1690,17 @@ static int tcp_show_line(char *line, const struct filter *f, int family)
+ 	if (!(f->states & (1 << state)))
+ 		return 0;
+ 
+-	proc_parse_inet_addr(loc, rem, family, &s);
++	proc_parse_inet_addr(loc, rem, family, &s.ss);
+ 
+-	if (f->f && run_ssfilter(f->f, &s) == 0)
++	if (f->f && run_ssfilter(f->f, &s.ss) == 0)
+ 		return 0;
+ 
+ 	opt[0] = 0;
+ 	n = sscanf(data, "%x %x:%x %x:%x %x %d %d %u %d %llx %d %d %d %d %d %[^\n]\n",
+-		   &s.state, &s.wq, &s.rq,
+-		   &s.timer, &s.timeout, &s.retrans, &s.uid, &s.probes, &s.ino,
+-		   &s.refcnt, &s.sk, &rto, &ato, &s.qack,
+-		   &s.cwnd, &s.ssthresh, opt);
++		   &s.ss.state, &s.ss.wq, &s.ss.rq,
++		   &s.timer, &s.timeout, &s.retrans, &s.ss.uid, &s.probes,
++		   &s.ss.ino, &s.ss.refcnt, &s.ss.sk, &rto, &ato, &s.qack, &s.cwnd,
++		   &s.ssthresh, opt);
+ 
+ 	if (n < 17)
+ 		opt[0] = 0;
+@@ -1713,13 +1720,16 @@ static int tcp_show_line(char *line, const struct filter *f, int family)
+ 	s.ssthresh  = s.ssthresh == -1 ? 0 : s.ssthresh;
+ 	s.rto	    = s.rto != 3 * hz  ? s.rto / hz : 0;
+ 
+-	inet_stats_print(&s, IPPROTO_TCP);
++	inet_stats_print(&s.ss, IPPROTO_TCP);
++
++	if (show_options)
++		tcp_timer_print(&s);
+ 
+ 	if (show_details) {
+-		if (s.uid)
+-			printf(" uid:%u", (unsigned)s.uid);
+-		printf(" ino:%u", s.ino);
+-		printf(" sk:%llx", s.sk);
++		if (s.ss.uid)
++			printf(" uid:%u", (unsigned)s.ss.uid);
++		printf(" ino:%u", s.ss.ino);
++		printf(" sk:%llx", s.ss.sk);
+ 		if (opt[0])
+ 			printf(" opt:\"%s\"", opt);
+ 	}
+@@ -1804,6 +1814,8 @@ static void tcp_show_info(const struct nlmsghdr *nlh, struct inet_diag_msg *r,
+ 	double rtt = 0;
+ 	struct tcpstat s = {};
+ 
++	s.ss.state = r->idiag_state;
++
+ 	print_skmeminfo(tb, INET_DIAG_SKMEMINFO);
+ 
+ 	if (tb[INET_DIAG_INFO]) {
+@@ -1913,7 +1925,7 @@ static int inet_show_sock(struct nlmsghdr *nlh, struct filter *f, int protocol)
+ {
+ 	struct rtattr * tb[INET_DIAG_MAX+1];
+ 	struct inet_diag_msg *r = NLMSG_DATA(nlh);
+-	struct tcpstat s = {};
++	struct sockstat s = {};
+ 
+ 	parse_rtattr(tb, INET_DIAG_MAX, (struct rtattr*)(r+1),
+ 		     nlh->nlmsg_len - NLMSG_LENGTH(sizeof(*r)));
+@@ -1924,9 +1936,6 @@ static int inet_show_sock(struct nlmsghdr *nlh, struct filter *f, int protocol)
+ 	s.rport = ntohs(r->id.idiag_dport);
+ 	s.wq = r->idiag_wqueue;
+ 	s.rq = r->idiag_rqueue;
+-	s.timer = r->idiag_timer;
+-	s.timeout = r->idiag_expires;
+-	s.retrans = r->idiag_retrans;
+ 	s.ino = r->idiag_inode;
+ 	s.uid = r->idiag_uid;
+ 	s.iface = r->id.idiag_if;
+@@ -1945,6 +1954,15 @@ static int inet_show_sock(struct nlmsghdr *nlh, struct filter *f, int protocol)
+ 
+ 	inet_stats_print(&s, protocol);
+ 
++	if (show_options) {
++		struct tcpstat t = {};
++
++		t.timer = r->idiag_timer;
++		t.timeout = r->idiag_expires;
++		t.retrans = r->idiag_retrans;
++		tcp_timer_print(&t);
++	}
++
+ 	if (show_details) {
+ 		if (r->idiag_uid)
+ 			printf(" uid:%u", (unsigned)r->idiag_uid);
+@@ -2286,7 +2304,7 @@ outerr:
+ 
+ static int dgram_show_line(char *line, const struct filter *f, int family)
+ {
+-	struct tcpstat s = {};
++	struct sockstat s = {};
+ 	char *loc, *rem, *data;
+ 	char opt[256];
+ 	int n;
+@@ -2483,15 +2501,15 @@ static void unix_stats_print(struct unixstat *list, struct filter *f)
+ 		}
+ 
+ 		if (f->f) {
+-			struct tcpstat tst;
+-			tst.local.family = AF_UNIX;
+-			tst.remote.family = AF_UNIX;
+-			memcpy(tst.local.data, &s->name, sizeof(s->name));
++			struct sockstat st;
++			st.local.family = AF_UNIX;
++			st.remote.family = AF_UNIX;
++			memcpy(st.local.data, &s->name, sizeof(s->name));
+ 			if (strcmp(peer, "*") == 0)
+-				memset(tst.remote.data, 0, sizeof(peer));
++				memset(st.remote.data, 0, sizeof(peer));
+ 			else
+-				memcpy(tst.remote.data, &peer, sizeof(peer));
+-			if (run_ssfilter(f->f, &tst) == 0)
++				memcpy(st.remote.data, &peer, sizeof(peer));
++			if (run_ssfilter(f->f, &st) == 0)
+ 				continue;
+ 		}
+ 
+@@ -2716,14 +2734,14 @@ static int packet_stats_print(struct pktstat *s, const struct filter *f)
+ 	char *buf = NULL;
+ 
+ 	if (f->f) {
+-		struct tcpstat tst;
+-		tst.local.family = AF_PACKET;
+-		tst.remote.family = AF_PACKET;
+-		tst.rport = 0;
+-		tst.lport = s->iface;
+-		tst.local.data[0] = s->prot;
+-		tst.remote.data[0] = 0;
+-		if (run_ssfilter(f->f, &tst) == 0)
++		struct sockstat st;
++		st.local.family = AF_PACKET;
++		st.remote.family = AF_PACKET;
++		st.rport = 0;
++		st.lport = s->iface;
++		st.local.data[0] = s->prot;
++		st.remote.data[0] = 0;
++		if (run_ssfilter(f->f, &st) == 0)
+ 			return 1;
  	}
  
- 	char *pid_context = NULL;
+@@ -2899,14 +2917,14 @@ static void netlink_show_one(struct filter *f,
+ 	SPRINT_BUF(prot_name);
+ 
+ 	if (f->f) {
+-		struct tcpstat tst;
+-		tst.local.family = AF_NETLINK;
+-		tst.remote.family = AF_NETLINK;
+-		tst.rport = -1;
+-		tst.lport = pid;
+-		tst.local.data[0] = prot;
+-		tst.remote.data[0] = 0;
+-		if (run_ssfilter(f->f, &tst) == 0)
++		struct sockstat st;
++		st.local.family = AF_NETLINK;
++		st.remote.family = AF_NETLINK;
++		st.rport = -1;
++		st.lport = pid;
++		st.local.data[0] = prot;
++		st.remote.data[0] = 0;
++		if (run_ssfilter(f->f, &st) == 0)
+ 			return;
+ 	}
+ 
+@@ -3117,7 +3135,7 @@ static int get_snmp_int(char *proto, char *key, int *result)
+ 
+ /* Get stats from sockstat */
+ 
+-struct sockstat
++struct ssummary
+ {
+ 	int socks;
+ 	int tcp_mem;
+@@ -3136,7 +3154,7 @@ struct sockstat
+ 	int frag6_mem;
+ };
+ 
+-static void get_sockstat_line(char *line, struct sockstat *s)
++static void get_sockstat_line(char *line, struct ssummary *s)
+ {
+ 	char id[256], rem[256];
+ 
+@@ -3165,7 +3183,7 @@ static void get_sockstat_line(char *line, struct sockstat *s)
+ 		       &s->tcp_orphans, &s->tcp_tws, &s->tcp_total, &s->tcp_mem);
+ }
+ 
+-static int get_sockstat(struct sockstat *s)
++static int get_sockstat(struct ssummary *s)
+ {
+ 	char buf[256];
+ 	FILE *fp;
+@@ -3189,7 +3207,7 @@ static int get_sockstat(struct sockstat *s)
+ 
+ static int print_summary(void)
+ {
+-	struct sockstat s;
++	struct ssummary s;
+ 	struct snmpstat sn;
+ 
+ 	if (get_sockstat(&s) < 0)
 -- 
 2.2.2
