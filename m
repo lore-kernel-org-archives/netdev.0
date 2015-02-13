@@ -1,36 +1,78 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH 1/1] tun: change speed from 10M to dynamically configured
-Date: Sat, 14 Feb 2015 00:15:24 +0100
-Message-ID: <20150213231524.GA1800@electric-eye.fr.zoreil.com>
-References: <1423808353-8722-1-git-send-email-Yanjun.Zhu@windriver.com>
- <1423808353-8722-2-git-send-email-Yanjun.Zhu@windriver.com>
- <20150213212830.GA29912@electric-eye.fr.zoreil.com>
- <54DE6D67.5000601@hp.com>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: softlockups when trying to restore an nft set of 1M entries
+Date: Fri, 13 Feb 2015 15:21:43 -0800
+Message-ID: <CAHA+R7NMD4nUoQoo5o7jQT1w0pGLP4dWhWyjzeYGH6YwXqcjZw@mail.gmail.com>
+References: <54DDE717.6090703@akamai.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Zhu Yanjun <Yanjun.Zhu@windriver.com>, netdev@vger.kernel.org,
-	mst@redhat.com, jasowang@redhat.com, viro@zeniv.linux.org.uk,
-	davem@davemloft.net, sergei.shtylyov@cogentembedded.com,
-	jonathon.reinhart@gmail.com
-To: Rick Jones <rick.jones2@hp.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:43116 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753111AbbBMXPl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Feb 2015 18:15:41 -0500
-Content-Disposition: inline
-In-Reply-To: <54DE6D67.5000601@hp.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Thomas Graf <tgraf@suug.ch>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	netfilter-devel@vger.kernel.org, netdev <netdev@vger.kernel.org>
+To: Josh Hunt <johunt@akamai.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <54DDE717.6090703@akamai.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Rick Jones <rick.jones2@hp.com> :
-> It is perhaps as much a bug in the monitoring tools as anything else, but I
-> have come across (versions of) software - such as collectl I think - which
-> when presented with counters indicating a data rate higher than the reported
-> link rate of the interface get somewhat cranky.
+On Fri, Feb 13, 2015 at 3:59 AM, Josh Hunt <johunt@akamai.com> wrote:
+> In my testing of nftables sets for our netdev bof discussion I came across
+> this problem where if I try and do a set restore of 1M entries the machine
+> gets into a softlockup state. Once this is triggered the system has to be
+> rebooted.
+>
+> I can trigger the case by generating a simple nft rules file which defines a
+> set of type ipv4_addr. Something like this:
+>
+> flush ruleset
+> table ip filter {
+>         set blackhole {
+>                 type ipv4_addr
+>         }
+>         chain input {
+>                  type filter hook input priority 0;
+>         }
+>
+>         chain forward {
+>                  type filter hook forward priority 0;
+>         }
+>
+>         chain output {
+>                  type filter hook output priority 0;
+>         }
+> }
+>
+> except inside the set definition above I add 1M random ipv4 addresses.
+> Running "nft -f <filename>" will reproduce the problem. I also saw this when
+> trying to do a restore of 250k entries.
+>
+> There are a few problems going on from what I can tell. The first is
+> the set defaults to 4 buckets and during restores the # of buckets does not
+> increase. I'm currently investigating to understand why we don't expand the
+> set on restores. However my guess into why we're softlockuping here is that
+> we're trying to shove 1M entries into 4 buckets :)
+>
+> Second, the user has no way to tune the # of initial buckets. My patchset
+> "nft hash set expansion fixes" fixes this. If I tune the hash to use a
+> reasonable # of buckets for 1M entries. I do not see the softlockup problem.
+>
+> I ran these tests using the current net-next.
+>
+> Here's some of the softlockup output. Let me know if you'd like more info,
+> etc.
 
-It won't fix said software but the device should thus allow almost any
-speed.
+I guess we need a cond_resched() in the loop:
 
--- 
-Ueimor
+diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
+index 199fd0f..c07b334 100644
+--- a/net/netfilter/nf_tables_api.c
++++ b/net/netfilter/nf_tables_api.c
+@@ -3234,6 +3234,7 @@ static int nf_tables_newsetelem(struct sock
+*nlsk, struct sk_buff *skb,
+                if (err < 0)
+                        break;
+
++               cond_resched();
+                set->nelems++;
+        }
+        return err;
