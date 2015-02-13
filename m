@@ -1,149 +1,40 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCH 1/3] ixgbe,
- ixgbevf: Add new mbox API to enable MC promiscuous mode
-Date: Fri, 13 Feb 2015 12:34:03 -0500
-Message-ID: <54DE358B.90502@redhat.com>
-References: <7F861DC0615E0C47A872E6F3C5FCDDBD05E1908D@BPXM14GP.gisp.nec.co.jp>	
-	<1423054641.2589.59.camel@jtkirshe-mobl>	
-	<7F861DC0615E0C47A872E6F3C5FCDDBD05E26E45@BPXM14GP.gisp.nec.co.jp>
-	<1423470046.27854.7.camel@jtkirshe-mobl>
-	<7F861DC0615E0C47A872E6F3C5FCDDBD05E29F43@BPXM14GP.gisp.nec.co.jp>
-	<F6FB0E698C9B3143BDF729DF22286646912A1339@ORSMSX110.amr.corp.intel.com>
-	<7F861DC0615E0C47A872E6F3C5FCDDBD05E2E9CE@BPXM14GP.gisp.nec.co.jp>
-	<F6FB0E698C9B3143BDF729DF22286646912A1A50@ORSMSX110.amr.corp.intel.com>
-Reply-To: vyasevic@redhat.com
+From: Imre Palik <imrep.amz@gmail.com>
+Subject: Re: [PATCH] bridge: make it possible for packets to traverse the
+ bridge withour hitting netfilter
+Date: Fri, 13 Feb 2015 18:45:53 +0100
+Message-ID: <54DE3851.7000206@gmail.com>
+References: <1423560744-19011-1-git-send-email-imrep.amz@gmail.com> <20150211.142936.951620487173949333.davem@davemloft.net> <54DE2174.6040001@gmail.com> <20150213163703.GC15141@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>, "Choi,
-	Sy Jong" <sy.jong.choi@intel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	David Laight <David.Laight@ACULAB.COM>,
-	Hayato Momma <h-momma@ce.jp.nec.com>,
-	=?UTF-8?B?QmrDuHJuIE1vcms=?= <bjorn@mork.no>
-To: "Skidmore, Donald C" <donald.c.skidmore@intel.com>,
-	Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <F6FB0E698C9B3143BDF729DF22286646912A1A50@ORSMSX110.amr.corp.intel.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	bridge@lists.linux-foundation.org, stephen@networkplumber.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	imrep@amazon.de, aliguori@amazon.com
+To: Florian Westphal <fw@strlen.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150213163703.GC15141@breakpoint.cc>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-T24gMDIvMTMvMjAxNSAxMjoyNiBQTSwgU2tpZG1vcmUsIERvbmFsZCBDIHdyb3RlOgo+IAo+IAo+
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQo+PiBGcm9tOiBIaXJvc2hpIFNoaW1hbW90byBb
-bWFpbHRvOmgtc2hpbWFtb3RvQGN0LmpwLm5lYy5jb21dCj4+IFNlbnQ6IFRodXJzZGF5LCBGZWJy
-dWFyeSAxMiwgMjAxNSA4OjQ1IFBNCj4+IFRvOiBTa2lkbW9yZSwgRG9uYWxkIEM7IEtpcnNoZXIs
-IEplZmZyZXkgVAo+PiBDYzogQWxleGFuZGVyIER1eWNrOyBCasO4cm4gTW9yazsgZTEwMDAtZGV2
-ZWxAbGlzdHMuc291cmNlZm9yZ2UubmV0Owo+PiBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBDaG9p
-LCBTeSBKb25nOyBsaW51eC1rZXJuZWxAdmdlci5rZXJuZWwub3JnOyBEYXZpZAo+PiBMYWlnaHQ7
-IEhheWF0byBNb21tYQo+PiBTdWJqZWN0OiBSRTogW0UxMDAwLWRldmVsXSBbUEFUQ0ggMS8zXSBp
-eGdiZSwgaXhnYmV2ZjogQWRkIG5ldyBtYm94IEFQSSB0bwo+PiBlbmFibGUgTUMgcHJvbWlzY3Vv
-dXMgbW9kZQo+Pgo+Pj4+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQo+Pj4+PiBGcm9tOiBI
-aXJvc2hpIFNoaW1hbW90byBbbWFpbHRvOmgtc2hpbWFtb3RvQGN0LmpwLm5lYy5jb21dCj4+Pj4+
-IFNlbnQ6IE1vbmRheSwgRmVicnVhcnkgMDksIDIwMTUgNjoyOSBQTQo+Pj4+PiBUbzogS2lyc2hl
-ciwgSmVmZnJleSBUCj4+Pj4+IENjOiBBbGV4YW5kZXIgRHV5Y2s7IFNraWRtb3JlLCBEb25hbGQg
-QzsgQmrDuHJuIE1vcms7IGUxMDAwLQo+Pj4+PiBkZXZlbEBsaXN0cy5zb3VyY2Vmb3JnZS5uZXQ7
-IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IENob2ksIFN5Cj4+Pj4+IEpvbmc7IGxpbnV4LSBrZXJu
-ZWxAdmdlci5rZXJuZWwub3JnOyBEYXZpZCBMYWlnaHQ7IEhheWF0byBNb21tYQo+Pj4+PiBTdWJq
-ZWN0OiBSRTogW0UxMDAwLWRldmVsXSBbUEFUQ0ggMS8zXSBpeGdiZSwgaXhnYmV2ZjogQWRkIG5l
-dwo+Pj4+PiBtYm94IEFQSSB0byBlbmFibGUgTUMgcHJvbWlzY3VvdXMgbW9kZQo+Pj4+Pgo+Pj4+
-Pj4+Pj4gQ2FuIHlvdSBwbGVhc2UgZml4IHVwIHlvdXIgcGF0Y2hlcyBiYXNlZCBvbiBteSB0cmVl
-Ogo+Pj4+Pj4+Pj4gZ2l0Oi8vZ2l0Lmtlcm5lbC5vcmcvcHViL3NjbS9saW51eC9rZXJuZWwvZ2l0
-L2praXJzaGVyL3F1ZQo+Pj4+Pj4+Pj4gdWUuZ2l0Cj4+Pj4+Pj4+Cj4+Pj4+Pj4+IFllcy4gSSBo
-YXZlbid0IG5vdGljZWQgeW91ciB0cmVlLgo+Pj4+Pj4+PiBXaWxsIHJlc2VuZCBwYXRjaGVzIGFn
-YWluc3QgaXQuCj4+Pj4+Pj4+Cj4+Pj4+Pj4KPj4+Pj4+PiBJIGVuY291bnRlcmVkIGFuIGlzc3Vl
-IHdpdGggeW91ciB0cmVlLCB0aGUgY29tbWl0IGlkIGlzIGJlbG93Lgo+Pj4+Pj4+Cj4+Pj4+Pj4g
-JCBnaXQgbG9nIHwgaGVhZAo+Pj4+Pj4+IGNvbW1pdCBlNmYxNjQ5NzgwZjhmNWE4NzI5OWJmNmFm
-MDQ0NTNmOTNkMWUzZDVlCj4+Pj4+Pj4gQXV0aG9yOiBSYXNtdXMgVmlsbGVtb2VzIDxsaW51eEBy
-YXNtdXN2aWxsZW1vZXMuZGs+Cj4+Pj4+Pj4gRGF0ZTogICBGcmkgSmFuIDIzIDIwOjQzOjE0IDIw
-MTUgLTA4MDAKPj4+Pj4+Pgo+Pj4+Pj4+ICAgICBldGhlcm5ldDogZm0xMGs6IEFjdHVhbGx5IGRy
-b3AgNCBiaXRzCj4+Pj4+Pj4KPj4+Pj4+PiAgICAgVGhlIGNvbW1lbnQgZXhwbGFpbnMgdGhlIGlu
-dGVudGlvbiwgYnV0IHZpZCBoYXMgdHlwZSB1MTYuIEJlZm9yZQo+PiB0aGUKPj4+Pj4+PiAgICAg
-aW5uZXIgc2hpZnQsIGl0IGlzIHByb21vdGVkIHRvIGludCwgd2hpY2ggaGFzIHBsZW50eSBvZiBz
-cGFjZSBmb3IgYWxsCj4+Pj4+Pj4gICAgIHZpZCdzIGJpdHMsIHNvIG5vdGhpbmcgaXMgZHJvcHBl
-ZC4gVXNlIGEgc2ltcGxlIG1hc2sgaW5zdGVhZC4KPj4+Pj4+Pgo+Pj4+Pj4+Cj4+Pj4+Pj4gSSB1
-c2UgdGhlIGtlcm5lbCBmcm9tIHlvdXIgdHJlZSBpbiBib3RoIGhvc3QgYW5kIGd1ZXN0Lgo+Pj4+
-Pj4+Cj4+Pj4+Pj4gQXNzaWduIGFuIElQdjYgZm9yIFZGIGluIGd1ZXN0Lgo+Pj4+Pj4+ICMgaXAg
-LTYgYWRkciBhZGQgMjAwMTpkYjg6OjE4OjEvNjQgZGV2IGVuczAKPj4+Pj4+Pgo+Pj4+Pj4+IFNl
-bmQgcGluZyBwYWNrZXQgZnJvbSBvdGhlciBzZXJ2ZXIgdG8gdGhlIFZNLgo+Pj4+Pj4+ICMgcGlu
-ZzYgIDIwMDE6ZGI4OjoxODoxIC1JIGV0aDAKPj4+Pj4+Pgo+Pj4+Pj4+IFRoZSBmb2xsb3dpbmcg
-bWVzc2FnZSB3YXMgc2hvd24uCj4+Pj4+Pj4gaXhnYmV2ZiAwMDAwOjAwOjA4LjA6IHBhcnRpYWwg
-Y2hlY2tzdW0gYnV0IGw0IHByb3RvPTNhIQo+Pj4+Pj4+Cj4+Pj4+Pj4gSWYgSSBkaWQgdGhlIHNh
-bWUgb3BlcmF0aW9uIGluIHRoZSBob3N0LCBJIHNhdyB0aGUgc2FtZSBlcnJvcgo+Pj4+Pj4+IG1l
-c3NhZ2UgaW4KPj4+Pj4gaG9zdCB0b28uCj4+Pj4+Pj4gaXhnYmUgMDAwMDoyZDowMC4wOiBwYXJ0
-aWFsIGNoZWNrc3VtIGJ1dCBsNCBwcm90bz0zYSEKPj4+Pj4+Pgo+Pj4+Pj4+IERvIHlvdSBoYXZl
-IGFueSBpZGVhIGFib3V0IHRoYXQ/Cj4+Pj4+Pgo+Pj4+Pj4gQWgsIHNvcnJ5IGFib3V0IHRoYXQs
-IHRyeSB0aGlzIHRyZWUgYWdhaW46Cj4+Pj4+PiBnaXQ6Ly9naXQua2VybmVsLm9yZy9wdWIvc2Nt
-L2xpbnV4L2tlcm5lbC9naXQvamtpcnNoZXIvcXVldWUuZ2l0Cj4+Pj4+Pgo+Pj4+Pj4gVGhhdCBw
-YXRjaCB3YXMgZHJvcHBlZCBmb3IgZmF2b3Igb2YgYSBwYXRjaCB0aGF0IE1hdHRoZXcgVmljawo+
-Pj4+Pj4gcHV0IHRvZ2V0aGVyIChhbmQgcmVjZW50bHkgZ290IHB1c2hlZCB1cHN0cmVhbSkuICBT
-byBteSBxdWV1ZSBubwo+Pj4+Pj4gbG9uZ2VyIGhhcyB0aGF0IHBhdGNoIGluIHRoZSBxdWV1ZSwg
-c2luY2UgaXQgZ290IGRyb3BwZWQuCj4+Pj4+Cj4+Pj4+IEkgc3RpbGwgc2VlIHRoZSBzYW1lIGVy
-cm9yLCB0aGUgaGVhZCBpZCBpcyB0aGUgYmVsb3cKPj4+Pj4KPj4+Pj4gJCBnaXQgbG9nIHwgaGVh
-ZAo+Pj4+PiBjb21taXQgYTA3MmFmYjBiNDU5MDQwMjJiNzZkZWVmM2I3NzBlZTlhOTNjYjEzYQo+
-Pj4+PiBBdXRob3I6IE5pY2hvbGFzIEtyYXVzZSA8eGVyb2ZvaWZ5QGdtYWlsLmNvbT4KPj4+Pj4g
-RGF0ZTogICBNb24gRmViIDkgMDA6Mjc6MDAgMjAxNSAtMDgwMAo+Pj4+Pgo+Pj4+PiAgICAgaWdi
-OiBSZW1vdmUgb3V0ZGF0ZWQgZml4IG1lIGNvbW1lbnQgaW4gdGhlCj4+Pj4+IGZ1bmN0aW9uLGdi
-X2FjcXVpcmVfc3dmd19zeW5jX2kyMTAKPj4+Pj4KPj4+Pj4KPj4+Pj4gdGhhbmtzLAo+Pj4+PiBI
-aXJvc2hpCj4+Pj4KPj4+PiBJJ20gaGF2aW5nIG91ciB2YWxpZGF0aW9uIHNlZSBpZiB0aGV5IGNh
-biByZWNyZWF0ZSB0aGUgc2FtZSBpc3N1ZQo+Pj4+IGludGVybmFsbHkuICBXaGVuIHRoZXkgZ2V0
-IGJhY2sgdG8gbWUgSSdsbCBsZXQgeW91Cj4+PiBrbm93Cj4+Pj4gd2hhdCB3ZSBmb3VuZC4KPj4+
-Cj4+PiBXZSBkaWQgYmlzZWN0LCBhbmQgdGhlIGJlbG93IGxvb2tzIHRoZSBjdWxwcml0Owo+Pj4K
-Pj4+IDMyZGNlOTY4ZGQ5ODdhZGZiMGMwMDk0NmQ3OGRhZDkxNTRmNjQ3NTkgaXMgdGhlIGZpcnN0
-IGJhZCBjb21taXQKPj4+IGNvbW1pdCAzMmRjZTk2OGRkOTg3YWRmYjBjMDA5NDZkNzhkYWQ5MTU0
-ZjY0NzU5Cj4+PiBBdXRob3I6IFZsYWQgWWFzZXZpY2ggPHZ5YXNldmljaEBnbWFpbC5jb20+Cj4+
-PiBEYXRlOiAgIFNhdCBKYW4gMzEgMTA6NDA6MTggMjAxNSAtMDUwMAo+Pj4KPj4+ICAgICBpcHY2
-OiBBbGxvdyBmb3IgcGFydGlhbCBjaGVja3N1bXMgb24gbm9uLXVmbyBwYWNrZXRzCj4+Pgo+Pj4g
-ICAgIEN1cnJudGx5LCBpZiB3ZSBhcmUgbm90IGRvaW5nIFVGTyBvbiB0aGUgcGFja2V0LCBhbGwg
-VURQCj4+PiAgICAgcGFja2V0cyB3aWxsIHN0YXJ0IHdpdGggQ0hFQ0tTVU1fTk9ORSBhbmQgdGh1
-cyBwZXJmb3JtIGZ1bGwKPj4+ICAgICBjaGVja3N1bSBjb21wdXRhdGlvbnMgaW4gc29mdHdhcmUg
-ZXZlbiBpZiBkZXZpY2Ugc3VwcG9ydAo+Pj4gICAgIElQdjYgY2hlY2tzdW0gb2ZmbG9hZGluZy4K
-Pj4+Cj4+PiAgICAgTGV0J3Mgc3RhcnQgc3RhcnQgd2l0aCBDSEVDS1NVTV9QQVJUSUFMIGlmIHRo
-ZSBkZXZpY2UKPj4+ICAgICBzdXBwb3J0cyBpdCBhbmQgd2UgYXJlIHNlbmRpbmcgb25seSBhIHNp
-bmdsZSBwYWNrZXQgYXQKPj4+ICAgICBvciBiZWxvdyBtdHUgc2l6ZS4KPj4+Cj4+PiAgICAgU2ln
-bmVkLW9mZi1ieTogVmxhZGlzbGF2IFlhc2V2aWNoIDx2eWFzZXZpY0ByZWRoYXQuY29tPgo+Pj4g
-ICAgIFNpZ25lZC1vZmYtYnk6IERhdmlkIFMuIE1pbGxlciA8ZGF2ZW1AZGF2ZW1sb2Z0Lm5ldD4K
-Pj4+Cj4+PiA6MDQwMDAwIDA0MDAwMCA0NDM3ZWFmN2U5NDRmNWE2MTM2ZWJmNjY4YTI1NmZlZTY4
-OGZkYTNkCj4+IGZhZGU4ZGE5OThkMzVjOGRhOTdhMTVmMDU1Njk0OWFkMzcxZTUzNDcgTSAgICAg
-IG5ldAo+Pgo+PiBXaGVuIEkgcmV2ZXJ0ZWQgdGhlIGNvbW1pdCwgdGhlIGlzc3VlIHdhcyBzb2x2
-ZWQuCj4+Cj4+IHRoYW5rcywKPj4gSGlyb3NoaQo+IAo+IEkgYmVsaWV2ZSB0aGUgaXNzdWUgaXMg
-dGhhdCB0aGlzIHBhdGNoICgzMmRjZTk2OGRkOTggLSBpcHY2OiBBbGxvdyBmb3IgcGFydGlhbCBj
-aGVja3N1bXMgb24gbm9uLXVmbyBwYWNrZXRzKSBpcyB0aGF0IGl0IG5vdyBzZXRzIENIRUNLU1VN
-X1BBUlRJQUwgb24gYWxsIElQdjYgcGFja2V0cyBpbmNsdWRpbmcgSUNNUHY2IG9uZXMuICBPdXIg
-SFcgKDgyNTk5KSBvbmx5IHN1cHBvcnRzIGNoZWNrc3VtIG9mZmxvYWQgb24gVENQL1VEUCAoTkVU
-SUZfRl9JUFY2X0NTVU0pIHNvIHdlIGdldCBodW5nIHVwIG9uIHRoZSBza2IncyBwcm90b2NvbCBh
-bmQgdGhlIGZhY3QgdGhhdCBpdCBpcyBDSEVDS1NVTV9QQVJUSUFMLgo+IAo+IEFub3RoZXIgdGhp
-bmcgdGhhdCBjb25mdXNlcyBtZSBpcyB0aGUgZmVhdHVyZSB0ZXN0IGluIHRoaXMgcGF0Y2guICBJ
-dCBjaGVja3MgKHJ0LT5kc3QuZGV2LT5mZWF0dXJlcyAmIE5FVElGX0ZfVjZfQ1NVTSkgYnV0IE5F
-VElGX0ZfVjZfQ1NVTSBpcyBhIHR3byBiaXQgZmllbGQ/ICAKPiAKPiAjZGVmaW5lIE5FVElGX0Zf
-VjZfQ1NVTSAgICAgICAgIChORVRJRl9GX0dFTl9DU1VNIHwgTkVUSUZfRl9JUFY2X0NTVU0pCj4g
-Cj4gU28gdGhlIHRlc3Qgd291bGQgc3VjY2VlZCBpZiBlaXRoZXIgYml0IHdhcyBoaWdoLCB0aGF0
-IGRvZXNuJ3Qgc2VlbSByaWdodC4gIEkgY2MnZCB0aGUgYXV0aG9yIHNvIG1heWJlIGhlIGNvdWxk
-IGNsdWUgdXMgaW4uCgpUaGlzIGhhcyBiZWVuIGFkZHJlc3NlZCBieToKY29tbWl0IGJmMjUwYTFm
-YTc2OWYyZWI4ZmM3YTRlMjhiM2I1MjNlOWNiNjdlZWYKQXV0aG9yOiBWbGFkIFlhc2V2aWNoIDx2
-eWFzZXZpY2hAZ21haWwuY29tPgpEYXRlOiAgIFR1ZSBGZWIgMTAgMTE6Mzc6MjkgMjAxNSAtMDUw
-MAoKICAgIGlwdjY6IFBhcnRpYWwgY2hlY2tzdW0gb25seSBVRFAgcGFja2V0cwoKCkFzIGZhciB0
-aGUgMiBiaXQgaXNzdWUsIEdFTl9DU1VNIChIV19TVU0pIGFuZCBJUFY2X0NTVU0gY2FuIG5vdCBj
-b2V4aXN0IGF0IHRoZSBzYW1lIHRpbWUuClNlZSBuZXRkZXZfZml4X2ZlYXR1cmVzKCkuCgotdmxh
-ZAoKPiAKPiBUaGFua3MsCj4gLURvbiBTa2lkbW9yZSA8ZG9uYWxkLmMuc2tpZG1vcmVAaW50ZWwu
-Y29tPgo+IAo+IAoKCi0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQpEaXZlIGludG8gdGhlIFdvcmxkIG9m
-IFBhcmFsbGVsIFByb2dyYW1taW5nLiBUaGUgR28gUGFyYWxsZWwgV2Vic2l0ZSwKc3BvbnNvcmVk
-IGJ5IEludGVsIGFuZCBkZXZlbG9wZWQgaW4gcGFydG5lcnNoaXAgd2l0aCBTbGFzaGRvdCBNZWRp
-YSwgaXMgeW91cgpodWIgZm9yIGFsbCB0aGluZ3MgcGFyYWxsZWwgc29mdHdhcmUgZGV2ZWxvcG1l
-bnQsIGZyb20gd2Vla2x5IHRob3VnaHQKbGVhZGVyc2hpcCBibG9ncyB0byBuZXdzLCB2aWRlb3Ms
-IGNhc2Ugc3R1ZGllcywgdHV0b3JpYWxzIGFuZCBtb3JlLiBUYWtlIGEKbG9vayBhbmQgam9pbiB0
-aGUgY29udmVyc2F0aW9uIG5vdy4gaHR0cDovL2dvcGFyYWxsZWwuc291cmNlZm9yZ2UubmV0Lwpf
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpFMTAwMC1kZXZl
-bCBtYWlsaW5nIGxpc3QKRTEwMDAtZGV2ZWxAbGlzdHMuc291cmNlZm9yZ2UubmV0Cmh0dHBzOi8v
-bGlzdHMuc291cmNlZm9yZ2UubmV0L2xpc3RzL2xpc3RpbmZvL2UxMDAwLWRldmVsClRvIGxlYXJu
-IG1vcmUgYWJvdXQgSW50ZWwmIzE3NDsgRXRoZXJuZXQsIHZpc2l0IGh0dHA6Ly9jb21tdW5pdGll
-cy5pbnRlbC5jb20vY29tbXVuaXR5L3dpcmVkCg==
+On 02/13/15 17:37, Florian Westphal wrote:
+> Imre Palik <imrep.amz@gmail.com> wrote:
+>> On 02/11/15 23:29, David Miller wrote:
+>>> If I apply this, someone is going to try to submit a patch for every
+>>> damn protocol layer to add a stupid hack like this.
+>>
+>> Actually this is one of those patches.  There is already a "stupid hack like this" for iptables and arptables.  (Implemented before git history, and giving me 10% speedup.  Many thanks, whoever did it.)
+>>
+>> I also searched various LKML archives, and it seems the existing "stupid hacks" for iptables and arptables haven't resulted in any related patch submission in the last ten years.  (Or my google-fu is weak.)
+>>
+>> Moreover, I cannot imagine any other reasonable on/off switch for bridge-netfilter than these three.  Of course, my imagination might be lacking there.
+> 
+> Why do you load the bridge netfilter module if you don't want it?
+> Loading it registers the internal hooks for the call-ip(6)tables and
+> sabotage hooks with NF_BRIDGE protocol so most of the NF_HOOK(NF_BRIDGE, ...
+> calls become active.
+> 
+
+The trouble is that there are some bridges (with low traffic) where I need netfilter, and some other bridges (carrying lots of traffic), where I don't.  Being able to set things up on a per bridge basis is a powerful thing.
+
+I only implemented the global switch because the iptables and arptables support also have one.  If this is what bugs people here, I can remove it, and resubmit.
