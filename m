@@ -1,31 +1,57 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: Possible Bug in gnet_start_copy_compat for the file,gen_stats.c
-Date: Thu, 12 Feb 2015 19:01:11 -0800
-Message-ID: <CAM_iQpXo+LN9LC1U_kJbn1Kjw0CRzW6VaNw5OhgCS2qteqeQXg@mail.gmail.com>
-References: <54DD626C.80505@gmail.com>
+From: Fan Du <fengyuleidian0615@gmail.com>
+Subject: Re: [PATCH 1/1] tun: change speed from 10M to dynamically configured
+Date: Fri, 13 Feb 2015 11:25:48 +0800
+Message-ID: <54DD6EBC.2030203@gmail.com>
+References: <1423719323-4667-1-git-send-email-Yanjun.Zhu@windriver.com>	<1423719323-4667-2-git-send-email-Yanjun.Zhu@windriver.com> <20150212045558.5091262a@uryu.home.lan> <54DD655E.5020301@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	john fastabend <john.fastabend@gmail.com>,
-	standby24x7@gmail.com, rdunlap@infradead.org,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: nick <xerofoify@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <54DD626C.80505@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	netdev@vger.kernel.org, mst@redhat.com, jasowang@redhat.com,
+	viro@zeniv.linux.org.uk, davem@davemloft.net
+To: yzhu1 <Yanjun.Zhu@windriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:52563 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751273AbbBMDaX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Feb 2015 22:30:23 -0500
+Received: by mail-pa0-f45.google.com with SMTP id rd3so9132664pab.4
+        for <netdev@vger.kernel.org>; Thu, 12 Feb 2015 19:30:23 -0800 (PST)
+In-Reply-To: <54DD655E.5020301@windriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 12, 2015 at 6:33 PM, nick <xerofoify@gmail.com> wrote:
-> Greets to Everyone,
-> I am wondering after running sparse on the latest mainline tree why we are not unlocking the  spinlock_bh,lock when calling the function,
-> gnet_stats_start_copy_compat at the end of this function's body. Unless someone can explain to me why there is a very good reason for not
-> unlocking the spinlock_bh,lock at the end of this function I will send in a patch fixing this. I am assuming this is a bug due to us infinitely
-> looping in the spinlock_bh and deadlocking unless we exit this lock external to the call to the function,gnet_start_copy_compat.
+=E4=BA=8E 2015=E5=B9=B402=E6=9C=8813=E6=97=A5 10:45, yzhu1 =E5=86=99=E9=
+=81=93:
+> On 02/12/2015 08:55 PM, Stephen Hemminger wrote:
+>> On Thu, 12 Feb 2015 13:35:23 +0800
+>> Zhu Yanjun <Yanjun.Zhu@windriver.com> wrote:
+>>
+>>> From: Zhu Yanjun <yanjun.zhu@windriver.com>
+>>>
+>>> The default speed of normal nic is 1000M while the default speed
+>>> of tun is 10M. Now the default speed of tun is changed to 1000M.
+>>> And there are 3 options: 10M, 100M and 1000M to the speed of tun.
+>>> The command "ethtool -s tun0 speed 10/100/1000" can configure the
+>>> speed of tun dynamically.
+>>>
+>>> CC: Michael S. Tsirkin <mst@redhat.com>
+>>> CC: Jason Wang <jasowang@redhat.com>
+>>> CC: Al Viro <viro@zeniv.linux.org.uk>
+>>> Signed-off-by: Zhu Yanjun <yanjun.zhu@windriver.com>
+>>> Signed-off-by: Zhu Yanjun <Yanjun.Zhu@windriver.com>
+>> Why limit to 10/100/1000 speed?
+>> Ethtool speed can be any value
+> Thanks for your comments.
+>
+> Yes. But the real physical nic speed often 10M, 100M and 1000M.
+> This simulates the physical nic.
+    ^^^^^^^^^^^^^^^
+then a speed control logical would be needed to effect the correspondin=
+g speed
+when tun/tap gets/puts packets corresponding to the speed setting.
 
-The last time I looked at this, there is some place calling unlock,
-you need to find it out. I don't think anyone touched it ever since
-that time.
+What's the benefit when changing speed from 10Mb/s to 1000Mb/s?
 
-Let me know if you still can't find it. And yes, that code is kinda
-messy, I _do_ have a patch to clean it up (not sent out yet).
+Just xia bibi ;)
