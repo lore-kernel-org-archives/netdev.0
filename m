@@ -1,150 +1,136 @@
-From: Jonathon Reinhart <jonathon.reinhart@gmail.com>
-Subject: Re: [PATCH V2 1/1] tun: change speed from 10M to dynamically configured
-Date: Thu, 12 Feb 2015 22:44:15 -0500
-Message-ID: <CAPFHKzdWJjqJnkzrFHUvL+x8keiBH588j9p7h4o35TN4Wz9Qjw@mail.gmail.com>
-References: <1423798552-7091-1-git-send-email-Yanjun.Zhu@windriver.com> <1423798552-7091-2-git-send-email-Yanjun.Zhu@windriver.com>
+From: David Ahern <dsahern@gmail.com>
+Subject: Re: [PATCH] net: ipv6: Make address flushing on ifdown optional -
+ v3
+Date: Thu, 12 Feb 2015 20:47:58 -0700
+Message-ID: <54DD73EE.8040807@gmail.com>
+References: <1423715261-53131-1-git-send-email-dsahern@gmail.com> <54DCDB80.9090601@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, mst@redhat.com, jasowang@redhat.com,
-	viro@zeniv.linux.org.uk, davem@davemloft.net,
-	sergei.shtylyov@cogentembedded.com
-To: Zhu Yanjun <Yanjun.Zhu@windriver.com>
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Hannes Frederic Sowa <hannes@redhat.com>
+To: nicolas.dichtel@6wind.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f173.google.com ([209.85.212.173]:46673 "EHLO
-	mail-wi0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751365AbbBMDor (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Feb 2015 22:44:47 -0500
-Received: by mail-wi0-f173.google.com with SMTP id bs8so9059051wib.0
-        for <netdev@vger.kernel.org>; Thu, 12 Feb 2015 19:44:46 -0800 (PST)
-In-Reply-To: <1423798552-7091-2-git-send-email-Yanjun.Zhu@windriver.com>
+Received: from mail-ig0-f177.google.com ([209.85.213.177]:49155 "EHLO
+	mail-ig0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751669AbbBMDsA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Feb 2015 22:48:00 -0500
+Received: by mail-ig0-f177.google.com with SMTP id z20so8213442igj.4
+        for <netdev@vger.kernel.org>; Thu, 12 Feb 2015 19:47:59 -0800 (PST)
+In-Reply-To: <54DCDB80.9090601@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Shouldn't the default case of tun_set_settings() return -EINVAL instead of zero?
+On 2/12/15 9:57 AM, Nicolas Dichtel wrote:
+> Le 12/02/2015 05:27, David Ahern a =C3=A9crit :
+>> Currently, all ipv6 addresses are flushed when the interface is
+>> configured
+>> down, even static address:
+>>
+> [snip]
+>>
+>> [root@f20 ~]# echo 0 > /proc/sys/net/ipv6/conf/eth1/flush_addr_on_do=
+wn
+>> [root@f20 ~]# ip -6 addr add dev eth1 2000:11:1:1::1/64
+>> [root@f20 ~]# ip addr show dev eth1
+>> 3: eth1: <BROADCAST,MULTICAST> mtu 1500 qdisc pfifo_fast state DOWN
+>> group default qlen 1000
+>>      link/ether 02:04:11:22:33:01 brd ff:ff:ff:ff:ff:ff
+>>      inet6 2000:11:1:1::1/64 scope global tentative
+>>         valid_lft forever preferred_lft forever
+>> [root@f20 ~]#  ip link set dev eth1 up
+>> [root@f20 ~]#  ip link set dev eth1 down
+>> [root@f20 ~]# ip addr show dev eth1
+>> 3: eth1: <BROADCAST,MULTICAST> mtu 1500 qdisc pfifo_fast state DOWN
+>> group default qlen 1000
+>>      link/ether 02:04:11:22:33:01 brd ff:ff:ff:ff:ff:ff
+>>      inet6 2000:11:1:1::1/64 scope global
+>>         valid_lft forever preferred_lft forever
+>>      inet6 fe80::4:11ff:fe22:3301/64 scope link
+>>         valid_lft forever preferred_lft forever
+> Can you show an output of 'ip -6 route list table local' and 'ip -6
+> route' ?
 
-On Thu, Feb 12, 2015 at 10:35 PM, Zhu Yanjun <Yanjun.Zhu@windriver.com> wrote:
->
-> The default speed of normal nic is 1000M while the default speed
-> of tun is 10M. Now the default speed of tun is changed to 1000M.
-> And there are 3 options: 10M, 100M and 1000M to the speed of tun.
-> The command "ethtool -s tun0 speed 10/100/1000" can configure the
-> speed of tun dynamically.
->
-> CC: Michael S. Tsirkin <mst@redhat.com>
-> CC: Jason Wang <jasowang@redhat.com>
-> CC: Al Viro <viro@zeniv.linux.org.uk>
-> Reviewed-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-> Signed-off-by: Zhu Yanjun <Yanjun.Zhu@windriver.com>
-> ---
->  drivers/net/tun.c           | 42 +++++++++++++++++++++++++++++++++++++++++-
->  include/uapi/linux/if_tun.h |  5 +++++
->  2 files changed, 46 insertions(+), 1 deletion(-)
->
-> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-> index 8c8dc16..0ee36f1 100644
-> --- a/drivers/net/tun.c
-> +++ b/drivers/net/tun.c
-> @@ -950,6 +950,9 @@ static void tun_net_init(struct net_device *dev)
->                 dev->addr_len = 0;
->                 dev->mtu = 1500;
->
-> +               /* Set default speed 1000M */
-> +               tun->flags |= TUN_CTRL_SPD_1000;
-> +
->                 /* Zero header length */
->                 dev->type = ARPHRD_NONE;
->                 dev->flags = IFF_POINTOPOINT | IFF_NOARP | IFF_MULTICAST;
-> @@ -2257,9 +2260,18 @@ static struct miscdevice tun_miscdev = {
->
->  static int tun_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
->  {
-> +       struct tun_struct *tun = netdev_priv(dev);
-> +
-> +       /* Get the speed of tun */
-> +       if (tun->flags & TUN_CTRL_SPD_1000) {
-> +               ethtool_cmd_speed_set(cmd, SPEED_1000);
-> +       } else if (tun->flags & TUN_CTRL_SPD_100) {
-> +               ethtool_cmd_speed_set(cmd, SPEED_100);
-> +       } else
-> +               ethtool_cmd_speed_set(cmd, SPEED_10);
-> +
->         cmd->supported          = 0;
->         cmd->advertising        = 0;
-> -       ethtool_cmd_speed_set(cmd, SPEED_10);
->         cmd->duplex             = DUPLEX_FULL;
->         cmd->port               = PORT_TP;
->         cmd->phy_address        = 0;
-> @@ -2287,6 +2299,33 @@ static void tun_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *info
->         }
->  }
->
-> +static int tun_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
-> +{
-> +       struct tun_struct *tun = netdev_priv(dev);
-> +       u32 speed = ethtool_cmd_speed(cmd);
-> +
-> +       /* Clear speed flag */
-> +       tun->flags &= ~(TUN_CTRL_SPD_10 | TUN_CTRL_SPD_100 |
-> +                       TUN_CTRL_SPD_1000);
-> +
-> +       /* Set speed flag */
-> +       switch (speed) {
-> +       case 10:
-> +               tun->flags |= TUN_CTRL_SPD_10;
-> +               break;
-> +       case 100:
-> +               tun->flags |= TUN_CTRL_SPD_100;
-> +               break;
-> +       case 1000:
-> +               tun->flags |= TUN_CTRL_SPD_1000;
-> +               break;
-> +       default:
-> +               tun_debug(KERN_INFO, tun, "wrong speed!\n");
-> +       }
-> +
-> +       return 0;
-> +}
-> +
->  static u32 tun_get_msglevel(struct net_device *dev)
->  {
->  #ifdef TUN_DEBUG
-> @@ -2307,6 +2346,7 @@ static void tun_set_msglevel(struct net_device *dev, u32 value)
->
->  static const struct ethtool_ops tun_ethtool_ops = {
->         .get_settings   = tun_get_settings,
-> +       .set_settings   = tun_set_settings,
->         .get_drvinfo    = tun_get_drvinfo,
->         .get_msglevel   = tun_get_msglevel,
->         .set_msglevel   = tun_set_msglevel,
-> diff --git a/include/uapi/linux/if_tun.h b/include/uapi/linux/if_tun.h
-> index 50ae243..78a09a7 100644
-> --- a/include/uapi/linux/if_tun.h
-> +++ b/include/uapi/linux/if_tun.h
-> @@ -66,6 +66,11 @@
->  #define IFF_PERSIST    0x0800
->  #define IFF_NOFILTER   0x1000
->
-> +/*add speed control, default 1000M*/
-> +#define TUN_CTRL_SPD_10         0x0020
-> +#define TUN_CTRL_SPD_100        0x0040
-> +#define TUN_CTRL_SPD_1000       0x0080
-> +
->  /* Socket options */
->  #define TUN_TX_TIMESTAMP 1
->
-> --
-> 1.9.1
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+hmmmm.... interesting. once again ipv6 behavior is radically different=20
+from ipv4.
+
+This is *after* a configure, up, down cycle:
+
+[root@f21 ~]# ip -6 route list table local
+local ::1 dev lo  proto none  metric 0
+local 2000:11:1:1::1 dev lo  proto none  metric 0
+local fe80::11:22ff:fe33:4402 dev lo  proto none  metric 0
+ff00::/8 dev eth0  metric 256
+
+[root@f21 ~]# ip -6 route ls
+unreachable ::/96 dev lo  metric 1024  error -101
+unreachable ::ffff:0.0.0.0/96 dev lo  metric 1024  error -101
+unreachable 2002:a00::/24 dev lo  metric 1024  error -101
+unreachable 2002:7f00::/24 dev lo  metric 1024  error -101
+unreachable 2002:a9fe::/32 dev lo  metric 1024  error -101
+unreachable 2002:ac10::/28 dev lo  metric 1024  error -101
+unreachable 2002:c0a8::/32 dev lo  metric 1024  error -101
+unreachable 2002:e000::/19 dev lo  metric 1024  error -101
+unreachable 3ffe:ffff::/32 dev lo  metric 1024  error -101
+fe80::/64 dev eth0  proto kernel  metric 256
+
+(the ipv6 addresses on lo show up on stock 3.18.3-201.fc21.x86_64; no=20
+idea why)
+
+But on a subsequent ifconfig up the route is not inserted:
+
+[root@f21 ~]# ifconfig eth1 up
+
+[root@f21 ~]# ip -6 route ls
+unreachable ::/96 dev lo  metric 1024  error -101
+unreachable ::ffff:0.0.0.0/96 dev lo  metric 1024  error -101
+unreachable 2002:a00::/24 dev lo  metric 1024  error -101
+unreachable 2002:7f00::/24 dev lo  metric 1024  error -101
+unreachable 2002:a9fe::/32 dev lo  metric 1024  error -101
+unreachable 2002:ac10::/28 dev lo  metric 1024  error -101
+unreachable 2002:c0a8::/32 dev lo  metric 1024  error -101
+unreachable 2002:e000::/19 dev lo  metric 1024  error -101
+unreachable 3ffe:ffff::/32 dev lo  metric 1024  error -101
+fe80::/64 dev eth0  proto kernel  metric 256
+fe80::/64 dev eth1  proto kernel  metric 256
+
+So I need to look into why.
 
 
+This is what happens on that stock kernel:
 
+[root@f21 ~]#  ip -6 addr add dev eth1 2000:11:1:1::1/64
+[root@f21 ~]# ifconfig eth1
+eth1: flags=3D4098<BROADCAST,MULTICAST>  mtu 1500
+         inet6 2000:11:1:1::1  prefixlen 64  scopeid 0x0<global>
+         ether 02:01:02:03:04:02  txqueuelen 1000  (Ethernet)
+         RX packets 0  bytes 0 (0.0 B)
+         RX errors 0  dropped 0  overruns 0  frame 0
+         TX packets 0  bytes 0 (0.0 B)
+         TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
 
--- 
-Computers are incredibly fast, accurate and stupid. Human beings are
-incredibly slow, inaccurate and brilliant. Together they are powerful
-beyond imagination.
-                                    A. Einstein
+Interface in down state and address configured.
+
+[root@f21 ~]# ip -6 route list table local
+local ::1 dev lo  proto none  metric 0
+local fe80::11:22ff:fe33:4402 dev lo  proto none  metric 0
+ff00::/8 dev eth0  metric 256
+ff00::/8 dev eth1  metric 256
+
+[root@f21 ~]# ip -6 route ls
+unreachable ::/96 dev lo  metric 1024  error -101
+unreachable ::ffff:0.0.0.0/96 dev lo  metric 1024  error -101
+2000:11:1:1::/64 dev eth1  proto kernel  metric 256
+unreachable 2002:a00::/24 dev lo  metric 1024  error -101
+unreachable 2002:7f00::/24 dev lo  metric 1024  error -101
+unreachable 2002:a9fe::/32 dev lo  metric 1024  error -101
+unreachable 2002:ac10::/28 dev lo  metric 1024  error -101
+unreachable 2002:c0a8::/32 dev lo  metric 1024  error -101
+unreachable 2002:e000::/19 dev lo  metric 1024  error -101
+unreachable 3ffe:ffff::/32 dev lo  metric 1024  error -101
+fe80::/64 dev eth0  proto kernel  metric 256
+
+And there is an entry in the FIB which just seems wrong. It's cleaned=20
+out on an up/down cycle.
+
+David
