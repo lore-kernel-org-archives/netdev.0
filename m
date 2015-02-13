@@ -1,46 +1,37 @@
 From: Fan Du <fan.du@intel.com>
-Subject: [PATCH net-next 1/3] ipv4: Raise tcp PMTU probe mss base size
-Date: Fri, 13 Feb 2015 16:16:43 +0800
-Message-ID: <1423815405-32644-2-git-send-email-fan.du@intel.com>
-References: <1423815405-32644-1-git-send-email-fan.du@intel.com>
+Subject: [PATCH net-next 0/3] Small fix for TCP PMTU
+Date: Fri, 13 Feb 2015 16:16:42 +0800
+Message-ID: <1423815405-32644-1-git-send-email-fan.du@intel.com>
 Cc: netdev@vger.kernel.org, fengyuleidian0615@gmail.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:7254 "EHLO mga03.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:52060 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751655AbbBMIVW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 13 Feb 2015 03:21:22 -0500
-In-Reply-To: <1423815405-32644-1-git-send-email-fan.du@intel.com>
+	id S1751655AbbBMIVI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 13 Feb 2015 03:21:08 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Quotes from RFC4821 7.2.  Selecting Initial Values
+This patchset perform some small fix for current TCP PMTU
+as per RFC4821 with below changes:
 
-   It is RECOMMENDED that search_low be initially set to an MTU size
-   that is likely to work over a very wide range of environments.  Given
-   today's technologies, a value of 1024 bytes is probably safe enough.
-   The initial value for search_low SHOULD be configurable.
+Patch1/3: Set probe mss base to 1024 Bytes
+Patch2/3: Do not double probe_size for each probing,
+	  use a simple binary search to gain maximum performance.
+Patch3/3: Create a probe timer to detect enlarged path MTU.
 
-Moreover, set a small value will introduce extra time for the search
-to converge. So set the initial probe base mss size to 1024 Bytes.
+Fan Du (3):
+  ipv4: Raise tcp PMTU probe mss base size
+  ipv4: Use binary search to choose tcp PMTU probe_size
+  ipv4: Create probe timer for tcp PMTU as per RFC4821
 
-Signed-off-by: Fan Du <fan.du@intel.com>
----
- include/net/tcp.h |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 8d6b983..7b57e5b 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -65,7 +65,7 @@ void tcp_time_wait(struct sock *sk, int state, int timeo);
- #define TCP_MIN_MSS		88U
- 
- /* The least MTU to use for probing */
--#define TCP_BASE_MSS		512
-+#define TCP_BASE_MSS		1024
- 
- /* After receiving this amount of duplicate ACKs fast retransmit starts. */
- #define TCP_FASTRETRANS_THRESH 3
--- 
-1.7.1
+ include/net/inet_connection_sock.h |    5 +++++
+ include/net/netns/ipv4.h           |    1 +
+ include/net/tcp.h                  |    5 ++++-
+ net/ipv4/sysctl_net_ipv4.c         |    7 +++++++
+ net/ipv4/tcp.c                     |    2 ++
+ net/ipv4/tcp_input.c               |    5 ++++-
+ net/ipv4/tcp_ipv4.c                |    1 +
+ net/ipv4/tcp_output.c              |   35 +++++++++++++++++++++++++++++++----
+ net/ipv4/tcp_timer.c               |    2 +-
+ 9 files changed, 56 insertions(+), 7 deletions(-)
