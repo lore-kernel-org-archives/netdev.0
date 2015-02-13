@@ -1,55 +1,130 @@
-From: Murali Karicheri <m-karicheri2@ti.com>
-Subject: Question on Bonding driver
-Date: Fri, 13 Feb 2015 12:11:50 -0500
-Message-ID: <54DE3056.6020606@ti.com>
+From: "Skidmore, Donald C" <donald.c.skidmore@intel.com>
+Subject: RE: [E1000-devel] [PATCH 1/3] ixgbe, ixgbevf: Add new mbox API to
+ enable MC promiscuous mode
+Date: Fri, 13 Feb 2015 17:26:07 +0000
+Message-ID: <F6FB0E698C9B3143BDF729DF22286646912A1A50@ORSMSX110.amr.corp.intel.com>
+References: <7F861DC0615E0C47A872E6F3C5FCDDBD05E1908D@BPXM14GP.gisp.nec.co.jp>
+	 <1423054641.2589.59.camel@jtkirshe-mobl>
+	  <7F861DC0615E0C47A872E6F3C5FCDDBD05E26E45@BPXM14GP.gisp.nec.co.jp>
+ <1423470046.27854.7.camel@jtkirshe-mobl>
+ <7F861DC0615E0C47A872E6F3C5FCDDBD05E29F43@BPXM14GP.gisp.nec.co.jp>
+ <F6FB0E698C9B3143BDF729DF22286646912A1339@ORSMSX110.amr.corp.intel.com>
+  <7F861DC0615E0C47A872E6F3C5FCDDBD05E2E9CE@BPXM14GP.gisp.nec.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev <netdev@vger.kernel.org>, WingMan Kwok <w-kwok2@ti.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bear.ext.ti.com ([192.94.94.41]:47324 "EHLO bear.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753455AbbBMRLp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 13 Feb 2015 12:11:45 -0500
-Received: from dlelxv90.itg.ti.com ([172.17.2.17])
-	by bear.ext.ti.com (8.13.7/8.13.7) with ESMTP id t1DHBivr024208
-	for <netdev@vger.kernel.org>; Fri, 13 Feb 2015 11:11:44 -0600
-Received: from DLEE71.ent.ti.com (dlee71.ent.ti.com [157.170.170.114])
-	by dlelxv90.itg.ti.com (8.14.3/8.13.8) with ESMTP id t1DHBhn9016598
-	for <netdev@vger.kernel.org>; Fri, 13 Feb 2015 11:11:43 -0600
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Alexander Duyck <alexander.duyck@gmail.com>,
+	=?utf-8?B?QmrDuHJuIE1vcms=?= <bjorn@mork.no>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Choi, Sy Jong" <sy.jong.choi@intel.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	David Laight <David.Laight@ACULAB.COM>,
+	Hayato Momma <h-momma@ce.jp.nec.com>
+To: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"vyasevic@redhat.com" <vyasevic@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <7F861DC0615E0C47A872E6F3C5FCDDBD05E2E9CE@BPXM14GP.gisp.nec.co.jp>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
-
-I am working to enable bonding driver on my hardware and trying to 
-understand this.
-
-I am using the alb mode. I create a bond interface with 2 ethernet 
-interfaces. First one is the basic question about net driver itself and 
-second is about bonding.
-
-1. Each ethernet interface has a MAC address. The hardware has MAC 
-filter and the driver fills the net_device's dev_addr with its MAC 
-address before calling register_netdev() API. When the net core calls 
-ndo_start(), is the low level driver responsible for setting up its MAC 
-address in the MAC filter of the hardware or low level driver will be 
-told to do so by upper layer. Or is it required to set it up as part of 
-ndo_set_rx_mode() or ndo_set_mac_address()?
-
-2. In the case of bonding, the bond interface MAC address is copied from 
-the active slave's MAC address. Also it updates the dev_addr in the 
-netdev struct of each of the slave with its own MAC address. So I 
-assume, the device/NIC now needs to accept packets to its original MAC 
-address as well the bond's MAC address. This is especially more 
-important for the slave's that are not active slave as it can be target 
-of packets from Peers as part of rlb. So for the slave that is not 
-active slave, MAC filter needs to include its original hw address as 
-well unless the slave is put to promiscuous mode. So I am trying to 
-figure out how this is expected to work? All slaves put to promiscuous 
-mode or MAC filter updated by slave driver to include MAC addresses it 
-is expected to filter on (bond MAC address and its own MAC address)
-
--- 
-Murali Karicheri
-Linux Kernel, Texas Instruments
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogSGlyb3NoaSBTaGltYW1v
+dG8gW21haWx0bzpoLXNoaW1hbW90b0BjdC5qcC5uZWMuY29tXQ0KPiBTZW50OiBUaHVyc2RheSwg
+RmVicnVhcnkgMTIsIDIwMTUgODo0NSBQTQ0KPiBUbzogU2tpZG1vcmUsIERvbmFsZCBDOyBLaXJz
+aGVyLCBKZWZmcmV5IFQNCj4gQ2M6IEFsZXhhbmRlciBEdXljazsgQmrDuHJuIE1vcms7IGUxMDAw
+LWRldmVsQGxpc3RzLnNvdXJjZWZvcmdlLm5ldDsNCj4gbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsg
+Q2hvaSwgU3kgSm9uZzsgbGludXgta2VybmVsQHZnZXIua2VybmVsLm9yZzsgRGF2aWQNCj4gTGFp
+Z2h0OyBIYXlhdG8gTW9tbWENCj4gU3ViamVjdDogUkU6IFtFMTAwMC1kZXZlbF0gW1BBVENIIDEv
+M10gaXhnYmUsIGl4Z2JldmY6IEFkZCBuZXcgbWJveCBBUEkgdG8NCj4gZW5hYmxlIE1DIHByb21p
+c2N1b3VzIG1vZGUNCj4gDQo+ID4gPiA+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+ID4g
+PiA+IEZyb206IEhpcm9zaGkgU2hpbWFtb3RvIFttYWlsdG86aC1zaGltYW1vdG9AY3QuanAubmVj
+LmNvbV0NCj4gPiA+ID4gU2VudDogTW9uZGF5LCBGZWJydWFyeSAwOSwgMjAxNSA2OjI5IFBNDQo+
+ID4gPiA+IFRvOiBLaXJzaGVyLCBKZWZmcmV5IFQNCj4gPiA+ID4gQ2M6IEFsZXhhbmRlciBEdXlj
+azsgU2tpZG1vcmUsIERvbmFsZCBDOyBCasO4cm4gTW9yazsgZTEwMDAtDQo+ID4gPiA+IGRldmVs
+QGxpc3RzLnNvdXJjZWZvcmdlLm5ldDsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgQ2hvaSwgU3kN
+Cj4gPiA+ID4gSm9uZzsgbGludXgtIGtlcm5lbEB2Z2VyLmtlcm5lbC5vcmc7IERhdmlkIExhaWdo
+dDsgSGF5YXRvIE1vbW1hDQo+ID4gPiA+IFN1YmplY3Q6IFJFOiBbRTEwMDAtZGV2ZWxdIFtQQVRD
+SCAxLzNdIGl4Z2JlLCBpeGdiZXZmOiBBZGQgbmV3DQo+ID4gPiA+IG1ib3ggQVBJIHRvIGVuYWJs
+ZSBNQyBwcm9taXNjdW91cyBtb2RlDQo+ID4gPiA+DQo+ID4gPiA+ID4gPiA+ID4gQ2FuIHlvdSBw
+bGVhc2UgZml4IHVwIHlvdXIgcGF0Y2hlcyBiYXNlZCBvbiBteSB0cmVlOg0KPiA+ID4gPiA+ID4g
+PiA+IGdpdDovL2dpdC5rZXJuZWwub3JnL3B1Yi9zY20vbGludXgva2VybmVsL2dpdC9qa2lyc2hl
+ci9xdWUNCj4gPiA+ID4gPiA+ID4gPiB1ZS5naXQNCj4gPiA+ID4gPiA+ID4NCj4gPiA+ID4gPiA+
+ID4gWWVzLiBJIGhhdmVuJ3Qgbm90aWNlZCB5b3VyIHRyZWUuDQo+ID4gPiA+ID4gPiA+IFdpbGwg
+cmVzZW5kIHBhdGNoZXMgYWdhaW5zdCBpdC4NCj4gPiA+ID4gPiA+ID4NCj4gPiA+ID4gPiA+DQo+
+ID4gPiA+ID4gPiBJIGVuY291bnRlcmVkIGFuIGlzc3VlIHdpdGggeW91ciB0cmVlLCB0aGUgY29t
+bWl0IGlkIGlzIGJlbG93Lg0KPiA+ID4gPiA+ID4NCj4gPiA+ID4gPiA+ICQgZ2l0IGxvZyB8IGhl
+YWQNCj4gPiA+ID4gPiA+IGNvbW1pdCBlNmYxNjQ5NzgwZjhmNWE4NzI5OWJmNmFmMDQ0NTNmOTNk
+MWUzZDVlDQo+ID4gPiA+ID4gPiBBdXRob3I6IFJhc211cyBWaWxsZW1vZXMgPGxpbnV4QHJhc211
+c3ZpbGxlbW9lcy5kaz4NCj4gPiA+ID4gPiA+IERhdGU6ICAgRnJpIEphbiAyMyAyMDo0MzoxNCAy
+MDE1IC0wODAwDQo+ID4gPiA+ID4gPg0KPiA+ID4gPiA+ID4gICAgIGV0aGVybmV0OiBmbTEwazog
+QWN0dWFsbHkgZHJvcCA0IGJpdHMNCj4gPiA+ID4gPiA+DQo+ID4gPiA+ID4gPiAgICAgVGhlIGNv
+bW1lbnQgZXhwbGFpbnMgdGhlIGludGVudGlvbiwgYnV0IHZpZCBoYXMgdHlwZSB1MTYuIEJlZm9y
+ZQ0KPiB0aGUNCj4gPiA+ID4gPiA+ICAgICBpbm5lciBzaGlmdCwgaXQgaXMgcHJvbW90ZWQgdG8g
+aW50LCB3aGljaCBoYXMgcGxlbnR5IG9mIHNwYWNlIGZvciBhbGwNCj4gPiA+ID4gPiA+ICAgICB2
+aWQncyBiaXRzLCBzbyBub3RoaW5nIGlzIGRyb3BwZWQuIFVzZSBhIHNpbXBsZSBtYXNrIGluc3Rl
+YWQuDQo+ID4gPiA+ID4gPg0KPiA+ID4gPiA+ID4NCj4gPiA+ID4gPiA+IEkgdXNlIHRoZSBrZXJu
+ZWwgZnJvbSB5b3VyIHRyZWUgaW4gYm90aCBob3N0IGFuZCBndWVzdC4NCj4gPiA+ID4gPiA+DQo+
+ID4gPiA+ID4gPiBBc3NpZ24gYW4gSVB2NiBmb3IgVkYgaW4gZ3Vlc3QuDQo+ID4gPiA+ID4gPiAj
+IGlwIC02IGFkZHIgYWRkIDIwMDE6ZGI4OjoxODoxLzY0IGRldiBlbnMwDQo+ID4gPiA+ID4gPg0K
+PiA+ID4gPiA+ID4gU2VuZCBwaW5nIHBhY2tldCBmcm9tIG90aGVyIHNlcnZlciB0byB0aGUgVk0u
+DQo+ID4gPiA+ID4gPiAjIHBpbmc2ICAyMDAxOmRiODo6MTg6MSAtSSBldGgwDQo+ID4gPiA+ID4g
+Pg0KPiA+ID4gPiA+ID4gVGhlIGZvbGxvd2luZyBtZXNzYWdlIHdhcyBzaG93bi4NCj4gPiA+ID4g
+PiA+IGl4Z2JldmYgMDAwMDowMDowOC4wOiBwYXJ0aWFsIGNoZWNrc3VtIGJ1dCBsNCBwcm90bz0z
+YSENCj4gPiA+ID4gPiA+DQo+ID4gPiA+ID4gPiBJZiBJIGRpZCB0aGUgc2FtZSBvcGVyYXRpb24g
+aW4gdGhlIGhvc3QsIEkgc2F3IHRoZSBzYW1lIGVycm9yDQo+ID4gPiA+ID4gPiBtZXNzYWdlIGlu
+DQo+ID4gPiA+IGhvc3QgdG9vLg0KPiA+ID4gPiA+ID4gaXhnYmUgMDAwMDoyZDowMC4wOiBwYXJ0
+aWFsIGNoZWNrc3VtIGJ1dCBsNCBwcm90bz0zYSENCj4gPiA+ID4gPiA+DQo+ID4gPiA+ID4gPiBE
+byB5b3UgaGF2ZSBhbnkgaWRlYSBhYm91dCB0aGF0Pw0KPiA+ID4gPiA+DQo+ID4gPiA+ID4gQWgs
+IHNvcnJ5IGFib3V0IHRoYXQsIHRyeSB0aGlzIHRyZWUgYWdhaW46DQo+ID4gPiA+ID4gZ2l0Oi8v
+Z2l0Lmtlcm5lbC5vcmcvcHViL3NjbS9saW51eC9rZXJuZWwvZ2l0L2praXJzaGVyL3F1ZXVlLmdp
+dA0KPiA+ID4gPiA+DQo+ID4gPiA+ID4gVGhhdCBwYXRjaCB3YXMgZHJvcHBlZCBmb3IgZmF2b3Ig
+b2YgYSBwYXRjaCB0aGF0IE1hdHRoZXcgVmljaw0KPiA+ID4gPiA+IHB1dCB0b2dldGhlciAoYW5k
+IHJlY2VudGx5IGdvdCBwdXNoZWQgdXBzdHJlYW0pLiAgU28gbXkgcXVldWUgbm8NCj4gPiA+ID4g
+PiBsb25nZXIgaGFzIHRoYXQgcGF0Y2ggaW4gdGhlIHF1ZXVlLCBzaW5jZSBpdCBnb3QgZHJvcHBl
+ZC4NCj4gPiA+ID4NCj4gPiA+ID4gSSBzdGlsbCBzZWUgdGhlIHNhbWUgZXJyb3IsIHRoZSBoZWFk
+IGlkIGlzIHRoZSBiZWxvdw0KPiA+ID4gPg0KPiA+ID4gPiAkIGdpdCBsb2cgfCBoZWFkDQo+ID4g
+PiA+IGNvbW1pdCBhMDcyYWZiMGI0NTkwNDAyMmI3NmRlZWYzYjc3MGVlOWE5M2NiMTNhDQo+ID4g
+PiA+IEF1dGhvcjogTmljaG9sYXMgS3JhdXNlIDx4ZXJvZm9pZnlAZ21haWwuY29tPg0KPiA+ID4g
+PiBEYXRlOiAgIE1vbiBGZWIgOSAwMDoyNzowMCAyMDE1IC0wODAwDQo+ID4gPiA+DQo+ID4gPiA+
+ICAgICBpZ2I6IFJlbW92ZSBvdXRkYXRlZCBmaXggbWUgY29tbWVudCBpbiB0aGUNCj4gPiA+ID4g
+ZnVuY3Rpb24sZ2JfYWNxdWlyZV9zd2Z3X3N5bmNfaTIxMA0KPiA+ID4gPg0KPiA+ID4gPg0KPiA+
+ID4gPiB0aGFua3MsDQo+ID4gPiA+IEhpcm9zaGkNCj4gPiA+DQo+ID4gPiBJJ20gaGF2aW5nIG91
+ciB2YWxpZGF0aW9uIHNlZSBpZiB0aGV5IGNhbiByZWNyZWF0ZSB0aGUgc2FtZSBpc3N1ZQ0KPiA+
+ID4gaW50ZXJuYWxseS4gIFdoZW4gdGhleSBnZXQgYmFjayB0byBtZSBJJ2xsIGxldCB5b3UNCj4g
+PiBrbm93DQo+ID4gPiB3aGF0IHdlIGZvdW5kLg0KPiA+DQo+ID4gV2UgZGlkIGJpc2VjdCwgYW5k
+IHRoZSBiZWxvdyBsb29rcyB0aGUgY3VscHJpdDsNCj4gPg0KPiA+IDMyZGNlOTY4ZGQ5ODdhZGZi
+MGMwMDk0NmQ3OGRhZDkxNTRmNjQ3NTkgaXMgdGhlIGZpcnN0IGJhZCBjb21taXQNCj4gPiBjb21t
+aXQgMzJkY2U5NjhkZDk4N2FkZmIwYzAwOTQ2ZDc4ZGFkOTE1NGY2NDc1OQ0KPiA+IEF1dGhvcjog
+VmxhZCBZYXNldmljaCA8dnlhc2V2aWNoQGdtYWlsLmNvbT4NCj4gPiBEYXRlOiAgIFNhdCBKYW4g
+MzEgMTA6NDA6MTggMjAxNSAtMDUwMA0KPiA+DQo+ID4gICAgIGlwdjY6IEFsbG93IGZvciBwYXJ0
+aWFsIGNoZWNrc3VtcyBvbiBub24tdWZvIHBhY2tldHMNCj4gPg0KPiA+ICAgICBDdXJybnRseSwg
+aWYgd2UgYXJlIG5vdCBkb2luZyBVRk8gb24gdGhlIHBhY2tldCwgYWxsIFVEUA0KPiA+ICAgICBw
+YWNrZXRzIHdpbGwgc3RhcnQgd2l0aCBDSEVDS1NVTV9OT05FIGFuZCB0aHVzIHBlcmZvcm0gZnVs
+bA0KPiA+ICAgICBjaGVja3N1bSBjb21wdXRhdGlvbnMgaW4gc29mdHdhcmUgZXZlbiBpZiBkZXZp
+Y2Ugc3VwcG9ydA0KPiA+ICAgICBJUHY2IGNoZWNrc3VtIG9mZmxvYWRpbmcuDQo+ID4NCj4gPiAg
+ICAgTGV0J3Mgc3RhcnQgc3RhcnQgd2l0aCBDSEVDS1NVTV9QQVJUSUFMIGlmIHRoZSBkZXZpY2UN
+Cj4gPiAgICAgc3VwcG9ydHMgaXQgYW5kIHdlIGFyZSBzZW5kaW5nIG9ubHkgYSBzaW5nbGUgcGFj
+a2V0IGF0DQo+ID4gICAgIG9yIGJlbG93IG10dSBzaXplLg0KPiA+DQo+ID4gICAgIFNpZ25lZC1v
+ZmYtYnk6IFZsYWRpc2xhdiBZYXNldmljaCA8dnlhc2V2aWNAcmVkaGF0LmNvbT4NCj4gPiAgICAg
+U2lnbmVkLW9mZi1ieTogRGF2aWQgUy4gTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KPiA+
+DQo+ID4gOjA0MDAwMCAwNDAwMDAgNDQzN2VhZjdlOTQ0ZjVhNjEzNmViZjY2OGEyNTZmZWU2ODhm
+ZGEzZA0KPiBmYWRlOGRhOTk4ZDM1YzhkYTk3YTE1ZjA1NTY5NDlhZDM3MWU1MzQ3IE0gICAgICBu
+ZXQNCj4gDQo+IFdoZW4gSSByZXZlcnRlZCB0aGUgY29tbWl0LCB0aGUgaXNzdWUgd2FzIHNvbHZl
+ZC4NCj4gDQo+IHRoYW5rcywNCj4gSGlyb3NoaQ0KDQpJIGJlbGlldmUgdGhlIGlzc3VlIGlzIHRo
+YXQgdGhpcyBwYXRjaCAoMzJkY2U5NjhkZDk4IC0gaXB2NjogQWxsb3cgZm9yIHBhcnRpYWwgY2hl
+Y2tzdW1zIG9uIG5vbi11Zm8gcGFja2V0cykgaXMgdGhhdCBpdCBub3cgc2V0cyBDSEVDS1NVTV9Q
+QVJUSUFMIG9uIGFsbCBJUHY2IHBhY2tldHMgaW5jbHVkaW5nIElDTVB2NiBvbmVzLiAgT3VyIEhX
+ICg4MjU5OSkgb25seSBzdXBwb3J0cyBjaGVja3N1bSBvZmZsb2FkIG9uIFRDUC9VRFAgKE5FVElG
+X0ZfSVBWNl9DU1VNKSBzbyB3ZSBnZXQgaHVuZyB1cCBvbiB0aGUgc2tiJ3MgcHJvdG9jb2wgYW5k
+IHRoZSBmYWN0IHRoYXQgaXQgaXMgQ0hFQ0tTVU1fUEFSVElBTC4NCg0KQW5vdGhlciB0aGluZyB0
+aGF0IGNvbmZ1c2VzIG1lIGlzIHRoZSBmZWF0dXJlIHRlc3QgaW4gdGhpcyBwYXRjaC4gIEl0IGNo
+ZWNrcyAocnQtPmRzdC5kZXYtPmZlYXR1cmVzICYgTkVUSUZfRl9WNl9DU1VNKSBidXQgTkVUSUZf
+Rl9WNl9DU1VNIGlzIGEgdHdvIGJpdCBmaWVsZD8gIA0KDQojZGVmaW5lIE5FVElGX0ZfVjZfQ1NV
+TSAgICAgICAgIChORVRJRl9GX0dFTl9DU1VNIHwgTkVUSUZfRl9JUFY2X0NTVU0pDQoNClNvIHRo
+ZSB0ZXN0IHdvdWxkIHN1Y2NlZWQgaWYgZWl0aGVyIGJpdCB3YXMgaGlnaCwgdGhhdCBkb2Vzbid0
+IHNlZW0gcmlnaHQuICBJIGNjJ2QgdGhlIGF1dGhvciBzbyBtYXliZSBoZSBjb3VsZCBjbHVlIHVz
+IGluLg0KDQpUaGFua3MsDQotRG9uIFNraWRtb3JlIDxkb25hbGQuYy5za2lkbW9yZUBpbnRlbC5j
+b20+DQoNCg0K
