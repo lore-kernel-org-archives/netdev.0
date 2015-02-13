@@ -1,51 +1,46 @@
 From: yzhu1 <Yanjun.Zhu@windriver.com>
-Subject: Re: [PATCH net-next 1/3] ipv4: Raise tcp PMTU probe mss base size
-Date: Fri, 13 Feb 2015 17:49:37 +0800
-Message-ID: <54DDC8B1.1050307@windriver.com>
-References: <1423815405-32644-1-git-send-email-fan.du@intel.com> <1423815405-32644-2-git-send-email-fan.du@intel.com>
+Subject: If bridge have no sub-interfaces, it's status may be still with 'RUNNING'
+Date: Fri, 13 Feb 2015 17:57:45 +0800
+Message-ID: <54DDCA99.4040401@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Type: text/plain; charset="utf-8"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <fengyuleidian0615@gmail.com>
-To: Fan Du <fan.du@intel.com>, <davem@davemloft.net>
+To: netdev <netdev@vger.kernel.org>,
+	"Wu, Kuaikuai" <Kuaikuai.Wu@windriver.com>,
+	"Tao, Yue" <Yue.Tao@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:38644 "EHLO
+Received: from mail1.windriver.com ([147.11.146.13]:38758 "EHLO
 	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751655AbbBMJtc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Feb 2015 04:49:32 -0500
-In-Reply-To: <1423815405-32644-2-git-send-email-fan.du@intel.com>
+	with ESMTP id S1751786AbbBMJ5h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Feb 2015 04:57:37 -0500
+Received: from ALA-HCA.corp.ad.wrs.com (ala-hca.corp.ad.wrs.com [147.11.189.40])
+	by mail1.windriver.com (8.14.9/8.14.5) with ESMTP id t1D9vbu3021802
+	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=FAIL)
+	for <netdev@vger.kernel.org>; Fri, 13 Feb 2015 01:57:37 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-backward compatible? :-D
+Hi, all
 
+I made this test on ubuntu 14.04 with kernel 3,19-rc7:
+
+1. brctl addbr br0
+
+2. ifconfig br0 up
+
+3. ifconfig br0 (br0's status is with 'RUNNING')
+
+4. brctl addif br0 eth0
+
+5. brctl delif br0 eth0
+
+6. ifconfig br0 (br0's status is without 'RUNNING')
+
+When there is no sub-interface, the flag "RUNNING" is missing after the 
+last sub-interface is removed.
+
+As such, should we keep "RUNNING" flag after the last sub-interface is 
+removed?
+
+Thanks a lot.
 Zhu Yanjun
-On 02/13/2015 04:16 PM, Fan Du wrote:
-> Quotes from RFC4821 7.2.  Selecting Initial Values
->
->     It is RECOMMENDED that search_low be initially set to an MTU size
->     that is likely to work over a very wide range of environments.  Given
->     today's technologies, a value of 1024 bytes is probably safe enough.
->     The initial value for search_low SHOULD be configurable.
->
-> Moreover, set a small value will introduce extra time for the search
-> to converge. So set the initial probe base mss size to 1024 Bytes.
->
-> Signed-off-by: Fan Du <fan.du@intel.com>
-> ---
->   include/net/tcp.h |    2 +-
->   1 files changed, 1 insertions(+), 1 deletions(-)
->
-> diff --git a/include/net/tcp.h b/include/net/tcp.h
-> index 8d6b983..7b57e5b 100644
-> --- a/include/net/tcp.h
-> +++ b/include/net/tcp.h
-> @@ -65,7 +65,7 @@ void tcp_time_wait(struct sock *sk, int state, int timeo);
->   #define TCP_MIN_MSS		88U
->   
->   /* The least MTU to use for probing */
-> -#define TCP_BASE_MSS		512
-> +#define TCP_BASE_MSS		1024
->   
->   /* After receiving this amount of duplicate ACKs fast retransmit starts. */
->   #define TCP_FASTRETRANS_THRESH 3
