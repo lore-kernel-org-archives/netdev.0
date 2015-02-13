@@ -1,28 +1,33 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [PATCH 1/1] tun: change speed from 10M to dynamically configured
-Date: Fri, 13 Feb 2015 13:32:23 -0800
-Message-ID: <54DE6D67.5000601@hp.com>
-References: <1423808353-8722-1-git-send-email-Yanjun.Zhu@windriver.com> <1423808353-8722-2-git-send-email-Yanjun.Zhu@windriver.com> <20150213212830.GA29912@electric-eye.fr.zoreil.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH] rhashtable: use rht_obj() consistently
+Date: Fri, 13 Feb 2015 21:42:08 +0000
+Message-ID: <20150213214208.GB18659@casper.infradead.org>
+References: <1423860161-20875-1-git-send-email-johannes@sipsolutions.net>
+ <20150213205853.GA18659@casper.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mst@redhat.com, jasowang@redhat.com,
-	viro@zeniv.linux.org.uk, davem@davemloft.net,
-	sergei.shtylyov@cogentembedded.com, jonathon.reinhart@gmail.com
-To: Francois Romieu <romieu@fr.zoreil.com>,
-	Zhu Yanjun <Yanjun.Zhu@windriver.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Johannes Berg <johannes.berg@intel.com>
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t3425.houston.hp.com ([15.201.208.53]:9398 "EHLO
-	g4t3425.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752153AbbBMVc1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Feb 2015 16:32:27 -0500
-In-Reply-To: <20150213212830.GA29912@electric-eye.fr.zoreil.com>
+Received: from casper.infradead.org ([85.118.1.10]:56873 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752924AbbBMVmL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Feb 2015 16:42:11 -0500
+Content-Disposition: inline
+In-Reply-To: <20150213205853.GA18659@casper.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It is perhaps as much a bug in the monitoring tools as anything else, 
-but I have come across (versions of) software - such as collectl I think 
-- which when presented with counters indicating a data rate higher than 
-the reported link rate of the interface get somewhat cranky.
+On 02/13/15 at 08:58pm, Thomas Graf wrote:
+> On 02/13/15 at 09:42pm, Johannes Berg wrote:
+> > From: Johannes Berg <johannes.berg@intel.com>
+> > 
+> > Looking at the RHT code I found two places where this was
+> > done manually rather than using the rht_obj() helper, use
+> > that instead.
+> > 
+> > Signed-off-by: Johannes Berg <johannes.berg@intel.com>
+> 
+> Acked-by: Thomas Graf <tgraf@suug.ch>
 
-rick jones
+Actually, this is already "fixed" in net-next.
