@@ -1,72 +1,49 @@
-From: Linus Walleij <linus.walleij@linaro.org>
-Subject: Re: [PATCH] Revert "smc91x: retrieve IRQ and trigger flags in a
- modern way"
-Date: Fri, 13 Feb 2015 10:16:09 +0800
-Message-ID: <CACRpkdZGze_2=hWe414Eum_9hpNXgog5vmu6Y4R_zhg0x2z0SQ@mail.gmail.com>
-References: <1423760350-20149-1-git-send-email-robert.jarzmik@free.fr>
+From: yzhu1 <Yanjun.Zhu@windriver.com>
+Subject: Re: [PATCH 1/1] tun: change speed from 10M to dynamically configured
+Date: Fri, 13 Feb 2015 10:45:50 +0800
+Message-ID: <54DD655E.5020301@windriver.com>
+References: <1423719323-4667-1-git-send-email-Yanjun.Zhu@windriver.com>	<1423719323-4667-2-git-send-email-Yanjun.Zhu@windriver.com> <20150212045558.5091262a@uryu.home.lan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Nicolas Pitre <nico@fluxnic.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Robert Jarzmik <robert.jarzmik@free.fr>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1423760350-20149-1-git-send-email-robert.jarzmik@free.fr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <mst@redhat.com>, <jasowang@redhat.com>,
+	<viro@zeniv.linux.org.uk>, <davem@davemloft.net>
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.windriver.com ([147.11.1.11]:32774 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751273AbbBMCpr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Feb 2015 21:45:47 -0500
+In-Reply-To: <20150212045558.5091262a@uryu.home.lan>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 13, 2015 at 12:59 AM, Robert Jarzmik <robert.jarzmik@free.fr> wrote:
-
-> The commit breaks the legacy platforms, ie. these not using device-tree,
-> and setting up the interrupt resources with a flag to activate edge
-> detection. The issue was found on the zylonite platform.
+On 02/12/2015 08:55 PM, Stephen Hemminger wrote:
+> On Thu, 12 Feb 2015 13:35:23 +0800
+> Zhu Yanjun <Yanjun.Zhu@windriver.com> wrote:
 >
-> The reason is that zylonite uses platform resources to pass the interrupt number
-> and the irq flags (here IORESOURCE_IRQ_HIGHEDGE). It expects the driver to
-> request the irq with these flags, which in turn setups the irq as high edge
-> triggered.
+>> From: Zhu Yanjun <yanjun.zhu@windriver.com>
+>>
+>> The default speed of normal nic is 1000M while the default speed
+>> of tun is 10M. Now the default speed of tun is changed to 1000M.
+>> And there are 3 options: 10M, 100M and 1000M to the speed of tun.
+>> The command "ethtool -s tun0 speed 10/100/1000" can configure the
+>> speed of tun dynamically.
+>>
+>> CC: Michael S. Tsirkin <mst@redhat.com>
+>> CC: Jason Wang <jasowang@redhat.com>
+>> CC: Al Viro <viro@zeniv.linux.org.uk>
+>> Signed-off-by: Zhu Yanjun <yanjun.zhu@windriver.com>
+>> Signed-off-by: Zhu Yanjun <Yanjun.Zhu@windriver.com>
+> Why limit to 10/100/1000 speed?
+> Ethtool speed can be any value
+Thanks for your comments.
+
+Yes. But the real physical nic speed often 10M, 100M and 1000M.
+This simulates the physical nic.
+
+Zhu Yanjun
 >
-> After the patch, this was supposed to be taken care of with :
->   irq_resflags = irqd_get_trigger_type(irq_get_irq_data(ndev->irq));
+>>   
 >
-> But irq_resflags is 0 for legacy platforms, while for example in
-> arch/arm/mach-pxa/zylonite.c, in struct resource smc91x_resources[] the
-> irq flag is specified. This breaks zylonite because the interrupt is not
-> setup as triggered, and hardware doesn't provide interrupts.
 >
-> Signed-off-by: Robert Jarzmik <robert.jarzmik@free.fr>
-
-But isn't the real problem that in the device tree case,
-irq_get_irq_data(ndev->irq) will work becaus parsing an interrupt
-from the device tree populates it correctly in platform_get_irq()
-whereas for the legacy lookup it just fetches the number.
-
-So to me it seems like a weakness in the platform_get_irq()
-helper altogether.
-
-Does the following work? (I can send as a separate patch for
-testing if you like).
-
-diff --git a/drivers/base/platform.c b/drivers/base/platform.c
-index 9421fed40905..301f4b9ae908 100644
---- a/drivers/base/platform.c
-+++ b/drivers/base/platform.c
-@@ -101,6 +101,15 @@ int platform_get_irq(struct platform_device *dev,
-unsigned int num)
-     }
-
-     r = platform_get_resource(dev, IORESOURCE_IRQ, num);
-+    /*
-+     * The resources may pass trigger flags to the irqs that need
-+     * to be set up. It so happens that the trigger flags for
-+     * IORESOURCE_BITS correspond 1-to-1 to the IRQF_TRIGGER*
-+     * settings.
-+     */
-+    if (r->flags & IORESOURCE_BITS)
-+        irqd_set_trigger_type(irq_get_irq_data(r->start),
-+                      r->flags & IORESOURCE_BITS);
-
-
-Yours,
-Linus Walleij
