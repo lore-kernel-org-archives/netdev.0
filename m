@@ -1,131 +1,76 @@
-From: Zhu Yanjun <Yanjun.Zhu@windriver.com>
-Subject: [PATCH 1/1] tun: change speed from 10M to dynamically configured
-Date: Fri, 13 Feb 2015 14:19:13 +0800
-Message-ID: <1423808353-8722-2-git-send-email-Yanjun.Zhu@windriver.com>
-References: <1423808353-8722-1-git-send-email-Yanjun.Zhu@windriver.com>
+From: Mark Rustad <mrustad@gmail.com>
+Subject: Re: [PATCH] iwl4965: Enable checking of format strings
+Date: Thu, 12 Feb 2015 23:55:47 -0800
+Message-ID: <54DDAE03.4000502@gmail.com>
+References: <1423695069-23436-1-git-send-email-linux@rasmusvillemoes.dk>	<60178C37-F104-430E-92EB-B6DDFAEB2F99@intel.com> <87vbj7zb0e.fsf@rasmusvillemoes.dk>
 Mime-Version: 1.0
-Content-Type: text/plain
-To: <netdev@vger.kernel.org>, <mst@redhat.com>, <jasowang@redhat.com>,
-	<viro@zeniv.linux.org.uk>, <davem@davemloft.net>,
-	<sergei.shtylyov@cogentembedded.com>, <jonathon.reinhart@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:53027 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751236AbbBMGU1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Feb 2015 01:20:27 -0500
-In-Reply-To: <1423808353-8722-1-git-send-email-Yanjun.Zhu@windriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Stanislaw Gruszka <sgruszka@redhat.com>,
+	Kalle Valo <kvalo@codeaurora.org>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Rasmus Villemoes <linux@rasmusvillemoes.dk>,
+	"Rustad, Mark D" <mark.d.rustad@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87vbj7zb0e.fsf@rasmusvillemoes.dk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The default speed of normal nic is 1000M while the default speed
-of tun is 10M. Now the default speed of tun is changed to 1000M.
-And there are 3 options: 10M, 100M and 1000M to the speed of tun.
-The command "ethtool -s tun0 speed 10/100/1000" can configure the
-speed of tun dynamically.
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
 
-CC: Michael S. Tsirkin <mst@redhat.com>
-CC: Jason Wang <jasowang@redhat.com>
-CC: Al Viro <viro@zeniv.linux.org.uk>
-Reviewed-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Reviewed-by: Jonathon Reinhart <jonathon.reinhart@gmail.com>
-Signed-off-by: Zhu Yanjun <Yanjun.Zhu@windriver.com>
----
- drivers/net/tun.c           | 43 ++++++++++++++++++++++++++++++++++++++++++-
- include/uapi/linux/if_tun.h |  5 +++++
- 2 files changed, 47 insertions(+), 1 deletion(-)
+On 2/12/15 2:20 AM, Rasmus Villemoes wrote:
+> Rather weak arguments, but I have three of them :-)
 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index 8c8dc16..423b276 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -950,6 +950,9 @@ static void tun_net_init(struct net_device *dev)
- 		dev->addr_len = 0;
- 		dev->mtu = 1500;
- 
-+		/* Set default speed 1000M */
-+		tun->flags |= TUN_CTRL_SPD_1000;
-+
- 		/* Zero header length */
- 		dev->type = ARPHRD_NONE;
- 		dev->flags = IFF_POINTOPOINT | IFF_NOARP | IFF_MULTICAST;
-@@ -2257,9 +2260,18 @@ static struct miscdevice tun_miscdev = {
- 
- static int tun_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- {
-+	struct tun_struct *tun = netdev_priv(dev);
-+
-+	/* Get the speed of tun */
-+	if (tun->flags & TUN_CTRL_SPD_1000) {
-+		ethtool_cmd_speed_set(cmd, SPEED_1000);
-+	} else if (tun->flags & TUN_CTRL_SPD_100) {
-+		ethtool_cmd_speed_set(cmd, SPEED_100);
-+	} else
-+		ethtool_cmd_speed_set(cmd, SPEED_10);
-+
- 	cmd->supported		= 0;
- 	cmd->advertising	= 0;
--	ethtool_cmd_speed_set(cmd, SPEED_10);
- 	cmd->duplex		= DUPLEX_FULL;
- 	cmd->port		= PORT_TP;
- 	cmd->phy_address	= 0;
-@@ -2287,6 +2299,34 @@ static void tun_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *info
- 	}
- }
- 
-+static int tun_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
-+{
-+	struct tun_struct *tun = netdev_priv(dev);
-+	u32 speed = ethtool_cmd_speed(cmd);
-+	int ret = 0;
-+
-+	/* Set speed flag */
-+	switch (speed) {
-+	case 10:
-+		tun->flags &= ~(TUN_CTRL_SPD_100 | TUN_CTRL_SPD_1000);
-+		tun->flags |= TUN_CTRL_SPD_10;
-+		break;
-+	case 100:
-+		tun->flags &= ~(TUN_CTRL_SPD_10 | TUN_CTRL_SPD_1000);
-+		tun->flags |= TUN_CTRL_SPD_100;
-+		break;
-+	case 1000:
-+		tun->flags &= ~(TUN_CTRL_SPD_10 | TUN_CTRL_SPD_100);
-+		tun->flags |= TUN_CTRL_SPD_1000;
-+		break;
-+	default:
-+		ret = -EINVAL;
-+		tun_debug(KERN_INFO, tun, "wrong speed!\n");
-+	}
-+
-+	return ret;
-+}
-+
- static u32 tun_get_msglevel(struct net_device *dev)
- {
- #ifdef TUN_DEBUG
-@@ -2307,6 +2347,7 @@ static void tun_set_msglevel(struct net_device *dev, u32 value)
- 
- static const struct ethtool_ops tun_ethtool_ops = {
- 	.get_settings	= tun_get_settings,
-+	.set_settings	= tun_set_settings,
- 	.get_drvinfo	= tun_get_drvinfo,
- 	.get_msglevel	= tun_get_msglevel,
- 	.set_msglevel	= tun_set_msglevel,
-diff --git a/include/uapi/linux/if_tun.h b/include/uapi/linux/if_tun.h
-index 50ae243..78a09a7 100644
---- a/include/uapi/linux/if_tun.h
-+++ b/include/uapi/linux/if_tun.h
-@@ -66,6 +66,11 @@
- #define IFF_PERSIST	0x0800
- #define IFF_NOFILTER	0x1000
- 
-+/*add speed control, default 1000M*/
-+#define TUN_CTRL_SPD_10         0x0020
-+#define TUN_CTRL_SPD_100        0x0040
-+#define TUN_CTRL_SPD_1000       0x0080
-+
- /* Socket options */
- #define TUN_TX_TIMESTAMP 1
- 
--- 
-1.9.1
+Yes, weak. All three.
+
+> (1) If I'm reading some code and spot a non-constant format
+> argument, I sometimes track back to see how e.g. fmt_value is
+> defined. If I then see it's a macro, I immediately think "ok, the
+> compiler is doing type-checking". If it is a const char[], I have
+> to remember that gcc also does it in that case (as opposed to for
+> example const char*const).
+
+GCC should check in both cases. The case you are replacing was not
+const char * const, but only const char *. Still, the compiler really
+should check either form, even though theoretically the pointer in the
+latter case could be changed, but the initial const value should be a
+good indication of what the parameters are expected to be. No real
+reason for the compiler not to check it.
+
+> (2) The names of these variables themselves may end up wasting a
+> few bytes in the image.
+
+Maybe in a debug image, but they should be stripped from any normal
+image. Really not a factor.
+
+> (3) gcc/the linker doesn't merge identical const char[] arrays
+> across translation units. It also doesn't consider their tails for
+> merging with string literals. So although these specific strings
+> are unlikely to appear elsewhere, a string such as "%10u\n" or
+> "max\n" couldn't be merged with one of the above.
+
+I haven't checked, but there is no theoretical reason that const char
+[] items could not be merged exactly as the literals are. Considering
+the boundaries the compiler guys push on optimization, doing such
+merging would be tame by comparison (speculative stores make me crazy).
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG/MacGPG2 v2.0.20 (Darwin)
+Comment: GPGTools - http://gpgtools.org
+
+iQIcBAEBAgAGBQJU3a3+AAoJEDwO/+eO4+5unvMP/jwxA4GmwC0d3VdGsVTJkMVd
+zg+jwbkhnMiaEj6uPAwV5LXV/IGyuYFgNjoiNDg9RD3trV9/3YAxdAKw1ffO+PWe
+lnmXSxaapLlCTapOsUdXPg88z9muQKrcfhnGyi+jt3BFeccXgtlHLsR0qVa4ddJw
+KVHByPg+AlTSNzSnROxHH3UAbxEuZmDy+g+xfbEFLCKNCgtrSX5jGyG2vJIY3lhF
+40VIdriUHz1QW4C1YYeJWMKwzml7Kln3u0T5MfDEtDfy6n7hiBhHczEgPjf7dnzd
+aY4+VtKTyjPWLRhyDoJfR9maaV9TsYHpheSuUVzAGwvb85wH32ugdfmcW2RPnRfC
+n9ThhtWd1WdJJpmq0xhLjc9bc3nrxJO8b2J/GMsT6SjGBhPGaaJSWY37UPhhOJOj
+akKkA6QwD0u6Yoc3de7unGsiKWayD7e2k3w3bus+kCSspmyn/OnkzZRc0X3nXd20
+suAWNZTalLWioqvI/hyvH3GMZxIuHTJoLRpTm+K7BQs7gBM9pD7OJOpn7XLtk2PM
+zPfEj8fAUMV17lzFdBP+M+pGT3HzjWVwTIUgujdA4vL6eqB1W+3fR7kqjUuQYc69
+aBaMde//i+HUPzTHZht2qXEb6K9EvSsz/XlhQrtAyu2gYY8PwchdZXH0NbAGqJ9C
+4BEAO4HYJijd4vVSNBFO
+=utge
+-----END PGP SIGNATURE-----
