@@ -1,52 +1,51 @@
-From: Imre Palik <imrep.amz@gmail.com>
-Subject: Re: [PATCH] bridge: make it possible for packets to traverse the
- bridge withour hitting netfilter
-Date: Fri, 13 Feb 2015 17:08:20 +0100
-Message-ID: <54DE2174.6040001@gmail.com>
-References: <1423560744-19011-1-git-send-email-imrep.amz@gmail.com> <20150211.142936.951620487173949333.davem@davemloft.net>
+From: Robert Jarzmik <robert.jarzmik@free.fr>
+Subject: Re: [PATCH] Revert "smc91x: retrieve IRQ and trigger flags in a modern way"
+Date: Fri, 13 Feb 2015 17:08:40 +0100
+Message-ID: <87a90h6bg7.fsf@free.fr>
+References: <1423760350-20149-1-git-send-email-robert.jarzmik@free.fr>
+	<CACRpkdZGze_2=hWe414Eum_9hpNXgog5vmu6Y4R_zhg0x2z0SQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: bridge@lists.linux-foundation.org, stephen@networkplumber.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	imrep@amazon.de, aliguori@amazon.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Cc: Nicolas Pitre <nico@fluxnic.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel\@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Linus Walleij <linus.walleij@linaro.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150211.142936.951620487173949333.davem@davemloft.net>
+In-Reply-To: <CACRpkdZGze_2=hWe414Eum_9hpNXgog5vmu6Y4R_zhg0x2z0SQ@mail.gmail.com>
+	(Linus Walleij's message of "Fri, 13 Feb 2015 10:16:09 +0800")
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 02/11/15 23:29, David Miller wrote:
-> From: Imre Palik <imrep.amz@gmail.com>
-> Date: Tue, 10 Feb 2015 10:32:24 +0100
-> 
->> From: "Palik, Imre" <imrep@amazon.de>
->>
->> The netfilter code is made with flexibility instead of performance in mind.
->> So when all we want is to pass packets between different interfaces, the
->> performance penalty of hitting netfilter code can be considerable, even when
->> all the firewalling is disabled for the bridge.
->>
->> This change makes it possible to disable netfilter both on a per bridge basis,
->> or for the whole bridging subsystem.  In the case interesting to us, this can
->> lead to more than 10% speedup compared to the case when only bridge-iptables
->> are disabled.
->>
->> Cc: Anthony Liguori <aliguori@amazon.com>
->> Signed-off-by: Imre Palik <imrep@amazon.de>
-> 
-> Sorry, no.
-> 
-> If I apply this, someone is going to try to submit a patch for every
-> damn protocol layer to add a stupid hack like this.
+Linus Walleij <linus.walleij@linaro.org> writes:
 
-Actually this is one of those patches.  There is already a "stupid hack like this" for iptables and arptables.  (Implemented before git history, and giving me 10% speedup.  Many thanks, whoever did it.)
+> On Fri, Feb 13, 2015 at 12:59 AM, Robert Jarzmik <robert.jarzmik@free.fr> wrote:
+>
+> But isn't the real problem that in the device tree case,
+> irq_get_irq_data(ndev->irq) will work becaus parsing an interrupt
+> from the device tree populates it correctly in platform_get_irq()
+> whereas for the legacy lookup it just fetches the number.
+>
+> So to me it seems like a weakness in the platform_get_irq()
+> helper altogether.
+>
+> Does the following work? (I can send as a separate patch for
+> testing if you like).
 
-I also searched various LKML archives, and it seems the existing "stupid hacks" for iptables and arptables haven't resulted in any related patch submission in the last ten years.  (Or my google-fu is weak.)
+Almost. If you replace :
+> +    if (r->flags & IORESOURCE_BITS)
+with:
+> +    if (r && (r->flags & IORESOURCE_BITS))
 
-Moreover, I cannot imagine any other reasonable on/off switch for bridge-netfilter than these three.  Of course, my imagination might be lacking there.
+Then you can push a patch with my:
+Tested-by: Robert Jarzmik <robert.jarzmik@free.fr>
 
-> Makw NF_HOOK() faster instead.
+Now if you can make it in -rc2 or -rc3, this revert should be forgotten. But if
+you can't make it for 3.20, I'll push for the revert.
 
-As far as I see, flexibility implies trashing the cache/TLB.  So it is impossible to have flexibility and performance at the same time.
-(Except possibly with self modifying code, but that has its own set of problems.)
+So I think it's up to you now, and let's see what Gregh says about it.
+
+Cheers.
+
+--
+Robert
