@@ -1,116 +1,54 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH 3/5] virtio: Don't expose legacy net features when
- VIRTIO_NET_NO_LEGACY defined.
-Date: Sat, 14 Feb 2015 21:43:26 +0100
-Message-ID: <20150214204326.GA31803@redhat.com>
-References: <1423199216-2094-1-git-send-email-rusty@rustcorp.com.au>
- <1423199216-2094-4-git-send-email-rusty@rustcorp.com.au>
- <20150208105908.GI3185@redhat.com>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [PATCH net-next] tcp: do not pace pure ack packets
+Date: Sat, 14 Feb 2015 22:45:18 +0200
+Message-ID: <CAJ3xEMiB-qGF0C9tPEQHA5gqAF9JyMeOeSuUprb9N7HtVgRh1g@mail.gmail.com>
+References: <1423017113.907.76.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: lkml <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Rusty Russell <rusty@rustcorp.com.au>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150208105908.GI3185@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Kenneth Klette Jonassen <kennetkl@ifi.uio.no>,
+	john fastabend <john.fastabend@gmail.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f171.google.com ([209.85.214.171]:35941 "EHLO
+	mail-ob0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754225AbbBNUpS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 Feb 2015 15:45:18 -0500
+Received: by mail-ob0-f171.google.com with SMTP id gq1so31102462obb.2
+        for <netdev@vger.kernel.org>; Sat, 14 Feb 2015 12:45:18 -0800 (PST)
+In-Reply-To: <1423017113.907.76.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Feb 08, 2015 at 11:59:08AM +0100, Michael S. Tsirkin wrote:
-> On Fri, Feb 06, 2015 at 03:36:54PM +1030, Rusty Russell wrote:
-> > In particular, the virtio header always has the u16 num_buffers field.
-> > We define a new 'struct virtio_net_modern_hdr' for this (rather than
-> > simply calling it 'struct virtio_net_hdr', to avoid nasty type errors
-> > if some parts of a project define VIRTIO_NET_NO_LEGACY and some don't.
-> > 
-> > Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
-> > ---
-> >  include/uapi/linux/virtio_net.h | 30 ++++++++++++++++++++++++++++--
-> >  1 file changed, 28 insertions(+), 2 deletions(-)
-> > 
-> > diff --git a/include/uapi/linux/virtio_net.h b/include/uapi/linux/virtio_net.h
-> > index b5f1677b291c..32754f3000e8 100644
-> > --- a/include/uapi/linux/virtio_net.h
-> > +++ b/include/uapi/linux/virtio_net.h
-> > @@ -35,7 +35,6 @@
-> >  #define VIRTIO_NET_F_CSUM	0	/* Host handles pkts w/ partial csum */
-> >  #define VIRTIO_NET_F_GUEST_CSUM	1	/* Guest handles pkts w/ partial csum */
-> >  #define VIRTIO_NET_F_MAC	5	/* Host has given MAC address. */
-> > -#define VIRTIO_NET_F_GSO	6	/* Host handles pkts w/ any GSO type */
-> >  #define VIRTIO_NET_F_GUEST_TSO4	7	/* Guest can handle TSOv4 in. */
-> >  #define VIRTIO_NET_F_GUEST_TSO6	8	/* Guest can handle TSOv6 in. */
-> >  #define VIRTIO_NET_F_GUEST_ECN	9	/* Guest can handle TSO[6] w/ ECN in. */
-> > @@ -56,6 +55,10 @@
-> >  					 * Steering */
-> >  #define VIRTIO_NET_F_CTRL_MAC_ADDR 23	/* Set MAC address */
-> >  
-> > +#ifndef VIRTIO_NET_NO_LEGACY
-> > +#define VIRTIO_NET_F_GSO	6	/* Host handles pkts w/ any GSO type */
-> > +#endif /* VIRTIO_NET_NO_LEGACY */
-> > +
-> >  #define VIRTIO_NET_S_LINK_UP	1	/* Link is up */
-> >  #define VIRTIO_NET_S_ANNOUNCE	2	/* Announcement is needed */
-> >  
-> > @@ -71,8 +74,9 @@ struct virtio_net_config {
-> >  	__u16 max_virtqueue_pairs;
-> >  } __attribute__((packed));
-> >  
-> > +#ifndef VIRTIO_NET_NO_LEGACY
-> >  /* This header comes first in the scatter-gather list.
-> > - * If VIRTIO_F_ANY_LAYOUT is not negotiated, it must
-> > + * For legacy virtio, if VIRTIO_F_ANY_LAYOUT is not negotiated, it must
-> >   * be the first element of the scatter-gather list.  If you don't
-> >   * specify GSO or CSUM features, you can simply ignore the header. */
-> >  struct virtio_net_hdr {
-> > @@ -97,6 +101,28 @@ struct virtio_net_hdr_mrg_rxbuf {
-> >  	struct virtio_net_hdr hdr;
-> >  	__virtio16 num_buffers;	/* Number of merged rx buffers */
-> >  };
-> > +#else /* ... VIRTIO_NET_NO_LEGACY */
-> > +/*
-> > + * This header comes first in the scatter-gather list.  If you don't
-> > + * specify GSO or CSUM features, you can simply ignore the header.
-> > + */
-> > +struct virtio_net_modern_hdr {
-> > +#define VIRTIO_NET_HDR_F_NEEDS_CSUM	1	/* Use csum_start, csum_offset */
-> > +#define VIRTIO_NET_HDR_F_DATA_VALID	2	/* Csum is valid */
-> > +	__u8 flags;
-> > +#define VIRTIO_NET_HDR_GSO_NONE		0	/* Not a GSO frame */
-> > +#define VIRTIO_NET_HDR_GSO_TCPV4	1	/* GSO frame, IPv4 TCP (TSO) */
-> > +#define VIRTIO_NET_HDR_GSO_UDP		3	/* GSO frame, IPv4 UDP (UFO) */
-> > +#define VIRTIO_NET_HDR_GSO_TCPV6	4	/* GSO frame, IPv6 TCP */
-> > +#define VIRTIO_NET_HDR_GSO_ECN		0x80	/* TCP has ECN set */
-> > +	__u8 gso_type;
-> > +	__virtio16 hdr_len;	/* Ethernet + IP + tcp/udp hdrs */
-> > +	__virtio16 gso_size;	/* Bytes to append to hdr_len per frame */
-> > +	__virtio16 csum_start;	/* Position to start checksumming from */
-> > +	__virtio16 csum_offset;	/* Offset after that to place checksum */
-> > +	__virtio16 num_buffers;	/* Number of merged rx buffers */
-> > +};
-> > +#endif /* ...VIRTIO_NET_NO_LEGACY */
-> 
-> This kind of masks the fact that it's the same as
-> virtio_net_hdr_mrg_rxbuf. So it's forcing people to duplicate
-> code for transitional devices.
-> 
-> How about
-> struct virtio_net_modern_hdr {
-> 	struct virtio_net_hdr_mrg_rxbuf hdr;
-> }
-> 
-> 
-> This will also make it look nicer when we start
-> adding stuff in the header, the main header
-> is separated in a struct by its own, so it's
-> easy to apply operations such as sizeof.
+On Wed, Feb 4, 2015 at 4:31 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> From: Eric Dumazet <edumazet@google.com>
+>
+> When we added pacing to TCP, we decided to let sch_fq take care
+> of actual pacing.
+>
+> All TCP had to do was to compute sk->pacing_rate using simple formula:
+>
+> sk->pacing_rate = 2 * cwnd * mss / rtt
+>
+> It works well for senders (bulk flows), but not very well for receivers
+> or even RPC :
+>
+> cwnd on the receiver can be less than 10, rtt can be around 100ms, so we
+> can end up pacing ACK packets, slowing down the sender.
+> Really, only the sender should pace, according to its own logic.
 
-Ping.
-Would you like a patch on top that does this?
+[...]
 
+> This patch is a combination of two patches we used for about one year at Google.
 
-> 
-> >  /*
-> >   * Control virtqueue data structures
-> > -- 
-> > 2.1.0
+Wow, so what is the black box impact on systems running without the
+fix, pacing works but also un-needed slow downs
+are introduced, right?
+
+Sounds to me as something we really want to push into -stable, isn't that?
+
+Do you think we need to let the patch rot for a while in 3.20-rc or we
+can do it right away?
+
+Or
