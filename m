@@ -1,13 +1,11 @@
 From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
 Subject: Re: [PATCH v3 linux-trace 1/8] tracing: attach eBPF programs to
  tracepoints and syscalls
-Date: Sat, 14 Feb 2015 17:48:58 -0500
-Message-ID: <CAMEtUuyLU5i4LW=ugTkOc4b2KLfo3cQhZe1pp+fLmq3qNfGQfg@mail.gmail.com>
+Date: Sat, 14 Feb 2015 17:54:18 -0500
+Message-ID: <CAMEtUuzP9RBaaWr7d1qkFB_fukK44hALvFyxY=x95TKqw8q-Jg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
-	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Namhyung Kim <namhyung-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+Cc: Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Namhyung Kim <namhyung-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
 	Arnaldo Carvalho de Melo <acme-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
 	Jiri Olsa <jolsa-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
 	Masami Hiramatsu <masami.hiramatsu.pt-FCd8Q96Dh0JBDgjK7y7TUQ@public.gmane.org>,
@@ -15,24 +13,53 @@ Cc: Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
 	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
 	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
 	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
 	"Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
-To: Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
+To: Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>
 Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Feb 11, 2015 at 5:28 AM, Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org> wrote:
+On Wed, Feb 11, 2015 at 7:51 AM, Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org> wrote:
+> On Tue, 10 Feb 2015 22:33:05 -0800
+> Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org> wrote:
 >
-> We're compiling the BPF stuff against the 'current' kernel headers
-> right?
+>
+>> fair enough.
+>> Something like TRACE_MARKER(arg1, arg2) that prints
+>> it was hit without accessing the args would be enough.
+>> Without any args it is indeed a 'fast kprobe' only.
+>> Debug info would still be needed to access
+>> function arguments.
+>> On x64 function entry point and x64 abi make it easy
+>> to access args, but i386 or kprobe in the middle
+>> lose visibility when debug info is not available.
+>> TRACE_MARKER (with few key args that function
+>> is operating on) is enough to achieve roughly the same
+>> as kprobe without debug info.
+>
+> Actually, what about a TRACE_EVENT_DEBUG(), that has a few args and
+> possibly a full trace event layout.
+>
+> The difference would be that the trace events do not show up unless you
+> have "trace_debug" on the command line. This should prevent
+> applications from depending on them.
+>
+> I could even do the nasty dmesg output like I do with trace_printk()s,
+> that would definitely keep a production kernel from adding it by
+> default.
+>
+> When trace_debug is not there, the trace points could still be accessed
+> but perhaps only via bpf, or act like a simple trace marker.
 
-the tracex1 example is pulling kernel headers to demonstrate
-how bpf_fetch*() helpers can be used to walk kernel structures
-without debug info.
-The other examples don't need any internal headers.
+I think that is a great idea!
+Makes it clear that all prints are for debugging and
+no abi guarantees.
 
-> So would enforcing module versioning not be sufficient?
+> Note, if you need ids, I rather have them in another directory than
+> tracefs. Make a eventfs perhaps that holds these. I rather keep tracefs
+> simple.
 
-I'm going to redo the ex1 to use kprobe and some form of
-version check. Indeed module-like versioning should
-be enough.
+indeed. makes sense. no reason to burn fs memory just
+to get an id from name. may be perf_event api can be
+extended to lookup id from name. I think perf will benefit as well.
