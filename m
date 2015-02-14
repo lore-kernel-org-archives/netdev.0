@@ -1,72 +1,72 @@
 From: Joe Stringer <joestringer@nicira.com>
-Subject: [RFC net-next 1/4] openvswitch: Serialize acts with original netlink len.
-Date: Sat, 14 Feb 2015 00:13:50 -0800
-Message-ID: <1423901633-53789-2-git-send-email-joestringer@nicira.com>
-References: <1423901633-53789-1-git-send-email-joestringer@nicira.com>
+Subject: [RFC net-next 0/4] OVS conntrack support
+Date: Sat, 14 Feb 2015 00:13:49 -0800
+Message-ID: <1423901633-53789-1-git-send-email-joestringer@nicira.com>
 Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
 	Justin Pettit <jpettit@nicira.com>,
 	Thomas Graf <tgraf@suug.ch>, dev@openvswitch.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog130.obsmtp.com ([74.125.149.143]:46786 "HELO
-	na3sys009aog130.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753519AbbBNIOA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 Feb 2015 03:14:00 -0500
-Received: by mail-ig0-f177.google.com with SMTP id z20so15066868igj.4
-        for <netdev@vger.kernel.org>; Sat, 14 Feb 2015 00:14:00 -0800 (PST)
-In-Reply-To: <1423901633-53789-1-git-send-email-joestringer@nicira.com>
+Received: from na3sys009aog123.obsmtp.com ([74.125.149.149]:43954 "HELO
+	na3sys009aog123.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1753519AbbBNIN7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 Feb 2015 03:13:59 -0500
+Received: by mail-ie0-f179.google.com with SMTP id rl12so22226529iec.4
+        for <netdev@vger.kernel.org>; Sat, 14 Feb 2015 00:13:58 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Previously, we used the kernel-internal netlink actions length to
-calculate the size of messages to serialize back to userspace.
-However,the sw_flow_actions may not be formatted exactly the same as the
-actions on the wire, so store the original actions length when
-de-serializing and re-use the original length when serializing.
+This is the latest in a series of RFCs for allowing OVS to send packets through
+the Linux kernel connection tracker, and subsequently match on fields populated
+by conntrack.
 
-Signed-off-by: Joe Stringer <joestringer@nicira.com>
----
- net/openvswitch/datapath.c     |    2 +-
- net/openvswitch/flow.h         |    1 +
- net/openvswitch/flow_netlink.c |    1 +
- 3 files changed, 3 insertions(+), 1 deletion(-)
+As for outstanding comments from previous versions:
+- IP frag is not yet addressed. These packets are passed directly to conntrack
+  without reassembly.
+- If there are other comments that I have missed, please re-raise them as they
+  have likely fallen off my radar.
 
-diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-index ae5e77c..c8c60c5 100644
---- a/net/openvswitch/datapath.c
-+++ b/net/openvswitch/datapath.c
-@@ -700,7 +700,7 @@ static size_t ovs_flow_cmd_msg_size(const struct sw_flow_actions *acts,
- 
- 	/* OVS_FLOW_ATTR_ACTIONS */
- 	if (should_fill_actions(ufid_flags))
--		len += nla_total_size(acts->actions_len);
-+		len += nla_total_size(acts->orig_len);
- 
- 	return len
- 		+ nla_total_size(sizeof(struct ovs_flow_stats)) /* OVS_FLOW_ATTR_STATS */
-diff --git a/net/openvswitch/flow.h b/net/openvswitch/flow.h
-index a076e44..998401a 100644
---- a/net/openvswitch/flow.h
-+++ b/net/openvswitch/flow.h
-@@ -209,6 +209,7 @@ struct sw_flow_id {
- 
- struct sw_flow_actions {
- 	struct rcu_head rcu;
-+	size_t orig_len;	/* From flow_cmd_new netlink actions size */
- 	u32 actions_len;
- 	struct nlattr actions[];
- };
-diff --git a/net/openvswitch/flow_netlink.c b/net/openvswitch/flow_netlink.c
-index 993281e..4d9eecf 100644
---- a/net/openvswitch/flow_netlink.c
-+++ b/net/openvswitch/flow_netlink.c
-@@ -1543,6 +1543,7 @@ static struct sw_flow_actions *nla_alloc_flow_actions(int size, bool log)
- 		return ERR_PTR(-ENOMEM);
- 
- 	sfa->actions_len = 0;
-+	sfa->orig_len = size;
- 	return sfa;
- }
- 
+The latest userspace code is available below. It has an initial test in the
+"check-kernel" suite to test allowing all traffic in one direction and only
+replies in the other direction. I plan to extend these to test "related" using
+the ftp conntrack module, and check matching on conn fields. The branch does
+not have support for matching connection state invalid yet.
+
+https://github.com/justinpettit/ovs/tree/conntrack
+
+Changes with this series:
+- Rebase to net-next.
+- Add conn_zone field to the flow key.
+- Refactor conntrack changes into net/openvswitch/ovs_conntrack.*.
+- Don't allow set_field() actions to change conn_state, conn_zone.
+- Add OVS_CS_F_* flags to indicate connection state for OVS userspace
+  abstraction.
+- Add "invalid" connection state, which is set if conntrack fails to identify
+  the connection..
+
+Joe Stringer (2):
+  openvswitch: Serialize acts with original netlink len.
+  openvswitch: Move MASKED* macros to datapath.h.
+
+Justin Pettit (2):
+  openvswitch: Add conntrack action.
+  openvswitch: Allow matching on conntrack mark.
+
+ include/uapi/linux/openvswitch.h |   37 ++++
+ net/openvswitch/Kconfig          |   11 ++
+ net/openvswitch/Makefile         |    1 +
+ net/openvswitch/actions.c        |   62 ++++---
+ net/openvswitch/conntrack.c      |  368 ++++++++++++++++++++++++++++++++++++++
+ net/openvswitch/conntrack.h      |   85 +++++++++
+ net/openvswitch/datapath.c       |   20 ++-
+ net/openvswitch/datapath.h       |    4 +
+ net/openvswitch/flow.c           |    4 +
+ net/openvswitch/flow.h           |    4 +
+ net/openvswitch/flow_netlink.c   |   92 ++++++++--
+ net/openvswitch/flow_netlink.h   |    4 +-
+ 12 files changed, 641 insertions(+), 51 deletions(-)
+ create mode 100644 net/openvswitch/conntrack.c
+ create mode 100644 net/openvswitch/conntrack.h
+
 -- 
 1.7.10.4
