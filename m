@@ -1,69 +1,56 @@
-From: Mahesh Bandewar <maheshb@google.com>
-Subject: Re: Fw: [Bug 93011] New: boilerplate IPVLAN Kconfig
-Date: Sat, 14 Feb 2015 10:40:27 -0800
-Message-ID: <CAF2d9jgcT4MaCDjmDVTAR8VKZroitM0rt4+PoPWp6ic0E9U98A@mail.gmail.com>
-References: <20150209224913.24e48ffa@uryu.home.lan>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: [PATCH net-next] net: spelling fixes
+Date: Sat, 14 Feb 2015 13:47:54 -0500
+Message-ID: <20150214134754.07a6aed8@uryu.home.lan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: linux-netdev <netdev@vger.kernel.org>
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f175.google.com ([209.85.214.175]:61091 "EHLO
-	mail-ob0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754149AbbBNSks (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 Feb 2015 13:40:48 -0500
-Received: by mail-ob0-f175.google.com with SMTP id va2so30651370obc.6
-        for <netdev@vger.kernel.org>; Sat, 14 Feb 2015 10:40:48 -0800 (PST)
-In-Reply-To: <20150209224913.24e48ffa@uryu.home.lan>
+Received: from mail-ie0-f180.google.com ([209.85.223.180]:37763 "EHLO
+	mail-ie0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754181AbbBNSr5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 Feb 2015 13:47:57 -0500
+Received: by iecrl12 with SMTP id rl12so24014470iec.4
+        for <netdev@vger.kernel.org>; Sat, 14 Feb 2015 10:47:57 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-sure I'll send a patch correcting that soon.
+Spelling errors caught by codespell.
 
-On Mon, Feb 9, 2015 at 10:49 PM, Stephen Hemminger
-<stephen@networkplumber.org> wrote:
->
->
-> Begin forwarded message:
->
-> Date: Mon, 9 Feb 2015 22:06:03 +0000
-> From: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla.kernel.org>
-> To: "shemminger@linux-foundation.org" <shemminger@linux-foundation.org>
-> Subject: [Bug 93011] New: boilerplate IPVLAN Kconfig
->
->
-> https://bugzilla.kernel.org/show_bug.cgi?id=93011
->
->             Bug ID: 93011
->            Summary: boilerplate IPVLAN Kconfig
->            Product: Networking
->            Version: 2.5
->     Kernel Version: 3.19
->           Hardware: All
->                 OS: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: low
->           Priority: P1
->          Component: Other
->           Assignee: shemminger@linux-foundation.org
->           Reporter: bugzilla.kernel.bpeb@manchmal.in-ulm.de
->         Regression: No
->
-> Hi there,
->
-> 3.19 introduced a new option IPVLAN, however the text in
-> drivers/net/Kconfig still contains a template:
->
-> |      Ipvlan devices can be added using the "ip" command from the
-> |      iproute2 package starting with the iproute2-X.Y.ZZ release:
->
-> Please update to the appropriate version number.
->
-> --
-> You are receiving this mail because:
-> You are the assignee for the bug.
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+
+--- a/net/core/filter.c	2015-02-14 13:43:49.650827618 -0500
++++ b/net/core/filter.c	2015-02-14 13:43:49.646827774 -0500
+@@ -531,7 +531,7 @@ do_pass:
+ 			*insn = BPF_LDX_MEM(BPF_W, BPF_REG_A, BPF_REG_CTX, fp->k);
+ 			break;
+ 
+-		/* Unkown instruction. */
++		/* Unknown instruction. */
+ 		default:
+ 			goto err;
+ 		}
+--- a/net/core/pktgen.c	2015-02-14 13:43:49.650827618 -0500
++++ b/net/core/pktgen.c	2015-02-14 13:43:49.650827618 -0500
+@@ -97,7 +97,7 @@
+  * New xmit() return, do_div and misc clean up by Stephen Hemminger
+  * <shemminger@osdl.org> 040923
+  *
+- * Randy Dunlap fixed u64 printk compiler waring
++ * Randy Dunlap fixed u64 printk compiler warning
+  *
+  * Remove FCS from BW calculation.  Lennert Buytenhek <buytenh@wantstofly.org>
+  * New time handling. Lennert Buytenhek <buytenh@wantstofly.org> 041213
+--- a/net/ipv4/devinet.c	2015-02-14 13:43:49.650827618 -0500
++++ b/net/ipv4/devinet.c	2015-02-14 13:43:49.650827618 -0500
+@@ -1186,7 +1186,7 @@ __be32 inet_select_addr(const struct net
+ no_in_dev:
+ 
+ 	/* Not loopback addresses on loopback should be preferred
+-	   in this case. It is importnat that lo is the first interface
++	   in this case. It is important that lo is the first interface
+ 	   in dev_base list.
+ 	 */
+ 	for_each_netdev_rcu(net, dev) {
