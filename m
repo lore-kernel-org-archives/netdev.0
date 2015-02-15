@@ -1,73 +1,157 @@
-From: "Wu, Kuaikuai" <Kuaikuai.Wu@windriver.com>
-Subject: RE: If bridge have no sub-interfaces, it's status may be still with
- 'RUNNING'
-Date: Sun, 15 Feb 2015 07:49:41 +0000
-Message-ID: <813DA48C685B544CA1188C3B9775C63571E47DCD@ALA-MBA.corp.ad.wrs.com>
-References: <54DDCA99.4040401@windriver.com>
- <20150213133056.3944c13e@uryu.home.lan>
+From: Sriharsha Basavapatna <sriharsha.basavapatna@emulex.com>
+Subject: [PATCH net-next 3/4] be2net: Minor code cleanup in tx completion process
+Date: Sun, 15 Feb 2015 13:15:26 +0530
+Message-ID: <1423986327-10069-4-git-send-email-sriharsha.basavapatna@emulex.com>
+References: <1423986327-10069-1-git-send-email-sriharsha.basavapatna@emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: netdev <netdev@vger.kernel.org>, "Tao, Yue" <Yue.Tao@windriver.com>
-To: Stephen Hemminger <stephen@networkplumber.org>,
-	"Zhu, Yanjun" <Yanjun.Zhu@windriver.com>
+Content-Type: text/plain
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:39655 "EHLO
-	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751778AbbBOHto convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Feb 2015 02:49:44 -0500
-In-Reply-To: <20150213133056.3944c13e@uryu.home.lan>
-Content-Language: en-US
+Received: from cmexedge1.emulex.com ([138.239.224.99]:21190 "EHLO
+	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754382AbbBOHxs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Feb 2015 02:53:48 -0500
+In-Reply-To: <1423986327-10069-1-git-send-email-sriharsha.basavapatna@emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Stephen,
-  When we up a bridge without sub-interfaces,  it has "RUNNING" flag as below. Is it correct or not?
+- To avoid multiple accesses to CQE, extract compl_status and end_idx from
+  be_tx_compl_get().
 
-1. brctl addbr br0
-2. ifconfig br0 up
-3. ifconfig br0 
-br0 Link encap:Ethernet HWaddr e6:6c:84:a6:fc:64 
-          inet6 addr: fe80::e46c:84ff:fea6:fc64/64 Scope:Link 
-          UP BROADCAST RUNNING MULTICAST MTU:1500 Metric:1 
-          RX packets:0 errors:0 dropped:0 overruns:0 frame:0 
-          TX packets:2 errors:0 dropped:0 overruns:0 carrier:0 
-          collisions:0 txqueuelen:0 
-          RX bytes:0 (0.0 B) TX bytes:168 (168.0 B)
+Signed-off-by: Sriharsha Basavapatna <sriharsha.basavapatna@emulex.com>
+---
+ drivers/net/ethernet/emulex/benet/be.h      |  7 +++++
+ drivers/net/ethernet/emulex/benet/be_main.c | 47 +++++++++++++++--------------
+ 2 files changed, 31 insertions(+), 23 deletions(-)
 
-Best Regards
-Kuaikuai Wu
-
------Original Message-----
-From: Stephen Hemminger [mailto:stephen@networkplumber.org] 
-Sent: Saturday, February 14, 2015 2:31 AM
-To: Zhu, Yanjun
-Cc: netdev; Wu, Kuaikuai; Tao, Yue
-Subject: Re: If bridge have no sub-interfaces, it's status may be still with 'RUNNING'
-
-On Fri, 13 Feb 2015 17:57:45 +0800
-yzhu1 <Yanjun.Zhu@windriver.com> wrote:
-
-> Hi, all
-> 
-> I made this test on ubuntu 14.04 with kernel 3,19-rc7:
-> 
-> 1. brctl addbr br0
-> 
-> 2. ifconfig br0 up
-> 
-> 3. ifconfig br0 (br0's status is with 'RUNNING')
-> 
-> 4. brctl addif br0 eth0
-> 
-> 5. brctl delif br0 eth0
-> 
-> 6. ifconfig br0 (br0's status is without 'RUNNING')
-> 
-> When there is no sub-interface, the flag "RUNNING" is missing after 
-> the last sub-interface is removed.
-> 
-> As such, should we keep "RUNNING" flag after the last sub-interface is 
-> removed?
-
-This is intentional. If there are no active ports in bridge, then we want to tell applications that packets will go nowhere.
+diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
+index bc7f3d6..ad33bf1 100644
+--- a/drivers/net/ethernet/emulex/benet/be.h
++++ b/drivers/net/ethernet/emulex/benet/be.h
+@@ -238,10 +238,17 @@ struct be_tx_stats {
+ 	struct u64_stats_sync sync_compl;
+ };
+ 
++/* Structure to hold some data of interest obtained from a TX CQE */
++struct be_tx_compl_info {
++	u8 status;		/* Completion status */
++	u16 end_index;		/* Completed TXQ Index */
++};
++
+ struct be_tx_obj {
+ 	u32 db_offset;
+ 	struct be_queue_info q;
+ 	struct be_queue_info cq;
++	struct be_tx_compl_info txcp;
+ 	/* Remember the skbs that were transmitted */
+ 	struct sk_buff *sent_skb_list[TX_Q_LEN];
+ 	struct be_tx_stats stats;
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index 2f17937..b37b099 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -2065,18 +2065,23 @@ static void be_post_rx_frags(struct be_rx_obj *rxo, gfp_t gfp, u32 frags_needed)
+ 	}
+ }
+ 
+-static struct be_eth_tx_compl *be_tx_compl_get(struct be_queue_info *tx_cq)
++static struct be_tx_compl_info *be_tx_compl_get(struct be_tx_obj *txo)
+ {
+-	struct be_eth_tx_compl *txcp = queue_tail_node(tx_cq);
++	struct be_queue_info *tx_cq = &txo->cq;
++	struct be_tx_compl_info *txcp = &txo->txcp;
++	struct be_eth_tx_compl *compl = queue_tail_node(tx_cq);
+ 
+-	if (txcp->dw[offsetof(struct amap_eth_tx_compl, valid) / 32] == 0)
++	if (compl->dw[offsetof(struct amap_eth_tx_compl, valid) / 32] == 0)
+ 		return NULL;
+ 
++	/* Ensure load ordering of valid bit dword and other dwords below */
+ 	rmb();
+-	be_dws_le_to_cpu(txcp, sizeof(*txcp));
++	be_dws_le_to_cpu(compl, sizeof(*compl));
+ 
+-	txcp->dw[offsetof(struct amap_eth_tx_compl, valid) / 32] = 0;
++	txcp->status = GET_TX_COMPL_BITS(status, compl);
++	txcp->end_index = GET_TX_COMPL_BITS(wrb_index, compl);
+ 
++	compl->dw[offsetof(struct amap_eth_tx_compl, valid) / 32] = 0;
+ 	queue_tail_inc(tx_cq);
+ 	return txcp;
+ }
+@@ -2197,9 +2202,9 @@ static void be_tx_compl_clean(struct be_adapter *adapter)
+ {
+ 	u16 end_idx, notified_idx, cmpl = 0, timeo = 0, num_wrbs = 0;
+ 	struct device *dev = &adapter->pdev->dev;
+-	struct be_tx_obj *txo;
++	struct be_tx_compl_info *txcp;
+ 	struct be_queue_info *txq;
+-	struct be_eth_tx_compl *txcp;
++	struct be_tx_obj *txo;
+ 	int i, pending_txqs;
+ 
+ 	/* Stop polling for compls when HW has been silent for 10ms */
+@@ -2210,10 +2215,10 @@ static void be_tx_compl_clean(struct be_adapter *adapter)
+ 			cmpl = 0;
+ 			num_wrbs = 0;
+ 			txq = &txo->q;
+-			while ((txcp = be_tx_compl_get(&txo->cq))) {
+-				end_idx = GET_TX_COMPL_BITS(wrb_index, txcp);
+-				num_wrbs += be_tx_compl_process(adapter, txo,
+-								end_idx);
++			while ((txcp = be_tx_compl_get(txo))) {
++				num_wrbs +=
++					be_tx_compl_process(adapter, txo,
++							    txcp->end_index);
+ 				cmpl++;
+ 			}
+ 			if (cmpl) {
+@@ -2572,7 +2577,7 @@ loop_continue:
+ 	return work_done;
+ }
+ 
+-static inline void be_update_tx_err(struct be_tx_obj *txo, u32 status)
++static inline void be_update_tx_err(struct be_tx_obj *txo, u8 status)
+ {
+ 	switch (status) {
+ 	case BE_TX_COMP_HDR_PARSE_ERR:
+@@ -2587,7 +2592,7 @@ static inline void be_update_tx_err(struct be_tx_obj *txo, u32 status)
+ 	}
+ }
+ 
+-static inline void lancer_update_tx_err(struct be_tx_obj *txo, u32 status)
++static inline void lancer_update_tx_err(struct be_tx_obj *txo, u8 status)
+ {
+ 	switch (status) {
+ 	case LANCER_TX_COMP_LSO_ERR:
+@@ -2612,22 +2617,18 @@ static inline void lancer_update_tx_err(struct be_tx_obj *txo, u32 status)
+ static void be_process_tx(struct be_adapter *adapter, struct be_tx_obj *txo,
+ 			  int idx)
+ {
+-	struct be_eth_tx_compl *txcp;
+ 	int num_wrbs = 0, work_done = 0;
+-	u32 compl_status;
+-	u16 last_idx;
++	struct be_tx_compl_info *txcp;
+ 
+-	while ((txcp = be_tx_compl_get(&txo->cq))) {
+-		last_idx = GET_TX_COMPL_BITS(wrb_index, txcp);
+-		num_wrbs += be_tx_compl_process(adapter, txo, last_idx);
++	while ((txcp = be_tx_compl_get(txo))) {
++		num_wrbs += be_tx_compl_process(adapter, txo, txcp->end_index);
+ 		work_done++;
+ 
+-		compl_status = GET_TX_COMPL_BITS(status, txcp);
+-		if (compl_status) {
++		if (txcp->status) {
+ 			if (lancer_chip(adapter))
+-				lancer_update_tx_err(txo, compl_status);
++				lancer_update_tx_err(txo, txcp->status);
+ 			else
+-				be_update_tx_err(txo, compl_status);
++				be_update_tx_err(txo, txcp->status);
+ 		}
+ 	}
+ 
+-- 
+2.2.0.65.g9abc44b
