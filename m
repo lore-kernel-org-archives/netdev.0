@@ -1,39 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] r8152: restore hw settings
-Date: Sat, 14 Feb 2015 20:16:17 -0800 (PST)
-Message-ID: <20150214.201617.380649779582234752.davem@davemloft.net>
-References: <1394712342-15778-145-Taiwan-albertk@realtek.com>
+Subject: Re: [PATCH net-next] openvswitch: Fix key serialization.
+Date: Sat, 14 Feb 2015 20:21:39 -0800 (PST)
+Message-ID: <20150214.202139.1740770935684562032.davem@davemloft.net>
+References: <1423763928-1554-1-git-send-email-pshelar@nicira.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
-	linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org
-To: hayeswang@realtek.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1394712342-15778-145-Taiwan-albertk@realtek.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, joestringer@nicira.com
+To: pshelar@nicira.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37130 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754441AbbBOEOb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 Feb 2015 23:14:31 -0500
+In-Reply-To: <1423763928-1554-1-git-send-email-pshelar@nicira.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Hayes Wang <hayeswang@realtek.com>
-Date: Thu, 12 Feb 2015 16:20:46 +0800
+From: Pravin B Shelar <pshelar@nicira.com>
+Date: Thu, 12 Feb 2015 09:58:48 -0800
 
-> There is a capability which let the hw could change the settings
-> automatically when the power change to ON. However, the USB reset
-> would reset the settings to the hw default, so the driver has to
-> restore the relative settings. Otherwise, it would influence the
-> functions of the hw, and the compatibility for the USB hub and
-> USB host controller.
+> Fix typo where mask is used rather than key.
 > 
-> The relative settings are as following.
->  - set the power down scale to 96.
->  - enable the power saving function of USB 2.0.
->  - disable the ALDPS of ECM mode.
->  - set burst mode depending on the burst size.
->  - enable the flow control of endpoint full.
->  - set fifo empty boundary to 32448 bytes.
->  - enable the function of exiting LPM when Rx OK occurs.
->  - set the connect timer to 1.
-> 
-> Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+> Fixes: 74ed7ab9264("openvswitch: Add support for unique flow IDs.")
+> Reported-by: Joe Stringer <joestringer@nicira.com>
+> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
 
 Applied.
