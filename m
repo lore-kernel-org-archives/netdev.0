@@ -1,43 +1,73 @@
-From: Joe Stringer <joestringer-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [RFC net-next 3/4] openvswitch: Add conntrack action.
-Date: Sat, 14 Feb 2015 20:47:33 -0800
-Message-ID: <CANr6G5x19zc8qK0gtPBFzMD02xMxieFqGpv9-nkKyiZ1MzSUwA@mail.gmail.com>
-References: <1423901633-53789-1-git-send-email-joestringer@nicira.com>
- <1423901633-53789-4-git-send-email-joestringer@nicira.com>
- <20150214195607.GA30752@casper.infradead.org>
+From: "Wu, Kuaikuai" <Kuaikuai.Wu@windriver.com>
+Subject: RE: If bridge have no sub-interfaces, it's status may be still with
+ 'RUNNING'
+Date: Sun, 15 Feb 2015 07:49:41 +0000
+Message-ID: <813DA48C685B544CA1188C3B9775C63571E47DCD@ALA-MBA.corp.ad.wrs.com>
+References: <54DDCA99.4040401@windriver.com>
+ <20150213133056.3944c13e@uryu.home.lan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
- Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
- Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>
-To: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <20150214195607.GA30752-FZi0V3Vbi30CUdFEqe4BF2D2FQJk+8+b@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: netdev <netdev@vger.kernel.org>, "Tao, Yue" <Yue.Tao@windriver.com>
+To: Stephen Hemminger <stephen@networkplumber.org>,
+	"Zhu, Yanjun" <Yanjun.Zhu@windriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail1.windriver.com ([147.11.146.13]:39655 "EHLO
+	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751778AbbBOHto convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Feb 2015 02:49:44 -0500
+In-Reply-To: <20150213133056.3944c13e@uryu.home.lan>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gMTQgRmVicnVhcnkgMjAxNSBhdCAxMTo1NiwgVGhvbWFzIEdyYWYgPHRncmFmQHN1dWcuY2g+
-IHdyb3RlOgo+IE9uIDAyLzE0LzE1IGF0IDEyOjEzYW0sIEpvZSBTdHJpbmdlciB3cm90ZToKPgo+
-IFsuLl0KPgo+PiArc3RhdGljIGJvb2wgc2tiX2hhc192YWxpZF9uZmN0KGNvbnN0IHN0cnVjdCBu
-ZXQgKm5ldCwgdTE2IHpvbmUsCj4+ICsgICAgICAgICAgICAgICAgICAgICAgICAgICAgY29uc3Qg
-c3RydWN0IHNrX2J1ZmYgKnNrYikKPj4gK3sKPj4gKyAgICAgZW51bSBpcF9jb25udHJhY2tfaW5m
-byBjdGluZm87Cj4+ICsgICAgIHN0cnVjdCBuZl9jb25uICpjdCA9IG5mX2N0X2dldChza2IsICZj
-dGluZm8pOwo+PiArCj4+ICsgICAgIGlmICghY3QpCj4+ICsgICAgICAgICAgICAgcmV0dXJuIGZh
-bHNlOwo+PiArICAgICBpZiAoIW5ldF9lcShuZXQsIGN0LT5jdF9uZXQpKQo+PiArICAgICAgICAg
-ICAgIHJldHVybiBmYWxzZTsKPgo+IEknbSBzdXJwcmlzZWQgdGhhdCB0aGlzIGlzIG5lZWRlZC4g
-U2hvdWxkbid0IHdlIGNhbGwgc2tiX3NjcnViX3BhY2tldCgpCj4gYmV0d2VlbiBuYW1lc3BhY2Vz
-IGFuZCBpbnZhbGlkYXRlIHRoZSBjdCBhc3NvY2lhdGVkIHdpdGggdGhlIHNrYi4KClJpZ2h0LCBp
-dCB3YXMgbW9yZSBvZiBhIGdlbmVyYWwgc2FuaXR5IGNoZWNrIHdoaWNoIGlzIGxpa2VseSB1bm5l
-ZWRlZC4KSSdtIG5vdCBhd2FyZSBvZiBhbnkgcGFydGljdWxhciBjYXNlIHRoYXQgdGhpcyBoYW5k
-bGVzLgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpkZXYg
-bWFpbGluZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0cDovL29wZW52c3dpdGNoLm9yZy9t
-YWlsbWFuL2xpc3RpbmZvL2Rldgo=
+Hi Stephen,
+  When we up a bridge without sub-interfaces,  it has "RUNNING" flag as below. Is it correct or not?
+
+1. brctl addbr br0
+2. ifconfig br0 up
+3. ifconfig br0 
+br0 Link encap:Ethernet HWaddr e6:6c:84:a6:fc:64 
+          inet6 addr: fe80::e46c:84ff:fea6:fc64/64 Scope:Link 
+          UP BROADCAST RUNNING MULTICAST MTU:1500 Metric:1 
+          RX packets:0 errors:0 dropped:0 overruns:0 frame:0 
+          TX packets:2 errors:0 dropped:0 overruns:0 carrier:0 
+          collisions:0 txqueuelen:0 
+          RX bytes:0 (0.0 B) TX bytes:168 (168.0 B)
+
+Best Regards
+Kuaikuai Wu
+
+-----Original Message-----
+From: Stephen Hemminger [mailto:stephen@networkplumber.org] 
+Sent: Saturday, February 14, 2015 2:31 AM
+To: Zhu, Yanjun
+Cc: netdev; Wu, Kuaikuai; Tao, Yue
+Subject: Re: If bridge have no sub-interfaces, it's status may be still with 'RUNNING'
+
+On Fri, 13 Feb 2015 17:57:45 +0800
+yzhu1 <Yanjun.Zhu@windriver.com> wrote:
+
+> Hi, all
+> 
+> I made this test on ubuntu 14.04 with kernel 3,19-rc7:
+> 
+> 1. brctl addbr br0
+> 
+> 2. ifconfig br0 up
+> 
+> 3. ifconfig br0 (br0's status is with 'RUNNING')
+> 
+> 4. brctl addif br0 eth0
+> 
+> 5. brctl delif br0 eth0
+> 
+> 6. ifconfig br0 (br0's status is without 'RUNNING')
+> 
+> When there is no sub-interface, the flag "RUNNING" is missing after 
+> the last sub-interface is removed.
+> 
+> As such, should we keep "RUNNING" flag after the last sub-interface is 
+> removed?
+
+This is intentional. If there are no active ports in bridge, then we want to tell applications that packets will go nowhere.
