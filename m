@@ -1,65 +1,88 @@
-From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH v3 linux-trace 1/8] tracing: attach eBPF programs to
- tracepoints and syscalls
-Date: Sat, 14 Feb 2015 18:02:41 -0500
-Message-ID: <CAMEtUuy42YvUVpecTcJpmqgmRQ=fpR3C+pTD0ij+R_5COYg6zQ@mail.gmail.com>
+From: "Fu, Zhonghui" <zhonghui.fu-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+Subject: Re: [PATCH v3] brcmfmac: avoid duplicated suspend/resume operation
+Date: Sun, 15 Feb 2015 10:40:45 +0800
+Message-ID: <54E0072D.3020802@linux.intel.com>
+References: <54DC1D7D.5050407@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
-	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Namhyung Kim <namhyung-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Arnaldo Carvalho de Melo <acme-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	Jiri Olsa <jolsa-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Masami Hiramatsu <masami.hiramatsu.pt-FCd8Q96Dh0JBDgjK7y7TUQ@public.gmane.org>,
-	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	"Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>, wangnan0-hv44wF8Li93QT0dZR+AlfA@public.gmane.org
-To: Hekuang <hekuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+To: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>, brudley-dY08KVG/lbpWk0Htik3J/w@public.gmane.org,
+	Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	Franky Lin <frankyl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>, meuleman-dY08KVG/lbpWk0Htik3J/w@public.gmane.org,
+	linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, pieterpg-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, hdegoede-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	wens-jdAy2FN1RRM@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	brcm80211-dev-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <54DC1D7D.5050407-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Feb 11, 2015 at 11:58 PM, Hekuang <hekuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org> wrote:
->
->>> eBPF is very flexible, which means it is bound to have someone use it
->>> in a way you never dreamed of, and that will be what bites you in the
->>> end (pun intended).
->>
->> understood :)
->> let's start slow then with bpf+syscall and bpf+kprobe only.
->
->
-> I think BPF + system calls/kprobes can meet our use case
-> (https://lkml.org/lkml/2015/2/6/44), but there're some issues to be
-> improved.
->
-> I suggest that you can improve bpf+kprobes when attached to function
-> headers(or TRACE_MARKERS), make it converts pt-regs to bpf_ctx->arg1,
-> arg2.., then top models and architectures can be separated by bpf.
->
-> BPF bytecode is cross-platform, but what we can get by using bpf+kprobes
-> is a 'regs->rdx' kind of information, such information is both
-> architecture and kernel version related.
 
-for kprobes in the middle of the function, kernel cannot
-convert pt_regs into argN. Placement was decided by compiler
-and can only be found in debug info.
-I think bpf+kprobe will be using it when it is available.
-When there is no debug info, kprobes will be limited
-to function entry and mapping of regs/stack into
-argN can be done by user space depending on architecture.
-So user tracing scripts in some higher level language
-can be kernel/arch independent when 'perf probe+bpf'
-is loading them on the fly on the given machine.
+Any comments to this patch? Can it be accepted?
 
-> We hope to establish some models for describing kernel procedures such
-> as IO and network, which requires that it does not rely on architecture
-> and does not rely to a specific kernel version as much as possible.
+Thanks,
+Zhonghui
 
-That's obviously a goal, but it requires a new approach to tracepoints.
-I think a lot of great ideas were discussed in this thread, so I'm
-hopeful that we'll come up with solution that will satisfy even
-strictest Peter's requirements :)
+On 2015/2/12 11:26, Fu, Zhonghui wrote:
+> From a05d35ab334c20970c236fb971dae88810078c88 Mon Sep 17 00:00:00 2001
+> From: Fu Zhonghui <zhonghui.fu-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+> Date: Thu, 12 Feb 2015 10:49:35 +0800
+> Subject: [PATCH v3] brcmfmac: avoid duplicated suspend/resume operation
+>
+> WiFi chip has 2 SDIO functions, and PM core will trigger
+> twice suspend/resume operations for one WiFi chip to do
+> the same things. This patch avoid this case.
+>
+> Acked-by: Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+> Signed-off-by: Fu Zhonghui <zhonghui.fu-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+> ---
+> Changes in v3:
+> - Rebase to wireless-drivers-next/master branch
+>
+>  drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c | 13 ++++++++++++-
+>  1 file changed, 12 insertions(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c b/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c
+> index 7944224..b8832a7 100644
+> --- a/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c
+> +++ b/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c
+> @@ -1117,9 +1117,13 @@ static int brcmf_ops_sdio_suspend(struct device *dev)
+>  	struct brcmf_bus *bus_if;
+>  	struct brcmf_sdio_dev *sdiodev;
+>  	mmc_pm_flag_t sdio_flags;
+> +	struct sdio_func *func = dev_to_sdio_func(dev);
+>  
+>  	brcmf_dbg(SDIO, "Enter\n");
+>  
+> +	if (func->num == 2)
+> +		return 0;
+> +
+>  	bus_if = dev_get_drvdata(dev);
+>  	sdiodev = bus_if->bus_priv.sdio;
+>  
+> @@ -1148,9 +1152,16 @@ static int brcmf_ops_sdio_suspend(struct device *dev)
+>  static int brcmf_ops_sdio_resume(struct device *dev)
+>  {
+>  	struct brcmf_bus *bus_if = dev_get_drvdata(dev);
+> -	struct brcmf_sdio_dev *sdiodev = bus_if->bus_priv.sdio;
+> +	struct brcmf_sdio_dev *sdiodev;
+> +	struct sdio_func *func = dev_to_sdio_func(dev);
+>  
+>  	brcmf_dbg(SDIO, "Enter\n");
+> +
+> +	if (func->num == 2)
+> +		return 0;
+> +
+> +	sdiodev = bus_if->bus_priv.sdio;
+> +
+>  	if (sdiodev->pdata && sdiodev->pdata->oob_irq_supported)
+>  		disable_irq_wake(sdiodev->pdata->oob_irq_nr);
+>  	brcmf_sdio_wd_timer(sdiodev->bus, BRCMF_WD_POLL_MS);
+> -- 1.9.1
+>
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
