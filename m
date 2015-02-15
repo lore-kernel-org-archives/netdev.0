@@ -1,62 +1,116 @@
-From: Tom Herbert <therbert@google.com>
-Subject: [PATCH net-next] net: Reflect RX hash for transmit
-Date: Sun, 15 Feb 2015 10:37:18 -0800
-Message-ID: <1424025438-1659-1-git-send-email-therbert@google.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
+From: Toerless Eckert <tte@cs.fau.de>
+Subject: Re: vnet problem (bug? feature?)
+Date: Sun, 15 Feb 2015 20:00:08 +0100
+Message-ID: <20150215190008.GA25792@faui40p.informatik.uni-erlangen.de>
+References: <20150213114113.GA10559@faui40p.informatik.uni-erlangen.de>
+ <CAHA+R7NUojPsLY9LOC94S0uussbwKsGRdcbazNmGGLbXvxCk-A@mail.gmail.com>
+ <20150214101547.GA9335@faui40p.informatik.uni-erlangen.de>
+ <20150214131744.051b90fc8dfdbf4e1bfe6bfb@mindspring.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Cong Wang <cwang@twopensource.com>, netdev <netdev@vger.kernel.org>
+To: Bill Fink <billfink@mindspring.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f179.google.com ([209.85.213.179]:33001 "EHLO
-	mail-ig0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754390AbbBOShh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Feb 2015 13:37:37 -0500
-Received: by mail-ig0-f179.google.com with SMTP id l13so19847639iga.0
-        for <netdev@vger.kernel.org>; Sun, 15 Feb 2015 10:37:36 -0800 (PST)
+Received: from faui40.informatik.uni-erlangen.de ([131.188.34.40]:54927 "EHLO
+	faui40.informatik.uni-erlangen.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932142AbbBOTAK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Feb 2015 14:00:10 -0500
+Content-Disposition: inline
+In-Reply-To: <20150214131744.051b90fc8dfdbf4e1bfe6bfb@mindspring.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch allows a driver to request that the receive hash it provides
-to the stack is reflected back in skb->hash for packets transmitted
-on the associated connection. The hash value returned by a device could
-have meaning when used in transmit to identify a flow, for instance
-the hash may by a flow ID for a flow created in a (virtual) device.
-With the flow ID provided on transmit this can obviate the need
-to create the hash and do the lookup on the fly in transmit.
+*Bingo* rp_filter did the trick.
 
-Note that this is an opportunistic optimization, there is no
-separate negotiation between the stack and driver/device for
-the hash used in either TX or RX.
+nstat is fairly useless to figrue this out, no RPF counters.
 
-Signed-off-by: Tom Herbert <therbert@google.com>
----
- include/linux/skbuff.h | 3 ++-
- include/net/sock.h     | 2 ++
- 2 files changed, 4 insertions(+), 1 deletion(-)
+Quite strange to see rp_filter. Especilly for multicast. But i haven't
+followed linux for many years in this level of detail. I thought
+Linux was always weak host model. But even for strong host model,
+i can't remember that RPF checking was done in the past (for hosts,
+not routers obviously).
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 1bb36ed..f792a0d 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -605,7 +605,8 @@ struct sk_buff {
- 	__u8			ipvs_property:1;
- 	__u8			inner_protocol_type:1;
- 	__u8			remcsum_offload:1;
--	/* 3 or 5 bit hole */
-+	__u8			reflect_hash:1;
-+	/* 2 or 4 bit hole */
- 
- #ifdef CONFIG_NET_SCHED
- 	__u16			tc_index;	/* traffic control index */
-diff --git a/include/net/sock.h b/include/net/sock.h
-index e138245..133fc51 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -871,6 +871,8 @@ static inline void sock_rps_save_rxhash(struct sock *sk,
- 	if (unlikely(sk->sk_rxhash != skb->hash))
- 		sk->sk_rxhash = skb->hash;
- #endif
-+	if (unlikely(skb->reflect_hash && sk->sk_txhash != skb->hash))
-+		sk->sk_txhash = skb->hash;
- }
- 
- static inline void sock_rps_reset_rxhash(struct sock *sk)
--- 
-2.2.0.rc0.207.ga3a616c
+Cheers
+     Toerless
+
+On Sat, Feb 14, 2015 at 01:17:44PM -0500, Bill Fink wrote:
+> > ip link add name veth1 type veth peer name veth2
+> > ip addr add 10.0.0.1/24 dev veth1
+> > ip addr add 10.0.0.2/24 dev veth2
+> > ip link set dev veth1 up
+> > ip link set dev veth2 up
+> 
+> Did you try disabling reverse path filtering:
+> 
+> echo 0 > /proc/sys/net/ipv4/conf/veth1/rp_filter
+> echo 0 > /proc/sys/net/ipv4/conf/veth2/rp_filter
+> 
+> Both veth1 and veth2 are in the same subnet, but only one
+> (presumably veth1) is the expected source for packets coming
+> from net 10, so when the muticast packets from a net 10
+> source arrive on veth2, they are rejected for arriving
+> on the wrong interface.
+> 
+> You could check this with "nstat -z | grep -i filter".
+> 
+> The above is an educated guess on my part, and could
+> be something completely different.
+> 
+> 					-Bill
+> 
+> 
+> 
+> > Receiver socket, eg: on veth2:
+> >    socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)
+> >    setsockopt(SO_REUSEADDR, 1)
+> >    bind(0.0.0.0/<port>)
+> >    setsockopt(IP_ADD_MEMBERSHIP, 224.0.0.33/10.0.0.2)
+> > 
+> >    check wih "netstat -gn" that there is IGMP membership on veth2:
+> >    veth2           1      224.0.0.33
+> > 
+> > Sender socket, eg: on veth1:
+> >    socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)
+> >    setsockopt(SO_REUSEADDR, 1)
+> >    bind(10.0.0.1/7000)
+> >    connect(224.0.0.33/<port>)
+> > 
+> > Sending packet, check how they're transmitted:
+> >    - TX countes on veth1 go up (ifconfig output)
+> >    - RX counters on veth2 go up (ifconfig output)
+> >    - tcpdump -i veth2 -P in shows packets being received
+> >    - tcpdump -i veth1 -P out shows packets being sent
+> > 
+> > Played around with lots of parameters:
+> >    - same behavior for non-link-local-scope multicast, TTL > 1 doesn't elp.
+> >    - same behavior if setting "multicast, "allmulticast", "promiscuous" on the veth
+> >    - same behavior when setting IP_MULTICAST_LOOP on sender.
+> > 
+> > Routing table:
+> > netstat -r -n
+> > Kernel IP routing table
+> > Destination     Gateway         Genmask         Flags   MSS Window  irtt Iface
+> > 0.0.0.0         192.168.1.254   0.0.0.0         UG        0 0          0 eth1
+> > 10.0.0.0        0.0.0.0         255.255.255.0   U         0 0          0 veth1
+> > 10.0.0.0        0.0.0.0         255.255.255.0   U         0 0          0 veth2
+> > 192.168.1.0     0.0.0.0         255.255.255.0   U         0 0          0 eth1
+> > 
+> > And of course it works if one side is put into a separate namespace,
+> > but that doesn't help me.
+> > 
+> > But: it really seems to be a problem with the kernel/sockets, not with veth.
+> > Just replaced the veth pair with a pair of ethernets with a loopback cable and
+> > pretty much exactly the same result (except that receiver side does not see
+> > packets in RX unless it's promiscuous or has a real receiver socket, but that's
+> > perfect). But not being a veth problem but other kernel network stack "feature"
+> > doesn't make it right IMHO. I can't see by which "logic" the receiver socket
+> > seemingly does not care about these packets even though it's explicitly bound
+> > to the interface and the multicast group. "Gimme the darn packets, socket,
+> > they are received on the interface"! ;-))
+> > 
+> > I can play around with the receiver side socket API call details, but i really
+> > don't see why those should be different if the packets happen to be looped
+> > than if they're not.
+> > 
+> > Cheers
+> >     Toerless
