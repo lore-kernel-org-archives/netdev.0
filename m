@@ -1,39 +1,53 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH 0/2] Indirect phy access for mv88e6171
-Date: Sun, 15 Feb 2015 21:25:11 +0100
-Message-ID: <20150215202511.GH3213@lunn.ch>
-References: <1423937871-9180-1-git-send-email-andrew@lunn.ch>
- <54E0E648.8080206@roeck-us.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org, f.fainelli@gmail.com
-To: Guenter Roeck <linux@roeck-us.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:44564 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932190AbbBOU2B (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 15 Feb 2015 15:28:01 -0500
-Content-Disposition: inline
-In-Reply-To: <54E0E648.8080206@roeck-us.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Priit Laes <plaes@plaes.org>
+Subject: [PATCH v2 0/7] rtlwifi: Unused #define removal
+Date: Sun, 15 Feb 2015 22:46:44 +0200
+Message-ID: <1424033211-11696-1-git-send-email-plaes@plaes.org>
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Priit Laes <plaes@plaes.org>
+To: Larry Finger <Larry.Finger@lwfinger.net>,
+	Chaoming Li <chaoming_li@realsil.com.cn>,
+	Kalle Valo <kvalo@codeaurora.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> I'll try. My primary problem right now is that I run Lennert Buytenhek's
-> patch set to support bridging offload (aka hardware bridging) on top of
-> the upstream dsa code, and the upstream code now supports a competing /
-> alternate means  to support bridging/switching offload (NET_SWITCHDEV)
-> which doesn't work with dsa (at least not yet). So I'll have to figure
-> out if / how I can run your patches with my code base, or how I can add
-> add support for NET_SWITCHDEV into dsa.
+Hi all,
 
-We should be adding switchdev support to DSA for hardware
-bridging. The concepts in Lennert Buytenhek's should be a good
-starting point for this.
- 
-> Do you know if there are any efforts going on in that direction ?
+This is v2 of the rtlwifi unused #define cleanup patchset.
 
-Florian has expressed an interest in getting hardware bridging
-working. I've no idea if he has looked at it from the perspective of
-switchdev.
+Changes since v1:
 
-	Andrew
+  - Rebase patches against wireless-driver-next tree.
+
+
+Priit Laes (7):
+  rtlwifi: Remove unused defines from rtl8192cu driver
+  rtlwifi: Remove unused defines from driver-specific def.h
+  rtlwifi: Remove unused RF6052_MAX_REG define
+  rtlwifi: Remove unused defines from cam.h
+  rtlwifi: Remove unused defines from base.h
+  rtlwifi: Remove unused defines from efuse.h
+  rtlwifi: Remove unused RTL_SUPPORTED_CTRL_FILTER define
+
+ drivers/net/wireless/rtlwifi/base.h          |  6 ----
+ drivers/net/wireless/rtlwifi/cam.h           |  2 --
+ drivers/net/wireless/rtlwifi/core.h          |  2 --
+ drivers/net/wireless/rtlwifi/efuse.h         |  6 ----
+ drivers/net/wireless/rtlwifi/rtl8188ee/def.h | 41 ----------------------------
+ drivers/net/wireless/rtlwifi/rtl8188ee/rf.h  |  1 -
+ drivers/net/wireless/rtlwifi/rtl8192ce/def.h | 41 ----------------------------
+ drivers/net/wireless/rtlwifi/rtl8192ce/rf.h  |  1 -
+ drivers/net/wireless/rtlwifi/rtl8192cu/hw.h  |  2 --
+ drivers/net/wireless/rtlwifi/rtl8192cu/rf.h  |  1 -
+ drivers/net/wireless/rtlwifi/rtl8192de/def.h | 39 --------------------------
+ drivers/net/wireless/rtlwifi/rtl8192ee/rf.h  |  1 -
+ drivers/net/wireless/rtlwifi/rtl8192se/def.h |  1 -
+ drivers/net/wireless/rtlwifi/rtl8723ae/def.h | 41 ----------------------------
+ drivers/net/wireless/rtlwifi/rtl8723ae/rf.h  |  1 -
+ drivers/net/wireless/rtlwifi/rtl8723be/rf.h  |  1 -
+ drivers/net/wireless/rtlwifi/rtl8821ae/def.h | 41 ----------------------------
+ drivers/net/wireless/rtlwifi/rtl8821ae/rf.h  |  1 -
+ 18 files changed, 229 deletions(-)
+
+-- 
+2.3.0
