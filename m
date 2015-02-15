@@ -1,52 +1,48 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [RFC net-next 3/4] openvswitch: Add conntrack action.
-Date: Sun, 15 Feb 2015 16:08:42 +0100
-Message-ID: <54E0B67A.1030000@6wind.com>
-References: <1423901633-53789-1-git-send-email-joestringer@nicira.com> <1423901633-53789-4-git-send-email-joestringer@nicira.com> <20150214195607.GA30752@casper.infradead.org> <CANr6G5x19zc8qK0gtPBFzMD02xMxieFqGpv9-nkKyiZ1MzSUwA@mail.gmail.com>
-Reply-To: nicolas.dichtel@6wind.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] vhost_net: fix wrong iter offset when setting
+	number of buffers
+Date: Sun, 15 Feb 2015 08:17:53 -0800 (PST)
+Message-ID: <20150215.081753.375314410062222400.davem@davemloft.net>
+References: <1423989317-16038-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	Justin Pettit <jpettit@nicira.com>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	"dev@openvswitch.org" <dev@openvswitch.org>
-To: Joe Stringer <joestringer@nicira.com>, Thomas Graf <tgraf@suug.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f47.google.com ([209.85.216.47]:61000 "EHLO
-	mail-qa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755069AbbBOPIp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Feb 2015 10:08:45 -0500
-Received: by mail-qa0-f47.google.com with SMTP id v10so19030141qac.6
-        for <netdev@vger.kernel.org>; Sun, 15 Feb 2015 07:08:45 -0800 (PST)
-In-Reply-To: <CANr6G5x19zc8qK0gtPBFzMD02xMxieFqGpv9-nkKyiZ1MzSUwA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: kvm@vger.kernel.org, mst@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	viro@zeniv.linux.org.uk
+To: jasowang@redhat.com
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1423989317-16038-1-git-send-email-jasowang@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Le 15/02/2015 05:47, Joe Stringer a =C3=A9crit :
-> On 14 February 2015 at 11:56, Thomas Graf <tgraf@suug.ch> wrote:
->> On 02/14/15 at 12:13am, Joe Stringer wrote:
->>
->> [..]
->>
->>> +static bool skb_has_valid_nfct(const struct net *net, u16 zone,
->>> +                            const struct sk_buff *skb)
->>> +{
->>> +     enum ip_conntrack_info ctinfo;
->>> +     struct nf_conn *ct =3D nf_ct_get(skb, &ctinfo);
->>> +
->>> +     if (!ct)
->>> +             return false;
->>> +     if (!net_eq(net, ct->ct_net))
->>> +             return false;
->>
->> I'm surprised that this is needed. Shouldn't we call skb_scrub_packe=
-t()
->> between namespaces and invalidate the ct associated with the skb.
->
-> Right, it was more of a general sanity check which is likely unneeded=
-=2E
-> I'm not aware of any particular case that this handles.
-I agree with Thomas. If we fall into this case, it's probably a real bu=
-g ;-)
+From: Jason Wang <jasowang@redhat.com>
+Date: Sun, 15 Feb 2015 16:35:17 +0800
+
+> In commit ba7438aed924 ("vhost: don't bother copying iovecs in
+> handle_rx(), kill memcpy_toiovecend()"), we advance iov iter fixup
+> sizeof(struct virtio_net_hdr) bytes and fill the number of buffers
+> after doing the socket recvmsg(). This work well but was broken after
+> commit 6e03f896b52c ("Merge
+> git://git.kernel.org/pub/scm/linux/kernel/git/davem/net") which tries
+> to advance sizeof(struct virtio_net_hdr_mrg_rxbuf). It will fill the
+> number of buffers at the wrong place. This patch fixes this.
+> 
+> Fixes 6e03f896b52c
+> ("Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net")
+> Cc: David S. Miller <davem@davemloft.net>
+> Cc: Al Viro <viro@zeniv.linux.org.uk>
+> Cc: Michael S. Tsirkin <mst@redhat.com>
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
+
+I was wondering if I got that merge conflict right. :-/
+
+Applied, thanks Jason.
