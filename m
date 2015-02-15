@@ -1,40 +1,52 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [PATCH v3] brcmfmac: avoid duplicated suspend/resume operation
-Date: Sun, 15 Feb 2015 16:54:52 +0200
-Message-ID: <878ufzi5s3.fsf@kamboji.qca.qualcomm.com>
-References: <54DC1D7D.5050407@linux.intel.com>
-	<54E0072D.3020802@linux.intel.com> <54E01209.7010300@erley.org>
-	<54E05961.7000201@broadcom.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [RFC net-next 3/4] openvswitch: Add conntrack action.
+Date: Sun, 15 Feb 2015 16:08:42 +0100
+Message-ID: <54E0B67A.1030000@6wind.com>
+References: <1423901633-53789-1-git-send-email-joestringer@nicira.com> <1423901633-53789-4-git-send-email-joestringer@nicira.com> <20150214195607.GA30752@casper.infradead.org> <CANr6G5x19zc8qK0gtPBFzMD02xMxieFqGpv9-nkKyiZ1MzSUwA@mail.gmail.com>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Pat Erley <pat-lkml@erley.org>,
-	"Fu\, Zhonghui" <zhonghui.fu@linux.intel.com>,
-	<brudley@broadcom.com>, Franky Lin <frankyl@broadcom.com>,
-	<meuleman@broadcom.com>, <linville@tuxdriver.com>,
-	<pieterpg@broadcom.com>, <hdegoede@redhat.com>, <wens@csie.org>,
-	<linux-wireless@vger.kernel.org>,
-	<brcm80211-dev-list@broadcom.com>, <netdev@vger.kernel.org>,
-	"linux-kernel\@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Arend van Spriel <arend@broadcom.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <54E05961.7000201@broadcom.com> (Arend van Spriel's message of
-	"Sun, 15 Feb 2015 09:31:29 +0100")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Justin Pettit <jpettit@nicira.com>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	"dev@openvswitch.org" <dev@openvswitch.org>
+To: Joe Stringer <joestringer@nicira.com>, Thomas Graf <tgraf@suug.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qa0-f47.google.com ([209.85.216.47]:61000 "EHLO
+	mail-qa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755069AbbBOPIp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Feb 2015 10:08:45 -0500
+Received: by mail-qa0-f47.google.com with SMTP id v10so19030141qac.6
+        for <netdev@vger.kernel.org>; Sun, 15 Feb 2015 07:08:45 -0800 (PST)
+In-Reply-To: <CANr6G5x19zc8qK0gtPBFzMD02xMxieFqGpv9-nkKyiZ1MzSUwA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Arend van Spriel <arend@broadcom.com> writes:
-
-> On 02/15/15 04:27, Pat Erley wrote:
->> On 02/14/2015 08:40 PM, Fu, Zhonghui wrote:
->>>
->>> Any comments to this patch? Can it be accepted?
+Le 15/02/2015 05:47, Joe Stringer a =C3=A9crit :
+> On 14 February 2015 at 11:56, Thomas Graf <tgraf@suug.ch> wrote:
+>> On 02/14/15 at 12:13am, Joe Stringer wrote:
+>>
+>> [..]
+>>
+>>> +static bool skb_has_valid_nfct(const struct net *net, u16 zone,
+>>> +                            const struct sk_buff *skb)
+>>> +{
+>>> +     enum ip_conntrack_info ctinfo;
+>>> +     struct nf_conn *ct =3D nf_ct_get(skb, &ctinfo);
+>>> +
+>>> +     if (!ct)
+>>> +             return false;
+>>> +     if (!net_eq(net, ct->ct_net))
+>>> +             return false;
+>>
+>> I'm surprised that this is needed. Shouldn't we call skb_scrub_packe=
+t()
+>> between namespaces and invalidate the ct associated with the skb.
 >
-> I assume that patches are queued up until after the merge window that
-> we are currently in.
-
-That's right. In the future I will most likely apply patches also during
-the merge window, but as I'm still a greenhorn I'll be on the safe and
-wait for the merge window to end.
-
--- 
-Kalle Valo
+> Right, it was more of a general sanity check which is likely unneeded=
+=2E
+> I'm not aware of any particular case that this handles.
+I agree with Thomas. If we fall into this case, it's probably a real bu=
+g ;-)
