@@ -1,41 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/6] ppc: Kconfig: Enable BPF JIT on ppc32
-Date: Sun, 15 Feb 2015 11:07:29 -0800 (PST)
-Message-ID: <20150215.110729.1985006476906451021.davem@davemloft.net>
-References: <1424023605-2416-1-git-send-email-kda@linux-powerpc.org>
-	<1424023605-2416-2-git-send-email-kda@linux-powerpc.org>
-	<1424024154.2685.1.camel@perches.com>
+From: Joe Stringer <joestringer-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [RFC net-next 3/4] openvswitch: Add conntrack action.
+Date: Sun, 15 Feb 2015 11:06:55 -0800
+Message-ID: <CANr6G5yBW5JNMk3qvAuyD+OgtnhV6vg2E-41DO51bVtyeSWSNg@mail.gmail.com>
+References: <1423901633-53789-1-git-send-email-joestringer@nicira.com>
+ <1423901633-53789-4-git-send-email-joestringer@nicira.com>
+ <20150214195607.GA30752@casper.infradead.org>
+ <CANr6G5x19zc8qK0gtPBFzMD02xMxieFqGpv9-nkKyiZ1MzSUwA@mail.gmail.com>
+ <54E0B67A.1030000@6wind.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kda@linux-powerpc.org, netdev@vger.kernel.org,
-	linuxppc-dev@lists.ozlabs.org
-To: joe@perches.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48342 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932142AbbBOTAW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Feb 2015 14:00:22 -0500
-In-Reply-To: <1424024154.2685.1.camel@perches.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+ "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+ Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>
+To: nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <54E0B67A.1030000-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-From: Joe Perches <joe@perches.com>
-Date: Sun, 15 Feb 2015 10:15:54 -0800
-
-> On Sun, 2015-02-15 at 21:06 +0300, Denis Kirjanov wrote:
-> []
->> diff --git a/arch/powerpc/Kconfig b/arch/powerpc/Kconfig
-> []
->> @@ -126,7 +126,7 @@ config PPC
->>  	select IRQ_FORCED_THREADING
->>  	select HAVE_RCU_TABLE_FREE if SMP
->>  	select HAVE_SYSCALL_TRACEPOINTS
->> -	select HAVE_BPF_JIT if PPC64
->> +	select HAVE_BPF_JIT
-> 
-> trivia:
-> 
-> Should this be the last patch of the series?
-
-Yes, that's the way I see it too.
+T24gMTUgRmVicnVhcnkgMjAxNSBhdCAwNzowOCwgTmljb2xhcyBEaWNodGVsIDxuaWNvbGFzLmRp
+Y2h0ZWxANndpbmQuY29tPiB3cm90ZToKPiBMZSAxNS8wMi8yMDE1IDA1OjQ3LCBKb2UgU3RyaW5n
+ZXIgYSDDqWNyaXQgOgo+Cj4+IE9uIDE0IEZlYnJ1YXJ5IDIwMTUgYXQgMTE6NTYsIFRob21hcyBH
+cmFmIDx0Z3JhZkBzdXVnLmNoPiB3cm90ZToKPj4+Cj4+PiBPbiAwMi8xNC8xNSBhdCAxMjoxM2Ft
+LCBKb2UgU3RyaW5nZXIgd3JvdGU6Cj4+Pgo+Pj4gWy4uXQo+Pj4KPj4+PiArc3RhdGljIGJvb2wg
+c2tiX2hhc192YWxpZF9uZmN0KGNvbnN0IHN0cnVjdCBuZXQgKm5ldCwgdTE2IHpvbmUsCj4+Pj4g
+KyAgICAgICAgICAgICAgICAgICAgICAgICAgICBjb25zdCBzdHJ1Y3Qgc2tfYnVmZiAqc2tiKQo+
+Pj4+ICt7Cj4+Pj4gKyAgICAgZW51bSBpcF9jb25udHJhY2tfaW5mbyBjdGluZm87Cj4+Pj4gKyAg
+ICAgc3RydWN0IG5mX2Nvbm4gKmN0ID0gbmZfY3RfZ2V0KHNrYiwgJmN0aW5mbyk7Cj4+Pj4gKwo+
+Pj4+ICsgICAgIGlmICghY3QpCj4+Pj4gKyAgICAgICAgICAgICByZXR1cm4gZmFsc2U7Cj4+Pj4g
+KyAgICAgaWYgKCFuZXRfZXEobmV0LCBjdC0+Y3RfbmV0KSkKPj4+PiArICAgICAgICAgICAgIHJl
+dHVybiBmYWxzZTsKPj4+Cj4+Pgo+Pj4gSSdtIHN1cnByaXNlZCB0aGF0IHRoaXMgaXMgbmVlZGVk
+LiBTaG91bGRuJ3Qgd2UgY2FsbCBza2Jfc2NydWJfcGFja2V0KCkKPj4+IGJldHdlZW4gbmFtZXNw
+YWNlcyBhbmQgaW52YWxpZGF0ZSB0aGUgY3QgYXNzb2NpYXRlZCB3aXRoIHRoZSBza2IuCj4+Cj4+
+Cj4+IFJpZ2h0LCBpdCB3YXMgbW9yZSBvZiBhIGdlbmVyYWwgc2FuaXR5IGNoZWNrIHdoaWNoIGlz
+IGxpa2VseSB1bm5lZWRlZC4KPj4gSSdtIG5vdCBhd2FyZSBvZiBhbnkgcGFydGljdWxhciBjYXNl
+IHRoYXQgdGhpcyBoYW5kbGVzLgo+Cj4gSSBhZ3JlZSB3aXRoIFRob21hcy4gSWYgd2UgZmFsbCBp
+bnRvIHRoaXMgY2FzZSwgaXQncyBwcm9iYWJseSBhIHJlYWwgYnVnIDstKQoKV2UgY2FuIEJVR19P
+TigpLCB0aGVuLgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+XwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0cDovL29wZW52c3dpdGNo
+Lm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
