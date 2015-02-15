@@ -1,36 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/core: Fix warning while make xmldocs caused by
- dev.c
-Date: Sat, 14 Feb 2015 20:35:30 -0800 (PST)
-Message-ID: <20150214.203530.2227592480664407562.davem@davemloft.net>
-References: <1423920394-26652-1-git-send-email-standby24x7@gmail.com>
+Subject: Re: [PATCH net-next] net: spelling fixes
+Date: Sat, 14 Feb 2015 20:36:18 -0800 (PST)
+Message-ID: <20150214.203618.1865290373963569658.davem@davemloft.net>
+References: <20150214134754.07a6aed8@uryu.home.lan>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: monis@mellanox.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: standby24x7@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1423920394-26652-1-git-send-email-standby24x7@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: stephen@networkplumber.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37339 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754567AbbBOE3K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 Feb 2015 23:29:10 -0500
+In-Reply-To: <20150214134754.07a6aed8@uryu.home.lan>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Masanari Iida <standby24x7@gmail.com>
-Date: Sat, 14 Feb 2015 22:26:34 +0900
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Sat, 14 Feb 2015 13:47:54 -0500
 
-> This patch fix following warning wile make xmldocs.
+> Spelling errors caught by codespell.
 > 
->   Warning(.//net/core/dev.c:5345): No description found
->   for parameter 'bonding_info'
->   Warning(.//net/core/dev.c:5345): Excess function parameter
->   'netdev_bonding_info' description in 'netdev_bonding_info_change'
-> 
-> This warning starts to appear after following patch was added
-> into Linus's tree during merger period.
-> 
-> commit 61bd3857ff2c7daf756d49b41e6277bbdaa8f789
-> net/core: Add event for a change in slave state
-> 
-> Signed-off-by: Masanari Iida <standby24x7@gmail.com>
+> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
 
 Applied.
