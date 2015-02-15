@@ -1,43 +1,39 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next] net: Reflect RX hash for transmit
-Date: Sun, 15 Feb 2015 21:27:17 +0100
-Message-ID: <54E10125.7060807@iogearbox.net>
-References: <1424025438-1659-1-git-send-email-therbert@google.com>	<54E0FAA1.7000900@iogearbox.net> <CA+mtBx-Mp5k4TmoDK29ui=jB79drq-K-vhPqK3GgFNoqA2Mifg@mail.gmail.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH 0/2] Indirect phy access for mv88e6171
+Date: Sun, 15 Feb 2015 21:25:11 +0100
+Message-ID: <20150215202511.GH3213@lunn.ch>
+References: <1423937871-9180-1-git-send-email-andrew@lunn.ch>
+ <54E0E648.8080206@roeck-us.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Tom Herbert <therbert@google.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org, f.fainelli@gmail.com
+To: Guenter Roeck <linux@roeck-us.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:49818 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932106AbbBOU13 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Feb 2015 15:27:29 -0500
-In-Reply-To: <CA+mtBx-Mp5k4TmoDK29ui=jB79drq-K-vhPqK3GgFNoqA2Mifg@mail.gmail.com>
+Received: from vps0.lunn.ch ([178.209.37.122]:44564 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932190AbbBOU2B (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 15 Feb 2015 15:28:01 -0500
+Content-Disposition: inline
+In-Reply-To: <54E0E648.8080206@roeck-us.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/15/2015 09:19 PM, Tom Herbert wrote:
-> On Sun, Feb 15, 2015 at 11:59 AM, Daniel Borkmann <daniel@iogearbox.net> wrote:
->> On 02/15/2015 07:37 PM, Tom Herbert wrote:
->>>
->>> This patch allows a driver to request that the receive hash it provides
->>> to the stack is reflected back in skb->hash for packets transmitted
->>> on the associated connection.
->>
->> [...]
->>>
->>> +       if (unlikely(skb->reflect_hash && sk->sk_txhash != skb->hash))
->>> +               sk->sk_txhash = skb->hash;
->>
->>
->> Is there also an initial user setting this somewhere?
->
-> inet_set_txhash and ip6_set_txhash are called for connected sockets.
-> There is no user API to set these.
+> I'll try. My primary problem right now is that I run Lennert Buytenhek's
+> patch set to support bridging offload (aka hardware bridging) on top of
+> the upstream dsa code, and the upstream code now supports a competing /
+> alternate means  to support bridging/switching offload (NET_SWITCHDEV)
+> which doesn't work with dsa (at least not yet). So I'll have to figure
+> out if / how I can run your patches with my code base, or how I can add
+> add support for NET_SWITCHDEV into dsa.
 
-Yes sure, this was maybe a bit unclear; I was referring to reflect_hash.
+We should be adding switchdev support to DSA for hardware
+bridging. The concepts in Lennert Buytenhek's should be a good
+starting point for this.
+ 
+> Do you know if there are any efforts going on in that direction ?
 
-Thanks,
-Daniel
+Florian has expressed an interest in getting hardware bridging
+working. I've no idea if he has looked at it from the perspective of
+switchdev.
+
+	Andrew
