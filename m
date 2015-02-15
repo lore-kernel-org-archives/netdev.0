@@ -1,39 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: phy: micrel: disable NAND-tree for
- KSZ8021,KSZ8031,KSZ8051,KSZ8081
-Date: Sat, 14 Feb 2015 20:31:39 -0800 (PST)
-Message-ID: <20150214.203139.1139744729261595659.davem@davemloft.net>
-References: <1423859733-21456-1-git-send-email-sylvain.rochet@finsecur.com>
+Subject: Re: [PATCH] rhashtable: use rht_obj() consistently
+Date: Sat, 14 Feb 2015 20:31:52 -0800 (PST)
+Message-ID: <20150214.203152.352400661413090421.davem@davemloft.net>
+References: <1423860161-20875-1-git-send-email-johannes@sipsolutions.net>
+	<20150213205853.GA18659@casper.infradead.org>
+	<20150213214208.GB18659@casper.infradead.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: f.fainelli@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, nicolas.ferre@atmel.com,
-	alexandre.belloni@free-electrons.com, voice.shen@atmel.com,
-	josh.wu@atmel.com, ludovic.desroches@atmel.com,
-	boris.brezillon@free-electrons.com
-To: sylvain.rochet@finsecur.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1423859733-21456-1-git-send-email-sylvain.rochet@finsecur.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: johannes@sipsolutions.net, netdev@vger.kernel.org,
+	johannes.berg@intel.com
+To: tgraf@suug.ch
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37272 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754451AbbBOEYo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 Feb 2015 23:24:44 -0500
+In-Reply-To: <20150213214208.GB18659@casper.infradead.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sylvain Rochet <sylvain.rochet@finsecur.com>
-Date: Fri, 13 Feb 2015 21:35:33 +0100
+From: Thomas Graf <tgraf@suug.ch>
+Date: Fri, 13 Feb 2015 21:42:08 +0000
 
-> NAND-tree is used to check wiring between MAC and PHY using NAND gates
-> on the PHY side, hence the name.
+> On 02/13/15 at 08:58pm, Thomas Graf wrote:
+>> On 02/13/15 at 09:42pm, Johannes Berg wrote:
+>> > From: Johannes Berg <johannes.berg@intel.com>
+>> > 
+>> > Looking at the RHT code I found two places where this was
+>> > done manually rather than using the rht_obj() helper, use
+>> > that instead.
+>> > 
+>> > Signed-off-by: Johannes Berg <johannes.berg@intel.com>
+>> 
+>> Acked-by: Thomas Graf <tgraf@suug.ch>
 > 
-> NAND-tree initial status is latched at reset by probing the IRQ pin.
-> However some devices are sharing the PHY IRQ pin with other peripherals
-> such as Atmel SAMA5D[34]x-EK boards when using the optional TM7000
-> display module, therefore they are switching the PHY in NAND-tree test
-> mode depending on the current IRQ line status at reset.
-> 
-> This patch ensure PHY is not in NAND-tree test mode for all Micrel PHYs
-> using IRQ line as a NAND-tree toggle mode at reset.
-> 
-> Signed-off-by: Sylvain Rochet <sylvain.rochet@finsecur.com>
-> Signed-off-by: Boris Brezillon <boris.brezillon@free-electrons.com>
+> Actually, this is already "fixed" in net-next.
 
-Applied.
+So I'm going to toss this.
