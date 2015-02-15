@@ -1,31 +1,41 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next 0/6] bpf: Enable BPF JIT on ppc32
-Date: Sun, 15 Feb 2015 21:09:19 +0100
-Message-ID: <54E0FCEF.6090701@iogearbox.net>
-References: <1424023605-2416-1-git-send-email-kda@linux-powerpc.org>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCH net-next] net: Reflect RX hash for transmit
+Date: Sun, 15 Feb 2015 12:19:34 -0800
+Message-ID: <CA+mtBx-Mp5k4TmoDK29ui=jB79drq-K-vhPqK3GgFNoqA2Mifg@mail.gmail.com>
+References: <1424025438-1659-1-git-send-email-therbert@google.com>
+	<54E0FAA1.7000900@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
-	benh@kernel.crashing.org, mpe@ellerman.id.au, ast@kernel.org
-To: Denis Kirjanov <kda@linux-powerpc.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:47857 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932265AbbBOUJf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Feb 2015 15:09:35 -0500
-In-Reply-To: <1424023605-2416-1-git-send-email-kda@linux-powerpc.org>
+Received: from mail-ig0-f176.google.com ([209.85.213.176]:53623 "EHLO
+	mail-ig0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755264AbbBOUTf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Feb 2015 15:19:35 -0500
+Received: by mail-ig0-f176.google.com with SMTP id hl2so20019449igb.3
+        for <netdev@vger.kernel.org>; Sun, 15 Feb 2015 12:19:35 -0800 (PST)
+In-Reply-To: <54E0FAA1.7000900@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/15/2015 07:06 PM, Denis Kirjanov wrote:
-> This patch series enables BPF JIT on ppc32. There are relatevily
-> few chnages in the code to make it work.
+On Sun, Feb 15, 2015 at 11:59 AM, Daniel Borkmann <daniel@iogearbox.net> wrote:
+> On 02/15/2015 07:37 PM, Tom Herbert wrote:
+>>
+>> This patch allows a driver to request that the receive hash it provides
+>> to the stack is reflected back in skb->hash for packets transmitted
+>> on the associated connection.
 >
-> All test_bpf tests passed both on 7447a and P2041-based machines.
+> [...]
+>>
+>> +       if (unlikely(skb->reflect_hash && sk->sk_txhash != skb->hash))
+>> +               sk->sk_txhash = skb->hash;
+>
+>
+> Is there also an initial user setting this somewhere?
 
-I'm just wondering, next to the feedback that has already been
-provided, would opening this up for ppc32 make it significantly
-more difficult in future to migrate from classic BPF JIT to eBPF
-JIT eventually (which is what we want long-term)? Being curious,
-is there any ongoing effort from ppc people?
+inet_set_txhash and ip6_set_txhash are called for connected sockets.
+There is no user API to set these.
+
+Tom
