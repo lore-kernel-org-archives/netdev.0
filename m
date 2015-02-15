@@ -1,43 +1,70 @@
-From: Sowmini Varadhan <sowmini05@gmail.com>
-Subject: Re: vnet problem (bug? feature?)
-Date: Sun, 15 Feb 2015 16:16:21 -0500
-Message-ID: <CACP96tRBPy4cakmJY_K9zrYbgWLgNfxDo4inrH8qV6pgRtR-1g@mail.gmail.com>
-References: <20150213114113.GA10559@faui40p.informatik.uni-erlangen.de>
-	<CAHA+R7NUojPsLY9LOC94S0uussbwKsGRdcbazNmGGLbXvxCk-A@mail.gmail.com>
-	<20150214101547.GA9335@faui40p.informatik.uni-erlangen.de>
-	<20150214131744.051b90fc8dfdbf4e1bfe6bfb@mindspring.com>
-	<20150215190008.GA25792@faui40p.informatik.uni-erlangen.de>
+From: Guenter Roeck <linux@roeck-us.net>
+Subject: Re: [PATCH 0/2] Indirect phy access for mv88e6171
+Date: Sun, 15 Feb 2015 14:20:47 -0800
+Message-ID: <54E11BBF.30303@roeck-us.net>
+References: <1423937871-9180-1-git-send-email-andrew@lunn.ch> <54E0E648.8080206@roeck-us.net> <20150215202511.GH3213@lunn.ch> <CAGVrzcYDLksA3gbJFypgp+f3BreMTTD5roHecoKm67M7qExOtg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Bill Fink <billfink@mindspring.com>,
-	Cong Wang <cwang@twopensource.com>,
-	netdev <netdev@vger.kernel.org>
-To: Toerless Eckert <tte@cs.fau.de>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Florian Fainelli <f.fainelli@gmail.com>,
+	Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f172.google.com ([74.125.82.172]:65359 "EHLO
-	mail-we0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932244AbbBOVQX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Feb 2015 16:16:23 -0500
-Received: by mail-we0-f172.google.com with SMTP id k48so25898119wev.3
-        for <netdev@vger.kernel.org>; Sun, 15 Feb 2015 13:16:22 -0800 (PST)
-In-Reply-To: <20150215190008.GA25792@faui40p.informatik.uni-erlangen.de>
+Received: from bh-25.webhostbox.net ([208.91.199.152]:35267 "EHLO
+	bh-25.webhostbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754735AbbBOWUw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Feb 2015 17:20:52 -0500
+Received: from mailnull by bh-25.webhostbox.net with sa-checked (Exim 4.82)
+	(envelope-from <linux@roeck-us.net>)
+	id 1YN7YY-001FRe-Oi
+	for netdev@vger.kernel.org; Sun, 15 Feb 2015 22:20:51 +0000
+In-Reply-To: <CAGVrzcYDLksA3gbJFypgp+f3BreMTTD5roHecoKm67M7qExOtg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Feb 15, 2015 at 2:00 PM, Toerless Eckert <tte@cs.fau.de> wrote:
-> *Bingo* rp_filter did the trick.
+On 02/15/2015 01:05 PM, Florian Fainelli wrote:
+> 2015-02-15 12:25 GMT-08:00 Andrew Lunn <andrew@lunn.ch>:
+>>> I'll try. My primary problem right now is that I run Lennert Buytenhek's
+>>> patch set to support bridging offload (aka hardware bridging) on top of
+>>> the upstream dsa code, and the upstream code now supports a competing /
+>>> alternate means  to support bridging/switching offload (NET_SWITCHDEV)
+>>> which doesn't work with dsa (at least not yet). So I'll have to figure
+>>> out if / how I can run your patches with my code base, or how I can add
+>>> add support for NET_SWITCHDEV into dsa.
+>>
+>> We should be adding switchdev support to DSA for hardware
+>> bridging. The concepts in Lennert Buytenhek's should be a good
+>> starting point for this.
 >
-> nstat is fairly useless to figrue this out, no RPF counters.
+> In fact, there is not much to be implemented in DSA, since we already
+> have everything in place in net-next now:
 >
-> Quite strange to see rp_filter. Especilly for multicast. But i haven't
-> followed linux for many years in this level of detail. I thought
-> Linux was always weak host model. But even for strong host model,
-> i can't remember that RPF checking was done in the past (for hosts,
-> not routers obviously).
+> - net_device notifier to learn which ports are leaving/joining the bridge
+> - hook an abstraction for ndo_switch_port_stp_update
+> - hook an abstraction for ndo_fdb_{add,del,dump}
+>
+>>
+>>> Do you know if there are any efforts going on in that direction ?
+>>
+>> Florian has expressed an interest in getting hardware bridging
+>> working. I've no idea if he has looked at it from the perspective of
+>> switchdev.
+>
+> I have some patches that leverage the switchdev-related patches and
+> bring an abstraction to DSA, they should not be fundamentally
+> different at the DSA driver level, since most of the abstraction is
+> done in net/dsa/slave.c, I plan on posting these patches tomorrow once
+> I am back home. I tested these with the bcm_sf2 driver, so testing
+> with Marvell hardware would be more than welcome.
+>
 
-RPF !=  strong/weak ES models defined in Section 3.3.4.2 of rfc1122.
+Sounds good. I would be more than happy to test the code with the
+Marvell hardware.
 
-RPF is about ingress filtering (rfc 3704) and verifying that the return
-path to the src addr of the packet would go out on the same interface
-it came on. The wiki page on Reverse_path_forwarding has some detail.
---Sowmini
+My current status is that I got Lennert's patches running on top of
+the latest version of the dsa code, including the switchdev changes.
+It currently uses ndo_switch_port_stp_update, but I still have
+ndo_bridge_join, ndo_bridge_leave, and ndo_bridge_port_flush
+as added callbacks.
+
+Guenter
