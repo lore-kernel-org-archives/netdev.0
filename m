@@ -1,38 +1,44 @@
-From: Denis Kirjanov <kda@linux-powerpc.org>
-Subject: Re: [PATCH net-next 0/6] bpf: Enable BPF JIT on ppc32
-Date: Mon, 16 Feb 2015 11:13:56 +0400
-Message-ID: <CAOJe8K380m94BL=YX6NFE1m7w3VpW8uORfttO36=r99FnoZdNg@mail.gmail.com>
-References: <1424023605-2416-1-git-send-email-kda@linux-powerpc.org>
-	<54E0FCEF.6090701@iogearbox.net>
+From: "Fu, Zhonghui" <zhonghui.fu-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+Subject: Re: [PATCH v3] brcmfmac: avoid duplicated suspend/resume operation
+Date: Mon, 16 Feb 2015 15:34:57 +0800
+Message-ID: <54E19DA1.4030407@linux.intel.com>
+References: <54DC1D7D.5050407@linux.intel.com>	<54E0072D.3020802@linux.intel.com> <54E01209.7010300@erley.org>	<54E05961.7000201@broadcom.com> <878ufzi5s3.fsf@kamboji.qca.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
-	benh@kernel.crashing.org, mpe@ellerman.id.au, ast@kernel.org
-To: Daniel Borkmann <daniel@iogearbox.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f174.google.com ([209.85.160.174]:56694 "EHLO
-	mail-yk0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751801AbbBPHN5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Feb 2015 02:13:57 -0500
-Received: by mail-yk0-f174.google.com with SMTP id 9so12532263ykp.5
-        for <netdev@vger.kernel.org>; Sun, 15 Feb 2015 23:13:56 -0800 (PST)
-In-Reply-To: <54E0FCEF.6090701@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Pat Erley <pat-lkml-Jx9fsTfDDR3YtjvyW6yDsg@public.gmane.org>, brudley-dY08KVG/lbpWk0Htik3J/w@public.gmane.org,
+	Franky Lin <frankyl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>, meuleman-dY08KVG/lbpWk0Htik3J/w@public.gmane.org,
+	linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, pieterpg-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, hdegoede-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	wens-jdAy2FN1RRM@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	brcm80211-dev-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <878ufzi5s3.fsf-HodKDYzPHsUD5k0oWYwrnHL1okKdlPRT@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 2/15/15, Daniel Borkmann <daniel@iogearbox.net> wrote:
-> On 02/15/2015 07:06 PM, Denis Kirjanov wrote:
->> This patch series enables BPF JIT on ppc32. There are relatevily
->> few chnages in the code to make it work.
->>
->> All test_bpf tests passed both on 7447a and P2041-based machines.
->
-> I'm just wondering, next to the feedback that has already been
-> provided, would opening this up for ppc32 make it significantly
-> more difficult in future to migrate from classic BPF JIT to eBPF
-> JIT eventually (which is what we want long-term)? Being curious,
-> is there any ongoing effort from ppc people?
->
 
-Well, I don't see significant challenges to enable eBPF on ppc64 in the future.
-I'll start working on it after I get this merged
+On 2015/2/15 22:54, Kalle Valo wrote:
+> Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org> writes:
+>
+>> On 02/15/15 04:27, Pat Erley wrote:
+>>> On 02/14/2015 08:40 PM, Fu, Zhonghui wrote:
+>>>> Any comments to this patch? Can it be accepted?
+>> I assume that patches are queued up until after the merge window that
+>> we are currently in.
+> That's right. In the future I will most likely apply patches also during
+> the merge window, but as I'm still a greenhorn I'll be on the safe and
+> wait for the merge window to end.
+I am very glad to see this.
+Could you please tell which release candidate this patch will be likely merged into now?
+
+
+Thanks,
+Zhonghui
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
