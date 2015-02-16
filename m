@@ -1,41 +1,44 @@
-From: Ignacy Gawedzki <ignacy.gawedzki@green-communications.fr>
-Subject: Re: Attempt to auto-load em_cmp.ko results in negative module refcnt
-Date: Mon, 16 Feb 2015 16:03:30 +0100
-Message-ID: <20150216150329.GB16798@zenon.in.qult.net>
-References: <20150216105912.GA16798@zenon.in.qult.net>
+From: David Ahern <dsahern@gmail.com>
+Subject: Re: vnet problem (bug? feature?)
+Date: Mon, 16 Feb 2015 08:30:12 -0700
+Message-ID: <54E20D04.8050409@gmail.com>
+References: <20150213114113.GA10559@faui40p.informatik.uni-erlangen.de> <CAHA+R7NUojPsLY9LOC94S0uussbwKsGRdcbazNmGGLbXvxCk-A@mail.gmail.com> <20150214101547.GA9335@faui40p.informatik.uni-erlangen.de> <20150214131744.051b90fc8dfdbf4e1bfe6bfb@mindspring.com> <20150215190008.GA25792@faui40p.informatik.uni-erlangen.de> <CACP96tRBPy4cakmJY_K9zrYbgWLgNfxDo4inrH8qV6pgRtR-1g@mail.gmail.com> <20150216101309.GB25792@faui40p.informatik.uni-erlangen.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Bill Fink <billfink@mindspring.com>,
+	Cong Wang <cwang@twopensource.com>,
+	netdev <netdev@vger.kernel.org>
+To: Toerless Eckert <tte@cs.fau.de>,
+	Sowmini Varadhan <sowmini05@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [78.193.33.39] ([78.193.33.39]:58053 "EHLO mail.qult.net"
-	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1752449AbbBPPD4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Feb 2015 10:03:56 -0500
-Received: from zenon.in.qult.net ([192.168.64.1] helo=zenon)
-	by mail.qult.net with esmtps (TLS1.2:RSA_AES_128_CBC_SHA1:128)
-	(Exim 4.82)
-	(envelope-from <ignacy.gawedzki@green-communications.fr>)
-	id 1YNNCs-0005sA-T9
-	for netdev@vger.kernel.org; Mon, 16 Feb 2015 16:03:30 +0100
-Received: from ig by zenon with local (Exim 4.84_RC1)
-	(envelope-from <ignacy.gawedzki@green-communications.fr>)
-	id 1YNNCs-0001NE-1m
-	for netdev@vger.kernel.org; Mon, 16 Feb 2015 16:03:30 +0100
-Content-Disposition: inline
-In-Reply-To: <20150216105912.GA16798@zenon.in.qult.net>
+Received: from mail-ie0-f176.google.com ([209.85.223.176]:45639 "EHLO
+	mail-ie0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753199AbbBPPaU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Feb 2015 10:30:20 -0500
+Received: by iecat20 with SMTP id at20so34584255iec.12
+        for <netdev@vger.kernel.org>; Mon, 16 Feb 2015 07:30:19 -0800 (PST)
+In-Reply-To: <20150216101309.GB25792@faui40p.informatik.uni-erlangen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 16, 2015 at 11:59:12AM +0100, thus spake Ignacy Gawedzki:
-> This has been broken pretty recently, I'm currently attempting a git =
-bisect on
-> this.
+On 2/16/15 3:13 AM, Toerless Eckert wrote:
+> I fail to find a good reference explaining why linux would default to
+> rp_filtering = 1 (more appropriate for routers) even if forwarding defaults to 0
+> (more appropriate for multi-homed hosts).
 
-Okay, the bisect tells this appeared with
-e513cc1c07e2ab93a4514eec9833e031df3e30bb, FWIW.
+It's a userspace default. For Fedora/Red Hat based systems see 
+/etc/sysctl.conf (older releases) and /usr/lib/sysctl.d/50-default.conf 
+(newer ones).
 
---=20
-Ignacy Gaw=EAdzki
-R&D Engineer
-Green Communications
+I recall it defaulting to 1 in the early 2000's so it has been that way 
+for a long time.
+
+ From Documentation/networking/ip-sysctl.txt:
+
+rp_filter - INTEGER
+...
+         Default value is 0. Note that some distributions enable it
+         in startup scripts.
+
+David
