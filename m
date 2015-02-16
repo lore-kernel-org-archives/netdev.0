@@ -1,37 +1,25 @@
-From: He Kuang <hekuang@huawei.com>
-Subject: Re: [PATCH v3 linux-trace 1/8] tracing: attach eBPF programs to tracepoints
- and syscalls
-Date: Mon, 16 Feb 2015 19:26:46 +0800
-Message-ID: <54E1D3F6.3040500@huawei.com>
-References: <CAMEtUuzY_Po=WtFEFg1aqzJ8dEF4rHGcWDsaS44KYgACMNPPgA@mail.gmail.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH v2 1/7] rtlwifi: Remove unused defines from rtl8192cu
+ driver
+Date: Mon, 16 Feb 2015 14:58:38 +0300
+Message-ID: <54E1DB6E.8020406@cogentembedded.com>
+References: <1424033211-11696-1-git-send-email-plaes@plaes.org> <1424033211-11696-2-git-send-email-plaes@plaes.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Ingo Molnar <mingo@kernel.org>, Namhyung Kim <namhyung@kernel.org>,
-	Arnaldo Carvalho de Melo <acme@infradead.org>,
-	Jiri Olsa <jolsa@redhat.com>,
-	Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>,
-	Linux API <linux-api@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Peter Zijlstra <peterz@infradead.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>, <wangnan0@huawei.com>
-To: Alexei Starovoitov <ast@plumgrid.com>,
-	Steven Rostedt <rostedt@goodmis.org>
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Priit Laes <plaes@plaes.org>,
+	Larry Finger <Larry.Finger@lwfinger.net>,
+	Chaoming Li <chaoming_li@realsil.com.cn>,
+	Kalle Valo <kvalo@codeaurora.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAMEtUuzY_Po=WtFEFg1aqzJ8dEF4rHGcWDsaS44KYgACMNPPgA@mail.gmail.com>
+In-Reply-To: <1424033211-11696-2-git-send-email-plaes@plaes.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi, Alexei
+Hello.
 
-Another suggestion on bpf syscall interface. Currently, BPF +
-syscalls/kprobes depends on CONFIG_BPF_SYSCALL. In kernel used on
-commercial products, CONFIG_BPF_SYSCALL is probably disabled, in this
-case, bpf bytecode cannot be loaded to the kernel.
+    You didn't sign off on the patches, so they can't be applied.
 
-If we turn the functionality of BPF_SYSCALL into a loadable module, then
-we can use it without any dependencies on the kernel. What about change
-bpf syscall to a /dev node or /sys file which can be exported by a
-kernel module?
+WBR, Sergei
