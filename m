@@ -1,79 +1,49 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH 3/5] virtio: Don't expose legacy net features when
- VIRTIO_NET_NO_LEGACY defined.
-Date: Mon, 16 Feb 2015 06:14:35 +0100
-Message-ID: <20150216051435.GA14616@redhat.com>
-References: <1423199216-2094-1-git-send-email-rusty@rustcorp.com.au>
- <1423199216-2094-4-git-send-email-rusty@rustcorp.com.au>
- <20150208105908.GI3185@redhat.com>
- <87fvag3qv3.fsf@rustcorp.com.au>
- <87twytb9by.fsf@rustcorp.com.au>
+From: Fan Du <fengyuleidian0615@gmail.com>
+Subject: Re: [PATCH net-next 1/3] ipv4: Raise tcp PMTU probe mss base size
+Date: Mon, 16 Feb 2015 13:15:54 +0800
+Message-ID: <54E17D0A.5050604@gmail.com>
+References: <1423815405-32644-1-git-send-email-fan.du@intel.com> <1423815405-32644-2-git-send-email-fan.du@intel.com> <54DDC8B1.1050307@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: lkml <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Rusty Russell <rusty@rustcorp.com.au>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <87twytb9by.fsf@rustcorp.com.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Fan Du <fan.du@intel.com>, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: yzhu1 <Yanjun.Zhu@windriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:56178 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751018AbbBPFUb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Feb 2015 00:20:31 -0500
+Received: by mail-pa0-f53.google.com with SMTP id lf10so32623756pab.12
+        for <netdev@vger.kernel.org>; Sun, 15 Feb 2015 21:20:30 -0800 (PST)
+In-Reply-To: <54DDC8B1.1050307@windriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
->  	struct virtio_net_hdr hdr;
->  	__virtio16 num_buffers;	/* Number of merged rx buffers */
->  };
-> +#else /* ... VIRTIO_NET_NO_LEGACY */
-> +/*
-> + * This header comes first in the scatter-gather list.  If you don't
-> + * specify GSO or CSUM features, you can simply ignore the header.
-> + *
-> + * This is bitwise-equivalent to the legacy struct virtio_net_hdr_mrg_rxbuf.
+=E4=BA=8E 2015=E5=B9=B402=E6=9C=8813=E6=97=A5 17:49, yzhu1 =E5=86=99=E9=
+=81=93:
+> backward compatible? :-D
 
-I would add "but with all fields squashed into the main structure".
+yes, it will be auto tuned back in black hole detecting path.
+Also user could adjust the base size through /proc/sys/net/ipv4/tcp_bas=
+e_mss
+for optimal configuration.
 
-> + */
-> +struct virtio_net_hdr_v1 {
-> +#define VIRTIO_NET_HDR_F_NEEDS_CSUM	1	/* Use csum_start, csum_offset */
-> +#define VIRTIO_NET_HDR_F_DATA_VALID	2	/* Csum is valid */
-> +	__u8 flags;
-> +#define VIRTIO_NET_HDR_GSO_NONE		0	/* Not a GSO frame */
-> +#define VIRTIO_NET_HDR_GSO_TCPV4	1	/* GSO frame, IPv4 TCP (TSO) */
-> +#define VIRTIO_NET_HDR_GSO_UDP		3	/* GSO frame, IPv4 UDP (UFO) */
-> +#define VIRTIO_NET_HDR_GSO_TCPV6	4	/* GSO frame, IPv6 TCP */
-> +#define VIRTIO_NET_HDR_GSO_ECN		0x80	/* TCP has ECN set */
-> +	__u8 gso_type;
-> +	__virtio16 hdr_len;	/* Ethernet + IP + tcp/udp hdrs */
-> +	__virtio16 gso_size;	/* Bytes to append to hdr_len per frame */
-> +	__virtio16 csum_start;	/* Position to start checksumming from */
-> +	__virtio16 csum_offset;	/* Offset after that to place checksum */
-> +	__virtio16 num_buffers;	/* Number of merged rx buffers */
-> +};
-> +#endif /* ...VIRTIO_NET_NO_LEGACY */
-
-I note that this way host code can't be structured like this:
-
-
-	struct virtio_net_hdr_v1 modern;
-	/* handle modern guests */
-	....
-
-#ifndef VIRTIO_NET_NO_LEGACY
-	struct virtio_net_hdr_mrg_rxbuf mrg;
-	/* handle legacy guests */
-	
-#endif
-
-
-Define virtio_net_hdr_v1 unconditionally?
-
-
-
-
-
-
-
-
-
-
->  /*
->   * Control virtqueue data structures
+> Zhu Yanjun
+> On 02/13/2015 04:16 PM, Fan Du wrote:
+>> Quotes from RFC4821 7.2.  Selecting Initial Values
+>>
+>>     It is RECOMMENDED that search_low be initially set to an MTU siz=
+e
+>>     that is likely to work over a very wide range of environments.  =
+Given
+>>     today's technologies, a value of 1024 bytes is probably safe eno=
+ugh.
+>>     The initial value for search_low SHOULD be configurable.
+>>
+>> Moreover, set a small value will introduce extra time for the search
+>> to converge. So set the initial probe base mss size to 1024 Bytes.
+>>
+>> Signed-off-by: Fan Du <fan.du@intel.com>
+>> ---
