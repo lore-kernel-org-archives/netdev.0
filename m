@@ -1,57 +1,37 @@
-From: Ignacy Gawedzki <ignacy.gawedzki@green-communications.fr>
-Subject: Attempt to auto-load em_cmp.ko results in negative module refcnt
-Date: Mon, 16 Feb 2015 11:59:12 +0100
-Message-ID: <20150216105912.GA16798@zenon.in.qult.net>
+From: He Kuang <hekuang@huawei.com>
+Subject: Re: [PATCH v3 linux-trace 1/8] tracing: attach eBPF programs to tracepoints
+ and syscalls
+Date: Mon, 16 Feb 2015 19:26:46 +0800
+Message-ID: <54E1D3F6.3040500@huawei.com>
+References: <CAMEtUuzY_Po=WtFEFg1aqzJ8dEF4rHGcWDsaS44KYgACMNPPgA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from [78.193.33.39] ([78.193.33.39]:57483 "EHLO mail.qult.net"
-	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1755178AbbBPLAA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Feb 2015 06:00:00 -0500
-Received: from zenon.in.qult.net ([192.168.64.1] helo=zenon)
-	by mail.qult.net with esmtps (TLS1.2:RSA_AES_128_CBC_SHA1:128)
-	(Exim 4.82)
-	(envelope-from <ignacy.gawedzki@green-communications.fr>)
-	id 1YNJOr-0001Zp-48
-	for netdev@vger.kernel.org; Mon, 16 Feb 2015 11:59:37 +0100
-Received: from ig by zenon with local (Exim 4.84_RC1)
-	(envelope-from <ignacy.gawedzki@green-communications.fr>)
-	id 1YNJOS-0004h1-Fz
-	for netdev@vger.kernel.org; Mon, 16 Feb 2015 11:59:12 +0100
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Ingo Molnar <mingo@kernel.org>, Namhyung Kim <namhyung@kernel.org>,
+	Arnaldo Carvalho de Melo <acme@infradead.org>,
+	Jiri Olsa <jolsa@redhat.com>,
+	Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>,
+	Linux API <linux-api@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Peter Zijlstra <peterz@infradead.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>, <wangnan0@huawei.com>
+To: Alexei Starovoitov <ast@plumgrid.com>,
+	Steven Rostedt <rostedt@goodmis.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAMEtUuzY_Po=WtFEFg1aqzJ8dEF4rHGcWDsaS44KYgACMNPPgA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+Hi, Alexei
 
-This simple test case
+Another suggestion on bpf syscall interface. Currently, BPF +
+syscalls/kprobes depends on CONFIG_BPF_SYSCALL. In kernel used on
+commercial products, CONFIG_BPF_SYSCALL is probably disabled, in this
+case, bpf bytecode cannot be loaded to the kernel.
 
-  tc qdisc add dev eth0 root handle 1: htb
-  tc class add dev eth0 root classid 1: htb rate 1Gbit
-  tc class add dev eth0 parent 1: classid 1:1 htb rate 1Gbit
-  tc filter add dev eth0 parent 1: basic match 'cmp(u8 at 0 eq 0)' clas=
-sid 1:1
-
-fails with the following
-
-  RTNETLINK answers: No such file or directory
-  We have an error talking to the kernel
-
-if em_cmp.ko is not loaded beforehand.
-
-After that, lsmod shows that em_cmp.ko is loaded indeed, but its usage =
-count
-is -1 and an attempd to unload the module results in a "BUG at
-kernel/module.c:752".
-
-This has been broken pretty recently, I'm currently attempting a git bi=
-sect on
-this.
-
---=20
-Ignacy Gaw=EAdzki
-R&D Engineer
-Green Communications
+If we turn the functionality of BPF_SYSCALL into a loadable module, then
+we can use it without any dependencies on the kernel. What about change
+bpf syscall to a /dev node or /sys file which can be exported by a
+kernel module?
