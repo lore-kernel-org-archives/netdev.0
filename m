@@ -1,199 +1,98 @@
-From: Sriharsha Basavapatna <sriharsha.basavapatna@emulex.com>
-Subject: [PATCH v2 net-next 2/4] be2net: Refactor be_xmit_enqueue() routine
-Date: Mon, 16 Feb 2015 08:03:46 +0530
-Message-ID: <1424054028-23659-3-git-send-email-sriharsha.basavapatna@emulex.com>
-References: <1424054028-23659-1-git-send-email-sriharsha.basavapatna@emulex.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] netfilter: xt_socket: fix a stack corruption bug
+Date: Sun, 15 Feb 2015 19:03:45 -0800
+Message-ID: <1424055825.4942.50.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Balazs Scheidler <bazsi@balabit.hu>,
+	KOVACS Krisztian <hidden@balabit.hu>,
+	Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	netfilter-devel@vger.kernel.org, netdev <netdev@vger.kernel.org>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge2.emulex.com ([138.239.224.100]:57681 "EHLO
-	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752532AbbBPCly (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Feb 2015 21:41:54 -0500
-In-Reply-To: <1424054028-23659-1-git-send-email-sriharsha.basavapatna@emulex.com>
+Received: from mail-qa0-f49.google.com ([209.85.216.49]:51333 "EHLO
+	mail-qa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752532AbbBPDDs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Feb 2015 22:03:48 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-- Reduce code duplication by moving WRB-frags setup into a function.
-- Do not setup WRB-header before frags are setup, which is unncessary if
-  there's errors while setting up frags. We should only grab an entry for
-  the header, setup the frags and if everything is fine setup the header.
-- The error cleanup can be moved into a small function.
+From: Eric Dumazet <edumazet@google.com>
 
-Signed-off-by: Sriharsha Basavapatna <sriharsha.basavapatna@emulex.com>
+As soon as extract_icmp6_fields() returns, its local storage (automatic
+variables) is deallocated and can be overwritten.
+
+Lets add an additional parameter to make sure storage is valid long
+enough.
+
+While we are at it, adds some const qualifiers.
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Fixes: b64c9256a9b76 ("tproxy: added IPv6 support to the socket match")
 ---
- drivers/net/ethernet/emulex/benet/be_main.c | 126 +++++++++++++++++++---------
- 1 file changed, 86 insertions(+), 40 deletions(-)
+ net/netfilter/xt_socket.c |   21 ++++++++++++---------
+ 1 file changed, 12 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 40f54c0..2f17937 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -812,7 +812,80 @@ static void unmap_tx_frag(struct device *dev, struct be_eth_wrb *wrb,
- 	}
- }
+diff --git a/net/netfilter/xt_socket.c b/net/netfilter/xt_socket.c
+index 1ba67931eb1b..13332dbf291d 100644
+--- a/net/netfilter/xt_socket.c
++++ b/net/netfilter/xt_socket.c
+@@ -243,12 +243,13 @@ static int
+ extract_icmp6_fields(const struct sk_buff *skb,
+ 		     unsigned int outside_hdrlen,
+ 		     int *protocol,
+-		     struct in6_addr **raddr,
+-		     struct in6_addr **laddr,
++		     const struct in6_addr **raddr,
++		     const struct in6_addr **laddr,
+ 		     __be16 *rport,
+-		     __be16 *lport)
++		     __be16 *lport,
++		     struct ipv6hdr *ipv6_var)
+ {
+-	struct ipv6hdr *inside_iph, _inside_iph;
++	const struct ipv6hdr *inside_iph;
+ 	struct icmp6hdr *icmph, _icmph;
+ 	__be16 *ports, _ports[2];
+ 	u8 inside_nexthdr;
+@@ -263,12 +264,14 @@ extract_icmp6_fields(const struct sk_buff *skb,
+ 	if (icmph->icmp6_type & ICMPV6_INFOMSG_MASK)
+ 		return 1;
  
--/* Returns the number of WRBs used up by the skb */
-+/* Grab a WRB header for xmit */
-+static u16 be_tx_get_wrb_hdr(struct be_tx_obj *txo)
-+{
-+	u16 head = txo->q.head;
-+
-+	queue_head_inc(&txo->q);
-+	return head;
-+}
-+
-+/* Set up the WRB header for xmit */
-+static void be_tx_setup_wrb_hdr(struct be_adapter *adapter,
-+				struct be_tx_obj *txo,
-+				struct be_wrb_params *wrb_params,
-+				struct sk_buff *skb, u16 head)
-+{
-+	u32 num_frags = skb_wrb_cnt(skb);
-+	struct be_queue_info *txq = &txo->q;
-+	struct be_eth_hdr_wrb *hdr = queue_index_node(txq, head);
-+
-+	wrb_fill_hdr(adapter, hdr, wrb_params, skb);
-+	be_dws_cpu_to_le(hdr, sizeof(*hdr));
-+
-+	BUG_ON(txo->sent_skb_list[head]);
-+	txo->sent_skb_list[head] = skb;
-+	txo->last_req_hdr = head;
-+	atomic_add(num_frags, &txq->used);
-+	txo->last_req_wrb_cnt = num_frags;
-+	txo->pend_wrb_cnt += num_frags;
-+}
-+
-+/* Setup a WRB fragment (buffer descriptor) for xmit */
-+static void be_tx_setup_wrb_frag(struct be_tx_obj *txo, dma_addr_t busaddr,
-+				 int len)
-+{
-+	struct be_eth_wrb *wrb;
-+	struct be_queue_info *txq = &txo->q;
-+
-+	wrb = queue_head_node(txq);
-+	wrb_fill(wrb, busaddr, len);
-+	queue_head_inc(txq);
-+}
-+
-+/* Bring the queue back to the state it was in before be_xmit_enqueue() routine
-+ * was invoked. The producer index is restored to the previous packet and the
-+ * WRBs of the current packet are unmapped. Invoked to handle tx setup errors.
-+ */
-+static void be_xmit_restore(struct be_adapter *adapter,
-+			    struct be_tx_obj *txo, u16 head, bool map_single,
-+			    u32 copied)
-+{
-+	struct device *dev;
-+	struct be_eth_wrb *wrb;
-+	struct be_queue_info *txq = &txo->q;
-+
-+	dev = &adapter->pdev->dev;
-+	txq->head = head;
-+
-+	/* skip the first wrb (hdr); it's not mapped */
-+	queue_head_inc(txq);
-+	while (copied) {
-+		wrb = queue_head_node(txq);
-+		unmap_tx_frag(dev, wrb, map_single);
-+		map_single = false;
-+		copied -= le32_to_cpu(wrb->frag_len);
-+		queue_head_inc(txq);
-+	}
-+
-+	txq->head = head;
-+}
-+
-+/* Enqueue the given packet for transmit. This routine allocates WRBs for the
-+ * packet, dma maps the packet buffers and sets up the WRBs. Returns the number
-+ * of WRBs used up by the packet.
-+ */
- static u32 be_xmit_enqueue(struct be_adapter *adapter, struct be_tx_obj *txo,
- 			   struct sk_buff *skb,
- 			   struct be_wrb_params *wrb_params)
-@@ -820,70 +893,43 @@ static u32 be_xmit_enqueue(struct be_adapter *adapter, struct be_tx_obj *txo,
- 	u32 i, copied = 0, wrb_cnt = skb_wrb_cnt(skb);
- 	struct device *dev = &adapter->pdev->dev;
- 	struct be_queue_info *txq = &txo->q;
--	struct be_eth_hdr_wrb *hdr;
- 	bool map_single = false;
--	struct be_eth_wrb *wrb;
--	dma_addr_t busaddr;
- 	u16 head = txq->head;
-+	dma_addr_t busaddr;
-+	int len;
+-	inside_iph = skb_header_pointer(skb, outside_hdrlen + sizeof(_icmph), sizeof(_inside_iph), &_inside_iph);
++	inside_iph = skb_header_pointer(skb, outside_hdrlen + sizeof(_icmph),
++					sizeof(*ipv6_var), ipv6_var);
+ 	if (inside_iph == NULL)
+ 		return 1;
+ 	inside_nexthdr = inside_iph->nexthdr;
  
--	hdr = queue_head_node(txq);
--	wrb_fill_hdr(adapter, hdr, wrb_params, skb);
--	be_dws_cpu_to_le(hdr, sizeof(*hdr));
--
--	queue_head_inc(txq);
-+	head = be_tx_get_wrb_hdr(txo);
+-	inside_hdrlen = ipv6_skip_exthdr(skb, outside_hdrlen + sizeof(_icmph) + sizeof(_inside_iph),
++	inside_hdrlen = ipv6_skip_exthdr(skb, outside_hdrlen + sizeof(_icmph) +
++					      sizeof(*ipv6_var),
+ 					 &inside_nexthdr, &inside_fragoff);
+ 	if (inside_hdrlen < 0)
+ 		return 1; /* hjm: Packet has no/incomplete transport layer headers. */
+@@ -315,10 +318,10 @@ xt_socket_get_sock_v6(struct net *net, const u8 protocol,
+ static bool
+ socket_mt6_v1_v2(const struct sk_buff *skb, struct xt_action_param *par)
+ {
+-	struct ipv6hdr *iph = ipv6_hdr(skb);
++	struct ipv6hdr ipv6_var, *iph = ipv6_hdr(skb);
+ 	struct udphdr _hdr, *hp = NULL;
+ 	struct sock *sk = skb->sk;
+-	struct in6_addr *daddr = NULL, *saddr = NULL;
++	const struct in6_addr *daddr = NULL, *saddr = NULL;
+ 	__be16 uninitialized_var(dport), uninitialized_var(sport);
+ 	int thoff = 0, uninitialized_var(tproto);
+ 	const struct xt_socket_mtinfo1 *info = (struct xt_socket_mtinfo1 *) par->matchinfo;
+@@ -342,7 +345,7 @@ socket_mt6_v1_v2(const struct sk_buff *skb, struct xt_action_param *par)
  
- 	if (skb->len > skb->data_len) {
--		int len = skb_headlen(skb);
-+		len = skb_headlen(skb);
- 
- 		busaddr = dma_map_single(dev, skb->data, len, DMA_TO_DEVICE);
- 		if (dma_mapping_error(dev, busaddr))
- 			goto dma_err;
- 		map_single = true;
--		wrb = queue_head_node(txq);
--		wrb_fill(wrb, busaddr, len);
--		queue_head_inc(txq);
-+		be_tx_setup_wrb_frag(txo, busaddr, len);
- 		copied += len;
- 	}
- 
- 	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
- 		const struct skb_frag_struct *frag = &skb_shinfo(skb)->frags[i];
-+		len = skb_frag_size(frag);
- 
--		busaddr = skb_frag_dma_map(dev, frag, 0,
--					   skb_frag_size(frag), DMA_TO_DEVICE);
-+		busaddr = skb_frag_dma_map(dev, frag, 0, len, DMA_TO_DEVICE);
- 		if (dma_mapping_error(dev, busaddr))
- 			goto dma_err;
--		wrb = queue_head_node(txq);
--		wrb_fill(wrb, busaddr, skb_frag_size(frag));
--		queue_head_inc(txq);
--		copied += skb_frag_size(frag);
-+		be_tx_setup_wrb_frag(txo, busaddr, len);
-+		copied += len;
- 	}
- 
--	BUG_ON(txo->sent_skb_list[head]);
--	txo->sent_skb_list[head] = skb;
--	txo->last_req_hdr = head;
--	atomic_add(wrb_cnt, &txq->used);
--	txo->last_req_wrb_cnt = wrb_cnt;
--	txo->pend_wrb_cnt += wrb_cnt;
-+	be_tx_setup_wrb_hdr(adapter, txo, wrb_params, skb, head);
- 
- 	be_tx_stats_update(txo, skb);
- 	return wrb_cnt;
- 
- dma_err:
--	/* Bring the queue back to the state it was in before this
--	 * routine was invoked.
--	 */
--	txq->head = head;
--	/* skip the first wrb (hdr); it's not mapped */
--	queue_head_inc(txq);
--	while (copied) {
--		wrb = queue_head_node(txq);
--		unmap_tx_frag(dev, wrb, map_single);
--		map_single = false;
--		copied -= le32_to_cpu(wrb->frag_len);
--		adapter->drv_stats.dma_map_errors++;
--		queue_head_inc(txq);
--	}
--	txq->head = head;
-+	adapter->drv_stats.dma_map_errors++;
-+	be_xmit_restore(adapter, txo, head, map_single, copied);
- 	return 0;
- }
- 
--- 
-2.2.0.65.g9abc44b
+ 	} else if (tproto == IPPROTO_ICMPV6) {
+ 		if (extract_icmp6_fields(skb, thoff, &tproto, &saddr, &daddr,
+-					 &sport, &dport))
++					 &sport, &dport, &ipv6_var))
+ 			return false;
+ 	} else {
+ 		return false;
