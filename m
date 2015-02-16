@@ -1,35 +1,47 @@
 From: Priit Laes <plaes@plaes.org>
-Subject: [PATCH v3 1/7] rtlwifi: Remove unused defines from rtl8192cu driver
-Date: Mon, 16 Feb 2015 14:59:54 +0200
-Message-ID: <1424091600-13121-2-git-send-email-plaes@plaes.org>
+Subject: [PATCH v3 5/7] rtlwifi: Remove unused defines from base.h
+Date: Mon, 16 Feb 2015 15:01:55 +0200
+Message-ID: <1424091717-13212-3-git-send-email-plaes@plaes.org>
 References: <1424091600-13121-1-git-send-email-plaes@plaes.org>
+ <1424091717-13212-1-git-send-email-plaes@plaes.org>
 Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org, Priit Laes <plaes@plaes.org>
 To: Larry Finger <Larry.Finger@lwfinger.net>,
 	Chaoming Li <chaoming_li@realsil.com.cn>,
 	Kalle Valo <kvalo@codeaurora.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1424091600-13121-1-git-send-email-plaes@plaes.org>
+In-Reply-To: <1424091717-13212-1-git-send-email-plaes@plaes.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Priit Laes <plaes@plaes.org>
 ---
- drivers/net/wireless/rtlwifi/rtl8192cu/hw.h | 2 --
- 1 file changed, 2 deletions(-)
+ drivers/net/wireless/rtlwifi/base.h | 6 ------
+ 1 file changed, 6 deletions(-)
 
-diff --git a/drivers/net/wireless/rtlwifi/rtl8192cu/hw.h b/drivers/net/wireless/rtlwifi/rtl8192cu/hw.h
-index c1e33b0..6758808 100644
---- a/drivers/net/wireless/rtlwifi/rtl8192cu/hw.h
-+++ b/drivers/net/wireless/rtlwifi/rtl8192cu/hw.h
-@@ -32,8 +32,6 @@
+diff --git a/drivers/net/wireless/rtlwifi/base.h b/drivers/net/wireless/rtlwifi/base.h
+index c6cb49c..dee4ac2 100644
+--- a/drivers/net/wireless/rtlwifi/base.h
++++ b/drivers/net/wireless/rtlwifi/base.h
+@@ -45,9 +45,6 @@ enum ap_peer {
+ #define RTL_TX_DESC_SIZE	32
+ #define RTL_TX_HEADER_SIZE	(RTL_TX_DESC_SIZE + RTL_TX_DUMMY_SIZE)
  
- #define H2C_RA_MASK	6
+-#define HT_AMSDU_SIZE_4K	3839
+-#define HT_AMSDU_SIZE_8K	7935
+-
+ #define MAX_BIT_RATE_40MHZ_MCS15	300	/* Mbps */
+ #define MAX_BIT_RATE_40MHZ_MCS7		150	/* Mbps */
  
--#define LLT_POLLING_LLT_THRESHOLD		20
--#define LLT_POLLING_READY_TIMEOUT_COUNT		100
- #define LLT_LAST_ENTRY_OF_TX_PKT_BUFFER		255
+@@ -61,9 +58,6 @@ enum ap_peer {
+ #define MAX_BIT_RATE_LONG_GI_1NSS_80MHZ_MCS9	390	/* Mbps */
+ #define MAX_BIT_RATE_LONG_GI_1NSS_80MHZ_MCS7	293	/* Mbps */
  
- #define RX_PAGE_SIZE_REG_VALUE			PBP_128
+-#define RTL_RATE_COUNT_LEGACY		12
+-#define RTL_CHANNEL_COUNT		14
+-
+ #define FRAME_OFFSET_FRAME_CONTROL	0
+ #define FRAME_OFFSET_DURATION		2
+ #define FRAME_OFFSET_ADDRESS1		4
 -- 
 2.3.0
