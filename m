@@ -1,41 +1,54 @@
 From: Priit Laes <plaes@plaes.org>
-Subject: [PATCH v3 4/7] rtlwifi: Remove unused defines from cam.h
-Date: Mon, 16 Feb 2015 15:01:54 +0200
-Message-ID: <1424091717-13212-2-git-send-email-plaes@plaes.org>
-References: <1424091600-13121-1-git-send-email-plaes@plaes.org>
- <1424091717-13212-1-git-send-email-plaes@plaes.org>
+Subject: [PATCH v3 0/7] rtlwifi: Unused #define removal
+Date: Mon, 16 Feb 2015 14:59:53 +0200
+Message-ID: <1424091600-13121-1-git-send-email-plaes@plaes.org>
 Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org, Priit Laes <plaes@plaes.org>
 To: Larry Finger <Larry.Finger@lwfinger.net>,
 	Chaoming Li <chaoming_li@realsil.com.cn>,
 	Kalle Valo <kvalo@codeaurora.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1424091717-13212-1-git-send-email-plaes@plaes.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Priit Laes <plaes@plaes.org>
----
- drivers/net/wireless/rtlwifi/cam.h | 2 --
- 1 file changed, 2 deletions(-)
+Hi all,
 
-diff --git a/drivers/net/wireless/rtlwifi/cam.h b/drivers/net/wireless/rtlwifi/cam.h
-index 3550808..e2e647d 100644
---- a/drivers/net/wireless/rtlwifi/cam.h
-+++ b/drivers/net/wireless/rtlwifi/cam.h
-@@ -28,13 +28,11 @@
- 
- #define CAM_CONTENT_COUNT				8
- 
--#define CFG_DEFAULT_KEY					BIT(5)
- #define CFG_VALID					BIT(15)
- 
- #define PAIRWISE_KEYIDX					0
- #define CAM_PAIRWISE_KEY_POSITION			4
- 
--#define	CAM_CONFIG_USEDK				1
- #define	CAM_CONFIG_NO_USEDK				0
- 
- void rtl_cam_reset_all_entry(struct ieee80211_hw *hw);
+This is v3 of the rtlwifi unused #define cleanup patchset.
+
+No changes since v2 except added Signed-off-by.
+
+Changes since v1:
+
+  - Rebase patches against wireless-driver-next tree.
+
+Priit Laes (7):
+  rtlwifi: Remove unused defines from rtl8192cu driver
+  rtlwifi: Remove unused defines from driver-specific def.h
+  rtlwifi: Remove unused RF6052_MAX_REG define
+  rtlwifi: Remove unused defines from cam.h
+  rtlwifi: Remove unused defines from base.h
+  rtlwifi: Remove unused defines from efuse.h
+  rtlwifi: Remove unused RTL_SUPPORTED_CTRL_FILTER define
+
+ drivers/net/wireless/rtlwifi/base.h          |  6 ----
+ drivers/net/wireless/rtlwifi/cam.h           |  2 --
+ drivers/net/wireless/rtlwifi/core.h          |  2 --
+ drivers/net/wireless/rtlwifi/efuse.h         |  6 ----
+ drivers/net/wireless/rtlwifi/rtl8188ee/def.h | 41 ----------------------------
+ drivers/net/wireless/rtlwifi/rtl8188ee/rf.h  |  1 -
+ drivers/net/wireless/rtlwifi/rtl8192ce/def.h | 41 ----------------------------
+ drivers/net/wireless/rtlwifi/rtl8192ce/rf.h  |  1 -
+ drivers/net/wireless/rtlwifi/rtl8192cu/hw.h  |  2 --
+ drivers/net/wireless/rtlwifi/rtl8192cu/rf.h  |  1 -
+ drivers/net/wireless/rtlwifi/rtl8192de/def.h | 39 --------------------------
+ drivers/net/wireless/rtlwifi/rtl8192ee/rf.h  |  1 -
+ drivers/net/wireless/rtlwifi/rtl8192se/def.h |  1 -
+ drivers/net/wireless/rtlwifi/rtl8723ae/def.h | 41 ----------------------------
+ drivers/net/wireless/rtlwifi/rtl8723ae/rf.h  |  1 -
+ drivers/net/wireless/rtlwifi/rtl8723be/rf.h  |  1 -
+ drivers/net/wireless/rtlwifi/rtl8821ae/def.h | 41 ----------------------------
+ drivers/net/wireless/rtlwifi/rtl8821ae/rf.h  |  1 -
+ 18 files changed, 229 deletions(-)
+
 -- 
 2.3.0
