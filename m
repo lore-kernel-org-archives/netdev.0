@@ -1,45 +1,80 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] net: Reflect RX hash for transmit
-Date: Mon, 16 Feb 2015 04:29:56 -0800
-Message-ID: <1424089796.4942.57.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1424025438-1659-1-git-send-email-therbert@google.com>
+From: Sathya Perla <Sathya.Perla@Emulex.Com>
+Subject: RE: [PATCH net-next 2/9] be2net: replace (1 << x) with BIT(x)
+Date: Mon, 16 Feb 2015 12:55:26 +0000
+Message-ID: <CF9D1877D81D214CB0CA0669EFAE020C74C34365@CMEXMB1.ad.emulex.com>
+References: <1423228723-10919-1-git-send-email-sathya.perla@emulex.com>
+ <1423228723-10919-3-git-send-email-sathya.perla@emulex.com>
+ <54E1DDF4.5040901@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Tom Herbert <therbert@google.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f178.google.com ([209.85.216.178]:42399 "EHLO
-	mail-qc0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752024AbbBPM37 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Feb 2015 07:29:59 -0500
-Received: by mail-qc0-f178.google.com with SMTP id p6so23757793qcv.9
-        for <netdev@vger.kernel.org>; Mon, 16 Feb 2015 04:29:58 -0800 (PST)
-In-Reply-To: <1424025438-1659-1-git-send-email-therbert@google.com>
+Received: from cmexedge1.emulex.com ([138.239.224.99]:29680 "EHLO
+	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755183AbbBPM4r convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Feb 2015 07:56:47 -0500
+In-Reply-To: <54E1DDF4.5040901@cogentembedded.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2015-02-15 at 10:37 -0800, Tom Herbert wrote:
-> This patch allows a driver to request that the receive hash it provides
-> to the stack is reflected back in skb->hash for packets transmitted
-> on the associated connection. The hash value returned by a device could
-> have meaning when used in transmit to identify a flow, for instance
-> the hash may by a flow ID for a flow created in a (virtual) device.
-> With the flow ID provided on transmit this can obviate the need
-> to create the hash and do the lookup on the fly in transmit.
+
+
+> -----Original Message-----
+> From: Sergei Shtylyov [mailto:sergei.shtylyov@cogentembedded.com]
 > 
-> Note that this is an opportunistic optimization, there is no
-> separate negotiation between the stack and driver/device for
-> the hash used in either TX or RX.
+> Hello.
 > 
-> Signed-off-by: Tom Herbert <therbert@google.com>
-> ---
+> On 2/6/2015 4:18 PM, Sathya Perla wrote:
+> 
+> > From: Vasundhara Volam <vasundhara.volam@emulex.com>
+> 
+> > BIT(x) is the preffered usage.
+> 
+>     Preferred.
+:-) As this is a harmless spelling mistake only in the changelog,
+I'll not bother sending a new patch for this!
 
-It is not clear to me why we would want to consume yet another skb->bit
-for this.
+> 
+> [...]
+> 
+> > diff --git a/drivers/net/ethernet/emulex/benet/be.h
+> b/drivers/net/ethernet/emulex/benet/be.h
+> > index 3b1d59d..9869556 100644
+> > --- a/drivers/net/ethernet/emulex/benet/be.h
+> > +++ b/drivers/net/ethernet/emulex/benet/be.h
+> > @@ -361,15 +361,15 @@ enum vf_state {
+> >   	ASSIGNED = 1
+> >   };
+> >
+> > -#define BE_FLAGS_LINK_STATUS_INIT		1
+> > -#define BE_FLAGS_SRIOV_ENABLED			(1 << 2)
+> > -#define BE_FLAGS_WORKER_SCHEDULED		(1 << 3)
+> > -#define BE_FLAGS_VLAN_PROMISC			(1 << 4)
+> > -#define BE_FLAGS_MCAST_PROMISC			(1 << 5)
+> > -#define BE_FLAGS_NAPI_ENABLED			(1 << 9)
+> > -#define BE_FLAGS_QNQ_ASYNC_EVT_RCVD		(1 << 11)
+> > -#define BE_FLAGS_VXLAN_OFFLOADS			(1 << 12)
+> > -#define BE_FLAGS_SETUP_DONE			(1 << 13)
+> > +#define BE_FLAGS_LINK_STATUS_INIT		BIT(1)
+> 
+>     Not BIT(0)?
 
-This seems it might be a socket attribute, rather than a device provided
-one on every packet.
+Huh, this was not intentional. I'll remember to use bit-0 the next time
+we introduce a new bit!
 
-Anyway, this seems a premature change, as no driver currently needs this
-yet ?
+> 
+> > +#define BE_FLAGS_SRIOV_ENABLED			BIT(2)
+> > +#define BE_FLAGS_WORKER_SCHEDULED		BIT(3)
+> > +#define BE_FLAGS_VLAN_PROMISC			BIT(4)
+> > +#define BE_FLAGS_MCAST_PROMISC			BIT(5)
+> > +#define BE_FLAGS_NAPI_ENABLED			BIT(6)
+> > +#define BE_FLAGS_QNQ_ASYNC_EVT_RCVD		BIT(7)
+> > +#define BE_FLAGS_VXLAN_OFFLOADS			BIT(8)
+> > +#define BE_FLAGS_SETUP_DONE			BIT(9)
+> 
+>     So, you decided to renumber the bits?
+
+Yes, some holes in the bit map were removed.
