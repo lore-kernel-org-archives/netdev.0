@@ -1,37 +1,42 @@
-From: Stephen Hemminger <shemming@brocade.com>
-Subject: [PATCH net-next] tcp: silence registration message
-Date: Mon, 16 Feb 2015 09:38:13 -0500
-Message-ID: <20150216093813.2d83e47c@uryu.home.lan>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH net-next 0/6] bpf: Enable BPF JIT on ppc32
+Date: Mon, 16 Feb 2015 10:02:40 -0500
+Message-ID: <CAADnVQJ2kONF03avXmcvKpwTaZ74wOLzcTjTOLKt1=XoY01Yqg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	linuxppc-dev@lists.ozlabs.org,
+	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	Michael Ellerman <mpe@ellerman.id.au>,
+	Alexei Starovoitov <ast@kernel.org>
+To: Denis Kirjanov <kda@linux-powerpc.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:12634 "EHLO
-	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755397AbbBPOiy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Feb 2015 09:38:54 -0500
+Received: from mail-qc0-f171.google.com ([209.85.216.171]:34136 "EHLO
+	mail-qc0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752920AbbBPPDB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Feb 2015 10:03:01 -0500
+Received: by mail-qc0-f171.google.com with SMTP id l6so24498129qcy.2
+        for <netdev@vger.kernel.org>; Mon, 16 Feb 2015 07:03:01 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This message isn't really needed it justs waits time/space.
+On Mon, Feb 16, 2015 at 2:13 AM, Denis Kirjanov <kda@linux-powerpc.org> wrote:
+> On 2/15/15, Daniel Borkmann <daniel@iogearbox.net> wrote:
+>> On 02/15/2015 07:06 PM, Denis Kirjanov wrote:
+>>> This patch series enables BPF JIT on ppc32. There are relatevily
+>>> few chnages in the code to make it work.
+>>>
+>>> All test_bpf tests passed both on 7447a and P2041-based machines.
+>>
+>> I'm just wondering, next to the feedback that has already been
+>> provided, would opening this up for ppc32 make it significantly
+>> more difficult in future to migrate from classic BPF JIT to eBPF
+>> JIT eventually (which is what we want long-term)? Being curious,
+>> is there any ongoing effort from ppc people?
+>>
+>
+> Well, I don't see significant challenges to enable eBPF on ppc64 in the future.
+> I'll start working on it after I get this merged
 
-Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
-
-
----
- net/ipv4/tcp_cong.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
---- a/net/ipv4/tcp_cong.c	2015-02-16 09:11:25.714980610 -0500
-+++ b/net/ipv4/tcp_cong.c	2015-02-16 09:11:25.710980555 -0500
-@@ -83,7 +83,7 @@ int tcp_register_congestion_control(stru
- 		ret = -EEXIST;
- 	} else {
- 		list_add_tail_rcu(&ca->list, &tcp_cong_list);
--		pr_info("%s registered\n", ca->name);
-+		pr_debug("%s registered\n", ca->name);
- 	}
- 	spin_unlock(&tcp_cong_list_lock);
- 
+sounds great. looking forward to it :)
