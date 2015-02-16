@@ -1,44 +1,56 @@
 From: David Ahern <dsahern@gmail.com>
-Subject: Re: vnet problem (bug? feature?)
-Date: Mon, 16 Feb 2015 08:30:12 -0700
-Message-ID: <54E20D04.8050409@gmail.com>
-References: <20150213114113.GA10559@faui40p.informatik.uni-erlangen.de> <CAHA+R7NUojPsLY9LOC94S0uussbwKsGRdcbazNmGGLbXvxCk-A@mail.gmail.com> <20150214101547.GA9335@faui40p.informatik.uni-erlangen.de> <20150214131744.051b90fc8dfdbf4e1bfe6bfb@mindspring.com> <20150215190008.GA25792@faui40p.informatik.uni-erlangen.de> <CACP96tRBPy4cakmJY_K9zrYbgWLgNfxDo4inrH8qV6pgRtR-1g@mail.gmail.com> <20150216101309.GB25792@faui40p.informatik.uni-erlangen.de>
+Subject: Re: If bridge have no sub-interfaces, it's status may be still with
+ 'RUNNING'
+Date: Mon, 16 Feb 2015 08:47:11 -0700
+Message-ID: <54E210FF.2050502@gmail.com>
+References: <54DDCA99.4040401@windriver.com> <20150213133056.3944c13e@uryu.home.lan> <54E17853.8070106@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Bill Fink <billfink@mindspring.com>,
-	Cong Wang <cwang@twopensource.com>,
-	netdev <netdev@vger.kernel.org>
-To: Toerless Eckert <tte@cs.fau.de>,
-	Sowmini Varadhan <sowmini05@gmail.com>
+Cc: netdev <netdev@vger.kernel.org>,
+	"Wu, Kuaikuai" <Kuaikuai.Wu@windriver.com>,
+	"Tao, Yue" <Yue.Tao@windriver.com>
+To: yzhu1 <Yanjun.Zhu@windriver.com>,
+	Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f176.google.com ([209.85.223.176]:45639 "EHLO
-	mail-ie0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753199AbbBPPaU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Feb 2015 10:30:20 -0500
-Received: by iecat20 with SMTP id at20so34584255iec.12
-        for <netdev@vger.kernel.org>; Mon, 16 Feb 2015 07:30:19 -0800 (PST)
-In-Reply-To: <20150216101309.GB25792@faui40p.informatik.uni-erlangen.de>
+Received: from mail-ig0-f180.google.com ([209.85.213.180]:53554 "EHLO
+	mail-ig0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752974AbbBPPrO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Feb 2015 10:47:14 -0500
+Received: by mail-ig0-f180.google.com with SMTP id b16so24301098igk.1
+        for <netdev@vger.kernel.org>; Mon, 16 Feb 2015 07:47:13 -0800 (PST)
+In-Reply-To: <54E17853.8070106@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2/16/15 3:13 AM, Toerless Eckert wrote:
-> I fail to find a good reference explaining why linux would default to
-> rp_filtering = 1 (more appropriate for routers) even if forwarding defaults to 0
-> (more appropriate for multi-homed hosts).
+On 2/15/15 9:55 PM, yzhu1 wrote:
+>>> 1. brctl addbr br0
+>>>
+>>> 2. ifconfig br0 up
+>>>
+>>> 3. ifconfig br0 (br0's status is with 'RUNNING')
+>>>
+>>> 4. brctl addif br0 eth0
+>>>
+>>> 5. brctl delif br0 eth0
+>>>
+>>> 6. ifconfig br0 (br0's status is without 'RUNNING')
+>>>
+>>> When there is no sub-interface, the flag "RUNNING" is missing after the
+>>> last sub-interface is removed.
 
-It's a userspace default. For Fedora/Red Hat based systems see 
-/etc/sysctl.conf (older releases) and /usr/lib/sysctl.d/50-default.conf 
-(newer ones).
+I do not see that behavior with Fedora 21 and 3.18.5-201.fc21.x86_64. 
+ie., after interface is removed br0 is still in up state. Perhaps a 
+regression with 3.19.
 
-I recall it defaulting to 1 in the early 2000's so it has been that way 
-for a long time.
+>>>
+>>> As such, should we keep "RUNNING" flag after the last sub-interface is
+>>> removed?
+>> This is intentional. If there are no active ports in bridge, then
+>> we want to tell applications that packets will go nowhere.
 
- From Documentation/networking/ip-sysctl.txt:
-
-rp_filter - INTEGER
-...
-         Default value is 0. Note that some distributions enable it
-         in startup scripts.
+It changes current behavior with respect to tcpdump. Today I can launch 
+tcpdump on a bridge interface before starting a VM. With this change I 
+will not be able to do that.
 
 David
