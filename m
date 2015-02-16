@@ -1,54 +1,37 @@
-From: Lee Jones <lee.jones-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH 2/3] ARM: sunxi: Add register bit
- definitions for SRAM mapping syscon
-Date: Mon, 16 Feb 2015 14:38:17 +0000
-Message-ID: <20150216143817.GO14545@x1>
-References: <1422200959-1717-1-git-send-email-jenskuske@gmail.com>
- <1422200959-1717-3-git-send-email-jenskuske@gmail.com>
-Reply-To: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+From: Stephen Hemminger <shemming@brocade.com>
+Subject: [PATCH net-next] tcp: silence registration message
+Date: Mon, 16 Feb 2015 09:38:13 -0500
+Message-ID: <20150216093813.2d83e47c@uryu.home.lan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>,
-	linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-To: Jens Kuske <jenskuske-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-sunxi+bncBDA7X7F2WUEBBXUBRCTQKGQEP55OCVY-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1422200959-1717-3-git-send-email-jenskuske-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-List-Post: <http://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Help: <http://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Archive: <http://groups.google.com/group/linux-sunxi
-Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-List-Subscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
- <http://groups.google.com/group/linux-sunxi/subscribe>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="US-ASCII"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:12634 "EHLO
+	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755397AbbBPOiy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Feb 2015 09:38:54 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, 25 Jan 2015, Jens Kuske wrote:
+This message isn't really needed it justs waits time/space.
 
-> From: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
->=20
-> Signed-off-by: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
-> Signed-off-by: Jens Kuske <jenskuske-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> ---
->  include/linux/mfd/syscon/sun4i-sc.h | 42 +++++++++++++++++++++++++++++++=
-++++++
->  1 file changed, 42 insertions(+)
->  create mode 100644 include/linux/mfd/syscon/sun4i-sc.h
+Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
 
-Acked-by: Lee Jones <lee.jones-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
 
---=20
-Lee Jones
-Linaro STMicroelectronics Landing Team Lead
-Linaro.org =E2=94=82 Open source software for ARM SoCs
-Follow Linaro: Facebook | Twitter | Blog
+---
+ net/ipv4/tcp_cong.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
---=20
-You received this message because you are subscribed to the Google Groups "=
-linux-sunxi" group.
-To unsubscribe from this group and stop receiving emails from it, send an e=
-mail to linux-sunxi+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0@public.gmane.org
-For more options, visit https://groups.google.com/d/optout.
+--- a/net/ipv4/tcp_cong.c	2015-02-16 09:11:25.714980610 -0500
++++ b/net/ipv4/tcp_cong.c	2015-02-16 09:11:25.710980555 -0500
+@@ -83,7 +83,7 @@ int tcp_register_congestion_control(stru
+ 		ret = -EEXIST;
+ 	} else {
+ 		list_add_tail_rcu(&ca->list, &tcp_cong_list);
+-		pr_info("%s registered\n", ca->name);
++		pr_debug("%s registered\n", ca->name);
+ 	}
+ 	spin_unlock(&tcp_cong_list_lock);
+ 
