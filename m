@@ -1,29 +1,37 @@
 From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH RFC v5 net-next 4/6] virtio-net: add basic interrupt coalescing support
-Date: Mon, 16 Feb 2015 13:49:25 +1030
-Message-ID: <874mqma6gy.fsf@rustcorp.com.au>
-References: <1423471165-34243-1-git-send-email-jasowang@redhat.com> <1423471165-34243-5-git-send-email-jasowang@redhat.com> <87386ey2iy.fsf@rustcorp.com.au> <20150210104019.GD9505@redhat.com> <874mqqbk12.fsf@rustcorp.com.au> <20150213191918.0caf0d9a.cornelia.huck@de.ibm.com>
+Subject: Re: [PATCH RFC v5 net-next 4/6] virtio-net: add basic interrupt
+	coalescing support
+Date: Mon, 16 Feb 2015 13:37:53 +1030
+Message-ID: <877fvia706.fsf@rustcorp.com.au>
+References: <1423471165-34243-1-git-send-email-jasowang@redhat.com>
+	<1423471165-34243-5-git-send-email-jasowang@redhat.com>
+	<87386ey2iy.fsf@rustcorp.com.au> <20150210104019.GD9505@redhat.com>
+	<874mqqbk12.fsf@rustcorp.com.au> <1423831266.21394.1.camel@arm.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-	Jason Wang <jasowang@redhat.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, pagupta@redhat.com,
-	Pawel Moll <pawel.moll@arm.com>
-To: Cornelia Huck <cornelia.huck@de.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([103.22.144.67]:33755 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754724AbbBPEKs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 15 Feb 2015 23:10:48 -0500
-In-Reply-To: <20150213191918.0caf0d9a.cornelia.huck@de.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "pagupta@redhat.com" <pagupta@redhat.com>,
+	"Michael S. Tsirkin" <mst@redhat.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"virtualization@lists.linux-foundation.org"
+	<virtualization@lists.linux-foundation.org>
+To: Pawel Moll <pawel.moll@arm.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1423831266.21394.1.camel@arm.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Cornelia Huck <cornelia.huck@de.ibm.com> writes:
-> On Fri, 13 Feb 2015 13:22:09 +1030
-> Rusty Russell <rusty@rustcorp.com.au> wrote:
->
+Pawel Moll <pawel.moll@arm.com> writes:
+> On Fri, 2015-02-13 at 02:52 +0000, Rusty Russell wrote:
 >> "Michael S. Tsirkin" <mst@redhat.com> writes:
 >> > On Tue, Feb 10, 2015 at 12:02:37PM +1030, Rusty Russell wrote:
 >> >> Jason Wang <jasowang@redhat.com> writes:
@@ -54,37 +62,18 @@ Cornelia Huck <cornelia.huck@de.ibm.com> writes:
 >> 
 >> I think MMIO and CCW would be easy to extend too, but CC'd to check.
 >
-> If this is a simple extension of the config space, it should just work
-> for ccw (the Linux guest driver currently uses 0x100 as max config
-> space size, which I grabbed from pci at the time I wrote it).
->
-> But looking at this virtio_pci_common_cfg stuff, it seems to contain a
-> lot of things that are handled via ccws on virtio-ccw (like number of
-> queues or device status). Having an extra ccw just for changing this
-> delay value seems like overkill.
+> As far as I understand the virtio_pci_common_cfg principle (just had a
+> look, for the first time ;-), it's now an equivalent of the MMIO control
+> registers block. I see no major problem with adding another one.
 
-Yes, possibly.
+OK, thanks.
 
-> On the basic topic of interrupt coalescing: With adapter interrupts,
-> virtio-ccw already has some kind of coalescing: The summary indicator
-> is set just once and an interrupt is made pending, then individual
-> queue indicators are switched on and no further interrupt is generated
-> if the summary indicator has not been cleared by the guest yet. I'm not
-> sure how it would be different if an individual queue indicator is
-> switched on later. Chances are that the guest code processing the
-> indicators has not even yet processed to that individual indicator, so
-> it wouldn't matter if it was set delayed. It is probably something that
-> has to be tried out.
+> Or were you thinking about introducing some standard for the "real"
+> config space? (fine with me as well - the transport will have nothing to
+> do :-)
 
-The network driver will do this at the virtio level too: no more rx
-interrupts will be received until all packets have been processed.
-
-But it is particularly useful for network transmit interrupts: we want
-to be notified of the packet's finishing, but a little delay (hence more
-batching) is better.  For rx, I can envision a case where the guest is
-too fast and thus keeps getting interrupted after each packet.  A user
-might decide to trade off some latency to increase batching; seems
-like a bit like a benchmark hack to me, though...
+No, that'd not be possible at this point.  I think it's a per-transport
+decision.
 
 Cheers,
 Rusty.
