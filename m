@@ -1,50 +1,42 @@
-From: yzhu1 <Yanjun.Zhu@windriver.com>
-Subject: Re: [PATCH 1/1] tun: change speed from 10M to dynamically configured
-Date: Mon, 16 Feb 2015 10:31:41 +0800
-Message-ID: <54E1568D.5000100@windriver.com>
-References: <1423808353-8722-1-git-send-email-Yanjun.Zhu@windriver.com> <1423808353-8722-2-git-send-email-Yanjun.Zhu@windriver.com> <20150213212830.GA29912@electric-eye.fr.zoreil.com>
+From: Sriharsha Basavapatna <sriharsha.basavapatna@emulex.com>
+Subject: [PATCH v2 net-next 0/4] be2net patch-set
+Date: Mon, 16 Feb 2015 08:03:44 +0530
+Message-ID: <1424054028-23659-1-git-send-email-sriharsha.basavapatna@emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <mst@redhat.com>, <jasowang@redhat.com>,
-	<viro@zeniv.linux.org.uk>, <davem@davemloft.net>,
-	<sergei.shtylyov@cogentembedded.com>, <jonathon.reinhart@gmail.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Type: text/plain
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:64630 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752213AbbBPCbn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Feb 2015 21:31:43 -0500
-In-Reply-To: <20150213212830.GA29912@electric-eye.fr.zoreil.com>
+Received: from cmexedge2.emulex.com ([138.239.224.100]:57681 "EHLO
+	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751272AbbBPClx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Feb 2015 21:41:53 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi, all
+v1->v2 changes:
+Patch 4: fixed minor nits pointed out by Sergei Shtylyov
 
-When a user space application accesses the tun device by "ethtool " 
-command, the returned default speed is 10M
-while normal nic default speed is 1000M. The default tun speed 10M is 
-somewhat odd compared with the default
-speed 1000M.
-Sometimes the user space application will treat this 10M as odd thing, 
-then will send warnings to the administrator.
-So I think maybe the default tun speed 1000M is better. The application 
-will not send warnings.
-In this case, this patch appears.
+Hi David,
 
-Best Regards!
-Zhu Yanjun
+This patch set contains a few code refactoring changes to make it easy to
+support new TX WRB formats in future ASICs. Please consider applying it to
+net-next tree.
 
-On 02/14/2015 05:28 AM, Francois Romieu wrote:
-> Zhu Yanjun <Yanjun.Zhu@windriver.com> :
->> The default speed of normal nic is 1000M while the default speed
->> of tun is 10M. Now the default speed of tun is changed to 1000M.
->> And there are 3 options: 10M, 100M and 1000M to the speed of tun.
->> The command "ethtool -s tun0 speed 10/100/1000" can configure the
->> speed of tun dynamically.
-> You don't explain why this patch is needed.
->
-> Why should tun_set_settings filter speed this way/at all ?
->
-> There's no reason to pollute uapi .h file.
->
+Patch 1: Refactors chip specific code to setup tx wrb into a separate routine.
+Patch 2: Refactors tx enqueue function to remove a bit of duplicate code and
+	 improves wrb setup steps.
+Patch 3: Minor refactoring in tx compl to limit CQE accesses to 1 routine.
+Patch 4: Adds a few inline functions.
+
+Sriharsha Basavapatna (4):
+  be2net: Refactor wrb_fill_hdr() routine
+  be2net: Refactor be_xmit_enqueue() routine
+  be2net: Minor code cleanup in tx completion process
+  be2net: Add a few inline functions to test TXQ conditions
+
+ drivers/net/ethernet/emulex/benet/be.h      |  40 ++++
+ drivers/net/ethernet/emulex/benet/be_main.c | 294 ++++++++++++++++++----------
+ 2 files changed, 231 insertions(+), 103 deletions(-)
+
+-- 
+2.2.0.65.g9abc44b
