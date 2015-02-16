@@ -1,68 +1,41 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next 2/9] be2net: replace (1 << x) with BIT(x)
-Date: Mon, 16 Feb 2015 16:13:10 +0300
-Message-ID: <54E1ECE6.60703@cogentembedded.com>
-References: <1423228723-10919-1-git-send-email-sathya.perla@emulex.com> <1423228723-10919-3-git-send-email-sathya.perla@emulex.com> <54E1DDF4.5040901@cogentembedded.com> <CF9D1877D81D214CB0CA0669EFAE020C74C34365@CMEXMB1.ad.emulex.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Sathya Perla <Sathya.Perla@Emulex.Com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f176.google.com ([209.85.217.176]:53688 "EHLO
-	mail-lb0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755813AbbBPNNN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Feb 2015 08:13:13 -0500
-Received: by mail-lb0-f176.google.com with SMTP id u10so27062515lbd.7
-        for <netdev@vger.kernel.org>; Mon, 16 Feb 2015 05:13:12 -0800 (PST)
-In-Reply-To: <CF9D1877D81D214CB0CA0669EFAE020C74C34365@CMEXMB1.ad.emulex.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Priit Laes <plaes@plaes.org>
+Subject: [PATCH v3 4/7] rtlwifi: Remove unused defines from cam.h
+Date: Mon, 16 Feb 2015 15:01:54 +0200
+Message-ID: <1424091717-13212-2-git-send-email-plaes@plaes.org>
+References: <1424091600-13121-1-git-send-email-plaes@plaes.org>
+ <1424091717-13212-1-git-send-email-plaes@plaes.org>
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Priit Laes <plaes@plaes.org>
+To: Larry Finger <Larry.Finger@lwfinger.net>,
+	Chaoming Li <chaoming_li@realsil.com.cn>,
+	Kalle Valo <kvalo@codeaurora.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1424091717-13212-1-git-send-email-plaes@plaes.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello.
+Signed-off-by: Priit Laes <plaes@plaes.org>
+---
+ drivers/net/wireless/rtlwifi/cam.h | 2 --
+ 1 file changed, 2 deletions(-)
 
-On 2/16/2015 3:55 PM, Sathya Perla wrote:
-
->>> From: Vasundhara Volam <vasundhara.volam@emulex.com>
-
->>> BIT(x) is the preffered usage.
-
->>      Preferred.
-
-> :-) As this is a harmless spelling mistake only in the changelog,
-> I'll not bother sending a new patch for this!
-
-    OK...
-
->> [...]
-
->>> diff --git a/drivers/net/ethernet/emulex/benet/be.h
->> b/drivers/net/ethernet/emulex/benet/be.h
->>> index 3b1d59d..9869556 100644
->>> --- a/drivers/net/ethernet/emulex/benet/be.h
->>> +++ b/drivers/net/ethernet/emulex/benet/be.h
->>> @@ -361,15 +361,15 @@ enum vf_state {
->>>    	ASSIGNED = 1
->>>    };
->>>
->>> -#define BE_FLAGS_LINK_STATUS_INIT		1
->>> -#define BE_FLAGS_SRIOV_ENABLED			(1 << 2)
->>> -#define BE_FLAGS_WORKER_SCHEDULED		(1 << 3)
->>> -#define BE_FLAGS_VLAN_PROMISC			(1 << 4)
->>> -#define BE_FLAGS_MCAST_PROMISC			(1 << 5)
->>> -#define BE_FLAGS_NAPI_ENABLED			(1 << 9)
->>> -#define BE_FLAGS_QNQ_ASYNC_EVT_RCVD		(1 << 11)
->>> -#define BE_FLAGS_VXLAN_OFFLOADS			(1 << 12)
->>> -#define BE_FLAGS_SETUP_DONE			(1 << 13)
->>> +#define BE_FLAGS_LINK_STATUS_INIT		BIT(1)
-
->>      Not BIT(0)?
-
-> Huh, this was not intentional. I'll remember to use bit-0 the next time
-> we introduce a new bit!
-
-    Note that bit 0 was used for BE_FLAGS_LINK_STATUS_INIT before your patch.
-
-[...]
-
-WBR, Sergei
+diff --git a/drivers/net/wireless/rtlwifi/cam.h b/drivers/net/wireless/rtlwifi/cam.h
+index 3550808..e2e647d 100644
+--- a/drivers/net/wireless/rtlwifi/cam.h
++++ b/drivers/net/wireless/rtlwifi/cam.h
+@@ -28,13 +28,11 @@
+ 
+ #define CAM_CONTENT_COUNT				8
+ 
+-#define CFG_DEFAULT_KEY					BIT(5)
+ #define CFG_VALID					BIT(15)
+ 
+ #define PAIRWISE_KEYIDX					0
+ #define CAM_PAIRWISE_KEY_POSITION			4
+ 
+-#define	CAM_CONFIG_USEDK				1
+ #define	CAM_CONFIG_NO_USEDK				0
+ 
+ void rtl_cam_reset_all_entry(struct ieee80211_hw *hw);
+-- 
+2.3.0
