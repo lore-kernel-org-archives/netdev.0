@@ -1,140 +1,185 @@
-From: "Nikita N." <nikitan@operamail.com>
-Subject: Re: brcmsmac: TX power blocked in BCM4313
-Date: Mon, 16 Feb 2015 10:53:07 -0800
-Message-ID: <1424112787.3303548.228201005.68F1D224@webmail.messagingengine.com>
-References: <1424007136.2042747.227726249.45B6A0E2@webmail.messagingengine.com>
- <1424094835.3188168.228077393.0E2006F5@webmail.messagingengine.com>
- <54E2107F.4000709@broadcom.com>
+From: Casey Leedom <leedom@chelsio.com>
+Subject: RE: chelsio: Use a more common const struct pci_device_id foo[]
+ style
+Date: Mon, 16 Feb 2015 19:07:44 +0000
+Message-ID: <4985EFDD773FCB459EF7915D2A3621ADB9E035@nice.asicdesigners.com>
+References: <1423879550.2795.12.camel@perches.com>
+	 <4985EFDD773FCB459EF7915D2A3621ADB9E00A@nice.asicdesigners.com>,<1424110879.8287.3.camel@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: hauke@hauke-m.de, brcm80211-dev-list@broadcom.com,
-	linux-wireless@vger.kernel.org, Kalle Valo <kvalo@codeaurora.org>,
-	Pat Erley <pat-lkml@erley.org>, brudley@broadcom.com,
-	Franky Lin <frankyl@broadcom.com>, meuleman@broadcom.com,
-	linville@tuxdriver.com, pieterpg@broadcom.com, hdegoede@redhat.com,
-	wens@csie.org, netdev@vger.kernel.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Arend van Spriel <arend@broadcom.com>
+Content-Type: text/plain; charset=Windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Hariprasad S <hariprasad@chelsio.com>,
+	"James E.J. Bottomley" <JBottomley@parallels.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	linux-scsi <linux-scsi@vger.kernel.org>,
+	David Miller <davem@redhat.com>
+To: Joe Perches <joe@perches.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <54E2107F.4000709@broadcom.com>
+In-Reply-To: <1424110879.8287.3.camel@perches.com>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Arend,
-first of all, thank you for your answer.
+  I understand that OS-independence issues aren't something which are n=
+ormally accommodated, but as long as definitions don't introduce unnece=
+ssary "foreign intrusion" I would hope that it would be okay.  As I not=
+ed, our t4_regs.h file is also OS-independent and used by six other OS =
+device drivers.  Putting Linux definitions into t4_pci_id_tbl.h would b=
+e somewhat akin to injecting Linux dependencies into t4_regs.h.
 
-I'm very sorry to hear that negative feedback.
-So, AFAIU, there is no support in brcmsmac for regdom and power
-settings.
+  But, if the change must be made, then we'll just maintain a translati=
+on between our Common Code and the kernel.org code.  If that's the case=
+, probably the best documentation for the proposed CH_PCI_ID_TABLE_ENTR=
+Y_DATA might be something like:
 
-I don't know how much Broadcom Corp. is complaint with IEEE Standard
-802.11-2007 (page 531), along that decision.
-Missing also the support for a complete functioning of tools such as
-iwconfig and iw, doesn't put Broadcom Corp. very much Linux supporting.
-When in fact in the Windows driver, the TX power control is explicitly
-enabled and fully operational.
+ * CH_PCI_ID_TABLE_ENTRY_DATA
+ *   -- Used for the individual PCI Device ID entries for the PCI_VDEVI=
+CE() "dev"
+ *   -- parameter.
 
-Now, I googled around, and found the following page:
-http://www.broadcom.com/support/802.11/linux_sta.php
-the README states explicitly:
-"iwconfig eth1 txpower & iwlist eth1 txpower set and get the drivers
-user-requested transmit power level. This can go up to 32 dbm and allows
-the user to lower the tx power to levels below the regulatory limit.
-Internally, the actual tx power is always kept within regulatory limits
-no matter what the user request is set to."
+  So it sounds like Chelsio would be required to make this change then?=
+  I'm still unclear on the likes of responsibility/authority here.  We'=
+re being told that we must do this but we have to be the ones requestin=
+g it?  Sorry for my confusion.  (Which is doubly apparent since I came =
+into work this morning only to realize that it's a company holiday.  Co=
+lor me a moron today.)
 
-Unfortunately, I don't know if also that STA driver works or not,
-because I was not even able to successfully compile&install it over
-latest Ubuntu shipped backports, even if applied all bug patches.
-Whose patches, BTW, are coming open-source also from contributors out of
-Broadcom Corp, driven simply by the wish to help the community, for
-free.
+Casey
 
-So I would like to ask 3 questions:
-1) Why the same STA redgom and power support (shipped with that STA
-driver) was not applied also over the latest Linux backports?
-2) What exact Ubuntu core version and backports version, have been
-adapted by responsibility of Broadcom QA Testing team, to verify the
-correctness of specifications advertized officially on that Broadcom
-Corp. web page README?
+________________________________________
+=46rom: Joe Perches [joe@perches.com]
+Sent: Monday, February 16, 2015 10:21 AM
+To: Casey Leedom
+Cc: Hariprasad S; James E.J. Bottomley; netdev@vger.kernel.org; linux-k=
+ernel@vger.kernel.org; linux-scsi; David Miller
+Subject: Re: chelsio: Use a more common const struct pci_device_id foo[=
+] style
 
-Finally I would like to take the opportunity to ask you Arend, about a
-issue I raised a year ago, here a remind FYI:
-http://permalink.gmane.org/gmane.linux.kernel.wireless.general/117985
+On Mon, 2015-02-16 at 18:05 +0000, Casey Leedom wrote:
+>   I can't quite tell if this is a patch request being sent to
+> netdev/David Miller or if it's a suggestion sent to Chelsio that you'=
+d
+> like Chelsio to adopt.  I ~think~ it's the latter because the subject
+> doesn't include the standard formatting for a patch request but I'm
+> not 100% familiar with the netdev/kernel.org conventions for this.  M=
+y
+> apologies if I'm misinterpreting your message.
 
-After more than *ONE* year, still the brcmsmac driver can not detect 11n
-modulated frames in monitor mode.
-Question:
-3) Can (at least) that STA driver detect 11n modulated frames in monitor
-mode?
+Hi Casey.
 
-I hope you or someone here will be able to answer those questions,
-because I'm not going to replicate them elsewhere.
-Since I got really frustrated by all those unsatisfactory products and
-results from Broadcom Corp., the unsatisfactory support towards Linux
-community, and the unsatisfactory Customers care.
+Nah, that's not it.
 
-Thanks for your attention. 
--- 
-  Nikita N.
-  nikitan@operamail.com
+I just forgot/neglected to prefix [PATCH] on the email when I
+sent it.
 
+The patch touches drivers/net/ethernet and drivers/scsi which
+generally means that it's better for the company maintainers
+to apply rather than coordinating between David and James,
+the linux networking and scsi maintainers.  Those guys for
+most part don't like touching each others code areas.
 
-On Mon, Feb 16, 2015, at 07:45 AM, Arend van Spriel wrote:
-> On 02/16/15 14:53, Nikita N. wrote:
-> > Hi Dear brcmsmac Devs,
-> > following up my previous email, since I didn't receive any feedback, I
-> > took the trouble to test my understandings myself.
-> > First of all, I want to report the following fact: the TX power is
-> > blocked/fixed to 19dbm, no matter what local regdom or power setting.
-> 
-> Hi Nikita,
-> 
-> We saw your previous email just this morning. Basically, tx power 
-> control is explicitly disabled in brcmsmac. I think it was one of the 
-> internal requirements to get approval for this open-source effort.
-> 
-> > If that is an issue or bug or else I leave the decision to you.
-> > Another fact is that, the Windows driver for that same interface, is
-> > capable to push the transceiver at least 10 RSSI points higher than
-> > linux backports brcmsmac driver, which means it is *DO* possible to
-> > change the TX power.
-> > In my personal case I want to lower it, but even that is not possible:
-> > no setting is working, neither changing the regdom (iw reg set) nor the
-> > power (iwconfig wlan0 txpower, iw dev wlan0 set txpower fixed, iw phy
-> > wlan0 set txpower fixed).
-> >
-> > Now, as for my tests, I just tried to hard-code few values into the
-> > brcmsmac driver module, only to see if anything changes.
-> > In details I zeroed the values of all tx_power_offsets in the table
-> > populated in wlc_lcnphy_txpower_recalc_target (phy_lcn.c), and called
-> > wlc_lcnphy_set_target_tx_pwr with a value of 40 (minor that 52, which is
-> > the minimum I found debugging that function).
-> > Again, nothing changed (even if further calls to
-> > wlc_lcnphy_set_target_tx_pwr =40)
-> >
-> > It is my wish to create a patch for that "issue", which I want first to
-> > test here locally to me, and if working&interesting, I can propose it
-> > for merging in next release.
-> > But, AMOF, now I'm just stuck.
-> >
-> > In case anybody feels like giving away any hint/feedback, I would have
-> > few questions:
-> > 1) is it "brcmsmac" linux backports driver still supported or
-> > deprecated?
-> > 2) if deprecated, what is the supported driver for BCM4313?
-> > 3) About my tests, was it correct zeroing all tx_power_offsets in the
-> > table and call wlc_lcnphy_set_target_tx_pwr=40, to get a TX power less
-> > that 19dbm?
-> > 4) if it was not correct, or partially correct, what am I missing or
-> > doing wrong, in order to push the TX transceiver power less than 19dbm?
-> 
-> Sorry to say but I can not help you. I can not encourage (nor 
-> discourage) changing the phy code.
-> 
-> Regards,
-> Arend
+> 1.  The use of "const" certainly seems like a win.
 
--- 
-http://www.fastmail.com - Send your email first class
+I think so.
+
+My goal here was to make obvious the use of
+"const struct pci_device_id" which in the original is very
+obfuscated/unclear.
+
+>  2. Thanks for catching the redundant use of CH_PCI_DEVICE_ID_TABLE_D=
+EFINE_BEGIN to guard
+>     the actual contents of t4_pci_id_tbl.h.  That's already being han=
+dled via the check for
+>     __T4_PCI_ID_TBL_H__ =97 no idea why I put that in there ...
+
+That didn't matter much to me.
+
+>  3. The use of the CH_PCI_DEVICE_ID_TABLE_DEFINE_BEGIN and
+>     CH_PCI_DEVICE_ID_TABLE_DEFINE_END are used to make the t4_pci_id_=
+tbl.h
+>     accommodate different driver needs.  The header file is only conc=
+erned with providing
+>     a common enumeration of existing PCI Device Identifiers associate=
+d with adapters.
+>     The files including the header are only concerned with providing =
+the necessary context
+>     for the header file.  The header file ai an OS-independent header=
+ file which is
+>     shared across six existing OS driver implementations; similar to =
+our OS-independent
+>     register definitions file.
+
+I think that OS independent bit is not useful here.
+
+>  4. The CH_PCI_ID_TABLE_ENTRY() macro is similarly used to strictly p=
+artition
+>     the roles of t4_pci_id_tbl.h and the files which include it.  t4_=
+pci_id_tbl.h is
+>     exactly what it's name implies: solely an enumeration of assigned=
+ hardware
+>     adapter PCI Device Identifiers.
+
+Which is how it's used both before and after this change.
+
+>  5. Because of the above change in the original abstraction layering,=
+ a new macro
+>     CH_PCI_ID_TABLE_ENTRY_DATA is introduced in this patch which pass=
+es in
+>     a desired value for the "dev" parameter of the PCI_VDEVICE() macr=
+o.  But the
+>     documentation for this new macro in t4_pci_id_tbl.h is incorrectl=
+y given the
+>     documentation of the original CH_PCI_ID_TABLE_ENTRY() macro which
+>     was originally supplied by the file including t4_pci_id_tbl.h.  T=
+his leaves its
+>     usage confusing for anyone reading the header file.
+
+Do you have any clarifying text to suggest?
+
+cheers, Joe
+
+> In conclusion:
+>
+>  A. I like the use of "const" in the table.
+>
+>  B. I like removing the redundant content inclusion check of
+>     CH_PCI_DEVICE_ID_TABLE_DEFINE_BEGIN.
+>
+>  C. I'm uncomfortable with all the other changes.
+
+> Casey
+>
+> ________________________________________
+> From: Joe Perches [joe@perches.com]
+> Sent: Friday, February 13, 2015 6:05 PM
+> To: Hariprasad S; Casey Leedom; James E.J. Bottomley
+> Cc: netdev@vger.kernel.org; linux-kernel@vger.kernel.org; linux-scsi
+> Subject: chelsio: Use a more common const struct pci_device_id foo[] =
+style
+>
+> Chelsio code shares a pci_device_table from an #include file.
+> Make the include guard simpler and make the arrays const.
+>
+> Reduces data by moving tables to text.
+>
+> Removed unnecessary macros:
+> o CH_PCI_DEVICE_ID_TABLE_DEFINE_BEGIN
+> o CH_PCI_DEVICE_ID_TABLE_DEFINE_END
+> o CH_PCI_ID_TABLE_ENTRY (moved to the .h file)
+> Added new macro define:
+> o CH_PCI_ID_TABLE_ENTRY_DATA
+>
+>   text     data     bss     dec     hex filename
+>   50550     923     172   51645    c9bd drivers/net/ethernet/chelsio/=
+cxgb4/cxgb4_main.o.new
+>   46935    4531     172   51638    c9b6 drivers/net/ethernet/chelsio/=
+cxgb4/cxgb4_main.o.old
+>   27864     355       8   28227    6e43 drivers/net/ethernet/chelsio/=
+cxgb4vf/cxgb4vf_main.o.new
+>   26072    2203       8   28283    6e7b drivers/net/ethernet/chelsio/=
+cxgb4vf/cxgb4vf_main.o.old
+>    9734     450      24   10208    27e0 drivers/scsi/csiostor/csio_in=
+it.o.new
+>    7942    2242      24   10208    27e0 drivers/scsi/csiostor/csio_in=
+it.o.old
