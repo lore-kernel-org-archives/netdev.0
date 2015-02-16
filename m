@@ -1,89 +1,157 @@
 From: Sriharsha Basavapatna <sriharsha.basavapatna@emulex.com>
-Subject: [PATCH v2 net-next 4/4] be2net: Add a few inline functions to test TXQ conditions
-Date: Mon, 16 Feb 2015 08:03:48 +0530
-Message-ID: <1424054028-23659-5-git-send-email-sriharsha.basavapatna@emulex.com>
+Subject: [PATCH v2 net-next 3/4] be2net: Minor code cleanup in tx completion process
+Date: Mon, 16 Feb 2015 08:03:47 +0530
+Message-ID: <1424054028-23659-4-git-send-email-sriharsha.basavapatna@emulex.com>
 References: <1424054028-23659-1-git-send-email-sriharsha.basavapatna@emulex.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge2.emulex.com ([138.239.224.100]:57681 "EHLO
-	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754804AbbBPCly (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Feb 2015 21:41:54 -0500
+Received: from cmexedge1.emulex.com ([138.239.224.99]:25688 "EHLO
+	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755222AbbBPCl4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Feb 2015 21:41:56 -0500
 In-Reply-To: <1424054028-23659-1-git-send-email-sriharsha.basavapatna@emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-- Check qfull condition
-- Check qwake condition
-- Check pkts pending completion
+- To avoid multiple accesses to CQE, extract compl_status and end_idx from
+  be_tx_compl_get().
 
 Signed-off-by: Sriharsha Basavapatna <sriharsha.basavapatna@emulex.com>
 ---
- drivers/net/ethernet/emulex/benet/be_main.c | 22 ++++++++++++++++++----
- 1 file changed, 18 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/emulex/benet/be.h      |  7 +++++
+ drivers/net/ethernet/emulex/benet/be_main.c | 47 +++++++++++++++--------------
+ 2 files changed, 31 insertions(+), 23 deletions(-)
 
+diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
+index bc7f3d6..ad33bf1 100644
+--- a/drivers/net/ethernet/emulex/benet/be.h
++++ b/drivers/net/ethernet/emulex/benet/be.h
+@@ -238,10 +238,17 @@ struct be_tx_stats {
+ 	struct u64_stats_sync sync_compl;
+ };
+ 
++/* Structure to hold some data of interest obtained from a TX CQE */
++struct be_tx_compl_info {
++	u8 status;		/* Completion status */
++	u16 end_index;		/* Completed TXQ Index */
++};
++
+ struct be_tx_obj {
+ 	u32 db_offset;
+ 	struct be_queue_info q;
+ 	struct be_queue_info cq;
++	struct be_tx_compl_info txcp;
+ 	/* Remember the skbs that were transmitted */
+ 	struct sk_buff *sent_skb_list[TX_Q_LEN];
+ 	struct be_tx_stats stats;
 diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index b37b099..c58f2835 100644
+index 2f17937..b37b099 100644
 --- a/drivers/net/ethernet/emulex/benet/be_main.c
 +++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -728,6 +728,21 @@ static u16 skb_ip_proto(struct sk_buff *skb)
- 		ip_hdr(skb)->protocol : ipv6_hdr(skb)->nexthdr;
+@@ -2065,18 +2065,23 @@ static void be_post_rx_frags(struct be_rx_obj *rxo, gfp_t gfp, u32 frags_needed)
+ 	}
  }
  
-+static inline bool be_is_txq_full(struct be_tx_obj *txo)
-+{
-+	return atomic_read(&txo->q.used) + BE_MAX_TX_FRAG_COUNT >= txo->q.len;
-+}
-+
-+static inline bool be_can_txq_wake(struct be_tx_obj *txo)
-+{
-+	return atomic_read(&txo->q.used) < txo->q.len / 2;
-+}
-+
-+static inline bool be_is_tx_compl_pending(struct be_tx_obj *txo)
-+{
-+	return atomic_read(&txo->q.used) > txo->pend_wrb_cnt;
-+}
-+
- static void be_get_wrb_params_from_skb(struct be_adapter *adapter,
- 				       struct sk_buff *skb,
- 				       struct be_wrb_params *wrb_params)
-@@ -1135,7 +1150,6 @@ static netdev_tx_t be_xmit(struct sk_buff *skb, struct net_device *netdev)
- 	u16 q_idx = skb_get_queue_mapping(skb);
- 	struct be_tx_obj *txo = &adapter->tx_obj[q_idx];
- 	struct be_wrb_params wrb_params = { 0 };
--	struct be_queue_info *txq = &txo->q;
- 	bool flush = !skb->xmit_more;
- 	u16 wrb_cnt;
+-static struct be_eth_tx_compl *be_tx_compl_get(struct be_queue_info *tx_cq)
++static struct be_tx_compl_info *be_tx_compl_get(struct be_tx_obj *txo)
+ {
+-	struct be_eth_tx_compl *txcp = queue_tail_node(tx_cq);
++	struct be_queue_info *tx_cq = &txo->cq;
++	struct be_tx_compl_info *txcp = &txo->txcp;
++	struct be_eth_tx_compl *compl = queue_tail_node(tx_cq);
  
-@@ -1151,7 +1165,7 @@ static netdev_tx_t be_xmit(struct sk_buff *skb, struct net_device *netdev)
- 		goto drop;
- 	}
+-	if (txcp->dw[offsetof(struct amap_eth_tx_compl, valid) / 32] == 0)
++	if (compl->dw[offsetof(struct amap_eth_tx_compl, valid) / 32] == 0)
+ 		return NULL;
  
--	if ((atomic_read(&txq->used) + BE_MAX_TX_FRAG_COUNT) >= txq->len) {
-+	if (be_is_txq_full(txo)) {
- 		netif_stop_subqueue(netdev, q_idx);
- 		tx_stats(txo)->tx_stops++;
- 	}
-@@ -2226,7 +2240,7 @@ static void be_tx_compl_clean(struct be_adapter *adapter)
- 				atomic_sub(num_wrbs, &txq->used);
- 				timeo = 0;
++	/* Ensure load ordering of valid bit dword and other dwords below */
+ 	rmb();
+-	be_dws_le_to_cpu(txcp, sizeof(*txcp));
++	be_dws_le_to_cpu(compl, sizeof(*compl));
+ 
+-	txcp->dw[offsetof(struct amap_eth_tx_compl, valid) / 32] = 0;
++	txcp->status = GET_TX_COMPL_BITS(status, compl);
++	txcp->end_index = GET_TX_COMPL_BITS(wrb_index, compl);
+ 
++	compl->dw[offsetof(struct amap_eth_tx_compl, valid) / 32] = 0;
+ 	queue_tail_inc(tx_cq);
+ 	return txcp;
+ }
+@@ -2197,9 +2202,9 @@ static void be_tx_compl_clean(struct be_adapter *adapter)
+ {
+ 	u16 end_idx, notified_idx, cmpl = 0, timeo = 0, num_wrbs = 0;
+ 	struct device *dev = &adapter->pdev->dev;
+-	struct be_tx_obj *txo;
++	struct be_tx_compl_info *txcp;
+ 	struct be_queue_info *txq;
+-	struct be_eth_tx_compl *txcp;
++	struct be_tx_obj *txo;
+ 	int i, pending_txqs;
+ 
+ 	/* Stop polling for compls when HW has been silent for 10ms */
+@@ -2210,10 +2215,10 @@ static void be_tx_compl_clean(struct be_adapter *adapter)
+ 			cmpl = 0;
+ 			num_wrbs = 0;
+ 			txq = &txo->q;
+-			while ((txcp = be_tx_compl_get(&txo->cq))) {
+-				end_idx = GET_TX_COMPL_BITS(wrb_index, txcp);
+-				num_wrbs += be_tx_compl_process(adapter, txo,
+-								end_idx);
++			while ((txcp = be_tx_compl_get(txo))) {
++				num_wrbs +=
++					be_tx_compl_process(adapter, txo,
++							    txcp->end_index);
+ 				cmpl++;
  			}
--			if (atomic_read(&txq->used) == txo->pend_wrb_cnt)
-+			if (!be_is_tx_compl_pending(txo))
- 				pending_txqs--;
- 		}
+ 			if (cmpl) {
+@@ -2572,7 +2577,7 @@ loop_continue:
+ 	return work_done;
+ }
  
-@@ -2639,7 +2653,7 @@ static void be_process_tx(struct be_adapter *adapter, struct be_tx_obj *txo,
- 		/* As Tx wrbs have been freed up, wake up netdev queue
- 		 * if it was stopped due to lack of tx wrbs.  */
- 		if (__netif_subqueue_stopped(adapter->netdev, idx) &&
--		    atomic_read(&txo->q.used) < txo->q.len / 2) {
-+		    be_can_txq_wake(txo)) {
- 			netif_wake_subqueue(adapter->netdev, idx);
+-static inline void be_update_tx_err(struct be_tx_obj *txo, u32 status)
++static inline void be_update_tx_err(struct be_tx_obj *txo, u8 status)
+ {
+ 	switch (status) {
+ 	case BE_TX_COMP_HDR_PARSE_ERR:
+@@ -2587,7 +2592,7 @@ static inline void be_update_tx_err(struct be_tx_obj *txo, u32 status)
+ 	}
+ }
+ 
+-static inline void lancer_update_tx_err(struct be_tx_obj *txo, u32 status)
++static inline void lancer_update_tx_err(struct be_tx_obj *txo, u8 status)
+ {
+ 	switch (status) {
+ 	case LANCER_TX_COMP_LSO_ERR:
+@@ -2612,22 +2617,18 @@ static inline void lancer_update_tx_err(struct be_tx_obj *txo, u32 status)
+ static void be_process_tx(struct be_adapter *adapter, struct be_tx_obj *txo,
+ 			  int idx)
+ {
+-	struct be_eth_tx_compl *txcp;
+ 	int num_wrbs = 0, work_done = 0;
+-	u32 compl_status;
+-	u16 last_idx;
++	struct be_tx_compl_info *txcp;
+ 
+-	while ((txcp = be_tx_compl_get(&txo->cq))) {
+-		last_idx = GET_TX_COMPL_BITS(wrb_index, txcp);
+-		num_wrbs += be_tx_compl_process(adapter, txo, last_idx);
++	while ((txcp = be_tx_compl_get(txo))) {
++		num_wrbs += be_tx_compl_process(adapter, txo, txcp->end_index);
+ 		work_done++;
+ 
+-		compl_status = GET_TX_COMPL_BITS(status, txcp);
+-		if (compl_status) {
++		if (txcp->status) {
+ 			if (lancer_chip(adapter))
+-				lancer_update_tx_err(txo, compl_status);
++				lancer_update_tx_err(txo, txcp->status);
+ 			else
+-				be_update_tx_err(txo, compl_status);
++				be_update_tx_err(txo, txcp->status);
  		}
+ 	}
  
 -- 
 2.2.0.65.g9abc44b
