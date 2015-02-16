@@ -1,98 +1,36 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] netfilter: xt_socket: fix a stack corruption bug
-Date: Sun, 15 Feb 2015 19:03:45 -0800
-Message-ID: <1424055825.4942.50.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Guenter Roeck <linux@roeck-us.net>
+Subject: Re: [PATCH 1/2] net: dsa: mv88e6352: Refactor shareable code
+Date: Sun, 15 Feb 2015 19:09:42 -0800
+Message-ID: <54E15F76.1020201@roeck-us.net>
+References: <1423937871-9180-1-git-send-email-andrew@lunn.ch> <1423937871-9180-2-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Balazs Scheidler <bazsi@balabit.hu>,
-	KOVACS Krisztian <hidden@balabit.hu>,
-	Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	netfilter-devel@vger.kernel.org, netdev <netdev@vger.kernel.org>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
+Cc: netdev@vger.kernel.org
+To: Andrew Lunn <andrew@lunn.ch>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f49.google.com ([209.85.216.49]:51333 "EHLO
-	mail-qa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752532AbbBPDDs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Feb 2015 22:03:48 -0500
+Received: from bh-25.webhostbox.net ([208.91.199.152]:37460 "EHLO
+	bh-25.webhostbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751272AbbBPDJp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Feb 2015 22:09:45 -0500
+Received: from mailnull by bh-25.webhostbox.net with sa-checked (Exim 4.82)
+	(envelope-from <linux@roeck-us.net>)
+	id 1YNC48-0048Cq-0H
+	for netdev@vger.kernel.org; Mon, 16 Feb 2015 03:09:45 +0000
+In-Reply-To: <1423937871-9180-2-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On 02/14/2015 10:17 AM, Andrew Lunn wrote:
+> The mv88e6352 allows access to the port phys via an internal mdio bus
+> which is accessed using registers in the GLOBAL 2 range. The mv88e6171
+> and probably other devices use the same mechanism. Move this code into
+> the shared mv88e6xxx.c library.
+>
+> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
 
-As soon as extract_icmp6_fields() returns, its local storage (automatic
-variables) is deallocated and can be overwritten.
+With mv88e6352:
 
-Lets add an additional parameter to make sure storage is valid long
-enough.
+Tested-by: Guenter Roeck <linux@roeck-us.net>
 
-While we are at it, adds some const qualifiers.
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Fixes: b64c9256a9b76 ("tproxy: added IPv6 support to the socket match")
----
- net/netfilter/xt_socket.c |   21 ++++++++++++---------
- 1 file changed, 12 insertions(+), 9 deletions(-)
-
-diff --git a/net/netfilter/xt_socket.c b/net/netfilter/xt_socket.c
-index 1ba67931eb1b..13332dbf291d 100644
---- a/net/netfilter/xt_socket.c
-+++ b/net/netfilter/xt_socket.c
-@@ -243,12 +243,13 @@ static int
- extract_icmp6_fields(const struct sk_buff *skb,
- 		     unsigned int outside_hdrlen,
- 		     int *protocol,
--		     struct in6_addr **raddr,
--		     struct in6_addr **laddr,
-+		     const struct in6_addr **raddr,
-+		     const struct in6_addr **laddr,
- 		     __be16 *rport,
--		     __be16 *lport)
-+		     __be16 *lport,
-+		     struct ipv6hdr *ipv6_var)
- {
--	struct ipv6hdr *inside_iph, _inside_iph;
-+	const struct ipv6hdr *inside_iph;
- 	struct icmp6hdr *icmph, _icmph;
- 	__be16 *ports, _ports[2];
- 	u8 inside_nexthdr;
-@@ -263,12 +264,14 @@ extract_icmp6_fields(const struct sk_buff *skb,
- 	if (icmph->icmp6_type & ICMPV6_INFOMSG_MASK)
- 		return 1;
- 
--	inside_iph = skb_header_pointer(skb, outside_hdrlen + sizeof(_icmph), sizeof(_inside_iph), &_inside_iph);
-+	inside_iph = skb_header_pointer(skb, outside_hdrlen + sizeof(_icmph),
-+					sizeof(*ipv6_var), ipv6_var);
- 	if (inside_iph == NULL)
- 		return 1;
- 	inside_nexthdr = inside_iph->nexthdr;
- 
--	inside_hdrlen = ipv6_skip_exthdr(skb, outside_hdrlen + sizeof(_icmph) + sizeof(_inside_iph),
-+	inside_hdrlen = ipv6_skip_exthdr(skb, outside_hdrlen + sizeof(_icmph) +
-+					      sizeof(*ipv6_var),
- 					 &inside_nexthdr, &inside_fragoff);
- 	if (inside_hdrlen < 0)
- 		return 1; /* hjm: Packet has no/incomplete transport layer headers. */
-@@ -315,10 +318,10 @@ xt_socket_get_sock_v6(struct net *net, const u8 protocol,
- static bool
- socket_mt6_v1_v2(const struct sk_buff *skb, struct xt_action_param *par)
- {
--	struct ipv6hdr *iph = ipv6_hdr(skb);
-+	struct ipv6hdr ipv6_var, *iph = ipv6_hdr(skb);
- 	struct udphdr _hdr, *hp = NULL;
- 	struct sock *sk = skb->sk;
--	struct in6_addr *daddr = NULL, *saddr = NULL;
-+	const struct in6_addr *daddr = NULL, *saddr = NULL;
- 	__be16 uninitialized_var(dport), uninitialized_var(sport);
- 	int thoff = 0, uninitialized_var(tproto);
- 	const struct xt_socket_mtinfo1 *info = (struct xt_socket_mtinfo1 *) par->matchinfo;
-@@ -342,7 +345,7 @@ socket_mt6_v1_v2(const struct sk_buff *skb, struct xt_action_param *par)
- 
- 	} else if (tproto == IPPROTO_ICMPV6) {
- 		if (extract_icmp6_fields(skb, thoff, &tproto, &saddr, &daddr,
--					 &sport, &dport))
-+					 &sport, &dport, &ipv6_var))
- 			return false;
- 	} else {
- 		return false;
+Guenter
