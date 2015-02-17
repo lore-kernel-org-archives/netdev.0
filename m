@@ -1,161 +1,44 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [E1000-devel] [PATCH 1/3] ixgbe, ixgbevf: Add new mbox API to
- enable MC promiscuous mode
-Date: Tue, 17 Feb 2015 10:02:50 -0500
-Message-ID: <54E3581A.70900@redhat.com>
-References: <7F861DC0615E0C47A872E6F3C5FCDDBD05E1908D@BPXM14GP.gisp.nec.co.jp>	 <1423054641.2589.59.camel@jtkirshe-mobl>	  <7F861DC0615E0C47A872E6F3C5FCDDBD05E26E45@BPXM14GP.gisp.nec.co.jp> <1423470046.27854.7.camel@jtkirshe-mobl> <7F861DC0615E0C47A872E6F3C5FCDDBD05E29F43@BPXM14GP.gisp.nec.co.jp> <F6FB0E698C9B3143BDF729DF22286646912A1339@ORSMSX110.amr.corp.intel.com>  <7F861DC0615E0C47A872E6F3C5FCDDBD05E2E9CE@BPXM14GP.gisp.nec.co.jp> <F6FB0E698C9B3143BDF729DF22286646912A1A50@ORSMSX110.amr.corp.intel.com> <54DE358B.90502@redhat.com> <7F861DC0615E0C47A872E6F3C5FCDDBD05E322FD@BPXM14GP.gisp.nec.co.jp>
-Reply-To: vyasevic@redhat.com
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: getting a list of naked interface names from iproute2
+Date: Tue, 17 Feb 2015 10:23:58 -0500
+Message-ID: <20150217102358.67b9d826@uryu.home.lan>
+References: <54E28630.4020200@mthode.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Alexander Duyck <alexander.duyck@gmail.com>,
-	=?UTF-8?B?QmrDuHJuIE1vcms=?= <bjorn@mork.no>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Choi, Sy Jong" <sy.jong.choi@intel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	David Laight <David.Laight@ACULAB.COM>,
-	Hayato Momma <h-momma@ce.jp.nec.com>
-To: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>,
-	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <7F861DC0615E0C47A872E6F3C5FCDDBD05E322FD@BPXM14GP.gisp.nec.co.jp>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Matthew Thode <mthode@mthode.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qa0-f53.google.com ([209.85.216.53]:32929 "EHLO
+	mail-qa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752467AbbBQPYB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Feb 2015 10:24:01 -0500
+Received: by mail-qa0-f53.google.com with SMTP id k15so26759509qaq.12
+        for <netdev@vger.kernel.org>; Tue, 17 Feb 2015 07:24:00 -0800 (PST)
+In-Reply-To: <54E28630.4020200@mthode.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 02/15/2015 11:54 PM, Hiroshi Shimamoto wrote:
->>>>>>>>>>> Can you please fix up your patches based on my tree:
->>>>>>>>>>> git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/que
->>>>>>>>>>> ue.git
->>>>>>>>>>
->>>>>>>>>> Yes. I haven't noticed your tree.
->>>>>>>>>> Will resend patches against it.
->>>>>>>>>>
->>>>>>>>>
->>>>>>>>> I encountered an issue with your tree, the commit id is below.
->>>>>>>>>
->>>>>>>>> $ git log | head
->>>>>>>>> commit e6f1649780f8f5a87299bf6af04453f93d1e3d5e
->>>>>>>>> Author: Rasmus Villemoes <linux@rasmusvillemoes.dk>
->>>>>>>>> Date:   Fri Jan 23 20:43:14 2015 -0800
->>>>>>>>>
->>>>>>>>>     ethernet: fm10k: Actually drop 4 bits
->>>>>>>>>
->>>>>>>>>     The comment explains the intention, but vid has type u16. Before
->>>> the
->>>>>>>>>     inner shift, it is promoted to int, which has plenty of space for all
->>>>>>>>>     vid's bits, so nothing is dropped. Use a simple mask instead.
->>>>>>>>>
->>>>>>>>>
->>>>>>>>> I use the kernel from your tree in both host and guest.
->>>>>>>>>
->>>>>>>>> Assign an IPv6 for VF in guest.
->>>>>>>>> # ip -6 addr add 2001:db8::18:1/64 dev ens0
->>>>>>>>>
->>>>>>>>> Send ping packet from other server to the VM.
->>>>>>>>> # ping6  2001:db8::18:1 -I eth0
->>>>>>>>>
->>>>>>>>> The following message was shown.
->>>>>>>>> ixgbevf 0000:00:08.0: partial checksum but l4 proto=3a!
->>>>>>>>>
->>>>>>>>> If I did the same operation in the host, I saw the same error
->>>>>>>>> message in
->>>>>>> host too.
->>>>>>>>> ixgbe 0000:2d:00.0: partial checksum but l4 proto=3a!
->>>>>>>>>
->>>>>>>>> Do you have any idea about that?
->>>>>>>>
->>>>>>>> Ah, sorry about that, try this tree again:
->>>>>>>> git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/queue.git
->>>>>>>>
->>>>>>>> That patch was dropped for favor of a patch that Matthew Vick
->>>>>>>> put together (and recently got pushed upstream).  So my queue no
->>>>>>>> longer has that patch in the queue, since it got dropped.
->>>>>>>
->>>>>>> I still see the same error, the head id is the below
->>>>>>>
->>>>>>> $ git log | head
->>>>>>> commit a072afb0b45904022b76deef3b770ee9a93cb13a
->>>>>>> Author: Nicholas Krause <xerofoify@gmail.com>
->>>>>>> Date:   Mon Feb 9 00:27:00 2015 -0800
->>>>>>>
->>>>>>>     igb: Remove outdated fix me comment in the
->>>>>>> function,gb_acquire_swfw_sync_i210
->>>>>>>
->>>>>>>
->>>>>>> thanks,
->>>>>>> Hiroshi
->>>>>>
->>>>>> I'm having our validation see if they can recreate the same issue
->>>>>> internally.  When they get back to me I'll let you
->>>>> know
->>>>>> what we found.
->>>>>
->>>>> We did bisect, and the below looks the culprit;
->>>>>
->>>>> 32dce968dd987adfb0c00946d78dad9154f64759 is the first bad commit
->>>>> commit 32dce968dd987adfb0c00946d78dad9154f64759
->>>>> Author: Vlad Yasevich <vyasevich@gmail.com>
->>>>> Date:   Sat Jan 31 10:40:18 2015 -0500
->>>>>
->>>>>     ipv6: Allow for partial checksums on non-ufo packets
->>>>>
->>>>>     Currntly, if we are not doing UFO on the packet, all UDP
->>>>>     packets will start with CHECKSUM_NONE and thus perform full
->>>>>     checksum computations in software even if device support
->>>>>     IPv6 checksum offloading.
->>>>>
->>>>>     Let's start start with CHECKSUM_PARTIAL if the device
->>>>>     supports it and we are sending only a single packet at
->>>>>     or below mtu size.
->>>>>
->>>>>     Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
->>>>>     Signed-off-by: David S. Miller <davem@davemloft.net>
->>>>>
->>>>> :040000 040000 4437eaf7e944f5a6136ebf668a256fee688fda3d
->>>> fade8da998d35c8da97a15f0556949ad371e5347 M      net
->>>>
->>>> When I reverted the commit, the issue was solved.
->>>>
->>>> thanks,
->>>> Hiroshi
->>>
->>> I believe the issue is that this patch (32dce968dd98 - ipv6: Allow for partial checksums on non-ufo packets) is that
->> it now sets CHECKSUM_PARTIAL on all IPv6 packets including ICMPv6 ones.  Our HW (82599) only supports checksum offload
->> on TCP/UDP (NETIF_F_IPV6_CSUM) so we get hung up on the skb's protocol and the fact that it is CHECKSUM_PARTIAL.
->>>
->>> Another thing that confuses me is the feature test in this patch.  It checks (rt->dst.dev->features & NETIF_F_V6_CSUM)
->> but NETIF_F_V6_CSUM is a two bit field?
->>>
->>> #define NETIF_F_V6_CSUM         (NETIF_F_GEN_CSUM | NETIF_F_IPV6_CSUM)
->>>
->>> So the test would succeed if either bit was high, that doesn't seem right.  I cc'd the author so maybe he could clue
->> us in.
->>
->> This has been addressed by:
->> commit bf250a1fa769f2eb8fc7a4e28b3b523e9cb67eef
->> Author: Vlad Yasevich <vyasevich@gmail.com>
->> Date:   Tue Feb 10 11:37:29 2015 -0500
->>
->>     ipv6: Partial checksum only UDP packets
->>
->>
->> As far the 2 bit issue, GEN_CSUM (HW_SUM) and IPV6_CSUM can not coexist at the same time.
->> See netdev_fix_features().
->>
-> 
-> thanks for pointing it. I will test with that commit.
-> 
-> Jeff's tree hasn't included that commit yet, right?
-> Which branch has the commit?
+On Mon, 16 Feb 2015 18:07:12 -0600
+Matthew Thode <mthode@mthode.org> wrote:
 
-This is in DaveM's net and net-next trees.
-
--vlad
-
+> iproute2 seems to like to add @ and : info to it's output.  This makes
+> parsing it hard for things like neutron (openstack).  I have a patch to
+> slightly update it (still missing some things, I'll link it at the end
+> if interested).  Is there a better way of getting interface names from
+> iproute2 without having to strip out at characters like '@' and ':'?
 > 
-> thanks,
-> Hiroshi
+> changeset in neutron: https://review.openstack.org/#/c/154128/
+> link to current code:
+> https://github.com/openstack/neutron/blob/master/neutron/agent/linux/ip_lib.py#L110-L131
 > 
+> I'd appreciate your help, I'd rather not have to go through each link
+> type to pull it's delimiter, but if needed I guess it's needed.
+> 
+
+Stop screenscraping, and use a real API.
+All of the above would work better:
+  1. Libc if_nameindex
+  2. Legacy ioctl(SIOCGIFCONF)
+  3. Netlink  NLMMSG_REQ (RTM_GETLINK)
+  4. Sysfs /sys/class/net
