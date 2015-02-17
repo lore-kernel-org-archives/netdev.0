@@ -1,85 +1,161 @@
-From: Igor Mammedov <imammedo@redhat.com>
-Subject: Re: [PATCH] vhost: support upto 509 memory regions
-Date: Tue, 17 Feb 2015 16:02:40 +0100
-Message-ID: <20150217160240.1085e2f7@nial.brq.redhat.com>
-References: <1423842599-5174-1-git-send-email-imammedo@redhat.com>
-	<20150217090242.GA20254@redhat.com>
-	<54E31F24.1060705@redhat.com>
-	<20150217123212.GA6362@redhat.com>
-	<54E33E09.5090603@redhat.com>
-	<20150217132931.GB6362@redhat.com>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [E1000-devel] [PATCH 1/3] ixgbe, ixgbevf: Add new mbox API to
+ enable MC promiscuous mode
+Date: Tue, 17 Feb 2015 10:02:50 -0500
+Message-ID: <54E3581A.70900@redhat.com>
+References: <7F861DC0615E0C47A872E6F3C5FCDDBD05E1908D@BPXM14GP.gisp.nec.co.jp>	 <1423054641.2589.59.camel@jtkirshe-mobl>	  <7F861DC0615E0C47A872E6F3C5FCDDBD05E26E45@BPXM14GP.gisp.nec.co.jp> <1423470046.27854.7.camel@jtkirshe-mobl> <7F861DC0615E0C47A872E6F3C5FCDDBD05E29F43@BPXM14GP.gisp.nec.co.jp> <F6FB0E698C9B3143BDF729DF22286646912A1339@ORSMSX110.amr.corp.intel.com>  <7F861DC0615E0C47A872E6F3C5FCDDBD05E2E9CE@BPXM14GP.gisp.nec.co.jp> <F6FB0E698C9B3143BDF729DF22286646912A1A50@ORSMSX110.amr.corp.intel.com> <54DE358B.90502@redhat.com> <7F861DC0615E0C47A872E6F3C5FCDDBD05E322FD@BPXM14GP.gisp.nec.co.jp>
+Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: Paolo Bonzini <pbonzini@redhat.com>, linux-kernel@vger.kernel.org,
-	kvm@vger.kernel.org, netdev@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Cc: Alexander Duyck <alexander.duyck@gmail.com>,
+	=?UTF-8?B?QmrDuHJuIE1vcms=?= <bjorn@mork.no>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Choi, Sy Jong" <sy.jong.choi@intel.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	David Laight <David.Laight@ACULAB.COM>,
+	Hayato Momma <h-momma@ce.jp.nec.com>
+To: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>,
+	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150217132931.GB6362@redhat.com>
+In-Reply-To: <7F861DC0615E0C47A872E6F3C5FCDDBD05E322FD@BPXM14GP.gisp.nec.co.jp>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 17 Feb 2015 14:29:31 +0100
-"Michael S. Tsirkin" <mst@redhat.com> wrote:
+On 02/15/2015 11:54 PM, Hiroshi Shimamoto wrote:
+>>>>>>>>>>> Can you please fix up your patches based on my tree:
+>>>>>>>>>>> git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/que
+>>>>>>>>>>> ue.git
+>>>>>>>>>>
+>>>>>>>>>> Yes. I haven't noticed your tree.
+>>>>>>>>>> Will resend patches against it.
+>>>>>>>>>>
+>>>>>>>>>
+>>>>>>>>> I encountered an issue with your tree, the commit id is below.
+>>>>>>>>>
+>>>>>>>>> $ git log | head
+>>>>>>>>> commit e6f1649780f8f5a87299bf6af04453f93d1e3d5e
+>>>>>>>>> Author: Rasmus Villemoes <linux@rasmusvillemoes.dk>
+>>>>>>>>> Date:   Fri Jan 23 20:43:14 2015 -0800
+>>>>>>>>>
+>>>>>>>>>     ethernet: fm10k: Actually drop 4 bits
+>>>>>>>>>
+>>>>>>>>>     The comment explains the intention, but vid has type u16. Before
+>>>> the
+>>>>>>>>>     inner shift, it is promoted to int, which has plenty of space for all
+>>>>>>>>>     vid's bits, so nothing is dropped. Use a simple mask instead.
+>>>>>>>>>
+>>>>>>>>>
+>>>>>>>>> I use the kernel from your tree in both host and guest.
+>>>>>>>>>
+>>>>>>>>> Assign an IPv6 for VF in guest.
+>>>>>>>>> # ip -6 addr add 2001:db8::18:1/64 dev ens0
+>>>>>>>>>
+>>>>>>>>> Send ping packet from other server to the VM.
+>>>>>>>>> # ping6  2001:db8::18:1 -I eth0
+>>>>>>>>>
+>>>>>>>>> The following message was shown.
+>>>>>>>>> ixgbevf 0000:00:08.0: partial checksum but l4 proto=3a!
+>>>>>>>>>
+>>>>>>>>> If I did the same operation in the host, I saw the same error
+>>>>>>>>> message in
+>>>>>>> host too.
+>>>>>>>>> ixgbe 0000:2d:00.0: partial checksum but l4 proto=3a!
+>>>>>>>>>
+>>>>>>>>> Do you have any idea about that?
+>>>>>>>>
+>>>>>>>> Ah, sorry about that, try this tree again:
+>>>>>>>> git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/queue.git
+>>>>>>>>
+>>>>>>>> That patch was dropped for favor of a patch that Matthew Vick
+>>>>>>>> put together (and recently got pushed upstream).  So my queue no
+>>>>>>>> longer has that patch in the queue, since it got dropped.
+>>>>>>>
+>>>>>>> I still see the same error, the head id is the below
+>>>>>>>
+>>>>>>> $ git log | head
+>>>>>>> commit a072afb0b45904022b76deef3b770ee9a93cb13a
+>>>>>>> Author: Nicholas Krause <xerofoify@gmail.com>
+>>>>>>> Date:   Mon Feb 9 00:27:00 2015 -0800
+>>>>>>>
+>>>>>>>     igb: Remove outdated fix me comment in the
+>>>>>>> function,gb_acquire_swfw_sync_i210
+>>>>>>>
+>>>>>>>
+>>>>>>> thanks,
+>>>>>>> Hiroshi
+>>>>>>
+>>>>>> I'm having our validation see if they can recreate the same issue
+>>>>>> internally.  When they get back to me I'll let you
+>>>>> know
+>>>>>> what we found.
+>>>>>
+>>>>> We did bisect, and the below looks the culprit;
+>>>>>
+>>>>> 32dce968dd987adfb0c00946d78dad9154f64759 is the first bad commit
+>>>>> commit 32dce968dd987adfb0c00946d78dad9154f64759
+>>>>> Author: Vlad Yasevich <vyasevich@gmail.com>
+>>>>> Date:   Sat Jan 31 10:40:18 2015 -0500
+>>>>>
+>>>>>     ipv6: Allow for partial checksums on non-ufo packets
+>>>>>
+>>>>>     Currntly, if we are not doing UFO on the packet, all UDP
+>>>>>     packets will start with CHECKSUM_NONE and thus perform full
+>>>>>     checksum computations in software even if device support
+>>>>>     IPv6 checksum offloading.
+>>>>>
+>>>>>     Let's start start with CHECKSUM_PARTIAL if the device
+>>>>>     supports it and we are sending only a single packet at
+>>>>>     or below mtu size.
+>>>>>
+>>>>>     Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
+>>>>>     Signed-off-by: David S. Miller <davem@davemloft.net>
+>>>>>
+>>>>> :040000 040000 4437eaf7e944f5a6136ebf668a256fee688fda3d
+>>>> fade8da998d35c8da97a15f0556949ad371e5347 M      net
+>>>>
+>>>> When I reverted the commit, the issue was solved.
+>>>>
+>>>> thanks,
+>>>> Hiroshi
+>>>
+>>> I believe the issue is that this patch (32dce968dd98 - ipv6: Allow for partial checksums on non-ufo packets) is that
+>> it now sets CHECKSUM_PARTIAL on all IPv6 packets including ICMPv6 ones.  Our HW (82599) only supports checksum offload
+>> on TCP/UDP (NETIF_F_IPV6_CSUM) so we get hung up on the skb's protocol and the fact that it is CHECKSUM_PARTIAL.
+>>>
+>>> Another thing that confuses me is the feature test in this patch.  It checks (rt->dst.dev->features & NETIF_F_V6_CSUM)
+>> but NETIF_F_V6_CSUM is a two bit field?
+>>>
+>>> #define NETIF_F_V6_CSUM         (NETIF_F_GEN_CSUM | NETIF_F_IPV6_CSUM)
+>>>
+>>> So the test would succeed if either bit was high, that doesn't seem right.  I cc'd the author so maybe he could clue
+>> us in.
+>>
+>> This has been addressed by:
+>> commit bf250a1fa769f2eb8fc7a4e28b3b523e9cb67eef
+>> Author: Vlad Yasevich <vyasevich@gmail.com>
+>> Date:   Tue Feb 10 11:37:29 2015 -0500
+>>
+>>     ipv6: Partial checksum only UDP packets
+>>
+>>
+>> As far the 2 bit issue, GEN_CSUM (HW_SUM) and IPV6_CSUM can not coexist at the same time.
+>> See netdev_fix_features().
+>>
+> 
+> thanks for pointing it. I will test with that commit.
+> 
+> Jeff's tree hasn't included that commit yet, right?
+> Which branch has the commit?
 
-> On Tue, Feb 17, 2015 at 02:11:37PM +0100, Paolo Bonzini wrote:
-> > 
-> > 
-> > On 17/02/2015 13:32, Michael S. Tsirkin wrote:
-> > > On Tue, Feb 17, 2015 at 11:59:48AM +0100, Paolo Bonzini wrote:
-> > >>
-> > >>
-> > >> On 17/02/2015 10:02, Michael S. Tsirkin wrote:
-> > >>>> Increasing VHOST_MEMORY_MAX_NREGIONS from 65 to 509
-> > >>>> to match KVM_USER_MEM_SLOTS fixes issue for vhost-net.
-> > >>>>
-> > >>>> Signed-off-by: Igor Mammedov <imammedo@redhat.com>
-> > >>>
-> > >>> This scares me a bit: each region is 32byte, we are talking
-> > >>> a 16K allocation that userspace can trigger.
-> > >>
-> > >> What's bad with a 16K allocation?
-> > > 
-> > > It fails when memory is fragmented.
-> > 
-> > If memory is _that_ fragmented I think you have much bigger problems
-> > than vhost.
-> > 
-> > > I'm guessing kvm doesn't do memory scans on data path, vhost does.
-> > 
-> > It does for MMIO memory-to-memory writes, but that's not a particularly
-> > fast path.
-> > 
-> > KVM doesn't access the memory map on fast paths, but QEMU does, so I
-> > don't think it's beyond the expectations of the kernel.
-> 
-> QEMU has an elaborate data structure to deal with that.
-> 
-> >  For example you
-> > can use a radix tree (not lib/radix-tree.c unfortunately), and cache
-> > GVA->HPA translations if it turns out that lookup has become a hot path.
-> 
-> All vhost lookups are hot path.
-> 
-> > The addressing space of x86 is in practice 44 bits or fewer, and each
-> > slot will typically be at least 1 GiB, so you only have 14 bits to
-> > dispatch on.   It's probably possible to only have two or three levels
-> > in the radix tree in the common case, and beat the linear scan real quick.
-> 
-> Not if there are about 6 regions, I think.
-When memslots where increased to 509 and look up of them was replaced on
-binary search results were on par with linear search for a default 13 memslots VM.
+This is in DaveM's net and net-next trees.
 
-Adding LRU cache helped to shave ~40% of cycles for sequential lookup workloads.
+-vlad
 
 > 
-> > The radix tree can be tuned to use order-0 allocations, and then your
-> > worries about fragmentation go away too.
-> > 
-> > Paolo
-> 
-> Increasing the number might be reasonable for workloads such as nested
-> virt. But depending on this in userspace when you don't have to is not a
-> good idea IMHO.
-> 
+> thanks,
+> Hiroshi
 > 
