@@ -1,254 +1,52 @@
 From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH v3 iproute2 2/4] ipnetns: allow to get and set netns ids
-Date: Tue, 17 Feb 2015 17:30:37 +0100
-Message-ID: <1424190639-5333-2-git-send-email-nicolas.dichtel@6wind.com>
+Subject: [PATCH v3 iproute2 4/4] bridge/fdb: display link netns id
+Date: Tue, 17 Feb 2015 17:30:39 +0100
+Message-ID: <1424190639-5333-4-git-send-email-nicolas.dichtel@6wind.com>
 References: <54D48308.60509@6wind.com>
  <1424190639-5333-1-git-send-email-nicolas.dichtel@6wind.com>
 Cc: netdev@vger.kernel.org, Nicolas Dichtel <nicolas.dichtel@6wind.com>
 To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:34068 "EHLO
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:34070 "EHLO
 	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750873AbbBQQat (ORCPT
+	with ESMTP id S1750863AbbBQQat (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 17 Feb 2015 11:30:49 -0500
 In-Reply-To: <1424190639-5333-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The kernel now provides ids for peer netns. This patch implements a new command
-'set' to assign an id.
-When netns are listed, if an id is assigned, it is now displayed.
-
-Example:
- $ ip netns add foo
- $ ip netns set foo 1
- $ ip netns
- foo (id: 1)
- init_net
+When this attribute is set, it means that the i/o part of the related netdevice
+is in another netns.
 
 Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 ---
 v3: rebase on master branch
-v2: no change
+v2: new in the series
 
- include/libnetlink.h |   8 ++++
- ip/ipnetns.c         | 113 ++++++++++++++++++++++++++++++++++++++++++++++++++-
- man/man8/ip-netns.8  |  14 +++++++
- 3 files changed, 134 insertions(+), 1 deletion(-)
+ bridge/fdb.c | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
 
-diff --git a/include/libnetlink.h b/include/libnetlink.h
-index d081e54210ea..898275b824d4 100644
---- a/include/libnetlink.h
-+++ b/include/libnetlink.h
-@@ -158,6 +158,14 @@ extern int rtnl_from_file(FILE *, rtnl_filter_t handler,
- #define NDTA_PAYLOAD(n) NLMSG_PAYLOAD(n,sizeof(struct ndtmsg))
- #endif
+diff --git a/bridge/fdb.c b/bridge/fdb.c
+index c01a5020de63..6941edd90f90 100644
+--- a/bridge/fdb.c
++++ b/bridge/fdb.c
+@@ -131,12 +131,16 @@ int print_fdb(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+ 		if (ifindex) {
+ 			char ifname[IF_NAMESIZE];
  
-+#ifndef NETNS_RTA
-+#define NETNS_RTA(r) \
-+	((struct rtattr*)(((char*)(r)) + NLMSG_ALIGN(sizeof(struct rtgenmsg))))
-+#endif
-+#ifndef NETNS_PAYLOAD
-+#define NETNS_PAYLOAD(n)	NLMSG_PAYLOAD(n,sizeof(struct rtgenmsg))
-+#endif
-+
- /* User defined nlmsg_type which is used mostly for logging netlink
-  * messages from dump file */
- #define NLMSG_TSTAMP	15
-diff --git a/ip/ipnetns.c b/ip/ipnetns.c
-index e4038ea72d71..5a213dcf46cd 100644
---- a/ip/ipnetns.c
-+++ b/ip/ipnetns.c
-@@ -15,6 +15,8 @@
- #include <unistd.h>
- #include <ctype.h>
- 
-+#include <linux/net_namespace.h>
-+
- #include "utils.h"
- #include "ip_common.h"
- #include "namespace.h"
-@@ -23,6 +25,7 @@ static int usage(void)
- {
- 	fprintf(stderr, "Usage: ip netns list\n");
- 	fprintf(stderr, "       ip netns add NAME\n");
-+	fprintf(stderr, "       ip netns set NAME NETNSID\n");
- 	fprintf(stderr, "       ip [-all] netns delete [NAME]\n");
- 	fprintf(stderr, "       ip netns identify [PID]\n");
- 	fprintf(stderr, "       ip netns pids NAME\n");
-@@ -31,10 +34,56 @@ static int usage(void)
- 	exit(-1);
- }
- 
-+static int get_netnsid_from_name(const char *name)
-+{
-+	struct {
-+		struct nlmsghdr n;
-+		struct rtgenmsg g;
-+		char            buf[1024];
-+	} req, answer;
-+	struct rtattr *tb[NETNSA_MAX + 1];
-+	struct rtgenmsg *rthdr;
-+	int len, fd;
-+
-+	memset(&req, 0, sizeof(req));
-+	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct rtgenmsg));
-+	req.n.nlmsg_flags = NLM_F_REQUEST;
-+	req.n.nlmsg_type = RTM_GETNSID;
-+	req.g.rtgen_family = AF_UNSPEC;
-+
-+	fd = netns_get_fd(name);
-+	if (fd < 0)
-+		return fd;
-+
-+	addattr32(&req.n, 1024, NETNSA_FD, fd);
-+	if (rtnl_talk(&rth, &req.n, 0, 0, &answer.n) < 0) {
-+		close(fd);
-+		return -2;
-+	}
-+	close(fd);
-+
-+	/* Validate message and parse attributes */
-+	if (answer.n.nlmsg_type == NLMSG_ERROR)
-+		return -1;
-+
-+	rthdr = NLMSG_DATA(&answer.n);
-+	len = answer.n.nlmsg_len - NLMSG_SPACE(sizeof(*rthdr));
-+	if (len < 0)
-+		return -1;
-+
-+	parse_rtattr(tb, NETNSA_MAX, NETNS_RTA(rthdr), len);
-+
-+	if (tb[NETNSA_NSID])
-+		return rta_getattr_u32(tb[NETNSA_NSID]);
-+
-+	return -1;
-+}
-+
- static int netns_list(int argc, char **argv)
- {
- 	struct dirent *entry;
- 	DIR *dir;
-+	int id;
- 
- 	dir = opendir(NETNS_RUN_DIR);
- 	if (!dir)
-@@ -45,7 +94,11 @@ static int netns_list(int argc, char **argv)
- 			continue;
- 		if (strcmp(entry->d_name, "..") == 0)
- 			continue;
--		printf("%s\n", entry->d_name);
-+		printf("%s", entry->d_name);
-+		id = get_netnsid_from_name(entry->d_name);
-+		if (id >= 0)
-+			printf(" (id: %d)", id);
-+		printf("\n");
+-			if (if_indextoname(ifindex, ifname))
++			if (!tb[NDA_LINK_NETNSID] &&
++			    if_indextoname(ifindex, ifname))
+ 				fprintf(fp, "via %s ", ifname);
+ 			else
+ 				fprintf(fp, "via ifindex %u ", ifindex);
+ 		}
  	}
- 	closedir(dir);
- 	return 0;
-@@ -375,6 +428,61 @@ out_delete:
- 	return -1;
- }
++	if (tb[NDA_LINK_NETNSID])
++		fprintf(fp, "link-netnsid %d ",
++			rta_getattr_u32(tb[NDA_LINK_NETNSID]));
  
-+static int set_netnsid_from_name(const char *name, int nsid)
-+{
-+	struct {
-+		struct nlmsghdr n;
-+		struct rtgenmsg g;
-+		char            buf[1024];
-+	} req;
-+	int fd, err = 0;
-+
-+	memset(&req, 0, sizeof(req));
-+	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct rtgenmsg));
-+	req.n.nlmsg_flags = NLM_F_REQUEST;
-+	req.n.nlmsg_type = RTM_NEWNSID;
-+	req.g.rtgen_family = AF_UNSPEC;
-+
-+	fd = netns_get_fd(name);
-+	if (fd < 0)
-+		return fd;
-+
-+	addattr32(&req.n, 1024, NETNSA_FD, fd);
-+	addattr32(&req.n, 1024, NETNSA_NSID, nsid);
-+	if (rtnl_talk(&rth, &req.n, 0, 0, NULL) < 0)
-+		err = -2;
-+
-+	close(fd);
-+	return err;
-+}
-+
-+static int netns_set(int argc, char **argv)
-+{
-+	char netns_path[MAXPATHLEN];
-+	const char *name;
-+	int netns, nsid;
-+
-+	if (argc < 1) {
-+		fprintf(stderr, "No netns name specified\n");
-+		return -1;
-+	}
-+	if (argc < 2) {
-+		fprintf(stderr, "No nsid specified\n");
-+		return -1;
-+	}
-+	name = argv[0];
-+	nsid = atoi(argv[1]);
-+
-+	snprintf(netns_path, sizeof(netns_path), "%s/%s", NETNS_RUN_DIR, name);
-+	netns = open(netns_path, O_RDONLY | O_CLOEXEC);
-+	if (netns < 0) {
-+		fprintf(stderr, "Cannot open network namespace \"%s\": %s\n",
-+			name, strerror(errno));
-+		return -1;
-+	}
-+
-+	return set_netnsid_from_name(name, nsid);
-+}
- 
- static int netns_monitor(int argc, char **argv)
- {
-@@ -430,6 +538,9 @@ int do_netns(int argc, char **argv)
- 	if (matches(*argv, "add") == 0)
- 		return netns_add(argc-1, argv+1);
- 
-+	if (matches(*argv, "set") == 0)
-+		return netns_set(argc-1, argv+1);
-+
- 	if (matches(*argv, "delete") == 0)
- 		return netns_delete(argc-1, argv+1);
- 
-diff --git a/man/man8/ip-netns.8 b/man/man8/ip-netns.8
-index 8e6999c0abcb..28a9544143e5 100644
---- a/man/man8/ip-netns.8
-+++ b/man/man8/ip-netns.8
-@@ -24,6 +24,10 @@ ip-netns \- process network namespace management
- .RI "[ " NETNSNAME " ]"
- 
- .ti -8
-+.BR "ip netns" " { " set " } "
-+.I NETNSNAME NETNSID
-+
-+.ti -8
- .BR "ip netns identify"
- .RI "[ " PID " ]"
- 
-@@ -93,6 +97,16 @@ If
- option was specified then all the network namespace names will be removed.
- 
- .TP
-+.B ip netns set NAME NETNSID - assign an id to a peer network namespace
-+.sp
-+This command assigns a id to a peer network namespace. This id is valid
-+only in the current network namespace.
-+This id will be used by the kernel in some netlink messages. If no id is
-+assigned when the kernel needs it, it will be automatically assigned by
-+the kernel.
-+Once it is assigned, it's not possible to change it.
-+
-+.TP
- .B ip netns identify [PID] - Report network namespaces names for process
- .sp
- This command walks through /var/run/netns and finds all the network
+ 	if (show_stats && tb[NDA_CACHEINFO]) {
+ 		struct nda_cacheinfo *ci = RTA_DATA(tb[NDA_CACHEINFO]);
 -- 
 2.2.2
