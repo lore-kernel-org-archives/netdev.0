@@ -1,7 +1,7 @@
 From: Antonio Quartulli <antonio@meshcoding.com>
 Subject: Re: [PATCH] batman-adv: Remove uses of return value of seq_printf
 Date: Tue, 17 Feb 2015 13:15:47 +0100
-Message-ID: <54E330F3.7030602__44447.4344411448$1424176542$gmane$org@meshcoding.com>
+Message-ID: <54E330F3.7030602__34137.4610121877$1424176549$gmane$org@meshcoding.com>
 References: <1424136699.8287.10.camel@perches.com>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha256;
@@ -12,10 +12,14 @@ Cc: "b.a.t.m.a.n" <b.a.t.m.a.n@lists.open-mesh.org>,
 	LKML <linux-kernel@vger.kernel.org>
 To: Joe Perches <joe@perches.com>,
 	Marek Lindner <mareklindner@neomailbox.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from s1.neomailbox.net ([5.148.176.57]:20391 "EHLO s1.neomailbox.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752437AbbBQMfW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Feb 2015 07:35:22 -0500
 In-Reply-To: <1424136699.8287.10.camel@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
 --Hua2GoXgDPv89FdQt8o2giUhOKxdOXGjo
