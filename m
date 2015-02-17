@@ -1,120 +1,84 @@
-From: Mahesh Bandewar <maheshb@google.com>
-Subject: Re: [PATCH next v3 2/6] bonding: implement bond_poll_controller()
-Date: Tue, 17 Feb 2015 08:09:15 -0800
-Message-ID: <CAF2d9ji+mCGiDqpVMMVkn4x8O+0xqcT-U1kMkmvv4SKrnieEEg@mail.gmail.com>
-References: <1423715065-9304-1-git-send-email-maheshb@google.com>
- <23063.1423777544@famine> <CAF2d9jgXqRM7CtLVyCuKSt3gi-2_uixDUQbDkAoEVTbUKJpGTw@mail.gmail.com>
- <15770.1424011874@nyx>
+From: "Zhu, Yanjun" <Yanjun.Zhu@windriver.com>
+Subject: RE: If bridge have no sub-interfaces, it's status may be still with
+ 'RUNNING'
+Date: Tue, 17 Feb 2015 16:14:37 +0000
+Message-ID: <E66F6C44A7A6EA49ABFC80EA526506DF65AEAEB3@ALA-MBB.corp.ad.wrs.com>
+References: <54DDCA99.4040401@windriver.com>
+	<20150213133056.3944c13e@uryu.home.lan>	<54E17853.8070106@windriver.com>
+	<54E210FF.2050502@gmail.com>,<20150216115137.5aa3f0cd@uryu.home.lan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Andy Gospodarek <andy@greyhouse.net>,
-	Veaceslav Falico <vfalico@gmail.com>,
-	Nikolay Aleksandrov <nikolay@redhat.com>,
-	David Miller <davem@davemloft.net>,
-	Maciej Zenczykowski <maze@google.com>,
-	netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>
-To: Jay Vosburgh <jay.vosburgh@canonical.com>
+Content-Type: multipart/mixed;
+	boundary="_002_E66F6C44A7A6EA49ABFC80EA526506DF65AEAEB3ALAMBBcorpadwrs_"
+Cc: netdev <netdev@vger.kernel.org>,
+	"Wu, Kuaikuai" <Kuaikuai.Wu@windriver.com>,
+	"Tao, Yue" <Yue.Tao@windriver.com>
+To: Stephen Hemminger <stephen@networkplumber.org>,
+	David Ahern <dsahern@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f180.google.com ([209.85.214.180]:46728 "EHLO
-	mail-ob0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751515AbbBQQJg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Feb 2015 11:09:36 -0500
-Received: by mail-ob0-f180.google.com with SMTP id vb8so54688254obc.11
-        for <netdev@vger.kernel.org>; Tue, 17 Feb 2015 08:09:35 -0800 (PST)
-In-Reply-To: <15770.1424011874@nyx>
+Received: from mail1.windriver.com ([147.11.146.13]:48999 "EHLO
+	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751895AbbBQQOk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Feb 2015 11:14:40 -0500
+In-Reply-To: <20150216115137.5aa3f0cd@uryu.home.lan>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Feb 15, 2015 at 6:51 AM, Jay Vosburgh
-<jay.vosburgh@canonical.com> wrote:
-> Mahesh Bandewar <maheshb@google.com> wrote:
->
->>On Thu, Feb 12, 2015 at 1:45 PM, Jay Vosburgh <jay.vosburgh@canonical.com>
->>wrote:
-> [...]
->>    >+ if (BOND_MODE(bond) == BOND_MODE_8023AD)
->>    >+ if (bond_3ad_get_active_agg_info(bond, &ad_info))
->>    >+ return;
->>    >+
->>    >+ bond_for_each_slave(bond, slave, iter) {
->>    >+ ops = slave->dev->netdev_ops;
->>    >+ if (!bond_slave_is_up(slave) || !ops->ndo_poll_controller)
->>    >+ continue;
->>    >+
->>    >+ if (BOND_MODE(bond) == BOND_MODE_8023AD) {
->>    >+ struct aggregator *agg =
->>    >+ SLAVE_AD_INFO(slave)->port.aggregator;
->>    >+
->>    >+ if (agg && agg->aggregator_identifier !=
->>    >+ ad_info.aggregator_id)
->>    >+ continue;
->>    >+ if (!bond_3ad_port_is_active(slave) || ad_info.ports != 1)
->>    >+ continue;
->>
->>
->>    The above will exclude slaves that are in an aggregator with
->>    more than one member, which is likely to be the usual case. Is that
->>    intentional?
->>
->>
->>
->>The idea is to use all the ports in the aggregator. In a situation where
->>there is only one port but is not active, then *only* use it. So from that
->>perspective this logic needs '&&' instead of '||'.
->
->         If you want to use any port from the active aggregator, then I
-> think logic to first find the active agg, then cycle through its ports
-> would be better.  This would also eliminate the concern from your other
-> reply regarding the following:
->
->> >+static int bond_3ad_port_operational(struct slave *slave)
->> >+{
->> >+      port_t *port = &SLAVE_AD_INFO(slave)->port;
->> >+
->> >+      return bond_slave_can_tx(slave) &&
->> >+             (port->actor_oper_port_state & port->partner_oper.port_state &
->> >+              BOND_3AD_PORT_OPERATIONAL) == BOND_3AD_PORT_OPERATIONAL;
->> >+}
->
->         needing to test the port_state; if the logic cycles through the
-> ports of the active aggregator, then it shouldn't need to check the
-> state.  Any port in the active aggregator should be able to transmit,
-> even if it is in the "no LACP peer" fallback situation (with one
-> exception, noted below).
->
->         I think something like:
->
->         first_slave = bond_first_slave_rcu(bond);
->         agg = __get_active_agg(&(SLAVE_AD_INFO(first_slave)->aggregator));
->         for (port = agg->lag_ports; port;
->              port = port->next_port_in_aggregator) {
->                 if (bond_slave_can_tx(port->slave))
->                         /* use this one */
->         }
->
->         would do roughly what you're describing, although it will always
-> choose the first available port of the active aggregator, even if there
-> are more than one.
->
-Thanks Jay for the suggestion. I think selecting one (first available
-slave) is not sufficient since the xmit code path will determine
-(based on the hash) which slave to select for the xmit. So in
-poll_controller we've to prep all the slaves that are capable of xmit.
+--_002_E66F6C44A7A6EA49ABFC80EA526506DF65AEAEB3ALAMBBcorpadwrs_
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
 
-I'll replace is_port_operational() with slave_can_tx() check and keep
-the remaining logic that covers remaining modes. That way we can have
-one poll_controller() for all modes.
+Hi, all
 
---mahesh..
+We should make it compatible. So I made a patch to turn on carrier on this =
+bridge interface when the last sub interface is removed.
 
+Hi, David
 
->         Generally, slaves that are not up will not remain in the active
-> aggregator, but the slave_can_tx test will cover the window between when
-> a slave goes carrier down and the 3ad logic removes it from the active
-> agg.
->
->         -J
->
-> ---
->         -Jay Vosburgh, jay.vosburgh@canonical.com
+Please make tests with this latest patch. Thanks a lot.
+
+Best Regards!
+Zhu Yanjun
+________________________________________
+From: Stephen Hemminger [stephen@networkplumber.org]
+Sent: Monday, February 16, 2015 8:51 AM
+To: David Ahern
+Cc: Zhu, Yanjun; netdev; Wu, Kuaikuai; Tao, Yue
+Subject: Re: If bridge have no sub-interfaces, it's status may be still wit=
+h 'RUNNING'
+
+Originally bridge code would start with carrier off,
+but there were users using bridge as a form of dummy device
+and this broke them. Therefore it was decided (like 5 yrs ago),
+that bridge should start with carrier on.=
+
+--_002_E66F6C44A7A6EA49ABFC80EA526506DF65AEAEB3ALAMBBcorpadwrs_
+Content-Type: text/plain;
+	name="0001-bridge-turn-on-carrier-after-removing-the-last-sub-i.patch"
+Content-Description: 0001-bridge-turn-on-carrier-after-removing-the-last-sub-i.patch
+Content-Disposition: attachment;
+	filename="0001-bridge-turn-on-carrier-after-removing-the-last-sub-i.patch";
+	size=1025; creation-date="Tue, 17 Feb 2015 16:14:33 GMT";
+	modification-date="Tue, 17 Feb 2015 16:14:33 GMT"
+Content-Transfer-Encoding: base64
+
+RnJvbSAwZDE2ZjMwMmYyM2M5ZjUxMDFmODQ5NDUwYWJjMDczMDQ1YTE5M2RlIE1vbiBTZXAgMTcg
+MDA6MDA6MDAgMjAwMQpGcm9tOiBaaHUgWWFuanVuIDxZYW5qdW4uWmh1QHdpbmRyaXZlci5jb20+
+CkRhdGU6IFR1ZSwgMTcgRmViIDIwMTUgMjM6NTk6MDggKzA4MDAKU3ViamVjdDogW1BBVENIIDEv
+MV0gYnJpZGdlOiB0dXJuIG9uIGNhcnJpZXIgYWZ0ZXIgcmVtb3ZpbmcgdGhlIGxhc3Qgc3ViCiBp
+bnRlcmZhY2UKCldoZW4gdGhlIGxhc3Qgc3ViIGludGVyZmFjZSBpcyByZW1vdmVkIGZyb20gdGhl
+IGJyaWRnZSwgdGhlIGJyaWRnZQp0dXJuIG9mZiB0aGUgY2Fycmllci4gTWF5YmUgaXQgaXMgbm90
+IGNvbXBhdGlibGUgd2l0aCBmaXJzdGx5IGNyZWF0ZWQKYnJpZGdlIHdpdGhvdXQgYW55IHN1YiBp
+bnRlcmZhY2UuIEF0IHRoYXQgdGltZSwgdGhlIGNhcnJpZXIgb2YgdGhpcwpicmlkZ2UgaXMgdHVy
+bmVkIG9uLgoKU2lnbmVkLW9mZi1ieTogWmh1IFlhbmp1biA8WWFuanVuLlpodUB3aW5kcml2ZXIu
+Y29tPgotLS0KIG5ldC9icmlkZ2UvYnJfaWYuYyB8IDYgKysrKysrCiAxIGZpbGUgY2hhbmdlZCwg
+NiBpbnNlcnRpb25zKCspCgpkaWZmIC0tZ2l0IGEvbmV0L2JyaWRnZS9icl9pZi5jIGIvbmV0L2Jy
+aWRnZS9icl9pZi5jCmluZGV4IGVkMzA3ZGIuLmYzOTFmOGMgMTAwNjQ0Ci0tLSBhL25ldC9icmlk
+Z2UvYnJfaWYuYworKysgYi9uZXQvYnJpZGdlL2JyX2lmLmMKQEAgLTU2NSw2ICs1NjUsMTIgQEAg
+aW50IGJyX2RlbF9pZihzdHJ1Y3QgbmV0X2JyaWRnZSAqYnIsIHN0cnVjdCBuZXRfZGV2aWNlICpk
+ZXYpCiAKIAluZXRkZXZfdXBkYXRlX2ZlYXR1cmVzKGJyLT5kZXYpOwogCisJLyogTm8gc3ViIGlu
+dGVyZmFjZSBpbiBicmlkZ2UsIHR1cm4gb24gY2FycmllciAqLworCWlmIChsaXN0X2VtcHR5KCZi
+ci0+cG9ydF9saXN0KSkgeworCQlldGhfaHdfYWRkcl9yYW5kb20oYnItPmRldik7CisJCW5ldGlm
+X2NhcnJpZXJfb24oYnItPmRldik7CisJfQorCiAJcmV0dXJuIDA7CiB9CiAKLS0gCjEuOS4xCgo=
+
+--_002_E66F6C44A7A6EA49ABFC80EA526506DF65AEAEB3ALAMBBcorpadwrs_--
