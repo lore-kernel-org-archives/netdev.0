@@ -1,48 +1,57 @@
-From: Denis Kirjanov <kda@linux-powerpc.org>
-Subject: [PATCH net-next v2 1/6] ppc: bpf: add required compatibility macros for jit
-Date: Tue, 17 Feb 2015 10:04:38 +0300
-Message-ID: <1424156683-2682-2-git-send-email-kda@linux-powerpc.org>
-References: <1424156683-2682-1-git-send-email-kda@linux-powerpc.org>
-Cc: linuxppc-dev@lists.ozlabs.org,
-	Denis Kirjanov <kda@linux-powerpc.org>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f50.google.com ([209.85.215.50]:40463 "EHLO
-	mail-la0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932208AbbBQHAt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Feb 2015 02:00:49 -0500
-Received: by labgd6 with SMTP id gd6so33946863lab.7
-        for <netdev@vger.kernel.org>; Mon, 16 Feb 2015 23:00:47 -0800 (PST)
-In-Reply-To: <1424156683-2682-1-git-send-email-kda@linux-powerpc.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH] vhost: support upto 509 memory regions
+Date: Tue, 17 Feb 2015 10:02:42 +0100
+Message-ID: <20150217090242.GA20254@redhat.com>
+References: <1423842599-5174-1-git-send-email-imammedo@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
+	netdev@vger.kernel.org, pbonzini@redhat.com
+To: Igor Mammedov <imammedo@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1423842599-5174-1-git-send-email-imammedo@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Denis Kirjanov <kda@linux-powerpc.org>
----
- arch/powerpc/include/asm/asm-compat.h | 4 ++++
- 1 file changed, 4 insertions(+)
+On Fri, Feb 13, 2015 at 03:49:59PM +0000, Igor Mammedov wrote:
+> since commit
+>  1d4e7e3 kvm: x86: increase user memory slots to 509
+> 
+> it became possible to use a bigger amount of memory
+> slots, which is used by memory hotplug for
+> registering hotplugged memory.
+> However QEMU aborts if it's used with more than ~60
+> pc-dimm devices and vhost-net since host kernel
+> in module vhost-net refuses to accept more than 65
+> memory regions.
+> 
+> Increasing VHOST_MEMORY_MAX_NREGIONS from 65 to 509
+> to match KVM_USER_MEM_SLOTS fixes issue for vhost-net.
+> 
+> Signed-off-by: Igor Mammedov <imammedo@redhat.com>
 
-diff --git a/arch/powerpc/include/asm/asm-compat.h b/arch/powerpc/include/asm/asm-compat.h
-index 21be8ae..dc85dcb 100644
---- a/arch/powerpc/include/asm/asm-compat.h
-+++ b/arch/powerpc/include/asm/asm-compat.h
-@@ -23,6 +23,8 @@
- #define PPC_STL		stringify_in_c(std)
- #define PPC_STLU	stringify_in_c(stdu)
- #define PPC_LCMPI	stringify_in_c(cmpdi)
-+#define PPC_LCMPLI	stringify_in_c(cmpldi)
-+#define PPC_LCMP	stringify_in_c(cmpd)
- #define PPC_LONG	stringify_in_c(.llong)
- #define PPC_LONG_ALIGN	stringify_in_c(.balign 8)
- #define PPC_TLNEI	stringify_in_c(tdnei)
-@@ -52,6 +54,8 @@
- #define PPC_STL		stringify_in_c(stw)
- #define PPC_STLU	stringify_in_c(stwu)
- #define PPC_LCMPI	stringify_in_c(cmpwi)
-+#define PPC_LCMPLI	stringify_in_c(cmplwi)
-+#define PPC_LCMP	stringify_in_c(cmpw)
- #define PPC_LONG	stringify_in_c(.long)
- #define PPC_LONG_ALIGN	stringify_in_c(.balign 4)
- #define PPC_TLNEI	stringify_in_c(twnei)
--- 
-2.1.3
+This scares me a bit: each region is 32byte, we are talking
+a 16K allocation that userspace can trigger.
+How does kvm handle this issue?
+
+
+> ---
+>  drivers/vhost/vhost.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+> index 2ee2826..ecbd7a4 100644
+> --- a/drivers/vhost/vhost.c
+> +++ b/drivers/vhost/vhost.c
+> @@ -29,7 +29,7 @@
+>  #include "vhost.h"
+>  
+>  enum {
+> -	VHOST_MEMORY_MAX_NREGIONS = 64,
+> +	VHOST_MEMORY_MAX_NREGIONS = 509,
+>  	VHOST_MEMORY_F_LOG = 0x1,
+>  };
+>  
+> -- 
+> 1.8.3.1
