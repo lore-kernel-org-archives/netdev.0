@@ -1,50 +1,61 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH 3.12 065/122] lib/checksum.c: fix carry in
- csum_tcpudp_nofold
-Date: Tue, 17 Feb 2015 12:04:22 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CAE4D1E@AcuExch.aculab.com>
-References: <cover.1424099973.git.jslaby@suse.cz>
- <07707a797d6c3cd0bfe86f037d3d1eb329acbc86.1424099973.git.jslaby@suse.cz>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH] vhost: support upto 509 memory regions
+Date: Tue, 17 Feb 2015 13:32:12 +0100
+Message-ID: <20150217123212.GA6362@redhat.com>
+References: <1423842599-5174-1-git-send-email-imammedo@redhat.com>
+ <20150217090242.GA20254@redhat.com>
+ <54E31F24.1060705@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	karl beldan <karl.beldan@gmail.com>,
-	Karl Beldan <karl.beldan@rivierawaves.com>,
-	Al Viro <viro@ZenIV.linux.org.uk>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	"Arnd Bergmann" <arnd@arndb.de>,
-	Mike Frysinger <vapier@gentoo.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: 'Jiri Slaby' <jslaby@suse.cz>,
-	"stable@vger.kernel.org" <stable@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out6.electric.net ([192.162.217.187]:50013 "EHLO
-	smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751905AbbBQMEw convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Feb 2015 07:04:52 -0500
-In-Reply-To: <07707a797d6c3cd0bfe86f037d3d1eb329acbc86.1424099973.git.jslaby@suse.cz>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Igor Mammedov <imammedo@redhat.com>, linux-kernel@vger.kernel.org,
+	kvm@vger.kernel.org, netdev@vger.kernel.org
+To: Paolo Bonzini <pbonzini@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <54E31F24.1060705@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> +static inline u32 from64to32(u64 x)
-> +{
-> +	/* add up 32-bit and 32-bit for 32+c bit */
-> +	x = (x & 0xffffffff) + (x >> 32);
-> +	/* add up carry.. */
-> +	x = (x & 0xffffffff) + (x >> 32);
-> +	return (u32)x;
-> +}
+On Tue, Feb 17, 2015 at 11:59:48AM +0100, Paolo Bonzini wrote:
+> 
+> 
+> On 17/02/2015 10:02, Michael S. Tsirkin wrote:
+> > > Increasing VHOST_MEMORY_MAX_NREGIONS from 65 to 509
+> > > to match KVM_USER_MEM_SLOTS fixes issue for vhost-net.
+> > > 
+> > > Signed-off-by: Igor Mammedov <imammedo@redhat.com>
+> >
+> > This scares me a bit: each region is 32byte, we are talking
+> > a 16K allocation that userspace can trigger.
+> 
+> What's bad with a 16K allocation?
 
-As a matter of interest, does the compiler optimise away the
-second (x & 0xffffffff) ?
-The code could just be:
-	x = (x & 0xffffffff) + (x >> 32);
-	return x + (x >> 32);
+It fails when memory is fragmented.
 
-	David
+> > How does kvm handle this issue?
+> 
+> It doesn't.
+> 
+> Paolo
 
-	
+I'm guessing kvm doesn't do memory scans on data path,
+vhost does.
+
+qemu is just doing things that kernel didn't expect it to need.
+
+Instead, I suggest reducing number of GPA<->HVA mappings:
+
+you have GPA 1,5,7
+map them at HVA 11,15,17
+then you can have 1 slot: 1->11
+
+To avoid libc reusing the memory holes, reserve them with MAP_NORESERVE
+or something like this.
+
+We can discuss smarter lookup algorithms but I'd rather
+userspace didn't do things that we then have to
+work around in kernel.
+
+
+-- 
+MST
