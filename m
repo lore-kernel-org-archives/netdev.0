@@ -1,61 +1,68 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH] vhost: support upto 509 memory regions
-Date: Tue, 17 Feb 2015 13:32:12 +0100
-Message-ID: <20150217123212.GA6362@redhat.com>
-References: <1423842599-5174-1-git-send-email-imammedo@redhat.com>
- <20150217090242.GA20254@redhat.com>
- <54E31F24.1060705@redhat.com>
+From: Antonio Quartulli <antonio@meshcoding.com>
+Subject: Re: [PATCH] batman-adv: Remove uses of return value of seq_printf
+Date: Tue, 17 Feb 2015 13:15:47 +0100
+Message-ID: <54E330F3.7030602__44447.4344411448$1424176542$gmane$org@meshcoding.com>
+References: <1424136699.8287.10.camel@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Igor Mammedov <imammedo@redhat.com>, linux-kernel@vger.kernel.org,
-	kvm@vger.kernel.org, netdev@vger.kernel.org
-To: Paolo Bonzini <pbonzini@redhat.com>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ protocol="application/pgp-signature";
+ boundary="Hua2GoXgDPv89FdQt8o2giUhOKxdOXGjo"
+Cc: "b.a.t.m.a.n" <b.a.t.m.a.n@lists.open-mesh.org>,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Joe Perches <joe@perches.com>,
+	Marek Lindner <mareklindner@neomailbox.ch>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <54E31F24.1060705@redhat.com>
+In-Reply-To: <1424136699.8287.10.camel@perches.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Feb 17, 2015 at 11:59:48AM +0100, Paolo Bonzini wrote:
-> 
-> 
-> On 17/02/2015 10:02, Michael S. Tsirkin wrote:
-> > > Increasing VHOST_MEMORY_MAX_NREGIONS from 65 to 509
-> > > to match KVM_USER_MEM_SLOTS fixes issue for vhost-net.
-> > > 
-> > > Signed-off-by: Igor Mammedov <imammedo@redhat.com>
-> >
-> > This scares me a bit: each region is 32byte, we are talking
-> > a 16K allocation that userspace can trigger.
-> 
-> What's bad with a 16K allocation?
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--Hua2GoXgDPv89FdQt8o2giUhOKxdOXGjo
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: quoted-printable
 
-It fails when memory is fragmented.
+Hi Joe,
 
-> > How does kvm handle this issue?
-> 
-> It doesn't.
-> 
-> Paolo
+thank you very much for this patch.
 
-I'm guessing kvm doesn't do memory scans on data path,
-vhost does.
-
-qemu is just doing things that kernel didn't expect it to need.
-
-Instead, I suggest reducing number of GPA<->HVA mappings:
-
-you have GPA 1,5,7
-map them at HVA 11,15,17
-then you can have 1 slot: 1->11
-
-To avoid libc reusing the memory holes, reserve them with MAP_NORESERVE
-or something like this.
-
-We can discuss smarter lookup algorithms but I'd rather
-userspace didn't do things that we then have to
-work around in kernel.
+On 17/02/15 02:31, Joe Perches wrote:
+> This function is soon going to return void so remove the
+> return value use.
+>=20
+> Convert the return value to test seq_has_overflowed() instead.
+>=20
+> Signed-off-by: Joe Perches <joe@perches.com>
 
 
--- 
-MST
+Acked-by: Antonio Quartulli <antonio@meshcoding.com>
+
+
+--=20
+Antonio Quartulli
+
+
+--Hua2GoXgDPv89FdQt8o2giUhOKxdOXGjo
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAEBCAAGBQJU4zD3AAoJEJgn97Bh2u9ejZMP/2auH6FTeHEdEEPnUl0e+6Zg
+gWsTCft0qbwhHyMBDaqrMYNprohYHSeceyq8+1Oa9JTOGrfHhItBht3UjUKmwXgV
+dppsks9MfsZfqtXKQkc5BUj+ho21fYkHL4Tnvu0ASPekIO/zhcKJELBRcvq3ECCu
+dUINtvv+qMNhZRottD4g5nhxSM7fjr0ioogOVTg6bLBfCPgUVwFeZpfB5CohpsbA
+AsZY3+YNbdGuzOchXnhV9+FUkezGBhLVNaq4wXhodIANWpzRCE1l0WsCXcEn8XnY
+Fck70SjSIUEGHdSPvk4zh2nl1ecjp5mIL7oe1b7dATQ1tIajBGc/NmCJwXYBvBWW
+mfkfDGwhorAdFRnT9fOqaFeO4RCUaxI2ddc5Pg9k/uEsIHp8Tur5A6IdpGg99WTY
+DrZKA7WReS/ZMSlSvGVhqSFQXLf+6oHvyEbKZ+nZfkmKgcUTHsHluWusB8F86TaM
+JQVtE4PvKA5ehb66Lx2g+JyEt1wnLGidba8ojqI6zLNMUowaIb0K72SbB5DEM5mo
+iLFCGCEZ6hk7lpv1FFaqqE8+t2U2PyE65kK0TmAM4Exddc92AsgYdUtdM0N1DAFO
+BlQEyCxmij+POIimnVcI8Af5KjVyG0x1JT49jNuW5dlg2ssSpeLQatpc/HOFMWE1
+rmT/VWCvkzrvC2Vpqx5F
+=h/ly
+-----END PGP SIGNATURE-----
+
+--Hua2GoXgDPv89FdQt8o2giUhOKxdOXGjo--
