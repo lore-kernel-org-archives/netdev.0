@@ -1,58 +1,97 @@
-From: Denis Kirjanov <kda@linux-powerpc.org>
-Subject: Re: [PATCH] ipv4: ip_check_defrag should correctly check return value
- of skb_copy_bits
-Date: Tue, 17 Feb 2015 17:33:47 +0400
-Message-ID: <CAOJe8K0dtLufmLmRU2az=ZX8Wu1JsBS-U=jewRGCQkL8atXr1Q@mail.gmail.com>
-References: <1424169226-30112-1-git-send-email-al.drozdov@gmail.com>
+From: Stathis Voukelatos <stathis.voukelatos-zgcZaY4qg+21Qrn1Bg8BZw@public.gmane.org>
+Subject: [PATCH v2 0/3] net: Linn Ethernet Packet Sniffer driver
+Date: Tue, 17 Feb 2015 14:03:30 +0000
+Message-ID: <cover.1424181053.git.stathis.voukelatos@linn.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Alexander Drozdov <al.drozdov@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1424169226-30112-1-git-send-email-al.drozdov@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain
+Cc: <abrestic-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
+	Stathis Voukelatos <stathis.voukelatos-zgcZaY4qg+21Qrn1Bg8BZw@public.gmane.org>
+To: <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 2/17/15, Alexander Drozdov <al.drozdov@gmail.com> wrote:
-> skb_copy_bits() returns zero on success and negative value on error,
-> so it is needed to invert the condition in ip_check_defrag().
->
+This patch adds support the Ethernet Packet Sniffer H/W module
+developed by Linn Products Ltd and found in the IMG Pistachio SoC.
+The module allows Ethernet packets to be parsed, matched against
+a user-defined pattern and timestamped. It sits between a 100M
+Ethernet MAC and PHY and is completely passive with respect to
+Ethernet frames.
 
-Nice. Grepping through the net directory shows that the  skb_copy_bits()
-return value is completely ignored in net/wireless/util.c
+Matched packet bytes and timestamp values are returned through a
+FIFO. Timestamps are provided to the module through an externally
+generated Gray-encoded counter.
 
+The command string for packet matching is stored in module RAM
+and consists of a sequence of 16-bit entries. Each entry includes
+an 8-bit command code and and 8-bit data value. Valid command
+codes are:
+0 - Don't care
+1 - Match: packet data must match command string byte
+2 - Copy: packet data will be copied to FIFO
+3 - Match/Stamp: if packet data matches string byte, a timestamp
+                 is copied into the FIFO
+4 - Copy/Done: packet data will be copied into the FIFO.
+               This command terminates the command string.
 
-> Fixes: 1bf3751ec90c ("ipv4: ip_check_defrag must not modify skb before
-> unsharing")
-> Signed-off-by: Alexander Drozdov <al.drozdov@gmail.com>
-> ---
->  net/ipv4/ip_fragment.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
-> index e5b6d0d..2c8d98e 100644
-> --- a/net/ipv4/ip_fragment.c
-> +++ b/net/ipv4/ip_fragment.c
-> @@ -664,7 +664,7 @@ struct sk_buff *ip_check_defrag(struct sk_buff *skb, u32
-> user)
->  	if (skb->protocol != htons(ETH_P_IP))
->  		return skb;
->
-> -	if (!skb_copy_bits(skb, 0, &iph, sizeof(iph)))
-> +	if (skb_copy_bits(skb, 0, &iph, sizeof(iph)) < 0)
->  		return skb;
->
->  	if (iph.ihl < 5 || iph.version != 4)
-> --
-> 1.9.1
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+The driver consists of two modules:
+- Core: it provides a common framework for managing backend packet
+        sniffer implementations. Each backend channel is registered
+        by the core as a netdev, which can be accessed from user
+        space through a raw packet socket. 
+
+- Ethernet Packet Sniffer backend: provides the driver for the
+        Linn Ethernet Packet Sniffer H/W modules.
+
+The split between a core and backend modules allows for other
+implementations to be added in the future apart of the Ethernet
+packet sniffer presented in this patch set.
+
+Changes:
+v2:
+* Complete redesign of core framework to use netdev instead of 
+the generic netlink framework
+* Updated device tree binding
+* A number of minor code improvements suggested by code review
+
+Stathis Voukelatos (3):
+  Ethernet packet sniffer: Device tree binding and vendor prefix
+  Packet sniffer core framework
+  Linn Ethernet packet sniffer driver
+
+ .../bindings/net/linn-ether-packet-sniffer.txt     |  42 +++
+ .../devicetree/bindings/vendor-prefixes.txt        |   1 +
+ MAINTAINERS                                        |   6 +
+ drivers/net/Kconfig                                |   2 +
+ drivers/net/Makefile                               |   2 +
+ drivers/net/pkt-sniffer/Kconfig                    |  19 +
+ drivers/net/pkt-sniffer/Makefile                   |   7 +
+ drivers/net/pkt-sniffer/backends/ether/channel.c   | 392 +++++++++++++++++++++
+ drivers/net/pkt-sniffer/backends/ether/channel.h   |  81 +++++
+ drivers/net/pkt-sniffer/backends/ether/hw.h        |  46 +++
+ drivers/net/pkt-sniffer/backends/ether/platform.c  | 301 ++++++++++++++++
+ drivers/net/pkt-sniffer/core/module.c              |  37 ++
+ drivers/net/pkt-sniffer/core/netdev.c              | 254 +++++++++++++
+ drivers/net/pkt-sniffer/core/snf_core.h            |  60 ++++
+ include/uapi/linux/pkt_sniffer.h                   |  33 ++
+ 15 files changed, 1283 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/net/linn-ether-packet-sniffer.txt
+ create mode 100644 drivers/net/pkt-sniffer/Kconfig
+ create mode 100644 drivers/net/pkt-sniffer/Makefile
+ create mode 100644 drivers/net/pkt-sniffer/backends/ether/channel.c
+ create mode 100644 drivers/net/pkt-sniffer/backends/ether/channel.h
+ create mode 100644 drivers/net/pkt-sniffer/backends/ether/hw.h
+ create mode 100644 drivers/net/pkt-sniffer/backends/ether/platform.c
+ create mode 100644 drivers/net/pkt-sniffer/core/module.c
+ create mode 100644 drivers/net/pkt-sniffer/core/netdev.c
+ create mode 100644 drivers/net/pkt-sniffer/core/snf_core.h
+ create mode 100644 include/uapi/linux/pkt_sniffer.h
+
+-- 
+1.9.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
