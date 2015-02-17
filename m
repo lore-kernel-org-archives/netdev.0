@@ -1,36 +1,39 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 1/1] linux-firmware: Add QLogic BR Series Adapter
- Firmware
-Date: Tue, 17 Feb 2015 14:40:51 -0800
-Message-ID: <1424212851.25416.6.camel@perches.com>
-References: <1424209981-28373-1-git-send-email-rasesh.mody@qlogic.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: linux-firmware@kernel.org, NetDev <netdev@vger.kernel.org>,
-	linux-scsi@vger.kernel.org
-To: Rasesh Mody <rasesh.mody@qlogic.com>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <1424209981-28373-1-git-send-email-rasesh.mody@qlogic.com>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Matthew Thode <mthode@mthode.org>
+Subject: [PATCH] colons are invalid characters in netdev names
+Date: Tue, 17 Feb 2015 17:15:42 -0600
+Message-ID: <1424214942-17581-1-git-send-email-mthode@mthode.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Matthew Thode <mthode@mthode.org>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 216-82-208-22.static.grandenetworks.net ([216.82.208.22]:39536
+	"EHLO mx1.mthode.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753031AbbBQXQF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Feb 2015 18:16:05 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2015-02-17 at 16:53 -0500, Rasesh Mody wrote:
-> This patch rebrands the BFA/BNA inbox driver firmwares.
-> This patch adds 3.2.5.1 firmware files for QLogic BR-series Adapters that will
-> be used with the inbox drivers(BFA and BNA).
-> 
-> Signed-off-by: Rasesh Mody <rasesh.mody@qlogic.com>
-> ---
->  WHENCE            |  13 +++++++++----
->  cbfw-3.2.5.1.bin  | Bin 0 -> 414480 bytes
->  ct2fw-3.2.5.1.bin | Bin 0 -> 584216 bytes
->  ctfw-3.2.5.1.bin  | Bin 0 -> 539144 bytes
->  4 files changed, 9 insertions(+), 4 deletions(-)
->  create mode 100755 cbfw-3.2.5.1.bin
->  create mode 100755 ct2fw-3.2.5.1.bin
->  create mode 100755 ctfw-3.2.5.1.bin
+colons are used as a separator in netdev device lookup in dev_ioctl.c
 
-644 instead of 755 please.
+Specific functions are SIOCGIFTXQLEN SIOCETHTOOL SIOCSIFNAME
 
+Signed-off-by: Matthew Thode <mthode@mthode.org>
+---
+ net/core/dev.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
+diff --git a/net/core/dev.c b/net/core/dev.c
+index d030575..e9b6d5a 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -942,7 +942,7 @@ bool dev_valid_name(const char *name)
+ 		return false;
+ 	if (strlen(name) >= IFNAMSIZ)
+ 		return false;
+-	if (!strcmp(name, ".") || !strcmp(name, ".."))
++	if (!strcmp(name, ".") || !strcmp(name, "..") || !strcmp(name, ":"))
+ 		return false;
+ 
+ 	while (*name) {
+-- 
+2.0.5
