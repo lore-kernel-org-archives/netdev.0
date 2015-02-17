@@ -1,97 +1,85 @@
-From: Stathis Voukelatos <stathis.voukelatos-zgcZaY4qg+21Qrn1Bg8BZw@public.gmane.org>
-Subject: [PATCH v2 0/3] net: Linn Ethernet Packet Sniffer driver
-Date: Tue, 17 Feb 2015 14:03:30 +0000
-Message-ID: <cover.1424181053.git.stathis.voukelatos@linn.co.uk>
+From: Stathis Voukelatos <stathis.voukelatos@linn.co.uk>
+Subject: [PATCH v2 1/3] Ethernet packet sniffer: Device tree binding and vendor prefix
+Date: Tue, 17 Feb 2015 14:03:31 +0000
+Message-ID: <0a86907642a97e5bd880f69299664232fcffaf9d.1424181053.git.stathis.voukelatos@linn.co.uk>
+References: <cover.1424181053.git.stathis.voukelatos@linn.co.uk>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <abrestic-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
-	Stathis Voukelatos <stathis.voukelatos-zgcZaY4qg+21Qrn1Bg8BZw@public.gmane.org>
-To: <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: <abrestic@chromium.org>,
+	Stathis Voukelatos <stathis.voukelatos@linn.co.uk>
+To: <linux-kernel@vger.kernel.org>, <devicetree@vger.kernel.org>,
+	<netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1424181053.git.stathis.voukelatos@linn.co.uk>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds support the Ethernet Packet Sniffer H/W module
-developed by Linn Products Ltd and found in the IMG Pistachio SoC.
-The module allows Ethernet packets to be parsed, matched against
-a user-defined pattern and timestamped. It sits between a 100M
-Ethernet MAC and PHY and is completely passive with respect to
-Ethernet frames.
-
-Matched packet bytes and timestamp values are returned through a
-FIFO. Timestamps are provided to the module through an externally
-generated Gray-encoded counter.
-
-The command string for packet matching is stored in module RAM
-and consists of a sequence of 16-bit entries. Each entry includes
-an 8-bit command code and and 8-bit data value. Valid command
-codes are:
-0 - Don't care
-1 - Match: packet data must match command string byte
-2 - Copy: packet data will be copied to FIFO
-3 - Match/Stamp: if packet data matches string byte, a timestamp
-                 is copied into the FIFO
-4 - Copy/Done: packet data will be copied into the FIFO.
-               This command terminates the command string.
-
-The driver consists of two modules:
-- Core: it provides a common framework for managing backend packet
-        sniffer implementations. Each backend channel is registered
-        by the core as a netdev, which can be accessed from user
-        space through a raw packet socket. 
-
-- Ethernet Packet Sniffer backend: provides the driver for the
-        Linn Ethernet Packet Sniffer H/W modules.
-
-The split between a core and backend modules allows for other
-implementations to be added in the future apart of the Ethernet
-packet sniffer presented in this patch set.
-
-Changes:
-v2:
-* Complete redesign of core framework to use netdev instead of 
-the generic netlink framework
-* Updated device tree binding
-* A number of minor code improvements suggested by code review
-
-Stathis Voukelatos (3):
-  Ethernet packet sniffer: Device tree binding and vendor prefix
-  Packet sniffer core framework
-  Linn Ethernet packet sniffer driver
-
- .../bindings/net/linn-ether-packet-sniffer.txt     |  42 +++
- .../devicetree/bindings/vendor-prefixes.txt        |   1 +
- MAINTAINERS                                        |   6 +
- drivers/net/Kconfig                                |   2 +
- drivers/net/Makefile                               |   2 +
- drivers/net/pkt-sniffer/Kconfig                    |  19 +
- drivers/net/pkt-sniffer/Makefile                   |   7 +
- drivers/net/pkt-sniffer/backends/ether/channel.c   | 392 +++++++++++++++++++++
- drivers/net/pkt-sniffer/backends/ether/channel.h   |  81 +++++
- drivers/net/pkt-sniffer/backends/ether/hw.h        |  46 +++
- drivers/net/pkt-sniffer/backends/ether/platform.c  | 301 ++++++++++++++++
- drivers/net/pkt-sniffer/core/module.c              |  37 ++
- drivers/net/pkt-sniffer/core/netdev.c              | 254 +++++++++++++
- drivers/net/pkt-sniffer/core/snf_core.h            |  60 ++++
- include/uapi/linux/pkt_sniffer.h                   |  33 ++
- 15 files changed, 1283 insertions(+)
+Signed-off-by: Stathis Voukelatos <stathis.voukelatos@linn.co.uk>
+---
+ .../bindings/net/linn-ether-packet-sniffer.txt     | 42 ++++++++++++++++++++++
+ .../devicetree/bindings/vendor-prefixes.txt        |  1 +
+ 2 files changed, 43 insertions(+)
  create mode 100644 Documentation/devicetree/bindings/net/linn-ether-packet-sniffer.txt
- create mode 100644 drivers/net/pkt-sniffer/Kconfig
- create mode 100644 drivers/net/pkt-sniffer/Makefile
- create mode 100644 drivers/net/pkt-sniffer/backends/ether/channel.c
- create mode 100644 drivers/net/pkt-sniffer/backends/ether/channel.h
- create mode 100644 drivers/net/pkt-sniffer/backends/ether/hw.h
- create mode 100644 drivers/net/pkt-sniffer/backends/ether/platform.c
- create mode 100644 drivers/net/pkt-sniffer/core/module.c
- create mode 100644 drivers/net/pkt-sniffer/core/netdev.c
- create mode 100644 drivers/net/pkt-sniffer/core/snf_core.h
- create mode 100644 include/uapi/linux/pkt_sniffer.h
 
+diff --git a/Documentation/devicetree/bindings/net/linn-ether-packet-sniffer.txt b/Documentation/devicetree/bindings/net/linn-ether-packet-sniffer.txt
+new file mode 100644
+index 0000000..74bac5e
+--- /dev/null
++++ b/Documentation/devicetree/bindings/net/linn-ether-packet-sniffer.txt
+@@ -0,0 +1,42 @@
++* Linn Products Ethernet Packet Sniffer
++The module allows Ethernet packets to be parsed, matched against
++a user-defined pattern and timestamped. It sits between a 100M
++Ethernet MAC and PHY and is completely passive with respect to
++Ethernet frames.
++Matched packet bytes and timestamp values are returned through a
++FIFO. Timestamps are provided to the module through an externally
++generated Gray-encoded counter.
++
++Required properties:
++- compatible : must be "linn,eth-sniffer"
++- reg : physical addresses and sizes of registers. Must contain 3 entries:
++          - registers memory space
++          - TX command string memory
++          - RX command string memory
++- reg-names : must contain the following 3 entries:
++                  "regs", "tx-ram", "rx-ram"
++- interrupts : sniffer interrupt specifier
++- clocks : specify the system clock for the peripheral and
++	   the enable clock for the timestamp counter
++- clock-names : must contain the "sys" and "tstamp" entries
++- fifo-block-words : number of words in one data FIFO entry
++- tstamp-hz : frequency of the timestamp counter
++- tstamp-shift : shift value for the timestamp cyclecounter struct
++- tstamp-bits : width in bits of the timestamp counter
++
++Example:
++
++sniffer@1814a000 {
++	compatible = "linn,eth-sniffer";
++	reg = <0x1814a000 0x100>, <0x1814a400 0x400>,
++	      <0x1814a800 0x400>;
++	reg-names = "regs", "tx-ram", "rx-ram";
++	interrupts = <GIC_SHARED 58 IRQ_TYPE_LEVEL_HIGH>;
++	clocks = <&clk_core CLK_AUDIO>,
++		 <&cr_periph SYS_CLK_EVENT_TIMER>;
++	clock-names = "sys", "tstamp";
++	fifo-block-words = <4>;
++	tstamp-hz = <52000000>;
++	tstamp-shift = <27>;
++	tstamp-bits = <30>;
++};
+diff --git a/Documentation/devicetree/bindings/vendor-prefixes.txt b/Documentation/devicetree/bindings/vendor-prefixes.txt
+index d443279..891c224 100644
+--- a/Documentation/devicetree/bindings/vendor-prefixes.txt
++++ b/Documentation/devicetree/bindings/vendor-prefixes.txt
+@@ -90,6 +90,7 @@ lacie	LaCie
+ lantiq	Lantiq Semiconductor
+ lenovo	Lenovo Group Ltd.
+ lg	LG Corporation
++linn    Linn Products Ltd.
+ linux	Linux-specific binding
+ lsi	LSI Corp. (LSI Logic)
+ lltc	Linear Technology Corporation
 -- 
 1.9.1
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
