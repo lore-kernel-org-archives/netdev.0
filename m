@@ -1,87 +1,55 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: [PATCH] net: phy: Fix verification of EEE support in phy_init_eee
-Date: Tue, 17 Feb 2015 09:36:22 -0800
-Message-ID: <1424194582-9792-1-git-send-email-linux@roeck-us.net>
-Cc: netdev@vger.kernel.org, Guenter Roeck <linux@roeck-us.net>,
-	Giuseppe Cavallaro <peppe.cavallaro@st.com>
-To: Florian Fainelli <f.fainelli@gmail.com>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: [PATCH net] ematch: Fix auto-loading of ematch modules.
+Date: Tue, 17 Feb 2015 10:00:16 -0800
+Message-ID: <CAHA+R7Os10B8KuBV0K9qp48zo2+=_aXUR-k5ocXjEWYqtq222w@mail.gmail.com>
+References: <20150216150329.GB16798@zenon.in.qult.net>
+	<20150216181315.GA15280@zenon.in.qult.net>
+	<CAHA+R7McGmFtXpiEJkOV2Jjgy29kzpX7tTeprS7S0pY2m9mJBw@mail.gmail.com>
+	<20150216185011.GA29935@zenon.in.qult.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: =?UTF-8?Q?Ignacy_Gaw=C4=99dzki?=
+	<ignacy.gawedzki@green-communications.fr>,
+	Cong Wang <cwang@twopensource.com>,
+	netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bh-25.webhostbox.net ([208.91.199.152]:59791 "EHLO
-	bh-25.webhostbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751515AbbBQRg1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Feb 2015 12:36:27 -0500
-Received: from mailnull by bh-25.webhostbox.net with sa-checked (Exim 4.82)
-	(envelope-from <linux@roeck-us.net>)
-	id 1YNm4R-0010XP-98
-	for netdev@vger.kernel.org; Tue, 17 Feb 2015 17:36:27 +0000
+Received: from mail-ie0-f178.google.com ([209.85.223.178]:35330 "EHLO
+	mail-ie0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753348AbbBQSAQ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Feb 2015 13:00:16 -0500
+Received: by iecrl12 with SMTP id rl12so40424125iec.2
+        for <netdev@vger.kernel.org>; Tue, 17 Feb 2015 10:00:16 -0800 (PST)
+In-Reply-To: <20150216185011.GA29935@zenon.in.qult.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-phy_init_eee uses phy_find_setting(phydev->speed, phydev->duplex)
-to find a valid entry in the settings array for the given speed
-and duplex value. For full duplex 1000baseT, this will return
-the first matching entry, which is the entry for 1000baseKX_Full.
+On Mon, Feb 16, 2015 at 10:50 AM, Ignacy Gaw=C4=99dzki
+<ignacy.gawedzki@green-communications.fr> wrote:
+> On Mon, Feb 16, 2015 at 10:36:06AM -0800, thus spake Cong Wang:
+>> On Mon, Feb 16, 2015 at 10:13 AM, Ignacy Gaw=C4=99dzki
+>> <ignacy.gawedzki@green-communications.fr> wrote:
+>> > In tcf_em_validate(), when calling tcf_em_lookup(), don't put the =
+resulting
+>> > pointer directly into em->ops, if the function is to possibly retu=
+rn -EAGAIN
+>> > after module auto-loading.  Otherwise, module_put() will be called=
+ by
+>> > tcf_em_tree_destroy() on em->ops->owner, while it has already been=
+ called by
+>> > tcf_em_validate() before return.
+>> >
+>>
+>> Or simply reset em->ops to NULL after module_put()?
+>
+> Yeah, why not.  I just got my inspiration from what's done in cls_api=
+=2Ec and
+> act_api.c.  What do you think, should the same simplification be appl=
+ied to
+> cls_api.c?
+>
 
-If the phy eee does not support 1000baseKX_Full, this entry will not
-match, causing phy_init_eee to fail for no good reason.
+I prefer the smaller change, we don't have to align with cls_api.c.
+Yeah, you can always clean it up for net-next.
 
-Fixes: 9a9c56cb34e6 ("net: phy: fix a bug when verify the EEE support")
-Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-Signed-off-by: Guenter Roeck <linux@roeck-us.net>
----
-I have another version where phy_check_valid() is open coded. It looks a bit
-messy to me, but I don't really mind either way if that is preferred.
-
- drivers/net/phy/phy.c | 23 ++++++++++++++++++++---
- 1 file changed, 20 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-index cdcac6a..52cd8db 100644
---- a/drivers/net/phy/phy.c
-+++ b/drivers/net/phy/phy.c
-@@ -236,6 +236,25 @@ static inline unsigned int phy_find_valid(unsigned int idx, u32 features)
- }
- 
- /**
-+ * phy_check_valid - check if there is a valid PHY setting which matches
-+ *		     speed, duplex, and feature mask
-+ * @speed: speed to match
-+ * @duplex: duplex to match
-+ * @features: A mask of the valid settings
-+ *
-+ * Description: Returns true if there is a valid setting, false otherwise.
-+ */
-+static inline bool phy_check_valid(int speed, int duplex, u32 features)
-+{
-+	unsigned int idx;
-+
-+	idx = phy_find_valid(phy_find_setting(speed, duplex), features);
-+
-+	return settings[idx].speed == speed && settings[idx].duplex == duplex &&
-+		(settings[idx].setting & features);
-+}
-+
-+/**
-  * phy_sanitize_settings - make sure the PHY is set to supported speed and duplex
-  * @phydev: the target phy_device struct
-  *
-@@ -1045,7 +1064,6 @@ int phy_init_eee(struct phy_device *phydev, bool clk_stop_enable)
- 		int eee_lp, eee_cap, eee_adv;
- 		u32 lp, cap, adv;
- 		int status;
--		unsigned int idx;
- 
- 		/* Read phy status to properly get the right settings */
- 		status = phy_read_status(phydev);
-@@ -1077,8 +1095,7 @@ int phy_init_eee(struct phy_device *phydev, bool clk_stop_enable)
- 
- 		adv = mmd_eee_adv_to_ethtool_adv_t(eee_adv);
- 		lp = mmd_eee_adv_to_ethtool_adv_t(eee_lp);
--		idx = phy_find_setting(phydev->speed, phydev->duplex);
--		if (!(lp & adv & settings[idx].setting))
-+		if (!phy_check_valid(phydev->speed, phydev->duplex, lp & adv))
- 			goto eee_exit_err;
- 
- 		if (clk_stop_enable) {
--- 
-2.1.0
+Thanks.
