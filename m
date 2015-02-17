@@ -1,73 +1,86 @@
-From: "Nikita N." <nikitan@operamail.com>
-Subject: Re: brcmsmac: TX power blocked in BCM4313
-Date: Tue, 17 Feb 2015 01:03:34 -0800
-Message-ID: <1424163814.3140549.228461101.1C2E5AB1@webmail.messagingengine.com>
-References: <1424007136.2042747.227726249.45B6A0E2@webmail.messagingengine.com>
- <1424094835.3188168.228077393.0E2006F5@webmail.messagingengine.com>
- <54E2107F.4000709@broadcom.com>
- <1424112787.3303548.228201005.68F1D224@webmail.messagingengine.com>
- <54E24B48.80601@broadcom.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: hauke@hauke-m.de, brcm80211-dev-list@broadcom.com,
-	linux-wireless@vger.kernel.org, Kalle Valo <kvalo@codeaurora.org>,
-	Pat Erley <pat-lkml@erley.org>, brudley@broadcom.com,
-	Franky Lin <frankyl@broadcom.com>, meuleman@broadcom.com,
-	linville@tuxdriver.com, pieterpg@broadcom.com, hdegoede@redhat.com,
-	wens@csie.org, netdev@vger.kernel.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Arend van Spriel <arend@broadcom.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <54E24B48.80601@broadcom.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Aleksander Morgado <aleksander-Dvg4H30XQSRVIjRurl1/8g@public.gmane.org>
+Subject: [PATCH] hso: always read interface number from the current altsetting
+Date: Tue, 17 Feb 2015 11:31:29 +0100
+Message-ID: <1424169089-25039-1-git-send-email-aleksander@aleksander.es>
+Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Aleksander Morgado <aleksander-Dvg4H30XQSRVIjRurl1/8g@public.gmane.org>
+To: j.dumon-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hi Arend,
+Always read bInterfaceNumber from the current altsetting, not from the first one
+available in the altsetting array. This is coming from code review, not related
+to any specific bug.
+
+Signed-off-by: Aleksander Morgado <aleksander-Dvg4H30XQSRVIjRurl1/8g@public.gmane.org>
+---
+ drivers/net/usb/hso.c | 13 +++++++++----
+ 1 file changed, 9 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
+index 9cdfb3f..3c8dfe5 100644
+--- a/drivers/net/usb/hso.c
++++ b/drivers/net/usb/hso.c
+@@ -1477,6 +1477,7 @@ static void tiocmget_intr_callback(struct urb *urb)
+ 	struct uart_icount *icount;
+ 	struct hso_serial_state_notification *serial_state_notification;
+ 	struct usb_device *usb;
++	struct usb_interface *interface;
+ 	int if_num;
  
-> brcmsmac does assure tx power is within regulatory limits by enforcing a 
-> world regulatory domain. So what is not supported is modifying tx power 
-> settings through user-space.
-
-Yes, I believe that could be right, *a* world regulatory domain looks
-indeed enforced, the USA one only, which is pre-set default inside
-EEPROM registries device, isn't it?
+ 	/* Sanity checks */
+@@ -1494,7 +1495,9 @@ static void tiocmget_intr_callback(struct urb *urb)
+ 	BUG_ON((serial->parent->port_spec & HSO_PORT_MASK) != HSO_PORT_MODEM);
  
-> I know, but that driver is not fully open-source as it links in a binary 
-> blob.
-
-AFAIK, also brcmsmac needs at least 2 firmware files to operate, without
-those nothing works.
-Isn't it the same concept?
+ 	usb = serial->parent->usb;
+-	if_num = serial->parent->interface->altsetting->desc.bInterfaceNumber;
++	interface = serial->parent->interface;
++
++	if_num = interface->cur_altsetting->desc.bInterfaceNumber;
  
-> I totally lost track of this one. I am using brcmsmac in monitor mode 
-> using bcm43224 which captures 11n frames just fine. I will give it a try 
-> with a bcm4313. The assoc response in your capture shows undefined MCS 
-> set so maybe there really are no 11n MCS rates used (?).
-
-If that was a suggestion about to purchase a bcm43224 or any other
-Broadcom Corp. product, isn't really convincing, seen the overall
-support quality Customers are experiencing in here...
-About my capture file, in the case it was really incomplete someone
-could have informed me at least a year ago.
-But anyway no respectable QA Testing team needs a purchasing Customer to
-help in verifying such enormous issue, isn't it? 
+ 	/* wIndex should be the USB interface number of the port to which the
+ 	 * notification applies, which should always be the Modem port.
+@@ -1675,6 +1678,7 @@ static int hso_serial_tiocmset(struct tty_struct *tty,
+ 	unsigned long flags;
+ 	int if_num;
+ 	struct hso_serial *serial = tty->driver_data;
++	struct usb_interface *interface;
  
-> Our team consist of two man working full-time on the upstream linux 
-> drivers. So our "customer care" is something that we try to deal with on 
-> the side and admittedly things slip between the cracks.
-
-Really, *TWO* men? Are you kidding? Is that how much Broadcom Corp.
-values the Linux community?
-Needles to remind, even if Linux users don't pay for the OS license as
-Windows do, they do pay allright for any Broadcom hardware they
-purchase!
-Internet startups which sell a button on internet, they have Dev and QA
-team 5 times bigger than that!
-I sense a very gross capacity and resource planning competence issue in
-here.
-I kindly ask you, please forward that mail to your higher Managers, on
-my personal behalf, Thanks.
-
+ 	/* sanity check */
+ 	if (!serial) {
+@@ -1685,7 +1689,8 @@ static int hso_serial_tiocmset(struct tty_struct *tty,
+ 	if ((serial->parent->port_spec & HSO_PORT_MASK) != HSO_PORT_MODEM)
+ 		return -EINVAL;
+ 
+-	if_num = serial->parent->interface->altsetting->desc.bInterfaceNumber;
++	interface = serial->parent->interface;
++	if_num = interface->cur_altsetting->desc.bInterfaceNumber;
+ 
+ 	spin_lock_irqsave(&serial->serial_lock, flags);
+ 	if (set & TIOCM_RTS)
+@@ -2808,7 +2813,7 @@ static int hso_get_config_data(struct usb_interface *interface)
+ {
+ 	struct usb_device *usbdev = interface_to_usbdev(interface);
+ 	u8 *config_data = kmalloc(17, GFP_KERNEL);
+-	u32 if_num = interface->altsetting->desc.bInterfaceNumber;
++	u32 if_num = interface->cur_altsetting->desc.bInterfaceNumber;
+ 	s32 result;
+ 
+ 	if (!config_data)
+@@ -2886,7 +2891,7 @@ static int hso_probe(struct usb_interface *interface,
+ 		return -ENODEV;
+ 	}
+ 
+-	if_num = interface->altsetting->desc.bInterfaceNumber;
++	if_num = interface->cur_altsetting->desc.bInterfaceNumber;
+ 
+ 	/* Get the interface/port specification from either driver_info or from
+ 	 * the device itself */
 -- 
-http://www.fastmail.com - Same, same, but different...
+2.3.0
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
