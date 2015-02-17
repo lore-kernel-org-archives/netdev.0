@@ -1,131 +1,80 @@
-From: Mark Rutland <mark.rutland@arm.com>
-Subject: Re: [PATCH v2 1/3] Ethernet packet sniffer: Device tree binding and
- vendor prefix
-Date: Tue, 17 Feb 2015 16:35:27 +0000
-Message-ID: <20150217163527.GR8994@leverpostej>
-References: <cover.1424181053.git.stathis.voukelatos@linn.co.uk>
- <0a86907642a97e5bd880f69299664232fcffaf9d.1424181053.git.stathis.voukelatos@linn.co.uk>
- <20150217145124.GM8994@leverpostej>
- <54E36AAC.7010308@linn.co.uk>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH] net: dsa: Set valid phy interface type
+Date: Tue, 17 Feb 2015 09:04:48 -0800
+Message-ID: <54E374B0.5070603@gmail.com>
+References: <1424150631-22396-1-git-send-email-linux@roeck-us.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"abrestic@chromium.org" <abrestic@chromium.org>
-To: Stathis Voukelatos <stathis.voukelatos@linn.co.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <54E36AAC.7010308@linn.co.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Andrew Lunn <andrew@lunn.ch>
+To: Guenter Roeck <linux@roeck-us.net>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f176.google.com ([209.85.192.176]:38487 "EHLO
+	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751579AbbBQRFC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Feb 2015 12:05:02 -0500
+Received: by pdbfp1 with SMTP id fp1so40675372pdb.5
+        for <netdev@vger.kernel.org>; Tue, 17 Feb 2015 09:05:01 -0800 (PST)
+In-Reply-To: <1424150631-22396-1-git-send-email-linux@roeck-us.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 17, 2015 at 04:22:04PM +0000, Stathis Voukelatos wrote:
-> Hi Mark,
+On 16/02/15 21:23, Guenter Roeck wrote:
+> If the phy interface mode is not found in devicetree, or if devicetree
+> is not configured, of_get_phy_mode returns -ENODEV. The current code
+> sets the phy interface mode to the return value from of_get_phy_mode
+> without checking if it is valid.
 > 
-> On 17/02/15 14:51, Mark Rutland wrote:
+> This invalid phy interface mode is passed as parameter to of_phy_connect
+> or to phy_connect_direct. This sets the phy interface mode to the invalid
+> value, which in turn causes problems for any code using phydev->interface.
 > 
-> >> +Matched packet bytes and timestamp values are returned through a
-> >> +FIFO. Timestamps are provided to the module through an externally
-> >> +generated Gray-encoded counter.
-> >
-> > Does this counter unit need to be enabled (or have any input clocks
-> > enabled)?
-> >
+> Fixes: b31f65fb4383 ("net: dsa: slave: Fix autoneg for phys on switch MDIO bus")
+> Fixes: 0d8bcdd383b8 ("net: dsa: allow for more complex PHY setups")
+> Cc: Florian Fainelli <f.fainelli@gmail.com>
+> Cc: Andrew Lunn <andrew@lunn.ch>
+> Signed-off-by: Guenter Roeck <linux@roeck-us.net>
+
+Acked-by: Florian Fainelli <f.fainelli@gmail.com>
+
+This is 'net' material since you are fixing a bug here, thanks!
+
+> ---
+>  net/dsa/slave.c | 9 +++++++--
+>  1 file changed, 7 insertions(+), 2 deletions(-)
 > 
-> Yes it does, that is the purpose of the 'tstamp' entry in the
-> 'clock-names' property below.
-
-Ah, I see.
-
-> >> +
-> >> +Required properties:
-> >> +- compatible : must be "linn,eth-sniffer"
-> >
-> > Is there not a more precise name for this IP block?
+> diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+> index d104ae1..f23dead 100644
+> --- a/net/dsa/slave.c
+> +++ b/net/dsa/slave.c
+> @@ -521,10 +521,13 @@ static int dsa_slave_phy_setup(struct dsa_slave_priv *p,
+>  	struct device_node *phy_dn, *port_dn;
+>  	bool phy_is_fixed = false;
+>  	u32 phy_flags = 0;
+> -	int ret;
+> +	int mode, ret;
+>  
+>  	port_dn = cd->port_dn[p->port];
+> -	p->phy_interface = of_get_phy_mode(port_dn);
+> +	mode = of_get_phy_mode(port_dn);
+> +	if (mode < 0)
+> +		mode = PHY_INTERFACE_MODE_NA;
+> +	p->phy_interface = mode;
+>  
+>  	phy_dn = of_parse_phandle(port_dn, "phy-handle", 0);
+>  	if (of_phy_is_fixed_link(port_dn)) {
+> @@ -559,6 +562,8 @@ static int dsa_slave_phy_setup(struct dsa_slave_priv *p,
+>  		if (!p->phy)
+>  			return -ENODEV;
+>  
+> +		/* Use already configured phy mode */
+> +		p->phy_interface = p->phy->interface;
+>  		phy_connect_direct(slave_dev, p->phy, dsa_slave_adjust_link,
+>  				   p->phy_interface);
+>  	} else {
 > 
-> It is generally called 'ethernet packet sniffer', maybe
-> linn,eth-packet-sniffer would be a more descriptive name?
 
-Either way is fine. I was expecting something more like a product code.
 
-[...]
-
-> >> +- fifo-block-words : number of words in one data FIFO entry
-> >
-> > I didn't see a data FIFO described. Is that dynamically allocated and
-> > handed to the sniffer, or does that correspond to one of the memory
-> > regions above?
-> >
-> 
-> It is a H/W FIFO internal to the module and accessed through
-> a register. It is divided in blocks and 'fifo-block-words'
-> specify the number of words in each block. It is needed by
-> the driver to make sure it reads an entire block, in order
-> to clear the 'data available' interrupt.
-
-I see. I assumed that the FIFO was memory mapped rather than exposed
-through a register.
-
-Given the above this sounds fine.
-
-> >> +- tstamp-hz : frequency of the timestamp counter
-
-Is this the frequency the clock is running at, or a frequency that it
-should be programmed to in order to be used?
-
-The former can be queried from the common clock framework, and if you
-intended the latter the wording shuold be a little more explicit about
-that being the case.
-
-> >> +- tstamp-shift : shift value for the timestamp cyclecounter struct
-> >
-> > What exactly is this used for?
-> >
-> > Are there any docs?
-> 
-> See: include/linux/clocksource.h
-> The driver uses a cyclecounter and timecounter to convert raw timestamps
-> to nanoseconds. 'tstamp-shift' refers to the 'shift' field of the
-> cyclecounter structure, that can be used to improve the precision of
-> the conversion
-
-Sure, but the very concept of a cyclecounter is a Linux implementation
-detail. If we have the frequency of the timer we should be able to
-dynamically generate this, so there's no need for this to be in the DT.
-
-> >> +- tstamp-bits : width in bits of the timestamp counter
-> >> +
-> >> +Example:
-> >> +
-> >> +sniffer@1814a000 {
-> >> +	compatible = "linn,eth-sniffer";
-> >> +	reg = <0x1814a000 0x100>, <0x1814a400 0x400>,
-> >> +	      <0x1814a800 0x400>;
-> >> +	reg-names = "regs", "tx-ram", "rx-ram";
-> >> +	interrupts = <GIC_SHARED 58 IRQ_TYPE_LEVEL_HIGH>;
-> >> +	clocks = <&clk_core CLK_AUDIO>,
-> >> +		 <&cr_periph SYS_CLK_EVENT_TIMER>;
-> >> +	clock-names = "sys", "tstamp";
-> >> +	fifo-block-words = <4>;
-> >> +	tstamp-hz = <52000000>;
-> >> +	tstamp-shift = <27>;
-> >> +	tstamp-bits = <30>;
-> >
-> > This property wasn't documented.
-> >
-> > As mentioned previously, I think the relation between this unit and the
-> > MAC and/or PHY needs to be explicitly described in the DT.
-> 
-> Do you suggest a field along the lines of:
-> mac = <&eth_controller_0>;
-> The driver could check that it exists and is valid but does
-> not need to make use of it.
-
-I would expect some level of the software stack to make use of it, or
-you have no idea which ethernet interface is related to this monitoring
-interface. Perhaps current systems only have one interface, but that
-shouldn't be relied upon.
-
-Thanks,
-Mark.
+-- 
+Florian
