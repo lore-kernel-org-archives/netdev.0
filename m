@@ -1,84 +1,164 @@
-From: "Zhu, Yanjun" <Yanjun.Zhu@windriver.com>
-Subject: RE: If bridge have no sub-interfaces, it's status may be still with
- 'RUNNING'
-Date: Tue, 17 Feb 2015 16:14:37 +0000
-Message-ID: <E66F6C44A7A6EA49ABFC80EA526506DF65AEAEB3@ALA-MBB.corp.ad.wrs.com>
-References: <54DDCA99.4040401@windriver.com>
-	<20150213133056.3944c13e@uryu.home.lan>	<54E17853.8070106@windriver.com>
-	<54E210FF.2050502@gmail.com>,<20150216115137.5aa3f0cd@uryu.home.lan>
+From: Stathis Voukelatos <stathis.voukelatos@linn.co.uk>
+Subject: Re: [PATCH v2 1/3] Ethernet packet sniffer: Device tree binding and
+ vendor prefix
+Date: Tue, 17 Feb 2015 16:22:04 +0000
+Message-ID: <54E36AAC.7010308@linn.co.uk>
+References: <cover.1424181053.git.stathis.voukelatos@linn.co.uk> <0a86907642a97e5bd880f69299664232fcffaf9d.1424181053.git.stathis.voukelatos@linn.co.uk> <20150217145124.GM8994@leverpostej>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="_002_E66F6C44A7A6EA49ABFC80EA526506DF65AEAEB3ALAMBBcorpadwrs_"
-Cc: netdev <netdev@vger.kernel.org>,
-	"Wu, Kuaikuai" <Kuaikuai.Wu@windriver.com>,
-	"Tao, Yue" <Yue.Tao@windriver.com>
-To: Stephen Hemminger <stephen@networkplumber.org>,
-	David Ahern <dsahern@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:48999 "EHLO
-	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751895AbbBQQOk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Feb 2015 11:14:40 -0500
-In-Reply-To: <20150216115137.5aa3f0cd@uryu.home.lan>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"abrestic@chromium.org" <abrestic@chromium.org>
+To: Mark Rutland <mark.rutland@arm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150217145124.GM8994@leverpostej>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
---_002_E66F6C44A7A6EA49ABFC80EA526506DF65AEAEB3ALAMBBcorpadwrs_
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
+Hi Mark,
 
-Hi, all
+On 17/02/15 14:51, Mark Rutland wrote:
 
-We should make it compatible. So I made a patch to turn on carrier on this =
-bridge interface when the last sub interface is removed.
+>> +Matched packet bytes and timestamp values are returned through a
+>> +FIFO. Timestamps are provided to the module through an externally
+>> +generated Gray-encoded counter.
+>
+> Does this counter unit need to be enabled (or have any input clocks
+> enabled)?
+>
 
-Hi, David
+Yes it does, that is the purpose of the 'tstamp' entry in the
+'clock-names' property below.
 
-Please make tests with this latest patch. Thanks a lot.
+>> +
+>> +Required properties:
+>> +- compatible : must be "linn,eth-sniffer"
+>
+> Is there not a more precise name for this IP block?
 
-Best Regards!
-Zhu Yanjun
-________________________________________
-From: Stephen Hemminger [stephen@networkplumber.org]
-Sent: Monday, February 16, 2015 8:51 AM
-To: David Ahern
-Cc: Zhu, Yanjun; netdev; Wu, Kuaikuai; Tao, Yue
-Subject: Re: If bridge have no sub-interfaces, it's status may be still wit=
-h 'RUNNING'
+It is generally called 'ethernet packet sniffer', maybe
+linn,eth-packet-sniffer would be a more descriptive name?
 
-Originally bridge code would start with carrier off,
-but there were users using bridge as a form of dummy device
-and this broke them. Therefore it was decided (like 5 yrs ago),
-that bridge should start with carrier on.=
+>
+>> +- reg : physical addresses and sizes of registers. Must contain 3 entries:
+>> +          - registers memory space
+>> +          - TX command string memory
+>> +          - RX command string memory
+>> +- reg-names : must contain the following 3 entries:
+>> +                  "regs", "tx-ram", "rx-ram"
+>
+> It would be nicer to format this as:
+>
+> - reg: A list of physical address and size pairs corresponding to each
+>         entry in reg-names
+>
+> - reg-names: must contain:
+>    * "regs" for the control registers
+>    * "tx-ram" for the TX command string memory
+>    * "rx-ram" for the RX command string memory
+>
+> Which avoids redundancy.
+>
 
---_002_E66F6C44A7A6EA49ABFC80EA526506DF65AEAEB3ALAMBBcorpadwrs_
-Content-Type: text/plain;
-	name="0001-bridge-turn-on-carrier-after-removing-the-last-sub-i.patch"
-Content-Description: 0001-bridge-turn-on-carrier-after-removing-the-last-sub-i.patch
-Content-Disposition: attachment;
-	filename="0001-bridge-turn-on-carrier-after-removing-the-last-sub-i.patch";
-	size=1025; creation-date="Tue, 17 Feb 2015 16:14:33 GMT";
-	modification-date="Tue, 17 Feb 2015 16:14:33 GMT"
-Content-Transfer-Encoding: base64
+Will change formatting as suggested
 
-RnJvbSAwZDE2ZjMwMmYyM2M5ZjUxMDFmODQ5NDUwYWJjMDczMDQ1YTE5M2RlIE1vbiBTZXAgMTcg
-MDA6MDA6MDAgMjAwMQpGcm9tOiBaaHUgWWFuanVuIDxZYW5qdW4uWmh1QHdpbmRyaXZlci5jb20+
-CkRhdGU6IFR1ZSwgMTcgRmViIDIwMTUgMjM6NTk6MDggKzA4MDAKU3ViamVjdDogW1BBVENIIDEv
-MV0gYnJpZGdlOiB0dXJuIG9uIGNhcnJpZXIgYWZ0ZXIgcmVtb3ZpbmcgdGhlIGxhc3Qgc3ViCiBp
-bnRlcmZhY2UKCldoZW4gdGhlIGxhc3Qgc3ViIGludGVyZmFjZSBpcyByZW1vdmVkIGZyb20gdGhl
-IGJyaWRnZSwgdGhlIGJyaWRnZQp0dXJuIG9mZiB0aGUgY2Fycmllci4gTWF5YmUgaXQgaXMgbm90
-IGNvbXBhdGlibGUgd2l0aCBmaXJzdGx5IGNyZWF0ZWQKYnJpZGdlIHdpdGhvdXQgYW55IHN1YiBp
-bnRlcmZhY2UuIEF0IHRoYXQgdGltZSwgdGhlIGNhcnJpZXIgb2YgdGhpcwpicmlkZ2UgaXMgdHVy
-bmVkIG9uLgoKU2lnbmVkLW9mZi1ieTogWmh1IFlhbmp1biA8WWFuanVuLlpodUB3aW5kcml2ZXIu
-Y29tPgotLS0KIG5ldC9icmlkZ2UvYnJfaWYuYyB8IDYgKysrKysrCiAxIGZpbGUgY2hhbmdlZCwg
-NiBpbnNlcnRpb25zKCspCgpkaWZmIC0tZ2l0IGEvbmV0L2JyaWRnZS9icl9pZi5jIGIvbmV0L2Jy
-aWRnZS9icl9pZi5jCmluZGV4IGVkMzA3ZGIuLmYzOTFmOGMgMTAwNjQ0Ci0tLSBhL25ldC9icmlk
-Z2UvYnJfaWYuYworKysgYi9uZXQvYnJpZGdlL2JyX2lmLmMKQEAgLTU2NSw2ICs1NjUsMTIgQEAg
-aW50IGJyX2RlbF9pZihzdHJ1Y3QgbmV0X2JyaWRnZSAqYnIsIHN0cnVjdCBuZXRfZGV2aWNlICpk
-ZXYpCiAKIAluZXRkZXZfdXBkYXRlX2ZlYXR1cmVzKGJyLT5kZXYpOwogCisJLyogTm8gc3ViIGlu
-dGVyZmFjZSBpbiBicmlkZ2UsIHR1cm4gb24gY2FycmllciAqLworCWlmIChsaXN0X2VtcHR5KCZi
-ci0+cG9ydF9saXN0KSkgeworCQlldGhfaHdfYWRkcl9yYW5kb20oYnItPmRldik7CisJCW5ldGlm
-X2NhcnJpZXJfb24oYnItPmRldik7CisJfQorCiAJcmV0dXJuIDA7CiB9CiAKLS0gCjEuOS4xCgo=
+> The phrase "command string" sounds a bit odd. What are these used for
+> exactly?
 
---_002_E66F6C44A7A6EA49ABFC80EA526506DF65AEAEB3ALAMBBcorpadwrs_--
+In these two memory areas we program a sequence of bytes in the
+format: [cmd][value][cmd][value] to configure the data patterns that
+the sniffer should match for Ethernet TX and RX packets respectively.
+Maybe 'command memory' would be clearer?
+
+>
+>> +- interrupts : sniffer interrupt specifier
+>> +- clocks : specify the system clock for the peripheral and
+>> +	   the enable clock for the timestamp counter
+>> +- clock-names : must contain the "sys" and "tstamp" entries
+>
+> Similarly here clocks should just be defined in terms of clock-names.
+
+Will reformat similar to the 'regs' field
+
+>
+>> +- fifo-block-words : number of words in one data FIFO entry
+>
+> I didn't see a data FIFO described. Is that dynamically allocated and
+> handed to the sniffer, or does that correspond to one of the memory
+> regions above?
+>
+
+It is a H/W FIFO internal to the module and accessed through
+a register. It is divided in blocks and 'fifo-block-words'
+specify the number of words in each block. It is needed by
+the driver to make sure it reads an entire block, in order
+to clear the 'data available' interrupt.
+
+>> +- tstamp-hz : frequency of the timestamp counter
+>> +- tstamp-shift : shift value for the timestamp cyclecounter struct
+>
+> What exactly is this used for?
+>
+> Are there any docs?
+
+See: include/linux/clocksource.h
+The driver uses a cyclecounter and timecounter to convert raw timestamps
+to nanoseconds. 'tstamp-shift' refers to the 'shift' field of the
+cyclecounter structure, that can be used to improve the precision of
+the conversion
+
+>
+>> +- tstamp-bits : width in bits of the timestamp counter
+>> +
+>> +Example:
+>> +
+>> +sniffer@1814a000 {
+>> +	compatible = "linn,eth-sniffer";
+>> +	reg = <0x1814a000 0x100>, <0x1814a400 0x400>,
+>> +	      <0x1814a800 0x400>;
+>> +	reg-names = "regs", "tx-ram", "rx-ram";
+>> +	interrupts = <GIC_SHARED 58 IRQ_TYPE_LEVEL_HIGH>;
+>> +	clocks = <&clk_core CLK_AUDIO>,
+>> +		 <&cr_periph SYS_CLK_EVENT_TIMER>;
+>> +	clock-names = "sys", "tstamp";
+>> +	fifo-block-words = <4>;
+>> +	tstamp-hz = <52000000>;
+>> +	tstamp-shift = <27>;
+>> +	tstamp-bits = <30>;
+>
+> This property wasn't documented.
+>
+> As mentioned previously, I think the relation between this unit and the
+> MAC and/or PHY needs to be explicitly described in the DT.
+
+Do you suggest a field along the lines of:
+mac = <&eth_controller_0>;
+The driver could check that it exists and is valid but does
+not need to make use of it.
+
+>
+>> +};
+>> diff --git a/Documentation/devicetree/bindings/vendor-prefixes.txt b/Documentation/devicetree/bindings/vendor-prefixes.txt
+>> index d443279..891c224 100644
+>> --- a/Documentation/devicetree/bindings/vendor-prefixes.txt
+>> +++ b/Documentation/devicetree/bindings/vendor-prefixes.txt
+>> @@ -90,6 +90,7 @@ lacie	LaCie
+>>   lantiq	Lantiq Semiconductor
+>>   lenovo	Lenovo Group Ltd.
+>>   lg	LG Corporation
+>> +linn    Linn Products Ltd.
+>
+> This addition looks fine to me. For some reason it seems to be padded
+> with spaces instead of tabs though; is my mail server corrupting things
+> or is that the case in the original patch?
+
+Sorry, it was spaces. Will be fixed
+>
+> Thanks,
+> Mark.
+>
+
+Thank you,
+Stathis
