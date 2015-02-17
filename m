@@ -1,78 +1,58 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH] vhost: support upto 509 memory regions
-Date: Tue, 17 Feb 2015 14:29:31 +0100
-Message-ID: <20150217132931.GB6362@redhat.com>
-References: <1423842599-5174-1-git-send-email-imammedo@redhat.com>
- <20150217090242.GA20254@redhat.com>
- <54E31F24.1060705@redhat.com>
- <20150217123212.GA6362@redhat.com>
- <54E33E09.5090603@redhat.com>
+From: Denis Kirjanov <kda@linux-powerpc.org>
+Subject: Re: [PATCH] ipv4: ip_check_defrag should correctly check return value
+ of skb_copy_bits
+Date: Tue, 17 Feb 2015 17:33:47 +0400
+Message-ID: <CAOJe8K0dtLufmLmRU2az=ZX8Wu1JsBS-U=jewRGCQkL8atXr1Q@mail.gmail.com>
+References: <1424169226-30112-1-git-send-email-al.drozdov@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Igor Mammedov <imammedo@redhat.com>, linux-kernel@vger.kernel.org,
-	kvm@vger.kernel.org, netdev@vger.kernel.org
-To: Paolo Bonzini <pbonzini@redhat.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Alexander Drozdov <al.drozdov@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <54E33E09.5090603@redhat.com>
+In-Reply-To: <1424169226-30112-1-git-send-email-al.drozdov@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Feb 17, 2015 at 02:11:37PM +0100, Paolo Bonzini wrote:
-> 
-> 
-> On 17/02/2015 13:32, Michael S. Tsirkin wrote:
-> > On Tue, Feb 17, 2015 at 11:59:48AM +0100, Paolo Bonzini wrote:
-> >>
-> >>
-> >> On 17/02/2015 10:02, Michael S. Tsirkin wrote:
-> >>>> Increasing VHOST_MEMORY_MAX_NREGIONS from 65 to 509
-> >>>> to match KVM_USER_MEM_SLOTS fixes issue for vhost-net.
-> >>>>
-> >>>> Signed-off-by: Igor Mammedov <imammedo@redhat.com>
-> >>>
-> >>> This scares me a bit: each region is 32byte, we are talking
-> >>> a 16K allocation that userspace can trigger.
-> >>
-> >> What's bad with a 16K allocation?
-> > 
-> > It fails when memory is fragmented.
-> 
-> If memory is _that_ fragmented I think you have much bigger problems
-> than vhost.
-> 
-> > I'm guessing kvm doesn't do memory scans on data path, vhost does.
-> 
-> It does for MMIO memory-to-memory writes, but that's not a particularly
-> fast path.
-> 
-> KVM doesn't access the memory map on fast paths, but QEMU does, so I
-> don't think it's beyond the expectations of the kernel.
+On 2/17/15, Alexander Drozdov <al.drozdov@gmail.com> wrote:
+> skb_copy_bits() returns zero on success and negative value on error,
+> so it is needed to invert the condition in ip_check_defrag().
+>
 
-QEMU has an elaborate data structure to deal with that.
-
->  For example you
-> can use a radix tree (not lib/radix-tree.c unfortunately), and cache
-> GVA->HPA translations if it turns out that lookup has become a hot path.
-
-All vhost lookups are hot path.
-
-> The addressing space of x86 is in practice 44 bits or fewer, and each
-> slot will typically be at least 1 GiB, so you only have 14 bits to
-> dispatch on.   It's probably possible to only have two or three levels
-> in the radix tree in the common case, and beat the linear scan real quick.
-
-Not if there are about 6 regions, I think.
-
-> The radix tree can be tuned to use order-0 allocations, and then your
-> worries about fragmentation go away too.
-> 
-> Paolo
-
-Increasing the number might be reasonable for workloads such as nested
-virt. But depending on this in userspace when you don't have to is not a
-good idea IMHO.
+Nice. Grepping through the net directory shows that the  skb_copy_bits()
+return value is completely ignored in net/wireless/util.c
 
 
--- 
-MST
+> Fixes: 1bf3751ec90c ("ipv4: ip_check_defrag must not modify skb before
+> unsharing")
+> Signed-off-by: Alexander Drozdov <al.drozdov@gmail.com>
+> ---
+>  net/ipv4/ip_fragment.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
+> index e5b6d0d..2c8d98e 100644
+> --- a/net/ipv4/ip_fragment.c
+> +++ b/net/ipv4/ip_fragment.c
+> @@ -664,7 +664,7 @@ struct sk_buff *ip_check_defrag(struct sk_buff *skb, u32
+> user)
+>  	if (skb->protocol != htons(ETH_P_IP))
+>  		return skb;
+>
+> -	if (!skb_copy_bits(skb, 0, &iph, sizeof(iph)))
+> +	if (skb_copy_bits(skb, 0, &iph, sizeof(iph)) < 0)
+>  		return skb;
+>
+>  	if (iph.ihl < 5 || iph.version != 4)
+> --
+> 1.9.1
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
