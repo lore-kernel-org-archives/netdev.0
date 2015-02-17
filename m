@@ -1,80 +1,45 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] net: dsa: Set valid phy interface type
-Date: Tue, 17 Feb 2015 09:04:48 -0800
-Message-ID: <54E374B0.5070603@gmail.com>
-References: <1424150631-22396-1-git-send-email-linux@roeck-us.net>
+From: Paolo Bonzini <pbonzini@redhat.com>
+Subject: Re: [PATCH] vhost: support upto 509 memory regions
+Date: Tue, 17 Feb 2015 18:09:06 +0100
+Message-ID: <54E375B2.8090101@redhat.com>
+References: <1423842599-5174-1-git-send-email-imammedo@redhat.com>	<20150217090242.GA20254@redhat.com>	<54E31F24.1060705@redhat.com>	<20150217123212.GA6362@redhat.com>	<54E33E09.5090603@redhat.com>	<20150217132931.GB6362@redhat.com> <20150217160240.1085e2f7@nial.brq.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Andrew Lunn <andrew@lunn.ch>
-To: Guenter Roeck <linux@roeck-us.net>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f176.google.com ([209.85.192.176]:38487 "EHLO
-	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751579AbbBQRFC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Feb 2015 12:05:02 -0500
-Received: by pdbfp1 with SMTP id fp1so40675372pdb.5
-        for <netdev@vger.kernel.org>; Tue, 17 Feb 2015 09:05:01 -0800 (PST)
-In-Reply-To: <1424150631-22396-1-git-send-email-linux@roeck-us.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 8bit
+Cc: linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Igor Mammedov <imammedo@redhat.com>,
+	"Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150217160240.1085e2f7@nial.brq.redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 16/02/15 21:23, Guenter Roeck wrote:
-> If the phy interface mode is not found in devicetree, or if devicetree
-> is not configured, of_get_phy_mode returns -ENODEV. The current code
-> sets the phy interface mode to the return value from of_get_phy_mode
-> without checking if it is valid.
+
+
+On 17/02/2015 16:02, Igor Mammedov wrote:
+>> > 
+>> > Not if there are about 6 regions, I think.
+> When memslots where increased to 509 and look up of them was replaced on
+> binary search results were on par with linear search for a default 13 memslots VM.
 > 
-> This invalid phy interface mode is passed as parameter to of_phy_connect
-> or to phy_connect_direct. This sets the phy interface mode to the invalid
-> value, which in turn causes problems for any code using phydev->interface.
-> 
-> Fixes: b31f65fb4383 ("net: dsa: slave: Fix autoneg for phys on switch MDIO bus")
-> Fixes: 0d8bcdd383b8 ("net: dsa: allow for more complex PHY setups")
-> Cc: Florian Fainelli <f.fainelli@gmail.com>
-> Cc: Andrew Lunn <andrew@lunn.ch>
-> Signed-off-by: Guenter Roeck <linux@roeck-us.net>
+> Adding LRU
 
-Acked-by: Florian Fainelli <f.fainelli@gmail.com>
+You mean MRU. :)
 
-This is 'net' material since you are fixing a bug here, thanks!
+> cache helped to shave ~40% of cycles for sequential lookup workloads.
 
-> ---
->  net/dsa/slave.c | 9 +++++++--
->  1 file changed, 7 insertions(+), 2 deletions(-)
-> 
-> diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-> index d104ae1..f23dead 100644
-> --- a/net/dsa/slave.c
-> +++ b/net/dsa/slave.c
-> @@ -521,10 +521,13 @@ static int dsa_slave_phy_setup(struct dsa_slave_priv *p,
->  	struct device_node *phy_dn, *port_dn;
->  	bool phy_is_fixed = false;
->  	u32 phy_flags = 0;
-> -	int ret;
-> +	int mode, ret;
->  
->  	port_dn = cd->port_dn[p->port];
-> -	p->phy_interface = of_get_phy_mode(port_dn);
-> +	mode = of_get_phy_mode(port_dn);
-> +	if (mode < 0)
-> +		mode = PHY_INTERFACE_MODE_NA;
-> +	p->phy_interface = mode;
->  
->  	phy_dn = of_parse_phandle(port_dn, "phy-handle", 0);
->  	if (of_phy_is_fixed_link(port_dn)) {
-> @@ -559,6 +562,8 @@ static int dsa_slave_phy_setup(struct dsa_slave_priv *p,
->  		if (!p->phy)
->  			return -ENODEV;
->  
-> +		/* Use already configured phy mode */
-> +		p->phy_interface = p->phy->interface;
->  		phy_connect_direct(slave_dev, p->phy, dsa_slave_adjust_link,
->  				   p->phy_interface);
->  	} else {
-> 
+It's a bit different for vhost because you can have up to four "things"
+being looked up at the same time:
 
+- the s/g list that will end up in the skb
 
--- 
-Florian
+- the avail/used ring
+
+- the virtio buffers
+
+- the virtio indirect buffers
+
+So you probably need multiple MRU caches.  But yes, MRU can help a lot.
+
+Paolo
