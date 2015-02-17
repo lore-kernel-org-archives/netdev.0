@@ -1,42 +1,158 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH RFC 0/2] net: dsa: integration with SWITCHDEV for HW bridging
-Date: Tue, 17 Feb 2015 11:26:34 -0800
-Message-ID: <1424201196-4901-1-git-send-email-f.fainelli@gmail.com>
+Subject: [PATCH RFC 2/2] net: dsa: bcm_sf2: implement HW bridging operations
+Date: Tue, 17 Feb 2015 11:26:36 -0800
+Message-ID: <1424201196-4901-3-git-send-email-f.fainelli@gmail.com>
+References: <1424201196-4901-1-git-send-email-f.fainelli@gmail.com>
 Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>,
 	vivien.didelot@savoirfairelinux.com,
 	jerome.oufella@savoirfairelinux.com, linux@roeck-us.net,
 	andrew@lunn.ch, cphealy@gmail.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:33343 "EHLO
-	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752570AbbBQT1e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Feb 2015 14:27:34 -0500
-Received: by pabkx10 with SMTP id kx10so8511318pab.0
-        for <netdev@vger.kernel.org>; Tue, 17 Feb 2015 11:27:34 -0800 (PST)
+Received: from mail-pd0-f177.google.com ([209.85.192.177]:44448 "EHLO
+	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753966AbbBQT1h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Feb 2015 14:27:37 -0500
+Received: by pdbnh10 with SMTP id nh10so41553291pdb.11
+        for <netdev@vger.kernel.org>; Tue, 17 Feb 2015 11:27:37 -0800 (PST)
+In-Reply-To: <1424201196-4901-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+Update the Broadcom Starfighter 2 switch driver to implement the
+join/leave/stp_update callbacks required for basic hardware bridging
+support.
 
-This patchset is mostly to demonstrate how we could integrate with SWITCHDEV
-to provide HW bridging support for DSA switch drivers that are currently in
-tree. Since 'net-next' is currently closed, this gives us some time to work
-on the abstraction we want to have in DSA to facilitate our life.
+There is not much to be done at the driver level but translating the
+STP state from Linux to their HW values.
 
-Attached is an example of how this winds up looking like for the bcm_sf2 driver.
+Joining a bridge means that the joining port and the other port members
+need to be in the same VLAN membership as the CPU, while leaving the
+bridge puts the port back into a separate VLAN membership with only the
+CPU.
 
-Florian Fainelli (2):
-  net: dsa: integrate with SWITCHDEV for HW bridging
-  net: dsa: bcm_sf2: implement HW bridging operations
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ drivers/net/dsa/bcm_sf2.c | 93 +++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 93 insertions(+)
 
- drivers/net/dsa/bcm_sf2.c |  93 ++++++++++++++++++++++++++++++++++++
- include/net/dsa.h         |  10 ++++
- net/dsa/Kconfig           |   1 +
- net/dsa/dsa.c             |   7 +++
- net/dsa/dsa_priv.h        |   2 +
- net/dsa/slave.c           | 117 ++++++++++++++++++++++++++++++++++++++++++++++
- 6 files changed, 230 insertions(+)
-
+diff --git a/drivers/net/dsa/bcm_sf2.c b/drivers/net/dsa/bcm_sf2.c
+index 4daffb284931..006c86a4df54 100644
+--- a/drivers/net/dsa/bcm_sf2.c
++++ b/drivers/net/dsa/bcm_sf2.c
+@@ -23,6 +23,7 @@
+ #include <linux/of_address.h>
+ #include <net/dsa.h>
+ #include <linux/ethtool.h>
++#include <linux/if_bridge.h>
+ 
+ #include "bcm_sf2.h"
+ #include "bcm_sf2_regs.h"
+@@ -400,6 +401,95 @@ static int bcm_sf2_sw_set_eee(struct dsa_switch *ds, int port,
+ 	return 0;
+ }
+ 
++static int bcm_sf2_sw_br_join(struct dsa_switch *ds, int port,
++			      u32 br_port_mask)
++{
++	struct bcm_sf2_priv *priv = ds_to_priv(ds);
++	unsigned int i;
++	u32 reg, p_ctl;
++
++	p_ctl = core_readl(priv, CORE_PORT_VLAN_CTL_PORT(port));
++
++	for (i = 0; i < priv->hw_params.num_ports; i++) {
++		if (!((1 << i) & br_port_mask))
++			continue;
++
++		reg = core_readl(priv, CORE_PORT_VLAN_CTL_PORT(i));
++		reg |= 1 << port;
++		core_writel(priv, reg, CORE_PORT_VLAN_CTL_PORT(i));
++
++		p_ctl |= 1 << i;
++	}
++
++	core_writel(priv, p_ctl, CORE_PORT_VLAN_CTL_PORT(port));
++
++	return 0;
++}
++
++static int bcm_sf2_sw_br_leave(struct dsa_switch *ds, int port,
++			       u32 br_port_mask)
++{
++	struct bcm_sf2_priv *priv = ds_to_priv(ds);
++	unsigned int i;
++	u32 reg, p_ctl;
++
++	p_ctl = core_readl(priv, CORE_PORT_VLAN_CTL_PORT(port));
++
++	for (i = 0; i < priv->hw_params.num_ports; i++) {
++		/* Don't touch the remaining ports */
++		if (!((1 << i) & br_port_mask))
++			continue;
++
++		reg = core_readl(priv, CORE_PORT_VLAN_CTL_PORT(i));
++		reg &= ~(1 << port);
++		core_writel(priv, reg, CORE_PORT_VLAN_CTL_PORT(i));
++
++		/* Prevent self removal to preserve isolation */
++		if (port != i)
++			p_ctl &= ~(1 << i);
++	}
++
++	core_writel(priv, p_ctl, CORE_PORT_VLAN_CTL_PORT(port));
++
++	return 0;
++}
++
++static int bcm_sf2_sw_br_stp_update(struct dsa_switch *ds, int port,
++				    u8 state)
++{
++	struct bcm_sf2_priv *priv = ds_to_priv(ds);
++	u32 reg;
++	u8 hw_state;
++
++	switch (state) {
++	case BR_STATE_DISABLED:
++		hw_state = G_MISTP_DIS_STATE;
++		break;
++	case BR_STATE_LISTENING:
++		hw_state = G_MISTP_LISTEN_STATE;
++		break;
++	case BR_STATE_LEARNING:
++		hw_state = G_MISTP_LEARN_STATE;
++		break;
++	case BR_STATE_FORWARDING:
++		hw_state = G_MISTP_FWD_STATE;
++		break;
++	case BR_STATE_BLOCKING:
++		hw_state = G_MISTP_BLOCK_STATE;
++		break;
++	default:
++		pr_err("%s: invalid STP state: %d\n", __func__, state);
++		return -EINVAL;
++	}
++
++	reg = core_readl(priv, CORE_G_PCTL_PORT(port));
++	reg &= ~(G_MISTP_STATE_MASK << G_MISTP_STATE_SHIFT);
++	reg |= hw_state;
++	core_writel(priv, reg, CORE_G_PCTL_PORT(port));
++
++	return 0;
++}
++
+ static irqreturn_t bcm_sf2_switch_0_isr(int irq, void *dev_id)
+ {
+ 	struct bcm_sf2_priv *priv = dev_id;
+@@ -916,6 +1006,9 @@ static struct dsa_switch_driver bcm_sf2_switch_driver = {
+ 	.port_disable		= bcm_sf2_port_disable,
+ 	.get_eee		= bcm_sf2_sw_get_eee,
+ 	.set_eee		= bcm_sf2_sw_set_eee,
++	.port_join_bridge	= bcm_sf2_sw_br_join,
++	.port_leave_bridge	= bcm_sf2_sw_br_leave,
++	.port_stp_update	= bcm_sf2_sw_br_stp_update,
+ };
+ 
+ static int __init bcm_sf2_init(void)
 -- 
 2.1.0
