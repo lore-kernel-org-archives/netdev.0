@@ -1,39 +1,40 @@
 From: Denis Kirjanov <kda@linux-powerpc.org>
-Subject: [PATCH net-next v2 2/6] ppc: bpf: add reqired opcodes for ppc32
-Date: Tue, 17 Feb 2015 10:04:39 +0300
-Message-ID: <1424156683-2682-3-git-send-email-kda@linux-powerpc.org>
-References: <1424156683-2682-1-git-send-email-kda@linux-powerpc.org>
-Cc: linuxppc-dev@lists.ozlabs.org,
-	Denis Kirjanov <kda@linux-powerpc.org>
+Subject: bpf: Enable BPF JIT on ppc32
+Date: Tue, 17 Feb 2015 10:04:37 +0300
+Message-ID: <1424156683-2682-1-git-send-email-kda@linux-powerpc.org>
+Cc: linuxppc-dev@lists.ozlabs.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f169.google.com ([209.85.217.169]:38180 "EHLO
-	mail-lb0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932428AbbBQHAu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Feb 2015 02:00:50 -0500
-Received: by lbiz11 with SMTP id z11so2731292lbi.5
-        for <netdev@vger.kernel.org>; Mon, 16 Feb 2015 23:00:49 -0800 (PST)
-In-Reply-To: <1424156683-2682-1-git-send-email-kda@linux-powerpc.org>
+Received: from mail-lb0-f181.google.com ([209.85.217.181]:39066 "EHLO
+	mail-lb0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932208AbbBQHAr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Feb 2015 02:00:47 -0500
+Received: by lbvn10 with SMTP id n10so2699368lbv.6
+        for <netdev@vger.kernel.org>; Mon, 16 Feb 2015 23:00:46 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Denis Kirjanov <kda@linux-powerpc.org>
----
- arch/powerpc/include/asm/ppc-opcode.h | 2 ++
- 1 file changed, 2 insertions(+)
+This patch series enables BPF JIT on ppc32. There are relatevily
+few chnages in the code to make it work.
 
-diff --git a/arch/powerpc/include/asm/ppc-opcode.h b/arch/powerpc/include/asm/ppc-opcode.h
-index 03cd858..2eadde0 100644
---- a/arch/powerpc/include/asm/ppc-opcode.h
-+++ b/arch/powerpc/include/asm/ppc-opcode.h
-@@ -212,6 +212,8 @@
- #define PPC_INST_LWZ			0x80000000
- #define PPC_INST_STD			0xf8000000
- #define PPC_INST_STDU			0xf8000001
-+#define PPC_INST_STW			0x90000000
-+#define PPC_INST_STWU			0x94000000
- #define PPC_INST_MFLR			0x7c0802a6
- #define PPC_INST_MTLR			0x7c0803a6
- #define PPC_INST_CMPWI			0x2c000000
--- 
-2.1.3
+All test_bpf tests passed both on 7447a and P2041-based machines.
+
+Changelog:
+v1 - > v2: Reordered Kconfig patch in the series
+
+Denis Kirjanov (6):
+      ppc: bpf: add required compatibility macros for jit
+      ppc: bpf: add reqired opcodes for ppc32
+      ppc: bpf: update jit to use compatibility macros
+      ppc: bpf: rename bpf_jit_64.S to bpf_jit_asm.S
+      ppc: bpf: Add SKF_AD_CPU for ppc32
+      ppc: Kconfig: Enable BPF JIT on ppc32
+
+ arch/powerpc/include/asm/asm-compat.h |   4 +
+ arch/powerpc/include/asm/ppc-opcode.h |   2 +
+ arch/powerpc/net/Makefile             |   2 +-
+ arch/powerpc/net/bpf_jit.h            |  64 +++++++++-
+ arch/powerpc/net/bpf_jit_64.S         | 229 ----------------------------------
+ arch/powerpc/net/bpf_jit_asm.S        | 229 ++++++++++++++++++++++++++++++++++
+ arch/powerpc/net/bpf_jit_comp.c       |  46 +++----
+ 7 files changed, 317 insertions(+), 259 deletions(-)
