@@ -1,121 +1,45 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH v3 iproute2 3/4] iplink: add support of IFLA_LINK_NETNSID attribute
-Date: Tue, 17 Feb 2015 17:30:38 +0100
-Message-ID: <1424190639-5333-3-git-send-email-nicolas.dichtel@6wind.com>
-References: <54D48308.60509@6wind.com>
- <1424190639-5333-1-git-send-email-nicolas.dichtel@6wind.com>
-Cc: netdev@vger.kernel.org, Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: shemminger@vyatta.com
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH]     iproute2: Extend ip address command to enable
+ multicast group join/leave on IP level.
+Date: Tue, 17 Feb 2015 11:34:18 -0500
+Message-ID: <20150217113418.2811716d@uryu.home.lan>
+References: <1424125415-4616-1-git-send-email-challa@noironetworks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Madhu Challa <challa@noironetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:34066 "EHLO
-	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751579AbbBQQat (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Feb 2015 11:30:49 -0500
-In-Reply-To: <1424190639-5333-1-git-send-email-nicolas.dichtel@6wind.com>
+Received: from mail-qg0-f49.google.com ([209.85.192.49]:36325 "EHLO
+	mail-qg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751598AbbBQQeW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Feb 2015 11:34:22 -0500
+Received: by mail-qg0-f49.google.com with SMTP id q107so28646469qgd.8
+        for <netdev@vger.kernel.org>; Tue, 17 Feb 2015 08:34:21 -0800 (PST)
+In-Reply-To: <1424125415-4616-1-git-send-email-challa@noironetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This new attribute is now advertised by the kernel for x-netns interfaces.
-It's also possible to set it when an interface is created (and thus creating a
-x-netns interface with one single message).
+On Mon, 16 Feb 2015 14:23:35 -0800
+Madhu Challa <challa@noironetworks.com> wrote:
 
-Example:
- $ ip netns add foo
- $ ip netns add bar
- $ ip -n foo netns set bar 15
- $ ip -n foo link add ipip1 link-netnsid 15 type ipip remote 10.16.0.121 local 10.16.0.249
- $ ip -n foo link ls ipip1
- 3: ipip1@NONE: <POINTOPOINT,NOARP> mtu 1480 qdisc noop state DOWN mode DEFAULT group default
-     link/ipip 10.16.0.249 peer 10.16.0.121 link-netnsid 15
+>     Joining multicast group on ethernet level via "ip maddr" command would
+>     not work if we have an Ethernet switch that does igmp snooping since
+>     the switch would not replicate multicast packets on ports that did not
+>     have IGMP reports for the multicast addresses.
+> 
+>     Linux vxlan interfaces created via "ip link add vxlan" have the group option
+>     that enables then to do the required join.
+> 
+>     By extending ip address command with option "autojoin" we can get similar
+>     functionality for openvswitch vxlan interfaces as well as other tunneling
+>     mechanisms that need to receive multicast traffic. The kernel code is
+>     structured similar to how the vxlan driver does a group join / leave.
+> 
+>     example:
+>     ip address add 224.1.1.10/24 dev eth5 autojoin
+>     ip address del 224.1.1.10/24 dev eth5
+> 
+> Signed-off-by: Madhu Challa <challa@noironetworks.com>
 
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
-v3: rebase on master branch
-v2: don't try to convert IFLA_LINK to the devname when IFLA_LINK_NETNSID is set
-
- ip/ipaddress.c | 20 +++++++++++++++++---
- ip/iplink.c    | 10 ++++++++++
- 2 files changed, 27 insertions(+), 3 deletions(-)
-
-diff --git a/ip/ipaddress.c b/ip/ipaddress.c
-index 3730424ad8cd..99a6ab5977e3 100644
---- a/ip/ipaddress.c
-+++ b/ip/ipaddress.c
-@@ -28,6 +28,7 @@
- #include <linux/netdevice.h>
- #include <linux/if_arp.h>
- #include <linux/sockios.h>
-+#include <linux/net_namespace.h>
- 
- #include "rt_names.h"
- #include "utils.h"
-@@ -614,9 +615,13 @@ int print_linkinfo(const struct sockaddr_nl *who,
- 		if (iflink == 0)
- 			fprintf(fp, "@NONE: ");
- 		else {
--			fprintf(fp, "@%s: ", ll_idx_n2a(iflink, b1));
--			m_flag = ll_index_to_flags(iflink);
--			m_flag = !(m_flag & IFF_UP);
-+			if (tb[IFLA_LINK_NETNSID])
-+				fprintf(fp, "@if%d: ", iflink);
-+			else {
-+				fprintf(fp, "@%s: ", ll_idx_n2a(iflink, b1));
-+				m_flag = ll_index_to_flags(iflink);
-+				m_flag = !(m_flag & IFF_UP);
-+			}
- 		}
- 	} else {
- 		fprintf(fp, ": ");
-@@ -678,6 +683,15 @@ int print_linkinfo(const struct sockaddr_nl *who,
- 		}
- 	}
- 
-+	if (tb[IFLA_LINK_NETNSID]) {
-+		int id = *(int*)RTA_DATA(tb[IFLA_LINK_NETNSID]);
-+
-+		if (id >= 0)
-+			fprintf(fp, " link-netnsid %d", id);
-+		else
-+			fprintf(fp, " link-netnsid unknown");
-+	}
-+
- 	if (tb[IFLA_PROMISCUITY] && show_details)
- 		fprintf(fp, " promiscuity %u ",
- 			*(int*)RTA_DATA(tb[IFLA_PROMISCUITY]));
-diff --git a/ip/iplink.c b/ip/iplink.c
-index c93d1dc3d5f6..5893ee401cf9 100644
---- a/ip/iplink.c
-+++ b/ip/iplink.c
-@@ -72,6 +72,7 @@ void iplink_usage(void)
- 	fprintf(stderr, "	                  [ mtu MTU ]\n");
- 	fprintf(stderr, "	                  [ netns PID ]\n");
- 	fprintf(stderr, "	                  [ netns NAME ]\n");
-+	fprintf(stderr, "                         [ link-netnsid ID ]\n");
- 	fprintf(stderr, "			  [ alias NAME ]\n");
- 	fprintf(stderr, "	                  [ vf NUM [ mac LLADDR ]\n");
- 	fprintf(stderr, "				   [ vlan VLANID [ qos VLAN-QOS ] ]\n");
-@@ -386,6 +387,7 @@ int iplink_parse(int argc, char **argv, struct iplink_req *req,
- 	int numtxqueues = -1;
- 	int numrxqueues = -1;
- 	int dev_index = 0;
-+	int link_netnsid = -1;
- 
- 	*group = -1;
- 	ret = argc;
-@@ -588,6 +590,14 @@ int iplink_parse(int argc, char **argv, struct iplink_req *req,
- 			addattr8(&req->n, sizeof(*req), IFLA_INET6_ADDR_GEN_MODE, mode);
- 			addattr_nest_end(&req->n, afs6);
- 			addattr_nest_end(&req->n, afs);
-+		} else if (matches(*argv, "link-netnsid") == 0) {
-+			NEXT_ARG();
-+			if (link_netnsid != -1)
-+				duparg("link-netnsid", *argv);
-+			if (get_integer(&link_netnsid, *argv, 0))
-+				invarg("Invalid \"link-netnsid\" value\n", *argv);
-+			addattr32(&req->n, sizeof(*req), IFLA_LINK_NETNSID,
-+				  link_netnsid);
- 		} else {
- 			if (strcmp(*argv, "dev") == 0) {
- 				NEXT_ARG();
--- 
-2.2.2
+You need to get MCAUTOJOIN into net-next first.
