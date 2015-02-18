@@ -1,71 +1,93 @@
-From: Clemens Gruber <clemens.gruber@pqgruber.com>
-Subject: RX performance bottleneck on i.MX6Q with KSZ9031
-Date: Wed, 18 Feb 2015 13:25:08 +0100
-Message-ID: <20150218122507.GA6651@pqgruber.com>
+From: Nikolay Aleksandrov <nikolay@redhat.com>
+Subject: Re: [PATCH next v4 2/6] bonding: implement bond_poll_controller()
+Date: Wed, 18 Feb 2015 13:35:06 +0100
+Message-ID: <54E486FA.7060409@redhat.com>
+References: <1424243869-27029-1-git-send-email-maheshb@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Maciej Zenczykowski <maze@google.com>,
+	netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>
+To: Mahesh Bandewar <maheshb@google.com>,
+	Jay Vosburgh <j.vosburgh@gmail.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Veaceslav Falico <vfalico@gmail.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.pqgruber.com ([178.189.19.235]:38108 "EHLO
-	mail.pqgruber.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751213AbbBRMd6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Feb 2015 07:33:58 -0500
-Received: from pqgruber.com (chello213047168109.15.14.vie.surfer.at [213.47.168.109])
-	by mail.pqgruber.com (Postfix) with ESMTPSA id 8DADB13990
-	for <netdev@vger.kernel.org>; Wed, 18 Feb 2015 13:25:09 +0100 (CET)
-Content-Disposition: inline
+Received: from mx1.redhat.com ([209.132.183.28]:36297 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750978AbbBRMfT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Feb 2015 07:35:19 -0500
+In-Reply-To: <1424243869-27029-1-git-send-email-maheshb@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On 02/18/2015 08:17 AM, Mahesh Bandewar wrote:
+> This patches implements the poll_controller support for all
+> bonding driver. If the slaves have poll_controller net_op defined,
+> this implementation calls them. This is mode agnostic implementation
+> and iterates through all slaves (based on mode) and calls respective
+> handler.
+> 
+> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+> ---
+> v1:
+>    Initial version
+> v2:
+>    Eliminate bool variable.
+> v3:
+>    Rebase
+> v4:
+>    Removed 3AD port_operational check
+> 
+>  drivers/net/bonding/bond_main.c | 31 +++++++++++++++++++++++++++++++
+>  1 file changed, 31 insertions(+)
+> 
+> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+> index b979c265fc51..f6bdaae7519d 100644
+> --- a/drivers/net/bonding/bond_main.c
+> +++ b/drivers/net/bonding/bond_main.c
+> @@ -928,6 +928,37 @@ static inline void slave_disable_netpoll(struct slave *slave)
+>  
+>  static void bond_poll_controller(struct net_device *bond_dev)
+>  {
+> +	struct bonding *bond = netdev_priv(bond_dev);
+> +	struct slave *slave = NULL;
+> +	struct list_head *iter;
+> +	struct ad_info ad_info;
+> +	struct netpoll_info *ni;
+> +	const struct net_device_ops *ops;
+> +
+> +	if (BOND_MODE(bond) == BOND_MODE_8023AD)
+> +		if (bond_3ad_get_active_agg_info(bond, &ad_info))
+> +			return;
+> +
+> +	bond_for_each_slave(bond, slave, iter) {
+        ^^^^^^^^^^
+This version of bond_for_each_slave requires RTNL to be held.
 
-we are developing an IO board with a TQMa6Q module, which in turn is
-using the i.MX6Q. As ethernet PHY we are using the Micrel KSZ9031RNX.
-We run Linux 3.19 and are experiencing poor receive throughput when
-testing with iperf. However, this also occured on 3.16 and before.
 
-Transmit performance is OK (about 350-400 Mbit/s), but when receiving
-data, there seems to be an upper bound of 135 Mbit/s.
-
-I am aware of the Freescale ERR004512, which explains the bottleneck for
-TX but not for RX. I am of course testing this separately.
-
-What's also odd is that when I am pinging the embedded board from my
-Linux Desktop, I get the following result:
-35 packets transmitted, 35 received, 0% packet loss, time 34043ms
-rtt min/avg/max/mdev = 0.467/38.600/79.556/23.740 ms
-But when pinging my desktop from the embedded board, I get a much lower RTT:
-35 packets transmitted, 35 packets received, 0% packet loss
-round-trip min/avg/max = 0.216/0.283/0.336 ms
-
-ethtool eth0 reports the following:
-Supported ports: [ TP MII ]
-Supported link modes:   10baseT/Half 10baseT/Full
-100baseT/Half 100baseT/Full 1000baseT/Full
-Supported pause frame use: Symmetric
-Supports auto-negotiation: Yes
-Advertised link modes:  10baseT/Half 10baseT/Full
-100baseT/Half 100baseT/Full 1000baseT/Full
-Advertised pause frame use: Symmetric
-Advertised auto-negotiation: Yes
-Link partner advertised link modes:  10baseT/Half 10baseT/Full
-100baseT/Half 100baseT/Full 1000baseT/Full
-Link partner advertised pause frame use: No
-Link partner advertised auto-negotiation: Yes
-Speed: 1000Mb/s
-Duplex: Full
-Port: MII
-PHYAD: 3
-Transceiver: external
-Auto-negotiation: on
-Link detected: yes
-
-Can anyone confirm poor ethernet RX performance when using the i.MX6
-processor and/or the KSZ9031RNX PHY?
-Any ideas what the cause or bottleneck might be? fec driver, phy, mac?
-
-Do you have any tips on how to debug this further and improve the
-performance?
-
-Best regards,
-Clemens
+> +		ops = slave->dev->netdev_ops;
+> +		if (!bond_slave_is_up(slave) || !ops->ndo_poll_controller)
+> +			continue;
+> +
+> +		if (BOND_MODE(bond) == BOND_MODE_8023AD) {
+> +			struct aggregator *agg =
+> +			    SLAVE_AD_INFO(slave)->port.aggregator;
+> +
+> +			if (agg && agg->aggregator_identifier !=
+> +				   ad_info.aggregator_id)
+> +				continue;
+> +		}
+> +
+> +		ni = rcu_dereference_bh(slave->dev->npinfo);
+> +		if (down_trylock(&ni->dev_lock))
+> +			continue;
+> +		ops->ndo_poll_controller(slave->dev);
+> +		up(&ni->dev_lock);
+> +	}
+>  }
+>  
+>  static void bond_netpoll_cleanup(struct net_device *bond_dev)
+> 
