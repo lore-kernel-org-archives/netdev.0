@@ -1,43 +1,44 @@
-From: Rasesh Mody <rasesh.mody@qlogic.com>
-Subject: [net-next 2/3] bnx2: Fix for Chip Initialization
-Date: Tue, 17 Feb 2015 19:26:19 -0500
-Message-ID: <1424219180-29028-3-git-send-email-rasesh.mody@qlogic.com>
-References: <1424219180-29028-1-git-send-email-rasesh.mody@qlogic.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH RFC 0/2] net: dsa: integration with SWITCHDEV for HW bridging
+Date: Tue, 17 Feb 2015 17:09:25 -0800
+Message-ID: <54E3E645.3070701@gmail.com>
+References: <1424201196-4901-1-git-send-email-f.fainelli@gmail.com> <CAE4R7bDFJn=ZMNDnDovY62eQyv4aSBR0VdhB8yoF+JLCTaS+kw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <Dept-HSGLinuxNICDev@qlogic.com>,
-	Sony Chacko <sony.chacko@qlogic.com>,
-	Rasesh Mody <rasesh.mody@qlogic.com>
-To: netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	vivien.didelot@savoirfairelinux.com,
+	jerome.oufella@savoirfairelinux.com, linux@roeck-us.net,
+	andrew@lunn.ch, cphealy@gmail.com
+To: Scott Feldman <sfeldma@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:50165 "EHLO
-	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751730AbbBRBF7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Feb 2015 20:05:59 -0500
-In-Reply-To: <1424219180-29028-1-git-send-email-rasesh.mody@qlogic.com>
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:33345 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753414AbbBRBJl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Feb 2015 20:09:41 -0500
+Received: by pabkx10 with SMTP id kx10so10488509pab.0
+        for <netdev@vger.kernel.org>; Tue, 17 Feb 2015 17:09:40 -0800 (PST)
+In-Reply-To: <CAE4R7bDFJn=ZMNDnDovY62eQyv4aSBR0VdhB8yoF+JLCTaS+kw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Do not enable filter SORT MODE in chip init routine. This patch addresses an
-issue where BCM5716 sporadically drops packets when changing multicast list.
+On 17/02/15 16:48, Scott Feldman wrote:
+> On Tue, Feb 17, 2015 at 2:26 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
+>> Hi all,
+>>
+>> This patchset is mostly to demonstrate how we could integrate with SWITCHDEV
+>> to provide HW bridging support for DSA switch drivers that are currently in
+>> tree. Since 'net-next' is currently closed, this gives us some time to work
+>> on the abstraction we want to have in DSA to facilitate our life.
+>>
+>> Attached is an example of how this winds up looking like for the bcm_sf2 driver.
+> 
+> It looks good Florian.
+> 
+> Does bcm_sf2 do mac/vlan learning?
+> 
 
-Signed-off-by: Rasesh Mody <rasesh.mody@qlogic.com>
----
- drivers/net/ethernet/broadcom/bnx2.c | 2 --
- 1 file changed, 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/broadcom/bnx2.c b/drivers/net/ethernet/broadcom/bnx2.c
-index 2305de2..4b48e21 100644
---- a/drivers/net/ethernet/broadcom/bnx2.c
-+++ b/drivers/net/ethernet/broadcom/bnx2.c
-@@ -4984,8 +4984,6 @@ bnx2_init_chip(struct bnx2 *bp)
- 
- 	bp->idle_chk_status_idx = 0xffff;
- 
--	bp->rx_mode = BNX2_EMAC_RX_MODE_SORT_MODE;
--
- 	/* Set up how to generate a link change interrupt. */
- 	BNX2_WR(bp, BNX2_EMAC_ATTENTION_ENA, BNX2_EMAC_ATTENTION_ENA_LINK);
- 
+Yes, it can do that, that's next on my list of things to get working ;)
 -- 
-1.8.2.3
+Florian
