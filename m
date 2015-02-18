@@ -1,59 +1,51 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [PATCH] net: Initialize all members in skb_gro_remcsum_init()
-Date: Wed, 18 Feb 2015 07:28:07 -0800
-Message-ID: <CA+mtBx9p0rzey8DQufgFY_+NpyFCTSDitL78533KHF+sbbyKYw@mail.gmail.com>
-References: <1424255886-20330-1-git-send-email-geert@linux-m68k.org>
+From: Luis Henriques <luis.henriques@canonical.com>
+Subject: Re: Stable inclusion request: recvmsg/sendmsg userspace regression
+ fix
+Date: Wed, 18 Feb 2015 15:37:43 +0000
+Message-ID: <20150218153743.GB1922@charon>
+References: <54CBA338.1000207@suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Geert Uytterhoeven <geert@linux-m68k.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1424255886-20330-1-git-send-email-geert@linux-m68k.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Ani Sinha <ani@arista.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Stable Tree <stable@vger.kernel.org>
+To: Michal Marek <mmarek@suse.cz>
+Return-path: <stable-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <54CBA338.1000207@suse.cz>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Feb 18, 2015 at 2:38 AM, Geert Uytterhoeven
-<geert@linux-m68k.org> wrote:
-> skb_gro_remcsum_init() initializes the gro_remcsum.delta member only,
-> leading to compiler warnings about a possibly uninitialized
-> gro_remcsum.offset member:
->
-> drivers/net/vxlan.c: In function =E2=80=98vxlan_gro_receive=E2=80=99:
-> drivers/net/vxlan.c:602: warning: =E2=80=98grc.offset=E2=80=99 may be=
- used uninitialized in this function
-> net/ipv4/fou.c: In function =E2=80=98gue_gro_receive=E2=80=99:
-> net/ipv4/fou.c:262: warning: =E2=80=98grc.offset=E2=80=99 may be used=
- uninitialized in this function
->
-> While these are harmless for now:
->   - skb_gro_remcsum_process() sets offset before changing delta,
->   - skb_gro_remcsum_cleanup() checks if delta is non-zero before
->     accessing offset,
-> it's safer to let the initialization function initialize all members.
->
+On Fri, Jan 30, 2015 at 04:28:56PM +0100, Michal Marek wrote:
+> Hi,
+>=20
+> please include
+>=20
+> commit 6a2a2b3ae0759843b22c929881cc184b00cc63ff
+> Author: Ani Sinha <ani@arista.com>
+> Date:   Mon Sep 8 14:49:59 2014 -0700
+>=20
+>     net:socket: set msg_namelen to 0 if msg_name is passed as NULL in
+> msghdr struct from userland.
+>=20
+> to 3.14.y and older trees, since it fixes a userspace regression caus=
+ed
+> by commit dbb490b9 ("net: socket: error on a negative msg_namelen"). =
+The
+> patch applies cleanly to all trees down to 2.6.32.y.
+>=20
 
-Acked-by: Tom Herbert <therbert@google.com>
+I'm queuing this for the 3.16 kernel as well.  Thanks!
 
-> Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
-> ---
->  include/linux/netdevice.h | 1 +
->  1 file changed, 1 insertion(+)
->
-> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-> index 5897b4ea5a3f9e0f..429d1790a27e85f3 100644
-> --- a/include/linux/netdevice.h
-> +++ b/include/linux/netdevice.h
-> @@ -2342,6 +2342,7 @@ struct gro_remcsum {
->
->  static inline void skb_gro_remcsum_init(struct gro_remcsum *grc)
->  {
-> +       grc->offset =3D 0;
->         grc->delta =3D 0;
->  }
->
+Cheers,
+--
+Lu=EDs
+
+> Thanks,
+> Michal
 > --
-> 1.9.1
->
+> To unsubscribe from this list: send the line "unsubscribe stable" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
