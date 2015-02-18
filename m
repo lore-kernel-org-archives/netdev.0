@@ -1,53 +1,51 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH 3.12 065/122] lib/checksum.c: fix carry in
- csum_tcpudp_nofold
-Date: Wed, 18 Feb 2015 09:40:23 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CAE56AE@AcuExch.aculab.com>
-References: <cover.1424099973.git.jslaby@suse.cz>
- <07707a797d6c3cd0bfe86f037d3d1eb329acbc86.1424099973.git.jslaby@suse.cz>
- <063D6719AE5E284EB5DD2968C1650D6D1CAE4D1E@AcuExch.aculab.com>
- <20150217195717.GA6779@magnum.frso.rivierawaves.com>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: [PATCH] net: Initialize all members in skb_gro_remcsum_init()
+Date: Wed, 18 Feb 2015 11:38:06 +0100
+Message-ID: <1424255886-20330-1-git-send-email-geert@linux-m68k.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: 'Jiri Slaby' <jslaby@suse.cz>,
-	"stable@vger.kernel.org" <stable@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Karl Beldan <karl.beldan@rivierawaves.com>,
-	Al Viro <viro@ZenIV.linux.org.uk>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Arnd Bergmann <arnd@arndb.de>,
-	Mike Frysinger <vapier@gentoo.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: 'Karl Beldan' <karl.beldan@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Geert Uytterhoeven <geert@linux-m68k.org>
+To: "David S. Miller" <davem@davemloft.net>,
+	Tom Herbert <therbert@google.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150217195717.GA6779@magnum.frso.rivierawaves.com>
-Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-RnJvbTogS2FybCBCZWxkYW4gDQo+IE9uIFR1ZSwgRmViIDE3LCAyMDE1IGF0IDEyOjA0OjIyUE0g
-KzAwMDAsIERhdmlkIExhaWdodCB3cm90ZToNCj4gPiA+ICtzdGF0aWMgaW5saW5lIHUzMiBmcm9t
-NjR0bzMyKHU2NCB4KQ0KPiA+ID4gK3sNCj4gPiA+ICsJLyogYWRkIHVwIDMyLWJpdCBhbmQgMzIt
-Yml0IGZvciAzMitjIGJpdCAqLw0KPiA+ID4gKwl4ID0gKHggJiAweGZmZmZmZmZmKSArICh4ID4+
-IDMyKTsNCj4gPiA+ICsJLyogYWRkIHVwIGNhcnJ5Li4gKi8NCj4gPiA+ICsJeCA9ICh4ICYgMHhm
-ZmZmZmZmZikgKyAoeCA+PiAzMik7DQo+ID4gPiArCXJldHVybiAodTMyKXg7DQo+ID4gPiArfQ0K
-PiA+DQo+ID4gQXMgYSBtYXR0ZXIgb2YgaW50ZXJlc3QsIGRvZXMgdGhlIGNvbXBpbGVyIG9wdGlt
-aXNlIGF3YXkgdGhlDQo+ID4gc2Vjb25kICh4ICYgMHhmZmZmZmZmZikgPw0KPiA+IFRoZSBjb2Rl
-IGNvdWxkIGp1c3QgYmU6DQo+ID4gCXggPSAoeCAmIDB4ZmZmZmZmZmYpICsgKHggPj4gMzIpOw0K
-PiA+IAlyZXR1cm4geCArICh4ID4+IDMyKTsNCj4gPg0KPg0KPiBPbiBteSBzaWRlLCBmcm9tIHdo
-YXQgSSd2ZSBzZWVuIHNvIGZhciwgeW91ciB2ZXJzaW9uIHJlc3VsdHMgaW4gYmV0dGVyDQo+IGFz
-c2VtYmx5LCBlc3AuIHdpdGggY2xhbmcsIGJ1dCBteSBmaXJzdCB2ZXJzaW9uDQo+IGh0dHA6Ly9h
-cnRpY2xlLmdtYW5lLm9yZy9nbWFuZS5saW51eC5rZXJuZWwvMTg3NTQwNzoNCj4gICAgICAgICB4
-ICs9ICh4IDw8IDMyKSArICh4ID4+IDMyKTsNCj4gCXJldHVybiAoX19mb3JjZSBfX3dzdW0pKHgg
-Pj4gMzIpOw0KPiByZXN1bHRlZCBpbiBldmVuIGJldHRlciBhc3NlbWJseSwgSSBqdXN0IHZlcmlm
-aWVkIHdpdGggZ2NjL2NsYW5nLA0KPiB4ODZfNjQvQVJNIGFuZCAtTzEsMiwzLg0KDQpUaGUgbGF0
-dGVyIGxvb2tzIHRvIGhhdmUgYSBzaG9ydGVyIGRlcGVuZGVuY3kgY2hhaW4gYXMgd2VsbC4NCkFs
-dGhvdWdoIEknZCBkZWZpbml0ZWx5IGluY2x1ZGUgYSBjb21tZW50IHNheWluZyB0aGF0IGl0IGlz
-IGVxdWl2YWxlbnQNCnRvIHRoZSB0d28gbGluZXMgaW4gdGhlIGN1cnJlbnQgcGF0Y2guDQoNCkRv
-ZXMgZWl0aGVyIGNvbXBpbGVyIG1hbmFnZSB0byB1c2UgYSByb3RhdGUgZm9yIHRoZSB0d28gc2hp
-ZnRzPw0KVXNpbmcgJyh4IDw8IDMyKSB8ICh4ID4+IDMyKScgbWlnaHQgY29udmluY2UgaXQgdG8g
-ZG8gc28uDQpUaGF0IHdvdWxkIHJlZHVjZSBpdCB0byB0aHJlZSAncmVhbCcgaW5zdHJ1Y3Rpb25z
-IGFuZCBhIHJlZ2lzdGVyIHJlbmFtZS4NCg0KCURhdmlkDQoNCg==
+skb_gro_remcsum_init() initializes the gro_remcsum.delta member only,
+leading to compiler warnings about a possibly uninitialized
+gro_remcsum.offset member:
+
+drivers/net/vxlan.c: In function =E2=80=98vxlan_gro_receive=E2=80=99:
+drivers/net/vxlan.c:602: warning: =E2=80=98grc.offset=E2=80=99 may be u=
+sed uninitialized in this function
+net/ipv4/fou.c: In function =E2=80=98gue_gro_receive=E2=80=99:
+net/ipv4/fou.c:262: warning: =E2=80=98grc.offset=E2=80=99 may be used u=
+ninitialized in this function
+
+While these are harmless for now:
+  - skb_gro_remcsum_process() sets offset before changing delta,
+  - skb_gro_remcsum_cleanup() checks if delta is non-zero before
+    accessing offset,
+it's safer to let the initialization function initialize all members.
+
+Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
+---
+ include/linux/netdevice.h | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 5897b4ea5a3f9e0f..429d1790a27e85f3 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -2342,6 +2342,7 @@ struct gro_remcsum {
+=20
+ static inline void skb_gro_remcsum_init(struct gro_remcsum *grc)
+ {
++	grc->offset =3D 0;
+ 	grc->delta =3D 0;
+ }
+=20
+--=20
+1.9.1
