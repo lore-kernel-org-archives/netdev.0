@@ -1,87 +1,60 @@
-From: Andy Gospodarek <gospo@cumulusnetworks.com>
-Subject: Re: [PATCH 1/1] tun: change speed from 10M to dynamically configured
-Date: Wed, 18 Feb 2015 14:39:09 -0500
-Message-ID: <20150218193909.GB580@gospo.home.greyhouse.net>
-References: <1423808353-8722-1-git-send-email-Yanjun.Zhu@windriver.com>
- <1423808353-8722-2-git-send-email-Yanjun.Zhu@windriver.com>
- <20150213212830.GA29912@electric-eye.fr.zoreil.com>
- <54E1568D.5000100@windriver.com>
- <20150216120345.4dfd9950@uryu.home.lan>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH] net: smc91x: improve neponset hack
+Date: Wed, 18 Feb 2015 20:47:30 +0100
+Message-ID: <5763365.j5Nvv4LgM3@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: yzhu1 <Yanjun.Zhu@windriver.com>,
-	Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org,
-	mst@redhat.com, jasowang@redhat.com, viro@zeniv.linux.org.uk,
-	davem@davemloft.net, sergei.shtylyov@cogentembedded.com,
-	jonathon.reinhart@gmail.com
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f49.google.com ([209.85.216.49]:44739 "EHLO
-	mail-qa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751809AbbBRTjN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Feb 2015 14:39:13 -0500
-Received: by mail-qa0-f49.google.com with SMTP id w8so2377790qac.8
-        for <netdev@vger.kernel.org>; Wed, 18 Feb 2015 11:39:12 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20150216120345.4dfd9950@uryu.home.lan>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: davem@davemloft.net, linux-arm-kernel@lists.infradead.org,
+	rmk+kernel@arm.linux.org.uk,
+	Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>,
+	linux-kernel@vger.kernel.org,
+	Linus Walleij <linus.walleij@linaro.org>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Proposed follow-up based on the errors in if_tunnel.h that were brought
-to my attention with Stephen's patch.
+The smc91x driver tries to support multiple platforms at compile
+time, but they are mutually exclusive at runtime, and not clearly
+defined.
 
-(Dave, if you want a more official-looking post in a standalone thread I
-can do that.)
+Trying to build for CONFIG_SA1100_ASSABET without CONFIG_ASSABET_NEPONSET
+results in this link error:
 
-From: Andy Gospodarek <gospo@cumulusnetworks.com>
-Subject: [PATCH net-next] uapi: fixup whitespace for private ioctls
+drivers/built-in.o: In function `smc_drv_probe':
+:(.text+0x33310c): undefined reference to `neponset_ncr_frob'
 
-After Stephen's patch added support for new private ioctl (SIOCDRVINFO)
-I noticed that his whitespace was correct, but the rest of the
-whitespace for the other ioctls was wrong.  This fixes up the others and
-should be applied after his.
+since the neponset_ncr_set function is not defined otherwise.
 
-CC: Stephen Hemminger <stephen@networkplumber.org>
-Signed-off-by: Andy Gospodarek <gospo@cumulusnetworks.com>
+Similarly, building for both CONFIG_SA1100_ASSABET and CONFIG_SA1100_PLEB
+results in a different build error:
 
----
- include/uapi/linux/if_tunnel.h | 24 ++++++++++++------------
- 1 file changed, 12 insertions(+), 12 deletions(-)
+smsc/smc91x.c: In function 'smc_drv_probe':
+smsc/smc91x.c:2299:2: error: implicit declaration of function 'neponset_ncr_set' [-Werror=implicit-function-declaration]
+  neponset_ncr_set(NCR_ENET_OSC_EN);
+  ^
+smsc/smc91x.c:2299:19: error: 'NCR_ENET_OSC_EN' undeclared (first use in this function)
+  neponset_ncr_set(NCR_ENET_OSC_EN);
+                   ^
 
-diff --git a/include/uapi/linux/if_tunnel.h b/include/uapi/linux/if_tunnel.h
-index 3430238..4a65a56 100644
---- a/include/uapi/linux/if_tunnel.h
-+++ b/include/uapi/linux/if_tunnel.h
-@@ -5,18 +5,18 @@
- #include <asm/byteorder.h>
- 
- 
--#define SIOCGETTUNNEL   (SIOCDEVPRIVATE + 0)
--#define SIOCADDTUNNEL   (SIOCDEVPRIVATE + 1)
--#define SIOCDELTUNNEL   (SIOCDEVPRIVATE + 2)
--#define SIOCCHGTUNNEL   (SIOCDEVPRIVATE + 3)
--#define SIOCGETPRL      (SIOCDEVPRIVATE + 4)
--#define SIOCADDPRL      (SIOCDEVPRIVATE + 5)
--#define SIOCDELPRL      (SIOCDEVPRIVATE + 6)
--#define SIOCCHGPRL      (SIOCDEVPRIVATE + 7)
--#define SIOCGET6RD      (SIOCDEVPRIVATE + 8)
--#define SIOCADD6RD      (SIOCDEVPRIVATE + 9)
--#define SIOCDEL6RD      (SIOCDEVPRIVATE + 10)
--#define SIOCCHG6RD      (SIOCDEVPRIVATE + 11)
-+#define SIOCGETTUNNEL	(SIOCDEVPRIVATE + 0)
-+#define SIOCADDTUNNEL	(SIOCDEVPRIVATE + 1)
-+#define SIOCDELTUNNEL	(SIOCDEVPRIVATE + 2)
-+#define SIOCCHGTUNNEL	(SIOCDEVPRIVATE + 3)
-+#define SIOCGETPRL	(SIOCDEVPRIVATE + 4)
-+#define SIOCADDPRL	(SIOCDEVPRIVATE + 5)
-+#define SIOCDELPRL	(SIOCDEVPRIVATE + 6)
-+#define SIOCCHGPRL	(SIOCDEVPRIVATE + 7)
-+#define SIOCGET6RD	(SIOCDEVPRIVATE + 8)
-+#define SIOCADD6RD	(SIOCDEVPRIVATE + 9)
-+#define SIOCDEL6RD	(SIOCDEVPRIVATE + 10)
-+#define SIOCCHG6RD	(SIOCDEVPRIVATE + 11)
- #define SIOCDRVINFO	(SIOCDEVPRIVATE + 12)
- 
- struct ip_tunnel_info {
--- 
-1.9.3
+This is an attempt to fix the call site responsible for both
+errors, making sure we call the function exactly when the driver
+is actually trying to run on the assabet/neponset machine. With
+this patch, I no longer see randconfig build errors in this file.
+
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+
+diff --git a/drivers/net/ethernet/smsc/smc91x.c b/drivers/net/ethernet/smsc/smc91x.c
+index 88a55f95fe09..fa3f193b5f4d 100644
+--- a/drivers/net/ethernet/smsc/smc91x.c
++++ b/drivers/net/ethernet/smsc/smc91x.c
+@@ -2355,7 +2355,7 @@ static int smc_drv_probe(struct platform_device *pdev)
+ 	ret = smc_request_attrib(pdev, ndev);
+ 	if (ret)
+ 		goto out_release_io;
+-#if defined(CONFIG_SA1100_ASSABET)
++#if defined(CONFIG_ASSABET_NEPONSET) && !defined(CONFIG_SA1100_PLEB)
+ 	neponset_ncr_set(NCR_ENET_OSC_EN);
+ #endif
+ 	platform_set_drvdata(pdev, ndev);
