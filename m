@@ -1,72 +1,44 @@
-From: Eric Northup <digitaleric@google.com>
-Subject: Re: [PATCH] vhost: support upto 509 memory regions
-Date: Tue, 17 Feb 2015 16:53:45 -0800
-Message-ID: <CAG7+5M1N53tXU72W1i937xZHxc7+sF=JhA6+QWmcarNnApbgiw@mail.gmail.com>
-References: <1423842599-5174-1-git-send-email-imammedo@redhat.com>
-	<20150217090242.GA20254@redhat.com>
-	<54E31F24.1060705@redhat.com>
-	<20150217123212.GA6362@redhat.com>
+From: Rasesh Mody <rasesh.mody@qlogic.com>
+Subject: [net-next 0/3] bnx2-cnic: Driver Version Upgrades
+Date: Tue, 17 Feb 2015 19:26:17 -0500
+Message-ID: <1424219180-29028-1-git-send-email-rasesh.mody@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Paolo Bonzini <pbonzini@redhat.com>,
-	Igor Mammedov <imammedo@redhat.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	KVM <kvm@vger.kernel.org>, netdev@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150217123212.GA6362@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <Dept-HSGLinuxNICDev@qlogic.com>,
+	Sony Chacko <sony.chacko@qlogic.com>,
+	Rasesh Mody <rasesh.mody@qlogic.com>
+To: netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:55638 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751903AbbBRBF7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Feb 2015 20:05:59 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 17, 2015 at 4:32 AM, Michael S. Tsirkin <mst@redhat.com> wrote:
-> On Tue, Feb 17, 2015 at 11:59:48AM +0100, Paolo Bonzini wrote:
->>
->>
->> On 17/02/2015 10:02, Michael S. Tsirkin wrote:
->> > > Increasing VHOST_MEMORY_MAX_NREGIONS from 65 to 509
->> > > to match KVM_USER_MEM_SLOTS fixes issue for vhost-net.
->> > >
->> > > Signed-off-by: Igor Mammedov <imammedo@redhat.com>
->> >
->> > This scares me a bit: each region is 32byte, we are talking
->> > a 16K allocation that userspace can trigger.
->>
->> What's bad with a 16K allocation?
->
-> It fails when memory is fragmented.
->
->> > How does kvm handle this issue?
->>
->> It doesn't.
->>
->> Paolo
->
-> I'm guessing kvm doesn't do memory scans on data path,
-> vhost does.
->
-> qemu is just doing things that kernel didn't expect it to need.
->
-> Instead, I suggest reducing number of GPA<->HVA mappings:
->
-> you have GPA 1,5,7
-> map them at HVA 11,15,17
-> then you can have 1 slot: 1->11
->
-> To avoid libc reusing the memory holes, reserve them with MAP_NORESERVE
-> or something like this.
+Hi Dave,
 
-This works beautifully when host virtual address bits are more
-plentiful than guest physical address bits.  Not all architectures
-have that property, though.
+This patch set includes bnx2 and cnic drivers' re-branding changes, fix for a
+chip initialization issue and updates the bnx2 driver version to 2.2.6 and
+cnic driver version to 2.5.21.
 
-> We can discuss smarter lookup algorithms but I'd rather
-> userspace didn't do things that we then have to
-> work around in kernel.
->
->
-> --
-> MST
-> --
-> To unsubscribe from this list: send the line "unsubscribe kvm" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Please apply these patches to net-next.
+
+Thanks,
+Rasesh
+
+Rasesh Mody (3):
+  bnx2-cnic: Driver Rebranding Changes
+  bnx2: Fix for Chip Initialization
+  bnx2-cnic: Driver Version Update
+
+ drivers/net/ethernet/broadcom/Kconfig   |  8 ++++----
+ drivers/net/ethernet/broadcom/bnx2.c    | 14 ++++++--------
+ drivers/net/ethernet/broadcom/bnx2.h    |  4 ++--
+ drivers/net/ethernet/broadcom/bnx2_fw.h |  4 ++--
+ drivers/net/ethernet/broadcom/cnic.c    |  6 +++---
+ drivers/net/ethernet/broadcom/cnic_if.h |  8 ++++----
+ 6 files changed, 21 insertions(+), 23 deletions(-)
+
+-- 
+1.8.2.3
