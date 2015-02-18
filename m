@@ -1,9 +1,8 @@
 From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: Re: [PATCH next v4 1/6] bonding: Verify RX LACPDU has proper dest
- mac-addr
-Date: Wed, 18 Feb 2015 13:58:28 +0100
-Message-ID: <54E48C74.9020304@redhat.com>
-References: <1424243866-26989-1-git-send-email-maheshb@google.com>
+Subject: Re: [PATCH next v4 2/6] bonding: implement bond_poll_controller()
+Date: Wed, 18 Feb 2015 14:40:45 +0100
+Message-ID: <54E4965D.5040203@redhat.com>
+References: <1424243869-27029-1-git-send-email-maheshb@google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
@@ -16,45 +15,79 @@ To: Mahesh Bandewar <maheshb@google.com>,
 	Veaceslav Falico <vfalico@gmail.com>,
 	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:46046 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:51462 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751702AbbBRM6k (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Feb 2015 07:58:40 -0500
-In-Reply-To: <1424243866-26989-1-git-send-email-maheshb@google.com>
+	id S1751595AbbBRNk7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Feb 2015 08:40:59 -0500
+In-Reply-To: <1424243869-27029-1-git-send-email-maheshb@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 On 02/18/2015 08:17 AM, Mahesh Bandewar wrote:
-> The 802.1AX standard states:
-> "The DA in LACPDUs is the Slow_Protocols_Multicast address."
-> 
-> This patch enforces that and drops LACPDUs with destination MAC
-> addresses other than Slow_Protocols_Multicast address
+> This patches implements the poll_controller support for all
+> bonding driver. If the slaves have poll_controller net_op defined,
+> this implementation calls them. This is mode agnostic implementation
+> and iterates through all slaves (based on mode) and calls respective
+> handler.
 > 
 > Signed-off-by: Mahesh Bandewar <maheshb@google.com>
 > ---
 > v1:
 >    Initial version
-> v2-v4:
+> v2:
+>    Eliminate bool variable.
+> v3:
 >    Rebase
+> v4:
+>    Removed 3AD port_operational check
 > 
->  drivers/net/bonding/bond_3ad.c | 3 +++
->  1 file changed, 3 insertions(+)
+>  drivers/net/bonding/bond_main.c | 31 +++++++++++++++++++++++++++++++
+>  1 file changed, 31 insertions(+)
 > 
-> diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
-> index cfc4a9c1000a..9b436696b95e 100644
-> --- a/drivers/net/bonding/bond_3ad.c
-> +++ b/drivers/net/bonding/bond_3ad.c
-> @@ -2485,6 +2485,9 @@ int bond_3ad_lacpdu_recv(const struct sk_buff *skb, struct bonding *bond,
->  	if (skb->protocol != PKT_TYPE_LACPDU)
->  		return RX_HANDLER_ANOTHER;
+> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+> index b979c265fc51..f6bdaae7519d 100644
+> --- a/drivers/net/bonding/bond_main.c
+> +++ b/drivers/net/bonding/bond_main.c
+> @@ -928,6 +928,37 @@ static inline void slave_disable_netpoll(struct slave *slave)
 >  
-> +	if (!MAC_ADDRESS_EQUAL(eth_hdr(skb)->h_dest, lacpdu_mcast_addr))
-> +		return RX_HANDLER_ANOTHER;
+>  static void bond_poll_controller(struct net_device *bond_dev)
+>  {
+> +	struct bonding *bond = netdev_priv(bond_dev);
+> +	struct slave *slave = NULL;
+> +	struct list_head *iter;
+> +	struct ad_info ad_info;
+> +	struct netpoll_info *ni;
+> +	const struct net_device_ops *ops;
 > +
->  	lacpdu = skb_header_pointer(skb, 0, sizeof(_lacpdu), &_lacpdu);
->  	if (!lacpdu)
->  		return RX_HANDLER_ANOTHER;
-> 
+> +	if (BOND_MODE(bond) == BOND_MODE_8023AD)
+> +		if (bond_3ad_get_active_agg_info(bond, &ad_info))
+> +			return;
+> +
+> +	bond_for_each_slave(bond, slave, iter) {
+> +		ops = slave->dev->netdev_ops;
+> +		if (!bond_slave_is_up(slave) || !ops->ndo_poll_controller)
+> +			continue;
+> +
+> +		if (BOND_MODE(bond) == BOND_MODE_8023AD) {
+> +			struct aggregator *agg =
+> +			    SLAVE_AD_INFO(slave)->port.aggregator;
+> +
+> +			if (agg && agg->aggregator_identifier !=
+> +				   ad_info.aggregator_id)
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Please move the second half on its own line without breaking it like
+this.
 
-Reviewed-by: Nikolay Aleksandrov <nikolay@redhat.com>
+> +				continue;
+> +		}
+> +
+> +		ni = rcu_dereference_bh(slave->dev->npinfo);
+> +		if (down_trylock(&ni->dev_lock))
+> +			continue;
+> +		ops->ndo_poll_controller(slave->dev);
+> +		up(&ni->dev_lock);
+> +	}
+>  }
+>  
+>  static void bond_netpoll_cleanup(struct net_device *bond_dev)
+> 
