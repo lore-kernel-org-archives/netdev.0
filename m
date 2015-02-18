@@ -1,70 +1,169 @@
-From: Matthew Thode <mthode@mthode.org>
-Subject: Re: [PATCH] colons are invalid characters in netdev names
-Date: Tue, 17 Feb 2015 19:33:25 -0600
-Message-ID: <54E3EBE5.5090008@mthode.org>
-References: <1424214942-17581-1-git-send-email-mthode@mthode.org> <20150217192803.21a63afd@uryu.home.lan>
-Reply-To: mthode@mthode.org
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="6CClCEw6LEoQ4C5jNbsEfpkkuUpA0mWo3"
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150217192803.21a63afd@uryu.home.lan>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Madhu Challa <challa@noironetworks.com>
+Subject: [PATCH v2 net-next 1/2] igmp v6: add __ipv6_sock_mc_join and __ipv6_sock_mc_drop
+Date: Tue, 17 Feb 2015 17:19:05 -0800
+Message-ID: <1424222346-12736-1-git-send-email-challa@noironetworks.com>
+Cc: Madhu Challa <challa@noironetworks.com>
+To: eric.dumazet@gmail.com, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f170.google.com ([209.85.192.170]:41811 "EHLO
+	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751549AbbBRBeo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Feb 2015 20:34:44 -0500
+Received: by pdno5 with SMTP id o5so47776772pdn.8
+        for <netdev@vger.kernel.org>; Tue, 17 Feb 2015 17:34:44 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---6CClCEw6LEoQ4C5jNbsEfpkkuUpA0mWo3
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: quoted-printable
+Based on the igmp v4 changes from Eric Dumazet.
 
-On 02/17/2015 07:28 PM, Stephen Hemminger wrote:
-> On Tue, 17 Feb 2015 17:15:42 -0600
-> Matthew Thode <mthode@mthode.org> wrote:
->=20
->> colons are used as a separator in netdev device lookup in dev_ioctl.c
->>
->> Specific functions are SIOCGIFTXQLEN SIOCETHTOOL SIOCSIFNAME
->>
->> Signed-off-by: Matthew Thode <mthode@mthode.org>
->=20
-> What is the exact sequence that causes the problem?
-> SIOCSIFNAME already strips of colon.
->=20
->=20
-It strips the name one access, not creation.  You can create a dummy
-device and not access it, escaping doesn't seem to help.
+These changes are needed to perform igmp v6 join/leave while
+RTNL is held.
 
-ip link add name foo:asdasd type dummy
-ip link del dev foo:asdasd              # will not be deleted
+Make ipv6_sock_mc_join and ipv6_sock_mc_drop wrappers around
+__ipv6_sock_mc_join and  __ipv6_sock_mc_drop to avoid
+proliferation of work queues.
 
---=20
-Matthew Thode
+Signed-off-by: Madhu Challa <challa@noironetworks.com>
+---
+ include/net/ipv6.h |  8 ++++++++
+ net/ipv6/mcast.c   | 41 ++++++++++++++++++++++++++++++++---------
+ 2 files changed, 40 insertions(+), 9 deletions(-)
 
-
---6CClCEw6LEoQ4C5jNbsEfpkkuUpA0mWo3
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQIcBAEBCgAGBQJU4+vlAAoJEGSje+quGaTocCkP/iGbvKPCHIQLjYm1lS8aTsoP
-OkOwh+GjKWPH/ty3++K3V28/WUfRDGTRlhv9+JHI78PI1Z6jXF+RwQ5kfkpoA0zR
-J1ouUJgK/AfieuIcUfxe6vNt1zOgxqcTkyDerTIC2yV28PbZZIlYijD8FGR08TFd
-bJ+LIipWjdyPtQtoTKnmI4sVakQHsIYEbpQPqUpPbRwJqrGA4ClsC0Ql3TYKRkCK
-ZjuMw4/Hw3dPPpqKlBjuyP2bRgniP0VC/w/XM9sWu0NVascGtMvnWm9ohtPnTJbg
-g+Ec/tMKThKThq1jyHFnCV6Ukx4Ii2zieIxMRPvfrQuk+r9SMPv2cYcukhZIUmeQ
-+4rOUp/cDNM++uG2KwpcanSHWbIThVCslx2pTCMKASd8twhn7al1a+BqkDH1JEjJ
-nMMhrH9QQ1R97WgqrQzs+KcB201Y2sHJb18grcFttQdAx6GSfNusVkm8AMz863m4
-iFmxjpWAV2xhF96HTgvwkwM1b76hjtyf3UVqMkuUJ0saZGqrnhVoE6pQ+Ovym7nf
-eg3TWQZ8QMX0UQVnMUJvsrWfgAE6enzpGWM/7/lXI77wgUs+2L5qLmPawaQ4zAYm
-IhVqtowIL4q26bDJliZonbGqyzB3yWMxVEy9pTTruv2dEoq3+66EAekHNvwjnYRh
-8dXxErid9Ynxe6EWFgty
-=x76O
------END PGP SIGNATURE-----
-
---6CClCEw6LEoQ4C5jNbsEfpkkuUpA0mWo3--
+diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+index 4c9fe22..b767306 100644
+--- a/include/net/ipv6.h
++++ b/include/net/ipv6.h
+@@ -940,4 +940,12 @@ int ipv6_sysctl_register(void);
+ void ipv6_sysctl_unregister(void);
+ #endif
+ 
++int ipv6_sock_mc_join(struct sock *sk, int ifindex,
++		      const struct in6_addr *addr);
++int __ipv6_sock_mc_join(struct sock *sk, int ifindex,
++			const struct in6_addr *addr);
++int ipv6_sock_mc_drop(struct sock *sk, int ifindex,
++		      const struct in6_addr *addr);
++int __ipv6_sock_mc_drop(struct sock *sk, int ifindex,
++			const struct in6_addr *addr);
+ #endif /* _NET_IPV6_H */
+diff --git a/net/ipv6/mcast.c b/net/ipv6/mcast.c
+index 5ce107c..f4a76b1 100644
+--- a/net/ipv6/mcast.c
++++ b/net/ipv6/mcast.c
+@@ -132,7 +132,7 @@ static int unsolicited_report_interval(struct inet6_dev *idev)
+ 	return iv > 0 ? iv : 1;
+ }
+ 
+-int ipv6_sock_mc_join(struct sock *sk, int ifindex, const struct in6_addr *addr)
++int __ipv6_sock_mc_join(struct sock *sk, int ifindex, const struct in6_addr *addr)
+ {
+ 	struct net_device *dev = NULL;
+ 	struct ipv6_mc_socklist *mc_lst;
+@@ -140,6 +140,8 @@ int ipv6_sock_mc_join(struct sock *sk, int ifindex, const struct in6_addr *addr)
+ 	struct net *net = sock_net(sk);
+ 	int err;
+ 
++	ASSERT_RTNL();
++
+ 	if (!ipv6_addr_is_multicast(addr))
+ 		return -EINVAL;
+ 
+@@ -161,7 +163,6 @@ int ipv6_sock_mc_join(struct sock *sk, int ifindex, const struct in6_addr *addr)
+ 	mc_lst->next = NULL;
+ 	mc_lst->addr = *addr;
+ 
+-	rtnl_lock();
+ 	if (ifindex == 0) {
+ 		struct rt6_info *rt;
+ 		rt = rt6_lookup(net, addr, NULL, 0, 0);
+@@ -173,7 +174,6 @@ int ipv6_sock_mc_join(struct sock *sk, int ifindex, const struct in6_addr *addr)
+ 		dev = __dev_get_by_index(net, ifindex);
+ 
+ 	if (dev == NULL) {
+-		rtnl_unlock();
+ 		sock_kfree_s(sk, mc_lst, sizeof(*mc_lst));
+ 		return -ENODEV;
+ 	}
+@@ -190,7 +190,6 @@ int ipv6_sock_mc_join(struct sock *sk, int ifindex, const struct in6_addr *addr)
+ 	err = ipv6_dev_mc_inc(dev, addr);
+ 
+ 	if (err) {
+-		rtnl_unlock();
+ 		sock_kfree_s(sk, mc_lst, sizeof(*mc_lst));
+ 		return err;
+ 	}
+@@ -198,25 +197,38 @@ int ipv6_sock_mc_join(struct sock *sk, int ifindex, const struct in6_addr *addr)
+ 	mc_lst->next = np->ipv6_mc_list;
+ 	rcu_assign_pointer(np->ipv6_mc_list, mc_lst);
+ 
+-	rtnl_unlock();
+ 
+ 	return 0;
+ }
++EXPORT_SYMBOL(__ipv6_sock_mc_join);
++
++int ipv6_sock_mc_join(struct sock *sk, int ifindex, const struct in6_addr *addr)
++{
++	int ret;
++
++	rtnl_lock();
++	ret = __ipv6_sock_mc_join(sk, ifindex, addr);
++	rtnl_unlock();
++
++	return ret;
++}
++EXPORT_SYMBOL(ipv6_sock_mc_join);
+ 
+ /*
+  *	socket leave on multicast group
+  */
+-int ipv6_sock_mc_drop(struct sock *sk, int ifindex, const struct in6_addr *addr)
++int __ipv6_sock_mc_drop(struct sock *sk, int ifindex, const struct in6_addr *addr)
+ {
+ 	struct ipv6_pinfo *np = inet6_sk(sk);
+ 	struct ipv6_mc_socklist *mc_lst;
+ 	struct ipv6_mc_socklist __rcu **lnk;
+ 	struct net *net = sock_net(sk);
+ 
++	ASSERT_RTNL();
++
+ 	if (!ipv6_addr_is_multicast(addr))
+ 		return -EINVAL;
+ 
+-	rtnl_lock();
+ 	for (lnk = &np->ipv6_mc_list;
+ 	     (mc_lst = rtnl_dereference(*lnk)) != NULL;
+ 	      lnk = &mc_lst->next) {
+@@ -235,17 +247,28 @@ int ipv6_sock_mc_drop(struct sock *sk, int ifindex, const struct in6_addr *addr)
+ 					__ipv6_dev_mc_dec(idev, &mc_lst->addr);
+ 			} else
+ 				(void) ip6_mc_leave_src(sk, mc_lst, NULL);
+-			rtnl_unlock();
+ 
+ 			atomic_sub(sizeof(*mc_lst), &sk->sk_omem_alloc);
+ 			kfree_rcu(mc_lst, rcu);
+ 			return 0;
+ 		}
+ 	}
+-	rtnl_unlock();
+ 
+ 	return -EADDRNOTAVAIL;
+ }
++EXPORT_SYMBOL(__ipv6_sock_mc_drop);
++
++int ipv6_sock_mc_drop(struct sock *sk, int ifindex, const struct in6_addr *addr)
++{
++	int ret;
++
++	rtnl_lock();
++	ret = __ipv6_sock_mc_drop(sk, ifindex, addr);
++	rtnl_unlock();
++
++	return ret;
++}
++EXPORT_SYMBOL(ipv6_sock_mc_drop);
+ 
+ /* called with rcu_read_lock() */
+ static struct inet6_dev *ip6_mc_find_dev_rcu(struct net *net,
+-- 
+1.9.1
