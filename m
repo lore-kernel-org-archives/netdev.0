@@ -1,44 +1,113 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH RFC 0/2] net: dsa: integration with SWITCHDEV for HW bridging
-Date: Tue, 17 Feb 2015 17:09:25 -0800
-Message-ID: <54E3E645.3070701@gmail.com>
-References: <1424201196-4901-1-git-send-email-f.fainelli@gmail.com> <CAE4R7bDFJn=ZMNDnDovY62eQyv4aSBR0VdhB8yoF+JLCTaS+kw@mail.gmail.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next] netfilter: Remove uses of return value of
+ seq_printf/puts/putc
+Date: Tue, 17 Feb 2015 17:19:00 -0800
+Message-ID: <1424222340.25416.19.camel@perches.com>
+References: <1424136309.8287.8.camel@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	vivien.didelot@savoirfairelinux.com,
-	jerome.oufella@savoirfairelinux.com, linux@roeck-us.net,
-	andrew@lunn.ch, cphealy@gmail.com
-To: Scott Feldman <sfeldma@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:33345 "EHLO
-	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753414AbbBRBJl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Feb 2015 20:09:41 -0500
-Received: by pabkx10 with SMTP id kx10so10488509pab.0
-        for <netdev@vger.kernel.org>; Tue, 17 Feb 2015 17:09:40 -0800 (PST)
-In-Reply-To: <CAE4R7bDFJn=ZMNDnDovY62eQyv4aSBR0VdhB8yoF+JLCTaS+kw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netfilter-devel <netfilter-devel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1424136309.8287.8.camel@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 17/02/15 16:48, Scott Feldman wrote:
-> On Tue, Feb 17, 2015 at 2:26 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
->> Hi all,
->>
->> This patchset is mostly to demonstrate how we could integrate with SWITCHDEV
->> to provide HW bridging support for DSA switch drivers that are currently in
->> tree. Since 'net-next' is currently closed, this gives us some time to work
->> on the abstraction we want to have in DSA to facilitate our life.
->>
->> Attached is an example of how this winds up looking like for the bcm_sf2 driver.
+On Mon, 2015-02-16 at 17:25 -0800, Joe Perches wrote:
+> These functions are soon going to return void so remove the
+> return value uses.
 > 
-> It looks good Florian.
-> 
-> Does bcm_sf2 do mac/vlan learning?
-> 
+> Convert the return value to test seq_has_overflowed() instead.
 
-Yes, it can do that, that's next on my list of things to get working ;)
--- 
-Florian
+Please do not apply.
+These need conversions not to "return seq_has_
+> Signed-off-by: Joe Perches <joe@perches.com>
+> ---
+>  net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c |  4 +++-
+>  net/netfilter/nf_conntrack_acct.c                     |  8 +++++---
+>  net/netfilter/nf_conntrack_expect.c                   |  4 +++-
+>  net/netfilter/nfnetlink_log.c                         | 12 +++++++-----
+>  4 files changed, 18 insertions(+), 10 deletions(-)
+> 
+> diff --git a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c
+> index a460a87..b03b801 100644
+> --- a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c
+> +++ b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c
+> @@ -300,7 +300,9 @@ static int exp_seq_show(struct seq_file *s, void *v)
+>  		    __nf_ct_l3proto_find(exp->tuple.src.l3num),
+>  		    __nf_ct_l4proto_find(exp->tuple.src.l3num,
+>  					 exp->tuple.dst.protonum));
+> -	return seq_putc(s, '\n');
+> +	seq_putc(s, '\n');
+> +
+> +	return seq_has_overflowed(s);
+>  }
+>  
+>  static const struct seq_operations exp_seq_ops = {
+> diff --git a/net/netfilter/nf_conntrack_acct.c b/net/netfilter/nf_conntrack_acct.c
+> index a4b5e2a..4d291dc 100644
+> --- a/net/netfilter/nf_conntrack_acct.c
+> +++ b/net/netfilter/nf_conntrack_acct.c
+> @@ -47,9 +47,11 @@ seq_print_acct(struct seq_file *s, const struct nf_conn *ct, int dir)
+>  		return 0;
+>  
+>  	counter = acct->counter;
+> -	return seq_printf(s, "packets=%llu bytes=%llu ",
+> -			  (unsigned long long)atomic64_read(&counter[dir].packets),
+> -			  (unsigned long long)atomic64_read(&counter[dir].bytes));
+> +	seq_printf(s, "packets=%llu bytes=%llu ",
+> +		   (unsigned long long)atomic64_read(&counter[dir].packets),
+> +		   (unsigned long long)atomic64_read(&counter[dir].bytes));
+> +
+> +	return seq_has_overflowed(s);
+>  };
+>  EXPORT_SYMBOL_GPL(seq_print_acct);
+>  
+> diff --git a/net/netfilter/nf_conntrack_expect.c b/net/netfilter/nf_conntrack_expect.c
+> index 91a1837..1abf92f 100644
+> --- a/net/netfilter/nf_conntrack_expect.c
+> +++ b/net/netfilter/nf_conntrack_expect.c
+> @@ -561,7 +561,9 @@ static int exp_seq_show(struct seq_file *s, void *v)
+>  				   helper->expect_policy[expect->class].name);
+>  	}
+>  
+> -	return seq_putc(s, '\n');
+> +	seq_putc(s, '\n');
+> +
+> +	return seq_has_overflowed(s);
+>  }
+>  
+>  static const struct seq_operations exp_seq_ops = {
+> diff --git a/net/netfilter/nfnetlink_log.c b/net/netfilter/nfnetlink_log.c
+> index 11d85b3..3e016ff 100644
+> --- a/net/netfilter/nfnetlink_log.c
+> +++ b/net/netfilter/nfnetlink_log.c
+> @@ -998,11 +998,13 @@ static int seq_show(struct seq_file *s, void *v)
+>  {
+>  	const struct nfulnl_instance *inst = v;
+>  
+> -	return seq_printf(s, "%5d %6d %5d %1d %5d %6d %2d\n",
+> -			  inst->group_num,
+> -			  inst->peer_portid, inst->qlen,
+> -			  inst->copy_mode, inst->copy_range,
+> -			  inst->flushtimeout, atomic_read(&inst->use));
+> +	seq_printf(s, "%5d %6d %5d %1d %5d %6d %2d\n",
+> +		   inst->group_num,
+> +		   inst->peer_portid, inst->qlen,
+> +		   inst->copy_mode, inst->copy_range,
+> +		   inst->flushtimeout, atomic_read(&inst->use));
+> +
+> +	return seq_has_overflowed(s);
+>  }
+>  
+>  static const struct seq_operations nful_seq_ops = {
+> 
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
