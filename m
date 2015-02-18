@@ -1,29 +1,30 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
+From: Guenter Roeck <linux@roeck-us.net>
 Subject: Re: [PATCH RFC 1/2] net: dsa: integrate with SWITCHDEV for HW bridging
-Date: Tue, 17 Feb 2015 17:43:28 -0800
-Message-ID: <54E3EE40.9010406@gmail.com>
+Date: Tue, 17 Feb 2015 19:53:45 -0800
+Message-ID: <54E40CC9.2000505@roeck-us.net>
 References: <1424201196-4901-1-git-send-email-f.fainelli@gmail.com> <1424201196-4901-2-git-send-email-f.fainelli@gmail.com> <20150218011955.GA17155@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, davem@davemloft.net,
 	vivien.didelot@savoirfairelinux.com,
-	jerome.oufella@savoirfairelinux.com, linux@roeck-us.net,
-	cphealy@gmail.com, Scott Feldman <sfeldma@gmail.com>,
-	Jiri Pirko <jiri@resnulli.us>
-To: Andrew Lunn <andrew@lunn.ch>
+	jerome.oufella@savoirfairelinux.com, cphealy@gmail.com
+To: Andrew Lunn <andrew@lunn.ch>,
+	Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f182.google.com ([209.85.192.182]:45108 "EHLO
-	mail-pd0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751810AbbBRBnm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Feb 2015 20:43:42 -0500
-Received: by pdjz10 with SMTP id z10so47751328pdj.12
-        for <netdev@vger.kernel.org>; Tue, 17 Feb 2015 17:43:42 -0800 (PST)
+Received: from bh-25.webhostbox.net ([208.91.199.152]:50826 "EHLO
+	bh-25.webhostbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751549AbbBRDyT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Feb 2015 22:54:19 -0500
+Received: from mailnull by bh-25.webhostbox.net with sa-checked (Exim 4.82)
+	(envelope-from <linux@roeck-us.net>)
+	id 1YNviM-003EUL-Bg
+	for netdev@vger.kernel.org; Wed, 18 Feb 2015 03:54:18 +0000
 In-Reply-To: <20150218011955.GA17155@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 17/02/15 17:19, Andrew Lunn wrote:
+On 02/17/2015 05:19 PM, Andrew Lunn wrote:
 >> +/* Return a bitmask of all ports being currently bridged. Note that on
 >> + * leave, the mask will still return the bitmask of ports currently bridged,
 >> + * prior to port removal, and this is exactly what we want.
@@ -54,36 +55,38 @@ On 17/02/15 17:19, Andrew Lunn wrote:
 >> +	if (ds->drv->port_join_bridge)
 >> +		ret = ds->drv->port_join_bridge(ds, p->port,
 >> +						dsa_slave_br_port_mask(ds));
-> 
+>
 > Hi Florian
-> 
+>
 > Shouldn't this bridge port mask also be dependent on bridge?
-
-Yes, you are very right, thankfully this is a RFC patch because of that ;)
-
-> 
+>
 > I'm thinking of cases like
-> 
+>
 > brctl addbr br0
 > brctl addif br0 lan0
 > brctl addif br0 lan1
-> 
+>
 > brctl addbr br1
 > brctl addif br1 lan2
-
-mask = 0x4 | 0x2 | 0x1 # FAIL
-
 > brctl addif br1 lan3
-
-mask = 0x8 | 0x4 | 0x2 | 0x1 # FAIL
-
-> 
+>
 > We have two software bridges, so need two masks.  It does look like
 > your hardware and the Marvell hardware supports this, disjoint sets of
 > bridged ports.  But with the current implementation, your going to end
 > up with one hardware bridge with four ports, and broken STP.
+>
 
-Yep, I will rework that patch set to address that, and I can actually
-test that, which is even better, thanks!
--- 
-Florian
+Same problem here.
+
+With the code above I see the ports which are part of "a" bridge group,
+but I can not determine which group the port is supposed to join.
+
+I don't really see the value in providing the port mask to
+port_join_bridge, but maybe I am missing something. In my
+implementation I just passed on bridge * and used it to
+determine which port belongs to which bridge group.
+It doesn't have to be that, but maybe we can use the bridge
+ifindex or anything else that lets me determine which bridge
+group the port belongs to.
+
+Guenter
