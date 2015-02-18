@@ -1,34 +1,41 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Why do we use RX queue mapping for TX?
-Date: Wed, 18 Feb 2015 15:14:08 -0800
-Message-ID: <1424301248.4942.99.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CAHA+R7MXF-KHZ3aeBwwshSYDswKwrjhbMJQ=+Hfj3gZJq70dXQ@mail.gmail.com>
-	 <CAHA+R7PdG+jDqFA1jDFzHtkrxqLEZdtj1w5QyrdYMO4fX6+A1w@mail.gmail.com>
-	 <CAHA+R7OVHgwQBM200UZDKiw5eypuzhWj=B4E3MRkOK3yViZDCQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Cong Wang <cwang@twopensource.com>
+From: Mahesh Bandewar <maheshb@google.com>
+Subject: [PATCH] ipvlan: Fix text that talks about ip util support
+Date: Wed, 18 Feb 2015 15:15:57 -0800
+Message-ID: <1424301357-25182-1-git-send-email-maheshb@google.com>
+Cc: Mahesh Bandewar <maheshb@google.com>
+To: netdev <netdev@vger.kernel.org>,
+	Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f170.google.com ([209.85.213.170]:64261 "EHLO
-	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751799AbbBRXOK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Feb 2015 18:14:10 -0500
-Received: by mail-ig0-f170.google.com with SMTP id l13so55106215iga.1
-        for <netdev@vger.kernel.org>; Wed, 18 Feb 2015 15:14:09 -0800 (PST)
-In-Reply-To: <CAHA+R7OVHgwQBM200UZDKiw5eypuzhWj=B4E3MRkOK3yViZDCQ@mail.gmail.com>
+Received: from mail-ig0-f201.google.com ([209.85.213.201]:46076 "EHLO
+	mail-ig0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752345AbbBRXQC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Feb 2015 18:16:02 -0500
+Received: by mail-ig0-f201.google.com with SMTP id b16so1818685igk.0
+        for <netdev@vger.kernel.org>; Wed, 18 Feb 2015 15:16:01 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2015-02-18 at 14:11 -0800, Cong Wang wrote:
-> On Wed, Feb 18, 2015 at 1:18 PM, Cong Wang <cwang@twopensource.com> wrote:
-> >
-> > 2) This breaks the queue mapping specified by an skbedit action,
-> > since for TX queues the index starts with 0 while for RX it starts with 1
-> > (for some reason I don't see yet). There is at least a mismatch.
-> 
-> So queue 0 is reserved for TX, at least for bonding queue mapping.
+ipvlan was added into 3.19 release and iproute2 added support
+for the same in iproute2-3.19 package.
 
-It seems you missed that bonding ndo_select_queue() is rather special.
+Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+CC: Stephen Hemminger <stephen@networkplumber.org>
+---
+ drivers/net/Kconfig | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index 84673ebcf428..df51d6025a90 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -157,7 +157,7 @@ config IPVLAN
+       making it transparent to the connected L2 switch.
+ 
+       Ipvlan devices can be added using the "ip" command from the
+-      iproute2 package starting with the iproute2-X.Y.ZZ release:
++      iproute2 package starting with the iproute2-3.19 release:
+ 
+       "ip link add link <main-dev> [ NAME ] type ipvlan"
+ 
+-- 
+2.2.0.rc0.207.ga3a616c
