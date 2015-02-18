@@ -1,127 +1,86 @@
-From: Arun Chandran <achandran@mvista.com>
-Subject: [PATCH] net: macb: Add big endian CPU support
-Date: Wed, 18 Feb 2015 16:59:35 +0530
-Message-ID: <1424258975-28611-1-git-send-email-achandran@mvista.com>
-Cc: Arun Chandran <achandran@mvista.com>
-To: Nicolas Ferre <nicolas.ferre@atmel.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+From: Mark Rutland <mark.rutland@arm.com>
+Subject: Re: [PATCH v2 1/3] Ethernet packet sniffer: Device tree binding and
+ vendor prefix
+Date: Wed, 18 Feb 2015 12:11:50 +0000
+Message-ID: <20150218121150.GA29429@leverpostej>
+References: <cover.1424181053.git.stathis.voukelatos@linn.co.uk>
+ <0a86907642a97e5bd880f69299664232fcffaf9d.1424181053.git.stathis.voukelatos@linn.co.uk>
+ <20150217145124.GM8994@leverpostej>
+ <54E36AAC.7010308@linn.co.uk>
+ <20150217163527.GR8994@leverpostej>
+ <54E376AF.80602@linn.co.uk>
+ <20150217173000.GT8994@leverpostej>
+ <54E45E06.2020609@linn.co.uk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"abrestic@chromium.org" <abrestic@chromium.org>
+To: Stathis Voukelatos <stathis.voukelatos@linn.co.uk>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <54E45E06.2020609@linn.co.uk>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch converts all __raw_readl and __raw_writel function calls
-to their corresponding readl_relaxed and writel_relaxed variants.
+On Wed, Feb 18, 2015 at 09:40:22AM +0000, Stathis Voukelatos wrote:
+> 
+> 
+> On 17/02/15 17:30, Mark Rutland wrote:
+> 
+> >> It is the frequency of the timestamp values supplied to the sniffer
+> >> module. It is used by the driver to convert to nanoseconds.
+> >> I was trying to be somewhat generic here and not assume that it
+> >> is necessarily the same as the 'tstamp' clock below, in which case we
+> >> could indeed obtain it using the common clock framework.
+> >
+> > In what cases would it _not_ be the same? From your description this is
+> > that clock, no?
+> >
+> 
+> Counters can often have a divider applied to their input clock and
+> therefore run at a scaled down frequency. This is not the case in the
+> first SoC where the sniffer is used, so for simplicity I can modify as
+> you suggest and remove that field from the DT.
 
-It also tells the driver to set ahb_endian_swp_mgmt_en bit in dma_cfg
-when the CPU is configured in big endian mode.
+The common clock bindings have fixed-factor-clock for handling dividers,
+so I believe you should be able to use that.
 
-Signed-off-by: Arun Chandran <achandran@mvista.com>
----
-	This patch is tested on xilinx ZC702 evaluation board with
-	CONFIG_CPU_BIG_ENDIAN=y and booting NFS rootfs
----
----
- drivers/net/ethernet/cadence/macb.c | 18 ++++++++++++------
- drivers/net/ethernet/cadence/macb.h | 15 ++++++++-------
- 2 files changed, 20 insertions(+), 13 deletions(-)
+You mentioned that the counter was a block external to the sniffer. Does
+it have any configuration interface (e.g. to reset the counter)? We may
+need to model it in the DT if so (and describe the clock as feeding into
+it rather than into the sniffer).
 
-diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index ad76b8e..05fb36d 100644
---- a/drivers/net/ethernet/cadence/macb.c
-+++ b/drivers/net/ethernet/cadence/macb.c
-@@ -449,7 +449,7 @@ static void macb_update_stats(struct macb *bp)
- 	WARN_ON((unsigned long)(end - p - 1) != (MACB_TPF - MACB_PFR) / 4);
- 
- 	for(; p < end; p++, reg++)
--		*p += __raw_readl(reg);
-+		*p += readl_relaxed(reg);
- }
- 
- static int macb_halt_tx(struct macb *bp)
-@@ -1585,7 +1585,11 @@ static void macb_configure_dma(struct macb *bp)
- 		if (bp->dma_burst_length)
- 			dmacfg = GEM_BFINS(FBLDO, bp->dma_burst_length, dmacfg);
- 		dmacfg |= GEM_BIT(TXPBMS) | GEM_BF(RXBMS, -1L);
--		dmacfg &= ~GEM_BIT(ENDIA);
-+		dmacfg &= ~GEM_BIT(ENDIA_PKT);
-+		/* Tell the chip to byteswap descriptors on big-endian hosts */
-+#ifdef __BIG_ENDIAN
-+		dmacfg |= GEM_BIT(ENDIA_DESC);
-+#endif
- 		if (bp->dev->features & NETIF_F_HW_CSUM)
- 			dmacfg |= GEM_BIT(TXCOEN);
- 		else
-@@ -1832,14 +1836,14 @@ static void gem_update_stats(struct macb *bp)
- 
- 	for (i = 0; i < GEM_STATS_LEN; ++i, ++p) {
- 		u32 offset = gem_statistics[i].offset;
--		u64 val = __raw_readl(bp->regs + offset);
-+		u64 val = readl_relaxed(bp->regs + offset);
- 
- 		bp->ethtool_stats[i] += val;
- 		*p += val;
- 
- 		if (offset == GEM_OCTTXL || offset == GEM_OCTRXL) {
- 			/* Add GEM_OCTTXH, GEM_OCTRXH */
--			val = __raw_readl(bp->regs + offset + 4);
-+			val = readl_relaxed(bp->regs + offset + 4);
- 			bp->ethtool_stats[i] += ((u64)val) << 32;
- 			*(++p) += val;
- 		}
-@@ -2191,12 +2195,14 @@ static void macb_probe_queues(void __iomem *mem,
- 	*num_queues = 1;
- 
- 	/* is it macb or gem ? */
--	mid = __raw_readl(mem + MACB_MID);
-+	mid = readl_relaxed(mem + MACB_MID);
-+
- 	if (MACB_BFEXT(IDNUM, mid) != 0x2)
- 		return;
- 
- 	/* bit 0 is never set but queue 0 always exists */
--	*queue_mask = __raw_readl(mem + GEM_DCFG6) & 0xff;
-+	*queue_mask = readl_relaxed(mem + GEM_DCFG6) & 0xff;
-+
- 	*queue_mask |= 0x1;
- 
- 	for (hw_q = 1; hw_q < MACB_MAX_QUEUES; ++hw_q)
-diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethernet/cadence/macb.h
-index 31dc080..57f0a1a 100644
---- a/drivers/net/ethernet/cadence/macb.h
-+++ b/drivers/net/ethernet/cadence/macb.h
-@@ -229,7 +229,8 @@
- /* Bitfields in DMACFG. */
- #define GEM_FBLDO_OFFSET	0 /* fixed burst length for DMA */
- #define GEM_FBLDO_SIZE		5
--#define GEM_ENDIA_OFFSET	7 /* endian swap mode for packet data access */
-+#define GEM_ENDIA_DESC_OFFSET	6 /* endian swap mode for management descriptor access */
-+#define GEM_ENDIA_PKT_OFFSET	7 /* endian swap mode for packet data access */
- #define GEM_ENDIA_SIZE		1
- #define GEM_RXBMS_OFFSET	8 /* RX packet buffer memory size select */
- #define GEM_RXBMS_SIZE		2
-@@ -423,17 +424,17 @@
- 
- /* Register access macros */
- #define macb_readl(port,reg)				\
--	__raw_readl((port)->regs + MACB_##reg)
-+	readl_relaxed((port)->regs + MACB_##reg)
- #define macb_writel(port,reg,value)			\
--	__raw_writel((value), (port)->regs + MACB_##reg)
-+	writel_relaxed((value), (port)->regs + MACB_##reg)
- #define gem_readl(port, reg)				\
--	__raw_readl((port)->regs + GEM_##reg)
-+	readl_relaxed((port)->regs + GEM_##reg)
- #define gem_writel(port, reg, value)			\
--	__raw_writel((value), (port)->regs + GEM_##reg)
-+	writel_relaxed((value), (port)->regs + GEM_##reg)
- #define queue_readl(queue, reg)				\
--	__raw_readl((queue)->bp->regs + (queue)->reg)
-+	readl_relaxed((queue)->bp->regs + (queue)->reg)
- #define queue_writel(queue, reg, value)			\
--	__raw_writel((value), (queue)->bp->regs + (queue)->reg)
-+	writel_relaxed((value), (queue)->bp->regs + (queue)->reg)
- 
- /* Conditional GEM/MACB macros.  These perform the operation to the correct
-  * register dependent on whether the device is a GEM or a MACB.  For registers
--- 
-1.9.1
+> >> Yes, but the sniffer module is hard-wired to a certain Ethernet Mii
+> >> interface. We can add an entry to tie it to an Ethernet controller, but
+> >> apart of a sanity check I am not sure what else the S/W can do.
+> >
+> > Fundamentally, the use-case for this is monitoring an ethernet
+> > interface. So regardless of which kernel framework this plumbs into,
+> > there needs to be a way to go from ethN to whatever this is exposed as.
+> >
+> > Exposing a completely separate interface makes no sense. Singleton stuff
+> > like that inevitably gets broken as someone later builds a board with
+> > multiple instances of some similar IP block.
+> >
+> > So I would imagine that either the link between interface and monitoring
+> > interface would be described somewhere in the filesystem, or there'd be
+> > a syscall/ioctl/whatever to go from an interface to the appropriate
+> > monitoring interface.
+> >
+> > That all depends on exactly how this gets exposed in the end, however.
+> >
+> 
+> After the first version of the patch was submitted, the feedback from 
+> the netdev list was to expose it as a network interface as this would
+> allow it to be accessed by standard user space monitoring tools.
+> It definitely makes sense to link it to the associated ethernet netdev,
+> but I am not sure if there is a framework in the kernel to do it at
+> the driver level?
+
+Unfortunately I'm not familiar enough with the net code; hopefully
+someone else can point us in the right direction.
+
+Thanks,
+Mark.
