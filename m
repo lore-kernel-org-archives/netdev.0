@@ -1,9 +1,9 @@
 From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: Re: [PATCH next v4 4/6] bonding: Allow userspace to set actors' system_priority
- in AD system
-Date: Wed, 18 Feb 2015 13:50:35 +0100
-Message-ID: <54E48A9B.3020409@redhat.com>
-References: <1424243874-27109-1-git-send-email-maheshb@google.com>
+Subject: Re: [PATCH next v4 5/6] bonding: Allow userspace to set actors' macaddr
+ in an AD-system.
+Date: Wed, 18 Feb 2015 13:52:07 +0100
+Message-ID: <54E48AF7.3000403@redhat.com>
+References: <1424243876-27174-1-git-send-email-maheshb@google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
@@ -16,63 +16,82 @@ To: Mahesh Bandewar <maheshb@google.com>,
 	Veaceslav Falico <vfalico@gmail.com>,
 	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:44097 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:44654 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751136AbbBRMuq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Feb 2015 07:50:46 -0500
-In-Reply-To: <1424243874-27109-1-git-send-email-maheshb@google.com>
+	id S1751213AbbBRMwX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Feb 2015 07:52:23 -0500
+In-Reply-To: <1424243876-27174-1-git-send-email-maheshb@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 On 02/18/2015 08:17 AM, Mahesh Bandewar wrote:
-> This patch allows user to randomize the system-priority in an ad-system.
-> The allowed range is 1 - 0xFFFF while default value is 0xFFFF. If user
-> does not specify this value, the system defaults to 0xFFFF, which is
-> what it was before this patch.
+> In an AD system, the communication between actor and partner is the
+> business between these two entities. In the current setup anyone on the
+> same L2 can "guess" the LACPDU contents and then possibly send the
+> spoofed LACPDUs and trick the partner causing connectivity issues for
+> the AD system. This patch allows to use a random mac-address obscuring
+> it's identity making it harder for someone in the L2 is do the same thing.
 > 
-> Following example code could set the value -
->     # modprobe bonding mode=4
->     # sys_prio=$(( 1 + RANDOM + RANDOM ))
->     # echo $sys_prio > /sys/class/net/bond0/bonding/ad_actor_sys_prio
->     # echo +eth1 > /sys/class/net/bond0/bonding/slaves
->     ...
->     # ip link set bond0 up
+> This patch allows user-space to choose the mac-address for the AD-system.
+> This mac-address can not be NULL or a Multicast. If the mac-address is set
+> from user-space; kernel will honor it and will not overwrite it. In the
+> absence (value from user space); the logic will default to using the
+> masters' mac as the mac-address for the AD-system.
+> 
+> It can be set using example code below -
+> 
+>    # modprobe bonding mode=4
+>    # sys_mac_addr=$(printf '%02x:%02x:%02x:%02x:%02x:%02x' \
+>                     $(( (RANDOM & 0xFE) | 0x02 )) \
+>                     $(( RANDOM & 0xFF )) \
+>                     $(( RANDOM & 0xFF )) \
+>                     $(( RANDOM & 0xFF )) \
+>                     $(( RANDOM & 0xFF )) \
+>                     $(( RANDOM & 0xFF )))
+>    # echo $sys_mac_addr > /sys/class/net/bond0/bonding/ad_actor_system
+>    # echo +eth1 > /sys/class/net/bond0/bonding/slaves
+>    ...
+>    # ip link set bond0 up
 > 
 > Signed-off-by: Mahesh Bandewar <maheshb@google.com>
 > ---
 > v1:
 >   Initial version
 > v2:
->   Rename ad_actor_system_priority to ad_actor_sys_prio
-> v3-v4:
+>   Renamed ad_actor_system_mac_address to ad_actor_system
+> v3:
+>   Fixed commit message.
+> v4:
 >   Rebase
 > 
->  Documentation/networking/bonding.txt |  9 +++++++++
->  drivers/net/bonding/bond_3ad.c       |  5 ++++-
->  drivers/net/bonding/bond_main.c      | 14 ++++++++++++++
->  drivers/net/bonding/bond_options.c   | 29 ++++++++++++++++++++++++++++-
->  drivers/net/bonding/bond_procfs.c    |  2 ++
+>  Documentation/networking/bonding.txt | 12 ++++++++++++
+>  drivers/net/bonding/bond_3ad.c       |  7 ++++++-
+>  drivers/net/bonding/bond_main.c      |  1 +
+>  drivers/net/bonding/bond_options.c   | 29 +++++++++++++++++++++++++++++
+>  drivers/net/bonding/bond_procfs.c    |  6 ++++++
 >  drivers/net/bonding/bond_sysfs.c     | 15 +++++++++++++++
 >  include/net/bond_options.h           |  1 +
 >  include/net/bonding.h                |  1 +
->  8 files changed, 74 insertions(+), 2 deletions(-)
+>  8 files changed, 71 insertions(+), 1 deletion(-)
 > 
 > diff --git a/Documentation/networking/bonding.txt b/Documentation/networking/bonding.txt
-> index 83bf4986baea..f19d888651b8 100644
+> index f19d888651b8..f0d93c58cdb0 100644
 > --- a/Documentation/networking/bonding.txt
 > +++ b/Documentation/networking/bonding.txt
-> @@ -178,6 +178,15 @@ active_slave
->  	active slave, or the empty string if there is no active slave or
->  	the current mode does not use an active slave.
+> @@ -187,6 +187,18 @@ ad_actor_sys_prio
+>  	This paramter has effect only in 802.3ad mode and is available through
+>  	SysFs interface.
 >  
-> +ad_actor_sys_prio
+> +ad_actor_system
 > +
-> +	In an AD system, this specifies the system priority. The allowed range
-> +	is 1 - 65535. If the value is not specified, it takes 65535 as the
-> +	default value.
+> +	In an AD system, this specifies the mac-address for the actor in
+> +	protocol packet exchanges (LACPDUs). The value cannot be NULL or
+> +	multicast. It is preferred to have the local-admin bit set for this
+> +	mac but driver does not enforce it. If the value is not given then
+> +	system defaults to using the masters' mac address as actors' system
+> +	address.
 > +
 > +	This paramter has effect only in 802.3ad mode and is available through
-^^^^^^^^^^^^^^^^^^^^^
 s/paramter/parameter/
 
 > +	SysFs interface.
