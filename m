@@ -1,75 +1,27 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH RFC 1/2] net: dsa: integrate with SWITCHDEV for HW
- bridging
-Date: Wed, 18 Feb 2015 02:19:55 +0100
-Message-ID: <20150218011955.GA17155@lunn.ch>
-References: <1424201196-4901-1-git-send-email-f.fainelli@gmail.com>
- <1424201196-4901-2-git-send-email-f.fainelli@gmail.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH] colons are invalid characters in netdev names
+Date: Tue, 17 Feb 2015 19:28:03 -0600
+Message-ID: <20150217192803.21a63afd@uryu.home.lan>
+References: <1424214942-17581-1-git-send-email-mthode@mthode.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	vivien.didelot@savoirfairelinux.com,
-	jerome.oufella@savoirfairelinux.com, linux@roeck-us.net,
-	cphealy@gmail.com
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:45356 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751701AbbBRBWp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Feb 2015 20:22:45 -0500
-Content-Disposition: inline
-In-Reply-To: <1424201196-4901-2-git-send-email-f.fainelli@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Matthew Thode <mthode@mthode.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1424214942-17581-1-git-send-email-mthode@mthode.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> +/* Return a bitmask of all ports being currently bridged. Note that on
-> + * leave, the mask will still return the bitmask of ports currently bridged,
-> + * prior to port removal, and this is exactly what we want.
-> + */
-> +static u32 dsa_slave_br_port_mask(struct dsa_switch *ds)
-> +{
-> +	unsigned int port;
-> +	u32 mask = 0;
-> +
-> +	for (port = 0; port < DSA_MAX_PORTS; port++) {
-> +		if (!((1 << port) & ds->phys_port_mask))
-> +			continue;
-> +
-> +		if (ds->ports[port]->priv_flags & IFF_BRIDGE_PORT)
-> +			mask |= 1 << port;
-> +	}
-> +
-> +       return mask;
-> +}
-> +
-> +static int dsa_slave_bridge_port_join(struct net_device *dev,
-> +				      struct net_device *bridge)
-> +{
-> +	struct dsa_slave_priv *p = netdev_priv(dev);
-> +	struct dsa_switch *ds = p->parent;
-> +	int ret = -EOPNOTSUPP;
-> +
-> +	if (ds->drv->port_join_bridge)
-> +		ret = ds->drv->port_join_bridge(ds, p->port,
-> +						dsa_slave_br_port_mask(ds));
+On Tue, 17 Feb 2015 17:15:42 -0600
+Matthew Thode <mthode@mthode.org> wrote:
 
-Hi Florian
+> colons are used as a separator in netdev device lookup in dev_ioctl.c
+> 
+> Specific functions are SIOCGIFTXQLEN SIOCETHTOOL SIOCSIFNAME
+> 
+> Signed-off-by: Matthew Thode <mthode@mthode.org>
 
-Shouldn't this bridge port mask also be dependent on bridge?
-
-I'm thinking of cases like
-
-brctl addbr br0
-brctl addif br0 lan0
-brctl addif br0 lan1
-
-brctl addbr br1
-brctl addif br1 lan2
-brctl addif br1 lan3
-
-We have two software bridges, so need two masks.  It does look like
-your hardware and the Marvell hardware supports this, disjoint sets of
-bridged ports.  But with the current implementation, your going to end
-up with one hardware bridge with four ports, and broken STP.
-
-       Andrew
+What is the exact sequence that causes the problem?
+SIOCSIFNAME already strips of colon.
