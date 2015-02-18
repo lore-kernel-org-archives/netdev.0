@@ -1,87 +1,43 @@
-From: Mahesh Bandewar <maheshb@google.com>
-Subject: [PATCH next v4 2/6] bonding: implement bond_poll_controller()
-Date: Tue, 17 Feb 2015 23:17:49 -0800
-Message-ID: <1424243869-27029-1-git-send-email-maheshb@google.com>
-Cc: Mahesh Bandewar <maheshb@google.com>,
-	Maciej Zenczykowski <maze@google.com>,
-	netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>
-To: Jay Vosburgh <j.vosburgh@gmail.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Veaceslav Falico <vfalico@gmail.com>,
-	Nikolay Aleksandrov <nikolay@redhat.com>,
-	David Miller <davem@davemloft.net>
+From: Derrick Pallas <pallas@meraki.com>
+Subject: [PATCH] ethernet/ixp4xx: prevent allmulti from clobbering promisc
+Date: Wed, 18 Feb 2015 00:50:25 -0800
+Message-ID: <1424249425-2438-1-git-send-email-pallas@meraki.com>
+Cc: netdev@vger.kernel.org, Derrick Pallas <pallas@meraki.com>
+To: Krzysztof Halasa <khalasa@piap.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f202.google.com ([209.85.216.202]:45471 "EHLO
-	mail-qc0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751230AbbBRHml (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Feb 2015 02:42:41 -0500
-Received: by mail-qc0-f202.google.com with SMTP id c9so3893043qcz.1
-        for <netdev@vger.kernel.org>; Tue, 17 Feb 2015 23:42:41 -0800 (PST)
+Received: from na3sys009aog118.obsmtp.com ([74.125.149.244]:34332 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750753AbbBRIx4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Feb 2015 03:53:56 -0500
+Received: by padbj1 with SMTP id bj1so13115735pad.5
+        for <netdev@vger.kernel.org>; Wed, 18 Feb 2015 00:53:55 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patches implements the poll_controller support for all
-bonding driver. If the slaves have poll_controller net_op defined,
-this implementation calls them. This is mode agnostic implementation
-and iterates through all slaves (based on mode) and calls respective
-handler.
+If both promisc and allmulti are set, promisc should trump allmulti and
+disable the MAC filter; otherwise, the interface is not really promisc.
 
-Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+Previously, this code checked IFF_ALLMULTI prior to and without regard for
+IFF_PROMISC; if both were set, only multicast and direct unicast traffic
+would make it through the filter.
+
+Signed-off-by: Derrick Pallas <pallas@meraki.com>
 ---
-v1:
-   Initial version
-v2:
-   Eliminate bool variable.
-v3:
-   Rebase
-v4:
-   Removed 3AD port_operational check
+ drivers/net/ethernet/xscale/ixp4xx_eth.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
- drivers/net/bonding/bond_main.c | 31 +++++++++++++++++++++++++++++++
- 1 file changed, 31 insertions(+)
-
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index b979c265fc51..f6bdaae7519d 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -928,6 +928,37 @@ static inline void slave_disable_netpoll(struct slave *slave)
+diff --git a/drivers/net/ethernet/xscale/ixp4xx_eth.c b/drivers/net/ethernet/xscale/ixp4xx_eth.c
+index f7e0f0f..9e16a28 100644
+--- a/drivers/net/ethernet/xscale/ixp4xx_eth.c
++++ b/drivers/net/ethernet/xscale/ixp4xx_eth.c
+@@ -938,7 +938,7 @@ static void eth_set_mcast_list(struct net_device *dev)
+ 	int i;
+ 	static const u8 allmulti[] = { 0x01, 0x00, 0x00, 0x00, 0x00, 0x00 };
  
- static void bond_poll_controller(struct net_device *bond_dev)
- {
-+	struct bonding *bond = netdev_priv(bond_dev);
-+	struct slave *slave = NULL;
-+	struct list_head *iter;
-+	struct ad_info ad_info;
-+	struct netpoll_info *ni;
-+	const struct net_device_ops *ops;
-+
-+	if (BOND_MODE(bond) == BOND_MODE_8023AD)
-+		if (bond_3ad_get_active_agg_info(bond, &ad_info))
-+			return;
-+
-+	bond_for_each_slave(bond, slave, iter) {
-+		ops = slave->dev->netdev_ops;
-+		if (!bond_slave_is_up(slave) || !ops->ndo_poll_controller)
-+			continue;
-+
-+		if (BOND_MODE(bond) == BOND_MODE_8023AD) {
-+			struct aggregator *agg =
-+			    SLAVE_AD_INFO(slave)->port.aggregator;
-+
-+			if (agg && agg->aggregator_identifier !=
-+				   ad_info.aggregator_id)
-+				continue;
-+		}
-+
-+		ni = rcu_dereference_bh(slave->dev->npinfo);
-+		if (down_trylock(&ni->dev_lock))
-+			continue;
-+		ops->ndo_poll_controller(slave->dev);
-+		up(&ni->dev_lock);
-+	}
- }
- 
- static void bond_netpoll_cleanup(struct net_device *bond_dev)
+-	if (dev->flags & IFF_ALLMULTI) {
++	if ((dev->flags & IFF_ALLMULTI) && !(dev->flags & IFF_PROMISC)) {
+ 		for (i = 0; i < ETH_ALEN; i++) {
+ 			__raw_writel(allmulti[i], &port->regs->mcast_addr[i]);
+ 			__raw_writel(allmulti[i], &port->regs->mcast_mask[i]);
 -- 
-2.2.0.rc0.207.ga3a616c
+2.1.0
