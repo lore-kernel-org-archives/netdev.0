@@ -1,42 +1,41 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] net/appletalk: LTPC needs virt_to_bus
-Date: Wed, 18 Feb 2015 20:48:54 +0100
-Message-ID: <6100590.gsNqMCFyRS@wuerfel>
+From: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH v2 0/3] net: Linn Ethernet Packet Sniffer driver
+Date: Wed, 18 Feb 2015 22:08:30 +0100
+Message-ID: <20150218210830.GA7778@localhost.localdomain>
+References: <cover.1424181053.git.stathis.voukelatos@linn.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: davem@davemloft.net,
-	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
-	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, abrestic-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org
+To: Stathis Voukelatos <stathis.voukelatos-zgcZaY4qg+21Qrn1Bg8BZw@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <cover.1424181053.git.stathis.voukelatos-zgcZaY4qg+21Qrn1Bg8BZw@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-The ltpc driver is rather outdated and does not get built on most
-platforms because it requires the ISA_DMA_API symbol. However
-there are some ARM platforms that have ISA_DMA_API but no virt_to_bus,
-and they get this build error when enabling the ltpc driver.
+On Tue, Feb 17, 2015 at 02:03:30PM +0000, Stathis Voukelatos wrote:
+> The command string for packet matching is stored in module RAM
+> and consists of a sequence of 16-bit entries. Each entry includes
+> an 8-bit command code and and 8-bit data value. Valid command
+> codes are:
+> 0 - Don't care
+> 1 - Match: packet data must match command string byte
+> 2 - Copy: packet data will be copied to FIFO
+> 3 - Match/Stamp: if packet data matches string byte, a timestamp
+>                  is copied into the FIFO
+> 4 - Copy/Done: packet data will be copied into the FIFO.
+>                This command terminates the command string.
 
-drivers/net/appletalk/ltpc.c: In function 'handlefc':
-drivers/net/appletalk/ltpc.c:380:2: error: implicit declaration of function 'virt_to_bus' [-Werror=implicit-function-declaration]
-  set_dma_addr(dma,virt_to_bus(ltdmacbuf));
-  ^
+Why do you need to expose this interface to user space at all?  Why
+not just time stamp every frame?
 
-This adds another dependency in Kconfig to avoid that configuration.
+How does the "Match" command work?  The frame must have one particular
+byte?  That can't be right.  Please explain.
 
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-
-diff --git a/drivers/net/appletalk/Kconfig b/drivers/net/appletalk/Kconfig
-index 4ce6ca5f3d36..dc6b78e5342f 100644
---- a/drivers/net/appletalk/Kconfig
-+++ b/drivers/net/appletalk/Kconfig
-@@ -40,7 +40,7 @@ config DEV_APPLETALK
- 
- config LTPC
- 	tristate "Apple/Farallon LocalTalk PC support"
--	depends on DEV_APPLETALK && (ISA || EISA) && ISA_DMA_API
-+	depends on DEV_APPLETALK && (ISA || EISA) && ISA_DMA_API && VIRT_TO_BUS
- 	help
- 	  This allows you to use the AppleTalk PC card to connect to LocalTalk
- 	  networks. The card is also known as the Farallon PhoneNet PC card.
+Thanks,
+Richard
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
