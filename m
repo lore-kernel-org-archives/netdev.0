@@ -1,46 +1,54 @@
-From: James Minor <james.minor@ni.com>
-Subject: Re: [PATCH RFC] wext: Add event stream wrappers that return E2BIG
- when values don't fit
-Date: Thu, 19 Feb 2015 15:31:11 -0600
-Message-ID: <54E6561F.4050109@ni.com>
-References: <1422565452-19825-1-git-send-email-xander.huff@ni.com> <1422566529.6322.26.camel@sipsolutions.net>
+From: Denis Kirjanov <kda@linux-powerpc.org>
+Subject: Re: bpf: Enable BPF JIT on ppc32
+Date: Fri, 20 Feb 2015 01:35:59 +0400
+Message-ID: <CAOJe8K1qWYOXRvHqV44JsEkOhXXKsCCN8fQ=wmy=3VHLSMpm0Q@mail.gmail.com>
+References: <1424156683-2682-1-git-send-email-kda@linux-powerpc.org>
+	<20150219.155613.1219259214030608341.davem@davemloft.net>
+	<CAOJe8K0awkwdYNZr5GdRJFQLCJ0F1GOF730Q3UwT7KBJw0c7Uw@mail.gmail.com>
+	<1424381177.22771.1.camel@ellerman.id.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
-	joseph.hershberger@ni.com, ben.shelton@ni.com, jaeden.amero@ni.com,
-	joshc@ni.com, rich.tollerton@ni.com, brad.mouring@ni.com
-To: Johannes Berg <johannes@sipsolutions.net>,
-	Xander Huff <xander.huff@ni.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1422566529.6322.26.camel@sipsolutions.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linuxppc-dev@lists.ozlabs.org
+To: Michael Ellerman <mpe@ellerman.id.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yk0-f177.google.com ([209.85.160.177]:46055 "EHLO
+	mail-yk0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753141AbbBSVgA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Feb 2015 16:36:00 -0500
+Received: by mail-yk0-f177.google.com with SMTP id 20so5294003yks.8
+        for <netdev@vger.kernel.org>; Thu, 19 Feb 2015 13:35:59 -0800 (PST)
+In-Reply-To: <1424381177.22771.1.camel@ellerman.id.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/29/2015 03:22 PM, Johannes Berg wrote:
+On 2/20/15, Michael Ellerman <mpe@ellerman.id.au> wrote:
+> On Fri, 2015-02-20 at 01:07 +0400, Denis Kirjanov wrote:
+>> On 2/19/15, David Miller <davem@davemloft.net> wrote:
+>> > From: Denis Kirjanov <kda@linux-powerpc.org>
+>> > Date: Tue, 17 Feb 2015 10:04:37 +0300
+>> >
+>> >> This patch series enables BPF JIT on ppc32. There are relatevily
+>> >> few chnages in the code to make it work.
+>> >>
+>> >> All test_bpf tests passed both on 7447a and P2041-based machines.
+>> >>
+>> >> Changelog:
+>> >> v1 - > v2: Reordered Kconfig patch in the series
+>> >
+>> > Who plans to take this series?  A PowerPC maintainer?
+>> >
+>> > If not, should I take it?
+>>
+>> I think that it should go through your tree...
+>
+> I'm happy for Dave to take it.
+>
+> But did you test 64-bit as well?
 
-> > What you mean is "with the wext (compatibility) code in cfg80211".
+Sure!
 
-Comment fixed in the v2 of the patch (coming shortly).
-
-> > Either way, I *strongly* recommend against using this in the first
-> > place. There's an upper bound of 64k (I think) on the amount of memory
-> > that can be used, and people have been known to run into this limit - at
-> > which point you get absolutely no scan results back whatsoever. It's far
-> > safer to use nl80211's scan dump, and if you're looking at this code in
-> > particular then clearly you have it available.
-
-Agreed, and we will be switching to nl80211 as soon as we can.
-
-> > Regarding the patch itself, it seems to add a bit much code. Is there
-> > really no better way to express this? Perhaps by checking that the
-> > stream actually moved forward - which will *always* happen for any of
-> > these functions if they actually did anything? Even maybe if the new
-> > _check inlines were to do that it'd still make the code smaller.
-
-I've shuffled some things around and will submit the v2 momentarily.
-
-
-Thanks,
-James
+> cheers
+>
+>
+>
