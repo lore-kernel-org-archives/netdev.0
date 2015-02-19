@@ -1,32 +1,44 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: Use-after-free oops in next-20150204 - probably nelink related
-Date: Thu, 19 Feb 2015 15:48:49 +0000
-Message-ID: <20150219154849.GA20562@casper.infradead.org>
-References: <AM3PR05MB093578F143B8C4C1BC18D5F6DC2C0@AM3PR05MB0935.eurprd05.prod.outlook.com>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: TX offloads for NVGRE (OVS GRE with inner protocol being TEB)
+Date: Thu, 19 Feb 2015 09:01:16 -0800
+Message-ID: <CAEP_g=_SSKYEhmQ2MXJN0wP8POiwjg49txExdrorUkzw8oCRmg@mail.gmail.com>
+References: <54E5ED9D.8080206@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Shachar Raindel <raindel@mellanox.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <AM3PR05MB093578F143B8C4C1BC18D5F6DC2C0@AM3PR05MB0935.eurprd05.prod.outlook.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Joe Stringer <joestringer@nicira.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Or Gerlitz <ogerlitz@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from na3sys009aog129.obsmtp.com ([74.125.149.142]:33282 "HELO
+	na3sys009aog129.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1753130AbbBSRBz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Feb 2015 12:01:55 -0500
+Received: by mail-lb0-f171.google.com with SMTP id b6so988193lbj.12
+        for <netdev@vger.kernel.org>; Thu, 19 Feb 2015 09:01:38 -0800 (PST)
+In-Reply-To: <54E5ED9D.8080206@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 02/18/15 at 03:52pm, Shachar Raindel wrote:
+On Thu, Feb 19, 2015 at 6:05 AM, Or Gerlitz <ogerlitz@mellanox.com> wrote:
 > Hi,
-> 
-> I'm running trinity inside a VM running linux-next tagged next-20150204.
-> 
-> The kernel debugging infrastructure detected a use-after-free situation, probably in netlink:
+>
+> It seems that the OVS GRE code lacks handling of offloads (e.g to come into
+> play with NICs that support NVGRE).
+>
+> I assume we need to place a call to iptunnel_handle_offloads before invoking
+> iptunnel_xmit, agree? so ~the quick patch below should do the work? I wasn't
+> sure how to set the value of the 2nd param for iptunnel_handle_offloads().
 
-This is most likely rhashtable related. The fixes for the
-use-after-free issues have been merged Feb 6 so they are probably
-not included in the Feb 04 snapshot that you use.
+I don't think that this is the issue. __build_header() calls
+gre_handle_offloads() which should do all of this work already.
 
-The relevant net-next commits are:
-commit 020219a69d40a205dad12b0ea1e6a46153793368
-commit cf52d52f9ccb9966ac019d9f79824195583e3e6c
-commit 2af4b52988fd4f7ae525fcada29d4db8680033d6
-commit a5ec68e3b8f2c95ea1a5d23dd543abbe0c8d0624
+I did notice that skb_set_inner_protocol() is not being called because
+it is in the wrong place in the GRE encapsulation code. It is
+currently in ip_gre.c():__gre_xmit(), if that line was moved to
+gre_demux.c:gre_build_header() then it would be used by all callers.
+
+One other thing that is potentially an issue for offloads is that all
+of the encapsulations call vlan_hwaccel_push_inside() after the
+respective handle_offloads code. This doesn't seem right as it could
+affect the layer pointers, although it only likely matters in a
+minority of cases where the inner MAC pointer is used.
