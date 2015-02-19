@@ -1,28 +1,95 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: eth: altera: Change reset_mac failure message
- masks from err to dbg
-Date: Thu, 19 Feb 2015 15:24:10 -0500 (EST)
-Message-ID: <20150219.152410.394447672952089316.davem@davemloft.net>
-References: <1423759665-5062-1-git-send-email-vbridger@opensource.altera.com>
+Subject: Re: [PATCH] ipv6: address issue in __ip6_append_data
+Date: Thu, 19 Feb 2015 15:27:53 -0500 (EST)
+Message-ID: <20150219.152753.1750944092738970569.davem@davemloft.net>
+References: <1423841459-21880-1-git-send-email-madalin.bucur@freescale.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nios2-dev@lists.rocketboards.org,
-	linux-kernel@vger.kernel.org, vbridger@altera.com
-To: vbridger@opensource.altera.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1423759665-5062-1-git-send-email-vbridger@opensource.altera.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, vyasevich@gmail.com
+To: madalin.bucur@freescale.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:57267 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752004AbbBSU1z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Feb 2015 15:27:55 -0500
+In-Reply-To: <1423841459-21880-1-git-send-email-madalin.bucur@freescale.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Vince Bridgers <vbridger@opensource.altera.com>
-Date: Thu, 12 Feb 2015 10:47:45 -0600
+From: Madalin Bucur <madalin.bucur@freescale.com>
+Date: Fri, 13 Feb 2015 17:30:59 +0200
 
-> This debug output is not really an error message since mac reset can fail
-> if the phy clocks are gated, specifically when the phy has been placed in
-> a powered down or isolation mode. The netdev output masks were changed from
-> err to dbg, and comments added in the code.
+> I think I've found a problem that allows generic IPv6 traffic to be
+> sent by the stack with CHECKSUM_PARTIAL to a netdevice that declares
+> NETIF_F_IPV6_CSUM. The NETIF_F_IPV6_CSUM flag is based on the
+> NETIF_F_IPV6_CSUM_BIT that is described as referring only to TCP and
+> UDP but in my test ICMPv6 frames with CHECKSUM_PARTIAL are seen:
 > 
-> Signed-off-by: Vince Bridgers <vbridger@opensource.altera.com>
+> NETIF_F_IPV6_CSUM_BIT,          /* Can checksum TCP/UDP over IPV6 */
+> 
+> I've traced the issue to a recent commit that includes this check:
+> 
+> 	rt->dst.dev->features & NETIF_F_V6_CSUM
+> 
+> The problem with this is that NETIF_F_V6_CSUM is more than one bit:
+> 
+> #define NETIF_F_V6_CSUM         (NETIF_F_GEN_CSUM | NETIF_F_IPV6_CSUM)
+> 
+> Thus the above check should be either:
+> 
+> 	(rt->dst.dev->features & NETIF_F_V6_CSUM) == NETIF_F_V6_CSUM
+> 
+> or probably should use NETIF_F_HW_CSUM only:
+> 
+> 	rt->dst.dev->features & NETIF_F_HW_CSUM
+> 
+> The mentioned commit is 32dce968dd987adfb0c00946d78dad9154f64759
 
-Also applied to net-next, thanks.
+Vlad, please review this fix.
+
+Thanks.
+
+>> Author: Vlad Yasevich <vyasevich@gmail.com>
+>> Date:   Sat Jan 31 10:40:18 2015 -0500
+>>
+>>	ipv6: Allow for partial checksums on non-ufo packets
+>>
+>>	Currntly, if we are not doing UFO on the packet, all UDP
+>>	packets will start with CHECKSUM_NONE and thus perform full
+>>	checksum computations in software even if device support
+>>	IPv6 checksum offloading.
+> 
+>>	Let's start start with CHECKSUM_PARTIAL if the device
+>>	supports it and we are sending only a single packet at
+>>	or below mtu size.
+> 
+>>	Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
+>>	Signed-off-by: David S. Miller <davem@davemloft.net>
+> 
+> Reverting this commit solved the issue, then the changes below were
+> validated as well. The problem was evidentiated by running ping6
+> but it should be visible with any IPv6 payload that it is not UDP
+> nor TCP.
+> 
+> Signed-off-by: Madalin Bucur <madalin.bucur@freescale.com>
+> ---
+>  net/ipv6/ip6_output.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+> index d33df4c..7177f63 100644
+> --- a/net/ipv6/ip6_output.c
+> +++ b/net/ipv6/ip6_output.c
+> @@ -1275,7 +1275,7 @@ emsgsize:
+>  	 */
+>  	if (!skb &&
+>  	    length + fragheaderlen < mtu &&
+> -	    rt->dst.dev->features & NETIF_F_V6_CSUM &&
+> +	    (rt->dst.dev->features & NETIF_F_V6_CSUM) == NETIF_F_V6_CSUM &&
+>  	    !exthdrlen)
+>  		csummode = CHECKSUM_PARTIAL;
+>  	/*
+> -- 
+> 1.7.11.7
+> 
