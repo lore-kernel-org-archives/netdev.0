@@ -1,44 +1,107 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net] net: dsa: bcm_sf2: fix 64-bits register reads
-Date: Thu, 19 Feb 2015 11:09:27 -0800
-Message-ID: <1424372967-27938-1-git-send-email-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2 1/2] enic: implement frag allocator
+Date: Thu, 19 Feb 2015 14:25:31 -0500 (EST)
+Message-ID: <20150219.142531.1581772172061951693.davem@davemloft.net>
+References: <1423659558-32523-1-git-send-email-_govind@gmx.com>
+	<1423659558-32523-2-git-send-email-_govind@gmx.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, benve@cisco.com, ssujith@cisco.com
+To: _govind@gmx.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f170.google.com ([209.85.192.170]:45229 "EHLO
-	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751742AbbBSTJq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Feb 2015 14:09:46 -0500
-Received: by pdjz10 with SMTP id z10so1711667pdj.12
-        for <netdev@vger.kernel.org>; Thu, 19 Feb 2015 11:09:46 -0800 (PST)
+Received: from shards.monkeyblade.net ([149.20.54.216]:56432 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751801AbbBSTZe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Feb 2015 14:25:34 -0500
+In-Reply-To: <1423659558-32523-2-git-send-email-_govind@gmx.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Reading 64-bits register was not working because we inverted the steps
-between reading the lower 32-bits of the register and reading the upper
-32-bits. Swapping these operations is how the HW guarantees that 64-bits
-reads are latched correctly. We only have a handful of 64-bits registers
-for now, mostly MIB counters, so the imapct is low.
+From: Govindarajulu Varadarajan <_govind@gmx.com>
+Date: Wed, 11 Feb 2015 18:29:17 +0530
 
-Fixes: 246d7f773c13 ("net: dsa: add Broadcom SF2 switch driver")
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- drivers/net/dsa/bcm_sf2.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+> This patch implements frag allocator for rq buffer. This is based on
+> __alloc_page_frag & __page_frag_refill implementation in net/core/skbuff.c
+> 
+> In addition to frag allocation from order(3) page in __alloc_page_frag,
+> we also maintain dma address of the page. While allocating a frag for rx buffer
+> we return va + offset for virtual address of the frag, and pa + offset for
+> dma address of the frag. This reduces the number of calls to dma_map()
+> by 1/3 for 9k mtu and by 1/20 for 1500 mtu.
+> 
+> __alloc_page_frag is limited to max buffer size of PAGE_SIZE, i.e 4096 in most
+> of the cases. So 9k buffer allocation goes through kmalloc which return
+> page of order 2, 16k. We waste 7k bytes for every 9k buffer.
+> 
+> we maintain dma_count variable which is incremented when we allocate a frag.
+> enic_unmap_dma will decrement the dma_count and unmap it when there is no user
+> of that page in rx ring.
+> 
+> This reduces the memory utilization for 9k mtu by 33%.
+> 
+> Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
 
-diff --git a/drivers/net/dsa/bcm_sf2.h b/drivers/net/dsa/bcm_sf2.h
-index ee9f650d5026..7b7053d3c5fa 100644
---- a/drivers/net/dsa/bcm_sf2.h
-+++ b/drivers/net/dsa/bcm_sf2.h
-@@ -105,8 +105,8 @@ static inline u64 name##_readq(struct bcm_sf2_priv *priv, u32 off)	\
- {									\
- 	u32 indir, dir;							\
- 	spin_lock(&priv->indir_lock);					\
--	indir = reg_readl(priv, REG_DIR_DATA_READ);			\
- 	dir = __raw_readl(priv->name + off);				\
-+	indir = reg_readl(priv, REG_DIR_DATA_READ);			\
- 	spin_unlock(&priv->indir_lock);					\
- 	return (u64)indir << 32 | dir;					\
- }									\
--- 
-2.1.0
+This is a nice optimization, but this is definitely useful for other drivers
+rather than just your's.  And there isn't anything that really keeps this from
+being put somewhere generically.
+
+> +#define ENIC_ALLOC_ORDER	PAGE_ALLOC_COSTLY_ORDER
+
+You talk about order(3) but then use PAGE_ALLOC_COSTLY_ORDER, which in
+theory could change in the future.
+
+But, in any event, there is no reason not to use NETDEV_FRAG_PAGE_MAX_ORDER,
+just like __alloc_page_frag() does.
+
+> +struct enic_alloc_cache {
+> +	struct page_frag	frag;
+> +	unsigned int		pagecnt_bias;
+> +	int			dma_count;
+> +	void			*va;
+> +	dma_addr_t		pa;
+> +};
+
+Make this a generic structure, perhaps named something like
+"netdev_dma_alloc_cache".
+
+'pa' is not a good name for a DMA address, because it is not (necessarily)
+a physical address.  It could be a virtual address translated by an IOMMU.
+"dma_addr" is probably therefore a better member name.
+
+In the generic version the driver will have to pass in a pointer to the
+"netdev_dma_alloc_cache".  I would suggest having this embedded in the
+driver per-queue structure rather than being allocated dynamically.
+
+Then you can provide a netdev_dma_alloc_cache_init() the driver can
+call which initializes this embedded object.
+
+> +	ec->pa = pci_map_single(enic->pdev, ec->va, ec->frag.size,
+> +				PCI_DMA_FROMDEVICE);
+
+Next, these need to be converted to dma_*() calls, and the interface
+for netdev_dma_alloc_cache() will need to have a "struct device *"
+argument for these calls.
+
+> @@ -199,6 +200,18 @@ void vnic_rq_clean(struct vnic_rq *rq,
+>  		rq->ring.desc_avail++;
+>  	}
+>  
+> +	if (rq->ec) {
+> +		struct enic *enic = vnic_dev_priv(rq->vdev);
+> +		struct enic_alloc_cache *ec = rq->ec;
+> +
+> +		WARN_ON(ec->dma_count);
+> +		pci_unmap_single(enic->pdev, ec->pa, ec->frag.size,
+> +				 PCI_DMA_FROMDEVICE);
+> +		atomic_sub(ec->pagecnt_bias - 1, &ec->frag.page->_count);
+> +		__free_pages(ec->frag.page, get_order(ec->frag.size));
+> +		kfree(ec);
+> +		rq->ec = NULL;
+> +	}
+>  	/* Use current fetch_index as the ring starting point */
+>  	fetch_index = ioread32(&rq->ctrl->fetch_index);
+>  
+
+Finally, you'll need to define a "netdev_dma_alloc_cache_destroy()"
+function which you'll call from here.
