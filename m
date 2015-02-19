@@ -1,103 +1,154 @@
-From: Michal Simek <monstr@monstr.eu>
-Subject: Re: [PATCH] net: macb: Add big endian CPU support
-Date: Thu, 19 Feb 2015 13:22:56 +0100
-Message-ID: <54E5D5A0.90005@monstr.eu>
-References: <1424258975-28611-1-git-send-email-achandran@mvista.com>
-Reply-To: monstr@monstr.eu
+From: Shahin Ghazinouri <shahin.ghazinouri@pelagicore.com>
+Subject: Possible to support usbnet device with two IN endpoints?
+Date: Thu, 19 Feb 2015 13:53:40 +0100
+Message-ID: <CAKA7KT=4zndqSaPDj+szofMVtth01TbgyJ4uaWTDjO7yaw6=KQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="KBjP6POKA88dW8gpgxGv5Q8rdrDcK3bAt"
-To: Arun Chandran <achandran@mvista.com>,
-	Nicolas Ferre <nicolas.ferre@atmel.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1424258975-28611-1-git-send-email-achandran@mvista.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qc0-f175.google.com ([209.85.216.175]:53437 "EHLO
+	mail-qc0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752472AbbBSMxl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Feb 2015 07:53:41 -0500
+Received: by mail-qc0-f175.google.com with SMTP id b13so5973977qcw.6
+        for <netdev@vger.kernel.org>; Thu, 19 Feb 2015 04:53:40 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---KBjP6POKA88dW8gpgxGv5Q8rdrDcK3bAt
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: quoted-printable
+Hi,
+I'm developing a driver for a USB network device that filters received
+network packets into two separate USB IN endpoints. This means a
+second rx urb has to be allocated and submitted.
 
-On 02/18/2015 12:29 PM, Arun Chandran wrote:
-> This patch converts all __raw_readl and __raw_writel function calls
-> to their corresponding readl_relaxed and writel_relaxed variants.
->=20
-> It also tells the driver to set ahb_endian_swp_mgmt_en bit in dma_cfg
-> when the CPU is configured in big endian mode.
->=20
-> Signed-off-by: Arun Chandran <achandran@mvista.com>
-> ---
-> 	This patch is tested on xilinx ZC702 evaluation board with
-> 	CONFIG_CPU_BIG_ENDIAN=3Dy and booting NFS rootfs
-> ---
-> ---
->  drivers/net/ethernet/cadence/macb.c | 18 ++++++++++++------
->  drivers/net/ethernet/cadence/macb.h | 15 ++++++++-------
->  2 files changed, 20 insertions(+), 13 deletions(-)
->=20
-> diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet=
-/cadence/macb.c
-> index ad76b8e..05fb36d 100644
-> --- a/drivers/net/ethernet/cadence/macb.c
-> +++ b/drivers/net/ethernet/cadence/macb.c
-> @@ -449,7 +449,7 @@ static void macb_update_stats(struct macb *bp)
->  	WARN_ON((unsigned long)(end - p - 1) !=3D (MACB_TPF - MACB_PFR) / 4);=
+Right now, the implementation relies on patching usbnet.c (see below),
+so that a second urb is allocated and rx_submit_fixup is called in
+addition to rx_submit. This function is a copy of rx_submit, except it
+submits an urb to receive data from the second endpoint.
 
-> =20
->  	for(; p < end; p++, reg++)
-> -		*p +=3D __raw_readl(reg);
-> +		*p +=3D readl_relaxed(reg);
->  }
-> =20
->  static int macb_halt_tx(struct macb *bp)
-> @@ -1585,7 +1585,11 @@ static void macb_configure_dma(struct macb *bp)
->  		if (bp->dma_burst_length)
->  			dmacfg =3D GEM_BFINS(FBLDO, bp->dma_burst_length, dmacfg);
->  		dmacfg |=3D GEM_BIT(TXPBMS) | GEM_BF(RXBMS, -1L);
-> -		dmacfg &=3D ~GEM_BIT(ENDIA);
-> +		dmacfg &=3D ~GEM_BIT(ENDIA_PKT);
-> +		/* Tell the chip to byteswap descriptors on big-endian hosts */
-> +#ifdef __BIG_ENDIAN
-> +		dmacfg |=3D GEM_BIT(ENDIA_DESC);
-> +#endif
+Since I don't think this patch is a good idea, I would appreciate any
+ideas on how to support a usbnet device with two IN endpoints within
+the current framework.
 
-I don't think this is the best way what you should do.
-Instead of having this ifdef here you should find out any reg and detect =
-if the IP
-is in big endian or little endian mode. I have done it for some xilinx IP=
-s which
-can run on big or little endian system.
-In general find reg which some field which has some meaning - write there=
- 1
-and read expected value and based on that decide if you are on big or lit=
-tle endian system.
+Kind regards,
+Shahin
 
-Thanks,
-Michal
+diff -Naur a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
+--- a/drivers/net/usb/usbnet.c 2014-11-03 21:49:29.000000000 +0100
++++ b/drivers/net/usb/usbnet.c 2014-11-05 11:13:37.824809365 +0100
+@@ -1068,30 +1070,65 @@
+  }
+  }
 
---=20
-Michal Simek, Ing. (M.Eng), OpenPGP -> KeyID: FE3D1F91
-w: www.monstr.eu p: +42-0-721842854
-Maintainer of Linux kernel - Microblaze cpu - http://www.monstr.eu/fdt/
-Maintainer of Linux kernel - Xilinx Zynq ARM architecture
-Microblaze U-BOOT custodian and responsible for u-boot arm zynq platform
+- /* tasklet could resubmit itself forever if memory is tight */
+- if (test_bit (EVENT_RX_MEMORY, &dev->flags)) {
+- struct urb *urb = NULL;
+- int resched = 1;
+-
+- if (netif_running (dev->net))
+- urb = usb_alloc_urb (0, GFP_KERNEL);
+- else
+- clear_bit (EVENT_RX_MEMORY, &dev->flags);
+- if (urb != NULL) {
+- clear_bit (EVENT_RX_MEMORY, &dev->flags);
+- status = usb_autopm_get_interface(dev->intf);
+- if (status < 0) {
+- usb_free_urb(urb);
+- goto fail_lowmem;
+- }
+- if (rx_submit (dev, urb, GFP_KERNEL) == -ENOLINK)
+- resched = 0;
+- usb_autopm_put_interface(dev->intf);
++    if(!dev->driver_info->rx_submit_fixup)
++    {
++        /* tasklet could resubmit itself forever if memory is tight */
++        if (test_bit (EVENT_RX_MEMORY, &dev->flags)) {
++            struct urb *urb = NULL;
++            int resched = 1;
++
++            if (netif_running (dev->net))
++                urb = usb_alloc_urb (0, GFP_KERNEL);
++            else
++                clear_bit (EVENT_RX_MEMORY, &dev->flags);
++            if (urb != NULL) {
++                clear_bit (EVENT_RX_MEMORY, &dev->flags);
++                status = usb_autopm_get_interface(dev->intf);
++                if (status < 0) {
++                    usb_free_urb(urb);
++                    goto fail_lowmem;
++                }
++                if (rx_submit (dev, urb, GFP_KERNEL) == -ENOLINK)
++                    resched = 0;
++                usb_autopm_put_interface(dev->intf);
+ fail_lowmem:
+- if (resched)
+- tasklet_schedule (&dev->bh);
+- }
+- }
++                if (resched)
++                    tasklet_schedule (&dev->bh);
++            }
++        }
++    }
++    else
++    {
++        /* tasklet could resubmit itself forever if memory is tight */
++        if (test_bit (EVENT_RX_MEMORY, &dev->flags)) {
++            struct urb *urb = NULL;
++            int resched = 1;
++            struct urb *aux_urb = NULL;
++            if (netif_running (dev->net))
++            {
++                urb = usb_alloc_urb (0, GFP_KERNEL);
++                aux_urb = usb_alloc_urb (0, GFP_KERNEL);
++            }
++            else
++                clear_bit (EVENT_RX_MEMORY, &dev->flags);
++            if ( (urb != NULL) && (aux_urb != NULL) ) {
++                clear_bit (EVENT_RX_MEMORY, &dev->flags);
++                status = usb_autopm_get_interface(dev->intf);
++                if (status < 0) {
++                    usb_free_urb(urb);
++                    usb_free_urb(aux_urb);
++                    goto fail_lowmem_1;
++                }
++                if ( (rx_submit (dev, urb, GFP_KERNEL) == -ENOLINK)
++                        || (dev->driver_info->rx_submit_fixup (dev,
+aux_urb, GFP_KERNEL) == -ENOLINK) )
++                    resched = 0;
++                usb_autopm_put_interface(dev->intf);
++fail_lowmem_1:
++                if (resched)
++                    tasklet_schedule (&dev->bh);
++            }
++        }
++    }
 
+  if (test_bit (EVENT_LINK_RESET, &dev->flags)) {
+  struct driver_info *info = dev->driver_info;
+@@ -1313,6 +1350,7 @@
+  struct urb *urb;
+  int i;
+  int ret = 0;
++    struct urb *aux_urb;
 
-
---KBjP6POKA88dW8gpgxGv5Q8rdrDcK3bAt
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-
-iEYEARECAAYFAlTl1aYACgkQykllyylKDCFEYQCfY+xeL7r0iarjTE+KOYl523+v
-7BMAn0YY5o6jHF/pRd0jCfiEyhD4nrpW
-=eV/j
------END PGP SIGNATURE-----
-
---KBjP6POKA88dW8gpgxGv5Q8rdrDcK3bAt--
+  /* don't refill the queue all at once */
+  for (i = 0; i < 10 && dev->rxq.qlen < RX_QLEN(dev); i++) {
+@@ -1325,6 +1363,18 @@
+  ret = -ENOMEM;
+  goto err;
+  }
++        if(dev->driver_info->rx_submit_fixup)
++        {
++            aux_urb = usb_alloc_urb(0, flags);
++            if (aux_urb != NULL) {
++                ret = dev->driver_info->rx_submit_fixup(dev, aux_urb, flags);
++                if (ret)
++                    goto err;
++            } else {
++                ret = -ENOMEM;
++                goto err;
++            }
++        }
+  }
+ err:
+  return ret;
