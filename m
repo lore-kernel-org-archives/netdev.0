@@ -1,107 +1,104 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 1/2] enic: implement frag allocator
-Date: Thu, 19 Feb 2015 14:25:31 -0500 (EST)
-Message-ID: <20150219.142531.1581772172061951693.davem@davemloft.net>
-References: <1423659558-32523-1-git-send-email-_govind@gmx.com>
-	<1423659558-32523-2-git-send-email-_govind@gmx.com>
+From: Arvid Brodin <arvid.brodin@alten.se>
+Subject: [PATCH net] net/hsr: Fix NULL pointer dereference and refcnt bugs
+ when deleting a HSR interface.
+Date: Thu, 19 Feb 2015 20:22:38 +0100
+Message-ID: <54E637FE.5030601@alten.se>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, benve@cisco.com, ssujith@cisco.com
-To: _govind@gmx.com
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: Arvid Brodin <arvid.brodin@alten.se>,
+	David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56432 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751801AbbBSTZe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Feb 2015 14:25:34 -0500
-In-Reply-To: <1423659558-32523-2-git-send-email-_govind@gmx.com>
+Received: from spam1.webland.se ([91.207.112.90]:60653 "EHLO spam1.webland.se"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752398AbbBSTaj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Feb 2015 14:30:39 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Govindarajulu Varadarajan <_govind@gmx.com>
-Date: Wed, 11 Feb 2015 18:29:17 +0530
+How to repeat:
 
-> This patch implements frag allocator for rq buffer. This is based on
-> __alloc_page_frag & __page_frag_refill implementation in net/core/skbuff.c
-> 
-> In addition to frag allocation from order(3) page in __alloc_page_frag,
-> we also maintain dma address of the page. While allocating a frag for rx buffer
-> we return va + offset for virtual address of the frag, and pa + offset for
-> dma address of the frag. This reduces the number of calls to dma_map()
-> by 1/3 for 9k mtu and by 1/20 for 1500 mtu.
-> 
-> __alloc_page_frag is limited to max buffer size of PAGE_SIZE, i.e 4096 in most
-> of the cases. So 9k buffer allocation goes through kmalloc which return
-> page of order 2, 16k. We waste 7k bytes for every 9k buffer.
-> 
-> we maintain dma_count variable which is incremented when we allocate a frag.
-> enic_unmap_dma will decrement the dma_count and unmap it when there is no user
-> of that page in rx ring.
-> 
-> This reduces the memory utilization for 9k mtu by 33%.
-> 
-> Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
+$ sudo ip link add hsr0 type hsr slave1 <if1> slave2 <if2>
+$ sudo ip link del hsr0
+BUG: unable to handle kernel NULL pointer dereference at 00000000000000=
+18
+IP: [<ffffffff8187f495>] hsr_del_port+0x15/0xa0
+etc...
 
-This is a nice optimization, but this is definitely useful for other drivers
-rather than just your's.  And there isn't anything that really keeps this from
-being put somewhere generically.
+Reported-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+=46ixes: 51f3c605318b056a ("net/hsr: Move slave init to hsr_slave.c.")
+Signed-off-by: Arvid Brodin <arvid.brodin@alten.se>
+---
+ net/hsr/hsr_device.c |  3 +++
+ net/hsr/hsr_main.c   |  4 ++++
+ net/hsr/hsr_slave.c  | 10 +++++++---
+ 3 files changed, 14 insertions(+), 3 deletions(-)
 
-> +#define ENIC_ALLOC_ORDER	PAGE_ALLOC_COSTLY_ORDER
+diff --git a/net/hsr/hsr_device.c b/net/hsr/hsr_device.c
+index a138d75..44d2746 100644
+--- a/net/hsr/hsr_device.c
++++ b/net/hsr/hsr_device.c
+@@ -359,8 +359,11 @@ static void hsr_dev_destroy(struct net_device *hsr=
+_dev)
+ 	struct hsr_port *port;
+=20
+ 	hsr =3D netdev_priv(hsr_dev);
++
++	rtnl_lock();
+ 	hsr_for_each_port(hsr, port)
+ 		hsr_del_port(port);
++	rtnl_unlock();
+=20
+ 	del_timer_sync(&hsr->prune_timer);
+ 	del_timer_sync(&hsr->announce_timer);
+diff --git a/net/hsr/hsr_main.c b/net/hsr/hsr_main.c
+index 779d28b..cd37d00 100644
+--- a/net/hsr/hsr_main.c
++++ b/net/hsr/hsr_main.c
+@@ -36,6 +36,10 @@ static int hsr_netdev_notify(struct notifier_block *=
+nb, unsigned long event,
+ 			return NOTIFY_DONE;	/* Not an HSR device */
+ 		hsr =3D netdev_priv(dev);
+ 		port =3D hsr_port_get_hsr(hsr, HSR_PT_MASTER);
++		if (port =3D=3D NULL) {
++			/* Resend of notification concerning removed device? */
++			return NOTIFY_DONE;
++		}
+ 	} else {
+ 		hsr =3D port->hsr;
+ 	}
+diff --git a/net/hsr/hsr_slave.c b/net/hsr/hsr_slave.c
+index a348dcb..7d37366 100644
+--- a/net/hsr/hsr_slave.c
++++ b/net/hsr/hsr_slave.c
+@@ -181,8 +181,10 @@ void hsr_del_port(struct hsr_port *port)
+ 	list_del_rcu(&port->port_list);
+=20
+ 	if (port !=3D master) {
+-		netdev_update_features(master->dev);
+-		dev_set_mtu(master->dev, hsr_get_max_mtu(hsr));
++		if (master !=3D NULL) {
++			netdev_update_features(master->dev);
++			dev_set_mtu(master->dev, hsr_get_max_mtu(hsr));
++		}
+ 		netdev_rx_handler_unregister(port->dev);
+ 		dev_set_promiscuity(port->dev, -1);
+ 	}
+@@ -192,5 +194,7 @@ void hsr_del_port(struct hsr_port *port)
+ 	 */
+=20
+ 	synchronize_rcu();
+-	dev_put(port->dev);
++
++	if (port !=3D master)
++		dev_put(port->dev);
+ }
+--=20
+2.0.4
 
-You talk about order(3) but then use PAGE_ALLOC_COSTLY_ORDER, which in
-theory could change in the future.
-
-But, in any event, there is no reason not to use NETDEV_FRAG_PAGE_MAX_ORDER,
-just like __alloc_page_frag() does.
-
-> +struct enic_alloc_cache {
-> +	struct page_frag	frag;
-> +	unsigned int		pagecnt_bias;
-> +	int			dma_count;
-> +	void			*va;
-> +	dma_addr_t		pa;
-> +};
-
-Make this a generic structure, perhaps named something like
-"netdev_dma_alloc_cache".
-
-'pa' is not a good name for a DMA address, because it is not (necessarily)
-a physical address.  It could be a virtual address translated by an IOMMU.
-"dma_addr" is probably therefore a better member name.
-
-In the generic version the driver will have to pass in a pointer to the
-"netdev_dma_alloc_cache".  I would suggest having this embedded in the
-driver per-queue structure rather than being allocated dynamically.
-
-Then you can provide a netdev_dma_alloc_cache_init() the driver can
-call which initializes this embedded object.
-
-> +	ec->pa = pci_map_single(enic->pdev, ec->va, ec->frag.size,
-> +				PCI_DMA_FROMDEVICE);
-
-Next, these need to be converted to dma_*() calls, and the interface
-for netdev_dma_alloc_cache() will need to have a "struct device *"
-argument for these calls.
-
-> @@ -199,6 +200,18 @@ void vnic_rq_clean(struct vnic_rq *rq,
->  		rq->ring.desc_avail++;
->  	}
->  
-> +	if (rq->ec) {
-> +		struct enic *enic = vnic_dev_priv(rq->vdev);
-> +		struct enic_alloc_cache *ec = rq->ec;
-> +
-> +		WARN_ON(ec->dma_count);
-> +		pci_unmap_single(enic->pdev, ec->pa, ec->frag.size,
-> +				 PCI_DMA_FROMDEVICE);
-> +		atomic_sub(ec->pagecnt_bias - 1, &ec->frag.page->_count);
-> +		__free_pages(ec->frag.page, get_order(ec->frag.size));
-> +		kfree(ec);
-> +		rq->ec = NULL;
-> +	}
->  	/* Use current fetch_index as the ring starting point */
->  	fetch_index = ioread32(&rq->ctrl->fetch_index);
->  
-
-Finally, you'll need to define a "netdev_dma_alloc_cache_destroy()"
-function which you'll call from here.
+--=20
+Arvid Brodin | Consultant (Linux)
+ALTEN | Knarrarn=E4sgatan 7 | SE-164 40 Kista | Sweden
+arvid.brodin@alten.se | www.alten.se/en/
