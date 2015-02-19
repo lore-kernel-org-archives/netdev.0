@@ -1,42 +1,42 @@
-From: Robert Jarzmik <robert.jarzmik@free.fr>
-Subject: Re: [PATCH] Revert "smc91x: retrieve IRQ and trigger flags in a modern way"
-Date: Thu, 19 Feb 2015 21:48:49 +0100
-Message-ID: <87egpl8w5q.fsf@free.fr>
-References: <1423760350-20149-1-git-send-email-robert.jarzmik@free.fr>
-	<CACRpkdZGze_2=hWe414Eum_9hpNXgog5vmu6Y4R_zhg0x2z0SQ@mail.gmail.com>
-	<87bnkx6bja.fsf@free.fr>
-	<20150219.152841.891912250243016754.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/2] Indirect phy access for mv88e6171
+Date: Thu, 19 Feb 2015 15:54:25 -0500 (EST)
+Message-ID: <20150219.155425.1540670407178942108.davem@davemloft.net>
+References: <1423937871-9180-1-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: linus.walleij@linaro.org, nico@fluxnic.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150219.152841.891912250243016754.davem@davemloft.net> (David
-	Miller's message of "Thu, 19 Feb 2015 15:28:41 -0500 (EST)")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux@roeck-us.net, netdev@vger.kernel.org
+To: andrew@lunn.ch
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:57682 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752004AbbBSUy1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Feb 2015 15:54:27 -0500
+In-Reply-To: <1423937871-9180-1-git-send-email-andrew@lunn.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> writes:
+From: Andrew Lunn <andrew@lunn.ch>
+Date: Sat, 14 Feb 2015 19:17:49 +0100
 
->> Now if you can make it in -rc2 or -rc3, this revert should be forgotten. But if
->> you can't make it for 3.20, I'll push for the revert.
->> 
->> So I think it's up to you now, and let's see what Gregh says about it.
->
-> What is the current status of this?  I'd like to see this move forward so we
-> can get this fixed ASAP.
-Hi David,
+> These two patches allow the mv88e6171 driver to access the port phys
+> using indirect addressing. Depending on pin strapping, the switch
+> either uses a single address on the host MDIO bus, requiring the port
+> phys are accessed indirectly, or the switch uses a number of addresses
+> on the host bus and the phys can be directly accessed.
+> 
+> The 370RD, the first supported platform to use the 6171 uses multiple
+> addresses, so this indirect mode was not required. However the
+> WRT1900AC has the switch configured to use a single address, and so
+> indirect access is needed.
+> 
+> The mv88e6352 already has all the needed code. Refactor it into the
+> shared mv88e6xxx and then use it in the mv88e6171 driver.
+> 
+> Tested on the 370RD and WRT1900AC.
+> 
+> It would be good if Guenter Roeck could test on his platform to ensure
+> i've not broken anything for the mv88e6352.
 
-Linus has submitted the patch [1]. I'll be watching carefully until -rc4 that
-this is applied. If it's not, I'll reping you to apply this revert. Until then,
-you can forget about it, I'll do the follow-up.
-
-Does that plan sound good to you ?
-
-Cheers.
-
--- 
-Robert
-
-[1] https://lkml.org/lkml/2015/2/18/310
+Series applied, thanks.
