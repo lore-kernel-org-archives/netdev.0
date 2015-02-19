@@ -1,104 +1,46 @@
-From: Arvid Brodin <arvid.brodin@alten.se>
-Subject: [PATCH net] net/hsr: Fix NULL pointer dereference and refcnt bugs
- when deleting a HSR interface.
-Date: Thu, 19 Feb 2015 20:22:38 +0100
-Message-ID: <54E637FE.5030601@alten.se>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v5] Add support of Cavium Liquidio ethernet
+ adapters
+Date: Thu, 19 Feb 2015 14:36:10 -0500 (EST)
+Message-ID: <20150219.143610.1038570471548445608.davem@davemloft.net>
+References: <BY2PR07MB4869D030A180D0147F3580AFE380@BY2PR07MB486.namprd07.prod.outlook.com>
+	<1423704042-4026-1-git-send-email-rvatsavayi@caviumnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: Arvid Brodin <arvid.brodin@alten.se>,
-	David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, derek.chickles@caviumnetworks.com,
+	satananda.burla@caviumnetworks.com,
+	felix.manlunas@caviumnetworks.com,
+	raghu.vatsavayi@caviumnetworks.com
+To: rvatsavayi@caviumnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from spam1.webland.se ([91.207.112.90]:60653 "EHLO spam1.webland.se"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752398AbbBSTaj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Feb 2015 14:30:39 -0500
+Received: from shards.monkeyblade.net ([149.20.54.216]:56626 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752808AbbBSTgN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Feb 2015 14:36:13 -0500
+In-Reply-To: <1423704042-4026-1-git-send-email-rvatsavayi@caviumnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-How to repeat:
+From: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>
+Date: Wed, 11 Feb 2015 17:20:42 -0800
 
-$ sudo ip link add hsr0 type hsr slave1 <if1> slave2 <if2>
-$ sudo ip link del hsr0
-BUG: unable to handle kernel NULL pointer dereference at 00000000000000=
-18
-IP: [<ffffffff8187f495>] hsr_del_port+0x15/0xa0
-etc...
+> +	uint32_t val;
 
-Reported-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-=46ixes: 51f3c605318b056a ("net/hsr: Move slave init to hsr_slave.c.")
-Signed-off-by: Arvid Brodin <arvid.brodin@alten.se>
----
- net/hsr/hsr_device.c |  3 +++
- net/hsr/hsr_main.c   |  4 ++++
- net/hsr/hsr_slave.c  | 10 +++++++---
- 3 files changed, 14 insertions(+), 3 deletions(-)
+uint32_t, uint64_t, etc. are userspace types, and inside the kernel
+one should canonically use u32, u64, etc.
 
-diff --git a/net/hsr/hsr_device.c b/net/hsr/hsr_device.c
-index a138d75..44d2746 100644
---- a/net/hsr/hsr_device.c
-+++ b/net/hsr/hsr_device.c
-@@ -359,8 +359,11 @@ static void hsr_dev_destroy(struct net_device *hsr=
-_dev)
- 	struct hsr_port *port;
-=20
- 	hsr =3D netdev_priv(hsr_dev);
-+
-+	rtnl_lock();
- 	hsr_for_each_port(hsr, port)
- 		hsr_del_port(port);
-+	rtnl_unlock();
-=20
- 	del_timer_sync(&hsr->prune_timer);
- 	del_timer_sync(&hsr->announce_timer);
-diff --git a/net/hsr/hsr_main.c b/net/hsr/hsr_main.c
-index 779d28b..cd37d00 100644
---- a/net/hsr/hsr_main.c
-+++ b/net/hsr/hsr_main.c
-@@ -36,6 +36,10 @@ static int hsr_netdev_notify(struct notifier_block *=
-nb, unsigned long event,
- 			return NOTIFY_DONE;	/* Not an HSR device */
- 		hsr =3D netdev_priv(dev);
- 		port =3D hsr_port_get_hsr(hsr, HSR_PT_MASTER);
-+		if (port =3D=3D NULL) {
-+			/* Resend of notification concerning removed device? */
-+			return NOTIFY_DONE;
-+		}
- 	} else {
- 		hsr =3D port->hsr;
- 	}
-diff --git a/net/hsr/hsr_slave.c b/net/hsr/hsr_slave.c
-index a348dcb..7d37366 100644
---- a/net/hsr/hsr_slave.c
-+++ b/net/hsr/hsr_slave.c
-@@ -181,8 +181,10 @@ void hsr_del_port(struct hsr_port *port)
- 	list_del_rcu(&port->port_list);
-=20
- 	if (port !=3D master) {
--		netdev_update_features(master->dev);
--		dev_set_mtu(master->dev, hsr_get_max_mtu(hsr));
-+		if (master !=3D NULL) {
-+			netdev_update_features(master->dev);
-+			dev_set_mtu(master->dev, hsr_get_max_mtu(hsr));
-+		}
- 		netdev_rx_handler_unregister(port->dev);
- 		dev_set_promiscuity(port->dev, -1);
- 	}
-@@ -192,5 +194,7 @@ void hsr_del_port(struct hsr_port *port)
- 	 */
-=20
- 	synchronize_rcu();
--	dev_put(port->dev);
-+
-+	if (port !=3D master)
-+		dev_put(port->dev);
- }
---=20
-2.0.4
+Please update your entire driver wrt. this issue.
 
---=20
-Arvid Brodin | Consultant (Linux)
-ALTEN | Knarrarn=E4sgatan 7 | SE-164 40 Kista | Sweden
-arvid.brodin@alten.se | www.alten.se/en/
+> +	pci_unmap_single(lio->oct_dev->pci_dev, finfo->dptr, skb->len,
+> +			 PCI_DMA_TODEVICE);
+
+Please use the dma_*() variants of the DMA interfaces for which you
+will pass in a reference to the struct device embedded in the pci_dev.
+
+This will allow you to later make use of various generic facilities
+we will build for DMA mapping SKBs in the networking, allocating
+networknig page frags, etc.
+
+And even more importantly, the pci_*() variants are slowly being
+phased out and deprecated.
