@@ -1,36 +1,37 @@
-From: rapier <rapier@psc.edu>
-Subject: TCP Stack Instrumentation Mailing List
-Date: Thu, 19 Feb 2015 17:26:39 -0500
-Message-ID: <54E6631F.2040908@psc.edu>
+From: Thomas Graf <tgraf@noironetworks.com>
+Subject: Re: [ovs-dev] [PATCH net] openvswitch: Fix net exit.
+Date: Fri, 20 Feb 2015 00:24:46 +0100
+Message-ID: <20150219232446.GD29571@pox.localdomain>
+References: <1424200990-1558-1-git-send-email-pshelar@nicira.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, dev@openvswitch.org, netdev@vger.kernel.org,
+	amuller@redhat.com
+To: Pravin B Shelar <pshelar@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailer1.psc.edu ([128.182.58.100]:58427 "EHLO mailer1.psc.edu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752134AbbBSW0k (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Feb 2015 17:26:40 -0500
-Received: from iztli.psc.edu (iztli.psc.edu [128.182.160.106])
-	(authenticated bits=0)
-	by mailer1.psc.edu (8.13.8/8.13.8) with ESMTP id t1JMQd6i027467
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES128-SHA bits=128 verify=NO)
-	for <netdev@vger.kernel.org>; Thu, 19 Feb 2015 17:26:39 -0500
+Received: from mail-wi0-f181.google.com ([209.85.212.181]:35133 "EHLO
+	mail-wi0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751681AbbBSXYu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Feb 2015 18:24:50 -0500
+Received: by mail-wi0-f181.google.com with SMTP id r20so12670415wiv.2
+        for <netdev@vger.kernel.org>; Thu, 19 Feb 2015 15:24:49 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1424200990-1558-1-git-send-email-pshelar@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-All,
+On 02/17/15 at 11:23am, Pravin B Shelar wrote:
+> Open vSwitch allows moving internal vport to different namespace
+> while still connected to the bridge. But when namespace deleted
+> OVS does not detach these vports, that results in dangling
+> pointer to netdevice which causes kernel panic as follows.
+> This issue is fixed by detaching all ovs ports from the deleted
+> namespace at net-exit.
 
-At the recent NetDev conference we had BoF on TCP stack instrumentation. 
-The general consensus is that it's a good idea and worth pursuing. We've 
-decided to start a mailing list to discuss design goals and 
-implementation. If you have any interest in what's happening in the 
-stack, ideas, and/or would like to help out you can join at
+[...]
 
-tcpinst-wg@psc.edu
-or
-https://lists.psc.edu/mailman/listinfo/tcpinst-wg
+> Reported-by: Assaf Muller <amuller@redhat.com>
+> Fixes: 46df7b81454("openvswitch: Add support for network namespaces.")
+> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
 
-Thanks!
-
-Chris
+Reviewed-by: Thomas Graf <tgraf@noironetworks.com>
