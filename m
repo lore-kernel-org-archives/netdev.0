@@ -1,59 +1,58 @@
-From: "Chickles, Derek" <Derek.Chickles@caviumnetworks.com>
-Subject: RE: [PATCH net-next v5] Add support of Cavium Liquidio ethernet
- adapters
-Date: Thu, 19 Feb 2015 20:44:11 +0000
-Message-ID: <BY2PR07MB486BB911FB76C60D322131AFE2D0@BY2PR07MB486.namprd07.prod.outlook.com>
-References: <BY2PR07MB4869D030A180D0147F3580AFE380@BY2PR07MB486.namprd07.prod.outlook.com>
-	<1423704042-4026-1-git-send-email-rvatsavayi@caviumnetworks.com>
- <20150219.143610.1038570471548445608.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Burla, Satananda" <Satananda.Burla@caviumnetworks.com>,
-	"Manlunas, Felix" <Felix.Manlunas@caviumnetworks.com>,
-	"Vatsavayi, Raghu" <Raghu.Vatsavayi@caviumnetworks.com>
-To: David Miller <davem@davemloft.net>,
-	"Vatsavayi, Raghu" <Raghu.Vatsavayi@caviumnetworks.com>
+From: Jay Vosburgh <jay.vosburgh@canonical.com>
+Subject: Re: [PATCH next v5 4/6] bonding: Allow userspace to set actors' system_priority in AD system
+Date: Thu, 19 Feb 2015 13:06:29 -0800
+Message-ID: <9036.1424379989@famine>
+References: <1424298685-18394-1-git-send-email-maheshb@google.com>
+Cc: Andy Gospodarek <andy@greyhouse.net>,
+	Veaceslav Falico <vfalico@gmail.com>,
+	Nikolay Aleksandrov <nikolay@redhat.com>,
+	David Miller <davem@davemloft.net>,
+	Maciej Zenczykowski <maze@google.com>,
+	netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>
+To: Mahesh Bandewar <maheshb@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2on0073.outbound.protection.outlook.com ([65.55.169.73]:32611
-	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752004AbbBSU7a convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Feb 2015 15:59:30 -0500
-In-Reply-To: <20150219.143610.1038570471548445608.davem@davemloft.net>
-Content-Language: en-US
+Received: from youngberry.canonical.com ([91.189.89.112]:41349 "EHLO
+	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752485AbbBSVGh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Feb 2015 16:06:37 -0500
+In-reply-to: <1424298685-18394-1-git-send-email-maheshb@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Thursday, February 19, 2015 11:36 AM
-> To: Vatsavayi, Raghu
-> Cc: netdev@vger.kernel.org; Chickles, Derek; Burla, Satananda; Manlunas,
-> Felix; Vatsavayi, Raghu
-> Subject: Re: [PATCH net-next v5] Add support of Cavium Liquidio ethernet
-> adapters
-> 
-> From: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>
-> Date: Wed, 11 Feb 2015 17:20:42 -0800
-> 
-> > +	pci_unmap_single(lio->oct_dev->pci_dev, finfo->dptr, skb->len,
-> > +			 PCI_DMA_TODEVICE);
-> 
-> Please use the dma_*() variants of the DMA interfaces for which you
-> will pass in a reference to the struct device embedded in the pci_dev.
-> 
-> This will allow you to later make use of various generic facilities
-> we will build for DMA mapping SKBs in the networking, allocating
-> networknig page frags, etc.
-> 
+Mahesh Bandewar <maheshb@google.com> wrote:
 
-You said you *will* be building these facilities. Are there any now
-that we can take advantage of? (We'll move to the dma_* variants
-regardless.)
+>This patch allows user to randomize the system-priority in an ad-system.
+>The allowed range is 1 - 0xFFFF while default value is 0xFFFF. If user
+>does not specify this value, the system defaults to 0xFFFF, which is
+>what it was before this patch.
+>
+>Following example code could set the value -
+>    # modprobe bonding mode=4
+>    # sys_prio=$(( 1 + RANDOM + RANDOM ))
+>    # echo $sys_prio > /sys/class/net/bond0/bonding/ad_actor_sys_prio
+>    # echo +eth1 > /sys/class/net/bond0/bonding/slaves
+>    ...
+>    # ip link set bond0 up
+>
+>Signed-off-by: Mahesh Bandewar <maheshb@google.com>
 
-Also, do you have any remaining style / global comments that we should
-address?
+	Mahesh: Andy and I got together at netdev01 and discussed the
+patches of this series that add options to sysfs for bonding (patches 4,
+5 and 6).  In summary, in my opinion a netlink / iproute2 interface
+needs to be provided simultaneously with any new sysfs interface for
+bonding.  I realize that the sysfs api to bonding won't go away, but
+nevertheless users should be encouraged to use netlink preferentially.
+Providing the api pieces together encourages this.
 
-Thanks,
-Derek
+	As it happens, Andy mentioned that he has patches similar to
+these three, but with the netlink portion already implemented.
+
+	My suggestion here is therefore for Andy to post his patches,
+and then we can merge these together, and get this implemented properly
+with a minimum of duplicated effort.
+
+	-J
+
+---
+	-Jay Vosburgh, jay.vosburgh@canonical.com
