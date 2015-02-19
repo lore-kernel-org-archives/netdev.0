@@ -1,205 +1,59 @@
-From: roopa <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH 1/1] tun: change speed from 10M to dynamically configured
-Date: Thu, 19 Feb 2015 12:56:25 -0800
-Message-ID: <54E64DF9.8070606@cumulusnetworks.com>
-References: <1423808353-8722-1-git-send-email-Yanjun.Zhu@windriver.com> <1423808353-8722-2-git-send-email-Yanjun.Zhu@windriver.com> <20150213212830.GA29912@electric-eye.fr.zoreil.com> <54E1568D.5000100@windriver.com> <20150216120345.4dfd9950@uryu.home.lan>
+From: "Chickles, Derek" <Derek.Chickles@caviumnetworks.com>
+Subject: RE: [PATCH net-next v5] Add support of Cavium Liquidio ethernet
+ adapters
+Date: Thu, 19 Feb 2015 20:44:11 +0000
+Message-ID: <BY2PR07MB486BB911FB76C60D322131AFE2D0@BY2PR07MB486.namprd07.prod.outlook.com>
+References: <BY2PR07MB4869D030A180D0147F3580AFE380@BY2PR07MB486.namprd07.prod.outlook.com>
+	<1423704042-4026-1-git-send-email-rvatsavayi@caviumnetworks.com>
+ <20150219.143610.1038570471548445608.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: yzhu1 <Yanjun.Zhu@windriver.com>,
-	Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org,
-	mst@redhat.com, jasowang@redhat.com, viro@zeniv.linux.org.uk,
-	davem@davemloft.net, sergei.shtylyov@cogentembedded.com,
-	jonathon.reinhart@gmail.com
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Burla, Satananda" <Satananda.Burla@caviumnetworks.com>,
+	"Manlunas, Felix" <Felix.Manlunas@caviumnetworks.com>,
+	"Vatsavayi, Raghu" <Raghu.Vatsavayi@caviumnetworks.com>
+To: David Miller <davem@davemloft.net>,
+	"Vatsavayi, Raghu" <Raghu.Vatsavayi@caviumnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:43423 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753445AbbBSU41 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Feb 2015 15:56:27 -0500
-Received: by paceu11 with SMTP id eu11so2405689pac.10
-        for <netdev@vger.kernel.org>; Thu, 19 Feb 2015 12:56:27 -0800 (PST)
-In-Reply-To: <20150216120345.4dfd9950@uryu.home.lan>
+Received: from mail-bl2on0073.outbound.protection.outlook.com ([65.55.169.73]:32611
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752004AbbBSU7a convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Feb 2015 15:59:30 -0500
+In-Reply-To: <20150219.143610.1038570471548445608.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2/16/15, 9:03 AM, Stephen Hemminger wrote:
-> I would like to propose this is as a more complete alternative.
->
-> From: Stephen Hemminger <stephen@networkpluber.org>
-> Subject: [PATCH] tun: support overriding ethtool information
->
-> Extensions to allow masqurade of ethtool info and device statistics.
-> This is useful to provide correct information to SNMP and OSPF routing
-> daemons when doing hw/sw offload of network device.
->
-> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
->
-> ---
->   drivers/net/tun.c              | 139 +++++++++++++++++++++++++++++++++++++----
->   include/uapi/linux/if_tunnel.h |   9 +++
->   2 files changed, 135 insertions(+), 13 deletions(-)
->
-> --- a/drivers/net/tun.c	2015-02-16 11:58:00.651506008 -0500
-> +++ b/drivers/net/tun.c	2015-02-16 11:59:15.560842558 -0500
-> @@ -60,6 +60,7 @@
->   #include <linux/if_arp.h>
->   #include <linux/if_ether.h>
->   #include <linux/if_tun.h>
-> +#include <linux/if_tunnel.h>
->   #include <linux/if_vlan.h>
->   #include <linux/crc32.h>
->   #include <linux/nsproxy.h>
-> @@ -204,6 +205,9 @@ struct tun_struct {
->   	struct list_head disabled;
->   	void *security;
->   	u32 flow_count;
-> +	u8 duplex;
-> +	u32 speed;
-> +	struct ip_tunnel_info	info;
->   };
->   
->   static inline u16 tun16_to_cpu(struct tun_struct *tun, __virtio16 val)
-> @@ -866,6 +870,33 @@ static netdev_features_t tun_net_fix_fea
->   
->   	return (features & tun->set_features) | (features & ~TUN_USER_FEATURES);
->   }
-> +
-> +static int
-> +tun_net_set_info(struct net_device *dev, const void __user *data)
-> +{
-> +	struct tun_struct *tun = netdev_priv(dev);
-> +	struct ip_tunnel_info info;
-> +
-> +	if (!capable(CAP_NET_ADMIN))
-> +		return -EPERM;
-> +
-> +	if (copy_from_user(&info, data, sizeof(info)))
-> +		return -EFAULT;
-> +
-> +	strlcpy(tun->info.driver, info.driver, sizeof(tun->info.driver));
-> +	strlcpy(tun->info.bus, info.bus, sizeof(tun->info.bus));
-> +	return 0;
-> +}
-> +
-> +static int
-> +tun_net_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
-> +{
-> +	if (cmd != SIOCDRVINFO)
-> +		return -EOPNOTSUPP;
-> +
-> +	return tun_net_set_info(dev, ifr->ifr_ifru.ifru_data);
-> +}
-> +
+> From: David Miller [mailto:davem@davemloft.net]
+> Sent: Thursday, February 19, 2015 11:36 AM
+> To: Vatsavayi, Raghu
+> Cc: netdev@vger.kernel.org; Chickles, Derek; Burla, Satananda; Manlunas,
+> Felix; Vatsavayi, Raghu
+> Subject: Re: [PATCH net-next v5] Add support of Cavium Liquidio ethernet
+> adapters
+> 
+> From: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>
+> Date: Wed, 11 Feb 2015 17:20:42 -0800
+> 
+> > +	pci_unmap_single(lio->oct_dev->pci_dev, finfo->dptr, skb->len,
+> > +			 PCI_DMA_TODEVICE);
+> 
+> Please use the dma_*() variants of the DMA interfaces for which you
+> will pass in a reference to the struct device embedded in the pci_dev.
+> 
+> This will allow you to later make use of various generic facilities
+> we will build for DMA mapping SKBs in the networking, allocating
+> networknig page frags, etc.
+> 
 
->   #ifdef CONFIG_NET_POLL_CONTROLLER
->   static void tun_poll_controller(struct net_device *dev)
->   {
-> @@ -904,6 +935,7 @@ static const struct net_device_ops tap_n
->   	.ndo_change_mtu		= tun_net_change_mtu,
->   	.ndo_fix_features	= tun_net_fix_features,
->   	.ndo_set_rx_mode	= tun_net_mclist,
-> +	.ndo_do_ioctl		= tun_net_ioctl,
->   	.ndo_set_mac_address	= eth_mac_addr,
->   	.ndo_validate_addr	= eth_validate_addr,
->   	.ndo_select_queue	= tun_select_queue,
-> @@ -1408,6 +1440,8 @@ static void tun_setup(struct net_device
->   
->   	tun->owner = INVALID_UID;
->   	tun->group = INVALID_GID;
-> +	tun->speed = SPEED_10;
-> +	tun->duplex = DUPLEX_FULL;
->   
->   	dev->ethtool_ops = &tun_ethtool_ops;
->   	dev->destructor = tun_free_netdev;
-> @@ -1654,6 +1688,11 @@ static int tun_set_iff(struct net *net,
->   
->   		spin_lock_init(&tun->lock);
->   
-> +		strlcpy(tun->info.driver, DRV_NAME, sizeof(tun->info.driver));
-> +		strlcpy(tun->info.bus,
-> +			(ifr->ifr_flags & IFF_TUN) ? "tun" : "tap",
-> +			sizeof(tun->info.bus));
-> +
->   		err = security_tun_dev_alloc_security(&tun->security);
->   		if (err < 0)
->   			goto err_free_dev;
-> @@ -2253,10 +2292,12 @@ static struct miscdevice tun_miscdev = {
->   
->   static int tun_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
->   {
-> +	struct tun_struct *tun = netdev_priv(dev);
-> +
->   	cmd->supported		= 0;
->   	cmd->advertising	= 0;
-> -	ethtool_cmd_speed_set(cmd, SPEED_10);
-> -	cmd->duplex		= DUPLEX_FULL;
-> +	ethtool_cmd_speed_set(cmd, tun->speed);
-> +	cmd->duplex		= tun->duplex;
->   	cmd->port		= PORT_TP;
->   	cmd->phy_address	= 0;
->   	cmd->transceiver	= XCVR_INTERNAL;
-> @@ -2266,21 +2307,24 @@ static int tun_get_settings(struct net_d
->   	return 0;
->   }
->   
-> +static int tun_set_settings(struct net_device *dev, struct ethtool_cmd *ecmd)
-> +{
-> +	struct tun_struct *tun = netdev_priv(dev);
-> +
-> +	tun->speed = ethtool_cmd_speed(ecmd);
-> +	tun->duplex = ecmd->duplex;
-> +
-> +	return 0;
-> +}
-> +
->   static void tun_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *info)
->   {
->   	struct tun_struct *tun = netdev_priv(dev);
->   
-> -	strlcpy(info->driver, DRV_NAME, sizeof(info->driver));
-> +	strlcpy(info->driver, tun->info.driver, sizeof(info->driver));
->   	strlcpy(info->version, DRV_VERSION, sizeof(info->version));
->   
-> -	switch (tun->flags & TUN_TYPE_MASK) {
-> -	case IFF_TUN:
-> -		strlcpy(info->bus_info, "tun", sizeof(info->bus_info));
-> -		break;
-> -	case IFF_TAP:
-> -		strlcpy(info->bus_info, "tap", sizeof(info->bus_info));
-> -		break;
-> -	}
-> +	strlcpy(info->bus_info, tun->info.bus, sizeof(info->bus_info));
->   }
->   
->   static u32 tun_get_msglevel(struct net_device *dev)
-> @@ -2303,6 +2347,7 @@ static void tun_set_msglevel(struct net_
->   
->   static const struct ethtool_ops tun_ethtool_ops = {
->   	.get_settings	= tun_get_settings,
-> +	.set_settings	= tun_set_settings,
->   	.get_drvinfo	= tun_get_drvinfo,
->   	.get_msglevel	= tun_get_msglevel,
->   	.set_msglevel	= tun_set_msglevel,
-> --- a/include/uapi/linux/if_tunnel.h	2015-02-16 11:58:00.651506008 -0500
-> +++ b/include/uapi/linux/if_tunnel.h	2015-02-16 11:58:00.651506008 -0500
-> @@ -17,6 +17,12 @@
->   #define SIOCADD6RD      (SIOCDEVPRIVATE + 9)
->   #define SIOCDEL6RD      (SIOCDEVPRIVATE + 10)
->   #define SIOCCHG6RD      (SIOCDEVPRIVATE + 11)
-> +#define SIOCDRVINFO	(SIOCDEVPRIVATE + 12)
-> +
-> +struct ip_tunnel_info {
-> +	char driver[32];
-> +	char bus[32];
-> +};
+You said you *will* be building these facilities. Are there any now
+that we can take advantage of? (We'll move to the dma_* variants
+regardless.)
 
-wondering if it would be better to add an ethtool op set_drvinfo
-symmetric with get_drvinfo for this ?
->   
->   #define GRE_CSUM	__cpu_to_be16(0x8000)
->   #define GRE_ROUTING	__cpu_to_be16(0x4000)
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Also, do you have any remaining style / global comments that we should
+address?
+
+Thanks,
+Derek
