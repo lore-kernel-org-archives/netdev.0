@@ -1,61 +1,44 @@
-From: Steve Glendinning <steve@shawell.net>
-Subject: smsc95xx truesize badness
-Date: Thu, 19 Feb 2015 18:58:41 +0000
-Message-ID: <CAKh2mn7w8fpSYJQqwxwOiAgzKm_5dtzY_uXG7WK7uO9CXSOTrw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: popcorn mix <popcornmix@gmail.com>, eric.dumazet@gmail.com
-To: netdev <netdev@vger.kernel.org>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net] net: dsa: bcm_sf2: fix 64-bits register reads
+Date: Thu, 19 Feb 2015 11:09:27 -0800
+Message-ID: <1424372967-27938-1-git-send-email-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f53.google.com ([74.125.82.53]:41934 "EHLO
-	mail-wg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752371AbbBSS6m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Feb 2015 13:58:42 -0500
-Received: by mail-wg0-f53.google.com with SMTP id a1so8976893wgh.12
-        for <netdev@vger.kernel.org>; Thu, 19 Feb 2015 10:58:41 -0800 (PST)
+Received: from mail-pd0-f170.google.com ([209.85.192.170]:45229 "EHLO
+	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751742AbbBSTJq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Feb 2015 14:09:46 -0500
+Received: by pdjz10 with SMTP id z10so1711667pdj.12
+        for <netdev@vger.kernel.org>; Thu, 19 Feb 2015 11:09:46 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+Reading 64-bits register was not working because we inverted the steps
+between reading the lower 32-bits of the register and reading the upper
+32-bits. Swapping these operations is how the HW guarantees that 64-bits
+reads are latched correctly. We only have a handful of 64-bits registers
+for now, mostly MIB counters, so the imapct is low.
 
-It seems smsc95xx is doing bad things with truesize in our receive loop.
+Fixes: 246d7f773c13 ("net: dsa: add Broadcom SF2 switch driver")
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ drivers/net/dsa/bcm_sf2.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Simplified loop with some bits removed for clarity (handles the
-possible case of receiving multiple frames in one USB transaction):
-
-
-while (skb->len > 0) {
-
-    /* last frame in this batch */
-    if (skb->len == size) {
-        skb_trim(skb, skb->len - 4); /* remove fcs */
-        skb->truesize = size + sizeof(struct sk_buff);
-        return 1;
-    }
-
-    ax_skb = skb_clone(skb, GFP_ATOMIC);
-    if (unlikely(!ax_skb)) {
-        netdev_warn(dev->net, "Error allocating skb\n");
-        return 0;
-    }
-
-    ax_skb->len = size;
-    ax_skb->data = packet;
-    skb_set_tail_pointer(ax_skb, size);
-    skb_trim(ax_skb, ax_skb->len - 4); /* remove fcs */
-    ax_skb->truesize = size + sizeof(struct sk_buff);
-
-    usbnet_skb_return(dev, ax_skb);
-}
-
-
-This is triggering warnings for many Raspberry Pi users due to Eric's
-patch to catch truesize offenders.  It's a fair cop.
-
-Before I submit a patch to remove these two truesize lines, I believe
-it's safe to just do so but can anyone confirm if removing them will
-have any adverse impact?
-
-Thanks!
+diff --git a/drivers/net/dsa/bcm_sf2.h b/drivers/net/dsa/bcm_sf2.h
+index ee9f650d5026..7b7053d3c5fa 100644
+--- a/drivers/net/dsa/bcm_sf2.h
++++ b/drivers/net/dsa/bcm_sf2.h
+@@ -105,8 +105,8 @@ static inline u64 name##_readq(struct bcm_sf2_priv *priv, u32 off)	\
+ {									\
+ 	u32 indir, dir;							\
+ 	spin_lock(&priv->indir_lock);					\
+-	indir = reg_readl(priv, REG_DIR_DATA_READ);			\
+ 	dir = __raw_readl(priv->name + off);				\
++	indir = reg_readl(priv, REG_DIR_DATA_READ);			\
+ 	spin_unlock(&priv->indir_lock);					\
+ 	return (u64)indir << 32 | dir;					\
+ }									\
 -- 
-Steve Glendinning
+2.1.0
