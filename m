@@ -1,78 +1,55 @@
-From: Luis Henriques <luis.henriques@canonical.com>
-Subject: [PATCH 3.16.y-ckt 09/58] lib/checksum.c: fix carry in csum_tcpudp_nofold
-Date: Thu, 19 Feb 2015 13:51:39 +0000
-Message-ID: <1424353948-31863-10-git-send-email-luis.henriques@canonical.com>
-References: <1424353948-31863-1-git-send-email-luis.henriques@canonical.com>
-Cc: Karl Beldan <karl.beldan@rivierawaves.com>,
-	Al Viro <viro@ZenIV.linux.org.uk>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Arnd Bergmann <arnd@arndb.de>,
-	Mike Frysinger <vapier@gentoo.org>, netdev@vger.kernel.org,
-	Eric Dumazet <edumazet@google.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Luis Henriques <luis.henriques@canonical.com>
-To: linux-kernel@vger.kernel.org, stable@vger.kernel.org,
-	kernel-team@lists.ubuntu.com
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RESEND PATCH] ipv4: ip_check_defrag should correctly check
+ return value of skb_copy_bits
+Date: Thu, 19 Feb 2015 06:50:15 -0800
+Message-ID: <1424357415.4942.118.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1424337992-8854-1-git-send-email-al.drozdov@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	ideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Johannes Berg <johannes.berg@intel.com>
+To: Alexander Drozdov <al.drozdov@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1424353948-31863-1-git-send-email-luis.henriques@canonical.com>
+In-Reply-To: <1424337992-8854-1-git-send-email-al.drozdov@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-3.16.7-ckt7 -stable review patch.  If anyone has any objections, please let me know.
+On Thu, 2015-02-19 at 12:26 +0300, Alexander Drozdov wrote:
+> skb_copy_bits() returns zero on success and a negative value on error,
+> so it is needed to invert the condition in ip_check_defrag().
+> 
+> Fixes: 1bf3751ec90c ("ipv4: ip_check_defrag must not modify skb before unsharing")
+> Signed-off-by: Alexander Drozdov <al.drozdov@gmail.com>
+> Acked-by: Eric Dumazet <edumazet@google.com>
+> Cc: Johannes Berg <johannes.berg@intel.com>
+> ---
+>  net/ipv4/ip_fragment.c | 2 +-
 
-------------------
+No need to resend, your first patch is still active in patchwork.
+David is probably traveling from Ottawa.
 
-From: karl beldan <karl.beldan@gmail.com>
+vi +100  Documentation/networking/netdev-FAQ.txt
 
-commit 150ae0e94634714b23919f0c333fee28a5b199d5 upstream.
+Q: I sent a patch and I'm wondering what happened to it.  How can I tell
+   whether it got merged?
 
-The carry from the 64->32bits folding was dropped, e.g with:
-saddr=0xFFFFFFFF daddr=0xFF0000FF len=0xFFFF proto=0 sum=1,
-csum_tcpudp_nofold returned 0 instead of 1.
+A: Start by looking at the main patchworks queue for netdev:
 
-Signed-off-by: Karl Beldan <karl.beldan@rivierawaves.com>
-Cc: Al Viro <viro@ZenIV.linux.org.uk>
-Cc: Eric Dumazet <eric.dumazet@gmail.com>
-Cc: Arnd Bergmann <arnd@arndb.de>
-Cc: Mike Frysinger <vapier@gentoo.org>
-Cc: netdev@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Signed-off-by: David S. Miller <davem@davemloft.net>
-Signed-off-by: Luis Henriques <luis.henriques@canonical.com>
----
- lib/checksum.c | 12 ++++++++++--
- 1 file changed, 10 insertions(+), 2 deletions(-)
+        http://patchwork.ozlabs.org/project/netdev/list/
 
-diff --git a/lib/checksum.c b/lib/checksum.c
-index 129775eb6de6..fcf38943132c 100644
---- a/lib/checksum.c
-+++ b/lib/checksum.c
-@@ -47,6 +47,15 @@ static inline unsigned short from32to16(unsigned int x)
- 	return x;
- }
- 
-+static inline u32 from64to32(u64 x)
-+{
-+	/* add up 32-bit and 32-bit for 32+c bit */
-+	x = (x & 0xffffffff) + (x >> 32);
-+	/* add up carry.. */
-+	x = (x & 0xffffffff) + (x >> 32);
-+	return (u32)x;
-+}
-+
- static unsigned int do_csum(const unsigned char *buff, int len)
- {
- 	int odd;
-@@ -195,8 +204,7 @@ __wsum csum_tcpudp_nofold(__be32 saddr, __be32 daddr,
- #else
- 	s += (proto + len) << 8;
- #endif
--	s += (s >> 32);
--	return (__force __wsum)s;
-+	return (__force __wsum)from64to32(s);
- }
- EXPORT_SYMBOL(csum_tcpudp_nofold);
- #endif
--- 
-2.1.4
+   The "State" field will tell you exactly where things are at with
+   your patch.
+
+Q: The above only says "Under Review".  How can I find out more?
+
+A: Generally speaking, the patches get triaged quickly (in less than 48h).
+   So be patient.  Asking the maintainer for status updates on your
+   patch is a good way to ensure your patch is ignored or pushed to
+   the bottom of the priority list.
