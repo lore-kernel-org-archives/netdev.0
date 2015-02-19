@@ -1,59 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] tun: change speed from 10M to dynamically
- configured
-Date: Thu, 19 Feb 2015 15:40:41 -0500 (EST)
-Message-ID: <20150219.154041.184372158520813993.davem@davemloft.net>
-References: <20150213212830.GA29912@electric-eye.fr.zoreil.com>
-	<54E1568D.5000100@windriver.com>
-	<20150216120345.4dfd9950@uryu.home.lan>
+Subject: Re: [Patch] gen_stats.c: Duplicate xstats buffer for later use
+Date: Thu, 19 Feb 2015 15:47:03 -0500 (EST)
+Message-ID: <20150219.154703.443300865954985533.davem@davemloft.net>
+References: <1423867625-1509-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Yanjun.Zhu@windriver.com, romieu@fr.zoreil.com,
-	netdev@vger.kernel.org, mst@redhat.com, jasowang@redhat.com,
-	viro@zeniv.linux.org.uk, sergei.shtylyov@cogentembedded.com,
-	jonathon.reinhart@gmail.com
-To: stephen@networkplumber.org
+Content-Type: Text/Plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, ignacy.gawedzki@green-communications.fr,
+	David.Laight@aculab.com
+To: xiyou.wangcong@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57472 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:57542 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752692AbbBSUko (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Feb 2015 15:40:44 -0500
-In-Reply-To: <20150216120345.4dfd9950@uryu.home.lan>
+	with ESMTP id S1752004AbbBSUrH convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Feb 2015 15:47:07 -0500
+In-Reply-To: <1423867625-1509-1-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <stephen@networkplumber.org>
-Date: Mon, 16 Feb 2015 12:03:45 -0500
+=46rom: Cong Wang <xiyou.wangcong@gmail.com>
+Date: Fri, 13 Feb 2015 14:47:05 -0800
 
-> I would like to propose this is as a more complete alternative.
-> 
-> From: Stephen Hemminger <stephen@networkpluber.org>
-> Subject: [PATCH] tun: support overriding ethtool information
-> 
-> Extensions to allow masqurade of ethtool info and device statistics.
-> This is useful to provide correct information to SNMP and OSPF routing
-> daemons when doing hw/sw offload of network device.
-> 
-> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+> From: Ignacy Gaw=EAdzki <ignacy.gawedzki@green-communications.fr>
+>=20
+> The gnet_stats_copy_app() function gets called, more often than not, =
+with its
+> second argument a pointer to an automatic variable in the caller's st=
+ack.
+> Therefore, to avoid copying garbage afterwards when calling
+> gnet_stats_finish_copy(), this data is better copied to a dynamically=
+ allocated
+> memory that gets freed after use.
+>=20
+> [xiyou.wangcong@gmail.com: remove a useless kfree()]
+>=20
+> Signed-off-by: Ignacy Gaw=EAdzki <ignacy.gawedzki@green-communication=
+s.fr>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 
-We need a consistent policy regarding link attributes of encapsulating
-"software" devices.
+Ugh, that's an ugly bug.
 
-I see three realistic options:
-
-1) Create a link state indication which means "I am a software device,
-   so I don't really have a link state in the traditional sense"
-
-2) Don't implement the link set/get operations at all on software
-   devices.
-
-   People can use ETHTOOL_GLINK to see if the thing is "up"
-
-3) Propagate the ultimate physical transport parameters into what
-   the software device advertises.
-
-It's important to carefully pick one of these, and consistently apply
-it to all of our software devices.
-
-I don't want TUN doing one thing, ipv4 tunnels doing another, etc.
+Applied and queued up for -stable, thanks.
