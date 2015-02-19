@@ -1,72 +1,61 @@
-From: Andy Gospodarek <gospo@cumulusnetworks.com>
-Subject: Re: [PATCH next] bonding: simple code refactor
-Date: Thu, 19 Feb 2015 13:39:05 -0500
-Message-ID: <20150219183905.GH580@gospo.home.greyhouse.net>
-References: <1424369605-26655-1-git-send-email-maheshb@google.com>
+From: Steve Glendinning <steve@shawell.net>
+Subject: smsc95xx truesize badness
+Date: Thu, 19 Feb 2015 18:58:41 +0000
+Message-ID: <CAKh2mn7w8fpSYJQqwxwOiAgzKm_5dtzY_uXG7WK7uO9CXSOTrw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jay Vosburgh <j.vosburgh@gmail.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Veaceslav Falico <vfalico@gmail.com>,
-	Nikolay Aleksandrov <nikolay@redhat.com>,
-	David Miller <davem@davemloft.net>,
-	Maciej Zenczykowski <maze@google.com>,
-	netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>
-To: Mahesh Bandewar <maheshb@google.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: popcorn mix <popcornmix@gmail.com>, eric.dumazet@gmail.com
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f43.google.com ([209.85.192.43]:64647 "EHLO
-	mail-qg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752120AbbBSSjK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Feb 2015 13:39:10 -0500
-Received: by mail-qg0-f43.google.com with SMTP id i50so8444043qgf.2
-        for <netdev@vger.kernel.org>; Thu, 19 Feb 2015 10:39:09 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1424369605-26655-1-git-send-email-maheshb@google.com>
+Received: from mail-wg0-f53.google.com ([74.125.82.53]:41934 "EHLO
+	mail-wg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752371AbbBSS6m (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Feb 2015 13:58:42 -0500
+Received: by mail-wg0-f53.google.com with SMTP id a1so8976893wgh.12
+        for <netdev@vger.kernel.org>; Thu, 19 Feb 2015 10:58:41 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 19, 2015 at 10:13:25AM -0800, Mahesh Bandewar wrote:
-> Remove duplicate code.
-> 
-> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+Hi all,
 
-Looks good.
+It seems smsc95xx is doing bad things with truesize in our receive loop.
 
-Signed-off-by: Andy Gospodarek <gospo@cumulusnetworks.com>
+Simplified loop with some bits removed for clarity (handles the
+possible case of receiving multiple frames in one USB transaction):
 
-> ---
->  drivers/net/bonding/bond_main.c | 6 ++----
->  1 file changed, 2 insertions(+), 4 deletions(-)
-> 
-> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-> index 19b12fbd808d..cbf77d388f53 100644
-> --- a/drivers/net/bonding/bond_main.c
-> +++ b/drivers/net/bonding/bond_main.c
-> @@ -2933,6 +2933,8 @@ static int bond_slave_netdev_event(unsigned long event,
->  			if (old_duplex != slave->duplex)
->  				bond_3ad_adapter_duplex_changed(slave);
->  		}
-> +		/* Fallthrough */
-> +	case NETDEV_DOWN:
->  		/* Refresh slave-array if applicable!
->  		 * If the setup does not use miimon or arpmon (mode-specific!),
->  		 * then these events will not cause the slave-array to be
-> @@ -2944,10 +2946,6 @@ static int bond_slave_netdev_event(unsigned long event,
->  		if (bond_mode_uses_xmit_hash(bond))
->  			bond_update_slave_arr(bond, NULL);
->  		break;
-> -	case NETDEV_DOWN:
-> -		if (bond_mode_uses_xmit_hash(bond))
-> -			bond_update_slave_arr(bond, NULL);
-> -		break;
->  	case NETDEV_CHANGEMTU:
->  		/* TODO: Should slaves be allowed to
->  		 * independently alter their MTU?  For
-> -- 
-> 2.2.0.rc0.207.ga3a616c
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+while (skb->len > 0) {
+
+    /* last frame in this batch */
+    if (skb->len == size) {
+        skb_trim(skb, skb->len - 4); /* remove fcs */
+        skb->truesize = size + sizeof(struct sk_buff);
+        return 1;
+    }
+
+    ax_skb = skb_clone(skb, GFP_ATOMIC);
+    if (unlikely(!ax_skb)) {
+        netdev_warn(dev->net, "Error allocating skb\n");
+        return 0;
+    }
+
+    ax_skb->len = size;
+    ax_skb->data = packet;
+    skb_set_tail_pointer(ax_skb, size);
+    skb_trim(ax_skb, ax_skb->len - 4); /* remove fcs */
+    ax_skb->truesize = size + sizeof(struct sk_buff);
+
+    usbnet_skb_return(dev, ax_skb);
+}
+
+
+This is triggering warnings for many Raspberry Pi users due to Eric's
+patch to catch truesize offenders.  It's a fair cop.
+
+Before I submit a patch to remove these two truesize lines, I believe
+it's safe to just do so but can anyone confirm if removing them will
+have any adverse impact?
+
+Thanks!
+-- 
+Steve Glendinning
