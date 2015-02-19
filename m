@@ -1,43 +1,66 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Port STP state after removing port from bridge
-Date: Wed, 18 Feb 2015 20:39:55 -0800
-Message-ID: <CAGVrzcZMV3vSd3hEsXqk6BtyU-Ts9=oJvb79DTZp25TnnGm5CQ@mail.gmail.com>
+From: yoshihiro shimoda <yoshihiro.shimoda.uh@renesas.com>
+Subject: RE: Questions about the sh_eth driver and hardware
+Date: Thu, 19 Feb 2015 04:41:06 +0000
+Message-ID: <SIXPR06MB333899AF34FC0BBADA5A29ED82D0@SIXPR06MB333.apcprd06.prod.outlook.com>
+References: <1421861078.1222.271.camel@xylophone.i.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: Scott Feldman <sfeldma@gmail.com>,
-	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
-	netdev <netdev@vger.kernel.org>,
-	Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	ct-linux-kernel <linux-kernel@codethink.co.uk>
+To: Ben Hutchings <ben.hutchings@codethink.co.uk>,
+	Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>,
+	MITSUHIRO KIMURA <mitsuhiro.kimura.kc@renesas.com>,
+	"HISASHI NAKAMURA(Retired)" <a5077047@renesasgroup.onmicrosoft.com>,
+	Yoshihiro Kaneko <ykaneko0929@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f171.google.com ([209.85.223.171]:45676 "EHLO
-	mail-ie0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751524AbbBSEkg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Feb 2015 23:40:36 -0500
-Received: by iecat20 with SMTP id at20so6749241iec.12
-        for <netdev@vger.kernel.org>; Wed, 18 Feb 2015 20:40:35 -0800 (PST)
+Received: from relmlor4.renesas.com ([210.160.252.174]:25278 "EHLO
+	relmlie3.idc.renesas.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751701AbbBSElJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Feb 2015 23:41:09 -0500
+In-Reply-To: <1421861078.1222.271.camel@xylophone.i.decadent.org.uk>
+Content-Language: ja-JP
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
-
-It just occured to me that the following sequence:
-
-brctl addbr br0
-brctl addif br0 port0
-... STP happens
-brctl delif br0 port0
-
-will leave port0 in STP disabled state, because the bridge code will
-set the STP state to DISABLED, and only a down/up sequence can bring
-it back to FORWARDING.
-
-Is this something that we should somehow fix? As an user it seems a
-little convoluted having to do a down/up sequence to restore things. I
-believe however that it is valid for the bridge layer to mark a port
-as DISABLED when removing it. This is typically not noticed or even
-remotely a problem with software bridges because we cannot enforce an
-actual STP state at the HW level.
-
-Let me know your thoughts.
--- 
-Florian
+SGkgQmVuLA0KDQpUaGlzIGlzIFNoaW1vZGEgb2YgUmVuZXNhcy4gSSdtIGEgc29mdHdhcmUgZW5n
+aW5lZXIuDQpJIGFza2VkIGhhcmR3YXJlIHRlYW0gYWJvdXQgeW91ciBxdWVzdGlvbnMuIFNvLCBJ
+IHdyb3RlIHNvbWUgY29tbWVudHMgYmVsb3cuDQoNCj4gMS4gV2hlbiBmcmVlaW5nIHBhY2tldCBi
+dWZmZXJzLCB3ZSBjdXJyZW50bHkgdHJ5IHRvIHN0b3AgdGhlIERNQSBlbmdpbmVzDQo+IGJ5IGNs
+ZWFyaW5nIEVEUlJSIGFuZCBFRFRSUiBidXQgd2UgKmRvbid0KiB3YWl0IGFmdGVyIHRoYXQuICBU
+aGlzIHNlZW1zDQo+IHVuc2FmZSBiZWNhdXNlIGluIGdlbmVyYWwgcmVnaXN0ZXIgd3JpdGVzIGFy
+ZSBub3Qgc2VyaWFsaXNlZCB3aXRoIERNQS4NCj4gDQo+IFRoZSBSOEE3NzkwIChSLUNhciBIMikg
+bWFudWFsIHNwZWNpZmljYWxseSBzYXlzIHRoYXQgdGhlIFIgYml0IG9mIEVEVFJSDQo+IChha2Eg
+Q1hSMikgY2Fubm90IGJlIGNsZWFyZWQgYnkgd3JpdGluZyB0byBpdC4gIEkgdGhpbmsgdGhhdCB3
+ZSBjb3VsZA0KPiBzdG9wIFRYIERNQSBieSBjbGVhcmluZyB0aGUgYWN0aXZlIGZsYWdzIG9mIGFs
+bCB0aGUgZGVzY3JpcHRvcnMgYW5kIHRoZW4NCj4gcG9sbGluZyB0aGUgUiBiaXQgdW50aWwgaXQg
+Y2xlYXJzLiAgV2hhdCBkbyB5b3UgdGhpbms/DQo+IA0KPiBBcyBmb3IgUlggRE1BLCBJIHRoaW5r
+IHdlIHNob3VsZCB3YWl0IHNvbWUgdGltZSBhZnRlciBjbGVhcmluZyB0aGUgUiBiaXQNCj4gdGhh
+dCB3ZSBjYW4gYmUgc3VyZSBpcyBsb25nIGVub3VnaCB0byB0cmFuc2ZlciBvbmUgcGFja2V0LiAg
+RG8geW91IGtub3cNCj4gaG93IGxvbmcgdGhhdCBjb3VsZCBiZT8NCg0KVGhleSBzYWlkIHRoYXQg
+YSBzb2Z0d2FyZSBzaG91bGQgd2FpdCBmb3IgInNldCBhbW91bnQgb2YgdGltZSIgb3IgUlggaW50
+ZXJydXB0aW9uLg0KU28sIEkgdGhpbmsgdGhhdCB5b3VyIHBhdGNoIChjb21taXQgaWQgPSA3NDBj
+N2YzMWMgaW4gbmV0LW5leHQuZ2l0KSBpcyBlbm91Z2guDQoNCj4gMi4gSW4gY2FzZSBvZiBhIFJl
+Y2VpdmUgRGVzY3JpcHRvciBFbXB0eSBlcnJvciAoUkRFKSwgd2UgY3VycmVudGx5IHJlYWQNCj4g
+dGhlIFJERkFSIHJlZ2lzdGVyIHRvIGZpbmQgdGhlIG5leHQgZGVzY3JpcHRvciB0aGUgRE1BIGVu
+Z2luZSB3aWxsIHVzZS4NCj4gQnV0IHRoaXMgcmVnaXN0ZXIgaXMgbm90IGRvY3VtZW50ZWQgZm9y
+IHRoZSBSOEE3NzkwIGFuZCB0aGUgZHJpdmVyIGRvZXMNCj4gbm90IGRlZmluZSBhbiBvZmZzZXQg
+Zm9yIGl0IG9uIFItQ2FyIGNoaXBzLiAgVGhlIG1hbnVhbCBkb2Vzbid0IHNheSBob3cNCj4gdG8g
+c2V0IHRoZSBhZGRyZXNzIG9mIHRoZSBuZXh0IGRlc2NyaXB0b3IgdG8gdXNlLiAgTWF5YmUgd2Ug
+c2hvdWxkDQo+IGFzc3VtZSB0aGF0IFItQ2FyIGNoaXBzIHdpbGwgbmV2ZXIgc2tpcCBkZXNjcmlw
+dG9ycyBhZnRlciBSREU/DQoNClRoZXkgc2FpZCB0aGF0IHNvZnR3YXJlIHNob3VsZCBmaW5kIHRo
+ZSBuZXh0IGRlc2NyaXB0b3Igd2l0aG91dCBSREZBUiByZWdpc3RlciBzb21laG93DQphZnRlciBS
+REUuIEhvd2V2ZXIsIEkgY2hlY2tlZCB0aGlzIGRyaXZlciBoYW5kbGluZyBvbiB0aGUgUi1DYXIg
+TTIsIGFuZCB0aGUgZm9sbG93aW5nDQpjb2RlIGRpZG4ndCBydW4gYWN0dWFsbHkuIFNvLCB3ZSBz
+aG91bGQgYXNzdW1lIHRoZSBSLUNhciBjaGlwcyB3aWxsIG5ldmVyIHNraXAgZGVzY3JpcHRvcnMN
+CmFmdGVyIFJERS4NCg0KPCBzaF9ldGguYzogc2hfZXRoX3J4KCkgPg0KCWlmICghKHNoX2V0aF9y
+ZWFkKG5kZXYsIEVEUlJSKSAmIEVEUlJSX1IpKSB7DQoJCS8qIGZpeCB0aGUgdmFsdWVzIGZvciB0
+aGUgbmV4dCByZWNlaXZpbmcgaWYgUkRFIGlzIHNldCAqLw0KCQlpZiAoaW50cl9zdGF0dXMgJiBF
+RVNSX1JERSkgew0KLyp2dnZ2dnZ2IFRoZSBjb2RlIGJlbG93IGRpZG4ndCBydW4gb24gUi1DYXIg
+R2VuMiB2dnZ2dnZ2Ki8NCgkJCXUzMiBjb3VudCA9IChzaF9ldGhfcmVhZChuZGV2LCBSREZBUikg
+LQ0KCQkJCSAgICAgc2hfZXRoX3JlYWQobmRldiwgUkRMQVIpKSA+PiA0Ow0KDQoJCQltZHAtPmN1
+cl9yeCA9IGNvdW50Ow0KCQkJbWRwLT5kaXJ0eV9yeCA9IGNvdW50Ow0KLypeXl5eXl5eIFRoZSBj
+b2RlIGFib3ZlIGRpZG4ndCBydW4gb24gUi1DYXIgR2VuMiBeXl5eXl5eKi8NCgkJfQ0KCQlzaF9l
+dGhfd3JpdGUobmRldiwgRURSUlJfUiwgRURSUlIpOw0KCX0NCg0KPCBUZXN0IG1ldGhvZCA+DQog
+SG9zdCBQQyAkIHN1ZG8gcGluZyAtZiAtbCAxMjggPHRoZSBib2FyZCdzIGlwIGFkZHJlc3M+DQoN
+CkJlc3QgcmVnYXJkcywNCllvc2hpaGlybyBTaGltb2RhDQoNCg==
