@@ -1,79 +1,61 @@
-From: Alex Pilon <alp@alexpilon.ca>
-Subject: [PATCH] Allow specifying bridge port STP state by name rather than
- number.
-Date: Thu, 19 Feb 2015 14:27:46 -0500
-Message-ID: <20150219192726.GA17950@alexpilon.ca>
+From: David Miller <davem@davemloft.net>
+Subject: Re: network namespace bloat
+Date: Thu, 19 Feb 2015 14:49:29 -0500 (EST)
+Message-ID: <20150219.144929.1003473344851168804.davem@davemloft.net>
+References: <871tlxtbhd.fsf_-_@x220.int.ebiederm.org>
+	<CANn89iJ2auNoChr3FuFh-AGaPaw5_wwqfjZrtup1+xu6reVHMA@mail.gmail.com>
+	<87d25hrv9m.fsf@x220.int.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: edumazet@google.com, netdev@vger.kernel.org,
+	stephen@networkplumber.org, nicolas.dichtel@6wind.com,
+	roopa@cumulusnetworks.com, hannes@stressinduktion.org,
+	ddutt@cumulusnetworks.com, vipin@cumulusnetworks.com,
+	shmulik.ladkani@gmail.com, dsahern@gmail.com
+To: ebiederm@xmission.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from alexpilon.ca ([69.165.220.233]:32769 "EHLO alexpilon.ca"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751840AbbBSThW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Feb 2015 14:37:22 -0500
-Received: from alexpilon.ca (out-on-180.wireless.telus.com [207.219.69.180])
-	by alexpilon.ca (Postfix) with ESMTPSA id CB6294007F
-	for <netdev@vger.kernel.org>; Thu, 19 Feb 2015 14:27:57 -0500 (EST)
-Content-Disposition: inline
+Received: from shards.monkeyblade.net ([149.20.54.216]:56781 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752387AbbBSTtd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Feb 2015 14:49:33 -0500
+In-Reply-To: <87d25hrv9m.fsf@x220.int.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The existing behaviour forces one to memorize the integer constants for
-STP port states.
+From: ebiederm@xmission.com (Eric W. Biederman)
+Date: Tue, 10 Feb 2015 21:18:13 -0600
 
-    # bridge link set dev dummy0 state 3
+> Eric Dumazet <edumazet@google.com> writes:
+> 
+>> On Tue, Feb 10, 2015 at 6:42 PM, Eric W. Biederman
+>> <ebiederm@xmission.com> wrote:
+>>
+>>>
+>>> Those large hash tables impact creation speed as large memory
+>>> allocations require more work from the memory allocators, and they
+>>> affect reliability of as order > 0 pages are not reliabily available in
+>>> the kernel.  So from a network namespace perspective I would really like
+>>> to convert the per network namespace hash tables to hash tables that
+>>> have a single instance across all network namespaces.
+>>>
+>>
+>> tcp_metric can fallback to vzalloc() after commit 976a702ac9eea ?
+> 
+> True, although vmalloc space is limited on some architectures.
+> 
+>> There is nothing preventing to use a single tcp_metric, a bit like
+>> global TCP hash table.
+>>
+>> We only have to convert the thing...
+> 
+> Thanks for the confirmation, that is what I figured was going on.
+> 
+>> Note : At Google we do not save tcp metrics.
+>> We have to use it only for FastOpen cookies eventually (For clients)
+> 
+> Interesting.  That makes it doubly desirable to not need to allocate
+> a per network namespace hash table.
 
-This patch makes it possible to use the lowercased port state name.
-
-    # bridge link set dev dummy0 state forwarding
-
-Invalid non-integer inputs now cause exit with status -1.
-
-Signed-off-by: Alex Pilon <alp@alexpilon.ca>
----
- bridge/link.c     | 14 +++++++++++++-
- man/man8/bridge.8 |  4 +++-
- 2 files changed, 16 insertions(+), 2 deletions(-)
-
-diff --git a/bridge/link.c b/bridge/link.c
-index c8555f8..a7bd85f 100644
---- a/bridge/link.c
-+++ b/bridge/link.c
-@@ -316,7 +316,19 @@ static int brlink_modify(int argc, char **argv)
- 			priority = atoi(*argv);
- 		} else if (strcmp(*argv, "state") == 0) {
- 			NEXT_ARG();
--			state = atoi(*argv);
-+			char *endptr;
-+			size_t nstates = sizeof(port_states) / sizeof(*port_states);
-+			state = strtol(*argv, &endptr, 10);
-+			if (!(**argv != '\0' && *endptr == '\0')) {
-+				for (state = 0; state < nstates; state++)
-+					if (strcmp(port_states[state], *argv) == 0)
-+						break;
-+				if (state == nstates) {
-+					fprintf(stderr,
-+						"Error: invalid STP port state\n");
-+					exit(-1);
-+				}
-+			}
- 		} else if (strcmp(*argv, "hwmode") == 0) {
- 			NEXT_ARG();
- 			flags = BRIDGE_FLAGS_SELF;
-diff --git a/man/man8/bridge.8 b/man/man8/bridge.8
-index e344db2..68ad71e 100644
---- a/man/man8/bridge.8
-+++ b/man/man8/bridge.8
-@@ -207,7 +207,9 @@ droot port selectio algorithms.
- .TP
- .BI state " STATE "
- the operation state of the port.  This is primarily used by user space STP/RSTP
--implementation.  The following is a list of valid values:
-+implementation.  One may enter a lowercased port state name, or one of the
-+numbers below.  Negative inputs are ignored, and unrecognized names return an
-+error.
- 
- .B 0
- - port is DISABLED.  Make this port completely inactive.
--- 
-2.3.0
+As a first step we can make the tcp_metrics hash global, but in addition
+to that an rhashtable conversion is probably in order as well.
