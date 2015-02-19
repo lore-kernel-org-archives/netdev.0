@@ -1,39 +1,51 @@
-From: Denis Kirjanov <kda@linux-powerpc.org>
-Subject: Re: bpf: Enable BPF JIT on ppc32
-Date: Fri, 20 Feb 2015 01:07:50 +0400
-Message-ID: <CAOJe8K0awkwdYNZr5GdRJFQLCJ0F1GOF730Q3UwT7KBJw0c7Uw@mail.gmail.com>
-References: <1424156683-2682-1-git-send-email-kda@linux-powerpc.org>
-	<20150219.155613.1219259214030608341.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: compat: Ignore MSG_CMSG_COMPAT in
+ compat_sys_{send,recv}msg
+Date: Thu, 19 Feb 2015 16:15:08 -0500 (EST)
+Message-ID: <20150219.161508.681345805038401073.davem@davemloft.net>
+References: <1423744087-21317-1-git-send-email-catalin.marinas@arm.com>
+	<20150212.084124.1966135201655814270.davem@davemloft.net>
+	<20150212173218.GC25491@e104818-lin.cambridge.arm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f52.google.com ([209.85.213.52]:33679 "EHLO
-	mail-yh0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752595AbbBSVHv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Feb 2015 16:07:51 -0500
-Received: by yhl29 with SMTP id 29so1477996yhl.0
-        for <netdev@vger.kernel.org>; Thu, 19 Feb 2015 13:07:50 -0800 (PST)
-In-Reply-To: <20150219.155613.1219259214030608341.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Will.Deacon@arm.com, luto@amacapital.net
+To: catalin.marinas@arm.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150212173218.GC25491@e104818-lin.cambridge.arm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 2/19/15, David Miller <davem@davemloft.net> wrote:
-> From: Denis Kirjanov <kda@linux-powerpc.org>
-> Date: Tue, 17 Feb 2015 10:04:37 +0300
->
->> This patch series enables BPF JIT on ppc32. There are relatevily
->> few chnages in the code to make it work.
->>
->> All test_bpf tests passed both on 7447a and P2041-based machines.
->>
->> Changelog:
->> v1 - > v2: Reordered Kconfig patch in the series
->
-> Who plans to take this series?  A PowerPC maintainer?
->
-> If not, should I take it?
->
+From: Catalin Marinas <catalin.marinas@arm.com>
+Date: Thu, 12 Feb 2015 17:32:18 +0000
 
-I think that it should go through your tree...
+> On Thu, Feb 12, 2015 at 04:41:24PM +0000, David Miller wrote:
+>> Setting MSG_* bits that aren't supported by the protocol in any way
+>> gives undefined semantics.  You may get an error, it may be silently
+>> ignored, etc.
+> 
+> From the sendmsg(2) man page, if some bit in the flags is inappropriate
+> for the socket type, it should return -EOPNOTSUPP. But I can't tell
+> whether it refers only to bits which are defined (for other socket
+> types) or just any bit. The test itself checks for -EOPNOTSUPP but it
+> gets -EINVAL instead, hence the failure being reported.
+
+Thanks for thinking about this a bit more.  Yes, -EINVAL is probably
+not the thing we should return in this situation.
+
+>> I'm not applying this, sorry.
+> 
+> What I'm after is consistency between the native 32-bit kernel and the
+> compat layer on 64-bit. On the former, bit 31 is silently ignored, on
+> the latter it reports -EINVAL.
+> 
+> We could as well do something like below but we end up with unnecessary
+> flags check on 32-bit. The question is whether such change would be
+> considered a 32-bit user ABI breakage.
+
+Ok, after some further consideration I like your original patch.
+
+If 32-bit ignores the value, 64-bit should too.  So just mask it out.
+
+Please resubmit your original patch, I'll apply it, thanks!
