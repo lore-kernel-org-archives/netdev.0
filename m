@@ -1,63 +1,58 @@
-From: Jay Vosburgh <jay.vosburgh@canonical.com>
-Subject: Re: [PATCH next v6 3/5] bonding: Allow userspace to set actors' system_priority in AD system
-Date: Thu, 19 Feb 2015 13:39:22 -0800
-Message-ID: <9642.1424381962@famine>
-References: <1424328621-14245-1-git-send-email-maheshb@google.com>
-Cc: Andy Gospodarek <andy@greyhouse.net>,
-	Veaceslav Falico <vfalico@gmail.com>,
-	Nikolay Aleksandrov <nikolay@redhat.com>,
-	David Miller <davem@davemloft.net>,
-	Maciej Zenczykowski <maze@google.com>,
-	netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>
-To: Mahesh Bandewar <maheshb@google.com>
+From: Rasesh Mody <rasesh.mody@qlogic.com>
+Subject: [net-next v2 2/2] bna: Update the Driver and Firmware Version
+Date: Thu, 19 Feb 2015 16:02:32 -0500
+Message-ID: <1424379752-4246-3-git-send-email-rasesh.mody@qlogic.com>
+References: <1424379752-4246-1-git-send-email-rasesh.mody@qlogic.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: NetDev <netdev@vger.kernel.org>,
+	Rasesh Mody <rasesh.mody@qlogic.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:41486 "EHLO
-	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752177AbbBSVj3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Feb 2015 16:39:29 -0500
-In-reply-to: <1424328621-14245-1-git-send-email-maheshb@google.com>
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:54569 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753160AbbBSVmH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Feb 2015 16:42:07 -0500
+In-Reply-To: <1424379752-4246-1-git-send-email-rasesh.mody@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This patch updates the BNA driver version to 3.2.25.1 and the firmware version
+to 3.2.5.1
 
-	[ Sorry, I hadn't read v6 earlier; resending for the current
-version so it is filed properly in patchwork... ]
-
-Mahesh Bandewar <maheshb@google.com> wrote:
-
->This patch allows user to randomize the system-priority in an ad-system.
->The allowed range is 1 - 0xFFFF while default value is 0xFFFF. If user
->does not specify this value, the system defaults to 0xFFFF, which is
->what it was before this patch.
->
->Following example code could set the value -
->    # modprobe bonding mode=4
->    # sys_prio=$(( 1 + RANDOM + RANDOM ))
->    # echo $sys_prio > /sys/class/net/bond0/bonding/ad_actor_sys_prio
->    # echo +eth1 > /sys/class/net/bond0/bonding/slaves
->    ...
->    # ip link set bond0 up
->
->Signed-off-by: Mahesh Bandewar <maheshb@google.com>
->Reviewed-by: Nikolay Aleksandrov <nikolay@redhat.com>
-
-	Mahesh: Andy and I got together at netdev01 and discussed the
-patches of this series that add options to sysfs for bonding (patches 3,
-4, and 5).  In summary, in my opinion a netlink / iproute2 interface
-needs to be provided simultaneously with any new sysfs interface for
-bonding.  I realize that the sysfs api to bonding won't go away, but
-nevertheless users should be encouraged to use netlink preferentially.
-Providing the api pieces together encourages this.
-
-	As it happens, Andy mentioned that he has patches similar to
-these three, but with the netlink portion already implemented.
-
-	My suggestion here is therefore for Andy to post his patches,
-and then we can merge these together, and get this implemented properly
-with a minimum of duplicated effort.
-
-        -J
-
+Signed-off-by: Rasesh Mody <rasesh.mody@qlogic.com>
 ---
-	-Jay Vosburgh, jay.vosburgh@canonical.com
+ drivers/net/ethernet/brocade/bna/bnad.h | 2 +-
+ drivers/net/ethernet/brocade/bna/cna.h  | 4 ++--
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/ethernet/brocade/bna/bnad.h b/drivers/net/ethernet/brocade/bna/bnad.h
+index e6c285c..7ead6c2 100644
+--- a/drivers/net/ethernet/brocade/bna/bnad.h
++++ b/drivers/net/ethernet/brocade/bna/bnad.h
+@@ -72,7 +72,7 @@ struct bnad_rx_ctrl {
+ #define BNAD_NAME			"bna"
+ #define BNAD_NAME_LEN			64
+ 
+-#define BNAD_VERSION			"3.2.23.0"
++#define BNAD_VERSION			"3.2.25.1"
+ 
+ #define BNAD_MAILBOX_MSIX_INDEX		0
+ #define BNAD_MAILBOX_MSIX_VECTORS	1
+diff --git a/drivers/net/ethernet/brocade/bna/cna.h b/drivers/net/ethernet/brocade/bna/cna.h
+index 3be5d98..28e7d0f 100644
+--- a/drivers/net/ethernet/brocade/bna/cna.h
++++ b/drivers/net/ethernet/brocade/bna/cna.h
+@@ -38,8 +38,8 @@
+ 
+ extern char bfa_version[];
+ 
+-#define CNA_FW_FILE_CT	"ctfw-3.2.3.0.bin"
+-#define CNA_FW_FILE_CT2	"ct2fw-3.2.3.0.bin"
++#define CNA_FW_FILE_CT	"ctfw-3.2.5.1.bin"
++#define CNA_FW_FILE_CT2	"ct2fw-3.2.5.1.bin"
+ #define FC_SYMNAME_MAX	256	/*!< max name server symbolic name size */
+ 
+ #pragma pack(1)
+-- 
+1.8.2.3
