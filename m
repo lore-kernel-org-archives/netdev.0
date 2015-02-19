@@ -1,83 +1,26 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH RFC 2/2] net: dsa: bcm_sf2: implement HW bridging operations
-Date: Thu, 19 Feb 2015 15:50:53 -0800
-Message-ID: <54E676DD.9090003@gmail.com>
-References: <1424201196-4901-1-git-send-email-f.fainelli@gmail.com> <1424201196-4901-3-git-send-email-f.fainelli@gmail.com> <54E54EF3.9020802@gmail.com> <20150219055953.GA14247@roeck-us.net> <54E61CFB.3010109@gmail.com> <20150219174640.GA6897@roeck-us.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	vivien.didelot@savoirfairelinux.com,
-	jerome.oufella@savoirfairelinux.com, andrew@lunn.ch,
-	cphealy@gmail.com
-To: Guenter Roeck <linux@roeck-us.net>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH net 0/3] rhashtable updates
+Date: Fri, 20 Feb 2015 00:53:36 +0100
+Message-ID: <cover.1424389682.git.daniel@iogearbox.net>
+Cc: tgraf@suug.ch, johunt@akamai.com, netdev@vger.kernel.org,
+	Daniel Borkmann <daniel@iogearbox.net>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f179.google.com ([209.85.192.179]:46585 "EHLO
-	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753862AbbBSXvL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Feb 2015 18:51:11 -0500
-Received: by pdjy10 with SMTP id y10so3328383pdj.13
-        for <netdev@vger.kernel.org>; Thu, 19 Feb 2015 15:51:10 -0800 (PST)
-In-Reply-To: <20150219174640.GA6897@roeck-us.net>
+Received: from www62.your-server.de ([213.133.104.62]:59409 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753302AbbBSXxx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Feb 2015 18:53:53 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 19/02/15 09:46, Guenter Roeck wrote:
-> On Thu, Feb 19, 2015 at 09:27:23AM -0800, Florian Fainelli wrote:
->> On 18/02/15 21:59, Guenter Roeck wrote:
->>> On Wed, Feb 18, 2015 at 06:48:19PM -0800, Florian Fainelli wrote:
->>>> On 17/02/15 11:26, Florian Fainelli wrote:
->>>>> Update the Broadcom Starfighter 2 switch driver to implement the
->>>>> join/leave/stp_update callbacks required for basic hardware bridging
->>>>> support.
->>>>>
->>>>> There is not much to be done at the driver level but translating the
->>>>> STP state from Linux to their HW values.
->>>>>
->>>>> Joining a bridge means that the joining port and the other port members
->>>>> need to be in the same VLAN membership as the CPU, while leaving the
->>>>> bridge puts the port back into a separate VLAN membership with only the
->>>>> CPU.
->>>>
->>>> I found a couple additional issues while testing:
->>>>
->>>> - manipulating UP/DOWN state of interfaces that are part of a bridge
->>>> would not restore their bridge membership
->>>>
->>>> - removing an interface from a bridge and bringing it back up would
->>>> leave it in blocked state
->>>>
->>> Is this a problem with your implementation for sf2 or a generic problem
->>> with the first patch, such as some missing state transitions ?
->>
->> This is more of a side effect of having HW (an Ethernet switch) that can
->> really block a given port, based on last night's discussion with Roopa,
->> we can either fix this at the DSA level (in our case) or better fix this
->> at the bridge layer, I will propose a fix for this shortly.
->>
->>>
->>> For sf2, you might have to set the port state as well as the bridge
->>> association in the port_setup function. That is of course just a
->>> wild guess.
->>
->> Right, that's what I ended up doing. Thanks!
-> 
-> Great.
-> 
-> Another question: How do you handle flushing the forwarding database ?
-> 
-> My current code for mv88e6352 flushes the forwarding database for a bridge
-> group if the port association for that group changes (whenever a port joins
-> or leaves a group, or whenever the state of a port in a group changes).
-> There is, however, another situation where the forwarding database may
-> have to be flushed - essentially on each topology change.
-> 
-> How do you handle this situation ? Is it a real problem or do I just
-> imagine that it is ?
+Daniel Borkmann (3):
+  rhashtable: don't test for shrink on insert, expansion on delete
+  rhashtable: better high order allocation attempts
+  rhashtable: allow to unload test module
 
-This is a real problem, for once I was working under the assumption that
-the SF2 hardware was doing an automatic FDB flushing, but after
-re-reading the documentation, this is not the case. My lab network does
-not have many stations and I certainly did not catch that case.
+ lib/rhashtable.c      | 33 +++++++++++++++++++++------------
+ lib/test_rhashtable.c |  5 +++++
+ 2 files changed, 26 insertions(+), 12 deletions(-)
+
 -- 
-Florian
+1.9.3
