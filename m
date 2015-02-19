@@ -1,7 +1,7 @@
 From: Mahesh Bandewar <maheshb@google.com>
-Subject: [PATCH next v6 2/5] bonding: Implement port churn-machine (AD standard 43.4.17).
-Date: Wed, 18 Feb 2015 22:50:19 -0800
-Message-ID: <1424328619-14205-1-git-send-email-maheshb@google.com>
+Subject: [PATCH next v6 5/5] bonding: Implement user key part of port_key in an AD system.
+Date: Wed, 18 Feb 2015 22:50:24 -0800
+Message-ID: <1424328624-14322-1-git-send-email-maheshb@google.com>
 Cc: Mahesh Bandewar <maheshb@google.com>,
 	Maciej Zenczykowski <maze@google.com>,
 	netdev <netdev@vger.kernel.org>,
@@ -12,287 +12,321 @@ To: Jay Vosburgh <j.vosburgh@gmail.com>,
 	Nikolay Aleksandrov <nikolay@redhat.com>,
 	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f201.google.com ([209.85.192.201]:33659 "EHLO
-	mail-pd0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752056AbbBSGuW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Feb 2015 01:50:22 -0500
-Received: by pdbfl12 with SMTP id fl12so2108448pdb.0
-        for <netdev@vger.kernel.org>; Wed, 18 Feb 2015 22:50:22 -0800 (PST)
+Received: from mail-ig0-f201.google.com ([209.85.213.201]:50379 "EHLO
+	mail-ig0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752087AbbBSGu1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Feb 2015 01:50:27 -0500
+Received: by mail-ig0-f201.google.com with SMTP id b16so2392524igk.0
+        for <netdev@vger.kernel.org>; Wed, 18 Feb 2015 22:50:27 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The Churn Detection machines detect the situation where a port is operable,
-but the Actor and Partner have not attached the link to an Aggregator and
-brought the link into operation within a bound time period. Under normal
-operation of the LACP, agreement between Actor and Partner should be reached
-very rapidly. Continued failure to reach agreement can be symptomatic of
-device failure.
+The port key has three components - user-key, speed-part, and duplex-part.
+The LSBit is for the duplex-part, next 5 bits are for the speed while the
+remaining 10 bits are the user defined key bits. Get these 10 bits
+from the user-space (through the SysFs interface) and use it to form the
+admin port-key. Allowed range for the user-key is 0 - 1023 (10 bits). If
+it is not provided then use zero for the user-key-bits (default).
 
-Actor-churn-detection state-machine
-===================================
+It can set using following example code -
 
-BEGIN=True + PortEnable=False
-           |
-           v
- +------------------------+   ActorPort.Sync=True  +------------------+
- |   ACTOR_CHURN_MONITOR  | ---------------------> |  NO_ACTOR_CHURN  |
- |========================|                        |==================|
- |    ActorChurn=False    |  ActorPort.Sync=False  | ActorChurn=False |
- | ActorChurn.Timer=Start | <--------------------- |                  |
- +------------------------+                        +------------------+
-           |                                                ^
-           |                                                |
-  ActorChurn.Timer=Expired                                  |
-           |                                       ActorPort.Sync=True
-           |                                                |
-           |                +-----------------+             |
-           |                |   ACTOR_CHURN   |             |
-           |                |=================|             |
-           +--------------> | ActorChurn=True | ------------+
-                            |                 |
-                            +-----------------+
-
-Similar for the Partner-churn-detection.
+   # modprobe bonding mode=4
+   # usr_port_key=$(( RANDOM & 0x3FF ))
+   # echo $usr_port_key > /sys/class/net/bond0/bonding/ad_user_port_key
+   # echo +eth1 > /sys/class/net/bond0/bonding/slaves
+   ...
+   # ip link set bond0 up
 
 Signed-off-by: Mahesh Bandewar <maheshb@google.com>
 Reviewed-by: Nikolay Aleksandrov <nikolay@redhat.com>
 ---
 v1:
   Initial version
-v2-v4:
+v2:
+  Renamed ad_actor_user_port_key ad_user_port_key
+v3-v4:
   Rebase
 v5:
   Cosmetic changes
 v6:
   Rebase
 
- drivers/net/bonding/bond_3ad.c    | 56 +++++++++++++++++++++++++++++++++++++--
- drivers/net/bonding/bond_procfs.c | 41 +++++++++++++++++++++++++---
- include/net/bond_3ad.h            | 29 ++++++++++++++++++++
- 3 files changed, 120 insertions(+), 6 deletions(-)
+ Documentation/networking/bonding.txt | 63 ++++++++++++++++++++++++++++++++++++
+ drivers/net/bonding/bond_3ad.c       | 14 ++++----
+ drivers/net/bonding/bond_main.c      | 10 ++++++
+ drivers/net/bonding/bond_options.c   | 26 +++++++++++++++
+ drivers/net/bonding/bond_sysfs.c     | 15 +++++++++
+ include/net/bond_options.h           |  1 +
+ include/net/bonding.h                |  1 +
+ 7 files changed, 123 insertions(+), 7 deletions(-)
 
+diff --git a/Documentation/networking/bonding.txt b/Documentation/networking/bonding.txt
+index 2c197b68baf0..334b49ef02d1 100644
+--- a/Documentation/networking/bonding.txt
++++ b/Documentation/networking/bonding.txt
+@@ -51,6 +51,7 @@ Table of Contents
+ 3.4	Configuring Bonding Manually via Sysfs
+ 3.5	Configuration with Interfaces Support
+ 3.6	Overriding Configuration for Special Cases
++3.7 Configuring LACP for 802.3ad mode in a more secure way
+ 
+ 4. Querying Bonding Configuration
+ 4.1	Bonding Configuration
+@@ -241,6 +242,21 @@ ad_select
+ 
+ 	This option was added in bonding version 3.4.0.
+ 
++ad_user_port_key
++
++	In an AD system, the port-key has three parts as shown below -
++
++	   Bits   Use
++	   00     Duplex
++	   01-05  Speed
++	   06-15  User-defined
++
++	This defines the upper 10 bits of the port key. The values can be
++	from 0 - 1023. If not given, the system defaults to 0.
++
++	This parameter has effect only in 802.3ad mode and is available through
++	SysFs interface.
++
+ all_slaves_active
+ 
+ 	Specifies that duplicate frames (received on inactive ports) should be
+@@ -1643,6 +1659,53 @@ output port selection.
+ This feature first appeared in bonding driver version 3.7.0 and support for
+ output slave selection was limited to round-robin and active-backup modes.
+ 
++3.7 Configuring LACP for 802.3ad mode in a more secure way
++----------------------------------------------------------
++
++When using 802.3ad bonding mode, the Actor (host) and Partner (switch)
++exchange LACPDUs.  These LACPDUs cannot be sniffed, because they are
++destined to link local mac addresses (which switches/bridges are not
++supposed to forward).  However, most of the values are easily predictable
++or are simply the machine's MAC address (which is trivially known to all
++other hosts in the same L2).  This implies that other machines in the L2
++domain can spoof LACPDU packets from other hosts to the switch and potentially
++cause mayhem by joining (from the point of view of the switch) another
++machine's aggregate, thus receiving a portion of that hosts incoming
++traffic and / or spoofing traffic from that machine themselves (potentially
++even successfully terminating some portion of flows). Though this is not
++a likely scenario, one could avoid this possibility by simply configuring
++few bonding parameters:
++
++   (a) ad_actor_system : You can set a random mac-address that can be used for
++       these LACPDU exchanges. The value can not be either NULL or Multicast.
++       Also it's preferable to set the local-admin bit. Following shell code
++       generates a random mac-address as described above.
++
++       # sys_mac_addr=$(printf '%02x:%02x:%02x:%02x:%02x:%02x' \
++                                $(( (RANDOM & 0xFE) | 0x02 )) \
++                                $(( RANDOM & 0xFF )) \
++                                $(( RANDOM & 0xFF )) \
++                                $(( RANDOM & 0xFF )) \
++                                $(( RANDOM & 0xFF )) \
++                                $(( RANDOM & 0xFF )))
++       # echo $sys_mac_addr > /sys/class/net/bond0/bonding/ad_actor_system
++
++   (b) ad_actor_sys_prio : Randomize the system priority. The default value
++       is 65535, but system can take the value from 1 - 65535. Following shell
++       code generates random priority and sets it.
++
++       # sys_prio=$(( 1 + RANDOM + RANDOM ))
++       # echo $sys_prio > /sys/class/net/bond0/bonding/ad_actor_sys_prio
++
++   (c) ad_user_port_key : Use the user portion of the port-key. The default
++       keeps this empty. These are the upper 10 bits of the port-key and value
++       ranges from 0 - 1023. Following shell code generates these 10 bits and
++       sets it.
++
++       # usr_port_key=$(( RANDOM & 0x3FF ))
++       # echo $usr_port_key > /sys/class/net/bond0/bonding/ad_user_port_key
++
++
+ 4 Querying Bonding Configuration
+ =================================
+ 
 diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
-index 9b436696b95e..94f6ae38def2 100644
+index e97b20954ab9..5b68db4d8bd5 100644
 --- a/drivers/net/bonding/bond_3ad.c
 +++ b/drivers/net/bonding/bond_3ad.c
-@@ -38,6 +38,7 @@
- #define AD_STANDBY                 0x2
- #define AD_MAX_TX_IN_SECOND        3
- #define AD_COLLECTOR_MAX_DELAY     0
-+#define AD_MONITOR_CHURNED         0x1000
+@@ -75,10 +75,10 @@
+ /* Port Key definitions
+  * key is determined according to the link speed, duplex and
+  * user key (which is yet not supported)
+- * --------------------------------------------------------------
+- * Port key :	| User key	| Speed		| Duplex	|
+- * --------------------------------------------------------------
+- * 16		  6		  1		  0
++ *           --------------------------------------------------------------
++ * Port key  | User key (10 bits)           | Speed (5 bits)      | Duplex|
++ *           --------------------------------------------------------------
++ *           |15                           6|5                   1|0
+  */
+ #define  AD_DUPLEX_KEY_MASKS    0x1
+ #define  AD_SPEED_KEY_MASKS     0x3E
+@@ -1955,10 +1955,10 @@ void bond_3ad_bind_slave(struct slave *slave)
  
- /* Timer definitions (43.4.4 in the 802.3ad standard) */
- #define AD_FAST_PERIODIC_TIME      1
-@@ -1013,16 +1014,19 @@ static void ad_rx_machine(struct lacpdu *lacpdu, struct port *port)
- 	/* check if state machine should change state */
+ 		port->slave = slave;
+ 		port->actor_port_number = SLAVE_AD_INFO(slave)->id;
+-		/* key is determined according to the link speed, duplex and user key(which
+-		 * is yet not supported)
++		/* key is determined according to the link speed, duplex and
++		 * user key
+ 		 */
+-		port->actor_admin_port_key = 0;
++		port->actor_admin_port_key = bond->params.ad_user_port_key << 6;
+ 		port->actor_admin_port_key |= __get_duplex(port);
+ 		port->actor_admin_port_key |= (__get_link_speed(port) << 1);
+ 		port->actor_oper_port_key = port->actor_admin_port_key;
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 3f00bbb154b3..676c027e529e 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -4106,6 +4106,7 @@ static int bond_check_params(struct bond_params *params)
+ 	const struct bond_opt_value *valptr;
+ 	int arp_all_targets_value;
+ 	u16 ad_actor_sys_prio = 0;
++	u16 ad_user_port_key = 0;
  
- 	/* first, check if port was reinitialized */
--	if (port->sm_vars & AD_PORT_BEGIN)
-+	if (port->sm_vars & AD_PORT_BEGIN) {
- 		port->sm_rx_state = AD_RX_INITIALIZE;
-+		port->sm_vars |= AD_MONITOR_CHURNED;
- 	/* check if port is not enabled */
--	else if (!(port->sm_vars & AD_PORT_BEGIN)
-+	} else if (!(port->sm_vars & AD_PORT_BEGIN)
- 		 && !port->is_enabled && !(port->sm_vars & AD_PORT_MOVED))
- 		port->sm_rx_state = AD_RX_PORT_DISABLED;
- 	/* check if new lacpdu arrived */
- 	else if (lacpdu && ((port->sm_rx_state == AD_RX_EXPIRED) ||
- 		 (port->sm_rx_state == AD_RX_DEFAULTED) ||
- 		 (port->sm_rx_state == AD_RX_CURRENT))) {
-+		if (port->sm_rx_state != AD_RX_CURRENT)
-+			port->sm_vars |= AD_MONITOR_CHURNED;
- 		port->sm_rx_timer_counter = 0;
- 		port->sm_rx_state = AD_RX_CURRENT;
- 	} else {
-@@ -1100,9 +1104,11 @@ static void ad_rx_machine(struct lacpdu *lacpdu, struct port *port)
- 			 */
- 			port->partner_oper.port_state &= ~AD_STATE_SYNCHRONIZATION;
- 			port->sm_vars &= ~AD_PORT_MATCHED;
-+			port->partner_oper.port_state |= AD_STATE_LACP_TIMEOUT;
- 			port->partner_oper.port_state |= AD_STATE_LACP_ACTIVITY;
- 			port->sm_rx_timer_counter = __ad_timer_to_ticks(AD_CURRENT_WHILE_TIMER, (u16)(AD_SHORT_TIMEOUT));
- 			port->actor_oper_port_state |= AD_STATE_EXPIRED;
-+			port->sm_vars |= AD_MONITOR_CHURNED;
- 			break;
- 		case AD_RX_DEFAULTED:
- 			__update_default_selected(port);
-@@ -1131,6 +1137,44 @@ static void ad_rx_machine(struct lacpdu *lacpdu, struct port *port)
- 	}
- }
- 
-+/* ad_churn_machine - handle port churn's state machine
-+ * @port: the port we're looking at
-+ *
-+ */
-+static void ad_churn_machine(struct port *port)
-+{
-+	if (port->sm_vars & AD_MONITOR_CHURNED) {
-+		port->sm_vars &= ~AD_MONITOR_CHURNED;
-+		port->sm_churn_actor_state = AD_CHURN_MONITOR;
-+		port->sm_churn_partner_state = AD_CHURN_MONITOR;
-+		port->sm_churn_actor_timer_counter =
-+			__ad_timer_to_ticks(AD_ACTOR_CHURN_TIMER, 0);
-+		 port->sm_churn_partner_timer_counter =
-+			 __ad_timer_to_ticks(AD_PARTNER_CHURN_TIMER, 0);
-+		return;
-+	}
-+	if (port->sm_churn_actor_timer_counter &&
-+	    !(--port->sm_churn_actor_timer_counter) &&
-+	    port->sm_churn_actor_state == AD_CHURN_MONITOR) {
-+		if (port->actor_oper_port_state & AD_STATE_SYNCHRONIZATION) {
-+			port->sm_churn_actor_state = AD_NO_CHURN;
-+		} else {
-+			port->churn_actor_count++;
-+			port->sm_churn_actor_state = AD_CHURN;
+ 	/* Convert string parameters. */
+ 	if (mode) {
+@@ -4410,6 +4411,14 @@ static int bond_check_params(struct bond_params *params)
+ 			return -EINVAL;
+ 		}
+ 		ad_actor_sys_prio = valptr->value;
++
++		valptr = bond_opt_parse(bond_opt_get(BOND_OPT_AD_USER_PORT_KEY),
++					&newval);
++		if (!valptr) {
++			pr_err("Error: No ad_user_port_key default value");
++			return -EINVAL;
 +		}
-+	}
-+	if (port->sm_churn_partner_timer_counter &&
-+	    !(--port->sm_churn_partner_timer_counter) &&
-+	    port->sm_churn_partner_state == AD_CHURN_MONITOR) {
-+		if (port->partner_oper.port_state & AD_STATE_SYNCHRONIZATION) {
-+			port->sm_churn_partner_state = AD_NO_CHURN;
-+		} else {
-+			port->churn_partner_count++;
-+			port->sm_churn_partner_state = AD_CHURN;
-+		}
-+	}
-+}
-+
- /**
-  * ad_tx_machine - handle a port's tx state machine
-  * @port: the port we're looking at
-@@ -1745,6 +1789,13 @@ static void ad_initialize_port(struct port *port, int lacp_fast)
- 		port->next_port_in_aggregator = NULL;
- 		port->transaction_id = 0;
- 
-+		port->sm_churn_actor_timer_counter = 0;
-+		port->sm_churn_actor_state = 0;
-+		port->churn_actor_count = 0;
-+		port->sm_churn_partner_timer_counter = 0;
-+		port->sm_churn_partner_state = 0;
-+		port->churn_partner_count = 0;
-+
- 		memcpy(&port->lacpdu, &lacpdu, sizeof(lacpdu));
++		ad_user_port_key = valptr->value;
  	}
- }
-@@ -2164,6 +2215,7 @@ void bond_3ad_state_machine_handler(struct work_struct *work)
- 		ad_port_selection_logic(port, &update_slave_arr);
- 		ad_mux_machine(port, &update_slave_arr);
- 		ad_tx_machine(port);
-+		ad_churn_machine(port);
  
- 		/* turn off the BEGIN bit, since we already handled it */
- 		if (port->sm_vars & AD_PORT_BEGIN)
-diff --git a/drivers/net/bonding/bond_procfs.c b/drivers/net/bonding/bond_procfs.c
-index 976f5ad2a0f2..573c4e43210c 100644
---- a/drivers/net/bonding/bond_procfs.c
-+++ b/drivers/net/bonding/bond_procfs.c
-@@ -178,14 +178,47 @@ static void bond_info_show_slave(struct seq_file *seq,
- 	seq_printf(seq, "Permanent HW addr: %pM\n", slave->perm_hwaddr);
+ 	if (lp_interval == 0) {
+@@ -4442,6 +4451,7 @@ static int bond_check_params(struct bond_params *params)
+ 	params->tlb_dynamic_lb = 1; /* Default value */
+ 	params->ad_actor_sys_prio = ad_actor_sys_prio;
+ 	eth_zero_addr(params->ad_actor_system);
++	params->ad_user_port_key = ad_user_port_key;
+ 	if (packets_per_slave > 0) {
+ 		params->reciprocal_packets_per_slave =
+ 			reciprocal_value(packets_per_slave);
+diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
+index f2c011b3ea33..eb0a8e9fafe7 100644
+--- a/drivers/net/bonding/bond_options.c
++++ b/drivers/net/bonding/bond_options.c
+@@ -74,6 +74,8 @@ static int bond_option_ad_actor_sys_prio_set(struct bonding *bond,
+ 				  const struct bond_opt_value *newval);
+ static int bond_option_ad_actor_system_set(struct bonding *bond,
+ 				  const struct bond_opt_value *newval);
++static int bond_option_ad_user_port_key_set(struct bonding *bond,
++				  const struct bond_opt_value *newval);
  
- 	if (BOND_MODE(bond) == BOND_MODE_8023AD) {
--		const struct aggregator *agg
--			= SLAVE_AD_INFO(slave)->port.aggregator;
-+		const struct port *port = &SLAVE_AD_INFO(slave)->port;
-+		const struct aggregator *agg = port->aggregator;
  
--		if (agg)
-+		if (agg) {
- 			seq_printf(seq, "Aggregator ID: %d\n",
- 				   agg->aggregator_identifier);
--		else
-+			seq_printf(seq, "Actor Churn State: %s\n",
-+				   bond_3ad_churn_desc(port->sm_churn_actor_state));
-+			seq_printf(seq, "Partner Churn State: %s\n",
-+				   bond_3ad_churn_desc(port->sm_churn_partner_state));
-+			seq_printf(seq, "Actor Churned Count: %d\n",
-+				   port->churn_actor_count);
-+			seq_printf(seq, "Partner Churned Count: %d\n",
-+				   port->churn_partner_count);
-+
-+			seq_puts(seq, "details actor lacp pdu:\n");
-+			seq_printf(seq, "    system priority: %d\n",
-+				   port->actor_system_priority);
-+			seq_printf(seq, "    port key: %d\n",
-+				   port->actor_oper_port_key);
-+			seq_printf(seq, "    port priority: %d\n",
-+				   port->actor_port_priority);
-+			seq_printf(seq, "    port number: %d\n",
-+				   port->actor_port_number);
-+			seq_printf(seq, "    port state: %d\n",
-+				   port->actor_oper_port_state);
-+
-+			seq_puts(seq, "details partner lacp pdu:\n");
-+			seq_printf(seq, "    system priority: %d\n",
-+				   port->partner_oper.system_priority);
-+			seq_printf(seq, "    oper key: %d\n",
-+				   port->partner_oper.key);
-+			seq_printf(seq, "    port priority: %d\n",
-+				   port->partner_oper.port_priority);
-+			seq_printf(seq, "    port number: %d\n",
-+				   port->partner_oper.port_number);
-+			seq_printf(seq, "    port state: %d\n",
-+				   port->partner_oper.port_state);
-+		} else {
- 			seq_puts(seq, "Aggregator ID: N/A\n");
-+		}
- 	}
- 	seq_printf(seq, "Slave queue ID: %d\n", slave->queue_id);
- }
-diff --git a/include/net/bond_3ad.h b/include/net/bond_3ad.h
-index f04cdbb7848e..22ac75dd8bd5 100644
---- a/include/net/bond_3ad.h
-+++ b/include/net/bond_3ad.h
-@@ -82,6 +82,13 @@ typedef enum {
- 	AD_TRANSMIT		/* tx Machine */
- } tx_states_t;
- 
-+/* churn machine states(43.4.17 in the 802.3ad standard) */
-+typedef enum {
-+	 AD_CHURN_MONITOR, /* monitoring for churn */
-+	 AD_CHURN,         /* churn detected (error) */
-+	 AD_NO_CHURN       /* no churn (no error) */
-+} churn_state_t;
-+
- /* rx indication types */
- typedef enum {
- 	AD_TYPE_LACPDU = 1,	/* type lacpdu */
-@@ -229,6 +236,12 @@ typedef struct port {
- 	u16 sm_mux_timer_counter;	/* state machine mux timer counter */
- 	tx_states_t sm_tx_state;	/* state machine tx state */
- 	u16 sm_tx_timer_counter;	/* state machine tx timer counter(allways on - enter to transmit state 3 time per second) */
-+	u16 sm_churn_actor_timer_counter;
-+	u16 sm_churn_partner_timer_counter;
-+	u32 churn_actor_count;
-+	u32 churn_partner_count;
-+	churn_state_t sm_churn_actor_state;
-+	churn_state_t sm_churn_partner_state;
- 	struct slave *slave;		/* pointer to the bond slave that this port belongs to */
- 	struct aggregator *aggregator;	/* pointer to an aggregator that this port related to */
- 	struct port *next_port_in_aggregator;	/* Next port on the linked list of the parent aggregator */
-@@ -262,6 +275,22 @@ struct ad_slave_info {
- 	u16 id;
+ static const struct bond_opt_value bond_mode_tbl[] = {
+@@ -196,6 +198,12 @@ static const struct bond_opt_value bond_ad_actor_sys_prio_tbl[] = {
+ 	{ NULL,      -1,    0},
  };
  
-+static inline const char *bond_3ad_churn_desc(churn_state_t state)
++static const struct bond_opt_value bond_ad_user_port_key_tbl[] = {
++	{ "minval",  0,     BOND_VALFLAG_MIN | BOND_VALFLAG_DEFAULT},
++	{ "maxval",  1023,  BOND_VALFLAG_MAX},
++	{ NULL,      -1,    0},
++};
++
+ static const struct bond_option bond_opts[BOND_OPT_LAST] = {
+ 	[BOND_OPT_MODE] = {
+ 		.id = BOND_OPT_MODE,
+@@ -405,6 +413,14 @@ static const struct bond_option bond_opts[BOND_OPT_LAST] = {
+ 		.flags = BOND_OPTFLAG_RAWVAL | BOND_OPTFLAG_IFDOWN,
+ 		.set = bond_option_ad_actor_system_set,
+ 	},
++	[BOND_OPT_AD_USER_PORT_KEY] = {
++		.id = BOND_OPT_AD_USER_PORT_KEY,
++		.name = "ad_user_port_key",
++		.unsuppmodes = BOND_MODE_ALL_EX(BIT(BOND_MODE_8023AD)),
++		.flags = BOND_OPTFLAG_IFDOWN,
++		.values = bond_ad_user_port_key_tbl,
++		.set = bond_option_ad_user_port_key_set,
++	}
+ };
+ 
+ /* Searches for an option by name */
+@@ -1405,3 +1421,13 @@ static int bond_option_ad_actor_system_set(struct bonding *bond,
+ 
+ 	return 0;
+ }
++
++static int bond_option_ad_user_port_key_set(struct bonding *bond,
++					    const struct bond_opt_value *newval)
 +{
-+	static const char *const churn_description[] =
-+		{ "monitoring",
-+		  "churned",
-+		  "none",
-+		  "unknown"
-+		};
-+	int max_size = sizeof(churn_description) / sizeof(churn_description[0]);
++	netdev_info(bond->dev, "Setting ad_user_port_key to (%llu)\n",
++		    newval->value);
 +
-+	if (state >= max_size)
-+		state = max_size - 1;
-+
-+	return churn_description[state];
++	bond->params.ad_user_port_key = newval->value;
++	return 0;
 +}
+diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
+index efa994243a2d..a6950647d99d 100644
+--- a/drivers/net/bonding/bond_sysfs.c
++++ b/drivers/net/bonding/bond_sysfs.c
+@@ -720,6 +720,20 @@ static ssize_t bonding_show_ad_actor_system(struct device *d,
+ static DEVICE_ATTR(ad_actor_system, S_IRUGO | S_IWUSR,
+ 		   bonding_show_ad_actor_system, bonding_sysfs_store_option);
+ 
++static ssize_t bonding_show_ad_user_port_key(struct device *d,
++					     struct device_attribute *attr,
++					     char *buf)
++{
++	struct bonding *bond = to_bond(d);
 +
- /* ========== AD Exported functions to the main bonding code ========== */
- void bond_3ad_initialize(struct bonding *bond, u16 tick_resolution);
- void bond_3ad_bind_slave(struct slave *slave);
++	if (BOND_MODE(bond) == BOND_MODE_8023AD)
++		return sprintf(buf, "%hu\n", bond->params.ad_user_port_key);
++
++	return 0;
++}
++static DEVICE_ATTR(ad_user_port_key, S_IRUGO | S_IWUSR,
++		   bonding_show_ad_user_port_key, bonding_sysfs_store_option);
++
+ static struct attribute *per_bond_attrs[] = {
+ 	&dev_attr_slaves.attr,
+ 	&dev_attr_mode.attr,
+@@ -755,6 +769,7 @@ static struct attribute *per_bond_attrs[] = {
+ 	&dev_attr_tlb_dynamic_lb.attr,
+ 	&dev_attr_ad_actor_sys_prio.attr,
+ 	&dev_attr_ad_actor_system.attr,
++	&dev_attr_ad_user_port_key.attr,
+ 	NULL,
+ };
+ 
+diff --git a/include/net/bond_options.h b/include/net/bond_options.h
+index eeeefa1d3cd8..c28aca25320e 100644
+--- a/include/net/bond_options.h
++++ b/include/net/bond_options.h
+@@ -65,6 +65,7 @@ enum {
+ 	BOND_OPT_TLB_DYNAMIC_LB,
+ 	BOND_OPT_AD_ACTOR_SYS_PRIO,
+ 	BOND_OPT_AD_ACTOR_SYSTEM,
++	BOND_OPT_AD_USER_PORT_KEY,
+ 	BOND_OPT_LAST
+ };
+ 
+diff --git a/include/net/bonding.h b/include/net/bonding.h
+index f24f9862cea9..0ac45b4f7f2a 100644
+--- a/include/net/bonding.h
++++ b/include/net/bonding.h
+@@ -144,6 +144,7 @@ struct bond_params {
+ 	int tlb_dynamic_lb;
+ 	struct reciprocal_value reciprocal_packets_per_slave;
+ 	u16 ad_actor_sys_prio;
++	u16 ad_user_port_key;
+ 	u8 ad_actor_system[ETH_ALEN];
+ };
+ 
 -- 
 2.2.0.rc0.207.ga3a616c
