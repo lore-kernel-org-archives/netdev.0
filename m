@@ -1,43 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch] gen_stats.c: Duplicate xstats buffer for later use
-Date: Thu, 19 Feb 2015 15:47:03 -0500 (EST)
-Message-ID: <20150219.154703.443300865954985533.davem@davemloft.net>
-References: <1423867625-1509-1-git-send-email-xiyou.wangcong@gmail.com>
+From: Robert Jarzmik <robert.jarzmik@free.fr>
+Subject: Re: [PATCH] Revert "smc91x: retrieve IRQ and trigger flags in a modern way"
+Date: Thu, 19 Feb 2015 21:48:49 +0100
+Message-ID: <87egpl8w5q.fsf@free.fr>
+References: <1423760350-20149-1-git-send-email-robert.jarzmik@free.fr>
+	<CACRpkdZGze_2=hWe414Eum_9hpNXgog5vmu6Y4R_zhg0x2z0SQ@mail.gmail.com>
+	<87bnkx6bja.fsf@free.fr>
+	<20150219.152841.891912250243016754.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, ignacy.gawedzki@green-communications.fr,
-	David.Laight@aculab.com
-To: xiyou.wangcong@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57542 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752004AbbBSUrH convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Feb 2015 15:47:07 -0500
-In-Reply-To: <1423867625-1509-1-git-send-email-xiyou.wangcong@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: linus.walleij@linaro.org, nico@fluxnic.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150219.152841.891912250243016754.davem@davemloft.net> (David
+	Miller's message of "Thu, 19 Feb 2015 15:28:41 -0500 (EST)")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Cong Wang <xiyou.wangcong@gmail.com>
-Date: Fri, 13 Feb 2015 14:47:05 -0800
+David Miller <davem@davemloft.net> writes:
 
-> From: Ignacy Gaw=EAdzki <ignacy.gawedzki@green-communications.fr>
->=20
-> The gnet_stats_copy_app() function gets called, more often than not, =
-with its
-> second argument a pointer to an automatic variable in the caller's st=
-ack.
-> Therefore, to avoid copying garbage afterwards when calling
-> gnet_stats_finish_copy(), this data is better copied to a dynamically=
- allocated
-> memory that gets freed after use.
->=20
-> [xiyou.wangcong@gmail.com: remove a useless kfree()]
->=20
-> Signed-off-by: Ignacy Gaw=EAdzki <ignacy.gawedzki@green-communication=
-s.fr>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+>> Now if you can make it in -rc2 or -rc3, this revert should be forgotten. But if
+>> you can't make it for 3.20, I'll push for the revert.
+>> 
+>> So I think it's up to you now, and let's see what Gregh says about it.
+>
+> What is the current status of this?  I'd like to see this move forward so we
+> can get this fixed ASAP.
+Hi David,
 
-Ugh, that's an ugly bug.
+Linus has submitted the patch [1]. I'll be watching carefully until -rc4 that
+this is applied. If it's not, I'll reping you to apply this revert. Until then,
+you can forget about it, I'll do the follow-up.
 
-Applied and queued up for -stable, thanks.
+Does that plan sound good to you ?
+
+Cheers.
+
+-- 
+Robert
+
+[1] https://lkml.org/lkml/2015/2/18/310
