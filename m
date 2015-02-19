@@ -1,60 +1,56 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: Re: [PATCH RFC 2/2] net: dsa: bcm_sf2: implement HW bridging
- operations
-Date: Wed, 18 Feb 2015 21:59:53 -0800
-Message-ID: <20150219055953.GA14247@roeck-us.net>
-References: <1424201196-4901-1-git-send-email-f.fainelli@gmail.com>
- <1424201196-4901-3-git-send-email-f.fainelli@gmail.com>
- <54E54EF3.9020802@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	vivien.didelot@savoirfairelinux.com,
-	jerome.oufella@savoirfairelinux.com, andrew@lunn.ch,
-	cphealy@gmail.com
-To: Florian Fainelli <f.fainelli@gmail.com>
+From: Mahesh Bandewar <maheshb@google.com>
+Subject: [PATCH next v6 1/5] bonding: Verify RX LACPDU has proper dest mac-addr
+Date: Wed, 18 Feb 2015 22:50:14 -0800
+Message-ID: <1424328614-14166-1-git-send-email-maheshb@google.com>
+Cc: Mahesh Bandewar <maheshb@google.com>,
+	Maciej Zenczykowski <maze@google.com>,
+	netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>
+To: Jay Vosburgh <j.vosburgh@gmail.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Veaceslav Falico <vfalico@gmail.com>,
+	Nikolay Aleksandrov <nikolay@redhat.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bh-25.webhostbox.net ([208.91.199.152]:50160 "EHLO
-	bh-25.webhostbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750755AbbBSF76 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Feb 2015 00:59:58 -0500
-Received: from mailnull by bh-25.webhostbox.net with sa-checked (Exim 4.82)
-	(envelope-from <linux@roeck-us.net>)
-	id 1YOK9V-002Xjq-3N
-	for netdev@vger.kernel.org; Thu, 19 Feb 2015 05:59:57 +0000
-Content-Disposition: inline
-In-Reply-To: <54E54EF3.9020802@gmail.com>
+Received: from mail-ig0-f202.google.com ([209.85.213.202]:48823 "EHLO
+	mail-ig0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752087AbbBSGuU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Feb 2015 01:50:20 -0500
+Received: by mail-ig0-f202.google.com with SMTP id a13so2413935igq.1
+        for <netdev@vger.kernel.org>; Wed, 18 Feb 2015 22:50:20 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 18, 2015 at 06:48:19PM -0800, Florian Fainelli wrote:
-> On 17/02/15 11:26, Florian Fainelli wrote:
-> > Update the Broadcom Starfighter 2 switch driver to implement the
-> > join/leave/stp_update callbacks required for basic hardware bridging
-> > support.
-> > 
-> > There is not much to be done at the driver level but translating the
-> > STP state from Linux to their HW values.
-> > 
-> > Joining a bridge means that the joining port and the other port members
-> > need to be in the same VLAN membership as the CPU, while leaving the
-> > bridge puts the port back into a separate VLAN membership with only the
-> > CPU.
-> 
-> I found a couple additional issues while testing:
-> 
-> - manipulating UP/DOWN state of interfaces that are part of a bridge
-> would not restore their bridge membership
-> 
-> - removing an interface from a bridge and bringing it back up would
-> leave it in blocked state
-> 
-Is this a problem with your implementation for sf2 or a generic problem
-with the first patch, such as some missing state transitions ?
+The 802.1AX standard states:
+"The DA in LACPDUs is the Slow_Protocols_Multicast address."
 
-For sf2, you might have to set the port state as well as the bridge
-association in the port_setup function. That is of course just a
-wild guess.
+This patch enforces that and drops LACPDUs with destination MAC
+addresses other than Slow_Protocols_Multicast address
 
-Thanks,
-Guenter
+Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+Reviewed-by: Nikolay Aleksandrov <nikolay@redhat.com>
+---
+v1:
+   Initial version
+v2-v6:
+   Rebase
+
+ drivers/net/bonding/bond_3ad.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
+index cfc4a9c1000a..9b436696b95e 100644
+--- a/drivers/net/bonding/bond_3ad.c
++++ b/drivers/net/bonding/bond_3ad.c
+@@ -2485,6 +2485,9 @@ int bond_3ad_lacpdu_recv(const struct sk_buff *skb, struct bonding *bond,
+ 	if (skb->protocol != PKT_TYPE_LACPDU)
+ 		return RX_HANDLER_ANOTHER;
+ 
++	if (!MAC_ADDRESS_EQUAL(eth_hdr(skb)->h_dest, lacpdu_mcast_addr))
++		return RX_HANDLER_ANOTHER;
++
+ 	lacpdu = skb_header_pointer(skb, 0, sizeof(_lacpdu), &_lacpdu);
+ 	if (!lacpdu)
+ 		return RX_HANDLER_ANOTHER;
+-- 
+2.2.0.rc0.207.ga3a616c
