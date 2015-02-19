@@ -1,50 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 0/3] Adjust the settings about
- USB_RX_EARLY_AGG
-Date: Thu, 19 Feb 2015 15:09:09 -0500 (EST)
-Message-ID: <20150219.150909.1111353454350810861.davem@davemloft.net>
-References: <1394712342-15778-137-Taiwan-albertk@realtek.com>
-	<1394712342-15778-141-Taiwan-albertk@realtek.com>
+Subject: Re: [PATCH 2/2] dsa: mv88e6131: support fixed PHYs
+Date: Thu, 19 Feb 2015 15:19:38 -0500 (EST)
+Message-ID: <20150219.151938.2124980198109409450.davem@davemloft.net>
+References: <20150212141317.GB12318@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
-	linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org
-To: hayeswang@realtek.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1394712342-15778-141-Taiwan-albertk@realtek.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: tobias@waldekranz.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:57173 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752337AbbBSUTl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Feb 2015 15:19:41 -0500
+In-Reply-To: <20150212141317.GB12318@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Hayes Wang <hayeswang@realtek.com>
-Date: Thu, 12 Feb 2015 14:33:45 +0800
+From: Tobias Waldekranz <tobias@waldekranz.com>
+Date: Thu, 12 Feb 2015 15:13:17 +0100
 
-> v2:
-> For patch #1, replace
+> Statically setup the PCS Control on the MAC to match the fixed PHY.
 > 
-> 	u32 ocp_data;
-> 	ocp_data = tp->coalesce / 8;
-> 
-> with
-> 
-> 	u32 ocp_data = tp->coalesce / 8;
-> 
-> And replace
-> 
-> 	struct net_device *dev = tp->netdev;
-> 	u32 ocp_data;
-> 	ocp_data = (agg_buf_sz - dev->mtu - VLAN_ETH_HLEN - VLAN_HLEN) / 4;
-> 
-> with
-> 
-> 	u32 mtu = tp->netdev->mtu;
-> 	u32 ocp_data = (agg_buf_sz - mtu - VLAN_ETH_HLEN - VLAN_HLEN) / 4;
-> 
-> Use *switch* statement to replace the checking of *if*.
-> 
-> v1:
-> The USB_RX_EARLY_AGG contains timeout and size. Separate them, and
-> they could be set independently. Then, the ethtool could be used to
-> change the timeout according to situation of the platform.
+> Signed-off-by: Tobias Waldekranz <tobias@waldekranz.com>
+ ...
+> +	/* PPU will configure MACs with physical PHYs */
+> +	if (!fixed_phy_get_status(phy))
+> +		return;
 
-Series applied, thanks.
+I kind of agree with Florian that you probably don't need this.
+
+And furthermore, this fixed_phy_get_status() interface you created
+isn't even used for what it's designed for.
+
+As coded, fixed_phy_get_status() returns the link status structure,
+but here you are only interested in whether a phy is fixed or not
+because you're simply making a boolean test upon whether you were
+given a non-NULL fixed phy status or not.
