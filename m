@@ -1,40 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: Reflect RX hash for transmit
-Date: Thu, 19 Feb 2015 15:54:49 -0500 (EST)
-Message-ID: <20150219.155449.1055446417050184538.davem@davemloft.net>
-References: <1424025438-1659-1-git-send-email-therbert@google.com>
+Subject: Re: bpf: Enable BPF JIT on ppc32
+Date: Thu, 19 Feb 2015 15:56:13 -0500 (EST)
+Message-ID: <20150219.155613.1219259214030608341.davem@davemloft.net>
+References: <1424156683-2682-1-git-send-email-kda@linux-powerpc.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: therbert@google.com
+Cc: netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org
+To: kda@linux-powerpc.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57687 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:57693 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752886AbbBSUyv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Feb 2015 15:54:51 -0500
-In-Reply-To: <1424025438-1659-1-git-send-email-therbert@google.com>
+	with ESMTP id S1752061AbbBSU4P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Feb 2015 15:56:15 -0500
+In-Reply-To: <1424156683-2682-1-git-send-email-kda@linux-powerpc.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tom Herbert <therbert@google.com>
-Date: Sun, 15 Feb 2015 10:37:18 -0800
+From: Denis Kirjanov <kda@linux-powerpc.org>
+Date: Tue, 17 Feb 2015 10:04:37 +0300
 
-> This patch allows a driver to request that the receive hash it provides
-> to the stack is reflected back in skb->hash for packets transmitted
-> on the associated connection. The hash value returned by a device could
-> have meaning when used in transmit to identify a flow, for instance
-> the hash may by a flow ID for a flow created in a (virtual) device.
-> With the flow ID provided on transmit this can obviate the need
-> to create the hash and do the lookup on the fly in transmit.
+> This patch series enables BPF JIT on ppc32. There are relatevily
+> few chnages in the code to make it work.
 > 
-> Note that this is an opportunistic optimization, there is no
-> separate negotiation between the stack and driver/device for
-> the hash used in either TX or RX.
+> All test_bpf tests passed both on 7447a and P2041-based machines.
 > 
-> Signed-off-by: Tom Herbert <therbert@google.com>
+> Changelog:
+> v1 - > v2: Reordered Kconfig patch in the series
 
-Like Eric, I'd like to see this resubmitted alongside an actual user
-of the new facility.
+Who plans to take this series?  A PowerPC maintainer?
 
-Thanks!
+If not, should I take it?
