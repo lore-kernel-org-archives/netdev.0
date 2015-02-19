@@ -1,46 +1,79 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v5] Add support of Cavium Liquidio ethernet
- adapters
-Date: Thu, 19 Feb 2015 14:36:10 -0500 (EST)
-Message-ID: <20150219.143610.1038570471548445608.davem@davemloft.net>
-References: <BY2PR07MB4869D030A180D0147F3580AFE380@BY2PR07MB486.namprd07.prod.outlook.com>
-	<1423704042-4026-1-git-send-email-rvatsavayi@caviumnetworks.com>
+From: Alex Pilon <alp@alexpilon.ca>
+Subject: [PATCH] Allow specifying bridge port STP state by name rather than
+ number.
+Date: Thu, 19 Feb 2015 14:27:46 -0500
+Message-ID: <20150219192726.GA17950@alexpilon.ca>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, derek.chickles@caviumnetworks.com,
-	satananda.burla@caviumnetworks.com,
-	felix.manlunas@caviumnetworks.com,
-	raghu.vatsavayi@caviumnetworks.com
-To: rvatsavayi@caviumnetworks.com
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56626 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752808AbbBSTgN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Feb 2015 14:36:13 -0500
-In-Reply-To: <1423704042-4026-1-git-send-email-rvatsavayi@caviumnetworks.com>
+Received: from alexpilon.ca ([69.165.220.233]:32769 "EHLO alexpilon.ca"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751840AbbBSThW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Feb 2015 14:37:22 -0500
+Received: from alexpilon.ca (out-on-180.wireless.telus.com [207.219.69.180])
+	by alexpilon.ca (Postfix) with ESMTPSA id CB6294007F
+	for <netdev@vger.kernel.org>; Thu, 19 Feb 2015 14:27:57 -0500 (EST)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>
-Date: Wed, 11 Feb 2015 17:20:42 -0800
+The existing behaviour forces one to memorize the integer constants for
+STP port states.
 
-> +	uint32_t val;
+    # bridge link set dev dummy0 state 3
 
-uint32_t, uint64_t, etc. are userspace types, and inside the kernel
-one should canonically use u32, u64, etc.
+This patch makes it possible to use the lowercased port state name.
 
-Please update your entire driver wrt. this issue.
+    # bridge link set dev dummy0 state forwarding
 
-> +	pci_unmap_single(lio->oct_dev->pci_dev, finfo->dptr, skb->len,
-> +			 PCI_DMA_TODEVICE);
+Invalid non-integer inputs now cause exit with status -1.
 
-Please use the dma_*() variants of the DMA interfaces for which you
-will pass in a reference to the struct device embedded in the pci_dev.
+Signed-off-by: Alex Pilon <alp@alexpilon.ca>
+---
+ bridge/link.c     | 14 +++++++++++++-
+ man/man8/bridge.8 |  4 +++-
+ 2 files changed, 16 insertions(+), 2 deletions(-)
 
-This will allow you to later make use of various generic facilities
-we will build for DMA mapping SKBs in the networking, allocating
-networknig page frags, etc.
-
-And even more importantly, the pci_*() variants are slowly being
-phased out and deprecated.
+diff --git a/bridge/link.c b/bridge/link.c
+index c8555f8..a7bd85f 100644
+--- a/bridge/link.c
++++ b/bridge/link.c
+@@ -316,7 +316,19 @@ static int brlink_modify(int argc, char **argv)
+ 			priority = atoi(*argv);
+ 		} else if (strcmp(*argv, "state") == 0) {
+ 			NEXT_ARG();
+-			state = atoi(*argv);
++			char *endptr;
++			size_t nstates = sizeof(port_states) / sizeof(*port_states);
++			state = strtol(*argv, &endptr, 10);
++			if (!(**argv != '\0' && *endptr == '\0')) {
++				for (state = 0; state < nstates; state++)
++					if (strcmp(port_states[state], *argv) == 0)
++						break;
++				if (state == nstates) {
++					fprintf(stderr,
++						"Error: invalid STP port state\n");
++					exit(-1);
++				}
++			}
+ 		} else if (strcmp(*argv, "hwmode") == 0) {
+ 			NEXT_ARG();
+ 			flags = BRIDGE_FLAGS_SELF;
+diff --git a/man/man8/bridge.8 b/man/man8/bridge.8
+index e344db2..68ad71e 100644
+--- a/man/man8/bridge.8
++++ b/man/man8/bridge.8
+@@ -207,7 +207,9 @@ droot port selectio algorithms.
+ .TP
+ .BI state " STATE "
+ the operation state of the port.  This is primarily used by user space STP/RSTP
+-implementation.  The following is a list of valid values:
++implementation.  One may enter a lowercased port state name, or one of the
++numbers below.  Negative inputs are ignored, and unrecognized names return an
++error.
+ 
+ .B 0
+ - port is DISABLED.  Make this port completely inactive.
+-- 
+2.3.0
