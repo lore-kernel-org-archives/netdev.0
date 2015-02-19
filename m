@@ -1,85 +1,56 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: Re: [PATCH RFC 2/2] net: dsa: bcm_sf2: implement HW bridging
- operations
-Date: Thu, 19 Feb 2015 09:46:40 -0800
-Message-ID: <20150219174640.GA6897@roeck-us.net>
-References: <1424201196-4901-1-git-send-email-f.fainelli@gmail.com>
- <1424201196-4901-3-git-send-email-f.fainelli@gmail.com>
- <54E54EF3.9020802@gmail.com>
- <20150219055953.GA14247@roeck-us.net>
- <54E61CFB.3010109@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	vivien.didelot@savoirfairelinux.com,
-	jerome.oufella@savoirfairelinux.com, andrew@lunn.ch,
-	cphealy@gmail.com
-To: Florian Fainelli <f.fainelli@gmail.com>
+From: Mahesh Bandewar <maheshb@google.com>
+Subject: [PATCH next] bonding: simple code refactor
+Date: Thu, 19 Feb 2015 10:13:25 -0800
+Message-ID: <1424369605-26655-1-git-send-email-maheshb@google.com>
+Cc: Mahesh Bandewar <maheshb@google.com>,
+	Maciej Zenczykowski <maze@google.com>,
+	netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>
+To: Jay Vosburgh <j.vosburgh@gmail.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Veaceslav Falico <vfalico@gmail.com>,
+	Nikolay Aleksandrov <nikolay@redhat.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bh-25.webhostbox.net ([208.91.199.152]:53727 "EHLO
-	bh-25.webhostbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751943AbbBSRqp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Feb 2015 12:46:45 -0500
-Received: from mailnull by bh-25.webhostbox.net with sa-checked (Exim 4.82)
-	(envelope-from <linux@roeck-us.net>)
-	id 1YOVBV-001Pi5-0G
-	for netdev@vger.kernel.org; Thu, 19 Feb 2015 17:46:45 +0000
-Content-Disposition: inline
-In-Reply-To: <54E61CFB.3010109@gmail.com>
+Received: from mail-vc0-f202.google.com ([209.85.220.202]:56680 "EHLO
+	mail-vc0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752913AbbBSSN3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Feb 2015 13:13:29 -0500
+Received: by mail-vc0-f202.google.com with SMTP id hy4so642720vcb.1
+        for <netdev@vger.kernel.org>; Thu, 19 Feb 2015 10:13:28 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 19, 2015 at 09:27:23AM -0800, Florian Fainelli wrote:
-> On 18/02/15 21:59, Guenter Roeck wrote:
-> > On Wed, Feb 18, 2015 at 06:48:19PM -0800, Florian Fainelli wrote:
-> >> On 17/02/15 11:26, Florian Fainelli wrote:
-> >>> Update the Broadcom Starfighter 2 switch driver to implement the
-> >>> join/leave/stp_update callbacks required for basic hardware bridging
-> >>> support.
-> >>>
-> >>> There is not much to be done at the driver level but translating the
-> >>> STP state from Linux to their HW values.
-> >>>
-> >>> Joining a bridge means that the joining port and the other port members
-> >>> need to be in the same VLAN membership as the CPU, while leaving the
-> >>> bridge puts the port back into a separate VLAN membership with only the
-> >>> CPU.
-> >>
-> >> I found a couple additional issues while testing:
-> >>
-> >> - manipulating UP/DOWN state of interfaces that are part of a bridge
-> >> would not restore their bridge membership
-> >>
-> >> - removing an interface from a bridge and bringing it back up would
-> >> leave it in blocked state
-> >>
-> > Is this a problem with your implementation for sf2 or a generic problem
-> > with the first patch, such as some missing state transitions ?
-> 
-> This is more of a side effect of having HW (an Ethernet switch) that can
-> really block a given port, based on last night's discussion with Roopa,
-> we can either fix this at the DSA level (in our case) or better fix this
-> at the bridge layer, I will propose a fix for this shortly.
-> 
-> > 
-> > For sf2, you might have to set the port state as well as the bridge
-> > association in the port_setup function. That is of course just a
-> > wild guess.
-> 
-> Right, that's what I ended up doing. Thanks!
+Remove duplicate code.
 
-Great.
+Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+---
+ drivers/net/bonding/bond_main.c | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
 
-Another question: How do you handle flushing the forwarding database ?
-
-My current code for mv88e6352 flushes the forwarding database for a bridge
-group if the port association for that group changes (whenever a port joins
-or leaves a group, or whenever the state of a port in a group changes).
-There is, however, another situation where the forwarding database may
-have to be flushed - essentially on each topology change.
-
-How do you handle this situation ? Is it a real problem or do I just
-imagine that it is ?
-
-Thanks,
-Guenter
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 19b12fbd808d..cbf77d388f53 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -2933,6 +2933,8 @@ static int bond_slave_netdev_event(unsigned long event,
+ 			if (old_duplex != slave->duplex)
+ 				bond_3ad_adapter_duplex_changed(slave);
+ 		}
++		/* Fallthrough */
++	case NETDEV_DOWN:
+ 		/* Refresh slave-array if applicable!
+ 		 * If the setup does not use miimon or arpmon (mode-specific!),
+ 		 * then these events will not cause the slave-array to be
+@@ -2944,10 +2946,6 @@ static int bond_slave_netdev_event(unsigned long event,
+ 		if (bond_mode_uses_xmit_hash(bond))
+ 			bond_update_slave_arr(bond, NULL);
+ 		break;
+-	case NETDEV_DOWN:
+-		if (bond_mode_uses_xmit_hash(bond))
+-			bond_update_slave_arr(bond, NULL);
+-		break;
+ 	case NETDEV_CHANGEMTU:
+ 		/* TODO: Should slaves be allowed to
+ 		 * independently alter their MTU?  For
+-- 
+2.2.0.rc0.207.ga3a616c
