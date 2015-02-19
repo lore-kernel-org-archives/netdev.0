@@ -1,38 +1,36 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: smsc95xx truesize badness
-Date: Thu, 19 Feb 2015 14:14:02 -0800
-Message-ID: <1424384042.4942.132.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CAKh2mn7w8fpSYJQqwxwOiAgzKm_5dtzY_uXG7WK7uO9CXSOTrw@mail.gmail.com>
+From: rapier <rapier@psc.edu>
+Subject: TCP Stack Instrumentation Mailing List
+Date: Thu, 19 Feb 2015 17:26:39 -0500
+Message-ID: <54E6631F.2040908@psc.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, popcorn mix <popcornmix@gmail.com>
-To: Steve Glendinning <steve@shawell.net>
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f171.google.com ([209.85.223.171]:39778 "EHLO
-	mail-ie0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752308AbbBSWOF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Feb 2015 17:14:05 -0500
-Received: by iecvy18 with SMTP id vy18so3620368iec.6
-        for <netdev@vger.kernel.org>; Thu, 19 Feb 2015 14:14:04 -0800 (PST)
-In-Reply-To: <CAKh2mn7w8fpSYJQqwxwOiAgzKm_5dtzY_uXG7WK7uO9CXSOTrw@mail.gmail.com>
+Received: from mailer1.psc.edu ([128.182.58.100]:58427 "EHLO mailer1.psc.edu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752134AbbBSW0k (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Feb 2015 17:26:40 -0500
+Received: from iztli.psc.edu (iztli.psc.edu [128.182.160.106])
+	(authenticated bits=0)
+	by mailer1.psc.edu (8.13.8/8.13.8) with ESMTP id t1JMQd6i027467
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES128-SHA bits=128 verify=NO)
+	for <netdev@vger.kernel.org>; Thu, 19 Feb 2015 17:26:39 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2015-02-19 at 18:58 +0000, Steve Glendinning wrote:
+All,
 
-> This is triggering warnings for many Raspberry Pi users due to Eric's
-> patch to catch truesize offenders.  It's a fair cop.
-> 
-> Before I submit a patch to remove these two truesize lines, I believe
-> it's safe to just do so but can anyone confirm if removing them will
-> have any adverse impact?
+At the recent NetDev conference we had BoF on TCP stack instrumentation. 
+The general consensus is that it's a good idea and worth pursuing. We've 
+decided to start a mailing list to discuss design goals and 
+implementation. If you have any interest in what's happening in the 
+stack, ideas, and/or would like to help out you can join at
 
-If you simply remove the lines, skb->truesize might be big enough to
-slow down TCP noticeably.
+tcpinst-wg@psc.edu
+or
+https://lists.psc.edu/mailman/listinfo/tcpinst-wg
 
-I would rather use something like commit
-a9e0aca4b37885b5599e52211f098bd7f565e749
-("asix: asix_rx_fixup surgery to reduce skb truesizes")
+Thanks!
 
-Idea is to 'copybreak' tiny frames.
+Chris
