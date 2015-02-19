@@ -1,30 +1,110 @@
-From: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Subject: Re: [PATCH] net: smc91x: improve neponset hack
-Date: Thu, 19 Feb 2015 00:35:49 +0000
-Message-ID: <20150219003549.GY8656@n2100.arm.linux.org.uk>
-References: <5763365.j5Nvv4LgM3@wuerfel>
+From: Mahesh Bandewar <maheshb@google.com>
+Subject: Re: [PATCH next v5 2/6] bonding: implement bond_poll_controller()
+Date: Wed, 18 Feb 2015 17:19:53 -0800
+Message-ID: <CAF2d9jjUg1_SzoCNvTsGq5+UNuWnoreCB8dqk28TLgeT1tsO8w@mail.gmail.com>
+References: <1424298682-18227-1-git-send-email-maheshb@google.com> <54E529E6.609@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	linux-arm-kernel@lists.infradead.org,
-	Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>,
-	linux-kernel@vger.kernel.org,
-	Linus Walleij <linus.walleij@linaro.org>
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <5763365.j5Nvv4LgM3@wuerfel>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Jay Vosburgh <j.vosburgh@gmail.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Veaceslav Falico <vfalico@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	Maciej Zenczykowski <maze@google.com>,
+	netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>
+To: Nikolay Aleksandrov <nikolay@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f174.google.com ([209.85.214.174]:54404 "EHLO
+	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752570AbbBSBUO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Feb 2015 20:20:14 -0500
+Received: by mail-ob0-f174.google.com with SMTP id wo20so9104618obc.5
+        for <netdev@vger.kernel.org>; Wed, 18 Feb 2015 17:20:13 -0800 (PST)
+In-Reply-To: <54E529E6.609@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 18, 2015 at 08:47:30PM +0100, Arnd Bergmann wrote:
-> The smc91x driver tries to support multiple platforms at compile
-> time, but they are mutually exclusive at runtime, and not clearly
-> defined.
+On Wed, Feb 18, 2015 at 4:10 PM, Nikolay Aleksandrov <nikolay@redhat.com> wrote:
+> On 02/18/2015 11:31 PM, Mahesh Bandewar wrote:
+>> This patches implements the poll_controller support for all
+>> bonding driver. If the slaves have poll_controller net_op defined,
+>> this implementation calls them. This is mode agnostic implementation
+>> and iterates through all slaves (based on mode) and calls respective
+>> handler.
+>>
+>> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+>> ---
+>> v1:
+>>    Initial version
+>> v2:
+>>    Eliminate bool variable.
+>> v3:
+>>    Rebase
+>> v4:
+>>    Removed 3AD port_operational check
+>> v5:
+>>    Added rtnl protection for bond_for_each_slave()
+>>
+>>  drivers/net/bonding/bond_main.c | 33 +++++++++++++++++++++++++++++++++
+>>  1 file changed, 33 insertions(+)
+>>
+>
+> Hi Mahesh,
+> I should've explained more in my review, you cannot sleep in
+> bond_poll_controller() so you cannot acquire rtnl like that. I was thinking
+> more about using rcu and switching to the _rcu version of
+> bond_for_each_slave instead.
+>
+That makes sense. The path that triggered this netpoll() could have
+been holding the rtnl  itself and this would be a problem. I think
+using the _rcu variant of the slave iterator is a good idea, my bad!
 
-I'd prefer to rework this to fix that properly.  From what I remember,
-the whole SA11x0 stuff in this driver was a mess.
-
--- 
-FTTC broadband for 0.8mile line: currently at 10.5Mbps down 400kbps up
-according to speedtest.net.
+> Cheers,
+>  Nik
+>
+>> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+>> index b979c265fc51..63e6c0dbe7b3 100644
+>> --- a/drivers/net/bonding/bond_main.c
+>> +++ b/drivers/net/bonding/bond_main.c
+>> @@ -928,6 +928,39 @@ static inline void slave_disable_netpoll(struct slave *slave)
+>>
+>>  static void bond_poll_controller(struct net_device *bond_dev)
+>>  {
+>> +     struct bonding *bond = netdev_priv(bond_dev);
+>> +     struct slave *slave = NULL;
+>> +     struct list_head *iter;
+>> +     struct ad_info ad_info;
+>> +     struct netpoll_info *ni;
+>> +     const struct net_device_ops *ops;
+>> +
+>> +     if (BOND_MODE(bond) == BOND_MODE_8023AD)
+>> +             if (bond_3ad_get_active_agg_info(bond, &ad_info))
+>> +                     return;
+>> +
+>> +     rtnl_lock();
+>> +     bond_for_each_slave(bond, slave, iter) {
+>> +             ops = slave->dev->netdev_ops;
+>> +             if (!bond_slave_is_up(slave) || !ops->ndo_poll_controller)
+>> +                     continue;
+>> +
+>> +             if (BOND_MODE(bond) == BOND_MODE_8023AD) {
+>> +                     struct aggregator *agg =
+>> +                         SLAVE_AD_INFO(slave)->port.aggregator;
+>> +
+>> +                     if (agg &&
+>> +                         agg->aggregator_identifier != ad_info.aggregator_id)
+>> +                             continue;
+>> +             }
+>> +
+>> +             ni = rcu_dereference_bh(slave->dev->npinfo);
+>> +             if (down_trylock(&ni->dev_lock))
+>> +                     continue;
+>> +             ops->ndo_poll_controller(slave->dev);
+>> +             up(&ni->dev_lock);
+>> +     }
+>> +     rtnl_unlock();
+>>  }
+>>
+>>  static void bond_netpoll_cleanup(struct net_device *bond_dev)
+>>
+>
