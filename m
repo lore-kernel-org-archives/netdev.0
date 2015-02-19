@@ -1,62 +1,77 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: Port STP state after removing port from bridge
-Date: Wed, 18 Feb 2015 21:00:22 -0800
-Message-ID: <CAGVrzcbRO1f2Bt-fxSV0=DTnGdXTB-KeE=Kma2+0qgGkqc5n8w@mail.gmail.com>
-References: <CAGVrzcZMV3vSd3hEsXqk6BtyU-Ts9=oJvb79DTZp25TnnGm5CQ@mail.gmail.com>
- <54E56C6A.1060108@cumulusnetworks.com>
+From: Mahesh Bandewar <maheshb@google.com>
+Subject: Re: [PATCH next v5 2/6] bonding: implement bond_poll_controller()
+Date: Wed, 18 Feb 2015 21:06:25 -0800
+Message-ID: <CAF2d9jhxZZ65mVyV0TcXt=YkKmbe3EKhEkEhx6LT+TA9h_Vt=g@mail.gmail.com>
+References: <1424298682-18227-1-git-send-email-maheshb@google.com>
+ <54E529E6.609@redhat.com> <CAF2d9jjUg1_SzoCNvTsGq5+UNuWnoreCB8dqk28TLgeT1tsO8w@mail.gmail.com>
+ <CAF2d9ji7VqqB95nD=VezL6fAaGJKaHCJRYf+b1VsCCLFy4r7NA@mail.gmail.com> <CANP3RGe7a9hwDB5iUapNvxVS_TD0kkmA3rWJnku=j5tUZ9v6rQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Scott Feldman <sfeldma@gmail.com>,
-	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Nikolay Aleksandrov <nikolay@redhat.com>,
+	Jay Vosburgh <j.vosburgh@gmail.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Veaceslav Falico <vfalico@gmail.com>,
+	David Miller <davem@davemloft.net>,
 	netdev <netdev@vger.kernel.org>,
-	Stephen Hemminger <stephen@networkplumber.org>
-To: roopa <roopa@cumulusnetworks.com>
+	Eric Dumazet <edumazet@google.com>
+To: =?ISO-8859-2?Q?Maciej_=AFenczykowski?= <maze@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f174.google.com ([209.85.213.174]:39038 "EHLO
-	mail-ig0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750715AbbBSFBD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Feb 2015 00:01:03 -0500
-Received: by mail-ig0-f174.google.com with SMTP id b16so41875774igk.1
-        for <netdev@vger.kernel.org>; Wed, 18 Feb 2015 21:01:02 -0800 (PST)
-In-Reply-To: <54E56C6A.1060108@cumulusnetworks.com>
+Received: from mail-ob0-f178.google.com ([209.85.214.178]:44228 "EHLO
+	mail-ob0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750740AbbBSFGq convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Feb 2015 00:06:46 -0500
+Received: by mail-ob0-f178.google.com with SMTP id uz6so10576847obc.9
+        for <netdev@vger.kernel.org>; Wed, 18 Feb 2015 21:06:46 -0800 (PST)
+In-Reply-To: <CANP3RGe7a9hwDB5iUapNvxVS_TD0kkmA3rWJnku=j5tUZ9v6rQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2015-02-18 20:54 GMT-08:00 roopa <roopa@cumulusnetworks.com>:
-> On 2/18/15, 8:39 PM, Florian Fainelli wrote:
->>
->> Hi,
->>
->> It just occured to me that the following sequence:
->>
->> brctl addbr br0
->> brctl addif br0 port0
->> ... STP happens
->> brctl delif br0 port0
->>
->> will leave port0 in STP disabled state, because the bridge code will
->> set the STP state to DISABLED, and only a down/up sequence can bring
->> it back to FORWARDING.
->>
->> Is this something that we should somehow fix? As an user it seems a
->> little convoluted having to do a down/up sequence to restore things. I
->> believe however that it is valid for the bridge layer to mark a port
->> as DISABLED when removing it. This is typically not noticed or even
->> remotely a problem with software bridges because we cannot enforce an
->> actual STP state at the HW level.
->>
-> Just curious, Are you only talking about hw state being left it DISABLED
-> state in the switchdev context ?.
+On Wed, Feb 18, 2015 at 6:26 PM, Maciej =C5=BBenczykowski <maze@google.=
+com> wrote:
+>>>> Hi Mahesh,
+>>>> I should've explained more in my review, you cannot sleep in
+>>>> bond_poll_controller() so you cannot acquire rtnl like that. I was=
+ thinking
+>>>> more about using rcu and switching to the _rcu version of
+>>>> bond_for_each_slave instead.
+>>>>
+>>> That makes sense. The path that triggered this netpoll() could have
+>>> been holding the rtnl  itself and this would be a problem. I think
+>>> using the _rcu variant of the slave iterator is a good idea, my bad=
+!
+>>>
+>> ... however we cannot use the _rcu variant either since there is the
+>> netpoll mutex (ni->dev_lock)!
+>> The fact that we are here itself means that something bad had happen=
+ed
+>> and trying to take additional lock(s) would complicate the situation
+>> further.
+>
+> I think you might be incorrectly assuming that we only get here on
+> kernel crashes,
+> upstream (netconsole) [may] violate[s] this assumption.
+>
+> (background: internally we don't consider netconsole production
+> worthy, but we do
+> 'abuse' the netpoll support framework to generate a minimal network
+> dump on kernel crash,
+> in which case if we crash or otherwise violate assumptions while
+> crashing, we're not any worse off...)
+>
+I think irrespective of how we use it, there are few contradictory thin=
+gs here -
+(a) If it can't sleep in netpoll() (which I agree with) then that
+netpoll mutex does not make sense. But if it can then rtnl isn't a
+wrong thing.
+(b) If the netpoll mutex is right then slaves can not be iterated with
+rcu protection.
+(c) If we takeout the netpoll-mutex, then everything seems right but
+can we really do that?
 
-Right, this is in the context of DSA using NET_SWITCHDEV.
+I'll take this patch out of this series for the time being and let
+other patches proceed while I think about this patch some more.
 
-> If yes, then cant the switch driver who is already listening to port leave
-> msgs, clear the disabled state on the port. ?
+--mahesh..
 
-I guess that is definitively possible, I am not seeing that being done
-for rocker which I used as a model here, maybe that needs fixing there
-as well?
-
-Thanks!
--- 
-Florian
+> - Maciej
