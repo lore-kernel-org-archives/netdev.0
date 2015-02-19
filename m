@@ -1,55 +1,69 @@
-From: Felix Fietkau <nbd@openwrt.org>
-Subject: Re: [PATCHv2] ath9k_htc: add adaptive usb receive flow control to
- repair soft lockup with monitor mode
-Date: Thu, 19 Feb 2015 19:09:59 +1100
-Message-ID: <54E59A57.402@openwrt.org>
-References: <1423528464-8433-1-git-send-email-yuweizheng@139.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch] caif: fix a signedness bug in cfpkt_iterate()
+Date: Thu, 19 Feb 2015 12:13:13 +0300
+Message-ID: <20150219091313.GA29358@mwanda>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, zhengyuwei@360.cn
-To: Yuwei Zheng <yuweizheng@139.com>, linux-kernel@vger.kernel.org,
-	ath9k-devel@lists.ath9k.org, linux-wireless@vger.kernel.org,
-	kvalo@codeaurora.org, ath9k-devel@qca.qualcomm.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1423528464-8433-1-git-send-email-yuweizheng@139.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: Dmitry Tarnyagin <dmitry.tarnyagin@lockless.no>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: kernel-janitors-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 2015-02-10 11:34, Yuwei Zheng wrote:
-> The ath9k_hif_usb_rx_cb function excute on  the interrupt context, and ath9k_rx_tasklet excute
-> on the soft irq context. In other words, the ath9k_hif_usb_rx_cb have more chance to excute than
-> ath9k_rx_tasklet.  So in the worst condition,  the rx.rxbuf receive list is always full,
-> and the do {}while(true) loop will not be break. The kernel get a soft lockup panic. 
->  
-> [59011.007210] BUG: soft lockup - CPU#0 stuck for 23s!
-> [kworker/0:0:30609]
-> [59011.030560] BUG: scheduling while atomic: kworker/0:0/30609/0x40010100
-> [59013.804486] BUG: scheduling while atomic: kworker/0:0/30609/0x40010100
-> [59013.858522] Kernel panic - not syncing: softlockup: hung tasks
->  
-> [59014.038891] Exception stack(0xdf4bbc38 to 0xdf4bbc80)
-> [59014.046834] bc20:                                                       de57b950 60000113
-> [59014.059579] bc40: 00000000 bb32bb32 60000113 de57b948 de57b500 dc7bb440 df4bbcd0 00000000
-> [59014.072337] bc60: de57b950 60000113 df4bbcd0 df4bbc80 c04c259d c04c25a0 60000133 ffffffff
-> [59014.085233] [<c04c28db>] (__irq_svc+0x3b/0x5c) from [<c04c25a0>] (_raw_spin_unlock_irqrestore+0xc/0x10)
-> [59014.100437] [<c04c25a0>] (_raw_spin_unlock_irqrestore+0xc/0x10) from [<bf9c2089>] (ath9k_rx_tasklet+0x290/0x490 [ath9k_htc])
-> [59014.118267] [<bf9c2089>] (ath9k_rx_tasklet+0x290/0x490 [ath9k_htc]) from [<c0036d23>] (tasklet_action+0x3b/0x98)
-> [59014.134132] [<c0036d23>] (tasklet_action+0x3b/0x98) from [<c0036709>] (__do_softirq+0x99/0x16c)
-> [59014.147784] [<c0036709>] (__do_softirq+0x99/0x16c) from [<c00369f7>] (irq_exit+0x5b/0x5c)
-> [59014.160653] [<c00369f7>] (irq_exit+0x5b/0x5c) from [<c000cfc3>] (handle_IRQ+0x37/0x78)
-> [59014.173124] [<c000cfc3>] (handle_IRQ+0x37/0x78) from [<c00085df>] (omap3_intc_handle_irq+0x5f/0x68)
-> [59014.187225] [<c00085df>] (omap3_intc_handle_irq+0x5f/0x68) from [<c04c28db>](__irq_svc+0x3b/0x5c)
->  
-> This bug can be see with low performance board, such as uniprocessor beagle bone board. Add some debug 
-> message in the ath9k_hif_usb_rx_cb function may trigger this bug quickly.
->  
-> Signed-off-by: Yuwei Zheng <yuweizheng@139.com>
-This approach of interaction between tasklet and workqueue processing
-seems quite complex to me. Wouldn't it be simpler and better to simply
-always run the rx processing code in workqueue context?
-That way it can go on processing forever (as long as there is data to be
-received), while the scheduler ensures that it doesn't interfere with
-other critical work on the CPU.
+The cfpkt_iterate() function can return -EPROTO on error, but the
+function is a u16 so the negative value gets truncated to a positive
+unsigned short.  This causes a static checker warning.
 
-- Felix
+The only caller which might care is cffrml_receive(), when it's checking
+the frame checksum.  I modified cffrml_receive() so that it never says
+-EPROTO is a valid checksum.
+
+Also this isn't ever going to be inlined so I removed the "inline".
+
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+
+diff --git a/include/net/caif/cfpkt.h b/include/net/caif/cfpkt.h
+index 1c1ad46..fe328c5 100644
+--- a/include/net/caif/cfpkt.h
++++ b/include/net/caif/cfpkt.h
+@@ -171,7 +171,7 @@ struct cfpkt *cfpkt_split(struct cfpkt *pkt, u16 pos);
+  * @return    Checksum of buffer.
+  */
+ 
+-u16 cfpkt_iterate(struct cfpkt *pkt,
++int cfpkt_iterate(struct cfpkt *pkt,
+ 		u16 (*iter_func)(u16 chks, void *buf, u16 len),
+ 		u16 data);
+ 
+diff --git a/net/caif/cfpkt_skbuff.c b/net/caif/cfpkt_skbuff.c
+index 1be0b52..f6c3b21 100644
+--- a/net/caif/cfpkt_skbuff.c
++++ b/net/caif/cfpkt_skbuff.c
+@@ -255,9 +255,9 @@ inline u16 cfpkt_getlen(struct cfpkt *pkt)
+ 	return skb->len;
+ }
+ 
+-inline u16 cfpkt_iterate(struct cfpkt *pkt,
+-			 u16 (*iter_func)(u16, void *, u16),
+-			 u16 data)
++int cfpkt_iterate(struct cfpkt *pkt,
++		  u16 (*iter_func)(u16, void *, u16),
++		  u16 data)
+ {
+ 	/*
+ 	 * Don't care about the performance hit of linearizing,
+diff --git a/net/caif/cffrml.c b/net/caif/cffrml.c
+index 8bc7caa..434ba85 100644
+--- a/net/caif/cffrml.c
++++ b/net/caif/cffrml.c
+@@ -84,7 +84,7 @@ static int cffrml_receive(struct cflayer *layr, struct cfpkt *pkt)
+ 	u16 tmp;
+ 	u16 len;
+ 	u16 hdrchks;
+-	u16 pktchks;
++	int pktchks;
+ 	struct cffrml *this;
+ 	this = container_obj(layr);
+ 
