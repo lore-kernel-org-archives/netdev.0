@@ -1,60 +1,166 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 6/7 linux-next] wan: cosa: replace current->state by
- set_current_state()
-Date: Fri, 20 Feb 2015 11:31:53 -0800
-Message-ID: <1424460713.5565.28.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1424455977-21903-1-git-send-email-fabf@skynet.be>
-	 <1424455977-21903-6-git-send-email-fabf@skynet.be>
-	 <54E77E34.6050909@cogentembedded.com>
-	 <20150220185800.GR2896@worktop.programming.kicks-ass.net>
+From: Jonas Johansson <jonasj76@gmail.com>
+Subject: Re: [PATCH net-next 1/2] dsa: bonding: implement HW bonding
+Date: Fri, 20 Feb 2015 20:28:48 +0100 (CET)
+Message-ID: <alpine.LNX.2.03.1502201952190.11645@hellgate.skynet>
+References: <1424429473-4601-1-git-send-email-jonasj76@gmail.com> <1424429473-4601-2-git-send-email-jonasj76@gmail.com> <54E763A6.4020505@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Fabian Frederick <fabf@skynet.be>,
-	linux-kernel@vger.kernel.org, Ingo Molnar <mingo@redhat.com>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	"Jan \"Yenya\" Kasprzak" <kas@fi.muni.cz>, netdev@vger.kernel.org
-To: Peter Zijlstra <peterz@infradead.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150220185800.GR2896@worktop.programming.kicks-ass.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Jonas Johansson <jonasj76@gmail.com>, netdev@vger.kernel.org,
+	Jonas Johansson <jonas.johansson@westermo.se>,
+	Jiri Pirko <jiri@resnulli.us>,
+	Scott Feldman <sfeldma@gmail.com>
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f170.google.com ([209.85.217.170]:40329 "EHLO
+	mail-lb0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754512AbbBTTcq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Feb 2015 14:32:46 -0500
+Received: by lbdu10 with SMTP id u10so8284723lbd.7
+        for <netdev@vger.kernel.org>; Fri, 20 Feb 2015 11:32:44 -0800 (PST)
+In-Reply-To: <54E763A6.4020505@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2015-02-20 at 19:58 +0100, Peter Zijlstra wrote:
-> On Fri, Feb 20, 2015 at 09:34:28PM +0300, Sergei Shtylyov wrote:
-> > Hello.
-> > 
-> > On 02/20/2015 09:12 PM, Fabian Frederick wrote:
-> > 
-> > >Use helper functions to access current->state.
-> > >Direct assignments are prone to races and therefore buggy.
-> > 
-> > >current->state = TASK_RUNNING is replaced by __set_current_state()
-> > 
-> >    You sometimes use __set_current_state() and sometimes set_current_state().
-> 
-> It depends on which state; setting yourself TASK_RUNNING is free of
-> wakeup races -- you're already running after all, so it can safely use
-> __set_current_state().
 
-Maybe this might be self documented in set_current_state(),
-as we have about 120 calls to __set_current_state(TASK_RUNNING)
 
-diff --git a/include/linux/sched.h b/include/linux/sched.h
-index 41c60e5302d7..26133da6445e 100644
---- a/include/linux/sched.h
-+++ b/include/linux/sched.h
-@@ -275,7 +275,11 @@ extern char ___assert_task_state[1 - 2*!!(
- #define set_current_state(state_value)				\
- 	do {							\
- 		current->task_state_change = _THIS_IP_;		\
--		set_mb(current->state, (state_value));		\
-+		if (__builtin_constant_p(state_value) &&	\
-+		    (state_value) == TASK_RUNNING)		\
-+			current->state = (state_value);		\
-+		else						\
-+			set_mb(current->state, (state_value));	\
- 	} while (0)
- 
- #else
+On Fri, 20 Feb 2015, Florian Fainelli wrote:
+
+> On 20/02/15 02:51, Jonas Johansson wrote:
+>> From: Jonas Johansson <jonas.johansson@westermo.se>
+>>
+>> This patch will implement hooks for hardware bonding support for the DSA
+>> driver. When the team driver adds a DSA slave port the port will be assigned
+>> a bond group id and the DSA slave driver can setup the hardware. When team
+>> changes the port state (enabled/disabled) the DSA slave driver is able to
+>> use the attach/detach callback which will allow the hardware to change the
+>> hardware settings to reflect the state.
+>>
+>> Added DSA hooks:
+>>  bond_add_group: To add a port to a bond group
+>>  bond_del_group: To remove a port from a bond group
+>>  bond_attach: To mark the port in a bond group as attached/active
+>>  bond_detach: To unmark the port in a bond group as detach/inactive
+>>
+>> Added new network device hooks:
+>>  ndo_bond_attach: To attach a device to a bond group.
+>>  ndo_bond_detach: To detach a device from a bond group.
+>>
+>> Team:
+>>  Added callback to ndo_bond_attach when port is enabled.
+>>  Added callback to ndo_bond_detach when port is disabled.
+>>
+>> Added DSA notifier:
+>>  Listening on NETDEV_CHANGEUPPER to add or deleta a port to/from a bond group.
+>>
+>> Signed-off-by: Jonas Johansson <jonas.johansson@westermo.se>
+>> ---
+>>  drivers/net/team/team.c   |  4 ++++
+>>  include/linux/netdevice.h |  8 +++++++
+>>  include/net/dsa.h         |  8 +++++++
+>>  net/dsa/dsa.c             | 60 +++++++++++++++++++++++++++++++++++++++++++++++
+>>  net/dsa/dsa_priv.h        |  6 +++++
+>>  net/dsa/slave.c           | 23 ++++++++++++++++++
+>>  6 files changed, 109 insertions(+)
+>>
+>> diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
+>> index 0e62274..f7b2afb 100644
+>> --- a/drivers/net/team/team.c
+>> +++ b/drivers/net/team/team.c
+>> @@ -934,6 +934,8 @@ static void team_port_enable(struct team *team,
+>>  		team->ops.port_enabled(team, port);
+>>  	team_notify_peers(team);
+>>  	team_mcast_rejoin(team);
+>> +	if (port->dev->netdev_ops->ndo_bond_attach)
+>> +		port->dev->netdev_ops->ndo_bond_attach(port->dev);
+>>  }
+>>
+>>  static void __reconstruct_port_hlist(struct team *team, int rm_index)
+>> @@ -965,6 +967,8 @@ static void team_port_disable(struct team *team,
+>>  	team_adjust_ops(team);
+>>  	team_notify_peers(team);
+>>  	team_mcast_rejoin(team);
+>> +	if (port->dev->netdev_ops->ndo_bond_detach)
+>> +		port->dev->netdev_ops->ndo_bond_detach(port->dev);
+>>  }
+>
+> Do we really need new ndos here? Cannot we learn this via
+> NETDEV_CHANGEUPPER?
+>
+If team e.g. uses LACP as runner, a number of ports can be configured as a 
+bond group, but only the ports of the same physical type will be enabled 
+and used for bonding. team_port_enable() and team_port_disable() are the 
+functions to set the ports which should be included for bonding.
+
+>
+> [snip]
+>
+>>
+>>  /* platform driver init and cleanup *****************************************/
+>>  static int dev_is_class(struct device *dev, void *class)
+>> @@ -778,6 +835,9 @@ static int dsa_probe(struct platform_device *pdev)
+>>  		add_timer(&dst->link_poll_timer);
+>>  	}
+>>
+>> +	/* Setup notifier */
+>> +	register_netdevice_notifier(&dsa_nb);
+>
+> I do not think we need to register the netdevice_notifier for every DSA
+> platform_device we might instantiate, a single one, global, whenever the
+> DSA driver gets inserted should be enough.
+>
+> Also, I would prefer if we moved this to net/dsa/slave.c where the other
+> netdevice_ops are layered, very much like this patch:
+>
+> [1]: http://patchwork.ozlabs.org/patch/440696/
+>
+I agree.
+
+>> +
+>>  	return 0;
+>>
+>>  out:
+>> diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
+>> index dc9756d..6a1456a 100644
+>> --- a/net/dsa/dsa_priv.h
+>> +++ b/net/dsa/dsa_priv.h
+>> @@ -45,6 +45,11 @@ struct dsa_slave_priv {
+>>  	int			old_link;
+>>  	int			old_pause;
+>>  	int			old_duplex;
+>> +
+>> +	/*
+>> +	 * Bond group id, or 0 if port is not bonded.
+>> +	 */
+>> +	int			bond_gid;
+>>  };
+>>
+>>  /* dsa.c */
+>> @@ -58,6 +63,7 @@ struct net_device *dsa_slave_create(struct dsa_switch *ds,
+>>  				    int port, char *name);
+>>  int dsa_slave_suspend(struct net_device *slave_dev);
+>>  int dsa_slave_resume(struct net_device *slave_dev);
+>> +bool dsa_slave_check(struct net_device *dev);
+>>
+>>  /* tag_dsa.c */
+>>  extern const struct dsa_device_ops dsa_netdev_ops;
+>> diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+>> index f23dead..88c84bf 100644
+>> --- a/net/dsa/slave.c
+>> +++ b/net/dsa/slave.c
+>> @@ -441,6 +441,22 @@ static int dsa_slave_get_eee(struct net_device *dev, struct ethtool_eee *e)
+>>  	return ret;
+>>  }
+>>
+>> +static int dsa_slave_bond_attach(struct net_device *dev)
+>> +{
+>> +	struct dsa_slave_priv *p = netdev_priv(dev);
+>> +	struct dsa_switch *ds = p->parent;
+>> +
+>> +	return ds->drv->bond_attach(ds, p->port);
+>
+> You need to test for the callback implementation in the driver, since it
+> is optional and likely not to be implemented immediately.
+> -- 
+> Florian
+>
+Thanks, I missed that.
