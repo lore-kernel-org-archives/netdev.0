@@ -1,47 +1,65 @@
-From: Linus Walleij <linus.walleij@linaro.org>
-Subject: Re: [PATCH] Revert "smc91x: retrieve IRQ and trigger flags in a
- modern way"
-Date: Fri, 20 Feb 2015 10:37:59 +0100
-Message-ID: <CACRpkdZf4ceexYP8eNTcetbRoZ6RUoZjyh60CF4MK+w6gjUH+g@mail.gmail.com>
-References: <1423760350-20149-1-git-send-email-robert.jarzmik@free.fr>
-	<CACRpkdZGze_2=hWe414Eum_9hpNXgog5vmu6Y4R_zhg0x2z0SQ@mail.gmail.com>
-	<87bnkx6bja.fsf@free.fr>
-	<20150219.152841.891912250243016754.davem@davemloft.net>
-	<87egpl8w5q.fsf@free.fr>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next RFC 5/5] rocker: explicitly set SW ageing for
+ rocker
+Date: Fri, 20 Feb 2015 10:46:06 +0100
+Message-ID: <20150220092518.GA2008@nanopsycho.orion>
+References: <1424416195-19098-1-git-send-email-sfeldma@gmail.com>
+ <1424416195-19098-6-git-send-email-sfeldma@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Nicolas Pitre <nico@fluxnic.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Robert Jarzmik <robert.jarzmik@free.fr>,
-	Greg KH <gregkh@linuxfoundation.org>,
-	Grant Likely <grant.likely@linaro.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87egpl8w5q.fsf@free.fr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
+	linux@roeck-us.net, f.fainelli@gmail.com, andrew@lunn.ch,
+	gospo@cumulusnetworks.com, vbandaru@broadcom.com,
+	siva.mannem.lnx@gmail.com
+To: sfeldma@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f178.google.com ([74.125.82.178]:41847 "EHLO
+	mail-we0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751019AbbBTJqJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Feb 2015 04:46:09 -0500
+Received: by wevm14 with SMTP id m14so4548182wev.8
+        for <netdev@vger.kernel.org>; Fri, 20 Feb 2015 01:46:08 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1424416195-19098-6-git-send-email-sfeldma@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 19, 2015 at 9:48 PM, Robert Jarzmik <robert.jarzmik@free.fr> wrote:
-> David Miller <davem@davemloft.net> writes:
+Fri, Feb 20, 2015 at 08:09:55AM CET, sfeldma@gmail.com wrote:
+>From: Scott Feldman <sfeldma@gmail.com>
 >
->>> Now if you can make it in -rc2 or -rc3, this revert should be forgotten. But if
->>> you can't make it for 3.20, I'll push for the revert.
->>>
->>> So I think it's up to you now, and let's see what Gregh says about it.
->>
->> What is the current status of this?  I'd like to see this move forward so we
->> can get this fixed ASAP.
-> Hi David,
+>Rocker (for now) will rely on SW (bridge) ageing.  Other drivers/devices may
+>wish to set NTF_EXT_AGED to turn off SW (bridge) ageing.
 >
-> Linus has submitted the patch [1]. I'll be watching carefully until -rc4 that
-> this is applied. If it's not, I'll reping you to apply this revert. Until then,
-> you can forget about it, I'll do the follow-up.
-> [1] https://lkml.org/lkml/2015/2/18/310
+>Signed-off-by: Scott Feldman <sfeldma@gmail.com>
+>---
+> drivers/net/ethernet/rocker/rocker.c |    9 +++++----
+> 1 file changed, 5 insertions(+), 4 deletions(-)
+>
+>diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
+>index 34389b6a..7b55934 100644
+>--- a/drivers/net/ethernet/rocker/rocker.c
+>+++ b/drivers/net/ethernet/rocker/rocker.c
+>@@ -3026,10 +3026,11 @@ static void rocker_port_fdb_learn_work(struct work_struct *work)
+> 		container_of(work, struct rocker_fdb_learn_work, work);
+> 	bool removing = (lw->flags & ROCKER_OP_FLAG_REMOVE);
+> 	bool learned = (lw->flags & ROCKER_OP_FLAG_LEARNED);
+>-	struct netdev_switch_notifier_fdb_info info;
+>-
+>-	info.addr = lw->addr;
+>-	info.vid = lw->vid;
+>+	struct netdev_switch_notifier_fdb_info info = {
+>+		.addr = lw->addr,
+>+		.vid = lw->vid,
+>+		.ntf_flags = NTF_EXT_LEARNED,
+>+	};
 
-Looping in Greg and Grant so they know we are waiting for their verdict
-on that patch...
+I think that this patch should be before "bridge: call external learn add
+if adding FDB entry with NTF_EXT_LEARNED set" in order to not break
+functionality during bisect.
 
-
-Yours,
-Liunus Walleij
+> 
+> 	if (learned && removing)
+> 		call_netdev_switch_notifiers(NETDEV_SWITCH_FDB_DEL,
+>-- 
+>1.7.10.4
+>
