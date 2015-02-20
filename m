@@ -1,49 +1,81 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH RFC 2/2] net: dsa: bcm_sf2: implement HW bridging
- operations
-Date: Fri, 20 Feb 2015 03:18:43 +0100
-Message-ID: <20150220021843.GG795@lunn.ch>
-References: <1424201196-4901-3-git-send-email-f.fainelli@gmail.com>
- <54E54EF3.9020802@gmail.com>
- <20150219055953.GA14247@roeck-us.net>
- <54E61CFB.3010109@gmail.com>
- <20150219174640.GA6897@roeck-us.net>
- <54E676DD.9090003@gmail.com>
- <20150220000935.GA30118@roeck-us.net>
- <54E68512.6070108@cumulusnetworks.com>
- <20150220010352.GA300@roeck-us.net>
- <54E691F2.5090205@cumulusnetworks.com>
+From: Andy Gospodarek <gospo@cumulusnetworks.com>
+Subject: Re: [PATCH 1/1] tun: change speed from 10M to dynamically configured
+Date: Thu, 19 Feb 2015 21:35:00 -0500
+Message-ID: <20150220023500.GK580@gospo.home.greyhouse.net>
+References: <20150213212830.GA29912@electric-eye.fr.zoreil.com>
+ <54E1568D.5000100@windriver.com>
+ <20150216120345.4dfd9950@uryu.home.lan>
+ <20150219.154041.184372158520813993.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Guenter Roeck <linux@roeck-us.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	netdev@vger.kernel.org, davem@davemloft.net,
-	vivien.didelot@savoirfairelinux.com,
-	jerome.oufella@savoirfairelinux.com, cphealy@gmail.com
-To: roopa <roopa@cumulusnetworks.com>
+Cc: stephen@networkplumber.org, Yanjun.Zhu@windriver.com,
+	romieu@fr.zoreil.com, netdev@vger.kernel.org, mst@redhat.com,
+	jasowang@redhat.com, viro@zeniv.linux.org.uk,
+	sergei.shtylyov@cogentembedded.com, jonathon.reinhart@gmail.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:46372 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753575AbbBTCVi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Feb 2015 21:21:38 -0500
+Received: from mail-qa0-f43.google.com ([209.85.216.43]:47529 "EHLO
+	mail-qa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752711AbbBTCfE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Feb 2015 21:35:04 -0500
+Received: by mail-qa0-f43.google.com with SMTP id bm13so10135230qab.2
+        for <netdev@vger.kernel.org>; Thu, 19 Feb 2015 18:35:02 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <54E691F2.5090205@cumulusnetworks.com>
+In-Reply-To: <20150219.154041.184372158520813993.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> >Remember that we are dealing with hardware switch chips. Those chips
-> >won't time out fdb entries just because the kernel's bridge driver
-> >thinks that it should.
+On Thu, Feb 19, 2015 at 03:40:41PM -0500, David Miller wrote:
+> From: Stephen Hemminger <stephen@networkplumber.org>
+> Date: Mon, 16 Feb 2015 12:03:45 -0500
+> 
+> > I would like to propose this is as a more complete alternative.
+> > 
+> > From: Stephen Hemminger <stephen@networkpluber.org>
+> > Subject: [PATCH] tun: support overriding ethtool information
+> > 
+> > Extensions to allow masqurade of ethtool info and device statistics.
+> > This is useful to provide correct information to SNMP and OSPF routing
+> > daemons when doing hw/sw offload of network device.
+> > 
+> > Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+> 
+> We need a consistent policy regarding link attributes of encapsulating
+> "software" devices.
 
-> Oh, they dont..?
+I think this is a great point and though I like Stephen's patch due to
+how useful it would be to me, I had some concerns about whether or not
+others would accept it without a bit more of 'a plan' for functions like
+this.
 
-To some extent, it is better to think of these as two switches
-connected to each other, not one switch. The HW switch needs help with
-STP, but otherwise it is a fully functional and autonomous switch.
+> 
+> I see three realistic options:
+> 
+> 1) Create a link state indication which means "I am a software device,
+>    so I don't really have a link state in the traditional sense"
+> 
+> 2) Don't implement the link set/get operations at all on software
+>    devices.
+> 
+>    People can use ETHTOOL_GLINK to see if the thing is "up"
+> 
+> 3) Propagate the ultimate physical transport parameters into what
+>    the software device advertises.
+> 
+> It's important to carefully pick one of these, and consistently apply
+> it to all of our software devices.
+> 
+> I don't want TUN doing one thing, ipv4 tunnels doing another, etc.
 
-This is going to make displaying the forwarding database interesting,
-because the SW bridge fdb and the HW bridge fdb are each subsets of
-the big picture and possible even contradictory since they are not
-updated atomically.
+I would prefer option #3 as it relates to the ability to transport
+offload statistics and parameters to software devices.  This could be
+useful for hardware with some form of offload vxlan/gre/etc that may be
+backed by hardare statistics (a callback to the upper device's ndo op
+could be made by the native hardware driver) or any other device without
+a proper in-kernel driver like a userspace user of tuntap that might be
+backed by something like OpenVPN.
 
-	Andrew
+That might help provide some more detailed, ethtool-like statistics in
+the format that is more easily readable by common monitoring tools
+without the need to have those applications look at anything except an
+ethtool/kernel interface.
