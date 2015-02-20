@@ -1,122 +1,76 @@
-From: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
-Subject: [PATCH v2 3/3] ixgbe: Add new ndo to allow VF multicast promiscuous
- mode
-Date: Fri, 20 Feb 2015 01:01:17 +0000
-Message-ID: <7F861DC0615E0C47A872E6F3C5FCDDBD05E38867@BPXM14GP.gisp.nec.co.jp>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: Why do we use RX queue mapping for TX?
+Date: Thu, 19 Feb 2015 17:31:05 -0800
+Message-ID: <54E68E59.6020401@gmail.com>
+References: <CAHA+R7MXF-KHZ3aeBwwshSYDswKwrjhbMJQ=+Hfj3gZJq70dXQ@mail.gmail.com> <CAHA+R7PdG+jDqFA1jDFzHtkrxqLEZdtj1w5QyrdYMO4fX6+A1w@mail.gmail.com> <CAHA+R7OVHgwQBM200UZDKiw5eypuzhWj=B4E3MRkOK3yViZDCQ@mail.gmail.com> <1424301248.4942.99.camel@edumazet-glaptop2.roam.corp.google.com> <CAHA+R7PbLRw-oA4v9ivZ0s-++ALx99zddJLDqDoemyBTc2XZ1g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Alexander Duyck <alexander.duyck@gmail.com>,
-	=?utf-8?B?QmrDuHJuIE1vcms=?= <bjorn@mork.no>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Choi, Sy Jong" <sy.jong.choi@intel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	David Laight <David.Laight@ACULAB.COM>,
-	Hayato Momma <h-momma@ce.jp.nec.com>
-To: "Skidmore, Donald C" <donald.c.skidmore@intel.com>,
-	"vyasevic@redhat.com" <vyasevic@redhat.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Language: ja-JP
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+To: Cong Wang <cwang@twopensource.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f179.google.com ([209.85.214.179]:50147 "EHLO
+	mail-ob0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752304AbbBTBbV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Feb 2015 20:31:21 -0500
+Received: by mail-ob0-f179.google.com with SMTP id wp4so21426707obc.10
+        for <netdev@vger.kernel.org>; Thu, 19 Feb 2015 17:31:20 -0800 (PST)
+In-Reply-To: <CAHA+R7PbLRw-oA4v9ivZ0s-++ALx99zddJLDqDoemyBTc2XZ1g@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogSGlyb3NoaSBTaGltYW1vdG8gPGgtc2hpbWFtb3RvQGN0LmpwLm5lYy5jb20+DQoNCklt
-cGxlbWVudHMgdGhlIG5ldyBuZXRkZXYgb3AgdG8gYWxsb3cgVkYgbXVsdGljYXN0IHByb21pc2N1
-b3VzIG1vZGUuDQoNClRoZSBhZG1pbmlzdHJhdG9yIGNhbiBhbGxvdyB0byBWRiBtdWx0aWNhc3Qg
-cHJvbWlzY3VvdXMgbW9kZSBmb3Igb25seQ0KdHJ1c3RlZCBWTS4gQWZ0ZXIgYWxsb3dpbmcgbXVs
-dGljYXN0IHByb21pc2N1b3VzIG1vZGUgZnJvbSB0aGUgaG9zdCwNCndlIGNhbiB1c2Ugb3ZlciAz
-MCBJUHY2IGFkZHJlc3NlcyBvbiBWTS4NCiAjIC4vaXAgbGluayBzZXQgZGV2IGV0aDAgdmYgMSBt
-Y19wcm9taXNjIG9uDQoNCldoZW4gZGlzYWxsb3dpbmcgbXVsdGljYXN0IHByb21pc2N1b3VzIG1v
-ZGUsIHdlIGNhbiBvbmx5IHVzZSAzMCBJUHY2IGFkZHJlc3Nlcy4NCiAjIC4vaXAgbGluayBzZXQg
-ZGV2IGV0aDAgdmYgMSBtY19wcm9taXNjIG9mZg0KDQpTaWduZWQtb2ZmLWJ5OiBIaXJvc2hpIFNo
-aW1hbW90byA8aC1zaGltYW1vdG9AY3QuanAubmVjLmNvbT4NClJldmlld2VkLWJ5OiBIYXlhdG8g
-TW9tbWEgPGgtbW9tbWFAY2UuanAubmVjLmNvbT4NCkNDOiBDaG9pLCBTeSBKb25nIDxzeS5qb25n
-LmNob2lAaW50ZWwuY29tPg0KLS0tDQogZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaXhnYmUv
-aXhnYmUuaCAgICAgICB8ICAxICsNCiBkcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9peGdiZS9p
-eGdiZV9tYWluLmMgIHwgIDcgKysrKysrDQogZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaXhn
-YmUvaXhnYmVfc3Jpb3YuYyB8IDM1ICsrKysrKysrKysrKysrKysrKysrKysrKy0tDQogZHJpdmVy
-cy9uZXQvZXRoZXJuZXQvaW50ZWwvaXhnYmUvaXhnYmVfc3Jpb3YuaCB8ICAyICsrDQogNCBmaWxl
-cyBjaGFuZ2VkLCA0MyBpbnNlcnRpb25zKCspLCAyIGRlbGV0aW9ucygtKQ0KDQpkaWZmIC0tZ2l0
-IGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaXhnYmUvaXhnYmUuaCBiL2RyaXZlcnMvbmV0
-L2V0aGVybmV0L2ludGVsL2l4Z2JlL2l4Z2JlLmgNCmluZGV4IDQxZWQ1YWIuLjA1MjkzZDcgMTAw
-NjQ0DQotLS0gYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9peGdiZS9peGdiZS5oDQorKysg
-Yi9kcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9peGdiZS9peGdiZS5oDQpAQCAtMTUyLDYgKzE1
-Miw3IEBAIHN0cnVjdCB2Zl9kYXRhX3N0b3JhZ2Ugew0KIAl1MTYgdHhfcmF0ZTsNCiAJdTE2IHZs
-YW5fY291bnQ7DQogCXU4IHNwb29mY2hrX2VuYWJsZWQ7DQorCXU4IG1jX3Byb21pc2NfYWxsb3dl
-ZDsNCiAJdW5zaWduZWQgaW50IHZmX2FwaTsNCiB9Ow0KIA0KZGlmZiAtLWdpdCBhL2RyaXZlcnMv
-bmV0L2V0aGVybmV0L2ludGVsL2l4Z2JlL2l4Z2JlX21haW4uYyBiL2RyaXZlcnMvbmV0L2V0aGVy
-bmV0L2ludGVsL2l4Z2JlL2l4Z2JlX21haW4uYw0KaW5kZXggNzBjYzRjNS4uYzE2OWZiYSAxMDA2
-NDQNCi0tLSBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2l4Z2JlL2l4Z2JlX21haW4uYw0K
-KysrIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaXhnYmUvaXhnYmVfbWFpbi5jDQpAQCAt
-MzYwNCw2ICszNjA0LDEyIEBAIHN0YXRpYyB2b2lkIGl4Z2JlX2NvbmZpZ3VyZV92aXJ0dWFsaXph
-dGlvbihzdHJ1Y3QgaXhnYmVfYWRhcHRlciAqYWRhcHRlcikNCiAJCWlmIChody0+bWFjLm9wcy5z
-ZXRfZXRoZXJ0eXBlX2FudGlfc3Bvb2ZpbmcpDQogCQkJaHctPm1hYy5vcHMuc2V0X2V0aGVydHlw
-ZV9hbnRpX3Nwb29maW5nKGh3LCB0cnVlLCBpKTsNCiAJfQ0KKw0KKwkvKiBSZWNvbmZpZ3VyZSBt
-dWx0aWNhc3QgcHJvbWlzY3VvdXMgbW9kZSAqLw0KKwlmb3IgKGkgPSAwOyBpIDwgYWRhcHRlci0+
-bnVtX3ZmczsgaSsrKSB7DQorCQlpeGdiZV9uZG9fc2V0X3ZmX21jX3Byb21pc2MoYWRhcHRlci0+
-bmV0ZGV2LCBpLA0KKwkJCQkJYWRhcHRlci0+dmZpbmZvW2ldLm1jX3Byb21pc2NfYWxsb3dlZCk7
-DQorCX0NCiB9DQogDQogc3RhdGljIHZvaWQgaXhnYmVfc2V0X3J4X2J1ZmZlcl9sZW4oc3RydWN0
-IGl4Z2JlX2FkYXB0ZXIgKmFkYXB0ZXIpDQpAQCAtODA1Miw2ICs4MDU4LDcgQEAgc3RhdGljIGNv
-bnN0IHN0cnVjdCBuZXRfZGV2aWNlX29wcyBpeGdiZV9uZXRkZXZfb3BzID0gew0KIAkubmRvX3Nl
-dF92Zl92bGFuCT0gaXhnYmVfbmRvX3NldF92Zl92bGFuLA0KIAkubmRvX3NldF92Zl9yYXRlCT0g
-aXhnYmVfbmRvX3NldF92Zl9idywNCiAJLm5kb19zZXRfdmZfc3Bvb2ZjaGsJPSBpeGdiZV9uZG9f
-c2V0X3ZmX3Nwb29mY2hrLA0KKwkubmRvX3NldF92Zl9tY19wcm9taXNjCT0gaXhnYmVfbmRvX3Nl
-dF92Zl9tY19wcm9taXNjLA0KIAkubmRvX2dldF92Zl9jb25maWcJPSBpeGdiZV9uZG9fZ2V0X3Zm
-X2NvbmZpZywNCiAJLm5kb19nZXRfc3RhdHM2NAk9IGl4Z2JlX2dldF9zdGF0czY0LA0KICNpZmRl
-ZiBDT05GSUdfSVhHQkVfRENCDQpkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50
-ZWwvaXhnYmUvaXhnYmVfc3Jpb3YuYyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2l4Z2Jl
-L2l4Z2JlX3NyaW92LmMNCmluZGV4IDk2NWFkMjkuLjI4OGYzOWYgMTAwNjQ0DQotLS0gYS9kcml2
-ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9peGdiZS9peGdiZV9zcmlvdi5jDQorKysgYi9kcml2ZXJz
-L25ldC9ldGhlcm5ldC9pbnRlbC9peGdiZS9peGdiZV9zcmlvdi5jDQpAQCAtMTA4LDggKzEwOCwx
-MSBAQCBzdGF0aWMgaW50IF9faXhnYmVfZW5hYmxlX3NyaW92KHN0cnVjdCBpeGdiZV9hZGFwdGVy
-ICphZGFwdGVyKQ0KIAkJZm9yIChpID0gMDsgaSA8IGFkYXB0ZXItPm51bV92ZnM7IGkrKykgew0K
-IAkJCS8qIEVuYWJsZSBzcG9vZiBjaGVja2luZyBmb3IgYWxsIFZGcyAqLw0KIAkJCWFkYXB0ZXIt
-PnZmaW5mb1tpXS5zcG9vZmNoa19lbmFibGVkID0gdHJ1ZTsNCi0JCQkvKiBUdXJuIG11bHRpY2Fz
-dCBwcm9taXNjdW91cyBtb2RlIG9mZiBmb3IgYWxsIFZGcyAqLw0KKwkJCS8qIERpc2FsbG93IFZG
-IG11bHRpY2FzdCBwcm9taXNjdW91cyBjYXBhYmlsaXR5DQorCQkJICogYW5kIHR1cm4gaXQgb2Zm
-IGZvciBhbGwgVkZzDQorCQkJICovDQogCQkJYWRhcHRlci0+dmZpbmZvW2ldLm1jX3Byb21pc2Mg
-PSBmYWxzZTsNCisJCQlhZGFwdGVyLT52ZmluZm9baV0ubWNfcHJvbWlzY19hbGxvd2VkID0gZmFs
-c2U7DQogCQl9DQogCQlyZXR1cm4gMDsNCiAJfQ0KQEAgLTEwMTYsNyArMTAxOSw3IEBAIHN0YXRp
-YyBpbnQgaXhnYmVfc2V0X3ZmX21jX3Byb21pc2Moc3RydWN0IGl4Z2JlX2FkYXB0ZXIgKmFkYXB0
-ZXIsDQogDQogCWFkYXB0ZXItPnZmaW5mb1t2Zl0ubWNfcHJvbWlzYyA9IGVuYWJsZTsNCiANCi0J
-aWYgKGVuYWJsZSkNCisJaWYgKGVuYWJsZSAmJiBhZGFwdGVyLT52ZmluZm9bdmZdLm1jX3Byb21p
-c2NfYWxsb3dlZCkNCiAJCXJldHVybiBpeGdiZV9lbmFibGVfdmZfbWNfcHJvbWlzYyhhZGFwdGVy
-LCB2Zik7DQogCWVsc2UNCiAJCXJldHVybiBpeGdiZV9kaXNhYmxlX3ZmX21jX3Byb21pc2MoYWRh
-cHRlciwgdmYpOw0KQEAgLTE0MTQsNiArMTQxNywzMiBAQCBpbnQgaXhnYmVfbmRvX3NldF92Zl9z
-cG9vZmNoayhzdHJ1Y3QgbmV0X2RldmljZSAqbmV0ZGV2LCBpbnQgdmYsIGJvb2wgc2V0dGluZykN
-CiAJcmV0dXJuIDA7DQogfQ0KIA0KK2ludCBpeGdiZV9uZG9fc2V0X3ZmX21jX3Byb21pc2Moc3Ry
-dWN0IG5ldF9kZXZpY2UgKm5ldGRldiwgaW50IHZmLCBib29sIHNldHRpbmcpDQorew0KKwlzdHJ1
-Y3QgaXhnYmVfYWRhcHRlciAqYWRhcHRlciA9IG5ldGRldl9wcml2KG5ldGRldik7DQorCXN0cnVj
-dCBpeGdiZV9odyAqaHcgPSAmYWRhcHRlci0+aHc7DQorCXUzMiB2bW9scjsNCisNCisJaWYgKHZm
-ID49IGFkYXB0ZXItPm51bV92ZnMpDQorCQlyZXR1cm4gLUVJTlZBTDsNCisNCisJLyogbm90aGlu
-ZyB0byBkbyAqLw0KKwlpZiAoYWRhcHRlci0+dmZpbmZvW3ZmXS5tY19wcm9taXNjX2FsbG93ZWQg
-PT0gc2V0dGluZykNCisJCXJldHVybiAwOw0KKw0KKwlhZGFwdGVyLT52ZmluZm9bdmZdLm1jX3By
-b21pc2NfYWxsb3dlZCA9IHNldHRpbmc7DQorDQorCS8qIGlmIFZGIHJlcXVlc3RzIG11bHRpY2Fz
-dCBwcm9taXNjdW91cyAqLw0KKwlpZiAoYWRhcHRlci0+dmZpbmZvW3ZmXS5tY19wcm9taXNjKSB7
-DQorCQlpZiAoc2V0dGluZykNCisJCQlpeGdiZV9lbmFibGVfdmZfbWNfcHJvbWlzYyhhZGFwdGVy
-LCB2Zik7DQorCQllbHNlDQorCQkJaXhnYmVfZGlzYWJsZV92Zl9tY19wcm9taXNjKGFkYXB0ZXIs
-IHZmKTsNCisJfQ0KKw0KKwlyZXR1cm4gMDsNCit9DQorDQogaW50IGl4Z2JlX25kb19nZXRfdmZf
-Y29uZmlnKHN0cnVjdCBuZXRfZGV2aWNlICpuZXRkZXYsDQogCQkJICAgIGludCB2Ziwgc3RydWN0
-IGlmbGFfdmZfaW5mbyAqaXZpKQ0KIHsNCkBAIC0xNDI3LDUgKzE0NTYsNyBAQCBpbnQgaXhnYmVf
-bmRvX2dldF92Zl9jb25maWcoc3RydWN0IG5ldF9kZXZpY2UgKm5ldGRldiwNCiAJaXZpLT52bGFu
-ID0gYWRhcHRlci0+dmZpbmZvW3ZmXS5wZl92bGFuOw0KIAlpdmktPnFvcyA9IGFkYXB0ZXItPnZm
-aW5mb1t2Zl0ucGZfcW9zOw0KIAlpdmktPnNwb29mY2hrID0gYWRhcHRlci0+dmZpbmZvW3ZmXS5z
-cG9vZmNoa19lbmFibGVkOw0KKwlpdmktPm1jX3Byb21pc2MgPSBhZGFwdGVyLT52ZmluZm9bdmZd
-Lm1jX3Byb21pc2NfYWxsb3dlZDsNCisNCiAJcmV0dXJuIDA7DQogfQ0KZGlmZiAtLWdpdCBhL2Ry
-aXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2l4Z2JlL2l4Z2JlX3NyaW92LmggYi9kcml2ZXJzL25l
-dC9ldGhlcm5ldC9pbnRlbC9peGdiZS9peGdiZV9zcmlvdi5oDQppbmRleCAzMmMyNmQ1Li5jZmVk
-MTk5IDEwMDY0NA0KLS0tIGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaXhnYmUvaXhnYmVf
-c3Jpb3YuaA0KKysrIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaXhnYmUvaXhnYmVfc3Jp
-b3YuaA0KQEAgLTQ3LDYgKzQ3LDggQEAgaW50IGl4Z2JlX25kb19zZXRfdmZfdmxhbihzdHJ1Y3Qg
-bmV0X2RldmljZSAqbmV0ZGV2LCBpbnQgcXVldWUsIHUxNiB2bGFuLA0KIGludCBpeGdiZV9uZG9f
-c2V0X3ZmX2J3KHN0cnVjdCBuZXRfZGV2aWNlICpuZXRkZXYsIGludCB2ZiwgaW50IG1pbl90eF9y
-YXRlLA0KIAkJCWludCBtYXhfdHhfcmF0ZSk7DQogaW50IGl4Z2JlX25kb19zZXRfdmZfc3Bvb2Zj
-aGsoc3RydWN0IG5ldF9kZXZpY2UgKm5ldGRldiwgaW50IHZmLCBib29sIHNldHRpbmcpOw0KK2lu
-dCBpeGdiZV9uZG9fc2V0X3ZmX21jX3Byb21pc2Moc3RydWN0IG5ldF9kZXZpY2UgKm5ldGRldiwN
-CisJCQkJaW50IHZmLCBib29sIHNldHRpbmcpOw0KIGludCBpeGdiZV9uZG9fZ2V0X3ZmX2NvbmZp
-ZyhzdHJ1Y3QgbmV0X2RldmljZSAqbmV0ZGV2LA0KIAkJCSAgICBpbnQgdmYsIHN0cnVjdCBpZmxh
-X3ZmX2luZm8gKml2aSk7DQogdm9pZCBpeGdiZV9jaGVja192Zl9yYXRlX2xpbWl0KHN0cnVjdCBp
-eGdiZV9hZGFwdGVyICphZGFwdGVyKTsNCi0tIA0KMi4xLjANCg0K
+On 02/18/2015 03:57 PM, Cong Wang wrote:
+> On Wed, Feb 18, 2015 at 3:14 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>> On Wed, 2015-02-18 at 14:11 -0800, Cong Wang wrote:
+>>> On Wed, Feb 18, 2015 at 1:18 PM, Cong Wang <cwang@twopensource.com> wrote:
+>>>>
+>>>> 2) This breaks the queue mapping specified by an skbedit action,
+>>>> since for TX queues the index starts with 0 while for RX it starts with 1
+>>>> (for some reason I don't see yet). There is at least a mismatch.
+>>>
+>>> So queue 0 is reserved for TX, at least for bonding queue mapping.
+>>
+>> It seems you missed that bonding ndo_select_queue() is rather special.
+>>
+>>
+>
+> I am aware of it. I even would guess (means not digging the history)
+> skb_edit was invented for bonding queue mapping, since I don't see it
+> even works as a general TC action on the physical interface. We pick
+> the tx queue prior to getting the Qdisc, therefore too late to set
+> skb->queue_mapping to specify a hardware TX queue. This is
+> another story I planned to bring it up to David.
+
+At one point I proposed a pre-enqueue hook to call before entering
+the qdisc where filters/actions could be attached.
+
+ 
+https://github.com/jrfastab/Linux-Kernel-QOS/commit/67746f95acd77cf15d7ce34f644b76058ce19813
+
+the idea was to drop select_queue() altogether and force any queue
+selection onto a visible action chain.
+
+>
+> However, this still doesn't seem to be a reason to break people who
+> don't use bonding at all? At least we just want to map skb's to different
+> hardware TX queues by setting skb->queue_mapping (before
+> dev_queue_xmit() of course) and sysfs reports the queues starting with
+> index 0. This is why I complain. :)
+
+for historical info take a look at multiq qdisc. It was added at
+some point (i think before all the multiple queue nics were there?).
+It does use the select_queue field to select a queue but I doubt anyone
+uses it today with mq and mqprio. I would argue no one should be using
+it there are better ways to get the same thing.
+
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+
+
+-- 
+John Fastabend         Intel Corporation
