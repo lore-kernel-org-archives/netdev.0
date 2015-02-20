@@ -1,40 +1,37 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: smsc95xx truesize badness
-Date: Fri, 20 Feb 2015 10:24:48 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CAE6788@AcuExch.aculab.com>
-References: <CAKh2mn7w8fpSYJQqwxwOiAgzKm_5dtzY_uXG7WK7uO9CXSOTrw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: popcorn mix <popcornmix@gmail.com>,
-	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>
-To: 'Steve Glendinning' <steve@shawell.net>,
-	netdev <netdev@vger.kernel.org>
+From: Jonas Johansson <jonasj76@gmail.com>
+Subject: [PATCH net-next 0/2] dsa: implement HW bonding
+Date: Fri, 20 Feb 2015 11:51:11 +0100
+Message-ID: <1424429473-4601-1-git-send-email-jonasj76@gmail.com>
+Cc: Jonas Johansson <jonas.johansson@westermo.se>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out6.electric.net ([192.162.217.183]:59475 "EHLO
-	smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754089AbbBTKZ0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Feb 2015 05:25:26 -0500
-In-Reply-To: <CAKh2mn7w8fpSYJQqwxwOiAgzKm_5dtzY_uXG7WK7uO9CXSOTrw@mail.gmail.com>
-Content-Language: en-US
+Received: from mail-la0-f46.google.com ([209.85.215.46]:45893 "EHLO
+	mail-la0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753358AbbBTKvV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Feb 2015 05:51:21 -0500
+Received: by labge10 with SMTP id ge10so5182159lab.12
+        for <netdev@vger.kernel.org>; Fri, 20 Feb 2015 02:51:19 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogU3RldmUgR2xlbmRpbm5pbmcNCj4gSXQgc2VlbXMgc21zYzk1eHggaXMgZG9pbmcgYmFk
-IHRoaW5ncyB3aXRoIHRydWVzaXplIGluIG91ciByZWNlaXZlIGxvb3AuDQoNCklJUkMgdGhlIHNh
-bWUgaXMgdHJ1ZSBvZiBhIGxvdCBvZiB0aGUgdXNibmV0IGRyaXZlcnMuDQoNClJlYWxseSB0aGUg
-d2F5IHVzYm5ldCB3b3JrcyBuZWVkcyBhIGNvbXBsZXRlIHJldmlzdC4NCg0KQWxsb2NhdGluZyAo
-ZWcpIDE2ayBza2IgZm9yIHJlY2VpdmUgaXMganVzdCBwbGFpbiBzdHVwaWQgaW4gdGhlIGZpcnN0
-IHBsYWNlLg0KUHJvdmlkZWQgdGhlIFVSQiBhcmUgbXVsdGlwbGVzIG9mIHRoZSBVU0IgYnVmZmVy
-IHNpemUgd2hhdCB0aGUgY2FyZCBzZW5kcw0KYXMgYSBzaW5nbGUgYnVsayBtZXNzYWdlIGNhbiBi
-ZSByZWNlaXZlZCBpbnRvIG11bHRpcGxlIFVSQi4NCg0KSSdtIG5vdCBlbnRpcmVseSBjb252aW5j
-ZWQgdGhhdCB0cnlpbmcgdG8gcmVjZWl2ZSBpbnRvIHNrYiBpcyBhIGdvb2QgaWRlYS4NCkNvcHli
-cmVhayBvZiBzaG9ydCBmcmFtZXMgYW5kIHBhc3NpbmcgdXAgcmVmZXJlbmNlcyB0byByeCBidWZm
-ZXIgZnJhZ21lbnRzDQpmb3IgbG9uZyBmcmFtZXMgaXMgcHJvYmFibHkgYSBiZXR0ZXIgaWRlYS4N
-CkV2ZW4gZm9yIDEwME0gJ3Nob3J0JyBtaWdodCBiZSAxNTAwIQ0KDQpGb3IgVVNCMyB0aGluZ3Mg
-YXJlIGV2ZW4gd29yc2UuDQpBIFVTQjMgZXRoZXJuZXQgZHJpdmVyIG91Z2h0IHRvIGJlIGFsbW9z
-dCBhcyBmYXN0IGFzIGEgbm9ybWFsIGRyaXZlci4NCkFmdGVyIGFsbCB0aGUgdHJhbnNtaXQgYnVm
-ZmVyIGZyYWdtZW50cyBqdXN0IG5lZWQgd3JpdGluZyBpbnRvIHRoZQ0KdXNiIGRlc2NyaXB0b3Ig
-cmluZyAod2l0aCBzb21lIG5vbi1vYnZpb3VzIGNvbnN0cmFpbnRzIHRoZSB4aGNpIGRyaXZlcg0K
-dGVuZHMgdG8gaWdub3JlIGFzIHdlbGwpLg0KSG93ZXZlciB0aGUgY29kZSBwYXRocyB0aHJvdWdo
-IHVzYm5ldCBhcmUgaG9ycmlibHkgbG9uZy4NCg0KCURhdmlkDQoNCg==
+From: Jonas Johansson <jonas.johansson@westermo.se>
+
+This patchset will implement hardware bonding support for the DSA driver and
+the Marvell 88E6095 device.
+
+Jonas Johansson (2):
+  dsa: bonding: implement HW bonding
+  mv88e6131: bonding: implement single device trunking
+
+ drivers/net/dsa/mv88e6131.c | 254 ++++++++++++++++++++++++++++++++++++++++++++
+ drivers/net/dsa/mv88e6xxx.h |  14 +++
+ drivers/net/team/team.c     |   4 +
+ include/linux/netdevice.h   |   8 ++
+ include/net/dsa.h           |   8 ++
+ net/dsa/dsa.c               |  60 +++++++++++
+ net/dsa/dsa_priv.h          |   6 ++
+ net/dsa/slave.c             |  23 ++++
+ 8 files changed, 377 insertions(+)
+
+-- 
+2.1.0
