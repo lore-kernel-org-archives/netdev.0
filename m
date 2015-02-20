@@ -1,33 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ethernet/ixp4xx: prevent allmulti from clobbering
- promisc
-Date: Fri, 20 Feb 2015 15:49:27 -0500 (EST)
-Message-ID: <20150220.154927.313372314025203773.davem@davemloft.net>
-References: <1424249425-2438-1-git-send-email-pallas@meraki.com>
+Subject: Re: [PATCH] net: Initialize all members in skb_gro_remcsum_init()
+Date: Fri, 20 Feb 2015 15:50:08 -0500 (EST)
+Message-ID: <20150220.155008.1982154709411369621.davem@davemloft.net>
+References: <1424255886-20330-1-git-send-email-geert@linux-m68k.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: khalasa@piap.pl, netdev@vger.kernel.org
-To: pallas@meraki.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46370 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753001AbbBTUt3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Feb 2015 15:49:29 -0500
-In-Reply-To: <1424249425-2438-1-git-send-email-pallas@meraki.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: therbert@google.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: geert@linux-m68k.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1424255886-20330-1-git-send-email-geert@linux-m68k.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Derrick Pallas <pallas@meraki.com>
-Date: Wed, 18 Feb 2015 00:50:25 -0800
-
-> If both promisc and allmulti are set, promisc should trump allmulti and
-> disable the MAC filter; otherwise, the interface is not really promisc.
-> 
-> Previously, this code checked IFF_ALLMULTI prior to and without regard for
-> IFF_PROMISC; if both were set, only multicast and direct unicast traffic
-> would make it through the filter.
-> 
-> Signed-off-by: Derrick Pallas <pallas@meraki.com>
-
-Applied, thanks.
+RnJvbTogR2VlcnQgVXl0dGVyaG9ldmVuIDxnZWVydEBsaW51eC1tNjhrLm9yZz4NCkRhdGU6IFdl
+ZCwgMTggRmViIDIwMTUgMTE6Mzg6MDYgKzAxMDANCg0KPiBza2JfZ3JvX3JlbWNzdW1faW5pdCgp
+IGluaXRpYWxpemVzIHRoZSBncm9fcmVtY3N1bS5kZWx0YSBtZW1iZXIgb25seSwNCj4gbGVhZGlu
+ZyB0byBjb21waWxlciB3YXJuaW5ncyBhYm91dCBhIHBvc3NpYmx5IHVuaW5pdGlhbGl6ZWQNCj4g
+Z3JvX3JlbWNzdW0ub2Zmc2V0IG1lbWJlcjoNCj4gDQo+IGRyaXZlcnMvbmV0L3Z4bGFuLmM6IElu
+IGZ1bmN0aW9uIKF2eGxhbl9ncm9fcmVjZWl2ZaI6DQo+IGRyaXZlcnMvbmV0L3Z4bGFuLmM6NjAy
+OiB3YXJuaW5nOiChZ3JjLm9mZnNldKIgbWF5IGJlIHVzZWQgdW5pbml0aWFsaXplZCBpbiB0aGlz
+IGZ1bmN0aW9uDQo+IG5ldC9pcHY0L2ZvdS5jOiBJbiBmdW5jdGlvbiChZ3VlX2dyb19yZWNlaXZl
+ojoNCj4gbmV0L2lwdjQvZm91LmM6MjYyOiB3YXJuaW5nOiChZ3JjLm9mZnNldKIgbWF5IGJlIHVz
+ZWQgdW5pbml0aWFsaXplZCBpbiB0aGlzIGZ1bmN0aW9uDQo+IA0KPiBXaGlsZSB0aGVzZSBhcmUg
+aGFybWxlc3MgZm9yIG5vdzoNCj4gICAtIHNrYl9ncm9fcmVtY3N1bV9wcm9jZXNzKCkgc2V0cyBv
+ZmZzZXQgYmVmb3JlIGNoYW5naW5nIGRlbHRhLA0KPiAgIC0gc2tiX2dyb19yZW1jc3VtX2NsZWFu
+dXAoKSBjaGVja3MgaWYgZGVsdGEgaXMgbm9uLXplcm8gYmVmb3JlDQo+ICAgICBhY2Nlc3Npbmcg
+b2Zmc2V0LA0KPiBpdCdzIHNhZmVyIHRvIGxldCB0aGUgaW5pdGlhbGl6YXRpb24gZnVuY3Rpb24g
+aW5pdGlhbGl6ZSBhbGwgbWVtYmVycy4NCj4gDQo+IFNpZ25lZC1vZmYtYnk6IEdlZXJ0IFV5dHRl
+cmhvZXZlbiA8Z2VlcnRAbGludXgtbTY4ay5vcmc+DQoNCkFwcGxpZWQsIHRoYW5rIHlvdS4NCg==
