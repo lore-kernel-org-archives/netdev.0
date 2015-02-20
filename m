@@ -1,41 +1,59 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH net] rhashtable: don't allocate ht structure on stack in
- test_rht_init
-Date: Fri, 20 Feb 2015 20:16:19 +0000
-Message-ID: <20150220201619.GF4586@casper.infradead.org>
-References: <8e1d6d2ffb44eac6518f435a044dbc6c0fd754ae.1424463131.git.daniel@iogearbox.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Altera TSE (altera_tse) - tx_fifo_depth init bug
+Date: Fri, 20 Feb 2015 15:17:22 -0500 (EST)
+Message-ID: <20150220.151722.167446633406590850.davem@davemloft.net>
+References: <54C8026B.9070607@vsis.cz>
+	<20150129.142250.2177840872104162590.davem@davemloft.net>
+	<54E27283.3020201@vsis.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Daniel Borkmann <daniel@iogearbox.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, vbridger@opensource.altera.com
+To: setka@vsis.cz
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:54132 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753001AbbBTUQU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Feb 2015 15:16:20 -0500
-Content-Disposition: inline
-In-Reply-To: <8e1d6d2ffb44eac6518f435a044dbc6c0fd754ae.1424463131.git.daniel@iogearbox.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:45869 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752895AbbBTURY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Feb 2015 15:17:24 -0500
+In-Reply-To: <54E27283.3020201@vsis.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/20/15 at 09:14pm, Daniel Borkmann wrote:
-> With object runtime debugging enabled, the rhashtable test suite
-> will rightfully throw a warning "ODEBUG: object is on stack, but
-> not annotated" from rhashtable_init().
-> 
-> This is because run_work is (correctly) being initialized via
-> INIT_WORK(), and not annotated by INIT_WORK_ONSTACK(). Meaning,
-> rhashtable_init() is okay as is, we just need to move ht e.g.,
-> into global scope.
-> 
-> It never triggered anything, since test_rhashtable is rather a
-> controlled environment and effectively runs to completion, so
-> that stack memory is not vanishing underneath us, we shouldn't
-> confuse any testers with it though.
-> 
-> Fixes: 7e1e77636e36 ("lib: Resizable, Scalable, Concurrent Hash Table")
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+From: Vlastimil Setka <setka@vsis.cz>
+Date: Mon, 16 Feb 2015 23:43:15 +0100
 
-Thanks for looking into this.
+>> Your patch was corrupted by your email client, in particular TAB
+>> characters were transformed into a series of SPACE characters.
+> 
+> Hello,
+> sorry for inconvenience, here is a correct patch:
 
-Acked-by: Thomas Graf <tgraf@suug.ch>
+This is not the correct way to submit a patch.
+
+You should never provide a patch for us to apply as a reply to another
+email.
+
+Instead you should always make a fresh, new, mailing list posting.
+
+Your Subject line and message body should contain only the exact
+text you want to appear in the commit message.  You should not
+include things like "Hello, " or other trivialities that would
+need to be edited out.
+
+Also, your Subject line should be of the form:
+
+	$subsystem: $description
+
+Where subsystem is the most specific name of the area you're
+changing, in lowercase letters.
+
+You should not use multi-word sequences as you have to state
+the subsystem.  Simply "altera_tse: " is completely sufficient.
+
+The most annoying thing about seeing the errors you are making is that
+if you simply mimicked at how other driver maintainers arrange their
+subject lines and message bodies, you would end up doing the right
+thing.
+
+Use what other people do as a guide, and don't try to do things in
+a special or unique way.
