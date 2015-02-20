@@ -1,26 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] usb: plusb: Add support for National Instruments
- host-to-host cable
-Date: Fri, 20 Feb 2015 15:14:17 -0500 (EST)
-Message-ID: <20150220.151417.1734124571561269613.davem@davemloft.net>
-References: <1424116026-27869-1-git-send-email-ben.shelton@ni.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: ben.shelton@ni.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1424116026-27869-1-git-send-email-ben.shelton@ni.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH net] rhashtable: don't allocate ht structure on stack in test_rht_init
+Date: Fri, 20 Feb 2015 21:14:21 +0100
+Message-ID: <8e1d6d2ffb44eac6518f435a044dbc6c0fd754ae.1424463131.git.daniel@iogearbox.net>
+Cc: tgraf@suug.ch, netdev@vger.kernel.org,
+	Daniel Borkmann <daniel@iogearbox.net>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:45627 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755236AbbBTUO1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Feb 2015 15:14:27 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Ben Shelton <ben.shelton@ni.com>
-Date: Mon, 16 Feb 2015 13:47:06 -0600
+With object runtime debugging enabled, the rhashtable test suite
+will rightfully throw a warning "ODEBUG: object is on stack, but
+not annotated" from rhashtable_init().
 
-> The National Instruments USB Host-to-Host Cable is based on the Prolific
-> PL-25A1 chipset.  Add its VID/PID so the plusb driver will recognize it.
-> 
-> Signed-off-by: Ben Shelton <ben.shelton@ni.com>
+This is because run_work is (correctly) being initialized via
+INIT_WORK(), and not annotated by INIT_WORK_ONSTACK(). Meaning,
+rhashtable_init() is okay as is, we just need to move ht e.g.,
+into global scope.
 
-Applied, thanks.
+It never triggered anything, since test_rhashtable is rather a
+controlled environment and effectively runs to completion, so
+that stack memory is not vanishing underneath us, we shouldn't
+confuse any testers with it though.
+
+Fixes: 7e1e77636e36 ("lib: Resizable, Scalable, Concurrent Hash Table")
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+---
+ lib/test_rhashtable.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/lib/test_rhashtable.c b/lib/test_rhashtable.c
+index 9c5fcce..58b9953 100644
+--- a/lib/test_rhashtable.c
++++ b/lib/test_rhashtable.c
+@@ -191,9 +191,10 @@ error:
+ 	return err;
+ }
+ 
++static struct rhashtable ht;
++
+ static int __init test_rht_init(void)
+ {
+-	struct rhashtable ht;
+ 	struct rhashtable_params params = {
+ 		.nelem_hint = TEST_HT_SIZE,
+ 		.head_offset = offsetof(struct test_obj, node),
+-- 
+1.9.3
