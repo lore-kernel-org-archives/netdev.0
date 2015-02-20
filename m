@@ -1,87 +1,64 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: Port STP state after removing port from bridge
-Date: Fri, 20 Feb 2015 11:00:46 +0100
-Message-ID: <20150220100046.GB2008@nanopsycho.orion>
-References: <CAGVrzcZMV3vSd3hEsXqk6BtyU-Ts9=oJvb79DTZp25TnnGm5CQ@mail.gmail.com>
- <CAE4R7bBSbwi93t05Z+rB2JgzFYdZ+m44AFSzU7JkwdHRWzz1Mw@mail.gmail.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH 1/1] tun: change speed from 10M to dynamically configured
+Date: Fri, 20 Feb 2015 10:01:10 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CAE6737@AcuExch.aculab.com>
+References: <20150213212830.GA29912@electric-eye.fr.zoreil.com>
+	<54E1568D.5000100@windriver.com>	<20150216120345.4dfd9950@uryu.home.lan>
+ <20150219.154041.184372158520813993.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-	netdev <netdev@vger.kernel.org>,
-	Stephen Hemminger <stephen@networkplumber.org>
-To: Scott Feldman <sfeldma@gmail.com>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "Yanjun.Zhu@windriver.com" <Yanjun.Zhu@windriver.com>,
+	"romieu@fr.zoreil.com" <romieu@fr.zoreil.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"mst@redhat.com" <mst@redhat.com>,
+	"jasowang@redhat.com" <jasowang@redhat.com>,
+	"viro@zeniv.linux.org.uk" <viro@zeniv.linux.org.uk>,
+	"sergei.shtylyov@cogentembedded.com"
+	<sergei.shtylyov@cogentembedded.com>,
+	"jonathon.reinhart@gmail.com" <jonathon.reinhart@gmail.com>
+To: 'David Miller' <davem@davemloft.net>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f169.google.com ([209.85.212.169]:47212 "EHLO
-	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753631AbbBTKAu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Feb 2015 05:00:50 -0500
-Received: by mail-wi0-f169.google.com with SMTP id em10so5400808wid.0
-        for <netdev@vger.kernel.org>; Fri, 20 Feb 2015 02:00:49 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <CAE4R7bBSbwi93t05Z+rB2JgzFYdZ+m44AFSzU7JkwdHRWzz1Mw@mail.gmail.com>
+Received: from smtp-out4.electric.net ([192.162.216.183]:50972 "EHLO
+	smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753823AbbBTKB6 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Feb 2015 05:01:58 -0500
+In-Reply-To: <20150219.154041.184372158520813993.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46ri, Feb 20, 2015 at 05:45:01AM CET, sfeldma@gmail.com wrote:
->On Wed, Feb 18, 2015 at 11:39 PM, Florian Fainelli <f.fainelli@gmail.c=
-om>
->wrote:
->
->> Hi,
->>
->> It just occured to me that the following sequence:
->>
->> brctl addbr br0
->> brctl addif br0 port0
->> ... STP happens
->> brctl delif br0 port0
->>
->> will leave port0 in STP disabled state, because the bridge code will
->> set the STP state to DISABLED, and only a down/up sequence can bring
->> it back to FORWARDING.
->>
->> Is this something that we should somehow fix? As an user it seems a
->> little convoluted having to do a down/up sequence to restore things.=
- I
->> believe however that it is valid for the bridge layer to mark a port
->> as DISABLED when removing it. This is typically not noticed or even
->> remotely a problem with software bridges because we cannot enforce a=
-n
->> actual STP state at the HW level.
->>
->> Let me know your thoughts.
->>
->>
->=E2=80=8BThe fix in rocker would be:
->
->diff --git a/drivers/net/ethernet/rocker/rocker.c
->b/drivers/net/ethernet/rocker/rocker.c
->index 34389b6a..e2004fb 100644
->--- a/drivers/net/ethernet/rocker/rocker.c
->+++ b/drivers/net/ethernet/rocker/rocker.c
->@@ -4456,8 +4456,10 @@ static int rocker_port_bridge_leave(struct
->rocker_port *rocker_port)
->                rocker_port_internal_vlan_id_get(rocker_port,
->                                                 rocker_port->dev->ifi=
-ndex);
->        err =3D rocker_port_vlan(rocker_port, 0, 0);
->+       if (err)
->+               return err;
->
->-       return err;
->+       return rocker_port_stp_update(rocker_port, BR_STATE_FORWARDING=
-);
-> }
->
->
->=E2=80=8BThis will return the port back to it's initial state of
->BR_STATE_FORWARDING, after it's removed from the bridge.
->
->I'll include this patch in the rocker pile to be pushed later.
->
->-scott=E2=80=8B
+From: David Miller
+...
+> We need a consistent policy regarding link attributes of encapsulating
+> "software" devices.
+> 
+> I see three realistic options:
+> 
+> 1) Create a link state indication which means "I am a software device,
+>    so I don't really have a link state in the traditional sense"
+> 
+> 2) Don't implement the link set/get operations at all on software
+>    devices.
+> 
+>    People can use ETHTOOL_GLINK to see if the thing is "up"
+> 
+> 3) Propagate the ultimate physical transport parameters into what
+>    the software device advertises.
+> 
+> It's important to carefully pick one of these, and consistently apply
+> it to all of our software devices.
 
+You also need to be careful to not break existing 'stuff'.
 
-I'm not sure, but wouldn't it be nicer it the bridge code would set
-state to disabled before the port is removed from the bridge?=20
+We've connected a single USB ethernet port into a 'bond' (with
+nothing else) in order to get a stable interface and IP address
+that doesn't bounce on transient USB errors.
+
+If the absence of the physical interface caused the state of bond0
+to change and that got propagated through the routing tables then
+we'd get TCP disconnects reported for things that would only see
+recovered packet loss.
+
+	David
