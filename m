@@ -1,67 +1,46 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next RFC 0/5] Add NTF_EXT_AGED to control FDB ageing
- in SW or HW
-Date: Fri, 20 Feb 2015 11:13:46 -0800
-Message-ID: <54E7876A.3060303@gmail.com>
-References: <1424416195-19098-1-git-send-email-sfeldma@gmail.com> <54E76EFA.1050209@cumulusnetworks.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 6/7 linux-next] wan: cosa: replace current->state by set_current_state()
+Date: Fri, 20 Feb 2015 22:15:03 +0300
+Message-ID: <54E787B7.5000609@cogentembedded.com>
+References: <1424455977-21903-1-git-send-email-fabf@skynet.be> <1424455977-21903-6-git-send-email-fabf@skynet.be> <54E77E34.6050909@cogentembedded.com> <1849761882.58117.1424458263796.open-xchange@webmail.nmp.proximus.be>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jiri@resnulli.us, linux@roeck-us.net,
-	andrew@lunn.ch, gospo@cumulusnetworks.com, vbandaru@broadcom.com,
-	siva.mannem.lnx@gmail.com
-To: roopa <roopa@cumulusnetworks.com>, sfeldma@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:35957 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753871AbbBTTOH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Feb 2015 14:14:07 -0500
-Received: by pabkq14 with SMTP id kq14so10198395pab.3
-        for <netdev@vger.kernel.org>; Fri, 20 Feb 2015 11:14:06 -0800 (PST)
-In-Reply-To: <54E76EFA.1050209@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Ingo Molnar <mingo@redhat.com>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	netdev@vger.kernel.org, "Jan \"Yenya\" Kasprzak" <kas@fi.muni.cz>
+To: Fabian Frederick <fabf@skynet.be>, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1849761882.58117.1424458263796.open-xchange@webmail.nmp.proximus.be>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 20/02/15 09:29, roopa wrote:
-> On 2/19/15, 11:09 PM, sfeldma@gmail.com wrote:
->> From: Scott Feldman <sfeldma@gmail.com>
->>
->> Add a new NTF_EXT_FLAG to mark an FDB as externally aged, for example by
->> offload hardware.   Switchdev driver/devices can set this flag when
->> learning a
->> new FDB entry and SW (the bridge driver) will skip this entry when
->> running its
->> ageing task.  If flag is set, the driver/device is responsible for
->> calling
->> call_netdev_switch_notifiers(NETDEV_SWITCH_FDB_DEL, ...) when entry
->> expires.
->>
->> This give the flexibility for driver/device to decide ageing policy
->> based on
->> its capabilities.  For devices managing many FDB entries, it is
->> desireable for
->> the device to aged out its own entries.  Devices not capable of aged
->> entries
->> can rely of SW to age out the entries.
->>
-> scott, patches look good. However, I am not sure yet if there is a need
-> to make it a per fdb entry flag.
+On 02/20/2015 09:51 PM, Fabian Frederick wrote:
 
-I agree, in fact, most of the HW I have access to only has a global age
-timer configuration knob. Is this configurable on a per-port basis for
-higher end switches, or even maybe per-FDB entry?
+>>> Use helper functions to access current->state.
+>>> Direct assignments are prone to races and therefore buggy.
 
-> 
-> At some point we will also need the hw ageing parameter to be configurable.
-> So other approach could be,
-> - ageing parameter on bridge gets offloaded the hw
-> - so, by default hw and kernel age their own entries using the same
-> bridge device default timer
-> - User can explicitly disable HW ageing by using self (this needs some
-> more thought because now the call is on the bridge device)
+>>> current->state = TASK_RUNNING is replaced by __set_current_state()
 
-I think we want to be careful with both SW and HW aging entries since a
-host CPU's clock might be suspended/drifting etc.. at least, we probably
-want one or the other to take precedence other the other one?
--- 
-Florian
+>>       You sometimes use __set_current_state() and sometimes set_current_state().
+
+> Hello Sergei,
+
+> Peter suggested to use __set_current_state() for TASK_RUNNING :
+> http://marc.info/?l=linux-kernel&m=142442259719216&w=2
+
+    I didn't even question your decisions, I (like Peter) just wanted a more 
+coherent change-log. Thanks to Peter for the explanations though. :-)
+
+> Regards,
+> Fabian
+
+>>> Thanks to Peter Zijlstra for the exact definition of the problem.
+
+>>> Suggested-By: Peter Zijlstra <peterz@infradead.org>
+>>> Signed-off-by: Fabian Frederick <fabf@skynet.be>
+
+>> [...]
+
+WBR, Sergei
