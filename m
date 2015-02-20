@@ -1,32 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: Initialize all members in skb_gro_remcsum_init()
-Date: Fri, 20 Feb 2015 15:50:08 -0500 (EST)
-Message-ID: <20150220.155008.1982154709411369621.davem@davemloft.net>
-References: <1424255886-20330-1-git-send-email-geert@linux-m68k.org>
+Subject: Re: [PATCH net] sock: sock_dequeue_err_skb() needs hard irq safety
+Date: Fri, 20 Feb 2015 15:53:22 -0500 (EST)
+Message-ID: <20150220.155322.301911552130546662.davem@davemloft.net>
+References: <1424267275.4942.94.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: therbert@google.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: geert@linux-m68k.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1424255886-20330-1-git-send-email-geert@linux-m68k.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, willemb@google.com
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:46430 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752281AbbBTUxY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Feb 2015 15:53:24 -0500
+In-Reply-To: <1424267275.4942.94.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogR2VlcnQgVXl0dGVyaG9ldmVuIDxnZWVydEBsaW51eC1tNjhrLm9yZz4NCkRhdGU6IFdl
-ZCwgMTggRmViIDIwMTUgMTE6Mzg6MDYgKzAxMDANCg0KPiBza2JfZ3JvX3JlbWNzdW1faW5pdCgp
-IGluaXRpYWxpemVzIHRoZSBncm9fcmVtY3N1bS5kZWx0YSBtZW1iZXIgb25seSwNCj4gbGVhZGlu
-ZyB0byBjb21waWxlciB3YXJuaW5ncyBhYm91dCBhIHBvc3NpYmx5IHVuaW5pdGlhbGl6ZWQNCj4g
-Z3JvX3JlbWNzdW0ub2Zmc2V0IG1lbWJlcjoNCj4gDQo+IGRyaXZlcnMvbmV0L3Z4bGFuLmM6IElu
-IGZ1bmN0aW9uIKF2eGxhbl9ncm9fcmVjZWl2ZaI6DQo+IGRyaXZlcnMvbmV0L3Z4bGFuLmM6NjAy
-OiB3YXJuaW5nOiChZ3JjLm9mZnNldKIgbWF5IGJlIHVzZWQgdW5pbml0aWFsaXplZCBpbiB0aGlz
-IGZ1bmN0aW9uDQo+IG5ldC9pcHY0L2ZvdS5jOiBJbiBmdW5jdGlvbiChZ3VlX2dyb19yZWNlaXZl
-ojoNCj4gbmV0L2lwdjQvZm91LmM6MjYyOiB3YXJuaW5nOiChZ3JjLm9mZnNldKIgbWF5IGJlIHVz
-ZWQgdW5pbml0aWFsaXplZCBpbiB0aGlzIGZ1bmN0aW9uDQo+IA0KPiBXaGlsZSB0aGVzZSBhcmUg
-aGFybWxlc3MgZm9yIG5vdzoNCj4gICAtIHNrYl9ncm9fcmVtY3N1bV9wcm9jZXNzKCkgc2V0cyBv
-ZmZzZXQgYmVmb3JlIGNoYW5naW5nIGRlbHRhLA0KPiAgIC0gc2tiX2dyb19yZW1jc3VtX2NsZWFu
-dXAoKSBjaGVja3MgaWYgZGVsdGEgaXMgbm9uLXplcm8gYmVmb3JlDQo+ICAgICBhY2Nlc3Npbmcg
-b2Zmc2V0LA0KPiBpdCdzIHNhZmVyIHRvIGxldCB0aGUgaW5pdGlhbGl6YXRpb24gZnVuY3Rpb24g
-aW5pdGlhbGl6ZSBhbGwgbWVtYmVycy4NCj4gDQo+IFNpZ25lZC1vZmYtYnk6IEdlZXJ0IFV5dHRl
-cmhvZXZlbiA8Z2VlcnRAbGludXgtbTY4ay5vcmc+DQoNCkFwcGxpZWQsIHRoYW5rIHlvdS4NCg==
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 18 Feb 2015 05:47:55 -0800
+
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> Non NAPI drivers can call skb_tstamp_tx() and then sock_queue_err_skb()
+> from hard IRQ context.
+> 
+> Therefore, sock_dequeue_err_skb() needs to block hard irq or
+> corruptions or hangs can happen.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Fixes: 364a9e93243d1 ("sock: deduplicate errqueue dequeue")
+> Fixes: cb820f8e4b7f7 ("net: Provide a generic socket error queue delivery method for Tx time stamps.")
+
+Applied and queued up for -stable, thanks Eric.
