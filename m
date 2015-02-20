@@ -1,51 +1,54 @@
-From: roopa <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next RFC 0/5] Add NTF_EXT_AGED to control FDB ageing
- in SW or HW
-Date: Fri, 20 Feb 2015 09:29:30 -0800
-Message-ID: <54E76EFA.1050209@cumulusnetworks.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next RFC 4/5] bridge: let HW control FDB ageing by
+ setting NTF_EXT_AGED
+Date: Fri, 20 Feb 2015 12:31:55 -0500 (EST)
+Message-ID: <20150220.123155.1339488736970212441.davem@davemloft.net>
 References: <1424416195-19098-1-git-send-email-sfeldma@gmail.com>
+	<1424416195-19098-5-git-send-email-sfeldma@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jiri@resnulli.us, linux@roeck-us.net,
+Cc: netdev@vger.kernel.org, jiri@resnulli.us,
+	roopa@cumulusnetworks.com, linux@roeck-us.net,
 	f.fainelli@gmail.com, andrew@lunn.ch, gospo@cumulusnetworks.com,
 	vbandaru@broadcom.com, siva.mannem.lnx@gmail.com
 To: sfeldma@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f171.google.com ([209.85.192.171]:45005 "EHLO
-	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754429AbbBTR3c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Feb 2015 12:29:32 -0500
-Received: by pdbnh10 with SMTP id nh10so8948705pdb.11
-        for <netdev@vger.kernel.org>; Fri, 20 Feb 2015 09:29:32 -0800 (PST)
-In-Reply-To: <1424416195-19098-1-git-send-email-sfeldma@gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:43571 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755122AbbBTRcB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Feb 2015 12:32:01 -0500
+In-Reply-To: <1424416195-19098-5-git-send-email-sfeldma@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2/19/15, 11:09 PM, sfeldma@gmail.com wrote:
-> From: Scott Feldman <sfeldma@gmail.com>
->
-> Add a new NTF_EXT_FLAG to mark an FDB as externally aged, for example by
-> offload hardware.   Switchdev driver/devices can set this flag when learning a
-> new FDB entry and SW (the bridge driver) will skip this entry when running its
-> ageing task.  If flag is set, the driver/device is responsible for calling
-> call_netdev_switch_notifiers(NETDEV_SWITCH_FDB_DEL, ...) when entry expires.
->
-> This give the flexibility for driver/device to decide ageing policy based on
-> its capabilities.  For devices managing many FDB entries, it is desireable for
-> the device to aged out its own entries.  Devices not capable of aged entries
-> can rely of SW to age out the entries.
->
-scott, patches look good. However, I am not sure yet if there is a need 
-to make it a per fdb entry flag.
+From: sfeldma@gmail.com
+Date: Thu, 19 Feb 2015 23:09:54 -0800
 
-At some point we will also need the hw ageing parameter to be configurable.
-So other approach could be,
-- ageing parameter on bridge gets offloaded the hw
-- so, by default hw and kernel age their own entries using the same 
-bridge device default timer
-- User can explicitly disable HW ageing by using self (this needs some 
-more thought because now the call is on the bridge device)
+> @@ -990,10 +993,13 @@ void br_fdb_unsync_static(struct net_bridge *br, struct net_bridge_port *p)
+>  }
+>  
+>  int br_fdb_external_learn_add(struct net_bridge *br, struct net_bridge_port *p,
+> -			      const unsigned char *addr, u16 vid)
+> +			      struct netdev_switch_notifier_fdb_info *fdb_info)
+>  {
+ ...
+> @@ -1026,10 +1034,12 @@ err_unlock:
+>  }
+>  
+>  int br_fdb_external_learn_del(struct net_bridge *br, struct net_bridge_port *p,
+> -			      const unsigned char *addr, u16 vid)
+> +			      struct netdev_switch_notifier_fdb_info *fdb_info)
+>  {
+ ...
+> @@ -403,9 +405,9 @@ int br_fdb_dump(struct sk_buff *skb, struct netlink_callback *cb,
+>  int br_fdb_sync_static(struct net_bridge *br, struct net_bridge_port *p);
+>  void br_fdb_unsync_static(struct net_bridge *br, struct net_bridge_port *p);
+>  int br_fdb_external_learn_add(struct net_bridge *br, struct net_bridge_port *p,
+> -			      const unsigned char *addr, u16 vid);
+> +			      struct netdev_switch_notifier_fdb_info *fdb_info);
+>  int br_fdb_external_learn_del(struct net_bridge *br, struct net_bridge_port *p,
+> -			      const unsigned char *addr, u16 vid);
+> +			      struct netdev_switch_notifier_fdb_info *fdb_info);
 
-Thanks,
-Roopa
+You probably want to mark the fdb_info argument as 'const'.
