@@ -1,52 +1,44 @@
 From: sfeldma@gmail.com
-Subject: [PATCH net-next RFC 5/5] rocker: explicitly set SW ageing for rocker
-Date: Thu, 19 Feb 2015 23:09:55 -0800
-Message-ID: <1424416195-19098-6-git-send-email-sfeldma@gmail.com>
+Subject: [PATCH net-next RFC 1/5] neighbour: add external aged flag
+Date: Thu, 19 Feb 2015 23:09:51 -0800
+Message-ID: <1424416195-19098-2-git-send-email-sfeldma@gmail.com>
 References: <1424416195-19098-1-git-send-email-sfeldma@gmail.com>
 To: netdev@vger.kernel.org, jiri@resnulli.us,
 	roopa@cumulusnetworks.com, linux@roeck-us.net,
 	f.fainelli@gmail.com, andrew@lunn.ch, gospo@cumulusnetworks.com,
 	vbandaru@broadcom.com, siva.mannem.lnx@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:36826 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752804AbbBTHJd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Feb 2015 02:09:33 -0500
-Received: by pabkq14 with SMTP id kq14so5994207pab.3
-        for <netdev@vger.kernel.org>; Thu, 19 Feb 2015 23:09:33 -0800 (PST)
+Received: from mail-pd0-f177.google.com ([209.85.192.177]:41917 "EHLO
+	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751290AbbBTHJ2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Feb 2015 02:09:28 -0500
+Received: by pdno5 with SMTP id o5so5694952pdn.8
+        for <netdev@vger.kernel.org>; Thu, 19 Feb 2015 23:09:28 -0800 (PST)
 In-Reply-To: <1424416195-19098-1-git-send-email-sfeldma@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Scott Feldman <sfeldma@gmail.com>
 
-Rocker (for now) will rely on SW (bridge) ageing.  Other drivers/devices may
-wish to set NTF_EXT_AGED to turn off SW (bridge) ageing.
+NFT_EXT_AGED marks neighbor (FDB) entries as externally aged, typically in
+hardware.  Software can skip these entries when aging entries.
 
 Signed-off-by: Scott Feldman <sfeldma@gmail.com>
 ---
- drivers/net/ethernet/rocker/rocker.c |    9 +++++----
- 1 file changed, 5 insertions(+), 4 deletions(-)
+ include/uapi/linux/neighbour.h |    1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
-index 34389b6a..7b55934 100644
---- a/drivers/net/ethernet/rocker/rocker.c
-+++ b/drivers/net/ethernet/rocker/rocker.c
-@@ -3026,10 +3026,11 @@ static void rocker_port_fdb_learn_work(struct work_struct *work)
- 		container_of(work, struct rocker_fdb_learn_work, work);
- 	bool removing = (lw->flags & ROCKER_OP_FLAG_REMOVE);
- 	bool learned = (lw->flags & ROCKER_OP_FLAG_LEARNED);
--	struct netdev_switch_notifier_fdb_info info;
--
--	info.addr = lw->addr;
--	info.vid = lw->vid;
-+	struct netdev_switch_notifier_fdb_info info = {
-+		.addr = lw->addr,
-+		.vid = lw->vid,
-+		.ntf_flags = NTF_EXT_LEARNED,
-+	};
+diff --git a/include/uapi/linux/neighbour.h b/include/uapi/linux/neighbour.h
+index 3873a35..e9866f9 100644
+--- a/include/uapi/linux/neighbour.h
++++ b/include/uapi/linux/neighbour.h
+@@ -40,6 +40,7 @@ enum {
+ #define NTF_MASTER	0x04
+ #define NTF_PROXY	0x08	/* == ATF_PUBL */
+ #define NTF_EXT_LEARNED	0x10
++#define NTF_EXT_AGED	0x20
+ #define NTF_ROUTER	0x80
  
- 	if (learned && removing)
- 		call_netdev_switch_notifiers(NETDEV_SWITCH_FDB_DEL,
+ /*
 -- 
 1.7.10.4
