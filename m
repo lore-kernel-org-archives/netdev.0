@@ -1,56 +1,64 @@
-From: Alexander Drozdov <al.drozdov@gmail.com>
-Subject: [PATCH] af_packet: allow packets defragmentation not only for hash fanout type
-Date: Fri, 20 Feb 2015 08:24:27 +0300
-Message-ID: <1424409867-23041-1-git-send-email-al.drozdov@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Alexander Drozdov <al.drozdov@gmail.com>
-To: "David S. Miller" <davem@davemloft.net>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Al Viro <viro@zeniv.linux.org.uk>,
-	Willem de Bruijn <willemb@google.com>,
-	"Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: sfeldma@gmail.com
+Subject: [PATCH net-next RFC 3/5] bridge: call external learn add if adding FDB entry with NTF_EXT_LEARNED set
+Date: Thu, 19 Feb 2015 23:09:53 -0800
+Message-ID: <1424416195-19098-4-git-send-email-sfeldma@gmail.com>
+References: <1424416195-19098-1-git-send-email-sfeldma@gmail.com>
+To: netdev@vger.kernel.org, jiri@resnulli.us,
+	roopa@cumulusnetworks.com, linux@roeck-us.net,
+	f.fainelli@gmail.com, andrew@lunn.ch, gospo@cumulusnetworks.com,
+	vbandaru@broadcom.com, siva.mannem.lnx@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:43599 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751290AbbBTHJb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Feb 2015 02:09:31 -0500
+Received: by paceu11 with SMTP id eu11so5914912pac.10
+        for <netdev@vger.kernel.org>; Thu, 19 Feb 2015 23:09:30 -0800 (PST)
+In-Reply-To: <1424416195-19098-1-git-send-email-sfeldma@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Packets defragmentation was introduced for PACKET_FANOUT_HASH only,
-see 7736d33f4262 ("packet: Add pre-defragmentation support for ipv4
-fanouts")
+From: Scott Feldman <sfeldma@gmail.com>
 
-It may be useful to have defragmentation enabled regardless of
-fanout type. Without that, the AF_PACKET user may have to:
-1. Collect fragments from different rings
-2. Defragment by itself
+Only call into bridge driver to add externally learned FDB entry if driver/
+device indicates entry with NTF_EXT_LEARNED.
 
-Signed-off-by: Alexander Drozdov <al.drozdov@gmail.com>
+Signed-off-by: Scott Feldman <sfeldma@gmail.com>
 ---
- net/packet/af_packet.c | 10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
+ net/bridge/br.c |   18 ++++++++++--------
+ 1 file changed, 10 insertions(+), 8 deletions(-)
 
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 9c28cec..99fc628 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -1349,14 +1349,14 @@ static int packet_rcv_fanout(struct sk_buff *skb, struct net_device *dev,
- 		return 0;
+diff --git a/net/bridge/br.c b/net/bridge/br.c
+index fb57ab6..3dc5463 100644
+--- a/net/bridge/br.c
++++ b/net/bridge/br.c
+@@ -140,17 +140,19 @@ static int br_netdev_switch_event(struct notifier_block *unused,
+ 	switch (event) {
+ 	case NETDEV_SWITCH_FDB_ADD:
+ 		fdb_info = ptr;
+-		err = br_fdb_external_learn_add(br, p, fdb_info->addr,
+-						fdb_info->vid);
+-		if (err)
+-			err = notifier_from_errno(err);
++		if (fdb_info->ntf_flags & NTF_EXT_LEARNED) {
++			err = br_fdb_external_learn_add(br, p, fdb_info);
++			if (err)
++				err = notifier_from_errno(err);
++		}
+ 		break;
+ 	case NETDEV_SWITCH_FDB_DEL:
+ 		fdb_info = ptr;
+-		err = br_fdb_external_learn_del(br, p, fdb_info->addr,
+-						fdb_info->vid);
+-		if (err)
+-			err = notifier_from_errno(err);
++		if (fdb_info->ntf_flags & NTF_EXT_LEARNED) {
++			err = br_fdb_external_learn_del(br, p, fdb_info);
++			if (err)
++				err = notifier_from_errno(err);
++		}
+ 		break;
  	}
  
-+	if (fanout_has_flag(f, PACKET_FANOUT_FLAG_DEFRAG)) {
-+		skb = ip_check_defrag(skb, IP_DEFRAG_AF_PACKET);
-+		if (!skb)
-+			return 0;
-+	}
- 	switch (f->type) {
- 	case PACKET_FANOUT_HASH:
- 	default:
--		if (fanout_has_flag(f, PACKET_FANOUT_FLAG_DEFRAG)) {
--			skb = ip_check_defrag(skb, IP_DEFRAG_AF_PACKET);
--			if (!skb)
--				return 0;
--		}
- 		idx = fanout_demux_hash(f, skb, num);
- 		break;
- 	case PACKET_FANOUT_LB:
 -- 
-1.9.1
+1.7.10.4
