@@ -1,56 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH next v6 2/5] bonding: Implement port churn-machine (AD
- standard 43.4.17).
-Date: Fri, 20 Feb 2015 17:33:45 -0500 (EST)
-Message-ID: <20150220.173345.1387126164943361978.davem@davemloft.net>
-References: <1424328619-14205-1-git-send-email-maheshb@google.com>
+Subject: Re: [patch] caif: fix a signedness bug in cfpkt_iterate()
+Date: Fri, 20 Feb 2015 17:35:26 -0500 (EST)
+Message-ID: <20150220.173526.1527625915242269739.davem@davemloft.net>
+References: <20150219091313.GA29358@mwanda>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: j.vosburgh@gmail.com, andy@greyhouse.net, vfalico@gmail.com,
-	nikolay@redhat.com, maze@google.com, netdev@vger.kernel.org,
-	edumazet@google.com
-To: maheshb@google.com
+Cc: dmitry.tarnyagin@lockless.no, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: dan.carpenter@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47538 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:47551 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754605AbbBTWds (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Feb 2015 17:33:48 -0500
-In-Reply-To: <1424328619-14205-1-git-send-email-maheshb@google.com>
+	with ESMTP id S1755246AbbBTWf3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Feb 2015 17:35:29 -0500
+In-Reply-To: <20150219091313.GA29358@mwanda>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mahesh Bandewar <maheshb@google.com>
-Date: Wed, 18 Feb 2015 22:50:19 -0800
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Date: Thu, 19 Feb 2015 12:13:13 +0300
 
-> @@ -1131,6 +1137,44 @@ static void ad_rx_machine(struct lacpdu *lacpdu, struct port *port)
->  	}
->  }
->  
-> +/* ad_churn_machine - handle port churn's state machine
-> + * @port: the port we're looking at
-> + *
-> + */
+> The cfpkt_iterate() function can return -EPROTO on error, but the
+> function is a u16 so the negative value gets truncated to a positive
+> unsigned short.  This causes a static checker warning.
+> 
+> The only caller which might care is cffrml_receive(), when it's checking
+> the frame checksum.  I modified cffrml_receive() so that it never says
+> -EPROTO is a valid checksum.
+> 
+> Also this isn't ever going to be inlined so I removed the "inline".
+> 
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-Please don't invent new styles for the function comments, do it like it is
-done in the rest of this file, for example, the very next funtion does:
-
->  /**
->   * ad_tx_machine - handle a port's tx state machine
->   * @port: the port we're looking at
-> +	static const char *const churn_description[] =
-> +		{ "monitoring",
-> +		  "churned",
-> +		  "none",
-> +		  "unknown"
-> +		};
-> +	int max_size = sizeof(churn_description) / sizeof(churn_description[0]);
-
-Please format this as:
-
-> +	static const char *const churn_description[] = {
-> +		"monitoring",
-> +		"churned",
-> +		"none",
-> +		"unknown"
-> +	};
+Applied, thanks Dan.
