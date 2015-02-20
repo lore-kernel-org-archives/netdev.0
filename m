@@ -1,41 +1,41 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: Why do we use RX queue mapping for TX?
-Date: Fri, 20 Feb 2015 10:09:44 -0800
-Message-ID: <CAHA+R7N=uFyja4daQTY50RVMAzYT1J1AUMmsF+6HynZQED+OgA@mail.gmail.com>
-References: <CAHA+R7MXF-KHZ3aeBwwshSYDswKwrjhbMJQ=+Hfj3gZJq70dXQ@mail.gmail.com>
-	<CAHA+R7PdG+jDqFA1jDFzHtkrxqLEZdtj1w5QyrdYMO4fX6+A1w@mail.gmail.com>
-	<CAHA+R7OVHgwQBM200UZDKiw5eypuzhWj=B4E3MRkOK3yViZDCQ@mail.gmail.com>
-	<1424301248.4942.99.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CAHA+R7PbLRw-oA4v9ivZ0s-++ALx99zddJLDqDoemyBTc2XZ1g@mail.gmail.com>
-	<1424304992.4942.109.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f176.google.com ([209.85.213.176]:51688 "EHLO
-	mail-ig0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754265AbbBTSJo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Feb 2015 13:09:44 -0500
-Received: by mail-ig0-f176.google.com with SMTP id hl2so4989863igb.3
-        for <netdev@vger.kernel.org>; Fri, 20 Feb 2015 10:09:44 -0800 (PST)
-In-Reply-To: <1424304992.4942.109.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Fabian Frederick <fabf@skynet.be>
+Subject: [PATCH 2/7 linux-next] mISDN: replace current->state by set_current_state()
+Date: Fri, 20 Feb 2015 19:12:52 +0100
+Message-ID: <1424455977-21903-2-git-send-email-fabf@skynet.be>
+References: <1424455977-21903-1-git-send-email-fabf@skynet.be>
+Cc: Ingo Molnar <mingo@redhat.com>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Fabian Frederick <fabf@skynet.be>,
+	Karsten Keil <isdn@linux-pingi.de>, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1424455977-21903-1-git-send-email-fabf@skynet.be>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Feb 18, 2015 at 4:16 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Wed, 2015-02-18 at 15:57 -0800, Cong Wang wrote:
->
->> I am aware of it. I even would guess (means not digging the history)
->> skb_edit was invented for bonding queue mapping, since I don't see it
->> even works as a general TC action on the physical interface. We pick
->> the tx queue prior to getting the Qdisc, therefore too late to set
->> skb->queue_mapping to specify a hardware TX queue. This is
->> another story I planned to bring it up to David.
->
-> skbedit can be done on ingress I presume.
->
+Use helper function to access current->state.
+Direct assignments are prone to races and therefore buggy.
 
-Yes of course, but that means I need an indirect layer to
-map RX to TX (ifb or mirred), since I only care about TX queues. :-/
+Thanks to Peter Zijlstra for the exact definition of the problem.
+
+Signed-off-by: Fabian Frederick <fabf@skynet.be>
+---
+ drivers/isdn/hardware/mISDN/hfcpci.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/isdn/hardware/mISDN/hfcpci.c b/drivers/isdn/hardware/mISDN/hfcpci.c
+index 3c92780..ff48da6 100644
+--- a/drivers/isdn/hardware/mISDN/hfcpci.c
++++ b/drivers/isdn/hardware/mISDN/hfcpci.c
+@@ -1755,7 +1755,7 @@ init_card(struct hfc_pci *hc)
+ 		enable_hwirq(hc);
+ 		spin_unlock_irqrestore(&hc->lock, flags);
+ 		/* Timeout 80ms */
+-		current->state = TASK_UNINTERRUPTIBLE;
++		set_current_state(TASK_UNINTERRUPTIBLE);
+ 		schedule_timeout((80 * HZ) / 1000);
+ 		printk(KERN_INFO "HFC PCI: IRQ %d count %d\n",
+ 		       hc->irq, hc->irqcnt);
+-- 
+2.1.0
