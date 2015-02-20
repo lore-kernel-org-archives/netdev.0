@@ -1,154 +1,115 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next 1/2] dsa: bonding: implement HW bonding
-Date: Fri, 20 Feb 2015 08:41:10 -0800
-Message-ID: <54E763A6.4020505@gmail.com>
-References: <1424429473-4601-1-git-send-email-jonasj76@gmail.com> <1424429473-4601-2-git-send-email-jonasj76@gmail.com>
+From: Simon Farnsworth <simon@farnz.org.uk>
+Subject: Re: [PATCH] pppoe: Use workqueue to die properly when a PADT is received
+Date: Fri, 20 Feb 2015 16:41:17 +0000
+Message-ID: <2498181.kKNYHvd3hx@f19simon>
+References: <1424381068-22252-1-git-send-email-simon@farnz.org.uk> <20150220171014.3970204f0h4aebmu@berry.schulz.ip-v6.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Jonas Johansson <jonas.johansson@westermo.se>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Scott Feldman <sfeldma@gmail.com>
-To: Jonas Johansson <jonasj76@gmail.com>, netdev@vger.kernel.org
+Content-Type: multipart/signed; boundary="nextPart2446833.QqoNWWN2jK"; micalg="pgp-sha1"; protocol="application/pgp-signature"
+Cc: netdev@vger.kernel.org, Dan Williams <dcbw@redhat.com>,
+	mostrows@gmail.com, linux-ppp@vger.kernel.org
+To: Christoph Schulz <develop@kristov.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f176.google.com ([209.85.192.176]:37057 "EHLO
-	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755336AbbBTQl1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Feb 2015 11:41:27 -0500
-Received: by pdbfl12 with SMTP id fl12so8725314pdb.4
-        for <netdev@vger.kernel.org>; Fri, 20 Feb 2015 08:41:26 -0800 (PST)
-In-Reply-To: <1424429473-4601-2-git-send-email-jonasj76@gmail.com>
+Received: from claranet-outbound-smtp07.uk.clara.net ([195.8.89.40]:57060 "EHLO
+	claranet-outbound-smtp07.uk.clara.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755294AbbBTQlg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Feb 2015 11:41:36 -0500
+In-Reply-To: <20150220171014.3970204f0h4aebmu@berry.schulz.ip-v6.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 20/02/15 02:51, Jonas Johansson wrote:
-> From: Jonas Johansson <jonas.johansson@westermo.se>
-> 
-> This patch will implement hooks for hardware bonding support for the DSA
-> driver. When the team driver adds a DSA slave port the port will be assigned
-> a bond group id and the DSA slave driver can setup the hardware. When team
-> changes the port state (enabled/disabled) the DSA slave driver is able to
-> use the attach/detach callback which will allow the hardware to change the
-> hardware settings to reflect the state.
-> 
-> Added DSA hooks:
->  bond_add_group: To add a port to a bond group
->  bond_del_group: To remove a port from a bond group
->  bond_attach: To mark the port in a bond group as attached/active
->  bond_detach: To unmark the port in a bond group as detach/inactive
-> 
-> Added new network device hooks:
->  ndo_bond_attach: To attach a device to a bond group.
->  ndo_bond_detach: To detach a device from a bond group.
-> 
-> Team:
->  Added callback to ndo_bond_attach when port is enabled.
->  Added callback to ndo_bond_detach when port is disabled.
-> 
-> Added DSA notifier:
->  Listening on NETDEV_CHANGEUPPER to add or deleta a port to/from a bond group.
-> 
-> Signed-off-by: Jonas Johansson <jonas.johansson@westermo.se>
-> ---
->  drivers/net/team/team.c   |  4 ++++
->  include/linux/netdevice.h |  8 +++++++
->  include/net/dsa.h         |  8 +++++++
->  net/dsa/dsa.c             | 60 +++++++++++++++++++++++++++++++++++++++++++++++
->  net/dsa/dsa_priv.h        |  6 +++++
->  net/dsa/slave.c           | 23 ++++++++++++++++++
->  6 files changed, 109 insertions(+)
-> 
-> diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
-> index 0e62274..f7b2afb 100644
-> --- a/drivers/net/team/team.c
-> +++ b/drivers/net/team/team.c
-> @@ -934,6 +934,8 @@ static void team_port_enable(struct team *team,
->  		team->ops.port_enabled(team, port);
->  	team_notify_peers(team);
->  	team_mcast_rejoin(team);
-> +	if (port->dev->netdev_ops->ndo_bond_attach)
-> +		port->dev->netdev_ops->ndo_bond_attach(port->dev);
->  }
->  
->  static void __reconstruct_port_hlist(struct team *team, int rm_index)
-> @@ -965,6 +967,8 @@ static void team_port_disable(struct team *team,
->  	team_adjust_ops(team);
->  	team_notify_peers(team);
->  	team_mcast_rejoin(team);
-> +	if (port->dev->netdev_ops->ndo_bond_detach)
-> +		port->dev->netdev_ops->ndo_bond_detach(port->dev);
->  }
 
-Do we really need new ndos here? Cannot we learn this via
-NETDEV_CHANGEUPPER?
+--nextPart2446833.QqoNWWN2jK
+Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
 
->  
+On Friday 20 February 2015 17:10:14 Christoph Schulz wrote:
+> (Cc: linux-ppp@vger.kernel.org, mostrows@gmail.com)
+>=20
+> Hello!
+>=20
+> Simon Farnsworth schrieb am Thu, 19 Feb 2015 21:24:28 +0000:
+>=20
+> > When a PADT frame is received, the socket may not be in a good stat=
+e to
+> > close down the PPP interface. The current implementation handles th=
+is by
+> > simply blocking all further PPP traffic, and hoping that the lack o=
+f traffic
+> > will trigger the user to investigate.
+> >
+> > Use schedule_work to get to a process context from which we clear d=
+own the
+> > PPP interface, in a fashion analogous to hangup on a TTY-based PPP
+> > interface. This causes pppd to disconnect immediately, and allows t=
+ools to
+> > take immediate corrective action.
+>=20
+> Tested-by: Christoph Schulz <develop@kristov.de>
+>=20
+<snip success report>
+> However, note also that your patch causes pppd (or rather the rp-pppo=
+e =20
+> plugin) to wonder about the socket closed by the kernel:
+>=20
+> Feb 20 16:45:44 sandbox local2.err pppd[539]: Failed to disconnect =20=
 
-[snip]
+> PPPoE socket: 114 Operation already in progress
+>
+I assume there's nothing else wrong here, other than pppd complaining? =
+The
+code doesn't suggest there will be issues if we fail to disconnect.
 
->  
->  /* platform driver init and cleanup *****************************************/
->  static int dev_is_class(struct device *dev, void *class)
-> @@ -778,6 +835,9 @@ static int dsa_probe(struct platform_device *pdev)
->  		add_timer(&dst->link_poll_timer);
->  	}
->  
-> +	/* Setup notifier */
-> +	register_netdevice_notifier(&dsa_nb);
+> I don't fully understand the code there; it seems that the plugin =20=
 
-I do not think we need to register the netdevice_notifier for every DSA
-platform_device we might instantiate, a single one, global, whenever the
-DSA driver gets inserted should be enough.
+> *connects* the PPPoE session socket in order to *disconnect* it:
+>=20
+> static void
+> PPPOEDisconnectDevice(void)
+> {
+>      struct sockaddr_pppox sp;
+>=20
+>      sp.sa_family =3D AF_PPPOX;
+>      sp.sa_protocol =3D PX_PROTO_OE;
+>      sp.sa_addr.pppoe.sid =3D 0;
+>      memcpy(sp.sa_addr.pppoe.dev, conn->ifName, IFNAMSIZ);
+>      memcpy(sp.sa_addr.pppoe.remote, conn->peerEth, ETH_ALEN);
+>      if (connect(conn->sessionSocket, (struct sockaddr *) &sp,
+>                  sizeof(struct sockaddr_pppox)) < 0)
+>          error("Failed to disconnect PPPoE socket: %d %m", errno);
+>      close(conn->sessionSocket);
+>      /* don't send PADT?? */
+>      if (conn->discoverySocket >=3D 0)
+>          close(conn->discoverySocket);
+> }
 
-Also, I would prefer if we moved this to net/dsa/slave.c where the other
-netdevice_ops are layered, very much like this patch:
+The code is trying to disconnect the session by connecting to session 0=
 
-[1]: http://patchwork.ozlabs.org/patch/440696/
+(which is invalid) in order to stop data flow. I'll have another look a=
+t the
+kernel code tonight to see if that does anything that
+close(conn->sessionSocket) won't do - I can't see a good reason for it,=
 
-> +
->  	return 0;
->  
->  out:
-> diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
-> index dc9756d..6a1456a 100644
-> --- a/net/dsa/dsa_priv.h
-> +++ b/net/dsa/dsa_priv.h
-> @@ -45,6 +45,11 @@ struct dsa_slave_priv {
->  	int			old_link;
->  	int			old_pause;
->  	int			old_duplex;
-> +
-> +	/*
-> +	 * Bond group id, or 0 if port is not bonded.
-> +	 */
-> +	int			bond_gid;
->  };
->  
->  /* dsa.c */
-> @@ -58,6 +63,7 @@ struct net_device *dsa_slave_create(struct dsa_switch *ds,
->  				    int port, char *name);
->  int dsa_slave_suspend(struct net_device *slave_dev);
->  int dsa_slave_resume(struct net_device *slave_dev);
-> +bool dsa_slave_check(struct net_device *dev);
->  
->  /* tag_dsa.c */
->  extern const struct dsa_device_ops dsa_netdev_ops;
-> diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-> index f23dead..88c84bf 100644
-> --- a/net/dsa/slave.c
-> +++ b/net/dsa/slave.c
-> @@ -441,6 +441,22 @@ static int dsa_slave_get_eee(struct net_device *dev, struct ethtool_eee *e)
->  	return ret;
->  }
->  
-> +static int dsa_slave_bond_attach(struct net_device *dev)
-> +{
-> +	struct dsa_slave_priv *p = netdev_priv(dev);
-> +	struct dsa_switch *ds = p->parent;
-> +
-> +	return ds->drv->bond_attach(ds, p->port);
+though.
 
-You need to test for the callback implementation in the driver, since it
-is optional and likely not to be implemented immediately.
--- 
-Florian
+I suspect this is a straight bug in the rp-pppoe.so plugin.
+=2D-
+Simon Farnsworth
+
+--nextPart2446833.QqoNWWN2jK
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part.
+Content-Transfer-Encoding: 7Bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQEcBAABAgAGBQJU52OwAAoJEOsKZy3xM+c79sYH/0P2+K6c9Tch8+fVBGorGTku
+yjZE9YAiJvNTLEnH7DYPGaZBgFl4V4LbNkrUfJO6yauDzq79SZAVyckI+Xcrm5aQ
+JlswTfby7ix0om/x28xI2jxILv1E58MJPKZ73J+Ce+xInxQWnP9+bYAEuegIJG88
+GSnAyydrFwGYmysiq5DXxJUiq/rRed3Fa3JLnY6PzsDoG98SI2I5/uq7o0c2j0ge
+Kt82TWH+PVlBwygiuJf8eeIofaeW67xqLNgZxtXLo9g++yqZ+jyb0yH8YbsllX3q
+v3pLKgl4AlbdHZolsEHYW1VIexd+t3Uausz5m9qqYG/7XlHqDEN7ExylUbMY6Gw=
+=wmGK
+-----END PGP SIGNATURE-----
+
+--nextPart2446833.QqoNWWN2jK--
