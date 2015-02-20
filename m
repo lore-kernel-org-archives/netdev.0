@@ -1,93 +1,63 @@
-From: Jonathon Reinhart <jonathon.reinhart@gmail.com>
-Subject: Re: Setting RPS affinities from network driver
-Date: Thu, 19 Feb 2015 21:07:21 -0500
-Message-ID: <CAPFHKzc1+HTOm4PGAnRJ_svjAdZDrK5fMWpYL9Q0RQcPsXCd+Q@mail.gmail.com>
-References: <CA+sq2CeC89YfaTM18JR9dFOoNAbohGk=gFXSkM_4q2oySB12GA@mail.gmail.com>
- <CA+mtBx9qHdEeXmEGbbWSr_OL3aAQJ37eTbC0mUY_XrTNoZ6iXw@mail.gmail.com> <CA+sq2CdYSg4NTnyLOMGyF1bmfr0+h+9UJyjJGO2hKEcq4rED8A@mail.gmail.com>
+From: roopa <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next v3 0/2] iproute2: bridge vlan range support
+Date: Thu, 19 Feb 2015 18:08:23 -0800
+Message-ID: <54E69717.3050306@cumulusnetworks.com>
+References: <1422239185-14054-1-git-send-email-roopa@cumulusnetworks.com> <20150205104809.603763cf@urahara>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Tom Herbert <therbert@google.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Sunil Kovvuri <sunil.kovvuri@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, shemminger@vyatta.com, vyasevic@redhat.com,
+	wkok@cumulusnetworks.com, sfeldma@gmail.com,
+	Jamal Hadi Salim <hadi@mojatatu.com>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f44.google.com ([74.125.82.44]:35598 "EHLO
-	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753171AbbBTCHx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Feb 2015 21:07:53 -0500
-Received: by mail-wg0-f44.google.com with SMTP id k14so10695153wgh.3
-        for <netdev@vger.kernel.org>; Thu, 19 Feb 2015 18:07:52 -0800 (PST)
-In-Reply-To: <CA+sq2CdYSg4NTnyLOMGyF1bmfr0+h+9UJyjJGO2hKEcq4rED8A@mail.gmail.com>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:33431 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753417AbbBTCIZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Feb 2015 21:08:25 -0500
+Received: by pabkx10 with SMTP id kx10so4327328pab.0
+        for <netdev@vger.kernel.org>; Thu, 19 Feb 2015 18:08:24 -0800 (PST)
+In-Reply-To: <20150205104809.603763cf@urahara>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I don't know if this is a good idea. It seems like allowing the driver to
-set this default configuration opens the door to a whole slew of driver-
-specific config customizations.
-
-As as user, I wouldn't expect one driver to have a different default
-value of rps_cpus than another driver. Furthermore, I could imagine a
-case where a user expects rps_cpus to default to zero for all of his
-NICs, and has other CPU affinity settings applied (think realtime).
-
-In my opinion, this should be left to userspace. It's not that hard to
-add it to your init scripts.
-
-
-On Wed, Feb 18, 2015 at 10:47 AM, Sunil Kovvuri <sunil.kovvuri@gmail.com> wrote:
-> Thanks Tom,
+On 2/5/15, 10:48 AM, Stephen Hemminger wrote:
+> On Sun, 25 Jan 2015 18:26:23 -0800
+> roopa@cumulusnetworks.com wrote:
 >
-> Will try to implement something like a library function which can be used
-> by any driver.
->
-> Regards,
-> Sunil.
->
-> On Wed, Feb 18, 2015 at 9:14 PM, Tom Herbert <therbert@google.com> wrote:
->> On Tue, Feb 17, 2015 at 10:16 PM, Sunil Kovvuri <sunil.kovvuri@gmail.com> wrote:
->>> Hi,
->>>
->>> I am writing a network driver for a multicore SOC with a on-board
->>> network interface and would like to set RPS affinities from driver by
->>> default. So that the network performance is good with whatever driver
->>> supplied. Ofcourse these can be further adjusted from userspace
->>> anyways.
->>>
->>> Is there a way to set RPS settings from driver itself ?
->>> The only issue i am seeing is while setting 'rps_needed' key.
->>>
->> There is nothing to prevent this, but it would be really cool to make
->> this into a library function that drivers can call to initialize RPS
->> in some sane way (you might want to look at cpu_rmap).
+>> From: Roopa Prabhu <roopa@cumulusnetworks.com>
 >>
->>> static_key_slow_inc(&rps_needed);
->>>
->>> Currently this is not exported, so having issues while compiling
->>> driver as module.
->>>
->>> If i export this symbol, will it be acceptable ?
->>>
->> Seems okay to me.
+>> This series adds support for vlan ranges in iproute2 bridge add
+>> and show commands.
 >>
->> Thanks,
->> Tom
+>> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+>> Signed-off-by: Wilson Kok <wkok@cumulusnetworks.com>
 >>
->>>
->>> Thanks,
->>> Sunil.
->>> --
->>> To unsubscribe from this list: send the line "unsubscribe netdev" in
->>> the body of a message to majordomo@vger.kernel.org
->>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>> Roopa Prabhu (2):
+>>    iproute2: bridge: support vlan range for adds
+>>    iproute2: bridge vlan show new option to print ranges
+>>
+>>   bridge/br_common.h        |    1 +
+>>   bridge/bridge.c           |    6 ++++-
+>>   bridge/vlan.c             |   55 ++++++++++++++++++++++++++++++++++++++++-----
+>>   include/linux/if_bridge.h |    2 ++
+>>   include/linux/rtnetlink.h |    1 +
+>>   5 files changed, 58 insertions(+), 7 deletions(-)
+>>
+> Applied to net-next branch of iproute2
+> Go ahead and send more patches if you decide on different output format.
 
+Thanks stephen.
 
+Maybe too late, but wanted to add a note.
+I would have loved to have the default output print vlan ranges if the 
+iproute2 version is capable and is talking to the kernel which has vlan 
+range support. The netlink msg handling takes care of back ward 
+compatibility.
 
--- 
-Computers are incredibly fast, accurate and stupid. Human beings are
-incredibly slow, inaccurate and brilliant. Together they are powerful
-beyond imagination.
-                                    A. Einstein
+I think, I was being too cautious to not break users who might be doing 
+screen scraping.
+In general should i be too worried about breaking such users ?.
+If not, I would love to resubmit the patch to make the default output 
+print ranges.
