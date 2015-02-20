@@ -1,31 +1,28 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH] hso: always read interface number from the current
- altsetting
-Date: Fri, 20 Feb 2015 15:21:56 -0500 (EST)
-Message-ID: <20150220.152156.1455455304724247882.davem@davemloft.net>
-References: <1424169089-25039-1-git-send-email-aleksander@aleksander.es>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ipv4: ip_check_defrag should correctly check return
+ value of skb_copy_bits
+Date: Fri, 20 Feb 2015 15:23:17 -0500 (EST)
+Message-ID: <20150220.152317.2246116638858595617.davem@davemloft.net>
+References: <1424169226-30112-1-git-send-email-al.drozdov@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: j.dumon-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: aleksander-Dvg4H30XQSRVIjRurl1/8g@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1424169089-25039-1-git-send-email-aleksander-Dvg4H30XQSRVIjRurl1/8g@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: al.drozdov@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1424169226-30112-1-git-send-email-al.drozdov@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Aleksander Morgado <aleksander-Dvg4H30XQSRVIjRurl1/8g@public.gmane.org>
-Date: Tue, 17 Feb 2015 11:31:29 +0100
+From: Alexander Drozdov <al.drozdov@gmail.com>
+Date: Tue, 17 Feb 2015 13:33:46 +0300
 
-> Always read bInterfaceNumber from the current altsetting, not from the first one
-> available in the altsetting array. This is coming from code review, not related
-> to any specific bug.
+> skb_copy_bits() returns zero on success and negative value on error,
+> so it is needed to invert the condition in ip_check_defrag().
 > 
-> Signed-off-by: Aleksander Morgado <aleksander-Dvg4H30XQSRVIjRurl1/8g@public.gmane.org>
+> Fixes: 1bf3751ec90c ("ipv4: ip_check_defrag must not modify skb before unsharing")
+> Signed-off-by: Alexander Drozdov <al.drozdov@gmail.com>
 
-Applied.
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied and queued up for -stable, thanks.
