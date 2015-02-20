@@ -1,150 +1,176 @@
-From: sfeldma@gmail.com
-Subject: [PATCH net-next RFC 4/5] bridge: let HW control FDB ageing by setting NTF_EXT_AGED
-Date: Thu, 19 Feb 2015 23:09:54 -0800
-Message-ID: <1424416195-19098-5-git-send-email-sfeldma@gmail.com>
-References: <1424416195-19098-1-git-send-email-sfeldma@gmail.com>
-To: netdev@vger.kernel.org, jiri@resnulli.us,
-	roopa@cumulusnetworks.com, linux@roeck-us.net,
-	f.fainelli@gmail.com, andrew@lunn.ch, gospo@cumulusnetworks.com,
-	vbandaru@broadcom.com, siva.mannem.lnx@gmail.com
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [PATCH v2 2/3] if_link: Add VF multicast promiscuous control
+Date: Fri, 20 Feb 2015 09:48:40 +0200
+Message-ID: <CAJ3xEMhA7ytWykeB3i3oTyJR7VpVmBKrNe6AMstH4dvo5Dozvg@mail.gmail.com>
+References: <7F861DC0615E0C47A872E6F3C5FCDDBD05E38840@BPXM14GP.gisp.nec.co.jp>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: "Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+	"vyasevic@redhat.com" <vyasevic@redhat.com>,
+	Alexander Duyck <alexander.duyck@gmail.com>,
+	=?UTF-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Choi, Sy Jong" <sy.jong.choi@intel.com>,
+	David Laight <David.Laight@aculab.com>,
+	Hayato Momma <h-momma@ce.jp.nec.com>
+To: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:39752 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752851AbbBTHJe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Feb 2015 02:09:34 -0500
-Received: by pablf10 with SMTP id lf10so5960435pab.6
-        for <netdev@vger.kernel.org>; Thu, 19 Feb 2015 23:09:32 -0800 (PST)
-In-Reply-To: <1424416195-19098-1-git-send-email-sfeldma@gmail.com>
+Received: from mail-oi0-f42.google.com ([209.85.218.42]:43174 "EHLO
+	mail-oi0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753618AbbBTHsl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Feb 2015 02:48:41 -0500
+Received: by mail-oi0-f42.google.com with SMTP id h136so1326677oig.1
+        for <netdev@vger.kernel.org>; Thu, 19 Feb 2015 23:48:40 -0800 (PST)
+In-Reply-To: <7F861DC0615E0C47A872E6F3C5FCDDBD05E38840@BPXM14GP.gisp.nec.co.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Scott Feldman <sfeldma@gmail.com>
+On Fri, Feb 20, 2015, Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com> wrote:
+> From: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
+> Add netlink directives and ndo entry to allow VF multicast promiscuous mode.
+> The administrator wants to allow dedicatedly multicast promiscuous per VF.
 
-During bridge's ageing function, exclude FDB entries marked with NTF_EXT_AGED.
-The external driver/device which set NTF_EXT_AGED flag will age out these
-entries.
+Jeff, Hiroshi, I find this change-log to be non sufficient, it doesn't
+describe the semantics of a VF which is now put into multicast
+promiscuous mode. In the native (non SRIOV mode) multicast promiscuous
+means get all multicast packets are arrive to the port. Is this the
+case too here? if yes, just spell it out, if not or not exactly,
+describe it. Also say what are the security implications, e.g that
+this VF needs to be trusted or alike.
 
-Signed-off-by: Scott Feldman <sfeldma@gmail.com>
----
- net/bridge/br_fdb.c     |   16 +++++++++++++---
- net/bridge/br_private.h |    8 +++++---
- 2 files changed, 18 insertions(+), 6 deletions(-)
-
-diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
-index e0670d7..9311858 100644
---- a/net/bridge/br_fdb.c
-+++ b/net/bridge/br_fdb.c
-@@ -24,6 +24,7 @@
- #include <linux/atomic.h>
- #include <asm/unaligned.h>
- #include <linux/if_vlan.h>
-+#include <net/switchdev.h>
- #include "br_private.h"
- 
- static struct kmem_cache *br_fdb_cache __read_mostly;
-@@ -280,7 +281,7 @@ void br_fdb_cleanup(unsigned long _data)
- 
- 		hlist_for_each_entry_safe(f, n, &br->hash[i], hlist) {
- 			unsigned long this_timer;
--			if (f->is_static)
-+			if (f->is_static || f->is_external_aged)
- 				continue;
- 			this_timer = f->updated + delay;
- 			if (time_before_eq(this_timer, jiffies))
-@@ -482,6 +483,7 @@ static struct net_bridge_fdb_entry *fdb_create(struct hlist_head *head,
- 		fdb->is_static = 0;
- 		fdb->added_by_user = 0;
- 		fdb->added_by_external_learn = 0;
-+		fdb->is_external_aged = 0;
- 		fdb->updated = fdb->used = jiffies;
- 		hlist_add_head_rcu(&fdb->hlist, head);
- 	}
-@@ -615,6 +617,7 @@ static int fdb_fill_info(struct sk_buff *skb, const struct net_bridge *br,
- 	ndm->ndm_pad1    = 0;
- 	ndm->ndm_pad2    = 0;
- 	ndm->ndm_flags	 = fdb->added_by_external_learn ? NTF_EXT_LEARNED : 0;
-+	ndm->ndm_flags	 |= fdb->is_external_aged ? NTF_EXT_AGED : 0;
- 	ndm->ndm_type	 = 0;
- 	ndm->ndm_ifindex = fdb->dst ? fdb->dst->dev->ifindex : br->dev->ifindex;
- 	ndm->ndm_state   = fdb_to_nud(fdb);
-@@ -990,10 +993,13 @@ void br_fdb_unsync_static(struct net_bridge *br, struct net_bridge_port *p)
- }
- 
- int br_fdb_external_learn_add(struct net_bridge *br, struct net_bridge_port *p,
--			      const unsigned char *addr, u16 vid)
-+			      struct netdev_switch_notifier_fdb_info *fdb_info)
- {
- 	struct hlist_head *head;
- 	struct net_bridge_fdb_entry *fdb;
-+	const unsigned char *addr = fdb_info->addr;
-+	u16 vid = fdb_info->vid;
-+	bool is_external_aged = !!(fdb_info->ntf_flags & NTF_EXT_AGED);
- 	int err = 0;
- 
- 	ASSERT_RTNL();
-@@ -1008,6 +1014,7 @@ int br_fdb_external_learn_add(struct net_bridge *br, struct net_bridge_port *p,
- 			goto err_unlock;
- 		}
- 		fdb->added_by_external_learn = 1;
-+		fdb->is_external_aged = is_external_aged;
- 		fdb_notify(br, fdb, RTM_NEWNEIGH);
- 	} else if (fdb->added_by_external_learn) {
- 		/* Refresh entry */
-@@ -1015,6 +1022,7 @@ int br_fdb_external_learn_add(struct net_bridge *br, struct net_bridge_port *p,
- 	} else if (!fdb->added_by_user) {
- 		/* Take over SW learned entry */
- 		fdb->added_by_external_learn = 1;
-+		fdb->is_external_aged = is_external_aged;
- 		fdb->updated = jiffies;
- 		fdb_notify(br, fdb, RTM_NEWNEIGH);
- 	}
-@@ -1026,10 +1034,12 @@ err_unlock:
- }
- 
- int br_fdb_external_learn_del(struct net_bridge *br, struct net_bridge_port *p,
--			      const unsigned char *addr, u16 vid)
-+			      struct netdev_switch_notifier_fdb_info *fdb_info)
- {
- 	struct hlist_head *head;
- 	struct net_bridge_fdb_entry *fdb;
-+	const unsigned char *addr = fdb_info->addr;
-+	u16 vid = fdb_info->vid;
- 	int err = 0;
- 
- 	ASSERT_RTNL();
-diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-index de09199..8fb822e 100644
---- a/net/bridge/br_private.h
-+++ b/net/bridge/br_private.h
-@@ -18,6 +18,7 @@
- #include <linux/netpoll.h>
- #include <linux/u64_stats_sync.h>
- #include <net/route.h>
-+#include <net/switchdev.h>
- #include <linux/if_vlan.h>
- 
- #define BR_HASH_BITS 8
-@@ -101,7 +102,8 @@ struct net_bridge_fdb_entry
- 	unsigned char			is_local:1,
- 					is_static:1,
- 					added_by_user:1,
--					added_by_external_learn:1;
-+					added_by_external_learn:1,
-+					is_external_aged:1;
- 	__u16				vlan_id;
- };
- 
-@@ -403,9 +405,9 @@ int br_fdb_dump(struct sk_buff *skb, struct netlink_callback *cb,
- int br_fdb_sync_static(struct net_bridge *br, struct net_bridge_port *p);
- void br_fdb_unsync_static(struct net_bridge *br, struct net_bridge_port *p);
- int br_fdb_external_learn_add(struct net_bridge *br, struct net_bridge_port *p,
--			      const unsigned char *addr, u16 vid);
-+			      struct netdev_switch_notifier_fdb_info *fdb_info);
- int br_fdb_external_learn_del(struct net_bridge *br, struct net_bridge_port *p,
--			      const unsigned char *addr, u16 vid);
-+			      struct netdev_switch_notifier_fdb_info *fdb_info);
- 
- /* br_forward.c */
- void br_deliver(const struct net_bridge_port *to, struct sk_buff *skb);
--- 
-1.7.10.4
+> Signed-off-by: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
+> Reviewed-by: Hayato Momma <h-momma@ce.jp.nec.com>
+> CC: Choi, Sy Jong <sy.jong.choi@intel.com>
+> ---
+>  include/linux/if_link.h      |  1 +
+>  include/linux/netdevice.h    |  3 +++
+>  include/uapi/linux/if_link.h |  6 ++++++
+>  net/core/rtnetlink.c         | 18 ++++++++++++++++--
+>  4 files changed, 26 insertions(+), 2 deletions(-)
+>
+> diff --git a/include/linux/if_link.h b/include/linux/if_link.h
+> index 119130e..bc29ddf 100644
+> --- a/include/linux/if_link.h
+> +++ b/include/linux/if_link.h
+> @@ -14,5 +14,6 @@ struct ifla_vf_info {
+>         __u32 linkstate;
+>         __u32 min_tx_rate;
+>         __u32 max_tx_rate;
+> +       __u32 mc_promisc;
+>  };
+>  #endif /* _LINUX_IF_LINK_H */
+> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+> index d115256..fd15d87 100644
+> --- a/include/linux/netdevice.h
+> +++ b/include/linux/netdevice.h
+> @@ -870,6 +870,7 @@ typedef u16 (*select_queue_fallback_t)(struct net_device *dev,
+>   * int (*ndo_set_vf_rate)(struct net_device *dev, int vf, int min_tx_rate,
+>   *                       int max_tx_rate);
+>   * int (*ndo_set_vf_spoofchk)(struct net_device *dev, int vf, bool setting);
+> + * int (*ndo_set_vf_mc_promisc)(struct net_device *dev, int vf, bool setting);
+>   * int (*ndo_get_vf_config)(struct net_device *dev,
+>   *                         int vf, struct ifla_vf_info *ivf);
+>   * int (*ndo_set_vf_link_state)(struct net_device *dev, int vf, int link_state);
+> @@ -1086,6 +1087,8 @@ struct net_device_ops {
+>                                                    int max_tx_rate);
+>         int                     (*ndo_set_vf_spoofchk)(struct net_device *dev,
+>                                                        int vf, bool setting);
+> +       int                     (*ndo_set_vf_mc_promisc)(struct net_device *dev,
+> +                                                        int vf, bool setting);
+>         int                     (*ndo_get_vf_config)(struct net_device *dev,
+>                                                      int vf,
+>                                                      struct ifla_vf_info *ivf);
+> diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
+> index 0deee3e..d7dc39c 100644
+> --- a/include/uapi/linux/if_link.h
+> +++ b/include/uapi/linux/if_link.h
+> @@ -458,6 +458,7 @@ enum {
+>         IFLA_VF_SPOOFCHK,       /* Spoof Checking on/off switch */
+>         IFLA_VF_LINK_STATE,     /* link state enable/disable/auto switch */
+>         IFLA_VF_RATE,           /* Min and Max TX Bandwidth Allocation */
+> +       IFLA_VF_MC_PROMISC,     /* Multicast Promiscuous allow/disallow */
+>         __IFLA_VF_MAX,
+>  };
+>
+> @@ -502,6 +503,11 @@ struct ifla_vf_link_state {
+>         __u32 link_state;
+>  };
+>
+> +struct ifla_vf_mc_promisc {
+> +       __u32 vf;
+> +       __u32 setting;
+> +};
+> +
+>  /* VF ports management section
+>   *
+>   *     Nested layout of set/get msg is:
+> diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+> index 5be499b..b668e96 100644
+> --- a/net/core/rtnetlink.c
+> +++ b/net/core/rtnetlink.c
+> @@ -818,7 +818,8 @@ static inline int rtnl_vfinfo_size(const struct net_device *dev,
+>                          nla_total_size(sizeof(struct ifla_vf_vlan)) +
+>                          nla_total_size(sizeof(struct ifla_vf_spoofchk)) +
+>                          nla_total_size(sizeof(struct ifla_vf_rate)) +
+> -                        nla_total_size(sizeof(struct ifla_vf_link_state)));
+> +                        nla_total_size(sizeof(struct ifla_vf_link_state)) +
+> +                        nla_total_size(sizeof(struct ifla_vf_mc_promisc)));
+>                 return size;
+>         } else
+>                 return 0;
+> @@ -1111,6 +1112,7 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
+>                         struct ifla_vf_tx_rate vf_tx_rate;
+>                         struct ifla_vf_spoofchk vf_spoofchk;
+>                         struct ifla_vf_link_state vf_linkstate;
+> +                       struct ifla_vf_mc_promisc vf_mc_promisc;
+>
+>                         /*
+>                          * Not all SR-IOV capable drivers support the
+> @@ -1119,6 +1121,7 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
+>                          * report anything.
+>                          */
+>                         ivi.spoofchk = -1;
+> +                       ivi.mc_promisc = -1;
+>                         memset(ivi.mac, 0, sizeof(ivi.mac));
+>                         /* The default value for VF link state is "auto"
+>                          * IFLA_VF_LINK_STATE_AUTO which equals zero
+> @@ -1131,7 +1134,8 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
+>                                 vf_rate.vf =
+>                                 vf_tx_rate.vf =
+>                                 vf_spoofchk.vf =
+> -                               vf_linkstate.vf = ivi.vf;
+> +                               vf_linkstate.vf =
+> +                               vf_mc_promisc.vf = ivi.vf;
+>
+>                         memcpy(vf_mac.mac, ivi.mac, sizeof(ivi.mac));
+>                         vf_vlan.vlan = ivi.vlan;
+> @@ -1140,6 +1144,7 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
+>                         vf_rate.min_tx_rate = ivi.min_tx_rate;
+>                         vf_rate.max_tx_rate = ivi.max_tx_rate;
+>                         vf_spoofchk.setting = ivi.spoofchk;
+> +                       vf_mc_promisc.setting = ivi.mc_promisc;
+>                         vf_linkstate.link_state = ivi.linkstate;
+>                         vf = nla_nest_start(skb, IFLA_VF_INFO);
+>                         if (!vf) {
+> @@ -1481,6 +1486,15 @@ static int do_setvfinfo(struct net_device *dev, struct nlattr *attr)
+>                                                                  ivl->link_state);
+>                         break;
+>                 }
+> +               case IFLA_VF_MC_PROMISC: {
+> +                       struct ifla_vf_mc_promisc *ivm;
+> +                       ivm = nla_data(vf);
+> +                       err = -EOPNOTSUPP;
+> +                       if (ops->ndo_set_vf_mc_promisc)
+> +                               err = ops->ndo_set_vf_mc_promisc(dev, ivm->vf,
+> +                                                                ivm->setting);
+> +                       break;
+> +               }
+>                 default:
+>                         err = -EINVAL;
+>                         break;
+> --
+> 2.1.0
+>
