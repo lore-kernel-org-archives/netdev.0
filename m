@@ -1,39 +1,63 @@
-From: "tgraf@suug.ch" <tgraf@suug.ch>
-Subject: Re: [PATCH net 2/3] rhashtable: better high order allocation attempts
-Date: Fri, 20 Feb 2015 14:31:20 +0000
-Message-ID: <20150220143120.GE4586@casper.infradead.org>
-References: <cover.1424389682.git.daniel@iogearbox.net>
- <ef7f956fc36000761a652f2bcb395d0eb7300802.1424389682.git.daniel@iogearbox.net>
- <063D6719AE5E284EB5DD2968C1650D6D1CAE676F@AcuExch.aculab.com>
- <1424439975.5565.0.camel@edumazet-glaptop2.roam.corp.google.com>
- <063D6719AE5E284EB5DD2968C1650D6D1CAE688E@AcuExch.aculab.com>
+From: Jonathon Reinhart <jonathon.reinhart@gmail.com>
+Subject: Re: [PATCH] Allow specifying bridge port STP state by name rather
+ than number.
+Date: Fri, 20 Feb 2015 09:40:53 -0500
+Message-ID: <CAPFHKze570L6_ODzoEg7qi5r0nbc4XCD5gtz76VHnOieWRrCrw@mail.gmail.com>
+References: <20150219192726.GA17950@alexpilon.ca> <CAPFHKzcOFQCtz0pwLm8XOZxTOkC9w4CFq2vcLnwxUfVVmWdNCw@mail.gmail.com>
+ <20150220045730.GA7936@alexpilon.ca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: 'Eric Dumazet' <eric.dumazet@gmail.com>,
-	'Daniel Borkmann' <daniel@iogearbox.net>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"johunt@akamai.com" <johunt@akamai.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Laight <David.Laight@ACULAB.COM>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org
+To: Alex Pilon <alp@alexpilon.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:52112 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751181AbbBTObY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Feb 2015 09:31:24 -0500
-Content-Disposition: inline
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CAE688E@AcuExch.aculab.com>
+Received: from mail-we0-f171.google.com ([74.125.82.171]:33419 "EHLO
+	mail-we0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754035AbbBTOlY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Feb 2015 09:41:24 -0500
+Received: by wevk48 with SMTP id k48so6027622wev.0
+        for <netdev@vger.kernel.org>; Fri, 20 Feb 2015 06:41:23 -0800 (PST)
+In-Reply-To: <20150220045730.GA7936@alexpilon.ca>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/20/15 at 02:27pm, David Laight wrote:
-> I presume this code is allocating very large arrays for the base of the hash lists.
-> Since there is no absolute requirement for contiguous KVA (nothing
-> sequentially accesses the entire array) it can be coded differently.
-> 
-> I realize that this would involve an extra data cache line access.
-> So you'd want to avoid it for small tables.
-> (I expected this to be your objection)
+Sorry, I only looked at your patch, and not the surrounding code. In that
+case, I would probably stick with the existing style.
 
-We can consider switching over to flex arrays at some point
-although NUMA considerations seem much more important to me
-at this point.
+I'm just a casual passer-by, but I would like to hear others' opinion on this,
+as I find exit(-1) to always be incorrect. The problem is that, per the man
+page:
+
+> The exit() function causes normal process termination and the value
+> of status & 0377 is returned to the parent (see wait(2)).
+
+So when -1 is passed to exit(), the parent will see it as 255. Why not
+return a value that could be found in the source by grepping for it?
+
+On Thu, Feb 19, 2015 at 11:57 PM, Alex Pilon <alp@alexpilon.ca> wrote:
+> On Thu, Feb 19, 2015 at 09:00:23PM -0500, Jonathon Reinhart wrote:
+>> Please don't pass -1 to exit().  It is outside the acceptable range (0 to 255)
+>> of exit status values:
+>>
+>> https://www.gnu.org/software/libc/manual/html_node/Exit-Status.html
+>>
+>> Most programs exit(1) when presented with invalid user input.
+>
+> I was being consistent with nearby code, and the dominant style.  But if
+> that's the case, then there's a few hundred such mistakes that need
+> correcting.  Should I fix all of them, and if so, should that be a
+> single patch, or multiple?
+>
+> There's also only a few instances of EXIT_{SUCCESS,FAILURE}, so I took
+> it wasn't the style to use that.
+>
+> Regards,
+>
+> Alex Pilon
+
+
+
+-- 
+Computers are incredibly fast, accurate and stupid. Human beings are
+incredibly slow, inaccurate and brilliant. Together they are powerful
+beyond imagination.
+                                    A. Einstein
