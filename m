@@ -1,30 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 0/3] bnx2-cnic: Driver Version Upgrades
-Date: Fri, 20 Feb 2015 15:47:36 -0500 (EST)
-Message-ID: <20150220.154736.1582234259081535714.davem@davemloft.net>
-References: <1424219180-29028-1-git-send-email-rasesh.mody@qlogic.com>
+Subject: Re: [PATCH] ethernet/ixp4xx: prevent allmulti from clobbering
+ promisc
+Date: Fri, 20 Feb 2015 15:49:27 -0500 (EST)
+Message-ID: <20150220.154927.313372314025203773.davem@davemloft.net>
+References: <1424249425-2438-1-git-send-email-pallas@meraki.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Dept-HSGLinuxNICDev@qlogic.com,
-	sony.chacko@qlogic.com
-To: rasesh.mody@qlogic.com
+Cc: khalasa@piap.pl, netdev@vger.kernel.org
+To: pallas@meraki.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46313 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:46370 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752281AbbBTUri (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Feb 2015 15:47:38 -0500
-In-Reply-To: <1424219180-29028-1-git-send-email-rasesh.mody@qlogic.com>
+	with ESMTP id S1753001AbbBTUt3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Feb 2015 15:49:29 -0500
+In-Reply-To: <1424249425-2438-1-git-send-email-pallas@meraki.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Rasesh Mody <rasesh.mody@qlogic.com>
-Date: Tue, 17 Feb 2015 19:26:17 -0500
+From: Derrick Pallas <pallas@meraki.com>
+Date: Wed, 18 Feb 2015 00:50:25 -0800
 
-> This patch set includes bnx2 and cnic drivers' re-branding changes, fix for a
-> chip initialization issue and updates the bnx2 driver version to 2.2.6 and
-> cnic driver version to 2.5.21.
+> If both promisc and allmulti are set, promisc should trump allmulti and
+> disable the MAC filter; otherwise, the interface is not really promisc.
 > 
-> Please apply these patches to net-next.
+> Previously, this code checked IFF_ALLMULTI prior to and without regard for
+> IFF_PROMISC; if both were set, only multicast and direct unicast traffic
+> would make it through the filter.
+> 
+> Signed-off-by: Derrick Pallas <pallas@meraki.com>
 
-Series applied, thanks.
+Applied, thanks.
