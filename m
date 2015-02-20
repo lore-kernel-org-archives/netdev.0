@@ -1,91 +1,47 @@
-From: "Skidmore, Donald C" <donald.c.skidmore@intel.com>
-Subject: RE: [PATCH v2 2/3] if_link: Add VF multicast promiscuous control
-Date: Fri, 20 Feb 2015 21:05:26 +0000
-Message-ID: <F6FB0E698C9B3143BDF729DF22286646912AD3E7@ORSMSX110.amr.corp.intel.com>
-References: <7F861DC0615E0C47A872E6F3C5FCDDBD05E38840@BPXM14GP.gisp.nec.co.jp>
- <54E73BE4.2040505@solarflare.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: smc91x: improve neponset hack
+Date: Fri, 20 Feb 2015 16:23:08 -0500 (EST)
+Message-ID: <20150220.162308.1371481451879675649.davem@davemloft.net>
+References: <5763365.j5Nvv4LgM3@wuerfel>
+	<20150219003549.GY8656@n2100.arm.linux.org.uk>
+	<5754481.gFE9BvLjh0@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "vyasevic@redhat.com" <vyasevic@redhat.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	Alexander Duyck <alexander.duyck@gmail.com>,
-	=?utf-8?B?QmrDuHJuIE1vcms=?= <bjorn@mork.no>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Choi, Sy Jong" <sy.jong.choi@intel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	David Laight <David.Laight@ACULAB.COM>,
-	Hayato Momma <h-momma@ce.jp.nec.com>
-To: Edward Cree <ecree@solarflare.com>,
-	Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-arm-kernel@lists.infradead.org, linux@arm.linux.org.uk,
+	dbaryshkov@gmail.com, netdev@vger.kernel.org,
+	linus.walleij@linaro.org, linux-kernel@vger.kernel.org
+To: arnd@arndb.de
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <54E73BE4.2040505@solarflare.com>
-Content-Language: en-US
+In-Reply-To: <5754481.gFE9BvLjh0@wuerfel>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-DQoNCi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQpGcm9tOiBFZHdhcmQgQ3JlZSBbbWFpbHRv
-OmVjcmVlQHNvbGFyZmxhcmUuY29tXSANClNlbnQ6IEZyaWRheSwgRmVicnVhcnkgMjAsIDIwMTUg
-NTo1MiBBTQ0KVG86IEhpcm9zaGkgU2hpbWFtb3RvDQpDYzogU2tpZG1vcmUsIERvbmFsZCBDOyB2
-eWFzZXZpY0ByZWRoYXQuY29tOyBLaXJzaGVyLCBKZWZmcmV5IFQ7IEFsZXhhbmRlciBEdXljazsg
-QmrDuHJuIE1vcms7IGUxMDAwLWRldmVsQGxpc3RzLnNvdXJjZWZvcmdlLm5ldDsgbmV0ZGV2QHZn
-ZXIua2VybmVsLm9yZzsgQ2hvaSwgU3kgSm9uZzsgbGludXgta2VybmVsQHZnZXIua2VybmVsLm9y
-ZzsgRGF2aWQgTGFpZ2h0OyBIYXlhdG8gTW9tbWENClN1YmplY3Q6IFJlOiBbUEFUQ0ggdjIgMi8z
-XSBpZl9saW5rOiBBZGQgVkYgbXVsdGljYXN0IHByb21pc2N1b3VzIGNvbnRyb2wNCg0KT24gMjAv
-MDIvMTUgMDE6MDAsIEhpcm9zaGkgU2hpbWFtb3RvIHdyb3RlOg0KPiBGcm9tOiBIaXJvc2hpIFNo
-aW1hbW90byA8aC1zaGltYW1vdG9AY3QuanAubmVjLmNvbT4NCj4NCj4gQWRkIG5ldGxpbmsgZGly
-ZWN0aXZlcyBhbmQgbmRvIGVudHJ5IHRvIGFsbG93IFZGIG11bHRpY2FzdCBwcm9taXNjdW91cyBt
-b2RlLg0KPg0KPiBUaGUgYWRtaW5pc3RyYXRvciB3YW50cyB0byBhbGxvdyBkZWRpY2F0ZWRseSBt
-dWx0aWNhc3QgcHJvbWlzY3VvdXMgcGVyIFZGLg0KSWYgSSdtIHByb3Blcmx5IHVuZGVyc3RhbmRp
-bmcsIHRoaXMgc2VlbXMgdG8gYmUgYW4gaXhnYmUtc3BlY2lmaWMgb3B0aW9uIHRvIHdvcmsgYXJv
-dW5kIGFuIGl4Z2JlIGxpbWl0YXRpb247IGlzIGl0IHJlYWxseSBhcHByb3ByaWF0ZSB0byBpbXBs
-ZW1lbnQgYXMgYSBnZW5lcmljIG5ldF9kZXZpY2Vfb3A/DQpXaGF0IHdvdWxkIHRoaXMgbmRvIG1l
-YW4gdG8gYSBkcml2ZXIgd2hpY2ggY2FuIHN1cHBvcnQgdGhvdXNhbmRzIG9mIG11bHRpY2FzdCBn
-cm91cHMgd2l0aG91dCBNQyBwcm9taXNjPyAgSXMgaXQgZXhwZWN0ZWQgdG8gbGltaXQgdGhlIG51
-bWJlciBvZiBNQyBncm91cHMgd2hlbiB0aGlzIGlzIHNldCB0byBkaXNhbGxvdz8gIE9yIGp1c3Qg
-ZnVsZmlsIHRoZSBsZXR0ZXIgb2YgdGhlIG9wdGlvbiBidXQgbm90IGl0cyBzcGlyaXQ/ICBUaGUg
-b3B0aW9uIGRvZXNuJ3Qgc2VlbSB0byBoYXZlIHdlbGwtZGVmaW5lZCBzZW1hbnRpY3Mgb3V0c2lk
-ZSBvZiBpeGdiZS4NCkkgd291bGQgc3VnZ2VzdCB0aGF0IHRoZSByaWdodCBwbGFjZSBmb3IgdGhp
-cyBzb3J0IG9mIGRyaXZlci1zcGVjaWZpYyBkZXZpY2UgY29udHJvbCBpcyBpbiBzeXNmcy4NCg0K
-SSdtIGFsc28gYSBsaXR0bGUgcGVycGxleGVkIGFzIHRvIHdoeSBhbnlvbmUgd291bGQgbmVlZCB0
-byBkaXNhbGxvdyB0aGlzOyB3aGF0IHNlY3VyaXR5LCBvciBldmVuIGFkbWluaXN0cmF0aXZlIGNv
-bnZlbmllbmNlLCBpcyBnYWluZWQgYnkgYWxsb3dpbmcgYSBWRiB0byBqb2luIDMwIG11bHRpY2Fz
-dCBncm91cHMgYnV0IG5vdCBtdWx0aWNhc3QgcHJvbWlzY3VvdXMgbW9kZT8gIEVzcGVjaWFsbHkg
-YXMsIGFmYWlrLCB0aGVyZSBhcmUgbm8gcmVzdHJpY3Rpb25zIG9uIHdoaWNoIG11bHRpY2FzdCBn
-cm91cHMgYXJlIGpvaW5lZCwgc28gdGhlIFZGIGNhbiByZWNlaXZlIGFueSBwYXJ0aWN1bGFyIG11
-bHRpY2FzdCB0cmFmZmljIGl0IGNhcmVzIGFib3V0Lg0KVGhlIGluZm9ybWF0aW9uIGNvbnRhaW5l
-ZCBpbiB0aGlzIG1lc3NhZ2UgaXMgY29uZmlkZW50aWFsIGFuZCBpcyBpbnRlbmRlZCBmb3IgdGhl
-IGFkZHJlc3NlZShzKSBvbmx5LiBJZiB5b3UgaGF2ZSByZWNlaXZlZCB0aGlzIG1lc3NhZ2UgaW4g
-ZXJyb3IsIHBsZWFzZSBub3RpZnkgdGhlIHNlbmRlciBpbW1lZGlhdGVseSBhbmQgZGVsZXRlIHRo
-ZSBtZXNzYWdlLiBVbmxlc3MgeW91IGFyZSBhbiBhZGRyZXNzZWUgKG9yIGF1dGhvcml6ZWQgdG8g
-cmVjZWl2ZSBmb3IgYW4gYWRkcmVzc2VlKSwgeW91IG1heSBub3QgdXNlLCBjb3B5IG9yIGRpc2Ns
-b3NlIHRvIGFueW9uZSB0aGlzIG1lc3NhZ2Ugb3IgYW55IGluZm9ybWF0aW9uIGNvbnRhaW5lZCBp
-biB0aGlzIG1lc3NhZ2UuIFRoZSB1bmF1dGhvcml6ZWQgdXNlLCBkaXNjbG9zdXJlLCBjb3B5aW5n
-IG9yIGFsdGVyYXRpb24gb2YgdGhpcyBtZXNzYWdlIGlzIHN0cmljdGx5IA0KcHJvaGliaXRlZC4N
-Cg0KDQpJZiBhIHZlbmRlciBzcGVjaWZpYyBpbnRlcmZhY2UgaXMgb2JqZWN0aW9uYWJsZSBtYXli
-ZSBhIHNpbXBsZXIgYW5kIG1vcmUgZ2VuZXJpYyBpbnRlcmZhY2Ugd291bGQgYmUgZm9yIHRoZSBQ
-RiB0byBiZSBhYmxlIHRvIHNldCBhIGdpdmVuIFZGIGludG8gInRydXN0ZWQiIG1vZGUuICBUaGVu
-IHdoZW4gdGhlIFZGIHJlcXVlc3RlZCB0byBlbnRlciBtdWx0aWNhc3QgcHJvbWlzY3VvdXMgbW9k
-ZSB2aWEgdGhlIG1haWxib3ggbWVzc2FnZSB0aGUgUEYgd291bGQganVzdCBhbGxvdyBpdD8gIFRo
-aXMgY291bGQgdGhlbiBiZSB1c2VkIHRvIGFkZHJlc3Mgb3RoZXIgaXNzdWVzIHdoZXJlIHdlIGRv
-bid0IHdhbnQgdG8gYWxsb3cgYSBWRiB0byBkbyBzb21ldGhpbmcgZHVlIHRvIGlzb2xhdGlvbiBv
-ciBwZXJmb3JtYW5jZSBjb25jZXJucy4gIEkgYWRtaXQgZXhhY3RseSB3aGF0ICd0cnVzdGVkJyBt
-ZWFudCB3b3VsZCB2YXJ5IGZyb20gdmVuZGVyIHRvIHZlbmRlciwgYnV0IGl0IHdvdWxkIGJlIGEg
-d2F5IGZvciB0aGUgZHJpdmVyIHRvIGtub3cgaXQgY291bGQgYWxsb3cgY29uZmlndXJhdGlvbnMg
-c3VjaCBhcyB0aGlzLiAgSnVzdCBhbiBpZGVhLCBzaW5jZSB3ZSBzZWVtIHRvIGJlIGdldHRpbmcg
-bW9yZSByZXF1ZXN0cyBmb3IgdGhpbmdzIHN1Y2ggYXMgdGhpcy4NCg0KQXMgdG8gd2h5IHNvbWVv
-bmUgbWF5IHdhbnQgdG8gYmxvY2sgYSBWRiBmcm9tIGVudGVyaW5nIG11bHRpY2FzdCBwcm9taXNj
-dW91cyBpdCBoYXMgbW9yZSB0byBkbyB3aXRoIHBlcmZvcm1hbmNlIHRoYXQgc2VjdXJpdHkuICBU
-aGUgaXNzdWUgaXMgdGhpcyBjb3VsZCBoYXZlIGEgdmVyeSBub3RpY2VhYmx5IGVmZmVjdCAgb24g
-dGhlIG92ZXJhbGwgc3lzdGVtLiAgSWYgYW55IG90aGVyIFZGcyAob3IgdGhlIFBGKSBhcmUgcmVj
-ZWl2aW5nIE1DIHBhY2tldHMgdGhlc2Ugd2lsbCBoYXZlIHRvIGJlIHJlcGxpY2F0ZWQgd2hpY2gg
-d2lsbCBiZSBhIHBlcmZvcm1hbmNlIGhpdC4gIFdoZW4gd2UgdXNlIHRoZSBNQyBoYXNoIHRoaXMg
-aXMgbGltaXRlZCB2cy4gd2hlbiBhbnlvbmUgaXMgaW4gTUMgcHJvbWlzY3VvdXMgZXZlcnkgTUMg
-cGFja2V0IHVzZWQgYnkgYW5vdGhlciBwb29sIHdvdWxkIGJlIHJlcGxpY2F0ZWQuIC4gIElmIHRv
-byBtYW55IFZGJ3Mgd2VyZSBpbiB0aGlzIG1vZGUgeW91IHJ1biB0aGUgcmlzayBmb3IgZmxvb2Rp
-bmcgdGhlIFBDSWUgaW50ZXJmYWNlLiAgSSBjb3VsZCBpbWFnaW5lIGluIHNvbWUgZW52aXJvbm1l
-bnRzIChpLmUuIHB1YmxpYyBjbG91ZHMpIHdoZXJlIHlvdSBkb24ndCB0cnVzdCB3aGF0IGlzIHJ1
-bm5pbmcgaW4geW91ciBWTSB5b3UgbWlnaHQgd2hhdCB0byBibG9jayB0aGlzIGZyb20gaGFwcGVu
-aW5nLg0KDQotIERvbiBTa2lkbW9yZSA8ZG9uYWxkLmMuc2tpZG1vcmVAaW50ZWwuY29tPg0KDQo=
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Fri, 20 Feb 2015 16:47:06 +0100
+
+> On Thursday 19 February 2015 00:35:49 Russell King - ARM Linux wrote:
+>> On Wed, Feb 18, 2015 at 08:47:30PM +0100, Arnd Bergmann wrote:
+>> > The smc91x driver tries to support multiple platforms at compile
+>> > time, but they are mutually exclusive at runtime, and not clearly
+>> > defined.
+>> 
+>> I'd prefer to rework this to fix that properly.  From what I remember,
+>> the whole SA11x0 stuff in this driver was a mess.
+> 
+> I guess that's reasonable. I've looked through the driver and it seems we
+> did most of the multiplatform work but left a few things alone that should
+> have been converted a long time ago.
+> 
+> Can you check if the approach below makes sense to you?
+> 
+> I've verified that each machine that defines an smc91x device now sets
+> the correct platform data, irq flags and access width, which should be
+> enough to collapse all the CONFIG_ARM cases into one.
+> 
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+
+This is a nice cleanup but for 'net' to fix the build error I prefer
+the original one-line patch.
+
+We can apply this thing here to net-next.
