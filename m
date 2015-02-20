@@ -1,32 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH/RFC 0/3] net: unft: Add Userspace hairpin network flow
- table device
-Date: Fri, 20 Feb 2015 16:29:21 -0500 (EST)
-Message-ID: <20150220.162921.2269497101366507325.davem@davemloft.net>
-References: <1424287559-25700-1-git-send-email-simon.horman@netronome.com>
+Subject: Re: [PATCH net] rhashtable: don't allocate ht structure on stack
+ in test_rht_init
+Date: Fri, 20 Feb 2015 16:34:07 -0500 (EST)
+Message-ID: <20150220.163407.2037909158415351477.davem@davemloft.net>
+References: <8e1d6d2ffb44eac6518f435a044dbc6c0fd754ae.1424463131.git.daniel@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: simon.horman@netronome.com
+Cc: tgraf@suug.ch, netdev@vger.kernel.org
+To: daniel@iogearbox.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46839 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:46897 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755015AbbBTV3Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Feb 2015 16:29:24 -0500
-In-Reply-To: <1424287559-25700-1-git-send-email-simon.horman@netronome.com>
+	with ESMTP id S1752484AbbBTVeJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Feb 2015 16:34:09 -0500
+In-Reply-To: <8e1d6d2ffb44eac6518f435a044dbc6c0fd754ae.1424463131.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Simon Horman <simon.horman@netronome.com>
-Date: Wed, 18 Feb 2015 14:25:56 -0500
+From: Daniel Borkmann <daniel@iogearbox.net>
+Date: Fri, 20 Feb 2015 21:14:21 +0100
 
-> *** Not for Upstream Merge
-> *** For informational purposes only
+> With object runtime debugging enabled, the rhashtable test suite
+> will rightfully throw a warning "ODEBUG: object is on stack, but
+> not annotated" from rhashtable_init().
 > 
-> As discussed at netconf we have been working on hairpinning Flow API
-> messages back to user-space as a mechanism for exercising that API.
+> This is because run_work is (correctly) being initialized via
+> INIT_WORK(), and not annotated by INIT_WORK_ONSTACK(). Meaning,
+> rhashtable_init() is okay as is, we just need to move ht e.g.,
+> into global scope.
 > 
-> And as promised at netconf I am releasing our code.
+> It never triggered anything, since test_rhashtable is rather a
+> controlled environment and effectively runs to completion, so
+> that stack memory is not vanishing underneath us, we shouldn't
+> confuse any testers with it though.
+> 
+> Fixes: 7e1e77636e36 ("lib: Resizable, Scalable, Concurrent Hash Table")
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
 
-Thanks for posting this series Simon.
+Applied and queued up for -stable, thanks Daniel.
