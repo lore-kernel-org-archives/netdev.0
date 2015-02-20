@@ -1,40 +1,46 @@
-From: Rami Rosen <ramirose@gmail.com>
-Subject: [PATCH net-next] [RESEND] ethtool: Add hw-switch-offload to netdev_features_strings.
-Date: Fri, 20 Feb 2015 21:34:58 +0200
-Message-ID: <1424460898-4045-1-git-send-email-ramirose@gmail.com>
-Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
-	Rami Rosen <ramirose@gmail.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f169.google.com ([74.125.82.169]:35615 "EHLO
-	mail-we0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755112AbbBTTf3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Feb 2015 14:35:29 -0500
-Received: by wevl61 with SMTP id l61so3308985wev.2
-        for <netdev@vger.kernel.org>; Fri, 20 Feb 2015 11:35:27 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 6/7 linux-next] wan: cosa: replace current->state by
+ set_current_state()
+Date: Fri, 20 Feb 2015 11:44:37 -0800
+Message-ID: <1424461477.5565.29.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1424455977-21903-1-git-send-email-fabf@skynet.be>
+	 <1424455977-21903-6-git-send-email-fabf@skynet.be>
+	 <54E77E34.6050909@cogentembedded.com>
+	 <20150220185800.GR2896@worktop.programming.kicks-ass.net>
+	 <1424460713.5565.28.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	Fabian Frederick <fabf@skynet.be>,
+	linux-kernel@vger.kernel.org, Ingo Molnar <mingo@redhat.com>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	"Jan \"Yenya\" Kasprzak" <kas@fi.muni.cz>, netdev@vger.kernel.org
+To: Peter Zijlstra <peterz@infradead.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1424460713.5565.28.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-commit aafb3e98b279 (netdev: introduce new NETIF_F_HW_SWITCH_OFFLOAD feature 
-flag for switch device offloads) add a new feature without adding it to 
-netdev_features_strings array; this patch fixes this.
+On Fri, 2015-02-20 at 11:31 -0800, Eric Dumazet wrote:
+> On Fri, 2015-02-20 at 19:58 +0100, Peter Zijlstra wrote:
+> > On Fri, Feb 20, 2015 at 09:34:28PM +0300, Sergei Shtylyov wrote:
+> > > Hello.
+> > > 
+> > > On 02/20/2015 09:12 PM, Fabian Frederick wrote:
+> > > 
+> > > >Use helper functions to access current->state.
+> > > >Direct assignments are prone to races and therefore buggy.
+> > > 
+> > > >current->state = TASK_RUNNING is replaced by __set_current_state()
+> > > 
+> > >    You sometimes use __set_current_state() and sometimes set_current_state().
+> > 
+> > It depends on which state; setting yourself TASK_RUNNING is free of
+> > wakeup races -- you're already running after all, so it can safely use
+> > __set_current_state().
+> 
+> Maybe this might be self documented in set_current_state(),
+> as we have about 120 calls to __set_current_state(TASK_RUNNING)
 
-Signed-off-by: Rami Rosen <ramirose@gmail.com>
----
- net/core/ethtool.c | 1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-index 91f74f3..aa378ec 100644
---- a/net/core/ethtool.c
-+++ b/net/core/ethtool.c
-@@ -98,6 +98,7 @@ static const char netdev_features_strings[NETDEV_FEATURE_COUNT][ETH_GSTRING_LEN]
- 	[NETIF_F_RXALL_BIT] =            "rx-all",
- 	[NETIF_F_HW_L2FW_DOFFLOAD_BIT] = "l2-fwd-offload",
- 	[NETIF_F_BUSY_POLL_BIT] =        "busy-poll",
-+	[NETIF_F_HW_SWITCH_OFFLOAD_BIT] = "hw-switch-offload",
- };
- 
- static const char
--- 
-2.1.0
+And about 138 calls to set_current_state(TASK_RUNNING)
