@@ -1,97 +1,51 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: Why do we use RX queue mapping for TX?
-Date: Fri, 20 Feb 2015 10:33:27 -0800
-Message-ID: <CAHA+R7P172Sewip80a0_+jY2Ozat_HKdxgJLPdjahGN-T_wskw@mail.gmail.com>
-References: <CAHA+R7MXF-KHZ3aeBwwshSYDswKwrjhbMJQ=+Hfj3gZJq70dXQ@mail.gmail.com>
-	<CAHA+R7PdG+jDqFA1jDFzHtkrxqLEZdtj1w5QyrdYMO4fX6+A1w@mail.gmail.com>
-	<CAHA+R7OVHgwQBM200UZDKiw5eypuzhWj=B4E3MRkOK3yViZDCQ@mail.gmail.com>
-	<1424301248.4942.99.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CAHA+R7PbLRw-oA4v9ivZ0s-++ALx99zddJLDqDoemyBTc2XZ1g@mail.gmail.com>
-	<54E68E59.6020401@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: John Fastabend <john.fastabend@gmail.com>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: [PATCH net-next] tcp: fix tcp_should_expand_sndbuf() to use tcp_packets_in_flight()
+Date: Fri, 20 Feb 2015 13:33:16 -0500
+Message-ID: <1424457196-3497-1-git-send-email-ncardwell@google.com>
+Cc: netdev@vger.kernel.org, Neal Cardwell <ncardwell@google.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Nandita Dukkipati <nanditad@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f171.google.com ([209.85.223.171]:46827 "EHLO
-	mail-ie0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753700AbbBTSd2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Feb 2015 13:33:28 -0500
-Received: by iecvy18 with SMTP id vy18so9818714iec.13
-        for <netdev@vger.kernel.org>; Fri, 20 Feb 2015 10:33:27 -0800 (PST)
-In-Reply-To: <54E68E59.6020401@gmail.com>
+Received: from mail-yk0-f171.google.com ([209.85.160.171]:65095 "EHLO
+	mail-yk0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754820AbbBTSdm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Feb 2015 13:33:42 -0500
+Received: by mail-yk0-f171.google.com with SMTP id q200so8025826ykb.2
+        for <netdev@vger.kernel.org>; Fri, 20 Feb 2015 10:33:42 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 19, 2015 at 5:31 PM, John Fastabend
-<john.fastabend@gmail.com> wrote:
-> On 02/18/2015 03:57 PM, Cong Wang wrote:
->>
->> On Wed, Feb 18, 2015 at 3:14 PM, Eric Dumazet <eric.dumazet@gmail.com>
->> wrote:
->>>
->>> On Wed, 2015-02-18 at 14:11 -0800, Cong Wang wrote:
->>>>
->>>> On Wed, Feb 18, 2015 at 1:18 PM, Cong Wang <cwang@twopensource.com>
->>>> wrote:
->>>>>
->>>>>
->>>>> 2) This breaks the queue mapping specified by an skbedit action,
->>>>> since for TX queues the index starts with 0 while for RX it starts with
->>>>> 1
->>>>> (for some reason I don't see yet). There is at least a mismatch.
->>>>
->>>>
->>>> So queue 0 is reserved for TX, at least for bonding queue mapping.
->>>
->>>
->>> It seems you missed that bonding ndo_select_queue() is rather special.
->>>
->>>
->>
->> I am aware of it. I even would guess (means not digging the history)
->> skb_edit was invented for bonding queue mapping, since I don't see it
->> even works as a general TC action on the physical interface. We pick
->> the tx queue prior to getting the Qdisc, therefore too late to set
->> skb->queue_mapping to specify a hardware TX queue. This is
->> another story I planned to bring it up to David.
->
->
-> At one point I proposed a pre-enqueue hook to call before entering
-> the qdisc where filters/actions could be attached.
->
->
-> https://github.com/jrfastab/Linux-Kernel-QOS/commit/67746f95acd77cf15d7ce34f644b76058ce19813
->
-> the idea was to drop select_queue() altogether and force any queue
-> selection onto a visible action chain.
+tcp_should_expand_sndbuf() does not expand the send buffer if we have
+filled the congestion window.
 
-That is one quick solution. Ideally, for long term, I think we should
-move the TX queues down below the Qdisc layer, or at least separate
-them with a clear boundary, rather than mixing in such a way, especially
-sch_mq. This is essentially hard since Qdisc's are scheduled in TX softirq,
-probably due to historical reason (Qdisc's were invented before multiqueue?).
-Anyway, I am still working on it and still trying to find a better solution.
+However, it should use tcp_packets_in_flight() instead of
+tp->packets_out to make this check.
 
->>
->> However, this still doesn't seem to be a reason to break people who
->> don't use bonding at all? At least we just want to map skb's to different
->> hardware TX queues by setting skb->queue_mapping (before
->> dev_queue_xmit() of course) and sysfs reports the queues starting with
->> index 0. This is why I complain. :)
->
->
-> for historical info take a look at multiq qdisc. It was added at
-> some point (i think before all the multiple queue nics were there?).
-> It does use the select_queue field to select a queue but I doubt anyone
-> uses it today with mq and mqprio. I would argue no one should be using
-> it there are better ways to get the same thing.
+Testing has established that the difference matters a lot if there are
+many SACKed packets, causing a needless performance shortfall.
 
-Sure, multiq accepts filters, we have to use our own filters to classify
-the flows. Using skbedit is much simpler since we only need to mark
-skb->queue_mapping before delivering skb to the physical interface,
-no need to add more filters at all (we already have many filters).
+Signed-off-by: Neal Cardwell <ncardwell@google.com>
+Signed-off-by: Yuchung Cheng <ycheng@google.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Signed-off-by: Nandita Dukkipati <nanditad@google.com>
+---
+ net/ipv4/tcp_input.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Thanks.
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 8fdd27b..fb4cf8b 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -4770,7 +4770,7 @@ static bool tcp_should_expand_sndbuf(const struct sock *sk)
+ 		return false;
+ 
+ 	/* If we filled the congestion window, do not expand.  */
+-	if (tp->packets_out >= tp->snd_cwnd)
++	if (tcp_packets_in_flight(tp) >= tp->snd_cwnd)
+ 		return false;
+ 
+ 	return true;
+-- 
+2.2.0.rc0.207.ga3a616c
