@@ -1,74 +1,107 @@
-From: Andy Gospodarek <gospo@cumulusnetworks.com>
-Subject: Re: [PATCH RFC 2/2] net: dsa: bcm_sf2: implement HW bridging
- operations
-Date: Thu, 19 Feb 2015 22:56:56 -0500
-Message-ID: <20150220035656.GN580@gospo.home.greyhouse.net>
-References: <20150219055953.GA14247@roeck-us.net>
- <54E61CFB.3010109@gmail.com>
- <20150219174640.GA6897@roeck-us.net>
- <54E676DD.9090003@gmail.com>
- <20150220000935.GA30118@roeck-us.net>
- <54E68512.6070108@cumulusnetworks.com>
- <20150220010352.GA300@roeck-us.net>
- <54E691F2.5090205@cumulusnetworks.com>
- <54E69536.3040303@gmail.com>
- <20150220032058.GL580@gospo.home.greyhouse.net>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH v2 1/3] ixgbe, ixgbevf: Add new mbox API to enable MC
+ promiscuous mode
+Date: Thu, 19 Feb 2015 20:04:06 -0800
+Message-ID: <1424405046.2979.9.camel@jtkirshe-mobl>
+References: <7F861DC0615E0C47A872E6F3C5FCDDBD05E3881B@BPXM14GP.gisp.nec.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: roopa <roopa@cumulusnetworks.com>,
-	Guenter Roeck <linux@roeck-us.net>, netdev@vger.kernel.org,
-	davem@davemloft.net, vivien.didelot@savoirfairelinux.com,
-	jerome.oufella@savoirfairelinux.com, andrew@lunn.ch,
-	cphealy@gmail.com
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f53.google.com ([209.85.216.53]:59689 "EHLO
-	mail-qa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751996AbbBTD47 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Feb 2015 22:56:59 -0500
-Received: by mail-qa0-f53.google.com with SMTP id k15so10354148qaq.12
-        for <netdev@vger.kernel.org>; Thu, 19 Feb 2015 19:56:58 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20150220032058.GL580@gospo.home.greyhouse.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-JQ4hGM2HBLt3PYy/r5+F"
+Cc: "Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+	"vyasevic@redhat.com" <vyasevic@redhat.com>,
+	Alexander Duyck <alexander.duyck@gmail.com>,
+	=?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Choi, Sy Jong" <sy.jong.choi@intel.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	David Laight <David.Laight@ACULAB.COM>,
+	Hayato Momma <h-momma@ce.jp.nec.com>
+To: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <7F861DC0615E0C47A872E6F3C5FCDDBD05E3881B@BPXM14GP.gisp.nec.co.jp>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Feb 19, 2015 at 10:20:58PM -0500, Andy Gospodarek wrote:
-> On Thu, Feb 19, 2015 at 06:00:22PM -0800, Florian Fainelli wrote:
-> > On 19/02/15 17:46, roopa wrote:
-> > > On 2/19/15, 5:03 PM, Guenter Roeck wrote:
-> > >> On Thu, Feb 19, 2015 at 04:51:30PM -0800, roopa wrote:
-> > >>>> Not sure yet what to do about setting the fdb aging time. I don't see a
-> > >>>> mechanism to do that. No idea how important that is.
-> > >>> rocker, the only consumer today relies on the bridge driver aging of
-> > >>> learnt
-> > >>> entries.
-> > >>> You could do the same.
-> > >>>
-> > >> Remember that we are dealing with hardware switch chips. Those chips
-> > >> won't time out fdb entries just because the kernel's bridge driver
-> > >> thinks that it should.
-> > > Oh, they dont..?. sorry,  I dont know the details about your hardware.
-> > > But, if these are entries learnt by hw, there should be a hw config to
-> > > age them (I guess that is what you are talking about). Which the swicth
-> > > driver can set.
-> > > If you disable hw aging, you can sync these entries to the bridge
-> > > driver, and make the bridge driver age them followed by a subsequent
-> > > delete in hw.
-> > 
-> > The SF2 HW has and aging and a valid bit available, I guess my question
-> > would be, do we have anything today in "net-next" that allows
-> > configuring HW aging vs. SW aging (implying doing a HW to SW sync)?
-> 
-> Yes, the setting of the BR_LEARNING_SYNC bit in bridge port flags should
-> signal to the hardware that it should send learning notifications up to
-> the kernel bridge.  This is set via the IFLA_BRPORT_LEARNING attribute
-> in a setlink message.
 
-Sorry I should offer some clarification on this point.  The flag I
-mentioned is only used to signal to drivers that they should notify the
-core kernel about new MACs that are learned.
+--=-JQ4hGM2HBLt3PYy/r5+F
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-If there is a need for different driver behavior depending on whether
-hardware learning is enabled or not it might be time to add a
-configuration option up into the stack.
+On Fri, 2015-02-20 at 00:59 +0000, Hiroshi Shimamoto wrote:
+> From: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
+>=20
+> The limitation of the number of multicast address for VF is not enough
+> for the large scale server with SR-IOV feature.
+> IPv6 requires the multicast MAC address for each IP address to handle
+> the Neighbor Solicitation message.
+> We couldn't assign over 30 IPv6 addresses to a single VF interface.
+>=20
+> The easy way to solve this is enabling multicast promiscuous mode.
+> It is good to have a functionality to enable multicast promiscuous
+> mode
+> for each VF from VF driver.
+>=20
+> This patch introduces the new mbox API, IXGBE_VF_SET_MC_PROMISC, to
+> enable/disable multicast promiscuous mode in VF. If multicast
+> promiscuous
+> mode is enabled the VF can receive all multicast packets.
+>=20
+> With this patch, the ixgbevf driver automatically enable multicast
+> promiscuous mode when the number of multicast addresses is over than
+> 30
+> if possible.
+>=20
+> This also bump the API version up to 1.2 to check whether the API,
+> IXGBE_VF_SET_MC_PROMISC is available.
+>=20
+> Signed-off-by: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
+> Reviewed-by: Hayato Momma <h-momma@ce.jp.nec.com>
+> CC: Choi, Sy Jong <sy.jong.choi@intel.com>
+> ---
+>=20
+> This patchset is against Jeff's tree.
+>=20
+> cfba326 e1000e: Fix 82574/82583 TimeSync errata handling for SYSTIM
+> read
+>=20
+> The tree hasn't haven the fix of the IPv6 checksum issue yet,
+> but I cherry-picked the commit and tested.
+>=20
+>  drivers/net/ethernet/intel/ixgbe/ixgbe.h          |  1 +
+>  drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h      |  4 ++
+>  drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c    | 88
+> ++++++++++++++++++++++-
+>  drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 13 +++-
+>  drivers/net/ethernet/intel/ixgbevf/mbx.h          |  4 ++
+>  drivers/net/ethernet/intel/ixgbevf/vf.c           | 28 +++++++-
+>  drivers/net/ethernet/intel/ixgbevf/vf.h           |  1 +
+>  7 files changed, 135 insertions(+), 4 deletions(-)
+
+I have added this to my queue, thanks!
+
+--=-JQ4hGM2HBLt3PYy/r5+F
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAABCgAGBQJU5rI2AAoJEOVv75VaS+3OQqEP/i5PqXhj0K/Tv9XEFboCyL4P
+Cx+ZDbafBmb3it1Ib2XI8Kyo1/LcwUMJgUUakIKY66Lra56JRS5S6NpI4y4acqFH
+mxca5jNwvWc4t4GB1/kmjt/VvRaf1WaOsQyhYNUP3+FUTWEvj7o8JEh2HiTgbhaB
+xWjxIYePD4ImuCKZZrzHIQ4WN10DCFlYBQ4zaB1kuo+/CdXxr0YmxbCMOf1+dyjn
+Etarvv6DVPeDTzLzg5oRHZfeaZw9exxvLQuodzmzfT5FPKgVTFufRYVYzUWf0w1J
+ykicp1z7zsYMkoSPhmGoyBmcPshADfLbvamxu/D/4oDWGt+fKb+W6cVyX7NtmtXJ
+2L17244me8IabilOD7dNU+scI5/dZngQGlt2ktopG9kNAXeZxciUdZFYtLduMGsK
+3b7/UTxk010+ZFmvEilMBJdgWKM3bxdI2TfRQ6iXdJkUlCd2x1z4Gu0hn2f3wCSj
+JpwrA052DJ4VW4nmz3mZ1ujOUurQk7LRJez2zZPdZM1GSYIIg8MXmSOM5iXlTve7
+rqEly9bRaN9FIVOkzQ8Ai+au6Wx2BJYp2Nf/NwCIplU3nxwdm8ai5eHDr3iY7g/d
+row+QqXExV61dzFWbS5DrsDm3sJVZdGhA7a4nb3wgbZSFTszi3j5yvq0NjDsM6lg
+G9YJy72SLZlnbZabKcys
+=KXmH
+-----END PGP SIGNATURE-----
+
+--=-JQ4hGM2HBLt3PYy/r5+F--
