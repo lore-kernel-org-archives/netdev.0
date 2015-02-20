@@ -1,54 +1,44 @@
-From: Andy Zhou <azhou@nicira.com>
-Subject: Re: [PATCH net] openvswitch: Fix net exit.
-Date: Thu, 19 Feb 2015 17:40:03 -0800
-Message-ID: <CACzMAJKM1ob4sNinDeZfXjK0GuFnQeFWawMyC-qnCJeqGrytnw@mail.gmail.com>
-References: <1424200990-1558-1-git-send-email-pshelar@nicira.com>
+From: roopa <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH RFC 2/2] net: dsa: bcm_sf2: implement HW bridging operations
+Date: Thu, 19 Feb 2015 17:46:26 -0800
+Message-ID: <54E691F2.5090205@cumulusnetworks.com>
+References: <1424201196-4901-1-git-send-email-f.fainelli@gmail.com> <1424201196-4901-3-git-send-email-f.fainelli@gmail.com> <54E54EF3.9020802@gmail.com> <20150219055953.GA14247@roeck-us.net> <54E61CFB.3010109@gmail.com> <20150219174640.GA6897@roeck-us.net> <54E676DD.9090003@gmail.com> <20150220000935.GA30118@roeck-us.net> <54E68512.6070108@cumulusnetworks.com> <20150220010352.GA300@roeck-us.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"dev@openvswitch.org" <dev@openvswitch.org>, amuller@redhat.com
-To: Pravin B Shelar <pshelar@nicira.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org,
+	davem@davemloft.net, vivien.didelot@savoirfairelinux.com,
+	jerome.oufella@savoirfairelinux.com, andrew@lunn.ch,
+	cphealy@gmail.com
+To: Guenter Roeck <linux@roeck-us.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog124.obsmtp.com ([74.125.149.151]:50933 "HELO
-	na3sys009aog124.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753017AbbBTBkF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Feb 2015 20:40:05 -0500
-Received: by mail-oi0-f46.google.com with SMTP id x69so280246oia.5
-        for <netdev@vger.kernel.org>; Thu, 19 Feb 2015 17:40:04 -0800 (PST)
-In-Reply-To: <1424200990-1558-1-git-send-email-pshelar@nicira.com>
+Received: from mail-pd0-f170.google.com ([209.85.192.170]:41883 "EHLO
+	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753017AbbBTBq1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Feb 2015 20:46:27 -0500
+Received: by pdno5 with SMTP id o5so4010370pdn.8
+        for <netdev@vger.kernel.org>; Thu, 19 Feb 2015 17:46:27 -0800 (PST)
+In-Reply-To: <20150220010352.GA300@roeck-us.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 17, 2015 at 11:23 AM, Pravin B Shelar <pshelar@nicira.com> wrote:
-> Open vSwitch allows moving internal vport to different namespace
-> while still connected to the bridge. But when namespace deleted
-> OVS does not detach these vports, that results in dangling
-> pointer to netdevice which causes kernel panic as follows.
-> This issue is fixed by detaching all ovs ports from the deleted
-> namespace at net-exit.
->
-> BUG: unable to handle kernel NULL pointer dereference at 0000000000000028
-> IP: [<ffffffffa0aadaa5>] ovs_vport_locate+0x35/0x80 [openvswitch]
-> Oops: 0000 [#1] SMP
-> Call Trace:
->  [<ffffffffa0aa6391>] lookup_vport+0x21/0xd0 [openvswitch]
->  [<ffffffffa0aa65f9>] ovs_vport_cmd_get+0x59/0xf0 [openvswitch]
->  [<ffffffff8167e07c>] genl_family_rcv_msg+0x1bc/0x3e0
->  [<ffffffff8167e319>] genl_rcv_msg+0x79/0xc0
->  [<ffffffff8167d919>] netlink_rcv_skb+0xb9/0xe0
->  [<ffffffff8167deac>] genl_rcv+0x2c/0x40
->  [<ffffffff8167cffd>] netlink_unicast+0x12d/0x1c0
->  [<ffffffff8167d3da>] netlink_sendmsg+0x34a/0x6b0
->  [<ffffffff8162e140>] sock_sendmsg+0xa0/0xe0
->  [<ffffffff8162e5e8>] ___sys_sendmsg+0x408/0x420
->  [<ffffffff8162f541>] __sys_sendmsg+0x51/0x90
->  [<ffffffff8162f592>] SyS_sendmsg+0x12/0x20
->  [<ffffffff81764ee9>] system_call_fastpath+0x12/0x17
->
-> Reported-by: Assaf Muller <amuller@redhat.com>
-> Fixes: 46df7b81454("openvswitch: Add support for network namespaces.")
-> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+On 2/19/15, 5:03 PM, Guenter Roeck wrote:
+> On Thu, Feb 19, 2015 at 04:51:30PM -0800, roopa wrote:
+>>> Not sure yet what to do about setting the fdb aging time. I don't see a
+>>> mechanism to do that. No idea how important that is.
+>> rocker, the only consumer today relies on the bridge driver aging of learnt
+>> entries.
+>> You could do the same.
+>>
+> Remember that we are dealing with hardware switch chips. Those chips
+> won't time out fdb entries just because the kernel's bridge driver
+> thinks that it should.
+Oh, they dont..?. sorry,  I dont know the details about your hardware. 
+But, if these are entries learnt by hw, there should be a hw config to 
+age them (I guess that is what you are talking about). Which the swicth 
+driver can set.
+If you disable hw aging, you can sync these entries to the bridge 
+driver, and make the bridge driver age them followed by a subsequent 
+delete in hw.
 
-Would a  similar issue exist for veth type of device?
-After cleaning up the vports, would user space still make reference to ports?
+just trying to see if what we do will help here.
