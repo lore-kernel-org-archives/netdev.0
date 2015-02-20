@@ -1,153 +1,103 @@
-From: Jonas Johansson <jonasj76@gmail.com>
-Subject: Re: [PATCH net-next 2/2] mv88e6131: bonding: implement single device
- trunking
-Date: Fri, 20 Feb 2015 16:56:55 +0100 (CET)
-Message-ID: <alpine.LNX.2.03.1502201645230.8221@hellgate.skynet>
-References: <1424429473-4601-1-git-send-email-jonasj76@gmail.com> <1424429473-4601-3-git-send-email-jonasj76@gmail.com> <20150220152644.GD13797@lunn.ch>
+From: Christoph Schulz <develop@kristov.de>
+Subject: Re: [PATCH] pppoe: Use workqueue to die properly when a PADT is
+ received
+Date: Fri, 20 Feb 2015 17:10:14 +0100
+Message-ID: <20150220171014.3970204f0h4aebmu@berry.schulz.ip-v6.eu>
+References: <1424381068-22252-1-git-send-email-simon@farnz.org.uk>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: Jonas Johansson <jonasj76@gmail.com>, netdev@vger.kernel.org,
-	Jonas Johansson <jonas.johansson@westermo.se>
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f177.google.com ([209.85.217.177]:42068 "EHLO
-	mail-lb0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754732AbbBTQAw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Feb 2015 11:00:52 -0500
-Received: by lbiw7 with SMTP id w7so7088575lbi.9
-        for <netdev@vger.kernel.org>; Fri, 20 Feb 2015 08:00:50 -0800 (PST)
-In-Reply-To: <20150220152644.GD13797@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+ charset=UTF-8;
+ DelSp="Yes";
+ format="flowed"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Dan Williams <dcbw@redhat.com>,
+	mostrows@gmail.com, linux-ppp@vger.kernel.org
+To: Simon Farnsworth <simon@farnz.org.uk>
+Return-path: <linux-ppp-owner@vger.kernel.org>
+In-Reply-To: <1424381068-22252-1-git-send-email-simon@farnz.org.uk>
+Content-Disposition: inline
+Sender: linux-ppp-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+(Cc: linux-ppp@vger.kernel.org, mostrows@gmail.com)
+
+Hello!
+
+Simon Farnsworth schrieb am Thu, 19 Feb 2015 21:24:28 +0000:
+
+> When a PADT frame is received, the socket may not be in a good state to
+> close down the PPP interface. The current implementation handles this by
+> simply blocking all further PPP traffic, and hoping that the lack of traffic
+> will trigger the user to investigate.
+>
+> Use schedule_work to get to a process context from which we clear down the
+> PPP interface, in a fashion analogous to hangup on a TTY-based PPP
+> interface. This causes pppd to disconnect immediately, and allows tools to
+> take immediate corrective action.
+
+Tested-by: Christoph Schulz <develop@kristov.de>
+
+I tested your patch von top of 3.14.33 and 3.18.7 together with a  
+slightly modified pppd based on Debian's pppd-2.4.6-3 (which is almost  
+identical to pppd 2.4.7). The client now indeed receives PADT feedback  
+immediately. Closing a PPPoE connection on the server side
+
+Feb 20 16:45:44 swing local2.notice pppoe-server-wrapper[20154]:  
+circ4: pppoe-server died with exit code 0, cleaning up
+
+leads to immediate hangup on the client side:
+
+Feb 20 16:45:44 sandbox local2.notice pppd[539]: Modem hangup
+
+Formerly, the LCP echo timeout had to be reached. On the server side:
+
+Feb 20 14:56:53 swing local2.notice pppoe-server-wrapper[12744]:  
+circ4: pppoe-server died with exit code 0, cleaning up
+
+On the client side:
+
+Feb 20 14:57:01 sandbox local2.info pppd[15575]: No response to 2  
+echo-requests
+Feb 20 14:57:01 sandbox local2.notice pppd[15575]: Serial link appears  
+to be disconnected.
+
+Note that the short detection of the terminated link (~ 8 s) stems  
+from very aggressive LCP echo settings (lcp-echo-interval "3",  
+lcp-echo-failure "2"). Typically, these timeouts are much larger to  
+accomodate for bad links. Often the client recognizes a dead link only  
+after two to three minutes (lcp-echo-interval "30", lcp-echo-failure  
+"5").
+
+However, note also that your patch causes pppd (or rather the rp-pppoe  
+plugin) to wonder about the socket closed by the kernel:
+
+Feb 20 16:45:44 sandbox local2.err pppd[539]: Failed to disconnect  
+PPPoE socket: 114 Operation already in progress
+
+I don't fully understand the code there; it seems that the plugin  
+*connects* the PPPoE session socket in order to *disconnect* it:
+
+static void
+PPPOEDisconnectDevice(void)
+{
+     struct sockaddr_pppox sp;
+
+     sp.sa_family = AF_PPPOX;
+     sp.sa_protocol = PX_PROTO_OE;
+     sp.sa_addr.pppoe.sid = 0;
+     memcpy(sp.sa_addr.pppoe.dev, conn->ifName, IFNAMSIZ);
+     memcpy(sp.sa_addr.pppoe.remote, conn->peerEth, ETH_ALEN);
+     if (connect(conn->sessionSocket, (struct sockaddr *) &sp,
+                 sizeof(struct sockaddr_pppox)) < 0)
+         error("Failed to disconnect PPPoE socket: %d %m", errno);
+     close(conn->sessionSocket);
+     /* don't send PADT?? */
+     if (conn->discoverySocket >= 0)
+         close(conn->discoverySocket);
+}
 
 
+Regards,
+-- 
+Christoph Schulz
 
-On Fri, 20 Feb 2015, Andrew Lunn wrote:
-
-> On Fri, Feb 20, 2015 at 11:51:13AM +0100, Jonas Johansson wrote:
->> From: Jonas Johansson <jonas.johansson@westermo.se>
->>
->> This patch will use the DSA hardware bonding support hooks to setup trunking
->> for the Marvell 88E6095 device. The implementation only handles trunking in
->> a single device.
->>
->> Hooks:
->>  .bond_add_group: Add port to a bond group
->>  .bond_del_group: Remove port from a bond group
->>  .bond_attach: Attach/activate port in bond group
->>  .bond_detach: Detach/inactivate port in bond group
->>
->> Procedure to add/remome port from bond group:
->>  Setup trunk learning (Port Association Vector)
->>  Setup loop prevention (VLAN Table)
->>  Setup load balancing (Trunk Mask Load Balance Table)
->>
->> Procedure to attach/detach port:
->>  Change load balancing (Trunk Mask Load Balance Table)
->>
->> Signed-off-by: Jonas Johansson <jonas.johansson@westermo.se>
->> ---
->>  drivers/net/dsa/mv88e6131.c | 254 ++++++++++++++++++++++++++++++++++++++++++++
->>  drivers/net/dsa/mv88e6xxx.h |  14 +++
->>  2 files changed, 268 insertions(+)
->>
->> diff --git a/drivers/net/dsa/mv88e6131.c b/drivers/net/dsa/mv88e6131.c
->> index 2540ef0..3ba7a0c 100644
->> --- a/drivers/net/dsa/mv88e6131.c
->> +++ b/drivers/net/dsa/mv88e6131.c
->> @@ -382,6 +382,256 @@ mv88e6131_get_ethtool_stats(struct dsa_switch *ds,
->>  				    mv88e6131_hw_stats, port, data);
->>  }
->>
->> +/* Trunking */
->> +static int mv88e6131_bond_set_trunk_learning(struct dsa_switch *ds,
->> +					     int *ports, size_t num)
->> +{
->> +	u16 port_vec = 0;
->> +	int ret;
->> +	int i;
->> +
->> +	num = num < MAX_PORTS ? num : MAX_PORTS;
->> +
->> +	for (i = 0; i < num; i++)
->> +		port_vec |= 1 << ports[i];
->> +
->> +	for (i = 0; i < num; i++) {
->> +		ret = mv88e6xxx_reg_read(ds, REG_PORT(ports[i]), REG_PORT_PAV);
->> +		if (ret < 0)
->> +			continue;
->> +		ret = (ret & 0xf800) | (port_vec & 0x7ff);
->> +		mv88e6xxx_reg_write(ds, REG_PORT(ports[i]), REG_PORT_PAV, ret);
->> +	}
->> +
->> +	return 0;
->> +}
->
-> The mv886060 seems to have the PAV register. So i guess most of the
-> Marvell switches support this. Is there anything specific to the 6131
-> here? Could this be moved into mv88x6xxx so other switch drivers can
-> use it?
->
-I guess you are correct, i'll look into it.
->> +
->> +static int mv88e6131_bond_set_loop_prevention(struct dsa_switch *ds,
->> +					      int *ports, size_t num)
->> +{
->> +	u16 port_vec = 0;
->> +	int ret;
->> +	int i;
->> +
->> +	num = num < MAX_PORTS ? num : MAX_PORTS;
->> +
->> +	for (i = 0; i < num; i++)
->> +		port_vec |= 1 << ports[i];
->> +
->> +	for (i = 0; i < num; i++) {
->> +		ret = mv88e6xxx_reg_read(ds, REG_PORT(ports[i]), REG_PORT_VLAN_MAP);
->> +		if (ret < 0)
->> +			continue;
->> +		ret &= ~port_vec & 0x7ff;
->> +		mv88e6xxx_reg_write(ds, REG_PORT(ports[i]), REG_PORT_VLAN_MAP, ret);
->> +	}
->> +
->> +	return 0;
->> +}
->
-> Same question again, anything specific to the 6131 here?
->
-I'll check.
->> +static int mv88e6131_wait_trunk_mask(struct dsa_switch *ds)
->> +{
->> +	const int max_retries = 10;
->> +	int retries = 0;
->> +	int ret;
->> +
->> +	/* Wait for update Trunk Mask data */
->> +	while (1) {
->> +		ret = REG_READ(REG_GLOBAL2, REG_TRUNK_MASK);
->> +		if (!(ret & 0x8000))
->> +			return ret;
->> +		if (retries > max_retries) {
->> +			pr_warn("mv88e6131: Timeout waiting for "
->> +				"Trunk Mask Table Register Update\n");
->> +			return -EBUSY;
->> +		}
->> +		retries++;
->> +		usleep_range(20, 50);
->> +	};
->
-> This looks a lot like the wait functions what Guenter Roeck added to
-> 6352 and i just moved to mv88e6xxx.c. Please use the generic
-> infrastructure in the shared code.
->
-Seems like the function is doing exactly what I'm looking for.
-> Please could you look at all your functions and see what is specific
-> to the 6131 and what is generic. Place the generic code into mv88e6xxx
-> please so we can all use it.
->
->       Thanks
-> 	Andrew
->
-Thanks for your review, I'll check if the functions is specific to the 
-6131 or if it the code could be moved to mv88e6xxx.c.
-On vacation a.t.m, back in a week.
