@@ -1,111 +1,115 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: Port STP state after removing port from bridge
-Date: Fri, 20 Feb 2015 09:04:18 -0800
-Message-ID: <54E76912.3090203@gmail.com>
-References: <CAGVrzcZMV3vSd3hEsXqk6BtyU-Ts9=oJvb79DTZp25TnnGm5CQ@mail.gmail.com>	<CAE4R7bBSbwi93t05Z+rB2JgzFYdZ+m44AFSzU7JkwdHRWzz1Mw@mail.gmail.com>	<20150220100046.GB2008@nanopsycho.orion> <CAE4R7bAN7QrJcjUCbAJ86tb9YDNGJfYeq3fdqh-a3Xnc+4S+Zg@mail.gmail.com>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: [PATCH] pppoe: Use workqueue to die properly when a PADT is
+ received
+Date: Fri, 20 Feb 2015 11:05:08 -0600
+Message-ID: <1424451908.20313.19.camel@redhat.com>
+References: <1424381068-22252-1-git-send-email-simon@farnz.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Stephen Hemminger <stephen@networkplumber.org>
-To: Scott Feldman <sfeldma@gmail.com>, Jiri Pirko <jiri@resnulli.us>
+Cc: netdev@vger.kernel.org, Michal Ostrowski <mostrows@earthlink.net>
+To: Simon Farnsworth <simon@farnz.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:35562 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754767AbbBTREg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Feb 2015 12:04:36 -0500
-Received: by padfa1 with SMTP id fa1so9426819pad.2
-        for <netdev@vger.kernel.org>; Fri, 20 Feb 2015 09:04:35 -0800 (PST)
-In-Reply-To: <CAE4R7bAN7QrJcjUCbAJ86tb9YDNGJfYeq3fdqh-a3Xnc+4S+Zg@mail.gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:47625 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754725AbbBTRFW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Feb 2015 12:05:22 -0500
+In-Reply-To: <1424381068-22252-1-git-send-email-simon@farnz.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 20/02/15 07:03, Scott Feldman wrote:
-> On Fri, Feb 20, 2015 at 2:00 AM, Jiri Pirko <jiri@resnulli.us> wrote:
->> Fri, Feb 20, 2015 at 05:45:01AM CET, sfeldma@gmail.com wrote:
->>> On Wed, Feb 18, 2015 at 11:39 PM, Florian Fainelli <f.fainelli@gmail.com>
->>> wrote:
->>>
->>>> Hi,
->>>>
->>>> It just occured to me that the following sequence:
->>>>
->>>> brctl addbr br0
->>>> brctl addif br0 port0
->>>> ... STP happens
->>>> brctl delif br0 port0
->>>>
->>>> will leave port0 in STP disabled state, because the bridge code will
->>>> set the STP state to DISABLED, and only a down/up sequence can bring
->>>> it back to FORWARDING.
->>>>
->>>> Is this something that we should somehow fix? As an user it seems a
->>>> little convoluted having to do a down/up sequence to restore things. I
->>>> believe however that it is valid for the bridge layer to mark a port
->>>> as DISABLED when removing it. This is typically not noticed or even
->>>> remotely a problem with software bridges because we cannot enforce an
->>>> actual STP state at the HW level.
->>>>
->>>> Let me know your thoughts.
->>>>
->>>>
->>> The fix in rocker would be:
->>>
->>> diff --git a/drivers/net/ethernet/rocker/rocker.c
->>> b/drivers/net/ethernet/rocker/rocker.c
->>> index 34389b6a..e2004fb 100644
->>> --- a/drivers/net/ethernet/rocker/rocker.c
->>> +++ b/drivers/net/ethernet/rocker/rocker.c
->>> @@ -4456,8 +4456,10 @@ static int rocker_port_bridge_leave(struct
->>> rocker_port *rocker_port)
->>>                rocker_port_internal_vlan_id_get(rocker_port,
->>>                                                 rocker_port->dev->ifindex);
->>>        err = rocker_port_vlan(rocker_port, 0, 0);
->>> +       if (err)
->>> +               return err;
->>>
->>> -       return err;
->>> +       return rocker_port_stp_update(rocker_port, BR_STATE_FORWARDING);
->>> }
->>>
->>>
->>> This will return the port back to it's initial state of
->>> BR_STATE_FORWARDING, after it's removed from the bridge.
->>>
->>> I'll include this patch in the rocker pile to be pushed later.
->>>
->>> -scott
->>
->>
->> I'm not sure, but wouldn't it be nicer it the bridge code would set
->> state to disabled before the port is removed from the bridge?
+On Thu, 2015-02-19 at 21:24 +0000, Simon Farnsworth wrote:
+> When a PADT frame is received, the socket may not be in a good state to
+> close down the PPP interface. The current implementation handles this by
+> simply blocking all further PPP traffic, and hoping that the lack of traffic
+> will trigger the user to investigate.
 > 
-> When the port is removed from a bridge, for example with brctl delif,
-> the bridge driver puts port in BR_STATE_DISABLED and then sends
-> netdevice event NETDEV_CHANGEUPPER.  In response to
-> NETDEV_CHANGEUPPER, the rocker driver is returning port back to
-> BR_STATE_FORWARDING (the initial state for an un-bridged port).  So
-> this preserves bridge behavior for non-switchdev uses.  Does this
-> answer the question, or did I miss understand your question?
+> Use schedule_work to get to a process context from which we clear down the
+> PPP interface, in a fashion analogous to hangup on a TTY-based PPP
+> interface. This causes pppd to disconnect immediately, and allows tools to
+> take immediate corrective action.
+> 
+> Signed-off-by: Simon Farnsworth <simon@farnz.org.uk>
 
-I think what we want is a solution at the bridge level, we have rocker
-now updating the STP state to BR_STATE_FORWARDING when a given
-rocker_port leaves a bridge, and I also had a similar change in DSA.
+Adding my tested-by since I tested the patch and confirmed it fixes the
+issue before Simon posted to netdev.
 
-Something like this maybe (untested):
+Tested-by: Dan Williams <dcbw@redhat.com>
 
-diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
-index b087d278c679..d693a2a10b3c 100644
---- a/net/bridge/br_if.c
-+++ b/net/bridge/br_if.c
-@@ -242,6 +242,8 @@ static void del_nbp(struct net_bridge_port *p)
-
-        spin_lock_bh(&br->lock);
-        br_stp_disable_port(p);
-+       if (dev->features & NETIF_F_HW_SWITCH_OFFLOAD)
-+               br_set_state(p, BR_STATE_FORWARDING);
-        spin_unlock_bh(&br->lock);
-
-        br_ifinfo_notify(RTM_DELLINK, p);
--- 
-Florian
+> ---
+> Note that I'm not subscribed to netdev; please cc me on any replies.
+> 
+> The patch falls out of https://bugzilla.gnome.org/show_bug.cgi?id=742939
+> I'm trying to get NetworkManager back to using kernel PPPoE partly because
+> it performs a little better, and mostly because kernel PPPoE copes with
+> larger MTUs than userspace PPPoE.
+> 
+> Dan Williams (cc'd) has tested a previous version of this patch; the
+> differences to this version are only cosmetic.
+> 
+>  drivers/net/ppp/pppoe.c  | 17 ++++++++++++++++-
+>  include/linux/if_pppox.h |  2 ++
+>  2 files changed, 18 insertions(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/ppp/pppoe.c b/drivers/net/ppp/pppoe.c
+> index d2408a5..9c97e9b 100644
+> --- a/drivers/net/ppp/pppoe.c
+> +++ b/drivers/net/ppp/pppoe.c
+> @@ -455,6 +455,18 @@ out:
+>  	return NET_RX_DROP;
+>  }
+>  
+> +static void pppoe_unbind_sock_work(struct work_struct *work)
+> +{
+> +	struct pppox_sock *po = container_of(work, struct pppox_sock,
+> +					     proto.pppoe.padt_work);
+> +	struct sock *sk = sk_pppox(po);
+> +
+> +	lock_sock(sk);
+> +	pppox_unbind_sock(sk);
+> +	release_sock(sk);
+> +	sock_put(sk);
+> +}
+> +
+>  /************************************************************************
+>   *
+>   * Receive a PPPoE Discovery frame.
+> @@ -500,7 +512,8 @@ static int pppoe_disc_rcv(struct sk_buff *skb, struct net_device *dev,
+>  		}
+>  
+>  		bh_unlock_sock(sk);
+> -		sock_put(sk);
+> +		if (!schedule_work(&po->proto.pppoe.padt_work))
+> +			sock_put(sk);
+>  	}
+>  
+>  abort:
+> @@ -613,6 +626,8 @@ static int pppoe_connect(struct socket *sock, struct sockaddr *uservaddr,
+>  
+>  	lock_sock(sk);
+>  
+> +	INIT_WORK(&po->proto.pppoe.padt_work, pppoe_unbind_sock_work);
+> +
+>  	error = -EINVAL;
+>  	if (sp->sa_protocol != PX_PROTO_OE)
+>  		goto end;
+> diff --git a/include/linux/if_pppox.h b/include/linux/if_pppox.h
+> index aff7ad8..66a7d76 100644
+> --- a/include/linux/if_pppox.h
+> +++ b/include/linux/if_pppox.h
+> @@ -19,6 +19,7 @@
+>  #include <linux/netdevice.h>
+>  #include <linux/ppp_channel.h>
+>  #include <linux/skbuff.h>
+> +#include <linux/workqueue.h>
+>  #include <uapi/linux/if_pppox.h>
+>  
+>  static inline struct pppoe_hdr *pppoe_hdr(const struct sk_buff *skb)
+> @@ -32,6 +33,7 @@ struct pppoe_opt {
+>  	struct pppoe_addr	pa;	  /* what this socket is bound to*/
+>  	struct sockaddr_pppox	relay;	  /* what socket data will be
+>  					     relayed to (PPPoE relaying) */
+> +	struct work_struct      padt_work;/* Work item for handling PADT */
+>  };
+>  
+>  struct pptp_opt {
