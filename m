@@ -1,32 +1,59 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v2] ematch: Fix auto-loading of ematch modules.
-Date: Fri, 20 Feb 2015 15:31:28 -0500 (EST)
-Message-ID: <20150220.153128.306170104581128825.davem@davemloft.net>
-References: <CAHA+R7Os10B8KuBV0K9qp48zo2+=_aXUR-k5ocXjEWYqtq222w@mail.gmail.com>
-	<20150217191520.GA15405@zenon.in.qult.net>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: TX offloads for NVGRE (OVS GRE with inner protocol being TEB)
+Date: Fri, 20 Feb 2015 12:31:52 -0800
+Message-ID: <CAEP_g=9vm3y7CuqoXJDbJ_iUqMOOvCrxsDjLq6tPuQxhnF33XQ@mail.gmail.com>
+References: <54E5ED9D.8080206@mellanox.com> <CAEP_g=_SSKYEhmQ2MXJN0wP8POiwjg49txExdrorUkzw8oCRmg@mail.gmail.com>
+ <CAJ3xEMggVJ6Lm7vmFhW2PSPv612WQ4-sNWPpefkMcy1RQv+7=g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: ignacy.gawedzki@green-communications.fr
+Content-Type: text/plain; charset=UTF-8
+Cc: Or Gerlitz <ogerlitz@mellanox.com>,
+	Joe Stringer <joestringer@nicira.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Or Gerlitz <gerlitz.or@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46089 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754627AbbBTUba convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Feb 2015 15:31:30 -0500
-In-Reply-To: <20150217191520.GA15405@zenon.in.qult.net>
+Received: from na3sys009aog113.obsmtp.com ([74.125.149.209]:41133 "HELO
+	na3sys009aog113.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1754861AbbBTUcO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Feb 2015 15:32:14 -0500
+Received: by mail-lb0-f174.google.com with SMTP id p9so8643286lbv.3
+        for <netdev@vger.kernel.org>; Fri, 20 Feb 2015 12:32:13 -0800 (PST)
+In-Reply-To: <CAJ3xEMggVJ6Lm7vmFhW2PSPv612WQ4-sNWPpefkMcy1RQv+7=g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Ignacy Gaw=EAdzki <ignacy.gawedzki@green-communications.fr>
-Date: Tue, 17 Feb 2015 20:15:20 +0100
+On Thu, Feb 19, 2015 at 11:54 PM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
+> On Thu, Feb 19, 2015 at 7:01 PM, Jesse Gross <jesse@nicira.com> wrote:
+>> On Thu, Feb 19, 2015 at 6:05 AM, Or Gerlitz <ogerlitz@mellanox.com> wrote:
+>
+>>> It seems that the OVS GRE code lacks handling of offloads (e.g to come into
+>>> play with NICs that support NVGRE).
+>>>
+>>> I assume we need to place a call to iptunnel_handle_offloads before invoking
+>>> iptunnel_xmit, agree? so ~the quick patch below should do the work? I wasn't
+>>> sure how to set the value of the 2nd param for iptunnel_handle_offloads().
+>>
+>> I don't think that this is the issue. __build_header() calls
+>> gre_handle_offloads() which should do all of this work already.
+>
+> yep... gre_handle_offloads() is called, so something else goes wrong here.
+>
+>> I did notice that skb_set_inner_protocol() is not being called because
+>> it is in the wrong place in the GRE encapsulation code. It is
+>> currently in ip_gre.c():__gre_xmit(), if that line was moved to
+>> gre_demux.c:gre_build_header() then it would be used by all callers.
+>
+> Oh, thanks, I'll add that and see if / how much does it help.
+>
+>> One other thing that is potentially an issue for offloads is that all
+>> of the encapsulations call vlan_hwaccel_push_inside() after the
+>> respective handle_offloads code. This doesn't seem right as it could
+>> affect the layer pointers, although it only likely matters in a
+>> minority of cases where the inner MAC pointer is used.
+>
+> mmm, I don't think we're failing on that now, but can look this up too.
+>
+>
+> Did you ever tested Linux OVS/NGRE with a NIC that can do offloads for
+> this type of traffic?
 
-> In tcf_em_validate(), after calling request_module() to load the
-> kind-specific module, set em->ops to NULL before returning -EAGAIN, s=
-o
-> that module_put() is not called again by tcf_em_tree_destroy().
->=20
-> Signed-off-by: Ignacy Gaw=EAdzki <ignacy.gawedzki@green-communication=
-s.fr>
-
-Applied and queued up for -stable, thanks.
+I have not personally tried it.
