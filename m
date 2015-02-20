@@ -1,49 +1,49 @@
-From: Edward Cree <ecree@solarflare.com>
-Subject: Re: [PATCH v2 2/3] if_link: Add VF multicast promiscuous control
-Date: Fri, 20 Feb 2015 13:51:32 +0000
-Message-ID: <54E73BE4.2040505@solarflare.com>
-References: <7F861DC0615E0C47A872E6F3C5FCDDBD05E38840@BPXM14GP.gisp.nec.co.jp>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net 2/3] rhashtable: better high order allocation
+ attempts
+Date: Fri, 20 Feb 2015 14:27:58 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CAE688E@AcuExch.aculab.com>
+References: <cover.1424389682.git.daniel@iogearbox.net>
+	 <ef7f956fc36000761a652f2bcb395d0eb7300802.1424389682.git.daniel@iogearbox.net>
+	 <063D6719AE5E284EB5DD2968C1650D6D1CAE676F@AcuExch.aculab.com>
+ <1424439975.5565.0.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "Skidmore, Donald C" <donald.c.skidmore@intel.com>,
-	"vyasevic@redhat.com" <vyasevic@redhat.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	Alexander Duyck <alexander.duyck@gmail.com>,
-	=?UTF-8?B?QmrDuHJuIE1vcms=?= <bjorn@mork.no>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Choi, Sy Jong" <sy.jong.choi@intel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	David Laight <David.Laight@ACULAB.COM>,
-	Hayato Momma <h-momma@ce.jp.nec.com>
-To: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <7F861DC0615E0C47A872E6F3C5FCDDBD05E38840@BPXM14GP.gisp.nec.co.jp>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: 'Daniel Borkmann' <daniel@iogearbox.net>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"tgraf@suug.ch" <tgraf@suug.ch>,
+	"johunt@akamai.com" <johunt@akamai.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: 'Eric Dumazet' <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out4.electric.net ([192.162.216.182]:58241 "EHLO
+	smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753612AbbBTO2p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Feb 2015 09:28:45 -0500
+In-Reply-To: <1424439975.5565.0.camel@edumazet-glaptop2.roam.corp.google.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 20/02/15 01:00, Hiroshi Shimamoto wrote:
-> From: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
->
-> Add netlink directives and ndo entry to allow VF multicast promiscuous mode.
->
-> The administrator wants to allow dedicatedly multicast promiscuous per VF.
-If I'm properly understanding, this seems to be an ixgbe-specific option
-to work around an ixgbe limitation; is it really appropriate to
-implement as a generic net_device_op?
-What would this ndo mean to a driver which can support thousands of
-multicast groups without MC promisc?  Is it expected to limit the number
-of MC groups when this is set to disallow?  Or just fulfil the letter of
-the option but not its spirit?  The option doesn't seem to have
-well-defined semantics outside of ixgbe.
-I would suggest that the right place for this sort of driver-specific
-device control is in sysfs.
-
-I'm also a little perplexed as to why anyone would need to disallow
-this; what security, or even administrative convenience, is gained by
-allowing a VF to join 30 multicast groups but not multicast promiscuous
-mode?  Especially as, afaik, there are no restrictions on which
-multicast groups are joined, so the VF can receive any particular
-multicast traffic it cares about.
+RnJvbTogRXJpYyBEdW1hemV0DQo+IE9uIEZyaSwgMjAxNS0wMi0yMCBhdCAxMDoxMSArMDAwMCwg
+RGF2aWQgTGFpZ2h0IHdyb3RlOg0KPiA+IEZyb206IERhbmllbCBCb3JrbWFubg0KPiA+ID4gV2hl
+biB0cnlpbmcgdG8gYWxsb2NhdGUgZnV0dXJlIHRhYmxlcyB2aWEgYnVja2V0X3RhYmxlX2FsbG9j
+KCksIGl0IHNlZW1zDQo+ID4gPiBvdmVya2lsbCBvbiBsYXJnZSB0YWJsZSBzaGlmdHMgdGhhdCB3
+ZSBwcm9iZSBmb3Iga3phbGxvYygpIHVuY29uZGl0aW9uYWxseQ0KPiA+ID4gZmlyc3QsIGFzIGl0
+J3MgbGlrZWx5IHRvIGZhaWwuDQo+ID4NCj4gPiBIb3cgYWJvdXQgYSB0d28tbGV2ZWwgYXJyYXkg
+Zm9yIGxhcmdlIHRhYmxlcz8NCj4gPiBUaGVuIHlvdSBkb24ndCBuZWVkIHRvIGFsbG9jYXRlIG1v
+cmUgdGhhbiAxIHBhZ2UgYXQgYSB0aW1lPw0KPiANCj4gVGhpcyBpcyBjYWxsZWQgdm1hbGxvYygp
+IGluIGxpbnV4IGtlcm5lbC4NCg0Kdm1hbGxvYygpIHN0aWxsIHJlcXVpcmVzIGNvbnRpZ3VvdXMg
+S1ZBLCBqdXN0IG5vdCBjb250aWd1b3VzIHBoeXNpY2FsIG1lbW9yeS4NCkkgYWxzbyBiZWxpZXZl
+IHRoYXQgKG9uIHNvbWUgc3lzdGVtcyBhdCBsZWFzdCkgdGhlIGFkZHJlc3Mgc3BhY2UgZm9yDQp2
+bWFsbG9jKCkgaXMgbXVjaCBzbWFsbGVyIHRoYW4gdGhhdCBmb3Iga2FsbG9jKCkuDQoNCklJUkMg
+QXQgbGVhc3Qgb25lIHBpZWNlIG9mIGhpc3RvcmljIGRvY3VtZW50YXRpb24gc2F5cyB0aGF0IHZt
+YWxsb2MoKSBzaG91bGQNCm9ubHkgYmUgdXNlZCBmb3Igc2hvcnQgdGVybSBhbGxvY2F0aW9ucy4N
+Cg0KSSBwcmVzdW1lIHRoaXMgY29kZSBpcyBhbGxvY2F0aW5nIHZlcnkgbGFyZ2UgYXJyYXlzIGZv
+ciB0aGUgYmFzZSBvZiB0aGUgaGFzaCBsaXN0cy4NClNpbmNlIHRoZXJlIGlzIG5vIGFic29sdXRl
+IHJlcXVpcmVtZW50IGZvciBjb250aWd1b3VzIEtWQSAobm90aGluZw0Kc2VxdWVudGlhbGx5IGFj
+Y2Vzc2VzIHRoZSBlbnRpcmUgYXJyYXkpIGl0IGNhbiBiZSBjb2RlZCBkaWZmZXJlbnRseS4NCg0K
+SSByZWFsaXplIHRoYXQgdGhpcyB3b3VsZCBpbnZvbHZlIGFuIGV4dHJhIGRhdGEgY2FjaGUgbGlu
+ZSBhY2Nlc3MuDQpTbyB5b3UnZCB3YW50IHRvIGF2b2lkIGl0IGZvciBzbWFsbCB0YWJsZXMuDQoo
+SSBleHBlY3RlZCB0aGlzIHRvIGJlIHlvdXIgb2JqZWN0aW9uKQ0KDQoJRGF2aWQNCg0K
