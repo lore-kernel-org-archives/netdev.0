@@ -1,82 +1,91 @@
-From: Simon Farnsworth <simon@farnz.org.uk>
-Subject: Re: [PATCH] pppoe: Use workqueue to die properly when a PADT is received
-Date: Fri, 20 Feb 2015 21:04:53 +0000
-Message-ID: <2335170.7Jqfc2NRFK@hummingbird.farnz.org.uk>
-References: <1424381068-22252-1-git-send-email-simon@farnz.org.uk> <2498181.kKNYHvd3hx@f19simon> <20150220204923.13275ydcca5wwwcj@berry.schulz.ip-v6.eu>
+From: "Skidmore, Donald C" <donald.c.skidmore@intel.com>
+Subject: RE: [PATCH v2 2/3] if_link: Add VF multicast promiscuous control
+Date: Fri, 20 Feb 2015 21:05:26 +0000
+Message-ID: <F6FB0E698C9B3143BDF729DF22286646912AD3E7@ORSMSX110.amr.corp.intel.com>
+References: <7F861DC0615E0C47A872E6F3C5FCDDBD05E38840@BPXM14GP.gisp.nec.co.jp>
+ <54E73BE4.2040505@solarflare.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="nextPart5098787.67mfqJgTrn"; micalg="pgp-sha1"; protocol="application/pgp-signature"
-Cc: netdev@vger.kernel.org, Dan Williams <dcbw@redhat.com>,
-	mostrows@gmail.com, linux-ppp@vger.kernel.org
-To: Christoph Schulz <develop@kristov.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from logos.farnz.org.uk ([93.93.135.63]:56675 "EHLO
-	logos.farnz.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754432AbbBTVFB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Feb 2015 16:05:01 -0500
-In-Reply-To: <20150220204923.13275ydcca5wwwcj@berry.schulz.ip-v6.eu>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "vyasevic@redhat.com" <vyasevic@redhat.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	Alexander Duyck <alexander.duyck@gmail.com>,
+	=?utf-8?B?QmrDuHJuIE1vcms=?= <bjorn@mork.no>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Choi, Sy Jong" <sy.jong.choi@intel.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	David Laight <David.Laight@ACULAB.COM>,
+	Hayato Momma <h-momma@ce.jp.nec.com>
+To: Edward Cree <ecree@solarflare.com>,
+	Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <54E73BE4.2040505@solarflare.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-
---nextPart5098787.67mfqJgTrn
-Content-Transfer-Encoding: quoted-printable
-Content-Type: text/plain; charset="us-ascii"
-
-On Friday 20 February 2015 20:49:23 Christoph Schulz wrote:
-> Hello!
->=20
-> Simon Farnsworth schrieb am Fri, 20 Feb 2015 16:41:17 +0000:
-> >> Feb 20 16:45:44 sandbox local2.err pppd[539]: Failed to disconnect=
-
-> >> PPPoE socket: 114 Operation already in progress
-> >=20
-> > I assume there's nothing else wrong here, other than pppd complaini=
-ng? The
-> > code doesn't suggest there will be issues if we fail to disconnect.=
-
->=20
-> Yes, there are no further problems beside the message. Nevertheless I=
-
-> wanted to mention it because any error message containing something
-> like "Failed to disconnect" may upset the user. Of course, most PPPoE=
-
-> users nowadays use a flat rate for accessing the Internet and need no=
-t
-> worry much about a "failed" disconnection, but you never know for
-> sure...
->=20
-I've now looked at the kernel code; the message is harmless, as closing=
- the=20
-socket will also get rid of the associated session.
-
-However, I think I should probably do a v2 patch with a clear commit me=
-ssage,=20
-so that if someone does bisect down to this commit as a cause of the "e=
-rror"=20
-they're seeing, they'll understand why it's not a problem.
-
-I'll also put together a pppd patch to not change session ID during shu=
-tdown.=20
-Won't be tonight - but that's no bad thing as it leaves time for more=20=
-
-reviewers to comment on my kernel patch.
-=2D-=20
-Simon Farnsworth
---nextPart5098787.67mfqJgTrn
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part.
-Content-Transfer-Encoding: 7Bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQEcBAABAgAGBQJU56F4AAoJEIX5k7RAOWS210YH/02szSFmpZTBtAZFBnAvV3fQ
-nOPu5f576KLq5p9zB+O6BUUE4dxFC0wuWHg8wC4IMnMIAilzJE1qfTcFK/xZeQY6
-QnfjsBYh3abjmAugMcw9uaQox9j33017sM4+j+Uw9HQd3fABRo3WuRbabPpU3KC7
-olTlqdg0ybkhnMobdaS/yyZLOm9NoVJzSc5GnQKJ8IqNCINeA+AxXFnKQSC92f87
-+G9FhXjk5OxrmKlQRTtY9B6C5Jw0HfnpF1n3QFc+PfHzc7INkVk4C2xROBNAguWg
-WmMw0Ak5DQhSpKx6QqMb3JnqUdciU9jriwcpuFM1mwNsytCNWs27Pf9cwXvtkO4=
-=xZ5m
------END PGP SIGNATURE-----
-
---nextPart5098787.67mfqJgTrn--
+DQoNCi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQpGcm9tOiBFZHdhcmQgQ3JlZSBbbWFpbHRv
+OmVjcmVlQHNvbGFyZmxhcmUuY29tXSANClNlbnQ6IEZyaWRheSwgRmVicnVhcnkgMjAsIDIwMTUg
+NTo1MiBBTQ0KVG86IEhpcm9zaGkgU2hpbWFtb3RvDQpDYzogU2tpZG1vcmUsIERvbmFsZCBDOyB2
+eWFzZXZpY0ByZWRoYXQuY29tOyBLaXJzaGVyLCBKZWZmcmV5IFQ7IEFsZXhhbmRlciBEdXljazsg
+QmrDuHJuIE1vcms7IGUxMDAwLWRldmVsQGxpc3RzLnNvdXJjZWZvcmdlLm5ldDsgbmV0ZGV2QHZn
+ZXIua2VybmVsLm9yZzsgQ2hvaSwgU3kgSm9uZzsgbGludXgta2VybmVsQHZnZXIua2VybmVsLm9y
+ZzsgRGF2aWQgTGFpZ2h0OyBIYXlhdG8gTW9tbWENClN1YmplY3Q6IFJlOiBbUEFUQ0ggdjIgMi8z
+XSBpZl9saW5rOiBBZGQgVkYgbXVsdGljYXN0IHByb21pc2N1b3VzIGNvbnRyb2wNCg0KT24gMjAv
+MDIvMTUgMDE6MDAsIEhpcm9zaGkgU2hpbWFtb3RvIHdyb3RlOg0KPiBGcm9tOiBIaXJvc2hpIFNo
+aW1hbW90byA8aC1zaGltYW1vdG9AY3QuanAubmVjLmNvbT4NCj4NCj4gQWRkIG5ldGxpbmsgZGly
+ZWN0aXZlcyBhbmQgbmRvIGVudHJ5IHRvIGFsbG93IFZGIG11bHRpY2FzdCBwcm9taXNjdW91cyBt
+b2RlLg0KPg0KPiBUaGUgYWRtaW5pc3RyYXRvciB3YW50cyB0byBhbGxvdyBkZWRpY2F0ZWRseSBt
+dWx0aWNhc3QgcHJvbWlzY3VvdXMgcGVyIFZGLg0KSWYgSSdtIHByb3Blcmx5IHVuZGVyc3RhbmRp
+bmcsIHRoaXMgc2VlbXMgdG8gYmUgYW4gaXhnYmUtc3BlY2lmaWMgb3B0aW9uIHRvIHdvcmsgYXJv
+dW5kIGFuIGl4Z2JlIGxpbWl0YXRpb247IGlzIGl0IHJlYWxseSBhcHByb3ByaWF0ZSB0byBpbXBs
+ZW1lbnQgYXMgYSBnZW5lcmljIG5ldF9kZXZpY2Vfb3A/DQpXaGF0IHdvdWxkIHRoaXMgbmRvIG1l
+YW4gdG8gYSBkcml2ZXIgd2hpY2ggY2FuIHN1cHBvcnQgdGhvdXNhbmRzIG9mIG11bHRpY2FzdCBn
+cm91cHMgd2l0aG91dCBNQyBwcm9taXNjPyAgSXMgaXQgZXhwZWN0ZWQgdG8gbGltaXQgdGhlIG51
+bWJlciBvZiBNQyBncm91cHMgd2hlbiB0aGlzIGlzIHNldCB0byBkaXNhbGxvdz8gIE9yIGp1c3Qg
+ZnVsZmlsIHRoZSBsZXR0ZXIgb2YgdGhlIG9wdGlvbiBidXQgbm90IGl0cyBzcGlyaXQ/ICBUaGUg
+b3B0aW9uIGRvZXNuJ3Qgc2VlbSB0byBoYXZlIHdlbGwtZGVmaW5lZCBzZW1hbnRpY3Mgb3V0c2lk
+ZSBvZiBpeGdiZS4NCkkgd291bGQgc3VnZ2VzdCB0aGF0IHRoZSByaWdodCBwbGFjZSBmb3IgdGhp
+cyBzb3J0IG9mIGRyaXZlci1zcGVjaWZpYyBkZXZpY2UgY29udHJvbCBpcyBpbiBzeXNmcy4NCg0K
+SSdtIGFsc28gYSBsaXR0bGUgcGVycGxleGVkIGFzIHRvIHdoeSBhbnlvbmUgd291bGQgbmVlZCB0
+byBkaXNhbGxvdyB0aGlzOyB3aGF0IHNlY3VyaXR5LCBvciBldmVuIGFkbWluaXN0cmF0aXZlIGNv
+bnZlbmllbmNlLCBpcyBnYWluZWQgYnkgYWxsb3dpbmcgYSBWRiB0byBqb2luIDMwIG11bHRpY2Fz
+dCBncm91cHMgYnV0IG5vdCBtdWx0aWNhc3QgcHJvbWlzY3VvdXMgbW9kZT8gIEVzcGVjaWFsbHkg
+YXMsIGFmYWlrLCB0aGVyZSBhcmUgbm8gcmVzdHJpY3Rpb25zIG9uIHdoaWNoIG11bHRpY2FzdCBn
+cm91cHMgYXJlIGpvaW5lZCwgc28gdGhlIFZGIGNhbiByZWNlaXZlIGFueSBwYXJ0aWN1bGFyIG11
+bHRpY2FzdCB0cmFmZmljIGl0IGNhcmVzIGFib3V0Lg0KVGhlIGluZm9ybWF0aW9uIGNvbnRhaW5l
+ZCBpbiB0aGlzIG1lc3NhZ2UgaXMgY29uZmlkZW50aWFsIGFuZCBpcyBpbnRlbmRlZCBmb3IgdGhl
+IGFkZHJlc3NlZShzKSBvbmx5LiBJZiB5b3UgaGF2ZSByZWNlaXZlZCB0aGlzIG1lc3NhZ2UgaW4g
+ZXJyb3IsIHBsZWFzZSBub3RpZnkgdGhlIHNlbmRlciBpbW1lZGlhdGVseSBhbmQgZGVsZXRlIHRo
+ZSBtZXNzYWdlLiBVbmxlc3MgeW91IGFyZSBhbiBhZGRyZXNzZWUgKG9yIGF1dGhvcml6ZWQgdG8g
+cmVjZWl2ZSBmb3IgYW4gYWRkcmVzc2VlKSwgeW91IG1heSBub3QgdXNlLCBjb3B5IG9yIGRpc2Ns
+b3NlIHRvIGFueW9uZSB0aGlzIG1lc3NhZ2Ugb3IgYW55IGluZm9ybWF0aW9uIGNvbnRhaW5lZCBp
+biB0aGlzIG1lc3NhZ2UuIFRoZSB1bmF1dGhvcml6ZWQgdXNlLCBkaXNjbG9zdXJlLCBjb3B5aW5n
+IG9yIGFsdGVyYXRpb24gb2YgdGhpcyBtZXNzYWdlIGlzIHN0cmljdGx5IA0KcHJvaGliaXRlZC4N
+Cg0KDQpJZiBhIHZlbmRlciBzcGVjaWZpYyBpbnRlcmZhY2UgaXMgb2JqZWN0aW9uYWJsZSBtYXli
+ZSBhIHNpbXBsZXIgYW5kIG1vcmUgZ2VuZXJpYyBpbnRlcmZhY2Ugd291bGQgYmUgZm9yIHRoZSBQ
+RiB0byBiZSBhYmxlIHRvIHNldCBhIGdpdmVuIFZGIGludG8gInRydXN0ZWQiIG1vZGUuICBUaGVu
+IHdoZW4gdGhlIFZGIHJlcXVlc3RlZCB0byBlbnRlciBtdWx0aWNhc3QgcHJvbWlzY3VvdXMgbW9k
+ZSB2aWEgdGhlIG1haWxib3ggbWVzc2FnZSB0aGUgUEYgd291bGQganVzdCBhbGxvdyBpdD8gIFRo
+aXMgY291bGQgdGhlbiBiZSB1c2VkIHRvIGFkZHJlc3Mgb3RoZXIgaXNzdWVzIHdoZXJlIHdlIGRv
+bid0IHdhbnQgdG8gYWxsb3cgYSBWRiB0byBkbyBzb21ldGhpbmcgZHVlIHRvIGlzb2xhdGlvbiBv
+ciBwZXJmb3JtYW5jZSBjb25jZXJucy4gIEkgYWRtaXQgZXhhY3RseSB3aGF0ICd0cnVzdGVkJyBt
+ZWFudCB3b3VsZCB2YXJ5IGZyb20gdmVuZGVyIHRvIHZlbmRlciwgYnV0IGl0IHdvdWxkIGJlIGEg
+d2F5IGZvciB0aGUgZHJpdmVyIHRvIGtub3cgaXQgY291bGQgYWxsb3cgY29uZmlndXJhdGlvbnMg
+c3VjaCBhcyB0aGlzLiAgSnVzdCBhbiBpZGVhLCBzaW5jZSB3ZSBzZWVtIHRvIGJlIGdldHRpbmcg
+bW9yZSByZXF1ZXN0cyBmb3IgdGhpbmdzIHN1Y2ggYXMgdGhpcy4NCg0KQXMgdG8gd2h5IHNvbWVv
+bmUgbWF5IHdhbnQgdG8gYmxvY2sgYSBWRiBmcm9tIGVudGVyaW5nIG11bHRpY2FzdCBwcm9taXNj
+dW91cyBpdCBoYXMgbW9yZSB0byBkbyB3aXRoIHBlcmZvcm1hbmNlIHRoYXQgc2VjdXJpdHkuICBU
+aGUgaXNzdWUgaXMgdGhpcyBjb3VsZCBoYXZlIGEgdmVyeSBub3RpY2VhYmx5IGVmZmVjdCAgb24g
+dGhlIG92ZXJhbGwgc3lzdGVtLiAgSWYgYW55IG90aGVyIFZGcyAob3IgdGhlIFBGKSBhcmUgcmVj
+ZWl2aW5nIE1DIHBhY2tldHMgdGhlc2Ugd2lsbCBoYXZlIHRvIGJlIHJlcGxpY2F0ZWQgd2hpY2gg
+d2lsbCBiZSBhIHBlcmZvcm1hbmNlIGhpdC4gIFdoZW4gd2UgdXNlIHRoZSBNQyBoYXNoIHRoaXMg
+aXMgbGltaXRlZCB2cy4gd2hlbiBhbnlvbmUgaXMgaW4gTUMgcHJvbWlzY3VvdXMgZXZlcnkgTUMg
+cGFja2V0IHVzZWQgYnkgYW5vdGhlciBwb29sIHdvdWxkIGJlIHJlcGxpY2F0ZWQuIC4gIElmIHRv
+byBtYW55IFZGJ3Mgd2VyZSBpbiB0aGlzIG1vZGUgeW91IHJ1biB0aGUgcmlzayBmb3IgZmxvb2Rp
+bmcgdGhlIFBDSWUgaW50ZXJmYWNlLiAgSSBjb3VsZCBpbWFnaW5lIGluIHNvbWUgZW52aXJvbm1l
+bnRzIChpLmUuIHB1YmxpYyBjbG91ZHMpIHdoZXJlIHlvdSBkb24ndCB0cnVzdCB3aGF0IGlzIHJ1
+bm5pbmcgaW4geW91ciBWTSB5b3UgbWlnaHQgd2hhdCB0byBibG9jayB0aGlzIGZyb20gaGFwcGVu
+aW5nLg0KDQotIERvbiBTa2lkbW9yZSA8ZG9uYWxkLmMuc2tpZG1vcmVAaW50ZWwuY29tPg0KDQo=
