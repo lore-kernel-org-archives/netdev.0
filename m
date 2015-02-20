@@ -1,38 +1,44 @@
-From: Rami Rosen <ramirose@gmail.com>
-Subject: [PATCH net-next] ethtool: Add hw-switch-offload to netdev_features_strings.
-Date: Sat, 21 Feb 2015 00:50:48 +0200
-Message-ID: <1424472648-24828-1-git-send-email-ramirose@gmail.com>
-Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
-	Rami Rosen <ramirose@gmail.com>
-To: davem@davemloft.net
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Why do we use RX queue mapping for TX?
+Date: Fri, 20 Feb 2015 11:08:07 -0800
+Message-ID: <1424459287.5565.23.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CAHA+R7MXF-KHZ3aeBwwshSYDswKwrjhbMJQ=+Hfj3gZJq70dXQ@mail.gmail.com>
+	 <CAHA+R7PdG+jDqFA1jDFzHtkrxqLEZdtj1w5QyrdYMO4fX6+A1w@mail.gmail.com>
+	 <CAHA+R7OVHgwQBM200UZDKiw5eypuzhWj=B4E3MRkOK3yViZDCQ@mail.gmail.com>
+	 <1424301248.4942.99.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAHA+R7PbLRw-oA4v9ivZ0s-++ALx99zddJLDqDoemyBTc2XZ1g@mail.gmail.com>
+	 <1424304992.4942.109.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAHA+R7N=uFyja4daQTY50RVMAzYT1J1AUMmsF+6HynZQED+OgA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+To: Cong Wang <cwang@twopensource.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:30118 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752548AbbBTTBS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Feb 2015 14:01:18 -0500
+Received: from mail-ie0-f182.google.com ([209.85.223.182]:40795 "EHLO
+	mail-ie0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755312AbbBTTIJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Feb 2015 14:08:09 -0500
+Received: by iebtr6 with SMTP id tr6so10120556ieb.7
+        for <netdev@vger.kernel.org>; Fri, 20 Feb 2015 11:08:09 -0800 (PST)
+In-Reply-To: <CAHA+R7N=uFyja4daQTY50RVMAzYT1J1AUMmsF+6HynZQED+OgA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-commit aafb3e98b279 (netdev: introduce new NETIF_F_HW_SWITCH_OFFLOAD feature
-flag for switch device offloads) added a new feature without adding it to
-netdev_features_strings array; this patch fixes this.
+On Fri, 2015-02-20 at 10:09 -0800, Cong Wang wrote:
 
-Signed-off-by: Rami Rosen <ramirose@gmail.com>
----
- net/core/ethtool.c | 1 +
- 1 file changed, 1 insertion(+)
+> Yes of course, but that means I need an indirect layer to
+> map RX to TX (ifb or mirred), since I only care about TX queues. :-/
 
-diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-index 91f74f3..fc5feda 100644
---- a/net/core/ethtool.c
-+++ b/net/core/ethtool.c
-@@ -98,6 +98,7 @@ static const char netdev_features_strings[NETDEV_FEATURE_COUNT][ETH_GSTRING_LEN]
- 	[NETIF_F_RXALL_BIT] =            "rx-all",
- 	[NETIF_F_HW_L2FW_DOFFLOAD_BIT] = "l2-fwd-offload",
- 	[NETIF_F_BUSY_POLL_BIT] =        "busy-poll",
-+        [NETIF_F_HW_SWITCH_OFFLOAD_BIT] = "hw-switch-offload",
- };
- 
- static const char
--- 
-1.9.3
+We do care of TX queues as well, but we use XPS, for performance
+reasons.
+
+It looks like you want something very different.
+
+Note : netdev_pick_tx/ndo_select_queue() is called before queue
+selection.
+
+Maybe you want something close to the reclassify thing in tc, allowing
+a packet to restart the tx _before_ the point netdev_pick_tx() is
+called.
