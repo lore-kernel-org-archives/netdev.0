@@ -1,51 +1,93 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH RFC 2/2] net: dsa: bcm_sf2: implement HW bridging operations
-Date: Thu, 19 Feb 2015 18:00:22 -0800
-Message-ID: <54E69536.3040303@gmail.com>
-References: <1424201196-4901-1-git-send-email-f.fainelli@gmail.com> <1424201196-4901-3-git-send-email-f.fainelli@gmail.com> <54E54EF3.9020802@gmail.com> <20150219055953.GA14247@roeck-us.net> <54E61CFB.3010109@gmail.com> <20150219174640.GA6897@roeck-us.net> <54E676DD.9090003@gmail.com> <20150220000935.GA30118@roeck-us.net> <54E68512.6070108@cumulusnetworks.com> <20150220010352.GA300@roeck-us.net> <54E691F2.5090205@cumulusnetworks.com>
+From: Jonathon Reinhart <jonathon.reinhart@gmail.com>
+Subject: Re: [PATCH] Allow specifying bridge port STP state by name rather
+ than number.
+Date: Thu, 19 Feb 2015 21:00:23 -0500
+Message-ID: <CAPFHKzcOFQCtz0pwLm8XOZxTOkC9w4CFq2vcLnwxUfVVmWdNCw@mail.gmail.com>
+References: <20150219192726.GA17950@alexpilon.ca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	vivien.didelot@savoirfairelinux.com,
-	jerome.oufella@savoirfairelinux.com, andrew@lunn.ch,
-	cphealy@gmail.com
-To: roopa <roopa@cumulusnetworks.com>,
-	Guenter Roeck <linux@roeck-us.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org
+To: Alex Pilon <alp@alexpilon.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:37429 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752810AbbBTCAi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Feb 2015 21:00:38 -0500
-Received: by pabrd3 with SMTP id rd3so4226830pab.4
-        for <netdev@vger.kernel.org>; Thu, 19 Feb 2015 18:00:38 -0800 (PST)
-In-Reply-To: <54E691F2.5090205@cumulusnetworks.com>
+Received: from mail-wg0-f42.google.com ([74.125.82.42]:59548 "EHLO
+	mail-wg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753751AbbBTCAz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Feb 2015 21:00:55 -0500
+Received: by mail-wg0-f42.google.com with SMTP id n12so10675856wgh.1
+        for <netdev@vger.kernel.org>; Thu, 19 Feb 2015 18:00:53 -0800 (PST)
+In-Reply-To: <20150219192726.GA17950@alexpilon.ca>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 19/02/15 17:46, roopa wrote:
-> On 2/19/15, 5:03 PM, Guenter Roeck wrote:
->> On Thu, Feb 19, 2015 at 04:51:30PM -0800, roopa wrote:
->>>> Not sure yet what to do about setting the fdb aging time. I don't see a
->>>> mechanism to do that. No idea how important that is.
->>> rocker, the only consumer today relies on the bridge driver aging of
->>> learnt
->>> entries.
->>> You could do the same.
->>>
->> Remember that we are dealing with hardware switch chips. Those chips
->> won't time out fdb entries just because the kernel's bridge driver
->> thinks that it should.
-> Oh, they dont..?. sorry,  I dont know the details about your hardware.
-> But, if these are entries learnt by hw, there should be a hw config to
-> age them (I guess that is what you are talking about). Which the swicth
-> driver can set.
-> If you disable hw aging, you can sync these entries to the bridge
-> driver, and make the bridge driver age them followed by a subsequent
-> delete in hw.
+Please don't pass -1 to exit().  It is outside the acceptable range (0 to 255)
+of exit status values:
 
-The SF2 HW has and aging and a valid bit available, I guess my question
-would be, do we have anything today in "net-next" that allows
-configuring HW aging vs. SW aging (implying doing a HW to SW sync)?
--- 
-Florian
+https://www.gnu.org/software/libc/manual/html_node/Exit-Status.html
+
+Most programs exit(1) when presented with invalid user input.
+
+On Thu, Feb 19, 2015 at 2:27 PM, Alex Pilon <alp@alexpilon.ca> wrote:
+> The existing behaviour forces one to memorize the integer constants for
+> STP port states.
+>
+>     # bridge link set dev dummy0 state 3
+>
+> This patch makes it possible to use the lowercased port state name.
+>
+>     # bridge link set dev dummy0 state forwarding
+>
+> Invalid non-integer inputs now cause exit with status -1.
+>
+> Signed-off-by: Alex Pilon <alp@alexpilon.ca>
+> ---
+>  bridge/link.c     | 14 +++++++++++++-
+>  man/man8/bridge.8 |  4 +++-
+>  2 files changed, 16 insertions(+), 2 deletions(-)
+>
+> diff --git a/bridge/link.c b/bridge/link.c
+> index c8555f8..a7bd85f 100644
+> --- a/bridge/link.c
+> +++ b/bridge/link.c
+> @@ -316,7 +316,19 @@ static int brlink_modify(int argc, char **argv)
+>                         priority = atoi(*argv);
+>                 } else if (strcmp(*argv, "state") == 0) {
+>                         NEXT_ARG();
+> -                       state = atoi(*argv);
+> +                       char *endptr;
+> +                       size_t nstates = sizeof(port_states) / sizeof(*port_states);
+> +                       state = strtol(*argv, &endptr, 10);
+> +                       if (!(**argv != '\0' && *endptr == '\0')) {
+> +                               for (state = 0; state < nstates; state++)
+> +                                       if (strcmp(port_states[state], *argv) == 0)
+> +                                               break;
+> +                               if (state == nstates) {
+> +                                       fprintf(stderr,
+> +                                               "Error: invalid STP port state\n");
+> +                                       exit(-1);
+> +                               }
+> +                       }
+>                 } else if (strcmp(*argv, "hwmode") == 0) {
+>                         NEXT_ARG();
+>                         flags = BRIDGE_FLAGS_SELF;
+> diff --git a/man/man8/bridge.8 b/man/man8/bridge.8
+> index e344db2..68ad71e 100644
+> --- a/man/man8/bridge.8
+> +++ b/man/man8/bridge.8
+> @@ -207,7 +207,9 @@ droot port selectio algorithms.
+>  .TP
+>  .BI state " STATE "
+>  the operation state of the port.  This is primarily used by user space STP/RSTP
+> -implementation.  The following is a list of valid values:
+> +implementation.  One may enter a lowercased port state name, or one of the
+> +numbers below.  Negative inputs are ignored, and unrecognized names return an
+> +error.
+>
+>  .B 0
+>  - port is DISABLED.  Make this port completely inactive.
+> --
+> 2.3.0
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
