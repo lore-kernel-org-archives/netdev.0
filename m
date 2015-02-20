@@ -1,51 +1,52 @@
-From: Robert Jarzmik <robert.jarzmik@free.fr>
-Subject: Re: [PATCH] net: smc91x: improve neponset hack
-Date: Fri, 20 Feb 2015 21:00:32 +0100
-Message-ID: <87twyg73q7.fsf@free.fr>
-References: <5763365.j5Nvv4LgM3@wuerfel>
-	<20150219003549.GY8656@n2100.arm.linux.org.uk>
-	<5754481.gFE9BvLjh0@wuerfel>
+From: Peter Zijlstra <peterz@infradead.org>
+Subject: Re: [PATCH 6/7 linux-next] wan: cosa: replace current->state by
+ set_current_state()
+Date: Fri, 20 Feb 2015 21:02:26 +0100
+Message-ID: <20150220200226.GD23367@worktop.ger.corp.intel.com>
+References: <1424455977-21903-1-git-send-email-fabf@skynet.be>
+ <1424455977-21903-6-git-send-email-fabf@skynet.be>
+ <54E77E34.6050909@cogentembedded.com>
+ <20150220185800.GR2896@worktop.programming.kicks-ass.net>
+ <1424460713.5565.28.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: linux-arm-kernel@lists.infradead.org,
-	Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>,
-	netdev@vger.kernel.org, Linus Walleij <linus.walleij@linaro.org>,
-	linux-kernel@vger.kernel.org, davem@davemloft.net
-To: Arnd Bergmann <arnd@arndb.de>,
-	Russell King - ARM Linux <linux@arm.linux.org.uk>
+Content-Type: text/plain; charset=us-ascii
+Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	Fabian Frederick <fabf@skynet.be>,
+	linux-kernel@vger.kernel.org, Ingo Molnar <mingo@redhat.com>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	"Jan \"Yenya\" Kasprzak" <kas@fi.muni.cz>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5754481.gFE9BvLjh0@wuerfel> (Arnd Bergmann's message of "Fri, 20
-	Feb 2015 16:47:06 +0100")
+Content-Disposition: inline
+In-Reply-To: <1424460713.5565.28.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Arnd Bergmann <arnd@arndb.de> writes:
+On Fri, Feb 20, 2015 at 11:31:53AM -0800, Eric Dumazet wrote:
+> On Fri, 2015-02-20 at 19:58 +0100, Peter Zijlstra wrote:
 
-> On Thursday 19 February 2015 00:35:49 Russell King - ARM Linux wrote:
->> On Wed, Feb 18, 2015 at 08:47:30PM +0100, Arnd Bergmann wrote:
->> > The smc91x driver tries to support multiple platforms at compile
->> > time, but they are mutually exclusive at runtime, and not clearly
->> > defined.
->> 
->> I'd prefer to rework this to fix that properly.  From what I remember,
->> the whole SA11x0 stuff in this driver was a mess.
->
-> I guess that's reasonable. I've looked through the driver and it seems we
-> did most of the multiplatform work but left a few things alone that should
-> have been converted a long time ago.
->
-> Can you check if the approach below makes sense to you?
->
-> I've verified that each machine that defines an smc91x device now sets
-> the correct platform data, irq flags and access width, which should be
-> enough to collapse all the CONFIG_ARM cases into one.
->
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-When you're both satisfied with the smc91x patch, I can offer to test it across
-the pxa boards (lubbock, zylonite, and maybe mainstone). As I'm actively using
-the first 2, I'm interested in them being as functional as now :)
+> Maybe this might be self documented in set_current_state(),
+> as we have about 120 calls to __set_current_state(TASK_RUNNING)
+> 
+> diff --git a/include/linux/sched.h b/include/linux/sched.h
+> index 41c60e5302d7..26133da6445e 100644
+> --- a/include/linux/sched.h
+> +++ b/include/linux/sched.h
+> @@ -275,7 +275,11 @@ extern char ___assert_task_state[1 - 2*!!(
+>  #define set_current_state(state_value)				\
+>  	do {							\
+>  		current->task_state_change = _THIS_IP_;		\
+> -		set_mb(current->state, (state_value));		\
+> +		if (__builtin_constant_p(state_value) &&	\
+> +		    (state_value) == TASK_RUNNING)		\
+> +			current->state = (state_value);		\
+> +		else						\
+> +			set_mb(current->state, (state_value));	\
+>  	} while (0)
 
-Cheers.
+lkml.kernel.org/r/20150206163947.GR21418@twins.programming.kicks-ass.net
 
---
-Robert
+The problem is that there _might_ be someone relying on that barrier.
+
+Its (very) unlikely, but you don't want to risk subtle borkage just
+because. And I'm too lazy to go audit all of them :/
