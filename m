@@ -1,115 +1,84 @@
-From: Simon Farnsworth <simon@farnz.org.uk>
-Subject: Re: [PATCH] pppoe: Use workqueue to die properly when a PADT is received
-Date: Fri, 20 Feb 2015 16:41:17 +0000
-Message-ID: <2498181.kKNYHvd3hx@f19simon>
-References: <1424381068-22252-1-git-send-email-simon@farnz.org.uk> <20150220171014.3970204f0h4aebmu@berry.schulz.ip-v6.eu>
+From: Mahesh Bandewar <maheshb@google.com>
+Subject: Re: [PATCH next v6 3/5] bonding: Allow userspace to set actors'
+ system_priority in AD system
+Date: Fri, 20 Feb 2015 08:50:11 -0800
+Message-ID: <CAF2d9jgfe5phyjPC+iYQhqp0=10gg2bfFs4=Nk2xyMtQvFsfaw@mail.gmail.com>
+References: <1424328621-14245-1-git-send-email-maheshb@google.com>
+ <9642.1424381962@famine> <20150220032535.GM580@gospo.home.greyhouse.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="nextPart2446833.QqoNWWN2jK"; micalg="pgp-sha1"; protocol="application/pgp-signature"
-Cc: netdev@vger.kernel.org, Dan Williams <dcbw@redhat.com>,
-	mostrows@gmail.com, linux-ppp@vger.kernel.org
-To: Christoph Schulz <develop@kristov.de>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Jay Vosburgh <jay.vosburgh@canonical.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Veaceslav Falico <vfalico@gmail.com>,
+	Nikolay Aleksandrov <nikolay@redhat.com>,
+	David Miller <davem@davemloft.net>,
+	Maciej Zenczykowski <maze@google.com>,
+	netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>
+To: Andy Gospodarek <gospo@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from claranet-outbound-smtp07.uk.clara.net ([195.8.89.40]:57060 "EHLO
-	claranet-outbound-smtp07.uk.clara.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755294AbbBTQlg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Feb 2015 11:41:36 -0500
-In-Reply-To: <20150220171014.3970204f0h4aebmu@berry.schulz.ip-v6.eu>
+Received: from mail-ob0-f178.google.com ([209.85.214.178]:52044 "EHLO
+	mail-ob0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752301AbbBTQub (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Feb 2015 11:50:31 -0500
+Received: by mail-ob0-f178.google.com with SMTP id uz6so25207720obc.9
+        for <netdev@vger.kernel.org>; Fri, 20 Feb 2015 08:50:31 -0800 (PST)
+In-Reply-To: <20150220032535.GM580@gospo.home.greyhouse.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
---nextPart2446833.QqoNWWN2jK
-Content-Transfer-Encoding: quoted-printable
-Content-Type: text/plain; charset="us-ascii"
-
-On Friday 20 February 2015 17:10:14 Christoph Schulz wrote:
-> (Cc: linux-ppp@vger.kernel.org, mostrows@gmail.com)
->=20
-> Hello!
->=20
-> Simon Farnsworth schrieb am Thu, 19 Feb 2015 21:24:28 +0000:
->=20
-> > When a PADT frame is received, the socket may not be in a good stat=
-e to
-> > close down the PPP interface. The current implementation handles th=
-is by
-> > simply blocking all further PPP traffic, and hoping that the lack o=
-f traffic
-> > will trigger the user to investigate.
-> >
-> > Use schedule_work to get to a process context from which we clear d=
-own the
-> > PPP interface, in a fashion analogous to hangup on a TTY-based PPP
-> > interface. This causes pppd to disconnect immediately, and allows t=
-ools to
-> > take immediate corrective action.
->=20
-> Tested-by: Christoph Schulz <develop@kristov.de>
->=20
-<snip success report>
-> However, note also that your patch causes pppd (or rather the rp-pppo=
-e =20
-> plugin) to wonder about the socket closed by the kernel:
->=20
-> Feb 20 16:45:44 sandbox local2.err pppd[539]: Failed to disconnect =20=
-
-> PPPoE socket: 114 Operation already in progress
+On Thu, Feb 19, 2015 at 7:25 PM, Andy Gospodarek
+<gospo@cumulusnetworks.com> wrote:
+> On Thu, Feb 19, 2015 at 01:39:22PM -0800, Jay Vosburgh wrote:
+>>
+>>       [ Sorry, I hadn't read v6 earlier; resending for the current
+>> version so it is filed properly in patchwork... ]
+>>
+>> Mahesh Bandewar <maheshb@google.com> wrote:
+>>
+>> >This patch allows user to randomize the system-priority in an ad-system.
+>> >The allowed range is 1 - 0xFFFF while default value is 0xFFFF. If user
+>> >does not specify this value, the system defaults to 0xFFFF, which is
+>> >what it was before this patch.
+>> >
+>> >Following example code could set the value -
+>> >    # modprobe bonding mode=4
+>> >    # sys_prio=$(( 1 + RANDOM + RANDOM ))
+>> >    # echo $sys_prio > /sys/class/net/bond0/bonding/ad_actor_sys_prio
+>> >    # echo +eth1 > /sys/class/net/bond0/bonding/slaves
+>> >    ...
+>> >    # ip link set bond0 up
+>> >
+>> >Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+>> >Reviewed-by: Nikolay Aleksandrov <nikolay@redhat.com>
+>>
+>>       Mahesh: Andy and I got together at netdev01 and discussed the
+>> patches of this series that add options to sysfs for bonding (patches 3,
+>> 4, and 5).  In summary, in my opinion a netlink / iproute2 interface
+>> needs to be provided simultaneously with any new sysfs interface for
+>> bonding.  I realize that the sysfs api to bonding won't go away, but
+>> nevertheless users should be encouraged to use netlink preferentially.
+>> Providing the api pieces together encourages this.
+>>
+>>       As it happens, Andy mentioned that he has patches similar to
+>> these three, but with the netlink portion already implemented.
+>>
+>>       My suggestion here is therefore for Andy to post his patches,
+>> and then we can merge these together, and get this implemented properly
+>> with a minimum of duplicated effort.
 >
-I assume there's nothing else wrong here, other than pppd complaining? =
-The
-code doesn't suggest there will be issues if we fail to disconnect.
-
-> I don't fully understand the code there; it seems that the plugin =20=
-
-> *connects* the PPPoE session socket in order to *disconnect* it:
->=20
-> static void
-> PPPOEDisconnectDevice(void)
-> {
->      struct sockaddr_pppox sp;
->=20
->      sp.sa_family =3D AF_PPPOX;
->      sp.sa_protocol =3D PX_PROTO_OE;
->      sp.sa_addr.pppoe.sid =3D 0;
->      memcpy(sp.sa_addr.pppoe.dev, conn->ifName, IFNAMSIZ);
->      memcpy(sp.sa_addr.pppoe.remote, conn->peerEth, ETH_ALEN);
->      if (connect(conn->sessionSocket, (struct sockaddr *) &sp,
->                  sizeof(struct sockaddr_pppox)) < 0)
->          error("Failed to disconnect PPPoE socket: %d %m", errno);
->      close(conn->sessionSocket);
->      /* don't send PADT?? */
->      if (conn->discoverySocket >=3D 0)
->          close(conn->discoverySocket);
-> }
-
-The code is trying to disconnect the session by connecting to session 0=
-
-(which is invalid) in order to stop data flow. I'll have another look a=
-t the
-kernel code tonight to see if that does anything that
-close(conn->sessionSocket) won't do - I can't see a good reason for it,=
-
-though.
-
-I suspect this is a straight bug in the rp-pppoe.so plugin.
-=2D-
-Simon Farnsworth
-
---nextPart2446833.QqoNWWN2jK
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part.
-Content-Transfer-Encoding: 7Bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQEcBAABAgAGBQJU52OwAAoJEOsKZy3xM+c79sYH/0P2+K6c9Tch8+fVBGorGTku
-yjZE9YAiJvNTLEnH7DYPGaZBgFl4V4LbNkrUfJO6yauDzq79SZAVyckI+Xcrm5aQ
-JlswTfby7ix0om/x28xI2jxILv1E58MJPKZ73J+Ce+xInxQWnP9+bYAEuegIJG88
-GSnAyydrFwGYmysiq5DXxJUiq/rRed3Fa3JLnY6PzsDoG98SI2I5/uq7o0c2j0ge
-Kt82TWH+PVlBwygiuJf8eeIofaeW67xqLNgZxtXLo9g++yqZ+jyb0yH8YbsllX3q
-v3pLKgl4AlbdHZolsEHYW1VIexd+t3Uausz5m9qqYG/7XlHqDEN7ExylUbMY6Gw=
-=wmGK
------END PGP SIGNATURE-----
-
---nextPart2446833.QqoNWWN2jK--
+> Yes, I would be happy to integrate our netlink patches with these.
+> Mahesh, do you want me to send these to you and have you manage all of
+> this, or do you want me to just integrate this latest version with mine
+> and re-submit all of them?
+>
+Go ahead and re-submit them all. Thanks Andy.
+>>
+>>         -J
+>>
+>> ---
+>>       -Jay Vosburgh, jay.vosburgh@canonical.com
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
