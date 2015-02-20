@@ -1,63 +1,49 @@
-From: roopa <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next v3 0/2] iproute2: bridge vlan range support
-Date: Thu, 19 Feb 2015 18:08:23 -0800
-Message-ID: <54E69717.3050306@cumulusnetworks.com>
-References: <1422239185-14054-1-git-send-email-roopa@cumulusnetworks.com> <20150205104809.603763cf@urahara>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH RFC 2/2] net: dsa: bcm_sf2: implement HW bridging
+ operations
+Date: Fri, 20 Feb 2015 03:18:43 +0100
+Message-ID: <20150220021843.GG795@lunn.ch>
+References: <1424201196-4901-3-git-send-email-f.fainelli@gmail.com>
+ <54E54EF3.9020802@gmail.com>
+ <20150219055953.GA14247@roeck-us.net>
+ <54E61CFB.3010109@gmail.com>
+ <20150219174640.GA6897@roeck-us.net>
+ <54E676DD.9090003@gmail.com>
+ <20150220000935.GA30118@roeck-us.net>
+ <54E68512.6070108@cumulusnetworks.com>
+ <20150220010352.GA300@roeck-us.net>
+ <54E691F2.5090205@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, shemminger@vyatta.com, vyasevic@redhat.com,
-	wkok@cumulusnetworks.com, sfeldma@gmail.com,
-	Jamal Hadi Salim <hadi@mojatatu.com>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Guenter Roeck <linux@roeck-us.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	netdev@vger.kernel.org, davem@davemloft.net,
+	vivien.didelot@savoirfairelinux.com,
+	jerome.oufella@savoirfairelinux.com, cphealy@gmail.com
+To: roopa <roopa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:33431 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753417AbbBTCIZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Feb 2015 21:08:25 -0500
-Received: by pabkx10 with SMTP id kx10so4327328pab.0
-        for <netdev@vger.kernel.org>; Thu, 19 Feb 2015 18:08:24 -0800 (PST)
-In-Reply-To: <20150205104809.603763cf@urahara>
+Received: from vps0.lunn.ch ([178.209.37.122]:46372 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753575AbbBTCVi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Feb 2015 21:21:38 -0500
+Content-Disposition: inline
+In-Reply-To: <54E691F2.5090205@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2/5/15, 10:48 AM, Stephen Hemminger wrote:
-> On Sun, 25 Jan 2015 18:26:23 -0800
-> roopa@cumulusnetworks.com wrote:
->
->> From: Roopa Prabhu <roopa@cumulusnetworks.com>
->>
->> This series adds support for vlan ranges in iproute2 bridge add
->> and show commands.
->>
->> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
->> Signed-off-by: Wilson Kok <wkok@cumulusnetworks.com>
->>
->> Roopa Prabhu (2):
->>    iproute2: bridge: support vlan range for adds
->>    iproute2: bridge vlan show new option to print ranges
->>
->>   bridge/br_common.h        |    1 +
->>   bridge/bridge.c           |    6 ++++-
->>   bridge/vlan.c             |   55 ++++++++++++++++++++++++++++++++++++++++-----
->>   include/linux/if_bridge.h |    2 ++
->>   include/linux/rtnetlink.h |    1 +
->>   5 files changed, 58 insertions(+), 7 deletions(-)
->>
-> Applied to net-next branch of iproute2
-> Go ahead and send more patches if you decide on different output format.
+> >Remember that we are dealing with hardware switch chips. Those chips
+> >won't time out fdb entries just because the kernel's bridge driver
+> >thinks that it should.
 
-Thanks stephen.
+> Oh, they dont..?
 
-Maybe too late, but wanted to add a note.
-I would have loved to have the default output print vlan ranges if the 
-iproute2 version is capable and is talking to the kernel which has vlan 
-range support. The netlink msg handling takes care of back ward 
-compatibility.
+To some extent, it is better to think of these as two switches
+connected to each other, not one switch. The HW switch needs help with
+STP, but otherwise it is a fully functional and autonomous switch.
 
-I think, I was being too cautious to not break users who might be doing 
-screen scraping.
-In general should i be too worried about breaking such users ?.
-If not, I would love to resubmit the patch to make the default output 
-print ranges.
+This is going to make displaying the forwarding database interesting,
+because the SW bridge fdb and the HW bridge fdb are each subsets of
+the big picture and possible even contradictory since they are not
+updated atomically.
+
+	Andrew
