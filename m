@@ -1,29 +1,40 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net 2/3] rhashtable: better high order allocation attempts
-Date: Fri, 20 Feb 2015 11:23:18 +0100
-Message-ID: <54E70B16.70402@iogearbox.net>
-References: <cover.1424389682.git.daniel@iogearbox.net> <ef7f956fc36000761a652f2bcb395d0eb7300802.1424389682.git.daniel@iogearbox.net> <063D6719AE5E284EB5DD2968C1650D6D1CAE676F@AcuExch.aculab.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: smsc95xx truesize badness
+Date: Fri, 20 Feb 2015 10:24:48 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CAE6788@AcuExch.aculab.com>
+References: <CAKh2mn7w8fpSYJQqwxwOiAgzKm_5dtzY_uXG7WK7uO9CXSOTrw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "tgraf@suug.ch" <tgraf@suug.ch>,
-	"johunt@akamai.com" <johunt@akamai.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Laight <David.Laight@ACULAB.COM>,
-	"davem@davemloft.net" <davem@davemloft.net>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: popcorn mix <popcornmix@gmail.com>,
+	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>
+To: 'Steve Glendinning' <steve@shawell.net>,
+	netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:53556 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753512AbbBTKXd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Feb 2015 05:23:33 -0500
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CAE676F@AcuExch.aculab.com>
+Received: from smtp-out6.electric.net ([192.162.217.183]:59475 "EHLO
+	smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754089AbbBTKZ0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Feb 2015 05:25:26 -0500
+In-Reply-To: <CAKh2mn7w8fpSYJQqwxwOiAgzKm_5dtzY_uXG7WK7uO9CXSOTrw@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/20/2015 11:11 AM, David Laight wrote:
-...
-> How about a two-level array for large tables?
-> Then you don't need to allocate more than 1 page at a time?
-
-Sorry, I currently don't see how this fits into the rhashtable
-algorithm i.e. with regards to the expansion and shrink logic?
+RnJvbTogU3RldmUgR2xlbmRpbm5pbmcNCj4gSXQgc2VlbXMgc21zYzk1eHggaXMgZG9pbmcgYmFk
+IHRoaW5ncyB3aXRoIHRydWVzaXplIGluIG91ciByZWNlaXZlIGxvb3AuDQoNCklJUkMgdGhlIHNh
+bWUgaXMgdHJ1ZSBvZiBhIGxvdCBvZiB0aGUgdXNibmV0IGRyaXZlcnMuDQoNClJlYWxseSB0aGUg
+d2F5IHVzYm5ldCB3b3JrcyBuZWVkcyBhIGNvbXBsZXRlIHJldmlzdC4NCg0KQWxsb2NhdGluZyAo
+ZWcpIDE2ayBza2IgZm9yIHJlY2VpdmUgaXMganVzdCBwbGFpbiBzdHVwaWQgaW4gdGhlIGZpcnN0
+IHBsYWNlLg0KUHJvdmlkZWQgdGhlIFVSQiBhcmUgbXVsdGlwbGVzIG9mIHRoZSBVU0IgYnVmZmVy
+IHNpemUgd2hhdCB0aGUgY2FyZCBzZW5kcw0KYXMgYSBzaW5nbGUgYnVsayBtZXNzYWdlIGNhbiBi
+ZSByZWNlaXZlZCBpbnRvIG11bHRpcGxlIFVSQi4NCg0KSSdtIG5vdCBlbnRpcmVseSBjb252aW5j
+ZWQgdGhhdCB0cnlpbmcgdG8gcmVjZWl2ZSBpbnRvIHNrYiBpcyBhIGdvb2QgaWRlYS4NCkNvcHli
+cmVhayBvZiBzaG9ydCBmcmFtZXMgYW5kIHBhc3NpbmcgdXAgcmVmZXJlbmNlcyB0byByeCBidWZm
+ZXIgZnJhZ21lbnRzDQpmb3IgbG9uZyBmcmFtZXMgaXMgcHJvYmFibHkgYSBiZXR0ZXIgaWRlYS4N
+CkV2ZW4gZm9yIDEwME0gJ3Nob3J0JyBtaWdodCBiZSAxNTAwIQ0KDQpGb3IgVVNCMyB0aGluZ3Mg
+YXJlIGV2ZW4gd29yc2UuDQpBIFVTQjMgZXRoZXJuZXQgZHJpdmVyIG91Z2h0IHRvIGJlIGFsbW9z
+dCBhcyBmYXN0IGFzIGEgbm9ybWFsIGRyaXZlci4NCkFmdGVyIGFsbCB0aGUgdHJhbnNtaXQgYnVm
+ZmVyIGZyYWdtZW50cyBqdXN0IG5lZWQgd3JpdGluZyBpbnRvIHRoZQ0KdXNiIGRlc2NyaXB0b3Ig
+cmluZyAod2l0aCBzb21lIG5vbi1vYnZpb3VzIGNvbnN0cmFpbnRzIHRoZSB4aGNpIGRyaXZlcg0K
+dGVuZHMgdG8gaWdub3JlIGFzIHdlbGwpLg0KSG93ZXZlciB0aGUgY29kZSBwYXRocyB0aHJvdWdo
+IHVzYm5ldCBhcmUgaG9ycmlibHkgbG9uZy4NCg0KCURhdmlkDQoNCg==
