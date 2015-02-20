@@ -1,45 +1,51 @@
-From: Christoph Schulz <develop@kristov.de>
-Subject: Re: [PATCH] pppoe: Use workqueue to die properly when a PADT is
- received
-Date: Fri, 20 Feb 2015 20:49:23 +0100
-Message-ID: <20150220204923.13275ydcca5wwwcj@berry.schulz.ip-v6.eu>
-References: <1424381068-22252-1-git-send-email-simon@farnz.org.uk>
- <20150220171014.3970204f0h4aebmu@berry.schulz.ip-v6.eu>
- <2498181.kKNYHvd3hx@f19simon>
+From: Robert Jarzmik <robert.jarzmik@free.fr>
+Subject: Re: [PATCH] net: smc91x: improve neponset hack
+Date: Fri, 20 Feb 2015 21:00:32 +0100
+Message-ID: <87twyg73q7.fsf@free.fr>
+References: <5763365.j5Nvv4LgM3@wuerfel>
+	<20150219003549.GY8656@n2100.arm.linux.org.uk>
+	<5754481.gFE9BvLjh0@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=UTF-8;
- DelSp="Yes";
- format="flowed"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Dan Williams <dcbw@redhat.com>,
-	mostrows@gmail.com, linux-ppp@vger.kernel.org
-To: Simon Farnsworth <simon@farnz.org.uk>
-Return-path: <linux-ppp-owner@vger.kernel.org>
-In-Reply-To: <2498181.kKNYHvd3hx@f19simon>
-Content-Disposition: inline
-Sender: linux-ppp-owner@vger.kernel.org
+Content-Type: text/plain
+Cc: linux-arm-kernel@lists.infradead.org,
+	Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>,
+	netdev@vger.kernel.org, Linus Walleij <linus.walleij@linaro.org>,
+	linux-kernel@vger.kernel.org, davem@davemloft.net
+To: Arnd Bergmann <arnd@arndb.de>,
+	Russell King - ARM Linux <linux@arm.linux.org.uk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5754481.gFE9BvLjh0@wuerfel> (Arnd Bergmann's message of "Fri, 20
+	Feb 2015 16:47:06 +0100")
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello!
+Arnd Bergmann <arnd@arndb.de> writes:
 
-Simon Farnsworth schrieb am Fri, 20 Feb 2015 16:41:17 +0000:
+> On Thursday 19 February 2015 00:35:49 Russell King - ARM Linux wrote:
+>> On Wed, Feb 18, 2015 at 08:47:30PM +0100, Arnd Bergmann wrote:
+>> > The smc91x driver tries to support multiple platforms at compile
+>> > time, but they are mutually exclusive at runtime, and not clearly
+>> > defined.
+>> 
+>> I'd prefer to rework this to fix that properly.  From what I remember,
+>> the whole SA11x0 stuff in this driver was a mess.
+>
+> I guess that's reasonable. I've looked through the driver and it seems we
+> did most of the multiplatform work but left a few things alone that should
+> have been converted a long time ago.
+>
+> Can you check if the approach below makes sense to you?
+>
+> I've verified that each machine that defines an smc91x device now sets
+> the correct platform data, irq flags and access width, which should be
+> enough to collapse all the CONFIG_ARM cases into one.
+>
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+When you're both satisfied with the smc91x patch, I can offer to test it across
+the pxa boards (lubbock, zylonite, and maybe mainstone). As I'm actively using
+the first 2, I'm interested in them being as functional as now :)
 
->> Feb 20 16:45:44 sandbox local2.err pppd[539]: Failed to disconnect
->> PPPoE socket: 114 Operation already in progress
->>
-> I assume there's nothing else wrong here, other than pppd complaining? The
-> code doesn't suggest there will be issues if we fail to disconnect.
+Cheers.
 
-Yes, there are no further problems beside the message. Nevertheless I  
-wanted to mention it because any error message containing something  
-like "Failed to disconnect" may upset the user. Of course, most PPPoE  
-users nowadays use a flat rate for accessing the Internet and need not  
-worry much about a "failed" disconnection, but you never know for  
-sure...
-
-
-Regards,
-
-Christoph Schulz
-
+--
+Robert
