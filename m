@@ -1,93 +1,111 @@
-From: Marcelo Ricardo Leitner <mleitner@redhat.com>
-Subject: [PATCH net] ipv6: addrconf: validate new MTU before applying it
-Date: Fri, 20 Feb 2015 16:24:06 -0200
-Message-ID: <60cde83b718e88aa7fcae7239a3aac704e048efc.1424456163.git.mleitner@redhat.com>
-To: netdev@vger.kernel.org
+From: Jan Yenya Kasprzak <kas@fi.muni.cz>
+Subject: Re: [PATCH 6/7 linux-next] wan: cosa: replace current->state by
+ set_current_state()
+Date: Fri, 20 Feb 2015 19:26:59 +0100
+Message-ID: <20150220182659.GW13963@fi.muni.cz>
+References: <1424455977-21903-1-git-send-email-fabf@skynet.be>
+ <1424455977-21903-6-git-send-email-fabf@skynet.be>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, Ingo Molnar <mingo@redhat.com>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	netdev@vger.kernel.org
+To: Fabian Frederick <fabf@skynet.be>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:52746 "EHLO mx1.redhat.com"
+Received: from minas.ics.muni.cz ([147.251.4.46]:40702 "EHLO minas.ics.muni.cz"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753700AbbBTSYM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Feb 2015 13:24:12 -0500
-Received: from int-mx13.intmail.prod.int.phx2.redhat.com (int-mx13.intmail.prod.int.phx2.redhat.com [10.5.11.26])
-	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id t1KIOBqd004924
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-GCM-SHA384 bits=256 verify=FAIL)
-	for <netdev@vger.kernel.org>; Fri, 20 Feb 2015 13:24:12 -0500
-Received: from localhost.localdomain.com ([10.3.113.3])
-	by int-mx13.intmail.prod.int.phx2.redhat.com (8.14.4/8.14.4) with ESMTP id t1KIOAFY006549
-	for <netdev@vger.kernel.org>; Fri, 20 Feb 2015 13:24:11 -0500
+	id S1753612AbbBTS16 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Feb 2015 13:27:58 -0500
+Content-Disposition: inline
+In-Reply-To: <1424455977-21903-6-git-send-email-fabf@skynet.be>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently we don't check if the new MTU is valid or not and this allows
-one to configure a smaller than minimum allowed by RFCs or even bigger
-than interface own MTU, which is a problem as it may lead to packet
-drops.
+Fabian Frederick wrote:
+: Use helper functions to access current->state.
+: Direct assignments are prone to races and therefore buggy.
+: 
+: current->state = TASK_RUNNING is replaced by __set_current_state()
+: 
+: Thanks to Peter Zijlstra for the exact definition of the problem.
 
-If you have a daemon like NetworkManager running, this may be exploited
-by remote attackers by forging RA packets with an invalid MTU, possibly
-leading to a DoS. (NetworkManager currently only validates for values
-too small, but not for too big ones.)
+	OK, thanks. Although I wonder whether real users of COSA (an ISA-based
+WAN card) do exist.
 
-The fix is just to make sure the new value is valid. That is, between
-IPV6_MIN_MTU and interface's MTU.
+Acked-By: Jan "Yenya" Kasprzak <kas@fi.muni.cz>
 
-Note that similar check is already performed at
-ndisc_router_discovery(), for when kernel itself parses the RA.
+-Y.
 
-Signed-off-by: Marcelo Ricardo Leitner <mleitner@redhat.com>
----
- net/ipv6/addrconf.c | 32 +++++++++++++++++++++++++++++++-
- 1 file changed, 31 insertions(+), 1 deletion(-)
+: 
+: Suggested-By: Peter Zijlstra <peterz@infradead.org>
+: Signed-off-by: Fabian Frederick <fabf@skynet.be>
+: ---
+:  drivers/net/wan/cosa.c | 12 ++++++------
+:  1 file changed, 6 insertions(+), 6 deletions(-)
+: 
+: diff --git a/drivers/net/wan/cosa.c b/drivers/net/wan/cosa.c
+: index 83c39e2..88d121d 100644
+: --- a/drivers/net/wan/cosa.c
+: +++ b/drivers/net/wan/cosa.c
+: @@ -806,21 +806,21 @@ static ssize_t cosa_read(struct file *file,
+:  	spin_lock_irqsave(&cosa->lock, flags);
+:  	add_wait_queue(&chan->rxwaitq, &wait);
+:  	while (!chan->rx_status) {
+: -		current->state = TASK_INTERRUPTIBLE;
+: +		set_current_state(TASK_INTERRUPTIBLE);
+:  		spin_unlock_irqrestore(&cosa->lock, flags);
+:  		schedule();
+:  		spin_lock_irqsave(&cosa->lock, flags);
+:  		if (signal_pending(current) && chan->rx_status == 0) {
+:  			chan->rx_status = 1;
+:  			remove_wait_queue(&chan->rxwaitq, &wait);
+: -			current->state = TASK_RUNNING;
+: +			__set_current_state(TASK_RUNNING);
+:  			spin_unlock_irqrestore(&cosa->lock, flags);
+:  			mutex_unlock(&chan->rlock);
+:  			return -ERESTARTSYS;
+:  		}
+:  	}
+:  	remove_wait_queue(&chan->rxwaitq, &wait);
+: -	current->state = TASK_RUNNING;
+: +	__set_current_state(TASK_RUNNING);
+:  	kbuf = chan->rxdata;
+:  	count = chan->rxsize;
+:  	spin_unlock_irqrestore(&cosa->lock, flags);
+: @@ -890,14 +890,14 @@ static ssize_t cosa_write(struct file *file,
+:  	spin_lock_irqsave(&cosa->lock, flags);
+:  	add_wait_queue(&chan->txwaitq, &wait);
+:  	while (!chan->tx_status) {
+: -		current->state = TASK_INTERRUPTIBLE;
+: +		set_current_state(TASK_INTERRUPTIBLE);
+:  		spin_unlock_irqrestore(&cosa->lock, flags);
+:  		schedule();
+:  		spin_lock_irqsave(&cosa->lock, flags);
+:  		if (signal_pending(current) && chan->tx_status == 0) {
+:  			chan->tx_status = 1;
+:  			remove_wait_queue(&chan->txwaitq, &wait);
+: -			current->state = TASK_RUNNING;
+: +			__set_current_state(TASK_RUNNING);
+:  			chan->tx_status = 1;
+:  			spin_unlock_irqrestore(&cosa->lock, flags);
+:  			up(&chan->wsem);
+: @@ -905,7 +905,7 @@ static ssize_t cosa_write(struct file *file,
+:  		}
+:  	}
+:  	remove_wait_queue(&chan->txwaitq, &wait);
+: -	current->state = TASK_RUNNING;
+: +	__set_current_state(TASK_RUNNING);
+:  	up(&chan->wsem);
+:  	spin_unlock_irqrestore(&cosa->lock, flags);
+:  	kfree(kbuf);
+: -- 
+: 2.1.0
 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index f7c8bbeb27b704c0106f714d5a0677c27d3346e0..38892228ccacfe8b67b182784723cc0b67ce572b 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -4863,6 +4863,36 @@ int addrconf_sysctl_forward(struct ctl_table *ctl, int write,
- 	return ret;
- }
- 
-+static
-+int addrconf_sysctl_mtu(struct ctl_table *ctl, int write,
-+			void __user *buffer, size_t *lenp, loff_t *ppos)
-+{
-+	int *valp = ctl->data;
-+	int val = *valp;
-+	loff_t pos = *ppos;
-+	struct ctl_table lctl;
-+	int ret;
-+
-+	/* ctl->data points to idev->cnf.mtu6
-+	 */
-+	lctl = *ctl;
-+	lctl.data = &val;
-+
-+	ret = proc_dointvec(&lctl, write, buffer, lenp, ppos);
-+
-+	if (write) {
-+		struct inet6_dev *idev = ctl->extra1;
-+
-+		if (val >= IPV6_MIN_MTU && val <= idev->dev->mtu)
-+			*valp = val;
-+		else
-+			ret = -EINVAL;
-+	}
-+	if (ret)
-+		*ppos = pos;
-+	return ret;
-+}
-+
- static void dev_disable_change(struct inet6_dev *idev)
- {
- 	struct netdev_notifier_info info;
-@@ -5014,7 +5044,7 @@ static struct addrconf_sysctl_table
- 			.data		= &ipv6_devconf.mtu6,
- 			.maxlen		= sizeof(int),
- 			.mode		= 0644,
--			.proc_handler	= proc_dointvec,
-+			.proc_handler	= addrconf_sysctl_mtu,
- 		},
- 		{
- 			.procname	= "accept_ra",
 -- 
-1.9.3
+| Jan "Yenya" Kasprzak   <kas at {fi.muni.cz - work | yenya.net - private}> |
+| New GPG 4096R/A45477D5 -- see http://www.fi.muni.cz/~kas/pgp-rollover.txt |
+| http://www.fi.muni.cz/~kas/     Journal: http://www.fi.muni.cz/~kas/blog/ |
+||| "New and improved" is only really improved if it also takes backwards |||
+||| compatibility into account, rather than saying "now everybody must do |||
+||| things the new and improved - and different - way"   --Linus Torvalds |||
