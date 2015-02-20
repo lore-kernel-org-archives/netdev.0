@@ -1,78 +1,111 @@
-From: Murali Karicheri <m-karicheri2@ti.com>
-Subject: Re: Question on Bonding driver
-Date: Fri, 20 Feb 2015 11:59:44 -0500
-Message-ID: <54E76800.4050604@ti.com>
-References: <54DE3056.6020606@ti.com> <4331.1423931133@nyx>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: Port STP state after removing port from bridge
+Date: Fri, 20 Feb 2015 09:04:18 -0800
+Message-ID: <54E76912.3090203@gmail.com>
+References: <CAGVrzcZMV3vSd3hEsXqk6BtyU-Ts9=oJvb79DTZp25TnnGm5CQ@mail.gmail.com>	<CAE4R7bBSbwi93t05Z+rB2JgzFYdZ+m44AFSzU7JkwdHRWzz1Mw@mail.gmail.com>	<20150220100046.GB2008@nanopsycho.orion> <CAE4R7bAN7QrJcjUCbAJ86tb9YDNGJfYeq3fdqh-a3Xnc+4S+Zg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, WingMan Kwok <w-kwok2@ti.com>
-To: Jay Vosburgh <jay.vosburgh@canonical.com>
+Cc: netdev <netdev@vger.kernel.org>,
+	Stephen Hemminger <stephen@networkplumber.org>
+To: Scott Feldman <sfeldma@gmail.com>, Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from arroyo.ext.ti.com ([192.94.94.40]:48254 "EHLO arroyo.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754886AbbBTQ7q (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Feb 2015 11:59:46 -0500
-In-Reply-To: <4331.1423931133@nyx>
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:35562 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754767AbbBTREg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Feb 2015 12:04:36 -0500
+Received: by padfa1 with SMTP id fa1so9426819pad.2
+        for <netdev@vger.kernel.org>; Fri, 20 Feb 2015 09:04:35 -0800 (PST)
+In-Reply-To: <CAE4R7bAN7QrJcjUCbAJ86tb9YDNGJfYeq3fdqh-a3Xnc+4S+Zg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/14/2015 11:25 AM, Jay Vosburgh wrote:
-> Murali Karicheri<m-karicheri2@ti.com>  wrote:
->
->> Hi,
+On 20/02/15 07:03, Scott Feldman wrote:
+> On Fri, Feb 20, 2015 at 2:00 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+>> Fri, Feb 20, 2015 at 05:45:01AM CET, sfeldma@gmail.com wrote:
+>>> On Wed, Feb 18, 2015 at 11:39 PM, Florian Fainelli <f.fainelli@gmail.com>
+>>> wrote:
+>>>
+>>>> Hi,
+>>>>
+>>>> It just occured to me that the following sequence:
+>>>>
+>>>> brctl addbr br0
+>>>> brctl addif br0 port0
+>>>> ... STP happens
+>>>> brctl delif br0 port0
+>>>>
+>>>> will leave port0 in STP disabled state, because the bridge code will
+>>>> set the STP state to DISABLED, and only a down/up sequence can bring
+>>>> it back to FORWARDING.
+>>>>
+>>>> Is this something that we should somehow fix? As an user it seems a
+>>>> little convoluted having to do a down/up sequence to restore things. I
+>>>> believe however that it is valid for the bridge layer to mark a port
+>>>> as DISABLED when removing it. This is typically not noticed or even
+>>>> remotely a problem with software bridges because we cannot enforce an
+>>>> actual STP state at the HW level.
+>>>>
+>>>> Let me know your thoughts.
+>>>>
+>>>>
+>>> The fix in rocker would be:
+>>>
+>>> diff --git a/drivers/net/ethernet/rocker/rocker.c
+>>> b/drivers/net/ethernet/rocker/rocker.c
+>>> index 34389b6a..e2004fb 100644
+>>> --- a/drivers/net/ethernet/rocker/rocker.c
+>>> +++ b/drivers/net/ethernet/rocker/rocker.c
+>>> @@ -4456,8 +4456,10 @@ static int rocker_port_bridge_leave(struct
+>>> rocker_port *rocker_port)
+>>>                rocker_port_internal_vlan_id_get(rocker_port,
+>>>                                                 rocker_port->dev->ifindex);
+>>>        err = rocker_port_vlan(rocker_port, 0, 0);
+>>> +       if (err)
+>>> +               return err;
+>>>
+>>> -       return err;
+>>> +       return rocker_port_stp_update(rocker_port, BR_STATE_FORWARDING);
+>>> }
+>>>
+>>>
+>>> This will return the port back to it's initial state of
+>>> BR_STATE_FORWARDING, after it's removed from the bridge.
+>>>
+>>> I'll include this patch in the rocker pile to be pushed later.
+>>>
+>>> -scott
 >>
->> I am working to enable bonding driver on my hardware and trying to
->> understand this.
 >>
->> I am using the alb mode. I create a bond interface with 2 ethernet
->> interfaces. First one is the basic question about net driver itself and
->> second is about bonding.
->>
->> 1. Each ethernet interface has a MAC address. The hardware has MAC filter
->> and the driver fills the net_device's dev_addr with its MAC address before
->> calling register_netdev() API. When the net core calls ndo_start(), is the
->> low level driver responsible for setting up its MAC address in the MAC
->> filter of the hardware or low level driver will be told to do so by upper
->> layer. Or is it required to set it up as part of ndo_set_rx_mode() or
->> ndo_set_mac_address()?
->>
->> 2. In the case of bonding, the bond interface MAC address is copied from
->> the active slave's MAC address. Also it updates the dev_addr in the netdev
->> struct of each of the slave with its own MAC address. So I assume, the
->> device/NIC now needs to accept packets to its original MAC address as well
->> the bond's MAC address. This is especially more important for the slave's
->> that are not active slave as it can be target of packets from Peers as
->> part of rlb. So for the slave that is not active slave, MAC filter needs
->> to include its original hw address as well unless the slave is put to
->> promiscuous mode. So I am trying to figure out how this is expected to
->> work? All slaves put to promiscuous mode or MAC filter updated by slave
->> driver to include MAC addresses it is expected to filter on (bond MAC
->> address and its own MAC address)
->
-> 	I'm travelling at the moment, but the short answer for #2 is
-> that the way the alb mode works is basically that the non-active slaves
-> only receive for their own individual MAC.  Peers within the L2 network
-> are "assigned" to those slaves via tailored ARPs sent to the specific
-> peers.  The slaves do not generally go into promisc mode (there are
-> exceptions during failover type events), nor are they programmed with
-> multiple unicast MAC addreeses.
->
-> 	I'd suggest you look at rlb_update_client in bond_alb.c and the
-> functions that call it to understand the logic.
+>> I'm not sure, but wouldn't it be nicer it the bridge code would set
+>> state to disabled before the port is removed from the bridge?
+> 
+> When the port is removed from a bridge, for example with brctl delif,
+> the bridge driver puts port in BR_STATE_DISABLED and then sends
+> netdevice event NETDEV_CHANGEUPPER.  In response to
+> NETDEV_CHANGEUPPER, the rocker driver is returning port back to
+> BR_STATE_FORWARDING (the initial state for an un-bridged port).  So
+> this preserves bridge behavior for non-switchdev uses.  Does this
+> answer the question, or did I miss understand your question?
 
-Thanks Jay. Will take a look.
+I think what we want is a solution at the bridge level, we have rocker
+now updating the STP state to BR_STATE_FORWARDING when a given
+rocker_port leaves a bridge, and I also had a similar change in DSA.
 
-Murali
->
-> 	-J
->
-> ---
-> 	-Jay Vosburgh, jay.vosburgh@canonical.com
->
->
+Something like this maybe (untested):
 
+diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
+index b087d278c679..d693a2a10b3c 100644
+--- a/net/bridge/br_if.c
++++ b/net/bridge/br_if.c
+@@ -242,6 +242,8 @@ static void del_nbp(struct net_bridge_port *p)
 
+        spin_lock_bh(&br->lock);
+        br_stp_disable_port(p);
++       if (dev->features & NETIF_F_HW_SWITCH_OFFLOAD)
++               br_set_state(p, BR_STATE_FORWARDING);
+        spin_unlock_bh(&br->lock);
+
+        br_ifinfo_notify(RTM_DELLINK, p);
 -- 
-Murali Karicheri
-Linux Kernel, Texas Instruments
+Florian
