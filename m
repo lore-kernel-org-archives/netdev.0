@@ -1,280 +1,353 @@
 From: Jonas Johansson <jonasj76@gmail.com>
-Subject: [PATCH net-next 1/2] dsa: bonding: implement HW bonding
-Date: Fri, 20 Feb 2015 11:51:12 +0100
-Message-ID: <1424429473-4601-2-git-send-email-jonasj76@gmail.com>
+Subject: [PATCH net-next 2/2] mv88e6131: bonding: implement single device trunking
+Date: Fri, 20 Feb 2015 11:51:13 +0100
+Message-ID: <1424429473-4601-3-git-send-email-jonasj76@gmail.com>
 References: <1424429473-4601-1-git-send-email-jonasj76@gmail.com>
 Cc: Jonas Johansson <jonas.johansson@westermo.se>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f182.google.com ([209.85.217.182]:38038 "EHLO
-	mail-lb0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754027AbbBTKv0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Feb 2015 05:51:26 -0500
-Received: by lbiz11 with SMTP id z11so5470518lbi.5
-        for <netdev@vger.kernel.org>; Fri, 20 Feb 2015 02:51:25 -0800 (PST)
+Received: from mail-la0-f46.google.com ([209.85.215.46]:36763 "EHLO
+	mail-la0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754214AbbBTKv3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Feb 2015 05:51:29 -0500
+Received: by labgq15 with SMTP id gq15so5324109lab.3
+        for <netdev@vger.kernel.org>; Fri, 20 Feb 2015 02:51:27 -0800 (PST)
 In-Reply-To: <1424429473-4601-1-git-send-email-jonasj76@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jonas Johansson <jonas.johansson@westermo.se>
 
-This patch will implement hooks for hardware bonding support for the DSA
-driver. When the team driver adds a DSA slave port the port will be assigned
-a bond group id and the DSA slave driver can setup the hardware. When team
-changes the port state (enabled/disabled) the DSA slave driver is able to
-use the attach/detach callback which will allow the hardware to change the
-hardware settings to reflect the state.
+This patch will use the DSA hardware bonding support hooks to setup trunking
+for the Marvell 88E6095 device. The implementation only handles trunking in
+a single device.
 
-Added DSA hooks:
- bond_add_group: To add a port to a bond group
- bond_del_group: To remove a port from a bond group
- bond_attach: To mark the port in a bond group as attached/active
- bond_detach: To unmark the port in a bond group as detach/inactive
+Hooks:
+ .bond_add_group: Add port to a bond group
+ .bond_del_group: Remove port from a bond group
+ .bond_attach: Attach/activate port in bond group
+ .bond_detach: Detach/inactivate port in bond group
 
-Added new network device hooks:
- ndo_bond_attach: To attach a device to a bond group.
- ndo_bond_detach: To detach a device from a bond group.
+Procedure to add/remome port from bond group:
+ Setup trunk learning (Port Association Vector)
+ Setup loop prevention (VLAN Table)
+ Setup load balancing (Trunk Mask Load Balance Table)
 
-Team:
- Added callback to ndo_bond_attach when port is enabled.
- Added callback to ndo_bond_detach when port is disabled.
-
-Added DSA notifier:
- Listening on NETDEV_CHANGEUPPER to add or deleta a port to/from a bond group.
+Procedure to attach/detach port:
+ Change load balancing (Trunk Mask Load Balance Table)
 
 Signed-off-by: Jonas Johansson <jonas.johansson@westermo.se>
 ---
- drivers/net/team/team.c   |  4 ++++
- include/linux/netdevice.h |  8 +++++++
- include/net/dsa.h         |  8 +++++++
- net/dsa/dsa.c             | 60 +++++++++++++++++++++++++++++++++++++++++++++++
- net/dsa/dsa_priv.h        |  6 +++++
- net/dsa/slave.c           | 23 ++++++++++++++++++
- 6 files changed, 109 insertions(+)
+ drivers/net/dsa/mv88e6131.c | 254 ++++++++++++++++++++++++++++++++++++++++++++
+ drivers/net/dsa/mv88e6xxx.h |  14 +++
+ 2 files changed, 268 insertions(+)
 
-diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
-index 0e62274..f7b2afb 100644
---- a/drivers/net/team/team.c
-+++ b/drivers/net/team/team.c
-@@ -934,6 +934,8 @@ static void team_port_enable(struct team *team,
- 		team->ops.port_enabled(team, port);
- 	team_notify_peers(team);
- 	team_mcast_rejoin(team);
-+	if (port->dev->netdev_ops->ndo_bond_attach)
-+		port->dev->netdev_ops->ndo_bond_attach(port->dev);
+diff --git a/drivers/net/dsa/mv88e6131.c b/drivers/net/dsa/mv88e6131.c
+index 2540ef0..3ba7a0c 100644
+--- a/drivers/net/dsa/mv88e6131.c
++++ b/drivers/net/dsa/mv88e6131.c
+@@ -382,6 +382,256 @@ mv88e6131_get_ethtool_stats(struct dsa_switch *ds,
+ 				    mv88e6131_hw_stats, port, data);
  }
  
- static void __reconstruct_port_hlist(struct team *team, int rm_index)
-@@ -965,6 +967,8 @@ static void team_port_disable(struct team *team,
- 	team_adjust_ops(team);
- 	team_notify_peers(team);
- 	team_mcast_rejoin(team);
-+	if (port->dev->netdev_ops->ndo_bond_detach)
-+		port->dev->netdev_ops->ndo_bond_detach(port->dev);
- }
- 
- #define TEAM_VLAN_FEATURES (NETIF_F_ALL_CSUM | NETIF_F_SG | \
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 5897b4e..8ebaefa 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -939,6 +939,12 @@ typedef u16 (*select_queue_fallback_t)(struct net_device *dev,
-  * int (*ndo_del_slave)(struct net_device *dev, struct net_device *slave_dev);
-  *	Called to release previously enslaved netdev.
-  *
-+ * int (*ndo_bond_attach)(struct net_device *dev);
-+ *	Called to attach the device to a bond group.
-+ *
-+ * int (*ndo_bond_detach)(struct net_device *dev);
-+ *	Called to detach the device from a bond group.
-+ *
-  *      Feature/offload setting functions.
-  * netdev_features_t (*ndo_fix_features)(struct net_device *dev,
-  *		netdev_features_t features);
-@@ -1131,6 +1137,8 @@ struct net_device_ops {
- 						 struct net_device *slave_dev);
- 	int			(*ndo_del_slave)(struct net_device *dev,
- 						 struct net_device *slave_dev);
-+	int			(*ndo_bond_attach)(struct net_device *dev);
-+	int			(*ndo_bond_detach)(struct net_device *dev);
- 	netdev_features_t	(*ndo_fix_features)(struct net_device *dev,
- 						    netdev_features_t features);
- 	int			(*ndo_set_features)(struct net_device *dev,
-diff --git a/include/net/dsa.h b/include/net/dsa.h
-index ed3c34b..64b5963 100644
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -254,6 +254,14 @@ struct dsa_switch_driver {
- 	int	(*get_eee)(struct dsa_switch *ds, int port,
- 			   struct ethtool_eee *e);
- 
-+	/*
-+	 * Bonding
-+	 */
-+	int	(*bond_add_group)(struct dsa_switch *ds, int port, int gid);
-+	int	(*bond_del_group)(struct dsa_switch *ds, int port, int gid);
-+	int	(*bond_attach)(struct dsa_switch *ds, int port);
-+	int	(*bond_detach)(struct dsa_switch *ds, int port);
-+
- #ifdef CONFIG_NET_DSA_HWMON
- 	/* Hardware monitoring */
- 	int	(*get_temp)(struct dsa_switch *ds, int *temp);
-diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-index 2173402..3d2c599 100644
---- a/net/dsa/dsa.c
-+++ b/net/dsa/dsa.c
-@@ -17,6 +17,7 @@
- #include <linux/slab.h>
- #include <linux/module.h>
- #include <net/dsa.h>
-+#include <net/rtnetlink.h>
- #include <linux/of.h>
- #include <linux/of_mdio.h>
- #include <linux/of_platform.h>
-@@ -442,6 +443,62 @@ static void dsa_link_poll_timer(unsigned long _dst)
- 	schedule_work(&dst->link_poll_work);
- }
- 
-+/* net device notifier event handler ****************************************/
-+static int dsa_master_changed(struct net_device *dev)
++/* Trunking */
++static int mv88e6131_bond_set_trunk_learning(struct dsa_switch *ds,
++					     int *ports, size_t num)
 +{
-+	struct dsa_slave_priv *p = netdev_priv(dev);
-+	struct dsa_switch *ds = p->parent;
-+	struct net_device *master = netdev_master_upper_dev_get(dev);
-+	int err = 0;
++	u16 port_vec = 0;
++	int ret;
++	int i;
 +
-+	/* Add port to bond group */
-+	if (master && master->rtnl_link_ops &&
-+	    !strcmp(master->rtnl_link_ops->kind, "team")) {
++	num = num < MAX_PORTS ? num : MAX_PORTS;
 +
-+		p->bond_gid = master->ifindex;
++	for (i = 0; i < num; i++)
++		port_vec |= 1 << ports[i];
 +
-+		if (!ds->drv->bond_add_group)
-+			return -EOPNOTSUPP;
-+		return ds->drv->bond_add_group(ds, p->port, p->bond_gid);
-+	}
-+
-+	/* Remove port from bond group */
-+	if (!master && p->bond_gid) {
-+		if (!ds->drv->bond_del_group)
-+			return -EOPNOTSUPP;
-+		err = ds->drv->bond_del_group(ds, p->port, p->bond_gid);
-+		p->bond_gid = 0;
-+		return err;
++	for (i = 0; i < num; i++) {
++		ret = mv88e6xxx_reg_read(ds, REG_PORT(ports[i]), REG_PORT_PAV);
++		if (ret < 0)
++			continue;
++		ret = (ret & 0xf800) | (port_vec & 0x7ff);
++		mv88e6xxx_reg_write(ds, REG_PORT(ports[i]), REG_PORT_PAV, ret);
 +	}
 +
 +	return 0;
 +}
 +
-+static int dsa_event(struct notifier_block *nb, unsigned long event, void *data)
-+
++static int mv88e6131_bond_set_loop_prevention(struct dsa_switch *ds,
++					      int *ports, size_t num)
 +{
-+	struct net_device *dev;
-+	int err = 0;
++	u16 port_vec = 0;
++	int ret;
++	int i;
 +
-+	switch (event) {
-+	case NETDEV_CHANGEUPPER:
-+		dev = netdev_notifier_info_to_dev(data);
-+		if (!dsa_slave_check(dev))
-+			return NOTIFY_DONE;
-+		err = dsa_master_changed(dev);
-+		if (err)
-+			netdev_warn(dev,
-+				    "failed to reflect master change (err %d)\n",
-+				    err);
-+		break;
++	num = num < MAX_PORTS ? num : MAX_PORTS;
++
++	for (i = 0; i < num; i++)
++		port_vec |= 1 << ports[i];
++
++	for (i = 0; i < num; i++) {
++		ret = mv88e6xxx_reg_read(ds, REG_PORT(ports[i]), REG_PORT_VLAN_MAP);
++		if (ret < 0)
++			continue;
++		ret &= ~port_vec & 0x7ff;
++		mv88e6xxx_reg_write(ds, REG_PORT(ports[i]), REG_PORT_VLAN_MAP, ret);
 +	}
 +
-+	return NOTIFY_DONE;
++	return 0;
 +}
 +
-+static struct notifier_block dsa_nb __read_mostly = {
-+	.notifier_call = dsa_event,
++static int mv88e6131_wait_trunk_mask(struct dsa_switch *ds)
++{
++	const int max_retries = 10;
++	int retries = 0;
++	int ret;
++
++	/* Wait for update Trunk Mask data */
++	while (1) {
++		ret = REG_READ(REG_GLOBAL2, REG_TRUNK_MASK);
++		if (!(ret & 0x8000))
++			return ret;
++		if (retries > max_retries) {
++			pr_warn("mv88e6131: Timeout waiting for "
++				"Trunk Mask Table Register Update\n");
++			return -EBUSY;
++		}
++		retries++;
++		usleep_range(20, 50);
++	};
++
++	return -EPERM;
++}
++
++static int mv88e6131_get_trunk_mask(struct dsa_switch *ds, int trunk_nr, u16 *mask)
++{
++	int ret;
++
++	if (trunk_nr > 0x7)
++		return -EINVAL;
++
++	ret = mv88e6131_wait_trunk_mask(ds);
++	if (ret < 0)
++		return ret;
++
++	/* Set MaskNum */
++	ret = (ret & 0x0fff) | (trunk_nr << 12);
++	REG_WRITE(REG_GLOBAL2, REG_TRUNK_MASK, ret);
++
++	/* Get TrunkMask */
++	ret = REG_READ(REG_GLOBAL2, REG_TRUNK_MASK);
++	*mask = ret & 0x7FF;
++
++	return 0;
++}
++
++static int mv88e6131_set_trunk_mask(struct dsa_switch *ds, int trunk_nr, u16 mask)
++{
++	int ret;
++
++	if (trunk_nr > 0x7)
++		return -EINVAL;
++
++	ret = mv88e6131_wait_trunk_mask(ds);
++	if (ret < 0)
++		return ret;
++
++	/* Write TrunkMask */
++	ret = 0x8000 | (ret & 0x7800) | (trunk_nr << 12) | (mask & 0x7ff);
++	REG_WRITE(REG_GLOBAL2, REG_TRUNK_MASK, ret);
++
++	return 0;
++}
++
++static int mv88e6131_bond_set_load_balancing(struct dsa_switch *ds,
++					     int *ports, bool *attached, size_t num)
++{
++	u16 mask;
++	u16 member_mask = 0;
++	int att_ports[MAX_PORTS];
++	int att_num = 0;
++	int ret;
++	int i;
++
++	num = num < MAX_PORTS ? num : MAX_PORTS;
++
++	for (i = 0; i < num; i++) {
++		member_mask |= 1 << ports[i];
++		if (attached[i])
++			att_ports[att_num++] = ports[i];
++	}
++
++	for (i = 0; i < 8; i++) {
++		ret = mv88e6131_get_trunk_mask(ds, i, &mask);
++		if (ret < 0)
++			continue;
++		mask &= ~member_mask;
++		if (att_num)
++			mask |= 1 << att_ports[i % att_num];
++		mv88e6131_set_trunk_mask(ds, i, mask);
++	}
++
++	return 0;
++}
++
++static int mv88e6131_bond_get_ports(struct dsa_switch *ds, int gid, int *ports, bool *attached, size_t sz)
++{
++	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
++	int num = 0;
++	int p;
++
++	for (p = 0; (p < MAX_PORTS) && (num < sz) ; p++) {
++		if (ps->bond_port[p].gid == gid) {
++			ports[num] = p;
++			attached[num] = ps->bond_port[p].attached;
++			num++;
++		}
++	}
++
++	return num;
++}
++
++static int mv88e6131_bond_setup(struct dsa_switch *ds, int gid)
++{
++	int ports[MAX_PORTS];
++	bool attached[MAX_PORTS];
++	int num;
++	int err = 0;
++
++	num = mv88e6131_bond_get_ports(ds, gid, ports, attached, MAX_PORTS);
++
++	err = mv88e6131_bond_set_trunk_learning(ds, ports, num);
++	if (err)
++		return err;
++	err = mv88e6131_bond_set_loop_prevention(ds, ports, num);
++	if (err)
++		return err;
++	err = mv88e6131_bond_set_load_balancing(ds, ports, attached, num);
++	if (err)
++		return err;
++
++	return 0;
++
++}
++
++static int mv88e6131_bond_add_group(struct dsa_switch *ds, int port, int gid)
++{
++	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
++
++	ps->bond_port[port].gid = gid;
++	ps->bond_port[port].attached = false;
++
++	return mv88e6131_bond_setup(ds, gid);
++}
++
++static int mv88e6131_bond_del_group(struct dsa_switch *ds, int port, int gid)
++{
++	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
++	bool btmp;
++	int ret;
++
++	ps->bond_port[port].gid = 0;
++	ps->bond_port[port].attached = false;
++	mv88e6131_bond_setup(ds, gid);
++
++	/* Reset trunk learning */
++	ret = mv88e6xxx_reg_read(ds, REG_PORT(port), REG_PORT_PAV);
++	if (ret >= 0) {
++		ret = (ret & 0xf800) | ((1 << port) & 0x7ff);
++		mv88e6xxx_reg_write(ds, REG_PORT(port), REG_PORT_PAV, ret);
++	}
++	/* Reset loop prevention  */
++	ret = mv88e6xxx_reg_read(ds, REG_PORT(port), REG_PORT_VLAN_MAP);
++	if (ret >= 0) {
++		ret = (ret & 0xf800) | ((1 << dsa_upstream_port(ds)) & 0x7ff);
++		mv88e6xxx_reg_write(ds, REG_PORT(port), REG_PORT_VLAN_MAP, ret);
++	}
++	/* Reset load balancing */
++	btmp = true;
++	mv88e6131_bond_set_load_balancing(ds, &port, &btmp, 1);
++
++	return 0;
++}
++
++static int mv88e6131_bond_attach(struct dsa_switch *ds, int port)
++{
++	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
++	int ports[MAX_PORTS];
++	bool attached[MAX_PORTS];
++	int gid = ps->bond_port[port].gid;
++	int num;
++
++	ps->bond_port[port].attached = true;
++	num = mv88e6131_bond_get_ports(ds, gid, ports, attached, MAX_PORTS);
++
++	return mv88e6131_bond_set_load_balancing(ds, ports, attached, num);
++}
++
++static int mv88e6131_bond_detach(struct dsa_switch *ds, int port)
++{
++	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
++	int ports[MAX_PORTS];
++	bool attached[MAX_PORTS];
++	int gid = ps->bond_port[port].gid;
++	int num;
++
++	ps->bond_port[port].attached = false;
++	num = mv88e6131_bond_get_ports(ds, gid, ports, attached, MAX_PORTS);
++
++	return mv88e6131_bond_set_load_balancing(ds, ports, attached, num);
++}
++
++
++
+ static int mv88e6131_get_sset_count(struct dsa_switch *ds)
+ {
+ 	return ARRAY_SIZE(mv88e6131_hw_stats);
+@@ -399,6 +649,10 @@ struct dsa_switch_driver mv88e6131_switch_driver = {
+ 	.get_strings		= mv88e6131_get_strings,
+ 	.get_ethtool_stats	= mv88e6131_get_ethtool_stats,
+ 	.get_sset_count		= mv88e6131_get_sset_count,
++	.bond_add_group		= mv88e6131_bond_add_group,
++	.bond_del_group		= mv88e6131_bond_del_group,
++	.bond_attach		= mv88e6131_bond_attach,
++	.bond_detach		= mv88e6131_bond_detach,
+ };
+ 
+ MODULE_ALIAS("platform:mv88e6085");
+diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
+index 7294227..383b224 100644
+--- a/drivers/net/dsa/mv88e6xxx.h
++++ b/drivers/net/dsa/mv88e6xxx.h
+@@ -11,9 +11,19 @@
+ #ifndef __MV88E6XXX_H
+ #define __MV88E6XXX_H
+ 
++#define MAX_PORTS		11
++
+ #define REG_PORT(p)		(0x10 + (p))
++#define REG_PORT_VLAN_MAP	0x6
++#define REG_PORT_PAV		0xb
+ #define REG_GLOBAL		0x1b
+ #define REG_GLOBAL2		0x1c
++#define REG_TRUNK_MASK		0x7
++
++struct mv88e6xxx_bond_port {
++	int gid;
++	bool attached;
 +};
  
- /* platform driver init and cleanup *****************************************/
- static int dev_is_class(struct device *dev, void *class)
-@@ -778,6 +835,9 @@ static int dsa_probe(struct platform_device *pdev)
- 		add_timer(&dst->link_poll_timer);
- 	}
+ struct mv88e6xxx_priv_state {
+ 	/* When using multi-chip addressing, this mutex protects
+@@ -49,6 +59,10 @@ struct mv88e6xxx_priv_state {
+ 	struct mutex eeprom_mutex;
  
-+	/* Setup notifier */
-+	register_netdevice_notifier(&dsa_nb);
+ 	int		id; /* switch product id */
 +
- 	return 0;
- 
- out:
-diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
-index dc9756d..6a1456a 100644
---- a/net/dsa/dsa_priv.h
-+++ b/net/dsa/dsa_priv.h
-@@ -45,6 +45,11 @@ struct dsa_slave_priv {
- 	int			old_link;
- 	int			old_pause;
- 	int			old_duplex;
-+
-+	/*
-+	 * Bond group id, or 0 if port is not bonded.
++	/* Contains bonding info for each port
 +	 */
-+	int			bond_gid;
++	struct mv88e6xxx_bond_port	bond_port[MAX_PORTS];
  };
  
- /* dsa.c */
-@@ -58,6 +63,7 @@ struct net_device *dsa_slave_create(struct dsa_switch *ds,
- 				    int port, char *name);
- int dsa_slave_suspend(struct net_device *slave_dev);
- int dsa_slave_resume(struct net_device *slave_dev);
-+bool dsa_slave_check(struct net_device *dev);
- 
- /* tag_dsa.c */
- extern const struct dsa_device_ops dsa_netdev_ops;
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index f23dead..88c84bf 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -441,6 +441,22 @@ static int dsa_slave_get_eee(struct net_device *dev, struct ethtool_eee *e)
- 	return ret;
- }
- 
-+static int dsa_slave_bond_attach(struct net_device *dev)
-+{
-+	struct dsa_slave_priv *p = netdev_priv(dev);
-+	struct dsa_switch *ds = p->parent;
-+
-+	return ds->drv->bond_attach(ds, p->port);
-+}
-+
-+static int dsa_slave_bond_detach(struct net_device *dev)
-+{
-+	struct dsa_slave_priv *p = netdev_priv(dev);
-+	struct dsa_switch *ds = p->parent;
-+
-+	return ds->drv->bond_detach(ds, p->port);
-+}
-+
- static const struct ethtool_ops dsa_slave_ethtool_ops = {
- 	.get_settings		= dsa_slave_get_settings,
- 	.set_settings		= dsa_slave_set_settings,
-@@ -470,6 +486,8 @@ static const struct net_device_ops dsa_slave_netdev_ops = {
- 	.ndo_set_rx_mode	= dsa_slave_set_rx_mode,
- 	.ndo_set_mac_address	= dsa_slave_set_mac_address,
- 	.ndo_do_ioctl		= dsa_slave_ioctl,
-+	.ndo_bond_attach	= dsa_slave_bond_attach,
-+	.ndo_bond_detach	= dsa_slave_bond_detach,
- };
- 
- static void dsa_slave_adjust_link(struct net_device *dev)
-@@ -574,6 +592,11 @@ static int dsa_slave_phy_setup(struct dsa_slave_priv *p,
- 	return 0;
- }
- 
-+bool dsa_slave_check(struct net_device *ndev)
-+{
-+	return ndev->netdev_ops == &dsa_slave_netdev_ops;
-+}
-+
- int dsa_slave_suspend(struct net_device *slave_dev)
- {
- 	struct dsa_slave_priv *p = netdev_priv(slave_dev);
+ struct mv88e6xxx_hw_stat {
 -- 
 2.1.0
