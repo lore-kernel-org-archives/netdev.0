@@ -1,92 +1,167 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: Port STP state after removing port from bridge
-Date: Fri, 20 Feb 2015 07:03:24 -0800
-Message-ID: <CAE4R7bAN7QrJcjUCbAJ86tb9YDNGJfYeq3fdqh-a3Xnc+4S+Zg@mail.gmail.com>
-References: <CAGVrzcZMV3vSd3hEsXqk6BtyU-Ts9=oJvb79DTZp25TnnGm5CQ@mail.gmail.com>
-	<CAE4R7bBSbwi93t05Z+rB2JgzFYdZ+m44AFSzU7JkwdHRWzz1Mw@mail.gmail.com>
-	<20150220100046.GB2008@nanopsycho.orion>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next 1/2] dsa: bonding: implement HW bonding
+Date: Fri, 20 Feb 2015 16:12:48 +0100
+Message-ID: <20150220151248.GC13797@lunn.ch>
+References: <1424429473-4601-1-git-send-email-jonasj76@gmail.com>
+ <1424429473-4601-2-git-send-email-jonasj76@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-	netdev <netdev@vger.kernel.org>,
-	Stephen Hemminger <stephen@networkplumber.org>
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org,
+	Jonas Johansson <jonas.johansson@westermo.se>
+To: Jonas Johansson <jonasj76@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f49.google.com ([209.85.216.49]:57370 "EHLO
-	mail-qa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754195AbbBTPDY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Feb 2015 10:03:24 -0500
-Received: by mail-qa0-f49.google.com with SMTP id w8so12638155qac.8
-        for <netdev@vger.kernel.org>; Fri, 20 Feb 2015 07:03:24 -0800 (PST)
-In-Reply-To: <20150220100046.GB2008@nanopsycho.orion>
+Received: from vps0.lunn.ch ([178.209.37.122]:46703 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752566AbbBTPPm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Feb 2015 10:15:42 -0500
+Content-Disposition: inline
+In-Reply-To: <1424429473-4601-2-git-send-email-jonasj76@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 20, 2015 at 2:00 AM, Jiri Pirko <jiri@resnulli.us> wrote:
-> Fri, Feb 20, 2015 at 05:45:01AM CET, sfeldma@gmail.com wrote:
->>On Wed, Feb 18, 2015 at 11:39 PM, Florian Fainelli <f.fainelli@gmail.com>
->>wrote:
->>
->>> Hi,
->>>
->>> It just occured to me that the following sequence:
->>>
->>> brctl addbr br0
->>> brctl addif br0 port0
->>> ... STP happens
->>> brctl delif br0 port0
->>>
->>> will leave port0 in STP disabled state, because the bridge code will
->>> set the STP state to DISABLED, and only a down/up sequence can bring
->>> it back to FORWARDING.
->>>
->>> Is this something that we should somehow fix? As an user it seems a
->>> little convoluted having to do a down/up sequence to restore things. I
->>> believe however that it is valid for the bridge layer to mark a port
->>> as DISABLED when removing it. This is typically not noticed or even
->>> remotely a problem with software bridges because we cannot enforce an
->>> actual STP state at the HW level.
->>>
->>> Let me know your thoughts.
->>>
->>>
->>The fix in rocker would be:
->>
->>diff --git a/drivers/net/ethernet/rocker/rocker.c
->>b/drivers/net/ethernet/rocker/rocker.c
->>index 34389b6a..e2004fb 100644
->>--- a/drivers/net/ethernet/rocker/rocker.c
->>+++ b/drivers/net/ethernet/rocker/rocker.c
->>@@ -4456,8 +4456,10 @@ static int rocker_port_bridge_leave(struct
->>rocker_port *rocker_port)
->>                rocker_port_internal_vlan_id_get(rocker_port,
->>                                                 rocker_port->dev->ifindex);
->>        err = rocker_port_vlan(rocker_port, 0, 0);
->>+       if (err)
->>+               return err;
->>
->>-       return err;
->>+       return rocker_port_stp_update(rocker_port, BR_STATE_FORWARDING);
->> }
->>
->>
->>This will return the port back to it's initial state of
->>BR_STATE_FORWARDING, after it's removed from the bridge.
->>
->>I'll include this patch in the rocker pile to be pushed later.
->>
->>-scott
->
->
-> I'm not sure, but wouldn't it be nicer it the bridge code would set
-> state to disabled before the port is removed from the bridge?
+On Fri, Feb 20, 2015 at 11:51:12AM +0100, Jonas Johansson wrote:
+> From: Jonas Johansson <jonas.johansson@westermo.se>
+> 
+> This patch will implement hooks for hardware bonding support for the DSA
+> driver. When the team driver adds a DSA slave port the port will be assigned
+> a bond group id and the DSA slave driver can setup the hardware. When team
+> changes the port state (enabled/disabled) the DSA slave driver is able to
+> use the attach/detach callback which will allow the hardware to change the
+> hardware settings to reflect the state.
+> 
+> Added DSA hooks:
+>  bond_add_group: To add a port to a bond group
+>  bond_del_group: To remove a port from a bond group
+>  bond_attach: To mark the port in a bond group as attached/active
+>  bond_detach: To unmark the port in a bond group as detach/inactive
+> 
+> Added new network device hooks:
+>  ndo_bond_attach: To attach a device to a bond group.
+>  ndo_bond_detach: To detach a device from a bond group.
+> 
+> Team:
+>  Added callback to ndo_bond_attach when port is enabled.
+>  Added callback to ndo_bond_detach when port is disabled.
+> 
+> Added DSA notifier:
+>  Listening on NETDEV_CHANGEUPPER to add or deleta a port to/from a bond group.
+> 
+> Signed-off-by: Jonas Johansson <jonas.johansson@westermo.se>
+> ---
+>  drivers/net/team/team.c   |  4 ++++
+>  include/linux/netdevice.h |  8 +++++++
+>  include/net/dsa.h         |  8 +++++++
+>  net/dsa/dsa.c             | 60 +++++++++++++++++++++++++++++++++++++++++++++++
+>  net/dsa/dsa_priv.h        |  6 +++++
+>  net/dsa/slave.c           | 23 ++++++++++++++++++
+>  6 files changed, 109 insertions(+)
+> 
+> diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
+> index 0e62274..f7b2afb 100644
+> --- a/drivers/net/team/team.c
+> +++ b/drivers/net/team/team.c
+> @@ -934,6 +934,8 @@ static void team_port_enable(struct team *team,
+>  		team->ops.port_enabled(team, port);
+>  	team_notify_peers(team);
+>  	team_mcast_rejoin(team);
+> +	if (port->dev->netdev_ops->ndo_bond_attach)
+> +		port->dev->netdev_ops->ndo_bond_attach(port->dev);
+>  }
+>  
+>  static void __reconstruct_port_hlist(struct team *team, int rm_index)
+> @@ -965,6 +967,8 @@ static void team_port_disable(struct team *team,
+>  	team_adjust_ops(team);
+>  	team_notify_peers(team);
+>  	team_mcast_rejoin(team);
+> +	if (port->dev->netdev_ops->ndo_bond_detach)
+> +		port->dev->netdev_ops->ndo_bond_detach(port->dev);
+>  }
+>  
+>  #define TEAM_VLAN_FEATURES (NETIF_F_ALL_CSUM | NETIF_F_SG | \
+> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+> index 5897b4e..8ebaefa 100644
+> --- a/include/linux/netdevice.h
+> +++ b/include/linux/netdevice.h
+> @@ -939,6 +939,12 @@ typedef u16 (*select_queue_fallback_t)(struct net_device *dev,
+>   * int (*ndo_del_slave)(struct net_device *dev, struct net_device *slave_dev);
+>   *	Called to release previously enslaved netdev.
+>   *
+> + * int (*ndo_bond_attach)(struct net_device *dev);
+> + *	Called to attach the device to a bond group.
+> + *
+> + * int (*ndo_bond_detach)(struct net_device *dev);
+> + *	Called to detach the device from a bond group.
+> + *
+>   *      Feature/offload setting functions.
+>   * netdev_features_t (*ndo_fix_features)(struct net_device *dev,
+>   *		netdev_features_t features);
+> @@ -1131,6 +1137,8 @@ struct net_device_ops {
+>  						 struct net_device *slave_dev);
+>  	int			(*ndo_del_slave)(struct net_device *dev,
+>  						 struct net_device *slave_dev);
+> +	int			(*ndo_bond_attach)(struct net_device *dev);
+> +	int			(*ndo_bond_detach)(struct net_device *dev);
+>  	netdev_features_t	(*ndo_fix_features)(struct net_device *dev,
+>  						    netdev_features_t features);
+>  	int			(*ndo_set_features)(struct net_device *dev,
+> diff --git a/include/net/dsa.h b/include/net/dsa.h
+> index ed3c34b..64b5963 100644
+> --- a/include/net/dsa.h
+> +++ b/include/net/dsa.h
+> @@ -254,6 +254,14 @@ struct dsa_switch_driver {
+>  	int	(*get_eee)(struct dsa_switch *ds, int port,
+>  			   struct ethtool_eee *e);
+>  
+> +	/*
+> +	 * Bonding
+> +	 */
+> +	int	(*bond_add_group)(struct dsa_switch *ds, int port, int gid);
+> +	int	(*bond_del_group)(struct dsa_switch *ds, int port, int gid);
+> +	int	(*bond_attach)(struct dsa_switch *ds, int port);
+> +	int	(*bond_detach)(struct dsa_switch *ds, int port);
+> +
+>  #ifdef CONFIG_NET_DSA_HWMON
+>  	/* Hardware monitoring */
+>  	int	(*get_temp)(struct dsa_switch *ds, int *temp);
+> diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
+> index 2173402..3d2c599 100644
+> --- a/net/dsa/dsa.c
+> +++ b/net/dsa/dsa.c
+> @@ -17,6 +17,7 @@
+>  #include <linux/slab.h>
+>  #include <linux/module.h>
+>  #include <net/dsa.h>
+> +#include <net/rtnetlink.h>
+>  #include <linux/of.h>
+>  #include <linux/of_mdio.h>
+>  #include <linux/of_platform.h>
+> @@ -442,6 +443,62 @@ static void dsa_link_poll_timer(unsigned long _dst)
+>  	schedule_work(&dst->link_poll_work);
+>  }
+>  
+> +/* net device notifier event handler ****************************************/
+> +static int dsa_master_changed(struct net_device *dev)
+> +{
+> +	struct dsa_slave_priv *p = netdev_priv(dev);
+> +	struct dsa_switch *ds = p->parent;
+> +	struct net_device *master = netdev_master_upper_dev_get(dev);
+> +	int err = 0;
+> +
+> +	/* Add port to bond group */
+> +	if (master && master->rtnl_link_ops &&
+> +	    !strcmp(master->rtnl_link_ops->kind, "team")) {
+> +
+> +		p->bond_gid = master->ifindex;
+> +
+> +		if (!ds->drv->bond_add_group)
+> +			return -EOPNOTSUPP;
+> +		return ds->drv->bond_add_group(ds, p->port, p->bond_gid);
+> +	}
 
-When the port is removed from a bridge, for example with brctl delif,
-the bridge driver puts port in BR_STATE_DISABLED and then sends
-netdevice event NETDEV_CHANGEUPPER.  In response to
-NETDEV_CHANGEUPPER, the rocker driver is returning port back to
-BR_STATE_FORWARDING (the initial state for an un-bridged port).  So
-this preserves bridge behavior for non-switchdev uses.  Does this
-answer the question, or did I miss understand your question?
+Hi Jonas
 
--scott
+Maybe it is here and i cannot see it, but where do you check the slave
+devices in the group are in the same physical switch. Remember that
+DSA allows nearly arbitrary trees of switches.
+
+       Andrew
