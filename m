@@ -1,30 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] [RESEND] ethtool: Add hw-switch-offload to
- netdev_features_strings.
-Date: Fri, 20 Feb 2015 16:38:02 -0500 (EST)
-Message-ID: <20150220.163802.997481138018179498.davem@davemloft.net>
-References: <1424460898-4045-1-git-send-email-ramirose@gmail.com>
+From: Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>
+Subject: Re: [PATCH] hso: always read interface number from the current
+ altsetting
+Date: Fri, 20 Feb 2015 16:49:17 -0500 (EST)
+Message-ID: <Pine.LNX.4.44L0.1502201645430.1335-100000@iolanthe.rowland.org>
+References: <20150220.152156.1455455304724247882.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com
-To: ramirose@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46919 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754767AbbBTViE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Feb 2015 16:38:04 -0500
-In-Reply-To: <1424460898-4045-1-git-send-email-ramirose@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: aleksander-Dvg4H30XQSRVIjRurl1/8g@public.gmane.org, <j.dumon-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>,
+	<linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20150220.152156.1455455304724247882.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Rami Rosen <ramirose@gmail.com>
-Date: Fri, 20 Feb 2015 21:34:58 +0200
+On Fri, 20 Feb 2015, David Miller wrote:
 
-> commit aafb3e98b279 (netdev: introduce new NETIF_F_HW_SWITCH_OFFLOAD feature 
-> flag for switch device offloads) add a new feature without adding it to 
-> netdev_features_strings array; this patch fixes this.
+> From: Aleksander Morgado <aleksander-Dvg4H30XQSRVIjRurl1/8g@public.gmane.org>
+> Date: Tue, 17 Feb 2015 11:31:29 +0100
 > 
-> Signed-off-by: Rami Rosen <ramirose@gmail.com>
+> > Always read bInterfaceNumber from the current altsetting, not from the first one
+> > available in the altsetting array. This is coming from code review, not related
+> > to any specific bug.
+> > 
+> > Signed-off-by: Aleksander Morgado <aleksander-Dvg4H30XQSRVIjRurl1/8g@public.gmane.org>
 
-Applied, thanks.
+It doesn't matter.  The bInterfaceNumber values are guaranteed to be 
+the same for all altsettings in a particular interface, because of the 
+way the altsetting arrays are constructed.
+
+Alan Stern
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
