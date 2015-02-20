@@ -1,63 +1,49 @@
-From: Jonathon Reinhart <jonathon.reinhart@gmail.com>
-Subject: Re: [PATCH] Allow specifying bridge port STP state by name rather
- than number.
-Date: Fri, 20 Feb 2015 09:40:53 -0500
-Message-ID: <CAPFHKze570L6_ODzoEg7qi5r0nbc4XCD5gtz76VHnOieWRrCrw@mail.gmail.com>
-References: <20150219192726.GA17950@alexpilon.ca> <CAPFHKzcOFQCtz0pwLm8XOZxTOkC9w4CFq2vcLnwxUfVVmWdNCw@mail.gmail.com>
- <20150220045730.GA7936@alexpilon.ca>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: smsc95xx truesize badness
+Date: Fri, 20 Feb 2015 06:41:09 -0800
+Message-ID: <1424443269.5565.5.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CAKh2mn7w8fpSYJQqwxwOiAgzKm_5dtzY_uXG7WK7uO9CXSOTrw@mail.gmail.com>
+	 <1424384042.4942.132.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org
-To: Alex Pilon <alp@alexpilon.ca>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, popcorn mix <popcornmix@gmail.com>
+To: Steve Glendinning <steve@shawell.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f171.google.com ([74.125.82.171]:33419 "EHLO
-	mail-we0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754035AbbBTOlY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Feb 2015 09:41:24 -0500
-Received: by wevk48 with SMTP id k48so6027622wev.0
-        for <netdev@vger.kernel.org>; Fri, 20 Feb 2015 06:41:23 -0800 (PST)
-In-Reply-To: <20150220045730.GA7936@alexpilon.ca>
+Received: from mail-ig0-f176.google.com ([209.85.213.176]:34536 "EHLO
+	mail-ig0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754826AbbBTOlM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Feb 2015 09:41:12 -0500
+Received: by mail-ig0-f176.google.com with SMTP id hl2so3451472igb.3
+        for <netdev@vger.kernel.org>; Fri, 20 Feb 2015 06:41:11 -0800 (PST)
+In-Reply-To: <1424384042.4942.132.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sorry, I only looked at your patch, and not the surrounding code. In that
-case, I would probably stick with the existing style.
+On Thu, 2015-02-19 at 14:14 -0800, Eric Dumazet wrote:
+> On Thu, 2015-02-19 at 18:58 +0000, Steve Glendinning wrote:
+> 
+> > This is triggering warnings for many Raspberry Pi users due to Eric's
+> > patch to catch truesize offenders.  It's a fair cop.
+> > 
+> > Before I submit a patch to remove these two truesize lines, I believe
+> > it's safe to just do so but can anyone confirm if removing them will
+> > have any adverse impact?
+> 
+> If you simply remove the lines, skb->truesize might be big enough to
+> slow down TCP noticeably.
+> 
+> I would rather use something like commit
+> a9e0aca4b37885b5599e52211f098bd7f565e749
+> ("asix: asix_rx_fixup surgery to reduce skb truesizes")
+> 
+> Idea is to 'copybreak' tiny frames.
+> 
 
-I'm just a casual passer-by, but I would like to hear others' opinion on this,
-as I find exit(-1) to always be incorrect. The problem is that, per the man
-page:
+On smsc95xx.c, rx_urb_size is set to :
 
-> The exit() function causes normal process termination and the value
-> of status & 0377 is returned to the parent (see wait(2)).
+MAX_SINGLE_PACKET_SIZE (2048) on non turbo mode
+DEFAULT_HS_BURST_CAP_SIZE (more than 18 KB) on USB_SPEED_HIGH mode
+DEFAULT_FS_BURST_CAP_SIZE  (more than 7 KB)
 
-So when -1 is passed to exit(), the parent will see it as 255. Why not
-return a value that could be found in the source by grepping for it?
-
-On Thu, Feb 19, 2015 at 11:57 PM, Alex Pilon <alp@alexpilon.ca> wrote:
-> On Thu, Feb 19, 2015 at 09:00:23PM -0500, Jonathon Reinhart wrote:
->> Please don't pass -1 to exit().  It is outside the acceptable range (0 to 255)
->> of exit status values:
->>
->> https://www.gnu.org/software/libc/manual/html_node/Exit-Status.html
->>
->> Most programs exit(1) when presented with invalid user input.
->
-> I was being consistent with nearby code, and the dominant style.  But if
-> that's the case, then there's a few hundred such mistakes that need
-> correcting.  Should I fix all of them, and if so, should that be a
-> single patch, or multiple?
->
-> There's also only a few instances of EXIT_{SUCCESS,FAILURE}, so I took
-> it wasn't the style to use that.
->
-> Regards,
->
-> Alex Pilon
-
-
-
--- 
-Computers are incredibly fast, accurate and stupid. Human beings are
-incredibly slow, inaccurate and brilliant. Together they are powerful
-beyond imagination.
-                                    A. Einstein
+So only non turbo mode would be okay with non copybreak strategy.
