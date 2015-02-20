@@ -1,84 +1,83 @@
-From: Eyal Birger <eyal.birger@gmail.com>
-Subject: Re: [PATCH net-next v2 2/3] net: use skb->priority for overloading
- skb->dropcount and skb->reserved_tailroom instead of skb->mark
-Date: Fri, 20 Feb 2015 13:32:48 +0200
-Message-ID: <CAHsH6Gv709dahHUGqXkb8CYxn+s0-4+1DGksoNfAgMksZYrt9w@mail.gmail.com>
-References: <1423715535-884-1-git-send-email-eyal.birger@gmail.com>
-	<1423715535-884-3-git-send-email-eyal.birger@gmail.com>
-	<20150219.150500.834870317013347277.davem@davemloft.net>
+From: Arun Chandran <achandran@mvista.com>
+Subject: Re: [PATCH] net: macb: Add big endian CPU support
+Date: Fri, 20 Feb 2015 17:15:04 +0530
+Message-ID: <CAFdej03U7mMVC8H5SJJNCPq3nYRHZYHLshALvxusQvm24QPuSw@mail.gmail.com>
+References: <1424258975-28611-1-git-send-email-achandran@mvista.com>
+	<54E5D5A0.90005@monstr.eu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
-	Shmulik Ladkani <shmulik.ladkani@gmail.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f46.google.com ([209.85.213.46]:34584 "EHLO
-	mail-yh0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751805AbbBTLct (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Feb 2015 06:32:49 -0500
-Received: by yhai57 with SMTP id i57so3097365yha.1
-        for <netdev@vger.kernel.org>; Fri, 20 Feb 2015 03:32:48 -0800 (PST)
-In-Reply-To: <20150219.150500.834870317013347277.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Nicolas Ferre <nicolas.ferre@atmel.com>,
+	netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: monstr@monstr.eu
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <54E5D5A0.90005@monstr.eu>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
-
-Thanks for the review.
-
-On Thu, Feb 19, 2015 at 10:05 PM, David Miller <davem@davemloft.net> wrote:
-> From: Eyal Birger <eyal.birger@gmail.com>
-> Date: Thu, 12 Feb 2015 06:32:14 +0200
+On Thu, Feb 19, 2015 at 5:52 PM, Michal Simek <monstr@monstr.eu> wrote:
 >
->> The purpose of overloading skb->priority is solely for retaining
->> struct sk_buff size; skb->priority is not used after the skb queued
->> to the socket and has the same guarentee of not being shared as
->> skb->mark.
+> On 02/18/2015 12:29 PM, Arun Chandran wrote:
+> > This patch converts all __raw_readl and __raw_writel function calls
+> > to their corresponding readl_relaxed and writel_relaxed variants.
+> >
+> > It also tells the driver to set ahb_endian_swp_mgmt_en bit in dma_cfg
+> > when the CPU is configured in big endian mode.
+> >
+> > Signed-off-by: Arun Chandran <achandran@mvista.com>
+> > ---
+> >       This patch is tested on xilinx ZC702 evaluation board with
+> >       CONFIG_CPU_BIG_ENDIAN=y and booting NFS rootfs
+> > ---
+> > ---
+> >  drivers/net/ethernet/cadence/macb.c | 18 ++++++++++++------
+> >  drivers/net/ethernet/cadence/macb.h | 15 ++++++++-------
+> >  2 files changed, 20 insertions(+), 13 deletions(-)
+> >
+> > diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
+> > index ad76b8e..05fb36d 100644
+> > --- a/drivers/net/ethernet/cadence/macb.c
+> > +++ b/drivers/net/ethernet/cadence/macb.c
+> > @@ -449,7 +449,7 @@ static void macb_update_stats(struct macb *bp)
+> >       WARN_ON((unsigned long)(end - p - 1) != (MACB_TPF - MACB_PFR) / 4);
+> >
+> >       for(; p < end; p++, reg++)
+> > -             *p += __raw_readl(reg);
+> > +             *p += readl_relaxed(reg);
+> >  }
+> >
+> >  static int macb_halt_tx(struct macb *bp)
+> > @@ -1585,7 +1585,11 @@ static void macb_configure_dma(struct macb *bp)
+> >               if (bp->dma_burst_length)
+> >                       dmacfg = GEM_BFINS(FBLDO, bp->dma_burst_length, dmacfg);
+> >               dmacfg |= GEM_BIT(TXPBMS) | GEM_BF(RXBMS, -1L);
+> > -             dmacfg &= ~GEM_BIT(ENDIA);
+> > +             dmacfg &= ~GEM_BIT(ENDIA_PKT);
+> > +             /* Tell the chip to byteswap descriptors on big-endian hosts */
+> > +#ifdef __BIG_ENDIAN
+> > +             dmacfg |= GEM_BIT(ENDIA_DESC);
+> > +#endif
 >
-> I don't think this analysis is accurate.
->
->> @@ -621,7 +621,7 @@ struct sk_buff {
->>                       __u16   csum_offset;
->>               };
->>       };
->> -     __u32                   priority;
->> +     __u32                   mark;
->>       int                     skb_iif;
->>       __u32                   hash;
->>       __be16                  vlan_proto;
->> @@ -636,7 +636,7 @@ struct sk_buff {
->>       __u32                   secmark;
->>  #endif
->>       union {
->> -             __u32           mark;
->> +             __u32           priority;
->>               __u32           dropcount;
->>               __u32           reserved_tailroom;
->>       };
->> --
->
-> You are going to now write to dropcount in packet_rcv() and that will
-> corrupt skb->priority.  If we got to packet_rcv() via
-> dev_queue_xmit_nit() then that skb->priority value is actually going
-> to be used by the packet schedulers for classification, flow
-> scheduling, etc.
+> I don't think this is the best way what you should do.
+> Instead of having this ifdef here you should find out any reg and detect if the IP
+> is in big endian or little endian mode. I have done it for some xilinx IPs which
+> can run on big or little endian system.
+> In general find reg which some field which has some meaning - write there 1
+> and read expected value and based on that decide if you are on big or little endian system.
 
-As you've mentioned below, this is not a new behavior introduced by
-this patch, it was
-true for skb->mark as well.
+Hi Michal,
 
-However, It seems the skb is cloned prior to setting dropcount and
-other skb header
-fields before it is enqueued in packet_rcv(). Would that not prevent
-interference with
-the transmit path?
+I was not able to find any such registers for GEM in the TRM
+http://www.xilinx.com/support/documentation/user_guides/ug585-Zynq-7000-TRM.pdf
 
-> So I don't think this transformation is going to work properly.
->
-> I'm also wondering if aliasing with skb->mark, which is what happens
-> now, is legal too.
+I tried writing to dma_cfg (0x00000010) and reading from design_cfg5
+(0x00000290)
+Its not reflecting anything(design_cfg5 always reads same value); It
+is not helping.
 
-As mentioned, the case is similar for skb->mark.
+The only way (I don't think its not right way either) I can think of
+eliminating that
+ #ifdef __BIG_ENDIAN is reading some register in ARM cpu to identify its
+current endianness and write dma_cfg accordingly.
 
-Best regards,
-Eyal.
+--Arun
