@@ -1,41 +1,32 @@
-From: Alexey Khoroshilov <khoroshilov@ispras.ru>
-Subject: [PATCH] i40e: Fix memory leak at failure path in i40e_dbg_command_write()
-Date: Sat, 21 Feb 2015 01:24:18 +0300
-Message-ID: <1424471058-19933-1-git-send-email-khoroshilov@ispras.ru>
-Cc: Alexey Khoroshilov <khoroshilov@ispras.ru>,
-	Linux NICS <linux.nics@intel.com>,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, ldv-project@linuxtesting.org
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] cxgb4: Fix incorrect 'c' suffix to %pI4, use %pISc
+ instead
+Date: Fri, 20 Feb 2015 17:26:16 -0500 (EST)
+Message-ID: <20150220.172616.1120531128343853051.davem@davemloft.net>
+References: <1424302185-13460-1-git-send-email-anish@chelsio.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, hariprasad@chelsio.com,
+	dan.carpenter@gmail.com
+To: anish@chelsio.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:47423 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752745AbbBTW0T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Feb 2015 17:26:19 -0500
+In-Reply-To: <1424302185-13460-1-git-send-email-anish@chelsio.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The patch fixes a leak of 'cmd_buf' when copy_from_user() failed
-in i40e_dbg_command_write().
+From: Anish Bhatt <anish@chelsio.com>
+Date: Wed, 18 Feb 2015 15:29:45 -0800
 
-Found by Linux Driver Verification project (linuxtesting.org).
+> Issue caught by 0-day kernel test infrastructure. Code changed to use sockaddr
+> members so that %pISc can be used instead.
+> 
+> Fixes: b5a02f503caa ('cxgb4 : Update ipv6 address handling api')
+> 
+> Signed-off-by: Anish Bhatt <anish@chelsio.com>
 
-Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
----
- drivers/net/ethernet/intel/i40e/i40e_debugfs.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
-index 61236f983971..c17ee77100d3 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
-@@ -989,8 +989,10 @@ static ssize_t i40e_dbg_command_write(struct file *filp,
- 	if (!cmd_buf)
- 		return count;
- 	bytes_not_copied = copy_from_user(cmd_buf, buffer, count);
--	if (bytes_not_copied < 0)
-+	if (bytes_not_copied < 0) {
-+		kfree(cmd_buf);
- 		return bytes_not_copied;
-+	}
- 	if (bytes_not_copied > 0)
- 		count -= bytes_not_copied;
- 	cmd_buf[count] = '\0';
--- 
-1.9.1
+Applied, thanks.
