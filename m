@@ -1,84 +1,78 @@
-From: Mahesh Bandewar <maheshb@google.com>
-Subject: Re: [PATCH next v6 3/5] bonding: Allow userspace to set actors'
- system_priority in AD system
-Date: Fri, 20 Feb 2015 08:50:11 -0800
-Message-ID: <CAF2d9jgfe5phyjPC+iYQhqp0=10gg2bfFs4=Nk2xyMtQvFsfaw@mail.gmail.com>
-References: <1424328621-14245-1-git-send-email-maheshb@google.com>
- <9642.1424381962@famine> <20150220032535.GM580@gospo.home.greyhouse.net>
+From: Murali Karicheri <m-karicheri2@ti.com>
+Subject: Re: Question on Bonding driver
+Date: Fri, 20 Feb 2015 11:59:44 -0500
+Message-ID: <54E76800.4050604@ti.com>
+References: <54DE3056.6020606@ti.com> <4331.1423931133@nyx>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Jay Vosburgh <jay.vosburgh@canonical.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Veaceslav Falico <vfalico@gmail.com>,
-	Nikolay Aleksandrov <nikolay@redhat.com>,
-	David Miller <davem@davemloft.net>,
-	Maciej Zenczykowski <maze@google.com>,
-	netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>
-To: Andy Gospodarek <gospo@cumulusnetworks.com>
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, WingMan Kwok <w-kwok2@ti.com>
+To: Jay Vosburgh <jay.vosburgh@canonical.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f178.google.com ([209.85.214.178]:52044 "EHLO
-	mail-ob0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752301AbbBTQub (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Feb 2015 11:50:31 -0500
-Received: by mail-ob0-f178.google.com with SMTP id uz6so25207720obc.9
-        for <netdev@vger.kernel.org>; Fri, 20 Feb 2015 08:50:31 -0800 (PST)
-In-Reply-To: <20150220032535.GM580@gospo.home.greyhouse.net>
+Received: from arroyo.ext.ti.com ([192.94.94.40]:48254 "EHLO arroyo.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754886AbbBTQ7q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Feb 2015 11:59:46 -0500
+In-Reply-To: <4331.1423931133@nyx>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 19, 2015 at 7:25 PM, Andy Gospodarek
-<gospo@cumulusnetworks.com> wrote:
-> On Thu, Feb 19, 2015 at 01:39:22PM -0800, Jay Vosburgh wrote:
->>
->>       [ Sorry, I hadn't read v6 earlier; resending for the current
->> version so it is filed properly in patchwork... ]
->>
->> Mahesh Bandewar <maheshb@google.com> wrote:
->>
->> >This patch allows user to randomize the system-priority in an ad-system.
->> >The allowed range is 1 - 0xFFFF while default value is 0xFFFF. If user
->> >does not specify this value, the system defaults to 0xFFFF, which is
->> >what it was before this patch.
->> >
->> >Following example code could set the value -
->> >    # modprobe bonding mode=4
->> >    # sys_prio=$(( 1 + RANDOM + RANDOM ))
->> >    # echo $sys_prio > /sys/class/net/bond0/bonding/ad_actor_sys_prio
->> >    # echo +eth1 > /sys/class/net/bond0/bonding/slaves
->> >    ...
->> >    # ip link set bond0 up
->> >
->> >Signed-off-by: Mahesh Bandewar <maheshb@google.com>
->> >Reviewed-by: Nikolay Aleksandrov <nikolay@redhat.com>
->>
->>       Mahesh: Andy and I got together at netdev01 and discussed the
->> patches of this series that add options to sysfs for bonding (patches 3,
->> 4, and 5).  In summary, in my opinion a netlink / iproute2 interface
->> needs to be provided simultaneously with any new sysfs interface for
->> bonding.  I realize that the sysfs api to bonding won't go away, but
->> nevertheless users should be encouraged to use netlink preferentially.
->> Providing the api pieces together encourages this.
->>
->>       As it happens, Andy mentioned that he has patches similar to
->> these three, but with the netlink portion already implemented.
->>
->>       My suggestion here is therefore for Andy to post his patches,
->> and then we can merge these together, and get this implemented properly
->> with a minimum of duplicated effort.
+On 02/14/2015 11:25 AM, Jay Vosburgh wrote:
+> Murali Karicheri<m-karicheri2@ti.com>  wrote:
 >
-> Yes, I would be happy to integrate our netlink patches with these.
-> Mahesh, do you want me to send these to you and have you manage all of
-> this, or do you want me to just integrate this latest version with mine
-> and re-submit all of them?
+>> Hi,
+>>
+>> I am working to enable bonding driver on my hardware and trying to
+>> understand this.
+>>
+>> I am using the alb mode. I create a bond interface with 2 ethernet
+>> interfaces. First one is the basic question about net driver itself and
+>> second is about bonding.
+>>
+>> 1. Each ethernet interface has a MAC address. The hardware has MAC filter
+>> and the driver fills the net_device's dev_addr with its MAC address before
+>> calling register_netdev() API. When the net core calls ndo_start(), is the
+>> low level driver responsible for setting up its MAC address in the MAC
+>> filter of the hardware or low level driver will be told to do so by upper
+>> layer. Or is it required to set it up as part of ndo_set_rx_mode() or
+>> ndo_set_mac_address()?
+>>
+>> 2. In the case of bonding, the bond interface MAC address is copied from
+>> the active slave's MAC address. Also it updates the dev_addr in the netdev
+>> struct of each of the slave with its own MAC address. So I assume, the
+>> device/NIC now needs to accept packets to its original MAC address as well
+>> the bond's MAC address. This is especially more important for the slave's
+>> that are not active slave as it can be target of packets from Peers as
+>> part of rlb. So for the slave that is not active slave, MAC filter needs
+>> to include its original hw address as well unless the slave is put to
+>> promiscuous mode. So I am trying to figure out how this is expected to
+>> work? All slaves put to promiscuous mode or MAC filter updated by slave
+>> driver to include MAC addresses it is expected to filter on (bond MAC
+>> address and its own MAC address)
 >
-Go ahead and re-submit them all. Thanks Andy.
->>
->>         -J
->>
->> ---
->>       -Jay Vosburgh, jay.vosburgh@canonical.com
->> --
->> To unsubscribe from this list: send the line "unsubscribe netdev" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 	I'm travelling at the moment, but the short answer for #2 is
+> that the way the alb mode works is basically that the non-active slaves
+> only receive for their own individual MAC.  Peers within the L2 network
+> are "assigned" to those slaves via tailored ARPs sent to the specific
+> peers.  The slaves do not generally go into promisc mode (there are
+> exceptions during failover type events), nor are they programmed with
+> multiple unicast MAC addreeses.
+>
+> 	I'd suggest you look at rlb_update_client in bond_alb.c and the
+> functions that call it to understand the logic.
+
+Thanks Jay. Will take a look.
+
+Murali
+>
+> 	-J
+>
+> ---
+> 	-Jay Vosburgh, jay.vosburgh@canonical.com
+>
+>
+
+
+-- 
+Murali Karicheri
+Linux Kernel, Texas Instruments
