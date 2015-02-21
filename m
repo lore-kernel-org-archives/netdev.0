@@ -1,49 +1,63 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next] ethtool: Add hw-switch-offload to netdev_features_strings.
-Date: Sat, 21 Feb 2015 20:31:37 +0300
-Message-ID: <54E8C0F9.9070508@cogentembedded.com>
-References: <1424472648-24828-1-git-send-email-ramirose@gmail.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: 1e918876 breaks r8169 (linux-3.18+)
+Date: Sat, 21 Feb 2015 18:46:25 +0100
+Message-ID: <20150221174625.GA29681@breakpoint.cc>
+References: <20150203100816.GA5807@louise.pinerecords.com>
+ <20150203104214.GG24751@breakpoint.cc>
+ <20150210154536.GB16264@breakpoint.cc>
+ <20150221101512.GB17223@louise.pinerecords.com>
+ <20150221103104.GA26574@breakpoint.cc>
+ <1424535746.5565.42.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com
-To: Rami Rosen <ramirose@gmail.com>, davem@davemloft.net
+Content-Type: text/plain; charset=iso-8859-15
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Florian Westphal <fw@strlen.de>,
+	Tomas Szepe <szepe@pinerecords.com>,
+	Francois Romieu <romieu@fr.zoreil.com>,
+	Hayes Wang <hayeswang@realtek.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Tom Herbert <therbert@google.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Marco Berizzi <pupilla@hotmail.com>,
+	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f179.google.com ([209.85.217.179]:42392 "EHLO
-	mail-lb0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751005AbbBURbm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Feb 2015 12:31:42 -0500
-Received: by lbiw7 with SMTP id w7so11778257lbi.9
-        for <netdev@vger.kernel.org>; Sat, 21 Feb 2015 09:31:40 -0800 (PST)
-In-Reply-To: <1424472648-24828-1-git-send-email-ramirose@gmail.com>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:34724 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751841AbbBURqe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Feb 2015 12:46:34 -0500
+Content-Disposition: inline
+In-Reply-To: <1424535746.5565.42.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> Hold on.
+>=20
+> I believe there is one race in the way you access skb->xmit_more _aft=
+er_
+>=20
+> txd->opts1 =3D cpu_to_le32(status);
+>=20
+> After this point, TX might have completed and TX completion already h=
+ave
+> freed skb
 
-On 2/21/2015 1:50 AM, Rami Rosen wrote:
+Hmm, I _thought_ HW would not start xmit of this descriptor/skb until a=
+fter
 
-> commit aafb3e98b279 (netdev: introduce new NETIF_F_HW_SWITCH_OFFLOAD feature
-> flag for switch device offloads) added a new feature without adding it to
-> netdev_features_strings array; this patch fixes this.
+RTL_W8(TxPoll, NPQ);
 
-> Signed-off-by: Rami Rosen <ramirose@gmail.com>
-> ---
->   net/core/ethtool.c | 1 +
->   1 file changed, 1 insertion(+)
+call a bit later... your patch surely looks safer though, thanks for
+looking into this.
 
-> diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-> index 91f74f3..fc5feda 100644
-> --- a/net/core/ethtool.c
-> +++ b/net/core/ethtool.c
-> @@ -98,6 +98,7 @@ static const char netdev_features_strings[NETDEV_FEATURE_COUNT][ETH_GSTRING_LEN]
->   	[NETIF_F_RXALL_BIT] =            "rx-all",
->   	[NETIF_F_HW_L2FW_DOFFLOAD_BIT] = "l2-fwd-offload",
->   	[NETIF_F_BUSY_POLL_BIT] =        "busy-poll",
-> +        [NETIF_F_HW_SWITCH_OFFLOAD_BIT] = "hw-switch-offload",
+> Could Tomas try following fix ?
 
-    Please use tab for the indentation.
+In addition -- Tomas, on your affected board -- did you try
+turning off gso/tso?
 
-[...]
+Holger Hoffst=E4tte mentioned on lkml that his affected r8169 nic is
+stable with xmit_more+bql after disabling gso/tso on the nic
 
-WBR, Sergei
+(ethtool -k $dev to display settings, "-K $dev tso off gso off" to
+ disable offloads).
