@@ -1,79 +1,230 @@
-From: Viswanath Bandaru <vbandaru@broadcom.com>
-Subject: RE: [PATCH net-next RFC 0/5] Add NTF_EXT_AGED to control FDB ageing
- in SW or HW
-Date: Sat, 21 Feb 2015 00:20:23 +0000
-Message-ID: <FFEDCF9956066D4D97C463CC178C7F69F22E02@SJEXCHMB06.corp.ad.broadcom.com>
-References: <1424416195-19098-1-git-send-email-sfeldma@gmail.com>
- <54E76EFA.1050209@cumulusnetworks.com> <54E7876A.3060303@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"jiri@resnulli.us" <jiri@resnulli.us>,
-	"linux@roeck-us.net" <linux@roeck-us.net>,
-	"andrew@lunn.ch" <andrew@lunn.ch>,
-	"gospo@cumulusnetworks.com" <gospo@cumulusnetworks.com>,
-	"siva.mannem.lnx@gmail.com" <siva.mannem.lnx@gmail.com>
-To: Florian Fainelli <f.fainelli@gmail.com>,
-	roopa <roopa@cumulusnetworks.com>,
-	"sfeldma@gmail.com" <sfeldma@gmail.com>
+From: Tom Herbert <therbert@google.com>
+Subject: [PATCH net-next] net: Eliminate txhash in sock and reflect RX hash on transmit
+Date: Fri, 20 Feb 2015 16:24:30 -0800
+Message-ID: <1424478270-24783-1-git-send-email-therbert@google.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:39062 "EHLO
-	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754916AbbBUAU0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Feb 2015 19:20:26 -0500
-In-Reply-To: <54E7876A.3060303@gmail.com>
-Content-Language: en-US
+Received: from mail-ig0-f176.google.com ([209.85.213.176]:43477 "EHLO
+	mail-ig0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754916AbbBUAYk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Feb 2015 19:24:40 -0500
+Received: by mail-ig0-f176.google.com with SMTP id hl2so7039369igb.3
+        for <netdev@vger.kernel.org>; Fri, 20 Feb 2015 16:24:40 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQo+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+IEZyb206IEZsb3JpYW4gRmFpbmVsbGkg
-W21haWx0bzpmLmZhaW5lbGxpQGdtYWlsLmNvbV0NCj4gU2VudDogU2F0dXJkYXksIEZlYnJ1YXJ5
-IDIxLCAyMDE1IDEyOjQ0IEFNDQo+IFRvOiByb29wYTsgc2ZlbGRtYUBnbWFpbC5jb20NCj4gQ2M6
-IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IGppcmlAcmVzbnVsbGkudXM7IGxpbnV4QHJvZWNrLXVz
-Lm5ldDsNCj4gYW5kcmV3QGx1bm4uY2g7IGdvc3BvQGN1bXVsdXNuZXR3b3Jrcy5jb207IFZpc3dh
-bmF0aCBCYW5kYXJ1Ow0KPiBzaXZhLm1hbm5lbS5sbnhAZ21haWwuY29tDQo+IFN1YmplY3Q6IFJl
-OiBbUEFUQ0ggbmV0LW5leHQgUkZDIDAvNV0gQWRkIE5URl9FWFRfQUdFRCB0byBjb250cm9sIEZE
-Qg0KPiBhZ2VpbmcgaW4gU1cgb3IgSFcNCj4gDQo+IE9uIDIwLzAyLzE1IDA5OjI5LCByb29wYSB3
-cm90ZToNCj4gPiBPbiAyLzE5LzE1LCAxMTowOSBQTSwgc2ZlbGRtYUBnbWFpbC5jb20gd3JvdGU6
-DQo+ID4+IEZyb206IFNjb3R0IEZlbGRtYW4gPHNmZWxkbWFAZ21haWwuY29tPg0KPiA+Pg0KPiA+
-PiBBZGQgYSBuZXcgTlRGX0VYVF9GTEFHIHRvIG1hcmsgYW4gRkRCIGFzIGV4dGVybmFsbHkgYWdl
-ZCwgZm9yIGV4YW1wbGUNCj4gYnkNCj4gPj4gb2ZmbG9hZCBoYXJkd2FyZS4gICBTd2l0Y2hkZXYg
-ZHJpdmVyL2RldmljZXMgY2FuIHNldCB0aGlzIGZsYWcgd2hlbg0KPiA+PiBsZWFybmluZyBhDQo+
-ID4+IG5ldyBGREIgZW50cnkgYW5kIFNXICh0aGUgYnJpZGdlIGRyaXZlcikgd2lsbCBza2lwIHRo
-aXMgZW50cnkgd2hlbg0KPiA+PiBydW5uaW5nIGl0cyBhZ2VpbmcgdGFzay4gIElmIGZsYWcgaXMg
-c2V0LCB0aGUgZHJpdmVyL2RldmljZSBpcw0KPiA+PiByZXNwb25zaWJsZSBmb3IgY2FsbGluZw0K
-PiA+PiBjYWxsX25ldGRldl9zd2l0Y2hfbm90aWZpZXJzKE5FVERFVl9TV0lUQ0hfRkRCX0RFTCwg
-Li4uKSB3aGVuIGVudHJ5DQo+ID4+IGV4cGlyZXMuDQo+ID4+DQo+ID4+IFRoaXMgZ2l2ZSB0aGUg
-ZmxleGliaWxpdHkgZm9yIGRyaXZlci9kZXZpY2UgdG8gZGVjaWRlIGFnZWluZyBwb2xpY3kNCj4g
-Pj4gYmFzZWQgb24gaXRzIGNhcGFiaWxpdGllcy4gIEZvciBkZXZpY2VzIG1hbmFnaW5nIG1hbnkg
-RkRCIGVudHJpZXMsIGl0DQo+ID4+IGlzIGRlc2lyZWFibGUgZm9yIHRoZSBkZXZpY2UgdG8gYWdl
-ZCBvdXQgaXRzIG93biBlbnRyaWVzLiAgRGV2aWNlcw0KPiA+PiBub3QgY2FwYWJsZSBvZiBhZ2Vk
-IGVudHJpZXMgY2FuIHJlbHkgb2YgU1cgdG8gYWdlIG91dCB0aGUgZW50cmllcy4NCj4gPj4NCj4g
-PiBzY290dCwgcGF0Y2hlcyBsb29rIGdvb2QuIEhvd2V2ZXIsIEkgYW0gbm90IHN1cmUgeWV0IGlm
-IHRoZXJlIGlzIGENCj4gPiBuZWVkIHRvIG1ha2UgaXQgYSBwZXIgZmRiIGVudHJ5IGZsYWcuDQo+
-IA0KPiBJIGFncmVlLCBpbiBmYWN0LCBtb3N0IG9mIHRoZSBIVyBJIGhhdmUgYWNjZXNzIHRvIG9u
-bHkgaGFzIGEgZ2xvYmFsIGFnZSB0aW1lcg0KPiBjb25maWd1cmF0aW9uIGtub2IuIElzIHRoaXMg
-Y29uZmlndXJhYmxlIG9uIGEgcGVyLXBvcnQgYmFzaXMgZm9yIGhpZ2hlciBlbmQNCj4gc3dpdGNo
-ZXMsIG9yIGV2ZW4gbWF5YmUgcGVyLUZEQiBlbnRyeT8NCj4gDQoNClRoZSBkZWNpc2lvbiB0byBh
-Z2UgYW4gZW50cnkgaXMgb24gYSBwZXItRkRCIGVudHJ5LCBTbyBpZiB0aGUgZmxhZyBpcyBub3Qg
-YXZhaWxhYmxlIGluIHRoZSBmZGItZW50cnksIHRoZW4gaXQgaGFzIHRvIGJlIG9idGFpbmVkIGZy
-b20gYXNzb2NpYXRlZCBuZXRkZXYuIEkgdGhpbmsgdGhlIHBlci1GREIgbWF5IGJlIG1vcmUgY29u
-dmVuaWVudCB0aGFuIGtlZXBpbmcgaXQgb24gbmV0ZGV2LiANCg0KPiA+DQo+ID4gQXQgc29tZSBw
-b2ludCB3ZSB3aWxsIGFsc28gbmVlZCB0aGUgaHcgYWdlaW5nIHBhcmFtZXRlciB0byBiZQ0KPiBj
-b25maWd1cmFibGUuDQo+ID4gU28gb3RoZXIgYXBwcm9hY2ggY291bGQgYmUsDQo+ID4gLSBhZ2Vp
-bmcgcGFyYW1ldGVyIG9uIGJyaWRnZSBnZXRzIG9mZmxvYWRlZCB0aGUgaHcNCg0KTGlrZSBldmVy
-eWJvZHkgc2FpZCwgdGhlIGFnZWluZyBpcyByZWFsbHkgdGhlIHN3aXRjaCdzIHByb3BlcnR5LiAg
-SWYgdGhlcmUgYXJlIHR3byBicmlkZ2VzIHdpdGggcG9ydHMgZnJvbSBzYW1lIHN3aXRjaGluZyBk
-ZXZpY2UsIGl0IGJlY29tZXMgdHJpY2t5IHRvIGNvbmZpZ3VyZSBhZ2VpbmcgdGltZSBvbiB0aGUg
-c3dpdGNoLiAgKCBJIHRoaW5rIHRoaXMgaXMgd2hhdCB5b3UgbWF5IGJlIHJlZmVycmluZyB0byBi
-ZSBzYXlpbmcgaXQgbmVlZHMgbW9yZSB0aG91Z2h0KS4NCg0KPiA+IC0gc28sIGJ5IGRlZmF1bHQg
-aHcgYW5kIGtlcm5lbCBhZ2UgdGhlaXIgb3duIGVudHJpZXMgdXNpbmcgdGhlIHNhbWUNCj4gPiBi
-cmlkZ2UgZGV2aWNlIGRlZmF1bHQgdGltZXINCj4gPiAtIFVzZXIgY2FuIGV4cGxpY2l0bHkgZGlz
-YWJsZSBIVyBhZ2VpbmcgYnkgdXNpbmcgc2VsZiAodGhpcyBuZWVkcyBzb21lDQo+ID4gbW9yZSB0
-aG91Z2h0IGJlY2F1c2Ugbm93IHRoZSBjYWxsIGlzIG9uIHRoZSBicmlkZ2UgZGV2aWNlKQ0KPiAN
-Cj4gSSB0aGluayB3ZSB3YW50IHRvIGJlIGNhcmVmdWwgd2l0aCBib3RoIFNXIGFuZCBIVyBhZ2lu
-ZyBlbnRyaWVzIHNpbmNlIGEgaG9zdA0KPiBDUFUncyBjbG9jayBtaWdodCBiZSBzdXNwZW5kZWQv
-ZHJpZnRpbmcgZXRjLi4gYXQgbGVhc3QsIHdlIHByb2JhYmx5IHdhbnQgb25lDQo+IG9yIHRoZSBv
-dGhlciB0byB0YWtlIHByZWNlZGVuY2Ugb3RoZXIgdGhlIG90aGVyIG9uZT8NCj4gLS0NCj4gRmxv
-cmlhbg0K
+Instead of having a separate hash value in sock structure for transmit
+and receive, we can use the rxhash value for both and eliminate the
+txhash value. This simplifies the code and reflects the receive hash a
+device provides to the stack for packets transmitted on the associated
+connection. The hash value returned by a device could have meaning when
+used in transmit to identify a flow, for instance the hash may be a flow
+key for a flow created in a (virtual) device. With the flow key provided
+on transmit this can obviate the need to create the hash and do the
+lookup on the fly in transmit.
+
+This patch entails:
+ - Always include sk_rxash (not dependent on CONFIG_RPS)
+ - Remove sk_txhash and functions to set it
+ - Add sock_init_rxhash which is used to initialize sk_rxhash. This
+   uses a random value and is only relevant if CONFIG_RPS is not
+   defined or traffic on socket is unidirectional send so we
+   don't get ever get an rxhash from device. This random value should
+   be overwritten with the first receive packet on the socket.
+
+Signed-off-by: Tom Herbert <therbert@google.com>
+---
+ include/net/ip.h    | 13 -------------
+ include/net/ipv6.h  | 14 --------------
+ include/net/sock.h  | 16 ++++++++--------
+ net/ipv4/datagram.c |  2 +-
+ net/ipv4/tcp_ipv4.c |  4 ++--
+ net/ipv6/datagram.c |  2 +-
+ net/ipv6/tcp_ipv6.c |  4 ++--
+ 7 files changed, 14 insertions(+), 41 deletions(-)
+
+diff --git a/include/net/ip.h b/include/net/ip.h
+index 025c61c..11991ed 100644
+--- a/include/net/ip.h
++++ b/include/net/ip.h
+@@ -352,19 +352,6 @@ static inline __wsum inet_compute_pseudo(struct sk_buff *skb, int proto)
+ 				  skb->len, proto, 0);
+ }
+ 
+-static inline void inet_set_txhash(struct sock *sk)
+-{
+-	struct inet_sock *inet = inet_sk(sk);
+-	struct flow_keys keys;
+-
+-	keys.src = inet->inet_saddr;
+-	keys.dst = inet->inet_daddr;
+-	keys.port16[0] = inet->inet_sport;
+-	keys.port16[1] = inet->inet_dport;
+-
+-	sk->sk_txhash = flow_hash_from_keys(&keys);
+-}
+-
+ static inline __wsum inet_gro_compute_pseudo(struct sk_buff *skb, int proto)
+ {
+ 	const struct iphdr *iph = skb_gro_network_header(skb);
+diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+index 4c9fe22..fd8d0e2 100644
+--- a/include/net/ipv6.h
++++ b/include/net/ipv6.h
+@@ -691,20 +691,6 @@ static inline int ip6_sk_dst_hoplimit(struct ipv6_pinfo *np, struct flowi6 *fl6,
+ }
+ 
+ #if IS_ENABLED(CONFIG_IPV6)
+-static inline void ip6_set_txhash(struct sock *sk)
+-{
+-	struct inet_sock *inet = inet_sk(sk);
+-	struct ipv6_pinfo *np = inet6_sk(sk);
+-	struct flow_keys keys;
+-
+-	keys.src = (__force __be32)ipv6_addr_hash(&np->saddr);
+-	keys.dst = (__force __be32)ipv6_addr_hash(&sk->sk_v6_daddr);
+-	keys.port16[0] = inet->inet_sport;
+-	keys.port16[1] = inet->inet_dport;
+-
+-	sk->sk_txhash = flow_hash_from_keys(&keys);
+-}
+-
+ static inline __be32 ip6_make_flowlabel(struct net *net, struct sk_buff *skb,
+ 					__be32 flowlabel, bool autolabel)
+ {
+diff --git a/include/net/sock.h b/include/net/sock.h
+index ab186b1..cebd9fb 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -51,6 +51,7 @@
+ #include <linux/netdevice.h>
+ #include <linux/skbuff.h>	/* struct sk_buff */
+ #include <linux/mm.h>
++#include <linux/random.h>
+ #include <linux/security.h>
+ #include <linux/slab.h>
+ #include <linux/uaccess.h>
+@@ -274,7 +275,6 @@ struct cg_proto;
+   *	@sk_sndtimeo: %SO_SNDTIMEO setting
+   *	@sk_rxhash: flow hash received from netif layer
+   *	@sk_incoming_cpu: record cpu processing incoming packets
+-  *	@sk_txhash: computed flow hash for use on transmit
+   *	@sk_filter: socket filtering instructions
+   *	@sk_protinfo: private area, net family specific, when not using slab
+   *	@sk_timer: sock cleanup timer
+@@ -348,16 +348,13 @@ struct sock {
+ 	} sk_backlog;
+ #define sk_rmem_alloc sk_backlog.rmem_alloc
+ 	int			sk_forward_alloc;
+-#ifdef CONFIG_RPS
+ 	__u32			sk_rxhash;
+-#endif
+ 	u16			sk_incoming_cpu;
+ 	/* 16bit hole
+ 	 * Warned : sk_incoming_cpu can be set from softirq,
+ 	 * Do not use this hole without fully understanding possible issues.
+ 	 */
+ 
+-	__u32			sk_txhash;
+ #ifdef CONFIG_NET_RX_BUSY_POLL
+ 	unsigned int		sk_napi_id;
+ 	unsigned int		sk_ll_usec;
+@@ -875,9 +872,12 @@ static inline void sock_rps_save_rxhash(struct sock *sk,
+ 
+ static inline void sock_rps_reset_rxhash(struct sock *sk)
+ {
+-#ifdef CONFIG_RPS
+ 	sk->sk_rxhash = 0;
+-#endif
++}
++
++static inline void sock_init_rxhash(struct sock *sk)
++{
++	get_random_bytes(&sk->sk_rxhash, sizeof(u32));
+ }
+ 
+ #define sk_wait_event(__sk, __timeo, __condition)			\
+@@ -1926,9 +1926,9 @@ static inline void sock_poll_wait(struct file *filp,
+ 
+ static inline void skb_set_hash_from_sk(struct sk_buff *skb, struct sock *sk)
+ {
+-	if (sk->sk_txhash) {
++	if (sk->sk_rxhash) {
+ 		skb->l4_hash = 1;
+-		skb->hash = sk->sk_txhash;
++		skb->hash = sk->sk_rxhash;
+ 	}
+ }
+ 
+diff --git a/net/ipv4/datagram.c b/net/ipv4/datagram.c
+index 90c0e83..f6ef6a5 100644
+--- a/net/ipv4/datagram.c
++++ b/net/ipv4/datagram.c
+@@ -76,7 +76,7 @@ int ip4_datagram_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
+ 	inet->inet_daddr = fl4->daddr;
+ 	inet->inet_dport = usin->sin_port;
+ 	sk->sk_state = TCP_ESTABLISHED;
+-	inet_set_txhash(sk);
++	sock_init_rxhash(sk);
+ 	inet->inet_id = jiffies;
+ 
+ 	sk_dst_set(sk, &rt->dst);
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 5a2dfed..b153880 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -222,7 +222,7 @@ int tcp_v4_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
+ 	if (err)
+ 		goto failure;
+ 
+-	inet_set_txhash(sk);
++	sock_init_rxhash(sk);
+ 
+ 	rt = ip_route_newports(fl4, rt, orig_sport, orig_dport,
+ 			       inet->inet_sport, inet->inet_dport, sk);
+@@ -1328,7 +1328,7 @@ struct sock *tcp_v4_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
+ 	newinet->mc_ttl	      = ip_hdr(skb)->ttl;
+ 	newinet->rcv_tos      = ip_hdr(skb)->tos;
+ 	inet_csk(newsk)->icsk_ext_hdr_len = 0;
+-	inet_set_txhash(newsk);
++	sock_init_rxhash(newsk);
+ 	if (inet_opt)
+ 		inet_csk(newsk)->icsk_ext_hdr_len = inet_opt->opt.optlen;
+ 	newinet->inet_id = newtp->write_seq ^ jiffies;
+diff --git a/net/ipv6/datagram.c b/net/ipv6/datagram.c
+index c215be7..2048518 100644
+--- a/net/ipv6/datagram.c
++++ b/net/ipv6/datagram.c
+@@ -199,7 +199,7 @@ ipv4_connected:
+ 		      NULL);
+ 
+ 	sk->sk_state = TCP_ESTABLISHED;
+-	ip6_set_txhash(sk);
++	sock_init_rxhash(sk);
+ out:
+ 	fl6_sock_release(flowlabel);
+ 	return err;
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index 5d46832..5d8b91d 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -295,7 +295,7 @@ static int tcp_v6_connect(struct sock *sk, struct sockaddr *uaddr,
+ 	if (err)
+ 		goto late_failure;
+ 
+-	ip6_set_txhash(sk);
++	sock_init_rxhash(sk);
+ 
+ 	if (!tp->write_seq && likely(!tp->repair))
+ 		tp->write_seq = secure_tcpv6_sequence_number(np->saddr.s6_addr32,
+@@ -1155,7 +1155,7 @@ static struct sock *tcp_v6_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
+ 	newsk->sk_v6_rcv_saddr = ireq->ir_v6_loc_addr;
+ 	newsk->sk_bound_dev_if = ireq->ir_iif;
+ 
+-	ip6_set_txhash(newsk);
++	sock_init_rxhash(newsk);
+ 
+ 	/* Now IPv6 options...
+ 
+-- 
+2.2.0.rc0.207.ga3a616c
