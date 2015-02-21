@@ -1,56 +1,52 @@
-From: roopa <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next RFC 0/5] Add NTF_EXT_AGED to control FDB ageing
- in SW or HW
-Date: Sat, 21 Feb 2015 10:31:11 -0800
-Message-ID: <54E8CEEF.2010200@cumulusnetworks.com>
-References: <1424416195-19098-1-git-send-email-sfeldma@gmail.com> <54E76EFA.1050209@cumulusnetworks.com> <54E7876A.3060303@gmail.com> <20150221110359.GA2095@nanopsycho.orion> <FFEDCF9956066D4D97C463CC178C7F69F23378@SJEXCHMB06.corp.ad.broadcom.com> <20150221155002.GA2092@nanopsycho.orion>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: 1e918876 breaks r8169 (linux-3.18+)
+Date: Sat, 21 Feb 2015 19:32:09 +0100
+Message-ID: <20150221183209.GA30167@breakpoint.cc>
+References: <20150203100816.GA5807@louise.pinerecords.com>
+ <20150203104214.GG24751@breakpoint.cc>
+ <20150210154536.GB16264@breakpoint.cc>
+ <20150221101512.GB17223@louise.pinerecords.com>
+ <20150221103104.GA26574@breakpoint.cc>
+ <1424535746.5565.42.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20150221174625.GA29681@breakpoint.cc>
+ <1424542141.5565.46.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Viswanath Bandaru <vbandaru@broadcom.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	"sfeldma@gmail.com" <sfeldma@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux@roeck-us.net" <linux@roeck-us.net>,
-	"andrew@lunn.ch" <andrew@lunn.ch>,
-	"gospo@cumulusnetworks.com" <gospo@cumulusnetworks.com>,
-	"siva.mannem.lnx@gmail.com" <siva.mannem.lnx@gmail.com>
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:36424 "EHLO
-	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752020AbbBUSbN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Feb 2015 13:31:13 -0500
-Received: by pabkq14 with SMTP id kq14so16463541pab.3
-        for <netdev@vger.kernel.org>; Sat, 21 Feb 2015 10:31:13 -0800 (PST)
-In-Reply-To: <20150221155002.GA2092@nanopsycho.orion>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Westphal <fw@strlen.de>,
+	Tomas Szepe <szepe@pinerecords.com>,
+	Francois Romieu <romieu@fr.zoreil.com>,
+	Hayes Wang <hayeswang@realtek.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Tom Herbert <therbert@google.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Marco Berizzi <pupilla@hotmail.com>,
+	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1424542141.5565.46.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 2/21/15, 7:50 AM, Jiri Pirko wrote:
-> Sat, Feb 21, 2015 at 12:29:38PM CET, vbandaru@broadcom.com wrote:
->>> -----Original Message-----
->>>> I agree, in fact, most of the HW I have access to only has a global age
->>>> timer configuration knob. Is this configurable on a per-port basis for
->>>> higher end switches, or even maybe per-FDB entry?
->>> I'm currently not aware of any hw which does not have global age timer.
->>> But I believe that they will appear. The model that we have now, to
->>> propagate aging setting of bridge down is more general and should be ok.
->>>
->>> Drivers should probably take care of multi bridge setup with different aging
->>> setup. Maybe to find minimal time and print a warning?
->>>
->> Setting up the minimal time in such a scenario is good.
->>
->> Should we also consider the possibility bridges containing ports from different  devices (and therefore different drivers) ? If that is a possibility, I think the bridge module should take responsibility of finding out the minimal time to pushing to all involved drivers.
-> It is certainly possible to bridge ports from multiple switch devices.
-> But that should not be a problem, because 1 bridge has 1 aging setup
-> which will be passed to all port drivers.
->
-> I believe that the only case which need to be resolved is multiple
-> bridges over single switch device. And I believe that it should be
-> handled in drivers because only drivers know what the hw is capable of
-> (if it supports aging setup per port/bridge/global).
->
->>
-I agree.
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Sat, 2015-02-21 at 18:46 +0100, Florian Westphal wrote:
+> > Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> > > Hold on.
+> > > 
+> > > I believe there is one race in the way you access skb->xmit_more _after_
+> > > 
+> > > txd->opts1 = cpu_to_le32(status);
+> > > 
+> > > After this point, TX might have completed and TX completion already have
+> > > freed skb
+> > 
+> > Hmm, I _thought_ HW would not start xmit of this descriptor/skb until after
+> > 
+> > RTL_W8(TxPoll, NPQ);
+> 
+> Note this 'kick' does not provide tail ptr.
+> 
+> NIC basically looks at TX descriptors to find ones with the DescOwn bit
+> set. It stops when if find one TX descriptor _without_ DescOwn.
+
+Makes sense, thanks for explaining this.
