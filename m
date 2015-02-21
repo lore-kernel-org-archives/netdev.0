@@ -1,50 +1,79 @@
-From: Tobias Waldekranz <tobias@waldekranz.com>
-Subject: Re: [PATCH 2/2] dsa: mv88e6131: support fixed PHYs
-Date: Sat, 21 Feb 2015 11:30:05 +0100
-Message-ID: <20150221103005.GA9212@gmail.com>
-References: <20150212141317.GB12318@gmail.com>
- <CAGVrzcb5Vcx3fwFf3sVBGqw9QgZp9PD3TOZhO-CT5Eevzz5rzw@mail.gmail.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next RFC 0/5] Add NTF_EXT_AGED to control FDB ageing
+ in SW or HW
+Date: Sat, 21 Feb 2015 12:03:59 +0100
+Message-ID: <20150221110359.GA2095@nanopsycho.orion>
+References: <1424416195-19098-1-git-send-email-sfeldma@gmail.com>
+ <54E76EFA.1050209@cumulusnetworks.com>
+ <54E7876A.3060303@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>
+Cc: roopa <roopa@cumulusnetworks.com>, sfeldma@gmail.com,
+	netdev@vger.kernel.org, linux@roeck-us.net, andrew@lunn.ch,
+	gospo@cumulusnetworks.com, vbandaru@broadcom.com,
+	siva.mannem.lnx@gmail.com
 To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f45.google.com ([209.85.215.45]:45627 "EHLO
-	mail-la0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750749AbbBUKaO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Feb 2015 05:30:14 -0500
-Received: by labge10 with SMTP id ge10so10513167lab.12
-        for <netdev@vger.kernel.org>; Sat, 21 Feb 2015 02:30:13 -0800 (PST)
+Received: from mail-we0-f178.google.com ([74.125.82.178]:44082 "EHLO
+	mail-we0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750851AbbBULED (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Feb 2015 06:04:03 -0500
+Received: by wesk11 with SMTP id k11so9777370wes.11
+        for <netdev@vger.kernel.org>; Sat, 21 Feb 2015 03:04:02 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <CAGVrzcb5Vcx3fwFf3sVBGqw9QgZp9PD3TOZhO-CT5Eevzz5rzw@mail.gmail.com>
+In-Reply-To: <54E7876A.3060303@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 12, 2015 at 08:13:28AM -0800, Florian Fainelli wrote:
-> 2015-02-12 6:13 GMT-08:00 Tobias Waldekranz <tobias@waldekranz.com>:
-> > Statically setup the PCS Control on the MAC to match the fixed PHY.
-> 
-> bcm_sf2 supports both fixed PHYs and regular PHYs, yet we do not need
-> to get access to the fixed PHY status from the adjust_link callback
-> because you could implement a separate fixed_link_update callback for
-> that purpose.
-> 
-> Did not that work for you?
-> 
+Fri, Feb 20, 2015 at 08:13:46PM CET, f.fainelli@gmail.com wrote:
+>On 20/02/15 09:29, roopa wrote:
+>> On 2/19/15, 11:09 PM, sfeldma@gmail.com wrote:
+>>> From: Scott Feldman <sfeldma@gmail.com>
+>>>
+>>> Add a new NTF_EXT_FLAG to mark an FDB as externally aged, for example by
+>>> offload hardware.   Switchdev driver/devices can set this flag when
+>>> learning a
+>>> new FDB entry and SW (the bridge driver) will skip this entry when
+>>> running its
+>>> ageing task.  If flag is set, the driver/device is responsible for
+>>> calling
+>>> call_netdev_switch_notifiers(NETDEV_SWITCH_FDB_DEL, ...) when entry
+>>> expires.
+>>>
+>>> This give the flexibility for driver/device to decide ageing policy
+>>> based on
+>>> its capabilities.  For devices managing many FDB entries, it is
+>>> desireable for
+>>> the device to aged out its own entries.  Devices not capable of aged
+>>> entries
+>>> can rely of SW to age out the entries.
+>>>
+>> scott, patches look good. However, I am not sure yet if there is a need
+>> to make it a per fdb entry flag.
+>
+>I agree, in fact, most of the HW I have access to only has a global age
+>timer configuration knob. Is this configurable on a per-port basis for
+>higher end switches, or even maybe per-FDB entry?
 
-That was my first approach and it worked fine. The only issue I saw
-was that the callback was continously called at each poll cycle even
-though the link state had not changed.
+I'm currently not aware of any hw which does not have global age timer.
+But I believe that they will appear. The model that we have now, to
+propagate aging setting of bridge down is more general and should be ok.
 
-So then I implemented the same check for updates that was in the
-regular adjust_link callback. But before I submitted that version of
-the patch I looked att the sf2 code, and it seemed as though this code
-uses the callback to update the phy status based on the chip state and
-not the other way around. Did I misunderstand the code?
+Drivers should probably take care of multi bridge setup with different
+aging setup. Maybe to find minimal time and print a warning?
 
-Not wanting to break your code, I went with this approach instead. But
-if you're fine with it, I'm more than happy to go with that version.
-
--- 
-Thanks
- - wkz
+>
+>> 
+>> At some point we will also need the hw ageing parameter to be configurable.
+>> So other approach could be,
+>> - ageing parameter on bridge gets offloaded the hw
+>> - so, by default hw and kernel age their own entries using the same
+>> bridge device default timer
+>> - User can explicitly disable HW ageing by using self (this needs some
+>> more thought because now the call is on the bridge device)
+>
+>I think we want to be careful with both SW and HW aging entries since a
+>host CPU's clock might be suspended/drifting etc.. at least, we probably
+>want one or the other to take precedence other the other one?
+>-- 
+>Florian
