@@ -1,32 +1,79 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH net] rhashtable: ensure cache line alignment on
- bucket_table
-Date: Fri, 20 Feb 2015 23:39:03 +0000
-Message-ID: <20150220233903.GA13890@casper.infradead.org>
-References: <1424443737.5565.12.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Viswanath Bandaru <vbandaru@broadcom.com>
+Subject: RE: [PATCH net-next RFC 0/5] Add NTF_EXT_AGED to control FDB ageing
+ in SW or HW
+Date: Sat, 21 Feb 2015 00:20:23 +0000
+Message-ID: <FFEDCF9956066D4D97C463CC178C7F69F22E02@SJEXCHMB06.corp.ad.broadcom.com>
+References: <1424416195-19098-1-git-send-email-sfeldma@gmail.com>
+ <54E76EFA.1050209@cumulusnetworks.com> <54E7876A.3060303@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"jiri@resnulli.us" <jiri@resnulli.us>,
+	"linux@roeck-us.net" <linux@roeck-us.net>,
+	"andrew@lunn.ch" <andrew@lunn.ch>,
+	"gospo@cumulusnetworks.com" <gospo@cumulusnetworks.com>,
+	"siva.mannem.lnx@gmail.com" <siva.mannem.lnx@gmail.com>
+To: Florian Fainelli <f.fainelli@gmail.com>,
+	roopa <roopa@cumulusnetworks.com>,
+	"sfeldma@gmail.com" <sfeldma@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:55106 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754600AbbBTXjH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Feb 2015 18:39:07 -0500
-Content-Disposition: inline
-In-Reply-To: <1424443737.5565.12.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:39062 "EHLO
+	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754916AbbBUAU0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Feb 2015 19:20:26 -0500
+In-Reply-To: <54E7876A.3060303@gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/20/15 at 06:48am, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> struct bucket_table contains mostly read fields :
-> 
-> size, locks_mask, locks.
-> 
-> Make sure these are not sharing a cache line with buckets[]
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-
-Acked-by: Thomas Graf <tgraf@suug.ch>
+DQo+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+IEZyb206IEZsb3JpYW4gRmFpbmVsbGkg
+W21haWx0bzpmLmZhaW5lbGxpQGdtYWlsLmNvbV0NCj4gU2VudDogU2F0dXJkYXksIEZlYnJ1YXJ5
+IDIxLCAyMDE1IDEyOjQ0IEFNDQo+IFRvOiByb29wYTsgc2ZlbGRtYUBnbWFpbC5jb20NCj4gQ2M6
+IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IGppcmlAcmVzbnVsbGkudXM7IGxpbnV4QHJvZWNrLXVz
+Lm5ldDsNCj4gYW5kcmV3QGx1bm4uY2g7IGdvc3BvQGN1bXVsdXNuZXR3b3Jrcy5jb207IFZpc3dh
+bmF0aCBCYW5kYXJ1Ow0KPiBzaXZhLm1hbm5lbS5sbnhAZ21haWwuY29tDQo+IFN1YmplY3Q6IFJl
+OiBbUEFUQ0ggbmV0LW5leHQgUkZDIDAvNV0gQWRkIE5URl9FWFRfQUdFRCB0byBjb250cm9sIEZE
+Qg0KPiBhZ2VpbmcgaW4gU1cgb3IgSFcNCj4gDQo+IE9uIDIwLzAyLzE1IDA5OjI5LCByb29wYSB3
+cm90ZToNCj4gPiBPbiAyLzE5LzE1LCAxMTowOSBQTSwgc2ZlbGRtYUBnbWFpbC5jb20gd3JvdGU6
+DQo+ID4+IEZyb206IFNjb3R0IEZlbGRtYW4gPHNmZWxkbWFAZ21haWwuY29tPg0KPiA+Pg0KPiA+
+PiBBZGQgYSBuZXcgTlRGX0VYVF9GTEFHIHRvIG1hcmsgYW4gRkRCIGFzIGV4dGVybmFsbHkgYWdl
+ZCwgZm9yIGV4YW1wbGUNCj4gYnkNCj4gPj4gb2ZmbG9hZCBoYXJkd2FyZS4gICBTd2l0Y2hkZXYg
+ZHJpdmVyL2RldmljZXMgY2FuIHNldCB0aGlzIGZsYWcgd2hlbg0KPiA+PiBsZWFybmluZyBhDQo+
+ID4+IG5ldyBGREIgZW50cnkgYW5kIFNXICh0aGUgYnJpZGdlIGRyaXZlcikgd2lsbCBza2lwIHRo
+aXMgZW50cnkgd2hlbg0KPiA+PiBydW5uaW5nIGl0cyBhZ2VpbmcgdGFzay4gIElmIGZsYWcgaXMg
+c2V0LCB0aGUgZHJpdmVyL2RldmljZSBpcw0KPiA+PiByZXNwb25zaWJsZSBmb3IgY2FsbGluZw0K
+PiA+PiBjYWxsX25ldGRldl9zd2l0Y2hfbm90aWZpZXJzKE5FVERFVl9TV0lUQ0hfRkRCX0RFTCwg
+Li4uKSB3aGVuIGVudHJ5DQo+ID4+IGV4cGlyZXMuDQo+ID4+DQo+ID4+IFRoaXMgZ2l2ZSB0aGUg
+ZmxleGliaWxpdHkgZm9yIGRyaXZlci9kZXZpY2UgdG8gZGVjaWRlIGFnZWluZyBwb2xpY3kNCj4g
+Pj4gYmFzZWQgb24gaXRzIGNhcGFiaWxpdGllcy4gIEZvciBkZXZpY2VzIG1hbmFnaW5nIG1hbnkg
+RkRCIGVudHJpZXMsIGl0DQo+ID4+IGlzIGRlc2lyZWFibGUgZm9yIHRoZSBkZXZpY2UgdG8gYWdl
+ZCBvdXQgaXRzIG93biBlbnRyaWVzLiAgRGV2aWNlcw0KPiA+PiBub3QgY2FwYWJsZSBvZiBhZ2Vk
+IGVudHJpZXMgY2FuIHJlbHkgb2YgU1cgdG8gYWdlIG91dCB0aGUgZW50cmllcy4NCj4gPj4NCj4g
+PiBzY290dCwgcGF0Y2hlcyBsb29rIGdvb2QuIEhvd2V2ZXIsIEkgYW0gbm90IHN1cmUgeWV0IGlm
+IHRoZXJlIGlzIGENCj4gPiBuZWVkIHRvIG1ha2UgaXQgYSBwZXIgZmRiIGVudHJ5IGZsYWcuDQo+
+IA0KPiBJIGFncmVlLCBpbiBmYWN0LCBtb3N0IG9mIHRoZSBIVyBJIGhhdmUgYWNjZXNzIHRvIG9u
+bHkgaGFzIGEgZ2xvYmFsIGFnZSB0aW1lcg0KPiBjb25maWd1cmF0aW9uIGtub2IuIElzIHRoaXMg
+Y29uZmlndXJhYmxlIG9uIGEgcGVyLXBvcnQgYmFzaXMgZm9yIGhpZ2hlciBlbmQNCj4gc3dpdGNo
+ZXMsIG9yIGV2ZW4gbWF5YmUgcGVyLUZEQiBlbnRyeT8NCj4gDQoNClRoZSBkZWNpc2lvbiB0byBh
+Z2UgYW4gZW50cnkgaXMgb24gYSBwZXItRkRCIGVudHJ5LCBTbyBpZiB0aGUgZmxhZyBpcyBub3Qg
+YXZhaWxhYmxlIGluIHRoZSBmZGItZW50cnksIHRoZW4gaXQgaGFzIHRvIGJlIG9idGFpbmVkIGZy
+b20gYXNzb2NpYXRlZCBuZXRkZXYuIEkgdGhpbmsgdGhlIHBlci1GREIgbWF5IGJlIG1vcmUgY29u
+dmVuaWVudCB0aGFuIGtlZXBpbmcgaXQgb24gbmV0ZGV2LiANCg0KPiA+DQo+ID4gQXQgc29tZSBw
+b2ludCB3ZSB3aWxsIGFsc28gbmVlZCB0aGUgaHcgYWdlaW5nIHBhcmFtZXRlciB0byBiZQ0KPiBj
+b25maWd1cmFibGUuDQo+ID4gU28gb3RoZXIgYXBwcm9hY2ggY291bGQgYmUsDQo+ID4gLSBhZ2Vp
+bmcgcGFyYW1ldGVyIG9uIGJyaWRnZSBnZXRzIG9mZmxvYWRlZCB0aGUgaHcNCg0KTGlrZSBldmVy
+eWJvZHkgc2FpZCwgdGhlIGFnZWluZyBpcyByZWFsbHkgdGhlIHN3aXRjaCdzIHByb3BlcnR5LiAg
+SWYgdGhlcmUgYXJlIHR3byBicmlkZ2VzIHdpdGggcG9ydHMgZnJvbSBzYW1lIHN3aXRjaGluZyBk
+ZXZpY2UsIGl0IGJlY29tZXMgdHJpY2t5IHRvIGNvbmZpZ3VyZSBhZ2VpbmcgdGltZSBvbiB0aGUg
+c3dpdGNoLiAgKCBJIHRoaW5rIHRoaXMgaXMgd2hhdCB5b3UgbWF5IGJlIHJlZmVycmluZyB0byBi
+ZSBzYXlpbmcgaXQgbmVlZHMgbW9yZSB0aG91Z2h0KS4NCg0KPiA+IC0gc28sIGJ5IGRlZmF1bHQg
+aHcgYW5kIGtlcm5lbCBhZ2UgdGhlaXIgb3duIGVudHJpZXMgdXNpbmcgdGhlIHNhbWUNCj4gPiBi
+cmlkZ2UgZGV2aWNlIGRlZmF1bHQgdGltZXINCj4gPiAtIFVzZXIgY2FuIGV4cGxpY2l0bHkgZGlz
+YWJsZSBIVyBhZ2VpbmcgYnkgdXNpbmcgc2VsZiAodGhpcyBuZWVkcyBzb21lDQo+ID4gbW9yZSB0
+aG91Z2h0IGJlY2F1c2Ugbm93IHRoZSBjYWxsIGlzIG9uIHRoZSBicmlkZ2UgZGV2aWNlKQ0KPiAN
+Cj4gSSB0aGluayB3ZSB3YW50IHRvIGJlIGNhcmVmdWwgd2l0aCBib3RoIFNXIGFuZCBIVyBhZ2lu
+ZyBlbnRyaWVzIHNpbmNlIGEgaG9zdA0KPiBDUFUncyBjbG9jayBtaWdodCBiZSBzdXNwZW5kZWQv
+ZHJpZnRpbmcgZXRjLi4gYXQgbGVhc3QsIHdlIHByb2JhYmx5IHdhbnQgb25lDQo+IG9yIHRoZSBv
+dGhlciB0byB0YWtlIHByZWNlZGVuY2Ugb3RoZXIgdGhlIG90aGVyIG9uZT8NCj4gLS0NCj4gRmxv
+cmlhbg0K
