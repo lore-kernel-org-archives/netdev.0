@@ -1,190 +1,98 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next 1/2] dsa: bonding: implement HW bonding
-Date: Sat, 21 Feb 2015 17:57:15 +0100
-Message-ID: <20150221165715.GE2092@nanopsycho.orion>
-References: <1424429473-4601-1-git-send-email-jonasj76@gmail.com>
- <1424429473-4601-2-git-send-email-jonasj76@gmail.com>
- <54E763A6.4020505@gmail.com>
- <alpine.LNX.2.03.1502201952190.11645@hellgate.skynet>
+Subject: Re: [PATCH] bonding: ban stacked bonding support
+Date: Sat, 21 Feb 2015 17:59:45 +0100
+Message-ID: <20150221165945.GF2092@nanopsycho.orion>
+References: <20150220222042.GA15595@p183.telecom.by>
+ <22754.1424474040@famine>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org,
-	Jonas Johansson <jonas.johansson@westermo.se>,
-	Scott Feldman <sfeldma@gmail.com>
-To: Jonas Johansson <jonasj76@gmail.com>
+Cc: Alexey Dobriyan <adobriyan@gmail.com>, davem@davemloft.net,
+	vfalico@gmail.com, andy@greyhouse.net, netdev@vger.kernel.org
+To: Jay Vosburgh <jay.vosburgh@canonical.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f43.google.com ([74.125.82.43]:49326 "EHLO
-	mail-wg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750980AbbBUQ5V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Feb 2015 11:57:21 -0500
-Received: by mail-wg0-f43.google.com with SMTP id z12so18486864wgg.2
-        for <netdev@vger.kernel.org>; Sat, 21 Feb 2015 08:57:19 -0800 (PST)
+Received: from mail-wg0-f49.google.com ([74.125.82.49]:34471 "EHLO
+	mail-wg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751561AbbBUQ7u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Feb 2015 11:59:50 -0500
+Received: by mail-wg0-f49.google.com with SMTP id l18so18399647wgh.8
+        for <netdev@vger.kernel.org>; Sat, 21 Feb 2015 08:59:48 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <alpine.LNX.2.03.1502201952190.11645@hellgate.skynet>
+In-Reply-To: <22754.1424474040@famine>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fri, Feb 20, 2015 at 08:28:48PM CET, jonasj76@gmail.com wrote:
+Sat, Feb 21, 2015 at 12:14:00AM CET, jay.vosburgh@canonical.com wrote:
+>Alexey Dobriyan <adobriyan@gmail.com> wrote:
 >
->
->On Fri, 20 Feb 2015, Florian Fainelli wrote:
->
->>On 20/02/15 02:51, Jonas Johansson wrote:
->>>From: Jonas Johansson <jonas.johansson@westermo.se>
->>>
->>>This patch will implement hooks for hardware bonding support for the DSA
->>>driver. When the team driver adds a DSA slave port the port will be assigned
->>>a bond group id and the DSA slave driver can setup the hardware. When team
->>>changes the port state (enabled/disabled) the DSA slave driver is able to
->>>use the attach/detach callback which will allow the hardware to change the
->>>hardware settings to reflect the state.
->>>
->>>Added DSA hooks:
->>> bond_add_group: To add a port to a bond group
->>> bond_del_group: To remove a port from a bond group
->>> bond_attach: To mark the port in a bond group as attached/active
->>> bond_detach: To unmark the port in a bond group as detach/inactive
->>>
->>>Added new network device hooks:
->>> ndo_bond_attach: To attach a device to a bond group.
->>> ndo_bond_detach: To detach a device from a bond group.
->>>
->>>Team:
->>> Added callback to ndo_bond_attach when port is enabled.
->>> Added callback to ndo_bond_detach when port is disabled.
->>>
->>>Added DSA notifier:
->>> Listening on NETDEV_CHANGEUPPER to add or deleta a port to/from a bond group.
->>>
->>>Signed-off-by: Jonas Johansson <jonas.johansson@westermo.se>
->>>---
->>> drivers/net/team/team.c   |  4 ++++
->>> include/linux/netdevice.h |  8 +++++++
->>> include/net/dsa.h         |  8 +++++++
->>> net/dsa/dsa.c             | 60 +++++++++++++++++++++++++++++++++++++++++++++++
->>> net/dsa/dsa_priv.h        |  6 +++++
->>> net/dsa/slave.c           | 23 ++++++++++++++++++
->>> 6 files changed, 109 insertions(+)
->>>
->>>diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
->>>index 0e62274..f7b2afb 100644
->>>--- a/drivers/net/team/team.c
->>>+++ b/drivers/net/team/team.c
->>>@@ -934,6 +934,8 @@ static void team_port_enable(struct team *team,
->>> 		team->ops.port_enabled(team, port);
->>> 	team_notify_peers(team);
->>> 	team_mcast_rejoin(team);
->>>+	if (port->dev->netdev_ops->ndo_bond_attach)
->>>+		port->dev->netdev_ops->ndo_bond_attach(port->dev);
->>> }
->>>
->>> static void __reconstruct_port_hlist(struct team *team, int rm_index)
->>>@@ -965,6 +967,8 @@ static void team_port_disable(struct team *team,
->>> 	team_adjust_ops(team);
->>> 	team_notify_peers(team);
->>> 	team_mcast_rejoin(team);
->>>+	if (port->dev->netdev_ops->ndo_bond_detach)
->>>+		port->dev->netdev_ops->ndo_bond_detach(port->dev);
->>> }
+>>Does Linux support it at all?
 >>
->>Do we really need new ndos here? Cannot we learn this via
->>NETDEV_CHANGEUPPER?
+>>In short: if you add bonding master as a slave, and then release it,
+>>it will no longer be a IFF_BONDING creating problems like described at
+>>https://bugzilla.kernel.org/show_bug.cgi?id=89541
 >>
->If team e.g. uses LACP as runner, a number of ports can be configured as a
->bond group, but only the ports of the same physical type will be enabled and
->used for bonding. team_port_enable() and team_port_disable() are the
->functions to set the ports which should be included for bonding.
+>>	echo +bond1 >/sys/class/net/bonding_masters
+>>	echo 1 >/sys/class/net/bond1/bonding/mode
+>>	echo +bond2 >/sys/class/net/bonding_masters
+>>	echo +bond2 >/sys/class/net/bond1/bonding/slaves
+>>	echo -bond2 >/sys/class/net/bond1/bonding/slaves
+>>	echo -bond2 >/sys/class/net/bonding_masters
+>>
+>>	cat /proc/net/bonding/bond2		# should not exist
+>>		[oops]
+>>
+>>Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+>
+>	I think it's time to disallow stacking like this; it never
+>really worked quite right as far as I can remember, and I thought it was
+>disallowed at some point in the past.  I don't believe the stacked bonds
+>function correctly for receive in the current kernel, either, although
+>I'd have to test it again to confirm that.
+>
+>	The usual case for desiring to stack bonds is an active-backup
+>pair of LACP / 802.3ad bonds (such as the bugzilla referenced above),
+>but the 802.3ad mode handles this situation internally, so no stack is
+>necessary.
 
-Hmm, I'm not sure I understand correctly what the marvel hw is capable of.
-Would you care to explain it a bit ? (or maybe I should read the
-datasheet)
-
-If we want to offload bond functionality (tx, rx), we need to be careful
-about the features, mainly mode/runner tx function which should not be
-different in hw to what we have in kernel. That might be pretty hard for
-example in case of loadbalance team mode, where bpf is used to get tx
-port.
-
-Also, switchdev ndos and notifier propagation needs to be implemented in
-team/bond.
-
-But maybe I'm getting your usecase wrong. Please help me to understand
-it.
-
-Thanks.
-
+Exactly. There is no real use-case for stacked bonding.
 
 >
+>>---
 >>
->>[snip]
+>> drivers/net/bonding/bond_main.c |    5 +++++
+>> 1 file changed, 5 insertions(+)
 >>
->>>
->>> /* platform driver init and cleanup *****************************************/
->>> static int dev_is_class(struct device *dev, void *class)
->>>@@ -778,6 +835,9 @@ static int dsa_probe(struct platform_device *pdev)
->>> 		add_timer(&dst->link_poll_timer);
->>> 	}
->>>
->>>+	/* Setup notifier */
->>>+	register_netdevice_notifier(&dsa_nb);
->>
->>I do not think we need to register the netdevice_notifier for every DSA
->>platform_device we might instantiate, a single one, global, whenever the
->>DSA driver gets inserted should be enough.
->>
->>Also, I would prefer if we moved this to net/dsa/slave.c where the other
->>netdevice_ops are layered, very much like this patch:
->>
->>[1]: http://patchwork.ozlabs.org/patch/440696/
->>
->I agree.
+>>--- a/drivers/net/bonding/bond_main.c
+>>+++ b/drivers/net/bonding/bond_main.c
+>>@@ -1248,6 +1248,11 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+>> 			    slave_dev->name);
+>> 	}
+>> 
+>>+	if (slave_dev->flags & IFF_MASTER) {
+>>+		netdev_dbg(bond_dev, "stacked bonding not supported\n");
+>>+		return -EBUSY;
+>>+	}
+>>+
+>> 	/* already enslaved */
+>> 	if (slave_dev->flags & IFF_SLAVE) {
+>> 		netdev_dbg(bond_dev, "Error: Device was already enslaved\n");
 >
->>>+
->>> 	return 0;
->>>
->>> out:
->>>diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
->>>index dc9756d..6a1456a 100644
->>>--- a/net/dsa/dsa_priv.h
->>>+++ b/net/dsa/dsa_priv.h
->>>@@ -45,6 +45,11 @@ struct dsa_slave_priv {
->>> 	int			old_link;
->>> 	int			old_pause;
->>> 	int			old_duplex;
->>>+
->>>+	/*
->>>+	 * Bond group id, or 0 if port is not bonded.
->>>+	 */
->>>+	int			bond_gid;
->>> };
->>>
->>> /* dsa.c */
->>>@@ -58,6 +63,7 @@ struct net_device *dsa_slave_create(struct dsa_switch *ds,
->>> 				    int port, char *name);
->>> int dsa_slave_suspend(struct net_device *slave_dev);
->>> int dsa_slave_resume(struct net_device *slave_dev);
->>>+bool dsa_slave_check(struct net_device *dev);
->>>
->>> /* tag_dsa.c */
->>> extern const struct dsa_device_ops dsa_netdev_ops;
->>>diff --git a/net/dsa/slave.c b/net/dsa/slave.c
->>>index f23dead..88c84bf 100644
->>>--- a/net/dsa/slave.c
->>>+++ b/net/dsa/slave.c
->>>@@ -441,6 +441,22 @@ static int dsa_slave_get_eee(struct net_device *dev, struct ethtool_eee *e)
->>> 	return ret;
->>> }
->>>
->>>+static int dsa_slave_bond_attach(struct net_device *dev)
->>>+{
->>>+	struct dsa_slave_priv *p = netdev_priv(dev);
->>>+	struct dsa_switch *ds = p->parent;
->>>+
->>>+	return ds->drv->bond_attach(ds, p->port);
->>
->>You need to test for the callback implementation in the driver, since it
->>is optional and likely not to be implemented immediately.
->>-- 
->>Florian
->>
->Thanks, I missed that.
+>	Instead of a separate block for IFF_MASTER, the IFF_SLAVE line
+>could be replaced with something like:
+>
+>	if (netif_is_bond_slave(slave_dev) || netif_is_bond_master(slave_dev)) {
+>		netdev_dbg(bond_dev, "Error: Device is bond slave or master\n");
+>
+>	With that caveat:
+>
+>Signed-off-by: Jay Vosburgh <jay.vosburgh@canonical.com>
+>
+>	This is probably a good candidate for -stable as well.
+>
+>	-J
+>
+>---
+>	-Jay Vosburgh, jay.vosburgh@canonical.com
+>--
+>To unsubscribe from this list: send the line "unsubscribe netdev" in
+>the body of a message to majordomo@vger.kernel.org
+>More majordomo info at  http://vger.kernel.org/majordomo-info.html
