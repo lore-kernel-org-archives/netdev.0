@@ -1,78 +1,49 @@
-From: Viswanath Bandaru <vbandaru@broadcom.com>
-Subject: RE: [PATCH net-next RFC 0/5] Add NTF_EXT_AGED to control FDB ageing
- in SW or HW
-Date: Sat, 21 Feb 2015 17:20:43 +0000
-Message-ID: <FFEDCF9956066D4D97C463CC178C7F69F23676@SJEXCHMB06.corp.ad.broadcom.com>
-References: <1424416195-19098-1-git-send-email-sfeldma@gmail.com>
- <54E76EFA.1050209@cumulusnetworks.com> <54E7876A.3060303@gmail.com>
- <20150221110359.GA2095@nanopsycho.orion>
- <FFEDCF9956066D4D97C463CC178C7F69F23378@SJEXCHMB06.corp.ad.broadcom.com>
- <20150221155002.GA2092@nanopsycho.orion>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next] ethtool: Add hw-switch-offload to netdev_features_strings.
+Date: Sat, 21 Feb 2015 20:31:37 +0300
+Message-ID: <54E8C0F9.9070508@cogentembedded.com>
+References: <1424472648-24828-1-git-send-email-ramirose@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-	roopa <roopa@cumulusnetworks.com>,
-	"sfeldma@gmail.com" <sfeldma@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux@roeck-us.net" <linux@roeck-us.net>,
-	"andrew@lunn.ch" <andrew@lunn.ch>,
-	"gospo@cumulusnetworks.com" <gospo@cumulusnetworks.com>,
-	"siva.mannem.lnx@gmail.com" <siva.mannem.lnx@gmail.com>
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com
+To: Rami Rosen <ramirose@gmail.com>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw3-out.broadcom.com ([216.31.210.64]:52703 "EHLO
-	mail-gw3-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751637AbbBURUo convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Feb 2015 12:20:44 -0500
-In-Reply-To: <20150221155002.GA2092@nanopsycho.orion>
-Content-Language: en-US
+Received: from mail-lb0-f179.google.com ([209.85.217.179]:42392 "EHLO
+	mail-lb0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751005AbbBURbm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Feb 2015 12:31:42 -0500
+Received: by lbiw7 with SMTP id w7so11778257lbi.9
+        for <netdev@vger.kernel.org>; Sat, 21 Feb 2015 09:31:40 -0800 (PST)
+In-Reply-To: <1424472648-24828-1-git-send-email-ramirose@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hello.
 
-> -----Original Message-----
-> From: Jiri Pirko [mailto:jiri@resnulli.us]
-> Sent: Saturday, February 21, 2015 9:20 PM
-> To: Viswanath Bandaru
-> Cc: Florian Fainelli; roopa; sfeldma@gmail.com; netdev@vger.kernel.org;
-> linux@roeck-us.net; andrew@lunn.ch; gospo@cumulusnetworks.com;
-> siva.mannem.lnx@gmail.com
-> Subject: Re: [PATCH net-next RFC 0/5] Add NTF_EXT_AGED to control FDB
-> ageing in SW or HW
-> 
-> Sat, Feb 21, 2015 at 12:29:38PM CET, vbandaru@broadcom.com wrote:
-> >> -----Original Message-----
-> >> >
-> >> >I agree, in fact, most of the HW I have access to only has a global
-> >> >age timer configuration knob. Is this configurable on a per-port
-> >> >basis for higher end switches, or even maybe per-FDB entry?
-> >>
-> >> I'm currently not aware of any hw which does not have global age timer.
-> >> But I believe that they will appear. The model that we have now, to
-> >> propagate aging setting of bridge down is more general and should be ok.
-> >>
-> >> Drivers should probably take care of multi bridge setup with
-> >> different aging setup. Maybe to find minimal time and print a warning?
-> >>
-> >
-> >Setting up the minimal time in such a scenario is good.
-> >
-> >Should we also consider the possibility bridges containing ports from
-> different  devices (and therefore different drivers) ? If that is a possibility, I
-> think the bridge module should take responsibility of finding out the minimal
-> time to pushing to all involved drivers.
-> 
-> It is certainly possible to bridge ports from multiple switch devices.
-> But that should not be a problem, because 1 bridge has 1 aging setup which
-> will be passed to all port drivers.
+On 2/21/2015 1:50 AM, Rami Rosen wrote:
 
-I apologize for confusion, I actually meant multiple bridge devices (which was the context) each having ports from different switch devices.  Is this expected to  be expected in reality ?
-> 
-> I believe that the only case which need to be resolved is multiple bridges
-> over single switch device. And I believe that it should be handled in drivers
-> because only drivers know what the hw is capable of (if it supports aging
-> setup per port/bridge/global).
-> 
-> >
-> >
+> commit aafb3e98b279 (netdev: introduce new NETIF_F_HW_SWITCH_OFFLOAD feature
+> flag for switch device offloads) added a new feature without adding it to
+> netdev_features_strings array; this patch fixes this.
+
+> Signed-off-by: Rami Rosen <ramirose@gmail.com>
+> ---
+>   net/core/ethtool.c | 1 +
+>   1 file changed, 1 insertion(+)
+
+> diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+> index 91f74f3..fc5feda 100644
+> --- a/net/core/ethtool.c
+> +++ b/net/core/ethtool.c
+> @@ -98,6 +98,7 @@ static const char netdev_features_strings[NETDEV_FEATURE_COUNT][ETH_GSTRING_LEN]
+>   	[NETIF_F_RXALL_BIT] =            "rx-all",
+>   	[NETIF_F_HW_L2FW_DOFFLOAD_BIT] = "l2-fwd-offload",
+>   	[NETIF_F_BUSY_POLL_BIT] =        "busy-poll",
+> +        [NETIF_F_HW_SWITCH_OFFLOAD_BIT] = "hw-switch-offload",
+
+    Please use tab for the indentation.
+
+[...]
+
+WBR, Sergei
