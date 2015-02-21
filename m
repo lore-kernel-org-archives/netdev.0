@@ -1,101 +1,50 @@
-From: Fabian Frederick <fabf@skynet.be>
-Subject: Re: [PATCH 6/7 linux-next] wan: cosa: replace current->state by
- set_current_state()
-Date: Sat, 21 Feb 2015 08:42:23 +0100 (CET)
-Message-ID: <970522031.62268.1424504543731.open-xchange@webmail.nmp.proximus.be>
-References: <1424455977-21903-1-git-send-email-fabf@skynet.be> <1424455977-21903-6-git-send-email-fabf@skynet.be> <54E77E34.6050909@cogentembedded.com> <20150220185800.GR2896@worktop.programming.kicks-ass.net>
-Reply-To: Fabian Frederick <fabf@skynet.be>
+From: Tobias Waldekranz <tobias@waldekranz.com>
+Subject: Re: [PATCH 2/2] dsa: mv88e6131: support fixed PHYs
+Date: Sat, 21 Feb 2015 11:30:05 +0100
+Message-ID: <20150221103005.GA9212@gmail.com>
+References: <20150212141317.GB12318@gmail.com>
+ <CAGVrzcb5Vcx3fwFf3sVBGqw9QgZp9PD3TOZhO-CT5Eevzz5rzw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ingo Molnar <mingo@redhat.com>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"Jan \"Yenya\" Kasprzak" <kas@fi.muni.cz>
-To: Peter Zijlstra <peterz@infradead.org>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailsec108.isp.belgacom.be ([195.238.20.104]:38650 "EHLO
-	mailsec108.isp.belgacom.be" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750746AbbBUHmg convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 21 Feb 2015 02:42:36 -0500
-In-Reply-To: <20150220185800.GR2896@worktop.programming.kicks-ass.net>
+Received: from mail-la0-f45.google.com ([209.85.215.45]:45627 "EHLO
+	mail-la0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750749AbbBUKaO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Feb 2015 05:30:14 -0500
+Received: by labge10 with SMTP id ge10so10513167lab.12
+        for <netdev@vger.kernel.org>; Sat, 21 Feb 2015 02:30:13 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <CAGVrzcb5Vcx3fwFf3sVBGqw9QgZp9PD3TOZhO-CT5Eevzz5rzw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Thu, Feb 12, 2015 at 08:13:28AM -0800, Florian Fainelli wrote:
+> 2015-02-12 6:13 GMT-08:00 Tobias Waldekranz <tobias@waldekranz.com>:
+> > Statically setup the PCS Control on the MAC to match the fixed PHY.
+> 
+> bcm_sf2 supports both fixed PHYs and regular PHYs, yet we do not need
+> to get access to the fixed PHY status from the adjust_link callback
+> because you could implement a separate fixed_link_update callback for
+> that purpose.
+> 
+> Did not that work for you?
+> 
 
+That was my first approach and it worked fine. The only issue I saw
+was that the callback was continously called at each poll cycle even
+though the link state had not changed.
 
-> On 20 February 2015 at 19:58 Peter Zijlstra <peterz@infradead.org> wr=
-ote:
->
->
-> On Fri, Feb 20, 2015 at 09:34:28PM +0300, Sergei Shtylyov wrote:
-> > Hello.
-> >
-> > On 02/20/2015 09:12 PM, Fabian Frederick wrote:
-> >
-> > >Use helper functions to access current->state.
-> > >Direct assignments are prone to races and therefore buggy.
-> >
-> > >current->state =3D TASK_RUNNING is replaced by __set_current_state=
-()
-> >
-> >=C2=A0 =C2=A0 You sometimes use __set_current_state() and sometimes
-> >set_current_state().
->
-> It depends on which state; setting yourself TASK_RUNNING is free of
-> wakeup races -- you're already running after all, so it can safely us=
-e
-> __set_current_state().
->
-> Setting a blocking state otoh needs set_current_state() which issues =
-a
-> full memory barriers with the store (critically in this case,
-> effectively after the store) such that it orders the state store with=
- a
-> subsequent load in the condition check if it really needs to go to
-> sleep.
->
->
-> In full:
->
->=C2=A0 =C2=A0 =C2=A0 =C2=A0current->state =3D TASK_UNINTERRUPTIBLE;=C2=
-=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 wait =3D false;
->=C2=A0 =C2=A0 =C2=A0 =C2=A0smp_mb();=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =
-=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0smp_wmb();
->=C2=A0 =C2=A0 =C2=A0 =C2=A0if (wait)=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =
-=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0p->state =3D TASK_RUNNING;
->=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0schedule();
->
-> Without that smp_mb(); the following order is possible:
->
->=C2=A0 =C2=A0 =C2=A0 =C2=A0if (wait)
->=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =
-=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0wait =3D false;
->=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =
-=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0smp_wmb();
->=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =
-=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0p->state =3D TASK_R=
-UNNING;
->=C2=A0 =C2=A0 =C2=A0 =C2=A0current->state =3D TASK_UNINTERRUPTIBLE;
->=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0schedule();
->
-> And we'll wait forever more..
-Do I have to add more comments in changelogs or is it OK for you ?
-Maybe something like:
-"
-current->state =3D TASK_RUNNING can safely be converted to __set_curren=
-t_state()
-as we're already in that state. Other assignments are converted to
-set_current_state() (which uses set_mb()).
+So then I implemented the same check for updates that was in the
+regular adjust_link callback. But before I submitted that version of
+the patch I looked att the sf2 code, and it seemed as though this code
+uses the callback to update the phy status based on the chip state and
+not the other way around. Did I misunderstand the code?
 
-"
-Regards,
-=46abian
->
+Not wanting to break your code, I went with this approach instead. But
+if you're fine with it, I'm more than happy to go with that version.
+
+-- 
+Thanks
+ - wkz
