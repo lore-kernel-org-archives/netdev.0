@@ -1,69 +1,70 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH 2/2] dsa: mv88e6131: support fixed PHYs
-Date: Sat, 21 Feb 2015 10:56:25 -0800
-Message-ID: <CAGVrzcb-di9Q9z8VohmSt7f0tq=BOxJ2=XXiRKRj1FToQo3=fg@mail.gmail.com>
-References: <20150212141317.GB12318@gmail.com> <CAGVrzcb5Vcx3fwFf3sVBGqw9QgZp9PD3TOZhO-CT5Eevzz5rzw@mail.gmail.com>
- <20150221103005.GA9212@gmail.com>
+From: Tomas Szepe <szepe@pinerecords.com>
+Subject: Re: 1e918876 breaks r8169 (linux-3.18+)
+Date: Sat, 21 Feb 2015 20:05:08 +0100
+Message-ID: <20150221190507.GA25687@louise.pinerecords.com>
+References: <20150203100816.GA5807@louise.pinerecords.com>
+ <20150203104214.GG24751@breakpoint.cc>
+ <20150210154536.GB16264@breakpoint.cc>
+ <20150221101512.GB17223@louise.pinerecords.com>
+ <20150221103104.GA26574@breakpoint.cc>
+ <1424535746.5565.42.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>
-To: Tobias Waldekranz <tobias@waldekranz.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f177.google.com ([209.85.213.177]:39814 "EHLO
-	mail-ig0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751448AbbBUS5H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Feb 2015 13:57:07 -0500
-Received: by mail-ig0-f177.google.com with SMTP id z20so10182380igj.4
-        for <netdev@vger.kernel.org>; Sat, 21 Feb 2015 10:57:06 -0800 (PST)
-In-Reply-To: <20150221103005.GA9212@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Westphal <fw@strlen.de>,
+	Francois Romieu <romieu@fr.zoreil.com>,
+	Hayes Wang <hayeswang@realtek.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Tom Herbert <therbert@google.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Marco Berizzi <pupilla@hotmail.com>,
+	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1424535746.5565.42.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-2015-02-21 2:30 GMT-08:00 Tobias Waldekranz <tobias@waldekranz.com>:
-> On Thu, Feb 12, 2015 at 08:13:28AM -0800, Florian Fainelli wrote:
->> 2015-02-12 6:13 GMT-08:00 Tobias Waldekranz <tobias@waldekranz.com>:
->> > Statically setup the PCS Control on the MAC to match the fixed PHY.
->>
->> bcm_sf2 supports both fixed PHYs and regular PHYs, yet we do not need
->> to get access to the fixed PHY status from the adjust_link callback
->> because you could implement a separate fixed_link_update callback for
->> that purpose.
->>
->> Did not that work for you?
->>
->
-> That was my first approach and it worked fine. The only issue I saw
-> was that the callback was continously called at each poll cycle even
-> though the link state had not changed.
+> > David, please consider reverting
+> > 
+> > 1e918876853aa85435e0f17fd8b4a92dcfff53d6
+> > (r8169: add support for Byte Queue Limits)
+> > 
+> > 	and
+> > 
+> > 0bec3b700d106a8b0a34227b2976d1a582f1aab7
+> > (r8169: add support for xmit_more)
+> > 
+> > I cannot reproduce any hangs (tried for 2days with 40 parallel
+> > netperfs using both 100mbit and 1gbit receiver).
+> > 
+> > And I don't see anything wrong with the change either.
+> > Seems like some revisions of the HW are just dodgy?
+> > 
+> > I hate giving up, but I have no means to diagnose this any further.
+> > Even reporter says it doesn't affect all of his r8169 nics.
+> > 
+> > So I think the change is correct per se, but might be revealing some
+> > HW/firmware bug.
+> 
+> Hold on.
+> 
+> I believe there is one race in the way you access skb->xmit_more _after_
+> 
+> txd->opts1 = cpu_to_le32(status);
+> 
+> After this point, TX might have completed and TX completion already have
+> freed skb
+> 
+> Could Tomas try following fix ?
+> 
+> diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+> index ad0020af2193..f2764366a36c 100644
+> ...
 
-Right, we poll using this callback fairly often. Just like the PHY
-libraries adjust_link, drivers are responsible for implementing
-"caching" and avoiding the callback to be invoked too frequently.
+Sure, just did.  Unfortunately, 3.19.0 + 0bec3b70 + this patch results
+in a driver that retains the problem.
 
->
-> So then I implemented the same check for updates that was in the
-> regular adjust_link callback. But before I submitted that version of
-> the patch I looked att the sf2 code, and it seemed as though this code
-> uses the callback to update the phy status based on the chip state and
-> not the other way around. Did I misunderstand the code?
-
-It is a two step process:
-
-- fixed_link_update updates the fixed PHY's status member to reflect
-the HW changes (link change mostly), updates the PHY device
-speed/duplex/pause parameters
-
-- adjust_link reads the PHY device speed/duplex/pause and applies
-these to the HW registers
-
->
-> Not wanting to break your code, I went with this approach instead. But
-> if you're fine with it, I'm more than happy to go with that version.
-
-I think it is a little cleaner since the adjust_link callback does not
-need to know what kind of PHY device it is dealing with, while the
-fixed_link_update() one only takes care of fixed PHYs.
-
-Thanks
+Sorry,
 -- 
-Florian
+Tomas Szepe <szepe@pinerecords.com>
