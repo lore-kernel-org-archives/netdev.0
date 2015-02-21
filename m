@@ -1,18 +1,18 @@
-From: Florian Westphal <fw@strlen.de>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: 1e918876 breaks r8169 (linux-3.18+)
-Date: Sat, 21 Feb 2015 18:46:25 +0100
-Message-ID: <20150221174625.GA29681@breakpoint.cc>
+Date: Sat, 21 Feb 2015 10:09:01 -0800
+Message-ID: <1424542141.5565.46.camel@edumazet-glaptop2.roam.corp.google.com>
 References: <20150203100816.GA5807@louise.pinerecords.com>
- <20150203104214.GG24751@breakpoint.cc>
- <20150210154536.GB16264@breakpoint.cc>
- <20150221101512.GB17223@louise.pinerecords.com>
- <20150221103104.GA26574@breakpoint.cc>
- <1424535746.5565.42.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20150203104214.GG24751@breakpoint.cc>
+	 <20150210154536.GB16264@breakpoint.cc>
+	 <20150221101512.GB17223@louise.pinerecords.com>
+	 <20150221103104.GA26574@breakpoint.cc>
+	 <1424535746.5565.42.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20150221174625.GA29681@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Florian Westphal <fw@strlen.de>,
-	Tomas Szepe <szepe@pinerecords.com>,
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Tomas Szepe <szepe@pinerecords.com>,
 	Francois Romieu <romieu@fr.zoreil.com>,
 	Hayes Wang <hayeswang@realtek.com>,
 	Eric Dumazet <edumazet@google.com>,
@@ -20,44 +20,42 @@ Cc: Florian Westphal <fw@strlen.de>,
 	"David S. Miller" <davem@davemloft.net>,
 	Marco Berizzi <pupilla@hotmail.com>,
 	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+To: Florian Westphal <fw@strlen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:34724 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751841AbbBURqe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Feb 2015 12:46:34 -0500
-Content-Disposition: inline
-In-Reply-To: <1424535746.5565.42.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-ig0-f173.google.com ([209.85.213.173]:54249 "EHLO
+	mail-ig0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751662AbbBUSJE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Feb 2015 13:09:04 -0500
+In-Reply-To: <20150221174625.GA29681@breakpoint.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> Hold on.
->=20
-> I believe there is one race in the way you access skb->xmit_more _aft=
-er_
->=20
-> txd->opts1 =3D cpu_to_le32(status);
->=20
-> After this point, TX might have completed and TX completion already h=
-ave
-> freed skb
+On Sat, 2015-02-21 at 18:46 +0100, Florian Westphal wrote:
+> Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> > Hold on.
+> > 
+> > I believe there is one race in the way you access skb->xmit_more _after_
+> > 
+> > txd->opts1 = cpu_to_le32(status);
+> > 
+> > After this point, TX might have completed and TX completion already have
+> > freed skb
+> 
+> Hmm, I _thought_ HW would not start xmit of this descriptor/skb until after
+> 
+> RTL_W8(TxPoll, NPQ);
 
-Hmm, I _thought_ HW would not start xmit of this descriptor/skb until a=
-fter
+Note this 'kick' does not provide tail ptr.
 
-RTL_W8(TxPoll, NPQ);
+NIC basically looks at TX descriptors to find ones with the DescOwn bit
+set. It stops when if find one TX descriptor _without_ DescOwn.
 
-call a bit later... your patch surely looks safer though, thanks for
-looking into this.
+So what can happen here is the NIC was kicked earlier (prior transmit),
+but found your TX descriptor, before you got a chance to read
+skb->xmit_more
 
-> Could Tomas try following fix ?
+This is why we have these wmb() everywhere. We want to do
 
-In addition -- Tomas, on your affected board -- did you try
-turning off gso/tso?
+txd->opts1 = XXX
 
-Holger Hoffst=E4tte mentioned on lkml that his affected r8169 nic is
-stable with xmit_more+bql after disabling gso/tso on the nic
-
-(ethtool -k $dev to display settings, "-K $dev tso off gso off" to
- disable offloads).
+Only when we are really ready.
