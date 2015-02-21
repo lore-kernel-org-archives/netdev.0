@@ -1,82 +1,101 @@
-From: Andy Gospodarek <gospo@cumulusnetworks.com>
-Subject: Re: [PATCH 1/1] tun: change speed from 10M to dynamically configured
-Date: Fri, 20 Feb 2015 22:07:55 -0500
-Message-ID: <20150221030755.GB1332@gospo.home.greyhouse.net>
-References: <20150216120345.4dfd9950@uryu.home.lan>
- <20150219.154041.184372158520813993.davem@davemloft.net>
- <20150220023500.GK580@gospo.home.greyhouse.net>
- <20150220.150749.2049007912029090161.davem@davemloft.net>
+From: Fabian Frederick <fabf@skynet.be>
+Subject: Re: [PATCH 6/7 linux-next] wan: cosa: replace current->state by
+ set_current_state()
+Date: Sat, 21 Feb 2015 08:42:23 +0100 (CET)
+Message-ID: <970522031.62268.1424504543731.open-xchange@webmail.nmp.proximus.be>
+References: <1424455977-21903-1-git-send-email-fabf@skynet.be> <1424455977-21903-6-git-send-email-fabf@skynet.be> <54E77E34.6050909@cogentembedded.com> <20150220185800.GR2896@worktop.programming.kicks-ass.net>
+Reply-To: Fabian Frederick <fabf@skynet.be>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: stephen@networkplumber.org, Yanjun.Zhu@windriver.com,
-	romieu@fr.zoreil.com, netdev@vger.kernel.org, mst@redhat.com,
-	jasowang@redhat.com, viro@zeniv.linux.org.uk,
-	sergei.shtylyov@cogentembedded.com, jonathon.reinhart@gmail.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ingo Molnar <mingo@redhat.com>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"Jan \"Yenya\" Kasprzak" <kas@fi.muni.cz>
+To: Peter Zijlstra <peterz@infradead.org>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f49.google.com ([209.85.216.49]:35059 "EHLO
-	mail-qa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755029AbbBUDIA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Feb 2015 22:08:00 -0500
-Received: by mail-qa0-f49.google.com with SMTP id w8so15178193qac.8
-        for <netdev@vger.kernel.org>; Fri, 20 Feb 2015 19:07:59 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20150220.150749.2049007912029090161.davem@davemloft.net>
+Received: from mailsec108.isp.belgacom.be ([195.238.20.104]:38650 "EHLO
+	mailsec108.isp.belgacom.be" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750746AbbBUHmg convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 21 Feb 2015 02:42:36 -0500
+In-Reply-To: <20150220185800.GR2896@worktop.programming.kicks-ass.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 20, 2015 at 03:07:49PM -0500, David Miller wrote:
-> From: Andy Gospodarek <gospo@cumulusnetworks.com>
-> Date: Thu, 19 Feb 2015 21:35:00 -0500
-> 
-> > On Thu, Feb 19, 2015 at 03:40:41PM -0500, David Miller wrote:
-> >> I see three realistic options:
-> >> 
-> >> 1) Create a link state indication which means "I am a software device,
-> >>    so I don't really have a link state in the traditional sense"
-> >> 
-> >> 2) Don't implement the link set/get operations at all on software
-> >>    devices.
-> >> 
-> >>    People can use ETHTOOL_GLINK to see if the thing is "up"
-> >> 
-> >> 3) Propagate the ultimate physical transport parameters into what
-> >>    the software device advertises.
-> >> 
-> >> It's important to carefully pick one of these, and consistently apply
-> >> it to all of our software devices.
-> >> 
-> >> I don't want TUN doing one thing, ipv4 tunnels doing another, etc.
-> > 
-> > I would prefer option #3 as it relates to the ability to transport
-> > offload statistics and parameters to software devices.  This could be
-> > useful for hardware with some form of offload vxlan/gre/etc that may be
-> > backed by hardare statistics (a callback to the upper device's ndo op
-> > could be made by the native hardware driver) or any other device without
-> > a proper in-kernel driver like a userspace user of tuntap that might be
-> > backed by something like OpenVPN.
-> > 
-> > That might help provide some more detailed, ethtool-like statistics in
-> > the format that is more easily readable by common monitoring tools
-> > without the need to have those applications look at anything except an
-> > ethtool/kernel interface.
-> 
-> netdev_feature_t like propagation is tricky because offloading
-> depends upon whether the device can do the offload "even in the
-> presence of encapsulation X".  So I don't see it as useful for
-> that.
-> 
-> But for things that are largely advisory types of information like
-> "physical link state", it works in a much more straightforward manner.
-> 
-> Link duplex and speed being wrong on a software device doesn't stop
-> communication, but incorrect hw offload feature flags might.
 
-Ah yes, that is an excellent point.  Trying to get too fancy is probably
-a bad idea when thinking about the exception cases.  In my example the
-driver for the vxlan offload device should be the one tracking this
-rather than propagating information up to a upper-layer software device.
 
-The software devices that may not have any true hardware backing in the
-kernel (OpenVPN, etc) are the best consumers for this type of
-infrastructure.
+> On 20 February 2015 at 19:58 Peter Zijlstra <peterz@infradead.org> wr=
+ote:
+>
+>
+> On Fri, Feb 20, 2015 at 09:34:28PM +0300, Sergei Shtylyov wrote:
+> > Hello.
+> >
+> > On 02/20/2015 09:12 PM, Fabian Frederick wrote:
+> >
+> > >Use helper functions to access current->state.
+> > >Direct assignments are prone to races and therefore buggy.
+> >
+> > >current->state =3D TASK_RUNNING is replaced by __set_current_state=
+()
+> >
+> >=C2=A0 =C2=A0 You sometimes use __set_current_state() and sometimes
+> >set_current_state().
+>
+> It depends on which state; setting yourself TASK_RUNNING is free of
+> wakeup races -- you're already running after all, so it can safely us=
+e
+> __set_current_state().
+>
+> Setting a blocking state otoh needs set_current_state() which issues =
+a
+> full memory barriers with the store (critically in this case,
+> effectively after the store) such that it orders the state store with=
+ a
+> subsequent load in the condition check if it really needs to go to
+> sleep.
+>
+>
+> In full:
+>
+>=C2=A0 =C2=A0 =C2=A0 =C2=A0current->state =3D TASK_UNINTERRUPTIBLE;=C2=
+=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 wait =3D false;
+>=C2=A0 =C2=A0 =C2=A0 =C2=A0smp_mb();=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =
+=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0smp_wmb();
+>=C2=A0 =C2=A0 =C2=A0 =C2=A0if (wait)=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =
+=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0p->state =3D TASK_RUNNING;
+>=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0schedule();
+>
+> Without that smp_mb(); the following order is possible:
+>
+>=C2=A0 =C2=A0 =C2=A0 =C2=A0if (wait)
+>=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =
+=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0wait =3D false;
+>=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =
+=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0smp_wmb();
+>=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =
+=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0p->state =3D TASK_R=
+UNNING;
+>=C2=A0 =C2=A0 =C2=A0 =C2=A0current->state =3D TASK_UNINTERRUPTIBLE;
+>=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0schedule();
+>
+> And we'll wait forever more..
+Do I have to add more comments in changelogs or is it OK for you ?
+Maybe something like:
+"
+current->state =3D TASK_RUNNING can safely be converted to __set_curren=
+t_state()
+as we're already in that state. Other assignments are converted to
+set_current_state() (which uses set_mb()).
+
+"
+Regards,
+=46abian
+>
