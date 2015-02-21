@@ -1,73 +1,113 @@
-From: "Brown, Aaron F" <aaron.f.brown@intel.com>
-Subject: RE: [bisected regression] e1000e: "Detected Hardware Unit Hang"
-Date: Sat, 21 Feb 2015 01:59:35 +0000
-Message-ID: <309B89C4C689E141A5FF6A0C5FB2118B78D72A14@ORSMSX101.amr.corp.intel.com>
-References: <1719052.SGOfRAJhfQ@storm>
- <1423654440.27854.83.camel@jtkirshe-mobl>
- <309B89C4C689E141A5FF6A0C5FB2118B783AC840@ORSMSX101.amr.corp.intel.com>
- <2370189.uakqRR7OLn@storm>
+From: Andy Gospodarek <gospo@cumulusnetworks.com>
+Subject: Re: [PATCH] bonding: ban stacked bonding support
+Date: Fri, 20 Feb 2015 21:55:41 -0500
+Message-ID: <20150221025541.GA1332@gospo.home.greyhouse.net>
+References: <20150220222042.GA15595@p183.telecom.by>
+ <22754.1424474040@famine>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	'Linux Netdev List' <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	e1000-devel <e1000-devel@lists.sourceforge.net>
-To: Thomas Jarosch <thomas.jarosch@intra2net.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Alexey Dobriyan <adobriyan@gmail.com>, davem@davemloft.net,
+	vfalico@gmail.com, andy@greyhouse.net, netdev@vger.kernel.org
+To: Jay Vosburgh <jay.vosburgh@canonical.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:41373 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755489AbbBUB7p (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Feb 2015 20:59:45 -0500
-In-Reply-To: <2370189.uakqRR7OLn@storm>
-Content-Language: en-US
+Received: from mail-qg0-f54.google.com ([209.85.192.54]:53406 "EHLO
+	mail-qg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754931AbbBUCzu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Feb 2015 21:55:50 -0500
+Received: by mail-qg0-f54.google.com with SMTP id z60so17124799qgd.13
+        for <netdev@vger.kernel.org>; Fri, 20 Feb 2015 18:55:50 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <22754.1424474040@famine>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogVGhvbWFzIEphcm9zY2gg
-W21haWx0bzp0aG9tYXMuamFyb3NjaEBpbnRyYTJuZXQuY29tXQ0KPiBTZW50OiBGcmlkYXksIEZl
-YnJ1YXJ5IDEzLCAyMDE1IDg6MTUgQU0NCj4gVG86IEJyb3duLCBBYXJvbiBGDQo+IENjOiBLaXJz
-aGVyLCBKZWZmcmV5IFQ7ICdMaW51eCBOZXRkZXYgTGlzdCc7IEVyaWMgRHVtYXpldDsgZTEwMDAt
-ZGV2ZWwNCj4gU3ViamVjdDogUmU6IFtiaXNlY3RlZCByZWdyZXNzaW9uXSBlMTAwMGU6ICJEZXRl
-Y3RlZCBIYXJkd2FyZSBVbml0IEhhbmciDQo+IA0KPiBIaSBBYXJvbiwNCj4gDQo+IE9uIFRodXJz
-ZGF5LCAxMi4gRmVicnVhcnkgMjAxNSAyMzoyODoyNyBCcm93biwgQWFyb24gRiB3cm90ZToNCj4g
-PiBJIGRvIG5vdCBoYXZlIGFueSByZWFsIGluZm8uICBJIGhhZCBiZWVuIGFza2VkIHRvIHRyeSBh
-bmQgcmVwcm9kdWNlIHNvbWUNCj4gPiB1bml0IGhhbmdzIChtYXliZSBmb3IgdGhpcykgcmVjZW50
-bHkgYW5kIGRpZCBub3Qgc3VjY2VlZCBpbiBwcm9kdWNpbmcNCj4gPiB0aGVtIG9uIHRoZSBwYXJ0
-cyBJIGhhdmUuICBSZWFkaW5nIHRocm91Z2ggdGhlIHRocmVhZCBJIHNlZSB0aGlzIGlzDQo+ID4g
-c2hvd2luZyB1cCBpbiBhIE5BVCBlbnZpcm9ubWVudC4gIFRoZSBwb3J0IHRoYXQgaXMgZ2V0dGlu
-ZyB0aGUgdW5pdCBoYW5nDQo+ID4gaW4gdGhlIE5BVCBzeXN0ZW0/DQo+IA0KPiB5ZXMsIHRoZSBl
-MTAwMGUgTklDIGlzIHNlcnZpbmcgdGhlIE5BVGVkIFdpbmRvd3MgY2xpZW50Lg0KPiANCj4gVGhl
-IHNldHVwIHdhcyBvdXRsaW5lZCBoZXJlOg0KPiANCj4gICAgIGh0dHA6Ly9tYXJjLmluZm8vP2w9
-bGludXgtbmV0ZGV2Jm09MTQyMTMzNjkxNzEzODI0Jnc9Mg0KPiANCj4gPiBJIHdpbGwgbWFrZSBz
-b21lIGF0dGVtcHRzIGF0IHJlcGxpY2F0aW5nIHRoaXMgd2l0aCB0aGUgcG9ydCBpbiBhIE5BVCBh
-bmQNCj4gPiBvciBmb3J3YXJkaW5nIHJvbGUuICBIYXMgYSBidWcgYmVlbiBvcGVuZWQgZm9yIHRo
-aXM/ICBPciBoYXMgaW5mb3JtYXRpb24NCj4gPiBmb3IgdGhpcyBzcGVjaWZpYyB1bml0IGhhbmcg
-YmVlbiBlbnRlcmVkIGludG8gb25lIG9mIHRoZSBvdGhlciB1bml0IGhhbmcNCj4gPiBidWdzIG9w
-ZW5lZCBhZ2FpbnN0IGUxMDAwZT8NCj4gDQo+IEkgZGlkbid0IGRvIGFueXRoaW5nKHRtKS4gVGhp
-cyByZXBvcnQgc291bmRzIGxpa2UgdGhlIHNhbWUgaXNzdWU6DQo+IA0KPiAgICAgaHR0cDovL2Vo
-Yy5hYy9wL2UxMDAwL2J1Z3MvMzc4Lw0KPiANCj4gT2xpdmVyIFdhZ25lciB3cm90ZSB0aGUgcHJv
-YmxlbSBzdGFydGVkIHRvIGFwcGVhcg0KPiBhZnRlciB1cGRhdGluZyBmcm9tIGtlcm5lbCAzLjUg
-dG8gMy44LjAuMzUgKG5ldyBmcmFnIHNpemUgY29kZSkuDQo+IA0KPiBJIGp1c3Qgbm90aWNlZCBu
-b3cgaGUgd3JvdGUgaGUgaGFzIHR3byBpZGVudGljYWwgYm94ZXM6DQo+IA0KPiAtLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0NCj4gLSBCb3ggd2l0aCBz
-eW1wdG9tczogUm91dGVyL0ZpcmV3YWxsLCBwYWNrZXQgZm9yd2FyZGluZw0KPiAgIGJldHdlZW4g
-ZGlmZmVyZW50IFZMQU5zIG9uIGV0aDAgYW5kIGV0aDENCj4gLSBCb3ggd2l0aG91dCBzeW1wdG9t
-czogRmlsZXNlcnZlciwgZXRoMC9ldGgxIGJvbmRlZA0KPiAgIChWTEFOcyB1c2VkLCBidXQgbm8g
-Zm9yd2FyZGluZykNCj4gLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tDQo+IA0KPiBTbyBpdCBsb29rcyBsaWtlIGl0J3MgcmVsYXRlZCB0byBmb3J3YXJk
-aW5nIHNvbWVob3csDQo+IEkndmUgbWFkZSB0aGUgc2FtZSBleHBlcmllbmNlIElJUkMuDQoNClRo
-YW5rcywgdGhhdCAoYW5kIHRoZSBtdWx0aXBsZSBidWcgd3JpdGUtdXBzIG9uIHNvdXJjZWZvcmdl
-KSBnYXZlIG1lIG1vcmUgdGhhbiBlbm91Z2ggdG8gZ28gb24uICBJIHdhcyBhYmxlIHRvIHJlcGxp
-Y2F0ZSBpdCBvbiBhIGhhbmRmdWwgb2Ygc3lzdGVtcyBpbiBteSBsYWIuICBPbiBlZmZlY3RlZCBz
-eXN0ZW1zIHNldHRpbmcgdXAgYSBOQVQgYW5kIHN0cmVzc2luZyB0aGUgaW50ZXJmYWNlcyB3aXRo
-IGV2ZW4gbW9kZXJhdGUgdHJhZmZpYyBsZXZlbHMgdHJpZ2dlcnMgaXQgcHJldHR5IHF1aWNrbHku
-ICBJdCBhcHBlYXJzIHRoYXQgdGhlIE5BVCBwYXJ0IGlzIHVubmVjZXNzYXJ5LCBqdXN0IHNldHRp
-bmcgdGhlIHN5c3RlbXMgdXAgYXMgYSBzb2Z0d2FyZSByb3V0ZXIgYW5kIHJ1bm5pbmcgc29tZSB0
-cmFmZmljIGFjcm9zcyBpdCBhbHNvIHRyaWdnZXJzIGl0IGdpdmluZyB0aGUgc2FtZSBhcHBhcmVu
-dCBiZWhhdmlvciAodHggaGFuZywgd2F0Y2hkb2cgdGltZW91dCB0cmFjZSwgcG9ydCByZXNldC4p
-DQoNCkFuZCB3aXRoIGFuIGludGVybmFsIHJlcHJvZHVjdGlvbiBvZiB0aGUgaXNzdWUgSSBoYXZl
-IGNyZWF0ZWQgYW4gaW50ZXJuYWwgYnVnIHJlcG9ydCwgZGVzY3JpYmVkIG15IHNldCBvZiByZXBy
-b2R1Y3Rpb25zLCByZWZlcmVuY2VkIHRoZSBzaW1pbGFyIGV4dGVybmFsIG9uZXMgYW5kIGFzc2ln
-bmVkIGl0IHRvIG91ciBjdXJyZW50IGUxMDAwZSBkZXZlbG9wZXIuDQoNClRoYW5rcyBhZ2FpbiwN
-CkFhcm9uDQoNCj4gDQo+IENoZWVycywNCj4gVGhvbWFzDQoNCg==
+On Fri, Feb 20, 2015 at 03:14:00PM -0800, Jay Vosburgh wrote:
+> Alexey Dobriyan <adobriyan@gmail.com> wrote:
+> 
+> >Does Linux support it at all?
+> >
+> >In short: if you add bonding master as a slave, and then release it,
+> >it will no longer be a IFF_BONDING creating problems like described at
+> >https://bugzilla.kernel.org/show_bug.cgi?id=89541
+> >
+> >	echo +bond1 >/sys/class/net/bonding_masters
+> >	echo 1 >/sys/class/net/bond1/bonding/mode
+> >	echo +bond2 >/sys/class/net/bonding_masters
+> >	echo +bond2 >/sys/class/net/bond1/bonding/slaves
+> >	echo -bond2 >/sys/class/net/bond1/bonding/slaves
+> >	echo -bond2 >/sys/class/net/bonding_masters
+> >
+> >	cat /proc/net/bonding/bond2		# should not exist
+> >		[oops]
+> >
+> >Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+> 
+> 	I think it's time to disallow stacking like this; it never
+> really worked quite right as far as I can remember, and I thought it was
+> disallowed at some point in the past.  I don't believe the stacked bonds
+> function correctly for receive in the current kernel, either, although
+> I'd have to test it again to confirm that.
+> 
+> 	The usual case for desiring to stack bonds is an active-backup
+> pair of LACP / 802.3ad bonds (such as the bugzilla referenced above),
+> but the 802.3ad mode handles this situation internally, so no stack is
+> necessary.
+
+Completely agree.
+
+> 
+> >---
+> >
+> > drivers/net/bonding/bond_main.c |    5 +++++
+> > 1 file changed, 5 insertions(+)
+> >
+> >--- a/drivers/net/bonding/bond_main.c
+> >+++ b/drivers/net/bonding/bond_main.c
+> >@@ -1248,6 +1248,11 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+> > 			    slave_dev->name);
+> > 	}
+> > 
+> >+	if (slave_dev->flags & IFF_MASTER) {
+> >+		netdev_dbg(bond_dev, "stacked bonding not supported\n");
+> >+		return -EBUSY;
+> >+	}
+> >+
+> > 	/* already enslaved */
+> > 	if (slave_dev->flags & IFF_SLAVE) {
+> > 		netdev_dbg(bond_dev, "Error: Device was already enslaved\n");
+> 
+> 	Instead of a separate block for IFF_MASTER, the IFF_SLAVE line
+> could be replaced with something like:
+> 
+> 	if (netif_is_bond_slave(slave_dev) || netif_is_bond_master(slave_dev)) {
+> 		netdev_dbg(bond_dev, "Error: Device is bond slave or master\n");
+> 
+> 	With that caveat:
+I would say adding the check for netif_is_bond_master() is critical
+since a check for only IFF_MASTER would fail when trying to add a bridge
+to a bond and that failure would not be desireable.
+
+Fix that and you can also add:
+
+Signed-off-by: Andy Gospodarek <gospo@cumulusnetworks.com>
+
+to your next post.
+
+> 
+> Signed-off-by: Jay Vosburgh <jay.vosburgh@canonical.com>
+> 
+> 	This is probably a good candidate for -stable as well.
+Agree
+
+(Though netif_is_bond_master() was added in 3.10; luckily it would be an
+easy backport.)
+
+> 
+> 	-J
+> 
+> ---
+> 	-Jay Vosburgh, jay.vosburgh@canonical.com
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
