@@ -1,52 +1,70 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: 1e918876 breaks r8169 (linux-3.18+)
-Date: Sat, 21 Feb 2015 19:32:09 +0100
-Message-ID: <20150221183209.GA30167@breakpoint.cc>
-References: <20150203100816.GA5807@louise.pinerecords.com>
- <20150203104214.GG24751@breakpoint.cc>
- <20150210154536.GB16264@breakpoint.cc>
- <20150221101512.GB17223@louise.pinerecords.com>
- <20150221103104.GA26574@breakpoint.cc>
- <1424535746.5565.42.camel@edumazet-glaptop2.roam.corp.google.com>
- <20150221174625.GA29681@breakpoint.cc>
- <1424542141.5565.46.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Sabrina Dubroca <sd@queasysnail.net>
+Subject: Re: [PATCH] ipv6: address issue in __ip6_append_data
+Date: Sat, 21 Feb 2015 19:33:59 +0100
+Message-ID: <20150221183359.GB16874@kria>
+References: <1423841459-21880-1-git-send-email-madalin.bucur@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Westphal <fw@strlen.de>,
-	Tomas Szepe <szepe@pinerecords.com>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	Hayes Wang <hayeswang@realtek.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Tom Herbert <therbert@google.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Marco Berizzi <pupilla@hotmail.com>,
-	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org, vyasevich@gmail.com, davem@davemloft.net
+To: Madalin Bucur <madalin.bucur@freescale.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp3-g21.free.fr ([212.27.42.3]:51801 "EHLO smtp3-g21.free.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751671AbbBUSeF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 21 Feb 2015 13:34:05 -0500
 Content-Disposition: inline
-In-Reply-To: <1424542141.5565.46.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1423841459-21880-1-git-send-email-madalin.bucur@freescale.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Sat, 2015-02-21 at 18:46 +0100, Florian Westphal wrote:
-> > Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> > > Hold on.
-> > > 
-> > > I believe there is one race in the way you access skb->xmit_more _after_
-> > > 
-> > > txd->opts1 = cpu_to_le32(status);
-> > > 
-> > > After this point, TX might have completed and TX completion already have
-> > > freed skb
-> > 
-> > Hmm, I _thought_ HW would not start xmit of this descriptor/skb until after
-> > 
-> > RTL_W8(TxPoll, NPQ);
+2015-02-13, 17:30:59 +0200, Madalin Bucur wrote:
+> Hello,
 > 
-> Note this 'kick' does not provide tail ptr.
-> 
-> NIC basically looks at TX descriptors to find ones with the DescOwn bit
-> set. It stops when if find one TX descriptor _without_ DescOwn.
+> I think I've found a problem that allows generic IPv6 traffic to be
+> sent by the stack with CHECKSUM_PARTIAL to a netdevice that declares
+> NETIF_F_IPV6_CSUM. The NETIF_F_IPV6_CSUM flag is based on the
+> NETIF_F_IPV6_CSUM_BIT that is described as referring only to TCP and
+> UDP but in my test ICMPv6 frames with CHECKSUM_PARTIAL are seen:
 
-Makes sense, thanks for explaining this.
+This should be fixed by:
+
+    bf250a1fa769 ("ipv6: Partial checksum only UDP packets")
+
+Have you tested it?
+
+
+> NETIF_F_IPV6_CSUM_BIT,          /* Can checksum TCP/UDP over IPV6 */
+> 
+> I've traced the issue to a recent commit that includes this check:
+> 
+> 	rt->dst.dev->features & NETIF_F_V6_CSUM
+> 
+> The problem with this is that NETIF_F_V6_CSUM is more than one bit:
+> 
+> #define NETIF_F_V6_CSUM         (NETIF_F_GEN_CSUM | NETIF_F_IPV6_CSUM)
+> 
+> Thus the above check should be either:
+> 
+> 	(rt->dst.dev->features & NETIF_F_V6_CSUM) == NETIF_F_V6_CSUM
+
+I think this disables HW checksumming that Vlad's patch enabled.  As
+Vlad pointed out in another similar thread [1], the two bits are
+mutually exclusive, so you can't have
+
+    (dev->features & NETIF_F_V6_CSUM) == NETIF_F_V6_CSUM
+
+[1] http://www.spinics.net/lists/netdev/msg316341.html
+
+
+> or probably should use NETIF_F_HW_CSUM only:
+> 
+> 	rt->dst.dev->features & NETIF_F_HW_CSUM
+
+Maybe.  But I just tried this, and it doesn't work with qemu's e1000
+emulation (could be a driver/qemu problem, I can't check with other
+devices).
+
+
+Thanks,
+-- 
+Sabrina
