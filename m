@@ -1,51 +1,73 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] net: Eliminate txhash in sock and reflect RX
- hash on transmit
-Date: Fri, 20 Feb 2015 17:36:01 -0800
-Message-ID: <1424482561.5565.34.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1424478270-24783-1-git-send-email-therbert@google.com>
+From: "Brown, Aaron F" <aaron.f.brown@intel.com>
+Subject: RE: [bisected regression] e1000e: "Detected Hardware Unit Hang"
+Date: Sat, 21 Feb 2015 01:59:35 +0000
+Message-ID: <309B89C4C689E141A5FF6A0C5FB2118B78D72A14@ORSMSX101.amr.corp.intel.com>
+References: <1719052.SGOfRAJhfQ@storm>
+ <1423654440.27854.83.camel@jtkirshe-mobl>
+ <309B89C4C689E141A5FF6A0C5FB2118B783AC840@ORSMSX101.amr.corp.intel.com>
+ <2370189.uakqRR7OLn@storm>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Tom Herbert <therbert@google.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	'Linux Netdev List' <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	e1000-devel <e1000-devel@lists.sourceforge.net>
+To: Thomas Jarosch <thomas.jarosch@intra2net.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f180.google.com ([209.85.223.180]:44258 "EHLO
-	mail-ie0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754616AbbBUBgD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Feb 2015 20:36:03 -0500
-Received: by iecar1 with SMTP id ar1so12069939iec.11
-        for <netdev@vger.kernel.org>; Fri, 20 Feb 2015 17:36:02 -0800 (PST)
-In-Reply-To: <1424478270-24783-1-git-send-email-therbert@google.com>
+Received: from mga11.intel.com ([192.55.52.93]:41373 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755489AbbBUB7p (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Feb 2015 20:59:45 -0500
+In-Reply-To: <2370189.uakqRR7OLn@storm>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2015-02-20 at 16:24 -0800, Tom Herbert wrote:
-> Instead of having a separate hash value in sock structure for transmit
-> and receive, we can use the rxhash value for both and eliminate the
-> txhash value. This simplifies the code and reflects the receive hash a
-> device provides to the stack for packets transmitted on the associated
-> connection. The hash value returned by a device could have meaning when
-> used in transmit to identify a flow, for instance the hash may be a flow
-> key for a flow created in a (virtual) device. With the flow key provided
-> on transmit this can obviate the need to create the hash and do the
-> lookup on the fly in transmit.
-
-> +static inline void sock_init_rxhash(struct sock *sk)
-> +{
-> +	get_random_bytes(&sk->sk_rxhash, sizeof(u32));
->  }
-
-
-Wow. You just depleted entropy pool completely.
-
-prandom_bytes() or prandom_u32() will just be fine.
-
-Quite frankly, all these changes seem pointless, as you have no
-guarantee same hash will be used for packets of a given flow.
-
-Obviously the outgoing SYN packet has no easy way to know what will be
-the rxhash in opposite direction. I think I already mentioned this
-problem.
-
-So whats the point ?
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogVGhvbWFzIEphcm9zY2gg
+W21haWx0bzp0aG9tYXMuamFyb3NjaEBpbnRyYTJuZXQuY29tXQ0KPiBTZW50OiBGcmlkYXksIEZl
+YnJ1YXJ5IDEzLCAyMDE1IDg6MTUgQU0NCj4gVG86IEJyb3duLCBBYXJvbiBGDQo+IENjOiBLaXJz
+aGVyLCBKZWZmcmV5IFQ7ICdMaW51eCBOZXRkZXYgTGlzdCc7IEVyaWMgRHVtYXpldDsgZTEwMDAt
+ZGV2ZWwNCj4gU3ViamVjdDogUmU6IFtiaXNlY3RlZCByZWdyZXNzaW9uXSBlMTAwMGU6ICJEZXRl
+Y3RlZCBIYXJkd2FyZSBVbml0IEhhbmciDQo+IA0KPiBIaSBBYXJvbiwNCj4gDQo+IE9uIFRodXJz
+ZGF5LCAxMi4gRmVicnVhcnkgMjAxNSAyMzoyODoyNyBCcm93biwgQWFyb24gRiB3cm90ZToNCj4g
+PiBJIGRvIG5vdCBoYXZlIGFueSByZWFsIGluZm8uICBJIGhhZCBiZWVuIGFza2VkIHRvIHRyeSBh
+bmQgcmVwcm9kdWNlIHNvbWUNCj4gPiB1bml0IGhhbmdzIChtYXliZSBmb3IgdGhpcykgcmVjZW50
+bHkgYW5kIGRpZCBub3Qgc3VjY2VlZCBpbiBwcm9kdWNpbmcNCj4gPiB0aGVtIG9uIHRoZSBwYXJ0
+cyBJIGhhdmUuICBSZWFkaW5nIHRocm91Z2ggdGhlIHRocmVhZCBJIHNlZSB0aGlzIGlzDQo+ID4g
+c2hvd2luZyB1cCBpbiBhIE5BVCBlbnZpcm9ubWVudC4gIFRoZSBwb3J0IHRoYXQgaXMgZ2V0dGlu
+ZyB0aGUgdW5pdCBoYW5nDQo+ID4gaW4gdGhlIE5BVCBzeXN0ZW0/DQo+IA0KPiB5ZXMsIHRoZSBl
+MTAwMGUgTklDIGlzIHNlcnZpbmcgdGhlIE5BVGVkIFdpbmRvd3MgY2xpZW50Lg0KPiANCj4gVGhl
+IHNldHVwIHdhcyBvdXRsaW5lZCBoZXJlOg0KPiANCj4gICAgIGh0dHA6Ly9tYXJjLmluZm8vP2w9
+bGludXgtbmV0ZGV2Jm09MTQyMTMzNjkxNzEzODI0Jnc9Mg0KPiANCj4gPiBJIHdpbGwgbWFrZSBz
+b21lIGF0dGVtcHRzIGF0IHJlcGxpY2F0aW5nIHRoaXMgd2l0aCB0aGUgcG9ydCBpbiBhIE5BVCBh
+bmQNCj4gPiBvciBmb3J3YXJkaW5nIHJvbGUuICBIYXMgYSBidWcgYmVlbiBvcGVuZWQgZm9yIHRo
+aXM/ICBPciBoYXMgaW5mb3JtYXRpb24NCj4gPiBmb3IgdGhpcyBzcGVjaWZpYyB1bml0IGhhbmcg
+YmVlbiBlbnRlcmVkIGludG8gb25lIG9mIHRoZSBvdGhlciB1bml0IGhhbmcNCj4gPiBidWdzIG9w
+ZW5lZCBhZ2FpbnN0IGUxMDAwZT8NCj4gDQo+IEkgZGlkbid0IGRvIGFueXRoaW5nKHRtKS4gVGhp
+cyByZXBvcnQgc291bmRzIGxpa2UgdGhlIHNhbWUgaXNzdWU6DQo+IA0KPiAgICAgaHR0cDovL2Vo
+Yy5hYy9wL2UxMDAwL2J1Z3MvMzc4Lw0KPiANCj4gT2xpdmVyIFdhZ25lciB3cm90ZSB0aGUgcHJv
+YmxlbSBzdGFydGVkIHRvIGFwcGVhcg0KPiBhZnRlciB1cGRhdGluZyBmcm9tIGtlcm5lbCAzLjUg
+dG8gMy44LjAuMzUgKG5ldyBmcmFnIHNpemUgY29kZSkuDQo+IA0KPiBJIGp1c3Qgbm90aWNlZCBu
+b3cgaGUgd3JvdGUgaGUgaGFzIHR3byBpZGVudGljYWwgYm94ZXM6DQo+IA0KPiAtLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0NCj4gLSBCb3ggd2l0aCBz
+eW1wdG9tczogUm91dGVyL0ZpcmV3YWxsLCBwYWNrZXQgZm9yd2FyZGluZw0KPiAgIGJldHdlZW4g
+ZGlmZmVyZW50IFZMQU5zIG9uIGV0aDAgYW5kIGV0aDENCj4gLSBCb3ggd2l0aG91dCBzeW1wdG9t
+czogRmlsZXNlcnZlciwgZXRoMC9ldGgxIGJvbmRlZA0KPiAgIChWTEFOcyB1c2VkLCBidXQgbm8g
+Zm9yd2FyZGluZykNCj4gLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tDQo+IA0KPiBTbyBpdCBsb29rcyBsaWtlIGl0J3MgcmVsYXRlZCB0byBmb3J3YXJk
+aW5nIHNvbWVob3csDQo+IEkndmUgbWFkZSB0aGUgc2FtZSBleHBlcmllbmNlIElJUkMuDQoNClRo
+YW5rcywgdGhhdCAoYW5kIHRoZSBtdWx0aXBsZSBidWcgd3JpdGUtdXBzIG9uIHNvdXJjZWZvcmdl
+KSBnYXZlIG1lIG1vcmUgdGhhbiBlbm91Z2ggdG8gZ28gb24uICBJIHdhcyBhYmxlIHRvIHJlcGxp
+Y2F0ZSBpdCBvbiBhIGhhbmRmdWwgb2Ygc3lzdGVtcyBpbiBteSBsYWIuICBPbiBlZmZlY3RlZCBz
+eXN0ZW1zIHNldHRpbmcgdXAgYSBOQVQgYW5kIHN0cmVzc2luZyB0aGUgaW50ZXJmYWNlcyB3aXRo
+IGV2ZW4gbW9kZXJhdGUgdHJhZmZpYyBsZXZlbHMgdHJpZ2dlcnMgaXQgcHJldHR5IHF1aWNrbHku
+ICBJdCBhcHBlYXJzIHRoYXQgdGhlIE5BVCBwYXJ0IGlzIHVubmVjZXNzYXJ5LCBqdXN0IHNldHRp
+bmcgdGhlIHN5c3RlbXMgdXAgYXMgYSBzb2Z0d2FyZSByb3V0ZXIgYW5kIHJ1bm5pbmcgc29tZSB0
+cmFmZmljIGFjcm9zcyBpdCBhbHNvIHRyaWdnZXJzIGl0IGdpdmluZyB0aGUgc2FtZSBhcHBhcmVu
+dCBiZWhhdmlvciAodHggaGFuZywgd2F0Y2hkb2cgdGltZW91dCB0cmFjZSwgcG9ydCByZXNldC4p
+DQoNCkFuZCB3aXRoIGFuIGludGVybmFsIHJlcHJvZHVjdGlvbiBvZiB0aGUgaXNzdWUgSSBoYXZl
+IGNyZWF0ZWQgYW4gaW50ZXJuYWwgYnVnIHJlcG9ydCwgZGVzY3JpYmVkIG15IHNldCBvZiByZXBy
+b2R1Y3Rpb25zLCByZWZlcmVuY2VkIHRoZSBzaW1pbGFyIGV4dGVybmFsIG9uZXMgYW5kIGFzc2ln
+bmVkIGl0IHRvIG91ciBjdXJyZW50IGUxMDAwZSBkZXZlbG9wZXIuDQoNClRoYW5rcyBhZ2FpbiwN
+CkFhcm9uDQoNCj4gDQo+IENoZWVycywNCj4gVGhvbWFzDQoNCg==
