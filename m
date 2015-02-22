@@ -1,39 +1,40 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: [GIT PULL] Second Round of IPVS Fixes for v3.20
-Date: Sun, 22 Feb 2015 16:24:59 -0500
-Message-ID: <1424640300-30364-1-git-send-email-horms@verge.net.au>
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>, Simon Horman <horms@verge.net.au>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
+From: Sasha Levin <sasha.levin@oracle.com>
+Subject: Re: [PATCH] rhashtable: initialize all rhashtable walker members
+Date: Sun, 22 Feb 2015 16:28:05 -0500
+Message-ID: <54EA49E5.8040206@oracle.com>
+References: <1424552111-12077-1-git-send-email-sasha.levin@oracle.com> <20150222.155838.307897095859530348.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: herbert@gondor.apana.org.au, tgraf@suug.ch, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150222.155838.307897095859530348.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Pablo,
+On 02/22/2015 03:58 PM, David Miller wrote:
+> From: Sasha Levin <sasha.levin@oracle.com>
+> Date: Sat, 21 Feb 2015 15:55:11 -0500
+> 
+>> Commit "rhashtable: Introduce rhashtable_walk_*" forgot to initialize the
+>> members of struct rhashtable_walker after allocating it, which caused
+>> an undefined value for 'resize' which is used later on.
+>>
+>> Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
+> 
+> Commits should be referred to by SHA1 ID as well as the commit
+> header text (in parenthesis and double quotes).
 
-please consider this fix for v3.20.
+It wasn't (isn't?) in Linus' tree yet, so I didn't want to refer to
+it by a SHA1 ID which would change.
 
-This patch resolves some memory leaks in connection
-synchronisation code that date back to v2.6.39.
+> Even better, refer to the commit using a "Fixes: " tag right before
+> your signoff.
+
+Ok, should I resend?
 
 
-The following changes since commit 78296c97ca1fd3b104f12e1f1fbc06c46635990b:
-
-  netfilter: xt_socket: fix a stack corruption bug (2015-02-16 17:00:48 +0100)
-
-are available in the git repository at:
-
-  https://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs.git tags/ipvs-fixes2-for-v3.20
-
-for you to fetch changes up to 528c943f3bb919aef75ab2fff4f00176f09a4019:
-
-  ipvs: add missing ip_vs_pe_put in sync code (2015-02-22 16:16:36 -0500)
-
-----------------------------------------------------------------
-Julian Anastasov (1):
-      ipvs: add missing ip_vs_pe_put in sync code
-
- net/netfilter/ipvs/ip_vs_sync.c | 3 +++
- 1 file changed, 3 insertions(+)
+Thanks,
+Sasha
