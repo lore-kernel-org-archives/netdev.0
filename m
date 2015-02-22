@@ -1,161 +1,141 @@
-From: Bojan Prtvar <prtvar.b@gmail.com>
-Subject: [PATCH v2] net: Remove state argument from skb_find_text()
-Date: Sun, 22 Feb 2015 11:46:35 +0100
-Message-ID: <1424601995-17318-1-git-send-email-prtvar.b@gmail.com>
-Cc: tgraf@suug.ch, netfilter-devel@vger.kernel.org,
-	netfilter@vger.kernel.org, dan.carpenter@oracle.com,
-	davem@davemloft.net, Bojan Prtvar <prtvar.b@gmail.com>
+From: Alexander Clouter <alex@digriz.org.uk>
+Subject: forwarding IPv6 LL packets, bug?
+Date: Sun, 22 Feb 2015 16:43:41 +0000
+Message-ID: <20150222164341.GD28830@stevemcqueen.digriz.org.uk>
+Mime-Version: 1.0
+Content-Type: multipart/mixed; boundary="yr/DzoowOgTDcSCF"
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f174.google.com ([209.85.212.174]:55363 "EHLO
-	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751351AbbBVKqt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Feb 2015 05:46:49 -0500
+Received: from marmot.wormnet.eu ([188.246.204.87]:47672 "EHLO
+	marmot.wormnet.eu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751980AbbBVRMi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Feb 2015 12:12:38 -0500
+Received: from [2a01:348:45:10:e093:4bc6:6a2a:a7a4] (helo=localhost)
+	by marmot.wormnet.eu with esmtpsa (TLSv1.2:DHE-RSA-AES128-SHA:128)
+	(Exim 4.84)
+	(envelope-from <alex@digriz.org.uk>)
+	id 1YPZd8-00026N-Nl
+	for netdev@vger.kernel.org; Sun, 22 Feb 2015 16:43:43 +0000
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Although it is clear that textsearch state is intentionally passed to
-skb_find_text() as uninitialized argument, it was never used by the
-callers. Therefore, we can simplify skb_find_text() by making it
-local variable.
 
-Signed-off-by: Bojan Prtvar <prtvar.b@gmail.com>
----
-v2: Rebased against current linux-next
+--yr/DzoowOgTDcSCF
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Disposition: inline
 
- include/linux/skbuff.h              |    3 +--
- net/core/skbuff.c                   |    9 ++++-----
- net/netfilter/nf_conntrack_amanda.c |   10 +++-------
- net/netfilter/xt_string.c           |    3 +--
- net/sched/em_text.c                 |    3 +--
- 5 files changed, 10 insertions(+), 18 deletions(-)
+Hi,
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 30007af..d898b32 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -870,8 +870,7 @@ unsigned int skb_seq_read(unsigned int consumed, const u8 **data,
- void skb_abort_seq_read(struct skb_seq_state *st);
+Stumbled on an oddity where Linux seems to be decrementing the hop limit and 
+forwarding link-local packets, so hoping someone can point me where I have 
+messed up, or hi-five me if I have stumbled on a bug? :)
+
+I have a firewall policy that drops neighbour solicitation packets where the 
+hop limit is not set to 255, and I seem to be getting hits.  The odd part is 
+that it is my router (running 3.18.6) that is generating and trying to 
+forwarding them.
+
+This is what I see, note the IN=OUT=br0 and HOPLIMIT=254 for IPv6 NS:
+----
+[   38.850000] unknown icmp: IN=br0 OUT=br0 MAC=00:13:10:2e:ba:63:54:26:96:cf:6f:f3:86:dd SRC=fe80:0000:0000:0000:5626:96ff:fecf:6ff3 DST=fe80:0000:0000:0000:7099:22ff:fe85:2fd2 LEN=72 TC=0 HOPLIMIT=254 FLOWLBL=0 PROTO=ICMPv6 TYPE=135 CODE=0
+----
+
+Here 00:13:10:2e:ba:63 is the MAC address of the sender, and 54:26:96:cf:6f:f3 
+is the router MAC address.  Meanwhile fe80::5626:96ff:fecf:6ff3 is the client 
+LL address, but fe80::7099:22ff:fe85:2fd2 is *not* the routers LL address.
+
+If this was not link-local addresses then Linux would be doing exactly as I 
+expected, however, I do not believe it should be forwarding as this is an IPv6 
+LL destination?
+
+I simplified my firewall so the forward chain just had just:
+----
+iif br0 oif br0 limit rate 10/minute log prefix "wtf: "
+----
+
+Then with scapy I ran:
+----
+a = Ether(src="54:26:96:cf:6f:f3", dst="00:13:10:2e:ba:63")/IPv6(src="fe80::5626:96ff:fecf:6ff3", dst="fe80::7099:22ff:fe85:2fd2")/ICMPv6EchoRequest()
+sendp(a)
+----
+
+>From the scapy client I ran tcpdump and saw the following (including the 
+delayed destination unreachable packet):
+----
+# tcpdump -i wlan0 -n -v -e not tcp and not udp and not arp
+16:15:16.603025 54:26:96:cf:6f:f3 > 00:13:10:2e:ba:63, ethertype IPv6 (0x86dd), length 62: (hlim 64, next-header ICMPv6 (58) payload length: 8) fe80::5626:96ff:fecf:6ff3 > fe80::7099:22ff:fe85:2fd2: [icmp6 sum ok] ICMP6, echo request, seq 0
+16:15:16.604776 00:13:10:2e:ba:63 > 54:26:96:cf:6f:f3, ethertype IPv6 (0x86dd), length 150: (hlim 255, next-header ICMPv6 (58) payload length: 96) fe80::74d6:3eff:fef2:3815 > fe80::5626:96ff:fecf:6ff3: [icmp6 sum ok] ICMP6, redirect, length 96, fe80::7099:22ff:fe85:2fd2 to fe80::7099:22ff:fe85:2fd2
+           redirected header option (4), length 56 (7):
+             0x0000:  0407 0000 0000 0000 6000 0000 0008 3a40
+             0x0010:  fe80 0000 0000 0000 5626 96ff fecf 6ff3
+             0x0020:  fe80 0000 0000 0000 7099 22ff fe85 2fd2
+             0x0030:  8000 64e1 0000 0000
+16:15:19.600122 00:13:10:2e:ba:63 > 54:26:96:cf:6f:f3, ethertype IPv6 (0x86dd), length 110: (hlim 64, next-header ICMPv6 (58) payload length: 56) fe80::74d6:3eff:fef2:3815 > fe80::5626:96ff:fecf:6ff3: [icmp6 sum ok] ICMP6, destination unreachable, unreachable address fe80::7099:22ff:fe85:2fd2
+----
+
+Meanwhile the firewall popped up with, again with the hop limit decremented:
+----
+[ 6797.960000] wtf: IN=br0 OUT=br0 MAC=00:13:10:2e:ba:63:54:26:96:cf:6f:f3:86:dd SRC=fe80:0000:0000:0000:5626:96ff:fecf:6ff3 DST=fe80:0000:0000:0000:7099:22ff:fe85:2fd2 LEN=48 TC=0 HOPLIMIT=63 FLOWLBL=0 PROTO=ICMPv6 TYPE=128 CODE=0 ID=0 SEQ=0
+----
+
+So I cracked out the source code and found where I think the problem might be, 
+net/ipv6/ip6_output.c:ip6_forward().  I think the else block tied to the if 
+clause handling redirect generation should be move above the block alternative 
+and made non-conditional?  Something like the attachment?
+
+Regards
+
+-- 
+Alexander Clouter
+.sigmonster says:             BOFH excuse #352:
+			       The cables are not the same length.
+
+--yr/DzoowOgTDcSCF
+Content-Type: text/x-diff; charset=us-ascii
+Content-Disposition: attachment; filename="forwarding-ll-traffic-fix.patch"
+
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index 7deebf1..ed45930 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -437,6 +437,18 @@ int ip6_forward(struct sk_buff *skb)
+ 	}
+ 	dst = skb_dst(skb);
  
- unsigned int skb_find_text(struct sk_buff *skb, unsigned int from,
--			   unsigned int to, struct ts_config *config,
--			   struct ts_state *state);
-+			   unsigned int to, struct ts_config *config);
- 
- /*
-  * Packet hash types specify the type of hash in skb_set_hash.
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 88c613e..374e43b 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -2865,7 +2865,6 @@ static void skb_ts_finish(struct ts_config *conf, struct ts_state *state)
-  * @from: search offset
-  * @to: search limit
-  * @config: textsearch configuration
-- * @state: uninitialized textsearch state variable
-  *
-  * Finds a pattern in the skb data according to the specified
-  * textsearch configuration. Use textsearch_next() to retrieve
-@@ -2873,17 +2872,17 @@ static void skb_ts_finish(struct ts_config *conf, struct ts_state *state)
-  * to the first occurrence or UINT_MAX if no match was found.
-  */
- unsigned int skb_find_text(struct sk_buff *skb, unsigned int from,
--			   unsigned int to, struct ts_config *config,
--			   struct ts_state *state)
-+			   unsigned int to, struct ts_config *config)
- {
-+	struct ts_state state;
- 	unsigned int ret;
- 
- 	config->get_next_block = skb_ts_get_next_block;
- 	config->finish = skb_ts_finish;
- 
--	skb_prepare_seq_read(skb, from, to, TS_SKB_CB(state));
-+	skb_prepare_seq_read(skb, from, to, TS_SKB_CB(&state));
- 
--	ret = textsearch_find(config, state);
-+	ret = textsearch_find(config, &state);
- 	return (ret <= to - from ? ret : UINT_MAX);
- }
- EXPORT_SYMBOL(skb_find_text);
-diff --git a/net/netfilter/nf_conntrack_amanda.c b/net/netfilter/nf_conntrack_amanda.c
-index b8b95f4..57a26cc 100644
---- a/net/netfilter/nf_conntrack_amanda.c
-+++ b/net/netfilter/nf_conntrack_amanda.c
-@@ -88,7 +88,6 @@ static int amanda_help(struct sk_buff *skb,
- 		       struct nf_conn *ct,
- 		       enum ip_conntrack_info ctinfo)
- {
--	struct ts_state ts;
- 	struct nf_conntrack_expect *exp;
- 	struct nf_conntrack_tuple *tuple;
- 	unsigned int dataoff, start, stop, off, i;
-@@ -113,23 +112,20 @@ static int amanda_help(struct sk_buff *skb,
- 		return NF_ACCEPT;
++	int addrtype = ipv6_addr_type(&hdr->saddr);
++
++	/* This check is security critical. */
++	if (addrtype == IPV6_ADDR_ANY ||
++	    addrtype & (IPV6_ADDR_MULTICAST | IPV6_ADDR_LOOPBACK))
++		goto error;
++	if (addrtype & IPV6_ADDR_LINKLOCAL) {
++		icmpv6_send(skb, ICMPV6_DEST_UNREACH,
++			    ICMPV6_NOT_NEIGHBOUR, 0);
++		goto error;
++	}
++
+ 	/* IPv6 specs say nothing about it, but it is clear that we cannot
+ 	   send redirects to source routed frames.
+ 	   We don't send redirects to frames decapsulated from IPsec.
+@@ -466,18 +478,6 @@ int ip6_forward(struct sk_buff *skb)
+ 			ndisc_send_redirect(skb, target);
+ 		if (peer)
+ 			inet_putpeer(peer);
+-	} else {
+-		int addrtype = ipv6_addr_type(&hdr->saddr);
+-
+-		/* This check is security critical. */
+-		if (addrtype == IPV6_ADDR_ANY ||
+-		    addrtype & (IPV6_ADDR_MULTICAST | IPV6_ADDR_LOOPBACK))
+-			goto error;
+-		if (addrtype & IPV6_ADDR_LINKLOCAL) {
+-			icmpv6_send(skb, ICMPV6_DEST_UNREACH,
+-				    ICMPV6_NOT_NEIGHBOUR, 0);
+-			goto error;
+-		}
  	}
  
--	memset(&ts, 0, sizeof(ts));
- 	start = skb_find_text(skb, dataoff, skb->len,
--			      search[SEARCH_CONNECT].ts, &ts);
-+			      search[SEARCH_CONNECT].ts);
- 	if (start == UINT_MAX)
- 		goto out;
- 	start += dataoff + search[SEARCH_CONNECT].len;
- 
--	memset(&ts, 0, sizeof(ts));
- 	stop = skb_find_text(skb, start, skb->len,
--			     search[SEARCH_NEWLINE].ts, &ts);
-+			     search[SEARCH_NEWLINE].ts);
- 	if (stop == UINT_MAX)
- 		goto out;
- 	stop += start;
- 
- 	for (i = SEARCH_DATA; i <= SEARCH_INDEX; i++) {
--		memset(&ts, 0, sizeof(ts));
--		off = skb_find_text(skb, start, stop, search[i].ts, &ts);
-+		off = skb_find_text(skb, start, stop, search[i].ts);
- 		if (off == UINT_MAX)
- 			continue;
- 		off += start + search[i].len;
-diff --git a/net/netfilter/xt_string.c b/net/netfilter/xt_string.c
-index 5699adb..0bc3460 100644
---- a/net/netfilter/xt_string.c
-+++ b/net/netfilter/xt_string.c
-@@ -26,13 +26,12 @@ static bool
- string_mt(const struct sk_buff *skb, struct xt_action_param *par)
- {
- 	const struct xt_string_info *conf = par->matchinfo;
--	struct ts_state state;
- 	bool invert;
- 
- 	invert = conf->u.v1.flags & XT_STRING_FLAG_INVERT;
- 
- 	return (skb_find_text((struct sk_buff *)skb, conf->from_offset,
--			     conf->to_offset, conf->config, &state)
-+			     conf->to_offset, conf->config)
- 			     != UINT_MAX) ^ invert;
- }
- 
-diff --git a/net/sched/em_text.c b/net/sched/em_text.c
-index f03c3de..73e2ed5 100644
---- a/net/sched/em_text.c
-+++ b/net/sched/em_text.c
-@@ -34,7 +34,6 @@ static int em_text_match(struct sk_buff *skb, struct tcf_ematch *m,
- {
- 	struct text_match *tm = EM_TEXT_PRIV(m);
- 	int from, to;
--	struct ts_state state;
- 
- 	from = tcf_get_base_ptr(skb, tm->from_layer) - skb->data;
- 	from += tm->from_offset;
-@@ -42,7 +41,7 @@ static int em_text_match(struct sk_buff *skb, struct tcf_ematch *m,
- 	to = tcf_get_base_ptr(skb, tm->to_layer) - skb->data;
- 	to += tm->to_offset;
- 
--	return skb_find_text(skb, from, to, tm->config, &state) != UINT_MAX;
-+	return skb_find_text(skb, from, to, tm->config) != UINT_MAX;
- }
- 
- static int em_text_change(struct net *net, void *data, int len,
--- 
-1.7.9.5
+ 	mtu = ip6_dst_mtu_forward(dst);
+
+--yr/DzoowOgTDcSCF--
