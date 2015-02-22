@@ -1,51 +1,60 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH] rhashtable: initialize all rhashtable walker members
-Date: Sun, 22 Feb 2015 22:10:09 +0100
-Message-ID: <54EA45B1.6080701@iogearbox.net>
-References: <1424552111-12077-1-git-send-email-sasha.levin@oracle.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Sasha Levin <sasha.levin@oracle.com>, herbert@gondor.apana.org.au,
-	tgraf@suug.ch
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1424552111-12077-1-git-send-email-sasha.levin@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Simon Horman <horms@verge.net.au>
+Subject: [PATCH] ipvs: add missing ip_vs_pe_put in sync code
+Date: Sun, 22 Feb 2015 16:25:00 -0500
+Message-ID: <1424640300-30364-2-git-send-email-horms@verge.net.au>
+References: <1424640300-30364-1-git-send-email-horms@verge.net.au>
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>, Simon Horman <horms@verge.net.au>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1424640300-30364-1-git-send-email-horms@verge.net.au>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 02/21/2015 09:55 PM, Sasha Levin wrote:
-> Commit "rhashtable: Introduce rhashtable_walk_*" forgot to initialize the
-> members of struct rhashtable_walker after allocating it, which caused
-> an undefined value for 'resize' which is used later on.
->
-> Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
-> ---
->   lib/rhashtable.c |    3 +++
->   1 file changed, 3 insertions(+)
->
-> diff --git a/lib/rhashtable.c b/lib/rhashtable.c
-> index 9cc4c4a..030484c 100644
-> --- a/lib/rhashtable.c
-> +++ b/lib/rhashtable.c
-> @@ -894,6 +894,9 @@ int rhashtable_walk_init(struct rhashtable *ht, struct rhashtable_iter *iter)
->   	if (!iter->walker)
->   		return -ENOMEM;
->
-> +	INIT_LIST_HEAD(&iter->walker->list);
-> +	iter->walker->resize = false;
-> +
+From: Julian Anastasov <ja@ssi.bg>
 
-The change seems fine to me, although the INIT_LIST_HEAD() unnecessary
-due to the below list_add()?
+ip_vs_conn_fill_param_sync() gets in param.pe a module
+reference for persistence engine from __ip_vs_pe_getbyname()
+but forgets to put it. Problem occurs in backup for
+sync protocol v1 (2.6.39).
 
-Anyway, setting resize to false is definitely correct. In practice this
-shouldn't cause much issue though as rhashtable_walk_start() would only
-reset iterator meta data and set resize to false, but lets fix it.
+Also, pe_data usually comes in sync messages for
+connection templates and ip_vs_conn_new() copies
+the pointer only in this case. Make sure pe_data
+is not leaked if it comes unexpectedly for normal
+connections. Leak can happen only if bogus messages
+are sent to backup server.
 
->   	mutex_lock(&ht->mutex);
->   	list_add(&iter->walker->list, &ht->walkers);
->   	mutex_unlock(&ht->mutex);
+Fixes: fe5e7a1efb66 ("IPVS: Backup, Adding Version 1 receive capability")
+Signed-off-by: Julian Anastasov <ja@ssi.bg>
+Signed-off-by: Simon Horman <horms@verge.net.au>
+---
+ net/netfilter/ipvs/ip_vs_sync.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
-Thanks,
-Daniel
+diff --git a/net/netfilter/ipvs/ip_vs_sync.c b/net/netfilter/ipvs/ip_vs_sync.c
+index c47ffd7..d93ceeb 100644
+--- a/net/netfilter/ipvs/ip_vs_sync.c
++++ b/net/netfilter/ipvs/ip_vs_sync.c
+@@ -896,6 +896,8 @@ static void ip_vs_proc_conn(struct net *net, struct ip_vs_conn_param *param,
+ 			IP_VS_DBG(2, "BACKUP, add new conn. failed\n");
+ 			return;
+ 		}
++		if (!(flags & IP_VS_CONN_F_TEMPLATE))
++			kfree(param->pe_data);
+ 	}
+ 
+ 	if (opt)
+@@ -1169,6 +1171,7 @@ static inline int ip_vs_proc_sync_conn(struct net *net, __u8 *p, __u8 *msg_end)
+ 				(opt_flags & IPVS_OPT_F_SEQ_DATA ? &opt : NULL)
+ 				);
+ #endif
++	ip_vs_pe_put(param.pe);
+ 	return 0;
+ 	/* Error exit */
+ out:
+-- 
+2.1.4
+
