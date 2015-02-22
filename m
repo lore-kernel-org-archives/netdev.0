@@ -1,28 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch] ethtool: use "ops" name consistenty in
- ethtool_set_rxfh()
-Date: Sat, 21 Feb 2015 21:59:25 -0500 (EST)
-Message-ID: <20150221.215925.91114669130700758.davem@davemloft.net>
-References: <20150220105405.GC7895@mwanda>
+Subject: Re: [PATCH net] rhashtable: ensure cache line alignment on
+ bucket_table
+Date: Sat, 21 Feb 2015 22:00:09 -0500 (EST)
+Message-ID: <20150221.220009.368721064777950308.davem@davemloft.net>
+References: <1424443737.5565.12.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ben@decadent.org.uk, amirv@mellanox.com, edumazet@google.com,
-	VenkatKumar.Duvvuru@Emulex.Com, eswierk@skyportsystems.com,
-	jiri@resnulli.us, _govind@gmx.com, eyalpe@mellanox.com,
-	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: dan.carpenter@oracle.com
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <20150220105405.GC7895@mwanda>
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, tgraf@suug.ch
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:36848 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752394AbbBVDAL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Feb 2015 22:00:11 -0500
+In-Reply-To: <1424443737.5565.12.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Date: Fri, 20 Feb 2015 13:54:05 +0300
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 20 Feb 2015 06:48:57 -0800
 
-> "dev->ethtool_ops" and "ops" are the same, but we should use "ops"
-> everywhere to be consistent.
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> struct bucket_table contains mostly read fields :
+> 
+> size, locks_mask, locks.
+> 
+> Make sure these are not sharing a cache line with buckets[]
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Applied to net-next, thanks Dan.
+Applied.
