@@ -1,53 +1,47 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH 1/1] iproute2: Add support for connmark action
-Date: Sat, 21 Feb 2015 16:51:34 -0800
-Message-ID: <20150221165134.4f6970da@urahara>
-References: <1424019439-21042-1-git-send-email-jhs@emojatatu.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] net/hsr: Fix NULL pointer dereference and refcnt
+ bugs when deleting a HSR interface.
+Date: Sat, 21 Feb 2015 20:17:49 -0500 (EST)
+Message-ID: <20150221.201749.1670391333178699646.davem@davemloft.net>
+References: <54E637FE.5030601@alten.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: nbd@openwrt.org, netdev@vger.kernel.org
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Cc: netdev@vger.kernel.org, nicolas.dichtel@6wind.com
+To: arvid.brodin@alten.se
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:38472 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751744AbbBVAvl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Feb 2015 19:51:41 -0500
-Received: by padbj1 with SMTP id bj1so17855640pad.5
-        for <netdev@vger.kernel.org>; Sat, 21 Feb 2015 16:51:41 -0800 (PST)
-In-Reply-To: <1424019439-21042-1-git-send-email-jhs@emojatatu.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:35823 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751744AbbBVBRx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Feb 2015 20:17:53 -0500
+In-Reply-To: <54E637FE.5030601@alten.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 15 Feb 2015 11:57:19 -0500
-Jamal Hadi Salim <jhs@mojatatu.com> wrote:
+From: Arvid Brodin <arvid.brodin@alten.se>
+Date: Thu, 19 Feb 2015 20:22:38 +0100
 
-> From: Felix Fietkau <nbd@openwrt.org>
+> How to repeat:
 > 
-> Add ability to add the netfilter connmark support.
+> $ sudo ip link add hsr0 type hsr slave1 <if1> slave2 <if2>
+> $ sudo ip link del hsr0
+> BUG: unable to handle kernel NULL pointer dereference at 0000000000000018
+> IP: [<ffffffff8187f495>] hsr_del_port+0x15/0xa0
+> etc...
 > 
-> Typical usage:
-> ...lets tag outgoing icmp with mark 0x10..
-> iptables -tmangle -A PREROUTING -p icmp -j CONNMARK --set-mark 0x10
-> ..add on ingress of $ETH an extractor for connmark...
-> tc filter add dev $ETH parent ffff: prio 4 protocol ip \
-> u32 match ip protocol 1 0xff \
-> flowid 1:1 \
-> action connmark continue
-> ...if the connmark was 0x11, we police to a ridic rate of 10Kbps
-> tc filter add dev $ETH parent ffff: prio 5 protocol ip \
-> handle 0x11 fw flowid 1:1 \
-> action police rate 10kbit burst 10k
-> 
-> Other ways to use the connmark is to supply the zone, index and
-> branching choice. Refer to help.
-> 
-> Signed-off-by: Felix Fietkau <nbd@openwrt.org>
-> Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+> Reported-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> Fixes: 51f3c605318b056a ("net/hsr: Move slave init to hsr_slave.c.")
+> Signed-off-by: Arvid Brodin <arvid.brodin@alten.se>
 
-This depends on tc_connmark.h which is a kernel header.
-it is in the right place in the kernel source (include/uapi/linux/tc_connmark.h)
-but is not exported because there is no entry for the file in
-include/uapi/linux/tc_act/Kbuild
+You're going to have to write a better commit log message than
+this.
 
-Please fix upstream kernel, and the I will add this back to iproutew
+For example, wouldn't it be better to restructure the code or
+rearrange things slightly rather than just sticking NULL pointer
+checks all over the place?
+
+If this were structures properly, you wouldn't get notifications
+for devices which lack a device private.
+
+A spackling of NULL pointer checks to fix a bug is always a huge
+red flag.
