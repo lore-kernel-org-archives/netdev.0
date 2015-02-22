@@ -1,30 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] batman-adv: Fix use of seq_has_overflowed()
-Date: Sun, 22 Feb 2015 17:00:39 -0500 (EST)
-Message-ID: <20150222.170039.2130317153271557910.davem@davemloft.net>
-References: <1424136699.8287.10.camel@perches.com>
-	<20150220.151843.902196140727344622.davem@davemloft.net>
-	<1424641676.20944.18.camel@perches.com>
+Subject: Re: [PATCH] __aligned(size) is preferred over
+ __attribute__((aligned(size)))
+Date: Sun, 22 Feb 2015 17:02:38 -0500 (EST)
+Message-ID: <20150222.170238.779470624458267514.davem@davemloft.net>
+References: <1424641236-7671-1-git-send-email-ameenali023@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mareklindner@neomailbox.ch, antonio@meshcoding.com,
-	b.a.t.m.a.n@lists.open-mesh.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: joe@perches.com
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: ameenali023@gmail.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1424641676.20944.18.camel@perches.com>
+In-Reply-To: <1424641236-7671-1-git-send-email-ameenali023@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Joe Perches <joe@perches.com>
-Date: Sun, 22 Feb 2015 13:47:56 -0800
+cFrom: Ameen Ali <ameenali023@gmail.com>
+Date: Sun, 22 Feb 2015 23:40:36 +0200
 
-> net-next commit 6d91147d183c ("batman-adv: Remove uses of return value
-> of seq_printf") incorrectly changed the overflow occurred return from
-> -1 to 1.  Change it back so that the test of batadv_write_buffer_text's
-> return value in batadv_gw_client_seq_print_text works properly.
-> 
-> Signed-off-by: Joe Perches <joe@perches.com>
+> Signed-off-by: Ameen Ali <AmeenAli023@gmail.com>
 
-Applied, thanks Joe.
+Applied, but please use a proper Subject line next time,
+in particular you should put a proper subsystem prefix.
+
+In this case, "net: " would be an appropriate prefix.
+
+Otherwise people scanning the shortlog in the repository
+cannot tell where you are making your changes.
+
+What if we had 100 commits all doing this same transformation?
+It is the subsystem prefix that helps people see what is unique
+in each such change.
