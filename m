@@ -1,53 +1,31 @@
-From: Ameen Ali <ameenali023@gmail.com>
-Subject: [PATCH] __aligned(size) is preferred over __attribute__((aligned(size)))
-Date: Sun, 22 Feb 2015 23:40:36 +0200
-Message-ID: <1424641236-7671-1-git-send-email-ameenali023@gmail.com>
-Cc: linux-kernel@vger.kernel.org, Ameen Ali <ameenali023@gmail.com>,
-	Ameen Ali <AmeenAli023@gmail.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: repository for switch hardware info
+Date: Sun, 22 Feb 2015 16:41:46 -0500 (EST)
+Message-ID: <20150222.164146.1410083711948779520.davem@davemloft.net>
+References: <20150222.160345.141886361578055811.davem@davemloft.net>
+	<CAE4R7bAYR5xwjRFWcwG3O3JBiP-Rroa8hWtDZxpR=WS4hjNjAA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: sfeldma@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:49699 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752041AbbBVVlr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Feb 2015 16:41:47 -0500
+In-Reply-To: <CAE4R7bAYR5xwjRFWcwG3O3JBiP-Rroa8hWtDZxpR=WS4hjNjAA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Ameen Ali <AmeenAli023@gmail.com>
----
- net/compat.c | 10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
+From: Scott Feldman <sfeldma@gmail.com>
+Date: Sun, 22 Feb 2015 13:30:01 -0800
 
-diff --git a/net/compat.c b/net/compat.c
-index 3236b41..49c6a8f 100644
---- a/net/compat.c
-+++ b/net/compat.c
-@@ -508,25 +508,25 @@ COMPAT_SYSCALL_DEFINE5(getsockopt, int, fd, int, level, int, optname,
- struct compat_group_req {
- 	__u32				 gr_interface;
- 	struct __kernel_sockaddr_storage gr_group
--		__attribute__ ((aligned(4)));
-+		__aligned(4);
- } __packed;
- 
- struct compat_group_source_req {
- 	__u32				 gsr_interface;
- 	struct __kernel_sockaddr_storage gsr_group
--		__attribute__ ((aligned(4)));
-+		__aligned(4);
- 	struct __kernel_sockaddr_storage gsr_source
--		__attribute__ ((aligned(4)));
-+		__aligned(4);
- } __packed;
- 
- struct compat_group_filter {
- 	__u32				 gf_interface;
- 	struct __kernel_sockaddr_storage gf_group
--		__attribute__ ((aligned(4)));
-+		__aligned(4);
- 	__u32				 gf_fmode;
- 	__u32				 gf_numsrc;
- 	struct __kernel_sockaddr_storage gf_slist[1]
--		__attribute__ ((aligned(4)));
-+		__aligned(4);
- } __packed;
- 
- #define __COMPAT_GF0_SIZE (sizeof(struct compat_group_filter) - \
--- 
-2.1.0
+> OF-DPA specs from Broadcom are here:
+> 
+> 1.0: http://www.broadcom.com/collateral/etp/OFDPA_OASS-ETP101-R.pdf
+> 2.0: http://www.broadcom.com/collateral/etp/OFDPA_ASSV-ETP200-R.pdf
+
+Thanks Scott, I started collecting everything here:
+
+	http://vger.kernel.org/switch_info.html
