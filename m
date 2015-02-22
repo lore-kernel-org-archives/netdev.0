@@ -1,38 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] rhashtable: initialize all rhashtable walker members
-Date: Sun, 22 Feb 2015 16:29:41 -0500 (EST)
-Message-ID: <20150222.162941.780862111589113271.davem@davemloft.net>
-References: <1424552111-12077-1-git-send-email-sasha.levin@oracle.com>
-	<20150222.155838.307897095859530348.davem@davemloft.net>
-	<54EA49E5.8040206@oracle.com>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: repository for switch hardware info
+Date: Sun, 22 Feb 2015 13:30:01 -0800
+Message-ID: <CAE4R7bAYR5xwjRFWcwG3O3JBiP-Rroa8hWtDZxpR=WS4hjNjAA@mail.gmail.com>
+References: <20150222.160345.141886361578055811.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, tgraf@suug.ch, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: sasha.levin@oracle.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <54EA49E5.8040206@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qa0-f44.google.com ([209.85.216.44]:59917 "EHLO
+	mail-qa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752383AbbBVVaC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Feb 2015 16:30:02 -0500
+Received: by mail-qa0-f44.google.com with SMTP id n8so19721624qaq.3
+        for <netdev@vger.kernel.org>; Sun, 22 Feb 2015 13:30:01 -0800 (PST)
+In-Reply-To: <20150222.160345.141886361578055811.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sasha Levin <sasha.levin@oracle.com>
-Date: Sun, 22 Feb 2015 16:28:05 -0500
+OF-DPA specs from Broadcom are here:
 
-> On 02/22/2015 03:58 PM, David Miller wrote:
->> From: Sasha Levin <sasha.levin@oracle.com>
->> Date: Sat, 21 Feb 2015 15:55:11 -0500
->> 
->>> Commit "rhashtable: Introduce rhashtable_walk_*" forgot to initialize the
->>> members of struct rhashtable_walker after allocating it, which caused
->>> an undefined value for 'resize' which is used later on.
->>>
->>> Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
->> 
->> Commits should be referred to by SHA1 ID as well as the commit
->> header text (in parenthesis and double quotes).
-> 
-> It wasn't (isn't?) in Linus' tree yet, so I didn't want to refer to
-> it by a SHA1 ID which would change.
+1.0: http://www.broadcom.com/collateral/etp/OFDPA_OASS-ETP101-R.pdf
+2.0: http://www.broadcom.com/collateral/etp/OFDPA_ASSV-ETP200-R.pdf
 
-Commit IDs in my tree _NEVER_ change.
+On Sun, Feb 22, 2015 at 1:03 PM, David Miller <davem@davemloft.net> wrote:
+>
+> There are various vendor switch SDKs (some opensource, some not),
+> vendor switch hardware specification documents, etc. scattered all
+> over the place.
+>
+> I was about to start doing my own research trying to find all of this
+> crap, but what a complete waste of time that's going to be if other
+> developers embark upon the same task starting from scratch just as I
+> would.
+>
+> Therefore I'd like people to reply to this email if they know of the
+> location of such resources.  Just give me the URL and I'll maintain
+> it all on a public web page somewhere anyone can refer to or send me
+> updates for.
+>
+> Thanks!
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
