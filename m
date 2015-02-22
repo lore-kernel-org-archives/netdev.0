@@ -1,30 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net: Remove state argument from skb_find_text()
-Date: Sun, 22 Feb 2015 16:01:34 -0500 (EST)
-Message-ID: <20150222.160134.1858529175720867561.davem@davemloft.net>
-References: <1424601995-17318-1-git-send-email-prtvar.b@gmail.com>
+Subject: repository for switch hardware info
+Date: Sun, 22 Feb 2015 16:03:45 -0500 (EST)
+Message-ID: <20150222.160345.141886361578055811.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tgraf@suug.ch,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	dan.carpenter@oracle.com
-To: prtvar.b@gmail.com
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1424601995-17318-1-git-send-email-prtvar.b@gmail.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:49310 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752021AbbBVVDr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Feb 2015 16:03:47 -0500
+Received: from localhost (cpe-66-108-87-106.nyc.res.rr.com [66.108.87.106])
+	(Authenticated sender: davem-davemloft)
+	by shards.monkeyblade.net (Postfix) with ESMTPSA id 4664A587226
+	for <netdev@vger.kernel.org>; Sun, 22 Feb 2015 13:03:47 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Bojan Prtvar <prtvar.b@gmail.com>
-Date: Sun, 22 Feb 2015 11:46:35 +0100
 
-> Although it is clear that textsearch state is intentionally passed to
-> skb_find_text() as uninitialized argument, it was never used by the
-> callers. Therefore, we can simplify skb_find_text() by making it
-> local variable.
-> 
-> Signed-off-by: Bojan Prtvar <prtvar.b@gmail.com>
-> ---
-> v2: Rebased against current linux-next
+There are various vendor switch SDKs (some opensource, some not),
+vendor switch hardware specification documents, etc. scattered all
+over the place.
 
-Applied, thanks.
+I was about to start doing my own research trying to find all of this
+crap, but what a complete waste of time that's going to be if other
+developers embark upon the same task starting from scratch just as I
+would.
+
+Therefore I'd like people to reply to this email if they know of the
+location of such resources.  Just give me the URL and I'll maintain
+it all on a public web page somewhere anyone can refer to or send me
+updates for.
+
+Thanks!
