@@ -1,72 +1,35 @@
-From: Vadim Kochan <vadim4j@gmail.com>
-Subject: [PATCH iproute2 2/2] ss: Skip filtered netlink sockets before detailed info
-Date: Sun, 22 Feb 2015 22:23:11 +0200
-Message-ID: <1424636591-19903-3-git-send-email-vadim4j@gmail.com>
-References: <1424636591-19903-1-git-send-email-vadim4j@gmail.com>
-Cc: Vadim Kochan <vadim4j@gmail.com>
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2 2/3] net: use skb->priority for overloading
+ skb->dropcount and skb->reserved_tailroom instead of skb->mark
+Date: Sun, 22 Feb 2015 15:47:33 -0500 (EST)
+Message-ID: <20150222.154733.112061471461322123.davem@davemloft.net>
+References: <1423715535-884-3-git-send-email-eyal.birger@gmail.com>
+	<20150219.150500.834870317013347277.davem@davemloft.net>
+	<CAHsH6Gv709dahHUGqXkb8CYxn+s0-4+1DGksoNfAgMksZYrt9w@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, edumazet@google.com,
+	shmulik.ladkani@gmail.com
+To: eyal.birger@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f172.google.com ([209.85.217.172]:47032 "EHLO
-	mail-lb0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752021AbbBVUea (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Feb 2015 15:34:30 -0500
-Received: by lbjf15 with SMTP id f15so14910684lbj.13
-        for <netdev@vger.kernel.org>; Sun, 22 Feb 2015 12:34:28 -0800 (PST)
-In-Reply-To: <1424636591-19903-1-git-send-email-vadim4j@gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:49127 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751601AbbBVUrg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Feb 2015 15:47:36 -0500
+In-Reply-To: <CAHsH6Gv709dahHUGqXkb8CYxn+s0-4+1DGksoNfAgMksZYrt9w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vadim Kochan <vadim4j@gmail.com>
+From: Eyal Birger <eyal.birger@gmail.com>
+Date: Fri, 20 Feb 2015 13:32:48 +0200
 
-Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
----
- misc/ss.c | 12 +++++++-----
- 1 file changed, 7 insertions(+), 5 deletions(-)
+> However, It seems the skb is cloned prior to setting dropcount and
+> other skb header fields before it is enqueued in packet_rcv(). Would
+> that not prevent interference with the transmit path?
 
-diff --git a/misc/ss.c b/misc/ss.c
-index 5320d38..5113d85 100644
---- a/misc/ss.c
-+++ b/misc/ss.c
-@@ -2938,7 +2938,7 @@ static int packet_show(struct filter *f)
- 	return 0;
- }
- 
--static void netlink_show_one(struct filter *f,
-+static int netlink_show_one(struct filter *f,
- 				int prot, int pid, unsigned groups,
- 				int state, int dst_pid, unsigned dst_group,
- 				int rq, int wq,
-@@ -2960,7 +2960,7 @@ static void netlink_show_one(struct filter *f,
- 		st.lport = pid;
- 		st.local.data[0] = prot;
- 		if (run_ssfilter(f->f, &st) == 0)
--			return;
-+			return 1;
- 	}
- 
- 	sock_state_print(&st, "nl");
-@@ -3032,7 +3032,7 @@ static void netlink_show_one(struct filter *f,
- 	}
- 	printf("\n");
- 
--	return;
-+	return 0;
- }
- 
- static int netlink_show_sock(const struct sockaddr_nl *addr,
-@@ -3058,9 +3058,11 @@ static int netlink_show_sock(const struct sockaddr_nl *addr,
- 		wq = skmeminfo[SK_MEMINFO_WMEM_ALLOC];
- 	}
- 
--	netlink_show_one(f, r->ndiag_protocol, r->ndiag_portid, groups,
-+	if (netlink_show_one(f, r->ndiag_protocol, r->ndiag_portid, groups,
- 			 r->ndiag_state, r->ndiag_dst_portid, r->ndiag_dst_group,
--			 rq, wq, 0, 0);
-+			 rq, wq, 0, 0)) {
-+		return 0;
-+	}
- 
- 	if (show_mem) {
- 		printf("\t");
--- 
-2.2.2
+You're right, that should take care of all cases.
+
+Please resubmit this series, perhaps adding some commit
+log text explaining this for the next person who reads
+these changes.
