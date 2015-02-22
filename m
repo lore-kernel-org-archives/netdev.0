@@ -1,32 +1,27 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 5/7 linux-next] hso: replace current->state by
- __set_current_state()
-Date: Sun, 22 Feb 2015 15:25:00 -0500 (EST)
-Message-ID: <20150222.152500.1079314983789857968.davem@davemloft.net>
-References: <1424455977-21903-1-git-send-email-fabf@skynet.be>
-	<1424455977-21903-5-git-send-email-fabf@skynet.be>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, mingo@redhat.com,
-	peterz@infradead.org, gregkh@linuxfoundation.org,
-	j.dumon@option.com, linux-usb@vger.kernel.org,
-	netdev@vger.kernel.org
-To: fabf@skynet.be
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1424455977-21903-5-git-send-email-fabf@skynet.be>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Vadim Kochan <vadim4j@gmail.com>
+Subject: [PATCH iproute2 0/2] ss: Filtering fixes for unix & netlink socks
+Date: Sun, 22 Feb 2015 22:23:09 +0200
+Message-ID: <1424636591-19903-1-git-send-email-vadim4j@gmail.com>
+Cc: Vadim Kochan <vadim4j@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f53.google.com ([209.85.215.53]:40039 "EHLO
+	mail-la0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752021AbbBVUe2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Feb 2015 15:34:28 -0500
+Received: by labgd6 with SMTP id gd6so14876904lab.7
+        for <netdev@vger.kernel.org>; Sun, 22 Feb 2015 12:34:26 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Fabian Frederick <fabf@skynet.be>
-Date: Fri, 20 Feb 2015 19:12:55 +0100
+Some fixes when filtering unix & netlink sockets.
 
-> Use helper functions to access current->state.
-> Direct assignments are prone to races and therefore buggy.
-> 
-> Thanks to Peter Zijlstra for the exact definition of the problem.
-> 
-> Suggested-By: Peter Zijlstra <peterz@infradead.org>
-> Signed-off-by: Fabian Frederick <fabf@skynet.be>
+Vadim Kochan (2):
+  ss: Add filter before printing unix stats from Netlink
+  ss: Skip filtered netlink sockets before detailed info
 
-Applied.
+ misc/ss.c | 17 +++++++++++------
+ 1 file changed, 11 insertions(+), 6 deletions(-)
+
+-- 
+2.2.2
