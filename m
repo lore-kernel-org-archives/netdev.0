@@ -1,40 +1,47 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: repository for switch hardware info
-Date: Sun, 22 Feb 2015 22:40:32 +0100
-Message-ID: <20150222214032.GB16675@lunn.ch>
-References: <20150222.160345.141886361578055811.davem@davemloft.net>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH net-next] batman-adv: Fix use of seq_has_overflowed()
+Date: Sun, 22 Feb 2015 13:47:56 -0800
+Message-ID: <1424641676.20944.18.camel@perches.com>
+References: <1424136699.8287.10.camel@perches.com>
+	 <20150220.151843.902196140727344622.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: mareklindner@neomailbox.ch, antonio@meshcoding.com,
+	b.a.t.m.a.n@lists.open-mesh.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:47383 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752103AbbBVVna (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 22 Feb 2015 16:43:30 -0500
-Content-Disposition: inline
-In-Reply-To: <20150222.160345.141886361578055811.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150220.151843.902196140727344622.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Feb 22, 2015 at 04:03:45PM -0500, David Miller wrote:
-> 
-> There are various vendor switch SDKs (some opensource, some not),
-> vendor switch hardware specification documents, etc. scattered all
-> over the place.
+net-next commit 6d91147d183c ("batman-adv: Remove uses of return value
+of seq_printf") incorrectly changed the overflow occurred return from
+-1 to 1.  Change it back so that the test of batadv_write_buffer_text's
+return value in batadv_gw_client_seq_print_text works properly.
 
-Hi David
+Signed-off-by: Joe Perches <joe@perches.com>
+---
 
-Marvell has one public datasheet:
+sorry 'bout that.
 
-http://www.marvell.com/switching/assets/marvell_linkstreet_88E6060_datasheet.pdf
+I believe this won't have any real effect unless there
+are something like 500+ entries in the gateway list.
 
-Marvell also have reference code, which is GPL, but is the usual
-vendor quality. There does not appear to be an official Marvell
-location for it, but there are a few copies lying around, e.g:
+ net/batman-adv/gateway_client.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-https://github.com/mmilburn/marvell-switch
-
-which was extracted from the WRT1900ac tarball of GPL sources.
-
-      Andrew
+diff --git a/net/batman-adv/gateway_client.c b/net/batman-adv/gateway_client.c
+index a0876ea..090828c 100644
+--- a/net/batman-adv/gateway_client.c
++++ b/net/batman-adv/gateway_client.c
+@@ -601,7 +601,7 @@ static int batadv_write_buffer_text(struct batadv_priv *bat_priv,
+ 		   gw_node->bandwidth_down % 10,
+ 		   gw_node->bandwidth_up / 10,
+ 		   gw_node->bandwidth_up % 10);
+-	ret = seq_has_overflowed(seq);
++	ret = seq_has_overflowed(seq) ? -1 : 0;
+ 
+ 	if (curr_gw)
+ 		batadv_gw_node_free_ref(curr_gw);
