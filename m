@@ -1,31 +1,40 @@
-From: David Miller <davem@davemloft.net>
+From: Andrew Lunn <andrew@lunn.ch>
 Subject: Re: repository for switch hardware info
-Date: Sun, 22 Feb 2015 16:41:46 -0500 (EST)
-Message-ID: <20150222.164146.1410083711948779520.davem@davemloft.net>
+Date: Sun, 22 Feb 2015 22:40:32 +0100
+Message-ID: <20150222214032.GB16675@lunn.ch>
 References: <20150222.160345.141886361578055811.davem@davemloft.net>
-	<CAE4R7bAYR5xwjRFWcwG3O3JBiP-Rroa8hWtDZxpR=WS4hjNjAA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
-To: sfeldma@gmail.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49699 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752041AbbBVVlr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Feb 2015 16:41:47 -0500
-In-Reply-To: <CAE4R7bAYR5xwjRFWcwG3O3JBiP-Rroa8hWtDZxpR=WS4hjNjAA@mail.gmail.com>
+Received: from vps0.lunn.ch ([178.209.37.122]:47383 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752103AbbBVVna (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 22 Feb 2015 16:43:30 -0500
+Content-Disposition: inline
+In-Reply-To: <20150222.160345.141886361578055811.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Scott Feldman <sfeldma@gmail.com>
-Date: Sun, 22 Feb 2015 13:30:01 -0800
-
-> OF-DPA specs from Broadcom are here:
+On Sun, Feb 22, 2015 at 04:03:45PM -0500, David Miller wrote:
 > 
-> 1.0: http://www.broadcom.com/collateral/etp/OFDPA_OASS-ETP101-R.pdf
-> 2.0: http://www.broadcom.com/collateral/etp/OFDPA_ASSV-ETP200-R.pdf
+> There are various vendor switch SDKs (some opensource, some not),
+> vendor switch hardware specification documents, etc. scattered all
+> over the place.
 
-Thanks Scott, I started collecting everything here:
+Hi David
 
-	http://vger.kernel.org/switch_info.html
+Marvell has one public datasheet:
+
+http://www.marvell.com/switching/assets/marvell_linkstreet_88E6060_datasheet.pdf
+
+Marvell also have reference code, which is GPL, but is the usual
+vendor quality. There does not appear to be an official Marvell
+location for it, but there are a few copies lying around, e.g:
+
+https://github.com/mmilburn/marvell-switch
+
+which was extracted from the WRT1900ac tarball of GPL sources.
+
+      Andrew
