@@ -1,46 +1,53 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: repository for switch hardware info
-Date: Sun, 22 Feb 2015 13:30:01 -0800
-Message-ID: <CAE4R7bAYR5xwjRFWcwG3O3JBiP-Rroa8hWtDZxpR=WS4hjNjAA@mail.gmail.com>
-References: <20150222.160345.141886361578055811.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f44.google.com ([209.85.216.44]:59917 "EHLO
-	mail-qa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752383AbbBVVaC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Feb 2015 16:30:02 -0500
-Received: by mail-qa0-f44.google.com with SMTP id n8so19721624qaq.3
-        for <netdev@vger.kernel.org>; Sun, 22 Feb 2015 13:30:01 -0800 (PST)
-In-Reply-To: <20150222.160345.141886361578055811.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ameen Ali <ameenali023@gmail.com>
+Subject: [PATCH] __aligned(size) is preferred over __attribute__((aligned(size)))
+Date: Sun, 22 Feb 2015 23:40:36 +0200
+Message-ID: <1424641236-7671-1-git-send-email-ameenali023@gmail.com>
+Cc: linux-kernel@vger.kernel.org, Ameen Ali <ameenali023@gmail.com>,
+	Ameen Ali <AmeenAli023@gmail.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-OF-DPA specs from Broadcom are here:
+Signed-off-by: Ameen Ali <AmeenAli023@gmail.com>
+---
+ net/compat.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
 
-1.0: http://www.broadcom.com/collateral/etp/OFDPA_OASS-ETP101-R.pdf
-2.0: http://www.broadcom.com/collateral/etp/OFDPA_ASSV-ETP200-R.pdf
-
-On Sun, Feb 22, 2015 at 1:03 PM, David Miller <davem@davemloft.net> wrote:
->
-> There are various vendor switch SDKs (some opensource, some not),
-> vendor switch hardware specification documents, etc. scattered all
-> over the place.
->
-> I was about to start doing my own research trying to find all of this
-> crap, but what a complete waste of time that's going to be if other
-> developers embark upon the same task starting from scratch just as I
-> would.
->
-> Therefore I'd like people to reply to this email if they know of the
-> location of such resources.  Just give me the URL and I'll maintain
-> it all on a public web page somewhere anyone can refer to or send me
-> updates for.
->
-> Thanks!
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/net/compat.c b/net/compat.c
+index 3236b41..49c6a8f 100644
+--- a/net/compat.c
++++ b/net/compat.c
+@@ -508,25 +508,25 @@ COMPAT_SYSCALL_DEFINE5(getsockopt, int, fd, int, level, int, optname,
+ struct compat_group_req {
+ 	__u32				 gr_interface;
+ 	struct __kernel_sockaddr_storage gr_group
+-		__attribute__ ((aligned(4)));
++		__aligned(4);
+ } __packed;
+ 
+ struct compat_group_source_req {
+ 	__u32				 gsr_interface;
+ 	struct __kernel_sockaddr_storage gsr_group
+-		__attribute__ ((aligned(4)));
++		__aligned(4);
+ 	struct __kernel_sockaddr_storage gsr_source
+-		__attribute__ ((aligned(4)));
++		__aligned(4);
+ } __packed;
+ 
+ struct compat_group_filter {
+ 	__u32				 gf_interface;
+ 	struct __kernel_sockaddr_storage gf_group
+-		__attribute__ ((aligned(4)));
++		__aligned(4);
+ 	__u32				 gf_fmode;
+ 	__u32				 gf_numsrc;
+ 	struct __kernel_sockaddr_storage gf_slist[1]
+-		__attribute__ ((aligned(4)));
++		__aligned(4);
+ } __packed;
+ 
+ #define __COMPAT_GF0_SIZE (sizeof(struct compat_group_filter) - \
+-- 
+2.1.0
