@@ -1,70 +1,75 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: repository for switch hardware info
-Date: Mon, 23 Feb 2015 13:28:14 -0500
-Message-ID: <20150223182813.GA29292@tuxdriver.com>
-References: <20150222.160345.141886361578055811.davem@davemloft.net>
- <54EB251E.4000400@mojatatu.com>
+From: Guenter Roeck <linux@roeck-us.net>
+Subject: Re: [PATCH RFC 1/2] net: dsa: integrate with SWITCHDEV for HW
+ bridging
+Date: Mon, 23 Feb 2015 10:35:37 -0800
+Message-ID: <20150223183537.GA23456@roeck-us.net>
+References: <54EA8E7C.90401@roeck-us.net>
+ <20150223031447.GA19267@lunn.ch>
+ <54EAA767.6060105@roeck-us.net>
+ <20150223042220.GA20063@lunn.ch>
+ <54EAAEBC.6080609@roeck-us.net>
+ <CAGVrzcYnuV6raXSrAETctwX5dwX3S=2-=ySewCFdx=iM7bPaDg@mail.gmail.com>
+ <20150223133454.GB23581@lunn.ch>
+ <54EB37C7.3090209@roeck-us.net>
+ <20150223160109.GB27057@lunn.ch>
+ <54EB6BF5.2020600@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	marichika4@gmail.com, siva.mannem.lnx@gmail.com,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Andy Gospodarek <andy@greyhouse.net>
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Cc: Andrew Lunn <andrew@lunn.ch>, netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+	jerome.oufella@savoirfairelinux.com,
+	Chris Healy <cphealy@gmail.com>
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:43933 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752778AbbBWSaQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Feb 2015 13:30:16 -0500
+Received: from bh-25.webhostbox.net ([208.91.199.152]:54885 "EHLO
+	bh-25.webhostbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752206AbbBWSft (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Feb 2015 13:35:49 -0500
+Received: from mailnull by bh-25.webhostbox.net with sa-checked (Exim 4.82)
+	(envelope-from <linux@roeck-us.net>)
+	id 1YPxrA-0038w2-Ut
+	for netdev@vger.kernel.org; Mon, 23 Feb 2015 18:35:49 +0000
 Content-Disposition: inline
-In-Reply-To: <54EB251E.4000400@mojatatu.com>
+In-Reply-To: <54EB6BF5.2020600@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 23, 2015 at 08:03:26AM -0500, Jamal Hadi Salim wrote:
-> The most prominent switch sdk (90% of the market?) is from
-> broadcom and is not publicly available:
-> http://www.broadcom.com/products/Switching/Software/FASTPATH
+On Mon, Feb 23, 2015 at 10:05:41AM -0800, Florian Fainelli wrote:
+> On 23/02/15 08:01, Andrew Lunn wrote:
+> >> I currently use ATU command 110 (flush all non-static entries in a
+> >> particular FID). I see means to flush either all entries or all
+> >> non-static entries, but no means to only flush unicast or multicast
+> >> entries. Does any of the standards distinguish between learned unicast
+> >> and multicast addresses ? Flushing those selectively might be a
+> >> challenge.
 > 
-> Ccing a couple of people i know were in a past life or are in a current life
-> involved in ICOS so they can comment if there is a better
-> reference.
+> Lucky you, on Broadcom switches you have to issue an ARL search, get the
+> results (there are all valid MAC entries, fortunately), and invalidate
+> the entries one by one for your particular ports of interest, there is
+> no "flush all non-static entries".
+> 
+> > 
+> > You might need to walk the table and flush records individually if you
+> > are only interested in one type.
+> > 
+> > We should also consider do we need to make these flush operations
+> > atomic with respect to other operations? Do we need to disable
+> > learning, flush, change the port STP status, and then enable learning?
+> 
+Wonder what if anything RSTP specifies for flush operation details.
 
-I'll try not to take offense at being left off your Cc list, especially
-since I have no better information to provide... ;-)
- 
-> cheers,
-> jamal
+> I think we may have to do this to guarantee no race conditions between
+> flushing the switch's FDB, although it would look like only "joining" a
+> bridge needs to be a more controlled operation, on leave we can probably
+> just leave the bridge, flush entries and the switch port will start
+> learning new MAC addresses, right?
 > 
-> On 02/22/15 16:03, David Miller wrote:
-> >
-> >There are various vendor switch SDKs (some opensource, some not),
-> >vendor switch hardware specification documents, etc. scattered all
-> >over the place.
-> >
-> >I was about to start doing my own research trying to find all of this
-> >crap, but what a complete waste of time that's going to be if other
-> >developers embark upon the same task starting from scratch just as I
-> >would.
-> >
-> >Therefore I'd like people to reply to this email if they know of the
-> >location of such resources.  Just give me the URL and I'll maintain
-> >it all on a public web page somewhere anyone can refer to or send me
-> >updates for.
-> >
-> >Thanks!
-> >--
-> >To unsubscribe from this list: send the line "unsubscribe netdev" in
-> >the body of a message to majordomo@vger.kernel.org
-> >More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> >
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+> Alternatively, would not setting a very low aging timeout and
+> maintaining HW learning still allow us to simplify these operations?
 
--- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+That is what STP specifies. With RSTP, the expectation is that the database
+is flushed immediately on port status changes. Also, the minimum aging
+period on Marvell switches is 15 seconds, which is way too long for RSTP.
+
+Guenter
