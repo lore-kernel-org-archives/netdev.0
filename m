@@ -1,59 +1,56 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net] team: fix possible null pointer dereference in team_handle_frame
-Date: Mon, 23 Feb 2015 14:02:54 +0100
-Message-ID: <1424696574-6590-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net
-To: netdev@vger.kernel.org
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: repository for switch hardware info
+Date: Mon, 23 Feb 2015 08:03:26 -0500
+Message-ID: <54EB251E.4000400@mojatatu.com>
+References: <20150222.160345.141886361578055811.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: marichika4@gmail.com, siva.mannem.lnx@gmail.com,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Andy Gospodarek <andy@greyhouse.net>
+To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f179.google.com ([74.125.82.179]:38222 "EHLO
-	mail-we0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752028AbbBWNC6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Feb 2015 08:02:58 -0500
-Received: by wesw55 with SMTP id w55so17878715wes.5
-        for <netdev@vger.kernel.org>; Mon, 23 Feb 2015 05:02:57 -0800 (PST)
+Received: from mail-ig0-f179.google.com ([209.85.213.179]:64061 "EHLO
+	mail-ig0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752028AbbBWNDb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Feb 2015 08:03:31 -0500
+Received: by mail-ig0-f179.google.com with SMTP id l13so17948216iga.0
+        for <netdev@vger.kernel.org>; Mon, 23 Feb 2015 05:03:30 -0800 (PST)
+In-Reply-To: <20150222.160345.141886361578055811.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently following race is possible in team:
+The most prominent switch sdk (90% of the market?) is from
+broadcom and is not publicly available:
+http://www.broadcom.com/products/Switching/Software/FASTPATH
 
-CPU0                                        CPU1
-                                            team_port_del
-                                              team_upper_dev_unlink
-                                                priv_flags &= ~IFF_TEAM_PORT
-team_handle_frame
-  team_port_get_rcu
-    team_port_exists
-      priv_flags & IFF_TEAM_PORT == 0
-    return NULL (instead of port got
-                 from rx_handler_data)
-                                              netdev_rx_handler_unregister
+Ccing a couple of people i know were in a past life or are in a current 
+life involved in ICOS so they can comment if there is a better
+reference.
 
-The thing is that the flag is removed before rx_handler is unregistered.
-If team_handle_frame is called in between, team_port_exists returns 0
-and team_port_get_rcu will return NULL.
-So do not check the flag here. It is guaranteed by netdev_rx_handler_unregister
-that team_handle_frame will always see valid rx_handler_data pointer.
+cheers,
+jamal
 
-Signed-off-by: Jiri Pirko <jiri@resnulli.us>
-Fixes: 3d249d4ca7d0 ("net: introduce ethernet teaming device")
----
- drivers/net/team/team.c | 4 +---
- 1 file changed, 1 insertion(+), 3 deletions(-)
-
-diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
-index 0e62274..f1ee71e 100644
---- a/drivers/net/team/team.c
-+++ b/drivers/net/team/team.c
-@@ -43,9 +43,7 @@
- 
- static struct team_port *team_port_get_rcu(const struct net_device *dev)
- {
--	struct team_port *port = rcu_dereference(dev->rx_handler_data);
--
--	return team_port_exists(dev) ? port : NULL;
-+	return rcu_dereference(dev->rx_handler_data);
- }
- 
- static struct team_port *team_port_get_rtnl(const struct net_device *dev)
--- 
-1.9.3
+On 02/22/15 16:03, David Miller wrote:
+>
+> There are various vendor switch SDKs (some opensource, some not),
+> vendor switch hardware specification documents, etc. scattered all
+> over the place.
+>
+> I was about to start doing my own research trying to find all of this
+> crap, but what a complete waste of time that's going to be if other
+> developers embark upon the same task starting from scratch just as I
+> would.
+>
+> Therefore I'd like people to reply to this email if they know of the
+> location of such resources.  Just give me the URL and I'll maintain
+> it all on a public web page somewhere anyone can refer to or send me
+> updates for.
+>
+> Thanks!
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
