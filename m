@@ -1,84 +1,102 @@
-From: "Skidmore, Donald C" <donald.c.skidmore@intel.com>
-Subject: Re: [PATCH v2 2/3] if_link: Add VF multicast
-	promiscuous control
-Date: Mon, 23 Feb 2015 14:29:43 +0000
-Message-ID: <F6FB0E698C9B3143BDF729DF22286646912ADAD5@ORSMSX110.amr.corp.intel.com>
-References: <7F861DC0615E0C47A872E6F3C5FCDDBD05E38840@BPXM14GP.gisp.nec.co.jp>
-	<54E73BE4.2040505@solarflare.com>
-	<F6FB0E698C9B3143BDF729DF22286646912AD3E7@ORSMSX110.amr.corp.intel.com>
-	<54EB30A1.9080309@solarflare.com>
+From: Stathis Voukelatos <stathis.voukelatos-zgcZaY4qg+21Qrn1Bg8BZw@public.gmane.org>
+Subject: [PATCH v3 0/3] net: Linn Ethernet Packet Sniffer driver
+Date: Mon, 23 Feb 2015 14:26:19 +0000
+Message-ID: <cover.1424698609.git.stathis.voukelatos@linn.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "vyasevic@redhat.com" <vyasevic@redhat.com>,
-	"e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>, "Choi,
-	Sy Jong" <sy.jong.choi@intel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	David Laight <David.Laight@ACULAB.COM>,
-	Hayato Momma <h-momma@ce.jp.nec.com>,
-	Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>,
-	=?utf-8?B?QmrDuHJuIE1vcms=?= <bjorn@mork.no>
-To: Edward Cree <ecree@solarflare.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <54EB30A1.9080309@solarflare.com>
-Content-Language: en-US
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Content-Type: text/plain
+Cc: Stathis Voukelatos <stathis.voukelatos-zgcZaY4qg+21Qrn1Bg8BZw@public.gmane.org>
+To: <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBFZHdhcmQgQ3JlZSBbbWFpbHRv
-OmVjcmVlQHNvbGFyZmxhcmUuY29tXQ0KPiBTZW50OiBNb25kYXksIEZlYnJ1YXJ5IDIzLCAyMDE1
-IDU6NTMgQU0NCj4gVG86IFNraWRtb3JlLCBEb25hbGQgQw0KPiBDYzogSGlyb3NoaSBTaGltYW1v
-dG87IHZ5YXNldmljQHJlZGhhdC5jb207IEtpcnNoZXIsIEplZmZyZXkgVDsgQWxleGFuZGVyDQo+
-IER1eWNrOyBCasO4cm4gTW9yazsgZTEwMDAtZGV2ZWxAbGlzdHMuc291cmNlZm9yZ2UubmV0Ow0K
-PiBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBDaG9pLCBTeSBKb25nOyBsaW51eC1rZXJuZWxAdmdl
-ci5rZXJuZWwub3JnOyBEYXZpZA0KPiBMYWlnaHQ7IEhheWF0byBNb21tYQ0KPiBTdWJqZWN0OiBS
-ZTogW1BBVENIIHYyIDIvM10gaWZfbGluazogQWRkIFZGIG11bHRpY2FzdCBwcm9taXNjdW91cyBj
-b250cm9sDQo+IA0KPiBPbiAyMC8wMi8xNSAyMTowNSwgU2tpZG1vcmUsIERvbmFsZCBDIHdyb3Rl
-Og0KPiA+IElmIGEgdmVuZGVyIHNwZWNpZmljIGludGVyZmFjZSBpcyBvYmplY3Rpb25hYmxlIG1h
-eWJlIGEgc2ltcGxlciBhbmQgbW9yZQ0KPiBnZW5lcmljIGludGVyZmFjZSB3b3VsZCBiZSBmb3Ig
-dGhlIFBGIHRvIGJlIGFibGUgdG8gc2V0IGEgZ2l2ZW4gVkYgaW50bw0KPiAidHJ1c3RlZCIgbW9k
-ZS4uLiBJIGFkbWl0IGV4YWN0bHkgd2hhdCAndHJ1c3RlZCcgbWVhbnQgd291bGQgdmFyeSBmcm9t
-DQo+IHZlbmRlciB0byB2ZW5kZXIsIGJ1dCBpdCB3b3VsZCBiZSBhIHdheSBmb3IgdGhlIGRyaXZl
-ciB0byBrbm93IGl0IGNvdWxkIGFsbG93DQo+IGNvbmZpZ3VyYXRpb25zIHN1Y2ggYXMgdGhpcy4g
-IEp1c3QgYW4gaWRlYSwgc2luY2Ugd2Ugc2VlbSB0byBiZSBnZXR0aW5nIG1vcmUNCj4gcmVxdWVz
-dHMgZm9yIHRoaW5ncyBzdWNoIGFzIHRoaXMuDQo+IFRoYXQncyBhbiBldmVuIHdvcnNlIGlkZWE7
-IG5vdyB5b3UgaGF2ZSBhIGdlbmVyaWMgaW50ZXJmYWNlIHdpdGggY29tcGxldGVseQ0KPiB1bmRl
-ZmluZWQgc2VtYW50aWNzLg0KPiBUaGUgcmlnaHQgd2F5IHRvIGRvIHRoaXMsIGltaG8sIGlzIHRv
-IHVzZSBvbmUgb2YgdGhlIHN0YW5kYXJkIGludGVyZmFjZXMgZm9yDQo+IGRyaXZlci1zcGVjaWZp
-YyBndWJiaW5zIC0gZS5nLiBzeXNmcywgZ2VuZXRsaW5rIG9yIGV2ZW4gKHdoaXNwZXIgaXQpIGlv
-Y3RscyAtIGFuZA0KPiBwdXQgeW91ciAnVkYgcHJvbWlzYyBtb2RlJyBzZXR0aW5nIHRoZXJlLiAg
-VGhhdCB3YXkgeW91IGhhdmUgYSB2ZW5kb3ItDQo+IHNwZWNpZmljIGludGVyZmFjZSB3aXRoIHZl
-bmRvci1zcGVjaWZpZWQgc2VtYW50aWNzLg0KPiBPZiB0aG9zZSBvcHRpb25zLCBJJ2QgcmVjb21t
-ZW5kIHN5c2ZzIGFzIHRoZSBiZXN0IGZpdC4NCj4gVGhlIGluZm9ybWF0aW9uIGNvbnRhaW5lZCBp
-biB0aGlzIG1lc3NhZ2UgaXMgY29uZmlkZW50aWFsIGFuZCBpcyBpbnRlbmRlZCBmb3INCj4gdGhl
-IGFkZHJlc3NlZShzKSBvbmx5LiBJZiB5b3UgaGF2ZSByZWNlaXZlZCB0aGlzIG1lc3NhZ2UgaW4g
-ZXJyb3IsIHBsZWFzZQ0KPiBub3RpZnkgdGhlIHNlbmRlciBpbW1lZGlhdGVseSBhbmQgZGVsZXRl
-IHRoZSBtZXNzYWdlLiBVbmxlc3MgeW91IGFyZSBhbg0KPiBhZGRyZXNzZWUgKG9yIGF1dGhvcml6
-ZWQgdG8gcmVjZWl2ZSBmb3IgYW4gYWRkcmVzc2VlKSwgeW91IG1heSBub3QgdXNlLA0KPiBjb3B5
-IG9yIGRpc2Nsb3NlIHRvIGFueW9uZSB0aGlzIG1lc3NhZ2Ugb3IgYW55IGluZm9ybWF0aW9uIGNv
-bnRhaW5lZCBpbiB0aGlzDQo+IG1lc3NhZ2UuIFRoZSB1bmF1dGhvcml6ZWQgdXNlLCBkaXNjbG9z
-dXJlLCBjb3B5aW5nIG9yIGFsdGVyYXRpb24gb2YgdGhpcw0KPiBtZXNzYWdlIGlzIHN0cmljdGx5
-IHByb2hpYml0ZWQuDQoNCkkgZG8gc2VlIHlvdXIgcG9pbnQsIGJ1dCBJIHRob3VnaHQgY3VzdG9t
-IHN5c2ZzIGludGVyZmFjZXMgKG5vdCB0byBldmVuIG1lbnRpb24gbmV3IGlvY3RsJ3MgOikgd2Vy
-ZSBmcm93bmVkIHVwb24/ICBXaGljaCBpcyB3aHkgSSBkaWRuJ3QgZXZlbiBjb25zaWRlciBzeXNm
-cyBhcyBhbiBvcHRpb24uDQotLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0KRG93bmxvYWQgQklSVCBpSHVi
-IEYtVHlwZSAtIFRoZSBGcmVlIEVudGVycHJpc2UtR3JhZGUgQklSVCBTZXJ2ZXIKZnJvbSBBY3R1
-YXRlISBJbnN0YW50bHkgU3VwZXJjaGFyZ2UgWW91ciBCdXNpbmVzcyBSZXBvcnRzIGFuZCBEYXNo
-Ym9hcmRzCndpdGggSW50ZXJhY3Rpdml0eSwgU2hhcmluZywgTmF0aXZlIEV4Y2VsIEV4cG9ydHMs
-IEFwcCBJbnRlZ3JhdGlvbiAmIG1vcmUKR2V0IHRlY2hub2xvZ3kgcHJldmlvdXNseSByZXNlcnZl
-ZCBmb3IgYmlsbGlvbi1kb2xsYXIgY29ycG9yYXRpb25zLCBGUkVFCmh0dHA6Ly9wdWJhZHMuZy5k
-b3VibGVjbGljay5uZXQvZ2FtcGFkL2Nsaz9pZD0xOTA2NDE2MzEmaXU9LzQxNDAvb3N0Zy5jbGt0
-cmsKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KRTEwMDAt
-ZGV2ZWwgbWFpbGluZyBsaXN0CkUxMDAwLWRldmVsQGxpc3RzLnNvdXJjZWZvcmdlLm5ldApodHRw
-czovL2xpc3RzLnNvdXJjZWZvcmdlLm5ldC9saXN0cy9saXN0aW5mby9lMTAwMC1kZXZlbApUbyBs
-ZWFybiBtb3JlIGFib3V0IEludGVsJiMxNzQ7IEV0aGVybmV0LCB2aXNpdCBodHRwOi8vY29tbXVu
-aXRpZXMuaW50ZWwuY29tL2NvbW11bml0eS93aXJlZAo=
+This patch adds support the Ethernet Packet Sniffer H/W module
+developed by Linn Products Ltd and found in the IMG Pistachio SoC.
+The module allows Ethernet packets to be parsed, matched against
+a user-defined pattern and timestamped. It sits between a 100M
+Ethernet MAC and PHY and is completely passive with respect to
+Ethernet frames.
+
+Matched packet bytes and timestamp values are returned through a
+FIFO. Timestamps are provided to the module through an externally
+generated Gray-encoded counter.
+
+The command string for packet matching is stored in module RAM
+and consists of a sequence of 16-bit entries. Each entry includes
+an 8-bit command code and and 8-bit data value. Valid command
+codes are:
+0 - Don't care
+1 - Match: packet data must match command string byte
+2 - Copy: packet data will be copied to FIFO
+3 - Match/Stamp: if packet data matches string byte, a timestamp
+                 is copied into the FIFO
+4 - Copy/Done: packet data will be copied into the FIFO.
+               This command terminates the command string.
+
+The driver consists of two modules:
+- Core: it provides a common framework for managing backend packet
+        sniffer implementations. Each backend channel is registered
+        by the core as a netdev, which can be accessed from user
+        space through a raw packet socket. 
+
+- Ethernet Packet Sniffer backend: provides the driver for the
+        Linn Ethernet Packet Sniffer H/W modules.
+
+The split between a core and backend modules allows for other
+implementations to be added in the future apart of the Ethernet
+packet sniffer presented in this patch set.
+
+Changes for v3:
+* Code moved into vendor specific directory
+* Device tree binding updated and streamlined. Cyclecounter params
+  are now calculated dynamically.
+
+Changes for v2:
+* Complete redesign of core framework to use netdev instead of 
+the generic netlink framework
+* Updated device tree binding
+* A number of minor code improvements suggested by code review
+
+Stathis Voukelatos (3):
+  Ethernet packet sniffer: device tree binding and vendor prefix
+  Packet sniffer core framework
+  Linn Ethernet packet sniffer driver
+
+ .../bindings/net/linn-ether-packet-sniffer.txt     |  39 ++
+ .../devicetree/bindings/vendor-prefixes.txt        |   1 +
+ MAINTAINERS                                        |   6 +
+ drivers/net/ethernet/Kconfig                       |   1 +
+ drivers/net/ethernet/Makefile                      |   1 +
+ drivers/net/ethernet/linn/Kconfig                  |  36 ++
+ drivers/net/ethernet/linn/Makefile                 |  20 +
+ .../linn/pkt-sniffer/backends/ether/Makefile       |  20 +
+ .../linn/pkt-sniffer/backends/ether/channel.c      | 455 +++++++++++++++++++++
+ .../linn/pkt-sniffer/backends/ether/channel.h      |  80 ++++
+ .../ethernet/linn/pkt-sniffer/backends/ether/hw.h  |  46 +++
+ .../linn/pkt-sniffer/backends/ether/platform.c     | 286 +++++++++++++
+ .../net/ethernet/linn/pkt-sniffer/core/Makefile    |  20 +
+ .../net/ethernet/linn/pkt-sniffer/core/module.c    |  37 ++
+ .../net/ethernet/linn/pkt-sniffer/core/netdev.c    | 254 ++++++++++++
+ .../net/ethernet/linn/pkt-sniffer/core/snf_core.h  |  60 +++
+ 16 files changed, 1362 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/net/linn-ether-packet-sniffer.txt
+ create mode 100644 drivers/net/ethernet/linn/Kconfig
+ create mode 100644 drivers/net/ethernet/linn/Makefile
+ create mode 100644 drivers/net/ethernet/linn/pkt-sniffer/backends/ether/Makefile
+ create mode 100644 drivers/net/ethernet/linn/pkt-sniffer/backends/ether/channel.c
+ create mode 100644 drivers/net/ethernet/linn/pkt-sniffer/backends/ether/channel.h
+ create mode 100644 drivers/net/ethernet/linn/pkt-sniffer/backends/ether/hw.h
+ create mode 100644 drivers/net/ethernet/linn/pkt-sniffer/backends/ether/platform.c
+ create mode 100644 drivers/net/ethernet/linn/pkt-sniffer/core/Makefile
+ create mode 100644 drivers/net/ethernet/linn/pkt-sniffer/core/module.c
+ create mode 100644 drivers/net/ethernet/linn/pkt-sniffer/core/netdev.c
+ create mode 100644 drivers/net/ethernet/linn/pkt-sniffer/core/snf_core.h
+
+-- 
+1.9.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
