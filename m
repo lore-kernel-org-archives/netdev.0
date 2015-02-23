@@ -1,98 +1,84 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH 2/2] dsa: mv88e6131: support fixed PHYs
-Date: Mon, 23 Feb 2015 09:49:20 -0800
-Message-ID: <54EB6820.2040300@gmail.com>
-References: <20150212141317.GB12318@gmail.com> <CAGVrzcb5Vcx3fwFf3sVBGqw9QgZp9PD3TOZhO-CT5Eevzz5rzw@mail.gmail.com> <20150221103005.GA9212@gmail.com> <CAGVrzcb-di9Q9z8VohmSt7f0tq=BOxJ2=XXiRKRj1FToQo3=fg@mail.gmail.com> <20150223111328.GA21602@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Tobias Waldekranz <tobias@waldekranz.com>
+From: Eyal Birger <eyal.birger@gmail.com>
+Subject: [PATCH net-next v3 0/4] net: Introducing socket mark receive socket option
+Date: Mon, 23 Feb 2015 19:51:20 +0200
+Message-ID: <1424713884-6780-1-git-send-email-eyal.birger@gmail.com>
+Cc: edumazet@google.com, shmulik.ladkani@gmail.com,
+	netdev@vger.kernel.org, Eyal Birger <eyal.birger@gmail.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f172.google.com ([209.85.192.172]:44496 "EHLO
-	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752339AbbBWRth (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Feb 2015 12:49:37 -0500
-Received: by pdbnh10 with SMTP id nh10so26982732pdb.11
-        for <netdev@vger.kernel.org>; Mon, 23 Feb 2015 09:49:36 -0800 (PST)
-In-Reply-To: <20150223111328.GA21602@gmail.com>
+Received: from mail-we0-f170.google.com ([74.125.82.170]:35674 "EHLO
+	mail-we0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752032AbbBWRv2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Feb 2015 12:51:28 -0500
+Received: by wevl61 with SMTP id l61so16158430wev.2
+        for <netdev@vger.kernel.org>; Mon, 23 Feb 2015 09:51:26 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 23/02/15 03:13, Tobias Waldekranz wrote:
-> On Sat, Feb 21, 2015 at 10:56:25AM -0800, Florian Fainelli wrote:
->> 2015-02-21 2:30 GMT-08:00 Tobias Waldekranz <tobias@waldekranz.com>:
->>> On Thu, Feb 12, 2015 at 08:13:28AM -0800, Florian Fainelli wrote:
->>>> 2015-02-12 6:13 GMT-08:00 Tobias Waldekranz <tobias@waldekranz.com>:
->>>>> Statically setup the PCS Control on the MAC to match the fixed PHY.
->>>>
->>>> bcm_sf2 supports both fixed PHYs and regular PHYs, yet we do not need
->>>> to get access to the fixed PHY status from the adjust_link callback
->>>> because you could implement a separate fixed_link_update callback for
->>>> that purpose.
->>>>
->>>> Did not that work for you?
->>>>
->>>
->>> That was my first approach and it worked fine. The only issue I saw
->>> was that the callback was continously called at each poll cycle even
->>> though the link state had not changed.
->>
->> Right, we poll using this callback fairly often. Just like the PHY
->> libraries adjust_link, drivers are responsible for implementing
->> "caching" and avoiding the callback to be invoked too frequently.
->>
->>>
->>> So then I implemented the same check for updates that was in the
->>> regular adjust_link callback. But before I submitted that version of
->>> the patch I looked att the sf2 code, and it seemed as though this code
->>> uses the callback to update the phy status based on the chip state and
->>> not the other way around. Did I misunderstand the code?
->>
->> It is a two step process:
->>
->> - fixed_link_update updates the fixed PHY's status member to reflect
->> the HW changes (link change mostly), updates the PHY device
->> speed/duplex/pause parameters
->>
->> - adjust_link reads the PHY device speed/duplex/pause and applies
->> these to the HW registers
-> 
-> Right, in my case I just need to do an initial config according to the
-> fixed settings which are read from the device-tree.
-> 
-> In the case where there is a real PHY attached to the switch, an
-> internal machine will poll the PHY and setup the MAC accordingly. So
-> HW will take care of step 2 for me.
+This patch set introduces a new socket option for fetching the mark
+of skbs passed to sockets as ancillary data.
 
-Even if this is not a real PHY device, but e.g: a MAC-to-MAC type of
-connection? Does the PHY PPU rely on being able to issue MDIO accesses?
+A userspace program may wish to receive the mark of packets it
+receives, for example for distinguishing between different TPROXY
+diversion rules to the same userspace proxy socket.
 
-> 
->>>
->>> Not wanting to break your code, I went with this approach instead. But
->>> if you're fine with it, I'm more than happy to go with that version.
->>
->> I think it is a little cleaner since the adjust_link callback does not
->> need to know what kind of PHY device it is dealing with, while the
->> fixed_link_update() one only takes care of fixed PHYs.
-> 
-> In my case I do need to know, since I want the switch's phy polling
-> unit to do the work when possible. Maybe I should just rethink the
-> whole thing and do the setup at probe-time using some other method.
+The patch set includes a minor function renaming, as well as a
+change in struct sk_buff for allowing skb->mark to persist after
+being queued to the socket queue.
 
-You could do that, but it might be a little cumbersome, something
-simpler could be just to have an initialization flag that ensures that
-both of these callbacks run for at least once, and then do nothing?
+---
+Changes in v3:
+- Rebase
+- Set skb->priority immediately prior to transmittion in IGMPv3/MLD
+- Extended commit message regarding use of skb->priority instead of
+  skb->mark in struct sk_buff union
+Changes in v2:
+- Function parameter indentation
+- Commit message formatting
+---
 
-> 
-> I will get back to you with a better solution :)
-> 
->> Thanks
->> -- 
->> Florian
-> 
+Eyal Birger (4):
+  net: Rename sock_recv_ts_and_drops() to sock_cmsg_recv()
+  ipv4,v6: avoid setting skb->priority when skb->reserved_tailroom is in
+    use in igmpv3/mld
+  net: use skb->priority for overloading skb->dropcount and
+    skb->reserved_tailroom instead of skb->mark
+  net: Introducing socket mark receive socket option
 
+ arch/alpha/include/uapi/asm/socket.h   |  2 ++
+ arch/avr32/include/uapi/asm/socket.h   |  2 ++
+ arch/cris/include/uapi/asm/socket.h    |  2 ++
+ arch/frv/include/uapi/asm/socket.h     |  2 ++
+ arch/ia64/include/uapi/asm/socket.h    |  2 ++
+ arch/m32r/include/uapi/asm/socket.h    |  2 ++
+ arch/mips/include/uapi/asm/socket.h    |  2 ++
+ arch/mn10300/include/uapi/asm/socket.h |  2 ++
+ arch/parisc/include/uapi/asm/socket.h  |  2 ++
+ arch/powerpc/include/uapi/asm/socket.h |  2 ++
+ arch/s390/include/uapi/asm/socket.h    |  2 ++
+ arch/sparc/include/uapi/asm/socket.h   |  2 ++
+ arch/xtensa/include/uapi/asm/socket.h  |  2 ++
+ include/linux/skbuff.h                 |  4 ++--
+ include/net/sock.h                     | 18 ++++++++++--------
+ include/uapi/asm-generic/socket.h      |  2 ++
+ net/atm/common.c                       |  2 +-
+ net/bluetooth/af_bluetooth.c           |  4 ++--
+ net/can/bcm.c                          |  2 +-
+ net/can/raw.c                          |  2 +-
+ net/core/sock.c                        |  8 ++++++++
+ net/ieee802154/socket.c                |  4 ++--
+ net/ipv4/igmp.c                        |  3 ++-
+ net/ipv4/raw.c                         |  2 +-
+ net/ipv4/udp.c                         |  2 +-
+ net/ipv6/mcast.c                       |  3 ++-
+ net/ipv6/raw.c                         |  2 +-
+ net/ipv6/udp.c                         |  2 +-
+ net/key/af_key.c                       |  2 +-
+ net/packet/af_packet.c                 |  2 +-
+ net/rxrpc/ar-recvmsg.c                 |  2 +-
+ net/sctp/socket.c                      |  2 +-
+ net/socket.c                           | 15 ++++++++++++---
+ 33 files changed, 79 insertions(+), 30 deletions(-)
 
 -- 
-Florian
+2.1.4
