@@ -1,118 +1,146 @@
 From: Guenter Roeck <linux@roeck-us.net>
-Subject: [RFT PATCH 1/2] net: dsa: mv88e6xxx: Add EEE support
-Date: Mon, 23 Feb 2015 08:26:09 -0800
-Message-ID: <1424708770-3135-1-git-send-email-linux@roeck-us.net>
+Subject: [RFT PATCH] net: dsa: Ensure that port array elements are initialized before being used
+Date: Mon, 23 Feb 2015 08:33:46 -0800
+Message-ID: <1424709226-3586-1-git-send-email-linux@roeck-us.net>
 Cc: "David S. Miller" <davem@davemloft.net>,
 	Andrew Lunn <andrew@lunn.ch>,
 	Florian Fainelli <f.fainelli@gmail.com>,
 	linux-kernel@vger.kernel.org, Guenter Roeck <linux@roeck-us.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bh-25.webhostbox.net ([208.91.199.152]:39138 "EHLO
+Received: from bh-25.webhostbox.net ([208.91.199.152]:39946 "EHLO
 	bh-25.webhostbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752970AbbBWQ0P (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Feb 2015 11:26:15 -0500
+	with ESMTP id S1751935AbbBWQeB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Feb 2015 11:34:01 -0500
 Received: from mailnull by bh-25.webhostbox.net with sa-checked (Exim 4.82)
 	(envelope-from <linux@roeck-us.net>)
-	id 1YPvpm-001wGF-O1
-	for netdev@vger.kernel.org; Mon, 23 Feb 2015 16:26:15 +0000
+	id 1YPvxH-0021XY-QQ
+	for netdev@vger.kernel.org; Mon, 23 Feb 2015 16:34:00 +0000
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-EEE configuration is similar for the various MV88E6xxx chips.
-Add generic support for it.
+dsa_slave_netdevice_event can be called for one or more of the created
+slave devices before all slave devices have been registered. This can
+result in a mismatch between ds->phys_port_mask and the registered devices
+by the time the call is made, and it can result in a slave device being
+added to a bridge before its entry in ds->ports[] has been initialized.
+
+Rework the initialization code to initialize entries in ds->ports[] in
+dsa_slave_create. With this change, dsa_slave_create no longer needs
+to return slave_dev but can return an error code instead.
 
 Signed-off-by: Guenter Roeck <linux@roeck-us.net>
 ---
-Applies to net-next.
+Applies on top of Florian's patches integrating dsa with SWITCHDEV (v3).
 
-The code seems to be working, at least according to ethtool, but some
-more testing with other chip types would be useful. Also, I am not sure
-what to do with phy_init_eee.
+ net/dsa/dsa.c      | 10 +++-------
+ net/dsa/dsa_priv.h |  5 ++---
+ net/dsa/slave.c    | 17 ++++++++++-------
+ 3 files changed, 15 insertions(+), 17 deletions(-)
 
- drivers/net/dsa/mv88e6xxx.c | 55 +++++++++++++++++++++++++++++++++++++++++++++
- drivers/net/dsa/mv88e6xxx.h |  3 +++
- 2 files changed, 58 insertions(+)
-
-diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index a83ace0..2d5306a 100644
---- a/drivers/net/dsa/mv88e6xxx.c
-+++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -649,6 +649,61 @@ int mv88e6xxx_phy_write_indirect(struct dsa_switch *ds, int addr, int regnum,
- 	return mv88e6xxx_phy_wait(ds);
+diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
+index 293e0c3..9c208f0 100644
+--- a/net/dsa/dsa.c
++++ b/net/dsa/dsa.c
+@@ -314,19 +314,15 @@ dsa_switch_setup(struct dsa_switch_tree *dst, int index,
+ 	 * Create network devices for physical switch ports.
+ 	 */
+ 	for (i = 0; i < DSA_MAX_PORTS; i++) {
+-		struct net_device *slave_dev;
+-
+ 		if (!(ds->phys_port_mask & (1 << i)))
+ 			continue;
+ 
+-		slave_dev = dsa_slave_create(ds, parent, i, pd->port_names[i]);
+-		if (slave_dev == NULL) {
++		ret = dsa_slave_create(ds, parent, i, pd->port_names[i]);
++		if (ret < 0) {
+ 			netdev_err(dst->master_netdev, "[%d]: can't create dsa slave device for port %d(%s)\n",
+ 				   index, i, pd->port_names[i]);
+-			continue;
++			ret = 0;
+ 		}
+-
+-		ds->ports[i] = slave_dev;
+ 	}
+ 
+ #ifdef CONFIG_NET_DSA_HWMON
+diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
+index b8d7231..d5f1f9b 100644
+--- a/net/dsa/dsa_priv.h
++++ b/net/dsa/dsa_priv.h
+@@ -55,9 +55,8 @@ extern char dsa_driver_version[];
+ /* slave.c */
+ extern const struct dsa_device_ops notag_netdev_ops;
+ void dsa_slave_mii_bus_init(struct dsa_switch *ds);
+-struct net_device *dsa_slave_create(struct dsa_switch *ds,
+-				    struct device *parent,
+-				    int port, char *name);
++int dsa_slave_create(struct dsa_switch *ds, struct device *parent,
++		     int port, char *name);
+ int dsa_slave_suspend(struct net_device *slave_dev);
+ int dsa_slave_resume(struct net_device *slave_dev);
+ int dsa_slave_netdevice_event(struct notifier_block *unused,
+diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+index 7ab19f2..ca8f45f 100644
+--- a/net/dsa/slave.c
++++ b/net/dsa/slave.c
+@@ -224,6 +224,8 @@ static u32 dsa_slave_br_port_mask(struct dsa_switch *ds,
+ 	for (port = 0; port < DSA_MAX_PORTS; port++) {
+ 		if (!((1 << port) & ds->phys_port_mask))
+ 			continue;
++		if (!ds->ports[port])
++			continue;
+ 
+ 		p = netdev_priv(ds->ports[port]);
+ 
+@@ -709,9 +711,8 @@ int dsa_slave_resume(struct net_device *slave_dev)
+ 	return 0;
  }
  
-+int mv88e6xxx_get_eee(struct dsa_switch *ds, int port, struct ethtool_eee *e)
-+{
-+	int reg;
-+
-+	reg = mv88e6xxx_phy_read_indirect(ds, port, 16);
-+	if (reg < 0)
-+		return -EOPNOTSUPP;
-+
-+	e->eee_enabled = !!(reg & 0x0200);
-+	e->tx_lpi_enabled = !!(reg & 0x0100);
-+
-+	reg = REG_READ(REG_PORT(port), 0);
-+	e->eee_active = !!(reg & 0x0040);
-+
-+	return 0;
-+}
-+
-+static int mv88e6xxx_eee_enable_set(struct dsa_switch *ds, int port,
-+				    bool eee_enabled, bool tx_lpi_enabled)
-+{
-+	int reg, nreg;
-+
-+	/* Don't call phy_init_eee for now. It fails if the link is down,
-+	 * but that should not really be a reason to fail configuration.
-+	 */
-+
-+	reg = mv88e6xxx_phy_read_indirect(ds, port, 16);
-+	if (reg < 0)
-+		return reg;
-+
-+	nreg = reg & ~0x0300;
-+	if (eee_enabled)
-+		nreg |= 0x0200;
-+	if (tx_lpi_enabled)
-+		nreg |= 0x0100;
-+
-+	if (nreg != reg)
-+		return mv88e6xxx_phy_write_indirect(ds, port, 16, nreg);
-+
-+	return 0;
-+}
-+
-+int mv88e6xxx_set_eee(struct dsa_switch *ds, int port,
-+		      struct phy_device *phydev, struct ethtool_eee *e)
-+{
-+	int ret;
-+
-+	ret = mv88e6xxx_eee_enable_set(ds, port, e->eee_enabled,
-+				       e->tx_lpi_enabled);
-+	if (ret)
-+		return -EOPNOTSUPP;
-+
-+	return 0;
-+}
-+
- static int __init mv88e6xxx_init(void)
+-struct net_device *
+-dsa_slave_create(struct dsa_switch *ds, struct device *parent,
+-		 int port, char *name)
++int dsa_slave_create(struct dsa_switch *ds, struct device *parent,
++		     int port, char *name)
  {
- #if IS_ENABLED(CONFIG_NET_DSA_MV88E6131)
-diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
-index 7294227..5fd42ce 100644
---- a/drivers/net/dsa/mv88e6xxx.h
-+++ b/drivers/net/dsa/mv88e6xxx.h
-@@ -88,6 +88,9 @@ int mv88e6xxx_eeprom_busy_wait(struct dsa_switch *ds);
- int mv88e6xxx_phy_read_indirect(struct dsa_switch *ds, int addr, int regnum);
- int mv88e6xxx_phy_write_indirect(struct dsa_switch *ds, int addr, int regnum,
- 				 u16 val);
-+int mv88e6xxx_get_eee(struct dsa_switch *ds, int port, struct ethtool_eee *e);
-+int mv88e6xxx_set_eee(struct dsa_switch *ds, int port,
-+		      struct phy_device *phydev, struct ethtool_eee *e);
+ 	struct net_device *master = ds->dst->master_netdev;
+ 	struct net_device *slave_dev;
+@@ -721,7 +722,7 @@ dsa_slave_create(struct dsa_switch *ds, struct device *parent,
+ 	slave_dev = alloc_netdev(sizeof(struct dsa_slave_priv), name,
+ 				 NET_NAME_UNKNOWN, ether_setup);
+ 	if (slave_dev == NULL)
+-		return slave_dev;
++		return -ENOMEM;
  
- extern struct dsa_switch_driver mv88e6131_switch_driver;
- extern struct dsa_switch_driver mv88e6123_61_65_switch_driver;
+ 	slave_dev->features = master->vlan_features;
+ 	slave_dev->ethtool_ops = &dsa_slave_ethtool_ops;
+@@ -771,21 +772,23 @@ dsa_slave_create(struct dsa_switch *ds, struct device *parent,
+ 	ret = dsa_slave_phy_setup(p, slave_dev);
+ 	if (ret) {
+ 		free_netdev(slave_dev);
+-		return NULL;
++		return ret;
+ 	}
+ 
++	ds->ports[port] = slave_dev;
+ 	ret = register_netdev(slave_dev);
+ 	if (ret) {
+ 		netdev_err(master, "error %d registering interface %s\n",
+ 			   ret, slave_dev->name);
+ 		phy_disconnect(p->phy);
++		ds->ports[port] = NULL;
+ 		free_netdev(slave_dev);
+-		return NULL;
++		return ret;
+ 	}
+ 
+ 	netif_carrier_off(slave_dev);
+ 
+-	return slave_dev;
++	return 0;
+ }
+ 
+ static bool dsa_slave_dev_check(struct net_device *dev)
 -- 
 2.1.0
