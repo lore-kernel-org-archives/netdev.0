@@ -1,77 +1,75 @@
-From: Johan Hedberg <johan.hedberg@gmail.com>
-Subject: pull request: bluetooth 2015-02-23
-Date: Mon, 23 Feb 2015 09:45:26 +0200
-Message-ID: <20150223074526.GA8287@t440s.lan>
+From: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
+Subject: Re: [PATCH net-next v3 2/2] multicast: Extend ip address command
+ to enable multicast group join/leave on IP level.
+Date: Mon, 23 Feb 2015 16:44:09 +0900
+Message-ID: <54EADA49.6020308@miraclelinux.com>
+References: <1424672814-2998-1-git-send-email-challa@noironetworks.com> <1424672814-2998-3-git-send-email-challa@noironetworks.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="jI8keyz6grp/JLjh"
-Cc: netdev@vger.kernel.org, linux-bluetooth@vger.kernel.org
-To: davem@davemloft.net
+Content-Type: text/plain; charset=iso-2022-jp
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, davem@davemloft.net,
+	hideaki.yoshifuji@miraclelinux.com
+To: Madhu Challa <challa@noironetworks.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f174.google.com ([209.85.217.174]:38211 "EHLO
-	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751172AbbBWHph (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Feb 2015 02:45:37 -0500
-Content-Disposition: inline
+Received: from exprod7og101.obsmtp.com ([64.18.2.155]:37274 "HELO
+	exprod7og101.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1751174AbbBWHwS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Feb 2015 02:52:18 -0500
+Received: by mail-pa0-f42.google.com with SMTP id et14so25502582pad.11
+        for <netdev@vger.kernel.org>; Sun, 22 Feb 2015 23:52:17 -0800 (PST)
+In-Reply-To: <1424672814-2998-3-git-send-email-challa@noironetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi,
 
---jI8keyz6grp/JLjh
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+Madhu Challa wrote:
 
-Hi Dave,
+> diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+> index 3a8985c..ee56730 100644
+> --- a/net/ipv4/devinet.c
+> +++ b/net/ipv4/devinet.c
 
-Here's one important fix for the 4.0-rc series. Refactoring of Intel
-Bluetooth controller detection ended up disabling some older ones which
-are based on CSR hardware. This patch re-introduces the necessary USB id
-and fixes the breakage.
+> @@ -838,6 +864,16 @@ static int inet_rtm_newaddr(struct sk_buff *skb, struct nlmsghdr *nlh)
+>   		 * userspace already relies on not having to provide this.
+>   		 */
+>   		set_ifa_lifetime(ifa, valid_lft, prefered_lft);
+> +		if (ifa->ifa_flags & IFA_F_MCAUTOJOIN) {
+> +			WARN_ON(!ipv4_is_multicast(ifa->ifa_address));
+> +			ret = ip_mc_config(net->ipv4.mc_autojoin_sock,
+> +					   true, ifa->ifa_address,
+> +					   ifa->ifa_dev->dev->ifindex);
+> +			if (ret < 0) {
+> +				inet_free_ifa(ifa);
+> +				return ret;
+> +			}
+> +		}
 
-Please let me know if there are any issues pulling. Thanks.
-
-Johan
-
----
-The following changes since commit 6514890f7aa8dd75fa46e282a1c7a8615e86f363:
-
-  tcp: fix tcp_should_expand_sndbuf() to use tcp_packets_in_flight() (2015-02-22 23:07:11 -0500)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/bluetooth/bluetooth.git for-upstream
-
-for you to fetch changes up to 407550fe2ccfca3fa0ac4bcdb0a412adeabf84ba:
-
-  Bluetooth: btusb: Fix issue with CSR based Intel Wireless controllers (2015-02-23 09:30:35 +0200)
-
-----------------------------------------------------------------
-Marcel Holtmann (1):
-      Bluetooth: btusb: Fix issue with CSR based Intel Wireless controllers
-
- drivers/bluetooth/btusb.c | 1 +
- 1 file changed, 1 insertion(+)
+No WARN_ON() here, please.
 
 
---jI8keyz6grp/JLjh
-Content-Type: application/pgp-signature
+> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+> index 98e4a63..b9b6d52 100644
+> --- a/net/ipv6/addrconf.c
+> +++ b/net/ipv6/addrconf.c
+> @@ -2501,6 +2519,14 @@ static int inet6_addr_add(struct net *net, int ifindex,
+>   	if (IS_ERR(idev))
+>   		return PTR_ERR(idev);
+>   
+> +	if (ifa_flags & IFA_F_MCAUTOJOIN) {
+> +		WARN_ON(!ipv6_addr_is_multicast(pfx));
+> +		ret = ipv6_mc_config(net->ipv6.mc_autojoin_sock,
+> +				     true, pfx, ifindex);
+> +		if (ret < 0)
+> +			return ret;
+> +	}
+> +
+>   	scope = ipv6_addr_scope(pfx);
+>   
+>   	timeout = addrconf_timeout_fixup(valid_lft, HZ);
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
+ditto.
 
-iQIcBAEBAgAGBQJU6tqWAAoJECQj9vv5qNQSFLwP/2kQUHsh3VbXoo2q/jAUWamA
-LJT0mJYAf7fpvDVvaiSaAGm9eFZrmQsCduTY+GZRkILX5B/LqCmtrr1eLoOBjDjR
-e7BzA3PpK29cxsnh9uyRr3VG/GKB4GsZYLpoNGQr47x0PCilehv/m428wIf0y0HI
-NI7VKODFvnhK1Mzj2msYSp1wGEScu/XprGirz3i1oZlf/e9ery6j8y92PiRx+KQ3
-Fd4WKf11Wxow11bIwi2A+0VmG0bL6etTU4b8ijSeVI8FtY+27QVFxVcj7oLC7c4e
-xWhfpclt7IMzsHVO5L9WlNAo8miLAyjQ/rXS1Wt/A/fz/GfKYa4XaWyso/T01XlT
-jNHqrVjXO1XEh2bFbTjgGVbcSu7EQZ1X/hv2CRKs0TvlZt+tS5+E3bzBqedAxFxz
-fzrbca41JrRFYpu6qOIw1Rv21rxzYspkghNiKwzaQFc1ugflrjdUz2I8iu6Q9aBB
-3ueiZVDKY7Fd0msofVzV5M8UG1rLogQwwm65B3luMdKu8UtO8zZH6E8Tdof2lDxk
-Y5ogWT2Et0PCFusQn837cyHdwg4Z6VZXD8M3FqS/wFmdcSS4qTNKRZu9BwkU4eqN
-/bCqI2yDpj41kaKISqBXo6t/InwRLmYclZ5eB9ibSTwRtFSKgasTcWpzjptqso8U
-/Ovt4A7kGGX++5SN67/1
-=n+E9
------END PGP SIGNATURE-----
-
---jI8keyz6grp/JLjh--
+-- 
+Hideaki Yoshifuji <hideaki.yoshifuji@miraclelinux.com>
+Technical Division, MIRACLE LINUX CORPORATION
