@@ -1,50 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Ottawa and slow hash-table resize
-Date: Mon, 23 Feb 2015 18:15:44 -0500 (EST)
-Message-ID: <20150223.181544.230510782345048771.davem@davemloft.net>
-References: <CAADnVQ+kJu=Hb5oUMeQuchWe67nLo7AMnPUK0VJecRqYM0GHCA@mail.gmail.com>
+Subject: Re: [PATCH v2 net] ipv6: addrconf: validate new MTU before
+ applying it
+Date: Mon, 23 Feb 2015 18:16:45 -0500 (EST)
+Message-ID: <20150223.181645.1582799387342364278.davem@davemloft.net>
+References: <463ebd12cf29ddcf17275bdde9fb629444a5fa5b.1424698335.git.mleitner@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: paulmck@linux.vnet.ibm.com, tgraf@suug.ch, josh@joshtriplett.org,
-	herbert@gondor.apana.org.au, kaber@trash.net,
-	ying.xue@windriver.com, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: alexei.starovoitov@gmail.com
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <CAADnVQ+kJu=Hb5oUMeQuchWe67nLo7AMnPUK0VJecRqYM0GHCA@mail.gmail.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, sd@queasysnail.net
+To: mleitner@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38965 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751055AbbBWXQr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Feb 2015 18:16:47 -0500
+In-Reply-To: <463ebd12cf29ddcf17275bdde9fb629444a5fa5b.1424698335.git.mleitner@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Date: Mon, 23 Feb 2015 15:07:20 -0800
+From: Marcelo Ricardo Leitner <mleitner@redhat.com>
+Date: Mon, 23 Feb 2015 11:17:13 -0300
 
-> Also 'count of pending inserts' is going to be very small and
-> meaningless, since it will count the number of threads that
-> are sleeping on insert and not very useful to predict future
-> expansions.
+> Currently we don't check if the new MTU is valid or not and this allows
+> one to configure a smaller than minimum allowed by RFCs or even bigger
+> than interface own MTU, which is a problem as it may lead to packet
+> drops.
+> 
+> If you have a daemon like NetworkManager running, this may be exploited
+> by remote attackers by forging RA packets with an invalid MTU, possibly
+> leading to a DoS. (NetworkManager currently only validates for values
+> too small, but not for too big ones.)
+> 
+> The fix is just to make sure the new value is valid. That is, between
+> IPV6_MIN_MTU and interface's MTU.
+> 
+> Note that similar check is already performed at
+> ndisc_router_discovery(), for when kernel itself parses the RA.
+> 
+> Signed-off-by: Marcelo Ricardo Leitner <mleitner@redhat.com>
 
-Good point.
-
-A way around this would be to allow batching.  So netfilter would
-do something like:
-
-	set->ops->batch_insert_start();
-	nla_for_each_nested(attr, nla[NFTA_SET_ELEM_LIST_ELEMENTS], rem) {
-		err = nft_add_set_elem(&ctx, set, attr);
-		if (err < 0)
-			break;
-
-		set->nelems++;
-	}
-	set->ops->batch_insert_end();
-
-And batch_insert_start and batch_insert_end would point to something
-that calls new routines rhashtable_batch_insert_start() and
-rhashtable_batch_insert_end().
-
-Inside of this sequence, rhashtable_insert() calls queue to a list if
-a table grow is in progress.
-
-The pending list is processed by both rhashtable_batch_insert_end()
-and table grow completion.
+Applied, thanks.
