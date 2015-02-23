@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 16/16] i40evf: don't wait forever
-Date: Sun, 22 Feb 2015 19:25:44 -0800
-Message-ID: <1424661944-1779-17-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 15/16] i40evf: refactor reset
+Date: Sun, 22 Feb 2015 19:25:43 -0800
+Message-ID: <1424661944-1779-16-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1424661944-1779-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Mitch Williams <mitch.a.williams@intel.com>,
 	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
@@ -10,81 +10,111 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga01.intel.com ([192.55.52.88]:3468 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752294AbbBWD0G (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 22 Feb 2015 22:26:06 -0500
+	id S1752280AbbBWD0F (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 22 Feb 2015 22:26:05 -0500
 In-Reply-To: <1424661944-1779-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Mitch Williams <mitch.a.williams@intel.com>
 
-Under rare circumstances, after a reset, set_rx_mode might get called
-while the watchdog is running, which will cause a deadlock on the
-critical section lock. To correct this, add a counter and give up trying
-to get the lock after fifty tries. Log a message if this happens but
-don't take any other action. Because this happens after a reset, all of
-the Rx filters are still in place and the device won't lose
-connectivity.
+A recent change to the shutdown flow messed up the reset flow. Since
+i40evf_down now holds the critical section lock, we cannot call it from
+the reset handler, which also holds the lock. To do so causes a deadlock
+accompanied by wailing and gnashing of teeth. This is easily triggered
+by running an ethtool self-test on the PF device.
 
-We can also get stuck during shutdown, if the PF has stopped communicating
-with us, or if a reset is occurring. If we can't get the lock after a reasonable
-amount of time, just error out. Something else bad is happening anyway, so
-adding this filter is the least of our concern right now.
+Instead, we move the relevant portions of i40evf_down into the reset
+handler and bend them to our will. Additionally, we can optimize the
+reinit path by not deleting the MAC and VLAN filters and then adding
+them back again. Instead, we just set the 'add' flag and let the
+watchdog resynchronize the filter list with the PF driver. We also
+reword a few messages to make them more consistent with the rest of the
+driver.
 
-Change-ID: I159731e2a82a06b389ee31b34ce336548e05baa0
+Change-ID: I03dd92ae736f7719fca3564b12a2cf9b98c6cb18
 Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
 Tested-by: Jim Young <james.m.young@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40evf/i40evf_main.c | 15 +++++++++++++--
- 1 file changed, 13 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c | 41 +++++++++++++++++++------
+ 1 file changed, 31 insertions(+), 10 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-index 1257577..e089e8f 100644
+index eb1ac22..1257577 100644
 --- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
 +++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-@@ -761,13 +761,17 @@ i40evf_mac_filter *i40evf_add_filter(struct i40evf_adapter *adapter,
- 				     u8 *macaddr)
- {
- 	struct i40evf_mac_filter *f;
-+	int count = 50;
- 
- 	if (!macaddr)
- 		return NULL;
- 
- 	while (test_and_set_bit(__I40EVF_IN_CRITICAL_TASK,
--				&adapter->crit_section))
-+				&adapter->crit_section)) {
- 		udelay(1);
-+		if (--count == 0)
-+			return NULL;
-+	}
- 
- 	f = i40evf_find_filter(adapter, macaddr);
- 	if (!f) {
-@@ -828,6 +832,7 @@ static void i40evf_set_rx_mode(struct net_device *netdev)
- 	struct i40evf_mac_filter *f, *ftmp;
- 	struct netdev_hw_addr *uca;
- 	struct netdev_hw_addr *mca;
-+	int count = 50;
- 
- 	/* add addr if not already in the filter list */
- 	netdev_for_each_uc_addr(uca, netdev) {
-@@ -838,8 +843,14 @@ static void i40evf_set_rx_mode(struct net_device *netdev)
- 	}
+@@ -1480,9 +1480,11 @@ static void i40evf_reset_task(struct work_struct *work)
+ 	struct i40evf_adapter *adapter = container_of(work,
+ 						      struct i40evf_adapter,
+ 						      reset_task);
++	struct net_device *netdev = adapter->netdev;
+ 	struct i40e_hw *hw = &adapter->hw;
+-	int i = 0, err;
++	struct i40evf_mac_filter *f;
+ 	uint32_t rstat_val;
++	int i = 0, err;
  
  	while (test_and_set_bit(__I40EVF_IN_CRITICAL_TASK,
--				&adapter->crit_section))
-+				&adapter->crit_section)) {
- 		udelay(1);
-+		if (--count == 0) {
-+			dev_err(&adapter->pdev->dev,
-+				"Failed to get lock in %s\n", __func__);
-+			return;
-+		}
+ 				&adapter->crit_section))
+@@ -1527,7 +1529,11 @@ static void i40evf_reset_task(struct work_struct *work)
+ 
+ 		if (netif_running(adapter->netdev)) {
+ 			set_bit(__I40E_DOWN, &adapter->vsi.state);
+-			i40evf_down(adapter);
++			i40evf_irq_disable(adapter);
++			i40evf_napi_disable_all(adapter);
++			netif_tx_disable(netdev);
++			netif_tx_stop_all_queues(netdev);
++			netif_carrier_off(netdev);
+ 			i40evf_free_traffic_irqs(adapter);
+ 			i40evf_free_all_tx_resources(adapter);
+ 			i40evf_free_all_rx_resources(adapter);
+@@ -1559,22 +1565,37 @@ static void i40evf_reset_task(struct work_struct *work)
+ continue_reset:
+ 	adapter->flags &= ~I40EVF_FLAG_RESET_PENDING;
+ 
+-	i40evf_down(adapter);
++	i40evf_irq_disable(adapter);
++	i40evf_napi_disable_all(adapter);
++
++	netif_tx_disable(netdev);
++
++	netif_tx_stop_all_queues(netdev);
++
++	netif_carrier_off(netdev);
+ 	adapter->state = __I40EVF_RESETTING;
+ 
+ 	/* kill and reinit the admin queue */
+ 	if (i40evf_shutdown_adminq(hw))
+-		dev_warn(&adapter->pdev->dev,
+-			 "%s: Failed to destroy the Admin Queue resources\n",
+-			 __func__);
++		dev_warn(&adapter->pdev->dev, "Failed to shut down adminq\n");
++	adapter->current_op = I40E_VIRTCHNL_OP_UNKNOWN;
+ 	err = i40evf_init_adminq(hw);
+ 	if (err)
+-		dev_info(&adapter->pdev->dev, "%s: init_adminq failed: %d\n",
+-			 __func__, err);
++		dev_info(&adapter->pdev->dev, "Failed to init adminq: %d\n",
++			 err);
+ 
+-	adapter->aq_pending = 0;
+-	adapter->aq_required = 0;
+ 	i40evf_map_queues(adapter);
++
++	/* re-add all MAC filters */
++	list_for_each_entry(f, &adapter->mac_filter_list, list) {
++		f->add = true;
 +	}
- 	/* remove filter if not in netdev list */
- 	list_for_each_entry_safe(f, ftmp, &adapter->mac_filter_list, list) {
- 		bool found = false;
++	/* re-add all VLAN filters */
++	list_for_each_entry(f, &adapter->vlan_filter_list, list) {
++		f->add = true;
++	}
++	adapter->aq_required = I40EVF_FLAG_AQ_ADD_MAC_FILTER;
++	adapter->aq_required |= I40EVF_FLAG_AQ_ADD_VLAN_FILTER;
+ 	clear_bit(__I40EVF_IN_CRITICAL_TASK, &adapter->crit_section);
+ 
+ 	mod_timer(&adapter->watchdog_timer, jiffies + 2);
 -- 
 1.9.3
