@@ -1,1395 +1,1298 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 01/16] e1000e: initial support for i219
-Date: Sun, 22 Feb 2015 19:25:29 -0800
-Message-ID: <1424661944-1779-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 06/16] i40e/i40evf: Refactor the receive routines
+Date: Sun, 22 Feb 2015 19:25:34 -0800
+Message-ID: <1424661944-1779-7-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1424661944-1779-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: David Ertman <david.m.ertman@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Mitch Williams <mitch.a.williams@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:3456 "EHLO mga01.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:24899 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751800AbbBWDZw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 22 Feb 2015 22:25:52 -0500
+	id S1752203AbbBWDZ6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 22 Feb 2015 22:25:58 -0500
 In-Reply-To: <1424661944-1779-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Ertman <david.m.ertman@intel.com>
+From: Mitch Williams <mitch.a.williams@intel.com>
 
-i219 is the next-generation LOM that will be available on systems with the
-Sunrise Point Platform Controller Hub (PCH) chipset from Intel.  This patch
-provides the initial support for the device.
+Split the receive hot path code into two, one for packet split and one
+for single buffer. This improves receive performance since we only need
+to check if the ring is in packet split mode once per NAPI poll time,
+not several times per packet. The single buffer code is further improved
+by the removal of a bunch of code and several variables that are not
+needed. On a receive-oriented test this can improve single-threaded
+throughput.
 
-Signed-off-by: Dave Ertman <david.m.ertman@intel.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
-Tested-by: Carmen Edwards <carmenx.edwards@intel.com>
+Also refactor the packet split receive path to use a fixed buffer for
+headers, like ixgbe does. This vastly reduces the number of DMA mappings
+and unmappings we need to do, allowing for much better performance in
+the presence of an IOMMU.
+
+Lastly, correct packet split descriptor types now that we are actually
+using them.
+
+Change-ID: I3a194a93af3d2c31e77ff17644ac7376da6f3e4b
+Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+Tested-by:  Jim Young <james.m.young@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/defines.h |   1 +
- drivers/net/ethernet/intel/e1000e/e1000.h   |   2 +
- drivers/net/ethernet/intel/e1000e/ethtool.c |   6 +-
- drivers/net/ethernet/intel/e1000e/hw.h      |   6 +
- drivers/net/ethernet/intel/e1000e/ich8lan.c | 770 +++++++++++++++++++++++++---
- drivers/net/ethernet/intel/e1000e/ich8lan.h |   9 +
- drivers/net/ethernet/intel/e1000e/netdev.c  |  50 +-
- drivers/net/ethernet/intel/e1000e/ptp.c     |   4 +-
- drivers/net/ethernet/intel/e1000e/regs.h    |   3 +
- 9 files changed, 768 insertions(+), 83 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c     |   9 +-
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c     | 419 ++++++++++++++++++------
+ drivers/net/ethernet/intel/i40e/i40e_txrx.h     |  17 +-
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.c   | 401 +++++++++++++++++------
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.h   |  17 +-
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c |   2 +-
+ 6 files changed, 651 insertions(+), 214 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/defines.h b/drivers/net/ethernet/intel/e1000e/defines.h
-index bb7ab3c..0570c66 100644
---- a/drivers/net/ethernet/intel/e1000e/defines.h
-+++ b/drivers/net/ethernet/intel/e1000e/defines.h
-@@ -141,6 +141,7 @@
- #define E1000_RCTL_LBM_TCVR       0x000000C0    /* tcvr loopback mode */
- #define E1000_RCTL_DTYP_PS        0x00000400    /* Packet Split descriptor */
- #define E1000_RCTL_RDMTS_HALF     0x00000000    /* Rx desc min threshold size */
-+#define E1000_RCTL_RDMTS_HEX      0x00010000
- #define E1000_RCTL_MO_SHIFT       12            /* multicast offset shift */
- #define E1000_RCTL_MO_3           0x00003000    /* multicast offset 15:4 */
- #define E1000_RCTL_BAM            0x00008000    /* broadcast enable */
-diff --git a/drivers/net/ethernet/intel/e1000e/e1000.h b/drivers/net/ethernet/intel/e1000e/e1000.h
-index 9416e5a..a69f09e 100644
---- a/drivers/net/ethernet/intel/e1000e/e1000.h
-+++ b/drivers/net/ethernet/intel/e1000e/e1000.h
-@@ -132,6 +132,7 @@ enum e1000_boards {
- 	board_pchlan,
- 	board_pch2lan,
- 	board_pch_lpt,
-+	board_pch_spt
- };
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index cbe281b..10ad1ee 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -2591,7 +2591,12 @@ static int i40e_configure_rx_ring(struct i40e_ring *ring)
+ 	ring->tail = hw->hw_addr + I40E_QRX_TAIL(pf_q);
+ 	writel(0, ring->tail);
  
- struct e1000_ps_page {
-@@ -501,6 +502,7 @@ extern const struct e1000_info e1000_ich10_info;
- extern const struct e1000_info e1000_pch_info;
- extern const struct e1000_info e1000_pch2_info;
- extern const struct e1000_info e1000_pch_lpt_info;
-+extern const struct e1000_info e1000_pch_spt_info;
- extern const struct e1000_info e1000_es2_info;
- 
- void e1000e_ptp_init(struct e1000_adapter *adapter);
-diff --git a/drivers/net/ethernet/intel/e1000e/ethtool.c b/drivers/net/ethernet/intel/e1000e/ethtool.c
-index 865ce45..11f486e 100644
---- a/drivers/net/ethernet/intel/e1000e/ethtool.c
-+++ b/drivers/net/ethernet/intel/e1000e/ethtool.c
-@@ -896,18 +896,20 @@ static int e1000_reg_test(struct e1000_adapter *adapter, u64 *data)
- 	case e1000_pchlan:
- 	case e1000_pch2lan:
- 	case e1000_pch_lpt:
-+	case e1000_pch_spt:
- 		mask |= (1 << 18);
- 		break;
- 	default:
- 		break;
- 	}
- 
--	if (mac->type == e1000_pch_lpt)
-+	if ((mac->type == e1000_pch_lpt) || (mac->type == e1000_pch_spt))
- 		wlock_mac = (er32(FWSM) & E1000_FWSM_WLOCK_MAC_MASK) >>
- 		    E1000_FWSM_WLOCK_MAC_SHIFT;
- 
- 	for (i = 0; i < mac->rar_entry_count; i++) {
--		if (mac->type == e1000_pch_lpt) {
-+		if ((mac->type == e1000_pch_lpt) ||
-+		    (mac->type == e1000_pch_spt)) {
- 			/* Cannot test write-protected SHRAL[n] registers */
- 			if ((wlock_mac == 1) || (wlock_mac && (i > wlock_mac)))
- 				continue;
-diff --git a/drivers/net/ethernet/intel/e1000e/hw.h b/drivers/net/ethernet/intel/e1000e/hw.h
-index 72f5475..19e8c48 100644
---- a/drivers/net/ethernet/intel/e1000e/hw.h
-+++ b/drivers/net/ethernet/intel/e1000e/hw.h
-@@ -87,6 +87,10 @@ struct e1000_hw;
- #define E1000_DEV_ID_PCH_I218_V2		0x15A1
- #define E1000_DEV_ID_PCH_I218_LM3		0x15A2	/* Wildcat Point PCH */
- #define E1000_DEV_ID_PCH_I218_V3		0x15A3	/* Wildcat Point PCH */
-+#define E1000_DEV_ID_PCH_SPT_I219_LM		0x156F	/* SPT PCH */
-+#define E1000_DEV_ID_PCH_SPT_I219_V		0x1570	/* SPT PCH */
-+#define E1000_DEV_ID_PCH_SPT_I219_LM2		0x15B7	/* SPT-H PCH */
-+#define E1000_DEV_ID_PCH_SPT_I219_V2		0x15B8	/* SPT-H PCH */
- 
- #define E1000_REVISION_4	4
- 
-@@ -108,6 +112,7 @@ enum e1000_mac_type {
- 	e1000_pchlan,
- 	e1000_pch2lan,
- 	e1000_pch_lpt,
-+	e1000_pch_spt,
- };
- 
- enum e1000_media_type {
-@@ -153,6 +158,7 @@ enum e1000_bus_width {
- 	e1000_bus_width_pcie_x1,
- 	e1000_bus_width_pcie_x2,
- 	e1000_bus_width_pcie_x4 = 4,
-+	e1000_bus_width_pcie_x8 = 8,
- 	e1000_bus_width_32,
- 	e1000_bus_width_64,
- 	e1000_bus_width_reserved
-diff --git a/drivers/net/ethernet/intel/e1000e/ich8lan.c b/drivers/net/ethernet/intel/e1000e/ich8lan.c
-index 48b74a5..7523f51 100644
---- a/drivers/net/ethernet/intel/e1000e/ich8lan.c
-+++ b/drivers/net/ethernet/intel/e1000e/ich8lan.c
-@@ -123,6 +123,14 @@ static s32 e1000_read_flash_word_ich8lan(struct e1000_hw *hw, u32 offset,
- 					 u16 *data);
- static s32 e1000_read_flash_data_ich8lan(struct e1000_hw *hw, u32 offset,
- 					 u8 size, u16 *data);
-+static s32 e1000_read_flash_data32_ich8lan(struct e1000_hw *hw, u32 offset,
-+					   u32 *data);
-+static s32 e1000_read_flash_dword_ich8lan(struct e1000_hw *hw,
-+					  u32 offset, u32 *data);
-+static s32 e1000_write_flash_data32_ich8lan(struct e1000_hw *hw,
-+					    u32 offset, u32 data);
-+static s32 e1000_retry_write_flash_dword_ich8lan(struct e1000_hw *hw,
-+						 u32 offset, u32 dword);
- static s32 e1000_kmrn_lock_loss_workaround_ich8lan(struct e1000_hw *hw);
- static s32 e1000_cleanup_led_ich8lan(struct e1000_hw *hw);
- static s32 e1000_led_on_ich8lan(struct e1000_hw *hw);
-@@ -229,7 +237,8 @@ static bool e1000_phy_is_accessible_pchlan(struct e1000_hw *hw)
- 	if (ret_val)
- 		return false;
- out:
--	if (hw->mac.type == e1000_pch_lpt) {
-+	if ((hw->mac.type == e1000_pch_lpt) ||
-+	    (hw->mac.type == e1000_pch_spt)) {
- 		/* Unforce SMBus mode in PHY */
- 		e1e_rphy_locked(hw, CV_SMB_CTRL, &phy_reg);
- 		phy_reg &= ~CV_SMB_CTRL_FORCE_SMBUS;
-@@ -321,6 +330,7 @@ static s32 e1000_init_phy_workarounds_pchlan(struct e1000_hw *hw)
- 	 */
- 	switch (hw->mac.type) {
- 	case e1000_pch_lpt:
-+	case e1000_pch_spt:
- 		if (e1000_phy_is_accessible_pchlan(hw))
- 			break;
- 
-@@ -461,6 +471,7 @@ static s32 e1000_init_phy_params_pchlan(struct e1000_hw *hw)
- 			/* fall-through */
- 		case e1000_pch2lan:
- 		case e1000_pch_lpt:
-+		case e1000_pch_spt:
- 			/* In case the PHY needs to be in mdio slow mode,
- 			 * set slow mode and try to get the PHY id again.
- 			 */
-@@ -590,35 +601,50 @@ static s32 e1000_init_nvm_params_ich8lan(struct e1000_hw *hw)
- 	struct e1000_dev_spec_ich8lan *dev_spec = &hw->dev_spec.ich8lan;
- 	u32 gfpreg, sector_base_addr, sector_end_addr;
- 	u16 i;
-+	u32 nvm_size;
- 
- 	/* Can't read flash registers if the register set isn't mapped. */
--	if (!hw->flash_address) {
--		e_dbg("ERROR: Flash registers not mapped\n");
--		return -E1000_ERR_CONFIG;
--	}
--
- 	nvm->type = e1000_nvm_flash_sw;
-+	/* in SPT, gfpreg doesn't exist. NVM size is taken from the
-+	 * STRAP register
-+	 */
-+	if (hw->mac.type == e1000_pch_spt) {
-+		nvm->flash_base_addr = 0;
-+		nvm_size = (((er32(STRAP) >> 1) & 0x1F) + 1)
-+		    * NVM_SIZE_MULTIPLIER;
-+		nvm->flash_bank_size = nvm_size / 2;
-+		/* Adjust to word count */
-+		nvm->flash_bank_size /= sizeof(u16);
-+		/* Set the base address for flash register access */
-+		hw->flash_address = hw->hw_addr + E1000_FLASH_BASE_ADDR;
+-	i40e_alloc_rx_buffers(ring, I40E_DESC_UNUSED(ring));
++	if (ring_is_ps_enabled(ring)) {
++		i40e_alloc_rx_headers(ring);
++		i40e_alloc_rx_buffers_ps(ring, I40E_DESC_UNUSED(ring));
 +	} else {
-+		if (!hw->flash_address) {
-+			e_dbg("ERROR: Flash registers not mapped\n");
-+			return -E1000_ERR_CONFIG;
-+		}
- 
--	gfpreg = er32flash(ICH_FLASH_GFPREG);
-+		gfpreg = er32flash(ICH_FLASH_GFPREG);
- 
--	/* sector_X_addr is a "sector"-aligned address (4096 bytes)
--	 * Add 1 to sector_end_addr since this sector is included in
--	 * the overall size.
--	 */
--	sector_base_addr = gfpreg & FLASH_GFPREG_BASE_MASK;
--	sector_end_addr = ((gfpreg >> 16) & FLASH_GFPREG_BASE_MASK) + 1;
-+		/* sector_X_addr is a "sector"-aligned address (4096 bytes)
-+		 * Add 1 to sector_end_addr since this sector is included in
-+		 * the overall size.
-+		 */
-+		sector_base_addr = gfpreg & FLASH_GFPREG_BASE_MASK;
-+		sector_end_addr = ((gfpreg >> 16) & FLASH_GFPREG_BASE_MASK) + 1;
- 
--	/* flash_base_addr is byte-aligned */
--	nvm->flash_base_addr = sector_base_addr << FLASH_SECTOR_ADDR_SHIFT;
-+		/* flash_base_addr is byte-aligned */
-+		nvm->flash_base_addr = sector_base_addr
-+		    << FLASH_SECTOR_ADDR_SHIFT;
- 
--	/* find total size of the NVM, then cut in half since the total
--	 * size represents two separate NVM banks.
--	 */
--	nvm->flash_bank_size = ((sector_end_addr - sector_base_addr)
--				<< FLASH_SECTOR_ADDR_SHIFT);
--	nvm->flash_bank_size /= 2;
--	/* Adjust to word count */
--	nvm->flash_bank_size /= sizeof(u16);
-+		/* find total size of the NVM, then cut in half since the total
-+		 * size represents two separate NVM banks.
-+		 */
-+		nvm->flash_bank_size = ((sector_end_addr - sector_base_addr)
-+					<< FLASH_SECTOR_ADDR_SHIFT);
-+		nvm->flash_bank_size /= 2;
-+		/* Adjust to word count */
-+		nvm->flash_bank_size /= sizeof(u16);
++		i40e_alloc_rx_buffers_1buf(ring, I40E_DESC_UNUSED(ring));
 +	}
  
- 	nvm->word_size = E1000_ICH8_SHADOW_RAM_WORDS;
+ 	return 0;
+ }
+@@ -7300,7 +7305,7 @@ static int i40e_sw_init(struct i40e_pf *pf)
+ 	pf->flags = I40E_FLAG_RX_CSUM_ENABLED |
+ 		    I40E_FLAG_MSI_ENABLED     |
+ 		    I40E_FLAG_MSIX_ENABLED    |
+-		    I40E_FLAG_RX_1BUF_ENABLED;
++		    I40E_FLAG_RX_PS_ENABLED;
  
-@@ -682,6 +708,7 @@ static s32 e1000_init_mac_params_ich8lan(struct e1000_hw *hw)
- 		mac->ops.rar_set = e1000_rar_set_pch2lan;
- 		/* fall-through */
- 	case e1000_pch_lpt:
-+	case e1000_pch_spt:
- 	case e1000_pchlan:
- 		/* check management mode */
- 		mac->ops.check_mng_mode = e1000_check_mng_mode_pchlan;
-@@ -699,7 +726,7 @@ static s32 e1000_init_mac_params_ich8lan(struct e1000_hw *hw)
- 		break;
- 	}
+ 	/* Set default ITR */
+ 	pf->rx_itr_default = I40E_ITR_DYNAMIC | I40E_ITR_RX_DEF;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+index 2206d2d..f8c863b 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+@@ -25,6 +25,7 @@
+  ******************************************************************************/
  
--	if (mac->type == e1000_pch_lpt) {
-+	if ((mac->type == e1000_pch_lpt) || (mac->type == e1000_pch_spt)) {
- 		mac->rar_entry_count = E1000_PCH_LPT_RAR_ENTRIES;
- 		mac->ops.rar_set = e1000_rar_set_pch_lpt;
- 		mac->ops.setup_physical_interface =
-@@ -919,8 +946,9 @@ release:
- 		/* clear FEXTNVM6 bit 8 on link down or 10/100 */
- 		fextnvm6 &= ~E1000_FEXTNVM6_REQ_PLL_CLK;
+ #include <linux/prefetch.h>
++#include <net/busy_poll.h>
+ #include "i40e.h"
+ #include "i40e_prototype.h"
  
--		if (!link || ((status & E1000_STATUS_SPEED_100) &&
--			      (status & E1000_STATUS_FD)))
-+		if ((hw->phy.revision > 5) || !link ||
-+		    ((status & E1000_STATUS_SPEED_100) &&
-+		     (status & E1000_STATUS_FD)))
- 			goto update_fextnvm6;
+@@ -1025,6 +1026,22 @@ void i40e_clean_rx_ring(struct i40e_ring *rx_ring)
+ 	if (!rx_ring->rx_bi)
+ 		return;
  
- 		ret_val = e1e_rphy(hw, I217_INBAND_CTRL, &reg);
-@@ -1100,6 +1128,21 @@ s32 e1000_enable_ulp_lpt_lp(struct e1000_hw *hw, bool to_sx)
- 	if (ret_val)
- 		goto out;
- 
-+	/* Si workaround for ULP entry flow on i127/rev6 h/w.  Enable
-+	 * LPLU and disable Gig speed when entering ULP
-+	 */
-+	if ((hw->phy.type == e1000_phy_i217) && (hw->phy.revision == 6)) {
-+		ret_val = e1000_read_phy_reg_hv_locked(hw, HV_OEM_BITS,
-+						       &phy_reg);
-+		if (ret_val)
-+			goto release;
-+		phy_reg |= HV_OEM_BITS_LPLU | HV_OEM_BITS_GBE_DIS;
-+		ret_val = e1000_write_phy_reg_hv_locked(hw, HV_OEM_BITS,
-+							phy_reg);
-+		if (ret_val)
-+			goto release;
-+	}
++	if (ring_is_ps_enabled(rx_ring)) {
++		int bufsz = ALIGN(rx_ring->rx_hdr_len, 256) * rx_ring->count;
 +
- 	/* Force SMBus mode in PHY */
- 	ret_val = e1000_read_phy_reg_hv_locked(hw, CV_SMB_CTRL, &phy_reg);
- 	if (ret_val)
-@@ -1302,7 +1345,8 @@ out:
- static s32 e1000_check_for_copper_link_ich8lan(struct e1000_hw *hw)
- {
- 	struct e1000_mac_info *mac = &hw->mac;
--	s32 ret_val;
-+	s32 ret_val, tipg_reg = 0;
-+	u16 emi_addr, emi_val = 0;
- 	bool link;
- 	u16 phy_reg;
- 
-@@ -1333,48 +1377,55 @@ static s32 e1000_check_for_copper_link_ich8lan(struct e1000_hw *hw)
- 	 * the IPG and reduce Rx latency in the PHY.
- 	 */
- 	if (((hw->mac.type == e1000_pch2lan) ||
--	     (hw->mac.type == e1000_pch_lpt)) && link) {
-+	     (hw->mac.type == e1000_pch_lpt) ||
-+	     (hw->mac.type == e1000_pch_spt)) && link) {
- 		u32 reg;
- 
- 		reg = er32(STATUS);
-+		tipg_reg = er32(TIPG);
-+		tipg_reg &= ~E1000_TIPG_IPGT_MASK;
-+
- 		if (!(reg & (E1000_STATUS_FD | E1000_STATUS_SPEED_MASK))) {
--			u16 emi_addr;
-+			tipg_reg |= 0xFF;
-+			/* Reduce Rx latency in analog PHY */
-+			emi_val = 0;
-+		} else {
- 
--			reg = er32(TIPG);
--			reg &= ~E1000_TIPG_IPGT_MASK;
--			reg |= 0xFF;
--			ew32(TIPG, reg);
-+			/* Roll back the default values */
-+			tipg_reg |= 0x08;
-+			emi_val = 1;
++		rx_bi = &rx_ring->rx_bi[0];
++		if (rx_bi->hdr_buf) {
++			dma_free_coherent(dev,
++					  bufsz,
++					  rx_bi->hdr_buf,
++					  rx_bi->dma);
++			for (i = 0; i < rx_ring->count; i++) {
++				rx_bi = &rx_ring->rx_bi[i];
++				rx_bi->dma = 0;
++				rx_bi->hdr_buf = 0;
++			}
 +		}
- 
--			/* Reduce Rx latency in analog PHY */
--			ret_val = hw->phy.ops.acquire(hw);
--			if (ret_val)
--				return ret_val;
-+		ew32(TIPG, tipg_reg);
- 
--			if (hw->mac.type == e1000_pch2lan)
--				emi_addr = I82579_RX_CONFIG;
--			else
--				emi_addr = I217_RX_CONFIG;
-+		ret_val = hw->phy.ops.acquire(hw);
-+		if (ret_val)
-+			return ret_val;
- 
--			ret_val = e1000_write_emi_reg_locked(hw, emi_addr, 0);
-+		if (hw->mac.type == e1000_pch2lan)
-+			emi_addr = I82579_RX_CONFIG;
-+		else
-+			emi_addr = I217_RX_CONFIG;
-+		ret_val = e1000_write_emi_reg_locked(hw, emi_addr, emi_val);
- 
--			hw->phy.ops.release(hw);
-+		hw->phy.ops.release(hw);
- 
--			if (ret_val)
--				return ret_val;
--		}
-+		if (ret_val)
-+			return ret_val;
- 	}
- 
- 	/* Work-around I218 hang issue */
- 	if ((hw->adapter->pdev->device == E1000_DEV_ID_PCH_LPTLP_I218_LM) ||
- 	    (hw->adapter->pdev->device == E1000_DEV_ID_PCH_LPTLP_I218_V) ||
- 	    (hw->adapter->pdev->device == E1000_DEV_ID_PCH_I218_LM3) ||
--	    (hw->adapter->pdev->device == E1000_DEV_ID_PCH_I218_V3)) {
-+	    (hw->adapter->pdev->device == E1000_DEV_ID_PCH_I218_V3) ||
-+	    (hw->mac.type == e1000_pch_spt)) {
- 		ret_val = e1000_k1_workaround_lpt_lp(hw, link);
- 		if (ret_val)
- 			return ret_val;
- 	}
--
--	if (hw->mac.type == e1000_pch_lpt) {
-+	if ((hw->mac.type == e1000_pch_lpt) ||
-+	    (hw->mac.type == e1000_pch_spt)) {
- 		/* Set platform power management values for
- 		 * Latency Tolerance Reporting (LTR)
- 		 */
-@@ -1386,6 +1437,19 @@ static s32 e1000_check_for_copper_link_ich8lan(struct e1000_hw *hw)
- 	/* Clear link partner's EEE ability */
- 	hw->dev_spec.ich8lan.eee_lp_ability = 0;
- 
-+	/* FEXTNVM6 K1-off workaround */
-+	if (hw->mac.type == e1000_pch_spt) {
-+		u32 pcieanacfg = er32(PCIEANACFG);
-+		u32 fextnvm6 = er32(FEXTNVM6);
-+
-+		if (pcieanacfg & E1000_FEXTNVM6_K1_OFF_ENABLE)
-+			fextnvm6 |= E1000_FEXTNVM6_K1_OFF_ENABLE;
-+		else
-+			fextnvm6 &= ~E1000_FEXTNVM6_K1_OFF_ENABLE;
-+
-+		ew32(FEXTNVM6, fextnvm6);
 +	}
-+
- 	if (!link)
- 		return 0;	/* No link detected */
- 
-@@ -1479,6 +1543,7 @@ static s32 e1000_get_variants_ich8lan(struct e1000_adapter *adapter)
- 	case e1000_pchlan:
- 	case e1000_pch2lan:
- 	case e1000_pch_lpt:
-+	case e1000_pch_spt:
- 		rc = e1000_init_phy_params_pchlan(hw);
- 		break;
- 	default:
-@@ -1929,6 +1994,7 @@ static s32 e1000_sw_lcd_config_ich8lan(struct e1000_hw *hw)
- 	case e1000_pchlan:
- 	case e1000_pch2lan:
- 	case e1000_pch_lpt:
-+	case e1000_pch_spt:
- 		sw_cfg_mask = E1000_FEXTNVM_SW_CONFIG_ICH8M;
- 		break;
- 	default:
-@@ -2961,6 +3027,20 @@ static s32 e1000_valid_nvm_bank_detect_ich8lan(struct e1000_hw *hw, u32 *bank)
- 	s32 ret_val;
- 
- 	switch (hw->mac.type) {
-+		/* In SPT, read from the CTRL_EXT reg instead of
-+		 * accessing the sector valid bits from the nvm
-+		 */
-+	case e1000_pch_spt:
-+		*bank = er32(CTRL_EXT)
-+		    & E1000_CTRL_EXT_NVMVS;
-+		if ((*bank == 0) || (*bank == 1)) {
-+			e_dbg("ERROR: No valid NVM bank present\n");
-+			return -E1000_ERR_NVM;
-+		} else {
-+			*bank = *bank - 2;
-+			return 0;
-+		}
-+		break;
- 	case e1000_ich8lan:
- 	case e1000_ich9lan:
- 		eecd = er32(EECD);
-@@ -3008,6 +3088,99 @@ static s32 e1000_valid_nvm_bank_detect_ich8lan(struct e1000_hw *hw, u32 *bank)
+ 	/* Free all the Rx ring sk_buffs */
+ 	for (i = 0; i < rx_ring->count; i++) {
+ 		rx_bi = &rx_ring->rx_bi[i];
+@@ -1083,6 +1100,37 @@ void i40e_free_rx_resources(struct i40e_ring *rx_ring)
  }
  
  /**
-+ *  e1000_read_nvm_spt - NVM access for SPT
-+ *  @hw: pointer to the HW structure
-+ *  @offset: The offset (in bytes) of the word(s) to read.
-+ *  @words: Size of data to read in words.
-+ *  @data: pointer to the word(s) to read at offset.
++ * i40e_alloc_rx_headers - allocate rx header buffers
++ * @rx_ring: ring to alloc buffers
 + *
-+ *  Reads a word(s) from the NVM
++ * Allocate rx header buffers for the entire ring. As these are static,
++ * this is only called when setting up a new ring.
 + **/
-+static s32 e1000_read_nvm_spt(struct e1000_hw *hw, u16 offset, u16 words,
-+			      u16 *data)
++void i40e_alloc_rx_headers(struct i40e_ring *rx_ring)
 +{
-+	struct e1000_nvm_info *nvm = &hw->nvm;
-+	struct e1000_dev_spec_ich8lan *dev_spec = &hw->dev_spec.ich8lan;
-+	u32 act_offset;
-+	s32 ret_val = 0;
-+	u32 bank = 0;
-+	u32 dword = 0;
-+	u16 offset_to_read;
++	struct device *dev = rx_ring->dev;
++	struct i40e_rx_buffer *rx_bi;
++	dma_addr_t dma;
++	void *buffer;
++	int buf_size;
++	int i;
++
++	if (rx_ring->rx_bi[0].hdr_buf)
++		return;
++	/* Make sure the buffers don't cross cache line boundaries. */
++	buf_size = ALIGN(rx_ring->rx_hdr_len, 256);
++	buffer = dma_alloc_coherent(dev, buf_size * rx_ring->count,
++				    &dma, GFP_KERNEL);
++	if (!buffer)
++		return;
++	for (i = 0; i < rx_ring->count; i++) {
++		rx_bi = &rx_ring->rx_bi[i];
++		rx_bi->dma = dma + (i * buf_size);
++		rx_bi->hdr_buf = buffer + (i * buf_size);
++	}
++}
++
++/**
+  * i40e_setup_rx_descriptors - Allocate Rx descriptors
+  * @rx_ring: Rx descriptor ring (for a specific queue) to setup
+  *
+@@ -1142,11 +1190,76 @@ static inline void i40e_release_rx_desc(struct i40e_ring *rx_ring, u32 val)
+ }
+ 
+ /**
+- * i40e_alloc_rx_buffers - Replace used receive buffers; packet split
++ * i40e_alloc_rx_buffers_ps - Replace used receive buffers; packet split
+  * @rx_ring: ring to place buffers on
+  * @cleaned_count: number of buffers to replace
+  **/
+-void i40e_alloc_rx_buffers(struct i40e_ring *rx_ring, u16 cleaned_count)
++void i40e_alloc_rx_buffers_ps(struct i40e_ring *rx_ring, u16 cleaned_count)
++{
++	u16 i = rx_ring->next_to_use;
++	union i40e_rx_desc *rx_desc;
++	struct i40e_rx_buffer *bi;
++
++	/* do nothing if no valid netdev defined */
++	if (!rx_ring->netdev || !cleaned_count)
++		return;
++
++	while (cleaned_count--) {
++		rx_desc = I40E_RX_DESC(rx_ring, i);
++		bi = &rx_ring->rx_bi[i];
++
++		if (bi->skb) /* desc is in use */
++			goto no_buffers;
++		if (!bi->page) {
++			bi->page = alloc_page(GFP_ATOMIC);
++			if (!bi->page) {
++				rx_ring->rx_stats.alloc_page_failed++;
++				goto no_buffers;
++			}
++		}
++
++		if (!bi->page_dma) {
++			/* use a half page if we're re-using */
++			bi->page_offset ^= PAGE_SIZE / 2;
++			bi->page_dma = dma_map_page(rx_ring->dev,
++						    bi->page,
++						    bi->page_offset,
++						    PAGE_SIZE / 2,
++						    DMA_FROM_DEVICE);
++			if (dma_mapping_error(rx_ring->dev,
++					      bi->page_dma)) {
++				rx_ring->rx_stats.alloc_page_failed++;
++				bi->page_dma = 0;
++				goto no_buffers;
++			}
++		}
++
++		dma_sync_single_range_for_device(rx_ring->dev,
++						 bi->dma,
++						 0,
++						 rx_ring->rx_hdr_len,
++						 DMA_FROM_DEVICE);
++		/* Refresh the desc even if buffer_addrs didn't change
++		 * because each write-back erases this info.
++		 */
++		rx_desc->read.pkt_addr = cpu_to_le64(bi->page_dma);
++		rx_desc->read.hdr_addr = cpu_to_le64(bi->dma);
++		i++;
++		if (i == rx_ring->count)
++			i = 0;
++	}
++
++no_buffers:
++	if (rx_ring->next_to_use != i)
++		i40e_release_rx_desc(rx_ring, i);
++}
++
++/**
++ * i40e_alloc_rx_buffers_1buf - Replace used receive buffers; single buffer
++ * @rx_ring: ring to place buffers on
++ * @cleaned_count: number of buffers to replace
++ **/
++void i40e_alloc_rx_buffers_1buf(struct i40e_ring *rx_ring, u16 cleaned_count)
+ {
+ 	u16 i = rx_ring->next_to_use;
+ 	union i40e_rx_desc *rx_desc;
+@@ -1186,40 +1299,8 @@ void i40e_alloc_rx_buffers(struct i40e_ring *rx_ring, u16 cleaned_count)
+ 			}
+ 		}
+ 
+-		if (ring_is_ps_enabled(rx_ring)) {
+-			if (!bi->page) {
+-				bi->page = alloc_page(GFP_ATOMIC);
+-				if (!bi->page) {
+-					rx_ring->rx_stats.alloc_page_failed++;
+-					goto no_buffers;
+-				}
+-			}
+-
+-			if (!bi->page_dma) {
+-				/* use a half page if we're re-using */
+-				bi->page_offset ^= PAGE_SIZE / 2;
+-				bi->page_dma = dma_map_page(rx_ring->dev,
+-							    bi->page,
+-							    bi->page_offset,
+-							    PAGE_SIZE / 2,
+-							    DMA_FROM_DEVICE);
+-				if (dma_mapping_error(rx_ring->dev,
+-						      bi->page_dma)) {
+-					rx_ring->rx_stats.alloc_page_failed++;
+-					bi->page_dma = 0;
+-					goto no_buffers;
+-				}
+-			}
+-
+-			/* Refresh the desc even if buffer_addrs didn't change
+-			 * because each write-back erases this info.
+-			 */
+-			rx_desc->read.pkt_addr = cpu_to_le64(bi->page_dma);
+-			rx_desc->read.hdr_addr = cpu_to_le64(bi->dma);
+-		} else {
+-			rx_desc->read.pkt_addr = cpu_to_le64(bi->dma);
+-			rx_desc->read.hdr_addr = 0;
+-		}
++		rx_desc->read.pkt_addr = cpu_to_le64(bi->dma);
++		rx_desc->read.hdr_addr = 0;
+ 		i++;
+ 		if (i == rx_ring->count)
+ 			i = 0;
+@@ -1404,13 +1485,13 @@ static inline enum pkt_hash_types i40e_ptype_to_hash(u8 ptype)
+ }
+ 
+ /**
+- * i40e_clean_rx_irq - Reclaim resources after receive completes
++ * i40e_clean_rx_irq_ps - Reclaim resources after receive; packet split
+  * @rx_ring:  rx ring to clean
+  * @budget:   how many cleans we're allowed
+  *
+  * Returns true if there's any budget left (e.g. the clean is finished)
+  **/
+-static int i40e_clean_rx_irq(struct i40e_ring *rx_ring, int budget)
++static int i40e_clean_rx_irq_ps(struct i40e_ring *rx_ring, int budget)
+ {
+ 	unsigned int total_rx_bytes = 0, total_rx_packets = 0;
+ 	u16 rx_packet_len, rx_header_len, rx_sph, rx_hbo;
+@@ -1426,25 +1507,51 @@ static int i40e_clean_rx_irq(struct i40e_ring *rx_ring, int budget)
+ 	if (budget <= 0)
+ 		return 0;
+ 
+-	rx_desc = I40E_RX_DESC(rx_ring, i);
+-	qword = le64_to_cpu(rx_desc->wb.qword1.status_error_len);
+-	rx_status = (qword & I40E_RXD_QW1_STATUS_MASK) >>
+-		    I40E_RXD_QW1_STATUS_SHIFT;
+-
+-	while (rx_status & (1 << I40E_RX_DESC_STATUS_DD_SHIFT)) {
+-		union i40e_rx_desc *next_rxd;
++	do {
+ 		struct i40e_rx_buffer *rx_bi;
+ 		struct sk_buff *skb;
+ 		u16 vlan_tag;
++		/* return some buffers to hardware, one at a time is too slow */
++		if (cleaned_count >= I40E_RX_BUFFER_WRITE) {
++			i40e_alloc_rx_buffers_ps(rx_ring, cleaned_count);
++			cleaned_count = 0;
++		}
++
++		i = rx_ring->next_to_clean;
++		rx_desc = I40E_RX_DESC(rx_ring, i);
++		qword = le64_to_cpu(rx_desc->wb.qword1.status_error_len);
++		rx_status = (qword & I40E_RXD_QW1_STATUS_MASK) >>
++			I40E_RXD_QW1_STATUS_SHIFT;
++
++		if (!(rx_status & (1 << I40E_RX_DESC_STATUS_DD_SHIFT)))
++			break;
++
++		/* This memory barrier is needed to keep us from reading
++		 * any other fields out of the rx_desc until we know the
++		 * DD bit is set.
++		 */
++		rmb();
+ 		if (i40e_rx_is_programming_status(qword)) {
+ 			i40e_clean_programming_status(rx_ring, rx_desc);
+-			I40E_RX_NEXT_DESC_PREFETCH(rx_ring, i, next_rxd);
+-			goto next_desc;
++			I40E_RX_INCREMENT(rx_ring, i);
++			continue;
+ 		}
+ 		rx_bi = &rx_ring->rx_bi[i];
+ 		skb = rx_bi->skb;
+-		prefetch(skb->data);
+-
++		if (likely(!skb)) {
++			skb = netdev_alloc_skb_ip_align(rx_ring->netdev,
++							rx_ring->rx_hdr_len);
++			if (!skb)
++				rx_ring->rx_stats.alloc_buff_failed++;
++			/* initialize queue mapping */
++			skb_record_rx_queue(skb, rx_ring->queue_index);
++			/* we are reusing so sync this buffer for CPU use */
++			dma_sync_single_range_for_cpu(rx_ring->dev,
++						      rx_bi->dma,
++						      0,
++						      rx_ring->rx_hdr_len,
++						      DMA_FROM_DEVICE);
++		}
+ 		rx_packet_len = (qword & I40E_RXD_QW1_LENGTH_PBUF_MASK) >>
+ 				I40E_RXD_QW1_LENGTH_PBUF_SHIFT;
+ 		rx_header_len = (qword & I40E_RXD_QW1_LENGTH_HBUF_MASK) >>
+@@ -1459,40 +1566,30 @@ static int i40e_clean_rx_irq(struct i40e_ring *rx_ring, int budget)
+ 
+ 		rx_ptype = (qword & I40E_RXD_QW1_PTYPE_MASK) >>
+ 			   I40E_RXD_QW1_PTYPE_SHIFT;
++		prefetch(rx_bi->page);
+ 		rx_bi->skb = NULL;
+-
+-		/* This memory barrier is needed to keep us from reading
+-		 * any other fields out of the rx_desc until we know the
+-		 * STATUS_DD bit is set
+-		 */
+-		rmb();
+-
+-		/* Get the header and possibly the whole packet
+-		 * If this is an skb from previous receive dma will be 0
+-		 */
+-		if (rx_bi->dma) {
+-			u16 len;
+-
++		cleaned_count++;
++		if (rx_hbo || rx_sph) {
++			int len;
+ 			if (rx_hbo)
+ 				len = I40E_RX_HDR_SIZE;
+-			else if (rx_sph)
+-				len = rx_header_len;
+-			else if (rx_packet_len)
+-				len = rx_packet_len;   /* 1buf/no split found */
+ 			else
+-				len = rx_header_len;   /* split always mode */
+-
+-			skb_put(skb, len);
+-			dma_unmap_single(rx_ring->dev,
+-					 rx_bi->dma,
+-					 rx_ring->rx_buf_len,
+-					 DMA_FROM_DEVICE);
+-			rx_bi->dma = 0;
++				len = rx_header_len;
++			memcpy(__skb_put(skb, len), rx_bi->hdr_buf, len);
++		} else if (skb->len == 0) {
++			int len;
++
++			len = (rx_packet_len > skb_headlen(skb) ?
++				skb_headlen(skb) : rx_packet_len);
++			memcpy(__skb_put(skb, len),
++			       rx_bi->page + rx_bi->page_offset,
++			       len);
++			rx_bi->page_offset += len;
++			rx_packet_len -= len;
+ 		}
+ 
+ 		/* Get the rest of the data if this was a header split */
+-		if (ring_is_ps_enabled(rx_ring) && rx_packet_len) {
+-
++		if (rx_packet_len) {
+ 			skb_fill_page_desc(skb, skb_shinfo(skb)->nr_frags,
+ 					   rx_bi->page,
+ 					   rx_bi->page_offset,
+@@ -1514,22 +1611,16 @@ static int i40e_clean_rx_irq(struct i40e_ring *rx_ring, int budget)
+ 				       DMA_FROM_DEVICE);
+ 			rx_bi->page_dma = 0;
+ 		}
+-		I40E_RX_NEXT_DESC_PREFETCH(rx_ring, i, next_rxd);
++		I40E_RX_INCREMENT(rx_ring, i);
+ 
+ 		if (unlikely(
+ 		    !(rx_status & (1 << I40E_RX_DESC_STATUS_EOF_SHIFT)))) {
+ 			struct i40e_rx_buffer *next_buffer;
+ 
+ 			next_buffer = &rx_ring->rx_bi[i];
+-
+-			if (ring_is_ps_enabled(rx_ring)) {
+-				rx_bi->skb = next_buffer->skb;
+-				rx_bi->dma = next_buffer->dma;
+-				next_buffer->skb = skb;
+-				next_buffer->dma = 0;
+-			}
++			next_buffer->skb = skb;
+ 			rx_ring->rx_stats.non_eop_descs++;
+-			goto next_desc;
++			continue;
+ 		}
+ 
+ 		/* ERR_MASK will only have valid bits if EOP set */
+@@ -1538,7 +1629,7 @@ static int i40e_clean_rx_irq(struct i40e_ring *rx_ring, int budget)
+ 			/* TODO: shouldn't we increment a counter indicating the
+ 			 * drop?
+ 			 */
+-			goto next_desc;
++			continue;
+ 		}
+ 
+ 		skb_set_hash(skb, i40e_rx_hash(rx_ring, rx_desc),
+@@ -1564,33 +1655,149 @@ static int i40e_clean_rx_irq(struct i40e_ring *rx_ring, int budget)
+ #ifdef I40E_FCOE
+ 		if (!i40e_fcoe_handle_offload(rx_ring, rx_desc, skb)) {
+ 			dev_kfree_skb_any(skb);
+-			goto next_desc;
++			continue;
+ 		}
+ #endif
++		skb_mark_napi_id(skb, &rx_ring->q_vector->napi);
+ 		i40e_receive_skb(rx_ring, skb, vlan_tag);
+ 
+ 		rx_ring->netdev->last_rx = jiffies;
+-		budget--;
+-next_desc:
+ 		rx_desc->wb.qword1.status_error_len = 0;
+-		if (!budget)
+-			break;
+ 
+-		cleaned_count++;
++	} while (likely(total_rx_packets < budget));
++
++	u64_stats_update_begin(&rx_ring->syncp);
++	rx_ring->stats.packets += total_rx_packets;
++	rx_ring->stats.bytes += total_rx_bytes;
++	u64_stats_update_end(&rx_ring->syncp);
++	rx_ring->q_vector->rx.total_packets += total_rx_packets;
++	rx_ring->q_vector->rx.total_bytes += total_rx_bytes;
++
++	return total_rx_packets;
++}
++
++/**
++ * i40e_clean_rx_irq_1buf - Reclaim resources after receive; single buffer
++ * @rx_ring:  rx ring to clean
++ * @budget:   how many cleans we're allowed
++ *
++ * Returns number of packets cleaned
++ **/
++static int i40e_clean_rx_irq_1buf(struct i40e_ring *rx_ring, int budget)
++{
++	unsigned int total_rx_bytes = 0, total_rx_packets = 0;
++	u16 cleaned_count = I40E_DESC_UNUSED(rx_ring);
++	struct i40e_vsi *vsi = rx_ring->vsi;
++	union i40e_rx_desc *rx_desc;
++	u32 rx_error, rx_status;
++	u16 rx_packet_len;
++	u8 rx_ptype;
++	u64 qword;
 +	u16 i;
 +
-+	if ((offset >= nvm->word_size) || (words > nvm->word_size - offset) ||
-+	    (words == 0)) {
-+		e_dbg("nvm parameter(s) out of bounds\n");
-+		ret_val = -E1000_ERR_NVM;
-+		goto out;
-+	}
-+
-+	nvm->ops.acquire(hw);
-+
-+	ret_val = e1000_valid_nvm_bank_detect_ich8lan(hw, &bank);
-+	if (ret_val) {
-+		e_dbg("Could not detect valid bank, assuming bank 0\n");
-+		bank = 0;
-+	}
-+
-+	act_offset = (bank) ? nvm->flash_bank_size : 0;
-+	act_offset += offset;
-+
-+	ret_val = 0;
-+
-+	for (i = 0; i < words; i += 2) {
-+		if (words - i == 1) {
-+			if (dev_spec->shadow_ram[offset + i].modified) {
-+				data[i] =
-+				    dev_spec->shadow_ram[offset + i].value;
-+			} else {
-+				offset_to_read = act_offset + i -
-+				    ((act_offset + i) % 2);
-+				ret_val =
-+				  e1000_read_flash_dword_ich8lan(hw,
-+								 offset_to_read,
-+								 &dword);
-+				if (ret_val)
-+					break;
-+				if ((act_offset + i) % 2 == 0)
-+					data[i] = (u16)(dword & 0xFFFF);
-+				else
-+					data[i] = (u16)((dword >> 16) & 0xFFFF);
-+			}
-+		} else {
-+			offset_to_read = act_offset + i;
-+			if (!(dev_spec->shadow_ram[offset + i].modified) ||
-+			    !(dev_spec->shadow_ram[offset + i + 1].modified)) {
-+				ret_val =
-+				  e1000_read_flash_dword_ich8lan(hw,
-+								 offset_to_read,
-+								 &dword);
-+				if (ret_val)
-+					break;
-+			}
-+			if (dev_spec->shadow_ram[offset + i].modified)
-+				data[i] =
-+				    dev_spec->shadow_ram[offset + i].value;
-+			else
-+				data[i] = (u16)(dword & 0xFFFF);
-+			if (dev_spec->shadow_ram[offset + i].modified)
-+				data[i + 1] =
-+				    dev_spec->shadow_ram[offset + i + 1].value;
-+			else
-+				data[i + 1] = (u16)(dword >> 16 & 0xFFFF);
-+		}
-+	}
-+
-+	nvm->ops.release(hw);
-+
-+out:
-+	if (ret_val)
-+		e_dbg("NVM read error: %d\n", ret_val);
-+
-+	return ret_val;
-+}
-+
-+/**
-  *  e1000_read_nvm_ich8lan - Read word(s) from the NVM
-  *  @hw: pointer to the HW structure
-  *  @offset: The offset (in bytes) of the word(s) to read.
-@@ -3090,8 +3263,10 @@ static s32 e1000_flash_cycle_init_ich8lan(struct e1000_hw *hw)
- 	/* Clear FCERR and DAEL in hw status by writing 1 */
- 	hsfsts.hsf_status.flcerr = 1;
- 	hsfsts.hsf_status.dael = 1;
--
--	ew16flash(ICH_FLASH_HSFSTS, hsfsts.regval);
-+	if (hw->mac.type == e1000_pch_spt)
-+		ew32flash(ICH_FLASH_HSFSTS, hsfsts.regval & 0xFFFF);
-+	else
-+		ew16flash(ICH_FLASH_HSFSTS, hsfsts.regval);
- 
- 	/* Either we should have a hardware SPI cycle in progress
- 	 * bit to check against, in order to start a new cycle or
-@@ -3107,7 +3282,10 @@ static s32 e1000_flash_cycle_init_ich8lan(struct e1000_hw *hw)
- 		 * Begin by setting Flash Cycle Done.
- 		 */
- 		hsfsts.hsf_status.flcdone = 1;
--		ew16flash(ICH_FLASH_HSFSTS, hsfsts.regval);
-+		if (hw->mac.type == e1000_pch_spt)
-+			ew32flash(ICH_FLASH_HSFSTS, hsfsts.regval & 0xFFFF);
-+		else
-+			ew16flash(ICH_FLASH_HSFSTS, hsfsts.regval);
- 		ret_val = 0;
- 	} else {
- 		s32 i;
-@@ -3128,7 +3306,11 @@ static s32 e1000_flash_cycle_init_ich8lan(struct e1000_hw *hw)
- 			 * now set the Flash Cycle Done.
- 			 */
- 			hsfsts.hsf_status.flcdone = 1;
--			ew16flash(ICH_FLASH_HSFSTS, hsfsts.regval);
-+			if (hw->mac.type == e1000_pch_spt)
-+				ew32flash(ICH_FLASH_HSFSTS,
-+					  hsfsts.regval & 0xFFFF);
-+			else
-+				ew16flash(ICH_FLASH_HSFSTS, hsfsts.regval);
- 		} else {
- 			e_dbg("Flash controller busy, cannot get access\n");
++	do {
++		struct i40e_rx_buffer *rx_bi;
++		struct sk_buff *skb;
++		u16 vlan_tag;
+ 		/* return some buffers to hardware, one at a time is too slow */
+ 		if (cleaned_count >= I40E_RX_BUFFER_WRITE) {
+-			i40e_alloc_rx_buffers(rx_ring, cleaned_count);
++			i40e_alloc_rx_buffers_1buf(rx_ring, cleaned_count);
+ 			cleaned_count = 0;
  		}
-@@ -3151,9 +3333,16 @@ static s32 e1000_flash_cycle_ich8lan(struct e1000_hw *hw, u32 timeout)
- 	u32 i = 0;
  
- 	/* Start a cycle by writing 1 in Flash Cycle Go in Hw Flash Control */
--	hsflctl.regval = er16flash(ICH_FLASH_HSFCTL);
-+	if (hw->mac.type == e1000_pch_spt)
-+		hsflctl.regval = er32flash(ICH_FLASH_HSFSTS) >> 16;
-+	else
-+		hsflctl.regval = er16flash(ICH_FLASH_HSFCTL);
- 	hsflctl.hsf_ctrl.flcgo = 1;
--	ew16flash(ICH_FLASH_HSFCTL, hsflctl.regval);
+-		/* use prefetched values */
+-		rx_desc = next_rxd;
++		i = rx_ring->next_to_clean;
++		rx_desc = I40E_RX_DESC(rx_ring, i);
+ 		qword = le64_to_cpu(rx_desc->wb.qword1.status_error_len);
+ 		rx_status = (qword & I40E_RXD_QW1_STATUS_MASK) >>
+-			    I40E_RXD_QW1_STATUS_SHIFT;
+-	}
++			I40E_RXD_QW1_STATUS_SHIFT;
 +
-+	if (hw->mac.type == e1000_pch_spt)
-+		ew32flash(ICH_FLASH_HSFSTS, hsflctl.regval << 16);
-+	else
-+		ew16flash(ICH_FLASH_HSFCTL, hsflctl.regval);
- 
- 	/* wait till FDONE bit is set to 1 */
- 	do {
-@@ -3170,6 +3359,23 @@ static s32 e1000_flash_cycle_ich8lan(struct e1000_hw *hw, u32 timeout)
- }
- 
- /**
-+ *  e1000_read_flash_dword_ich8lan - Read dword from flash
-+ *  @hw: pointer to the HW structure
-+ *  @offset: offset to data location
-+ *  @data: pointer to the location for storing the data
-+ *
-+ *  Reads the flash dword at offset into data.  Offset is converted
-+ *  to bytes before read.
-+ **/
-+static s32 e1000_read_flash_dword_ich8lan(struct e1000_hw *hw, u32 offset,
-+					  u32 *data)
-+{
-+	/* Must convert word offset into bytes. */
-+	offset <<= 1;
-+	return e1000_read_flash_data32_ich8lan(hw, offset, data);
-+}
-+
-+/**
-  *  e1000_read_flash_word_ich8lan - Read word from flash
-  *  @hw: pointer to the HW structure
-  *  @offset: offset to data location
-@@ -3201,7 +3407,14 @@ static s32 e1000_read_flash_byte_ich8lan(struct e1000_hw *hw, u32 offset,
- 	s32 ret_val;
- 	u16 word = 0;
- 
--	ret_val = e1000_read_flash_data_ich8lan(hw, offset, 1, &word);
-+	/* In SPT, only 32 bits access is supported,
-+	 * so this function should not be called.
-+	 */
-+	if (hw->mac.type == e1000_pch_spt)
-+		return -E1000_ERR_NVM;
-+	else
-+		ret_val = e1000_read_flash_data_ich8lan(hw, offset, 1, &word);
-+
- 	if (ret_val)
- 		return ret_val;
- 
-@@ -3287,6 +3500,82 @@ static s32 e1000_read_flash_data_ich8lan(struct e1000_hw *hw, u32 offset,
- }
- 
- /**
-+ *  e1000_read_flash_data32_ich8lan - Read dword from NVM
-+ *  @hw: pointer to the HW structure
-+ *  @offset: The offset (in bytes) of the dword to read.
-+ *  @data: Pointer to the dword to store the value read.
-+ *
-+ *  Reads a byte or word from the NVM using the flash access registers.
-+ **/
-+
-+static s32 e1000_read_flash_data32_ich8lan(struct e1000_hw *hw, u32 offset,
-+					   u32 *data)
-+{
-+	union ich8_hws_flash_status hsfsts;
-+	union ich8_hws_flash_ctrl hsflctl;
-+	u32 flash_linear_addr;
-+	s32 ret_val = -E1000_ERR_NVM;
-+	u8 count = 0;
-+
-+	if (offset > ICH_FLASH_LINEAR_ADDR_MASK ||
-+	    hw->mac.type != e1000_pch_spt)
-+		return -E1000_ERR_NVM;
-+	flash_linear_addr = ((ICH_FLASH_LINEAR_ADDR_MASK & offset) +
-+			     hw->nvm.flash_base_addr);
-+
-+	do {
-+		udelay(1);
-+		/* Steps */
-+		ret_val = e1000_flash_cycle_init_ich8lan(hw);
-+		if (ret_val)
++		if (!(rx_status & (1 << I40E_RX_DESC_STATUS_DD_SHIFT)))
 +			break;
-+		/* In SPT, This register is in Lan memory space, not flash.
-+		 * Therefore, only 32 bit access is supported
-+		 */
-+		hsflctl.regval = er32flash(ICH_FLASH_HSFSTS) >> 16;
 +
-+		/* 0b/1b corresponds to 1 or 2 byte size, respectively. */
-+		hsflctl.hsf_ctrl.fldbcount = sizeof(u32) - 1;
-+		hsflctl.hsf_ctrl.flcycle = ICH_CYCLE_READ;
-+		/* In SPT, This register is in Lan memory space, not flash.
-+		 * Therefore, only 32 bit access is supported
++		/* This memory barrier is needed to keep us from reading
++		 * any other fields out of the rx_desc until we know the
++		 * DD bit is set.
 +		 */
-+		ew32flash(ICH_FLASH_HSFSTS, (u32)hsflctl.regval << 16);
-+		ew32flash(ICH_FLASH_FADDR, flash_linear_addr);
++		rmb();
 +
-+		ret_val =
-+		   e1000_flash_cycle_ich8lan(hw,
-+					     ICH_FLASH_READ_COMMAND_TIMEOUT);
++		if (i40e_rx_is_programming_status(qword)) {
++			i40e_clean_programming_status(rx_ring, rx_desc);
++			I40E_RX_INCREMENT(rx_ring, i);
++			continue;
++		}
++		rx_bi = &rx_ring->rx_bi[i];
++		skb = rx_bi->skb;
++		prefetch(skb->data);
 +
-+		/* Check if FCERR is set to 1, if set to 1, clear it
-+		 * and try the whole sequence a few more times, else
-+		 * read in (shift in) the Flash Data0, the order is
-+		 * least significant byte first msb to lsb
++		rx_packet_len = (qword & I40E_RXD_QW1_LENGTH_PBUF_MASK) >>
++				I40E_RXD_QW1_LENGTH_PBUF_SHIFT;
++
++		rx_error = (qword & I40E_RXD_QW1_ERROR_MASK) >>
++			   I40E_RXD_QW1_ERROR_SHIFT;
++		rx_error &= ~(1 << I40E_RX_DESC_ERROR_HBO_SHIFT);
++
++		rx_ptype = (qword & I40E_RXD_QW1_PTYPE_MASK) >>
++			   I40E_RXD_QW1_PTYPE_SHIFT;
++		rx_bi->skb = NULL;
++		cleaned_count++;
++
++		/* Get the header and possibly the whole packet
++		 * If this is an skb from previous receive dma will be 0
 +		 */
-+		if (!ret_val) {
-+			*data = er32flash(ICH_FLASH_FDATA0);
-+			break;
-+		} else {
-+			/* If we've gotten here, then things are probably
-+			 * completely hosed, but if the error condition is
-+			 * detected, it won't hurt to give it another try...
-+			 * ICH_FLASH_CYCLE_REPEAT_COUNT times.
++		skb_put(skb, rx_packet_len);
++		dma_unmap_single(rx_ring->dev, rx_bi->dma, rx_ring->rx_buf_len,
++				 DMA_FROM_DEVICE);
++		rx_bi->dma = 0;
++
++		I40E_RX_INCREMENT(rx_ring, i);
++
++		if (unlikely(
++		    !(rx_status & (1 << I40E_RX_DESC_STATUS_EOF_SHIFT)))) {
++			rx_ring->rx_stats.non_eop_descs++;
++			continue;
++		}
++
++		/* ERR_MASK will only have valid bits if EOP set */
++		if (unlikely(rx_error & (1 << I40E_RX_DESC_ERROR_RXE_SHIFT))) {
++			dev_kfree_skb_any(skb);
++			/* TODO: shouldn't we increment a counter indicating the
++			 * drop?
 +			 */
-+			hsfsts.regval = er16flash(ICH_FLASH_HSFSTS);
-+			if (hsfsts.hsf_status.flcerr) {
-+				/* Repeat for some time before giving up. */
-+				continue;
-+			} else if (!hsfsts.hsf_status.flcdone) {
-+				e_dbg("Timeout error - flash cycle did not complete.\n");
-+				break;
++			continue;
++		}
++
++		skb_set_hash(skb, i40e_rx_hash(rx_ring, rx_desc),
++			     i40e_ptype_to_hash(rx_ptype));
++		if (unlikely(rx_status & I40E_RXD_QW1_STATUS_TSYNVALID_MASK)) {
++			i40e_ptp_rx_hwtstamp(vsi->back, skb, (rx_status &
++					   I40E_RXD_QW1_STATUS_TSYNINDX_MASK) >>
++					   I40E_RXD_QW1_STATUS_TSYNINDX_SHIFT);
++			rx_ring->last_rx_timestamp = jiffies;
++		}
++
++		/* probably a little skewed due to removing CRC */
++		total_rx_bytes += skb->len;
++		total_rx_packets++;
++
++		skb->protocol = eth_type_trans(skb, rx_ring->netdev);
++
++		i40e_rx_checksum(vsi, skb, rx_status, rx_error, rx_ptype);
++
++		vlan_tag = rx_status & (1 << I40E_RX_DESC_STATUS_L2TAG1P_SHIFT)
++			 ? le16_to_cpu(rx_desc->wb.qword0.lo_dword.l2tag1)
++			 : 0;
++#ifdef I40E_FCOE
++		if (!i40e_fcoe_handle_offload(rx_ring, rx_desc, skb)) {
++			dev_kfree_skb_any(skb);
++			continue;
++		}
++#endif
++		i40e_receive_skb(rx_ring, skb, vlan_tag);
++
++		rx_ring->netdev->last_rx = jiffies;
++		rx_desc->wb.qword1.status_error_len = 0;
++	} while (likely(total_rx_packets < budget));
+ 
+-	rx_ring->next_to_clean = i;
+ 	u64_stats_update_begin(&rx_ring->syncp);
+ 	rx_ring->stats.packets += total_rx_packets;
+ 	rx_ring->stats.bytes += total_rx_bytes;
+@@ -1598,10 +1805,7 @@ next_desc:
+ 	rx_ring->q_vector->rx.total_packets += total_rx_packets;
+ 	rx_ring->q_vector->rx.total_bytes += total_rx_bytes;
+ 
+-	if (cleaned_count)
+-		i40e_alloc_rx_buffers(rx_ring, cleaned_count);
+-
+-	return budget > 0;
++	return total_rx_packets;
+ }
+ 
+ /**
+@@ -1622,6 +1826,7 @@ int i40e_napi_poll(struct napi_struct *napi, int budget)
+ 	bool clean_complete = true;
+ 	bool arm_wb = false;
+ 	int budget_per_ring;
++	int cleaned;
+ 
+ 	if (test_bit(__I40E_DOWN, &vsi->state)) {
+ 		napi_complete(napi);
+@@ -1641,8 +1846,14 @@ int i40e_napi_poll(struct napi_struct *napi, int budget)
+ 	 */
+ 	budget_per_ring = max(budget/q_vector->num_ringpairs, 1);
+ 
+-	i40e_for_each_ring(ring, q_vector->rx)
+-		clean_complete &= i40e_clean_rx_irq(ring, budget_per_ring);
++	i40e_for_each_ring(ring, q_vector->rx) {
++		if (ring_is_ps_enabled(ring))
++			cleaned = i40e_clean_rx_irq_ps(ring, budget_per_ring);
++		else
++			cleaned = i40e_clean_rx_irq_1buf(ring, budget_per_ring);
++		/* if we didn't clean as many as budgeted, we must be done */
++		clean_complete &= (budget_per_ring != cleaned);
++	}
+ 
+ 	/* If work not completed, return budget and polling will return */
+ 	if (!clean_complete) {
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.h b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
+index 18b0023..38449b2 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
+@@ -96,6 +96,14 @@ enum i40e_dyn_idx_t {
+ 
+ /* How many Rx Buffers do we bundle into one write to the hardware ? */
+ #define I40E_RX_BUFFER_WRITE	16	/* Must be power of 2 */
++#define I40E_RX_INCREMENT(r, i) \
++	do {					\
++		(i)++;				\
++		if ((i) == (r)->count)		\
++			i = 0;			\
++		r->next_to_clean = i;		\
++	} while (0)
++
+ #define I40E_RX_NEXT_DESC(r, i, n)		\
+ 	do {					\
+ 		(i)++;				\
+@@ -151,6 +159,7 @@ struct i40e_tx_buffer {
+ 
+ struct i40e_rx_buffer {
+ 	struct sk_buff *skb;
++	void *hdr_buf;
+ 	dma_addr_t dma;
+ 	struct page *page;
+ 	dma_addr_t page_dma;
+@@ -223,8 +232,8 @@ struct i40e_ring {
+ 	u16 rx_buf_len;
+ 	u8  dtype;
+ #define I40E_RX_DTYPE_NO_SPLIT      0
+-#define I40E_RX_DTYPE_SPLIT_ALWAYS  1
+-#define I40E_RX_DTYPE_HEADER_SPLIT  2
++#define I40E_RX_DTYPE_HEADER_SPLIT  1
++#define I40E_RX_DTYPE_SPLIT_ALWAYS  2
+ 	u8  hsplit;
+ #define I40E_RX_SPLIT_L2      0x1
+ #define I40E_RX_SPLIT_IP      0x2
+@@ -280,7 +289,9 @@ struct i40e_ring_container {
+ #define i40e_for_each_ring(pos, head) \
+ 	for (pos = (head).ring; pos != NULL; pos = pos->next)
+ 
+-void i40e_alloc_rx_buffers(struct i40e_ring *rxr, u16 cleaned_count);
++void i40e_alloc_rx_buffers_ps(struct i40e_ring *rxr, u16 cleaned_count);
++void i40e_alloc_rx_buffers_1buf(struct i40e_ring *rxr, u16 cleaned_count);
++void i40e_alloc_rx_headers(struct i40e_ring *rxr);
+ netdev_tx_t i40e_lan_xmit_frame(struct sk_buff *skb, struct net_device *netdev);
+ void i40e_clean_tx_ring(struct i40e_ring *tx_ring);
+ void i40e_clean_rx_ring(struct i40e_ring *rx_ring);
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+index 2900438..fc7e2d0 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+@@ -25,6 +25,7 @@
+  ******************************************************************************/
+ 
+ #include <linux/prefetch.h>
++#include <net/busy_poll.h>
+ 
+ #include "i40evf.h"
+ #include "i40e_prototype.h"
+@@ -523,6 +524,22 @@ void i40evf_clean_rx_ring(struct i40e_ring *rx_ring)
+ 	if (!rx_ring->rx_bi)
+ 		return;
+ 
++	if (ring_is_ps_enabled(rx_ring)) {
++		int bufsz = ALIGN(rx_ring->rx_hdr_len, 256) * rx_ring->count;
++
++		rx_bi = &rx_ring->rx_bi[0];
++		if (rx_bi->hdr_buf) {
++			dma_free_coherent(dev,
++					  bufsz,
++					  rx_bi->hdr_buf,
++					  rx_bi->dma);
++			for (i = 0; i < rx_ring->count; i++) {
++				rx_bi = &rx_ring->rx_bi[i];
++				rx_bi->dma = 0;
++				rx_bi->hdr_buf = 0;
 +			}
 +		}
-+	} while (count++ < ICH_FLASH_CYCLE_REPEAT_COUNT);
-+
-+	return ret_val;
-+}
-+
-+/**
-  *  e1000_write_nvm_ich8lan - Write word(s) to the NVM
-  *  @hw: pointer to the HW structure
-  *  @offset: The offset (in bytes) of the word(s) to write.
-@@ -3321,7 +3610,7 @@ static s32 e1000_write_nvm_ich8lan(struct e1000_hw *hw, u16 offset, u16 words,
++	}
+ 	/* Free all the Rx ring sk_buffs */
+ 	for (i = 0; i < rx_ring->count; i++) {
+ 		rx_bi = &rx_ring->rx_bi[i];
+@@ -581,6 +598,37 @@ void i40evf_free_rx_resources(struct i40e_ring *rx_ring)
  }
  
  /**
-- *  e1000_update_nvm_checksum_ich8lan - Update the checksum for NVM
-+ *  e1000_update_nvm_checksum_spt - Update the checksum for NVM
-  *  @hw: pointer to the HW structure
-  *
-  *  The NVM checksum is updated by calling the generic update_nvm_checksum,
-@@ -3331,13 +3620,13 @@ static s32 e1000_write_nvm_ich8lan(struct e1000_hw *hw, u16 offset, u16 words,
-  *  After a successful commit, the shadow ram is cleared and is ready for
-  *  future writes.
-  **/
--static s32 e1000_update_nvm_checksum_ich8lan(struct e1000_hw *hw)
-+static s32 e1000_update_nvm_checksum_spt(struct e1000_hw *hw)
- {
- 	struct e1000_nvm_info *nvm = &hw->nvm;
- 	struct e1000_dev_spec_ich8lan *dev_spec = &hw->dev_spec.ich8lan;
- 	u32 i, act_offset, new_bank_offset, old_bank_offset, bank;
- 	s32 ret_val;
--	u16 data;
-+	u32 dword = 0;
- 
- 	ret_val = e1000e_update_nvm_checksum_generic(hw);
- 	if (ret_val)
-@@ -3371,12 +3660,175 @@ static s32 e1000_update_nvm_checksum_ich8lan(struct e1000_hw *hw)
- 		if (ret_val)
- 			goto release;
- 	}
--
--	for (i = 0; i < E1000_ICH8_SHADOW_RAM_WORDS; i++) {
-+	for (i = 0; i < E1000_ICH8_SHADOW_RAM_WORDS; i += 2) {
- 		/* Determine whether to write the value stored
- 		 * in the other NVM bank or a modified value stored
- 		 * in the shadow RAM
- 		 */
-+		ret_val = e1000_read_flash_dword_ich8lan(hw,
-+							 i + old_bank_offset,
-+							 &dword);
-+
-+		if (dev_spec->shadow_ram[i].modified) {
-+			dword &= 0xffff0000;
-+			dword |= (dev_spec->shadow_ram[i].value & 0xffff);
-+		}
-+		if (dev_spec->shadow_ram[i + 1].modified) {
-+			dword &= 0x0000ffff;
-+			dword |= ((dev_spec->shadow_ram[i + 1].value & 0xffff)
-+				  << 16);
-+		}
-+		if (ret_val)
-+			break;
-+
-+		/* If the word is 0x13, then make sure the signature bits
-+		 * (15:14) are 11b until the commit has completed.
-+		 * This will allow us to write 10b which indicates the
-+		 * signature is valid.  We want to do this after the write
-+		 * has completed so that we don't mark the segment valid
-+		 * while the write is still in progress
-+		 */
-+		if (i == E1000_ICH_NVM_SIG_WORD - 1)
-+			dword |= E1000_ICH_NVM_SIG_MASK << 16;
-+
-+		/* Convert offset to bytes. */
-+		act_offset = (i + new_bank_offset) << 1;
-+
-+		usleep_range(100, 200);
-+
-+		/* Write the data to the new bank. Offset in words */
-+		act_offset = i + new_bank_offset;
-+		ret_val = e1000_retry_write_flash_dword_ich8lan(hw, act_offset,
-+								dword);
-+		if (ret_val)
-+			break;
-+	}
-+
-+	/* Don't bother writing the segment valid bits if sector
-+	 * programming failed.
-+	 */
-+	if (ret_val) {
-+		/* Possibly read-only, see e1000e_write_protect_nvm_ich8lan() */
-+		e_dbg("Flash commit failed.\n");
-+		goto release;
-+	}
-+
-+	/* Finally validate the new segment by setting bit 15:14
-+	 * to 10b in word 0x13 , this can be done without an
-+	 * erase as well since these bits are 11 to start with
-+	 * and we need to change bit 14 to 0b
-+	 */
-+	act_offset = new_bank_offset + E1000_ICH_NVM_SIG_WORD;
-+
-+	/*offset in words but we read dword */
-+	--act_offset;
-+	ret_val = e1000_read_flash_dword_ich8lan(hw, act_offset, &dword);
-+
-+	if (ret_val)
-+		goto release;
-+
-+	dword &= 0xBFFFFFFF;
-+	ret_val = e1000_retry_write_flash_dword_ich8lan(hw, act_offset, dword);
-+
-+	if (ret_val)
-+		goto release;
-+
-+	/* And invalidate the previously valid segment by setting
-+	 * its signature word (0x13) high_byte to 0b. This can be
-+	 * done without an erase because flash erase sets all bits
-+	 * to 1's. We can write 1's to 0's without an erase
-+	 */
-+	act_offset = (old_bank_offset + E1000_ICH_NVM_SIG_WORD) * 2 + 1;
-+
-+	/* offset in words but we read dword */
-+	act_offset = old_bank_offset + E1000_ICH_NVM_SIG_WORD - 1;
-+	ret_val = e1000_read_flash_dword_ich8lan(hw, act_offset, &dword);
-+
-+	if (ret_val)
-+		goto release;
-+
-+	dword &= 0x00FFFFFF;
-+	ret_val = e1000_retry_write_flash_dword_ich8lan(hw, act_offset, dword);
-+
-+	if (ret_val)
-+		goto release;
-+
-+	/* Great!  Everything worked, we can now clear the cached entries. */
-+	for (i = 0; i < E1000_ICH8_SHADOW_RAM_WORDS; i++) {
-+		dev_spec->shadow_ram[i].modified = false;
-+		dev_spec->shadow_ram[i].value = 0xFFFF;
-+	}
-+
-+release:
-+	nvm->ops.release(hw);
-+
-+	/* Reload the EEPROM, or else modifications will not appear
-+	 * until after the next adapter reset.
-+	 */
-+	if (!ret_val) {
-+		nvm->ops.reload(hw);
-+		usleep_range(10000, 20000);
-+	}
-+
-+out:
-+	if (ret_val)
-+		e_dbg("NVM update error: %d\n", ret_val);
-+
-+	return ret_val;
-+}
-+
-+/**
-+ *  e1000_update_nvm_checksum_ich8lan - Update the checksum for NVM
-+ *  @hw: pointer to the HW structure
++ * i40evf_alloc_rx_headers - allocate rx header buffers
++ * @rx_ring: ring to alloc buffers
 + *
-+ *  The NVM checksum is updated by calling the generic update_nvm_checksum,
-+ *  which writes the checksum to the shadow ram.  The changes in the shadow
-+ *  ram are then committed to the EEPROM by processing each bank at a time
-+ *  checking for the modified bit and writing only the pending changes.
-+ *  After a successful commit, the shadow ram is cleared and is ready for
-+ *  future writes.
++ * Allocate rx header buffers for the entire ring. As these are static,
++ * this is only called when setting up a new ring.
 + **/
-+static s32 e1000_update_nvm_checksum_ich8lan(struct e1000_hw *hw)
++void i40evf_alloc_rx_headers(struct i40e_ring *rx_ring)
 +{
-+	struct e1000_nvm_info *nvm = &hw->nvm;
-+	struct e1000_dev_spec_ich8lan *dev_spec = &hw->dev_spec.ich8lan;
-+	u32 i, act_offset, new_bank_offset, old_bank_offset, bank;
-+	s32 ret_val;
-+	u16 data = 0;
++	struct device *dev = rx_ring->dev;
++	struct i40e_rx_buffer *rx_bi;
++	dma_addr_t dma;
++	void *buffer;
++	int buf_size;
++	int i;
 +
-+	ret_val = e1000e_update_nvm_checksum_generic(hw);
-+	if (ret_val)
-+		goto out;
-+
-+	if (nvm->type != e1000_nvm_flash_sw)
-+		goto out;
-+
-+	nvm->ops.acquire(hw);
-+
-+	/* We're writing to the opposite bank so if we're on bank 1,
-+	 * write to bank 0 etc.  We also need to erase the segment that
-+	 * is going to be written
-+	 */
-+	ret_val = e1000_valid_nvm_bank_detect_ich8lan(hw, &bank);
-+	if (ret_val) {
-+		e_dbg("Could not detect valid bank, assuming bank 0\n");
-+		bank = 0;
++	if (rx_ring->rx_bi[0].hdr_buf)
++		return;
++	/* Make sure the buffers don't cross cache line boundaries. */
++	buf_size = ALIGN(rx_ring->rx_hdr_len, 256);
++	buffer = dma_alloc_coherent(dev, buf_size * rx_ring->count,
++				    &dma, GFP_KERNEL);
++	if (!buffer)
++		return;
++	for (i = 0; i < rx_ring->count; i++) {
++		rx_bi = &rx_ring->rx_bi[i];
++		rx_bi->dma = dma + (i * buf_size);
++		rx_bi->hdr_buf = buffer + (i * buf_size);
 +	}
++}
 +
-+	if (bank == 0) {
-+		new_bank_offset = nvm->flash_bank_size;
-+		old_bank_offset = 0;
-+		ret_val = e1000_erase_flash_bank_ich8lan(hw, 1);
-+		if (ret_val)
-+			goto release;
-+	} else {
-+		old_bank_offset = nvm->flash_bank_size;
-+		new_bank_offset = 0;
-+		ret_val = e1000_erase_flash_bank_ich8lan(hw, 0);
-+		if (ret_val)
-+			goto release;
-+	}
-+	for (i = 0; i < E1000_ICH8_SHADOW_RAM_WORDS; i++) {
- 		if (dev_spec->shadow_ram[i].modified) {
- 			data = dev_spec->shadow_ram[i].value;
- 		} else {
-@@ -3498,6 +3950,7 @@ static s32 e1000_validate_nvm_checksum_ich8lan(struct e1000_hw *hw)
- 	 */
- 	switch (hw->mac.type) {
- 	case e1000_pch_lpt:
-+	case e1000_pch_spt:
- 		word = NVM_COMPAT;
- 		valid_csum_mask = NVM_COMPAT_VALID_CSUM;
- 		break;
-@@ -3583,9 +4036,13 @@ static s32 e1000_write_flash_data_ich8lan(struct e1000_hw *hw, u32 offset,
- 	s32 ret_val;
- 	u8 count = 0;
- 
--	if (size < 1 || size > 2 || data > size * 0xff ||
--	    offset > ICH_FLASH_LINEAR_ADDR_MASK)
--		return -E1000_ERR_NVM;
-+	if (hw->mac.type == e1000_pch_spt) {
-+		if (size != 4 || offset > ICH_FLASH_LINEAR_ADDR_MASK)
-+			return -E1000_ERR_NVM;
-+	} else {
-+		if (size < 1 || size > 2 || offset > ICH_FLASH_LINEAR_ADDR_MASK)
-+			return -E1000_ERR_NVM;
-+	}
- 
- 	flash_linear_addr = ((ICH_FLASH_LINEAR_ADDR_MASK & offset) +
- 			     hw->nvm.flash_base_addr);
-@@ -3596,12 +4053,25 @@ static s32 e1000_write_flash_data_ich8lan(struct e1000_hw *hw, u32 offset,
- 		ret_val = e1000_flash_cycle_init_ich8lan(hw);
- 		if (ret_val)
- 			break;
-+		/* In SPT, This register is in Lan memory space, not
-+		 * flash.  Therefore, only 32 bit access is supported
-+		 */
-+		if (hw->mac.type == e1000_pch_spt)
-+			hsflctl.regval = er32flash(ICH_FLASH_HSFSTS) >> 16;
-+		else
-+			hsflctl.regval = er16flash(ICH_FLASH_HSFCTL);
- 
--		hsflctl.regval = er16flash(ICH_FLASH_HSFCTL);
- 		/* 0b/1b corresponds to 1 or 2 byte size, respectively. */
- 		hsflctl.hsf_ctrl.fldbcount = size - 1;
- 		hsflctl.hsf_ctrl.flcycle = ICH_CYCLE_WRITE;
--		ew16flash(ICH_FLASH_HSFCTL, hsflctl.regval);
-+		/* In SPT, This register is in Lan memory space,
-+		 * not flash.  Therefore, only 32 bit access is
-+		 * supported
-+		 */
-+		if (hw->mac.type == e1000_pch_spt)
-+			ew32flash(ICH_FLASH_HSFSTS, hsflctl.regval << 16);
-+		else
-+			ew16flash(ICH_FLASH_HSFCTL, hsflctl.regval);
- 
- 		ew32flash(ICH_FLASH_FADDR, flash_linear_addr);
- 
-@@ -3640,6 +4110,90 @@ static s32 e1000_write_flash_data_ich8lan(struct e1000_hw *hw, u32 offset,
++/**
+  * i40evf_setup_rx_descriptors - Allocate Rx descriptors
+  * @rx_ring: Rx descriptor ring (for a specific queue) to setup
+  *
+@@ -640,11 +688,76 @@ static inline void i40e_release_rx_desc(struct i40e_ring *rx_ring, u32 val)
  }
  
  /**
-+*  e1000_write_flash_data32_ich8lan - Writes 4 bytes to the NVM
-+*  @hw: pointer to the HW structure
-+*  @offset: The offset (in bytes) of the dwords to read.
-+*  @data: The 4 bytes to write to the NVM.
-+*
-+*  Writes one/two/four bytes to the NVM using the flash access registers.
-+**/
-+static s32 e1000_write_flash_data32_ich8lan(struct e1000_hw *hw, u32 offset,
-+					    u32 data)
+- * i40evf_alloc_rx_buffers - Replace used receive buffers; packet split
++ * i40evf_alloc_rx_buffers_ps - Replace used receive buffers; packet split
+  * @rx_ring: ring to place buffers on
+  * @cleaned_count: number of buffers to replace
+  **/
+-void i40evf_alloc_rx_buffers(struct i40e_ring *rx_ring, u16 cleaned_count)
++void i40evf_alloc_rx_buffers_ps(struct i40e_ring *rx_ring, u16 cleaned_count)
 +{
-+	union ich8_hws_flash_status hsfsts;
-+	union ich8_hws_flash_ctrl hsflctl;
-+	u32 flash_linear_addr;
-+	s32 ret_val;
-+	u8 count = 0;
++	u16 i = rx_ring->next_to_use;
++	union i40e_rx_desc *rx_desc;
++	struct i40e_rx_buffer *bi;
 +
-+	if (hw->mac.type == e1000_pch_spt) {
-+		if (offset > ICH_FLASH_LINEAR_ADDR_MASK)
-+			return -E1000_ERR_NVM;
-+	}
-+	flash_linear_addr = ((ICH_FLASH_LINEAR_ADDR_MASK & offset) +
-+			     hw->nvm.flash_base_addr);
-+	do {
-+		udelay(1);
-+		/* Steps */
-+		ret_val = e1000_flash_cycle_init_ich8lan(hw);
-+		if (ret_val)
-+			break;
++	/* do nothing if no valid netdev defined */
++	if (!rx_ring->netdev || !cleaned_count)
++		return;
 +
-+		/* In SPT, This register is in Lan memory space, not
-+		 * flash.  Therefore, only 32 bit access is supported
-+		 */
-+		if (hw->mac.type == e1000_pch_spt)
-+			hsflctl.regval = er32flash(ICH_FLASH_HSFSTS)
-+			    >> 16;
-+		else
-+			hsflctl.regval = er16flash(ICH_FLASH_HSFCTL);
++	while (cleaned_count--) {
++		rx_desc = I40E_RX_DESC(rx_ring, i);
++		bi = &rx_ring->rx_bi[i];
 +
-+		hsflctl.hsf_ctrl.fldbcount = sizeof(u32) - 1;
-+		hsflctl.hsf_ctrl.flcycle = ICH_CYCLE_WRITE;
-+
-+		/* In SPT, This register is in Lan memory space,
-+		 * not flash.  Therefore, only 32 bit access is
-+		 * supported
-+		 */
-+		if (hw->mac.type == e1000_pch_spt)
-+			ew32flash(ICH_FLASH_HSFSTS, hsflctl.regval << 16);
-+		else
-+			ew16flash(ICH_FLASH_HSFCTL, hsflctl.regval);
-+
-+		ew32flash(ICH_FLASH_FADDR, flash_linear_addr);
-+
-+		ew32flash(ICH_FLASH_FDATA0, data);
-+
-+		/* check if FCERR is set to 1 , if set to 1, clear it
-+		 * and try the whole sequence a few more times else done
-+		 */
-+		ret_val =
-+		   e1000_flash_cycle_ich8lan(hw,
-+					     ICH_FLASH_WRITE_COMMAND_TIMEOUT);
-+
-+		if (!ret_val)
-+			break;
-+
-+		/* If we're here, then things are most likely
-+		 * completely hosed, but if the error condition
-+		 * is detected, it won't hurt to give it another
-+		 * try...ICH_FLASH_CYCLE_REPEAT_COUNT times.
-+		 */
-+		hsfsts.regval = er16flash(ICH_FLASH_HSFSTS);
-+
-+		if (hsfsts.hsf_status.flcerr)
-+			/* Repeat for some time before giving up. */
-+			continue;
-+		if (!hsfsts.hsf_status.flcdone) {
-+			e_dbg("Timeout error - flash cycle did not complete.\n");
-+			break;
++		if (bi->skb) /* desc is in use */
++			goto no_buffers;
++		if (!bi->page) {
++			bi->page = alloc_page(GFP_ATOMIC);
++			if (!bi->page) {
++				rx_ring->rx_stats.alloc_page_failed++;
++				goto no_buffers;
++			}
 +		}
-+	} while (count++ < ICH_FLASH_CYCLE_REPEAT_COUNT);
 +
-+	return ret_val;
++		if (!bi->page_dma) {
++			/* use a half page if we're re-using */
++			bi->page_offset ^= PAGE_SIZE / 2;
++			bi->page_dma = dma_map_page(rx_ring->dev,
++						    bi->page,
++						    bi->page_offset,
++						    PAGE_SIZE / 2,
++						    DMA_FROM_DEVICE);
++			if (dma_mapping_error(rx_ring->dev,
++					      bi->page_dma)) {
++				rx_ring->rx_stats.alloc_page_failed++;
++				bi->page_dma = 0;
++				goto no_buffers;
++			}
++		}
++
++		dma_sync_single_range_for_device(rx_ring->dev,
++						 bi->dma,
++						 0,
++						 rx_ring->rx_hdr_len,
++						 DMA_FROM_DEVICE);
++		/* Refresh the desc even if buffer_addrs didn't change
++		 * because each write-back erases this info.
++		 */
++		rx_desc->read.pkt_addr = cpu_to_le64(bi->page_dma);
++		rx_desc->read.hdr_addr = cpu_to_le64(bi->dma);
++		i++;
++		if (i == rx_ring->count)
++			i = 0;
++	}
++
++no_buffers:
++	if (rx_ring->next_to_use != i)
++		i40e_release_rx_desc(rx_ring, i);
 +}
 +
 +/**
-  *  e1000_write_flash_byte_ich8lan - Write a single byte to NVM
-  *  @hw: pointer to the HW structure
-  *  @offset: The index of the byte to read.
-@@ -3656,6 +4210,40 @@ static s32 e1000_write_flash_byte_ich8lan(struct e1000_hw *hw, u32 offset,
++ * i40evf_alloc_rx_buffers_1buf - Replace used receive buffers; single buffer
++ * @rx_ring: ring to place buffers on
++ * @cleaned_count: number of buffers to replace
++ **/
++void i40evf_alloc_rx_buffers_1buf(struct i40e_ring *rx_ring, u16 cleaned_count)
+ {
+ 	u16 i = rx_ring->next_to_use;
+ 	union i40e_rx_desc *rx_desc;
+@@ -684,40 +797,8 @@ void i40evf_alloc_rx_buffers(struct i40e_ring *rx_ring, u16 cleaned_count)
+ 			}
+ 		}
+ 
+-		if (ring_is_ps_enabled(rx_ring)) {
+-			if (!bi->page) {
+-				bi->page = alloc_page(GFP_ATOMIC);
+-				if (!bi->page) {
+-					rx_ring->rx_stats.alloc_page_failed++;
+-					goto no_buffers;
+-				}
+-			}
+-
+-			if (!bi->page_dma) {
+-				/* use a half page if we're re-using */
+-				bi->page_offset ^= PAGE_SIZE / 2;
+-				bi->page_dma = dma_map_page(rx_ring->dev,
+-							    bi->page,
+-							    bi->page_offset,
+-							    PAGE_SIZE / 2,
+-							    DMA_FROM_DEVICE);
+-				if (dma_mapping_error(rx_ring->dev,
+-						      bi->page_dma)) {
+-					rx_ring->rx_stats.alloc_page_failed++;
+-					bi->page_dma = 0;
+-					goto no_buffers;
+-				}
+-			}
+-
+-			/* Refresh the desc even if buffer_addrs didn't change
+-			 * because each write-back erases this info.
+-			 */
+-			rx_desc->read.pkt_addr = cpu_to_le64(bi->page_dma);
+-			rx_desc->read.hdr_addr = cpu_to_le64(bi->dma);
+-		} else {
+-			rx_desc->read.pkt_addr = cpu_to_le64(bi->dma);
+-			rx_desc->read.hdr_addr = 0;
+-		}
++		rx_desc->read.pkt_addr = cpu_to_le64(bi->dma);
++		rx_desc->read.hdr_addr = 0;
+ 		i++;
+ 		if (i == rx_ring->count)
+ 			i = 0;
+@@ -900,13 +981,13 @@ static inline enum pkt_hash_types i40e_ptype_to_hash(u8 ptype)
  }
  
  /**
-+*  e1000_retry_write_flash_dword_ich8lan - Writes a dword to NVM
-+*  @hw: pointer to the HW structure
-+*  @offset: The offset of the word to write.
-+*  @dword: The dword to write to the NVM.
-+*
-+*  Writes a single dword to the NVM using the flash access registers.
-+*  Goes through a retry algorithm before giving up.
-+**/
-+static s32 e1000_retry_write_flash_dword_ich8lan(struct e1000_hw *hw,
-+						 u32 offset, u32 dword)
-+{
-+	s32 ret_val;
-+	u16 program_retries;
+- * i40e_clean_rx_irq - Reclaim resources after receive completes
++ * i40e_clean_rx_irq_ps - Reclaim resources after receive; packet split
+  * @rx_ring:  rx ring to clean
+  * @budget:   how many cleans we're allowed
+  *
+  * Returns true if there's any budget left (e.g. the clean is finished)
+  **/
+-static int i40e_clean_rx_irq(struct i40e_ring *rx_ring, int budget)
++static int i40e_clean_rx_irq_ps(struct i40e_ring *rx_ring, int budget)
+ {
+ 	unsigned int total_rx_bytes = 0, total_rx_packets = 0;
+ 	u16 rx_packet_len, rx_header_len, rx_sph, rx_hbo;
+@@ -919,20 +1000,46 @@ static int i40e_clean_rx_irq(struct i40e_ring *rx_ring, int budget)
+ 	u8 rx_ptype;
+ 	u64 qword;
+ 
+-	rx_desc = I40E_RX_DESC(rx_ring, i);
+-	qword = le64_to_cpu(rx_desc->wb.qword1.status_error_len);
+-	rx_status = (qword & I40E_RXD_QW1_STATUS_MASK) >>
+-		    I40E_RXD_QW1_STATUS_SHIFT;
+-
+-	while (rx_status & (1 << I40E_RX_DESC_STATUS_DD_SHIFT)) {
+-		union i40e_rx_desc *next_rxd;
++	do {
+ 		struct i40e_rx_buffer *rx_bi;
+ 		struct sk_buff *skb;
+ 		u16 vlan_tag;
++		/* return some buffers to hardware, one at a time is too slow */
++		if (cleaned_count >= I40E_RX_BUFFER_WRITE) {
++			i40evf_alloc_rx_buffers_ps(rx_ring, cleaned_count);
++			cleaned_count = 0;
++		}
 +
-+	/* Must convert word offset into bytes. */
-+	offset <<= 1;
-+	ret_val = e1000_write_flash_data32_ich8lan(hw, offset, dword);
++		i = rx_ring->next_to_clean;
++		rx_desc = I40E_RX_DESC(rx_ring, i);
++		qword = le64_to_cpu(rx_desc->wb.qword1.status_error_len);
++		rx_status = (qword & I40E_RXD_QW1_STATUS_MASK) >>
++			I40E_RXD_QW1_STATUS_SHIFT;
 +
-+	if (!ret_val)
-+		return ret_val;
-+	for (program_retries = 0; program_retries < 100; program_retries++) {
-+		e_dbg("Retrying Byte %8.8X at offset %u\n", dword, offset);
-+		usleep_range(100, 200);
-+		ret_val = e1000_write_flash_data32_ich8lan(hw, offset, dword);
-+		if (!ret_val)
++		if (!(rx_status & (1 << I40E_RX_DESC_STATUS_DD_SHIFT)))
 +			break;
-+	}
-+	if (program_retries == 100)
-+		return -E1000_ERR_NVM;
 +
-+	return 0;
++		/* This memory barrier is needed to keep us from reading
++		 * any other fields out of the rx_desc until we know the
++		 * DD bit is set.
++		 */
++		rmb();
+ 		rx_bi = &rx_ring->rx_bi[i];
+ 		skb = rx_bi->skb;
+-		prefetch(skb->data);
+-
++		if (likely(!skb)) {
++			skb = netdev_alloc_skb_ip_align(rx_ring->netdev,
++							rx_ring->rx_hdr_len);
++			if (!skb)
++				rx_ring->rx_stats.alloc_buff_failed++;
++			/* initialize queue mapping */
++			skb_record_rx_queue(skb, rx_ring->queue_index);
++			/* we are reusing so sync this buffer for CPU use */
++			dma_sync_single_range_for_cpu(rx_ring->dev,
++						      rx_bi->dma,
++						      0,
++						      rx_ring->rx_hdr_len,
++						      DMA_FROM_DEVICE);
++		}
+ 		rx_packet_len = (qword & I40E_RXD_QW1_LENGTH_PBUF_MASK) >>
+ 				I40E_RXD_QW1_LENGTH_PBUF_SHIFT;
+ 		rx_header_len = (qword & I40E_RXD_QW1_LENGTH_HBUF_MASK) >>
+@@ -947,40 +1054,30 @@ static int i40e_clean_rx_irq(struct i40e_ring *rx_ring, int budget)
+ 
+ 		rx_ptype = (qword & I40E_RXD_QW1_PTYPE_MASK) >>
+ 			   I40E_RXD_QW1_PTYPE_SHIFT;
++		prefetch(rx_bi->page);
+ 		rx_bi->skb = NULL;
+-
+-		/* This memory barrier is needed to keep us from reading
+-		 * any other fields out of the rx_desc until we know the
+-		 * STATUS_DD bit is set
+-		 */
+-		rmb();
+-
+-		/* Get the header and possibly the whole packet
+-		 * If this is an skb from previous receive dma will be 0
+-		 */
+-		if (rx_bi->dma) {
+-			u16 len;
+-
++		cleaned_count++;
++		if (rx_hbo || rx_sph) {
++			int len;
+ 			if (rx_hbo)
+ 				len = I40E_RX_HDR_SIZE;
+-			else if (rx_sph)
+-				len = rx_header_len;
+-			else if (rx_packet_len)
+-				len = rx_packet_len;   /* 1buf/no split found */
+ 			else
+-				len = rx_header_len;   /* split always mode */
+-
+-			skb_put(skb, len);
+-			dma_unmap_single(rx_ring->dev,
+-					 rx_bi->dma,
+-					 rx_ring->rx_buf_len,
+-					 DMA_FROM_DEVICE);
+-			rx_bi->dma = 0;
++				len = rx_header_len;
++			memcpy(__skb_put(skb, len), rx_bi->hdr_buf, len);
++		} else if (skb->len == 0) {
++			int len;
++
++			len = (rx_packet_len > skb_headlen(skb) ?
++				skb_headlen(skb) : rx_packet_len);
++			memcpy(__skb_put(skb, len),
++			       rx_bi->page + rx_bi->page_offset,
++			       len);
++			rx_bi->page_offset += len;
++			rx_packet_len -= len;
+ 		}
+ 
+ 		/* Get the rest of the data if this was a header split */
+-		if (ring_is_ps_enabled(rx_ring) && rx_packet_len) {
+-
++		if (rx_packet_len) {
+ 			skb_fill_page_desc(skb, skb_shinfo(skb)->nr_frags,
+ 					   rx_bi->page,
+ 					   rx_bi->page_offset,
+@@ -1002,22 +1099,16 @@ static int i40e_clean_rx_irq(struct i40e_ring *rx_ring, int budget)
+ 				       DMA_FROM_DEVICE);
+ 			rx_bi->page_dma = 0;
+ 		}
+-		I40E_RX_NEXT_DESC_PREFETCH(rx_ring, i, next_rxd);
++		I40E_RX_INCREMENT(rx_ring, i);
+ 
+ 		if (unlikely(
+ 		    !(rx_status & (1 << I40E_RX_DESC_STATUS_EOF_SHIFT)))) {
+ 			struct i40e_rx_buffer *next_buffer;
+ 
+ 			next_buffer = &rx_ring->rx_bi[i];
+-
+-			if (ring_is_ps_enabled(rx_ring)) {
+-				rx_bi->skb = next_buffer->skb;
+-				rx_bi->dma = next_buffer->dma;
+-				next_buffer->skb = skb;
+-				next_buffer->dma = 0;
+-			}
++			next_buffer->skb = skb;
+ 			rx_ring->rx_stats.non_eop_descs++;
+-			goto next_desc;
++			continue;
+ 		}
+ 
+ 		/* ERR_MASK will only have valid bits if EOP set */
+@@ -1026,7 +1117,7 @@ static int i40e_clean_rx_irq(struct i40e_ring *rx_ring, int budget)
+ 			/* TODO: shouldn't we increment a counter indicating the
+ 			 * drop?
+ 			 */
+-			goto next_desc;
++			continue;
+ 		}
+ 
+ 		skb_set_hash(skb, i40e_rx_hash(rx_ring, rx_desc),
+@@ -1042,30 +1133,134 @@ static int i40e_clean_rx_irq(struct i40e_ring *rx_ring, int budget)
+ 		vlan_tag = rx_status & (1 << I40E_RX_DESC_STATUS_L2TAG1P_SHIFT)
+ 			 ? le16_to_cpu(rx_desc->wb.qword0.lo_dword.l2tag1)
+ 			 : 0;
++#ifdef I40E_FCOE
++		if (!i40e_fcoe_handle_offload(rx_ring, rx_desc, skb)) {
++			dev_kfree_skb_any(skb);
++			continue;
++		}
++#endif
++		skb_mark_napi_id(skb, &rx_ring->q_vector->napi);
+ 		i40e_receive_skb(rx_ring, skb, vlan_tag);
+ 
+ 		rx_ring->netdev->last_rx = jiffies;
+-		budget--;
+-next_desc:
+ 		rx_desc->wb.qword1.status_error_len = 0;
+-		if (!budget)
+-			break;
+ 
+-		cleaned_count++;
++	} while (likely(total_rx_packets < budget));
++
++	u64_stats_update_begin(&rx_ring->syncp);
++	rx_ring->stats.packets += total_rx_packets;
++	rx_ring->stats.bytes += total_rx_bytes;
++	u64_stats_update_end(&rx_ring->syncp);
++	rx_ring->q_vector->rx.total_packets += total_rx_packets;
++	rx_ring->q_vector->rx.total_bytes += total_rx_bytes;
++
++	return total_rx_packets;
 +}
 +
 +/**
-  *  e1000_retry_write_flash_byte_ich8lan - Writes a single byte to NVM
-  *  @hw: pointer to the HW structure
-  *  @offset: The offset of the byte to write.
-@@ -3759,9 +4347,18 @@ static s32 e1000_erase_flash_bank_ich8lan(struct e1000_hw *hw, u32 bank)
- 			/* Write a value 11 (block Erase) in Flash
- 			 * Cycle field in hw flash control
- 			 */
--			hsflctl.regval = er16flash(ICH_FLASH_HSFCTL);
-+			if (hw->mac.type == e1000_pch_spt)
-+				hsflctl.regval =
-+				    er32flash(ICH_FLASH_HSFSTS) >> 16;
-+			else
-+				hsflctl.regval = er16flash(ICH_FLASH_HSFCTL);
++ * i40e_clean_rx_irq_1buf - Reclaim resources after receive; single buffer
++ * @rx_ring:  rx ring to clean
++ * @budget:   how many cleans we're allowed
++ *
++ * Returns number of packets cleaned
++ **/
++static int i40e_clean_rx_irq_1buf(struct i40e_ring *rx_ring, int budget)
++{
++	unsigned int total_rx_bytes = 0, total_rx_packets = 0;
++	u16 cleaned_count = I40E_DESC_UNUSED(rx_ring);
++	struct i40e_vsi *vsi = rx_ring->vsi;
++	union i40e_rx_desc *rx_desc;
++	u32 rx_error, rx_status;
++	u16 rx_packet_len;
++	u8 rx_ptype;
++	u64 qword;
++	u16 i;
 +
- 			hsflctl.hsf_ctrl.flcycle = ICH_CYCLE_ERASE;
--			ew16flash(ICH_FLASH_HSFCTL, hsflctl.regval);
-+			if (hw->mac.type == e1000_pch_spt)
-+				ew32flash(ICH_FLASH_HSFSTS,
-+					  hsflctl.regval << 16);
-+			else
-+				ew16flash(ICH_FLASH_HSFCTL, hsflctl.regval);
++	do {
++		struct i40e_rx_buffer *rx_bi;
++		struct sk_buff *skb;
++		u16 vlan_tag;
+ 		/* return some buffers to hardware, one at a time is too slow */
+ 		if (cleaned_count >= I40E_RX_BUFFER_WRITE) {
+-			i40evf_alloc_rx_buffers(rx_ring, cleaned_count);
++			i40evf_alloc_rx_buffers_1buf(rx_ring, cleaned_count);
+ 			cleaned_count = 0;
+ 		}
  
- 			/* Write the last 24 bits of an index within the
- 			 * block into Flash Linear address field in Flash
-@@ -4180,7 +4777,8 @@ static void e1000_initialize_hw_bits_ich8lan(struct e1000_hw *hw)
- 	ew32(RFCTL, reg);
- 
- 	/* Enable ECC on Lynxpoint */
--	if (hw->mac.type == e1000_pch_lpt) {
-+	if ((hw->mac.type == e1000_pch_lpt) ||
-+	    (hw->mac.type == e1000_pch_spt)) {
- 		reg = er32(PBECCSTS);
- 		reg |= E1000_PBECCSTS_ECC_ENABLE;
- 		ew32(PBECCSTS, reg);
-@@ -4583,7 +5181,8 @@ void e1000_suspend_workarounds_ich8lan(struct e1000_hw *hw)
- 		if ((device_id == E1000_DEV_ID_PCH_LPTLP_I218_LM) ||
- 		    (device_id == E1000_DEV_ID_PCH_LPTLP_I218_V) ||
- 		    (device_id == E1000_DEV_ID_PCH_I218_LM3) ||
--		    (device_id == E1000_DEV_ID_PCH_I218_V3)) {
-+		    (device_id == E1000_DEV_ID_PCH_I218_V3) ||
-+		    (hw->mac.type == e1000_pch_spt)) {
- 			u32 fextnvm6 = er32(FEXTNVM6);
- 
- 			ew32(FEXTNVM6, fextnvm6 & ~E1000_FEXTNVM6_REQ_PLL_CLK);
-@@ -5058,6 +5657,17 @@ static const struct e1000_nvm_operations ich8_nvm_ops = {
- 	.write			= e1000_write_nvm_ich8lan,
- };
- 
-+static const struct e1000_nvm_operations spt_nvm_ops = {
-+	.acquire		= e1000_acquire_nvm_ich8lan,
-+	.release		= e1000_release_nvm_ich8lan,
-+	.read			= e1000_read_nvm_spt,
-+	.update			= e1000_update_nvm_checksum_spt,
-+	.reload			= e1000e_reload_nvm_generic,
-+	.valid_led_default	= e1000_valid_led_default_ich8lan,
-+	.validate		= e1000_validate_nvm_checksum_ich8lan,
-+	.write			= e1000_write_nvm_ich8lan,
-+};
+-		/* use prefetched values */
+-		rx_desc = next_rxd;
++		i = rx_ring->next_to_clean;
++		rx_desc = I40E_RX_DESC(rx_ring, i);
+ 		qword = le64_to_cpu(rx_desc->wb.qword1.status_error_len);
+ 		rx_status = (qword & I40E_RXD_QW1_STATUS_MASK) >>
+-			    I40E_RXD_QW1_STATUS_SHIFT;
+-	}
++			I40E_RXD_QW1_STATUS_SHIFT;
 +
- const struct e1000_info e1000_ich8_info = {
- 	.mac			= e1000_ich8lan,
- 	.flags			= FLAG_HAS_WOL
-@@ -5166,3 +5776,23 @@ const struct e1000_info e1000_pch_lpt_info = {
- 	.phy_ops		= &ich8_phy_ops,
- 	.nvm_ops		= &ich8_nvm_ops,
- };
++		if (!(rx_status & (1 << I40E_RX_DESC_STATUS_DD_SHIFT)))
++			break;
 +
-+const struct e1000_info e1000_pch_spt_info = {
-+	.mac			= e1000_pch_spt,
-+	.flags			= FLAG_IS_ICH
-+				  | FLAG_HAS_WOL
-+				  | FLAG_HAS_HW_TIMESTAMP
-+				  | FLAG_HAS_CTRLEXT_ON_LOAD
-+				  | FLAG_HAS_AMT
-+				  | FLAG_HAS_FLASH
-+				  | FLAG_HAS_JUMBO_FRAMES
-+				  | FLAG_APME_IN_WUC,
-+	.flags2			= FLAG2_HAS_PHY_STATS
-+				  | FLAG2_HAS_EEE,
-+	.pba			= 26,
-+	.max_hw_frame_size	= 9018,
-+	.get_variants		= e1000_get_variants_ich8lan,
-+	.mac_ops		= &ich8_mac_ops,
-+	.phy_ops		= &ich8_phy_ops,
-+	.nvm_ops		= &spt_nvm_ops,
-+};
-diff --git a/drivers/net/ethernet/intel/e1000e/ich8lan.h b/drivers/net/ethernet/intel/e1000e/ich8lan.h
-index 8066a49..770a573 100644
---- a/drivers/net/ethernet/intel/e1000e/ich8lan.h
-+++ b/drivers/net/ethernet/intel/e1000e/ich8lan.h
-@@ -95,9 +95,18 @@
- 
- #define E1000_FEXTNVM6_REQ_PLL_CLK	0x00000100
- #define E1000_FEXTNVM6_ENABLE_K1_ENTRY_CONDITION	0x00000200
-+#define E1000_FEXTNVM6_K1_OFF_ENABLE	0x80000000
-+/* bit for disabling packet buffer read */
-+#define E1000_FEXTNVM7_DISABLE_PB_READ	0x00040000
- 
- #define E1000_FEXTNVM7_DISABLE_SMB_PERST	0x00000020
- 
-+#define K1_ENTRY_LATENCY	0
-+#define K1_MIN_TIME		1
-+#define NVM_SIZE_MULTIPLIER 4096	/*multiplier for NVMS field */
-+#define E1000_FLASH_BASE_ADDR 0xE000	/*offset of NVM access regs */
-+#define E1000_CTRL_EXT_NVMVS 0x3	/*NVM valid sector */
++		/* This memory barrier is needed to keep us from reading
++		 * any other fields out of the rx_desc until we know the
++		 * DD bit is set.
++		 */
++		rmb();
 +
- #define PCIE_ICH8_SNOOP_ALL	PCIE_NO_SNOOP_ALL
- 
- #define E1000_ICH_RAR_ENTRIES	7
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index 1e8c40f..6fa4fc0 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -70,6 +70,7 @@ static const struct e1000_info *e1000_info_tbl[] = {
- 	[board_pchlan]		= &e1000_pch_info,
- 	[board_pch2lan]		= &e1000_pch2_info,
- 	[board_pch_lpt]		= &e1000_pch_lpt_info,
-+	[board_pch_spt]		= &e1000_pch_spt_info,
- };
- 
- struct e1000_reg_info {
-@@ -1796,7 +1797,8 @@ static irqreturn_t e1000_intr_msi(int __always_unused irq, void *data)
- 	}
- 
- 	/* Reset on uncorrectable ECC error */
--	if ((icr & E1000_ICR_ECCER) && (hw->mac.type == e1000_pch_lpt)) {
-+	if ((icr & E1000_ICR_ECCER) && ((hw->mac.type == e1000_pch_lpt) ||
-+					(hw->mac.type == e1000_pch_spt))) {
- 		u32 pbeccsts = er32(PBECCSTS);
- 
- 		adapter->corr_errors +=
-@@ -1876,7 +1878,8 @@ static irqreturn_t e1000_intr(int __always_unused irq, void *data)
- 	}
- 
- 	/* Reset on uncorrectable ECC error */
--	if ((icr & E1000_ICR_ECCER) && (hw->mac.type == e1000_pch_lpt)) {
-+	if ((icr & E1000_ICR_ECCER) && ((hw->mac.type == e1000_pch_lpt) ||
-+					(hw->mac.type == e1000_pch_spt))) {
- 		u32 pbeccsts = er32(PBECCSTS);
- 
- 		adapter->corr_errors +=
-@@ -2257,7 +2260,8 @@ static void e1000_irq_enable(struct e1000_adapter *adapter)
- 	if (adapter->msix_entries) {
- 		ew32(EIAC_82574, adapter->eiac_mask & E1000_EIAC_MASK_82574);
- 		ew32(IMS, adapter->eiac_mask | E1000_IMS_OTHER | E1000_IMS_LSC);
--	} else if (hw->mac.type == e1000_pch_lpt) {
-+	} else if ((hw->mac.type == e1000_pch_lpt) ||
-+		   (hw->mac.type == e1000_pch_spt)) {
- 		ew32(IMS, IMS_ENABLE_MASK | E1000_IMS_ECCER);
- 	} else {
- 		ew32(IMS, IMS_ENABLE_MASK);
-@@ -3014,6 +3018,19 @@ static void e1000_configure_tx(struct e1000_adapter *adapter)
- 	ew32(TCTL, tctl);
- 
- 	hw->mac.ops.config_collision_dist(hw);
++		rx_bi = &rx_ring->rx_bi[i];
++		skb = rx_bi->skb;
++		prefetch(skb->data);
 +
-+	/* SPT Si errata workaround to avoid data corruption */
-+	if (hw->mac.type == e1000_pch_spt) {
-+		u32 reg_val;
++		rx_packet_len = (qword & I40E_RXD_QW1_LENGTH_PBUF_MASK) >>
++				I40E_RXD_QW1_LENGTH_PBUF_SHIFT;
 +
-+		reg_val = er32(IOSFPC);
-+		reg_val |= E1000_RCTL_RDMTS_HEX;
-+		ew32(IOSFPC, reg_val);
++		rx_error = (qword & I40E_RXD_QW1_ERROR_MASK) >>
++			   I40E_RXD_QW1_ERROR_SHIFT;
++		rx_error &= ~(1 << I40E_RX_DESC_ERROR_HBO_SHIFT);
 +
-+		reg_val = er32(TARC(0));
-+		reg_val |= E1000_TARC0_CB_MULTIQ_3_REQ;
-+		ew32(TARC(0), reg_val);
-+	}
++		rx_ptype = (qword & I40E_RXD_QW1_PTYPE_MASK) >>
++			   I40E_RXD_QW1_PTYPE_SHIFT;
++		rx_bi->skb = NULL;
++		cleaned_count++;
++
++		/* Get the header and possibly the whole packet
++		 * If this is an skb from previous receive dma will be 0
++		 */
++		skb_put(skb, rx_packet_len);
++		dma_unmap_single(rx_ring->dev, rx_bi->dma, rx_ring->rx_buf_len,
++				 DMA_FROM_DEVICE);
++		rx_bi->dma = 0;
++
++		I40E_RX_INCREMENT(rx_ring, i);
++
++		if (unlikely(
++		    !(rx_status & (1 << I40E_RX_DESC_STATUS_EOF_SHIFT)))) {
++			rx_ring->rx_stats.non_eop_descs++;
++			continue;
++		}
++
++		/* ERR_MASK will only have valid bits if EOP set */
++		if (unlikely(rx_error & (1 << I40E_RX_DESC_ERROR_RXE_SHIFT))) {
++			dev_kfree_skb_any(skb);
++			/* TODO: shouldn't we increment a counter indicating the
++			 * drop?
++			 */
++			continue;
++		}
++
++		skb_set_hash(skb, i40e_rx_hash(rx_ring, rx_desc),
++			     i40e_ptype_to_hash(rx_ptype));
++		/* probably a little skewed due to removing CRC */
++		total_rx_bytes += skb->len;
++		total_rx_packets++;
++
++		skb->protocol = eth_type_trans(skb, rx_ring->netdev);
++
++		i40e_rx_checksum(vsi, skb, rx_status, rx_error, rx_ptype);
++
++		vlan_tag = rx_status & (1 << I40E_RX_DESC_STATUS_L2TAG1P_SHIFT)
++			 ? le16_to_cpu(rx_desc->wb.qword0.lo_dword.l2tag1)
++			 : 0;
++		i40e_receive_skb(rx_ring, skb, vlan_tag);
++
++		rx_ring->netdev->last_rx = jiffies;
++		rx_desc->wb.qword1.status_error_len = 0;
++	} while (likely(total_rx_packets < budget));
+ 
+-	rx_ring->next_to_clean = i;
+ 	u64_stats_update_begin(&rx_ring->syncp);
+ 	rx_ring->stats.packets += total_rx_packets;
+ 	rx_ring->stats.bytes += total_rx_bytes;
+@@ -1073,10 +1268,7 @@ next_desc:
+ 	rx_ring->q_vector->rx.total_packets += total_rx_packets;
+ 	rx_ring->q_vector->rx.total_bytes += total_rx_bytes;
+ 
+-	if (cleaned_count)
+-		i40evf_alloc_rx_buffers(rx_ring, cleaned_count);
+-
+-	return budget > 0;
++	return total_rx_packets;
  }
  
  /**
-@@ -3490,8 +3507,11 @@ s32 e1000e_get_base_timinca(struct e1000_adapter *adapter, u32 *timinca)
- 	struct e1000_hw *hw = &adapter->hw;
- 	u32 incvalue, incperiod, shift;
+@@ -1097,6 +1289,7 @@ int i40evf_napi_poll(struct napi_struct *napi, int budget)
+ 	bool clean_complete = true;
+ 	bool arm_wb = false;
+ 	int budget_per_ring;
++	int cleaned;
  
--	/* Make sure clock is enabled on I217 before checking the frequency */
--	if ((hw->mac.type == e1000_pch_lpt) &&
-+	/* Make sure clock is enabled on I217/I218/I219  before checking
-+	 * the frequency
-+	 */
-+	if (((hw->mac.type == e1000_pch_lpt) ||
-+	     (hw->mac.type == e1000_pch_spt)) &&
- 	    !(er32(TSYNCTXCTL) & E1000_TSYNCTXCTL_ENABLED) &&
- 	    !(er32(TSYNCRXCTL) & E1000_TSYNCRXCTL_ENABLED)) {
- 		u32 fextnvm7 = er32(FEXTNVM7);
-@@ -3505,10 +3525,13 @@ s32 e1000e_get_base_timinca(struct e1000_adapter *adapter, u32 *timinca)
- 	switch (hw->mac.type) {
- 	case e1000_pch2lan:
- 	case e1000_pch_lpt:
--		/* On I217, the clock frequency is 25MHz or 96MHz as
--		 * indicated by the System Clock Frequency Indication
-+	case e1000_pch_spt:
-+		/* On I217, I218 and I219, the clock frequency is 25MHz
-+		 * or 96MHz as indicated by the System Clock Frequency
-+		 * Indication
- 		 */
--		if ((hw->mac.type != e1000_pch_lpt) ||
-+		if (((hw->mac.type != e1000_pch_lpt) &&
-+		     (hw->mac.type != e1000_pch_spt)) ||
- 		    (er32(TSYNCRXCTL) & E1000_TSYNCRXCTL_SYSCFI)) {
- 			/* Stable 96MHz frequency */
- 			incperiod = INCPERIOD_96MHz;
-@@ -3875,6 +3898,7 @@ void e1000e_reset(struct e1000_adapter *adapter)
- 		break;
- 	case e1000_pch2lan:
- 	case e1000_pch_lpt:
-+	case e1000_pch_spt:
- 		fc->refresh_time = 0x0400;
+ 	if (test_bit(__I40E_DOWN, &vsi->state)) {
+ 		napi_complete(napi);
+@@ -1116,8 +1309,14 @@ int i40evf_napi_poll(struct napi_struct *napi, int budget)
+ 	 */
+ 	budget_per_ring = max(budget/q_vector->num_ringpairs, 1);
  
- 		if (adapter->netdev->mtu <= ETH_DATA_LEN) {
-@@ -4759,7 +4783,8 @@ static void e1000e_update_stats(struct e1000_adapter *adapter)
- 	adapter->stats.mgpdc += er32(MGTPDC);
+-	i40e_for_each_ring(ring, q_vector->rx)
+-		clean_complete &= i40e_clean_rx_irq(ring, budget_per_ring);
++	i40e_for_each_ring(ring, q_vector->rx) {
++		if (ring_is_ps_enabled(ring))
++			cleaned = i40e_clean_rx_irq_ps(ring, budget_per_ring);
++		else
++			cleaned = i40e_clean_rx_irq_1buf(ring, budget_per_ring);
++		/* if we didn't clean as many as budgeted, we must be done */
++		clean_complete &= (budget_per_ring != cleaned);
++	}
  
- 	/* Correctable ECC Errors */
--	if (hw->mac.type == e1000_pch_lpt) {
-+	if ((hw->mac.type == e1000_pch_lpt) ||
-+	    (hw->mac.type == e1000_pch_spt)) {
- 		u32 pbeccsts = er32(PBECCSTS);
+ 	/* If work not completed, return budget and polling will return */
+ 	if (!clean_complete) {
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.h b/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
+index 4e15903..ffdda71 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
++++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
+@@ -96,6 +96,14 @@ enum i40e_dyn_idx_t {
  
- 		adapter->corr_errors +=
-@@ -6144,7 +6169,8 @@ static int __e1000_shutdown(struct pci_dev *pdev, bool runtime)
+ /* How many Rx Buffers do we bundle into one write to the hardware ? */
+ #define I40E_RX_BUFFER_WRITE	16	/* Must be power of 2 */
++#define I40E_RX_INCREMENT(r, i) \
++	do {					\
++		(i)++;				\
++		if ((i) == (r)->count)		\
++			i = 0;			\
++		r->next_to_clean = i;		\
++	} while (0)
++
+ #define I40E_RX_NEXT_DESC(r, i, n)		\
+ 	do {					\
+ 		(i)++;				\
+@@ -150,6 +158,7 @@ struct i40e_tx_buffer {
  
- 	if (adapter->hw.phy.type == e1000_phy_igp_3) {
- 		e1000e_igp3_phy_powerdown_workaround_ich8lan(&adapter->hw);
--	} else if (hw->mac.type == e1000_pch_lpt) {
-+	} else if ((hw->mac.type == e1000_pch_lpt) ||
-+		   (hw->mac.type == e1000_pch_spt)) {
- 		if (!(wufc & (E1000_WUFC_EX | E1000_WUFC_MC | E1000_WUFC_BC)))
- 			/* ULP does not support wake from unicast, multicast
- 			 * or broadcast.
-@@ -7213,6 +7239,10 @@ static const struct pci_device_id e1000_pci_tbl[] = {
- 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_PCH_I218_V2), board_pch_lpt },
- 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_PCH_I218_LM3), board_pch_lpt },
- 	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_PCH_I218_V3), board_pch_lpt },
-+	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_PCH_SPT_I219_LM), board_pch_spt },
-+	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_PCH_SPT_I219_V), board_pch_spt },
-+	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_PCH_SPT_I219_LM2), board_pch_spt },
-+	{ PCI_VDEVICE(INTEL, E1000_DEV_ID_PCH_SPT_I219_V2), board_pch_spt },
+ struct i40e_rx_buffer {
+ 	struct sk_buff *skb;
++	void *hdr_buf;
+ 	dma_addr_t dma;
+ 	struct page *page;
+ 	dma_addr_t page_dma;
+@@ -222,8 +231,8 @@ struct i40e_ring {
+ 	u16 rx_buf_len;
+ 	u8  dtype;
+ #define I40E_RX_DTYPE_NO_SPLIT      0
+-#define I40E_RX_DTYPE_SPLIT_ALWAYS  1
+-#define I40E_RX_DTYPE_HEADER_SPLIT  2
++#define I40E_RX_DTYPE_HEADER_SPLIT  1
++#define I40E_RX_DTYPE_SPLIT_ALWAYS  2
+ 	u8  hsplit;
+ #define I40E_RX_SPLIT_L2      0x1
+ #define I40E_RX_SPLIT_IP      0x2
+@@ -277,7 +286,9 @@ struct i40e_ring_container {
+ #define i40e_for_each_ring(pos, head) \
+ 	for (pos = (head).ring; pos != NULL; pos = pos->next)
  
- 	{ 0, 0, 0, 0, 0, 0, 0 }	/* terminate list */
- };
-diff --git a/drivers/net/ethernet/intel/e1000e/ptp.c b/drivers/net/ethernet/intel/e1000e/ptp.c
-index 978ef9c..1490f1e 100644
---- a/drivers/net/ethernet/intel/e1000e/ptp.c
-+++ b/drivers/net/ethernet/intel/e1000e/ptp.c
-@@ -221,7 +221,9 @@ void e1000e_ptp_init(struct e1000_adapter *adapter)
- 	switch (hw->mac.type) {
- 	case e1000_pch2lan:
- 	case e1000_pch_lpt:
--		if ((hw->mac.type != e1000_pch_lpt) ||
-+	case e1000_pch_spt:
-+		if (((hw->mac.type != e1000_pch_lpt) &&
-+		     (hw->mac.type != e1000_pch_spt)) ||
- 		    (er32(TSYNCRXCTL) & E1000_TSYNCRXCTL_SYSCFI)) {
- 			adapter->ptp_clock_info.max_adj = 24000000 - 1;
- 			break;
-diff --git a/drivers/net/ethernet/intel/e1000e/regs.h b/drivers/net/ethernet/intel/e1000e/regs.h
-index ea235bb..85eefc4 100644
---- a/drivers/net/ethernet/intel/e1000e/regs.h
-+++ b/drivers/net/ethernet/intel/e1000e/regs.h
-@@ -38,6 +38,7 @@
- #define E1000_FEXTNVM4	0x00024	/* Future Extended NVM 4 - RW */
- #define E1000_FEXTNVM6	0x00010	/* Future Extended NVM 6 - RW */
- #define E1000_FEXTNVM7	0x000E4	/* Future Extended NVM 7 - RW */
-+#define E1000_PCIEANACFG	0x00F18	/* PCIE Analog Config */
- #define E1000_FCT	0x00030	/* Flow Control Type - RW */
- #define E1000_VET	0x00038	/* VLAN Ether Type - RW */
- #define E1000_ICR	0x000C0	/* Interrupt Cause Read - R/clr */
-@@ -67,6 +68,7 @@
- #define E1000_PBA	0x01000	/* Packet Buffer Allocation - RW */
- #define E1000_PBS	0x01008	/* Packet Buffer Size */
- #define E1000_PBECCSTS	0x0100C	/* Packet Buffer ECC Status - RW */
-+#define E1000_IOSFPC	0x00F28	/* TX corrupted data  */
- #define E1000_EEMNGCTL	0x01010	/* MNG EEprom Control */
- #define E1000_EEWR	0x0102C	/* EEPROM Write Register - RW */
- #define E1000_FLOP	0x0103C	/* FLASH Opcode Register */
-@@ -121,6 +123,7 @@
- 				 (0x054E4 + ((_i - 16) * 8)))
- #define E1000_SHRAL(_i)		(0x05438 + ((_i) * 8))
- #define E1000_SHRAH(_i)		(0x0543C + ((_i) * 8))
-+#define E1000_TARC0_CB_MULTIQ_3_REQ	(1 << 28 | 1 << 29)
- #define E1000_TDFH		0x03410	/* Tx Data FIFO Head - RW */
- #define E1000_TDFT		0x03418	/* Tx Data FIFO Tail - RW */
- #define E1000_TDFHS		0x03420	/* Tx Data FIFO Head Saved - RW */
+-void i40evf_alloc_rx_buffers(struct i40e_ring *rxr, u16 cleaned_count);
++void i40evf_alloc_rx_buffers_ps(struct i40e_ring *rxr, u16 cleaned_count);
++void i40evf_alloc_rx_buffers_1buf(struct i40e_ring *rxr, u16 cleaned_count);
++void i40evf_alloc_rx_headers(struct i40e_ring *rxr);
+ netdev_tx_t i40evf_xmit_frame(struct sk_buff *skb, struct net_device *netdev);
+ void i40evf_clean_tx_ring(struct i40e_ring *tx_ring);
+ void i40evf_clean_rx_ring(struct i40e_ring *rx_ring);
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+index 8d8c201..4f079e0 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+@@ -920,7 +920,7 @@ static void i40evf_configure(struct i40evf_adapter *adapter)
+ 	for (i = 0; i < adapter->num_active_queues; i++) {
+ 		struct i40e_ring *ring = adapter->rx_rings[i];
+ 
+-		i40evf_alloc_rx_buffers(ring, ring->count);
++		i40evf_alloc_rx_buffers_1buf(ring, ring->count);
+ 		ring->next_to_use = ring->count - 1;
+ 		writel(ring->next_to_use, ring->tail);
+ 	}
 -- 
 1.9.3
