@@ -1,87 +1,59 @@
-From: Andy Shevchenko <andriy.shevchenko-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Subject: Re: [PATCH v3 3/3] lib/string_helpers.c: Change semantics of
- string_escape_mem
-Date: Mon, 23 Feb 2015 14:50:20 +0200
-Message-ID: <1424695820.14897.10.camel@linux.intel.com>
-References: <1422525801-26560-1-git-send-email-linux@rasmusvillemoes.dk>
-	 <1423525491-12613-1-git-send-email-linux@rasmusvillemoes.dk>
-	 <1423525491-12613-4-git-send-email-linux@rasmusvillemoes.dk>
-	 <1423571552.31903.468.camel@linux.intel.com>
-	 <87386dj4x0.fsf@rasmusvillemoes.dk>
-	 <1423578150.31903.480.camel@linux.intel.com>
-	 <87oaoo59n2.fsf@rasmusvillemoes.dk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
-	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Rasmus Villemoes <linux-qQsb+v5E8BnlAoU/VqSP6n9LOBIZ5rWg@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <87oaoo59n2.fsf-qQsb+v5E8BnlAoU/VqSP6n9LOBIZ5rWg@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net] team: fix possible null pointer dereference in team_handle_frame
+Date: Mon, 23 Feb 2015 14:02:54 +0100
+Message-ID: <1424696574-6590-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f179.google.com ([74.125.82.179]:38222 "EHLO
+	mail-we0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752028AbbBWNC6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Feb 2015 08:02:58 -0500
+Received: by wesw55 with SMTP id w55so17878715wes.5
+        for <netdev@vger.kernel.org>; Mon, 23 Feb 2015 05:02:57 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2015-02-21 at 02:35 +0100, Rasmus Villemoes wrote:
-> On Tue, Feb 10 2015, Andy Shevchenko <andriy.shevchenko-VuQAYsv1563Yd54FQh9/CA@public.gmane.org> wrote:
+Currently following race is possible in team:
 
-> >> >> @@ -301,29 +301,26 @@ static __init void test_string_escape(const char *name,
-> >> >>  		q_test += len;
-> >> >>  	}
-> >> >>  
-> >> >> -	q_real = string_escape_mem(in, p, &buf, q_real, flags, esc);
-> >> >> +	q_real = string_escape_mem(in, p, out_real, out_size, flags, esc);
-> >> >>  
-> >> >>  	test_string_check_buf(name, flags, in, p, out_real, q_real, out_test,
-> >> >>  			      q_test);
-> >> >> +
-> >> >> +	memset(out_real, 'Z', out_size);
-> >> >> +	q_real = string_escape_mem(in, p, out_real, 0, flags, esc);
-> >> >> +	if (q_real != q_test)
-> >> >> +		pr_warn("Test '%s' failed: flags = %u, osz = 0, expected %d, got %d\n",
-> >> >> +			name, flags, q_test, q_real);
-> >> >> +	if (memchr_inv(out_real, 'Z', out_size))
-> >> >> +		pr_warn("Test '%s' failed: osz = 0 but string_escape_mem wrote to the buffer\n",
-> >> >> +			name);
-> >> >> +
-> >> >
-> >> > So, why couldn't we split this to separate test case? It seems I already
-> >> > pointed this out.
-> >> >
-> >> 
-> >> This actually provides better coverage
-> >
-> > I do not see much advantage of doing so. You may create a loop with
-> > random number for in-size and check. So, I prefer to see separate case
-> > for that.
-> 
-> It's not about the size, it's about exercising all the various escape_*
-> helpers, to ensure that they all respect the end of the buffer, while
-> still returning the correct would-be output size. For that, one needs to
-> call string_escape_mem with various combinations of flags and input
-> buffers. The logic for that is already in place in test_string_escape
-> and its caller, and I see no point in duplicating all that.
+CPU0                                        CPU1
+                                            team_port_del
+                                              team_upper_dev_unlink
+                                                priv_flags &= ~IFF_TEAM_PORT
+team_handle_frame
+  team_port_get_rcu
+    team_port_exists
+      priv_flags & IFF_TEAM_PORT == 0
+    return NULL (instead of port got
+                 from rx_handler_data)
+                                              netdev_rx_handler_unregister
 
-Thanks for clarification.
+The thing is that the flag is removed before rx_handler is unregistered.
+If team_handle_frame is called in between, team_port_exists returns 0
+and team_port_get_rcu will return NULL.
+So do not check the flag here. It is guaranteed by netdev_rx_handler_unregister
+that team_handle_frame will always see valid rx_handler_data pointer.
 
-> If you insist on a separate function for doing the overflow testing,
-> I'll just rip it out from my code and let you add such a test later.
+Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+Fixes: 3d249d4ca7d0 ("net: introduce ethernet teaming device")
+---
+ drivers/net/team/team.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
 
-What about to make it a separate function *and* call from inside of
-test_string_escape? Would it work for you?
-
-> I've updated 2/3 with the early returns you suggested, but I'll wait a
-> little before sending out a v4.
-
-
+diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
+index 0e62274..f1ee71e 100644
+--- a/drivers/net/team/team.c
++++ b/drivers/net/team/team.c
+@@ -43,9 +43,7 @@
+ 
+ static struct team_port *team_port_get_rcu(const struct net_device *dev)
+ {
+-	struct team_port *port = rcu_dereference(dev->rx_handler_data);
+-
+-	return team_port_exists(dev) ? port : NULL;
++	return rcu_dereference(dev->rx_handler_data);
+ }
+ 
+ static struct team_port *team_port_get_rtnl(const struct net_device *dev)
 -- 
-Andy Shevchenko <andriy.shevchenko-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Intel Finland Oy
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+1.9.3
