@@ -1,38 +1,46 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: repository for switch hardware info
-Date: Mon, 23 Feb 2015 08:19:34 -0500
-Message-ID: <54EB28E6.9050608@mojatatu.com>
-References: <20150222.160345.141886361578055811.davem@davemloft.net> <20150222214032.GB16675@lunn.ch> <20150223085731.GB5405@netboy>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH RFC 1/2] net: dsa: integrate with SWITCHDEV for HW
+ bridging
+Date: Mon, 23 Feb 2015 14:34:54 +0100
+Message-ID: <20150223133454.GB23581@lunn.ch>
+References: <1424201196-4901-1-git-send-email-f.fainelli@gmail.com>
+ <1424201196-4901-2-git-send-email-f.fainelli@gmail.com>
+ <54EA8E7C.90401@roeck-us.net>
+ <20150223031447.GA19267@lunn.ch>
+ <54EAA767.6060105@roeck-us.net>
+ <20150223042220.GA20063@lunn.ch>
+ <54EAAEBC.6080609@roeck-us.net>
+ <CAGVrzcYnuV6raXSrAETctwX5dwX3S=2-=ySewCFdx=iM7bPaDg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Richard Cochran <richardcochran@gmail.com>,
-	Andrew Lunn <andrew@lunn.ch>
+Content-Type: text/plain; charset=us-ascii
+Cc: Guenter Roeck <linux@roeck-us.net>,
+	netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+	jerome.oufella@savoirfairelinux.com,
+	Chris Healy <cphealy@gmail.com>
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f175.google.com ([209.85.213.175]:62121 "EHLO
-	mail-ig0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751661AbbBWNTi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Feb 2015 08:19:38 -0500
-Received: by mail-ig0-f175.google.com with SMTP id hn18so17911305igb.2
-        for <netdev@vger.kernel.org>; Mon, 23 Feb 2015 05:19:38 -0800 (PST)
-In-Reply-To: <20150223085731.GB5405@netboy>
+Received: from vps0.lunn.ch ([178.209.37.122]:47646 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751055AbbBWNhx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Feb 2015 08:37:53 -0500
+Content-Disposition: inline
+In-Reply-To: <CAGVrzcYnuV6raXSrAETctwX5dwX3S=2-=ySewCFdx=iM7bPaDg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/23/15 03:57, Richard Cochran wrote:
-> On Sun, Feb 22, 2015 at 10:40:32PM +0100, Andrew Lunn wrote:
->> Marvell also have reference code, which is GPL, but is the usual
->> vendor quality. There does not appear to be an official Marvell
->> location for it, but there are a few copies lying around, e.g:
->
-> Strangely, it appears that you need to sign an NDA in order to gain
-> access to the GPL'ed driver sources.  Go figure.
->
+> BTW, before I re-submit this patch series, do you think we should
+> introduce a fdb_flush() callback that switch drivers are required to
+> implement, and invoke it from net/dsa/slave.c upon port join/leave?
 
-Dave, info like this may also be useful to have on the page.
-None of the broadcom or others i am using allow for any access
-without NDA (even though some have GPL drivers).
+Probably a good idea.
 
-cheers,
-jamal
+We should define exactly what is flushed. Everything? Or only dynamic
+entries? The Marvell hardware can also have multicast addresses in its
+tables, which can age, or static unicast and multicast entries.
+
+I guess at some point, somebody will start thinking about IGMP
+snooping and then we might need separated operations.
+
+	Andrew
