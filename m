@@ -1,102 +1,73 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH RFC 1/2] net: dsa: integrate with SWITCHDEV for HW
- bridging
-Date: Mon, 23 Feb 2015 04:14:47 +0100
-Message-ID: <20150223031447.GA19267@lunn.ch>
-References: <1424201196-4901-1-git-send-email-f.fainelli@gmail.com>
- <1424201196-4901-2-git-send-email-f.fainelli@gmail.com>
- <54EA8E7C.90401@roeck-us.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org,
-	davem@davemloft.net, vivien.didelot@savoirfairelinux.com,
-	jerome.oufella@savoirfairelinux.com, cphealy@gmail.com
-To: Guenter Roeck <linux@roeck-us.net>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 03/16] igbvf: cleanup msleep() and min/max() usage
+Date: Sun, 22 Feb 2015 19:25:31 -0800
+Message-ID: <1424661944-1779-4-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1424661944-1779-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:47410 "EHLO vps0.lunn.ch"
+Received: from mga01.intel.com ([192.55.52.88]:3457 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752121AbbBWDRr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 22 Feb 2015 22:17:47 -0500
-Content-Disposition: inline
-In-Reply-To: <54EA8E7C.90401@roeck-us.net>
+	id S1752152AbbBWDZw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 22 Feb 2015 22:25:52 -0500
+In-Reply-To: <1424661944-1779-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Feb 22, 2015 at 06:20:44PM -0800, Guenter Roeck wrote:
-> On 02/17/2015 11:26 AM, Florian Fainelli wrote:
-> >In order to support bridging offloads in DSA switch drivers, select
-> >NET_SWITCHDEV to get access to the port_stp_update and parent_get_id
-> >NDOs that we are required to implement.
-> >
-> >To facilitate the integratation at the DSA driver level, we implement 3
-> >types of operations:
-> >
-> 
-> Hi Florian,
-> 
-> >
-> >+/* Return a bitmask of all ports being currently bridged. Note that on
-> >+ * leave, the mask will still return the bitmask of ports currently bridged,
-> >+ * prior to port removal, and this is exactly what we want.
-> >+ */
-> >+static u32 dsa_slave_br_port_mask(struct dsa_switch *ds)
-> >+{
-> >+	unsigned int port;
-> >+	u32 mask = 0;
-> >+
-> >+	for (port = 0; port < DSA_MAX_PORTS; port++) {
-> >+		if (!((1 << port) & ds->phys_port_mask))
-> >+			continue;
-> >+
-> >+		if (ds->ports[port]->priv_flags & IFF_BRIDGE_PORT)
-> >+			mask |= 1 << port;
-> 
-> Problem is that the function can be called through dsa_slave_netdevice_event
-> before the slave devices are fully initialized.
-> 
-> After adding
-> 
-> +               if (!ds->ports[port]) {
-> +                       netdev_err(bridge,
-> +                                  "No ports data for port %d, mask=0x%x\n",
-> +                                  port, ds->phys_port_mask);
-> +                       continue;
-> +               }
-> 
-> and with some more debug messages added to dsa_switch_setup(), I see the following.
-> 
-> [   14.187290] e1000e 0000:00:19.0 em1: [0]: Creating slave device for port 1(port1)
-> [   14.272605] e1000e 0000:00:19.0 em1: [0]: Creating slave device for port 2(port2)
-> [   14.353118] e1000e 0000:00:19.0 em1: [0]: Creating slave device for port 3(port3)
-> [   14.472002] br0: No ports data for port 3, mask=0x1e
-> [   14.472053] br0: No ports data for port 4, mask=0x1e
-> [   14.472753] e1000e 0000:00:19.0 em1: [0]: Creating slave device for port 4(host2esb)
-> 
-> This happens if I add the bridge configuration to /etc/network/interfaces instead
-> of creating the bridge manually. Apparently dsa_switch_setup() is not yet complete
-> when dsa_slave_netdevice_event is executed to handle a state change on one of its
-> newly created slave interfaces.
-> 
-> The relevant information from /etc/network/interfaces is:
-> 
-> auto br0
-> 
-> iface port1 inet manual
-> iface port2 inet manual
-> 
-> iface br0 inet dhcp
-> 	bridge_ports port1 port2
+Fixed a few cases of when we used msleep() when we should have been
+using usleep_range().  Also updated the usage of min/max() to use
+min_t/max_t().
 
-Hi Guenter
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+---
+ drivers/net/ethernet/intel/igbvf/ethtool.c | 10 +++++-----
+ drivers/net/ethernet/intel/igbvf/netdev.c  |  2 +-
+ 2 files changed, 6 insertions(+), 6 deletions(-)
 
-Does this actually matter? The ports which don't exists yet are not
-being added to the bridge. The mask will come out correct. What
-happens when port4 is made a member of the bridge? I expect it
-works. It is the creation of the interface which triggers hotplug to
-read interfaces and add the interface to the port.
-
-It might however be a good idea to document somewhere that each
-interface should be configured without assuming anything about the
-state of other interfaces.
-
-     Andrew
+diff --git a/drivers/net/ethernet/intel/igbvf/ethtool.c b/drivers/net/ethernet/intel/igbvf/ethtool.c
+index 91a1190..c6996fe 100644
+--- a/drivers/net/ethernet/intel/igbvf/ethtool.c
++++ b/drivers/net/ethernet/intel/igbvf/ethtool.c
+@@ -224,12 +224,12 @@ static int igbvf_set_ringparam(struct net_device *netdev,
+ 	if ((ring->rx_mini_pending) || (ring->rx_jumbo_pending))
+ 		return -EINVAL;
+ 
+-	new_rx_count = max(ring->rx_pending, (u32)IGBVF_MIN_RXD);
+-	new_rx_count = min(new_rx_count, (u32)IGBVF_MAX_RXD);
++	new_rx_count = max_t(u32, ring->rx_pending, IGBVF_MIN_RXD);
++	new_rx_count = min_t(u32, new_rx_count, IGBVF_MAX_RXD);
+ 	new_rx_count = ALIGN(new_rx_count, REQ_RX_DESCRIPTOR_MULTIPLE);
+ 
+-	new_tx_count = max(ring->tx_pending, (u32)IGBVF_MIN_TXD);
+-	new_tx_count = min(new_tx_count, (u32)IGBVF_MAX_TXD);
++	new_tx_count = max_t(u32, ring->tx_pending, IGBVF_MIN_TXD);
++	new_tx_count = min_t(u32, new_tx_count, IGBVF_MAX_TXD);
+ 	new_tx_count = ALIGN(new_tx_count, REQ_TX_DESCRIPTOR_MULTIPLE);
+ 
+ 	if ((new_tx_count == adapter->tx_ring->count) &&
+@@ -239,7 +239,7 @@ static int igbvf_set_ringparam(struct net_device *netdev,
+ 	}
+ 
+ 	while (test_and_set_bit(__IGBVF_RESETTING, &adapter->state))
+-		msleep(1);
++		usleep_range(1000, 2000);
+ 
+ 	if (!netif_running(adapter->netdev)) {
+ 		adapter->tx_ring->count = new_tx_count;
+diff --git a/drivers/net/ethernet/intel/igbvf/netdev.c b/drivers/net/ethernet/intel/igbvf/netdev.c
+index 55f1404..c17ea4b 100644
+--- a/drivers/net/ethernet/intel/igbvf/netdev.c
++++ b/drivers/net/ethernet/intel/igbvf/netdev.c
+@@ -1552,7 +1552,7 @@ void igbvf_reinit_locked(struct igbvf_adapter *adapter)
+ {
+ 	might_sleep();
+ 	while (test_and_set_bit(__IGBVF_RESETTING, &adapter->state))
+-		msleep(1);
++		usleep_range(1000, 2000);
+ 	igbvf_down(adapter);
+ 	igbvf_up(adapter);
+ 	clear_bit(__IGBVF_RESETTING, &adapter->state);
+-- 
+1.9.3
