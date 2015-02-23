@@ -1,84 +1,48 @@
-From: Marcelo Ricardo Leitner <mleitner@redhat.com>
-Subject: [PATCH v2 net] ipv6: addrconf: validate new MTU before applying it
-Date: Mon, 23 Feb 2015 11:17:13 -0300
-Message-ID: <463ebd12cf29ddcf17275bdde9fb629444a5fa5b.1424698335.git.mleitner@redhat.com>
-Cc: Sabrina Dubroca <sd@queasysnail.net>
-To: netdev@vger.kernel.org
+From: Guenter Roeck <linux@roeck-us.net>
+Subject: Re: [PATCH RFC 1/2] net: dsa: integrate with SWITCHDEV for HW bridging
+Date: Mon, 23 Feb 2015 06:23:03 -0800
+Message-ID: <54EB37C7.3090209@roeck-us.net>
+References: <1424201196-4901-1-git-send-email-f.fainelli@gmail.com> <1424201196-4901-2-git-send-email-f.fainelli@gmail.com> <54EA8E7C.90401@roeck-us.net> <20150223031447.GA19267@lunn.ch> <54EAA767.6060105@roeck-us.net> <20150223042220.GA20063@lunn.ch> <54EAAEBC.6080609@roeck-us.net> <CAGVrzcYnuV6raXSrAETctwX5dwX3S=2-=ySewCFdx=iM7bPaDg@mail.gmail.com> <20150223133454.GB23581@lunn.ch>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+	jerome.oufella@savoirfairelinux.com,
+	Chris Healy <cphealy@gmail.com>
+To: Andrew Lunn <andrew@lunn.ch>,
+	Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:33767 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752450AbbBWOR0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Feb 2015 09:17:26 -0500
+Received: from bh-25.webhostbox.net ([208.91.199.152]:52024 "EHLO
+	bh-25.webhostbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751055AbbBWOXk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Feb 2015 09:23:40 -0500
+Received: from mailnull by bh-25.webhostbox.net with sa-checked (Exim 4.82)
+	(envelope-from <linux@roeck-us.net>)
+	id 1YPtv9-0002Di-QB
+	for netdev@vger.kernel.org; Mon, 23 Feb 2015 14:23:39 +0000
+In-Reply-To: <20150223133454.GB23581@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently we don't check if the new MTU is valid or not and this allows
-one to configure a smaller than minimum allowed by RFCs or even bigger
-than interface own MTU, which is a problem as it may lead to packet
-drops.
+On 02/23/2015 05:34 AM, Andrew Lunn wrote:
+>> BTW, before I re-submit this patch series, do you think we should
+>> introduce a fdb_flush() callback that switch drivers are required to
+>> implement, and invoke it from net/dsa/slave.c upon port join/leave?
+>
+> Probably a good idea.
+>
+> We should define exactly what is flushed. Everything? Or only dynamic
+> entries? The Marvell hardware can also have multicast addresses in its
+> tables, which can age, or static unicast and multicast entries.
+>
 
-If you have a daemon like NetworkManager running, this may be exploited
-by remote attackers by forging RA packets with an invalid MTU, possibly
-leading to a DoS. (NetworkManager currently only validates for values
-too small, but not for too big ones.)
+I currently use ATU command 110 (flush all non-static entries in a
+particular FID). I see means to flush either all entries or all
+non-static entries, but no means to only flush unicast or multicast
+entries. Does any of the standards distinguish between learned unicast
+and multicast addresses ? Flushing those selectively might be a
+challenge.
 
-The fix is just to make sure the new value is valid. That is, between
-IPV6_MIN_MTU and interface's MTU.
-
-Note that similar check is already performed at
-ndisc_router_discovery(), for when kernel itself parses the RA.
-
-Signed-off-by: Marcelo Ricardo Leitner <mleitner@redhat.com>
----
-
-Notes:
-    Sabrina, please feel free to add your Signed-off-by if you want.
-    
-    v1->v2, applied Sabrina's notes:
-       use proc_dointvec_minmax instead
-       protect against all and default cases, which don't have idev
-    
-    all and default are simply not used, so we are good to simply ignore the
-    max values for them. The default value actually comes from interface MTU
-    during creation.
-
- net/ipv6/addrconf.c | 17 ++++++++++++++++-
- 1 file changed, 16 insertions(+), 1 deletion(-)
-
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 98e4a63d72bb435e1ac1ae7cf2767072eed6db92..b6030025f41197efbcdfd1d8c013e469413550b5 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -4903,6 +4903,21 @@ int addrconf_sysctl_forward(struct ctl_table *ctl, int write,
- 	return ret;
- }
- 
-+static
-+int addrconf_sysctl_mtu(struct ctl_table *ctl, int write,
-+			void __user *buffer, size_t *lenp, loff_t *ppos)
-+{
-+	struct inet6_dev *idev = ctl->extra1;
-+	int min_mtu = IPV6_MIN_MTU;
-+	struct ctl_table lctl;
-+
-+	lctl = *ctl;
-+	lctl.extra1 = &min_mtu;
-+	lctl.extra2 = idev ? &idev->dev->mtu : NULL;
-+
-+	return proc_dointvec_minmax(&lctl, write, buffer, lenp, ppos);
-+}
-+
- static void dev_disable_change(struct inet6_dev *idev)
- {
- 	struct netdev_notifier_info info;
-@@ -5054,7 +5069,7 @@ static struct addrconf_sysctl_table
- 			.data		= &ipv6_devconf.mtu6,
- 			.maxlen		= sizeof(int),
- 			.mode		= 0644,
--			.proc_handler	= proc_dointvec,
-+			.proc_handler	= addrconf_sysctl_mtu,
- 		},
- 		{
- 			.procname	= "accept_ra",
--- 
-1.9.3
+Guenter
