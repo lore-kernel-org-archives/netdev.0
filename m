@@ -1,28 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH resend] rhashtable: initialize all rhashtable walker
- members
-Date: Mon, 23 Feb 2015 15:23:54 -0500 (EST)
-Message-ID: <20150223.152354.942772703063232174.davem@davemloft.net>
-References: <1424684106-5405-1-git-send-email-sasha.levin@oracle.com>
+Subject: Re: [PATCH net-next] ip6_udp_tunnel: add scope id to udp_port_cfg
+Date: Mon, 23 Feb 2015 15:27:52 -0500 (EST)
+Message-ID: <20150223.152752.1464850644682471326.davem@davemloft.net>
+References: <1424684139-22810-1-git-send-email-erik.hugne@ericsson.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, tgraf@suug.ch, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: sasha.levin@oracle.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1424684106-5405-1-git-send-email-sasha.levin@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: erik.hugne@ericsson.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37227 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752343AbbBWU1z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Feb 2015 15:27:55 -0500
+In-Reply-To: <1424684139-22810-1-git-send-email-erik.hugne@ericsson.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sasha Levin <sasha.levin@oracle.com>
-Date: Mon, 23 Feb 2015 04:35:06 -0500
+From: <erik.hugne@ericsson.com>
+Date: Mon, 23 Feb 2015 10:35:39 +0100
 
-> Commit f2dba9c6ff ("rhashtable: Introduce rhashtable_walk_*") forgot to
-> initialize the members of struct rhashtable_walker after allocating it, which
-> caused an undefined value for 'resize' which is used later on.
+> From: Erik Hugne <erik.hugne@ericsson.com>
 > 
-> Fixes: f2dba9c6ff ("rhashtable: Introduce rhashtable_walk_*")
-> Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
+> The IPv6 scope id was missing, making it impossible to define
+> a tunnel endpoint using a linklocal address.
+> Add it to udp_port_cfg, aswell as a check during tunnel creation
+> if the address needs to be scoped.
+> 
+> Signed-off-by: Erik Hugne <erik.hugne@ericsson.com>
 
-Applied, thanks.
+I'm not adding a facility until you submit an upstream user as well.
+
+As it stands, nothing sets scope_ip in the udp_port_cfg so it's
+completely unused.
