@@ -1,83 +1,64 @@
 From: Eyal Birger <eyal.birger@gmail.com>
-Subject: [PATCH net-next v3 2/4] ipv4,v6: avoid setting skb->priority when skb->reserved_tailroom is in use in igmpv3/mld
-Date: Mon, 23 Feb 2015 19:52:02 +0200
-Message-ID: <1424713924-6821-3-git-send-email-eyal.birger@gmail.com>
+Subject: [PATCH net-next v3 3/4] net: use skb->priority for overloading skb->dropcount and skb->reserved_tailroom instead of skb->mark
+Date: Mon, 23 Feb 2015 19:52:03 +0200
+Message-ID: <1424713924-6821-4-git-send-email-eyal.birger@gmail.com>
 References: <1424713924-6821-2-git-send-email-eyal.birger@gmail.com>
 Cc: edumazet@google.com, shmulik.ladkani@gmail.com,
 	netdev@vger.kernel.org, Eyal Birger <eyal.birger@gmail.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f178.google.com ([209.85.212.178]:36877 "EHLO
-	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752345AbbBWRwT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Feb 2015 12:52:19 -0500
-Received: by mail-wi0-f178.google.com with SMTP id em10so19444326wid.5
-        for <netdev@vger.kernel.org>; Mon, 23 Feb 2015 09:52:18 -0800 (PST)
+Received: from mail-wi0-f177.google.com ([209.85.212.177]:62011 "EHLO
+	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752345AbbBWRwV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Feb 2015 12:52:21 -0500
+Received: by mail-wi0-f177.google.com with SMTP id bs8so19454523wib.4
+        for <netdev@vger.kernel.org>; Mon, 23 Feb 2015 09:52:20 -0800 (PST)
 In-Reply-To: <1424713924-6821-2-git-send-email-eyal.birger@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-IGMPv3/MLD packets are sent with TC_PRIO_CONTROL.
-skb->priority is set immediately after skb allocation.
+Commit 977750076d98 ("af_packet: add interframe drop cmsg (v6)")
+unionized skb->mark and skb->dropcount in order to allow recording
+of the socket drop count while maintaining struct sk_buff size.
 
-skb->reserved_tailroom is also set after allocation and is
-used by the IGMPv3/MLD code prior to transmittion.
+In order to allow for the skb->mark to be fetched by user-space code
+it needs to be detached from this union; skb->priority is used
+instead.
 
-In order to be able to alias skb->priority and
-skb->reserved_tailroom in struct sk_buff, the two fields
-must not be used at the same time.
+The purpose of overloading skb->priority is solely for retaining
+struct sk_buff size; skb->priority is not used after the skb is
+queued to the socket.
 
-The skb->priority value is not required before the packet
-is sent down the IP stack. Therefore, move setting
-skb->priority prior to transmittion.
+Use of aliased fields, skb->dropcount and skb->reserved_tailroom,
+is either done after the skb is cloned (e.g. in packet_rcv()) or
+before skb->priority is used (e.g. in IGMPv3/MLD/TCP).
 
 Signed-off-by: Eyal Birger <eyal.birger@gmail.com>
 ---
- net/ipv4/igmp.c  | 3 ++-
- net/ipv6/mcast.c | 3 ++-
- 2 files changed, 4 insertions(+), 2 deletions(-)
+ include/linux/skbuff.h | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
-index 4b1172d..f28dc9c 100644
---- a/net/ipv4/igmp.c
-+++ b/net/ipv4/igmp.c
-@@ -339,7 +339,6 @@ static struct sk_buff *igmpv3_newpack(struct net_device *dev, unsigned int mtu)
- 		if (size < 256)
- 			return NULL;
- 	}
--	skb->priority = TC_PRIO_CONTROL;
- 
- 	rt = ip_route_output_ports(net, &fl4, NULL, IGMPV3_ALL_MCR, 0,
- 				   0, 0,
-@@ -391,6 +390,8 @@ static int igmpv3_sendpack(struct sk_buff *skb)
- 	struct igmphdr *pig = igmp_hdr(skb);
- 	const int igmplen = skb_tail_pointer(skb) - skb_transport_header(skb);
- 
-+	skb->priority = TC_PRIO_CONTROL;
-+
- 	pig->csum = ip_compute_csum(igmp_hdr(skb), igmplen);
- 
- 	return ip_local_out(skb);
-diff --git a/net/ipv6/mcast.c b/net/ipv6/mcast.c
-index 5ce107c..67e6c0a 100644
---- a/net/ipv6/mcast.c
-+++ b/net/ipv6/mcast.c
-@@ -1575,7 +1575,6 @@ static struct sk_buff *mld_newpack(struct inet6_dev *idev, unsigned int mtu)
- 	if (!skb)
- 		return NULL;
- 
--	skb->priority = TC_PRIO_CONTROL;
- 	skb->reserved_tailroom = skb_end_offset(skb) -
- 				 min(mtu, skb_end_offset(skb));
- 	skb_reserve(skb, hlen);
-@@ -1616,6 +1615,8 @@ static void mld_sendpack(struct sk_buff *skb)
- 	struct flowi6 fl6;
- 	struct dst_entry *dst;
- 
-+	skb->priority = TC_PRIO_CONTROL;
-+
- 	rcu_read_lock();
- 	idev = __in6_dev_get(skb->dev);
- 	IP6_UPD_PO_STATS(net, idev, IPSTATS_MIB_OUT, skb->len);
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index d898b32..23e77cb 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -625,7 +625,7 @@ struct sk_buff {
+ 			__u16	csum_offset;
+ 		};
+ 	};
+-	__u32			priority;
++	__u32			mark;
+ 	int			skb_iif;
+ 	__u32			hash;
+ 	__be16			vlan_proto;
+@@ -640,7 +640,7 @@ struct sk_buff {
+ 	__u32			secmark;
+ #endif
+ 	union {
+-		__u32		mark;
++		__u32		priority;
+ 		__u32		dropcount;
+ 		__u32		reserved_tailroom;
+ 	};
 -- 
 2.1.4
