@@ -1,114 +1,85 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH v2 2/3] if_link: Add VF multicast promiscuous control
-Date: Mon, 23 Feb 2015 13:14:18 -0800
-Message-ID: <1424726058.2647.8.camel@jtkirshe-mobl>
-References: <7F861DC0615E0C47A872E6F3C5FCDDBD05E38840@BPXM14GP.gisp.nec.co.jp>
-	 <54E73BE4.2040505@solarflare.com>
-	 <F6FB0E698C9B3143BDF729DF22286646912AD3E7@ORSMSX110.amr.corp.intel.com>
-	 <54EB30A1.9080309@solarflare.com>
-	 <F6FB0E698C9B3143BDF729DF22286646912ADAD5@ORSMSX110.amr.corp.intel.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [RFT PATCH 1/2] net: dsa: mv88e6xxx: Add EEE support
+Date: Mon, 23 Feb 2015 13:25:27 -0800
+Message-ID: <54EB9AC7.4060908@gmail.com>
+References: <1424708770-3135-1-git-send-email-linux@roeck-us.net> <54EB671D.3000707@gmail.com> <20150223185245.GB23456@roeck-us.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-4AnddlWq563teKgaIYGH"
-Cc: Edward Cree <ecree@solarflare.com>,
-	Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>,
-	"vyasevic@redhat.com" <vyasevic@redhat.com>,
-	Alexander Duyck <alexander.duyck@gmail.com>,
-	=?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Choi, Sy Jong" <sy.jong.choi@intel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	David Laight <David.Laight@ACULAB.COM>,
-	Hayato Momma <h-momma@ce.jp.nec.com>
-To: "Skidmore, Donald C" <donald.c.skidmore@intel.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Andrew Lunn <andrew@lunn.ch>, linux-kernel@vger.kernel.org
+To: Guenter Roeck <linux@roeck-us.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <F6FB0E698C9B3143BDF729DF22286646912ADAD5@ORSMSX110.amr.corp.intel.com>
+In-Reply-To: <20150223185245.GB23456@roeck-us.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On 23/02/15 10:52, Guenter Roeck wrote:
+> On Mon, Feb 23, 2015 at 09:45:01AM -0800, Florian Fainelli wrote:
+>> On 23/02/15 08:26, Guenter Roeck wrote:
+>>> EEE configuration is similar for the various MV88E6xxx chips.
+>>> Add generic support for it.
+>>>
+>>> Signed-off-by: Guenter Roeck <linux@roeck-us.net>
+>>
+>> Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+>>
+>>> ---
+>>> Applies to net-next.
+>>>
+>>> The code seems to be working, at least according to ethtool, but some
+>>> more testing with other chip types would be useful. Also, I am not sure
+>>> what to do with phy_init_eee.
+>>
+>> phy_init_eee() is to be used in case you have a PHY which is not managed
+>> by the switch indirect or direct accesses, it looks like you are just
+>> fine with the current code.
+>>
+>> One possible improvement could be ironing out the EEE
+>> enabling/resolution by ensuring that the link partner also supports EEE?
+>> Not sure if there is an existing register returning that from the
+>> switch, or if you need to do a direct read to the PHY?
+>>
+> 
+> EEE configuration on Marvell switches is independent from link partner
+> capabilities. In the hardware available to me, EEE is enabled by
+> default with a strapping pin on the chip. Making it dependent on link
+> partner capabilities would be odd because it would mean that, if the
+> link is down or if the link partner doesn't support it, it could be
+> disabled, but it could no longer be re-enabled. This is what
+> phy_init_eee enforces today. I dropped calling it because I thought
+> that this behavior would be odd and inconsistent.
+> 
+> Question for me is if it makes sense to have phy_init_eee depend on
+> the link status or on link partner capabilities in the first place.
+> Personally I think it should only depend on local PHY capabilities,
+> and that it should be possible to configure EEE even if the link
+> is down or if the (current) link partner doesn't support it.
 
---=-4AnddlWq563teKgaIYGH
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Completely agree with that.
 
-On Mon, 2015-02-23 at 06:29 -0800, Skidmore, Donald C wrote:
-> > -----Original Message-----
-> > From: Edward Cree [mailto:ecree@solarflare.com]
-> > Sent: Monday, February 23, 2015 5:53 AM
-> > To: Skidmore, Donald C
-> > Cc: Hiroshi Shimamoto; vyasevic@redhat.com; Kirsher, Jeffrey T; Alexand=
-er
-> > Duyck; Bj=C3=B8rn Mork; e1000-devel@lists.sourceforge.net;
-> > netdev@vger.kernel.org; Choi, Sy Jong; linux-kernel@vger.kernel.org; Da=
-vid
-> > Laight; Hayato Momma
-> > Subject: Re: [PATCH v2 2/3] if_link: Add VF multicast promiscuous contr=
-ol
-> >=20
-> > On 20/02/15 21:05, Skidmore, Donald C wrote:
-> > > If a vender specific interface is objectionable maybe a simpler and m=
-ore
-> > generic interface would be for the PF to be able to set a given VF into
-> > "trusted" mode... I admit exactly what 'trusted' meant would vary from
-> > vender to vender, but it would be a way for the driver to know it could=
- allow
-> > configurations such as this.  Just an idea, since we seem to be getting=
- more
-> > requests for things such as this.
-> > That's an even worse idea; now you have a generic interface with comple=
-tely
-> > undefined semantics.
-> > The right way to do this, imho, is to use one of the standard interface=
-s for
-> > driver-specific gubbins - e.g. sysfs, genetlink or even (whisper it) io=
-ctls - and
-> > put your 'VF promisc mode' setting there.  That way you have a vendor-
-> > specific interface with vendor-specified semantics.
-> > Of those options, I'd recommend sysfs as the best fit.
-> > The information contained in this message is confidential and is intend=
-ed for
-> > the addressee(s) only. If you have received this message in error, plea=
-se
-> > notify the sender immediately and delete the message. Unless you are an
-> > addressee (or authorized to receive for an addressee), you may not use,
-> > copy or disclose to anyone this message or any information contained in=
- this
-> > message. The unauthorized use, disclosure, copying or alteration of thi=
-s
-> > message is strictly prohibited.
->=20
-> I do see your point, but I thought custom sysfs interfaces (not to even m=
-ention new ioctl's :) were frowned upon?  Which is why I didn't even consid=
-er sysfs as an option.
+BTW, the clock stop thing is also poorly handled imho because you would
+want the PHY library to tell you whether your PHY supports TX clock
+stopping, and not having to discover that by doing a first call with
+phy_init_eee(phydev, 1), see that it fails, retry with
+phy_init_eee(phydev, 0), but that's for another series of patches:
 
-We discussed this during NetConf last week, and Don is correct that a
-custom sysfs interface is not the way we want to handle this.  We agreed
-upon a generic interface so that any NIC is able to turn on or off VF
-multicast promiscuous mode.
+https://github.com/ffainelli/linux/tree/phy-eee-tx-clk
 
---=-4AnddlWq563teKgaIYGH
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
+> 
+> Consider the following: Assume both ends are configured to have EEE
+> disabled, even if the PHYs support it. Both ends run linux and call
+> phy_init_eee() to check for EEE capabilities. I have not tested it,
+> but I suspect that it is not currently possible to enable EEE on either
+> end because both ends believe that the link partner doesn't support it.
+> I'll test that theory once I get a system where I can control both ends.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAABCgAGBQJU65gqAAoJEOVv75VaS+3O6dQP/2tJdXu5lg2e2x85N0efz7k8
-0kNcyW6oyvGqQs+D+k6JKzRkPgwTZHkd3tD4SuJIICBZB8QhcCzb3c0EIqe9hlbp
-o/6NSFx7XjUXFHxBhIXyx4CJd8fc4m+AC4BGaVCEM7DFrANSQUtwvskuF3WducN7
-xPysW00KrZfLYS+3Wsm818aBCdiiCZC4f9KdPheziM8po7fSw0pI6P9h9c7hvBeu
-M70Iklo7PLQAcT3BNavU1lOywkf920QHYR/Upt23B4yoOC+t7T3+eguVDbHb5V6l
-nqvYUUfQUkrzewqPmzAsqwmorT89ipjT9S9mm8plIeWxohusqbVPEkWIbV4ZADFx
-DcaRmwiVTfe5QL4ASjSIu+5Z+79kUde+hi3qi4ifN9/lP4Cekmlv4gUnIGFOeVFI
-HS6G/ztkWLf1VCU87xNerPPQKDIXu/ZL8X9X4Zco3GaeYfSIC21+G4f8neYVDC+1
-szqDeCY8Qdb18n2FL+BNWmEPYJpEFTmpLk0Fy4I2QCea9NAgk9mqFyxo387Ncx03
-VA/gB6fUDiAKnyjU1azdQf2esl8cg9x1jh7SODh0HUT+OvGpK2vgWhBpJotTz/5B
-ZkpFQWTSqoXXhziG1aBjZSt/wsNLKEX5d3TsHmaJyXm7bfcZxKR6hhJMINT2w80J
-7m6Y64EHyWOUlXkcQrQk
-=+7gF
------END PGP SIGNATURE-----
-
---=-4AnddlWq563teKgaIYGH--
+Well, it will work the first time you enable EEE and all of these
+conditions are met: link is negotiated, your PHY reports EEE capability,
+your link partner advertises EEE, and subsequent link up/down events
+should maintain EEE operation. I agree that this needs revisiting
+because you would certainly want to advertise EEE all the time if you
+support it and have configured it, and enable it as soon as you find a
+link partner that can also support EEE.
+-- 
+Florian
