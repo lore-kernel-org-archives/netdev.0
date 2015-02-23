@@ -1,77 +1,163 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 08/16] i40e: Use #define for the VSI connection type
-Date: Sun, 22 Feb 2015 19:25:36 -0800
-Message-ID: <1424661944-1779-9-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 07/16] i40e/i40evf: restrict VC opcodes to their initial values
+Date: Sun, 22 Feb 2015 19:25:35 -0800
+Message-ID: <1424661944-1779-8-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1424661944-1779-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Neerav Parikh <neerav.parikh@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Nicholas Nunley <nicholas.d.nunley@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:60782 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([134.134.136.65]:60786 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752255AbbBWD0L (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 22 Feb 2015 22:26:11 -0500
+	id S1752341AbbBWD0M (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 22 Feb 2015 22:26:12 -0500
 In-Reply-To: <1424661944-1779-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Neerav Parikh <neerav.parikh@intel.com>
+From: Nicholas Nunley <nicholas.d.nunley@intel.com>
 
-Use #defined VSI connection type values instead of using magic numbers.
+Until the time a more robust versioning scheme is needed/implemented all
+established virtual channel opcode values should remain consistent between
+updates to the opcode enum.
 
-Change-ID: I2f6cf7bf394d391e1c0fe61779e9e4ad8858154a
-Signed-off-by: Neerav Parikh <neerav.parikh@intel.com>
+This patch repositions I40E_VIRTCHNL_OP_CONFIG_RSS to the end of the enum. In
+its current position this opcode displaces the initial value of
+I40E_VIRTCHNL_OP_EVENT and will cause PF/VF compatibility issues.
+
+Going forward the expectation is either:
+	a) All future opcode additions will be added as the last element of the
+	enum. Once VF drivers start making use of the new commands the virtual
+	channel version will need to be incremented and drivers will need to
+	implement a simple version check whereby VF drivers can only load on
+	PFs with a >= version.
+	b) or, if needed, design and implement a more complicated API
+	negotiation capability.
+
+In either case PF drivers should always maintain backwards compatibility with
+earlier VF driver versions.
+
+Change-ID: Ie245daa09a231b6680ed793d648bdcc76caefe58
+Signed-off-by: Nicholas Nunley <nicholas.d.nunley@intel.com>
 Tested-by: Jim Young <james.m.young@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_fcoe.c | 2 +-
- drivers/net/ethernet/intel/i40e/i40e_main.c | 6 +++---
- 2 files changed, 4 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl.h   | 42 +++++++++++------------
+ drivers/net/ethernet/intel/i40evf/i40e_virtchnl.h | 42 +++++++++++------------
+ 2 files changed, 40 insertions(+), 44 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_fcoe.c b/drivers/net/ethernet/intel/i40e/i40e_fcoe.c
-index 27c206e..8b5bf16 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_fcoe.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_fcoe.c
-@@ -381,7 +381,7 @@ int i40e_fcoe_vsi_init(struct i40e_vsi *vsi, struct i40e_vsi_context *ctxt)
- 	ctxt->pf_num = hw->pf_id;
- 	ctxt->vf_num = 0;
- 	ctxt->uplink_seid = vsi->uplink_seid;
--	ctxt->connection_type = 0x1;
-+	ctxt->connection_type = I40E_AQ_VSI_CONN_TYPE_NORMAL;
- 	ctxt->flags = I40E_AQ_VSI_TYPE_PF;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl.h b/drivers/net/ethernet/intel/i40e/i40e_virtchnl.h
+index 61dd1b18..2d20af2 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl.h
+@@ -59,31 +59,29 @@
+  * of the virtchnl_msg structure.
+  */
+ enum i40e_virtchnl_ops {
+-/* VF sends req. to pf for the following
+- * ops.
++/* The PF sends status change events to VFs using
++ * the I40E_VIRTCHNL_OP_EVENT opcode.
++ * VFs send requests to the PF using the other ops.
+  */
+ 	I40E_VIRTCHNL_OP_UNKNOWN = 0,
+ 	I40E_VIRTCHNL_OP_VERSION = 1, /* must ALWAYS be 1 */
+-	I40E_VIRTCHNL_OP_RESET_VF,
+-	I40E_VIRTCHNL_OP_GET_VF_RESOURCES,
+-	I40E_VIRTCHNL_OP_CONFIG_TX_QUEUE,
+-	I40E_VIRTCHNL_OP_CONFIG_RX_QUEUE,
+-	I40E_VIRTCHNL_OP_CONFIG_VSI_QUEUES,
+-	I40E_VIRTCHNL_OP_CONFIG_IRQ_MAP,
+-	I40E_VIRTCHNL_OP_ENABLE_QUEUES,
+-	I40E_VIRTCHNL_OP_DISABLE_QUEUES,
+-	I40E_VIRTCHNL_OP_ADD_ETHER_ADDRESS,
+-	I40E_VIRTCHNL_OP_DEL_ETHER_ADDRESS,
+-	I40E_VIRTCHNL_OP_ADD_VLAN,
+-	I40E_VIRTCHNL_OP_DEL_VLAN,
+-	I40E_VIRTCHNL_OP_CONFIG_PROMISCUOUS_MODE,
+-	I40E_VIRTCHNL_OP_GET_STATS,
+-	I40E_VIRTCHNL_OP_FCOE,
+-	I40E_VIRTCHNL_OP_CONFIG_RSS,
+-/* PF sends status change events to vfs using
+- * the following op.
+- */
+-	I40E_VIRTCHNL_OP_EVENT,
++	I40E_VIRTCHNL_OP_RESET_VF = 2,
++	I40E_VIRTCHNL_OP_GET_VF_RESOURCES = 3,
++	I40E_VIRTCHNL_OP_CONFIG_TX_QUEUE = 4,
++	I40E_VIRTCHNL_OP_CONFIG_RX_QUEUE = 5,
++	I40E_VIRTCHNL_OP_CONFIG_VSI_QUEUES = 6,
++	I40E_VIRTCHNL_OP_CONFIG_IRQ_MAP = 7,
++	I40E_VIRTCHNL_OP_ENABLE_QUEUES = 8,
++	I40E_VIRTCHNL_OP_DISABLE_QUEUES = 9,
++	I40E_VIRTCHNL_OP_ADD_ETHER_ADDRESS = 10,
++	I40E_VIRTCHNL_OP_DEL_ETHER_ADDRESS = 11,
++	I40E_VIRTCHNL_OP_ADD_VLAN = 12,
++	I40E_VIRTCHNL_OP_DEL_VLAN = 13,
++	I40E_VIRTCHNL_OP_CONFIG_PROMISCUOUS_MODE = 14,
++	I40E_VIRTCHNL_OP_GET_STATS = 15,
++	I40E_VIRTCHNL_OP_FCOE = 16,
++	I40E_VIRTCHNL_OP_EVENT = 17,
++	I40E_VIRTCHNL_OP_CONFIG_RSS = 18,
+ };
  
- 	/* FCoE VSI would need the following sections */
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 10ad1ee..e3597cb 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -7863,7 +7863,7 @@ static int i40e_add_vsi(struct i40e_vsi *vsi)
- 		ctxt.pf_num = hw->pf_id;
- 		ctxt.vf_num = 0;
- 		ctxt.uplink_seid = vsi->uplink_seid;
--		ctxt.connection_type = 0x1;     /* regular data port */
-+		ctxt.connection_type = I40E_AQ_VSI_CONN_TYPE_NORMAL;
- 		ctxt.flags = I40E_AQ_VSI_TYPE_PF;
- 		ctxt.info.valid_sections |=
- 				cpu_to_le16(I40E_AQ_VSI_PROP_SWITCH_VALID);
-@@ -7876,7 +7876,7 @@ static int i40e_add_vsi(struct i40e_vsi *vsi)
- 		ctxt.pf_num = hw->pf_id;
- 		ctxt.vf_num = 0;
- 		ctxt.uplink_seid = vsi->uplink_seid;
--		ctxt.connection_type = 0x1;     /* regular data port */
-+		ctxt.connection_type = I40E_AQ_VSI_CONN_TYPE_NORMAL;
- 		ctxt.flags = I40E_AQ_VSI_TYPE_VMDQ2;
+ /* Virtual channel message descriptor. This overlays the admin queue
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_virtchnl.h b/drivers/net/ethernet/intel/i40evf/i40e_virtchnl.h
+index e0c8208..59f62f0 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_virtchnl.h
++++ b/drivers/net/ethernet/intel/i40evf/i40e_virtchnl.h
+@@ -59,31 +59,29 @@
+  * of the virtchnl_msg structure.
+  */
+ enum i40e_virtchnl_ops {
+-/* VF sends req. to pf for the following
+- * ops.
++/* The PF sends status change events to VFs using
++ * the I40E_VIRTCHNL_OP_EVENT opcode.
++ * VFs send requests to the PF using the other ops.
+  */
+ 	I40E_VIRTCHNL_OP_UNKNOWN = 0,
+ 	I40E_VIRTCHNL_OP_VERSION = 1, /* must ALWAYS be 1 */
+-	I40E_VIRTCHNL_OP_RESET_VF,
+-	I40E_VIRTCHNL_OP_GET_VF_RESOURCES,
+-	I40E_VIRTCHNL_OP_CONFIG_TX_QUEUE,
+-	I40E_VIRTCHNL_OP_CONFIG_RX_QUEUE,
+-	I40E_VIRTCHNL_OP_CONFIG_VSI_QUEUES,
+-	I40E_VIRTCHNL_OP_CONFIG_IRQ_MAP,
+-	I40E_VIRTCHNL_OP_ENABLE_QUEUES,
+-	I40E_VIRTCHNL_OP_DISABLE_QUEUES,
+-	I40E_VIRTCHNL_OP_ADD_ETHER_ADDRESS,
+-	I40E_VIRTCHNL_OP_DEL_ETHER_ADDRESS,
+-	I40E_VIRTCHNL_OP_ADD_VLAN,
+-	I40E_VIRTCHNL_OP_DEL_VLAN,
+-	I40E_VIRTCHNL_OP_CONFIG_PROMISCUOUS_MODE,
+-	I40E_VIRTCHNL_OP_GET_STATS,
+-	I40E_VIRTCHNL_OP_FCOE,
+-	I40E_VIRTCHNL_OP_CONFIG_RSS,
+-/* PF sends status change events to vfs using
+- * the following op.
+- */
+-	I40E_VIRTCHNL_OP_EVENT,
++	I40E_VIRTCHNL_OP_RESET_VF = 2,
++	I40E_VIRTCHNL_OP_GET_VF_RESOURCES = 3,
++	I40E_VIRTCHNL_OP_CONFIG_TX_QUEUE = 4,
++	I40E_VIRTCHNL_OP_CONFIG_RX_QUEUE = 5,
++	I40E_VIRTCHNL_OP_CONFIG_VSI_QUEUES = 6,
++	I40E_VIRTCHNL_OP_CONFIG_IRQ_MAP = 7,
++	I40E_VIRTCHNL_OP_ENABLE_QUEUES = 8,
++	I40E_VIRTCHNL_OP_DISABLE_QUEUES = 9,
++	I40E_VIRTCHNL_OP_ADD_ETHER_ADDRESS = 10,
++	I40E_VIRTCHNL_OP_DEL_ETHER_ADDRESS = 11,
++	I40E_VIRTCHNL_OP_ADD_VLAN = 12,
++	I40E_VIRTCHNL_OP_DEL_VLAN = 13,
++	I40E_VIRTCHNL_OP_CONFIG_PROMISCUOUS_MODE = 14,
++	I40E_VIRTCHNL_OP_GET_STATS = 15,
++	I40E_VIRTCHNL_OP_FCOE = 16,
++	I40E_VIRTCHNL_OP_EVENT = 17,
++	I40E_VIRTCHNL_OP_CONFIG_RSS = 18,
+ };
  
- 		ctxt.info.valid_sections |= cpu_to_le16(I40E_AQ_VSI_PROP_SWITCH_VALID);
-@@ -7895,7 +7895,7 @@ static int i40e_add_vsi(struct i40e_vsi *vsi)
- 		ctxt.pf_num = hw->pf_id;
- 		ctxt.vf_num = vsi->vf_id + hw->func_caps.vf_base_id;
- 		ctxt.uplink_seid = vsi->uplink_seid;
--		ctxt.connection_type = 0x1;     /* regular data port */
-+		ctxt.connection_type = I40E_AQ_VSI_CONN_TYPE_NORMAL;
- 		ctxt.flags = I40E_AQ_VSI_TYPE_VF;
- 
- 		ctxt.info.valid_sections |= cpu_to_le16(I40E_AQ_VSI_PROP_SWITCH_VALID);
+ /* Virtual channel message descriptor. This overlays the admin queue
 -- 
 1.9.3
