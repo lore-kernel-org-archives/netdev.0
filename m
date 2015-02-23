@@ -1,39 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: repository for switch hardware info
-Date: Mon, 23 Feb 2015 16:34:24 -0500 (EST)
-Message-ID: <20150223.163424.1206288338701215157.davem@davemloft.net>
-References: <20150222214032.GB16675@lunn.ch>
-	<20150223085731.GB5405@netboy>
-	<54EB28E6.9050608@mojatatu.com>
+Subject: Re: [PATCH v3 2/3] Packet sniffer core framework
+Date: Mon, 23 Feb 2015 16:37:17 -0500 (EST)
+Message-ID: <20150223.163717.356301805782993412.davem@davemloft.net>
+References: <cover.1424698609.git.stathis.voukelatos@linn.co.uk>
+	<3f43e4376bec64ded755e202c11d2f07886194af.1424698609.git.stathis.voukelatos@linn.co.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: richardcochran@gmail.com, andrew@lunn.ch, netdev@vger.kernel.org
-To: jhs@mojatatu.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37898 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751249AbbBWVe2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Feb 2015 16:34:28 -0500
-In-Reply-To: <54EB28E6.9050608@mojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	devicetree@vger.kernel.org
+To: stathis.voukelatos@linn.co.uk
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <3f43e4376bec64ded755e202c11d2f07886194af.1424698609.git.stathis.voukelatos@linn.co.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Date: Mon, 23 Feb 2015 08:19:34 -0500
+From: Stathis Voukelatos <stathis.voukelatos@linn.co.uk>
+Date: Mon, 23 Feb 2015 14:26:21 +0000
 
-> On 02/23/15 03:57, Richard Cochran wrote:
->> On Sun, Feb 22, 2015 at 10:40:32PM +0100, Andrew Lunn wrote:
->>> Marvell also have reference code, which is GPL, but is the usual
->>> vendor quality. There does not appear to be an official Marvell
->>> location for it, but there are a few copies lying around, e.g:
->>
->> Strangely, it appears that you need to sign an NDA in order to gain
->> access to the GPL'ed driver sources.  Go figure.
->>
-> 
-> Dave, info like this may also be useful to have on the page.
-> None of the broadcom or others i am using allow for any access
-> without NDA (even though some have GPL drivers).
+> +	spin_lock_irqsave(&priv->lock, flags);
+> +	/* Stop the hardware */
+> +	sch->stop(sch);
+> +	/* Set the new command pattern */
+> +	ret = sch->set_pattern(sch, skb->data, skb->len / 2);
+> +	/* Restart the hardware */
+> +	sch->start(sch);
+> +	spin_unlock_irqrestore(&priv->lock, flags);
 
-All added.
+These comments are excessive.
+
+When someone calls ops->stop() what are they supposed to think the
+thing does?  Open a can of tuna?  Mow the lawn?  Wash the dishes?  No,
+it stops the thing.  Everyone understands that and you don't have to
+explicitly say it.
+
+Saying "stop the hardware" does not add anything to the source code
+that is not already implicitly there.  They just take up space and
+keep more useful information from being displayed at once on the
+screen.  Please remove all of these things.
+
+Thanks.
