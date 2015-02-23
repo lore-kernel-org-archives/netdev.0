@@ -1,49 +1,57 @@
-From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH v3 linux-trace 1/8] tracing: attach eBPF programs to
- tracepoints and syscalls
-Date: Mon, 23 Feb 2015 13:55:12 -0500
-Message-ID: <CAMEtUuwqhUpxVrKn_Km_JE76hco+y7Ev4ESzvbmAERBTuidY=A@mail.gmail.com>
+From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+Subject: Re: [PATCH net-next v3 3/4] net: use skb->priority for overloading
+ skb->dropcount and skb->reserved_tailroom instead of skb->mark
+Date: Mon, 23 Feb 2015 20:56:33 +0200
+Message-ID: <20150223205633.7fbd08d4@halley>
+References: <1424713924-6821-2-git-send-email-eyal.birger@gmail.com>
+	<1424713924-6821-4-git-send-email-eyal.birger@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
-	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Namhyung Kim <namhyung-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Arnaldo Carvalho de Melo <acme-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	Jiri Olsa <jolsa-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Masami Hiramatsu <masami.hiramatsu.pt-FCd8Q96Dh0JBDgjK7y7TUQ@public.gmane.org>,
-	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	"Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>, wangnan0-hv44wF8Li93QT0dZR+AlfA@public.gmane.org
-To: He Kuang <hekuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: edumazet@google.com, netdev@vger.kernel.org
+To: Eyal Birger <eyal.birger@gmail.com>, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f174.google.com ([209.85.212.174]:64865 "EHLO
+	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752424AbbBWS4q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Feb 2015 13:56:46 -0500
+Received: by mail-wi0-f174.google.com with SMTP id em10so20125295wid.1
+        for <netdev@vger.kernel.org>; Mon, 23 Feb 2015 10:56:45 -0800 (PST)
+In-Reply-To: <1424713924-6821-4-git-send-email-eyal.birger@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 16, 2015 at 6:26 AM, He Kuang <hekuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org> wrote:
-> Hi, Alexei
->
-> Another suggestion on bpf syscall interface. Currently, BPF +
-> syscalls/kprobes depends on CONFIG_BPF_SYSCALL. In kernel used on
-> commercial products, CONFIG_BPF_SYSCALL is probably disabled, in this
-> case, bpf bytecode cannot be loaded to the kernel.
+Hi,
 
-I'm seeing a flurry of use cases for bpf in ovs, tc, tracing, etc
-When it's all ready, we can turn that config on by default.
+On Mon, 23 Feb 2015 19:52:03 +0200 Eyal Birger <eyal.birger@gmail.com> wrote:
+> Commit 977750076d98 ("af_packet: add interframe drop cmsg (v6)")
+> unionized skb->mark and skb->dropcount in order to allow recording
+> of the socket drop count while maintaining struct sk_buff size.
+> 
+> In order to allow for the skb->mark to be fetched by user-space code
+> it needs to be detached from this union; skb->priority is used
+> instead.
+> 
+> The purpose of overloading skb->priority is solely for retaining
+> struct sk_buff size; skb->priority is not used after the skb is
+> queued to the socket.
+> 
+> Use of aliased fields, skb->dropcount and skb->reserved_tailroom,
+> is either done after the skb is cloned (e.g. in packet_rcv()) or
+> before skb->priority is used (e.g. in IGMPv3/MLD/TCP).
 
-> If we turn the functionality of BPF_SYSCALL into a loadable module, then
-> we can use it without any dependencies on the kernel. What about change
-> bpf syscall to a /dev node or /sys file which can be exported by a
-> kernel module?
+Preserving a small skb size is an important cause.
 
-I don't think we will allow extending bpf by modules.
-'bpf in modules' is an interface that is too easy to abuse.
-So all of bpf core, helper functions and program types will be builtin.
+In this case however, it seems that aliasing 'priority' sacrifices
+maintainability: 'priority' does not seem "naturally orthogonal" to
+'drop_count' or 'reserved_tailroom'.
 
-As far as bpf+tracing the plan is to do bpf+kprobe and bpf+syscalls
-first. Then add right set of helpers to make sure that use cases
-like 'tcp stack instrumentation' are fully addressed.
-Then there were few great ideas of accelerating kprobes
-with trace markers and debug tracepoints that we can do later.
+One might arm 'priority' in various code flows (future and existing),
+which may accidentally clash with the aliases. It is unexpected, hard to
+remember (especially since 'priority' wasn't formerly aliased), and
+sometimes it's simply not trivial to assure there's no clash.
+
+May I suggest to unalias 'mark' out of the union?
+
+Regards,
+Shmulik
