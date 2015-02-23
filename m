@@ -1,40 +1,32 @@
-From: Erik Hugne <erik.hugne@ericsson.com>
-Subject: Re: [PATCH net-next v3 2/2] multicast: Extend ip address command to
- enable multicast group join/leave on IP level.
-Date: Mon, 23 Feb 2015 09:45:24 +0100
-Message-ID: <20150223084524.GA1116@haze>
-References: <1424672814-2998-1-git-send-email-challa@noironetworks.com>
- <1424672814-2998-3-git-send-email-challa@noironetworks.com>
- <54EADA49.6020308@miraclelinux.com>
- <CAN_zqfP0do+haTBOTecjNqBAdqEdj2JBam=_XiXsRnrASHMV3w@mail.gmail.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: repository for switch hardware info
+Date: Mon, 23 Feb 2015 09:57:32 +0100
+Message-ID: <20150223085731.GB5405@netboy>
+References: <20150222.160345.141886361578055811.davem@davemloft.net>
+ <20150222214032.GB16675@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>,
-	<netdev@vger.kernel.org>, Eric Dumazet <eric.dumazet@gmail.com>,
-	<davem@davemloft.net>
-To: Madhu Challa <challa@noironetworks.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sesbmg22.ericsson.net ([193.180.251.48]:57918 "EHLO
-	sesbmg22.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751142AbbBWIsF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Feb 2015 03:48:05 -0500
+Received: from mail-wg0-f50.google.com ([74.125.82.50]:34714 "EHLO
+	mail-wg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750903AbbBWI5i (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Feb 2015 03:57:38 -0500
+Received: by mail-wg0-f50.google.com with SMTP id l2so24144214wgh.9
+        for <netdev@vger.kernel.org>; Mon, 23 Feb 2015 00:57:37 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <CAN_zqfP0do+haTBOTecjNqBAdqEdj2JBam=_XiXsRnrASHMV3w@mail.gmail.com>
+In-Reply-To: <20150222214032.GB16675@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Feb 22, 2015 at 11:55:15PM -0800, Madhu Challa wrote:
-> Good point. It should never happen because the "ip command" would not
-> allow autojoin with a non multicast address. However in v1 of the
-> patch I was doing this via a workqueue and could not return an error.
-> Its not a problem anymore since ip_mc_config can return an error. I
-> will remove it. I will wait till tomorrow to see if there are any
-> other comments.
->
+On Sun, Feb 22, 2015 at 10:40:32PM +0100, Andrew Lunn wrote:
+> Marvell also have reference code, which is GPL, but is the usual
+> vendor quality. There does not appear to be an official Marvell
+> location for it, but there are a few copies lying around, e.g:
 
-I was about to send in a patchset that adds UDP bearer support for TIPC, 
-after rebasing it on top of this i could remove all deferred setup work
-for mcast.
-Thanks!
+Strangely, it appears that you need to sign an NDA in order to gain
+access to the GPL'ed driver sources.  Go figure.
 
-//E
+Thanks,
+Richard
