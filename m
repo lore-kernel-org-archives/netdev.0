@@ -1,167 +1,84 @@
-From: Michal Simek <monstr@monstr.eu>
-Subject: Re: [PATCH] net: macb: Add big endian CPU support
-Date: Mon, 23 Feb 2015 15:10:47 +0100
-Message-ID: <54EB34E7.7060400@monstr.eu>
-References: <1424258975-28611-1-git-send-email-achandran@mvista.com>	<54E5D5A0.90005@monstr.eu> <CAFdej03U7mMVC8H5SJJNCPq3nYRHZYHLshALvxusQvm24QPuSw@mail.gmail.com>
-Reply-To: monstr@monstr.eu
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="alJgH8kUUJFG8Jqxd5A4CB0g0aPQILODU"
-Cc: Nicolas Ferre <nicolas.ferre@atmel.com>,
-	netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Arun Chandran <achandran@mvista.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAFdej03U7mMVC8H5SJJNCPq3nYRHZYHLshALvxusQvm24QPuSw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Marcelo Ricardo Leitner <mleitner@redhat.com>
+Subject: [PATCH v2 net] ipv6: addrconf: validate new MTU before applying it
+Date: Mon, 23 Feb 2015 11:17:13 -0300
+Message-ID: <463ebd12cf29ddcf17275bdde9fb629444a5fa5b.1424698335.git.mleitner@redhat.com>
+Cc: Sabrina Dubroca <sd@queasysnail.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:33767 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752450AbbBWOR0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Feb 2015 09:17:26 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---alJgH8kUUJFG8Jqxd5A4CB0g0aPQILODU
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
+Currently we don't check if the new MTU is valid or not and this allows
+one to configure a smaller than minimum allowed by RFCs or even bigger
+than interface own MTU, which is a problem as it may lead to packet
+drops.
 
-Hi Arun,
+If you have a daemon like NetworkManager running, this may be exploited
+by remote attackers by forging RA packets with an invalid MTU, possibly
+leading to a DoS. (NetworkManager currently only validates for values
+too small, but not for too big ones.)
 
-On 02/20/2015 12:45 PM, Arun Chandran wrote:
-> On Thu, Feb 19, 2015 at 5:52 PM, Michal Simek <monstr@monstr.eu> wrote:=
+The fix is just to make sure the new value is valid. That is, between
+IPV6_MIN_MTU and interface's MTU.
 
->>
->> On 02/18/2015 12:29 PM, Arun Chandran wrote:
->>> This patch converts all __raw_readl and __raw_writel function calls
->>> to their corresponding readl_relaxed and writel_relaxed variants.
->>>
->>> It also tells the driver to set ahb_endian_swp_mgmt_en bit in dma_cfg=
+Note that similar check is already performed at
+ndisc_router_discovery(), for when kernel itself parses the RA.
 
->>> when the CPU is configured in big endian mode.
->>>
->>> Signed-off-by: Arun Chandran <achandran@mvista.com>
->>> ---
->>>       This patch is tested on xilinx ZC702 evaluation board with
->>>       CONFIG_CPU_BIG_ENDIAN=3Dy and booting NFS rootfs
->>> ---
->>> ---
->>>  drivers/net/ethernet/cadence/macb.c | 18 ++++++++++++------
->>>  drivers/net/ethernet/cadence/macb.h | 15 ++++++++-------
->>>  2 files changed, 20 insertions(+), 13 deletions(-)
->>>
->>> diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethern=
-et/cadence/macb.c
->>> index ad76b8e..05fb36d 100644
->>> --- a/drivers/net/ethernet/cadence/macb.c
->>> +++ b/drivers/net/ethernet/cadence/macb.c
->>> @@ -449,7 +449,7 @@ static void macb_update_stats(struct macb *bp)
->>>       WARN_ON((unsigned long)(end - p - 1) !=3D (MACB_TPF - MACB_PFR)=
- / 4);
->>>
->>>       for(; p < end; p++, reg++)
->>> -             *p +=3D __raw_readl(reg);
->>> +             *p +=3D readl_relaxed(reg);
->>>  }
->>>
->>>  static int macb_halt_tx(struct macb *bp)
->>> @@ -1585,7 +1585,11 @@ static void macb_configure_dma(struct macb *bp=
-)
->>>               if (bp->dma_burst_length)
->>>                       dmacfg =3D GEM_BFINS(FBLDO, bp->dma_burst_lengt=
-h, dmacfg);
->>>               dmacfg |=3D GEM_BIT(TXPBMS) | GEM_BF(RXBMS, -1L);
->>> -             dmacfg &=3D ~GEM_BIT(ENDIA);
->>> +             dmacfg &=3D ~GEM_BIT(ENDIA_PKT);
->>> +             /* Tell the chip to byteswap descriptors on big-endian =
-hosts */
->>> +#ifdef __BIG_ENDIAN
->>> +             dmacfg |=3D GEM_BIT(ENDIA_DESC);
->>> +#endif
->>
->> I don't think this is the best way what you should do.
->> Instead of having this ifdef here you should find out any reg and dete=
-ct if the IP
->> is in big endian or little endian mode. I have done it for some xilinx=
- IPs which
->> can run on big or little endian system.
->> In general find reg which some field which has some meaning - write th=
-ere 1
->> and read expected value and based on that decide if you are on big or =
-little endian system.
->=20
-> Hi Michal,
->=20
-> I was not able to find any such registers for GEM in the TRM
-> http://www.xilinx.com/support/documentation/user_guides/ug585-Zynq-7000=
--TRM.pdf
->=20
-> I tried writing to dma_cfg (0x00000010) and reading from design_cfg5
-> (0x00000290)
-> Its not reflecting anything(design_cfg5 always reads same value); It
-> is not helping.
->=20
-> The only way (I don't think its not right way either) I can think of
-> eliminating that
->  #ifdef __BIG_ENDIAN is reading some register in ARM cpu to identify it=
-s
-> current endianness and write dma_cfg accordingly.
+Signed-off-by: Marcelo Ricardo Leitner <mleitner@redhat.com>
+---
 
-Definitely no to detect cpu endianess.
+Notes:
+    Sabrina, please feel free to add your Signed-off-by if you want.
+    
+    v1->v2, applied Sabrina's notes:
+       use proc_dointvec_minmax instead
+       protect against all and default cases, which don't have idev
+    
+    all and default are simply not used, so we are good to simply ignore the
+    max values for them. The default value actually comes from interface MTU
+    during creation.
 
-What about this?
-writel(0x2, 0xE000b000); //write little endian
-if (readl(0xE000b000) =3D=3D 0x2) { //read little endian
-	printf("little endian\n")
-	disable 0x2 bit (loopback)
-} else {
-	printf("big endian\n");
+ net/ipv6/addrconf.c | 17 ++++++++++++++++-
+ 1 file changed, 16 insertions(+), 1 deletion(-)
 
-	definitely good to check writing 0x2 here that IP is
-	in big endian and reacts - if not BUG()
-}
-
-
-I have written this to spi-xilinx.c and you can use similar construction
-for macb too (of course with checking above).
-
-	/*
-	 * Detect endianess on the IP via loop bit in CR. Detection
-	 * must be done before reset is sent because incorrect reset
-	 * value generates error interrupt.
-	 * Setup little endian helper functions first and try to use them
-	 * and check if bit was correctly setup or not.
-	 */
-	xspi->read_fn =3D xspi_read32;
-	xspi->write_fn =3D xspi_write32;
-
-	xspi->write_fn(XSPI_CR_LOOP, xspi->regs + XSPI_CR_OFFSET);
-	tmp =3D xspi->read_fn(xspi->regs + XSPI_CR_OFFSET);
-	tmp &=3D XSPI_CR_LOOP;
-	if (tmp !=3D XSPI_CR_LOOP) {
-		xspi->read_fn =3D xspi_read32_be;
-		xspi->write_fn =3D xspi_write32_be;
-	}
-
-Thanks,
-Michal
-
---=20
-Michal Simek, Ing. (M.Eng), OpenPGP -> KeyID: FE3D1F91
-w: www.monstr.eu p: +42-0-721842854
-Maintainer of Linux kernel - Microblaze cpu - http://www.monstr.eu/fdt/
-Maintainer of Linux kernel - Xilinx Zynq ARM architecture
-Microblaze U-BOOT custodian and responsible for u-boot arm zynq platform
-
-
-
---alJgH8kUUJFG8Jqxd5A4CB0g0aPQILODU
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-
-iEYEARECAAYFAlTrNOcACgkQykllyylKDCGkMQCfS8/5arlQvJj+jBSoRG+NESQI
-0U4AnA50DzGU9wT2TvjsBa4LE2JPtSV+
-=UkW/
------END PGP SIGNATURE-----
-
---alJgH8kUUJFG8Jqxd5A4CB0g0aPQILODU--
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 98e4a63d72bb435e1ac1ae7cf2767072eed6db92..b6030025f41197efbcdfd1d8c013e469413550b5 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -4903,6 +4903,21 @@ int addrconf_sysctl_forward(struct ctl_table *ctl, int write,
+ 	return ret;
+ }
+ 
++static
++int addrconf_sysctl_mtu(struct ctl_table *ctl, int write,
++			void __user *buffer, size_t *lenp, loff_t *ppos)
++{
++	struct inet6_dev *idev = ctl->extra1;
++	int min_mtu = IPV6_MIN_MTU;
++	struct ctl_table lctl;
++
++	lctl = *ctl;
++	lctl.extra1 = &min_mtu;
++	lctl.extra2 = idev ? &idev->dev->mtu : NULL;
++
++	return proc_dointvec_minmax(&lctl, write, buffer, lenp, ppos);
++}
++
+ static void dev_disable_change(struct inet6_dev *idev)
+ {
+ 	struct netdev_notifier_info info;
+@@ -5054,7 +5069,7 @@ static struct addrconf_sysctl_table
+ 			.data		= &ipv6_devconf.mtu6,
+ 			.maxlen		= sizeof(int),
+ 			.mode		= 0644,
+-			.proc_handler	= proc_dointvec,
++			.proc_handler	= addrconf_sysctl_mtu,
+ 		},
+ 		{
+ 			.procname	= "accept_ra",
+-- 
+1.9.3
