@@ -1,51 +1,50 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [RFC PATCH v2] bridge: make it possible for packets to
- traverse the bridge without hitting netfilter
-Date: Mon, 23 Feb 2015 17:06:19 +0100
-Message-ID: <20150223160619.GF24297@breakpoint.cc>
-References: <1424705163-13428-1-git-send-email-imrep.amz@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Palik, Imre" <imrep@amazon.de>, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org, fw@strlen.de,
-	linux-kernel@vger.kernel.org, Anthony Liguori <aliguori@amazon.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Imre Palik <imrep.amz@gmail.com>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <1424705163-13428-1-git-send-email-imrep.amz@gmail.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: Guenter Roeck <linux@roeck-us.net>
+Subject: [RFT PATCH 2/2] net: dsa: mv88e6352: Add support for EEE
+Date: Mon, 23 Feb 2015 08:26:10 -0800
+Message-ID: <1424708770-3135-2-git-send-email-linux@roeck-us.net>
+References: <1424708770-3135-1-git-send-email-linux@roeck-us.net>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	linux-kernel@vger.kernel.org, Guenter Roeck <linux@roeck-us.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bh-25.webhostbox.net ([208.91.199.152]:39144 "EHLO
+	bh-25.webhostbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752972AbbBWQ0R (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Feb 2015 11:26:17 -0500
+Received: from mailnull by bh-25.webhostbox.net with sa-checked (Exim 4.82)
+	(envelope-from <linux@roeck-us.net>)
+	id 1YPvpo-001wGx-PD
+	for netdev@vger.kernel.org; Mon, 23 Feb 2015 16:26:17 +0000
+In-Reply-To: <1424708770-3135-1-git-send-email-linux@roeck-us.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Imre Palik <imrep.amz@gmail.com> wrote:
-> The netfilter code is made with flexibility instead of performance in mind.
-> So when all we want is to pass packets between different interfaces, the
-> performance penalty of hitting netfilter code can be considerable, even when
-> all the firewalling is disabled for the bridge.
-> 
-> This change makes it possible to disable netfilter on a per bridge basis.
-> In the case interesting to us, this can lead to more than 15% speedup
-> compared to the case when only bridge-iptables is disabled.
+Enable EEE support for MV88E6352.
 
-I wonder what the speed difference is between no-rules (i.e., we hit jump label
-in NF_HOOK), one single (ebtables) accept-all rule, and this patch, for
-the call_nf==false case.
+Signed-off-by: Guenter Roeck <linux@roeck-us.net>
+---
+Applies to net-next.
 
-I guess your 15% speedup figure is coming from ebtables' O(n) rule
-evaluation overhead?  If yes, how many rules are we talking about?
+Support for other chips using the mv88e6xxx code can be added
+with similar patches.
 
-Iff thats true, then the 'better' (I know, it won't help you) solution
-would be to use nftables bridgeport-based verdict maps...
+ drivers/net/dsa/mv88e6352.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-If thats still too much overhead, then we clearly need to do *something*...
-
-Thanks,
-Florian
+diff --git a/drivers/net/dsa/mv88e6352.c b/drivers/net/dsa/mv88e6352.c
+index 1ebd8f9..7bc5998 100644
+--- a/drivers/net/dsa/mv88e6352.c
++++ b/drivers/net/dsa/mv88e6352.c
+@@ -717,6 +717,8 @@ struct dsa_switch_driver mv88e6352_switch_driver = {
+ 	.get_strings		= mv88e6352_get_strings,
+ 	.get_ethtool_stats	= mv88e6352_get_ethtool_stats,
+ 	.get_sset_count		= mv88e6352_get_sset_count,
++	.set_eee		= mv88e6xxx_set_eee,
++	.get_eee		= mv88e6xxx_get_eee,
+ #ifdef CONFIG_NET_DSA_HWMON
+ 	.get_temp		= mv88e6352_get_temp,
+ 	.get_temp_limit		= mv88e6352_get_temp_limit,
+-- 
+2.1.0
