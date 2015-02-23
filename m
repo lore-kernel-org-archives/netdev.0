@@ -1,9 +1,9 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 2/3] Packet sniffer core framework
-Date: Mon, 23 Feb 2015 16:37:17 -0500 (EST)
-Message-ID: <20150223.163717.356301805782993412.davem@davemloft.net>
+Subject: Re: [PATCH v3 3/3] Linn Ethernet packet sniffer driver
+Date: Mon, 23 Feb 2015 16:38:54 -0500 (EST)
+Message-ID: <20150223.163854.880151768241069377.davem@davemloft.net>
 References: <cover.1424698609.git.stathis.voukelatos@linn.co.uk>
-	<3f43e4376bec64ded755e202c11d2f07886194af.1424698609.git.stathis.voukelatos@linn.co.uk>
+	<34013795c99ef50fac3d2c72717971563148578c.1424698609.git.stathis.voukelatos@linn.co.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -11,32 +11,27 @@ Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	devicetree@vger.kernel.org
 To: stathis.voukelatos@linn.co.uk
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <3f43e4376bec64ded755e202c11d2f07886194af.1424698609.git.stathis.voukelatos@linn.co.uk>
+In-Reply-To: <34013795c99ef50fac3d2c72717971563148578c.1424698609.git.stathis.voukelatos@linn.co.uk>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Stathis Voukelatos <stathis.voukelatos@linn.co.uk>
-Date: Mon, 23 Feb 2015 14:26:21 +0000
+Date: Mon, 23 Feb 2015 14:26:22 +0000
 
-> +	spin_lock_irqsave(&priv->lock, flags);
-> +	/* Stop the hardware */
-> +	sch->stop(sch);
-> +	/* Set the new command pattern */
-> +	ret = sch->set_pattern(sch, skb->data, skb->len / 2);
-> +	/* Restart the hardware */
-> +	sch->start(sch);
-> +	spin_unlock_irqrestore(&priv->lock, flags);
+> Driver for the Ethernet Mii packet sniffer H/W module found in
+> the IMG Pistachio SoC.
+> 
+> Signed-off-by: Stathis Voukelatos <stathis.voukelatos@linn.co.uk>
 
-These comments are excessive.
+You really have to explain what this thing does, how it is used,
+what APIs are made use of to maniulate this device, etc.
 
-When someone calls ops->stop() what are they supposed to think the
-thing does?  Open a can of tuna?  Mow the lawn?  Wash the dishes?  No,
-it stops the thing.  Everyone understands that and you don't have to
-explicitly say it.
+Nobody knows what the packet sniffer module by your company is.
 
-Saying "stop the hardware" does not add anything to the source code
-that is not already implicitly there.  They just take up space and
-keep more useful information from being displayed at once on the
-screen.  Please remove all of these things.
+I also anticipate that once you describe adequately how this thing
+behaves I won't like it, and I'll prefer that you integrate support
+for your device using an exising facility such as AF_PACKET,
+extending it if need be.
 
-Thanks.
+I am very far away from applying this series at this point, it needs
+a lot more work and explanations.
