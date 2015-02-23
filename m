@@ -1,48 +1,59 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 13/16] i40e: Fix i40e_ndo_set_vf_spoofchk
-Date: Sun, 22 Feb 2015 19:25:41 -0800
-Message-ID: <1424661944-1779-14-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 12/16] i40e/i40evf: Bump Driver Versions
+Date: Sun, 22 Feb 2015 19:25:40 -0800
+Message-ID: <1424661944-1779-13-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1424661944-1779-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Sravanthi Tangeda <sravanthi.tangeda@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:3468 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:3467 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752248AbbBWD0D (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752247AbbBWD0D (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Sun, 22 Feb 2015 22:26:03 -0500
 In-Reply-To: <1424661944-1779-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Greg Rose <gregory.v.rose@intel.com>
+From: Sravanthi Tangeda <sravanthi.tangeda@intel.com>
 
-The netdev op that allows the operator to turn MAC/VLAN spoof checking on
-and off did not include the flag for VLAN spoof checking.  This patch
-fixes that problem.
+Bump i40e to 1.2.8 and i40evf to 1.2.2
 
-Change-ID: Ib4c9e639024a854592d97af22706544881ac3fcb
-Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
+Change-ID: I64f47c3367ea8ff2a53068e895d7a1f60726c871
+Signed-off-by: Sravanthi Tangeda <sravanthi.tangeda@intel.com>
 Tested-by: Jim Young <james.m.young@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c     | 2 +-
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-index 40f042a..5450b9f 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-@@ -2427,7 +2427,8 @@ int i40e_ndo_set_vf_spoofchk(struct net_device *netdev, int vf_id, bool enable)
- 	ctxt.pf_num = pf->hw.pf_id;
- 	ctxt.info.valid_sections = cpu_to_le16(I40E_AQ_VSI_PROP_SECURITY_VALID);
- 	if (enable)
--		ctxt.info.sec_flags |= I40E_AQ_VSI_SEC_FLAG_ENABLE_MAC_CHK;
-+		ctxt.info.sec_flags |= (I40E_AQ_VSI_SEC_FLAG_ENABLE_VLAN_CHK |
-+					I40E_AQ_VSI_SEC_FLAG_ENABLE_MAC_CHK);
- 	ret = i40e_aq_update_vsi_params(hw, &ctxt, NULL);
- 	if (ret) {
- 		dev_err(&pf->pdev->dev, "Error %d updating VSI parameters\n",
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index c772d53..cad3e10 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -39,7 +39,7 @@ static const char i40e_driver_string[] =
+ 
+ #define DRV_VERSION_MAJOR 1
+ #define DRV_VERSION_MINOR 2
+-#define DRV_VERSION_BUILD 6
++#define DRV_VERSION_BUILD 8
+ #define DRV_VERSION __stringify(DRV_VERSION_MAJOR) "." \
+ 	     __stringify(DRV_VERSION_MINOR) "." \
+ 	     __stringify(DRV_VERSION_BUILD)    DRV_KERN
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+index 4f079e0..b1ca9dd 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+@@ -36,7 +36,7 @@ char i40evf_driver_name[] = "i40evf";
+ static const char i40evf_driver_string[] =
+ 	"Intel(R) XL710/X710 Virtual Function Network Driver";
+ 
+-#define DRV_VERSION "1.2.0"
++#define DRV_VERSION "1.2.2"
+ const char i40evf_driver_version[] = DRV_VERSION;
+ static const char i40evf_copyright[] =
+ 	"Copyright (c) 2013 - 2014 Intel Corporation.";
 -- 
 1.9.3
