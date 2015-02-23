@@ -1,32 +1,40 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: repository for switch hardware info
-Date: Mon, 23 Feb 2015 09:57:32 +0100
-Message-ID: <20150223085731.GB5405@netboy>
-References: <20150222.160345.141886361578055811.davem@davemloft.net>
- <20150222214032.GB16675@lunn.ch>
+From: Alexander Clouter <alex@digriz.org.uk>
+Subject: Re: forwarding IPv6 LL packets, bug?
+Date: Mon, 23 Feb 2015 08:56:12 +0000
+Message-ID: <20150223085612.GB22890@stevemcqueen.digriz.org.uk>
+References: <20150222164341.GD28830@stevemcqueen.digriz.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Andrew Lunn <andrew@lunn.ch>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f50.google.com ([74.125.82.50]:34714 "EHLO
-	mail-wg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750903AbbBWI5i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Feb 2015 03:57:38 -0500
-Received: by mail-wg0-f50.google.com with SMTP id l2so24144214wgh.9
-        for <netdev@vger.kernel.org>; Mon, 23 Feb 2015 00:57:37 -0800 (PST)
+Received: from marmot.wormnet.eu ([188.246.204.87]:53347 "EHLO
+	marmot.wormnet.eu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751174AbbBWJMf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Feb 2015 04:12:35 -0500
+Received: from [2001:a08:a260:a:ed7f:219:681f:287] (helo=localhost)
+	by marmot.wormnet.eu with esmtpsa (TLSv1.2:DHE-RSA-AES128-SHA:128)
+	(Exim 4.84)
+	(envelope-from <alex@digriz.org.uk>)
+	id 1YPooH-0008BW-Dh
+	for netdev@vger.kernel.org; Mon, 23 Feb 2015 08:56:13 +0000
 Content-Disposition: inline
-In-Reply-To: <20150222214032.GB16675@lunn.ch>
+In-Reply-To: <20150222164341.GD28830@stevemcqueen.digriz.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Feb 22, 2015 at 10:40:32PM +0100, Andrew Lunn wrote:
-> Marvell also have reference code, which is GPL, but is the usual
-> vendor quality. There does not appear to be an official Marvell
-> location for it, but there are a few copies lying around, e.g:
+On Sun, Feb 22, 2015 at 04:43:41PM +0000, Alexander Clouter wrote:
+>
+> [snipped]
+>
+>So I cracked out the source code and found where I think the problem 
+>might be, net/ipv6/ip6_output.c:ip6_forward().  I think the else 
+>block tied to the if clause handling redirect generation should be 
+>move above the block alternative and made non-conditional?  Something 
+>like the attachment?
 
-Strangely, it appears that you need to sign an NDA in order to gain
-access to the GPL'ed driver sources.  Go figure.
+Patch should probably additionally look at the destination address?
 
-Thanks,
-Richard
+-- 
+Alexander Clouter
+.sigmonster says:             BOFH excuse #227:
+                               Fatal error right in front of screen
