@@ -1,44 +1,73 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: Ottawa and slow hash-table resize
-Date: Mon, 23 Feb 2015 13:52:49 -0800
-Message-ID: <20150223215248.GA15405@linux.vnet.ibm.com>
-References: <20150223184904.GA24955@linux.vnet.ibm.com>
- <20150223191201.GA4355@cloud>
- <20150223210358.GB806@casper.infradead.org>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: "Rose, Gregory V" <gregory.v.rose@intel.com>
+Subject: RE: [net-next 13/16] i40e: Fix i40e_ndo_set_vf_spoofchk
+Date: Mon, 23 Feb 2015 22:00:00 +0000
+Message-ID: <C5551D9AAB213A418B7FD5E4A6F30A0789265663@ORSMSX108.amr.corp.intel.com>
+References: <1424661944-1779-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1424661944-1779-14-git-send-email-jeffrey.t.kirsher@intel.com>
+	<CAJ3xEMgf1ue3Byt3n1+LYFFKED8fq3RXJhqihTY=X6cww_MQkg@mail.gmail.com>
+	<C5551D9AAB213A418B7FD5E4A6F30A078926426F@ORSMSX108.amr.corp.intel.com>
+ <CAJ3xEMi7w+gp5QohzK3ByBENoOKWiQi+5761Lo-yDzgU__+Xow@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: josh@joshtriplett.org, alexei.starovoitov@gmail.com,
-	herbert@gondor.apana.org.au, kaber@trash.net, davem@davemloft.net,
-	ying.xue@windriver.com, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: Thomas Graf <tgraf@suug.ch>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150223210358.GB806@casper.infradead.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	"nhorman@redhat.com" <nhorman@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>,
+	"jogreene@redhat.com" <jogreene@redhat.com>
+To: Or Gerlitz <gerlitz.or@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga11.intel.com ([192.55.52.93]:27929 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752370AbbBWWAE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Feb 2015 17:00:04 -0500
+In-Reply-To: <CAJ3xEMi7w+gp5QohzK3ByBENoOKWiQi+5761Lo-yDzgU__+Xow@mail.gmail.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 23, 2015 at 09:03:58PM +0000, Thomas Graf wrote:
-> On 02/23/15 at 11:12am, josh@joshtriplett.org wrote:
-> > In theory, resizes should only take the locks for the buckets they're
-> > currently unzipping, and adds should take those same locks.  Neither one
-> > should take a whole-table lock, other than resize excluding concurrent
-> > resizes.  Is that still insufficient?
-> 
-> Correct, this is what happens. The problem is basically that
-> if we insert from atomic context we cannot slow down inserts
-> and the table may not grow quickly enough.
-> 
-> > Yeah, the add/remove statistics used for tracking would need some
-> > special handling to avoid being a table-wide bottleneck.
-> 
-> Daniel is working on a patch to do per-cpu element counting
-> with a batched update cycle.
-
-One approach is simply to count only when a resize operation is in
-flight.  Another is to keep a per-bucket count, which can be summed
-at the beginning of the next resize operation.
-
-							Thanx, Paul
-
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBPciBHZXJsaXR6IFttYWlsdG86
+Z2VybGl0ei5vckBnbWFpbC5jb21dDQo+IFNlbnQ6IE1vbmRheSwgRmVicnVhcnkgMjMsIDIwMTUg
+MTo1MiBQTQ0KPiBUbzogUm9zZSwgR3JlZ29yeSBWDQo+IENjOiBLaXJzaGVyLCBKZWZmcmV5IFQ7
+IERhdmlkIE1pbGxlcjsgTGludXggTmV0ZGV2IExpc3Q7DQo+IG5ob3JtYW5AcmVkaGF0LmNvbTsg
+c2Fzc21hbm5AcmVkaGF0LmNvbTsgam9ncmVlbmVAcmVkaGF0LmNvbQ0KPiBTdWJqZWN0OiBSZTog
+W25ldC1uZXh0IDEzLzE2XSBpNDBlOiBGaXggaTQwZV9uZG9fc2V0X3ZmX3Nwb29mY2hrDQo+IA0K
+PiBPbiBNb24sIEZlYiAyMywgMjAxNSBhdCA3OjMxIFBNLCBSb3NlLCBHcmVnb3J5IFYNCj4gPGdy
+ZWdvcnkudi5yb3NlQGludGVsLmNvbT4gd3JvdGU6DQo+ID4+IEZyb206IE9yIEdlcmxpdHogW21h
+aWx0bzpnZXJsaXR6Lm9yQGdtYWlsLmNvbV0NCj4gDQo+ID4+ID4gVGhlIG5ldGRldiBvcCB0aGF0
+IGFsbG93cyB0aGUgb3BlcmF0b3IgdG8gdHVybiBNQUMvVkxBTiBzcG9vZg0KPiA+PiA+IGNoZWNr
+aW5nIG9uIGFuZCBvZmYgZGlkIG5vdCBpbmNsdWRlIHRoZSBmbGFnIGZvciBWTEFOIHNwb29mDQo+
+ID4+ID4gY2hlY2tpbmcuICBUaGlzIHBhdGNoIGZpeGVzIHRoYXQgcHJvYmxlbS4NCj4gDQo+ID4+
+IElmIHdlJ3JlIG9uIFZTVCBtb2RlLCB0aGUgVkYgaXNuJ3QgYXdhcmUgdGhlaXIgdHJhZmZpYyBp
+cyB0YWdnZWQgd2l0aA0KPiA+PiB2bGFuLWlkIFkgYW5kIGlmIHRoZXkgdHJ5IHRvIHNlbmQgd2l0
+aCB2bGFuLWlkIFggSSBhc3N1bWUgeW91IGFyZQ0KPiA+PiBmb3JjaW5nIGl0IHRvIGJlIFksIHJp
+Z2h0Pw0KPiANCj4gPiBObywgaXQgaXMgZHJvcHBlZCBhbmQgYSBtYWxpY2lvdXMgZHJpdmVyIGV2
+ZW50IGlzIHJlZ2lzdGVyZWQgdG8gdGhlIFBGDQo+IGRyaXZlci4NCj4gDQo+IFdoeSBhcmUgeW91
+IHRyZWF0aW5nIHRoZSBWRiBhcyBtYWxpY2lvdXMgaWYgdW5kZXIgVlNUIG1vZGUgbm8gb25lIHRv
+bGQNCj4gdGhlbSB3aGF0IHZsYW5zIGFyZSBhbGxvd2VkIGZvciB0aGVtIHRvIHVzZT8NCg0KSSdt
+IG5vdCBzdXJlIHdoYXQgeW91IG1lYW4gYnkgVlNUL1ZHVCBtb2Rlcy4gIFRvIG1lIHlvdSdyZSB0
+YWxraW5nIGFib3V0IGEgcG9ydCBWTEFOIG1vZGVsIHdoZXJlIHRoZSBIVyBpbnNlcnRzL3JlbW92
+ZXMgdGhlIFZMQU4gdGFnIHdoaWxlIHRoZSBWRiBkcml2ZXIga25vd3Mgbm90aGluZyBhYm91dCBp
+dCB2cy4gdGhlIG1vcmUgc3RhbmRhcmQgbW9kZWwgd2hlcmUgdGhlIGRyaXZlciBpcyBhbGxvd2Vk
+IHRvIGluc2VydC9yZW1vdmUgVkxBTiB0YWdzIHVuZGVyIGl0cyBvd24gY29udHJvbCAoc3RpbGwg
+d2l0aCBIVyBhc3Npc3QpLg0KDQpJcyB0aGF0IGNvcnJlY3Q/ICBJIHRoaW5rIHdlIG5lZWQgdG8g
+bWFrZSBzdXJlIG91ciB0ZXJtcyBhbmQgZGVmaW5pdGlvbnMgbWF0Y2guDQoNCiBvciB5b3VyIFBG
+IGRyaXZlcg0KPiBjb21tdW5pY2F0ZXMgdGhlIHZsYW4gbW9kZSAoVlNUL1ZHVCkgdG8gdGhlIFZG
+Pw0KDQpUaGUgUEYgZHJpdmVyIGRvZXMgbm90IG5lZWQgdG8gY29tbXVuaWNhdGUgdGhlIFZMQU4g
+bW9kZSB0byB0aGUgVkYuDQoNCj4gDQo+ID4+IElmIHdlJ3JlIG9uIFZHVCBtb2RlLCB3aGF0IHNw
+b29mIGNoZWNrIHlvdSBjYW4gZG8/IHdlIGRvbid0IGhhdmUgYQ0KPiA+PiBtb2RlbCBmb3IgYWxs
+b3dlZCB2bGFucywgZGlkIEkgbWlzcyBzb21ldGhpbmc/DQo+IA0KPiA+IFRoaXMgb25seSBhcHBs
+aWVzIGluIGluc3RhbmNlcyB3aGVyZSB0aGUgYWRtaW5pc3RyYXRvciBoYXMgbm90IHNldCBhDQo+
+IFZMQU4gaWQgZm9yIHRoZSBWRiB2aWEgdGhlICdpcCcgdXRpbGl0eS4gIEluIHRoYXQgY2FzZSwg
+b3VyIHJ1bGUgaXMgdG8NCj4gYWxsb3cgdGhlIFZGIGRyaXZlciB0byBzZXQgaXRzIG93biBWTEFO
+IGZpbHRlcnMgaWYgaXQgc28gd2lzaGVzLiAgVGhpcyBpcw0KPiBhIGxvbmcgc3RhbmRpbmcgcnVs
+ZSBmb3IgSW50ZWwgVkYgZHJpdmVycy4NCj4gDQo+IG1ha2VzIHNlbnNlDQo+IA0KPiA+IFNvLCB3
+aXRoIFZMQU4gc3Bvb2YgY2hlY2tpbmcgdHVybmVkIG9uIFsuLi5dDQo+IA0KPiB3aGF0IGV4YWN0
+bHkgeW91IG1lYW4gYnkgIlZMQU4gc3Bvb2YgY2hlY2tpbmcgdHVybmVkIG9uIiBhbmQgaG93IHRo
+ZSBhZG1pbg0KPiB0ZWxscyB0aGUgUEYgdG8gZ28gaW50byB0aGlzIG1vZGU/DQoNCiNpcCBsaW5r
+IHNldCA8cGYgaW50ZXJmYWNlPiB2ZiA8bj4gc3Bvb2ZjaGsgPG9uL29mZj4NCg0KV2l0aCBzcG9v
+ZiBjaGVja2luZyBvZmYgdGhlbiB0aGUgVkYgY2FuIHNlbmQvcmVjZWl2ZSBvbiBhbnkgVkxBTiBp
+dCB3YW50cy4gIFdpdGggc3Bvb2YgY2hlY2tpbmcgb24gdGhlIFZMQU4gZmlsdGVyIG11c3QgZXhp
+c3QgaW4gdGhlIEhXIGZpbHRlcmluZyBiZWZvcmUgdGhlIFZGIGNhbiBzZW5kL3JlY2VpdmUgb24g
+dGhhdCBWTEFOLg0KDQotIEdyZWcNCg==
