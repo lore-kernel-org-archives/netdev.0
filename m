@@ -1,49 +1,51 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH RFC 1/2] net: dsa: integrate with SWITCHDEV for HW
- bridging
-Date: Mon, 23 Feb 2015 17:01:09 +0100
-Message-ID: <20150223160109.GB27057@lunn.ch>
-References: <1424201196-4901-1-git-send-email-f.fainelli@gmail.com>
- <1424201196-4901-2-git-send-email-f.fainelli@gmail.com>
- <54EA8E7C.90401@roeck-us.net>
- <20150223031447.GA19267@lunn.ch>
- <54EAA767.6060105@roeck-us.net>
- <20150223042220.GA20063@lunn.ch>
- <54EAAEBC.6080609@roeck-us.net>
- <CAGVrzcYnuV6raXSrAETctwX5dwX3S=2-=ySewCFdx=iM7bPaDg@mail.gmail.com>
- <20150223133454.GB23581@lunn.ch>
- <54EB37C7.3090209@roeck-us.net>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [RFC PATCH v2] bridge: make it possible for packets to
+ traverse the bridge without hitting netfilter
+Date: Mon, 23 Feb 2015 17:06:19 +0100
+Message-ID: <20150223160619.GF24297@breakpoint.cc>
+References: <1424705163-13428-1-git-send-email-imrep.amz@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-	netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-	jerome.oufella@savoirfairelinux.com,
-	Chris Healy <cphealy@gmail.com>
-To: Guenter Roeck <linux@roeck-us.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:47774 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751898AbbBWQEI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Feb 2015 11:04:08 -0500
+Cc: "Palik, Imre" <imrep@amazon.de>, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org, fw@strlen.de,
+	linux-kernel@vger.kernel.org, Anthony Liguori <aliguori@amazon.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Imre Palik <imrep.amz@gmail.com>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
 Content-Disposition: inline
-In-Reply-To: <54EB37C7.3090209@roeck-us.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1424705163-13428-1-git-send-email-imrep.amz@gmail.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-> I currently use ATU command 110 (flush all non-static entries in a
-> particular FID). I see means to flush either all entries or all
-> non-static entries, but no means to only flush unicast or multicast
-> entries. Does any of the standards distinguish between learned unicast
-> and multicast addresses ? Flushing those selectively might be a
-> challenge.
+Imre Palik <imrep.amz@gmail.com> wrote:
+> The netfilter code is made with flexibility instead of performance in mind.
+> So when all we want is to pass packets between different interfaces, the
+> performance penalty of hitting netfilter code can be considerable, even when
+> all the firewalling is disabled for the bridge.
+> 
+> This change makes it possible to disable netfilter on a per bridge basis.
+> In the case interesting to us, this can lead to more than 15% speedup
+> compared to the case when only bridge-iptables is disabled.
 
-You might need to walk the table and flush records individually if you
-are only interested in one type.
+I wonder what the speed difference is between no-rules (i.e., we hit jump label
+in NF_HOOK), one single (ebtables) accept-all rule, and this patch, for
+the call_nf==false case.
 
-We should also consider do we need to make these flush operations
-atomic with respect to other operations? Do we need to disable
-learning, flush, change the port STP status, and then enable learning?
+I guess your 15% speedup figure is coming from ebtables' O(n) rule
+evaluation overhead?  If yes, how many rules are we talking about?
 
-	  Andrew
+Iff thats true, then the 'better' (I know, it won't help you) solution
+would be to use nftables bridgeport-based verdict maps...
+
+If thats still too much overhead, then we clearly need to do *something*...
+
+Thanks,
+Florian
