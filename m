@@ -1,115 +1,85 @@
-From: Rasmus Villemoes <linux-qQsb+v5E8BnlAoU/VqSP6n9LOBIZ5rWg@public.gmane.org>
-Subject: Re: [PATCH v3 3/3] lib/string_helpers.c: Change semantics of string_escape_mem
-Date: Mon, 23 Feb 2015 23:55:51 +0100
-Message-ID: <87k2z86xvs.fsf@rasmusvillemoes.dk>
-References: <1422525801-26560-1-git-send-email-linux@rasmusvillemoes.dk>
-	<1423525491-12613-1-git-send-email-linux@rasmusvillemoes.dk>
-	<1423525491-12613-4-git-send-email-linux@rasmusvillemoes.dk>
-	<1423571552.31903.468.camel@linux.intel.com>
-	<87386dj4x0.fsf@rasmusvillemoes.dk>
-	<1423578150.31903.480.camel@linux.intel.com>
-	<87oaoo59n2.fsf@rasmusvillemoes.dk>
-	<1424695820.14897.10.camel@linux.intel.com>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: Ottawa and slow hash-table resize
+Date: Mon, 23 Feb 2015 15:06:19 -0800
+Message-ID: <20150223230619.GD15405@linux.vnet.ibm.com>
+References: <20150223191201.GA4355@cloud>
+ <20150223210358.GB806@casper.infradead.org>
+ <20150223215248.GA15405@linux.vnet.ibm.com>
+ <20150223.173252.397503088215638994.davem@davemloft.net>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
-	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Andy Shevchenko <andriy.shevchenko-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1424695820.14897.10.camel-VuQAYsv1563Yd54FQh9/CA@public.gmane.org> (Andy Shevchenko's
-	message of "Mon, 23 Feb 2015 14:50:20 +0200")
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: tgraf@suug.ch, josh@joshtriplett.org, alexei.starovoitov@gmail.com,
+	herbert@gondor.apana.org.au, kaber@trash.net,
+	ying.xue@windriver.com, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e36.co.us.ibm.com ([32.97.110.154]:47355 "EHLO
+	e36.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751812AbbBWXG0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Feb 2015 18:06:26 -0500
+Received: from /spool/local
+	by e36.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <paulmck@linux.vnet.ibm.com>;
+	Mon, 23 Feb 2015 16:06:25 -0700
+Content-Disposition: inline
+In-Reply-To: <20150223.173252.397503088215638994.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 23 2015, Andy Shevchenko <andriy.shevchenko-VuQAYsv1563Yd54FQh9/CA@public.gmane.org> wrote:
+On Mon, Feb 23, 2015 at 05:32:52PM -0500, David Miller wrote:
+> From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+> Date: Mon, 23 Feb 2015 13:52:49 -0800
+> 
+> > On Mon, Feb 23, 2015 at 09:03:58PM +0000, Thomas Graf wrote:
+> >> On 02/23/15 at 11:12am, josh@joshtriplett.org wrote:
+> >> > In theory, resizes should only take the locks for the buckets they're
+> >> > currently unzipping, and adds should take those same locks.  Neither one
+> >> > should take a whole-table lock, other than resize excluding concurrent
+> >> > resizes.  Is that still insufficient?
+> >> 
+> >> Correct, this is what happens. The problem is basically that
+> >> if we insert from atomic context we cannot slow down inserts
+> >> and the table may not grow quickly enough.
+> >> 
+> >> > Yeah, the add/remove statistics used for tracking would need some
+> >> > special handling to avoid being a table-wide bottleneck.
+> >> 
+> >> Daniel is working on a patch to do per-cpu element counting
+> >> with a batched update cycle.
+> > 
+> > One approach is simply to count only when a resize operation is in
+> > flight.  Another is to keep a per-bucket count, which can be summed
+> > at the beginning of the next resize operation.
+> 
+> I think we should think exactly about what we should do when someone
+> loops non-stop adding 1 million entries to the hash table and the
+> initial table size is very small.
+> 
+> This is a common use case for at least one of the current rhashtable
+> users (nft_hash).  When you load an nftables rule with a large set
+> of IP addresses attached, this is what happens.
+> 
+> Yes I understand that nftables could give a hint and start with a
+> larger hash size from the start when it knows this is going to happen,
+> but I still believe that we should behave reasonably when starting
+> from a small table.
+> 
+> I'd say that with the way things work right now, in this situation it
+> actually hurts to allow asynchronous inserts during a resize.  Because
+> we end up with extremely long hash table chains, and thus make the
+> resize work and the lookups both take an excruciatingly long amount of
+> time to complete.
+> 
+> I just did a quick scan of all code paths that do inserts into an
+> rhashtable, and it seems like all of them can easily block.  So why
+> don't we do that?  Make inserts sleep on an rhashtable expansion
+> waitq.
+> 
+> There could even be a counter of pending inserts, so the expander can
+> decide to expand further before waking the inserting threads up.
 
->> >> > So, why couldn't we split this to separate test case? It seems I already
->> >> > pointed this out.
->> >> >
->> >> 
->> >> This actually provides better coverage
->> >
->> > I do not see much advantage of doing so. You may create a loop with
->> > random number for in-size and check. So, I prefer to see separate case
->> > for that.
->> 
->> It's not about the size, it's about exercising all the various escape_*
->> helpers, to ensure that they all respect the end of the buffer, while
->> still returning the correct would-be output size. For that, one needs to
->> call string_escape_mem with various combinations of flags and input
->> buffers. The logic for that is already in place in test_string_escape
->> and its caller, and I see no point in duplicating all that.
->
-> Thanks for clarification.
->
->> If you insist on a separate function for doing the overflow testing,
->> I'll just rip it out from my code and let you add such a test later.
->
-> What about to make it a separate function *and* call from inside of
-> test_string_escape? Would it work for you?
+Should be reasonably simple, and certainly seems worth a try!
 
-See my earlier point about "quite a lot of state to pass". But if this
-
-static __init void
-test_string_escape_overflow(const char *in, int p, char *out_real, int out_size,
-			    unsigned int flags, const char *esc, int q_test,
-			    const char *name)
-{
-	int q_real;
-
-	memset(out_real, 'Z', out_size);
-	q_real = string_escape_mem(in, p, out_real, 0, flags, esc);
-	if (q_real != q_test)
-		pr_warn("Test '%s' failed: flags = %u, osz = 0, expected %d, got %d\n",
-			name, flags, q_test, q_real);
-	if (memchr_inv(out_real, 'Z', out_size))
-		pr_warn("Test '%s' failed: osz = 0 but string_escape_mem wrote to the buffer\n",
-			name);
-}
-
-is what you want, sure, have it your way.
-
-I need to fix fs/proc/array.c in 3/3 as well, to make the kernel
-compile+boot and make the series bisectable. Before I send v4 please let
-me know what you think about this (the minimal fix I could come up with):
-
-diff --git a/fs/proc/array.c b/fs/proc/array.c
-index 1295a00ca316..20f2d50e2dba 100644
---- a/fs/proc/array.c
-+++ b/fs/proc/array.c
-@@ -99,10 +99,9 @@ static inline void task_name(struct seq_file *m, struct task_struct *p)
-        buf = m->buf + m->count;
- 
-        /* Ignore error for now */
--       string_escape_str(tcomm, &buf, m->size - m->count,
--                         ESCAPE_SPACE | ESCAPE_SPECIAL, "\n\\");
-+       m->count += string_escape_str(tcomm, buf, m->size - m->count,
-+                                     ESCAPE_SPACE | ESCAPE_SPECIAL, "\n\\");
- 
--       m->count = buf - m->buf;
-        seq_putc(m, '\n');
- }
- 
-[Longer-term I think it would be a lot better not to poke around in
-the internals of struct seq_file. One way is to do the escaping into a
-stack buffer (2*sizeof(p->comm) should be enough) and then use something
-like seq_write(m, buffer, min(sizeof(buffer),
-return-value-from-string_escape_str)).
-
-Another option is to do everything with a single seq_printf call,
-something like
-
-seq_printf(m, "Name:\t%*pEcs\n, (int)strlen(tcomm), tcomm)
-
-That will escape more than just \ and \n, but that would IMO be an
-improvement. But of course this is out of scope for this series.]
-
-Rasmus
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+							Thanx, Paul
