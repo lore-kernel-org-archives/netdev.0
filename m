@@ -1,40 +1,153 @@
-From: Alexander Clouter <alex@digriz.org.uk>
-Subject: Re: forwarding IPv6 LL packets, bug?
-Date: Mon, 23 Feb 2015 08:56:12 +0000
-Message-ID: <20150223085612.GB22890@stevemcqueen.digriz.org.uk>
-References: <20150222164341.GD28830@stevemcqueen.digriz.org.uk>
+From: Sathya Perla <sathya.perla@emulex.com>
+Subject: [net-next PATCH 3/9] be2net: refactor function initalization sequence into be_func_init()
+Date: Mon, 23 Feb 2015 04:20:10 -0500
+Message-ID: <1424683216-29611-4-git-send-email-sathya.perla@emulex.com>
+References: <1424683216-29611-1-git-send-email-sathya.perla@emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-To: netdev@vger.kernel.org
+Content-Type: text/plain
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from marmot.wormnet.eu ([188.246.204.87]:53347 "EHLO
-	marmot.wormnet.eu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751174AbbBWJMf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Feb 2015 04:12:35 -0500
-Received: from [2001:a08:a260:a:ed7f:219:681f:287] (helo=localhost)
-	by marmot.wormnet.eu with esmtpsa (TLSv1.2:DHE-RSA-AES128-SHA:128)
-	(Exim 4.84)
-	(envelope-from <alex@digriz.org.uk>)
-	id 1YPooH-0008BW-Dh
-	for netdev@vger.kernel.org; Mon, 23 Feb 2015 08:56:13 +0000
-Content-Disposition: inline
-In-Reply-To: <20150222164341.GD28830@stevemcqueen.digriz.org.uk>
+Received: from cmexedge2.emulex.com ([138.239.224.100]:5932 "EHLO
+	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752625AbbBWJRU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Feb 2015 04:17:20 -0500
+In-Reply-To: <1424683216-29611-1-git-send-email-sathya.perla@emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Feb 22, 2015 at 04:43:41PM +0000, Alexander Clouter wrote:
->
-> [snipped]
->
->So I cracked out the source code and found where I think the problem 
->might be, net/ipv6/ip6_output.c:ip6_forward().  I think the else 
->block tied to the if clause handling redirect generation should be 
->move above the block alternative and made non-conditional?  Something 
->like the attachment?
+Function initialization sequence is executed in be_probe(), be_resume
+and be_eeh_resume(). Move this code to a new routine called be_func_init()
+to prevent code duplication.
 
-Patch should probably additionally look at the destination address?
+Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
+Signed-off-by: Kalesh AP <kalesh.purayil@emulex.com>
+---
+ drivers/net/ethernet/emulex/benet/be_cmds.c |  4 ++
+ drivers/net/ethernet/emulex/benet/be_main.c | 76 ++++++++++++-----------------
+ 2 files changed, 36 insertions(+), 44 deletions(-)
 
+diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
+index 36916cf..8a8a230 100644
+--- a/drivers/net/ethernet/emulex/benet/be_cmds.c
++++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
+@@ -720,6 +720,10 @@ int be_fw_wait_ready(struct be_adapter *adapter)
+ 	}
+ 
+ 	do {
++		/* There's no means to poll POST state on BE2/3 VFs */
++		if (BEx_chip(adapter) && be_virtfn(adapter))
++			return 0;
++
+ 		stage = be_POST_stage_get(adapter);
+ 		if (stage == POST_STAGE_ARMFW_RDY)
+ 			return 0;
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index 40c8f85..fda2e5d 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -5250,6 +5250,35 @@ static inline char *nic_name(struct pci_dev *pdev)
+ 	}
+ }
+ 
++/* Wait for the FW to be ready and perform the required initialization */
++static int be_func_init(struct be_adapter *adapter)
++{
++	int status;
++
++	status = be_fw_wait_ready(adapter);
++	if (status)
++		return status;
++
++	if (be_reset_required(adapter)) {
++		status = be_cmd_reset_function(adapter);
++		if (status)
++			return status;
++
++		/* Wait for interrupts to quiesce after an FLR */
++		msleep(100);
++	}
++
++	/* Tell FW we're ready to fire cmds */
++	status = be_cmd_fw_init(adapter);
++	if (status)
++		return status;
++
++	/* Allow interrupts for other ULPs running on NIC function */
++	be_intr_set(adapter, true);
++
++	return 0;
++}
++
+ static int be_probe(struct pci_dev *pdev, const struct pci_device_id *pdev_id)
+ {
+ 	struct be_adapter *adapter;
+@@ -5301,27 +5330,7 @@ static int be_probe(struct pci_dev *pdev, const struct pci_device_id *pdev_id)
+ 	if (status)
+ 		goto unmap_bars;
+ 
+-	/* sync up with fw's ready state */
+-	if (be_physfn(adapter)) {
+-		status = be_fw_wait_ready(adapter);
+-		if (status)
+-			goto drv_cleanup;
+-	}
+-
+-	if (be_reset_required(adapter)) {
+-		status = be_cmd_reset_function(adapter);
+-		if (status)
+-			goto drv_cleanup;
+-
+-		/* Wait for interrupts to quiesce after an FLR */
+-		msleep(100);
+-	}
+-
+-	/* Allow interrupts for other ULPs running on NIC function */
+-	be_intr_set(adapter, true);
+-
+-	/* tell fw we're ready to fire cmds */
+-	status = be_cmd_fw_init(adapter);
++	status = be_func_init(adapter);
+ 	if (status)
+ 		goto drv_cleanup;
+ 
+@@ -5401,17 +5410,7 @@ static int be_resume(struct pci_dev *pdev)
+ 	pci_set_power_state(pdev, PCI_D0);
+ 	pci_restore_state(pdev);
+ 
+-	status = be_fw_wait_ready(adapter);
+-	if (status)
+-		return status;
+-
+-	status = be_cmd_reset_function(adapter);
+-	if (status)
+-		return status;
+-
+-	be_intr_set(adapter, true);
+-	/* tell fw we're ready to fire cmds */
+-	status = be_cmd_fw_init(adapter);
++	status = be_func_init(adapter);
+ 	if (status)
+ 		return status;
+ 
+@@ -5529,18 +5528,7 @@ static void be_eeh_resume(struct pci_dev *pdev)
+ 
+ 	pci_save_state(pdev);
+ 
+-	status = be_cmd_reset_function(adapter);
+-	if (status)
+-		goto err;
+-
+-	/* On some BE3 FW versions, after a HW reset,
+-	 * interrupts will remain disabled for each function.
+-	 * So, explicitly enable interrupts
+-	 */
+-	be_intr_set(adapter, true);
+-
+-	/* tell fw we're ready to fire cmds */
+-	status = be_cmd_fw_init(adapter);
++	status = be_func_init(adapter);
+ 	if (status)
+ 		goto err;
+ 
 -- 
-Alexander Clouter
-.sigmonster says:             BOFH excuse #227:
-                               Fatal error right in front of screen
+2.2.0
