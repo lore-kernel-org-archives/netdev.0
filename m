@@ -1,68 +1,44 @@
-From: Madalin-Cristian Bucur <madalin.bucur@freescale.com>
-Subject: RE: [PATCH] ipv6: address issue in __ip6_append_data
-Date: Mon, 23 Feb 2015 14:11:58 +0000
-Message-ID: <BL2PR03MB5455A69A86B37B048267E9AE6290@BL2PR03MB545.namprd03.prod.outlook.com>
-References: <1423841459-21880-1-git-send-email-madalin.bucur@freescale.com>
- <20150221183359.GB16874@kria>
+From: Stefan Assmann <sassmann@kpanic.de>
+Subject: Re: [PATCH net-next] i40e: mark constant as ULL
+Date: Mon, 23 Feb 2015 15:56:24 +0100
+Message-ID: <54EB3F98.2030709@kpanic.de>
+References: <1423050064-25087-1-git-send-email-sassmann@kpanic.de> <1423072177.2589.66.camel@jtkirshe-mobl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"vyasevich@gmail.com" <vyasevich@gmail.com>,
-	"davem@davemloft.net" <davem@davemloft.net>
-To: Sabrina Dubroca <sd@queasysnail.net>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	e1000-devel@lists.sourceforge.net
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1bbn0108.outbound.protection.outlook.com ([157.56.111.108]:49073
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751898AbbBWOni (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Feb 2015 09:43:38 -0500
-In-Reply-To: <20150221183359.GB16874@kria>
-Content-Language: en-US
+Received: from app1b.xlhost.de ([84.200.252.162]:40872 "EHLO app1b.xlhost.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752570AbbBWO4b (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Feb 2015 09:56:31 -0500
+In-Reply-To: <1423072177.2589.66.camel@jtkirshe-mobl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiBGcm9tOiBTYWJyaW5hIER1YnJvY2EgW21haWx0bzpzZEBxdWVhc3lzbmFpbC5uZXRdDQo+IFNl
-bnQ6IFNhdHVyZGF5LCBGZWJydWFyeSAyMSwgMjAxNSA4OjM0IFBNDQo+IDIwMTUtMDItMTMsIDE3
-OjMwOjU5ICswMjAwLCBNYWRhbGluIEJ1Y3VyIHdyb3RlOg0KPiA+IEhlbGxvLA0KPiA+DQo+ID4g
-SSB0aGluayBJJ3ZlIGZvdW5kIGEgcHJvYmxlbSB0aGF0IGFsbG93cyBnZW5lcmljIElQdjYgdHJh
-ZmZpYyB0byBiZQ0KPiA+IHNlbnQgYnkgdGhlIHN0YWNrIHdpdGggQ0hFQ0tTVU1fUEFSVElBTCB0
-byBhIG5ldGRldmljZSB0aGF0IGRlY2xhcmVzDQo+ID4gTkVUSUZfRl9JUFY2X0NTVU0uIFRoZSBO
-RVRJRl9GX0lQVjZfQ1NVTSBmbGFnIGlzIGJhc2VkIG9uIHRoZQ0KPiA+IE5FVElGX0ZfSVBWNl9D
-U1VNX0JJVCB0aGF0IGlzIGRlc2NyaWJlZCBhcyByZWZlcnJpbmcgb25seSB0byBUQ1AgYW5kDQo+
-ID4gVURQIGJ1dCBpbiBteSB0ZXN0IElDTVB2NiBmcmFtZXMgd2l0aCBDSEVDS1NVTV9QQVJUSUFM
-IGFyZSBzZWVuOg0KPiANCj4gVGhpcyBzaG91bGQgYmUgZml4ZWQgYnk6DQo+IA0KPiAgICAgYmYy
-NTBhMWZhNzY5ICgiaXB2NjogUGFydGlhbCBjaGVja3N1bSBvbmx5IFVEUCBwYWNrZXRzIikNCj4g
-DQo+IEhhdmUgeW91IHRlc3RlZCBpdD8NCg0KSSd2ZSBzYW1wbGVkIHRoZSB0cmVlIGJldHdlZW4g
-dGhlIHByb2JsZW0gd2FzIGludHJvZHVjZWQgYW5kIHlvdXIgZml4IHdhcyBhcHBsaWVkLg0KTmV4
-dCBJJ3ZlIGNoZWNrZWQgZm9yIHRoZSBydC0+ZHN0LmRldi0+ZmVhdHVyZXMgJiBORVRJRl9GX1Y2
-X0NTVU0gdGhhdCB3YXMgc3RpbGwNCnRoZXJlIGFuZCBzZW50IHRoZSBmaXggSSBoYWQgcHJlcGFy
-ZWQgbG9jYWxseS4gWW91ciBwYXRjaCByZXN0cmljdHMgQ0hFQ0tTVU1fUEFSVElBTA0KdG8gVURQ
-IGFuZCB0aHVzIHNvbHZlZCB0aGUgcHJvYmxlbS4gDQoNCj4gPiBORVRJRl9GX0lQVjZfQ1NVTV9C
-SVQsICAgICAgICAgIC8qIENhbiBjaGVja3N1bSBUQ1AvVURQIG92ZXIgSVBWNiAqLw0KPiA+DQo+
-ID4gSSd2ZSB0cmFjZWQgdGhlIGlzc3VlIHRvIGEgcmVjZW50IGNvbW1pdCB0aGF0IGluY2x1ZGVz
-IHRoaXMgY2hlY2s6DQo+ID4NCj4gPiAJcnQtPmRzdC5kZXYtPmZlYXR1cmVzICYgTkVUSUZfRl9W
-Nl9DU1VNDQo+ID4NCj4gPiBUaGUgcHJvYmxlbSB3aXRoIHRoaXMgaXMgdGhhdCBORVRJRl9GX1Y2
-X0NTVU0gaXMgbW9yZSB0aGFuIG9uZSBiaXQ6DQo+ID4NCj4gPiAjZGVmaW5lIE5FVElGX0ZfVjZf
-Q1NVTSAgICAgICAgIChORVRJRl9GX0dFTl9DU1VNIHwNCj4gTkVUSUZfRl9JUFY2X0NTVU0pDQo+
-ID4NCj4gPiBUaHVzIHRoZSBhYm92ZSBjaGVjayBzaG91bGQgYmUgZWl0aGVyOg0KPiA+DQo+ID4g
-CShydC0+ZHN0LmRldi0+ZmVhdHVyZXMgJiBORVRJRl9GX1Y2X0NTVU0pID09IE5FVElGX0ZfVjZf
-Q1NVTQ0KPiANCj4gSSB0aGluayB0aGlzIGRpc2FibGVzIEhXIGNoZWNrc3VtbWluZyB0aGF0IFZs
-YWQncyBwYXRjaCBlbmFibGVkLiAgQXMNCj4gVmxhZCBwb2ludGVkIG91dCBpbiBhbm90aGVyIHNp
-bWlsYXIgdGhyZWFkIFsxXSwgdGhlIHR3byBiaXRzIGFyZQ0KPiBtdXR1YWxseSBleGNsdXNpdmUs
-IHNvIHlvdSBjYW4ndCBoYXZlDQo+IA0KPiAgICAgKGRldi0+ZmVhdHVyZXMgJiBORVRJRl9GX1Y2
-X0NTVU0pID09IE5FVElGX0ZfVjZfQ1NVTQ0KPiANCj4gWzFdIGh0dHA6Ly93d3cuc3Bpbmljcy5u
-ZXQvbGlzdHMvbmV0ZGV2L21zZzMxNjM0MS5odG1sDQo+IA0KDQpJIHdhcyB1bnN1cmUgYWJvdXQg
-VmxhZCdzIGludGVudGlvbiwgdGhlIGZhY3QgdGhhdCBoaXMgcGF0Y2ggaW50cm9kdWNlZCB0aGUg
-cHJvYmxlbQ0KbWFkZSBtZSBzdG9wIGF0IHRoaXMgcXVpY2sgZXhwbGFuYXRpb24gYXMgdGhlIGNv
-ZGUgbG9va2VkIHN1c3BpY2lvdXMuDQoNCj4gPiBvciBwcm9iYWJseSBzaG91bGQgdXNlIE5FVElG
-X0ZfSFdfQ1NVTSBvbmx5Og0KPiA+DQo+ID4gCXJ0LT5kc3QuZGV2LT5mZWF0dXJlcyAmIE5FVElG
-X0ZfSFdfQ1NVTQ0KPiANCj4gTWF5YmUuICBCdXQgSSBqdXN0IHRyaWVkIHRoaXMsIGFuZCBpdCBk
-b2Vzbid0IHdvcmsgd2l0aCBxZW11J3MgZTEwMDANCj4gZW11bGF0aW9uIChjb3VsZCBiZSBhIGRy
-aXZlci9xZW11IHByb2JsZW0sIEkgY2FuJ3QgY2hlY2sgd2l0aCBvdGhlcg0KPiBkZXZpY2VzKS4N
-Cg0KTXkgY29uY2VybiB3YXMgdG8gc3RvcCByZWNlaXZpbmcgSUNNUHY2IHdpdGggQ0hFQ0tTVU1f
-UEFSVElBTCBvbiBhIGRyaXZlciB0aGF0IA0KZGVjbGFyZWQgTkVUSUZfRl9JUFY2X0NTVU0gb25s
-eSAobm90IE5FVElGX0ZfSFdfQ1NVTSkgc28gSSBjb3VsZCBub3QgaGF2ZQ0KdmFsaWRhdGVkIHRo
-aXMgc2Vjb25kIGFwcHJvYWNoIG9uIG15IGh3Lg0KDQpUaGFuayB5b3UgZm9yIHlvdXIgZml4IGFu
-ZCByZXBseSwNCk1hZGFsaW4NCg0KUFM6IHNvcnJ5IGZvciB0aGUgbGF0ZSByZXBseSwgSSd2ZSBi
-ZWVuIGF3YXkgbGFzdCB3ZWVrDQo=
+On 04.02.2015 18:49, Jeff Kirsher wrote:
+> On Wed, 2015-02-04 at 12:41 +0100, Stefan Assmann wrote:
+>> This avoids a compile error on 32bit.
+>>
+>> Signed-off-by: Stefan Assmann <sassmann@kpanic.de>
+>> ---
+>>  drivers/net/ethernet/intel/i40e/i40e_lan_hmc.c | 2 +-
+>>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> Come to find out, I already have a fix in my queue for this.  So I will
+> be dropping your patch.
+> 
+> The patch in my queue fixes the issue by doing the folling change:
+> -               mask = 0xFFFFFFFFFFFFFFFF;
+> +               mask = ~(u64)0;
+> 
+
+Jeff,
+
+this does not seem to compile on 32bit either. Please verify and if
+you agree let's put my patch back in place instead of this one. IIRC
+your patch has not been posted yet.
+
+  Stefan
