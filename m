@@ -1,30 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: bluetooth 2015-02-23
-Date: Mon, 23 Feb 2015 15:06:20 -0500 (EST)
-Message-ID: <20150223.150620.1748896587152404088.davem@davemloft.net>
-References: <20150223074526.GA8287@t440s.lan>
+Subject: Re: [net-next PATCH 0/9] be2net: patch set
+Date: Mon, 23 Feb 2015 15:08:56 -0500 (EST)
+Message-ID: <20150223.150856.1853935850244224341.davem@davemloft.net>
+References: <1424683216-29611-1-git-send-email-sathya.perla@emulex.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-bluetooth@vger.kernel.org
-To: johan.hedberg@gmail.com
+Cc: netdev@vger.kernel.org
+To: sathya.perla@emulex.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36998 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:37052 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752358AbbBWUGX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Feb 2015 15:06:23 -0500
-In-Reply-To: <20150223074526.GA8287@t440s.lan>
+	with ESMTP id S1751959AbbBWUI6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Feb 2015 15:08:58 -0500
+In-Reply-To: <1424683216-29611-1-git-send-email-sathya.perla@emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Johan Hedberg <johan.hedberg@gmail.com>
-Date: Mon, 23 Feb 2015 09:45:26 +0200
+From: Sathya Perla <sathya.perla@emulex.com>
+Date: Mon, 23 Feb 2015 04:20:07 -0500
 
-> Here's one important fix for the 4.0-rc series. Refactoring of Intel
-> Bluetooth controller detection ended up disabling some older ones which
-> are based on CSR hardware. This patch re-introduces the necessary USB id
-> and fixes the breakage.
-> 
-> Please let me know if there are any issues pulling. Thanks.
+> Hi Dave, the following patch set reduces code duplication
+> in probe/pci-resume/eeh-resume and remove/pci-suspend/eeh-error and UE-error
+> detect/recovery paths. New helper routines have been introduced for this
+> purpose. Pls apply this set to the net-next tree. Thanks!
 
-Pulled, thanks Johan.
+Series applied, thanks.
