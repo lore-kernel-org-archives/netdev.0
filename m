@@ -1,46 +1,35 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH RFC 1/2] net: dsa: integrate with SWITCHDEV for HW
- bridging
-Date: Mon, 23 Feb 2015 14:34:54 +0100
-Message-ID: <20150223133454.GB23581@lunn.ch>
-References: <1424201196-4901-1-git-send-email-f.fainelli@gmail.com>
- <1424201196-4901-2-git-send-email-f.fainelli@gmail.com>
- <54EA8E7C.90401@roeck-us.net>
- <20150223031447.GA19267@lunn.ch>
- <54EAA767.6060105@roeck-us.net>
- <20150223042220.GA20063@lunn.ch>
- <54EAAEBC.6080609@roeck-us.net>
- <CAGVrzcYnuV6raXSrAETctwX5dwX3S=2-=ySewCFdx=iM7bPaDg@mail.gmail.com>
+From: Edward Cree <ecree@solarflare.com>
+Subject: Re: [PATCH v2 2/3] if_link: Add VF multicast promiscuous control
+Date: Mon, 23 Feb 2015 13:52:33 +0000
+Message-ID: <54EB30A1.9080309@solarflare.com>
+References: <7F861DC0615E0C47A872E6F3C5FCDDBD05E38840@BPXM14GP.gisp.nec.co.jp> <54E73BE4.2040505@solarflare.com> <F6FB0E698C9B3143BDF729DF22286646912AD3E7@ORSMSX110.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Guenter Roeck <linux@roeck-us.net>,
-	netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-	jerome.oufella@savoirfairelinux.com,
-	Chris Healy <cphealy@gmail.com>
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:47646 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751055AbbBWNhx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Feb 2015 08:37:53 -0500
-Content-Disposition: inline
-In-Reply-To: <CAGVrzcYnuV6raXSrAETctwX5dwX3S=2-=ySewCFdx=iM7bPaDg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>,
+	"vyasevic@redhat.com" <vyasevic@redhat.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	Alexander Duyck <alexander.duyck@gmail.com>,
+	=?UTF-8?B?QmrDuHJuIE1vcms=?= <bjorn@mork.no>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Choi, Sy Jong" <sy.jong.choi@intel.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	David Laight <David.Laight@ACULAB.COM>,
+	Hayato Momma <h-momma@ce.jp.nec.com>
+To: "Skidmore, Donald C" <donald.c.skidmore@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <F6FB0E698C9B3143BDF729DF22286646912AD3E7@ORSMSX110.amr.corp.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> BTW, before I re-submit this patch series, do you think we should
-> introduce a fdb_flush() callback that switch drivers are required to
-> implement, and invoke it from net/dsa/slave.c upon port join/leave?
-
-Probably a good idea.
-
-We should define exactly what is flushed. Everything? Or only dynamic
-entries? The Marvell hardware can also have multicast addresses in its
-tables, which can age, or static unicast and multicast entries.
-
-I guess at some point, somebody will start thinking about IGMP
-snooping and then we might need separated operations.
-
-	Andrew
+On 20/02/15 21:05, Skidmore, Donald C wrote:
+> If a vender specific interface is objectionable maybe a simpler and more generic interface would be for the PF to be able to set a given VF into "trusted" mode... I admit exactly what 'trusted' meant would vary from vender to vender, but it would be a way for the driver to know it could allow configurations such as this.  Just an idea, since we seem to be getting more requests for things such as this.
+That's an even worse idea; now you have a generic interface with
+completely undefined semantics.
+The right way to do this, imho, is to use one of the standard interfaces
+for driver-specific gubbins - e.g. sysfs, genetlink or even (whisper it)
+ioctls - and put your 'VF promisc mode' setting there.  That way you
+have a vendor-specific interface with vendor-specified semantics.
+Of those options, I'd recommend sysfs as the best fit.
