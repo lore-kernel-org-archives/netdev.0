@@ -1,57 +1,61 @@
-From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-Subject: Re: [PATCH net-next v3 3/4] net: use skb->priority for overloading
- skb->dropcount and skb->reserved_tailroom instead of skb->mark
-Date: Mon, 23 Feb 2015 20:56:33 +0200
-Message-ID: <20150223205633.7fbd08d4@halley>
-References: <1424713924-6821-2-git-send-email-eyal.birger@gmail.com>
-	<1424713924-6821-4-git-send-email-eyal.birger@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: edumazet@google.com, netdev@vger.kernel.org
-To: Eyal Birger <eyal.birger@gmail.com>, davem@davemloft.net
+From: Petri Gynther <pgynther@google.com>
+Subject: [PATCH net-next v4 3/4] net: bcmgenet: precalculate TxCB->bd_addr
+Date: Mon, 23 Feb 2015 11:00:45 -0800 (PST)
+Message-ID: <20150223190046.34A45221255@puck.mtv.corp.google.com>
+Cc: davem@davemloft.net, f.fainelli@gmail.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f174.google.com ([209.85.212.174]:64865 "EHLO
-	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752424AbbBWS4q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Feb 2015 13:56:46 -0500
-Received: by mail-wi0-f174.google.com with SMTP id em10so20125295wid.1
-        for <netdev@vger.kernel.org>; Mon, 23 Feb 2015 10:56:45 -0800 (PST)
-In-Reply-To: <1424713924-6821-4-git-send-email-eyal.birger@gmail.com>
+Received: from mail-pa0-f73.google.com ([209.85.220.73]:33480 "EHLO
+	mail-pa0-f73.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753077AbbBWTAr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Feb 2015 14:00:47 -0500
+Received: by pablf10 with SMTP id lf10so7506378pab.0
+        for <netdev@vger.kernel.org>; Mon, 23 Feb 2015 11:00:47 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+There is 1-to-1 mapping between TxCBs and TxBDs. Precalculate TxCB->bd_addr
+once in bcmgenet_init_dma() instead of doing it over and over needlessly in
+bcmgenet_get_txcb().
 
-On Mon, 23 Feb 2015 19:52:03 +0200 Eyal Birger <eyal.birger@gmail.com> wrote:
-> Commit 977750076d98 ("af_packet: add interframe drop cmsg (v6)")
-> unionized skb->mark and skb->dropcount in order to allow recording
-> of the socket drop count while maintaining struct sk_buff size.
-> 
-> In order to allow for the skb->mark to be fetched by user-space code
-> it needs to be detached from this union; skb->priority is used
-> instead.
-> 
-> The purpose of overloading skb->priority is solely for retaining
-> struct sk_buff size; skb->priority is not used after the skb is
-> queued to the socket.
-> 
-> Use of aliased fields, skb->dropcount and skb->reserved_tailroom,
-> is either done after the skb is cloned (e.g. in packet_rcv()) or
-> before skb->priority is used (e.g. in IGMPv3/MLD/TCP).
+Signed-off-by: Petri Gynther <pgynther@google.com>
+---
+ drivers/net/ethernet/broadcom/genet/bcmgenet.c | 9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
 
-Preserving a small skb size is an important cause.
-
-In this case however, it seems that aliasing 'priority' sacrifices
-maintainability: 'priority' does not seem "naturally orthogonal" to
-'drop_count' or 'reserved_tailroom'.
-
-One might arm 'priority' in various code flows (future and existing),
-which may accidentally clash with the aliases. It is unexpected, hard to
-remember (especially since 'priority' wasn't formerly aliased), and
-sometimes it's simply not trivial to assure there's no clash.
-
-May I suggest to unalias 'mark' out of the union?
-
-Regards,
-Shmulik
+diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+index 0798f23..6e3d83b 100644
+--- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
++++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+@@ -920,7 +920,7 @@ static struct enet_cb *bcmgenet_get_txcb(struct bcmgenet_priv *priv,
+ 
+ 	tx_cb_ptr = ring->cbs;
+ 	tx_cb_ptr += ring->write_ptr - ring->cb_ptr;
+-	tx_cb_ptr->bd_addr = priv->tx_bds + ring->write_ptr * DMA_DESC_SIZE;
++
+ 	/* Advancing local write pointer */
+ 	if (ring->write_ptr == ring->end_ptr)
+ 		ring->write_ptr = ring->cb_ptr;
+@@ -1919,6 +1919,8 @@ static void bcmgenet_fini_dma(struct bcmgenet_priv *priv)
+ static int bcmgenet_init_dma(struct bcmgenet_priv *priv)
+ {
+ 	int ret;
++	unsigned int i;
++	struct enet_cb *cb;
+ 
+ 	netif_dbg(priv, hw, priv->dev, "bcmgenet: init_edma\n");
+ 
+@@ -1945,6 +1947,11 @@ static int bcmgenet_init_dma(struct bcmgenet_priv *priv)
+ 		return -ENOMEM;
+ 	}
+ 
++	for (i = 0; i < priv->num_tx_bds; i++) {
++		cb = priv->tx_cbs + i;
++		cb->bd_addr = priv->tx_bds + i * DMA_DESC_SIZE;
++	}
++
+ 	/* Initialize Tx queues */
+ 	bcmgenet_init_tx_queues(priv->dev);
+ 
+-- 
+2.2.0.rc0.207.ga3a616c
