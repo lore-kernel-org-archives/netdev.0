@@ -1,75 +1,49 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: Re: [RFT PATCH 1/2] net: dsa: mv88e6xxx: Add EEE support
-Date: Mon, 23 Feb 2015 10:52:45 -0800
-Message-ID: <20150223185245.GB23456@roeck-us.net>
-References: <1424708770-3135-1-git-send-email-linux@roeck-us.net>
- <54EB671D.3000707@gmail.com>
+From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH v3 linux-trace 1/8] tracing: attach eBPF programs to
+ tracepoints and syscalls
+Date: Mon, 23 Feb 2015 13:55:12 -0500
+Message-ID: <CAMEtUuwqhUpxVrKn_Km_JE76hco+y7Ev4ESzvbmAERBTuidY=A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Andrew Lunn <andrew@lunn.ch>, linux-kernel@vger.kernel.org
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bh-25.webhostbox.net ([208.91.199.152]:57717 "EHLO
-	bh-25.webhostbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752284AbbBWSwu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Feb 2015 13:52:50 -0500
-Received: from mailnull by bh-25.webhostbox.net with sa-checked (Exim 4.82)
-	(envelope-from <linux@roeck-us.net>)
-	id 1YPy7d-003IGU-9F
-	for netdev@vger.kernel.org; Mon, 23 Feb 2015 18:52:49 +0000
-Content-Disposition: inline
-In-Reply-To: <54EB671D.3000707@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
+	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Namhyung Kim <namhyung-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Arnaldo Carvalho de Melo <acme-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	Jiri Olsa <jolsa-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Masami Hiramatsu <masami.hiramatsu.pt-FCd8Q96Dh0JBDgjK7y7TUQ@public.gmane.org>,
+	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	"Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>, wangnan0-hv44wF8Li93QT0dZR+AlfA@public.gmane.org
+To: He Kuang <hekuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Feb 23, 2015 at 09:45:01AM -0800, Florian Fainelli wrote:
-> On 23/02/15 08:26, Guenter Roeck wrote:
-> > EEE configuration is similar for the various MV88E6xxx chips.
-> > Add generic support for it.
-> > 
-> > Signed-off-by: Guenter Roeck <linux@roeck-us.net>
-> 
-> Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
-> 
-> > ---
-> > Applies to net-next.
-> > 
-> > The code seems to be working, at least according to ethtool, but some
-> > more testing with other chip types would be useful. Also, I am not sure
-> > what to do with phy_init_eee.
-> 
-> phy_init_eee() is to be used in case you have a PHY which is not managed
-> by the switch indirect or direct accesses, it looks like you are just
-> fine with the current code.
-> 
-> One possible improvement could be ironing out the EEE
-> enabling/resolution by ensuring that the link partner also supports EEE?
-> Not sure if there is an existing register returning that from the
-> switch, or if you need to do a direct read to the PHY?
-> 
+On Mon, Feb 16, 2015 at 6:26 AM, He Kuang <hekuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org> wrote:
+> Hi, Alexei
+>
+> Another suggestion on bpf syscall interface. Currently, BPF +
+> syscalls/kprobes depends on CONFIG_BPF_SYSCALL. In kernel used on
+> commercial products, CONFIG_BPF_SYSCALL is probably disabled, in this
+> case, bpf bytecode cannot be loaded to the kernel.
 
-EEE configuration on Marvell switches is independent from link partner
-capabilities. In the hardware available to me, EEE is enabled by
-default with a strapping pin on the chip. Making it dependent on link
-partner capabilities would be odd because it would mean that, if the
-link is down or if the link partner doesn't support it, it could be
-disabled, but it could no longer be re-enabled. This is what
-phy_init_eee enforces today. I dropped calling it because I thought
-that this behavior would be odd and inconsistent.
+I'm seeing a flurry of use cases for bpf in ovs, tc, tracing, etc
+When it's all ready, we can turn that config on by default.
 
-Question for me is if it makes sense to have phy_init_eee depend on
-the link status or on link partner capabilities in the first place.
-Personally I think it should only depend on local PHY capabilities,
-and that it should be possible to configure EEE even if the link
-is down or if the (current) link partner doesn't support it.
+> If we turn the functionality of BPF_SYSCALL into a loadable module, then
+> we can use it without any dependencies on the kernel. What about change
+> bpf syscall to a /dev node or /sys file which can be exported by a
+> kernel module?
 
-Consider the following: Assume both ends are configured to have EEE
-disabled, even if the PHYs support it. Both ends run linux and call
-phy_init_eee() to check for EEE capabilities. I have not tested it,
-but I suspect that it is not currently possible to enable EEE on either
-end because both ends believe that the link partner doesn't support it.
-I'll test that theory once I get a system where I can control both ends.
+I don't think we will allow extending bpf by modules.
+'bpf in modules' is an interface that is too easy to abuse.
+So all of bpf core, helper functions and program types will be builtin.
 
-Thanks,
-Guenter
+As far as bpf+tracing the plan is to do bpf+kprobe and bpf+syscalls
+first. Then add right set of helpers to make sure that use cases
+like 'tcp stack instrumentation' are fully addressed.
+Then there were few great ideas of accelerating kprobes
+with trace markers and debug tracepoints that we can do later.
