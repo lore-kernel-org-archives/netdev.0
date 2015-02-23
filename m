@@ -1,50 +1,82 @@
-From: chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
-Subject: Re: [PATCH 1/1 net-next] net/atm/signaling.c: replace
- current->state by  __set_current_state()
-Date: Mon, 23 Feb 2015 12:50:25 -0500
-Message-ID: <20150223125025.61a25b4a@thirdoffive.cmf.nrl.navy.mil>
-References: <1424712667-11849-1-git-send-email-fabf@skynet.be>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, davem@davemloft.net,
-	Peter Zijlstra <peterz@infradead.org>, netdev@vger.kernel.org
-To: Fabian Frederick <fabf@skynet.be>
+From: Catalin Marinas <catalin.marinas@arm.com>
+Subject: [PATCH RESEND] net: compat: Ignore MSG_CMSG_COMPAT in compat_sys_{send,recv}msg
+Date: Mon, 23 Feb 2015 18:12:56 +0000
+Message-ID: <1424715176-22369-1-git-send-email-catalin.marinas@arm.com>
+Cc: linux-kernel@vger.kernel.org, Will Deacon <will.deacon@arm.com>,
+	Andy Lutomirski <luto@amacapital.net>,
+	"David S. Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1424712667-11849-1-git-send-email-fabf@skynet.be>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Instead of fixing code that never gets compiled/test, you could probably
-just remove the #if WAIT_FOR_DAEMON code which would get rid of this
-raw assignment.
+With commit a7526eb5d06b (net: Unbreak compat_sys_{send,recv}msg), the
+MSG_CMSG_COMPAT flag is blocked at the compat syscall entry points,
+changing the kernel compat behaviour from the one before the commit it
+was trying to fix (1be374a0518a, net: Block MSG_CMSG_COMPAT in
+send(m)msg and recv(m)msg).
 
-See the #undef around line 268.
+On 32-bit kernels (!CONFIG_COMPAT), MSG_CMSG_COMPAT is 0 and the native
+32-bit sys_sendmsg() allows flag 0x80000000 to be set (it is ignored by
+the kernel). However, on a 64-bit kernel, the compat ABI is different
+with commit a7526eb5d06b.
 
-On Mon, 23 Feb 2015 18:31:07 +0100
-Fabian Frederick <fabf@skynet.be> wrote:
+This patch changes the compat_sys_{send,recv}msg behaviour to the one
+prior to commit 1be374a0518a.
 
-> Use helper functions to access current->state.
-> Direct assignments are prone to races and therefore buggy.
-> 
-> Thanks to Peter Zijlstra for the exact definition of the problem.
-> 
-> Suggested-By: Peter Zijlstra <peterz@infradead.org>
-> Signed-off-by: Fabian Frederick <fabf@skynet.be>
-> ---
->  net/atm/signaling.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/net/atm/signaling.c b/net/atm/signaling.c
-> index 523bce7..0140832 100644
-> --- a/net/atm/signaling.c
-> +++ b/net/atm/signaling.c
-> @@ -40,7 +40,7 @@ static void sigd_put_skb(struct sk_buff *skb)
->  		pr_debug("atmsvc: waiting for signaling daemon...\n");
->  		schedule();
->  	}
-> -	current->state = TASK_RUNNING;
-> +	__set_current_state(TASK_RUNNING);
->  	remove_wait_queue(&sigd_sleep, &wait);
->  #else
->  	if (!sigd) {
+The problem was found running 32-bit LTP (sendmsg01) binary on an arm64
+kernel. Arguably, LTP should not pass 0xffffffff as flags to sendmsg()
+but the general rule is not to break user ABI (even when the user
+behaviour is not entirely sane).
+
+Fixes: a7526eb5d06b (net: Unbreak compat_sys_{send,recv}msg)
+Cc: Andy Lutomirski <luto@amacapital.net>
+Cc: David S. Miller <davem@davemloft.net>
+Signed-off-by: Catalin Marinas <catalin.marinas@arm.com>
+---
+
+As you suggested on the original thread, I'm resending this patch (I was on
+holiday last week). Thanks.
+
+ net/compat.c | 9 ---------
+ 1 file changed, 9 deletions(-)
+
+diff --git a/net/compat.c b/net/compat.c
+index 3236b4167a32..94d3d5e97883 100644
+--- a/net/compat.c
++++ b/net/compat.c
+@@ -711,24 +711,18 @@ static unsigned char nas[21] = {
+ 
+ COMPAT_SYSCALL_DEFINE3(sendmsg, int, fd, struct compat_msghdr __user *, msg, unsigned int, flags)
+ {
+-	if (flags & MSG_CMSG_COMPAT)
+-		return -EINVAL;
+ 	return __sys_sendmsg(fd, (struct user_msghdr __user *)msg, flags | MSG_CMSG_COMPAT);
+ }
+ 
+ COMPAT_SYSCALL_DEFINE4(sendmmsg, int, fd, struct compat_mmsghdr __user *, mmsg,
+ 		       unsigned int, vlen, unsigned int, flags)
+ {
+-	if (flags & MSG_CMSG_COMPAT)
+-		return -EINVAL;
+ 	return __sys_sendmmsg(fd, (struct mmsghdr __user *)mmsg, vlen,
+ 			      flags | MSG_CMSG_COMPAT);
+ }
+ 
+ COMPAT_SYSCALL_DEFINE3(recvmsg, int, fd, struct compat_msghdr __user *, msg, unsigned int, flags)
+ {
+-	if (flags & MSG_CMSG_COMPAT)
+-		return -EINVAL;
+ 	return __sys_recvmsg(fd, (struct user_msghdr __user *)msg, flags | MSG_CMSG_COMPAT);
+ }
+ 
+@@ -751,9 +745,6 @@ COMPAT_SYSCALL_DEFINE5(recvmmsg, int, fd, struct compat_mmsghdr __user *, mmsg,
+ 	int datagrams;
+ 	struct timespec ktspec;
+ 
+-	if (flags & MSG_CMSG_COMPAT)
+-		return -EINVAL;
+-
+ 	if (timeout == NULL)
+ 		return __sys_recvmmsg(fd, (struct mmsghdr __user *)mmsg, vlen,
+ 				      flags | MSG_CMSG_COMPAT, NULL);
