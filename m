@@ -1,74 +1,42 @@
-From: Eyal Birger <eyal.birger@gmail.com>
-Subject: Re: [PATCH net-next v3 3/4] net: use skb->priority for overloading
- skb->dropcount and skb->reserved_tailroom instead of skb->mark
-Date: Mon, 23 Feb 2015 21:25:29 +0200
-Message-ID: <CAHsH6Guk-8DK1iyth4ZDSikjb_-xjrsBTRa-hp1nWaavvQ0uuQ@mail.gmail.com>
-References: <1424713924-6821-2-git-send-email-eyal.birger@gmail.com>
-	<1424713924-6821-4-git-send-email-eyal.birger@gmail.com>
-	<20150223205633.7fbd08d4@halley>
-	<1424718636.5565.58.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Shmulik Ladkani <shmulik.ladkani@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Guenter Roeck <linux@roeck-us.net>
+Subject: [RFT/RFC PATCH 0/8] net: dsa: mv88e6xxx: Add support for HW bridging
+Date: Mon, 23 Feb 2015 11:35:42 -0800
+Message-ID: <1424720150-27564-1-git-send-email-linux@roeck-us.net>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	linux-kernel@vger.kernel.org, Guenter Roeck <linux@roeck-us.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f50.google.com ([209.85.213.50]:38685 "EHLO
-	mail-yh0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752317AbbBWTZa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Feb 2015 14:25:30 -0500
-Received: by yhzz6 with SMTP id z6so11860600yhz.5
-        for <netdev@vger.kernel.org>; Mon, 23 Feb 2015 11:25:29 -0800 (PST)
-In-Reply-To: <1424718636.5565.58.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from bh-25.webhostbox.net ([208.91.199.152]:34239 "EHLO
+	bh-25.webhostbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752120AbbBWTfy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Feb 2015 14:35:54 -0500
+Received: from mailnull by bh-25.webhostbox.net with sa-checked (Exim 4.82)
+	(envelope-from <linux@roeck-us.net>)
+	id 1YPynK-003fAE-8l
+	for netdev@vger.kernel.org; Mon, 23 Feb 2015 19:35:54 +0000
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 23, 2015 at 9:10 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Mon, 2015-02-23 at 20:56 +0200, Shmulik Ladkani wrote:
->> Hi,
->>
->> On Mon, 23 Feb 2015 19:52:03 +0200 Eyal Birger <eyal.birger@gmail.com> wrote:
->> > Commit 977750076d98 ("af_packet: add interframe drop cmsg (v6)")
->> > unionized skb->mark and skb->dropcount in order to allow recording
->> > of the socket drop count while maintaining struct sk_buff size.
->> >
->> > In order to allow for the skb->mark to be fetched by user-space code
->> > it needs to be detached from this union; skb->priority is used
->> > instead.
->> >
->> > The purpose of overloading skb->priority is solely for retaining
->> > struct sk_buff size; skb->priority is not used after the skb is
->> > queued to the socket.
->> >
->> > Use of aliased fields, skb->dropcount and skb->reserved_tailroom,
->> > is either done after the skb is cloned (e.g. in packet_rcv()) or
->> > before skb->priority is used (e.g. in IGMPv3/MLD/TCP).
->>
->> Preserving a small skb size is an important cause.
->>
->> In this case however, it seems that aliasing 'priority' sacrifices
->> maintainability: 'priority' does not seem "naturally orthogonal" to
->> 'drop_count' or 'reserved_tailroom'.
->>
->> One might arm 'priority' in various code flows (future and existing),
->> which may accidentally clash with the aliases. It is unexpected, hard to
->> remember (especially since 'priority' wasn't formerly aliased), and
->> sometimes it's simply not trivial to assure there's no clash.
->>
->> May I suggest to unalias 'mark' out of the union?
->
-> My suggestion would be to move dropcount in skb->cb[] instead.
->
-> mark & reserved_tailroom can stay in the union.
->
->
+This patch series applies on top of net-next, plus Florian's patches
+integrating dsa with SWITCHDEV for HW bridging. It also requires the patch
+'net: dsa: Ensure that port array elements are initialized before being used'.
 
-The original commit introducing dropcount for af_packet
-(see http://marc.info/?l=linux-netdev&m=125450261121971) also claimed
-the proper location would in fact be skb->cb[]. However, it was also
-claimed that
-skb->cb[] is all used up.
+HW bridging support is currently only enabled for MV8865352, but it should be
+straightforward to enable support for other Marvell chips by adding three lines
+of initialization code to the respective source; see patch 8/8 for details.
+mv886e3131.c would also have to use mv88e6xxx_setup_port_common(). 
 
-Things are even more complicated now as dropcount became a socket
-level feature and skb->cb[] is handled differently in each protocol family.
+Patches 1-3 prepare the mv88e6xxx code for adding HW bridging support.
+Patch 4 adds core HW bridging support to the mv88e6xxx code. Patch 5-7
+prepare the drivers for mv88e6352, mv88e6123_61_65, and mv88e6171 for
+HW bridging support, without actually enabling it. Patch 8 enables
+HW bridging support in the mv88e6352 driver.
+
+Patches 5 and 8 could possibly be merged, but I thought it was better
+to keep them separate because they logically serve a different purpose.
+
+Testing has been minimal, and only with MV88E6352. Ports can be added to
+and removed from a bridge, and I have been able to pass data through a port
+configured as bridge port.
