@@ -1,111 +1,68 @@
-From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Subject: Re: [PATCH] net: macb: Add big endian CPU support
-Date: Mon, 23 Feb 2015 15:38:16 +0100
-Message-ID: <54EB3B58.2050903@atmel.com>
-References: <1424258975-28611-1-git-send-email-achandran@mvista.com>	<54E5D5A0.90005@monstr.eu> <CAFdej03U7mMVC8H5SJJNCPq3nYRHZYHLshALvxusQvm24QPuSw@mail.gmail.com>
+From: Madalin-Cristian Bucur <madalin.bucur@freescale.com>
+Subject: RE: [PATCH] ipv6: address issue in __ip6_append_data
+Date: Mon, 23 Feb 2015 14:11:58 +0000
+Message-ID: <BL2PR03MB5455A69A86B37B048267E9AE6290@BL2PR03MB545.namprd03.prod.outlook.com>
+References: <1423841459-21880-1-git-send-email-madalin.bucur@freescale.com>
+ <20150221183359.GB16874@kria>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Arun Chandran <achandran@mvista.com>, <monstr@monstr.eu>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAFdej03U7mMVC8H5SJJNCPq3nYRHZYHLshALvxusQvm24QPuSw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"vyasevich@gmail.com" <vyasevich@gmail.com>,
+	"davem@davemloft.net" <davem@davemloft.net>
+To: Sabrina Dubroca <sd@queasysnail.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bn1bbn0108.outbound.protection.outlook.com ([157.56.111.108]:49073
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751898AbbBWOni (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Feb 2015 09:43:38 -0500
+In-Reply-To: <20150221183359.GB16874@kria>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le 20/02/2015 12:45, Arun Chandran a =C3=A9crit :
-> On Thu, Feb 19, 2015 at 5:52 PM, Michal Simek <monstr@monstr.eu> wrot=
-e:
->>
->> On 02/18/2015 12:29 PM, Arun Chandran wrote:
->>> This patch converts all __raw_readl and __raw_writel function calls
->>> to their corresponding readl_relaxed and writel_relaxed variants.
->>>
->>> It also tells the driver to set ahb_endian_swp_mgmt_en bit in dma_c=
-fg
->>> when the CPU is configured in big endian mode.
->>>
->>> Signed-off-by: Arun Chandran <achandran@mvista.com>
->>> ---
->>>       This patch is tested on xilinx ZC702 evaluation board with
->>>       CONFIG_CPU_BIG_ENDIAN=3Dy and booting NFS rootfs
->>> ---
->>> ---
->>>  drivers/net/ethernet/cadence/macb.c | 18 ++++++++++++------
->>>  drivers/net/ethernet/cadence/macb.h | 15 ++++++++-------
->>>  2 files changed, 20 insertions(+), 13 deletions(-)
->>>
->>> diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethe=
-rnet/cadence/macb.c
->>> index ad76b8e..05fb36d 100644
->>> --- a/drivers/net/ethernet/cadence/macb.c
->>> +++ b/drivers/net/ethernet/cadence/macb.c
->>> @@ -449,7 +449,7 @@ static void macb_update_stats(struct macb *bp)
->>>       WARN_ON((unsigned long)(end - p - 1) !=3D (MACB_TPF - MACB_PF=
-R) / 4);
->>>
->>>       for(; p < end; p++, reg++)
->>> -             *p +=3D __raw_readl(reg);
->>> +             *p +=3D readl_relaxed(reg);
->>>  }
->>>
->>>  static int macb_halt_tx(struct macb *bp)
->>> @@ -1585,7 +1585,11 @@ static void macb_configure_dma(struct macb *=
-bp)
->>>               if (bp->dma_burst_length)
->>>                       dmacfg =3D GEM_BFINS(FBLDO, bp->dma_burst_len=
-gth, dmacfg);
->>>               dmacfg |=3D GEM_BIT(TXPBMS) | GEM_BF(RXBMS, -1L);
->>> -             dmacfg &=3D ~GEM_BIT(ENDIA);
->>> +             dmacfg &=3D ~GEM_BIT(ENDIA_PKT);
->>> +             /* Tell the chip to byteswap descriptors on big-endia=
-n hosts */
->>> +#ifdef __BIG_ENDIAN
->>> +             dmacfg |=3D GEM_BIT(ENDIA_DESC);
->>> +#endif
->>
->> I don't think this is the best way what you should do.
->> Instead of having this ifdef here you should find out any reg and de=
-tect if the IP
->> is in big endian or little endian mode. I have done it for some xili=
-nx IPs which
->> can run on big or little endian system.
->> In general find reg which some field which has some meaning - write =
-there 1
->> and read expected value and based on that decide if you are on big o=
-r little endian system.
->=20
-> Hi Michal,
->=20
-> I was not able to find any such registers for GEM in the TRM
-> http://www.xilinx.com/support/documentation/user_guides/ug585-Zynq-70=
-00-TRM.pdf
->=20
-> I tried writing to dma_cfg (0x00000010) and reading from design_cfg5
-> (0x00000290)
-> Its not reflecting anything(design_cfg5 always reads same value); It
-> is not helping.
-
-0kay, here you mean that the design_cfg5 (@0x290) and its bit 16:15
-"gem_endian_swap_def" doesn't change depending on the big/little endian
-configuration you use?
-
-I was also thinking about this configuration bit... too bad...
-
-Bye,
-
-
-> The only way (I don't think its not right way either) I can think of
-> eliminating that
->  #ifdef __BIG_ENDIAN is reading some register in ARM cpu to identify =
-its
-> current endianness and write dma_cfg accordingly.
->=20
-> --Arun
->=20
->=20
-
-
---=20
-Nicolas Ferre
+PiBGcm9tOiBTYWJyaW5hIER1YnJvY2EgW21haWx0bzpzZEBxdWVhc3lzbmFpbC5uZXRdDQo+IFNl
+bnQ6IFNhdHVyZGF5LCBGZWJydWFyeSAyMSwgMjAxNSA4OjM0IFBNDQo+IDIwMTUtMDItMTMsIDE3
+OjMwOjU5ICswMjAwLCBNYWRhbGluIEJ1Y3VyIHdyb3RlOg0KPiA+IEhlbGxvLA0KPiA+DQo+ID4g
+SSB0aGluayBJJ3ZlIGZvdW5kIGEgcHJvYmxlbSB0aGF0IGFsbG93cyBnZW5lcmljIElQdjYgdHJh
+ZmZpYyB0byBiZQ0KPiA+IHNlbnQgYnkgdGhlIHN0YWNrIHdpdGggQ0hFQ0tTVU1fUEFSVElBTCB0
+byBhIG5ldGRldmljZSB0aGF0IGRlY2xhcmVzDQo+ID4gTkVUSUZfRl9JUFY2X0NTVU0uIFRoZSBO
+RVRJRl9GX0lQVjZfQ1NVTSBmbGFnIGlzIGJhc2VkIG9uIHRoZQ0KPiA+IE5FVElGX0ZfSVBWNl9D
+U1VNX0JJVCB0aGF0IGlzIGRlc2NyaWJlZCBhcyByZWZlcnJpbmcgb25seSB0byBUQ1AgYW5kDQo+
+ID4gVURQIGJ1dCBpbiBteSB0ZXN0IElDTVB2NiBmcmFtZXMgd2l0aCBDSEVDS1NVTV9QQVJUSUFM
+IGFyZSBzZWVuOg0KPiANCj4gVGhpcyBzaG91bGQgYmUgZml4ZWQgYnk6DQo+IA0KPiAgICAgYmYy
+NTBhMWZhNzY5ICgiaXB2NjogUGFydGlhbCBjaGVja3N1bSBvbmx5IFVEUCBwYWNrZXRzIikNCj4g
+DQo+IEhhdmUgeW91IHRlc3RlZCBpdD8NCg0KSSd2ZSBzYW1wbGVkIHRoZSB0cmVlIGJldHdlZW4g
+dGhlIHByb2JsZW0gd2FzIGludHJvZHVjZWQgYW5kIHlvdXIgZml4IHdhcyBhcHBsaWVkLg0KTmV4
+dCBJJ3ZlIGNoZWNrZWQgZm9yIHRoZSBydC0+ZHN0LmRldi0+ZmVhdHVyZXMgJiBORVRJRl9GX1Y2
+X0NTVU0gdGhhdCB3YXMgc3RpbGwNCnRoZXJlIGFuZCBzZW50IHRoZSBmaXggSSBoYWQgcHJlcGFy
+ZWQgbG9jYWxseS4gWW91ciBwYXRjaCByZXN0cmljdHMgQ0hFQ0tTVU1fUEFSVElBTA0KdG8gVURQ
+IGFuZCB0aHVzIHNvbHZlZCB0aGUgcHJvYmxlbS4gDQoNCj4gPiBORVRJRl9GX0lQVjZfQ1NVTV9C
+SVQsICAgICAgICAgIC8qIENhbiBjaGVja3N1bSBUQ1AvVURQIG92ZXIgSVBWNiAqLw0KPiA+DQo+
+ID4gSSd2ZSB0cmFjZWQgdGhlIGlzc3VlIHRvIGEgcmVjZW50IGNvbW1pdCB0aGF0IGluY2x1ZGVz
+IHRoaXMgY2hlY2s6DQo+ID4NCj4gPiAJcnQtPmRzdC5kZXYtPmZlYXR1cmVzICYgTkVUSUZfRl9W
+Nl9DU1VNDQo+ID4NCj4gPiBUaGUgcHJvYmxlbSB3aXRoIHRoaXMgaXMgdGhhdCBORVRJRl9GX1Y2
+X0NTVU0gaXMgbW9yZSB0aGFuIG9uZSBiaXQ6DQo+ID4NCj4gPiAjZGVmaW5lIE5FVElGX0ZfVjZf
+Q1NVTSAgICAgICAgIChORVRJRl9GX0dFTl9DU1VNIHwNCj4gTkVUSUZfRl9JUFY2X0NTVU0pDQo+
+ID4NCj4gPiBUaHVzIHRoZSBhYm92ZSBjaGVjayBzaG91bGQgYmUgZWl0aGVyOg0KPiA+DQo+ID4g
+CShydC0+ZHN0LmRldi0+ZmVhdHVyZXMgJiBORVRJRl9GX1Y2X0NTVU0pID09IE5FVElGX0ZfVjZf
+Q1NVTQ0KPiANCj4gSSB0aGluayB0aGlzIGRpc2FibGVzIEhXIGNoZWNrc3VtbWluZyB0aGF0IFZs
+YWQncyBwYXRjaCBlbmFibGVkLiAgQXMNCj4gVmxhZCBwb2ludGVkIG91dCBpbiBhbm90aGVyIHNp
+bWlsYXIgdGhyZWFkIFsxXSwgdGhlIHR3byBiaXRzIGFyZQ0KPiBtdXR1YWxseSBleGNsdXNpdmUs
+IHNvIHlvdSBjYW4ndCBoYXZlDQo+IA0KPiAgICAgKGRldi0+ZmVhdHVyZXMgJiBORVRJRl9GX1Y2
+X0NTVU0pID09IE5FVElGX0ZfVjZfQ1NVTQ0KPiANCj4gWzFdIGh0dHA6Ly93d3cuc3Bpbmljcy5u
+ZXQvbGlzdHMvbmV0ZGV2L21zZzMxNjM0MS5odG1sDQo+IA0KDQpJIHdhcyB1bnN1cmUgYWJvdXQg
+VmxhZCdzIGludGVudGlvbiwgdGhlIGZhY3QgdGhhdCBoaXMgcGF0Y2ggaW50cm9kdWNlZCB0aGUg
+cHJvYmxlbQ0KbWFkZSBtZSBzdG9wIGF0IHRoaXMgcXVpY2sgZXhwbGFuYXRpb24gYXMgdGhlIGNv
+ZGUgbG9va2VkIHN1c3BpY2lvdXMuDQoNCj4gPiBvciBwcm9iYWJseSBzaG91bGQgdXNlIE5FVElG
+X0ZfSFdfQ1NVTSBvbmx5Og0KPiA+DQo+ID4gCXJ0LT5kc3QuZGV2LT5mZWF0dXJlcyAmIE5FVElG
+X0ZfSFdfQ1NVTQ0KPiANCj4gTWF5YmUuICBCdXQgSSBqdXN0IHRyaWVkIHRoaXMsIGFuZCBpdCBk
+b2Vzbid0IHdvcmsgd2l0aCBxZW11J3MgZTEwMDANCj4gZW11bGF0aW9uIChjb3VsZCBiZSBhIGRy
+aXZlci9xZW11IHByb2JsZW0sIEkgY2FuJ3QgY2hlY2sgd2l0aCBvdGhlcg0KPiBkZXZpY2VzKS4N
+Cg0KTXkgY29uY2VybiB3YXMgdG8gc3RvcCByZWNlaXZpbmcgSUNNUHY2IHdpdGggQ0hFQ0tTVU1f
+UEFSVElBTCBvbiBhIGRyaXZlciB0aGF0IA0KZGVjbGFyZWQgTkVUSUZfRl9JUFY2X0NTVU0gb25s
+eSAobm90IE5FVElGX0ZfSFdfQ1NVTSkgc28gSSBjb3VsZCBub3QgaGF2ZQ0KdmFsaWRhdGVkIHRo
+aXMgc2Vjb25kIGFwcHJvYWNoIG9uIG15IGh3Lg0KDQpUaGFuayB5b3UgZm9yIHlvdXIgZml4IGFu
+ZCByZXBseSwNCk1hZGFsaW4NCg0KUFM6IHNvcnJ5IGZvciB0aGUgbGF0ZSByZXBseSwgSSd2ZSBi
+ZWVuIGF3YXkgbGFzdCB3ZWVrDQo=
