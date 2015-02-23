@@ -1,55 +1,77 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 14/16] i40evf: disable NAPI polling sooner
-Date: Sun, 22 Feb 2015 19:25:42 -0800
-Message-ID: <1424661944-1779-15-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 08/16] i40e: Use #define for the VSI connection type
+Date: Sun, 22 Feb 2015 19:25:36 -0800
+Message-ID: <1424661944-1779-9-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1424661944-1779-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Mitch Williams <mitch.a.williams@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Neerav Parikh <neerav.parikh@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:3468 "EHLO mga01.intel.com"
+Received: from mga03.intel.com ([134.134.136.65]:60782 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752255AbbBWD0E (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 22 Feb 2015 22:26:04 -0500
+	id S1752255AbbBWD0L (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 22 Feb 2015 22:26:11 -0500
 In-Reply-To: <1424661944-1779-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mitch Williams <mitch.a.williams@intel.com>
+From: Neerav Parikh <neerav.parikh@intel.com>
 
-When closing the interface, disable NAPI polling before any other
-activities. This fixes an occasional panic during close caused by the
-driver trying to delete and clean rings at the same time.
+Use #defined VSI connection type values instead of using magic numbers.
 
-Change-ID: Ib4d427b13d310258ea85b248d535da70ecf0c1e9
-Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+Change-ID: I2f6cf7bf394d391e1c0fe61779e9e4ad8858154a
+Signed-off-by: Neerav Parikh <neerav.parikh@intel.com>
 Tested-by: Jim Young <james.m.young@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40evf/i40evf_main.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_fcoe.c | 2 +-
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 6 +++---
+ 2 files changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-index b1ca9dd..eb1ac22 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-@@ -959,6 +959,7 @@ void i40evf_down(struct i40evf_adapter *adapter)
- 		usleep_range(500, 1000);
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_fcoe.c b/drivers/net/ethernet/intel/i40e/i40e_fcoe.c
+index 27c206e..8b5bf16 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_fcoe.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_fcoe.c
+@@ -381,7 +381,7 @@ int i40e_fcoe_vsi_init(struct i40e_vsi *vsi, struct i40e_vsi_context *ctxt)
+ 	ctxt->pf_num = hw->pf_id;
+ 	ctxt->vf_num = 0;
+ 	ctxt->uplink_seid = vsi->uplink_seid;
+-	ctxt->connection_type = 0x1;
++	ctxt->connection_type = I40E_AQ_VSI_CONN_TYPE_NORMAL;
+ 	ctxt->flags = I40E_AQ_VSI_TYPE_PF;
  
- 	i40evf_irq_disable(adapter);
-+	i40evf_napi_disable_all(adapter);
+ 	/* FCoE VSI would need the following sections */
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 10ad1ee..e3597cb 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -7863,7 +7863,7 @@ static int i40e_add_vsi(struct i40e_vsi *vsi)
+ 		ctxt.pf_num = hw->pf_id;
+ 		ctxt.vf_num = 0;
+ 		ctxt.uplink_seid = vsi->uplink_seid;
+-		ctxt.connection_type = 0x1;     /* regular data port */
++		ctxt.connection_type = I40E_AQ_VSI_CONN_TYPE_NORMAL;
+ 		ctxt.flags = I40E_AQ_VSI_TYPE_PF;
+ 		ctxt.info.valid_sections |=
+ 				cpu_to_le16(I40E_AQ_VSI_PROP_SWITCH_VALID);
+@@ -7876,7 +7876,7 @@ static int i40e_add_vsi(struct i40e_vsi *vsi)
+ 		ctxt.pf_num = hw->pf_id;
+ 		ctxt.vf_num = 0;
+ 		ctxt.uplink_seid = vsi->uplink_seid;
+-		ctxt.connection_type = 0x1;     /* regular data port */
++		ctxt.connection_type = I40E_AQ_VSI_CONN_TYPE_NORMAL;
+ 		ctxt.flags = I40E_AQ_VSI_TYPE_VMDQ2;
  
- 	/* remove all MAC filters */
- 	list_for_each_entry(f, &adapter->mac_filter_list, list) {
-@@ -985,8 +986,6 @@ void i40evf_down(struct i40evf_adapter *adapter)
+ 		ctxt.info.valid_sections |= cpu_to_le16(I40E_AQ_VSI_PROP_SWITCH_VALID);
+@@ -7895,7 +7895,7 @@ static int i40e_add_vsi(struct i40e_vsi *vsi)
+ 		ctxt.pf_num = hw->pf_id;
+ 		ctxt.vf_num = vsi->vf_id + hw->func_caps.vf_base_id;
+ 		ctxt.uplink_seid = vsi->uplink_seid;
+-		ctxt.connection_type = 0x1;     /* regular data port */
++		ctxt.connection_type = I40E_AQ_VSI_CONN_TYPE_NORMAL;
+ 		ctxt.flags = I40E_AQ_VSI_TYPE_VF;
  
- 	netif_tx_stop_all_queues(netdev);
- 
--	i40evf_napi_disable_all(adapter);
--
- 	msleep(20);
- 
- 	netif_carrier_off(netdev);
+ 		ctxt.info.valid_sections |= cpu_to_le16(I40E_AQ_VSI_PROP_SWITCH_VALID);
 -- 
 1.9.3
