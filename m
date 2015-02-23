@@ -1,159 +1,89 @@
-From: Imre Palik <imrep.amz@gmail.com>
-Subject: [RFC PATCH v2] bridge: make it possible for packets to traverse the bridge without hitting netfilter
-Date: Mon, 23 Feb 2015 16:26:03 +0100
-Message-ID: <1424705163-13428-1-git-send-email-imrep.amz@gmail.com>
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, fw@strlen.de,
-	"Palik, Imre" <imrep@amazon.de>,
-	Anthony Liguori <aliguori@amazon.com>
-To: bridge@lists.linux-foundation.org,
-	Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jonas Johansson <jonasj76@gmail.com>
+Subject: Re: [PATCH net-next 1/2] dsa: bonding: implement HW bonding
+Date: Mon, 23 Feb 2015 16:52:06 +0100 (CET)
+Message-ID: <alpine.LNX.2.03.1502231646190.18726@hellgate.skynet>
+References: <1424429473-4601-1-git-send-email-jonasj76@gmail.com> <1424429473-4601-2-git-send-email-jonasj76@gmail.com> <CAE4R7bCme-O6kkCWgmK_XXXfyi_uej8SvbVzDY7Q+WFp2STyRA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Jonas Johansson <jonasj76@gmail.com>,
+	Netdev <netdev@vger.kernel.org>,
+	Jonas Johansson <jonas.johansson@westermo.se>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>,
+	=?ISO-8859-2?Q?Ji=F8=ED_P=EDrko?= <jiri@resnulli.us>
+To: Scott Feldman <sfeldma@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f181.google.com ([209.85.217.181]:41034 "EHLO
+	mail-lb0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752238AbbBWP4N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Feb 2015 10:56:13 -0500
+Received: by lbiz11 with SMTP id z11so19330687lbi.8
+        for <netdev@vger.kernel.org>; Mon, 23 Feb 2015 07:56:12 -0800 (PST)
+In-Reply-To: <CAE4R7bCme-O6kkCWgmK_XXXfyi_uej8SvbVzDY7Q+WFp2STyRA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Palik, Imre" <imrep@amazon.de>
 
-The netfilter code is made with flexibility instead of performance in mind.
-So when all we want is to pass packets between different interfaces, the
-performance penalty of hitting netfilter code can be considerable, even when
-all the firewalling is disabled for the bridge.
 
-This change makes it possible to disable netfilter on a per bridge basis.
-In the case interesting to us, this can lead to more than 15% speedup
-compared to the case when only bridge-iptables is disabled.
+On Sat, 21 Feb 2015, Scott Feldman wrote:
 
-Cc: Anthony Liguori <aliguori@amazon.com>
-Signed-off-by: Imre Palik <imrep@amazon.de>
----
- net/bridge/br_device.c   |    2 ++
- net/bridge/br_forward.c  |   23 +++++++++++++++++++++--
- net/bridge/br_input.c    |    4 ++--
- net/bridge/br_private.h  |    1 +
- net/bridge/br_sysfs_br.c |   23 +++++++++++++++++++++++
- 5 files changed, 49 insertions(+), 4 deletions(-)
-
-diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
-index ffd379d..6fb0343 100644
---- a/net/bridge/br_device.c
-+++ b/net/bridge/br_device.c
-@@ -381,6 +381,8 @@ void br_dev_setup(struct net_device *dev)
- 
- 	ether_addr_copy(br->group_addr, eth_reserved_addr_base);
- 
-+	br->call_nf = 1;
-+
- 	br->stp_enabled = BR_NO_STP;
- 	br->group_fwd_mask = BR_GROUPFWD_DEFAULT;
- 	br->group_fwd_mask_required = BR_GROUPFWD_DEFAULT;
-diff --git a/net/bridge/br_forward.c b/net/bridge/br_forward.c
-index f96933a..aa944d0 100644
---- a/net/bridge/br_forward.c
-+++ b/net/bridge/br_forward.c
-@@ -81,6 +81,26 @@ static void __br_deliver(const struct net_bridge_port *to, struct sk_buff *skb)
- 		br_forward_finish);
- }
- 
-+static int br_nf_do_forward(struct sk_buff *skb, struct net_device *indev)
-+{
-+	struct net_bridge_port *p;
-+	struct net_bridge *br;
-+
-+	p = br_port_get_rcu(indev);
-+	if (!p) {
-+		kfree(skb);
-+		return NF_DROP;
-+	}
-+	br = p->br;
-+	if (!br->call_nf) {
-+		skb_push(skb, ETH_HLEN);
-+		return dev_queue_xmit(skb);
-+	} else {
-+		return NF_HOOK(NFPROTO_BRIDGE, NF_BR_FORWARD, skb, indev,
-+			skb->dev, br_forward_finish);
-+	}
-+}
-+
- static void __br_forward(const struct net_bridge_port *to, struct sk_buff *skb)
- {
- 	struct net_device *indev;
-@@ -98,8 +118,7 @@ static void __br_forward(const struct net_bridge_port *to, struct sk_buff *skb)
- 	skb->dev = to->dev;
- 	skb_forward_csum(skb);
- 
--	NF_HOOK(NFPROTO_BRIDGE, NF_BR_FORWARD, skb, indev, skb->dev,
--		br_forward_finish);
-+	br_nf_do_forward(skb, indev);
- }
- 
- /* called with rcu_read_lock */
-diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
-index e2aa7be..04af67f 100644
---- a/net/bridge/br_input.c
-+++ b/net/bridge/br_input.c
-@@ -299,8 +299,8 @@ forward:
- 		if (ether_addr_equal(p->br->dev->dev_addr, dest))
- 			skb->pkt_type = PACKET_HOST;
- 
--		NF_HOOK(NFPROTO_BRIDGE, NF_BR_PRE_ROUTING, skb, skb->dev, NULL,
--			br_handle_frame_finish);
-+		NF_HOOK_COND(NFPROTO_BRIDGE, NF_BR_PRE_ROUTING, skb, skb->dev,
-+			NULL, br_handle_frame_finish, p->br->call_nf);
- 		break;
- 	default:
- drop:
-diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-index de09199..a27f4ad 100644
---- a/net/bridge/br_private.h
-+++ b/net/bridge/br_private.h
-@@ -219,6 +219,7 @@ struct net_bridge
- 	bool				nf_call_ip6tables;
- 	bool				nf_call_arptables;
- #endif
-+	bool				call_nf;
- 	u16				group_fwd_mask;
- 	u16				group_fwd_mask_required;
- 
-diff --git a/net/bridge/br_sysfs_br.c b/net/bridge/br_sysfs_br.c
-index 4c97fc5..b5061592 100644
---- a/net/bridge/br_sysfs_br.c
-+++ b/net/bridge/br_sysfs_br.c
-@@ -344,6 +344,28 @@ static ssize_t flush_store(struct device *d,
- }
- static DEVICE_ATTR_WO(flush);
- 
-+static ssize_t call_nf_show(
-+	struct device *d, struct device_attribute *attr, char *buf)
-+{
-+	struct net_bridge *br = to_bridge(d);
-+	return sprintf(buf, "%u\n", br->call_nf);
-+}
-+
-+static int set_call_nf(struct net_bridge *br, unsigned long val)
-+{
-+	br->call_nf = val ? true : false;
-+	return 0;
-+}
-+
-+static ssize_t call_nf_store(
-+	struct device *d, struct device_attribute *attr, const char *buf,
-+	size_t len)
-+{
-+	return store_bridge_parm(d, buf, len, set_call_nf);
-+}
-+static DEVICE_ATTR(call_nf, S_IRUGO | S_IWUSR,
-+		   call_nf_show, call_nf_store);
-+
- #ifdef CONFIG_BRIDGE_IGMP_SNOOPING
- static ssize_t multicast_router_show(struct device *d,
- 				     struct device_attribute *attr, char *buf)
-@@ -763,6 +785,7 @@ static struct attribute *bridge_attrs[] = {
- 	&dev_attr_gc_timer.attr,
- 	&dev_attr_group_addr.attr,
- 	&dev_attr_flush.attr,
-+	&dev_attr_call_nf.attr,
- #ifdef CONFIG_BRIDGE_IGMP_SNOOPING
- 	&dev_attr_multicast_router.attr,
- 	&dev_attr_multicast_snooping.attr,
--- 
-1.7.9.5
+> On Fri, Feb 20, 2015 at 2:51 AM, Jonas Johansson <jonasj76@gmail.com> wrote:
+>> From: Jonas Johansson <jonas.johansson@westermo.se>
+>>
+>> This patch will implement hooks for hardware bonding support for the DSA
+>> driver. When the team driver adds a DSA slave port the port will be assigned
+>> a bond group id and the DSA slave driver can setup the hardware. When team
+>> changes the port state (enabled/disabled) the DSA slave driver is able to
+>> use the attach/detach callback which will allow the hardware to change the
+>> hardware settings to reflect the state.
+>>
+>> Added DSA hooks:
+>>  bond_add_group: To add a port to a bond group
+>>  bond_del_group: To remove a port from a bond group
+>>  bond_attach: To mark the port in a bond group as attached/active
+>>  bond_detach: To unmark the port in a bond group as detach/inactive
+>>
+>> Added new network device hooks:
+>>  ndo_bond_attach: To attach a device to a bond group.
+>>  ndo_bond_detach: To detach a device from a bond group.
+>>
+>> Team:
+>>  Added callback to ndo_bond_attach when port is enabled.
+>>  Added callback to ndo_bond_detach when port is disabled.
+>>
+>> Added DSA notifier:
+>>  Listening on NETDEV_CHANGEUPPER to add or deleta a port to/from a bond group.
+>
+> Hi Jonas,
+>
+> Cc:'ing Andy as he mentioned at netdev01 he was looking into something
+> similar for switchdev.
+>
+> My comments are along the lines of the others:
+>
+> Can we up-level this not for just DSA but for switchdev in general?  I
+> think the requirements are:
+>
+> 1) It should work for team or bonding.
+>
+> 2) Port driver needs to know a) bond membership, and b) port (active,
+> inactive) status, at least for 802.3ad.
+>
+> 3) Try to avoid adding new ndo ops if possible, and rather use what's there.
+>
+> It took me a bit to figure out your new ndo ops in this patch.  Going
+> by the name ndo_bond_attach/dettach, I thought these were for port
+> membership, but you're using them for port status change.  So the name
+> was confusing.  Since you already have port membership covered with
+> netdevice event NETDEV_CHANGEUPPER, can we also adapt port status
+> change into netdevice event NETDEV_BONDING_INFO?  (See
+> netdev_bonding_info_change()).
+>
+> -scott
+>
+I think aiming for switchdev is a good ides. I will look into this and if 
+NETDEV_BONDING_INFO can be used instead if adding the new ndo fops. I'm on 
+vacation atm, so I will start look into it the next week. Thanks for all 
+the good input.
+- Jonas
