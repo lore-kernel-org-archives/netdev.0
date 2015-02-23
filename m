@@ -1,48 +1,84 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: Re: [PATCH RFC 1/2] net: dsa: integrate with SWITCHDEV for HW bridging
-Date: Mon, 23 Feb 2015 06:23:03 -0800
-Message-ID: <54EB37C7.3090209@roeck-us.net>
-References: <1424201196-4901-1-git-send-email-f.fainelli@gmail.com> <1424201196-4901-2-git-send-email-f.fainelli@gmail.com> <54EA8E7C.90401@roeck-us.net> <20150223031447.GA19267@lunn.ch> <54EAA767.6060105@roeck-us.net> <20150223042220.GA20063@lunn.ch> <54EAAEBC.6080609@roeck-us.net> <CAGVrzcYnuV6raXSrAETctwX5dwX3S=2-=ySewCFdx=iM7bPaDg@mail.gmail.com> <20150223133454.GB23581@lunn.ch>
+From: "Skidmore, Donald C" <donald.c.skidmore@intel.com>
+Subject: Re: [PATCH v2 2/3] if_link: Add VF multicast
+	promiscuous control
+Date: Mon, 23 Feb 2015 14:29:43 +0000
+Message-ID: <F6FB0E698C9B3143BDF729DF22286646912ADAD5@ORSMSX110.amr.corp.intel.com>
+References: <7F861DC0615E0C47A872E6F3C5FCDDBD05E38840@BPXM14GP.gisp.nec.co.jp>
+	<54E73BE4.2040505@solarflare.com>
+	<F6FB0E698C9B3143BDF729DF22286646912AD3E7@ORSMSX110.amr.corp.intel.com>
+	<54EB30A1.9080309@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-	jerome.oufella@savoirfairelinux.com,
-	Chris Healy <cphealy@gmail.com>
-To: Andrew Lunn <andrew@lunn.ch>,
-	Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bh-25.webhostbox.net ([208.91.199.152]:52024 "EHLO
-	bh-25.webhostbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751055AbbBWOXk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Feb 2015 09:23:40 -0500
-Received: from mailnull by bh-25.webhostbox.net with sa-checked (Exim 4.82)
-	(envelope-from <linux@roeck-us.net>)
-	id 1YPtv9-0002Di-QB
-	for netdev@vger.kernel.org; Mon, 23 Feb 2015 14:23:39 +0000
-In-Reply-To: <20150223133454.GB23581@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "vyasevic@redhat.com" <vyasevic@redhat.com>,
+	"e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>, "Choi,
+	Sy Jong" <sy.jong.choi@intel.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	David Laight <David.Laight@ACULAB.COM>,
+	Hayato Momma <h-momma@ce.jp.nec.com>,
+	Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>,
+	=?utf-8?B?QmrDuHJuIE1vcms=?= <bjorn@mork.no>
+To: Edward Cree <ecree@solarflare.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <54EB30A1.9080309@solarflare.com>
+Content-Language: en-US
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On 02/23/2015 05:34 AM, Andrew Lunn wrote:
->> BTW, before I re-submit this patch series, do you think we should
->> introduce a fdb_flush() callback that switch drivers are required to
->> implement, and invoke it from net/dsa/slave.c upon port join/leave?
->
-> Probably a good idea.
->
-> We should define exactly what is flushed. Everything? Or only dynamic
-> entries? The Marvell hardware can also have multicast addresses in its
-> tables, which can age, or static unicast and multicast entries.
->
-
-I currently use ATU command 110 (flush all non-static entries in a
-particular FID). I see means to flush either all entries or all
-non-static entries, but no means to only flush unicast or multicast
-entries. Does any of the standards distinguish between learned unicast
-and multicast addresses ? Flushing those selectively might be a
-challenge.
-
-Guenter
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBFZHdhcmQgQ3JlZSBbbWFpbHRv
+OmVjcmVlQHNvbGFyZmxhcmUuY29tXQ0KPiBTZW50OiBNb25kYXksIEZlYnJ1YXJ5IDIzLCAyMDE1
+IDU6NTMgQU0NCj4gVG86IFNraWRtb3JlLCBEb25hbGQgQw0KPiBDYzogSGlyb3NoaSBTaGltYW1v
+dG87IHZ5YXNldmljQHJlZGhhdC5jb207IEtpcnNoZXIsIEplZmZyZXkgVDsgQWxleGFuZGVyDQo+
+IER1eWNrOyBCasO4cm4gTW9yazsgZTEwMDAtZGV2ZWxAbGlzdHMuc291cmNlZm9yZ2UubmV0Ow0K
+PiBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBDaG9pLCBTeSBKb25nOyBsaW51eC1rZXJuZWxAdmdl
+ci5rZXJuZWwub3JnOyBEYXZpZA0KPiBMYWlnaHQ7IEhheWF0byBNb21tYQ0KPiBTdWJqZWN0OiBS
+ZTogW1BBVENIIHYyIDIvM10gaWZfbGluazogQWRkIFZGIG11bHRpY2FzdCBwcm9taXNjdW91cyBj
+b250cm9sDQo+IA0KPiBPbiAyMC8wMi8xNSAyMTowNSwgU2tpZG1vcmUsIERvbmFsZCBDIHdyb3Rl
+Og0KPiA+IElmIGEgdmVuZGVyIHNwZWNpZmljIGludGVyZmFjZSBpcyBvYmplY3Rpb25hYmxlIG1h
+eWJlIGEgc2ltcGxlciBhbmQgbW9yZQ0KPiBnZW5lcmljIGludGVyZmFjZSB3b3VsZCBiZSBmb3Ig
+dGhlIFBGIHRvIGJlIGFibGUgdG8gc2V0IGEgZ2l2ZW4gVkYgaW50bw0KPiAidHJ1c3RlZCIgbW9k
+ZS4uLiBJIGFkbWl0IGV4YWN0bHkgd2hhdCAndHJ1c3RlZCcgbWVhbnQgd291bGQgdmFyeSBmcm9t
+DQo+IHZlbmRlciB0byB2ZW5kZXIsIGJ1dCBpdCB3b3VsZCBiZSBhIHdheSBmb3IgdGhlIGRyaXZl
+ciB0byBrbm93IGl0IGNvdWxkIGFsbG93DQo+IGNvbmZpZ3VyYXRpb25zIHN1Y2ggYXMgdGhpcy4g
+IEp1c3QgYW4gaWRlYSwgc2luY2Ugd2Ugc2VlbSB0byBiZSBnZXR0aW5nIG1vcmUNCj4gcmVxdWVz
+dHMgZm9yIHRoaW5ncyBzdWNoIGFzIHRoaXMuDQo+IFRoYXQncyBhbiBldmVuIHdvcnNlIGlkZWE7
+IG5vdyB5b3UgaGF2ZSBhIGdlbmVyaWMgaW50ZXJmYWNlIHdpdGggY29tcGxldGVseQ0KPiB1bmRl
+ZmluZWQgc2VtYW50aWNzLg0KPiBUaGUgcmlnaHQgd2F5IHRvIGRvIHRoaXMsIGltaG8sIGlzIHRv
+IHVzZSBvbmUgb2YgdGhlIHN0YW5kYXJkIGludGVyZmFjZXMgZm9yDQo+IGRyaXZlci1zcGVjaWZp
+YyBndWJiaW5zIC0gZS5nLiBzeXNmcywgZ2VuZXRsaW5rIG9yIGV2ZW4gKHdoaXNwZXIgaXQpIGlv
+Y3RscyAtIGFuZA0KPiBwdXQgeW91ciAnVkYgcHJvbWlzYyBtb2RlJyBzZXR0aW5nIHRoZXJlLiAg
+VGhhdCB3YXkgeW91IGhhdmUgYSB2ZW5kb3ItDQo+IHNwZWNpZmljIGludGVyZmFjZSB3aXRoIHZl
+bmRvci1zcGVjaWZpZWQgc2VtYW50aWNzLg0KPiBPZiB0aG9zZSBvcHRpb25zLCBJJ2QgcmVjb21t
+ZW5kIHN5c2ZzIGFzIHRoZSBiZXN0IGZpdC4NCj4gVGhlIGluZm9ybWF0aW9uIGNvbnRhaW5lZCBp
+biB0aGlzIG1lc3NhZ2UgaXMgY29uZmlkZW50aWFsIGFuZCBpcyBpbnRlbmRlZCBmb3INCj4gdGhl
+IGFkZHJlc3NlZShzKSBvbmx5LiBJZiB5b3UgaGF2ZSByZWNlaXZlZCB0aGlzIG1lc3NhZ2UgaW4g
+ZXJyb3IsIHBsZWFzZQ0KPiBub3RpZnkgdGhlIHNlbmRlciBpbW1lZGlhdGVseSBhbmQgZGVsZXRl
+IHRoZSBtZXNzYWdlLiBVbmxlc3MgeW91IGFyZSBhbg0KPiBhZGRyZXNzZWUgKG9yIGF1dGhvcml6
+ZWQgdG8gcmVjZWl2ZSBmb3IgYW4gYWRkcmVzc2VlKSwgeW91IG1heSBub3QgdXNlLA0KPiBjb3B5
+IG9yIGRpc2Nsb3NlIHRvIGFueW9uZSB0aGlzIG1lc3NhZ2Ugb3IgYW55IGluZm9ybWF0aW9uIGNv
+bnRhaW5lZCBpbiB0aGlzDQo+IG1lc3NhZ2UuIFRoZSB1bmF1dGhvcml6ZWQgdXNlLCBkaXNjbG9z
+dXJlLCBjb3B5aW5nIG9yIGFsdGVyYXRpb24gb2YgdGhpcw0KPiBtZXNzYWdlIGlzIHN0cmljdGx5
+IHByb2hpYml0ZWQuDQoNCkkgZG8gc2VlIHlvdXIgcG9pbnQsIGJ1dCBJIHRob3VnaHQgY3VzdG9t
+IHN5c2ZzIGludGVyZmFjZXMgKG5vdCB0byBldmVuIG1lbnRpb24gbmV3IGlvY3RsJ3MgOikgd2Vy
+ZSBmcm93bmVkIHVwb24/ICBXaGljaCBpcyB3aHkgSSBkaWRuJ3QgZXZlbiBjb25zaWRlciBzeXNm
+cyBhcyBhbiBvcHRpb24uDQotLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0KRG93bmxvYWQgQklSVCBpSHVi
+IEYtVHlwZSAtIFRoZSBGcmVlIEVudGVycHJpc2UtR3JhZGUgQklSVCBTZXJ2ZXIKZnJvbSBBY3R1
+YXRlISBJbnN0YW50bHkgU3VwZXJjaGFyZ2UgWW91ciBCdXNpbmVzcyBSZXBvcnRzIGFuZCBEYXNo
+Ym9hcmRzCndpdGggSW50ZXJhY3Rpdml0eSwgU2hhcmluZywgTmF0aXZlIEV4Y2VsIEV4cG9ydHMs
+IEFwcCBJbnRlZ3JhdGlvbiAmIG1vcmUKR2V0IHRlY2hub2xvZ3kgcHJldmlvdXNseSByZXNlcnZl
+ZCBmb3IgYmlsbGlvbi1kb2xsYXIgY29ycG9yYXRpb25zLCBGUkVFCmh0dHA6Ly9wdWJhZHMuZy5k
+b3VibGVjbGljay5uZXQvZ2FtcGFkL2Nsaz9pZD0xOTA2NDE2MzEmaXU9LzQxNDAvb3N0Zy5jbGt0
+cmsKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KRTEwMDAt
+ZGV2ZWwgbWFpbGluZyBsaXN0CkUxMDAwLWRldmVsQGxpc3RzLnNvdXJjZWZvcmdlLm5ldApodHRw
+czovL2xpc3RzLnNvdXJjZWZvcmdlLm5ldC9saXN0cy9saXN0aW5mby9lMTAwMC1kZXZlbApUbyBs
+ZWFybiBtb3JlIGFib3V0IEludGVsJiMxNzQ7IEV0aGVybmV0LCB2aXNpdCBodHRwOi8vY29tbXVu
+aXRpZXMuaW50ZWwuY29tL2NvbW11bml0eS93aXJlZAo=
