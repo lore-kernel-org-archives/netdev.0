@@ -1,37 +1,61 @@
-From: Fabian Frederick <fabf@skynet.be>
-Subject: [PATCH 1/1 net-next] net/atm/signaling.c: replace current->state by  __set_current_state()
-Date: Mon, 23 Feb 2015 18:31:07 +0100
-Message-ID: <1424712667-11849-1-git-send-email-fabf@skynet.be>
-Cc: davem@davemloft.net, Peter Zijlstra <peterz@infradead.org>,
-	Fabian Frederick <fabf@skynet.be>, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: "Rose, Gregory V" <gregory.v.rose@intel.com>
+Subject: RE: [net-next 13/16] i40e: Fix i40e_ndo_set_vf_spoofchk
+Date: Mon, 23 Feb 2015 17:31:25 +0000
+Message-ID: <C5551D9AAB213A418B7FD5E4A6F30A078926426F@ORSMSX108.amr.corp.intel.com>
+References: <1424661944-1779-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1424661944-1779-14-git-send-email-jeffrey.t.kirsher@intel.com>
+ <CAJ3xEMgf1ue3Byt3n1+LYFFKED8fq3RXJhqihTY=X6cww_MQkg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	"nhorman@redhat.com" <nhorman@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>,
+	"jogreene@redhat.com" <jogreene@redhat.com>
+To: Or Gerlitz <gerlitz.or@gmail.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:60035 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752474AbbBWRb2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Feb 2015 12:31:28 -0500
+In-Reply-To: <CAJ3xEMgf1ue3Byt3n1+LYFFKED8fq3RXJhqihTY=X6cww_MQkg@mail.gmail.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Use helper functions to access current->state.
-Direct assignments are prone to races and therefore buggy.
-
-Thanks to Peter Zijlstra for the exact definition of the problem.
-
-Suggested-By: Peter Zijlstra <peterz@infradead.org>
-Signed-off-by: Fabian Frederick <fabf@skynet.be>
----
- net/atm/signaling.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/atm/signaling.c b/net/atm/signaling.c
-index 523bce7..0140832 100644
---- a/net/atm/signaling.c
-+++ b/net/atm/signaling.c
-@@ -40,7 +40,7 @@ static void sigd_put_skb(struct sk_buff *skb)
- 		pr_debug("atmsvc: waiting for signaling daemon...\n");
- 		schedule();
- 	}
--	current->state = TASK_RUNNING;
-+	__set_current_state(TASK_RUNNING);
- 	remove_wait_queue(&sigd_sleep, &wait);
- #else
- 	if (!sigd) {
--- 
-2.1.0
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogT3IgR2VybGl0eiBbbWFp
+bHRvOmdlcmxpdHoub3JAZ21haWwuY29tXQ0KPiBTZW50OiBNb25kYXksIEZlYnJ1YXJ5IDIzLCAy
+MDE1IDk6MTggQU0NCj4gVG86IEtpcnNoZXIsIEplZmZyZXkgVA0KPiBDYzogRGF2aWQgTWlsbGVy
+OyBSb3NlLCBHcmVnb3J5IFY7IExpbnV4IE5ldGRldiBMaXN0OyBuaG9ybWFuQHJlZGhhdC5jb207
+DQo+IHNhc3NtYW5uQHJlZGhhdC5jb207IGpvZ3JlZW5lQHJlZGhhdC5jb20NCj4gU3ViamVjdDog
+UmU6IFtuZXQtbmV4dCAxMy8xNl0gaTQwZTogRml4IGk0MGVfbmRvX3NldF92Zl9zcG9vZmNoaw0K
+PiANCj4gT24gTW9uLCBGZWIgMjMsIDIwMTUgYXQgNToyNSBBTSwgSmVmZiBLaXJzaGVyDQo+IDxq
+ZWZmcmV5LnQua2lyc2hlckBpbnRlbC5jb20+IHdyb3RlOg0KPiA+IEZyb206IEdyZWcgUm9zZSA8
+Z3JlZ29yeS52LnJvc2VAaW50ZWwuY29tPg0KPiA+DQo+ID4gVGhlIG5ldGRldiBvcCB0aGF0IGFs
+bG93cyB0aGUgb3BlcmF0b3IgdG8gdHVybiBNQUMvVkxBTiBzcG9vZiBjaGVja2luZw0KPiA+IG9u
+IGFuZCBvZmYgZGlkIG5vdCBpbmNsdWRlIHRoZSBmbGFnIGZvciBWTEFOIHNwb29mIGNoZWNraW5n
+LiAgVGhpcw0KPiA+IHBhdGNoIGZpeGVzIHRoYXQgcHJvYmxlbS4NCj4gDQo+IElmIHdlJ3JlIG9u
+IFZTVCBtb2RlLCB0aGUgVkYgaXNuJ3QgYXdhcmUgdGhlaXIgdHJhZmZpYyBpcyB0YWdnZWQgd2l0
+aA0KPiB2bGFuLWlkIFkgYW5kIGlmIHRoZXkgdHJ5IHRvIHNlbmQgd2l0aCB2bGFuLWlkIFggSSBh
+c3N1bWUgeW91IGFyZSBmb3JjaW5nDQo+IGl0IHRvIGJlIFksIHJpZ2h0Pw0KDQpObywgaXQgaXMg
+ZHJvcHBlZCBhbmQgYSBtYWxpY2lvdXMgZHJpdmVyIGV2ZW50IGlzIHJlZ2lzdGVyZWQgdG8gdGhl
+IFBGIGRyaXZlci4NCg0KPiANCj4gSWYgd2UncmUgb24gVkdUIG1vZGUsIHdoYXQgc3Bvb2YgY2hl
+Y2sgeW91IGNhbiBkbz8gd2UgZG9uJ3QgaGF2ZSBhIG1vZGVsDQo+IGZvciBhbGxvd2VkIHZsYW5z
+LCBkaWQgSSBtaXNzIHNvbWV0aGluZz8NCg0KVGhpcyBvbmx5IGFwcGxpZXMgaW4gaW5zdGFuY2Vz
+IHdoZXJlIHRoZSBhZG1pbmlzdHJhdG9yIGhhcyBub3Qgc2V0IGEgVkxBTiBpZCBmb3IgdGhlIFZG
+IHZpYSB0aGUgJ2lwJyB1dGlsaXR5LiAgSW4gdGhhdCBjYXNlLCBvdXIgcnVsZSBpcyB0byBhbGxv
+dyB0aGUgVkYgZHJpdmVyIHRvIHNldCBpdHMgb3duIFZMQU4gZmlsdGVycyBpZiBpdCBzbyB3aXNo
+ZXMuICBUaGlzIGlzIGEgbG9uZyBzdGFuZGluZyBydWxlIGZvciBJbnRlbCBWRiBkcml2ZXJzLg0K
+DQpTbywgd2l0aCBWTEFOIHNwb29mIGNoZWNraW5nIHR1cm5lZCBvbiB0aGUgVkYgd2lsbCBvbmx5
+IGJlIGFibGUgdG8gc2VuZCBWTEFOIHRhZ2dlZCB0cmFmZmljIHdoZXJlIHRoZSBWTEFOIGZpbHRl
+ciBpcyBzZXQgaW4gdGhlIEhXLiAgVGhpcyBhbGxvd3MgdGhlIFBGIGRyaXZlciB0byBjb250aW51
+ZSB0byBtb25pdG9yIGFuZCByZXN0cmljdCB3aGF0IFZMQU4gdGFnZ2VkIHRyYWZmaWMgaXMgYWxs
+b3dlZCBieSB0aGUgVkYgaWYgaXQgc28gZGVzaXJlcy4gIFRoZSBMaW51eCBkcml2ZXIgZG9lcyBu
+b3QgYWN0dWFsbHkgZG8gdGhpcyBidXQgaXQgd291bGQgYmUgZWFzeSB0byB1c2Ugc29tZSBjb21t
+b24gcmVwb3J0aW5nIHRvb2xzIHRvIHNlZSB3aGF0IFZMQU4gZmlsdGVycyBhcmUgaW4gdXNlIGJ5
+IHRoZSBWRiBhbmQgdGhlbiB0YWtlIGFjdGlvbnMgZGVzaXJlZCBieSB0aGUgc3lzdGVtIGFkbWlu
+aXN0cmF0b3IuICBLZWVwaW5nIGEgcnVsZSBpbiBwbGFjZSB0aGF0IHRoZSBWRiBjYW4gb25seSBz
+ZW5kIG9uIFZMQU5zIHRoYXQgYXJlIHJlZ2lzdGVyZWQgaW4gdGhlIEhXIGZpbHRlcnMgY29udHJv
+bGxlZCBieSB0aGUgUEYgaW5jcmVhc2Ugc2VjdXJpdHkuDQoNClRoYW5rcywNCg0KLSBHcmVnDQo=
