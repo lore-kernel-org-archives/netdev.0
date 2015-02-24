@@ -1,34 +1,40 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH] nl80211: Fix possible leak in nl80211_new_interface on
- MONITOR_FLAG_ACTIVE
-Date: Tue, 24 Feb 2015 10:58:12 +0100
-Message-ID: <1424771892.2192.9.camel@sipsolutions.net>
-References: <1423943521-2896-1-git-send-email-cengelma@gmx.at>
-	 (sfid-20150214_205224_679047_9F3F20CE)
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org
-To: Christian Engelmayer <cengelma@gmx.at>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:37997 "EHLO sipsolutions.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751314AbbBXJ6Z (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Feb 2015 04:58:25 -0500
-In-Reply-To: <1423943521-2896-1-git-send-email-cengelma@gmx.at> (sfid-20150214_205224_679047_9F3F20CE)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Robert Dolca <robert.dolca@intel.com>
+Subject: [PATCH 1/8] NFC: NCI: Allow connection close with dev down
+Date: Tue, 24 Feb 2015 12:01:45 +0200
+Message-ID: <1424772112-27399-2-git-send-email-robert.dolca@intel.com>
+References: <1424772112-27399-1-git-send-email-robert.dolca@intel.com>
+Cc: linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Robert Dolca <robert.dolca@intel.com>
+To: linux-nfc@lists.01.org,
+	Lauro Ramos Venancio <lauro.venancio@openbossa.org>,
+	Aloisio Almeida Jr <aloisio.almeida@openbossa.org>,
+	Samuel Ortiz <sameo@linux.intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1424772112-27399-1-git-send-email-robert.dolca@intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, 2015-02-14 at 20:52 +0100, Christian Engelmayer wrote:
-> In case of NL80211_IFTYPE_MONITOR and flag MONITOR_FLAG_ACTIVE, the already
-> allocated sk_buff 'msg' is not freed, when the function exits in case the
-> feature is not supported. Detected by Coverity CID 1269116.
-> 
-> Signed-off-by: Christian Engelmayer <cengelma@gmx.at>
-> ---
-> Compile tested only. Applies against linux-next.
+By calling __nci_request instead of nci_request allows the driver to use
+the function while initializing the device (setup stage)
 
-Thanks for the report. I've fixed this in a different way.
+Signed-off-by: Robert Dolca <robert.dolca@intel.com>
+---
+ net/nfc/nci/core.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-johannes
+diff --git a/net/nfc/nci/core.c b/net/nfc/nci/core.c
+index 9575a18..c4dd5d8 100644
+--- a/net/nfc/nci/core.c
++++ b/net/nfc/nci/core.c
+@@ -558,7 +558,7 @@ static void nci_core_conn_close_req(struct nci_dev *ndev, unsigned long opt)
+ 
+ int nci_core_conn_close(struct nci_dev *ndev, u8 conn_id)
+ {
+-	return nci_request(ndev, nci_core_conn_close_req, conn_id,
++	return __nci_request(ndev, nci_core_conn_close_req, conn_id,
+ 				msecs_to_jiffies(NCI_CMD_TIMEOUT));
+ }
+ EXPORT_SYMBOL(nci_core_conn_close);
+-- 
+1.9.1
