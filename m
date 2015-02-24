@@ -1,177 +1,377 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 11/16] i40e/i40evf: Remove unused variable an_enable and function update_link_info
-Date: Mon, 23 Feb 2015 18:11:16 -0800
-Message-ID: <1424743881-30485-12-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 09/16] i40e/i40evf: i40e_register.h updates
+Date: Mon, 23 Feb 2015 18:11:14 -0800
+Message-ID: <1424743881-30485-10-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1424743881-30485-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Catherine Sullivan <catherine.sullivan@intel.com>,
+Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
 	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
 	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:63799 "EHLO mga14.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:1618 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752475AbbBXCLs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Feb 2015 21:11:48 -0500
+	id S1752429AbbBXCLd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Feb 2015 21:11:33 -0500
 In-Reply-To: <1424743881-30485-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Catherine Sullivan <catherine.sullivan@intel.com>
+From: Anjali Singhai Jain <anjali.singhai@intel.com>
 
-An_enable was never used only set so lets remove it. The function
-update_link_info only did two things, call get_link_info and set
-an_enabled. Therefore we should also remove update_link_info and
-change all references to it to get_link_info.
+Some registers have been removed so take them out and
+stop updating and looking at them.
 
-Change-ID: Ie3022680fa7a94bfd495a4f5fc76a73701d85569
-Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
+Change-ID: I33da922c8de993a94dd8b8d8a2ae2146b8ca1a27
+Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
 Tested-by: Jim Young <james.m.young@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_common.c    | 33 ++----------------------
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c   |  4 +--
- drivers/net/ethernet/intel/i40e/i40e_main.c      |  4 +--
- drivers/net/ethernet/intel/i40e/i40e_prototype.h |  1 -
- drivers/net/ethernet/intel/i40e/i40e_type.h      |  1 -
- drivers/net/ethernet/intel/i40evf/i40e_type.h    |  1 -
- 6 files changed, 6 insertions(+), 38 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c    |  1 -
+ drivers/net/ethernet/intel/i40e/i40e_main.c       | 23 -----------
+ drivers/net/ethernet/intel/i40e/i40e_register.h   | 50 +++++++++++------------
+ drivers/net/ethernet/intel/i40evf/i40e_register.h | 50 +++++++++++------------
+ 4 files changed, 50 insertions(+), 74 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
-index 11a9ffe..8dbf7dd 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_common.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
-@@ -1297,14 +1297,14 @@ enum i40e_status_code i40e_set_fc(struct i40e_hw *hw, u8 *aq_failures,
- 			*aq_failures |= I40E_SET_FC_AQ_FAIL_SET;
- 	}
- 	/* Update the link info */
--	status = i40e_update_link_info(hw, true);
-+	status = i40e_aq_get_link_info(hw, true, NULL, NULL);
- 	if (status) {
- 		/* Wait a little bit (on 40G cards it sometimes takes a really
- 		 * long time for link to come back from the atomic reset)
- 		 * and try once more
- 		 */
- 		msleep(1000);
--		status = i40e_update_link_info(hw, true);
-+		status = i40e_aq_get_link_info(hw, true, NULL, NULL);
- 	}
- 	if (status)
- 		*aq_failures |= I40E_SET_FC_AQ_FAIL_UPDATE;
-@@ -1452,35 +1452,6 @@ aq_get_link_info_exit:
- }
- 
- /**
-- * i40e_update_link_info
-- * @hw: pointer to the hw struct
-- * @enable_lse: enable/disable LinkStatusEvent reporting
-- *
-- * Returns the link status of the adapter
-- **/
--i40e_status i40e_update_link_info(struct i40e_hw *hw, bool enable_lse)
--{
--	struct i40e_aq_get_phy_abilities_resp abilities;
--	i40e_status status;
--
--	status = i40e_aq_get_link_info(hw, enable_lse, NULL, NULL);
--	if (status)
--		return status;
--
--	status = i40e_aq_get_phy_capabilities(hw, false, false,
--					      &abilities, NULL);
--	if (status)
--		return status;
--
--	if (abilities.abilities & I40E_AQ_PHY_AN_ENABLED)
--		hw->phy.link_info.an_enabled = true;
--	else
--		hw->phy.link_info.an_enabled = false;
--
--	return status;
--}
--
--/**
-  * i40e_aq_set_phy_int_mask
-  * @hw: pointer to the hw struct
-  * @mask: interrupt mask to be set
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-index cd5083e..8e69caf 100644
+index b8230dc..cd5083e 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-@@ -620,7 +620,7 @@ static int i40e_set_settings(struct net_device *netdev,
- 			return -EAGAIN;
- 		}
- 
--		status = i40e_update_link_info(hw, true);
-+		status = i40e_aq_get_link_info(hw, true, NULL, NULL);
- 		if (status)
- 			netdev_info(netdev, "Updating link info failed with error %d\n",
- 				    status);
-@@ -766,7 +766,7 @@ static int i40e_set_pauseparam(struct net_device *netdev,
- 		err = -EAGAIN;
- 	}
- 	if (aq_failures & I40E_SET_FC_AQ_FAIL_UPDATE) {
--		netdev_info(netdev, "Set fc failed on the update_link_info call with error %d and status %d\n",
-+		netdev_info(netdev, "Set fc failed on the get_link_info call with error %d and status %d\n",
- 			    status, hw->aq.asq_last_status);
- 		err = -EAGAIN;
- 	}
+@@ -113,7 +113,6 @@ static struct i40e_stats i40e_gstrings_stats[] = {
+ 	I40E_PF_STAT("tx_broadcast", stats.eth.tx_broadcast),
+ 	I40E_PF_STAT("tx_errors", stats.eth.tx_errors),
+ 	I40E_PF_STAT("rx_dropped", stats.eth.rx_discards),
+-	I40E_PF_STAT("tx_dropped", stats.eth.tx_discards),
+ 	I40E_PF_STAT("tx_dropped_link_down", stats.tx_dropped_link_down),
+ 	I40E_PF_STAT("crc_errors", stats.crc_errors),
+ 	I40E_PF_STAT("illegal_bytes", stats.illegal_bytes),
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 652cb4e..163cf2e 100644
+index e3597cb..2260cc1 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -8885,7 +8885,7 @@ static int i40e_setup_pf_switch(struct i40e_pf *pf, bool reinit)
- 		i40e_config_rss(pf);
+@@ -919,11 +919,6 @@ static void i40e_update_pf_stats(struct i40e_pf *pf)
+ 			   pf->stat_offsets_loaded,
+ 			   &osd->eth.rx_discards,
+ 			   &nsd->eth.rx_discards);
+-	i40e_stat_update32(hw, I40E_GLPRT_TDPC(hw->port),
+-			   pf->stat_offsets_loaded,
+-			   &osd->eth.tx_discards,
+-			   &nsd->eth.tx_discards);
+-
+ 	i40e_stat_update48(hw, I40E_GLPRT_UPRCH(hw->port),
+ 			   I40E_GLPRT_UPRCL(hw->port),
+ 			   pf->stat_offsets_loaded,
+@@ -5042,24 +5037,6 @@ void i40e_do_reset(struct i40e_pf *pf, u32 reset_flags)
+ 		wr32(&pf->hw, I40E_GLGEN_RTRIG, val);
+ 		i40e_flush(&pf->hw);
  
- 	/* fill in link information and enable LSE reporting */
--	i40e_update_link_info(&pf->hw, true);
-+	i40e_aq_get_link_info(&pf->hw, true, NULL, NULL);
- 	i40e_link_event(pf);
+-	} else if (reset_flags & (1 << __I40E_EMP_RESET_REQUESTED)) {
+-
+-		/* Request a Firmware Reset
+-		 *
+-		 * Same as Global reset, plus restarting the
+-		 * embedded firmware engine.
+-		 */
+-		/* enable EMP Reset */
+-		val = rd32(&pf->hw, I40E_GLGEN_RSTENA_EMP);
+-		val |= I40E_GLGEN_RSTENA_EMP_EMP_RST_ENA_MASK;
+-		wr32(&pf->hw, I40E_GLGEN_RSTENA_EMP, val);
+-
+-		/* force the reset */
+-		val = rd32(&pf->hw, I40E_GLGEN_RTRIG);
+-		val |= I40E_GLGEN_RTRIG_EMPFWR_MASK;
+-		wr32(&pf->hw, I40E_GLGEN_RTRIG, val);
+-		i40e_flush(&pf->hw);
+-
+ 	} else if (reset_flags & (1 << __I40E_PF_RESET_REQUESTED)) {
  
- 	/* Initialize user-specific link properties */
-@@ -8893,7 +8893,7 @@ static int i40e_setup_pf_switch(struct i40e_pf *pf, bool reinit)
- 				  I40E_AQ_AN_COMPLETED) ? true : false);
- 
- 	/* fill in link information and enable LSE reporting */
--	i40e_update_link_info(&pf->hw, true);
-+	i40e_aq_get_link_info(&pf->hw, true, NULL, NULL);
- 	i40e_link_event(pf);
- 
- 	/* Initialize user-specific link properties */
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_prototype.h b/drivers/net/ethernet/intel/i40e/i40e_prototype.h
-index de80cb2..1247a45 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_prototype.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_prototype.h
-@@ -97,7 +97,6 @@ i40e_status i40e_aq_set_link_restart_an(struct i40e_hw *hw,
- i40e_status i40e_aq_get_link_info(struct i40e_hw *hw,
- 				bool enable_lse, struct i40e_link_status *link,
- 				struct i40e_asq_cmd_details *cmd_details);
--i40e_status i40e_update_link_info(struct i40e_hw *hw, bool enable_lse);
- i40e_status i40e_aq_set_local_advt_reg(struct i40e_hw *hw,
- 				u64 advt_reg,
- 				struct i40e_asq_cmd_details *cmd_details);
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_type.h b/drivers/net/ethernet/intel/i40e/i40e_type.h
-index e9901ef..86a927b 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_type.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_type.h
-@@ -175,7 +175,6 @@ struct i40e_link_status {
- 	u8 an_info;
- 	u8 ext_info;
- 	u8 loopback;
--	bool an_enabled;
- 	/* is Link Status Event notification to SW enabled */
- 	bool lse_enable;
- 	u16 max_frame_size;
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_type.h b/drivers/net/ethernet/intel/i40evf/i40e_type.h
-index 3d0fdaa..c8cd8af 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_type.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_type.h
-@@ -175,7 +175,6 @@ struct i40e_link_status {
- 	u8 an_info;
- 	u8 ext_info;
- 	u8 loopback;
--	bool an_enabled;
- 	/* is Link Status Event notification to SW enabled */
- 	bool lse_enable;
- 	u16 max_frame_size;
+ 		/* Request a PF Reset
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_register.h b/drivers/net/ethernet/intel/i40e/i40e_register.h
+index 65d3c8b..522d6df 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_register.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_register.h
+@@ -310,6 +310,10 @@
+ #define I40E_PRTDCB_RUP2TC_UP6TC_MASK I40E_MASK(0x7, I40E_PRTDCB_RUP2TC_UP6TC_SHIFT)
+ #define I40E_PRTDCB_RUP2TC_UP7TC_SHIFT 21
+ #define I40E_PRTDCB_RUP2TC_UP7TC_MASK I40E_MASK(0x7, I40E_PRTDCB_RUP2TC_UP7TC_SHIFT)
++#define I40E_PRTDCB_RUPTQ(_i) (0x00122400 + ((_i) * 32)) /* _i=0...7 */ /* Reset: CORER */
++#define I40E_PRTDCB_RUPTQ_MAX_INDEX 7
++#define I40E_PRTDCB_RUPTQ_RXQNUM_SHIFT 0
++#define I40E_PRTDCB_RUPTQ_RXQNUM_MASK I40E_MASK(0x3FFF, I40E_PRTDCB_RUPTQ_RXQNUM_SHIFT)
+ #define I40E_PRTDCB_TC2PFC 0x001C0980 /* Reset: CORER */
+ #define I40E_PRTDCB_TC2PFC_TC2PFC_SHIFT 0
+ #define I40E_PRTDCB_TC2PFC_TC2PFC_MASK I40E_MASK(0xFF, I40E_PRTDCB_TC2PFC_TC2PFC_SHIFT)
+@@ -421,6 +425,8 @@
+ #define I40E_GLGEN_GPIO_CTL_OUT_DEFAULT_MASK I40E_MASK(0x1, I40E_GLGEN_GPIO_CTL_OUT_DEFAULT_SHIFT)
+ #define I40E_GLGEN_GPIO_CTL_PHY_PIN_NAME_SHIFT 20
+ #define I40E_GLGEN_GPIO_CTL_PHY_PIN_NAME_MASK I40E_MASK(0x3F, I40E_GLGEN_GPIO_CTL_PHY_PIN_NAME_SHIFT)
++#define I40E_GLGEN_GPIO_CTL_PRT_BIT_MAP_SHIFT 26
++#define I40E_GLGEN_GPIO_CTL_PRT_BIT_MAP_MASK I40E_MASK(0xF, I40E_GLGEN_GPIO_CTL_PRT_BIT_MAP_SHIFT)
+ #define I40E_GLGEN_GPIO_SET 0x00088184 /* Reset: POR */
+ #define I40E_GLGEN_GPIO_SET_GPIO_INDX_SHIFT 0
+ #define I40E_GLGEN_GPIO_SET_GPIO_INDX_MASK I40E_MASK(0x1F, I40E_GLGEN_GPIO_SET_GPIO_INDX_SHIFT)
+@@ -484,7 +490,9 @@
+ #define I40E_GLGEN_MDIO_CTRL_CONTMDC_SHIFT 17
+ #define I40E_GLGEN_MDIO_CTRL_CONTMDC_MASK I40E_MASK(0x1, I40E_GLGEN_MDIO_CTRL_CONTMDC_SHIFT)
+ #define I40E_GLGEN_MDIO_CTRL_LEGACY_RSVD1_SHIFT 18
+-#define I40E_GLGEN_MDIO_CTRL_LEGACY_RSVD1_MASK I40E_MASK(0x3FFF, I40E_GLGEN_MDIO_CTRL_LEGACY_RSVD1_SHIFT)
++#define I40E_GLGEN_MDIO_CTRL_LEGACY_RSVD1_MASK I40E_MASK(0x7FF, I40E_GLGEN_MDIO_CTRL_LEGACY_RSVD1_SHIFT)
++#define I40E_GLGEN_MDIO_CTRL_LEGACY_RSVD0_SHIFT 29
++#define I40E_GLGEN_MDIO_CTRL_LEGACY_RSVD0_MASK I40E_MASK(0x7, I40E_GLGEN_MDIO_CTRL_LEGACY_RSVD0_SHIFT)
+ #define I40E_GLGEN_MDIO_I2C_SEL(_i) (0x000881C0 + ((_i) * 4)) /* _i=0...3 */ /* Reset: POR */
+ #define I40E_GLGEN_MDIO_I2C_SEL_MAX_INDEX 3
+ #define I40E_GLGEN_MDIO_I2C_SEL_MDIO_I2C_SEL_SHIFT 0
+@@ -548,9 +556,6 @@
+ #define I40E_GLGEN_RSTCTL_GRSTDEL_MASK I40E_MASK(0x3F, I40E_GLGEN_RSTCTL_GRSTDEL_SHIFT)
+ #define I40E_GLGEN_RSTCTL_ECC_RST_ENA_SHIFT 8
+ #define I40E_GLGEN_RSTCTL_ECC_RST_ENA_MASK I40E_MASK(0x1, I40E_GLGEN_RSTCTL_ECC_RST_ENA_SHIFT)
+-#define I40E_GLGEN_RSTENA_EMP 0x000B818C /* Reset: POR */
+-#define I40E_GLGEN_RSTENA_EMP_EMP_RST_ENA_SHIFT 0
+-#define I40E_GLGEN_RSTENA_EMP_EMP_RST_ENA_MASK I40E_MASK(0x1, I40E_GLGEN_RSTENA_EMP_EMP_RST_ENA_SHIFT)
+ #define I40E_GLGEN_RTRIG 0x000B8190 /* Reset: CORER */
+ #define I40E_GLGEN_RTRIG_CORER_SHIFT 0
+ #define I40E_GLGEN_RTRIG_CORER_MASK I40E_MASK(0x1, I40E_GLGEN_RTRIG_CORER_SHIFT)
+@@ -1066,7 +1071,7 @@
+ #define I40E_PFINT_RATEN_INTERVAL_MASK I40E_MASK(0x3F, I40E_PFINT_RATEN_INTERVAL_SHIFT)
+ #define I40E_PFINT_RATEN_INTRL_ENA_SHIFT 6
+ #define I40E_PFINT_RATEN_INTRL_ENA_MASK I40E_MASK(0x1, I40E_PFINT_RATEN_INTRL_ENA_SHIFT)
+-#define I40E_PFINT_STAT_CTL0 0x00038400 /* Reset: PFR */
++#define I40E_PFINT_STAT_CTL0 0x00038400 /* Reset: CORER */
+ #define I40E_PFINT_STAT_CTL0_OTHER_ITR_INDX_SHIFT 2
+ #define I40E_PFINT_STAT_CTL0_OTHER_ITR_INDX_MASK I40E_MASK(0x3, I40E_PFINT_STAT_CTL0_OTHER_ITR_INDX_SHIFT)
+ #define I40E_QINT_RQCTL(_Q) (0x0003A000 + ((_Q) * 4)) /* _i=0...1535 */ /* Reset: CORER */
+@@ -1171,7 +1176,7 @@
+ #define I40E_VFINT_ITRN_MAX_INDEX 2
+ #define I40E_VFINT_ITRN_INTERVAL_SHIFT 0
+ #define I40E_VFINT_ITRN_INTERVAL_MASK I40E_MASK(0xFFF, I40E_VFINT_ITRN_INTERVAL_SHIFT)
+-#define I40E_VFINT_STAT_CTL0(_VF) (0x0002A000 + ((_VF) * 4)) /* _i=0...127 */ /* Reset: VFR */
++#define I40E_VFINT_STAT_CTL0(_VF) (0x0002A000 + ((_VF) * 4)) /* _i=0...127 */ /* Reset: CORER */
+ #define I40E_VFINT_STAT_CTL0_MAX_INDEX 127
+ #define I40E_VFINT_STAT_CTL0_OTHER_ITR_INDX_SHIFT 2
+ #define I40E_VFINT_STAT_CTL0_OTHER_ITR_INDX_MASK I40E_MASK(0x3, I40E_VFINT_STAT_CTL0_OTHER_ITR_INDX_SHIFT)
+@@ -1803,9 +1808,6 @@
+ #define I40E_GLPCI_GSCN_0_3_MAX_INDEX 3
+ #define I40E_GLPCI_GSCN_0_3_EVENT_COUNTER_SHIFT 0
+ #define I40E_GLPCI_GSCN_0_3_EVENT_COUNTER_MASK I40E_MASK(0xFFFFFFFF, I40E_GLPCI_GSCN_0_3_EVENT_COUNTER_SHIFT)
+-#define I40E_GLPCI_LATCT 0x0009C4B4 /* Reset: PCIR */
+-#define I40E_GLPCI_LATCT_PCI_COUNT_LAT_CT_SHIFT 0
+-#define I40E_GLPCI_LATCT_PCI_COUNT_LAT_CT_MASK I40E_MASK(0xFFFFFFFF, I40E_GLPCI_LATCT_PCI_COUNT_LAT_CT_SHIFT)
+ #define I40E_GLPCI_LBARCTRL 0x000BE484 /* Reset: POR */
+ #define I40E_GLPCI_LBARCTRL_PREFBAR_SHIFT 0
+ #define I40E_GLPCI_LBARCTRL_PREFBAR_MASK I40E_MASK(0x1, I40E_GLPCI_LBARCTRL_PREFBAR_SHIFT)
+@@ -1902,6 +1904,11 @@
+ #define I40E_GLPCI_VFSUP_VF_PREFETCH_MASK I40E_MASK(0x1, I40E_GLPCI_VFSUP_VF_PREFETCH_SHIFT)
+ #define I40E_GLPCI_VFSUP_VR_BAR_TYPE_SHIFT 1
+ #define I40E_GLPCI_VFSUP_VR_BAR_TYPE_MASK I40E_MASK(0x1, I40E_GLPCI_VFSUP_VR_BAR_TYPE_SHIFT)
++#define I40E_GLTPH_CTRL 0x000BE480 /* Reset: PCIR */
++#define I40E_GLTPH_CTRL_DESC_PH_SHIFT 9
++#define I40E_GLTPH_CTRL_DESC_PH_MASK I40E_MASK(0x3, I40E_GLTPH_CTRL_DESC_PH_SHIFT)
++#define I40E_GLTPH_CTRL_DATA_PH_SHIFT 11
++#define I40E_GLTPH_CTRL_DATA_PH_MASK I40E_MASK(0x3, I40E_GLTPH_CTRL_DATA_PH_SHIFT)
+ #define I40E_PF_FUNC_RID 0x0009C000 /* Reset: PCIR */
+ #define I40E_PF_FUNC_RID_FUNCTION_NUMBER_SHIFT 0
+ #define I40E_PF_FUNC_RID_FUNCTION_NUMBER_MASK I40E_MASK(0x7, I40E_PF_FUNC_RID_FUNCTION_NUMBER_SHIFT)
+@@ -2374,20 +2381,20 @@
+ #define I40E_GL_RXERR2_L_FCOEDIXAC_MASK I40E_MASK(0xFFFFFFFF, I40E_GL_RXERR2_L_FCOEDIXAC_SHIFT)
+ #define I40E_GLPRT_BPRCH(_i) (0x003005E4 + ((_i) * 8)) /* _i=0...3 */ /* Reset: CORER */
+ #define I40E_GLPRT_BPRCH_MAX_INDEX 3
+-#define I40E_GLPRT_BPRCH_UPRCH_SHIFT 0
+-#define I40E_GLPRT_BPRCH_UPRCH_MASK I40E_MASK(0xFFFF, I40E_GLPRT_BPRCH_UPRCH_SHIFT)
++#define I40E_GLPRT_BPRCH_BPRCH_SHIFT 0
++#define I40E_GLPRT_BPRCH_BPRCH_MASK I40E_MASK(0xFFFF, I40E_GLPRT_BPRCH_BPRCH_SHIFT)
+ #define I40E_GLPRT_BPRCL(_i) (0x003005E0 + ((_i) * 8)) /* _i=0...3 */ /* Reset: CORER */
+ #define I40E_GLPRT_BPRCL_MAX_INDEX 3
+-#define I40E_GLPRT_BPRCL_UPRCH_SHIFT 0
+-#define I40E_GLPRT_BPRCL_UPRCH_MASK I40E_MASK(0xFFFFFFFF, I40E_GLPRT_BPRCL_UPRCH_SHIFT)
++#define I40E_GLPRT_BPRCL_BPRCL_SHIFT 0
++#define I40E_GLPRT_BPRCL_BPRCL_MASK I40E_MASK(0xFFFFFFFF, I40E_GLPRT_BPRCL_BPRCL_SHIFT)
+ #define I40E_GLPRT_BPTCH(_i) (0x00300A04 + ((_i) * 8)) /* _i=0...3 */ /* Reset: CORER */
+ #define I40E_GLPRT_BPTCH_MAX_INDEX 3
+-#define I40E_GLPRT_BPTCH_UPRCH_SHIFT 0
+-#define I40E_GLPRT_BPTCH_UPRCH_MASK I40E_MASK(0xFFFF, I40E_GLPRT_BPTCH_UPRCH_SHIFT)
++#define I40E_GLPRT_BPTCH_BPTCH_SHIFT 0
++#define I40E_GLPRT_BPTCH_BPTCH_MASK I40E_MASK(0xFFFF, I40E_GLPRT_BPTCH_BPTCH_SHIFT)
+ #define I40E_GLPRT_BPTCL(_i) (0x00300A00 + ((_i) * 8)) /* _i=0...3 */ /* Reset: CORER */
+ #define I40E_GLPRT_BPTCL_MAX_INDEX 3
+-#define I40E_GLPRT_BPTCL_UPRCH_SHIFT 0
+-#define I40E_GLPRT_BPTCL_UPRCH_MASK I40E_MASK(0xFFFFFFFF, I40E_GLPRT_BPTCL_UPRCH_SHIFT)
++#define I40E_GLPRT_BPTCL_BPTCL_SHIFT 0
++#define I40E_GLPRT_BPTCL_BPTCL_MASK I40E_MASK(0xFFFFFFFF, I40E_GLPRT_BPTCL_BPTCL_SHIFT)
+ #define I40E_GLPRT_CRCERRS(_i) (0x00300080 + ((_i) * 8)) /* _i=0...3 */ /* Reset: CORER */
+ #define I40E_GLPRT_CRCERRS_MAX_INDEX 3
+ #define I40E_GLPRT_CRCERRS_CRCERRS_SHIFT 0
+@@ -2620,10 +2627,6 @@
+ #define I40E_GLPRT_TDOLD_MAX_INDEX 3
+ #define I40E_GLPRT_TDOLD_GLPRT_TDOLD_SHIFT 0
+ #define I40E_GLPRT_TDOLD_GLPRT_TDOLD_MASK I40E_MASK(0xFFFFFFFF, I40E_GLPRT_TDOLD_GLPRT_TDOLD_SHIFT)
+-#define I40E_GLPRT_TDPC(_i) (0x00375400 + ((_i) * 8)) /* _i=0...3 */ /* Reset: CORER */
+-#define I40E_GLPRT_TDPC_MAX_INDEX 3
+-#define I40E_GLPRT_TDPC_TDPC_SHIFT 0
+-#define I40E_GLPRT_TDPC_TDPC_MASK I40E_MASK(0xFFFFFFFF, I40E_GLPRT_TDPC_TDPC_SHIFT)
+ #define I40E_GLPRT_UPRCH(_i) (0x003005A4 + ((_i) * 8)) /* _i=0...3 */ /* Reset: CORER */
+ #define I40E_GLPRT_UPRCH_MAX_INDEX 3
+ #define I40E_GLPRT_UPRCH_UPRCH_SHIFT 0
+@@ -2990,9 +2993,6 @@
+ #define I40E_PRTTSYN_TXTIME_L 0x001E41C0 /* Reset: GLOBR */
+ #define I40E_PRTTSYN_TXTIME_L_TXTIEM_L_SHIFT 0
+ #define I40E_PRTTSYN_TXTIME_L_TXTIEM_L_MASK I40E_MASK(0xFFFFFFFF, I40E_PRTTSYN_TXTIME_L_TXTIEM_L_SHIFT)
+-#define I40E_GLSCD_QUANTA 0x000B2080 /* Reset: CORER */
+-#define I40E_GLSCD_QUANTA_TSCDQUANTA_SHIFT 0
+-#define I40E_GLSCD_QUANTA_TSCDQUANTA_MASK I40E_MASK(0x7, I40E_GLSCD_QUANTA_TSCDQUANTA_SHIFT)
+ #define I40E_GL_MDET_RX 0x0012A510 /* Reset: CORER */
+ #define I40E_GL_MDET_RX_FUNCTION_SHIFT 0
+ #define I40E_GL_MDET_RX_FUNCTION_MASK I40E_MASK(0xFF, I40E_GL_MDET_RX_FUNCTION_SHIFT)
+@@ -3258,7 +3258,7 @@
+ #define I40E_VFINT_ITRN1_MAX_INDEX 2
+ #define I40E_VFINT_ITRN1_INTERVAL_SHIFT 0
+ #define I40E_VFINT_ITRN1_INTERVAL_MASK I40E_MASK(0xFFF, I40E_VFINT_ITRN1_INTERVAL_SHIFT)
+-#define I40E_VFINT_STAT_CTL01 0x00005400 /* Reset: VFR */
++#define I40E_VFINT_STAT_CTL01 0x00005400 /* Reset: CORER */
+ #define I40E_VFINT_STAT_CTL01_OTHER_ITR_INDX_SHIFT 2
+ #define I40E_VFINT_STAT_CTL01_OTHER_ITR_INDX_MASK I40E_MASK(0x3, I40E_VFINT_STAT_CTL01_OTHER_ITR_INDX_SHIFT)
+ #define I40E_QRX_TAIL1(_Q) (0x00002000 + ((_Q) * 4)) /* _i=0...15 */ /* Reset: CORER */
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_register.h b/drivers/net/ethernet/intel/i40evf/i40e_register.h
+index c1f6a59..3cc7376 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_register.h
++++ b/drivers/net/ethernet/intel/i40evf/i40e_register.h
+@@ -310,6 +310,10 @@
+ #define I40E_PRTDCB_RUP2TC_UP6TC_MASK I40E_MASK(0x7, I40E_PRTDCB_RUP2TC_UP6TC_SHIFT)
+ #define I40E_PRTDCB_RUP2TC_UP7TC_SHIFT 21
+ #define I40E_PRTDCB_RUP2TC_UP7TC_MASK I40E_MASK(0x7, I40E_PRTDCB_RUP2TC_UP7TC_SHIFT)
++#define I40E_PRTDCB_RUPTQ(_i) (0x00122400 + ((_i) * 32)) /* _i=0...7 */ /* Reset: CORER */
++#define I40E_PRTDCB_RUPTQ_MAX_INDEX 7
++#define I40E_PRTDCB_RUPTQ_RXQNUM_SHIFT 0
++#define I40E_PRTDCB_RUPTQ_RXQNUM_MASK I40E_MASK(0x3FFF, I40E_PRTDCB_RUPTQ_RXQNUM_SHIFT)
+ #define I40E_PRTDCB_TC2PFC 0x001C0980 /* Reset: CORER */
+ #define I40E_PRTDCB_TC2PFC_TC2PFC_SHIFT 0
+ #define I40E_PRTDCB_TC2PFC_TC2PFC_MASK I40E_MASK(0xFF, I40E_PRTDCB_TC2PFC_TC2PFC_SHIFT)
+@@ -421,6 +425,8 @@
+ #define I40E_GLGEN_GPIO_CTL_OUT_DEFAULT_MASK I40E_MASK(0x1, I40E_GLGEN_GPIO_CTL_OUT_DEFAULT_SHIFT)
+ #define I40E_GLGEN_GPIO_CTL_PHY_PIN_NAME_SHIFT 20
+ #define I40E_GLGEN_GPIO_CTL_PHY_PIN_NAME_MASK I40E_MASK(0x3F, I40E_GLGEN_GPIO_CTL_PHY_PIN_NAME_SHIFT)
++#define I40E_GLGEN_GPIO_CTL_PRT_BIT_MAP_SHIFT 26
++#define I40E_GLGEN_GPIO_CTL_PRT_BIT_MAP_MASK I40E_MASK(0xF, I40E_GLGEN_GPIO_CTL_PRT_BIT_MAP_SHIFT)
+ #define I40E_GLGEN_GPIO_SET 0x00088184 /* Reset: POR */
+ #define I40E_GLGEN_GPIO_SET_GPIO_INDX_SHIFT 0
+ #define I40E_GLGEN_GPIO_SET_GPIO_INDX_MASK I40E_MASK(0x1F, I40E_GLGEN_GPIO_SET_GPIO_INDX_SHIFT)
+@@ -484,7 +490,9 @@
+ #define I40E_GLGEN_MDIO_CTRL_CONTMDC_SHIFT 17
+ #define I40E_GLGEN_MDIO_CTRL_CONTMDC_MASK I40E_MASK(0x1, I40E_GLGEN_MDIO_CTRL_CONTMDC_SHIFT)
+ #define I40E_GLGEN_MDIO_CTRL_LEGACY_RSVD1_SHIFT 18
+-#define I40E_GLGEN_MDIO_CTRL_LEGACY_RSVD1_MASK I40E_MASK(0x3FFF, I40E_GLGEN_MDIO_CTRL_LEGACY_RSVD1_SHIFT)
++#define I40E_GLGEN_MDIO_CTRL_LEGACY_RSVD1_MASK I40E_MASK(0x7FF, I40E_GLGEN_MDIO_CTRL_LEGACY_RSVD1_SHIFT)
++#define I40E_GLGEN_MDIO_CTRL_LEGACY_RSVD0_SHIFT 29
++#define I40E_GLGEN_MDIO_CTRL_LEGACY_RSVD0_MASK I40E_MASK(0x7, I40E_GLGEN_MDIO_CTRL_LEGACY_RSVD0_SHIFT)
+ #define I40E_GLGEN_MDIO_I2C_SEL(_i) (0x000881C0 + ((_i) * 4)) /* _i=0...3 */ /* Reset: POR */
+ #define I40E_GLGEN_MDIO_I2C_SEL_MAX_INDEX 3
+ #define I40E_GLGEN_MDIO_I2C_SEL_MDIO_I2C_SEL_SHIFT 0
+@@ -548,9 +556,6 @@
+ #define I40E_GLGEN_RSTCTL_GRSTDEL_MASK I40E_MASK(0x3F, I40E_GLGEN_RSTCTL_GRSTDEL_SHIFT)
+ #define I40E_GLGEN_RSTCTL_ECC_RST_ENA_SHIFT 8
+ #define I40E_GLGEN_RSTCTL_ECC_RST_ENA_MASK I40E_MASK(0x1, I40E_GLGEN_RSTCTL_ECC_RST_ENA_SHIFT)
+-#define I40E_GLGEN_RSTENA_EMP 0x000B818C /* Reset: POR */
+-#define I40E_GLGEN_RSTENA_EMP_EMP_RST_ENA_SHIFT 0
+-#define I40E_GLGEN_RSTENA_EMP_EMP_RST_ENA_MASK I40E_MASK(0x1, I40E_GLGEN_RSTENA_EMP_EMP_RST_ENA_SHIFT)
+ #define I40E_GLGEN_RTRIG 0x000B8190 /* Reset: CORER */
+ #define I40E_GLGEN_RTRIG_CORER_SHIFT 0
+ #define I40E_GLGEN_RTRIG_CORER_MASK I40E_MASK(0x1, I40E_GLGEN_RTRIG_CORER_SHIFT)
+@@ -1066,7 +1071,7 @@
+ #define I40E_PFINT_RATEN_INTERVAL_MASK I40E_MASK(0x3F, I40E_PFINT_RATEN_INTERVAL_SHIFT)
+ #define I40E_PFINT_RATEN_INTRL_ENA_SHIFT 6
+ #define I40E_PFINT_RATEN_INTRL_ENA_MASK I40E_MASK(0x1, I40E_PFINT_RATEN_INTRL_ENA_SHIFT)
+-#define I40E_PFINT_STAT_CTL0 0x00038400 /* Reset: PFR */
++#define I40E_PFINT_STAT_CTL0 0x00038400 /* Reset: CORER */
+ #define I40E_PFINT_STAT_CTL0_OTHER_ITR_INDX_SHIFT 2
+ #define I40E_PFINT_STAT_CTL0_OTHER_ITR_INDX_MASK I40E_MASK(0x3, I40E_PFINT_STAT_CTL0_OTHER_ITR_INDX_SHIFT)
+ #define I40E_QINT_RQCTL(_Q) (0x0003A000 + ((_Q) * 4)) /* _i=0...1535 */ /* Reset: CORER */
+@@ -1171,7 +1176,7 @@
+ #define I40E_VFINT_ITRN_MAX_INDEX 2
+ #define I40E_VFINT_ITRN_INTERVAL_SHIFT 0
+ #define I40E_VFINT_ITRN_INTERVAL_MASK I40E_MASK(0xFFF, I40E_VFINT_ITRN_INTERVAL_SHIFT)
+-#define I40E_VFINT_STAT_CTL0(_VF) (0x0002A000 + ((_VF) * 4)) /* _i=0...127 */ /* Reset: VFR */
++#define I40E_VFINT_STAT_CTL0(_VF) (0x0002A000 + ((_VF) * 4)) /* _i=0...127 */ /* Reset: CORER */
+ #define I40E_VFINT_STAT_CTL0_MAX_INDEX 127
+ #define I40E_VFINT_STAT_CTL0_OTHER_ITR_INDX_SHIFT 2
+ #define I40E_VFINT_STAT_CTL0_OTHER_ITR_INDX_MASK I40E_MASK(0x3, I40E_VFINT_STAT_CTL0_OTHER_ITR_INDX_SHIFT)
+@@ -1803,9 +1808,6 @@
+ #define I40E_GLPCI_GSCN_0_3_MAX_INDEX 3
+ #define I40E_GLPCI_GSCN_0_3_EVENT_COUNTER_SHIFT 0
+ #define I40E_GLPCI_GSCN_0_3_EVENT_COUNTER_MASK I40E_MASK(0xFFFFFFFF, I40E_GLPCI_GSCN_0_3_EVENT_COUNTER_SHIFT)
+-#define I40E_GLPCI_LATCT 0x0009C4B4 /* Reset: PCIR */
+-#define I40E_GLPCI_LATCT_PCI_COUNT_LAT_CT_SHIFT 0
+-#define I40E_GLPCI_LATCT_PCI_COUNT_LAT_CT_MASK I40E_MASK(0xFFFFFFFF, I40E_GLPCI_LATCT_PCI_COUNT_LAT_CT_SHIFT)
+ #define I40E_GLPCI_LBARCTRL 0x000BE484 /* Reset: POR */
+ #define I40E_GLPCI_LBARCTRL_PREFBAR_SHIFT 0
+ #define I40E_GLPCI_LBARCTRL_PREFBAR_MASK I40E_MASK(0x1, I40E_GLPCI_LBARCTRL_PREFBAR_SHIFT)
+@@ -1902,6 +1904,11 @@
+ #define I40E_GLPCI_VFSUP_VF_PREFETCH_MASK I40E_MASK(0x1, I40E_GLPCI_VFSUP_VF_PREFETCH_SHIFT)
+ #define I40E_GLPCI_VFSUP_VR_BAR_TYPE_SHIFT 1
+ #define I40E_GLPCI_VFSUP_VR_BAR_TYPE_MASK I40E_MASK(0x1, I40E_GLPCI_VFSUP_VR_BAR_TYPE_SHIFT)
++#define I40E_GLTPH_CTRL 0x000BE480 /* Reset: PCIR */
++#define I40E_GLTPH_CTRL_DESC_PH_SHIFT 9
++#define I40E_GLTPH_CTRL_DESC_PH_MASK I40E_MASK(0x3, I40E_GLTPH_CTRL_DESC_PH_SHIFT)
++#define I40E_GLTPH_CTRL_DATA_PH_SHIFT 11
++#define I40E_GLTPH_CTRL_DATA_PH_MASK I40E_MASK(0x3, I40E_GLTPH_CTRL_DATA_PH_SHIFT)
+ #define I40E_PF_FUNC_RID 0x0009C000 /* Reset: PCIR */
+ #define I40E_PF_FUNC_RID_FUNCTION_NUMBER_SHIFT 0
+ #define I40E_PF_FUNC_RID_FUNCTION_NUMBER_MASK I40E_MASK(0x7, I40E_PF_FUNC_RID_FUNCTION_NUMBER_SHIFT)
+@@ -2374,20 +2381,20 @@
+ #define I40E_GL_RXERR2_L_FCOEDIXAC_MASK I40E_MASK(0xFFFFFFFF, I40E_GL_RXERR2_L_FCOEDIXAC_SHIFT)
+ #define I40E_GLPRT_BPRCH(_i) (0x003005E4 + ((_i) * 8)) /* _i=0...3 */ /* Reset: CORER */
+ #define I40E_GLPRT_BPRCH_MAX_INDEX 3
+-#define I40E_GLPRT_BPRCH_UPRCH_SHIFT 0
+-#define I40E_GLPRT_BPRCH_UPRCH_MASK I40E_MASK(0xFFFF, I40E_GLPRT_BPRCH_UPRCH_SHIFT)
++#define I40E_GLPRT_BPRCH_BPRCH_SHIFT 0
++#define I40E_GLPRT_BPRCH_BPRCH_MASK I40E_MASK(0xFFFF, I40E_GLPRT_BPRCH_BPRCH_SHIFT)
+ #define I40E_GLPRT_BPRCL(_i) (0x003005E0 + ((_i) * 8)) /* _i=0...3 */ /* Reset: CORER */
+ #define I40E_GLPRT_BPRCL_MAX_INDEX 3
+-#define I40E_GLPRT_BPRCL_UPRCH_SHIFT 0
+-#define I40E_GLPRT_BPRCL_UPRCH_MASK I40E_MASK(0xFFFFFFFF, I40E_GLPRT_BPRCL_UPRCH_SHIFT)
++#define I40E_GLPRT_BPRCL_BPRCL_SHIFT 0
++#define I40E_GLPRT_BPRCL_BPRCL_MASK I40E_MASK(0xFFFFFFFF, I40E_GLPRT_BPRCL_BPRCL_SHIFT)
+ #define I40E_GLPRT_BPTCH(_i) (0x00300A04 + ((_i) * 8)) /* _i=0...3 */ /* Reset: CORER */
+ #define I40E_GLPRT_BPTCH_MAX_INDEX 3
+-#define I40E_GLPRT_BPTCH_UPRCH_SHIFT 0
+-#define I40E_GLPRT_BPTCH_UPRCH_MASK I40E_MASK(0xFFFF, I40E_GLPRT_BPTCH_UPRCH_SHIFT)
++#define I40E_GLPRT_BPTCH_BPTCH_SHIFT 0
++#define I40E_GLPRT_BPTCH_BPTCH_MASK I40E_MASK(0xFFFF, I40E_GLPRT_BPTCH_BPTCH_SHIFT)
+ #define I40E_GLPRT_BPTCL(_i) (0x00300A00 + ((_i) * 8)) /* _i=0...3 */ /* Reset: CORER */
+ #define I40E_GLPRT_BPTCL_MAX_INDEX 3
+-#define I40E_GLPRT_BPTCL_UPRCH_SHIFT 0
+-#define I40E_GLPRT_BPTCL_UPRCH_MASK I40E_MASK(0xFFFFFFFF, I40E_GLPRT_BPTCL_UPRCH_SHIFT)
++#define I40E_GLPRT_BPTCL_BPTCL_SHIFT 0
++#define I40E_GLPRT_BPTCL_BPTCL_MASK I40E_MASK(0xFFFFFFFF, I40E_GLPRT_BPTCL_BPTCL_SHIFT)
+ #define I40E_GLPRT_CRCERRS(_i) (0x00300080 + ((_i) * 8)) /* _i=0...3 */ /* Reset: CORER */
+ #define I40E_GLPRT_CRCERRS_MAX_INDEX 3
+ #define I40E_GLPRT_CRCERRS_CRCERRS_SHIFT 0
+@@ -2620,10 +2627,6 @@
+ #define I40E_GLPRT_TDOLD_MAX_INDEX 3
+ #define I40E_GLPRT_TDOLD_GLPRT_TDOLD_SHIFT 0
+ #define I40E_GLPRT_TDOLD_GLPRT_TDOLD_MASK I40E_MASK(0xFFFFFFFF, I40E_GLPRT_TDOLD_GLPRT_TDOLD_SHIFT)
+-#define I40E_GLPRT_TDPC(_i) (0x00375400 + ((_i) * 8)) /* _i=0...3 */ /* Reset: CORER */
+-#define I40E_GLPRT_TDPC_MAX_INDEX 3
+-#define I40E_GLPRT_TDPC_TDPC_SHIFT 0
+-#define I40E_GLPRT_TDPC_TDPC_MASK I40E_MASK(0xFFFFFFFF, I40E_GLPRT_TDPC_TDPC_SHIFT)
+ #define I40E_GLPRT_UPRCH(_i) (0x003005A4 + ((_i) * 8)) /* _i=0...3 */ /* Reset: CORER */
+ #define I40E_GLPRT_UPRCH_MAX_INDEX 3
+ #define I40E_GLPRT_UPRCH_UPRCH_SHIFT 0
+@@ -2990,9 +2993,6 @@
+ #define I40E_PRTTSYN_TXTIME_L 0x001E41C0 /* Reset: GLOBR */
+ #define I40E_PRTTSYN_TXTIME_L_TXTIEM_L_SHIFT 0
+ #define I40E_PRTTSYN_TXTIME_L_TXTIEM_L_MASK I40E_MASK(0xFFFFFFFF, I40E_PRTTSYN_TXTIME_L_TXTIEM_L_SHIFT)
+-#define I40E_GLSCD_QUANTA 0x000B2080 /* Reset: CORER */
+-#define I40E_GLSCD_QUANTA_TSCDQUANTA_SHIFT 0
+-#define I40E_GLSCD_QUANTA_TSCDQUANTA_MASK I40E_MASK(0x7, I40E_GLSCD_QUANTA_TSCDQUANTA_SHIFT)
+ #define I40E_GL_MDET_RX 0x0012A510 /* Reset: CORER */
+ #define I40E_GL_MDET_RX_FUNCTION_SHIFT 0
+ #define I40E_GL_MDET_RX_FUNCTION_MASK I40E_MASK(0xFF, I40E_GL_MDET_RX_FUNCTION_SHIFT)
+@@ -3258,7 +3258,7 @@
+ #define I40E_VFINT_ITRN1_MAX_INDEX 2
+ #define I40E_VFINT_ITRN1_INTERVAL_SHIFT 0
+ #define I40E_VFINT_ITRN1_INTERVAL_MASK I40E_MASK(0xFFF, I40E_VFINT_ITRN1_INTERVAL_SHIFT)
+-#define I40E_VFINT_STAT_CTL01 0x00005400 /* Reset: VFR */
++#define I40E_VFINT_STAT_CTL01 0x00005400 /* Reset: CORER */
+ #define I40E_VFINT_STAT_CTL01_OTHER_ITR_INDX_SHIFT 2
+ #define I40E_VFINT_STAT_CTL01_OTHER_ITR_INDX_MASK I40E_MASK(0x3, I40E_VFINT_STAT_CTL01_OTHER_ITR_INDX_SHIFT)
+ #define I40E_QRX_TAIL1(_Q) (0x00002000 + ((_Q) * 4)) /* _i=0...15 */ /* Reset: CORER */
 -- 
 1.9.3
