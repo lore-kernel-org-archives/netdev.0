@@ -1,63 +1,81 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: Packet dropps in virtual tap interface
-Date: Tue, 24 Feb 2015 09:03:48 -0800
-Message-ID: <54ECAEF4.1060602@hp.com>
-References: <54EC24FF.3000407@marathonbet.ru> <54EC25E3.5050602@marathonbet.ru>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Ottawa and slow hash-table resize
+Date: Tue, 24 Feb 2015 12:09:44 -0500 (EST)
+Message-ID: <20150224.120944.866231994361475327.davem@davemloft.net>
+References: <20150223230619.GD15405@linux.vnet.ibm.com>
+	<20150224083714.GB17306@casper.infradead.org>
+	<20150224103918.GJ3713@acer.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: Michael Kazakov <michael@marathonbet.ru>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t3427.houston.hp.com ([15.201.208.55]:54569 "EHLO
-	g4t3427.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752403AbbBXRDu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Feb 2015 12:03:50 -0500
-In-Reply-To: <54EC25E3.5050602@marathonbet.ru>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: tgraf@suug.ch, paulmck@linux.vnet.ibm.com, josh@joshtriplett.org,
+	alexei.starovoitov@gmail.com, herbert@gondor.apana.org.au,
+	ying.xue@windriver.com, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: kaber@trash.net
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20150224103918.GJ3713@acer.localdomain>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 02/23/2015 11:18 PM, Michael Kazakov wrote:
->
->
-> Hello. We use our highly load system in OpenStack environment. And faced
-> with serious problems in network highload guests. At a relatively high
-> CPU load of hypervisor (40-60%) virtual network interfaces of this
-> guests starts to droppart of the packets. We use for virtualization
-> qemu-kvm with vhost driver: "... -netdev
-> tap,fd=30,id=hostnet0,vhost=on,vhostfd=31 -device
-> virtio-net-pci,netdev=hostnet0,id=net0,mac=fa:16:3e:86:67:7b,bus=pci.0,addr=0x3...".
->
->
-> The problem can be seen with the ifconfig utility:
-> tape4009073-0b Link encap:Ethernet  HWaddr fe:16:3e:86:67:7b
->            inet6 addr: fe80::fc16:3eff:fe86:677b/64 Scope:Link
->            UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
->            RX packets:1587622634 errors:0 dropped:0 overruns:0 frame:0
->            TX packets:1484106438 errors:0 dropped:460259 overruns:0
-> carrier:0
->            collisions:0 txqueuelen:500
->            RX bytes:877878711500 (877.8 GB)  TX bytes:3071846828531 (3.0
-> TB)
->
-> Could you do a little look at our problem and give advice which
-> direction to continue our investigation?
+From: Patrick McHardy <kaber@trash.net>
+Date: Tue, 24 Feb 2015 10:39:18 +0000
 
-If I recall the OpenStack plumbing correctly, the TX direction on the 
-tap device is inbound to the instance.  You could, I suppose, try 
-increasing the size of the txqueuelen via ifconfig, but you may want to 
-triple check that the KVM I/O thread (?) isn't running at 100%. 
-Particularly if when you say the hypervisor is running at 40-60% CPU 
-utilization you mean overall CPU utilization of a multiple CPU system.
+> On 24.02, Thomas Graf wrote:
+>> On 02/23/15 at 03:06pm, Paul E. McKenney wrote:
+>> > On Mon, Feb 23, 2015 at 05:32:52PM -0500, David Miller wrote:
+>> > > I just did a quick scan of all code paths that do inserts into an
+>> > > rhashtable, and it seems like all of them can easily block.  So why
+>> > > don't we do that?  Make inserts sleep on an rhashtable expansion
+>> > > waitq.
+>> > > 
+>> > > There could even be a counter of pending inserts, so the expander can
+>> > > decide to expand further before waking the inserting threads up.
+>> > 
+>> > Should be reasonably simple, and certainly seems worth a try!
+>> 
+>> Agreed. Definitely desirable for nft_hash. I like the pending counter
+>> idea. I'm experimenting with various ideas on blocking inserts for
+>> Netlink. Blocking too long might open DoS vectors as one app could
+>> easily delay the creation of sockets for other applications.
+> 
+> Regarding nft_hash, blocking in the netlink path certainly seems fine,
+> but we will soon also have inserts from the packet processing path,
+> where we obviously can't block.
 
-I'm assuming that in broad handwaving terms, the TX queue of the tap 
-device is behaving something like the SO_RCVBUF of a UDP socket would in 
-a "normal"  system - if the VM (tap device case) or receiving process 
-(UDP socket case) is held-up for a little while, that buffer is there to 
-try to pick-up the slack.  If the VM is held-off from running long 
-enough that queue will overflow and traffic will be dropped.
+Indeed, I remembered last night that for TCP sockets blocking will not
+work at all.
 
-That might be the "raising the bridge" side of things.  The "lower the 
-river" side might be to find-out why and for how long the VM is being 
-held-off from running and see if you can address that.
+And having a flood of 1 million new TCP connections all at once
+shouldn't knock us over.
 
-rick jones
+Therefore, we will need to find a way to handle this problem without
+being able to block on insert.
+
+Thinking about this, if inserts occur during a pending resize, if the
+nelems of the table has exceeded even the grow threshold for the new
+table, it makes no sense to allow these async inserts as they are
+going to make the resize take longer and prolong the pain.
+
+On one hand I like the async resize because it means that an insert
+that triggers the resize doesn't incur a huge latency spike since
+it was simply unlucky to be the resize trigger event.  The async
+resize smoothes out the cost of the resize across the system.
+
+This scheme works really well if, on average, the resize operation
+completes before enough subsequent inserts occur to exceed even
+the resized tables resize threshold.
+
+So I think what I'm getting at is that we can allow parallel inserts
+but only up until the point where the resized tables thresholds are
+exceeded.
+
+Looking at how to implement this, I think that there is too much
+configurability to this code.  There is no reason to have indirect
+calls for the grow decision.  This should be a quick test, but it's
+not because we go through ->grow_decision.  It should just be
+rht_grow_above_75 or whatever, and inline this crap!
+
+Nobody even uses this indirection capability, it's therefore over
+engineered :-)
+
