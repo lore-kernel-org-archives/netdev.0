@@ -1,83 +1,85 @@
-From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Subject: [RFC PATCH 18/29] fib_trie: Move parent from key_vector to tnode
-Date: Tue, 24 Feb 2015 12:49:55 -0800
-Message-ID: <20150224204955.26106.93183.stgit@ahduyck-vm-fedora20>
-References: <20150224202837.26106.87623.stgit@ahduyck-vm-fedora20>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next v2 2/3] net: dsa: integrate with SWITCHDEV for
+ HW bridging
+Date: Tue, 24 Feb 2015 12:49:35 -0800
+Message-ID: <54ECE3DF.50503@gmail.com>
+References: <1424808511-18222-1-git-send-email-f.fainelli@gmail.com> <1424808511-18222-3-git-send-email-f.fainelli@gmail.com> <20150224204336.GA18025@roeck-us.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	vivien.didelot@savoirfairelinux.com,
+	jerome.oufella@savoirfairelinux.com, andrew@lunn.ch,
+	cphealy@gmail.com
+To: Guenter Roeck <linux@roeck-us.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:45664 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752913AbbBXUt4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Feb 2015 15:49:56 -0500
-Received: from int-mx13.intmail.prod.int.phx2.redhat.com (int-mx13.intmail.prod.int.phx2.redhat.com [10.5.11.26])
-	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id t1OKnuH9018455
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-GCM-SHA384 bits=256 verify=FAIL)
-	for <netdev@vger.kernel.org>; Tue, 24 Feb 2015 15:49:56 -0500
-Received: from [192.168.122.173] (ovpn-112-73.phx2.redhat.com [10.3.112.73])
-	by int-mx13.intmail.prod.int.phx2.redhat.com (8.14.4/8.14.4) with ESMTP id t1OKntLT031368
-	for <netdev@vger.kernel.org>; Tue, 24 Feb 2015 15:49:56 -0500
-In-Reply-To: <20150224202837.26106.87623.stgit@ahduyck-vm-fedora20>
+Received: from mail-pd0-f182.google.com ([209.85.192.182]:33840 "EHLO
+	mail-pd0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752899AbbBXUtz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Feb 2015 15:49:55 -0500
+Received: by pdjg10 with SMTP id g10so36096953pdj.1
+        for <netdev@vger.kernel.org>; Tue, 24 Feb 2015 12:49:55 -0800 (PST)
+In-Reply-To: <20150224204336.GA18025@roeck-us.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This change pulls the parent pointer from the key_vector and places it in
-the tnode structure.
+On 24/02/15 12:43, Guenter Roeck wrote:
+> Hi Florian,
+> 
+> On Tue, Feb 24, 2015 at 12:08:30PM -0800, Florian Fainelli wrote:
+>> In order to support bridging offloads in DSA switch drivers, select
+>> NET_SWITCHDEV to get access to the port_stp_update and parent_get_id
+>> NDOs that we are required to implement.
+>>
+>> To facilitate the integratation at the DSA driver level, we implement 3
+>> types of operations:
+>>
+>> - port_join_bridge
+>> - port_leave_bridge
+>> - port_stp_update
+>>
+>> DSA will resolve which switch ports that are currently bridge port
+>> members as some Switch hardware/drivers need to know about that to limit
+>> the register programming to just the relevant registers (especially for
+>> slow MDIO buses).
+>>
+>> We also take care of setting the correct STP state when slave network
+>> devices are brought up/down while being bridge members.
+>>
+>> Finally, when a port is leaving the bridge, we make sure we set in
+>> BR_STATE_FORWARDING state, otherwise the bridge layer would leave it
+>> disabled as a result of having left the bridge.
+>>
+>> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+>> ---
+> [ ... ]
+> 
+>>  
+>> +/* Return a bitmask of all ports being currently bridged within a given bridge
+>> + * device. Note that on leave, the mask will still return the bitmask of ports
+>> + * currently bridged, prior to port removal, and this is exactly what we want.
+>> + */
+>> +static u32 dsa_slave_br_port_mask(struct dsa_switch *ds,
+>> +				  struct net_device *bridge)
+>> +{
+>> +	struct dsa_slave_priv *p;
+>> +	unsigned int port;
+>> +	u32 mask = 0;
+>> +
+>> +	for (port = 0; port < DSA_MAX_PORTS; port++) {
+>> +		if (!((1 << port) & ds->phys_port_mask))
+>> +			continue;
+>> +
+>> +		p = netdev_priv(ds->ports[port]);
+>> +
+> 
+> ds->ports[port] can still be NULL here since the function can be called
+> before all ports are initialized (which is what I had actually seen).
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
----
- net/ipv4/fib_trie.c |   12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
+Can it now? I re-ordered the patches such that your change comes first
+(and I forgot to update the commit message) and by the time we get
+called from register_netdev(), ds->ports[port] has already been assigned.
 
-diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
-index 4386db7..b2737b7 100644
---- a/net/ipv4/fib_trie.c
-+++ b/net/ipv4/fib_trie.c
-@@ -92,10 +92,9 @@ typedef unsigned int t_key;
- #define IS_LEAF(n) (!(n)->bits)
- 
- struct key_vector {
--	struct key_vector __rcu *parent;
- 	t_key key;
--	unsigned char bits;		/* 2log(KEYLENGTH) bits needed */
- 	unsigned char pos;		/* 2log(KEYLENGTH) bits needed */
-+	unsigned char bits;		/* 2log(KEYLENGTH) bits needed */
- 	unsigned char slen;
- 	union {
- 		/* This list pointer if valid if bits == 0 (LEAF) */
-@@ -109,6 +108,7 @@ struct tnode {
- 	struct rcu_head rcu;
- 	t_key empty_children;		/* KEYLENGTH bits needed */
- 	t_key full_children;		/* KEYLENGTH bits needed */
-+	struct key_vector __rcu *parent;
- 	struct key_vector kv[1];
- #define tn_bits kv[0].bits
- };
-@@ -168,21 +168,21 @@ static inline struct fib_table *table_info(struct trie *t)
- }
- 
- /* caller must hold RTNL */
--#define node_parent(n) rtnl_dereference((n)->parent)
-+#define node_parent(tn) rtnl_dereference(tn_info(tn)->parent)
- #define get_child(tn, i) rtnl_dereference((tn)->tnode[i])
- 
- /* caller must hold RCU read lock or RTNL */
--#define node_parent_rcu(n) rcu_dereference_rtnl((n)->parent)
-+#define node_parent_rcu(tn) rcu_dereference_rtnl(tn_info(tn)->parent)
- #define get_child_rcu(tn, i) rcu_dereference_rtnl((tn)->tnode[i])
- 
- /* wrapper for rcu_assign_pointer */
- static inline void node_set_parent(struct key_vector *n, struct key_vector *tp)
- {
- 	if (n)
--		rcu_assign_pointer(n->parent, tp);
-+		rcu_assign_pointer(tn_info(n)->parent, tp);
- }
- 
--#define NODE_INIT_PARENT(n, p) RCU_INIT_POINTER((n)->parent, p)
-+#define NODE_INIT_PARENT(n, p) RCU_INIT_POINTER(tn_info(n)->parent, p)
- 
- /* This provides us with the number of children in this node, in the case of a
-  * leaf this will return 0 meaning none of the children are accessible.
+Am I missing something here?
+--
+Florian
