@@ -1,42 +1,40 @@
-From: Greg Rose <gvrose8192@gmail.com>
-Subject: Re: [PATCH 0/8] Adds Intel FieldsPeak NFC solution driver
-Date: Tue, 24 Feb 2015 08:27:56 -0800
-Message-ID: <CALgkqUrkyZjekVBgY7-TDoR6dePbySLRzaozKnEoyWoDW5s92w@mail.gmail.com>
-References: <1424772112-27399-1-git-send-email-robert.dolca@intel.com>
-	<CALgkqUqi1U1PBCndKEtdKL0n=VLvBMbOO8HTA5jt-vHvy6WBXA@mail.gmail.com>
-	<CAEnQRZChVSH4f1Gaok-DKOXxreuJR5GrBPxmMdgZC=FL1QaJQA@mail.gmail.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PATCH] vhost: drop hard-coded num_buffers size
+Date: Tue, 24 Feb 2015 17:31:10 +0100
+Message-ID: <1424795457-6770-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Robert Dolca <robert.dolca@intel.com>, linux-nfc@lists.01.org,
-	Lauro Ramos Venancio <lauro.venancio@openbossa.org>,
-	Aloisio Almeida Jr <aloisio.almeida@openbossa.org>,
-	Samuel Ortiz <sameo@linux.intel.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Daniel Baluta <daniel.baluta@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: kvm@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAEnQRZChVSH4f1Gaok-DKOXxreuJR5GrBPxmMdgZC=FL1QaJQA@mail.gmail.com>
+Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Feb 24, 2015 at 8:25 AM, Daniel Baluta <daniel.baluta@gmail.com> wrote:
-> On Tue, Feb 24, 2015 at 6:14 PM, Greg Rose <gvrose8192@gmail.com> wrote:
->> I'm excited - what's NFC?
->
->
-> Please don't do top posting.
+The 2 that we use for copy_to_iter comes from sizeof(u16),
+it used to be that way before the iov iter update.
+Fix it up, making it obvious the size of stack access
+is right.
 
-My apologies - my smartphone interface rather sucks sometimes.
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+---
+ drivers/vhost/net.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
->
-> Other than that:
->
-> http://en.wikipedia.org/wiki/Near_field_communication
->
-> Daniel.
-
-Thanks!
-
-- Greg
+diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+index ca70434..2bbfc25 100644
+--- a/drivers/vhost/net.c
++++ b/drivers/vhost/net.c
+@@ -621,7 +621,8 @@ static void handle_rx(struct vhost_net *net)
+ 
+ 		num_buffers = cpu_to_vhost16(vq, headcount);
+ 		if (likely(mergeable) &&
+-		    copy_to_iter(&num_buffers, 2, &fixup) != 2) {
++		    copy_to_iter(&num_buffers, sizeof num_buffers,
++				 &fixup) != sizeof num_buffers) {
+ 			vq_err(vq, "Failed num_buffers write");
+ 			vhost_discard_vq_desc(vq, headcount);
+ 			break;
+-- 
+MST
