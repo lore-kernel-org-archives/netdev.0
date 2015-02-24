@@ -1,42 +1,53 @@
-From: Kyle McMartin <kyle@infradead.org>
-Subject: Re: [PATCH v2 1/1] linux-firmware: Add QLogic BR Series Adapter
- Firmware
-Date: Tue, 24 Feb 2015 12:58:41 -0500
-Message-ID: <20150224175841.GO30928@merlin.infradead.org>
-References: <1424218220-28837-1-git-send-email-rasesh.mody@qlogic.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-firmware@kernel.org, NetDev <netdev@vger.kernel.org>,
-	linux-scsi@vger.kernel.org
-To: Rasesh Mody <rasesh.mody@qlogic.com>
+From: Josh Hunt <johunt@akamai.com>
+Subject: [PATCH v4 1/2] nft_hash: define max_shift rhashtable parameter
+Date: Tue, 24 Feb 2015 13:07:06 -0500
+Message-ID: <1424801227-17320-2-git-send-email-johunt@akamai.com>
+References: <1424801227-17320-1-git-send-email-johunt@akamai.com>
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Josh Hunt <johunt@akamai.com>
+To: Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>, Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from merlin.infradead.org ([205.233.59.134]:59206 "EHLO
-	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752791AbbBXR6n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Feb 2015 12:58:43 -0500
-Content-Disposition: inline
-In-Reply-To: <1424218220-28837-1-git-send-email-rasesh.mody@qlogic.com>
+Received: from prod-mail-xrelay06.akamai.com ([96.6.114.98]:40832 "EHLO
+	prod-mail-xrelay06.akamai.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753237AbbBXSHK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Feb 2015 13:07:10 -0500
+In-Reply-To: <1424801227-17320-1-git-send-email-johunt@akamai.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 17, 2015 at 07:10:20PM -0500, Rasesh Mody wrote:
-> This patch rebrands the BFA/BNA inbox driver firmwares.
-> This patch adds 3.2.5.1 firmware files for QLogic BR-series Adapters that will
-> be used with the inbox drivers(BFA and BNA).
-> 
-> Signed-off-by: Rasesh Mody <rasesh.mody@qlogic.com>
-> ---
->  WHENCE            |  13 +++++++++----
->  cbfw-3.2.5.1.bin  | Bin 0 -> 414480 bytes
->  ct2fw-3.2.5.1.bin | Bin 0 -> 584216 bytes
->  ctfw-3.2.5.1.bin  | Bin 0 -> 539144 bytes
->  4 files changed, 9 insertions(+), 4 deletions(-)
->  create mode 100644 cbfw-3.2.5.1.bin
->  create mode 100644 ct2fw-3.2.5.1.bin
->  create mode 100644 ctfw-3.2.5.1.bin
-> 
+You must define a max_shift parameter to rhashtable or else the table cannot
+grow. This sets max_shift for nft_hash to 24, which will allow the table to
+grow to 2^24 or 16 million buckets.
 
-Thanks, applied. Any chance on the next update of the firmware we could
-move to putting new files under qlogic/*.bin?
+Acked-by: Thomas Graf <tgraf@suug.ch>
+Signed-off-by: Josh Hunt <johunt@akamai.com>
+---
+ net/netfilter/nft_hash.c |    4 ++++
+ 1 file changed, 4 insertions(+)
 
-regards, Kyle
+diff --git a/net/netfilter/nft_hash.c b/net/netfilter/nft_hash.c
+index 61e6c40..a32df35 100644
+--- a/net/netfilter/nft_hash.c
++++ b/net/netfilter/nft_hash.c
+@@ -23,6 +23,9 @@
+ /* We target a hash table size of 4, element hint is 75% of final size */
+ #define NFT_HASH_ELEMENT_HINT 3
+ 
++/* Set default of 2^24 buckets or 16 million entries */
++#define NFT_HASH_MAX_BUCKETS 24
++
+ struct nft_hash_elem {
+ 	struct rhash_head		node;
+ 	struct nft_data			key;
+@@ -192,6 +195,7 @@ static int nft_hash_init(const struct nft_set *set,
+ 		.key_offset = offsetof(struct nft_hash_elem, key),
+ 		.key_len = set->klen,
+ 		.hashfn = jhash,
++		.max_shift = NFT_HASH_MAX_BUCKETS,
+ 		.grow_decision = rht_grow_above_75,
+ 		.shrink_decision = rht_shrink_below_30,
+ 	};
+-- 
+1.7.9.5
