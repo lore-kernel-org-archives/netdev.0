@@ -1,49 +1,74 @@
 From: Patrick McHardy <kaber@trash.net>
 Subject: Re: Ottawa and slow hash-table resize
-Date: Tue, 24 Feb 2015 10:39:18 +0000
-Message-ID: <20150224103918.GJ3713@acer.localdomain>
-References: <20150223191201.GA4355@cloud>
- <20150223210358.GB806@casper.infradead.org>
- <20150223215248.GA15405@linux.vnet.ibm.com>
- <20150223.173252.397503088215638994.davem@davemloft.net>
- <20150223230619.GD15405@linux.vnet.ibm.com>
- <20150224083714.GB17306@casper.infradead.org>
+Date: Tue, 24 Feb 2015 10:42:33 +0000
+Message-ID: <20150224104232.GK3713@acer.localdomain>
+References: <20150223184904.GA24955@linux.vnet.ibm.com>
+ <20150224085909.GC17306@casper.infradead.org>
+ <54EC46AB.3030302@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	David Miller <davem@davemloft.net>, josh@joshtriplett.org,
-	alexei.starovoitov@gmail.com, herbert@gondor.apana.org.au,
-	ying.xue@windriver.com, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: Thomas Graf <tgraf@suug.ch>
+Cc: Thomas Graf <tgraf@suug.ch>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	davem@davemloft.net, alexei.starovoitov@gmail.com,
+	herbert@gondor.apana.org.au, ying.xue@windriver.com,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	josh@joshtriplett.org, johunt@akamai.com
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:43436 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:43465 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752392AbbBXKjY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Feb 2015 05:39:24 -0500
+	with ESMTP id S1751314AbbBXKmi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Feb 2015 05:42:38 -0500
 Content-Disposition: inline
-In-Reply-To: <20150224083714.GB17306@casper.infradead.org>
+In-Reply-To: <54EC46AB.3030302@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 24.02, Thomas Graf wrote:
-> On 02/23/15 at 03:06pm, Paul E. McKenney wrote:
-> > On Mon, Feb 23, 2015 at 05:32:52PM -0500, David Miller wrote:
-> > > I just did a quick scan of all code paths that do inserts into an
-> > > rhashtable, and it seems like all of them can easily block.  So why
-> > > don't we do that?  Make inserts sleep on an rhashtable expansion
-> > > waitq.
-> > > 
-> > > There could even be a counter of pending inserts, so the expander can
-> > > decide to expand further before waking the inserting threads up.
-> > 
-> > Should be reasonably simple, and certainly seems worth a try!
+On 24.02, Daniel Borkmann wrote:
+> On 02/24/2015 09:59 AM, Thomas Graf wrote:
+> >On 02/23/15 at 10:49am, Paul E. McKenney wrote:
+> >>Hello!
+> >>
+> >>Alexei mentioned that there was some excitement a couple of weeks ago in
+> >>Ottawa, something about the resizing taking forever when there were large
+> >>numbers of concurrent additions.  One approach comes to mind:
+> >
+> >@Dave et al,
+> >Just want to make sure we have the same level of understanding of
+> >urgency for this. The only practical problem experienced so far is
+> >loading n*1M entries into an nft_hash set which takes 3s for 4M
+> >entries upon restore. A regular add is actually fine as it provides
+> >a hint and sizes the table accordingly.
 > 
-> Agreed. Definitely desirable for nft_hash. I like the pending counter
-> idea. I'm experimenting with various ideas on blocking inserts for
-> Netlink. Blocking too long might open DoS vectors as one app could
-> easily delay the creation of sockets for other applications.
+> Btw, there is one remaining bug in nft that Josh Hunt found which
+> should go into 3.20/4.0, it's not in -net tree, so it could have
+> affected testing with nft. We're currently missing max_shift
+> parameter in nft's rhashtable initialization.
+> 
+> This means that there will be _no_ expansions as rht_grow_above_75()
+> will end up always returning false. It's not that dramatic when you
+> have a proper hint provided, but when you start out small
+> (NFT_HASH_ELEMENT_HINT = 3) and try to squeeze 1M entries into it,
+> it might take a while.
+> 
+> Simplest fix would be, similarly as in other users:
+> 
+> diff --git a/net/netfilter/nft_hash.c b/net/netfilter/nft_hash.c
+> index 61e6c40..47abdca 100644
+> --- a/net/netfilter/nft_hash.c
+> +++ b/net/netfilter/nft_hash.c
+> @@ -192,6 +192,7 @@ static int nft_hash_init(const struct nft_set *set,
+>  		.key_offset = offsetof(struct nft_hash_elem, key),
+>  		.key_len = set->klen,
+>  		.hashfn = jhash,
+> +		.max_shift = 20, /* 1M */
+>  		.grow_decision = rht_grow_above_75,
+>  		.shrink_decision = rht_shrink_below_30,
+>  	};
+> 
+> But I presume Josh wanted to resend his code ... or wait for nft
+> folks to further review?
 
-Regarding nft_hash, blocking in the netlink path certainly seems fine,
-but we will soon also have inserts from the packet processing path,
-where we obviously can't block.
+We're perfectly fine with that patch, although I'd say lets use a
+slightly larger value (24) to cover what we know people are doing
+using ipset.
