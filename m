@@ -1,39 +1,40 @@
-From: Yannick Guerrini <yguerrini@tomshardware.fr>
-Subject: [PATCHv2] r8169: Fix trivial typo in rtl_check_firmware
-Date: Tue, 24 Feb 2015 13:03:51 +0100
-Message-ID: <1424779431-5760-1-git-send-email-yguerrini@tomshardware.fr>
-References: <1424764149-9136-1-git-send-email-yguerrini@tomshardware.fr>
-Cc: trivial@kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, hayeswang@realtek.com,
-	Yannick Guerrini <yguerrini@tomshardware.fr>
-To: nic_swsd@realtek.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1424764149-9136-1-git-send-email-yguerrini@tomshardware.fr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Ian Morris <ipm@chirality.org.uk>
+Subject: [PATCH net-next] ipv6: remove dead debug code from ip6_tunnel.c
+Date: Tue, 24 Feb 2015 12:01:25 +0000
+Message-ID: <1424779285-27177-1-git-send-email-ipm@chirality.org.uk>
+Cc: Ian Morris <ipm@chirality.org.uk>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from inet-gw.chirality.org.uk ([88.97.209.22]:51840 "EHLO
+	yew.chirality.org.uk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752489AbbBXMGp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Feb 2015 07:06:45 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Change 'firwmare' to 'firmware'
+The IP6_TNL_TRACE macro is no longer used anywhere in the code so remove definition.
 
-Signed-off-by: Yannick Guerrini <yguerrini@tomshardware.fr>
+Signed-off-by: Ian Morris <ipm@chirality.org.uk>
 ---
-v2: replace "drivers, realtek" of the subject with "r8169" and cc netdev@vger.kernel.org,
-    as suggested by Hayes Wang <hayeswang@realtek.com>
+ net/ipv6/ip6_tunnel.c | 6 ------
+ 1 file changed, 6 deletions(-)
 
- drivers/net/ethernet/realtek/r8169.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index b156092..c70ab40 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -2561,7 +2561,7 @@ static int rtl_check_firmware(struct rtl8169_private *tp, struct rtl_fw *rtl_fw)
- 	int rc = -EINVAL;
+diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
+index 266a264..88300d4 100644
+--- a/net/ipv6/ip6_tunnel.c
++++ b/net/ipv6/ip6_tunnel.c
+@@ -64,12 +64,6 @@ MODULE_LICENSE("GPL");
+ MODULE_ALIAS_RTNL_LINK("ip6tnl");
+ MODULE_ALIAS_NETDEV("ip6tnl0");
  
- 	if (!rtl_fw_format_ok(tp, rtl_fw)) {
--		netif_err(tp, ifup, dev, "invalid firwmare\n");
-+		netif_err(tp, ifup, dev, "invalid firmware\n");
- 		goto out;
- 	}
+-#ifdef IP6_TNL_DEBUG
+-#define IP6_TNL_TRACE(x...) pr_debug("%s:" x "\n", __func__)
+-#else
+-#define IP6_TNL_TRACE(x...) do {;} while(0)
+-#endif
+-
+ #define HASH_SIZE_SHIFT  5
+ #define HASH_SIZE (1 << HASH_SIZE_SHIFT)
  
 -- 
-1.9.5.msysgit.0
+1.9.1
