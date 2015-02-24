@@ -1,43 +1,64 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 2/2] cosa.c : Array index 'i' is used before limits check.
-Date: Tue, 24 Feb 2015 22:57:03 +0300
-Message-ID: <54ECD78F.7040607@cogentembedded.com>
-References: <1424807546-10013-1-git-send-email-ameenali023@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Ameen Ali <ameenali023@gmail.com>, kas@fi.muni.cz
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1424807546-10013-1-git-send-email-ameenali023@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net-next v2 0/3] net: dsa: integration with SWITCHDEV for HW bridging
+Date: Tue, 24 Feb 2015 12:08:28 -0800
+Message-ID: <1424808511-18222-1-git-send-email-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>,
+	vivien.didelot@savoirfairelinux.com,
+	jerome.oufella@savoirfairelinux.com, linux@roeck-us.net,
+	andrew@lunn.ch, cphealy@gmail.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:41853 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753370AbbBXUJG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Feb 2015 15:09:06 -0500
+Received: by padfb1 with SMTP id fb1so38560794pad.8
+        for <netdev@vger.kernel.org>; Tue, 24 Feb 2015 12:09:06 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+Hi all,
 
-On 02/24/2015 10:52 PM, Ameen Ali wrote:
+This patch set provides the DSA and SWITCHDEV integration bits together and
+modifies the bcm_sf2 driver accordingly such that it works properly with HW
+bridging.
 
-> avoid out-of-bounds-read by checking count before indexing.
+Changes in v2:
 
-> Signed-off-by: Ameen Ali <Ameenali023@gmail.com>
-> ---
->   drivers/net/wan/cosa.c | 2 +-
->   1 file changed, 1 insertion(+), 1 deletion(-)
+- avoid a race condition in how DSA network devices are created, patch from
+  Guenter Roeck
+- provide a consistent and work STP state once a port leaves the bridge
+- retain a bridge device pointer to properly flag port/bridge membership
+- properly flush the ARL (Address Resolution Logic) in bcm_sf2.c
+- properly retain port membership when individually bringing devices up/down
+  while they are members of a bridge
 
-> diff --git a/drivers/net/wan/cosa.c b/drivers/net/wan/cosa.c
-> index 83c39e2..5252e21 100644
-> --- a/drivers/net/wan/cosa.c
-> +++ b/drivers/net/wan/cosa.c
-> @@ -376,7 +376,7 @@ static int __init cosa_init(void)
->   	}
->   	for (i=0; i<MAX_CARDS; i++)
->   		cosa_cards[i].num = -1;
-> -	for (i=0; io[i] != 0 && i < MAX_CARDS; i++)
-> +	for (i=0; (i < MAX_CARDS) && (io[i] != 0) ; i++)
+We discussed on the mailing-list the possibility of standardizing a "fdb_flush"
+operation for DSA switch drivers, looking at the Marvell and Broadcom switches,
+I am not convinced this is practical or diserable as the terminologies vary
+here, but there is nothing preventing us from doing it later.
 
-    Parens you've added aren't necessary.
-    I suggest to add spaces after and before = in the first expression.
+Many thanks to Guenter and Andrew for both testing and providing feedback.
 
-[...]
+Thanks!
 
-WBR, Sergei
+Florian Fainelli (2):
+  net: dsa: integrate with SWITCHDEV for HW bridging
+  net: dsa: bcm_sf2: add HW bridging support
+
+Guenter Roeck (1):
+  net: dsa: Ensure that port array elements are initialized before being
+    used
+
+ drivers/net/dsa/bcm_sf2.c      | 155 ++++++++++++++++++++++++++++++++++++++-
+ drivers/net/dsa/bcm_sf2.h      |   2 +
+ drivers/net/dsa/bcm_sf2_regs.h |  15 ++++
+ include/net/dsa.h              |  10 +++
+ net/dsa/Kconfig                |   1 +
+ net/dsa/dsa.c                  |  17 +++--
+ net/dsa/dsa_priv.h             |   9 ++-
+ net/dsa/slave.c                | 161 +++++++++++++++++++++++++++++++++++++++--
+ 8 files changed, 352 insertions(+), 18 deletions(-)
+
+-- 
+2.1.0
