@@ -1,85 +1,108 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: Throughput regression with `tcp: refine TSO autosizing`
-Date: Tue, 24 Feb 2015 11:59:40 +0100
-Message-ID: <1424775580.2192.31.camel@sipsolutions.net>
-References: <CA+BoTQkVu23P3EOmY_Q3E1GJnWsyF==Pawz4iPOS_Bq5dvfO5Q@mail.gmail.com>
-	 <1422537297.21689.15.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+BoTQk2xT-8DqPuiiKG+kHAjLPrj8F9dLTb-rcGhvMq0u_2Qw@mail.gmail.com>
-	 <1422628835.21689.95.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+BoTQkV+mOZfe_Niz5101sMQeaV6muKCsShptjGQ1AgOHqqoQ@mail.gmail.com>
-	 <1422903136.21689.114.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1422926330.21689.138.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+BoTQkMikA8wxm1ce2DkKhPB0HiKeAqT7f+sQ=91W40z=X0Rg@mail.gmail.com>
-	 <1422973660.907.10.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+BoTQmvUuFdfYF=wVMYxrf_nQZB5GCV=LvDZVvfs-3hAE4WKw@mail.gmail.com>
-	 <1423051045.907.108.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+BoTQ=BDcQ779uKCuX+f40=4npXVF4MTQnpjKimNYAxPsxBoQ@mail.gmail.com>
-	 <1423053531.907.115.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+BoTQ=qmCZz4CmSOvCOzMLowrDEG12XBffkTcYxjGqVD9604g@mail.gmail.com>
-	 <1423055810.907.125.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1423056591.907.130.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1423084303.31870.15.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+BoTQnnwrv0nrKyGyQNvosz_E4e5fBa9iN8fpeqcd-iRfi17g@mail.gmail.com>
-	 <1423141038.31870.38.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1423142342.31870.49.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+BoTQmcShK0U_cXvEOLY_8y7LH8x3taTgjcyMzv0MLVn4UtCA@mail.gmail.com>
-	 <1423147286.31870.59.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1423156205.31870.86.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+BoTQ=WaKLV=r6qWaWAEfyDr2pqMWpm4NDmnek92TEVndnxRQ@mail.gmail.com>
-	 <1423230001.31870.128.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1423230785.31870.131.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+BoTQkazCOin7VWLfrHUjtgKDPV6T+sFsk5FPS7D-morr4FZQ@mail.gmail.com>
-	 <CA+BoTQn3KRym0qCJ+fLav5LQgjfiN_-Eqz0xPSc2eXJ-ijNjQw@mail.gmail.com>
-	 <1423494690.31870.189.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+BoTQ=u_xPuqTVOVaFTQNRrJ+UTXe89SY+=+7Y1LpxxrkRDfg@mail.gmail.com>
-	 <1423577962.2215.2.camel@sipsolutions.net>
-	 <CA+BoTQn=YQQ_yUHvpAG3MMAw+=jxgLDiUMWxiTC3B3vkksTw9g@mail.gmail.com>
-	 <CA+BoTQnxo-x94uVfErZO43jTowVcEMEt+7xDzoAGiR8fRDv=ug@mail.gmail.com>
-	 (sfid-20150212_084824_976893_36D95ADD) <1424773495.2192.23.camel@sipsolutions.net>
-	 (sfid-20150224_112513_283616_0F65D43B) <1424773829.2192.26.camel@sipsolutions.net>
-	 (sfid-20150224_113053_601266_2B6FD03E)
+From: David Vrabel <david.vrabel@citrix.com>
+Subject: [PATCHv1 net] xen-netback: release pending index before pushing Tx responses
+Date: Tue, 24 Feb 2015 11:17:59 +0000
+Message-ID: <1424776679-7509-1-git-send-email-david.vrabel@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Neal Cardwell <ncardwell@google.com>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Eyal Perry <eyalpe@dev.mellanox.co.il>
-To: Michal Kazior <michal.kazior@tieto.com>
+Content-Type: text/plain
+Cc: David Vrabel <david.vrabel@citrix.com>,
+	<xen-devel@lists.xenproject.org>,
+	Ian Campbell <ian.campbell@citrix.com>,
+	Wei Liu <wei.liu2@citrix.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:38426 "EHLO sipsolutions.net"
+Received: from smtp.citrix.com ([66.165.176.89]:26418 "EHLO SMTP.CITRIX.COM"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750748AbbBXK7v (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Feb 2015 05:59:51 -0500
-In-Reply-To: <1424773829.2192.26.camel@sipsolutions.net> (sfid-20150224_113053_601266_2B6FD03E)
+	id S1752329AbbBXLSL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Feb 2015 06:18:11 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2015-02-24 at 11:30 +0100, Johannes Berg wrote:
-> On Tue, 2015-02-24 at 11:24 +0100, Johannes Berg wrote:
-> > On Thu, 2015-02-12 at 08:48 +0100, Michal Kazior wrote:
-> > 
-> > > > Good point. I was actually thinking about it. I can try cooking a
-> > > > patch unless you want to do it yourself :-)
-> > > 
-> > > I've taken a look into this. The most obvious place to add the
-> > > timestamp for each packet would be ieee80211_tx_info (i.e. the
-> > > skb->cb[48]). The problem is it's very tight there. Even squeezing 2
-> > > bytes (allowing up to 64ms of tx completion delay which I'm worried
-> > > won't be enough) will be troublesome. Some drivers already use every
-> > > last byte of their allowance on 64bit archs (e.g. ar5523 uses entire
-> > > 40 bytes of driver_data).
-> > 
-> > Couldn't we just repurpose the existing skb->tstamp field for this, as
-> > long as the skb is fully contained within the wireless layer?
-> > 
-> > Actually, it looks like we can't, since I guess timestamping options can
-> > be turned on on any socket.
-> 
-> Actually, that creates a clone or a new skb? Hmm.
+If the pending indexes are released /after/ pushing the Tx response
+then a stale pending index may be used if a new Tx request is
+immediately pushed by the frontend.  The may cause various WARNINGs or
+BUGs if the stale pending index is actually still in use.
 
-Ah and then it puts it on the error queue right away, so I think we can
-reuse it.
+Fix this by releasing the pending index before pushing the Tx
+response.
 
-johannes
+The full barrier for the pending ring update is not required since the
+the Tx response push already has a suitable write barrier.
+
+Signed-off-by: David Vrabel <david.vrabel@citrix.com>
+---
+ drivers/net/xen-netback/netback.c |   29 +++++++++++++++++++++--------
+ 1 file changed, 21 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+index f7a31d2..c4d68d7 100644
+--- a/drivers/net/xen-netback/netback.c
++++ b/drivers/net/xen-netback/netback.c
+@@ -655,9 +655,15 @@ static void xenvif_tx_err(struct xenvif_queue *queue,
+ 	unsigned long flags;
+ 
+ 	do {
++		int notify;
++
+ 		spin_lock_irqsave(&queue->response_lock, flags);
+ 		make_tx_response(queue, txp, XEN_NETIF_RSP_ERROR);
++		RING_PUSH_RESPONSES_AND_CHECK_NOTIFY(&queue->tx, notify);
+ 		spin_unlock_irqrestore(&queue->response_lock, flags);
++		if (notify)
++			notify_remote_via_irq(queue->tx_irq);
++
+ 		if (cons == end)
+ 			break;
+ 		txp = RING_GET_REQUEST(&queue->tx, cons++);
+@@ -1649,17 +1655,28 @@ static void xenvif_idx_release(struct xenvif_queue *queue, u16 pending_idx,
+ {
+ 	struct pending_tx_info *pending_tx_info;
+ 	pending_ring_idx_t index;
++	int notify;
+ 	unsigned long flags;
+ 
+ 	pending_tx_info = &queue->pending_tx_info[pending_idx];
++
+ 	spin_lock_irqsave(&queue->response_lock, flags);
++
+ 	make_tx_response(queue, &pending_tx_info->req, status);
+-	index = pending_index(queue->pending_prod);
++
++	/* Release the pending index before pusing the Tx response so
++	 * its available before a new Tx request is pushed by the
++	 * frontend.
++	 */
++	index = pending_index(queue->pending_prod++);
+ 	queue->pending_ring[index] = pending_idx;
+-	/* TX shouldn't use the index before we give it back here */
+-	mb();
+-	queue->pending_prod++;
++
++	RING_PUSH_RESPONSES_AND_CHECK_NOTIFY(&queue->tx, notify);
++
+ 	spin_unlock_irqrestore(&queue->response_lock, flags);
++
++	if (notify)
++		notify_remote_via_irq(queue->tx_irq);
+ }
+ 
+ 
+@@ -1669,7 +1686,6 @@ static void make_tx_response(struct xenvif_queue *queue,
+ {
+ 	RING_IDX i = queue->tx.rsp_prod_pvt;
+ 	struct xen_netif_tx_response *resp;
+-	int notify;
+ 
+ 	resp = RING_GET_RESPONSE(&queue->tx, i);
+ 	resp->id     = txp->id;
+@@ -1679,9 +1695,6 @@ static void make_tx_response(struct xenvif_queue *queue,
+ 		RING_GET_RESPONSE(&queue->tx, ++i)->status = XEN_NETIF_RSP_NULL;
+ 
+ 	queue->tx.rsp_prod_pvt = ++i;
+-	RING_PUSH_RESPONSES_AND_CHECK_NOTIFY(&queue->tx, notify);
+-	if (notify)
+-		notify_remote_via_irq(queue->tx_irq);
+ }
+ 
+ static struct xen_netif_rx_response *make_rx_response(struct xenvif_queue *queue,
+-- 
+1.7.10.4
