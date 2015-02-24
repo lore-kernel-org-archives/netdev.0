@@ -1,179 +1,218 @@
 From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Subject: [RFC PATCH 03/29] fib_trie: Add slen to fib alias
-Date: Tue, 24 Feb 2015 12:48:15 -0800
-Message-ID: <20150224204815.26106.63494.stgit@ahduyck-vm-fedora20>
+Subject: [RFC PATCH 05/29] fib_trie: Only resize N/2 times instead N *
+ log(N) times in fib_table_flush
+Date: Tue, 24 Feb 2015 12:48:29 -0800
+Message-ID: <20150224204829.26106.22180.stgit@ahduyck-vm-fedora20>
 References: <20150224202837.26106.87623.stgit@ahduyck-vm-fedora20>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:53594 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:45077 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752239AbbBXUsR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Feb 2015 15:48:17 -0500
-Received: from int-mx10.intmail.prod.int.phx2.redhat.com (int-mx10.intmail.prod.int.phx2.redhat.com [10.5.11.23])
-	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id t1OKmHhP008571
+	id S1752503AbbBXUsa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Feb 2015 15:48:30 -0500
+Received: from int-mx13.intmail.prod.int.phx2.redhat.com (int-mx13.intmail.prod.int.phx2.redhat.com [10.5.11.26])
+	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id t1OKmU6n018062
 	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-GCM-SHA384 bits=256 verify=FAIL)
-	for <netdev@vger.kernel.org>; Tue, 24 Feb 2015 15:48:17 -0500
+	for <netdev@vger.kernel.org>; Tue, 24 Feb 2015 15:48:30 -0500
 Received: from [192.168.122.173] (ovpn-112-73.phx2.redhat.com [10.3.112.73])
-	by int-mx10.intmail.prod.int.phx2.redhat.com (8.14.4/8.14.4) with ESMTP id t1OKmFTD014847
-	for <netdev@vger.kernel.org>; Tue, 24 Feb 2015 15:48:16 -0500
+	by int-mx13.intmail.prod.int.phx2.redhat.com (8.14.4/8.14.4) with ESMTP id t1OKmTji030779
+	for <netdev@vger.kernel.org>; Tue, 24 Feb 2015 15:48:29 -0500
 In-Reply-To: <20150224202837.26106.87623.stgit@ahduyck-vm-fedora20>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Make use of an empty spot in the alias to store the suffix length so that
-we don't need to pull that information from the leaf_info structure.
-
-This patch also makes a slight change to the user statistics.  Instead of
-incrementing semantic_match_miss once per leaf_info miss we now just
-increment it once per leaf if a match was not found.
+This change makes it so that we only call resize on the tnodes, instead of
+from each of the leaves.  By doing this we can significantly reduce the
+time spent flushing the trie as we don't call trie rebalance and have it
+walk up the trie with each removed leaf.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
 ---
- net/ipv4/fib_lookup.h |    1 +
- net/ipv4/fib_trie.c   |   36 +++++++++++++++++-------------------
- 2 files changed, 18 insertions(+), 19 deletions(-)
+ net/ipv4/fib_trie.c |  141 ++++++++++++++++++++++++++++-----------------------
+ 1 file changed, 78 insertions(+), 63 deletions(-)
 
-diff --git a/net/ipv4/fib_lookup.h b/net/ipv4/fib_lookup.h
-index 3cd444f..ae2e6ee 100644
---- a/net/ipv4/fib_lookup.h
-+++ b/net/ipv4/fib_lookup.h
-@@ -11,6 +11,7 @@ struct fib_alias {
- 	u8			fa_tos;
- 	u8			fa_type;
- 	u8			fa_state;
-+	u8			fa_slen;
- 	struct rcu_head		rcu;
- };
- 
 diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
-index e04f102..1c35261 100644
+index 8896617..02e5126 100644
 --- a/net/ipv4/fib_trie.c
 +++ b/net/ipv4/fib_trie.c
-@@ -1221,6 +1221,7 @@ int fib_table_insert(struct fib_table *tb, struct fib_config *cfg)
- 			new_fa->fa_type = cfg->fc_type;
- 			state = fa->fa_state;
- 			new_fa->fa_state = state & ~FA_S_ACCESSED;
-+			new_fa->fa_slen = fa->fa_slen;
- 
- 			hlist_replace_rcu(&fa->fa_list, &new_fa->fa_list);
- 			alias_free_mem_rcu(fa);
-@@ -1256,10 +1257,9 @@ int fib_table_insert(struct fib_table *tb, struct fib_config *cfg)
- 	new_fa->fa_tos = tos;
- 	new_fa->fa_type = cfg->fc_type;
- 	new_fa->fa_state = 0;
--	/*
--	 * Insert new entry to the list.
--	 */
-+	new_fa->fa_slen = KEYLENGTH - plen;
- 
-+	/* Insert new entry to the list. */
- 	if (!fa_head) {
- 		fa_head = fib_insert_node(t, key, plen);
- 		if (unlikely(!fa_head)) {
-@@ -1420,14 +1420,13 @@ found:
- 	hlist_for_each_entry_rcu(li, &n->list, hlist) {
- 		struct fib_alias *fa;
- 
--		if (((key ^ n->key) >> li->slen) &&
--		    (li->slen != KEYLENGTH))
--			continue;
--
- 		hlist_for_each_entry_rcu(fa, &li->falh, fa_list) {
- 			struct fib_info *fi = fa->fa_info;
- 			int nhsel, err;
- 
-+			if (((key ^ n->key) >> fa->fa_slen) &&
-+			    (fa->fa_slen != KEYLENGTH))
-+				continue;
- 			if (fa->fa_tos && fa->fa_tos != flp->flowi4_tos)
- 				continue;
- 			if (fi->fib_dead)
-@@ -1455,7 +1454,7 @@ found:
- 				if (!(fib_flags & FIB_LOOKUP_NOREF))
- 					atomic_inc(&fi->fib_clntref);
- 
--				res->prefixlen = KEYLENGTH - li->slen;
-+				res->prefixlen = KEYLENGTH - fa->fa_slen;
- 				res->nh_sel = nhsel;
- 				res->type = fa->fa_type;
- 				res->scope = fi->fib_scope;
-@@ -1468,11 +1467,10 @@ found:
- 				return err;
- 			}
- 		}
--
-+	}
- #ifdef CONFIG_IP_FIB_TRIE_STATS
--		this_cpu_inc(stats->semantic_match_miss);
-+	this_cpu_inc(stats->semantic_match_miss);
- #endif
--	}
- 	goto backtrace;
- }
+@@ -1402,25 +1402,6 @@ found:
  EXPORT_SYMBOL_GPL(fib_table_lookup);
-@@ -1735,7 +1733,7 @@ void fib_free_table(struct fib_table *tb)
- 	kfree(tb);
+ 
+ /*
+- * Remove the leaf and return parent.
+- */
+-static void trie_leaf_remove(struct trie *t, struct tnode *l)
+-{
+-	struct tnode *tp = node_parent(l);
+-
+-	pr_debug("entering trie_leaf_remove(%p)\n", l);
+-
+-	if (tp) {
+-		put_child(tp, get_index(l->key, tp), NULL);
+-		trie_rebalance(t, tp);
+-	} else {
+-		RCU_INIT_POINTER(t->trie, NULL);
+-	}
+-
+-	node_free(l);
+-}
+-
+-/*
+  * Caller must hold RTNL.
+  */
+ int fib_table_delete(struct fib_table *tb, struct fib_config *cfg)
+@@ -1485,8 +1466,18 @@ int fib_table_delete(struct fib_table *tb, struct fib_config *cfg)
+ 	if (!plen)
+ 		tb->tb_num_default--;
+ 
+-	if (hlist_empty(&l->leaf))
+-		trie_leaf_remove(t, l);
++	if (hlist_empty(&l->leaf)) {
++		struct tnode *tp = node_parent(l);
++
++		if (tp) {
++			put_child(tp, get_index(l->key, tp), NULL);
++			trie_rebalance(t, tp);
++		} else {
++			RCU_INIT_POINTER(t->trie, NULL);
++		}
++
++		node_free(l);
++	}
+ 
+ 	if (fa->fa_state & FA_S_ACCESSED)
+ 		rt_cache_flush(cfg->fc_nlinfo.nl_net);
+@@ -1496,33 +1487,6 @@ int fib_table_delete(struct fib_table *tb, struct fib_config *cfg)
+ 	return 0;
  }
  
--static int fn_trie_dump_fa(t_key key, int slen, struct hlist_head *fah,
-+static int fn_trie_dump_fa(t_key key, struct hlist_head *fah,
- 			   struct fib_table *tb,
- 			   struct sk_buff *skb, struct netlink_callback *cb)
+-static int trie_flush_leaf(struct tnode *l)
+-{
+-	struct hlist_node *tmp;
+-	unsigned char slen = 0;
+-	struct fib_alias *fa;
+-	int found = 0;
+-
+-	hlist_for_each_entry_safe(fa, tmp, &l->leaf, fa_list) {
+-		struct fib_info *fi = fa->fa_info;
+-
+-		if (fi && (fi->fib_flags & RTNH_F_DEAD)) {
+-			hlist_del_rcu(&fa->fa_list);
+-			fib_release_info(fa->fa_info);
+-			alias_free_mem_rcu(fa);
+-			found++;
+-
+-			continue;
+-		}
+-
+-		slen = fa->fa_slen;
+-	}
+-
+-	l->slen = slen;
+-
+-	return found;
+-}
+-
+ /* Scan for the next right leaf starting at node p->child[idx]
+  * Since we have back pointer, no recursion necessary.
+  */
+@@ -1590,30 +1554,81 @@ static struct tnode *trie_leafindex(struct trie *t, int index)
+  */
+ int fib_table_flush(struct fib_table *tb)
  {
-@@ -1760,7 +1758,7 @@ static int fn_trie_dump_fa(t_key key, int slen, struct hlist_head *fah,
- 				  tb->tb_id,
- 				  fa->fa_type,
- 				  xkey,
--				  KEYLENGTH - slen,
-+				  KEYLENGTH - fa->fa_slen,
- 				  fa->fa_tos,
- 				  fa->fa_info, NLM_F_MULTI) < 0) {
- 			cb->args[5] = i;
-@@ -1794,7 +1792,7 @@ static int fn_trie_dump_leaf(struct tnode *l, struct fib_table *tb,
- 		if (hlist_empty(&li->falh))
- 			continue;
+-	struct trie *t = (struct trie *) tb->tb_data;
+-	struct tnode *l, *ll = NULL;
++	struct trie *t = (struct trie *)tb->tb_data;
++	struct hlist_node *tmp;
++	struct fib_alias *fa;
++	struct tnode *n, *pn;
++	unsigned long cindex;
++	unsigned char slen;
+ 	int found = 0;
  
--		if (fn_trie_dump_fa(l->key, li->slen, &li->falh, tb, skb, cb) < 0) {
-+		if (fn_trie_dump_fa(l->key, &li->falh, tb, skb, cb) < 0) {
- 			cb->args[4] = i;
- 			return -1;
+-	for (l = trie_firstleaf(t); l; l = trie_nextleaf(l)) {
+-		found += trie_flush_leaf(l);
++	n = rcu_dereference(t->trie);
++	if (!n)
++		goto flush_complete;
++
++	pn = NULL;
++	cindex = 0;
++
++	while (IS_TNODE(n)) {
++		/* record pn and cindex for leaf walking */
++		pn = n;
++		cindex = 1ul << n->bits;
++backtrace:
++		/* walk trie in reverse order */
++		do {
++			while (!(cindex--)) {
++				t_key pkey = pn->key;
++
++				n = pn;
++				pn = node_parent(n);
++
++				/* resize completed node */
++				resize(t, n);
++
++				/* if we got the root we are done */
++				if (!pn)
++					goto flush_complete;
+ 
+-		if (ll) {
+-			if (hlist_empty(&ll->leaf))
+-				trie_leaf_remove(t, ll);
+-			else
+-				leaf_pull_suffix(ll);
++				cindex = get_index(pkey, pn);
++			}
++
++			/* grab the next available node */
++			n = tnode_get_child(pn, cindex);
++		} while (!n);
++	}
++
++	/* track slen in case any prefixes survive */
++	slen = 0;
++
++	hlist_for_each_entry_safe(fa, tmp, &n->leaf, fa_list) {
++		struct fib_info *fi = fa->fa_info;
++
++		if (fi && (fi->fib_flags & RTNH_F_DEAD)) {
++			hlist_del_rcu(&fa->fa_list);
++			fib_release_info(fa->fa_info);
++			alias_free_mem_rcu(fa);
++			found++;
++
++			continue;
  		}
-@@ -2281,7 +2279,7 @@ static int fib_trie_seq_show(struct seq_file *seq, void *v)
  
- 				seq_indent(seq, iter->depth+1);
- 				seq_printf(seq, "  /%zu %s %s",
--					   KEYLENGTH - li->slen,
-+					   KEYLENGTH - fa->fa_slen,
- 					   rtn_scope(buf1, sizeof(buf1),
- 						     fa->fa_info->fib_scope),
- 					   rtn_type(buf2, sizeof(buf2),
-@@ -2419,6 +2417,7 @@ static int fib_route_seq_show(struct seq_file *seq, void *v)
- {
- 	struct tnode *l = v;
- 	struct leaf_info *li;
-+	__be32 prefix;
- 
- 	if (v == SEQ_START_TOKEN) {
- 		seq_printf(seq, "%-127s\n", "Iface\tDestination\tGateway "
-@@ -2427,15 +2426,14 @@ static int fib_route_seq_show(struct seq_file *seq, void *v)
- 		return 0;
+-		ll = l;
++		slen = fa->fa_slen;
  	}
  
-+	prefix = htonl(l->key);
+-	if (ll) {
+-		if (hlist_empty(&ll->leaf))
+-			trie_leaf_remove(t, ll);
+-		else
+-			leaf_pull_suffix(ll);
++	/* update leaf slen */
++	n->slen = slen;
 +
- 	hlist_for_each_entry_rcu(li, &l->list, hlist) {
- 		struct fib_alias *fa;
--		__be32 mask, prefix;
--
--		mask = inet_make_mask(KEYLENGTH - li->slen);
--		prefix = htonl(l->key);
++	if (hlist_empty(&n->leaf)) {
++		put_child_root(pn, t, n->key, NULL);
++		node_free(n);
++	} else {
++		leaf_pull_suffix(n);
+ 	}
  
- 		hlist_for_each_entry_rcu(fa, &li->falh, fa_list) {
- 			const struct fib_info *fi = fa->fa_info;
-+			__be32 mask = inet_make_mask(KEYLENGTH - fa->fa_slen);
- 			unsigned int flags = fib_flag_trans(fa->fa_type, mask, fi);
- 
- 			if (fa->fa_type == RTN_BROADCAST
++	/* if trie is leaf only loop is completed */
++	if (pn)
++		goto backtrace;
++flush_complete:
+ 	pr_debug("trie_flush found=%d\n", found);
+ 	return found;
+ }
