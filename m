@@ -1,51 +1,35 @@
-From: Michal Simek <michal.simek@xilinx.com>
-Subject: [PATCH] net: cadence: Enable MACB driver for ARM64
-Date: Tue, 24 Feb 2015 08:45:52 +0100
-Message-ID: <5a2ef83a03f6df78c8de643a19fb3f6105d892f4.1424763946.git.michal.simek@xilinx.com>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: repository for switch hardware info
+Date: Tue, 24 Feb 2015 10:34:42 +0200
+Message-ID: <CAJ3xEMjUe0+jKJsMD5-Es-g6D40zRbAz-pBW_YFaxVmFNPkj5g@mail.gmail.com>
+References: <20150222.160345.141886361578055811.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Nicolas Ferre <nicolas.ferre@atmel.com>, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org, monstr@monstr.eu
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Sagi Rotem <sagir@mellanox.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f42.google.com ([209.85.218.42]:62541 "EHLO
+	mail-oi0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750925AbbBXIen (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Feb 2015 03:34:43 -0500
+Received: by mail-oi0-f42.google.com with SMTP id h136so18096105oig.1
+        for <netdev@vger.kernel.org>; Tue, 24 Feb 2015 00:34:43 -0800 (PST)
+In-Reply-To: <20150222.160345.141886361578055811.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This driver is used on new Xilinx ZynqMP SoC.
+On Sun, Feb 22, 2015 at 11:03 PM, David Miller <davem@davemloft.net> wrote:
+> location of such resources.  Just give me the URL and I'll maintain
+> it all on a public web page somewhere anyone can refer to or send me
+> updates for.
 
-Signed-off-by: Michal Simek <michal.simek@xilinx.com>
-Acked-by: S=C3=B6ren Brinkmann <soren.brinkmann@xilinx.com>
----
+Hi Dave,
 
- drivers/net/ethernet/cadence/Kconfig | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+Here are two quick links to the Mellanox switchX SDK
 
-diff --git a/drivers/net/ethernet/cadence/Kconfig b/drivers/net/etherne=
-t/cadence/Kconfig
-index 321d2ad235d9..4562f90c0348 100644
---- a/drivers/net/ethernet/cadence/Kconfig
-+++ b/drivers/net/ethernet/cadence/Kconfig
-@@ -4,7 +4,7 @@
-=20
- config NET_CADENCE
- 	bool "Cadence devices"
--	depends on HAS_IOMEM && (ARM || AVR32 || MICROBLAZE || COMPILE_TEST)
-+	depends on HAS_IOMEM && (ARM || ARM64 || AVR32 || MICROBLAZE || COMPI=
-LE_TEST)
- 	default y
- 	---help---
- 	  If you have a network (Ethernet) card belonging to this class, say =
-Y.
-@@ -30,7 +30,7 @@ config ARM_AT91_ETHER
-=20
- config MACB
- 	tristate "Cadence MACB/GEM support"
--	depends on HAS_DMA && (PLATFORM_AT32AP || ARCH_AT91 || ARCH_PICOXCELL=
- || ARCH_ZYNQ || MICROBLAZE || COMPILE_TEST)
-+	depends on HAS_DMA && (PLATFORM_AT32AP || ARCH_AT91 || ARCH_PICOXCELL=
- || ARCH_ZYNQ || ARM64 || MICROBLAZE || COMPILE_TEST)
- 	select PHYLIB
- 	---help---
- 	  The Cadence MACB ethernet interface is found on many Atmel AT32 and
---=20
-1.8.2.3
+[1] SDK product brief -
+http://www.mellanox.com/related-docs/prod_software/PB_SwitchX_SDK.pdf
+[2] SDK API - https://github.com/Mellanox/SwitchX-interfaces
+
+Or.
