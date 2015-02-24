@@ -1,45 +1,28 @@
-From: Sasha Levin <sasha.levin@oracle.com>
-Subject: [PATCH] rtnetlink: avoid 0 sized arrays
-Date: Tue, 24 Feb 2015 14:14:35 -0500
-Message-ID: <1424805277-7914-1-git-send-email-sasha.levin@oracle.com>
-Cc: Sasha Levin <sasha.levin@oracle.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	Jiri Pirko <jiri@resnulli.us>, Thomas Graf <tgraf@suug.ch>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	Cong Wang <cwang@twopensource.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	netdev@vger.kernel.org (open list:NETWORKING [GENERAL])
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: repository for switch hardware info
+Date: Tue, 24 Feb 2015 14:21:37 -0500 (EST)
+Message-ID: <20150224.142137.1071744861123758844.davem@davemloft.net>
+References: <CAJ3xEMjUe0+jKJsMD5-Es-g6D40zRbAz-pBW_YFaxVmFNPkj5g@mail.gmail.com>
+	<20150224.115431.2159966724345230557.davem@davemloft.net>
+	<CAJ3xEMiXPjcH2TfmCGYi5a3TxdanGfax0eeNv-DPV74nhsCkxg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, sagir@mellanox.com
+To: gerlitz.or@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:49857 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751436AbbBXTVp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Feb 2015 14:21:45 -0500
+In-Reply-To: <CAJ3xEMiXPjcH2TfmCGYi5a3TxdanGfax0eeNv-DPV74nhsCkxg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Arrays (when not in a struct) "shall have a value greater than zero".
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Date: Tue, 24 Feb 2015 21:14:56 +0200
 
-GCC complains when it's not the case here.
+> Dave, just small correction... can you please add "X" to the first
+> link there and name it "SwitchX SDK product brief" -- thanks, Or.
 
-Fixes: ba7d49b1f0 ("rtnetlink: provide api for getting and setting slave info")
-Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
----
- net/core/rtnetlink.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index ab293a3..1385de0 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -2012,8 +2012,8 @@ replay:
- 	}
- 
- 	if (1) {
--		struct nlattr *attr[ops ? ops->maxtype + 1 : 0];
--		struct nlattr *slave_attr[m_ops ? m_ops->slave_maxtype + 1 : 0];
-+		struct nlattr *attr[ops ? ops->maxtype + 1 : 1];
-+		struct nlattr *slave_attr[m_ops ? m_ops->slave_maxtype + 1 : 1];
- 		struct nlattr **data = NULL;
- 		struct nlattr **slave_data = NULL;
- 		struct net *dest_net, *link_net = NULL;
--- 
-1.7.10.4
+Updated, thanks.
