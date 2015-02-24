@@ -1,8 +1,7 @@
 From: Murali Karicheri <m-karicheri2@ti.com>
-Subject: [PATCH net-next 2/2] net: netcp: select davinci_mdio driver by default
-Date: Tue, 24 Feb 2015 16:27:31 -0500
-Message-ID: <1424813251-31610-2-git-send-email-m-karicheri2@ti.com>
-References: <1424813251-31610-1-git-send-email-m-karicheri2@ti.com>
+Subject: [PATCH net-next 1/2] net: davinci_mdio: don't request io address range
+Date: Tue, 24 Feb 2015 16:27:30 -0500
+Message-ID: <1424813251-31610-1-git-send-email-m-karicheri2@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Murali Karicheri <m-karicheri2@ti.com>
@@ -13,29 +12,40 @@ To: <davem@davemloft.net>, <mugunthanvnm@ti.com>,
 	<grygorii.strashko@ti.com>, <lokeshvutla@ti.com>,
 	<mpa@pengutronix.de>, <w-kwok2@ti.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1424813251-31610-1-git-send-email-m-karicheri2@ti.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Keystone netcp driver re-uses davinci mdio driver. So enable it
-by default for keystone netcp driver.
+From: Grygorii Strashko <grygorii.strashko@ti.com>
 
+Historically Davinci MDIO driver was  created with assumption that
+MDIO is standalone device, but for Keystone 2 it's a part
+of NETCP module and now NETCP driver requests IO range which
+includes MDIO IO range too. This causes Keystone 2 networking stack
+failure during the boot.
+
+"netcp-1.0 2620110.netcp: Probe of module(netcp-gbe) failed with -16"
+
+Hence, don't request io address range from Davinci MDIO driver and
+just remap it.
+
+Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
 Signed-off-by: Murali Karicheri <m-karicheri2@ti.com>
 ---
- drivers/net/ethernet/ti/Kconfig |    1 +
- 1 file changed, 1 insertion(+)
+ drivers/net/ethernet/ti/davinci_mdio.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/ti/Kconfig b/drivers/net/ethernet/ti/Kconfig
-index 3bc992c..945a221 100644
---- a/drivers/net/ethernet/ti/Kconfig
-+++ b/drivers/net/ethernet/ti/Kconfig
-@@ -88,6 +88,7 @@ config TI_CPTS
- config TI_KEYSTONE_NETCP
- 	tristate "TI Keystone NETCP Core Support"
- 	select TI_CPSW_ALE
-+	select TI_DAVINCI_MDIO
- 	depends on OF
- 	depends on KEYSTONE_NAVIGATOR_DMA && KEYSTONE_NAVIGATOR_QMSS
- 	---help---
+diff --git a/drivers/net/ethernet/ti/davinci_mdio.c b/drivers/net/ethernet/ti/davinci_mdio.c
+index 98655b4..b13ec82 100644
+--- a/drivers/net/ethernet/ti/davinci_mdio.c
++++ b/drivers/net/ethernet/ti/davinci_mdio.c
+@@ -371,7 +371,7 @@ static int davinci_mdio_probe(struct platform_device *pdev)
+ 	spin_lock_init(&data->lock);
+ 
+ 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+-	data->regs = devm_ioremap_resource(dev, res);
++	data->regs = devm_ioremap_nocache(dev, res->start, resource_size(res));
+ 	if (IS_ERR(data->regs)) {
+ 		ret = PTR_ERR(data->regs);
+ 		goto bail_out;
 -- 
 1.7.9.5
