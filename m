@@ -1,65 +1,60 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [RFC PATCH 01/29] fib_trie: Convert fib_alias to hlist from
- list
-Date: Wed, 25 Feb 2015 01:09:33 +0200 (EET)
-Message-ID: <alpine.LFD.2.11.1502250054131.3125@ja.home.ssi.bg>
-References: <20150224202837.26106.87623.stgit@ahduyck-vm-fedora20> <20150224204801.26106.10186.stgit@ahduyck-vm-fedora20>
+From: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
+Subject: RE: [E1000-devel] [PATCH v2 3/3] ixgbe: Add new ndo to allow VF
+ multicast promiscuous mode
+Date: Tue, 24 Feb 2015 23:43:32 +0000
+Message-ID: <7F861DC0615E0C47A872E6F3C5FCDDBD05E3F1D9@BPXM14GP.gisp.nec.co.jp>
+References: <7F861DC0615E0C47A872E6F3C5FCDDBD05E38867@BPXM14GP.gisp.nec.co.jp>
+ <87618083B2453E4A8714035B62D6799250241E02@FMSMSX105.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org
-To: Alexander Duyck <alexander.h.duyck@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:53339 "EHLO ja.ssi.bg"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750748AbbBXXJk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Feb 2015 18:09:40 -0500
-In-Reply-To: <20150224204801.26106.10186.stgit@ahduyck-vm-fedora20>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ks_c_5601-1987"
+Content-Transfer-Encoding: base64
+Cc: "e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Choi, Sy Jong" <sy.jong.choi@intel.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	David Laight <David.Laight@ACULAB.COM>,
+	Hayato Momma <h-momma@ce.jp.nec.com>,
+	=?ks_c_5601-1987?B?QmqpqnJuIE1vcms=?= <bjorn@mork.no>
+To: "Tantilov, Emil S" <emil.s.tantilov@intel.com>,
+	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+	"vyasevic@redhat.com" <vyasevic@redhat.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87618083B2453E4A8714035B62D6799250241E02@FMSMSX105.amr.corp.intel.com>
+Content-Language: ja-JP
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-
-	Hello,
-
-On Tue, 24 Feb 2015, Alexander Duyck wrote:
-
-> diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
-> index 3daf022..e0d44b7 100644
-> --- a/net/ipv4/fib_trie.c
-> +++ b/net/ipv4/fib_trie.c
-
-> @@ -1192,8 +1193,7 @@ int fib_table_insert(struct fib_table *tb, struct fib_config *cfg)
->  		 */
->  		fa_match = NULL;
->  		fa_first = fa;
-> -		fa = list_entry(fa->fa_list.prev, struct fib_alias, fa_list);
-> -		list_for_each_entry_continue(fa, fa_head, fa_list) {
-> +		hlist_for_each_entry_from(fa, fa_list) {
->  			if (fa->fa_tos != tos)
->  				break;
->  			if (fa->fa_info->fib_priority != fi->fib_priority)
-
-	Also, as this loop when implemented as hlist
-can exit with fa = NULL we have to use fa_last = fa at
-end of loop:
-
-		hlist_for_each_entry_from(fa, fa_list) {
-			if (fa->fa_tos != tos)
-				break;
-			if (fa->fa_info->fib_priority != fi->fib_priority)
-				break;
-			if (fa->fa_type == cfg->fc_type &&
-			    fa->fa_info == fi) {
-				fa_match = fa;
-				break;
-			}
-+			fa_last = fa;
-		}
-
-	It is needed so that NLM_F_APPEND can work.
-Basicly, if list_for_* end with pos pointing to head,
-hlist_for_* end with NULL.
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+PiA+LS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gPkZyb206IEhpcm9zaGkgU2hpbWFtb3Rv
+IFttYWlsdG86aC1zaGltYW1vdG9AY3QuanAubmVjLmNvbV0NCj4gPlNlbnQ6IFRodXJzZGF5LCBG
+ZWJydWFyeSAxOSwgMjAxNSA1OjAxIFBNDQo+ID4gU3ViamVjdDogW0UxMDAwLWRldmVsXSBbUEFU
+Q0ggdjIgMy8zXSBpeGdiZTogQWRkIG5ldyBuZG8gdG8gYWxsb3cgVkYgbXVsdGljYXN0IHByb21p
+c2N1b3VzIG1vZGUNCj4gPg0KPiA+RnJvbTogSGlyb3NoaSBTaGltYW1vdG8gPGgtc2hpbWFtb3Rv
+QGN0LmpwLm5lYy5jb20+DQo+ID4NCj4gPkltcGxlbWVudHMgdGhlIG5ldyBuZXRkZXYgb3AgdG8g
+YWxsb3cgVkYgbXVsdGljYXN0IHByb21pc2N1b3VzIG1vZGUuDQo+ID4NCj4gPlRoZSBhZG1pbmlz
+dHJhdG9yIGNhbiBhbGxvdyB0byBWRiBtdWx0aWNhc3QgcHJvbWlzY3VvdXMgbW9kZSBmb3Igb25s
+eQ0KPiA+dHJ1c3RlZCBWTS4gQWZ0ZXIgYWxsb3dpbmcgbXVsdGljYXN0IHByb21pc2N1b3VzIG1v
+ZGUgZnJvbSB0aGUgaG9zdCwNCj4gPndlIGNhbiB1c2Ugb3ZlciAzMCBJUHY2IGFkZHJlc3NlcyBv
+biBWTS4NCj4gPiAjIC4vaXAgbGluayBzZXQgZGV2IGV0aDAgdmYgMSBtY19wcm9taXNjIG9uDQo+
+ID4NCj4gPldoZW4gZGlzYWxsb3dpbmcgbXVsdGljYXN0IHByb21pc2N1b3VzIG1vZGUsIHdlIGNh
+biBvbmx5IHVzZSAzMCBJUHY2IGFkZHJlc3Nlcy4NCj4gPiAjIC4vaXAgbGluayBzZXQgZGV2IGV0
+aDAgdmYgMSBtY19wcm9taXNjIG9mZg0KPiA+DQo+ID5TaWduZWQtb2ZmLWJ5OiBIaXJvc2hpIFNo
+aW1hbW90byA8aC1zaGltYW1vdG9AY3QuanAubmVjLmNvbT4NCj4gPlJldmlld2VkLWJ5OiBIYXlh
+dG8gTW9tbWEgPGgtbW9tbWFAY2UuanAubmVjLmNvbT4NCj4gPkNDOiBDaG9pLCBTeSBKb25nIDxz
+eS5qb25nLmNob2lAaW50ZWwuY29tPg0KPiANCj4gPHNuaXA+DQo+IA0KPiAraW50IGl4Z2JlX25k
+b19zZXRfdmZfbWNfcHJvbWlzYyhzdHJ1Y3QgbmV0X2RldmljZSAqbmV0ZGV2LCBpbnQgdmYsIGJv
+b2wgc2V0dGluZykNCj4gK3sNCj4gKwlzdHJ1Y3QgaXhnYmVfYWRhcHRlciAqYWRhcHRlciA9IG5l
+dGRldl9wcml2KG5ldGRldik7DQo+ICsJc3RydWN0IGl4Z2JlX2h3ICpodyA9ICZhZGFwdGVyLT5o
+dzsNCj4gKwl1MzIgdm1vbHI7DQo+IA0KPiB2bW9sciBpcyB1bnVzZWQgdmFyaWFibGUgaW4gdGhp
+cyBmdW5jdGlvbi4NCj4gDQo+ICsNCj4gKwlpZiAodmYgPj0gYWRhcHRlci0+bnVtX3ZmcykNCj4g
+KwkJcmV0dXJuIC1FSU5WQUw7DQo+ICsNCj4gKwkvKiBub3RoaW5nIHRvIGRvICovDQo+ICsJaWYg
+KGFkYXB0ZXItPnZmaW5mb1t2Zl0ubWNfcHJvbWlzY19hbGxvd2VkID09IHNldHRpbmcpDQo+ICsJ
+CXJldHVybiAwOw0KPiArDQo+ICsJYWRhcHRlci0+dmZpbmZvW3ZmXS5tY19wcm9taXNjX2FsbG93
+ZWQgPSBzZXR0aW5nOw0KPiArDQo+ICsJLyogaWYgVkYgcmVxdWVzdHMgbXVsdGljYXN0IHByb21p
+c2N1b3VzICovDQo+ICsJaWYgKGFkYXB0ZXItPnZmaW5mb1t2Zl0ubWNfcHJvbWlzYykgew0KPiAr
+CQlpZiAoc2V0dGluZykNCj4gKwkJCWl4Z2JlX2VuYWJsZV92Zl9tY19wcm9taXNjKGFkYXB0ZXIs
+IHZmKTsNCj4gKwkJZWxzZQ0KPiArCQkJaXhnYmVfZGlzYWJsZV92Zl9tY19wcm9taXNjKGFkYXB0
+ZXIsIHZmKTsNCj4gKwl9DQo+ICsNCj4gKwlyZXR1cm4gMDsNCj4gK30NCg0KdGhhbmsgeW91IGZv
+ciBwb2ludGluZyBpdC4NCkkgcmVhbGl6ZWQgaXQgYW5kIGFtIHByZXBhcmluZyBhIHBhdGNoLg0K
+DQp0aGFua3MsDQpIaXJvc2hpDQo=
