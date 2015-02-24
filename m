@@ -1,63 +1,48 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [net-next v2 00/16][pull request] Intel Wired LAN Driver
- Updates 2015-02-23
-Date: Mon, 23 Feb 2015 22:50:25 -0800
-Message-ID: <1424760625.2553.3.camel@jtkirshe-mobl>
-References: <1424743881-30485-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <20150223.215850.1298652563526265526.davem@davemloft.net>
+From: Eyal Birger <eyal.birger@gmail.com>
+Subject: Re: [PATCH net-next v3 3/4] net: use skb->priority for overloading
+ skb->dropcount and skb->reserved_tailroom instead of skb->mark
+Date: Tue, 24 Feb 2015 08:58:52 +0200
+Message-ID: <CAHsH6GvfJHt6qA_9C1wsHEe1Y=ii9Z8a+3V_2D4NSiZZ4oBkvQ@mail.gmail.com>
+References: <1424713924-6821-2-git-send-email-eyal.birger@gmail.com>
+	<1424713924-6821-4-git-send-email-eyal.birger@gmail.com>
+	<20150223205633.7fbd08d4@halley>
+	<20150223.164801.842537100812023841.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-LkHKVk9ioMZQ5dWV8Ewv"
-Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com
+Content-Type: text/plain; charset=UTF-8
+Cc: Shmulik Ladkani <shmulik.ladkani@gmail.com>,
+	Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:26396 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750843AbbBXGu1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Feb 2015 01:50:27 -0500
-In-Reply-To: <20150223.215850.1298652563526265526.davem@davemloft.net>
+Received: from mail-yk0-f171.google.com ([209.85.160.171]:45806 "EHLO
+	mail-yk0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751407AbbBXG6x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Feb 2015 01:58:53 -0500
+Received: by ykr200 with SMTP id 200so1749939ykr.12
+        for <netdev@vger.kernel.org>; Mon, 23 Feb 2015 22:58:52 -0800 (PST)
+In-Reply-To: <20150223.164801.842537100812023841.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Mon, Feb 23, 2015 at 11:48 PM, David Miller <davem@davemloft.net> wrote:
+> From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+> Date: Mon, 23 Feb 2015 20:56:33 +0200
+>
+>> May I suggest to unalias 'mark' out of the union?
+>
+> Only in exchange for finding a way to remove completely another object
+> of the same size from sk_buff.
+>
+> I refuse to let it grow any more, it's already way too big.
 
---=-LkHKVk9ioMZQ5dWV8Ewv
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+I agree that aliasing skb->priority with skb->dropcount and
+skb->reserved_tailroom is
+less than optimal.
 
-On Mon, 2015-02-23 at 21:58 -0500, David Miller wrote:
-> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> Date: Mon, 23 Feb 2015 18:11:05 -0800
->=20
-> > This series contains updates to e1000e, igbvf, i40e and i40evf.
->=20
-> Pulled, thanks Jeff.
+I can suggest an alternative patch following Eric Dumazet's suggestion in which
+skb->dropcount is removed and skb->cb[] is used instead for keeping dropcount.
 
-Sorry Dave, I had forgot to push the updated patch series to my tree, so
-the tree you pulled did not have any changes.  I just pushed the series
-up to kernel.org.
+That would require protocol family implementations to access skb->cb[]
+via a common
+accessor or use a common offset #define from the start of skb->cb[].
 
---=-LkHKVk9ioMZQ5dWV8Ewv
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAABCgAGBQJU7B8xAAoJEOVv75VaS+3O+wYQAItopCMgwfyIB0LzMdynb+Zk
-xV9w6+KbdpqWFBNV2P0dqLXikoVsFk9zUdfnXz/q1rj+h1FB74W4bTRdo7ccGeQ/
-6m8iiOp+M/VpmzSn+5fu3DVXFUFKbz3+wPyvq3iu9mxE3uamgqwsVIHBSt6+3ze7
-RyPZf6qJwnCkrLZ4W6Nt9amqtninQOkYMhDae0cWBpssQ6skFssOtFB7GwmI4ae3
-xf/ToWzG1xlFVgc/G1ugjG4R3RI93D0fSvBZzLruRz6Kzb2cfmG0I6O6GC7/Gbdf
-8P2MW08LgAWy6REg1bqy9SVOVdyd+zc1VAzUZbjwfY/L5utWm6Lrk3XmPyPHfCOT
-W0lwJhhjagnxBfn6PoWq+wod0UpBeg6vEttZ+wceuCj5+Dc0SXZqBBxNOggcAWLY
-touudrFfQYeRIwZ5pTWm/ICAzGTRFmB1JLNox1EKz0qfnUj07Dgs0zP03zsD7HKY
-jwEQfGUtbR4DEIlCtaPjiTPSoIqwcVTIMZR51mx/h3ckrX4ddofw+mcgaV/7Dgf9
-rpPs9axic2f1o8E7dBSwXpta7YOzPKsQQkqZqxG2TYqEVgFM0ttL1GFnteSG+On/
-wNPrMhQFeU5nG/0F6Ol/rhFTk5oANo++OtlgnhUWv7cgmHncX9Cl1e6UA2wy94tO
-A3seV6F1kRVwHJAq+HLl
-=GO9A
------END PGP SIGNATURE-----
-
---=-LkHKVk9ioMZQ5dWV8Ewv--
+Eyal.
