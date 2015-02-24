@@ -1,88 +1,65 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] net: phy: b53: switchdev driver for Broadcom BCM53xx
- switches
-Date: Tue, 24 Feb 2015 14:59:23 -0800
-Message-ID: <54ED024B.9090605@gmail.com>
-References: <1424799727-30946-1-git-send-email-zajec5@gmail.com>	<54ECFFC3.5070309@gmail.com> <CACna6rxgwdm0YJqf0fTZFROUjC--aiKUNT=tLOF4XwyMrzjtnA@mail.gmail.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [RFC PATCH 01/29] fib_trie: Convert fib_alias to hlist from
+ list
+Date: Wed, 25 Feb 2015 01:09:33 +0200 (EET)
+Message-ID: <alpine.LFD.2.11.1502250054131.3125@ja.home.ssi.bg>
+References: <20150224202837.26106.87623.stgit@ahduyck-vm-fedora20> <20150224204801.26106.10186.stgit@ahduyck-vm-fedora20>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Network Development <netdev@vger.kernel.org>,
-	Jonas Gorski <jogo@openwrt.org>,
-	Hauke Mehrtens <hauke@hauke-m.de>,
-	Felix Fietkau <nbd@openwrt.org>, Jiri Pirko <jiri@resnulli.us>
-To: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org
+To: Alexander Duyck <alexander.h.duyck@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f173.google.com ([209.85.192.173]:45695 "EHLO
-	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751444AbbBXW7n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Feb 2015 17:59:43 -0500
-Received: by pdjz10 with SMTP id z10so119605pdj.12
-        for <netdev@vger.kernel.org>; Tue, 24 Feb 2015 14:59:43 -0800 (PST)
-In-Reply-To: <CACna6rxgwdm0YJqf0fTZFROUjC--aiKUNT=tLOF4XwyMrzjtnA@mail.gmail.com>
+Received: from ja.ssi.bg ([178.16.129.10]:53339 "EHLO ja.ssi.bg"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750748AbbBXXJk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Feb 2015 18:09:40 -0500
+In-Reply-To: <20150224204801.26106.10186.stgit@ahduyck-vm-fedora20>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 24/02/15 14:56, Rafa=C5=82 Mi=C5=82ecki wrote:
-> On 24 February 2015 at 23:48, Florian Fainelli <f.fainelli@gmail.com>=
- wrote:
->> On 24/02/15 09:42, Rafa=C5=82 Mi=C5=82ecki wrote:
->>> BCM53xx is series of Broadcom Ethernet switches that can be found i=
-n
->>> various (mostly home) routers.
->>> They are quite simple switches with mainly just support for:
->>> 1) Tagging incoming packets (PVID)
->>> 2) Untagging outgoing packets
->>> 3) Forwarding all packets across a single VLAN
->>>
->>> This driver is split into common code (module) and bus specific cod=
-e.
->>> Right now only PHY (MDIO) support is included, other could follow a=
-fter
->>> accepting this driver. It was successfully tested on BCM4706 SoC wi=
-th
->>> BCM53125.
->>>
->>> You could notice it's yet another try of submitting b53 driver. Thi=
-s
->>> time it was modified to use recently introduced switchdev API which
->>> hopefully make it possible to accept it mainline.
->>
->> This is good as a very basic driver,
->=20
-> Thanks :) That was exactly my point: to get a minimal driver (but
-> implementing the basic functionality!) accepted and then continue
-> improving it.
->=20
->=20
->> there is still a bunch of things
->> missing that might not be too hard to add to this submission:
->>
->> - fetching MIB counters through ethtool
->> - reporting link state/parameters
->> - changing MTU/Jumbo frame support
->> - HW bridging support
->=20
-> I agree about missing features. I was already thinking about MIB, it
-> should be easy to support it with ethtool_ops and get_sset_count +
-> get_strings. Probably the same for link status. Not sure about HW
-> bridging.
->=20
-> Would you agree to work on having this basic driver accepted first
-> (like discussing code location, API usage) and then work on additiona=
-l
-> features in separated patches? I think it would simplify the process
-> and could result in better core review, as people could focus on smal=
-l
-> bunch of changes.
 
-I would prefer if you could give me the time to implement that:
-http://www.spinics.net/lists/netdev/msg295942.html
+	Hello,
 
-such that you would get a lot of the network device creation, operation=
-s
-etc.. for free, with your driver still being a phy_driver ultimately.
-But I have no strong objections either.
---=20
-=46lorian
+On Tue, 24 Feb 2015, Alexander Duyck wrote:
+
+> diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
+> index 3daf022..e0d44b7 100644
+> --- a/net/ipv4/fib_trie.c
+> +++ b/net/ipv4/fib_trie.c
+
+> @@ -1192,8 +1193,7 @@ int fib_table_insert(struct fib_table *tb, struct fib_config *cfg)
+>  		 */
+>  		fa_match = NULL;
+>  		fa_first = fa;
+> -		fa = list_entry(fa->fa_list.prev, struct fib_alias, fa_list);
+> -		list_for_each_entry_continue(fa, fa_head, fa_list) {
+> +		hlist_for_each_entry_from(fa, fa_list) {
+>  			if (fa->fa_tos != tos)
+>  				break;
+>  			if (fa->fa_info->fib_priority != fi->fib_priority)
+
+	Also, as this loop when implemented as hlist
+can exit with fa = NULL we have to use fa_last = fa at
+end of loop:
+
+		hlist_for_each_entry_from(fa, fa_list) {
+			if (fa->fa_tos != tos)
+				break;
+			if (fa->fa_info->fib_priority != fi->fib_priority)
+				break;
+			if (fa->fa_type == cfg->fc_type &&
+			    fa->fa_info == fi) {
+				fa_match = fa;
+				break;
+			}
++			fa_last = fa;
+		}
+
+	It is needed so that NLM_F_APPEND can work.
+Basicly, if list_for_* end with pos pointing to head,
+hlist_for_* end with NULL.
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
