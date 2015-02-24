@@ -1,225 +1,225 @@
 From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Subject: [RFC PATCH 13/29] fib_trie: replace tnode_get_child functions with
- get_child macros
-Date: Tue, 24 Feb 2015 12:49:21 -0800
-Message-ID: <20150224204921.26106.23287.stgit@ahduyck-vm-fedora20>
+Subject: [RFC PATCH 14/29] fib_trie: Rename tnode_child_length to
+ child_length
+Date: Tue, 24 Feb 2015 12:49:29 -0800
+Message-ID: <20150224204929.26106.47615.stgit@ahduyck-vm-fedora20>
 References: <20150224202837.26106.87623.stgit@ahduyck-vm-fedora20>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:46965 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:45292 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752323AbbBXUtX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Feb 2015 15:49:23 -0500
-Received: from int-mx14.intmail.prod.int.phx2.redhat.com (int-mx14.intmail.prod.int.phx2.redhat.com [10.5.11.27])
-	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id t1OKnNho010232
+	id S1752323AbbBXUta (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Feb 2015 15:49:30 -0500
+Received: from int-mx13.intmail.prod.int.phx2.redhat.com (int-mx13.intmail.prod.int.phx2.redhat.com [10.5.11.26])
+	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id t1OKnUUT016516
 	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-GCM-SHA384 bits=256 verify=FAIL)
-	for <netdev@vger.kernel.org>; Tue, 24 Feb 2015 15:49:23 -0500
+	for <netdev@vger.kernel.org>; Tue, 24 Feb 2015 15:49:30 -0500
 Received: from [192.168.122.173] (ovpn-112-73.phx2.redhat.com [10.3.112.73])
-	by int-mx14.intmail.prod.int.phx2.redhat.com (8.14.4/8.14.4) with ESMTP id t1OKnM0d030589
-	for <netdev@vger.kernel.org>; Tue, 24 Feb 2015 15:49:22 -0500
+	by int-mx13.intmail.prod.int.phx2.redhat.com (8.14.4/8.14.4) with ESMTP id t1OKnTIg031179
+	for <netdev@vger.kernel.org>; Tue, 24 Feb 2015 15:49:29 -0500
 In-Reply-To: <20150224202837.26106.87623.stgit@ahduyck-vm-fedora20>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I am replacing the tnode_get_child call with get_child since we are
-techically pulling the child out of a key_vector now and not a tnode.
+We are now checking the length of a key_vector instead of a tnode so it
+makes sense to probably just rename this to child_length since it would
+probably even be applicable to a leaf.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
 ---
- net/ipv4/fib_trie.c |   58 ++++++++++++++++++++-------------------------------
- 1 file changed, 23 insertions(+), 35 deletions(-)
+ net/ipv4/fib_trie.c |   53 ++++++++++++++++++++++++++++-----------------------
+ 1 file changed, 29 insertions(+), 24 deletions(-)
 
 diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
-index caa2e28..d9b192b 100644
+index d9b192b..711f8f2 100644
 --- a/net/ipv4/fib_trie.c
 +++ b/net/ipv4/fib_trie.c
-@@ -154,9 +154,11 @@ static struct kmem_cache *trie_leaf_kmem __read_mostly;
+@@ -91,8 +91,6 @@ typedef unsigned int t_key;
+ #define IS_TNODE(n) ((n)->bits)
+ #define IS_LEAF(n) (!(n)->bits)
  
- /* caller must hold RTNL */
- #define node_parent(n) rtnl_dereference((n)->parent)
-+#define get_child(tn, i) rtnl_dereference((tn)->tnode[i])
- 
- /* caller must hold RCU read lock or RTNL */
- #define node_parent_rcu(n) rcu_dereference_rtnl((n)->parent)
-+#define get_child_rcu(tn, i) rcu_dereference_rtnl((tn)->tnode[i])
- 
- /* wrapper for rcu_assign_pointer */
- static inline void node_set_parent(struct key_vector *n, struct key_vector *tp)
-@@ -175,20 +177,6 @@ static inline unsigned long tnode_child_length(const struct key_vector *tn)
+-#define get_index(_key, _kv) (((_key) ^ (_kv)->key) >> (_kv)->pos)
+-
+ struct key_vector {
+ 	struct rcu_head rcu;
+ 	t_key empty_children;		/* KEYLENGTH bits needed */
+@@ -172,11 +170,18 @@ static inline void node_set_parent(struct key_vector *n, struct key_vector *tp)
+ /* This provides us with the number of children in this node, in the case of a
+  * leaf this will return 0 meaning none of the children are accessible.
+  */
+-static inline unsigned long tnode_child_length(const struct key_vector *tn)
++static inline unsigned long child_length(const struct key_vector *tn)
+ {
  	return (1ul << tn->bits) & ~(1ul);
  }
  
--/* caller must hold RTNL */
--static inline struct key_vector *tnode_get_child(struct key_vector *tn,
--						 unsigned long i)
--{
--	return rtnl_dereference(tn->tnode[i]);
--}
--
--/* caller must hold RCU read lock or RTNL */
--static inline struct key_vector *tnode_get_child_rcu(struct key_vector *tn,
--						     unsigned long i)
--{
--	return rcu_dereference_rtnl(tn->tnode[i]);
--}
--
++static inline unsigned long get_index(t_key key, struct key_vector *kv)
++{
++	unsigned long index = key ^ kv->key;
++
++	return index >> kv->pos;
++}
++
  static inline struct fib_table *trie_get_table(struct trie *t)
  {
  	unsigned long *tb_data = (unsigned long *)t;
-@@ -369,7 +357,7 @@ static inline int tnode_full(struct key_vector *tn, struct key_vector *n)
- static void put_child(struct key_vector *tn, unsigned long i,
- 		      struct key_vector *n)
- {
--	struct key_vector *chi = tnode_get_child(tn, i);
-+	struct key_vector *chi = get_child(tn, i);
+@@ -360,7 +365,7 @@ static void put_child(struct key_vector *tn, unsigned long i,
+ 	struct key_vector *chi = get_child(tn, i);
  	int isfull, wasfull;
  
- 	BUG_ON(i >= tnode_child_length(tn));
-@@ -401,7 +389,7 @@ static void update_children(struct key_vector *tn)
+-	BUG_ON(i >= tnode_child_length(tn));
++	BUG_ON(i >= child_length(tn));
+ 
+ 	/* update emptyChildren, overflow into fullChildren */
+ 	if (n == NULL && chi != NULL)
+@@ -388,7 +393,7 @@ static void update_children(struct key_vector *tn)
+ 	unsigned long i;
  
  	/* update all of the child parent pointers */
- 	for (i = tnode_child_length(tn); i;) {
--		struct key_vector *inode = tnode_get_child(tn, --i);
-+		struct key_vector *inode = get_child(tn, --i);
+-	for (i = tnode_child_length(tn); i;) {
++	for (i = child_length(tn); i;) {
+ 		struct key_vector *inode = get_child(tn, --i);
  
  		if (!inode)
- 			continue;
-@@ -480,7 +468,7 @@ static struct key_vector __rcu **replace(struct trie *t,
+@@ -467,7 +472,7 @@ static struct key_vector __rcu **replace(struct trie *t,
+ 	cptr = tp ? tp->tnode : t->tnode;
  
  	/* resize children now that oldtnode is freed */
- 	for (i = tnode_child_length(tn); i;) {
--		struct key_vector *inode = tnode_get_child(tn, --i);
-+		struct key_vector *inode = get_child(tn, --i);
+-	for (i = tnode_child_length(tn); i;) {
++	for (i = child_length(tn); i;) {
+ 		struct key_vector *inode = get_child(tn, --i);
  
  		/* resize child node */
- 		if (tnode_full(tn, inode))
-@@ -512,7 +500,7 @@ static struct key_vector __rcu **inflate(struct trie *t,
+@@ -499,7 +504,7 @@ static struct key_vector __rcu **inflate(struct trie *t,
+ 	 * point to existing tnodes and the links between our allocated
  	 * nodes.
  	 */
- 	for (i = tnode_child_length(oldtnode), m = 1u << tn->pos; i;) {
--		struct key_vector *inode = tnode_get_child(oldtnode, --i);
-+		struct key_vector *inode = get_child(oldtnode, --i);
+-	for (i = tnode_child_length(oldtnode), m = 1u << tn->pos; i;) {
++	for (i = child_length(oldtnode), m = 1u << tn->pos; i;) {
+ 		struct key_vector *inode = get_child(oldtnode, --i);
  		struct key_vector *node0, *node1;
  		unsigned long j, k;
- 
-@@ -531,8 +519,8 @@ static struct key_vector __rcu **inflate(struct trie *t,
- 
- 		/* An internal node with two children */
- 		if (inode->bits == 1) {
--			put_child(tn, 2 * i + 1, tnode_get_child(inode, 1));
--			put_child(tn, 2 * i, tnode_get_child(inode, 0));
-+			put_child(tn, 2 * i + 1, get_child(inode, 1));
-+			put_child(tn, 2 * i, get_child(inode, 0));
- 			continue;
- 		}
- 
-@@ -562,10 +550,10 @@ static struct key_vector __rcu **inflate(struct trie *t,
+@@ -549,7 +554,7 @@ static struct key_vector __rcu **inflate(struct trie *t,
+ 		tnode_free_append(tn, node0);
  
  		/* populate child pointers in new nodes */
- 		for (k = tnode_child_length(inode), j = k / 2; j;) {
--			put_child(node1, --j, tnode_get_child(inode, --k));
--			put_child(node0, j, tnode_get_child(inode, j));
--			put_child(node1, --j, tnode_get_child(inode, --k));
--			put_child(node0, j, tnode_get_child(inode, j));
-+			put_child(node1, --j, get_child(inode, --k));
-+			put_child(node0, j, get_child(inode, j));
-+			put_child(node1, --j, get_child(inode, --k));
-+			put_child(node0, j, get_child(inode, j));
- 		}
- 
- 		/* link new nodes to parent */
-@@ -607,8 +595,8 @@ static struct key_vector __rcu **halve(struct trie *t,
+-		for (k = tnode_child_length(inode), j = k / 2; j;) {
++		for (k = child_length(inode), j = k / 2; j;) {
+ 			put_child(node1, --j, get_child(inode, --k));
+ 			put_child(node0, j, get_child(inode, j));
+ 			put_child(node1, --j, get_child(inode, --k));
+@@ -594,7 +599,7 @@ static struct key_vector __rcu **halve(struct trie *t,
+ 	 * point to existing tnodes and the links between our allocated
  	 * nodes.
  	 */
- 	for (i = tnode_child_length(oldtnode); i;) {
--		struct key_vector *node1 = tnode_get_child(oldtnode, --i);
--		struct key_vector *node0 = tnode_get_child(oldtnode, --i);
-+		struct key_vector *node1 = get_child(oldtnode, --i);
-+		struct key_vector *node0 = get_child(oldtnode, --i);
+-	for (i = tnode_child_length(oldtnode); i;) {
++	for (i = child_length(oldtnode); i;) {
+ 		struct key_vector *node1 = get_child(oldtnode, --i);
+ 		struct key_vector *node0 = get_child(oldtnode, --i);
  		struct key_vector *inode;
- 
- 		/* At least one of the children is empty */
-@@ -648,7 +636,7 @@ static void collapse(struct trie *t, struct key_vector *oldtnode)
+@@ -635,7 +640,7 @@ static void collapse(struct trie *t, struct key_vector *oldtnode)
+ 	unsigned long i;
  
  	/* scan the tnode looking for that one child that might still exist */
- 	for (n = NULL, i = tnode_child_length(oldtnode); !n && i;)
--		n = tnode_get_child(oldtnode, --i);
-+		n = get_child(oldtnode, --i);
+-	for (n = NULL, i = tnode_child_length(oldtnode); !n && i;)
++	for (n = NULL, i = child_length(oldtnode); !n && i;)
+ 		n = get_child(oldtnode, --i);
  
  	/* compress one level */
- 	tp = node_parent(oldtnode);
-@@ -670,7 +658,7 @@ static unsigned char update_suffix(struct key_vector *tn)
+@@ -657,7 +662,7 @@ static unsigned char update_suffix(struct key_vector *tn)
+ 	 * why we start with a stride of 2 since a stride of 1 would
  	 * represent the nodes with suffix length equal to tn->pos
  	 */
- 	for (i = 0, stride = 0x2ul ; i < tnode_child_length(tn); i += stride) {
--		struct key_vector *n = tnode_get_child(tn, i);
-+		struct key_vector *n = get_child(tn, i);
+-	for (i = 0, stride = 0x2ul ; i < tnode_child_length(tn); i += stride) {
++	for (i = 0, stride = 0x2ul ; i < child_length(tn); i += stride) {
+ 		struct key_vector *n = get_child(tn, i);
  
  		if (!n || (n->slen <= slen))
- 			continue;
-@@ -925,7 +913,7 @@ static struct key_vector *fib_find_node(struct trie *t,
- 			break;
+@@ -690,12 +695,12 @@ static unsigned char update_suffix(struct key_vector *tn)
+  *
+  * 'high' in this instance is the variable 'inflate_threshold'. It
+  * is expressed as a percentage, so we multiply it with
+- * tnode_child_length() and instead of multiplying by 2 (since the
++ * child_length() and instead of multiplying by 2 (since the
+  * child array will be doubled by inflate()) and multiplying
+  * the left-hand side by 100 (to handle the percentage thing) we
+  * multiply the left-hand side by 50.
+  *
+- * The left-hand side may look a bit weird: tnode_child_length(tn)
++ * The left-hand side may look a bit weird: child_length(tn)
+  * - tn->empty_children is of course the number of non-null children
+  * in the current node. tn->full_children is the number of "full"
+  * children, that is non-null tnodes with a skip value of 0.
+@@ -705,10 +710,10 @@ static unsigned char update_suffix(struct key_vector *tn)
+  * A clearer way to write this would be:
+  *
+  * to_be_doubled = tn->full_children;
+- * not_to_be_doubled = tnode_child_length(tn) - tn->empty_children -
++ * not_to_be_doubled = child_length(tn) - tn->empty_children -
+  *     tn->full_children;
+  *
+- * new_child_length = tnode_child_length(tn) * 2;
++ * new_child_length = child_length(tn) * 2;
+  *
+  * new_fill_factor = 100 * (not_to_be_doubled + 2*to_be_doubled) /
+  *      new_child_length;
+@@ -725,23 +730,23 @@ static unsigned char update_suffix(struct key_vector *tn)
+  *      inflate_threshold * new_child_length
+  *
+  * expand not_to_be_doubled and to_be_doubled, and shorten:
+- * 100 * (tnode_child_length(tn) - tn->empty_children +
++ * 100 * (child_length(tn) - tn->empty_children +
+  *    tn->full_children) >= inflate_threshold * new_child_length
+  *
+  * expand new_child_length:
+- * 100 * (tnode_child_length(tn) - tn->empty_children +
++ * 100 * (child_length(tn) - tn->empty_children +
+  *    tn->full_children) >=
+- *      inflate_threshold * tnode_child_length(tn) * 2
++ *      inflate_threshold * child_length(tn) * 2
+  *
+  * shorten again:
+- * 50 * (tn->full_children + tnode_child_length(tn) -
++ * 50 * (tn->full_children + child_length(tn) -
+  *    tn->empty_children) >= inflate_threshold *
+- *    tnode_child_length(tn)
++ *    child_length(tn)
+  *
+  */
+ static inline bool should_inflate(struct key_vector *tp, struct key_vector *tn)
+ {
+-	unsigned long used = tnode_child_length(tn);
++	unsigned long used = child_length(tn);
+ 	unsigned long threshold = used;
  
- 		*tp = n;
--		n = tnode_get_child_rcu(n, index);
-+		n = get_child_rcu(n, index);
- 	}
+ 	/* Keep root node larger */
+@@ -756,7 +761,7 @@ static inline bool should_inflate(struct key_vector *tp, struct key_vector *tn)
  
- 	return n;
-@@ -986,7 +974,7 @@ static struct fib_table *fib_insert_node(struct trie *t,
+ static inline bool should_halve(struct key_vector *tp, struct key_vector *tn)
+ {
+-	unsigned long used = tnode_child_length(tn);
++	unsigned long used = child_length(tn);
+ 	unsigned long threshold = used;
  
- 	/* retrieve child from parent node */
- 	if (tp)
--		n = tnode_get_child(tp, get_index(key, tp));
-+		n = get_child(tp, get_index(key, tp));
- 	else
- 		n = rcu_dereference_rtnl(t->tnode[0]);
+ 	/* Keep root node larger */
+@@ -770,7 +775,7 @@ static inline bool should_halve(struct key_vector *tp, struct key_vector *tn)
  
-@@ -1272,7 +1260,7 @@ int fib_table_lookup(struct fib_table *tb, const struct flowi4 *flp,
- 			cindex = index;
- 		}
+ static inline bool should_collapse(struct key_vector *tn)
+ {
+-	unsigned long used = tnode_child_length(tn);
++	unsigned long used = child_length(tn);
  
--		n = tnode_get_child_rcu(n, index);
-+		n = get_child_rcu(n, index);
- 		if (unlikely(!n))
- 			goto backtrace;
- 	}
-@@ -1508,7 +1496,7 @@ static struct key_vector *leaf_walk_rcu(struct key_vector **pn, t_key key)
- 		cindex = idx;
+ 	used -= tn->empty_children;
  
- 		/* descend into the next child */
--		n = tnode_get_child_rcu(tn, cindex++);
-+		n = get_child_rcu(tn, cindex++);
- 	}
- 
- 	/* this loop will search for the next leaf with a greater key */
-@@ -1526,7 +1514,7 @@ static struct key_vector *leaf_walk_rcu(struct key_vector **pn, t_key key)
- 		}
- 
- 		/* grab the next available node */
--		n = tnode_get_child_rcu(tn, cindex++);
-+		n = get_child_rcu(tn, cindex++);
- 		if (!n)
- 			continue;
- 
-@@ -1592,7 +1580,7 @@ backtrace:
- 			}
- 
- 			/* grab the next available node */
--			n = tnode_get_child(pn, cindex);
-+			n = get_child(pn, cindex);
- 		} while (!n);
- 	}
- 
-@@ -1787,7 +1775,7 @@ static struct key_vector *fib_trie_get_next(struct fib_trie_iter *iter)
+@@ -1774,7 +1779,7 @@ static struct key_vector *fib_trie_get_next(struct fib_trie_iter *iter)
+ 	pr_debug("get_next iter={node=%p index=%d depth=%d}\n",
  		 iter->tnode, iter->index, iter->depth);
  rescan:
- 	while (cindex < tnode_child_length(tn)) {
--		struct key_vector *n = tnode_get_child_rcu(tn, cindex);
-+		struct key_vector *n = get_child_rcu(tn, cindex);
+-	while (cindex < tnode_child_length(tn)) {
++	while (cindex < child_length(tn)) {
+ 		struct key_vector *n = get_child_rcu(tn, cindex);
  
  		if (n) {
- 			if (IS_LEAF(n)) {
