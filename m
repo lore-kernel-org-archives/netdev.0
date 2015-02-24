@@ -1,50 +1,66 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch v2] sunrpc: integer underflow in rsc_parse()
-Date: Tue, 24 Feb 2015 18:34:01 +0300
-Message-ID: <20150224153401.GA12218@mwanda>
-References: <20150223211607.GB28635@fieldses.org>
+From: "Rose, Gregory V" <gregory.v.rose@intel.com>
+Subject: RE: [net-next 13/16] i40e: Fix i40e_ndo_set_vf_spoofchk
+Date: Tue, 24 Feb 2015 16:00:22 +0000
+Message-ID: <C5551D9AAB213A418B7FD5E4A6F30A0789266074@ORSMSX108.amr.corp.intel.com>
+References: <1424661944-1779-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1424661944-1779-14-git-send-email-jeffrey.t.kirsher@intel.com>
+	<CAJ3xEMgf1ue3Byt3n1+LYFFKED8fq3RXJhqihTY=X6cww_MQkg@mail.gmail.com>
+	<C5551D9AAB213A418B7FD5E4A6F30A078926426F@ORSMSX108.amr.corp.intel.com>
+	<CAJ3xEMi7w+gp5QohzK3ByBENoOKWiQi+5761Lo-yDzgU__+Xow@mail.gmail.com>
+	<C5551D9AAB213A418B7FD5E4A6F30A0789265663@ORSMSX108.amr.corp.intel.com>
+ <CAJ3xEMgY_w-7ACmyHBKwf_p5MhiNPaD+pfidBUQy0+Y8m7TRhA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Trond Myklebust <trond.myklebust@primarydata.com>,
-	Anna Schumaker <anna.schumaker@netapp.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jeff Layton <jlayton@primarydata.com>,
-	Kinglong Mee <kinglongmee@gmail.com>,
-	linux-nfs@vger.kernel.org, netdev@vger.kernel.org,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Andy Lutomirski <luto@amacapital.net>,
-	Wang YanQing <udknight@gmail.com>,
-	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: "J. Bruce Fields" <bfields@fieldses.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150223211607.GB28635@fieldses.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	"nhorman@redhat.com" <nhorman@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>,
+	"jogreene@redhat.com" <jogreene@redhat.com>,
+	"Rony Efraim" <ronye@mellanox.com>
+To: Or Gerlitz <gerlitz.or@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:22282 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752262AbbBXQAg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Feb 2015 11:00:36 -0500
+In-Reply-To: <CAJ3xEMgY_w-7ACmyHBKwf_p5MhiNPaD+pfidBUQy0+Y8m7TRhA@mail.gmail.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-If we call groups_alloc() with invalid values then it's might lead to
-memory corruption.  For example, with a negative value then we might not
-allocate enough for sizeof(struct group_info).
-
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
----
-v2:  In v1, I changed groups_alloc().  The other places which call
-groups_alloc() check the value before calling.  Eric wanted that, either
-have all the callers check, or all the callers rely on groups_alloc().
-In the end, Bruce Fields said adding the check here was probably
-reasonable.
-
-diff --git a/net/sunrpc/auth_gss/svcauth_gss.c b/net/sunrpc/auth_gss/svcauth_gss.c
-index 224a82f..1095be9 100644
---- a/net/sunrpc/auth_gss/svcauth_gss.c
-+++ b/net/sunrpc/auth_gss/svcauth_gss.c
-@@ -463,6 +463,8 @@ static int rsc_parse(struct cache_detail *cd,
- 		/* number of additional gid's */
- 		if (get_int(&mesg, &N))
- 			goto out;
-+		if (N < 0 || N > NGROUPS_MAX)
-+			goto out;
- 		status = -ENOMEM;
- 		rsci.cred.cr_group_info = groups_alloc(N);
- 		if (rsci.cred.cr_group_info == NULL)
+DQo+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+IEZyb206IE9yIEdlcmxpdHogW21haWx0
+bzpnZXJsaXR6Lm9yQGdtYWlsLmNvbV0NCj4gU2VudDogVHVlc2RheSwgRmVicnVhcnkgMjQsIDIw
+MTUgMToyMCBBTQ0KPiBUbzogUm9zZSwgR3JlZ29yeSBWDQo+IENjOiBLaXJzaGVyLCBKZWZmcmV5
+IFQ7IERhdmlkIE1pbGxlcjsgTGludXggTmV0ZGV2IExpc3Q7DQo+IG5ob3JtYW5AcmVkaGF0LmNv
+bTsgc2Fzc21hbm5AcmVkaGF0LmNvbTsgam9ncmVlbmVAcmVkaGF0LmNvbTsgUm9ueSBFZnJhaW0N
+Cj4gU3ViamVjdDogUmU6IFtuZXQtbmV4dCAxMy8xNl0gaTQwZTogRml4IGk0MGVfbmRvX3NldF92
+Zl9zcG9vZmNoaw0KPiANCj4gT24gVHVlLCBGZWIgMjQsIDIwMTUgYXQgMTI6MDAgQU0sIFJvc2Us
+IEdyZWdvcnkgVg0KPiA8Z3JlZ29yeS52LnJvc2VAaW50ZWwuY29tPiB3cm90ZToNCj4gPj4gLS0t
+LS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gPj4gRnJvbTogT3IgR2VybGl0eiBbbWFpbHRvOmdl
+cmxpdHoub3JAZ21haWwuY29tXQ0KPiA+PiBTZW50OiBNb25kYXksIEZlYnJ1YXJ5IDIzLCAyMDE1
+IDE6NTIgUE0NCj4gPj4gVG86IFJvc2UsIEdyZWdvcnkgVg0KDQpbc25pcF0NCg0KPiA+IFdpdGgg
+c3Bvb2YgY2hlY2tpbmcgb2ZmIHRoZW4gdGhlIFZGIGNhbiBzZW5kL3JlY2VpdmUgb24gYW55IFZM
+QU4gaXQNCj4gd2FudHMuICBXaXRoIHNwb29mIGNoZWNraW5nIG9uIHRoZSBWTEFOIGZpbHRlciBt
+dXN0IGV4aXN0IGluIHRoZSBIVw0KPiBmaWx0ZXJpbmcgYmVmb3JlIHRoZSBWRiBjYW4gc2VuZC9y
+ZWNlaXZlIG9uIHRoYXQgVkxBTi4NCj4gDQo+IFNvIHdlIGFncmVlIHRoYXQgdGhlIG9ubHkgdGhp
+bmcgdGhlIFZGIGtub3dzIGlzIHRoZSBNQUMgd2hpY2ggd2FzDQo+IHByb3Zpc2lvbmVkIHRvIHRo
+ZW0gYnkgdGhlIGFkbWluIHRocm91Z2ggdGhlIFBGLCBzbyBpbiB0aGF0IHJlc3BlY3QsIEkgYW0N
+Cj4gc3RpbGwgbm90IGNsZWFyIHdoYXQgaXMgdGhlIGNyaXRlcmlhIGZvciB5b3VyIFBGIGRyaXZl
+ciB0byBkZWNpZGUgdGhleSBhcmUNCj4gc3Bvb2ZpbmcgYSB2bGFuLWlkPyENCg0KSXQncyBhIEhX
+IHNwZWNpZmljIGNyaXRlcmlhIC0gd2UgdXNlIHZhcmlvdXMgbWV0aG9kcyBpbiBvdXIgcHJvZHVj
+dHMgdGhhdCBzdXBwb3J0IFNSLUlPViBmb3IgSFcgYXNzaXN0ZWQgVkxBTiBmaWx0ZXJpbmcgb24g
+dGhlIHJlY2VpdmUgc2lkZS4gIFNvIHdpdGggc3Bvb2YgY2hlY2tpbmcgdHVybmVkIG9uIHRoZSBW
+RiBjYW5ub3QgdHJhbnNtaXQgb24gYSBnaXZlbiBWTEFOIHdpdGhvdXQgYW4gYXNzb2NpYXRlZCBW
+TEFOIGZpbHRlciBoYXZpbmcgYmVlbiBzZXQgb24gdGhlIHJlY2VpdmUgc2lkZS4gIEFuZCB0aGUg
+VkYncyBjYW5ub3Qgc2V0IGEgVkxBTiBmaWx0ZXIgd2l0aG91dCBhc3Npc3RhbmNlIGZyb20gdGhl
+IFBGIGRyaXZlciBzbyB0aGF0IHByb3ZpZGVzIGFuIG9wcG9ydHVuaXR5IGZvciB0aGUgc3lzdGVt
+IGFkbWluaXN0cmF0b3IgdG8gcHJvdmlkZSAiaG9va3MiIG9yIG90aGVyIGFkbWluaXN0cmF0aXZl
+IGNvbnRyb2xzIG9uIHdoaWNoIFZMQU5zIHRoZSBWRiBjYW4gdXNlLiAgQWdhaW4gLSBpdCBpcyBu
+b3QgaW1wbGVtZW50ZWQgaW4gb3VyIGdlbmVyYWwgcHVycG9zZSBMaW51eCBkcml2ZXIgYnV0IHRo
+ZXJlIGFyZSBjdXN0b21lcnMgd2hvIGhhdmUgdXNlZCBvdXIgSFcgdG8gaW1wbGVtZW50IHRoZWly
+IG93biBWTEFOIGZpbHRlcmluZyBjb250cm9scyB0byBsaW1pdCB3aGF0IFZMQU5zIHRoZSBWRiBj
+YW4gcGFydGljaXBhdGUgaW4uDQoNCk9yIHRoZSBhZG1pbmlzdHJhdG9yIGNhbiBqdXN0IHR1cm4g
+b2ZmIHNwb29mIGNoZWNraW5nIGlmIHRoZXkgInRydXN0IiB0aGVpciBWRiB0byBzZXQgcGVybWl0
+dGVkIFZMQU4gZmlsdGVycy4NCg0KLSBHcmVnDQoNCg==
