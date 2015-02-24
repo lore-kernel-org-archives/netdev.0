@@ -1,78 +1,61 @@
-From: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
-Subject: Re: [PATCH] net: cadence: Enable MACB driver for ARM64
-Date: Tue, 24 Feb 2015 20:12:34 +0800
-Message-ID: <59CA6960-8233-4D87-A337-0C7E10FD562A@jcrosoft.com>
-References: <5a2ef83a03f6df78c8de643a19fb3f6105d892f4.1424763946.git.michal.simek@xilinx.com>
-Mime-Version: 1.0 (Mac OS X Mail 8.2 \(2070.6\))
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>,
-	linux-kernel@vger.kernel.org, monstr@monstr.eu,
-	Nicolas FERRE <nicolas.ferre@atmel.com>, netdev@vger.kernel.org
-To: Michal Simek <michal.simek@xilinx.com>
+From: "Rosen, Rami" <rami.rosen@intel.com>
+Subject: RE: [PATCH net-next RFC] ipv4 neigh: match add/del dev lookup
+ behaviour to SIOCSARP/SIOCDARP
+Date: Tue, 24 Feb 2015 14:01:30 +0000
+Message-ID: <9B0331B6EBBD0E4684FBFAEDA55776F9189654A5@HASMSX110.ger.corp.intel.com>
+References: <1424756572-29379-1-git-send-email-roopa@cumulusnetworks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"hannes@stressinduktion.org" <hannes@stressinduktion.org>
+To: "roopa@cumulusnetworks.com" <roopa@cumulusnetworks.com>,
+	"hadi@mojatatu.com" <hadi@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 3.mo2.mail-out.ovh.net ([46.105.58.226]:33698 "EHLO
-	3.mo2.mail-out.ovh.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751436AbbBXNcH convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Feb 2015 08:32:07 -0500
-Received: from mail613.ha.ovh.net (b9.ovh.net [213.186.33.59])
-	by mo2.mail-out.ovh.net (Postfix) with SMTP id 056E1FFAF70
-	for <netdev@vger.kernel.org>; Tue, 24 Feb 2015 13:12:42 +0100 (CET)
-In-Reply-To: <5a2ef83a03f6df78c8de643a19fb3f6105d892f4.1424763946.git.michal.simek@xilinx.com>
+Received: from mga02.intel.com ([134.134.136.20]:10360 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750748AbbBXOBi convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Feb 2015 09:01:38 -0500
+In-Reply-To: <1424756572-29379-1-git-send-email-roopa@cumulusnetworks.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi,
 
-> On Feb 24, 2015, at 3:45 PM, Michal Simek <michal.simek@xilinx.com> w=
-rote:
->=20
-> This driver is used on new Xilinx ZynqMP SoC.
->=20
-> Signed-off-by: Michal Simek <michal.simek@xilinx.com>
-> Acked-by: S=C3=B6ren Brinkmann <soren.brinkmann@xilinx.com>
-> ---
->=20
-> drivers/net/ethernet/cadence/Kconfig | 4 ++--
-> 1 file changed, 2 insertions(+), 2 deletions(-)
->=20
-> diff --git a/drivers/net/ethernet/cadence/Kconfig b/drivers/net/ether=
-net/cadence/Kconfig
-> index 321d2ad235d9..4562f90c0348 100644
-> --- a/drivers/net/ethernet/cadence/Kconfig
-> +++ b/drivers/net/ethernet/cadence/Kconfig
-> @@ -4,7 +4,7 @@
->=20
-> config NET_CADENCE
-> 	bool "Cadence devices"
-> -	depends on HAS_IOMEM && (ARM || AVR32 || MICROBLAZE || COMPILE_TEST=
-)
-> +	depends on HAS_IOMEM && (ARM || ARM64 || AVR32 || MICROBLAZE || COM=
-PILE_TEST)
+@@ -1692,24 +1703,31 @@ static int neigh_add(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 		goto out;
+ 
+ 	ndm = nlmsg_data(nlh);
++	tbl = neigh_find_table(ndm->ndm_family);
++	if (tbl == NULL)
++		return -EAFNOSUPPORT;
++
++	if (nla_len(tb[NDA_DST]) < tbl->key_len)
++		goto out;
++
++	dst = nla_data(tb[NDA_DST]);
+ 	if (ndm->ndm_ifindex) {
+ 		dev = __dev_get_by_index(net, ndm->ndm_ifindex);
+ 		if (dev == NULL) {
+ 			err = -ENODEV;
+ 			goto out;
+ 		}
 
-drop the arch test just put HAS_IOMEM
+If ip_route_output() fails, then the neigh_add() method will return -EINVAL (as it was initialized thus); or, in cases when the NTF_PROXY flag is set, it can return 0 or ENOBUFS, according to the result of the pneigh_lookup(), which is called immediately subsequently in this path. But in fact __ip_route_output_key(), which is invoked by ip_route_output(), can return different error codes, like -EINVAL,-ENODEV, -ENETUNREACH and more, via ERR_PTR. 
 
-Best Regards,
-J.
-> 	default y
-> 	---help---
-> 	  If you have a network (Ethernet) card belonging to this class, say=
- Y.
-> @@ -30,7 +30,7 @@ config ARM_AT91_ETHER
->=20
-> config MACB
-> 	tristate "Cadence MACB/GEM support"
-> -	depends on HAS_DMA && (PLATFORM_AT32AP || ARCH_AT91 || ARCH_PICOXCE=
-LL || ARCH_ZYNQ || MICROBLAZE || COMPILE_TEST)
-> +	depends on HAS_DMA && (PLATFORM_AT32AP || ARCH_AT91 || ARCH_PICOXCE=
-LL || ARCH_ZYNQ || ARM64 || MICROBLAZE || COMPILE_TEST)
-> 	select PHYLIB
-> 	---help---
-> 	  The Cadence MACB ethernet interface is found on many Atmel AT32 an=
-d
-> --=20
-> 1.8.2.3
->=20
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+ So maybe better is (in order to reflect the cause of the error):
++		if (!IS_ERR(rt)) {
++			dev = rt->dst.dev;
++			ip_rt_put(rt);
++		} else
+                                               return PTR_ERR(rt);
+
+We can exit the method at this point with "return PTR_ERR(rt)" because we are assured at this point that dev is NULL.
+
+Error handling in neigh_delete() method maybe also be better changed accordingly.
+
+Regards,
+Rami Rosen
+Intel Corporation
