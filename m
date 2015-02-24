@@ -1,400 +1,361 @@
 From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Subject: [RFC PATCH 08/29] fib_trie: Update insert and delete to make use of
- tp from find_node
-Date: Tue, 24 Feb 2015 12:48:48 -0800
-Message-ID: <20150224204848.26106.32874.stgit@ahduyck-vm-fedora20>
+Subject: [RFC PATCH 09/29] fib_trie: Make fib_table rcu safe
+Date: Tue, 24 Feb 2015 12:48:56 -0800
+Message-ID: <20150224204856.26106.60450.stgit@ahduyck-vm-fedora20>
 References: <20150224202837.26106.87623.stgit@ahduyck-vm-fedora20>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:53725 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:46780 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752326AbbBXUsv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Feb 2015 15:48:51 -0500
-Received: from int-mx14.intmail.prod.int.phx2.redhat.com (int-mx14.intmail.prod.int.phx2.redhat.com [10.5.11.27])
-	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id t1OKmowL008690
+	id S1752326AbbBXUs5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Feb 2015 15:48:57 -0500
+Received: from int-mx09.intmail.prod.int.phx2.redhat.com (int-mx09.intmail.prod.int.phx2.redhat.com [10.5.11.22])
+	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id t1OKmv3r010089
 	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-GCM-SHA384 bits=256 verify=FAIL)
-	for <netdev@vger.kernel.org>; Tue, 24 Feb 2015 15:48:50 -0500
+	for <netdev@vger.kernel.org>; Tue, 24 Feb 2015 15:48:57 -0500
 Received: from [192.168.122.173] (ovpn-112-73.phx2.redhat.com [10.3.112.73])
-	by int-mx14.intmail.prod.int.phx2.redhat.com (8.14.4/8.14.4) with ESMTP id t1OKmmDF030385
-	for <netdev@vger.kernel.org>; Tue, 24 Feb 2015 15:48:49 -0500
+	by int-mx09.intmail.prod.int.phx2.redhat.com (8.14.4/8.14.4) with ESMTP id t1OKmupA029913
+	for <netdev@vger.kernel.org>; Tue, 24 Feb 2015 15:48:56 -0500
 In-Reply-To: <20150224202837.26106.87623.stgit@ahduyck-vm-fedora20>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This change makes it so that the insert and delete functions make use of
-the tnode pointer returned in the fib_find_node call.  By doing this we
-will not have to rely on the parent pointer in the leaf which will be going
-away soon.
+The fib_table was wrapped in several places with an
+rcu_read_lock/rcu_read_unlock however after looking over the code I found
+several spots where the tables were being accessed as just standard
+pointers without any protections.  This change fixes that so that all of
+the proper protections are in place when accessing the table to take RCU
+replacement of the table into account.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
 ---
- net/ipv4/fib_trie.c |  237 ++++++++++++++++++++-------------------------------
- 1 file changed, 94 insertions(+), 143 deletions(-)
+ include/net/ip_fib.h     |   69 +++++++++++++++++++++++++++-------------------
+ include/net/netns/ipv4.h |    7 +++--
+ net/ipv4/fib_frontend.c  |   52 +++++++++++++++++++++++++----------
+ net/ipv4/fib_trie.c      |   28 +++++++++++++------
+ 4 files changed, 102 insertions(+), 54 deletions(-)
 
+diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
+index cba4b7c..8aa6f82 100644
+--- a/include/net/ip_fib.h
++++ b/include/net/ip_fib.h
+@@ -206,12 +206,16 @@ void fib_free_table(struct fib_table *tb);
+ 
+ static inline struct fib_table *fib_get_table(struct net *net, u32 id)
+ {
++	struct hlist_node *tb_hlist;
+ 	struct hlist_head *ptr;
+ 
+ 	ptr = id == RT_TABLE_LOCAL ?
+ 		&net->ipv4.fib_table_hash[TABLE_LOCAL_INDEX] :
+ 		&net->ipv4.fib_table_hash[TABLE_MAIN_INDEX];
+-	return hlist_entry(ptr->first, struct fib_table, tb_hlist);
++
++	tb_hlist = rcu_dereference_rtnl(hlist_first_rcu(ptr));
++
++	return hlist_entry(tb_hlist, struct fib_table, tb_hlist);
+ }
+ 
+ static inline struct fib_table *fib_new_table(struct net *net, u32 id)
+@@ -222,15 +226,19 @@ static inline struct fib_table *fib_new_table(struct net *net, u32 id)
+ static inline int fib_lookup(struct net *net, const struct flowi4 *flp,
+ 			     struct fib_result *res)
+ {
+-	int err = -ENETUNREACH;
++	struct fib_table *tb;
++	int err;
+ 
+ 	rcu_read_lock();
+ 
+-	if (!fib_table_lookup(fib_get_table(net, RT_TABLE_LOCAL), flp, res,
+-			      FIB_LOOKUP_NOREF) ||
+-	    !fib_table_lookup(fib_get_table(net, RT_TABLE_MAIN), flp, res,
+-			      FIB_LOOKUP_NOREF))
+-		err = 0;
++	for (err = 0; !err; err = -ENETUNREACH) {
++		tb = fib_get_table(net, RT_TABLE_LOCAL);
++		if (tb && !fib_table_lookup(tb, flp, res, FIB_LOOKUP_NOREF))
++			break;
++		tb = fib_get_table(net, RT_TABLE_MAIN);
++		if (tb && !fib_table_lookup(tb, flp, res, FIB_LOOKUP_NOREF))
++			break;
++	}
+ 
+ 	rcu_read_unlock();
+ 
+@@ -249,28 +257,33 @@ int __fib_lookup(struct net *net, struct flowi4 *flp, struct fib_result *res);
+ static inline int fib_lookup(struct net *net, struct flowi4 *flp,
+ 			     struct fib_result *res)
+ {
+-	if (!net->ipv4.fib_has_custom_rules) {
+-		int err = -ENETUNREACH;
+-
+-		rcu_read_lock();
+-
+-		res->tclassid = 0;
+-		if ((net->ipv4.fib_local &&
+-		     !fib_table_lookup(net->ipv4.fib_local, flp, res,
+-				       FIB_LOOKUP_NOREF)) ||
+-		    (net->ipv4.fib_main &&
+-		     !fib_table_lookup(net->ipv4.fib_main, flp, res,
+-				       FIB_LOOKUP_NOREF)) ||
+-		    (net->ipv4.fib_default &&
+-		     !fib_table_lookup(net->ipv4.fib_default, flp, res,
+-				       FIB_LOOKUP_NOREF)))
+-			err = 0;
+-
+-		rcu_read_unlock();
+-
+-		return err;
++	struct fib_table *tb;
++	int err;
++
++	if (net->ipv4.fib_has_custom_rules)
++		return __fib_lookup(net, flp, res);
++
++	rcu_read_lock();
++
++	res->tclassid = 0;
++
++	for (err = 0; !err; err = -ENETUNREACH) {
++		tb = rcu_dereference_rtnl(net->ipv4.fib_local);
++		if (tb && !fib_table_lookup(tb, flp, res, FIB_LOOKUP_NOREF))
++			break;
++
++		tb = rcu_dereference_rtnl(net->ipv4.fib_main);
++		if (tb && !fib_table_lookup(tb, flp, res, FIB_LOOKUP_NOREF))
++			break;
++
++		tb = rcu_dereference_rtnl(net->ipv4.fib_default);
++		if (tb && !fib_table_lookup(tb, flp, res, FIB_LOOKUP_NOREF))
++			break;
+ 	}
+-	return __fib_lookup(net, flp, res);
++
++	rcu_read_unlock();
++
++	return err;
+ }
+ 
+ #endif /* CONFIG_IP_MULTIPLE_TABLES */
+diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
+index dbe2254..d4f5b6f 100644
+--- a/include/net/netns/ipv4.h
++++ b/include/net/netns/ipv4.h
+@@ -7,6 +7,7 @@
+ 
+ #include <linux/uidgid.h>
+ #include <net/inet_frag.h>
++#include <linux/rcupdate.h>
+ 
+ struct tcpm_hash_bucket;
+ struct ctl_table_header;
+@@ -38,9 +39,9 @@ struct netns_ipv4 {
+ #ifdef CONFIG_IP_MULTIPLE_TABLES
+ 	struct fib_rules_ops	*rules_ops;
+ 	bool			fib_has_custom_rules;
+-	struct fib_table	*fib_local;
+-	struct fib_table	*fib_main;
+-	struct fib_table	*fib_default;
++	struct fib_table __rcu	*fib_local;
++	struct fib_table __rcu	*fib_main;
++	struct fib_table __rcu	*fib_default;
+ #endif
+ #ifdef CONFIG_IP_ROUTE_CLASSID
+ 	int			fib_num_tclassid_users;
+diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
+index 57be71d..220c4b4 100644
+--- a/net/ipv4/fib_frontend.c
++++ b/net/ipv4/fib_frontend.c
+@@ -89,17 +89,14 @@ struct fib_table *fib_new_table(struct net *net, u32 id)
+ 
+ 	switch (id) {
+ 	case RT_TABLE_LOCAL:
+-		net->ipv4.fib_local = tb;
++		rcu_assign_pointer(net->ipv4.fib_local, tb);
+ 		break;
+-
+ 	case RT_TABLE_MAIN:
+-		net->ipv4.fib_main = tb;
++		rcu_assign_pointer(net->ipv4.fib_main, tb);
+ 		break;
+-
+ 	case RT_TABLE_DEFAULT:
+-		net->ipv4.fib_default = tb;
++		rcu_assign_pointer(net->ipv4.fib_default, tb);
+ 		break;
+-
+ 	default:
+ 		break;
+ 	}
+@@ -132,13 +129,14 @@ struct fib_table *fib_get_table(struct net *net, u32 id)
+ static void fib_flush(struct net *net)
+ {
+ 	int flushed = 0;
+-	struct fib_table *tb;
+-	struct hlist_head *head;
+ 	unsigned int h;
+ 
+ 	for (h = 0; h < FIB_TABLE_HASHSZ; h++) {
+-		head = &net->ipv4.fib_table_hash[h];
+-		hlist_for_each_entry(tb, head, tb_hlist)
++		struct hlist_head *head = &net->ipv4.fib_table_hash[h];
++		struct hlist_node *tmp;
++		struct fib_table *tb;
++
++		hlist_for_each_entry_safe(tb, tmp, head, tb_hlist)
+ 			flushed += fib_table_flush(tb);
+ 	}
+ 
+@@ -665,10 +663,12 @@ static int inet_dump_fib(struct sk_buff *skb, struct netlink_callback *cb)
+ 	s_h = cb->args[0];
+ 	s_e = cb->args[1];
+ 
++	rcu_read_lock();
++
+ 	for (h = s_h; h < FIB_TABLE_HASHSZ; h++, s_e = 0) {
+ 		e = 0;
+ 		head = &net->ipv4.fib_table_hash[h];
+-		hlist_for_each_entry(tb, head, tb_hlist) {
++		hlist_for_each_entry_rcu(tb, head, tb_hlist) {
+ 			if (e < s_e)
+ 				goto next;
+ 			if (dumped)
+@@ -682,6 +682,8 @@ next:
+ 		}
+ 	}
+ out:
++	rcu_read_unlock();
++
+ 	cb->args[1] = e;
+ 	cb->args[0] = h;
+ 
+@@ -1117,14 +1119,34 @@ static void ip_fib_net_exit(struct net *net)
+ 
+ 	rtnl_lock();
+ 	for (i = 0; i < FIB_TABLE_HASHSZ; i++) {
+-		struct fib_table *tb;
+-		struct hlist_head *head;
++		struct hlist_head *head = &net->ipv4.fib_table_hash[i];
+ 		struct hlist_node *tmp;
++		struct fib_table *tb;
++
++		/* this is done in two passes as flushing the table could
++		 * cause it to be reallocated in order to accommodate new
++		 * tnodes at the root as the table shrinks.
++		 */
++		hlist_for_each_entry_safe(tb, tmp, head, tb_hlist)
++			fib_table_flush(tb);
+ 
+-		head = &net->ipv4.fib_table_hash[i];
+ 		hlist_for_each_entry_safe(tb, tmp, head, tb_hlist) {
++#ifdef CONFIG_IP_MULTIPLE_TABLES
++			switch (tb->tb_id) {
++			case RT_TABLE_LOCAL:
++				RCU_INIT_POINTER(net->ipv4.fib_local, NULL);
++				break;
++			case RT_TABLE_MAIN:
++				RCU_INIT_POINTER(net->ipv4.fib_main, NULL);
++				break;
++			case RT_TABLE_DEFAULT:
++				RCU_INIT_POINTER(net->ipv4.fib_default, NULL);
++				break;
++			default:
++				break;
++			}
++#endif
+ 			hlist_del(&tb->tb_hlist);
+-			fib_table_flush(tb);
+ 			fib_free_table(tb);
+ 		}
+ 	}
 diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
-index 1cb9e92..dcdf636 100644
+index dcdf636..b895ee7 100644
 --- a/net/ipv4/fib_trie.c
 +++ b/net/ipv4/fib_trie.c
-@@ -300,7 +300,7 @@ static inline void empty_child_dec(struct tnode *n)
- 	n->empty_children-- ? : n->full_children--;
+@@ -138,6 +138,7 @@ struct trie {
+ #ifdef CONFIG_IP_FIB_TRIE_STATS
+ 	struct trie_use_stats __percpu *stats;
+ #endif
++	struct rcu_head rcu;
+ };
+ 
+ static void resize(struct trie *t, struct tnode *tn);
+@@ -190,6 +191,13 @@ static inline struct tnode *tnode_get_child_rcu(const struct tnode *tn,
+ 	return rcu_dereference_rtnl(tn->child[i]);
  }
  
--static struct tnode *leaf_new(t_key key)
-+static struct tnode *leaf_new(t_key key, struct fib_alias *fa)
- {
- 	struct tnode *l = kmem_cache_alloc(trie_leaf_kmem, GFP_KERNEL);
- 	if (l) {
-@@ -310,12 +310,14 @@ static struct tnode *leaf_new(t_key key)
- 		 * as the nodes are searched
- 		 */
- 		l->key = key;
--		l->slen = 0;
-+		l->slen = fa->fa_slen;
- 		l->pos = 0;
- 		/* set bits to 0 indicating we are not a tnode */
- 		l->bits = 0;
- 
-+		/* link leaf to fib alias */
- 		INIT_HLIST_HEAD(&l->leaf);
-+		hlist_add_head(&fa->fa_list, &l->leaf);
- 	}
- 	return l;
- }
-@@ -842,10 +844,8 @@ static void resize(struct trie *t, struct tnode *tn)
- 	}
- }
- 
--static void leaf_pull_suffix(struct tnode *l)
-+static void leaf_pull_suffix(struct tnode *tp, struct tnode *l)
- {
--	struct tnode *tp = node_parent(l);
--
- 	while (tp && (tp->slen > tp->pos) && (tp->slen > l->slen)) {
- 		if (update_suffix(tp) > l->slen)
- 			break;
-@@ -853,10 +853,8 @@ static void leaf_pull_suffix(struct tnode *l)
- 	}
- }
- 
--static void leaf_push_suffix(struct tnode *l)
-+static void leaf_push_suffix(struct tnode *tn, struct tnode *l)
- {
--	struct tnode *tn = node_parent(l);
--
- 	/* if this is a new leaf then tn will be NULL and we can sort
- 	 * out parent suffix lengths as a part of trie_rebalance
- 	 */
-@@ -866,51 +864,6 @@ static void leaf_push_suffix(struct tnode *l)
- 	}
- }
- 
--static void fib_remove_alias(struct tnode *l, struct fib_alias *old)
--{
--	/* record the location of the previous list_info entry */
--	struct hlist_node **pprev = old->fa_list.pprev;
--	struct fib_alias *fa = hlist_entry(pprev, typeof(*fa), fa_list.next);
--
--	/* remove the fib_alias from the list */
--	hlist_del_rcu(&old->fa_list);
--
--	/* only access fa if it is pointing at the last valid hlist_node */
--	if (hlist_empty(&l->leaf) || (*pprev))
--		return;
--
--	/* update the trie with the latest suffix length */
--	l->slen = fa->fa_slen;
--	leaf_pull_suffix(l);
--}
--
--static void fib_insert_alias(struct tnode *l, struct fib_alias *fa,
--			     struct fib_alias *new)
--{
--	struct hlist_head *head = &l->leaf;
--
--	if (!fa) {
--		struct fib_alias *last;
--
--		hlist_for_each_entry(last, head, fa_list) {
--			if (new->fa_slen < last->fa_slen)
--				break;
--			fa = last;
--		}
--	}
--
--	if (fa)
--		hlist_add_behind_rcu(&new->fa_list, &fa->fa_list);
--	else
--		hlist_add_head_rcu(&new->fa_list, head);
--
--	/* if we added to the tail node then we need to update slen */
--	if (l->slen < new->fa_slen) {
--		l->slen = new->fa_slen;
--		leaf_push_suffix(l);
--	}
--}
--
- /* rcu_read_lock needs to be hold by caller from readside */
- static struct tnode *fib_find_node(struct trie *t, struct tnode **tp, u32 key)
- {
-@@ -974,61 +927,28 @@ static void trie_rebalance(struct trie *t, struct tnode *tn)
- {
- 	struct tnode *tp;
- 
--	while ((tp = node_parent(tn)) != NULL) {
-+	while (tn) {
-+		tp = node_parent(tn);
- 		resize(t, tn);
- 		tn = tp;
- 	}
--
--	/* Handle last (top) tnode */
--	if (IS_TNODE(tn))
--		resize(t, tn);
- }
- 
- /* only used from updater-side */
--
--static struct tnode *fib_insert_node(struct trie *t, u32 key, int plen)
-+static int fib_insert_node(struct trie *t, struct tnode *tp,
-+			   struct fib_alias *new, t_key key)
- {
--	struct tnode *l, *n, *tp = NULL;
--
--	n = rtnl_dereference(t->trie);
--
--	/* If we point to NULL, stop. Either the tree is empty and we should
--	 * just put a new leaf in if, or we have reached an empty child slot,
--	 * and we should just put our new leaf in that.
--	 *
--	 * If we hit a node with a key that does't match then we should stop
--	 * and create a new tnode to replace that node and insert ourselves
--	 * and the other node into the new tnode.
--	 */
--	while (n) {
--		unsigned long index = get_index(key, n);
-+	struct tnode *n, *l;
- 
--		/* This bit of code is a bit tricky but it combines multiple
--		 * checks into a single check.  The prefix consists of the
--		 * prefix plus zeros for the "bits" in the prefix. The index
--		 * is the difference between the key and this value.  From
--		 * this we can actually derive several pieces of data.
--		 *   if !(index >> bits)
--		 *     we know the value is child index
--		 *   else
--		 *     we have a mismatch in skip bits and failed
--		 */
--		if (index >> n->bits)
--			break;
--
--		/* we have found a leaf. Prefixes have already been compared */
--		if (IS_LEAF(n)) {
--			/* Case 1: n is a leaf, and prefixes match*/
--			return n;
--		}
--
--		tp = n;
--		n = tnode_get_child_rcu(n, index);
--	}
--
--	l = leaf_new(key);
-+	l = leaf_new(key, new);
- 	if (!l)
--		return NULL;
-+		return -ENOMEM;
++static inline struct fib_table *trie_get_table(struct trie *t)
++{
++	unsigned long *tb_data = (unsigned long *)t;
 +
-+	/* retrieve child from parent node */
-+	if (tp)
-+		n = tnode_get_child(tp, get_index(key, tp));
-+	else
-+		n = rcu_dereference_rtnl(t->trie);
++	return container_of(tb_data, struct fib_table, tb_data[0]);
++}
++
+ /* To understand this stuff, an understanding of keys and all their bits is
+  * necessary. Every node in the trie has a key associated with it, but not
+  * all of the bits in that key are significant.
+@@ -1584,16 +1592,24 @@ flush_complete:
+ 	return found;
+ }
  
- 	/* Case 2: n is a LEAF or a TNODE and the key doesn't match.
- 	 *
-@@ -1042,7 +962,7 @@ static struct tnode *fib_insert_node(struct trie *t, u32 key, int plen)
- 		tn = tnode_new(key, __fls(key ^ n->key), 1);
- 		if (!tn) {
- 			node_free(l);
--			return NULL;
-+			return -ENOMEM;
+-void fib_free_table(struct fib_table *tb)
++static void __trie_free_rcu(struct rcu_head *head)
+ {
+-#ifdef CONFIG_IP_FIB_TRIE_STATS
+-	struct trie *t = (struct trie *)tb->tb_data;
++	struct trie *t = container_of(head, struct trie, rcu);
++	struct fib_table *tb = trie_get_table(t);
+ 
++#ifdef CONFIG_IP_FIB_TRIE_STATS
+ 	free_percpu(t->stats);
+ #endif /* CONFIG_IP_FIB_TRIE_STATS */
+ 	kfree(tb);
+ }
+ 
++void fib_free_table(struct fib_table *tb)
++{
++	struct trie *t = (struct trie *)tb->tb_data;
++
++	call_rcu(&t->rcu, __trie_free_rcu);
++}
++
+ static int fn_trie_dump_leaf(struct tnode *l, struct fib_table *tb,
+ 			     struct sk_buff *skb, struct netlink_callback *cb)
+ {
+@@ -1630,6 +1646,7 @@ static int fn_trie_dump_leaf(struct tnode *l, struct fib_table *tb,
+ 	return skb->len;
+ }
+ 
++/* rcu_read_lock needs to be hold by caller from readside */
+ int fib_table_dump(struct fib_table *tb, struct sk_buff *skb,
+ 		   struct netlink_callback *cb)
+ {
+@@ -1641,15 +1658,12 @@ int fib_table_dump(struct fib_table *tb, struct sk_buff *skb,
+ 	int count = cb->args[2];
+ 	t_key key = cb->args[3];
+ 
+-	rcu_read_lock();
+-
+ 	tp = rcu_dereference_rtnl(t->trie);
+ 
+ 	while ((l = leaf_walk_rcu(&tp, key)) != NULL) {
+ 		if (fn_trie_dump_leaf(l, tb, skb, cb) < 0) {
+ 			cb->args[3] = key;
+ 			cb->args[2] = count;
+-			rcu_read_unlock();
+ 			return -1;
  		}
  
- 		/* initialize routes out of node */
-@@ -1058,20 +978,45 @@ static struct tnode *fib_insert_node(struct trie *t, u32 key, int plen)
+@@ -1664,8 +1678,6 @@ int fib_table_dump(struct fib_table *tb, struct sk_buff *skb,
+ 			break;
  	}
  
- 	/* Case 3: n is NULL, and will just insert a new leaf */
--	if (tp) {
--		NODE_INIT_PARENT(l, tp);
--		put_child(tp, get_index(key, tp), l);
--		trie_rebalance(t, tp);
--	} else {
--		rcu_assign_pointer(t->trie, l);
-+	NODE_INIT_PARENT(l, tp);
-+	put_child_root(tp, t, key, l);
-+	trie_rebalance(t, tp);
-+
-+	return 0;
-+}
-+
-+static int fib_insert_alias(struct trie *t, struct tnode *tp,
-+			    struct tnode *l, struct fib_alias *new,
-+			    struct fib_alias *fa, t_key key)
-+{
-+	if (!l)
-+		return fib_insert_node(t, tp, new, key);
-+
-+	if (!fa) {
-+		struct fib_alias *last;
-+
-+		hlist_for_each_entry(last, &l->leaf, fa_list) {
-+			if (new->fa_slen < last->fa_slen)
-+				break;
-+			fa = last;
-+		}
- 	}
- 
--	return l;
-+	if (fa)
-+		hlist_add_behind_rcu(&new->fa_list, &fa->fa_list);
-+	else
-+		hlist_add_head_rcu(&new->fa_list, &l->leaf);
-+
-+	/* if we added to the tail node then we need to update slen */
-+	if (l->slen < new->fa_slen) {
-+		l->slen = new->fa_slen;
-+		leaf_push_suffix(tp, l);
-+	}
-+
-+	return 0;
- }
- 
--/*
-- * Caller must hold RTNL.
-- */
-+/* Caller must hold RTNL. */
- int fib_table_insert(struct fib_table *tb, struct fib_config *cfg)
- {
- 	struct trie *t = (struct trie *)tb->tb_data;
-@@ -1201,19 +1146,13 @@ int fib_table_insert(struct fib_table *tb, struct fib_config *cfg)
- 	new_fa->fa_slen = slen;
- 
- 	/* Insert new entry to the list. */
--	if (!l) {
--		l = fib_insert_node(t, key, plen);
--		if (unlikely(!l)) {
--			err = -ENOMEM;
--			goto out_free_new_fa;
--		}
--	}
-+	err = fib_insert_alias(t, tp, l, new_fa, fa, key);
-+	if (err)
-+		goto out_free_new_fa;
- 
- 	if (!plen)
- 		tb->tb_num_default++;
- 
--	fib_insert_alias(l, fa, new_fa);
+-	rcu_read_unlock();
 -
- 	rt_cache_flush(cfg->fc_nlinfo.nl_net);
- 	rtmsg_fib(RTM_NEWROUTE, htonl(key), new_fa, plen, tb->tb_id,
- 		  &cfg->fc_nlinfo, 0);
-@@ -1402,9 +1341,36 @@ found:
- }
- EXPORT_SYMBOL_GPL(fib_table_lookup);
+ 	cb->args[3] = key;
+ 	cb->args[2] = count;
  
--/*
-- * Caller must hold RTNL.
-- */
-+static void fib_remove_alias(struct trie *t, struct tnode *tp,
-+			     struct tnode *l, struct fib_alias *old)
-+{
-+	/* record the location of the previous list_info entry */
-+	struct hlist_node **pprev = old->fa_list.pprev;
-+	struct fib_alias *fa = hlist_entry(pprev, typeof(*fa), fa_list.next);
-+
-+	/* remove the fib_alias from the list */
-+	hlist_del_rcu(&old->fa_list);
-+
-+	/* if we emptied the list this leaf will be freed and we can sort
-+	 * out parent suffix lengths as a part of trie_rebalance
-+	 */
-+	if (hlist_empty(&l->leaf)) {
-+		put_child_root(tp, t, l->key, NULL);
-+		node_free(l);
-+		trie_rebalance(t, tp);
-+		return;
-+	}
-+
-+	/* only access fa if it is pointing at the last valid hlist_node */
-+	if (*pprev)
-+		return;
-+
-+	/* update the trie with the latest suffix length */
-+	l->slen = fa->fa_slen;
-+	leaf_pull_suffix(tp, l);
-+}
-+
-+/* Caller must hold RTNL. */
- int fib_table_delete(struct fib_table *tb, struct fib_config *cfg)
- {
- 	struct trie *t = (struct trie *) tb->tb_data;
-@@ -1428,7 +1394,6 @@ int fib_table_delete(struct fib_table *tb, struct fib_config *cfg)
- 		return -ESRCH;
- 
- 	fa = fib_find_alias(&l->leaf, slen, tos, 0);
--
- 	if (!fa)
- 		return -ESRCH;
- 
-@@ -1457,33 +1422,19 @@ int fib_table_delete(struct fib_table *tb, struct fib_config *cfg)
- 	if (!fa_to_delete)
- 		return -ESRCH;
- 
--	fa = fa_to_delete;
--	rtmsg_fib(RTM_DELROUTE, htonl(key), fa, plen, tb->tb_id,
-+	rtmsg_fib(RTM_DELROUTE, htonl(key), fa_to_delete, plen, tb->tb_id,
- 		  &cfg->fc_nlinfo, 0);
- 
--	fib_remove_alias(l, fa);
--
- 	if (!plen)
- 		tb->tb_num_default--;
- 
--	if (hlist_empty(&l->leaf)) {
--		struct tnode *tp = node_parent(l);
--
--		if (tp) {
--			put_child(tp, get_index(l->key, tp), NULL);
--			trie_rebalance(t, tp);
--		} else {
--			RCU_INIT_POINTER(t->trie, NULL);
--		}
--
--		node_free(l);
--	}
-+	fib_remove_alias(t, tp, l, fa_to_delete);
- 
--	if (fa->fa_state & FA_S_ACCESSED)
-+	if (fa_to_delete->fa_state & FA_S_ACCESSED)
- 		rt_cache_flush(cfg->fc_nlinfo.nl_net);
- 
--	fib_release_info(fa->fa_info);
--	alias_free_mem_rcu(fa);
-+	fib_release_info(fa_to_delete->fa_info);
-+	alias_free_mem_rcu(fa_to_delete);
- 	return 0;
- }
- 
-@@ -1622,7 +1573,7 @@ backtrace:
- 		put_child_root(pn, t, n->key, NULL);
- 		node_free(n);
- 	} else {
--		leaf_pull_suffix(n);
-+		leaf_pull_suffix(pn, n);
- 	}
- 
- 	/* if trie is leaf only loop is completed */
