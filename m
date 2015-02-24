@@ -1,90 +1,59 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 16/16] i40evf: don't wait forever
-Date: Mon, 23 Feb 2015 18:11:21 -0800
-Message-ID: <1424743881-30485-17-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 12/16] i40e/i40evf: Bump Driver Versions
+Date: Mon, 23 Feb 2015 18:11:17 -0800
+Message-ID: <1424743881-30485-13-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1424743881-30485-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Mitch Williams <mitch.a.williams@intel.com>,
+Cc: Sravanthi Tangeda <sravanthi.tangeda@intel.com>,
 	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
 	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:9068 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([192.55.52.115]:63799 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752519AbbBXCLt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752538AbbBXCLt (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Mon, 23 Feb 2015 21:11:49 -0500
 In-Reply-To: <1424743881-30485-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mitch Williams <mitch.a.williams@intel.com>
+From: Sravanthi Tangeda <sravanthi.tangeda@intel.com>
 
-Under rare circumstances, after a reset, set_rx_mode might get called
-while the watchdog is running, which will cause a deadlock on the
-critical section lock. To correct this, add a counter and give up trying
-to get the lock after fifty tries. Log a message if this happens but
-don't take any other action. Because this happens after a reset, all of
-the Rx filters are still in place and the device won't lose
-connectivity.
+Bump i40e to 1.2.8 and i40evf to 1.2.2
 
-We can also get stuck during shutdown, if the PF has stopped communicating
-with us, or if a reset is occurring. If we can't get the lock after a reasonable
-amount of time, just error out. Something else bad is happening anyway, so
-adding this filter is the least of our concern right now.
-
-Change-ID: I159731e2a82a06b389ee31b34ce336548e05baa0
-Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+Change-ID: I64f47c3367ea8ff2a53068e895d7a1f60726c871
+Signed-off-by: Sravanthi Tangeda <sravanthi.tangeda@intel.com>
 Tested-by: Jim Young <james.m.young@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40evf/i40evf_main.c | 15 +++++++++++++--
- 1 file changed, 13 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c     | 2 +-
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 163cf2e..d3416a4 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -39,7 +39,7 @@ static const char i40e_driver_string[] =
+ 
+ #define DRV_VERSION_MAJOR 1
+ #define DRV_VERSION_MINOR 2
+-#define DRV_VERSION_BUILD 6
++#define DRV_VERSION_BUILD 8
+ #define DRV_VERSION __stringify(DRV_VERSION_MAJOR) "." \
+ 	     __stringify(DRV_VERSION_MINOR) "." \
+ 	     __stringify(DRV_VERSION_BUILD)    DRV_KERN
 diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-index 1257577..e089e8f 100644
+index 4f079e0..b1ca9dd 100644
 --- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
 +++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-@@ -761,13 +761,17 @@ i40evf_mac_filter *i40evf_add_filter(struct i40evf_adapter *adapter,
- 				     u8 *macaddr)
- {
- 	struct i40evf_mac_filter *f;
-+	int count = 50;
+@@ -36,7 +36,7 @@ char i40evf_driver_name[] = "i40evf";
+ static const char i40evf_driver_string[] =
+ 	"Intel(R) XL710/X710 Virtual Function Network Driver";
  
- 	if (!macaddr)
- 		return NULL;
- 
- 	while (test_and_set_bit(__I40EVF_IN_CRITICAL_TASK,
--				&adapter->crit_section))
-+				&adapter->crit_section)) {
- 		udelay(1);
-+		if (--count == 0)
-+			return NULL;
-+	}
- 
- 	f = i40evf_find_filter(adapter, macaddr);
- 	if (!f) {
-@@ -828,6 +832,7 @@ static void i40evf_set_rx_mode(struct net_device *netdev)
- 	struct i40evf_mac_filter *f, *ftmp;
- 	struct netdev_hw_addr *uca;
- 	struct netdev_hw_addr *mca;
-+	int count = 50;
- 
- 	/* add addr if not already in the filter list */
- 	netdev_for_each_uc_addr(uca, netdev) {
-@@ -838,8 +843,14 @@ static void i40evf_set_rx_mode(struct net_device *netdev)
- 	}
- 
- 	while (test_and_set_bit(__I40EVF_IN_CRITICAL_TASK,
--				&adapter->crit_section))
-+				&adapter->crit_section)) {
- 		udelay(1);
-+		if (--count == 0) {
-+			dev_err(&adapter->pdev->dev,
-+				"Failed to get lock in %s\n", __func__);
-+			return;
-+		}
-+	}
- 	/* remove filter if not in netdev list */
- 	list_for_each_entry_safe(f, ftmp, &adapter->mac_filter_list, list) {
- 		bool found = false;
+-#define DRV_VERSION "1.2.0"
++#define DRV_VERSION "1.2.2"
+ const char i40evf_driver_version[] = DRV_VERSION;
+ static const char i40evf_copyright[] =
+ 	"Copyright (c) 2013 - 2014 Intel Corporation.";
 -- 
 1.9.3
