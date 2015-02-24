@@ -1,225 +1,200 @@
 From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Subject: [RFC PATCH 14/29] fib_trie: Rename tnode_child_length to
- child_length
-Date: Tue, 24 Feb 2015 12:49:29 -0800
-Message-ID: <20150224204929.26106.47615.stgit@ahduyck-vm-fedora20>
+Subject: [RFC PATCH 15/29] fib_trie: Add tnode struct as a container for
+ fields not needed in key_vector
+Date: Tue, 24 Feb 2015 12:49:35 -0800
+Message-ID: <20150224204935.26106.44779.stgit@ahduyck-vm-fedora20>
 References: <20150224202837.26106.87623.stgit@ahduyck-vm-fedora20>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:45292 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:45344 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752323AbbBXUta (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Feb 2015 15:49:30 -0500
-Received: from int-mx13.intmail.prod.int.phx2.redhat.com (int-mx13.intmail.prod.int.phx2.redhat.com [10.5.11.26])
-	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id t1OKnUUT016516
+	id S1752323AbbBXUth (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Feb 2015 15:49:37 -0500
+Received: from int-mx11.intmail.prod.int.phx2.redhat.com (int-mx11.intmail.prod.int.phx2.redhat.com [10.5.11.24])
+	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id t1OKnbt9016555
 	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-GCM-SHA384 bits=256 verify=FAIL)
-	for <netdev@vger.kernel.org>; Tue, 24 Feb 2015 15:49:30 -0500
+	for <netdev@vger.kernel.org>; Tue, 24 Feb 2015 15:49:37 -0500
 Received: from [192.168.122.173] (ovpn-112-73.phx2.redhat.com [10.3.112.73])
-	by int-mx13.intmail.prod.int.phx2.redhat.com (8.14.4/8.14.4) with ESMTP id t1OKnTIg031179
-	for <netdev@vger.kernel.org>; Tue, 24 Feb 2015 15:49:29 -0500
+	by int-mx11.intmail.prod.int.phx2.redhat.com (8.14.4/8.14.4) with ESMTP id t1OKnZLC014740
+	for <netdev@vger.kernel.org>; Tue, 24 Feb 2015 15:49:36 -0500
 In-Reply-To: <20150224202837.26106.87623.stgit@ahduyck-vm-fedora20>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We are now checking the length of a key_vector instead of a tnode so it
-makes sense to probably just rename this to child_length since it would
-probably even be applicable to a leaf.
+This change pulls the fields not explicitly needed in the key_vector and
+placed them in the new tnode structure.  By doing this we will eventually
+be able to reduce the key_vector down to 16 bytes on 64 bit systems, and
+12 bytes on 32 bit systems.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
 ---
- net/ipv4/fib_trie.c |   53 ++++++++++++++++++++++++++++-----------------------
- 1 file changed, 29 insertions(+), 24 deletions(-)
+ net/ipv4/fib_trie.c |   87 +++++++++++++++++++++++++++------------------------
+ 1 file changed, 46 insertions(+), 41 deletions(-)
 
 diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
-index d9b192b..711f8f2 100644
+index 711f8f2..b1e9141 100644
 --- a/net/ipv4/fib_trie.c
 +++ b/net/ipv4/fib_trie.c
-@@ -91,8 +91,6 @@ typedef unsigned int t_key;
- #define IS_TNODE(n) ((n)->bits)
- #define IS_LEAF(n) (!(n)->bits)
+@@ -108,6 +108,10 @@ struct key_vector {
+ 	};
+ };
  
--#define get_index(_key, _kv) (((_key) ^ (_kv)->key) >> (_kv)->pos)
--
- struct key_vector {
- 	struct rcu_head rcu;
- 	t_key empty_children;		/* KEYLENGTH bits needed */
-@@ -172,11 +170,18 @@ static inline void node_set_parent(struct key_vector *n, struct key_vector *tp)
- /* This provides us with the number of children in this node, in the case of a
-  * leaf this will return 0 meaning none of the children are accessible.
-  */
--static inline unsigned long tnode_child_length(const struct key_vector *tn)
-+static inline unsigned long child_length(const struct key_vector *tn)
- {
- 	return (1ul << tn->bits) & ~(1ul);
++struct tnode {
++	struct key_vector kv[1];
++};
++
+ #ifdef CONFIG_IP_FIB_TRIE_STATS
+ struct trie_use_stats {
+ 	unsigned int gets;
+@@ -264,9 +268,9 @@ static inline void alias_free_mem_rcu(struct fib_alias *fa)
+ 	call_rcu(&fa->rcu, __alias_free_mem);
  }
  
-+static inline unsigned long get_index(t_key key, struct key_vector *kv)
-+{
-+	unsigned long index = key ^ kv->key;
+-#define TNODE_SIZE offsetof(struct key_vector, tnode[0])
++#define TNODE_SIZE(n) offsetof(struct tnode, kv[0].tnode[n])
+ #define TNODE_KMALLOC_MAX \
+-	ilog2((PAGE_SIZE - TNODE_SIZE) / sizeof(struct key_vector *))
++	ilog2((PAGE_SIZE - TNODE_SIZE(0)) / sizeof(struct key_vector *))
+ 
+ static void __node_free_rcu(struct rcu_head *head)
+ {
+@@ -282,7 +286,7 @@ static void __node_free_rcu(struct rcu_head *head)
+ 
+ #define node_free(n) call_rcu(&n->rcu, __node_free_rcu)
+ 
+-static struct key_vector *tnode_alloc(size_t size)
++static struct tnode *tnode_alloc(size_t size)
+ {
+ 	if (size <= PAGE_SIZE)
+ 		return kzalloc(size, GFP_KERNEL);
+@@ -302,49 +306,51 @@ static inline void empty_child_dec(struct key_vector *n)
+ 
+ static struct key_vector *leaf_new(t_key key, struct fib_alias *fa)
+ {
+-	struct key_vector *l = kmem_cache_alloc(trie_leaf_kmem, GFP_KERNEL);
+-	if (l) {
+-		l->parent = NULL;
+-		/* set key and pos to reflect full key value
+-		 * any trailing zeros in the key should be ignored
+-		 * as the nodes are searched
+-		 */
+-		l->key = key;
+-		l->slen = fa->fa_slen;
+-		l->pos = 0;
+-		/* set bits to 0 indicating we are not a tnode */
+-		l->bits = 0;
+-
+-		/* link leaf to fib alias */
+-		INIT_HLIST_HEAD(&l->leaf);
+-		hlist_add_head(&fa->fa_list, &l->leaf);
+-	}
++	struct tnode *kv = kmem_cache_alloc(trie_leaf_kmem, GFP_KERNEL);
++	struct key_vector *l = kv->kv;
 +
-+	return index >> kv->pos;
-+}
++	if (!kv)
++		return NULL;
 +
- static inline struct fib_table *trie_get_table(struct trie *t)
++	/* initialize key vector */
++	l->key = key;
++	l->pos = 0;
++	l->bits = 0;
++	l->slen = fa->fa_slen;
++
++	/* link leaf to fib alias */
++	INIT_HLIST_HEAD(&l->leaf);
++	hlist_add_head(&fa->fa_list, &l->leaf);
++
+ 	return l;
+ }
+ 
+ static struct key_vector *tnode_new(t_key key, int pos, int bits)
  {
- 	unsigned long *tb_data = (unsigned long *)t;
-@@ -360,7 +365,7 @@ static void put_child(struct key_vector *tn, unsigned long i,
- 	struct key_vector *chi = get_child(tn, i);
- 	int isfull, wasfull;
+-	size_t sz = offsetof(struct key_vector, tnode[1ul << bits]);
+-	struct key_vector *tn = tnode_alloc(sz);
++	size_t sz = TNODE_SIZE(1ul << bits);
++	struct tnode *tnode = tnode_alloc(sz);
+ 	unsigned int shift = pos + bits;
++	struct key_vector *tn = tnode->kv;
  
--	BUG_ON(i >= tnode_child_length(tn));
-+	BUG_ON(i >= child_length(tn));
+ 	/* verify bits and pos their msb bits clear and values are valid */
+ 	BUG_ON(!bits || (shift > KEYLENGTH));
  
- 	/* update emptyChildren, overflow into fullChildren */
- 	if (n == NULL && chi != NULL)
-@@ -388,7 +393,7 @@ static void update_children(struct key_vector *tn)
- 	unsigned long i;
+-	if (tn) {
+-		tn->parent = NULL;
+-		tn->slen = pos;
+-		tn->pos = pos;
+-		tn->bits = bits;
+-		tn->key = (shift < KEYLENGTH) ? (key >> shift) << shift : 0;
+-		if (bits == KEYLENGTH)
+-			tn->full_children = 1;
+-		else
+-			tn->empty_children = 1ul << bits;
+-	}
+-
+-	pr_debug("AT %p s=%zu %zu\n", tn, TNODE_SIZE,
++	pr_debug("AT %p s=%zu %zu\n", tnode, TNODE_SIZE(0),
+ 		 sizeof(struct key_vector *) << bits);
++
++	if (!tnode)
++		return NULL;
++
++	if (bits == KEYLENGTH)
++		tn->full_children = 1;
++	else
++		tn->empty_children = 1ul << bits;
++
++	tn->key = (shift < KEYLENGTH) ? (key >> shift) << shift : 0;
++	tn->pos = pos;
++	tn->bits = bits;
++	tn->slen = pos;
++
+ 	return tn;
+ }
  
- 	/* update all of the child parent pointers */
--	for (i = tnode_child_length(tn); i;) {
-+	for (i = child_length(tn); i;) {
- 		struct key_vector *inode = get_child(tn, --i);
+@@ -437,8 +443,7 @@ static void tnode_free(struct key_vector *tn)
  
- 		if (!inode)
-@@ -467,7 +472,7 @@ static struct key_vector __rcu **replace(struct trie *t,
- 	cptr = tp ? tp->tnode : t->tnode;
+ 	while (head) {
+ 		head = head->next;
+-		tnode_free_size += offsetof(struct key_vector,
+-					    tnode[1 << tn->bits]);
++		tnode_free_size += TNODE_SIZE(1 << tn->bits);
+ 		node_free(tn);
  
- 	/* resize children now that oldtnode is freed */
--	for (i = tnode_child_length(tn); i;) {
-+	for (i = child_length(tn); i;) {
- 		struct key_vector *inode = get_child(tn, --i);
+ 		tn = container_of(head, struct key_vector, rcu);
+@@ -1724,7 +1729,7 @@ void __init fib_trie_init(void)
+ 					  0, SLAB_PANIC, NULL);
  
- 		/* resize child node */
-@@ -499,7 +504,7 @@ static struct key_vector __rcu **inflate(struct trie *t,
- 	 * point to existing tnodes and the links between our allocated
- 	 * nodes.
- 	 */
--	for (i = tnode_child_length(oldtnode), m = 1u << tn->pos; i;) {
-+	for (i = child_length(oldtnode), m = 1u << tn->pos; i;) {
- 		struct key_vector *inode = get_child(oldtnode, --i);
- 		struct key_vector *node0, *node1;
- 		unsigned long j, k;
-@@ -549,7 +554,7 @@ static struct key_vector __rcu **inflate(struct trie *t,
- 		tnode_free_append(tn, node0);
+ 	trie_leaf_kmem = kmem_cache_create("ip_fib_trie",
+-					   sizeof(struct key_vector),
++					   sizeof(struct tnode),
+ 					   0, SLAB_PANIC, NULL);
+ }
  
- 		/* populate child pointers in new nodes */
--		for (k = tnode_child_length(inode), j = k / 2; j;) {
-+		for (k = child_length(inode), j = k / 2; j;) {
- 			put_child(node1, --j, get_child(inode, --k));
- 			put_child(node0, j, get_child(inode, j));
- 			put_child(node1, --j, get_child(inode, --k));
-@@ -594,7 +599,7 @@ static struct key_vector __rcu **halve(struct trie *t,
- 	 * point to existing tnodes and the links between our allocated
- 	 * nodes.
- 	 */
--	for (i = tnode_child_length(oldtnode); i;) {
-+	for (i = child_length(oldtnode); i;) {
- 		struct key_vector *node1 = get_child(oldtnode, --i);
- 		struct key_vector *node0 = get_child(oldtnode, --i);
- 		struct key_vector *inode;
-@@ -635,7 +640,7 @@ static void collapse(struct trie *t, struct key_vector *oldtnode)
- 	unsigned long i;
+@@ -1882,13 +1887,13 @@ static void trie_show_stats(struct seq_file *seq, struct trie_stat *stat)
+ 	seq_printf(seq, "\tMax depth:      %u\n", stat->maxdepth);
  
- 	/* scan the tnode looking for that one child that might still exist */
--	for (n = NULL, i = tnode_child_length(oldtnode); !n && i;)
-+	for (n = NULL, i = child_length(oldtnode); !n && i;)
- 		n = get_child(oldtnode, --i);
+ 	seq_printf(seq, "\tLeaves:         %u\n", stat->leaves);
+-	bytes = sizeof(struct key_vector) * stat->leaves;
++	bytes = TNODE_SIZE(1) * stat->leaves;
  
- 	/* compress one level */
-@@ -657,7 +662,7 @@ static unsigned char update_suffix(struct key_vector *tn)
- 	 * why we start with a stride of 2 since a stride of 1 would
- 	 * represent the nodes with suffix length equal to tn->pos
- 	 */
--	for (i = 0, stride = 0x2ul ; i < tnode_child_length(tn); i += stride) {
-+	for (i = 0, stride = 0x2ul ; i < child_length(tn); i += stride) {
- 		struct key_vector *n = get_child(tn, i);
+ 	seq_printf(seq, "\tPrefixes:       %u\n", stat->prefixes);
+ 	bytes += sizeof(struct fib_alias) * stat->prefixes;
  
- 		if (!n || (n->slen <= slen))
-@@ -690,12 +695,12 @@ static unsigned char update_suffix(struct key_vector *tn)
-  *
-  * 'high' in this instance is the variable 'inflate_threshold'. It
-  * is expressed as a percentage, so we multiply it with
-- * tnode_child_length() and instead of multiplying by 2 (since the
-+ * child_length() and instead of multiplying by 2 (since the
-  * child array will be doubled by inflate()) and multiplying
-  * the left-hand side by 100 (to handle the percentage thing) we
-  * multiply the left-hand side by 50.
-  *
-- * The left-hand side may look a bit weird: tnode_child_length(tn)
-+ * The left-hand side may look a bit weird: child_length(tn)
-  * - tn->empty_children is of course the number of non-null children
-  * in the current node. tn->full_children is the number of "full"
-  * children, that is non-null tnodes with a skip value of 0.
-@@ -705,10 +710,10 @@ static unsigned char update_suffix(struct key_vector *tn)
-  * A clearer way to write this would be:
-  *
-  * to_be_doubled = tn->full_children;
-- * not_to_be_doubled = tnode_child_length(tn) - tn->empty_children -
-+ * not_to_be_doubled = child_length(tn) - tn->empty_children -
-  *     tn->full_children;
-  *
-- * new_child_length = tnode_child_length(tn) * 2;
-+ * new_child_length = child_length(tn) * 2;
-  *
-  * new_fill_factor = 100 * (not_to_be_doubled + 2*to_be_doubled) /
-  *      new_child_length;
-@@ -725,23 +730,23 @@ static unsigned char update_suffix(struct key_vector *tn)
-  *      inflate_threshold * new_child_length
-  *
-  * expand not_to_be_doubled and to_be_doubled, and shorten:
-- * 100 * (tnode_child_length(tn) - tn->empty_children +
-+ * 100 * (child_length(tn) - tn->empty_children +
-  *    tn->full_children) >= inflate_threshold * new_child_length
-  *
-  * expand new_child_length:
-- * 100 * (tnode_child_length(tn) - tn->empty_children +
-+ * 100 * (child_length(tn) - tn->empty_children +
-  *    tn->full_children) >=
-- *      inflate_threshold * tnode_child_length(tn) * 2
-+ *      inflate_threshold * child_length(tn) * 2
-  *
-  * shorten again:
-- * 50 * (tn->full_children + tnode_child_length(tn) -
-+ * 50 * (tn->full_children + child_length(tn) -
-  *    tn->empty_children) >= inflate_threshold *
-- *    tnode_child_length(tn)
-+ *    child_length(tn)
-  *
-  */
- static inline bool should_inflate(struct key_vector *tp, struct key_vector *tn)
- {
--	unsigned long used = tnode_child_length(tn);
-+	unsigned long used = child_length(tn);
- 	unsigned long threshold = used;
+ 	seq_printf(seq, "\tInternal nodes: %u\n\t", stat->tnodes);
+-	bytes += TNODE_SIZE * stat->tnodes;
++	bytes += TNODE_SIZE(0) * stat->tnodes;
  
- 	/* Keep root node larger */
-@@ -756,7 +761,7 @@ static inline bool should_inflate(struct key_vector *tp, struct key_vector *tn)
+ 	max = MAX_STAT_DEPTH;
+ 	while (max > 0 && stat->nodesizes[max-1] == 0)
+@@ -1957,7 +1962,7 @@ static int fib_triestat_seq_show(struct seq_file *seq, void *v)
+ 	seq_printf(seq,
+ 		   "Basic info: size of leaf:"
+ 		   " %Zd bytes, size of tnode: %Zd bytes.\n",
+-		   sizeof(struct key_vector), TNODE_SIZE);
++		   TNODE_SIZE(1), TNODE_SIZE(0));
  
- static inline bool should_halve(struct key_vector *tp, struct key_vector *tn)
- {
--	unsigned long used = tnode_child_length(tn);
-+	unsigned long used = child_length(tn);
- 	unsigned long threshold = used;
- 
- 	/* Keep root node larger */
-@@ -770,7 +775,7 @@ static inline bool should_halve(struct key_vector *tp, struct key_vector *tn)
- 
- static inline bool should_collapse(struct key_vector *tn)
- {
--	unsigned long used = tnode_child_length(tn);
-+	unsigned long used = child_length(tn);
- 
- 	used -= tn->empty_children;
- 
-@@ -1774,7 +1779,7 @@ static struct key_vector *fib_trie_get_next(struct fib_trie_iter *iter)
- 	pr_debug("get_next iter={node=%p index=%d depth=%d}\n",
- 		 iter->tnode, iter->index, iter->depth);
- rescan:
--	while (cindex < tnode_child_length(tn)) {
-+	while (cindex < child_length(tn)) {
- 		struct key_vector *n = get_child_rcu(tn, cindex);
- 
- 		if (n) {
+ 	for (h = 0; h < FIB_TABLE_HASHSZ; h++) {
+ 		struct hlist_head *head = &net->ipv4.fib_table_hash[h];
