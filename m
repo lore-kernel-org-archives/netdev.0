@@ -1,41 +1,35 @@
-From: Josh Hunt <johunt@akamai.com>
-Subject: [PATCH v3 1/2] rhashtable: require max_shift if grow_decision defined
-Date: Tue, 24 Feb 2015 12:25:35 -0500
-Message-ID: <1424798736-11857-2-git-send-email-johunt@akamai.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH v3 0/2] nft hash resize fixes
+Date: Tue, 24 Feb 2015 18:35:29 +0100
+Message-ID: <54ECB661.9050306@6wind.com>
 References: <1424798736-11857-1-git-send-email-johunt@akamai.com>
+Reply-To: nicolas.dichtel@6wind.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Josh Hunt <johunt@akamai.com>
-To: Pablo Neira Ayuso <pablo@netfilter.org>,
+	Daniel Borkmann <daniel@iogearbox.net>
+To: Josh Hunt <johunt@akamai.com>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
 	Patrick McHardy <kaber@trash.net>, Thomas Graf <tgraf@suug.ch>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f177.google.com ([209.85.212.177]:38899 "EHLO
+	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752917AbbBXRfc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Feb 2015 12:35:32 -0500
+Received: by mail-wi0-f177.google.com with SMTP id bs8so26985624wib.4
+        for <netdev@vger.kernel.org>; Tue, 24 Feb 2015 09:35:31 -0800 (PST)
 In-Reply-To: <1424798736-11857-1-git-send-email-johunt@akamai.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-If an rhashtable user defines a grow_decision fn they must also define a
-max_shift parameter.
-
-Acked-by: Thomas Graf <tgraf@suug.ch>
-Signed-off-by: Josh Hunt <johunt@akamai.com>
----
- lib/rhashtable.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
-diff --git a/lib/rhashtable.c b/lib/rhashtable.c
-index 9cc4c4a..7d6f539 100644
---- a/lib/rhashtable.c
-+++ b/lib/rhashtable.c
-@@ -1077,7 +1077,8 @@ int rhashtable_init(struct rhashtable *ht, struct rhashtable_params *params)
- 	size = HASH_DEFAULT_SIZE;
- 
- 	if ((params->key_len && !params->hashfn) ||
--	    (!params->key_len && !params->obj_hashfn))
-+	    (!params->key_len && !params->obj_hashfn) ||
-+	    (params->grow_decision && !params->max_shift))
- 		return -EINVAL;
- 
- 	if (params->nulls_base && params->nulls_base < (1U << RHT_BASE_SHIFT))
--- 
-1.7.9.5
-
+Le 24/02/2015 18:25, Josh Hunt a =C3=A9crit :
+> v3:
+>   * Renames NFT_HASH_MAX_ELEMENTS to NFT_HASH_MAX_BUCKETS
+>   * Add Acked-by for Thomas
+>
+> Josh Hunt (2):
+>    rhashtable: require max_shift if grow_decision defined
+>    nft_hash: define max_shift rhashtable parameter
+Patches should be inverted to avoid breaking bisection.
