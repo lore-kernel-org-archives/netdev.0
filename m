@@ -1,40 +1,52 @@
-From: Ian Morris <ipm@chirality.org.uk>
-Subject: [PATCH net-next] ipv6: remove dead debug code from ip6_tunnel.c
-Date: Tue, 24 Feb 2015 12:01:25 +0000
-Message-ID: <1424779285-27177-1-git-send-email-ipm@chirality.org.uk>
-Cc: Ian Morris <ipm@chirality.org.uk>
-To: netdev@vger.kernel.org
+From: Stefan Assmann <sassmann@kpanic.de>
+Subject: Re: [PATCH net-next] i40e: mark constant as ULL
+Date: Tue, 24 Feb 2015 13:08:25 +0100
+Message-ID: <54EC69B9.6020904@kpanic.de>
+References: <1423050064-25087-1-git-send-email-sassmann@kpanic.de> <1423072177.2589.66.camel@jtkirshe-mobl> <54EB3F98.2030709@kpanic.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	e1000-devel@lists.sourceforge.net
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from inet-gw.chirality.org.uk ([88.97.209.22]:51840 "EHLO
-	yew.chirality.org.uk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752489AbbBXMGp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Feb 2015 07:06:45 -0500
+Received: from app1b.xlhost.de ([84.200.252.162]:54272 "EHLO app1b.xlhost.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751281AbbBXMIa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Feb 2015 07:08:30 -0500
+In-Reply-To: <54EB3F98.2030709@kpanic.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The IP6_TNL_TRACE macro is no longer used anywhere in the code so remove definition.
+On 23.02.2015 15:56, Stefan Assmann wrote:
+> On 04.02.2015 18:49, Jeff Kirsher wrote:
+>> On Wed, 2015-02-04 at 12:41 +0100, Stefan Assmann wrote:
+>>> This avoids a compile error on 32bit.
+>>>
+>>> Signed-off-by: Stefan Assmann <sassmann@kpanic.de>
+>>> ---
+>>>  drivers/net/ethernet/intel/i40e/i40e_lan_hmc.c | 2 +-
+>>>  1 file changed, 1 insertion(+), 1 deletion(-)
+>>
+>> Come to find out, I already have a fix in my queue for this.  So I will
+>> be dropping your patch.
+>>
+>> The patch in my queue fixes the issue by doing the folling change:
+>> -               mask = 0xFFFFFFFFFFFFFFFF;
+>> +               mask = ~(u64)0;
+>>
+> 
+> Jeff,
+> 
+> this does not seem to compile on 32bit either. Please verify and if
+> you agree let's put my patch back in place instead of this one. IIRC
+> your patch has not been posted yet.
+> 
+>   Stefan
+> 
 
-Signed-off-by: Ian Morris <ipm@chirality.org.uk>
----
- net/ipv6/ip6_tunnel.c | 6 ------
- 1 file changed, 6 deletions(-)
+Jeff,
 
-diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
-index 266a264..88300d4 100644
---- a/net/ipv6/ip6_tunnel.c
-+++ b/net/ipv6/ip6_tunnel.c
-@@ -64,12 +64,6 @@ MODULE_LICENSE("GPL");
- MODULE_ALIAS_RTNL_LINK("ip6tnl");
- MODULE_ALIAS_NETDEV("ip6tnl0");
- 
--#ifdef IP6_TNL_DEBUG
--#define IP6_TNL_TRACE(x...) pr_debug("%s:" x "\n", __func__)
--#else
--#define IP6_TNL_TRACE(x...) do {;} while(0)
--#endif
--
- #define HASH_SIZE_SHIFT  5
- #define HASH_SIZE (1 << HASH_SIZE_SHIFT)
- 
--- 
-1.9.1
+I fat fingered this, everything ok. Please ignore my last comment.
+
+  Stefan
