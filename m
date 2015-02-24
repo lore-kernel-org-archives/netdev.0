@@ -1,29 +1,82 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] rtnetlink: avoid 0 sized arrays
-Date: Tue, 24 Feb 2015 15:39:39 -0500 (EST)
-Message-ID: <20150224.153939.917153133065621199.davem@davemloft.net>
-References: <1424805277-7914-1-git-send-email-sasha.levin@oracle.com>
+From: Guenter Roeck <linux@roeck-us.net>
+Subject: Re: [PATCH net-next v2 2/3] net: dsa: integrate with SWITCHDEV for
+ HW bridging
+Date: Tue, 24 Feb 2015 12:43:36 -0800
+Message-ID: <20150224204336.GA18025@roeck-us.net>
+References: <1424808511-18222-1-git-send-email-f.fainelli@gmail.com>
+ <1424808511-18222-3-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, nicolas.dichtel@6wind.com,
-	jiri@resnulli.us, tgraf@suug.ch, jhs@mojatatu.com,
-	roopa@cumulusnetworks.com, cwang@twopensource.com,
-	daniel@iogearbox.net, netdev@vger.kernel.org
-To: sasha.levin@oracle.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1424805277-7914-1-git-send-email-sasha.levin@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	vivien.didelot@savoirfairelinux.com,
+	jerome.oufella@savoirfairelinux.com, andrew@lunn.ch,
+	cphealy@gmail.com
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bh-25.webhostbox.net ([208.91.199.152]:41266 "EHLO
+	bh-25.webhostbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751774AbbBXUnk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Feb 2015 15:43:40 -0500
+Received: from mailnull by bh-25.webhostbox.net with sa-checked (Exim 4.82)
+	(envelope-from <linux@roeck-us.net>)
+	id 1YQMKR-0017GD-Gs
+	for netdev@vger.kernel.org; Tue, 24 Feb 2015 20:43:39 +0000
+Content-Disposition: inline
+In-Reply-To: <1424808511-18222-3-git-send-email-f.fainelli@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sasha Levin <sasha.levin@oracle.com>
-Date: Tue, 24 Feb 2015 14:14:35 -0500
+Hi Florian,
 
-> Arrays (when not in a struct) "shall have a value greater than zero".
+On Tue, Feb 24, 2015 at 12:08:30PM -0800, Florian Fainelli wrote:
+> In order to support bridging offloads in DSA switch drivers, select
+> NET_SWITCHDEV to get access to the port_stp_update and parent_get_id
+> NDOs that we are required to implement.
 > 
-> GCC complains when it's not the case here.
+> To facilitate the integratation at the DSA driver level, we implement 3
+> types of operations:
 > 
-> Fixes: ba7d49b1f0 ("rtnetlink: provide api for getting and setting slave info")
-> Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
+> - port_join_bridge
+> - port_leave_bridge
+> - port_stp_update
+> 
+> DSA will resolve which switch ports that are currently bridge port
+> members as some Switch hardware/drivers need to know about that to limit
+> the register programming to just the relevant registers (especially for
+> slow MDIO buses).
+> 
+> We also take care of setting the correct STP state when slave network
+> devices are brought up/down while being bridge members.
+> 
+> Finally, when a port is leaving the bridge, we make sure we set in
+> BR_STATE_FORWARDING state, otherwise the bridge layer would leave it
+> disabled as a result of having left the bridge.
+> 
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+> ---
+[ ... ]
 
-Applied, thanks.
+>  
+> +/* Return a bitmask of all ports being currently bridged within a given bridge
+> + * device. Note that on leave, the mask will still return the bitmask of ports
+> + * currently bridged, prior to port removal, and this is exactly what we want.
+> + */
+> +static u32 dsa_slave_br_port_mask(struct dsa_switch *ds,
+> +				  struct net_device *bridge)
+> +{
+> +	struct dsa_slave_priv *p;
+> +	unsigned int port;
+> +	u32 mask = 0;
+> +
+> +	for (port = 0; port < DSA_MAX_PORTS; port++) {
+> +		if (!((1 << port) & ds->phys_port_mask))
+> +			continue;
+> +
+> +		p = netdev_priv(ds->ports[port]);
+> +
+
+ds->ports[port] can still be NULL here since the function can be called
+before all ports are initialized (which is what I had actually seen).
+
+Thanks,
+Guenter
