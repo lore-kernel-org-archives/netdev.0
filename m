@@ -1,66 +1,42 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: Ottawa and slow hash-table resize
-Date: Tue, 24 Feb 2015 16:25:22 +0000
-Message-ID: <20150224162521.GK3713@acer.localdomain>
-References: <20150223184904.GA24955@linux.vnet.ibm.com>
- <20150224085909.GC17306@casper.infradead.org>
- <54EC46AB.3030302@iogearbox.net>
- <20150224104232.GK3713@acer.localdomain>
- <54ECA374.7060402@akamai.com>
+From: Greg Rose <gvrose8192@gmail.com>
+Subject: Re: [PATCH 0/8] Adds Intel FieldsPeak NFC solution driver
+Date: Tue, 24 Feb 2015 08:27:56 -0800
+Message-ID: <CALgkqUrkyZjekVBgY7-TDoR6dePbySLRzaozKnEoyWoDW5s92w@mail.gmail.com>
+References: <1424772112-27399-1-git-send-email-robert.dolca@intel.com>
+	<CALgkqUqi1U1PBCndKEtdKL0n=VLvBMbOO8HTA5jt-vHvy6WBXA@mail.gmail.com>
+	<CAEnQRZChVSH4f1Gaok-DKOXxreuJR5GrBPxmMdgZC=FL1QaJQA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-	Thomas Graf <tgraf@suug.ch>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	davem@davemloft.net, alexei.starovoitov@gmail.com,
-	herbert@gondor.apana.org.au, ying.xue@windriver.com,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	josh@joshtriplett.org
-To: Josh Hunt <johunt@akamai.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:45805 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752809AbbBXQZ2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Feb 2015 11:25:28 -0500
-Content-Disposition: inline
-In-Reply-To: <54ECA374.7060402@akamai.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Robert Dolca <robert.dolca@intel.com>, linux-nfc@lists.01.org,
+	Lauro Ramos Venancio <lauro.venancio@openbossa.org>,
+	Aloisio Almeida Jr <aloisio.almeida@openbossa.org>,
+	Samuel Ortiz <sameo@linux.intel.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Daniel Baluta <daniel.baluta@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAEnQRZChVSH4f1Gaok-DKOXxreuJR5GrBPxmMdgZC=FL1QaJQA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 24.02, Josh Hunt wrote:
-> On 02/24/2015 04:42 AM, Patrick McHardy wrote:
-> >On 24.02, Daniel Borkmann wrote:
-> >>
-> >>Simplest fix would be, similarly as in other users:
-> >>
-> >>diff --git a/net/netfilter/nft_hash.c b/net/netfilter/nft_hash.c
-> >>index 61e6c40..47abdca 100644
-> >>--- a/net/netfilter/nft_hash.c
-> >>+++ b/net/netfilter/nft_hash.c
-> >>@@ -192,6 +192,7 @@ static int nft_hash_init(const struct nft_set *set,
-> >>  		.key_offset = offsetof(struct nft_hash_elem, key),
-> >>  		.key_len = set->klen,
-> >>  		.hashfn = jhash,
-> >>+		.max_shift = 20, /* 1M */
-> >>  		.grow_decision = rht_grow_above_75,
-> >>  		.shrink_decision = rht_shrink_below_30,
-> >>  	};
-> >>
-> >>But I presume Josh wanted to resend his code ... or wait for nft
-> >>folks to further review?
-> >
-> >We're perfectly fine with that patch, although I'd say lets use a
-> >slightly larger value (24) to cover what we know people are doing
-> >using ipset.
-> 
-> I just sent a patch similar to Daniel's in the set 'nft hash resize fixes'
-> using a max_shift value of 24. I still think this value should be tunable,
-> but sent the patch to fix the immediate expansion problem for now.
+On Tue, Feb 24, 2015 at 8:25 AM, Daniel Baluta <daniel.baluta@gmail.com> wrote:
+> On Tue, Feb 24, 2015 at 6:14 PM, Greg Rose <gvrose8192@gmail.com> wrote:
+>> I'm excited - what's NFC?
+>
+>
+> Please don't do top posting.
 
-Thanks. I actually don't think we should require that parameter at
-all, any limits shouldn't be imposed by the data structure but by
-the code using it. We're perfectly fine using the available memory
-as a limit if the users wants this, provided that hash expansion
-succeeds and the lookups stay fast.
+My apologies - my smartphone interface rather sucks sometimes.
 
-But for now let's just fix the immediate problem, I agree.
+>
+> Other than that:
+>
+> http://en.wikipedia.org/wiki/Near_field_communication
+>
+> Daniel.
+
+Thanks!
+
+- Greg
