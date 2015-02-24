@@ -1,70 +1,88 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH] vhost: cleanup iterator update logic
-Date: Tue, 24 Feb 2015 17:31:31 +0100
-Message-ID: <1424795477-6820-1-git-send-email-mst@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kvm@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Tom Herbert <therbert@google.com>
+Subject: [PATCH net-next] udp: In udp_flow_src_port use random hash value if skb_get_hash fails
+Date: Tue, 24 Feb 2015 09:17:31 -0800
+Message-ID: <1424798251-21075-1-git-send-email-therbert@google.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f171.google.com ([209.85.223.171]:32968 "EHLO
+	mail-ie0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752991AbbBXRRs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Feb 2015 12:17:48 -0500
+Received: by iecar1 with SMTP id ar1so33933037iec.0
+        for <netdev@vger.kernel.org>; Tue, 24 Feb 2015 09:17:48 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Recent iterator-related changes in vhost made it
-harder to follow the logic fixing up the header.
-In fact, the fixup always happens at the same
-offset: sizeof(virtio_net_hdr): sometimes the
-fixup iterator is updated by copy_to_iter,
-sometimes-by iov_iter_advance.
+In the unlikely event that skb_get_hash is unable to deduce a hash
+in udp_flow_src_port we use a consistent random value instead.
+This is specified in GRE/UDP draft section 3.2.1:
+https://tools.ietf.org/html/draft-ietf-tsvwg-gre-in-udp-encap-04
 
-Rearrange code to make this obvious.
-
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+Signed-off-by: Tom Herbert <therbert@google.com>
 ---
- drivers/vhost/net.c | 22 ++++++++++++----------
- 1 file changed, 12 insertions(+), 10 deletions(-)
+ include/net/udp.h | 21 +++++++++++++++------
+ net/ipv4/udp.c    | 10 ++++++++++
+ 2 files changed, 25 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-index afa06d2..ca70434 100644
---- a/drivers/vhost/net.c
-+++ b/drivers/vhost/net.c
-@@ -591,11 +591,6 @@ static void handle_rx(struct vhost_net *net)
- 			 * TODO: support TSO.
- 			 */
- 			iov_iter_advance(&msg.msg_iter, vhost_hlen);
--		} else {
--			/* It'll come from socket; we'll need to patch
--			 * ->num_buffers over if VIRTIO_NET_F_MRG_RXBUF
--			 */
--			iov_iter_advance(&fixup, sizeof(hdr));
- 		}
- 		err = sock->ops->recvmsg(NULL, sock, &msg,
- 					 sock_len, MSG_DONTWAIT | MSG_TRUNC);
-@@ -609,11 +604,18 @@ static void handle_rx(struct vhost_net *net)
- 			continue;
- 		}
- 		/* Supply virtio_net_hdr if VHOST_NET_F_VIRTIO_NET_HDR */
--		if (unlikely(vhost_hlen) &&
--		    copy_to_iter(&hdr, sizeof(hdr), &fixup) != sizeof(hdr)) {
--			vq_err(vq, "Unable to write vnet_hdr at addr %p\n",
--			       vq->iov->iov_base);
--			break;
-+		if (unlikely(vhost_hlen)) {
-+			if (copy_to_iter(&hdr, sizeof(hdr),
-+					 &fixup) != sizeof(hdr)) {
-+				vq_err(vq, "Unable to write vnet_hdr "
-+				       "at addr %p\n", vq->iov->iov_base);
-+				break;
-+			}
-+		} else {
-+			/* Header came from socket; we'll need to patch
-+			 * ->num_buffers over if VIRTIO_NET_F_MRG_RXBUF
-+			 */
-+			iov_iter_advance(&fixup, sizeof(hdr));
- 		}
- 		/* TODO: Should check and handle checksum. */
+diff --git a/include/net/udp.h b/include/net/udp.h
+index 07f9b70..32d8d9f 100644
+--- a/include/net/udp.h
++++ b/include/net/udp.h
+@@ -194,6 +194,8 @@ int udp_lib_get_port(struct sock *sk, unsigned short snum,
+ 		     int (*)(const struct sock *, const struct sock *),
+ 		     unsigned int hash2_nulladdr);
  
++u32 udp_flow_hashrnd(void);
++
+ static inline __be16 udp_flow_src_port(struct net *net, struct sk_buff *skb,
+ 				       int min, int max, bool use_eth)
+ {
+@@ -205,12 +207,19 @@ static inline __be16 udp_flow_src_port(struct net *net, struct sk_buff *skb,
+ 	}
+ 
+ 	hash = skb_get_hash(skb);
+-	if (unlikely(!hash) && use_eth) {
+-		/* Can't find a normal hash, caller has indicated an Ethernet
+-		 * packet so use that to compute a hash.
+-		 */
+-		hash = jhash(skb->data, 2 * ETH_ALEN,
+-			     (__force u32) skb->protocol);
++	if (unlikely(!hash)) {
++		if (use_eth) {
++			/* Can't find a normal hash, caller has indicated an
++			 * Ethernet packet so use that to compute a hash.
++			 */
++			hash = jhash(skb->data, 2 * ETH_ALEN,
++				     (__force u32) skb->protocol);
++		} else {
++			/* Can't derive any sort of hash for the packet, set
++			 * to some consistent random value.
++			 */
++			hash = udp_flow_hashrnd();
++		}
+ 	}
+ 
+ 	/* Since this is being sent on the wire obfuscate hash a bit
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 97ef1f8b..0224f93 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -2525,6 +2525,16 @@ void __init udp_table_init(struct udp_table *table, const char *name)
+ 	}
+ }
+ 
++u32 udp_flow_hashrnd(void)
++{
++	static u32 hashrnd __read_mostly;
++
++	net_get_random_once(&hashrnd, sizeof(hashrnd));
++
++	return hashrnd;
++}
++EXPORT_SYMBOL(udp_flow_hashrnd);
++
+ void __init udp_init(void)
+ {
+ 	unsigned long limit;
 -- 
-MST
+2.2.0.rc0.207.ga3a616c
