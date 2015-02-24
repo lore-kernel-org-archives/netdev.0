@@ -1,7 +1,7 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+From: Johannes Berg <johannes@sipsolutions.net>
 Subject: Re: Throughput regression with `tcp: refine TSO autosizing`
-Date: Tue, 24 Feb 2015 11:24:55 +0100
-Message-ID: <1424773495.2192.23.camel@sipsolutions.net>
+Date: Tue, 24 Feb 2015 11:30:29 +0100
+Message-ID: <1424773829.2192.26.camel@sipsolutions.net>
 References: <CA+BoTQkVu23P3EOmY_Q3E1GJnWsyF==Pawz4iPOS_Bq5dvfO5Q@mail.gmail.com>
 	 <1422537297.21689.15.camel@edumazet-glaptop2.roam.corp.google.com>
 	 <CA+BoTQk2xT-8DqPuiiKG+kHAjLPrj8F9dLTb-rcGhvMq0u_2Qw@mail.gmail.com>
@@ -35,48 +35,51 @@ References: <CA+BoTQkVu23P3EOmY_Q3E1GJnWsyF==Pawz4iPOS_Bq5dvfO5Q@mail.gmail.com>
 	 <1423577962.2215.2.camel@sipsolutions.net>
 	 <CA+BoTQn=YQQ_yUHvpAG3MMAw+=jxgLDiUMWxiTC3B3vkksTw9g@mail.gmail.com>
 	 <CA+BoTQnxo-x94uVfErZO43jTowVcEMEt+7xDzoAGiR8fRDv=ug@mail.gmail.com>
-	 (sfid-20150212_084824_976893_36D95ADD)
+	 (sfid-20150212_084824_976893_36D95ADD) <1424773495.2192.23.camel@sipsolutions.net>
+	 (sfid-20150224_112513_283616_0F65D43B)
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Neal Cardwell <ncardwell-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Eyal Perry <eyalpe-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
-To: Michal Kazior <michal.kazior-++hxYGjEMp0AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CA+BoTQnxo-x94uVfErZO43jTowVcEMEt+7xDzoAGiR8fRDv=ug-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org> (sfid-20150212_084824_976893_36D95ADD)
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Eyal Perry <eyalpe@dev.mellanox.co.il>
+To: Michal Kazior <michal.kazior@tieto.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from s3.sipsolutions.net ([5.9.151.49]:38241 "EHLO sipsolutions.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932069AbbBXKag (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Feb 2015 05:30:36 -0500
+In-Reply-To: <1424773495.2192.23.camel@sipsolutions.net> (sfid-20150224_112513_283616_0F65D43B)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2015-02-12 at 08:48 +0100, Michal Kazior wrote:
-
-> > Good point. I was actually thinking about it. I can try cooking a
-> > patch unless you want to do it yourself :-)
+On Tue, 2015-02-24 at 11:24 +0100, Johannes Berg wrote:
+> On Thu, 2015-02-12 at 08:48 +0100, Michal Kazior wrote:
 > 
-> I've taken a look into this. The most obvious place to add the
-> timestamp for each packet would be ieee80211_tx_info (i.e. the
-> skb->cb[48]). The problem is it's very tight there. Even squeezing 2
-> bytes (allowing up to 64ms of tx completion delay which I'm worried
-> won't be enough) will be troublesome. Some drivers already use every
-> last byte of their allowance on 64bit archs (e.g. ar5523 uses entire
-> 40 bytes of driver_data).
+> > > Good point. I was actually thinking about it. I can try cooking a
+> > > patch unless you want to do it yourself :-)
+> > 
+> > I've taken a look into this. The most obvious place to add the
+> > timestamp for each packet would be ieee80211_tx_info (i.e. the
+> > skb->cb[48]). The problem is it's very tight there. Even squeezing 2
+> > bytes (allowing up to 64ms of tx completion delay which I'm worried
+> > won't be enough) will be troublesome. Some drivers already use every
+> > last byte of their allowance on 64bit archs (e.g. ar5523 uses entire
+> > 40 bytes of driver_data).
+> 
+> Couldn't we just repurpose the existing skb->tstamp field for this, as
+> long as the skb is fully contained within the wireless layer?
+> 
+> Actually, it looks like we can't, since I guess timestamping options can
+> be turned on on any socket.
 
-Couldn't we just repurpose the existing skb->tstamp field for this, as
-long as the skb is fully contained within the wireless layer?
+Actually, that creates a clone or a new skb? Hmm.
 
-Actually, it looks like we can't, since I guess timestamping options can
-be turned on on any socket.
-
-> I wonder if it's okay to bump skb->cb to 56 bytes to avoid the cascade
-> of changes required to implement the tx completion delay accounting?
-
-I have no doubt that would be rejected :)
+Anyway, I think we should just move the vif and hw_key pointers out of
+the tx_info and into ieee80211_tx_control. That will give us plenty of
+space, and they can't really be used long-term anyway? Although ... both
+might be somewhat problematic for mac80211 itself? Hmm.
 
 johannes
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
