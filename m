@@ -1,31 +1,41 @@
 From: Josh Hunt <johunt@akamai.com>
-Subject: [PATCH v3 0/2] nft hash resize fixes
-Date: Tue, 24 Feb 2015 12:25:34 -0500
-Message-ID: <1424798736-11857-1-git-send-email-johunt@akamai.com>
+Subject: [PATCH v3 1/2] rhashtable: require max_shift if grow_decision defined
+Date: Tue, 24 Feb 2015 12:25:35 -0500
+Message-ID: <1424798736-11857-2-git-send-email-johunt@akamai.com>
+References: <1424798736-11857-1-git-send-email-johunt@akamai.com>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
 	Daniel Borkmann <daniel@iogearbox.net>,
 	Josh Hunt <johunt@akamai.com>
 To: Pablo Neira Ayuso <pablo@netfilter.org>,
 	Patrick McHardy <kaber@trash.net>, Thomas Graf <tgraf@suug.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from prod-mail-xrelay08.akamai.com ([96.6.114.112]:64686 "EHLO
-	prod-mail-xrelay08.akamai.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752875AbbBXRZi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Feb 2015 12:25:38 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1424798736-11857-1-git-send-email-johunt@akamai.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-v3:
- * Renames NFT_HASH_MAX_ELEMENTS to NFT_HASH_MAX_BUCKETS
- * Add Acked-by for Thomas
+If an rhashtable user defines a grow_decision fn they must also define a
+max_shift parameter.
 
-Josh Hunt (2):
-  rhashtable: require max_shift if grow_decision defined
-  nft_hash: define max_shift rhashtable parameter
+Acked-by: Thomas Graf <tgraf@suug.ch>
+Signed-off-by: Josh Hunt <johunt@akamai.com>
+---
+ lib/rhashtable.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
- lib/rhashtable.c         |    3 ++-
- net/netfilter/nft_hash.c |    4 ++++
- 2 files changed, 6 insertions(+), 1 deletion(-)
-
+diff --git a/lib/rhashtable.c b/lib/rhashtable.c
+index 9cc4c4a..7d6f539 100644
+--- a/lib/rhashtable.c
++++ b/lib/rhashtable.c
+@@ -1077,7 +1077,8 @@ int rhashtable_init(struct rhashtable *ht, struct rhashtable_params *params)
+ 	size = HASH_DEFAULT_SIZE;
+ 
+ 	if ((params->key_len && !params->hashfn) ||
+-	    (!params->key_len && !params->obj_hashfn))
++	    (!params->key_len && !params->obj_hashfn) ||
++	    (params->grow_decision && !params->max_shift))
+ 		return -EINVAL;
+ 
+ 	if (params->nulls_base && params->nulls_base < (1U << RHT_BASE_SHIFT))
 -- 
 1.7.9.5
+
