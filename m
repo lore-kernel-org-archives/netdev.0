@@ -1,7 +1,7 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next v2 3/3] net: dsa: bcm_sf2: add HW bridging support
-Date: Tue, 24 Feb 2015 12:08:31 -0800
-Message-ID: <1424808511-18222-4-git-send-email-f.fainelli@gmail.com>
+Subject: [PATCH net-next v2 2/3] net: dsa: integrate with SWITCHDEV for HW bridging
+Date: Tue, 24 Feb 2015 12:08:30 -0800
+Message-ID: <1424808511-18222-3-git-send-email-f.fainelli@gmail.com>
 References: <1424808511-18222-1-git-send-email-f.fainelli@gmail.com>
 Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>,
 	vivien.didelot@savoirfairelinux.com,
@@ -9,271 +9,339 @@ Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>,
 	andrew@lunn.ch, cphealy@gmail.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f170.google.com ([209.85.192.170]:42905 "EHLO
-	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753370AbbBXUJM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Feb 2015 15:09:12 -0500
-Received: by pdbfp1 with SMTP id fp1so35724640pdb.9
-        for <netdev@vger.kernel.org>; Tue, 24 Feb 2015 12:09:12 -0800 (PST)
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:38449 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752851AbbBXUJL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Feb 2015 15:09:11 -0500
+Received: by padbj1 with SMTP id bj1so38574820pad.5
+        for <netdev@vger.kernel.org>; Tue, 24 Feb 2015 12:09:11 -0800 (PST)
 In-Reply-To: <1424808511-18222-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Implement the bridge join, leave and set_stp callbacks by making that
-we do the following:
+In order to support bridging offloads in DSA switch drivers, select
+NET_SWITCHDEV to get access to the port_stp_update and parent_get_id
+NDOs that we are required to implement.
 
-- when a port joins the bridge, all existing ports in the bridge get
-  their VLAN control register updated with that joining port
-- the joining port is including all existing bridge ports in its own
-  VLAN control register
+To facilitate the integratation at the DSA driver level, we implement 3
+types of operations:
 
-The leave operation is fairly similar, special care must be taken to
-make sure that port leaving the bridging is not removing itself from its
-own VLAN control register.
+- port_join_bridge
+- port_leave_bridge
+- port_stp_update
 
-Since the various BR_* states apply directly to our HW semantics, we
-just need to translate these constants into their corresponding HW
-settings, and voila!
+DSA will resolve which switch ports that are currently bridge port
+members as some Switch hardware/drivers need to know about that to limit
+the register programming to just the relevant registers (especially for
+slow MDIO buses).
 
-We make sure to trigger a fast-ageing process for ports that are
-joining/leaving the bridge and transition from incompatible states, this
-is equivalent to triggering an ARL flush for that port.
+We also take care of setting the correct STP state when slave network
+devices are brought up/down while being bridge members.
+
+Finally, when a port is leaving the bridge, we make sure we set in
+BR_STATE_FORWARDING state, otherwise the bridge layer would leave it
+disabled as a result of having left the bridge.
 
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- drivers/net/dsa/bcm_sf2.c      | 155 ++++++++++++++++++++++++++++++++++++++++-
- drivers/net/dsa/bcm_sf2.h      |   2 +
- drivers/net/dsa/bcm_sf2_regs.h |  15 ++++
- 3 files changed, 171 insertions(+), 1 deletion(-)
+ include/net/dsa.h  |  10 ++++
+ net/dsa/Kconfig    |   1 +
+ net/dsa/dsa.c      |   7 +++
+ net/dsa/dsa_priv.h |   4 ++
+ net/dsa/slave.c    | 146 +++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 5 files changed, 168 insertions(+)
 
-diff --git a/drivers/net/dsa/bcm_sf2.c b/drivers/net/dsa/bcm_sf2.c
-index 4daffb284931..cedb572bf25a 100644
---- a/drivers/net/dsa/bcm_sf2.c
-+++ b/drivers/net/dsa/bcm_sf2.c
-@@ -23,6 +23,7 @@
- #include <linux/of_address.h>
- #include <net/dsa.h>
- #include <linux/ethtool.h>
-+#include <linux/if_bridge.h>
- 
- #include "bcm_sf2.h"
- #include "bcm_sf2_regs.h"
-@@ -299,10 +300,14 @@ static int bcm_sf2_port_setup(struct dsa_switch *ds, int port,
- 	if (port == 7)
- 		intrl2_1_mask_clear(priv, P_IRQ_MASK(P7_IRQ_OFF));
- 
--	/* Set this port, and only this one to be in the default VLAN */
-+	/* Set this port, and only this one to be in the default VLAN,
-+	 * if member of a bridge, restore its membership prior to
-+	 * bringing down this port.
+diff --git a/include/net/dsa.h b/include/net/dsa.h
+index ed3c34bbb67a..92be34791963 100644
+--- a/include/net/dsa.h
++++ b/include/net/dsa.h
+@@ -275,6 +275,16 @@ struct dsa_switch_driver {
+ 	int	(*get_regs_len)(struct dsa_switch *ds, int port);
+ 	void	(*get_regs)(struct dsa_switch *ds, int port,
+ 			    struct ethtool_regs *regs, void *p);
++
++	/*
++	 * Bridge integration
 +	 */
- 	reg = core_readl(priv, CORE_PORT_VLAN_CTL_PORT(port));
- 	reg &= ~PORT_VLAN_CTRL_MASK;
- 	reg |= (1 << port);
-+	reg |= priv->port_sts[port].vlan_ctl_mask;
- 	core_writel(priv, reg, CORE_PORT_VLAN_CTL_PORT(port));
++	int	(*port_join_bridge)(struct dsa_switch *ds, int port,
++				    u32 br_port_mask);
++	int	(*port_leave_bridge)(struct dsa_switch *ds, int port,
++				     u32 br_port_mask);
++	int	(*port_stp_update)(struct dsa_switch *ds, int port,
++				   u8 state);
+ };
  
- 	bcm_sf2_imp_vlan_setup(ds, cpu_port);
-@@ -400,6 +405,151 @@ static int bcm_sf2_sw_set_eee(struct dsa_switch *ds, int port,
+ void register_switch_driver(struct dsa_switch_driver *type);
+diff --git a/net/dsa/Kconfig b/net/dsa/Kconfig
+index 5f8ac404535b..b45206e8dd3e 100644
+--- a/net/dsa/Kconfig
++++ b/net/dsa/Kconfig
+@@ -8,6 +8,7 @@ config NET_DSA
+ 	tristate
+ 	depends on HAVE_NET_DSA
+ 	select PHYLIB
++	select NET_SWITCHDEV
+ 
+ if NET_DSA
+ 
+diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
+index fc1813140be6..9c208f0dab08 100644
+--- a/net/dsa/dsa.c
++++ b/net/dsa/dsa.c
+@@ -826,6 +826,10 @@ static struct packet_type dsa_pack_type __read_mostly = {
+ 	.func	= dsa_switch_rcv,
+ };
+ 
++static struct notifier_block dsa_netdevice_nb __read_mostly = {
++	.notifier_call	= dsa_slave_netdevice_event,
++};
++
+ #ifdef CONFIG_PM_SLEEP
+ static int dsa_suspend(struct device *d)
+ {
+@@ -884,6 +888,8 @@ static int __init dsa_init_module(void)
+ {
+ 	int rc;
+ 
++	register_netdevice_notifier(&dsa_netdevice_nb);
++
+ 	rc = platform_driver_register(&dsa_driver);
+ 	if (rc)
+ 		return rc;
+@@ -896,6 +902,7 @@ module_init(dsa_init_module);
+ 
+ static void __exit dsa_cleanup_module(void)
+ {
++	unregister_netdevice_notifier(&dsa_netdevice_nb);
+ 	dev_remove_pack(&dsa_pack_type);
+ 	platform_driver_unregister(&dsa_driver);
+ }
+diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
+index 7eb1a6acd46c..d5f1f9b862ea 100644
+--- a/net/dsa/dsa_priv.h
++++ b/net/dsa/dsa_priv.h
+@@ -45,6 +45,8 @@ struct dsa_slave_priv {
+ 	int			old_link;
+ 	int			old_pause;
+ 	int			old_duplex;
++
++	struct net_device	*bridge_dev;
+ };
+ 
+ /* dsa.c */
+@@ -57,6 +59,8 @@ int dsa_slave_create(struct dsa_switch *ds, struct device *parent,
+ 		     int port, char *name);
+ int dsa_slave_suspend(struct net_device *slave_dev);
+ int dsa_slave_resume(struct net_device *slave_dev);
++int dsa_slave_netdevice_event(struct notifier_block *unused,
++			      unsigned long event, void *ptr);
+ 
+ /* tag_dsa.c */
+ extern const struct dsa_device_ops dsa_netdev_ops;
+diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+index 5be4c928c9c9..8a0b7f7552c5 100644
+--- a/net/dsa/slave.c
++++ b/net/dsa/slave.c
+@@ -10,10 +10,13 @@
+ 
+ #include <linux/list.h>
+ #include <linux/etherdevice.h>
++#include <linux/netdevice.h>
+ #include <linux/phy.h>
+ #include <linux/phy_fixed.h>
+ #include <linux/of_net.h>
+ #include <linux/of_mdio.h>
++#include <net/rtnetlink.h>
++#include <linux/if_bridge.h>
+ #include "dsa_priv.h"
+ 
+ /* slave mii_bus handling ***************************************************/
+@@ -60,11 +63,18 @@ static int dsa_slave_init(struct net_device *dev)
  	return 0;
  }
  
-+/* Fast-ageing of ARL entries for a given port, equivalent to an ARL
-+ * flush for that port.
-+ */
-+static int bcm_sf2_sw_fast_age_port(struct dsa_switch  *ds, int port)
++static inline bool dsa_port_is_bridged(struct dsa_slave_priv *p)
 +{
-+	struct bcm_sf2_priv *priv = ds_to_priv(ds);
-+	unsigned int timeout = 1000;
-+	u32 reg;
-+
-+	core_writel(priv, port, CORE_FAST_AGE_PORT);
-+
-+	reg = core_readl(priv, CORE_FAST_AGE_CTRL);
-+	reg |= EN_AGE_PORT | FAST_AGE_STR_DONE;
-+	core_writel(priv, reg, CORE_FAST_AGE_CTRL);
-+
-+	do {
-+		reg = core_readl(priv, CORE_FAST_AGE_CTRL);
-+		if (!(reg & FAST_AGE_STR_DONE))
-+			break;
-+
-+		cpu_relax();
-+	} while (timeout--);
-+
-+	if (!timeout)
-+		return -ETIMEDOUT;
-+
-+	return 0;
++	return !!p->bridge_dev;
 +}
 +
-+static int bcm_sf2_sw_br_join(struct dsa_switch *ds, int port,
-+			      u32 br_port_mask)
-+{
-+	struct bcm_sf2_priv *priv = ds_to_priv(ds);
-+	unsigned int i;
-+	u32 reg, p_ctl;
-+
-+	p_ctl = core_readl(priv, CORE_PORT_VLAN_CTL_PORT(port));
-+
-+	for (i = 0; i < priv->hw_params.num_ports; i++) {
-+		if (!((1 << i) & br_port_mask))
-+			continue;
-+
-+		/* Add this local port to the remote port VLAN control
-+		 * membership and update the remote port bitmask
-+		 */
-+		reg = core_readl(priv, CORE_PORT_VLAN_CTL_PORT(i));
-+		reg |= 1 << port;
-+		core_writel(priv, reg, CORE_PORT_VLAN_CTL_PORT(i));
-+		priv->port_sts[i].vlan_ctl_mask = reg;
-+
-+		p_ctl |= 1 << i;
-+	}
-+
-+	/* Configure the local port VLAN control membership to include
-+	 * remote ports and update the local port bitmask
-+	 */
-+	core_writel(priv, p_ctl, CORE_PORT_VLAN_CTL_PORT(port));
-+	priv->port_sts[port].vlan_ctl_mask = p_ctl;
-+
-+	return 0;
-+}
-+
-+static int bcm_sf2_sw_br_leave(struct dsa_switch *ds, int port,
-+			       u32 br_port_mask)
-+{
-+	struct bcm_sf2_priv *priv = ds_to_priv(ds);
-+	unsigned int i;
-+	u32 reg, p_ctl;
-+
-+	p_ctl = core_readl(priv, CORE_PORT_VLAN_CTL_PORT(port));
-+
-+	for (i = 0; i < priv->hw_params.num_ports; i++) {
-+		/* Don't touch the remaining ports */
-+		if (!((1 << i) & br_port_mask))
-+			continue;
-+
-+		reg = core_readl(priv, CORE_PORT_VLAN_CTL_PORT(i));
-+		reg &= ~(1 << port);
-+		core_writel(priv, reg, CORE_PORT_VLAN_CTL_PORT(i));
-+		priv->port_sts[port].vlan_ctl_mask = reg;
-+
-+		/* Prevent self removal to preserve isolation */
-+		if (port != i)
-+			p_ctl &= ~(1 << i);
-+	}
-+
-+	core_writel(priv, p_ctl, CORE_PORT_VLAN_CTL_PORT(port));
-+	priv->port_sts[port].vlan_ctl_mask = p_ctl;
-+
-+	return 0;
-+}
-+
-+static int bcm_sf2_sw_br_set_stp_state(struct dsa_switch *ds, int port,
-+				       u8 state)
-+{
-+	struct bcm_sf2_priv *priv = ds_to_priv(ds);
-+	u8 hw_state, cur_hw_state;
-+	int ret = 0;
-+	u32 reg;
-+
-+	reg = core_readl(priv, CORE_G_PCTL_PORT(port));
-+	cur_hw_state = reg >> G_MISTP_STATE_SHIFT;
-+
-+	switch (state) {
-+	case BR_STATE_DISABLED:
-+		hw_state = G_MISTP_DIS_STATE;
-+		break;
-+	case BR_STATE_LISTENING:
-+		hw_state = G_MISTP_LISTEN_STATE;
-+		break;
-+	case BR_STATE_LEARNING:
-+		hw_state = G_MISTP_LEARN_STATE;
-+		break;
-+	case BR_STATE_FORWARDING:
-+		hw_state = G_MISTP_FWD_STATE;
-+		break;
-+	case BR_STATE_BLOCKING:
-+		hw_state = G_MISTP_BLOCK_STATE;
-+		break;
-+	default:
-+		pr_err("%s: invalid STP state: %d\n", __func__, state);
-+		return -EINVAL;
-+	}
-+
-+	/* Fast-age ARL entries if we are moving a port from Learning or
-+	 * Forwarding state to Disabled, Blocking or Listening state
-+	 */
-+	if (cur_hw_state != hw_state) {
-+		if (cur_hw_state & 4 && !(hw_state & 4)) {
-+			ret = bcm_sf2_sw_fast_age_port(ds, port);
-+			if (ret) {
-+				pr_err("%s: fast-ageing failed\n", __func__);
-+				return ret;
-+			}
-+		}
-+	}
-+
-+	reg = core_readl(priv, CORE_G_PCTL_PORT(port));
-+	reg &= ~(G_MISTP_STATE_MASK << G_MISTP_STATE_SHIFT);
-+	reg |= hw_state;
-+	core_writel(priv, reg, CORE_G_PCTL_PORT(port));
-+
-+	return 0;
-+}
-+
- static irqreturn_t bcm_sf2_switch_0_isr(int irq, void *dev_id)
+ static int dsa_slave_open(struct net_device *dev)
  {
- 	struct bcm_sf2_priv *priv = dev_id;
-@@ -916,6 +1066,9 @@ static struct dsa_switch_driver bcm_sf2_switch_driver = {
- 	.port_disable		= bcm_sf2_port_disable,
- 	.get_eee		= bcm_sf2_sw_get_eee,
- 	.set_eee		= bcm_sf2_sw_set_eee,
-+	.port_join_bridge	= bcm_sf2_sw_br_join,
-+	.port_leave_bridge	= bcm_sf2_sw_br_leave,
-+	.port_stp_update	= bcm_sf2_sw_br_set_stp_state,
+ 	struct dsa_slave_priv *p = netdev_priv(dev);
+ 	struct net_device *master = p->parent->dst->master_netdev;
+ 	struct dsa_switch *ds = p->parent;
++	u8 stp_state = dsa_port_is_bridged(p) ?
++			BR_STATE_BLOCKING : BR_STATE_FORWARDING;
+ 	int err;
+ 
+ 	if (!(master->flags & IFF_UP))
+@@ -93,6 +103,9 @@ static int dsa_slave_open(struct net_device *dev)
+ 			goto clear_promisc;
+ 	}
+ 
++	if (ds->drv->port_stp_update)
++		ds->drv->port_stp_update(ds, p->port, stp_state);
++
+ 	if (p->phy)
+ 		phy_start(p->phy);
+ 
+@@ -133,6 +146,9 @@ static int dsa_slave_close(struct net_device *dev)
+ 	if (ds->drv->port_disable)
+ 		ds->drv->port_disable(ds, p->port, p->phy);
+ 
++	if (ds->drv->port_stp_update)
++		ds->drv->port_stp_update(ds, p->port, BR_STATE_DISABLED);
++
+ 	return 0;
+ }
+ 
+@@ -194,6 +210,92 @@ static int dsa_slave_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+ 	return -EOPNOTSUPP;
+ }
+ 
++/* Return a bitmask of all ports being currently bridged within a given bridge
++ * device. Note that on leave, the mask will still return the bitmask of ports
++ * currently bridged, prior to port removal, and this is exactly what we want.
++ */
++static u32 dsa_slave_br_port_mask(struct dsa_switch *ds,
++				  struct net_device *bridge)
++{
++	struct dsa_slave_priv *p;
++	unsigned int port;
++	u32 mask = 0;
++
++	for (port = 0; port < DSA_MAX_PORTS; port++) {
++		if (!((1 << port) & ds->phys_port_mask))
++			continue;
++
++		p = netdev_priv(ds->ports[port]);
++
++		if (ds->ports[port]->priv_flags & IFF_BRIDGE_PORT &&
++		    p->bridge_dev == bridge)
++			mask |= 1 << port;
++	}
++
++	return mask;
++}
++
++static int dsa_slave_stp_update(struct net_device *dev, u8 state)
++{
++	struct dsa_slave_priv *p = netdev_priv(dev);
++	struct dsa_switch *ds = p->parent;
++	int ret = -EOPNOTSUPP;
++
++	if (ds->drv->port_stp_update)
++		ret = ds->drv->port_stp_update(ds, p->port, state);
++
++	return ret;
++}
++
++static int dsa_slave_bridge_port_join(struct net_device *dev,
++				      struct net_device *br)
++{
++	struct dsa_slave_priv *p = netdev_priv(dev);
++	struct dsa_switch *ds = p->parent;
++	int ret = -EOPNOTSUPP;
++
++	p->bridge_dev = br;
++
++	if (ds->drv->port_join_bridge)
++		ret = ds->drv->port_join_bridge(ds, p->port,
++						dsa_slave_br_port_mask(ds, br));
++
++	return ret;
++}
++
++static int dsa_slave_bridge_port_leave(struct net_device *dev)
++{
++	struct dsa_slave_priv *p = netdev_priv(dev);
++	struct dsa_switch *ds = p->parent;
++	int ret = -EOPNOTSUPP;
++
++
++	if (ds->drv->port_leave_bridge)
++		ret = ds->drv->port_leave_bridge(ds, p->port,
++						 dsa_slave_br_port_mask(ds, p->bridge_dev));
++
++	p->bridge_dev = NULL;
++
++	/* Port left the bridge, put in BR_STATE_DISABLED by the bridge layer,
++	 * so allow it to be in BR_STATE_FORWARDING to be kept functional
++	 */
++	dsa_slave_stp_update(dev, BR_STATE_FORWARDING);
++
++	return ret;
++}
++
++static int dsa_slave_parent_id_get(struct net_device *dev,
++				   struct netdev_phys_item_id *psid)
++{
++	struct dsa_slave_priv *p = netdev_priv(dev);
++	struct dsa_switch *ds = p->parent;
++
++	psid->id_len = sizeof(ds->index);
++	memcpy(&psid->id, &ds->index, psid->id_len);
++
++	return 0;
++}
++
+ static netdev_tx_t dsa_slave_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	struct dsa_slave_priv *p = netdev_priv(dev);
+@@ -470,6 +572,8 @@ static const struct net_device_ops dsa_slave_netdev_ops = {
+ 	.ndo_set_rx_mode	= dsa_slave_set_rx_mode,
+ 	.ndo_set_mac_address	= dsa_slave_set_mac_address,
+ 	.ndo_do_ioctl		= dsa_slave_ioctl,
++	.ndo_switch_parent_id_get = dsa_slave_parent_id_get,
++	.ndo_switch_port_stp_update = dsa_slave_stp_update,
  };
  
- static int __init bcm_sf2_init(void)
-diff --git a/drivers/net/dsa/bcm_sf2.h b/drivers/net/dsa/bcm_sf2.h
-index ee9f650d5026..0f217e99904f 100644
---- a/drivers/net/dsa/bcm_sf2.h
-+++ b/drivers/net/dsa/bcm_sf2.h
-@@ -46,6 +46,8 @@ struct bcm_sf2_port_status {
- 	unsigned int link;
+ static void dsa_slave_adjust_link(struct net_device *dev)
+@@ -684,3 +788,45 @@ int dsa_slave_create(struct dsa_switch *ds, struct device *parent,
  
- 	struct ethtool_eee eee;
+ 	return 0;
+ }
 +
-+	u32 vlan_ctl_mask;
- };
- 
- struct bcm_sf2_priv {
-diff --git a/drivers/net/dsa/bcm_sf2_regs.h b/drivers/net/dsa/bcm_sf2_regs.h
-index cabdfa5e217a..fa4e6e78c9ea 100644
---- a/drivers/net/dsa/bcm_sf2_regs.h
-+++ b/drivers/net/dsa/bcm_sf2_regs.h
-@@ -163,6 +163,21 @@
- #define  EN_CHIP_RST			(1 << 6)
- #define  EN_SW_RESET			(1 << 4)
- 
-+#define CORE_FAST_AGE_CTRL		0x00220
-+#define  EN_FAST_AGE_STATIC		(1 << 0)
-+#define  EN_AGE_DYNAMIC			(1 << 1)
-+#define  EN_AGE_PORT			(1 << 2)
-+#define  EN_AGE_VLAN			(1 << 3)
-+#define  EN_AGE_SPT			(1 << 4)
-+#define  EN_AGE_MCAST			(1 << 5)
-+#define  FAST_AGE_STR_DONE		(1 << 7)
++static bool dsa_slave_dev_check(struct net_device *dev)
++{
++	return dev->netdev_ops == &dsa_slave_netdev_ops;
++}
 +
-+#define CORE_FAST_AGE_PORT		0x00224
-+#define  AGE_PORT_MASK			0xf
++static int dsa_slave_master_changed(struct net_device *dev)
++{
++	struct net_device *master = netdev_master_upper_dev_get(dev);
++	int err = 0;
 +
-+#define CORE_FAST_AGE_VID		0x00228
-+#define  AGE_VID_MASK			0x3fff
++	if (master && master->rtnl_link_ops &&
++	    !strcmp(master->rtnl_link_ops->kind, "bridge"))
++		err = dsa_slave_bridge_port_join(dev, master);
++	else
++		err = dsa_slave_bridge_port_leave(dev);
 +
- #define CORE_LNKSTS			0x00400
- #define  LNK_STS_MASK			0x1ff
- 
++	return err;
++}
++
++int dsa_slave_netdevice_event(struct notifier_block *unused,
++			      unsigned long event, void *ptr)
++{
++	struct net_device *dev;
++	int err = 0;
++
++	switch (event) {
++	case NETDEV_CHANGEUPPER:
++		dev = netdev_notifier_info_to_dev(ptr);
++		if (!dsa_slave_dev_check(dev))
++			goto out;
++
++		err = dsa_slave_master_changed(dev);
++		if (err)
++			netdev_warn(dev, "failed to reflect master change\n");
++
++		break;
++	}
++
++out:
++	return NOTIFY_DONE;
++}
 -- 
 2.1.0
