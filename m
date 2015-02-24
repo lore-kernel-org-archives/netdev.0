@@ -1,53 +1,68 @@
-From: Eyal Birger <eyal.birger@gmail.com>
-Subject: Re: [PATCH net-next v3 3/4] net: use skb->priority for overloading
- skb->dropcount and skb->reserved_tailroom instead of skb->mark
-Date: Tue, 24 Feb 2015 12:10:40 +0200
-Message-ID: <CAHsH6GtMGdkeKh9pdF64v4a4EX7Vsv1+gQP6nvrQqF=twg53Zg@mail.gmail.com>
-References: <1424713924-6821-2-git-send-email-eyal.birger@gmail.com>
-	<1424713924-6821-4-git-send-email-eyal.birger@gmail.com>
-	<20150223205633.7fbd08d4@halley>
-	<20150223.164801.842537100812023841.davem@davemloft.net>
-	<CAHsH6GvfJHt6qA_9C1wsHEe1Y=ii9Z8a+3V_2D4NSiZZ4oBkvQ@mail.gmail.com>
+From: Sunil Kovvuri <sunil.kovvuri@gmail.com>
+Subject: Re: Setting RPS affinities from network driver
+Date: Tue, 24 Feb 2015 15:42:03 +0530
+Message-ID: <CA+sq2CeEAsSg-x+yX4kcougRZkOV3J6_eNwhVpzGEnr4EiF5rA@mail.gmail.com>
+References: <CA+mtBx9inCEq7PS3h02tSThsMLBVv5OUrusDkMg7d-OOvmqdiQ@mail.gmail.com>
+	<CAPFHKzc-z4LUkxO+nSB=az25ynr=m5KaudQHYNhYi=VtRafEkw@mail.gmail.com>
+	<CA+mtBx-ZW3jVzaXicGi5okS5egMkfi8-SaDX_ewy-k5zRONfmg@mail.gmail.com>
+	<20150223.221403.1719458030396280283.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Shmulik Ladkani <shmulik.ladkani@gmail.com>,
-	Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org
+Cc: Tom Herbert <therbert@google.com>, jonathon.reinhart@gmail.com,
+	Linux Netdev List <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f44.google.com ([209.85.213.44]:44944 "EHLO
-	mail-yh0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751314AbbBXKKl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Feb 2015 05:10:41 -0500
-Received: by yhaf73 with SMTP id f73so13638209yha.11
-        for <netdev@vger.kernel.org>; Tue, 24 Feb 2015 02:10:41 -0800 (PST)
-In-Reply-To: <CAHsH6GvfJHt6qA_9C1wsHEe1Y=ii9Z8a+3V_2D4NSiZZ4oBkvQ@mail.gmail.com>
+Received: from mail-wi0-f170.google.com ([209.85.212.170]:55280 "EHLO
+	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752506AbbBXKMF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Feb 2015 05:12:05 -0500
+Received: by mail-wi0-f170.google.com with SMTP id ex7so3354912wid.1
+        for <netdev@vger.kernel.org>; Tue, 24 Feb 2015 02:12:03 -0800 (PST)
+In-Reply-To: <20150223.221403.1719458030396280283.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 24, 2015 at 8:58 AM, Eyal Birger <eyal.birger@gmail.com> wrote:
-> On Mon, Feb 23, 2015 at 11:48 PM, David Miller <davem@davemloft.net> wrote:
->> From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
->> Date: Mon, 23 Feb 2015 20:56:33 +0200
->>
->>> May I suggest to unalias 'mark' out of the union?
->>
->> Only in exchange for finding a way to remove completely another object
->> of the same size from sk_buff.
->>
->> I refuse to let it grow any more, it's already way too big.
->
-> I agree that aliasing skb->priority with skb->dropcount and
-> skb->reserved_tailroom is
-> less than optimal.
->
-> I can suggest an alternative patch following Eric Dumazet's suggestion in which
-> skb->dropcount is removed and skb->cb[] is used instead for keeping dropcount.
->
-> That would require protocol family implementations to access skb->cb[]
-> via a common
-> accessor or use a common offset #define from the start of skb->cb[].
->
+Thanks for the valuable information.
 
-Well, gave it a shot... it looks like several protocol families
-(packet, rxrpc, bluetooth) do not
-have room in skb->cb[] for the dropcount - at least on my 64 bit machine.
+Just to give more info on why i want think it is better to have this
+config from driver,
+- The SOC i am working on has multiple cores and has on-board ethernet
+interface which supports upto 40Gbps.
+- It is highly difficult to achieve any meaningful performance with
+default RPS config.
+- So currently i am setting RPS config such that the CPU which takes
+high amount of interrupts/packets from receive queue doesn't do the
+processing as well.
+- This is improving network performance with single flow.
+
+So thought if its possible to do this from driver itself instead
+relying on user space scripts. As you guys have pointed i will try to
+implement a generic API
+instead of exporting 'rps_needed'. Will try to submit this very soon.
+
+Thanks,
+Sunil.
+
+
+On Tue, Feb 24, 2015 at 8:44 AM, David Miller <davem@davemloft.net> wrote:
+> From: Tom Herbert <therbert@google.com>
+> Date: Fri, 20 Feb 2015 15:05:11 -0800
+>
+>>> Note that this argument is different from RSS where we're dealing with
+>>> actual hardware queues, so the driver of course has a say in the
+>>> configuration.
+>>
+>> Assuming that all queues are equal and we have a standard way to
+>> influence the indirection table, even RSS configuration really isn't
+>> driver specific configuration. We just need to know how many queues
+>> are available.
+>
+> Agreed.
+>
+> If drivers start doing this, fine, but they must do it with a common
+> piece of infrastructure that each and every driver can (easily) plug
+> into and make use of.
+>
+> Even better would be something that was so generic that the driver's
+> don't actualy implement any part of it other than responding to what
+> the generic networking core asks it to do.
