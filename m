@@ -1,66 +1,49 @@
-From: "Rose, Gregory V" <gregory.v.rose@intel.com>
-Subject: RE: [net-next 13/16] i40e: Fix i40e_ndo_set_vf_spoofchk
-Date: Tue, 24 Feb 2015 16:00:22 +0000
-Message-ID: <C5551D9AAB213A418B7FD5E4A6F30A0789266074@ORSMSX108.amr.corp.intel.com>
-References: <1424661944-1779-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1424661944-1779-14-git-send-email-jeffrey.t.kirsher@intel.com>
-	<CAJ3xEMgf1ue3Byt3n1+LYFFKED8fq3RXJhqihTY=X6cww_MQkg@mail.gmail.com>
-	<C5551D9AAB213A418B7FD5E4A6F30A078926426F@ORSMSX108.amr.corp.intel.com>
-	<CAJ3xEMi7w+gp5QohzK3ByBENoOKWiQi+5761Lo-yDzgU__+Xow@mail.gmail.com>
-	<C5551D9AAB213A418B7FD5E4A6F30A0789265663@ORSMSX108.amr.corp.intel.com>
- <CAJ3xEMgY_w-7ACmyHBKwf_p5MhiNPaD+pfidBUQy0+Y8m7TRhA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	"nhorman@redhat.com" <nhorman@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>,
-	"jogreene@redhat.com" <jogreene@redhat.com>,
-	"Rony Efraim" <ronye@mellanox.com>
-To: Or Gerlitz <gerlitz.or@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:22282 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752262AbbBXQAg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Feb 2015 11:00:36 -0500
-In-Reply-To: <CAJ3xEMgY_w-7ACmyHBKwf_p5MhiNPaD+pfidBUQy0+Y8m7TRhA@mail.gmail.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Josh Hunt <johunt@akamai.com>
+Subject: [PATCH v2 2/2] nft_hash: define max_shift rhashtable parameter
+Date: Tue, 24 Feb 2015 11:10:58 -0500
+Message-ID: <1424794259-30241-3-git-send-email-johunt@akamai.com>
+References: <1424794259-30241-1-git-send-email-johunt@akamai.com>
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Josh Hunt <johunt@akamai.com>
+To: Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>, Thomas Graf <tgraf@suug.ch>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1424794259-30241-1-git-send-email-johunt@akamai.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-DQo+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+IEZyb206IE9yIEdlcmxpdHogW21haWx0
-bzpnZXJsaXR6Lm9yQGdtYWlsLmNvbV0NCj4gU2VudDogVHVlc2RheSwgRmVicnVhcnkgMjQsIDIw
-MTUgMToyMCBBTQ0KPiBUbzogUm9zZSwgR3JlZ29yeSBWDQo+IENjOiBLaXJzaGVyLCBKZWZmcmV5
-IFQ7IERhdmlkIE1pbGxlcjsgTGludXggTmV0ZGV2IExpc3Q7DQo+IG5ob3JtYW5AcmVkaGF0LmNv
-bTsgc2Fzc21hbm5AcmVkaGF0LmNvbTsgam9ncmVlbmVAcmVkaGF0LmNvbTsgUm9ueSBFZnJhaW0N
-Cj4gU3ViamVjdDogUmU6IFtuZXQtbmV4dCAxMy8xNl0gaTQwZTogRml4IGk0MGVfbmRvX3NldF92
-Zl9zcG9vZmNoaw0KPiANCj4gT24gVHVlLCBGZWIgMjQsIDIwMTUgYXQgMTI6MDAgQU0sIFJvc2Us
-IEdyZWdvcnkgVg0KPiA8Z3JlZ29yeS52LnJvc2VAaW50ZWwuY29tPiB3cm90ZToNCj4gPj4gLS0t
-LS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gPj4gRnJvbTogT3IgR2VybGl0eiBbbWFpbHRvOmdl
-cmxpdHoub3JAZ21haWwuY29tXQ0KPiA+PiBTZW50OiBNb25kYXksIEZlYnJ1YXJ5IDIzLCAyMDE1
-IDE6NTIgUE0NCj4gPj4gVG86IFJvc2UsIEdyZWdvcnkgVg0KDQpbc25pcF0NCg0KPiA+IFdpdGgg
-c3Bvb2YgY2hlY2tpbmcgb2ZmIHRoZW4gdGhlIFZGIGNhbiBzZW5kL3JlY2VpdmUgb24gYW55IFZM
-QU4gaXQNCj4gd2FudHMuICBXaXRoIHNwb29mIGNoZWNraW5nIG9uIHRoZSBWTEFOIGZpbHRlciBt
-dXN0IGV4aXN0IGluIHRoZSBIVw0KPiBmaWx0ZXJpbmcgYmVmb3JlIHRoZSBWRiBjYW4gc2VuZC9y
-ZWNlaXZlIG9uIHRoYXQgVkxBTi4NCj4gDQo+IFNvIHdlIGFncmVlIHRoYXQgdGhlIG9ubHkgdGhp
-bmcgdGhlIFZGIGtub3dzIGlzIHRoZSBNQUMgd2hpY2ggd2FzDQo+IHByb3Zpc2lvbmVkIHRvIHRo
-ZW0gYnkgdGhlIGFkbWluIHRocm91Z2ggdGhlIFBGLCBzbyBpbiB0aGF0IHJlc3BlY3QsIEkgYW0N
-Cj4gc3RpbGwgbm90IGNsZWFyIHdoYXQgaXMgdGhlIGNyaXRlcmlhIGZvciB5b3VyIFBGIGRyaXZl
-ciB0byBkZWNpZGUgdGhleSBhcmUNCj4gc3Bvb2ZpbmcgYSB2bGFuLWlkPyENCg0KSXQncyBhIEhX
-IHNwZWNpZmljIGNyaXRlcmlhIC0gd2UgdXNlIHZhcmlvdXMgbWV0aG9kcyBpbiBvdXIgcHJvZHVj
-dHMgdGhhdCBzdXBwb3J0IFNSLUlPViBmb3IgSFcgYXNzaXN0ZWQgVkxBTiBmaWx0ZXJpbmcgb24g
-dGhlIHJlY2VpdmUgc2lkZS4gIFNvIHdpdGggc3Bvb2YgY2hlY2tpbmcgdHVybmVkIG9uIHRoZSBW
-RiBjYW5ub3QgdHJhbnNtaXQgb24gYSBnaXZlbiBWTEFOIHdpdGhvdXQgYW4gYXNzb2NpYXRlZCBW
-TEFOIGZpbHRlciBoYXZpbmcgYmVlbiBzZXQgb24gdGhlIHJlY2VpdmUgc2lkZS4gIEFuZCB0aGUg
-VkYncyBjYW5ub3Qgc2V0IGEgVkxBTiBmaWx0ZXIgd2l0aG91dCBhc3Npc3RhbmNlIGZyb20gdGhl
-IFBGIGRyaXZlciBzbyB0aGF0IHByb3ZpZGVzIGFuIG9wcG9ydHVuaXR5IGZvciB0aGUgc3lzdGVt
-IGFkbWluaXN0cmF0b3IgdG8gcHJvdmlkZSAiaG9va3MiIG9yIG90aGVyIGFkbWluaXN0cmF0aXZl
-IGNvbnRyb2xzIG9uIHdoaWNoIFZMQU5zIHRoZSBWRiBjYW4gdXNlLiAgQWdhaW4gLSBpdCBpcyBu
-b3QgaW1wbGVtZW50ZWQgaW4gb3VyIGdlbmVyYWwgcHVycG9zZSBMaW51eCBkcml2ZXIgYnV0IHRo
-ZXJlIGFyZSBjdXN0b21lcnMgd2hvIGhhdmUgdXNlZCBvdXIgSFcgdG8gaW1wbGVtZW50IHRoZWly
-IG93biBWTEFOIGZpbHRlcmluZyBjb250cm9scyB0byBsaW1pdCB3aGF0IFZMQU5zIHRoZSBWRiBj
-YW4gcGFydGljaXBhdGUgaW4uDQoNCk9yIHRoZSBhZG1pbmlzdHJhdG9yIGNhbiBqdXN0IHR1cm4g
-b2ZmIHNwb29mIGNoZWNraW5nIGlmIHRoZXkgInRydXN0IiB0aGVpciBWRiB0byBzZXQgcGVybWl0
-dGVkIFZMQU4gZmlsdGVycy4NCg0KLSBHcmVnDQoNCg==
+You must define a max_shift parameter to rhashtable or else the table cannot
+grow. This sets max_shift for nft_hash to 24, which will allow the table to
+grow to 2^24 or 16 million buckets.
+
+Signed-off-by: Josh Hunt <johunt@akamai.com>
+---
+ net/netfilter/nft_hash.c |    4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/net/netfilter/nft_hash.c b/net/netfilter/nft_hash.c
+index 61e6c40..839ed30 100644
+--- a/net/netfilter/nft_hash.c
++++ b/net/netfilter/nft_hash.c
+@@ -23,6 +23,9 @@
+ /* We target a hash table size of 4, element hint is 75% of final size */
+ #define NFT_HASH_ELEMENT_HINT 3
+ 
++/* Set default of 2^24 buckets or 16 million entries */
++#define NFT_HASH_MAX_ELEMENTS 24
++
+ struct nft_hash_elem {
+ 	struct rhash_head		node;
+ 	struct nft_data			key;
+@@ -192,6 +195,7 @@ static int nft_hash_init(const struct nft_set *set,
+ 		.key_offset = offsetof(struct nft_hash_elem, key),
+ 		.key_len = set->klen,
+ 		.hashfn = jhash,
++		.max_shift = NFT_HASH_MAX_ELEMENTS,
+ 		.grow_decision = rht_grow_above_75,
+ 		.shrink_decision = rht_shrink_below_30,
+ 	};
+-- 
+1.7.9.5
+
