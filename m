@@ -1,8 +1,9 @@
 From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: Re: [PATCH next 1/2] bonding: Verify RX LACPDU has proper dest mac-addr
-Date: Tue, 24 Feb 2015 18:38:36 +0100
-Message-ID: <54ECB71C.4000807@redhat.com>
-References: <1424742610-6656-1-git-send-email-maheshb@google.com>
+Subject: Re: [PATCH next 2/2] bonding: Implement port churn-machine (AD standard
+ 43.4.17).
+Date: Tue, 24 Feb 2015 18:39:28 +0100
+Message-ID: <54ECB750.3050108@redhat.com>
+References: <1424742611-6698-1-git-send-email-maheshb@google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
@@ -15,40 +16,54 @@ To: Mahesh Bandewar <maheshb@google.com>,
 	Veaceslav Falico <vfalico@gmail.com>,
 	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:42032 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:40320 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752796AbbBXRis (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Feb 2015 12:38:48 -0500
-In-Reply-To: <1424742610-6656-1-git-send-email-maheshb@google.com>
+	id S1752739AbbBXRjp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Feb 2015 12:39:45 -0500
+In-Reply-To: <1424742611-6698-1-git-send-email-maheshb@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 On 02/24/2015 02:50 AM, Mahesh Bandewar wrote:
-> The 802.1AX standard states:
-> "The DA in LACPDUs is the Slow_Protocols_Multicast address."
+> The Churn Detection machines detect the situation where a port is operable,
+> but the Actor and Partner have not attached the link to an Aggregator and
+> brought the link into operation within a bound time period. Under normal
+> operation of the LACP, agreement between Actor and Partner should be reached
+> very rapidly. Continued failure to reach agreement can be symptomatic of
+> device failure.
 > 
-> This patch enforces that and drops LACPDUs with destination MAC
-> addresses other than Slow_Protocols_Multicast address
+> Actor-churn-detection state-machine
+> ===================================
+> 
+> BEGIN=True + PortEnable=False
+>            |
+>            v
+>  +------------------------+   ActorPort.Sync=True  +------------------+
+>  |   ACTOR_CHURN_MONITOR  | ---------------------> |  NO_ACTOR_CHURN  |
+>  |========================|                        |==================|
+>  |    ActorChurn=False    |  ActorPort.Sync=False  | ActorChurn=False |
+>  | ActorChurn.Timer=Start | <--------------------- |                  |
+>  +------------------------+                        +------------------+
+>            |                                                ^
+>            |                                                |
+>   ActorChurn.Timer=Expired                                  |
+>            |                                       ActorPort.Sync=True
+>            |                                                |
+>            |                +-----------------+             |
+>            |                |   ACTOR_CHURN   |             |
+>            |                |=================|             |
+>            +--------------> | ActorChurn=True | ------------+
+>                             |                 |
+>                             +-----------------+
+> 
+> Similar for the Partner-churn-detection.
 > 
 > Signed-off-by: Mahesh Bandewar <maheshb@google.com>
 > ---
->  drivers/net/bonding/bond_3ad.c | 3 +++
->  1 file changed, 3 insertions(+)
-> 
-> diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
-> index cfc4a9c1000a..9b436696b95e 100644
-> --- a/drivers/net/bonding/bond_3ad.c
-> +++ b/drivers/net/bonding/bond_3ad.c
-> @@ -2485,6 +2485,9 @@ int bond_3ad_lacpdu_recv(const struct sk_buff *skb, struct bonding *bond,
->  	if (skb->protocol != PKT_TYPE_LACPDU)
->  		return RX_HANDLER_ANOTHER;
->  
-> +	if (!MAC_ADDRESS_EQUAL(eth_hdr(skb)->h_dest, lacpdu_mcast_addr))
-> +		return RX_HANDLER_ANOTHER;
-> +
->  	lacpdu = skb_header_pointer(skb, 0, sizeof(_lacpdu), &_lacpdu);
->  	if (!lacpdu)
->  		return RX_HANDLER_ANOTHER;
+>  drivers/net/bonding/bond_3ad.c    | 57 +++++++++++++++++++++++++++++++++++++--
+>  drivers/net/bonding/bond_procfs.c | 43 +++++++++++++++++++++++++----
+>  include/net/bond_3ad.h            | 29 ++++++++++++++++++++
+>  3 files changed, 122 insertions(+), 7 deletions(-)
 > 
 
 Reviewed-by: Nikolay Aleksandrov <nikolay@redhat.com>
