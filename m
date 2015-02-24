@@ -1,88 +1,50 @@
-From: Tom Herbert <therbert@google.com>
-Subject: [PATCH net-next] udp: In udp_flow_src_port use random hash value if skb_get_hash fails
-Date: Tue, 24 Feb 2015 09:17:31 -0800
-Message-ID: <1424798251-21075-1-git-send-email-therbert@google.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f171.google.com ([209.85.223.171]:32968 "EHLO
-	mail-ie0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752991AbbBXRRs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Feb 2015 12:17:48 -0500
-Received: by iecar1 with SMTP id ar1so33933037iec.0
-        for <netdev@vger.kernel.org>; Tue, 24 Feb 2015 09:17:48 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Josh Hunt <johunt@akamai.com>
+Subject: [PATCH v3 2/2] nft_hash: define max_shift rhashtable parameter
+Date: Tue, 24 Feb 2015 12:25:36 -0500
+Message-ID: <1424798736-11857-3-git-send-email-johunt@akamai.com>
+References: <1424798736-11857-1-git-send-email-johunt@akamai.com>
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Josh Hunt <johunt@akamai.com>
+To: Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>, Thomas Graf <tgraf@suug.ch>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1424798736-11857-1-git-send-email-johunt@akamai.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-In the unlikely event that skb_get_hash is unable to deduce a hash
-in udp_flow_src_port we use a consistent random value instead.
-This is specified in GRE/UDP draft section 3.2.1:
-https://tools.ietf.org/html/draft-ietf-tsvwg-gre-in-udp-encap-04
+You must define a max_shift parameter to rhashtable or else the table cannot
+grow. This sets max_shift for nft_hash to 24, which will allow the table to
+grow to 2^24 or 16 million buckets.
 
-Signed-off-by: Tom Herbert <therbert@google.com>
+Acked-by: Thomas Graf <tgraf@suug.ch>
+Signed-off-by: Josh Hunt <johunt@akamai.com>
 ---
- include/net/udp.h | 21 +++++++++++++++------
- net/ipv4/udp.c    | 10 ++++++++++
- 2 files changed, 25 insertions(+), 6 deletions(-)
+ net/netfilter/nft_hash.c |    4 ++++
+ 1 file changed, 4 insertions(+)
 
-diff --git a/include/net/udp.h b/include/net/udp.h
-index 07f9b70..32d8d9f 100644
---- a/include/net/udp.h
-+++ b/include/net/udp.h
-@@ -194,6 +194,8 @@ int udp_lib_get_port(struct sock *sk, unsigned short snum,
- 		     int (*)(const struct sock *, const struct sock *),
- 		     unsigned int hash2_nulladdr);
+diff --git a/net/netfilter/nft_hash.c b/net/netfilter/nft_hash.c
+index 61e6c40..a32df35 100644
+--- a/net/netfilter/nft_hash.c
++++ b/net/netfilter/nft_hash.c
+@@ -23,6 +23,9 @@
+ /* We target a hash table size of 4, element hint is 75% of final size */
+ #define NFT_HASH_ELEMENT_HINT 3
  
-+u32 udp_flow_hashrnd(void);
++/* Set default of 2^24 buckets or 16 million entries */
++#define NFT_HASH_MAX_BUCKETS 24
 +
- static inline __be16 udp_flow_src_port(struct net *net, struct sk_buff *skb,
- 				       int min, int max, bool use_eth)
- {
-@@ -205,12 +207,19 @@ static inline __be16 udp_flow_src_port(struct net *net, struct sk_buff *skb,
- 	}
- 
- 	hash = skb_get_hash(skb);
--	if (unlikely(!hash) && use_eth) {
--		/* Can't find a normal hash, caller has indicated an Ethernet
--		 * packet so use that to compute a hash.
--		 */
--		hash = jhash(skb->data, 2 * ETH_ALEN,
--			     (__force u32) skb->protocol);
-+	if (unlikely(!hash)) {
-+		if (use_eth) {
-+			/* Can't find a normal hash, caller has indicated an
-+			 * Ethernet packet so use that to compute a hash.
-+			 */
-+			hash = jhash(skb->data, 2 * ETH_ALEN,
-+				     (__force u32) skb->protocol);
-+		} else {
-+			/* Can't derive any sort of hash for the packet, set
-+			 * to some consistent random value.
-+			 */
-+			hash = udp_flow_hashrnd();
-+		}
- 	}
- 
- 	/* Since this is being sent on the wire obfuscate hash a bit
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index 97ef1f8b..0224f93 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -2525,6 +2525,16 @@ void __init udp_table_init(struct udp_table *table, const char *name)
- 	}
- }
- 
-+u32 udp_flow_hashrnd(void)
-+{
-+	static u32 hashrnd __read_mostly;
-+
-+	net_get_random_once(&hashrnd, sizeof(hashrnd));
-+
-+	return hashrnd;
-+}
-+EXPORT_SYMBOL(udp_flow_hashrnd);
-+
- void __init udp_init(void)
- {
- 	unsigned long limit;
+ struct nft_hash_elem {
+ 	struct rhash_head		node;
+ 	struct nft_data			key;
+@@ -192,6 +195,7 @@ static int nft_hash_init(const struct nft_set *set,
+ 		.key_offset = offsetof(struct nft_hash_elem, key),
+ 		.key_len = set->klen,
+ 		.hashfn = jhash,
++		.max_shift = NFT_HASH_MAX_BUCKETS,
+ 		.grow_decision = rht_grow_above_75,
+ 		.shrink_decision = rht_shrink_below_30,
+ 	};
 -- 
-2.2.0.rc0.207.ga3a616c
+1.7.9.5
+
