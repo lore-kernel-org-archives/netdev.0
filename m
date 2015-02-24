@@ -1,74 +1,36 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH] net: phy: b53: switchdev driver for Broadcom BCM53xx
- switches
-Date: Tue, 24 Feb 2015 22:51:55 +0100
-Message-ID: <20150224215155.GA15633@lunn.ch>
-References: <1424799727-30946-1-git-send-email-zajec5@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC PATCH 01/29] fib_trie: Convert fib_alias to hlist from
+ list
+Date: Tue, 24 Feb 2015 17:08:19 -0500 (EST)
+Message-ID: <20150224.170819.1223923082073420924.davem@davemloft.net>
+References: <20150224202837.26106.87623.stgit@ahduyck-vm-fedora20>
+	<20150224204801.26106.10186.stgit@ahduyck-vm-fedora20>
+	<CAJ3xEMhn6R9heFGtEB4-uxb2SHc2XWZv2oX_7pYhZVYZo5MeFw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Jonas Gorski <jogo@openwrt.org>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Hauke Mehrtens <hauke@hauke-m.de>,
-	Felix Fietkau <nbd@openwrt.org>, Jiri Pirko <jiri@resnulli.us>
-To: Rafa?? Mi??ecki <zajec5@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: alexander.h.duyck@redhat.com, netdev@vger.kernel.org
+To: gerlitz.or@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:48704 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750748AbbBXVy4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Feb 2015 16:54:56 -0500
-Content-Disposition: inline
-In-Reply-To: <1424799727-30946-1-git-send-email-zajec5@gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:51516 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752244AbbBXWIZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Feb 2015 17:08:25 -0500
+In-Reply-To: <CAJ3xEMhn6R9heFGtEB4-uxb2SHc2XWZv2oX_7pYhZVYZo5MeFw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 24, 2015 at 06:42:07PM +0100, Rafa?? Mi??ecki wrote:
-> BCM53xx is series of Broadcom Ethernet switches that can be found in
-> various (mostly home) routers.
-> They are quite simple switches with mainly just support for:
-> 1) Tagging incoming packets (PVID)
-> 2) Untagging outgoing packets
-> 3) Forwarding all packets across a single VLAN
-> 
-> This driver is split into common code (module) and bus specific code.
-> Right now only PHY (MDIO) support is included, other could follow after
-> accepting this driver. It was successfully tested on BCM4706 SoC with
-> BCM53125.
-> 
-> You could notice it's yet another try of submitting b53 driver. This
-> time it was modified to use recently introduced switchdev API which
-> hopefully make it possible to accept it mainline.
-> 
-> Signed-off-by: Rafa?? Mi??ecki <zajec5@gmail.com>
-> ---
-> Example usage. My BCM4706 router has switch with 6 ports:
-> 0: WAN port
-> 1-4: LAN ports
-> 8: CPU connected port (on-SoC Ethernet device)
-> 
-> I decided to use VLAN 1 for WAN and VLAN 2 for LAN. I was able to
-> successfully configure it using:
-> 
-> bridge vlan add vid 1 dev sw0p1 pvid untagged
-> bridge vlan add vid 1 dev sw0p2 pvid untagged
-> bridge vlan add vid 1 dev sw0p3 pvid untagged
-> bridge vlan add vid 1 dev sw0p4 pvid untagged
-> bridge vlan add vid 1 dev sw0p8
-> 
-> bridge vlan add vid 2 dev sw0p0 pvid untagged
-> bridge vlan add vid 2 dev sw0p8
-> ---
->  drivers/net/phy/Kconfig          |   2 +
->  drivers/net/phy/Makefile         |   1 +
->  drivers/net/phy/b53/Kconfig      |  12 +
->  drivers/net/phy/b53/Makefile     |   2 +
->  drivers/net/phy/b53/b53_common.c | 961 +++++++++++++++++++++++++++++++++++++++
->  drivers/net/phy/b53/b53_mdio.c   | 418 +++++++++++++++++
->  drivers/net/phy/b53/b53_priv.h   | 299 ++++++++++++
->  drivers/net/phy/b53/b53_regs.h   | 313 +++++++++++++
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Date: Tue, 24 Feb 2015 23:51:40 +0200
 
-Hi Rafa??
+> On Tue, Feb 24, 2015 at 10:48 PM, Alexander Duyck
+> <alexander.h.duyck@redhat.com> wrote:
+>> There isn't any advantage to having it as a list and by making it an hlist
+>> we make the fib_alias more compatible with the list_info in terms of the
+>> type of list used.
+> 
+> Hi Alex, twenty nine patches without (unless it's on his way) cover
+> letter are really hard to grasp, can you write something general on
+> this series, please...
 
-I have a question about the location. Why drivers/net/phy?
-
-  Andrew
+There was a 00/29 posting.
